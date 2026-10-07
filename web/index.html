@@ -4468,6 +4468,133 @@
                   </div>
                 </template>
               </div>
+              <!-- ═══ MCA-23 (P2-B, §33-§36 current_task): «Ответ (Pipeline)» —
+                   карта последнего Direct-ответа: TRIGGER → PLANNER → TOOLS →
+                   WRITER → DELIVERY → ИТОГ + planned-vs-actual (совпало /
+                   отклонилось / не выполнилось / лишнее) + человекочитаемые
+                   причины по-русски (§36). REACT/SILENT — фиктивный Writer не
+                   рисуется (§34). Режимы: Последний ответ / 24 часа / 7 дней
+                   (агрегаты из существующих usage events, §35; распределения
+                   осей за период недоступны → честное «—», правило метрик
+                   ASAP 6 §14). Технический JSON — в Developer details.
+                   Вкладка «Саммари», рядом с Run Inspector (визуальная карта:
+                   pipeline-семейство, образец §61; вторых страниц нет). -->
+              <div class="card p-4 col-span-full mb-3"
+                   id="response-pipeline-block"
+                   v-if="oversightTab === 'summary' && isGlobalAdmin">
+                <div class="flex items-center gap-2 flex-wrap mb-2">
+                  <div class="text-xs font-bold">Ответ (Pipeline)</div>
+                  <span class="text-xs text-gray-500">последний ответ бота</span>
+                  <div class="ml-auto flex items-center gap-1">
+                    <button class="btn-ghost text-xs"
+                            :class="{ 'font-bold': responsePipelineMode === 'latest' }"
+                            @click="setResponsePipelineMode('latest')">Последний ответ</button>
+                    <button class="btn-ghost text-xs"
+                            :class="{ 'font-bold': responsePipelineMode === '24h' }"
+                            @click="setResponsePipelineMode('24h')">24 часа</button>
+                    <button class="btn-ghost text-xs"
+                            :class="{ 'font-bold': responsePipelineMode === '7d' }"
+                            @click="setResponsePipelineMode('7d')">7 дней</button>
+                    <button class="btn-ghost text-xs" :disabled="responsePipelineBusy"
+                            @click="loadResponsePipeline()">⟳</button>
+                  </div>
+                </div>
+                <div v-if="responsePipelineBusy && !responsePipeline && !responseSummary"
+                     class="spinner my-2"></div>
+                <!-- ── РЕЖИМ: карта последнего ответа (planned-vs-actual) ── -->
+                <template v-if="responsePipelineMode === 'latest'">
+                  <template v-if="responsePlan">
+                    <div class="flex items-center gap-2 flex-wrap mb-2">
+                      <span class="badge badge-ok"
+                            v-if="responsePlanSummary && responsePlanSummary.match">Совпало: {{ responsePlanSummary.match }}</span>
+                      <span class="badge badge-warn"
+                            v-if="responsePlanSummary && responsePlanSummary.deviated">Отклонилось: {{ responsePlanSummary.deviated }}</span>
+                      <span class="badge badge-err"
+                            v-if="responsePlanSummary && responsePlanSummary.missing">Не выполнилось: {{ responsePlanSummary.missing }}</span>
+                      <span class="badge badge-warn"
+                            v-if="responsePlanSummary && responsePlanSummary.extra">Лишнее: {{ responsePlanSummary.extra }}</span>
+                      <span class="text-xs text-gray-500"
+                            v-if="responsePipeline.run_id">run {{ responsePipeline.run_id.slice(0, 8) }}</span>
+                    </div>
+                    <!-- Planned-цепочка §34 (вертикальный timeline, как Run Inspector) -->
+                    <div class="pipe-timeline">
+                      <div v-for="node in responsePlanNodes" :key="'rp-' + node.key"
+                           class="pipe-node" role="button" tabindex="0"
+                           @click="toggleResponseNode(node.key)"
+                           @keydown.enter="toggleResponseNode(node.key)"
+                           @keydown.space.prevent="toggleResponseNode(node.key)">
+                        <div class="pipe-node__row">
+                          <span class="pipe-node__label">{{ node.label }}<template v-if="node.title"> · {{ node.title }}</template></span>
+                          <span class="pipe-node__status">{{ node.expected }}</span>
+                        </div>
+                        <div class="pipe-plan__reason"
+                             v-if="node.reason_ru">{{ node.reason_ru }}</div>
+                        <div class="pipe-node__explain text-gray-500"
+                             v-if="responseOpenNode === node.key && node.axes">
+                          <div v-for="(v, k) in node.axes" :key="'ax' + k">{{ k }}: {{ v }}</div>
+                        </div>
+                      </div>
+                    </div>
+                    <!-- Planned-vs-actual (§33): совпало/отклонилось/не выполнилось/лишнее -->
+                    <div class="rounded-lg border border-white/10 px-3 py-2 mt-2 text-xs"
+                         v-if="responsePlanComparison.length">
+                      <div class="font-bold mb-0.5">План → Факт</div>
+                      <div v-for="row in responsePlanComparison" :key="'rc-' + row.key"
+                           class="pipe-node__row">
+                        <span class="pipe-node__icon"
+                              :class="'pipe-node__icon--' + (row.status === 'match' ? 'success' : row.status === 'missing' ? 'failed' : 'fallback')"
+                              aria-hidden="true">{{ row.status === 'match' ? '✓' : row.status === 'missing' ? '✕' : '⚠' }}</span>
+                        <span class="text-gray-300">{{ row.title }}</span>
+                        <span class="text-gray-400">{{ row.planned }} → {{ row.actual }}</span>
+                        <span class="badge ml-auto"
+                              :class="responseCmpBadge(row.status).cls">{{ responseCmpBadge(row.status).text }}</span>
+                      </div>
+                      <div class="text-gray-400 mt-1"
+                           v-for="row in responsePlanComparison.filter((r) => r.status !== 'match' && r.reason_ru)"
+                           :key="'rr-' + row.key">⚠ {{ row.title }}: {{ row.reason_ru }}</div>
+                    </div>
+                    <details class="mt-2 text-xs">
+                      <summary class="cursor-pointer text-gray-400">Developer details</summary>
+                      <pre class="text-gray-500 overflow-x-auto">{{ JSON.stringify(responsePlan, null, 2) }}</pre>
+                    </details>
+                  </template>
+                  <div v-else-if="!responsePipelineBusy"
+                       class="text-xs text-gray-500">Последний ответ ещё не планировался: план строится при ответах бота. Данных нет.</div>
+                </template>
+                <!-- ── РЕЖИМ: агрегаты периода (24ч / 7 дней, §35) ── -->
+                <template v-else>
+                  <template v-if="responseSummary">
+                    <div class="flex flex-wrap gap-2 mb-2 text-xs">
+                      <span class="badge badge-muted">Ответов: {{ responseSummary.runs || 0 }}</span>
+                      <span class="badge badge-muted">LLM-вызовов: {{ responseSummary.calls || 0 }}</span>
+                    </div>
+                    <div v-if="!responseSummary.available"
+                         class="text-xs text-gray-500 mb-2">Данных за период нет.</div>
+                    <div class="rounded-lg border border-white/10 px-3 py-2 mb-2 text-xs"
+                         v-if="responseAggRows.length">
+                      <div class="font-bold mb-0.5">Агрегаты периода</div>
+                      <div v-for="row in responseAggRows" :key="'ra-' + row.key"
+                           class="pipe-node__row">
+                        <span class="text-gray-300">{{ row.label }}</span>
+                        <span class="text-gray-400 ml-auto text-right">{{ row.value }}</span>
+                      </div>
+                    </div>
+                    <div class="text-gray-500 text-xs mb-2"
+                         v-if="responseSummary.note_ru">{{ responseSummary.note_ru }}</div>
+                    <div class="rounded-lg border border-white/10 px-3 py-2 text-xs"
+                         v-if="responseRecentRows.length">
+                      <div class="font-bold mb-0.5">Свежие прогоны <span class="text-gray-500 font-normal">{{ responseSummary.recent.window_note_ru }}</span></div>
+                      <div v-for="row in responseRecentRows" :key="'rf-' + row.key"
+                           class="pipe-node__row">
+                        <span class="text-gray-300">{{ row.label }}</span>
+                        <span class="text-gray-400 ml-auto text-right">{{ row.value }}</span>
+                      </div>
+                    </div>
+                  </template>
+                  <div v-else-if="!responsePipelineBusy"
+                       class="text-xs text-gray-500">Данных за период нет.</div>
+                </template>
+              </div>
               <!-- ═══ ASAP-4 волна E (§62/§63/§76): Embedding Run Inspector —
                    карточка rebuild job + панели Wave A (GET
                    /api/memory/embeddings): provider/группы/состояние,

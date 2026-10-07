@@ -1755,25 +1755,38 @@ class MemoryManager:
             except Exception:
                 logger.debug("SmartModule: ensure generation failed | index=%s",
                              index_name, exc_info=True)
+        # §8.6 (ASAP 6): фоновая canary-проба текущего identity — drift
+        # провайдера под тем же alias блокирует запись в ACTIVE (fail-soft).
+        self._schedule_canary_probe()
 
     async def _index_generation_ok(self, index_name: str) -> bool:
-        """MCA-07 D4/A06: можно ли обслуживать vec-индекс.
+        """MCA-07 D4/A06 + §8.1 (ASAP 6): можно ли обслуживать vec-индекс.
 
         Gate OFF → True (legacy). Нет метода/записи → True (нечего гейтить:
-        fail-open для тест-двойников/БД без реестра). Во всех прочих случаях
-        vec обслуживается ТОЛЬКО если **последнее** поколение имеет
-        `status='active'` И его fingerprint совпадает с текущим конфигом.
-        `building`/`superseded`/`failed` или mismatch → FTS-only (карантин до
-        перестройки `mca-04b`) — B-MCA07-1/A06."""
+        fail-open для тест-двойников/БД без реестра). Авторитет сёрвинга —
+        **ACTIVE-поколение** (namespace 'default'): `active` с fingerprint
+        текущего конфига → vec открыт; это позволяет controlled migration
+        (§8.4/13E.1) держать target в `building*` НЕ закрывая сёрвинг old.
+        Нет ACTIVE, но есть `building`-строка (preexisting-векторы, карантин
+        A06) → FTS-only. Мismatch/несовпадение → FTS-only (карантин)."""
         if not mca_gates.retrieval_context_enabled():
             return True
-        get = getattr(self.db, "get_latest_embedding_generation", None)
-        if get is None:
-            get = getattr(self.db, "get_active_embedding_generation", None)
-        if get is None:
-            return True
+        db = self.db
+        get_active = getattr(db, "get_active_embedding_generation", None)
+        get_latest = getattr(db, "get_latest_embedding_generation", None)
+        latest = None
         try:
-            latest = await get(index_name)
+            if get_active is not None:
+                latest = await get_active(index_name)
+                if latest is None and get_latest is not None:
+                    # карантин A06: ACTIVE нет, но building-строка с ТЕКУЩИМ
+                    # конфигом может существовать (preexisting-векторы).
+                    cand = await get_latest(index_name)
+                    if cand is not None and \
+                            str(cand.get("status") or "") != "active":
+                        latest = cand
+            elif get_latest is not None:
+                latest = await get_latest(index_name)
         except Exception:
             return True
         if latest is None:
@@ -1809,6 +1822,59 @@ class MemoryManager:
             reason_code="embedding_generation_changed",
             model=str(latest.get("model") or "")[:120])
         return False
+
+    async def _vec_write_allowed(self, index_name: str) -> bool:
+        """§8.2/§8.6 (ASAP 6): можно ли ПИСАТЬ новые векторы в live ACTIVE
+        таблицу индекса. Запись строже чтения: mixed-space в ACTIVE
+        запрещён даже одним вектором.
+        - fingerprint ACTIVE != текущий конфиг → нет (карантин A06/смена
+          identity — target-generation строится отдельно, §8.4);
+        - canary DRIFT (провайдер молча сменил space под тем же alias) →
+          нет + коалисированное событие; факт остаётся в FTS/source
+          (fail-soft, raw не теряется).
+        Никогда не бросает."""
+        if not self._vec_available:
+            return False
+        try:
+            from services import embedding_control_plane as ecp
+        except Exception:
+            return True
+        if not await self._index_generation_ok(index_name):
+            return False
+        fp = self._identity_fingerprint()
+        try:
+            if ecp.canary_blocks_writes(fp):
+                ecp._note_canary_block_event(index_name, fp)
+                return False
+        except Exception:
+            pass
+        return True
+
+    def _schedule_canary_probe(self) -> None:
+        """§8.6: фоновая canary-проба текущего identity (раз на процесс/TTL);
+        DRIFT → блокировка записи в ACTIVE через `canary_blocks_writes`.
+        Fire-and-forget, никогда не бросает, не блокирует startup."""
+        try:
+            from services import embedding_control_plane as ecp
+            fp = self._identity_fingerprint()
+            if ecp.canary_verdict_cached(fp):
+                return                      # свежий вердикт уже есть
+            try:
+                if not hot.get("flags.embedding_canary_enabled", True):
+                    return
+            except Exception:
+                pass
+
+            async def _probe():
+                try:
+                    await ecp.embedding_canary_check(
+                        None, self.db, fp, embed_fn=self._embed)
+                except Exception:
+                    logger.debug("canary probe failed", exc_info=True)
+
+            fire_and_forget(_probe(), "canary_probe")
+        except Exception:
+            logger.debug("canary probe schedule failed", exc_info=True)
 
     async def _embed(self, texts, *, priority=None) -> list[list[float]]:
         """64.4 (T-465): embedding_cache — батч-лукап SHA-256 → miss → API →
@@ -2126,8 +2192,12 @@ class MemoryManager:
     async def backfill_archive_vectors(self) -> int:
         """R46-8 (55.8): re-embedding фактов L3 без векторов (dim-сдвиг/403-эпизод).
         Батчи _BACKFILL_BATCH, потолок _BACKFILL_MAX_FACTS за вызов; существующие
-        vec-строки НЕ дублируются (existence-check). НЕ бросает."""
+        vec-строки НЕ дублируются (existence-check). НЕ бросает.
+        §8.6 (ASAP 6): generation/canary gate — mixed-space writes в ACTIVE
+        запрещены (facts остаются в FTS/source до promotion)."""
         if not self._vec_available:
+            return 0
+        if not await self._vec_write_allowed("smart_archive"):
             return 0
         try:
             cursor = await self.db.db.execute(
@@ -2184,8 +2254,11 @@ class MemoryManager:
         """66.6 (T-484): re-embedding graph_facts без vec-строк (rebuild int8-
         таблицы / dim-сдвиг). Кэш эмбеддингов (64.4) делает это дешёвым — БЕЗ
         повторных API-вызовов. Те же батчи/потолок, что у архива (55.8). НЕ
-        бросает."""
+        бросает. §8.6 (ASAP 6): generation/canary gate — mixed-space writes
+        в ACTIVE запрещены (facts остаются в FTS/source до promotion)."""
         if not self._vec_available:
+            return 0
+        if not await self._vec_write_allowed("graph_facts_vec"):
             return 0
         try:
             now = int(time.time())
@@ -3188,6 +3261,13 @@ class MemoryManager:
         try:
             if batch is not None and batch.unavailable:
                 batch.text_only += 1
+                return False
+            # §8.2/§8.6 (ASAP 6): запись в ACTIVE только в том же embedding
+            # space (fingerprint ACTIVE + canary); иначе факт остаётся
+            # text-only (FTS/source) — fail-soft, без mixed-space.
+            if not await self._vec_write_allowed("graph_facts_vec"):
+                if batch is not None:
+                    batch.text_only += 1
                 return False
             if vector is None:
                 vectors = await self._embed([fact])          # ретраи 55.8 + кэш 64.4
@@ -4612,6 +4692,11 @@ class MemoryManager:
 
     async def _save_archive_embedding(self, chat_id: int, fact_id: int, fact: str) -> None:
         try:
+            # §8.2/§8.6 (ASAP 6): запись в ACTIVE только в том же embedding
+            # space (fingerprint ACTIVE + canary); иначе факт остаётся в
+            # FTS/source (fail-soft), vec-строка — после controlled migration.
+            if not await self._vec_write_allowed("smart_archive"):
+                return
             vectors = await self._embed([fact])          # кэш 64.4 + ретраи 55.8
             vector = vectors[0]
             async with self.db.serialized():

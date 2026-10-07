@@ -58,6 +58,29 @@ RICH_MIN_ANSWER_CHARS = 400
 DEFAULT_LONGFORM_MAX_OUTPUT_TOKENS = 4096
 _MAX_OUTPUT_TOKENS_CEILING = 16384
 
+# ── MCA-23 фаза 2 (§17/§39): bounded multi-tool план ────────────────────────
+# Потолки developer-level (§39). Числа код-константы; исполнение —
+# services/tool_loop (поверх существующего цикла, НЕ второй агент).
+PLAN_MAX_STEPS = 6            # шагов в плане не больше суммарного cap вызовов
+PLAN_MAX_REPLANS = 2          # §39 ceiling; фаза 2: re-plan не выполняется
+PLAN_MAX_FETCH_STEPS = 3      # больше ссылок в запросе → план не строим
+
+# §14: предпочтительные capability names → реальные tools. Шаги с именем,
+# отсутствующим в runtime-наборе (анонсированном LLM), не исполняются (§38).
+CAPABILITY_TOOLS = {
+    "memory_search": "query_chat_memory",
+    "lore_search": "dig_into_lore",
+    "web_search": "execute_web_search",
+    "article_fetch": "fetch_article",
+    "video_transcript": "transcribe_video",
+    "video_summary": "summarize_video",
+    "media_download": "download_media",
+    "image_generation": "generate_image",
+    "factcheck": "fact_check",
+    "user_context": "get_user_context",
+    "health": "get_bot_health",
+}
+
 
 @dataclass(frozen=True)
 class ResponsePlan:
@@ -124,6 +147,18 @@ def rich_delivery_enabled() -> bool:
     try:
         from config.settings import settings
         return bool(getattr(settings, "DIRECT_RICH_DELIVERY_ENABLED", True))
+    except Exception:      # pragma: no cover - защитная ветка
+        return True
+
+
+def tool_plan_enabled() -> bool:
+    """Kill-switch ``DIRECT_TOOL_PLAN_ENABLED`` (env, default ON; фаза 2).
+
+    OFF → мульти-шаговый DAG-план не строится вовсе (запросы идут прежним
+    model-driven путём цикла; байт-паритет). Резолв per-call, не бросает."""
+    try:
+        from config.settings import settings
+        return bool(getattr(settings, "DIRECT_TOOL_PLAN_ENABLED", True))
     except Exception:      # pragma: no cover - защитная ветка
         return True
 
@@ -207,7 +242,14 @@ _TRANSCRIBE_RE = re.compile(
     r"транскрибируй|расшифруй видео|транскрипц", re.IGNORECASE)
 _TOOL_HINT_RE = re.compile(
     r"посмотри в интернете|поищи|погугли|прочитай ссылку|найди в интернете|"
-    r"проверь в сети|свежие данные|актуальные новости", re.IGNORECASE)
+    r"проверь в сети|проверь в интернете|свежие данные|актуальные новости",
+    re.IGNORECASE)
+# Фаза 2 (§17): явные мульти-данные запросы — сравнение/совместное чтение
+# нескольких ссылок. ОДНА ссылка/без ссылок → план не строится (обычный путь).
+_MULTI_READ_RE = re.compile(
+    r"сравни|сравнение|что лучше|отличи|разниц|vs\.?\s|прочитай|изучи|"
+    r"перескажи|выжимк|саммари|обе ссылки|что в (?:этих|обеих)", re.IGNORECASE)
+_URL_STRIP_RE = re.compile(r"https?://\S+")
 _YESNO_RE = re.compile(r"^\s*да\s*(?:или|/|-)\s*нет\b", re.IGNORECASE)
 
 _WORD_SPLIT_RE = re.compile(r"\s+")
@@ -310,8 +352,12 @@ def classify_request(query) -> ResponsePlan:
         if extent == "normal":
             extent = "compact"
 
+    # §23 Delivery Router policy: media-задача → media-канал (тул доставляет
+    # медиа сам; Writer-регенерация не нужна при успехе, §18-I).
     delivery = "rich" if (task_kind == "research"
                           or structure == "report") else "plain"
+    if task_kind in ("media_download", "media_generation"):
+        delivery = "media"
     return ResponsePlan(task_kind=task_kind, extent=extent,
                         structure=structure, delivery_hint=delivery,
                         tool_policy=tool_policy, source=source)
@@ -419,3 +465,124 @@ def plan_snapshot(plan: ResponsePlan | None) -> dict:
     if plan is None:
         return {}
     return dataclasses.asdict(plan)
+
+
+# ── MCA-23 фаза 2 (§17): детерминированный multi-tool план (0 LLM) ──────────
+
+def resolve_tool_name(name) -> str:
+    """§14: capability name → реальный tool; реальное имя — как есть.
+    Неизвестные строки проходят как есть — валидацию по runtime-набору
+    (неизвестный tool не исполняется, §38) делает нормализация плана
+    в tool_loop.normalize_tool_plan. Никогда не бросает."""
+    candidate = str(name or "").strip()
+    if not candidate:
+        return ""
+    return CAPABILITY_TOOLS.get(candidate, candidate)
+
+
+def build_tool_plan(query, *, available_tools=None,
+                    max_fetch_steps: int = PLAN_MAX_FETCH_STEPS) -> list[dict]:
+    """План инструментов для ЯВНЫХ мульти-данных запросов (§17, 0 LLM).
+
+    Активация — только при (а) маркере совместного чтения/сравнения и
+    (б) ≥2 уникальных http(s)-ссылках в запросе. Шаги:
+
+    .. code-block:: python
+        {"step_id": str, "tool": str, "arguments": dict,
+         "depends_on": [step_id...], "failure_policy": "required|optional"}
+
+    Контракт: инструменты — ТОЛЬКО имена из runtime-набора (``available_tools``
+    — имена анонсированных LLM схем; шаг с неизвестным именем выбрасывается,
+    §38); <2 исполняемых шага → ``[]`` (обычный model-driven путь, байт-
+    паритет). failure_policy fetch-шагов = ``optional`` (§19: partial failure
+    сохраняет успешные результаты), явный web-hint → optional web-шаг (§E).
+    R17: текст запроса не логируется. Никогда не бросает.
+    """
+    try:
+        text = str(query or "").strip()
+        if not text or not tool_plan_enabled():
+            return []
+        stripped = _PEER_PREFIX_RE.sub("", text).strip() or text
+        low = stripped.lower()
+        if not _MULTI_READ_RE.search(low):
+            return []
+        from services.smartmodule_urls import extract_urls
+        urls: list[str] = []
+        for url in extract_urls(stripped):
+            if url not in urls:
+                urls.append(url)
+        if len(urls) < 2 or len(urls) > max(2, int(max_fetch_steps)):
+            return []
+        steps: list[dict] = []
+        for index, url in enumerate(urls, 1):
+            steps.append({
+                "step_id": f"fetch_{index}",
+                "tool": "fetch_article",
+                "arguments": {"url": url},
+                "depends_on": [],
+                "failure_policy": "optional",
+            })
+        if _TOOL_HINT_RE.search(low):
+            # §E: опциональная проверка интернета поверх сравнения ссылок.
+            search_query = _URL_STRIP_RE.sub(" ", stripped)
+            search_query = re.sub(r"\s{2,}", " ", search_query).strip(" ,;-")
+            if search_query:
+                steps.append({
+                    "step_id": "web_1",
+                    "tool": "execute_web_search",
+                    "arguments": {"query": search_query[:256]},
+                    "depends_on": [],
+                    "failure_policy": "optional",
+                })
+        # §38: шаги с именем вне runtime-набора не исполняются.
+        if available_tools is not None:
+            allowed = {str(t or "") for t in available_tools}
+            steps = [s for s in steps if s["tool"] in allowed]
+        return steps if len(steps) >= 2 else []
+    except Exception:      # pragma: no cover - план не роняет запрос
+        return []
+
+
+# ── MCA-23 фаза 2 (§20): clarification — один конкретный вопрос ─────────────
+
+CLARIFY_MEDIA_TARGET = (
+    "Скинь ссылку на видео — скачаю. Если видео уже есть в чате, "
+    "просто ответь реплаем на него.")
+
+_CLARIFY_KINDS = frozenset({"media_download", "transcription"})
+
+
+def clarification_question(plan: ResponsePlan | None, *,
+                           has_target: bool) -> str:
+    """§20: media/transcription без разрешимой цели → ОДИН конкретный
+    вопрос (что именно сделать, а не «уточните пожалуйста»). Цель
+    разрешима из сообщения/реплая/нативного медиа → ``""`` — не спрашиваем.
+    Никогда не бросает."""
+    if plan is None or has_target:
+        return ""
+    if str(getattr(plan, "task_kind", "")) in _CLARIFY_KINDS:
+        return CLARIFY_MEDIA_TARGET
+    return ""
+
+
+# ── MCA-23 фаза 2 (§18-I/§23): media-ветка Delivery Router ──────────────────
+
+def is_media_delivery(plan: ResponsePlan | None) -> bool:
+    """План требует media-канала (media_download/media_generation)."""
+    return plan is not None and plan.delivery_hint == "media"
+
+
+def media_writer_needed(plan: ResponsePlan | None, raw) -> bool:
+    """§18-I: нужен ли Writer после tool-цикла.
+
+    media-план с УСПЕШНО доставленным медиа → False (тул уже доставил
+    медиа; бесполезная Writer-регенерация не запускается, idempotent).
+    Провал media-тула / не-media план / нет envelopes → True (честная
+    деградация §19 и прежнее поведение). Никогда не бросает."""
+    if not is_media_delivery(plan):
+        return True
+    try:
+        from services.tool_loop import media_delivered
+        return not media_delivered(raw)
+    except Exception:      # pragma: no cover - защитная ветка
+        return True

@@ -332,9 +332,15 @@ async def test_migration_chunked_resumable_source_intact(vec_db, monkeypatch):
     await vec_db.db.execute(mm._graph_vec_table_sql(8))
     await vec_db.db.commit()
 
+    jid = None
+    # §8.5 (ASAP 6): migration job привязан к target-generation строке
+    # (stale-worker guard перечитывает её перед каждым чанком).
+    gen = await vec_db.register_embedding_target_generation(
+        "graph_facts_vec", "fp-mig", dims=8)
+    assert gen
     jid = await ecp.enqueue_embedding_migration(
         vec_db, index_name="graph_facts_vec", source_generation=1,
-        target_generation=3, fingerprint="fp-mig", total=4)
+        target_generation=gen, fingerprint="fp-mig", total=4)
 
     # Кап батча = 2 → ровно 2 чанка (доказательство чанкованности).
     real_fetch = gr._fetch_batch
@@ -362,14 +368,14 @@ async def test_migration_chunked_resumable_source_intact(vec_db, monkeypatch):
 
     # generation-isolated storage: shadow существует и полная; live не тронут.
     cur = await vec_db.db.execute(
-        "SELECT COUNT(*) AS c FROM graph_facts_vec_g3")
+        f"SELECT COUNT(*) AS c FROM graph_facts_vec_g{gen}")
     assert (await cur.fetchone())["c"] == 4
     cur = await vec_db.db.execute(
         "SELECT COUNT(*) AS c FROM graph_facts")     # raw source цел (13N#26)
     assert (await cur.fetchone())["c"] == 4
     # source-строки в shadow соответствуют source (проvenance по построению).
     cur = await vec_db.db.execute(
-        "SELECT COUNT(*) AS c FROM graph_facts_vec_g3 WHERE fact_id IN "
+        f"SELECT COUNT(*) AS c FROM graph_facts_vec_g{gen} WHERE fact_id IN "
         "(SELECT id FROM graph_facts)")
     assert (await cur.fetchone())["c"] == 4
 

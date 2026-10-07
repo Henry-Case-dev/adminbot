@@ -1738,6 +1738,32 @@ async def vector_memory_panel(db) -> dict:
                 entry["attempts_total"] = int(gen.get("attempts_total") or 0)
                 if entry["next_allowed_at"]:
                     entry["next_attempt_at"] = int(entry["next_allowed_at"])
+            # ASAP 6 §8/13J: additive-поля — ACTIVE-поколение и честный класс
+            # совместимости текущего конфига с ним (backend-часть; UI уже
+            # предупреждает). Fail-open: нет реестра/поколения → поля None.
+            entry["namespace"] = None
+            entry["active_generation"] = None
+            entry["compat_class"] = None
+            try:
+                active = await db.get_active_embedding_generation(index)
+            except Exception:
+                active = None
+            if active is not None:
+                entry["namespace"] = str(active.get("namespace") or "default")
+                entry["active_generation"] = int(
+                    active.get("generation") or 0)
+                try:
+                    fp_now = profile_identity(
+                        resolve_embedding_profiles()["primary"])
+                    entry["compat_class"] = classify_identity_compatibility(
+                        current_identity=fp_now,
+                        stored_identity=str(
+                            active.get("fingerprint") or ""),
+                        stored_dim=active.get("dims"),
+                        canary_verdict=(canary_verdict_cached(fp_now)
+                                        or None))
+                except Exception:
+                    entry["compat_class"] = None
             out["indexes"].append(entry)
     except Exception:
         logger.warning("vector memory panel failed", exc_info=True)
@@ -1924,17 +1950,25 @@ def classify_identity_compatibility(*, current_identity: str,
                                     current_dim: int | None = None,
                                     stored_dim: int | None = None,
                                     canary_verdict: str | None = None) -> str:
-    """13C.4: одна server-side классификация (backend + MiniApp).
-    Fail-safe: не доказано → COMPATIBILITY_UNKNOWN (без writes в active);
-    одинаковая размерность сама по себе НЕ даёт INSTANT_COMPATIBLE."""
+    """13C.4/§8.2 (ASAP 6): одна server-side классификация (backend +
+    MiniApp). Семантика спеки:
+    - dimension расходится → INCOMPATIBLE_DIMENSION;
+    - identity-отпечатки РАЗНЫЕ (другой model/host/revision — это ДОКАЗАННО
+      другое пространство) → REINDEX_REQUIRED, canary не требуется;
+    - identity совпала: canary STABLE → INSTANT_COMPATIBLE (провайдер
+      доказал то же пространство); canary нет/unknown → fail-safe
+      COMPATIBILITY_UNKNOWN (floating-alias риск — не «наверное совместимо»);
+    - canary DRIFT при той же identity → REINDEX_REQUIRED (§8.6).
+    same dimension сам по себе НИКОГДА не даёт INSTANT."""
     if current_dim and stored_dim and int(current_dim) != int(stored_dim):
         return COMPAT_DIMENSION
     if canary_verdict == CANARY_DRIFT:
         return COMPAT_REINDEX
-    if not stored_identity or canary_verdict not in (CANARY_STABLE,):
+    if not stored_identity:
         return COMPAT_UNKNOWN
     if str(stored_identity) == str(current_identity):
-        return COMPAT_INSTANT
+        return (COMPAT_INSTANT if canary_verdict == CANARY_STABLE
+                else COMPAT_UNKNOWN)
     return COMPAT_REINDEX
 
 
@@ -2031,6 +2065,7 @@ async def embedding_canary_check(llm, db, identity_fp: str, *,
             sims.append(_cosine(vec, stored[idx]))
         out["checked"] = len(sims)
         if not sims:
+            note_canary_verdict(str(identity_fp), out["verdict"])
             return out          # первых эталонов ещё нет — unknown, не «ок»
         mean = sum(sims) / len(sims)
         low = min(sims)
@@ -2040,6 +2075,7 @@ async def embedding_canary_check(llm, db, identity_fp: str, *,
             out["verdict"] = CANARY_DRIFT
         else:
             out["verdict"] = CANARY_STABLE
+        note_canary_verdict(str(identity_fp), out["verdict"])
         return out
     except Exception:
         logger.warning("embedding canary check failed — unknown", exc_info=True)
@@ -2056,31 +2092,293 @@ async def embedding_canary_check(llm, db, identity_fp: str, *,
 MIGRATION_JOB_KIND = "embedding_migration"
 MIGRATION_OWNER = "memory"
 
+# ── ASAP 6 §8 (P1): multi-chat/namespace-safe embedding generations ─────────
+# §8.1: (namespace, semantic_index) → ровно одна ACTIVE generation (v34).
+# §8.2: классы совместимости — server-side по embedding identity (NOT dims).
+# §8.3: global model change → новый default для новых чатов; существующие
+#       pinned до controlled migration (один Save не перевекторизует молча).
+# §8.4: per-chat/namespace override → target generation только этого scope.
+# §8.5: смена target во время rebuild → SUPERSEDED, stale worker не promote.
+# §8.6: provider alias drift → canary гейтит запись в ACTIVE (FTS fail-soft).
+
+# Namespace по умолчанию: существующие данные (легаси-строки v34) и все
+# легаси-вызовы живут в 'default' — retrieval/память не ломаются.
+DEFAULT_NAMESPACE = "default"
+
 
 def shadow_table_name(index_name: str, generation: int) -> str:
     """Имя shadow-таблицы поколения (та же конвенция, что graphrag)."""
     return f"{index_name}_g{int(generation)}"
 
 
+# ── §8.6: canary-гейт записи (process-level кэш вердиктов) ──────────────────
+# DRIFT блокирует запись векторов в ACTIVE на TTL (провайдер молча поменял
+# space под тем же alias); свежий STABLE снимает блок. UNKNOWN/нет пробы —
+# НЕ блокирует steady-state (fingerprint identity остаётся первичным гейтом).
+
+_CANARY_TTL_SECONDS = 6 * 3600
+_CANARY_VERDICTS: dict[str, tuple[str, float]] = {}
+_CANARY_BLOCK_LOG: dict[str, float] = {}
+_CANARY_BLOCK_LOG_COOLDOWN_S = 600.0
+
+
+def note_canary_verdict(identity_fp: str, verdict: str, *,
+                        now: float | None = None) -> None:
+    """Запомнить вердикт canary для identity (пишется и из
+    `embedding_canary_check`). Никогда не бросает."""
+    try:
+        _CANARY_VERDICTS[str(identity_fp or "")] = (
+            str(verdict or CANARY_UNKNOWN),
+            float(now if now is not None else time.time()))
+    except Exception:
+        pass
+
+
+def canary_verdict_cached(identity_fp: str, *,
+                          now: float | None = None) -> str:
+    """Свежий (в пределах TTL) вердикт canary; '' — пробы нет/устарела."""
+    try:
+        entry = _CANARY_VERDICTS.get(str(identity_fp or ""))
+        if entry is None:
+            return ""
+        verdict, ts = entry
+        age = float(now if now is not None else time.time()) - float(ts)
+        if age < 0 or age > _CANARY_TTL_SECONDS:
+            return ""
+        return str(verdict)
+    except Exception:
+        return ""
+
+
+def canary_blocks_writes(identity_fp: str, *, now: float | None = None) -> bool:
+    """§8.6: TRUE только при доказанном drift (canary DRIFT в пределах TTL)."""
+    return canary_verdict_cached(identity_fp, now=now) == CANARY_DRIFT
+
+
+def _note_canary_block_event(index_name: str, identity_fp: str, *,
+                             now: float | None = None) -> None:
+    """Коалисированное событие о блокировке записи (не спамим, §8.6)."""
+    try:
+        ts = float(now if now is not None else time.time())
+        key = f"{index_name}:{identity_fp}"
+        prev = _CANARY_BLOCK_LOG.get(key)
+        if prev is not None and (ts - prev) < _CANARY_BLOCK_LOG_COOLDOWN_S:
+            return
+        _CANARY_BLOCK_LOG[key] = ts
+        try:
+            from services.mca_retrieval_context import emit_stage_event
+            emit_stage_event(
+                "vector_write", "skipped",
+                reason_code="embedding_generation_changed",
+                model=str(identity_fp)[:16],
+                extra="canary_drift")
+        except Exception:
+            pass
+        logger.warning(
+            "embedding canary DRIFT — vector writes blocked for ACTIVE "
+            "(FTS fail-soft) | index=%s identity=%s", index_name,
+            str(identity_fp)[:16])
+    except Exception:
+        pass
+
+
+# ── §8.1: ownership-resolve (O(1) по (namespace, index)) ────────────────────
+
+async def resolve_active_generation(db, index_name: str, *,
+                                    namespace: str = DEFAULT_NAMESPACE,
+                                    ) -> dict | None:
+    """ACTIVE-поколение (namespace, index) — единственный авторитет сёрвинга
+    (§8.1). Легаси-данные (namespace 'default') резолвятся тем же путём.
+    Fail-open: нет метода/ошибка → None."""
+    get = getattr(db, "get_active_embedding_generation", None)
+    if get is None:
+        return None
+    try:
+        return await get(str(index_name),
+                         namespace=str(namespace or DEFAULT_NAMESPACE))
+    except TypeError:
+        # тест-двойники/легаси-обёртки без namespace-параметра
+        try:
+            return await get(str(index_name))
+        except Exception:
+            return None
+    except Exception:
+        return None
+
+
+# ── §8.2/§8.3: честный план смены модели (backend-часть UI-предупреждения) ──
+
+async def plan_embedding_change(db, *, index_name: str,
+                                current_identity: str,
+                                current_dims: int | None = None,
+                                namespace: str = DEFAULT_NAMESPACE,
+                                canary_verdict: str | None = None,
+                                ) -> dict:
+    """Классификация смены embedding-конфига против ACTIVE поколения
+    (namespace, index) — §8.2/13C.4. НЕ меняет ничего (только честный план):
+    - INSTANT_COMPATIBLE → identity совпала (key/quota/route) — reindex не
+      нужен, та же generation продолжается (13D.2);
+    - REINDEX_REQUIRED / INCOMPATIBLE_DIMENSION / COMPATIBILITY_UNKNOWN →
+      in-place смена ЗАПРЕЩЕНА (13D.3): нужна новая target-generation,
+      ACTIVE остаётся сёрвить до promotion (§8.4).
+    Никогда не бросает."""
+    active = await resolve_active_generation(db, index_name,
+                                             namespace=namespace)
+    if active is None:
+        return {"index": index_name, "namespace": namespace,
+                "compat": COMPAT_UNKNOWN, "reindex_required": True,
+                "action": "register_active", "active": None,
+                "canary_verdict": canary_verdict}
+    verdict = canary_verdict or canary_verdict_cached(str(current_identity))
+    compat = classify_identity_compatibility(
+        current_identity=str(current_identity),
+        stored_identity=str(active.get("fingerprint") or ""),
+        current_dim=(int(current_dims) if current_dims else None),
+        stored_dim=active.get("dims"),
+        canary_verdict=verdict or None)
+    instant = compat == COMPAT_INSTANT
+    return {"index": index_name, "namespace": namespace,
+            "compat": compat, "reindex_required": not instant,
+            "action": "none" if instant else "target_generation",
+            "active": {
+                "generation_id": str(active.get("generation_id") or ""),
+                "generation": active.get("generation"),
+                "fingerprint": active.get("fingerprint"),
+                "dims": active.get("dims"),
+                "status": active.get("status"),
+            },
+            "canary_verdict": verdict or CANARY_UNKNOWN}
+
+
+# ── §8.4/§8.5: controlled migration (target-generation, supersede) ──────────
+
+async def begin_embedding_migration(db, *, index_name: str,
+                                    target_fingerprint: str,
+                                    namespace: str = DEFAULT_NAMESPACE,
+                                    provider=None, model=None, dims=None,
+                                    preprocessing_version=None,
+                                    endpoint_fingerprint=None,
+                                    config_revision: str | None = None,
+                                    total: int | None = None,
+                                    ) -> dict:
+    """Контролируемый старт миграции identity в scope (namespace, index).
+
+    §8.3/13F.1: НЕ трогает ACTIVE другого identity (один Save не переводит
+    память молча). §8.5/13G.2: если ACTIVE уже с target-identity — no-op
+    (A→B→A без бессмысленного rebuild); иначе предыдущие незавершённые
+    targets → SUPERSEDED (stale worker не сможет promote) и регистрируется
+    новая target-generation (`building`) + migration job (coalesce по
+    namespace+index+target). ACTIVE остаётся active до promotion.
+    Никогда не бросает (fail-open → {"action": "failed"})."""
+    ns = str(namespace or DEFAULT_NAMESPACE)
+    try:
+        active = await resolve_active_generation(db, index_name, namespace=ns)
+        if active is not None and \
+                str(active.get("fingerprint") or "") == str(target_fingerprint):
+            # §8.5 A→B→A: active уже целевой — rebuild не нужен.
+            return {"action": "none", "reason": "already_active",
+                    "index": index_name, "namespace": ns,
+                    "generation": active.get("generation")}
+        # §8.5 B→SUPERSEDED: незавершённые targets ИНОГО identity — вон.
+        superseded = 0
+        sup = getattr(db, "supersede_building_generations", None)
+        if sup is not None:
+            superseded = await sup(index_name, namespace=ns,
+                                   keep_fingerprint=str(target_fingerprint))
+        # §8.5 (не плодить дубли): незавершённая target ТОГО ЖЕ identity
+        # (повторный Save/рестарт) — reuse, новая строка/job не создаются.
+        row = None
+        by_fp = getattr(db, "get_generation_by_fingerprint", None)
+        if by_fp is not None:
+            try:
+                row = await by_fp(index_name, str(target_fingerprint),
+                                  namespace=ns)
+            except TypeError:
+                row = None
+        if row is not None and str(row.get("status") or "") in (
+                "building", "building_target", "catching_up", "ready"):
+            gen = int(row.get("generation") or 0)
+            if gen <= 0:
+                return {"action": "failed", "index": index_name,
+                        "namespace": ns, "superseded": superseded}
+            # revision строки — авторитет (payload обязан совпадать с ней)
+            config_revision = str(row.get("config_revision") or "") or \
+                config_revision
+            job_id = await enqueue_embedding_migration(
+                db, index_name=index_name,
+                source_generation=int((active or {}).get("generation") or 0),
+                target_generation=gen, fingerprint=str(target_fingerprint),
+                total=int(total or 0), namespace=ns,
+                config_revision=config_revision)
+            logger.info("embedding migration reused | index=%s ns=%s "
+                        "target_gen=%d status=%s", index_name, ns, gen,
+                        row.get("status"))
+            return {"action": "building", "index": index_name, "namespace": ns,
+                    "target_generation": gen,
+                    "generation_id": str(row.get("generation_id") or ""),
+                    "superseded": int(superseded),
+                    "active_generation": (active or {}).get("generation"),
+                    "job_id": job_id, "reused": True}
+        gen = await db.register_embedding_target_generation(
+            index_name, str(target_fingerprint), provider=provider,
+            model=model, dims=dims,
+            preprocessing_version=preprocessing_version,
+            endpoint_fingerprint=endpoint_fingerprint, namespace=ns,
+            config_revision=config_revision)
+        if gen is None:
+            return {"action": "failed", "index": index_name,
+                    "namespace": ns, "superseded": superseded}
+        row = await db.get_generation_by_fingerprint(
+            index_name, str(target_fingerprint), namespace=ns)
+        job_id = await enqueue_embedding_migration(
+            db, index_name=index_name,
+            source_generation=int((active or {}).get("generation") or 0),
+            target_generation=int(gen), fingerprint=str(target_fingerprint),
+            total=int(total or 0), namespace=ns,
+            config_revision=config_revision)
+        logger.info(
+            "embedding migration started | index=%s ns=%s target_gen=%s "
+            "superseded=%d active=%s", index_name, ns, gen, superseded,
+            (active or {}).get("generation"))
+        return {"action": "building", "index": index_name, "namespace": ns,
+                "target_generation": int(gen),
+                "generation_id": str((row or {}).get("generation_id") or ""),
+                "superseded": int(superseded),
+                "active_generation": (active or {}).get("generation"),
+                "job_id": job_id}
+    except Exception:
+        logger.warning("begin_embedding_migration failed | index=%s",
+                       index_name, exc_info=True)
+        return {"action": "failed", "index": index_name,
+                "namespace": str(namespace or DEFAULT_NAMESPACE)}
+
+
 async def enqueue_embedding_migration(db, *, index_name: str,
                                       source_generation: int,
                                       target_generation: int,
                                       fingerprint: str,
-                                      total: int) -> str | None:
+                                      total: int,
+                                      namespace: str = DEFAULT_NAMESPACE,
+                                      config_revision: str | None = None,
+                                      ) -> str | None:
     """Зарегистрировать migration job (task_jobs, REUSE v14, ΔDDL=0).
-    Coalesce по index+target — повторный вызов не плодит дубли."""
+    Coalesce по namespace+index+target — повторный вызов не плодит дубли.
+    Payload содержит namespace/config_revision — stale-worker guard §8.5."""
     try:
         from services.task_supervisor import TaskJobStore
         store = TaskJobStore(db)
+        ns = str(namespace or DEFAULT_NAMESPACE)
         return await store.enqueue(
             owner=MIGRATION_OWNER, kind=MIGRATION_JOB_KIND,
-            coalesce_key=f"embedding_migration:{index_name}:"
+            coalesce_key=f"embedding_migration:{ns}:{index_name}:"
                          f"{int(target_generation)}",
             payload=json.dumps({
                 "index": index_name,
+                "namespace": ns,
                 "source_generation": int(source_generation),
                 "target_generation": int(target_generation),
                 "fingerprint": str(fingerprint),
+                "config_revision": str(config_revision or ""),
                 "total": int(total),
             }, ensure_ascii=False))
     except Exception:
@@ -2110,18 +2408,110 @@ async def migration_jobs_snapshot(db, *, limit: int = 16) -> list[dict]:
     return out
 
 
+async def _migration_live_swap(memory, index_name: str, shadow: str,
+                               fp: str):
+    """Физический swap live↔shadow для namespace 'default' (§13H/13E.3) —
+    ТОТ ЖЕ контракт, что graphrag `_activate` (§3/§66): внутри транзакции
+    re-check identity, DROP live → CREATE по каноническому DDL → копия
+    ТОЛЬКО строк с живым source-фактом (анти-orphan) → DROP shadow.
+    DDL в SQLite транзакционен: откат возвращает прежнюю таблицу (raw
+    `graph_facts`/`smart_archive_facts` не трогаются — R18). Возвращает
+    callback для `db.promote_embedding_generation(data_swap=...)` либо
+    None (индекс вне _INDEX_SPECS)."""
+    try:
+        from services.graphrag_rebuild import (_INDEX_SPECS, _live_ddl)
+        if index_name not in _INDEX_SPECS:
+            return None
+        spec = _INDEX_SPECS[index_name]
+        live = spec["live"]
+        int8 = bool(memory._vec_int8)
+        insert_cols = spec["insert_cols"] + (", embedding_i8" if int8 else "")
+        copy_cols = spec["copy_cols"] + (", embedding_i8" if int8 else "")
+        live_sql = _live_ddl(memory, index_name)
+
+        async def _swap(conn):
+            # M-ASAP32-2: re-check identity ВНУТРИ транзакции — смена конфига
+            # в окне validate→promote откатывает всю promotion (stale worker).
+            if memory._identity_fingerprint() != fp:
+                raise RuntimeError("fingerprint_changed")
+            await conn.execute(f"DROP TABLE IF EXISTS {live}")
+            await conn.execute(live_sql)
+            await conn.execute(
+                f"INSERT INTO {live}({insert_cols}) SELECT {copy_cols} "
+                f"FROM {shadow} WHERE fact_id IN "
+                f"(SELECT id FROM {spec['source']})")
+            await conn.execute(f"DROP TABLE IF EXISTS {shadow}")
+
+        return _swap
+    except Exception:
+        logger.warning("migration live swap prepare failed | index=%s",
+                       index_name, exc_info=True)
+        return None
+
+
+async def _migration_fetch_missing(memory, spec: dict, shadow: str,
+                                   limit: int) -> list[dict]:
+    """Delta catch-up (13E.2): source-строки, ОТСУТСТВУЮЩИЕ в shadow
+    (вставлены после прохода курсора с меньшим id — курсор их не догнал).
+    Анти-join по факту (тот же приём, что validate-фаза graphrag), bounded
+    LIMIT, порядок по id. Никогда не бросает (ошибка → [])."""
+    try:
+        now = int(time.time())
+        sql = (f"SELECT {spec['source_cols']} FROM {spec['source']} "
+               f"WHERE id NOT IN (SELECT fact_id FROM {shadow}) ")
+        params: list = []
+        if spec.get("eligible_ts"):
+            sql += "AND (expires_at IS NULL OR expires_at > ?) "
+            params.append(now)
+        sql += "ORDER BY id LIMIT ?"
+        params.append(max(1, int(limit)))
+        cursor = await memory.db.db.execute(sql, tuple(params))
+        return [dict(r) for r in await cursor.fetchall()]
+    except Exception:
+        logger.warning("migration delta fetch failed", exc_info=True)
+        return []
+
+
+async def _migration_coverage_missing(db, spec: dict, shadow: str) -> int:
+    """Число eligible-source-строк без вектора в shadow — promotion gate
+    13E.2 (пока > 0, promoting запрещён). Никогда не бросает (ошибка → -1,
+    трактуется как «не покрыто»)."""
+    try:
+        now = int(time.time())
+        sql = (f"SELECT COUNT(*) AS c FROM {spec['source']} WHERE id NOT IN "
+               f"(SELECT fact_id FROM {shadow})")
+        params: list = []
+        if spec.get("eligible_ts"):
+            sql += " AND (expires_at IS NULL OR expires_at > ?)"
+            params.append(now)
+        cursor = await db.db.execute(sql, tuple(params))
+        row = await cursor.fetchone()
+        return int(row["c"]) if row is not None else -1
+    except Exception:
+        return -1
+
+
 async def run_embedding_migration_chunk(memory, db, job_id: str, *,
                                         embed_fn=None) -> dict:
     """Один чекпоинт-чанк migration job'а (13E.1: resumable/chunked — никаких
-    one-shot jobs): source-строки без векторов под cursor → embed под текущий
-    fingerprint → INSERT в shadow `{index}_g{gen}` (DDL/вставка — СУЩЕСТВУЮЩИЕ
-    хелперы graphrag `_create_shadow`/`_insert_shadow_rows`, ΔDDL=0) →
-    checkpoint (TaskJobStore.save_checkpoint, прецедент graphrag). Атомарная
-    активация — СУЩЕСТВУЮЩИЙ `_activate` graphrag (shadow/swap в одной
-    транзакции; destructive ALTER/resize запрещён). Возвращает
-    {processed, remaining, done} (никогда не бросает)."""
-    out = {"processed": 0, "remaining": 0, "done": False}
+    one-shot jobs): source-строки под cursor → embed под текущий fingerprint →
+    INSERT в generation-isolated shadow `{index}_g{gen}` (существующие хелперы
+    graphrag, ΔDDL=0) → checkpoint. §8.5 (ASAP 6): ПЕРЕД каждым чанком строка
+    target-поколения перечитывается — superseded/cancelled/failed target и
+    config_revision-mismatch = stale worker (job завершается, writes/promote
+    запрещены). §8.4/13E.2: после прохода курсора — delta catch-up (анти-join
+    source↔shadow), promotion ТОЛЬКО при full coverage; promotion — атомарная
+    (`db.promote_embedding_generation`): namespace 'default' — физический
+    swap live↔shadow + реестр в одной транзакции (readers не смешивают),
+    иные namespace — атомарный реестр-указатель (сёрвинг не-default —
+    будущее §8.7). Возвращает {processed, remaining, done, phase, promoted}
+    (никогда не бросает)."""
+    out: dict = {"processed": 0, "remaining": 0, "done": False,
+                 "phase": None, "promoted": False}
+    store = None
     try:
+        from services.task_supervisor import TaskJobStore
+        store = TaskJobStore(db)
         cursor = await db.db.execute(
             "SELECT payload, status FROM task_jobs WHERE job_id = ?",
             (str(job_id),))
@@ -2134,57 +2524,177 @@ async def run_embedding_migration_chunk(memory, db, job_id: str, *,
             payload = {}
         index_name = str(payload.get("index") or "")
         generation = int(payload.get("target_generation") or 0)
+        ns = str(payload.get("namespace") or DEFAULT_NAMESPACE)
+        config_revision = str(payload.get("config_revision") or "")
         if not index_name or generation <= 0:
             return out
-        from services.graphrag_rebuild import (_INDEX_SPECS, _create_shadow,
-                                               _fetch_batch, _insert_shadow_rows,
+        from services.graphrag_rebuild import (_INDEX_SPECS, _adaptive_batch_size,
+                                               _create_shadow, _fetch_batch,
+                                               _insert_shadow_rows,
                                                _shadow_name)
         if index_name not in _INDEX_SPECS:
             return out
         spec = _INDEX_SPECS[index_name]
         shadow = _shadow_name(index_name, generation)
+        # ── §8.5: stale-worker guard — перечитали target перед работой ────
+        gen_row = None
+        get_gen = getattr(db, "get_embedding_generation", None)
+        if get_gen is not None:
+            gen_row = await get_gen(index_name, generation, namespace=ns)
+        if gen_row is not None:
+            status = str(gen_row.get("status") or "")
+            if status in ("superseded", "cancelled"):
+                await store.finish(str(job_id), status="cancelled",
+                                   reason_code="embedding_generation_changed")
+                out["phase"] = "superseded"
+                return out
+            if status == "failed":
+                await store.finish(str(job_id), status="failed",
+                                   reason_code="fingerprint_changed")
+                out["phase"] = "failed"
+                return out
+            if config_revision and str(gen_row.get("config_revision")
+                                       or "") != config_revision:
+                # конфиг поменялся под работающим worker'ом — promote/write
+                # запрещены (13G.1).
+                await store.finish(str(job_id), status="failed",
+                                   reason_code="fingerprint_changed")
+                out["phase"] = "stale_worker"
+                return out
+            if status == "active":
+                await store.finish(str(job_id), status="completed")
+                out["done"] = True
+                out["promoted"] = True
+                out["phase"] = "already_active"
+                return out
+            # машина 13E: building → building_target (осознанный старт).
+            if status == "building":
+                await db.set_embedding_generation_status(
+                    str(gen_row["generation_id"]), "building_target")
+                status = "building_target"
+        elif gen_row is None and getattr(db, "get_embedding_generation",
+                                         None) is not None:
+            # строка обязана существовать (target регистрируется до job'а);
+            # отсутствие = target удалён/superseded извне — честный отказ.
+            await store.finish(str(job_id), status="cancelled",
+                               reason_code="embedding_generation_changed")
+            out["phase"] = "missing_target"
+            return out
         last_id = 0
         processed_before = 0
         try:
-            from services.task_supervisor import TaskJobStore
-            cp = await TaskJobStore(db).get_checkpoint(str(job_id))
+            cp = await store.get_checkpoint(str(job_id))
             if cp and cp.get("cursor"):
                 cur = json.loads(str(cp["cursor"]))
                 last_id = int(cur.get("last_id") or 0)
                 processed_before = int(cur.get("processed") or 0)
+                out["phase"] = str(cur.get("phase") or "backfill")
         except Exception:
             last_id = 0
-        batch = await _fetch_batch(memory, spec, last_id)
-        # Cursor-batch может содержать строки, уже перенесённые в shadow
-        # (expires-динамика) — фильтр по shadow, как у rebuild-лупа.
-        batch = [b for b in batch]
-        if not batch:
-            out["done"] = True
-            return out
         await _create_shadow(memory, index_name, shadow)
-        texts = [str(b["fact"]) for b in batch]
-        if embed_fn is not None:
-            vectors = list(await embed_fn(texts))
-        else:
-            vectors = list(await memory._embed(texts))
-        if len(vectors) != len(batch):
+
+        async def _embed_insert(batch: list[dict]) -> bool:
+            texts = [str(b["fact"]) for b in batch]
+            if embed_fn is not None:
+                vectors = list(await embed_fn(texts))
+            else:
+                vectors = list(await memory._embed(texts))
+            if len(vectors) != len(batch):
+                return False
+            await _insert_shadow_rows(memory, spec, shadow, batch, vectors)
+            return True
+
+        # ── Фаза A (backfill): cursor-скан source ─────────────────────────
+        batch = await _fetch_batch(memory, spec, last_id)
+        if batch:
+            if not await _embed_insert(batch):
+                return out
+            processed = processed_before + len(batch)
+            await store.save_checkpoint(
+                str(job_id),
+                cursor_token=json.dumps({"last_id": int(batch[-1]["id"]),
+                                         "processed": processed,
+                                         "phase": "backfill"}),
+                processed=processed,
+                checkpoint_ref=f"cp:embedding_migration:{index_name}:"
+                               f"{generation}")
+            out["processed"] = len(batch)
+            out["phase"] = "backfill"
+            cur = await db.db.execute(
+                f"SELECT COUNT(*) AS c FROM {spec['source']} WHERE id > ?",
+                (int(batch[-1]["id"]),))
+            out["remaining"] = int((await cur.fetchone())["c"])
+            out["done"] = out["remaining"] == 0
             return out
-        await _insert_shadow_rows(memory, spec, shadow, batch, vectors)
-        from services.task_supervisor import TaskJobStore
-        store = TaskJobStore(db)
-        processed = processed_before + len(batch)
-        await store.save_checkpoint(
-            str(job_id),
-            cursor_token=json.dumps({"last_id": int(batch[-1]["id"]),
-                                     "processed": processed}),
-            processed=processed,
-            checkpoint_ref=f"cp:embedding_migration:{index_name}:{generation}")
-        out["processed"] = len(batch)
-        cur = await db.db.execute(
-            f"SELECT COUNT(*) AS c FROM {spec['source']} WHERE id > ?",
-            (int(batch[-1]["id"]),))
-        out["remaining"] = int((await cur.fetchone())["c"])
-        out["done"] = out["remaining"] == 0
+        # Курсор дошёл до конца → переход к delta (13E.2).
+        if gen_row is not None and str(gen_row.get("status")) == \
+                "building_target":
+            await db.set_embedding_generation_status(
+                str(gen_row["generation_id"]), "catching_up")
+            gen_row = dict(gen_row, status="catching_up")
+        out["phase"] = "catching_up"
+        # ── Фаза B (delta catch-up): source-строки вне shadow ─────────────
+        try:
+            delta_limit = max(int(_adaptive_batch_size()), 8)
+        except Exception:
+            delta_limit = 64
+        delta = await _migration_fetch_missing(memory, spec, shadow,
+                                               delta_limit)
+        if delta:
+            if not await _embed_insert(delta):
+                return out
+            out["processed"] = len(delta)
+            await store.save_checkpoint(
+                str(job_id),
+                cursor_token=json.dumps({"last_id": last_id,
+                                         "processed": processed_before,
+                                         "phase": "catching_up"}),
+                processed=processed_before,
+                checkpoint_ref=f"cp:embedding_migration:{index_name}:"
+                               f"{generation}")
+            return out
+        # ── Promotion gate 13E.2: promotion только при full coverage ──────
+        missing = await _migration_coverage_missing(db, spec, shadow)
+        if missing != 0:
+            out["remaining"] = max(0, missing)
+            return out
+        if gen_row is None:
+            return out
+        gid = str(gen_row["generation_id"])
+        if str(gen_row.get("status")) == "catching_up":
+            if not await db.set_embedding_generation_status(gid, "ready"):
+                return out
+            gen_row = dict(gen_row, status="ready")
+        if str(gen_row.get("status")) != "ready":
+            return out
+        fp = str(gen_row.get("fingerprint") or "")
+        swap = None
+        if ns == DEFAULT_NAMESPACE:
+            swap = await _migration_live_swap(memory, index_name, shadow, fp)
+            if swap is None:
+                # live-swap подготовить не удалось — promotion БЕЗ физической
+                # смены storage означала бы mixed-space сёрвинг (запрещено
+                # §8.2). Честный отказ: job остаётся в ready, retry следующим
+                # чанком; readers продолжают читать old ACTIVE.
+                logger.error("embedding migration: live swap unavailable — "
+                             "promotion refused | index=%s gen=%d",
+                             index_name, generation)
+                out["phase"] = "promote_blocked"
+                return out
+        promoted = await db.promote_embedding_generation(
+            index_name, gid, namespace=ns, expected_fingerprint=fp,
+            expected_config_revision=(config_revision or None),
+            data_swap=swap)
+        if promoted:
+            await store.finish(str(job_id), status="completed")
+            out["done"] = True
+            out["promoted"] = True
+            out["phase"] = "promoted"
+        else:
+            # гонка/смена конфига между ready и promote — без partial-состояний.
+            await store.finish(str(job_id), status="cancelled",
+                               reason_code="embedding_generation_changed")
+            out["phase"] = "promote_refused"
         return out
     except Exception:
         logger.warning("embedding migration chunk failed | job=%s",
@@ -2221,4 +2731,8 @@ __all__ = [
     "embedding_canary_check", "MIGRATION_JOB_KIND",
     "enqueue_embedding_migration", "migration_jobs_snapshot",
     "run_embedding_migration_chunk", "shadow_table_name",
+    # ASAP 6 §8 (multi-chat/namespace-safe generations)
+    "DEFAULT_NAMESPACE", "resolve_active_generation", "plan_embedding_change",
+    "begin_embedding_migration", "note_canary_verdict",
+    "canary_verdict_cached", "canary_blocks_writes",
 ]

@@ -640,8 +640,14 @@ class TestDirectChatContext:
         service = _make_service(tool_router=MagicMock())
         bot = dc_bot()
         user = dc_user()
-        msg = dc_message(text="скачай этот видос пожалуйста", message_id=555,
-                         user=user)
+        # NOTE (MCA-23 фаза 2, P2-A §20): media-запрос БЕЗ разрешимой цели
+        # (нет ссылки ни в тексте, ни в реплае, ни нативного медиа) —
+        # санкционированный clarification-исход: ОДИН детерминированный
+        # вопрос, 0 LLM, до chat_with_tools. Контракт ctx (bot/reply/user)
+        # проверяем на разрешимой цели — ссылка в тексте.
+        msg = dc_message(
+            text="скачай этот видос https://youtu.be/ABCDEFGHIJK пожалуйста",
+            message_id=555, user=user)
         await service.handle(bot, msg, user)
         ctx = captured["ctx"]
         assert ctx.bot is bot
@@ -653,3 +659,42 @@ class TestDirectChatContext:
         # get_user_context default ON; MCA-19 (ADR-1028-19 §8.6):
         # recognize_image default ON → 13 инструментов.
         assert len(captured["tools"]) == 14
+
+    @pytest.mark.asyncio
+    async def test_targetless_media_request_asks_link_without_llm(
+            self, monkeypatch):
+        """MCA-23 фаза 2 (P2-A §20): media-запрос без разрешимой цели —
+        ОДИН детерминированный уточняющий вопрос, chat_with_tools НЕ
+        вызывается (0 LLM; цель разрешима из reply/ссылки → не спрашиваем —
+        см. соседний тест с ссылкой в тексте)."""
+        from tests.test_direct_chat import (
+            _bot as dc_bot,
+            _make_service,
+            _message as dc_message,
+            _user as dc_user,
+        )
+        from services import hot_config as hot
+        from services.response_extent import CLARIFY_MEDIA_TARGET
+        real_get = hot.get
+        monkeypatch.setattr(
+            hot, "get",
+            lambda key, default=None: False
+            if key == "flags.bot_self_awareness_enabled"
+            else real_get(key, default))
+
+        async def _must_not_call(*args, **kwargs):
+            raise AssertionError("chat_with_tools не должен вызываться на "
+                                 "§20 clarification-исходе")
+
+        monkeypatch.setattr("services.direct_chat_service.chat_with_tools",
+                            _must_not_call)
+        service = _make_service(tool_router=MagicMock())
+        bot = dc_bot()
+        user = dc_user()
+        msg = dc_message(text="скачай этот видос пожалуйста", message_id=556,
+                         user=user)
+        await service.handle(bot, msg, user)
+        bot.send_message.assert_awaited_once()
+        ask = bot.send_message.await_args
+        assert CLARIFY_MEDIA_TARGET.split(" — ")[0] in str(
+            ask.args[1] if len(ask.args) > 1 else ask.kwargs.get("text", ""))

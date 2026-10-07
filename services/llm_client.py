@@ -1449,7 +1449,9 @@ class LLMClient:
                             step: str | None = None,
                             correlation_id: str | None = None,
                             tool_name: str = "",
-                            fallback_payload_adapter=None) -> "LLMChatResult":
+                            fallback_payload_adapter=None,
+                            max_output_tokens: int | None = None
+                            ) -> "LLMChatResult":
         """POST /chat/completions с tools/tool_choice (Эпик 04.09.2026, 3.3).
 
         Контракт {model, messages}: температура — как в generate (None →
@@ -1458,6 +1460,12 @@ class LLMClient:
         generate (payload сквозной). Парсинг: content (может быть None при
         tool_calls) + tool_calls + finish_reason. Легаси generate() НЕ
         меняется (0 регрессий, FR-10/AC-2.1).
+
+        MCA-23 фаза 2 (§Model slots): ``max_output_tokens`` — тот же
+        контракт, что в generate(): None/<=0 → ключ ``max_tokens`` в
+        payload НЕ добавляется (байт-паритет всех прежних tool-вызовов);
+        передаётся только явно longform-планами (services/response_extent).
+        Ключ переживает fallback-recompose (адаптер меняет только messages).
         Раунд 10 (F-7 §5.2): chat_id — BYOK-слой (см. generate). ФИКС R6:
         key/source — per-call локалы.
 
@@ -1478,6 +1486,15 @@ class LLMClient:
         if tools is not None:
             payload["tools"] = tools
             payload["tool_choice"] = tool_choice
+        # MCA-23 фаза 2 (§Model slots): модельный слот длины — тот же
+        # контракт, что в generate(); None → ключа нет (паритет).
+        if max_output_tokens is not None:
+            try:
+                _max_out = int(max_output_tokens)
+            except (TypeError, ValueError):
+                _max_out = 0
+            if _max_out > 0:
+                payload["max_tokens"] = _max_out
         # F7 (review iter1): фактически использованная модель (фоллбэк).
         used_model = self._chat_model
         try:

@@ -56,7 +56,8 @@ async def test_v18_registered_fresh_target(tmp_path):
 
 @pytest.mark.asyncio
 async def test_v18_columns_and_indices(tmp_path):
-    """SC-18: 5 nullable identity-колонок + 3 индекса реестра поколений."""
+    """SC-18: 5 nullable identity-колонок + индексы реестра поколений
+    (v34: ACTIVE-unique — per (namespace, index), инвариант ASAP 6 §8.1)."""
     d = await _fresh(tmp_path, "cols.db")
     try:
         cur = await d.db.execute("PRAGMA table_info(embedding_cache)")
@@ -65,9 +66,23 @@ async def test_v18_columns_and_indices(tmp_path):
                 "endpoint_fingerprint", "identity_fingerprint"} <= cols
         cur = await d.db.execute(
             "SELECT name FROM sqlite_master WHERE type='index' AND name IN "
-            "('idx_mca_eig_name_gen','idx_mca_eig_active',"
-            "'idx_mca_eig_fingerprint')")
-        assert len(await cur.fetchall()) == 3
+            "('idx_mca_eig_name_gen','idx_mca_eig_active_ns',"
+            "'idx_mca_eig_ns_gen','idx_mca_eig_fingerprint')")
+        assert len(await cur.fetchall()) == 4
+        # инвариант §8.1: ровно одна ACTIVE на (namespace, index) —
+        # две namespace не конфликтуют, повторный ACTIVE в той же — отказ.
+        g1 = await d.ensure_embedding_generation("graph_facts_vec", "fp-x",
+                                                 dims=3)
+        assert g1 is not None and g1["namespace"] == "default"
+        try:
+            await d.db.execute(
+                "INSERT INTO mca_embedding_index_generations (index_name, "
+                "generation, fingerprint, namespace, status, created_at) "
+                "VALUES ('graph_facts_vec', 99, 'fp-y', 'default', 'active', "
+                "1)")
+            raise AssertionError("duplicate ACTIVE accepted")
+        except Exception:
+            await d.db.rollback()
         # nullable-честность: legacy-строка может иметь NULL identity.
         await d.db.execute(
             "INSERT INTO embedding_cache (text_hash, text, vector, dim, "

@@ -117,9 +117,13 @@ class TestInvariant116:
         # +read-only GET /analytics/pipeline/inspector и
         # /analytics/pipeline/runs/{run_id} (Run Inspector, global admin,
         # kill-switch SUMMARY_PIPELINE_EVENTS_ENABLED) → 8.
+        # NOTE (MCA-23 фаза 2, P2-B): +read-only GET
+        # /analytics/response/summary (виджет «Сводка ответов») → 9;
+        # write-семантика НЕ расширена (единственная запись — legacy PUT
+        # /analytics/prices, пин ниже не тронут).
         routes = re.findall(r"@analytics_router\.(get|put|post|delete)\(\"([^\"]+)\"",
                             _ANALYTICS)
-        assert len(routes) == 8, f"изменён контракт analytics API: {routes}"
+        assert len(routes) == 9, f"изменён контракт analytics API: {routes}"
         write_routes = [r for r in routes if r[0] != "get"]
         assert write_routes == [("put", "/analytics/prices")], write_routes
         assert "/analytics/usage/latest" in _ANALYTICS
@@ -164,4 +168,4 @@ class TestAnalyticsFilters:
 class TestVersionBump:
     def test_app_version(self):
         m = re.search(r'APP_VERSION = "([\d.]+)"', _SETTINGS)
-        assert m and m.group(1) == "2.58.70", m and m.group(1)
+        assert m and m.group(1) == "2.58.71", m and m.group(1)

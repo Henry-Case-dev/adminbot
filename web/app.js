@@ -1813,6 +1813,15 @@
         pipelineTimer: null,            // live polling 15с (§61.15, latest)
         pipelineOpenNode: '',           // раскрытый узел timeline (§61.3)
         pipelineSelectedRunId: '',      // drill-down по run_id (§61.9)
+        // ── MCA-23 (P2-B, §33-§36 current_task): «Ответ (Pipeline)» — карта
+        // последнего Direct-ответа + planned-vs-actual + режимы 24ч/7д.
+        // Источники: /api/analytics/execution/latest (planned-слой) и
+        // /api/analytics/response/summary (агрегаты из существующих событий).
+        responsePipelineMode: 'latest', // latest | 24h | 7d
+        responsePipeline: null,         // execution/latest payload (latest)
+        responseSummary: null,          // response/summary payload (24h/7d)
+        responsePipelineBusy: false,
+        responseOpenNode: '',           // tap-пояснение узла (§61-образец)
         // §62/§63: Embedding Run Inspector — панели Wave A
         // (GET /api/memory/embeddings); только алиасы, без ключей (R17).
         embeddingsPanel: null,
@@ -3213,6 +3222,103 @@
       },
       pipelineRuns: function () {
         return (this.pipelineData && this.pipelineData.runs) || [];
+      },
+      // ═══ MCA-23 (P2-B, §33-§36): «Ответ (Pipeline)» — проекции.
+      // Computed читаются шаблоном как свойства (урок H-ASAP31-2).
+      responsePlan: function () {
+        var g = this.responsePipeline;
+        var p = g && g.planned;
+        return (p && p.nodes && p.nodes.length) ? p : null;
+      },
+      responsePlanNodes: function () {
+        return (this.responsePlan && this.responsePlan.nodes) || [];
+      },
+      responsePlanComparison: function () {
+        return (this.responsePlan && this.responsePlan.comparison) || [];
+      },
+      responsePlanSummary: function () {
+        return (this.responsePlan && this.responsePlan.summary) || null;
+      },
+      // Честный пустой статус последнего ответа (§14 ASAP 6: без выдуманных %).
+      responseLatestEmpty: function () {
+        return this.responsePipelineMode === 'latest'
+          && !this.responsePipelineBusy && !this.responsePlan;
+      },
+      // Агрегат 24ч/7д: проекция в строки «лейбл — значение» с честными «—».
+      responseAggRows: function () {
+        var s = this.responseSummary;
+        if (!s) return [];
+        var rows = [
+          { key: 'runs', label: 'Ответов (прогонов)', value: s.runs || 0 },
+          { key: 'calls', label: 'LLM-вызовов', value: s.calls || 0 },
+          { key: 'tools', label: 'tools/прогон',
+            value: s.tools_per_run != null ? s.tools_per_run : '—' },
+          { key: 'multi', label: 'Мульти-tool прогоны',
+            value: s.multi_tool_rate != null
+              ? Math.round(s.multi_tool_rate * 100) + '%' : '—' },
+          { key: 'tfr', label: 'Доля упавших tools',
+            value: s.tool_failure_rate != null
+              ? Math.round(s.tool_failure_rate * 100) + '%' : '—' },
+          { key: 'cost', label: 'Стоимость',
+            value: s.runs > 0
+              ? this.fmtCost(s.cost_usd, s.price_known) : '—' },
+          { key: 'latency', label: 'Latency p50/p95',
+            value: this._responseLatencyLine(s.latency) },
+          { key: 'axes', label: 'Действия / объём / доставка',
+            value: s.plan_axes ? 'есть данные' : '—' },
+        ];
+        return rows;
+      },
+      // Свежее in-memory окно (действия/объём за последние прогоны).
+      responseRecentRows: function () {
+        var s = this.responseSummary;
+        var r = s && s.recent;
+        if (!r || !(r.runs > 0)) return [];
+        var actionLabels = { reply: 'ответ', react: 'реакция',
+                             silent: 'молчание', tool: 'инструменты' };
+        var kindLabels = {
+          social_chat: 'болтовня', direct_answer: 'прямой ответ',
+          explanation: 'объяснение', creative_writing: 'творческий текст',
+          research: 'исследование', comparison: 'сравнение',
+          summarization: 'выжимка', historical_recall: 'из памяти',
+          media_download: 'медиа-скачивание',
+          media_generation: 'генерация изображения',
+          transcription: 'транскрибация' };
+        var extentLabels = {
+          micro: 'микро', compact: 'коротко', normal: 'обычный',
+          detailed: 'подробно', longform: 'длинный текст',
+          exhaustive: 'исчерпывающе' };
+        var deliveryLabels = { plain: 'обычное', rich: 'Rich',
+                               media: 'медиа', none: 'нет' };
+        var dist = function (map, labels) {
+          var keys = Object.keys(map || {}).filter(function (k) {
+            return map[k] > 0;
+          });
+          if (!keys.length) return '—';
+          return keys.map(function (k) {
+            return (labels[k] || k) + ': ' + map[k];
+          }).join(' · ');
+        };
+        var lat = r.decision_latency_ms || {};
+        return [
+          { key: 'runs', label: 'Свежих прогонов', value: r.runs },
+          { key: 'actions', label: 'Действия',
+            value: dist(r.actions, actionLabels) },
+          { key: 'kinds', label: 'Типы задач',
+            value: dist(r.task_kinds, kindLabels) },
+          { key: 'extents', label: 'Полнота',
+            value: dist(r.extents, extentLabels) },
+          { key: 'delivery', label: 'Доставка (факт)',
+            value: dist(r.deliveries, deliveryLabels) },
+          { key: 'tools', label: 'Tools (упало)',
+            value: r.tool_calls + ' ('
+              + (r.tool_failures != null ? r.tool_failures : '—') + ')' },
+          { key: 'lat', label: 'Решение p50/p95',
+            value: (lat.p50 != null || lat.p95 != null)
+              ? (lat.p50 != null ? lat.p50 : '—') + ' / '
+                + (lat.p95 != null ? lat.p95 : '—') + ' мс'
+              : '—' },
+        ];
       },
       // Текстовая ветка timeline (§61.8: обложка отдельно).
       pipelineNodesText: function () {
@@ -5276,6 +5382,64 @@
           : 'latest';
         this.pipelineSelectedRunId = '';
         this.loadPipelineInspector();
+      },
+      // ═══ MCA-23 (P2-B, §33-§36): «Ответ (Pipeline)» — карта последнего
+      // Direct-ответа (planned-vs-actual) + агрегаты 24ч/7д. Fail-open как
+      // loadPipelineInspector: ошибка API → null, шаблон показывает «—».
+      loadResponsePipeline: async function () {
+        this.responsePipelineBusy = true;
+        try {
+          if (this.responsePipelineMode === 'latest') {
+            var g = await this.api('/api/analytics/execution/latest')
+              .catch(function () { return null; });
+            this.responsePipeline = g || null;
+            this.responseSummary = null;
+          } else {
+            var s = await this.api('/api/analytics/response/summary?period='
+                                   + this.responsePipelineMode)
+              .catch(function () { return null; });
+            this.responseSummary = s || null;
+            this.responsePipeline = null;
+          }
+        } catch (e) {
+          this.responsePipeline = null;
+          this.responseSummary = null;
+        } finally {
+          this.responsePipelineBusy = false;
+        }
+      },
+      setResponsePipelineMode: function (mode) {
+        this.responsePipelineMode = (mode === '24h' || mode === '7d') ? mode
+          : 'latest';
+        this.loadResponsePipeline();
+      },
+      // Пояснения по tap (образец §61.3): раскрытие reason_ru узла.
+      toggleResponseNode: function (key) {
+        this.responseOpenNode = (this.responseOpenNode === key) ? '' : key;
+      },
+      // Статус planned-vs-actual — текстовый бейдж (цвет НЕ единственный
+      // носитель; §61.2-образец; без opaque score).
+      responseCmpBadge: function (status) {
+        if (status === 'match') {
+          return { cls: 'badge-ok', text: 'Совпало' };
+        }
+        if (status === 'deviated') {
+          return { cls: 'badge-warn', text: 'Отклонилось' };
+        }
+        if (status === 'missing') {
+          return { cls: 'badge-err', text: 'Не выполнилось' };
+        }
+        if (status === 'extra') {
+          return { cls: 'badge-warn', text: 'Лишнее' };
+        }
+        return { cls: 'badge-muted', text: '—' };
+      },
+      // Строка latency p50/p95 с честными «—» (helper responseAggRows).
+      _responseLatencyLine: function (lat) {
+        lat = lat || {};
+        if (lat.p50_ms == null && lat.p95_ms == null) return '—';
+        return (lat.p50_ms != null ? lat.p50_ms : '—') + ' / '
+          + (lat.p95_ms != null ? lat.p95_ms : '—') + ' мс';
       },
       // Drill-down по run_id (§61.9): клик по строке списка → карта run.
       openPipelineRun: async function (runId) {
@@ -7820,6 +7984,13 @@
             this.loadBudgetsAuto();
           }
           if (this.isGlobalAdmin && !this.keyHistory) this.loadKeyHistory();
+        }
+        // MCA-23 (P2-B): «Ответ (Pipeline)» на вкладке «Саммари» — лениво,
+        // fail-open (образец Run Inspector §61).
+        if (t === 'summary' && this.isGlobalAdmin
+            && !this.responsePipeline && !this.responseSummary
+            && !this.responsePipelineBusy) {
+          this.loadResponsePipeline();
         }
         // FIX-logs-anchor: блок логов живёт в «Аналитике» ВСЕГДА (вне
         // таб-гвардов) → данные грузим при входе на любую суб-вкладку

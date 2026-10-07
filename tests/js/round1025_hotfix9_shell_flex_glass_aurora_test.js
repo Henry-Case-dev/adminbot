@@ -218,7 +218,7 @@ function token(name) {
     assert.ok(APP_JS.indexOf(flag) >= 0, 'D: фронт читает ' + flag);
     assert.ok(ENV.indexOf(flag) >= 0, 'D: .env.example ' + flag);
   }
-  assert.ok(/APP_VERSION = "2\.58\.70"/.test(SETTINGS), 'D: APP_VERSION 2.58.34');
+  assert.ok(/APP_VERSION = "2\.58\.71"/.test(SETTINGS), 'D: APP_VERSION 2.58.34');
   for (const m of ['desktop_normal', 'desktop_fullscreen', 'tablet',
                    'mobile_regular', 'mobile_fullscreen']) {
     assert.ok(MATRIX.indexOf(m) >= 0, 'D: режим ' + m);

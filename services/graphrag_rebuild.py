@@ -975,10 +975,14 @@ async def _activate(memory, index_name: str, shadow: str, fp: str,
         # 3. Реестр поколений (v18): прежнее активное → superseded; build'овое
         #    поколение → active. UPDATE допускается ТОЛЬКО после проверки
         #    provenance всех векторов (критерии 1–8 пройдены выше — §3/§66).
+        #    ASAP 6 §8.1: live-таблицы физически принадлежат namespace
+        #    'default' — supersede НЕ должен задевать ACTIVE других
+        #    namespace (per-chat override, инвариант (namespace, index)).
         await conn.execute(
             "UPDATE mca_embedding_index_generations SET status = 'superseded',"
-            " superseded_at = ? WHERE index_name = ? AND status = 'active' "
-            "AND fingerprint != ?", (now, index_name, fp))
+            " superseded_at = ? WHERE index_name = ? AND namespace = 'default'"
+            " AND status = 'active' AND fingerprint != ?",
+            (now, index_name, fp))
         cursor = await conn.execute(
             "UPDATE mca_embedding_index_generations SET status = 'active', "
             "activated_at = ? WHERE index_name = ? AND generation = ? AND "

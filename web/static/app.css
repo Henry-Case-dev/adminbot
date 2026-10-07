@@ -2912,6 +2912,14 @@
       padding: .1rem 0 .1rem .9rem;
       user-select: none;
     }
+    /* MCA-23 (P2-B, §36 current_task): причины planned-узлов «Ответ
+       (Pipeline)» — информационные (шаблон из плана), НЕ предупреждения:
+       нейтральный тон; amber `.pipe-node__reason` остаётся за реальными
+       причинами падений Run Inspector (цвет не единственный носитель). */
+    .pipe-plan__reason {
+      color: rgba(156, 163, 175, 1);
+      font-size: .72rem;
+    }
     /* Агрегатные карточки per-stage (§61.5): сетка ≤3/2/1 колонки. */
     .pipe-grid {
       display: grid;

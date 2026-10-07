@@ -15,7 +15,11 @@ SVG/Vue-компонента. Модуль:
     («Нет данных»), **никогда** выдуманный ``$0``; ``-1``-sentinel →
     «Без лимита»; ``publication_status`` — реальный
     (``published_rich``/``published_text``/``failed``/``skipped``; нет данных
-    → ``None``, AMEND ADR-1026-10 D1/D4/D8, S6).
+    → ``None``, AMEND ADR-1026-10 D1/D4/D8, S6);
+  * MCA-23 (P2-B, §33-§36): planned-слой Direct-ответа (Pre-execution план
+    ResponsePlan → ``set_planned``) + planned-vs-actual view в
+    ``build_graph`` (совпало/отклонилось/не выполнилось/лишнее); in-memory,
+    без DDL, без второй telemetry-модели.
 
 Границы (D1/D5/D8/D10):
   * единый ключ ``run_id`` = ``correlation_id`` (S7 = S1–S5/S9); второй
@@ -163,6 +167,16 @@ _USAGE_STEP_MAP = {STAGE_L1: "l1", STAGE_L2: "l2"}
 # не раздуваем снапшот; R17-safe поля (фильтрует `agentic_events`).
 _AGENTIC_KEY = "agentic_events"
 _AGENTIC_MAX_EVENTS = 64
+# MCA-23 (P2-B, §33 current_task): planned-слой Direct-ответа живёт в ТОМ ЖЕ
+# in-memory снапшоте (ключ `planned`), отдельной telemetry-модели НЕТ
+# (§33: «Не строить отдельную вторую telemetry model»). Без DDL.
+_PLANNED_KEY = "planned"
+_PLANNED_MAX_NODES = 8
+# R17-whitelist полей planned-узла: только enum/коды/шаблоны причин —
+# никаких промптов/сырых текстов.
+_PLANNED_NODE_FIELDS = frozenset({
+    "key", "label", "title", "expected", "axes", "reason_ru", "planned",
+})
 _AGENTIC_EVENT_FIELDS = frozenset({
     "event", "schema_version", "run_id", "chat_id", "message_id", "action",
     "tools", "reason", "duration_ms", "errors", "ts", "outcome", "reaction",
@@ -201,6 +215,11 @@ class RunSnapshotStore:
             if (prior is not None and _AGENTIC_KEY not in snapshot
                     and _AGENTIC_KEY in prior[1]):
                 snapshot[_AGENTIC_KEY] = prior[1][_AGENTIC_KEY]
+            # MCA-23 (P2-B): не терять planned-слой при перезаписи снапшота
+            # (та же merge-семантика, что у агентных событий выше).
+            if (prior is not None and _PLANNED_KEY not in snapshot
+                    and _PLANNED_KEY in prior[1]):
+                snapshot[_PLANNED_KEY] = prior[1][_PLANNED_KEY]
             self._items[run_id] = (now, snapshot)
             self._items.move_to_end(run_id)
             while len(self._items) > self._maxlen:
@@ -239,6 +258,36 @@ class RunSnapshotStore:
                  if (now - ts) > self._ttl]
         for k in stale:
             self._items.pop(k, None)
+
+    def put_planned(self, run_id, payload: dict) -> None:
+        """MCA-23 (P2-B §33): сохранить planned-слой прогона (in-memory).
+
+        Merge-семантика ``append_agentic``: создаёт/дополняет запись, сохраняя
+        прочие поля (агентные события не теряются). Fail-open."""
+        try:
+            run_id = str(run_id or "")
+            if not run_id or not isinstance(payload, dict):
+                return
+            now = time.monotonic()
+            with self._lock:
+                prior = self._items.get(run_id)
+                snapshot = dict(prior[1]) if prior is not None \
+                    else {"run_id": run_id}
+                snapshot[_PLANNED_KEY] = dict(payload)
+                self._items[run_id] = (now, snapshot)
+                self._items.move_to_end(run_id)
+                while len(self._items) > self._maxlen:
+                    self._items.popitem(last=False)
+        except Exception:      # pragma: no cover - best-effort
+            return
+
+    def snapshots(self) -> list:
+        """Свежие снапшоты (новые → старые; окно агрегатов P2-B ≤ maxlen)."""
+        with self._lock:
+            self._fresh(time.monotonic())
+            return [dict(item[1])
+                    for item in (self._items[k]
+                                 for k in reversed(self._items))]
 
     def get(self, run_id):
         run_id = str(run_id or "")
@@ -577,6 +626,578 @@ def _build_agentic_nodes(run_id, events, llm_rows) -> list:
     return nodes
 
 
+# ── MCA-23 (P2-B): planned-слой Direct-ответа (§33-§36 current_task) ────────
+# Pre-execution план (ResponsePlan, детерминированная классификация ДО LLM)
+# → PlannedGraph → сравнение с RuntimeGraph. UI-контракт §34: цепочка
+# TRIGGER → PLANNER → TOOLS → WRITER → DELIVERY → ИТОГ; REACT/SILENT не
+# рисуют фиктивный Writer. Сравнение §33: совпало / отклонилось / не
+# выполнилось / лишнее. Человекочитаемые причины §36 — ШАБЛОНЫ по осям
+# плана (никакого сырого текста пользователя, R17).
+
+PLAN_TRIGGER = "trigger"
+PLAN_PLANNER = "planner"
+PLAN_TOOLS = "tools"
+PLAN_WRITER = "writer"
+PLAN_DELIVERY = "delivery"
+PLAN_OUTCOME = "outcome"
+
+PLAN_LABELS = {
+    PLAN_TRIGGER: "TRIGGER",
+    PLAN_PLANNER: "PLANNER",
+    PLAN_TOOLS: "TOOLS",
+    PLAN_WRITER: "WRITER",
+    PLAN_DELIVERY: "DELIVERY",
+    PLAN_OUTCOME: "ИТОГ",
+}
+PLAN_TITLES = {
+    PLAN_TRIGGER: "Триггер",
+    PLAN_PLANNER: "Планировщик",
+    PLAN_TOOLS: "Инструменты",
+    PLAN_WRITER: "Writer",
+    PLAN_DELIVERY: "Доставка",
+    PLAN_OUTCOME: "Итог",
+}
+
+# Сравнение planned-vs-actual (§33): честные 4 исхода.
+CMP_MATCH = "match"            # совпало
+CMP_DEVIATED = "deviated"      # отклонилось
+CMP_MISSING = "missing"        # не выполнилось
+CMP_EXTRA = "extra"            # лишнее (не планировалось)
+CMP_STATUS_LABELS = {
+    CMP_MATCH: "Совпало",
+    CMP_DEVIATED: "Отклонилось",
+    CMP_MISSING: "Не выполнилось",
+    CMP_EXTRA: "Лишнее",
+}
+
+# Human-лейблы осей плана (§34/§36; значения response_extent.TASK_KINDS и др.)
+TASK_KIND_LABELS = {
+    "social_chat": "болтовня", "direct_answer": "прямой ответ",
+    "explanation": "объяснение", "creative_writing": "творческий текст",
+    "research": "исследование", "comparison": "сравнение",
+    "summarization": "выжимка", "historical_recall": "ответ из памяти",
+    "media_download": "скачивание медиа", "media_generation": "генерация изображения",
+    "transcription": "транскрибация",
+}
+EXTENT_LABELS = {
+    "micro": "микро", "compact": "коротко", "normal": "обычный объём",
+    "detailed": "подробно", "longform": "длинный текст",
+    "exhaustive": "исчерпывающе",
+}
+STRUCTURE_LABELS = {
+    "chat": "чат", "answer": "ответ", "explanation": "объяснение",
+    "story": "история", "summary": "саммари", "comparison": "сравнение",
+    "report": "отчёт", "steps": "по шагам",
+}
+TOOL_POLICY_LABELS = {
+    "none": "без инструментов", "auto": "по необходимости",
+    "required": "нужны инструменты", "constrained": "ограниченный набор",
+}
+DELIVERY_LABELS = {
+    "plain": "обычное сообщение", "rich": "Rich-карточка", "media": "медиа",
+    "none": "без текста",
+}
+ACTION_LABELS = {
+    "reply": "ответ текстом", "react": "реакция", "silent": "молчание",
+    "tool": "работа через инструменты",
+}
+
+# §36: человекочитаемые причины — шаблоны по осям плана (без raw text).
+_EXTENT_REASON_RU = {
+    "micro": "Запрос предполагает короткий ответ («да или нет») — "
+             "планируется минимальный объём.",
+    "compact": "Обычный разговорный ответ — без развёрнутой структуры.",
+    "normal": "Стандартная полнота ответа.",
+    "detailed": "Запрос просит подробный разбор — снимается cap «1–2 "
+                "предложения», планируется полный объём.",
+    "longform": "Запрос на большой связный текст — cap снят, планируется "
+                "законченное произведение.",
+    "exhaustive": "Запрос на исчерпывающий разбор — максимальная полнота.",
+}
+_TASK_REASON_RU = {
+    "creative_writing": "Почему tools не использовались? Запрос творческий — "
+                        "внешние данные не требовались.",
+    "research": "Запрос исследовательский — планируются инструменты сбора "
+                "данных.",
+    "comparison": "Сравнение — ожидается несколько источников/сущностей.",
+    "summarization": "Нужна выжимка — планируется чтение источника.",
+    "media_download": "Запрос на скачивание медиа — нужен media-инструмент.",
+    "media_generation": "Запрос на изображение — планируется генерация.",
+    "transcription": "Запрос на расшифровку — нужен media-инструмент.",
+    "historical_recall": "Вопрос о прошлом — планируется поиск в памяти.",
+    "explanation": "Объяснение по теме — инструменты по необходимости.",
+    "social_chat": "Разговорный запрос — внешние данные не требуются.",
+    "direct_answer": "Прямой вопрос — короткий фактологический ответ.",
+}
+_TOOL_POLICY_REASON_RU = {
+    "none": "Почему tools не использовались? План не требует внешних данных.",
+    "auto": "Инструменты по необходимости — модель решает в ходе ответа.",
+    "required": "Для ответа нужны инструменты (ссылки/поиск/медиа).",
+    "constrained": "Инструменты ограничены планом.",
+}
+_DELIVERY_REASON_RU = {
+    "plain": "Обычное сообщение: ответ простой или короткий.",
+    "rich": "Почему Rich? Ответ состоит из нескольких разделов — planned "
+            "Rich-карточка.",
+    "media": "Ответ с медиа (изображение/видео/файл).",
+    "none": "Текстовый ответ не планируется (реакция/молчание).",
+}
+
+
+def _plan_axis(value, valid) -> str:
+    """Валидная ось плана или ``""`` (fail-open, без импорта response_extent)."""
+    candidate = str(value or "").strip().lower()
+    return candidate if candidate in valid else ""
+
+
+def _planned_node(key: str, expected: str, *, axes=None, reason_ru: str = ""
+                  ) -> dict:
+    """R17-safe planned-узел §34 (только enum/коды/шаблоны причин)."""
+    node = {
+        "key": key,
+        "label": PLAN_LABELS.get(key, key),
+        "title": PLAN_TITLES.get(key, key),
+        "expected": str(expected or ""),
+        "reason_ru": str(reason_ru or ""),
+    }
+    if isinstance(axes, dict) and axes:
+        node["axes"] = {k: v for k, v in axes.items()
+                        if isinstance(v, str) and v}
+    return node
+
+
+def planned_nodes_from_plan(plan, action: str = "") -> list:
+    """Собрать PlannedGraph §34 из ResponsePlan (duck-typed; никогда не бросает).
+
+    Порядок: TRIGGER → PLANNER → TOOLS → WRITER(при reply/tool) → DELIVERY →
+    ИТОГ. REACT/SILENT (§34): WRITER-узел НЕ строится — фиктивный Writer
+    запрещён."""
+    try:
+        from services import response_extent as _ext
+        task_kind = _plan_axis(getattr(plan, "task_kind", ""),
+                               _ext.TASK_KINDS)
+        extent = _plan_axis(getattr(plan, "extent", ""), _ext.EXTENTS)
+        structure = _plan_axis(getattr(plan, "structure", ""), _ext.STRUCTURES)
+        delivery = _plan_axis(getattr(plan, "delivery_hint", ""),
+                              _ext.DELIVERY_HINTS)
+        tool_policy = _plan_axis(getattr(plan, "tool_policy", ""),
+                                 _ext.TOOL_POLICIES)
+        source = _plan_axis(getattr(plan, "source", ()),
+                            ("explicit", "task-kind", "mode_alias", "default"))
+    except Exception:      # pragma: no cover - защитная ветка
+        return []
+    act = _plan_axis(action, ("reply", "react", "silent", "tool"))
+    # §34: REACT/SILENT — ни Writer, ни tools, ни текстовой доставки;
+    # фиксируем это в плане честно (фиктивные узлы запрещены).
+    no_text = act in ("react", "silent")
+    if no_text:
+        delivery = "none"
+        tool_policy = "none"
+
+    nodes = [_planned_node(
+        PLAN_TRIGGER, ACTION_LABELS.get(act, act or "ответ текстом"),
+        axes={"action": act},
+        reason_ru=("Прямое обращение к боту — требуется ответ."
+                   if act in ("reply", "tool", "")
+                   else "Реакция на сообщение без текстового ответа."
+                   if act == "react"
+                   else "Осознанное молчание (без ответа)."))]
+    planner_reason = " ".join(
+        part for part in (_TASK_REASON_RU.get(task_kind, ""),
+                          _EXTENT_REASON_RU.get(extent, "")) if part)
+    # §36-полировка: «Почему tools…» не дублируется на PLANNER и TOOLS —
+    # при policy=none причина живёт на TOOLS-узле.
+    if tool_policy == "none" and planner_reason.startswith("Почему tools"):
+        planner_reason = _EXTENT_REASON_RU.get(extent, "")
+    nodes.append(_planned_node(
+        PLAN_PLANNER,
+        " · ".join(part for part in (
+            task_kind and TASK_KIND_LABELS.get(task_kind, task_kind),
+            extent and EXTENT_LABELS.get(extent, extent),
+            structure and STRUCTURE_LABELS.get(structure, structure),
+        ) if part),
+        axes={"task_kind": task_kind, "extent": extent,
+              "structure": structure, "source": source},
+        reason_ru=planner_reason or
+        "План построен до генерации (детерминированная классификация)."))
+    nodes.append(_planned_node(
+        PLAN_TOOLS, TOOL_POLICY_LABELS.get(tool_policy, tool_policy or "—"),
+        axes={"tool_policy": tool_policy},
+        reason_ru=_TOOL_POLICY_REASON_RU.get(
+            tool_policy,
+            _TASK_REASON_RU.get(task_kind, "Инструменты по необходимости."))))
+    # §34: Writer — только для текстовых исходов; REACT/SILENT его не имеют.
+    if act in ("reply", "tool", ""):
+        nodes.append(_planned_node(
+            PLAN_WRITER, "генерация текста по плану",
+            reason_ru="Планируется вызов Writer — один текстовый проход "
+                      "без каскада рерайтеров."))
+    nodes.append(_planned_node(
+        PLAN_DELIVERY, DELIVERY_LABELS.get(delivery, delivery or "—"),
+        axes={"delivery_hint": delivery},
+        reason_ru=_DELIVERY_REASON_RU.get(
+            delivery, "Канал доставки определяется в ходе ответа.")))
+    nodes.append(_planned_node(
+        PLAN_OUTCOME, "успешная доставка ответа",
+        reason_ru="Ответ доставлен в чат; расхождение с планом видно выше."))
+    return nodes
+
+
+def set_planned(run_id, planned_nodes) -> None:
+    """MCA-23 §33 API: зафиксировать planned-узлы прогона (fail-open).
+
+    Вызывается при формировании решения (одна интеграционная точка в
+    ``direct_chat_service``). In-memory, без DDL; ограничение ≤8 узлов;
+    R17-whitelist полей."""
+    try:
+        rid = str(run_id or "")
+        if not rid or not isinstance(planned_nodes, (list, tuple)):
+            return
+        nodes = []
+        for raw in list(planned_nodes)[:_PLANNED_MAX_NODES]:
+            if not isinstance(raw, dict) or not str(raw.get("key") or ""):
+                continue
+            nodes.append({k: raw[k] for k in _PLANNED_NODE_FIELDS
+                          if k in raw})
+        if not nodes:
+            return
+        _store.put_planned(rid, {"ts": round(time.time(), 3),
+                                 "nodes": nodes})
+    except Exception:      # pragma: no cover - best-effort, пайплайн не рвём
+        return
+
+
+def record_response_plan(run_id, *, plan, action: str = "") -> None:
+    """Удобная обёртка: ResponsePlan → planned-узлы → ``set_planned``.
+
+    Единственная точка вызова из ``direct_chat_service`` (guard/fail-open
+    там же). Никогда не бросает."""
+    try:
+        nodes = planned_nodes_from_plan(plan, action=action)
+        if nodes:
+            set_planned(run_id, nodes)
+    except Exception:      # pragma: no cover - best-effort
+        return
+
+
+def get_planned(run_id):
+    """Planned-слой прогона (``{"ts":…, "nodes":[…]}`` или ``None``)."""
+    try:
+        snapshot = _store.get(run_id)
+        if not isinstance(snapshot, dict):
+            return None
+        planned = snapshot.get(_PLANNED_KEY)
+        return dict(planned) if isinstance(planned, dict) else None
+    except Exception:      # pragma: no cover - защитная ветка
+        return None
+
+
+def _actual_facts(snapshot, nodes, llm_rows) -> dict:
+    """Фактические факты прогона для сравнения (только реальные события)."""
+    action = ""
+    tool_names: list = []
+    tool_failed = 0
+    decision_ms: list = []
+    for event in (snapshot.get(_AGENTIC_KEY) or []):
+        if not isinstance(event, dict):
+            continue
+        name = str(event.get("event") or "")
+        if name in ("DECISION_COMPLETE", "DECISION_START") and not action:
+            action = _plan_axis(event.get("action"),
+                                ("reply", "react", "silent", "tool"))
+        if name in ("TOOL_CALL_COMPLETE", "TOOL_CALL_FAILED"):
+            if name == "TOOL_CALL_FAILED":
+                tool_failed += 1
+            tool_name = str(event.get("tool") or "")
+            if tool_name:
+                tool_names.append(tool_name)
+        if name == "DECISION_COMPLETE":
+            value = _num_or_none(event.get("duration_ms"))
+            if value is not None:
+                decision_ms.append(value)
+    delivery = publication_status_of(snapshot)
+    writer_ran = any(node.get("kind") == KIND_LLM for node in nodes)
+    if not writer_ran:
+        # Прогон без агентных событий: фактический Writer — реальная
+        # LLM-строка текстовой генерации (single/stage1/stage2/text).
+        writer_ran = any(
+            (row.get("step") or "") in ("single", "stage1", "stage2")
+            for row in (llm_rows or []) if isinstance(row, dict))
+    return {
+        "action": action,
+        "tools_used": len(tool_names),
+        "tools_failed": tool_failed,
+        "tool_names": tool_names[:8],
+        "writer_ran": writer_ran,
+        "delivery": delivery,
+        "run_status": _str_or_none(snapshot.get("status")),
+    }
+
+
+def _cmp_row(key: str, planned: str, actual: str, status: str,
+             reason_ru: str = "") -> dict:
+    return {"key": key, "label": PLAN_LABELS.get(key, key),
+            "title": PLAN_TITLES.get(key, key),
+            "planned": planned, "actual": actual, "status": status,
+            "reason_ru": str(reason_ru or "")}
+
+
+def planned_vs_actual(planned_nodes, actual: dict) -> list:
+    """Сравнение planned-vs-actual (§33): совпало/отклонилось/не
+    выполнилось/лишнее. Честность: строка сравнения строится ТОЛЬКО на
+    реальном факте события — нет факта (доставка/итог неизвестны) →
+    строки нет (planned-цепочка выше всё равно показывает план)."""
+    by_key = {}
+    for node in (planned_nodes or []):
+        if isinstance(node, dict):
+            by_key[node.get("key")] = node
+    rows = []
+    act = actual.get("action") or ""
+    trig = by_key.get(PLAN_TRIGGER) or {}
+    planned_action = ((trig.get("axes") or {}).get("action") or "")
+    if planned_action and act:
+        if act == planned_action:
+            status, reason = CMP_MATCH, ""
+        else:
+            status = CMP_DEVIATED
+            reason = ("Планировалось «%s», фактически — «%s»." % (
+                ACTION_LABELS.get(planned_action, planned_action),
+                ACTION_LABELS.get(act, act)))
+        rows.append(_cmp_row(PLAN_TRIGGER,
+                             ACTION_LABELS.get(planned_action,
+                                               planned_action),
+                             ACTION_LABELS.get(act, act),
+                             status, reason))
+    # PLANNER — informational: это сам план, факт сравнивает его оси ниже.
+    planner = by_key.get(PLAN_PLANNER) or {}
+    if planner:
+        rows.append(_cmp_row(PLAN_PLANNER, str(planner.get("expected") or ""),
+                             "план применён к запросу", CMP_MATCH))
+
+    tools = by_key.get(PLAN_TOOLS) or {}
+    if tools:
+        policy = (tools.get("axes") or {}).get("tool_policy") or ""
+        used = int(actual.get("tools_used") or 0)
+        failed = int(actual.get("tools_failed") or 0)
+        names = actual.get("tool_names") or []
+        actual_txt = (", ".join(names) if names
+                      else ("попыток не было" if used == 0 and failed == 0
+                            else "неизвестно"))
+        if failed:
+            actual_txt += " · упало: %d" % failed
+        if policy == "none":
+            if used or failed:
+                status = CMP_EXTRA
+                reason = ("Почему tools не использовались? План был без "
+                          "инструментов, но фактический прогон их вызвал.")
+            else:
+                status, reason = CMP_MATCH, ""
+        elif policy == "required":
+            if used:
+                status, reason = CMP_MATCH, ""
+            elif failed:
+                status = CMP_MISSING
+                reason = "Инструменты планировались — вызовы упали."
+            else:
+                status = CMP_MISSING
+                reason = ("Инструменты планировались (нужны внешние данные), "
+                          "но не выполнились.")
+        else:   # auto/constrained
+            status, reason = CMP_MATCH, ""
+        rows.append(_cmp_row(PLAN_TOOLS,
+                             str(tools.get("expected") or ""), actual_txt,
+                             status, reason))
+
+    writer = by_key.get(PLAN_WRITER)
+    writer_ran = bool(actual.get("writer_ran"))
+    if writer is not None:
+        rows.append(_cmp_row(
+            PLAN_WRITER, str(writer.get("expected") or ""),
+            "выполнился" if writer_ran else "не выполнялся",
+            CMP_MATCH if writer_ran else CMP_MISSING,
+            "" if writer_ran else "Writer не выполнился (нет текстовой "
+                                 "генерации в событиях)."))
+    elif writer_ran:
+        # §34: REACT/SILENT не планируют Writer; фактическая генерация —
+        # лишний этап.
+        rows.append(_cmp_row(
+            PLAN_WRITER, "не планировался", "выполнился", CMP_EXTRA,
+            "Writer не планировался (реакция/молчание), но генерация была."))
+
+    delivery = by_key.get(PLAN_DELIVERY) or {}
+    if delivery:
+        hint = (delivery.get("axes") or {}).get("delivery_hint") or ""
+        fact = actual.get("delivery") or ""
+        # Честность: нет факта доставки (прогон ещё идёт / Direct-прогон без
+        # publish-событий) → строки сравнения нет (фиктивный «missing»
+        # запрещён).
+        if fact:
+            fact_label = {
+                "published_rich": "Rich-карточка", "published_text": "обычное "
+                "сообщение", "failed": "доставка упала", "skipped": "доставки "
+                "не было", "": "неизвестно",
+            }.get(fact, fact)
+            status, reason = CMP_MATCH, ""
+            if fact == "failed":
+                status = CMP_MISSING
+                reason = "Что упало: публикация ответа не удалась."
+            elif hint == "rich" and fact == "published_text":
+                status = CMP_DEVIATED
+                reason = ("Планировалась Rich-карточка, ответ ушёл обычным "
+                          "сообщением (fallback доставки).")
+            elif hint == "plain" and fact == "published_rich":
+                status = CMP_DEVIATED
+                reason = "Планировалось обычное сообщение, фактически Rich."
+            elif hint == "media" and fact in ("published_rich",
+                                              "published_text"):
+                status = CMP_DEVIATED
+                reason = "Планировалось медиа, фактически текстовая доставка."
+            elif hint == "none" and fact not in ("skipped",):
+                status = CMP_EXTRA
+                reason = "Доставка не планировалась, но состоялась."
+            rows.append(_cmp_row(PLAN_DELIVERY,
+                                 DELIVERY_LABELS.get(hint, hint or "—"),
+                                 fact_label, status, reason))
+
+    outcome = by_key.get(PLAN_OUTCOME) or {}
+    if outcome:
+        run_status = actual.get("run_status") or ""
+        # Нет факта итога → строки нет (не приписываем прогону «успех»).
+        if run_status:
+            if run_status == "ok":
+                status, actual_txt, reason = CMP_MATCH, "успех", ""
+            elif run_status in ("degraded", "empty"):
+                status = CMP_DEVIATED
+                actual_txt = run_status
+                reason = ("Прогон завершился с деградацией — итог "
+                          "отличается от плана.")
+            else:
+                status = CMP_MISSING
+                actual_txt = run_status
+                reason = "Что упало: прогон завершился ошибкой."
+            rows.append(_cmp_row(PLAN_OUTCOME,
+                                 str(outcome.get("expected") or "успех"),
+                                 actual_txt, status, reason))
+    return rows
+
+
+def planned_view(raw_planned, actual: dict) -> dict | None:
+    """Planned-блок ответа /analytics/execution/latest (§33 view)."""
+    try:
+        if not isinstance(raw_planned, dict):
+            return None
+        nodes = [dict(n) for n in (raw_planned.get("nodes") or [])
+                 if isinstance(n, dict)]
+        if not nodes:
+            return None
+        comparison = planned_vs_actual(nodes, actual if isinstance(actual, dict)
+                                       else {})
+        summary = {CMP_MATCH: 0, CMP_DEVIATED: 0, CMP_MISSING: 0,
+                   CMP_EXTRA: 0}
+        for row in comparison:
+            if row.get("status") in summary:
+                summary[row["status"]] += 1
+        return {
+            "ts": raw_planned.get("ts"),
+            "nodes": nodes,
+            "comparison": comparison,
+            "summary": summary,
+        }
+    except Exception:      # pragma: no cover - защитная ветка
+        return None
+
+
+def _percentile(values: list, q: float):
+    """Честный перцентиль (линейная интерполяция; пусто → ``None``)."""
+    if not values:
+        return None
+    data = sorted(float(v) for v in values if v is not None)
+    if not data:
+        return None
+    if len(data) == 1:
+        return round(data[0], 1)
+    pos = q * (len(data) - 1)
+    lo = int(pos)
+    hi = min(lo + 1, len(data) - 1)
+    frac = pos - lo
+    return round(data[lo] * (1 - frac) + data[hi] * frac, 1)
+
+
+def response_recent_window() -> dict:
+    """Окно свежих Direct-прогонов (in-memory, ≤20 прогонов / ~15 минут).
+
+    Источник — существующие снапшоты (агентные события + planned-слой),
+    второй телеметрии нет. Агрегаты осей плана §35 за БОЛЬШИЕ периоды
+    недоступны (durable-осей в ``llm_usage_events`` нет) — это честное
+    ограничение, UI показывает «—» с пояснением."""
+    actions: dict = {}
+    task_kinds: dict = {}
+    extents: dict = {}
+    deliveries: dict = {"plain": 0, "rich": 0, "media": 0, "none": 0}
+    runs = tools_calls = tools_failed = runs_with_tools = 0
+    decision_ms: list = []
+    for snapshot in _store.snapshots():
+        planned = snapshot.get(_PLANNED_KEY)
+        events = snapshot.get(_AGENTIC_KEY) or []
+        if not isinstance(planned, dict) and not events:
+            continue
+        runs += 1
+        axes = {}
+        if isinstance(planned, dict):
+            for node in (planned.get("nodes") or []):
+                if isinstance(node, dict) and node.get("key") == PLAN_PLANNER:
+                    axes = node.get("axes") or {}
+        tk = str(axes.get("task_kind") or "")
+        ex = str(axes.get("extent") or "")
+        if tk:
+            task_kinds[tk] = task_kinds.get(tk, 0) + 1
+        if ex:
+            extents[ex] = extents.get(ex, 0) + 1
+        action = ""
+        run_tools = run_tool_failed = 0
+        for event in events:
+            if not isinstance(event, dict):
+                continue
+            name = str(event.get("event") or "")
+            if name in ("DECISION_COMPLETE", "DECISION_START") and not action:
+                action = _plan_axis(event.get("action"),
+                                    ("reply", "react", "silent", "tool"))
+            if name in ("TOOL_CALL_COMPLETE", "TOOL_CALL_FAILED"):
+                run_tools += 1
+                if name == "TOOL_CALL_FAILED":
+                    run_tool_failed += 1
+            if name == "DECISION_COMPLETE":
+                value = _num_or_none(event.get("duration_ms"))
+                if value is not None:
+                    decision_ms.append(value)
+        if action:
+            actions[action] = actions.get(action, 0) + 1
+        if run_tools:
+            runs_with_tools += 1
+        tools_calls += run_tools
+        tools_failed += run_tool_failed
+        fact = publication_status_of(snapshot)
+        if fact == "published_rich":
+            deliveries["rich"] += 1
+        elif fact == "published_text":
+            deliveries["plain"] += 1
+    return {
+        "runs": runs,
+        "actions": actions,
+        "task_kinds": task_kinds,
+        "extents": extents,
+        "deliveries": deliveries,
+        "tool_calls": tools_calls,
+        "tool_failures": tools_failed,
+        "runs_with_tools": runs_with_tools,
+        "tool_failure_rate": (round(tools_failed / tools_calls, 4)
+                              if tools_calls else None),
+        "decision_latency_ms": {"p50": _percentile(decision_ms, 0.5),
+                                "p95": _percentile(decision_ms, 0.95)},
+        "window_note_ru": "по последним прогонам в памяти (≤20, ~15 минут)",
+    }
+
+
 # ── нормализация: raw sources → canonical ExecutionNode (§23/§24) ───────────
 
 def _num_or_none(value):
@@ -833,6 +1454,13 @@ def build_graph(run_id, snapshot, llm_rows) -> dict:
              for n in nodes if n["parentIds"]]
     started_at = next((n["startedAt"] for n in llm_nodes
                        if n.get("startedAt")), None)
+    # MCA-23 (P2-B §33): planned-vs-actual view — аддитивное поле `planned`.
+    # Плана нет → None (честно: «план ещё не строился», не выдумываем).
+    planned_block = None
+    raw_planned = snapshot.get(_PLANNED_KEY)
+    if isinstance(raw_planned, dict):
+        planned_block = planned_view(raw_planned, _actual_facts(
+            snapshot, nodes, llm_rows))
     return {
         "run_id": run_id or None,
         "started_at": started_at,
@@ -840,6 +1468,7 @@ def build_graph(run_id, snapshot, llm_rows) -> dict:
         "edges": edges,
         "metrics": metrics_block(snapshot, llm_rows),
         "publication_status": publication_status_of(snapshot),
+        "planned": planned_block,
         "empty": len(nodes) == 0,
     }
 

@@ -1,7 +1,8 @@
 """MCA-17c (round 10.47, ADR-1028-23) — инварианты санкций (spec §7).
 
 Замеры дельт фичи против пост-mca-12 baseline (прод 2.58.65):
-  * Δ DDL = 0 — schema_version 33 не растёт (миграций НЕТ);
+  * Δ DDL = 0 сверх санкционированного хвоста v34 (NOTE P2-D, ASAP 6 §8,
+    `mca-14` реестр; прецедент v21→…→v33);
   * Δ каталога = 0 — REGISTRY 523 (F8 NOT_APPLICABLE);
   * Δ KS = 0 — kill-switches 85 = 85 (защита write-API = RBAC+audit);
   * Δ reason = +1 `oversight_job_action` — 279→280 (единственная дельта
@@ -40,7 +41,12 @@ def test_reason_280_single_delta():
 
 
 def test_no_ddl_catalog_ks_tools_delta():
-    # Δ DDL = 0: свежая БД инициализируется ровно в v33 (user_version).
+    # Δ DDL = 0 сверх санкционированного хвоста: свежая БД инициализируется
+    # ровно в v34 (user_version).
+    # NOTE (P2-D, ASAP 6 §8, санкция `mca-14` реестр): v34
+    # (embedding_generation_namespace_v34) — ownership-миграция поколений
+    # векторов; прецедент v21→…→v33. Точное равенство сохранено: новая
+    # НЕсанкционированная миграция по-прежнему роняет тест.
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     try:
@@ -49,7 +55,7 @@ def test_no_ddl_catalog_ks_tools_delta():
         loop.run_until_complete(d.initialize())
         cur = loop.run_until_complete(d.db.execute("PRAGMA user_version"))
         row = loop.run_until_complete(cur.fetchone())
-        assert int(row[0]) == 33
+        assert int(row[0]) == 34
     finally:
         loop.run_until_complete(d.close())
         loop.close()
@@ -118,7 +124,7 @@ def test_coverage_matrix_sync():
 
 def test_app_version_not_bumped():
     # bump 2.58.65→2.58.66 — домен @DevOps (T-5198), Builder не делает.
-    assert APP_VERSION == "2.58.70"
+    assert APP_VERSION == "2.58.71"
 
 
 def test_routes_plus3_and_registration():

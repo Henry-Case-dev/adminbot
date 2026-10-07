@@ -453,18 +453,27 @@ _MCA_EMBEDDING_INDEX_GENERATIONS_DDL = (
     "dims                  INTEGER, "
     "preprocessing_version TEXT, "
     "endpoint_fingerprint  TEXT, "
+    "namespace             TEXT NOT NULL DEFAULT 'default', "
+    "config_revision       TEXT, "
     "status                TEXT NOT NULL, "
     "created_at            INTEGER NOT NULL, "
     "activated_at          INTEGER, "
     "superseded_at         INTEGER)"
 )
 _MCA_EMBEDDING_INDEX_GENERATIONS_INDEX_DDL = (
-    # Монотонность поколений per индекс (основа выбора активного).
+    # Монотонность поколений per индекс (основа выбора активного); счётчик
+    # общий на индекс → shadow-имена `{index}_g{gen}` глобально однозначны.
     "CREATE UNIQUE INDEX IF NOT EXISTS idx_mca_eig_name_gen "
     "ON mca_embedding_index_generations(index_name, generation)",
-    # Ровно одно активное поколение на индекс (partial UNIQUE).
-    "CREATE UNIQUE INDEX IF NOT EXISTS idx_mca_eig_active "
-    "ON mca_embedding_index_generations(index_name) WHERE status = 'active'",
+    # Ровно одно активное поколение на (namespace, index) — инвариант §8.1
+    # (ASAP 6): chat/namespace-scoped ACTIVE. v18 создавал per-index вариант
+    # (`idx_mca_eig_active`) — заменяется шагом v34; на свежей БД сразу NS.
+    "CREATE UNIQUE INDEX IF NOT EXISTS idx_mca_eig_active_ns "
+    "ON mca_embedding_index_generations(namespace, index_name) "
+    "WHERE status = 'active'",
+    # Ownership-выборки/монотонность per namespace (§8.1).
+    "CREATE INDEX IF NOT EXISTS idx_mca_eig_ns_gen "
+    "ON mca_embedding_index_generations(namespace, index_name, generation)",
     # Lookup по fingerprint (mismatch/диагностика/аудит-связь).
     "CREATE INDEX IF NOT EXISTS idx_mca_eig_fingerprint "
     "ON mca_embedding_index_generations(fingerprint)",
@@ -1616,6 +1625,19 @@ _MCA_MEDIA_ANALYSES_INDEX_DDL = (
 # попадает (только id/коды/стадии/числа).
 _SCHEMA_VERSION_FACTCHECK_TEMPORAL = 33
 
+# ── Раунд 10.27 (ASAP 6 §8, `mca-14` реестр): v34 — ownership поколений ─────
+# `mca_embedding_index_generations` получает `namespace` (NOT NULL DEFAULT
+# 'default': существующие строки = namespace default — обратная совместимость,
+# retrieval-инварианты не ломаются) и `config_revision` (13G.1: stale-worker
+# guard при смене конфига во время rebuild). Инвариант §8.1 «(namespace,
+# index) → ровно одна ACTIVE» — partial UNIQUE-индекс с per-index
+# (`idx_mca_eig_active`) заменяется на per-namespace+index
+# (`idx_mca_eig_active_ns`); замена КОНТРОЛИРУЮЩЕГО индекса аддитивна по
+# данным (строки/ID/vec-таблицы не трогаются, mca-14 D3). Аддитивно/
+# идемпотентно (guard `PRAGMA table_info`); PG — no-op. Бронь: v34 за
+# ASAP 6 §8 (P2-D-embed-scope).
+_SCHEMA_VERSION_EMBEDDING_GENERATION_NS = 34
+
 _MCA_FACTCHECK_RUNS_DDL = (
     "CREATE TABLE IF NOT EXISTS mca_factcheck_runs ("
     "run_id              TEXT PRIMARY KEY, "
@@ -2717,6 +2739,14 @@ class DatabaseService:
             MigrationStep(_SCHEMA_VERSION_FACTCHECK_TEMPORAL,
                           "factcheck_temporal",
                           lambda svc: svc._migrate_factcheck_temporal_v33()),
+            # ASAP 6 §8 (P1, mca-14 реестр): ownership поколений векторов —
+            # `namespace` (NOT NULL DEFAULT 'default', существующие строки =
+            # default) + `config_revision`; ACTIVE-unique per (namespace,
+            # index) (§8.1). Аддитивно/идемпотентно, данные не трогаются.
+            MigrationStep(_SCHEMA_VERSION_EMBEDDING_GENERATION_NS,
+                          "embedding_generation_namespace_v34",
+                          lambda svc:
+                          svc._migrate_embedding_generation_ns_v34()),
             # ASAP 4.1 волна 5 (T-4616, spec §10.2–§10.3): v24 = 3 таблицы
             # (summary_source_windows + summary_runs + summary_run_stages).
             # Один MigrationStep на версию — книга `schema_migrations` имеет
@@ -3853,6 +3883,59 @@ class DatabaseService:
         await self.db.commit()
         await self.db.execute(
             f"PRAGMA user_version = {_SCHEMA_VERSION_FACTCHECK_TEMPORAL}")
+        await self.db.commit()
+
+    async def _migrate_embedding_generation_ns_v34(self) -> None:
+        """v34 (ASAP 6 §8, `mca-14` реестр): ownership поколений векторов.
+
+        - `mca_embedding_index_generations.namespace` (NOT NULL DEFAULT
+          'default') — chat/namespace ownership ACTIVE-поколения (§8.1);
+          существующие строки получают namespace 'default' (обратная
+          совместимость: существующая память продолжает обслуживаться);
+        - `config_revision` (nullable) — материал для stale-worker guard
+          при смене конфига во время rebuild (§8.5/13G.1);
+        - partial UNIQUE-индекс ACTIVE: per-index (`idx_mca_eig_active`)
+          → per-(namespace, index) (`idx_mca_eig_active_ns`) — замена
+          контролирующего индекса БЕЗ касания строк/ID/vec-таблиц (mca-14
+          D3); данные не переименовываются и не удаляются.
+
+        Аддитивно (guard `PRAGMA table_info`), повторный прогон — no-op;
+        PG — no-op (рамка §1.2.3). Фиксирует `PRAGMA user_version = 34`."""
+        cursor = await self.db.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
+            ("mca_embedding_index_generations",))
+        if await cursor.fetchone() is not None:
+            cols = await self._table_columns("mca_embedding_index_generations")
+            if "namespace" not in cols:
+                await self.db.execute(
+                    "ALTER TABLE mca_embedding_index_generations "
+                    "ADD COLUMN namespace TEXT NOT NULL DEFAULT 'default'")
+                logger.info("[database] migration v34: +namespace")
+            if "config_revision" not in cols:
+                await self.db.execute(
+                    "ALTER TABLE mca_embedding_index_generations "
+                    "ADD COLUMN config_revision TEXT")
+                logger.info("[database] migration v34: +config_revision")
+            # Дефолт-namespace для легаси-строк (idempotent; с NOT NULL
+            # DEFAULT NULL-значений не бывает — честный no-op).
+            await self.db.execute(
+                "UPDATE mca_embedding_index_generations "
+                "SET namespace = 'default' WHERE namespace IS NULL")
+            await self.db.commit()
+        # Инвариант §8.1: ровно одна ACTIVE на (namespace, index_name).
+        await self.db.execute("DROP INDEX IF EXISTS idx_mca_eig_active")
+        await self.db.execute(
+            "CREATE UNIQUE INDEX IF NOT EXISTS idx_mca_eig_active_ns "
+            "ON mca_embedding_index_generations(namespace, index_name) "
+            "WHERE status = 'active'")
+        await self.db.execute(
+            "CREATE INDEX IF NOT EXISTS idx_mca_eig_ns_gen "
+            "ON mca_embedding_index_generations(namespace, index_name, "
+            "generation)")
+        await self.db.commit()
+        await self.db.execute(
+            f"PRAGMA user_version = "
+            f"{_SCHEMA_VERSION_EMBEDDING_GENERATION_NS}")
         await self.db.commit()
 
     # ── mca-20 (ADR-1028-20 D1/D3/D9): Temporal Factcheck — тонкие методы
@@ -5459,13 +5542,15 @@ class DatabaseService:
             return False
 
     async def get_active_embedding_generations(self) -> list[dict]:
-        """Все активные поколения (инвариант 13D.1 «chat → одна ACTIVE»
-        моделируется index-namespace + partial UNIQUE; хелпер — аудит)."""
+        """Все активные поколения (инвариант §8.1 «(namespace, index) → одна
+        ACTIVE» моделируется namespace+index + partial UNIQUE; хелпер —
+        аудит)."""
         try:
             cursor = await self.db.execute(
                 "SELECT generation_id, index_name, generation, fingerprint, "
-                "provider, model, dims, status, created_at, activated_at "
-                "FROM mca_embedding_index_generations WHERE status = 'active'")
+                "provider, model, dims, status, namespace, created_at, "
+                "activated_at FROM mca_embedding_index_generations "
+                "WHERE status = 'active'")
             return [dict(r) for r in await cursor.fetchall()]
         except Exception:
             logger.debug("[database] active generations read failed",
@@ -5477,10 +5562,10 @@ class DatabaseService:
         """N-MCA07-1 (ADR-1027-9 D12/spec §4.8): single-writer операция
         активации vec-поколения (REUSE v18 — без новой таблицы).
 
-        Текущее `active` → `superseded` (+superseded_at); целевое
-        (`building`/`failed`) → `active` (+activated_at). Повтор на уже
-        активном — no-op. `ensure_embedding_generation` при существующем
-        active остаётся no-op (A06 не нарушается). Гейт —
+        Текущее `active` ТОГО ЖЕ namespace → `superseded` (+superseded_at);
+        целевое (`building`/`ready`/`failed`) → `active` (+activated_at).
+        Повтор на уже активном — no-op. `ensure_embedding_generation` при
+        существующем active остаётся no-op (A06 не нарушается). Гейт —
         `MCA_EMBEDDING_GENERATION_ACTIVATION_ENABLED` (проверяет вызывающий).
         Возврат — dict операции или None (не найдено/ошибка)."""
         now = int(time.time())
@@ -5488,7 +5573,7 @@ class DatabaseService:
 
         async def _body(_conn):
             cursor = await self.db.execute(
-                "SELECT generation_id, index_name, status FROM "
+                "SELECT generation_id, index_name, namespace, status FROM "
                 "mca_embedding_index_generations WHERE generation_id = ?",
                 (str(generation_id),))
             target = await cursor.fetchone()
@@ -5499,12 +5584,13 @@ class DatabaseService:
             if target["status"] == "active":
                 return {"generation_id": str(generation_id),
                         "status": "active", "superseded_generation_id": None}
-            if target["status"] not in ("building", "failed"):
+            if target["status"] not in ("building", "ready", "failed"):
                 return None
+            ns = str(target["namespace"] or "default")
             cursor = await self.db.execute(
                 "SELECT generation_id FROM mca_embedding_index_generations "
-                "WHERE index_name = ? AND status = 'active'",
-                (str(index_name),))
+                "WHERE index_name = ? AND namespace = ? AND "
+                "status = 'active'", (str(index_name), ns))
             prev = await cursor.fetchone()
             if prev is not None:
                 await self.db.execute(
@@ -5570,17 +5656,27 @@ class DatabaseService:
                 break
         return out
 
-    async def get_active_embedding_generation(self, index_name: str) -> dict | None:
-        """Активное поколение индекса (реестр v18) или None.
+    _EGEN_ROW_COLS = (
+        "generation_id, index_name, generation, fingerprint, provider, "
+        "model, dims, preprocessing_version, endpoint_fingerprint, "
+        "namespace, config_revision, status, created_at, activated_at, "
+        "superseded_at, pause_reason, next_allowed_at, attempts_total")
 
-        Fail-open: любая ошибка → None (честная деградация вызывающего)."""
+    async def get_active_embedding_generation(
+            self, index_name: str, *,
+            namespace: str = "default") -> dict | None:
+        """Активное поколение (namespace, index) — инвариант §8.1 (ASAP 6).
+
+        Существующие легаси-строки имеют namespace 'default' (v34), поэтому
+        вызов без namespace сохраняет прежнюю семантику (O(1) по
+        `idx_mca_eig_active_ns`). Fail-open: любая ошибка → None (честная
+        деградация вызывающего)."""
         try:
             cursor = await self.db.execute(
-                "SELECT generation_id, index_name, generation, fingerprint, "
-                "provider, model, dims, preprocessing_version, "
-                "endpoint_fingerprint, status, created_at, activated_at, "
-                "superseded_at, pause_reason, next_allowed_at, attempts_total FROM mca_embedding_index_generations "
-                "WHERE index_name = ? AND status = 'active'", (str(index_name),))
+                f"SELECT {self._EGEN_ROW_COLS} FROM "
+                "mca_embedding_index_generations "
+                "WHERE index_name = ? AND namespace = ? AND status = 'active'",
+                (str(index_name), str(namespace or "default")))
             row = await cursor.fetchone()
             return dict(row) if row is not None else None
         except Exception:
@@ -5588,19 +5684,21 @@ class DatabaseService:
                          exc_info=True)
             return None
 
-    async def get_latest_embedding_generation(self, index_name: str) -> dict | None:
-        """Последнее (старшее `generation`) поколение индекса, любой статус.
+    async def get_latest_embedding_generation(
+            self, index_name: str, *,
+            namespace: str = "default") -> dict | None:
+        """Последнее (старшее `generation`) поколение (namespace, index),
+        любой статус.
 
         Нужно guard'у A06: `building`/`superseded`/`failed` — тоже карантин.
         Fail-open: ошибка → None."""
         try:
             cursor = await self.db.execute(
-                "SELECT generation_id, index_name, generation, fingerprint, "
-                "provider, model, dims, preprocessing_version, "
-                "endpoint_fingerprint, status, created_at, activated_at, "
-                "superseded_at, pause_reason, next_allowed_at, attempts_total FROM mca_embedding_index_generations "
-                "WHERE index_name = ? ORDER BY generation DESC LIMIT 1",
-                (str(index_name),))
+                f"SELECT {self._EGEN_ROW_COLS} FROM "
+                "mca_embedding_index_generations "
+                "WHERE index_name = ? AND namespace = ? "
+                "ORDER BY generation DESC LIMIT 1",
+                (str(index_name), str(namespace or "default")))
             row = await cursor.fetchone()
             return dict(row) if row is not None else None
         except Exception:
@@ -5608,9 +5706,31 @@ class DatabaseService:
                          exc_info=True)
             return None
 
-    async def get_generation_by_fingerprint(self, index_name: str,
-                                            fingerprint: str) -> dict | None:
-        """Поколение индекса по fingerprint (использует `idx_mca_eig_fingerprint`).
+    async def get_embedding_generation(
+            self, index_name: str, generation: int, *,
+            namespace: str = "default") -> dict | None:
+        """Поколение по номеру в scope (namespace, index) — stale-worker
+        guard §8.5 (worker перечитывает строку перед каждым чанком/promote).
+        Fail-open: ошибка → None."""
+        try:
+            cursor = await self.db.execute(
+                f"SELECT {self._EGEN_ROW_COLS} FROM "
+                "mca_embedding_index_generations "
+                "WHERE index_name = ? AND generation = ? AND namespace = ?",
+                (str(index_name), int(generation),
+                 str(namespace or "default")))
+            row = await cursor.fetchone()
+            return dict(row) if row is not None else None
+        except Exception:
+            logger.debug("[database] embedding generation read failed",
+                         exc_info=True)
+            return None
+
+    async def get_generation_by_fingerprint(
+            self, index_name: str, fingerprint: str, *,
+            namespace: str = "default") -> dict | None:
+        """Поколение (namespace, index) по fingerprint (использует
+        `idx_mca_eig_fingerprint`).
 
         Аудит/guard A06: позволяет узнать, есть ли уже поколение для данного
         fingerprint (и каким статусом). Fail-open: ошибка → None."""
@@ -5618,13 +5738,12 @@ class DatabaseService:
             return None
         try:
             cursor = await self.db.execute(
-                "SELECT generation_id, index_name, generation, fingerprint, "
-                "provider, model, dims, preprocessing_version, "
-                "endpoint_fingerprint, status, created_at, activated_at, "
-                "superseded_at, pause_reason, next_allowed_at, attempts_total FROM mca_embedding_index_generations "
-                "WHERE index_name = ? AND fingerprint = ? "
+                f"SELECT {self._EGEN_ROW_COLS} FROM "
+                "mca_embedding_index_generations "
+                "WHERE index_name = ? AND fingerprint = ? AND namespace = ? "
                 "ORDER BY generation DESC LIMIT 1",
-                (str(index_name), str(fingerprint)))
+                (str(index_name), str(fingerprint),
+                 str(namespace or "default")))
             row = await cursor.fetchone()
             return dict(row) if row is not None else None
         except Exception:
@@ -5635,7 +5754,9 @@ class DatabaseService:
     async def ensure_embedding_generation(
             self, index_name: str, fingerprint: str, *, provider=None,
             model=None, dims=None, preprocessing_version=None,
-            endpoint_fingerprint=None, activate: bool = True) -> dict | None:
+            endpoint_fingerprint=None, activate: bool = True,
+            namespace: str = "default",
+            config_revision: str | None = None) -> dict | None:
         """Get-or-create поколения (идемпотентно, single-writer).
 
         MCA-07 B-MCA07-1 (A06): **никогда не затирает существующее активное
@@ -5644,6 +5765,8 @@ class DatabaseService:
         текущие векторы); возвращается как есть, а несовместимость гейтится
         вызывающим (`_index_generation_ok`).
 
+        §8.1 (ASAP 6): ACTIVE-уникальность — в scope (namespace, index);
+        легаси-вызовы (без namespace) остаются в namespace 'default'.
         При отсутствии активного поколения новое регистрируется со статусом
         `active` (``activate=True``, если векторы построены текущим конфигом)
         или `building` (``activate=False`` — карантин до перестройки `mca-04b`).
@@ -5651,8 +5774,10 @@ class DatabaseService:
         Fail-open: ошибка → None."""
         if not fingerprint:
             return None
+        namespace = str(namespace or "default")
         async with self.serialized():
-            existing = await self.get_active_embedding_generation(index_name)
+            existing = await self.get_active_embedding_generation(
+                index_name, namespace=namespace)
             if existing is not None:
                 # Никогда не подменяем активное поколение (A06).
                 return existing
@@ -5669,36 +5794,41 @@ class DatabaseService:
                 await self.db.execute(
                     "INSERT INTO mca_embedding_index_generations "
                     "(index_name, generation, fingerprint, provider, model, "
-                    "dims, preprocessing_version, endpoint_fingerprint, status, "
-                    "created_at, activated_at, superseded_at) "
-                    "VALUES (?,?,?,?,?,?,?,?,?,?,?,NULL)",
+                    "dims, preprocessing_version, endpoint_fingerprint, "
+                    "namespace, config_revision, status, created_at, "
+                    "activated_at, superseded_at) "
+                    "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,NULL)",
                     (str(index_name), next_gen, str(fingerprint), provider,
                      model, dims, preprocessing_version, endpoint_fingerprint,
-                     status, now, activated))
+                     namespace, config_revision, status, now, activated))
                 await self.db.commit()
                 logger.info("[database] embedding generation registered | "
-                            "index=%s gen=%d status=%s", index_name, next_gen,
-                            status)
+                            "index=%s ns=%s gen=%d status=%s", index_name,
+                            namespace, next_gen, status)
             except Exception:
                 await self.db.rollback()
                 logger.warning("[database] ensure_embedding_generation failed",
                                exc_info=True)
                 return None
-            return await self.get_active_embedding_generation(index_name)
+            return await self.get_active_embedding_generation(
+                index_name, namespace=namespace)
 
     async def register_embedding_target_generation(
             self, index_name: str, fingerprint: str, *, provider=None,
             model=None, dims=None, preprocessing_version=None,
-            endpoint_fingerprint=None) -> int | None:
-        """D12 (13D.3, T-5258): зарегистрировать НОВУЮ target-генерацию
-        (status=`building`, далее state machine через
+            endpoint_fingerprint=None, namespace: str = "default",
+            config_revision: str | None = None) -> int | None:
+        """D12 (13D.3, T-5258) + §8.4 (ASAP 6): зарегистрировать НОВУЮ
+        target-генерацию (status=`building`, далее state machine через
         `set_embedding_generation_status`) при УЖЕ существующем активном
-        поколении другого identity. `ensure_embedding_generation` здесь
-        не подходит (A06: возвращает существующее active и не вставляет).
-        Инвариант 13D.1: active остаётся ровно один (partial UNIQUE).
+        поколении другого identity, в scope (namespace, index).
+        `ensure_embedding_generation` здесь не подходит (A06: возвращает
+        существующее active и не вставляет). Инвариант §8.1: active остаётся
+        ровно один per namespace (partial UNIQUE `idx_mca_eig_active_ns`).
         Возвращает generation (номер) или None. Fail-open."""
         if not fingerprint:
             return None
+        namespace = str(namespace or "default")
         try:
             async with self.serialized():
                 now = int(time.time())
@@ -5712,15 +5842,128 @@ class DatabaseService:
                     "INSERT INTO mca_embedding_index_generations "
                     "(index_name, generation, fingerprint, provider, model, "
                     "dims, preprocessing_version, endpoint_fingerprint, "
-                    "status, created_at) VALUES (?,?,?,?,?,?,?,?,?,?)",
+                    "namespace, config_revision, status, created_at) "
+                    "VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
                     (str(index_name), next_gen, str(fingerprint), provider,
                      model, dims, preprocessing_version, endpoint_fingerprint,
-                     "building", now))
+                     namespace, config_revision, "building", now))
                 await self.db.commit()
                 return next_gen
         except Exception:
             await self.db.rollback()
             logger.warning("[database] register_embedding_target failed",
+                           exc_info=True)
+            return None
+
+    async def supersede_building_generations(
+            self, index_name: str, *, namespace: str = "default",
+            keep_fingerprint: str | None = None) -> int:
+        """§8.5 (ASAP 6): незавершённые targets (`building`/`building_target`/
+        `catching_up`/`ready`) scope (namespace, index) с ИНЫМ identity →
+        `superseded` (stale worker больше не может их promote). Возвращает
+        число superseded. Fail-open: ошибка → 0."""
+        namespace = str(namespace or "default")
+        try:
+            async with self.serialized():
+                now = int(time.time())
+                if keep_fingerprint:
+                    cursor = await self.db.execute(
+                        "UPDATE mca_embedding_index_generations SET status = "
+                        "'superseded', superseded_at = ? WHERE index_name = ? "
+                        "AND namespace = ? AND status IN ('building', "
+                        "'building_target', 'catching_up', 'ready') AND "
+                        "fingerprint != ?",
+                        (now, str(index_name), namespace,
+                         str(keep_fingerprint)))
+                else:
+                    cursor = await self.db.execute(
+                        "UPDATE mca_embedding_index_generations SET status = "
+                        "'superseded', superseded_at = ? WHERE index_name = ? "
+                        "AND namespace = ? AND status IN ('building', "
+                        "'building_target', 'catching_up', 'ready')",
+                        (now, str(index_name), namespace))
+                await self.db.commit()
+                return int(cursor.rowcount or 0)
+        except Exception:
+            await self.db.rollback()
+            logger.warning("[database] supersede_building_generations failed",
+                           exc_info=True)
+            return 0
+
+    async def promote_embedding_generation(
+            self, index_name: str, generation_id: str, *,
+            namespace: str = "default", expected_fingerprint: str | None = None,
+            expected_config_revision: str | None = None,
+            data_swap=None) -> dict | None:
+        """§8.4/§8.5/13E.3 (ASAP 6): АТОМАРНАЯ promotion target-поколения.
+
+        В ОДНОЙ транзакции (single-writer, `serialized`):
+        1. target-строка перечитывается и валидируется: scope (namespace,
+           index), статус `ready`, `fingerprint`/`config_revision` совпадают
+           с ожиданием — иначе None (stale worker не может promote, §8.5);
+        2. `data_swap(conn)` — опциональный физический swap live↔shadow
+           (namespace 'default': DROP live → CREATE → копия из shadow только
+           живых source-строк → DROP shadow; DDL в SQLite транзакционен —
+           откат возвращает прежнюю таблицу, прецедент graphrag `_activate`);
+        3. прежняя ACTIVE → `active_old` (rollback-кандидат, 13E.3, НЕ
+           удаляется); target → `active` (+activated_at).
+
+        Readers не смешивают поколения: реестр-«указатель» переключается
+        атомарно с данными. Возврат dict или None (guard/refuse)."""
+        namespace = str(namespace or "default")
+        try:
+            async with self.serialized():
+                now = int(time.time())
+                cursor = await self.db.execute(
+                    f"SELECT {self._EGEN_ROW_COLS} FROM "
+                    "mca_embedding_index_generations WHERE generation_id = ?",
+                    (str(generation_id),))
+                target = await cursor.fetchone()
+                if target is None:
+                    return None
+                if str(target["index_name"]) != str(index_name) or \
+                        str(target["namespace"] or "default") != namespace:
+                    return None
+                if str(target["status"] or "") != "ready":
+                    return None
+                if expected_fingerprint is not None and \
+                        str(target["fingerprint"] or "") != \
+                        str(expected_fingerprint):
+                    return None
+                if expected_config_revision is not None and \
+                        str(target["config_revision"] or "") != \
+                        str(expected_config_revision):
+                    return None
+                if data_swap is not None:
+                    await data_swap(self.db)
+                cursor = await self.db.execute(
+                    "SELECT generation_id FROM mca_embedding_index_generations "
+                    "WHERE index_name = ? AND namespace = ? AND "
+                    "status = 'active' AND generation_id != ?",
+                    (str(index_name), namespace, str(generation_id)))
+                prev = await cursor.fetchone()
+                if prev is not None:
+                    await self.db.execute(
+                        "UPDATE mca_embedding_index_generations SET status = "
+                        "'active_old', superseded_at = ? WHERE "
+                        "generation_id = ?", (now, prev["generation_id"]))
+                await self.db.execute(
+                    "UPDATE mca_embedding_index_generations SET status = "
+                    "'active', activated_at = ?, superseded_at = NULL WHERE "
+                    "generation_id = ?", (now, str(generation_id)))
+                await self.db.commit()
+                logger.info("[database] embedding generation promoted | "
+                            "index=%s ns=%s gen=%s rollback=%s", index_name,
+                            namespace, target["generation"],
+                            prev["generation_id"] if prev is not None else "-")
+                return {"promoted_generation_id": str(generation_id),
+                        "generation": int(target["generation"]),
+                        "rollback_generation_id": (
+                            str(prev["generation_id"])
+                            if prev is not None else None)}
+        except Exception:
+            await self.db.rollback()
+            logger.warning("[database] promote_embedding_generation failed",
                            exc_info=True)
             return None
 

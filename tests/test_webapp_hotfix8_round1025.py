@@ -165,8 +165,22 @@ class TestAurora:
         # Никаких новых библиотек/Framer/React/CDN.
         assert "framer" not in APP_JS.lower()
         assert "framer" not in INDEX.lower()
-        assert not re.search(r"\breact\b", APP_JS.lower())
-        assert not re.search(r"\breact\b", INDEX.lower())
+        # NOTE (MCA-23 фаза 2, P2-B): пин «без React-библиотеки» уточнён до
+        # библиотечных сигнатур — прежний голый `\breact\b` ловил ДОМЕННЫЕ
+        # термины координатора (ключ `react:` в подписях действий виджета
+        # сводки; текст REACT/SILENT в подсказке Writer-деградации).
+        # Библиотечные паттерны (import/require/bundle/window.React/
+        # React.* API/ReactDOM) пинятся жёстко — инвариант не ослаблен.
+        react_lib = re.compile(
+            r"from\s+['\"]react['\"]"
+            r"|require\(\s*['\"]react['\"]\s*\)"
+            r"|(?:^|[/\s'\"])" r"react(?:-dom)?" r"(?:[.-](?:production|development))?"
+            r"(?:\.min)?\.js"
+            r"|window\.React(?:DOM)?\b"
+            r"|\bReact\.\w"
+            r"|\bReactDOM\b")
+        assert not react_lib.search(APP_JS)
+        assert not react_lib.search(INDEX)
         assert 'src="/static/vendor/vue.global.prod.min.js"' in INDEX
         assert 'href="http' not in INDEX.split("lg-lens")[0][-400:]
 
@@ -175,7 +189,7 @@ class TestFlagsAcceptance:
     def test_app_version_bumped(self):
         # T-2834: HOTFIX9 bump 2.58.11 → 2.58.12 (cache-bust shell/glass/aurora).
         m = re.search(r'APP_VERSION = "([\d.]+)"', SETTINGS)
-        assert m and m.group(1) == "2.58.70", m and m.group(1)
+        assert m and m.group(1) == "2.58.71", m and m.group(1)
 
     def test_env_only_flags_delivered(self):
         for flag in HOTFIX8_FLAGS:

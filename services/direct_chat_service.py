@@ -103,6 +103,7 @@ from services import command_prefix  # ASAP-3: persona-name force-детект (
 from services import mca_intents as _mca_intents  # MCA-09 (D3, T-5029)
 from services import telegram_send as _tg_send     # MCA-09 (T-5038: транспорт)
 from services import response_extent as _extent  # MCA-23 (W3): ResponsePlan
+from services import response_document as _rd  # MCA-23 фаза 2 (§22): артефакт
 from services.chat_params import (
     chat_summary_enabled,
     get_chat_param as _cp_g,  # G-3 per-chat
@@ -2329,6 +2330,14 @@ class DirectChatService:
                                 chat_id, _scrubbed)
                         longform_max_tokens = \
                             _extent.longform_max_output_tokens()
+                    try:   # MCA-23 §33 (P2-B): planned-слой ExecutionGraph —
+                        # единственная guarded интеграционная точка, fail-open.
+                        from services import execution_graph_source as _egs
+                        _egs.record_response_plan(
+                            correlation_id, plan=response_plan,
+                            action=pre_action)
+                    except Exception:
+                        pass
             time_line = await self._chat_time_line(chat_id)
             payload = build_messages(system_prompt, user_blocks,
                                      time_line=time_line)
@@ -2472,6 +2481,25 @@ class DirectChatService:
                 payload = _llm_react.inject_decision_task(
                     payload, _decision_allowed_actions,
                     _llm_react.ALLOWED_LLM_REACTIONS)
+            # ── MCA-23 фаза 2 (§20): clarification — нормальный исход ────
+            # media/transcription-запрос без разрешимой цели (нет ссылки ни
+            # в сообщении, ни в реплае, ни нативного медиа) → ОДИН конкрет-
+            # ный уточняющий вопрос (детерминированный, 0 LLM). Цель
+            # разрешима из reply → не спрашиваем (§20).
+            if (response_plan is not None and self.tool_router is not None
+                    and not decision_llm_pending):
+                _has_target = (bool(getattr(tool_ctx, "resolved_url", None))
+                               or bool(getattr(tool_ctx, "native_media",
+                                               None)))
+                _clarify = _extent.clarification_question(
+                    response_plan, has_target=_has_target)
+                if _clarify:
+                    logger.info(
+                        "[direct] clarify | chat=%s | kind=%s", chat_id,
+                        response_plan.task_kind)
+                    await send_chunked_reply(bot, chat_id, _clarify,
+                                             message.message_id)
+                    return
             try:
                 async with typing_active(bot, chat_id):
                     if self.tool_router is not None:
@@ -2492,6 +2520,27 @@ class DirectChatService:
                                 _tools_tokens = 0
                             _fb_adapter = _fb_factory(
                                 time_line, extra_reserve=_tools_tokens)
+                        # ── MCA-23 фаза 2 (§17): bounded multi-tool DAG ──
+                        # Детерминированный план (0 LLM) ТОЛЬКО для явных
+                        # мульти-данных запросов (напр. «сравни две ссылки»):
+                        # <2 исполняемых шага → None (обычный model-driven
+                        # путь цикла, байт-паритет). Шаги — только имена из
+                        # runtime-набора анонсированных схем (§38).
+                        _tool_plan = None
+                        if (response_plan is not None
+                                and response_plan.tool_policy != "none"
+                                and _extent.tool_plan_enabled()):
+                            try:
+                                _announced = {
+                                    t["function"]["name"] for t in
+                                    active_tools(bool(lore_enabled),
+                                                 bool(image_enabled))}
+                                _tool_plan = _extent.build_tool_plan(
+                                    query, available_tools=_announced)
+                            except Exception:  # план не роняет запрос
+                                _tool_plan = None
+                            if not _tool_plan:
+                                _tool_plan = None
                         raw = await chat_with_tools(
                             self.llm, payload,
                             tools=active_tools(bool(lore_enabled),
@@ -2500,7 +2549,9 @@ class DirectChatService:
                             temperature=temperature, chat_id=chat_id,
                             module="direct_chat",
                             correlation_id=correlation_id,
-                            fallback_payload_adapter=_fb_adapter)
+                            fallback_payload_adapter=_fb_adapter,
+                            max_output_tokens=longform_max_tokens,
+                            tool_plan=_tool_plan)
                     else:
                         # ASAP-3.1 §14/§42: fallback recompose — при
                         # переключении на fallback-модель payload
@@ -2759,7 +2810,12 @@ class DirectChatService:
                     and bool(getattr(raw, "tool_trace", None))
                     and not getattr(tool_ctx, "lore_compiled", False)
                     and (coordinator is None
-                         or coordinator.action == ACTION_TOOL)):
+                         or coordinator.action == ACTION_TOOL)
+                    # MCA-23 фаза 2 (§18-I): media-план с УСПЕШНО доставлен-
+                    # ным медиа — Writer-регенерация бесполезна (тул уже
+                    # отправил файл; idempotent). Провал media-тула → Writer
+                    # работает как раньше (честная деградация §19).
+                    and _extent.media_writer_needed(response_plan, raw)):
                 synthesized = await self._synthesize_direct_answer(
                     chat_id, query, raw, temperature,
                     correlation_id=correlation_id,
@@ -2911,6 +2967,10 @@ class DirectChatService:
             # (aiogram<3.30 / capability / TelegramBadRequest) → прежний
             # safe-HTML/plain путь на ТОМ ЖЕ answer (без регенерации, §O).
             # Дедуп/freshness/ledger не затронуты: наружу — id доставленного.
+            # MCA-23 фаза 2 (§22): финальный ответ — typed artifact
+            # ResponseDocument; plain и rich рендерят ОДИН документ
+            # (Rich fail → Plain того же документа без регенерации).
+            response_document = _rd.document_from_answer(answer)
             _rich_wanted = (
                 response_plan is not None
                 and response_plan.delivery_hint == "rich"
@@ -2923,7 +2983,8 @@ class DirectChatService:
                 bot, chat_id, answer, message.message_id,
                 lore=bool(getattr(tool_ctx, "lore_compiled", False)),
                 deep_research=(response_mode == "deep_research"),
-                rich=_rich_wanted)
+                rich=_rich_wanted,
+                document=response_document)
             if sent_id is not None:
                 answer_text = answer
                 # MCA-07 (T-3852, D11): `context_version`/число исключений —
@@ -3240,7 +3301,8 @@ class DirectChatService:
                                   reply_to: int | None, *,
                                   lore: bool = False,
                                   deep_research: bool = False,
-                                  rich: bool = False):
+                                  rich: bool = False,
+                                  document=None):
         """Доставка ответа DirectChat (раунд 10.20, T-1892, О5/ADR-1020-6 п.3).
 
         Обычный путь — байт-в-байт `parse_mode=None`. Под-путь safe-HTML
@@ -3263,11 +3325,21 @@ class DirectChatService:
         failure»: same document → Plain). HTML-акценты Вербализатора перед
         rich-каналом снимаются `strip_lore_html` (rich-сборщик строит
         статью сам). Возврат — id доставленного сообщения (ledger/
-        remember_bot_reply работают без изменений)."""
+        remember_bot_reply работают без изменений).
+
+        MCA-23 фаза 2 (§22/§24): ``document`` — ResponseDocument (typed
+        artifact). plain и rich рендерят ОДИН документ: rich-ветка берёт
+        ``rich_text()``, все plain-ветки — ``plain_text()`` (для документа
+        из финального текста это байт-в-байт `answer`); Rich fail → Plain
+        ТОГО ЖЕ документа без регенерации. None → артефакт собирается из
+        `answer` на месте (паритет)."""
+        doc = document if document is not None else \
+            _rd.document_from_answer(answer)
+        text = doc.plain_text()
         if rich:
             try:
                 sent = await _tg_send.send_rich_message(
-                    bot, chat_id, strip_lore_html(answer))
+                    bot, chat_id, strip_lore_html(doc.rich_text()))
                 sent_id = getattr(sent, "message_id", None)
                 if sent_id is not None:
                     return sent_id
@@ -3279,8 +3351,8 @@ class DirectChatService:
                     "[direct] rich send failed — legacy path | chat=%s | "
                     "error=%s", chat_id, type(exc).__name__)
         if not (lore or deep_research):
-            return await send_chunked_reply(bot, chat_id, answer, reply_to)
-        escaped = escape_lore_html(answer)
+            return await send_chunked_reply(bot, chat_id, text, reply_to)
+        escaped = escape_lore_html(text)
         if len(escaped) <= _LORE_HTML_MAX_SINGLE_CHARS:
             try:
                 return await send_chunked_reply(
@@ -3289,10 +3361,10 @@ class DirectChatService:
                 logger.warning(
                     "[direct] safe-HTML send failed — plain fallback | "
                     "chat=%s | error=%s", chat_id, type(exc).__name__)
-                return await send_chunked_reply(bot, chat_id, answer, reply_to)
+                return await send_chunked_reply(bot, chat_id, text, reply_to)
         logger.info("[direct] text too long for safe HTML — plain | "
                     "chat=%s | chars=%d", chat_id, len(escaped))
-        return await send_chunked_reply(bot, chat_id, strip_lore_html(answer),
+        return await send_chunked_reply(bot, chat_id, strip_lore_html(text),
                                         reply_to)
 
     async def _chat_time_line(self, chat_id: int) -> str:

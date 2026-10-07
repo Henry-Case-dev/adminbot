@@ -85,6 +85,25 @@ _SELECT_PRICES_SQL = (
     "SELECT model, input_usd_per_1m, output_usd_per_1m, currency, updated_at "
     "FROM llm_model_prices ORDER BY model ASC"
 )
+# MCA-23 (P2-B §35): агрегаты Direct-ответов за период — СУЩЕСТВУЮЩИЕ строки
+# `llm_usage_events` (module='direct_chat'), одна строка на прогон
+# (correlation_id). Второй телеметрии/DDL нет; осей плана (action/extent/
+# delivery) в durable-событиях НЕТ — распределения за период честно `null`
+# (см. `_response_empty_summary`), свежее in-memory окно отдаёт
+# `execution_graph_source.response_recent_window()`.
+_SELECT_RESPONSE_RUNS_SQL = (
+    "SELECT correlation_id, COUNT(*) AS calls, "
+    "COALESCE(SUM(input_tokens), 0) AS input_tokens, "
+    "COALESCE(SUM(output_tokens), 0) AS output_tokens, "
+    "SUM(cost_usd) FILTER (WHERE price_known) AS cost_known, "
+    "COALESCE(BOOL_AND(price_known), true) AS price_known, "
+    "COUNT(*) FILTER (WHERE step = 'tool') AS tool_calls, "
+    "GREATEST(EXTRACT(EPOCH FROM (MAX(ts) - MIN(ts))) * 1000.0, 0.0) "
+    "AS span_ms, MIN(ts) AS first_ts "
+    "FROM llm_usage_events WHERE module = 'direct_chat' "
+    "AND ts >= now() - ($1::int * interval '1 day') "
+    "GROUP BY correlation_id ORDER BY MIN(ts) DESC LIMIT 2000"
+)
 _UPSERT_PRICE_SQL = (
     "INSERT INTO llm_model_prices "
     "(model, input_usd_per_1m, output_usd_per_1m, currency, updated_at) "
@@ -312,6 +331,132 @@ async def execution_latest(
                            exc_info=True)
             rows = []
     return _execution_response(rid, snapshot, rows)
+
+
+# ── MCA-23 (P2-B §35): агрегаты «Ответ (Pipeline)» — 24ч / 7 дней ───────────
+
+_RESPONSE_PERIODS = {"24h": 1, "7d": 7}
+
+
+def _response_empty_summary(period: str) -> dict:
+    """Честная пустая форма (fail-open; нет событий → не выдумываем числа)."""
+    return {
+        "period": period, "days": _RESPONSE_PERIODS.get(period),
+        "available": False, "runs": 0, "calls": 0,
+        "tools_per_run": None, "multi_tool_rate": None,
+        # Ошибки инструментов в `llm_usage_events` не пишутся → честно None.
+        "tool_failure_rate": None,
+        "tokens": {"input_tokens": 0, "output_tokens": 0},
+        "cost_usd": None, "price_known": True,
+        # Latency по span'у LLM-вызовов (первый→последний вызов прогона);
+        # нет событий → None.
+        "latency": {"p50_ms": None, "p95_ms": None,
+                    "source": "llm_call_span"},
+        # Распределения осей плана (action/extent/delivery) за период:
+        # durable-осей в существующих событиях нет → честно None (§14 ASAP 6).
+        "plan_axes": None,
+        "recent": execution_graph_source.response_recent_window(),
+        "note_ru": ("Распределения действий/объёма/доставки за период "
+                    "недоступны: оси плана живут в in-memory окне "
+                    "(«Свежие прогоны» ниже)."),
+    }
+
+
+def _p_value(values: list, q: float):
+    if not values:
+        return None
+    data = sorted(float(v) for v in values if v is not None)
+    if not data:
+        return None
+    if len(data) == 1:
+        return round(data[0], 1)
+    pos = q * (len(data) - 1)
+    lo = int(pos)
+    hi = min(lo + 1, len(data) - 1)
+    frac = pos - lo
+    return round(data[lo] * (1 - frac) + data[hi] * frac, 1)
+
+
+def _p95(values: list):
+    return _p_value(values, 0.95)
+
+
+def _p50(values: list):
+    return _p_value(values, 0.5)
+
+
+@analytics_router.get("/analytics/response/summary")
+async def response_pipeline_summary(
+    request: Request,
+    user: Annotated[WebAppUser, Depends(requires_global_admin())],
+    period: str = Query(default="24h"),
+):
+    """MCA-23 (§35): агрегаты Direct-ответов за 24ч/7д из СУЩЕСТВУЮЩИХ
+    ``llm_usage_events`` (module='direct_chat') + свежее in-memory окно
+    (``execution_graph_source.response_recent_window``). Read-only,
+    аддитивный; вторая telemetry-модель не создаётся (§33). Fail-open:
+    нет данных/PG down → честная пустая форма («—», не выдуманные %)."""
+    period = str(period or "").strip().lower()
+    days = _RESPONSE_PERIODS.get(period)
+    if days is None:
+        period = "24h"
+        days = 1
+    empty = _response_empty_summary(period)
+    cache = get_cache(request)
+    pool = _pool(cache)
+    if pool is None or not usage_events.is_enabled():
+        return empty
+    try:
+        async with pool.acquire() as conn:
+            raw = await conn.fetch(_SELECT_RESPONSE_RUNS_SQL, days)
+    except Exception:
+        logger.warning("[analytics] response summary read failed — fail-open",
+                       exc_info=True)
+        return empty
+    runs = len(raw)
+    if not runs:
+        return empty
+    calls = in_toks = out_toks = tool_calls = 0
+    cost = 0.0
+    cost_known = True
+    spans: list = []
+    multi_tool_runs = 0
+    for row in raw:
+        c = _int(row["calls"])
+        calls += c
+        in_toks += _int(row["input_tokens"])
+        out_toks += _int(row["output_tokens"])
+        t = _int(row["tool_calls"])
+        tool_calls += t
+        if t > 1:
+            multi_tool_runs += 1
+        if _bool(row, "price_known", True):
+            cost += _num(row["cost_known"])
+        else:
+            cost_known = False
+        span = _num(row["span_ms"])
+        if span is not None and span > 0:
+            spans.append(span)
+    return {
+        "period": period, "days": days, "available": True,
+        "runs": runs, "calls": calls,
+        "tools_per_run": (round(tool_calls / runs, 2) if runs else None),
+        "multi_tool_rate": (round(multi_tool_runs / runs, 4)
+                            if runs else None),
+        # Ошибки tool-вызовов в usage events не записываются → честный None.
+        "tool_failure_rate": None,
+        "tokens": {"input_tokens": in_toks, "output_tokens": out_toks},
+        "cost_usd": (round(cost, 6) if (cost_known and cost > 0) else None),
+        "price_known": cost_known,
+        "latency": {"p50_ms": _p50(spans), "p95_ms": _p95(spans),
+                    "source": "llm_call_span",
+                    "label_ru": "между первым и последним LLM-вызовом прогона"},
+        "plan_axes": None,
+        "recent": execution_graph_source.response_recent_window(),
+        "note_ru": ("Распределения действий/объёма/доставки за период "
+                    "недоступны: оси плана живут в in-memory окне "
+                    "(«Свежие прогоны» ниже)."),
+    }
 
 
 @analytics_router.get("/analytics/context-budgets")

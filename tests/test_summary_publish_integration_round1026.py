@@ -1310,7 +1310,7 @@ class TestBoundaries:
         assert len(pc.TAB_RULES) == 22
 
     def test_app_version(self):
-        assert APP_VERSION == "2.58.70"
+        assert APP_VERSION == "2.58.71"
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
         assert "v2.58.34" in readme
 
@@ -1330,7 +1330,9 @@ class TestBoundaries:
             current)))
         # Санкционированный набор (S6 + последующие релизы + ASAP-3.1
         # + ASAP-4 волна E: Run Inspector — read-only, global-admin,
-        # spec §5 E.2, ADR-1028-7 D8).
+        # spec §5 E.2, ADR-1028-7 D8
+        # + NOTE MCA-23 фаза 2 P2-B: аддитивный read-only GET
+        # /analytics/response/summary — виджет «Сводка ответов»).
         assert routes == sorted([
             "/analytics/usage/latest",
             "/analytics/usage/summary",
@@ -1339,6 +1341,7 @@ class TestBoundaries:
             "/analytics/context-budgets",
             "/analytics/pipeline/inspector",
             "/analytics/pipeline/runs/{run_id}",
+            "/analytics/response/summary",
         ]), routes
         # PUT prices — единственная запись (управление ценами, legacy).
         assert '@analytics_router.put("/analytics/prices")' in current

@@ -231,6 +231,7 @@ from services.database import (  # noqa: E402
     _SCHEMA_VERSION_SELF_MODEL as _SCHEMA_VERSION_TAIL_V31,
     _SCHEMA_VERSION_MEDIA_VISION as _SCHEMA_VERSION_TAIL_V32,
     _SCHEMA_VERSION_FACTCHECK_TEMPORAL as _SCHEMA_VERSION_TAIL_V33,
+    _SCHEMA_VERSION_EMBEDDING_GENERATION_NS as _SCHEMA_VERSION_TAIL_V34,
 )
 # mca-10b (ADR-1028-17 D15, санкция §13.1): хвост реестра — v30
 # (random_uses) — mark обновлён по той же конвенции (прецедент v27→v28→v29).
@@ -243,7 +244,11 @@ from services.database import (  # noqa: E402
 # mca-20 (ADR-1028-20 D3/D13, санкция spec §7.1): хвост реестра — v33
 # (factcheck_temporal: mca_factcheck_runs/evidence + 3 индекса) — mark
 # обновлён по той же конвенции (прецедент v31→v32).
-_SCHEMA_VERSION_STORIES_MARK = _SCHEMA_VERSION_TAIL_V33
+# NOTE (P2-D, ASAP 6 §8, санкция `mca-14` реестр): хвост реестра — v34
+# (embedding_generation_namespace_v34: namespace/config_revision в
+# mca_embedding_index_generations + NS-индекс) — mark обновлён по той же
+# конвенции волн (прецедент v32→v33).
+_SCHEMA_VERSION_STORIES_MARK = _SCHEMA_VERSION_TAIL_V34
 
 
 # ═══ Kill-switch OFF-паритет (SC-20, T-4249) ═════════════════════════════════
