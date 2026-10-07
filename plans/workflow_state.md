@@ -7,10 +7,13 @@ Primary phase: build
 Active feature: mca23-phase-2
 
 Active lanes:
-- P2-A-multi-tool | Builder | writer | MCA-23 ф2 | bg:pending | multi-tool DAG executor + ResponseDocument + media delivery + tool-путь max_tokens
-- P2-B-graph | Builder | writer | MCA-23 ф2 | bg:pending | ExecutionGraph planned-vs-actual + Analytics Response Pipeline + Golden E2E A-R
-- (после) P2-C-help | Builder | writer | MCA-23 ф2 | bg:pending | Help re-sync (MCA-21 механизм) после production acceptance ф2
-- (паралл.) P2-D-embed-scope | Builder | writer | ASAP6 S5 | bg:pending | embedding generations chat/namespace scope + классы совместимости
+- P2-C-help | Builder | writer | MCA-23 ф2 | bg:ses_ee8a01720ffezjtyogJcOh29ME | Help re-sync: каноны GUIDE v3→v4 / INFO v6→v7, слепки, миграции
+
+Done:
+- DEPLOY VERIFIED 2.58.71 (8b44669): multi-tool DAG, ResponseDocument, planned-vs-actual + Analytics Pipeline-виджет, embeddings namespace-safety v34 (миграция прошла на проде, бот поднялся после медленного старта), healthz ok, RBAC 401, boot 0 ошибок
+- Golden E2E каркас A–R 18/18 (stub); live-сценарии — за владельцем в чате (бот, напиши фанфик / сравни две статьи)
+- Финальный pytest: 12670 passed / 4 pre-existing + mca09-flake (изолированно зелёный); js 69/69; F5 закрыл 11 амортизаций (E — не баг: санкционированный clarification §20; G — ложное срабатывание react:)
+- Push: bbfd8fb..8b44669 (вкл. docs 37552a1)
 
 Join barriers:
 - P2-A + P2-B зелёные → Golden E2E A–R → production acceptance MCA-23 → P2-C Help → coverage-gate полного current_task §25 → закрытие ASAP 6
