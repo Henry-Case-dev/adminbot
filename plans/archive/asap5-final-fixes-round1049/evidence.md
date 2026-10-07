@@ -737,3 +737,67 @@ NB: summary_generator/web/app.js/web/index.html содержат также ле
   (kind=cover_base читается `load_base_cover_manifest`, отдельная
   поверхность — T-5253-хвост при live-приёмке T-5274); визуальная
   приёмка §15E#2–#4 — T-5266/T-5274 owner.
+
+
+---
+
+## P0 miniapp blank (07.10.2026, hotfix-лейн H1-miniapp-blank)
+
+**Симптом (прод 2.58.69):** миниапп в Telegram показывает только polygon-фон,
+Vue не монтируется. Локальные js 64/64 и E2E mca-12 (десктоп) зелёные.
+
+**Root cause (механизм):** render-краш Vue 3 на форме ответа `no_chat`.
+1. Boot «Статуса» → `startStoriesPolling()` (mca-12) → `GET /api/stories/summary`
+   без выбранного чата → `web/api/stories.py:110` честно отвечает
+   `{"state": "no_chat", "counters": null, "progress": null, ...}`.
+2. Шаблон витрины «Истории чата» (mca-12): `v-if="storiesSummary && storiesSummary.counters.pending_verification"`
+   — `counters` не guardился → `TypeError: Cannot read properties of null
+   (reading 'pending_verification')` на render-фазе.
+3. Непойманный render-error в prod-сборке Vue валил весь patch: `#app`
+   пуст, фон (вне #app) жив. Воспроизведён 1-в-1 в консоли браузера.
+
+**Атрибуция:** unguarded v-if вошёл в mca-12 (2.58.65, 3dfc892); в 2.58.64
+(0db30a2) `storiesSummary` в index.html отсутствует. Проявлялся у любого
+запуска без выбранного чата (первые TMA-открытия после 2.58.65, реальная
+live-приёмка владельца — T-5175/T-5274 owner-гейты).
+
+**Почему пропущено тестами:** E2E/js-моки всегда давали `state:"ok"` с
+непустыми `counters` (ui_mca12_stories_e2e SUMMARY); форма `no_chat` против
+реального шаблона не прогонялась.
+
+**Фикс (минимальный, 1 строка):** web/index.html:6235 —
+`v-if="storiesSummary && storiesSummary.counters && storiesSummary.counters.pending_verification"`.
+
+**Регресс-тест (RED-first):** tests/js/p0_stories_no_chat_render_test.js —
+извлекает реальный фрагмент шаблона из index.html, компилирует self-host
+Vue 3.5.42 и исполняет render с продовой формой `no_chat`; до фикса падает
+тем же TypeError, после — badge скрыт (no_chat) / присутствует (ok).
+`P0-STORIES-NO-CHAT-RENDER-OK`.
+
+**Верификация:**
+- реплей реальных продовых payload'ов (29 эндпоинтов, валидная подпись
+  initData строилась in-memory на проде, токен не покидал сервер, дампы
+  редactированы) локальным статик-сервером + Playwright (TMA-эмуляция
+  android/tdesktop, launch-hash tgWebAppData): до фикса `#app` пуст +
+  TypeError; после фикса 4/4 кейса `appChildren=2`, `pageerrors: []`,
+  UI с живыми данными (скриншот: «Статус», Ошибки: 0/Предупреждения: 3,
+  polling, bottom-nav).
+- js: 65/65 (64 + новый); сфокусированные pytest (asap5_cover_manifest_web,
+  mca12_stories_round1046, webapp_api/js_unit/parity_smoke/tma_fixes/
+  back_button/f11): 311 passed; E2E `MCA12-STORIES-E2E-OK` (probes=4).
+- CSP прод (`script-src 'self' 'unsafe-eval'`), байты прод
+  index/app.js (sha256 `a778fe9b…`/`d6c3f3a8…`) и статика 13/13 проверены —
+  исключены как причина.
+
+**Деплой-готовность (hotfix):** дельта = web/index.html (1 строка) +
+tests/js/p0_stories_no_chat_render_test.js (new). DDL=0, миграций нет;
+index.html рендерится в память при старте (`_render_index`) и отдаётся
+no-store → нужен рестарт сервиса после pull (стандарт ×2, healthz).
+APP_VERSION не трогал (release-owned свип — решение оркестратора;
+для доставки не требуется: index.html не кэшируется). Байт-хеш
+t5270_candidate_hashes.json (index.html 1673bf0e) — исторический биндинг
+кандидата T-5270, живых гейтов на HEAD не блокирует (311 focused passed).
+
+**Отклонение пути:** plans/features/asap5-final-fixes/ к моменту аппенда
+заархивирована PM в plans/archive/asap5-final-fixes-round1049/ — секция
+дописана в archived evidence.md (тот же документ).

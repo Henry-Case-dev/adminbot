@@ -6232,7 +6232,7 @@
                 <span v-if="storiesSummary && storiesSummary.state === 'ok'" class="badge badge-muted">
                   новые/дополненные ({{ storiesSummary.window_hours }}ч): {{ storiesSummary.counters.new_window }}/{{ storiesSummary.counters.extended_window }}
                 </span>
-                <span v-if="storiesSummary && storiesSummary.counters.pending_verification"
+                <span v-if="storiesSummary && storiesSummary.counters && storiesSummary.counters.pending_verification"
                       class="badge badge-warn">ожидают проверки: {{ storiesSummary.counters.pending_verification }}</span>
                 <span class="text-[10px] text-gray-500" :title="storiesFeedError ? 'данные устарели — лента недоступна' : ''">
                   <template v-if="storiesFeedPaused">пауза</template>
