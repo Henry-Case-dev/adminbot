@@ -1,12 +1,12 @@
 # F8 — `param-registry-round1025` — провенанс `.meta.md`
 
-- **APP_VERSION:** `2.58.71`
-- **HEAD (short):** `37552a1`
+- **APP_VERSION:** `2.58.72`
+- **HEAD (short):** `08a8849`
 - **Источник:** `services/param_catalog.py` (REGISTRY/GROUPS/_TAB_BY_GROUP/TAB_RULES) + `inventory.tsv` (10.14) для дельты.
-- **Счётчики каталога:** REGISTRY **529** / GROUPS **113** / `_TAB_BY_GROUP` **111** / TAB_RULES **22**.
-- **Реестр:** 529 строк == REGISTRY.
+- **Счётчики каталога:** REGISTRY **538** / GROUPS **115** / `_TAB_BY_GROUP` **113** / TAB_RULES **23**.
+- **Реестр:** 538 строк == REGISTRY.
 - **inventory.tsv (10.14):** 411 baseline-ключей.
-- **Дельта 411 → 529 = 118** новых ключей (`status=new`).
+- **Дельта 411 → 538 = 127** новых ключей (`status=new`).
 - **Команда генерации:** `python tools/gen_param_registry_round1025.py`
 - **Проверка (маркер):** `python tools/gen_param_registry_round1025.py --check`
 
@@ -22,7 +22,7 @@
 - `-` = поле неприменимо/отсутствует (документированное отсутствие).
 - `ui_visibility=api-only` — ключ существует (env/каталог), но UI-места нет → **не** считается сохранённым в UI.
 
-## Дельта 411 → 529 = 118 (ключи, отсутствовавшие в inventory.tsv)
+## Дельта 411 → 538 = 127 (ключи, отсутствовавшие в inventory.tsv)
 
 - `api_token`
 - `betterstack_host`
@@ -40,7 +40,11 @@
 - `flags.chat_decision_reactions_enabled`
 - `flags.chat_silent_ack_enabled`
 - `flags.image_generation_module_enabled`
+- `flags.initiative_enabled`
+- `flags.intent_decision_enabled`
+- `flags.intent_heartbeat_enabled`
 - `flags.lore_compiler_enabled`
+- `flags.send_recheck_enabled`
 - `flags.summary_hybrid_l1_repair_enabled`
 - `flags.summary_hybrid_l1_retry_enabled`
 - `flags.summary_hybrid_l2_enabled`
@@ -68,6 +72,11 @@
 - `limits.factcheck_context_before`
 - `limits.image_daily_limit`
 - `limits.import_history_retention_days`
+- `limits.intent_candidates_max`
+- `limits.intent_defer_backoff_seconds`
+- `limits.intent_heartbeat_batch_max`
+- `limits.intent_max_attempts`
+- `limits.intent_retention_days`
 - `limits.summary_hybrid_context_chars`
 - `limits.summary_hybrid_context_tokens`
 - `limits.summary_hybrid_max_chars`

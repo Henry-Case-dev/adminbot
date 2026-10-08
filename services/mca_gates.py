@@ -1259,72 +1259,110 @@ def experience_bootstrap_enabled() -> bool:
 
 
 # ── mca-09 (ADR-1028-16 D10): K1–K4 Intent/инициативы + env-only лимиты ────
-def intents_enabled() -> bool:
-    """`MCA_INTENTS_ENABLED` (master, env-only, default ON; K1).
+# ASAP 7 (F3, §3.3): effective = env-emergency AND product-toggle. Env-ось —
+# settings-атрибут (per-call, аварийный рубильник); product-ось — каталоговый
+# ключ (hot, без рестарта). Дефолты обеих осей ON; OFF любой → OFF.
+def _intent_catalog_flag(pg_key: str, default: bool = True) -> bool:
+    """Каталоговая product-ось Intent-гейта (hot; fail-open → default ON)."""
+    try:
+        from services import hot_config
+        return bool(hot_config.get(pg_key, default))
+    except Exception:          # pragma: no cover — старое поведение (env-only)
+        return default
 
-    ON → Intent-контур активен (v29, heartbeat, кандидаты, события).
-    OFF → бит-в-бит 2.58.59: ни записей, ни чтений v29, ни heartbeat-джоба,
-    ни кандидатов/событий; nostalgia — legacy direct-send."""
-    return bool(getattr(settings, "MCA_INTENTS_ENABLED", True))
+
+def intents_enabled() -> bool:
+    """`MCA_INTENTS_ENABLED` (мастер; effective = env AND `flags.initiative_enabled`).
+
+    env-emergency OFF → OFF (важнее UI, §3.3); product-тумблер OFF → OFF
+    (hot, без рестарта); оба ON → ON. OFF = бит-в-бит 2.58.59: ни записей,
+    ни чтений v29, ни heartbeat-джобы, ни кандидатов/событий; nostalgia —
+    legacy direct-send."""
+    if not bool(getattr(settings, "MCA_INTENTS_ENABLED", True)):
+        return False
+    return _intent_catalog_flag("flags.initiative_enabled", True)
 
 
 def intent_heartbeat_enabled() -> bool:
-    """`MCA_INTENT_HEARTBEAT_ENABLED` (env-only, default ON; K2).
+    """`MCA_INTENT_HEARTBEAT_ENABLED` (K2; effective = env AND `flags.intent_heartbeat_enabled`).
 
     Инертен при K1 OFF. ON → due-скан/тик работает. OFF → тик не работает
     (создание/закрытие намерений возможно, due-кандидатов нет)."""
     if not intents_enabled():
         return False
-    return bool(getattr(settings, "MCA_INTENT_HEARTBEAT_ENABLED", True))
+    if not bool(getattr(settings, "MCA_INTENT_HEARTBEAT_ENABLED", True)):
+        return False
+    return _intent_catalog_flag("flags.intent_heartbeat_enabled", True)
 
 
 def intent_decision_enabled() -> bool:
-    """`MCA_INTENT_DECISION_ENABLED` (env-only, default ON; K3).
+    """`MCA_INTENT_DECISION_ENABLED` (K3; effective = env AND `flags.intent_decision_enabled`).
 
     Инертен при K1 OFF. ON → инициативные решения/делегирование nostalgia
     выполняются. OFF → инициативные решения не выполняются (nostalgia
     legacy), recheck-путь инертен."""
     if not intents_enabled():
         return False
-    return bool(getattr(settings, "MCA_INTENT_DECISION_ENABLED", True))
+    if not bool(getattr(settings, "MCA_INTENT_DECISION_ENABLED", True)):
+        return False
+    return _intent_catalog_flag("flags.intent_decision_enabled", True)
 
 
 def send_recheck_enabled() -> bool:
-    """`MCA_SEND_RECHECK_ENABLED` (env-only, default ON; K4).
+    """`MCA_SEND_RECHECK_ENABLED` (K4; effective = env AND `flags.send_recheck_enabled`).
 
     Инертен при K1 OFF. ON → единый `SendRecheck` выполняется на границе
     отправки инициативных/отложенных решений. OFF → новый recheck-слой не
     выполняется (документированное подмножество: существующие гейты)."""
     if not intents_enabled():
         return False
-    return bool(getattr(settings, "MCA_SEND_RECHECK_ENABLED", True))
+    if not bool(getattr(settings, "MCA_SEND_RECHECK_ENABLED", True)):
+        return False
+    return _intent_catalog_flag("flags.send_recheck_enabled", True)
+
+
+def _intent_catalog_int(pg_key: str, env_name: str, default: int,
+                        minimum: int) -> int:
+    """Каталоговый лимит Intent (hot) с env/settings-фолбэком и clamp (≥min)."""
+    fallback = int(getattr(settings, env_name, default))
+    try:
+        from services import hot_config
+        value = int(hot_config.get(pg_key, fallback))
+    except Exception:          # pragma: no cover — старое поведение (env-only)
+        value = fallback
+    return max(minimum, value)
 
 
 def intent_heartbeat_batch_max() -> int:
-    """`MCA_INTENT_HEARTBEAT_BATCH_MAX` (env-only, default 20; ≥1)."""
-    return _int_setting_min("MCA_INTENT_HEARTBEAT_BATCH_MAX", 20, 1)
+    """`MCA_INTENT_HEARTBEAT_BATCH_MAX` (каталог `limits.intent_heartbeat_batch_max`, default 20; ≥1)."""
+    return _intent_catalog_int("limits.intent_heartbeat_batch_max",
+                               "MCA_INTENT_HEARTBEAT_BATCH_MAX", 20, 1)
 
 
 def intent_max_attempts() -> int:
-    """`MCA_INTENT_MAX_ATTEMPTS` (env-only, default 3; ≥1)."""
-    return _int_setting_min("MCA_INTENT_MAX_ATTEMPTS", 3, 1)
+    """`MCA_INTENT_MAX_ATTEMPTS` (каталог `limits.intent_max_attempts`, default 3; ≥1)."""
+    return _intent_catalog_int("limits.intent_max_attempts",
+                               "MCA_INTENT_MAX_ATTEMPTS", 3, 1)
 
 
 def intent_candidates_max() -> int:
-    """`MCA_INTENT_CANDIDATES_MAX` (env-only, default 8; ≥1)."""
-    return _int_setting_min("MCA_INTENT_CANDIDATES_MAX", 8, 1)
+    """`MCA_INTENT_CANDIDATES_MAX` (каталог `limits.intent_candidates_max`, default 8; ≥1)."""
+    return _intent_catalog_int("limits.intent_candidates_max",
+                               "MCA_INTENT_CANDIDATES_MAX", 8, 1)
 
 
 def intent_retention_days() -> int:
-    """`MCA_INTENT_RETENTION_DAYS` (env-only, default 180; ≥1)."""
-    return _int_setting_min("MCA_INTENT_RETENTION_DAYS", 180, 1)
+    """`MCA_INTENT_RETENTION_DAYS` (каталог `limits.intent_retention_days`, default 180; ≥1)."""
+    return _intent_catalog_int("limits.intent_retention_days",
+                               "MCA_INTENT_RETENTION_DAYS", 180, 1)
 
 
 def intent_defer_backoff_seconds() -> int:
-    """`MCA_INTENT_DEFER_BACKOFF_SECONDS` (env-only, default 1800; ≥60).
+    """`MCA_INTENT_DEFER_BACKOFF_SECONDS` (каталог `limits.intent_defer_backoff_seconds`, default 1800; ≥60).
 
     Bounded backoff «не тот момент» — не nag-таймер обязательной речи."""
-    return _int_setting_min("MCA_INTENT_DEFER_BACKOFF_SECONDS", 1800, 60)
+    return _intent_catalog_int("limits.intent_defer_backoff_seconds",
+                               "MCA_INTENT_DEFER_BACKOFF_SECONDS", 1800, 60)
 
 
 # ── mca-18 (ADR-1028-18 §8.3): K1–K3 SelfModel + env-only пороги ────────────

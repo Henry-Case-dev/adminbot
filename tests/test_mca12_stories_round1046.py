@@ -785,19 +785,20 @@ def test_settings_meta_defaults_match_settings():
         return raw.strip('"')
 
     expected_fields = {
-        "memory.random_exploration_probability":
-            "RANDOM_EXPLORATION_PROBABILITY",
-        "memory.random_sleep_exploration_probability":
-            "RANDOM_SLEEP_EXPLORATION_PROBABILITY",
-        "memory.random_source": "RANDOM_SOURCE",
-        "memory.random_fallback_to_pseudorandom":
-            "RANDOM_FALLBACK_TO_PSEUDORANDOM",
-        "limits.worker_daily_llm_calls_per_chat":
-            "WORKER_DAILY_LLM_CALLS_PER_CHAT",
-        "limits.worker_daily_llm_calls_global":
-            "WORKER_DAILY_LLM_CALLS_GLOBAL",
-        "flags.budgets_enabled": "BUDGETS_ENABLED",
-        "limits.chat_context_budget_tokens": "CHAT_CONTEXT_BUDGET_TOKENS",
+        # ASAP 7 (F3, §3.2): «Настройки блока» §16.3 показывает СОБСТВЕННЫЕ
+        # ключи Initiative (flags_intent/limits_intent); чужие random/budget
+        # ключи убраны (фикс P7-C-3) — пин гоняется за новым каноном.
+        "flags.initiative_enabled": "MCA_INTENTS_ENABLED",
+        "flags.intent_heartbeat_enabled": "MCA_INTENT_HEARTBEAT_ENABLED",
+        "flags.intent_decision_enabled": "MCA_INTENT_DECISION_ENABLED",
+        "flags.send_recheck_enabled": "MCA_SEND_RECHECK_ENABLED",
+        "limits.intent_heartbeat_batch_max":
+            "MCA_INTENT_HEARTBEAT_BATCH_MAX",
+        "limits.intent_max_attempts": "MCA_INTENT_MAX_ATTEMPTS",
+        "limits.intent_candidates_max": "MCA_INTENT_CANDIDATES_MAX",
+        "limits.intent_retention_days": "MCA_INTENT_RETENTION_DAYS",
+        "limits.intent_defer_backoff_seconds":
+            "MCA_INTENT_DEFER_BACKOFF_SECONDS",
     }
     from services.param_catalog import REGISTRY
     catalog_keys = {s.pg_key for s in REGISTRY.values()}

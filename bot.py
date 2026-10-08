@@ -132,7 +132,9 @@ from services.anticliche_worker import (
     set_runtime_worker as set_anticliche_worker,
 )
 from services import anticliche_cache
-from handlers.chat_lifecycle import chat_lifecycle_router, setup_chat_lifecycle
+from handlers.chat_lifecycle import (chat_lifecycle_router,
+                                     chat_profile_fallback_middleware,
+                                     setup_chat_lifecycle)
 # ── Раунд 9: DreamWorker («сон», beliefs) — вне summary-гейта (T-824/T-825)
 from services.dream_worker import DreamWorker
 # ── Раунд 9: NostalgiaWorker (слой B ностальгии, T-827/E2)
@@ -893,6 +895,11 @@ async def on_startup():
     # handlers/chat_lifecycle.py; чужие → UNHANDLED) + migrate_to_chat_id.
     # Инклуд-добавка рядом с slava_presence; порядок существующих не менять.
     dp.include_router(chat_lifecycle_router)
+    # ── ASAP 7 (F5, P7-C-2): fallback-регистрация профиля группового чата
+    # по первому сообщению (join-событие пропущено). Outer middleware на
+    # dp.update — единая точка входа ДО диспетчеризации; thin/fail-open;
+    # гейт CHAT_PROFILE_FALLBACK_ENABLED (env, default ON).
+    dp.update.outer_middleware(chat_profile_fallback_middleware)
 
     # 2. Kostik router — user ID 350803143
     dp.include_router(kostik_router)

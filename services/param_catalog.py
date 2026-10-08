@@ -337,6 +337,11 @@ GROUPS: tuple[GroupSpec, ...] = (
               "Размер изображения для распознавания, ёмкость очереди и "
               "антиспам: сколько картинок в минуту распознаётся на участника "
               "и на чат (формат «лимит/залп»).", 36),
+    # limits (37; ASAP 7 F3, §3.2): лимиты модуля «Инициатива» (mod_initiative).
+    GroupSpec("limits_intent", "limits", "Инициатива: лимиты",
+              "Размер батча heartbeat-скана, попыток на намерение, кандидатов "
+              "на решение, срок хранения архива и пауза после «не тот момент».",
+              37),
     # ── flags (19; раунд 10.6 T-1201/T-1180) ───────────────────────────────
     # flags_modules(9) → 7 групп + checkup-флаг в flags_service;
     # flags_chat_behavior(11) → 3 группы; +3 master-флага (D1/A1).
@@ -417,6 +422,14 @@ GROUPS: tuple[GroupSpec, ...] = (
     GroupSpec("flags_summary_legacy", "flags", "Legacy Summary: fallback",
               "Обычное текстовое саммари как страховка: если Hybrid не справился, "
               "пользователь всё равно получит пересказ.", 25),
+    # ── flags (28; ASAP 7 F3, §3.2): рубильники модуля «Инициатива»
+    # (вкладка mod_initiative). Product-оси §3.3; env-kill-switches K1–K4
+    # остаются аварийными (AND-гейт, effective = env AND product).
+    GroupSpec("flags_intent", "flags", "Модуль: Инициатива",
+              "Рубильники проактивных намерений: мастер-тумблер модуля, "
+              "heartbeat due-скана, инициативные решения и проверка перед "
+              "отправкой. Аварийные env-рубильники MCA_* действуют независимо.",
+              27),
     # ── reactions (15; раунд 10.6 T-1185; 10.9: reactions_persons удалена) ──
     # Ре-дизайн 10.2, BUG-3 (spec §10 B): Telegram ID админа — отдельная
     # группа (перенос из reactions_persons).
@@ -2289,6 +2302,83 @@ _TEMPORAL: list[ParamSpec] = [
 ]
 
 
+# ── ASAP 7 (F3, §3.2): модуль «Инициатива» — ровно 9 ParamSpec на вкладке
+# mod_initiative (группы flags_intent ×4 + limits_intent ×5). Product-оси
+# §3.3: ключ каталога (default из СУЩЕСТВУЮЩЕГО settings-атрибута, новые
+# записи Settings НЕ вводятся) + аварийный env-kill-switch как отдельная ось
+# (AND-гейт в services/mca_gates.py; pg_id — человекочитаемый ключ).
+_INTENT: list[ParamSpec] = [
+    ParamSpec("MCA_INTENTS_ENABLED", "MCA_INTENTS_ENABLED",
+              CATEGORY_FLAGS, "Модуль «Инициатива» включён (мастер)", "bool",
+              pg_id="flags.initiative_enabled",
+              group="flags_intent",
+              description="Мастер-тумблер инициативы: выключено — бот не "
+                          "создает и не исполняет намерения, ностальгия "
+                          "работает по legacy-пути. Аварийный env-рубильник "
+                          "MCA_INTENTS_ENABLED важнее UI (эффективно = env "
+                          "И тумблер)."),
+    ParamSpec("MCA_INTENT_HEARTBEAT_ENABLED", "MCA_INTENT_HEARTBEAT_ENABLED",
+              CATEGORY_FLAGS, "Heartbeat: due-скан", "bool",
+              pg_id="flags.intent_heartbeat_enabled",
+              group="flags_intent",
+              description="Фоновый тик (раз в 5 минут) находит намерения, "
+                          "которым пора работать. Выключено — тик не "
+                          "запускается (создание/закрытие намерений "
+                          "сохраняется). Аварийный env: "
+                          "MCA_INTENT_HEARTBEAT_ENABLED."),
+    ParamSpec("MCA_INTENT_DECISION_ENABLED", "MCA_INTENT_DECISION_ENABLED",
+              CATEGORY_FLAGS, "Инициативные решения", "bool",
+              pg_id="flags.intent_decision_enabled",
+              group="flags_intent",
+              description="Разрешает ботам принимать инициативные решения "
+                          "(напомнить/спросить) и делегировать ностальгию. "
+                          "Выключено — инициативных действий нет. Аварийный "
+                          "env: MCA_INTENT_DECISION_ENABLED."),
+    ParamSpec("MCA_SEND_RECHECK_ENABLED", "MCA_SEND_RECHECK_ENABLED",
+              CATEGORY_FLAGS, "Проверка перед отправкой (recheck)", "bool",
+              pg_id="flags.send_recheck_enabled",
+              group="flags_intent",
+              description="Единая проверка актуальности на границе отправки "
+                          "инициативных/отложенных решений. Выключено — "
+                          "recheck-слой не выполняется (действуют обычные "
+                          "гейты). Аварийный env: MCA_SEND_RECHECK_ENABLED."),
+    ParamSpec("MCA_INTENT_HEARTBEAT_BATCH_MAX",
+              "MCA_INTENT_HEARTBEAT_BATCH_MAX",
+              CATEGORY_LIMITS, "Heartbeat: батч due-скана", "int",
+              pg_id="limits.intent_heartbeat_batch_max",
+              group="limits_intent",
+              description="Сколько намерений за один тик heartbeat может "
+                          "взять в работу (минимум 1)."),
+    ParamSpec("MCA_INTENT_MAX_ATTEMPTS", "MCA_INTENT_MAX_ATTEMPTS",
+              CATEGORY_LIMITS, "Попыток на намерение", "int",
+              pg_id="limits.intent_max_attempts",
+              group="limits_intent",
+              description="Сколько раз намерение может пойти в работу, прежде "
+                          "чем попадёт в «исчерпано» (минимум 1)."),
+    ParamSpec("MCA_INTENT_CANDIDATES_MAX", "MCA_INTENT_CANDIDATES_MAX",
+              CATEGORY_LIMITS, "Кандидатов на решение", "int",
+              pg_id="limits.intent_candidates_max",
+              group="limits_intent",
+              description="Максимум кандидатов на одно решение "
+                          "(минимум 1)."),
+    ParamSpec("MCA_INTENT_RETENTION_DAYS", "MCA_INTENT_RETENTION_DAYS",
+              CATEGORY_LIMITS, "Хранение архива, дней", "int",
+              pg_id="limits.intent_retention_days",
+              group="limits_intent",
+              description="Сколько дней хранить завершённые намерения, прежде "
+                          "чем архив чистится (минимум 1)."),
+    ParamSpec("MCA_INTENT_DEFER_BACKOFF_SECONDS",
+              "MCA_INTENT_DEFER_BACKOFF_SECONDS",
+              CATEGORY_LIMITS, "Пауза после «не тот момент», секунд", "int",
+              pg_id="limits.intent_defer_backoff_seconds",
+              group="limits_intent",
+              description="Отложенная («не сейчас») необязательная "
+                          "инициатива вернётся не раньше, чем через этот "
+                          "интервал (минимум 60; ограниченная пауза, "
+                          "а не назойливый таймер)."),
+]
+
+
 def resolve_progressive_level(spec: ParamSpec) -> str:
     """Правило по умолчанию (F-11 §4.1): advanced для групп памяти/RAG и
     ключей с техническими маркерами; явная разметка — приоритет."""
@@ -2351,6 +2441,10 @@ def _build_registry() -> dict[str, ParamSpec]:
         field, title, group, desc = row
         add(ParamSpec(field, field, CATEGORY_FLAGS, title, "bool",
                       group=group, description=desc))
+    # ASAP 7 (F3, §3.2): модуль «Инициатива» — 4 тумблера + 5 лимитов
+    # (pg_id — человекочитаемые ключи; дефолты — существующие Settings-атрибуты).
+    for spec in _INTENT:
+        add(spec)
     for row in _LIMITS:
         if len(row) == 6:      # (field, title, type, group, desc, widget)
             field, title, typ, group, desc, widget = row
@@ -2616,6 +2710,10 @@ TAB_MOD_IMAGES = "mod_images"
 # (nav «Модули»); подключение (models_vision/keys_vision) — «один дом» в
 # llm_providers (прецедент models_images/keys_images).
 TAB_MOD_VISION = "mod_vision"
+# ASAP 7 (F3, §3.2): вкладка модуля «Инициатива» (nav «Модули») — master
+# flags.initiative_enabled + группы flags_intent/limits_intent; env-kill-switches
+# K1–K4 остаются аварийными (AND-гейт, effective = env AND product).
+TAB_MOD_INITIATIVE = "mod_initiative"
 TAB_LLM_PROVIDERS = "llm_providers"
 TAB_PROMPTS = "prompts"
 TAB_MEMORY_RAG = "memory_rag"
@@ -2641,6 +2739,7 @@ CONFIG_TAB_TITLES: dict[str, str] = {
     TAB_MOD_BUDGETS: "Бюджеты",
     TAB_MOD_IMAGES: "Генерация изображений",
     TAB_MOD_VISION: "Распознавание изображений",
+    TAB_MOD_INITIATIVE: "Инициатива",
     TAB_LLM_PROVIDERS: "LLM Провайдеры",
     TAB_PROMPTS: "Промпты",
     TAB_MEMORY_RAG: "Память",
@@ -2690,6 +2789,7 @@ TAB_NAV: dict[str, str] = {
     TAB_MOD_BUDGETS: NAV_MODULES,
     TAB_MOD_IMAGES: NAV_MODULES,
     TAB_MOD_VISION: NAV_MODULES,
+    TAB_MOD_INITIATIVE: NAV_MODULES,
     TAB_LLM_PROVIDERS: NAV_AI,
     TAB_PROMPTS: NAV_AI,
     TAB_SMART_CACHE: NAV_AI,
@@ -2804,6 +2904,12 @@ TAB_RULES: tuple[tuple[str, tuple[tuple[str, object], ...]], ...] = (
     (TAB_MOD_VISION, (
         (CATEGORY_FLAGS, frozenset({"flags_module_vision"})),
         (CATEGORY_LIMITS, frozenset({"limits_vision"})),
+    )),
+    # ASAP 7 (F3, §3.2): «Инициатива» — master + 3 подрубильника (flags_intent)
+    # и 5 лимитов (limits_intent); env K1–K4 — аварийные (AND-гейт).
+    (TAB_MOD_INITIATIVE, (
+        (CATEGORY_FLAGS, frozenset({"flags_intent"})),
+        (CATEGORY_LIMITS, frozenset({"limits_intent"})),
     )),
     # ── Настройки AI (7 подразделов) ───────────────────────────────────────
     # A8: keys_youtube → М6, models_checkup/keys_betterstack → М9.

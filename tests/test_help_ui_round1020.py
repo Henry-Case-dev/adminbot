@@ -244,6 +244,8 @@ class TestNavigationUnchanged:
         "mod_transcribe", "mod_video_summary", "mod_media_download", "mod_web",
         "mod_checkup", "mod_sleep", "mod_nostalgia", "mod_budgets",
         "mod_images", "mod_vision",
+        # ASAP 7 (F3, §3.2): +mod_initiative (23-я config-вкладка).
+        "mod_initiative",
         "modules", "memory_rag", "smart_cache", "people_names", "relations",
         "permsoc", "access", "chat_lore", "status", "info", "oversight",
     ]

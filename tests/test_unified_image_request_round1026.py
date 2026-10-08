@@ -735,17 +735,17 @@ class TestBoundsA3:
         import dataclasses
         from services import param_catalog as pc
         from config.settings import APP_VERSION
-        assert APP_VERSION == "2.58.71"            # bump запрещён (D8)
+        assert APP_VERSION == "2.58.72"            # bump запрещён (D8)
         assert "UNIFIED_IMAGE_REQUEST_ENABLED" not in pc.REGISTRY
         assert "UNIFIED_IMAGE_REQUEST_ENABLED" not in {
             f.name for f in dataclasses.fields(Settings)}
 
     def test_catalog_counts_unchanged(self):
         from services import param_catalog as pc
-        assert len(pc.REGISTRY) == 529
-        assert len(pc.GROUPS) == 113
-        assert len(pc._TAB_BY_GROUP) == 111
-        assert len(pc.TAB_RULES) == 22
+        assert len(pc.REGISTRY) == 538
+        assert len(pc.GROUPS) == 115
+        assert len(pc._TAB_BY_GROUP) == 113
+        assert len(pc.TAB_RULES) == 23
 
     def test_two_llm_calls_intact(self):
         # SC-A3-12: A3 не добавляет LLM-вызовов (тест уже в coordinator-сете);

@@ -83,7 +83,7 @@ assert.strictEqual(card.toggleKey, 'flags.budgets_enabled',
 
 // tma-menu-freeze: F5 (10.24) санкционировал +1 карточку → 12→13;
 // MCA-19 (10.43, ADR-1028-19 D16) санкционировал +1 карточку → 13→14.
-assert.strictEqual(data.modules.length, 14, 'карточек модулей — 14');
+assert.strictEqual(data.modules.length, 15, 'карточек модулей — 14');
 
 // 2) Вкладка mod_budgets получила источник flags_module_budgets.
 const tab = data.tabs.filter((t) => t.id === 'mod_budgets')[0];

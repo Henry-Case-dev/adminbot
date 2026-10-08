@@ -128,8 +128,18 @@ class TestStatusEndpoint:
             # ФИКС S2/F-9 §6: + permsoc-телеметрия (N из M) в сводке.
             # F5 (cognition-dashboard, spec §3.6): + аддитивное context.
             # MCA-10a (ADR-1028-14 D9): + аддитивное random (читающий блок).
+            # MCA-16 (10.39) / MCA-09+12 (10.40): + experience / intents
+            # (читающие блоки; пин ДОГНАЛ фактический контракт status_service —
+            # на HEAD 08a8849 ключи уже были, тест был RED до ASAP 7).
             assert set(body) == {"bot", "server", "llm", "uptime", "permsoc",
-                                 "context", "llm_stats", "random"}
+                                 "context", "llm_stats", "random",
+                                 "experience", "intents"}
+            # ASAP 7 (F3, §3.2): intents.module — аддитивный гейт-блок
+            # Initiative (requested/effective/source + heartbeat).
+            module_block = (body.get("intents") or {}).get("module")
+            if module_block:
+                assert set(module_block) >= {"requested", "effective",
+                                             "source", "heartbeat"}
             # Хотфикс-3 (T-2501): аддитивная наблюдаемость LLM-таймаутов.
             assert set(body["llm_stats"]) >= {"requests", "timeouts",
                                               "fallbacks", "timeout_share"}

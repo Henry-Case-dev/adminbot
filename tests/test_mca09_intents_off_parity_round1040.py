@@ -173,12 +173,26 @@ def test_k4_off_subset(monkeypatch):
 
 
 def test_no_env_overrides_and_catalog_untouched():
-    """0 env-оверрайдов (дефолты ON) + Δ каталога = 0: имена kill-switch не
-    попадают в param_catalog (env-only)."""
+    """0 env-оверрайдов (дефолты ON). ASAP 7 (F3, §3.2): Intent-ключи
+    ТЕПЕРЬ в каталоге (группы flags_intent/limits_intent, вкладка
+    mod_initiative) — product-оси §3.3 с pg_id-ренеймом
+    (flags.initiative_enabled…); env-рубильники остаются аварийной осью
+    (AND-гейт mca_gates). Пин «Δ каталога = 0» волны mca-09 легитимно
+    снят ТЗ ASAP 7 §5.2 (Initiative обязана иметь settings surface)."""
     from services.param_catalog import REGISTRY
-    for key in ("MCA_INTENTS_ENABLED", "MCA_INTENT_HEARTBEAT_ENABLED",
-                "MCA_INTENT_DECISION_ENABLED", "MCA_SEND_RECHECK_ENABLED",
-                "MCA_INTENT_HEARTBEAT_BATCH_MAX", "MCA_INTENT_MAX_ATTEMPTS",
-                "MCA_INTENT_CANDIDATES_MAX", "MCA_INTENT_RETENTION_DAYS",
-                "MCA_INTENT_DEFER_BACKOFF_SECONDS"):
-        assert key not in REGISTRY
+    expected_pg = {
+        "MCA_INTENTS_ENABLED": "flags.initiative_enabled",
+        "MCA_INTENT_HEARTBEAT_ENABLED": "flags.intent_heartbeat_enabled",
+        "MCA_INTENT_DECISION_ENABLED": "flags.intent_decision_enabled",
+        "MCA_SEND_RECHECK_ENABLED": "flags.send_recheck_enabled",
+        "MCA_INTENT_HEARTBEAT_BATCH_MAX": "limits.intent_heartbeat_batch_max",
+        "MCA_INTENT_MAX_ATTEMPTS": "limits.intent_max_attempts",
+        "MCA_INTENT_CANDIDATES_MAX": "limits.intent_candidates_max",
+        "MCA_INTENT_RETENTION_DAYS": "limits.intent_retention_days",
+        "MCA_INTENT_DEFER_BACKOFF_SECONDS":
+            "limits.intent_defer_backoff_seconds",
+    }
+    for key, pg_key in expected_pg.items():
+        spec = REGISTRY.get(key)
+        assert spec is not None
+        assert spec.pg_key == pg_key

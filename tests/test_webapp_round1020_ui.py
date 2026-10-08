@@ -43,6 +43,8 @@ class TestNavigationSnapshot:
         "mod_checkup", "mod_sleep", "mod_nostalgia", "mod_budgets",
         "mod_images",
         "mod_vision",  # MCA-19 (10.43, ADR-1028-19 D16)
+        # ASAP 7 (F3, §3.2): +mod_initiative (23-я config-вкладка).
+        "mod_initiative",
         "modules", "memory_rag", "smart_cache", "people_names", "relations",
         "permsoc", "access", "chat_lore", "status", "info", "oversight",
     ]
@@ -64,10 +66,11 @@ class TestNavigationSnapshot:
             APP_JS[APP_JS.index("var NAV_ITEMS_V2 = ["):])
         assert v2[:8] == ["status", "how", "modules", "ai", "memory",
                           "oversight", "access", "permsoc"]
-        # Состав MODULES (12 модулей + «Генерация изображений») — F5 (10.24).
+        # Состав MODULES («Генерация изображений» — F5 10.24; «Инициатива» —
+        # ASAP 7 F3 §3.2, осознанный репин frozen-contract).
         mods = re.findall(r"\{ id: '(mod_[a-z_]+)',",
                           APP_JS[APP_JS.index("var MODULES = ["):])
-        assert len(mods) == 14
+        assert len(mods) == 15
 
     def test_no_new_nav_markup(self):
         # Никаких новых пунктов меню не добавлялось в разметку.
@@ -248,8 +251,8 @@ class TestHumanReadableLabels:
         # 10.23 (F5/ADR-1023-5 D5): рост каталога — отдельная фича → 446/95.
         # 10.24 (F21/ADR-1024-22 D8): +1 REGISTRY/GROUPS (BUDGETS_ENABLED,
         # flags_module_budgets) → 459/98.
-        assert len(pc.REGISTRY) == 529
-        assert len(pc.GROUPS) == 113
+        assert len(pc.REGISTRY) == 538
+        assert len(pc.GROUPS) == 115
 
 
 class TestAdvancedAccordion:

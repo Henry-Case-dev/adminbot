@@ -193,20 +193,20 @@ v1.api = async function (p) {
   assert.strictEqual(vm.intentsStateLabel('ok'), 'данные');
   v1.configItems = [];
   const meta = vm.storiesSettingsMeta();
-  assert.ok(meta.length >= 8, 'рендер существующих настроек §16.3');
+  assert.ok(meta.length >= 9, 'рендер собственных настроек Initiative §16.3 (ASAP 7 F3)');
   for (const m of meta) {
     assert.ok(m.def, 'default указан: ' + m.key);
     assert.strictEqual(m.effective, '—', 'без configItems — честное «—»');
     assert.strictEqual(m.source, 'не загружено');
     assert.ok(m.hot, 'hot/restart указан');
   }
-  v1.configItems = [{ key: 'memory.random_source', value: 'quantum',
+  v1.configItems = [{ key: 'limits.intent_heartbeat_batch_max', value: 7,
                       chat_source: 'chat' }];
   const meta2 = v1.storiesSettingsMeta();
   const rs = meta2.find(function (m) {
-    return m.key === 'memory.random_source';
+    return m.key === 'limits.intent_heartbeat_batch_max';
   });
-  assert.strictEqual(rs.effective, 'quantum');
+  assert.strictEqual(rs.effective, '7');
   assert.strictEqual(rs.source, 'чат (override)');
 
   // ── 5) витрины T-5169: без данных — честно, без выдумки ──────────────────

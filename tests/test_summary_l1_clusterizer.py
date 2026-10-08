@@ -972,13 +972,13 @@ class TestCanon:
 
     def test_catalog_delta_sanctioned(self):
         # ASAP-3 (ADR-1028-2 D12, санкция spec §6): Δ +2 каталога-ключа → 483/423/458 (см. примечание в test_round1025_f8_registry).
-        assert len(pc.REGISTRY) == 529
+        assert len(pc.REGISTRY) == 538
         assert len({f.name for f in dataclasses.fields(Settings)}) == 454
         assert len([s for s in pc.REGISTRY.values()
-                    if s.category is not None]) == 504
-        assert len(pc.GROUPS) == 113
-        assert len(pc._TAB_BY_GROUP) == 111
-        assert len(pc.TAB_RULES) == 22
+                    if s.category is not None]) == 513
+        assert len(pc.GROUPS) == 115
+        assert len(pc._TAB_BY_GROUP) == 113
+        assert len(pc.TAB_RULES) == 23
 
     def test_migration_step_present(self):
         steps = pm.PROMPT_MIGRATIONS[PROMPT_PG_KEY]

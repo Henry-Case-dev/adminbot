@@ -94,8 +94,13 @@ ARTIFACTS = [ROOT / p for p in FIXTURE["artifacts"]]
 # строго по spec.secret (keys_random: ровно один секрет-фолд ANU-ключ;
 # категория keys целиком секретной не является). Контентных Δ-routes нет
 # (тот же эндпоинт, смена маски поля). Хэш переутверждён осознанно (L-F11S-1).
+# ASAP 7 (F3, §3.1): routes-набор НЕ растёт (новых эндпоинтов нет) —
+# аддитивный ключ `modules` (реестр ModuleSpec) в СУЩЕСТВУЮЩЕМ ответе
+# GET /api/config (носитель реестра для фронта). Хэш переутверждён
+# осознанно (L-F11S-1, прецедент 2.58.57; routes-инвентарь f8_baseline
+# не менялся).
 ROUTES_SHA256_F11 = (
-    "f25e759efeb610c5b28fe91a691eb8011eb9defda6042b0480687468b8353a98")
+    "88559373c6ea036abd1814e292f3b9b6591f0e3d36291aea9b8a634982af626a")
 
 
 def _sha256(path: Path) -> str:
@@ -176,10 +181,10 @@ class TestFrozenInvariants:
         # MCA-10a (ADR-1028-14 D8/D12, санкция §13.2): +13 ключей / +2 группы
         # (memory_random/keys_random) / +2 tab-маппинга; TAB_RULES 21 in-place;
         # delta 78→91 → 502/107/105/21.
-        assert len(pc.REGISTRY) == FIXTURE["counts"]["REGISTRY"] == 529
-        assert len(pc.GROUPS) == FIXTURE["counts"]["GROUPS"] == 113
-        assert len(pc._TAB_BY_GROUP) == FIXTURE["counts"]["TAB_BY_GROUP"] == 111
-        assert len(pc.TAB_RULES) == FIXTURE["counts"]["TAB_RULES"] == 22
+        assert len(pc.REGISTRY) == FIXTURE["counts"]["REGISTRY"] == 538
+        assert len(pc.GROUPS) == FIXTURE["counts"]["GROUPS"] == 115
+        assert len(pc._TAB_BY_GROUP) == FIXTURE["counts"]["TAB_BY_GROUP"] == 113
+        assert len(pc.TAB_RULES) == FIXTURE["counts"]["TAB_RULES"] == 23
 
     def test_registry_keys_match_catalog_baseline(self):
         # F1-baseline фиксирует ключи REGISTRY (settings_field/env), не pg_key.
@@ -196,7 +201,7 @@ class TestFrozenInvariants:
         # `>=`-послабления).
         assert FIXTURE["app_version"] == "2.58.15"
         from config.settings import APP_VERSION
-        assert APP_VERSION == "2.58.71"
+        assert APP_VERSION == "2.58.72"
     def test_routes_set_unchanged(self):
         import re
         txt = (ROOT / "web/api/routes.py").read_text(encoding="utf-8")
@@ -225,7 +230,7 @@ class TestRegistry:
         # ASAP 4.4 (T-4880): санкционированная Δ +1 → 489.
         # MCA-10a (ADR-1028-14 D8/D12, санкция §13.2): санкционированная
         # Δ +13 (memory.random_* ×4 + keys.random_quantum_* ×9) → 502.
-        assert len(rows) == 529
+        assert len(rows) == 538
         assert [r["internal_key"] for r in rows] == sorted(_registry_keys())
         assert all(v != "" for r in rows for v in r.values())
         assert len(rows[0]) == len(gen.TSV_COLUMNS) == 23
@@ -240,7 +245,7 @@ class TestRegistry:
         # ASAP 4.4 (T-4880): санкционированная Δ +1 → дельта 78.
         # MCA-10a (ADR-1028-14 D8/D12): санкционированная Δ +13 → дельта 91.
         delta = _registry_keys() - _inventory_keys()
-        assert len(delta) == FIXTURE["counts"]["delta"] == 118
+        assert len(delta) == FIXTURE["counts"]["delta"] == 127
         new_rows = {r["internal_key"] for r in _read_registry_rows()
                     if r["status"] == "new"}
         assert new_rows == delta
@@ -288,7 +293,7 @@ class TestRegistry:
         # MCA-10a (ADR-1028-14 D8/D12): переиздание после Δ +13 (502, 91).
         # ASAP 5 (asap5-final-fixes, T-5256): переиздание после Δ +6
         # (529, 118).
-        assert "529" in meta and "411" in meta and "118" in meta
+        assert "538" in meta and "411" in meta and "127" in meta
         from config.settings import APP_VERSION
         assert APP_VERSION in meta
 
@@ -304,7 +309,7 @@ class TestScreenMap:
         # ASAP 4.4 (T-4880): санкционированная Δ +1 → 489.
         # MCA-10a (ADR-1028-14 D8/D12): санкционированная Δ +13 → 502.
         # MCA-10b (ADR-1028-17 D16): санкционированная Δ +6 → 510.
-        assert len(keys) == 529
+        assert len(keys) == 538
 
     def test_no_empty_new_screen(self):
         text = (ROOT / "plans/docs/screen-map-round1025.md").read_text(encoding="utf-8")

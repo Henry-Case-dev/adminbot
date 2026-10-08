@@ -358,6 +358,59 @@
                 <div v-if="!moduleEnabled(workspaceModule)" class="text-xs text-amber-300 mt-1">
                   Модуль выключен — включите его тумблером сверху.
                 </div>
+                <!-- ASAP 7 F3 (§3.3): живой гейт/статус модуля «Инициатива»
+                     на вкладке «Обзор» — requested/effective/source (module_registry),
+                     heartbeat-джоба, pending, последнее решение/пропуск,
+                     ближайший due. Источник — intent_snapshot().module
+                     (/api/status, аддитивный блок; честные состояния без
+                     маскировки нулями, контракт mca-12). -->
+                <div v-if="workspaceModule.id === 'mod_initiative'
+                            && intentModuleStatus()"
+                     class="mt-3 pt-2 border-t border-white/10 text-xs"
+                     data-initiative-status>
+                  <div class="flex flex-wrap gap-2 items-center mb-1">
+                    <span class="badge"
+                          :class="intentModuleStatus().effective ? 'badge-ok' : 'badge-warn'">
+                      {{ intentModuleStatus().effective ? 'Работает' : 'Не работает' }}
+                    </span>
+                    <span class="text-gray-500">
+                      requested: {{ intentModuleStatus().requested ? 'вкл' : 'выкл' }}
+                      ({{ intentModuleStatus().masterParam }})
+                    </span>
+                    <span class="text-gray-500">
+                      · source: {{ intentModuleStatus().sourceLabel }}
+                    </span>
+                  </div>
+                  <div class="text-gray-500">
+                    Heartbeat: {{ intentModuleStatus().heartbeat.enabled ? 'тик активен' : 'тик выключен' }}
+                    ({{ intentModuleStatus().heartbeat.job }}, каждые
+                    {{ intentModuleStatus().heartbeat.tick_seconds }} с).
+                    <template v-if="!intentModuleStatus().effective">
+                      Правка env {{ intentModuleStatus().envParam }} требует рестарта;
+                      тумблер применяется сразу (hot).
+                    </template>
+                  </div>
+                  <div class="mt-1">
+                    Ожидают решения: {{ intentModuleStatus().pending }}
+                    <template v-if="intentModuleStatus().nextDue">
+                      · ближайшая проверка: {{ fmtTs(intentModuleStatus().nextDue) }}
+                    </template>
+                  </div>
+                  <div v-if="intentModuleStatus().lastDecision" class="mt-1 text-gray-400">
+                    Последнее решение: {{ intentModuleStatus().lastDecision.outcome || '—' }}
+                    <template v-if="intentModuleStatus().lastDecision.reason_code">
+                      · причина: {{ intentModuleStatus().lastDecision.reason_code }}</template>
+                    <template v-if="intentModuleStatus().lastDecision.ts">
+                      · {{ fmtTs(intentModuleStatus().lastDecision.ts) }}</template>
+                  </div>
+                  <div v-if="intentModuleStatus().lastSkip" class="mt-1 text-gray-400">
+                    Последний пропуск/отсрочка: {{ intentModuleStatus().lastSkip.event }}
+                    <template v-if="intentModuleStatus().lastSkip.reason_code">
+                      · причина: {{ intentModuleStatus().lastSkip.reason_code }}</template>
+                    <template v-if="intentModuleStatus().lastSkip.ts">
+                      · {{ fmtTs(intentModuleStatus().lastSkip.ts) }}</template>
+                  </div>
+                </div>
               </div>
 
               <!-- §85: стадии Саммари — честный placeholder Эпика 2 (без
@@ -4375,6 +4428,51 @@
                         Источник слота: {{ pipelineCoverStyleCard.resolve_source_ru }}
                       </div>
                     </div>
+                    <!-- ═══ F8 (ASAP 7 §2.5/§10): «Фактический промпт» —
+                         exact-тексты Base/Style манифестов выбранного run
+                         (обе попытки: sent/final + hash + лимит/источник).
+                         Сервер отдаёт cover_prompts ТОЛЬКО global admin и
+                         только при include_prompt=true (fail-closed);
+                         блок рендерится только при правах admin и
+                         фактических данных. Machine reason попыток — в
+                         developer-details ниже, не в основном тексте. -->
+                    <div class="rounded-lg border border-white/10 px-3 py-2 mb-2 text-xs"
+                         v-if="pipelineCoverPromptsVisible"
+                         id="pipeline-cover-prompts">
+                      <div class="font-bold mb-0.5">Фактический промпт</div>
+                      <template v-for="grp in pipelineCoverPromptGroups"
+                                :key="'cpp-' + grp.key">
+                        <div class="mt-2">
+                          <div class="text-gray-200">{{ grp.label }}</div>
+                          <div class="text-gray-500" v-if="grp.meta">{{ grp.meta }}</div>
+                          <div class="text-gray-500" v-if="grp.hash">hash {{ grp.hash }}</div>
+                          <div v-for="att in grp.attempts"
+                               :key="'cppa-' + grp.key + '-' + att.attempt"
+                               class="mt-1">
+                            <div class="flex items-center gap-2 flex-wrap">
+                              <span class="text-gray-400">Попытка {{ att.attempt }} · {{ att.chars }} симв.</span>
+                              <button class="btn-ghost text-xs"
+                                      type="button"
+                                      :data-copy-prompt="grp.key + '-' + att.attempt"
+                                      @click="copyText(att.prompt)">копировать</button>
+                            </div>
+                            <pre class="mt-0.5 mb-1 whitespace-pre-wrap break-words text-gray-300 border border-white/10 rounded px-2 py-1 max-h-64 overflow-y-auto"
+                                 :data-prompt-text="grp.key + '-' + att.attempt">{{ att.prompt }}</pre>
+                          </div>
+                          <div class="text-gray-500">
+                            Итог: {{ grp.final_chars }} симв. · лимит: {{ grp.limit_label }}<span v-if="grp.limit_source && grp.limit_source !== 'unknown'"> ({{ grp.limit_source }})</span>
+                          </div>
+                          <details class="mt-1">
+                            <summary class="cursor-pointer text-gray-500">developer: machine reason попыток</summary>
+                            <div v-for="att in grp.attempts"
+                                 :key="'cppr-' + grp.key + '-' + att.attempt"
+                                 class="text-gray-500">
+                              attempt {{ att.attempt }}: {{ pipelineCoverAttemptReason(att) || '—' }}
+                            </div>
+                          </details>
+                        </div>
+                      </template>
+                    </div>
                     <!-- Публикация (§61.1) -->
                     <div class="mt-2 text-xs text-gray-300"
                          v-if="pipelinePublicationLine">{{ pipelinePublicationLine }}</div>
@@ -6465,8 +6563,17 @@
                         · источник: {{ m.source }}
                         · {{ m.hot }}</span>
                     </div>
+                    <!-- ASAP 7 F3 (§3.2): чужие контуры (Случайность/Бюджеты) —
+                         только ссылками-переходами к владельцам, без дублей
+                         ключей; собственные Intent-ключи — выше (flags_intent/
+                         limits_intent, вкладка mod_initiative). -->
+                    <div v-for="l in intentRelatedLinks()" :key="l.route"
+                         class="rounded-lg bg-white/5 px-2 py-1">
+                      <a :href="l.route" class="underline text-violet-300">{{ l.label }}</a>
+                      <span class="text-gray-600 ml-1">→ {{ l.hint }}</span>
+                    </div>
                     <div class="text-gray-600 mt-1">
-                      Правка значений — в существующих настройках (Память → Случайность, Лимиты/бюджеты); новых дублей настроек нет.
+                      Правка — на вкладке «Инициатива» (Модули) и в указанных разделах; правка env-рубильников требует рестарта, каталоговые применяются сразу.
                     </div>
                   </div>
                   <!-- T-5169: витрины смежных фич — компактные рендеры

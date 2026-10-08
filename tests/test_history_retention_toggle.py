@@ -161,8 +161,15 @@ class TestCatalogSeed:
         # ASAP 4.4 (T-4880): keys.embedding_quota_group_labels — ClassVar hot-ключ
         # (санкционированная каталогизация) — «лишним» не считается
         # (stale-guard обновлён при mca-16; pre-existing с round 10.28).
+        # ASAP 7 (F3, §3.2): +9 ClassVar MCA_INTENT_* — product-оси
+        # flags_intent/limits_intent (pg_id-ренейм), env-ось AND-гейта.
         missing, extra = pc.settings_field_coverage()
-        extra -= {"CHAT_MODEL_CONTEXT_WINDOW", "EMBEDDING_QUOTA_GROUP_LABELS"}
+        extra -= {"CHAT_MODEL_CONTEXT_WINDOW", "EMBEDDING_QUOTA_GROUP_LABELS",
+                  "MCA_INTENTS_ENABLED", "MCA_INTENT_HEARTBEAT_ENABLED",
+                  "MCA_INTENT_DECISION_ENABLED", "MCA_SEND_RECHECK_ENABLED",
+                  "MCA_INTENT_HEARTBEAT_BATCH_MAX", "MCA_INTENT_MAX_ATTEMPTS",
+                  "MCA_INTENT_CANDIDATES_MAX", "MCA_INTENT_RETENTION_DAYS",
+                  "MCA_INTENT_DEFER_BACKOFF_SECONDS"}
         assert (missing, extra) == (set(), set())
 
     def test_seed_categories_include_memory(self):

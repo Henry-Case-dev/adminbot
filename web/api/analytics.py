@@ -618,10 +618,18 @@ async def pipeline_run_detail(
     request: Request,
     run_id: str,
     user: Annotated[WebAppUser, Depends(requires_global_admin())],
+    include_prompt: bool = Query(default=False),
 ):
     """Drill-down по run_id (§61.9): timestamps стадий, provider/model,
     attempts, counts, coverage, стиль, публикация, message id, safe reason —
-    БЕЗ ключей/полных промптов/reasoning/сырого чата (R17/§61.9)."""
+    БЕЗ ключей/полных промптов/reasoning/сырого чата (R17/§61.9).
+
+    ASAP 7 F8 (§2.5/§10): ``?include_prompt=true`` — ТОЛЬКО global admin
+    (RBAC выше, fail-closed: не-глобал получает 403 до любого чтения) —
+    добавляет ``cover_prompts``: exact-тексты Base/Style манифестов run'а
+    (обе attempts: sent/final, reason, hash, provider/model, limit/source).
+    Без ``include_prompt`` — прежний R17-safe ответ (числа/enum/хэши),
+    ключ ``cover_prompts`` в ответе отсутствует вообще."""
     from services import pipeline_analytics as pa
     rid = str(run_id or "").strip()
     db = _pipeline_db(request)
@@ -629,8 +637,20 @@ async def pipeline_run_detail(
         return {"run": None, "generated_at": int(time.time())}
     try:
         run = await pa.collect_run(db, rid)
-        return {"run": run, "generated_at": int(time.time())}
     except Exception:
         logger.warning("[analytics] pipeline run detail failed — fail-open",
                        exc_info=True)
         return {"run": None, "generated_at": int(time.time())}
+    out = {"run": run, "generated_at": int(time.time())}
+    if include_prompt:
+        prompts = None
+        try:
+            from services import cover_style_jobs as csj
+            prompts = await csj.load_run_cover_prompts(db, rid)
+        except Exception:
+            logger.warning(
+                "[analytics] cover prompts read failed — omit (fail-closed)",
+                exc_info=True)
+            prompts = None
+        out["cover_prompts"] = prompts
+    return out

@@ -736,9 +736,36 @@ class StatusService:
         next_check_at/priority), последнее инициативное действие/пропуск +
         краткая причина. НИКАКИХ LLM/внешних вызовов; данные — из
         `mca_intents` + `mca_events`; K1 OFF → honest `disabled/not_run`;
-        RBAC/чат-скоуп: без разрешённого чата данные не раскрываются."""
+        RBAC/чат-скоуп: без разрешённого чата данные не раскрываются.
+
+        ASAP 7 (F3, §3.2/§3.3): аддитивный блок ``module`` —
+        requested/effective/source гейта Initiative (module_registry),
+        статус heartbeat-джобы, последнее решение/пропуск и ближайший due.
+        Существующие ключи не меняются (аддитивно; рендер — карточка
+        mod_initiative и блок «Инициатива» Статуса)."""
+        try:
+            from services import module_registry
+            module_gate = module_registry.gate_snapshot("initiative")
+        except Exception:      # pragma: no cover — fail-open (контракт mca-12)
+            module_gate = {}
+        heartbeat = {
+            "job": "intent_heartbeat_tick",
+            "tick_seconds": 300,
+            # K1+K2 effective (env AND product; hot, без рестарта)
+            "enabled": False,
+            # Честная restart-семантика: env-ось читается при старте процесса
+            # → правка env требует рестарта; каталоговые тумблеры — hot.
+            "restart_required_env": True,
+        }
+        try:
+            from services import mca_gates
+            heartbeat["enabled"] = bool(mca_gates.intent_heartbeat_enabled())
+        except Exception:      # pragma: no cover
+            pass
+        module_block = dict(module_gate)
+        module_block["heartbeat"] = heartbeat
         empty = {"enabled": True, "state": "not_run", "active": 0, "top": [],
-                 "last_action": None}
+                 "last_action": None, "module": module_block}
         try:
             from services import mca_gates
             enabled = bool(mca_gates.intents_enabled())
@@ -746,7 +773,7 @@ class StatusService:
             enabled = True
         if not enabled:
             return {"enabled": False, "state": "disabled", "active": 0,
-                    "top": [], "last_action": None}
+                    "top": [], "last_action": None, "module": module_block}
         if chat_id is None or not chat_scope_allowed:
             return dict(empty, state="restricted")
         try:
@@ -768,6 +795,9 @@ class StatusService:
                 "priority": int(r.get("priority") or 0),
             } for r in rows]
             last = None
+            last_decision = None
+            last_skip = None
+            next_due = None
             try:
                 cursor = await db.db.execute(
                     "SELECT ts, event_name, outcome, reason_code, stage, "
@@ -785,16 +815,52 @@ class StatusService:
                         "trigger_kind": row["stage"],
                         "action": row["status"],
                     }
+                # F3 (§3.2): последнее решение и последний пропуск/отсрочка —
+                # отдельными честными строками (enumerate-события mca-09).
+                cursor = await db.db.execute(
+                    "SELECT ts, outcome, reason_code, stage, status FROM "
+                    "mca_events WHERE chat_id = ? AND event_name = "
+                    "'initiative_decided' ORDER BY ts DESC LIMIT 1",
+                    (int(chat_id),))
+                row = await cursor.fetchone()
+                if row is not None:
+                    last_decision = {"ts": row["ts"],
+                                     "outcome": row["outcome"],
+                                     "reason_code": row["reason_code"],
+                                     "action": row["status"]}
+                cursor = await db.db.execute(
+                    "SELECT ts, event_name, reason_code FROM mca_events "
+                    "WHERE chat_id = ? AND event_name IN ('recheck_deferred',"
+                    "'intent_abandoned','intent_expired') "
+                    "ORDER BY ts DESC LIMIT 1", (int(chat_id),))
+                row = await cursor.fetchone()
+                if row is not None:
+                    last_skip = {"ts": row["ts"], "event": row["event_name"],
+                                 "reason_code": row["reason_code"]}
+                cursor = await db.db.execute(
+                    "SELECT MIN(next_check_at) AS next_due FROM mca_intents "
+                    "WHERE chat_id = ? AND status IN ('pending','deferred') "
+                    "AND merged_into_id IS NULL", (int(chat_id),))
+                row = await cursor.fetchone()
+                if row is not None and row["next_due"] is not None:
+                    next_due = row["next_due"]
             except Exception:
-                last = None
+                # fail-open: частичные данные честнее нулей (контракт mca-12)
+                pass
             state = "ok" if (count or last) else "not_run"
+            module_block.update({
+                "pending": int(count or 0),
+                "last_decision": last_decision,
+                "last_skip": last_skip,
+                "next_due": next_due,
+            })
             return {"enabled": True, "state": state, "active": count,
-                    "top": top, "last_action": last}
+                    "top": top, "last_action": last, "module": module_block}
         except Exception:
             logger.warning("[status] intent snapshot failed — fail-open",
                            exc_info=True)
             return {"enabled": True, "state": "unavailable", "active": 0,
-                    "top": [], "last_action": None}
+                    "top": [], "last_action": None, "module": module_block}
 
     # ── psutil-метрики сервера ─────────────────────────────────────────────
     @staticmethod

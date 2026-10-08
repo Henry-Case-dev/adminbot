@@ -112,11 +112,12 @@ def test_config_item_notice_unchanged():
 # ── D3: runtimeGate/parentGate для всех 13 модулей ─────────────────────────
 def test_runtime_gate_metadata_complete():
     modules = _block("var MODULES = [", "  ];")
-    assert modules.count("runtimeGate:") == 14, modules.count("runtimeGate:")
-    assert modules.count("keywords:") == 14, modules.count("keywords:")
-    # 9 модулей глобальные, 4 — по-чатово (аудит ADR §D3)
+    assert modules.count("runtimeGate:") == 15, modules.count("runtimeGate:")
+    assert modules.count("keywords:") == 15, modules.count("keywords:")
+    # 10 модулей глобальные, 5 — по-чатово (аудит ADR §D3;
+    # ASAP 7 F3: Initiative — global, effective = env AND product §3.3)
     assert modules.count("runtimeGate: 'per_chat'") == 5
-    assert modules.count("runtimeGate: 'global'") == 9
+    assert modules.count("runtimeGate: 'global'") == 10
     # родительский гейт 0a–0i — у 7 модулей (сам summary — источник гейта)
     assert modules.count("parentGate: 'flags.summary_enabled'") == 7
 
@@ -169,10 +170,10 @@ def test_search_haystack_fields():
 def test_catalog_delta_zero():
     import services.param_catalog as pc
     from config.settings import Settings
-    assert len(pc.REGISTRY) == 529
-    assert len(pc.GROUPS) == 113
-    assert len(pc._TAB_BY_GROUP) == 111
-    assert len(pc.TAB_RULES) == 22
+    assert len(pc.REGISTRY) == 538
+    assert len(pc.GROUPS) == 115
+    assert len(pc._TAB_BY_GROUP) == 113
+    assert len(pc.TAB_RULES) == 23
     assert len({f.name for f in dataclasses.fields(Settings)}) == 454
 
 

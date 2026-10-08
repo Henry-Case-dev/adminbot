@@ -217,10 +217,10 @@ class TestFlagsAcceptance:
 
     def test_catalog_invariants(self):
         from services import param_catalog as pc
-        assert len(pc.REGISTRY) == 529
-        assert len(pc.GROUPS) == 113
-        assert len(pc._TAB_BY_GROUP) == 111
-        assert len(pc.TAB_RULES) == 22
+        assert len(pc.REGISTRY) == 538
+        assert len(pc.GROUPS) == 115
+        assert len(pc._TAB_BY_GROUP) == 113
+        assert len(pc.TAB_RULES) == 23
         assert len({f.name for f in dataclasses.fields(Settings)}) == 454
 
     def test_matrix_hotfix9_probes(self):

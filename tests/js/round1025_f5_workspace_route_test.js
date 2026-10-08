@@ -113,7 +113,7 @@ function mkCoverageCtx(m) {
 (async function run() {
   // ── (a) Витрина: routeSlug + tabs ────────────────────────────────────
   {
-    assert.strictEqual(MODULES.length, 14, 'a: 14 модулей');
+    assert.strictEqual(MODULES.length, 15, 'a: 14 модулей');
     MODULES.forEach(function (m) {
       assert.strictEqual(m.routeSlug, String(m.id).replace(/^mod_/, ''),
         'a: routeSlug = id без mod_ (' + m.id + ')');

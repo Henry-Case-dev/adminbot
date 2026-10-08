@@ -30,8 +30,20 @@ class TestCompleteness:
     # Coverage-аудит dataclass-полей их «лишними» не считает.
     # ASAP 4.4 (T-4880): + EMBEDDING_QUOTA_GROUP_LABELS (hot
     # keys.embedding_quota_group_labels — owner-настройка quota-групп).
+    # ASAP 7 (F3, §3.2): +9 ClassVar Intent-блока (MCA_INTENT_*) — каталоговые
+    # product-оси flags_intent/limits_intent с pg_id-ренеймом
+    # (flags.initiative_enabled…); ClassVar остаются env-осью AND-гейта.
     _CLASSVAR_CATALOGUED = frozenset({"CHAT_MODEL_CONTEXT_WINDOW",
-                                      "EMBEDDING_QUOTA_GROUP_LABELS"})
+                                      "EMBEDDING_QUOTA_GROUP_LABELS",
+                                      "MCA_INTENTS_ENABLED",
+                                      "MCA_INTENT_HEARTBEAT_ENABLED",
+                                      "MCA_INTENT_DECISION_ENABLED",
+                                      "MCA_SEND_RECHECK_ENABLED",
+                                      "MCA_INTENT_HEARTBEAT_BATCH_MAX",
+                                      "MCA_INTENT_MAX_ATTEMPTS",
+                                      "MCA_INTENT_CANDIDATES_MAX",
+                                      "MCA_INTENT_RETENTION_DAYS",
+                                      "MCA_INTENT_DEFER_BACKOFF_SECONDS"})
 
     def test_every_settings_field_covered(self):
         missing, extra = pc.settings_field_coverage()
@@ -367,7 +379,9 @@ class TestGroups8424:
         # MCA-10a (ADR-1028-14 D8/D12, санкция §13.2): +2 группы
         # (memory_random на mod_sleep, keys_random на llm_providers)
         # → GROUPS 107.
-        assert len(GROUPS) == 113
+        # ASAP 7 (F3, §3.2): +2 — flags_intent (mod_initiative),
+        # limits_intent (mod_initiative) → GROUPS 115.
+        assert len(GROUPS) == 115
         categories_in_groups = {g.category for g in GROUPS}
         assert categories_in_groups == set(CATEGORIES)
 
@@ -483,8 +497,11 @@ class TestGroups8424:
         # ASAP 5 (asap5-final-fixes, T-5256, санкция §5): models +6 PG-only
         # (models.embedding_fallback{1,2}_{base_url,model,quota_group})
         # → models 72, итого 529; F8 meta-pin переиздан.
+        # ASAP 7 (F3, §3.2): flags +4 (flags_intent: product-оси Intent,
+        # pg_id-ренейм flags.initiative_enabled…) / limits +5 (limits_intent)
+        # → flags 81 / limits 208, итого 538.
         assert counts == {"prompts": 24, "models": 72, "keys": 34,
-                          "limits": 203, "flags": 77, "reactions": 39,
+                          "limits": 208, "flags": 81, "reactions": 39,
                           "content": 5, "memory": 46, "temporal": 4}
         assert {g.category for g in GROUPS} >= set(CATEGORIES)
 

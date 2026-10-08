@@ -1,0 +1,115 @@
+{
+ "probes": {
+  "desktop_1280x800_hub": {
+   "innerWidth": 1280,
+   "docOverflow": false,
+   "initiativeCard": true,
+   "initiativeTitle": true,
+   "registryProbeCard": true
+  },
+  "desktop_1280x800_workspace": {
+   "innerWidth": 1280,
+   "docOverflow": false,
+   "headModule": "mod_initiative",
+   "tabs": [
+    "overview",
+    "settings",
+    "limits"
+   ],
+   "hasStatus": true,
+   "statusText": "Работает requested: вкл (flags.initiative_enabled)  · source: env + тумблер включены Heartbeat: тик активен (intent_heartbeat_tick, каждые 300 с).  Ожидают решения: 2  · ближайшая проверка: 22.09.2026, 02:28:20 Последнее решение: reply  · причина: default · 22.09.2026, 02:03:20 Последний пропуск/отсрочка: recheck_deferred  · причина: already_answered · 22.09.2026, 01:53:20",
+   "effectiveOn": true,
+   "requestedLine": true,
+   "sourceLine": true,
+   "heartbeatLine": true,
+   "pendingLine": true,
+   "decisionLine": true,
+   "skipLine": true,
+   "nextDueLine": true
+  },
+  "desktop_1280x800_settings": {
+   "groupTitleIntent": true,
+   "groupTitleLimits": false,
+   "masterToggle": true,
+   "recheckToggle": true,
+   "batchLimit": false,
+   "backoffLimit": false
+  },
+  "desktop_1280x800_limits": {
+   "groupTitleIntent": false,
+   "groupTitleLimits": true,
+   "masterToggle": false,
+   "recheckToggle": false,
+   "batchLimit": true,
+   "backoffLimit": true
+  },
+  "desktop_1280x800_status_settings": {
+   "present": true,
+   "ownMaster": true,
+   "ownHeartbeat": true,
+   "ownBackoff": true,
+   "foreignRandom": false,
+   "foreignBudget": false,
+   "foreignContext": false,
+   "linkSleep": true,
+   "linkBudgets": true
+  },
+  "mobile_390x844_hub": {
+   "innerWidth": 390,
+   "docOverflow": false,
+   "initiativeCard": true,
+   "initiativeTitle": true,
+   "registryProbeCard": true
+  },
+  "mobile_390x844_workspace": {
+   "innerWidth": 390,
+   "docOverflow": false,
+   "headModule": "mod_initiative",
+   "tabs": [
+    "overview",
+    "settings",
+    "limits"
+   ],
+   "hasStatus": true,
+   "statusText": "Работает requested: вкл (flags.initiative_enabled)  · source: env + тумблер включены Heartbeat: тик активен (intent_heartbeat_tick, каждые 300 с).  Ожидают решения: 2  · ближайшая проверка: 22.09.2026, 02:28:20 Последнее решение: reply  · причина: default · 22.09.2026, 02:03:20 Последний пропуск/отсрочка: recheck_deferred  · причина: already_answered · 22.09.2026, 01:53:20",
+   "effectiveOn": true,
+   "requestedLine": true,
+   "sourceLine": true,
+   "heartbeatLine": true,
+   "pendingLine": true,
+   "decisionLine": true,
+   "skipLine": true,
+   "nextDueLine": true
+  },
+  "emergency_off_workspace": {
+   "innerWidth": 1280,
+   "docOverflow": false,
+   "headModule": "mod_initiative",
+   "tabs": [
+    "overview",
+    "settings",
+    "limits"
+   ],
+   "hasStatus": true,
+   "statusText": "Не работает requested: вкл (flags.initiative_enabled)  · source: env-emergency OFF (важнее UI) Heartbeat: тик выключен (intent_heartbeat_tick, каждые 300 с).  Правка env MCA_INTENTS_ENABLED требует рестарта; тумблер применяется сразу (hot).  Ожидают решения: 2  · ближайшая проверка: 22.09.2026, 02:28:20 Последнее решение: reply  · причина: default · 22.09.2026, 02:03:20 Последний пропуск/отсрочка: recheck_deferred  · причина: already_answered · 22.09.2026, 01:53:20",
+   "effectiveOn": false,
+   "requestedLine": true,
+   "sourceLine": true,
+   "heartbeatLine": true,
+   "pendingLine": true,
+   "decisionLine": true,
+   "skipLine": true,
+   "nextDueLine": true
+  }
+ },
+ "screenshots": [
+  "_ui_asap7_f3_desktop_1280x800_hub.png",
+  "_ui_asap7_f3_desktop_1280x800_overview.png",
+  "_ui_asap7_f3_desktop_1280x800_settings.png",
+  "_ui_asap7_f3_mobile_390x844_hub.png",
+  "_ui_asap7_f3_mobile_390x844_overview.png",
+  "_ui_asap7_f3_emergency_off.png"
+ ],
+ "console_errors": [],
+ "failures": []
+}

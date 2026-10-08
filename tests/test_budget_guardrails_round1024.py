@@ -53,6 +53,8 @@ EXPECTED_TAB_RULES_IDS = [
     "mod_checkup", "mod_sleep", "mod_nostalgia", "mod_budgets", "mod_images",
     # MCA-19 (10.43): +mod_vision (22-я вкладка, ADR-1028-19 D16).
     "mod_vision",
+    # ASAP 7 (F3, §3.2): +mod_initiative (23-я вкладка — «Инициатива»).
+    "mod_initiative",
     "llm_providers", "prompts", "memory_rag", "smart_cache", "people_names",
     "relations", "chat_lore", "permsoc",
 ]
@@ -61,14 +63,16 @@ EXPECTED_TAB_RULES_IDS = [
 # MCA-19 (10.43, ADR-1028-19 D16): +14-я карточка mod_vision («Распознавание
 # изображений», существующий список модулей; осознанное обновление пина —
 # frozen-contract, см. класс TestMenuFreeze).
+# ASAP 7 (F3, §3.2): +15-я карточка mod_initiative («Инициатива», аудит
+# P7-C-3: orphan без карточки; осознанное обновление пина — frozen-contract).
 EXPECTED_MODULE_IDS = [
     "mod_summary", "mod_direct", "mod_factcheck", "mod_search",
     "mod_transcribe", "mod_video_summary", "mod_media_download", "mod_web",
     "mod_checkup", "mod_sleep", "mod_nostalgia", "mod_budgets", "mod_images",
-    "mod_vision",
+    "mod_vision", "mod_initiative",
 ]
 
-# Витрина TABS (JS-порядок): 22 config-вкладки + 5 служебных
+# Витрина TABS (JS-порядок): 23 config-вкладки + 5 служебных
 # (modules/access/status/info/oversight). Пинится СОСТАВ, не только число —
 # иначе подмена вкладки при том же количестве проходит незамеченной
 # (rev1/R1: детект мутации `oversight` → `oversight_evil`).
@@ -76,9 +80,9 @@ EXPECTED_TAB_IDS = [
     "llm_providers", "prompts", "mod_summary", "mod_direct", "mod_factcheck",
     "mod_search", "mod_transcribe", "mod_video_summary", "mod_media_download",
     "mod_web", "mod_checkup", "mod_sleep", "mod_nostalgia", "mod_budgets",
-    "mod_images", "mod_vision", "modules", "memory_rag", "smart_cache",
-    "people_names", "relations", "permsoc", "access", "chat_lore", "status",
-    "info", "oversight",
+    "mod_images", "mod_vision", "mod_initiative", "modules", "memory_rag",
+    "smart_cache", "people_names", "relations", "permsoc", "access",
+    "chat_lore", "status", "info", "oversight",
 ]
 
 EXPECTED_BUDGET_GROUPS = {
@@ -131,12 +135,12 @@ class TestCatalogPins:
     вкладка) валит пин — это и есть защита от регресса F21."""
 
     def test_registry_counts_pinned(self):
-        assert len(pc.REGISTRY) == 529
-        assert len(pc.GROUPS) == 113
-        assert len(pc._TAB_BY_GROUP) == 111
-        assert len(pc.TAB_RULES) == 22
-        assert len(pc.TAB_NAV) == 22
-        assert len(pc.CONFIG_TAB_TITLES) == 22
+        assert len(pc.REGISTRY) == 538
+        assert len(pc.GROUPS) == 115
+        assert len(pc._TAB_BY_GROUP) == 113
+        assert len(pc.TAB_RULES) == 23
+        assert len(pc.TAB_NAV) == 23
+        assert len(pc.CONFIG_TAB_TITLES) == 23
 
     def test_budgets_enabled_spec_pinned(self):
         spec = pc.get("BUDGETS_ENABLED")
@@ -205,7 +209,7 @@ class TestMenuFreeze:
 
     def test_modules_menu_composition_frozen(self):
         ids = _js_module_ids()
-        assert len(ids) == 14
+        assert len(ids) == 15
         assert ids == EXPECTED_MODULE_IDS
         assert len(ids) == len(set(ids))          # без дублей
 
@@ -214,7 +218,7 @@ class TestMenuFreeze:
         # СОСТАВ и порядок (rev1: раньше пинилось только число — подмена
         # вкладки при count=26 проходила молча).
         assert ids == EXPECTED_TAB_IDS
-        assert len(ids) == 27
+        assert len(ids) == 28
         assert len(ids) == len(set(ids))
         assert ids.count("mod_budgets") == 1
 
@@ -429,6 +433,6 @@ class TestDeltaZeroGuard:
 
     def test_catalog_counts_unchanged_by_guardrails(self):
         # F23 — только тесты: значения совпадают с Δ F21 (D8).
-        assert len(pc.REGISTRY) == 529
-        assert len(pc.GROUPS) == 113
-        assert len(pc._TAB_BY_GROUP) == 111
+        assert len(pc.REGISTRY) == 538
+        assert len(pc.GROUPS) == 115
+        assert len(pc._TAB_BY_GROUP) == 113

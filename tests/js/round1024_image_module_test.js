@@ -90,7 +90,7 @@ assert.strictEqual(card.icon, 'grid_view', 'F5: иконка — переисп�
 assert.strictEqual(card.title, 'Генерация изображений', 'F5: подпись карточки');
 
 // tma-menu-freeze: ровно +1 санкционированная карточка (12→13).
-assert.strictEqual(data.modules.length, 14, 'карточек модулей — 14');
+assert.strictEqual(data.modules.length, 15, 'карточек модулей — 14');
 
 // 2) Вкладка mod_images: ровно одна группа flags_module_images.
 const tabs = data.tabs.filter((t) => t.id === 'mod_images');
@@ -117,8 +117,8 @@ assert.deepStrictEqual(groups, ['flags_module_images'],
     'F5: flags_module_images не должен дублироваться в ' + tid);
 });
 
-// 4) Всего вкладок 27 (26 + 1), без дублей.
-assert.strictEqual(data.tabs.length, 27, 'F5: вкладок 27');
+// 4) Всего вкладок 28 (ASAP 7 F3: +mod_initiative), без дублей.
+assert.strictEqual(data.tabs.length, 28, 'F5: вкладок 28');
 const ids = data.tabs.map((t) => t.id);
 assert.strictEqual(ids.length, ids.filter((v, i) => ids.indexOf(v) === i).length,
   'дубли вкладок недопустимы');

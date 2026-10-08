@@ -16,6 +16,7 @@ from services.param_catalog import (
     TAB_MOD_DIRECT,
     TAB_MOD_FACTCHECK,
     TAB_MOD_IMAGES,
+    TAB_MOD_INITIATIVE,
     TAB_MOD_MEDIA_DOWNLOAD,
     TAB_MOD_NOSTALGIA,
     TAB_MOD_SEARCH,
@@ -44,6 +45,9 @@ ALL_TABS = [
     # MCA-19 (10.43, ADR-1028-19 D16): вкладка «Распознавание изображений»
     # (22-я config-вкладка; nav «Модули»; подключение — в llm_providers).
     TAB_MOD_VISION,
+    # ASAP 7 (F3, §3.2): вкладка модуля «Инициатива» (23-я; nav «Модули»;
+    # группы flags_intent/limits_intent; env K1–K4 — аварийные).
+    TAB_MOD_INITIATIVE,
     TAB_LLM_PROVIDERS, TAB_PROMPTS, TAB_MEMORY_RAG, TAB_SMART_CACHE,
     TAB_PEOPLE_NAMES, TAB_RELATIONS, TAB_CHAT_LORE, TAB_PERMSOC,
 ]
@@ -54,8 +58,10 @@ class TestTabMappingAudit:
         # 10.19 (F3/ADR-1019-3 D1): +1 — mod_budgets («Бюджеты», nav «Модули»).
         # 10.24 (F5/ADR-1024-9 D1): +1 — mod_images («Генерация изображений»,
         # nav «Модули»; группа flags_module_images перенесена из mod_direct).
-        assert len(ALL_TABS) == 22
-        assert len(pc.TAB_RULES) == 22
+        # ASAP 7 (F3, §3.2): +1 — mod_initiative («Инициатива», nav «Модули»;
+        # product-оси Intent + лимиты; env K1–K4 — аварийные).
+        assert len(ALL_TABS) == 23
+        assert len(pc.TAB_RULES) == 23
         assert set(pc.CONFIG_TAB_TITLES) == set(ALL_TABS)
 
     def test_tab_nav_covers_all_21_tabs(self):
@@ -167,9 +173,13 @@ class TestTabMappingAudit:
         # TAB_RULES 21 in-place → 481/105/103.
         # ASAP 4.4 (T-4880): +1 REGISTRY (keys.embedding_quota_group_labels,
         # группа keys_llm уже приписана вкладке llm_providers) → 489.
-        assert len(pc._TAB_BY_GROUP) == 111
-        assert len(GROUPS) == 113
-        assert len(pc.REGISTRY) == 529
+        # ASAP 7 (F3, §3.2): +9 REGISTRY (Intent product-оси: 4 flags_intent +
+        # 5 limits_intent, pg_id-ренейм flags.initiative_enabled…), +2 GROUPS
+        # (flags_intent/limits_intent), +2 mapped (вкладка mod_initiative);
+        # TAB_RULES 22→23 (+mod_initiative) → 538/115/113.
+        assert len(pc._TAB_BY_GROUP) == 113
+        assert len(GROUPS) == 115
+        assert len(pc.REGISTRY) == 538
 
 
 class TestModuleTabs:

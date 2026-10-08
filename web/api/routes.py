@@ -584,6 +584,14 @@ async def get_config(
     ]
     groups.sort(key=lambda g: g["order"])
     out = {"items": items, "groups": groups}
+    # ASAP 7 (F3, §3.1): аддитивный ключ реестра модулей (ModuleSpec →
+    # services/module_registry.py). Frontend обогащает/дополняет MODULES
+    # при наличии записи; fallback — текущий hardcoded список (Δ риска = 0).
+    try:
+        from services.module_registry import registry_for_frontend
+        out["modules"] = registry_for_frontend()
+    except Exception:          # pragma: no cover — fail-open (fallback JS)
+        out["modules"] = []
     if chat_id is not None:
         out["chat_id"] = chat_id
         out["updated_at"] = await chat_params.get_chat_updated_at(chat_id)

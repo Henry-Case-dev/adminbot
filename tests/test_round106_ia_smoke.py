@@ -41,10 +41,10 @@ class TestCatalogInvariant106:
         # 459/98/96/20/418; TAB_RULES 20 — новых вкладок нет.
         # 10.24 (F5/ADR-1024-9 D3): Δ REGISTRY/GROUPS/_TAB_BY_GROUP = 0
         # (group переносит вкладку) → 459/98/96; TAB_RULES 20→21 (+mod_images).
-        assert len(pc.REGISTRY) == 529
-        assert len(pc.GROUPS) == 113
-        assert len(pc._TAB_BY_GROUP) == 111
-        assert len(pc.TAB_RULES) == 22
+        assert len(pc.REGISTRY) == 538
+        assert len(pc.GROUPS) == 115
+        assert len(pc._TAB_BY_GROUP) == 113
+        assert len(pc.TAB_RULES) == 23
         assert len({f.name for f in dataclasses.fields(Settings)}) == 454
 
     def test_five_master_flags_default_true(self):
@@ -121,7 +121,7 @@ class TestModulesAndAi:
         mods = JS[start:JS.index("];", start)]
         # F21 (10.24, ADR-1024-22 D7): +1 toggleKey (mod_budgets) → 12.
         # F5 (10.24, ADR-1024-9 D1): +1 toggleKey (mod_images) → 13.
-        assert mods.count("toggleKey:") == 14
+        assert mods.count("toggleKey:") == 15  # ASAP 7 F3: +mod_initiative
         for title in ("Саммаризация", "Прямые ответы", "Фактчек", "Поиск",
                       "Транскрипт голосовых и видео", "Выжимка видео",
                       "Скачивание медиа", "Веб-страницы", "Диагностика",

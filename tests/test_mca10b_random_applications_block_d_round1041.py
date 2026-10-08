@@ -263,10 +263,10 @@ def test_blockE_catalog_random_uses_keys():
     memory_random: per-chat, не-секреты, все default ON (read-path
     fail-open True); GROUPS/_TAB_BY_GROUP/TAB_RULES без роста."""
     from services import param_catalog as pc
-    assert len(pc.REGISTRY) == 529
-    assert len(pc.GROUPS) == 113
-    assert len(pc._TAB_BY_GROUP) == 111
-    assert len(pc.TAB_RULES) == 22
+    assert len(pc.REGISTRY) == 538
+    assert len(pc.GROUPS) == 115
+    assert len(pc._TAB_BY_GROUP) == 113
+    assert len(pc.TAB_RULES) == 23
     uses = [f"memory.random_uses_{u}" for u in sorted(mx.USES)]
     assert len(uses) == 6
     for key in uses:
@@ -293,17 +293,17 @@ def test_blockE_f8_check_green_and_baselines():
     assert res.returncode == 0, res.stdout + res.stderr
     # ASAP 5 (asap5-final-fixes, T-5256, санкция §5): 523→529 (+6 PG-only
     # профилей embeddings); delta 112→118.
-    assert "529" in res.stdout
+    assert "538" in res.stdout  # ASAP 7 F3: 529 -> 538 (+9 Intent)
     fx = json.loads((ROOT / "tests/fixtures/round1025/f8_baseline.json")
                     .read_text(encoding="utf-8"))
-    assert fx["counts"]["REGISTRY"] == 529
-    assert fx["counts"]["GROUPS"] == 113
-    assert fx["counts"]["TAB_BY_GROUP"] == 111
-    assert fx["counts"]["TAB_RULES"] == 22
-    assert fx["counts"]["delta"] == 118
+    assert fx["counts"]["REGISTRY"] == 538
+    assert fx["counts"]["GROUPS"] == 115
+    assert fx["counts"]["TAB_BY_GROUP"] == 113
+    assert fx["counts"]["TAB_RULES"] == 23
+    assert fx["counts"]["delta"] == 127
     cb = json.loads((ROOT / "tests/fixtures/round1025/catalog_baseline.json")
                     .read_text(encoding="utf-8"))
-    assert len(cb["registry_keys"]) == 529
+    assert len(cb["registry_keys"]) == 538
     for key in ("memory.random_uses_belief_review",
                 "memory.random_uses_ui_visualization"):
         assert key in cb["registry_keys"]
@@ -323,8 +323,10 @@ def test_blockE_f8_check_green_and_baselines():
     # P0 round1028 (таксономия секретов, W1-B): secret_mask в
     # /api/params/meta строго по spec.secret — контентных Δ-routes нет;
     # re-pin синхронно с ROUTES_SHA256_F11.
+    # ASAP 7 (F3): аддитивный ключ `modules` в GET /api/config (реестр
+    # ModuleSpec → фронт); routes-набор без роста, hash переутверждён.
     import hashlib
     routes_sha = hashlib.sha256(
         (ROOT / "web/api/routes.py").read_bytes()).hexdigest()
-    assert routes_sha == ("f25e759efeb610c5b28fe91a691eb8011eb9defda6042"
-                          "b0480687468b8353a98")
+    assert routes_sha == ("88559373c6ea036abd1814e292f3b9b6591f0e3d362"
+                          "91aea9b8a634982af626a")

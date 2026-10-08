@@ -200,6 +200,15 @@
         { category: 'flags', groups: ['flags_module_vision'] },
         { category: 'limits', groups: ['limits_vision'] },
       ] },
+    // ASAP 7 F3 (§3.2): зеркало TAB_RULES — вкладка модуля «Инициатива»
+    // (master flags.initiative_enabled + flags_intent; лимиты limits_intent).
+    // Иконка — bolt из существующего PUA-сабсета (правки шрифтов нет).
+    { id: 'mod_initiative', icon: 'bolt', label: 'Инициатива',
+      type: 'config', menu: 'modules',
+      sources: [
+        { category: 'flags', groups: ['flags_intent'] },
+        { category: 'limits', groups: ['limits_intent'] },
+      ] },
     // Список-витрина 11 модулей (не config; карточки + модалки).
     { id: 'modules', icon: 'extension', label: 'Модули', type: 'modules',
       menu: 'modules' },
@@ -291,6 +300,8 @@
     'mod_checkup', 'mod_sleep', 'mod_nostalgia', 'mod_budgets', 'mod_images',
     // MCA-19 (10.43): +mod_vision (22-я config-вкладка; зеркало TAB_RULES).
     'mod_vision',
+    // ASAP 7 F3 (§3.2): +mod_initiative (23-я config-вкладка; зеркало TAB_RULES).
+    'mod_initiative',
     'llm_providers', 'prompts',
     'memory_rag', 'smart_cache', 'people_names', 'relations', 'chat_lore',
     'permsoc',
@@ -359,6 +370,8 @@
     mod_images: 'grid_view',
     // MCA-19 (10.43): visibility — из сабсета (распознавание/видение).
     mod_vision: 'visibility',
+    // ASAP 7 F3 (§3.2): bolt — из сабсета (инициатива/импульс).
+    mod_initiative: 'bolt',
     memory_rag: 'memory', smart_cache: 'bolt', people_names: 'badge',
     relations: 'group', permsoc: 'admin_panel_settings',
     access: 'supervisor_account', chat_lore: 'auto_stories',
@@ -609,6 +622,18 @@
       runtimeGate: 'per_chat',
       keywords: ['распознавание', 'изображения', 'картинки', 'ocr', 'скрин',
                  'vision', 'фото'] },
+    // ═══ ASAP 7 F3 (§3.1/§3.2): модуль «Инициатива» — первая запись канона
+    // ModuleSpec (services/module_registry.py, ключ ответа /api/config
+    // `modules`). Витринная карточка — fallback-путь миграции (§3.1):
+    // эффективный гейт = env MCA_INTENTS_ENABLED AND тумблер (§3.3), честный
+    // requested/effective/source — intentModuleStatus() на вкладке «Обзор».
+    { id: 'mod_initiative', title: 'Инициатива',
+      subtitle: 'Проактивные намерения и напоминания', icon: 'bolt',
+      toggleKey: 'flags.initiative_enabled', tab: 'mod_initiative',
+      runtimeGate: 'global',
+      keywords: ['инициатива', 'намерения', 'интенты', 'напоминания',
+                 'проактив', 'heartbeat', 'intents', 'initiative',
+                 'кстати'] },
   ];
 
   // ═══ F5 (ADR-1025-15 D1/D6): витринные метаданные workspace-маршрута ═══
@@ -647,6 +672,9 @@
     // MCA-19 (10.43): workspace-вкладки модуля «Распознавание изображений»
     // (минимальный набор; «Аналитика»/диагностика — Wave 2, блок E).
     mod_vision: ['overview', 'settings', 'models', 'limits'],
+    // ASAP 7 F3 (§3.2): вкладки модуля «Инициатива» (flags_intent → settings,
+    // limits_intent → limits; живой статус — на «Обзоре», intentModuleStatus).
+    mod_initiative: ['overview', 'settings', 'limits'],
   };
   MODULES.forEach(function (m) {
     if (!m.routeSlug) m.routeSlug = String(m.id).replace(/^mod_/, '');
@@ -3565,6 +3593,71 @@
         return 'Итог: опубликовано — ' + channel
           + (p.message_id ? ' · message id ' + p.message_id : '');
       },
+      // ═══ F8 (ASAP 7 §2.5/§10): «Фактический промпт» — exact-тексты
+      // Base/Style манифестов выбранного run (обе попытки). Источник —
+      // cover_prompts из drill-down (?include_prompt=true); сервер отдаёт
+      // их только global admin (fail-closed), ответы без параметра ключа
+      // не содержат вовсе. Computed читаются шаблоном как свойства
+      // (урок H-ASAP31-2), хелперы-функции — в methods.
+      pipelineCoverPrompts: function () {
+        var d = this.pipelineData;
+        var cp = d && d.cover_prompts;
+        if (!cp || typeof cp !== 'object') return null;
+        return cp;
+      },
+      // Рендер только при правах global admin И фактических данных
+      // include_prompt (нет манифестов — блок скрыт, не «пусто»).
+      pipelineCoverPromptsVisible: function () {
+        if (!this.isGlobalAdminEffective) return false;
+        var cp = this.pipelineCoverPrompts;
+        return !!(cp && (cp.base || cp.style));
+      },
+      pipelineCoverPromptGroups: function () {
+        var cp = this.pipelineCoverPrompts;
+        if (!cp) return [];
+        var self = this;
+        var groups = [];
+        var defs = [
+          { key: 'base', label: 'Базовая обложка (Base)',
+            m: cp.base },
+          { key: 'style', label: 'Стиль (Style Edit)',
+            m: cp.style },
+        ];
+        defs.forEach(function (def) {
+          var m = def.m;
+          if (!m || typeof m !== 'object') return;
+          var attempts = (m.attempts || []).map(function (a) {
+            return {
+              attempt: a.attempt != null ? a.attempt : '—',
+              prompt: String(a.prompt || ''),
+              chars: (a.prompt || '').length,
+              outcome: a.outcome || '—',
+              reason: a.reason || '',
+            };
+          });
+          var lim = String(m.limit_unit || '');
+          var unit = (lim.indexOf(':') >= 0) ? lim.split(':').pop() : lim;
+          var limit = (m.resolved_limit != null)
+            ? String(m.resolved_limit)
+            + (unit && unit !== 'unknown' ? ' ' + unit : '')
+            : 'неизвестно';
+          groups.push({
+            key: def.key,
+            label: def.label,
+            meta: self.pipelineCoverPromptMeta(m),
+            provider: m.provider || '',
+            model: m.model || '',
+            hash: m.prompt_hash || '',
+            final_prompt: String(m.final_prompt || ''),
+            final_chars: m.final_chars != null
+              ? m.final_chars : String(m.final_prompt || '').length,
+            limit_label: limit,
+            limit_source: m.limit_source || '',
+            attempts: attempts,
+          });
+        });
+        return groups;
+      },
       pipelineRunShortId: function () {
         var id = this.pipelineRunView && this.pipelineRunView.run_id;
         return id ? String(id).slice(0, 8) : '';
@@ -4248,7 +4341,9 @@
             chat_id: c.chat_id,
             title: c.title || ('Чат ' + c.chat_id),
             subtitle: c.is_dm ? 'Личные сообщения' : (c.access || ''),
-            badge: c.is_dm ? 'ЛС' : '',
+            // ASAP 7 F5 (§7.3): inactive-чат показывается с badge
+            // «неактивен», НЕ скрывается (global admin видит все известные).
+            badge: c.is_dm ? 'ЛС' : (c.is_active === false ? 'неактивен' : ''),
             is_dm: !!c.is_dm,
             photo_file_id: c.photo_file_id,
             avatarUrl: c.avatarUrl || '',
@@ -5365,11 +5460,19 @@
           this.pipelineData = data || {};
           if (this.pipelineSelectedRunId) {
             // Drill-down: карта выбранного run (§61.9) поверх режима.
-            var detail = await this.api(
-              '/api/analytics/pipeline/runs/'
-              + encodeURIComponent(this.pipelineSelectedRunId))
+            // F8 (ASAP 7 §2.5/§10): exact-промпты обложки — только global
+            // admin и только по явному include_prompt (сервер fail-closed:
+            // не-глобал получает 403, ответ без параметра — прежний safe).
+            var detailUrl = '/api/analytics/pipeline/runs/'
+              + encodeURIComponent(this.pipelineSelectedRunId);
+            if (this.isGlobalAdminEffective) {
+              detailUrl += '?include_prompt=true';
+            }
+            var detail = await this.api(detailUrl)
               .catch(function () { return null; });
             this.pipelineData.selected_run = detail && detail.run;
+            this.pipelineData.cover_prompts =
+              (detail && detail.cover_prompts) || null;
           }
         } catch (e) {
           this.pipelineData = null;
@@ -5382,6 +5485,25 @@
           : 'latest';
         this.pipelineSelectedRunId = '';
         this.loadPipelineInspector();
+      },
+      // F8 (§2.5): мета-строка манифеста (provider/model/route/hash).
+      pipelineCoverPromptMeta: function (m) {
+        if (!m || typeof m !== 'object') return '';
+        var parts = [];
+        if (m.provider) parts.push(String(m.provider));
+        if (m.model) parts.push(String(m.model));
+        if (m.route) parts.push(String(m.route));
+        if (m.operation) parts.push(String(m.operation));
+        return parts.join(' · ');
+      },
+      // F8 (§2.5): machine reason попытки — человекочитаемо только в
+      // developer-details; enum как есть (не выдумка).
+      pipelineCoverAttemptReason: function (att) {
+        if (!att) return '';
+        var bits = [];
+        if (att.outcome) bits.push(String(att.outcome));
+        if (att.reason) bits.push(String(att.reason));
+        return bits.join(' — ');
       },
       // ═══ MCA-23 (P2-B, §33-§36): «Ответ (Pipeline)» — карта последнего
       // Direct-ответа (planned-vs-actual) + агрегаты 24ч/7д. Fail-open как
@@ -6748,10 +6870,88 @@
                  restricted: 'нет разрешённого чата',
                  unavailable: 'недоступно' }[state] || (state || '—');
       },
-      // Настройки §16.3 — СУЩЕСТВУЮЩИЕ ключи каталога (Δ каталога = 0):
-      // default — канон Settings (сверяется pytest-тестом); effective —
-      // загруженные configItems (если вкладка настроек открыта), иначе «—»;
-      // hot/restart — семантика существующего применения (chat_params/hot).
+      // ═══ ASAP 7 F3 (§3.3): честный гейт Initiative — подписи source ═══
+      gateSourceLabel: function (source) {
+        return { emergency_env: 'env-emergency OFF (важнее UI)',
+                 product_toggle: 'выключено тумблером',
+                 both: 'env + тумблер включены' }[source] || (source || '—');
+      },
+      // Живой гейт/статус Initiative из /api/status (intent_snapshot().module).
+      // Ленивый догруз по прецеденту oversightTabEnter (без нового поллера —
+      // статусный 30с-поллер обновляет снапшот сам, если уже запущен).
+      intentModuleStatus: function () {
+        if (!this.statusData && !this._intentStatusFetch) {
+          this._intentStatusFetch = true;
+          this.loadStatus();
+        }
+        var mod = (this.statusData && this.statusData.intents
+                   && this.statusData.intents.module) || null;
+        if (!mod || mod.master_param === undefined) return null;
+        var hb = mod.heartbeat || {};
+        return {
+          requested: mod.requested, effective: mod.effective,
+          source: mod.source, sourceLabel: this.gateSourceLabel(mod.source),
+          envParam: mod.env_param || 'MCA_INTENTS_ENABLED',
+          masterParam: mod.master_param || 'flags.initiative_enabled',
+          pending: mod.pending,
+          lastDecision: mod.last_decision || null,
+          lastSkip: mod.last_skip || null,
+          nextDue: mod.next_due,
+          heartbeat: hb,
+        };
+      },
+      // ═══ ASAP 7 F3 (§3.1): merge реестра модулей (аддитивный; fallback —
+      // витрина). Существующие карточки обогащаются полями реестра БЕЗ
+      // затирания витрины; НОВЫЕ id → карточка из реестра (F4 добавляет
+      // записи без правки каркаса). Вызов — один на загрузку (loadConfig).
+      f3ApplyModuleRegistry: function (modules) {
+        if (!Array.isArray(modules) || !modules.length) return;
+        if (this._f3RegistryApplied) return;
+        this._f3RegistryApplied = true;
+        var self = this;
+        var known = {};
+        (this.modules || []).forEach(function (m) { if (m) known[m.id] = m; });
+        modules.forEach(function (spec) {
+          if (!spec || !spec.id) return;
+          var cardId = 'mod_' + spec.id;
+          var ex = known[cardId];
+          if (ex) {
+            // Обогащение (витрина — источник отображения; реестр — канон).
+            ex.registryDescription = spec.description || '';
+            ex.registryStatusSource = spec.status_source || '';
+            ex.registryClassification = spec.classification || '';
+            return;
+          }
+          if (spec.visibility === 'hidden') return;
+          if (spec.parent_id) return;   // submodules F4 — отдельное решение
+          var slug = String(spec.id);
+          var card = {
+            id: cardId,
+            title: spec.title || slug,
+            subtitle: spec.description || '',
+            icon: 'extension',
+            toggleKey: spec.master_param || '',
+            tab: 'mod_' + slug,
+            routeSlug: slug,
+            tabs: ['overview', 'settings', 'limits'],
+            runtimeGate: spec.runtime_gate === 'per_chat'
+              ? 'per_chat' : 'global',
+            fromRegistry: true,
+            keywords: [spec.title || '', slug],
+          };
+          if (!self.modules.some(function (m) {
+            return m && m.id === cardId;
+          })) {
+            self.modules.push(card);
+          }
+        });
+      },
+      // Настройки §16.3 — СОБСТВЕННЫЕ ключи модуля «Инициатива» (ASAP 7 F3,
+      // §3.2: ранее блок ошибочно показывал чужие random/budget ключи).
+      // default — канон каталога (flags_intent/limits_intent; сверяется
+      // pytest-тестом); effective — загруженные configItems; hot —
+      // семантика применения (каталоговые ключи применяются без рестарта).
+      // Чужие контуры — ССЫЛКАМИ-переходами (не дубли), см. links ниже.
       storiesSettingsMeta: function () {
         var self = this;
         var find = function (key) {
@@ -6771,36 +6971,49 @@
           return 'глобальный слой';
         };
         var meta = [
-          { key: 'memory.random_exploration_probability',
-            title: 'Спонтанность: вероятность исследования',
-            def: '0.05', hot: 'hot (chat_params)' },
-          { key: 'memory.random_sleep_exploration_probability',
-            title: 'Спонтанность сна: вероятность исследования',
-            def: '0.05', hot: 'hot (chat_params)' },
-          { key: 'memory.random_source',
-            title: 'Источник случайности',
-            def: 'quantum', hot: 'hot (chat_params)' },
-          { key: 'memory.random_fallback_to_pseudorandom',
-            title: 'Fallback на псевдослучайность',
-            def: 'True', hot: 'hot (chat_params)' },
-          { key: 'limits.worker_daily_llm_calls_per_chat',
-            title: 'Фон: вызовов LLM в сутки на чат',
-            def: '60', hot: 'hot (bot_settings)' },
-          { key: 'limits.worker_daily_llm_calls_global',
-            title: 'Фон: вызовов LLM в сутки глобально',
-            def: '200', hot: 'hot (bot_settings)' },
-          { key: 'flags.budgets_enabled',
-            title: 'Бюджеты включены',
-            def: 'True', hot: 'hot (bot_settings)' },
-          { key: 'limits.chat_context_budget_tokens',
-            title: 'Бюджет контекста, токенов',
-            def: '16000', hot: 'hot (bot_settings)' },
+          { key: 'flags.initiative_enabled',
+            title: 'Инициатива включена (мастер)',
+            def: 'True', hot: 'hot · env MCA_INTENTS_ENABLED важнее' },
+          { key: 'flags.intent_heartbeat_enabled',
+            title: 'Heartbeat: due-скан',
+            def: 'True', hot: 'hot · env MCA_INTENT_HEARTBEAT_ENABLED' },
+          { key: 'flags.intent_decision_enabled',
+            title: 'Инициативные решения',
+            def: 'True', hot: 'hot · env MCA_INTENT_DECISION_ENABLED' },
+          { key: 'flags.send_recheck_enabled',
+            title: 'Проверка перед отправкой (recheck)',
+            def: 'True', hot: 'hot · env MCA_SEND_RECHECK_ENABLED' },
+          { key: 'limits.intent_heartbeat_batch_max',
+            title: 'Heartbeat: батч due-скана',
+            def: '20', hot: 'hot (bot_settings)' },
+          { key: 'limits.intent_max_attempts',
+            title: 'Попыток на намерение',
+            def: '3', hot: 'hot (bot_settings)' },
+          { key: 'limits.intent_candidates_max',
+            title: 'Кандидатов на решение',
+            def: '8', hot: 'hot (bot_settings)' },
+          { key: 'limits.intent_retention_days',
+            title: 'Хранение архива, дней',
+            def: '180', hot: 'hot (bot_settings)' },
+          { key: 'limits.intent_defer_backoff_seconds',
+            title: 'Пауза после «не тот момент», секунд',
+            def: '1800', hot: 'hot (bot_settings)' },
         ];
         return meta.map(function (m) {
           return Object.assign({}, m, {
             effective: val(m.key), source: src(m.key),
           });
         });
+      },
+      // Связанные контуры — ссылки-переходы к владельцам настроек (НЕ дубли
+      // ключей; прецедент §3.2 «related settings — ссылка-переход»).
+      intentRelatedLinks: function () {
+        return [
+          { label: 'Случайность (источник/спонтанность)',
+            route: '#/modules/sleep', hint: 'Сон → Случайность' },
+          { label: 'Бюджеты фона и контекста',
+            route: '#/modules/budgets', hint: 'Лимиты LLM и контекста' },
+        ];
       },
       // ── T-5169: витрины смежных фич (компакт, существующие API) ─────────
       loadAdjacentVitrines: function () {
@@ -10831,6 +11044,10 @@
         if (this.scopeOpen) {
           this.scopeSearch = '';
           this.scopeFocus = 0;
+          // ASAP 7 F5 (P7-C-6): re-fetch списка чатов при открытии селектора
+          // — новый чат появляется без переоткрытия MiniApp; stale saved-id
+          // чистится внутри loadAccessCtx (контракт C8 сохранён).
+          this.loadAccessCtx();
           this.ensureScopeAvatars();
           this.positionScopePanel();
         } else {
@@ -11879,6 +12096,12 @@
           // старые черновики сбрасываем (draft==null = «не трогать»), иначе
           // черновик «переживал» бы reload и показывал стейл.
           this.blockDrafts = {};
+          // ASAP 7 F3 (§3.1): merge аддитивного реестра модулей (ключ
+          // `modules` ответа /api/config) — enrich + новые карточки, fallback
+          // витрины сохранён (один раз на загрузку приложения).
+          if (typeof this.f3ApplyModuleRegistry === 'function') {
+            this.f3ApplyModuleRegistry(data.modules);
+          }
           this._normalizeConfigItems(this.configItems);
           // 3.5.2: после перезагрузки KV-редакторы (компоненты) сами
           // пересоберут пары из item.value — внешних черновиков нет.

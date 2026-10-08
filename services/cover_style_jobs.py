@@ -1325,6 +1325,57 @@ def _resolve_api_key() -> str:
 manifest_public = cpa.manifest_public  # ASAP 5 (D7): fail-closed view (admin-only)
 
 
+async def load_run_cover_prompts(db, run_id: str | None) -> dict:
+    """ASAP 7 F8 (§2.5): production-читатель exact-промптов run'а.
+
+    Возвращает ``{"base": manifest|None, "style": manifest|None}`` —
+    Base-манифест (``load_base_cover_manifest``, task_jobs kind=cover_base)
+    и Style-манифест production Style-Edit (state.prompt_manifest durable
+    cover-джобы, поиск по ``coalesce_key='cover_style:<run_id>'`` — тот же
+    путь, что `_cover_job_fallback`). ТОЛЬКО чтение durable-артефактов;
+    поведение записи не меняется.
+
+    R17: полные тексты отдаются только global-admin вызывающему
+    (``web/api/analytics.py``, ``?include_prompt=true``); generic-логи и
+    ответы без include_prompt этот хелпер не касается. Fail-open: нет
+    БД/run_id/джоб — None-поля, исключений не бросает."""
+    empty = {"base": None, "style": None}
+    if db is None or not str(run_id or "").strip():
+        return empty
+    rid = str(run_id).strip()
+    try:
+        base = await load_base_cover_manifest(db, rid)
+    except Exception:
+        logger.warning("[cover_style_jobs] base manifest read failed",
+                       exc_info=True)
+        base = None
+    style = None
+    try:
+        cursor = await db.db.execute(
+            "SELECT payload FROM task_jobs WHERE coalesce_key = ? "
+            "ORDER BY updated_at DESC LIMIT 1",
+            ("cover_style:%s" % rid,))
+        row = await cursor.fetchone()
+        if row is not None:
+            raw = dict(row).get("payload")
+            payload = {}
+            try:
+                payload = json.loads(raw) if raw else {}
+            except (ValueError, TypeError):
+                payload = {}
+            cursor_token = (payload.get("cursor")
+                            if isinstance(payload, dict) else None)
+            state = CoverJobState.from_json(
+                cursor_token if isinstance(cursor_token, str) else None)
+            if state is not None:
+                style = state.prompt_manifest
+    except Exception:
+        logger.warning("[cover_style_jobs] style manifest read failed",
+                       exc_info=True)
+        style = None
+    return {"base": base, "style": style}
+
+
 # ── Style stage (§3.2/§23/§38/§49) ──────────────────────────────────────────
 
 def _manifest_mark_outcome(manifest: dict | None, *, applied: bool,
@@ -2121,6 +2172,7 @@ __all__ = [
     # ASAP 5 (D7-D9): манифест/сборка/персист
     "record_base_cover_manifest", "load_base_cover_manifest",
     "base_manifest_job_key", "manifest_public",
+    "load_run_cover_prompts",
     "style_reference_text",
     "snapshot_enabled", "resolve_selection", "emit_style_selection",
     "selection_stage", "profile_for_snapshot", "report_style_skip",
