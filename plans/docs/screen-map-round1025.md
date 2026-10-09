@@ -1,7 +1,7 @@
 # F8 — Карта экранов `screen-map-round1025.md` (ADR-1025-21 D3)
 
 > Сгенерировано `tools/gen_param_registry_round1025.py` (read-only). Провенанс — `param-registry-round1025.meta.md`.
-> Инвариант «ни один параметр не остался без нового места»: `set(param_key) ⊇ REGISTRY(538)`, «без места» = 0. Неизвестные ключи (нет в каталоге) → секция `registry-only` реестра.
+> Инвариант «ни один параметр не остался без нового места»: `set(param_key) ⊇ REGISTRY(560)`, «без места» = 0. Неизвестные ключи (нет в каталоге) → секция `registry-only` реестра.
 > `ui_visibility ∈ {visible,hidden,api-only}`; **api-only ≠ сохранено** (REQ-F8-08). Секреты без открытого значения (R17).
 
 | old_screen | param_key | new_screen | read_api | write_api | ui_visibility | secret | hidden | status |
@@ -24,6 +24,8 @@
 | Память | flags.belief_decay_enabled | Память | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | OK |
 | Память | flags.bot_self_awareness_enabled | Память | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | OK |
 | Бюджеты | flags.budgets_enabled | Модули | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | new |
+| PERMsoc | flags.character_layers_enabled | PERMsoc | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | new |
+| PERMsoc | flags.character_speech_enabled | PERMsoc | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | new |
 | Прямые ответы | flags.chat_autonomous_reply_enabled | Модули | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | new |
 | Прямые ответы | flags.chat_context_budgets_enabled | Модули | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | OK |
 | Прямые ответы | flags.chat_decision_ignore_trivial_enabled | Модули | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | new |
@@ -47,9 +49,15 @@
 | Память | flags.dig_enabled | Память | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | OK |
 | Память | flags.dig_pre_gate_enabled | Память | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | OK |
 | Прямые ответы | flags.direct_chat_botword_enabled | Модули | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | OK |
+| Прямые ответы | flags.direct_l1_enabled | Модули | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | new |
+| Прямые ответы | flags.direct_l1_fallback_enabled | Модули | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | new |
 | Скачивание медиа | flags.download_enabled | Модули | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | OK |
 | Память | flags.embed_cache_enabled | Память | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | OK |
 | Транскрипт голосовых и видео | flags.enable_voice_transcription | Модули | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | OK |
+| Память | flags.episodes_backfill_enabled | Память | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | new |
+| Память | flags.episodes_compiler_facade_enabled | Память | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | new |
+| Память | flags.episodes_continuation_enabled | Память | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | new |
+| Память | flags.episodes_enabled | Память | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | new |
 | Фактчек | flags.factcheck_enabled | Модули | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | OK |
 | Память | flags.graph_dedup_enabled | Память | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | OK |
 | Память | flags.graph_episode_merge_enabled | Память | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | OK |
@@ -65,6 +73,7 @@
 | Инициатива | flags.intent_heartbeat_enabled | Модули | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | new |
 | Участники и отношения | flags.irony_filter_enabled | Память | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | OK |
 | PERMsoc | flags.kostik_enabled | PERMsoc | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | OK |
+| PERMsoc | flags.legacy_traits_migration_enabled | PERMsoc | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | new |
 | Диагностика | flags.llm_cb_enabled | Модули | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | OK |
 | Лор чата | flags.lore_auto_enabled | Память | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | OK |
 | Прямые ответы | flags.lore_compiler_enabled | Модули | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | new |
@@ -81,12 +90,17 @@
 | PERMsoc | flags.olya_repost_enabled | PERMsoc | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | OK |
 | PERMsoc | flags.permsoc_enabled | PERMsoc | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | OK |
 | Память | flags.persona_enabled | Память | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | OK |
+| PERMsoc | flags.postprocess_form_guard_enabled | PERMsoc | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | new |
 | Участники и отношения | flags.relations_tone_enabled | Память | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | OK |
 | Поиск | flags.search_enabled | Модули | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | OK |
 | Поиск | flags.search_rerank_enabled | Модули | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | OK |
+| PERMsoc | flags.self_model_enabled | PERMsoc | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | new |
 | Инициатива | flags.send_recheck_enabled | Модули | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | new |
 | PERMsoc | flags.slavik_enabled | PERMsoc | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | OK |
 | Умный кэш | flags.smart_cache_enabled | ИИ | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | OK |
+| Память | flags.stories_manage_enabled | Память | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | new |
+| Память | flags.stories_vitrina_enabled | Память | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | new |
+| PERMsoc | flags.style_scope_enabled | PERMsoc | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | new |
 | Саммаризация | flags.summary_admin_only | Модули | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | OK |
 | Саммаризация | flags.summary_enabled | Модули | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | OK |
 | Саммаризация | flags.summary_hybrid_l1_repair_enabled | Модули | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | new |
@@ -95,6 +109,7 @@
 | Саммаризация | flags.summary_legacy_fallback_enabled | Модули | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | new |
 | Саммаризация | flags.summary_streaming_enabled | Модули | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | OK |
 | Диагностика | flags.throttle_persistent_enabled | Модули | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | OK |
+| PERMsoc | flags.trait_rules_enabled | PERMsoc | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | new |
 | Прямые ответы | flags.typing_indicator_enabled | Модули | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | OK |
 | Память | flags.vec_int8_enabled | Память | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | OK |
 | Выжимка видео | flags.video_summary_enabled | Модули | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | OK |
@@ -104,6 +119,7 @@
 | .env (infra) | info_text_file | .env (инфраструктура, вне UI) | нет API (env-only) | нет API (env-only) | api-only | false | false | new |
 | Диагностика | keys.checkup_betterstack_sql_password | Модули | GET /api/config (маска {configured,last4}); GET /api/config/keys/own; GET /api/config/keys/status | PUT /api/config/keys/own; DELETE /api/config/keys/own/{key_name} | visible | true | false | OK |
 | Диагностика | keys.checkup_betterstack_sql_user | Модули | GET /api/config (маска {configured,last4}); GET /api/config/keys/own; GET /api/config/keys/status | PUT /api/config/keys/own; DELETE /api/config/keys/own/{key_name} | visible | true | false | OK |
+| Прямые ответы | keys.direct_l1_api_key | Модули | GET /api/config (маска {configured,last4}); GET /api/config/keys/own; GET /api/config/keys/status | PUT /api/config/keys/own; DELETE /api/config/keys/own/{key_name} | visible | true | false | new |
 | LLM Провайдеры | keys.embedding_api_key | ИИ | GET /api/config (маска {configured,last4}); GET /api/config/keys/own; GET /api/config/keys/status | PUT /api/config/keys/own; DELETE /api/config/keys/own/{key_name} | visible | true | false | OK |
 | LLM Провайдеры | keys.embedding_fallback_api_key | ИИ | GET /api/config (маска {configured,last4}); GET /api/config/keys/own; GET /api/config/keys/status | PUT /api/config/keys/own; DELETE /api/config/keys/own/{key_name} | visible | true | false | OK |
 | LLM Провайдеры | keys.embedding_fallback_api_key_2 | ИИ | GET /api/config (маска {configured,last4}); GET /api/config/keys/own; GET /api/config/keys/status | PUT /api/config/keys/own; DELETE /api/config/keys/own/{key_name} | visible | true | false | OK |
@@ -204,6 +220,10 @@
 | Память | limits.dig_max_snippets | Память | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | OK |
 | Память | limits.dig_max_symbols | Память | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | OK |
 | Память | limits.dig_year_back_window_days | Память | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | OK |
+| Прямые ответы | limits.direct_l1_context_tokens | Модули | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | new |
+| Прямые ответы | limits.direct_l1_max_output_tokens | Модули | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | new |
+| Прямые ответы | limits.direct_l1_temperature | Модули | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | new |
+| Прямые ответы | limits.direct_l1_timeout_seconds | Модули | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | new |
 | Скачивание медиа | limits.download_cooldown | Модули | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | OK |
 | Память | limits.embed_cache_max_rows | Память | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | OK |
 | Память | limits.embed_cache_ttl_days | Память | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | OK |
@@ -398,6 +418,8 @@
 | Диагностика | models.checkup_betterstack_sql_host | Модули | GET /api/config; GET /api/config/params-meta | POST /api/config | visible | false | false | OK |
 | Диагностика | models.checkup_betterstack_sql_query | Модули | GET /api/config; GET /api/config/params-meta | POST /api/config | visible | false | false | OK |
 | Диагностика | models.checkup_betterstack_sql_table | Модули | GET /api/config; GET /api/config/params-meta | POST /api/config | visible | false | false | OK |
+| Прямые ответы | models.direct_l1_base_url | Модули | GET /api/config; GET /api/config/params-meta | POST /api/config | visible | false | false | new |
+| Прямые ответы | models.direct_l1_model_name | Модули | GET /api/config; GET /api/config/params-meta | POST /api/config | visible | false | false | new |
 | LLM Провайдеры | models.embedding_base_url | ИИ | GET /api/config; GET /api/config/params-meta | POST /api/config | visible | false | false | OK |
 | LLM Провайдеры | models.embedding_dim | ИИ | GET /api/config; GET /api/config/params-meta | POST /api/config | visible | false | false | OK |
 | LLM Провайдеры | models.embedding_display_name | ИИ | GET /api/config; GET /api/config/params-meta | POST /api/config | visible | false | false | OK |
@@ -547,4 +569,4 @@
 
 ## registry-only (неизвестные каталогу параметры)
 
-Нет: множество `internal_key` каталога == множество `REGISTRY` == 538; все ключи получили новое место. Расхождений нет.
+Нет: множество `internal_key` каталога == множество `REGISTRY` == 560; все ключи получили новое место. Расхождений нет.

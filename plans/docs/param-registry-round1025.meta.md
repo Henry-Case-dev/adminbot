@@ -1,12 +1,12 @@
 # F8 — `param-registry-round1025` — провенанс `.meta.md`
 
-- **APP_VERSION:** `2.58.73`
-- **HEAD (short):** `e6670b0`
+- **APP_VERSION:** `2.58.74`
+- **HEAD (short):** `71b3b69`
 - **Источник:** `services/param_catalog.py` (REGISTRY/GROUPS/_TAB_BY_GROUP/TAB_RULES) + `inventory.tsv` (10.14) для дельты.
-- **Счётчики каталога:** REGISTRY **538** / GROUPS **115** / `_TAB_BY_GROUP` **113** / TAB_RULES **23**.
-- **Реестр:** 538 строк == REGISTRY.
+- **Счётчики каталога:** REGISTRY **560** / GROUPS **120** / `_TAB_BY_GROUP` **118** / TAB_RULES **23**.
+- **Реестр:** 560 строк == REGISTRY.
 - **inventory.tsv (10.14):** 411 baseline-ключей.
-- **Дельта 411 → 538 = 127** новых ключей (`status=new`).
+- **Дельта 411 → 560 = 149** новых ключей (`status=new`).
 - **Команда генерации:** `python tools/gen_param_registry_round1025.py`
 - **Проверка (маркер):** `python tools/gen_param_registry_round1025.py --check`
 
@@ -22,7 +22,7 @@
 - `-` = поле неприменимо/отсутствует (документированное отсутствие).
 - `ui_visibility=api-only` — ключ существует (env/каталог), но UI-места нет → **не** считается сохранённым в UI.
 
-## Дельта 411 → 538 = 127 (ключи, отсутствовавшие в inventory.tsv)
+## Дельта 411 → 560 = 149 (ключи, отсутствовавшие в inventory.tsv)
 
 - `api_token`
 - `betterstack_host`
@@ -34,23 +34,39 @@
 - `embedding_fallback_max_retries`
 - `embedding_fallback_timeout_seconds`
 - `flags.budgets_enabled`
+- `flags.character_layers_enabled`
+- `flags.character_speech_enabled`
 - `flags.chat_autonomous_reply_enabled`
 - `flags.chat_decision_ignore_trivial_enabled`
 - `flags.chat_decision_image_reactions_enabled`
 - `flags.chat_decision_reactions_enabled`
 - `flags.chat_silent_ack_enabled`
+- `flags.direct_l1_enabled`
+- `flags.direct_l1_fallback_enabled`
+- `flags.episodes_backfill_enabled`
+- `flags.episodes_compiler_facade_enabled`
+- `flags.episodes_continuation_enabled`
+- `flags.episodes_enabled`
 - `flags.image_generation_module_enabled`
 - `flags.initiative_enabled`
 - `flags.intent_decision_enabled`
 - `flags.intent_heartbeat_enabled`
+- `flags.legacy_traits_migration_enabled`
 - `flags.lore_compiler_enabled`
+- `flags.postprocess_form_guard_enabled`
+- `flags.self_model_enabled`
 - `flags.send_recheck_enabled`
+- `flags.stories_manage_enabled`
+- `flags.stories_vitrina_enabled`
+- `flags.style_scope_enabled`
 - `flags.summary_hybrid_l1_repair_enabled`
 - `flags.summary_hybrid_l1_retry_enabled`
 - `flags.summary_hybrid_l2_enabled`
 - `flags.summary_legacy_fallback_enabled`
+- `flags.trait_rules_enabled`
 - `flags.vision_enabled`
 - `info_text_file`
+- `keys.direct_l1_api_key`
 - `keys.embedding_quota_group_labels`
 - `keys.image_api_key`
 - `keys.image_style_api_key`
@@ -68,6 +84,10 @@
 - `keys.vision_api_key`
 - `limits.anticliche_max_patterns`
 - `limits.chat_timezone`
+- `limits.direct_l1_context_tokens`
+- `limits.direct_l1_max_output_tokens`
+- `limits.direct_l1_temperature`
+- `limits.direct_l1_timeout_seconds`
 - `limits.factcheck_context_after`
 - `limits.factcheck_context_before`
 - `limits.image_daily_limit`
@@ -104,6 +124,8 @@
 - `memory.random_uses_memory_recall`
 - `memory.random_uses_ui_visualization`
 - `models.chat_model_context_window`
+- `models.direct_l1_base_url`
+- `models.direct_l1_model_name`
 - `models.embedding_fallback1_base_url`
 - `models.embedding_fallback1_model`
 - `models.embedding_fallback1_quota_group`

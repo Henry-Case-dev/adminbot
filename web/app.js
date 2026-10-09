@@ -104,11 +104,17 @@
       ] },
     { id: 'mod_direct', icon: 'smart_toy', label: 'Прямые ответы',
       type: 'config', menu: 'modules',
+      // ASAP 7 F2 (§1.6/§19): зеркало TAB_RULES — секция «L1 Planner»
+      // (flags_direct_l1; limits_direct_l1; слот models/keys models_direct_l1).
       sources: [
         { category: 'flags', groups: ['flags_module_direct',
-            'flags_chat_behavior', 'flags_decision_making'] },
+            'flags_chat_behavior', 'flags_decision_making',
+            'flags_direct_l1'] },
         { category: 'limits', groups: ['limits_chat', 'limits_chat_behavior',
-            'limits_chat_budgets', 'limits_temperature'] },
+            'limits_chat_budgets', 'limits_temperature',
+            'limits_direct_l1'] },
+        { category: 'models', groups: ['models_direct_l1'] },
+        { category: 'keys', groups: ['models_direct_l1'] },
         { category: 'reactions', groups: ['reactions_chat'] },
       ] },
     { id: 'mod_factcheck', icon: 'radar', label: 'Фактчек',
@@ -224,6 +230,9 @@
         // «Опыт и уроки» на вкладке «Память» (in-place, без новых вкладок).
         { category: 'memory', groups: ['memory_experience'] },
         { category: 'reactions', groups: ['reactions_memory'] },
+        // ASAP 7 F4 (§3.2): зеркало TAB_RULES — подмодуль «Истории и
+        // эпизоды» (flags_stories) на вкладке «Память» (in-place).
+        { category: 'flags', groups: ['flags_stories'] },
       ] },
     // A3/T-1174: «Умный кэш» — отдельный подраздел AI.
     { id: 'smart_cache', icon: 'bolt', label: 'Умный кэш', type: 'config',
@@ -259,7 +268,10 @@
             'reactions_mimic', 'reactions_olya',
             'reactions_word_reactions', 'reactions_permsoc'] },
         { category: 'flags', groups: [
-            'flags_permsoc', 'flags_media', 'flags_permsoc_behavior'] },
+            'flags_permsoc', 'flags_media', 'flags_permsoc_behavior',
+            // ASAP 7 F4 (§3.2): зеркало TAB_RULES — подмодуль «Характер»
+            // (flags_character, Advanced) на вкладке PERMsoc (in-place).
+            'flags_character'] },
         { category: 'limits', groups: [
             'limits_alan', 'limits_kostik', 'limits_media_permsoc',
             'limits_mimic', 'limits_deadpage'] },
@@ -1747,6 +1759,12 @@
           limitUnit: 'chars',
           limitValue: null,
           limitSaving: false,
+          // ASAP 7 F7 (§9): live-превью компиляции — server compiler
+          // (POST /api/cover/preview-compile, global admin). Ответ сервера
+          // отображается как есть; frontend промпт не собирает (§22 п.15).
+          compileBusy: false,
+          compileChatId: 0,
+          compile: { result: null, message: '' },
           editorOpen: false,      // §108: dedicated editor surface
           editorDirty: false,     // есть несохранённые изменения
           draftStep: '',          // 'name' (§112 шаг 1) | 'full'
@@ -2296,6 +2314,11 @@
 
     computed: {
       currentTabLabel: function () {
+        // ASAP 7 F4: страница ПОДКАРТОЧКИ реестра — заголовок карточки
+        // (напр. «Случайность» на поверхности «Сна»); топ-модули сохраняют
+        // прежний заголовок config-вкладки (пины витрин не меняются).
+        var m = this.workspaceModule;
+        if (m && m.fromRegistry && m.submoduleOf) return m.title;
         var tab = this.currentTab;
         return tab ? tab.label : '';
       },
@@ -3296,6 +3319,52 @@
             value: s.plan_axes ? 'есть данные' : '—' },
         ];
         return rows;
+      },
+      // ── ASAP 7 F2 (§18): durable-оси L1 Planner за период (plan_meta,
+      // /api/analytics/response/summary → `l1`). Честные «—» без данных.
+      responseL1Rows: function () {
+        var l1 = this.responseSummary && this.responseSummary.l1;
+        if (!l1 || !(l1.calls > 0)) return [];
+        var pct = function (v) {
+          return v != null ? Math.round(v * 100) + '%' : '—';
+        };
+        var dist = function (map, labels) {
+          var keys = Object.keys(map || {}).filter(function (k) {
+            return map[k] > 0;
+          });
+          if (!keys.length) return '—';
+          return keys.map(function (k) {
+            return (labels && labels[k]) || k;
+          }).join(' · ');
+        };
+        var actionLabels = { reply: 'ответ', react: 'реакция',
+                             silent: 'молчание', tool: 'инструменты',
+                             unknown: 'неизвестно' };
+        var bucketLabels = { low: 'низкая', medium: 'средняя',
+                             high: 'высокая', unknown: 'неизвестно' };
+        var lat = l1.latency_ms || {};
+        return [
+          { key: 'l1calls', label: 'L1-вызовов (планировщик)',
+            value: l1.calls + (l1.with_meta
+              ? ' · с планом: ' + l1.with_meta : '') },
+          { key: 'l1actions', label: 'Действия L1',
+            value: dist(l1.actions, actionLabels) },
+          { key: 'l1extents', label: 'Объём L1',
+            value: dist(l1.extents, null) },
+          { key: 'l1tones', label: 'Тон L1',
+            value: dist(l1.tones, null) },
+          { key: 'l1buckets', label: 'Уверенность',
+            value: dist(l1.buckets, bucketLabels) },
+          { key: 'l1inherited', label: 'Наследует основную модель',
+            value: pct(l1.inherited_rate) },
+          { key: 'l1fallback', label: 'Fallback планирования',
+            value: pct(l1.fallback_rate) },
+          { key: 'l1latency', label: 'L1 latency p50/p95',
+            value: (lat.p50 != null || lat.p95 != null)
+              ? (lat.p50 != null ? lat.p50 : '—') + ' / '
+                + (lat.p95 != null ? lat.p95 : '—') + ' мс'
+              : '—' },
+        ];
       },
       // Свежее in-memory окно (действия/объём за последние прогоны).
       responseRecentRows: function () {
@@ -6904,15 +6973,24 @@
       // витрина). Существующие карточки обогащаются полями реестра БЕЗ
       // затирания витрины; НОВЫЕ id → карточка из реестра (F4 добавляет
       // записи без правки каркаса). Вызов — один на загрузку (loadConfig).
+      // ═══ ASAP 7 F4 (§3.2): подмодули (parent_id) рендерятся подкарточками
+      // из реестра: config_tab — существующая config-вкладка родителя
+      // (новых вкладок нет), settingsGroups — фильтр «только свои группы»
+      // в _workspaceGroupsFor, gate — честный requested/effective/source
+      // (registry_for_frontend) для «Обзора». Дубли карточек не создаются.
       f3ApplyModuleRegistry: function (modules) {
         if (!Array.isArray(modules) || !modules.length) return;
         if (this._f3RegistryApplied) return;
         this._f3RegistryApplied = true;
         var self = this;
+        this._f4Registry = {};
+        var F4_ICONS = { stories: 'auto_stories', character: 'psychology',
+                         experience: 'school', random: 'casino' };
         var known = {};
         (this.modules || []).forEach(function (m) { if (m) known[m.id] = m; });
         modules.forEach(function (spec) {
           if (!spec || !spec.id) return;
+          this._f4Registry[spec.id] = spec;
           var cardId = 'mod_' + spec.id;
           var ex = known[cardId];
           if (ex) {
@@ -6920,31 +6998,132 @@
             ex.registryDescription = spec.description || '';
             ex.registryStatusSource = spec.status_source || '';
             ex.registryClassification = spec.classification || '';
+            ex.gate = spec.gate || null;
             return;
           }
           if (spec.visibility === 'hidden') return;
-          if (spec.parent_id) return;   // submodules F4 — отдельное решение
           var slug = String(spec.id);
-          var card = {
-            id: cardId,
-            title: spec.title || slug,
-            subtitle: spec.description || '',
-            icon: 'extension',
-            toggleKey: spec.master_param || '',
-            tab: 'mod_' + slug,
-            routeSlug: slug,
-            tabs: ['overview', 'settings', 'limits'],
-            runtimeGate: spec.runtime_gate === 'per_chat'
-              ? 'per_chat' : 'global',
-            fromRegistry: true,
-            keywords: [spec.title || '', slug],
-          };
+          var card;
+          if (spec.parent_id) {
+            // F4: подмодуль — подкарточка на существующей поверхности
+            // родителя (config_tab); toggle нет у «no master»-модулей.
+            card = {
+              id: cardId,
+              title: spec.title || slug,
+              subtitle: spec.description || '',
+              icon: F4_ICONS[spec.id] || 'extension',
+              toggleKey: spec.master_param || '',
+              tab: spec.config_tab || ('mod_' + slug),
+              routeSlug: slug,
+              tabs: ['overview', 'settings'],
+              runtimeGate: spec.runtime_gate === 'per_chat'
+                ? 'per_chat' : 'global',
+              fromRegistry: true,
+              submoduleOf: spec.parent_id,
+              // «no master» (напр. «Случайность»): мёртвого переключателя нет
+              // (состояние — env-ось в data-f4-module-gate).
+              noToggle: !spec.master_param,
+              settingsGroups: Array.isArray(spec.settings_groups)
+                ? spec.settings_groups.slice() : [],
+              gate: spec.gate || null,
+              keywords: [spec.title || '', slug, String(spec.parent_id || '')],
+            };
+          } else {
+            card = {
+              id: cardId,
+              title: spec.title || slug,
+              subtitle: spec.description || '',
+              icon: 'extension',
+              toggleKey: spec.master_param || '',
+              tab: 'mod_' + slug,
+              routeSlug: slug,
+              tabs: ['overview', 'settings', 'limits'],
+              runtimeGate: spec.runtime_gate === 'per_chat'
+                ? 'per_chat' : 'global',
+              fromRegistry: true,
+              gate: spec.gate || null,
+              keywords: [spec.title || '', slug],
+            };
+          }
           if (!self.modules.some(function (m) {
             return m && m.id === cardId;
           })) {
             self.modules.push(card);
           }
-        });
+        }, this);
+        // F4: холодный deep-link на подкарточку реестра — boot-applyRoute
+        // отработал ДО loadConfig («Модуль не найден» → #/modules); после
+        // merge переприменяем актуальный hash (один раз, только если
+        // маршрут указывает на добавленную запись реестра).
+        if (!self.workspaceModule) {
+          var h = String(window.location.hash || '');
+          if (h.indexOf('#/modules/') === 0) {
+            var deep = h.slice('#/modules/'.length).split('/')[0];
+            if (deep && this._f4Registry[deep]) self.applyRoute(h);
+          }
+        }
+      },
+      // ═══ ASAP 7 F4 (§3.2): гейт подмодуля для «Обзора» — честный
+      // requested/effective/source из реестра (registry_for_frontend.gate);
+      // requested живёт по configItems (свежее снапшота), env-ось — из
+      // снапшота (env меняется только с рестартом).
+      f4ModuleGate: function (m) {
+        if (!m || !m.fromRegistry) return null;
+        var gate = m.gate || null;
+        if (!gate && this._f4Registry) {
+          var slug = String(m.routeSlug
+            || String(m.id).replace(/^mod_/, ''));
+          var spec = this._f4Registry[slug];
+          gate = spec && spec.gate ? spec.gate : null;
+        }
+        if (!gate) return null;
+        var item = m.toggleKey ? this._moduleConfigItem(m) : null;
+        var requested = (item && item.value !== null
+                         && item.value !== undefined)
+          ? item.value === true : !!gate.requested;
+        return {
+          requested: requested,
+          effective: !!gate.effective,
+          source: gate.source || '',
+          sourceLabel: this.gateSourceLabel(gate.source),
+          envParam: gate.env_param || '',
+          masterParam: gate.master_param || '',
+        };
+      },
+      // ═══ ASAP 7 F4 (§3.2): связанные контуры подмодуля — ссылки-переходы
+      // (не дубли ключей): Random → Сон/Инициатива (shared), Stories →
+      // Статус «Истории чата», Experience → вкладка «Память», Character →
+      // вкладка PERMsoc.
+      f4RelatedLinks: function (m) {
+        var slug = m ? String(m.routeSlug
+          || String(m.id).replace(/^mod_/, '')) : '';
+        if (slug === 'random') {
+          return [
+            { label: 'Сон (контур случайности во сне)',
+              route: '#/modules/sleep', hint: 'Сон → Случайность' },
+            { label: 'Инициатива (применения случайности)',
+              route: '#/modules/initiative', hint: 'спонтанность и recheck' },
+          ];
+        }
+        if (slug === 'stories') {
+          return [
+            { label: 'Статус: блок «Истории чата»',
+              route: '#/status', hint: 'живое состояние витрины' },
+          ];
+        }
+        if (slug === 'experience') {
+          return [
+            { label: 'Память: банк опыта и уроков',
+              route: '#/memory/rag', hint: 'настройки memory_experience' },
+          ];
+        }
+        if (slug === 'character') {
+          return [
+            { label: 'PERMsoc: поведение персон',
+              route: '#/permsoc', hint: 'родительская поверхность' },
+          ];
+        }
+        return [];
       },
       // Настройки §16.3 — СОБСТВЕННЫЕ ключи модуля «Инициатива» (ASAP 7 F3,
       // §3.2: ранее блок ошибочно показывал чужие random/budget ключи).
@@ -7007,10 +7186,12 @@
       },
       // Связанные контуры — ссылки-переходы к владельцам настроек (НЕ дубли
       // ключей; прецедент §3.2 «related settings — ссылка-переход»).
+      // ASAP 7 F4: у «Случайности» теперь есть owner-подкарточка
+      // (#/modules/random, registry) — ссылка ведёт к владельцу.
       intentRelatedLinks: function () {
         return [
           { label: 'Случайность (источник/спонтанность)',
-            route: '#/modules/sleep', hint: 'Сон → Случайность' },
+            route: '#/modules/random', hint: 'владелец: источник, откат, применения' },
           { label: 'Бюджеты фона и контекста',
             route: '#/modules/budgets', hint: 'Лимиты LLM и контекста' },
         ];
@@ -7393,6 +7574,16 @@
           var cards = map[rk].cards || [];
           for (var c = 0; c < cards.length; c++) {
             if (cards[c].route === route) return cards[c].title;
+          }
+        }
+        // ASAP 7 F4: страница подмодуля реестра — заголовок КАРТОЧКИ модуля,
+        // а не config-вкладки родителя (напр. «Случайность», а не «Сон»:
+        // подмодули живут на существующих вкладках родителя).
+        if (typeof parseWorkspaceRoute === 'function') {
+          var ws = parseWorkspaceRoute(route);
+          if (ws && typeof this.moduleBySlug === 'function') {
+            var wm = this.moduleBySlug(ws.slug);
+            if (wm) return wm.title;
           }
         }
         var tabId = routeToTab(route);
@@ -9029,6 +9220,13 @@
       },
       moduleStateText: function (m) {
         if (!m) return '';
+        // ASAP 7 F4: подмодуль без собственного тумблера («no master»,
+        // напр. «Случайность») — состояние по гейту реестра (env-ось).
+        if (!m.toggleKey && m.fromRegistry) {
+          var g4 = this.f4ModuleGate(m);
+          if (g4) return g4.effective ? 'Работает' : 'Не работает';
+          return 'Управляется параметрами';
+        }
         if (m.noToggle) return 'Управляется параметрами';
         var st = this.getModuleState(this.storeScope(), m.id);
         if (st.runtime === 'unknown' || st.display === null) {
@@ -9069,6 +9267,12 @@
       // сохранено; RBAC — в canEditModule/setModuleState).
       moduleEnabled: function (m) {
         if (!m) return false;
+        // ASAP 7 F4: подмодуль «no master» без тумблера — состояние гейта
+        // (env-ось), а не «выключен» из-за отсутствия config-элемента.
+        if (!m.toggleKey && m.fromRegistry) {
+          var g4 = this.f4ModuleGate(m);
+          return g4 ? g4.effective : true;
+        }
         return this.getModuleState(this.storeScope(), m.id).display === true;
       },
       toggleModule: async function (m, checked) {
@@ -9633,6 +9837,10 @@
             || grp.id === 'limits_summary_hybrid') return 'hybrid';
         if (grp.id === 'flags_summary_legacy'
             || grp.id === 'limits_summary_legacy') return 'legacy';
+        // ASAP 7 F2 (§1.6/§19): слот L1 Planner — models+keys «одним домом»
+        // на workspace-вкладке «Модели» (id-маппинг, прецедент Hybrid:
+        // groupedForTab несёт категорию источника, у keys-слота это keys).
+        if (grp.id === 'models_direct_l1') return 'models';
         if (grp.category === 'models') return 'models';
         if (grp.category === 'limits') return 'limits';
         return 'settings';
@@ -9642,7 +9850,13 @@
         var t = (this.tabs || []).find(function (x) { return x.id === m.tab; });
         if (!t) return [];
         var self = this;
+        // ASAP 7 F4: подмодули-реестра показывают ТОЛЬКО свои группы
+        // (m.settingsGroups; «Настройки блока» без чужих ключей — паттерн
+        // Initiative §3.2), даже если config_tab — общая вкладка родителя.
+        var allow = (m.settingsGroups && m.settingsGroups.length)
+          ? m.settingsGroups : null;
         return this.groupedForTab(t).filter(function (g) {
+          if (allow && allow.indexOf(g.id) < 0) return false;
           return self.workspaceGroupTab(m, g) === tabId;
         });
       },
@@ -10472,6 +10686,71 @@
         return 'Провайдер не сообщил точный лимит. Запрос будет отправлен '
           + 'без искусственного ограничения.';
       },
+      // ── ASAP 7 F7 (§9.2–§9.4): «Фактическая сборка промпта» ────────────
+      // Запрос к ТОМУ ЖЕ server compiler, что production Base / Summary
+      // Test (§9.2). Frontend промпт не собирает (§22 п.15): ответ сервера
+      // сохраняется как есть; без контекста — честный placeholder сервера.
+      coverCompilePreview: function () {
+        var st = this.coverStyles;
+        if (st.compileBusy) return;
+        var self = this;
+        st.compileBusy = true;
+        st.compile.message = '';
+        var body = {
+          profile_id: (st.current && st.current.profile_id) || null,
+          draft: this.coverStyleDraftSnapshot(),
+          context: st.compileChatId ? { chat_id: st.compileChatId } : null,
+        };
+        return this.api('/api/cover/preview-compile', {
+          global: true, method: 'POST',
+          body: JSON.stringify(body),
+        }).then(function (data) {
+          st.compileBusy = false;
+          st.compile.result = data || null;
+          st.compile.message = (data && data.message) || '';
+        }).catch(function (e) {
+          st.compileBusy = false;
+          st.compile.result = null;
+          st.compile.message = (e && e.message)
+            || 'Не удалось собрать промпт';
+        });
+      },
+      // exact compiled prompt — ТОЛЬКО при status ok (честный placeholder
+      // не рисует фейковый «итоговый промпт»).
+      coverCompileFinalText: function () {
+        var r = this.coverStyles.compile.result;
+        if (!r || r.status !== 'ok' || !r.manifest) return '';
+        return r.manifest.final_prompt || '';
+      },
+      coverCompileReasonText: function (c) {
+        if (!c) return '—';
+        if (c.reason === 'preview_context_not_selected') {
+          return 'preview context not selected';
+        }
+        return c.reason || '—';
+      },
+      coverCompileBudgetText: function () {
+        var r = this.coverStyles.compile.result;
+        if (!r || !r.budget) return '';
+        var b = r.budget;
+        var parts = [];
+        if (b.limit_known && b.resolved_limit != null) {
+          var unit = b.limit_unit === 'tokens' ? 'токенов'
+            : (b.limit_unit === 'bytes' ? 'байт' : 'симв.');
+          parts.push('Лимит провайдера: ' + b.resolved_limit + ' ' + unit
+            + ' (' + b.limit_source + ')');
+        } else {
+          parts.push('Лимит провайдера неизвестен');
+        }
+        parts.push('Лимит компиляции: ' + b.compile_cap_chars + ' симв.');
+        parts.push('Использовано: ' + b.used_chars);
+        parts.push('Осталось: ' + b.remaining_chars);
+        if (b.reserved) {
+          parts.push('Резерв: сцена ≥' + b.reserved.story_min
+            + ' · контекст ≤' + b.reserved.context_max);
+        }
+        return parts.join(' · ');
+      },
       // §7.2: сохранить manual override; не блокирует сохранение стиля.
       coverStyleSavePromptLimit: function () {
         var st = this.coverStyles;
@@ -10550,15 +10829,27 @@
         }[mode] || mode;
       },
       // §84: карточки L1/L2 прямого чата из СУЩЕСТВУЮЩИХ стадий/ключей.
+      // ASAP 7 F2 (§19/D-5): L1 показывает ФАКТИЧЕСКИЙ effective слот
+      // (configured models.direct_l1_* → «отдельный слот L1», иначе честный
+      // inherit основной модели); L2 — Writer/Verbalizer на основной модели
+      // (отдельного слота нет — честно).
       directStageCards: function () {
         var self = this;
+        function item(key) {
+          return (self.configItems || []).find(function (i) {
+            return i.key === key;
+          }) || null;
+        }
+        function valueOf(key) {
+          var it = item(key);
+          if (!it) return '';
+          if (it.value && typeof it.value === 'object') return '';
+          return typeof it.value === 'string' ? it.value
+            : (it.value == null ? '' : String(it.value));
+        }
         function stageCard(id, title, promptKey, modelKey) {
-          var prompt = (self.configItems || []).find(function (i) {
-            return i.key === promptKey;
-          }) || null;
-          var model = (self.configItems || []).find(function (i) {
-            return i.key === modelKey;
-          }) || null;
+          var prompt = item(promptKey);
+          var model = item(modelKey);
           return {
             id: id, title: title, prompt: prompt, model: model,
             provider: self.blockFieldValue
@@ -10568,14 +10859,102 @@
             checkable: true,
           };
         }
-        return [
-          stageCard('l1', 'L1 · Синтезатор',
-                    'prompts.direct_chat_synthesizer_system_prompt',
-                    'models.llm_model_name'),
-          stageCard('l2', 'L2 · Вербализатор',
-                    'prompts.direct_chat_verbalizer_system_prompt',
-                    'models.llm_model_name'),
-        ];
+        var l1Model = valueOf('models.direct_l1_model_name').trim();
+        var l1Base = valueOf('models.direct_l1_base_url').trim();
+        var l1Key = item('keys.direct_l1_api_key');
+        var l1Dedicated = !!(l1Model || l1Base
+          || (l1Key && l1Key.value && typeof l1Key.value === 'object'
+              && l1Key.value.configured));
+        var mainProvider = self.blockFieldValue
+          ? self.blockFieldValue({ key: 'models.llm_base_url' }) : '';
+        var l1 = stageCard('l1', 'L1 · Планировщик (L1 Planner)',
+                           'prompts.direct_l1_planner_system_prompt',
+                           l1Dedicated ? 'models.direct_l1_model_name'
+                                       : 'models.llm_model_name');
+        l1.provider = l1Dedicated ? (l1Base || mainProvider) : mainProvider;
+        l1.modelName = l1Dedicated
+          ? (l1Model || '(пусто — наследуется модель)')
+          : valueOf('models.llm_model_name');
+        l1.source = l1Dedicated
+          ? 'Отдельный слот L1 (configured)'
+          : 'Наследует основную модель (slot не задан)';
+        l1.inheritsMain = !l1Dedicated;
+        var l2 = stageCard('l2', 'L2 · Писатель (Verbalizer)',
+                           'prompts.direct_chat_verbalizer_system_prompt',
+                           'models.llm_model_name');
+        l2.inheritsMain = true;
+        l2.source = 'Основная модель (отдельный слот не предусмотрен)';
+        return [l1, l2];
+      },
+      // ── ASAP 7 F2 (§19/REV-2): карточка «L1 Planner» — requested/
+      // effective/следствие честно, по-русски. Данные — существующие
+      // configItems (каталог-ключи F2); без новых API (R16).
+      directL1PlannerCard: function () {
+        var self = this;
+        function valueOf(key) {
+          var it = (self.configItems || []).find(function (i) {
+            return i.key === key;
+          });
+          if (!it) return null;
+          if (it.type === 'bool') {
+            return it.value === true || it.value === 'true' || it.value === 1;
+          }
+          if (it.value && typeof it.value === 'object') return '';
+          return typeof it.value === 'string' ? it.value
+            : (it.value == null ? '' : String(it.value));
+        }
+        var enabled = valueOf('flags.direct_l1_enabled');
+        var fallbackOn = valueOf('flags.direct_l1_fallback_enabled');
+        var l1Model = String(valueOf('models.direct_l1_model_name') || '').trim();
+        var l1Base = String(valueOf('models.direct_l1_base_url') || '').trim();
+        var mainModel = String(valueOf('models.llm_model_name') || '').trim();
+        var mainBase = String(valueOf('models.llm_base_url') || '').trim();
+        var dedicated = !!(l1Model || l1Base);
+        var temp = String(valueOf('limits.direct_l1_temperature') || '').trim();
+        var timeout = String(valueOf('limits.direct_l1_timeout_seconds') || '').trim();
+        var maxOut = String(valueOf('limits.direct_l1_max_output_tokens') || '').trim();
+        var ctx = String(valueOf('limits.direct_l1_context_tokens') || '').trim();
+        var autonomous = valueOf('flags.chat_autonomous_reply_enabled');
+        var effectiveSource = dedicated
+          ? ('L1 Planner: ' + (l1Model || mainModel || '—')
+             + (l1Base ? (' · ' + l1Base) : ''))
+          : ('Основная модель (inherit): ' + (mainModel || '—'));
+        return {
+          enabled: enabled,
+          fallbackOn: fallbackOn,
+          effectiveSource: effectiveSource,
+          inheritsMain: !dedicated,
+          temperature: temp === '' ? 'Авто (как у основного ответа)' : temp,
+          timeout: timeout === '' ? '15 с (по умолчанию)' : (timeout + ' с'),
+          maxOutput: maxOut === '' ? '512 (по умолчанию)' : maxOut,
+          context: ctx === '' ? '1600 (по умолчанию)' : ctx,
+          autonomous: autonomous,
+        };
+      },
+      // REV-2 (б): честная семантика per-chat autonomous toggle при
+      // включённом L1 Planner (requested/effective/следствие).
+      directAutonomousSemantics: function () {
+        var card = this.directL1PlannerCard();
+        var requested = card.autonomous;
+        var l1On = !!card.enabled;
+        var lines;
+        if (requested && l1On) {
+          lines = 'Автономные ответы включены: при ответе на сообщение бота '
+            + 'L1 Planner свободно выбирает действие — текст, реакцию или '
+            + 'молчание (🗿 при сработавшем silent-ack).';
+        } else if (!requested && l1On) {
+          lines = 'Запрошено («Выключено»): всегда текстовый ответ. '
+            + 'Фактически при включённом L1 Planner: L1 всё равно оценивает '
+            + 'ход; если решит action=silent — бот промолчит (без 🗿). '
+            + 'Гарантии «всегда текстовый ответ» в L1-режиме нет.';
+        } else if (requested && !l1On) {
+          lines = 'Автономные ответы включены, L1 Planner выключен: '
+            + 'действие решает прежняя decision-матрица / Decision Task.';
+        } else {
+          lines = 'Автономные ответы выключены, L1 Planner выключен: '
+            + 'на reply боту — всегда текстовый ответ (прежняя семантика).';
+        }
+        return { requested: requested, l1On: l1On, text: lines };
       },
       // §84: «Проверить» для L1/L2 — reuse существующего блока `direct`.
       testDirectStage: async function (card) {

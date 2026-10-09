@@ -33,6 +33,9 @@ class TestCompleteness:
     # ASAP 7 (F3, §3.2): +9 ClassVar Intent-блока (MCA_INTENT_*) — каталоговые
     # product-оси flags_intent/limits_intent с pg_id-ренеймом
     # (flags.initiative_enabled…); ClassVar остаются env-осью AND-гейта.
+    # ASAP 7 (F4, §3.2): +13 ClassVar (stories/episodes ×6, character ×7) —
+    # product-оси flags_stories/flags_character (flags.stories_vitrina_enabled…);
+    # ClassVar остаются env-осью AND-гейта.
     _CLASSVAR_CATALOGUED = frozenset({"CHAT_MODEL_CONTEXT_WINDOW",
                                       "EMBEDDING_QUOTA_GROUP_LABELS",
                                       "MCA_INTENTS_ENABLED",
@@ -43,7 +46,20 @@ class TestCompleteness:
                                       "MCA_INTENT_MAX_ATTEMPTS",
                                       "MCA_INTENT_CANDIDATES_MAX",
                                       "MCA_INTENT_RETENTION_DAYS",
-                                      "MCA_INTENT_DEFER_BACKOFF_SECONDS"})
+                                      "MCA_INTENT_DEFER_BACKOFF_SECONDS",
+                                      "MCA_STORIES_VITRINA_ENABLED",
+                                      "MCA_STORIES_MANAGE_ENABLED",
+                                      "MCA_EPISODES_ENABLED",
+                                      "MCA_EPISODES_COMPILER_FACADE_ENABLED",
+                                      "MCA_EPISODES_CONTINUATION_ENABLED",
+                                      "MCA_EPISODES_BACKFILL_ENABLED",
+                                      "MCA_SELF_MODEL_ENABLED",
+                                      "MCA_TRAIT_RULES_ENABLED",
+                                      "MCA_LEGACY_TRAITS_MIGRATION_ENABLED",
+                                      "MCA_CHARACTER_LAYERS_ENABLED",
+                                      "MCA_CHARACTER_SPEECH_ENABLED",
+                                      "MCA_STYLE_SCOPE_ENABLED",
+                                      "MCA_POSTPROCESS_FORM_GUARD_ENABLED"})
 
     def test_every_settings_field_covered(self):
         missing, extra = pc.settings_field_coverage()
@@ -332,6 +348,9 @@ class TestGroups8424:
             "flags.chat_context_budgets_enabled": "limits_chat_budgets",
             "keys.summary_l1_api_key": "models_summary_hybrid",
             "keys.summary_l2_api_key": "models_summary_hybrid",
+            # ASAP 7 F2 (§1.6): keys-слот L1 Planner живёт в models-группе
+            # слота (прецедент Hybrid: «Ключ» в одном доме с <Model/Provider>).
+            "keys.direct_l1_api_key": "models_direct_l1",
         }
         for s in REGISTRY.values():
             if s.category is not None:
@@ -381,7 +400,7 @@ class TestGroups8424:
         # → GROUPS 107.
         # ASAP 7 (F3, §3.2): +2 — flags_intent (mod_initiative),
         # limits_intent (mod_initiative) → GROUPS 115.
-        assert len(GROUPS) == 115
+        assert len(GROUPS) == 120
         categories_in_groups = {g.category for g in GROUPS}
         assert categories_in_groups == set(CATEGORIES)
 
@@ -500,8 +519,10 @@ class TestGroups8424:
         # ASAP 7 (F3, §3.2): flags +4 (flags_intent: product-оси Intent,
         # pg_id-ренейм flags.initiative_enabled…) / limits +5 (limits_intent)
         # → flags 81 / limits 208, итого 538.
-        assert counts == {"prompts": 24, "models": 72, "keys": 34,
-                          "limits": 208, "flags": 81, "reactions": 39,
+        # ASAP 7 F2 (§1.6): +2 models / +1 keys / +4 limits / +2 flags
+        # (L1 Planner); параллельный F4 in-flight: flags +13 — 560.
+        assert counts == {"prompts": 24, "models": 74, "keys": 35,
+                          "limits": 212, "flags": 96, "reactions": 39,
                           "content": 5, "memory": 46, "temporal": 4}
         assert {g.category for g in GROUPS} >= set(CATEGORIES)
 

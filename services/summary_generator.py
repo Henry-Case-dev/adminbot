@@ -3016,12 +3016,9 @@ class SummaryGenerator:
                     logger.debug("summary cover: base manifest persist "
                                  "failed", exc_info=True)
 
-            def _observed_limit_meta() -> dict:
-                for att in base_attempts:
-                    meta = dict(att.get("meta") or {})
-                    if meta.get("prompt_limit"):
-                        return dict(meta["prompt_limit"])
-                return {}
+            # REV-2 #1 (ASAP 7 F7 cleanup): дубли определения
+            # _observed_limit_meta (идентичные тела) устранён — единственное
+            # определение выше (:2967), все вызовы без изменений.
 
             cover_started = log_cover_start(
                 run_id=correlation_id, chat_id=chat_id,

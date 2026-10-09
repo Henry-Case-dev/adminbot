@@ -135,9 +135,9 @@ class TestCatalogPins:
     вкладка) валит пин — это и есть защита от регресса F21."""
 
     def test_registry_counts_pinned(self):
-        assert len(pc.REGISTRY) == 538
-        assert len(pc.GROUPS) == 115
-        assert len(pc._TAB_BY_GROUP) == 113
+        assert len(pc.REGISTRY) == 560
+        assert len(pc.GROUPS) == 120
+        assert len(pc._TAB_BY_GROUP) == 118
         assert len(pc.TAB_RULES) == 23
         assert len(pc.TAB_NAV) == 23
         assert len(pc.CONFIG_TAB_TITLES) == 23
@@ -429,10 +429,13 @@ class TestDeltaZeroGuard:
         # NOTE (ASAP 4.3, 2.58.51 `1c47b5e`/`acbbe1f`): PG additive nullable
         # `preview_job_id` для cover_style_connections — durable preview
         # jobs; 52 → 53. SQLite DDL = 0.
-        assert len(pg_db.DDL_STATEMENTS) == 53
+        # NOTE (ASAP 7 F2, §1.10): +1 (идемпотентный `ALTER TABLE
+        # llm_usage_events ADD COLUMN IF NOT EXISTS plan_meta JSONB` —
+        # durable-оси плана L1; PG-only, SQLite DDL = 0); 53 → 54.
+        assert len(pg_db.DDL_STATEMENTS) == 54
 
     def test_catalog_counts_unchanged_by_guardrails(self):
         # F23 — только тесты: значения совпадают с Δ F21 (D8).
-        assert len(pc.REGISTRY) == 538
-        assert len(pc.GROUPS) == 115
-        assert len(pc._TAB_BY_GROUP) == 113
+        assert len(pc.REGISTRY) == 560
+        assert len(pc.GROUPS) == 120
+        assert len(pc._TAB_BY_GROUP) == 118

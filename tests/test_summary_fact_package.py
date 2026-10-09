@@ -632,12 +632,12 @@ class TestLivePathInvariants:
 
     def test_catalog_zero_delta(self):
         # ASAP-3 (ADR-1028-2 D12, санкция spec §6): Δ +2 каталога-ключа → 483/423/458 (см. примечание в test_round1025_f8_registry).
-        assert len(pc.REGISTRY) == 538
+        assert len(pc.REGISTRY) == 560
         assert len({f.name for f in dataclasses.fields(Settings)}) == 454
         assert len([s for s in pc.REGISTRY.values()
-                    if s.category is not None]) == 513
-        assert len(pc.GROUPS) == 115
-        assert len(pc._TAB_BY_GROUP) == 113
+                    if s.category is not None]) == 535
+        assert len(pc.GROUPS) == 120
+        assert len(pc._TAB_BY_GROUP) == 118
         assert len(pc.TAB_RULES) == 23
 
     def test_no_new_env_key(self):
@@ -646,7 +646,7 @@ class TestLivePathInvariants:
             f.name for f in dataclasses.fields(Settings)}
 
     def test_app_version_bumped(self):
-        assert APP_VERSION == "2.58.73"
+        assert APP_VERSION == "2.58.74"
 
     @pytest.mark.asyncio
     async def test_two_calls_stage1_stage2(self):

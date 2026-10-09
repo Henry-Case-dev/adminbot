@@ -321,7 +321,9 @@ DDL_STATEMENTS: tuple[str, ...] = (
         output_tokens    BIGINT NOT NULL DEFAULT 0,
         tokens_estimated BOOLEAN NOT NULL DEFAULT false,
         cost_usd         NUMERIC(12, 6) NOT NULL DEFAULT 0,
-        price_known      BOOLEAN NOT NULL DEFAULT true
+        price_known      BOOLEAN NOT NULL DEFAULT true,
+        -- ASAP 7 (F2, §1.10): durable-оси плана L1 (R17-whitelist enum-ов).
+        plan_meta        JSONB
     )
     """,
     "CREATE INDEX IF NOT EXISTS idx_llm_usage_events_ts"
@@ -330,6 +332,13 @@ DDL_STATEMENTS: tuple[str, ...] = (
     " ON llm_usage_events (correlation_id)",
     "CREATE INDEX IF NOT EXISTS idx_llm_usage_events_module_ts"
     " ON llm_usage_events (module, ts DESC)",
+    # ── ASAP 7 (F2, §1.10): аддитивная nullable-колонка plan_meta для УЖЕ
+    # существующих prod-таблиц (идемпотентно, прецедент
+    # `ADD COLUMN IF NOT EXISTS` :499). SQLite не затронут — таблица PG-only.
+    """
+    ALTER TABLE llm_usage_events
+        ADD COLUMN IF NOT EXISTS plan_meta JSONB;
+    """,
     """
     CREATE TABLE IF NOT EXISTS llm_model_prices (
         model             TEXT PRIMARY KEY,

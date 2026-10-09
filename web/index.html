@@ -355,8 +355,49 @@
                   Состояние: <b>{{ moduleStateText(workspaceModule) }}</b>
                   <span v-if="moduleSourceText(workspaceModule)"> · {{ moduleSourceText(workspaceModule) }}</span>
                 </div>
-                <div v-if="!moduleEnabled(workspaceModule)" class="text-xs text-amber-300 mt-1">
+                <div v-if="!moduleEnabled(workspaceModule) && workspaceModule.toggleKey" class="text-xs text-amber-300 mt-1">
                   Модуль выключен — включите его тумблером сверху.
+                </div>
+                <!-- ASAP 7 F4 (§3.2): честный гейт подмодулей реестра
+                     (stories/character/experience/random) — requested/
+                     effective/source из registry_for_frontend (gate) +
+                     связанные контуры ссылками-переходами. «No master»-
+                     модули (Случайность) показывают env-ось как мастер. -->
+                <div v-if="workspaceModule.fromRegistry
+                            && f4ModuleGate(workspaceModule)"
+                     class="mt-3 pt-2 border-t border-white/10 text-xs"
+                     data-f4-module-gate>
+                  <div class="flex flex-wrap gap-2 items-center mb-1">
+                    <span class="badge"
+                          :class="f4ModuleGate(workspaceModule).effective ? 'badge-ok' : 'badge-warn'">
+                      {{ f4ModuleGate(workspaceModule).effective ? 'Работает' : 'Не работает' }}
+                    </span>
+                    <span class="text-gray-500">
+                      requested: {{ f4ModuleGate(workspaceModule).requested ? 'вкл' : 'выкл' }}
+                      <template v-if="f4ModuleGate(workspaceModule).masterParam">
+                        ({{ f4ModuleGate(workspaceModule).masterParam }})</template>
+                      <template v-else>(мастер — env-ось)</template>
+                    </span>
+                    <span class="text-gray-500">
+                      · source: {{ f4ModuleGate(workspaceModule).sourceLabel }}
+                    </span>
+                  </div>
+                  <div class="text-gray-500">
+                    <template v-if="f4ModuleGate(workspaceModule).envParam">
+                      Аварийная env-ось: {{ f4ModuleGate(workspaceModule).envParam }}
+                      (правка требует рестарта; тумблер применяется сразу, hot).
+                    </template>
+                    <template v-else>
+                      Состояние из реестра модулей (§4.3: env важнее UI).
+                    </template>
+                  </div>
+                  <div v-if="f4RelatedLinks(workspaceModule).length" class="mt-1 flex flex-wrap gap-1">
+                    <span v-for="l in f4RelatedLinks(workspaceModule)" :key="l.route"
+                          class="rounded-lg bg-white/5 px-2 py-1">
+                      <a :href="l.route" class="underline text-violet-300">{{ l.label }}</a>
+                      <span class="text-gray-600 ml-1">→ {{ l.hint }}</span>
+                    </span>
+                  </div>
                 </div>
                 <!-- ASAP 7 F3 (§3.3): живой гейт/статус модуля «Инициатива»
                      на вкладке «Обзор» — requested/effective/source (module_registry),
@@ -430,7 +471,9 @@
               </div>
 
               <!-- §84: L1/L2 прямого чата — только UI поверх существующих
-                   стадий (двухвызовный пайплайн не меняется). -->
+                   стадий. ASAP 7 F2 (§19/D-5): карточки показывают ФАКТИЧЕСКИЙ
+                   effective provider/model/source (L1 — configured слот или
+                   честный inherit; L2 — основная модель). -->
               <div v-if="workspaceModule && workspaceModule.id === 'mod_direct'
                         && workspaceTab === 'models'"
                    class="col-span-full grid gap-3 md:grid-cols-2" data-direct-stages>
@@ -443,7 +486,9 @@
                   <div class="text-xs text-gray-400 mb-1">
                     Модель: {{ c.modelName || '—' }}
                   </div>
-                  <div class="text-xs text-gray-500 mb-2">
+                  <div class="text-xs mb-2"
+                       :class="c.inheritsMain ? 'text-gray-500' : 'text-green-400'"
+                       :data-effective-source="c.inheritsMain ? 'inherit_main' : 'slot_l1'">
                     {{ c.source || 'Источник: глобальная настройка' }}
                   </div>
                   <div class="flex items-center gap-2 flex-wrap">
@@ -455,6 +500,62 @@
                       {{ blockResults['direct_main'].text }}
                     </span>
                   </div>
+                </div>
+                <!-- ── ASAP 7 F2 (§19): сводка «L1 Planner» — requested/
+                     effective/следствие честно (настраиваемые поля — в
+                     секциях каталога ниже: флаги/лимиты/слот). -->
+                <div class="card p-4 col-span-full" data-direct-l1-planner>
+                  <div class="text-sm font-bold mb-1">L1 Planner — сводка</div>
+                  <div class="text-xs text-gray-400 mb-2">
+                    Планирование ответа отдельным быстрым шагом до инструментов.
+                  </div>
+                  <div class="rounded-lg border border-white/10 px-3 py-2 text-xs">
+                    <div class="pipe-node__row">
+                      <span class="text-gray-300">Включён (тумблер)</span>
+                      <span class="ml-auto"
+                            :class="directL1PlannerCard().enabled ? 'text-green-400' : 'text-gray-400'"
+                            data-l1-enabled>{{ directL1PlannerCard().enabled ? 'включён' : 'выключен' }}</span>
+                    </div>
+                    <div class="pipe-node__row">
+                      <span class="text-gray-300">Effective модель</span>
+                      <span class="text-gray-400 ml-auto text-right"
+                            data-l1-effective>{{ directL1PlannerCard().effectiveSource }}</span>
+                    </div>
+                    <div class="pipe-node__row">
+                      <span class="text-gray-300">Fallback на основную модель</span>
+                      <span class="text-gray-400 ml-auto">{{ directL1PlannerCard().fallbackOn ? 'разрешён' : 'выключен' }}</span>
+                    </div>
+                    <div class="pipe-node__row">
+                      <span class="text-gray-300">Температура / таймаут</span>
+                      <span class="text-gray-400 ml-auto">{{ directL1PlannerCard().temperature }} · {{ directL1PlannerCard().timeout }}</span>
+                    </div>
+                    <div class="pipe-node__row">
+                      <span class="text-gray-300">Бюджет ответа / контекст</span>
+                      <span class="text-gray-400 ml-auto">{{ directL1PlannerCard().maxOutput }} · {{ directL1PlannerCard().context }}</span>
+                    </div>
+                    <div class="text-gray-500 mt-1">
+                      Настраиваемые поля — секции «Direct: планировщик (L1)»
+                      (флаги), «…лимиты» и слот модели на этой вкладке.
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- ── ASAP 7 F2 (REV-2 б): честная семантика per-chat
+                   «Автономные ответы» при включённом L1 Planner —
+                   requested/effective/следствие по-русски. -->
+              <div v-if="workspaceModule && workspaceModule.id === 'mod_direct'
+                        && workspaceTab === 'settings'"
+                   class="col-span-full card p-4" data-direct-autonomous-semantics>
+                <div class="text-sm font-bold mb-1">Автономные ответы и L1 Planner</div>
+                <div class="text-xs mb-2">
+                  <span class="text-gray-300">Запрошено (тумблер «Автономные ответы на reply боту»):</span>
+                  <span :class="directAutonomousSemantics().requested ? 'text-green-400' : 'text-gray-400'"
+                        data-autonomous-requested>{{ directAutonomousSemantics().requested ? 'включено' : 'выключено' }}</span>
+                  <span class="text-gray-500"> · L1 Planner: {{ directAutonomousSemantics().l1On ? 'включён' : 'выключен' }}</span>
+                </div>
+                <div class="text-xs text-gray-400" data-autonomous-consequence>
+                  {{ directAutonomousSemantics().text }}
                 </div>
               </div>
 
@@ -718,6 +819,88 @@
           </span>
         </div>
 
+        <!-- ASAP 7 F7 (§9.2–§9.4): «Фактическая сборка промпта» — live
+             превью компиляции ТОЛЬКО server-compiler'ом (POST
+             /api/cover/preview-compile, global admin). Frontend ничего не
+             собирает сам (§22 п.15). Без test-контекста — честный
+             placeholder (§9.4), не fake production prompt. -->
+        <div v-if="coverStyles.isAdmin"
+             class="flex flex-col text-xs gap-2 rounded-xl border border-white/10 p-3"
+             data-cover-compile>
+          <span class="text-gray-400">Фактическая сборка промпта</span>
+          <div class="flex items-center gap-2 flex-wrap">
+            <select class="field max-w-xs"
+                    v-model.number="coverStyles.compileChatId"
+                    data-cover-compile-chat>
+              <option :value="0">— без test-контекста (честный предпросмотр) —</option>
+              <option v-for="c in accessChats" :key="'ccc-' + c.chat_id"
+                      :value="c.chat_id">
+                {{ c.title || ('Чат ' + c.chat_id) }}
+              </option>
+            </select>
+            <button type="button" class="btn-ghost text-xs"
+                    :disabled="coverStyles.compileBusy"
+                    @click="coverCompilePreview()" data-cover-compile-run>
+              {{ coverStyles.compileBusy ? 'Сборка…' : 'Собрать промпт' }}
+            </button>
+          </div>
+          <div v-if="coverStyles.compile.message" class="text-amber-300"
+               data-cover-compile-message>{{ coverStyles.compile.message }}</div>
+          <template v-if="coverStyles.compile.result">
+            <div v-if="coverCompileFinalText()"
+                 class="flex flex-col gap-1" data-cover-compile-final>
+              <div class="flex items-center gap-2 flex-wrap">
+                <span class="text-gray-500">Exact compiled prompt</span>
+                <button type="button" class="btn-ghost text-xs"
+                        @click="copyText(coverCompileFinalText())"
+                        data-cover-compile-copy>Копировать</button>
+              </div>
+              <pre class="whitespace-pre-wrap break-words text-gray-300 m-0"
+                   data-cover-compile-final-text>{{ coverCompileFinalText() }}</pre>
+            </div>
+            <div class="text-gray-500" data-cover-compile-budget>
+              {{ coverCompileBudgetText() }}</div>
+            <table class="w-full text-left" data-cover-compile-table>
+              <thead>
+                <tr class="text-gray-500">
+                  <th class="pr-2 font-normal">Компонента</th>
+                  <th class="pr-2 font-normal">Отправлено</th>
+                  <th class="pr-2 font-normal">Статус</th>
+                  <th class="font-normal">Причина</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="c in coverStyles.compile.result.components"
+                    :key="'cc-' + c.key" data-cover-compile-row>
+                  <td class="pr-2 align-top">{{ coverManifestSourceLabel(c) }}</td>
+                  <td class="pr-2 align-top">{{ c.sent_chars || 0 }}<span v-if="c.original_chars" class="text-gray-500"> / {{ c.original_chars }}</span></td>
+                  <td class="pr-2 align-top"
+                      :class="coverManifestStatusClass(c)">{{ coverManifestStatusText(c) }}</td>
+                  <td class="align-top text-gray-500">{{ coverCompileReasonText(c) }}</td>
+                </tr>
+              </tbody>
+            </table>
+            <details class="text-gray-500" data-cover-compile-texts>
+              <summary class="cursor-pointer">Тексты компонент (исходник → ушло модели)</summary>
+              <div v-for="c in coverStyles.compile.result.components"
+                   :key="'cct-' + c.key"
+                   class="mt-1 flex flex-col gap-1"
+                   data-cover-compile-component-text>
+                <div class="text-gray-400">{{ coverManifestSourceLabel(c) }}</div>
+                <div v-if="c.original_text" class="flex flex-col">
+                  <span>Исходный текст</span>
+                  <pre class="whitespace-pre-wrap break-words m-0">{{ c.original_text }}</pre>
+                </div>
+                <div v-if="c.sent_text" class="flex flex-col">
+                  <span>Ушло модели</span>
+                  <pre class="whitespace-pre-wrap break-words m-0 text-gray-300">{{ c.sent_text }}</pre>
+                </div>
+                <div v-if="!c.original_text">—</div>
+              </div>
+            </details>
+          </template>
+        </div>
+
         <!-- §111: reference card с реальным thumbnail (видна сразу) -->
         <div class="flex flex-col text-xs gap-2">
           <span class="text-gray-400">Референсы</span>
@@ -858,6 +1041,18 @@
               <summary class="cursor-pointer text-gray-300"
                        data-cover-manifest-toggle>Что отправилось модели (манифест сборки)</summary>
               <div class="mt-1 flex flex-col gap-1" data-cover-manifest-body>
+                <!-- ASAP 7 F7 (§9.3): полный exact compiled prompt
+                     (server-compiled, значение из манифеста job'а). -->
+                <div class="flex flex-col gap-1" data-cover-manifest-exact>
+                  <div class="flex items-center gap-2 flex-wrap">
+                    <span class="text-gray-500">Итоговый промпт ({{ coverStyles.preview.prompt_manifest.final_chars }} зн.)</span>
+                    <button type="button" class="btn-ghost text-xs"
+                            @click="copyText(coverStyles.preview.prompt_manifest.final_prompt || '')"
+                            data-cover-manifest-final-copy>Копировать</button>
+                  </div>
+                  <pre class="whitespace-pre-wrap break-words text-gray-300 m-0"
+                       data-cover-manifest-final-text>{{ coverStyles.preview.prompt_manifest.final_prompt }}</pre>
+                </div>
                 <div class="text-gray-500" data-cover-manifest-meta>
                   <span v-if="coverStyles.preview.prompt_manifest.provider">{{ coverStyles.preview.prompt_manifest.provider }}</span><span v-if="coverStyles.preview.prompt_manifest.provider && coverStyles.preview.prompt_manifest.model"> · </span><span v-if="coverStyles.preview.prompt_manifest.model">{{ coverStyles.preview.prompt_manifest.model }}</span><span v-if="coverStyles.preview.prompt_manifest.route"> · {{ coverStyles.preview.prompt_manifest.route }}</span><span v-if="coverStyles.preview.prompt_manifest.prompt_hash"> · hash {{ coverStyles.preview.prompt_manifest.prompt_hash }}</span>
                 </div>
@@ -2078,7 +2273,8 @@
                    (BUG-5: «(0)»-карточек нет). -->
               <!-- F6 (ADR-1025-19 D6/§53–§56): подгруппы «Память → Настройки».
                    Только presentation-level; каталог/параметры не меняются. -->
-              <div v-if="currentTab && currentTab.id === 'memory_rag'"
+              <div v-if="currentTab && currentTab.id === 'memory_rag'
+                        && !workspaceModule"
                    class="col-span-full flex flex-wrap items-center gap-1 mb-1">
                 <span class="text-xs font-bold mr-1">Разделы памяти</span>
                 <button class="btn-ghost text-xs" :class="{ 'font-bold': !memorySubgroup }"
@@ -2092,7 +2288,8 @@
                    таблица lessons + карточка + права (отключить/исправить,
                    разрешённый trace) в СУЩЕСТВУЮЩЕЙ «Памяти»; suspended виден
                    и НЕ применяется; trace чужого чата сервер не отдаёт. -->
-              <div v-if="currentTab && currentTab.id === 'memory_rag' && isGlobalAdmin"
+              <div v-if="currentTab && currentTab.id === 'memory_rag'
+                        && isGlobalAdmin && !workspaceModule"
                    class="col-span-full card p-4" data-lessons>
                 <div class="flex items-center gap-2 mb-2 flex-wrap">
                   <div class="text-sm font-bold"><span class="msr" aria-hidden="true">{{ iconGlyph('history') }}</span> Опыт и уроки</div>
@@ -2191,7 +2388,8 @@
                    (stale → 409, чужие правки не затираются, A13); Telegram-
                    ссылка только из валидированных числовых метаданных, иначе
                    честный архивный просмотр (T-5165). K2 OFF → только просмотр. -->
-              <div v-if="currentTab && currentTab.id === 'memory_rag' && storiesEnabled"
+              <div v-if="currentTab && currentTab.id === 'memory_rag'
+                        && storiesEnabled && !workspaceModule"
                    class="col-span-full card p-4" data-stories-manage>
                 <div class="flex items-center gap-2 mb-2 flex-wrap">
                   <div class="text-sm font-bold"><span class="msr" aria-hidden="true">{{ iconGlyph('auto_stories') }}</span> Истории (эпизоды)</div>
@@ -2460,8 +2658,11 @@
                    пространство ВЫБРАННОГО чата (§60). Без чата редактируемых
                    блоков нет (banner): PERMsoc не правит глобальные значения.
                    Второй селектор области не создаётся (reuse F3 activeChatId);
-                   полный chat_id — в конвенции `.scope-tech`. -->
-              <template v-if="activeTab === 'permsoc'">
+                   полный chat_id — в конвенции `.scope-tech`.
+                   ASAP 7 F4: на странице подмодуля (workspaceModule, напр.
+                   «Характер», tab=permsoc) собственные PERMsoc-секции НЕ
+                   рендерятся — только содержимое модуля (no orphan controls). -->
+              <template v-if="activeTab === 'permsoc' && !workspaceModule">
                 <div class="col-span-full flex items-center gap-2 flex-wrap">
                   <div class="permsoc-scope-title text-sm font-bold text-violet-300 uppercase tracking-wide">
                     PERMsoc · Только этот чат
@@ -4672,6 +4873,20 @@
                          v-if="responseAggRows.length">
                       <div class="font-bold mb-0.5">Агрегаты периода</div>
                       <div v-for="row in responseAggRows" :key="'ra-' + row.key"
+                           class="pipe-node__row">
+                        <span class="text-gray-300">{{ row.label }}</span>
+                        <span class="text-gray-400 ml-auto text-right">{{ row.value }}</span>
+                      </div>
+                    </div>
+                    <!-- ── ASAP 7 F2 (§18): durable-оси L1 Planner за период
+                         (plan_meta, SQL-агрегат). Нет plan_meta → блока нет
+                         (честно: не выдумываем распределения). -->
+                    <div class="rounded-lg border border-white/10 px-3 py-2 mb-2 text-xs"
+                         v-if="responseL1Rows.length" data-l1-durable-axes>
+                      <div class="font-bold mb-0.5">L1 Planner за период
+                        <span class="text-gray-500 font-normal">durable (переживает рестарт)</span>
+                      </div>
+                      <div v-for="row in responseL1Rows" :key="'rl-' + row.key"
                            class="pipe-node__row">
                         <span class="text-gray-300">{{ row.label }}</span>
                         <span class="text-gray-400 ml-auto text-right">{{ row.value }}</span>

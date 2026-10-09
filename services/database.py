@@ -1638,6 +1638,19 @@ _SCHEMA_VERSION_FACTCHECK_TEMPORAL = 33
 # ASAP 6 §8 (P2-D-embed-scope).
 _SCHEMA_VERSION_EMBEDDING_GENERATION_NS = 34
 
+# ── ASAP 7 (F2, architecture §1.10): v35 — durable-оси плана L1 Planner ────
+# Аддитивная nullable-колонка `plan_meta JSONB` в PG-таблице
+# `llm_usage_events` (строки шага `l1_planner`). Таблица живёт ТОЛЬКО в
+# PostgreSQL (pg_db.py) — SQLite её не имеет, поэтому шаг v35 на SQLite —
+# bookkeeping версии (guard `sqlite_master`; честный no-op без DDL), а
+# фактический DDL применяет идемпотентный `PgDatabase.init()`
+# (DDL_STATEMENTS: `ALTER TABLE ... ADD COLUMN IF NOT EXISTS plan_meta
+# JSONB`). Backup-guard runner'а (VACUUM INTO + read-back) покрывает шаг v35
+# как любую новую ступень; read-back колонки — тест лейна на fake-pool.
+# Аддитивно: старый код колонку не читает, откат — cold git revert (колонка
+# инертна). Бронь: v35 за ASAP 7 F2 (Wave 3).
+_SCHEMA_VERSION_LLM_USAGE_PLAN_META = 35
+
 _MCA_FACTCHECK_RUNS_DDL = (
     "CREATE TABLE IF NOT EXISTS mca_factcheck_runs ("
     "run_id              TEXT PRIMARY KEY, "
@@ -2747,6 +2760,14 @@ class DatabaseService:
                           "embedding_generation_namespace_v34",
                           lambda svc:
                           svc._migrate_embedding_generation_ns_v34()),
+            # ASAP 7 (F2, §1.10): v35 — plan_meta JSONB NULL в
+            # llm_usage_events (PG-only; SQLite-шаг = честный bookkeeping
+            # no-op, фактический DDL — PgDatabase.init). Аддитивно,
+            # идемпотентно, backup-guard runner'а до шага.
+            MigrationStep(_SCHEMA_VERSION_LLM_USAGE_PLAN_META,
+                          "llm_usage_plan_meta_v35",
+                          lambda svc:
+                          svc._migrate_llm_usage_plan_meta_v35()),
             # ASAP 4.1 волна 5 (T-4616, spec §10.2–§10.3): v24 = 3 таблицы
             # (summary_source_windows + summary_runs + summary_run_stages).
             # Один MigrationStep на версию — книга `schema_migrations` имеет
@@ -3936,6 +3957,38 @@ class DatabaseService:
         await self.db.execute(
             f"PRAGMA user_version = "
             f"{_SCHEMA_VERSION_EMBEDDING_GENERATION_NS}")
+        await self.db.commit()
+
+    async def _migrate_llm_usage_plan_meta_v35(self) -> None:
+        """v35 (ASAP 7 F2, architecture §1.10): plan_meta JSONB NULL в
+        `llm_usage_events` — durable-оси плана L1 Planner (§18 ТЗ).
+
+        Таблица PG-only (pg_db.py, SQLite её не создаёт) → на SQLite шаг
+        фиксирует только версию v35 (аудит-книга `schema_migrations`),
+        фактический `ALTER TABLE ... ADD COLUMN IF NOT EXISTS plan_meta
+        JSONB` выполняет идемпотентный `PgDatabase.init()` при старте
+        (DDL_STATEMENTS; повтор — no-op, nullable — старые строки не
+        трогаются). Защитная ветка: если SQLite-таблица вдруг существует
+        (нестандартная сборка) — зеркалим колонку с тем же self-guard.
+        Откат: cold git revert (колонка инертна, старый код не читает)."""
+        cursor = await self.db.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
+            ("llm_usage_events",))
+        if await cursor.fetchone() is not None:
+            cols = await self._table_columns("llm_usage_events")
+            if "plan_meta" not in cols:
+                await self.db.execute(
+                    "ALTER TABLE llm_usage_events "
+                    "ADD COLUMN plan_meta TEXT")
+                logger.info("[database] migration v35: +plan_meta (mirror)")
+            await self.db.commit()
+        else:
+            logger.info(
+                "[database] migration v35: llm_usage_events PG-only — "
+                "SQLite no-op (DDL применяет PgDatabase.init)")
+        await self.db.execute(
+            f"PRAGMA user_version = "
+            f"{_SCHEMA_VERSION_LLM_USAGE_PLAN_META}")
         await self.db.commit()
 
     # ── mca-20 (ADR-1028-20 D1/D3/D9): Temporal Factcheck — тонкие методы

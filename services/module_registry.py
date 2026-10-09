@@ -52,6 +52,10 @@ class ModuleSpec:
     classification: str = "product_module"
     # product_module | submodule | infrastructure | maintenance
     rationale: str = ""                  # почему так классифицирован
+    # ASAP 7 F4: config-вкладка поверхности подмодуля ("" → конвенция
+    # mod_<id>; подмодули живут на существующих вкладках родителя —
+    # новых вкладок/menu-freeze нет).
+    config_tab: str = ""
 
 
 # ── Реестр (аддитивный; F4 добавляет записи БЕЗ изменения каркаса) ──────────
@@ -88,20 +92,137 @@ _register(ModuleSpec(
                "orphan без карточки/настроек — закрыто F3)"),
 ))
 
+# ═══ ASAP 7 (F4, §3.2): оставшиеся orphans — подмодули (аудит P7-C-5) ═══════
+# Родители — существующие поверхности («Память» = вкладка memory_rag /
+# nav-раздел памяти; «Характер» = Persona/Досье): НОВЫХ top-level карточек
+# и вкладок нет (§4.2 «не делать 100 карточек»; menu-freeze не растёт).
+
+# Stories / Episodes → Submodule «Память»; мастер-ось — read-контур витрины.
+_register(ModuleSpec(
+    id="stories",
+    title="Истории и эпизоды",
+    parent_id="memory",
+    description=("Витрина «Истории чата», действия с историями и жизненный "
+                 "цикл эпизодов (мастер, фасад компилятора, продолжение, "
+                 "backfill)."),
+    master_param="flags.stories_vitrina_enabled",
+    runtime_gate="global",
+    settings_groups=("flags_stories",),
+    model_slots=(),
+    status_source="status_service «Истории чата» + web/api/stories",
+    analytics_anchor="stories.vitrina",
+    help_anchor="Истории",
+    visibility="visible",
+    classification="submodule",
+    config_tab="memory_rag",
+    rationale=("mca-12/mca-05 (аудит P7-C-5, §3.2): управляемая витрина/"
+               "мутации/эпизоды — подмодуль «Памяти»; env-рубильники K1/K2 "
+               "и эпизодный мастер — аварийные оси (AND-гейт mca_gates)."),
+))
+
+# SelfModel / Character evolution → Submodule «Характер» (parent Persona/
+# Досье); поверхность — вкладка permsoc, Advanced-размещение группы.
+_register(ModuleSpec(
+    id="character",
+    title="Характер (SelfModel)",
+    parent_id="persona",
+    description=("Эволюция характера: модель себя, правила черт, миграция "
+                 "legacy-черт, слои и речь характера, scope стиля, "
+                 "форм-гард постобработки."),
+    master_param="flags.self_model_enabled",
+    runtime_gate="global",
+    settings_groups=("flags_character",),
+    model_slots=(),
+    status_source="mca17c self_model + adjacentSelfModelLine (Статус)",
+    analytics_anchor="self_model.snapshot",
+    help_anchor="Динамические черты",
+    visibility="advanced",
+    classification="submodule",
+    config_tab="permsoc",
+    rationale=("mca-18 (аудит P7-C-5, §3.2): 7 env-only осей без UI-"
+               "владельца — подмодуль «Характер» родителя Persona/Досье; "
+               "группа Advanced (тонкие контуры, обычно не трогать)."),
+))
+
+# Experience / Lessons → Submodule «Память»; настройки СУЩЕСТВУЮТ
+# (memory_experience) — регистрации/родителя только, без дублей.
+_register(ModuleSpec(
+    id="experience",
+    title="Опыт и уроки",
+    parent_id="memory",
+    description=("Банк проверенного опыта: запись эпизодов, уроки и "
+                 "пакетный разбор (уроки не меняют правила бота)."),
+    master_param="memory.experience_learning_enabled",
+    runtime_gate="global",
+    settings_groups=("memory_experience",),
+    model_slots=(),
+    status_source="status_service data-experience лента",
+    analytics_anchor="self_learning.run",
+    help_anchor="Урок",
+    visibility="visible",
+    classification="submodule",
+    config_tab="memory_rag",
+    rationale=("mca-16 (аудит P7-C-5, §3.2): настройки есть (hot-ключ читает "
+               "mca_experience_jobs), registration/родителя не было; "
+               "env K1–K4 — аварийные оси (MODULE_ENV_GATES)."),
+))
+
+# Random / Quantum → Submodule «Случайность» (shared, parent «Память»);
+# настройки СУЩЕСТВУЮТ (memory_random + random.uses + keys_random).
+_register(ModuleSpec(
+    id="random",
+    title="Случайность",
+    parent_id="memory",
+    description=("Источник случайности (квантовый ANU или локальный), "
+                 "честный откат, вероятности исследования и разрешения "
+                 "применений. Shared: спонтанность, сон, инициатива."),
+    master_param="",
+    runtime_gate="global",
+    settings_groups=("memory_random",),
+    model_slots=("keys_random",),
+    status_source="status_service «Источник случайности»",
+    analytics_anchor="random.source",
+    help_anchor="Источник случайности",
+    visibility="visible",
+    classification="submodule",
+    config_tab="mod_sleep",
+    rationale=("mca-10a/10b (аудит P7-C-5, §3.2): shared subsystem — parent "
+               "«Память», owner-карточка и ссылки из Initiative/Sleep. "
+               "no master: мастера-тумблера в каталоге нет и дублировать "
+               "env-ось MCA_RANDOM_SOURCE_ENABLED нельзя — мастер честно "
+               "показывается как env-ось в гейте подкарточки."),
+))
+
 # master_param → env-kill-switch (raw-ось для §3.3; composite AND живёт в
 # mca_gates — реестр считает source по СЫРЫМ значениям каждой оси).
 ENV_GATES: dict[str, str] = {
     "initiative": "MCA_INTENTS_ENABLED",
+    # ASAP 7 F4 (§3.2): подмодули. Stories — мастер read-контура витрины
+    # (эпизодный мастер MCA_EPISODES_ENABLED — самостоятельная ось, его
+    # тумблер показан в настройках подкарточки); Experience — env-мастер
+    # K1 (requested-ось — существующий hot-ключ memory.experience_learning_enabled,
+    # читается mca_experience_jobs); Random — мастера-тумблера НЕТ (мастер —
+    # env-ось, «no master» rationale в записи).
+    "stories": "MCA_STORIES_VITRINA_ENABLED",
+    "character": "MCA_SELF_MODEL_ENABLED",
+    "experience": "MCA_EXPERIENCE_LESSONS_ENABLED",
+    "random": "MCA_RANDOM_SOURCE_ENABLED",
 }
 
 # Дефолты product-осей при отсутствии ключа в PG (кэш не поднят / до сида).
 PRODUCT_DEFAULTS: dict[str, bool] = {
     "flags.initiative_enabled": True,
+    "flags.stories_vitrina_enabled": True,
+    "flags.self_model_enabled": True,
+    "memory.experience_learning_enabled": True,
 }
 
 
 def _product_requested(master_param: str) -> bool:
-    """Requested-ось: каталоговый тумблер (hot) → дефолт (никогда не бросает)."""
+    """Requested-ось: каталоговый тумблер (hot) → дефолт (никогда не бросает).
+    Пустой master_param («no master», F4-random) → True (ось одна — env)."""
+    if not master_param:
+        return True
     try:
         from services import hot_config
         return bool(hot_config.get(master_param,
@@ -151,7 +272,13 @@ def gate_snapshot(module_id: str) -> dict:
 def registry_for_frontend() -> list[dict]:
     """Сериализация реестра для аддитивного ключа ``modules`` ответа
     `GET /api/config` (§3.1: frontend рендерит из registry при наличии записи,
-    fallback — hardcoded список; порядок детерминированный)."""
+    fallback — hardcoded список; порядок детерминированный).
+
+    F4: + ``config_tab`` (поверхность подмодуля) и + ``gate`` — снимок
+    `gate_snapshot` на момент запроса (requested/effective/source + env-ось),
+    чтобы подкарточки без собственного /api/status-блока показывали честный
+    effective-дисплей (§4.3) из уже существующего носителя (routes.py не
+    менялся)."""
     out: list[dict] = []
     for spec in MODULE_REGISTRY.values():
         out.append({
@@ -169,11 +296,58 @@ def registry_for_frontend() -> list[dict]:
             "visibility": spec.visibility,
             "classification": spec.classification,
             "rationale": spec.rationale,
+            "config_tab": spec.config_tab or f"mod_{spec.id}",
             # Производные поверхности фронта (tab/route — конвенция mod_*)
             "tab": f"mod_{spec.id}",
             "route": f"#/modules/{spec.id}",
+            "gate": gate_snapshot(spec.id),
         })
     return out
+
+
+def validate_spec(spec: ModuleSpec) -> list[str]:
+    """M4 (drift, §3.1): список нарушений обязательных полей (пустой → ок).
+
+    ProductModuleSpec (classification == "product_module") обязан иметь
+    master_param — существующий мигрируемый ключ каталога; подмодули —
+    тоже, ЛИБО явный «no master»-rationale (бриф F4: «master_param из
+    каталога (или explicit no master rationale)»). settings_groups ⊆ GROUPS,
+    status_source/help_anchor/rationale непусты, classification/visibility —
+    закрытые множества."""
+    errors: list[str] = []
+    if spec.classification not in ("product_module", "submodule",
+                                   "infrastructure", "maintenance"):
+        errors.append(f"{spec.id}: classification={spec.classification!r}")
+    if spec.visibility not in ("visible", "advanced", "hidden"):
+        errors.append(f"{spec.id}: visibility={spec.visibility!r}")
+    if not spec.status_source:
+        errors.append(f"{spec.id}: пустой status_source")
+    if not spec.help_anchor:
+        errors.append(f"{spec.id}: пустой help_anchor")
+    if not spec.rationale:
+        errors.append(f"{spec.id}: пустой rationale")
+    try:
+        from services import param_catalog as pc
+        group_ids = {g.id for g in pc.GROUPS}
+        unknown = set(spec.settings_groups) - group_ids
+        if unknown:
+            errors.append(f"{spec.id}: группы вне GROUPS: {sorted(unknown)}")
+        if spec.master_param:
+            entry = pc.get_by_pg_key(spec.master_param)
+            if entry is None:
+                errors.append(f"{spec.id}: master_param "
+                              f"{spec.master_param} вне каталога")
+            elif not entry.migratable:
+                errors.append(f"{spec.id}: master_param "
+                              f"{spec.master_param} не migratable")
+        elif spec.classification == "product_module":
+            errors.append(f"{spec.id}: product_module без master_param")
+        elif "no master" not in spec.rationale.lower():
+            errors.append(f"{spec.id}: пустой master_param без явного "
+                          f"«no master»-rationale")
+    except Exception as exc:    # pragma: no cover — каталог обязан читаться
+        errors.append(f"{spec.id}: каталог недоступен: {exc}")
+    return errors
 
 
 # ── M2: ownership env-kill-switches (aудит P7-C §1.1; KILL_SWITCHES = 85) ───
@@ -182,12 +356,44 @@ def registry_for_frontend() -> list[dict]:
 # чекбоксами: rationale — легальный исход для maintenance/infra (§3.1).
 
 #: env-гейты, принадлежащие зарегистрированным продуктовым модулям.
+#: F4 (§3.2): подмодули stories/character/experience/random получили owner —
+#: их оси перенесены из rationale-группы «submodule→F4» (аудит P7-C-5).
 MODULE_ENV_GATES: dict[str, tuple[str, ...]] = {
     "initiative": (
         "MCA_INTENTS_ENABLED",             # K1 мастер
         "MCA_INTENT_HEARTBEAT_ENABLED",    # K2 due-тик
         "MCA_INTENT_DECISION_ENABLED",     # K3 решения
         "MCA_SEND_RECHECK_ENABLED",        # K4 recheck отправки
+    ),
+    "stories": (
+        "MCA_STORIES_VITRINA_ENABLED",     # K1 read-контур витрины
+        "MCA_STORIES_MANAGE_ENABLED",      # K2 мутации
+        "MCA_EPISODES_ENABLED",            # мастер эпизодов
+        "MCA_EPISODES_COMPILER_FACADE_ENABLED",
+        "MCA_EPISODES_CONTINUATION_ENABLED",
+        "MCA_EPISODES_BACKFILL_ENABLED",
+    ),
+    "character": (
+        "MCA_SELF_MODEL_ENABLED",          # K1 мастер
+        "MCA_TRAIT_RULES_ENABLED",         # K2
+        "MCA_LEGACY_TRAITS_MIGRATION_ENABLED",  # K3
+        "MCA_CHARACTER_LAYERS_ENABLED",
+        "MCA_CHARACTER_SPEECH_ENABLED",
+        "MCA_STYLE_SCOPE_ENABLED",
+        "MCA_POSTPROCESS_FORM_GUARD_ENABLED",
+    ),
+    "random": (
+        "MCA_RANDOM_SOURCE_ENABLED",       # мастер (env-ось; no master-тумблер)
+        "MCA_RANDOM_QUANTUM_ENABLED",
+        "MCA_RANDOM_REFILL_ENABLED",
+        "MCA_RANDOM_EXPLORATION_ENABLED",
+        "MCA_RANDOM_USES_ENABLED",
+    ),
+    "experience": (
+        "MCA_EXPERIENCE_LESSONS_ENABLED",  # K1 мастер
+        "MCA_EXPERIENCE_REVIEW_ENABLED",   # K3
+        "MCA_EXPERIENCE_CONTEXT_ENABLED",  # K4
+        "MCA_EXPERIENCE_FEEDBACK_ENABLED", # K2
     ),
 }
 
@@ -196,24 +402,14 @@ MODULE_ENV_GATES: dict[str, tuple[str, ...]] = {
 #: `mca_gates.KILL_SWITCHES` без пропусков и дублей.
 INFRASTRUCTURE_RATIONALE: tuple[tuple[str, str, tuple[str, ...]], ...] = (
     (
-        "submodule→F4",
+        "submodule→registered (остаток: Vision)",
         "Orphan-фичи волны P7-C (аудит §1.2): Stories/Episodes, "
-        "SelfModel/Character (7 осей), Random/Quantum (5), Experience (4), "
-        "Vision (5) — регистрация/настройки выполняет F4 (BLOCKED_BY F3); "
+        "SelfModel/Character (7 осей), Random/Quantum (5), Experience (4) "
+        "ЗАРЕГИСТРИРОВАНЫ F4 (MODULE_ENV_GATES; настройка/AND-гейты — "
+        "param_catalog flags_stories/flags_character + mca_gates §3.3). "
+        "Остаток — Vision (4): регистрация вне объёма F4 (brief Wave 3), "
         "env-рубильники остаются аварийными (default ON).",
         (
-            "MCA_STORIES_VITRINA_ENABLED", "MCA_STORIES_MANAGE_ENABLED",
-            "MCA_EPISODES_ENABLED", "MCA_EPISODES_COMPILER_FACADE_ENABLED",
-            "MCA_EPISODES_CONTINUATION_ENABLED", "MCA_EPISODES_BACKFILL_ENABLED",
-            "MCA_SELF_MODEL_ENABLED", "MCA_TRAIT_RULES_ENABLED",
-            "MCA_LEGACY_TRAITS_MIGRATION_ENABLED",
-            "MCA_CHARACTER_LAYERS_ENABLED", "MCA_CHARACTER_SPEECH_ENABLED",
-            "MCA_STYLE_SCOPE_ENABLED", "MCA_POSTPROCESS_FORM_GUARD_ENABLED",
-            "MCA_RANDOM_SOURCE_ENABLED", "MCA_RANDOM_QUANTUM_ENABLED",
-            "MCA_RANDOM_REFILL_ENABLED", "MCA_RANDOM_EXPLORATION_ENABLED",
-            "MCA_RANDOM_USES_ENABLED",
-            "MCA_EXPERIENCE_LESSONS_ENABLED", "MCA_EXPERIENCE_REVIEW_ENABLED",
-            "MCA_EXPERIENCE_CONTEXT_ENABLED", "MCA_EXPERIENCE_FEEDBACK_ENABLED",
             "MCA_VISION_ENABLED", "MCA_VISION_AUTO_ENABLED",
             "MCA_VISION_BACKFILL_ENABLED", "MCA_VISION_TOOL_ENABLED",
         ),

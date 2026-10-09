@@ -600,9 +600,10 @@ class TestFlagBoundary:
         # 51 → 52. SQLite DDL = 0 (v19 не меняется).
         # NOTE (ASAP 4.3, 2.58.51 `1c47b5e`/`acbbe1f`): PG additive nullable
         # `preview_job_id` (durable preview jobs) — 52 → 53; SQLite DDL = 0.
-        assert len(pg_db.DDL_STATEMENTS) == 53
+        # ASAP 7 F2 (§1.10): +1 (ALTER plan_meta JSONB, PG-only) → 54.
+        assert len(pg_db.DDL_STATEMENTS) == 54
 
     def test_delta_catalog_zero(self):
         from services import param_catalog as pc
-        assert len(pc.REGISTRY) == 538
-        assert len(pc.GROUPS) == 115
+        assert len(pc.REGISTRY) == 560
+        assert len(pc.GROUPS) == 120

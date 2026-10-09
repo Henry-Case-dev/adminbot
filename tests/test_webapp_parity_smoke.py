@@ -59,8 +59,8 @@ class TestCatalogParity:
         # (flags_decision_making → mod_direct) → 473/102/430.
         # MCA-10a (ADR-1028-14 D8/D12, санкция §13.2): +13 REGISTRY/Settings,
         # +2 GROUPS (memory_random/keys_random) → 502/107/439.
-        assert len(REGISTRY) == 538, len(REGISTRY)
-        assert len(GROUPS) == 115
+        assert len(REGISTRY) == 560, len(REGISTRY)
+        assert len(GROUPS) == 120
         from config.settings import Settings
         import dataclasses
         assert len({f.name for f in dataclasses.fields(Settings)}) == 454

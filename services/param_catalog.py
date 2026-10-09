@@ -222,6 +222,13 @@ GROUPS: tuple[GroupSpec, ...] = (
     GroupSpec("keys_vision", "keys", "Распознавание изображений: ключ",
               "Ключ отдельной модели распознавания картинок. Хранится маской; "
               "пусто — используется ключ основной нейросети.", 10),
+    # ── ASAP 7 (F2, §1.6): слот модели L1 Planner блока Direct (прецедент
+    # Hybrid Summary слотов). Пусто — наследует основную модель (honest
+    # inherit; effective source виден в UI и аналитике).
+    GroupSpec("models_direct_l1", "models", "Direct: модель планировщика (L1)",
+              "Отдельные модель и адрес для шага планирования ответа в "
+              "прямом чате (L1 Planner). Пусто — наследуется основная "
+              "нейросеть.", 12),
     # keys (9; раунд 10.37, MCA-10a/ADR-1028-14 D8, ТЗ §14.4): подключение
     # квантового источника случайности (ANU Quantum Numbers) — endpoint/
     # ключ/партия/тип/таймаут/watermark/buffer; ключ — секрет (маска).
@@ -342,6 +349,13 @@ GROUPS: tuple[GroupSpec, ...] = (
               "Размер батча heartbeat-скана, попыток на намерение, кандидатов "
               "на решение, срок хранения архива и пауза после «не тот момент».",
               37),
+    # ── ASAP 7 (F2, §1.6): лимиты L1 Planner (вкладка mod_direct) —
+    # температура/таймаут/JSON-бюджет/кап контекста. Прецедент
+    # limits_summary_hybrid (отдельная группа лимитов своего контура).
+    GroupSpec("limits_direct_l1", "limits", "Direct: планировщик (L1): лимиты",
+              "Температура, таймаут, бюджет ответа планировщика и потолок его "
+              "контекста. Отдельные лимиты шага планирования, на основной "
+              "ответ не влияют.", 38),
     # ── flags (19; раунд 10.6 T-1201/T-1180) ───────────────────────────────
     # flags_modules(9) → 7 групп + checkup-флаг в flags_service;
     # flags_chat_behavior(11) → 3 группы; +3 master-флага (D1/A1).
@@ -430,6 +444,30 @@ GROUPS: tuple[GroupSpec, ...] = (
               "heartbeat due-скана, инициативные решения и проверка перед "
               "отправкой. Аварийные env-рубильники MCA_* действуют независимо.",
               27),
+    # ── flags (29; ASAP 7 F4, §3.2): подмодуль «Истории и эпизоды»
+    # (parent «Память», вкладка memory_rag). Product-оси §3.3 для
+    # MCA_STORIES_*/MCA_EPISODES_*; env-kill-switches остаются аварийными
+    # (AND-гейт в services/mca_gates.py).
+    GroupSpec("flags_stories", "flags", "Модуль: Истории и эпизоды",
+              "Рубильники витрины историй и контура эпизодов: чтение витрины, "
+              "ручные действия, мастер эпизодов, фасад компилятора, "
+              "продолжение и backfill. Аварийные env-рубильники MCA_* "
+              "действуют независимо.", 29),
+    # ── flags (30; ASAP 7 F4, §3.2): подмодуль «Характер» (SelfModel /
+    # character evolution, parent Persona/Досье; вкладка permsoc,
+    # Advanced-размещение). Product-оси 7 env-осей mca-18.
+    GroupSpec("flags_character", "flags", "Модуль: Характер (SelfModel)",
+              "Рубильники эволюции характера: модель себя, правила черт, "
+              "миграция legacy-черт, слои характера, речь характера, scope "
+              "стиля и форм-гард постобработки. Advanced: обычно не трогать. "
+              "Аварийные env-рубильники MCA_* действуют независимо.", 30),
+    # ── flags (29; ASAP 7 F2, §1.6): тумблеры L1 Planner (mod_direct).
+    # master ON; env DIRECT_L1_ENABLED — аварийный kill-switch (AND-семантика
+    # §4.3: effective = env AND product).
+    GroupSpec("flags_direct_l1", "flags", "Direct: планировщик (L1)",
+              "Тумблеры шага планирования прямого чата: включение L1 Planner "
+              "и разрешение fallback на основную модель при его отказе. "
+              "Аварийный env DIRECT_L1_ENABLED важнее UI.", 28),
     # ── reactions (15; раунд 10.6 T-1185; 10.9: reactions_persons удалена) ──
     # Ре-дизайн 10.2, BUG-3 (spec §10 B): Telegram ID админа — отдельная
     # группа (перенос из reactions_persons).
@@ -1131,6 +1169,58 @@ _ASAP3_PG_ONLY: list[tuple] = [
      "Silent-подтверждение 🗿", "bool", False, "flags_decision_making",
      "Если бот сознательно не отвечает на прямой ответ ему, он ставит 🗿 — "
      "«сообщение увидел, решил не отвечать». Выключено — обычная тишина."),
+]
+
+# ── ASAP 7 (F2, architecture §1.6, ТЗ §19): 9 PG-only ключей L1 Planner
+# Direct. Слоты/тумблеры/лимиты живут env ClassVar-дефолтами от F1
+# (`getattr(settings, ...)`/hot.get) — НОВЫХ записей Settings НЕТ (лейн-правило).
+# Код-ридеры — services/direct_l1.py (resolve_l1_model/l1_*, hot-first,
+# env-фолбэк). Пустые base_url/model/key = inherit main (honest inherit,
+# effective source — UI/аналитика). (pg_id, category, title, type, secret,
+# group, description)
+_DIRECT_L1_PG_ONLY: list[tuple] = [
+    # models (2) + keys (1): слот L1 (прецедент models_summary_hybrid).
+    ("models.direct_l1_base_url", "models",
+     "L1 Planner: адрес модели", "str", False, "models_direct_l1",
+     "Адрес сервера нейросети для шага планирования ответа. Пусто — "
+     "наследуется адрес основной модели."),
+    ("models.direct_l1_model_name", "models",
+     "L1 Planner: модель", "str", False, "models_direct_l1",
+     "Модель шага планирования (L1). Пусто — наследуется основная модель."),
+    ("keys.direct_l1_api_key", "keys",
+     "L1 Planner: ключ", "str", True, "models_direct_l1",
+     "Ключ для модели планировщика. Пусто — используется ключ основной "
+     "нейросети. Хранится маской, в логи не попадает."),
+    # flags (2): product-тумблеры (§4.3 AND с env DIRECT_L1_ENABLED).
+    ("flags.direct_l1_enabled", "flags",
+     "L1 Planner включён", "bool", False, "flags_direct_l1",
+     "Планирование ответа отдельным быстрым шагом (L1): бот заранее решает — "
+     "ответить, поставить реакцию или промолчать, и каким будет объём. "
+     "Выключено — прежний пайплайн целиком."),
+    ("flags.direct_l1_fallback_enabled", "flags",
+     "Fallback L1 на основную модель", "bool", False, "flags_direct_l1",
+     "Если отдельная модель планировщика недоступна, шаг планирования "
+     "выполняет основная модель. Выключено — при отказе слота ответ "
+     "строится без планирования."),
+    # limits (4): температура/таймаут/JSON-бюджет/кап контекста L1.
+    ("limits.direct_l1_temperature", "limits",
+     "L1 Planner: температура", "float", False, "limits_direct_l1",
+     "Насколько свободно планировщик выбирает решение. Пусто (Авто) — как у "
+     "основного ответа."),
+    ("limits.direct_l1_timeout_seconds", "limits",
+     "L1 Planner: таймаут, секунд", "int", False, "limits_direct_l1",
+     "Сколько ждать план от модели планировщика. По истечении — ответ "
+     "строится без планирования (без зависания чата)."),
+    ("limits.direct_l1_max_output_tokens", "limits",
+     "L1 Planner: бюджет ответа (токены)", "int", False, "limits_direct_l1",
+     "Потолок длины служебного JSON-плана. Небольшое значение держит шаг "
+     "планирования дешёвым и быстрым."),
+    ("limits.direct_l1_context_tokens", "limits",
+     "L1 Planner: потолок контекста (токены)", "int", False,
+     "limits_direct_l1",
+     "Сколько контекста видит планировщик: последнее сообщение, реплика-"
+     "ответ, короткое окно переписки и подсказки памяти. Основной ответ "
+     "получает полный контекст независимо от этого значения."),
 ]
 
 # ── Раунд 10.41 (MCA-10b, ADR-1028-17 D8/D13, ТЗ §14.12/§20.2): разрешения
@@ -2379,6 +2469,130 @@ _INTENT: list[ParamSpec] = [
 ]
 
 
+# ── ASAP 7 (F4, §3.2): подмодуль «Истории и эпизоды» — 6 ParamSpec
+# (группа flags_stories, вкладка memory_rag «Память»); подмодуль
+# «Характер» — 7 ParamSpec (группа flags_character, вкладка permsoc,
+# Advanced). Product-оси §3.3: ключ каталога (default из СУЩЕСТВУЮЩЕГО
+# settings-атрибута, новые записи Settings НЕ вводятся) + аварийный
+# env-kill-switch как отдельная ось (AND-гейт в services/mca_gates.py;
+# pg_id — человекочитаемый ключ). Storage НЕ дублируется: одна семантика —
+# один PG-ключ, settings-атрибут остаётся env-осью/дефолтом.
+_STORIES: list[ParamSpec] = [
+    ParamSpec("MCA_STORIES_VITRINA_ENABLED", "MCA_STORIES_VITRINA_ENABLED",
+              CATEGORY_FLAGS, "Витрина историй (мастер read-контура)", "bool",
+              pg_id="flags.stories_vitrina_enabled",
+              group="flags_stories",
+              description="Блок «Истории чата», read-API /api/stories* и "
+                          "витрины смежных контуров. Выключено — блок скрыт, "
+                          "read-API честно отключён (не 404-заглушка). "
+                          "Аварийный env: MCA_STORIES_VITRINA_ENABLED важнее "
+                          "UI (эффективно = env И тумблер)."),
+    ParamSpec("MCA_STORIES_MANAGE_ENABLED", "MCA_STORIES_MANAGE_ENABLED",
+              CATEGORY_FLAGS, "Действия с историями (мутации)", "bool",
+              pg_id="flags.stories_manage_enabled",
+              group="flags_stories",
+              description="POST /api/stories/{id}/action (под RBAC/CAS). "
+                          "Выключено — только просмотр, действия отклоняются "
+                          "честным disabled. Аварийный env: "
+                          "MCA_STORIES_MANAGE_ENABLED."),
+    ParamSpec("MCA_EPISODES_ENABLED", "MCA_EPISODES_ENABLED",
+              CATEGORY_FLAGS, "Эпизоды: мастер", "bool",
+              pg_id="flags.episodes_enabled",
+              group="flags_stories",
+              description="Модель/пайплайн эпизодов и историй активны. "
+                          "Выключено — точный паритет baseline (подгейты "
+                          "эпизодов инертны). Аварийный env: "
+                          "MCA_EPISODES_ENABLED важнее UI."),
+    ParamSpec("MCA_EPISODES_COMPILER_FACADE_ENABLED",
+              "MCA_EPISODES_COMPILER_FACADE_ENABLED",
+              CATEGORY_FLAGS, "Эпизоды: фасад компилятора", "bool",
+              pg_id="flags.episodes_compiler_facade_enabled",
+              group="flags_stories",
+              description="Компилятор и episode-канал читают новый store "
+                          "через фасад (legacy lore_stories сохраняются). "
+                          "Инертен при выключенном мастере эпизодов. "
+                          "Аварийный env: "
+                          "MCA_EPISODES_COMPILER_FACADE_ENABLED."),
+    ParamSpec("MCA_EPISODES_CONTINUATION_ENABLED",
+              "MCA_EPISODES_CONTINUATION_ENABLED",
+              CATEGORY_FLAGS, "Эпизоды: продолжение", "bool",
+              pg_id="flags.episodes_continuation_enabled",
+              group="flags_stories",
+              description="Продолжение эпизодов. Инертен при выключенном "
+                          "мастере эпизодов. Аварийный env: "
+                          "MCA_EPISODES_CONTINUATION_ENABLED."),
+    ParamSpec("MCA_EPISODES_BACKFILL_ENABLED", "MCA_EPISODES_BACKFILL_ENABLED",
+              CATEGORY_FLAGS, "Эпизоды: backfill", "bool",
+              pg_id="flags.episodes_backfill_enabled",
+              group="flags_stories",
+              description="Задняя сборка эпизодов по истории. Инертен при "
+                          "выключенном мастере эпизодов. Аварийный env: "
+                          "MCA_EPISODES_BACKFILL_ENABLED."),
+]
+
+_CHARACTER: list[ParamSpec] = [
+    ParamSpec("MCA_SELF_MODEL_ENABLED", "MCA_SELF_MODEL_ENABLED",
+              CATEGORY_FLAGS, "Модель себя (мастер)", "bool",
+              pg_id="flags.self_model_enabled",
+              group="flags_character",
+              progressive_level="advanced",
+              description="SelfModelSnapshot/resolve/frame и сборка характера "
+                          "активны. Выключено — промпт собирает legacy-блок "
+                          "личности, v31 SelfModel-контур не читается и не "
+                          "пишется. Аварийный env: MCA_SELF_MODEL_ENABLED "
+                          "важнее UI (эффективно = env И тумблер)."),
+    ParamSpec("MCA_TRAIT_RULES_ENABLED", "MCA_TRAIT_RULES_ENABLED",
+              CATEGORY_FLAGS, "Правила черт", "bool",
+              pg_id="flags.trait_rules_enabled",
+              group="flags_character",
+              progressive_level="advanced",
+              description="Lifecycle TraitObservation/BehaviorRule, "
+                          "анти-самоусиление и гарды. Выключено — v31-таблицы "
+                          "черт инертны (snapshot отдаёт пустые traits с "
+                          "честным disabled). Аварийный env: "
+                          "MCA_TRAIT_RULES_ENABLED."),
+    ParamSpec("MCA_LEGACY_TRAITS_MIGRATION_ENABLED",
+              "MCA_LEGACY_TRAITS_MIGRATION_ENABLED",
+              CATEGORY_FLAGS, "Миграция legacy-черт", "bool",
+              pg_id="flags.legacy_traits_migration_enabled",
+              group="flags_character",
+              progressive_level="advanced",
+              description="Фоновый идемпотентный разбор persona_traits "
+                          "(job mca-01). Выключено — разбор не запускается. "
+                          "Аварийный env: "
+                          "MCA_LEGACY_TRAITS_MIGRATION_ENABLED."),
+    ParamSpec("MCA_CHARACTER_LAYERS_ENABLED", "MCA_CHARACTER_LAYERS_ENABLED",
+              CATEGORY_FLAGS, "Слои характера", "bool",
+              pg_id="flags.character_layers_enabled",
+              group="flags_character",
+              progressive_level="advanced",
+              description="Многослойная сборка характера. Аварийный env: "
+                          "MCA_CHARACTER_LAYERS_ENABLED."),
+    ParamSpec("MCA_CHARACTER_SPEECH_ENABLED", "MCA_CHARACTER_SPEECH_ENABLED",
+              CATEGORY_FLAGS, "Речь характера", "bool",
+              pg_id="flags.character_speech_enabled",
+              group="flags_character",
+              progressive_level="advanced",
+              description="Речевые особенности характера в ответах. "
+                          "Аварийный env: MCA_CHARACTER_SPEECH_ENABLED."),
+    ParamSpec("MCA_STYLE_SCOPE_ENABLED", "MCA_STYLE_SCOPE_ENABLED",
+              CATEGORY_FLAGS, "Scope стиля", "bool",
+              pg_id="flags.style_scope_enabled",
+              group="flags_character",
+              progressive_level="advanced",
+              description="Ограничение области применения стилевых правил. "
+                          "Аварийный env: MCA_STYLE_SCOPE_ENABLED."),
+    ParamSpec("MCA_POSTPROCESS_FORM_GUARD_ENABLED",
+              "MCA_POSTPROCESS_FORM_GUARD_ENABLED",
+              CATEGORY_FLAGS, "Форм-гард постобработки", "bool",
+              pg_id="flags.postprocess_form_guard_enabled",
+              group="flags_character",
+              progressive_level="advanced",
+              description="Гард формы ответа на постобработке. Аварийный "
+                          "env: MCA_POSTPROCESS_FORM_GUARD_ENABLED."),
+]
+
+
 def resolve_progressive_level(spec: ParamSpec) -> str:
     """Правило по умолчанию (F-11 §4.1): advanced для групп памяти/RAG и
     ключей с техническими маркерами; явная разметка — приоритет."""
@@ -2437,6 +2651,12 @@ def _build_registry() -> dict[str, ParamSpec]:
          ) in _ASAP3_PG_ONLY:
         add(ParamSpec(None, None, category, title, typ, secret=secret,
                       pg_id=pg_id, group=group, description=desc))
+    # ASAP 7 (F2, §1.6): 9 PG-only ключей L1 Planner Direct (см. список;
+    # env-дефолты — ClassVar F1, новых записей Settings нет).
+    for (pg_id, category, title, typ, secret, group, desc
+         ) in _DIRECT_L1_PG_ONLY:
+        add(ParamSpec(None, None, category, title, typ, secret=secret,
+                      pg_id=pg_id, group=group, description=desc))
     for row in _FLAGS:
         field, title, group, desc = row
         add(ParamSpec(field, field, CATEGORY_FLAGS, title, "bool",
@@ -2444,6 +2664,12 @@ def _build_registry() -> dict[str, ParamSpec]:
     # ASAP 7 (F3, §3.2): модуль «Инициатива» — 4 тумблера + 5 лимитов
     # (pg_id — человекочитаемые ключи; дефолты — существующие Settings-атрибуты).
     for spec in _INTENT:
+        add(spec)
+    # ASAP 7 (F4, §3.2): подмодули «Истории и эпизоды» (6 тумблеров) и
+    # «Характер» (7 тумблеров, Advanced) — тот же паттерн product-осей §3.3.
+    for spec in _STORIES:
+        add(spec)
+    for spec in _CHARACTER:
         add(spec)
     for row in _LIMITS:
         if len(row) == 6:      # (field, title, type, group, desc, widget)
@@ -2826,12 +3052,17 @@ TAB_RULES: tuple[tuple[str, tuple[tuple[str, object], ...]], ...] = (
         (CATEGORY_REACTIONS, frozenset({"reactions_summary"})),
     )),
     (TAB_MOD_DIRECT, (
+        # ASAP 7 (F2, §1.6/§19): секция «L1 Planner» — flags/limits/models
+        # (+keys-слоты в группе models_direct_l1). In-place (TAB_RULES 23
+        # без роста; прецедент mod_summary).
         (CATEGORY_FLAGS,
          frozenset({"flags_module_direct", "flags_chat_behavior",
-                    "flags_decision_making"})),
+                    "flags_decision_making", "flags_direct_l1"})),
         (CATEGORY_LIMITS, frozenset({
             "limits_chat", "limits_chat_behavior", "limits_chat_budgets",
-            "limits_temperature"})),
+            "limits_temperature", "limits_direct_l1"})),
+        (CATEGORY_MODELS, frozenset({"models_direct_l1"})),
+        (CATEGORY_KEYS, frozenset({"models_direct_l1"})),
         (CATEGORY_REACTIONS, frozenset({"reactions_chat"})),
     )),
     (TAB_MOD_FACTCHECK, (
@@ -2948,6 +3179,9 @@ TAB_RULES: tuple[tuple[str, tuple[tuple[str, object], ...]], ...] = (
         # TAB_RULES 21 без роста).
         (CATEGORY_MEMORY, frozenset({"memory_experience"})),
         (CATEGORY_REACTIONS, frozenset({"reactions_memory"})),
+        # ASAP 7 (F4, §3.2): подмодуль «Истории и эпизоды» (flags_stories) —
+        # на ТОЙ ЖЕ вкладке «Память» (правило in-place, TAB_RULES без роста).
+        (CATEGORY_FLAGS, frozenset({"flags_stories"})),
     )),
     (TAB_SMART_CACHE, (
         (CATEGORY_LIMITS, frozenset({"limits_smart_cache"})),
@@ -2974,7 +3208,11 @@ TAB_RULES: tuple[tuple[str, tuple[tuple[str, object], ...]], ...] = (
             "reactions_mimic", "reactions_olya",
             "reactions_word_reactions", "reactions_permsoc"})),
         (CATEGORY_FLAGS, frozenset({
-            "flags_permsoc", "flags_media", "flags_permsoc_behavior"})),
+            "flags_permsoc", "flags_media", "flags_permsoc_behavior",
+            # ASAP 7 (F4, §3.2): подмодуль «Характер» (flags_character,
+            # Advanced) — на вкладке PERMsoc, «один дом» с поведением персон
+            # (правило in-place, TAB_RULES без роста).
+            "flags_character"})),
         (CATEGORY_LIMITS, frozenset({
             "limits_alan", "limits_kostik", "limits_media_permsoc",
             "limits_mimic", "limits_deadpage"})),

@@ -9,7 +9,10 @@
 Права — только глобальный админ (``requires_global_admin``); ``chat_id``
 валидируется против доступных областей. R17: наружу — только числа/коды/ID и
 усечённые предпросмотры уполномоченному админу; без ключей/сырых ответов/промптов
-в ответе и логах. Флаг ``SUMMARY_TEST_UI_ENABLED`` (env-only) OFF → 404.
+в ответе и логах (ASAP 7 F7: полный prompt обложки — ТОЛЬКО в durable
+``task_jobs`` kind=cover_base ``CoverPromptManifest``, читаемом admin-путём;
+ответ/логи эндпоинтов текстов промптов не содержат). Флаг
+``SUMMARY_TEST_UI_ENABLED`` (env-only) OFF → 404.
 """
 from __future__ import annotations
 
@@ -347,18 +350,27 @@ async def summary_test_cover(
         return {"cover_status": entry.cover_status,
                 "preview_url": f"/api/summary/test/{test_id}/cover-image"}
     cover_prompt = ""
+    document = {}
     if entry.result is not None:
-        package = (entry.result.artifacts or {}).get("package") or {}
+        artifacts = entry.result.artifacts or {}
+        package = artifacts.get("package") or {}
         service = (package or {}).get("service") or {}
         cover_prompt = str(service.get("cover_prompt") or "")
+        doc = artifacts.get("article")
+        document = doc if isinstance(doc, dict) else {}
     if not cover_prompt:
         entry.cover_status = "COVER_GENERATION_FAILED"
         entry.cover_error = "no_cover_prompt"
         return {"cover_status": entry.cover_status, "preview_url": None}
     try:
+        from services import cover_prompt_assembly as _cpa
+        from services import cover_style_jobs as _csj
         from services import web_runtime
-        from services.summary_generator import compose_cover_image_prompt
-        from services.image_generation import generate_image_verbose
+        from services.image_generation import (
+            generate_image_verbose,
+            provider_label,
+            resolve_generate_prompt_limit_async,
+        )
         generator = web_runtime.get_summary_generator()
         style = ""
         resolver = getattr(generator, "_resolve_cover_style_text", None)
@@ -367,10 +379,118 @@ async def summary_test_cover(
                 style = await resolver(entry.chat_id)
             except Exception:
                 style = ""
-        image_prompt = compose_cover_image_prompt(style, cover_prompt)
-        tmp_path, img_reason = await generate_image_verbose(
-            image_prompt, chat_id=entry.chat_id,
-            correlation_id=entry.test_id)
+        # ASAP 7 F7 (§2.3/§9.2): production-сборка Base — ТОТ ЖЕ компилятор
+        # compose_base_cover_prompt (STORY_SCENE → SUMMARY_CONTEXT →
+        # BASE_STYLE), тот же §11-гард и резолв лимита §2.2, что в
+        # summary_generator._publish_rich_document_impl. Легаци
+        # compose_cover_image_prompt (2 компоненты, БЕЗ SUMMARY_CONTEXT)
+        # больше не вызывается (regression B3, тесты asap7_cover_preview).
+        _doc_paras = [p.get("text") for p in (document.get("paragraphs")
+                                              or []) if isinstance(p, dict)]
+        _guard = _cpa.cover_context_decision(
+            cover_prompt, document.get("title"), _doc_paras)
+        anomaly_reason = ""
+        if _guard["status"] == "anomaly_recovered":
+            cover_prompt = _guard["story"]
+            anomaly_reason = "anomaly_recovered"
+        elif _guard["status"] == "cover_context_missing" \
+                and not _guard["story"]:
+            # §11(3): вырожденная статья — generic-style обложка не уходит.
+            entry.cover_status = "COVER_GENERATION_FAILED"
+            entry.cover_error = "cover_context_missing"
+            return {"cover_status": entry.cover_status, "preview_url": None}
+        summary_context = _guard["ctx"]
+        base_total_cap = _cpa.default_total_cap()
+        total_cap = None
+        limit_source = "assembly_cap"
+        limit_unit = "chars"
+        resolved_limit = None
+        try:
+            gen_limit = await resolve_generate_prompt_limit_async()
+        except Exception:
+            gen_limit = None
+        if gen_limit is not None and gen_limit.known:
+            limit_chars = _cpa.limit_to_chars(gen_limit.value,
+                                              gen_limit.unit)
+            if limit_chars:
+                total_cap = min(base_total_cap, limit_chars)
+                resolved_limit = int(gen_limit.value)
+                limit_unit = str(gen_limit.unit or "chars")
+                limit_source = str(getattr(gen_limit, "source", "")
+                                   or "unknown")
+        image_prompt = _cpa.compose_base_cover_prompt(
+            style, cover_prompt, summary_context, total_cap=total_cap)
+        # §2.2: shorter-retry — та же семантика, что production Base
+        # (story+context сохранены, стиль сжат; ≤2 платные попытки).
+        base_attempts: list = []
+
+        def _shorter_base_prompt(_orig, value, unit):
+            chars = _cpa.limit_to_chars(value, unit)
+            if not chars:
+                return ""
+            return _cpa.compose_base_cover_prompt(
+                style, cover_prompt, summary_context,
+                total_cap=min(base_total_cap, chars))
+
+        async def _remember_base_manifest(*, ok: bool,
+                                          reason: str) -> None:
+            # §2.3: CoverPromptManifest — durable task_jobs kind=cover_base
+            # (тот же носитель/детерминированный ключ, что production);
+            # final_prompt == фактически отправленный prompt. Fail-open;
+            # полный prompt НЕ в лог (R17).
+            try:
+                if base_attempts:
+                    attempts = [{k: v for k, v in att.items()
+                                 if k in ("attempt", "prompt", "outcome",
+                                          "reason")}
+                                for att in base_attempts]
+                    final_prompt = str(attempts[-1]["prompt"])
+                    observed = next(
+                        ((att.get("meta") or {}).get("prompt_limit")
+                         for att in base_attempts
+                         if (att.get("meta") or {}).get("prompt_limit")),
+                        {})
+                    limit_src = ("observed_provider_400" if observed
+                                 else limit_source)
+                    resolved = (int(observed.get("value")
+                                    or resolved_limit or 0) or None)
+                else:
+                    attempts = None
+                    final_prompt = image_prompt
+                    limit_src = limit_source
+                    resolved = resolved_limit
+                manifest = _cpa.build_base_manifest(
+                    base_style=(style or "").strip(),
+                    story_scene=(cover_prompt or "").strip(),
+                    summary_context=summary_context,
+                    final_prompt=final_prompt, provider=provider_label(),
+                    outcome=("ok" if ok else "failed"), reason=reason,
+                    total_cap=total_cap, resolved_limit=resolved,
+                    limit_unit=limit_unit, limit_source=limit_src,
+                    attempts=attempts,
+                    component_reasons=({"STORY_SCENE": anomaly_reason}
+                                       if anomaly_reason else None))
+                db = getattr(getattr(generator, "memory", None), "db", None)
+                await _csj.record_base_cover_manifest(
+                    db, summary_run_id=entry.test_id,
+                    chat_id=entry.chat_id, manifest=manifest)
+            except Exception:
+                logger.debug("SUMMARY_TEST cover manifest persist failed",
+                             exc_info=True)
+
+        try:
+            tmp_path, img_reason = await generate_image_verbose(
+                image_prompt, chat_id=entry.chat_id,
+                correlation_id=entry.test_id,
+                shorter_prompt=_shorter_base_prompt,
+                attempt_log=base_attempts)
+            await _remember_base_manifest(
+                ok=bool(tmp_path),
+                reason=("ok" if tmp_path else str(img_reason or "")))
+        except Exception as exc:
+            await _remember_base_manifest(ok=False,
+                                          reason=type(exc).__name__)
+            raise
     except Exception as exc:
         # S7 (T-3400, L-R1026S9-8): R17 — без traceback/сырых текстов.
         logger.warning(

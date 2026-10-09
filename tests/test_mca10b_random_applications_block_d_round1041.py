@@ -263,9 +263,9 @@ def test_blockE_catalog_random_uses_keys():
     memory_random: per-chat, не-секреты, все default ON (read-path
     fail-open True); GROUPS/_TAB_BY_GROUP/TAB_RULES без роста."""
     from services import param_catalog as pc
-    assert len(pc.REGISTRY) == 538
-    assert len(pc.GROUPS) == 115
-    assert len(pc._TAB_BY_GROUP) == 113
+    assert len(pc.REGISTRY) == 560
+    assert len(pc.GROUPS) == 120
+    assert len(pc._TAB_BY_GROUP) == 118
     assert len(pc.TAB_RULES) == 23
     uses = [f"memory.random_uses_{u}" for u in sorted(mx.USES)]
     assert len(uses) == 6
@@ -279,9 +279,10 @@ def test_blockE_catalog_random_uses_keys():
         assert pc.group_tab(spec.group) is not None
     # master kill-switch в каталог НЕ входит (env-only, прецедент mca-16)
     assert pc.get_by_pg_key("memory.random_uses_enabled") is None
-    # секрет-счётчик не изменился
+    # секрет-счётчик: 33 (mca-10b) + 1 (ASAP 7 F2: keys.direct_l1_api_key,
+    # secret=True; F4 secret-осей НЕ добавлял — 13 флагов не секреты)
     secrets = [s for s in pc.REGISTRY.values() if s.secret]
-    assert len(secrets) == 33
+    assert len(secrets) == 34
 
 
 def test_blockE_f8_check_green_and_baselines():
@@ -293,17 +294,20 @@ def test_blockE_f8_check_green_and_baselines():
     assert res.returncode == 0, res.stdout + res.stderr
     # ASAP 5 (asap5-final-fixes, T-5256, санкция §5): 523→529 (+6 PG-only
     # профилей embeddings); delta 112→118.
-    assert "538" in res.stdout  # ASAP 7 F3: 529 -> 538 (+9 Intent)
+    # ASAP 7 (F2 direct_l1 + F4 §3.2, переиздание общих фикс одним окном):
+    # live 560 (538 + 9 direct_l1 + 13 stories/character); gen --check
+    # печатает текущий счётчик реестра.
+    assert "560" in res.stdout
     fx = json.loads((ROOT / "tests/fixtures/round1025/f8_baseline.json")
                     .read_text(encoding="utf-8"))
-    assert fx["counts"]["REGISTRY"] == 538
-    assert fx["counts"]["GROUPS"] == 115
-    assert fx["counts"]["TAB_BY_GROUP"] == 113
+    assert fx["counts"]["REGISTRY"] == 560
+    assert fx["counts"]["GROUPS"] == 120
+    assert fx["counts"]["TAB_BY_GROUP"] == 118
     assert fx["counts"]["TAB_RULES"] == 23
-    assert fx["counts"]["delta"] == 127
+    assert fx["counts"]["delta"] == 149
     cb = json.loads((ROOT / "tests/fixtures/round1025/catalog_baseline.json")
                     .read_text(encoding="utf-8"))
-    assert len(cb["registry_keys"]) == 538
+    assert len(cb["registry_keys"]) == 560
     for key in ("memory.random_uses_belief_review",
                 "memory.random_uses_ui_visualization"):
         assert key in cb["registry_keys"]

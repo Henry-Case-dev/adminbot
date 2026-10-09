@@ -292,8 +292,10 @@ def test_summary_and_direct_ui_only():
     # §84: L1/L2 карточки.
     assert "directStageCards: function" in APP_JS
     assert 'data-direct-stages' in INDEX
-    assert "'L1 · Синтезатор'" in APP_JS
-    assert "'L2 · Вербализатор'" in APP_JS
+    # ASAP 7 F2 (§19/D-5): L1 — «Планировщик (L1 Planner)», L2 —
+    # «Писатель (Verbalizer)» (F1 §1.2: Вербализатор = L2 Writer).
+    assert "'L1 · Планировщик (L1 Planner)'" in APP_JS
+    assert "'L2 · Писатель (Verbalizer)'" in APP_JS
     # Мобильная раскладка L1/L2 вертикально + 44px тач-цели.
     assert ".workspace-prompt-lib" in CSS
     assert "min-height: 44px" in CSS
@@ -315,9 +317,9 @@ def test_ai_hub_five_pages_order():
 def test_catalog_delta_zero():
     import services.param_catalog as pc
     from config.settings import Settings
-    assert len(pc.REGISTRY) == 538
-    assert len(pc.GROUPS) == 115
-    assert len(pc._TAB_BY_GROUP) == 113
+    assert len(pc.REGISTRY) == 560
+    assert len(pc.GROUPS) == 120
+    assert len(pc._TAB_BY_GROUP) == 118
     assert len(pc.TAB_RULES) == 23
     assert len({f.name for f in dataclasses.fields(Settings)}) == 454
 

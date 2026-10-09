@@ -75,6 +75,9 @@ STAGE_IMAGE_PROMPT = "image_prompt"
 STAGE_IMAGE_GENERATION = "image_generation"
 STAGE_REACTION = "reaction"
 STAGE_TEXT_GENERATION = "text_generation"
+# ASAP 7 (F2, §8/§18): pre-tool L1 Planner Direct — отдельный этап
+# (usage step="l1_planner" + agentic L1_PLAN). Kind — llm (это LLM-вызов).
+STAGE_L1_PLANNER = "l1_planner"
 
 STAGE_LABELS = {
     STAGE_FILTER: "Алгоритмический фильтр",
@@ -92,6 +95,8 @@ STAGE_LABELS = {
     STAGE_IMAGE_GENERATION: "Генерация изображения",
     STAGE_REACTION: "Реакция",
     STAGE_TEXT_GENERATION: "Генерация текста",
+    # ASAP 7 (F2, §18): узел «L1 Planner» карты Direct-ответа.
+    STAGE_L1_PLANNER: "L1 Planner",
 }
 
 # Канонический порядок этапов одного прогона (подтверждённая линейная
@@ -127,6 +132,8 @@ STEP_KIND = {
     STAGE_IMAGE_GENERATION: KIND_TOOL,
     STAGE_REACTION: KIND_TOOL,
     STAGE_TEXT_GENERATION: KIND_LLM,
+    # ASAP 7 (F2, §18): L1 Planner — LLM-вызов (usage step="l1_planner").
+    STAGE_L1_PLANNER: KIND_LLM,
 }
 STEP_LABEL = {
     "single": "Один вызов", "stage1": "Слой 1", "stage2": "Слой 2",
@@ -145,6 +152,7 @@ STEP_LABEL = {
     STAGE_IMAGE_GENERATION: STAGE_LABELS[STAGE_IMAGE_GENERATION],
     STAGE_REACTION: STAGE_LABELS[STAGE_REACTION],
     STAGE_TEXT_GENERATION: STAGE_LABELS[STAGE_TEXT_GENERATION],
+    STAGE_L1_PLANNER: STAGE_LABELS[STAGE_L1_PLANNER],
 }
 
 # §112: честные подписи (без выдуманных значений).
@@ -533,6 +541,134 @@ def _agentic_event_metrics(event: dict) -> dict:
     return metrics
 
 
+# ── ASAP 7 (F2, §18): L1 Planner — факты и узел карты Direct-ответа ────────
+
+def _l1_facts_from_events(events) -> dict:
+    """Факты L1 прогона ТОЛЬКО из реальных событий (R17-safe).
+
+    ``requested`` — capabilities из ``L1_PLAN``; ``rejected`` — пары
+    (capability, reason) из ``L1_CAPABILITY_REJECTED``; ``resolved`` —
+    requested минус rejected (честная деривация: никаких выдуманных
+    resolved). Пусто (событий нет / legacy-прогон) → ``{}``."""
+    plan_event = None
+    rejected: list = []
+    for event in (events or []):
+        if not isinstance(event, dict):
+            continue
+        name = str(event.get("event") or "")
+        if name == "L1_PLAN":
+            if plan_event is None or (event.get("ts") or 0) >= \
+                    (plan_event.get("ts") or 0):
+                plan_event = event
+        elif name == "L1_CAPABILITY_REJECTED":
+            cap = str(event.get("capability") or "")
+            if cap:
+                rejected.append((cap, str(event.get("reason") or "")))
+    if plan_event is None:
+        return {}
+    requested_raw = plan_event.get("capabilities") or ""
+    requested = [c for c in str(requested_raw).split(",") if c]
+    rejected_caps = {cap for cap, _ in rejected}
+    resolved_from_event = [t for t in str(plan_event.get("tools") or "")
+                           .split(",") if t]
+    if resolved_from_event:
+        # F1 отдаёт фактический resolved-подсет (tools) — реальное данное.
+        resolved = resolved_from_event
+    else:
+        # REV-2 (a): F1 пока отдаёт resolved=() → честная деривация
+        # requested минус rejected (никаких выдуманных resolved).
+        resolved = [c for c in requested if c not in rejected_caps]
+    facts = {
+        "action": _plan_axis(plan_event.get("action"),
+                             ("reply", "react", "silent", "tool")),
+        "response_act": _str_or_none(plan_event.get("response_act")) or "",
+        "extent": _str_or_none(plan_event.get("extent")) or "",
+        "tone": _str_or_none(plan_event.get("tone")) or "",
+        "bucket": _str_or_none(plan_event.get("bucket")) or "",
+        "source": _str_or_none(plan_event.get("source")) or "",
+        "fallback": _str_or_none(plan_event.get("fallback")) or "",
+        "inherited": bool(plan_event.get("inherited")),
+        "confidence": _num_or_none(plan_event.get("confidence")),
+        "latency_ms": _num_or_none(plan_event.get("latency_ms")),
+        "input_chars": _int_or_none(plan_event.get("input_chars")),
+        "requested": requested,
+        "resolved": resolved,
+        "rejected": [(cap, reason) for cap, reason in rejected
+                     if cap in requested or cap],
+    }
+    return facts
+
+
+def _l1_planner_usage(llm_rows) -> dict | None:
+    """Токены/модель/стоимость step="l1_planner" из реальных usage-строк."""
+    rows = [row for row in (llm_rows or []) if isinstance(row, dict)
+            and _str_or_none(row.get("step")) == STAGE_L1_PLANNER]
+    if not rows:
+        return None
+    total_in = total_out = 0
+    cost = 0.0
+    known = True
+    model = None
+    for row in rows:
+        if row.get("price_known") is not True:
+            known = False
+        total_in += _int_or_none(row.get("input_tokens")) or 0
+        total_out += _int_or_none(row.get("output_tokens")) or 0
+        if row.get("price_known") is True:
+            cost += _num_or_none(row.get("cost_usd")) or 0.0
+        model = _str_or_none(row.get("model")) or model
+    return {"model": model, "input_tokens": total_in,
+            "output_tokens": total_out,
+            "cost": (round(cost, 6) if known else None),
+            "price_known": known}
+
+
+def _agentic_l1_planner_node(run_id, events, llm_rows) -> dict | None:
+    """Узел ``l1_planner`` (kind ``llm``) — ТОЛЬКО из реальных данных (§30):
+    agentic ``L1_PLAN``/``L1_CAPABILITY_REJECTED`` + usage-строки
+    step="l1_planner". Нет ни события, ни usage-строки → ``None``
+    (legacy-прогон/план не строился). Метрики: план-оси §18 (action/
+    response_act/extent/tone/capabilities requested-resolved/bucket/model/
+    inherited/fallback)."""
+    facts = _l1_facts_from_events(events)
+    usage = _l1_planner_usage(llm_rows)
+    if not facts and usage is None:
+        return None
+    metrics: dict = {}
+    if facts:
+        for key in ("action", "response_act", "extent", "tone", "bucket",
+                    "source", "fallback", "confidence", "latency_ms",
+                    "input_chars"):
+            value = facts.get(key)
+            if value not in (None, ""):
+                metrics[key] = value
+        metrics["inherited"] = bool(facts.get("inherited"))
+        if facts.get("requested"):
+            metrics["capabilities"] = ",".join(facts["requested"])
+        if facts.get("resolved"):
+            metrics["tools_resolved"] = ",".join(facts["resolved"])
+        if facts.get("rejected"):
+            metrics["tools_rejected"] = ",".join(
+                cap for cap, _ in facts["rejected"])
+    model = (usage or {}).get("model")
+    if model:
+        metrics["model"] = model
+    status = "ok"
+    if facts.get("fallback") == "deterministic":
+        status = "degraded"
+    return _node(
+        run_id, STAGE_L1_PLANNER, KIND_LLM,
+        stage_label=STAGE_LABELS[STAGE_L1_PLANNER], status=status,
+        model=model,
+        input_tokens=(usage or {}).get("input_tokens"),
+        output_tokens=(usage or {}).get("output_tokens"),
+        cost=(usage or {}).get("cost"),
+        price_known=bool((usage or {}).get("price_known")),
+        duration_ms=facts.get("latency_ms") if facts else None,
+        metrics=metrics or None,
+        metadata={"kindGroup": KIND_LLM, "agentic": True})
+
+
 def _agentic_text_generation_node(run_id, llm_rows) -> dict | None:
     """Узел ``text_generation`` (kind ``llm``) — ТОЛЬКО из реальных строк
     ``llm_usage_events`` (D7/D8): токены/стоимость реальные, ничего не
@@ -623,6 +759,12 @@ def _build_agentic_nodes(run_id, events, llm_rows) -> list:
     if text_generation is not None:
         nodes.append(text_generation)
     nodes.sort(key=lambda node: AGENTIC_STAGE_ORDER.index(node["stageKey"]))
+    # ASAP 7 (F2, §18): узел L1 Planner — ПЕРВЫЙ в цепочке Direct-прогона
+    # (пре-tool решение). В AGENTIC_STAGE_ORDER не входит (это Direct-этап,
+    # не §51-агентный), поэтому прикрепляется до сортировки §51-узлов.
+    l1_node = _agentic_l1_planner_node(run_id, events, llm_rows)
+    if l1_node is not None:
+        nodes.insert(0, l1_node)
     return nodes
 
 
@@ -783,7 +925,9 @@ def planned_nodes_from_plan(plan, action: str = "") -> list:
         tool_policy = _plan_axis(getattr(plan, "tool_policy", ""),
                                  _ext.TOOL_POLICIES)
         source = _plan_axis(getattr(plan, "source", ()),
-                            ("explicit", "task-kind", "mode_alias", "default"))
+                            ("explicit", "task-kind", "mode_alias", "default",
+                             # ASAP 7 (F2, §18): план от L1 Planner.
+                             "l1"))
     except Exception:      # pragma: no cover - защитная ветка
         return []
     act = _plan_axis(action, ("reply", "react", "silent", "tool"))
@@ -820,6 +964,14 @@ def planned_nodes_from_plan(plan, action: str = "") -> list:
               "structure": structure, "source": source},
         reason_ru=planner_reason or
         "План построен до генерации (детерминированная классификация)."))
+    # ── ASAP 7 (F2, §18/D-5): план пришёл от L1 Planner (source="l1") →
+    # честная идентификация узла: title «L1 Planner» (не дет. классификатор).
+    if source == "l1":
+        planner = nodes[-1]
+        planner["title"] = "L1 Planner"
+        planner["reason_ru"] = (planner_reason or
+                                "План построен L1 Planner (отдельный быстрый "
+                                "LLM-вызов до инструментов).")
     nodes.append(_planned_node(
         PLAN_TOOLS, TOOL_POLICY_LABELS.get(tool_policy, tool_policy or "—"),
         axes={"tool_policy": tool_policy},
@@ -915,11 +1067,17 @@ def _actual_facts(snapshot, nodes, llm_rows) -> dict:
             value = _num_or_none(event.get("duration_ms"))
             if value is not None:
                 decision_ms.append(value)
+    # ASAP 7 (F2, §18): L1-факты (requested/resolved/rejected capabilities)
+    # — реальная деривация из L1_PLAN/L1_CAPABILITY_REJECTED событий.
+    l1_facts = _l1_facts_from_events(snapshot.get(_AGENTIC_KEY) or [])
     delivery = publication_status_of(snapshot)
-    writer_ran = any(node.get("kind") == KIND_LLM for node in nodes)
+    writer_ran = any(node.get("kind") == KIND_LLM and
+                     node.get("stageKey") != STAGE_L1_PLANNER
+                     for node in nodes)
     if not writer_ran:
         # Прогон без агентных событий: фактический Writer — реальная
         # LLM-строка текстовой генерации (single/stage1/stage2/text).
+        # L1 Planner (step="l1_planner") — НЕ Writer (решение, не текст).
         writer_ran = any(
             (row.get("step") or "") in ("single", "stage1", "stage2")
             for row in (llm_rows or []) if isinstance(row, dict))
@@ -931,6 +1089,9 @@ def _actual_facts(snapshot, nodes, llm_rows) -> dict:
         "writer_ran": writer_ran,
         "delivery": delivery,
         "run_status": _str_or_none(snapshot.get("status")),
+        "l1_requested": l1_facts.get("requested") or [],
+        "l1_resolved": l1_facts.get("resolved") or [],
+        "l1_rejected": l1_facts.get("rejected") or [],
     }
 
 
@@ -980,9 +1141,27 @@ def planned_vs_actual(planned_nodes, actual: dict) -> list:
         used = int(actual.get("tools_used") or 0)
         failed = int(actual.get("tools_failed") or 0)
         names = actual.get("tool_names") or []
-        actual_txt = (", ".join(names) if names
-                      else ("попыток не было" if used == 0 and failed == 0
-                            else "неизвестно"))
+        # ASAP 7 (F2, §18/REV-2 (a)): requested→resolved capabilities L1 —
+        # честная деривация (rejected из L1_CAPABILITY_REJECTED событий).
+        resolved = actual.get("l1_resolved") or []
+        rejected = actual.get("l1_rejected") or []
+        requested = actual.get("l1_requested") or []
+        if resolved:
+            actual_txt = "resolved: " + ", ".join(resolved)
+        elif requested:
+            actual_txt = ("из %d запрошенных не резолвилось ни одной"
+                          % len(requested))
+        else:
+            actual_txt = ""
+        if rejected:
+            actual_txt += (" · отклонено: "
+                           + ", ".join(cap for cap, _ in rejected))
+        if names:
+            actual_txt = (", ".join(names) + ("" if not actual_txt
+                                              else " · " + actual_txt))
+        elif not actual_txt:
+            actual_txt = ("попыток не было" if used == 0 and failed == 0
+                          else "неизвестно")
         if failed:
             actual_txt += " · упало: %d" % failed
         if policy == "none":
@@ -1196,6 +1375,132 @@ def response_recent_window() -> dict:
                                 "p95": _percentile(decision_ms, 0.95)},
         "window_note_ru": "по последним прогонам в памяти (≤20, ~15 минут)",
     }
+
+
+# ── ASAP 7 (F2, §1.10/§18): durable-оси L1 Planner за 24ч/7д ────────────────
+# Единственный durable-источник осей плана: колонка `plan_meta` строк
+# `llm_usage_events` (module='direct_chat' AND step='l1_planner'). In-memory
+# `response_recent_window` остаётся источником live-виджета; SQL-агрегат
+# закрывает честность периодов после рестарта (докстринг
+# response_recent_window: оси «за большие периоды» теперь читаются из PG).
+# Вторая telemetry-модель не создаётся (§1.10); R17: наружу только
+# enum-распределения/числа.
+
+DURABLE_L1_AXES_SQL = (
+    "WITH l1 AS ("
+    "  SELECT input_tokens, output_tokens, cost_usd, price_known, plan_meta "
+    "  FROM llm_usage_events "
+    "  WHERE module = 'direct_chat' AND step = 'l1_planner' "
+    "    AND ts >= now() - ($1::int * interval '1 day')"
+    ") "
+    "SELECT "
+    "  (SELECT COUNT(*) FROM l1) AS calls, "
+    "  (SELECT COALESCE(SUM(input_tokens), 0) FROM l1) AS input_tokens, "
+    "  (SELECT COALESCE(SUM(output_tokens), 0) FROM l1) AS output_tokens, "
+    "  (SELECT SUM(cost_usd) FILTER (WHERE price_known) FROM l1) "
+    "    AS cost_known, "
+    "  (SELECT COALESCE(BOOL_AND(price_known), true) FROM l1) "
+    "    AS price_known, "
+    "  (SELECT COUNT(*) FROM l1 WHERE plan_meta IS NOT NULL) AS with_meta, "
+    "  (SELECT COALESCE(jsonb_object_agg(k, c), '{}'::jsonb) FROM "
+    "     (SELECT COALESCE(NULLIF(plan_meta->>'action', ''), 'unknown') AS k, "
+    "             COUNT(*) AS c FROM l1 "
+    "      WHERE plan_meta IS NOT NULL GROUP BY 1) t) AS actions, "
+    "  (SELECT COALESCE(jsonb_object_agg(k, c), '{}'::jsonb) FROM "
+    "     (SELECT COALESCE(NULLIF(plan_meta->>'extent', ''), 'unknown') AS k, "
+    "             COUNT(*) AS c FROM l1 "
+    "      WHERE plan_meta IS NOT NULL GROUP BY 1) t) AS extents, "
+    "  (SELECT COALESCE(jsonb_object_agg(k, c), '{}'::jsonb) FROM "
+    "     (SELECT COALESCE(NULLIF(plan_meta->>'tone', ''), 'unknown') AS k, "
+    "             COUNT(*) AS c FROM l1 "
+    "      WHERE plan_meta IS NOT NULL GROUP BY 1) t) AS tones, "
+    "  (SELECT COALESCE(jsonb_object_agg(k, c), '{}'::jsonb) FROM "
+    "     (SELECT COALESCE(NULLIF(plan_meta->>'bucket', ''), 'unknown') AS k, "
+    "             COUNT(*) AS c FROM l1 "
+    "      WHERE plan_meta IS NOT NULL GROUP BY 1) t) AS buckets, "
+    "  (SELECT COUNT(*) FROM l1 WHERE plan_meta->>'inherited' = 'true') "
+    "    AS inherited, "
+    "  (SELECT COUNT(*) FROM l1 "
+    "    WHERE COALESCE(plan_meta->>'fallback', '') <> '') AS fallback, "
+    "  (SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY "
+    "     (plan_meta->>'latency_ms')::double precision) "
+    "   FROM l1 WHERE plan_meta ? 'latency_ms') AS latency_p50, "
+    "  (SELECT percentile_cont(0.95) WITHIN GROUP (ORDER BY "
+    "     (plan_meta->>'latency_ms')::double precision) "
+    "   FROM l1 WHERE plan_meta ? 'latency_ms') AS latency_p95"
+)
+
+_L1_AXE_KEYS = ("actions", "extents", "tones", "buckets")
+
+
+def durable_l1_axes_from_row(row) -> dict | None:
+    """Нормализация строки SQL-агрегата → shape durable-осей (fail-open).
+
+    ``None`` — событий за период нет (честное отсутствие, не нули)."""
+    try:
+        calls = int(row["calls"])
+    except (TypeError, KeyError, ValueError):
+        return None
+    if calls <= 0:
+        return None
+    try:
+        with_meta = int(row["with_meta"] or 0)
+        inherited = int(row["inherited"] or 0)
+        fallback = int(row["fallback"] or 0)
+        price_known = bool(row["price_known"])
+        cost_known = row["cost_known"]
+        axes = {}
+        for key in _L1_AXE_KEYS:
+            raw = row[key]
+            dist = {}
+            if isinstance(raw, dict):
+                for k, v in raw.items():
+                    try:
+                        n = int(v)
+                    except (TypeError, ValueError):
+                        continue
+                    if n > 0:
+                        dist[str(k)] = n
+            axes[key] = dist
+        latencies = []
+        for key in ("latency_p50", "latency_p95"):
+            value = row.get(key) if hasattr(row, "get") else row[key]
+            try:
+                latencies.append(round(float(value), 1)
+                                 if value is not None else None)
+            except (TypeError, ValueError):
+                latencies.append(None)
+        return {
+            "available": with_meta > 0,
+            "calls": calls,
+            "with_meta": with_meta,
+            "tokens": {"input_tokens": int(row["input_tokens"] or 0),
+                       "output_tokens": int(row["output_tokens"] or 0)},
+            "cost_usd": (round(float(cost_known), 6)
+                         if (price_known and cost_known is not None) else None),
+            "price_known": price_known,
+            "inherited_rate": (round(inherited / with_meta, 4)
+                               if with_meta else None),
+            "fallback_rate": (round(fallback / with_meta, 4)
+                              if with_meta else None),
+            "latency_ms": {"p50": latencies[0], "p95": latencies[1],
+                           "source": "plan_meta_latency"},
+            **axes,
+        }
+    except Exception:      # pragma: no cover - защитная ветка (fail-open)
+        return None
+
+
+async def fetch_durable_l1_axes(conn, days: int) -> dict | None:
+    """SQL-агрегат durable-осей L1 за период (24ч/7д). Fail-open: ошибка
+    чтения → ``None`` (вызывающий показывает честное «нет данных»)."""
+    try:
+        row = await conn.fetchrow(DURABLE_L1_AXES_SQL, int(days))
+    except Exception:
+        return None
+    if row is None:
+        return None
+    return durable_l1_axes_from_row(row)
 
 
 # ── нормализация: raw sources → canonical ExecutionNode (§23/§24) ───────────

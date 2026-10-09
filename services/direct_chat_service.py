@@ -253,6 +253,44 @@ _NOSTALGIA_BUDGET_RATIO = 0.02
 # (отрицание/ID/дата переносятся, а не теряются).
 _PROTECTED_SPAN_RESERVE_BUDGET = 48
 
+# ASAP 7 (F2-FOLLOWUP, §1.10): durable plan_meta на usage-строках L1 Planner.
+# Primary main-путь пишет usage через llm.generate (без plan_meta), dedicated-
+# слот — manual record ДО парсинга плана; один fail-open UPDATE по
+# correlation_id дополняет запись(и) этого ответа теми же R17-осями, что в
+# agentic L1_PLAN (sanitize_plan_meta — единственный писатель колонки).
+_L1_PLAN_META_UPDATE_SQL = (
+    "UPDATE llm_usage_events SET plan_meta = $1 "
+    "WHERE correlation_id = $2 AND module = 'direct_chat' "
+    "AND step = 'l1_planner' AND plan_meta IS NULL"
+)
+
+
+def _l1_usage_plan_meta(plan, meta: dict, *, fallback_flag: str,
+                        latency_ms: int, input_chars: int) -> dict:
+    """R17-whitelist-оси usage-plan_meta — зеркально emit_l1_plan_event
+    (§1.5). Ключи сверены с PLAN_META_FIELDS sanitizer'а usage_events
+    (extra-оси L1Plan — structure/delivery_hint/tool_policy/
+    emotional_mirroring — не в whitelist, не передаём). План None →
+    дефолты L1Plan (fallback-ходы честно попадают в durable-оси)."""
+    p = plan or _l1.L1Plan()
+    out = {
+        "action": str(p.action or "reply"),
+        "response_act": str(p.response_act or "other"),
+        "extent": str(p.effective_extent() or "auto"),
+        "tone": str(p.tone or "inherit"),
+        "bucket": str(p.confidence_bucket or "low"),
+        "capabilities": [str(c) for c in (p.capabilities_needed or ())],
+        "confidence": float(p.confidence),
+        "inherited": bool(meta.get("inherited")),
+        "latency_ms": int(max(0, latency_ms)),
+        "input_chars": int(max(0, input_chars)),
+        "source": str(meta.get("source") or "main"),
+    }
+    if fallback_flag:
+        out["fallback"] = str(fallback_flag)
+    return out
+
+
 # MCA-07 (T-3851): одноразовый маркер эмиссии `answer_cache_disabled` (не
 # спамим событием на каждое сообщение; R17-safe — только код).
 _answer_cache_disabled_emitted = False
@@ -3543,7 +3581,48 @@ class DirectChatService:
             fallback=fallback_flag, latency_ms=latency_ms,
             input_chars=input_chars,
             source=str(meta.get("source") or "main"))
+        # F2-FOLLOWUP (§1.10): durable plan_meta на usage-строке — все ходы
+        # (reply/silent/react) идут через этот единственный вызов, строка
+        # step="l1_planner" уже записана (llm.generate / manual record).
+        await self._attach_l1_plan_meta(
+            correlation_id, plan, meta, chat_id=chat_id,
+            fallback_flag=fallback_flag,
+            latency_ms=latency_ms, input_chars=input_chars)
         return plan, meta
+
+    async def _attach_l1_plan_meta(self, correlation_id, plan, meta, *,
+                                   chat_id: int | None = None,
+                                   fallback_flag: str, latency_ms: int,
+                                   input_chars: int) -> None:
+        """Дополнить usage-строку(и) step="l1_planner" этого ответа
+        R17-whitelist plan_meta (§1.10; durable-оси 24ч/7д). Fail-open:
+        нет PG/пула/флага → no-op; значения только через
+        sanitize_plan_meta. Никогда не бросает."""
+        try:
+            if not correlation_id:
+                return
+            from services import usage_events as _ue
+            if not _ue.is_enabled():
+                return
+            safe = _ue.sanitize_plan_meta(_l1_usage_plan_meta(
+                plan, meta, fallback_flag=fallback_flag,
+                latency_ms=latency_ms, input_chars=input_chars))
+            if not safe:
+                return
+            pool = getattr(
+                getattr(self.llm, "_pg", lambda: None)(), "pool", None)
+            if pool is None:
+                return
+            import json as _json
+            async with pool.acquire() as conn:
+                await conn.execute(
+                    _L1_PLAN_META_UPDATE_SQL,
+                    _json.dumps(safe, ensure_ascii=False),
+                    str(correlation_id))
+        except Exception:
+            logger.warning(
+                "[direct] l1 plan_meta attach failed — fail-open | "
+                "chat=%s", chat_id)
 
     # Холдеры ladder-состояния L1 (заполняются в handle перед вызовом).
 

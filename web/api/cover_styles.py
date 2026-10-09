@@ -31,6 +31,8 @@ from services import cover_style_pipeline as pipeline
 from services import cover_style_preview as preview_jobs
 from services import cover_style_registry as registry
 from services import image_capabilities as image_caps
+# ASAP 7 F7 (§2.3/§9.2): preview-compile — ТОТ ЖЕ канонический compiler.
+from services import cover_prompt_assembly as cpa
 from web.api.deps import (get_cache, requires_global_admin,
                           requires_permission, user_is_global_admin)
 
@@ -1398,3 +1400,220 @@ async def cover_test_style_status(
         if manifest is not None:
             snapshot["prompt_manifest"] = manifest
     return snapshot
+
+
+# ── Live editor preview compile (ASAP 7 F7, §9.2–§9.4) ──────────────────────
+
+NO_CONTEXT_REASON = "preview_context_not_selected"
+
+
+class PreviewCompileContextBody(BaseModel):
+    """Выбранный test-context (§9.4): тест-прогон «Тестирования».
+
+    ``chat_id`` — последний завершённый прогон ЭТОГО админа по чату;
+    ``test_id`` — конкретный прогон (только свой). Чужие/отсутствующие/
+    неготовые прогоны — честный ``no_context``, не ошибка (fail-closed).
+    """
+
+    model_config = {"extra": "forbid"}
+
+    chat_id: int | None = None
+    test_id: str | None = None
+
+
+class PreviewCompileBody(BaseModel):
+    """Точный черновик редактора (StyleDraftBody) + опциональный контекст."""
+
+    model_config = {"extra": "forbid"}
+
+    profile_id: str | None = None
+    draft: StyleDraftBody | None = None
+    context: PreviewCompileContextBody | None = None
+
+
+def _resolve_preview_context(user: WebAppUser,
+                             context: PreviewCompileContextBody | None):
+    """Тест-прогон ЭТОГО админа для превью-компиляции (fail-closed).
+
+    ``(entry, "")`` — готовый ok-прогон; ``(None, reason)`` — честный
+    ``no_context`` (не ошибка): ``not_selected`` / ``test_run_not_found`` /
+    ``test_run_not_usable``. Чужие прогоны не читаются (R17): выборка
+    ``latest_for``/``get`` строго по ``user.id``.
+    """
+    if context is None or (not context.test_id and not context.chat_id):
+        return None, "not_selected"
+    try:
+        from web.api import summary_test as st_api
+        store = st_api._STORE
+        if context.test_id:
+            entry = store.get(str(context.test_id))
+            if entry is None or entry.user_id != user.id:
+                return None, "test_run_not_found"
+        else:
+            entry = store.latest_for(user.id, int(context.chat_id))
+            if entry is None:
+                return None, "test_run_not_found"
+        if entry.status != "ok" or entry.result is None:
+            return None, "test_run_not_usable"
+        return entry, ""
+    except Exception:
+        return None, "test_run_not_found"
+
+
+@cover_styles_router.post("/cover/preview-compile")
+async def cover_preview_compile(
+    body: PreviewCompileBody,
+    request: Request,
+    user: Annotated[WebAppUser, Depends(requires_global_admin())],
+):
+    """ASAP 7 F7 (§9.2–§9.4): live-превью фактической сборки Base-промпта.
+
+    ТОТ ЖЕ server compiler, что production Base и Summary Test
+    (``compose_base_cover_prompt`` + единый ``CoverPromptManifest``, §2.3) —
+    frontend ничего не собирает сам (§22 п.15). Compile-only: изображение НЕ
+    генерируется, платных вызовов нет, номер выпуска не расходуется.
+
+    Без выбранного test-context — честный placeholder (§9.4): exact current
+    draft по BASE_STYLE + зарезервированные бюджеты; сцена/контекст саммари —
+    ``preview_context_not_selected``; никакого фейкового production-промпта.
+
+    Полный текст (exact compiled) — ТОЛЬКО в этом global-admin ответе (R17);
+    в логи не пишется.
+    """
+    cache = get_cache(request)
+    if not _enabled():
+        raise HTTPException(status_code=404, detail="cover styles disabled")
+    pg = _pg(cache)
+    # 1) Стиль-источник превью: точный черновик редактора (§9.4 «exact
+    #    current draft»); без draft — instruction сохранённого профиля.
+    instruction = ""
+    style_source = "empty"
+    if body.draft is not None and str(body.draft.instruction or "").strip():
+        instruction = str(body.draft.instruction)
+        style_source = "draft_instruction"
+    elif body.profile_id and pg is not None:
+        profile = await registry.get_profile(pg, body.profile_id)
+        if profile is not None \
+                and str(profile.get("instruction") or "").strip():
+            instruction = str(profile.get("instruction"))
+            style_source = "profile_instruction"
+    # 2) Резолв лимита — тот же, что production Base (§2.2): known →
+    #    консервативные chars; unknown → сборка под assembly-кап (1000)
+    #    БЕЗ silent trim, честный limit_source.
+    base_total_cap = cpa.default_total_cap()
+    total_cap = None
+    limit_source = "assembly_cap"
+    limit_unit = "chars"
+    resolved_limit = None
+    try:
+        from services.image_generation import (
+            resolve_generate_prompt_limit_async,
+        )
+        gen_limit = await resolve_generate_prompt_limit_async()
+    except Exception:
+        gen_limit = None
+    if gen_limit is not None and gen_limit.known:
+        limit_chars = cpa.limit_to_chars(gen_limit.value, gen_limit.unit)
+        if limit_chars:
+            total_cap = min(base_total_cap, limit_chars)
+            resolved_limit = int(gen_limit.value)
+            limit_unit = str(gen_limit.unit or "chars")
+            limit_source = str(getattr(gen_limit, "source", "")
+                               or "unknown")
+    cap_chars = base_total_cap if total_cap is None else int(total_cap)
+
+    def _budget(used_chars: int) -> dict:
+        return {
+            "resolved_limit": resolved_limit,
+            "limit_unit": limit_unit,
+            "limit_source": limit_source,
+            "limit_known": resolved_limit is not None,
+            "compile_cap_chars": cap_chars,
+            "used_chars": int(used_chars),
+            "remaining_chars": max(0, cap_chars - int(used_chars)),
+            # §9.4: зарезервированные бюджеты — видны и без контекста.
+            "reserved": {"story_min": cpa.STORY_MIN_CHARS,
+                         "context_max": cpa.SUMMARY_CONTEXT_MAX_CHARS},
+        }
+
+    def _placeholder(reason: str, message: str) -> dict:
+        """§9.4: честный placeholder без фейковых production-компонент."""
+        plan = cpa.base_prompt_plan(instruction, "", "", total_cap=total_cap)
+        components = []
+        for p in plan:
+            comp_reason = p["reason"]
+            if p["key"] in ("STORY_SCENE", "SUMMARY_CONTEXT") \
+                    and not p["original_text"]:
+                comp_reason = NO_CONTEXT_REASON
+            components.append({
+                "key": p["key"], "source": p["source"],
+                "priority": p["priority"],
+                "original_text": p["original_text"],
+                "original_chars": len(p["original_text"]),
+                "sent_text": p["sent_text"],
+                "sent_chars": len(p["sent_text"]),
+                "status": p["status"], "reason": comp_reason,
+            })
+        used = sum(len(c["sent_text"]) for c in components)
+        return {
+            "status": "no_context",
+            "reason": reason,
+            "message": message,
+            "style_source": style_source,
+            "final_prompt": None,
+            "components": components,
+            "budget": _budget(used),
+        }
+
+    # 3) Test-context — только свои прогоны (fail-closed).
+    entry, ctx_reason = _resolve_preview_context(user, body.context)
+    if entry is None:
+        return _placeholder(
+            ctx_reason or "not_selected",
+            "Test-контекст не выбран: сцена и контекст саммари не "
+            "собираются (честный предпросмотр, §9.4).")
+
+    # 4) Компиляция с контекстом — production-семантика: §11-гард +
+    #    compose_base_cover_prompt + единый манифест-контракт (§2.3).
+    artifacts = (entry.result.artifacts or {}) if entry.result else {}
+    package = artifacts.get("package") or {}
+    cover_prompt = str((((package or {}).get("service")) or {})
+                       .get("cover_prompt") or "")
+    doc = artifacts.get("article")
+    document = doc if isinstance(doc, dict) else {}
+    guard = cpa.cover_context_decision(
+        cover_prompt, document.get("title"),
+        [p.get("text") for p in (document.get("paragraphs") or [])
+         if isinstance(p, dict)])
+    story = guard["story"]
+    if guard["status"] == "cover_context_missing" and not story:
+        return _placeholder(
+            "cover_context_missing",
+            "В выбранном тест-прогоне нет содержательной статьи — сцену "
+            "вывести не из чего (честный предпросмотр).")
+    anomaly_reason = ("anomaly_recovered"
+                      if guard["status"] == "anomaly_recovered" else "")
+    ctx_text = guard["ctx"]
+    final_prompt = cpa.compose_base_cover_prompt(
+        instruction, story, ctx_text, total_cap=total_cap)
+    manifest = cpa.build_base_manifest(
+        base_style=instruction, story_scene=story,
+        summary_context=ctx_text, final_prompt=final_prompt,
+        provider="", model="", route="preview_compile", outcome="sent",
+        total_cap=total_cap, resolved_limit=resolved_limit,
+        limit_unit=limit_unit, limit_source=limit_source,
+        component_reasons=({"STORY_SCENE": anomaly_reason}
+                           if anomaly_reason else None))
+    return {
+        "status": "ok",
+        "reason": "",
+        "context": {"test_id": entry.test_id, "chat_id": entry.chat_id,
+                    "source": "summary_test_run"},
+        "style_source": style_source,
+        "manifest": manifest,
+        # Единая форма breakdown'а для обоих состояний (§9.3): те же
+        # компоненты, что в манифесте (UI-таблица читает верхний уровень).
+        "components": manifest["components"],
+        "final_prompt": final_prompt,
+        "budget": _budget(len(final_prompt)),
+    }

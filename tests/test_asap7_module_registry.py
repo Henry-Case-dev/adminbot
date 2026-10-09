@@ -60,12 +60,22 @@ def hot_with():
 def test_m4_product_module_specs_are_complete():
     assert mr.MODULE_REGISTRY, "реестр пуст"
     for spec in mr.MODULE_REGISTRY.values():
-        # master_param — существующий МИГРИРУЕМЫЙ ключ каталога (не выдуман)
-        spec_entry = pc.get_by_pg_key(spec.master_param)
-        assert spec_entry is not None, \
-            f"{spec.id}: master_param {spec.master_param} вне каталога"
-        assert spec_entry.migratable, \
-            f"{spec.id}: master_param {spec.master_param} не migratable"
+        # master_param — существующий МИГРИРУЕМЫЙ ключ каталога (не выдуман).
+        # ASAP 7 F4: «no master» легален ТОЛЬКО для не-product-модулей с
+        # явным «no master»-rationale (бриф F4: «master_param из каталога
+        # (или explicit no master rationale)» — напр. «Случайность», где
+        # мастер — env-ось и дублировать её тумблером нельзя).
+        if not spec.master_param:
+            assert spec.classification != "product_module", \
+                f"{spec.id}: product_module без master_param"
+            assert "no master" in spec.rationale.lower(), \
+                f"{spec.id}: пустой master_param без «no master»-rationale"
+        else:
+            spec_entry = pc.get_by_pg_key(spec.master_param)
+            assert spec_entry is not None, \
+                f"{spec.id}: master_param {spec.master_param} вне каталога"
+            assert spec_entry.migratable, \
+                f"{spec.id}: master_param {spec.master_param} не migratable"
         # settings_groups ⊆ GROUPS
         group_ids = {g.id for g in pc.GROUPS}
         unknown = set(spec.settings_groups) - group_ids

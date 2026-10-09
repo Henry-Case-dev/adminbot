@@ -245,7 +245,9 @@ PROBE_STATUS_SETTINGS = r"""
     foreignRandom: text.includes('Спонтанность: вероятность исследования'),
     foreignBudget: text.includes('Фон: вызовов LLM в сутки на чат'),
     foreignContext: text.includes('Бюджет контекста, токенов'),
-    linkSleep: links.includes('#/modules/sleep'),
+    // ASAP 7 F4: у «Случайности» появилась owner-подкарточка — ссылка
+    // Initiative ведёт к владельцу (#/modules/random), а не к Сну.
+    linkRandom: links.includes('#/modules/random'),
     linkBudgets: links.includes('#/modules/budgets'),
   };
 })()
@@ -428,7 +430,7 @@ def _run():
                             _record(failures, label,
                                     "настройки блока: ЧУЖИЙ ключ "
                                     "chat_context_budget_tokens")
-                        if not (st_probe.get("linkSleep")
+                        if not (st_probe.get("linkRandom")
                                 and st_probe.get("linkBudgets")):
                             _record(failures, label,
                                     "настройки блока: ссылки-переходы "

@@ -353,12 +353,14 @@ def _response_empty_summary(period: str) -> dict:
         "latency": {"p50_ms": None, "p95_ms": None,
                     "source": "llm_call_span"},
         # Распределения осей плана (action/extent/delivery) за период:
-        # durable-осей в существующих событиях нет → честно None (§14 ASAP 6).
+        # durable-оси живут в plan_meta строк step="l1_planner" (ASAP 7 F2,
+        # §1.10); строк нет → честно None (§14 ASAP 6).
         "plan_axes": None,
+        "l1": None,
         "recent": execution_graph_source.response_recent_window(),
         "note_ru": ("Распределения действий/объёма/доставки за период "
-                    "недоступны: оси плана живут в in-memory окне "
-                    "(«Свежие прогоны» ниже)."),
+                    "недоступны: durable-оси (plan_meta) не записаны — "
+                    "свежее окно см. в «Свежих прогонах»."),
     }
 
 
@@ -406,9 +408,15 @@ async def response_pipeline_summary(
     pool = _pool(cache)
     if pool is None or not usage_events.is_enabled():
         return empty
+    l1_axes = None
     try:
         async with pool.acquire() as conn:
             raw = await conn.fetch(_SELECT_RESPONSE_RUNS_SQL, days)
+            # ASAP 7 (F2, §1.10/§18): durable-оси L1 Planner (24ч/7д) —
+            # SQL-агрегат plan_meta той же таблицы (вторая модель не
+            # создаётся). Ошибка чтения → None (честное «нет данных»).
+            l1_axes = await execution_graph_source.fetch_durable_l1_axes(
+                conn, days)
     except Exception:
         logger.warning("[analytics] response summary read failed — fail-open",
                        exc_info=True)
@@ -451,11 +459,17 @@ async def response_pipeline_summary(
         "latency": {"p50_ms": _p50(spans), "p95_ms": _p95(spans),
                     "source": "llm_call_span",
                     "label_ru": "между первым и последним LLM-вызовом прогона"},
-        "plan_axes": None,
+        # ASAP 7 (F2, §18): durable-распределения L1 за период (action/
+        # extent/tone/bucket/fallback/inherited/latency). plan_meta не
+        # записан → available=False (честно, UI показывает «—»).
+        "plan_axes": (l1_axes if (l1_axes and l1_axes.get("available"))
+                      else None),
+        "l1": l1_axes,
         "recent": execution_graph_source.response_recent_window(),
-        "note_ru": ("Распределения действий/объёма/доставки за период "
-                    "недоступны: оси плана живут в in-memory окне "
-                    "(«Свежие прогоны» ниже)."),
+        "note_ru": (None if (l1_axes and l1_axes.get("available"))
+                    else ("Durable-оси L1 за период появятся, когда вызовы "
+                          "планировщика начнут писать plan_meta; свежее "
+                          "окно — в «Свежих прогонах».")),
     }
 
 

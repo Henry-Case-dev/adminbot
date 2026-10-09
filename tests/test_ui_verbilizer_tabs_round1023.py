@@ -80,9 +80,9 @@ class TestCatalogDelta:
     def test_counts(self):
         # F21 (10.24, ADR-1024-22 D8): +1 REGISTRY/GROUPS/mapped — теперь
         # 459/98/96; TAB_RULES 20 (новых вкладок нет).
-        assert len(pc.REGISTRY) == 538
-        assert len(pc.GROUPS) == 115
-        assert len(pc._TAB_BY_GROUP) == 113
+        assert len(pc.REGISTRY) == 560
+        assert len(pc.GROUPS) == 120
+        assert len(pc._TAB_BY_GROUP) == 118
         assert len(pc.TAB_RULES) == 23
 
     def test_new_group_bound_to_prompts_tab(self):

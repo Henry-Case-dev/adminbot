@@ -1301,16 +1301,16 @@ class TestBoundaries:
         # -8 env-констант Settings (S1-слой удалён).
         # ASAP-3.1 (ADR-1028-3, санкция spec 10.1): +1 ключ → 484,
         # categorized 458→459 (ключ в категории models).
-        assert len(pc.REGISTRY) == 538
+        assert len(pc.REGISTRY) == 560
         assert len({f.name for f in dataclasses.fields(Settings)}) == 454
         assert len([s for s in pc.REGISTRY.values()
-                    if s.category is not None]) == 513
-        assert len(pc.GROUPS) == 115
-        assert len(pc._TAB_BY_GROUP) == 113
+                    if s.category is not None]) == 535
+        assert len(pc.GROUPS) == 120
+        assert len(pc._TAB_BY_GROUP) == 118
         assert len(pc.TAB_RULES) == 23
 
     def test_app_version(self):
-        assert APP_VERSION == "2.58.73"
+        assert APP_VERSION == "2.58.74"
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
         assert "v2.58.34" in readme
 

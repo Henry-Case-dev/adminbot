@@ -177,9 +177,9 @@ class TestTabMappingAudit:
         # 5 limits_intent, pg_id-ренейм flags.initiative_enabled…), +2 GROUPS
         # (flags_intent/limits_intent), +2 mapped (вкладка mod_initiative);
         # TAB_RULES 22→23 (+mod_initiative) → 538/115/113.
-        assert len(pc._TAB_BY_GROUP) == 113
-        assert len(GROUPS) == 115
-        assert len(pc.REGISTRY) == 538
+        assert len(pc._TAB_BY_GROUP) == 118
+        assert len(GROUPS) == 120
+        assert len(pc.REGISTRY) == 560
 
 
 class TestModuleTabs:
@@ -199,10 +199,14 @@ class TestModuleTabs:
     def test_mod_direct_composition(self):
         # A7 (10.26, ADR-1026-20 D6): +flags_decision_making (секция
         # «Принятие решений», §48).
+        # ASAP 7 F2 (§1.6/§19): секция «L1 Planner» — flags_direct_l1 /
+        # limits_direct_l1 / models_direct_l1 (+keys-слот в той же группе).
         assert tab_group_ids(TAB_MOD_DIRECT) == {
             "flags_module_direct", "flags_chat_behavior",
-            "flags_decision_making", "limits_chat",
+            "flags_decision_making", "flags_direct_l1",
+            "limits_chat",
             "limits_chat_behavior", "limits_chat_budgets", "limits_temperature",
+            "limits_direct_l1", "models_direct_l1",
             "reactions_chat"}
         # F5 (10.24, ADR-1024-9 D1): тумблер изображений ПЕРЕНЕСЁН из
         # «Прямых ответов» в отдельную вкладку — дублирования быть не должно.
@@ -293,9 +297,12 @@ class TestAiTabs:
         keys = {g.id for g in GROUPS if g.category == "keys"}
         # A8: checkup-настройки ушли в М9, keys_youtube — в М6.
         # ASAP-2: models_summary_hybrid живёт на mod_summary (секция Hybrid).
+        # ASAP 7 F2 (§1.6/§19): models_direct_l1 — слот L1 Planner на
+        # mod_direct (keys-слот в той же группе, прецедент Hybrid).
         assert tab_group_ids(TAB_LLM_PROVIDERS) == (
             models | keys) - {"models_checkup", "keys_betterstack",
-                              "keys_youtube", "models_summary_hybrid"}
+                              "keys_youtube", "models_summary_hybrid",
+                              "models_direct_l1"}
 
     def test_memory_rag_has_limits_rag(self):
         # A3/T-1208: RAG-доли/дедуп → «Память».

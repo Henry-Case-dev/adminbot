@@ -778,35 +778,49 @@ def dossier_namespace_fingerprint_v2_enabled() -> bool:
 # Мастер + под-гейты; под-гейты инертны при master OFF.
 
 def episodes_enabled() -> bool:
-    """`MCA_EPISODES_ENABLED` (мастер, default ON, ADR-1027-12 D13).
+    """`MCA_EPISODES_ENABLED` (мастер; effective = env AND `flags.episodes_enabled`,
+    ASAP 7 F4 §3.3).
 
     ON → модель/пайплайн эпизодов/историй активны; OFF → точный паритет
-    baseline (`lore_stories`/компилятор/mca-07 канал работают как сегодня)."""
-    return bool(getattr(settings, "MCA_EPISODES_ENABLED", True))
+    baseline (`lore_stories`/компилятор/mca-07 канал работают как сегодня).
+    env-emergency OFF важнее UI; product-тумблер — hot (без рестарта)."""
+    if not bool(getattr(settings, "MCA_EPISODES_ENABLED", True)):
+        return False
+    return _module_catalog_flag("flags.episodes_enabled", True)
 
 
 def episodes_backfill_enabled() -> bool:
-    """`MCA_EPISODES_BACKFILL_ENABLED` (default ON; инертен при master OFF)."""
+    """`MCA_EPISODES_BACKFILL_ENABLED` (default ON; инертен при master OFF;
+    effective = env AND `flags.episodes_backfill_enabled`, F4 §3.3)."""
     if not episodes_enabled():
         return False
-    return bool(getattr(settings, "MCA_EPISODES_BACKFILL_ENABLED", True))
+    if not bool(getattr(settings, "MCA_EPISODES_BACKFILL_ENABLED", True)):
+        return False
+    return _module_catalog_flag("flags.episodes_backfill_enabled", True)
 
 
 def episodes_continuation_enabled() -> bool:
-    """`MCA_EPISODES_CONTINUATION_ENABLED` (default ON; инертен при master)."""
+    """`MCA_EPISODES_CONTINUATION_ENABLED` (default ON; инертен при master;
+    effective = env AND `flags.episodes_continuation_enabled`, F4 §3.3)."""
     if not episodes_enabled():
         return False
-    return bool(getattr(settings, "MCA_EPISODES_CONTINUATION_ENABLED", True))
+    if not bool(getattr(settings, "MCA_EPISODES_CONTINUATION_ENABLED", True)):
+        return False
+    return _module_catalog_flag("flags.episodes_continuation_enabled", True)
 
 
 def episodes_compiler_facade_enabled() -> bool:
-    """`MCA_EPISODES_COMPILER_FACADE_ENABLED` (default ON; инертен при master).
+    """`MCA_EPISODES_COMPILER_FACADE_ENABLED` (default ON; инертен при master;
+    effective = env AND `flags.episodes_compiler_facade_enabled`, F4 §3.3).
 
     ON → компилятор и mca-07 episode-канал читают новый store через фасад
     (legacy `lore_stories` сохраняются); OFF → как сегодня (legacy-путь)."""
     if not episodes_enabled():
         return False
-    return bool(getattr(settings, "MCA_EPISODES_COMPILER_FACADE_ENABLED", True))
+    if not bool(getattr(settings,
+                        "MCA_EPISODES_COMPILER_FACADE_ENABLED", True)):
+        return False
+    return _module_catalog_flag("flags.episodes_compiler_facade_enabled", True)
 
 
 # ── mca-22 (ADR-1028-6 D10): FINAL INTEGRATION — 4 рубильника фичи ─────────
@@ -1016,38 +1030,51 @@ def dream_random_explore_enabled() -> bool:
 
 # ── mca-08 (ADR-1028-11 D10) блоки A+B: K1/K2 ───────────────────────────────
 def character_layers_enabled() -> bool:
-    """`MCA_CHARACTER_LAYERS_ENABLED` (env-only, default ON; D1/D2).
+    """`MCA_CHARACTER_LAYERS_ENABLED` (effective = env AND
+    `flags.character_layers_enabled`, ASAP 7 F4 §3.3; D1/D2).
 
     ON → read-контекст слоёв (`resolve_character_context`) + `<Character_Rules>`
     + `character_block` у verbalizer. OFF → точный паритет 2.58.54."""
-    return bool(getattr(settings, "MCA_CHARACTER_LAYERS_ENABLED", True))
+    if not bool(getattr(settings, "MCA_CHARACTER_LAYERS_ENABLED", True)):
+        return False
+    return _module_catalog_flag("flags.character_layers_enabled", True)
 
 
 def character_speech_enabled() -> bool:
-    """`MCA_CHARACTER_SPEECH_ENABLED` (env-only, default ON; D6/D7).
+    """`MCA_CHARACTER_SPEECH_ENABLED` (effective = env AND
+    `flags.character_speech_enabled`, F4 §3.3; D6/D7).
 
     ON → `SpeechUnderstanding`/`<Speech_Understanding>`/clarify в ответном
     пути. OFF → точный паритет 2.58.54."""
-    return bool(getattr(settings, "MCA_CHARACTER_SPEECH_ENABLED", True))
+    if not bool(getattr(settings, "MCA_CHARACTER_SPEECH_ENABLED", True)):
+        return False
+    return _module_catalog_flag("flags.character_speech_enabled", True)
 
 
 # ── mca-08 (ADR-1028-11 D10) блоки C+D: K3/K4 + env-only TTL ────────────────
 def style_scope_enabled() -> bool:
-    """`MCA_STYLE_SCOPE_ENABLED` (env-only, default ON; D3–D5).
+    """`MCA_STYLE_SCOPE_ENABLED` (effective = env AND
+    `flags.style_scope_enabled`, F4 §3.3; D3–D5).
 
     ON → ingestion/права/резолв scoped-просьб + `<Style_Requests>` +
     скрытая команда `/style`. OFF → точный паритет 2.58.54 (таблица
     `mca_style_requests` не читается/не пишется; команда неактивна)."""
-    return bool(getattr(settings, "MCA_STYLE_SCOPE_ENABLED", True))
+    if not bool(getattr(settings, "MCA_STYLE_SCOPE_ENABLED", True)):
+        return False
+    return _module_catalog_flag("flags.style_scope_enabled", True)
 
 
 def postprocess_form_guard_enabled() -> bool:
-    """`MCA_POSTPROCESS_FORM_GUARD_ENABLED` (env-only, default ON; D8).
+    """`MCA_POSTPROCESS_FORM_GUARD_ENABLED` (effective = env AND
+    `flags.postprocess_form_guard_enabled`, F4 §3.3; D8).
 
     ON → форма G1–G3 + bounded повтор + fallback у `verbalize_validated`
     (только при переданном `form_contract`). OFF → как 2.58.54: новые
     параметры игнорируются, stats без новых ключей."""
-    return bool(getattr(settings, "MCA_POSTPROCESS_FORM_GUARD_ENABLED", True))
+    if not bool(getattr(settings, "MCA_POSTPROCESS_FORM_GUARD_ENABLED",
+                        True)):
+        return False
+    return _module_catalog_flag("flags.postprocess_form_guard_enabled", True)
 
 
 # ── mca-15 (ADR-1028-12 D8): K1/K2/K3 + env-only лимиты ─────────────────────
@@ -1321,6 +1348,11 @@ def send_recheck_enabled() -> bool:
     return _intent_catalog_flag("flags.send_recheck_enabled", True)
 
 
+# ASAP 7 (F4, §3.2): общий читатель каталоговой product-оси подмодулей —
+# та же механика, что _intent_catalog_flag (F3); alias для читаемости.
+_module_catalog_flag = _intent_catalog_flag
+
+
 def _intent_catalog_int(pg_key: str, env_name: str, default: int,
                         minimum: int) -> int:
     """Каталоговый лимит Intent (hot) с env/settings-фолбэком и clamp (≥min)."""
@@ -1367,30 +1399,41 @@ def intent_defer_backoff_seconds() -> int:
 
 # ── mca-18 (ADR-1028-18 §8.3): K1–K3 SelfModel + env-only пороги ────────────
 def self_model_enabled() -> bool:
-    """`MCA_SELF_MODEL_ENABLED` (master K1, env-only, default ON).
+    """`MCA_SELF_MODEL_ENABLED` (master K1; effective = env AND
+    `flags.self_model_enabled`, ASAP 7 F4 §3.3).
 
     ON → SelfModelSnapshot/resolve/frame/сборка характера активны (блоки A–F).
     OFF → бит-в-бит 2.58.61: промпт собирает legacy
     `build_persona_prompt_block`; v31 SelfModel-контуром не читается/не
-    пишется; статусы честные `disabled`."""
-    return bool(getattr(settings, "MCA_SELF_MODEL_ENABLED", True))
+    пишется; статусы честные `disabled`. env-emergency OFF важнее UI;
+    тумблер — hot (без рестарта)."""
+    if not bool(getattr(settings, "MCA_SELF_MODEL_ENABLED", True)):
+        return False
+    return _module_catalog_flag("flags.self_model_enabled", True)
 
 
 def trait_rules_enabled() -> bool:
-    """`MCA_TRAIT_RULES_ENABLED` (env-only, default ON; K2).
+    """`MCA_TRAIT_RULES_ENABLED` (K2; effective = env AND
+    `flags.trait_rules_enabled`, F4 §3.3).
 
     ON → lifecycle TraitObservation/BehaviorRule + анти-самоусиление + гарды.
     OFF → v31-таблицы черт инертны (ни записей, ни чтений черт; snapshot
     отдаёт пустые traits/state с честным `disabled`)."""
-    return bool(getattr(settings, "MCA_TRAIT_RULES_ENABLED", True))
+    if not bool(getattr(settings, "MCA_TRAIT_RULES_ENABLED", True)):
+        return False
+    return _module_catalog_flag("flags.trait_rules_enabled", True)
 
 
 def legacy_traits_migration_enabled() -> bool:
-    """`MCA_LEGACY_TRAITS_MIGRATION_ENABLED` (env-only, default ON; K3).
+    """`MCA_LEGACY_TRAITS_MIGRATION_ENABLED` (K3; effective = env AND
+    `flags.legacy_traits_migration_enabled`, F4 §3.3).
 
     ON → фоновый идемпотентный разбор `persona_traits` (job mca-01) работает.
     OFF → разбор не запускается (лента/`persona_traits` не меняются)."""
-    return bool(getattr(settings, "MCA_LEGACY_TRAITS_MIGRATION_ENABLED", True))
+    if not bool(getattr(settings, "MCA_LEGACY_TRAITS_MIGRATION_ENABLED",
+                        True)):
+        return False
+    return _module_catalog_flag("flags.legacy_traits_migration_enabled", True)
 
 
 def mood_ttl_seconds() -> int:
@@ -2052,20 +2095,24 @@ def temporal_max_evidence_per_run() -> int:
 # фасада mca-05) уважается, не дублируется.
 
 def stories_vitrina_enabled() -> bool:
-    """`MCA_STORIES_VITRINA_ENABLED` (мастер read-контура, env-only,
-    default ON; K1).
+    """`MCA_STORIES_VITRINA_ENABLED` (мастер read-контура; effective =
+    env AND `flags.stories_vitrina_enabled`, ASAP 7 F4 §3.3; K1).
 
     ON → блок «Истории чата» + read-API `/api/stories*` + витрины смежных
     T-5169 существуют. OFF → блок скрыт, read-API — честный disabled
-    (не 404-заглушка)."""
-    return bool(getattr(settings, "MCA_STORIES_VITRINA_ENABLED", True))
+    (не 404-заглушка). env-emergency OFF важнее UI; тумблер — hot."""
+    if not bool(getattr(settings, "MCA_STORIES_VITRINA_ENABLED", True)):
+        return False
+    return _module_catalog_flag("flags.stories_vitrina_enabled", True)
 
 
 def stories_manage_enabled() -> bool:
-    """`MCA_STORIES_MANAGE_ENABLED` (мутационный контур, env-only,
-    default ON; K2; независим от K1).
+    """`MCA_STORIES_MANAGE_ENABLED` (мутационный контур; effective =
+    env AND `flags.stories_manage_enabled`, F4 §3.3; K2; независим от K1).
 
     ON → POST `/api/stories/{id}/action` доступен (под RBAC/CAS). OFF →
     только просмотр; действие отклоняется честным disabled (409). Фасад
     mca-05 не выключается этим рубильником."""
-    return bool(getattr(settings, "MCA_STORIES_MANAGE_ENABLED", True))
+    if not bool(getattr(settings, "MCA_STORIES_MANAGE_ENABLED", True)):
+        return False
+    return _module_catalog_flag("flags.stories_manage_enabled", True)

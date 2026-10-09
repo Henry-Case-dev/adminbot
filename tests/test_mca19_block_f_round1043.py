@@ -42,9 +42,9 @@ VISION_KILL_SWITCHES = {"MCA_VISION_ENABLED", "MCA_VISION_AUTO_ENABLED",
 # ── Δ каталога +9 (F8-переиздание) ──────────────────────────────────────────
 
 def test_catalog_counts_sanctioned():
-    assert len(pc.REGISTRY) == 538          # 510 → 519 (+9)
-    assert len(pc.GROUPS) == 115            # 108 → 112 (+4 группы)
-    assert len(pc._TAB_BY_GROUP) == 113     # 106 → 110
+    assert len(pc.REGISTRY) == 560          # 510 → 519 (+9)
+    assert len(pc.GROUPS) == 120            # 108 → 112 (+4 группы)
+    assert len(pc._TAB_BY_GROUP) == 118     # 106 → 110
     assert len(pc.TAB_RULES) == 23          # 21 → 22 (mod_vision)
     # ASAP 7 (F3, §3.2): +mod_initiative (TAB_NAV/CONFIG_TAB_TITLES 22→23).
     assert len(pc.TAB_NAV) == 23
@@ -109,11 +109,13 @@ def test_screen_map_and_registry_artifacts_regenerated():
         encoding="utf-8").splitlines()
     # ASAP 5 (asap5-final-fixes, T-5256, санкция §5): 523→529 (+6 PG-only
     # профилей embeddings) → header + 529 = 530 строк.
-    assert len(tsv) == 539  # ASAP 7 F3: 529+9 → 538
+    # ASAP 7 F2 (§1.6): +9 L1 Planner; F4 §3.2: +13 — 560+header=561.
+    assert len(tsv) == 561
     assert "flags.vision_enabled" in "\t".join(tsv)
     meta = (ROOT / "plans/docs/param-registry-round1025.meta.md").read_text(
         encoding="utf-8")
-    assert "538" in meta and "411" in meta and "127" in meta
+    # ASAP 7 F2: reissue под 560/149 (см. meta.md).
+    assert "560" in meta and "411" in meta and "149" in meta
 
 
 # ── Kill-switches +4 (76→80; env-only default ON; OFF-инертности) ───────────

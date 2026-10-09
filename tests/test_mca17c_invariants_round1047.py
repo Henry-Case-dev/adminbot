@@ -45,8 +45,12 @@ def test_no_ddl_catalog_ks_tools_delta():
     # ровно в v34 (user_version).
     # NOTE (P2-D, ASAP 6 §8, санкция `mca-14` реестр): v34
     # (embedding_generation_namespace_v34) — ownership-миграция поколений
-    # векторов; прецедент v21→…→v33. Точное равенство сохранено: новая
-    # НЕсанкционированная миграция по-прежнему роняет тест.
+    # векторов; прецедент v21→…→v33.
+    # ASAP 7 (F2, §1.10, Wave 3): v35 (llm_usage_plan_meta_v35) —
+    # аддитивная nullable-колонка plan_meta JSONB в PG-only
+    # `llm_usage_events`; SQLite-шаг — честный bookkeeping no-op (guard
+    # sqlite_master), фактический DDL — PgDatabase.init (DDL_STATEMENTS,
+    # ADD COLUMN IF NOT EXISTS). Точное равенство сохранено.
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     try:
@@ -55,14 +59,18 @@ def test_no_ddl_catalog_ks_tools_delta():
         loop.run_until_complete(d.initialize())
         cur = loop.run_until_complete(d.db.execute("PRAGMA user_version"))
         row = loop.run_until_complete(cur.fetchone())
-        assert int(row[0]) == 34
+        assert int(row[0]) == 35
     finally:
         loop.run_until_complete(d.close())
         loop.close()
     assert len(mca_gates.KILL_SWITCHES) == 85         # Δ KS = 0
     assert len(TOOL_CALLING_TOOLS) == 14              # Δ тулов = 0
     # REGISTRY 523 (F8 --check отдельно; здесь — канон-число каталога)
-    assert len(pc.REGISTRY) == 538
+    # ASAP 7 F2 (§1.6): +9 PG-only ключей L1 Planner (538→547).
+    # Параллельный лейн F4 (§3.2, in-flight на момент снимка): +13
+    # (stories/character §3.2) → 560; финальное значение фиксирует лейн,
+    # приземляющийся последним (ребейзер — один sed).
+    assert len(pc.REGISTRY) == 560
 
 
 def test_registry_47_no_new_widgets():
@@ -124,7 +132,7 @@ def test_coverage_matrix_sync():
 
 def test_app_version_not_bumped():
     # bump 2.58.65→2.58.66 — домен @DevOps (T-5198), Builder не делает.
-    assert APP_VERSION == "2.58.73"
+    assert APP_VERSION == "2.58.74"
 
 
 def test_routes_plus3_and_registration():

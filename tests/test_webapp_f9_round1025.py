@@ -155,9 +155,9 @@ class TestD6NoF0Duplication:
 class TestInvariants:
     def test_catalog_delta_zero(self):
         from services import param_catalog as pc
-        assert len(pc.REGISTRY) == 538
-        assert len(pc.GROUPS) == 115
-        assert len(pc._TAB_BY_GROUP) == 113
+        assert len(pc.REGISTRY) == 560
+        assert len(pc.GROUPS) == 120
+        assert len(pc._TAB_BY_GROUP) == 118
         assert len(pc.TAB_RULES) == 23
         assert len({f.name for f in dataclasses.fields(Settings)}) == 454
 
@@ -165,7 +165,8 @@ class TestInvariants:
         # 20 category=keys (UI) + 8 env-only infra — состав НЕ изменён.
         # ASAP-2 round1027 (контракт (j)): +2 UI-секрета (keys.summary_l1/
         # l2_api_key, masked-виджет adr-1025-22) → 30.
-        assert len(pc_secret_names()) == 33
+        # ASAP 7 F2 (§1.6): +1 keys.direct_l1_api_key → 34.
+        assert len(pc_secret_names()) == 34
 
     def test_app_version_bump(self):
         m = re.search(r'APP_VERSION = "([\d.]+)"', SETTINGS)
