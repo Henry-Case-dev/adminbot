@@ -28,6 +28,7 @@ import logging
 
 from services.chat_prompts import (
     CHAT_SYSTEM_PROMPT,
+    DIRECT_L1_PLANNER_SYSTEM_PROMPT,
     DIRECT_VERBALIZER_SYSTEM_PROMPT,
     LEGACY_CHAT_SYSTEM_PROMPT,
     PREV_CHAT_MCA23_SYSTEM_PROMPT,
@@ -37,6 +38,7 @@ from services.chat_prompts import (
     PREV_CHAT_SYSTEM_PROMPT,
     PREV_CHAT_VERBALIZER_MCA23,
     PREV_CHAT_VERBALIZER_R1023,
+    PREV_DIRECT_L1_PLANNER_BASE,
     PREV_R1022_CHAT_SYSTEM_PROMPT,
     PREV_R8_CHAT_SYSTEM_PROMPT,
     PREV_R9_CHAT_SYSTEM_PROMPT,
@@ -131,6 +133,13 @@ PROMPT_MIGRATIONS: dict[str, list[tuple[str, str]]] = {
     "prompts.direct_chat_verbalizer_system_prompt": [
         (PREV_CHAT_VERBALIZER_R1023, DIRECT_VERBALIZER_SYSTEM_PROMPT),
         (PREV_CHAT_VERBALIZER_MCA23, DIRECT_VERBALIZER_SYSTEM_PROMPT)],
+    # ASAP 7 (F1, §1.3 architecture.md; ADR-1013-3): новый PG-ключ L1
+    # Planner Direct. Ступень — база канона без правил (слепок
+    # PREV_DIRECT_L1_PLANNER_BASE) ведёт на канон; идемпотентна: до сида —
+    # skip (сид ConfigCache поставит канон), текущий канон → no-op, кастом
+    # юзера не перезаписывается.
+    "prompts.direct_l1_planner_system_prompt": [
+        (PREV_DIRECT_L1_PLANNER_BASE, DIRECT_L1_PLANNER_SYSTEM_PROMPT)],
     "prompts.summary_system_prompt": [
         (PREV_SUMMARY_SYSTEM_PROMPT, SYSTEM_PROMPT),
         (PREV_R2020_SUMMARY_SYSTEM_PROMPT, SYSTEM_PROMPT),

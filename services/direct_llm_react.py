@@ -1,7 +1,16 @@
 """ASAP-3.1 (round 1028, ADR-1028-3 D7) + ASAP-3.2 (round 1029, ADR-1028-5
 D11) — LLM REACT + LLM-driven Decision.
 
-**ASAP-3.2 D11 (действующий контракт):** выбор действия REPLY/REACT/SILENT
+**ASAP 7 (F1, architecture.md §1.1/§5.2) — LEGACY-ONLY: с включённой линией
+Direct L1 Planner (`flags.direct_l1_enabled` AND env DIRECT_L1_ENABLED,
+default ON) этот модуль в primary path НЕ используется** — выбор действия
+переехал в pre-tool L1 Planner (services/direct_l1), реакция валидируется
+против ALLOWED_LLM_REACTIONS оттуда же. Модуль НЕ удаляется: он живой
+контракт legacy-ветки (`DIRECT_L1_ENABLED=false`, байт-в-байт прежний
+pipeline) и fallback-семантики demote-матрицы.
+
+**ASAP-3.2 D11 (действующий контракт legacy-ветки):** выбор действия
+REPLY/REACT/SILENT
 решает LLM в Stage-1 structured output (§47): один Decision Maker возвращает
 ``{"action":..., "reaction":..., "reason":...}`` / обычный текст REPLY в ТОМ
 ЖЕ вызове (§52 — второй LLM-call запрещён). Алгоритм остаётся ТОЛЬКО hard

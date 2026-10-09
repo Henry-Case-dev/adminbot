@@ -40,7 +40,7 @@ import re
 import tempfile
 import time
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from urllib.parse import quote, urlencode, urlsplit
 
 import httpx
@@ -52,6 +52,10 @@ from services import mca_gates
 from services import safe_fetch
 from services.agentic_events import emit_agentic_event
 from services.external_log import log_external_api, safe_text
+from services.image_capabilities import (
+    extract_prompt_limit,
+    looks_like_prompt_too_long,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -126,21 +130,31 @@ _IMAGE_PROMPT_STRIP_RE = re.compile(
 
 
 class ImageGenerationError(Exception):
-    """Внутренняя ошибка провайдера (reason — R17-safe код, без URL/ключа)."""
+    """Внутренняя ошибка провайдера (reason — R17-safe код, без URL/ключа).
 
-    def __init__(self, reason: str) -> None:
+    ASAP 7 (§2.2): ``provider_body`` — санитизированное тело ответа провайдера
+    (ключ вырезан вызывающим кодом) — ТОЛЬКО для серверной классификации
+    «prompt too long»/лимита; в логи/исключения наружу не попадает."""
+
+    def __init__(self, reason: str, provider_body: str = "") -> None:
         super().__init__(reason)
         self.reason = str(reason or "error")
+        self.provider_body = str(provider_body or "")
 
 
 @dataclass
 class GenerationResult:
-    """Результат генерации. ``reason`` — код, безопасный для логов (R17)."""
+    """Результат генерации. ``reason`` — код, безопасный для логов (R17).
+
+    ASAP 7 (§2.2): ``meta`` — machine-readable diagnostics классификации
+    (``prompt_limit`` {value, unit} / ``prompt_limit_unknown``); только
+    enum/числа, полный prompt/тело ответа сюда не попадают (R17)."""
 
     ok: bool
     reason: str = ""
     content: bytes | None = None
     filename: str = "image.jpg"
+    meta: dict = field(default_factory=dict)
 
 
 @dataclass
@@ -646,6 +660,68 @@ def provider_label() -> str:
     return _provider_from_url(base_url)
 
 
+# ── ASAP 7 (§2.2): prompt-limit для GENERATE-маршрута ───────────────────────
+
+def resolve_generate_prompt_limit():
+    """Резолв prompt-limit провайдера для GENERATE (Base-обложки и standalone).
+
+    Единый резолвер ``services/image_capabilities.py`` с operation-
+    параметризацией (как у EDIT): manual override → discovery/metadata →
+    verified registry → cached runtime-discovered → unknown. Возвращает
+    ``PromptLimit`` (known) или None — unknown честно остаётся unknown
+    (компиляция под assembly-кап БЕЗ silent trim, событие
+    ``COVER_LIMIT_UNKNOWN``, ретрай по observed 400). Fail-open → None."""
+    try:
+        from services import image_capabilities as cap
+        base_url = _resolve_str(KEY_BASE_URL, settings.IMAGE_BASE_URL)
+        model = _resolve_str(KEY_MODEL, settings.IMAGE_MODEL)
+        caps = cap.resolve_capabilities(
+            provider_label(), base_url, model,
+            operation=cap.OPERATION_GENERATE)
+        pl = getattr(caps, "prompt_limit", None)
+        return pl if (pl is not None and pl.known) else None
+    except Exception:      # pragma: no cover - fail-open
+        return None
+
+
+async def resolve_generate_prompt_limit_async():
+    """То же с auto-discovery (сетевой каталог, TTL-кеш §21). Fail-open → None."""
+    try:
+        from services import image_capabilities as cap
+        base_url = _resolve_str(KEY_BASE_URL, settings.IMAGE_BASE_URL)
+        model = _resolve_str(KEY_MODEL, settings.IMAGE_MODEL)
+        caps = await cap.resolve_capabilities_auto(
+            provider_label(), base_url, model,
+            operation=cap.OPERATION_GENERATE)
+        pl = getattr(caps, "prompt_limit", None)
+        return pl if (pl is not None and pl.known) else None
+    except Exception:      # pragma: no cover - fail-open
+        return None
+
+
+def trim_prompt_to_limit(prompt: str, value, unit: str = "chars") -> str:
+    """Детерминированный shorter-промпт под observed limit (standalone-путь).
+
+    Консервативная конверсия единиц (``limit_to_chars``), срез по границе
+    слова. Пустая строка — лимит непригоден/не требуется. Результат — новый
+    промпт: в логи не попадает (R17), уходит только в платный запрос."""
+    try:
+        from services.cover_prompt_assembly import limit_to_chars
+        chars = limit_to_chars(value, unit)
+    except Exception:      # pragma: no cover - defensive
+        chars = None
+    if not chars or chars <= 0:
+        return ""
+    raw = str(prompt or "")
+    if len(raw) <= chars:
+        return raw
+    cut = raw[:max(0, int(chars))]
+    sp = cut.rfind(" ")
+    if sp > int(chars * 0.5):
+        cut = cut[:sp]
+    return cut.strip()
+
+
 def _image_attempt_timeout() -> float:
     """Окно одной попытки генерации (env-only, default 180 c).
 
@@ -816,12 +892,17 @@ async def _generate_post(base_url: str, model: str, prompt: str, key: str,
                                      max_retries=1 if retry else 0)
     status = int(getattr(resp, "status_code", 0))
     if status != 200:
+        # ASAP 7 (§2.2): тело ошибки (ключ вырезан) едет в исключение для
+        # серверной классификации too-long/лимита — в лог оно и так
+        # не печатается целиком (log_external_api R17-safe).
+        body_text = _redact_secret(getattr(resp, "text", ""), key)
         log_external_api(
             logger, provider=_provider_from_url(url), method="POST", url=url,
             status=status, reason=_reason_from_status(status),
-            body=_redact_secret(getattr(resp, "text", ""), key),
+            body=body_text,
             level=logging.ERROR)
-        raise ImageGenerationError(_reason_from_status(status))
+        raise ImageGenerationError(_reason_from_status(status),
+                                   provider_body=body_text)
     try:
         data = resp.json()
     except Exception:
@@ -939,12 +1020,16 @@ async def _generate_get(host: str, model: str, prompt: str,
                                      max_retries=1 if retry else 0)
     status = int(getattr(resp, "status_code", 0))
     if status != 200:
+        # ASAP 7 (§2.2): классификация too-long — и для GET-режима
+        # (лимит URL/промпта провайдера).
+        body_text = safe_text(getattr(resp, "text", ""))
         log_external_api(
             logger, provider=_provider_from_url(safe_url), method="GET",
             url=safe_url, status=status,
             reason=_reason_from_status(status),
-            body=getattr(resp, "text", ""), level=logging.ERROR)
-        raise ImageGenerationError(_reason_from_status(status))
+            body=body_text, level=logging.ERROR)
+        raise ImageGenerationError(_reason_from_status(status),
+                                   provider_body=body_text)
     content = bytes(getattr(resp, "content", b"") or b"")
     if not content:
         raise ImageGenerationError("empty")
@@ -1150,18 +1235,33 @@ async def generate(prompt: str, *, chat_id: int | None = None,
         return GenerationResult(ok=False, reason="timeout")
     except ImageGenerationError as exc:
         elapsed_ms = int((time.monotonic() - started) * 1000)
+        # ASAP 7 (§2.2): 400 с сигнатурой too-long классифицируется
+        # machine-readable (число → `prompt_limit` {value, unit}; без числа
+        # → `prompt_limit_unknown`). Generic `bad_request` остаётся для
+        # прочих 400 (паритет ASAP 4.4/T-4875 с EDIT-маршрутом).
+        reason = exc.reason
+        meta: dict = {}
+        if reason == "bad_request" and getattr(exc, "provider_body", ""):
+            limit = extract_prompt_limit(exc.provider_body)
+            if limit is not None and limit[0] > 0:
+                reason = "prompt_limit"
+                meta["prompt_limit"] = {"value": int(limit[0]),
+                                        "unit": limit[1]}
+            elif looks_like_prompt_too_long(exc.provider_body):
+                reason = "prompt_limit_unknown"
+                meta["prompt_limit_unknown"] = True
         logger.warning(
             "[image] generation failed | mode=%s | model=%s | reason=%s | "
-            "latency_ms=%d", "get" if get_mode else "post", model, exc.reason,
+            "latency_ms=%d", "get" if get_mode else "post", model, reason,
             elapsed_ms)
         # F2/ADR-1024-1: «тихий откат» для юзера ≠ тишина в логах.
         log_external_api(
             logger, provider=_provider_from_url(base_url),
             method="GET" if get_mode else "POST",
             url=_endpoint_for_log(base_url, get_mode),
-            status=None, reason=exc.reason, duration_ms=elapsed_ms,
+            status=None, reason=reason, duration_ms=elapsed_ms,
             level=logging.ERROR)
-        return GenerationResult(ok=False, reason=exc.reason)
+        return GenerationResult(ok=False, reason=reason, meta=meta)
     except Exception as exc:
         # Хотфикс-5: сетевые (connect/read/protocol) — отдельный транзиентный
         # класс `network` (повторяемый), прочее — `error`.
@@ -1201,7 +1301,9 @@ def _write_temp_image(content: bytes) -> str | None:
 
 
 async def generate_image_verbose(prompt: str, *, chat_id: int | None = None,
-                                 correlation_id: str | None = None
+                                 correlation_id: str | None = None,
+                                 shorter_prompt=None,
+                                 attempt_log: list | None = None
                                  ) -> tuple[str | None, str]:
     """Как ``generate_image``, но возвращает ``(путь|None, reason)``.
 
@@ -1220,7 +1322,18 @@ async def generate_image_verbose(prompt: str, *, chat_id: int | None = None,
     submit §30); terminal primary failure → image fallback (§31) ЕСЛИ
     настроен (IMAGE_FALLBACK_*), пока primary честно RUNNING — НЕ
     переключаемся. OFF `MEDIA_EXECUTION_POLICY_ENABLED` → прежние окна
-    (rollback §80)."""
+    (rollback §80).
+
+    ASAP 7 (§2.2, F6): provider 400 с сигнатурой too-long → РОВНО ОДИН
+    shorter-retry (максимум 2 платные попытки на изображение):
+    ``shorter_prompt(prompt, observed_value, unit)`` — callback вызывающего
+    (обложка пересобирает Base-промпт компилятором: story+context
+    сохранены, стиль сжат до floor); без callback — детерминированный
+    word-boundary trim (standalone-маршрут). Observed limit пишется в
+    capability-cache (learning) и — вызывающим — в манифест как
+    ``source=observed_provider_400``. Повторный too-long → честный
+    ``prompt_limit_unknown_after_retry``. ``attempt_log`` — опциональный
+    in-process список фактических платных попыток (для манифеста; НЕ лог)."""
     prompt = str(prompt or "").strip()
     if not prompt:
         return None, "empty_prompt"
@@ -1326,6 +1439,99 @@ async def generate_image_verbose(prompt: str, *, chat_id: int | None = None,
             break                       # детерминированный отказ — не повторяем
         if attempt < attempts and backoff > 0:
             await asyncio.sleep(backoff)
+    # ── ASAP 7 (§2.2): provider 400 too-long → РОВНО ОДИН shorter-retry ────
+    # Максимум 2 платные попытки на изображение; повторный too-long — честный
+    # `prompt_limit_unknown_after_retry` (никакого multi-paid loop).
+    # REV-2 B11: каждая итерация цикла выше — ОТДЕЛЬНЫЙ платный вызов
+    # (в т.ч. transient-ретраи), поэтому shorter-retry разрешён ТОЛЬКО если
+    # too-long случился на первой платной попытке (attempt == 1, счётчик
+    # платных вызовов < 2). Иначе (transient→400 и т.п.) бюджет уже исчерпан
+    # → честный терминальный исход без третьего платного вызова при любом
+    # env max_attempts.
+    if (last_reason in ("prompt_limit", "prompt_limit_unknown")
+            and attempt < 2):
+        limit_meta = dict(getattr(result, "meta", {}) or {}) \
+            if result is not None else {}
+        observed = limit_meta.get("prompt_limit") or {}
+        try:
+            observed_value = int(observed.get("value") or 0)
+        except (TypeError, ValueError):
+            observed_value = 0
+        observed_unit = str(observed.get("unit") or "chars")
+        if observed_value > 0:
+            # Learning: observed limit → capability-cache (TTL) — будущие
+            # GENERATE-компиляции укладываются сразу; манифест вызывающего
+            # фиксирует source=observed_provider_400.
+            try:
+                from services import image_capabilities as _cap
+                if _cap.dynamic_prompt_limit_enabled():
+                    _cap.record_runtime_limit(
+                        provider, base_url_now, model_now, None,
+                        observed_value, observed_unit)
+            except Exception:      # pragma: no cover - fail-open
+                pass
+        shorter = ""
+        if shorter_prompt is not None:
+            try:
+                shorter = str(shorter_prompt(prompt, observed_value,
+                                             observed_unit) or "")
+            except Exception:      # pragma: no cover - fail-open
+                shorter = ""
+        if not shorter and observed_value > 0:
+            shorter = trim_prompt_to_limit(prompt, observed_value,
+                                           observed_unit)
+        if shorter and len(shorter) < len(prompt):
+            if attempt_log is not None:
+                attempt_log.append({"attempt": 1, "prompt": prompt,
+                                    "outcome": "retry_superseded",
+                                    "reason": last_reason,
+                                    "meta": dict(limit_meta)})
+            mj.attempt += 1
+            # Durable-артефакт отправки = фактический (последний) промпт.
+            mj.prompt = shorter
+            mj.mark(MJ_RUNNING, note="shorter_retry")
+            await save_media_job(media_db, job_id, mj)
+            started_retry = time.monotonic()
+            result = None
+            try:
+                result = await asyncio.wait_for(
+                    generate(shorter, chat_id=chat_id,
+                             correlation_id=correlation_id, timeout=timeout,
+                             consume_budget=False, retry=False),
+                    timeout=timeout)
+            except asyncio.TimeoutError:
+                last_reason = "timeout"
+            latency_ms = int((time.monotonic() - started_retry) * 1000)
+            if result is not None and result.ok and result.content:
+                path = _write_temp_image(result.content)
+                if path is not None:
+                    mj.result_asset = "tmp:" + str(path)[-40:]
+                    await finish_media_job(media_db, job_id, mj,
+                                           outcome=MJ_SUCCEEDED)
+                    if attempt_log is not None:
+                        attempt_log.append({"attempt": 2, "prompt": shorter,
+                                            "outcome": "ok", "reason": ""})
+                    logger.info(
+                        "[image] shorter retry ok | chars=%d | "
+                        "latency_ms=%d | chat_id=%s",
+                        len(shorter), latency_ms, chat_id)
+                    return path, "ok"
+                last_reason = "temp_write_failed"
+            elif result is not None:
+                last_reason = result.reason or last_reason
+                if last_reason in ("prompt_limit", "prompt_limit_unknown"):
+                    # Повторный too-long после сокращения — честная причина,
+                    # третий платный вызов не отправляется.
+                    last_reason = "prompt_limit_unknown_after_retry"
+            if attempt_log is not None:
+                attempt_log.append({"attempt": 2, "prompt": shorter,
+                                    "outcome": "failed",
+                                    "reason": last_reason})
+            mj.failure_reason = last_reason
+            await save_media_job(media_db, job_id, mj)
+            logger.warning(
+                "[image] shorter retry failed | reason_class=%s | reason=%s",
+                reason_class(last_reason), last_reason)
     # §30: терминальный исход durable-джобы (restart после этого НЕ возобновит
     # и НЕ пересоздаст платный submit).
     await finish_media_job(media_db, job_id, mj, outcome=MJ_FAILED)

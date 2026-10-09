@@ -21,6 +21,16 @@ BOT_ID = 12345
 CHAT_ID = -1001234567890
 
 
+@pytest.fixture(autouse=True)
+def _legacy_direct_l1_off(monkeypatch):
+    """ASAP 7 (F1): файл — контракт legacy Decision Task/Reaction_Task
+    (direct_llm_react); L1-линия (default ON) его подменяет. Пин
+    DIRECT_L1_ENABLED=false; L1-ветка покрыта tests/test_asap7_direct_l1.py."""
+    from config.settings import Settings
+    monkeypatch.setattr(Settings, "DIRECT_L1_ENABLED", False)
+    yield
+
+
 class _FakeLLM:
     def __init__(self, text):
         self.text = text

@@ -618,30 +618,40 @@ def record_runtime_limit(provider: str, base_url: str, model: str,
 
 def record_runtime_safe_ceiling(provider: str, base_url: str, model: str,
                                 route: str | None, value: int,
-                                unit: str = UNIT_CHARS) -> None:
+                                unit: str = UNIT_CHARS, *,
+                                only_raise: bool = False) -> int | None:
     """T-4875: успешный bounded adaptive retry без известного N → route-specific
     `learned_safe_ceiling` (successful compiled length) с source
     `runtime_safe`, НЕ exact provider max.
 
     Не понижает более сильный источник: если в кэше уже known-лимит
     (published/runtime exact), запись не перезаписывается; обновляется только
-    unknown/предыдущий learned ceiling."""
+    unknown/предыдущий learned ceiling.
+
+    ASAP 7 B5 (``only_raise=True``): learned ceiling НЕ ракетится вниз —
+    повторный squeeze-retry с более коротким промптом оставляет прежний
+    (больший) ceiling, иначе будущие Style Edit хронически теряют
+    cover_brief/story. Возвращает сохранённое значение (или None)."""
     provider = str(provider or "").strip()
     base_url = str(base_url or "").strip().rstrip("/")
     model = str(model or "").strip()
     try:
         value = int(value)
     except (TypeError, ValueError):
-        return
+        return None
     if value <= 0:
-        return
+        return None
     key = _cache_key(provider, base_url, model, route)
     existing = _cache_get(key)
     caps = existing if existing is not None else conservative_unknown()
     current = caps.prompt_limit
     if current.known and current.source not in (SOURCE_UNKNOWN,
                                                 SOURCE_RUNTIME_SAFE):
-        return
+        return current.value
+    if only_raise and current.known and current.source == SOURCE_RUNTIME_SAFE \
+            and value < int(current.value):
+        # B5: bound — не понижаем уже выученный safe-ceiling.
+        return current.value
     if caps.source in (SOURCE_UNKNOWN, SOURCE_DISCOVERY,
                        SOURCE_RUNTIME_DISCOVERED, SOURCE_RUNTIME_SAFE):
         caps.source = SOURCE_RUNTIME_SAFE
@@ -649,6 +659,7 @@ def record_runtime_safe_ceiling(provider: str, base_url: str, model: str,
     caps.prompt_limit = PromptLimit(value=value, unit=unit,
                                     source=SOURCE_RUNTIME_SAFE)
     _cache_put(key, caps)
+    return value
 
 
 # ── public resolver ─────────────────────────────────────────────────────────

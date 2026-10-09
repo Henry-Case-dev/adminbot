@@ -41,6 +41,18 @@ STORY_MIN_CHARS = 160
 PROFILE_IDENTITY_MIN_RATIO = 0.5
 # D8: bounded representation финального Summary для SUMMARY_CONTEXT.
 SUMMARY_CONTEXT_MAX_CHARS = 400
+# ASAP 7 (§2.1): floor стиля в каноне story_first — владельческая инструкция
+# («PERMsoc») доезжает, если физически возможно (семантика compile_style_prompt).
+STYLE_FLOOR_CHARS = 160
+# ASAP 7 (§11): порог содержательности статьи для anomaly guard — короче
+# считается пустой/вырожденной статьёй (обложки нет, честный reason).
+MIN_MEANINGFUL_CHARS = 80
+
+# ASAP 7 (§2.4/§2.2, observability §8): COVER-события (агентные, enum-only;
+# полный prompt в событиях запрещён — R17). Эмиссия — через
+# cover_style_jobs.emit_cover_event (grep-лог + mca_events, enum-only поля).
+COVER_ANOMALY = "COVER_ANOMALY"
+COVER_LIMIT_UNKNOWN = "COVER_LIMIT_UNKNOWN"
 
 MANIFEST_SCHEMA = "cover_prompt_manifest/1"
 
@@ -147,46 +159,76 @@ def _base_cap(key: str, default: int) -> int:
         return default
 
 
+def cover_prompt_order() -> str:
+    """ASAP 7 (§2.1): канонический порядок строки Base-промпта.
+
+    ``story_first`` (default) — STORY_SCENE → SUMMARY_CONTEXT → BASE_STYLE:
+    известный лимит делает порядок безопасным, а при unknown-лимите
+    провайдерский silent-trim режет хвост — детерминированно-восстановимый
+    стиль, а не irreplaceable story/context. ``style_first`` — прежний
+    (legacy) порядок байт-в-байт (env-откат
+    ``SUMMARY_COVER_PROMPT_ORDER``)."""
+    raw = str(getattr(settings, "SUMMARY_COVER_PROMPT_ORDER",
+                      "") or "").strip().lower()
+    return raw if raw in ("story_first", "style_first") else "story_first"
+
+
+def default_total_cap() -> int:
+    """Общий кап сборки Base (``SUMMARY_COVER_PROMPT_MAX_CHARS``, default 1000)."""
+    return _base_cap("SUMMARY_COVER_PROMPT_MAX_CHARS", 1000)
+
+
+def limit_to_chars(value, unit) -> int | None:
+    """ASAP 7 (§2.2): prompt-limit провайдера → консервативные chars.
+
+    tokens → ~3 chars/token (est. компилятора ~4 — берём с запасом вниз),
+    bytes → //2 (кириллица 2 Б/символ), chars/unknown → 1:1. None —
+    значение непригодно (≤0/мусор)."""
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        return None
+    if parsed <= 0:
+        return None
+    unit = str(unit or "chars").strip().lower()
+    if unit == "tokens":
+        return max(1, parsed * 3)
+    if unit == "bytes":
+        return max(1, parsed // 2)
+    return parsed
+
+
 def base_prompt_plan(base_style, story_scene, summary_context, *,
                      style_cap: int | None = None,
                      total_cap: int | None = None,
                      story_min: int = STORY_MIN_CHARS) -> list[dict]:
-    """План Base-промпта: BASE_STYLE → STORY_SCENE → SUMMARY_CONTEXT.
+    """План Base-промпта. Порядок — ``cover_prompt_order()``:
 
-    Стиль приоритетен до своего капа (``SUMMARY_COVER_STYLE_MAX_CHARS``),
-    общий кап — ``SUMMARY_COVER_PROMPT_MAX_CHARS``; у сюжета ЯВНЫЙ minimum
-    budget (D8): если остаток после стиля меньше story-minimum, стиль
-    подрезается, чтобы сюжет дошёл. Без контекста план совпадает с прежним
-    ``compose_cover_image_prompt(style, story)`` байт-в-бит. Каждый элемент:
+    * ``story_first`` (канон ASAP 7 §2.1): STORY_SCENE → SUMMARY_CONTEXT →
+      BASE_STYLE. Сюжет и bounded-контекст финального Summary идут в начало
+      строки (E2E-маркеры §12 живут в начале), стиль — защищён floor'ом
+      ``STYLE_FLOOR_CHARS`` (если физически возможно) и получает остаток;
+    * ``style_first`` (legacy/откат): прежний алгоритм байт-в-байт.
+
+    Общий кап — ``SUMMARY_COVER_PROMPT_MAX_CHARS``; у сюжета ЯВНЫЙ minimum
+    budget (D8). B4 (ASAP 7): sent_style перекапируется total_cap — при
+    env-миссконфиге стиль не может превысить общий кап и не съедает
+    story-minimum. Каждый элемент:
     key/source/priority/original_text/sent_text/status/reason."""
+    order = cover_prompt_order()
     style_cap = _base_cap("SUMMARY_COVER_STYLE_MAX_CHARS", 500) \
         if style_cap is None else int(style_cap)
-    total_cap = _base_cap("SUMMARY_COVER_PROMPT_MAX_CHARS", 1000) \
-        if total_cap is None else int(total_cap)
+    total_cap = default_total_cap() if total_cap is None else int(total_cap)
     style_cap = max(0, style_cap)
     total_cap = max(0, total_cap)
+    story_min = max(0, int(story_min))
+    # B4 (ASAP 7): стиль перекапируется общим капом с резервом story-minimum —
+    # в обоих режимах (legacy-байты не меняются при sane-конфиге 500/1000/160).
+    style_cap = min(style_cap, max(0, total_cap - story_min))
 
     s = _collapse(base_style)
     story = _collapse(story_scene)
     ctx = _collapse(summary_context)
-
-    sent_style = s[:style_cap]
-    reason_style = "kept"
-    if story:
-        # D8: story-minimum — стиль не вытесняет сюжет.
-        need = min(len(story), max(1, int(story_min)))
-        if total_cap - len(sent_style) - 1 < need:
-            allowed = max(0, total_cap - need - 1)
-            if allowed < len(sent_style):
-                sent_style = s[:allowed]
-                reason_style = ("compacted:story_minimum"
-                                if sent_style else "omitted:story_minimum")
-    remaining = total_cap - len(sent_style) - 1
-    sent_story = story[:max(0, remaining)] if story else ""
-    room = total_cap - len(sent_style) - len(sent_story) \
-        - (1 if (sent_style and sent_story) else 0) \
-        - (1 if (sent_style or sent_story) else 0)
-    sent_ctx = ctx[:max(0, room)] if ctx else ""
 
     def _status(original: str, sent: str) -> tuple[str, str]:
         if not original:
@@ -197,24 +239,84 @@ def base_prompt_plan(base_style, story_scene, summary_context, *,
             return "compacted", "cap"
         return "omitted", "cap"
 
-    st_s = _status(s, sent_style)
+    if order == "style_first":
+        # ── Legacy-режим (откат §2.1): прежний алгоритм байт-в-байт ────────
+        sent_style = s[:style_cap]
+        reason_style = "kept"
+        if story:
+            # D8: story-minimum — стиль не вытесняет сюжет.
+            need = min(len(story), max(1, int(story_min)))
+            if total_cap - len(sent_style) - 1 < need:
+                allowed = max(0, total_cap - need - 1)
+                if allowed < len(sent_style):
+                    sent_style = s[:allowed]
+                    reason_style = ("compacted:story_minimum"
+                                    if sent_style else "omitted:story_minimum")
+        remaining = total_cap - len(sent_style) - 1
+        sent_story = story[:max(0, remaining)] if story else ""
+        room = total_cap - len(sent_style) - len(sent_story) \
+            - (1 if (sent_style and sent_story) else 0) \
+            - (1 if (sent_style or sent_story) else 0)
+        sent_ctx = ctx[:max(0, room)] if ctx else ""
+
+        st_s = _status(s, sent_style)
+        st_story = _status(story, sent_story)
+        st_ctx = _status(ctx, sent_ctx)
+        if reason_style.startswith("compacted") and st_s[0] == "compacted":
+            st_s = ("compacted", "story_minimum")
+        elif reason_style.startswith("omitted") and not sent_style and s:
+            st_s = ("omitted", "story_minimum")
+
+        return [
+            {"key": "BASE_STYLE", "source": "settings", "priority": "P1",
+             "original_text": s, "sent_text": sent_style,
+             "status": st_s[0], "reason": st_s[1]},
+            {"key": "STORY_SCENE", "source": "summary_stage1", "priority": "P1",
+             "original_text": story, "sent_text": sent_story,
+             "status": st_story[0], "reason": st_story[1]},
+            {"key": "SUMMARY_CONTEXT", "source": "final_summary",
+             "priority": "P2", "original_text": ctx, "sent_text": sent_ctx,
+             "status": st_ctx[0], "reason": st_ctx[1]},
+        ]
+
+    # ── story_first (канон ASAP 7 §2.1): story → context → style ───────────
+    # Раскройка с защищёнными бюджетами: floor стиля (владельческая
+    # инструкция доезжает, если физически возможно), story-minimum (D8),
+    # bounded ctx (≤400); остаток после story+ctx достаётся стилю (до
+    # своего капа). Порядок строк в join'е: story → ctx → style.
+    style_floor = min(len(s), STYLE_FLOOR_CHARS) if s else 0
+    sep_s = 1 if style_floor else 0
+    ctx_budget = min(len(ctx), SUMMARY_CONTEXT_MAX_CHARS) if ctx else 0
+    story_min_room = min(len(story), story_min, total_cap)
+    budget_after_floor = max(0, total_cap - style_floor - sep_s)
+    story_budget = max(
+        story_min_room,
+        budget_after_floor - ctx_budget
+        - (1 if (ctx_budget and len(story) > story_min_room) else 0))
+    sent_story = story[:min(len(story), max(0, story_budget))] if story \
+        else ""
+    ctx_room = max(0, total_cap - len(sent_story) - style_floor - sep_s
+                   - (1 if sent_story else 0))
+    sent_ctx = ctx[:ctx_room] if ctx else ""
+    style_room = max(0, total_cap - len(sent_story) - len(sent_ctx)
+                     - (1 if sent_story else 0)
+                     - (1 if (sent_story or sent_ctx) else 0))
+    sent_style = s[:min(style_cap, style_room)] if s else ""
+
     st_story = _status(story, sent_story)
     st_ctx = _status(ctx, sent_ctx)
-    if reason_style.startswith("compacted") and st_s[0] == "compacted":
-        st_s = ("compacted", "story_minimum")
-    elif reason_style.startswith("omitted") and not sent_style and s:
-        st_s = ("omitted", "story_minimum")
+    st_s = _status(s, sent_style)
 
     return [
-        {"key": "BASE_STYLE", "source": "settings", "priority": "P1",
-         "original_text": s, "sent_text": sent_style,
-         "status": st_s[0], "reason": st_s[1]},
         {"key": "STORY_SCENE", "source": "summary_stage1", "priority": "P1",
          "original_text": story, "sent_text": sent_story,
          "status": st_story[0], "reason": st_story[1]},
         {"key": "SUMMARY_CONTEXT", "source": "final_summary", "priority": "P2",
          "original_text": ctx, "sent_text": sent_ctx,
          "status": st_ctx[0], "reason": st_ctx[1]},
+        {"key": "BASE_STYLE", "source": "settings", "priority": "P1",
+         "original_text": s, "sent_text": sent_style,
+         "status": st_s[0], "reason": st_s[1]},
     ]
 
 
@@ -222,7 +324,10 @@ def compose_base_cover_prompt(base_style, story_scene, summary_context, *,
                               style_cap: int | None = None,
                               total_cap: int | None = None,
                               story_min: int = STORY_MIN_CHARS) -> str:
-    """Base-промпт из трёх компонент (D8/T-5250): style + story + context."""
+    """Base-промпт из трёх компонент — канонический сборчик (§2.3).
+
+    Порядок join'а = ``cover_prompt_order()`` (ASAP 7: по умолчанию
+    story → context → style; ``style_first`` — legacy-откат)."""
     plan = base_prompt_plan(base_style, story_scene, summary_context,
                             style_cap=style_cap, total_cap=total_cap,
                             story_min=story_min)
@@ -322,6 +427,48 @@ def derive_fallback_cover_prompt(text: str) -> str:
 MANIFEST_KEYS = ("BASE_STYLE", "STORY_SCENE", "SUMMARY_CONTEXT",
                  "STYLE_PROFILE", "RUNTIME_INVARIANTS", "REFERENCES")
 
+
+def cover_context_decision(cover_prompt, title, paragraphs, *,
+                           min_chars: int = MIN_MEANINGFUL_CHARS) -> dict:
+    """§11 anomaly guard (ASAP 7, чистая функция): решение по компонентам.
+
+    Триггер — статья содержательна (≥ ``min_chars`` collapse-символов из
+    title+абзацев), а STORY_SCENE пуст: generic-style картинка не уходит
+    молча. SUMMARY_CONTEXT детерминированно выводим из финального документа
+    (``ctx = f(document)``), поэтому пустой ctx при содержательном документе
+    невыводим по построению — гард триггерится по irreplaceable-компоненте
+    (сцена) и ctx при восстановлении пересобирает из документа всегда.
+
+    * ``ok`` — сцена на месте (обычный путь);
+    * ``anomaly_recovered`` — story восстановлен из статьи
+      (``normalize(cover_prompt) or derive_fallback_cover_prompt``), ctx
+      пересобран из финального документа; вызывающий пересобирает промпт и
+      пишет в манифесте component reason=``anomaly_recovered`` + событие
+      ``COVER_ANOMALY``;
+    * ``cover_context_missing`` — статья пуста/короче порога (или
+      восстановление невозможно) → обложки НЕТ, честный reason.
+
+    Никогда не бросает."""
+    story = _collapse(cover_prompt)
+    paras = [str(p or "") for p in (paragraphs or ())]
+    ctx = _collapse(summary_context_text(title, paras))
+    doc_text = _collapse(" ".join(
+        [str(title or "")] + paras))
+    if len(doc_text) < max(0, int(min_chars)):
+        return {"status": "cover_context_missing", "story": story,
+                "ctx": ctx, "doc_chars": len(doc_text),
+                "reason": "cover_context_missing"}
+    if story:
+        return {"status": "ok", "story": story, "ctx": ctx,
+                "doc_chars": len(doc_text), "reason": ""}
+    recovered = derive_fallback_cover_prompt(doc_text)
+    if recovered:
+        return {"status": "anomaly_recovered", "story": recovered,
+                "ctx": ctx, "doc_chars": len(doc_text),
+                "reason": "anomaly_recovered"}
+    return {"status": "cover_context_missing", "story": "",
+            "ctx": ctx, "doc_chars": len(doc_text),
+            "reason": "cover_context_missing"}
 
 @dataclass
 class ManifestComponent:
@@ -435,22 +582,44 @@ def build_base_manifest(*, base_style: str, story_scene: str,
                         route: str = "image_generation", outcome: str = "sent",
                         reason: str = "",
                         style_cap: int | None = None,
-                        total_cap: int | None = None) -> dict:
-    """D7-манифест Base Generation (T-5249/T-5250) из плана сборки."""
+                        total_cap: int | None = None,
+                        resolved_limit: int | None = None,
+                        limit_unit: str = "chars",
+                        limit_source: str = "assembly_cap",
+                        attempts: list | None = None,
+                        component_reasons: dict | None = None) -> dict:
+    """D7-манифест Base Generation (T-5249/T-5250) из плана сборки.
+
+    ASAP 7 (§2.2/§2.3): ``resolved_limit``/``limit_source`` — честный
+    резолв лимита (``assembly_cap`` default; ``observed_provider_400``
+    после shorter-retry; manual/discovery — pass-through источника
+    capability); ``attempts`` — все фактические платные попытки (default —
+    одна); ``component_reasons`` — override reason'ов kept-компонент
+    (например ``STORY_SCENE: anomaly_recovered`` §11)."""
     plan = base_prompt_plan(base_style, story_scene, summary_context,
                             style_cap=style_cap, total_cap=total_cap)
     components = [ManifestComponent(
         key=p["key"], source=p["source"], priority=p["priority"],
         original_text=p["original_text"], sent_text=p["sent_text"],
         status=p["status"], reason=p["reason"]) for p in plan]
+    if component_reasons:
+        for comp in components:
+            override = component_reasons.get(comp.key)
+            if override and comp.status == "kept":
+                comp.reason = str(override)
+    if attempts is None:
+        attempts = [{"attempt": 1, "prompt": final_prompt,
+                     "outcome": outcome, "reason": reason}]
     manifest = CoverPromptManifest(
         operation="base", components=components,
         provider=str(provider or ""), model=str(model or ""), route=route,
-        resolved_limit=_base_cap("SUMMARY_COVER_PROMPT_MAX_CHARS", 1000)
-        if total_cap is None else int(total_cap),
-        limit_unit="chars", limit_source="assembly_cap",
-        attempts=[ManifestAttempt(attempt=1, prompt=final_prompt,
-                                  outcome=outcome, reason=reason)],
+        resolved_limit=(int(resolved_limit)
+                        if resolved_limit is not None else
+                        (default_total_cap()
+                         if total_cap is None else int(total_cap))),
+        limit_unit=str(limit_unit or "chars"),
+        limit_source=str(limit_source or "assembly_cap"),
+        attempts=[ManifestAttempt(**a) for a in attempts],
         final_prompt=final_prompt)
     return manifest.to_dict()
 

@@ -612,6 +612,14 @@ class TestR17:
 
 
 class TestDirectChatContext:
+    @pytest.fixture(autouse=True)
+    def _legacy_direct_l1_off(self, monkeypatch):
+        """ASAP 7 (F1): legacy tool-loop/clarification контракты — пин
+        DIRECT_L1_ENABLED=false (L1-ветка покрыта tests/test_asap7_direct_l1)."""
+        from config.settings import Settings
+        monkeypatch.setattr(Settings, "DIRECT_L1_ENABLED", False)
+        yield
+
     @pytest.mark.asyncio
     async def test_tool_context_carries_bot_and_reply(self, monkeypatch):
         from tests.test_direct_chat import (

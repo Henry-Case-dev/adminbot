@@ -1978,16 +1978,20 @@ async def run_style_job(*, chat_id: int, base_image_path: str | None,
                         # Успешный adaptive retry → route-specific
                         # learned_safe_ceiling (source runtime_safe; НЕ
                         # выдаётся за exact provider max).
+                        # ASAP 7 B5: only_raise — ceiling не ракетится вниз
+                        # от длины сжатого retry-промпта (хронический
+                        # squeeze story запрещён); bound виден в diagnostics.
                         ceiling = len(recompiled.prompt)
                         retry_info["learned_safe_ceiling"] = ceiling
                         retry_info["ceiling_source"] = "runtime_safe"
+                        retry_info["ceiling_bound"] = "only_raise"
                         if cap.dynamic_prompt_limit_enabled():
                             cap.record_runtime_safe_ceiling(
                                 meta.get("provider") or "",
                                 slot.get("base_url") or "",
                                 meta.get("model") or "",
                                 result_meta.get("route") or edit_route or None,
-                                ceiling, cap.UNIT_CHARS)
+                                ceiling, cap.UNIT_CHARS, only_raise=True)
                     elif result.reason in ("prompt_limit_unknown",
                                            "prompt_limit"):
                         # Повторный too-long после сокращения — честная

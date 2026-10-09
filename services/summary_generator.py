@@ -106,6 +106,7 @@ from services.image_generation import (
     generate_image_verbose,
     provider_label,
     reason_class,
+    resolve_generate_prompt_limit_async,
 )
 from services.smartmodule_concurrency import get_smartmodule_concurrency_pool
 # ASAP-2 §11 (контракт (g)): единая точка Hybrid-бюджета для режима фильтра.
@@ -2363,6 +2364,38 @@ class SummaryGenerator:
                 cover_prompt = self._derive_fallback_cover_prompt(
                     (str((document or {}).get("title") or "")
                      + ". " + first_para).strip())
+            # §11 anomaly guard (ASAP 7, F6): содержательная статья не теряет
+            # обложку молча. Пустая сцена при содержательном документе —
+            # детерминированное восстановление из статьи (derive, 0 LLM) →
+            # rich+cover с reason=anomaly_recovered; вырожденная статья —
+            # обложки НЕТ, честный reason=cover_context_missing (не generic).
+            if (not cover_prompt
+                    and getattr(settings, "SUMMARY_COVER_ARTICLE_ENABLED", True)
+                    and _rich_media_supported()):
+                try:
+                    from services import cover_style_jobs as _csj_gate
+                except Exception:      # pragma: no cover - fail-open
+                    _csj_gate = None
+                _gate_doc = document if isinstance(document, dict) else {}
+                _guard = _cpa.cover_context_decision(
+                    cover_prompt, _gate_doc.get("title"),
+                    [p.get("text") for p in (_gate_doc.get("paragraphs")
+                                             or []) if isinstance(p, dict)])
+                if _guard["status"] == "anomaly_recovered":
+                    cover_prompt = _guard["story"]
+                    if _csj_gate is not None:
+                        _csj_gate.emit_cover_event(
+                            _cpa.COVER_ANOMALY, outcome="success",
+                            run_id=correlation_id, chat_id=chat_id,
+                            status="anomaly_recovered",
+                            reason_code="anomaly_recovered")
+                elif _guard["status"] == "cover_context_missing":
+                    if _csj_gate is not None:
+                        _csj_gate.emit_cover_event(
+                            _cpa.COVER_ANOMALY, outcome="skipped",
+                            run_id=correlation_id, chat_id=chat_id,
+                            status="cover_context_missing",
+                            reason_code="cover_context_missing")
             if (cover_prompt
                     and getattr(settings, "SUMMARY_COVER_ARTICLE_ENABLED", True)
                     and _rich_media_supported()):
@@ -2828,17 +2861,78 @@ class SummaryGenerator:
         run_db = getattr(getattr(self, "memory", None), "db", None)
         try:
             style = await self._resolve_cover_style_text(chat_id)
+            # §11 anomaly guard (ASAP 7, точка сборки Base): содержательный
+            # документ при пустых STORY_SCENE+SUMMARY_CONTEXT — восстановление
+            # (component reason=anomaly_recovered); вырожденный — обложки НЕТ
+            # (честный cover_context_missing). Детерминировано, 0 LLM.
+            _doc = document if isinstance(document, dict) else {}
+            _guard = _cpa.cover_context_decision(
+                cover_prompt, _doc.get("title"),
+                [p.get("text") for p in (_doc.get("paragraphs") or [])
+                 if isinstance(p, dict)])
+            anomaly_reason = ""
+            if _guard["status"] == "anomaly_recovered":
+                cover_prompt = _guard["story"]
+                anomaly_reason = "anomaly_recovered"
+                _csj.emit_cover_event(
+                    _cpa.COVER_ANOMALY, outcome="success",
+                    run_id=correlation_id, chat_id=chat_id,
+                    status="anomaly_recovered",
+                    reason_code="anomaly_recovered")
+            elif _guard["status"] == "cover_context_missing" \
+                    and not _guard["story"]:
+                # §11(3): статье нечего показать — generic-style обложка
+                # не уходит молча; текст публикуется штатным degraded-путём.
+                _csj.emit_cover_event(
+                    _cpa.COVER_ANOMALY, outcome="skipped",
+                    run_id=correlation_id, chat_id=chat_id,
+                    status="cover_context_missing",
+                    reason_code="cover_context_missing")
+                if ctx is not None:
+                    ctx.cover_status = "unavailable"
+                if _publish_meta is not None:
+                    _publish_meta["reason"] = "cover_context_missing"
+                return await self._degrade_without_cover(
+                    chat_id, document, correlation_id=correlation_id, ctx=ctx,
+                    reason="cover_context_missing", max_chunks=max_chunks)
             # ASAP 5 (D8/T-5250): Base = STORY_SCENE + SUMMARY_CONTEXT
             # (bounded representation ФИНАЛЬНОГО approved Summary: title +
             # главные события; 0 LLM) + BASE_STYLE. Story-minimum: стиль не
-            # вытесняет сюжет (compose_base_cover_prompt).
-            _doc = document if isinstance(document, dict) else {}
-            summary_context = summary_context_text(
-                _doc.get("title"),
-                [p.get("text") for p in (_doc.get("paragraphs") or [])
-                 if isinstance(p, dict)])
+            # вытесняет сюжет (compose_base_cover_prompt). ASAP 7 (§2.1):
+            # канонический порядок STORY_SCENE → SUMMARY_CONTEXT → BASE_STYLE
+            # (style_first — env-откат).
+            summary_context = _guard["ctx"]
+            # ASAP 7 (§2.2): резолв prompt-limit провайдера для GENERATE.
+            # known → компиляция под лимит (консервативные chars); unknown →
+            # компиляция под assembly-кап БЕЗ silent trim + честный
+            # manifest prompt_limit=unknown + событие COVER_LIMIT_UNKNOWN;
+            # provider 400 too-long → ровно один shorter-retry ниже.
+            gen_limit = None
+            try:
+                gen_limit = await resolve_generate_prompt_limit_async()
+            except Exception:      # pragma: no cover - fail-open
+                gen_limit = None
+            base_total_cap = _cpa.default_total_cap()
+            total_cap = None
+            limit_source = "assembly_cap"
+            limit_unit = "chars"
+            resolved_limit = None
+            if gen_limit is not None and gen_limit.known:
+                limit_chars = _cpa.limit_to_chars(gen_limit.value,
+                                                  gen_limit.unit)
+                if limit_chars:
+                    total_cap = min(base_total_cap, limit_chars)
+                    resolved_limit = int(gen_limit.value)
+                    limit_unit = str(gen_limit.unit or "chars")
+                    limit_source = str(getattr(gen_limit, "source", "")
+                                       or "unknown")
+            else:
+                _csj.emit_cover_event(
+                    _cpa.COVER_LIMIT_UNKNOWN, outcome="start",
+                    run_id=correlation_id, chat_id=chat_id,
+                    status="limit_unknown", reason_code="limit_unknown")
             image_prompt = compose_base_cover_prompt(
-                style, cover_prompt, summary_context)
+                style, cover_prompt, summary_context, total_cap=total_cap)
             # F12/ADR-1024-4 D2 (UPD2 п.10.1) + T-2508 (hotfix4): доказательство
             # подмешивания стиля — R17-safe, без полного текста промпта (только
             # длины и МАРКЕРЫ содержимого).
@@ -2850,22 +2944,70 @@ class SummaryGenerator:
                 "style_len=%d | visual_len=%d | context_len=%d | "
                 "final_len=%d | "
                 "style_is_default=%s | has_comic=%s | has_heading=%s | "
-                "chat_id=%s",
+                "prompt_limit=%s | limit_source=%s | chat_id=%s",
                 bool(style_text), len(style_text), len(visual_text),
                 len(summary_context), len(image_prompt),
                 markers["style_is_default"],
-                markers["has_comic"], markers["has_heading"], chat_id)
+                markers["has_comic"], markers["has_heading"],
+                (resolved_limit if resolved_limit is not None else "unknown"),
+                limit_source, chat_id)
+
+            base_attempts: list = []
+
+            def _shorter_base_prompt(_orig, value, unit):
+                # §2.2 shorter-retry: та же сборка компилятором под observed
+                # limit — story+context сохранены, стиль сжат до floor.
+                chars = _cpa.limit_to_chars(value, unit)
+                if not chars:
+                    return ""
+                return compose_base_cover_prompt(
+                    style, cover_prompt, summary_context,
+                    total_cap=min(base_total_cap, chars))
+
+            def _observed_limit_meta() -> dict:
+                for att in base_attempts:
+                    meta = dict(att.get("meta") or {})
+                    if meta.get("prompt_limit"):
+                        return dict(meta["prompt_limit"])
+                return {}
 
             async def _remember_base_manifest(*, ok: bool,
                                               reason: str) -> None:
                 # D7/T-5249: персист Base-манифеста (фактический sent prompt)
                 # в существующем job-evidence (task_jobs kind=cover_base);
-                # fail-open, полный prompt НЕ в лог.
-                manifest = _cpa.build_base_manifest(
-                    base_style=style_text, story_scene=visual_text,
-                    summary_context=summary_context,
-                    final_prompt=image_prompt, provider=provider_label(),
-                    outcome=("ok" if ok else "failed"), reason=reason)
+                # fail-open, полный prompt НЕ в лог. ASAP 7: attempts обеих
+                # платных попыток + честный limit/limit_source; после
+                # shorter-retry source=observed_provider_400.
+                if base_attempts:
+                    attempts = [
+                        {k: v for k, v in att.items()
+                         if k in ("attempt", "prompt", "outcome", "reason")}
+                        for att in base_attempts]
+                    final_prompt = str(attempts[-1]["prompt"])
+                    observed = _observed_limit_meta()
+                    limit_src = ("observed_provider_400" if observed
+                                 else limit_source)
+                    resolved = int(observed.get("value")
+                                   or resolved_limit or 0) or None
+                    manifest = _cpa.build_base_manifest(
+                        base_style=style_text, story_scene=visual_text,
+                        summary_context=summary_context,
+                        final_prompt=final_prompt, provider=provider_label(),
+                        total_cap=total_cap, resolved_limit=resolved,
+                        limit_unit=limit_unit, limit_source=limit_src,
+                        attempts=attempts,
+                        component_reasons=({"STORY_SCENE": anomaly_reason}
+                                           if anomaly_reason else None))
+                else:
+                    manifest = _cpa.build_base_manifest(
+                        base_style=style_text, story_scene=visual_text,
+                        summary_context=summary_context,
+                        final_prompt=image_prompt, provider=provider_label(),
+                        outcome=("ok" if ok else "failed"), reason=reason,
+                        total_cap=total_cap, resolved_limit=resolved_limit,
+                        limit_unit=limit_unit, limit_source=limit_source,
+                        component_reasons=({"STORY_SCENE": anomaly_reason}
+                                           if anomaly_reason else None))
                 try:
                     await _csj.record_base_cover_manifest(
                         run_db, summary_run_id=correlation_id,
@@ -2873,6 +3015,13 @@ class SummaryGenerator:
                 except Exception:         # pragma: no cover - fail-open
                     logger.debug("summary cover: base manifest persist "
                                  "failed", exc_info=True)
+
+            def _observed_limit_meta() -> dict:
+                for att in base_attempts:
+                    meta = dict(att.get("meta") or {})
+                    if meta.get("prompt_limit"):
+                        return dict(meta["prompt_limit"])
+                return {}
 
             cover_started = log_cover_start(
                 run_id=correlation_id, chat_id=chat_id,
@@ -2885,7 +3034,9 @@ class SummaryGenerator:
             try:
                 tmp_path, img_reason = await generate_image_verbose(
                     image_prompt, chat_id=chat_id,
-                    correlation_id=correlation_id)
+                    correlation_id=correlation_id,
+                    shorter_prompt=_shorter_base_prompt,
+                    attempt_log=base_attempts)
                 await _remember_base_manifest(
                     ok=bool(tmp_path),
                     reason=("ok" if tmp_path else str(img_reason or "")))

@@ -261,9 +261,15 @@ def _base_env(monkeypatch, rec, *, cover_path):
     monkeypatch.setattr(Settings, "SYSTEM2_SUMMARY_ENABLED", True)
     monkeypatch.setattr(Settings, "SUMMARY_COVER_ARTICLE_ENABLED", True)
     monkeypatch.setattr(sg, "_rich_media_supported", lambda: True)
+    # Не зависим от наличия `InputRichMessageMedia` в версии aiogram
+    # (тот же стаб, что в tests/summary_cover_helpers.env).
+    monkeypatch.setattr(
+        sg, "build_cover_media",
+        lambda path, **kw: {"stub_path": path})
     _patch_delivery(monkeypatch, rec)
 
-    async def _gen_image(prompt, *, chat_id=None, correlation_id=None):
+    async def _gen_image(prompt, *, chat_id=None, correlation_id=None,
+                         **kwargs):
         rec.image_prompts.append(prompt)
         rec.image_correlation_ids.append(correlation_id)
         # 10.24 (F12): verbose-контракт — (путь, reason).
@@ -290,13 +296,14 @@ class TestRichDelivery:
         assert rec.rich[0]["media"] and len(rec.rich[0]["media"]) == 1
         assert "богатый дерзкий рассказ" in rec.rich[0]["text"]
         assert rec.ux == []                        # без сообщений об ошибках
-        # конкатенация стиля и visual prompt; ASAP 5 (D8/T-5250): после
-        # story едет bounded SUMMARY_CONTEXT от финального документа.
+        # конкатенация компонентов; ASAP 7 (§2.1): канон story_first —
+        # story → bounded SUMMARY_CONTEXT → стиль (в хвосте).
         base_part = compose_cover_image_prompt(
             sg.SUMMARY_COVER_STYLE_DEFAULT, "a lone cat on a neon rooftop")
         assert len(rec.image_prompts) == 1
-        assert rec.image_prompts[0] == base_part \
-            or rec.image_prompts[0].startswith(base_part + " ")
+        assert rec.image_prompts[0].startswith("a lone cat on a neon rooftop")
+        assert rec.image_prompts[0].endswith(
+            sg.SUMMARY_COVER_STYLE_DEFAULT)
         assert len(rec.image_prompts[0]) >= len(base_part)
         # tmp-файл обложки удалён после отправки
         assert not img.exists()

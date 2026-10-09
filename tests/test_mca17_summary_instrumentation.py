@@ -410,7 +410,8 @@ class _PublishRec:
         base = tmp_path / "base.jpg"
         base.write_bytes(b"BASE")
 
-        async def _gen(prompt, *, chat_id=None, correlation_id=None):
+        async def _gen(prompt, *, chat_id=None, correlation_id=None,
+                       **kwargs):
             return (str(base), "ok") if base_ok else (None, "no_key")
 
         async def _rich(bot, chat_id, text, *, media=None, cover_id=None,

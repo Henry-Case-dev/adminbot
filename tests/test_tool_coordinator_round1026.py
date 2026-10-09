@@ -457,6 +457,9 @@ def _drive_handle(monkeypatch, raw, *, enabled=True, lore=False,
     import services.direct_chat_service as dcs
     from tests.test_direct_chat import _bot, _make_service, _message, _user
     monkeypatch.setattr(Settings, "DIRECT_COORDINATOR_ENABLED", enabled)
+    # ASAP 7 (F1): файл проверяет legacy-гейт System2/координатора — пин
+    # DIRECT_L1_ENABLED=false (его контракт — legacy-ветка).
+    monkeypatch.setattr(Settings, "DIRECT_L1_ENABLED", False)
     svc = _make_service(tool_router=MagicMock())
     synth_mock = AsyncMock(return_value=synth)
     send = AsyncMock(return_value=None)
@@ -543,6 +546,8 @@ class TestHandleTwoCallPreserved:
     async def test_await_count_is_two(self, monkeypatch):
         from tests.test_direct_chat import _bot, _make_service, _message, _user
         import services.direct_chat_service as dcs
+        # ASAP 7 (F1): legacy System2-контракт — DIRECT_L1_ENABLED=false.
+        monkeypatch.setattr(Settings, "DIRECT_L1_ENABLED", False)
         raw = ToolLoopResult("финал", rounds_used=2,
                              tool_trace=_trace("execute_web_search"),
                              tool_context="логи")
@@ -819,7 +824,7 @@ class TestBounds:
             summary_changed
 
     def test_version_and_catalog(self):
-        assert APP_VERSION == "2.58.72"
+        assert APP_VERSION == "2.58.73"
         # ASAP-3 (ADR-1028-2 D12, санкция spec §6): Δ +2 каталога-ключа → 483/423/458 (см. примечание в test_round1025_f8_registry).
         assert len(pc.REGISTRY) == 538
         assert len({f.name for f in dataclasses.fields(Settings)}) == 454

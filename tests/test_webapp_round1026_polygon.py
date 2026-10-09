@@ -145,7 +145,7 @@ class TestFlagsAndInvariants:
         assert len({f.name for f in dataclasses.fields(Settings)}) == 454
 
     def test_app_version_bumped(self):
-        assert APP_VERSION == "2.58.72", APP_VERSION
+        assert APP_VERSION == "2.58.73", APP_VERSION
         assert "v2.58.34" in README, "README не синхронизирован"
         assert 'APP_VERSION = "2.58.71"' in SETTINGS
 

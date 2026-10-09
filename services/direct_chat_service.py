@@ -111,6 +111,7 @@ from services.chat_params import (
 from services.sandbox_reply import DEFAULT_NO_KEY_REPLY
 from services.chat_prompts import (
     CHAT_SYSTEM_PROMPT,
+    DIRECT_L1_PLANNER_SYSTEM_PROMPT,
     DIRECT_SYNTHESIZER_SYSTEM_PROMPT,
     DIRECT_VERBALIZER_SYSTEM_PROMPT,
     PREV_CHAT_VERBALIZER_R1023,
@@ -221,6 +222,9 @@ from services import auto_budget as _auto_budget
 # ADR-1028-3 D7 (§30–§33): LLM REACT — выбор emoji Stage-1 (SILENT→🗿
 # остаётся единственным hardcode).
 from services import direct_llm_react as _llm_react
+# ── ASAP 7 (F1, §1.1–§1.5): pre-tool L1 Planner + capability allowlist. ────
+from services import direct_l1 as _l1
+from services import direct_capabilities as _caps
 
 logger = logging.getLogger(__name__)
 
@@ -344,8 +348,12 @@ _BLOCK_RE = re.compile(          # 66.12: блок «<Tag>\n…\n</Tag>» (те�
     r"^(<[A-Za-z_]+>\n)(.*)(\n</[A-Za-z_]+>)\s*$", re.DOTALL)
 # Раунд 8 (B2/FR-23, п.25): sandwich-строка — финальное напоминание в конце
 # user-блока (последняя строка контента; в лимиты бюджета НЕ входит).
+# ASAP 7 (F1, §1.5/D11): слова «коротко, по делу» УДАЛЕНЫ (скрытый
+# глобальный cap запрещён — Golden D11/§22 п.9); якорь на последний вопрос
+# и анти-артефакт правил имён сохранены. Точечная замена текста — глобально
+# (обе ветки: L1 и legacy).
 _SANDWICH_REMINDER = (
-    "отвечай коротко, по делу, на последний вопрос (<Current_Question>); "
+    "отвечай на последний вопрос (<Current_Question>); "
     "людей называй именами из карты, без скобок и номеров")
 # Раунд 8 (D1/T-798): срез префикса обращения «бот(:)»/«@ник(:)» в начале
 # сообщения для <Current_Question> (зеркало _PEER_PREFIX_RE хендлера
@@ -2072,6 +2080,16 @@ class DirectChatService:
             decision_llm_pending = False
             _decision_allowed_actions: tuple = ("REPLY",)
             _dctx = None
+            # ── ASAP 7 (F1, §1.1/§1.6): гейт pre-tool L1 Planner. env
+            # kill-switch DIRECT_L1_ENABLED AND product-флаг
+            # flags.direct_l1_enabled (AND-семантика §4.3; каталог-ключ
+            # добавит F2). OFF → байт-в-байт прежний pipeline: fused
+            # Decision Task (:2480) + REACT-вызов (:2415) + Синтезатор —
+            # все legacy-ветки ниже сохранены под этим флагом.
+            direct_l1_on = _l1.direct_l1_enabled()
+            l1_plan = None
+            l1_meta: dict = {}
+            _l1_rejected: tuple = ()
             if decision_on:
                 _dctx = await self._decision_context(chat_id, message, query)
                 # Аддитивные поля адресации (контракт A7 — только расширение).
@@ -2117,7 +2135,21 @@ class DirectChatService:
                     # §50/§48: фон/not_addressed silence (не reply_bot) —
                     # дешёвый hard gate, БЕЗ LLM («background silence →
                     # ничего»); conscious SILENT — только direct-autonomous.
-                    if _llm_react.llm_decision_enabled(
+                    if direct_l1_on:
+                        # ── ASAP 7 (F1, §1.7): allowed-actions формируются
+                        # прежней demote-матрицей; LLM-decision-линия
+                        # (Decision Task) в L1-пути НЕ вооружается — решение
+                        # принимает L1 Planner, allowed-набор остаётся
+                        # продуктовым правилом для SILENT/REACT.
+                        _actions: list = ["REPLY"]
+                        if _toggles.reactions:
+                            _actions.append("REACT")
+                        if _toggles.ignore_trivial:
+                            _actions.append("SILENT")
+                        if pre_action not in _actions:
+                            _actions.append(pre_action)
+                        _decision_allowed_actions = tuple(_actions)
+                    elif _llm_react.llm_decision_enabled(
                             bool(_toggles.reactions)) and (
                             pre_action == ACTION_REACT
                             or (pre_action == ACTION_SILENT
@@ -2143,7 +2175,8 @@ class DirectChatService:
                     force_reply_required=_force_required,
                     message_class=_decision_message_class(query),
                     duration_ms=int((time.monotonic() - _p_started) * 1000))
-                if pre_action == ACTION_SILENT and not decision_llm_pending:
+                if (pre_action == ACTION_SILENT and not decision_llm_pending
+                        and not direct_l1_on):
                     _log_decision_short_circuit(
                         chat_id=chat_id, action=ACTION_SILENT,
                         reason_code=pre_reason, target_id=pre_target)
@@ -2164,7 +2197,8 @@ class DirectChatService:
                         addressed=(_dctx is not None and _dctx.addressed),
                         reason=pre_reason)
                     return
-                if pre_action == ACTION_REACT and not decision_llm_pending:
+                if (pre_action == ACTION_REACT and not decision_llm_pending
+                        and not direct_l1_on):
                     # ── ASAP-3.1 (ADR-1028-3 D7, §30–§31): LLM выбирает emoji
                     # в том же Stage-1 (без второго LLM request); kill-switch
                     # OFF (env или per-chat) → байт-в-байт прежний шорт-кат.
@@ -2261,6 +2295,7 @@ class DirectChatService:
             # генерации с непустым блоком пишутся применения (outcome=unknown;
             # ≤5, одна транзакция) + событие `applied` (≤1 на ход). K1/K4 OFF
             # → пусто (байт-паритет 2.58.58).
+            _lessons_block = ""     # ASAP 7 (F1): capture для L2 Writer
             if evidence_bundle is not None \
                     and getattr(evidence_bundle, "lessons", ()):
                 try:
@@ -2286,6 +2321,7 @@ class DirectChatService:
             # сигнале). Автор цитаты — из УЖЕ построенного mca-22-контура
             # (bundle.quoted_speaker; повторный resolver-вызов запрещён).
             # Notable-события clarify (R17-safe), per-reply «успехов» нет.
+            _speech_block = ""      # ASAP 7 (F1): capture для L2 Writer
             if mca_gates.character_speech_enabled():
                 _speech_u = self._build_speech_understanding(
                     message, query, bundle=evidence_bundle)
@@ -2301,50 +2337,6 @@ class DirectChatService:
                                      if _speech_u.clarify == _ce.CLARIFY_ASK
                                      else "clarification_assumption_used"),
                         chat_id=chat_id)
-            # ── MCA-23 (W3): ResponsePlan — детерминированная классификация
-            # ДО LLM-стадии (0 LLM-вызовов; §8 fast path не меняется: для
-            # очевидного chat/micro тот же один Stage-1 вызов). Extent-блок
-            # едет в системный промпт («Ожидаемая полнота»); для
-            # longform-семейства — prompt-conflict scrub старого cap-текста
-            # (PG-кастом не правится) и model-слот max_tokens.
-            response_plan = None
-            extent_block = ""
-            longform_max_tokens = None
-            if _extent.response_plan_enabled():
-                try:
-                    response_plan = _extent.classify_request(query)
-                except Exception:      # pragma: no cover - защитная ветка
-                    response_plan = None
-                if response_plan is not None:
-                    extent_block = _extent.render_extent_block(response_plan)
-                    if extent_block:
-                        system_prompt = (system_prompt + "\n\n"
-                                         + extent_block)
-                    if response_plan.is_longform():
-                        system_prompt, _scrubbed = _extent.scrub_for_plan(
-                            system_prompt, response_plan)
-                        if _scrubbed:
-                            logger.warning(
-                                "[direct] extent-conflict scrub | chat=%s | "
-                                "stage=system_prompt | removed=%d",
-                                chat_id, _scrubbed)
-                        longform_max_tokens = \
-                            _extent.longform_max_output_tokens()
-                    try:   # MCA-23 §33 (P2-B): planned-слой ExecutionGraph —
-                        # единственная guarded интеграционная точка, fail-open.
-                        from services import execution_graph_source as _egs
-                        _egs.record_response_plan(
-                            correlation_id, plan=response_plan,
-                            action=pre_action)
-                    except Exception:
-                        pass
-            time_line = await self._chat_time_line(chat_id)
-            payload = build_messages(system_prompt, user_blocks,
-                                     time_line=time_line)
-            # Epic 60 (65.8, T-476): temperature-пресет юзера (user_prefs)
-            # или дефолт. Другие пайплайны — без temperature (65.8).
-            temperature = settings.tone_temperature(
-                await self._get_tone_preset(chat_id, user_id))
             # Epic 60 (65.7, T-475): «печатает…» вокруг LLM-точки, без паузы.
             # Эпик 04.09.2026 (3.3): при настроенном tool_router генерация идёт
             # циклом chat_with_tools (модель сама решает вызвать инструменты);
@@ -2354,14 +2346,17 @@ class DirectChatService:
             # → 8-й инструмент не объявляется (7 прежних — байт-в-байт).
             # ctx вынесен из вызова цикла: сигнал режима ctx.lore_compiled
             # читается ПОСЛЕ chat_with_tools (доставка HTML, ADR-1020-6 п.2).
-            lore_enabled = await _cpg(
-                chat_id, "flags.lore_compiler_enabled",
-                hot.get("flags.lore_compiler_enabled",
-                        settings.LORE_COMPILER_ENABLED))
             # Раунд 10.23 (F5, ADR-1023-5 §D2/§D5): env-рубильник AND
             # каталоговый тумблер `flags.image_generation_module_enabled`
             # (per-chat). OFF → 9-й инструмент не объявляется (8 прежних —
             # байт-в-байт).
+            # ASAP 7 (F1): резолв lore/image-флагов ПОДНЯТ выше LLM-вызова L1 —
+            # нужен для capability-списка L1-контекста (§1.5) и resolved-
+            # подсета; порядок чистых чтений конфига не наблюдаем.
+            lore_enabled = await _cpg(
+                chat_id, "flags.lore_compiler_enabled",
+                hot.get("flags.lore_compiler_enabled",
+                        settings.LORE_COMPILER_ENABLED))
             from services import image_generation
             image_enabled = await image_generation.resolve_module_enabled(
                 chat_id)
@@ -2371,6 +2366,172 @@ class DirectChatService:
             # платного вызова и двойного списания image_calls).
             if image_pre_gate_fired:
                 image_enabled = False
+            # ── ASAP 7 (F1, §1.1): L1 PLANNER — 1 LLM call (compact context
+            # §1.5, model slot §1.6, ladder §1.6). Решение ДО tools; force →
+            # жёсткий override в reply (§1.7); SILENT → 🗿 (_execute_silent_
+            # ack, конъюнкция неизменна); REACT → реакция из allowed-набора.
+            if direct_l1_on:
+                async with typing_active(bot, chat_id):
+                    l1_plan, l1_meta = await self._plan_direct_l1(
+                        chat_id, message, query, correlation_id,
+                        bundle=evidence_bundle, target_name=target_name,
+                        user_id=user_id, character_block=character_block,
+                        lore_enabled=bool(lore_enabled),
+                        image_enabled=bool(image_enabled),
+                        force_required=bool(_force_required),
+                        reply_bot=bool(_reply_bot))
+                l1_meta.setdefault("override", "")
+                if l1_plan is None:
+                    # §1.6 ladder: L1 outage (slot+main failed / невалидный
+                    # JSON после 1 repair) → deterministic legacy fallback
+                    # (classify_request + demote-матрица). Duplicate reply
+                    # невозможен: один turn — максимум одна отправка (D13),
+                    # freshness/dedup-гварды ниже общие.
+                    l1_plan = _l1.fallback_plan(
+                        query, action=("reply" if pre_action == ACTION_REPLY
+                                       else ("react" if pre_action ==
+                                             ACTION_REACT else "silent")),
+                        allowed_actions=_decision_allowed_actions)
+                    l1_meta["fallback"] = "deterministic"
+                _l1_action = l1_plan.action
+                if _force_required and _l1_action != "reply":
+                    # Hard gate §0/§1.7: force → REPLY всегда (post-parse
+                    # override; L1 вызывался с force-фактом в контексте).
+                    l1_plan.action = "reply"
+                    _l1_action = "reply"
+                    l1_meta["override"] = "force"
+                if not decision_on and _l1_action != "reply":
+                    # decision-политика выключена → прежняя семантика: всегда
+                    # текстовый ответ; L1 react/silent демотируются (§48).
+                    _l1_action = "reply"
+                    l1_plan.action = "reply"
+                    l1_meta["override"] = "decision_off"
+                if _l1_action == "silent":
+                    if l1_plan.confidence_bucket == "low":
+                        # §1.3: low confidence — SILENT демотируется в дет.
+                        # матрицу (pre_action), не в тупое молчание.
+                        l1_meta["override"] = "low_confidence_silent_demote"
+                        _l1_action = ("reply" if pre_action == ACTION_REPLY
+                                      else ("react" if pre_action ==
+                                            ACTION_REACT else "silent"))
+                    if _l1_action == "silent":
+                        if "SILENT" in _decision_allowed_actions:
+                            # §1.7: conscious L1 SILENT в allowed → 🗿 через
+                            # _execute_silent_ack (конъюнкция неизменна);
+                            # вне гейтов ack — тишина.
+                            _log_decision_short_circuit(
+                                chat_id=chat_id, action=ACTION_SILENT,
+                                reason_code="l1_silent",
+                                target_id=_trigger_id)
+                            emit_agentic_event(
+                                "MESSAGE_IGNORED", run_id=correlation_id,
+                                chat_id=chat_id, message_id=_trigger_id,
+                                action=ACTION_SILENT, reason="l1_silent",
+                                target=pre_target)
+                            await self._execute_silent_ack(
+                                bot, chat_id=chat_id,
+                                trigger_id=_trigger_id,
+                                reply_bot=_reply_bot,
+                                addressed=(_dctx is not None
+                                           and _dctx.addressed),
+                                reason="l1_silent")
+                        # вне allowed → тишина (§1.7, семантика :2684-2731).
+                        return
+                if _l1_action == "react":
+                    # §1.7: reaction только из ALLOWED_LLM_REACTIONS;
+                    # невалид → дет. реакция (demoted-матрица) либо тишина
+                    # (семантика :2658-2683).
+                    _reaction = l1_plan.reaction
+                    if _reaction not in _llm_react.ALLOWED_LLM_REACTIONS:
+                        _reaction = None
+                    if "REACT" not in _decision_allowed_actions:
+                        _reaction = None
+                    if _reaction is None:
+                        if pre_action == ACTION_REACT:
+                            _reaction = (pre_reaction or _reaction_for_class(
+                                _decision_message_class(query),
+                                getattr(message, "message_id", None)))
+                            _react_source = "deterministic"
+                        else:
+                            logger.warning(
+                                "[direct] l1 react invalid — silence | "
+                                "chat=%s", chat_id)
+                            return
+                    else:
+                        _react_source = "l1_planner"
+                    _llm_react.record_react_outcome(source=_react_source,
+                                                    reaction=_reaction)
+                    _llm_react.emit_direct_react(
+                        chat_id=chat_id, message_id=pre_target,
+                        reaction=_reaction, source=_react_source,
+                        trigger_type=_trigger_type)
+                    _log_decision_short_circuit(
+                        chat_id=chat_id, action=ACTION_REACT,
+                        reason_code="l1_react", target_id=pre_target,
+                        reaction=_reaction)
+                    _reaction_outcome = await react_moai(
+                        bot, chat_id, pre_target, reaction=_reaction,
+                        reason_code="l1_react")
+                    emit_agentic_event(
+                        "REACTION_SENT", run_id=correlation_id,
+                        chat_id=chat_id, message_id=pre_target,
+                        outcome=_reaction_outcome, reaction=_reaction,
+                        reason="l1_react")
+                    return
+                # action == reply → pipeline продолжается (capability resolve
+                # → tools ∅ | подсет → L2 Writer — стадии ниже).
+            # ── MCA-23 (W3): ResponsePlan — детерминированная классификация
+            # ДО LLM-стадии (0 LLM-вызовов; §8 fast path не меняется: для
+            # очевидного chat/micro тот же один Stage-1 вызов). Extent-блок
+            # едет в системный промпт («Ожидаемая полнота»); для
+            # longform-семейства — prompt-conflict scrub старого cap-текста
+            # (PG-кастом не правится) и model-слот max_tokens.
+            response_plan = None
+            extent_block = ""
+            longform_max_tokens = None
+            if direct_l1_on and l1_plan is not None:
+                # ── ASAP 7 (F1, §1.8): semantic план от L1; явная форма
+                # пользователя — дет. override ПОСЛЕ L1 поверх semantic
+                # extent (§2.5). classify_request в primary path не
+                # вызывается (demote §1.8); legacy/fallback — ветка ниже.
+                l1_plan.apply_form_override(
+                    _extent.explicit_form_override(query))
+                response_plan = l1_plan.to_response_plan()
+            elif _extent.response_plan_enabled():
+                try:
+                    response_plan = _extent.classify_request(query)
+                except Exception:      # pragma: no cover - защитная ветка
+                    response_plan = None
+            if response_plan is not None:
+                extent_block = _extent.render_extent_block(response_plan)
+                if extent_block:
+                    system_prompt = (system_prompt + "\n\n"
+                                     + extent_block)
+                if response_plan.is_longform():
+                    system_prompt, _scrubbed = _extent.scrub_for_plan(
+                        system_prompt, response_plan)
+                    if _scrubbed:
+                        logger.warning(
+                            "[direct] extent-conflict scrub | chat=%s | "
+                            "stage=system_prompt | removed=%d",
+                            chat_id, _scrubbed)
+                    longform_max_tokens = \
+                        _extent.longform_max_output_tokens()
+                try:   # MCA-23 §33 (P2-B): planned-слой ExecutionGraph —
+                    # единственная guarded интеграционная точка, fail-open.
+                    from services import execution_graph_source as _egs
+                    _egs.record_response_plan(
+                        correlation_id, plan=response_plan,
+                        action=pre_action)
+                except Exception:
+                    pass
+            time_line = await self._chat_time_line(chat_id)
+            payload = build_messages(system_prompt, user_blocks,
+                                     time_line=time_line)
+            # Epic 60 (65.8, T-476): temperature-пресет юзера (user_prefs)
+            # или дефолт. Другие пайплайны — без temperature (65.8).
+            temperature = settings.tone_temperature(
+                await self._get_tone_preset(chat_id, user_id))
             # Раунд 10.24 (F13→F14, T-2295): эмиссия `ToolContext.native_media` —
             # интерфейсная строка связи. Файл принадлежит F13, но F13-коммит
             # эмиссию не отдал, поэтому она влита F14 вместе с модулем
@@ -2486,8 +2647,10 @@ class DirectChatService:
             # в сообщении, ни в реплае, ни нативного медиа) → ОДИН конкрет-
             # ный уточняющий вопрос (детерминированный, 0 LLM). Цель
             # разрешима из reply → не спрашиваем (§20).
+            # ASAP 7 (F1, §1.9 demote): fixed-фраза — legacy-ветка и
+            # fallback; в L1-пути clarification решает L1, формулирует L2.
             if (response_plan is not None and self.tool_router is not None
-                    and not decision_llm_pending):
+                    and not decision_llm_pending and not direct_l1_on):
                 _has_target = (bool(getattr(tool_ctx, "resolved_url", None))
                                or bool(getattr(tool_ctx, "native_media",
                                                None)))
@@ -2502,7 +2665,30 @@ class DirectChatService:
                     return
             try:
                 async with typing_active(bot, chat_id):
-                    if self.tool_router is not None:
+                    # ── ASAP 7 (F1, §1.4): capability resolve (allowlist).
+                    # Анонсируется ТОЛЬКО resolved-подсет active_tools;
+                    # needs_clarification → tools не запускаются (вопрос
+                    # вместо платных вызовов, §1.9).
+                    _l1_tool_schemas = None
+                    if direct_l1_on:
+                        _l1_tool_schemas, _l1_rejected = \
+                            await self._l1_tool_subset(
+                                chat_id, correlation_id,
+                                bool(lore_enabled), bool(image_enabled),
+                                l1_plan)
+                    if direct_l1_on:
+                        raw = await self._l1_tool_phase(
+                            payload, tool_ctx, query=query,
+                            lore_enabled=bool(lore_enabled),
+                            image_enabled=bool(image_enabled),
+                            temperature=temperature, chat_id=chat_id,
+                            correlation_id=correlation_id, l1_plan=l1_plan,
+                            response_plan=response_plan,
+                            fallback_meta=_fallback_meta,
+                            time_line=time_line,
+                            tool_schemas=_l1_tool_schemas,
+                            longform_max_tokens=longform_max_tokens)
+                    elif self.tool_router is not None:
                         # ASAP-3.2 (ADR-1028-5 D10, §44/§45): fallback
                         # recompose на tool-пути — tool schemas ВХОДЯТ в
                         # бюджет fallback-окна (резерв вычитается до
@@ -2557,6 +2743,8 @@ class DirectChatService:
                         # переключении на fallback-модель payload
                         # пересобирается под её окно (adapter может быть
                         # None; ON/OFF-паритет сохранён).
+                        # ASAP 7 (F1, §1.1): в L1-пути эта ветка не
+                        # выполняется (Writer — L2, стадия ниже).
                         _fb_factory = _fallback_meta.get("adapter_factory")
                         raw = await self.llm.generate(
                             payload, temperature=temperature, chat_id=chat_id,
@@ -2771,7 +2959,9 @@ class DirectChatService:
             # wire-`action` не вводится. Kill-switch OFF → координатор не
             # строится (точный legacy-путь, без лишних логов).
             coordinator = None
-            if coordinator_enabled():
+            # ASAP 7 (F1, §1.2): координатор — post-фактум классификатор
+            # легаси-гейта System2; в L1-пути не строится (гейт демонтирован).
+            if not direct_l1_on and coordinator_enabled():
                 coordinator = build_coordinator_decision(
                     query=query, message=message, raw=raw, user_id=user_id,
                     image_fired=image_pre_gate_fired, dig_fired=dig_fired,
@@ -2804,7 +2994,10 @@ class DirectChatService:
             # per-turn `ctx.metric_results` (+intent). K2 OFF/ошибка → None
             # (байт-паритет). Один контракт на System2 и финальную сборку.
             numeric_contract = self._numeric_contract_from_ctx(tool_ctx)
-            if (getattr(settings, "SYSTEM2_DIRECT_ENABLED", True)
+            # ── ASAP 7 (F1, §1.2): гейт System2 демонтирован из primary path
+            # (guard `not direct_l1_on`); его роль забрал L2 Writer ниже.
+            if (not direct_l1_on
+                    and getattr(settings, "SYSTEM2_DIRECT_ENABLED", True)
                     and isinstance(raw, ToolLoopResult)
                     and not raw.degraded
                     and bool(getattr(raw, "tool_trace", None))
@@ -2829,6 +3022,64 @@ class DirectChatService:
                     raw, response_mode = synthesized
                     if coordinator is not None:
                         coordinator.style = response_mode
+            if direct_l1_on:
+                # ── ASAP 7 (F1, §1.1/§1.2): evidence packaging (дет., БЕЗ
+                # LLM) → L2 WRITER — единственный финальный Writer, 1 LLM
+                # call. Топология reply-пути: L1 (1) + [tools] + L2 (1).
+                _evidence = (_l1.build_evidence_packet(raw, response_plan)
+                             if isinstance(raw, ToolLoopResult) else "")
+                _media_skip = (isinstance(raw, ToolLoopResult)
+                               and not _extent.media_writer_needed(
+                                   response_plan, raw))
+                _clarify_sent = False
+                if not _media_skip:
+                    _plan_block = _l1.build_l2_plan_block(
+                        l1_plan,
+                        rejected=_l1_rejected,
+                        clarification=bool(
+                            getattr(l1_plan, "needs_clarification", False)),
+                        low_confidence=(getattr(l1_plan,
+                                                "confidence_bucket", "high")
+                                        == "low"))
+                    _l2 = await self._l2_write_answer(
+                        chat_id, query, temperature=temperature,
+                        correlation_id=correlation_id,
+                        character_block=character_block,
+                        style_directives=style_directives,
+                        numeric_contract=numeric_contract,
+                        response_plan=response_plan,
+                        plan_block=_plan_block, user_blocks=user_blocks,
+                        time_line=time_line, evidence=_evidence,
+                        lessons_block=_lessons_block,
+                        speech_block=_speech_block,
+                        max_tokens=(longform_max_tokens
+                                    if response_plan is not None
+                                    and response_plan.is_longform()
+                                    else None))
+                    if _l2 is not None:
+                        # F3-семантика: режим несёт стиль и канал доставки.
+                        raw, response_mode = _l2
+                    elif not isinstance(raw, ToolLoopResult):
+                        # §1.9: L2 отказал, финала tool-loop нет → honest
+                        # fallback — ровно один fixed clarification-вопрос
+                        # при запросе уточнения (≤1/turn), иначе пустой
+                        # ответ (ветка тишины/🗿 ниже). LLMError уже
+                        # пробросился бы наверх (LLM outage → error phrase).
+                        if getattr(l1_plan, "needs_clarification", False) \
+                                and not _clarify_sent:
+                            _clarify_sent = True
+                            _fixed = _extent.clarification_question(
+                                response_plan, has_target=False)
+                            if _fixed:
+                                logger.info(
+                                    "[direct] l1 clarify fallback | "
+                                    "chat=%s | kind=%s", chat_id,
+                                    getattr(response_plan, "task_kind", ""))
+                                await send_chunked_reply(
+                                    bot, chat_id, _fixed,
+                                    message.message_id)
+                                return
+                        raw = ""
             # БЛОК 7.2b (T-1921): единая стадия пост-обработки — reasoning-
             # теги-черновики не уходят пользователю (no-op без тегов).
             answer = strip_reasoning_tags(str(raw).strip())
@@ -3100,7 +3351,361 @@ class DirectChatService:
             if dedup_key is not None and self._cache is not None:
                 await self._cache.set_dedup(dedup_key, answer_text or "")
 
-    # ── System 2 direct (F5, раунд 10.22, ADR-1022-5) ───────────
+    # ── ASAP 7 (F1, §1.1–§1.6): Direct L1 Planner pipeline ──────────────
+
+    @staticmethod
+    def _l1_reply_block(message) -> str:
+        """§1.5: компактный срез reply-цели для L1-контекста (кап 400
+        символов; имя автора + текст). Никогда не бросает."""
+        try:
+            reply = getattr(message, "reply_to_message", None)
+            if reply is None:
+                return ""
+            text = str(getattr(reply, "text", None)
+                       or getattr(reply, "caption", None) or "").strip()
+            author = (getattr(getattr(reply, "from_user", None),
+                              "first_name", "") or "")
+            head = f"автор: {str(author).strip()}\n" \
+                if str(author).strip() else ""
+            return (head + text[:_l1.L1_REPLY_BLOCK_CHARS]).strip()
+        except Exception:      # pragma: no cover - защитная ветка
+            return ""
+
+    def _l1_speech_hints(self, message, query: str, bundle) -> str:
+        """§1.5: короткий рендер речевого сигнала (коды, R17-safe; полный
+        <Speech_Understanding>-блок остаётся Writer-уровня)."""
+        try:
+            signal = self._build_speech_understanding(message, query,
+                                                      bundle=bundle)
+        except Exception:      # pragma: no cover - защитная ветка
+            return ""
+        if signal is None or not getattr(signal, "active", False):
+            return ""
+        parts = [f"act={getattr(signal, 'speech_act', 'assert')}"]
+        if getattr(signal, "quote", False):
+            parts.append("quote")
+        if getattr(signal, "negation", False):
+            parts.append("negation")
+        if getattr(signal, "humor_risk", False):
+            parts.append("humor_risk")
+        clarify = getattr(signal, "clarify", None)
+        if clarify == _ce.CLARIFY_ASK:
+            parts.append("clarify=ask")
+        elif clarify == _ce.CLARIFY_ASSUME:
+            parts.append("clarify=assume")
+        return " ".join(parts)
+
+    async def _plan_direct_l1(self, chat_id: int, message, query: str,
+                              correlation_id: str | None, *, bundle,
+                              target_name: str, user_id: int | None,
+                              character_block: str, lore_enabled: bool,
+                              image_enabled: bool, force_required: bool,
+                              reply_bot: bool) -> tuple:
+        """§1.1/§1.5/§1.6: pre-tool L1 Planner — 1 LLM call → L1Plan.
+
+        Ladder: configured L1 slot (dedicated, hot-first) → (fallback ON)
+        main model → дет. fallback решает вызывающий (fallback_plan).
+        Bounded repair: ровно 1 повтор при невалидном JSON (D14). usage-row
+        ``step="l1_planner"`` (генерится llm.generate; для dedicated слота —
+        вручную) + agentic event ``L1_PLAN`` (§1.5). Никогда не бросает;
+        ``None``-план → сигнал deterministic fallback (D13/D14)."""
+
+        def _record_llm_call(source_label: str, attempt_messages, slot):
+            async def _call():
+                if source_label == "l1_slot":
+                    assert slot is not None and slot.dedicated
+                    # dedicated: (content, usage)
+                    return await _l1.dedicated_generate(
+                        self.llm, attempt_messages, slot,
+                        max_output_tokens=_l1.l1_max_output_tokens(),
+                        timeout_seconds=_l1.l1_timeout_seconds())
+                text = await asyncio.wait_for(
+                    self.llm.generate(
+                        attempt_messages,
+                        temperature=_l1.l1_temperature(None),
+                        chat_id=chat_id, module="direct_chat",
+                        step="l1_planner", correlation_id=correlation_id,
+                        max_output_tokens=_l1.l1_max_output_tokens()),
+                    timeout=float(_l1.l1_timeout_seconds()))
+                return str(text or ""), None
+            return _call
+
+        started = time.monotonic()
+        meta: dict = {"source": "main", "inherited": True, "fallback": "",
+                      "repair": 0, "override": ""}
+        try:
+            window = await self.memory.get_window_messages(chat_id)
+        except Exception:
+            window = []
+        # §1.4: список доступных capability (по активному набору tools).
+        try:
+            announced = {t["function"]["name"] for t in
+                         active_tools(lore_enabled, image_enabled)
+                         if isinstance(t, dict) and t.get("function")}
+        except Exception:
+            announced = set()
+        available_caps = _caps.available_capabilities(announced)
+        system_prompt_l1 = resolve_prompt(
+            "prompts.direct_l1_planner_system_prompt",
+            DIRECT_L1_PLANNER_SYSTEM_PROMPT)
+        context_text = _l1.build_l1_context(
+            query=query,
+            current_question=self._render_current_question(message),
+            reply_block=self._l1_reply_block(message),
+            window=window, speaker=target_name,
+            addressee=(getattr(bundle, "addressee", None) or "чат"),
+            memory_hints=_bundle_scoped_slice(bundle),
+            speech_hints=self._l1_speech_hints(message, query, bundle),
+            capabilities=available_caps,
+            force_line=(_l1.FORCE_LINE if force_required else
+                        (_l1.AUTONOMOUS_LINE if reply_bot else "")),
+            persona_frame=str(character_block or ""))
+        input_chars = len(context_text)
+        messages = [
+            {"role": "system", "content": system_prompt_l1},
+            {"role": "user", "content": context_text},
+        ]
+        meta["input_chars"] = input_chars
+        plan: _l1.L1Plan | None = None
+        last_error: str = ""
+        # §1.6 ladder: (1) configured L1 slot — только если dedicated;
+        # (2) main model — при fallback ON (когда slot dedicated). Не-
+        # dedicated слот = inherit main: попытка одна (повтор того же
+        # вызова бессмысленен), далее deterministic fallback.
+        attempts: list[tuple[str, bool]] = []
+        slot = _l1.resolve_l1_model(chat_id)
+        if slot.dedicated:
+            attempts.append(("l1_slot", True))
+            attempts.append(("main", True))       # fallback ON-гейт ниже
+        else:
+            attempts.append(("main", False))
+        raw_text = ""
+        for attempt_index, (label, needs_fallback_gate) in enumerate(attempts):
+            if needs_fallback_gate and attempt_index > 0 \
+                    and not _l1.l1_fallback_enabled():
+                break
+            try:
+                raw_text, usage = await _record_llm_call(
+                    label, messages, slot)()
+                if label == "l1_slot" and usage is not None:
+                    # dedicated-слот: usage-row пишет вызывающая сторона
+                    # (llm.generate не задействован).
+                    try:
+                        from services import usage_events as _ue
+                        in_toks, out_toks, estimated = \
+                            _ue.resolve_token_counts(usage, messages,
+                                                     raw_text)
+                        await _ue.record(
+                            getattr(self.llm, "_pg", lambda: None)(),
+                            module="direct_chat", step="l1_planner",
+                            correlation_id=correlation_id, chat_id=chat_id,
+                            model=slot.model,
+                            input_tokens=in_toks, output_tokens=out_toks,
+                            tokens_estimated=estimated)
+                    except Exception:
+                        pass
+                plan = _l1.parse_l1_plan(raw_text)
+                if plan is not None:
+                    plan.source = "llm"
+                    meta["source"] = label
+                    meta["inherited"] = label != "l1_slot"
+                    break
+                # §1.3 (D14): невалидный JSON → bounded repair, ровно 1.
+                if meta["repair"] == 0:
+                    meta["repair"] = 1
+                    raw_text, usage2 = await _record_llm_call(
+                        label, _l1.build_repair_messages(messages,
+                                                         raw_text),
+                        slot)()
+                    plan = _l1.parse_l1_plan(raw_text)
+                    if plan is not None:
+                        plan.source = "repair"
+                        meta["source"] = label
+                        meta["inherited"] = label != "l1_slot"
+                        break
+            except Exception as exc:      # LLMError/TimeoutError → ladder
+                last_error = f"{type(exc).__name__}"
+                logger.warning(
+                    "[direct] l1 planner attempt failed | chat=%s | "
+                    "source=%s | error=%s", chat_id, label,
+                    type(exc).__name__)
+        latency_ms = int((time.monotonic() - started) * 1000)
+        fallback_flag = "deterministic" if plan is None else ""
+        if plan is None:
+            logger.warning(
+                "[direct] l1 planner outage — deterministic fallback | "
+                "chat=%s | last_error=%s", chat_id, last_error or "invalid")
+        _l1.emit_l1_plan_event(
+            run_id=correlation_id, chat_id=chat_id,
+            message_id=getattr(message, "message_id", None), plan=plan,
+            requested=(plan.capabilities_needed if plan is not None else ()),
+            resolved=(), inherited=bool(meta.get("inherited")),
+            fallback=fallback_flag, latency_ms=latency_ms,
+            input_chars=input_chars,
+            source=str(meta.get("source") or "main"))
+        return plan, meta
+
+    # Холдеры ladder-состояния L1 (заполняются в handle перед вызовом).
+
+    async def _l1_tool_subset(self, chat_id: int, correlation_id, lore: bool,
+                              image: bool, l1_plan) -> tuple:
+        """§1.4: resolved-подсет схем tools (единственный анонс для цикла).
+        Возврат ``(schemas, rejected)``; ``[]`` → тулов нет; hallucinated/
+        неактивные → drop + L1_CAPABILITY_REJECTED (D15); low_confidence →
+        capabilities НЕ исполняются (§1.3, честная пометка). Никогда не
+        бросает."""
+        try:
+            schemas = active_tools(bool(lore), bool(image))
+            announced = {t["function"]["name"] for t in schemas
+                         if isinstance(t, dict) and t.get("function")}
+            skip = ()
+            plan = l1_plan or _l1.L1Plan()
+            if getattr(plan, "confidence_bucket", "high") == "low":
+                # §1.3: low → capabilities НЕ исполняются (честная пометка).
+                skip = tuple(plan.capabilities_needed or ())
+            resolved, rejected = _caps.resolve_capabilities(
+                plan.capabilities_needed or (), announced,
+                skip_capabilities=skip)
+            for cap, reason in rejected:
+                _caps.emit_capability_rejected(
+                    cap, reason, chat_id=chat_id, run_id=correlation_id)
+            return _caps.schemas_for_names(resolved, schemas), tuple(rejected)
+        except Exception:      # pragma: no cover - защитная ветка
+            return [], ()
+
+    async def _l1_tool_phase(self, payload, tool_ctx, *, query: str,
+                             lore_enabled: bool, image_enabled: bool,
+                             temperature, chat_id: int,
+                             correlation_id, l1_plan, response_plan,
+                             fallback_meta: dict, time_line: str,
+                             tool_schemas, longform_max_tokens=None):
+        """§1.1: tool-фаза L1-пайплайна. resolved tools = ∅ (или роутера
+        нет / needs_clarification) → ``None`` (Writer-стадия без evidence).
+        Иначе существующий bounded ``chat_with_tools`` с анонсом ТОЛЬКО
+        resolved-подсета (DAG-executor сохранён); дет. fast-path «2+ URL +
+        явное сравнение» — как дополнение (§1.4)."""
+        plan = l1_plan or _l1.L1Plan()
+        if not tool_schemas or self.tool_router is None \
+                or getattr(plan, "needs_clarification", False):
+            return None
+        _fb_factory = fallback_meta.get("adapter_factory")
+        _fb_adapter = None
+        if _fb_factory is not None:
+            try:
+                _tools_tokens = count_tokens(json.dumps(
+                    tool_schemas, ensure_ascii=False))
+            except Exception:
+                _tools_tokens = 0
+            _fb_adapter = _fb_factory(time_line, extra_reserve=_tools_tokens)
+        _tool_plan = None
+        if (response_plan is not None
+                and response_plan.tool_policy != "none"
+                and _extent.tool_plan_enabled()):
+            try:
+                _announced = {
+                    t["function"]["name"] for t in tool_schemas
+                    if isinstance(t, dict) and t.get("function")}
+                _tool_plan = _extent.build_tool_plan(
+                    query, available_tools=_announced)
+            except Exception:      # план не роняет запрос
+                _tool_plan = None
+            if not _tool_plan:
+                _tool_plan = None
+        return await chat_with_tools(
+            self.llm, payload,
+            tools=tool_schemas,
+            router=self.tool_router, ctx=tool_ctx,
+            temperature=temperature, chat_id=chat_id,
+            module="direct_chat",
+            correlation_id=correlation_id,
+            fallback_payload_adapter=_fb_adapter,
+            max_output_tokens=longform_max_tokens,
+            tool_plan=_tool_plan)
+
+    async def _l2_write_answer(self, chat_id: int, query: str, *,
+                               temperature, correlation_id=None,
+                               character_block: str = "",
+                               style_directives: str = "",
+                               numeric_contract=None, response_plan=None,
+                               plan_block: str = "", user_blocks=None,
+                               time_line: str = "", evidence: str = "",
+                               lessons_block: str = "",
+                               speech_block: str = "",
+                               max_tokens=None) -> tuple[str, str] | None:
+        """ASAP 7 (F1, §1.2): L2 WRITER — Вербализатор-канал на ВСЕХ
+        Direct-путях. Тот же prompt-канал/``verbalize_validated``/канальные
+        правила, что у легаси Stage-2 (переиспользование, не дубль); меняется
+        условие запуска и вход: полный Writer-контекст + plan-блок +
+        evidence packet (при тулах). 1 LLM call (ретраи bounded ≤2).
+        Возврат ``(текст, response_mode)``; ``None`` → честный отказ."""
+        modes_on = getattr(settings, "SMART_VERBALIZER_MODES_ENABLED", True)
+        response_mode = _l1.plan_response_mode(response_plan)
+        verbalizer_template = (
+            resolve_prompt("prompts.direct_chat_verbalizer_system_prompt",
+                           DIRECT_VERBALIZER_SYSTEM_PROMPT)
+            if modes_on else PREV_CHAT_VERBALIZER_R1023)
+        _plan_extent_block = (_extent.render_extent_block(response_plan)
+                              if response_plan is not None else "")
+        verbalizer_system = (
+            compose_verbalizer_system(
+                verbalizer_template, response_mode, "plain", html_safe=True,
+                character_block=character_block,
+                style_directives=style_directives,
+                extent_block=_plan_extent_block)
+            if modes_on else verbalizer_template)
+        # MCA-23 §32-семантика: prompt-conflict scrub старого cap-текста
+        # (PG-кастом) из ФИНАЛЬНОЙ сборки L2.
+        verbalizer_system, _scrubbed = _extent.scrub_for_plan(
+            verbalizer_system, response_plan)
+        if _scrubbed:
+            logger.warning(
+                "[direct] extent-conflict scrub | chat=%s | "
+                "stage=l2_writer | removed=%d", chat_id, _scrubbed)
+        parts: list[str] = []
+        if time_line:
+            parts.append(str(time_line))
+        if plan_block:
+            parts.append(plan_block)
+        if speech_block:
+            parts.append(speech_block)
+        if lessons_block:
+            parts.append(lessons_block)
+        for block in (user_blocks or []):
+            if block:
+                parts.append(str(block))
+        if evidence:
+            parts.append("<Tool_Evidence>\n" + evidence + "\n</Tool_Evidence>")
+        base_messages = [
+            {"role": "system", "content": verbalizer_system},
+            {"role": "user",
+             "content": "\n\n".join(parts) or str(query or "")},
+        ]
+
+        async def _generate(messages):
+            return await self.llm.generate(
+                messages, temperature=temperature, chat_id=chat_id,
+                module="direct_chat", step="l2_writer",
+                correlation_id=correlation_id, max_output_tokens=max_tokens)
+
+        enabled_rules = (channel_enabled_rules("plain", response_mode)
+                         if modes_on else None)
+        text, stats = await verbalize_validated(
+            _generate, base_messages, max_retries=2,
+            enabled_rules=enabled_rules,
+            dynamic_rules=anticliche_cache.get_rules() or None,
+            form_contract=None,
+            fallback_text=None,
+            numeric_contract=numeric_contract)
+        logger.info(
+            "[direct] l2 writer | chat=%s | mode=%s | attempts=%d | "
+            "retries=%d | hits=%d | fallback=%s", chat_id, response_mode,
+            stats.get("attempts", 0), stats.get("retries", 0),
+            len(stats.get("hits") or []), bool(stats.get("fallback")))
+        if not text.strip():
+            return None
+        return text, response_mode
+
+    # ── System 2 direct (F5, раунд 10.22, ADR-1022-5) — legacy-ветка ────
 
     async def _synthesize_direct_answer(self, chat_id: int, query: str,
                                         raw, temperature,

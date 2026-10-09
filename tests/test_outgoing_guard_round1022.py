@@ -239,7 +239,9 @@ class TestCanonR1022:
             "prompts.summary_l1_clusterizer_system_prompt",
             "prompts.summary_l2_writer_system_prompt",
             "prompts.summary_narrator_system_prompt",
-            "prompts.direct_chat_verbalizer_system_prompt")}
+            "prompts.direct_chat_verbalizer_system_prompt",
+            # ASAP 7 (F1): новый ключ L1 Planner Direct — вне R1022.
+            "prompts.direct_l1_planner_system_prompt")}
         from services import (chat_prompts, checkup_prompts, factcheck_prompts,
                               search_prompts, summary_prompts, web_prompts,
                               youtube_prompts)

@@ -21,6 +21,7 @@ import pytest
 
 from services.chat_prompts import (
     CHAT_SYSTEM_PROMPT,
+    DIRECT_L1_PLANNER_SYSTEM_PROMPT,
     DIRECT_VERBALIZER_SYSTEM_PROMPT,
     LEGACY_CHAT_SYSTEM_PROMPT,
     PREV_CHAT_MCA23_SYSTEM_PROMPT,
@@ -30,6 +31,7 @@ from services.chat_prompts import (
     PREV_CHAT_SYSTEM_PROMPT,
     PREV_CHAT_VERBALIZER_MCA23,
     PREV_CHAT_VERBALIZER_R1023,
+    PREV_DIRECT_L1_PLANNER_BASE,
     PREV_R8_CHAT_SYSTEM_PROMPT,
     PREV_R9_CHAT_SYSTEM_PROMPT,
 )
@@ -104,6 +106,8 @@ _ALL_KEYS = [
     "prompts.direct_chat_system_prompt",
     # MCA-23 (Wave 3, §11): первые ступени ключа Вербализатора direct.
     "prompts.direct_chat_verbalizer_system_prompt",
+    # ASAP 7 (F1, §1.3): новый ключ L1 Planner Direct (PG-ключ сидит F2).
+    "prompts.direct_l1_planner_system_prompt",
     "prompts.summary_system_prompt",
     "prompts.compress_system_prompt",
     "prompts.checkup_system_prompt",
@@ -129,6 +133,8 @@ _PREV_BY_KEY: dict[str, str] = {
     # MCA-23: слепок базы канона Вербализатора 10.23 (без типографики).
     "prompts.direct_chat_verbalizer_system_prompt":
         PREV_CHAT_VERBALIZER_R1023,
+    # ASAP 7 (F1): слепок базы канона L1 Planner (без правил).
+    "prompts.direct_l1_planner_system_prompt": PREV_DIRECT_L1_PLANNER_BASE,
     "prompts.summary_system_prompt": PREV_SUMMARY_SYSTEM_PROMPT,
     "prompts.compress_system_prompt": PREV_COMPRESS_PROMPT,
     "prompts.checkup_system_prompt": PREV_CHECKUP_SYSTEM_PROMPT,
@@ -155,6 +161,9 @@ _NEW_BY_KEY: dict[str, str] = {
     # MCA-23: канон Вербализатора без unconditional cap-правила.
     "prompts.direct_chat_verbalizer_system_prompt":
         DIRECT_VERBALIZER_SYSTEM_PROMPT,
+    # ASAP 7 (F1): канон L1 Planner (планировщик, не писатель).
+    "prompts.direct_l1_planner_system_prompt":
+        DIRECT_L1_PLANNER_SYSTEM_PROMPT,
     "prompts.summary_system_prompt": SYSTEM_PROMPT,
     "prompts.compress_system_prompt": COMPRESS_PROMPT,
     "prompts.checkup_system_prompt": CHECKUP_SYSTEM_PROMPT,

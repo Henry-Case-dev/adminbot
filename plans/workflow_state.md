@@ -21,10 +21,34 @@ Active lanes (Phase 2, Wave 1 — 3 параллельных writer-лейны, 
 - F8 | Builder | done | Cover read-path | bg:ses_ee2cf831bffeekzXGLBU5XNfAU | include_prompt admin-only fail-closed + UI exact prompt; 12 тестов passed + Playwright; Δroutes=0; Orchestrator-проверка: analytics.py:621/645-655, reader cover_style_jobs.py:1328 — ок; отчёт f8-report.md. Live-чек (2 разных summary → сверка final_prompt) = owner-гейт после деплоя
 - F3 | Builder | writer | Module registry | bg:ses_ee2cf832fffe9byGy2Uc46SSb4 | module_registry.py + Initiative карточка + M1/M4/M2
 
+Active lanes (Wave 1 = DONE, закоммичена и запушена):
+- e6670b0 feat(asap7-wave1) 2.58.72: F5+F8+F3, Review Approved (REV-1), version bump + 13 пинов, param-registry переиздан; push origin/master ok
+
+Active lanes (деплой + Wave 2):
+- DEPLOY-W1 | DevOps | done | Wave 1 | bg:ses_ee24eaecaffeTwesM1C10W6ydN | VERIFIED: прод e6670b0 = 2.58.72, healthz 200 (внутрь+внешне), pull ff-only, sha256 5/5 байт-в-байт, рестарт 1х NRestarts=0, boot ERR=0/CRIT=0, RBAC 401 жив, ΔDDL=0 (UV=34, tables=120); rollback готов (reset e6670b0~1 + бэкап на проде); evidence deploy-w1-evidence.md
+- F1 | Builder | done | Direct L1 core | bg:ses_ee24eaec9ffeoC8g8pABbgoCWt | 37 тестов (D1-D15, топология 2 call, legacy-паритет); NEW direct_l1.py + direct_capabilities.py; rewire :2089→:2373; sandwich :355; D-2 фикс; agentic 33→35; сосед 705 passed; отступ WRITE_SCOPE (agentic_events + 8 neighbor-пинов) задокументирован; отчёт f1-report.md
+- REV-2 | Reviewer | needs_fixes | Wave 2 | bg:ses_ee2128209ffe1LuGUFN352qHe8 | 1 блокинг B11: бюджет ≤2 платных вызова пробивается (transient→400→retry=3-й); 15/17 VERIFIED, legacy-пины легитимны, топология/гейты/R17 подтверждены
+- F6-REWORK | Builder | writer | B11 fix | bg:ses_ee2032ee1ffeHqu6lF43TMF6F1 | shorter-retry только при paid<2 + регресс timeout→400; речек B11 у Reviewer
+
+Non-blocking (REV-2, учесть в Wave 3/F9):
+1. summary_generator:2967/:3019 — дубль _observed_limit_meta — убрать
+2. direct_l1 L1_PLAN resolved=() всегда пуст — F2 доносит resolved (Tools planned)
+3. chat_autonomous_reply_enabled=false + L1 ON: SILENT на reply-to-bot возможен — честно показать в F2 UI / F9 help
+4. duplicate-guard регенерация из Stage-1 payload — pre-existing, заметка
+6. style floor ±1-2 символа при забитом капе — косметика
+
+Join-reconcile (Wave 2):
+- JOIN DONE: test_asap7_direct_l1 + test_asap7_cover_fix + test_prompt_migrations = 109 passed в общем дереве; F6-флаг про миграции закрыт (F1 донёс лестницу)
+- test_summary_publish_integration…l2_publishes_article — pre-existing RED на HEAD (вне волны)
+
+Owner acceptance после деплоя Wave 1 (не блокируют конвейер):
+- авторизованный /api/config → ключ registry/modules; live-карточка #/modules/initiative; badge «неактивен»; добавить бота в новый чат → появился в селекторе; Run Inspector «Фактический промпт» — 2 разных саммари → сверка final_prompt (подтверждение/опровержение style-only)
+
+Watch (не Wave 1, наблюдать): 1 traceback на буте EmbeddingGroupCoolingDown в embedding_canary_check — задокументированный fail-safe (FTS-only A06), домен embedding-квот из ASAP 4.4/5
+
 Join-reconcile (Wave 1):
-- JOIN DONE: совместный прогон test_asap7_* = 48 passed; test_round1025_f8_registry = 29 passed (пин переутверждён F3 штатно); catalog_zero_delta = 3 passed (дельта каталога осознанная); node --check OK
-- F5/F8 отчёты перепроверены точечно Orchestrator-ом (хендлеры :87/:180, middleware bot.py:902, analytics.py:621/645-655, reader cover_style_jobs.py:1328)
-- REV-1 | Reviewer | read-only | Wave 1 | bg:ses_ee25f2212ffeIVVhHFrWNqcorZ | adversarial-ревью write-scope дисциплины + контрактов + целостности волны
+- JOIN DONE: test_asap7_* 48 passed; registry 29; zero_delta 3; node --check OK; конфликт пинов разрешён штатным re-issue
+- REV-1 Approved: секции app.js не пересеклись; R17 fail-closed; effective_gate AND; pre-existing RED tool_loop подтверждён на чистом HEAD
 
 P7-A ключевые находки (перепроверены Orchestrator-ом grep/read):
 - H1 TRUE: classify_request (response_extent.py:270) — 0-LLM regex-план до LLM (direct_chat_service.py:2315); social_chat→compact; multi-tool только 2+URL
@@ -47,8 +71,9 @@ Last verified:
 - Spot-checks: _SANDWICH_REMINDER безусловный (:3637-3638); kill-switch-ов нет в config/; classify_request до LLM (:2315); cover порядок BASE_STYLE первым (:154); GENERATE без лимита (image_generation.py); chat_lifecycle на chat_member-observer (:76,148)
 
 Next unlocks:
-- Wave 1 join → Reviewer → deploy → Wave 2 (F1 Direct L1 core ∥ F6 Cover content-loss)
-Review: pending (REV-1 идёт по Wave 1)
-Deployment: pending (после Approved: commit+deploy Wave 1)
+- DEPLOY-W1 → owner live-чек (чат в селекторе; 2-click сверка final_prompt двух саммари в Run Inspector)
+- Wave 2 join (F1+F6) → Reviewer → commit/deploy → Wave 3 (F2 ∥ F7 ∥ F4) → F9 → финальный full suite → production acceptance (DoD §23)
+Review: approved (Wave 1, REV-1)
+Deployment: verified (Wave 1 в проде: e6670b0 / 2.58.72)
 Human gate: none
 Updated: 2026-10-09 (старт ASAP 7 Phase 0)

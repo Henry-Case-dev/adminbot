@@ -82,6 +82,12 @@ DIRECT_REACT = "DIRECT_REACT"
 SUMMARY_L1_CHUNKED = "SUMMARY_L1_CHUNKED"
 SUMMARY_COVERAGE_DEGRADED = "SUMMARY_COVERAGE_DEGRADED"
 
+# ── ASAP 7 (F1, §1.4/§1.5 architecture.md): +2 события Direct L1 Planner ────
+# Аддитивно к закрытому enum (33→35). R17-safe: enum/числа/имена capabilities
+# — raw user text/промпты/план-текст запрещены.
+L1_PLAN = "L1_PLAN"
+L1_CAPABILITY_REJECTED = "L1_CAPABILITY_REJECTED"
+
 CORE_EVENT_TYPES = frozenset({
     DECISION_START, DECISION_COMPLETE, TOOL_PLAN_CREATED, TOOL_CALL_START,
     TOOL_CALL_COMPLETE, TOOL_CALL_FAILED, REACTION_SENT, MESSAGE_IGNORED,
@@ -106,9 +112,11 @@ BUDGET_EVENT_TYPES = frozenset({
     MODEL_CAPACITY_RESOLVED, AUTO_CONTEXT_BUDGET, DIRECT_REACT,
     SUMMARY_L1_CHUNKED, SUMMARY_COVERAGE_DEGRADED,
 })
+# ASAP 7 (F1, §1.4/§1.5): Direct L1 Planner (аддитивно, 33→35).
+DIRECT_L1_EVENT_TYPES = frozenset({L1_PLAN, L1_CAPABILITY_REJECTED})
 AGENTIC_EVENT_TYPES = frozenset(
     CORE_EVENT_TYPES | ANTI_CLICHE_EVENT_TYPES | DIRECT_EVENT_TYPES
-    | BUDGET_EVENT_TYPES)
+    | BUDGET_EVENT_TYPES | DIRECT_L1_EVENT_TYPES)
 
 # ── R17-whitelist полей (D5) ────────────────────────────────────────────────
 # Общие R17-safe поля, допустимые у любого события.
@@ -195,6 +203,12 @@ EVENT_FIELDS = {
     SUMMARY_COVERAGE_DEGRADED: frozenset({
         "source_messages", "processed_messages", "unprocessed_messages",
         "chunks", "coverage", "reason", "run_id"}),
+    # ── ASAP 7 (F1, §1.4/§1.5): whitelist событий Direct L1 Planner ────────
+    L1_PLAN: frozenset({
+        "response_act", "extent", "tone", "bucket", "capabilities",
+        "inherited", "fallback", "latency_ms", "input_chars", "confidence",
+        "source"}),
+    L1_CAPABILITY_REJECTED: frozenset({"capability", "reason"}),
 }
 
 # ── валидация значений (R17: строки без пробелов = не текст) ───────────────
@@ -210,11 +224,14 @@ _NUM_FIELDS = frozenset({
     "safety_reserve", "auto_input_budget", "effective_input_budget",
     "manual_cap", "chunks", "coverage", "source_messages",
     "processed_messages", "unprocessed_messages",
+    # ASAP 7 (F1, §1.5): числовые поля L1_PLAN.
+    "input_chars", "confidence",
 })
 _MODEL_FIELDS = frozenset({"model"})
 # Короткие непустые строки без пробелов (эмодзи-реакция R17-safe).
 _SHORT_STR_FIELDS = frozenset({"reaction"})
-_LIST_FIELDS = frozenset({"tools", "sources", "errors", "preserved_kinds"})
+_LIST_FIELDS = frozenset({"tools", "sources", "errors", "preserved_kinds",
+                          "capabilities"})
 
 # Строгая «идентификаторная» форма: буквы/цифры/``_``/``-``/``:``/``.`` и БЕЗ
 # пробелов → свободный пользовательский текст (досье/промпт/сообщение) не

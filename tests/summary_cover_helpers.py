@@ -52,7 +52,8 @@ def env(monkeypatch, rec, *, cover_path, rich=True):
         lambda path, **kw: {"stub_path": path})
     patch_delivery(monkeypatch, rec)
 
-    async def _gen_image(prompt, *, chat_id=None, correlation_id=None):
+    async def _gen_image(prompt, *, chat_id=None, correlation_id=None,
+                         **kwargs):
         rec.image_prompts.append(prompt)
         return cover_path, ("ok" if cover_path else "error")
 

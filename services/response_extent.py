@@ -214,8 +214,8 @@ _EXPLICIT_LONG_RE = re.compile(
     r"сделай статью", re.IGNORECASE)
 _EXPLICIT_SHORT_RE = re.compile(
     r"коротко|короче|кратко|вкратце|в двух словах|пару слов|"
-    r"пару предложений|одним предложением|одной фразой|только вывод|"
-    r"tl;?dr", re.IGNORECASE)
+    r"пару предложений|одним предложением|одной фразой|одним словом|"
+    r"только вывод|tl;?dr", re.IGNORECASE)
 _CREATIVE_RE = re.compile(
     r"фанфик|истори[ю]|рассказ|новелл|повесть|сценарий|стих|поэм|хокку|"
     r"пьес|придумай|сочини", re.IGNORECASE)
@@ -272,7 +272,13 @@ def classify_request(query) -> ResponsePlan:
 
     Приоритет: (1) task-kind по маркерам; (2) явная инструкция длины (§12)
     перекрывает extent task-kind'а; (3) короткий вопрос без маркеров -> micro;
-    (4) болтовня -> compact. R17: текст не логируется."""
+    (4) болтовня -> compact. R17: текст не логируется.
+
+    ASAP 7 (§1.8 demote): в primary path (``flags.direct_l1_enabled=ON``)
+    НЕ вызывается — semantic brain теперь L1 Planner
+    (services/direct_l1). Осталась как safe fallback при L1 outage
+    (direct_l1.fallback_plan) и в legacy-ветке
+    (``DIRECT_L1_ENABLED=false``, байт-паритет)."""
     text = str(query or "").strip()
     plan = ResponsePlan(source="default")
     if not text:
@@ -361,6 +367,38 @@ def classify_request(query) -> ResponsePlan:
     return ResponsePlan(task_kind=task_kind, extent=extent,
                         structure=structure, delivery_hint=delivery,
                         tool_policy=tool_policy, source=source)
+
+
+# ── ASAP 7 (§1.8/§2.5): explicit-form parser — deterministic override ────────
+# Явная форма пользователя применяется ПОСЛЕ L1 поверх semantic extent.
+# Закрытый результат — токены L1_EXTENTS (services/direct_l1): одна из форм
+# или "" (нет явной формы). Regex-семейства существующие (§12); «одним
+# словом» добавлено (§2.5 ТЗ). Никогда не бросает.
+
+_EXPLICIT_ONE_WORD_RE = re.compile(r"одним словом|в одно слово", re.IGNORECASE)
+
+
+def explicit_form_override(query) -> str:
+    """Явная инструкция формы (§2.5): ``one_word`` | ``longform`` |
+    ``compact`` | ``""``. Приоритет: one_word > longform > compact
+    (как в classify_request §12: явная длинная сильнее явной короткой).
+    Никогда не бросает."""
+    try:
+        text = str(query or "").strip()
+        if not text:
+            return ""
+        low = _PEER_PREFIX_RE.sub("", text).strip().lower()
+        if not low:
+            return ""
+        if _EXPLICIT_ONE_WORD_RE.search(low):
+            return "one_word"
+        if _EXPLICIT_LONG_RE.search(low):
+            return "longform"
+        if _EXPLICIT_SHORT_RE.search(low):
+            return "compact"
+        return ""
+    except Exception:      # pragma: no cover - parser не роняет запрос
+        return ""
 
 
 # ── §11: extent-блоки Вербализатора / системного промпта ────────────────────
@@ -483,6 +521,11 @@ def resolve_tool_name(name) -> str:
 def build_tool_plan(query, *, available_tools=None,
                     max_fetch_steps: int = PLAN_MAX_FETCH_STEPS) -> list[dict]:
     """План инструментов для ЯВНЫХ мульти-данных запросов (§17, 0 LLM).
+
+    ASAP 7 (§1.4/§1.8 demote): дет. fast-path ТОЛЬКО для объективного факта
+    «2+ URL + явное сравнение»; primary источник мульти-тул — capability-
+    подсет L1 (services/direct_capabilities). В L1-ветке вызывается с
+    ``available_tools`` = resolved-подсет.
 
     Активация — только при (а) маркере совместного чтения/сравнения и
     (б) ≥2 уникальных http(s)-ссылках в запросе. Шаги:

@@ -171,6 +171,16 @@ def _make_service(llm):
 
 
 @pytest.fixture(autouse=True)
+def _legacy_direct_l1_off(monkeypatch):
+    """ASAP 7 (F1): файл — контракт legacy Reaction_Task/decision-линии
+    (asap31); L1-линия (default ON) подменяет топологию. Пин
+    DIRECT_L1_ENABLED=false; L1-ветка покрыта tests/test_asap7_direct_l1.py."""
+    from config.settings import Settings
+    monkeypatch.setattr(Settings, "DIRECT_L1_ENABLED", False)
+    yield
+
+
+@pytest.fixture(autouse=True)
 def _reset_react_metrics():
     llm_react._METRICS["llm_react_total"] = 0
     llm_react._METRICS["llm_react_llm_choice_total"] = 0

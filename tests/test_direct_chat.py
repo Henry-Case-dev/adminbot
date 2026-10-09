@@ -47,6 +47,17 @@ from services.summary_aliases import AliasResolver
 CHAT_ID = -1001234567890
 
 
+@pytest.fixture(autouse=True)
+def _legacy_direct_l1_off(monkeypatch):
+    """ASAP 7 (F1): этот модуль — контракт legacy direct-пайплайна
+    (single-call/Decision Task/System2). L1-линия (default ON с F1)
+    переключает топологию, поэтому здесь пин DIRECT_L1_ENABLED=false;
+    L1-ветка покрыта tests/test_asap7_direct_l1.py."""
+    from config.settings import Settings
+    monkeypatch.setattr(Settings, "DIRECT_L1_ENABLED", False)
+    yield
+
+
 def _force_self_awareness(monkeypatch, value: bool) -> None:
     """F1/T-1482: точечно задать flags.bot_self_awareness_enabled (hot.get).
     Не-F1 тесты модуля изолированы OFF (background-экстрактор иначе меняет
@@ -131,7 +142,7 @@ def _bot():
 
 def _block_tag(block: str) -> str:
     """Первая строка-тег блока для сравнения порядка (sandwich — без тега)."""
-    if block.startswith("отвечай коротко"):
+    if block.startswith("отвечай на последний вопрос"):
         return "<sandwich>"
     m = re.match(r"<[A-Za-z_]+>", block)
     return m.group(0) if m else block.split("\n", 1)[0][:24]
@@ -455,7 +466,7 @@ class TestContextPartitioning:
         assert blocks[3].startswith("<Conversation_Thread>")
         assert blocks[4] == "<Target_User>вася</Target_User>"
         assert blocks[5].startswith("<Current_Question>")
-        assert blocks[-1].startswith("отвечай коротко, по делу")
+        assert blocks[-1].startswith("отвечай на последний вопрос")
         # Раунд 8 (F1/T-807): RAG-факты direct — rel-порядок memory
         # (sort_by_timestamp на direct-пути больше не передаётся);
         # include_direct_reply=True — только DirectChat.
@@ -497,7 +508,7 @@ class TestContextPartitioning:
                     "<style_anchors>"]
         positions = [kinds.index(k) for k in expected]
         assert positions == sorted(positions)       # строгий порядок «важное к концу»
-        assert blocks[-1].startswith("отвечай коротко, по делу")
+        assert blocks[-1].startswith("отвечай на последний вопрос")
         assert kinds[-2] == "<style_anchors>"       # anchors перед sandwich
         await d.close()
 
@@ -744,7 +755,7 @@ class TestRound8CurrentQuestionAndBranch:
             CHAT_ID, _message(text="бот"), "вася")
         # блок отсутствует (sandwich-строка упоминает тег в тексте — не считаем)
         assert all(not b.startswith("<Current_Question>") for b in blocks)
-        assert blocks[-1].startswith("отвечай коротко")
+        assert blocks[-1].startswith("отвечай на последний вопрос")
 
     @pytest.mark.asyncio
     async def test_current_question_cap_and_escape(self, fake_time, monkeypatch):

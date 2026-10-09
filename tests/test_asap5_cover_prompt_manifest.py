@@ -100,18 +100,24 @@ class TestBaseManifest:
         assert manifest["resolved_limit"] == 1000
 
     def test_base_story_minimum_style_does_not_evict_story(self):
-        """D8: явный minimum budget для STORY — стиль не вытесняет сюжет."""
+        """D8: явный minimum budget для STORY — стиль не вытесняет сюжет.
+
+        ASAP 7 (§2.1): канон story_first — сюжет идёт первым, стиль
+        ужимается (до floor'а); story-minimum ≥160 инвариантен."""
         plan = cpa.base_prompt_plan("S" * 900, "X" * 300, "",
                                     style_cap=900, total_cap=1000)
         by_key = {c["key"]: c for c in plan}
         sent_story = by_key["STORY_SCENE"]["sent_text"]
         assert len(sent_story) >= cpa.STORY_MIN_CHARS
-        assert by_key["STORY_SCENE"]["status"] == "compacted"
+        assert by_key["STORY_SCENE"]["status"] in ("kept", "compacted")
         # стиль подрезан ради сюжета
         assert len(by_key["BASE_STYLE"]["sent_text"]) < 900
 
-    def test_base_compose_without_context_matches_legacy(self):
-        """Бит-в-бит: без SUMMARY_CONTEXT план == прежний compose."""
+    def test_base_compose_without_context_matches_legacy(self, monkeypatch):
+        """Бит-в-бит: без SUMMARY_CONTEXT в legacy-режиме (style_first,
+        env-откат §2.1) план == прежний compose."""
+        monkeypatch.setattr(Settings, "SUMMARY_COVER_PROMPT_ORDER",
+                            "style_first", raising=False)
         legacy = __import__(
             "services.cover_prompt_assembly",
             fromlist=["compose_cover_image_prompt"]).compose_cover_image_prompt

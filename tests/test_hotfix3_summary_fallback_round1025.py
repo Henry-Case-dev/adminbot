@@ -95,8 +95,10 @@ class TestFallbackCoverDelivery:
         assert rec.rich[0]["cover_id"] == SUMMARY_COVER_MEDIA_ID
         assert rec.rich[0]["media"] and len(rec.rich[0]["media"]) == 1
         # Обложка реально запрошена (не потеряна) и стиль подмешан.
+        # ASAP 7 (§2.1): канон story_first — story+ctx в начале, стиль в хвосте.
         assert rec.image_prompts
-        assert rec.image_prompts[0].startswith(SUMMARY_COVER_STYLE_DEFAULT)
+        assert rec.image_prompts[0].endswith(SUMMARY_COVER_STYLE_DEFAULT)
+        assert rec.image_prompts[0].startswith("одиночный дерзкий текст")
         assert "одиночный дерзкий текст" in rec.image_prompts[0]
         # R17-safe лог причины фолбэка (T-2483).
         joined = "\n".join(r.getMessage() for r in caplog.records)
@@ -148,11 +150,11 @@ class TestFallbackCoverDelivery:
 
         assert len(rec.rich) == 1
         # Успешный путь использует промпт Редактора, а не детерминированный.
-        # ASAP 5 (D8/T-5250): + bounded SUMMARY_CONTEXT от финального документа
-        # («готовый текст») после story.
+        # ASAP 7 (§2.1): канон story_first — story + bounded SUMMARY_CONTEXT
+        # («готовый текст») в начале, стиль — в хвосте.
         assert rec.image_prompts == [
-            compose_cover_image_prompt(SUMMARY_COVER_STYLE_DEFAULT,
-                                       "a lone cat") + " Тема готовый текст"]
+            "a lone cat Тема готовый текст "
+            + SUMMARY_COVER_STYLE_DEFAULT]
 
     @pytest.mark.asyncio
     async def test_stage1_timeout_falls_back_to_single_and_rich(

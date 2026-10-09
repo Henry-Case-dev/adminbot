@@ -26,6 +26,16 @@ BOT_ID = 12345
 CHAT_ID = -1001234567890
 
 
+@pytest.fixture(autouse=True)
+def _legacy_direct_l1_off(monkeypatch):
+    """ASAP 7 (F1): файл — контракт legacy decision-матрицы (A7/ASAP-3);
+    L1-линия (default ON) переключает топологию. Пин DIRECT_L1_ENABLED=false;
+    L1-ветка покрыта tests/test_asap7_direct_l1.py."""
+    from config.settings import Settings
+    monkeypatch.setattr(Settings, "DIRECT_L1_ENABLED", False)
+    yield
+
+
 def _reply_message(text="ответ бота", tg_id=900):
     m = MagicMock()
     m.text = text

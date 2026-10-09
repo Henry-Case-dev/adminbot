@@ -467,6 +467,9 @@ def _drive(monkeypatch, text, *, reply=None, decision=True, tool_router=None,
     import services.direct_chat_service as dcs
     from tests.test_direct_chat import _bot, _make_service, _message, _user
     monkeypatch.setattr(Settings, "DIRECT_DECISION_MAKING_ENABLED", decision)
+    # ASAP 7 (F1): файл проверяет legacy decision-контракты (Decision Task/
+    # матрица) — пин DIRECT_L1_ENABLED=false (L1-линия переключает топологию).
+    monkeypatch.setattr(Settings, "DIRECT_L1_ENABLED", False)
     monkeypatch.setattr(Settings, "PERSONA_ENABLED", False)
     for key, value in (settings_over or {}).items():
         monkeypatch.setattr(Settings, key, value)
@@ -917,7 +920,7 @@ class TestBounds:
         assert len(pc.TAB_RULES) == 23
 
     def test_version_unchanged(self):
-        assert APP_VERSION == "2.58.72"
+        assert APP_VERSION == "2.58.73"
 
     def test_canon_twelve_tools(self):
         assert len(TOOL_CALLING_TOOLS) == 14

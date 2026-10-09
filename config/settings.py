@@ -591,6 +591,38 @@ class Settings:
     # message-роутинга байт-в-байт.
     CHAT_PROFILE_FALLBACK_ENABLED: ClassVar[bool] = _env_bool(
         "CHAT_PROFILE_FALLBACK_ENABLED", True)
+    # ══ [F1-REGION-START] ASAP 7 (F1, architecture.md §1.6 + D-2) ══════════
+    # env-only ClassVar (Δ каталога = 0; каталог-ключи flags.direct_l1_* /
+    # limits.direct_l1_* / models.direct_l1_* добавляет F2 — код читает их
+    # через hot.get с этими env-фолбэками, дублей нет).
+    #   DIRECT_L1_ENABLED — emergency kill-switch L1-линии Direct (default
+    #     ON; §4.3 AND-семантика с product-флагом flags.direct_l1_enabled).
+    #     OFF → байт-в-байт прежний pipeline (fused Decision Task + System2).
+    #   DIRECT_L1_CONTEXT_TOKENS / DIRECT_L1_TIMEOUT_SECONDS /
+    #     DIRECT_L1_MAX_OUTPUT_TOKENS — код-дефолты каталог-ключей
+    #     limits.direct_l1_context_tokens (1600, §1.5) / _timeout_seconds
+    #     (15) / _max_output_tokens (512, JSON-бюджет).
+    DIRECT_L1_ENABLED: ClassVar[bool] = _env_bool(
+        "DIRECT_L1_ENABLED", True)
+    DIRECT_L1_CONTEXT_TOKENS: ClassVar[int] = _env_int_min(
+        "DIRECT_L1_CONTEXT_TOKENS", 1600, 200)
+    DIRECT_L1_TIMEOUT_SECONDS: ClassVar[int] = _env_int_min(
+        "DIRECT_L1_TIMEOUT_SECONDS", 15, 1)
+    DIRECT_L1_MAX_OUTPUT_TOKENS: ClassVar[int] = _env_int_min(
+        "DIRECT_L1_MAX_OUTPUT_TOKENS", 512, 64)
+    # ── D-2 фикс (обязательный, F1): заявленные env kill-switch'и Direct-
+    # планов читаются response_extent.py через getattr(settings, ...), но не
+    # были объявлены — env не влиял, rollback-контракт был мёртв. Объявлены
+    # по паттерну SYSTEM2_DIRECT_ENABLED (:562).
+    DIRECT_RESPONSE_PLAN_ENABLED: ClassVar[bool] = _env_bool(
+        "DIRECT_RESPONSE_PLAN_ENABLED", True)
+    DIRECT_TOOL_PLAN_ENABLED: ClassVar[bool] = _env_bool(
+        "DIRECT_TOOL_PLAN_ENABLED", True)
+    DIRECT_RICH_DELIVERY_ENABLED: ClassVar[bool] = _env_bool(
+        "DIRECT_RICH_DELIVERY_ENABLED", True)
+    DIRECT_LONGFORM_MAX_OUTPUT_TOKENS: ClassVar[int] = _env_int_min(
+        "DIRECT_LONGFORM_MAX_OUTPUT_TOKENS", 4096, 1)
+    # ══ [F1-REGION-END] ════════════════════════════════════════════════════
     # ── ASAP-3.1 (round 1028, ADR-1028-3): env-only ClassVar kill-switch
     # реестра новых механизмов (default ON, резолв per-call, Δ каталога = 0).
     # Каждый OFF = байт-в-байт прежнее поведение (spec 10.2, паритет-тесты).
@@ -1117,6 +1149,14 @@ class Settings:
         "SUMMARY_COVER_PROMPT_MAX_CHARS", 1000)
     SUMMARY_COVER_STYLE_MAX_CHARS: ClassVar[int] = _env_int(
         "SUMMARY_COVER_STYLE_MAX_CHARS", 500)
+    # ── ASAP 7 (F6, epik asap7-cognitive-direct-pipeline, §2.1): env-only
+    # ClassVar отката порядка строки Base-промпта обложки. Δ каталога = 0.
+    #   * SUMMARY_COVER_PROMPT_ORDER — `story_first` (default, канон:
+    #     STORY_SCENE → SUMMARY_CONTEXT → BASE_STYLE; summary-specific хвост
+    #     не теряется у провайдеров с silent-trim) | `style_first` (legacy
+    #     порядок байт-в-байт, откат). Неизвестное значение → story_first.
+    SUMMARY_COVER_PROMPT_ORDER: ClassVar[str] = _env_str(
+        "SUMMARY_COVER_PROMPT_ORDER", "story_first")
     # ── Раунд 10.23 (F7, ADR-1023-7 D6): env-only ClassVar-рубильники
     # аналитики токенов. Δ каталога = 0 (в param_catalog НЕ входят).
     #   * TOKEN_ANALYTICS_ENABLED — мастер-килсвитч телеметрии (default ON).
@@ -3217,7 +3257,7 @@ settings = Settings()
 # S4 (10.26, ADR-1026-6 D1–D6): bump 2.58.22 → 2.58.23 — новый рантайм-модуль
 # `services/summary_fact_package.py` (детерминированный «пакет фактов §96»,
 # 0 LLM-вызовов; Δ каталога=0, Δ DDL=0; в живой путь НЕ врезан — GATED S5/S6).
-APP_VERSION = "2.58.72"   # asap7-wave1 (09.10.2026): F5 chat lifecycle — root cause chat_member-observer (своё вступление бота = my_chat_member): my_chat_member-хендлеры join/leave + on_chat_migrated upsert профиля + fallback ChatProfileFallbackMiddleware (chat_id<0, кэш+backoff 300с, гейт CHAT_PROFILE_FALLBACK_ENABLED env ON, OFF = байт-паритет) + UI badge «неактивен» + toggleScope refetch; F8 cover exact-prompt read path — GET /api/analytics/pipeline/runs/{id}?include_prompt=true (global admin, fail-closed, без параметра ключа cover_prompts нет), reader load_run_cover_prompts (только чтение), UI Run Inspector «Фактический промпт», инвариант manifest==request против durable-артефактов, Δroutes=0; F3 module registry — services/module_registry.py (ModuleSpec, effective_gate AND env×product: emergency_env/product_toggle/both, M2-покрытие 85 KILL_SWITCHES), каталог +9 ключей flags_intent/limits_intent (+2 группы, +1 TAB_RULES, settings.py не расширялся), AND-гейт в mca_gates, status_service intents.module (requested/effective/source), UI карточка+страница #/modules/initiative, merge реестра с fallback на hardcoded MODULES, фикс «Настройки блока» (только свои ключи). Review Approved (REV-1). Тесты: test_asap7_chat_lifecycle 22, test_asap7_cover_readpath 12, test_asap7_module_registry 14, каталожные counts в ~40 тестах обновлены. Откат: cold git revert; soft: CHAT_PROFILE_FALLBACK_ENABLED=false, env MCA_INTENTS_ENABLED=false. Prior 2.58.71 (asap6-current-task-closure core + mca23-phase2).
+APP_VERSION = "2.58.73"   # asap7-wave2 (09.10.2026): F1 Direct L1 Planner — NEW services/direct_l1.py (L1Plan §1.3 нормализация без бросков, build_l1_context кап 1600 без sandwich/Writer-контекста, ladder slot→main→deterministic, build_evidence_packet дет., ровно 1 repair) + NEW services/direct_capabilities.py (allowlist §1.4 ∩ active_tools, hallucinated→drop+L1_CAPABILITY_REJECTED, statistics→∅ честно); direct_chat_service rewire: pre-tool L1 (1 LLM call) → force/SILENT🗿/REACT hard-гейты → capability resolve → tool-фаза (resolved-подсет) → evidence packet → L2 Writer Вербализатор-канал (1 call) — ровно 2 semantic call на reply-путь; legacy-ветка DIRECT_L1_ENABLED=false байт-паритет (fused Decision Task, pre-tool REACT, гейт System2, Coordinator, classify-as-brain, 2-URL-primary, fixed-clarification сохранены); sandwich: удалены «коротко, по делу», якорь/имена сохранены (D11); response_extent demote (classify = safe fallback/explicit-form); D-2 фикс: DIRECT_RESPONSE_PLAN_ENABLED/DIRECT_TOOL_PLAN_ENABLED/DIRECT_RICH_DELIVERY_ENABLED/DIRECT_LONGFORM_MAX_OUTPUT_TOKENS объявлены; agentic +2 (L1_PLAN/L1_CAPABILITY_REJECTED, whitelist); канон prompts.direct_l1_planner_system_prompt + PREV + ступень миграций. F6 Cover content-loss: канонический порядок STORY_SCENE→SUMMARY_CONTEXT→BASE_STYLE (floor 160; откат SUMMARY_COVER_PROMPT_ORDER=style_first байт-в-байт), B4 style_cap≤total_cap-story_min, GENERATE резолвит prompt-limit (manual→discovery→unknown БЕЗ trim + COVER_LIMIT_UNKNOWN), 400 too-long → ровно 1 shorter-retry ТОЛЬКО при первой платной попытке (бюджет ≤2 платных вызова при любых цепочках, REV-2 B11 closed), observed→source=observed_provider_400, anomaly guard §11 (anomaly_recovered / cover_context_missing + COVER_ANOMALY), B5 only_raise, B6 specific-scene инструкция. Тесты: test_asap7_direct_l1 37, test_asap7_cover_fix 35 (вкл. 4x REGRESSION B11), prompt_migrations зелёные; Review REV-2 Approved после речека. Откат: cold git revert; soft: DIRECT_L1_ENABLED=false, SUMMARY_COVER_PROMPT_ORDER=style_first. Prior 2.58.72 (asap7-wave1).
 
 
 def get_ytdlp_pot_provider() -> str:

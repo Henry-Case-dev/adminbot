@@ -64,10 +64,13 @@ class TestEventSchema:
         # ASAP-3.1 (ADR-1028-3, §49/T-4085): +5 бюджетных событий
         # (MODEL_CAPACITY_RESOLVED/AUTO_CONTEXT_BUDGET/DIRECT_REACT/
         # SUMMARY_L1_CHUNKED/SUMMARY_COVERAGE_DEGRADED) — 28 → 33.
-        assert len(ae.AGENTIC_EVENT_TYPES) == 33
+        # ASAP 7 (F1, §1.4/§1.5): +2 события L1 Planner
+        # (L1_PLAN/L1_CAPABILITY_REJECTED) — 33 → 35.
+        assert len(ae.AGENTIC_EVENT_TYPES) == 35
         for name in ("MODEL_CAPACITY_RESOLVED", "AUTO_CONTEXT_BUDGET",
                      "DIRECT_REACT", "SUMMARY_L1_CHUNKED",
-                     "SUMMARY_COVERAGE_DEGRADED"):
+                     "SUMMARY_COVERAGE_DEGRADED",
+                     "L1_PLAN", "L1_CAPABILITY_REJECTED"):
             assert name in ae.AGENTIC_EVENT_TYPES
         assert ae.SCHEMA_VERSION == "1"
 
