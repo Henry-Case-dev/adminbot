@@ -180,7 +180,12 @@ class TestModulesRework106:
         groups = set()
         for tab in ("memory_rag", "mod_sleep", "mod_nostalgia"):
             groups |= pc.tab_group_ids(tab)
-        assert mem <= groups and len(mem) == 3
+        # stale-пин счётчика снят: при написании (round1025) в категории
+        # memory было 3 группы; MCA-10a (+memory_random) и MCA-16
+        # (+memory_experience) расширили каталог до 5. Контракт теста —
+        # «memory-табы покрывают ВСЕ группы категории memory» (mem <= groups)
+        # — не менялся; счётчик синхронизирован с реестром.
+        assert mem <= groups and len(mem) == 5
 
     def test_no_custom_modules(self):
         js, html = _js(), _html()

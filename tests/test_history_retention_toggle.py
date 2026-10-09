@@ -163,13 +163,26 @@ class TestCatalogSeed:
         # (stale-guard обновлён при mca-16; pre-existing с round 10.28).
         # ASAP 7 (F3, §3.2): +9 ClassVar MCA_INTENT_* — product-оси
         # flags_intent/limits_intent (pg_id-ренейм), env-ось AND-гейта.
+        # ASAP 7 (F1, wave1 2.58.72): +13 ClassVar env-осей гейтов модулей
+        # (эпизоды/истории/характер/стиль/self-model/трейты/form-guard) —
+        # тот же паттерн, что F3: env-ось AND-гейта через _env_bool,
+        # product-оси живут в каталоге (реестр 529+); «лишними» не считаются.
         missing, extra = pc.settings_field_coverage()
         extra -= {"CHAT_MODEL_CONTEXT_WINDOW", "EMBEDDING_QUOTA_GROUP_LABELS",
                   "MCA_INTENTS_ENABLED", "MCA_INTENT_HEARTBEAT_ENABLED",
                   "MCA_INTENT_DECISION_ENABLED", "MCA_SEND_RECHECK_ENABLED",
                   "MCA_INTENT_HEARTBEAT_BATCH_MAX", "MCA_INTENT_MAX_ATTEMPTS",
                   "MCA_INTENT_CANDIDATES_MAX", "MCA_INTENT_RETENTION_DAYS",
-                  "MCA_INTENT_DEFER_BACKOFF_SECONDS"}
+                  "MCA_INTENT_DEFER_BACKOFF_SECONDS",
+                  "MCA_EPISODES_ENABLED", "MCA_EPISODES_BACKFILL_ENABLED",
+                  "MCA_EPISODES_CONTINUATION_ENABLED",
+                  "MCA_EPISODES_COMPILER_FACADE_ENABLED",
+                  "MCA_STORIES_VITRINA_ENABLED", "MCA_STORIES_MANAGE_ENABLED",
+                  "MCA_CHARACTER_LAYERS_ENABLED",
+                  "MCA_CHARACTER_SPEECH_ENABLED", "MCA_STYLE_SCOPE_ENABLED",
+                  "MCA_TRAIT_RULES_ENABLED", "MCA_SELF_MODEL_ENABLED",
+                  "MCA_LEGACY_TRAITS_MIGRATION_ENABLED",
+                  "MCA_POSTPROCESS_FORM_GUARD_ENABLED"}
         assert (missing, extra) == (set(), set())
 
     def test_seed_categories_include_memory(self):

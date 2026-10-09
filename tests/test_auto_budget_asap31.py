@@ -20,6 +20,18 @@ NOW = 1_800_000_000
 
 
 @pytest.fixture(autouse=True)
+def _legacy_direct_l1_off(monkeypatch):
+    """ASAP 7 (F1): fallback-recompose-контракт legacy direct-пути
+    (адаптер передаётся в генератор single-call). L1-линия (default ON
+    с F1) переключает топологию вызовов, поэтому здесь пин
+    DIRECT_L1_ENABLED=false; L1-ветка покрыта tests/test_asap7_direct_l1.py.
+    Прецедент: tests/test_direct_chat.py."""
+    from config.settings import Settings
+    monkeypatch.setattr(Settings, "DIRECT_L1_ENABLED", False)
+    yield
+
+
+@pytest.fixture(autouse=True)
 def _clean(monkeypatch):
     mc.invalidate_capacity_cache()
     mc._WINDOW_CACHE.clear()

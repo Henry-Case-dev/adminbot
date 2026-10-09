@@ -953,7 +953,11 @@ def test_write_points_go_through_single_writer():
         # `promote_embedding_generation` (§8.4/§8.5 — одиночные commit внутри
         # `serialized()`; promotion — атомарный указатель реестра, физический
         # swap — callback `data_swap` в той же транзакции).
-        "database.py": 196,
+        # +2 asap7 F2 (v35, architecture §1.10, L-MCA14-3):
+        # `_migrate_llm_usage_plan_meta_v35` — nullable plan_meta JSONB в
+        # llm_usage_events (PG-only DDL, SQLite no-op) + PRAGMA user_version;
+        # миграционная машина, раннер до старта писателей.
+        "database.py": 198,
         "dossier_rebuild_jobs.py": 1,   # внутри `async with db.serialized()`
         # ASAP-3.2 (ADR-1028-5 D1/D2, T-4191): shadow-rebuild — 3 прямых
         # commit внутри `async with memory.db.serialized()` (идемпотентный

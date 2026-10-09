@@ -53,6 +53,17 @@ def _patch_budget(monkeypatch, ok=True):
     monkeypatch.setattr(ig, "_consume_budget", AsyncMock(return_value=ok))
 
 
+@pytest.fixture(autouse=True)
+def _legacy_direct_l1_off(monkeypatch):
+    """ASAP 7 (F1): pre-gate-интеграция — контракт tool-list в legacy
+    single-call direct-пути. L1-линия (default ON с F1) переключает
+    топологию вызовов (первый call — L1-планировщик без tools),
+    поэтому здесь пин DIRECT_L1_ENABLED=false; L1-ветка покрыта
+    tests/test_asap7_direct_l1.py. Прецедент: tests/test_direct_chat.py."""
+    monkeypatch.setattr(Settings, "DIRECT_L1_ENABLED", False)
+    yield
+
+
 # ── Схема и гейт инструмента ────────────────────────────────────────────────
 
 class TestToolSchema:

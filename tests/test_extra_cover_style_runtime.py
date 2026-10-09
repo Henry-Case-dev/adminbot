@@ -34,7 +34,12 @@ class _Recorder:
         styled = tmp_path / "styled.jpg"
         styled.write_bytes(b"STYLED")
 
-        async def _gen(prompt, *, chat_id=None, correlation_id=None):
+        async def _gen(prompt, *, chat_id=None, correlation_id=None,
+                       shorter_prompt=None, attempt_log=None):
+            # ASAP 7 (F7, 2.58.73): generate_image_verbose получил
+            # shorter_prompt/attempt_log (content-loss fix) — стаб зеркалит
+            # сигнатуру (image_generation.py:1303), иначе TypeError до
+            # самого вызова → COVER_GENERATION_FAILED.
             rec.image_calls += 1
             return (str(base), "ok") if base_ok else (None, "no_key")
 

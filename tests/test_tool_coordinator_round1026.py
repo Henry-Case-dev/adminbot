@@ -724,6 +724,16 @@ class TestBounds:
                                              # routes.py byte-freeze —
                                              # пин 8153b8bd… цел).
                                              "web/api/oversight_router.py",
+                                             # asap7 wave3 (2.58.74, REV-3
+                                             # Approved): аддитивное
+                                             # расширение СУЩЕСТВУЮЩЕГО
+                                             # `web/api/summary_test.py`
+                                             # (dry-run test-контур Testing,
+                                             # §113; до волны файл был
+                                             # байт-в-байт с baseline
+                                             # pre-round1026-a1 и в diff
+                                             # не входил).
+                                             "web/api/summary_test.py",
                                              "web/api/__init__.py"))
                        for n in names)
         # NOTE (round1027, MCA-01 / ADR-1027-3 D3): `services/summary_memory.py`

@@ -147,7 +147,7 @@ class TestFlagsAndInvariants:
     def test_app_version_bumped(self):
         assert APP_VERSION == "2.58.74", APP_VERSION
         assert "v2.58.34" in README, "README не синхронизирован"
-        assert 'APP_VERSION = "2.58.71"' in SETTINGS
+        assert 'APP_VERSION = "2.58.74"' in SETTINGS
 
     def test_zero_ddl(self):
         # Δ DDL = 0: никаких новых таблиц/миграций эпиком не добавляется.

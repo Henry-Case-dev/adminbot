@@ -12,6 +12,18 @@ import pytest
 from services.payload_builder import build_messages
 
 
+@pytest.fixture(autouse=True)
+def _legacy_direct_l1_off(monkeypatch):
+    """ASAP 7 (F1): этот модуль — контракт legacy single-call direct-пути
+    (system на индексе 0). L1-линия (default ON с F1) переключает топологию
+    вызовов (L1-планировщик идёт отдельным call), поэтому здесь пин
+    DIRECT_L1_ENABLED=false; L1-ветка покрыта tests/test_asap7_direct_l1.py.
+    Прецедент: та же фикстура в tests/test_direct_chat.py."""
+    from config.settings import Settings
+    monkeypatch.setattr(Settings, "DIRECT_L1_ENABLED", False)
+    yield
+
+
 class TestBuildMessages:
     def test_system_at_index_zero(self):
         messages = build_messages("sys", ["блок1", "блок2"])

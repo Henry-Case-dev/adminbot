@@ -142,8 +142,9 @@ async def test_a_ddl_window_survives_lock_longer_than_base_5s(
         tmp_path, fast_guard):
     """busy_timeout 30с: конкурент держит лок 6с (> старых 5с) — старт
     не падает, вся pending-цепочка применяется (окно DDL поглощает ожидание
-    без retry). NOTE (P2-D v34): хвост цепочки …v33→v34, итог user_version
-    = 34."""
+    без retry). NOTE (P2-D v34): хвост цепочки …v33→v34. ASAP 7 (F2):
+    хвост расширен v35 (llm_usage_plan_meta_v35, SQLite no-op), итог
+    user_version = 35."""
     path = tmp_path / "t5150_window.db"
     _make_v32_db(path)
     svc = DatabaseService(str(path))
@@ -151,7 +152,7 @@ async def test_a_ddl_window_survives_lock_longer_than_base_5s(
     try:
         await _run_with_competitor(svc, hold=6.0)
         cur = await svc.db.execute("PRAGMA user_version")
-        assert (await cur.fetchone())[0] == 34
+        assert (await cur.fetchone())[0] == 35
     finally:
         await svc.close()
 
@@ -161,7 +162,8 @@ async def test_b_step_retry_recovers_after_locked(tmp_path, fast_guard,
                                                   monkeypatch, caplog):
     """bounded retry: короткое окно 0.8с + лок 2.2с → первый DDL падает
     `database is locked`, шаг перезапускается (идемпотентен) и доходит.
-    NOTE (P2-D v34): цепочка …v33→v34, итог user_version = 34."""
+    NOTE (P2-D v34): цепочка …v33→v34. ASAP 7 (F2): хвост +v35, итог
+    user_version = 35."""
     monkeypatch.setattr(dbmod, "_MIGRATION_BUSY_TIMEOUT_MS", 800)
     monkeypatch.setattr(dbmod, "_MIGRATION_LOCK_RETRIES", 3)
     monkeypatch.setattr(dbmod, "_MIGRATION_LOCK_BACKOFF_S", 0.05)
@@ -173,7 +175,7 @@ async def test_b_step_retry_recovers_after_locked(tmp_path, fast_guard,
         with caplog.at_level(logging.INFO, logger="services.database"):
             await _run_with_competitor(svc, hold=2.2)
         cur = await svc.db.execute("PRAGMA user_version")
-        assert (await cur.fetchone())[0] == 34
+        assert (await cur.fetchone())[0] == 35
         assert "retry 1/3" in caplog.text
     finally:
         await svc.close()
@@ -213,12 +215,14 @@ async def test_d_migration_chain_full_log_trail(tmp_path, caplog):
         assert "migrations: start" in text
         assert "current user_version=32" in text
         # NOTE (P2-D v34): pending-цепочка расширена хвостом v34.
-        assert "pending=[33, 34]" in text
+        # ASAP 7 (F2): +v35 (llm_usage_plan_meta_v35).
+        assert "pending=[33, 34, 35]" in text
         assert "migration backup-guard: start" in text
         assert "migration backup-guard: done in" in text
         assert "migration v33 applied in" in text
         assert "migration v34 applied in" in text
-        assert "migrations: complete | user_version=34" in text
+        assert "migration v35 applied in" in text
+        assert "migrations: complete | user_version=35" in text
     finally:
         await svc.close()
 
@@ -227,10 +231,11 @@ async def test_d_migration_chain_full_log_trail(tmp_path, caplog):
 
 @pytest.mark.asyncio
 async def test_e_v32_db_applies_v33_once_with_guard(tmp_path, caplog):
-    """Прод-сценарий retry: БД на v32 (книги нет) → guard + v33+v34 одним
+    """Прод-сценарий retry: БД на v32 (книги нет) → guard + v33+v34+v35 одним
     проходом; таблицы/индексы на месте; повторный initialize — no-op (ровно
-    одна строка v33/v34 в книге, user_version не скачет).
-    NOTE (P2-D v34): ожидания хвоста обновлены на …v33→v34."""
+    одна строка v33/v34/v35 в книге, user_version не скачет).
+    NOTE (P2-D v34): ожидания хвоста обновлены на …v33→v34.
+    ASAP 7 (F2): хвост +v35 (llm_usage_plan_meta_v35, SQLite no-op)."""
     path = tmp_path / "t5150_prodretry.db"
     _make_v32_db(path)
     svc = DatabaseService(str(path))
@@ -238,14 +243,15 @@ async def test_e_v32_db_applies_v33_once_with_guard(tmp_path, caplog):
         await svc.initialize()
     try:
         cur = await svc.db.execute("PRAGMA user_version")
-        assert (await cur.fetchone())[0] == 34
+        assert (await cur.fetchone())[0] == 35
         cur = await svc.db.execute(
             "SELECT version, name FROM schema_migrations "
-            "WHERE version IN (32, 33, 34) ORDER BY version")
+            "WHERE version IN (32, 33, 34, 35) ORDER BY version")
         rows = [tuple(r) for r in await cur.fetchall()]
         assert rows == [(32, "media_vision"),
                         (33, "factcheck_temporal"),
-                        (34, "embedding_generation_namespace_v34")]
+                        (34, "embedding_generation_namespace_v34"),
+                        (35, "llm_usage_plan_meta_v35")]
         for table in ("mca_factcheck_runs", "mca_factcheck_evidence"):
             cur = await svc.db.execute(
                 "SELECT name FROM sqlite_master WHERE type='table' "
@@ -269,10 +275,14 @@ async def test_e_v32_db_applies_v33_once_with_guard(tmp_path, caplog):
         cur = await svc2.db.execute(
             "SELECT COUNT(*) AS c FROM schema_migrations WHERE version=34")
         assert (await cur.fetchone())["c"] == 1
+        cur = await svc2.db.execute(
+            "SELECT COUNT(*) AS c FROM schema_migrations WHERE version=35")
+        assert (await cur.fetchone())["c"] == 1
         cur = await svc2.db.execute("PRAGMA user_version")
-        assert (await cur.fetchone())[0] == 34
+        assert (await cur.fetchone())[0] == 35
         assert "migration v33 applied" not in caplog.text   # повтор — no-op
         assert "migration v34 applied" not in caplog.text   # повтор — no-op
+        assert "migration v35 applied" not in caplog.text   # повтор — no-op
     finally:
         await svc2.close()
 
@@ -302,7 +312,9 @@ async def test_e2_v33_db_applies_v34_once_with_guard(tmp_path, caplog):
     """v33 → v34 (P2-D, ASAP 6 §8): guard + ровно один шаг v34;
     до-v34 таблица поколений получает namespace ('default' у легаси-строк)
     и config_revision; per-index ACTIVE-индекс заменён на NS-вариант;
-    повторный initialize — no-op."""
+    повторный initialize — no-op. ASAP 7 (F2): из v33 применяется вся
+    pending-цепочка …→v35, итог user_version = 35 (шаг v34 при этом ровно
+    один, v35 — SQLite no-op)."""
     path = tmp_path / "t5150_prodretry_v34.db"
     await _make_v33_db(path)
     # легаси-строка ДО v34: namespace ещё нет → после ALTER DEFAULT 'default'
@@ -320,7 +332,7 @@ async def test_e2_v33_db_applies_v34_once_with_guard(tmp_path, caplog):
         await svc.initialize()
     try:
         cur = await svc.db.execute("PRAGMA user_version")
-        assert (await cur.fetchone())[0] == 34
+        assert (await cur.fetchone())[0] == 35
         cur = await svc.db.execute(
             "SELECT version, name FROM schema_migrations WHERE version = 34")
         row = await cur.fetchone()
@@ -351,9 +363,13 @@ async def test_e2_v33_db_applies_v34_once_with_guard(tmp_path, caplog):
         cur = await svc2.db.execute(
             "SELECT COUNT(*) AS c FROM schema_migrations WHERE version=34")
         assert (await cur.fetchone())["c"] == 1
+        cur = await svc2.db.execute(
+            "SELECT COUNT(*) AS c FROM schema_migrations WHERE version=35")
+        assert (await cur.fetchone())["c"] == 1
         cur = await svc2.db.execute("PRAGMA user_version")
-        assert (await cur.fetchone())[0] == 34
+        assert (await cur.fetchone())[0] == 35
         assert "migration v34 applied" not in caplog.text   # повтор — no-op
+        assert "migration v35 applied" not in caplog.text   # повтор — no-op
     finally:
         await svc2.close()
 

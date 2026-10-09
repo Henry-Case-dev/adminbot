@@ -55,6 +55,18 @@ pytestmark = pytest.mark.system2
 
 
 @pytest.fixture(autouse=True)
+def _legacy_direct_l1_off(monkeypatch):
+    """ASAP 7 (F1): контракт legacy direct-пути (byte-parity K3-tail:
+    style-блоки между rules и speech). L1-линия (default ON с F1)
+    переключает топологию вызовов, поэтому здесь пин
+    DIRECT_L1_ENABLED=false; L1-ветка покрыта tests/test_asap7_direct_l1.py.
+    Прецедент: tests/test_direct_chat.py."""
+    from config.settings import Settings
+    monkeypatch.setattr(Settings, "DIRECT_L1_ENABLED", False)
+    yield
+
+
+@pytest.fixture(autouse=True)
 def _self_awareness_off(monkeypatch):
     _force_self_awareness(monkeypatch, False)
 

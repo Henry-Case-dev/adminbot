@@ -20,6 +20,31 @@ def _reset_global_persona_name():
 
 
 @pytest.fixture(autouse=True)
+def _settings_module_identity_restore():
+    """SWEEP-FIX (ASAP 7): восстановление identity ``config.settings``.
+
+    ``importlib.reload(config.settings)`` (test_betterstack_handler._import_bot,
+    test_settings_helpers, test_mca01_tx, test_bot_main_flow, …) переписывает
+    namespace модуля: ``Settings``/``settings`` становятся НОВЫМИ объектами,
+    при этом все сервисы, импортированные при коллекции, держат ссылки на
+    СТАРЫЙ класс/инстанс. Любой пин ClassVar через рантайм-импорт
+    (``from config.settings import Settings`` внутри фикстуры — конвенция F1
+    в test_direct_chat.py) после такого reload патчит уже новый класс и не
+    долетает до сервисов: например, DIRECT_L1_ENABLED оставался True в
+    L1-гейте (services/direct_l1.py:300) → 53 порядка-зависимых RED волны
+    ASAP 7. Фикстура снимает послематчный слепок namespace модуля ДО теста
+    и возвращает его ПОСЛЕ — identity класса/инстанса снова консистентна для
+    всех последующих тестов, сами reload-тесты не меняются. Прецедент
+    изоляции: _reset_global_persona_name выше; комментарий-предупреждение
+    _system2_flags_off_by_default (patch на ВСЕХ Settings-классах)."""
+    import config.settings as _cs
+    _snapshot = dict(_cs.__dict__)
+    yield
+    _cs.__dict__.clear()
+    _cs.__dict__.update(_snapshot)
+
+
+@pytest.fixture(autouse=True)
 def _system2_flags_off_by_default(request, monkeypatch):
     """Изоляция раунда 10.22 (F3–F6): старые тесты (без маркера ``system2``)
     идут ровно по одиночному пути 10.21 (флаги OFF). Тесты новой функциональности

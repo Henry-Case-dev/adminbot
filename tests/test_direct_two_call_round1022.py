@@ -20,6 +20,17 @@ from services.tool_loop import ToolLoopResult
 
 pytestmark = pytest.mark.system2
 
+
+@pytest.fixture(autouse=True)
+def _legacy_direct_l1_off(monkeypatch):
+    """ASAP 7 (F1): этот модуль — контракт legacy 2-call ветки
+    (Синтезатор/Вербализатор вне L1). L1-линия (default ON с F1)
+    переключает топологию вызовов, поэтому здесь пин
+    DIRECT_L1_ENABLED=false; L1-ветка покрыта tests/test_asap7_direct_l1.py.
+    Прецедент: та же фикстура в tests/test_direct_chat.py."""
+    monkeypatch.setattr(Settings, "DIRECT_L1_ENABLED", False)
+    yield
+
 _SYNTH_JSON = json.dumps({
     "user_question": "что там с погодой",
     "facts": [{"topic": "погода", "finding": "завтра дождь",

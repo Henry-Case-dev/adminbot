@@ -29,8 +29,9 @@ Active lanes (Wave 2 = DONE): 71b3b69 2.58.73 (F1+F6, REV-2 Approved) — в п�
 
 Active lanes (деплой W3 + финал):
 - DEPLOY-W3 | DevOps | deploy | Wave 3 | bg:ses_ee137c90cffepuYc74VAijNxPV | прод 3e52b96 = 2.58.74; ΔDDL v35 plan_meta (верификация миграции/идемпотентности/backup-guard обязательна)
-- F9 | Builder | done | Help resync | bg:ses_ee1250589ffeklaSLxsUhsgmVk | INFO v8 + GUIDE v5 (слепки PREV_ASAP7_*, миграции, реестры 7/4, байт-зеркало); коллизионное наследие: GUIDE осиротевшего сохранён (семантика тумблера скорректирована по D10), грязный слепок v4 перезаморожен; focused 242 + соседи 328 passed; жаргон/обещания grep=0; контракт-тест NEW; отчёт f9-report.md
-- REV-4 | Reviewer | read-only | F9 | bg:ses_ee1034aedffe0lF5Xke6bIzCay | сверка справки с runtime-truth, канон-механика, запрещённые термины, коллизионное наследие
+- F9 | Builder | done | Help resync | bg:ses_ee1250589ffeklaSLxsUhsgmVk | INFO v8 + GUIDE v5; REV-4 Approved (17 VERIFIED + 1 post-deploy gate); коммит a1b3279, push ok
+- SWEEP-FIX | Builder | writer | релизная гигиена | bg:ses_ee0ead8aeffeYZMZp71U0H3x2X | 97 failed полного прогона: A version-pins+README / B UI-снапшоты+jargon / C JS-харнессы / D мигроцепь v35 / E утечка состояния (~40 legacy-пинов, зелёные изолированно — root cause обязателен) / F extra-cover pre-existing; полный pytest повторно
+- REV-4 | Reviewer | done | F9 | bg:ses_ee1034aedffe0lF5Xke6bIzCay | Approved: runtime-truth сверен с кодом, канон-механика, запреты grep=0, коллизионное наследие корректно
 
 Done (Wave 3, закоммичена и запушена):
 - 3e52b96 feat(asap7-wave3) 2.58.74: F2+F2-FOLLOWUP (каталог L1 9 ключей, ΔDDL v35 plan_meta + wiring через corr-UPDATE, durable-оси 24ч/7д) + F7 (Summary Test → канонический compiler, preview-compile admin fail-closed, cleanup дубля) + F4 (registry +4, каталог +22, mca_gates +13 AND-гейтов, M2 85 осей); REV-3 Approved 17/17; джойн: asap7 176 passed, baseline 560/120/118, пины зелёные; push ok
@@ -81,7 +82,7 @@ Last verified:
 Next unlocks:
 - DEPLOY-W1 → owner live-чек (чат в селекторе; 2-click сверка final_prompt двух саммари в Run Inspector)
 - Wave 2 join (F1+F6) → Reviewer → commit/deploy → Wave 3 (F2 ∥ F7 ∥ F4) → F9 → финальный full suite → production acceptance (DoD §23)
-Review: approved (Wave 3, REV-3 17/17)
-Deployment: verified (Wave 3 в проде: 3e52b96 / 2.58.74, миграция v35 applied+идемпотентна; F9 в работе)
+Review: approved (F9, REV-4)
+Deployment: pending (после финального свипа: DEPLOY-W4 a1b3279 → 2.58.74, доставка канона v8/v5)
 Human gate: none
 Updated: 2026-10-09 (Wave 2 закоммичена/запушена; деплой W2 + Wave 3 идут)

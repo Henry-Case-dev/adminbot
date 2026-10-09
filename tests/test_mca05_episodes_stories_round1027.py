@@ -232,6 +232,7 @@ from services.database import (  # noqa: E402
     _SCHEMA_VERSION_MEDIA_VISION as _SCHEMA_VERSION_TAIL_V32,
     _SCHEMA_VERSION_FACTCHECK_TEMPORAL as _SCHEMA_VERSION_TAIL_V33,
     _SCHEMA_VERSION_EMBEDDING_GENERATION_NS as _SCHEMA_VERSION_TAIL_V34,
+    _SCHEMA_VERSION_LLM_USAGE_PLAN_META as _SCHEMA_VERSION_TAIL_V35,
 )
 # mca-10b (ADR-1028-17 D15, санкция §13.1): хвост реестра — v30
 # (random_uses) — mark обновлён по той же конвенции (прецедент v27→v28→v29).
@@ -248,7 +249,11 @@ from services.database import (  # noqa: E402
 # (embedding_generation_namespace_v34: namespace/config_revision в
 # mca_embedding_index_generations + NS-индекс) — mark обновлён по той же
 # конвенции волн (прецедент v32→v33).
-_SCHEMA_VERSION_STORIES_MARK = _SCHEMA_VERSION_TAIL_V34
+# ASAP 7 (F2, architecture §1.10): хвост реестра — v35
+# (llm_usage_plan_meta_v35: nullable plan_meta JSONB в llm_usage_events,
+# PG-only DDL; SQLite no-op) — mark обновлён по той же конвенции
+# (прецедент v33→v34).
+_SCHEMA_VERSION_STORIES_MARK = _SCHEMA_VERSION_TAIL_V35
 
 
 # ═══ Kill-switch OFF-паритет (SC-20, T-4249) ═════════════════════════════════

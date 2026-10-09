@@ -1213,8 +1213,8 @@ _DIRECT_L1_PG_ONLY: list[tuple] = [
      "строится без планирования (без зависания чата)."),
     ("limits.direct_l1_max_output_tokens", "limits",
      "L1 Planner: бюджет ответа (токены)", "int", False, "limits_direct_l1",
-     "Потолок длины служебного JSON-плана. Небольшое значение держит шаг "
-     "планирования дешёвым и быстрым."),
+     "Потолок длины служебного плана-справки (машиночитаемого). Небольшое "
+     "значение держит шаг планирования дешёвым и быстрым."),
     ("limits.direct_l1_context_tokens", "limits",
      "L1 Planner: потолок контекста (токены)", "int", False,
      "limits_direct_l1",
@@ -2482,18 +2482,19 @@ _STORIES: list[ParamSpec] = [
               CATEGORY_FLAGS, "Витрина историй (мастер read-контура)", "bool",
               pg_id="flags.stories_vitrina_enabled",
               group="flags_stories",
-              description="Блок «Истории чата», read-API /api/stories* и "
-                          "витрины смежных контуров. Выключено — блок скрыт, "
-                          "read-API честно отключён (не 404-заглушка). "
+              description="Блок «Истории чата» и витрины смежных контуров "
+                          "(чтение историй). Выключено — блок скрыт, чтение "
+                          "историй честно отключено (не 404-заглушка). "
                           "Аварийный env: MCA_STORIES_VITRINA_ENABLED важнее "
                           "UI (эффективно = env И тумблер)."),
     ParamSpec("MCA_STORIES_MANAGE_ENABLED", "MCA_STORIES_MANAGE_ENABLED",
               CATEGORY_FLAGS, "Действия с историями (мутации)", "bool",
               pg_id="flags.stories_manage_enabled",
               group="flags_stories",
-              description="POST /api/stories/{id}/action (под RBAC/CAS). "
-                          "Выключено — только просмотр, действия отклоняются "
-                          "честным disabled. Аварийный env: "
+              description="Управляющие действия с историей (под правами "
+                          "и защитой от конфликтующих правок). Выключено — "
+                          "только просмотр, действия отклоняются честным "
+                          "disabled. Аварийный env: "
                           "MCA_STORIES_MANAGE_ENABLED."),
     ParamSpec("MCA_EPISODES_ENABLED", "MCA_EPISODES_ENABLED",
               CATEGORY_FLAGS, "Эпизоды: мастер", "bool",
