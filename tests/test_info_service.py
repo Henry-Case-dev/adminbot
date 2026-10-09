@@ -37,23 +37,24 @@ class TestDefaultInfoText:
         )
 
     def test_rich_structure_complete(self):
-        """mca-23 (2.58.71): rich-канон v7 — только h1/h2 для заголовков
+        """asap7 (2.58.74): rich-канон v8 — только h1/h2 для заголовков
         (никаких h3/h4/h5), команды — в blockquote.
-        h1=1, h2=13 (v6 + «13. Просьбы посложнее»), blockquote=29, p=58."""
+        h1=1, h2=13, blockquote=31 (v7 + 2 примера заказа формы §13),
+        p=61 (v7 + §10-обложка + §13-форма/инструменты)."""
         assert DEFAULT_INFO_TEXT.count("<h1>") == DEFAULT_INFO_TEXT.count("</h1>") == 1
         assert DEFAULT_INFO_TEXT.count("<h2>") == DEFAULT_INFO_TEXT.count("</h2>") == 13
         assert DEFAULT_INFO_TEXT.count("<h3>") == 0
         assert DEFAULT_INFO_TEXT.count("<h4>") == 0
         assert DEFAULT_INFO_TEXT.count("<h5>") == 0
         assert DEFAULT_INFO_TEXT.count("<blockquote>") == \
-            DEFAULT_INFO_TEXT.count("</blockquote>") == 29
-        assert DEFAULT_INFO_TEXT.count("<p>") == DEFAULT_INFO_TEXT.count("</p>") == 58
+            DEFAULT_INFO_TEXT.count("</blockquote>") == 31
+        assert DEFAULT_INFO_TEXT.count("<p>") == DEFAULT_INFO_TEXT.count("</p>") == 61
 
     def test_html_tags_balanced(self):
-        """mca-23 (2.58.71): инлайн-акценты — b=46, i=46, u=0, a=2
+        """asap7 (2.58.74): инлайн-акценты — b=48, i=48, u=0, a=2
         (ссылки-примеры)."""
-        assert DEFAULT_INFO_TEXT.count("<b>") == DEFAULT_INFO_TEXT.count("</b>") == 46
-        assert DEFAULT_INFO_TEXT.count("<i>") == DEFAULT_INFO_TEXT.count("</i>") == 46
+        assert DEFAULT_INFO_TEXT.count("<b>") == DEFAULT_INFO_TEXT.count("</b>") == 48
+        assert DEFAULT_INFO_TEXT.count("<i>") == DEFAULT_INFO_TEXT.count("</i>") == 48
         assert DEFAULT_INFO_TEXT.count("<u>") == 0
         assert DEFAULT_INFO_TEXT.count("</u>") == 0
         assert DEFAULT_INFO_TEXT.count("<a ") == DEFAULT_INFO_TEXT.count("</a>") == 2
@@ -81,8 +82,8 @@ class TestDefaultInfoText:
             assert marker in DEFAULT_INFO_TEXT
 
     def test_canon_matches_backlog_r44_1_essence(self):
-        """mca-23 (2.58.71): снятие всех тегов сохраняет структуру
-        секций 1..13 (v7 = v6 + «13. Просьбы посложнее»)."""
+        """asap7 (2.58.74): снятие всех тегов сохраняет структуру
+        секций 1..13 (v8 = v7 + Direct-семантика/обложки; разделов столько же)."""
         for i in range(1, 14):
             assert f"<h2>{i}." in DEFAULT_INFO_TEXT
 

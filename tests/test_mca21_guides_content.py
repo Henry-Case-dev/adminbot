@@ -27,6 +27,8 @@ from services.info_service import (
     INFO_CANON_VERSION,
     KNOWN_GUIDE_SNAPSHOTS,
     KNOWN_INFO_SNAPSHOTS,
+    PREV_ASAP7_DEFAULT_INFO_TEXT,
+    PREV_ASAP7_INTELLIGENCE_GUIDE,
     PREV_MCA23_DEFAULT_INFO_TEXT,
     PREV_MCA23_INTELLIGENCE_GUIDE,
     PREV_R1048_DEFAULT_INFO_TEXT,
@@ -235,15 +237,19 @@ class TestCanonVersionInvariant:
     def test_versions_and_registries(self):
         # mca-23 (2.58.71): INFO 6→7 (раздел «13. Просьбы посложнее» + §7),
         # GUIDE 3→4 (§11/§1/словарик); прежние каноны — в слепках.
-        assert INFO_CANON_VERSION == 7
-        assert GUIDE_CANON_VERSION == 4
-        assert len(KNOWN_INFO_SNAPSHOTS) == 6
-        assert len(KNOWN_GUIDE_SNAPSHOTS) == 3
-        assert KNOWN_INFO_SNAPSHOTS[-1] is PREV_MCA23_DEFAULT_INFO_TEXT
-        assert KNOWN_GUIDE_SNAPSHOTS[-1] is PREV_MCA23_INTELLIGENCE_GUIDE
+        # asap7 (2.58.74): INFO 7→8, GUIDE 4→5; слепки v7/v4 — PREV_ASAP7_*.
+        assert INFO_CANON_VERSION == 8
+        assert GUIDE_CANON_VERSION == 5
+        assert len(KNOWN_INFO_SNAPSHOTS) == 7
+        assert len(KNOWN_GUIDE_SNAPSHOTS) == 4
+        assert KNOWN_INFO_SNAPSHOTS[-1] is PREV_ASAP7_DEFAULT_INFO_TEXT
+        assert KNOWN_INFO_SNAPSHOTS[-2] is PREV_MCA23_DEFAULT_INFO_TEXT
+        assert KNOWN_GUIDE_SNAPSHOTS[-1] is PREV_ASAP7_INTELLIGENCE_GUIDE
+        assert KNOWN_GUIDE_SNAPSHOTS[-2] is PREV_MCA23_INTELLIGENCE_GUIDE
 
     def test_guide_version_for_invariant(self):
         assert guide_version_for(GUIDE_MD) == GUIDE_CANON_VERSION
+        assert guide_version_for(PREV_ASAP7_INTELLIGENCE_GUIDE) == 4
         assert guide_version_for(PREV_MCA23_INTELLIGENCE_GUIDE) == 3
         assert guide_version_for(PREV_R1048_INTELLIGENCE_GUIDE) == 2
         assert guide_version_for(KNOWN_GUIDE_SNAPSHOTS[0]) == 1

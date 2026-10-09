@@ -26,6 +26,7 @@ from services.info_service import (
     DEFAULT_INFO_TEXT,
     INFO_CANON_VERSION,
     KNOWN_INFO_SNAPSHOTS,
+    PREV_ASAP7_DEFAULT_INFO_TEXT,
     PREV_DEFAULT_INFO_TEXT,
     PREV_MCA23_DEFAULT_INFO_TEXT,
     PREV_R1022_DEFAULT_INFO_TEXT,
@@ -60,8 +61,9 @@ class TestCanonV4:
     def test_version_bumped(self):
         # mca-21 (round 10.48): канон бампнут 5 → 6. v5-текст заморожен как
         # PREV_R1048_DEFAULT_INFO_TEXT (слепок миграции);
-        # mca-23 (2.58.71): 6 → 7, v6 заморожен как PREV_MCA23_DEFAULT_INFO_TEXT.
-        assert INFO_CANON_VERSION == 7
+        # mca-23 (2.58.71): 6 → 7, v6 заморожен как PREV_MCA23_DEFAULT_INFO_TEXT;
+        # asap7 (2.58.74): 7 → 8, v7 заморожен как PREV_ASAP7_DEFAULT_INFO_TEXT.
+        assert INFO_CANON_VERSION == 8
 
     def test_v3_snapshot_registered(self):
         assert PREV_R1022_DEFAULT_INFO_TEXT in KNOWN_INFO_SNAPSHOTS
@@ -70,7 +72,8 @@ class TestCanonV4:
         assert PREV_R1023_DEFAULT_INFO_TEXT in KNOWN_INFO_SNAPSHOTS
         assert PREV_R1048_DEFAULT_INFO_TEXT in KNOWN_INFO_SNAPSHOTS
         assert PREV_MCA23_DEFAULT_INFO_TEXT in KNOWN_INFO_SNAPSHOTS
-        assert len(KNOWN_INFO_SNAPSHOTS) == 6
+        assert PREV_ASAP7_DEFAULT_INFO_TEXT in KNOWN_INFO_SNAPSHOTS
+        assert len(KNOWN_INFO_SNAPSHOTS) == 7
 
     def test_v3_snapshot_is_previous_canon_not_current(self):
         # v3-слепок — прошлый текст (h4/h5 + безлимиты), а не текущий канон.
@@ -104,8 +107,9 @@ class TestLayoutRules:
         text = DEFAULT_INFO_TEXT
         # F9 10.23 добавил 3 команды изображений → blockquote == 24;
         # mca-21 добавил 3 команды распознавания → 27;
-        # mca-23 добавил 2 примера сравнения ссылок → 29.
-        assert text.count("<blockquote>") == text.count("</blockquote>") == 29
+        # mca-23 добавил 2 примера сравнения ссылок → 29;
+        # asap7 добавил 2 примера заказа формы (§13) → 31.
+        assert text.count("<blockquote>") == text.count("</blockquote>") == 31
         # ключевые команды — в цитате (выделенная цитата/код в UI).
         for cmd in ("Бот, транскрипт", "Бот, поясни за видос", "Бот, о чем видео",
                     "Бот, загугли", "Бот, скачай", "фактчек"):
@@ -162,8 +166,12 @@ class TestGuideSystem2:
     def test_system2_block_present_in_guide(self):
         text = GUIDE_MD.read_text(encoding="utf-8")
         assert "## 11. Как бот думает (System 2)" in text
-        assert "Сначала - подумать" in text
-        assert "Потом - сказать" in text
+        # asap7 (2.58.74): два этапа развёрнуты в три шага
+        # (план до tools → дело → слово); mca-23-формулировки заменены.
+        assert "Теперь у бота перед ответом три шага" in text
+        assert "Сначала - план" in text
+        assert "Потом - дело" in text
+        assert "Потом - слово" in text
         # mca-21 (round 10.48): словарик сдвинут на 19 (нумерация без дыр).
         assert "## 19. Словарик" in text
 
@@ -266,7 +274,7 @@ class TestMigrationV3ToV4:
         await cache.init()
         value = cache.get(INFO_KEY)
         assert value["html"] == DEFAULT_INFO_TEXT
-        assert value["canon_version"] == INFO_CANON_VERSION == 7
+        assert value["canon_version"] == INFO_CANON_VERSION == 8
         assert value["canon_delivered_version"] == INFO_CANON_VERSION
         assert len(_info_inserts(conn)) == 1
 

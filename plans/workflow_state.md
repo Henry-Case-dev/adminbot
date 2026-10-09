@@ -24,17 +24,16 @@ Active lanes (Phase 2, Wave 1 — 3 параллельных writer-лейны, 
 Active lanes (Wave 1 = DONE, закоммичена и запушена):
 - e6670b0 feat(asap7-wave1) 2.58.72: F5+F8+F3, Review Approved (REV-1), version bump + 13 пинов, param-registry переиздан; push origin/master ok
 
-Active lanes (Wave 1 = DONE): e6670b0 2.58.72 (F5+F8+F3, REV-1 Approved) — в проде
-Active lanes (Wave 2 = DONE, закоммичена и запушена):
-- 71b3b69 feat(asap7-wave2) 2.58.73: F1 (Direct L1 Planner, 37 тестов D1-D15, legacy-паритет) + F6 (Cover fix, 35 тестов, B11 closed речеком); REV-2 Approved; push ok
+Active lanes (Wave 1 = DONE): e6670b0 2.58.72 — в проде
+Active lanes (Wave 2 = DONE): 71b3b69 2.58.73 (F1+F6, REV-2 Approved) — в проде
 
-Active lanes (деплой W2 + Wave 3 — 3 Builder-лейны):
-- DEPLOY-W2 | DevOps | done | Wave 2 | bg:ses_ee1f86c8affe80VtnNE9gm6b99 | VERIFIED: прод 71b3b69 = 2.58.73, healthz 200 внутрь+внешне, pull ff-only, sha256 5/5, рестарт 1х NRestarts=0, boot ERR=0 (1 known EmbeddingGroupCoolingDown — pre-existing), defaults: DIRECT_L1_ENABLED=True, story_first; rollback готов; evidence deploy-w2-evidence.md
-- F2 | Builder | done | Direct settings+analytics | bg:ses_ee1f86c87ffe41l6RKxxZ6vzIs | 18 тестов; каталог 9 PG-only ключей L1; ΔDDL v35 plan_meta (backup-guard); durable-оси 24ч/7д; SECTION-DIRECT-UI (D-5, resolved, REV-2б по-русски); Playwright 28/28 + Browser Use; отчёт f2-report.md
-- F2-FOLLOWUP | Builder | done | plan_meta wiring | bg:ses_ee19f2c5affewmDvCmOokzqN7A | fail-open UPDATE по corr (:261/:268/:3587/:3593), покрывает main+silent/react; whitelist+bounded; 57 passed (direct_settings+direct_l1)
-- REV-3 | Reviewer | read-only | Wave 3 | bg:ses_ee14b95bfffebibAp4keuoOQxe | ретрай после отмены рантайма; adversarial: DDL/каталог/plan_meta + preview fail-closed + registry completeness + секции
-- F7 | Builder | done | Cover live preview | bg:ses_ee1f86c87ffdzdjBkrem32a6So | 21 тестов (parity golden, fail-closed, honest no_context); Summary Test → compose_base_cover_prompt (перепроверено :421), preview-compile :1463; cleanup дубля; ROUTES pin цел; Playwright+Browser Use; отчёт f7-report.md
-- F4 | Builder | done | Module completeness | bg:ses_ee1f86c89ffeBmqQVoH52N0gmv | registry +4 (stories/character/experience/random — перепроверено :102+, mca_gates 13 AND-гейтов F4 §3.3); 29/29 + соседи 384 passed; Playwright+Browser Use (хаб 19 карточек); отступ mca_gates задокументирован; отчёт f4-report.md
+Active lanes (деплой W3 + финал):
+- DEPLOY-W3 | DevOps | deploy | Wave 3 | bg:ses_ee137c90cffepuYc74VAijNxPV | прод 3e52b96 = 2.58.74; ΔDDL v35 plan_meta (верификация миграции/идемпотентности/backup-guard обязательна)
+- F9 | Builder | done | Help resync | bg:ses_ee1250589ffeklaSLxsUhsgmVk | INFO v8 + GUIDE v5 (слепки PREV_ASAP7_*, миграции, реестры 7/4, байт-зеркало); коллизионное наследие: GUIDE осиротевшего сохранён (семантика тумблера скорректирована по D10), грязный слепок v4 перезаморожен; focused 242 + соседи 328 passed; жаргон/обещания grep=0; контракт-тест NEW; отчёт f9-report.md
+- REV-4 | Reviewer | read-only | F9 | bg:ses_ee1034aedffe0lF5Xke6bIzCay | сверка справки с runtime-truth, канон-механика, запрещённые термины, коллизионное наследие
+
+Done (Wave 3, закоммичена и запушена):
+- 3e52b96 feat(asap7-wave3) 2.58.74: F2+F2-FOLLOWUP (каталог L1 9 ключей, ΔDDL v35 plan_meta + wiring через corr-UPDATE, durable-оси 24ч/7д) + F7 (Summary Test → канонический compiler, preview-compile admin fail-closed, cleanup дубля) + F4 (registry +4, каталог +22, mca_gates +13 AND-гейтов, M2 85 осей); REV-3 Approved 17/17; джойн: asap7 176 passed, baseline 560/120/118, пины зелёные; push ok
 
 Join-reconcile (Wave 3):
 - JOIN DONE: re-issue f8_baseline+param-registry (560/120/118), пины зелёные (29+24); полный asap7-набор 176 passed; node --check OK
@@ -82,7 +81,7 @@ Last verified:
 Next unlocks:
 - DEPLOY-W1 → owner live-чек (чат в селекторе; 2-click сверка final_prompt двух саммари в Run Inspector)
 - Wave 2 join (F1+F6) → Reviewer → commit/deploy → Wave 3 (F2 ∥ F7 ∥ F4) → F9 → финальный full suite → production acceptance (DoD §23)
-Review: approved (Wave 2, REV-2 + речек B11 closed)
-Deployment: verified (Wave 2 в проде: 71b3b69 / 2.58.73; Wave 3 в работе)
+Review: approved (Wave 3, REV-3 17/17)
+Deployment: verified (Wave 3 в проде: 3e52b96 / 2.58.74, миграция v35 applied+идемпотентна; F9 в работе)
 Human gate: none
 Updated: 2026-10-09 (Wave 2 закоммичена/запушена; деплой W2 + Wave 3 идут)

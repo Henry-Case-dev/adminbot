@@ -43,7 +43,8 @@ GUIDE_MCA23_MARKERS = (
     "Короткая болтовня простыни не требует",
     "«напиши фанфик» - это заказ на фанфик",
     # Force Direct — гарантия ответа, но не краткости (без термина);
-    "Прямая просьба с обращением - вообще гарантированный ответ",
+    # asap7 (2.58.74): гарантия уточнена — текстовый ответ.
+    "Прямая просьба с обращением - вообще гарантированный текстовый ответ",
     "гарантия касается самого ответа, а не его длины",
     # один уточняющий вопрос вместо угадывания;
     "Задаст один конкретный уточняющий вопрос",
@@ -75,8 +76,9 @@ INFO_MCA23_MARKERS = (
     "может прийти оформленной статьёй",
     "придёт тот же текст обычным сообщением, ничего не теряется",
     "задаст один конкретный уточняющий вопрос",
-    # §7: гарантия ответа на прямое обращение без гарантии краткости.
-    "прямая просьба с обращением - гарантированный ответ",
+    # §7: гарантия ответа на прямое обращение без гарантии краткости
+    # (asap7 (2.58.74): уточнение — гарантированный текстовый ответ).
+    "прямая просьба с обращением - гарантированный текстовый ответ",
     "Гарантия распространяется на сам ответ, а не на его длину",
 )
 
@@ -174,12 +176,13 @@ class TestCanonInvariants:
     """Бампы 6→7 / 3→4: слепки прежних канонов, resolve после миграции."""
 
     def test_versions_and_registries(self):
-        assert INFO_CANON_VERSION == 7
-        assert GUIDE_CANON_VERSION == 4
-        assert len(KNOWN_INFO_SNAPSHOTS) == 6
-        assert len(KNOWN_GUIDE_SNAPSHOTS) == 3
-        assert KNOWN_INFO_SNAPSHOTS[-1] is PREV_MCA23_DEFAULT_INFO_TEXT
-        assert KNOWN_GUIDE_SNAPSHOTS[-1] is PREV_MCA23_INTELLIGENCE_GUIDE
+        # asap7 (2.58.74): бамп 7→8 / 4→5, слепки v7/v4 — PREV_ASAP7_*.
+        assert INFO_CANON_VERSION == 8
+        assert GUIDE_CANON_VERSION == 5
+        assert len(KNOWN_INFO_SNAPSHOTS) == 7
+        assert len(KNOWN_GUIDE_SNAPSHOTS) == 4
+        assert KNOWN_INFO_SNAPSHOTS[-2] is PREV_MCA23_DEFAULT_INFO_TEXT
+        assert KNOWN_GUIDE_SNAPSHOTS[-2] is PREV_MCA23_INTELLIGENCE_GUIDE
 
     def test_prev_v6_frozen_without_mca23_blocks(self):
         # Слепок v6 — прежний канон mca-21: без раздела 13 и §7-гарантии.
