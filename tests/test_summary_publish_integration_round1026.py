@@ -1346,6 +1346,10 @@ class TestBoundaries:
             "/analytics/prices",
             "/analytics/context-budgets",
             "/analytics/pipeline/inspector",
+            # ASAP 8 F4 (REV-F2/F4 re-pin): аддитивный read-only
+            # GET /runs/latest — server-side resolve последнего запуска
+            # для auto-load Run Inspector (global-admin fail-closed).
+            "/analytics/pipeline/runs/latest",
             "/analytics/pipeline/runs/{run_id}",
             "/analytics/response/summary",
         ]), routes

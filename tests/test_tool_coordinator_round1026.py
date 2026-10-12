@@ -759,6 +759,7 @@ class TestBounds:
         assert summary_changed <= {"services/summary_memory.py",
                                    "services/summary_l2_writer.py",
                                    "services/summary_l2_repair.py",
+                                   "services/summary_execution_input.py",
                                    "services/summary_l1_clusterizer.py",
                                    "services/summary_l1_contract.py",
                                    "services/summary_l1_repair.py",

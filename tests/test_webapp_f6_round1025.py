@@ -123,7 +123,7 @@ class TestInvariant116:
         # /analytics/prices, пин ниже не тронут).
         routes = re.findall(r"@analytics_router\.(get|put|post|delete)\(\"([^\"]+)\"",
                             _ANALYTICS)
-        assert len(routes) == 9, f"изменён контракт analytics API: {routes}"
+        assert len(routes) == 10, f"изменён контракт analytics API: {routes}"
         write_routes = [r for r in routes if r[0] != "get"]
         assert write_routes == [("put", "/analytics/prices")], write_routes
         assert "/analytics/usage/latest" in _ANALYTICS

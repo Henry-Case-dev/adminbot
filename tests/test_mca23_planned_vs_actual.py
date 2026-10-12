@@ -42,7 +42,7 @@ _ANALYTICS = (_ROOT / "web" / "api" / "analytics.py").read_text(
 ROUTES_SHA256_F11 = (
     # ASAP 7 (F3): переутверждён — аддитивный ключ `modules` в GET /api/config;
     # канон пина — tests/test_round1025_f8_registry.py (L-F11S-1).
-    "88559373c6ea036abd1814e292f3b9b6591f0e3d36291aea9b8a634982af626a")
+    "1b04e524374b203e17ea2d334deb980d3e9ba80ce023a85300cf3c00326e38ff")
 
 
 @pytest.fixture(autouse=True)
