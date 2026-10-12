@@ -284,6 +284,9 @@ _EMBED_RETRY_BACKOFF = 1.0           # сон backoff_base * 2**n
 _VEC_REACTIVATE_INTERVAL = 600.0     # re-probe не чаще раза в 10 мин
 _BACKFILL_BATCH = 50                 # батч backfill
 _BACKFILL_MAX_FACTS = 500            # потолок фактов за один вызов backfill
+# F8 (E4/§28.19): каденция периодического backfill-probe БЕЗ read-трафика
+# (maintenance tick зовёт `embed_recovery_tick`; re-probe vec + backlog).
+_EMBED_BACKFILL_TICK_INTERVAL = 600.0
 
 
 class _EmbedBatchState:
@@ -1504,6 +1507,8 @@ class MemoryManager:
         self._vec_off_reason: str | None = None      # "extension" | "embed"
         self._embed_degraded_at = 0.0
         self._reactivate_lock = asyncio.Lock()
+        # F8 (E4): каденция периодического backfill-probe (без read-трафика).
+        self._embed_backfill_probe_last = 0.0
         # Epic 60 (66.6, T-484): int8-coarse + float-реранк (VEC_INT8_ENABLED).
         self._vec_int8 = False
         # F1 (ADR-1024-6 D3, R1024F1-04): счётчик ПОСЛЕДОВАТЕЛЬНЫХ полных
@@ -2187,7 +2192,97 @@ class MemoryManager:
             fire_and_forget(self.backfill_archive_vectors(), "backfill")
             fire_and_forget(self.backfill_graph_fact_vectors(), "backfill_graph")
             fire_and_forget(self._recover_runtime_jobs(), "runtime_recovery")
+            # F8 (§15.5): факт реактивации — в панель backlog (R17-safe).
+            try:
+                from services.embedding_control_plane import note_backfill_progress
+                note_backfill_progress(last_recovery_ts=int(time.time()),
+                                       last_reprobe_ts=int(time.time()))
+            except Exception:      # контракт не рвёт реактивацию
+                pass
             return True
+
+    async def _text_only_backlog_counts(self) -> dict:
+        """F8 (§28.19): живые счётчики text-only backlog (факты без vec-строк).
+        Vec-таблиц нет → None (честно «неизвестно», не 0). Никогда не бросает."""
+        out = {"archive": None, "graph": None}
+        try:
+            cursor = await self.db.db.execute(
+                "SELECT COUNT(*) AS c FROM smart_archive_facts WHERE id NOT "
+                "IN (SELECT fact_id FROM smart_archive)")
+            row = await cursor.fetchone()
+            out["archive"] = int(row["c"]) if row else None
+        except Exception:
+            out["archive"] = None
+        try:
+            cursor = await self.db.db.execute(
+                "SELECT COUNT(*) AS c FROM graph_facts WHERE id NOT IN "
+                "(SELECT fact_id FROM graph_facts_vec) AND (expires_at IS "
+                "NULL OR expires_at > ?)", (int(time.time()),))
+            row = await cursor.fetchone()
+            out["graph"] = int(row["c"]) if row else None
+        except Exception:
+            out["graph"] = None
+        return out
+
+    async def embed_recovery_tick(self) -> dict:
+        """F8 (E4/§28.19): периодический re-probe embed-деградации и backfill
+        text-only backlog БЕЗ read-трафика. Вызывается из maintenance tick
+        (`memory_maintenance._tick_embed_recovery`, каждые 600 c):
+
+        * vec off ИЗ-ЗА embed (`_vec_off_reason == "embed"`) → та же
+          `_ensure_vec_retry` (реактивация + fire_and_forget backfill) —
+          покрытие случая «нет read-трафика после сбоя»;
+        * vec жив, но есть text-only backlog (деградация embed при живом vec,
+          факты сохранены без векторов) → bounded backfill
+          (`backfill_archive_vectors` + `backfill_graph_fact_vectors`,
+          потолок `_BACKFILL_MAX_FACTS` за вызов) не чаще
+          `_EMBED_BACKFILL_TICK_INTERVAL`.
+
+        Прогресс — в ecp.BACKFILL_STATE (панель §15.5) + INFO-лог. Возвращает
+        R17-safe статус; НИКОГДА не бросает."""
+        out = {"probed": False, "recovered": False, "backfilled": 0,
+               "backlog_archive": None, "backlog_graph": None, "skipped": ""}
+        try:
+            if not self._vec_available:
+                if self._vec_off_reason != "embed":
+                    out["skipped"] = "vec_off_extension"
+                    return out
+                out["probed"] = True
+                out["recovered"] = bool(await self._ensure_vec_retry())
+                return out
+            now = time.monotonic()
+            if now - self._embed_backfill_probe_last < \
+                    _EMBED_BACKFILL_TICK_INTERVAL:
+                out["skipped"] = "cadence"
+                return out
+            self._embed_backfill_probe_last = now
+            backlog = await self._text_only_backlog_counts()
+            out["backlog_archive"] = backlog.get("archive")
+            out["backlog_graph"] = backlog.get("graph")
+            try:
+                from services.embedding_control_plane import note_backfill_progress
+                note_backfill_progress(
+                    last_reprobe_ts=int(time.time()),
+                    backlog_archive=backlog.get("archive"),
+                    backlog_graph=backlog.get("graph"))
+            except Exception:      # контракт не рвёт тик
+                pass
+            total = sum(v for v in backlog.values() if v)
+            if total <= 0:
+                return out
+            processed = await self.backfill_archive_vectors()
+            processed += await self.backfill_graph_fact_vectors()
+            out["backfilled"] = int(processed)
+            if processed:
+                logger.info(
+                    "SmartModule embed recovery tick: backfill processed=%d "
+                    "| backlog_archive=%s backlog_graph=%s",
+                    processed, backlog.get("archive"), backlog.get("graph"))
+            return out
+        except Exception:
+            logger.warning("SmartModule embed recovery tick failed",
+                           exc_info=True)
+            return out
 
     async def backfill_archive_vectors(self) -> int:
         """R46-8 (55.8): re-embedding фактов L3 без векторов (dim-сдвиг/403-эпизод).
@@ -2245,6 +2340,12 @@ class MemoryManager:
                 processed += len(batch)
             if processed:
                 logger.info("SmartModule backfill: re-embedded %d facts", processed)
+                try:
+                    from services.embedding_control_plane import note_backfill_progress
+                    note_backfill_progress(last_backfill_ts=int(time.time()),
+                                           last_processed_archive=int(processed))
+                except Exception:      # контракт не рвёт backfill
+                    pass
             return processed
         except Exception:
             logger.warning("SmartModule backfill: failed", exc_info=True)
@@ -2295,6 +2396,12 @@ class MemoryManager:
             if processed:
                 logger.info("SmartModule graph backfill: re-embedded %d facts",
                             processed)
+                try:
+                    from services.embedding_control_plane import note_backfill_progress
+                    note_backfill_progress(last_backfill_ts=int(time.time()),
+                                           last_processed_graph=int(processed))
+                except Exception:      # контракт не рвёт backfill
+                    pass
             return processed
         except Exception:
             logger.warning("SmartModule graph backfill: failed", exc_info=True)

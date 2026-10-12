@@ -276,12 +276,25 @@ def test_quota_label_parsing_and_ladder():
 
 
 def test_unknown_group_safe_default_single_group(monkeypatch):
+    """ASAP 8 F8 (§15.2/§15.3): named slots (primary/fallback_1/fallback_2)
+    БЕЗ label'ов получают НЕЗАВИСИМЫЕ стабильные auto-group id (= alias) —
+    НЕ сваливаются в unknown (дефект п.50/§28.18 закрыт структурно).
+    Safe default «ВСЕ unknown — ОДНА группа» остаётся только для не-опознанных
+    алиасов (extra_N). Явный label по-прежнему приоритетен."""
     _patch_keys(monkeypatch, primary="k1", fb1="k2", fb2="k3")
     pool = build_credential_pool()
     assert len(pool) == 3
-    assert all(c.quota_group_id == UNKNOWN_GROUP_ID for c in pool)
+    groups = {c.alias: c.quota_group_id for c in pool}
+    assert groups == {"primary": "primary", "fallback_1": "fallback_1",
+                      "fallback_2": "fallback_2"}
+    assert all(c.quota_group_known for c in pool)
+    assert all(c.quota_group_source == "auto" for c in pool)
+    # Не-опознанные алиасы (extra_N) без label — ОДНА общая unknown-группа.
+    _patch_keys(monkeypatch, primary="", fb1="", fb2="", extra="k1;k2;k3")
+    pool = build_credential_pool()
+    assert {c.quota_group_id for c in pool} == {UNKNOWN_GROUP_ID}
     assert all(not c.quota_group_known for c in pool)
-    # Явный label разделяет группы.
+    # Явный label разделяет/объединяет группы (ручная группировка владельца).
     _patch_keys(monkeypatch, primary="k1", fb1="k2", fb2="k3",
                 labels="primary:gA, fallback_1:gA, fallback_2:gB")
     pool = build_credential_pool()
@@ -324,8 +337,11 @@ async def test_arbitrary_pool_executor_works(fresh_ecp, monkeypatch):
 async def test_retry_storm_same_group_no_burst(fresh_ecp, monkeypatch):
     """§64 fixture: primary 429 + fallback keys SAME quota group + RA=20s.
     EXPECT: не 21 burst; group enters cooldown; same-group key не бомбится
-    сразу (один логический HTTP-вызов → перенос по next_allowed_at)."""
-    _patch_keys(monkeypatch, primary="k1", fb1="k2", fb2="k3")
+    сразу (один логический HTTP-вызов → перенос по next_allowed_at).
+    F8 (§15.3): same-group теперь ЯВНАЯ ручная группировка (labels) —
+    без labels named slots независимы (E2)."""
+    _patch_keys(monkeypatch, primary="k1", fb1="k2", fb2="k3",
+                labels="primary:gA, fallback_1:gA, fallback_2:gA")
     llm = FakeLLM(retry_after=20.0)
     llm.script = ["rate_limit"]
     ex = EmbeddingExecutor(llm)
@@ -335,7 +351,7 @@ async def test_retry_storm_same_group_no_burst(fresh_ecp, monkeypatch):
     assert len(llm.calls) == 1
     assert llm.calls[0]["key"] == "k1"
     # Group cooling с next_allowed_at ≈ now+20 (честный Retry-After).
-    group = fresh_ecp.REGISTRY.group_state(UNKNOWN_GROUP_ID)
+    group = fresh_ecp.REGISTRY.group_state("gA")
     assert group.state in ("cooling_down", "exhausted")
     assert group.next_allowed_at >= int(time.time()) + 15
     assert exc_info.value.next_allowed_at == group.next_allowed_at
@@ -1040,8 +1056,10 @@ def test_provider_panel_r17_safe(monkeypatch):
     # R17: значение ключа нигде в панели.
     dumped = json.dumps(panel, ensure_ascii=False)
     assert "super-secret-key-value" not in dumped
-    assert "g1" in panel["quota_group_display"] or \
-        panel["quota_groups_known"] == 1
+    # F8 (§15.3): fallback_1 без label — auto-группа (known), g1 — явная:
+    # обе группы известны, display показывает их число.
+    assert panel["quota_groups_known"] == 2
+    assert panel["quota_group_display"] == "2"
 
 
 @pytest.mark.asyncio
@@ -1470,7 +1488,8 @@ async def test_parking_spend_until_utc_day_end(fresh_ecp, monkeypatch):
     """D1/acceptance п.1: spend-429 БЕЗ Retry-After → парковка группы до
     конца текущих суток UTC + margin; state=exhausted; честная note
     `parked ... est=utc_day_end` (не фальшивая посекундная точность)."""
-    _patch_keys(monkeypatch, primary="k1", fb1="k2", fb2="k3")
+    _patch_keys(monkeypatch, primary="k1", fb1="k2", fb2="k3",
+                labels="primary:gA, fallback_1:gA, fallback_2:gA")
     llm = FakeLLM()
     llm.script = [_SPEND_NO_RA]
     ex = EmbeddingExecutor(llm)
@@ -1478,7 +1497,7 @@ async def test_parking_spend_until_utc_day_end(fresh_ecp, monkeypatch):
         await ex.embed(["x"], priority=Priority.P3_REBUILD)
     # РОВНО ОДИН HTTP-вызов: после парковки повторов в группу нет.
     assert len(llm.calls) == 1
-    group = fresh_ecp.REGISTRY.group_state(UNKNOWN_GROUP_ID)
+    group = fresh_ecp.REGISTRY.group_state("gA")
     assert group.state == "exhausted"
     margin = float(ecp._settings_value("EMBED_QUOTA_RESET_MARGIN_SECONDS",
                                        300.0))
@@ -1493,13 +1512,14 @@ async def test_parking_spend_until_utc_day_end(fresh_ecp, monkeypatch):
 async def test_parking_respects_provider_ra(fresh_ecp, monkeypatch):
     """D1/failure-semantics 2: RA у spend/daily (нетипично) — уважается RA с
     ceiling 300s, парковка-оценка НЕ применяется (провайдер точнее)."""
-    _patch_keys(monkeypatch, primary="k1", fb1="k2", fb2="k3")
+    _patch_keys(monkeypatch, primary="k1", fb1="k2", fb2="k3",
+                labels="primary:gA, fallback_1:gA, fallback_2:gA")
     llm = FakeLLM()
     llm.script = [_SPEND_RA_120]
     ex = EmbeddingExecutor(llm)
     with pytest.raises(EmbeddingGroupCoolingDown):
         await ex.embed(["x"], priority=Priority.P3_REBUILD)
-    group = fresh_ecp.REGISTRY.group_state(UNKNOWN_GROUP_ID)
+    group = fresh_ecp.REGISTRY.group_state("gA")
     assert group.state == "exhausted"
     now = int(time.time())
     assert now + 115 <= group.next_allowed_at <= now + 125   # RA=120, не cap
@@ -1510,7 +1530,7 @@ async def test_parking_respects_provider_ra(fresh_ecp, monkeypatch):
     llm2.script = [_mk_rate_limit("spend budget exhausted", 9999.0)]
     with pytest.raises(EmbeddingGroupCoolingDown):
         await EmbeddingExecutor(llm2).embed(["x"], priority=Priority.P3_REBUILD)
-    group2 = fresh_ecp.REGISTRY.group_state(UNKNOWN_GROUP_ID)
+    group2 = fresh_ecp.REGISTRY.group_state("gA")
     assert group2.next_allowed_at <= int(time.time()) + 301
 
 
@@ -1518,7 +1538,8 @@ async def test_parking_respects_provider_ra(fresh_ecp, monkeypatch):
 async def test_rpm_tpm_unchanged(fresh_ecp, monkeypatch):
     """D1/acceptance п.4: rpm/tpm/rate — бит-в-бит прежняя семантика
     (RA-capped 300s / default 20s; burst ≠ quota-unavailable)."""
-    _patch_keys(monkeypatch, primary="k1", fb1="k2", fb2="k3")
+    _patch_keys(monkeypatch, primary="k1", fb1="k2", fb2="k3",
+                labels="primary:gA, fallback_1:gA, fallback_2:gA")
     cases = [
         # (body, retry_after, expected_state, delay_bounds)
         ("Requests per minute quota exceeded", None,
@@ -1535,7 +1556,7 @@ async def test_rpm_tpm_unchanged(fresh_ecp, monkeypatch):
         with pytest.raises(EmbeddingGroupCoolingDown):
             await EmbeddingExecutor(llm).embed(["x"],
                                                priority=Priority.P3_REBUILD)
-        group = fresh_ecp.REGISTRY.group_state(UNKNOWN_GROUP_ID)
+        group = fresh_ecp.REGISTRY.group_state("gA")
         now = int(time.time())
         assert group.state == exp_state, body
         assert now + lo <= group.next_allowed_at <= now + hi, body
@@ -1548,13 +1569,14 @@ async def test_parking_off_bit_identical(fresh_ecp, monkeypatch):
     """D5/acceptance п.7: EMBED_QUOTA_KIND_PARKING_ENABLED=OFF → бит-в-бит
     2.58.45: kind не влияет на длительность (default 20s), note прежнего
     формата, state как сейчас."""
-    _patch_keys(monkeypatch, primary="k1", fb1="k2", fb2="k3")
+    _patch_keys(monkeypatch, primary="k1", fb1="k2", fb2="k3",
+                labels="primary:gA, fallback_1:gA, fallback_2:gA")
     _patch_setting(monkeypatch, "EMBED_QUOTA_KIND_PARKING_ENABLED", False)
     llm = FakeLLM()
     llm.script = [_SPEND_NO_RA]
     with pytest.raises(EmbeddingGroupCoolingDown):
         await EmbeddingExecutor(llm).embed(["x"], priority=Priority.P3_REBUILD)
-    group = fresh_ecp.REGISTRY.group_state(UNKNOWN_GROUP_ID)
+    group = fresh_ecp.REGISTRY.group_state("gA")
     now = int(time.time())
     assert group.state == "exhausted"        # is_quota_unavailable не менялся
     assert now + 18 <= group.next_allowed_at <= now + 22     # default 20s
@@ -1565,7 +1587,7 @@ async def test_parking_off_bit_identical(fresh_ecp, monkeypatch):
     llm2.script = [_mk_rate_limit("spend budget exhausted", 9999.0)]
     with pytest.raises(EmbeddingGroupCoolingDown):
         await EmbeddingExecutor(llm2).embed(["x"], priority=Priority.P3_REBUILD)
-    group2 = fresh_ecp.REGISTRY.group_state(UNKNOWN_GROUP_ID)
+    group2 = fresh_ecp.REGISTRY.group_state("gA")
     assert group2.next_allowed_at <= int(time.time()) + 301
     assert group2.note == "429 kind=spend ra=9999.0"
 
@@ -1580,7 +1602,8 @@ async def test_flag_matrix_parking_backoff(fresh_ecp, monkeypatch,
     """D5-матрица сочетаний обоих флагов (design-fix §Матрица):
     parking управляет длительностью quota-паузы, backoff — нелинейностью
     default-cooldown ветки; OFF-комбинации — прежние значения."""
-    _patch_keys(monkeypatch, primary="k1", fb1="k2", fb2="k3")
+    _patch_keys(monkeypatch, primary="k1", fb1="k2", fb2="k3",
+                labels="primary:gA, fallback_1:gA, fallback_2:gA")
     _patch_setting(monkeypatch, "EMBED_QUOTA_KIND_PARKING_ENABLED", parking_on)
     _patch_setting(monkeypatch, "EMBED_RESUME_BACKOFF_ENABLED", backoff_on)
     # Фаза 1 (executor): spend без RA.
@@ -1588,7 +1611,7 @@ async def test_flag_matrix_parking_backoff(fresh_ecp, monkeypatch,
     llm.script = [_SPEND_NO_RA]
     with pytest.raises(EmbeddingGroupCoolingDown):
         await EmbeddingExecutor(llm).embed(["x"], priority=Priority.P3_REBUILD)
-    group = fresh_ecp.REGISTRY.group_state(UNKNOWN_GROUP_ID)
+    group = fresh_ecp.REGISTRY.group_state("gA")
     now = int(time.time())
     if parking_on:
         assert group.next_allowed_at >= now + 290          # парковка (≥ margin)
@@ -1881,7 +1904,8 @@ async def test_429_counted_once_per_real_hit(vec_db, monkeypatch):
     """D4/acceptance п.6: ровно 1 инкремент на реальный 429. (а) Реальный 429
     через executor → счётчик 1; (б) pause-конверсия CoolingDown без нового
     429 → счётчик НЕ растёт (до фикса был второй инкремент — ×2)."""
-    _patch_keys(monkeypatch, primary="k1", fb1="k2", fb2="k3")
+    _patch_keys(monkeypatch, primary="k1", fb1="k2", fb2="k3",
+                labels="primary:gA, fallback_1:gA, fallback_2:gA")
     llm = FakeLLM()
     llm.script = [_SPEND_RA_120]
     with pytest.raises(EmbeddingGroupCoolingDown):
@@ -1914,10 +1938,19 @@ async def test_429_counted_once_per_real_hit(vec_db, monkeypatch):
 
 
 def test_degenerate_pool_hint(monkeypatch):
-    """D3/acceptance п.5: вырожденный пул (3 ключа → одна unknown-группа) →
-    degenerate=True; labels разделяют группы → degenerate=False; одна
-    известная группа — всё ещё degenerate (|groups|==1)."""
+    """D3+F8/§15.3/§28.18: named slots с auto-группами — НЕ degenerate
+    (независимые quota pools, rotation работает). Genuinely-unknown пул
+    (extra-ключи без label'ов) → degenerate=True (rotation none / unknown);
+    одна известная группа (ручная группировка/один ключ) — всё ещё
+    degenerate (|groups|==1); labels разделяют группы → degenerate=False."""
     _patch_keys(monkeypatch, primary="k1", fb1="k2", fb2="k3")
+    diag = ecp.pool_rotation_diagnosis(build_credential_pool())
+    assert diag == {"keys": 3, "groups": ["fallback_1", "fallback_2",
+                                          "primary"],
+                    "known": True, "degenerate": False}
+    # E1/§28.18: 3 ключа БЕЗ опознания групп (extra-алиасы) — честный
+    # degenerate: rotation=none, одна unknown-группа.
+    _patch_keys(monkeypatch, primary="", fb1="", fb2="", extra="k1;k2;k3")
     diag = ecp.pool_rotation_diagnosis(build_credential_pool())
     assert diag == {"keys": 3, "groups": [UNKNOWN_GROUP_ID],
                     "known": False, "degenerate": True}
@@ -1930,11 +1963,12 @@ def test_degenerate_pool_hint(monkeypatch):
                 labels="primary:gA, fallback_1:gA, fallback_2:gA")
     diag = ecp.pool_rotation_diagnosis(build_credential_pool())
     assert diag["degenerate"] is True           # одна группа даже known
-    # Панель: rotation-блок по контракту.
-    _patch_keys(monkeypatch, primary="k1", fb1="k2", fb2="k3")
+    # Панель: rotation-блок по контракту (unknown → reason=unknown_group).
+    _patch_keys(monkeypatch, primary="", fb1="", fb2="", extra="k1;k2;k3")
     panel = provider_panel()
     rot = panel["rotation"]
     assert rot["status"] == "none" and rot["degenerate"] is True
+    assert rot["warn"] is True and rot["reason"] == "unknown_group"
     assert rot["groups"] == [UNKNOWN_GROUP_ID] and rot["keys"] == 3
     assert "EMBEDDING_QUOTA_GROUP_LABELS" in rot["hint"]
     # Пул «ожил» (labels заданы) → grouped, hint пуст.
@@ -1942,6 +1976,7 @@ def test_degenerate_pool_hint(monkeypatch):
                 labels="primary:gA, fallback_1:gB, fallback_2:gB")
     rot = provider_panel()["rotation"]
     assert rot["status"] == "grouped" and rot["degenerate"] is False
+    assert rot["warn"] is False and rot["reason"] == ""
     assert rot["hint"] == ""
 
 
@@ -1975,7 +2010,8 @@ async def test_parked_note_and_panel_honest(fresh_ecp, monkeypatch):
     RA (`parked ... est=`), показывает rotation: none + hint; R17 — без
     значений ключей."""
     _patch_keys(monkeypatch, primary="secret-key-material", fb1="k2",
-                fb2="k3")
+                fb2="k3",
+                labels="primary:gA, fallback_1:gA, fallback_2:gA")
     llm = FakeLLM()
     llm.script = [_SPEND_NO_RA]
     with pytest.raises(EmbeddingGroupCoolingDown):
@@ -1984,7 +2020,7 @@ async def test_parked_note_and_panel_honest(fresh_ecp, monkeypatch):
     rot = panel["rotation"]
     assert rot["status"] == "none" and rot["degenerate"] is True
     lines = {g["quota_group"]: g for g in panel["groups"]}
-    parked_line = lines.get("не определены")
+    parked_line = lines.get("gA")
     assert parked_line is not None
     assert parked_line["note"] == "parked kind=spend est=utc_day_end"
     assert parked_line["state"] == "exhausted"

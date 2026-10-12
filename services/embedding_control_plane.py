@@ -12,12 +12,16 @@ quota-группы бомбились по очереди (Q1/Q10), два full-
   (`keys.embedding_api_key`) + fallback_1/2 (`EMBEDDING_FALLBACK_API_KEY[2]`)
   + добавочные entries из `EMBEDDING_EXTRA_API_KEYS` (запятая/`;`). Никаких
   `..._API_KEY_3` и правок кода для четвёртого ключа.
-* **Лестница quota group** (§5): provider/runtime metadata (если доступна) →
-  connection metadata (developer label `EMBEDDING_QUOTA_GROUP_LABELS` /
-  hot `keys.embedding_quota_group_labels`, формат `alias:group[,…]`) →
-  `unknown`. Вычислять project из значения ключа ЗАПРЕЩЕНО (§5).
-  **Safe default: все `unknown` — ОДНА общая группа** (прод-факт Q1: одна
-  endpoint-точка; перебор ключей одной группы усиливает burst).
+* **Лестница quota group** (§5 + F8 §15.2/§15.3): provider/runtime metadata
+  (если доступна) → connection metadata (developer label
+  `EMBEDDING_QUOTA_GROUP_LABELS` / hot `keys.embedding_quota_group_labels`,
+  формат `alias:group[,…]`) → named slot auto-group (primary/fallback_1/
+  fallback_2 получают независимый стабильный group id = alias) → `unknown`
+  (только не-опознанные алиасы, напр. extra_N). Вычислять project из
+  значения ключа ЗАПРЕЩЕНО (§5). Safe default для НЕ-опознанных ключей:
+  ВСЕ `unknown` — ОДНА общая группа (прод-факт Q1: одна endpoint-точка;
+  перебор ключей одной группы усиливает burst). Named slots — независимые
+  quota pools по owner-архитектуре; объединение — только явным label'ом.
 * **Key health** (§11): `healthy/cooldown/auth_failed/quota_exhausted/
   provider_unavailable/disabled`; 401/403 → `auth_failed` БЕЗ ретраев как
   429; auth-fail одного credential не отключает другие группы.
@@ -152,9 +156,23 @@ GROUP_COOLING = "cooling_down"
 GROUP_EXHAUSTED = "exhausted"
 GROUP_UNKNOWN = "unknown"
 
-# unknown-группа: safe default — ВСЕ unknown credentials в ОДНОЙ группе
-# (прод-факт Q1). Разделение — только явным developer label'ом (§5).
+# unknown-группа: ВСЕ не-опознанные credentials (только extra_N-алиасы без
+# label'ов) в ОДНОЙ группе (прод-факт Q1). Начиная с ASAP 8 F8 (§15.2/§15.3)
+# named slots НЕ сваливаются в unknown: см. AUTO_GROUP_ALIASES.
 UNKNOWN_GROUP_ID = "unknown"
+
+# F8 (§15.2/§15.3): owner-архитектура — Primary / Fallback 1 / Fallback 2
+# создаются в разных provider projects именно ради независимых rate limits.
+# Если group не задана ЯВНО (label), named slot получает независимый
+# стабильный group ID (= alias) АВТОМАТИЧЕСКИ. `group=unknown` для
+# НАСТРОЕННОГО named slot — configuration defect (§15.2, §28-defect п.50);
+# объединение credential'ов в одну группу — только явным label'ом.
+AUTO_GROUP_ALIASES = ("primary", "fallback_1", "fallback_2")
+
+# Источник резолва группы (панель/диагностика, R17-safe).
+GROUP_SOURCE_EXPLICIT = "explicit"   # developer label
+GROUP_SOURCE_AUTO = "auto"           # named slot → стабильный group id
+GROUP_SOURCE_UNKNOWN = "unknown"     # не опознана → общая unknown-группа
 
 
 @dataclass(frozen=True)
@@ -166,8 +184,11 @@ class EmbeddingCredential:
     base_url: str
     model: str
     provider: str
-    quota_group_id: str        # ladder §5: label или UNKNOWN_GROUP_ID
+    quota_group_id: str        # ladder §5+F8: label / auto slot / UNKNOWN_GROUP_ID
     quota_group_known: bool    # False → «Проект/квота: не определены» (UI)
+    # F8 (§15.3): provenance группы — explicit|auto|unknown (панель честно
+    # различает настроенную владельцем группу и авто-слот named-профиля).
+    quota_group_source: str = GROUP_SOURCE_UNKNOWN
 
     @property
     def credential_id(self) -> str:
@@ -229,16 +250,27 @@ def parse_quota_group_labels(raw) -> dict[str, str]:
     return labels
 
 
-def resolve_quota_group(alias: str, labels: dict[str, str]) -> tuple[str, bool]:
-    """Лестница §5: (1) provider/runtime metadata — в текущем рантайме
-    machine-readable project metadata недоступна (прод-факт Q1/Q8) → шаг
-    пропускается; (2) connection metadata / developer label; (4) unknown →
-    ОДНА общая группа (safe default). Вычисление project из значения ключа
-    запрещено (§5) — ключ в резолве не участвует."""
+def resolve_quota_group_full(alias: str, labels: dict[str, str]) -> tuple[str, bool, str]:
+    """Лестница §5 + F8 auto-group (§15.3): (1) provider/runtime metadata —
+    в текущем рантайме machine-readable project metadata недоступна
+    (прод-факт Q1/Q8) → шаг пропускается; (2) connection metadata /
+    developer label → `explicit`; (3) named slot (primary/fallback_1/
+    fallback_2) → стабильный group id = alias, `auto`; (4) иначе unknown →
+    ОДНА общая группа (safe default для не-опознанных алиасов). Вычисление
+    project из значения ключа запрещено (§5) — ключ в резолве не участвует.
+    Возвращает `(group_id, known, source)`."""
     group = labels.get(alias)
     if group:
-        return group, True
-    return UNKNOWN_GROUP_ID, False
+        return group, True, GROUP_SOURCE_EXPLICIT
+    if alias in AUTO_GROUP_ALIASES:
+        return alias, True, GROUP_SOURCE_AUTO
+    return UNKNOWN_GROUP_ID, False, GROUP_SOURCE_UNKNOWN
+
+
+def resolve_quota_group(alias: str, labels: dict[str, str]) -> tuple[str, bool]:
+    """Обратная совместимость (2-tuple): см. `resolve_quota_group_full`."""
+    group, known, _source = resolve_quota_group_full(alias, labels)
+    return group, known
 
 
 def _provider_of(base_url: str) -> str:
@@ -295,11 +327,11 @@ def build_credential_pool() -> list[EmbeddingCredential]:
         if key:
             entries.append((f"extra_{idx + 1}", key))
     for alias, key in entries:
-        group, known = resolve_quota_group(alias, labels)
+        group, known, source = resolve_quota_group_full(alias, labels)
         pool.append(EmbeddingCredential(
             alias=alias, api_key=key, base_url=base_url, model=model,
             provider=provider, quota_group_id=group,
-            quota_group_known=known))
+            quota_group_known=known, quota_group_source=source))
     return pool
 
 
@@ -313,10 +345,11 @@ _last_rotation_warn = 0.0        # monotonic; in-memory rate-limit WARN
 
 
 def pool_rotation_diagnosis(pool: list[EmbeddingCredential]) -> dict:
-    """D3: чистый диагноз распределения пула (R17-safe: только счётчики/
+    """D3+F8: чистый диагноз распределения пула (R17-safe: только счётчики/
     group-id). `degenerate` = группы не известны ИЛИ |groups| == 1 →
     распределять некуда (safe default «все ключи = одна группа» не выдаётся
-    за ротацию)."""
+    за ротацию). F8 §15.3: named slots с auto-группами — известные
+    независимые группы (degenerate=False)."""
     groups = sorted({c.quota_group_id for c in pool})
     known = any(c.quota_group_known for c in pool)
     degenerate = (not known) or len(groups) <= 1
@@ -348,14 +381,23 @@ def _maybe_warn_degenerate_rotation(diagnosis: dict) -> bool:
 
 
 def _rotation_panel_block(diagnosis: dict) -> dict:
-    """D3-контракт панели: `rotation: none | grouped` + hint. R17-safe
-    (alias/счётчики; group-id — не секрет)."""
+    """D3+F8-контракт панели: `rotation: none | grouped` + reason + hint.
+    R17-safe (alias/счётчики; group-id — не секрет). `reason`:
+    `unknown_group` (все ключи в одной неопознанной группе — E1/§28.18) |
+    `single_group` (одна известная группа — явная ручная группировка или
+    единственный ключ)."""
     degenerate = bool(diagnosis.get("degenerate"))
+    reason = ""
+    if degenerate:
+        reason = ("unknown_group" if not diagnosis.get("known")
+                  else "single_group")
     return {
         "status": "none" if degenerate else "grouped",
         "keys": int(diagnosis.get("keys") or 0),
         "groups": [str(g) for g in (diagnosis.get("groups") or [])],
         "degenerate": degenerate,
+        "warn": bool(degenerate and int(diagnosis.get("keys") or 0)),
+        "reason": reason,
         "hint": _ROTATION_HINT_RU if degenerate else "",
     }
 
@@ -523,6 +565,9 @@ class QuotaGroupRegistry:
         self._groups: dict[str, EmbeddingQuotaGroup] = {}
         self._cred_health: dict[str, tuple[str, float]] = {}
         self._rate_events: list[float] = []          # 429-метки (окно 10 мин)
+        # F8 (панель §15.3 «last 429» per-group): последняя 429-метка
+        # (epoch) по group_id — R17-safe (id группы + время, без секретов).
+        self._group_last_429: dict[str, float] = {}
         self._db: object | None = None
 
     def reset_runtime(self) -> None:
@@ -531,6 +576,7 @@ class QuotaGroupRegistry:
         self._groups.clear()
         self._cred_health.clear()
         self._rate_events.clear()
+        self._group_last_429.clear()
 
     def bind_db(self, db) -> None:
         self._db = db
@@ -542,6 +588,14 @@ class QuotaGroupRegistry:
         if state == HEALTH_COOLDOWN and until and time.time() >= until:
             return HEALTH_HEALTHY
         return state
+
+    def credential_cooldown_until(self, alias: str) -> int:
+        """F8 (панель §15.3 «cooldown until» per-credential): epoch до
+        которого ключ в cooldown; 0 — не в cooldown."""
+        state, until = self._cred_health.get(alias, (HEALTH_HEALTHY, 0.0))
+        if state == HEALTH_COOLDOWN and until and time.time() < until:
+            return int(until)
+        return 0
 
     def mark_credential(self, alias: str, state: str,
                         cooldown_s: float = 0.0) -> None:
@@ -636,17 +690,28 @@ class QuotaGroupRegistry:
         except Exception:
             logger.warning("embed quota-state load failed", exc_info=True)
 
-    # ── 429-метрики (панель §32: «429 за 10 минут») ──
+    # ── 429-метрики (панель §32: «429 за 10 минут» + F8 «last 429») ──
 
-    def record_rate_limit(self) -> None:
+    def record_rate_limit(self, group_id: str | None = None) -> None:
         now = time.monotonic()
         self._rate_events.append(now)
         cutoff = now - 600.0
         self._rate_events = [t for t in self._rate_events if t >= cutoff]
+        if group_id:
+            # F8: per-group last-429 (epoch, для панели; никогда не бросает).
+            try:
+                self._group_last_429[str(group_id)] = time.time()
+            except Exception:      # pragma: no cover
+                pass
 
     def rate_limits_last_10m(self) -> int:
         cutoff = time.monotonic() - 600.0
         return sum(1 for t in self._rate_events if t >= cutoff)
+
+    def last_rate_limit_at(self, group_id: str) -> int:
+        """Epoch последнего 429 группы (0 — не было) — панель F8."""
+        ts = self._group_last_429.get(str(group_id))
+        return int(ts) if ts else 0
 
 
 REGISTRY = QuotaGroupRegistry()
@@ -1295,7 +1360,7 @@ class EmbeddingExecutor:
             quota_unavailable = is_quota_unavailable(info, 1)
             state = GROUP_EXHAUSTED if quota_unavailable else GROUP_COOLING
             next_allowed = int(time.time() + delay)
-            self._registry.record_rate_limit()
+            self._registry.record_rate_limit(group_id)
             # Per-credential health (§11): текущий ключ в cooldown на время
             # паузы — при OFF group-cooldown следующий выбор уходит на другой
             # ключ той же группы (перебор как сейчас), при ON группу не дёргаем
@@ -1578,27 +1643,71 @@ def coalesced_state_log(key: str, message: str, *, level: int = 20,
     return True
 
 
-def group_state_lines() -> list[dict]:
-    """R17-safe снимок групп (панель §32 «Embedding provider»)."""
-    out = []
+_GROUP_HEALTH_RU = {
+    GROUP_HEALTHY: "ok",
+    GROUP_COOLING: "cooling",
+    GROUP_EXHAUSTED: "exhausted",
+    GROUP_UNKNOWN: "не определена",
+}
+
+
+def visible_group_ids(pool_group_ids: set[str]) -> set[str]:
+    """F8 (пересбор registry при runtime-добавлении labels): группы пула +
+    группы с ещё активным cooldown (честно показать заморозку даже если
+    группа уже ушла из пула). Устаревшие записи (группа исчезла из пула и
+    cooldown истёк) в панель не попадают — панель отражает ТЕКУЩУЮ топологию
+    (labels подхватываются живьём, пул строится на вызов)."""
+    visible = set(pool_group_ids)
+    now = int(time.time())
     for group_id, group in REGISTRY._groups.items():
+        if group_id in visible:
+            continue
+        if group.state in (GROUP_COOLING, GROUP_EXHAUSTED) and \
+                group.next_allowed_at and now < group.next_allowed_at:
+            visible.add(group_id)
+    return visible
+
+
+def group_state_lines(pool_group_ids: set[str] | None = None) -> list[dict]:
+    """R17-safe снимок групп (панель §32/§15.3): state + `health` (ok/
+    cooling/exhausted) + `keys`/`aliases` из текущего пула + last 429.
+    `pool_group_ids` — видимые группы (см. `visible_group_ids`); None →
+    все известные registry (прежнее поведение). Группы пула без registry-
+    записи (здоровые, ни разу не 429) показываются как healthy."""
+    if pool_group_ids is not None:
+        ids: set[str] | None = visible_group_ids(pool_group_ids)
+        ordered = sorted(ids)                # детерминированный порядок
+    else:
+        ids = None
+        ordered = list(REGISTRY._groups)
+    out = []
+    for group_id in ordered:
+        if ids is not None and group_id not in ids:
+            continue
+        group = REGISTRY.group_state(group_id)
         out.append({
             "quota_group": group_id if group_id != UNKNOWN_GROUP_ID
             else "не определены",
             "state": group.state,
+            "health": _GROUP_HEALTH_RU.get(group.state, group.state),
             "next_allowed_at": group.next_allowed_at,
             "note": group.note,
+            "last_429_at": REGISTRY.last_rate_limit_at(group_id),
         })
     if not out:
         out.append({"quota_group": "не определены", "state": GROUP_UNKNOWN,
-                    "next_allowed_at": 0, "note": ""})
+                    "health": _GROUP_HEALTH_RU[GROUP_UNKNOWN],
+                    "next_allowed_at": 0, "note": "", "last_429_at": 0})
     return out
 
 
 def provider_panel() -> dict:
-    """Панель «Embedding provider» (§32): provider/model, credentials=N,
-    независимых групп 1/2/неизвестно, текущая concurrency/batch, 429 за
-    10 минут. Только aliases — без секретов (§63)."""
+    """Панель «Embedding provider» (§32 + F8 §15.3): provider/model,
+    credentials=N, независимых групп 1/2/неизвестно, per-credential строки
+    (alias, provider/model, quota group + provenance, health, cooldown
+    until), per-group (health ok/cooling/exhausted, cooldown_until, last
+    429), текущая concurrency/batch, 429 за 10 минут. Только aliases — без
+    секретов (§63/R17)."""
     pool = build_credential_pool()
     groups = {c.quota_group_id for c in pool}
     known = {c.quota_group_id for c in pool if c.quota_group_known}
@@ -1606,15 +1715,41 @@ def provider_panel() -> dict:
     adapter = (EXECUTOR.adapter_for(pool[0].base_url)
                if EXECUTOR is not None and pool
                else None)
+    # F8 (пересбор registry при runtime-добавлении labels): панель
+    # показывает группы ТЕКУЩЕГО пула (+ активные cooldown); устаревшие
+    # записи исчезают без перезапуска.
+    group_lines = group_state_lines(groups)
+    by_group: dict[str, list[EmbeddingCredential]] = {}
+    for c in pool:
+        by_group.setdefault(c.quota_group_id, []).append(c)
+    for line in group_lines:
+        gid = str(line.get("quota_group") or "")
+        members = by_group.get(UNKNOWN_GROUP_ID if gid == "не определены"
+                               else gid) or []
+        line["keys"] = len(members)
+        line["aliases"] = [c.alias for c in members]
     # D3 (T-4503): честный диагноз распределения — «rotation: none» + hint
     # при вырожденном пуле; подхват labels живьём (пул строится на вызов).
     rotation = _rotation_panel_block(pool_rotation_diagnosis(pool))
     _maybe_warn_degenerate_rotation(pool_rotation_diagnosis(pool))
+    # F8: per-credential строки (R17 — alias/group/health, БЕЗ значений
+    # ключей).
+    credential_rows = [{
+        "alias": c.alias,
+        "provider": c.provider,
+        "model": c.model,
+        "quota_group": c.quota_group_id,
+        "quota_group_known": c.quota_group_known,
+        "quota_group_source": c.quota_group_source,
+        "health": REGISTRY.credential_health(c.alias),
+        "cooldown_until": REGISTRY.credential_cooldown_until(c.alias),
+    } for c in pool]
     return {
         "provider": pool[0].provider if pool else "не настроен",
         "model": pool[0].model if pool else "",
         "credentials": len(pool),
         "credential_aliases": [c.alias for c in pool],
+        "credential_rows": credential_rows,
         "quota_groups_total": len(groups),
         "quota_groups_known": len(known),
         "quota_groups_unknown": len(unknown),
@@ -1628,8 +1763,64 @@ def provider_panel() -> dict:
         "async_batch_enabled": async_batch_enabled(),
         "adapter": adapter.name if adapter else None,
         "rotation": rotation,
-        "groups": group_state_lines(),
+        "groups": group_lines,
     }
+
+
+# ── F8 (§15.5/§28.19): text-only backlog — состояние backfill (панель) ─────
+# In-memory прогресс (R17-safe: только счётчики/ts; переживать рестарт не
+# обязан — backlog-источник истины это БД, см. `embeddings_backlog_panel`).
+# Пишут: `summary_memory.embed_recovery_tick` (периодический re-probe,
+# maintenance tick F8) и `_ensure_vec_retry` (read-path реактивация).
+
+BACKFILL_STATE: dict = {
+    "last_reprobe_ts": 0,          # последний re-probe/backfill-тик
+    "last_recovery_ts": 0,         # момент реактивации vec после embed-фейла
+    "last_backfill_ts": 0,
+    "last_processed_archive": 0,   # фактов L3 за последний backfill
+    "last_processed_graph": 0,     # фактов GraphRAG за последний backfill
+    "backlog_archive": None,       # None = неизвестно (vec-таблиц нет)
+    "backlog_graph": None,
+}
+
+
+def note_backfill_progress(**fields) -> None:
+    """Записать прогресс backfill/re-probe (fail-open, никогда не бросает;
+    пишутся только числовые/ts-поля — R17)."""
+    try:
+        for key, value in fields.items():
+            if key in BACKFILL_STATE:
+                BACKFILL_STATE[key] = value
+    except Exception:      # pragma: no cover
+        pass
+
+
+async def embeddings_backlog_panel(db) -> dict:
+    """Панель «Backlog text-only фактов» (F8 §15.5/§28.19/E4): живые
+    счётчики БД (факты без vec-строк) + прогресс последнего backfill.
+    Vec-таблиц нет (vec off) → счётчики None — честно «неизвестно», не 0.
+    Никогда не бросает (ошибка БД → None-счётчики)."""
+    state = dict(BACKFILL_STATE)
+    counts = {"backlog_archive": None, "backlog_graph": None}
+    try:
+        cursor = await db.db.execute(
+            "SELECT COUNT(*) AS c FROM smart_archive_facts WHERE id NOT IN "
+            "(SELECT fact_id FROM smart_archive)")
+        row = await cursor.fetchone()
+        counts["backlog_archive"] = int(row["c"]) if row else None
+    except Exception:
+        counts["backlog_archive"] = None
+    try:
+        cursor = await db.db.execute(
+            "SELECT COUNT(*) AS c FROM graph_facts WHERE id NOT IN "
+            "(SELECT fact_id FROM graph_facts_vec) AND (expires_at IS NULL "
+            "OR expires_at > ?)", (int(time.time()),))
+        row = await cursor.fetchone()
+        counts["backlog_graph"] = int(row["c"]) if row else None
+    except Exception:
+        counts["backlog_graph"] = None
+    state.update(counts)
+    return state
 
 
 def _safe_int(value) -> int | None:
@@ -2714,12 +2905,16 @@ __all__ = [
     "priority_scheduler_enabled", "adaptive_concurrency_enabled",
     "async_batch_enabled", "build_credential_pool",
     "parse_quota_group_labels", "resolve_quota_group",
+    "resolve_quota_group_full", "AUTO_GROUP_ALIASES",
+    "GROUP_SOURCE_EXPLICIT", "GROUP_SOURCE_AUTO", "GROUP_SOURCE_UNKNOWN",
     "pool_rotation_diagnosis", "classify_rate_limit",
     "retry_after_seconds", "is_quota_unavailable",
     "segment_text_lossless", "estimate_tokens", "execute_embed",
     "get_executor", "set_priority", "reset_priority", "current_priority",
     "REGISTRY", "CONTROLLER", "SCHEDULER", "coalesced_state_log",
-    "provider_panel", "vector_memory_panel",
+    "provider_panel", "vector_memory_panel", "group_state_lines",
+    "visible_group_ids", "embeddings_backlog_panel", "BACKFILL_STATE",
+    "note_backfill_progress",
     "EmbeddingGroupCoolingDown", "EmbeddingConcurrencyBusy",
     "EmbeddingBudgetExhausted", "EmbeddingControlPlaneError",
     "is_serviceability_error",

@@ -4981,14 +4981,48 @@
                       <span>Concurrency: {{ embeddingsPanel.provider.concurrency }} · Batch: {{ embeddingsPanel.provider.batch_size }}</span>
                       <span>429 за 10 мин: {{ embeddingsPanel.provider.rate_limits_10m }}</span>
                     </div>
+                    <!-- ASAP 8 F8 (E1/§28.18): честный WARN — пул не может
+                         ротировать (одна группа/unknown): баннер + hint
+                         конфигурации labels. Никаких «3 ключа OK» при
+                         неработающей ротации (§15.1). -->
+                    <div v-if="embeddingsPanel.provider.rotation && embeddingsPanel.provider.rotation.warn"
+                         class="mt-1 rounded border border-amber-400/40 bg-amber-400/10 px-2 py-1 text-amber-300"
+                         data-embeddings-rotation-warn>
+                      ⚠ rotation=none · все {{ embeddingsPanel.provider.rotation.keys }} ключ. в одной группе {{ embeddingsPanel.provider.rotation.reason === 'unknown_group' ? 'unknown' : ((embeddingsPanel.provider.rotation.groups || []).join('/') || '—') }}
+                      <span class="block text-gray-400">{{ embeddingsPanel.provider.rotation.hint }}</span>
+                    </div>
+                    <!-- F8 (§15.3): per-credential — alias, provider/model,
+                         quota group (+ provenance auto/label/unknown),
+                         health, cooldown until. Без секретов. -->
+                    <div v-if="(embeddingsPanel.provider.credential_rows || []).length"
+                         class="mt-1 text-gray-400" data-embeddings-credentials>
+                      <div class="font-bold text-gray-300">Ключи (алиас · группа · health)</div>
+                      <div v-for="cr in embeddingsPanel.provider.credential_rows"
+                           :key="'ecr-' + cr.alias">
+                        {{ cr.alias }} — {{ cr.provider }}/{{ cr.model }} · группа: {{ cr.quota_group }}<template v-if="cr.quota_group_source === 'auto'"> (auto)</template><template v-else-if="cr.quota_group_source === 'unknown'"> (unknown)</template> · {{ cr.health }}<template v-if="cr.cooldown_until"> · cooldown до {{ fmtTs(cr.cooldown_until) }}</template>
+                      </div>
+                    </div>
                     <div v-if="(embeddingsPanel.provider.groups || []).length"
                          class="mt-1 text-gray-400">
                       <div v-for="(g, i) in embeddingsPanel.provider.groups"
                            :key="'eg' + i">
-                        группа {{ g.quota_group }} — {{ g.state }}
-                        <template v-if="g.next_allowed_at"> · next_allowed_at {{ fmtTs(g.next_allowed_at) }}</template>
-                        <template v-if="g.state && g.state !== 'healthy'"> · ⛔ blocked</template>
+                        группа {{ g.quota_group }} — {{ g.health || g.state }}<template v-if="g.keys != null"> · ключей: {{ g.keys }}</template><template v-if="g.next_allowed_at"> · cooldown до {{ fmtTs(g.next_allowed_at) }}</template><template v-if="g.last_429_at"> · последний 429: {{ fmtTs(g.last_429_at) }}</template><template v-if="g.state && g.state !== 'healthy'"> · ⛔ blocked</template>
                       </div>
+                    </div>
+                  </div>
+                  <!-- F8 (§15.5/§28.19): text-only backlog + прогресс
+                       backfill (INFO + счётчик в панель). Блок скрыт,
+                       пока нет ни счётчиков, ни прогресса (fail-open
+                       API не должен рисовать пустую витрину). -->
+                  <div class="rounded-lg border border-white/10 px-3 py-2 mb-2 text-xs"
+                       v-if="embeddingsPanel.backlog && (embeddingsPanel.backlog.backlog_archive != null || embeddingsPanel.backlog.backlog_graph != null || embeddingsPanel.backlog.last_backfill_ts || embeddingsPanel.backlog.last_recovery_ts)"
+                       data-embeddings-backlog>
+                    <div class="font-bold">Backlog text-only фактов</div>
+                    <div class="text-gray-400">
+                      Архив (L3): {{ embeddingsPanel.backlog.backlog_archive == null ? '—' : embeddingsPanel.backlog.backlog_archive }}
+                      · GraphRAG: {{ embeddingsPanel.backlog.backlog_graph == null ? '—' : embeddingsPanel.backlog.backlog_graph }}
+                      <template v-if="embeddingsPanel.backlog.last_backfill_ts"> · последний backfill: {{ fmtTs(embeddingsPanel.backlog.last_backfill_ts) }} (+{{ (embeddingsPanel.backlog.last_processed_archive || 0) + (embeddingsPanel.backlog.last_processed_graph || 0) }})</template>
+                      <template v-else-if="embeddingsPanel.backlog.last_recovery_ts"> · recovery: {{ fmtTs(embeddingsPanel.backlog.last_recovery_ts) }}</template>
                     </div>
                   </div>
                   <div class="rounded-lg border border-white/10 px-3 py-2 mb-2 text-xs"

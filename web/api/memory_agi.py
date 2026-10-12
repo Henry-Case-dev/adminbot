@@ -518,8 +518,16 @@ async def memory_embeddings_panel(
     except Exception:
         logger.warning("[memory_api] rebuild_status failed", exc_info=True)
         rebuild = {}
+    # ASAP 8 F8 (§15.5/§28.19): text-only backlog (живые счётчики БД +
+    # прогресс последнего backfill/re-probe). R17-safe (только счётчики).
+    backlog: dict = {}
+    try:
+        backlog = await ecp.embeddings_backlog_panel(db)
+    except Exception:
+        logger.warning("[memory_api] embeddings backlog failed", exc_info=True)
+        backlog = {}
     return {"vector_memory": vector_panel, "provider": provider,
-            "rebuild": rebuild}
+            "rebuild": rebuild, "backlog": backlog}
 
 
 # ── GET /api/memory/deep-sleep (F3/T-1442, spec §6/§8) ──────────────────────

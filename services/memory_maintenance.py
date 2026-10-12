@@ -72,6 +72,11 @@ _INTENT_HEARTBEAT_TICK_SECONDS = 300
 # требуется».
 _LEGACY_TRAITS_PARSE_TICK_SECONDS = 3600
 
+# ASAP 8 F8 (E4/§28.19): периодический re-probe embed-деградации + backfill
+# text-only backlog БЕЗ read-трафика (сек; код-константа, Δ каталога = 0).
+# Совпадает с `_VEC_REACTIVATE_INTERVAL` (10 мин) — re-probe без read-пути.
+_EMBED_RECOVERY_TICK_SECONDS = 600
+
 
 def _experience_review_tick_enabled() -> bool:
     """K1+K3+UI-настройка review опыта (fail-closed, никогда не бросает)."""
@@ -118,6 +123,11 @@ class MemoryMaintenanceService:
     # mca-18 (T-5084/D8): тик legacy-разбора persona_traits — та же очередь;
     # идемпотентность по `legacy_ref`, K3 OFF → джоб не регистрируется.
     JOB_LEGACY_TRAITS_PARSE_ID = "legacy_traits_parse_tick"
+    # ASAP 8 F8 (E4/§28.19): re-probe embed-деградации + backfill text-only
+    # backlog — тот же существующий планировщик обслуживания; здоровье
+    # embeddings не зависит от других джобов и read-трафика (почти бесплатен
+    # при здоровом vec: cadence-гейт внутри `embed_recovery_tick`).
+    JOB_EMBED_RECOVERY_ID = "embed_recovery_tick"
 
     def __init__(self, db, memory, llm, bot=None) -> None:
         self.db = db
@@ -192,22 +202,28 @@ class MemoryMaintenanceService:
                                      settings.SUMMARY_TIMEZONE)),
                 id=self.JOB_LEGACY_TRAITS_PARSE_ID, replace_existing=True,
                 max_instances=1, coalesce=True)
-        if (hot.get("flags.graph_episode_merge_enabled", settings.GRAPH_EPISODE_MERGE_ENABLED) or hot.get("flags.graph_review_enabled", settings.GRAPH_REVIEW_ENABLED)
-                or hot.get("flags.db_wal_checkpoint_enabled", settings.DB_WAL_CHECKPOINT_ENABLED)
-                or _experience_review_tick_enabled()
-                or _intent_heartbeat_tick_enabled()
-                or _legacy_traits_parse_tick_enabled()):
-            self._scheduler.start()
-            logger.info(
-                "MemoryMaintenance started (merge=%s/%dd, review=%s/%dd, wal=%s/%dh)",
-                hot.get("flags.graph_episode_merge_enabled", settings.GRAPH_EPISODE_MERGE_ENABLED),
-                hot.get("limits.graph_episode_merge_interval_days", settings.GRAPH_EPISODE_MERGE_INTERVAL_DAYS),
-                hot.get("flags.graph_review_enabled", settings.GRAPH_REVIEW_ENABLED),
-                hot.get("limits.graph_review_interval_days", settings.GRAPH_REVIEW_INTERVAL_DAYS),
-                hot.get("flags.db_wal_checkpoint_enabled", settings.DB_WAL_CHECKPOINT_ENABLED),
-                hot.get("limits.db_wal_checkpoint_hours", settings.DB_WAL_CHECKPOINT_HOURS))
-        else:
-            logger.info("MemoryMaintenance disabled (all jobs off)")
+        # ASAP 8 F8 (E4/§28.19): re-probe embed-деградации + backfill text-only
+        # backlog — регистрируется ВСЕГДА (не зависит от других флагов):
+        # recovery памяти не должен зависеть от read-трафика/прочих джобов.
+        self._scheduler.add_job(
+            self._tick_embed_recovery,
+            IntervalTrigger(
+                seconds=_EMBED_RECOVERY_TICK_SECONDS,
+                timezone=hot.get("limits.summary_timezone",
+                                 settings.SUMMARY_TIMEZONE)),
+            id=self.JOB_EMBED_RECOVERY_ID, replace_existing=True,
+            max_instances=1, coalesce=True)
+        self._scheduler.start()
+        logger.info(
+            "MemoryMaintenance started (merge=%s/%dd, review=%s/%dd, "
+            "wal=%s/%dh, embed_reprobe=%ds)",
+            hot.get("flags.graph_episode_merge_enabled", settings.GRAPH_EPISODE_MERGE_ENABLED),
+            hot.get("limits.graph_episode_merge_interval_days", settings.GRAPH_EPISODE_MERGE_INTERVAL_DAYS),
+            hot.get("flags.graph_review_enabled", settings.GRAPH_REVIEW_ENABLED),
+            hot.get("limits.graph_review_interval_days", settings.GRAPH_REVIEW_INTERVAL_DAYS),
+            hot.get("flags.db_wal_checkpoint_enabled", settings.DB_WAL_CHECKPOINT_ENABLED),
+            hot.get("limits.db_wal_checkpoint_hours", settings.DB_WAL_CHECKPOINT_HOURS),
+            _EMBED_RECOVERY_TICK_SECONDS)
 
     async def _tick_wal_checkpoint(self) -> None:
         """Epic 64: PRAGMA wal_checkpoint(TRUNCATE) — сброс -wal в основной файл.
@@ -379,6 +395,28 @@ class MemoryMaintenanceService:
         except Exception:
             logger.warning("[mca18] legacy traits parse tick failed",
                            exc_info=True)
+
+    async def _tick_embed_recovery(self) -> None:
+        """ASAP 8 F8 (E4/§28.19): периодический re-probe embed-деградации +
+        backfill text-only backlog БЕЗ read-трафика (раньше `_ensure_vec_retry`
+        триггерился только read-путём). Каденция/гейты — внутри
+        `memory.embed_recovery_tick` (re-probe ≤1/10 мин; backfill bounded);
+        при здоровом vec и пустом backlog тик почти бесплатен. Ошибка не рвёт
+        планировщик. memory-двойник без метода → no-op (совместимость)."""
+        try:
+            tick = getattr(self.memory, "embed_recovery_tick", None)
+            if tick is None:
+                return
+            status = await tick()
+            if status.get("recovered") or status.get("backfilled"):
+                logger.info(
+                    "[f8] embed recovery tick | recovered=%s backfilled=%s "
+                    "backlog_archive=%s backlog_graph=%s",
+                    status.get("recovered"), status.get("backfilled"),
+                    status.get("backlog_archive"),
+                    status.get("backlog_graph"))
+        except Exception:
+            logger.warning("[f8] embed recovery tick failed", exc_info=True)
 
     # ── 66.2 (T-480): слияние повторяющихся эпизодов ──────────────
 
