@@ -101,6 +101,12 @@ REASON_CAPABILITY_UNKNOWN = "capability_unknown"
 REASON_NOT_CONFIGURED = "not_configured"
 REASON_NO_STYLE_STAGE = "style_stage_not_applicable"
 
+# ── ASAP 8 F3 (§5.4): fail-soft публикации styled cover. Стиль, который
+# не гарантирует сюжет сцены, НЕ публикуется — публикуется Base (честный
+# reason вместо «красивой, но сюжетно ложной» обложки).
+STYLE_PUBLISH_SKIP_OVERFLOW = "prompt_limit_exceeded"
+STYLE_PUBLISH_SKIP_STORY = "story_identity_dropped"
+
 # ── T-4619/T-4620 (spec §6 F.2/F.3; ADR-1028-8 D7.2): событие резолва
 # Style-слота с ИСТОЧНИКОМ наследования (лестница §35 — точная причина
 # видима, не generic `style_failed`).
@@ -116,6 +122,8 @@ STYLE_REASON_CODES = frozenset({
     "prompt_limit_exceeded", "route_unverified",
     # ASAP 4.4 (§2, T-4875): 400-too-long без числа и его bounded retry.
     "prompt_limit_unknown", "prompt_limit_unknown_after_retry",
+    # ASAP 8 F3 (§5.4): fail-soft — story identity потерян при компиляции.
+    STYLE_PUBLISH_SKIP_STORY,
 })
 
 
@@ -155,6 +163,8 @@ REASON_DETAILS_RU = {
                                          "применена базовая обложка"),
     "route_unverified": ("маршрут редактирования модели не подтверждён — "
                          "применена базовая обложка"),
+    STYLE_PUBLISH_SKIP_STORY: ("промпт стиля не гарантирует сохранение "
+                               "сюжета сцены — применена базовая обложка"),
     REASON_STYLE_FAILED: ("обработка стилем не завершилась "
                           "(ошибка провайдера)"),
 }
@@ -1152,49 +1162,105 @@ def style_reference_text(profile: dict) -> str:
         for r in refs)
 
 
+def _story_identity_text(story_scene: str, brief) -> str:
+    """STORY_IDENTITY-текст (ASAP 8 F3 §5.2): сцена base cover + компактный
+    контекст финального Summary (CoverBrief). Whitespace-нормализация —
+    детерминированный floor-containment для fail-soft (§5.4) и манифеста."""
+    scene = " ".join(str(story_scene or "").split())
+    brief_text = " ".join(str(brief.render() if brief is not None
+                              else "").split())
+    return " ".join(p for p in (scene, brief_text) if p)
+
+
+def style_publish_skip_reason(compiled, *, story_text: str) -> str | None:
+    """ASAP 8 F3 (§5.4): fail-soft сигнал «styled cover будет сюжетно
+    ложной» — детерминированный, из результата компиляции (НЕ LLM-суждение).
+
+    * ``prompt_limit_exceeded`` — P0-ядро (preservation + runtime + story
+      identity + style identity) не влезает в resolved limit;
+    * ``story_identity_dropped`` — story floor не вошёл в фактический
+      промпт (budget-drop в legacy byte-контуре, срез короче floor и т.п.);
+      ``dropped[]`` больше не «виден только в манифесте» — он меняет исход
+      публикации.
+
+    ``None`` — story identity гарантированно в промпте (или сюжета не было:
+    пустой story text терять нечего)."""
+    if getattr(compiled, "exceeded", False):
+        return STYLE_PUBLISH_SKIP_OVERFLOW
+    story = str(story_text or "").strip()
+    if not story:
+        return None
+    floor = cpa.story_floor_text(story)
+    if not floor:
+        return None
+    dropped = list(getattr(compiled, "dropped", None) or [])
+    if "cover_brief" in dropped \
+            or floor not in str(getattr(compiled, "prompt", "") or ""):
+        return STYLE_PUBLISH_SKIP_STORY
+    return None
+
+
 def compile_style_prompt(profile: dict, *, issue_display: str,
                          capabilities, base_style_prompt: str = "",
                          brief=None, story_scene: str = "",
                          retry_core: bool = False
                          ) -> compiler.CompiledPrompt:
-    """Собрать priority-aware prompt Style Edit (§19–§21).
+    """Собрать priority-aware prompt Style Edit (§19–§21; ASAP 8 F3 §5.2).
 
-    P0 — runtime-инварианты (номер выпуска, запрет дубликатов) — не режется;
-    P1 — инструкция стиля профиля и base style prompt (§19: «base style
-    prompt»); P2 — описания референсов (режется первым). Сюжетная часть —
-    STORY_SCENE (сцена base, D8) + `CoverBrief` от финального Summary
-    (D8/T-5251: больше НЕ 300-char seed).
+    Новый порядок приоритетов (ASAP 8 F3, §5.2 ТЗ):
+
+      P0 CONTENT_PRESERVATION_INVARIANTS — инвариант сохранения сюжета
+        (``cpa.content_preservation_text``, §5.3): первый в строке, в
+        required-ядре И в retry_core-ядре — никогда не режется;
+      P0 ISSUE/TEXT INVARIANTS — runtime-инварианты (номер выпуска,
+        запрет дубликатов) — как сейчас;
+      P1 STORY_IDENTITY — story_scene + ``CoverBrief.render()`` (поднят
+        из budget_component в P1: сюжет едет целиком в обязательном
+        ядре; story floor 160 сохраняется в retry-ядре);
+      P1 STYLE_IDENTITY minimum — инструкция стиля профиля;
+      P2 REFERENCE_DESCRIPTIONS, P2 base_style_prompt (ПОНИЖЕН с P1:
+        эффект base-стиля уже запечён в input image; текст нужен
+        preview-ветке — при давлении падает первым из P2);
+      P3 decorative extras.
+
+    Механика ``image_prompt_compiler.compile_prompt`` не меняется
+    (P-уровни как данные, required = P0+P1): если P0+P1 (включая полный
+    сюжет) не влезает в лимит — честный ``prompt_limit_exceeded``,
+    вызывающий публикует Base (§5.4 fail-soft).
 
     `retry_core=True` (ASAP 5/D9/T-5251): bounded semantic squeeze для
-    unknown-limit retry — mandatory-ядро вместо прежнего `minimal=True`
-    (потеря сюжета ЗАПРЕЩЕНА): P0 runtime полностью + story-minimum
-    (160 chars или 100% оригинала) + minimum profile identity (≥50%
-    instruction) + mandatory reference roles; описания референсов и
-    контекст сверх минимума опускаются, все сокращения фиксируются в
-    Manifest. Old `minimal` parameter removed — запрещён spec'ом (D9).
+    unknown-limit retry — mandatory-ядро в порядке §5.2 (preservation →
+    runtime → story-minimum 160 chars/100% → profile identity ≥50% →
+    mandatory reference roles); base_style_prompt (P2) и описания
+    референсов опускаются, все сокращения фиксируются в Manifest.
+    Old `minimal` parameter removed — запрещён spec'ом (D9).
     """
+    preservation_text = cpa.content_preservation_text()
     runtime_text = cpa.runtime_invariants_text(issue_display)
     instruction = str(profile.get("instruction") or "")
     base_style = str(base_style_prompt or "").strip()
     refs_text = style_reference_text(profile)
     if retry_core:
-        # D9: mandatory-ядро в порядке §9 (runtime → story → profile identity
-        # → reference roles); optional details (описания refs, контекст сверх
-        # минимума, хвост instruction) — опущены и видны в Manifest.
-        story_text = story_scene if story_scene.strip() else \
-            (brief.render() if brief is not None else "")
+        # D9 + ASAP 8 F3: mandatory-ядро в порядке §5.2 (preservation →
+        # runtime → story floor → profile identity → reference roles);
+        # P2 (base_style_prompt, описания refs) и хвост instruction —
+        # опущены и видны в Manifest.
+        story_text = _story_identity_text(story_scene, brief)
+        story_floor = cpa.story_floor_text(story_text) if story_text else ""
         parts = [
+            preservation_text,
             runtime_text,
+            story_floor,
             cpa.profile_identity_floor(instruction),
-            base_style,
             cpa.reference_roles_text(profile.get("references") or []),
-            cpa.story_floor_text(story_text),
         ]
         prompt = " ".join(p for p in parts if p)
         dropped: list[str] = []
         sent_floor = cpa.profile_identity_floor(instruction)
         if instruction.strip() and sent_floor != instruction.strip():
             dropped.append("style_instruction_tail")
+        if base_style:
+            dropped.append("base_style_prompt")
         if refs_text and refs_text not in prompt:
             dropped.append("references_descriptions")
         brief_text_full = brief.render() if brief is not None else ""
@@ -1208,38 +1274,44 @@ def compile_style_prompt(profile: dict, *, issue_display: str,
             original_len=len(prompt), resolved_limit=None, exceeded=False,
             reason="semantic_squeeze",
             components={
+                "content_preservation": len(preservation_text),
                 "runtime_invariants": len(runtime_text),
                 "style_instruction": len(sent_floor) if instruction else 0,
-                "base_style_prompt": len(base_style),
+                "base_style_prompt": 0,
                 "references": len(cpa.reference_roles_text(
                     profile.get("references") or [])),
-                "cover_brief": len(cpa.story_floor_text(story_text)),
+                "cover_brief": len(story_floor),
             })
+    # Нормальный путь (ASAP 8 F3 §5.2): story identity — P1-компонента в
+    # обязательном ядре; компакт/бюджет-механика на сюжет больше не
+    # применяется — сюжет едет целиком, иначе честный overflow (§5.4).
+    story_text = _story_identity_text(story_scene, brief)
     components = [
+        compiler.PromptComponent(preservation_text,
+                                 priority=compiler.P0,
+                                 label="content_preservation"),
         compiler.PromptComponent(runtime_text,
                                  priority=compiler.P0,
                                  label="runtime_invariants"),
-        compiler.PromptComponent(instruction,
-                                 priority=compiler.P1, label="style_instruction"),
     ]
-    if base_style:
+    if story_text:
         components.append(compiler.PromptComponent(
-            base_style, priority=compiler.P1, label="base_style_prompt"))
+            story_text, priority=compiler.P1, label="cover_brief"))
+    components.append(compiler.PromptComponent(
+        instruction, priority=compiler.P1, label="style_instruction"))
     if refs_text:
         components.append(compiler.PromptComponent(
             refs_text, priority=compiler.P2, label="references"))
-    # Сюжетная часть (§21): сцена base + компактный контекст финального
-    # Summary; budget floor — D9 story-minimum перед drop'ом.
-    brief_text = brief.render() if brief is not None else ""
-    budget_text = " ".join(p for p in (story_scene.strip(), brief_text) if p)
-    budget_floor = cpa.story_floor_text(budget_text) if budget_text else ""
-    return compiler.compile_prompt(components, capabilities=capabilities,
-                                   budget_component=budget_text,
-                                   budget_floor_text=budget_floor)
+    if base_style:
+        components.append(compiler.PromptComponent(
+            base_style, priority=compiler.P2, label="base_style_prompt"))
+    return compiler.compile_prompt(components, capabilities=capabilities)
 
 
 def _prompt_breakdown(compiled) -> dict:
-    """§9 (T-4849): Style/Context/Refs/System из component-lens компилятора."""
+    """§9 (T-4849): Style/Context/Refs/System из component-lens компилятора.
+
+    ASAP 8 F3: System включает новый P0-компонент CONTENT_PRESERVATION."""
     lens = dict(getattr(compiled, "components", {}) or {})
     style = int(lens.get("style_instruction", 0)) \
         + int(lens.get("base_style_prompt", 0))
@@ -1247,7 +1319,8 @@ def _prompt_breakdown(compiled) -> dict:
         "style_chars": style,
         "context_chars": int(lens.get("cover_brief", 0)),
         "refs_chars": int(lens.get("references", 0)),
-        "system_chars": int(lens.get("runtime_invariants", 0)),
+        "system_chars": int(lens.get("runtime_invariants", 0))
+        + int(lens.get("content_preservation", 0)),
     }
 
 
@@ -1714,6 +1787,9 @@ async def run_style_job(*, chat_id: int, base_image_path: str | None,
     scene_text = str(story_scene or "").strip()
     brief_text = brief.render() if brief is not None else ""
     budget_text = " ".join(p for p in (scene_text, brief_text) if p)
+    # ASAP 8 F3 (§5.2): тот же STORY_IDENTITY-текст, что едет в P1-ядро —
+    # детерминированная база fail-soft проверки (§5.4) и диагностики.
+    story_text = _story_identity_text(scene_text, brief)
     meta["base_asset_id"] = _asset_id_of(base_image_path)
     compiled = compile_style_prompt(
         profile, issue_display=issue_display, capabilities=caps,
@@ -1740,6 +1816,11 @@ async def run_style_job(*, chat_id: int, base_image_path: str | None,
             "limit_unit": (str(compiled.limit) if compiled.limit is not None
                            else "unknown") + ":" + str(compiled.unit),
             "dropped_sections": list(compiled.dropped),
+            # ASAP 8 F3 (§5.4): story identity floor фактически доехал
+            # в compiled-промпт (детерминированный containment-чек).
+            "story_identity_present": bool(
+                story_text and cpa.story_floor_text(story_text)
+                in compiled.prompt),
             # ASAP 4.3 (§9, T-4849): breakdown Style/Context/Refs/System из
             # фактически собранных компонент (units compiled prompt).
             **_prompt_breakdown(compiled),
@@ -1789,13 +1870,57 @@ async def run_style_job(*, chat_id: int, base_image_path: str | None,
             fallback=(",".join(compiled.dropped)
                       if compiled.dropped else None))
 
-    # ── T-4815: P0+P1 не помещаются в resolved limit → НЕ режем строковыми
-    # ножницами; Base Cover публикуется с понятной причиной (§3). ────────────
-    if getattr(compiled, "exceeded", False):
+    # ── T-4815 + ASAP 8 F3 (§5.4): fail-soft публикации styled cover.
+    # Детерминированный сигнал из результата компиляции: P0-ядро (включая
+    # story identity) не влезло в resolved limit (prompt_limit_exceeded)
+    # ИЛИ story floor потерян при компиляции (story_identity_dropped) —
+    # в обоих случаях styled НЕ публикуется (сюжетно ложная «красивая»
+    # обложка запрещена), публикуется сохранённая Base; манифест помечает
+    # style_publish_skipped{reason}. Порядок выпуска (П0-механика) не
+    # меняется: платный edit-call не вызывается. ─────────────────────────
+    skip_reason = style_publish_skip_reason(compiled, story_text=story_text)
+    if skip_reason:
+        floor = cpa.story_floor_text(story_text) if story_text.strip() else ""
         meta["prompt_diagnostics"] = {
             **(meta.get("prompt_diagnostics") or {}),
-            "overflow_reason": "prompt_limit_exceeded",
+            "overflow_reason": skip_reason,
+            "story_identity_present": bool(floor) and floor in compiled.prompt,
         }
+        # F3: dropped[] меняет исход публикации — манифест строится и для
+        # skip-исхода (durable evidence для Inspector; прежде overflow
+        # возвращался вовсе без манифеста).
+        meta["fail_reason"] = skip_reason
+        manifest = _build_style_manifest(
+            profile=profile, issue_display=issue_display,
+            base_style_prompt=base_style_prompt or "", brief_text=brief_text,
+            scene_text=scene_text, sent_prompts=sent_prompts,
+            meta=meta, caps=caps)
+        if manifest is not None:
+            manifest["style_publish_skipped"] = {"reason": skip_reason}
+            _manifest_mark_outcome(manifest, applied=False,
+                                   reason=skip_reason)
+            if state is not None:
+                state.prompt_manifest = manifest
+            if manifest_out is not None:
+                manifest_out["prompt_manifest"] = manifest
+            meta["prompt_manifest_hash"] = manifest.get("prompt_hash") or ""
+            meta["prompt_manifest_chars"] = manifest.get("final_chars") or 0
+        meta["style_publish_skipped"] = {"reason": skip_reason}
+        if skip_reason == STYLE_PUBLISH_SKIP_STORY:
+            emit_cover_event(
+                COVER_STYLE_FAILED, outcome="failed", level=logging.WARNING,
+                run_id=correlation_id, job_id=job_id, chat_id=chat_id,
+                model=meta["model"], provider=meta["provider"],
+                reason=STYLE_PUBLISH_SKIP_STORY,
+                reason_code=STYLE_PUBLISH_SKIP_STORY,
+                style_id=meta["style_id"], issue_number=issue_no)
+            return await _style_failed(
+                meta, state, reason=STYLE_PUBLISH_SKIP_STORY,
+                message=("Стиль не применён: компиляция промпта не "
+                         "гарантирует сохранение сюжета сцены — "
+                         "опубликована базовая обложка."),
+                run_id=correlation_id, job_id=job_id, chat_id=chat_id,
+                started=started, db=db)
         emit_cover_event(
             COVER_STYLE_FAILED, outcome="failed", level=logging.WARNING,
             run_id=correlation_id, job_id=job_id, chat_id=chat_id,
@@ -2178,6 +2303,8 @@ __all__ = [
     "base_manifest_job_key", "manifest_public",
     "load_run_cover_prompts",
     "style_reference_text",
+    "style_publish_skip_reason", "STYLE_PUBLISH_SKIP_OVERFLOW",
+    "STYLE_PUBLISH_SKIP_STORY",
     "snapshot_enabled", "resolve_selection", "emit_style_selection",
     "selection_stage", "profile_for_snapshot", "report_style_skip",
     "record_no_cover_provenance", "style_reason_code", "reason_detail_ru",

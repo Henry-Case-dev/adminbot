@@ -177,14 +177,19 @@ def test_admin_gets_full_manifest(pg, job_db):
     snap = resp.json()
     m = snap.get("prompt_manifest")
     assert isinstance(m, dict), "админ получает манифест"
-    assert len(m["components"]) == 6
-    keys = {c["key"] for c in m["components"]}
-    assert keys == {"RUNTIME_INVARIANTS", "STYLE_PROFILE", "BASE_STYLE",
-                    "REFERENCES", "STORY_SCENE", "SUMMARY_CONTEXT"}
     assert m["final_prompt"] == FINAL_PROMPT, "include_prompt=True"
     assert m["prompt_hash"] == MANIFEST["prompt_hash"]
     assert m["attempts"][0]["prompt"] == FINAL_PROMPT
     assert m["limit_source"] == "capability_registry"
+    # ASAP 8 F3: компонент-lens получает P0 CONTENT_PRESERVATION (§5.3);
+    # fixture FINAL_PROMPT собран без preservation → честный omitted.
+    assert len(m["components"]) == 7
+    keys = {c["key"] for c in m["components"]}
+    assert keys == {"CONTENT_PRESERVATION", "RUNTIME_INVARIANTS",
+                    "STYLE_PROFILE", "BASE_STYLE", "REFERENCES",
+                    "STORY_SCENE", "SUMMARY_CONTEXT"}
+    pres = [c for c in m["components"] if c["key"] == "CONTENT_PRESERVATION"][0]
+    assert pres["priority"] == "P0" and pres["status"] == "omitted"
     # фактическая сборка: runtime-инварианты и сюжет дошли
     by_key = {c["key"]: c for c in m["components"]}
     assert by_key["RUNTIME_INVARIANTS"]["status"] == "kept"

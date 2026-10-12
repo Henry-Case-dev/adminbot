@@ -24,6 +24,7 @@ from services import cover_style_jobs as cjobs
 from services import cover_style_preview as preview_jobs
 from services import cover_style_registry as registry
 from services import image_capabilities as cap
+from services import image_prompt_compiler as compiler
 from services import lore_runtime
 from services.config_cache import ConfigCache
 from services.cover_style_edit import EditResult
@@ -910,8 +911,14 @@ def test_cover12e_known_retry_then_unknown_failure_no_third_call(
     caps_unknown = cap.ImageModelCapabilities(
         image_edit=cap.TRUE, max_input_images=3,
         prompt_limit=cap.PromptLimit())
+    # ASAP 8 F3 (§5.2): story identity — P1-компонента обязательного ядра,
+    # поэтому probe лимита обязан включать тот же brief, что и реальный
+    # прогон (иначе P0+P1+story > limit → честный prompt_limit_exceeded
+    # ещё до первого paid call, и сценарий retry недостижим).
     probe = cjobs.compile_style_prompt(
-        profile, issue_display="ВЫПУСК 11", capabilities=caps_unknown)
+        profile, issue_display="ВЫПУСК 11", capabilities=caps_unknown,
+        brief=compiler.brief_from_text(
+            "Сюжетная фраза для краткого брифа. Вторая фраза."))
     limit = int(probe.static_len) + 5
     prompts: list = []
 

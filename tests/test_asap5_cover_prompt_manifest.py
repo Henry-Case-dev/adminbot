@@ -179,9 +179,13 @@ class TestStyleManifestAndSqueeze:
         assert meta["applied"] is True, meta
         manifest = holder["prompt_manifest"]
         comps = {c["key"]: c for c in manifest["components"]}
-        assert set(comps) == {"RUNTIME_INVARIANTS", "STYLE_PROFILE",
-                              "BASE_STYLE", "REFERENCES", "STORY_SCENE",
-                              "SUMMARY_CONTEXT"}
+        # ASAP 8 F3: P0 CONTENT_PRESERVATION (§5.3) — новый обязательный
+        # компонент манифеста (описывает фактически отправленные компоненты).
+        assert set(comps) == {"CONTENT_PRESERVATION", "RUNTIME_INVARIANTS",
+                              "STYLE_PROFILE", "BASE_STYLE", "REFERENCES",
+                              "STORY_SCENE", "SUMMARY_CONTEXT"}
+        assert comps["CONTENT_PRESERVATION"]["priority"] == "P0"
+        assert comps["CONTENT_PRESERVATION"]["status"] == "kept"
         assert comps["RUNTIME_INVARIANTS"]["status"] == "kept"
         assert comps["STYLE_PROFILE"]["status"] == "compacted"
         assert comps["STYLE_PROFILE"]["reason"] == "profile_identity_floor"

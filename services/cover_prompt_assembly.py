@@ -424,8 +424,9 @@ def derive_fallback_cover_prompt(text: str) -> str:
 
 # ── D7: CoverPromptManifest ─────────────────────────────────────────────────
 
-MANIFEST_KEYS = ("BASE_STYLE", "STORY_SCENE", "SUMMARY_CONTEXT",
-                 "STYLE_PROFILE", "RUNTIME_INVARIANTS", "REFERENCES")
+MANIFEST_KEYS = ("CONTENT_PRESERVATION", "BASE_STYLE", "STORY_SCENE",
+                 "SUMMARY_CONTEXT", "STYLE_PROFILE", "RUNTIME_INVARIANTS",
+                 "REFERENCES")
 
 
 def cover_context_decision(cover_prompt, title, paragraphs, *,
@@ -643,12 +644,22 @@ def build_style_manifest(*, issue_display: str, instruction: str,
                          limit_unit: str = "unknown",
                          limit_source: str = "unknown",
                          attempts: list | None = None) -> dict:
-    """D7-манифест Style Edit (T-5249/T-5251) по факту финального промпта."""
+    """D7-манифест Style Edit (T-5249/T-5251) по факту финального промпта.
+
+    ASAP 8 F3 (§5.2): приоритеты компонентов отражают новый порядок
+    компилятора — CONTENT_PRESERVATION (новый P0-компонент, §5.3),
+    STORY_SCENE P1 (story identity), BASE_STYLE понижен до P2."""
+    preservation_text = content_preservation_text()
     runtime_text = runtime_invariants_text(issue_display)
     story_full = _collapse(story_scene)
     story_floor = story_floor_text(story_scene)
     instruction_floor = profile_identity_floor(instruction)
-    if story_full and story_floor in final_prompt:
+    if story_full and story_full in final_prompt:
+        # F3: полный сюжет в промпте (P1 STORY_IDENTITY) — честный kept
+        # (прежняя логика отвечала compacted/story_minimum даже когда
+        # отправлялся полный текст).
+        story_sent, story_status, story_reason = story_full, "kept", ""
+    elif story_full and story_floor in final_prompt:
         story_sent = story_floor
         story_status = "kept" if story_sent == story_full else "compacted"
         story_reason = "" if story_sent == story_full else "story_minimum"
@@ -677,6 +688,15 @@ def build_style_manifest(*, issue_display: str, instruction: str,
     base_full = _collapse(base_style_prompt)
     base_sent, base_status, base_reason = _sent_of(base_full, final_prompt)
     components = [
+        ManifestComponent(key="CONTENT_PRESERVATION", source="code",
+                          priority="P0", original_text=preservation_text,
+                          sent_text=(preservation_text
+                                     if preservation_text in final_prompt
+                                     else ""),
+                          status=("kept" if preservation_text in final_prompt
+                                  else "omitted"),
+                          reason=("" if preservation_text in final_prompt
+                                  else "squeezed")),
         ManifestComponent(key="RUNTIME_INVARIANTS", source="code",
                           priority="P0", original_text=runtime_text,
                           sent_text=(runtime_text if runtime_text
@@ -689,7 +709,7 @@ def build_style_manifest(*, issue_display: str, instruction: str,
                           priority="P1", original_text=instr_full,
                           sent_text=instr_sent, status=instr_status,
                           reason=instr_reason),
-        ManifestComponent(key="BASE_STYLE", source="settings", priority="P1",
+        ManifestComponent(key="BASE_STYLE", source="settings", priority="P2",
                           original_text=base_full, sent_text=base_sent,
                           status=base_status, reason=base_reason),
         ManifestComponent(key="REFERENCES", source="style_profile",
@@ -697,7 +717,7 @@ def build_style_manifest(*, issue_display: str, instruction: str,
                           sent_text=refs_sent, status=refs_status,
                           reason=refs_reason),
         ManifestComponent(key="STORY_SCENE", source="summary_stage1",
-                          priority="P2", original_text=story_full,
+                          priority="P1", original_text=story_full,
                           sent_text=story_sent, status=story_status,
                           reason=story_reason),
         ManifestComponent(key="SUMMARY_CONTEXT", source="final_summary",
@@ -724,6 +744,28 @@ def runtime_invariants_text(issue_display: str) -> str:
     фактически отправленные компоненты, а не вторую компиляцию)."""
     return ("Сохрани номер выпуска «%s». Не добавляй дубликатов уже "
             "присутствующих на обложке элементов." % issue_display)
+
+
+# ASAP 8 F3 (§5.3): P0-инвариант сохранения контента Style Edit.
+# Разделение ответственности §5.1: Base Cover = CONTENT AUTHORITY,
+# Style Profile = APPEARANCE TRANSFORM. Формулировка §5.3 ТЗ (слова
+# Builder может адаптировать, смысл менять нельзя).
+CONTENT_PRESERVATION_TEXT = (
+    "Preserve the exact depicted event, people, actions, object "
+    "relationships, composition and framing from the input image. "
+    "Do not replace the scene with a generic portrait or generic city "
+    "scene. Apply the requested visual style without changing the story "
+    "content."
+)
+
+
+def content_preservation_text() -> str:
+    """P0-текст инварианта сохранения сюжета Style Edit (ASAP 8 §5.3).
+
+    Единый источник строки для compile (P0 CONTENT_PRESERVATION_INVARIANTS:
+    первый в строке, в required-ядре И в retry_core-ядре — никогда не
+    режется) и манифеста (компонент CONTENT_PRESERVATION)."""
+    return CONTENT_PRESERVATION_TEXT
 
 
 def reference_roles_text(refs: list | None) -> str:
