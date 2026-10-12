@@ -262,7 +262,9 @@ def test_kill_switch_registry_73_and_defaults():
     # (+12 vision-кодов); mca-20 (round 10.44): 269→279 (+10 temporal);
     # mca-17c (round 10.47): 279→280 (+1 oversight_job_action) — счётчик
     # обновлён по той же конвенции.
-    assert len(mca_events.REASON_CODES) == 280
+    # ASAP 8 (F6): +5 кодов инициативы (writer_failed/direct_pending/
+    # recheck_passed/writer_generated/initiative_sent) — расширение §17.2.
+    assert len(mca_events.REASON_CODES) == 285
     for code in ("exploration_accepted", "exploration_rejected",
                  "exploration_deferred", "exploration_failed",
                  "exploration_used_in_reply", "exploration_stored_only",

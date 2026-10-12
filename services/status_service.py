@@ -847,12 +847,106 @@ class StatusService:
             except Exception:
                 # fail-open: частичные данные честнее нулей (контракт mca-12)
                 pass
+            # ── ASAP 8 (F6, §13.3/§28.14/I8): funnel — producers/due/
+            # decisions/writer/recheck/sent за 24ч + диагностическая формула
+            # вместо «не запускалось». Источники: mca_events (producers по
+            # origin в stage; решения/генерации/recheck), mca_intents (due),
+            # mca_bot_outputs (sent, output_kind=initiative_reply),
+            # memory_maintenance (in-memory штамп тика). Fail-open по осям.
+            funnel: dict = {}
+            state_label = ""
+            top_block_reason = ""
+            try:
+                since = int(time.time()) - 86400
+                funnel = {"producers_24h": {}, "intents_created_24h": 0,
+                          "due": 0, "decisions_24h": 0,
+                          "writer_generated_24h": 0, "recheck_passed_24h": 0,
+                          "sent_24h": 0}
+                cursor = await db.db.execute(
+                    "SELECT COALESCE(stage, 'unknown') AS origin, "
+                    "COUNT(*) AS c FROM mca_events WHERE chat_id = ? AND "
+                    "event_name = 'intent_created' AND ts >= ? "
+                    "GROUP BY origin", (int(chat_id), since))
+                async_rows = await cursor.fetchall()
+                for grow in async_rows or ():
+                    funnel["producers_24h"][str(grow["origin"])] = \
+                        int(grow["c"])
+                funnel["intents_created_24h"] = sum(
+                    funnel["producers_24h"].values())
+                for event_name, key in (
+                        ("initiative_decided", "decisions_24h"),
+                        ("initiative_writer_generated",
+                         "writer_generated_24h"),
+                        ("initiative_recheck_passed",
+                         "recheck_passed_24h"),
+                        ("initiative_sent", "sent_24h")):
+                    cursor = await db.db.execute(
+                        "SELECT COUNT(*) AS c FROM mca_events WHERE "
+                        "chat_id = ? AND event_name = ? AND ts >= ?",
+                        (int(chat_id), event_name, since))
+                    row = await cursor.fetchone()
+                    funnel[key] = int(row["c"]) if row is not None else 0
+                cursor = await db.db.execute(
+                    "SELECT COUNT(*) AS c FROM mca_intents WHERE chat_id = ? "
+                    "AND status IN ('pending','deferred') AND "
+                    "merged_into_id IS NULL AND ((next_check_at IS NOT NULL "
+                    "AND next_check_at <= ?) OR (activation_condition = "
+                    "'time_due' AND not_before IS NOT NULL AND "
+                    "not_before <= ?))", (int(chat_id), int(time.time()),
+                                          int(time.time())))
+                row = await cursor.fetchone()
+                funnel["due"] = int(row["c"]) if row is not None else 0
+                try:
+                    from services import memory_maintenance as _mm
+                    last_tick = dict(getattr(_mm, "_heartbeat_last_tick",
+                                             {}) or {})
+                except Exception:
+                    last_tick = {}
+                funnel["heartbeat_last_tick"] = last_tick.get("ts")
+                decisions = funnel["decisions_24h"]
+                writers = funnel["writer_generated_24h"]
+                sent = funnel["sent_24h"]
+                created = funnel["intents_created_24h"]
+                if last_tick.get("ts") is None:
+                    # F6-fix (REV-F6 F2): liveness честно — до первого тика
+                    # (или при неработающем воркере) заявлять «работает»
+                    # нельзя; heartbeat_last_tick=None = тик ещё не был.
+                    state_label = ("Heartbeat ещё не запускался — тика "
+                                   "инициативы не было")
+                    top_block_reason = "heartbeat_not_run"
+                elif created == 0 and not funnel["producers_24h"]:
+                    state_label = ("Heartbeat работает, но producers за 24ч "
+                                   "не создали ни одного намерения")
+                elif created > 0 and decisions == 0:
+                    state_label = ("Из-за чего остановлено: из-за намерений "
+                                   "не принято ни одного решения за 24ч")
+                    top_block_reason = str(
+                        (last_skip or {}).get("reason_code") or "no_decision")
+                elif decisions > 0 and writers == 0:
+                    state_label = ("Решения принимаются, генерации текста "
+                                   "нет (candidate/defer)")
+                    top_block_reason = "no_writer"
+                elif writers > 0 and sent == 0:
+                    state_label = "Текст готовится, но отправка не проходит"
+                    top_block_reason = str(
+                        (last_skip or {}).get("reason_code")
+                        or "recheck_blocked")
+                elif sent > 0:
+                    state_label = ("Инициатива работает: "
+                                   f"отправлено {sent} за 24ч")
+            except Exception:
+                # fail-open: funnel не рвёт снимок (контракт mca-12)
+                funnel = {}
+                state_label = ""
             state = "ok" if (count or last) else "not_run"
             module_block.update({
                 "pending": int(count or 0),
                 "last_decision": last_decision,
                 "last_skip": last_skip,
                 "next_due": next_due,
+                "funnel": funnel,
+                "state_label": state_label,
+                "top_block_reason": top_block_reason,
             })
             return {"enabled": True, "state": state, "active": count,
                     "top": top, "last_action": last, "module": module_block}

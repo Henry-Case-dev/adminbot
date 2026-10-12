@@ -834,7 +834,10 @@ _SCHEMA_VERSION_BOT_OUTPUTS = 22
 
 BOT_OUTPUT_KINDS = frozenset({
     "direct_reply", "autonomous_reply", "rich_message", "media_caption",
-    "other",
+    # ASAP 8 (F6, §13.3): инициативная доставка — отдельный честный kind
+    # (direct_output_kind(TRIGGER_INITIATIVE)); раньше молча коэрсился в
+    # `other`, и funnel `sent` в Status был неизмерим.
+    "initiative_reply", "other",
 })
 BOT_OUTPUT_DELIVERY_STATUSES = frozenset({"delivered", "failed", "unknown"})
 

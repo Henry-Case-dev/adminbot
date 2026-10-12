@@ -36,6 +36,22 @@ from services.summary_prompts import COMPRESS_PROMPT
 
 logger = logging.getLogger(__name__)
 
+# ── ASAP 8 (F6, §13.3/DoD «heartbeat observable»): честный in-memory штамп
+# последнего тика (ts + due). Status intent_snapshot читает его fail-open;
+# durable-событие на каждый тик не эмитится (notable-only контракт mca-13).
+_heartbeat_last_tick: dict = {"ts": None, "due": 0}
+
+
+def _direct_chat_service_singleton():
+    """Singleton DirectChatService (DI из bot.py → handlers.direct_chat).
+    Ленивый импорт handlers из services — прецедент direct_chat_service
+    (`from handlers.summary import ...`). None → Direct-модуль не поднят."""
+    try:
+        from handlers import direct_chat as _dc
+        return getattr(_dc, "_service", None)
+    except Exception:
+        return None
+
 _MERGE_COVERAGE_MIN = 0.6      # 66.2: доля уникальных токенов слитого от исходных
 _MERGE_CLUSTER_SIM = 0.85      # 66.2: кластер-порог KNN-сходства (эпизоды одной темы)
 _MERGE_KNN_K = 5               # соседей на кластеризацию
@@ -242,15 +258,18 @@ class MemoryMaintenanceService:
                            exc_info=True)
 
     async def _tick_intent_heartbeat(self) -> None:
-        """MCA-09 (T-5026): лёгкий heartbeat due-намерений.
+        """MCA-09 (T-5026) + ASAP 8 F6 (§13.2/§28.15): heartbeat due-намерений
+        с ГЕНЕРАЦИЕЙ и отправкой инициативной реплики.
 
-        Без LLM и без чтения окна сообщений: due-скан SQL по `mca_intents`
-        (bounded; `mca_intents.heartbeat_tick`). Кандидаты передаются
-        потребителю (единый координатор — блок отправки); при отсутствии
-        потребителя тик честно логирует число due-кандидатов (не отправляет
-        сам). Гигиена (expire/archive/prune) — отдельные методы сервиса; их
-        вызов из тика — открытый вопрос блока B/E (finding F-4 evidence.md).
-        Ошибка не рвёт планировщик; OFF → `disabled`."""
+        Due-скан SQL по `mca_intents` (скан — без чтения окна) → кандидаты в
+        единый вход инициативы. F6: перед решением строятся СВЕЖИЕ условия из
+        реального чата (не дефолтные флаги, §18D); REPLY генерирует текст
+        СУЩЕСТВУЮЩИЙ Direct-контур (L1-решение → L2 Writer, writer_service);
+        неспособность сгенерировать → терминальный bounded `writer_failed`
+        (не бесконечный candidate_ready/defer). Расход LLM учитывается
+        существующим worker-budget (`llm_calls`). Гигиена (expire/archive/
+        prune) — в `heartbeat_tick`. Ошибка не рвёт планировщик; OFF →
+        `disabled`."""
         try:
             from services import mca_gates
             from services import mca_intents
@@ -262,24 +281,87 @@ class MemoryMaintenanceService:
                     "[mca09] intent heartbeat | due=%d expired=%d "
                     "archived=%d", len(due), stats.get("expired", 0),
                     stats.get("archived", 0))
-            # Кандидаты — в ЕДИНЫЙ вход инициативы (тот же Decision/транспорт);
-            # без bot кандидаты не отправляются (честный лог, не выдаём за sent).
-            if due and self.bot is not None and \
+            _heartbeat_last_tick["ts"] = int(time.time())
+            _heartbeat_last_tick["due"] = len(due)
+            # Кандидаты — в ЕДИНЫЙ вход инициативы (тот же Decision/транспорт).
+            # F6 (§28.15): генерация текста — СУЩЕСТВУЮЩИМ Direct-контуром
+            # (singleton DI из bot.py → handlers.direct_chat._service);
+            # сервис недоступен (Direct-модуль не поднят) → честный WARN,
+            # кандидаты не решаются (heartbeat не выдаёт candidate_ready
+            # за генерацию); intent'ы ограничены expiry/hygiene.
+            service = _direct_chat_service_singleton()
+            if due and self.bot is not None and service is None:
+                logger.warning(
+                    "[f6] direct chat service unavailable — initiative "
+                    "decisions skipped | due=%d", len(due))
+            if due and self.bot is not None and service is not None and \
                     mca_gates.intent_decision_enabled():
-                from services.direct_chat_service import handle_initiative
+                from services.direct_chat_service import (
+                    build_initiative_situation, handle_initiative)
                 for candidate in due:
-                    situation = mca_intents.InitiativeSituation(
-                        trigger_kind=candidate.trigger_kind,
-                        chat_id=candidate.chat_id)
-                    result = await handle_initiative(
-                        bot=self.bot, chat_id=candidate.chat_id,
-                        situation=situation, candidates=[candidate],
-                        db=self.db)
-                    logger.info(
-                        "[mca09] initiative candidate | chat=%s | status=%s",
-                        candidate.chat_id, result.get("status"))
+                    await self._run_initiative_candidate(
+                        mca_intents, candidate, service,
+                        build_initiative_situation, handle_initiative)
         except Exception:
             logger.warning("[mca09] intent heartbeat tick failed",
+                           exc_info=True)
+
+    async def _run_initiative_candidate(self, mca_intents, candidate,
+                                        service, situation_builder,
+                                        initiative_entry) -> None:
+        """F6: один due-кандидат → свежая ситуация (§18D) → единый вход
+        инициативы с writer_service (генерация + recheck + send). Бюджет
+        LLM-вызовов — существующий worker-budget (`llm_calls`, global+chat);
+        исчерпан → кандидат остаётся due без решения (без LLM-расхода).
+        Никогда не бросает (один кандидат не рвёт тик)."""
+        try:
+            from services import worker_budget
+            from services.direct_chat_service import (
+                build_fresh_recheck_context)
+            row = None
+            if candidate.intent_id:
+                row = await mca_intents.get_service(
+                    self.db).store.get_intent(candidate.intent_id)
+            if row is None or str(row.get("status") or "") not in (
+                    "pending", "deferred"):
+                return
+            chat_id = candidate.chat_id
+            # §18D pre-decision: разговор ушёл вперёд — вопрос закрыт (A15);
+            # терминальные не решаются.
+            try:
+                fresh = await build_fresh_recheck_context(self.db, chat_id,
+                                                          row)
+            except Exception:
+                fresh = None
+            if fresh is not None and fresh.already_answered:
+                await mca_intents.get_service(self.db).close(
+                    candidate.intent_id, status="fulfilled",
+                    reason_code="already_answered")
+                logger.info(
+                    "[f6] intent answered meanwhile — closed | chat=%s",
+                    chat_id)
+                return
+            if not await worker_budget.consume(None, "global", "llm_calls",
+                                               1):
+                logger.info(
+                    "[f6] worker budget exhausted — initiative deferred | "
+                    "chat=%s", chat_id)
+                return
+            if not await worker_budget.consume(None, f"chat:{chat_id}",
+                                               "llm_calls", 1):
+                logger.info(
+                    "[f6] chat budget exhausted — initiative deferred | "
+                    "chat=%s", chat_id)
+                return
+            situation = await situation_builder(self.db, chat_id, row)
+            result = await initiative_entry(
+                bot=self.bot, chat_id=chat_id, situation=situation,
+                candidates=[candidate], db=self.db, writer_service=service)
+            logger.info(
+                "[mca09] initiative candidate | chat=%s | status=%s",
+                chat_id, result.get("status"))
+        except Exception:
+            logger.warning("[f6] initiative candidate failed — skipped",
                            exc_info=True)
 
     async def _tick_legacy_traits_parse(self) -> None:

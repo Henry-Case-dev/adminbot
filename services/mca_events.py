@@ -71,6 +71,10 @@ REASON_CODES = frozenset({
     # дополнительные коды, используемые кодом волны 0 (расширение разрешено).
     "worker_lost", "lock_exhausted", "rollback_failed",
     "connection_unrecoverable", "queue_rejected",
+    # расширение ASAP 8/F6 (инициатива: writer-failure, direct-обращение,
+    # генерация/recheck/delivery плечи funnel; §17.2 расширяемый).
+    "writer_failed", "direct_pending", "recheck_passed", "writer_generated",
+    "initiative_sent",
     # расширение MCA-03/10.27 (WARN при legacy-дублях identity, ADR-1027-4 D7).
     "duplicate_identity_rows",
     # расширение MCA-02/10.27 (SafeFetcher: SSRF/redirect/egress/лимиты,

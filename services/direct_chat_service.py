@@ -71,6 +71,7 @@ lore_runtime (не установлен/ошибка → блока нет, 0 в
 Канон R9 (§3.2.2) уже описывает блок и тон по стадиям.
 """
 import asyncio
+import contextvars
 import datetime
 import hashlib
 import json
@@ -227,6 +228,13 @@ from services import direct_l1 as _l1
 from services import direct_capabilities as _caps
 
 logger = logging.getLogger(__name__)
+
+# ── ASAP 8 (F6, §13.1): маркер «бот отправил текст в этом ходе» ─────────────
+# Invoke-scoped (contextvar): параллельные ходы разных чатов изолированы,
+# per-chat замок не нужен. set() в обёртке `handle`, отметки — в точках
+# текстовой отправки хода (фразы throttle/CB/lock и основной reply).
+_turn_text_replied: contextvars.ContextVar[frozenset | set | None] = \
+    contextvars.ContextVar("f6_turn_text_replied", default=None)
 
 # Раунд 9 (B4/T-819): маркер обрезания <user_relations> по кап-символам.
 _RELATIONS_CUT_MARKER = "…[обрезано]"
@@ -1834,6 +1842,40 @@ class DirectChatService:
     # ── Поток хендлера (58.4) ─────────────────────────────────
 
     async def handle(self, bot, message, user) -> None:
+        """F6 (§13.1): обёртка хода Direct + детерминированный producer
+        `unanswered_question`. Сам ход — в `_handle_turn` (без изменений);
+        после его завершения: пользовательское сообщение с '?' и бот НЕ
+        отправил текстовый reply в этом ходе → durable follow_up-намерение
+        (гейты/дедуп/кап — внутри mca_intents.create_intent). Обычный шум
+        (без '?', команды, URL) намерений не создаёт (I2). Producer
+        никогда не влияет на исход хода (fail-open)."""
+        chat_id = message.chat.id
+        replied = set()
+        _turn_token = _turn_text_replied.set(replied)
+        try:
+            await self._handle_turn(bot, message, user)
+        finally:
+            _turn_text_replied.reset(_turn_token)
+            try:
+                query = (message.text or "").strip()
+                if chat_id not in replied:
+                    await _f6_maybe_create_unanswered_question(
+                        self.db, chat_id, query,
+                        getattr(message, "message_id", None))
+            except Exception:
+                logger.warning(
+                    "[f6] unanswered_question producer failed — skipped",
+                    exc_info=True)
+
+    @staticmethod
+    def _mark_turn_text_replied(chat_id: int) -> None:
+        """F6: отметить «бот отправил текст в этом ходе» (invoke-scoped —
+        контекст-переменная изолирует параллельные ходы разных чатов)."""
+        replied = _turn_text_replied.get()
+        if replied is not None:
+            replied.add(int(chat_id))
+
+    async def _handle_turn(self, bot, message, user) -> None:
         """Триггер уже проверен хендлером. Кулдаун → фраза R50-7; иначе —
         контекст → LLM → Reply → memorize (fire-and-forget, ПОСЛЕ отправки).
         Epic 60 (63.2): генерация — под per-chat замком (после throttle/CB)."""
@@ -1862,6 +1904,7 @@ class DirectChatService:
             phrase = random.choice(CHAT_COOLDOWN_PHRASES).replace(
                 "{remaining_time}", format_remaining_time(remaining))
             await _reply(bot, chat_id, phrase, message.message_id)
+            self._mark_turn_text_replied(chat_id)     # F6: текст в ходе есть
             logger.warning("[direct] cooldown | chat=%s user=%s remaining=%.0fs",
                            chat_id, target_name, remaining)
             return
@@ -1877,6 +1920,7 @@ class DirectChatService:
                            chat_id, target_name)
             await _reply(bot, chat_id, random.choice(CHAT_LLM_DOWN_PHRASES),
                          message.message_id)
+            self._mark_turn_text_replied(chat_id)     # F6: текст в ходе есть
             return
         # Epic 60 (63.2, T-461) — раунд N (T-840): слот пула ПОСЛЕ
         # throttle/CB-веток (мгновенные, не стоят в очереди); таймаут
@@ -1891,6 +1935,7 @@ class DirectChatService:
                            chat_id, target_name)
             await _reply(bot, chat_id, random.choice(CHAT_LOCK_BUSY_PHRASES),
                          message.message_id)
+            self._mark_turn_text_replied(chat_id)     # F6: текст в ходе есть
             return
         # MCA-22 (C7, T-4307; ADR-1028-6 D8): update-identity дедуп — строгий
         # ключ `(chat_id, tg_message_id, revision)` в smart_cache (24 h),
@@ -2431,6 +2476,21 @@ class DirectChatService:
                                              ACTION_REACT else "silent")),
                         allowed_actions=_decision_allowed_actions)
                     l1_meta["fallback"] = "deterministic"
+                # ── F6 (§13.1): producer `explicit_request` — allowlisted
+                # future-intent от L1. Парсер валидирует схему, intent пишет
+                # СЕРВИС (LLM в DB не пишет); guard-ы (дедуп по содержанию,
+                # cap pending на чат) — в create_intent. До веток action:
+                # обещание «вернуться позже» остаётся намерением при любом
+                # исходе хода. Fail-open (не влияет на ход).
+                if getattr(l1_plan, "future_intent", None) is not None:
+                    try:
+                        await _f6_create_future_intent(
+                            self.db, chat_id, l1_plan.future_intent,
+                            getattr(message, "message_id", None))
+                    except Exception:
+                        logger.warning(
+                            "[f6] future_intent producer failed — skipped",
+                            exc_info=True)
                 _l1_action = l1_plan.action
                 if _force_required and _l1_action != "reply":
                     # Hard gate §0/§1.7: force → REPLY всегда (post-parse
@@ -2806,6 +2866,7 @@ class DirectChatService:
                 reply_phrase = hot.get(
                     "content.no_key_reply", DEFAULT_NO_KEY_REPLY)
                 await _reply(bot, chat_id, reply_phrase, message.message_id)
+                self._mark_turn_text_replied(chat_id)  # F6: текст в ходе есть
                 return
             except LLMBadResponseError as exc:
                 # Epic 60 (65.1, T-469): модель ЖИВА, но ответила пустым →
@@ -3276,6 +3337,7 @@ class DirectChatService:
                 document=response_document)
             if sent_id is not None:
                 answer_text = answer
+                self._mark_turn_text_replied(chat_id)  # F6: ответ доставлен
                 # MCA-07 (T-3852, D11): `context_version`/число исключений —
                 # в наблюдаемость (R17: только версия/числа, без сырья).
                 if evidence_bundle is not None:
@@ -3361,6 +3423,7 @@ class DirectChatService:
                            chat_id, target_name, exc)
             await _reply(bot, chat_id, random.choice(CHAT_ERROR_PHRASES),
                          message.message_id)
+            self._mark_turn_text_replied(chat_id)     # F6: текст в ходе есть
             # Epic 53 (62.3.3): транзиентные классы → инкремент CB. Если CB в
             # HALF_OPEN — текущий вызов и есть пробная генерация: ЛЮБОЙ LLMError
             # пробы (в т.ч. не-транзиентный: апстрим ответил 4xx/auth) снова
@@ -3374,6 +3437,7 @@ class DirectChatService:
             logger.exception("[direct] unexpected | chat=%s", chat_id)
             await _reply(bot, chat_id, random.choice(CHAT_ERROR_PHRASES),
                          message.message_id)
+            self._mark_turn_text_replied(chat_id)     # F6: текст в ходе есть
             # H1: пробная генерация в HALF_OPEN, упавшая НЕ-LLMError (БД в
             # _build_user_content, TelegramRetryAfter и пр.), снова открывает
             # CB — иначе CB залипнет в HALF_OPEN навсегда (allow_request в
@@ -7232,6 +7296,151 @@ class DirectChatService:
                 parts.append(value.strip())
         return " ".join(parts) if parts else None
 
+    # ── ASAP 8 (F6, §13.2): инициативные решение/генерация СУЩЕСТВУЮЩИМ
+    # Direct-контуром (L1-модель + L2 Writer). Третьего Writer нет (§13.2).
+
+    async def _initiative_persona_block(self, chat_id: int) -> str:
+        """Кадр личности/self-model для инициативного контекста — тот же
+        владелец основы, что у direct-промпта (persona gate per-chat; K1
+        слои уважаются). Fail-open → ''."""
+        try:
+            from services.chat_params import get_chat_param as _cpg
+            persona_enabled = await _cpg(
+                chat_id, "flags.persona_enabled",
+                hot.get("flags.persona_enabled", settings.PERSONA_ENABLED))
+            if not persona_enabled:
+                return ""
+            if mca_gates.character_layers_enabled():
+                ctx = await bot_persona.resolve_character_context(chat_id)
+                block = bot_persona.build_persona_prompt_block(
+                    ctx.persona, [str(t) for t in (ctx.traits or ())],
+                    enabled=True)
+                rules = bot_persona.build_character_rules_block()
+                if block and rules:
+                    block = block + "\n\n" + rules
+                return block or ""
+            persona = await bot_persona.resolve_bot_persona(chat_id)
+            traits = await bot_persona.get_traits(
+                int(getattr(settings, "PERSONA_TRAITS_MAX", 50) or 50))
+            texts = [str(t.get("text") or "") for t in (traits or ())]
+            return bot_persona.build_persona_prompt_block(
+                persona, texts, enabled=True) or ""
+        except Exception:
+            return ""
+
+    async def plan_initiative_decision(self, chat_id: int,
+                                       intent_row: dict, *,
+                                       correlation_id: str | None = None
+                                       ) -> "_l1.L1Plan | None":
+        """F6 (§13.2): инициативное решение СУЩЕСТВУЮЩЕЙ L1-моделью
+        (REPLY/REACT/SILENT). Compact context: задача намерения + свежее
+        окно чата + кадр личности (тот же сборщик `_l1.build_l1_context`).
+        Один вызов L1 (без repair-лестницы — инициатива вторична: outage/
+        невалидный JSON → None → SILENT, не повтор). Никогда не бросает."""
+        try:
+            window = await self.memory.get_window_messages(chat_id)
+        except Exception:
+            window = []
+        try:
+            window = [dict(r) for r in (window or ())]
+        except Exception:
+            pass
+        persona_block = await self._initiative_persona_block(chat_id)
+        row = intent_row or {}
+        goal = str(row.get("goal") or "").strip()
+        kind = str(row.get("kind") or "")
+        origin = str(row.get("origin") or "")
+        task = (
+            "Никто бота не звал: решается уместность ИНИЦИАТИВЫ. "
+            f"Намерение (kind={kind or 'unknown'}, "
+            f"origin={origin or 'unknown'}): {goal or 'цель не указана'}. "
+            "Оцени свежий контекст чата: reply - повод ещё жив и вклад "
+            "уместен; silent - повод устарел, отвечен или мешать нечего.")
+        context_text = _l1.build_l1_context(
+            query=task, window=window, speaker="", addressee="чат",
+            capabilities=(), force_line="", persona_frame=persona_block)
+        messages = [
+            {"role": "system",
+             "content": resolve_prompt(
+                 "prompts.direct_l1_planner_system_prompt",
+                 DIRECT_L1_PLANNER_SYSTEM_PROMPT)},
+            {"role": "user", "content": context_text},
+        ]
+        try:
+            raw = await asyncio.wait_for(
+                self.llm.generate(
+                    messages, temperature=_l1.l1_temperature(None),
+                    chat_id=chat_id, module="direct_chat",
+                    step="l1_planner", correlation_id=correlation_id,
+                    max_output_tokens=_l1.l1_max_output_tokens()),
+                timeout=float(_l1.l1_timeout_seconds()))
+        except Exception:
+            logger.warning(
+                "[f6] initiative L1 decision unavailable — silent | chat=%s",
+                chat_id, exc_info=True)
+            return None
+        return _l1.parse_l1_plan(raw)
+
+    async def generate_initiative_reply(self, chat_id: int,
+                                        intent_row: dict, *,
+                                        l1_plan=None,
+                                        correlation_id: str | None = None
+                                        ) -> str:
+        """F6 (§13.2): текст инициативы — СУЩЕСТВУЮЩИЙ Direct L2 Writer
+        (`_l2_write_answer`, Вербализатор-канал; step='l2_writer').
+        Compact context: цель намерения + свежее окно чата + кадр личности;
+        plan-блок от L1-решения. Пустой результат → '' (вызывающий решает
+        writer_failed). Никогда не бросает."""
+        try:
+            window = await self.memory.get_window_messages(chat_id)
+        except Exception:
+            window = []
+        try:
+            window = [dict(r) for r in (window or ())]
+        except Exception:
+            pass
+        persona_block = await self._initiative_persona_block(chat_id)
+        row = intent_row or {}
+        goal = str(row.get("goal") or "").strip()
+        kind = str(row.get("kind") or "")
+        origin = str(row.get("origin") or "")
+        context_block = (
+            "<Initiative_Context>\n"
+            "Ты проявляешь инициативу сам (никто бота не звал). Держись "
+            "коротко и естественно, как участник чата; не устраивай "
+            "доклад.\n"
+            f"Повод (kind={kind or 'unknown'}, origin={origin or 'unknown'}):"
+            f" {goal or 'цель не указана'}\n"
+            "Не переспрашивай то, на что в свежем контексте уже ответили.\n"
+            "</Initiative_Context>")
+        window_block = _l1.render_window_lines(window, 12)
+        user_blocks = [context_block]
+        if window_block:
+            user_blocks.append("<Fresh_Chat_Window>\n" +
+                               "\n".join(window_block) +
+                               "\n</Fresh_Chat_Window>")
+        try:
+            plan = l1_plan or _l1.L1Plan()
+            response_plan = plan.to_response_plan() \
+                if hasattr(plan, "to_response_plan") else None
+            plan_block = _l1.build_l2_plan_block(plan) \
+                if getattr(plan, "source", "") != "fallback" else ""
+            temperature = settings.tone_temperature(None)
+            result = await self._l2_write_answer(
+                chat_id, goal or "инициатива", temperature=temperature,
+                correlation_id=correlation_id,
+                character_block=persona_block, response_plan=response_plan,
+                plan_block=plan_block, user_blocks=user_blocks,
+                max_tokens=700)
+        except Exception:
+            logger.warning(
+                "[f6] initiative writer failed | chat=%s", chat_id,
+                exc_info=True)
+            return ""
+        if not result:
+            return ""
+        return str(result[0] or "").strip()
+
 
 # ═════════════════════════════════════════════════════════════════════════════
 # MCA-09 (ADR-1028-16 D1/D6; T-5038): единый вход инициативы (без входящего
@@ -7239,17 +7448,282 @@ class DirectChatService:
 # ЕДИНСТВЕННЫЙ транспорт services/telegram_send.py; второго send-path нет.
 # ═════════════════════════════════════════════════════════════════════════════
 
+# ── ASAP 8 (F6, §13.1): детерминированные producers ──────────────────────────
+# Никакого LLM-письма в DB и никаких intent на каждое сообщение: intent создаёт
+# СЕРВИС по явному событию. Параметры — константы модуля (новых каталог-ключей
+# нет, Δcatalog=0); пороги качества не ослабляются (§28.16).
+INITIATIVE_UNANSWERED_DELAY_SECONDS = 900      # due не раньше чем через 15 мин
+INITIATIVE_UNANSWERED_TTL_SECONDS = 3 * 86400  # срок жизни намерения
+_F6_URL_RE = re.compile(r"https?://\S+", re.IGNORECASE)
+_F6_MIN_QUESTION_CHARS = 2
+
+
+def _f6_question_subject_token(query: str) -> str | None:
+    """Детерминированный subject намерения по СОДЕРЖАНИЮ вопроса (не по
+    message_id — повторный тот же вопрос дедуп-слится, а не заспамит).
+    URL вырезаются ('?' в ссылке — не вопрос), команды пропускаются.
+    R17-safe: наружу только хэш-токен."""
+    text = _F6_URL_RE.sub(" ", str(query or ""))
+    text = re.sub(r"\s+", " ", text).strip()
+    if not text.startswith("/") and "?" in text and \
+            len(text) >= _F6_MIN_QUESTION_CHARS:
+        return "q:" + _mca_intents._sha1_16(text.casefold())
+    return None
+
+
+async def _f6_maybe_create_unanswered_question(
+        db, chat_id: int, query: str,
+        tg_message_id: int | None) -> tuple[str | None, bool]:
+    """Producer `unanswered_question` (F6 §13.1): конец Direct-хода —
+    пользовательское сообщение с '?' и бот НЕ отправил reply в этом ходе →
+    durable `follow_up` (activation time_due, bounded TTL). Гейты/дедуп/
+    дисциплина origin — в `IntentService.create_intent`; кап pending на чат —
+    существующий `limits.intent_candidates_max` (новый порог не вводится).
+    Возвращает (intent_id, created); никогда не бросает."""
+    if db is None or not mca_gates.intents_enabled():
+        return None, False
+    subject = _f6_question_subject_token(query)
+    if subject is None:
+        return None, False
+    try:
+        service = _mca_intents.get_service(db)
+        active = await service.store.count_active(int(chat_id))
+        if active >= mca_gates.intent_candidates_max():
+            logger.info(
+                "[f6] unanswered_question skipped: pending cap | chat=%s",
+                chat_id)
+            return None, False
+        now = int(time.time())
+        refs = ((f"msg:{int(tg_message_id)}",)
+                if tg_message_id is not None else ())
+        return await service.create_intent(
+            int(chat_id), kind="follow_up", origin="unanswered_question",
+            subject_ids=(subject,), goal=query, reason=None,
+            source_refs=refs,
+            not_before=now + INITIATIVE_UNANSWERED_DELAY_SECONDS,
+            expires_at=now + INITIATIVE_UNANSWERED_TTL_SECONDS,
+            activation_condition="time_due")
+    except Exception:
+        logger.warning("[f6] unanswered_question create failed — skipped",
+                       exc_info=True)
+        return None, False
+
+
+async def _f6_create_future_intent(db, chat_id: int, future_intent,
+                                   tg_message_id: int | None) -> \
+        tuple[str | None, bool]:
+    """Producer `explicit_request` (F6 §13.1): allowlisted future-intent от
+    L1 (валидность схемы гарантирует парсер direct_l1.normalize_l1_plan).
+    intent пишет СЕРВИС; дедуп — по содержанию цели (q-hash в topic_refs,
+    subject пуст → ключ (chat, kind, цель)). Никогда не бросает."""
+    if db is None or future_intent is None:
+        return None, False
+    kind = str(getattr(future_intent, "kind", "") or "")
+    goal = str(getattr(future_intent, "goal", "") or "")
+    if kind not in _mca_intents.INTENT_KINDS or not goal.strip():
+        return None, False
+    try:
+        service = _mca_intents.get_service(db)
+        active = await service.store.count_active(int(chat_id))
+        if active >= mca_gates.intent_candidates_max():
+            return None, False
+        now = int(time.time())
+        topic = ("q:" + _mca_intents._sha1_16(goal.strip().casefold()),)
+        refs = ((f"msg:{int(tg_message_id)}",)
+                if tg_message_id is not None else ())
+        return await service.create_intent(
+            int(chat_id), kind=kind, origin="explicit_request",
+            topic_refs=topic, goal=goal, reason=None, source_refs=refs,
+            not_before=now + INITIATIVE_UNANSWERED_DELAY_SECONDS,
+            expires_at=now + INITIATIVE_UNANSWERED_TTL_SECONDS,
+            activation_condition="time_due")
+    except Exception:
+        logger.warning("[f6] future_intent create failed — skipped",
+                       exc_info=True)
+        return None, False
+
+
+# ── F6 (§18D): СВЕЖИЕ runtime-условия из реального чата ──────────────────────
+# Ни одно поле RecheckContext не остаётся дефолтным: всё считается запросами
+# в durable-состояние чата (окно smart_messages + ledger bot-выходов).
+_F6_RECHECK_WINDOW_LIMIT = 50
+_F6_RECHECK_LOOKBACK_SECONDS = 6 * 3600
+
+
+def _f6_context_version(*, chat_id: int, created_at: int, new_human: int,
+                        last_human_id, bot_outputs: int, last_output_id
+                        ) -> str:
+    """Дешёвый fingerprint свежести контекста (R17: только числа/ID)."""
+    return _mca_intents._sha1_16("f6ctx", int(chat_id), int(created_at),
+                                 int(new_human), str(last_human_id or ""),
+                                 int(bot_outputs), str(last_output_id or ""))
+
+
+async def _f6_chat_facts(db, chat_id: int, created_at: int) -> dict:
+    """Свежие факты чата с момента создания намерения (bounded SQL):
+    новые human-сообщения окна, адресованные боту реплаи/упоминания,
+    доставленные bot-выходы после created_at. Никогда не бросает."""
+    facts = {"new_human": 0, "last_human_id": None, "direct_pending": False,
+             "same_branch_replies": False, "bot_outputs": 0,
+             "last_output_id": None}
+    if db is None:
+        return facts
+    since = max(0, min(int(created_at), int(time.time())
+                       - _F6_RECHECK_LOOKBACK_SECONDS))
+    try:
+        window = await db.get_smart_window(int(chat_id), since,
+                                           _F6_RECHECK_WINDOW_LIMIT)
+    except Exception:
+        window = []
+    try:
+        window = [dict(r) for r in (window or ())]
+    except Exception:
+        window = []
+    bot_username = ""
+    try:
+        from handlers import direct_chat as _dc_handler
+        bot_username = str(getattr(_dc_handler, "_bot_username", "") or "")
+    except Exception:
+        bot_username = ""
+    bot_tg_ids: set[int] = set()
+    try:
+        outputs = await db.list_recent_bot_outputs(int(chat_id), limit=10)
+    except Exception:
+        outputs = []
+    for out in outputs:
+        tg_id = out.get("tg_message_id")
+        if tg_id is not None:
+            bot_tg_ids.add(int(tg_id))
+    for row in window:
+        ts = int(row.get("timestamp") or 0)
+        if ts <= int(created_at):
+            continue
+        facts["new_human"] += 1
+        facts["last_human_id"] = row.get("tg_message_id") or row.get("id")
+        text = str(row.get("text") or "")
+        reply_to = row.get("reply_to_id")
+        replied_to_bot = (reply_to is not None
+                          and int(reply_to) in bot_tg_ids)
+        if replied_to_bot or (bot_username and
+                              ("@" + bot_username) in text.lower()) or \
+                _BOTWORD_RE.search(text):
+            # прямое обращение к боту появилось, пока готовилась инициатива:
+            # инициатива не соревнуется (defer, не close — chat-level
+            # намерение не фиксирует свою reply-ветку, ΔDDL=0)
+            facts["direct_pending"] = True
+    facts["bot_outputs"] = len(outputs)
+    fresh = [o for o in outputs
+             if int(o.get("sent_at") or 0) > int(created_at)]
+    facts["bot_after"] = len(fresh)
+    facts["last_output_id"] = (outputs[0].get("output_id")
+                               if outputs else None)
+    return facts
+
+
+async def build_fresh_recheck_context(db, chat_id: int, intent_row: dict, *,
+                                      evaluated_context_version: str | None = None,
+                                      recheck_attempts: int = 0
+                                      ) -> "_mca_intents.RecheckContext":
+    """F6 (§18D): СВЕЖИЙ RecheckContext из реального чата (не дефолтные
+    false/unknown):
+    * already_answered — бот уже доставил текст после создания намерения
+      (разговор ушёл вперёд — вопрос закрыт, A15 close);
+    * direct_request_pending — новое human-сообщение, адресованное боту
+      (reply на bot-сообщение / @username / бот-слово) — инициатива не
+      соревнуется с прямым ответом (defer);
+    * context_version — fingerprint (chat, created_at, новые сообщения,
+      bot-выходы); evaluated — версия на момент решения: смена между
+      решением и отправкой → ровно одна переоценка, повторная смена → defer.
+    same_branch_replies/left False осознанно: chat-level намерение не
+    фиксирует свою reply-ветку (ΔDDL=0); смену контекста покрывает
+    context_version, активность в ветке бота — direct_request_pending."""
+    created_at = int((intent_row or {}).get("created_at") or 0)
+    facts = await _f6_chat_facts(db, chat_id, created_at)
+    context_version = _f6_context_version(
+        chat_id=chat_id, created_at=created_at,
+        new_human=int(facts["new_human"]),
+        last_human_id=facts["last_human_id"],
+        bot_outputs=int(facts.get("bot_after") or 0),
+        last_output_id=facts["last_output_id"])
+    return _mca_intents.RecheckContext(
+        enabled=True,
+        addressee_ok=True,
+        # parent_changed для chat-уровневых намерений не выводим: реплай-
+        # ветка намерения не фиксируется (без ΔDDL); смену ветки покрывают
+        # already_answered/direct_request_pending/context_version.
+        parent_changed=False,
+        intent_row=intent_row,
+        already_answered=bool(facts.get("bot_after")),
+        same_branch_replies=bool(facts["same_branch_replies"]),
+        tool_permission_denied=False,
+        context_version=context_version,
+        evaluated_context_version=evaluated_context_version,
+        recheck_attempts=int(recheck_attempts or 0),
+        direct_request_pending=bool(facts["direct_pending"]))
+
+
+async def build_initiative_situation(db, chat_id: int, intent_row: dict
+                                     ) -> "_mca_intents.InitiativeSituation":
+    """F6 (§18D): ситуация для решения из РЕАЛЬНОГО состояния чата — не
+    дефолтные флаги: direct_pending (прямое обращение после создания
+    намерения), bot_replied_recently (существующее окно bot_replies),
+    topic_open (бот ещё не отвечал после намерения), открытые intent-ID."""
+    row = intent_row or {}
+    created_at = int(row.get("created_at") or 0)
+    facts = await _f6_chat_facts(db, chat_id, created_at)
+    open_ids = None
+    bot_recent = False
+    if db is not None:
+        try:
+            rows = await _mca_intents.get_service(db).store.list_active(
+                int(chat_id), limit=50)
+            open_ids = [str(r.get("intent_id") or "") for r in rows
+                        if r.get("intent_id")]
+        except Exception:
+            open_ids = None
+        try:
+            cursor = await db.db.execute(
+                "SELECT 1 FROM bot_replies WHERE chat_id = ? "
+                "AND last_used_at > ? LIMIT 1",
+                (int(chat_id), time.time() - 600))
+            bot_recent = await cursor.fetchone() is not None
+        except Exception:
+            bot_recent = False
+    return _mca_intents.InitiativeSituation(
+        trigger_kind="intent_due",
+        chat_id=int(chat_id),
+        direct_pending=bool(facts["direct_pending"]),
+        same_event_pending=False,
+        sensitive_moment=False,
+        relations_ok=True,
+        bot_replied_recently=bot_recent,
+        reply_needed=False,
+        # повод открыт, пока бот ничего не отправлял после создания
+        topic_open=not bool(facts.get("bot_after")),
+        open_intent_ids=open_ids,
+        requested_source="intent",
+        intent_id=str(row.get("intent_id") or "") or None)
+
+
 async def handle_initiative(*, bot, chat_id: int, situation, candidates,
                             prepared_text: str | None = None, db=None,
-                            correlation_id: str | None = None) -> dict:
+                            correlation_id: str | None = None,
+                            writer_service=None) -> dict:
     """Аддитивный координатор-вход для решений БЕЗ входящего сообщения
     (heartbeat / nostalgia / significant event / search completion).
 
     Возвращает R17-safe статус (без сырого текста):
-      disabled / silent / candidate_ready / cancelled / sent / error.
-    Silent НИКОГДА не проходит Вербализатор и ничего не отправляет; отправка —
-    только через `telegram_send.send_text`; chunks — одна логическая отправка
-    (проверка перед отправкой один раз, T-5036)."""
+      disabled / silent / candidate_ready / cancelled / writer_failed /
+      sent / error.
+
+    F6 (§13.2/§28.15): heartbeat передаёт `writer_service` (существующий
+    DirectChatService) — генерация prepared_text идёт ЕГО контуром
+    (L1-решение REPLY/REACT/SILENT → существующий Direct L2 Writer),
+    SendRecheck выполняется по СВЕЖИМ условиям чата (§18D) и перед
+    решением, и непосредственно перед отправкой. Неспособность сгенерировать
+    → терминальный bounded исход `writer_failed` (не бесконечный defer).
+    Третьего Writer нет. Silent НИКОГДА не отправляет; отправка — только
+    через `telegram_send.send_text` (chunks — одна логическая отправка)."""
     try:
         if not (mca_gates.intents_enabled()
                 and mca_gates.intent_decision_enabled()):
@@ -7267,6 +7741,7 @@ async def handle_initiative(*, bot, chat_id: int, situation, candidates,
         exploration_choice = None
         exploration_result = None
         selected_candidate_ref = None
+        pool_items = None
         if decision_candidates and db is not None:
             try:
                 from services import mca_exploration
@@ -7313,12 +7788,25 @@ async def handle_initiative(*, bot, chat_id: int, situation, candidates,
             random_choice=exploration_choice)
         kind = _mca_intents.initiative_delivery_kind(decision)
         if kind == _mca_intents.DELIVERY_SILENT:
+            # F6: silent по решению — серверное планирование (не re-decide
+            # каждые 300 с; bounded backoff, expiry/hygiene ограничивают).
+            if writer_service is not None:
+                await _f6_plan_next_check(db, decision)
             _mca_intents.note_decision(decision, chat_id=chat_id,
                                        outcome="silent")
             return {"status": "silent", "delivery_kind": kind,
                     "decision": decision}
-        if kind != _mca_intents.DELIVERY_TEXT or not prepared_text:
-            # Кандидат отдан координатору; генерации текста в этом срезе нет —
+        if kind != _mca_intents.DELIVERY_TEXT:
+            # react/tool в инициативном контексте без цели: честное молчание
+            # + планирование (не candidate_ready — генерации для них нет).
+            if writer_service is not None:
+                await _f6_plan_next_check(db, decision)
+            _mca_intents.note_decision(decision, chat_id=chat_id,
+                                       outcome="silent")
+            return {"status": "silent", "delivery_kind": kind,
+                    "reason_code": "delivery_not_text", "decision": decision}
+        if not prepared_text and writer_service is None:
+            # Кандидат отдан координатору; генерации в этом срезе нет —
             # честный статус, отправки НЕ происходит (не выдаём за отправку).
             # Reviewer F-2: серверное планирование обязательно — иначе intent
             # с прошедшим next_check_at переизбирается каждые 300 с вечно.
@@ -7350,19 +7838,153 @@ async def handle_initiative(*, bot, chat_id: int, situation, candidates,
             return {"status": "candidate_ready", "delivery_kind": kind,
                     "next_check_at": decision.next_check_at,
                     "decision": decision}
-        # Проверка перед отправкой (D4/T-5035) + chunks одной отправки.
-        intent_row = None
-        if decision.intent_id and db is not None:
+        # ── F6 (§13.2): отправка. prepared_text передан (nostalgia) ИЛИ
+        # генерируется существующим Direct-контуром (writer_service, §28.15).
+        if db is not None and decision.intent_id:
             try:
-                intent_row = await _mca_intents.get_service(
-                    db).store.get_intent(decision.intent_id)
+                service = _mca_intents.get_service(db)
+                intent_row = await service.store.get_intent(
+                    decision.intent_id)
             except Exception:
                 intent_row = None
-        plan = _mca_intents.plan_logical_send(
-            decision, recheck=_mca_intents.SendRecheck(),
-            context=_mca_intents.RecheckContext(intent_row=intent_row),
-            text=prepared_text)
+            if intent_row is None or str(intent_row.get("status") or "") \
+                    not in ("pending", "deferred"):
+                # намерение исчезло/закрыто, пока кандидат ждал тик
+                _mca_intents.note_decision(decision, chat_id=chat_id,
+                                           outcome="cancelled")
+                return {"status": "cancelled", "reason_code": "intent_closed",
+                        "delivery_kind": kind, "decision": decision}
+        else:
+            intent_row = None
+        generated = False
+        evaluated_version = None
+        if prepared_text is None and writer_service is not None:
+            # §18D (decision-time): свежие условия ДО решения/генерации —
+            # отвечать нечему/некому: не тратим LLM-вызовы.
+            if db is not None and intent_row is not None:
+                pre = await build_fresh_recheck_context(
+                    db, chat_id, intent_row)
+                evaluated_version = pre.context_version
+                if pre.already_answered:
+                    await _f6_close_intent(db, decision.intent_id,
+                                           status="fulfilled",
+                                           reason_code="already_answered")
+                    _mca_intents.note_decision(decision, chat_id=chat_id,
+                                               outcome="cancelled")
+                    return {"status": "cancelled",
+                            "reason_code": "already_answered",
+                            "delivery_kind": kind, "decision": decision}
+                if pre.direct_request_pending:
+                    await _f6_plan_next_check(db, decision)
+                    _mca_intents.note_decision(decision, chat_id=chat_id,
+                                               outcome="cancelled")
+                    return {"status": "cancelled",
+                            "reason_code": "direct_pending",
+                            "delivery_kind": kind, "decision": decision}
+            # инициативное решение СУЩЕСТВУЮЩЕЙ L1-моделью (§13.2)
+            l1_plan = await writer_service.plan_initiative_decision(
+                chat_id, intent_row or {}, correlation_id=correlation_id)
+            if l1_plan is None or getattr(l1_plan, "action", "") != "reply":
+                _code = ("l1_unavailable" if l1_plan is None
+                         else f"l1_{getattr(l1_plan, 'action', 'silent')}")
+                await _f6_plan_next_check(db, decision)
+                _mca_intents.note_decision(decision, chat_id=chat_id,
+                                           outcome="silent")
+                return {"status": "silent", "delivery_kind": kind,
+                        "reason_code": _code, "decision": decision}
+            prepared_text = await writer_service.generate_initiative_reply(
+                chat_id, intent_row or {}, l1_plan=l1_plan,
+                correlation_id=correlation_id)
+            generated = True
+            if not str(prepared_text or "").strip():
+                # §28.15: генерация не удалась — НЕ бесконечный defer:
+                # bounded attempts → терминальное закрытие writer_failed.
+                outcome = "skipped"
+                if db is not None and decision.intent_id:
+                    try:
+                        failure = await _mca_intents.get_service(db) \
+                            .note_writer_failure(decision.intent_id)
+                        outcome = str(failure.get("outcome") or "skipped")
+                    except Exception:
+                        logger.warning(
+                            "[f6] writer failure bookkeeping failed",
+                            exc_info=True)
+                _mca_intents.note_decision(decision, chat_id=chat_id,
+                                           outcome="writer_failed")
+                return {"status": "writer_failed", "outcome": outcome,
+                        "delivery_kind": kind, "decision": decision}
+            # F6 (§13.3): событие генерации (trigger=initiative) для funnel.
+            _mca_intents.note_writer_generated(chat_id=chat_id,
+                                               intent_id=decision.intent_id,
+                                               chars=len(prepared_text))
+        # Проверка перед отправкой (D4/T-5035) — F6 §18D: по СВЕЖИМ
+        # условиям реального чата непосредственно перед send; ровно одна
+        # переоценка при смене контекста во время подготовки (bounded).
+        recheck_attempts = 0
+        while True:
+            if db is not None and intent_row is not None:
+                context = await build_fresh_recheck_context(
+                    db, chat_id, intent_row,
+                    evaluated_context_version=evaluated_version,
+                    recheck_attempts=recheck_attempts)
+            else:
+                context = _mca_intents.RecheckContext(intent_row=intent_row)
+            plan = _mca_intents.plan_logical_send(
+                decision, recheck=_mca_intents.SendRecheck(),
+                context=context, text=prepared_text)
+            if plan.outcome.proceed or not plan.outcome.recheck_again \
+                    or recheck_attempts >= 1 or writer_service is None:
+                break
+            # §18D-3: контекст сменился, пока готовился текст, — ровно одна
+            # переоценка: повторное решение + генерация на свежем контексте.
+            recheck_attempts += 1
+            evaluated_version = context.context_version
+            if decision.intent_id and db is not None:
+                try:
+                    await _mca_intents.get_service(db).store.update_fields(
+                        decision.intent_id,
+                        {"last_evaluated_context_version":
+                         str(context.context_version or "")[:120]})
+                except Exception:
+                    pass
+            l1_plan = await writer_service.plan_initiative_decision(
+                chat_id, intent_row or {}, correlation_id=correlation_id)
+            if l1_plan is None or getattr(l1_plan, "action", "") != "reply":
+                await _f6_plan_next_check(db, decision)
+                _mca_intents.note_decision(decision, chat_id=chat_id,
+                                           outcome="silent")
+                return {"status": "silent", "delivery_kind": kind,
+                        "reason_code": "recheck_demoted",
+                        "decision": decision}
+            prepared_text = await writer_service.generate_initiative_reply(
+                chat_id, intent_row or {}, l1_plan=l1_plan,
+                correlation_id=correlation_id)
+            if not str(prepared_text or "").strip():
+                outcome = "skipped"
+                if db is not None and decision.intent_id:
+                    try:
+                        failure = await _mca_intents.get_service(db) \
+                            .note_writer_failure(decision.intent_id)
+                        outcome = str(failure.get("outcome") or "skipped")
+                    except Exception:
+                        logger.warning(
+                            "[f6] writer failure bookkeeping failed",
+                            exc_info=True)
+                _mca_intents.note_decision(decision, chat_id=chat_id,
+                                           outcome="writer_failed")
+                return {"status": "writer_failed", "outcome": outcome,
+                        "delivery_kind": kind, "decision": decision}
+            _mca_intents.note_writer_generated(chat_id=chat_id,
+                                               intent_id=decision.intent_id,
+                                               chars=len(prepared_text))
         if not plan.outcome.proceed:
+            # Устаревшее/закрытое: A15-закрытие либо серверное планирование
+            # (re-evaluate позже, bounded expiry); попыткой НЕ считается.
+            if db is not None and decision.intent_id:
+                await _f6_apply_suppressed(
+                    db, decision.intent_id, plan.outcome,
+                    context_version=getattr(context, "context_version",
+                                            None))
             _mca_intents.note_decision(decision, chat_id=chat_id,
                                        outcome="cancelled")
             logger.info("[mca09] initiative cancelled | chat=%s | reason=%s",
@@ -7370,6 +7992,9 @@ async def handle_initiative(*, bot, chat_id: int, situation, candidates,
             return {"status": "cancelled",
                     "reason_code": plan.outcome.reason_code,
                     "delivery_kind": kind, "decision": decision}
+        if decision.intent_id:
+            _mca_intents.note_recheck_passed(chat_id=chat_id,
+                                             intent_id=decision.intent_id)
         sent_id = None
         sent = 0
         for chunk in plan.chunks:
@@ -7407,13 +8032,18 @@ async def handle_initiative(*, bot, chat_id: int, situation, candidates,
             except Exception:
                 logger.warning("[mca09] initiative ledger failed",
                                exc_info=True)
+        if decision.intent_id:
+            # F6 (§13.3): доставка состоялась — событие для funnel `sent`.
+            _mca_intents.note_initiative_sent(chat_id=chat_id,
+                                              intent_id=decision.intent_id,
+                                              chunks=sent)
         _mca_intents.note_decision(decision, chat_id=chat_id, outcome="ok")
         logger.info(
             "[mca09] initiative sent | chat=%s | kind=%s | chunks=%d | "
-            "trigger=%s", chat_id, kind, sent,
-            getattr(decision, "trigger_kind", "") or "-")
+            "trigger=%s | generated=%s", chat_id, kind, sent,
+            getattr(decision, "trigger_kind", "") or "-", generated)
         return {"status": "sent", "chunks": sent, "delivery_kind": kind,
-                "decision": decision}
+                "generated": generated, "decision": decision}
     except Exception:
         # ── mca-10b (D6): `delivery_unknown` фиксируется ОТДЕЛЬНО и
         # подавляет немедленный повторный выбор той же истории до
@@ -7436,3 +8066,71 @@ async def handle_initiative(*, bot, chat_id: int, situation, candidates,
         logger.warning("[mca09] initiative handling failed — no send",
                        exc_info=True)
         return {"status": "error", "delivery_kind": ""}
+
+
+async def _f6_plan_next_check(db, decision) -> None:
+    """Серверное планирование после немой инициативы (bounded backoff):
+    intent не переизбирается каждые 300 с; expiry/hygiene ограничивают.
+    Никогда не бросает."""
+    if db is None or not getattr(decision, "intent_id", None):
+        return
+    try:
+        service = _mca_intents.get_service(db)
+        row = await service.store.get_intent(decision.intent_id)
+        if row is None or row.get("status") not in ("pending", "deferred"):
+            return
+        now_ts = _mca_intents._now()
+        backoff = max(60, int(mca_gates.intent_defer_backoff_seconds()))
+        await service.defer(decision.intent_id,
+                            next_check_at=now_ts + backoff,
+                            activation_condition=row.get(
+                                "activation_condition"),
+                            now=now_ts)
+    except Exception:
+        logger.warning("[f6] intent planning failed", exc_info=True)
+
+
+async def _f6_close_intent(db, intent_id: str, *, status: str,
+                           reason_code: str) -> None:
+    """Терминальное закрытие намерения (A15). Никогда не бросает."""
+    if db is None or not intent_id:
+        return
+    try:
+        await _mca_intents.get_service(db).close(
+            intent_id, status=status, reason_code=reason_code)
+    except Exception:
+        logger.warning("[f6] intent close failed | id=%s", intent_id,
+                       exc_info=True)
+
+
+async def _f6_apply_suppressed(db, intent_id: str, outcome,
+                               context_version: str | None) -> None:
+    """Подавленная отправка: close_intent (A15) либо bounded defer с
+    обновлением evaluated-версии контекста (пере-оценка позже, не спам).
+    Никогда не бросает."""
+    if db is None or not intent_id:
+        return
+    try:
+        service = _mca_intents.get_service(db)
+        if getattr(outcome, "close_intent", None):
+            await service.close(intent_id,
+                                status=str(outcome.close_intent),
+                                reason_code=str(outcome.reason_code or ""))
+            return
+        row = await service.store.get_intent(intent_id)
+        if row is None or row.get("status") not in ("pending", "deferred"):
+            return
+        now_ts = _mca_intents._now()
+        backoff = max(60, int(mca_gates.intent_defer_backoff_seconds()))
+        await service.defer(intent_id, next_check_at=now_ts + backoff,
+                            activation_condition=row.get(
+                                "activation_condition"),
+                            reason_code=str(outcome.reason_code or
+                                            "recheck_deferred"),
+                            now=now_ts)
+        fields = {"last_evaluated_context_version":
+                  str(context_version or "")[:120] or None}
+        await service.store.update_fields(intent_id, fields)
+    except Exception:
+        logger.warning("[f6] suppress bookkeeping failed | id=%s", intent_id,
+                       exc_info=True)

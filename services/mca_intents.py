@@ -483,6 +483,9 @@ RECHECK_REASON_CLOSED = "intent_closed"
 RECHECK_REASON_ANSWERED = "already_answered"
 RECHECK_REASON_DEFERRED = "recheck_deferred"
 RECHECK_REASON_DENIED = "disabled"      # tool permission denied (тот же код)
+# F6 (§18D): между оценкой и отправкой пришло прямое обращение к боту —
+# инициатива не соревнуется с прямым ответом (defer, не отмена навсегда).
+RECHECK_REASON_DIRECT_PENDING = "direct_pending"
 CHUNK_LIMIT = 4096
 
 
@@ -490,7 +493,9 @@ CHUNK_LIMIT = 4096
 class RecheckContext:
     """R17-safe условия проверки перед отправкой (D4; порядок проверок —
     в `SendRecheck.check`). Активность в ПОСТОРОННЕЙ ветке в контексте не
-    участвует — она готовый ответ НЕ отменяет (branch-scoped)."""
+    участвует — она готовый ответ НЕ отменяет (branch-scoped). F6 (§18D):
+    поля заполняются СВЕЖИМ расчётом из реального чата
+    (direct_chat_service.build_fresh_recheck_context), не дефолтами."""
 
     enabled: bool = True
     addressee_ok: bool = True
@@ -502,6 +507,7 @@ class RecheckContext:
     context_version: str | None = None
     evaluated_context_version: str | None = None
     recheck_attempts: int = 0
+    direct_request_pending: bool = False
 
 
 @dataclass(frozen=True)
@@ -548,6 +554,11 @@ class SendRecheck:
             # A15: результат сообщён/ветка закрыта → закрыть без вопроса.
             return RecheckOutcome(False, RECHECK_REASON_ANSWERED,
                                   close_intent="fulfilled")
+        if context.direct_request_pending:
+            # F6 (§18D-4): прямое обращение к боту пришло, пока готовилась
+            # инициатива — не соревнуемся: отложить (не отменять навсегда).
+            return RecheckOutcome(False, RECHECK_REASON_DIRECT_PENDING,
+                                  defer=True)
         if context.tool_permission_denied:
             # denied → без слепого повтора (повтор не заказывается).
             return RecheckOutcome(False, RECHECK_REASON_DENIED)
@@ -660,8 +671,36 @@ def chain_allowed(*, trigger_kind, intent_row: dict | None = None,
 _INITIATIVE_OUTCOMES = {
     "ok": "success", "sent": "success", "silent": "silent",
     "cancelled": "cancelled", "candidate_ready": "skipped",
-    "disabled": "skipped", "error": "failed",
+    "disabled": "skipped", "error": "failed", "writer_failed": "failed",
 }
+
+
+def note_writer_generated(*, chat_id: int, intent_id: str,
+                          chars: int = 0) -> None:
+    """F6 (§13.3): `initiative_writer_generated` — текст инициативы
+    сгенерирован существующим Direct L2 Writer (trigger=initiative).
+    Notable-only, R17-safe (числа/ID; текст — никогда)."""
+    _emit("initiative_writer_generated", outcome="success",
+          chat_id=chat_id, reason_code="writer_generated",
+          entity_id=intent_id or None, stage="initiative",
+          usage_json={"chars": max(0, int(chars))})
+
+
+def note_recheck_passed(*, chat_id: int, intent_id: str) -> None:
+    """F6 (§18D/§13.3): `initiative_recheck_passed` — свежая проверка
+    перед отправкой разрешила отправку (плечо funnel `recheck_passed`)."""
+    _emit("initiative_recheck_passed", outcome="success",
+          chat_id=chat_id, reason_code="recheck_passed",
+          entity_id=intent_id or None, stage="send_recheck")
+
+
+def note_initiative_sent(*, chat_id: int, intent_id: str,
+                         chunks: int = 0) -> None:
+    """F6 (§13.3): `initiative_sent` — доставлено (ledger-дубль для
+    chat-scope funnel; source of truth остаётся `mca_bot_outputs`)."""
+    _emit("initiative_sent", outcome="success", chat_id=chat_id,
+          reason_code="initiative_sent", entity_id=intent_id or None,
+          stage="delivery", usage_json={"chunks": max(0, int(chunks))})
 
 
 def note_decision(decision, *, chat_id: int, outcome: str = "ok") -> None:
@@ -1053,8 +1092,11 @@ class IntentService:
             }
             row["dedup_key"] = base_key
             await self.store.insert(row)
+            # F6 (§13.3): origin — в `stage` события (R17-safe enum), чтобы
+            # funnel producers_24h в Status считался по источникам.
             _emit("intent_created", outcome="success", chat_id=chat_id,
-                  reason_code="intent_created", entity_id=intent_id)
+                  reason_code="intent_created", entity_id=intent_id,
+                  stage=origin)
             return intent_id, True
         except Exception:
             logger.warning("[mca09] intent create failed | chat=%s kind=%s",
@@ -1154,6 +1196,42 @@ class IntentService:
             intent_id, to_status=status, reason_code=str(reason_code or ""),
             event=("intent_fulfilled" if status == "fulfilled"
                    else "intent_abandoned"), now=now)
+
+    async def note_writer_failure(self, intent_id: str, *, now=None) -> dict:
+        """F6 (§28.15): неспособность сгенерировать текст инициативы —
+        НЕ бесконечный defer. Счётчик попыток растёт только на реальных
+        попытках генерации: cap (`MCA_INTENT_MAX_ATTEMPTS`) → честное
+        терминальное закрытие `abandoned` (причина `writer_failed`; ΔDDL=0 —
+        отдельного статуса в CHECK-контракте v29 нет); иначе — серверный
+        bounded backoff (не nag-таймер: expiry/hygiene ограничивают).
+        Возвращает R17-safe словарь {"outcome": "abandoned"|"deferred"}."""
+        outcome = {"outcome": "skipped"}
+        if not mca_gates.intents_enabled():
+            return outcome
+        row = await self.store.get_intent(intent_id)
+        if row is None or row["status"] not in ("pending", "deferred"):
+            return outcome
+        attempts = int(row.get("attempts") or 0) + 1
+        cap = max(1, int(mca_gates.intent_max_attempts()))
+        if attempts >= cap:
+            closed = await self._transition(
+                intent_id, to_status="abandoned",
+                reason_code="writer_failed", extra={"attempts": attempts},
+                now=now)
+            if closed is not None:
+                outcome["outcome"] = "abandoned"
+            return outcome
+        ts = _now(now)
+        backoff = max(60, int(mca_gates.intent_defer_backoff_seconds()))
+        fields = {"attempts": attempts, "status": "deferred",
+                  "next_check_at": ts + backoff, "updated_at": ts}
+        await self.store.update_fields(intent_id, fields)
+        _emit("recheck_deferred", outcome="skipped",
+              chat_id=row["chat_id"], reason_code="writer_failed",
+              entity_id=intent_id)
+        outcome["outcome"] = "deferred"
+        outcome["next_check_at"] = ts + backoff
+        return outcome
 
     # ── триггеры/due-скан/heartbeat (T-5025/T-5026) ───────────────────────────
     async def due_candidates(self, *, now=None) -> list[InitiativeCandidate]:

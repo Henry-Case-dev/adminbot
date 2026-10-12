@@ -353,7 +353,11 @@ DIRECT_VERBALIZER_SYSTEM_PROMPT = (
 # финальный текст пишет только L2 Writer (Вербализатор). L1-промпт
 # sandwich-хвост НЕ получает (L1 не пишет прозу, §1.5). Языковая дисциплина:
 # без ёлочек/длинных тире, без {}-плейсхолдеров в тексте (прецедент R5/R9).
-_DIRECT_L1_PLANNER_BASE = """СИСТЕМНАЯ РОЛЬ:
+# ASAP 8 (F6, §13.1): правка канона = бамп + слепок (ADR-1013-3) — прежняя
+# база заморожена в PREV_DIRECT_L1_PLANNER_BASE (ступень миграции ведёт
+# прод-ключи на новый канон), новая база добавляет allowlisted-поле
+# future_intent.
+_DIRECT_L1_PLANNER_BASE_R1028 = """СИСТЕМНАЯ РОЛЬ:
 Ты - планировщик ответа (L1) в групповом чате. Ты НЕ пишешь ответ
 пользователю. Ты анализируешь сообщение и контекст разговора и возвращаешь
 план ответа строго одной JSON-строкой, без пояснений и без markdown.
@@ -370,6 +374,37 @@ _DIRECT_L1_PLANNER_BASE = """СИСТЕМНАЯ РОЛЬ:
  "capabilities_needed": ["..."],
  "needs_clarification": false, "clarification_target": null,
  "confidence": 0.0}
+
+Значения response_act и tone можно уточнять своими короткими понятиями,
+если списки не покрывают ситуацию."""
+
+PREV_DIRECT_L1_PLANNER_BASE = _DIRECT_L1_PLANNER_BASE_R1028
+
+_DIRECT_L1_PLANNER_BASE = """СИСТЕМНАЯ РОЛЬ:
+Ты - планировщик ответа (L1) в групповом чате. Ты НЕ пишешь ответ
+пользователю. Ты анализируешь сообщение и контекст разговора и возвращаешь
+план ответа строго одной JSON-строкой, без пояснений и без markdown.
+
+СХЕМА JSON (все поля обязательны):
+{"action": "reply|react|silent", "reaction": "<эмодзи или null>",
+ "response_act": "answer|agreement|disagreement|banter|tease|hostile_rebuff|emotional_reply|support|clarification|explanation|research|comparison|summarization|creative|historical_recall|other",
+ "extent": "one_word|micro|compact|auto|normal|detailed|longform|exhaustive",
+ "tone": "inherit|neutral|warm|playful|ironic|sarcastic|annoyed|aggressive|serious",
+ "emotional_mirroring": "none|light|medium|strong",
+ "structure": "chat|answer|explanation|story|summary|comparison|report|steps",
+ "delivery_hint": "plain|rich|media",
+ "tool_policy": "none|auto",
+ "capabilities_needed": ["..."],
+ "needs_clarification": false, "clarification_target": null,
+ "confidence": 0.0,
+ "future_intent": null}
+
+ОДНО опциональное поле: future_intent. Не null, а
+{"kind": "follow_up|open_dispute", "goal": "<короткая цель, максимум 200 символов>"}
+- только когда участник ЯВНО просит вернуться к теме позже, обещает
+  что-то сообщить/сделать потом или оспаривает вопрос, требующий
+  отдельного разбора. Не выдумывай будущие намерения для обычных
+  сообщений: если явного повода нет - оставь null.
 
 Значения response_act и tone можно уточнять своими короткими понятиями,
 если списки не покрывают ситуацию."""
@@ -393,7 +428,9 @@ _DIRECT_L1_PLANNER_RULES = """
 
 # Слепок базы канона L1 (без правил) — для лестницы миграций нового ключа
 # (правило «правка канона = бамп + слепок», ADR-1013-3).
-PREV_DIRECT_L1_PLANNER_BASE = _DIRECT_L1_PLANNER_BASE
+# ASAP 8 (F6): слепок заморожен ВЫШЕ как _DIRECT_L1_PLANNER_BASE_R1028
+# (присваивать PREV из текущей базы нельзя — ступень миграции перестала бы
+# узнавать прод-значения прежнего канона).
 
 DIRECT_L1_PLANNER_SYSTEM_PROMPT = (
     _DIRECT_L1_PLANNER_BASE + _DIRECT_L1_PLANNER_RULES)

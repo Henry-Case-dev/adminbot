@@ -54,6 +54,25 @@ TONE_MAX = 24              # §1.3: открытый словарь, ≤24
 CAPABILITIES_MAX = 8       # bounded список возможностей
 CLARIFY_TARGET_MAX = 64
 
+# ASAP 8 (F6, §13.1): allowlisted-поле future-intent — единственная новая ось
+# схемы L1. LLM предлагает ЗАКРЫТЫЙ kind + короткую цель; intent в durable
+# `mca_intents` пишет СЕРВИС (LLM в DB не пишет); невалидное поле → None
+# (план не инвалидируется — поле аддитивное).
+FUTURE_INTENT_KINDS = ("follow_up", "open_dispute")
+FUTURE_INTENT_GOAL_MAX = 200
+
+
+@dataclass
+class FutureIntent:
+    """Валидированное будущее намерение (ASAP 8 F6 §13.1).
+
+    ``kind`` — закрытый список (follow_up/open_dispute); ``goal`` — короткий
+    текст-цель ≤200 (сервис повторно канонизирует через mca_intents.canon_text,
+    R17). Создание записи — только сервисом-продюсером, не LLM."""
+
+    kind: str
+    goal: str
+
 DEFAULT_DIRECT_L1_EVIDENCE_MAX_CHARS = 4000
 
 # §1.5: force/direct-address факты (детерминированные, LLM их не решает).
@@ -88,6 +107,7 @@ class L1Plan:
     confidence_bucket: str = "low"
     source: str = "llm"          # llm | repair | fallback
     form_override: str = ""      # §2.5: явная форма пользователя (после L1)
+    future_intent: "FutureIntent | None" = None  # F6 §13.1 (allowlisted)
 
     def effective_extent(self) -> str:
         """Явная форма пользователя поверх semantic extent (§2.5)."""
@@ -238,6 +258,16 @@ def normalize_l1_plan(data) -> L1Plan | None:
         conf = 0.0
     plan.confidence = min(1.0, max(0.0, conf))
     plan.confidence_bucket = confidence_bucket(plan.confidence)
+    # ── ASAP 8 (F6 §13.1): allowlisted future_intent. Схема строго
+    # валидируется; невалидное поле → None (план остаётся валидным).
+    fi = data.get("future_intent")
+    if isinstance(fi, dict):
+        fi_kind = str(fi.get("kind") or "").strip().lower()
+        fi_goal = fi.get("goal")
+        fi_goal_text = fi_goal.strip() if isinstance(fi_goal, str) else ""
+        if fi_kind in FUTURE_INTENT_KINDS and fi_goal_text:
+            plan.future_intent = FutureIntent(
+                kind=fi_kind, goal=fi_goal_text[:FUTURE_INTENT_GOAL_MAX])
     return plan
 
 
@@ -710,6 +740,7 @@ def emit_l1_plan_event(*, run_id=None, chat_id=None, message_id=None,
 
 __all__ = [
     "ACTIONS", "L1_EXTENTS", "LONGFORM_L1_EXTENTS", "L1Plan", "L1ModelSlot",
+    "FutureIntent", "FUTURE_INTENT_KINDS", "FUTURE_INTENT_GOAL_MAX",
     "FORCE_LINE", "AUTONOMOUS_LINE", "REPAIR_ANNOTATION",
     "normalize_l1_plan", "parse_l1_plan", "build_repair_messages",
     "confidence_bucket", "direct_l1_enabled", "l1_fallback_enabled",
