@@ -300,7 +300,8 @@ class TestObservabilityContract:
             "temporal_cache_disabled", "fact_check_disabled"}
         assert temporal <= mca_events.REASON_CODES
         # mca-17c (round 10.47): 279 → 280 (+1 oversight_job_action).
-        assert len(mca_events.REASON_CODES) == 280
+        # ASAP 8 (F6): 280 → 285 (+5 инициативы — вне observability-стадий).
+        assert len(mca_events.REASON_CODES) == 285
         # дата-ошибка ≠ дата-отсутствие (D15, `:1805`)
         assert {"temporal_date_extract_failed", "temporal_date_unknown"} \
             <= mca_events.REASON_CODES

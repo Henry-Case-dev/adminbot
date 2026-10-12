@@ -562,8 +562,13 @@
   // (§44), живут в витрине JS (services/param_catalog.py НЕ трогается →
   // Δ каталога = 0). Старые названия оставлены синонимами (маркеры целы).
   // F4 (D3/D6): `runtimeGate` — природа мастер-флага по КОДУ (global →
-  // hot.get без чата; per_chat → override→global→default); `parentGate` —
-  // глобальный родитель (регистрация роутеров 0a–0i по flags.summary_enabled).
+  // hot.get без чата; per_chat → override→global→default).
+  // ASAP 8 F5 (ТЗ §11/§28.10, архитектура §5.2): ложный `parentGate:
+  // 'flags.summary_enabled'` УДАЛЕН у Direct/Factcheck/Search/Transcription/
+  // Video/Web/Checkup — все они independent (реальный dependency graph;
+  // Summary больше не bootstrap-master: роутеры 0a–0i регистрируются всегда,
+  // фича-гейты — на своих границах исполнения). Механика `parentGate`
+  // сохранена как parent_off (зарезервировано; сейчас не используется).
   var MODULES = [
     { id: 'mod_summary', title: 'Сводки чатов',
       subtitle: 'Пересказы разговоров и каналов', icon: 'description',
@@ -574,31 +579,31 @@
     { id: 'mod_direct', title: 'Ответы в чате',
       subtitle: 'Ответы бота на обращения', icon: 'smart_toy',
       toggleKey: 'flags.direct_chat_botword_enabled', tab: 'mod_direct',
-      runtimeGate: 'global', parentGate: 'flags.summary_enabled',
+      runtimeGate: 'global',
       keywords: ['ответы', 'ответы в чате', 'прямые ответы', 'direct',
                  'botword', 'реплай', 'reply', 'бот'] },
     { id: 'mod_factcheck', title: 'Фактчек',
       subtitle: 'Проверка фактов', icon: 'radar',
       toggleKey: 'flags.factcheck_enabled', tab: 'mod_factcheck',
-      runtimeGate: 'global', parentGate: 'flags.summary_enabled',
+      runtimeGate: 'global',
       keywords: ['фактчек', 'фактчекинг', 'факты', 'проверка фактов',
                  'factcheck', 'check'] },
     { id: 'mod_search', title: 'Поиск',
       subtitle: 'Интернет-поиск', icon: 'grid_view',
       toggleKey: 'flags.search_enabled', tab: 'mod_search',
-      runtimeGate: 'global', parentGate: 'flags.summary_enabled',
+      runtimeGate: 'global',
       keywords: ['поиск', 'найди', 'загугли', 'интернет', 'search', 'google',
                  'гугл'] },
     { id: 'mod_transcribe', title: 'Транскрипт голосовых и видео',
       subtitle: 'Распознавание речи', icon: 'play_circle',
       toggleKey: 'flags.enable_voice_transcription', tab: 'mod_transcribe',
-      runtimeGate: 'global', parentGate: 'flags.summary_enabled',
+      runtimeGate: 'global',
       keywords: ['транскрипт', 'транскрибация', 'голосовые', 'распознавание',
                  'speech', 'stt', 'voice'] },
     { id: 'mod_video_summary', title: 'Выжимка видео',
       subtitle: 'Пересказ видео', icon: 'play_circle',
       toggleKey: 'flags.video_summary_enabled', tab: 'mod_video_summary',
-      runtimeGate: 'global', parentGate: 'flags.summary_enabled',
+      runtimeGate: 'global',
       keywords: ['выжимка', 'видео', 'ютуб', 'youtube', 'video', 'пересказ'] },
     { id: 'mod_media_download', title: 'Скачивание медиа',
       subtitle: 'Скачивание видео по ссылке', icon: 'cloud',
@@ -608,12 +613,12 @@
     { id: 'mod_web', title: 'Веб-страницы',
       subtitle: 'Пересказ страниц', icon: 'auto_stories',
       toggleKey: 'flags.webpage_enabled', tab: 'mod_web',
-      runtimeGate: 'global', parentGate: 'flags.summary_enabled',
+      runtimeGate: 'global',
       keywords: ['веб', 'веб-страницы', 'страницы', 'web', 'webpage', 'url'] },
     { id: 'mod_checkup', title: 'Диагностика',
       subtitle: 'Чекап, метрики и логи', icon: 'monitoring',
       toggleKey: 'flags.checkup_enabled', tab: 'mod_checkup',
-      runtimeGate: 'global', parentGate: 'flags.summary_enabled',
+      runtimeGate: 'global',
       keywords: ['диагностика', 'чекап', 'метрики', 'логи', 'checkup',
                  'status'] },
     { id: 'mod_sleep', title: 'Сон',
@@ -9279,6 +9284,8 @@
           key: key, known: known, effective: effective, globalValue: globalValue,
           hasOverride: hasOverride, display: display,
           runtime: this._moduleRuntimeState(m, item, scope, known),
+          // F5 §5.2: честная причина (аддитивно; см. _moduleRuntimeReason).
+          reason: this._moduleRuntimeReason(m),
           pending: pending, error: error,
         };
       },
@@ -9288,6 +9295,9 @@
       //   blocked — включён, но глобальный/родительский гейт выключен;
       //   inert   — локальный override для gate='global' не влияет;
       //   unknown — нет элемента/значения (≠ выключено!).
+      // ASAP 8 F5 (§5.2): к состоянию добавляется честная причина
+      // (`reason`, аддитивно): chat_off/global_off/env_off/
+      // provider_unavailable/parent_off — см. _moduleRuntimeReason.
       _moduleRuntimeState: function (m, item, scope, known) {
         if (!known || !item) return 'unknown';
         var eff = (item.value === true);
@@ -9309,6 +9319,54 @@
             && item.global_value === false) return 'blocked';
         return 'on';
       },
+      // ═══ ASAP 8 F5 (ТЗ §11.3/§28.10, архитектура §5.2): честная причина
+      // состояния модуля. Enum фиксирован; producer'ы сейчас:
+      //   chat_off             — выключено в этом чате (override чата);
+      //   global_off           — выключено глобально (text ТОЛЬКО при
+      //                          selected scope = global);
+      //   env_off              — аварийный env-переключатель выключен
+      //                          (registry gate, env-ось);
+      //   parent_off           — реальная parent-зависимость (зарезервировано:
+      //                          ложный Summary-parentGate удалён в F5);
+      //   provider_unavailable — провайдер/возможность недоступна
+      //                          (зарезервировано: producer появится вместе
+      //                          с живым provider-статусом).
+      // Ложь «Включён, но не работает: отключён глобально» при chat scope
+      // устранена: parentGate у 7 модулей больше нет (см. MODULES).
+      _moduleRuntimeReason: function (m) {
+        if (!m || !m.toggleKey) return '';
+        var item = this._moduleConfigItem(m);
+        if (!item || item.value === null || item.value === undefined) return '';
+        var scope = this.storeScope();
+        var eff = item.value === true;
+        var hasOverride = item.chat_source === 'chat';
+        if (!eff) {
+          if (hasOverride) {
+            var gate = m.runtimeGate || 'global';
+            // override чата на global-гейте не влияет — это inert (не «off чата»)
+            return gate === 'global' ? '' : 'chat_off';
+          }
+          return 'global_off';       // значение унаследовано от глобального
+        }
+        // включён: честные причины НЕработы
+        if (m.parentGate && m.parentGate !== m.toggleKey
+            && typeof this._findConfigItem === 'function') {
+          var p = this._findConfigItem(m.parentGate);
+          if (p && p.value === false) return 'parent_off';
+        }
+        if (m.gate && m.gate.env_enabled === false) return 'env_off';
+        return '';
+      },
+      reasonNoticeText: function (reason) {
+        // §28.10: стабильный словарь причин (человекочитаемая грань).
+        return {
+          chat_off: 'Выключено в этом чате',
+          global_off: 'Выключено глобально',
+          env_off: 'Не работает: аварийный env-переключатель выключен',
+          provider_unavailable: 'Не работает: провайдер/возможность недоступна',
+          parent_off: 'Не работает: родительский модуль выключен',
+        }[reason] || '';
+      },
       // §43: подпись фактического состояния для НЕглобальной области.
       // Отдельный helper — `configItemNotice` (F3) НЕ изменяется.
       moduleRuntimeNotice: function (m) {
@@ -9320,14 +9378,20 @@
         var gv = item.global_value;
         var eff = item.value;
         var hasOverride = item.chat_source === 'chat';
-        // Родительский гейт (флаги 0a–0i) — глобальный выключатель: показываем
-        // в ЛЮБОЙ области, если модуль включён, но фактически не работает.
+        // Родительский гейт — parent_off (F5: зарезервирован, ни одна карточка
+        // его не объявляет; текст честен в любой области).
         if (m.parentGate && m.parentGate !== m.toggleKey && eff === true
             && typeof this._findConfigItem === 'function') {
           var p = this._findConfigItem(m.parentGate);
-          if (p && p.value === false) return 'Не работает: отключён глобально';
+          if (p && p.value === false) {
+            return 'Не работает: родительский модуль выключен';
+          }
         }
-        if (scope.type === 'global') return '';
+        if (scope.type === 'global') {
+          // F5 §5.2: global_off текст — ТОЛЬКО при selected scope = global.
+          if (eff === false) return 'Выключено глобально';
+          return '';
+        }
         if (gv === false && eff === true) {
           if (gate === 'per_chat') {
             return 'Включено для этой области (глобально выключено)';
@@ -9340,6 +9404,13 @@
         if (eff === false && hasOverride && gate === 'global') {
           return 'Отключение для этой области не влияет: '
             + 'модуль управляется глобально';
+        }
+        // F5 §5.2: chat scope — chat_off/env_off/parent_off; global_off текст
+        // в chat scope ЗАПРЕЩЁН (наследованное от глобали значение показано
+        // состоянием «Выключен», без лжи/шума в пометке).
+        var reason = this._moduleRuntimeReason(m);
+        if (reason && reason !== 'global_off') {
+          return this.reasonNoticeText(reason);
         }
         return '';
       },

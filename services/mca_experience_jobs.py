@@ -119,13 +119,40 @@ def _learning_enabled() -> bool:
     """UI-настройка `memory.experience_learning_enabled` (hot; default true).
 
     Это НЕ kill-switch: K1/K3 — env-only гейты (spec D11); настройка лишь
-    останавливает НОВОЕ обучение (review), не удаляя уже выученное."""
+    останавливает НОВОЕ обучение (review), не удаляя уже выученное.
+    Глобальная ось (наследуется чатами без override)."""
     try:
         from services import hot_config as hot
         from config.settings import settings
         return bool(hot.get(
             "memory.experience_learning_enabled",
             getattr(settings, "EXPERIENCE_LEARNING_ENABLED", True)))
+    except Exception:
+        return True
+
+
+async def learning_enabled_for_chat(chat_id) -> bool:
+    """F5 (ТЗ §9/U4, архитектура §5.4): per-chat resolver обучения.
+
+    Семантика U4: глобальная ось (``memory.experience_learning_enabled``,
+    hot) — master: OFF → все чаты выключены (global master важнее override);
+    ON → чат решает override'ом, без override — наследует глобальную ось.
+    ``chat_params.overrides`` (hot per-chat override) → глобальная ось →
+    settings-дефолт; None-чат (глобальные технические события) — только
+    глобальная ось. Глобальный worker (worker глобальный, обучение по
+    чатам — M6) пропускает чаты, не opted-in. Fail-open → глобальная ось
+    (прежнее поведение)."""
+    if not _learning_enabled():
+        return False
+    if chat_id is None:
+        return True
+    try:
+        from services import chat_params
+        from config.settings import settings
+        value = await chat_params.get_chat_param(
+            int(chat_id), "memory.experience_learning_enabled",
+            getattr(settings, "EXPERIENCE_LEARNING_ENABLED", True))
+        return bool(value)
     except Exception:
         return True
 
@@ -467,6 +494,11 @@ class ExperienceReviewRunner:
         captured = 0
         for row in rows:
             payload["cursor_feedback_rowid"] = int(row["rid"])
+            # F5 (§5.4, M6/U4): worker глобальный, обучение — по чатам.
+            # Чат с learning OFF (per-chat override или глобальная ось) не
+            # капитонируется; курсор продвигается (без цикла).
+            if not await learning_enabled_for_chat(row.get("chat_id")):
+                continue
             source_kind = str(row.get("source_kind") or "")
             if source_kind not in _FEEDBACK_OUTCOME:
                 continue
@@ -510,6 +542,11 @@ class ExperienceReviewRunner:
             payload["cursor_event_rowid"] = int(row["id"])
             if str(row.get("outcome")) != "failed":
                 continue                       # cancelled/denied ≠ неудача
+            # F5 (§5.4, M6/U4): chat-scoped технические уроки — тоже по
+            # чатам (глобальный ON + чат OFF → только выбранный чат тише).
+            # None-чат (вне чатов) — не chat-learning, идёт мимо резолвера.
+            if not await learning_enabled_for_chat(row.get("chat_id")):
+                continue
             entity = _parse_json_dict(row.get("entity_ids"))
             tool = str(entity.get("tool") or "")
             if not tool:

@@ -1,6 +1,9 @@
 """Epic 50 — DirectChat handler (R50-1, D202, Section 58.4).
 
-Роутер 0h (сразу после 0g checkup, до admin_commands; гейт SUMMARY_ENABLED).
+Роутер 0h (сразу после 0g checkup, до admin_commands). F5 (ТЗ §18H): роутер
+зарегистрирован ВСЕГДА; master-гейт ``flags.direct_chat_botword_enabled``
+проверяется в рантайме на всей триггерной поверхности (reply/mention/имя/
+keyword — см. _is_direct_trigger); зависимости от Summary нет.
 Реактивный — бот НИКОГДА не инициирует. Триггеры:
   1. Reply на бота: reply_to_message.from_user.id == bot.id;
   2. Упоминание (entities): mention с username бота (регистронезависимо)
@@ -166,7 +169,15 @@ def _is_direct_trigger(message: types.Message) -> bool:
     """Триггеры 1-4 (58.4 + R52-4). Вызывается ПОСЛЕ исключений (команды/пустой текст).
 
     Приоритет reply/mention ≥ keyword соблюдается автоматически (OR-ветки;
-    reply/mention дешевле и проверяются раньше)."""
+    reply/mention дешевле и проверяются раньше).
+
+    F5 (ТЗ §18H(4), архитектура §5.1): ``flags.direct_chat_botword_enabled`` —
+    master-гейт МОДУЛЯ на всей триггерной поверхности (reply/mention/имя/
+    keyword), а не только keyword-ветки: роутер 0h зарегистрирован всегда,
+    флаг проверяется на границе исполнения. OFF → UNHANDLED (пропагация)."""
+    if not hot.get("flags.direct_chat_botword_enabled",
+                   settings.DIRECT_CHAT_BOTWORD_ENABLED):
+        return False
     reply_to = message.reply_to_message
     if reply_to is not None:
         reply_from = getattr(reply_to, "from_user", None)
@@ -189,12 +200,10 @@ def _is_direct_trigger(message: types.Message) -> bool:
     if persona_on and name_set:
         if command_prefix.name_mentioned(text):
             return True
-    # T-411 (R52-4): keyword-ветка под флагом — «бот»/«ботохуета»/«ботина»/…
-    # Активна, только если НЕ (persona_enabled AND name_set).
-    if (not (persona_on and name_set)) and \
-            hot.get("flags.direct_chat_botword_enabled",
-                    settings.DIRECT_CHAT_BOTWORD_ENABLED) \
-            and _BOTWORD_RE.search(text):
+    # T-411 (R52-4): keyword-ветка под тем же master-гейтом модуля (F5):
+    # «бот»/«ботохуета»/«ботина»/… Активна, только если НЕ (persona_enabled
+    # AND name_set); master-флаг проверён выше на входе _is_direct_trigger.
+    if (not (persona_on and name_set)) and _BOTWORD_RE.search(text):
         # H2 (review-fix): НЕ триггеримся на сообщения юзеров, за которыми
         # закреплены свои роутеры (alan 3 / kostik 2) — их «бот»-сообщения
         # уходят дальше по цепочке (0h → UNHANDLED). Reply/mention выше —

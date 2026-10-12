@@ -418,30 +418,38 @@ async def on_startup():
     asyncio.create_task(scheduler.run())
     logger.info("Scheduler started")
 
-    # ── SmartModule: Summary (Epic 24) ──────────────────────
+    # ── SmartModule: общий bootstrap (Epic 24 → ASAP 8 F5, ТЗ §18H(2)) ──
+    # LLM-клиент, aliases и память — ОБЩАЯ инфраструктура (Direct/Search/
+    # Factcheck/Web/Checkup/YouTube/Voice и фоновые воркеры), а не
+    # собственность Summary: инициализируются ВСЕГДА, чтобы старт с
+    # выключенным Summary не убивал unrelated-модули (§18H(5)). Summary-
+    # собственный контур (генератор + планировщик) — под своим флагом ниже;
+    # каждый фича-гейт проверяется на своей границе исполнения (роутеры 0a–0i
+    # регистрируются безусловно, runtime-гейты — в handlers).
     global _summary_service, _llm_client
+    _llm_client = LLMClient(
+        hot.get("models.llm_base_url", settings.LLM_BASE_URL),
+        hot.get("keys.llm_api_key", settings.LLM_API_KEY),
+        hot.get("models.llm_model_name", settings.LLM_MODEL_NAME),
+        hot.get("models.embedding_model_name", settings.EMBEDDING_MODEL_NAME),
+        # Раунд 10.12 (ADR-1012-1 D1, OD-1): embed-путь развязан от чата.
+        embed_base_url=hot.get("models.embedding_base_url",
+                               settings.EMBEDDING_BASE_URL),
+        embed_api_key=hot.get("keys.embedding_api_key",
+                              settings.EMBEDDING_API_KEY),
+    )
+    aliases = AliasResolver(hot.get("limits.summary_aliases", settings.SUMMARY_ALIASES))
+    # Epic 60 (66.9, T-487): aliases → MemoryManager (привязка фактов к
+    # людям по алиасам: канон-имена в фактах/узлах → карточки /persona).
+    memory = MemoryManager(db, _llm_client, aliases=aliases)
+    vec_ok = await memory.initialize()
+    logger.info(
+        "SmartModule: sqlite-vec %s",
+        "available" if vec_ok else "UNAVAILABLE — FTS5 fallback (R3)",
+    )
+    xml_builder = XmlGroundingBuilder()
+
     if hot.get("flags.summary_enabled", settings.SUMMARY_ENABLED):
-        _llm_client = LLMClient(
-            hot.get("models.llm_base_url", settings.LLM_BASE_URL),
-            hot.get("keys.llm_api_key", settings.LLM_API_KEY),
-            hot.get("models.llm_model_name", settings.LLM_MODEL_NAME),
-            hot.get("models.embedding_model_name", settings.EMBEDDING_MODEL_NAME),
-            # Раунд 10.12 (ADR-1012-1 D1, OD-1): embed-путь развязан от чата.
-            embed_base_url=hot.get("models.embedding_base_url",
-                                   settings.EMBEDDING_BASE_URL),
-            embed_api_key=hot.get("keys.embedding_api_key",
-                                  settings.EMBEDDING_API_KEY),
-        )
-        aliases = AliasResolver(hot.get("limits.summary_aliases", settings.SUMMARY_ALIASES))
-        # Epic 60 (66.9, T-487): aliases → MemoryManager (привязка фактов к
-        # людям по алиасам: канон-имена в фактах/узлах → карточки /persona).
-        memory = MemoryManager(db, _llm_client, aliases=aliases)
-        vec_ok = await memory.initialize()
-        logger.info(
-            "SmartModule: sqlite-vec %s",
-            "available" if vec_ok else "UNAVAILABLE — FTS5 fallback (R3)",
-        )
-        xml_builder = XmlGroundingBuilder()
         generator = SummaryGenerator(memory, xml_builder, _llm_client, bot, aliases)
         # S9 (ADR-1026-8 D1): dry-run тест-контур «Тестирование» (§113) берёт
         # генератор из runtime-держателя (read-only окно + run_l1/run_l2).
@@ -450,178 +458,182 @@ async def on_startup():
         _summary_service = SummarySchedulerService(generator, db)
         _summary_service.start()  # BEFORE dp.start_polling (RESEARCH §c)
         logger.info("SmartModule Summary (Epic 24) initialized (TZ=%s)", hot.get("limits.summary_timezone", settings.SUMMARY_TIMEZONE))
-
-        # ── SmartModule: FactCheck + SmartSearch (Epic 33) ──
-        global _search_aggregator
-        _search_aggregator = SearchAggregator()                 # ленивый httpx-клиент
-        _search_aggregator.log_config()                         # D104: WARNING-и пустых ключей
-        # 10.20 (БЛОК 6.2, ADR-1020-5 п.1, T-1907): setup_factcheck перенесён
-        # НИЖЕ сборки _tool_router — FactCheckService получает ToolRouter
-        # аддитивным DI-kwarg (только kwargs; порядок роутеров не меняется).
-        setup_search(SearchService(_search_aggregator, _llm_client, memory=memory), db)
-        logger.info("SmartModule SmartSearch (Epic 33) initialized "
-                    "(FactCheck — после сборки ToolRouter)")
-
-        # ── SmartModule: YouTube + Web (Epic 37) ──
-        global _web_extractor
-        youtube_engine = YouTubeTranscriptEngine()
-        _web_extractor = WebContentExtractor()
-        _web_extractor.log_config()                         # WARNING пустых ключей (D104)
-        # Bugfix 04.09.2026 (Часть 1): ЕДИНЫЙ инстанс VoiceTranscriber —
-        # общий asyncio.Semaphore (D295) для голосовых/кружочков (0i) и
-        # нативных TG-видео (медиа-ветка 0e). Инстанс создаётся ВНУТРИ
-        # summary-блока независимо от enable_voice_transcription (ключи пусты →
-        # стратегии skip); поведение voice-роутера не меняется. Порядок
-        # регистрации роутеров ниже НЕ трогаем.
-        voice_service = VoiceTranscriber(
-            max_concurrency=hot.get("models.groq_max_concurrency",
-                                    settings.GROQ_MAX_CONCURRENCY))
-        # Раунд 3 (T-688): общий VideoDownloader для ссылочных веток 0e
-        # (прямые ссылки/платформы) и роутера 4e «скачай» — лёгкий, клиенты
-        # ленивые (D261); лок скачивания один на процесс (гонок нет).
-        global _shared_video_downloader
-        _shared_video_downloader = VideoDownloader(
-            settings.COBALT_API_URL, settings.DOWNLOAD_DIR)
-        setup_youtube_video_media(voice_service, db, aliases, memory, bot.id,
-                                  downloader=_shared_video_downloader)
-        # Раунд 3 (3.7/C2, T-697): backfill expires_at существующих
-        # bot_direct_reply-фактов без TTL (идемпотентно; NULL-строк больше
-        # нет после первого старта). Fail-open.
-        try:
-            await memory.backfill_direct_reply_ttl()
-        except Exception:
-            logger.warning("[graphrag] bot_direct_reply backfill skipped",
-                           exc_info=True)
-        # Эпик 04.09.2026 (3.2): видео-каскад L1/L2 (мультимодальный OpenRouter
-        # video_url). Ключ пуст → video_client.available=False → ровно старое
-        # поведение (субтитры), WARNING в каскаде.
-        # Раунд 10.15 (F8, T-1615): инстанс сохраняется для tool-сета
-        # (инструмент summarize_video).
-        youtube_service = YoutubeSummarizerService(
-            youtube_engine, _llm_client, memory=memory,
-            video_client=OpenRouterVideoClient())
-        setup_youtube(youtube_service, db)
-        setup_web(WebSummarizerService(_web_extractor, _llm_client, memory=memory), db)
-        logger.info("SmartModule YouTube + Web (Epic 37) initialized")
-
-        # ── SmartModule: Checkup (Epic 42) ──
-        global _checkup_fetcher
-        _checkup_fetcher = CheckupLogsFetcher(
-            sql_host=hot.get("models.checkup_betterstack_sql_host", settings.CHECKUP_BETTERSTACK_SQL_HOST),
-            sql_user=hot.get("keys.checkup_betterstack_sql_user", settings.CHECKUP_BETTERSTACK_SQL_USER),
-            sql_password=hot.get("keys.checkup_betterstack_sql_password", settings.CHECKUP_BETTERSTACK_SQL_PASSWORD),
-            sql_table=hot.get("models.checkup_betterstack_sql_table", settings.CHECKUP_BETTERSTACK_SQL_TABLE),
-            sql_query=hot.get("models.checkup_betterstack_sql_query", settings.CHECKUP_BETTERSTACK_SQL_QUERY),
-            journalctl_cmd=settings.CHECKUP_JOURNALCTL_CMD,
-        )
-        logger.info(
-            "Checkup SQL API configured=%s (R17: только факт)",
-            bool(hot.get("keys.checkup_betterstack_sql_user", settings.CHECKUP_BETTERSTACK_SQL_USER) and hot.get("keys.checkup_betterstack_sql_password", settings.CHECKUP_BETTERSTACK_SQL_PASSWORD)),
-        )
-        # Раунд 10.15 (F8, T-1615): инстанс сохраняется для tool-сета
-        # (инструмент get_bot_health — тот же путь, что роутер 0g).
-        checkup_service = CheckupService(_llm_client, db=db, memory=memory)
-        setup_checkup(checkup_service, _checkup_fetcher, db)
-        logger.info("SmartModule Checkup (Epic 42) initialized")
-
-        # ── SmartModule: DirectChat (Epic 50, Section 58.4) ──
-        bot_user = await bot.get_me()
-        # Epic 60 (63.1): рубильник THROTTLE_PERSISTENT_ENABLED → persistent
-        # token bucket (throttle_state); false → дефолт DirectChatService
-        # строит старый in-memory DirectChatThrottle.
-        throttle = None
-        if hot.get("flags.throttle_persistent_enabled", settings.THROTTLE_PERSISTENT_ENABLED):
-            throttle = PersistentThrottle(
-                hot.get("limits.chat_burst_limit", settings.CHAT_BURST_LIMIT), hot.get("limits.chat_cooldown_seconds", settings.CHAT_COOLDOWN_SECONDS),
-                "direct_chat", db)
-        # Эпик 04.09.2026 (3.3, FR-17): инструменты только в direct_chat —
-        # поиск через SearchAggregator, память через MemoryManager.
-        # Раунд 10.15 (F8, ADR-1015-3 §5): DI существующих инстансов в ToolDeps
-        # (video/downloader/health/db) — порядок роутеров НЕ меняется, только
-        # DI-kwargs (инвариант фичи).
-        from services.tool_router import ToolDeps, ToolHealthDeps, ToolRouter
-        _tool_router = ToolRouter(ToolDeps(
-            search=_search_aggregator, memory=memory, aliases=aliases, db=db,
-            video=youtube_service, downloader=_shared_video_downloader,
-            health=ToolHealthDeps(checkup_service, _checkup_fetcher),
-            # R10.15-9: общий download-кулдаун 4e (ленивый провайдер —
-            # setup_video_download пересоздаёт трекер позже в on_startup).
-            download_cooldown=get_download_cooldown,
-            # 10.20 (БЛОК 1, T-1887): LLM для изолированного синтеза истории
-            # «Летописца» (compile_lore_story) — тот же клиент, что DirectChat.
-            llm=_llm_client,
-            # Раунд 10.24 (F14, ADR-1024-15 §2.3): STT-сервис для нативного
-            # пути инструмента summarize_video (тот же инстанс, что youtube/0i).
-            transcriber=voice_service,
-            # Раунд 10.26 (A2, ADR-1026-15 D5): extractor для `fetch_article`
-            # (reuse WebContentExtractor — тот же инстанс, что у web-модуля,
-            # без дубля сервиса).
-            extractor=_web_extractor))
-        # 10.20 (БЛОК 6.2, ADR-1020-5 п.1, T-1907): тот же ToolRouter получает
-        # фактчекер (Full Tool Access: dig_into_lore/compile_lore_story/веб).
-        # DI-kwarg, порядок роутеров и setup-последовательность не меняются.
-        setup_factcheck(
-            FactCheckService(_search_aggregator, _llm_client, memory=memory,
-                             tool_router=_tool_router),
-            db)
-        setup_direct_chat(
-            DirectChatService(
-                memory, db, _llm_client, aliases,
-                throttle=throttle,
-                bot_id=bot.id,
-                bot_username=(getattr(bot_user, "username", None) or "").lower(),
-                # Epic 60 (67.4, T-499): дедуп одинаковых текстов подряд
-                # (smart_cache, slug direct_dedup; рубильник CHAT_DEDUP_ENABLED).
-                cache=get_smart_cache(),
-                tool_router=_tool_router,
-                # Раунд 7 (T-781/F1): ChatLoreCache — инжект PG-лора в
-                # контекст; None (PG down/ранний старт) → старое поведение.
-                chat_lore_cache=get_lore_cache(),
-            ),
-            bot.id,
-            (getattr(bot_user, "username", None) or "").lower(),
-        )
-        logger.info("SmartModule DirectChat (Epic 50) initialized")
-
-        # ── VoiceTranscriber (Epic 67, Section 71.6) — сервис зависит от
-        # memory/aliases; пустые ключи → стратегии пропустит контроллер ──
-        # Epic 79.5 (D295): max_concurrency из настроек для защиты Groq Free Tier.
-        # Bugfix 04.09.2026 (Часть 1): инстанс ЕДИНЫЙ с медиа-веткой youtube
-        # (создан выше, в блоке YouTube) — здесь только регистрация роутера 0i.
-        if hot.get("flags.enable_voice_transcription", settings.ENABLE_VOICE_TRANSCRIPTION):
-            setup_voice_transcription(voice_service, db, aliases, memory, bot.id)
-            logger.info(
-                "VoiceTranscriber enabled (max_dur=%ss, groq=%s openrouter=%s, "
-                "max_concurrency=%d)",
-                hot.get("limits.voice_max_duration_seconds", settings.VOICE_MAX_DURATION_SECONDS),
-                bool(hot.get("keys.groq_api_key", settings.GROQ_API_KEY)), bool(hot.get("keys.openrouter_api_key", settings.OPENROUTER_API_KEY)),
-                hot.get("models.groq_max_concurrency", settings.GROQ_MAX_CONCURRENCY),
-            )
-        else:
-            logger.info(
-                "VoiceTranscriber disabled (ENABLE_VOICE_TRANSCRIPTION=False)")
-
-        # ── Memory backup (Epic 60, Section 64.3, T-464) ──
-        # VACUUM INTO-бэкап + текстовый экспорт фактов, daily. Рубильник
-        # MEMORY_BACKUP_ENABLED; НЕ на остановленном боте (онлайн).
-        global _memory_backup_service
-        if hot.get("flags.memory_backup_enabled", settings.MEMORY_BACKUP_ENABLED):
-            _memory_backup_service = MemoryBackupService(db)
-            _memory_backup_service.start()
-            logger.info("MemoryBackup (Epic 60) initialized (daily %s %s)",
-                        hot.get("limits.memory_backup_hour", settings.MEMORY_BACKUP_HOUR), hot.get("limits.summary_timezone", settings.SUMMARY_TIMEZONE))
-        else:
-            logger.info("MemoryBackup disabled (MEMORY_BACKUP_ENABLED=False)")
-
-        # ── Memory maintenance (Epic 60, Section 66.2/66.11, T-480/T-489) ──
-        # Слияние эпизодов + периодический пересмотр фактов (MemoryJobStore).
-        global _memory_maintenance_service
-        _memory_maintenance_service = MemoryMaintenanceService(
-            db, memory, _llm_client, bot=bot)
-        _memory_maintenance_service.start()
-        logger.info("MemoryMaintenance (Epic 60, Фаза D) initialized")
     else:
-        logger.info("SmartModule Summary disabled (SUMMARY_ENABLED=False)")
+        logger.info(
+            "SmartModule Summary disabled (SUMMARY_ENABLED=False) — "
+            "общие сервисы инициализированы (F5: bootstrap ≠ фича)")
+
+    # ── SmartModule: FactCheck + SmartSearch (Epic 33) — общий DI ──
+    global _search_aggregator
+    _search_aggregator = SearchAggregator()                 # ленивый httpx-клиент
+    _search_aggregator.log_config()                         # D104: WARNING-и пустых ключей
+    # 10.20 (БЛОК 6.2, ADR-1020-5 п.1, T-1907): setup_factcheck перенесён
+    # НИЖЕ сборки _tool_router — FactCheckService получает ToolRouter
+    # аддитивным DI-kwarg (только kwargs; порядок роутеров не меняется).
+    setup_search(SearchService(_search_aggregator, _llm_client, memory=memory), db)
+    logger.info("SmartModule SmartSearch (Epic 33) initialized "
+                "(FactCheck — после сборки ToolRouter)")
+
+    # ── SmartModule: YouTube + Web (Epic 37) — общий DI ──
+    global _web_extractor
+    youtube_engine = YouTubeTranscriptEngine()
+    _web_extractor = WebContentExtractor()
+    _web_extractor.log_config()                         # WARNING пустых ключей (D104)
+    # Bugfix 04.09.2026 (Часть 1): ЕДИНЫЙ инстанс VoiceTranscriber —
+    # общий asyncio.Semaphore (D295) для голосовых/кружочков (0i) и
+    # нативных TG-видео (медиа-ветка 0e). Инстанс создаётся в общем bootstrap
+    # независимо от enable_voice_transcription (ключи пусты → стратегии skip);
+    # поведение voice-роутера не меняется. Порядок регистрации роутеров ниже
+    # НЕ трогаем.
+    voice_service = VoiceTranscriber(
+        max_concurrency=hot.get("models.groq_max_concurrency",
+                                settings.GROQ_MAX_CONCURRENCY))
+    # Раунд 3 (T-688): общий VideoDownloader для ссылочных веток 0e
+    # (прямые ссылки/платформы) и роутера 4e «скачай» — лёгкий, клиенты
+    # ленивые (D261); лок скачивания один на процесс (гонок нет).
+    global _shared_video_downloader
+    _shared_video_downloader = VideoDownloader(
+        settings.COBALT_API_URL, settings.DOWNLOAD_DIR)
+    setup_youtube_video_media(voice_service, db, aliases, memory, bot.id,
+                              downloader=_shared_video_downloader)
+    # Раунд 3 (3.7/C2, T-697): backfill expires_at существующих
+    # bot_direct_reply-фактов без TTL (идемпотентно; NULL-строк больше
+    # нет после первого старта). Fail-open.
+    try:
+        await memory.backfill_direct_reply_ttl()
+    except Exception:
+        logger.warning("[graphrag] bot_direct_reply backfill skipped",
+                       exc_info=True)
+    # Эпик 04.09.2026 (3.2): видео-каскад L1/L2 (мультимодальный OpenRouter
+    # video_url). Ключ пуст → video_client.available=False → ровно старое
+    # поведение (субтитры), WARNING в каскаде.
+    # Раунд 10.15 (F8, T-1615): инстанс сохраняется для tool-сета
+    # (инструмент summarize_video).
+    youtube_service = YoutubeSummarizerService(
+        youtube_engine, _llm_client, memory=memory,
+        video_client=OpenRouterVideoClient())
+    setup_youtube(youtube_service, db)
+    setup_web(WebSummarizerService(_web_extractor, _llm_client, memory=memory), db)
+    logger.info("SmartModule YouTube + Web (Epic 37) initialized")
+
+    # ── SmartModule: Checkup (Epic 42) — общий DI ──
+    global _checkup_fetcher
+    _checkup_fetcher = CheckupLogsFetcher(
+        sql_host=hot.get("models.checkup_betterstack_sql_host", settings.CHECKUP_BETTERSTACK_SQL_HOST),
+        sql_user=hot.get("keys.checkup_betterstack_sql_user", settings.CHECKUP_BETTERSTACK_SQL_USER),
+        sql_password=hot.get("keys.checkup_betterstack_sql_password", settings.CHECKUP_BETTERSTACK_SQL_PASSWORD),
+        sql_table=hot.get("models.checkup_betterstack_sql_table", settings.CHECKUP_BETTERSTACK_SQL_TABLE),
+        sql_query=hot.get("models.checkup_betterstack_sql_query", settings.CHECKUP_BETTERSTACK_SQL_QUERY),
+        journalctl_cmd=settings.CHECKUP_JOURNALCTL_CMD,
+    )
+    logger.info(
+        "Checkup SQL API configured=%s (R17: только факт)",
+        bool(hot.get("keys.checkup_betterstack_sql_user", settings.CHECKUP_BETTERSTACK_SQL_USER) and hot.get("keys.checkup_betterstack_sql_password", settings.CHECKUP_BETTERSTACK_SQL_PASSWORD)),
+    )
+    # Раунд 10.15 (F8, T-1615): инстанс сохраняется для tool-сета
+    # (инструмент get_bot_health — тот же путь, что роутер 0g).
+    checkup_service = CheckupService(_llm_client, db=db, memory=memory)
+    setup_checkup(checkup_service, _checkup_fetcher, db)
+    logger.info("SmartModule Checkup (Epic 42) initialized")
+
+    # ── SmartModule: DirectChat (Epic 50, Section 58.4) — общий DI ──
+    bot_user = await bot.get_me()
+    # Epic 60 (63.1): рубильник THROTTLE_PERSISTENT_ENABLED → persistent
+    # token bucket (throttle_state); false → дефолт DirectChatService
+    # строит старый in-memory DirectChatThrottle.
+    throttle = None
+    if hot.get("flags.throttle_persistent_enabled", settings.THROTTLE_PERSISTENT_ENABLED):
+        throttle = PersistentThrottle(
+            hot.get("limits.chat_burst_limit", settings.CHAT_BURST_LIMIT), hot.get("limits.chat_cooldown_seconds", settings.CHAT_COOLDOWN_SECONDS),
+            "direct_chat", db)
+    # Эпик 04.09.2026 (3.3, FR-17): инструменты только в direct_chat —
+    # поиск через SearchAggregator, память через MemoryManager.
+    # Раунд 10.15 (F8, ADR-1015-3 §5): DI существующих инстансов в ToolDeps
+    # (video/downloader/health/db) — порядок роутеров НЕ меняется, только
+    # DI-kwargs (инвариант фичи).
+    from services.tool_router import ToolDeps, ToolHealthDeps, ToolRouter
+    _tool_router = ToolRouter(ToolDeps(
+        search=_search_aggregator, memory=memory, aliases=aliases, db=db,
+        video=youtube_service, downloader=_shared_video_downloader,
+        health=ToolHealthDeps(checkup_service, _checkup_fetcher),
+        # R10.15-9: общий download-кулдаун 4e (ленивый провайдер —
+        # setup_video_download пересоздаёт трекер позже в on_startup).
+        download_cooldown=get_download_cooldown,
+        # 10.20 (БЛОК 1, T-1887): LLM для изолированного синтеза истории
+        # «Летописца» (compile_lore_story) — тот же клиент, что DirectChat.
+        llm=_llm_client,
+        # Раунд 10.24 (F14, ADR-1024-15 §2.3): STT-сервис для нативного
+        # пути инструмента summarize_video (тот же инстанс, что youtube/0i).
+        transcriber=voice_service,
+        # Раунд 10.26 (A2, ADR-1026-15 D5): extractor для `fetch_article`
+        # (reuse WebContentExtractor — тот же инстанс, что у web-модуля,
+        # без дубля сервиса).
+        extractor=_web_extractor))
+    # 10.20 (БЛОК 6.2, ADR-1020-5 п.1, T-1907): тот же ToolRouter получает
+    # фактчекер (Full Tool Access: dig_into_lore/compile_lore_story/веб).
+    # DI-kwarg, порядок роутеров и setup-последовательность не меняются.
+    setup_factcheck(
+        FactCheckService(_search_aggregator, _llm_client, memory=memory,
+                         tool_router=_tool_router),
+        db)
+    setup_direct_chat(
+        DirectChatService(
+            memory, db, _llm_client, aliases,
+            throttle=throttle,
+            bot_id=bot.id,
+            bot_username=(getattr(bot_user, "username", None) or "").lower(),
+            # Epic 60 (67.4, T-499): дедуп одинаковых текстов подряд
+            # (smart_cache, slug direct_dedup; рубильник CHAT_DEDUP_ENABLED).
+            cache=get_smart_cache(),
+            tool_router=_tool_router,
+            # Раунд 7 (T-781/F1): ChatLoreCache — инжект PG-лора в
+            # контекст; None (PG down/ранний старт) → старое поведение.
+            chat_lore_cache=get_lore_cache(),
+        ),
+        bot.id,
+        (getattr(bot_user, "username", None) or "").lower(),
+    )
+    logger.info("SmartModule DirectChat (Epic 50) initialized")
+
+    # ── VoiceTranscriber (Epic 67, Section 71.6) — сервис зависит от
+    # memory/aliases; пустые ключи → стратегии пропустит контроллер ──
+    # Epic 79.5 (D295): max_concurrency из настроек для защиты Groq Free Tier.
+    # Bugfix 04.09.2026 (Часть 1): инстанс ЕДИНЫЙ с медиа-веткой youtube
+    # (создан выше, в общем bootstrap) — здесь только DI роутера 0i.
+    # F5 (ТЗ §18H(4)): master-флаг проверяется и на своей границе исполнения
+    # (handlers/voice_transcription.py), DI-ось — startup-семантика как была.
+    if hot.get("flags.enable_voice_transcription", settings.ENABLE_VOICE_TRANSCRIPTION):
+        setup_voice_transcription(voice_service, db, aliases, memory, bot.id)
+        logger.info(
+            "VoiceTranscriber enabled (max_dur=%ss, groq=%s openrouter=%s, "
+            "max_concurrency=%d)",
+            hot.get("limits.voice_max_duration_seconds", settings.VOICE_MAX_DURATION_SECONDS),
+            bool(hot.get("keys.groq_api_key", settings.GROQ_API_KEY)), bool(hot.get("keys.openrouter_api_key", settings.OPENROUTER_API_KEY)),
+            hot.get("models.groq_max_concurrency", settings.GROQ_MAX_CONCURRENCY),
+        )
+    else:
+        logger.info(
+            "VoiceTranscriber disabled (ENABLE_VOICE_TRANSCRIPTION=False)")
+
+    # ── Memory backup (Epic 60, Section 64.3, T-464) ──
+    # VACUUM INTO-бэкап + текстовый экспорт фактов, daily. Рубильник
+    # MEMORY_BACKUP_ENABLED; НЕ на остановленном боте (онлайн).
+    global _memory_backup_service
+    if hot.get("flags.memory_backup_enabled", settings.MEMORY_BACKUP_ENABLED):
+        _memory_backup_service = MemoryBackupService(db)
+        _memory_backup_service.start()
+        logger.info("MemoryBackup (Epic 60) initialized (daily %s %s)",
+                    hot.get("limits.memory_backup_hour", settings.MEMORY_BACKUP_HOUR), hot.get("limits.summary_timezone", settings.SUMMARY_TIMEZONE))
+    else:
+        logger.info("MemoryBackup disabled (MEMORY_BACKUP_ENABLED=False)")
+
+    # ── Memory maintenance (Epic 60, Section 66.2/66.11, T-480/T-489) ──
+    # Слияние эпизодов + периодический пересмотр фактов (MemoryJobStore).
+    global _memory_maintenance_service
+    _memory_maintenance_service = MemoryMaintenanceService(
+        db, memory, _llm_client, bot=bot)
+    _memory_maintenance_service.start()
+    logger.info("MemoryMaintenance (Epic 60, Фаза D) initialized")
 
     # ── Раунд 7 (chat-lore-management-v2, T-776/T-775, C2/B5): воркер
     # авто-лора + runtime/handlers-DI. Вне summary-гейта: LLMClient при
@@ -837,41 +849,38 @@ async def on_startup():
     # ═══════════════════════════════════════════════════════════
 
     # 0a. SmartModule observer (Epic 24) — catch-all, saves ALL messages, returns UNHANDLED
-    if hot.get("flags.summary_enabled", settings.SUMMARY_ENABLED):
-        dp.include_router(summary_observer_router)
+    # F5 (ТЗ §18H(3)): роутеры 0a–0i регистрируются ВСЕГДА (порядок — святое,
+    # R3); Summary больше не bootstrap-master — фича-гейты проверяются на
+    # своих границах исполнения (runtime-гейты в handlers).
+    dp.include_router(summary_observer_router)
 
     # 0b. SmartModule /summary (Epic 24) — BEFORE admin_commands and catch-all 5/6
-    if hot.get("flags.summary_enabled", settings.SUMMARY_ENABLED):
-        dp.include_router(summary_router)
+    dp.include_router(summary_router)
 
     # 0c. SmartModule FactCheck (Epic 33) — reply с «фактчек»; консьюмит, НЕ-триггеры → UNHANDLED
-    if hot.get("flags.summary_enabled", settings.SUMMARY_ENABLED):
-        dp.include_router(factcheck_router)
+    dp.include_router(factcheck_router)
 
     # 0d. SmartModule SmartSearch (Epic 33) — «найди/поищи/загугли»; консьюмит, НЕ-триггеры → UNHANDLED
-    if hot.get("flags.summary_enabled", settings.SUMMARY_ENABLED):
-        dp.include_router(search_router)
+    dp.include_router(search_router)
 
     # 0e. SmartModule YouTube (Epic 37) — YT-URL + триггер; консьюмит, НЕ-триггеры → UNHANDLED
-    if hot.get("flags.summary_enabled", settings.SUMMARY_ENABLED):
-        dp.include_router(youtube_router)
+    dp.include_router(youtube_router)
 
     # 0f. SmartModule Web (Epic 37) — веб-URL + триггер; консьюмит, НЕ-триггеры → UNHANDLED
-    if hot.get("flags.summary_enabled", settings.SUMMARY_ENABLED):
-        dp.include_router(web_router)
+    dp.include_router(web_router)
 
     # 0g. SmartModule Checkup (Epic 42) — триггер-фразы; консьюмит, НЕ-триггеры → UNHANDLED
-    if hot.get("flags.summary_enabled", settings.SUMMARY_ENABLED):
-        dp.include_router(checkup_router)
+    dp.include_router(checkup_router)
 
     # 0h. SmartModule DirectChat (Epic 50, Section 58.4) — Reply-на-бота/упоминание;
     # позиция ПОСЛЕ 0g checkup, ДО admin_commands. Observer-стиль.
-    if hot.get("flags.summary_enabled", settings.SUMMARY_ENABLED):
-        dp.include_router(direct_chat_router)
+    dp.include_router(direct_chat_router)
 
     # 0i. Transcription (Epic 67, Section 71.3) — ПОСЛЕ observer 0a; UNHANDLED-стиль
-    if hot.get("flags.summary_enabled", settings.SUMMARY_ENABLED) and hot.get("flags.enable_voice_transcription", settings.ENABLE_VOICE_TRANSCRIPTION):
-        dp.include_router(voice_transcription_router)
+    # F5: AND-гейт bot.py:873 удалён — flags.enable_voice_transcription
+    # проверяется в рантайме (handlers/voice_transcription.py); DI-ось —
+    # startup-гейт в общем bootstrap выше.
+    dp.include_router(voice_transcription_router)
 
     # 0. Admin test commands (Epic 10) — command-based, no conflict with other filters
     dp.include_router(admin_commands_router)

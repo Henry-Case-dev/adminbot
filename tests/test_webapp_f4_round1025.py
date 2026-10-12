@@ -109,7 +109,7 @@ def test_config_item_notice_unchanged():
     assert "runtimeGate" not in block, "configItemNotice F3 не должен знать о модулях"
 
 
-# ── D3: runtimeGate/parentGate для всех 13 модулей ─────────────────────────
+# ── D3: runtimeGate/parentGate для всех модулей ─────────────────────────
 def test_runtime_gate_metadata_complete():
     modules = _block("var MODULES = [", "  ];")
     assert modules.count("runtimeGate:") == 15, modules.count("runtimeGate:")
@@ -118,8 +118,12 @@ def test_runtime_gate_metadata_complete():
     # ASAP 7 F3: Initiative — global, effective = env AND product §3.3)
     assert modules.count("runtimeGate: 'per_chat'") == 5
     assert modules.count("runtimeGate: 'global'") == 10
-    # родительский гейт 0a–0i — у 7 модулей (сам summary — источник гейта)
-    assert modules.count("parentGate: 'flags.summary_enabled'") == 7
+    # ASAP 8 F5 (ТЗ §11/§28.10, архитектура §5.2): ложный parentGate
+    # (Summary как fake bootstrap-master) удалён у ВСЕХ 7 модулей —
+    # все independent; parent_off-механика зарезервирована, ни одна
+    # карточка parentGate не объявляет.
+    assert modules.count("parentGate: 'flags.summary_enabled'") == 0
+    assert "parentGate:" not in modules
 
 
 def test_module_titles_renamed_only_in_watch_case():
@@ -170,7 +174,7 @@ def test_search_haystack_fields():
 def test_catalog_delta_zero():
     import services.param_catalog as pc
     from config.settings import Settings
-    assert len(pc.REGISTRY) == 560
+    assert len(pc.REGISTRY) == 561
     assert len(pc.GROUPS) == 120
     assert len(pc._TAB_BY_GROUP) == 118
     assert len(pc.TAB_RULES) == 23

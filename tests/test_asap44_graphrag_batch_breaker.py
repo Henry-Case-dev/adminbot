@@ -230,7 +230,8 @@ async def test_22_next_batch_embeds_after_recovery(db, monkeypatch):
 
 # ══ #23/#24 — quota-group labels ════════════════════════════════════════════
 
-def _patch_pool_source(monkeypatch, *, labels, keys=("k1", "k2", "k3")):
+def _patch_pool_source(monkeypatch, *, labels, keys=("k1", "k2", "k3"),
+                       extra=None):
     values = {
         "models.embedding_base_url": "https://api.example.com/v1",
         "models.embedding_model_name": "embed-x",
@@ -239,6 +240,8 @@ def _patch_pool_source(monkeypatch, *, labels, keys=("k1", "k2", "k3")):
         "keys.embedding_fallback_api_key_2": keys[2],
         "keys.embedding_quota_group_labels": labels,
     }
+    if extra is not None:
+        values["keys.embedding_extra_api_keys"] = extra
     monkeypatch.setattr(ecp, "_hot_get", lambda key, default: values.get(
         key, default))
     monkeypatch.setattr(ecp, "_settings_value", lambda name, default: "")
@@ -279,20 +282,29 @@ def test_23b_grouping_never_derived_from_secret_values(monkeypatch):
 
 
 def test_24_unknown_groups_collapse_to_one_safe_group(monkeypatch):
+    """F8 (§15.3): unknown-collapse остаётся только для НЕ-опознанных
+    алиасов (extra_N); named slots БЕЗ label'ов — независимые auto-группы
+    (не unknown). Частичные labels: незакрытые named slots — auto,
+    extra — unknown."""
     _patch_pool_source(monkeypatch, labels="")
     pool = ecp.build_credential_pool()
     groups = {c.quota_group_id for c in pool}
-    assert groups == {ecp.UNKNOWN_GROUP_ID}      # одна общая safe-группа
+    assert groups == {"primary", "fallback_1", "fallback_2"}   # auto §15.3
     diagnosis = ecp.pool_rotation_diagnosis(pool)
-    assert diagnosis["degenerate"] is True
-    assert diagnosis["groups"] == [ecp.UNKNOWN_GROUP_ID]
-    # Частичные labels: незнанные aliases — та же ОДНА unknown-группа.
+    assert diagnosis["degenerate"] is False
+    # Genuinely-unknown пул (extra-ключи без label) — прежний safe default.
+    _patch_pool_source(monkeypatch, labels="", keys=("", "", ""),
+                       extra="x1;x2")
+    pool0 = ecp.build_credential_pool()
+    assert {c.quota_group_id for c in pool0} == {ecp.UNKNOWN_GROUP_ID}
+    assert ecp.pool_rotation_diagnosis(pool0)["degenerate"] is True
+    # Частичные labels: named slots — auto-группы, extra_N — unknown.
     _patch_pool_source(monkeypatch, labels="primary:alpha")
     pool2 = ecp.build_credential_pool()
     by_alias = {c.alias: c.quota_group_id for c in pool2}
     assert by_alias["primary"] == "alpha"
-    assert by_alias["fallback_1"] == ecp.UNKNOWN_GROUP_ID
-    assert by_alias["fallback_2"] == ecp.UNKNOWN_GROUP_ID
+    assert by_alias["fallback_1"] == "fallback_1"
+    assert by_alias["fallback_2"] == "fallback_2"
 
 
 def test_23c_saved_hot_value_reaches_credential_pool(monkeypatch):

@@ -2718,9 +2718,27 @@ def _build_registry() -> dict[str, ParamSpec]:
         add(ParamSpec(None, None, CATEGORY_CONTENT, title, "str",
                       code_source=code_source, pg_id=spec_id,
                       group=group, description=desc))
-    # Раунд 10.41 (MCA-10b, ADR-1028-17 D8/D13): +6 PG-only разрешений
+    # ── Раунд 10.41 (MCA-10b, ADR-1028-17 D8/D13): +6 PG-only разрешений
     # применений случайности `memory.random_uses_*` (группа memory_random,
     # per-chat; default ON — рантайм fail-open True, F8-переиздание D16).
+    # ASAP 8 F5 (ТЗ §10/§28.12, архитектура §5.3): +1 PG-only product master
+    # `memory.random_enabled` — модуль «Случайность» больше не «no master»
+    # (§28.12: не управляется только env). Default ON; Settings-поля нет —
+    # рантайм читает pg-ключ через hot (fail-open True, прецедент
+    # memory.random_uses_*); env MCA_RANDOM_SOURCE_ENABLED остаётся
+    # аварийной AND-осью (mca_gates.random_source_enabled), в каталоге
+    # НЕ дублируется.
+    add(ParamSpec(None, None, CATEGORY_MEMORY,
+                  "Случайность: модуль включён", "bool",
+                  secret=False, pg_id="memory.random_enabled",
+                  group="memory_random",
+                  description="Мастер-тумблер модуля «Случайность»: "
+                              "вероятности исследования, разрешения "
+                              "применений и источник случайных чисел. "
+                              "Выключено — случайные применения "
+                              "откладываются, обычные ответы не "
+                              "затрагиваются. При релизе — включено.",
+                  progressive_level="basic"))
     for pg_id, title, level, desc in _RANDOM_USES_PG_ONLY:
         add(ParamSpec(None, None, CATEGORY_MEMORY, title, "bool",
                       secret=False, pg_id=pg_id, group="memory_random",

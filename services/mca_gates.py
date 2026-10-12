@@ -1154,12 +1154,21 @@ def money_limits_enabled() -> bool:
 
 # ── mca-10a (ADR-1028-14 D11): K1–K4 RandomSource + env-only лимиты ────────
 def random_source_enabled() -> bool:
-    """`MCA_RANDOM_SOURCE_ENABLED` (master, env-only, default ON; K1).
+    """Effective-гейт RandomSource: product master AND env K1 (default ON).
 
-    ON → RandomSource-контур активен (ANU/запас/журнал/политика).
-    OFF → бит-в-бит 2.58.57: dream = `default_source`, сеть/записи v27/
-    события/витрина не активны."""
-    return bool(getattr(settings, "MCA_RANDOM_SOURCE_ENABLED", True))
+    ASAP 8 F5 (ТЗ §28.12, архитектура §5.3): product-ось — каталоговый
+    тумблер ``memory.random_enabled`` (hot; UI-мастер модуля «Случайность»);
+    env ``MCA_RANDOM_SOURCE_ENABLED`` — аварийная AND-ось (важнее UI,
+    семантика K1 прежняя: OFF → бит-в-бит 2.58.57: dream = `default_source`,
+    сеть/записи v27/события/витрина не активны). AND честен: отключение
+    любой оси останавливает контур."""
+    if not bool(getattr(settings, "MCA_RANDOM_SOURCE_ENABLED", True)):
+        return False
+    try:
+        from services import hot_config as hot
+        return bool(hot.get("memory.random_enabled", True))
+    except Exception:      # pragma: no cover — fail-open (прежнее поведение)
+        return True
 
 
 def random_quantum_enabled() -> bool:

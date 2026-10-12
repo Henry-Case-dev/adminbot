@@ -521,9 +521,11 @@ class TestGroups8424:
         # → flags 81 / limits 208, итого 538.
         # ASAP 7 F2 (§1.6): +2 models / +1 keys / +4 limits / +2 flags
         # (L1 Planner); параллельный F4 in-flight: flags +13 — 560.
+        # ASAP 8 F5 (§5.3): +1 memory (product master Random
+        # memory.random_enabled, PG-only) — 561.
         assert counts == {"prompts": 24, "models": 74, "keys": 35,
                           "limits": 212, "flags": 96, "reactions": 39,
-                          "content": 5, "memory": 46, "temporal": 4}
+                          "content": 5, "memory": 47, "temporal": 4}
         assert {g.category for g in GROUPS} >= set(CATEGORIES)
 
 

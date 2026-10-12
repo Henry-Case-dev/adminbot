@@ -70,7 +70,7 @@ def test_no_ddl_catalog_ks_tools_delta():
     # Параллельный лейн F4 (§3.2, in-flight на момент снимка): +13
     # (stories/character §3.2) → 560; финальное значение фиксирует лейн,
     # приземляющийся последним (ребейзер — один sed).
-    assert len(pc.REGISTRY) == 560
+    assert len(pc.REGISTRY) == 561
 
 
 def test_registry_47_no_new_widgets():

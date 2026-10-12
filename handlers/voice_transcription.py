@@ -363,8 +363,15 @@ async def _process(message: types.Message, bot) -> None:
 
 @voice_transcription_router.message(F.voice | F.video_note)
 async def voice_transcription_handler(message: types.Message, bot=None):
-    """Observer-стиль (D267): любые сбои — WARNING, апдейт НЕ потребляется."""
+    """Observer-стиль (D267): любые сбои — WARNING, апдейт НЕ потребляется.
+
+    F5 (ТЗ §18H(4), архитектура §5.1): AND-гейт bot.py переезжает в рантайм —
+    только СВОЙ флаг ``flags.enable_voice_transcription`` (зависимость от
+    ``flags.summary_enabled`` УДАЛЕНА: роутер регистрируется всегда)."""
     try:
+        if not hot.get("flags.enable_voice_transcription",
+                       settings.ENABLE_VOICE_TRANSCRIPTION):
+            return UNHANDLED
         if _service is None or bot is None:
             return UNHANDLED
         await _process(message, bot)

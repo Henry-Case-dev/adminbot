@@ -752,7 +752,7 @@ class TestBoundsA3:
 
     def test_catalog_counts_unchanged(self):
         from services import param_catalog as pc
-        assert len(pc.REGISTRY) == 560
+        assert len(pc.REGISTRY) == 561
         assert len(pc.GROUPS) == 120
         assert len(pc._TAB_BY_GROUP) == 118
         assert len(pc.TAB_RULES) == 23

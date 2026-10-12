@@ -263,7 +263,7 @@ def test_blockE_catalog_random_uses_keys():
     memory_random: per-chat, не-секреты, все default ON (read-path
     fail-open True); GROUPS/_TAB_BY_GROUP/TAB_RULES без роста."""
     from services import param_catalog as pc
-    assert len(pc.REGISTRY) == 560
+    assert len(pc.REGISTRY) == 561
     assert len(pc.GROUPS) == 120
     assert len(pc._TAB_BY_GROUP) == 118
     assert len(pc.TAB_RULES) == 23
@@ -297,17 +297,17 @@ def test_blockE_f8_check_green_and_baselines():
     # ASAP 7 (F2 direct_l1 + F4 §3.2, переиздание общих фикс одним окном):
     # live 560 (538 + 9 direct_l1 + 13 stories/character); gen --check
     # печатает текущий счётчик реестра.
-    assert "560" in res.stdout
+    assert "561" in res.stdout
     fx = json.loads((ROOT / "tests/fixtures/round1025/f8_baseline.json")
                     .read_text(encoding="utf-8"))
-    assert fx["counts"]["REGISTRY"] == 560
+    assert fx["counts"]["REGISTRY"] == 561
     assert fx["counts"]["GROUPS"] == 120
     assert fx["counts"]["TAB_BY_GROUP"] == 118
     assert fx["counts"]["TAB_RULES"] == 23
-    assert fx["counts"]["delta"] == 149
+    assert fx["counts"]["delta"] == 150   # F5: +1 ParamSpec (memory.random_enabled)
     cb = json.loads((ROOT / "tests/fixtures/round1025/catalog_baseline.json")
                     .read_text(encoding="utf-8"))
-    assert len(cb["registry_keys"]) == 560
+    assert len(cb["registry_keys"]) == 561
     for key in ("memory.random_uses_belief_review",
                 "memory.random_uses_ui_visualization"):
         assert key in cb["registry_keys"]
@@ -332,5 +332,8 @@ def test_blockE_f8_check_green_and_baselines():
     import hashlib
     routes_sha = hashlib.sha256(
         (ROOT / "web/api/routes.py").read_bytes()).hexdigest()
-    assert routes_sha == ("88559373c6ea036abd1814e292f3b9b6591f0e3d362"
-                          "91aea9b8a634982af626a")
+    # ASAP 8 F9 (dc9ca1c, REV-F9 Approved): routes +2 (/api/youtube/proxy/
+    # health|test) → ROUTES_SHA256_F11 1b04e524…; этот байт-пин был пропущен
+    # переизданием F9 (pre-existing red на HEAD F5) — синхронизирован.
+    assert routes_sha == ("1b04e524374b203e17ea2d334deb980d3"
+                          "e9ba80ce023a85300cf3c00326e38ff")

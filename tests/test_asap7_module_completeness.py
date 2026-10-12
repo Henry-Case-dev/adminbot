@@ -220,17 +220,24 @@ def test_m3_effective_state_scenarios(hot_with, monkeypatch):
     """Own effective state §4.3: defaults → both; product OFF →
     product_toggle; env OFF → emergency_env (env важнее UI)."""
     set_config_cache(None)
-    for module_id in ("stories", "character", "experience"):
+    for module_id in ("stories", "character", "experience", "random"):
         assert mr.effective_gate(module_id) == (True, True, "both")
-    # random: мастера-тумблера нет → requested константен, ось одна — env
-    assert mr.effective_gate("random") == (True, True, "both")
+    # random: product master memory.random_enabled (F5 §5.3, default ON);
+    # env MCA_RANDOM_SOURCE_ENABLED — аварийная AND-ось.
 
     hot_with({"flags.stories_vitrina_enabled": False,
               "flags.self_model_enabled": False,
-              "memory.experience_learning_enabled": False})
+              "memory.experience_learning_enabled": False,
+              "memory.random_enabled": False})
     assert mr.effective_gate("stories")[1:] == (False, "product_toggle")
     assert mr.effective_gate("character")[1:] == (False, "product_toggle")
     assert mr.effective_gate("experience")[1:] == (False, "product_toggle")
+    # F5 §5.3 (M7): Random — обычный product_toggle, не env-only
+    assert mr.effective_gate("random")[1:] == (False, "product_toggle")
+    # AND-ось цела: env OFF при product ON → emergency_env (важнее UI)
+    hot_with({"memory.random_enabled": True})
+    monkeypatch.setattr(type(settings), "MCA_RANDOM_SOURCE_ENABLED", False)
+    assert mr.effective_gate("random") == (True, False, "emergency_env")
 
     set_config_cache(None)
     monkeypatch.setattr(type(settings), "MCA_STORIES_VITRINA_ENABLED", False)
@@ -280,8 +287,10 @@ def test_m3_registry_gate_payload_for_frontend():
         assert gate["requested"] is True and gate["effective"] is True
         assert gate["source"] == "both"
         assert gate["env_param"]
-    assert data["random"]["master_param"] == ""
-    assert "no master" in data["random"]["rationale"].lower()
+    assert data["random"]["master_param"] == "memory.random_enabled"
+    # F5 §5.3: «no master» больше не легален для Random — product master
+    # в каталоге; rationale описывает AND-роль env-оси (M7).
+    assert "no master" not in data["random"]["rationale"].lower()
 
 
 # ═══ M4 — drift (новая спецификация без обязательных полей → RED) ═══════════

@@ -146,14 +146,19 @@ _register(ModuleSpec(
 
 # Experience / Lessons → Submodule «Память»; настройки СУЩЕСТВУЮТ
 # (memory_experience) — регистрации/родителя только, без дублей.
+# F5 (ТЗ §9/M6, архитектура §5.4): worker глобальный, обучение — по чатам
+# (hot per-chat override → глобальное значение → дефолт); runtime-ось
+# мастера — per_chat (переопределение чата читается воркером реально).
 _register(ModuleSpec(
     id="experience",
     title="Опыт и уроки",
     parent_id="memory",
     description=("Банк проверенного опыта: запись эпизодов, уроки и "
-                 "пакетный разбор (уроки не меняют правила бота)."),
+                 "пакетный разбор (уроки не меняют правила бота). "
+                 "Worker глобальный; обучение включается по чатам "
+                 "(наследование → глобальное значение)."),
     master_param="memory.experience_learning_enabled",
-    runtime_gate="global",
+    runtime_gate="per_chat",
     settings_groups=("memory_experience",),
     model_slots=(),
     status_source="status_service data-experience лента",
@@ -163,12 +168,16 @@ _register(ModuleSpec(
     classification="submodule",
     config_tab="memory_rag",
     rationale=("mca-16 (аудит P7-C-5, §3.2): настройки есть (hot-ключ читает "
-               "mca_experience_jobs), registration/родителя не было; "
-               "env K1–K4 — аварийные оси (MODULE_ENV_GATES)."),
+               "mca_experience_jobs); F5 §5.4 — scope-разрыв закрыт: "
+               "chat-resolver в воркере, global worker обрабатывает только "
+               "opted-in чаты; env K1–K4 — аварийные оси (MODULE_ENV_GATES)."),
 ))
 
 # Random / Quantum → Submodule «Случайность» (shared, parent «Память»);
 # настройки СУЩЕСТВУЮТ (memory_random + random.uses + keys_random).
+# F5 (ТЗ §10/§28.12, архитектура §5.3): product master memory.random_enabled
+# добавлен в каталог — модуль больше не «no master»; env MCA_RANDOM_SOURCE_ENABLED
+# остаётся аварийной AND-осью (module_registry.effective_gate/env_enabled).
 _register(ModuleSpec(
     id="random",
     title="Случайность",
@@ -176,7 +185,7 @@ _register(ModuleSpec(
     description=("Источник случайности (квантовый ANU или локальный), "
                  "честный откат, вероятности исследования и разрешения "
                  "применений. Shared: спонтанность, сон, инициатива."),
-    master_param="",
+    master_param="memory.random_enabled",
     runtime_gate="global",
     settings_groups=("memory_random",),
     model_slots=("keys_random",),
@@ -188,9 +197,9 @@ _register(ModuleSpec(
     config_tab="mod_sleep",
     rationale=("mca-10a/10b (аудит P7-C-5, §3.2): shared subsystem — parent "
                "«Память», owner-карточка и ссылки из Initiative/Sleep. "
-               "no master: мастера-тумблера в каталоге нет и дублировать "
-               "env-ось MCA_RANDOM_SOURCE_ENABLED нельзя — мастер честно "
-               "показывается как env-ось в гейте подкарточки."),
+               "F5 §5.3: product master memory.random_enabled (default ON); "
+               "env-ось MCA_RANDOM_SOURCE_ENABLED — аварийный AND-гейт "
+               "(mca_gates.random_source_enabled), в каталоге не дублируется."),
 ))
 
 # master_param → env-kill-switch (raw-ось для §3.3; composite AND живёт в
@@ -201,8 +210,9 @@ ENV_GATES: dict[str, str] = {
     # (эпизодный мастер MCA_EPISODES_ENABLED — самостоятельная ось, его
     # тумблер показан в настройках подкарточки); Experience — env-мастер
     # K1 (requested-ось — существующий hot-ключ memory.experience_learning_enabled,
-    # читается mca_experience_jobs); Random — мастера-тумблера НЕТ (мастер —
-    # env-ось, «no master» rationale в записи).
+    # читается mca_experience_jobs c chat-resolver'ом — F5 §5.4); Random —
+    # product master memory.random_enabled в каталоге (F5 §5.3), env-ось
+    # MCA_RANDOM_SOURCE_ENABLED — аварийный AND-гейт mca_gates.
     "stories": "MCA_STORIES_VITRINA_ENABLED",
     "character": "MCA_SELF_MODEL_ENABLED",
     "experience": "MCA_EXPERIENCE_LESSONS_ENABLED",
@@ -215,6 +225,7 @@ PRODUCT_DEFAULTS: dict[str, bool] = {
     "flags.stories_vitrina_enabled": True,
     "flags.self_model_enabled": True,
     "memory.experience_learning_enabled": True,
+    "memory.random_enabled": True,   # F5 §5.3: product master Random
 }
 
 
@@ -383,7 +394,8 @@ MODULE_ENV_GATES: dict[str, tuple[str, ...]] = {
         "MCA_POSTPROCESS_FORM_GUARD_ENABLED",
     ),
     "random": (
-        "MCA_RANDOM_SOURCE_ENABLED",       # мастер (env-ось; no master-тумблер)
+        "MCA_RANDOM_SOURCE_ENABLED",       # аварийная AND-ось (мастер —
+        # memory.random_enabled в каталоге, F5 §5.3; AND в mca_gates)
         "MCA_RANDOM_QUANTUM_ENABLED",
         "MCA_RANDOM_REFILL_ENABLED",
         "MCA_RANDOM_EXPLORATION_ENABLED",

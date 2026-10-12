@@ -349,7 +349,9 @@ class TestValidatorStage:
         """Reason-словарь не расширен ВАЛИДАТОРОМ (mca-20-финал 279;
         mca-17c round 10.47: санкционированное +1 oversight_job_action
         → 280 — вне validator-стадии): validator-стадия переиспользует
-        существующие коды."""
+        существующие коды. ASAP 8 F6: санкционированное +5 инициативы
+        (writer_failed/direct_pending/recheck_passed/writer_generated/
+        initiative_sent) → 285 — вне validator-стадии."""
         from services import mca_events
-        assert len(mca_events.REASON_CODES) == 280
+        assert len(mca_events.REASON_CODES) == 285
         assert tf.TEMPORAL_VALIDATOR_SYSTEM

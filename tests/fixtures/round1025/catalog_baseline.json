@@ -5,7 +5,7 @@
     "source": "services/param_catalog.py"
   },
   "counts": {
-    "REGISTRY": 560,
+    "REGISTRY": 561,
     "GROUPS": 120,
     "_TAB_BY_GROUP": 118,
     "TAB_RULES": 23
@@ -781,6 +781,7 @@
     "limits.summary_hybrid_response_mode",
     "limits.summary_hybrid_target_chars",
     "limits.summary_hybrid_target_paragraphs",
+    "memory.random_enabled",
     "memory.random_uses_archive_sample",
     "memory.random_uses_association_pair",
     "memory.random_uses_belief_review",

@@ -273,7 +273,9 @@ class TestBotwordTriggers:
 
     @pytest.mark.asyncio
     async def test_keyword_flag_false_reply_still_works(self, wire):
-        """Flag false: reply на бота продолжает работать (приоритет не ломается)."""
+        """ASAP 8 F5 (ТЗ §18H(4), архитектура §5.1): master-флаг гейтит МОДУЛЬ —
+        OFF → reply на бота тоже не триггерит (флаг больше не только
+        keyword-ветка; tумблер карточки «Ответы в чате» честен)."""
         import handlers.direct_chat as dc_module
         from dataclasses import replace
         from config.settings import settings
@@ -284,12 +286,17 @@ class TestBotwordTriggers:
         with pytest.MonkeyPatch.context() as mp:
             mp.setattr(dc_module, "settings", mod)
             result = await dc_mod.direct_chat_handler(msg, bot=MagicMock())
-        assert result is None
+        assert result is UNHANDLED
+        wire.handle.assert_not_called()
+        # ON → прежняя семантика reply-приоритета
+        msg2 = _msg(text="понятно, бот", reply_to=reply_to)
+        result2 = await dc_mod.direct_chat_handler(msg2, bot=MagicMock())
+        assert result2 is None
         wire.handle.assert_awaited_once()
 
     @pytest.mark.asyncio
     async def test_keyword_flag_false_mention_still_works(self, wire):
-        """Flag false: mention продолжает работать."""
+        """ASAP 8 F5: master OFF → mention тоже не триггерит; ON → работает."""
         import handlers.direct_chat as dc_module
         from dataclasses import replace
         from config.settings import settings
@@ -299,7 +306,12 @@ class TestBotwordTriggers:
         with pytest.MonkeyPatch.context() as mp:
             mp.setattr(dc_module, "settings", mod)
             result = await dc_mod.direct_chat_handler(msg, bot=MagicMock())
-        assert result is None
+        assert result is UNHANDLED
+        wire.handle.assert_not_called()
+        # ON → mention триггерит (приоритет reply/mention сохранён)
+        msg2 = _msg(text=text, entities=[_mention_entity(text, "test_bot")])
+        result2 = await dc_mod.direct_chat_handler(msg2, bot=MagicMock())
+        assert result2 is None
         wire.handle.assert_awaited_once()
 
     @pytest.mark.asyncio

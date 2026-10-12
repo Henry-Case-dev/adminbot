@@ -40,6 +40,15 @@ _db = None
 _aliases = None
 _bot_id = None
 
+
+def _summary_enabled() -> bool:
+    """Мастер-флаг Summary (hot; default из settings).
+
+    F5 (ТЗ §18H(4), архитектура §5.1): роутер 0a/0b зарегистрирован ВСЕГДА
+    (bootstrap ≠ фича), флаг проверяется на границе исполнения —
+    выключение в UI действует без рестарта."""
+    return bool(hot.get("flags.summary_enabled", settings.SUMMARY_ENABLED))
+
 # B1/D82 (Epic 29): ручной вызов, до пайплайна; random.choice при каждом вызове.
 # Канон (D82) — первым элементом; 20 вариаций, полный список — Section 38.2.
 _UX_ACK_VARIANTS: tuple[str, ...] = (
@@ -284,7 +293,13 @@ def _extract_origin_fields(origin) -> dict:
 
 @summary_observer_router.message()
 async def summary_observer(message: types.Message):
-    """Catch-all: save every chat message. ALWAYS returns UNHANDLED."""
+    """Catch-all: save every chat message. ALWAYS returns UNHANDLED.
+
+    F5 (§18H(4)): мастер-флаг — runtime-гейт на входе (роутер всегда
+    зарегистрирован; OFF → сообщения не сохраняются, паритет прежней
+    startup-оси, но без рестарта)."""
+    if not _summary_enabled():
+        return UNHANDLED
     try:
         if _db is None or _aliases is None:
             return UNHANDLED
@@ -448,7 +463,10 @@ async def summary_observer_edited(message: types.Message):
     """MCA-03 (T-3788, ADR-1027-4 D5): правка сообщения человеком → новая
     версия. Kill-switch OFF (`MCA_MESSAGE_REVISION_TRACKING_ENABLED=false`) →
     no-op (паритет baseline: версий нет). Всегда UNHANDLED — не перехватываем
-    чужие edited-хендлеры (напр. bot_replies в direct_chat)."""
+    чужие edited-хендлеры (напр. bot_replies в direct_chat).
+    F5 (§18H(4)): мастер-флаг Summary — runtime-гейт на входе."""
+    if not _summary_enabled():
+        return UNHANDLED
     try:
         if _db is None or message.from_user is None:
             return UNHANDLED
@@ -508,7 +526,12 @@ async def _delete_command(message: types.Message) -> None:
 
 @summary_router.message(Command("summary"))
 async def cmd_summary(message: types.Message, bot: Bot = None):
-    """Manual summary trigger (R9/D62). Delete → ack → pipeline (D81/B1/B2)."""
+    """Manual summary trigger (R9/D62). Delete → ack → pipeline (D81/B1/B2).
+
+    F5 (§18H(4)): мастер-флаг — runtime-гейт ДО admin-проверок; OFF →
+    UNHANDLED (паритет «роутер не зарегистрирован»: пропагация живёт)."""
+    if not _summary_enabled():
+        return UNHANDLED
     user_id = message.from_user.id if message.from_user else 0
     # D94 (Epic 31): порядок проверок — SUMMARY_ADMIN_ONLY → ALLOWED_SUMMARY_IDS.
     # true  → разрешён ТОЛЬКО ADMIN_USER_ID (ALLOWED_SUMMARY_IDS игнорируется);

@@ -837,10 +837,10 @@ class TestBounds:
     def test_version_and_catalog(self):
         assert APP_VERSION == "2.58.76"
         # ASAP-3 (ADR-1028-2 D12, санкция spec §6): Δ +2 каталога-ключа → 483/423/458 (см. примечание в test_round1025_f8_registry).
-        assert len(pc.REGISTRY) == 560
+        assert len(pc.REGISTRY) == 561
         assert len({f.name for f in dataclasses.fields(Settings)}) == 454
         assert len([s for s in pc.REGISTRY.values()
-                    if s.category is not None]) == 535   # +4 temporal (mca-20)
+                    if s.category is not None]) == 536   # +4 temporal (mca-20)
         assert len(pc.GROUPS) == 120
         assert len(pc._TAB_BY_GROUP) == 118
         assert len(pc.TAB_RULES) == 23

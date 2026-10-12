@@ -317,6 +317,8 @@ function mkCoverageCtx(m) {
       _moduleConfigItem: methods._moduleConfigItem,
       _isActiveScope: methods._isActiveScope,
       _moduleRuntimeState: methods._moduleRuntimeState,
+      // F5 §5.2: getModuleState вычисляет честную причину состояния
+      _moduleRuntimeReason: methods._moduleRuntimeReason,
     });
     methods.applyRoute.call(ctx, '#/modules/factcheck');
     ctx.scopeKind = 'global';

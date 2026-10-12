@@ -184,7 +184,7 @@ class TestFrozenInvariants:
         # MCA-10a (ADR-1028-14 D8/D12, санкция §13.2): +13 ключей / +2 группы
         # (memory_random/keys_random) / +2 tab-маппинга; TAB_RULES 21 in-place;
         # delta 78→91 → 502/107/105/21.
-        assert len(pc.REGISTRY) == FIXTURE["counts"]["REGISTRY"] == 560
+        assert len(pc.REGISTRY) == FIXTURE["counts"]["REGISTRY"] == 561
         assert len(pc.GROUPS) == FIXTURE["counts"]["GROUPS"] == 120
         assert len(pc._TAB_BY_GROUP) == FIXTURE["counts"]["TAB_BY_GROUP"] == 118
         assert len(pc.TAB_RULES) == FIXTURE["counts"]["TAB_RULES"] == 23
@@ -235,7 +235,7 @@ class TestRegistry:
         # Δ +13 (memory.random_* ×4 + keys.random_quantum_* ×9) → 502.
         # ASAP 7 F2 (§1.6): +9 (L1 Planner); параллельный F4 in-flight — снято
         # фактом на момент reissue (560).
-        assert len(rows) == 560
+        assert len(rows) == 561
         assert [r["internal_key"] for r in rows] == sorted(_registry_keys())
         assert all(v != "" for r in rows for v in r.values())
         assert len(rows[0]) == len(gen.TSV_COLUMNS) == 23
@@ -251,7 +251,7 @@ class TestRegistry:
         # MCA-10a (ADR-1028-14 D8/D12): санкционированная Δ +13 → дельта 91.
         delta = _registry_keys() - _inventory_keys()
         # ASAP 7 F2 (§1.10): дельта 127→149 (+9 F2; F4 in-flight — фактом).
-        assert len(delta) == FIXTURE["counts"]["delta"] == 149
+        assert len(delta) == FIXTURE["counts"]["delta"] == 150
         new_rows = {r["internal_key"] for r in _read_registry_rows()
                     if r["status"] == "new"}
         assert new_rows == delta
@@ -301,7 +301,7 @@ class TestRegistry:
         # ASAP 5 (asap5-final-fixes, T-5256): переиздание после Δ +6
         # (529, 118).
         # ASAP 7 F2: reissue под 560/149 (+9 F2; F4 in-flight — фактом).
-        assert "560" in meta and "411" in meta and "149" in meta
+        assert "561" in meta and "411" in meta and "150" in meta
         from config.settings import APP_VERSION
         assert APP_VERSION in meta
 
@@ -317,7 +317,7 @@ class TestScreenMap:
         # ASAP 4.4 (T-4880): санкционированная Δ +1 → 489.
         # MCA-10a (ADR-1028-14 D8/D12): санкционированная Δ +13 → 502.
         # MCA-10b (ADR-1028-17 D16): санкционированная Δ +6 → 510.
-        assert len(keys) == 560
+        assert len(keys) == 561
 
     def test_no_empty_new_screen(self):
         text = (ROOT / "plans/docs/screen-map-round1025.md").read_text(encoding="utf-8")

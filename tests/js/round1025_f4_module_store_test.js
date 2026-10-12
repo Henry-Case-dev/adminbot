@@ -432,22 +432,27 @@ function summaryItem(extra) {
       methods.moduleRuntimeNotice.call(ctxI, moduleById('mod_search')),
       'Отключение для этой области не влияет: модуль управляется глобально',
       'k: inert override');
-    // глобальная область — без модульной пометки
-    const ctxGlo = mkCtx({ configItems: [summaryItem()] });
+    // глобальная область — выключено глобально (F5 §5.2: global_off текст
+    // показывается ТОЛЬКО при selected scope = global)
+    const ctxGlo = mkCtx({ configItems: [summaryItem({ value: false,
+      global_value: false })] });
     assert.strictEqual(
-      methods.moduleRuntimeNotice.call(ctxGlo, moduleById('mod_summary')), '',
-      'k: global scope — пусто');
-    // родительский гейт выключен → «Не работает: отключён глобально»
+      methods.moduleRuntimeNotice.call(ctxGlo, moduleById('mod_summary')),
+      'Выключено глобально', 'k: global scope — global_off');
+    // F5 (ТЗ §11/§28.10): parentGate удалён — Summary chat/global OFF
+    // НЕ влияет на unrelated модули (никакой лжи «отключён глобально»).
     const ctxPar = mkCtx({ scopeKind: 'chat', activeChatId: -100,
       configItems: [
         item('flags.checkup_enabled', true,
           { global_value: true, chat_source: '' }),
-        item(SUM, false, { global_value: false, chat_source: '' }),
+        item(SUM, false, { global_value: false, chat_source: 'chat' }),
       ] });
     assert.strictEqual(
       methods.moduleRuntimeNotice.call(ctxPar, moduleById('mod_checkup')),
-      'Не работает: отключён глобально', 'k: родительский гейт');
-    // родительский гейт — глобальный выключатель: виден и в глобальной области
+      '', 'k: parentGate удалён — Summary chat OFF не мешает checkup');
+    assert.strictEqual(
+      methods.moduleStateText.call(ctxPar, moduleById('mod_checkup')),
+      'Включён', 'k: checkup работает (independent)');
     const ctxParG = mkCtx({ configItems: [
       item('flags.checkup_enabled', true,
         { global_value: true, chat_source: '' }),
@@ -455,10 +460,28 @@ function summaryItem(extra) {
     ] });
     assert.strictEqual(
       methods.moduleRuntimeNotice.call(ctxParG, moduleById('mod_checkup')),
-      'Не работает: отключён глобально', 'k: родительский гейт (global)');
+      '', 'k: parentGate удалён — Summary global OFF не мешает checkup');
+    // M1-витрина: ни у одной unrelated карточки нет parentGate
+    const withParentGate = MODULES.filter(function (m) { return m.parentGate; });
+    assert.strictEqual(withParentGate.length, 0,
+      'k: F5 — parentGate ни у одной карточки (Direct/Factcheck/Search/'
+      + 'Transcription/Video/Web/Checkup — independent)');
+    // chat_off (F5 §5.2): per_chat-гейт, выключено override'ом чата
+    const ctxChatOff = mkCtx({ scopeKind: 'chat', activeChatId: -100,
+      configItems: [item('memory.dream_enabled', false,
+        { global_value: true, chat_source: 'chat' })] });
     assert.strictEqual(
-      methods.moduleStateText.call(ctxParG, moduleById('mod_checkup')),
-      'Включён, но не работает', 'k: фактическое состояние blocked');
+      methods.moduleRuntimeNotice.call(ctxChatOff, moduleById('mod_sleep')),
+      'Выключено в этом чате', 'k: chat_off — выключено в этом чате');
+    // M3-негатив: chat scope + значение, унаследованное от глобали (без
+    // override) — БЕЗ текста «отключён глобально» (текст global_off только
+    // в глобальной области)
+    const ctxInheritOff = mkCtx({ scopeKind: 'chat', activeChatId: -100,
+      configItems: [item('flags.search_enabled', false,
+        { global_value: false, chat_source: '' })] });
+    assert.strictEqual(
+      methods.moduleRuntimeNotice.call(ctxInheritOff, moduleById('mod_search')),
+      '', 'k: chat scope без override — нет global_off-текста');
   }
 
   // ── (l) §72 единый переключатель: одно состояние на 3 представления ──
