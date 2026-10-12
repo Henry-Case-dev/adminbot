@@ -58,7 +58,9 @@
     "/status/logs",
     "/status/media-health",
     "/vision/state",
-    "/vision/test"
+    "/vision/test",
+    "/youtube/proxy/health",
+    "/youtube/proxy/test"
   ],
   "runtime_import_forbidden": [
     "gen_param_registry_round1025",

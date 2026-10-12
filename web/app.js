@@ -1893,6 +1893,11 @@
         // (GET /api/memory/embeddings); только алиасы, без ключей (R17).
         embeddingsPanel: null,
         embeddingsBusy: false,
+        // ── ASAP 8 F9 (§16/Y4/Y5): YouTube proxy health — последний
+        // результат GET /api/youtube/proxy/health или живой POST
+        // /api/youtube/proxy/test; только masked endpoint + коды (Y5).
+        ytProxyHealth: null,
+        ytProxyHealthBusy: false,
         // Фильтры §27 — только на «Аналитике» (превью Статуса их не получает).
         execFilterModule: '',
         execFilterModel: '',
@@ -5755,6 +5760,73 @@
         } finally {
           this.embeddingsBusy = false;
         }
+      },
+      // ═══ ASAP 8 F9 (§16/Y4/Y5): YouTube proxy health ═══
+      // GET — последний результат (без пробы); кнопка «Проверить» → POST
+      // (живая проверка auth + обоих путей). Только masked endpoint и коды
+      // классов — секретов в ответе нет по контракту API (Y5).
+      loadYoutubeProxyHealth: async function () {
+        this.ytProxyHealthBusy = true;
+        try {
+          this.ytProxyHealth = await this.api('/api/youtube/proxy/health', { global: true });
+        } catch (e) {
+          if (e.status !== 401 && e.status !== 403) {
+            this.ytProxyHealth = null;
+          }
+        } finally {
+          this.ytProxyHealthBusy = false;
+        }
+      },
+      runYoutubeProxyTest: async function () {
+        if (this.ytProxyHealthBusy) return;      // повторный клик не дублируется
+        this.ytProxyHealthBusy = true;
+        try {
+          this.ytProxyHealth = await this.api('/api/youtube/proxy/test', {
+            method: 'POST', global: true,
+          });
+        } catch (e) {
+          if (e.status !== 401 && e.status !== 403 && e.status !== 429) {
+            this.toast('Не удалось выполнить проверку: ' + e.message, 'err');
+          } else if (e.status === 429) {
+            this.toast('Повтор теста чаще 10 секунд — подождите немного', 'err');
+          }
+        } finally {
+          this.ytProxyHealthBusy = false;
+        }
+      },
+      // Человекочитаемая подпись шага health-проверки (§18I.6: у каждой
+      // ошибки — следующее действие; icon+text, не только цвет).
+      ytProxyStepLabel: function (step) {
+        if (!step || !step.status) return '—';
+        var map = {
+          ok: 'OK',
+          fail: 'ОШИБКА',
+          unreachable: 'недоступен',
+          skipped: '—',
+        };
+        var label = map[step.status] || step.status;
+        if (step.status === 'fail' && step.reason === 'proxy_auth_failed') {
+          label = 'ОШИБКА · авторизация отклонена (407)';
+        } else if (step.status === 'fail' && step.reason === 'no_proxy') {
+          label = '—';
+        }
+        return label;
+      },
+      ytProxyCodeLabel: function (code) {
+        if (!code) return '';
+        var map = {
+          proxy_auth_failed: 'ошибка авторизации прокси (407)',
+          forbidden: 'доступ запрещён (403)',
+          rate_limited: 'слишком много запросов (429)',
+          timeout: 'таймаут',
+          reset: 'соединение сброшено',
+          proxy_unavailable: 'прокси недоступен',
+          server_error: 'ошибка сервера (5xx)',
+          transient: 'временный сбой',
+          permanent: 'постоянный сбой',
+          unavailable: 'недоступно',
+        };
+        return map[code] || code;
       },
       // D13 (asap5-final-fixes, T-5262, 14A.0): ленивый снимок состояния
       // случайности для точки входа на вкладке «Сон» — один GET /api/status
@@ -11640,6 +11712,13 @@
         }
         // 84.24-ревью: поиск не переносится между вкладками
         if (this.configSearch) this.configSearch = '';
+        // ASAP 8 F9 (§16): YouTube proxy health — ленивый GET последнего
+        // результата при первом открытии «Выжимки видео» (global admin;
+        // живая проба — только по кнопке).
+        if (id === 'mod_video_summary' && this.isGlobalAdmin
+            && !this.ytProxyHealth && !this.ytProxyHealthBusy) {
+          this.loadYoutubeProxyHealth();
+        }
         // 3.5.1 (UX): скролл контента в начало при переключении вкладки.
         // HOTFIX9 D2 (T-2804, ADR-1025-17): в TMA/mobile/fullscreen скроллится
         // не document, а `main.scroll-area` (flex-колонка) — сбрасываем оба,

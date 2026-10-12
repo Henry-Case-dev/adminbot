@@ -2809,6 +2809,53 @@
                   </details>
                 </div>
               </template>
+              <!-- ═══ ASAP 8 F9 (§16/Y4/Y5): YouTube proxy health — блок
+                   страницы «Выжимка видео» (global admin; API fail-closed
+                   403). Только замаскированный endpoint и коды классов —
+                   БЕЗ секретов (Y5). Прецедент: mod_direct context-блок. -->
+              <template v-if="activeTab === 'mod_video_summary' && isGlobalAdmin">
+                <div class="card p-4 col-span-full" id="youtube-proxy-health-block"
+                     data-youtube-proxy-health>
+                  <div class="flex items-center gap-2 flex-wrap mb-2">
+                    <div class="text-sm font-bold">YouTube прокси</div>
+                    <span class="text-xs text-gray-500">проверка без секретов</span>
+                    <button class="btn-ghost text-xs ml-auto" data-yt-proxy-test
+                            :disabled="ytProxyHealthBusy"
+                            @click="runYoutubeProxyTest()">Проверить подключение</button>
+                  </div>
+                  <div v-if="ytProxyHealthBusy" class="spinner my-2"></div>
+                  <template v-else-if="ytProxyHealth && ytProxyHealth.configured !== undefined">
+                    <div class="grid gap-1 text-xs" data-yt-proxy-rows>
+                      <div>
+                        Прокси: <b>{{ ytProxyHealth.configured ? 'настроен' : 'не настроен' }}</b><template
+                          v-if="ytProxyHealth.endpoint"> · {{ ytProxyHealth.endpoint }}</template><template
+                          v-if="ytProxyHealth.source && ytProxyHealth.source !== 'none'"> · источник: {{ ytProxyHealth.source }}</template>
+                      </div>
+                      <div>
+                        Авторизация прокси:
+                        <b :class="ytProxyHealth.auth && ytProxyHealth.auth.status === 'fail' ? 'text-red-300' : ''">{{ ytProxyStepLabel(ytProxyHealth.auth) }}</b><template
+                          v-if="ytProxyHealth.auth && ytProxyHealth.auth.status === 'fail'"> — проверьте логин/пароль прокси в группе «YouTube: прокси и пропуска» ниже</template>
+                      </div>
+                      <div>
+                        Путь yt-dlp:
+                        <b :class="ytProxyHealth.ytdlp_path && ytProxyHealth.ytdlp_path.status === 'ok' ? '' : (ytProxyHealth.ytdlp_path && ytProxyHealth.ytdlp_path.status === 'fail' ? 'text-red-300' : '')">{{ ytProxyStepLabel(ytProxyHealth.ytdlp_path) }}</b><template
+                          v-if="ytProxyHealth.ytdlp_path && ytProxyHealth.ytdlp_path.code"> · {{ ytProxyCodeLabel(ytProxyHealth.ytdlp_path.code) }}</template>
+                      </div>
+                      <div>
+                        Путь transcript-api:
+                        <b :class="ytProxyHealth.transcript_api_path && ytProxyHealth.transcript_api_path.status === 'ok' ? '' : (ytProxyHealth.transcript_api_path && ytProxyHealth.transcript_api_path.status === 'fail' ? 'text-red-300' : '')">{{ ytProxyStepLabel(ytProxyHealth.transcript_api_path) }}</b><template
+                          v-if="ytProxyHealth.transcript_api_path && ytProxyHealth.transcript_api_path.code"> · {{ ytProxyCodeLabel(ytProxyHealth.transcript_api_path.code) }}</template>
+                      </div>
+                      <div class="text-gray-400">
+                        Последняя проверка: {{ ytProxyHealth.checked_at_ts ? fmtTs(ytProxyHealth.checked_at_ts) : (ytProxyHealth.checked_at || '—') }}
+                      </div>
+                    </div>
+                  </template>
+                  <div v-else class="text-xs text-gray-500">
+                    Проверка ещё не запускалась — нажмите «Проверить подключение».
+                  </div>
+                </div>
+              </template>
               <template v-for="grp in currentTabGroups" :key="grp.uid">
               <!-- Раунд 10.4 (E-3): заголовок секции витрины — перед первой
                    группой секции (sectionTitle возвращает null для остальных:

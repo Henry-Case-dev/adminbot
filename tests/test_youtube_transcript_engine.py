@@ -544,9 +544,18 @@ class TestYtdlpPrimary:
 
     @pytest.mark.asyncio
     async def test_proxy_and_cookies_passed_to_transcript_api(self, monkeypatch):
-        """#7 (D312/D319): URL-прокси/cookies — ТОЛЬКО yt-dlp; transcript-api
-        proxy_config из Webshare-полей (пусто → None), cookies НЕ пробрасываются."""
+        """#7 (D312/D319 + F9/Y4): URL-прокси — ОДИН effective profile для
+        ОБОИХ путей: transcript-api получает GenericProxyConfig из того же URL
+        (до F9 получал только yt-dlp — рассинхрон); cookies НЕ пробрасываются."""
         _FakeYDL.extract_error = RuntimeError("boom")
+
+        class _FakeGenericProxyConfig:
+            last_kwargs = None
+
+            def __init__(self, **kwargs):
+                _FakeGenericProxyConfig.last_kwargs = kwargs
+
+        monkeypatch.setattr(engine_mod, "GenericProxyConfig", _FakeGenericProxyConfig)
 
         class _Api(_CapturingApi):
             result = _FakeTranscriptList(
@@ -557,7 +566,11 @@ class TestYtdlpPrimary:
         _mock_settings(monkeypatch, proxy="http://pr:8080", cookies="/tmp/c.txt")
         result = await YouTubeTranscriptEngine().fetch_transcript("video-1", 4000)
         assert result == "[00:05] привет"
-        assert _CapturingApi.last_proxy_config is None
+        assert _CapturingApi.last_proxy_config is not None
+        assert _FakeGenericProxyConfig.last_kwargs == {
+            "http_url": "http://pr:8080",
+            "https_url": "http://pr:8080",
+        }
 
     @pytest.mark.asyncio
     async def test_webshare_credentials_build_transcript_api_proxy_config(
@@ -785,11 +798,20 @@ class TestProxyUrlWithCredentials:
     def test_proxy_url_passed_verbatim_to_both_proxies_keys(
         self, monkeypatch, proxy_url
     ):
-        """D320: URL-прокси (даже с userinfo) в transcript-api proxy_config НЕ
-        попадает — конфиг строится ТОЛЬКО из Webshare-полей; для URL-прокси
-        остаётся yt-dlp opts (проверено в test_proxy_url_passed_verbatim_to_ytdlp_opts)."""
+        """F9/Y4 (бывш. D320): URL-прокси (даже с userinfo) — ОДИН effective
+        profile для ОБОИХ путей: transcript-api строит GenericProxyConfig из
+        ТОГО ЖЕ URL, что получает yt-dlp opts (вербатим, без изменений)."""
+        class _FakeGenericProxyConfig:
+            def __init__(self, **kwargs):
+                self.__dict__.update(kwargs)
+
+        monkeypatch.setattr(engine_mod, "GenericProxyConfig", _FakeGenericProxyConfig)
         _mock_settings(monkeypatch, proxy=proxy_url)
-        assert YouTubeTranscriptEngine()._transcript_proxy_config() is None
+        assert YouTubeTranscriptEngine()._ytdlp_opts()["proxy"] == proxy_url
+        cfg = YouTubeTranscriptEngine()._transcript_proxy_config()
+        assert cfg is not None
+        assert cfg.http_url == proxy_url
+        assert cfg.https_url == proxy_url
 
     def test_userinfo_urlsplit_for_safe_alphabet(self):
         """user/pass алфавита [A-Za-z0-9_-] (49.6): urlsplit разбирает userinfo."""
@@ -1181,7 +1203,9 @@ class TestClassification:
         "exc,expected",
         [
             (HTTPError(status=429), True),
-            (HTTPError(status=403), True),
+            # F9 (asap8 §9/§16): 403 => forbidden — БЕЗ exponential retry
+            # (прежде 403 был в _RETRY_HTTP_STATUSES — намеренная смена контракта).
+            (HTTPError(status=403), False),
             (HTTPError(status=500), True),
             (HTTPError(status=404), False),
             (HTTPError(status=407), False),        # 407 от мёртвого прокси (50.11 #5)

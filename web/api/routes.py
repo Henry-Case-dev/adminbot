@@ -2003,6 +2003,78 @@ async def post_images_test(
     return result.as_dict()
 
 
+# ── ASAP 8 F9 (§16, Y4/Y5): YouTube proxy health ────────────────────────────
+# Connection test YouTube-прокси: GET — последний результат (без пробы),
+# POST — живая проверка (auth-проба + yt-dlp путь + transcript-api путь).
+# Оба — global-admin, fail-closed 403. В ответах ТОЛЬКО замаскированный
+# endpoint (host:port) и коды классов/HTTP-статусы: логин/пароль/полный URL
+# прокси НИКОГДА не возвращаются и не логируются (Y5). Rate-limit POST —
+# ≥10с на пользователя (прецедент /api/images/test).
+_YT_PROXY_TEST_MIN_INTERVAL = 10.0
+_YT_PROXY_TEST_LAST_TTL = 3600.0
+_YT_PROXY_TEST_LAST: dict[int, float] = {}
+
+
+def reset_youtube_proxy_test_rate_limit() -> None:
+    """Тестовая точка сброса серверного rate-limit диагностики YouTube-прокси."""
+    _YT_PROXY_TEST_LAST.clear()
+
+
+def _prune_youtube_proxy_test_last(now: float) -> None:
+    if len(_YT_PROXY_TEST_LAST) < 256:
+        return
+    stale = [k for k, ts in _YT_PROXY_TEST_LAST.items()
+             if now - ts > _YT_PROXY_TEST_LAST_TTL]
+    for k in stale:
+        _YT_PROXY_TEST_LAST.pop(k, None)
+
+
+@api_router.get("/youtube/proxy/health")
+async def get_youtube_proxy_health(
+    user: Annotated[WebAppUser, Depends(requires_global_admin())],
+):
+    """Последний результат проверки YouTube-прокси (без запуска новой пробы).
+
+    403 — не глобальный админ; никогда не проверявшаяся → {status:
+    "never_run"}; секреты не возвращаются (Y5)."""
+    from services.youtube_transcript_engine import proxy_health_snapshot
+    snap = proxy_health_snapshot()
+    if snap is None:
+        return {"status": "never_run"}
+    return dict(snap)
+
+
+@api_router.post("/youtube/proxy/test")
+async def post_youtube_proxy_test(
+    user: Annotated[WebAppUser, Depends(requires_global_admin())],
+):
+    """Живая проверка YouTube-прокси (auth OK/FAIL + оба движка-пути).
+
+    Всегда 200 с результатом шагов (fail движка/прокси → status-поля, не
+    HTTP-ошибка); 403 — не глобальный админ; 429 — повтор чаще 10 секунд.
+    Singleflight в движке: параллельный вызов → последний результат +
+    in_progress. Общий бюджет живой пробы — 90с (wait_for), сам движок
+    ограничивает каждый сетевой шаг. R17/Y5: секреты не эхо/не логируются."""
+    now = time.monotonic()
+    _prune_youtube_proxy_test_last(now)
+    last = _YT_PROXY_TEST_LAST.get(user.id, 0.0)
+    if now - last < _YT_PROXY_TEST_MIN_INTERVAL:
+        raise HTTPException(status_code=429,
+                            detail="повтор теста чаще 10 секунд")
+    _YT_PROXY_TEST_LAST[user.id] = now
+    from services.youtube_transcript_engine import run_proxy_health_check_locked
+    try:
+        return await asyncio.wait_for(
+            asyncio.to_thread(run_proxy_health_check_locked), timeout=90.0)
+    except asyncio.TimeoutError:
+        return {
+            "status": "timeout",
+            "checked_at": datetime.datetime.now(
+                datetime.timezone.utc).isoformat(timespec="seconds"),
+            "took_ms": int(90.0 * 1000),
+        }
+
+
 # ── Раунд 10.37 (MCA-10a, ADR-1028-14 D8/T-4977): POST /api/random/test ─────
 # «Проверить подключение» ANU: backend-only, draft-ключ в POST-body (не URL,
 # не эхо), RBAC существующих секретных прав (global admin ИЛИ право на

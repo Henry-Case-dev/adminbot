@@ -15,15 +15,62 @@ _transcript_ytdlp_opts() (build_ytdlp_base_opts остаётся без POT/play
 D313 — resident-прокси Webshare через `_transcript_proxy_config()`
 (WebshareProxyConfig/GenericProxyConfig/None); RequestBlocked/IpBlocked →
 TRANSIENT, AgeRestricted/VideoUnplayable → PERMANENT.
+
+ASAP 8 F9 (§16 ТЗ, architecture §9) — прокси-классификация + единый профиль:
+
+1. Retry-матрица (классификация по КОРНЕВОЙ причине, unwrap __cause__;
+   «retry» = каскадный ретрай с backoff _RETRY_BACKOFFS, ≤ _MAX_CASCADE_RETRIES
+   = 4 ретрая = 5 попыток; специфичный парс — ДО generic-классов):
+
+   | сигнал (по корневой причине)                                      | failure_class     | retry |
+   |-------------------------------------------------------------------|-------------------|-------|
+   | HTTP 407 / «Proxy Authentication Required» (вкл. yt-dlp           | proxy_auth_failed | НЕТ   |
+   |   DownloadError «HTTP Error 407» — парсится ДО generic            |                   |       |
+   |   «http error»-чека; ProxyError с маркером 407)                   |                   |       |
+   | HTTP 403                                                          | forbidden         | НЕТ   |
+   | HTTP 429 / TooManyRequests                                        | rate_limited      | ДА   |
+   | timeout / «timed out» / TimeoutError                              | timeout           | ДА   |
+   | «connection reset» / «reset by peer»                              | reset             | ДА   |
+   | ProxyError / TransportError (НЕ 407), прокси недоступен           | proxy_unavailable | ДА   |
+   | HTTP 500/502/503/504                                              | server_error      | ДА   |
+   | прочие известные транзиентные паттерны (bot-check, empty          | transient         | ДА   |
+   |   transcript, extract_info=None, JSONDecodeError,                 |                   |       |
+   |   ParseError(no element), FailedToCreateConsentCookie)            |                   |       |
+   | прочее / неизвестное                                              | permanent         | НЕТ   |
+
+   Дефолт — PERMANENT (строго). proxy_auth_failed перманентен ДЛЯ ЗАПРОСА:
+   407 на ЛЮБОМ движке останавливает каскад (transient-фейл второго движка
+   не делает 407 ретраебельным) и логируется РОВНО ОДИН WARN на запрос.
+
+2. Единый effective proxy profile (Y4): effective_proxy_profile() — ОДИН
+   резолвер для yt-dlp opts["proxy"] И transcript-api proxy_config.
+   Приоритет: (1) YOUTUBE_CREDENTIALED_LEVEL_ENABLED=False → прокси нет
+   (оба пути); (2) resident-поля username/password + domain+port (hot → env)
+   → http://[user:pass@]domain:port — оба пути; (3) URL hot
+   keys.youtube_transcript_proxy_url → env YOUTUBE_TRANSCRIPT_PROXY_URL —
+   оба пути (до F9 URL получал только yt-dlp — рассинхрон движков);
+   (4) ничего → egress-guard (MCA-02) применяется движками по-старому.
+   R17: proxy_url (может нести user:pass) НИКОГДА не логируется и не
+   возвращается наружу — только endpoint_masked (host:port замаскирован).
+
+3. Proxy health (Y4/Y5, §16 «MiniApp connection test»): run_proxy_health_check()
+   — auth-проба через прокси + реальный yt-dlp путь + transcript-api путь;
+   в ответе только замаскированный endpoint, коды классов и HTTP-статусы —
+   секреты (логин/пароль/полный URL прокси) НИКОГДА.
 """
 import asyncio
 from services import hot_config as hot
+import datetime
 import json
 import logging
 import os
 import re
 import shutil
 import tempfile
+import threading
+import time
+import urllib.error
+import urllib.request
 from typing import Awaitable, Callable
 
 from config.settings import build_ytdlp_base_opts, settings
@@ -51,7 +98,93 @@ _YTDLP_SOCKET_TIMEOUT = 20        # D139 (48.3): граница КАЖДОГО �
 _YTDLP_SUBTITLE_LANGS = ("ru", "en")
 _MAX_CASCADE_RETRIES = 4          # D151: 4 ретрая = 5 попыток каскада (1 стартовая + 4)
 _RETRY_BACKOFFS = (1.0, 2.0, 4.0, 8.0)   # D152: экспонента, cap 8с; len == _MAX_CASCADE_RETRIES
-_RETRY_HTTP_STATUSES = frozenset({403, 429, 500, 502, 503, 504})  # D155: транзиентные
+# D155 + F9: транзиентные HTTP-статусы (403 УДАЛЁН — forbidden, БЕЗ retry;
+# 407 здесь и не был — парсится ДО generic-класса, см. матрицу в докстринге).
+_RETRY_HTTP_STATUSES = frozenset({429, 500, 502, 503, 504})
+# F9: классы, допускающие каскадный ретрай (см. таблицу в докстринге модуля).
+_TRANSIENT_FAILURE_CLASSES = frozenset({
+    "transient", "rate_limited", "timeout", "reset", "proxy_unavailable",
+    "server_error",
+})
+_PROXY_AUTH_MARKER = "proxy authentication required"   # F9: маркер 407-ответа прокси
+_RESET_MARKERS = ("connection reset", "reset by peer")  # F9: transient-reset
+
+# ── F9: proxy health (§16 connection test; Y4/Y5) ───────────────────────────
+_PROXY_HEALTH_PROBE_VIDEO = "dQw4w9WgXcQ"   # публичное видео с субтитрами (проба путей)
+_PROXY_HEALTH_HTTP_TIMEOUT = 15.0           # граница auth-пробы (сек)
+_PROXY_HEALTH_LAST: dict | None = None      # последний результат (per-process)
+_PROXY_HEALTH_LOCK = threading.Lock()       # singleflight живой проверки
+
+
+def _safe_exc_text(exc: BaseException | None) -> str:
+    """R17/Y5: текст исключения для ЛОГОВ/сообщений через sanitize
+    (log_ring._URI_CREDS_RE маскирует user:pass в URL прокси). Никогда
+    не бросает; None → «-»."""
+    if exc is None:
+        return "-"
+    try:
+        from services.log_ring import sanitize as _sanitize_log
+        return _sanitize_log(str(exc))[:500]
+    except Exception:      # pragma: no cover — лог не должен ронять каскад
+        return "<exc>"
+
+
+def mask_proxy_endpoint(url: str | None) -> str | None:
+    """F9/Y5: host:port из proxy-URL с ЗАМАСКИРОВАННЫМ хостом (первый+последний
+    фрагменты). Секреты (user:pass) и полный хост никогда не попадают в UI/логи.
+    Никогда не бросает; неразбираемый URL → None (честное «нет данных»)."""
+    if not url:
+        return None
+    try:
+        from urllib.parse import urlsplit
+        parts = urlsplit(url.strip())
+        host = (parts.hostname or "").strip()
+        if not host:
+            return None
+        if len(host) > 6:
+            masked = f"{host[:2]}\u2026{host[-2:]}"
+        else:
+            masked = f"{host[:1]}\u2026"
+        port = parts.port
+        return f"{masked}:{port}" if port else masked
+    except Exception:      # pragma: no cover — маскировка не должна ронять
+        return None
+
+
+def effective_proxy_profile() -> dict:
+    """F9/Y4: ЕДИНЫЙ effective proxy profile для ОБОИХ путей (yt-dlp opts и
+    transcript-api proxy_config) — один резолвер, один приоритет (см. таблицу
+    в докстринге модуля). Возвращает:
+
+      configured       — явный YouTube-прокси настроен (resident-поля ИЛИ URL);
+      source           — "webshare" | "url" | "none";
+      proxy_url        — СЕКРЕТ (может нести user:pass): только для конфигов
+                         движков; НИКОГДА не логировать/не отдавать наружу;
+      endpoint_masked  — host:port с замаскированным хостом (для UI/логов);
+      auth_configured  — заданы username+password (паритет resproxy в __init__).
+    """
+    if not getattr(settings, "YOUTUBE_CREDENTIALED_LEVEL_ENABLED", True):
+        return {"configured": False, "source": "none", "proxy_url": None,
+                "endpoint_masked": None, "auth_configured": False}
+    username = (hot.get("keys.youtube_transcript_proxy_username", settings.YOUTUBE_TRANSCRIPT_PROXY_USERNAME) or "").strip()
+    password = (hot.get("keys.youtube_transcript_proxy_password", settings.YOUTUBE_TRANSCRIPT_PROXY_PASSWORD) or "").strip()
+    domain = (hot.get("limits.youtube_transcript_proxy_domain", settings.YOUTUBE_TRANSCRIPT_PROXY_DOMAIN) or "").strip()
+    port = (hot.get("limits.youtube_transcript_proxy_port", settings.YOUTUBE_TRANSCRIPT_PROXY_PORT) or "").strip()
+    has_auth = bool(username and password)
+    if domain and port:                     # приоритет 2: resident-поля
+        proxy_url = f"http://{domain}:{port}"
+        if has_auth:
+            proxy_url = f"http://{username}:{password}@{domain}:{port}"
+        return {"configured": True, "source": "webshare", "proxy_url": proxy_url,
+                "endpoint_masked": mask_proxy_endpoint(proxy_url),
+                "auth_configured": has_auth}
+    url = (hot.get("keys.youtube_transcript_proxy_url", settings.YOUTUBE_TRANSCRIPT_PROXY_URL) or "").strip()
+    if url:                                 # приоритет 3: URL (hot → env) — оба пути
+        return {"configured": True, "source": "url", "proxy_url": url,
+                "endpoint_masked": mask_proxy_endpoint(url),
+                "auth_configured": has_auth}
+    return {"configured": False, "source": "none", "proxy_url": None,
+            "endpoint_masked": None, "auth_configured": has_auth}
 
 
 class YouTubeTranscriptUnavailableException(Exception):
@@ -60,8 +193,10 @@ class YouTubeTranscriptUnavailableException(Exception):
 
     Раунд 10.24 (F16, ADR-1024-17 §Решение п.5): необязательный `reason`
     (позиционный `message` сохранён) — машинная причина, по которой хендлер
-    выбирает пул фраз. Значения: ``"age_restricted"`` | ``"transient"`` |
-    ``"unavailable"`` (default — ``"unavailable"``)."""
+    выбирает пул фраз. Значения: ``"age_restricted"`` | ``"proxy_auth_failed"``
+    (F9/Y1) | ``"transient"`` | ``"unavailable"`` (default —
+    ``"unavailable"``). Хендлер unknown-reason безопасно деградирует в общий
+    пул фраз."""
 
     def __init__(self, message: str, *, reason: str = "unavailable") -> None:
         super().__init__(message)
@@ -103,11 +238,15 @@ class YouTubeTranscriptEngine:
         max_symbols: int,
         on_retry: Callable[[int, int], Awaitable[None]] | None = None,
     ) -> str:
-        """D151/D152/D156: попытка = ВЕСЬ каскад (yt-dlp → transcript-api).
-        Транзиентный фейл попытки (хотя бы один движок транзиентен, D155) →
-        on_retry(attempt, _MAX_CASCADE_RETRIES) → sleep(backoff) → повтор;
-        максимум _MAX_CASCADE_RETRIES ретраев. Перманентный фейл ОБОИХ →
-        немедленный raise (0 ретраев). on_retry=None — ретраи без уведомлений."""
+        """D151/D152/D156 + F9: попытка = ВЕСЬ каскад (yt-dlp → transcript-api).
+        Фейл попытки классифицируется гранулярно (_failure_class, матрица в
+        докстринге модуля): transient-классы → on_retry(attempt,
+        _MAX_CASCADE_RETRIES) → sleep(backoff) → повтор (максимум
+        _MAX_CASCADE_RETRIES ретраев); proxy_auth_failed (407) перманентен
+        ДЛЯ ЗАПРОСА — каскад останавливается с РОВНО ОДНИМ WARN (Y1);
+        перманентный фейл → немедленный raise (0 ретраев). on_retry=None —
+        ретраи без уведомлений. R17/Y5: тексты исключений логируются только
+        через sanitize (могут нести proxy URL с user:pass)."""
         # MCA-02 (ADR-1027-5 D4): поднять loopback egress-guard (медиа-подпроцесс
         # и transcript-api ходят через него; OFF → legacy).
         try:
@@ -117,6 +256,7 @@ class YouTubeTranscriptEngine:
                            exc_info=True)
         ytdlp_exc: BaseException | None = None
         api_exc: BaseException | None = None
+        proxy_auth_warned = False                # F9: WARN 1/request (Y1)
         for attempt in range(1, _MAX_CASCADE_RETRIES + 2):        # 1..5
             try:
                 segments = await asyncio.to_thread(self._fetch_ytdlp, video_id)
@@ -131,7 +271,7 @@ class YouTubeTranscriptEngine:
                 logger.warning(
                     "[youtube engine] yt-dlp failed → transcript-api fallback | "
                     "video_id=%r | error=%s | status=%s | body_bytes=%s",
-                    video_id, exc,
+                    video_id, _safe_exc_text(exc),
                     self._exc_status(exc), self._exc_body_bytes(exc),
                 )
             try:
@@ -147,11 +287,27 @@ class YouTubeTranscriptEngine:
                 logger.warning(
                     "[youtube engine] transcript-api failed | video_id=%r | "
                     "error=%s | status=%s | body_bytes=%s",
-                    video_id, exc,
+                    video_id, _safe_exc_text(exc),
                     self._exc_status(exc), self._exc_body_bytes(exc),
                 )
+            ytdlp_class = self._failure_class(ytdlp_exc)
+            api_class = self._failure_class(api_exc)
+            # F9/Y1 (§28.20/§28.21): 407 (proxy_auth_failed) перманентен ДЛЯ
+            # ЗАПРОСА — transient-фейл второго движка не делает его
+            # ретраебельным (прежде OR-правило давало retry storm 1/2/4/8с).
+            if "proxy_auth_failed" in (ytdlp_class, api_class):
+                if not proxy_auth_warned:      # РОВНО ОДИН WARN на запрос (§26)
+                    logger.warning(
+                        "[youtube engine] proxy auth failed (407) — permanent "
+                        "for this request, no retry | video_id=%r | "
+                        "ytdlp=%s | transcript_api=%s",
+                        video_id, ytdlp_class, api_class,
+                    )
+                    proxy_auth_warned = True
+                break
             transient = (
-                self._is_transient(ytdlp_exc) or self._is_transient(api_exc)
+                ytdlp_class in _TRANSIENT_FAILURE_CLASSES
+                or api_class in _TRANSIENT_FAILURE_CLASSES
             )
             if not transient or attempt > _MAX_CASCADE_RETRIES:
                 break
@@ -164,9 +320,11 @@ class YouTubeTranscriptEngine:
             await asyncio.sleep(_RETRY_BACKOFFS[attempt - 1])
         raise YouTubeTranscriptUnavailableException(
             f"both engines failed after {attempt} attempt(s) | video_id={video_id!r} "
-            f"(yt-dlp: {ytdlp_exc} [status={self._exc_status(ytdlp_exc)}, "
+            f"(yt-dlp: {_safe_exc_text(ytdlp_exc)} "
+            f"[status={self._exc_status(ytdlp_exc)}, "
             f"body_bytes={self._exc_body_bytes(ytdlp_exc)}]; "
-            f"transcript-api: {api_exc} [status={self._exc_status(api_exc)}, "
+            f"transcript-api: {_safe_exc_text(api_exc)} "
+            f"[status={self._exc_status(api_exc)}, "
             f"body_bytes={self._exc_body_bytes(api_exc)}])",
             reason=self._classify_reason(ytdlp_exc, api_exc),
         )
@@ -250,6 +408,13 @@ class YouTubeTranscriptEngine:
         # Epic 72 (74.A/D270): прокси/cookies (+POT-провайдер, если задан
         # YTDLP_POT_PROVIDER) — единый хелпер config.settings
         opts.update(build_ytdlp_base_opts())
+        # F9/Y4: ЕДИНЫЙ effective proxy profile — hot-оверрайды (прежде
+        # игравшие только в логе presence) и resident-поля применяются и к
+        # yt-dlp; env-URL из base перезаписывается профилем (один резолвер на
+        # оба движка). R17: proxy_url НИКОГДА не логируется.
+        profile = effective_proxy_profile()
+        if profile["configured"] and profile["proxy_url"]:
+            opts["proxy"] = profile["proxy_url"]
         # Прод-хотфикс: base может нести extractor_args (pot_provider) —
         # МЕРЖИМ в наш player_client (иначе player_client=web перекроется).
         base_ea = opts.get("extractor_args") or {}
@@ -386,27 +551,19 @@ class YouTubeTranscriptEngine:
     # ── Фолбек: youtube-transcript-api (R39-2, D140) ────────────
 
     def _transcript_proxy_config(self):
-        """Epic 84 (D320): proxy_config для YouTubeTranscriptApi 1.2.x.
-        GenericProxyConfig с URL-embedded auth (http://user:pass@host:port).
-        Приоритет: (1) username+password+domain+port → generic с auth,
-        (2) domain+port → generic без auth, (3) webshare locations → None.
-        Пусто → None (без прокси). R17: значения НЕ логируются.
-
-        Раунд 10.24 (F16, ADR-1024-17 §9): credentialed-уровень OFF →
-        прокси НЕ используется (только публичные ресурсы)."""
+        """F9/Y4: proxy_config из ЕДИНОГО effective_proxy_profile() —
+        resident-поля (username/password/domain+port) ИЛИ URL (hot → env;
+        до F9 URL получал только yt-dlp — рассинхрон движков). Ничего →
+        egress-guard (MCA-02), иначе None. Credentialed-уровень OFF → None
+        (как прежде, ДО guard). R17: значения НЕ логируются."""
         if not getattr(settings, "YOUTUBE_CREDENTIALED_LEVEL_ENABLED", True):
             return None
-        username = (hot.get("keys.youtube_transcript_proxy_username", settings.YOUTUBE_TRANSCRIPT_PROXY_USERNAME) or "").strip()
-        password = (hot.get("keys.youtube_transcript_proxy_password", settings.YOUTUBE_TRANSCRIPT_PROXY_PASSWORD) or "").strip()
-        domain = (hot.get("limits.youtube_transcript_proxy_domain", settings.YOUTUBE_TRANSCRIPT_PROXY_DOMAIN) or "").strip()
-        port = (hot.get("limits.youtube_transcript_proxy_port", settings.YOUTUBE_TRANSCRIPT_PROXY_PORT) or "").strip()
-
-        if domain and port:
-            proxy_url = f"http://{domain}:{port}"
-            if username and password:
-                proxy_url = f"http://{username}:{password}@{domain}:{port}"
+        profile = effective_proxy_profile()
+        if profile["proxy_url"] and GenericProxyConfig is not None:
             try:
-                return GenericProxyConfig(http_url=proxy_url, https_url=proxy_url)
+                return GenericProxyConfig(
+                    http_url=profile["proxy_url"], https_url=profile["proxy_url"],
+                )
             except Exception as exc:
                 # N5 (R17): НЕ logger.exception — raw traceback может нести
                 # proxy_url с user:pass; только sanitize-строка, без exc_info.
@@ -416,7 +573,7 @@ class YouTubeTranscriptEngine:
                     "| exc=%s", _sanitize_log(str(exc))[:200])
                 return None
 
-        # MCA-02 (ADR-1027-5 D4): без отдельного resident-proxy маршрутизируем
+        # MCA-02 (ADR-1027-5 D4): без явного YouTube-прокси маршрутизируем
         # transcript-api через loopback egress-guard (destination-политика).
         guard = safe_fetch.egress_proxy_url()
         if guard and GenericProxyConfig is not None:
@@ -524,54 +681,112 @@ class YouTubeTranscriptEngine:
         return exc
 
     @staticmethod
-    def _is_transient(exc: BaseException | None) -> bool:
-        """D155: таблица 50.2, по корневой причине (unwrap __cause__ — обёртки
-        YouTubeTranscriptUnavailableException из _fetch_segments сохраняют
-        исходник в __cause__). Дефолт — PERMANENT (строго)."""
+    def _http_status_of(root: BaseException) -> int | None:
+        r"""F9: HTTP-статус корневой причины: ``.status`` (int) → регэксп
+        «HTTP Error (\d{3})». Не-целый .status игнорируется (fail-closed в
+        регэксп-путь). Специфичный парс ДО generic-классов (матрица F9)."""
+        status = getattr(root, "status", None)
+        if isinstance(status, bool):         # bool — подкласс int; не статус
+            status = None
+        if isinstance(status, int):
+            return status
+        m = re.search(r"HTTP Error (\d{3})", str(root))
+        return int(m.group(1)) if m else None
+
+    @classmethod
+    def _is_proxy_auth_failed(cls, exc: BaseException | None) -> bool:
+        """F9/Y1: 407 / «Proxy Authentication Required» по корневой причине.
+        Специфичный парс ДО generic http-error/ProxyError-классов; кроет
+        urllib/requests ProxyError, yt-dlp DownloadError «HTTP Error 407» и
+        обёртки transcript-api (__cause__)."""
         if exc is None:
             return False
-        root = YouTubeTranscriptEngine._root_cause(exc)
+        root = cls._root_cause(exc)
+        if cls._http_status_of(root) == 407:
+            return True
+        return _PROXY_AUTH_MARKER in str(root).lower()
+
+    @classmethod
+    def _failure_class(cls, exc: BaseException | None) -> str:
+        """F9: гранулярная классификация (матрица — в докстринге модуля).
+        Порядок: специфичный парс (407/403) → известные классы → дефолт
+        PERMANENT (строго). Возвращает failure_class, ретраебельность =
+        ``класс in _TRANSIENT_FAILURE_CLASSES``."""
+        if exc is None:
+            return "none"
+        root = cls._root_cause(exc)
         text = str(root)
         text_l = text.lower()
         name = type(root).__name__
         if "is not installed" in text:                       # ImportError-гарды
-            return False
+            return "permanent"
+        # ── F9: специфичный парс ДО generic-классов ─────────────────────
+        if cls._is_proxy_auth_failed(root):                  # 407 (Y1)
+            return "proxy_auth_failed"
+        if cls._http_status_of(root) == 403:                 # forbidden, без retry
+            return "forbidden"
         if "extract_info returned none" in text_l:           # D154
-            return True
+            return "transient"
         if ("no readable subtitle files" in text
                 or "no ru/en subtitles" in text):            # ignoreerrors-артефакт
-            return False
+            return "permanent"
         if ("video unavailable" in text_l
                 or "video is not available" in text_l
                 or name == "VideoUnavailable"):
-            return False
+            return "permanent"
         if "sign in to confirm you're not a bot" in text_l:
-            return True
-        if name in ("TooManyRequests", "FailedToCreateConsentCookie",
-                    "JSONDecodeError"):
-            return True
+            return "transient"
+        if name == "TooManyRequests":
+            return "rate_limited"
+        if name in ("FailedToCreateConsentCookie", "JSONDecodeError"):
+            return "transient"
         if name == "ParseError":
-            return "no element found" in text_l
+            return "transient" if "no element found" in text_l else "permanent"
         if name == "YouTubeRequestFailed":
-            return ("http error" in text_l) or ("timed out" in text_l)
+            if "timed out" in text_l:
+                return "timeout"
+            # http error: 407/403 уже перехвачены специфичным парсом выше —
+            # здесь остаётся прежняя транзиентная семантика прочих http-фейлов.
+            return "transient" if "http error" in text_l else "permanent"
         if "empty transcript" in text_l:
-            return True
+            return "transient"
         if name == "HTTPError":                              # ДО TransportError!
-            status = getattr(root, "status", None)
+            status = cls._http_status_of(root)
             if status is None:
-                m = re.search(r"HTTP Error (\d{3})", text)
-                status = int(m.group(1)) if m else None
-            return status in _RETRY_HTTP_STATUSES if status is not None else False
+                return "permanent"
+            if status == 429:
+                return "rate_limited"
+            if status in _RETRY_HTTP_STATUSES:               # 5xx (F9: без 403)
+                return "server_error"
+            return "permanent"
         if name in ("TransportError", "ProxyError"):
-            return True
+            return "proxy_unavailable"                       # не-407 → transient bounded
         if name == "DownloadError":
-            return "http error" in text_l
+            if "http error" not in text_l:
+                return "permanent"
+            # Специфичный парс статуса ДО generic-решения (F9: «HTTP Error 407»
+            # сюда больше не доходит — перехвачен выше как proxy_auth_failed).
+            status = cls._http_status_of(root)
+            if status == 429:
+                return "rate_limited"
+            if status in _RETRY_HTTP_STATUSES:
+                return "server_error"
+            return "permanent"
         if name in ("TranscriptsDisabled", "NoTranscriptAvailable",
                     "NoTranscriptFound", "InvalidVideoId"):
-            return False
+            return "permanent"
+        if any(marker in text_l for marker in _RESET_MARKERS):
+            return "reset"
         if "timed out" in text_l or isinstance(root, TimeoutError):
-            return True
-        return False                                         # дефолт: PERMANENT
+            return "timeout"
+        return "permanent"                                   # дефолт: PERMANENT
+
+    @classmethod
+    def _is_transient(cls, exc: BaseException | None) -> bool:
+        """D155 + F9: ретраебельность = ``_failure_class(exc) in
+        _TRANSIENT_FAILURE_CLASSES``. Retry-матрица зафиксирована таблицей
+        в докстринге модуля (единственный источник правды)."""
+        return cls._failure_class(exc) in _TRANSIENT_FAILURE_CLASSES
 
     @staticmethod
     def _is_age_restricted(exc: BaseException | None) -> bool:
@@ -590,13 +805,17 @@ class YouTubeTranscriptEngine:
 
     @classmethod
     def _reason_of(cls, exc: BaseException | None) -> str | None:
-        """Причина одного движка: явный `reason` обёртки (age/transient),
-        иначе структурная классификация. `None` — движок не падал."""
+        """Причина одного движка: явный `reason` обёртки (age/proxy_auth/
+        transient), иначе структурная классификация. `None` — движок не падал.
+        F9: proxy_auth_failed СТАРШЕ explicit "transient" (407 перманентен
+        для запроса, даже если второй движок дал транзиентный фейл)."""
         if exc is None:
             return None
         explicit = getattr(exc, "reason", None)
         if explicit == "age_restricted" or cls._is_age_restricted(exc):
             return "age_restricted"
+        if explicit == "proxy_auth_failed" or cls._is_proxy_auth_failed(exc):
+            return "proxy_auth_failed"
         if explicit == "transient" or cls._is_transient(exc):
             return "transient"
         return "unavailable"
@@ -604,12 +823,15 @@ class YouTubeTranscriptEngine:
     @classmethod
     def _classify_reason(cls, ytdlp_exc: BaseException | None,
                          api_exc: BaseException | None) -> str:
-        """Раунд 10.24 (F16, spec 4.3): приоритет age_restricted → transient →
-        unavailable по обоим движкам. Значение уходит в `reason` итогового
-        исключения (хендлер выбирает пул фраз)."""
+        """Раунд 10.24 (F16, spec 4.3) + F9: приоритет age_restricted →
+        proxy_auth_failed → transient → unavailable по обоим движкам.
+        Значение уходит в `reason` итогового исключения (хендлер выбирает
+        пул фраз; unknown-reason деградирует в общий пул безопасно)."""
         reasons = {cls._reason_of(ytdlp_exc), cls._reason_of(api_exc)}
         if "age_restricted" in reasons:
             return "age_restricted"
+        if "proxy_auth_failed" in reasons:
+            return "proxy_auth_failed"
         if "transient" in reasons:
             return "transient"
         return "unavailable"
@@ -640,3 +862,139 @@ class YouTubeTranscriptEngine:
         if hasattr(resp, "length") and resp.length is not None:
             return str(resp.length)
         return "-"
+
+
+# ── F9: proxy health — connection test (§16, Y4/Y5) ─────────────────────────
+
+def _proxy_health_now_iso() -> str:
+    return datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds")
+
+
+def _engine_failure_view(exc: BaseException) -> dict:
+    """F9/Y5: безопасная проекция фейла движка для health-ответа: только
+    failure_class, HTTP-статус и КЛАСС исключения (никогда str(exc) — он
+    может нести proxy URL с user:pass)."""
+    root = YouTubeTranscriptEngine._root_cause(exc)
+    status = YouTubeTranscriptEngine._exc_status(exc)
+    return {
+        "status": "fail",
+        "code": YouTubeTranscriptEngine._failure_class(exc),
+        "http_status": status if status != "-" else None,
+        "exc_type": type(root).__name__,
+    }
+
+
+def _proxy_auth_probe(proxy_url: str) -> dict:
+    """F9/Y4: auth-проба прокси — GET https://www.youtube.com/generate_204
+    ЧЕРЕЗ прокси (CONNECT). Интерпретация:
+      * 407 от прокси / маркер «Proxy Authentication Required» → fail;
+      * туннель установлен, ЛЮБОЙ ответ цели (вкл. 4xx/5xx от YouTube) → ok
+        (auth принимает прокси, а не YouTube);
+      * соединение не состоялось (refused/timeout/DNS) → unreachable.
+    R17: тело ответа не читается, текст исключения наружу не идёт."""
+    try:
+        opener = urllib.request.build_opener(urllib.request.ProxyHandler(
+            {"http": proxy_url, "https": proxy_url}))
+        req = urllib.request.Request(
+            "https://www.youtube.com/generate_204",
+            headers={"User-Agent": "adminbot-proxy-health/1.0"},
+        )
+        with opener.open(req, timeout=_PROXY_HEALTH_HTTP_TIMEOUT) as resp:
+            return {"status": "ok", "http_status": int(resp.status),
+                    "reason": None}
+    except urllib.error.HTTPError as exc:
+        if exc.code == 407:
+            return {"status": "fail", "http_status": 407,
+                    "reason": "proxy_auth_failed"}
+        # Прокси пропустил к цели — auth ОК (код от самой YouTube).
+        return {"status": "ok", "http_status": int(exc.code), "reason": None}
+    except (urllib.error.URLError, TimeoutError, OSError) as exc:
+        cause_text = str(getattr(exc, "reason", None) or exc).lower()
+        if _PROXY_AUTH_MARKER in cause_text or "407" in cause_text:
+            return {"status": "fail", "http_status": None,
+                    "reason": "proxy_auth_failed"}
+        return {"status": "unreachable", "http_status": None,
+                "reason": "proxy_unreachable"}
+
+
+def proxy_health_snapshot() -> dict | None:
+    """Последний результат run_proxy_health_check (без запуска новой пробы)."""
+    return _PROXY_HEALTH_LAST
+
+
+def run_proxy_health_check(*, video_id: str = _PROXY_HEALTH_PROBE_VIDEO) -> dict:
+    """F9/Y4: connection test YouTube-прокси (owner-triggered, global-admin).
+
+    Шаги (все через ЕДИНЫЙ effective_proxy_profile):
+      1. auth — HTTP-проба через прокси (OK/FAIL/unreachable);
+      2. ytdlp_path — РЕАЛЬНЫЙ движок-путь _fetch_ytdlp(video_id);
+      3. transcript_api_path — list() через _transcript_proxy_config().
+
+    Прокси не настроен → все шаги skipped (reason=no_proxy), честный снимок.
+    Ответ содержит ТОЛЬКО endpoint_masked + коды классов/HTTP-статусы —
+    секреты (логин/пароль/полный URL прокси) НИКОГДА (Y5). Результат
+    кэшируется в _PROXY_HEALTH_LAST (GET /api/youtube/proxy/health)."""
+    global _PROXY_HEALTH_LAST
+    started = time.monotonic()
+    profile = effective_proxy_profile()
+    skipped = {"status": "skipped", "http_status": None, "reason": "no_proxy",
+               "code": None}
+    result: dict = {
+        "configured": bool(profile["configured"] and profile["proxy_url"]),
+        "source": profile["source"],
+        "credentialed_enabled": bool(
+            getattr(settings, "YOUTUBE_CREDENTIALED_LEVEL_ENABLED", True)),
+        "endpoint": profile["endpoint_masked"],     # уже замаскирован (Y5)
+        "auth_configured": bool(profile["auth_configured"]),
+        "auth": dict(skipped),
+        "ytdlp_path": dict(skipped),
+        "transcript_api_path": dict(skipped),
+        "checked_at": _proxy_health_now_iso(),
+    }
+    result["checked_at_ts"] = time.time()   # epoch-сек для UI fmtTs
+    if result["configured"]:
+        logger.info(
+            "[youtube engine] proxy health check started | endpoint=%s | "
+            "source=%s", profile["endpoint_masked"], profile["source"])
+        result["auth"] = _proxy_auth_probe(profile["proxy_url"])
+        engine = YouTubeTranscriptEngine()
+        try:
+            engine._fetch_ytdlp(video_id)
+            result["ytdlp_path"] = {"status": "ok", "code": None,
+                                    "http_status": None, "reason": None}
+        except Exception as exc:                    # noqa: BLE001 — классифицируем
+            result["ytdlp_path"] = _engine_failure_view(exc)
+        try:
+            proxy_cfg = engine._transcript_proxy_config()
+            if YouTubeTranscriptApi is None:
+                raise RuntimeError("youtube-transcript-api is not installed")
+            api = (YouTubeTranscriptApi(proxy_config=proxy_cfg)
+                   if proxy_cfg else YouTubeTranscriptApi())
+            api.list(video_id)
+            result["transcript_api_path"] = {"status": "ok", "code": None,
+                                             "http_status": None,
+                                             "reason": None}
+        except Exception as exc:                    # noqa: BLE001 — классифицируем
+            result["transcript_api_path"] = _engine_failure_view(exc)
+        logger.info(
+            "[youtube engine] proxy health check done | auth=%s | "
+            "ytdlp=%s | transcript_api=%s",
+            result["auth"]["status"], result["ytdlp_path"]["status"],
+            result["transcript_api_path"]["status"])
+    result["took_ms"] = int((time.monotonic() - started) * 1000)
+    _PROXY_HEALTH_LAST = result
+    return result
+
+
+def run_proxy_health_check_locked(**kwargs) -> dict:
+    """Singleflight: параллельный вызов НЕ плодит параллельных проб —
+    возвращает последний результат с in_progress=true (честный ответ)."""
+    if not _PROXY_HEALTH_LOCK.acquire(blocking=False):
+        snap = dict(_PROXY_HEALTH_LAST) if _PROXY_HEALTH_LAST \
+            else {"status": "never_run"}
+        snap["in_progress"] = True
+        return snap
+    try:
+        return run_proxy_health_check(**kwargs)
+    finally:
+        _PROXY_HEALTH_LOCK.release()
