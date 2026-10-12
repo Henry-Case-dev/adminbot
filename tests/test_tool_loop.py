@@ -281,4 +281,4 @@ class TestChatWithTools:
         assert out == "упоминали 7 раз"
         tool = llm.all_messages[1][-1]
         assert tool["role"] == "tool"
-        assert "Найдено 7 упоминаний «бензин» за всё время" in tool["content"]
+        assert "Широкий поиск (префиксы, не морфология): 7 сообщений «бензин» за всё время" in tool["content"]

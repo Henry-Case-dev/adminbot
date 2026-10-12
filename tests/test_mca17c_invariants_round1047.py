@@ -31,8 +31,8 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_reason_280_single_delta():
-    # 279 → 280: ровно один санкционированный код mca-17c.
-    assert len(mca_events.REASON_CODES) == 280
+    # 279 → 280 (mca-17c) → 285: +5 кодов Initiative v2 (ASAP 8 F6: writer_failed, initiative и др. — см. f6-report §8).
+    assert len(mca_events.REASON_CODES) == 285
     assert "oversight_job_action" in mca_events.REASON_CODES
     # другие контрольные коды в словаре отсутствуют (grep-факт T-5179)
     for alien in ("oversight_cancel", "oversight_resume", "oversight_retry",
@@ -132,7 +132,7 @@ def test_coverage_matrix_sync():
 
 def test_app_version_not_bumped():
     # bump 2.58.65→2.58.66 — домен @DevOps (T-5198), Builder не делает.
-    assert APP_VERSION == "2.58.74"
+    assert APP_VERSION == "2.58.75"
 
 
 def test_routes_plus3_and_registration():
