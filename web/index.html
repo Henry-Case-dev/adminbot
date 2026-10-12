@@ -2616,25 +2616,31 @@
                       · <b>обнаружена:</b> {{ fmtStoryDate(storiesManageCard.story.discovered_at) }}
                     </div>
                     <div class="text-gray-400 mt-1">
-                      <b>Участники (ID):</b> {{ (storiesManageCard.story.participants || []).join(', ') || 'неизвестно' }}
+                      <b>Участники:</b> {{ storiesParticipantsLabel(storiesManageCard.story.display_names, storiesManageCard.story.participants) || 'неизвестно' }}
+                    </div>
+                    <div class="text-gray-400 mt-1">
+                      <b>Исходных сообщений:</b> {{ storiesSourceCount(storiesManageCard) }} ·
+                      <b>бот:</b> {{ storiesUsageLabel(storiesManageCard.story) }}
                     </div>
                     <!-- Утверждения и источники (SourceRef-formа mca-04a: refs =
-                         ключи сообщений); исходный контекст — ключи эпизодов. -->
+                         ключи сообщений); исходный контекст — ключи эпизодов.
+                         F7: raw-ключи источников — под Developer details. -->
                     <div v-if="(storiesManageCard.story.claims || []).length" class="mt-1">
                       <b>Утверждения:</b>
                       <div v-for="(c, ci) in storiesManageCard.story.claims" :key="'cl' + ci"
-                           class="text-gray-300 ml-2">• {{ c.text }}
-                        <span v-if="(c.refs || []).length" class="text-gray-500">(источники: {{ c.refs.join(', ') }})</span>
-                      </div>
+                           class="text-gray-300 ml-2">• {{ c.text }}</div>
                     </div>
                     <div v-else class="text-gray-500 mt-1">Утверждений не извлечено (честно: данных нет).</div>
-                    <!-- Хронология эпизодов. -->
+                    <!-- Хронология эпизодов (F7: дата + суть + display names
+                         участников эпизода). -->
                     <div v-if="(storiesManageCard.episodes || []).length" class="mt-1">
                       <b>Хронология эпизодов:</b>
                       <div v-for="ep in storiesManageCard.episodes" :key="ep.episode_id"
                            class="text-gray-300 ml-2">
                         • {{ fmtStoryDate(ep.event_start_ts || ep.discovered_at) }} — {{ ep.title || 'без названия' }}
                         <span class="text-gray-500">· {{ ep.summary || 'без описания' }}</span>
+                        <span v-if="storiesParticipantsLabel(ep.display_names, ep.participants)"
+                              class="text-gray-400"> · участники: {{ storiesParticipantsLabel(ep.display_names, ep.participants) }}</span>
                         <span v-if="ep.recheck_pending" class="text-amber-300"> · нужна повторная проверка</span>
                       </div>
                     </div>
@@ -2649,6 +2655,19 @@
                          class="text-gray-500 mt-1">
                       Связанные убеждения/парадигмы: прямых связей в модели не зафиксировано (честно).
                     </div>
+                    <!-- F7 (§14): episode_id/raw IDs/build internals — ТОЛЬКО под
+                         Developer details (collapsed по умолчанию). -->
+                    <details class="mt-1" data-stories-dev>
+                      <summary class="cursor-pointer text-gray-500">Developer details (ID и служебные поля)</summary>
+                      <div class="text-[10px] text-gray-500 ml-2">
+                        <div>story_id: <span class="mono">{{ storiesManageCard.story.story_id }}</span><template v-if="storiesManageCard.redirect_target"> · redirect из объединённой: <span class="mono">{{ storiesManageCard.redirect_target }}</span></template></div>
+                        <div>Участники (ID): {{ (storiesManageCard.story.participants || []).join(', ') || '—' }}</div>
+                        <div>Эпизоды (ID): {{ storiesEpisodeIds(storiesManageCard) || '—' }}</div>
+                        <div>Ключи исходных сообщений: {{ storiesManageCard.original ? (storiesManageCard.original.message_keys || 0) : 0 }}</div>
+                        <div v-if="storiesClaimRefs(storiesManageCard).length">Источники утверждений (ключи сообщений): {{ storiesClaimRefs(storiesManageCard).join(', ') }}</div>
+                        <div v-if="storiesManageCard.related_beliefs && !storiesManageCard.related_beliefs.available">related_beliefs: {{ storiesManageCard.related_beliefs.reason }}</div>
+                      </div>
+                    </details>
                     <!-- Оригинал: ссылка только из валидированных метаданных. -->
                     <div class="mt-1">
                       <a v-if="storiesOriginalHref(storiesManageCard)"
@@ -2710,7 +2729,7 @@
                           <label>
                             <input type="checkbox" :value="ep.episode_id"
                                    v-model="storiesSplitSelection[ep.episode_id]">
-                            {{ ep.episode_id.slice(0, 8) }}… · {{ ep.title || 'без названия' }}
+                            {{ ep.title || 'без названия' }} · {{ fmtStoryDate(ep.event_start_ts || ep.discovered_at) }}
                           </label>
                         </div>
                         <button class="btn-ghost text-xs mt-1"
@@ -7094,12 +7113,15 @@
                  (D5) и честные пустые состояния. -->
             <div v-if="storiesEnabled" class="card p-4 sg-12" data-stories>
               <div class="flex items-center gap-2 mb-2 flex-wrap">
-                <div class="text-sm font-bold"><span class="msr" aria-hidden="true">{{ iconGlyph('auto_stories') }}</span> Истории чата</div>
+                <div class="text-sm font-bold"><span class="msr" aria-hidden="true">{{ iconGlyph('auto_stories') }}</span> Истории памяти</div>
                 <span v-if="storiesSummary && storiesSummary.state === 'ok'" class="badge badge-muted">
-                  всего: {{ storiesSummary.counters.total }}
+                  Всего: {{ storiesSummary.counters.total }}
                 </span>
                 <span v-if="storiesSummary && storiesSummary.state === 'ok'" class="badge badge-muted">
-                  новые/дополненные ({{ storiesSummary.window_hours }}ч): {{ storiesSummary.counters.new_window }}/{{ storiesSummary.counters.extended_window }}
+                  Новых за 24ч: {{ storiesSummary.counters.new_window }}
+                </span>
+                <span v-if="storiesSummary && storiesSummary.state === 'ok' && storiesSummary.counters.extended_window" class="badge badge-muted">
+                  дополнено за 24ч: {{ storiesSummary.counters.extended_window }}
                 </span>
                 <span v-if="storiesSummary && storiesSummary.counters && storiesSummary.counters.pending_verification"
                       class="badge badge-warn">ожидают проверки: {{ storiesSummary.counters.pending_verification }}</span>
@@ -7116,6 +7138,13 @@
                         @click="loadStoriesSummary(); loadStoriesFeed()">⟳</button>
                 <button class="btn-ghost text-xs" @click="openStoriesTable()">Открыть таблицу в «Памяти»</button>
               </div>
+              <!-- F7 (ASAP 8 §14): человеческое объяснение — что это такое и
+                   чем НЕ является (не Telegram Stories, не Summary). -->
+              <p class="text-xs text-gray-400 mb-2" data-stories-explain>
+                Истории памяти — это связанные куски разговора, объединённые в эпизоды,
+                чтобы бот помнил ситуации целиком, а не только отдельные сообщения.
+                Это не Telegram Stories и не Summary.
+              </p>
               <!-- Честные состояния витрины (D5/TH-8): нет чата / нет историй /
                    нет событий / недоступно — различимы, нулей без расчёта нет. -->
               <div v-if="!storiesSummary" class="spinner my-2"></div>
@@ -7140,19 +7169,10 @@
                 <div class="flex flex-wrap gap-2 text-xs mb-2" data-stories-progress
                      v-if="storiesSummary.progress">
                   <span class="badge badge-muted">
-                    Обработка (episodes.build):
-                    {{ storiesSummary.progress.episodes_build.state === 'not_run'
-                       ? 'не запускалась'
-                       : (storiesSummary.progress.episodes_build.last_outcome || '—')
-                         + (storiesSummary.progress.episodes_build.last_ts
-                            ? ' · ' + fmtTs(storiesSummary.progress.episodes_build.last_ts) : '') }}
+                    Последняя сборка: {{ storiesBuildLabel(storiesSummary.progress) }}
                   </span>
                   <span class="badge badge-muted">
-                    Архивный backfill:
-                    {{ storiesSummary.progress.episodes_backfill.state === 'not_run'
-                       ? 'не запускался'
-                       : storiesSummary.progress.episodes_backfill.state
-                         + (storiesSummary.progress.episodes_backfill.active ? ' · выполняется' : '') }}
+                    Backfill: {{ storiesBackfillLabel(storiesSummary.progress) }}
                   </span>
                   <span v-if="storiesSummary.counters && storiesSummary.counters.contradictions_window"
                         class="badge badge-warn">противоречий за окно: {{ storiesSummary.counters.contradictions_window }}</span>
@@ -7181,8 +7201,8 @@
                       </template>
                       <template v-if="storiesHasBothDates(ev)">
                         · обнаружена: {{ fmtStoryDate(ev.discovered_at) }}</template>
-                      <template v-if="(ev.participants || []).length">
-                        · участники: {{ ev.participants.join(', ') }}</template>
+                      <template v-if="(ev.display_names || []).length || (ev.participants || []).length">
+                        · участники: {{ storiesParticipantsLabel(ev.display_names, ev.participants) }}</template>
                       · {{ fmtStoryDateTime(ev.ts) }}
                     </div>
                     <div v-if="ev.story_id" class="mt-1">
@@ -7197,19 +7217,35 @@
                          class="mt-1 rounded border border-white/10 p-2 text-xs" data-stories-card>
                       <div class="flex items-center gap-2 flex-wrap mb-1">
                         <b>{{ storiesCard.story.title || 'Без названия' }}</b>
-                        <span class="badge badge-muted">v{{ storiesCard.story.expected_version }}</span>
                         <span class="badge badge-muted">{{ storiesStateRu(storiesCard.story.state) }}</span>
+                        <span class="badge badge-muted">{{ storiesVerificationRu(storiesCard.story.verification) }}</span>
                         <button class="btn-ghost text-[10px] ml-auto" @click="closeStoriesCard()">скрыть</button>
                       </div>
                       <div class="text-gray-300">{{ storiesCard.story.summary || 'Краткое содержание: неизвестно.' }}</div>
-                      <div class="text-gray-500 mt-1">
-                        Результат: {{ storiesOutcomeRu(storiesCard.story.outcome) }} ·
-                        проверка: {{ storiesVerificationRu(storiesCard.story.verification) }} ·
-                        участников: {{ (storiesCard.story.participants || []).length }} ·
+                      <div class="text-gray-400 mt-1">
+                        Период: {{ fmtStoryDate(storiesCard.story.event_start_ts || storiesCard.story.discovered_at) }}<template v-if="storiesCard.story.event_start_ts && storiesCard.story.event_end_ts && storiesCard.story.event_end_ts !== storiesCard.story.event_start_ts"> — {{ fmtStoryDate(storiesCard.story.event_end_ts) }}</template>
+                        · обнаружена: {{ fmtStoryDate(storiesCard.story.discovered_at) }}
+                      </div>
+                      <div class="text-gray-400 mt-1">
+                        Участники: {{ storiesParticipantsLabel(storiesCard.story.display_names, storiesCard.story.participants) || 'неизвестно' }}
+                      </div>
+                      <div class="text-gray-400 mt-1">
+                        Исходных сообщений: {{ storiesSourceCount(storiesCard) }} ·
+                        бот: {{ storiesUsageLabel(storiesCard.story) }} ·
                         эпизодов: {{ (storiesCard.episodes || []).length }}
                       </div>
                       <div v-if="storiesCard.contradictions && storiesCard.contradictions.length"
                            class="text-amber-300 mt-1">Противоречия: {{ storiesCard.contradictions.length }} (см. карточку в «Памяти»)</div>
+                      <!-- F7: raw IDs и служебные поля — только здесь (collapsed). -->
+                      <details class="mt-1" data-stories-dev>
+                        <summary class="cursor-pointer text-gray-500">Developer details</summary>
+                        <div class="text-[10px] text-gray-500 ml-2">
+                          story_id: <span class="mono">{{ storiesCard.story.story_id }}</span> ·
+                          версия: v{{ storiesCard.story.expected_version }} ·
+                          участники (ID): {{ (storiesCard.story.participants || []).join(', ') || '—' }} ·
+                          эпизоды (ID): {{ storiesEpisodeIds(storiesCard) || '—' }}
+                        </div>
+                      </details>
                       <div class="mt-1">
                         <button class="btn-ghost text-[10px]" @click="openStoriesTable()">Открыть в «Памяти»</button>
                       </div>

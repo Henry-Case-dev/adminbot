@@ -6811,6 +6811,77 @@
         if (!o) return '—';
         return o === 'исход неизвестен' ? o : o;
       },
+      // ── F7 (ASAP 8 §14): human-рендер «Историй памяти» ──────────────────
+      // Участники: наружу display names (серверный резолв web/api/stories.py),
+      // raw IDs главный UI не показывает (только под Developer details).
+      // Ответ без display_names (старый кэш) — честный fallback на сырые
+      // participants; одинаковые имена разных участников не склеиваются —
+      // сервер помечает ambiguous, здесь — честная пометка «(?)».
+      storiesParticipantsLabel: function (entries, fallbackParticipants) {
+        var list = (Array.isArray(entries) && entries.length)
+          ? entries
+          : (fallbackParticipants || []).map(function (p) {
+              return { id: String(p), name: String(p), ambiguous: false };
+            });
+        return list.map(function (e) {
+          if (!e) return '';
+          var n = (e.name != null && String(e.name).trim()) || '';
+          if (!n) return '';
+          return e.ambiguous ? n + ' (?)' : n;
+        }).filter(function (s) { return !!s; }).join(', ');
+      },
+      // Исходных сообщений по durable-ключам карточки; серверный счётчик
+      // ограничен потолком оригинала (200) → «200+» (без выдуманной точности).
+      storiesSourceCount: function (card) {
+        var n = card && card.original && card.original.message_keys;
+        if (n == null) return '—';
+        n = Number(n) || 0;
+        return n >= 200 ? '200+' : String(n);
+      },
+      // «Использовалась ли история потом» — честно из retrieval-статуса:
+      // фактов recall в модели нет (related_beliefs: direct_links_absent),
+      // поэтому показываем доступность в поиске памяти, не выдумывая
+      // «использовалась N раз».
+      storiesUsageLabel: function (story) {
+        if (!story) return '—';
+        return story.excluded_from_retrieval
+          ? 'исключена из поиска — не используется'
+          : 'используется в поиске памяти';
+      },
+      // Витрина §14: «Последняя сборка» / «Backfill» человеческим языком
+      // (вместо «Обработка (episodes.build): success · 12.10 14:33»).
+      storiesBuildLabel: function (progress) {
+        var b = progress && progress.episodes_build;
+        if (!b || b.state === 'not_run') return 'не запускалась';
+        var out = { success: 'успешно', error: 'с ошибкой', start: 'идёт' }[b.last_outcome]
+          || b.last_outcome || '—';
+        return out + (b.last_ts ? ' · ' + this.fmtStoryDateTime(b.last_ts) : '');
+      },
+      storiesBackfillLabel: function (progress) {
+        var bf = progress && progress.episodes_backfill;
+        if (!bf || bf.state === 'not_run') return 'не запускался';
+        var map = { queued: 'в очереди', running: 'идёт', paused: 'на паузе',
+                    completed: 'завершён', failed: 'с ошибкой',
+                    cancelled: 'отменён', interrupted: 'прерван' };
+        var label = map[bf.state] || bf.state || '—';
+        return label + (bf.active ? ' · выполняется' : '');
+      },
+      // Developer details: список episode_id карточки (raw IDs — только там).
+      storiesEpisodeIds: function (card) {
+        return ((card && card.episodes) || [])
+          .map(function (e) { return (e && e.episode_id) || ''; })
+          .filter(Boolean).join(', ');
+      },
+      // Developer details: все ключи-источники утверждений (без дублей).
+      storiesClaimRefs: function (card) {
+        var refs = [];
+        ((card && card.story && card.story.claims) || []).forEach(function (c) {
+          ((c && c.refs) || []).forEach(function (r) {
+            if (r && refs.indexOf(r) < 0) refs.push(r);
+          });
+        });
+        return refs;
+      },
       loadStoriesSummary: async function () {
         if (this.storiesSummaryBusy) return;
         this.storiesSummaryBusy = true;
