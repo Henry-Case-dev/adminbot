@@ -88,6 +88,9 @@ const INDEX = fs.readFileSync(
     'mod_images',
     // MCA-19 (10.43): +mod_vision (ADR-1028-19 D16).
     'mod_vision',
+    // ASAP 7 F3 (module registry): +mod_initiative; пин переиздан
+    // в ASAP 8 F10 (pre-existing gap, REV-F7 nb-4).
+    'mod_initiative',
     'modules', 'memory_rag', 'smart_cache', 'people_names', 'relations',
     'permsoc', 'access', 'chat_lore', 'status', 'info', 'oversight',
   ];
@@ -104,8 +107,9 @@ const INDEX = fs.readFileSync(
   assert.deepStrictEqual(navV2.map((n) => n.id),
     ['status', 'how', 'modules', 'ai', 'memory', 'access', 'permsoc'],
     'F1: IA v2 navbar — 7 пунктов, «Память» отдельно');
-  // Состав модулей (12 + «Генерация изображений») — F5 (10.24).
-  assert.strictEqual(data.modules.length, 14, 'T-1903: карточек модулей — 13');
+  // Состав модулей (12 + «Генерация изображений» + «Инициатива») — F5 (10.24)
+  // + ASAP 7 F3; пин переиздан в ASAP 8 F10.
+  assert.strictEqual(data.modules.length, 15, 'T-1903: карточек модулей — 15');
 })();
 
 // ── T-1895a: binding — значение из БД попадает в инпут; секрет → маска ────

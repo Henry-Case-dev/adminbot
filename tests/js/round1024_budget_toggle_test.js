@@ -8,7 +8,7 @@
  *   - карточек модулей ровно 12 (tma-menu-freeze: состав не изменился);
  *   - в TABS источниках вкладки mod_budgets присутствует группа
  *     flags_module_budgets (зеркало Python-rule);
- *   - новых вкладок нет: число вкладок в TABS заморожено (25), а Python-
+ *   - новых вкладок нет: число вкладок в TABS заморожено (28 с mod_initiative), а Python-
  *     инвариант TAB_RULES = 20 проверяется pytest-пинами.
  *
  * Запуск: node tests/js/round1024_budget_toggle_test.js → BUDGET-TOGGLE-OK
@@ -102,7 +102,8 @@ assert(groups.indexOf('flags_module_budgets') >= 0,
 // 3) tma-menu-freeze: F5 (10.24, ADR-1024-9) санкционировал РОВНО +1 вкладку
 // (mod_images) → 25→26. Python-инвариант TAB_RULES = 21 проверяется
 // pytest-пинами.
-assert.strictEqual(data.tabs.length, 27, 'tma-menu-freeze: вкладок 26');
+// ASAP 7 F3/ASAP 8 F10 (re-pin): +mod_initiative → 28 вкладок.
+assert.strictEqual(data.tabs.length, 28, 'tma-menu-freeze: вкладок 28');
 const ids = data.tabs.map((t) => t.id);
 assert.strictEqual(ids.length, ids.filter((v, i) => ids.indexOf(v) === i).length,
   'дубли вкладок недопустимы');

@@ -112,12 +112,15 @@ function makeSaveCtx(configItems, keyDrafts) {
       'mod_images',
       // MCA-19 (10.43): +mod_vision (ADR-1028-19 D16).
       'mod_vision',
+      // ASAP 7 F3 (module registry): +mod_initiative; пин переиздан
+      // в ASAP 8 F10 (pre-existing gap, REV-F7 nb-4).
+      'mod_initiative',
       'modules', 'memory_rag', 'smart_cache', 'people_names', 'relations',
       'permsoc', 'access', 'chat_lore', 'status', 'info', 'oversight',
     ];
     assert.deepStrictEqual(data.tabs.map((t) => t.id), expectedTabs,
       'меню: состав/порядок вкладок не изменён');
-    assert.strictEqual(data.modules.length, 14, 'меню: 14 карточек модулей');
+    assert.strictEqual(data.modules.length, 15, 'меню: 15 карточек модулей');
   }
 
   // ── sentinel: SECRET_MASK / isSecretMask ───────────────────────────────
