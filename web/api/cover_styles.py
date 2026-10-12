@@ -1422,13 +1422,19 @@ class PreviewCompileContextBody(BaseModel):
 
 
 class PreviewCompileBody(BaseModel):
-    """Точный черновик редактора (StyleDraftBody) + опциональный контекст."""
+    """Точный черновик редактора (StyleDraftBody) + опциональный контекст.
 
+    ASAP 8 F4 (§4.3, C7): ``mode`` — ``"base"`` (default, прежний контракт
+    Base-сборки) | ``"style"`` (Style-стадия тем же server-compiler'ом
+    ``compile_style_prompt``: preservation + runtime + story identity +
+    инструкция профиля + refs + draft как base_style). JS-дубликата
+    компилятора нет (§28.9)."""
     model_config = {"extra": "forbid"}
 
     profile_id: str | None = None
     draft: StyleDraftBody | None = None
     context: PreviewCompileContextBody | None = None
+    mode: str = "base"
 
 
 def _resolve_preview_context(user: WebAppUser,
@@ -1460,22 +1466,213 @@ def _resolve_preview_context(user: WebAppUser,
         return None, "test_run_not_found"
 
 
+# ── F4 (§4.3, C7): mode="style" — Style-стадия тем же server compiler ───────
+
+STYLE_PREVIEW_MODES = ("base", "style")
+
+
+async def _resolve_style_preview_profile(pg, body: PreviewCompileBody):
+    """Профиль для style-превью — детерминированный, источник честный.
+
+    Порядок: явный ``profile_id`` → per-chat выбор Style-профиля
+    (``resolve_selected_style_id`` — ТОТ ЖЕ резолв, что production
+    Style-стадия, DC-5) → первый enabled-профиль реестра (детерминированный
+    fallback для редактора без контекста). ``(None, source)`` — профиля нет
+    (честный ``no_profile``, не выдумываем стиль)."""
+    if body.profile_id:
+        profile = await registry.get_profile(pg, body.profile_id)
+        return profile, ("explicit" if profile is not None
+                         else "explicit_not_found")
+    if body.context is not None and body.context.chat_id:
+        try:
+            style_id = await pipeline.resolve_selected_style_id(
+                int(body.context.chat_id))
+        except Exception:
+            style_id = ""
+        if style_id:
+            profile = await registry.get_profile(pg, style_id)
+            if profile is not None:
+                return profile, "chat_selected"
+    try:
+        rows = await registry.list_profiles(pg, include_disabled=False)
+    except Exception:
+        rows = []
+    for profile in rows or []:
+        if profile is not None:
+            return profile, "first_enabled"
+    return None, "none"
+
+
+def _style_preview_placeholder(*, reason: str, message: str,
+                               style_source: str, profile_source: str,
+                               profile_id: str, budget: dict) -> dict:
+    """Честный placeholder style-режима (§4.3): без фейкового промпта,
+    зарезервированные бюджеты видны (паттерн Base-placeholder §9.4)."""
+    return {
+        "status": "no_context" if reason != "profile_not_found"
+        else "no_profile",
+        "mode": "style",
+        "reason": reason,
+        "message": message,
+        "style_source": style_source,
+        "profile_source": profile_source,
+        "profile_id": profile_id,
+        "context": {"source": "none"},
+        "manifest": None,
+        "components": [],
+        "final_prompt": None,
+        "budget": budget,
+        "style_publish_skip_reason": None,
+    }
+
+
+async def _preview_compile_style(body: PreviewCompileBody, user: WebAppUser,
+                                 pg, *, base_style: str, style_source: str,
+                                 resolved_limit, limit_unit,
+                                 limit_source, budget_of):
+    """ASAP 8 F4 (§4.3): compile-only сборка Style-стадии (C7).
+
+    ТОТ ЖЕ server compiler, что production Style Edit
+    (``jobs.compile_style_prompt`` — F3-контракт: preservation + runtime +
+    story identity + instruction профиля + refs + base_style), ТОТ ЖЕ
+    лимит-резолвер, что Base-режим; манифест — единый
+    ``cpa.build_style_manifest`` (sent/trimmed/omitted по факту). Image НЕ
+    генерируется, платных вызовов нет. Контекст — тот же
+    ``_resolve_preview_context`` (свои test-прогоны, R17); контекста нет →
+    честный «контекст недоступен» + reserved budget. Fail-soft F3:
+    ``style_publish_skip_reason`` — честный сигнал «в проде будет Base»."""
+    # 1) Draft — textarea «Стиль обложки» (= base_style_prompt продакшн-
+    #    цепочки). Fallback к profile.instruction здесь НЕЧестен (это другой
+    #    компонент P1) — пусто → честный "empty".
+    # 2) Профиль — детерминированный резолв (см. helper).
+    profile, profile_source = await _resolve_style_preview_profile(pg, body)
+    if profile is None:
+        return _style_preview_placeholder(
+            reason="profile_not_found",
+            message="Профиль стиля не найден: создайте профиль в "
+                    "«ИИ → Саммари → Стили обложки» (честный предпросмотр).",
+            style_source=style_source, profile_source=profile_source,
+            profile_id=str(body.profile_id or ""), budget=budget_of(0))
+    profile_id = str(profile.get("profile_id") or "")
+    counter_format = str(profile.get("counter_format")
+                         or registry.SEEDED_COUNTER_FORMAT)
+    issue_display = registry.preview_issue_display(
+        counter_format, registry.next_issue_number(profile))
+    # 3) Capabilities — из ТОГО ЖЕ лимит-резолвера, что Base-режим
+    #    (resolve_generate_prompt_limit_async); unknown → сборка без cap,
+    #    честный resolved_limit=None (компилятор сам).
+    from services.image_capabilities import (
+        ImageModelCapabilities,
+        PromptLimit,
+    )
+    caps = ImageModelCapabilities(prompt_limit=PromptLimit(
+        value=resolved_limit, unit=str(limit_unit or "unknown"),
+        source=str(limit_source or "unknown")))
+    # 4) Контекст — тот же, что Base-режим (свои test-прогоны, fail-closed).
+    entry, ctx_reason = _resolve_preview_context(user, body.context)
+    if entry is None:
+        return _style_preview_placeholder(
+            reason=ctx_reason or "not_selected",
+            message="Контекст недоступен: сцена и контекст саммари не "
+                    "собираются (честный предпросмотр).",
+            style_source=style_source, profile_source=profile_source,
+            profile_id=profile_id, budget=budget_of(0))
+    artifacts = (entry.result.artifacts or {}) if entry.result else {}
+    package = artifacts.get("package") or {}
+    cover_prompt = str((((package or {}).get("service")) or {})
+                       .get("cover_prompt") or "")
+    doc = artifacts.get("article")
+    document = doc if isinstance(doc, dict) else {}
+    guard = cpa.cover_context_decision(
+        cover_prompt, document.get("title"),
+        [p.get("text") for p in (document.get("paragraphs") or [])
+         if isinstance(p, dict)])
+    if guard["status"] == "cover_context_missing" and not guard["story"]:
+        return _style_preview_placeholder(
+            reason="cover_context_missing",
+            message="В выбранном тест-прогоне нет содержательной статьи — "
+                    "сцену вывести не из чего (честный предпросмотр).",
+            style_source=style_source, profile_source=profile_source,
+            profile_id=profile_id, budget=budget_of(0))
+    story = guard["story"]
+    ctx_text = guard["ctx"]
+    from services import image_prompt_compiler as compiler
+    brief = compiler.brief_from_text(ctx_text) if ctx_text else None
+    compiled = jobs.compile_style_prompt(
+        profile, issue_display=issue_display, capabilities=caps,
+        base_style_prompt=base_style, brief=brief, story_scene=story)
+    anomaly_reason = ("anomaly_recovered"
+                      if guard["status"] == "anomaly_recovered" else "")
+    brief_text = brief.render() if brief is not None else ""
+    manifest = cpa.build_style_manifest(
+        issue_display=issue_display,
+        instruction=str(profile.get("instruction") or ""),
+        base_style_prompt=base_style,
+        refs_text=jobs.style_reference_text(profile),
+        ref_roles_text=cpa.reference_roles_text(
+            profile.get("references") or []),
+        story_scene=story,
+        context_text=brief_text,
+        final_prompt=compiled.prompt,
+        provider="", model="", route="preview_compile",
+        operation="edit",
+        resolved_limit=(int(compiled.resolved_limit)
+                        if compiled.resolved_limit is not None else None),
+        limit_unit=((str(compiled.resolved_limit)
+                     if compiled.resolved_limit is not None else "unknown")
+                    + ":" + str(compiled.unit or "unknown")),
+        limit_source=str(limit_source or "unknown"),
+        attempts=[{"attempt": 1, "prompt": compiled.prompt,
+                   "outcome": ("failed" if compiled.exceeded else "sent"),
+                   "reason": (compiled.reason or anomaly_reason)}])
+    # F3 fail-soft (§5.4): тот же детерминированный сигнал, что production.
+    story_identity = jobs._story_identity_text(story, brief)
+    skip_reason = jobs.style_publish_skip_reason(
+        compiled, story_text=story_identity)
+    return {
+        "status": "ok",
+        "mode": "style",
+        "reason": "",
+        "message": "",
+        "style_source": style_source,
+        "profile_source": profile_source,
+        "profile_id": profile_id,
+        "context": {"test_id": entry.test_id, "chat_id": entry.chat_id,
+                    "source": "summary_test_run"},
+        "manifest": manifest,
+        # Единая форма breakdown'а с Base-режимом (та же таблица UI).
+        "components": manifest["components"],
+        "final_prompt": compiled.prompt,
+        "budget": budget_of(len(compiled.prompt)),
+        "style_publish_skip_reason": skip_reason,
+        "route": "preview_compile",
+        "exceeded": bool(compiled.exceeded),
+        "compile_reason": compiled.reason or "",
+    }
+
+
 @cover_styles_router.post("/cover/preview-compile")
 async def cover_preview_compile(
     body: PreviewCompileBody,
     request: Request,
     user: Annotated[WebAppUser, Depends(requires_global_admin())],
 ):
-    """ASAP 7 F7 (§9.2–§9.4): live-превью фактической сборки Base-промпта.
+    """ASAP 7 F7 (§9.2–§9.4) + ASAP 8 F4 (§4.3): live-превью фактической
+    сборки промпта ТОЛЬКО server-compiler'ом (frontend ничего не собирает,
+    §22 п.15/§28.9). Compile-only: изображение НЕ генерируется, платных
+    вызовов нет, номер выпуска не расходуется.
 
-    ТОТ ЖЕ server compiler, что production Base и Summary Test
-    (``compose_base_cover_prompt`` + единый ``CoverPromptManifest``, §2.3) —
-    frontend ничего не собирает сам (§22 п.15). Compile-only: изображение НЕ
-    генерируется, платных вызовов нет, номер выпуска не расходуется.
+    ``mode="base"`` (default, прежний контракт): Base-сборка —
+    ``compose_base_cover_prompt`` + единый ``CoverPromptManifest`` (§2.3);
+    draft.instruction = BASE_STYLE. Без test-context — честный placeholder
+    (§9.4): exact current draft по BASE_STYLE + зарезервированные бюджеты.
 
-    Без выбранного test-context — честный placeholder (§9.4): exact current
-    draft по BASE_STYLE + зарезервированные бюджеты; сцена/контекст саммари —
-    ``preview_context_not_selected``; никакого фейкового production-промпта.
+    ``mode="style"`` (F4, C7): Style-стадия — ``compile_style_prompt``
+    (preservation + runtime + story identity + инструкция профиля + refs +
+    draft как base_style_prompt), тот же лимит-резолвер/budget, манифест —
+    ``build_style_manifest`` (sent/trimmed/omitted). Контекста нет → честно
+    «контекст недоступен» + reserved budget; F3 fail-soft сигнал
+    ``style_publish_skip_reason`` («в проде будет Base»).
 
     Полный текст (exact compiled) — ТОЛЬКО в этом global-admin ответе (R17);
     в логи не пишется.
@@ -1483,6 +1680,10 @@ async def cover_preview_compile(
     cache = get_cache(request)
     if not _enabled():
         raise HTTPException(status_code=404, detail="cover styles disabled")
+    if body.mode not in STYLE_PREVIEW_MODES:
+        raise HTTPException(
+            status_code=422,
+            detail="mode должен быть 'base' или 'style'")
     pg = _pg(cache)
     # 1) Стиль-источник превью: точный черновик редактора (§9.4 «exact
     #    current draft»); без draft — instruction сохранённого профиля.
@@ -1557,6 +1758,7 @@ async def cover_preview_compile(
         used = sum(len(c["sent_text"]) for c in components)
         return {
             "status": "no_context",
+            "mode": "base",
             "reason": reason,
             "message": message,
             "style_source": style_source,
@@ -1564,6 +1766,21 @@ async def cover_preview_compile(
             "components": components,
             "budget": _budget(used),
         }
+
+    # F4 (§4.3, C7): mode="style" — Style-стадия тем же server compiler'ом
+    # (compile_style_prompt, F3-контракт НЕ меняется — только вызов).
+    if body.mode == "style":
+        base_style = ""
+        style_source_style = "empty"
+        if body.draft is not None \
+                and str(body.draft.instruction or "").strip():
+            base_style = str(body.draft.instruction)
+            style_source_style = "draft_instruction"
+        return await _preview_compile_style(
+            body, user, pg, base_style=base_style,
+            style_source=style_source_style,
+            resolved_limit=resolved_limit, limit_unit=limit_unit,
+            limit_source=limit_source, budget_of=_budget)
 
     # 3) Test-context — только свои прогоны (fail-closed).
     entry, ctx_reason = _resolve_preview_context(user, body.context)
@@ -1606,6 +1823,7 @@ async def cover_preview_compile(
                            if anomaly_reason else None))
     return {
         "status": "ok",
+        "mode": "base",
         "reason": "",
         "context": {"test_id": entry.test_id, "chat_id": entry.chat_id,
                     "source": "summary_test_run"},

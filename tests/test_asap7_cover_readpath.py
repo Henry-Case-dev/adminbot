@@ -170,14 +170,22 @@ class TestRunCoverPromptsReader:
             _asyncio_run(db.close())
 
     def test_reader_fail_open(self, tmp_path):
+        """F4 (§4.2): degenerate-ветка (нет БД/run_id) — прежний
+        None-shape БЕЗ status-кодов (нечего определять); отсутствующий
+        run проходит реальный путь чтения → честный legacy_run (по
+        durable-артефактам absent/legacy неразличимы)."""
         db = _make_db(tmp_path)
         try:
             assert _asyncio_run(cjobs.load_run_cover_prompts(
                 None, "run-x")) == {"base": None, "style": None}
             assert _asyncio_run(cjobs.load_run_cover_prompts(
                 db, "")) == {"base": None, "style": None}
-            assert _asyncio_run(cjobs.load_run_cover_prompts(
-                db, "run-absent")) == {"base": None, "style": None}
+            prompts = _asyncio_run(cjobs.load_run_cover_prompts(
+                db, "run-absent"))
+            assert prompts["base"] is None
+            assert prompts["style"] is None
+            assert prompts["cover_prompts_status"] == {
+                "base": "legacy_run", "style": "legacy_run"}
         finally:
             _asyncio_run(db.close())
 
@@ -281,12 +289,20 @@ class TestIncludePromptRbac:
         assert cp["style"] is None
 
     def test_include_prompt_absent_run_honest_empty(self, client_f8):
+        """F4: отсутствующий run — честные None + status legacy_run
+        (по durable-артефактам absent/legacy неразличимы, C6)."""
         resp = client_f8.get(
             "/api/analytics/pipeline/runs/run-absent?include_prompt=true",
             headers=_hdr(ADMIN_ID))
         assert resp.status_code == 200
-        cp = resp.json()["cover_prompts"]
-        assert cp == {"base": None, "style": None}
+        body = resp.json()
+        cp = body["cover_prompts"]
+        assert cp["base"] is None
+        assert cp["style"] is None
+        assert cp["cover_prompts_status"] == {
+            "base": "legacy_run", "style": "legacy_run"}
+        assert body["cover_prompts_status"] == {
+            "base": "legacy_run", "style": "legacy_run"}
 
 
 # ── 3. UI-контракт (статика): гейтинг рендера ──────────────────────────────

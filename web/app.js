@@ -1801,6 +1801,17 @@
           _returnProfileId: '',   // §35: контекст редактора при возврате
           _assets: {},            // asset_id → objectURL (blob-fetch)
         },
+        // F4 (ASAP 8 §4.3, C7): превью на странице «ИИ → Промпты →
+        // Стиль обложки» — тот же server compiler (mode base|style).
+        // Топ-уровень data (не внутри coverStyles): вкладка «Промпты»
+        // рендерится независимо от загрузки Cover Style Editor.
+        promptStylePreview: {
+          busy: false,
+          mode: 'style',          // 'style' (Style Edit) | 'base' (Base)
+          chatId: 0,              // 0 = без test-контекста (честный placeholder)
+          result: null,
+          message: '',
+        },
         // A9/T-1206/10.8: «Доступы» — id открытого окна подраздела (route-driven).
         accessOpen: null,             // null | 'roles' | 'local' | 'admins'
         // EXTRA §35: deep-link из Style Editor — целевая config-группа для
@@ -3730,12 +3741,39 @@
         if (!cp || typeof cp !== 'object') return null;
         return cp;
       },
-      // Рендер только при правах global admin И фактических данных
-      // include_prompt (нет манифестов — блок скрыт, не «пусто»).
+      // F4 (ASAP 8 §4.2, C6): блок «Фактический промпт» для global admin
+      // ВИДЕН ВСЕГДА (пока показан run) — нет манифестов → явная причина
+      // (cover_prompts_status), а не молчаливое сокрытие (§28.8).
       pipelineCoverPromptsVisible: function () {
-        if (!this.isGlobalAdminEffective) return false;
+        return this.isGlobalAdminEffective;
+      },
+      // F4: статус-коды сторон {base, style} — top-level ответа либо
+      // вложенные в cover_prompts (читатель cover_style_jobs).
+      pipelineCoverPromptsStatus: function () {
         var cp = this.pipelineCoverPrompts;
-        return !!(cp && (cp.base || cp.style));
+        var st = (this.pipelineData && this.pipelineData.cover_prompts_status)
+          || (cp && cp.cover_prompts_status) || null;
+        return (st && typeof st === 'object') ? st : null;
+      },
+      // F4: строки «недоступен · причина» для сторон без манифеста.
+      pipelineCoverPromptMissingRows: function () {
+        var cp = this.pipelineCoverPrompts;
+        var st = this.pipelineCoverPromptsStatus;
+        var self = this;
+        var labels = { base: 'Базовая обложка (Base)',
+                       style: 'Стиль (Style Edit)' };
+        var rows = [];
+        ['base', 'style'].forEach(function (k) {
+          if (!(cp && cp[k])) {
+            rows.push({
+              key: k,
+              text: labels[k] + ': фактический промпт недоступен — '
+                + (self.pipelineCoverPromptStatusRu(st && st[k])
+                   || 'причина неизвестна'),
+            });
+          }
+        });
+        return rows;
       },
       pipelineCoverPromptGroups: function () {
         var cp = this.pipelineCoverPrompts;
@@ -5598,6 +5636,32 @@
             this.pipelineData.selected_run = detail && detail.run;
             this.pipelineData.cover_prompts =
               (detail && detail.cover_prompts) || null;
+            this.pipelineData.cover_prompts_status =
+              (detail && detail.cover_prompts_status)
+              || ((detail && detail.cover_prompts || {})
+                  .cover_prompts_status) || null;
+          } else if (this.isGlobalAdminEffective) {
+            // F4 (ASAP 8 §4.1, C5): «Последний запуск» — exact-промпты
+            // сразу, без клика по конкретному run (§28.7). Сервер сам
+            // резолвит latest run_id той же сортировкой, что список
+            // инспектора. run из ответа подменяет карту прогона — карточка
+            // и промпты гарантированно про ОДИН run. Не-глобал этот
+            // endpoint не вызывает (403 fail-closed — без спама в логах).
+            var latest = await this.api(
+              '/api/analytics/pipeline/runs/latest?include_prompt=true')
+              .catch(function () { return null; });
+            if (latest && latest.run) {
+              this.pipelineData.run = latest.run;
+              this.pipelineData.cover_prompts =
+                latest.cover_prompts || null;
+              this.pipelineData.cover_prompts_status =
+                latest.cover_prompts_status
+                || ((latest.cover_prompts || {}).cover_prompts_status)
+                || null;
+            } else {
+              this.pipelineData.cover_prompts = null;
+              this.pipelineData.cover_prompts_status = null;
+            }
           }
         } catch (e) {
           this.pipelineData = null;
@@ -5620,6 +5684,20 @@
         if (m.route) parts.push(String(m.route));
         if (m.operation) parts.push(String(m.operation));
         return parts.join(' · ');
+      },
+      // F4 (§4.2, C6): человекочитаемая причина отсутствия манифеста (RU);
+      // неизвестный код — только fallback (enum-контракт reader'а).
+      pipelineCoverPromptStatusRu: function (code) {
+        var map = {
+          ok: '',
+          base_manifest_missing: 'манифест Base не найден',
+          style_job_not_linked: 'Style-джоба не связана с прогоном',
+          style_job_failed: 'Style-джоба завершилась без манифеста',
+          legacy_run: 'прогон до эпохи манифестов (legacy)',
+          unknown: 'причина неизвестна',
+        };
+        if (!code || code === 'ok') return '';
+        return map[code] || String(code);
       },
       // F8 (§2.5): machine reason попытки — человекочитаемо только в
       // developer-details; enum как есть (не выдумка).
@@ -10828,6 +10906,8 @@
           STYLE_PROFILE: 'Профиль стиля',
           RUNTIME_INVARIANTS: 'Обязательные инварианты',
           REFERENCES: 'Референсы',
+          // F3-хвост (REV-F3/F4): новый P0-компонент манифеста.
+          CONTENT_PRESERVATION: 'Инвариант сохранения сюжета',
         };
         var k = (c && c.key) || '';
         return keys[k] || (c && c.source) || k || '—';
@@ -10912,11 +10992,12 @@
         });
       },
       // exact compiled prompt — ТОЛЬКО при status ok (честный placeholder
-      // не рисует фейковый «итоговый промпт»).
-      coverCompileFinalText: function () {
-        var r = this.coverStyles.compile.result;
+      // не рисует фейковый «итоговый промпт»). F4: опциональный result —
+      // переиспользование хелпера превью-блоком страницы «Промпты».
+      coverCompileFinalText: function (result) {
+        var r = result || this.coverStyles.compile.result;
         if (!r || r.status !== 'ok' || !r.manifest) return '';
-        return r.manifest.final_prompt || '';
+        return r.manifest.final_prompt || r.final_prompt || '';
       },
       coverCompileReasonText: function (c) {
         if (!c) return '—';
@@ -10925,8 +11006,8 @@
         }
         return c.reason || '—';
       },
-      coverCompileBudgetText: function () {
-        var r = this.coverStyles.compile.result;
+      coverCompileBudgetText: function (result) {
+        var r = result || this.coverStyles.compile.result;
         if (!r || !r.budget) return '';
         var b = r.budget;
         var parts = [];
@@ -10946,6 +11027,72 @@
             + ' · контекст ≤' + b.reserved.context_max);
         }
         return parts.join(' · ');
+      },
+      // ── F4 (ASAP 8 §4.3, C7): live-превью на странице «ИИ → Промпты →
+      // Стиль обложки» — ТОТ ЖЕ server compiler (POST /api/cover/
+      // preview-compile, mode base|style). Frontend промпт не собирает
+      // (§28.9): JS-дубликата компилятора нет, только отображение ответа.
+      promptStylePreviewCompile: function (item) {
+        var st = this.promptStylePreview;
+        if (st.busy) return;
+        st.busy = true;
+        st.message = '';
+        var body = {
+          mode: st.mode === 'base' ? 'base' : 'style',
+          // exact current draft: значение редактируемой textarea.
+          draft: { instruction: String((item && item.value) || '') },
+        };
+        if (st.chatId) body.context = { chat_id: st.chatId };
+        return this.api('/api/cover/preview-compile', {
+          global: true, method: 'POST',
+          body: JSON.stringify(body),
+        }).then(function (data) {
+          st.busy = false;
+          st.result = data || null;
+          st.message = (data && data.message) || '';
+        }).catch(function (e) {
+          st.busy = false;
+          st.result = null;
+          st.message = (e && e.message) || 'Не удалось собрать промпт';
+        });
+      },
+      promptStyleSkipRu: function (reason) {
+        var map = {
+          prompt_limit_exceeded: 'обязательное ядро (P0/P1) не влезает '
+            + 'в лимит — в проде будет опубликована Base обложка',
+          story_identity_dropped: 'сюжетная идентичность потеряна — '
+            + 'в проде будет опубликована Base обложка',
+        };
+        if (!reason) return '';
+        return map[reason] || reason;
+      },
+      promptStyleSourceRu: function (r) {
+        if (!r) return '—';
+        var map = { draft_instruction: 'текст редактора (черновик)',
+                    profile_instruction: 'инструкция профиля',
+                    empty: 'пусто' };
+        return map[r.style_source] || r.style_source || '—';
+      },
+      promptStyleProfileRu: function (r) {
+        if (!r) return '—';
+        var map = { explicit: 'выбранный профиль',
+                    chat_selected: 'профиль чата (как в проде)',
+                    first_enabled: 'первый включённый профиль',
+                    none: 'нет', explicit_not_found: 'не найден' };
+        var src = map[r.profile_source] || r.profile_source || '—';
+        return src + (r.profile_id ? ' (' + r.profile_id + ')' : '');
+      },
+      promptStyleContextRu: function (r) {
+        if (!r) return '—';
+        var ctx = r.context || {};
+        if (ctx.source === 'summary_test_run') {
+          return 'test-прогон' + (ctx.chat_id ? (' · чат ' + ctx.chat_id)
+            : '') + (ctx.test_id ? (' · ' + ctx.test_id) : '');
+        }
+        if (r.status === 'no_context') {
+          return 'недоступен — ' + (r.reason || 'not_selected');
+        }
+        return '—';
       },
       // §7.2: сохранить manual override; не блокирует сохранение стиля.
       coverStyleSavePromptLimit: function () {

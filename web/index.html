@@ -2068,6 +2068,96 @@
                               <div class="text-xs text-gray-500 font-mono truncate mb-1">{{ item.key }}</div>
                               <div class="text-xs text-gray-400 mb-2">{{ item.description }}</div>
                               <textarea class="field scroll-thin" rows="6" v-model="item.value"></textarea>
+                              <!-- F4 (ASAP 8 §4.3, C7): server-compiled
+                                   preview «Стиль обложки» — тот же POST
+                                   /api/cover/preview-compile (mode
+                                   base|style), global admin. Никакого
+                                   JS-компилятора (§28.9): только
+                                   отображение ответа сервера; без
+                                   test-контекста — честный placeholder +
+                                   reserved budget. -->
+                              <template v-if="item.key === 'prompts.summary_cover_style'">
+                                <div v-if="isGlobalAdmin"
+                                     class="flex flex-col text-xs gap-2 rounded-xl border border-white/10 p-3 mt-2"
+                                     data-prompt-style-preview>
+                                  <div class="flex items-center gap-2 flex-wrap">
+                                    <span class="text-gray-400">Фактическая сборка промпта</span>
+                                    <button type="button" class="btn-ghost text-xs"
+                                            :class="{ 'font-bold': promptStylePreview.mode === 'style' }"
+                                            :disabled="promptStylePreview.busy"
+                                            @click="promptStylePreview.mode = 'style'"
+                                            data-prompt-style-mode-style>Style Edit</button>
+                                    <button type="button" class="btn-ghost text-xs"
+                                            :class="{ 'font-bold': promptStylePreview.mode === 'base' }"
+                                            :disabled="promptStylePreview.busy"
+                                            @click="promptStylePreview.mode = 'base'"
+                                            data-prompt-style-mode-base>Base</button>
+                                    <select class="field max-w-xs"
+                                            v-model.number="promptStylePreview.chatId"
+                                            data-prompt-style-chat>
+                                      <option :value="0">— без test-контекста (честный предпросмотр) —</option>
+                                      <option v-for="c in accessChats" :key="'psc-' + c.chat_id"
+                                              :value="c.chat_id">
+                                        {{ c.title || ('Чат ' + c.chat_id) }}
+                                      </option>
+                                    </select>
+                                    <button type="button" class="btn-ghost text-xs ml-auto"
+                                            :disabled="promptStylePreview.busy"
+                                            @click="promptStylePreviewCompile(item)"
+                                            data-prompt-style-run>
+                                      {{ promptStylePreview.busy ? 'Сборка…' : 'Собрать промпт' }}
+                                    </button>
+                                  </div>
+                                  <div v-if="promptStylePreview.message" class="text-amber-300"
+                                       data-prompt-style-message>{{ promptStylePreview.message }}</div>
+                                  <template v-if="promptStylePreview.result && promptStylePreview.result.status === 'ok'">
+                                    <div class="text-gray-500" data-prompt-style-meta>
+                                      Источник стиля: {{ promptStyleSourceRu(promptStylePreview.result) }}
+                                      · Профиль: {{ promptStyleProfileRu(promptStylePreview.result) }}
+                                      · Контекст: {{ promptStyleContextRu(promptStylePreview.result) }}
+                                      · Маршрут: {{ promptStylePreview.result.route || 'preview_compile' }}
+                                    </div>
+                                    <div v-if="promptStylePreview.result.style_publish_skip_reason"
+                                         class="text-amber-300" data-prompt-style-skip>
+                                      ⚠ {{ promptStyleSkipRu(promptStylePreview.result.style_publish_skip_reason) }}
+                                    </div>
+                                    <div v-if="coverCompileFinalText(promptStylePreview.result)"
+                                         class="flex flex-col gap-1" data-prompt-style-final>
+                                      <div class="flex items-center gap-2 flex-wrap">
+                                        <span class="text-gray-500">Exact compiled prompt</span>
+                                        <button type="button" class="btn-ghost text-xs"
+                                                @click="copyText(coverCompileFinalText(promptStylePreview.result))"
+                                                data-prompt-style-copy>Копировать</button>
+                                      </div>
+                                      <pre class="whitespace-pre-wrap break-words text-gray-300 m-0 max-h-64 overflow-y-auto"
+                                           data-prompt-style-final-text>{{ coverCompileFinalText(promptStylePreview.result) }}</pre>
+                                    </div>
+                                    <table class="w-full text-left" data-prompt-style-table>
+                                      <thead>
+                                        <tr class="text-gray-500">
+                                          <th class="pr-2 font-normal">Компонента</th>
+                                          <th class="pr-2 font-normal">Отправлено</th>
+                                          <th class="pr-2 font-normal">Статус</th>
+                                          <th class="font-normal">Причина</th>
+                                        </tr>
+                                      </thead>
+                                      <tbody>
+                                        <tr v-for="c in promptStylePreview.result.components"
+                                            :key="'psc-' + c.key" data-prompt-style-row>
+                                          <td class="pr-2 align-top">{{ coverManifestSourceLabel(c) }}</td>
+                                          <td class="pr-2 align-top">{{ c.sent_chars || 0 }}<span v-if="c.original_chars" class="text-gray-500"> / {{ c.original_chars }}</span></td>
+                                          <td class="pr-2 align-top"
+                                              :class="coverManifestStatusClass(c)">{{ coverManifestStatusText(c) }}</td>
+                                          <td class="align-top text-gray-500">{{ coverCompileReasonText(c) }}</td>
+                                        </tr>
+                                      </tbody>
+                                    </table>
+                                  </template>
+                                  <div v-if="promptStylePreview.result && promptStylePreview.result.budget"
+                                       class="text-gray-500" data-prompt-style-budget>
+                                    {{ coverCompileBudgetText(promptStylePreview.result) }}</div>
+                                </div>
+                              </template>
                             </div>
                           </div>
                           <!-- F6 (10.24, ADR-1024-10 D1): аккордеон только в
@@ -4673,18 +4763,24 @@
                         Источник слота: {{ pipelineCoverStyleCard.resolve_source_ru }}
                       </div>
                     </div>
-                    <!-- ═══ F8 (ASAP 7 §2.5/§10): «Фактический промпт» —
-                         exact-тексты Base/Style манифестов выбранного run
-                         (обе попытки: sent/final + hash + лимит/источник).
-                         Сервер отдаёт cover_prompts ТОЛЬКО global admin и
-                         только при include_prompt=true (fail-closed);
-                         блок рендерится только при правах admin и
-                         фактических данных. Machine reason попыток — в
+                    <!-- ═══ F8 (ASAP 7 §2.5/§10) + F4 (ASAP 8 §4.1/§4.2):
+                         «Фактический промпт» — exact-тексты Base/Style
+                         манифестов (обе попытки: sent/final + hash +
+                         лимит/источник). Latest-режим (F4 §4.1) грузит их
+                         автоматически (GET /runs/latest?include_prompt=true,
+                         без extra-click §28.7). Блок для global admin виден
+                         ВСЕГДА; нет манифеста → явная причина (C6/§28.8),
+                         не молчаливое сокрытие. Сервер отдаёт cover_prompts
+                         ТОЛЬКО global admin и только при include_prompt=true
+                         (fail-closed). Machine reason попыток — в
                          developer-details ниже, не в основном тексте. -->
                     <div class="rounded-lg border border-white/10 px-3 py-2 mb-2 text-xs"
                          v-if="pipelineCoverPromptsVisible"
                          id="pipeline-cover-prompts">
                       <div class="font-bold mb-0.5">Фактический промпт</div>
+                      <div v-for="row in pipelineCoverPromptMissingRows"
+                           :key="'cppm-' + row.key"
+                           class="text-amber-300 mt-0.5">{{ row.text }}</div>
                       <template v-for="grp in pipelineCoverPromptGroups"
                                 :key="'cpp-' + grp.key">
                         <div class="mt-2">

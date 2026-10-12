@@ -627,6 +627,59 @@ async def pipeline_inspector(
                 "generated_at": int(time.time())}
 
 
+@analytics_router.get("/analytics/pipeline/runs/latest")
+async def pipeline_run_latest(
+    request: Request,
+    user: Annotated[WebAppUser, Depends(requires_global_admin())],
+    include_prompt: bool = Query(default=False),
+):
+    """ASAP 8 F4 (§4.1, C5): latest-run detail c auto-load exact-промптов.
+
+    Режим «Последний запуск» Run Inspector'а (пустой выбор) больше не
+    требует скрытого extra-click (§28.7): сервер сам резолвит latest run_id
+    ТОЙ ЖЕ сортировкой, что список инспектора (``collect_runs_list``:
+    SUMMARY_RUN_DONE ORDER BY ts DESC, id DESC, dedup по run_id), и
+    возвращает detail + ``cover_prompts`` + ``cover_prompts_status``.
+
+    RBAC как у drill-down (fail-closed: не-глобал → 403 до любого чтения);
+    без ``include_prompt`` — ключи ``cover_prompts``/``cover_prompts_status``
+    в ответе отсутствуют (прежний R17-safe контракт). Полные тексты — ТОЛЬКО
+    здесь (R17), в логи не пишутся. Fail-open: нет run'ов/ошибка чтения —
+    ``{"run": None}`` без ошибок."""
+    from services import pipeline_analytics as pa
+    db = _pipeline_db(request)
+    try:
+        runs = await pa.collect_runs_list(db, limit=1)
+        rid = str(((runs or [{}])[0] or {}).get("run_id") or "").strip()
+    except Exception:
+        logger.warning("[analytics] pipeline latest resolve failed — fail-open",
+                       exc_info=True)
+        return {"run": None, "generated_at": int(time.time())}
+    if not rid:
+        return {"run": None, "generated_at": int(time.time())}
+    try:
+        run = await pa.collect_run(db, rid)
+    except Exception:
+        logger.warning("[analytics] pipeline latest detail failed — fail-open",
+                       exc_info=True)
+        return {"run": None, "generated_at": int(time.time())}
+    out = {"run": run, "generated_at": int(time.time())}
+    if include_prompt:
+        prompts = None
+        try:
+            from services import cover_style_jobs as csj
+            prompts = await csj.load_run_cover_prompts(db, rid)
+        except Exception:
+            logger.warning(
+                "[analytics] cover prompts read failed — omit (fail-closed)",
+                exc_info=True)
+            prompts = None
+        out["cover_prompts"] = prompts
+        out["cover_prompts_status"] = ((prompts or {})
+                                       .get("cover_prompts_status"))
+    return out
+
+
 @analytics_router.get("/analytics/pipeline/runs/{run_id}")
 async def pipeline_run_detail(
     request: Request,
@@ -667,4 +720,8 @@ async def pipeline_run_detail(
                 exc_info=True)
             prompts = None
         out["cover_prompts"] = prompts
+        # F4 (§4.2): причина отсутствия манифестов — top-level для клиента
+        # (дублируется и внутри cover_prompts от reader'а).
+        out["cover_prompts_status"] = ((prompts or {})
+                                       .get("cover_prompts_status"))
     return out
