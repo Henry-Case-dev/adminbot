@@ -292,8 +292,46 @@ def l1_stage(run_id, *, chat_id, usable: bool, invalid_reason=None,
 
 
 def l2_stage(run_id, *, chat_id, usable: bool, invalid_reason=None,
-             duration_ms=None, paragraphs=None) -> None:
-    """`SUMMARY_L2_STAGE` — исход писателя (ok/unusable)."""
+             duration_ms=None, paragraphs=None, status=None, metrics=None,
+             reviewer_reject=False) -> None:
+    """`SUMMARY_L2_STAGE` — исход писателя.
+
+    Честный исход стадии (ASAP 8 F1, §1.5): ``ok`` / ``attempted_invalid``
+    (стадия выполнена, вывод отвергнут детерминированным валидатором,
+    включён fallback) / ``failed`` (transport/структурный провал или отказ
+    Reviewer). Словарь outcome транспорта mca-13 enum-ограничен, поэтому
+    honest-исход несёт поле `status` (== outcome), а `outcome` события —
+    ближайший enum (`failed`). counts (usage_json, R17-safe — только
+    коды/числа): reason_code (гранулярный), reason_group, paragraph_index,
+    chars (длина абзаца, НИКОГДА текст), l2_calls (1|2), correction_used,
+    repair_actions.
+    """
+    metrics = metrics if isinstance(metrics, dict) else {}
+    status_str = str(status or "")
+    stage_status = "ok" if usable else (
+        "attempted_invalid"
+        if (status_str == "invalid" and not reviewer_reject) else "failed")
+    counts: dict = {"output_count": int(paragraphs)
+                    if paragraphs is not None else None}
+    if not usable:
+        granular_reason = str(metrics.get("reason_code")
+                              or invalid_reason or "error")
+        counts["reason_code"] = granular_reason
+        counts["stage_status"] = stage_status
+        group = str(metrics.get("reason_group") or "") or None
+        if group:
+            counts["reason_group"] = group
+        paragraph_index = metrics.get("paragraph_index")
+        if paragraph_index is not None:
+            counts["paragraph_index"] = int(paragraph_index)
+        chars = metrics.get("chars")
+        if chars is not None:
+            counts["chars"] = int(chars)
+        counts["l2_calls"] = int(metrics.get("l2_calls") or 1)
+        counts["correction_used"] = bool(metrics.get("correction_used"))
+        repair_actions = metrics.get("repair_actions")
+        if isinstance(repair_actions, list) and repair_actions:
+            counts["repair_actions"] = repair_actions[:16]
     _emit(EV_L2_STAGE,
           outcome="success" if usable else "failed",
           level="INFO" if usable else "WARN",
@@ -301,9 +339,8 @@ def l2_stage(run_id, *, chat_id, usable: bool, invalid_reason=None,
           duration_ms=duration_ms,
           reason_code=None if usable
           else str(invalid_reason or "error"),
-          status="ok" if usable else "failed",
-          counts={"output_count": int(paragraphs)
-                  if paragraphs is not None else None})
+          status=stage_status,
+          counts=counts)
 
 
 def l2_review(run_id, *, chat_id, metrics: dict) -> None:

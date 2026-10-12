@@ -4491,18 +4491,15 @@
                               v-if="pipelineSelectedRunId"
                               @click="clearPipelineRunSelection()">← к последнему</button>
                     </div>
-                    <!-- Coverage — first-class (§61.6) -->
-                    <div class="rounded-lg border border-white/10 px-3 py-2 mb-2 text-xs"
-                         v-if="pipelineRunView.coverage">
-                      <div class="font-bold mb-0.5">Источник</div>
-                      <div>{{ pipelineCoverageLine }}</div>
-                      <div v-if="!pipelineRunView.coverage.full"
-                           class="text-red-300">✕ Неполное саммари — coverage ниже 100%</div>
-                    </div>
+                    <!-- ═══ ASAP 8 F1 (§1.5): единый скаляр coverage из
+                         headline УБРАН — «0 / 865» больше не выглядит как
+                         «L1 ничего не увидел». Coverage — только раздельные
+                         оси в карточке ниже (Source / L1 / L2 accepted /
+                         Final / Overflow). -->
                     <!-- ═══ ASAP 4.1 волна 7 (зона G, §38 T-4621): честная
                          coverage semantics — РАЗДЕЛЬНЫЕ оси (source/L1/
-                         writer/final/overflow). «839/839 100%» рядом с
-                         failed L1 не показывается единым успехом. -->
+                         writer/l2_accepted/final/overflow). «839/839 100%»
+                         рядом с failed L1 не показывается единым успехом. -->
                     <div class="rounded-lg border border-white/10 px-3 py-2 mb-2 text-xs"
                          v-if="pipelineCoverageRows.length">
                       <div class="font-bold mb-0.5">Покрытие источника — по стадиям</div>

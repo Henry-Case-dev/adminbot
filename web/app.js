@@ -29,6 +29,27 @@
   // сохранено» вводит в заблуждение и ввод молча теряется).
   var SECRET_MASK_HINT = 'Поле содержит маску сохранённого секрета — выделите поле и введите значение заново';
 
+  // ═══ ASAP 8 F1 (S4, §2 ТЗ P0-S1): человекочитаемые granular reason-коды
+  // L2-валидатора (fallback, когда серверный reason_ru недоступен — старие
+  // run'ы). Только коды — без контента (R17). Общий модульный источник для
+  // coverage-осей и Decision Trace (методы Vue могут звать this-метод,
+  // чистые computed-хелперы — функцию напрямую).
+  var PIPELINE_L2_REASON_RU = {
+    invalid_paragraph: 'некорректный абзац',
+    paragraph_bad_type: 'абзац неверного типа',
+    paragraph_empty: 'пустой абзац',
+    paragraph_too_long: 'абзац > 900 символов',
+    paragraph_empty_after_cleanup: 'абзац только из служебных меток',
+    document_no_paragraphs: 'в статье нет абзацев',
+    invalid_evidence: 'вымышленные ссылки на источник',
+    quote_attribution: 'реплика приписана не тому человеку',
+    invalid_json: 'ответ не является JSON',
+  };
+  function pipelineL2ReasonRuLabel(code) {
+    if (!code) return '';
+    return PIPELINE_L2_REASON_RU[code] || code;
+  }
+
   // F9 (10.25, ADR-1025-22 D1/D3): display-индикатор секрета — `••••••••last4`
   // (last4 есть) / «Ключ установлен» (configured без last4) / «Не настроен».
   // Вход: `{configured,last4}` ЛИБО непустое не-объектное значение ЛИБО пусто.
@@ -3430,14 +3451,9 @@
           return n.branch === 'cover';
         });
       },
-      pipelineCoverageLine: function () {
-        var view = this.pipelineRunView;
-        var c = view && view.coverage;
-        if (!c) return '';
-        return 'Сообщений: ' + (c.considered != null ? c.considered : '—')
-          + ' / ' + (c.total != null ? c.total : '—')
-          + ' · Coverage: ' + (c.percent != null ? c.percent : '—') + '%';
-      },
+      // ═══ ASAP 8 F1 (§1.5): единый скаляр usage.coverage из headline
+      // убран — coverage показывается ТОЛЬКО раздельными осями ниже
+      // (Source ingested / L1 semantic / L2 accepted / Final).
       // ═══ ASAP 4.1 волна 7 (зона G, §38–§41; T-4621/4622/4623): честная
       // coverage semantics — раздельные строки, карточки capacity/liveness/
       // cover style. Computed — только проекция structured state (§61.12).
@@ -3484,11 +3500,37 @@
               : (l1Degraded ? 'warn' : 'ok') });
         }
         if (br.writer) {
+          // Ось «Вход» = сколько реально вошло в писателя (вердикт L2 —
+          // отдельная ось l2_accepted, ASAP 8 F1): неполный вход → warn,
+          // полный/неизмеримый → ok (без ложного креста от исхода L2).
+          var wpct = br.writer.percent;
           rows.push({
             key: 'writer', label: 'Вход писателя',
             value: (br.writer.total != null ? br.writer.total : '—')
-              + ' · ' + pct(br.writer.percent),
-            state: br.writer.result === 'failed' ? 'failed' : 'ok' });
+              + ' · ' + pct(wpct),
+            state: (wpct != null && wpct < 100) ? 'warn' : 'ok' });
+        }
+        if (br.l2_accepted) {
+          // ═══ ASAP 8 F1 (§1.5, S4): ось «L2 accepted» — гибридные
+          // документы, принятые детерминированным валидатором. Отказ
+          // валидатора ≠ «не выполнено»: стадия работала.
+          var acc = br.l2_accepted;
+          var accInvalid = acc.result === 'attempted_invalid';
+          var accFailed = acc.result === 'failed';
+          var accResult = accInvalid
+            ? 'выполнено, отвергнуто валидатором'
+            : (accFailed ? 'не выполнено' : 'принято');
+          rows.push({
+            key: 'l2_accepted', label: 'L2 · Принято (Hybrid)',
+            value: (acc.accepted
+              ? (acc.considered != null ? acc.considered : '—')
+              : '0')
+              + ' / ' + (acc.total != null ? acc.total : '—')
+              + ' · ' + accResult
+              + (accInvalid || accFailed
+                ? (acc.reason_code ? ' · ' + self.pipelineReasonRu(acc.reason_code) : '')
+                : (acc.correction_used ? ' · со correction-попыткой' : '')),
+            state: (accInvalid || accFailed) ? 'failed' : 'ok' });
         }
         if (br.final) {
           rows.push({
@@ -3531,6 +3573,9 @@
           stagnated: 'стагнация правок', needs_fixes: 'нужны правки',
           unusable: 'unusable', approved: 'одобрено', invalid: 'отклонено',
           error: 'ошибка',
+          // ASAP 8 F1 (S4, §2.1 ТЗ): стадия выполнена, но вывод отвергнут
+          // детерминированным валидатором — НЕ «не выполнено».
+          attempted_invalid: 'выполнено, отвергнуто валидатором',
         };
         var stageRow = function (row) {
           if (!row) return null;
@@ -3538,7 +3583,8 @@
             status: row.status || '—',
             status_ru: statusRu[row.status] || row.status || '—',
             reason_code: row.reason_code || null,
-            reason_ru: row.reason_ru || null,
+            reason_ru: row.reason_ru
+              || pipelineL2ReasonRuLabel(row.reason_code) || null,
             model: row.model || null,
           };
         };
@@ -5672,6 +5718,13 @@
       },
       pctLabel: function (v) {
         return (v === null || v === undefined) ? '—' : v + '%';
+      },
+      // ═══ ASAP 8 F1: человекочитаемый granular reason-code L2-валидатора
+      // (S4, §2 ТЗ P0-S1; thin-метод над общим PIPELINE_L2_REASON_RU —
+      // модульный хелпер в начале файла; fallback для старых run'ов, где
+      // серверный reason_ru ещё не известен). Коды только — R17.
+      pipelineReasonRu: function (code) {
+        return pipelineL2ReasonRuLabel(code);
       },
       // §61.15: live updating — polling 15с только в режиме «Последний
       // запуск» и только пока открыта «Аналитика» (прецедент statusTimer).

@@ -1,33 +1,28 @@
-# Runtime Task — ASAP 7
+# Runtime Task — ASAP 8
 
-Feature: `asap7-cognitive-direct-pipeline`
-Task source: user-owned `plans/current_task.md`, раздел «ASAP 7 — Cognitive Direct Pipeline + Module Contract + Cover Truth + Multi-chat Corrective Audit» (конец файла, ~строки 31769–33788). Этот файл — только recovery-указатель, не дубликат требований.
-Status: in_progress — Phase 0 forensic audit (§25: без кодинга до audit report)
+Feature: `asap8-reliability-truthfulness-cleanup`
+Task source: user-owned `plans/current_task.md`, раздел «ASAP 8 — Reliability / Truthfulness / Module Runtime Cleanup» (конец файла, ~строки 33792–35215). Этот файл — recovery-указатель.
+Status: in_progress — Phase A/B DONE (аудиты + architecture.md в plans/features/asap8-reliability-truthfulness/); Phase C build: F1 в работе (bg:ses_ecf35a45fffeSS3N41pdTKv3en). Порядок: spine F1→F2→F3→F4→F5→F7→F10 serial; F6/F8/F9 параллельно после F1. Каждый slice: focused tests → Reviewer → commit/deploy when safe → prod evidence.
 
-Baseline: HEAD 08a8849 (uncommitted шум: services/disk_retention.py, plans/MEMORY.md, backlog.md, tools/_ui_mca12_stories_e2e.json — зафиксировать в аудите как аномалию baseline), prod 2.58.71 (8b44669).
+Baseline: HEAD 0c4f3a5 (release 2.58.74 = ASAP 7 финал). Известный шум дерева не трогать (disk_retention, plans/MEMORY, backlog, archive, reports, _ui_mca12). §1.2: plans/current_task.md owner-owned вне master-трекинга — так и оставить, НЕ коммитить; plans state синхронизировать с HEAD.
 
-## Карта работ (полные требования — в current_task.md ASAP 7)
-- A: Direct L1 Planner (pre-tool semantic) → Tools → L2 Writer; расширить существующий Decision Maker, не плодить 3-й мозг; L1 = 1 LLM call + L2 = 1 call; отдельный model slot L1 в MiniApp (§2)
-- B: убрать semantic-hardcode из MCA-23 primary path; response_extent.py — только compatibility/fallback/explicit-form (§3)
-- C: Module Contract — Product Complete = runtime + module/submodule + master toggle + settings + effective state + диагностика + Help + tests + live acceptance; ModuleSpec/registry + invariant test (§4)
-- D: Initiative/Intents — первый corrective case: backend есть, MODULES-регистрации нет (§5)
-- E: аудит «backend есть, модуля нет» по всем крупным фичам (§6)
-- F: новый чат не появляется в selector — membership lifecycle join/leave/re-add/migration/fallback (§7)
-- G: Cover Prompt Truth — root cause style-only cover; live preview exact compiled prompt; Run Inspector admin-only exact prompt; style-only anomaly guard; E2E A/B с semantic markers (§8–12)
-- §13: провал прозрачности ASAP 5 (задачи закрыты, хвосты ушли в backlog) — поднять spec ASAP 5, закрыть missing
+## 8 P0/P1 симптомов (repro обязателен до фикса, §31.3)
+1. Summary: L1 OK → L2 `invalid_paragraph` (PARAGRAPH_MAX=900 в summary_l2_writer.py топит документ) → Legacy; UI «L2 не выполнено» = ложь; coverage 0/865.
+2. Summary Test: run_l1 без source_window (summary_test_run.py) → raw message_id → unknown_message_id; prod — anchors. Нужен единый build_summary_execution_input().
+3. Style Edit style-first (compile_style_prompt: P0/P1 style до story brief) съедает сюжет Base (A/B: OFF = сюжет есть).
+4. Run Inspector latest: include_prompt только при pipelineSelectedRunId → блок скрыт; missing manifest → silent hide; Prompt editor (ИИ→Промпты) raw textarea без server preview.
+5. parentGate flags.summary_enabled ложно блокирует Direct/Factcheck/Search/Transcription/Video/Web/Diagnostics; «отключён глобально» при chat scope.
+6. Initiative: heartbeat по существующим intents; producers отсутствуют (audit create_intent call-sites); handle_initiative без prepared_text → вечный defer; нужен producer→decision→L2 Writer(trigger=initiative)→SendRecheck→send, без третьего Writer и без endless candidate_ready.
+7. Embeddings: group=unknown без EMBEDDING_QUOTA_GROUP_LABELS → cooldown замораживает весь пул; text-only факты без auto-backfill; WARN-спам.
+8. YouTube: 407 ProxyAuth = transient (_is_transient) → retry storm; нужен proxy_auth_failed permanent, no retry; proxy health UI.
 
-## Гипотезы старта H1–H5 (§1.3) — Phase 0
-H1 response_extent.py = hardcode-классификатор вместо semantic planning; H2 существующие Direct L1/L2 (synthesizer+verbalizer) = post-tool System2, не требуемый pre-tool L1; H3 _SANDWICH_REMINDER/промпт-хвосты душат extent; H4 prod acceptance MCA-23 не завершена; H5 Help обещает больше реальности planner.
++ Module Contract v2 re-audit (§8): rationale ≠ blanket exemption; повторный audit список §8. Experience scope (§9): catalog per-chat vs runtime global. Random (§10): product master или честная infrastructure. Stories humanize (§14). Truthful Status audit (§17). Аудит коммитов e6670b0/71b3b69/3e52b96/a1b3279/0c4f3a5 (§18).
 
-## Фазы (§21)
-0 Scanner/forensic → 1 Architect → 2 Builder F1–F9 (deployable slices) → 3 Reviewer → 4 Scanner dead-path audit → 5 DevOps deploy. DoD §23, отчёт §24, запрещённые решения §22 (22 пункта).
+## Слайсы (§27C, исполнять последовательно по §31)
+F1 Summary validator reliability + granular diagnostics; F2 Summary Test parity/anchors; F3 Cover Style scene preservation; F4 Cover exact-prompt UX; F5 Module dependency truth + scope; F6 Initiative producer→writer→send; F7 Stories/Experience/Random UX; F8 Embedding quota-group recovery; F9 YouTube proxy classification; F10 plans/help/status reconciliation. Каждый: review → focused tests → deploy when safe → prod evidence.
 
-## Phase 0 lanes (read-only; каждый пишет только свой файл в plans/features/asap7-cognitive-direct-pipeline/)
-- P7-A audit-direct.md: H1–H3, полный Direct call graph, CLAIM(Direct-пункты отчёта ASAP 6 фазы 2)
-- P7-B audit-cover.md: seams Summary→cover_prompt→compiler→provider request, style-only root cause, CoverPromptManifest/Run Inspector reality
-- P7-C audit-modules-chat-claims.md: module inventory, Initiative, chat_profiles→/api/access/chats→selector, CLAIM(ANU/MCA-17 19+2/v34/Help/prod 2.58.71)
+## Тесты: S1–S7, C1–C7, M1–M7, I1–I9, E1–E5, Y1–Y5 (§19–24). Лог-гигиена §26. Запрещённые shortcuts §28 (24 позиции). DoD §29. Отчёт §30.
 
-## Инварианты
-- current_task.md READ-ONLY; R17: секреты (ANU ключ и пр.) не копировать в отчёты/код/логи; SSH на 198.46.175.136 запрещён (fail2ban), только HTTP /healthz.
-- Owner-contracts §0 не ломать: Force = REPLY, SILENT direct → 🗿, реакции = полноценный исход; модели не хардкодить; без 3-го LLM-прохода в Direct (§2.7); L1 не получает весь Writer-контекст (§2.9); полный prompt модели — только в admin-only диагностике (§0).
-- Verdict-словарь §1.2: VERIFIED / PARTIAL / FALSE / LIVE_PENDING / UNVERIFIED / SUPERSEDED. pytest green ≠ acceptance.
+## Owner-contracts §0 (не ломать): SQLite+PG; L1→tools→L2; force/🗿; модульность; full prompt не в generic logs; styled cover сохраняет сюжет; Summary Test = production contract; live acceptance не прячется в backlog при «COMPLETED».
+
+Финал невозможен без production proof для P0 и при stale plans-state.

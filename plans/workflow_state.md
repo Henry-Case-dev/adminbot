@@ -1,88 +1,37 @@
 # Workflow State
 
-Task: ASAP 7 — Cognitive Direct Pipeline + Module Contract + Cover Truth + Multi-chat Corrective Audit
-Task source: current_task.md (раздел ASAP 7, конец файла; USER-OWNED READ-ONLY)
+Task: ASAP 8 — Reliability / Truthfulness / Module Runtime Cleanup
+Task source: current_task.md (раздел ASAP 8, конец файла; USER-OWNED READ-ONLY)
 Status: in_progress
-Primary phase: prepare (Phase 0 — forensic audit, без кодинга до audit report)
-Active feature: asap7-cognitive-direct-pipeline
+Primary phase: build (Phase C — Builder slices; Phase A/B done 10.10)
+Active feature: asap8-reliability-truthfulness-cleanup
 
-Baseline: HEAD 08a8849 (uncommitted шум: services/disk_retention.py, plans/MEMORY.md, backlog, tools/_ui_mca12_stories_e2e.json — зафиксировать в аудите), prod 2.58.71 (8b44669). ASAP 6 core закрыт, фаза 2 MCA-23 core задеплоена; live-acceptance фазы 2 осталась владельцу (= гипотеза H4).
+Baseline: HEAD 0c4f3a5 (release 2.58.74 = ASAP 7 финал). Известный uncommitted шум (НЕ трогать): services/disk_retention.py, plans/MEMORY.md, backlog.md, archive/, reports/mca20_wth, tools/_ui_mca12_stories_e2e.json, node_modules, AGENTS.md, package*.json. plans/current_task.md — owner-owned вне master-трекинга, не коммитить.
 
-Active lanes (Phase 0 = DONE, 3/3 аудита в plans/features/asap7-cognitive-direct-pipeline/):
-- P7-A done: audit-direct.md — H1–H4 подтверждены
-- P7-B done: audit-cover.md — style-only гипотеза (стиль первым + GENERATE без лимита)
-- P7-C done: audit-modules-chat-claims.md — chat selector root cause (observer chat_member vs my_chat_member, chat_lifecycle.py:76/148; upsert_profile_on_join мёртв; fallback отсутствует); Initiative/Stories/SelfModel orphan; MCA-17 «19+2» SUPERSEDED (факт: 47 карточек, 40 instrumented)
+Фазы (артефакты в plans/features/asap8-reliability-truthfulness/):
+- Phase A forensic: DONE — audit-summary.md (2/2 CONFIRMED), audit-cover.md (4/4), audit-modules-infra.md (10/10 + Summary=замаскированный bootstrap-master в bot.py:840-874)
+- Phase B Architect: DONE — architecture.md: F1-F10 контракты, ΔDDL=0, spine F1→F2→F3→F4→F5→F7→F10 serial; F6/F8/F9 PARALLEL_SAFE
+- Формер F1 (ses_ede15e9a…, 10.10) не оставил артефактов — перезапущен
 
-Active lanes (Phase 1 = DONE):
-- ARC-1 done: architecture.md — «Вопросов владельцу: нет»; отдельный pre-tool L1 (fused отклонён), Синтезатор → deterministic packaging, Вербализатор → L2 на всех путях; Cover: F8→F6→F7, порядок строки STORY→CONTEXT→STYLE; модули: аддитивный registry; chat: my_chat_member + fallback
-
-Active lanes (Phase 2, Wave 1 — 3 параллельных writer-лейны, write-области непересекающиеся):
-- F5 | Builder | done | Chat lifecycle | bg:ses_ee2cf832fffdYR5ZiaMmc5XuS1 | my_chat_member + fallback + refresh UX + badge; 22 теста passed; Orchestrator-проверка: хендлеры :87/:180, middleware bot.py:902 — ок; отчёт f5-report.md. Live-чек «добавил бота → чат в селекторе» = owner-гейт после деплоя
-- F8 | Builder | done | Cover read-path | bg:ses_ee2cf831bffeekzXGLBU5XNfAU | include_prompt admin-only fail-closed + UI exact prompt; 12 тестов passed + Playwright; Δroutes=0; Orchestrator-проверка: analytics.py:621/645-655, reader cover_style_jobs.py:1328 — ок; отчёт f8-report.md. Live-чек (2 разных summary → сверка final_prompt) = owner-гейт после деплоя
-- F3 | Builder | writer | Module registry | bg:ses_ee2cf832fffe9byGy2Uc46SSb4 | module_registry.py + Initiative карточка + M1/M4/M2
-
-Active lanes (Wave 1 = DONE, закоммичена и запушена):
-- e6670b0 feat(asap7-wave1) 2.58.72: F5+F8+F3, Review Approved (REV-1), version bump + 13 пинов, param-registry переиздан; push origin/master ok
-
-Active lanes (Wave 1 = DONE): e6670b0 2.58.72 — в проде
-Active lanes (Wave 2 = DONE): 71b3b69 2.58.73 (F1+F6, REV-2 Approved) — в проде
-
-Active lanes (деплой W3 + финал):
-- DEPLOY-W3 | DevOps | deploy | Wave 3 | bg:ses_ee137c90cffepuYc74VAijNxPV | прод 3e52b96 = 2.58.74; ΔDDL v35 plan_meta (верификация миграции/идемпотентности/backup-guard обязательна)
-- F9 | Builder | done | Help resync | bg:ses_ee1250589ffeklaSLxsUhsgmVk | INFO v8 + GUIDE v5; REV-4 Approved (17 VERIFIED + 1 post-deploy gate); коммит a1b3279, push ok
-- SWEEP-FIX | Builder | writer | релизная гигиена | bg:ses_ee0ead8aeffeYZMZp71U0H3x2X | 97 failed полного прогона: A version-pins+README / B UI-снапшоты+jargon / C JS-харнессы / D мигроцепь v35 / E утечка состояния (~40 legacy-пинов, зелёные изолированно — root cause обязателен) / F extra-cover pre-existing; полный pytest повторно
-- REV-4 | Reviewer | done | F9 | bg:ses_ee1034aedffe0lF5Xke6bIzCay | Approved: runtime-truth сверен с кодом, канон-механика, запреты grep=0, коллизионное наследие корректно
-
-Done (Wave 3, закоммичена и запушена):
-- 3e52b96 feat(asap7-wave3) 2.58.74: F2+F2-FOLLOWUP (каталог L1 9 ключей, ΔDDL v35 plan_meta + wiring через corr-UPDATE, durable-оси 24ч/7д) + F7 (Summary Test → канонический compiler, preview-compile admin fail-closed, cleanup дубля) + F4 (registry +4, каталог +22, mca_gates +13 AND-гейтов, M2 85 осей); REV-3 Approved 17/17; джойн: asap7 176 passed, baseline 560/120/118, пины зелёные; push ok
-
-Join-reconcile (Wave 3):
-- JOIN DONE: re-issue f8_baseline+param-registry (560/120/118), пины зелёные (29+24); полный asap7-набор 176 passed; node --check OK
-
-Non-blocking (REV-2 → адресаты):
-- #1 дубль _observed_limit_meta → F7 (cleanup)
-- #2 L1_PLAN resolved пуст → F2 (Tools planned widget)
-- #3 per-chat autonomous toggle семантика → F2 UI + F9 help
-- #4/#6 — заметки/косметика, в backlog
-
-Join-reconcile (Wave 2):
-- JOIN DONE: test_asap7_direct_l1 + test_asap7_cover_fix + test_prompt_migrations = 109 passed в общем дереве; F6-флаг про миграции закрыт (F1 донёс лестницу)
-- test_summary_publish_integration…l2_publishes_article — pre-existing RED на HEAD (вне волны)
-
-Owner acceptance (живые проверки, не блокируют конвейер):
-- Wave 1: чат-селектор (новый чат появляется); Run Inspector «Фактический промпт» — 2 разных саммари → сверка final_prompt (style-only?); карточка #/modules/initiative; badge «неактивен»
-- Wave 2: Direct в чате — короткие контекстные вопросы («а этот?») понимаются по контексту; «распиши подробно» не режется; фанфик не 1-2 предложения; агрессия в уместном контексте — семантический отпор; обложки саммари — сюжет соответствует выжимке
-
-Watch (не Wave 1, наблюдать): 1 traceback на буте EmbeddingGroupCoolingDown в embedding_canary_check — задокументированный fail-safe (FTS-only A06), домен embedding-квот из ASAP 4.4/5
-
-Join-reconcile (Wave 1):
-- JOIN DONE: test_asap7_* 48 passed; registry 29; zero_delta 3; node --check OK; конфликт пинов разрешён штатным re-issue
-- REV-1 Approved: секции app.js не пересеклись; R17 fail-closed; effective_gate AND; pre-existing RED tool_loop подтверждён на чистом HEAD
-
-P7-A ключевые находки (перепроверены Orchestrator-ом grep/read):
-- H1 TRUE: classify_request (response_extent.py:270) — 0-LLM regex-план до LLM (direct_chat_service.py:2315); social_chat→compact; multi-tool только 2+URL
-- H2 TRUE: L1/L2 = post-tool System2 (гейт требует ToolLoopResult+tool_trace, :2807-2818); UI L1/L2 биндятся на один models.llm_model_name (web/app.js:10359)
-- H3 PARTIAL: cap удалён из канона/PG, но _SANDWICH_REMINDER «коротко, по делу» безусловно последним блоком каждого промпта (:3637-3638) → D11 FAIL
-- H4 TRUE (LIVE_PENDING): 08a8849 — golden 18/18 stub, live за владельцем; прод 2.58.71 healthz 200
-- P1 баги: env kill-switch-ы (DIRECT_TOOL_PLAN_ENABLED и др.) не объявлены в config/settings.py → заявленный откат не работает; Decision Task сплавлен с tool-loop (SILENT после платных тулов возможен); P2: Analytics 24ч/7д = in-memory ~15-20 прогонов
-
-P7-B ключевые находки (перепроверены Orchestrator-ом grep):
-- Сборка промпта идёт BASE_STYLE→STORY_SCENE→SUMMARY_CONTEXT (cover_prompt_assembly.py:154,209-215) — стиль ПЕРВЫЙ; GENERATE-маршрут не резолвит prompt-limit провайдера (image_generation.py: match=0) → вероятный style-only симптом: provider-side кап молча режет хвост (story+context). Runtime-подтверждение — через durable-артефакты (media job prompt / task_jobs cover_base final_prompt), читателей НЕ существует
-- Прозрачность FALSE: Run Inspector исключает промпты (analytics.py:622-624), UI показывает только char counts (index.html:795-841); Assembly VERIFIED; anomaly guard §11 отсутствует; «один compiler» нарушен (Summary Test — легаци 2-компонентная сборка, summary_test.py:370)
-- Баги → F6 (guard+GENERATE-limits+ordering), F7 (live editor exact text, 3 компилятора), F8 (production manifest read path + UI exact)
-
-Join barriers:
-- Wave 1 join (F5+F8+F3) → reconcile (app.js секции, index.html регионы) → Reviewer Wave 1 → commit+deploy → Wave 2 (F1 ∥ F6) → Wave 3 (F2 ∥ F7 ∥ F4) → F9 → финальный full suite → production acceptance (DoD §23)
-
-Last verified:
-- current_task.md прочитан полностью (33 788 строк), ASAP 7 §25: старт с forensic, не с кодинга
-- HEAD 08a8849 = docs-коммит, оставлявший live acceptance владельцу (совпадает с H4)
-- Spot-checks: _SANDWICH_REMINDER безусловный (:3637-3638); kill-switch-ов нет в config/; classify_request до LLM (:2315); cover порядок BASE_STYLE первым (:154); GENERATE без лимита (image_generation.py); chat_lifecycle на chat_member-observer (:76,148)
+Active lanes:
+- F1 | Builder | DONE | Summary L2 validator repair + granular diagnostics + UI truth | ses_ecf35a45fffeSS3N41pdTKv3en | 79 focused passed; полный summary-sweep 1659/2 pre-existing; node --check OK; Playwright+Browser Use; отчёт f1-report.md; кандидат в рабочем дереве (не закоммичен)
+- F1 | Builder | done+committed | Summary L2 validator repair | 2.58.75 | REV-F1 Approved после речека anchor-механизма (zip→repair_projection, RED→GREEN, sweep main-env 1665/0); отчёт f1-report.md
+- REV-F1 / REV-F1-2 | Reviewer | approved | блокер zip-рассинхрон закрыт (split наследует якоря, drop исключает, fail-closed), скоуп чист, aiogram-объяснение подтверждено (3.31.0 main env) | ses_ecee72565ffeKuqD4HR1Iz4Bkq | binding: финальный sweep выполнен Orchestrator-ом по критерию ревьюера
+- F6 | Builder | writer | Initiative v2: producers→decision→L2 Writer(trigger=initiative)→SendRecheck→send + freshness recheck §18D + funnel | bg:ses_ecee72564ffeDrve3qZNVrKC7w | direct_chat_service/mca_intents/memory_maintenance/status_service/L1-parser; I1-I9
 
 Next unlocks:
-- DEPLOY-W1 → owner live-чек (чат в селекторе; 2-click сверка final_prompt двух саммари в Run Inspector)
-- Wave 2 join (F1+F6) → Reviewer → commit/deploy → Wave 3 (F2 ∥ F7 ∥ F4) → F9 → финальный full suite → production acceptance (DoD §23)
-Review: approved (F9, REV-4)
-Deployment: pending (после финального свипа: DEPLOY-W4 a1b3279 → 2.58.74, доставка канона v8/v5)
-Human gate: none
-Updated: 2026-10-09 (Wave 2 закоммичена/запушена; деплой W2 + Wave 3 идут)
+- F6 done → REV-F6 → commit → запуск F8 (Embeddings quota-groups; memory_maintenance.py освобождается после F6)
+- Волна F2+F9 (запуск после коммита F1): F2 (spine: build_summary_execution_input, S5-S7) ∥ F9 (YouTube 407 permanent, Y1-Y5)
+- Spine далее: F3 (Style preservation) → F4 (exact prompt UX) → F5 (module dependency truth) → F7 (Stories, BLOCKED_BY F5) → F10 (reconciliation, финал)
+
+Join barriers:
+- Каждый slice: focused тесты → Reviewer → коммит/деплой when safe → prod evidence (§27)
+- Финал ASAP 8: production proof всех P0 + plans-state согласован + отчёт §30 (IMPLEMENTED/TESTED/DEPLOYED/LIVE VERIFIED/OWNER PENDING)
+
+Last verified:
+- 2026-10-13: read current_task.md полностью (до ~37k строк), активная задача = ASAP 8; HEAD/прод = 0c4f3a5/2.58.74; Phase A/B артефакты целы; старый F1 мёртв (0 артефактов), F1 перезапущен
+
+Review: pending (per-slice после Builder)
+Deployment: pending (slices по мере approve; база прода 2.58.74)
+Human gate: только live-acceptance P0 владельца для закрытия ASAP 8 (§29; Direct core — без human gate по §0)
+Updated: 2026-10-13 (ASAP 8 resume; F1 relaunch)

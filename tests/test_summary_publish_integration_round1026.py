@@ -699,7 +699,8 @@ class TestOnDelivery:
         """ASAP-2 §8/§9/LEVEL-3 (матрица строка 6): L2 unusable (обычный И
         fallback-пакет) → полный Legacy-пайплайн (`_run_legacy_pipeline`,
         skip_memorize), guard `published` — не входим, если уже отправили.
-        L2 correction retry НЕ вводится (Q2/ADR-1027-10 D3)."""
+        ASAP 8 F1 (§2.4 ТЗ): L2 получает РОВНО ОДИН correction attempt —
+        без циклов, после него только Legacy."""
         _fixed_rid(monkeypatch)
         _patch_chat_limit(monkeypatch, {(CHAT, _HYBRID_FLAG): True})
         llm = MagicMock()
@@ -709,13 +710,18 @@ class TestOnDelivery:
         gen._run_legacy_pipeline = legacy
         with caplog.at_level(logging.INFO):
             await gen._run(CHAT, False)
-        assert llm.generate.await_count == 3          # L1 + ≤1 correction + L2
-        # (L2 correction retry НЕ вводится — Q2; calls_so_far=2 до LEVEL-3)
+        # L1 attempt + L1 correction + L2 attempt + L2 correction (ровно
+        # один, инвариант «correction retry НЕ вводится» заменён владельцем
+        # явно — architecture §1.3)
+        assert llm.generate.await_count == 4
+        assert "L2_CORRECTION" in caplog.text
+        assert caplog.text.count("L2_CORRECTION") == 1   # без циклов
         legacy.assert_awaited_once()
         kwargs = legacy.await_args.kwargs
         assert kwargs.get("skip_memorize") is True        # дубля памяти нет
         warn = _lines(caplog, "LEGACY_FALLBACK")
         assert warn and "reason=l2_unusable" in warn[0]
+        assert "correction_used=True" in _lines(caplog, "L2_ERROR")[0]
         complete = _lines(caplog, "SUMMARY_COMPLETE")
         assert complete and "fallback=legacy" in complete[0]
         assert "status=ok" in complete[0]                 # цепочка довела

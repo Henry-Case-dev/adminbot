@@ -185,6 +185,34 @@ def _l2_review_extra_calls(l2_result) -> int:
         return 0
 
 
+def _l2_writer_calls(l2_result) -> int:
+    """Число физических writer-вызовов (ASAP 8 F1: attempt + ≤1 correction;
+    метрика ``l2_calls`` из run_l2; 1 — старые результаты без метрики)."""
+    try:
+        metrics = getattr(l2_result, "metrics", None) or {}
+        return max(1, int(metrics.get("l2_calls", 1) or 1))
+    except Exception:      # pragma: no cover - защитная ветка
+        return 1
+
+
+def _l2_durable_status(l2_result) -> str:
+    """Честный durable-статус L2-стадии (ASAP 8 F1, §1.5 architecture).
+
+    ``ok`` — опубликован (или Reviewer-отказ после bounded repair —
+    документ написан и прошёл deterministic-валидацию); ``attempted_invalid``
+    — стадия ВЫПОЛНЕНА, вывод отвергнут детерминированным валидатором,
+    включён fallback (S4: это НЕ «не выполнено»); ``failed`` — только
+    transport/структурный провал без пригодного вывода."""
+    if getattr(l2_result, "usable", False):
+        return "ok"
+    reason = str(getattr(l2_result, "invalid_reason", None) or "")
+    if reason in ("l2_review_rejected", "l2_review_unusable"):
+        return "ok"
+    if str(getattr(l2_result, "status", "") or "") == "invalid":
+        return "attempted_invalid"
+    return "failed"
+
+
 def _cap_legacy_chunks(chunks, max_chunks, *, run_id=None, chat_id=None):
     """Первые ``max_chunks`` чанков legacy-plain; при обрезке — WARN."""
     if max_chunks is None or len(chunks) <= max_chunks:
@@ -1787,8 +1815,10 @@ class SummaryGenerator:
         неопубликованном → полный ``_run_legacy_pipeline`` (гейт
         ``flags.summary_legacy_fallback_enabled``). Guard двойной публикации:
         входим ТОЛЬКО если ничего не отправлено (``published``).
-        Worst case ≤5 генераций: 1 L1 + ≤1 correction (внутри run_l1) + ≤1 L2
-        + ≤2 Legacy (ADR-1027-10 D3; AMEND ADR-1026-7 D5 отменён владельцем).
+        Worst case ≤5 генераций (бюджет не тронут; ASAP 8 F1: L1+L2+correction
+        ≤3): 1 L1 + ≤1 L2 + РОВНО ОДИН correction против post-repair остатка
+        (внутри run_l2) + ≤2 Legacy (ADR-1027-10 D3; AMEND ADR-1026-7 D5
+        отменён владельцем).
         Промежуточные коды НЕ порождают UX-сообщений, пока цепочка работает
         (§106/AMEND ADR-1026-11 D5); ``SUMMARY_GENERATION_FAILED`` — только
         когда и Legacy провалился (матрица строка 11).
@@ -2170,7 +2200,8 @@ class SummaryGenerator:
                     package_result, service, correlation_id, ctx=ctx,
                     map_unavailable=not getattr(l1_result, "usable", True),
                     source_window=source_window)
-                calls_so_far += 1 + _l2_review_extra_calls(l2_result)
+                calls_so_far += (_l2_writer_calls(l2_result)
+                                 + _l2_review_extra_calls(l2_result))
             elif _pages:
                 from services.summary_l2_writer import L2Result as _L2Result
                 _documents: list = []
@@ -2179,7 +2210,7 @@ class SummaryGenerator:
                     _page_result = await run_l2(
                         self.llm, _page, service=service,
                         correlation_id=correlation_id, chat_id=chat_id)
-                    calls_so_far += 1
+                    calls_so_far += _l2_writer_calls(_page_result)
                     if not _page_result.usable:
                         _page_fail = _page_result
                         break
@@ -2236,7 +2267,8 @@ class SummaryGenerator:
                     l2_result = await run_l2(
                         self.llm, package_result.package, service=service,
                         correlation_id=correlation_id, chat_id=chat_id)
-                calls_so_far += 1 + _l2_review_extra_calls(l2_result)
+                calls_so_far += (_l2_writer_calls(l2_result)
+                                 + _l2_review_extra_calls(l2_result))
                 # Волна E (T-4440): SUMMARY_L2_REVIEW — исход bounded review
                 # loop (только при реально запущенном review, calls>0).
                 try:
@@ -2247,17 +2279,26 @@ class SummaryGenerator:
                                      or {}))
                 except Exception:  # pragma: no cover
                     pass
-            # Волна E (T-4440): SUMMARY_L2_STAGE (ok / unusable+reason).
+            # Волна E (T-4440): SUMMARY_L2_STAGE (ok / attempted_invalid /
+            # failed+reason). ASAP 8 F1: validator-invalid → честный исход
+            # «выполнено, отвергнуто валидатором» (S4), granular-поля.
             try:
                 from services import pipeline_events
                 _doc_paras = len(((getattr(l2_result, "document", None)
                                    or {}).get("paragraphs")) or [])
+                _l2_metrics = dict(getattr(l2_result, "metrics", None) or {})
+                _l2_reason = str(getattr(l2_result, "invalid_reason", None)
+                                 or "") or None
                 pipeline_events.l2_stage(
                     correlation_id, chat_id=chat_id,
                     usable=bool(getattr(l2_result, "usable", False)),
-                    invalid_reason=getattr(l2_result, "invalid_reason", None),
+                    invalid_reason=_l2_reason,
                     duration_ms=getattr(l2_result, "duration_ms", None),
-                    paragraphs=_doc_paras)
+                    paragraphs=_doc_paras,
+                    status=str(getattr(l2_result, "status", "") or ""),
+                    metrics=_l2_metrics,
+                    reviewer_reject=_l2_reason in (
+                        "l2_review_rejected", "l2_review_unusable"))
             except Exception:  # pragma: no cover
                 pass
             # T-4616: append-only stage events Writer/Reviewer (§50.54).
@@ -2271,10 +2312,11 @@ class SummaryGenerator:
                                  or "") or None
                 _reviewer_reject = _l2_reason in (
                     "l2_review_rejected", "l2_review_unusable")
+                # ASAP 8 F1 (§1.5): честный статус durable-строки —
+                # attempted_invalid для validator-invalid (S4), failed
+                # только для transport/структурного провала.
                 await self._durable_stage_result(
-                    ctx, "l2",
-                    "ok" if (getattr(l2_result, "usable", False)
-                             or _reviewer_reject) else "failed",
+                    ctx, "l2", _l2_durable_status(l2_result),
                     reason=_l2_reason)
                 _rev_metrics = dict(getattr(l2_result, "metrics", None)
                                     or {})
@@ -2300,10 +2342,24 @@ class SummaryGenerator:
                 # LEVEL-3 Legacy. Волна D (ADR-1028-7 D3 SUPERSEDE): после
                 # bounded review (≤2 revision) — тот же безопасный исход
                 # (l2_review_rejected/l2_review_unusable; §50.2 перечень).
+                # ASAP 8 F1: WARN с granular-диагностикой — коды/индексы/
+                # длины, БЕЗ текста абзаца (R17).
+                _l2_diag = dict(getattr(l2_result, "metrics", None) or {})
+                _diag_index = _l2_diag.get("paragraph_index")
+                _diag_chars = _l2_diag.get("chars")
                 logger.warning(
-                    "L2_ERROR | run_id=%s | chat_id=%s | reason=%s — LEVEL-3 "
-                    "legacy fallback",
-                    correlation_id, chat_id, l2_result.invalid_reason or "error")
+                    "L2_ERROR | run_id=%s | chat_id=%s | reason=%s | "
+                    "reason_group=%s | paragraph_index=%s | chars=%s | "
+                    "l2_calls=%s | correction_used=%s | repair_actions=%d — "
+                    "LEVEL-3 legacy fallback",
+                    correlation_id, chat_id,
+                    l2_result.invalid_reason or "error",
+                    _l2_diag.get("reason_group") or "-",
+                    _diag_index if _diag_index is not None else "-",
+                    _diag_chars if _diag_chars is not None else "-",
+                    int(_l2_diag.get("l2_calls") or 1),
+                    bool(_l2_diag.get("correction_used")),
+                    len(_l2_diag.get("repair_actions") or []))
                 if ctx is not None:
                     ctx.stage = "l2"
                     ctx.reason = l2_result.invalid_reason or "error"

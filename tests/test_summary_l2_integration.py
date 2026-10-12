@@ -196,9 +196,14 @@ class TestOnPath:
             await gen._run_hybrid_l2(
                 -100, [{"id": 1, "tg_message_id": 101, "timestamp": 1,
                         "text": "x"}], None, "run-y")
-        assert llm.generate.await_count == 1     # L2 на fallback-пакете (1 вызов)
+        # L2 на fallback-пакете; ответ невалиден (invalid_json —
+        # correctionable) → ASAP 8 F1 §2.4: РОВНО ОДИН correction attempt
+        # (было 1 вызов: инвариант «correction retry НЕ вводится» заменён
+        # владельцем явно, architecture §1.3).
+        assert llm.generate.await_count == 2
         assert "L2_SKIPPED" not in caplog.text   # прежний терминал-лог снят
         assert "L1_FALLBACK_PACKAGE" in caplog.text
+        assert "L2_CORRECTION" in caplog.text    # ровно одна correction
         assert "LEGACY_FALLBACK" in caplog.text  # L2 не дал статью → LEVEL-3
         gen._deliver_l2_plain.assert_not_awaited()
 

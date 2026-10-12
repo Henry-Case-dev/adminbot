@@ -315,11 +315,17 @@ class TestRunL2:
         assert llm.calls == 0
 
     async def test_invalid_document_no_publication(self):
+        # ASAP 8 F1 (§1.3 architecture; §2.4 ТЗ): invalid_json —
+        # correctionable → РОВНО ОДИН correction attempt после attempt 1
+        # (было: llm.calls == 1, инвариант «correction retry НЕ вводится»
+        # заменён владельцем явно). Документ по-прежнему не публикуется.
         llm = ScriptedLLM("мусор")
         result = await run_l2(llm, _package(), slot=_SlotStub())
         assert result.status == STATUS_INVALID
         assert result.document is None
-        assert llm.calls == 1
+        assert llm.calls == 2                     # attempt + correction
+        assert result.metrics["l2_calls"] == 2
+        assert result.metrics["correction_used"] is True
 
     async def test_full_article_not_trimmed_by_soft_targets(self):
         # ASAP-2 §16/§1/§10 (вместо trim-тестов 2.58.32): 5 абзацев при

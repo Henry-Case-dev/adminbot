@@ -7,11 +7,15 @@
 JSON-документа §99 → детерминированный валидатор (структура §98, запрет
 выдуманных цитат/приписанных реплик, изоляция ID) → fail-closed ``L2Result``.
 
-Инварианты (ADR-1026-7 + AMEND ADR-1027-10):
-  * **ровно 1 вызов L2-слоя** (happy path = 2: L1+L2). Recovery-бюджет
-    (ADR-1027-10 D3): при негодности L2 — LEVEL-3 Legacy fallback в
-    ``summary_generator`` (AMEND ADR-1026-7 D5: «legacy-фолбэка нет»
-    отменён владельцем §8/§9); L2 correction retry НЕ вводится;
+Инварианты (ADR-1026-7 + AMEND ADR-1027-10; ASAP 8 F1 — §2.4 ТЗ, явная
+  замена контракта «L2 correction retry НЕ вводится»):
+  * **вызовов L2-слоя: happy path = 1, максимум = 2** (attempt + РОВНО ОДИН
+    correction против post-repair остатка; без циклов). Happy path
+    пайплайна = 2 (L1+L2); бюджет ≤5 генераций на run не тронут
+    (L1+L2+correction ≤3). Deterministic repair (``summary_l2_repair``)
+    всегда ПЕРВЫЙ и бесплатный — LLM-correction только если после него
+    документ всё ещё невалиден и дефект correctionable; иначе — LEVEL-3
+    Legacy fallback в ``summary_generator``;
   * **выход §99** — структурированный документ
     ``{schema_version:1, title, paragraphs:[{text, emphasis|null}]}``;
     лишние поля/типы → ``invalid``; L2 НЕ форматирует HTML (§99);
@@ -44,6 +48,21 @@ import unicodedata
 from config.settings import settings
 from services.llm_client import LLMBadResponseError, LLMError
 from services.prompt_style_blocks import resolve_prompt, resolve_prompt_with_source
+# ── ASAP 8 F1 (§1.4 architecture): гранулярная детекция + deterministic
+# repair §99-документов. Чистый модуль (без LLM/IO) — writer остаётся
+# владельцем валидации; repair сам импортирует helpers этого модуля ЛЕНИВО
+# (внутри функций), поэтому цикла импорта нет.
+from services.summary_l2_repair import (
+    Defect,
+    applied_repairs as _applied_repairs,
+    detect_paragraph_defects as _detect_paragraph_defects,
+    granular_reason as _granular_reason,
+    is_correctionable as _defect_correctionable,
+    post_repair_reason as _post_repair_reason,
+    reason_group as _reason_group_of,
+    repair_document as _repair_document,
+    repair_projection as _repair_projection,
+)
 from services.summary_cleanup import cleanup_llm_text
 from services.summary_prompts import (
     PREV_SUMMARY_L2_WRITER_R1029_ASAP41,
@@ -735,8 +754,74 @@ def validate_l2_document(document: dict,
     Пост-валидация цитат: нет нормализованного совпадения с текстами пакета →
     снять кавычки (+WARN-счётчик); именованная атрибуция → fail-closed
     ``quote_attribution``. Не бросает.
+
+    ASAP 8 F1 (§1.1/§1.2 architecture): при reject с umbrella-причиной
+    ``invalid_paragraph`` — granular detect → deterministic repair →
+    revalidate (один проход; repair всегда до LLM-correction). Гранулярные
+    поля metrics: ``reason_code``/``reason_group``/``paragraph_index``/
+    ``chars``/``repair_actions``/``repairs_applied`` — только коды, индексы
+    и длины (R17: текст абзацев не логируется).
     """
-    metrics: dict = {
+    metrics = _new_validation_metrics()
+    try:
+        document_out, metrics = _validate(document, package, metrics)
+    except Exception:  # pragma: no cover - защитная ветка
+        logger.warning("L2 contract: internal error — fail-closed",
+                       exc_info=True)
+        metrics["reason"] = REASON_INTERNAL_ERROR
+        _finalize_reason_metrics(metrics)
+        return None, metrics
+    if document_out is not None:
+        # Успех с первого прохода: ремонт не применялся (пустые значения —
+        # аддитивная телеметрия для единообразия consumers).
+        metrics.setdefault("repair_actions", [])
+        metrics.setdefault("repairs_applied", 0)
+        _finalize_reason_metrics(metrics)
+        return document_out, metrics
+    if metrics.get("reason") != REASON_INVALID_PARAGRAPH:
+        # invalid_evidence / quote_attribution / структура — БЕЗ paragraph-
+        # ремонта (fail-closed, §2.3 ТЗ: invented refs не «домываются»).
+        _finalize_reason_metrics(metrics)
+        return None, metrics
+
+    # ── F1: granular detect → deterministic repair → revalidate ────────────
+    defects = _detect_paragraph_defects(document, package)
+    _record_defect_metrics(metrics, defects)
+    repaired, actions = _repair_document(document, package)
+    metrics["repair_actions"] = actions
+    metrics["repairs_applied"] = _applied_repairs(actions)
+    if repaired is None:
+        # Ремонт невозможен/всё опустело: точная причина + флаг для
+        # correction-решения в run_l2.
+        final_reason = (_post_repair_reason(defects, actions)
+                        or metrics.get("reason")
+                        or REASON_INVALID_PARAGRAPH)
+        metrics["reason"] = final_reason
+        _finalize_reason_metrics(metrics)
+        return None, metrics
+    re_metrics = _new_validation_metrics()
+    try:
+        document_out, re_metrics = _validate(repaired, package, re_metrics)
+    except Exception:  # pragma: no cover - защитная ветка
+        logger.warning("L2 contract: internal error — fail-closed",
+                       exc_info=True)
+        re_metrics["reason"] = REASON_INTERNAL_ERROR
+        document_out = None
+    re_metrics["repair_actions"] = actions
+    re_metrics["repairs_applied"] = _applied_repairs(actions)
+    if document_out is None and re_metrics.get("reason") \
+            == REASON_INVALID_PARAGRAPH:
+        # Post-repair остаток (например одиночное предложение > лимита) —
+        # точная гранулярная причина вместо umbrella.
+        _record_defect_metrics(re_metrics,
+                               _detect_paragraph_defects(repaired, package))
+    _finalize_reason_metrics(re_metrics)
+    return document_out, re_metrics
+
+
+def _new_validation_metrics() -> dict:
+    """Базовый набор счётчиков канонизации (аддитивный, R17-safe)."""
+    return {
         "status": STATUS_INVALID,
         "reason": REASON_INTERNAL_ERROR,
         "paragraphs_count": 0,
@@ -761,13 +846,26 @@ def validate_l2_document(document: dict,
         "evidence_paragraphs": 0,
         "paragraphs_without_evidence": 0,
     }
-    try:
-        return _validate(document, package, metrics)
-    except Exception:  # pragma: no cover - защитная ветка
-        logger.warning("L2 contract: internal error — fail-closed",
-                       exc_info=True)
-        metrics["reason"] = REASON_INTERNAL_ERROR
-        return None, metrics
+
+
+def _record_defect_metrics(metrics: dict, defects: list[Defect]) -> None:
+    """Гранулярная диагностика первого дефекта (коды/индекс/длина; R17)."""
+    metrics["repair_defects"] = [defect.code for defect in defects][:32]
+    reason = _granular_reason(defects)
+    if reason:
+        metrics["reason"] = reason
+    for defect in defects:
+        if defect.index >= 0:
+            metrics.setdefault("paragraph_index", defect.index)
+            metrics.setdefault("chars", defect.chars)
+            break
+
+
+def _finalize_reason_metrics(metrics: dict) -> None:
+    """Аддитивные reason-поля: reason_code + reason_group (§1.2)."""
+    reason = str(metrics.get("reason") or "")
+    metrics["reason_code"] = reason
+    metrics["reason_group"] = _reason_group_of(reason)
 
 
 def _reject(metrics: dict, reason: str):
@@ -1158,12 +1256,44 @@ def validate_l2_document_anchors(document: dict, package: dict,
             merged["paragraphs_without_evidence"] = \
                 report.paragraphs_without_evidence
             return None, merged
-        # Возврат к AnchorSpace: source_anchors вместо raw ids.
+        # ── Возврат к AnchorSpace: source_anchors вместо raw ids. ───────────
+        # ASAP 8 F1 rework (REV-F1): deterministic repair внутри
+        # validate_l2_document может split'ить/удалять абзацы — канонический
+        # список больше НЕ 1:1 с repaired_paras. Проброс якорей идёт по
+        # детерминированной проекции repair: split-части наследуют якоря
+        # исходного абзаца (shared evidence, §50.7), drop исключает якоря;
+        # ЛЮБОЙ рассинхрон длин → fail-closed (смещённый якорями документ
+        # не публикуется).
+        projection = _repair_projection(
+            bridge, _augment_package_ids(package, resolved_ids))
+        if projection:
+            expanded: list[int] = []
+            for raw_index, kind, parts in projection:
+                if kind == "drop":
+                    continue
+                expanded.extend([raw_index] * max(1, parts))
+        else:
+            expanded = list(range(len(repaired_paras)))
+        canonical_paragraphs = canonical["paragraphs"]
+        if len(expanded) != len(canonical_paragraphs):
+            logger.warning(
+                "L2 anchors: paragraph alignment mismatch after repair "
+                "(canonical=%d projected=%d) — fail-closed",
+                len(canonical_paragraphs), len(expanded))
+            merged = dict(base_metrics)
+            merged["invalid_refs_repaired"] = report.invalid_refs_repaired
+            merged["paragraphs_without_evidence"] = \
+                report.paragraphs_without_evidence
+            merged["reason"] = REASON_INTERNAL_ERROR
+            merged["reason_code"] = REASON_INTERNAL_ERROR
+            merged["reason_group"] = "structural"
+            return None, merged
         canon_paras: list = []
-        for cpara, anchors in zip(canonical["paragraphs"], repaired_paras):
+        for cpara, raw_index in zip(canonical_paragraphs, expanded):
             item = dict(cpara)
             item.pop("evidence_message_ids", None)
-            item["source_anchors"] = list(anchors.get("source_anchors") or [])
+            item["source_anchors"] = list(
+                repaired_paras[raw_index].get("source_anchors") or [])
             canon_paras.append(item)
         canonical = dict(canonical)
         canonical["paragraphs"] = canon_paras
@@ -1240,7 +1370,9 @@ async def _dedicated_generate(llm, messages, slot: L2Slot) -> tuple[str, dict]:
 
 
 def _make_llm_call(llm, slot: L2Slot, correlation_id, *, operation: str = "writer"):
-    """Собрать async-callable L2 (ровно один вызов на запуск).
+    """Собрать async-callable L2-канал (без внутреннего retry; число
+    логических вызовов считает run_l2: happy=1, максимум=2 — attempt +
+    РОВНО ОДИН correction, ASAP 8 F1 §2.4).
 
     ASAP 4.1 волна 4 (T-4612, spec §4 D.1/D.2, ADR-1028-8 D5): при
     Supervisor ON — единый orchestration-owner (attempt-потолок ≤4 HTTP,
@@ -1371,6 +1503,38 @@ def _log_skipped(*, correlation_id, chat_id, reason) -> None:
 
 # ── Ядро запуска L2 ────────────────────────────────────────────────────────
 
+def _correction_messages(messages: list, reason, metrics: dict) -> list:
+    """Сообщение correction-попытки: исходный канон + machine reason в
+    user-контент (§2.4 ТЗ). R17: только код дефекта, индекс абзаца и длина —
+    текст абзаца/промпта наружу не попадает."""
+    lines = [
+        "CORRECTION REQUIRED (single automated attempt).",
+        "Your previous response was rejected by the deterministic validator.",
+        f"defect: {reason}",
+    ]
+    paragraph_index = (metrics or {}).get("paragraph_index")
+    chars = (metrics or {}).get("chars")
+    if paragraph_index is not None:
+        lines.append(f"paragraph_index: {int(paragraph_index)}")
+    if chars:
+        lines.append(f"paragraph_chars: {int(chars)}")
+    if reason == "invalid_json":
+        lines.append(
+            "The previous response was not valid JSON. Return ONE valid "
+            "JSON object only, with no prose around it.")
+    else:
+        lines.append(
+            "Fix exactly this defect and return the FULL corrected document "
+            "as one JSON object in the same schema. Keep all other content "
+            "and wording unchanged.")
+    correction_block = "\n".join(lines)
+    return [
+        dict(messages[0]),
+        {"role": "user",
+         "content": f"{messages[1]['content']}\n\n{correction_block}"},
+   ]
+
+
 async def _hybrid_length_for_chat(chat_id) -> dict:
     """Резолв Hybrid-длины с per-chat слоем (существующий `_chat_limit`-паттерн).
 
@@ -1421,7 +1585,10 @@ async def run_l2(llm=None, package=None, *, service=None, correlation_id=None,
     публикация (никогда не обрезка). Провал L2 → recovery-контур (LEVEL-3
     Legacy) решает вызывающий ``summary_generator`` (AMEND ADR-1026-7 D5,
     ADR-1027-10 D3): здесь — только ``document=None``.
-    Ровно один физический вызов на запуск (L2 correction retry не вводится).
+    Вызовов LLM: happy path = 1, максимум = 2 — attempt + РОВНО ОДИН
+    correction против post-repair correctionable-остатка (ASAP 8 F1, §2.4
+    ТЗ; явная замена «correction retry не вводится»). Deterministic repair
+    выполняется ДО correction и бесплатен. Циклов нет.
 
     ASAP 4.1 волна 3 (T-4609, spec §2 B.3; ADR-1028-8 D4/AM-4) — аддитивно:
       * ``source_input`` — готовый WriterInput от Full SourceWindow
@@ -1538,38 +1705,115 @@ async def run_l2(llm=None, package=None, *, service=None, correlation_id=None,
 
     usage = {"input_tokens": tokens_in, "output_tokens": tokens_out}
     data, parse_reason = parse_l2_document(raw)
+
+    def _validate_attempt(parsed):
+        """Валидация одного разбранного ответа (anchor/v1 по режиму)."""
+        if anchor_mode:
+            return validate_l2_document_anchors(parsed, package, anchor_map)
+        return validate_l2_document(parsed, package)
+
+    def _with_call_metrics(result_metrics):
+        """ASAP 8 F1: счётчики вызовов writer-стадии в metrics (R17-safe)."""
+        result_metrics = dict(result_metrics or {})
+        result_metrics["l2_calls"] = l2_calls
+        result_metrics["correction_used"] = correction_used
+        return result_metrics
+
+    l2_calls = 1
+    correction_used = False
     if data is None:
         reason = parse_reason if parse_reason != REASON_OK else REASON_INTERNAL_ERROR
-        result = invalid_result(reason, duration_ms=_elapsed(), usage=usage)
+        document, metrics = None, {}
     else:
-        if anchor_mode:
-            document, metrics = validate_l2_document_anchors(
-                data, package, anchor_map)
-        else:
-            document, metrics = validate_l2_document(data, package)
-        if document is None:
+        document, metrics = _validate_attempt(data)
+        reason = metrics.get("reason", REASON_INVALID_PARAGRAPH) \
+            if document is None else None
+
+    # ── ASAP 8 F1 (§2.4 ТЗ; явная замена «correction retry НЕ вводится»):
+    # РОВНО ОДИН correction attempt против post-repair остатка. Deterministic
+    # repair уже выполнился внутри validate_l2_document (бесплатно) — сюда
+    # попадают только неустранённые correctionable-дефекты. Machine reason в
+    # user-контент: код/индекс/длина (R17 — без текста абзаца). Никаких
+    # циклов: после correction — только publish или Legacy.
+    if document is None and _defect_correctionable(reason):
+        correction_used = True
+        l2_calls = 2
+        correction_messages = _correction_messages(messages, reason, metrics)
+        logger.warning(
+            "L2_CORRECTION | run_id=%s | chat_id=%s | defect=%s — ровно один "
+            "correction attempt", correlation_id or "none", chat_id, reason)
+        try:
+            raw_value = await call(correction_messages)
+            raw2, usage2 = _normalise_call_result(raw_value)
+            tokens_in2, tokens_out2 = _extract_usage(usage2)
+            if tokens_in2 is None:
+                tokens_in2 = count_tokens(str(raw2 or ""))
+            if tokens_out2 is None:
+                tokens_out2 = count_tokens(str(raw2 or ""))
+        except LLMError as exc:
+            # Transport-correction-фейл → fail-closed с ПЕРВОЙ причиной
+            # (документа нет; LEVEL-3 решает вызывающий).
+            _log_error(correlation_id=correlation_id, chat_id=chat_id,
+                       model=model, base_url=base_url, reason=reason,
+                       error_type=type(exc).__name__, duration_ms=_elapsed(),
+                       http_status=http_status_of(exc), attempts=attempts_of(exc))
             result = invalid_result(
-                metrics.get("reason", REASON_INVALID_PARAGRAPH),
-                duration_ms=_elapsed(), usage=usage, metrics=metrics)
+                reason or REASON_LLM_ERROR, duration_ms=_elapsed(),
+                usage=usage, metrics=_with_call_metrics(metrics))
+            _log_complete(correlation_id=correlation_id, chat_id=chat_id,
+                          result=result, model=model, base_url=base_url,
+                          tokens_in=tokens_in, tokens_out=tokens_out)
+            return result
+        except Exception as exc:
+            _log_error(correlation_id=correlation_id, chat_id=chat_id,
+                       model=model, base_url=base_url, reason=reason,
+                       error_type=type(exc).__name__, duration_ms=_elapsed())
+            result = invalid_result(
+                reason or REASON_LLM_ERROR, duration_ms=_elapsed(),
+                usage=usage, metrics=_with_call_metrics(metrics))
+            _log_complete(correlation_id=correlation_id, chat_id=chat_id,
+                          result=result, model=model, base_url=base_url,
+                          tokens_in=tokens_in, tokens_out=tokens_out)
+            return result
+        usage = {"input_tokens": (tokens_in or 0) + (tokens_in2 or 0),
+                 "output_tokens": (tokens_out or 0) + (tokens_out2 or 0)}
+        tokens_in, tokens_out = usage["input_tokens"], usage["output_tokens"]
+        data2, parse_reason2 = parse_l2_document(raw2)
+        if data2 is None:
+            reason = parse_reason2 if parse_reason2 != REASON_OK \
+                else REASON_INTERNAL_ERROR
+            document, metrics = None, {}
         else:
-            metrics = dict(metrics)
-            metrics["title_len"] = len(document["title"])
-            # §18: chars-итог статьи (title + абзацы, та же мера, что hard-
-            # проверка `too_long`).
-            chars = len(document["title"]) + sum(
-                len(p["text"]) + (len(p["emphasis"]) if p["emphasis"] else 0)
-                for p in document["paragraphs"])
-            metrics["chars"] = chars
-            # WARN-полоса 24000<chars≤32000 (контракт Q4/T-3939): публикуем,
-            # НЕ обрезаем; chars>32000 уже отбракован валидатором (too_long).
-            if chars > int(length["max_chars"]):
-                logger.warning(
-                    "L2_OVER_SOFT_CEILING | run_id=%s | chat_id=%s | "
-                    "chars=%d | max_chars=%d — публикуем без обрезки",
-                    correlation_id or "none", chat_id, chars,
-                    int(length["max_chars"]))
-            result = _make_result(STATUS_OK, document=document, usage=usage,
-                                  metrics=metrics, duration_ms=_elapsed())
+            document, metrics = _validate_attempt(data2)
+            reason = metrics.get("reason", REASON_INVALID_PARAGRAPH) \
+                if document is None else None
+
+    if document is None:
+        result = invalid_result(
+            reason or REASON_INVALID_PARAGRAPH,
+            duration_ms=_elapsed(), usage=usage,
+            metrics=_with_call_metrics(metrics))
+    else:
+        metrics = dict(metrics)
+        metrics["title_len"] = len(document["title"])
+        # §18: chars-итог статьи (title + абзацы, та же мера, что hard-
+        # проверка `too_long`).
+        chars = len(document["title"]) + sum(
+            len(p["text"]) + (len(p["emphasis"]) if p["emphasis"] else 0)
+            for p in document["paragraphs"])
+        metrics["chars"] = chars
+        # WARN-полоса 24000<chars≤32000 (контракт Q4/T-3939): публикуем,
+        # НЕ обрезаем; chars>32000 уже отбракован валидатором (too_long).
+        if chars > int(length["max_chars"]):
+            logger.warning(
+                "L2_OVER_SOFT_CEILING | run_id=%s | chat_id=%s | "
+                "chars=%d | max_chars=%d — публикуем без обрезки",
+                correlation_id or "none", chat_id, chars,
+                int(length["max_chars"]))
+        result = _make_result(STATUS_OK, document=document,
+                              usage=usage,
+                              metrics=_with_call_metrics(metrics),
+                              duration_ms=_elapsed())
 
     _log_complete(correlation_id=correlation_id, chat_id=chat_id,
                   result=result, model=model, base_url=base_url,

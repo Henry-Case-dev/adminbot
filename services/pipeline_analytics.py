@@ -199,6 +199,23 @@ REASONS_RU = {
                            "(Connections default).",
     "global_image": "Наследовано от глобального image-провайдера.",
     "no_style": "Стиль не выбран («Без дополнительного стиля»).",
+    # ── ASAP 8 F1 — гранулярные причины L2-валидатора (P0-S1 ТЗ §2) и
+    # честный статус attempted_invalid (S4). Группа umbrella (invalid_paragraph
+    # и др.) сохраняется отдельным полем reason_group (совместимость).
+    "invalid_paragraph": ("Статья отвергнута валидатором: некорректный "
+                          "абзац."),
+    "paragraph_bad_type": "Абзац не является текстом (неверный тип данных).",
+    "paragraph_empty": "Один из абзацев пустой.",
+    "paragraph_too_long": ("Абзац длиннее технического лимита (900 симв.) и "
+                           "не разбивается по границе предложений."),
+    "paragraph_empty_after_cleanup": ("Абзац состоит только из служебных "
+                                      "меток (ID-ссылок) — содержимого нет."),
+    "document_no_paragraphs": "В статье не осталось ни одного абзаца.",
+    "invalid_evidence": ("Статья ссылается на сообщения, которых нет в "
+                         "источнике (вымышленные ссылки) — не публикуется."),
+    "quote_attribution": ("Прямая реплика приписана человеку без "
+                          "подтверждения в источнике — не публикуется."),
+    "invalid_json": "Ответ писателя не является корректным JSON.",
 }
 
 # ── пояснения стадий (§61.3: 1–3 короткие строки) ───────────────────────────
@@ -756,16 +773,28 @@ def _coverage_breakdown(snapshot, usage, events) -> dict | None:
     seg_ledger_rows = _events_named(events, "SUMMARY_SEGMENT_LEDGER")
     seg_result_rows = _events_named(events, "SUMMARY_SEGMENT_RESULT")
     out: dict = {}
-    # ── Источник ────────────────────────────────────────────────────────
+    # ── Источник (ingested) ─────────────────────────────────────────────
     if src_rows or src_total is not None:
         input_count = _int(_parse_usage(
             (src_rows[-1] if src_rows else {}).get("usage_json"))
             .get("input_count"))
+        # ASAP 8 F1 (§1.5, §2.5 ТЗ): ось Source = СКОЛЬКО ВОШЛО В ОКНО
+        # (ingested). Legacy-overwrite usage.source_considered/coverage
+        # влияет ТОЛЬКО на Final-ось — иначе полное окно читается как
+        # «coverage 0 / 865» (симптом P0).
+        ingested = input_count if input_count is not None \
+            else (src_considered if src_considered is not None
+                  else src_total)
+        src_percent = None
+        if ingested is not None and src_total:
+            src_percent = round(ingested * 100.0 / src_total, 1)
+        elif src_percent is None:
+            src_percent = _float(snapshot.get("source_coverage")) \
+                or percent
         out["source"] = {
             "total": src_total,
-            "considered": src_considered if src_considered is not None
-            else input_count,
-            "percent": percent,
+            "considered": ingested,
+            "percent": src_percent,
         }
     # ── Structurer/L1: whole-window input + result — РАЗДЕЛЬНЫЕ оси ─────
     if l1_rows or seg_plan_rows:
@@ -832,14 +861,39 @@ def _coverage_breakdown(snapshot, usage, events) -> dict | None:
             "lossless": bool(seg_usage.get("assignment_lossless"))
             or None,
         }
-    # ── Writer input coverage + Final text coverage (отдельные оси) ─────
+    # ── Writer input coverage + L2 accepted + Final (отдельные оси) ─────
+    # ASAP 8 F1 (§1.5): headline — четыре раздельные оси Source ingested /
+    # L1 semantic / L2 accepted / Final; единый скаляр usage.coverage в
+    # headline не используется (Legacy-overwrite влияет только на Final).
     if writer_rows:
-        w_failed = str(writer_rows[-1].get("outcome") or "") == "failed"
+        w_row = writer_rows[-1]
+        w_outcome = str(w_row.get("outcome") or "")
+        w_status = str(w_row.get("status") or "")
+        w_usage = _parse_usage(w_row.get("usage_json"))
+        attempted_invalid = (w_status == "attempted_invalid"
+                             or str(w_usage.get("stage_status") or "")
+                             == "attempted_invalid")
+        accepted = w_outcome != "failed" and not attempted_invalid
         out["writer"] = {
             "total": src_total,
             "percent": 100.0 if src_total is not None
             and src_total == src_considered else None,
-            "result": "failed" if w_failed else "ok",
+            "result": "failed" if (w_outcome == "failed"
+                                   or attempted_invalid) else "ok",
+        }
+        # L2 accepted: гибридные документы, принятые детерминированным
+        # валидатором (новая ось; not_run — оси нет, как у остальных).
+        out["l2_accepted"] = {
+            "total": src_total,
+            "considered": (src_considered if accepted else 0),
+            "accepted": 1 if accepted else 0,
+            "result": ("ok" if accepted
+                       else ("attempted_invalid" if attempted_invalid
+                             else "failed")),
+            "reason_code": str(w_usage.get("reason_code") or "") or None,
+            "reason_group": str(w_usage.get("reason_group") or "") or None,
+            "l2_calls": _int(w_usage.get("l2_calls")),
+            "correction_used": bool(w_usage.get("correction_used")) or None,
         }
     if usage.get("coverage") is not None or usage.get("source_total"):
         out["final"] = {
@@ -930,7 +984,13 @@ def build_run_view(run_id, snapshot, events, *, running: bool = False,
 
     l2_ev = last("SUMMARY_L2_STAGE")
     if l2_ev is not None:
+        l2u = _parse_usage(l2_ev.get("usage_json"))
         failed = str(l2_ev.get("outcome") or "") == "failed"
+        # ASAP 8 F1 (S4): attempted_invalid — стадия выполнена, вывод
+        # отвергнут детерминированным валидатором (не «не выполнено»).
+        attempted_invalid = (
+            str(l2_ev.get("status") or "") == "attempted_invalid"
+            or str(l2u.get("stage_status") or "") == "attempted_invalid")
         l2_reason = str(l2_ev.get("reason_code") or "")
         # ASAP 5 D5: Writer и Reviewer — раздельные честные исходы.
         # Reviewer-rejection (после bounded repair) — НЕ «Writer не
@@ -944,13 +1004,32 @@ def build_run_view(run_id, snapshot, events, *, running: bool = False,
         detail = [{"k": "Проверка", "v": "отклонила после bounded repair — "
                    "резервный контур"}] if (failed and reviewer_reject) \
             else []
-        nodes.append(_node(
+        if attempted_invalid:
+            state = STATE_FAILED
+            detail = [{"k": "Итог", "v": "выполнено, отвергнуто валидатором"}]
+            granular = str(l2u.get("reason_code") or "") or l2_reason
+            if granular:
+                granular_ru = REASONS_RU.get(granular, "") \
+                    or reason_ru(granular)
+                detail.append({"k": "Причина",
+                               "v": f"{granular_ru or granular} [{granular}]"})
+            if l2u.get("correction_used"):
+                detail.append({"k": "Correction",
+                               "v": "использован (не помог)"})
+        node = _node(
             NODE_L2, "L2 · Писатель", TEXT_BRANCH, state,
-            reason_code=l2_ev.get("reason_code"), latency_ms=_lat(l2_ev),
+            # гранулярная причина — из usage_json (топ-уровень события
+            # enum-фильтрован), человекочитаемый текст по REASONS_RU.
+            reason_code=l2u.get("reason_code") or l2_ev.get("reason_code"),
+            latency_ms=_lat(l2_ev),
             model=l2_ev.get("model"), provider=l2_ev.get("provider"),
             detail=detail,
-            counts={"out": _int(_parse_usage(
-                l2_ev.get("usage_json")).get("output_count"))}))
+            counts={"out": _int(l2u.get("output_count"))})
+        if attempted_invalid:
+            # честный статус узла: стадия выполнена, вывод отвергнут
+            # валидатором (НЕ «не выполнено», §2.1 ТЗ).
+            node["status_label"] = "выполнено, отвергнуто валидатором"
+        nodes.append(node)
 
     review_ev = last("SUMMARY_L2_REVIEW")
     if review_ev is not None:
@@ -1362,7 +1441,12 @@ def _classify(event_name: str, row: dict) -> tuple[str | None, str | None]:
     if event_name == "SUMMARY_L1_STAGE":
         return NODE_L1, STATE_FAILED if outcome == "failed" else STATE_SUCCESS
     if event_name == "SUMMARY_L2_STAGE":
-        return NODE_L2, STATE_FAILED if outcome == "failed" else STATE_SUCCESS
+        # ASAP 8 F1 (S4): honest-исход attempted_invalid (status-поле/counts)
+        # — не success: стадия выполнена, вывод отвергнут валидатором.
+        rejected = status == "attempted_invalid"
+        return (NODE_L2,
+                STATE_FAILED if (outcome == "failed" or rejected)
+                else STATE_SUCCESS)
     if event_name == "SUMMARY_L2_REVIEW":
         if status == "failed":
             return NODE_L2_REVIEW, STATE_FALLBACK   # L2 → Legacy (§61.4)

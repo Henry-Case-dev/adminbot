@@ -82,13 +82,17 @@ assert.strictEqual(data.pipelineMode, 'latest', 'a: режим по умолча
 });
 
 // (c) computed — читаются шаблоном как свойства (без скобок)
+// ASAP 8 F1: pipelineCoverageLine УДАЛЁН — единый скаляр coverage из
+// headline убран, coverage только раздельными осями (pipelineCoverageRows).
 ['pipelineRunView', 'pipelineAggregate', 'pipelineRuns', 'pipelineNodesText',
- 'pipelineNodesCover', 'pipelineCoverageLine', 'pipelinePublicationLine',
+ 'pipelineNodesCover', 'pipelineCoverageRows', 'pipelinePublicationLine',
  'pipelineRunShortId', 'pipelineRunDuration', 'embeddingsAliases']
   .forEach(function (name) {
     assert.strictEqual(typeof computed[name], 'function',
       'c: computed.' + name);
   });
+assert.strictEqual(typeof computed.pipelineCoverageLine, 'undefined',
+  'c: pipelineCoverageLine удалён (единый скаляр из headline убран)');
 
 // (d) health-бейдж — текстовый, без score (§61.13)
 const badge = methods.pipelineHealthBadge;
@@ -133,15 +137,16 @@ assert.strictEqual(
   computed.pipelineNodesText.call(ctxNodes).length
   + computed.pipelineNodesCover.call(ctxNodes).length, 4, 'e: без потерь');
 
-// (e2) coverage/publication строки (§61.6/§61.1)
+// (e2) coverage/publication строки (§61.6/§61.1). ASAP 8 F1: скалярной
+// coverage-строки больше нет — оси живут в pipelineCoverageRows.
 const ctxLines = withView({ run: {
   coverage: { total: 688, considered: 307, percent: 44.6, full: false },
   publication: { status: 'ok', channel: 'rich', message_id: 777 },
 } });
-assert.ok(computed.pipelineCoverageLine.call(ctxLines)
-  .indexOf('307 / 688') >= 0, 'e2: coverage 307/688');
-assert.ok(computed.pipelineCoverageLine.call(ctxLines)
-  .indexOf('44.6%') >= 0, 'e2: coverage 44.6%');
+assert.strictEqual(typeof computed.pipelineCoverageLine, 'undefined',
+  'e2: скалярной coverage-строки нет');
+assert.strictEqual(typeof computed.pipelineCoverageRows, 'function',
+  'e2: coverage-оси доступны');
 assert.ok(computed.pipelinePublicationLine.call(ctxLines)
   .indexOf('RichMessage') >= 0, 'e2: публикация rich');
 assert.ok(computed.pipelinePublicationLine.call(ctxLines)
@@ -283,7 +288,12 @@ mustContain('Последний запуск', 'режим §61.4: послед�
 mustContain('За 24 часа', 'режим §61.4: 24 часа');
 mustContain('7 дней', 'режим §61.4: 7 дней');
 mustContain('Обложка — отдельная ветка', 'ветка обложки отдельна (§61.8)');
-mustContain('Неполное саммари', 'coverage-деградация видна (§61.6)');
+// ASAP 8 F1 (§1.5): единый скаляр coverage из headline УБРАН — «0 / 865»
+// больше не читается как «L1 ничего не увидел». Coverage — раздельные оси.
+assert.strictEqual(INDEX.indexOf('Неполное саммари'), -1,
+  'i: scalar coverage-headline удалён (оси в coverage_breakdown)');
+mustContain('Покрытие источника — по стадиям',
+  'coverage-оси (Source/L1/L2 accepted/Final)');
 mustContain('Developer details', 'developer collapsible (§76)');
 mustContain('Последние запуски', 'список runs (§61.10)');
 mustContain('← к последнему', 'выход из drill-down');
