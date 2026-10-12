@@ -1,13 +1,17 @@
 """S9 round1026 (ADR-1026-8 D2/D3/D5) — dry-run тест-контур «Тестирование» (§113).
 
-Отдельный путь прогона пайплайна Эпика 2 **без побочных эффектов**:
-``build_test_rows`` (read-only окно + S1/S2) → ``run_l1`` → ``build_fact_package``
-→ ``run_l2`` → форматтер (rich/plain). Инвариант **0 публикаций / 0 изменений
-памяти / 0 ``generate_image``** (D2): модуль физически не вызывает
-``telegram_send.*`` / ``SummaryGenerator._deliver_*`` / ``_send_*`` /
-``summary_memory.*`` / ``compress_and_purge`` / ``memorize_facts`` /
-``get_window_messages`` / ``generate_image``. «Предпросмотр Rich Message» —
-локальный рендер ``format_rich_html``/``format_plain_html`` (не отправка).
+Отдельный путь прогона пайплайна Эпика 2 **без побочных эффектов**: окна
+читаются read-only (``build_test_rows``), а подготовка входа — ЕДИНАЯ с
+production (ASAP 8 F2, ТЗ §3/§28.3): ``build_summary_execution_input``
+(окно in-memory, 0 durable-записей) → ``run_l1(..., source_window,
+focus_block)`` → ``build_fact_package`` → ``run_l2`` с Writer-входом
+(source_input/anchor_map/length) → форматтер (rich/plain). Инвариант
+**0 публикаций / 0 изменений памяти / 0 ``generate_image``** (D2): модуль
+физически не вызывает ``telegram_send.*`` / ``SummaryGenerator._deliver_*``
+/ ``_send_*`` / ``summary_memory.*`` / ``compress_and_purge`` /
+``memorize_facts`` / ``get_window_messages`` / ``generate_image``.
+«Предпросмотр Rich Message» — локальный рендер ``format_rich_html``/
+``format_plain_html`` (не отправка).
 
 ON-путь (``L1 → пакет → L2``) включается **per-run** прямыми вызовами
 ``run_l1``/``run_l2`` (S3/S5 не зависят от ``SUMMARY_HYBRID_L2_ENABLED``):
@@ -40,6 +44,7 @@ from services.summary_l1_clusterizer import build_l1_payload
 from services.summary_fact_package import build_fact_package
 from services.summary_l1_clusterizer import provider_host as _host_of, run_l1
 from services.summary_l2_writer import run_l2
+from services.summary_source_anchors import normalize_anchor
 # S7 (ADR-1026-9 D2/D5): этапные FORMAT_* переиспользуются тест-контуром.
 from services.summary_run_log import log_format_complete, log_format_start
 
@@ -144,6 +149,17 @@ def resolve_window_hours(window) -> int:
     return max(WINDOW_HOURS_MIN, min(WINDOW_HOURS_MAX, hours))
 
 
+def _writer_source_enabled() -> bool:
+    """ASAP 8 F2: тот же kill-switch Writer-входа, что у живого пути
+    (``summary_generator._writer_source_input_enabled``; env-only, default ON).
+    Х harness не тянет генератор — читается тот же ClassVar напрямую."""
+    try:
+        return bool(getattr(settings, "SUMMARY_WRITER_SOURCE_INPUT_ENABLED",
+                            True))
+    except Exception:      # pragma: no cover - защитная ветка
+        return True
+
+
 # ── Сериализация артефактов (§4.3, усечение срезами) ───────────────────────
 
 def _message_view(row) -> dict:
@@ -163,11 +179,44 @@ def _message_view(row) -> dict:
     }
 
 
-def _clusters(l1_result) -> list:
-    """Кластеры L1 (§95) — реальные треды канонизированного payload."""
+def _clusters(l1_result, anchor_map=None) -> list:
+    """Кластеры L1 — реальные треды/темы канонизированного payload.
+
+    §95-v2 payload → threads (как раньше); semantic map payload (map-режим,
+    T-4607) → topics: `message_ids` напрямую, `source_anchors` резолвятся в
+    реальные id через anchor_map окна (ASAP 8 F2: dry-run строит ту же
+    карту, что prod — иначе «Кластеры L1: 0» при построенной карте, симптом
+    audit-summary §3.1). facts у map нет по построению (map без текстов)."""
     payload = getattr(l1_result, "payload", None)
     if not isinstance(payload, dict):
         return []
+    topics = payload.get("topics")
+    if isinstance(topics, list):
+        out: list = []
+        for t in topics:
+            if not isinstance(t, dict):
+                continue
+            ids = [mid for mid in (t.get("message_ids") or [])
+                   if isinstance(mid, int) and not isinstance(mid, bool)]
+            if not ids:
+                for token in (t.get("source_anchors") or []):
+                    entry = None
+                    if anchor_map is not None:
+                        try:
+                            normalized = normalize_anchor(token)
+                            entry = anchor_map.entry(normalized) \
+                                if normalized else None
+                        except Exception:      # pragma: no cover
+                            entry = None
+                    if entry is not None:
+                        ids.append(entry.real_message_id)
+            out.append({
+                "thread_id": t.get("topic_id"),
+                "topic": t.get("title"),
+                "message_ids": ids,
+                "facts": [],
+            })
+        return out
     threads = payload.get("threads")
     if not isinstance(threads, list):
         return []
@@ -187,7 +236,7 @@ def _clusters(l1_result) -> list:
 
 
 def _artifacts(rows_info: dict, l1_result, package_result, l2_result,
-               rich: str, plain: str) -> dict:
+               rich: str, plain: str, anchor_map=None) -> dict:
     package = getattr(package_result, "package", None)
     document = getattr(l2_result, "document", None)
     return {
@@ -195,7 +244,7 @@ def _artifacts(rows_info: dict, l1_result, package_result, l2_result,
         "filtered": [_message_view(r) for r in rows_info.get("filtered") or []],
         "dropped": [_message_view(r) for r in rows_info.get("dropped") or []],
         "restored": [_message_view(r) for r in rows_info.get("restored") or []],
-        "clusters": _clusters(l1_result),
+        "clusters": _clusters(l1_result, anchor_map),
         "package": package,
         "article": document,
         "rich_preview": rich,
@@ -460,10 +509,11 @@ def _has_more(artifacts: dict, totals: dict) -> bool:
 
 def _finalize(result: TestRunResult, *, rows_info=None, l1_result=None,
               package_result=None, l2_result=None, usage=None,
-              rich="", plain="", started=None) -> TestRunResult:
+              rich="", plain="", started=None, anchor_map=None) -> TestRunResult:
     if rows_info is not None:
         result.artifacts = _artifacts(
-            rows_info, l1_result, package_result, l2_result, rich, plain)
+            rows_info, l1_result, package_result, l2_result, rich, plain,
+            anchor_map)
     result.metrics = _metrics(
         rows_info or {}, l1_result, package_result, l2_result, usage,
         (time.perf_counter() - started) * 1000.0 if started else 0.0)
@@ -553,10 +603,37 @@ async def run_summary_test(chat_id, window, *, allow_cover=False,
             model=model, base_url=base_url))
         return _finalize(result, rows_info=rows_info, started=started)
 
+    # ── ASAP 8 F2 (ТЗ §3/§28.3): единый preparation path с production —
+    # ExecutionInput. Окно монтируется В ПАМЯТИ (тот же build_source_window,
+    # 0 durable-записей: store_source_window вызывает только prod-путь);
+    # anchors/budget/длина/слоты/focus резолвит один владелец → dry-run
+    # получает тот же anchor_mode/окно, что и живой путь (S5). Раньше здесь
+    # был отдельный preparation path («build_test_rows + голый run_l1» без
+    # source_window) → anchor_mode=False → map-v1 → TEST_L1_INVALID
+    # unknown_message_id на реальном окне (audit-summary §2/§3).
+    try:
+        from services.summary_execution_input import (
+            build_summary_execution_input,
+        )
+        exec_input = await build_summary_execution_input(
+            chat_id=int(chat_id), rows=rows_info.get("filtered") or [],
+            correlation_id=correlation_id, mount_window=True)
+    except Exception as exc:      # pragma: no cover - fail-open к прежнему контуру
+        logger.warning(
+            "SUMMARY_TEST_EXEC_INPUT_FAILED | run_id=%s | error_type=%s",
+            correlation_id, type(exc).__name__)
+        exec_input = None
+    _rows_for_l1 = (exec_input.rows if exec_input is not None
+                    else rows_info.get("filtered") or [])
+    _focus_block = (exec_input.focus_block if exec_input is not None else "")
+    _source_window = (exec_input.source_window
+                      if exec_input is not None else None)
+
     # S3: L1 «Кластеризатор» (ровно 1 LLM-вызов).
     l1_result = await run_l1(
-        llm=llm, rows=rows_info.get("filtered") or [], chat_id=int(chat_id),
-        correlation_id=correlation_id)
+        llm=llm, rows=_rows_for_l1, chat_id=int(chat_id),
+        correlation_id=correlation_id, focus_block=_focus_block,
+        source_window=_source_window)
     result.stages["l1"] = {
         "status": getattr(l1_result, "status", None),
         "threads": getattr(l1_result, "threads_count", 0),
@@ -566,6 +643,12 @@ async def run_summary_test(chat_id, window, *, allow_cover=False,
         "skipped": len(getattr(l1_result, "skipped_ids", ()) or ()),
         "model": model,
         "duration_ms": getattr(l1_result, "duration_ms", None),
+        # §3.4: dry-run честно показывает окно/anchor-режим (паритет с prod).
+        "anchor_mode": bool(getattr(exec_input, "anchor_map", None)) \
+            if exec_input is not None else False,
+        "source_window_present": _source_window is not None,
+        "window_fingerprint": (getattr(exec_input, "fingerprint", "") or "")
+        if exec_input is not None else "",
     }
     if not l1_result.usable:
         status = getattr(l1_result, "status", STATUS_ERROR)
@@ -582,22 +665,55 @@ async def run_summary_test(chat_id, window, *, allow_cover=False,
         result.diagnostics.append(_diag(
             "l1", code, reason, model=model, base_url=base_url))
         return _finalize(result, rows_info=rows_info, l1_result=l1_result,
-                         started=started)
+                         started=started,
+                         anchor_map=(getattr(exec_input, "anchor_map", None)
+                                     if exec_input is not None else None))
 
-    # S4: пакет фактов §96 (0 LLM).
-    payload_items = build_l1_payload(rows_info.get("filtered") or [],
-                                     int(chat_id))
+    # S4: пакет §96/T-4609 (0 LLM) — ТОТ ЖЕ контракт, что живой путь
+    # (_run_hybrid_l2): map-payload (writer-source) → deterministic fact
+    # view от карты; иначе FactPackage из L1; не deliverable →
+    # fallback-пакет (defense, L2 вызывается от окна). Раньше dry-run гнал
+    # map-payload через build_fact_package → bad_type →
+    # TEST_PACKAGE_NOT_DELIVERABLE (второй parity-дефект audit-summary §2).
+    payload_items = build_l1_payload(_rows_for_l1, int(chat_id))
     # ASAP-4 (T-4417, хвост L-ASAP31-4): dry-run строит пакет с тем же
     # resolver-бюджетом, что и живой путь (иначе preview на больших окнах
     # показывает усечение/непригодность вместо полного результата).
-    try:
-        from services.summary_budget_auto import resolve_l2_package_budget
-        l2_budget = await resolve_l2_package_budget()
-    except Exception:
-        l2_budget = None
-    package_result = build_fact_package(
-        l1_result, payload_items, correlation_id=correlation_id,
-        budget=l2_budget)
+    # ASAP 8 F2: бюджет — поле ExecutionInput (единый preparation path).
+    l2_budget = (getattr(exec_input, "budget_l2", None)
+                 if exec_input is not None else None)
+    _writer_source = _writer_source_enabled()
+    _map_payload = None
+    _l1_payload = getattr(l1_result, "payload", None)
+    if _writer_source and isinstance(_l1_payload, dict) \
+            and "topics" in _l1_payload:
+        _map_payload = _l1_payload
+    package_result = None
+    if _map_payload is not None:
+        from services.summary_fact_view import build_fact_view_from_map
+        package_result = build_fact_view_from_map(
+            _map_payload, payload_items, chat_id=int(chat_id),
+            correlation_id=correlation_id)
+        if not package_result.deliverable:
+            from services.summary_fact_package import build_fallback_package
+            _fb = build_fallback_package(
+                payload_items, correlation_id=correlation_id,
+                chat_id=int(chat_id), reason="fact_view_unusable",
+                budget=l2_budget)
+            if _fb is not None:
+                package_result = _fb
+    else:
+        package_result = build_fact_package(
+            l1_result, payload_items, correlation_id=correlation_id,
+            budget=l2_budget)
+        if not package_result.deliverable:
+            from services.summary_fact_package import build_fallback_package
+            _fb = build_fallback_package(
+                payload_items, correlation_id=correlation_id,
+                chat_id=int(chat_id), reason="package_unusable",
+                budget=l2_budget)
+            if _fb is not None:
+                package_result = _fb
     pm = getattr(package_result, "metrics", {}) or {}
     result.stages["package"] = {
         "status": getattr(package_result, "status", None),
@@ -614,15 +730,42 @@ async def run_summary_test(chat_id, window, *, allow_cover=False,
             getattr(package_result, "reason", None) or "not_deliverable",
             model=model, base_url=base_url))
         return _finalize(result, rows_info=rows_info, l1_result=l1_result,
-                         package_result=package_result, started=started)
+                         package_result=package_result, started=started,
+                         anchor_map=(getattr(exec_input, "anchor_map", None)
+                                     if exec_input is not None else None))
 
     # S5: L2 «Писатель» (ровно 1 LLM-вызов; paged L2 — по странице) —
     # ON per-run, флаг не читается.
     service = (package_result.package or {}).get("service") or {}
+    # ASAP 8 F2 (ТЗ §3): L2 dry-run — тот же Writer-вход, что живой путь
+    # (_run_writer_source_stage): source_input от окна + semantic map +
+    # anchor_map + length (writer-source ON); OFF → FactPackage-центричный
+    # вход байт-в-бит. Рассинхрон-гейт тот же: v1-карта (не AnchorSpace)
+    # → L2 остаётся v1.
+    _anchor_map = getattr(exec_input, "anchor_map", None) \
+        if exec_input is not None else None
+    try:
+        from services.summary_l1_semantic_map import map_is_anchor_space
+        if _anchor_map is not None and not map_is_anchor_space(_map_payload):
+            _anchor_map = None
+    except Exception:      # pragma: no cover - fail-open к v1
+        _anchor_map = None
+    _length = getattr(exec_input, "length", None) \
+        if exec_input is not None else None
     # ASAP-3.2 (ADR-1028-5 D8, §39): paged L2 в dry-run — тот же контракт,
     # что живой путь (0 публикаций не меняется).
     _pages = getattr(package_result, "pages", ()) or ()
-    if _pages:
+    if _writer_source and not _pages:
+        from services.summary_l2_writer import build_l2_source_input
+        _source_input = build_l2_source_input(
+            payload_items, semantic_map=_map_payload, package=None,
+            length=_length, map_unavailable=False, anchor_map=_anchor_map)
+        l2_result = await run_l2(
+            llm, package_result.package, service=service,
+            correlation_id=correlation_id, chat_id=int(chat_id),
+            source_input=_source_input, length=_length,
+            anchor_map=_anchor_map)
+    elif _pages:
         from services.summary_l2_writer import L2Result as _L2Result
         _documents: list = []
         l2_result = None
@@ -647,6 +790,7 @@ async def run_summary_test(chat_id, window, *, allow_cover=False,
                 invalid_reason=None, usage=None,
                 metrics={"pages": len(_pages)}, duration_ms=0.0)
     else:
+        # writer-source OFF → FactPackage-центричный вход (байт-в-бит).
         l2_result = await run_l2(
             llm, package_result.package, service=service,
             correlation_id=correlation_id, chat_id=int(chat_id))
@@ -674,7 +818,9 @@ async def run_summary_test(chat_id, window, *, allow_cover=False,
             "l2", code, reason, model=model, base_url=base_url))
         return _finalize(result, rows_info=rows_info, l1_result=l1_result,
                          package_result=package_result, l2_result=l2_result,
-                         started=started)
+                         started=started,
+                         anchor_map=(getattr(exec_input, "anchor_map", None)
+                                     if exec_input is not None else None))
 
     # Форматтер §105 (локальный рендер, без отправки).
     # S7 (ADR-1026-9 D2/D5): этапные FORMAT_START/COMPLETE — тот же run_id;
@@ -716,7 +862,9 @@ async def run_summary_test(chat_id, window, *, allow_cover=False,
     usage = await _collect_usage(pg, correlation_id)
     return _finalize(result, rows_info=rows_info, l1_result=l1_result,
                      package_result=package_result, l2_result=l2_result,
-                     usage=usage, rich=rich, plain=plain, started=started)
+                     usage=usage, rich=rich, plain=plain, started=started,
+                     anchor_map=(getattr(exec_input, "anchor_map", None)
+                                 if exec_input is not None else None))
 
 
 def present_result(result: TestRunResult, *, offset: int = 0,

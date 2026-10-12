@@ -1001,8 +1001,23 @@ class TestDryRunBudget:
 
         monkeypatch.setattr(str_mod, "run_l1", _run_l1)
 
+        # ASAP 8 F2: dry-run повторяет defensive-цепочку живого пути — пакет
+        # не deliverable → fallback-пакет → L2 вызывается (как в prod).
+        # Смысл теста (T-4417) — сквозной бюджет резолвера; L2-заглушка
+        # фиксирует, что прогон дошёл до Writer на fallback-пакете.
+        class _L2Ok:
+            usable = True
+            status = "ok"
+            invalid_reason = None
+            duration_ms = 1
+            document = {"schema_version": 1, "title": "t",
+                        "paragraphs": [{"text": "абзац"}]}
+
+        l2_calls: list = []
+
         async def _run_l2(*a, **kw):
-            raise AssertionError("L2 не должен вызываться в этом тесте")
+            l2_calls.append(kw)
+            return _L2Ok()
 
         monkeypatch.setattr(str_mod, "run_l2", _run_l2)
         gen = sg.SummaryGenerator(_FakeMemory(_rows()), MagicMock(),
@@ -1010,3 +1025,5 @@ class TestDryRunBudget:
         result = await str_mod.run_summary_test(
             CHAT, {"hours": 1}, generator=gen, correlation_id="cid-budget")
         assert captured["budget"] == ("l2", 7777)
+        assert result.status == "ok"
+        assert len(l2_calls) == 1

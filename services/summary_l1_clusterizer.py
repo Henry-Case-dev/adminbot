@@ -101,7 +101,7 @@ from services.summary_l1_capacity import (
     repair_capacity_overflow,
     repartition_by_count,
 )
-from services.summary_l1_repair import repair_l1
+from services.summary_l1_repair import repair_l1, repair_semantic_map
 from services.summary_prompts import (
     SUMMARY_L1_ANCHORS_SYSTEM_PROMPT,
     SUMMARY_L1_CLUSTERIZER_SYSTEM_PROMPT,
@@ -1942,6 +1942,9 @@ async def run_l1(llm=None, rows=None, chat_id=None, *, correlation_id=None,
                                 **base_kwargs)
 
         space: IdSpace = build_id_space(pack.payload)
+        # useless_reason map/v2-веток (correction-блок retry); заполняется
+        # соответствующей веткой ниже.
+        useless_reason = ""
         if _map_mode:
             # ── T-4607 (spec §2 B.1; ADR-1028-8 D3): semantic map v1 —
             # парсер/валидатор карты (строгие структура/id-space, БЕЗ
@@ -1982,21 +1985,70 @@ async def run_l1(llm=None, rows=None, chat_id=None, *, correlation_id=None,
                     result = invalid_result(parse_reason, duration_ms=duration,
                                             **base_kwargs)
                 else:
-                    map_res = validate_semantic_map(data, space,
-                                                    duration_ms=duration)
-                    if map_res.usable:
-                        compacted, compact_stats, compact_degraded = \
-                            compact_semantic_map(map_res.payload, id_space=space)
-                        if compacted is not None and (compact_degraded
-                                                      or compact_stats):
+                    # ── ASAP 8 F2 (ТЗ §3.4): deterministic remover map v1
+                    # (anchor_mode=False — путь dry-run/fail-open). Небольшой
+                    # мусор (unknown refs) удаляется; полезная карта
+                    # выживает; useless → существующий РОВНО ОДИН correction
+                    # retry (REASON_L1_USELESS_AFTER_REPAIR теперь в
+                    # RETRYABLE_MAP_REASONS) → fail-closed. Invented refs
+                    # НИКОГДА не резолвятся (ТЗ §28.4) — unknown id только
+                    # удаляются. Kill-switch тот же
+                    # (flags.summary_hybrid_l1_repair_enabled); OFF →
+                    # прежняя строгость (fail-closed на первом unknown id).
+                    map_repair_report = None
+                    repair_rejected = False
+                    if repair_on:
+                        data, map_repair_report = repair_semantic_map(data,
+                                                                      space)
+                        logger.info(
+                            "L1_MAP_REPAIR | run_id=%s | chat_id=%s | "
+                            "attempt=%d | unknown_refs_count=%d | "
+                            "removed_unknown_refs=%d | "
+                            "map_useful_after_repair=%d | topics_removed=%d | "
+                            "events_removed=%d | relationships_removed=%d | "
+                            "useless_reason=%s",
+                            correlation_id or "none", chat_id, attempt,
+                            map_repair_report.unknown_refs_count,
+                            map_repair_report.removed_unknown_refs,
+                            1 if map_repair_report.map_useful_after_repair
+                            else 0,
+                            map_repair_report.topics_removed,
+                            map_repair_report.events_removed,
+                            map_repair_report.relationships_removed,
+                            map_repair_report.useless_reason or "-")
+                        if not map_repair_report.map_useful_after_repair:
+                            useless_reason = \
+                                map_repair_report.useless_reason
+                            result = invalid_result(
+                                REASON_L1_USELESS_AFTER_REPAIR,
+                                duration_ms=duration,
+                                map_stats=map_repair_report.as_log_fields(),
+                                **base_kwargs)
+                            repair_rejected = True
+                    if not repair_rejected:
+                        map_res = validate_semantic_map(
+                            data, space, duration_ms=duration)
+                        if map_repair_report is not None:
+                            # Телеметрия repair — аддитивно в stats
+                            # (R17-числа/коды; доедет до SUMMARY_L1_STAGE).
                             map_res = dataclasses.replace(
-                                map_res, payload=compacted,
-                                degraded=compact_degraded or map_res.degraded,
-                                stats=compact_stats)
-                    if map_res.usable and pack.truncated:
-                        map_res = dataclasses.replace(map_res,
-                                                      status=STATUS_TRUNCATED)
-                    result = _map_result_to_l1(map_res, base_kwargs)
+                                map_res,
+                                stats={**map_repair_report.as_log_fields(),
+                                       **(map_res.stats or {})})
+                        if map_res.usable:
+                            compacted, compact_stats, compact_degraded = \
+                                compact_semantic_map(map_res.payload, id_space=space)
+                            if compacted is not None and (compact_degraded
+                                                          or compact_stats):
+                                map_res = dataclasses.replace(
+                                    map_res, payload=compacted,
+                                    degraded=compact_degraded or map_res.degraded,
+                                    stats={**(map_res.stats or {}),
+                                           **(compact_stats or {})})
+                        if map_res.usable and pack.truncated:
+                            map_res = dataclasses.replace(map_res,
+                                                          status=STATUS_TRUNCATED)
+                        result = _map_result_to_l1(map_res, base_kwargs)
         else:
             data, parse_reason = parse_l1_response(raw)
             duration = (time.perf_counter() - started) * 1000.0
@@ -2008,10 +2060,11 @@ async def run_l1(llm=None, rows=None, chat_id=None, *, correlation_id=None,
                 " | raw_chars=%d",
                 correlation_id or "none", chat_id, attempt,
                 (parse_reason if data is None else "ok"), len(raw or ""))
-        useless_reason = ""
         if _map_mode:
             # Unknown-id список карты собран выше (correction-блок; в ЛОГИ
-            # не уходит — R17).
+            # не уходит — R17). useless_reason map-ветки (useless после
+            # deterministic repair — ASAP 8 F2) выставлен выше и здесь
+            # НЕ сбрасывается: он нужен correction-блоку retry.
             pass
         else:
             # Unknown-id список собирается ВСЕГДА (в т.ч. repair OFF): он нужен
@@ -2134,6 +2187,20 @@ async def run_l1(llm=None, rows=None, chat_id=None, *, correlation_id=None,
             messages = corrected
             continue
         break
+
+    # ── ASAP 8 F2 (ТЗ §3.4): телеметрия map-потока — retry_used /
+    #    anchor_mode / source_window_present — аддитивно в map_stats
+    #    (числа/bool, R17); генератор доносит их до SUMMARY_L1_STAGE.
+    if _map_mode and result is not None:
+        try:
+            _map_stats = dict(result.map_stats or {})
+            _map_stats.setdefault("anchor_mode", bool(anchor_mode))
+            _map_stats.setdefault("source_window_present",
+                                  source_window is not None)
+            _map_stats["retry_used"] = bool(attempts > 1)
+            result = dataclasses.replace(result, map_stats=_map_stats)
+        except Exception:      # pragma: no cover - телеметрия не рвёт прогон
+            pass
 
     if result.status in (STATUS_INVALID,):
         logger.warning(

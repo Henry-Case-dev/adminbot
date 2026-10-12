@@ -50,6 +50,7 @@ from services.summary_l1_contract import (
     REASON_EMPTY_RESPONSE,
     REASON_INTERNAL_ERROR,
     REASON_INVALID_JSON,
+    REASON_L1_USELESS_AFTER_REPAIR,
     REASON_OK,
     REASON_UNKNOWN_FIELD,
     REASON_UNKNOWN_MESSAGE_ID,
@@ -125,6 +126,10 @@ REASON_MAP_SHARDED = "map_sharded"
 REASON_SEMANTIC_MAP_UNAVAILABLE = "semantic_map_unavailable"
 
 # Retryable-классы map-ответа (correction retry — одна попытка, как §15).
+# ASAP 8 F2 (§3.4): map бесполезна после deterministic repair → РОВНО ОДНА
+# исправляющая попытка (как у §95-v2, где reason уже в _RETRYABLE_REASONS),
+# затем fail-closed. Причины v2-валидатора (anchor path) сюда не попадают —
+# broken-anchor-only чинит локальный repair_l1_anchors.
 RETRYABLE_MAP_REASONS: frozenset[str] = frozenset({
     REASON_INVALID_JSON,
     REASON_EMPTY_RESPONSE,
@@ -132,6 +137,7 @@ RETRYABLE_MAP_REASONS: frozenset[str] = frozenset({
     REASON_UNKNOWN_FIELD,
     REASON_BAD_SCHEMA_VERSION,
     REASON_UNKNOWN_MESSAGE_ID,
+    REASON_L1_USELESS_AFTER_REPAIR,
 })
 
 
@@ -964,6 +970,14 @@ def map_correction_block(reason: str, *, unknown_ids: list,
             + ", ".join(str(value) for value in unknown_ids)
             + "]. Используй ТОЛЬКО message_id из входных данных. "
               "Не выдумывай идентификаторы. Do not invent message ids.")
+    if reason == REASON_L1_USELESS_AFTER_REPAIR:
+        # ASAP 8 F2 (§3.4): useless после deterministic repair → коррекция
+        # должна опираться только на реальные id (invented refs не резолвятся).
+        lines.append(
+            "после ремонта не осталось пригодных тем/событий (причина: "
+            f"{useless_reason or '-'}). Верни структуру, опирающуюся только "
+            "на реальные message_id. Не выдумывай идентификаторы. "
+            "Do not invent message ids.")
     if reason in (REASON_INVALID_JSON, REASON_EMPTY_RESPONSE,
                   REASON_BAD_SCHEMA_VERSION, REASON_BAD_TYPE,
                   REASON_UNKNOWN_FIELD):
@@ -1006,6 +1020,26 @@ def anchor_map_correction_block(reason: str) -> str:
 
 
 # ── Merge map-payload'ов + minimal map (T-4608, spec §2 B.2) ───────────────
+
+def map_is_anchor_space(semantic_map) -> bool:
+    """ASAP 4.2 D1 (AM-1): semantic map в AnchorSpace?
+
+    ``None``/пусто → True (anchors L2 допустимы от самого окна); v1-карта
+    (message_ids) → False (L2 обязан остаться v1, иначе рассинхрон).
+    ASAP 8 F2: владелец проверки — этот модуль (dry-run harness не тянет
+    генератор); ``summary_generator._map_is_anchor_space`` — делегат."""
+    if not isinstance(semantic_map, dict) or not semantic_map:
+        return True
+    if semantic_map.get("schema_version") == 2:
+        return True
+    if "unassigned_anchors" in semantic_map:
+        return True
+    topics = semantic_map.get("topics") or []
+    if topics and isinstance(topics[0], dict) \
+            and "source_anchors" in topics[0]:
+        return True
+    return False
+
 
 def merge_map_payloads(payloads: list) -> dict | None:
     """Детерминированный merge нескольких semantic map (без LLM):

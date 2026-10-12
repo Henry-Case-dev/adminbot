@@ -254,18 +254,11 @@ def _map_is_anchor_space(semantic_map) -> bool:
     """ASAP 4.2 D1 (AM-1): semantic map в AnchorSpace?
 
     ``None``/пусто → True (anchors L2 допустимы от самого окна); v1-карта
-    (message_ids) → False (L2 обязан остаться v1, иначе рассинхрон)."""
-    if not isinstance(semantic_map, dict) or not semantic_map:
-        return True
-    if semantic_map.get("schema_version") == 2:
-        return True
-    if "unassigned_anchors" in semantic_map:
-        return True
-    topics = semantic_map.get("topics") or []
-    if topics and isinstance(topics[0], dict) \
-            and "source_anchors" in topics[0]:
-        return True
-    return False
+    (message_ids) → False (L2 обязан остаться v1, иначе рассинхрон).
+    ASAP 8 F2: владелец — summary_l1_semantic_map (dry-run harness не тянет
+    генератор); здесь делегат для существующих потребителей/тестов."""
+    from services.summary_l1_semantic_map import map_is_anchor_space
+    return map_is_anchor_space(semantic_map)
 
 
 def _legacy_source_window_enabled() -> bool:
@@ -411,14 +404,12 @@ def downgrade_rich_to_plain(text: str) -> str:
 
 def _apply_focus(user_content: str, focus: str | None) -> str:
     """Epic 65 (pure): «/summary про X» → <focus> блок в начало user_content.
-    System-промпт R11 не трогаем — инструкция живёт в user-контенте."""
-    if not focus or not focus.strip():
-        return user_content
-    from services.summary_xml import escape_xml_text   # локально — без циклов
-    safe = escape_xml_text(focus.strip()[:200])
-    return ('<focus note="главная тема этой выжимки — подсвети в саммари всё, '
-            'что касается неё; остальное кратко">' + safe + "</focus>\n\n"
-            + user_content)
+    System-промпт R11 не трогаем — инструкция живёт в user-контенте.
+    ASAP 8 F2: владелец формулировки — summary_execution_input (единый
+    preparation path prod/dry-run); здесь делегат (байт-та же семантика)."""
+    from services.summary_execution_input import build_focus_block
+    block = build_focus_block(focus)
+    return block + user_content if block else user_content
 
 
 def _strip_safe_html(text: str) -> str:
@@ -1071,7 +1062,8 @@ class SummaryGenerator:
                                        correlation_id: str, ctx=None, *,
                                        map_unavailable: bool = False,
                                        review_skipped_reason=None,
-                                       source_window=None):
+                                       source_window=None,
+                                       anchor_map=None, length=None):
         """T-4609/T-4610 (spec §2 B.3/B.4; ADR-1028-8 D4/AM-4): Writer от
         Full SourceWindow; FactPackage = derived view (только валидация/
         roster); WHOLE_WINDOW — один вызов; CAPACITY_OVERFLOW — иерархический
@@ -1079,7 +1071,11 @@ class SummaryGenerator:
         покрытие по построению: сегменты lossless). Reviewer — полный window
         если влезает, иначе evidence-slices; bounded revision ×2/budget ≤6 —
         без изменений. Никогда не бросает LLMError наружу (возвращает
-        L2Result)."""
+        L2Result).
+
+        ASAP 8 F2: ``length``/``anchor_map`` — подготовленные поля
+        ExecutionInput (единый preparation path с dry-run); ``None`` →
+        резолв на месте как раньше (совместимость)."""
         from services.summary_fact_view import (
             ensure_full_id_space,
             fallback_view_for_items,
@@ -1098,16 +1094,22 @@ class SummaryGenerator:
         from services.summary_hybrid_budget import (
             hybrid_output_reserve_tokens,
         )
-        length = await _l2_length_for_chat(chat_id)
+        # ASAP 8 F2: length/anchor_map могут приходить из ExecutionInput
+        # (единый preparation path с dry-run); None → резолв на месте.
+        length = length if isinstance(length, dict) and length \
+            else await _l2_length_for_chat(chat_id)
         review_on = _l2_review_enabled_safe()
         package = package_result.package if package_result is not None \
             else None
         # ASAP 4.2 D1 (AM-1): anchor-space L2 (evidence refs = source_anchors)
         # при immutable окне и включённом kill-switch; иначе — v1-контур.
-        anchor_map = None
+        # Guards (kill-switch + рассинхрон map/L2) применяются всегда,
+        # пришёл ли anchor_map готовым из ExecutionInput или резолвится тут.
+        if anchor_map is not None and not hasattr(anchor_map, "validate"):
+            anchor_map = None
         try:
             from services.summary_l1_clusterizer import resolve_anchor_map
-            if source_window is not None:
+            if anchor_map is None and source_window is not None:
                 anchor_map = resolve_anchor_map(
                     source_window, run_id=correlation_id, chat_id=chat_id)
             from services.summary_source_anchors import anchors_enabled
@@ -1836,13 +1838,26 @@ class SummaryGenerator:
         # T-4616: durable run store (лёгкий модуль; обёртки fail-open,
         # kill-switch OFF → no-op — байт-в-бит 2.58.46).
         from services import summary_run_store as _srs
+        # ASAP 8 F2 (ТЗ §3/§28.3): ЕДИНЫЙ preparation path — ExecutionInput
+        # (durable-окно уже создано выше и передаётся готовым; бюджет/
+        # длина/слоты/anchors резолвит один владелец для prod/dry-run).
+        exec_input = None
+        try:
+            from services.summary_execution_input import (
+                build_summary_execution_input,
+            )
+            exec_input = await build_summary_execution_input(
+                chat_id=chat_id, rows=rows, correlation_id=correlation_id,
+                focus=focus, trigger_message_id=trigger_message_id,
+                source_window=source_window)
+        except Exception:      # pragma: no cover - fail-open к прежнему контуру
+            logger.warning(
+                "summary: execution input build failed | run_id=%s",
+                correlation_id, exc_info=True)
         # ASAP-3.1 (T-4069): L2-пакет — тот же Auto Budget Resolver
         # (capacity слота summary.l2; OFF → прежний static hybrid-путь).
-        try:
-            from services.summary_budget_auto import resolve_l2_package_budget
-            l2_budget = await resolve_l2_package_budget()
-        except Exception:
-            l2_budget = None
+        l2_budget = getattr(exec_input, "budget_l2", None) \
+            if exec_input is not None else None
         # S7: R17-safe модель/провайдер для SUMMARY_FAILED (host, без ключа).
         if ctx is not None:
             ctx.model = str(getattr(self.llm, "_chat_model", "") or "") or None
@@ -1961,8 +1976,12 @@ class SummaryGenerator:
             l1_result = await run_l1(
                 llm=self.llm, rows=rows, chat_id=chat_id,
                 correlation_id=correlation_id,
-                focus_block=_apply_focus("", focus),
-                source_window=source_window)
+                focus_block=(exec_input.focus_block
+                             if exec_input is not None
+                             else _apply_focus("", focus)),
+                source_window=(exec_input.source_window
+                               if exec_input is not None
+                               else source_window))
             calls_so_far += 1
             if ctx is not None:
                 ctx.threads = getattr(l1_result, "threads_count", None)
@@ -1978,6 +1997,16 @@ class SummaryGenerator:
                 if _map_degraded:
                     _map_counts["map_reason"] = str(
                         getattr(l1_result, "map_reason", None) or "")
+                # ASAP 8 F2 (ТЗ §3.4): телеметрия map-потока / repair —
+                # числа/bool из map_stats (кластеризатор), аддитивно.
+                _stats = getattr(l1_result, "map_stats", None)
+                if isinstance(_stats, dict):
+                    for _key in ("unknown_refs_count",
+                                 "removed_unknown_refs",
+                                 "map_useful_after_repair", "retry_used",
+                                 "anchor_mode", "source_window_present"):
+                        if _key in _stats:
+                            _map_counts[_key] = _stats[_key]
                 pipeline_events.l1_stage(
                     correlation_id, chat_id=chat_id,
                     usable=bool(l1_result.usable),
@@ -2199,7 +2228,11 @@ class SummaryGenerator:
                     chat_id, rows, payload_items, map_payload,
                     package_result, service, correlation_id, ctx=ctx,
                     map_unavailable=not getattr(l1_result, "usable", True),
-                    source_window=source_window)
+                    source_window=source_window,
+                    anchor_map=(getattr(exec_input, "anchor_map", None)
+                                if exec_input is not None else None),
+                    length=(getattr(exec_input, "length", None)
+                            if exec_input is not None else None))
                 calls_so_far += (_l2_writer_calls(l2_result)
                                  + _l2_review_extra_calls(l2_result))
             elif _pages:

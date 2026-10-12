@@ -34,6 +34,12 @@ membership расширяет тред (evidence implies relation), пустые
 Все поля отчёта — int/bool (R17-safe; §18 событие ``L1_REPAIR``).
 Kill-switch ``flags.summary_hybrid_l1_repair_enabled`` проверяется ВЫЗЫВАЮЩИМ
 (run_l1): OFF → repair пропускается, валидатор v2 строгий как есть.
+
+ASAP 8 F2 (ТЗ §3.4): здесь же живёт ``repair_semantic_map`` — deterministic
+remover для semantic map v1 (anchor_mode=False, путь dry-run/fail-open),
+раньше fail-closed на первом unknown id. Telemetry-контракт
+``MapRepairReport.as_log_fields``: unknown_refs_count, removed_unknown_refs,
+map_useful_after_repair (+ счётчики удалённых контейнеров).
 """
 from __future__ import annotations
 
@@ -273,6 +279,185 @@ def repair_l1(data: dict, id_space: IdSpace) -> tuple[dict, RepairReport]:
         facts_before=facts_before,
         facts_after=facts_after,
         useless=useless,
+        useless_reason=useless_reason)
+    return repaired, report
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# ASAP 8 F2 (ТЗ §3.4) — deterministic remover для semantic map v1
+# (anchor_mode=False — путь dry-run/fail-open; раньше был fail-closed на
+# первом unknown id: validate_semantic_map  → REASON_UNKNOWN_MESSAGE_ID).
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+# Коды verdict «карта бесполезна после ремонта» (R17-safe; §3.4).
+USELESS_MAP_NO_STRUCTURE = "no_structure"
+USELESS_MAP_MASS_UNKNOWN_REFS = "mass_unknown_refs"
+# Та же граница «половина ссылок уцелела — продолжаем», что у repair_l1 (Q3).
+_MAP_MASS_UNKNOWN_RATIO = 0.5
+
+
+@dataclasses.dataclass(frozen=True)
+class MapRepairReport:
+    """Счётчики deterministic repair semantic map v1 (ТЗ §3.4; R17-safe).
+
+    ``unknown_refs_count`` — различных неизвестных id, на которые ссылалась
+    модель; ``removed_unknown_refs`` — число удалений ссылок (с дублями);
+    ``map_useful_after_repair`` — карта выжила после ремонта (продолжаем);
+    ``useless_reason`` — код вердикта, если полезна не осталась."""
+
+    unknown_refs_count: int = 0
+    removed_unknown_refs: int = 0
+    topics_removed: int = 0
+    events_removed: int = 0
+    relationships_removed: int = 0
+    refs_before: int = 0
+    map_useful_after_repair: bool = True
+    useless_reason: str = ""
+
+    def as_log_fields(self) -> dict:
+        return dataclasses.asdict(self)
+
+
+def _map_int(value):
+    """Строгий int без bool-ловушки (та же политика, что в контракте §95)."""
+    if isinstance(value, bool) or not isinstance(value, int):
+        return None
+    return value
+
+
+def _clean_map_id_list(raw_ids, id_space: IdSpace, *, unknown_seen: set,
+                       removed: list) -> list | None:
+    """Отфильтровать список id карты: unknown/не-int удалить (порядок и
+    дедуп сохраняются). Не-list вход не трогается (None — строгий
+    валидатор решает структурные вопросы)."""
+    if not isinstance(raw_ids, list):
+        return None
+    cleaned: list = []
+    for mid in raw_ids:
+        value = _map_int(mid)
+        if value is None:
+            removed.append(1)      # не-int мусор удаляется без счёта refs
+            continue
+        if not id_space.contains(value):
+            unknown_seen.add(value)
+            removed.append(1)
+            continue
+        if value not in cleaned:
+            cleaned.append(value)
+    return cleaned
+
+
+def _collect_map_ref_ids(data) -> set:
+    """Различные числовые id, на которые ссылается модель ДО repair
+    (topics ∪ events ∪ relationships ∪ unassigned; база формулы Q3)."""
+    referenced: set = set()
+    for key in ("topics", "events", "relationships"):
+        for item in (data or {}).get(key) or []:
+            if isinstance(item, dict) and isinstance(
+                    item.get("message_ids"), list):
+                for mid in item["message_ids"]:
+                    value = _map_int(mid)
+                    if value is not None:
+                        referenced.add(value)
+    for mid in (data or {}).get("unassigned_message_ids") or []:
+        value = _map_int(mid)
+        if value is not None:
+            referenced.add(value)
+    return referenced
+
+
+def repair_semantic_map(data, id_space: IdSpace) -> tuple[dict,
+                                                          MapRepairReport]:
+    """Детерминированно удалить небольшой мусор ссылок из map v1 (§3.4).
+
+    Образец — :func:`repair_l1`: отдельный чистый шаг между parse и
+    validate; вход НЕ мутирует; повторный прогон байт-идентичен;
+    структурно чужие элементы (не-dict/не-list) остаются как есть — их
+    отбракует строгий ``validate_semantic_map`` (repair типы не решает).
+
+    Шаги: 1) ``topics/events/relationships[].message_ids``: unknown/не-int →
+    удалить; 2) опустевший контейнер → удалить; 3) ``unassigned``: unknown →
+    удалить; 4) verdict: полезна, если осталась ≥1 тема/событие И доля
+    различных удалённых неизвестных ссылок ≤ 0.5 от сосланных (строго
+    большее отношение → mass_unknown_refs). **Invented refs никогда не
+    резолвятся** (ТЗ §28.4) — unknown id только удаляются; «чинить»
+    подстановкой реального id запрещено.
+    """
+    repaired = copy.deepcopy(data) if isinstance(data, dict) else {}
+    refs_before = len(_collect_map_ref_ids(data if isinstance(data, dict)
+                                           else {}))
+    unknown_seen: set = set()
+    removals: list = []
+
+    topics_removed = events_removed = relationships_removed = 0
+    for key, counter in (("topics", "topics"), ("events", "events"),
+                         ("relationships", "relationships")):
+        raw_items = repaired.get(key)
+        if not isinstance(raw_items, list):
+            continue
+        survivors: list = []
+        for item in raw_items:
+            if not isinstance(item, dict):
+                survivors.append(item)      # отбракует строгий валидатор
+                continue
+            cleaned = _clean_map_id_list(item.get("message_ids"), id_space,
+                                         unknown_seen=unknown_seen,
+                                         removed=removals)
+            if cleaned is None:
+                survivors.append(item)      # структурная невалидность
+                continue
+            item["message_ids"] = cleaned
+            if not cleaned:
+                if key == "topics":
+                    topics_removed += 1
+                elif key == "events":
+                    events_removed += 1
+                else:
+                    relationships_removed += 1
+                continue
+            survivors.append(item)
+        repaired[key] = survivors
+
+    raw_unassigned = repaired.get("unassigned_message_ids")
+    if isinstance(raw_unassigned, list):
+        clean_unassigned: list = []
+        for mid in raw_unassigned:
+            value = _map_int(mid)
+            if value is None:
+                removals.append(1)
+                continue
+            if not id_space.contains(value):
+                unknown_seen.add(value)
+                removals.append(1)
+                continue
+            if value not in clean_unassigned:
+                clean_unassigned.append(value)
+        repaired["unassigned_message_ids"] = clean_unassigned
+
+    removed_unknown_refs = len(removals)
+    topics_after = sum(1 for item in repaired.get("topics") or []
+                       if isinstance(item, dict))
+    events_after = sum(1 for item in repaired.get("events") or []
+                       if isinstance(item, dict))
+    ratio_base = max(refs_before, 1)
+    mass_unknown = unknown_seen and (
+        len(unknown_seen) / ratio_base > _MAP_MASS_UNKNOWN_RATIO)
+    useful = bool(topics_after or events_after) and not mass_unknown
+    useless_reason = ""
+    if not useful:
+        useless_reason = (USELESS_MAP_NO_STRUCTURE
+                          if not (topics_after or events_after)
+                          else USELESS_MAP_MASS_UNKNOWN_REFS)
+
+    report = MapRepairReport(
+        unknown_refs_count=len(unknown_seen),
+        removed_unknown_refs=removed_unknown_refs,
+        topics_removed=topics_removed,
+        events_removed=events_removed,
+        relationships_removed=relationships_removed,
+        refs_before=refs_before,
+        map_useful_after_repair=useful,
         useless_reason=useless_reason)
     return repaired, report
 

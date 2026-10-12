@@ -280,6 +280,12 @@ async def test_package_not_deliverable_fail_closed(monkeypatch):
     bad = FactPackageResult(status="empty", package=None, reason="empty",
                             metrics={}, budget={})
     monkeypatch.setattr(str_mod, "build_fact_package", lambda *a, **k: bad)
+    # ASAP 8 F2: dry-run повторяет defensive-цепочку живого пути
+    # (build_fact_package не deliverable → fallback-пакет). Оба строителя
+    # недоступны → честный fail-closed (skip), L2 не вызывается.
+    import services.summary_fact_package as sfp
+    monkeypatch.setattr(sfp, "build_fallback_package",
+                        lambda *a, **k: None)
     result = await run_summary_test(CHAT_ID, {"hours": 24}, generator=gen,
                                     correlation_id="cid-pkg", pg=None)
     assert result.status == STATUS_SKIPPED
@@ -474,7 +480,7 @@ def test_no_new_env_catalog_key():
 
 
 def test_app_version_bumped():
-    assert APP_VERSION == "2.58.74"
+    assert APP_VERSION == "2.58.75"
 
 
 def test_forbidden_modules_outside_diff():
