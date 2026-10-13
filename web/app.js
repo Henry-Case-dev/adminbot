@@ -7281,6 +7281,9 @@
       // Живой гейт/статус Initiative из /api/status (intent_snapshot().module).
       // Ленивый догруз по прецеденту oversightTabEnter (без нового поллера —
       // статусный 30с-поллер обновляет снапшот сам, если уже запущен).
+      // v6 C06A: + funnel (воронка 24ч), state_label/top_block_reason
+      // (диагностическая формула) и раздельные heartbeat-факты
+      // registered/last_tick/next_tick (не только живой гейт enabled).
       intentModuleStatus: function () {
         if (!this.statusData && !this._intentStatusFetch) {
           this._intentStatusFetch = true;
@@ -7290,6 +7293,7 @@
                    && this.statusData.intents.module) || null;
         if (!mod || mod.master_param === undefined) return null;
         var hb = mod.heartbeat || {};
+        var lastTick = hb.last_tick || null;
         return {
           requested: mod.requested, effective: mod.effective,
           source: mod.source, sourceLabel: this.gateSourceLabel(mod.source),
@@ -7300,7 +7304,33 @@
           lastSkip: mod.last_skip || null,
           nextDue: mod.next_due,
           heartbeat: hb,
+          heartbeatRegistered: !!hb.registered,
+          heartbeatNextTick: hb.next_tick || null,
+          heartbeatLastTick: (lastTick && lastTick.ts) ? lastTick : null,
+          stateLabel: mod.state_label || '',
+          topBlockReason: mod.top_block_reason || '',
+          funnel: mod.funnel || null,
         };
+      },
+      // v6 C06A: человекочитаемая причина останова воронки (top_block_reason).
+      topBlockLabel: function (code) {
+        return { heartbeat_not_run: 'heartbeat ещё ни разу не тикал',
+                 heartbeat_disabled: 'heartbeat выключен (гейт)',
+                 no_decision: 'решения не принимаются',
+                 no_writer: 'генерация текста не выполняется',
+                 recheck_blocked: 'отправка блокируется recheck'
+               }[code] || (code || '—');
+      },
+      // v6 C06A: producers_24h {origin: count} → «origin: N, origin: M».
+      funnelProducersLabel: function (producers) {
+        if (!producers) return '';
+        var parts = [];
+        for (var k in producers) {
+          if (Object.prototype.hasOwnProperty.call(producers, k)) {
+            parts.push(k + ': ' + producers[k]);
+          }
+        }
+        return parts.join(', ');
       },
       // ═══ ASAP 7 F3 (§3.1): merge реестра модулей (аддитивный; fallback —
       // витрина). Существующие карточки обогащаются полями реестра БЕЗ

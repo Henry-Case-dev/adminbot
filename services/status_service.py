@@ -762,6 +762,16 @@ class StatusService:
             heartbeat["enabled"] = bool(mca_gates.intent_heartbeat_enabled())
         except Exception:      # pragma: no cover
             pass
+        # v6 C06A: раздельно registered (джоба в живом планировщике) /
+        # next_tick (next_run_time) / last_tick (durable-штамп последнего
+        # тика: ts/due/enabled) — факты liveness, а не только гейт.
+        try:
+            from services import memory_maintenance as _mm
+            heartbeat.update(_mm.intent_heartbeat_job_info())
+            heartbeat["last_tick"] = dict(
+                getattr(_mm, "_heartbeat_last_tick", {}) or {})
+        except Exception:      # pragma: no cover
+            pass
         module_block = dict(module_gate)
         module_block["heartbeat"] = heartbeat
         empty = {"enabled": True, "state": "not_run", "active": 0, "top": [],
@@ -914,6 +924,12 @@ class StatusService:
                     state_label = ("Heartbeat ещё не запускался — тика "
                                    "инициативы не было")
                     top_block_reason = "heartbeat_not_run"
+                elif last_tick.get("enabled") is False:
+                    # v6 C06A: тик проходит (планировщик жив), но гейт K1/K2
+                    # OFF — «тик активен» заявлять нельзя.
+                    state_label = ("Heartbeat выключен — гейт K1/K2 OFF, "
+                                   "тики остановлены")
+                    top_block_reason = "heartbeat_disabled"
                 elif created == 0 and not funnel["producers_24h"]:
                     state_label = ("Heartbeat работает, но producers за 24ч "
                                    "не создали ни одного намерения")

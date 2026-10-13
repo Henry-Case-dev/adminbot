@@ -36,10 +36,17 @@ from services.summary_prompts import COMPRESS_PROMPT
 
 logger = logging.getLogger(__name__)
 
-# ── ASAP 8 (F6, §13.3/DoD «heartbeat observable»): честный in-memory штамп
-# последнего тика (ts + due). Status intent_snapshot читает его fail-open;
-# durable-событие на каждый тик не эмитится (notable-only контракт mca-13).
-_heartbeat_last_tick: dict = {"ts": None, "due": 0}
+# ── ASAP 8 (F6, §13.3/DoD «heartbeat observable»): честный штамп последнего
+# тика (ts + due + enabled-гейт на момент тика). v6 C06A: штамп ПЕРСИСТЕНТЕН
+# (durable-строка в `task_jobs`, см. _persist_heartbeat_tick) — рестарт больше
+# не превращает Status в ложное «Heartbeat ещё не запускался»; in-memory dict —
+# кэш-вид для Status intent_snapshot (fail-open). Durable-событие на каждый тик
+# не эмитится (notable-only контракт mca-13) — строка состояния, не событие.
+_heartbeat_last_tick: dict = {"ts": None, "due": 0, "enabled": None}
+
+# v6 C06A: живая ссылка на запущенный сервис (для registered/next_tick из
+# статусного payload — раздельные факты «джоба в планировщике» vs «гейт»).
+_active_service: "MemoryMaintenanceService | None" = None
 
 
 def _direct_chat_service_singleton():
@@ -99,12 +106,102 @@ def _legacy_traits_parse_tick_enabled() -> bool:
 def _intent_heartbeat_tick_enabled() -> bool:
     """K1+K2 Intent-heartbeat (fail-closed, никогда не бросает).
 
-    OFF (K1/K2) → джоб не регистрируется: бит-в-бит 2.58.59."""
+    v6 C06A: гейт читается ТИКОМ на каждом заходе (hot, без рестарта);
+    регистрация джобы от гейта больше не зависит (см. start()) — тумблер
+    симметричен: OFF-hot останавливает работу тика, ON-hot запускает."""
     try:
         from services import mca_gates
         return bool(mca_gates.intent_heartbeat_enabled())
     except Exception:      # pragma: no cover - защитная ветка
         return False
+
+
+# ── v6 C06A: durable liveness-штамп тика ────────────────────────────────────
+# Носитель — СУЩЕСТВУЮЩАЯ durable-очередь `task_jobs` (v14): ОДНА строка с
+# фиксированным PK, status='completed' (терминальный — супервайзер её не
+# подбирает как работу), heartbeat_at = ts последнего тика, payload =
+# {due, enabled}. Перезапись — UPSERT по PK; НЕ per-intent task_jobs
+# (контракт mca-09 не тронут), новой таблицы/миграции нет.
+_HEARTBEAT_LIVENESS_JOB_ID = "intent_heartbeat_liveness"
+_HEARTBEAT_LIVENESS_OWNER = "memory_maintenance"
+_HEARTBEAT_LIVENESS_KIND = "intent_heartbeat_liveness"
+
+
+async def _persist_heartbeat_tick(db, *, ts: int, due: int,
+                                  enabled: bool) -> None:
+    """UPSERT durable-штампа последнего тика (fail-open: телеметрия не должна
+    ронять тик; сбой → WARNING, in-memory штамп остаётся честным)."""
+    if db is None:
+        return
+    try:
+        payload = json.dumps({"due": int(due), "enabled": bool(enabled)},
+                             ensure_ascii=False)
+
+        async def _body(conn):
+            await conn.execute(
+                "INSERT INTO task_jobs (job_id, owner, kind, status, "
+                "payload, attempt, max_attempts, created_at, updated_at, "
+                "heartbeat_at, finished_at) VALUES (?, ?, ?, 'completed', "
+                "?, 0, 1, ?, ?, ?, ?) ON CONFLICT(job_id) DO UPDATE SET "
+                "payload = excluded.payload, updated_at = excluded.updated_at, "
+                "heartbeat_at = excluded.heartbeat_at",
+                (_HEARTBEAT_LIVENESS_JOB_ID, _HEARTBEAT_LIVENESS_OWNER,
+                 _HEARTBEAT_LIVENESS_KIND, payload, ts, ts, ts, ts))
+
+        await db.write_transaction(_body,
+                                   op_name="intent_heartbeat_liveness")
+    except Exception:
+        logger.warning("[c06a] heartbeat liveness persist failed",
+                       exc_info=True)
+
+
+async def _load_heartbeat_tick(db) -> dict | None:
+    """Прочитать durable-штамп (None — нет строки/БД недоступна; fail-open)."""
+    if db is None:
+        return None
+    try:
+        cursor = await db.db.execute(
+            "SELECT heartbeat_at, payload FROM task_jobs WHERE job_id = ?",
+            (_HEARTBEAT_LIVENESS_JOB_ID,))
+        row = await cursor.fetchone()
+        if row is None or row["heartbeat_at"] is None:
+            return None
+        due, enabled = 0, None
+        try:
+            data = json.loads(row["payload"] or "{}")
+            due = int(data.get("due") or 0)
+            enabled = data.get("enabled")
+        except Exception:
+            pass
+        return {"ts": int(row["heartbeat_at"]), "due": due,
+                "enabled": enabled}
+    except Exception:
+        logger.warning("[c06a] heartbeat liveness load failed",
+                       exc_info=True)
+        return None
+
+
+def intent_heartbeat_job_info() -> dict:
+    """v6 C06A: раздельные факты «registered»/«next_tick» из ЖИВОГО
+    планировщика (для Status): registered = джоба есть у запущенного сервиса
+    (после start() — всегда, гейт внутри тика); next_tick = next_run_time.
+    Сервис не запущен → честное {registered: False, next_tick: None}."""
+    svc = _active_service
+    if svc is None:
+        return {"registered": False, "next_tick": None}
+    try:
+        job = svc._scheduler.get_job(
+            MemoryMaintenanceService.JOB_INTENT_HEARTBEAT_ID)
+    except Exception:      # pragma: no cover — планировщик не работоспособен
+        return {"registered": False, "next_tick": None}
+    if job is None:
+        return {"registered": False, "next_tick": None}
+    nrt = getattr(job, "next_run_time", None)
+    try:
+        next_ts = int(nrt.timestamp()) if nrt is not None else None
+    except Exception:      # pragma: no cover — экзотический tz-объект
+        next_ts = None
+    return {"registered": True, "next_tick": next_ts}
 
 
 class MemoryMaintenanceService:
@@ -179,18 +276,22 @@ class MemoryMaintenanceService:
                                      settings.SUMMARY_TIMEZONE)),
                 id=self.JOB_EXPERIENCE_REVIEW_ID, replace_existing=True,
                 max_instances=1, coalesce=True)
-        # MCA-09 (T-5026, ADR-1028-16 D5): лёгкий heartbeat due-намерений —
-        # тот же планировщик; OFF (K1/K2) → джоб не регистрируется
-        # (бит-в-бит 2.58.59).
-        if _intent_heartbeat_tick_enabled():
-            self._scheduler.add_job(
-                self._tick_intent_heartbeat,
-                IntervalTrigger(
-                    seconds=_INTENT_HEARTBEAT_TICK_SECONDS,
-                    timezone=hot.get("limits.summary_timezone",
-                                     settings.SUMMARY_TIMEZONE)),
-                id=self.JOB_INTENT_HEARTBEAT_ID, replace_existing=True,
-                max_instances=1, coalesce=True)
+        # MCA-09 (T-5026, ADR-1028-16 D5) + v6 C06A: лёгкий heartbeat
+        # due-намерений — тот же планировщик. Раньше джоба регистрировалась
+        # ТОЛЬКО если гейт был ON при старте процесса → hot-ON тумблера
+        # не работал до рестарта (асимметрия toggle, R1 RCA C06A). Теперь
+        # джоба регистрируется ВСЕГДА (прецедент embed_recovery), а гейт
+        # K1/K2 читается тиком на каждом заходе: OFF-hot останавливает
+        # работу тика (mca_intents.heartbeat_tick инертен, 0 SQL), ON-hot
+        # запускает её ≤300 с. Semantics симметричны, рестарт не нужен.
+        self._scheduler.add_job(
+            self._tick_intent_heartbeat,
+            IntervalTrigger(
+                seconds=_INTENT_HEARTBEAT_TICK_SECONDS,
+                timezone=hot.get("limits.summary_timezone",
+                                 settings.SUMMARY_TIMEZONE)),
+            id=self.JOB_INTENT_HEARTBEAT_ID, replace_existing=True,
+            max_instances=1, coalesce=True)
         # mca-18 (T-5084, ADR-1028-18 D8): тик идемпотентного разбора
         # persona_traits (K3 OFF → джоб не регистрируется — бит-в-бит).
         if _legacy_traits_parse_tick_enabled():
@@ -214,16 +315,37 @@ class MemoryMaintenanceService:
             id=self.JOB_EMBED_RECOVERY_ID, replace_existing=True,
             max_instances=1, coalesce=True)
         self._scheduler.start()
+        # v6 C06A: сервис запущен → registered/next_tick доступны Status;
+        # durable-штамп последнего тика восстанавливается (fail-open) —
+        # рестарт больше не выглядит как «тик ещё не был».
+        global _active_service
+        _active_service = self
+        self._startup_tasks = []
+        try:
+            _loop = asyncio.get_running_loop()
+        except RuntimeError:
+            _loop = None
+        if _loop is not None:
+            self._startup_tasks.append(
+                _loop.create_task(self._hydrate_heartbeat_liveness()))
         logger.info(
             "MemoryMaintenance started (merge=%s/%dd, review=%s/%dd, "
-            "wal=%s/%dh, embed_reprobe=%ds)",
+            "wal=%s/%dh, embed_reprobe=%ds, intent_hb=%ds[always-on])",
             hot.get("flags.graph_episode_merge_enabled", settings.GRAPH_EPISODE_MERGE_ENABLED),
             hot.get("limits.graph_episode_merge_interval_days", settings.GRAPH_EPISODE_MERGE_INTERVAL_DAYS),
             hot.get("flags.graph_review_enabled", settings.GRAPH_REVIEW_ENABLED),
             hot.get("limits.graph_review_interval_days", settings.GRAPH_REVIEW_INTERVAL_DAYS),
             hot.get("flags.db_wal_checkpoint_enabled", settings.DB_WAL_CHECKPOINT_ENABLED),
             hot.get("limits.db_wal_checkpoint_hours", settings.DB_WAL_CHECKPOINT_HOURS),
-            _EMBED_RECOVERY_TICK_SECONDS)
+            _EMBED_RECOVERY_TICK_SECONDS,
+            _INTENT_HEARTBEAT_TICK_SECONDS)
+
+    async def _hydrate_heartbeat_liveness(self) -> None:
+        """v6 C06A: восстановить durable-штамп тика в in-memory вид для
+        Status (fail-open: нет строки/БД недоступна → штамп остаётся пустым)."""
+        stamp = await _load_heartbeat_tick(self.db)
+        if stamp is not None:
+            _heartbeat_last_tick.update(stamp)
 
     async def _tick_wal_checkpoint(self) -> None:
         """Epic 64: PRAGMA wal_checkpoint(TRUNCATE) — сброс -wal в основной файл.
@@ -291,14 +413,24 @@ class MemoryMaintenanceService:
             from services import mca_intents
             stats = await mca_intents.get_service(self.db).heartbeat_tick()
             due = list(stats.get("due") or [])
-            if stats.get("enabled") and (due or stats.get("expired")
-                                         or stats.get("archived")):
+            enabled = bool(stats.get("enabled"))
+            # v6 C06A (R1/R3 RCA): «мёртвый» vs «праздный» различимы — тик
+            # пишет INFO на КАЖДЫЙ заход (в т.ч. пустой due=0); гейт OFF →
+            # DEBUG (инертный тик не должен спамить журнал).
+            if enabled:
                 logger.info(
-                    "[mca09] intent heartbeat | due=%d expired=%d "
+                    "[mca09] intent heartbeat tick ran | due=%d expired=%d "
                     "archived=%d", len(due), stats.get("expired", 0),
                     stats.get("archived", 0))
+            else:
+                logger.debug("[mca09] intent heartbeat tick | gate OFF")
             _heartbeat_last_tick["ts"] = int(time.time())
             _heartbeat_last_tick["due"] = len(due)
+            _heartbeat_last_tick["enabled"] = enabled
+            # v6 C06A: durable-штамп — последний тик переживает рестарт.
+            await _persist_heartbeat_tick(
+                self.db, ts=_heartbeat_last_tick["ts"], due=len(due),
+                enabled=enabled)
             # Кандидаты — в ЕДИНЫЙ вход инициативы (тот же Decision/транспорт).
             # F6 (§28.15): генерация текста — СУЩЕСТВУЮЩИМ Direct-контуром
             # (singleton DI из bot.py → handlers.direct_chat._service);
@@ -649,6 +781,9 @@ class MemoryMaintenanceService:
                 chat_id, keep["id"], drop["fact"], keep["fact"], "review_glue")
 
     async def shutdown(self) -> None:
+        global _active_service
+        if _active_service is self:
+            _active_service = None
         try:
             if self._scheduler.running:
                 self._scheduler.shutdown(wait=False)

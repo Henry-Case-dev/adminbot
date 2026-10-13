@@ -423,13 +423,49 @@
                     </span>
                   </div>
                   <div class="text-gray-500">
-                    Heartbeat: {{ intentModuleStatus().heartbeat.enabled ? 'тик активен' : 'тик выключен' }}
-                    ({{ intentModuleStatus().heartbeat.job }}, каждые
-                    {{ intentModuleStatus().heartbeat.tick_seconds }} с).
-                    <template v-if="!intentModuleStatus().effective">
-                      Правка env {{ intentModuleStatus().envParam }} требует рестарта;
-                      тумблер применяется сразу (hot).
+                    <!-- v6 C06A: раздельно гейт (enabled, hot) и ФАКТЫ:
+                         registered (джоба в планировщике), последний тик
+                         (durable-штамп, переживает рестарт), следующий тик.
+                         «Тик активен» только по гейту — больше не показываем
+                         (создавало ложное «работает» при незарегистрированной
+                         джобе, R1 RCA C06A). -->
+                    Heartbeat-гейт: {{ intentModuleStatus().heartbeat.enabled ? 'включён' : 'выключен' }}
+                    · джоба: {{ intentModuleStatus().heartbeatRegistered ? 'зарегистрирована' : 'НЕ зарегистрирована' }}
+                    <template v-if="intentModuleStatus().heartbeatLastTick">
+                      · последний тик: {{ fmtTs(intentModuleStatus().heartbeatLastTick.ts) }}<template v-if="intentModuleStatus().heartbeatLastTick.enabled === false"> (гейт был выключен)</template>
                     </template>
+                    <template v-else>· тиков ещё не было</template>
+                    <template v-if="intentModuleStatus().heartbeatNextTick">
+                      · следующий тик: {{ fmtTs(intentModuleStatus().heartbeatNextTick) }}</template>
+                    ({{ intentModuleStatus().heartbeat.job }}, каждые
+                    {{ intentModuleStatus().heartbeat.tick_seconds }} с;
+                    тумблер применяется сразу, без рестарта).
+                    <template v-if="!intentModuleStatus().effective">
+                      Правка env {{ intentModuleStatus().envParam }} требует рестарта.
+                    </template>
+                  </div>
+                  <!-- v6 C06A: диагностическая формула F6 (4 состояния) +
+                       последний блокер — человекочитаемо. -->
+                  <div v-if="intentModuleStatus().stateLabel"
+                       class="mt-1 text-gray-400" data-initiative-state-label>
+                    {{ intentModuleStatus().stateLabel }}
+                    <template v-if="intentModuleStatus().topBlockReason">
+                      <span class="text-gray-600">· блокер:
+                        {{ topBlockLabel(intentModuleStatus().topBlockReason) }}</span>
+                    </template>
+                  </div>
+                  <!-- v6 C06A: воронка за 24ч — producers/created/due/
+                       decisions/writer/recheck/sent. Редкие/нулевые значения
+                       могут быть корректны — важна видимость стадии останова. -->
+                  <div v-if="intentModuleStatus().funnel"
+                       class="mt-1 flex flex-wrap gap-1" data-initiative-funnel>
+                    <span class="badge badge-muted">Продюсеры 24ч: {{ funnelProducersLabel(intentModuleStatus().funnel.producers_24h) || '0' }}</span>
+                    <span class="badge badge-muted">Создано: {{ intentModuleStatus().funnel.intents_created_24h }}</span>
+                    <span class="badge badge-muted">Due: {{ intentModuleStatus().funnel.due }}</span>
+                    <span class="badge badge-muted">Решений: {{ intentModuleStatus().funnel.decisions_24h }}</span>
+                    <span class="badge badge-muted">Writer: {{ intentModuleStatus().funnel.writer_generated_24h }}</span>
+                    <span class="badge badge-muted">Recheck: {{ intentModuleStatus().funnel.recheck_passed_24h }}</span>
+                    <span class="badge badge-muted">Отправлено: {{ intentModuleStatus().funnel.sent_24h }}</span>
                   </div>
                   <div class="mt-1">
                     Ожидают решения: {{ intentModuleStatus().pending }}
@@ -6925,8 +6961,32 @@
                 <div v-else-if="statusData.intents.state === 'restricted'" class="text-xs text-gray-500">
                   Нет разрешённого чата — данные инициативы не раскрываются (chat scope).
                 </div>
-                <div v-else-if="statusData.intents.state === 'not_run'" class="text-xs text-gray-500">
-                  Намерений пока нет — инициатива ещё не запускалась в этом чате.
+                <div v-else-if="statusData.intents.state === 'not_run'" class="text-xs text-gray-500"
+                     data-intents-not-run>
+                  <!-- v6 C06A: legacy «не запускалось» заменён диагностической
+                       формулой F6 (state_label) + блокером + воронкой 24ч —
+                       видна СТАДИЯ останова, а не голый факт нуля. -->
+                  <template v-if="statusData.intents.module && statusData.intents.module.state_label">
+                    {{ statusData.intents.module.state_label }}
+                    <template v-if="statusData.intents.module.top_block_reason">
+                      · блокер: {{ topBlockLabel(statusData.intents.module.top_block_reason) }}</template>
+                    <div v-if="statusData.intents.module.funnel" class="mt-1 flex flex-wrap gap-1"
+                         data-initiative-funnel>
+                      <span class="badge badge-muted">Продюсеры 24ч: {{ funnelProducersLabel(statusData.intents.module.funnel.producers_24h) || '0' }}</span>
+                      <span class="badge badge-muted">Создано: {{ statusData.intents.module.funnel.intents_created_24h }}</span>
+                      <span class="badge badge-muted">Due: {{ statusData.intents.module.funnel.due }}</span>
+                      <span class="badge badge-muted">Решений: {{ statusData.intents.module.funnel.decisions_24h }}</span>
+                      <span class="badge badge-muted">Отправлено: {{ statusData.intents.module.funnel.sent_24h }}</span>
+                    </div>
+                    <div class="mt-1">
+                      Heartbeat: гейт {{ statusData.intents.module.heartbeat && statusData.intents.module.heartbeat.enabled ? 'включён' : 'выключен' }}
+                      · джоба {{ statusData.intents.module.heartbeat && statusData.intents.module.heartbeat.registered ? 'зарегистрирована' : 'не зарегистрирована' }}
+                      <template v-if="statusData.intents.module.heartbeat && statusData.intents.module.heartbeat.last_tick && statusData.intents.module.heartbeat.last_tick.ts">
+                        · последний тик: {{ fmtTs(statusData.intents.module.heartbeat.last_tick.ts) }}</template>
+                      <template v-else>· тиков ещё не было</template>
+                    </div>
+                  </template>
+                  <template v-else>Намерений пока нет — инициатива ещё не запускалась в этом чате.</template>
                 </div>
                 <template v-else>
                   <div class="flex flex-wrap gap-2 text-xs">

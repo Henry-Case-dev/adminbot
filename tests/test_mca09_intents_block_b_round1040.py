@@ -237,13 +237,20 @@ async def test_heartbeat_tick_module_and_host(tmp_path, monkeypatch):
         await _due(mi.get_service(db), when=NOW - 1)
         stats = await mi.heartbeat_tick(db, now=NOW)
         assert stats["status"] == "ok" and stats["candidates"] == 1
-        # хендлер хоста вызывает единый сервис; per-intent task_jobs нет
+        # хендлер хоста вызывает единый сервис; per-intent task_jobs нет.
+        # v6 C06A: + ОДНА сервисная liveness-строка штампа тика (job_id
+        # фиксирован, не per-intent) — разрешён ровно этот job_id.
         svc = mm.MemoryMaintenanceService.__new__(mm.MemoryMaintenanceService)
         svc.db = db
         await svc._tick_intent_heartbeat()          # не бросает
         cur = await db.db.execute(
-            "SELECT COUNT(*) AS c FROM task_jobs WHERE kind LIKE '%intent%'")
+            "SELECT COUNT(*) AS c FROM task_jobs WHERE kind LIKE '%intent%' "
+            "AND job_id <> 'intent_heartbeat_liveness'")
         assert (await cur.fetchone())["c"] == 0
+        cur = await db.db.execute(
+            "SELECT COUNT(*) AS c FROM task_jobs WHERE "
+            "job_id = 'intent_heartbeat_liveness'")
+        assert (await cur.fetchone())["c"] == 1
     finally:
         await db.close()
 
