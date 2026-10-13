@@ -12,6 +12,10 @@
 (function () {
   'use strict';
 
+  // D05 (§18E.7/U8): минимум известных исходов для показа процента
+  // полезности; меньше — «Недостаточно данных» (не 0%).
+  var D05_USEFULNESS_MIN_KNOWN = 5;
+
   // UPD3 (T-1936/R31): sentinel маски секрета. Маска — НЕ значение: она не
   // сохраняется (guard в saveBlock/saveKeyItem) и не считается изменением.
   var SECRET_MASK = '\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022';
@@ -1287,6 +1291,23 @@
   var GRAPH_ZOOM_HYSTERESIS = 0.06;    // гистерезис режимов (без дёрганья)
 
   function arr(x) { return Array.isArray(x) ? x : []; }
+
+  // D09 (§18F, панели): человекочитаемые причины статусов memory_dream_log
+  // (обычный сон + глубокий сон). Неизвестный код показывается как есть.
+  var DREAM_STATUS_LABELS = {
+    ok: '', unchanged: 'без нового вывода', error: 'ошибка',
+    window_skip: 'вне окна — отложено до окна',
+    budget_skip: 'пропущено: дневной лимит',
+    budget_override: 'ручной запуск поверх лимита',
+    gate_override: 'ручной запуск поверх рубильника',
+    cluster_deferred: 'отложено на следующий прогон (очередь групп)',
+    duplicate: 'все выводы — дубликаты',
+    no_anchors: 'мало исторических опор',
+    cooldown: 'слишком рано (cooldown)',
+    daily_limit: 'дневной лимит прогонов',
+    insufficient_evidence: 'мало независимых доказательств',
+    disabled: 'выключено',
+  };
 
   // ═══ Hash-routing (T-1099, OD1/OD3/§6.3): route — источник истины ═══
   // Маршрут — ТОЛЬКО hash, начинающийся с '#/' (launch-hash tgWebAppData
@@ -4622,6 +4643,15 @@
       logLevel: function () {
         this.loadLogs();
       },
+      // D05 (§18E.7/U8): права администратора пришли позже входа в «Память» —
+      // добрать read-only воронку для цепочки/полезности (single-flight
+      // внутри oversightLoadFunnel; не-админ не запрашивает вовсе).
+      isGlobalAdmin: function (v) {
+        if (v && this.lessonsData && !this.mca17cFunnel
+            && !this.mca17cFunnelBusy) {
+          this.oversightLoadFunnel();
+        }
+      },
       // ASAP-2.1 (T-3982, §13:3212–3219): stale/invalid promptKey в URL —
       // не переключать UI в пустой editing state; вернуть на канонический
       // маршрут списка `#/ai/prompts/<slug>`. Fail-open: конфиг ещё не
@@ -6723,14 +6753,63 @@
       // только разрешённого чата (сервер не отдаёт чужой trace). R17-safe.
       loadLessons: async function () {
         this.lessonsBusy = true;
+        // D05 (§18E.7): цепочка обучения/полезность — из СУЩЕСТВУЮЩЕЙ
+        // read-only воронки oversight (глобальный админ; для не-админа
+        // остаются счётчики самой таблицы уроков).
+        if (this.isGlobalAdmin && !this.mca17cFunnel
+            && !this.mca17cFunnelBusy) {
+          this.oversightLoadFunnel();
+        }
         try {
-          var q = this._cidQuery ? this._cidQuery() : '';
+          var q = this._cidQuery ? this._cidQuery(true) : '';
           this.lessonsData = await this.api('/api/memory/lessons' + q);
         } catch (e) {
           this.lessonsData = null;
         } finally {
           this.lessonsBusy = false;
         }
+      },
+      // ── D05 (§18E.7/U8): полезность уроков и человеческая цепочка ──
+      // usefulness = known_pos/(known_pos+known_neg) + sample + unknown
+      // отдельно; мало известных исходов → «Недостаточно данных» (не 0%);
+      // никакого «AI IQ» — только измеряемые величины.
+      lessonUsefulness: function (success, failure, unknown) {
+        var s = Math.max(0, parseInt(success, 10) || 0);
+        var f = Math.max(0, parseInt(failure, 10) || 0);
+        var u = Math.max(0, parseInt(unknown, 10) || 0);
+        var known = s + f;
+        if (!known) {
+          if (!u) return null;
+          return { ready: false, pct: null, known: 0, unknown: u,
+                   label: 'Недостаточно данных' };
+        }
+        if (known < D05_USEFULNESS_MIN_KNOWN) {
+          return { ready: false, pct: null, known: known, unknown: u,
+                   label: 'Недостаточно данных' };
+        }
+        var pct = Math.round((100 * s) / known);
+        return { ready: true, pct: pct, known: known, unknown: u,
+                 label: pct + '% · ' + known + ' известных' };
+      },
+      d05ExperienceChain: function () {
+        var f = this.mca17cFunnel;
+        if (!f || f.enabled === false) return null;
+        var fb = f.feedback || {};
+        var les = f.lessons || {};
+        var app = f.applications || {};
+        var passed = (les.validated || 0) + (les.active || 0);
+        return {
+          noticed: fb.total || 0,
+          candidates: les.candidate || 0,
+          checked: passed,
+          saved: les.active || 0,
+          applied: app.total || 0,
+          helped: app.success || 0,
+          notHelped: app.failure || 0,
+          unknownOutcomes: app.unknown || 0,
+          usefulness: this.lessonUsefulness(app.success, app.failure,
+                                            app.unknown),
+        };
       },
       lessonTypeLabel: function (type) {
         var ru = { tool_usage: 'способ действия', retrieval: 'поиск',
@@ -7362,7 +7441,8 @@
         var self = this;
         this._f4Registry = {};
         var F4_ICONS = { stories: 'auto_stories', character: 'psychology',
-                         experience: 'school', random: 'casino' };
+                         experience: 'school', random: 'casino',
+                         factcheck_temporal: 'schedule' };
         var known = {};
         (this.modules || []).forEach(function (m) { if (m) known[m.id] = m; });
         modules.forEach(function (spec) {
@@ -16810,6 +16890,28 @@
             this.toast('Не удалось загрузить лог снов: ' + e.message, 'err');
           }
         }
+      },
+
+      // D09 (§18F, панели): human-readable причины статусов «сна»/
+      // «глубокого сна» (failure/deferred видны без знания кодов).
+      // Неизвестный статус — показывается как есть (честный raw).
+      dreamStatusLabel: function (status) {
+        var s = String(status || '');
+        var labels = DREAM_STATUS_LABELS;
+        if (Object.prototype.hasOwnProperty.call(labels, s)) {
+          return labels[s];       // ok → '' (без причины), прочее → причина
+        }
+        return s;                 // неизвестный код — честный raw
+      },
+      dreamStatusBadgeClass: function (l) {
+        var s = String((l && l.status) || '');
+        if (s === 'ok') {
+          return l && l.kind === 'distilled' ? 'badge-ok' : 'badge-muted';
+        }
+        if (s === 'unchanged' || s === 'duplicate' || s === 'disabled') {
+          return 'badge-muted';
+        }
+        return 'badge-warn';    // error/*_skip/deferred/no_anchors/… — внимание
       },
 
       // GET /api/memory/nostalgia/log — «последние срабатывания».

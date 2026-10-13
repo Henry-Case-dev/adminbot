@@ -1503,6 +1503,84 @@ def _gen_log_cooldown() -> float:
     return max(5.0, min(value, 86400.0))
 
 
+def _row_int(row, key: str) -> int:
+    """Число из строки БД/дикта (0 при отсутствии/битом значении)."""
+    try:
+        return int(row[key] or 0)
+    except (KeyError, IndexError, TypeError, ValueError):
+        return 0
+
+
+# ── D09/§18F.3 (M10): версия источника «широкого фона» (L2) ─────────────────
+# Идентичность источника — (window_end_ts, raw_count) prev-L1: новое равное
+# по размеру окно с новым контентом обновляет L2, точный повтор диапазона не
+# создаёт работу, устаревший диапазон не перезаписывает свежий. Носитель —
+# существующая task_jobs kv (прецедент intent_heartbeat_liveness); схема БД
+# не меняется. Fail-open: недоступность kv → прежний count-highwater гард.
+
+_L2_VERSION_OWNER = "summary"
+_L2_VERSION_KIND = "summary_l2_source_version"
+
+
+def _l2_version_job_id(chat_id: int) -> str:
+    return f"summary_l2_source_version:{int(chat_id)}"
+
+
+def _l2_identity_key(identity: dict) -> tuple[int, int]:
+    return (int((identity or {}).get("window_end_ts") or 0),
+            int((identity or {}).get("raw_count") or 0))
+
+
+async def _load_l2_source_version(db, chat_id: int) -> dict | None:
+    """Прочитать durable-версию источника L2 (None — нет строки/сбой)."""
+    if db is None:
+        return None
+    try:
+        cursor = await db.db.execute(
+            "SELECT payload FROM task_jobs WHERE job_id = ?",
+            (_l2_version_job_id(chat_id),))
+        row = await cursor.fetchone()
+        if row is None:
+            return None
+        data = json.loads(row["payload"] or "{}")
+        if not isinstance(data, dict):
+            return None
+        return {"window_end_ts": int(data.get("window_end_ts") or 0),
+                "raw_count": int(data.get("raw_count") or 0)}
+    except Exception:
+        logger.warning("level2: source version read failed — legacy guard",
+                       exc_info=True)
+        return None
+
+
+async def _save_l2_source_version(db, chat_id: int, identity: dict) -> None:
+    """UPSERT durable-версии источника L2 (fail-open: телеметрия не роняет
+    сборку)."""
+    if db is None:
+        return
+    now = int(time.time())
+    payload = json.dumps({"window_end_ts": _l2_identity_key(identity)[0],
+                          "raw_count": _l2_identity_key(identity)[1]},
+                         ensure_ascii=False)
+
+    async def _body(conn):
+        await conn.execute(
+            "INSERT INTO task_jobs (job_id, owner, kind, status, "
+            "payload, attempt, max_attempts, created_at, updated_at, "
+            "heartbeat_at, finished_at) VALUES (?, ?, ?, 'completed', "
+            "?, 0, 1, ?, ?, ?, ?) ON CONFLICT(job_id) DO UPDATE SET "
+            "payload = excluded.payload, updated_at = excluded.updated_at, "
+            "heartbeat_at = excluded.heartbeat_at",
+            (_l2_version_job_id(chat_id), _L2_VERSION_OWNER,
+             _L2_VERSION_KIND, payload, now, now, now, now))
+
+    try:
+        await db.write_transaction(_body, op_name="summary_l2_source_version")
+    except Exception:
+        logger.warning("level2: source version save failed — fail-open",
+                       exc_info=True)
+
+
 class MemoryManager:
     """Owns L1/L2 access and the L3 archive (text + optional vec0).
 
@@ -2644,20 +2722,36 @@ class MemoryManager:
         compress-канон — новая константа/миграция НЕ вводятся, Q13); user =
         текст prev-l1 конспекта. Условия запуска (здесь, ДО LLM):
         prev_l1.raw_count >= limits.chat_level2_min_raw_count (default 250)
-        И (existing level-2 отсутствует ИЛИ его msg_count_highwater <
-        prev_l1.raw_count — меньшим окном L2 не перезаписывается). Результат
-        (непустой, ≤ 10 строк) → UPSERT (level=2) с msg_count_highwater =
-        prev_l1.raw_count. Пустой/LLMError/ошибка БД → WARNING, без записи
-        (fail-open, NFR-6). Вызывается ТОЛЬКО из fire_and_forget."""
+        И источник СВЕЖЕ построенного: D09/§18F.3 (M10) — идентичность
+        источника по ДИАПАЗОНУ (window_end_ts + raw_count), не по размеру
+        окна: новое равное по размеру окно с новым контентом ОБНОВЛЯЕТ
+        широкий фон, точный повтор диапазона не создаёт работу, устаревший
+        (меньший) диапазон не перезаписывает свежий. Версия источника —
+        durable kv в task_jobs (прецедент intent_heartbeat_liveness).
+        Результат (непустой, ≤ 10 строк) → UPSERT (level=2) с
+        msg_count_highwater = prev_l1.raw_count. Пустой/LLMError/ошибка БД →
+        WARNING, без записи (fail-open, NFR-6). Вызывается ТОЛЬКО из
+        fire_and_forget."""
         try:
             raw_count = int(prev_l1_row["raw_count"] or 0)
             min_raw = int(hot.get("limits.chat_level2_min_raw_count",
                                   settings.CHAT_LEVEL2_MIN_RAW_COUNT) or 0)
             if raw_count < (min_raw or 250):
                 return
+            identity = {
+                "window_end_ts": _row_int(prev_l1_row, "window_end_ts"),
+                "raw_count": raw_count}
+            stored = await _load_l2_source_version(self.db, chat_id)
             existing = await self.db.get_summary_level(chat_id, 2)
-            if existing is not None and \
+            if stored is not None:
+                # M10: гард по версии источника (диапазон, не размер окна).
+                if existing is not None and \
+                        _l2_identity_key(identity) <= \
+                        _l2_identity_key(stored):
+                    return      # точный повтор / устаревший диапазон
+            elif existing is not None and \
                     int(existing["msg_count_highwater"] or 0) >= raw_count:
+                # легаси (версии ещё нет): прежний count-highwater гард.
                 return
             summary = str((await self.llm.generate([
                 {"role": "system", "content": hot.get(
@@ -2677,8 +2771,13 @@ class MemoryManager:
                 summary = "\n".join(lines[:10])
             await self.db.upsert_summary_level(
                 chat_id, 2, summary, time.time(), raw_count)
-            logger.info("level2: built | chat_id=%s | chars=%d",
-                        chat_id, len(summary))
+            # M10: версия источника персистится ПОСЛЕ успешной записи L2 —
+            # capture-before-await (identity зафиксирован ДО LLM-вызова).
+            await _save_l2_source_version(self.db, chat_id, identity)
+            logger.info("level2: built | chat_id=%s | chars=%d | "
+                        "source_end_ts=%s | raw_count=%d",
+                        chat_id, len(summary), identity["window_end_ts"],
+                        raw_count)
         except Exception:
             logger.warning(
                 "level2: build failed — no write | chat_id=%s",
@@ -2980,15 +3079,32 @@ class MemoryManager:
         result = dict(result or {})
         status = str(result.pop("status", "success"))
         reason = result.pop("reason", None)
-        outcome = "success" if status == "success" else status
+        # ── D09/§18F.5 (M12): исход терминала FACTS_EXTRACT — из фактической
+        # персистенции. Enum события закрытый (mca-13): различие M12-исходов
+        # несёт reason_code + usage_json-счётчики; write_failed — честный
+        # failed (WARN), дубликаты — нейтральный success (не потеря).
+        outcome_map = {
+            "success": ("success", None, "INFO"),
+            "all_duplicates": ("success", None, "INFO"),
+            "partial": ("success", "run_partial", "WARN"),
+            "text_only_vector_deferred": ("success", "embed_deferred", "WARN"),
+            "write_failed": ("failed", "writer_failed", "WARN"),
+            "no_new_facts": ("skipped", "no_new_contribution", "INFO"),
+        }
+        if status in outcome_map:
+            outcome, mapped_reason, level = outcome_map[status]
+        else:
+            outcome = status if status in ("skipped", "failed") else "success"
+            mapped_reason, level = reason, ("WARN" if outcome == "failed"
+                                            else "INFO")
         fields = dict(chat_id=chat_id, stage="extract",
                       duration_ms=int((time.perf_counter() - _t0) * 1000))
-        if reason:
-            fields["reason_code"] = reason
-        if outcome == "failed":
-            fields["level"] = "WARN"
+        if mapped_reason or reason:
+            fields["reason_code"] = mapped_reason or reason
+        if level != "INFO":                # level → kwarg _emit_mca
+            fields["level"] = level
         if result:
-            fields["usage_json"] = result      # счётчики saved/skipped/...
+            fields["usage_json"] = dict(result, outcome=status)
         _emit_mca("FACTS_EXTRACT", outcome, **fields)
 
     async def _extract_facts(self, tail: str) -> str:
@@ -3092,9 +3208,10 @@ class MemoryManager:
                 return {"status": "failed", "reason": "model_unavailable"}
             if status == PARSE_EMPTY_VALID:
                 # S10.19-1: rate-limited INFO (виден в journald/root=INFO).
+                # D09/§18F.5 (M12): валидный «ничего не найдено» — исход
+                # `no_new_facts` (не потеря и не ошибка).
                 _log_empty_valid(chat_id, source_type)
-                return {"status": "skipped",
-                        "reason": "no_new_contribution"}
+                return {"status": "no_new_facts"}
             return {"status": "skipped", "reason": "parse_error"}
         # Раунд 8 (C4/T-795, spec §3.C4/Q4): «карта дисплеев» чата — участники
         # за limits.chat_map_participants_hours (тот же C2-запрос, что карта
@@ -3213,24 +3330,40 @@ class MemoryManager:
                 # B3-5: fact+edge — ОДНА транзакция (commit=False у обоих, единый
                 # commit); при сбое второго шага откат не оставит «факт без ребра».
                 # B-MCA01-1 (D3): пара идёт под общим single-writer.
-                async with self.db.serialized():
-                    try:
-                        fact_id = await self.db.insert_graph_fact(
-                            chat_id, sentence, source_type, expiry, target_user=target_user,
-                            status=status, weight=weight,
-                            supersedes=(decision["old_id"]
-                                        if decision["action"] == "supersede" else None),
-                            subject=subject, object=obj,
-                            tg_message_id=tg_message_id,
-                            forward_from=forward_from,
-                            commit=False)
-                        await self.db.upsert_edge(
-                            sid, oid, fact["predicate"], origin=source_type,
-                            expires_at=expiry, fact_id=fact_id, commit=False)
-                        await self.db.db.commit()
-                    except Exception:
-                        await self.db.db.rollback()
-                        raise
+                # D09/§18F.5 (M12): неудачная запись получает bounded retry
+                # (1 повтор той же транзакции) до честного write_failed —
+                # единичный БД-сбой больше не теряет факт молча.
+                async def _write_fact_pair() -> int:
+                    async with self.db.serialized():
+                        try:
+                            fid = await self.db.insert_graph_fact(
+                                chat_id, sentence, source_type, expiry,
+                                target_user=target_user,
+                                status=status, weight=weight,
+                                supersedes=(decision["old_id"]
+                                            if decision["action"] == "supersede"
+                                            else None),
+                                subject=subject, object=obj,
+                                tg_message_id=tg_message_id,
+                                forward_from=forward_from,
+                                commit=False)
+                            await self.db.upsert_edge(
+                                sid, oid, fact["predicate"],
+                                origin=source_type, expires_at=expiry,
+                                fact_id=fid, commit=False)
+                            await self.db.db.commit()
+                            return fid
+                        except Exception:
+                            await self.db.db.rollback()
+                            raise
+
+                try:
+                    fact_id = await _write_fact_pair()
+                except Exception:
+                    logger.warning(
+                        "graphrag memorize: fact #%d write retry | "
+                        "chat_id=%s", i, chat_id)
+                    fact_id = await _write_fact_pair()
                 if decision["action"] == "supersede":
                     # свежий побеждает = инвалидация (НЕ перезапись); журнал
                     # «что во что» — обратимость антиотравления (64.2)
@@ -3283,9 +3416,32 @@ class MemoryManager:
                                   "dedup_vector_skipped": batch.dedup_skipped})
         logger.info(
             "graphrag memorize: saved=%d skipped=%d deduped=%d superseded=%d "
-            "| chat_id=%s | source=%s",
-            saved, skipped, deduped, superseded, chat_id, source_type)
-        return {"status": "success", "saved": saved, "skipped": skipped,
+            "text_only=%d | chat_id=%s | source=%s",
+            saved, skipped, deduped, superseded, batch.text_only,
+            chat_id, source_type)
+        # ── D09/§18F.5 (M12): единый исход прогона — из ФАКТИЧЕСКОЙ
+        # персистенции. Дубликаты — не потеря (нейтральный исход);
+        # все записи упали → write_failed (не «успешная пустота»);
+        # факты живы текстом, векторы отложены → text_only_vector_deferred.
+        if saved == 0 and skipped == 0 and deduped > 0:
+            outcome = "all_duplicates"
+        elif saved == 0 and skipped > 0:
+            outcome = "write_failed"
+            logger.warning(
+                "graphrag memorize: write_failed — ни один факт не "
+                "персистирован | chat_id=%s | source=%s | skipped=%d",
+                chat_id, source_type, skipped)
+        elif saved > 0 and skipped > 0:
+            outcome = "partial"
+            logger.warning(
+                "graphrag memorize: partial persistence | chat_id=%s | "
+                "source=%s | saved=%d | skipped=%d",
+                chat_id, source_type, saved, skipped)
+        elif saved > 0 and batch.text_only > 0:
+            outcome = "text_only_vector_deferred"
+        else:
+            outcome = "success"
+        return {"status": outcome, "saved": saved, "skipped": skipped,
                 "deduped": deduped, "superseded": superseded,
                 "text_only": batch.text_only}
 

@@ -202,6 +202,166 @@ _register(ModuleSpec(
                "(mca_gates.random_source_enabled), в каталоге не дублируется."),
 ))
 
+# ═══ ASAP 8 v6 D11 (v6 §C D11, v5 §8/§17): инвентарь — остаток реестра ══════
+# Каждый operator-facing feature получил ModuleSpec (master/effective/настройки
+# в каталоге существуют) ЛИБО явную infrastructure/maintenance-классификацию
+# с rationale + ссылкой на настройки в правильном родителе. Новых top-level
+# карточек НЕТ (§4.2) — все id обогащают СУЩЕСТВУЮЩИЕ карточки витрины.
+
+# Factcheck → Product Module (карточка mod_factcheck существует; master +
+# группы каталога существуют: flags_module_factcheck/limits_factcheck/
+# prompts_factcheck, таб mod_factcheck).
+_register(ModuleSpec(
+    id="factcheck",
+    title="Фактчек",
+    parent_id=None,
+    description=("Проверка утверждений: поиск источников, аналитик, "
+                 "перепроверка (validator) и вербализация с сохранением "
+                 "дат и оговорок."),
+    master_param="flags.factcheck_enabled",
+    runtime_gate="global",
+    settings_groups=("flags_module_factcheck", "limits_factcheck",
+                     "prompts_factcheck"),
+    model_slots=(),
+    status_source="status_service фактчек + factcheck_run события",
+    analytics_anchor="factcheck.run",
+    help_anchor="Фактчек",
+    visibility="visible",
+    classification="product_module",
+    rationale=("D11-инвентарь (v6 §C): operator-adjustable — master "
+               "flags.factcheck_enabled и группы давно в каталоге "
+               "(таб mod_factcheck), карточка витрины существует; "
+               "регистрация закрывает orphan-класс фичи."),
+))
+
+# Temporal Factcheck → Submodule «Фактчек» (эталон D11): master
+# temporal.tool_enabled в каталоге (таб mod_factcheck), env-оси — аварийные.
+_register(ModuleSpec(
+    id="factcheck_temporal",
+    title="Временная проверка",
+    parent_id="factcheck",
+    description=("Проверка утверждений с учётом времени: дата репоста и "
+                 "дата оригинала раздельно, honest unknown, ограниченная "
+                 "уверенность при недостатке дат."),
+    master_param="temporal.tool_enabled",
+    runtime_gate="global",
+    settings_groups=("temporal_factcheck",),
+    model_slots=(),
+    status_source="factcheck_temporal события + mca_factcheck_runs",
+    analytics_anchor="temporal.factcheck",
+    help_anchor="Временная проверка",
+    visibility="visible",
+    classification="submodule",
+    config_tab="mod_factcheck",
+    rationale=("D11-инвентарь (v6 §C; аудиторский «эталон submodule»): "
+               "master temporal.tool_enabled + группа temporal_factcheck "
+               "в каталоге на поверхности родителя mod_factcheck; env-оси "
+               "MCA_TEMPORAL_FACTCHECK_* — аварийные (MODULE_ENV_GATES)."),
+))
+
+# Vision → Product Module (карточка mod_vision существует; master
+# flags.vision_enabled + группы flags_module_vision/limits_vision/
+# models_vision/keys_vision; env-оси — аварийные AND-гейты).
+_register(ModuleSpec(
+    id="vision",
+    title="Распознавание изображений",
+    parent_id=None,
+    description=("Анализ картинок в чате: ручной и автоматический прогон, "
+                 "backfill, tool-доступ; модели и лимиты vision-провайдера."),
+    master_param="flags.vision_enabled",
+    runtime_gate="global",
+    settings_groups=("flags_module_vision", "limits_vision", "models_vision",
+                     "keys_vision"),
+    model_slots=(),
+    status_source="vision_media события + панель mca_vision",
+    analytics_anchor="vision.media",
+    help_anchor="Распознавание изображений",
+    visibility="visible",
+    classification="product_module",
+    rationale=("D11-инвентарь (v6 §C; остаток аудита P7-C «submodule→"
+               "registered»): master + 4 группы в каталоге, карточка "
+               "mod_vision существует; env-оси MCA_VISION_* — аварийные "
+               "(MODULE_ENV_GATES), не единственный мастер."),
+))
+
+# Nostalgia → Product Module (карточка mod_nostalgia существует; master
+# memory.nostalgia_enabled + большая группа memory_nostalgia).
+_register(ModuleSpec(
+    id="nostalgia",
+    title="Ностальгия",
+    parent_id=None,
+    description=("Слой B «кстати…»: бот вспоминает давние события чата в "
+                 "тихие моменты (год-спустя, золотые факты, окно тишины, "
+                 "cooldown)."),
+    master_param="memory.nostalgia_enabled",
+    runtime_gate="global",
+    settings_groups=("memory_nostalgia",),
+    model_slots=(),
+    status_source="nostalgia_log + nostalgia_run события",
+    analytics_anchor="nostalgia.run",
+    help_anchor="Ностальгия",
+    visibility="visible",
+    classification="product_module",
+    rationale=("D11-инвентарь (v6 §C): operator-adjustable — master + 17 "
+               "ключей memory_nostalgia в каталоге (таб mod_nostalgia), "
+               "карточка витрины существует; env-мастера нет — ось одна."),
+))
+
+# Сон (обычный + глубокий) → Product Module (карточка mod_sleep существует;
+# master memory.dream_enabled; глубокий сон — flags.deep_sleep_enabled в
+# группе flags_memory на вкладке «Память», владелец осей — этот модуль).
+_register(ModuleSpec(
+    id="sleep",
+    title="Сон и память",
+    parent_id=None,
+    description=("Ночной синтез убеждений из фактов чата и «глубокий сон» "
+                 "(парадигмы «раньше → сейчас») с окнами, бюджетами и "
+                 "журналом прогонов."),
+    master_param="memory.dream_enabled",
+    runtime_gate="global",
+    settings_groups=("memory_dream",),
+    model_slots=(),
+    status_source="«Сон и активность» (cognition) + sleep_dream/sleep.deep",
+    analytics_anchor="sleep.dream",
+    help_anchor="Сон",
+    visibility="visible",
+    classification="product_module",
+    rationale=("D11-инвентарь (v6 §C, «Dream (внутри Сон)»): master + "
+               "группа memory_dream (вкл. deep_sleep_trigger/hour) в "
+               "каталоге, карточка mod_sleep существует; ось глубокого сна "
+               "flags.deep_sleep_enabled — в flags_memory (поверхность "
+               "«Память»), владелец — этот модуль."),
+))
+
+# Embeddings/GraphRAG control plane → Infrastructure (реальная infra):
+# модели/ключи embeddings и graph-оси настраиваются в правильных родителях
+# («Память» / LLM-провайдеры), панель контроля — раздел Embeddings; никакого
+# отдельного product-мастера у контура нет (оси генерации — env-аварийные).
+_register(ModuleSpec(
+    id="embeddings",
+    title="Векторная память (Embeddings/GraphRAG)",
+    parent_id=None,
+    description=("Инфраструктура векторов и графа знаний: генерация "
+                 "эмбеддингов, индексы/поколения, восстановление after-"
+                 "сбоев. Настройка — в родителях, не отдельным тумблером."),
+    master_param="",
+    runtime_gate="global",
+    settings_groups=("models_embeddings",),
+    model_slots=("keys_llm",),
+    status_source="панель Embeddings + embeddings.index события",
+    analytics_anchor="embeddings.index",
+    help_anchor="Эмбеддинги",
+    visibility="advanced",
+    classification="infrastructure",
+    rationale=("D11-инвентарь (v6 §C): no master — это контроль-плейн, а не "
+               "продуктовая фича: модели/профили embeddings настраиваются в "
+               "группах models_embeddings/keys_llm (родитель «LLM-"
+               "провайдеры»), graph-оси RAG — в flags_memory/limits_graph "
+               "(родитель «Память», вкладка memory_rag), операционная панель "
+               "и поколения индексов — раздел Embeddings; env-ось "
+               "MCA_EMBEDDING_GENERATION_ACTIVATION_ENABLED — аварийная."),
+))
+
 # master_param → env-kill-switch (raw-ось для §3.3; composite AND живёт в
 # mca_gates — реестр считает source по СЫРЫМ значениям каждой оси).
 ENV_GATES: dict[str, str] = {
@@ -213,19 +373,29 @@ ENV_GATES: dict[str, str] = {
     # читается mca_experience_jobs c chat-resolver'ом — F5 §5.4); Random —
     # product master memory.random_enabled в каталоге (F5 §5.3), env-ось
     # MCA_RANDOM_SOURCE_ENABLED — аварийный AND-гейт mca_gates.
+    # D11: vision (K1) и temporal (tool-ось) — аварийные оси своих мастеров.
     "stories": "MCA_STORIES_VITRINA_ENABLED",
     "character": "MCA_SELF_MODEL_ENABLED",
     "experience": "MCA_EXPERIENCE_LESSONS_ENABLED",
     "random": "MCA_RANDOM_SOURCE_ENABLED",
+    "vision": "MCA_VISION_ENABLED",
+    "factcheck_temporal": "MCA_TEMPORAL_FACTCHECK_TOOL_ENABLED",
 }
 
 # Дефолты product-осей при отсутствии ключа в PG (кэш не поднят / до сида).
+# D11: новые мастера — ровно канон Settings (vision/nostalgia/dream в каноне
+# OFF, factcheck/temporal.tool — ON).
 PRODUCT_DEFAULTS: dict[str, bool] = {
     "flags.initiative_enabled": True,
     "flags.stories_vitrina_enabled": True,
     "flags.self_model_enabled": True,
     "memory.experience_learning_enabled": True,
     "memory.random_enabled": True,   # F5 §5.3: product master Random
+    "flags.factcheck_enabled": True,          # D11 (Settings canon: ON)
+    "temporal.tool_enabled": True,            # D11 (Settings canon: ON)
+    "flags.vision_enabled": False,            # D11 (Settings canon: OFF)
+    "memory.nostalgia_enabled": False,        # D11 (Settings canon: OFF)
+    "memory.dream_enabled": False,            # D11 (Settings canon: OFF)
 }
 
 
@@ -407,6 +577,24 @@ MODULE_ENV_GATES: dict[str, tuple[str, ...]] = {
         "MCA_EXPERIENCE_CONTEXT_ENABLED",  # K4
         "MCA_EXPERIENCE_FEEDBACK_ENABLED", # K2
     ),
+    # ── D11 (v6 §C): остаток инвентаря — оси зарегистрированных модулей ──
+    "vision": (
+        "MCA_VISION_ENABLED",              # аварийная AND-ось (мастер —
+        # flags.vision_enabled в каталоге, D11; AND в mca_gates)
+        "MCA_VISION_AUTO_ENABLED",         # авто-прогон
+        "MCA_VISION_BACKFILL_ENABLED",     # backfill истории
+        "MCA_VISION_TOOL_ENABLED",         # tool-доступ
+    ),
+    "factcheck_temporal": (
+        "MCA_TEMPORAL_FACTCHECK_ENABLED",        # мастер-ось контура
+        "MCA_TEMPORAL_FACTCHECK_TOOL_ENABLED",   # tool-ось (ENV_GATES)
+        "MCA_TEMPORAL_FACTCHECK_CACHE_ENABLED",  # кеш прогонов
+    ),
+    "embeddings": (
+        "MCA_EMBEDDING_GENERATION_ACTIVATION_ENABLED",  # аварийная ось
+        # активации генерации (D11: spec embeddings — infrastructure,
+        # мастер отсутствует сознательно — ось env-only)
+    ),
 }
 
 #: (класс решения, краткий rationale, exact-имена) — НЕ зарегистрированные
@@ -414,38 +602,23 @@ MODULE_ENV_GATES: dict[str, tuple[str, ...]] = {
 #: `mca_gates.KILL_SWITCHES` без пропусков и дублей.
 INFRASTRUCTURE_RATIONALE: tuple[tuple[str, str, tuple[str, ...]], ...] = (
     (
-        "submodule→registered (остаток: Vision)",
-        "Orphan-фичи волны P7-C (аудит §1.2): Stories/Episodes, "
-        "SelfModel/Character (7 осей), Random/Quantum (5), Experience (4) "
-        "ЗАРЕГИСТРИРОВАНЫ F4 (MODULE_ENV_GATES; настройка/AND-гейты — "
-        "param_catalog flags_stories/flags_character + mca_gates §3.3). "
-        "Остаток — Vision (4): регистрация вне объёма F4 (brief Wave 3), "
-        "env-рубильники остаются аварийными (default ON).",
+        "submodule-registered (D11)",
+        "Temporal Factcheck — ЗАРЕГИСТРИРОВАН D11 (submodule factcheck_"
+        "temporal, оси перенесены в MODULE_ENV_GATES); Summary singleflight "
+        "— infra контура mod_summary; stats-intent — дет. пре-блок Direct "
+        "(tool в наборе нет).",
         (
-            "MCA_VISION_ENABLED", "MCA_VISION_AUTO_ENABLED",
-            "MCA_VISION_BACKFILL_ENABLED", "MCA_VISION_TOOL_ENABLED",
-        ),
-    ),
-    (
-        "submodule-registered",
-        "Temporal Factcheck — эталон submodule (parent mod_factcheck, "
-        "catalog-тумблер temporal.tool_enabled существует; env — аварийные); "
-        "Summary singleflight — infra контура mod_summary; stats-intent — "
-        "дет. пре-блок Direct (tool в наборе нет).",
-        (
-            "MCA_TEMPORAL_FACTCHECK_ENABLED",
-            "MCA_TEMPORAL_FACTCHECK_TOOL_ENABLED",
-            "MCA_TEMPORAL_FACTCHECK_CACHE_ENABLED",
             "MCA_SUMMARY_SINGLEFLIGHT_ENABLED",
             "MCA_STATS_INTENT_ENABLED",
         ),
     ),
     (
-        "maintenance/infrastructure (dossier/embeddings)",
-        "Пересборка Досье/прогрев/реклассификация и активация эмбеддинг-"
-        "генерации — maintenance/infra с operator-facing настройками в "
-        "родителе «Память» (аудит §1.2: Embeddings/GraphRAG = Infrastructure, "
-        "Dossier rebuild = Maintenance; раскладка Advanced — F4, M2-аудит).",
+        "maintenance/infrastructure (dossier)",
+        "Пересборка Досье/прогрев/реклассификация — maintenance с "
+        "operator-facing управлением в ПРАВИЛЬНОМ родителе (D11): кнопки "
+        "rebuild/staging — в карточке участника (досье-модалка), настройки "
+        "досье — раздел «Участники»; env-оси — аварийные, отдельного "
+        "product-мастера контур не имеет (OFF = бит-в-бит baseline).",
         (
             "MCA_DOSSIER_BACKGROUND_PASS_ENABLED",
             "MCA_DOSSIER_NAMESPACE_FINGERPRINT_V2_ENABLED",
@@ -453,7 +626,6 @@ INFRASTRUCTURE_RATIONALE: tuple[tuple[str, str, tuple[str, ...]], ...] = (
             "MCA_DOSSIER_REBUILD_ENABLED",
             "MCA_DOSSIER_RECLASSIFY_ENABLED",
             "MCA_DOSSIER_STAGING_ACTIVATION_ENABLED",
-            "MCA_EMBEDDING_GENERATION_ACTIVATION_ENABLED",
         ),
     ),
     (

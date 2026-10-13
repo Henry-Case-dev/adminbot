@@ -398,7 +398,10 @@ class TestWindowAndBudgets:
                                                           monkeypatch):
         """Бюджет дистилляций/сутки (§3.4.4): после «почти у предела»
         (остаток < 5) тик завершается заранее; «новый день» — счётчик
-        обнуляется (по run_at >= начало новых суток)."""
+        обнуляется (по run_at >= начало новых суток).
+        D09/§18F.1 (M8): уже дистиллированные группы НЕ передистиллируются
+        на следующий день (exactly-once) — день 2 обрабатывает только
+        оставшиеся eligible группы."""
         import services.dream_worker as dw
         # F2 T-1767: плановый путь соблюдает окно — фиксируем час внутри [4,6).
         monkeypatch.setattr(dw, "_local_hour", lambda ts, tz=None: 5)
@@ -410,19 +413,23 @@ class TestWindowAndBudgets:
                     "memory.dream_enabled": True})
         llm = _FakeLLM(_ANS_A, _ANS_B, _ANS_A, _ANS_B)
         worker = _worker(db, llm, monkeypatch=monkeypatch)
-        # три кластера в одном чате (по 3 факта, importance 4)
+        # пять кластеров в одном чате (по 3 факта, importance 4)
         for topic in (("вася", "платит", "в баре"),
                       ("петя", "ходит", "по четвергам"),
-                      ("ольга", "вяжет", "свитер")):
+                      ("ольга", "вяжет", "свитер"),
+                      ("костя", " бегает", "на стадионе"),
+                      ("дима", "читает", "книги по ночам")):
             await _add_batch(db, 3, topic)
         # F2 T-1767: бюджеты проверяем на ПЛАНОВОМ пути — manual их обходит.
         res = await worker._run(manual=False, only_chat=CHAT_ID)
         assert res["distilled"] == 2
         assert res["budget_stop"] is True
-        assert len(llm.calls) == 2           # третий кластер не пошёл
+        assert len(llm.calls) == 2           # остальные кластеры не пошли
         assert await db.get_dream_state(CHAT_ID) is None   # watermark нет
         # «новый день»: счётчик (kind='distilled', run_at>=start суток) сброшен
-        # (не сбросься — день2 остановился бы сразу на остатке 4 < 5)
+        # (не сбросься — день2 остановился бы сразу на остатке 4 < 5).
+        # M8 exactly-once: день 2 дистиллирует только ОСТАВШИЕСЯ группы
+        # (2 новых вызова, не 4 повторных) — и упирается в near-limit снова.
         real_now = dw._now_ts()
         monkeypatch.setattr(dw, "_now_ts", lambda: real_now + 3 * 86400)
         res2 = await worker._run(manual=False, only_chat=CHAT_ID)

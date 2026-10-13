@@ -26,6 +26,14 @@ from services import temporal_factcheck as tf
 from services.search_aggregator import AllSearchEnginesFailedException
 
 
+@pytest.fixture(autouse=True)
+def _no_evidence_date_fetch(monkeypatch):
+    """D10 (§18G.1): fetch дат публикаций web-evidence выключен в юнит-
+    контуре (реальная сеть не тестируется); контракт parse/enrich —
+    tests/test_asap8_v6_p1_d10_temporal.py."""
+    monkeypatch.setattr(tf, "evidence_date_fetch_enabled", lambda: False)
+
+
 # ── D1/CA-20-14: TemporalClaimEnvelope — новый frozen-DTO ───────────────────
 
 class TestEnvelopeDto:

@@ -36,6 +36,7 @@ ADR-1028-20 D1–D14 / spec D1–D16. Модуль ВЫЗЫВАЕТСЯ един
 """
 from __future__ import annotations
 
+import asyncio
 import dataclasses
 import datetime
 import hashlib
@@ -635,9 +636,13 @@ async def write_temporal_cache(cache, envelope: TemporalClaimEnvelope, *,
 # ── Валидация вердикта (D10/D11): честные дефолты, guard misleading_reuse ───
 
 def verdict_from_payload(payload: dict, envelope: TemporalClaimEnvelope, *,
-                         fallback_reason: str | None = None) -> TemporalVerdict:
+                         fallback_reason: str | None = None,
+                         allowed_refs=None) -> TemporalVerdict:
     """JSON-модель аналитика → TemporalVerdict (frozen). Нечестные/чужие
-    значения не проходят: enum-валидация + гарантии no-false-acceptance."""
+    значения не проходят: enum-валидация + гарантии no-false-acceptance.
+    §18G.3: `allowed_refs` — current-run allowlist стабильных evidence ID
+    (ev-N); произвольный service text/выдуманный ID не становится cited
+    evidence — чужие refs отбрасываются."""
     factual = payload.get("factual_verdict")
     if factual not in FACTUAL_VERDICTS:
         factual = "insufficient_evidence"
@@ -662,6 +667,10 @@ def verdict_from_payload(payload: dict, envelope: TemporalClaimEnvelope, *,
         if isinstance(parts, list) else ()
     refs = payload.get("evidence_refs")
     refs_tuple = tuple(str(r) for r in refs) if isinstance(refs, list) else ()
+    if allowed_refs is not None:
+        # §18G.3: только evidence текущего прогона; invented ID/произвольный
+        # текст не становится cited evidence.
+        refs_tuple = tuple(r for r in refs_tuple if r in allowed_refs)
     reason = payload.get("reason") or fallback_reason
     if reason is not None and reason not in mca_events.REASON_CODES:
         reason = fallback_reason
@@ -829,13 +838,17 @@ TEMPORAL_ANALYST_SYSTEM = (
     "unknown остаётся unknown; (6) ретроспективное расследование (позднее "
     "по отношению к периоду) помечай в uncertainty как "
     "\"retrospective\"; (7) числа проверяй только по evidence."
+    " (8) evidence_refs — ТОЛЬКО стабильные ID выдержек из <evidence> "
+    "(ev-1, ev-2, …); выдержки, которых нет в списке, ссылаться нельзя."
 )
 
 _TEMPORAL_FALLBACK_SYSTEM = (
     "Ты — фактчек-аналитик. Ответь СТРОГО одним JSON-объектом той же схемы "
     "(factual_verdict/temporal_status/evaluated_period/uncertainty/reason), "
     "без текста вне JSON. Если данных мало — "
-    "insufficient_evidence/unknown, никогда не выдумывай даты и факты."
+    "insufficient_evidence/unknown, никогда не выдумывай даты и факты. "
+    "evidence_refs — ТОЛЬКО стабильные ID выдержек из <evidence> "
+    "(ev-1, ev-2, …); выдержки, которых нет в списке, ссылаться нельзя."
 )
 
 # Validator-стадия (spec D11/TH-2, CoVe REUSE): data-only перепроверка
@@ -864,12 +877,168 @@ TEMPORAL_VALIDATOR_SYSTEM = (
 
 _URL_RE = re.compile(r"https?://[^\s)\]>\"']+")
 
+# ── D10 (§18G.1–18G.2): дата публикации web-evidence ─────────────────────────
+# Попытка fetch/parse даты публикации существующим fetch-механизмом
+# (SafeFetcher); parse failure → date_parse_status=failed + reason
+# `date_parse_failed`, НЕ прерывает pipeline, `now()` НИКОГДА не подставляется
+# как дата публикации. Только структурные маркеры страницы/URL.
+
+_EVIDENCE_DATE_FETCH_MAX = 5          # bounded: до 5 fetches на прогон
+_EVIDENCE_DATE_FETCH_BYTES = 65536    # head страницы достаточен для meta
+_EVIDENCE_DATE_FETCH_TIMEOUT = 4.0
+_DATE_PARSE_FAILED = "date_parse_failed"
+_MIN_PUBLICATION_TS = 631152000       # 1990-01-01: sanity-граница мусора
+
+_META_DATE_RES = (
+    # property/name/itemprop с content= ПОСЛЕ атрибута
+    (re.compile(r"<meta[^>]+(?:property|name|itemprop)=['\"]"
+                r"(?:article:published_time|og:article:published_time|"
+                r"datePublished|date|dc\.date|dcterms\.date)['\"]"
+                r"[^>]*content=['\"]([^'\"]+)['\"]", re.I), "html_meta"),
+    # content= ДО атрибута (обратный порядок атрибутов)
+    (re.compile(r"<meta[^>]+content=['\"]([^'\"]+)['\"]"
+                r"[^>]*(?:property|name|itemprop)=['\"]"
+                r"(?:article:published_time|og:article:published_time|"
+                r"datePublished|date|dc\.date|dcterms\.date)['\"]", re.I),
+     "html_meta"),
+    (re.compile(r'"datePublished"\s*:\s*"([^"]+)"', re.I), "json_ld"),
+    (re.compile(r"<time[^>]+datetime=['\"]([^'\"]+)['\"]", re.I), "html_time"),
+)
+_URL_PATH_DATE_RE = re.compile(r"/(\d{4})/(\d{1,2})/(\d{1,2})(?:[/?#]|$)")
+
+
+def evidence_date_fetch_enabled() -> bool:
+    """D10: попытка fetch даты публикации web-evidence (env, default ON).
+    OFF (например, в offline-тестах) → честный unknown без попытки."""
+    try:
+        return bool(getattr(settings, "TEMPORAL_EVIDENCE_DATE_FETCH_ENABLED",
+                            True))
+    except Exception:      # pragma: no cover — конфиг не должен ронять
+        return True
+
+
+def _parse_date_value(value) -> int | None:
+    """Строковая дата (ISO 8601 / RFC 2822) → unix ts (UTC) | None.
+    Sanity: мусор за границами [1990, now+1д] отбрасывается (now — только
+    ГРАНИЦА валидности, никогда не значение)."""
+    text = str(value or "").strip()
+    if not text:
+        return None
+    dt = None
+    try:
+        dt = datetime.datetime.fromisoformat(text.replace("Z", "+00:00"))
+    except ValueError:
+        try:
+            from email.utils import parsedate_to_datetime
+            dt = parsedate_to_datetime(text)
+        except (TypeError, ValueError):
+            dt = None
+    if dt is None:
+        return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=datetime.timezone.utc)
+    ts = int(dt.timestamp())
+    now = int(time.time())
+    if ts < _MIN_PUBLICATION_TS or ts > now + 86400:
+        return None
+    return ts
+
+
+def parse_publication_date(html_text, url=None) -> tuple[int | None,
+                                                        str | None]:
+    """Дата публикации web-страницы → (unix_ts | None, source_tag | None).
+    Порядок: meta property/name → JSON-LD datePublished → <time datetime> →
+    путь URL /YYYY/MM/DD/. Ничего не нашли → (None, None)."""
+    text = str(html_text or "")
+    for regex, tag in _META_DATE_RES:
+        m = regex.search(text)
+        if m:
+            ts = _parse_date_value(m.group(1))
+            if ts is not None:
+                return ts, tag
+    if url:
+        m = _URL_PATH_DATE_RE.search(str(url))
+        if m:
+            try:
+                dt = datetime.datetime(
+                    int(m.group(1)), int(m.group(2)), int(m.group(3)),
+                    tzinfo=datetime.timezone.utc)
+                ts = int(dt.timestamp())
+                if ts >= _MIN_PUBLICATION_TS:
+                    return ts, "url_path"
+            except ValueError:
+                pass
+    return None, None
+
+
+async def enrich_evidence_dates(evidence, *, fetch_text=None,
+                                max_fetch: int | None = None) -> tuple:
+    """§18G.1/§18G.2: для каждого web/evidence item — попытка определить
+    дату публикации. Success → published_at + published_at_source (источник
+    даты) + date_parse_status='parsed'; failure → date_parse_status='failed'
+    + date_parse_reason='date_parse_failed' (published_at остаётся None —
+    никакой подстановки now()). Repost/retrieved даты не смешиваются:
+    published_at — дата ОРИГИНАЛА источника, retrieved_at — момент получения.
+    Возврат: (rows, summary{attempted,parsed,failed,skipped_no_fetch}).
+    Никогда не бросает (fail-open: сбой fetch = failed, pipeline живёт)."""
+    rows = [dict(r) for r in (evidence or ())]
+    summary = {"attempted": 0, "parsed": 0, "failed": 0, "skipped_no_fetch": 0}
+    for row in rows:
+        row.setdefault("date_parse_status", "unknown")
+    if not rows:
+        return (), summary
+    targets = [r for r in rows if r.get("url") and not r.get("published_at")]
+    if not targets:
+        return tuple(rows), summary
+    limit = max(0, int(max_fetch if max_fetch is not None
+                       else _EVIDENCE_DATE_FETCH_MAX))
+    batch = targets[:limit]
+    summary["skipped_no_fetch"] = max(0, len(targets) - limit)
+    if batch:
+        if fetch_text is None:
+            from services.safe_fetch import SafeFetcher
+            _fetcher = SafeFetcher()
+
+            async def fetch_text(url, _f=_fetcher):
+                return await _f.fetch_text(
+                    url, profile="html",
+                    max_bytes=_EVIDENCE_DATE_FETCH_BYTES,
+                    timeout=_EVIDENCE_DATE_FETCH_TIMEOUT)
+        summary["attempted"] = len(batch)
+
+        async def _one(row):
+            try:
+                html = await fetch_text(row["url"])
+            except Exception:
+                return row, None, None
+            return (row,) + parse_publication_date(html, row.get("url"))
+
+        results = await asyncio.gather(*(_one(r) for r in batch),
+                                       return_exceptions=True)
+        for res in results:
+            if not isinstance(res, tuple):
+                continue          # защитная ветка gather
+            row, ts, tag = res
+            if ts is not None:
+                row["published_at"] = int(ts)
+                row["published_at_source"] = tag or "html"
+                row["date_parse_status"] = "parsed"
+                row.pop("date_parse_reason", None)
+                summary["parsed"] += 1
+            else:
+                row["date_parse_status"] = "failed"
+                row["date_parse_reason"] = _DATE_PARSE_FAILED
+                row["published_at_source"] = _DATE_PARSE_FAILED
+                summary["failed"] += 1
+    return tuple(rows), summary
+
 
 def evidence_rows_from_results(results: str, *,
                                max_rows: int = 20) -> tuple[dict, ...]:
     """Evidence-контракт (D9) из выдачи агрегатора: support = блок, url —
-    первая ссылка блока; published_at честно unknown (извлечение даты
-    публикации веб-страниц — вне tzr1-контура, snippet не доказательство)."""
+    первая ссылка блока; стабильные current-run ID `ev-N` (§18G.3 —
+    allowlist для model evidence_refs); published_at честно unknown ДО
+    попытки parse (попытка — enrich_evidence_dates, §18G.1)."""
     if not results or not str(results).strip():
         return ()
     blocks = [b.strip() for b in re.split(r"\n\s*\n", str(results)) if b.strip()]
@@ -877,12 +1046,14 @@ def evidence_rows_from_results(results: str, *,
     for i, block in enumerate(blocks[:max(1, int(max_rows))]):
         url_m = _URL_RE.search(block)
         rows.append({
+            "evidence_id": f"ev-{i + 1}",
             "claim_part": None,
             "url": url_m.group(0)[:512] if url_m else None,
             "support": block[:1200],
             "source_ref": None,
             "published_at": None,
             "published_at_source": None,
+            "date_parse_status": "unknown",
             "retrieved_at": int(time.time()),
             "temporal_relevance": None,
             "relation": None,

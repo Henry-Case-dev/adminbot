@@ -488,6 +488,35 @@
                       · {{ fmtTs(intentModuleStatus().lastSkip.ts) }}</template>
                   </div>
                 </div>
+                <!-- D09 (§18F, панели): «Сон» — последние прогоны и
+                     failure/deferred причины прямо на Обзоре (данные грузятся
+                     applyRoute->_ensureModuleData; человекочитаемые статусы —
+                     dreamStatusLabel; существующие поля memory_dream_log). -->
+                <div v-if="workspaceModule.id === 'mod_sleep' && isGlobalAdmin
+                            && dreamLog.length"
+                     class="mt-3 pt-2 border-t border-white/10 text-xs"
+                     data-dream-panel>
+                  <div class="flex flex-wrap gap-2 items-center mb-1">
+                    <span class="text-gray-400">Последние сны (прогоны/причины):</span>
+                    <button type="button" class="btn-ghost text-xs shrink-0"
+                            :disabled="memoryRagBusy"
+                            @click="loadDreamLog()"
+                            aria-label="Обновить лог снов">⟳</button>
+                  </div>
+                  <div class="flex flex-col gap-1">
+                    <div v-for="l in dreamLog.slice(0, 6)" :key="'wsd-' + l.id"
+                         class="flex items-center gap-2 flex-wrap"
+                         :data-dream-status="l.status">
+                      <span class="text-gray-500 shrink-0">{{ fmtTs(l.run_at) }}</span>
+                      <span class="badge"
+                            :class="dreamStatusBadgeClass(l)">{{ l.kind }}</span>
+                      <span class="text-gray-400">чат {{ l.chat_id }}</span>
+                      <span class="text-gray-500 ml-auto"
+                            :title="'код: ' + (l.status || '-')">{{
+                        dreamStatusLabel(l.status) }}</span>
+                    </div>
+                  </div>
+                </div>
               </div>
 
               <!-- §85: стадии Саммари — честный placeholder Эпика 2 (без
@@ -2426,6 +2455,38 @@
                   <button class="btn-ghost text-xs ml-auto" :disabled="lessonsBusy"
                           @click="loadLessons()">⟳</button>
                 </div>
+                <!-- D05 (§18E.7/U8): человеческая цепочка + полезность —
+                     read-only из существующей воронки oversight (глобальный
+                     админ); «Недостаточно данных» вместо 0%, без «AI IQ». -->
+                <div v-if="d05ExperienceChain()" data-d05="memory-chain"
+                     class="rounded border border-white/10 px-2 py-1 mb-2 overflow-x-auto">
+                  <div class="flex items-center flex-wrap gap-1 text-xs min-w-max">
+                    <span class="badge badge-info">Заметил исправление</span>
+                    <span class="font-mono">{{ d05ExperienceChain().noticed }}</span>
+                    <span class="text-gray-600">→</span>
+                    <span class="badge badge-muted">Урок</span>
+                    <span class="font-mono">{{ d05ExperienceChain().candidates }}</span>
+                    <span class="text-gray-600">→</span>
+                    <span class="badge badge-muted">Проверил</span>
+                    <span class="font-mono">{{ d05ExperienceChain().checked }}</span>
+                    <span class="text-gray-600">→</span>
+                    <span class="badge badge-muted">Сохранил</span>
+                    <span class="font-mono">{{ d05ExperienceChain().saved }}</span>
+                    <span class="text-gray-600">→</span>
+                    <span class="badge badge-muted">Применил</span>
+                    <span class="font-mono">{{ d05ExperienceChain().applied }}</span>
+                    <span class="text-gray-600">→</span>
+                    <span class="text-green-400">Помогло: {{ d05ExperienceChain().helped }}</span>
+                    <span class="text-red-300">Не помогло: {{ d05ExperienceChain().notHelped }}</span>
+                    <span class="text-gray-400">Неизвестно: {{ d05ExperienceChain().unknownOutcomes }}</span>
+                  </div>
+                  <div class="text-xs mt-1"
+                       :class="(d05ExperienceChain().usefulness && d05ExperienceChain().usefulness.ready) ? 'text-gray-300' : 'text-gray-500'">
+                    Полезность: {{ d05ExperienceChain().usefulness
+                      ? d05ExperienceChain().usefulness.label : '—' }}
+                    <span class="text-gray-600">· известный исход = помогло/не помогло; неизвестные не считаются провалом</span>
+                  </div>
+                </div>
                 <div v-if="lessonsBusy && !lessonsData" class="spinner my-2"></div>
                 <div v-else-if="!lessonsData" class="text-xs text-gray-500">Данные недоступны.</div>
                 <div v-else-if="!lessonsData.enabled" class="text-xs text-gray-500">
@@ -2440,7 +2501,8 @@
                       <thead><tr>
                         <th>Область</th><th>Тип</th><th>Статус</th>
                         <th>Условия</th><th>Основания</th><th>Версии</th>
-                        <th>Применений</th><th>Исходы (у/п/?)</th><th></th>
+                        <th>Применений</th><th>Исходы (у/п/?)</th>
+                        <th>Полезность</th><th></th>
                       </tr></thead>
                       <tbody>
                         <tr v-for="l in lessonsData.lessons"
@@ -2455,6 +2517,15 @@
                           <td class="mono">v{{ l.version }} · {{ (l.versions && l.versions.policy) || '—' }}</td>
                           <td>{{ l.applications_count }}</td>
                           <td>{{ l.counters.success }}/{{ l.counters.failure }}/{{ l.counters.unknown }}</td>
+                          <!-- D05 (U8): полезность урока — известные исходы;
+                               мало данных → «Недостаточно данных», не 0% -->
+                          <td class="text-xs"
+                              :class="lessonUsefulness(l.counters.success, l.counters.failure, l.counters.unknown) && lessonUsefulness(l.counters.success, l.counters.failure, l.counters.unknown).ready ? '' : 'text-gray-500'">
+                            {{ (lessonUsefulness(l.counters.success, l.counters.failure, l.counters.unknown) || {}).label || '—' }}
+                            <span class="text-gray-600"
+                                  v-if="lessonUsefulness(l.counters.success, l.counters.failure, l.counters.unknown) && lessonUsefulness(l.counters.success, l.counters.failure, l.counters.unknown).unknown">· ?
+                              {{ lessonUsefulness(l.counters.success, l.counters.failure, l.counters.unknown).unknown }}</span>
+                          </td>
                           <td>
                             <button v-if="l.status === 'active'" class="btn-ghost text-xs"
                                     :disabled="lessonsBusy"
@@ -3718,11 +3789,11 @@
                         <div v-for="l in dreamLog" :key="l.id"
                              class="flex items-center gap-2 flex-wrap text-xs">
                           <span class="text-gray-500 shrink-0">{{ fmtTs(l.run_at) }}</span>
-                          <span class="badge" :class="l.status === 'ok'
-                            ? (l.kind === 'distilled' ? 'badge-ok' : 'badge-muted')
-                            : 'badge-warn'">{{ l.kind }}</span>
+                          <span class="badge" :class="dreamStatusBadgeClass(l)">{{ l.kind }}</span>
                           <span class="text-gray-400">чат {{ l.chat_id }}</span>
-                          <span class="text-gray-500 ml-auto">{{ l.status }}</span>
+                          <span class="text-gray-500 ml-auto"
+                                :title="'код: ' + (l.status || '-')">{{
+                            dreamStatusLabel(l.status) }}</span>
                         </div>
                       </div>
                     </details>
@@ -4355,6 +4426,50 @@
                         эпизодов с feedback: {{ mca17cFunnel.feedback.unique_episodes }})
                       </div>
                       <div class="text-xs text-gray-500">{{ mca17cFunnel.notes.join(' · ') }}</div>
+                    </div>
+                    <!-- D05 (§18E.7/U8): человеческая цепочка обучения —
+                         те же данные воронки, владельческая лексика;
+                         никакой шкалы «IQ». -->
+                    <div data-d05="chain" class="rounded border border-white/10 px-2 py-1 my-2 overflow-x-auto">
+                      <div class="text-xs font-bold mb-1">Цепочка обучения</div>
+                      <div class="flex items-center flex-wrap gap-1 text-xs min-w-max">
+                        <span class="badge badge-info">Заметил исправление</span>
+                        <span class="font-mono">{{ d05ExperienceChain().noticed }}</span>
+                        <span class="text-gray-600">→</span>
+                        <span class="badge badge-muted">Выделил возможный урок</span>
+                        <span class="font-mono">{{ d05ExperienceChain().candidates }}</span>
+                        <span class="text-gray-600">→</span>
+                        <span class="badge badge-muted">Проверил</span>
+                        <span class="font-mono">{{ d05ExperienceChain().checked }}</span>
+                        <span class="text-gray-600">→</span>
+                        <span class="badge badge-muted">Сохранил как урок</span>
+                        <span class="font-mono">{{ d05ExperienceChain().saved }}</span>
+                        <span class="text-gray-600">→</span>
+                        <span class="badge badge-muted">Применил позже</span>
+                        <span class="font-mono">{{ d05ExperienceChain().applied }}</span>
+                        <span class="text-gray-600">→</span>
+                        <span class="text-green-400">Помогло: {{ d05ExperienceChain().helped }}</span>
+                        <span class="text-red-300">Не помогло: {{ d05ExperienceChain().notHelped }}</span>
+                        <span class="text-gray-400">Пока неизвестно: {{ d05ExperienceChain().unknownOutcomes }}</span>
+                      </div>
+                      <div class="text-xs text-gray-600 mt-1">
+                        статусы уроков — текущее состояние реестра; счётчики
+                        периода — из read-only воронки
+                      </div>
+                    </div>
+                    <div data-d05="usefulness" class="rounded border border-white/10 px-2 py-1 mb-2">
+                      <div class="text-xs font-bold mb-0.5">Полезность применённых уроков</div>
+                      <div class="text-xs" v-if="d05ExperienceChain().usefulness"
+                           :class="d05ExperienceChain().usefulness.ready ? 'text-gray-300' : 'text-gray-500'">
+                        {{ d05ExperienceChain().usefulness.label }}
+                      </div>
+                      <div class="text-xs text-gray-500"
+                           v-if="d05ExperienceChain().usefulness && d05ExperienceChain().usefulness.ready">
+                        доля известных успехов ({{ d05ExperienceChain().helped }} из
+                        {{ d05ExperienceChain().helped + d05ExperienceChain().notHelped }});
+                        пока неизвестно: {{ d05ExperienceChain().unknownOutcomes }} (≠ провал)
+                      </div>
+                      <div class="text-xs text-gray-600">шкал качества/«IQ» нет — только измеряемые величины</div>
                     </div>
                     <div data-mca17c="effect" class="rounded border border-white/10 px-2 py-1 mb-3">
                       <div class="text-xs font-bold mb-0.5">Эффект</div>

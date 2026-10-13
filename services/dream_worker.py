@@ -44,6 +44,11 @@ lore-блока (fail-open); ручной run_once(chat_id) — для F2-API, �
    watermark (dream_state) двигается ТОЛЬКО по успеху полного тик-батча
    чата; при LLM-ошибке — НЕ двигается мимо упавшего кластера (повтор на
    следующем тике); при window/budget-стопе — не двигается вовсе.
+   D09 (§18F.1/M8): eligible-групп сверх dream_max_clusters_per_run НЕ
+   помечаются завершёнными — watermark останавливается перед их фактами,
+   группа попадает в durable-очередь (status='cluster_deferred') и
+   обрабатывается следующим прогоном; повторная дистилляция уже
+   обработанной группы невозможна (exactly-once по отпечатку source_ids).
 
 Fail-open (NFR-4): ошибка чата — WARNING, тик жив; бот не падает.
 """
@@ -188,6 +193,56 @@ def _sleep_dream_terminal(stats: dict) -> tuple[str, str | None]:
     if not (stats.get("clusters") or stats.get("distilled")):
         return "skipped", "no_new_contribution"
     return "success", None
+
+
+# ── ASAP 8 v6 D09 (§18F.1/M8): deferred-очередь eligible-групп «сна» ────────
+# Symptom: qualified-кластеров больше dream_max_clusters_per_run → top-K
+# дистиллируется, а watermark (_finish_chat) проходит ПО ВСЕМ строкам батча —
+# необработанные eligible группы помечаются завершёнными навсегда.
+# Fix: явная durable-очередь отложенных групп + watermark, который не может
+# пройти мимо необработанной eligible группы + exactly-once по отпечатку
+# кластера (уже дистиллированная группа не передистиллируется без LLM).
+# Носитель — существующий аудит memory_dream_log (status='cluster_deferred',
+# разрешение — более поздняя строка kind='distilled'/status='unchanged' с тем
+# же отпечатком source_ids); схема БД не меняется.
+
+_DEFERRED_STATUS = "cluster_deferred"
+_CLUSTER_STATE_WINDOW = 1000      # bounded: последние строки аудита чата
+
+
+def _cluster_source_ids(cluster: list) -> list[int]:
+    """source_ids кластера ровно в том виде, какой пишет дистилляция
+    (хронологический порядок order_dream_rows с капой user-блока) —
+    отпечаток сопоставим со строками memory_dream_log 1:1."""
+    return [int(r["id"]) for r in order_dream_rows(
+        [dict(r) for r in cluster], max_facts=_DREAM_MAX_USER_FACTS)]
+
+
+def _cluster_key(source_ids: list[int]) -> str:
+    """Канонический отпечаток группы: "id,id,id" по списку source_ids."""
+    return ",".join(str(int(i)) for i in source_ids)
+
+
+def _key_from_log_source_ids(raw) -> str | None:
+    """Отпечаток из строки аудита (source_ids JSON); кривое значение → None."""
+    if not raw:
+        return None
+    try:
+        ids = json.loads(str(raw))
+        if not isinstance(ids, list):
+            return None
+        return _cluster_key([int(i) for i in ids])
+    except (TypeError, ValueError):
+        return None
+
+
+def _safe_watermark(cluster_groups: list, fallback: int, floor: int) -> int:
+    """Watermark не может пройти мимо необработанной eligible группы:
+    min(id) по всем блокирующим группам - 1; пусто → fallback (max строк).
+    floor — текущий watermark (назад не двигаем)."""
+    mins = [min(int(r["id"]) for r in cl) for cl in cluster_groups if cl]
+    limit = (min(mins) - 1) if mins else int(fallback)
+    return max(int(floor), min(int(fallback), limit))
 
 
 def _persona_traits_terminal(stats: dict) -> tuple[str, str | None]:
@@ -751,7 +806,8 @@ class DreamWorker:
         now = _now_ts()
         self._last_run_started = now
         stats = {"chats": 0, "clusters": 0, "distilled": 0, "unchanged": 0,
-                 "errors": 0, "window_skips": 0, "budget_stop": False}
+                 "errors": 0, "window_skips": 0, "budget_stop": False,
+                 "deferred": 0}
         # F2/T-1425 (spec §6): шаг охлаждения убеждений — ПЕРЕД обработкой
         # чатов, под флагом flags.belief_decay_enabled; fail-open.
         # F7/S10.18-4: decay — ГЛОБАЛЬНЫЙ этап цикла Сна (охлаждает beliefs
@@ -802,6 +858,7 @@ class DreamWorker:
             stats["unchanged"] += result["unchanged"]
             stats["errors"] += result["errors"]
             stats["window_skips"] += result["window_skips"]
+            stats["deferred"] += int(result.get("deferred") or 0)
             if result["budget_stop"]:
                 stats["budget_stop"] = True
                 logger.warning(
@@ -822,7 +879,7 @@ class DreamWorker:
         watermark/аудит. Возвращает счётчики (fail-open: ошибка → WARNING,
         watermark не двигается)."""
         out = {"clusters": 0, "distilled": 0, "unchanged": 0, "errors": 0,
-               "window_skips": 0, "budget_stop": False}
+               "window_skips": 0, "budget_stop": False, "deferred": 0}
         # F7 (ADR-1018-7 D3): рубильник резолвится по КОНКРЕТНОМУ чату
         # (chat DB → global DB → env-дефолт). Авто-тик пропускает чат,
         # выключенный именно для него; ручной запуск гейт игнорирует
@@ -885,9 +942,23 @@ class DreamWorker:
             key=lambda cl: (sum(int(r["importance"] or 0) for r in cl),
                             cl[0]["id"]),
             reverse=True)
-        top = qualified[: int(await self._key_for(
+        # ── D09/§18F.1 (M8): durable-состояние групп + exactly-once ──────
+        # Отпечаток каждой qualified группы сопоставляется с журналом:
+        # done — уже дистиллирована/unchanged (повторно БЕЗ LLM);
+        # pending — отложена предыдущим прогоном (приоритет очереди).
+        cluster_keys = [_cluster_key(_cluster_source_ids(cl))
+                        for cl in qualified]
+        done_keys, pending_order = await self._cluster_state(chat_id)
+        pending_set = set(pending_order)
+        eligible = [(cl, k) for cl, k in zip(qualified, cluster_keys)
+                    if k not in done_keys]
+        ranked = ([(cl, k) for cl, k in eligible if k in pending_set]
+                  + [(cl, k) for cl, k in eligible if k not in pending_set])
+        max_clusters = int(await self._key_for(
             chat_id, "max_clusters_per_run",
-            settings.DREAM_MAX_CLUSTERS_PER_RUN) or 5)]
+            settings.DREAM_MAX_CLUSTERS_PER_RUN) or 5)
+        top = ranked[:max_clusters]
+        leftover = ranked[max_clusters:]
         run_at = now
         await self.db.log_dream_event(chat_id, run_at, kind="run",
                                       status="ok")
@@ -897,13 +968,22 @@ class DreamWorker:
             (sum(int(r["importance"] or 0) for r in cl) for cl in clusters),
             default=0)
         if not top:
-            # WARNING — гарантированно видно в дефолтном фильтре «Логи»
-            # (ERROR+WARNING, 10.13 F6). Спам ограничен `_finish_chat`:
-            # факты помечаются обработанными → повтор только с новыми.
-            logger.warning(
-                "[Sleep] Chunks: %d, Clusters formed: %d, Max importance: %d "
-                "-> Skipped (threshold %d)",
-                len(rows), len(clusters), max_importance, sum_min)
+            if qualified:
+                # D09: eligible-группы этого батча уже обрабатывались
+                # (exactly-once) — фиксируем батч завершённым БЕЗ LLM,
+                # без ложного threshold-WARNING.
+                logger.info(
+                    "[Sleep] Chunks: %d, Clusters formed: %d — all eligible "
+                    "already processed | chat_id=%s",
+                    len(rows), len(clusters), chat_id)
+            else:
+                # WARNING — гарантированно видно в дефолтном фильтре «Логи»
+                # (ERROR+WARNING, 10.13 F6). Спам ограничен `_finish_chat`:
+                # факты помечаются обработанными → повтор только с новыми.
+                logger.warning(
+                    "[Sleep] Chunks: %d, Clusters formed: %d, Max importance: %d "
+                    "-> Skipped (threshold %d)",
+                    len(rows), len(clusters), max_importance, sum_min)
             await self._finish_chat(chat_id, now, rows)   # все факты отобраны
             return out
         logger.info(
@@ -949,6 +1029,14 @@ class DreamWorker:
             day_start, chat_id=chat_id)
         abnormal = None                     # 'error' | 'window' | 'budget'
         failed_cluster = None
+        # D09/§18F.1: отпечатки групп, реально обработанных в этом тике
+        # (для exactly-once), и текущий watermark (назад не двигаем).
+        processed_keys: set[str] = set()
+        try:
+            _state0 = await self.db.get_dream_state(chat_id)
+        except Exception:
+            _state0 = None
+        current_wm = int((_state0 or {}).get("last_processed_fact_id") or 0)
         # F2 (ADR-1018-2 D2, spec §4.2, T-1715/T-1767): manual-запуск обходит
         # суточные бюджеты и near-limit БЕЗУСЛОВНО (решение «запускать/не
         # запускать»). Расход всё равно учитывается. Факт обхода — в аудите
@@ -972,7 +1060,7 @@ class DreamWorker:
             settings.DREAM_DISTILLATIONS_PER_DAY)
         tok_max = await self._daily_limit_for(
             chat_id, "tokens_per_day", settings.DREAM_TOKENS_PER_DAY)
-        for cluster_id, cluster in enumerate(top, 1):
+        for cluster_id, (cluster, cluster_key) in enumerate(top, 1):
             if not manual and not await self._window_open_for(chat_id, now):
                 # §3.4.2/D-5: вне окна — только отбор/кластеризация,
                 # дистилляции window_skip (деньги не тратятся)
@@ -1027,6 +1115,7 @@ class DreamWorker:
                 abnormal = "error"
                 failed_cluster = cluster
                 break
+            processed_keys.add(cluster_key)
             if unchanged:
                 out["unchanged"] += 1
             elif outcome == "distilled":
@@ -1038,9 +1127,41 @@ class DreamWorker:
             frozen = min(int(r["id"]) for r in failed_cluster) - 1
             await self.db.set_dream_state(
                 chat_id, last_run_at=now,
-                last_processed_fact_id=max(0, frozen))
+                last_processed_fact_id=max(
+                    int(current_wm or 0), frozen))
         elif abnormal is None:
-            await self._finish_chat(chat_id, now, rows)
+            # ── D09/§18F.1 (M8): watermark не помечает необработанные
+            # eligible группы завершёнными. Остаток сверх лимита прогона —
+            # durable-очередь отложенных групп (ровно одна строка на группу
+            # до разрешения); watermark останавливается ПЕРЕД их фактами.
+            unprocessed = [(cl, k) for cl, k in leftover
+                           if k not in processed_keys]
+            fresh = [(cl, k) for cl, k in unprocessed
+                     if k not in pending_set]
+            for cluster, cluster_key in fresh:
+                await self.db.log_dream_event(
+                    chat_id, run_at, kind="skipped",
+                    source_ids=json.dumps(
+                        [int(i) for i in cluster_key.split(",")],
+                        ensure_ascii=False),
+                    tokens=0, status=_DEFERRED_STATUS)
+                out["deferred"] += 1
+            if unprocessed:
+                state = await self.db.get_dream_state(chat_id)
+                current_wm = int((state or {}).get(
+                    "last_processed_fact_id") or 0)
+                wm = _safe_watermark(
+                    [cl for cl, _ in unprocessed],
+                    fallback=int(rows[-1]["id"]), floor=current_wm)
+                await self.db.set_dream_state(
+                    chat_id, last_run_at=now, last_processed_fact_id=wm)
+                logger.info(
+                    "[dream] chat partially done | chat_id=%s | "
+                    "processed=%d | deferred=%d | wm=%d (< max %s)",
+                    chat_id, len(processed_keys), len(unprocessed), wm,
+                    int(rows[-1]["id"]))
+            else:
+                await self._finish_chat(chat_id, now, rows)
         return out
 
     async def _finish_chat(self, chat_id: int, now: int, rows: list) -> None:
@@ -1051,6 +1172,49 @@ class DreamWorker:
         logger.info(
             "[dream] chat done | chat_id=%s | processed=%d | wm=%s",
             chat_id, len(rows), int(rows[-1]["id"]))
+
+    async def _cluster_state(self, chat_id: int) -> tuple[set, list]:
+        """D09/§18F.1 (M8): durable-состояние групп чата по журналу
+        memory_dream_log (последние `_CLUSTER_STATE_WINDOW` строк).
+
+        Возвращает (done_keys, pending_order):
+        * done — отпечатки групп с финальным исходом (kind='distilled'/
+          status='ok' ИЛИ kind='skipped'/status='unchanged' ПОСЛЕ
+          отложения) — повторная дистилляция не нужна (exactly-once);
+        * pending_order — отпечатки групп в статусе 'cluster_deferred'
+          без последующего разрешения (порядок = FIFO очереди).
+        Fail-open: ошибка чтения → пустое состояние (прежнее поведение)."""
+        try:
+            cursor = await self.db.db.execute(
+                "SELECT id, kind, status, source_ids FROM memory_dream_log "
+                "WHERE chat_id = ? ORDER BY id DESC LIMIT ?",
+                (int(chat_id), int(_CLUSTER_STATE_WINDOW)))
+            rows = await cursor.fetchall()
+        except Exception:
+            logger.warning("[dream] cluster state read failed — skip guard "
+                           "| chat_id=%s", chat_id, exc_info=True)
+            return set(), []
+        done: set[str] = set()
+        pending: list[str] = []
+        pending_seen: dict[str, int] = {}
+        for row in reversed(rows):
+            key = _key_from_log_source_ids(row["source_ids"])
+            if not key:
+                continue
+            kind = str(row["kind"] or "")
+            status = str(row["status"] or "")
+            if kind == "distilled" and status == "ok":
+                done.add(key)
+                pending_seen.pop(key, None)
+            elif kind == "skipped" and status == "unchanged":
+                done.add(key)
+                pending_seen.pop(key, None)
+            elif kind == "skipped" and status == _DEFERRED_STATUS:
+                if key not in done and key not in pending_seen:
+                    pending_seen[key] = int(row["id"] or 0)
+        pending = [k for k, _ in
+                   sorted(pending_seen.items(), key=lambda kv: kv[1])]
+        return done, pending
 
     async def _candidates(self, chat_id: int, now: int) -> list:
         """Новые факты чата (watermark-строка есть → id >; нет → окно)."""
@@ -1890,9 +2054,13 @@ class DreamWorker:
             if report is not None:
                 report.update(kw)
                 if "stage" in kw:
-                    report.setdefault("stages", []).append(
-                        {"name": str(kw["stage"]),
-                         "status": str(kw.get("stage_status") or "running")})
+                    entry = {"name": str(kw["stage"]),
+                             "status": str(kw.get("stage_status") or "running")}
+                    # D09/M13: причина статуса стадии — в саму запись (R17:
+                    # только коды, без контента).
+                    if kw.get("stage_reason"):
+                        entry["reason"] = str(kw["stage_reason"])[:64]
+                    report.setdefault("stages", []).append(entry)
 
         _rep(stage="collect", stage_status="running")
         # ── mca-06 T-4704: единый gate-resolver (ADR-1028-9 D1). Решение
@@ -2136,7 +2304,13 @@ class DreamWorker:
             _trace_deep(chat_id, "deep", "skip", reason="budget_skip")
             return _done("budget")
         raw, tokens = await self._deep_llm_once(messages, user_text)
-        _rep(stage="bridge", stage_status="succeeded")
+        # D09/§18F.6 (M13): стадия bridge честная — succeeded только если
+        # model call ВЕРНУЛ контент; no-response → failed(no_response).
+        if raw is None:
+            _rep(stage="bridge", stage_status="failed",
+                 stage_reason="no_response")
+        else:
+            _rep(stage="bridge", stage_status="succeeded")
         if report is not None:
             report["llm_calls"] = int(report.get("llm_calls") or 0) + 1
             report["tokens"] = int(tokens or 0)
@@ -2164,6 +2338,9 @@ class DreamWorker:
                 report["llm_calls"] = int(report.get("llm_calls") or 0) + 1
                 report["tokens"] = int(tokens or 0)
             if raw2 is None:
+                # D09/M13: retry без контента — провал валидации (no_response).
+                _rep(stage="validate", stage_status="failed",
+                     stage_reason="no_response")
                 await self._log_deep_skip(chat_id, now, "error", tokens)
                 _trace_deep(chat_id, "deep", "error", reason="llm_error",
                             extra={"tokens": tokens})
@@ -2172,11 +2349,17 @@ class DreamWorker:
                 paradigms = parse_bridge_answer(
                     raw2, anchor_count=len(historical), min_anchors=2)
             except ValueError:
+                _rep(stage="validate", stage_status="failed",
+                     stage_reason="parse_error")
                 await self._log_deep_skip(chat_id, now, "error", tokens)
                 _trace_deep(chat_id, "deep", "error", reason="parse_error",
                             extra={"tokens": tokens})
                 return _done("error")
         if not paradigms:
+            # D09/M13: «нет новых выводов» — нейтральный no-op исход
+            # (валидация прошла, синтезировать нечего — не авария).
+            _rep(stage="validate", stage_status="skipped",
+                 stage_reason="no_new_insight")
             await self._log_deep_skip(chat_id, now, "unchanged", tokens)
             _trace_deep(chat_id, "deep", "empty", reason="unchanged",
                         extra={"tokens": tokens})
@@ -2208,6 +2391,10 @@ class DreamWorker:
                  validation={"bridge_ok": len(validated),
                              "bridge_reject": len(paradigms) - len(validated)})
             if not validated:
+                # D09/M13: валидация не дала ни одного валидного вывода —
+                # честный skip стадии (не succeeded).
+                _rep(stage="validate", stage_status="skipped",
+                     stage_reason="insufficient_evidence")
                 await self._log_deep_skip(chat_id, now,
                                           "insufficient_evidence", tokens)
                 _trace_deep(chat_id, "deep", "skip",
@@ -2217,6 +2404,10 @@ class DreamWorker:
                                    "tokens": tokens})
                 return _done("insufficient_evidence")
             paradigms = validated
+            _rep(stage="validate", stage_status="succeeded")
+        else:
+            # D09/M13: валидатор выключен — непустой parse = валидировано.
+            _rep(stage="validate", stage_status="succeeded")
         try:
             existing_rows = await self._paradigm_rows(chat_id)
         except Exception:
@@ -2271,8 +2462,19 @@ class DreamWorker:
                         await mca_evidence.link_contradicts(
                             self.db, chat_id=chat_id, fact_id=fact_id,
                             anchor_item=anchor)
+        # D09/M13: стадия записи честная — succeeded только при подтверждённой
+        # durable-персистенции (written > 0); все попытки упали → failed;
+        # попыток не было (все дубли) → нейтральный skipped.
+        if written:
+            _rep(stage="write", stage_status="succeeded")
+        elif write_attempts and write_errors >= write_attempts:
+            _rep(stage="write", stage_status="failed",
+                 stage_reason="all_write_failed")
+        else:
+            _rep(stage="write", stage_status="skipped",
+                 stage_reason="all_duplicates")
         _rep(write_attempts=write_attempts, write_errors=write_errors,
-             written=written, stage="write", stage_status="succeeded")
+             written=written)
         # ── mca-06 T-4728 (spec §8.5 конец, THR-12): согласованность
         # запись/счётчик/статус. `written` инкрементируется ТОЛЬКО при
         # подтверждённом `fact_id`. Все попытки записи упали (после счёта) →

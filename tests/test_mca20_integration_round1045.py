@@ -27,6 +27,14 @@ from services.factcheck_service import FactCheckService
 from services.search_aggregator import AllSearchEnginesFailedException
 
 
+@pytest.fixture(autouse=True)
+def _no_evidence_date_fetch(monkeypatch):
+    """D10 (§18G.1): fetch дат публикаций web-evidence выключен в юнит-
+    контуре (реальная сеть не тестируется); parse/enrich-контракт с
+    инъекцией fetch — tests/test_asap8_v6_p1_d10_temporal.py."""
+    monkeypatch.setattr(tf, "evidence_date_fetch_enabled", lambda: False)
+
+
 def _env(**overrides):
     base = dict(
         claim_id="tcl-i", chat_id=1, target_tg_message_id=10,

@@ -125,7 +125,8 @@ def test_m2_ext_new_modules_own_their_gates():
 
 def test_m2_ext_f4_axes_mapped():
     """Оси F3-rationale «submodule→F4» перенесены в owner-мэппинг, а не
-    потеряны; Vision (вне объёма F4) остаётся rationale."""
+    потеряны. D11 (v6 §C): Vision зарегистрирован product-модулем — его оси
+    теперь OWNER (не rationale)."""
     owned: set[str] = set()
     for names in mr.MODULE_ENV_GATES.values():
         owned.update(names)
@@ -134,7 +135,10 @@ def test_m2_ext_f4_axes_mapped():
     rationale_names: set[str] = set()
     for _cls, _r, names in mr.INFRASTRUCTURE_RATIONALE:
         rationale_names.update(names)
-    assert "MCA_VISION_ENABLED" in rationale_names
+    # D11: vision-оси — owner-запись «vision», не rationale
+    assert "MCA_VISION_ENABLED" not in rationale_names
+    assert "MCA_VISION_ENABLED" in owned
+    assert mr.MODULE_REGISTRY["vision"].master_param == "flags.vision_enabled"
     for env_name in F4_CATALOG_AXES:
         assert env_name not in rationale_names
 

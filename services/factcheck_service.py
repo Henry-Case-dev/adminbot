@@ -17,6 +17,8 @@ kwarg `tool_router` (DI из bot.py, только kwargs). Если роутер
 обёртка ВОКРУГ `llm.generate`, второго синтеза нет. Роутер не задан
 (старые вызовы/тесты) → ровно прежний одиночный вызов (R16-аддитивность).
 """
+import dataclasses
+import datetime
 import json
 import logging
 import time
@@ -87,6 +89,18 @@ def _temporal_max_evidence() -> int:
         return mca_gates.temporal_max_evidence_per_run()
     except Exception:      # pragma: no cover
         return 20
+
+
+def _fmt_evidence_date(published_at) -> str:
+    """D10/§18G.5: unix ts → ISO-дата для evidence-секции; None →
+    'unknown' (честно; never now())."""
+    if not published_at:
+        return "unknown"
+    try:
+        return datetime.datetime.fromtimestamp(
+            int(published_at), datetime.timezone.utc).strftime("%Y-%m-%d")
+    except (TypeError, ValueError, OSError, OverflowError):
+        return "unknown"
 
 
 class FactCheckService:
@@ -470,10 +484,22 @@ class FactCheckService:
                        "success" if results else "skipped",
                        reason_code=search_reason, chat_id=env.chat_id)
 
-        # evidence_validate (D9): evidence-контракт из выдачи; пусто →
-        # insufficient_evidence (no-false-acceptance).
+        # evidence_validate (D9): evidence-контракт из выдачи (стабильные
+        # ID ev-N); D10/§18G.1: попытка fetch/parse даты публикации каждого
+        # web-evidence (bounded, fail-open) — parse failure не прерывает
+        # pipeline и не подставляет now(). Пусто → insufficient_evidence
+        # (no-false-acceptance).
         evidence = tf.evidence_rows_from_results(
             results, max_rows=_temporal_max_evidence())
+        date_summary = None
+        if evidence and tf.evidence_date_fetch_enabled():
+            try:
+                evidence, date_summary = await tf.enrich_evidence_dates(
+                    evidence)
+            except Exception:
+                logger.warning("[factcheck] evidence date enrich failed — "
+                               "honest unknown", exc_info=True)
+                date_summary = None
         trace.add("evidence_validate", "success" if evidence else "skipped",
                   reason=None if evidence else "temporal_insufficient_evidence")
         tf.stage_event("evidence_validate",
@@ -488,8 +514,14 @@ class FactCheckService:
 
         # verdict (D10/D11): data-only JSON-стадия; невалидный JSON →
         # fallback-попытка; обе мимо → честный degraded-вердикт с датами.
+        # §18G.3: evidence_refs модели валидируются по current-run
+        # allowlist стабильных ID (ev-N) — произвольный service text
+        # evidence сам по себе не становится.
         user_payload = self._temporal_user_payload(env, parts, evidence,
                                                    chat_context)
+        allowed_refs = ({str(r.get("evidence_id")) for r in evidence
+                         if r.get("evidence_id")}
+                        if evidence else None)
         # TH-5/CA-20-10 (no-false-acceptance): движки недоступны/пусто →
         # insufficient_evidence СЕРВЕРНО, verdict модели не проходит.
         if not evidence:
@@ -511,7 +543,8 @@ class FactCheckService:
                 fallback_used = True
                 raw_payload = {}
         verdict = tf.verdict_from_payload(raw_payload, env,
-                                          fallback_reason=verdict_reason)
+                                          fallback_reason=verdict_reason,
+                                          allowed_refs=allowed_refs)
 
         # validator (spec D11/TH-2, CoVe REUSE): bounded data-only
         # перепроверка evidence↔claim — ровно ОДИН вызов, только при
@@ -537,13 +570,17 @@ class FactCheckService:
                     # Существующий fallback-путь (общий слот ≤1 попытки):
                     # валидация не удалась → строгий повтор аналитика;
                     # обе мимо → честный degraded-вердикт.
+                    # REV-P1 (§18G.3): allowlist обязателен и здесь —
+                    # fallback-промпт может вернуть refs, они фильтруются
+                    # тем же current-run allowlist (ev-N), что и у аналитика.
                     fallback_used = True
                     verdict_reason = "temporal_fallback_mode"
                     retry = await self._temporal_verdict_json(
                         tf._TEMPORAL_FALLBACK_SYSTEM, user_payload, env,
                         correlation_id, step="temporal_fallback")
                     verdict = tf.verdict_from_payload(
-                        retry or {}, env, fallback_reason=verdict_reason)
+                        retry or {}, env, fallback_reason=verdict_reason,
+                        allowed_refs=allowed_refs)
 
         trace.add("verdict", "success",
                   reason=verdict.reason or verdict_reason)
@@ -551,6 +588,17 @@ class FactCheckService:
             trace.add("verdict", validator_outcome,
                       reason="temporal_fallback_mode"
                       if validator_outcome == "failed" else None)
+        # D10/§18G.4: временная недостаточность (даты оригинала неизвестны И
+        # даты публикаций evidence не разпознаны) → bounded uncertainty,
+        # НЕ forced certainty (вердикт не повышается и не понижается).
+        if evidence and env.date_source == "unknown" and not any(
+                r.get("date_parse_status") == "parsed" for r in evidence):
+            uncertainty = dict(verdict.uncertainty or {})
+            uncertainty.setdefault(
+                "dates_unresolved",
+                "дата публикации оригинала не определена — временная оценка "
+                "ограничена")
+            verdict = dataclasses.replace(verdict, uncertainty=uncertainty)
         tf.stage_event("verdict", "success", reason_code=verdict.reason,
                        chat_id=env.chat_id)
 
@@ -597,9 +645,17 @@ class FactCheckService:
                   "period": [p.period_from, p.period_to]}
                  for p in parts], ensure_ascii=False)) + "</claim_parts>")
         if evidence:
-            sections.append("<search_results>" + escape_xml_text(
-                "\n\n".join(r["support"] for r in evidence))
-                + "</search_results>")
+            # §18G.3/§18G.5: каждая выдержка — со стабильным ID и датой
+            # публикации (unknown — честно); model evidence_refs ссылаются
+            # только на эти ID (allowlist проверяется сервером).
+            sections.append("<evidence>" + escape_xml_text("\n\n".join(
+                "[%s] published: %s%s\n%s" % (
+                    r.get("evidence_id") or "?",
+                    _fmt_evidence_date(r.get("published_at")),
+                    (" (%s)" % r["published_at_source"])
+                    if r.get("published_at_source") else "",
+                    r["support"])
+                for r in evidence)) + "</evidence>")
         if chat_context:
             sections.append(chat_context)
         return "\n\n".join(sections)
@@ -628,9 +684,12 @@ class FactCheckService:
                 "evaluated_period": verdict.evaluated_period,
                 "assessment_mode": verdict.assessment_mode,
             }, ensure_ascii=False)) + "</verdict_draft>",
-            "<search_results>" + escape_xml_text(
-                "\n\n".join(r["support"] for r in evidence))
-                + "</search_results>",
+            "<evidence>" + escape_xml_text("\n\n".join(
+                "[%s] published: %s\n%s" % (
+                    r.get("evidence_id") or "?",
+                    _fmt_evidence_date(r.get("published_at")),
+                    r["support"])
+                for r in evidence)) + "</evidence>",
         ]
         return "\n\n".join(sections)
 
