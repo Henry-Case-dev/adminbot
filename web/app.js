@@ -1679,6 +1679,51 @@
     return parseInt(s, 10);
   }
 
+  // ═══ D01 (asap8-v6, 18A.1): stale-response guard досье ═════════════════
+  // Файловые хелперы (не методы): unit-фейки без новых полей продолжают
+  // работать — отсутствие токена трактуется как «одна вечная сессия»
+  // (undefined === undefined), новый контракт включают только фейки,
+  // которые его эмулируют.
+  // Ответ принадлежит текущей сессии редактора, только если с момента
+  // захвата identity (строго ДО первого await) не сменились ни открытый
+  // инстанс модалки (token; closeDossier обнуляет), ни чат, ни участник.
+  function dossierGuard(ctx, token, chatId, userId) {
+    return ctx.dossierSessionToken === token
+      && String(ctx.activeChatId) === String(chatId)
+      && ctx.dossierUserId === userId;
+  }
+  function dossierDraftKey(chatId, userId) {
+    return String(chatId) + ':' + String(userId);
+  }
+  // Незавершённый черновик пары (chat,user): переживает закрытие модалки,
+  // возвращается при переоткрытии, снимается после серверного ack сохранения.
+  function pendingDossierDraft(ctx, chatId, userId) {
+    var map = ctx._dossierDrafts;
+    if (!map) return null;
+    var k = dossierDraftKey(chatId, userId);
+    return Object.prototype.hasOwnProperty.call(map, k) ? map[k] : null;
+  }
+  function rememberDossierDraft(ctx, chatId, userId, draft) {
+    if (!ctx._dossierDrafts) ctx._dossierDrafts = {};
+    var k = dossierDraftKey(chatId, userId);
+    if (draft == null) delete ctx._dossierDrafts[k];
+    else ctx._dossierDrafts[k] = String(draft);
+  }
+  // Явная цель в тостах сохранения (18A.1): «для <участник> — <чат>».
+  // Подпись чата — из того же кэша, что и лента досье (oversightData.chats).
+  function dossierTargetLabel(ctx, chatId, userId, name) {
+    var who = name || ('ID ' + userId);
+    var chats = (ctx.oversightData && ctx.oversightData.chats) || [];
+    var title = null;
+    for (var i = 0; i < chats.length; i++) {
+      if (chats[i] && String(chats[i].chat_id) === String(chatId)) {
+        title = chats[i].title || null;
+        break;
+      }
+    }
+    return who + ' — ' + (title || ('чат ' + chatId));
+  }
+
   var app = Vue.createApp({
     data: function () {
       return {
@@ -2005,6 +2050,10 @@
         dossierDraft: '',        // ручная правка (textarea)
         dossierSaving: false,
         dossierSavedAt: 0,       // monotonic-метка успешного сохранения
+        // D01 (asap8-v6, 18A.1): immutable-токен сессии редактора — инкремент
+        // на каждое открытие модалки, null после закрытия. In-flight ответы
+        // с чужим/погашенным токеном не мутируют editor и не тостят.
+        dossierSessionToken: null,
         // ── F8 round 10.22 (ADR-1022-8): асинхронная пересборка досье ──
         dossierRebuildPeriod: '180',  // 30|90|180|all (default 180)
         dossierRebuildJob: null,      // job-view (сервер — источник истины)
@@ -4657,6 +4706,11 @@
       // BackButton.onClick регистрируется ровно ОДИН раз на BOOT (без
       // перерегистрации → без накопления stale-колбэков/петель).
       _appVm = this;
+      // D01 (asap8-v6): debug/test-seam — prod-сборка Vue не оставляет
+      // dev-хендлов на DOM, а UI-проверки (Playwright/Browser Use) и
+      // диагностика должны доставать корневой vm без хаков. Только чтение
+      // ссылки, поведения не меняет.
+      try { window.__adminbotVm = this; } catch (e) { /* не критично */ }
       _onHashChange = function () {
         // F1 (T-2396): неизвестный '#/…'-hash → канонический '#/' (replaceState),
         // launch-hash без '#/' игнорируем как раньше.
@@ -8114,26 +8168,63 @@
         // F8: пересборка — состояние per-user; прогресс подтягиваем с сервера.
         this.dossierRebuildJob = null;
         this.stopDossierRebuildPolling();
+        // D01 (18A.1): immutable identity сессии ДО первого await. Счётчик
+        // `_dossierSeq` монотонный (closeDossier гасит токен в
+        // dossierSessionToken, но НЕ сбрасывает счётчик) — переоткрытие того
+        // же досье всегда получает новый токен, и in-flight ответ прошлой
+        // сессии не может совпасть с новой.
+        var token = (this._dossierSeq = ((this._dossierSeq || 0) + 1));
+        this.dossierSessionToken = token;
+        var chatId = this.activeChatId;
+        var userId = row.user_id;
         try {
           await this.loadDossier(row.user_id, this.dossierName);
+          if (!dossierGuard(this, token, chatId, userId)) return;
           await this.resumeDossierRebuild();
         } finally {
-          this.dossierBusy = false;
+          // D01: stale-открытие (закрыли/переключили участника в полёте) не
+          // снимает busy новой сессии — иначе гасим её спиннер.
+          if (dossierGuard(this, token, chatId, userId)) {
+            this.dossierBusy = false;
+          }
         }
       },
       loadDossier: async function (userId, name) {
-        var url = '/api/chat_lore/' + this.activeChatId + '/dossier/' + userId;
+        // D01 (18A.1): identity до первого await; устаревший ответ (сменили
+        // участника/чат/закрыли модалку) не мутирует editor и не тостит.
+        var token = this.dossierSessionToken;
+        var chatId = this.activeChatId;
+        var url = '/api/chat_lore/' + chatId + '/dossier/' + userId;
         if (name) url += '?name=' + encodeURIComponent(name);
         try {
           var data = await this.api(url);
+          if (!dossierGuard(this, token, chatId, userId)) return;
           this.dossierData = data;
-          this.dossierDraft = (data && data.manual_traits) || '';
+          // D01: незавершённый черновик этой пары (chat,user) переживает
+          // закрытие — возвращаем его вместо серверного значения.
+          var pending = pendingDossierDraft(this, chatId, userId);
+          this.dossierDraft = (pending != null) ? pending
+            : ((data && data.manual_traits) || '');
         } catch (e) {
+          if (!dossierGuard(this, token, chatId, userId)) return;
           this.dossierData = null;
           this.toast('Не удалось загрузить досье: ' + this.loreErrText(e), 'err');
         }
       },
       closeDossier: function () {
+        // D01 (18A.1): dirty-черновик переживает закрытие (ESC/backdrop/
+        // «Отмена») — вернётся при переоткрытии того же досье.
+        if (this.dossierUserId != null && this.activeChatId != null) {
+          var savedTraits = (this.dossierData && this.dossierData.manual_traits) || '';
+          if ((this.dossierDraft || '') !== savedTraits) {
+            rememberDossierDraft(this, this.activeChatId, this.dossierUserId,
+                                 this.dossierDraft || '');
+          } else {
+            rememberDossierDraft(this, this.activeChatId, this.dossierUserId, null);
+          }
+        }
+        // D01: все in-flight ответы этой сессии устаревают.
+        this.dossierSessionToken = null;
         this.dossierOpen = false;
         this.dossierBusy = false;
         this.dossierUserId = null;
@@ -8145,26 +8236,43 @@
         this.stopDossierRebuildPolling();
       },
       saveDossier: async function () {
+        // D01 (18A.1): identity edit-сессии и снапшот черновика — строго ДО
+        // await; URL строится из захваченного (chat,participant), а не из
+        // мутабельного текущего выбора; устаревший ответ не мутирует editor
+        // и не показывает success/error в чужом контексте.
         if (this.dossierUserId == null || this.activeChatId == null) return;
         if (this.dossierSaving) return;
+        var token = this.dossierSessionToken;
+        var chatId = this.activeChatId;
+        var userId = this.dossierUserId;
+        var name = this.dossierName;
+        var draft = this.dossierDraft || '';
         this.dossierSaving = true;
         try {
-          var url = '/api/chat_lore/' + this.activeChatId
-            + '/dossier/' + this.dossierUserId;
-          if (this.dossierName) {
-            url += '?name=' + encodeURIComponent(this.dossierName);
+          var url = '/api/chat_lore/' + chatId + '/dossier/' + userId;
+          if (name) {
+            url += '?name=' + encodeURIComponent(name);
           }
           var data = await this.api(url, {
             method: 'PUT',
-            body: JSON.stringify({ traits: this.dossierDraft || '' }),
+            body: JSON.stringify({ traits: draft }),
           });
+          // Сервер принял черновик → pending-черновик этой пары закрыт,
+          // даже если сессия уже чужая (молча: тост — только в свой контекст).
+          rememberDossierDraft(this, chatId, userId, null);
+          if (!dossierGuard(this, token, chatId, userId)) return;
           this.dossierData = data;
           this.dossierDraft = (data && data.manual_traits) || '';
           this.toast(this.dossierDraft
-            ? 'Досье обновлено' : 'Правка сброшена — досье авто', 'ok');
+            ? 'Сохранено для ' + dossierTargetLabel(this, chatId, userId, name)
+            : 'Правка сброшена — досье авто ('
+              + dossierTargetLabel(this, chatId, userId, name) + ')', 'ok');
         } catch (e) {
+          if (!dossierGuard(this, token, chatId, userId)) return;
           this.toast('Не удалось сохранить досье: ' + this.loreErrText(e), 'err');
         } finally {
+          // D01: busy-флаг снимаем безусловно — наша in-flight сессия не
+          // должна залипать кнопкой Save уже другой сессии модалки.
           this.dossierSaving = false;
         }
       },
@@ -8214,21 +8322,29 @@
           return;
         }
         this.dossierRebuildBusy = true;
+        // D01 (18A.1): identity до await — старт пересборки привязан к
+        // сессии редактора, ответ после смены участника/чата игнорируется.
+        var token = this.dossierSessionToken;
+        var chatId = this.activeChatId;
+        var userId = this.dossierUserId;
+        var name = this.dossierName;
         try {
-          var url = '/api/chat_lore/' + this.activeChatId + '/dossier/'
-            + this.dossierUserId + '/rebuild';
-          if (this.dossierName) {
-            url += '?name=' + encodeURIComponent(this.dossierName);
+          var url = '/api/chat_lore/' + chatId + '/dossier/'
+            + userId + '/rebuild';
+          if (name) {
+            url += '?name=' + encodeURIComponent(name);
           }
           var data = await this.api(url, {
             method: 'POST',
             body: JSON.stringify({ period: period }),
           });
+          if (!dossierGuard(this, token, chatId, userId)) return;
           this.dossierRebuildJob = data || null;
           this._rememberDossierRebuild(data && data.job_id);
           this.startDossierRebuildPolling();
           this.toast('Пересборка досье запущена', 'ok');
         } catch (e) {
+          if (!dossierGuard(this, token, chatId, userId)) return;
           var code = (e && e.message && e.message.code) || null;
           if (e && e.status === 409 && code === 'chat_locked') {
             // Кросс-процессный lock: пересборку чата уже ведёт CLI-прогон.
@@ -8250,13 +8366,20 @@
       },
       loadDossierRebuild: async function () {
         if (this.dossierUserId == null || this.activeChatId == null) return;
+        // D01 (18A.1): identity до await; устаревший latest не мутирует
+        // job/enabled новой сессии.
+        var token = this.dossierSessionToken;
+        var chatId = this.activeChatId;
+        var userId = this.dossierUserId;
         try {
-          var data = await this.api('/api/chat_lore/' + this.activeChatId
-            + '/dossier/' + this.dossierUserId + '/rebuild/latest');
+          var data = await this.api('/api/chat_lore/' + chatId
+            + '/dossier/' + userId + '/rebuild/latest');
+          if (!dossierGuard(this, token, chatId, userId)) return;
           this.dossierRebuildEnabled = true;
           this.dossierRebuildJob = data || null;
           this._rememberDossierRebuild(data && data.job_id);
         } catch (e) {
+          if (!dossierGuard(this, token, chatId, userId)) return;
           // S10.22-6: kill-switch OFF → `latest` отдаёт 404. Прячем весь блок,
           // а не показываем кнопку, ведущую в ошибку. Прочие сбои — fail-open.
           if (e && e.status === 404) {
@@ -8275,20 +8398,28 @@
         }
       },
       pollDossierRebuild: async function () {
+        // D01 (18A.1): polling подчиняется токену сессии; устаревший тик не
+        // мутирует job нового участника и не тостит в чужом контексте.
+        var token = this.dossierSessionToken;
+        var chatId = this.activeChatId;
+        var userId = this.dossierUserId;
         var job = this.dossierRebuildJob;
-        if (!job || !job.job_id || this.dossierUserId == null) return;
+        if (!job || !job.job_id || userId == null) return;
         try {
-          var data = await this.api('/api/chat_lore/' + this.activeChatId
-            + '/dossier/' + this.dossierUserId + '/rebuild/' + job.job_id);
+          var data = await this.api('/api/chat_lore/' + chatId
+            + '/dossier/' + userId + '/rebuild/' + job.job_id);
+          if (!dossierGuard(this, token, chatId, userId)) return;
           if (!data) return;
           this.dossierRebuildJob = data;
           if (!this.dossierRebuildIsActive(data)) {
             this.stopDossierRebuildPolling();
             if (data.status === 'done') {
-              await this.loadDossier(this.dossierUserId, this.dossierName);
-              this.toast('Досье пересобрано', 'ok');
+              await this.loadDossier(userId, this.dossierName);
+              this.toast('Досье пересобрано: '
+                + dossierTargetLabel(this, chatId, userId, this.dossierName),
+                'ok');
             } else if (data.status === 'cancelled') {
-              await this.loadDossier(this.dossierUserId, this.dossierName);
+              await this.loadDossier(userId, this.dossierName);
               this.toast('Пересборка отменена — данные восстановлены', 'warn');
             } else if (data.status === 'failed') {
               this.toast('Пересборка не удалась', 'err');
@@ -8320,14 +8451,21 @@
             ? 'Повторить откат досье/фактов участника из снимка?'
             : 'Отменить пересборку и откатить досье/факты участника?')) return;
         this.dossierRebuildBusy = true;
+        // D01 (18A.1): identity до await; отмена чужой сессии не мутирует
+        // job нового участника.
+        var token = this.dossierSessionToken;
+        var chatId = this.activeChatId;
+        var userId = this.dossierUserId;
         try {
-          await this.api('/api/chat_lore/' + this.activeChatId + '/dossier/'
-            + this.dossierUserId + '/rebuild/' + job.job_id + '/cancel',
+          await this.api('/api/chat_lore/' + chatId + '/dossier/'
+            + userId + '/rebuild/' + job.job_id + '/cancel',
             { method: 'POST' });
+          if (!dossierGuard(this, token, chatId, userId)) return;
           this.dossierRebuildJob = Object.assign({}, job,
             { status: 'cancelling' });
           this.startDossierRebuildPolling();
         } catch (e) {
+          if (!dossierGuard(this, token, chatId, userId)) return;
           this.toast('Не удалось отменить: ' + this.loreErrText(e), 'err');
         } finally {
           this.dossierRebuildBusy = false;

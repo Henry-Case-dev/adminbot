@@ -1762,9 +1762,17 @@ async def _schedule_gate(chat_id: int | None, now: int,
     if trigger != "fixed":
         return None
     try:
-        target = int(await resolve_setting_cached(
-            "memory.deep_sleep_hour", chat_id=chat_id,
-            default=settings.DEEP_SLEEP_HOUR) or 7)
+        # D09-хвост (asap8-v6 W-A2, 18F.2): прежний `int(x or 7)` подменял
+        # ВАЛИДНЫЙ 0 (00:00) дефолтом — гейт расписания и его detail-трасса
+        # считали цель 07:00, расходясь с починенным воркером (_deep_tick,
+        # W-A1). Тот же контракт `_hour_or`: None/пусто/мусор → env-дефолт,
+        # числовой 0 → 0 (паритет гейта и исполнителя).
+        from services.dream_worker import _hour_or
+        target = _hour_or(
+            await resolve_setting_cached(
+                "memory.deep_sleep_hour", chat_id=chat_id,
+                default=settings.DEEP_SLEEP_HOUR),
+            settings.DEEP_SLEEP_HOUR)
     except Exception:      # pragma: no cover - fail-open
         return None
     tz = None
