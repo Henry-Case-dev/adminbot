@@ -100,10 +100,13 @@ ARTIFACTS = [ROOT / p for p in FIXTURE["artifacts"]]
 # осознанно (L-F11S-1, прецедент 2.58.57; routes-инвентарь f8_baseline
 # не менялся).
 ROUTES_SHA256_F11 = (
-    "1b04e524374b203e17ea2d334deb980d3e9ba80ce023a85300cf3c00326e38ff")
+    "989779c651282791b95b5f4d82d5c42afd63eb3954d105ca6d06d5895a4c677b")
 # ASAP 8 F9 (L-F11S-1 re-pin, REV-F9 Approved): аддитивные
 # GET /api/youtube/proxy/health + POST /api/youtube/proxy/test,
 # оба global-admin fail-closed; инвентарь — f8_baseline.json (41→43).
+# ASAP 8 v6 W-C-DIRECT re-pin (D03/D04, 14.10.2026): аддитивное R17-safe
+# поле `l1` в payload СУЩЕСТВУЮЩЕГО GET /api/direct/context-diagnostics
+# (Inspector configured-vs-applied, без изменения UI). Маршруты Δ=0.
 
 
 def _sha256(path: Path) -> str:

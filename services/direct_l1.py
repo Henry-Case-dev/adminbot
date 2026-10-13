@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import logging
 import re
+import time
 from dataclasses import dataclass
 
 from config.settings import settings
@@ -53,6 +54,16 @@ RESPONSE_ACT_MAX = 32      # §1.3: открытый словарь, ≤32
 TONE_MAX = 24              # §1.3: открытый словарь, ≤24
 CAPABILITIES_MAX = 8       # bounded список возможностей
 CLARIFY_TARGET_MAX = 64
+
+# ASAP 8 v6 (D04, §18C.7): execution mode — закрытое множество; явное
+# значение от LLM или дет. деривация из capabilities (никогда не тихо).
+EXECUTION_MODES = ("none", "simple_tools", "adaptive_tool_chain")
+
+
+def derive_execution_mode(capabilities_needed) -> str:
+    """Дет. деривация mode: есть capabilities → simple_tools, нет → none
+    (adaptive выбирается ТОЛЬКО явным значением от LLM)."""
+    return "simple_tools" if tuple(capabilities_needed or ()) else "none"
 
 # ASAP 8 (F6, §13.1): allowlisted-поле future-intent — единственная новая ось
 # схемы L1. LLM предлагает ЗАКРЫТЫЙ kind + короткую цель; intent в durable
@@ -108,6 +119,9 @@ class L1Plan:
     source: str = "llm"          # llm | repair | fallback
     form_override: str = ""      # §2.5: явная форма пользователя (после L1)
     future_intent: "FutureIntent | None" = None  # F6 §13.1 (allowlisted)
+    # ASAP 8 v6 (D04 §18C.7): execution mode (closed set; normalized).
+    execution_mode: str = "none"
+    execution_mode_source: str = "derived"   # derived | llm
 
     def effective_extent(self) -> str:
         """Явная форма пользователя поверх semantic extent (§2.5)."""
@@ -247,6 +261,17 @@ def normalize_l1_plan(data) -> L1Plan | None:
                 break
         plan.capabilities_needed = tuple(seen)
     plan.needs_clarification = bool(data.get("needs_clarification"))
+    # ── ASAP 8 v6 (D04 §18C.7): execution_mode. Явное значение от LLM
+    # (allowlisted аддитивное поле, прецедент future_intent); невалидное/
+    # отсутствующее → дет. деривация из capabilities. Никогда не тихо:
+    # источник значения фиксируется в плане.
+    requested_mode = str(data.get("execution_mode") or "").strip().lower()
+    if requested_mode in EXECUTION_MODES:
+        plan.execution_mode = requested_mode
+        plan.execution_mode_source = "llm"
+    else:
+        plan.execution_mode = derive_execution_mode(plan.capabilities_needed)
+        plan.execution_mode_source = "derived"
     target = data.get("clarification_target")
     if isinstance(target, str) and target.strip():
         plan.clarification_target = target.strip()[:CLARIFY_TARGET_MAX]
@@ -426,17 +451,26 @@ def resolve_l1_model(chat_id: int | None = None, *, hot_get=None,
 
 
 async def dedicated_generate(llm, messages, slot: L1ModelSlot, *,
-                             max_output_tokens=None, timeout_seconds=None):
+                             max_output_tokens=None, timeout_seconds=None,
+                             temperature=None):
     """Выделенный слот §1.6 через существующий транзитный канал LLMClient.
 
     Контракт (прецедент ``summary_l1_clusterizer._dedicated_generate``):
     per-call ``base_url``/``model``/``api_key`` через ``_post`` — тот же
     retry/fallback-канал без подмены на глобальную модель. Возврат
     ``(content, usage)``. Ошибки (LLMError/TimeoutError) — вызывающему
-    (ladder §1.6)."""
+    (ladder §1.6).
+
+    ASAP 8 v6 (D03, §18C.6): ``temperature`` — сохранённая температура
+    L1 РЕАЛЬНО применяется в payload (None → ключ не добавляется, дефолт
+    провайдера). Авторизация ключа/бюджета — вне этой функции (см.
+    :func:`authorize_l1_call`): транспорт остаётся на слоте, а permission
+    policy — общая с обычными вызовами."""
     import asyncio
 
     payload: dict = {"model": slot.model, "messages": messages}
+    if temperature is not None:
+        payload["temperature"] = float(temperature)
     if max_output_tokens:
         payload["max_tokens"] = int(max_output_tokens)
     call = llm._post(      # noqa: SLF001 - документированный мост (§1.6)
@@ -463,6 +497,56 @@ async def dedicated_generate(llm, messages, slot: L1ModelSlot, *,
         raise LLMBadResponseError("direct L1 dedicated: empty content")
     usage = data.get("usage") if isinstance(data, dict) else None
     return content, (usage if isinstance(usage, dict) else None)
+
+
+async def authorize_l1_call(llm, chat_id: int | None) -> str:
+    """D03 (§18C.1): та же permission-политика ключей/бюджета, что у
+    обычных LLM-вызовов — ПЕРЕД каждым paid/dedicated L1 attempt.
+
+    Реюз ``LLMClient._resolve_api_key_and_source(chat_id)``: no-own-key +
+    global-forbidden → NoApiKeyForChat('forbidden'); exhausted budget →
+    NoApiKeyForChat('budget'); own chat key → 'chat'; иначе 'global'
+    (fail-open контракт клиента сохранён внутри резолвера). Метода нет
+    (тестовые LLM) → 'global'. Возврат — source, определяющий БЮДЖЕТНЫЙ
+    учёт попытки; transport-ключ dedicated-слота остаётся slot.api_key.
+    NoApiKeyForChat/LLMError — проброс вызывающему (блок попытки)."""
+    resolver = getattr(llm, "_resolve_api_key_and_source", None)
+    if resolver is None:
+        return "global"
+    _key, source = await resolver(chat_id)
+    return str(source or "global")
+
+
+async def record_l1_usage(llm, *, usage, messages, content, model: str,
+                          chat_id: int | None, correlation_id: str | None,
+                          credential_source: str = "global") -> None:
+    """D03 (§18C.1): учёт КАЖДОЙ попытки (первая + repair) — usage-row
+    (usage/cost/unknown-cost) + бюджетный счётчик глобального ключа
+    (mirror ``_record_global_usage``: только source='global'; свой ключ
+    чата бюджет НЕ тратит). Fail-open. Никогда не бросает."""
+    try:
+        from services import usage_events as _ue
+        in_toks, out_toks, estimated = _ue.resolve_token_counts(
+            usage, messages, content)
+        await _ue.record(
+            getattr(llm, "_pg", lambda: None)(),
+            module="direct_chat", step="l1_planner",
+            correlation_id=correlation_id, chat_id=chat_id, model=model,
+            input_tokens=in_toks, output_tokens=out_toks,
+            tokens_estimated=estimated,
+            source=_ue.normalize_source(
+                "chat" if credential_source == "chat" else "global"))
+    except Exception:
+        pass
+    try:
+        if credential_source != "global" or chat_id is None:
+            return
+        from services import chat_usage
+        pg = getattr(llm, "_pg", lambda: None)()
+        await chat_usage.report_call(
+            pg, chat_id, chat_usage.estimate_tokens(content))
+    except Exception:
+        pass
 
 
 # ── §1.5: компактный L1-контекст ────────────────────────────────────────────
@@ -521,27 +605,87 @@ def build_l1_context(*, query, current_question: str = "",
 
 
 def _cap_context(text: str, *, sections_budget, budget: int) -> str:
-    """Дет. кап §1.5: окно сокращается первым (половина → четверть → 0),
-    затем жёсткий символьный кап (~4 символа/токен). Никогда не бросает."""
+    """Структурный кап §1.5 + §18C.5: защита СТРУКТУРНЫХ блоков
+    (СООБЩЕНИЕ/УЧАСТНИКИ/ДОСТУПНЫЕ ВОЗМОЖНОСТИ/УСЛОВИЯ — вопрос, machine
+    contract, direct-address metadata), окно/hints сжимаются первыми
+    (10 → 5 → 0), СООБЩЕНИЕ при переполнении сохраняет head+tail (хвост
+    вопроса НЕ теряется), финальная сборка верифицируется tokenizer'ом.
+    Остаточное переполнение режет КРУПНЕЙШИЙ незащищённый блок, не хвост
+    пакета. Никогда не бросает."""
     try:
         from services.token_counter import count_tokens
         if count_tokens(text) <= budget:
             return text
+        protected = {"СООБЩЕНИЕ", "УЧАСТНИКИ", "ДОСТУПНЫЕ ВОЗМОЖНОСТИ",
+                     "УСЛОВИЯ"}
+
+        def _render(pairs) -> str:
+            return "\n\n".join(f"[{name}]\n{body}" for name, body in pairs)
+
+        pairs: list[tuple[str, str]] = list(sections_budget)
+        # Шаг 1: окно сокращается первым (10 → 5 → 0 строк).
         for window_cap in (10, 5, 0):
             rebuilt = []
-            for name, body in sections_budget:
+            for name, body in pairs:
                 if name == "ПОСЛЕДНИЕ СООБЩЕНИЯ":
                     lines = body.splitlines()[-window_cap:] if window_cap \
                         else []
                     if not lines:
                         continue
                     body = "\n".join(lines)
-                rebuilt.append(f"[{name}]\n{body}")
-            text = "\n\n".join(rebuilt)
-            if count_tokens(text) <= budget:
-                return text
-        char_cap = max(600, budget * 4)
-        return text[:char_cap]
+                rebuilt.append((name, body))
+            pairs = rebuilt
+            if count_tokens(_render(pairs)) <= budget:
+                return _render(pairs)
+        # Шаг 2: незащищённые hint-секции сжимаются пропорционально,
+        # пока пакет не влезет (защищённые неприкосновенны).
+        def _shrink_hints(pairs, factor: float):
+            out = []
+            for name, body in pairs:
+                if name in protected or not body:
+                    out.append((name, body))
+                    continue
+                keep = max(80, int(len(body) * factor))
+                out.append((name, body[:keep]))
+            return out
+
+        for factor in (0.6, 0.3, 0.1):
+            pairs = _shrink_hints(pairs, factor)
+            if count_tokens(_render(pairs)) <= budget:
+                return _render(pairs)
+        # Шаг 3: СООБЩЕНИЕ переполняет само → head+tail (хвост вопроса
+        # сохраняется; §18C.5 «никогда не резать семантический хвост»).
+        rebuilt = []
+        for name, body in pairs:
+            if name == "СООБЩЕНИЕ" and count_tokens(body) > max(
+                    200, budget // 3):
+                chars = max(400, budget // 2)
+                body = (body[:int(chars * 0.6)]
+                        + "\n[…сообщение обрезано под бюджет]\n"
+                        + body[-int(chars * 0.4):])
+            rebuilt.append((name, body))
+        pairs = rebuilt
+        # Шаг 4: остаточное переполнение — режем КРУПНЕЙШИЙ незащищённый
+        # блок (структурные блоки и хвост вопроса не страдают).
+        while count_tokens(_render(pairs)) > budget:
+            victim = None
+            victim_tokens = 0
+            for name, body in pairs:
+                if name in protected or not body:
+                    continue
+                tokens = count_tokens(body)
+                if tokens > victim_tokens:
+                    victim, victim_tokens = name, tokens
+            if victim is None:
+                break
+            rebuilt = []
+            for name, body in pairs:
+                if name == victim:
+                    half = max(80, len(body) // 2)
+                    body = body[:half]
+                rebuilt.append((name, body))
+            pairs = rebuilt
+        return _render(pairs)
     except Exception:          # pragma: no cover - защитная ветка
         return text
 
@@ -579,42 +723,15 @@ def evidence_max_chars() -> int:
 
 def build_evidence_packet(raw, plan=None, *,
                           max_chars: int | None = None) -> str:
-    """§1.2: deterministic evidence packaging — замена LLM-Синтезатора
-    (stage-1) в primary path. Из существующих ``tool_results`` /
-    ``tool_context`` / ``tool_trace`` (tool_loop) собирает санитизированный
-    bounded-текст: ``redact_secrets``, кап символов, статус/ошибка per tool.
-    Никогда не бросает; пустой пакет → ""."""
+    """§1.2 → §18C.2 (D04): обёртка совместимости над fair-allocation
+    evidence pack (services.direct_execution.build_evidence_pack) —
+    per-source резервирование, identity/limitations, честные пометки
+    «не доставлено». Legacy-сигнатура (строка) сохранена для вызовов вне
+    L1-пайплайна. Никогда не бросает; пустой пакет → ""."""
     try:
-        from services.system2_handoff import redact_secrets
-        lines: list[str] = []
-        results = getattr(raw, "tool_results", []) or []
-        for entry in list(results)[:12]:
-            if not isinstance(entry, dict):
-                continue
-            tool = str(entry.get("tool") or "?").strip() or "?"
-            status = str(entry.get("status") or
-                         ("ok" if entry.get("ok") else "error")).strip()
-            error = str(entry.get("error_code")
-                        or entry.get("error_type") or "").strip()
-            lines.append(f"- {tool}: {status}" + (f" ({error})" if error
-                                                  else ""))
-        if not lines:
-            for entry in (getattr(raw, "tool_trace", []) or [])[:12]:
-                if isinstance(entry, dict) and entry.get("tool"):
-                    ok = bool(entry.get("ok"))
-                    lines.append(
-                        f"- {entry.get('tool')}: "
-                        f"{'ok' if ok else 'error'}")
-        context_text = redact_secrets(
-            str(getattr(raw, "tool_context", "") or "")).strip()
-        parts = []
-        if lines:
-            parts.append("СТАТУС ИНСТРУМЕНТОВ:\n" + "\n".join(lines))
-        if context_text:
-            parts.append(context_text)
-        packet = "\n\n".join(parts)
-        cap = max(500, int(max_chars or evidence_max_chars()))
-        return packet[:cap]
+        from services.direct_execution import build_evidence_pack
+        pack = build_evidence_pack(raw, plan, capacity_chars=max_chars)
+        return pack.text
     except Exception:          # pragma: no cover - защитная ветка
         return ""
 
@@ -671,13 +788,48 @@ def rejected_note(rejected) -> str:
 
 # ── §1.6 ladder: deterministic legacy fallback ──────────────────────────────
 
+# §18C.3: planner failure не стирает required tools — дет. inference
+# required capability из текста запроса (высокая точность: только явные
+# URL и явные search-маркеры).
+_FALLBACK_SEARCH_RE = re.compile(
+    r"поищи|поиск\w*|найди|найти|загугли|погугли|в интернете|в сети|"
+    r"проверь (в )?интернет|search", re.IGNORECASE)
+
+
+def infer_fallback_capabilities(query: str, reply_text: str = "",
+                                *, announced=()) -> tuple[str, ...]:
+    """§18C.3: безопасный дет. capability-резолвер для fallback-плана.
+    URL (в запросе/реплае) → fetch_url; явный search-маркер → web_search.
+    Только capability с активным инструментом; пусто → (). Никогда не
+    бросает."""
+    try:
+        active = {str(t or "").strip() for t in (announced or ())}
+        caps: list[str] = []
+        text = f"{query or ''}\n{reply_text or ''}"
+        try:
+            from services.smartmodule_urls import extract_urls
+            if extract_urls(text) and "fetch_article" in active:
+                caps.append("fetch_url")
+        except Exception:
+            pass
+        if _FALLBACK_SEARCH_RE.search(str(query or "")) \
+                and "execute_web_search" in active:
+            caps.append("web_search")
+        return tuple(caps)
+    except Exception:      # pragma: no cover - защитная ветка
+        return ()
+
 
 def fallback_plan(query, *, action: str = "reply",
-                  allowed_actions=("REPLY",)) -> L1Plan:
-    """Deterministic safe fallback (§1.6): classify_request + прежняя
-    demote-матрица (action задаёт вызывающий из pre_action). L1Plan с
-    ``source="fallback"``; capabilities — из дет. плана (tool_policy auto →
-    фолбэк-семантика без capabilities: model-driven цикл сохраняется)."""
+                  allowed_actions=("REPLY",),
+                  capabilities_needed: tuple[str, ...] = ()) -> L1Plan:
+    """Deterministic safe fallback (§1.6 + §18C.3): classify_request +
+    прежняя demote-матрица (action задаёт вызывающий из pre_action).
+    L1Plan с ``source="fallback"``; capabilities — дет. inference
+    required-инструментов (вызывающий передаёт
+    ``infer_fallback_capabilities(...)``): planner outage больше НЕ
+    удаляет search/fetch молча. execution_mode — деривация от
+    capabilities."""
     from services import response_extent as _extent
     try:
         legacy = _extent.classify_request(query)
@@ -691,6 +843,7 @@ def fallback_plan(query, *, action: str = "reply",
             and act == "silent":
         act = "reply"          # allowed-семантика §1.7 сохраняется
     extent = legacy.extent if legacy.extent in L1_EXTENTS else "auto"
+    caps = tuple(str(c) for c in (capabilities_needed or ()) if str(c))
     plan = L1Plan(
         action=act,
         response_act="other",
@@ -700,10 +853,12 @@ def fallback_plan(query, *, action: str = "reply",
         L1_DELIVERY else "plain",
         tool_policy=legacy.tool_policy if legacy.tool_policy in
         L1_TOOL_POLICIES else "none",
-        capabilities_needed=(),
+        capabilities_needed=caps,
         confidence=0.0,
         confidence_bucket="low",
         source="fallback")
+    plan.execution_mode = derive_execution_mode(caps)
+    plan.execution_mode_source = "derived"
     return plan
 
 
@@ -738,15 +893,64 @@ def emit_l1_plan_event(*, run_id=None, chat_id=None, message_id=None,
         pass
 
 
+# ── ASAP 8 v6 (D03/D04): process-local diagnostics (Inspector) ───────────────
+# Только числа/коды (R17: без секретов/приватных текстов); последний прогон
+# на чат. Читатель — GET /api/direct/context-diagnostics (аддитивное поле).
+
+_L1_DIAG_MAX_CHATS = 256
+_l1_diagnostics: dict[int, dict] = {}
+
+
+def record_l1_diagnostics(chat_id: int | None, **fields) -> None:
+    """Запомнить R17-safe оси последнего L1-прогона чата (fail-open).
+    Допускаются только числа/bool/короткие ident-строки."""
+    try:
+        if chat_id is None:
+            return
+        safe: dict = {"ts": int(time.time())}
+        for key, value in (fields or {}).items():
+            if value is None:
+                continue
+            if isinstance(value, bool) or isinstance(value, (int, float)):
+                safe[key] = value
+            elif isinstance(value, str):
+                candidate = value.strip()
+                if candidate and len(candidate) <= 64 \
+                        and not any(ch.isspace() for ch in candidate):
+                    safe[key] = candidate
+        _l1_diagnostics[int(chat_id)] = safe
+        if len(_l1_diagnostics) > _L1_DIAG_MAX_CHATS:
+            try:
+                oldest = min(_l1_diagnostics,
+                             key=lambda c: _l1_diagnostics[c].get("ts", 0))
+                _l1_diagnostics.pop(oldest, None)
+            except Exception:
+                _l1_diagnostics.clear()
+    except Exception:          # pragma: no cover - fail-open
+        pass
+
+
+def get_l1_diagnostics(chat_id: int | None) -> dict | None:
+    """Последний снапшот L1-прогона чата (или None). Fail-open."""
+    try:
+        if chat_id is None:
+            return None
+        return dict(_l1_diagnostics.get(int(chat_id)) or None) or None
+    except Exception:      # pragma: no cover - fail-open
+        return None
+
+
 __all__ = [
     "ACTIONS", "L1_EXTENTS", "LONGFORM_L1_EXTENTS", "L1Plan", "L1ModelSlot",
     "FutureIntent", "FUTURE_INTENT_KINDS", "FUTURE_INTENT_GOAL_MAX",
     "FORCE_LINE", "AUTONOMOUS_LINE", "REPAIR_ANNOTATION",
-    "normalize_l1_plan", "parse_l1_plan", "build_repair_messages",
-    "confidence_bucket", "direct_l1_enabled", "l1_fallback_enabled",
-    "l1_context_tokens", "l1_timeout_seconds", "l1_max_output_tokens",
-    "l1_temperature", "resolve_l1_model", "dedicated_generate",
-    "build_l1_context", "render_window_lines", "build_evidence_packet",
-    "fallback_plan", "plan_response_mode", "emit_l1_plan_event",
-    "build_l2_plan_block", "rejected_note",
+    "EXECUTION_MODES", "normalize_l1_plan", "parse_l1_plan",
+    "build_repair_messages", "confidence_bucket", "direct_l1_enabled",
+    "l1_fallback_enabled", "l1_context_tokens", "l1_timeout_seconds",
+    "l1_max_output_tokens", "l1_temperature", "resolve_l1_model",
+    "dedicated_generate", "authorize_l1_call", "record_l1_usage",
+    "infer_fallback_capabilities", "build_l1_context", "render_window_lines",
+    "build_evidence_packet", "fallback_plan", "plan_response_mode",
+    "emit_l1_plan_event", "build_l2_plan_block", "rejected_note",
+    "derive_execution_mode", "record_l1_diagnostics", "get_l1_diagnostics",
 ]

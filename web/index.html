@@ -3079,6 +3079,9 @@
                     <div class="flex items-center gap-2 min-w-0 mb-1">
                       <span v-if="item.chat_source === 'chat'" class="badge badge-info">чат</span>
                       <span v-if="itemHiddenDev(item)" class="badge badge-warn">скрыт</span>
+                      <!-- D07 (§9B.2): global view — avatar stack чатов с override -->
+                      <override-stack :item-key="item.key" :item-title="item.title"
+                                      :item-type="item.type"></override-stack>
                       <button v-if="isGlobalAdmin" class="btn-ghost text-xs px-2 ml-auto shrink-0"
                               title="Права ключа (min-роли view/edit)"
                               @click="openPermPicker(item)"><span class="msr" aria-hidden="true">{{ iconGlyph('manage_accounts') }}</span></button>
@@ -3255,6 +3258,9 @@
                          :class="{ 'is-save-failed': stickyFieldFailed(item.key) }">
                       <div class="flex items-center gap-2 min-w-0 mb-1">
                         <span v-if="item.chat_source === 'chat'" class="badge badge-info">чат</span>
+                        <!-- D07 (§9B.2): global view — avatar stack чатов с override -->
+                        <override-stack :item-key="item.key" :item-title="item.title"
+                                        :item-type="item.type"></override-stack>
                         <button v-if="isGlobalAdmin" class="btn-ghost text-xs px-2 ml-auto shrink-0"
                                 title="Права ключа (min-роли view/edit)"
                                 @click="openPermPicker(item)"><span class="msr" aria-hidden="true">{{ iconGlyph('manage_accounts') }}</span></button>
@@ -8572,6 +8578,77 @@
                 :disabled="disabled || !configured" @click="onDelete">{{ deleteLabel }}</button>
       </div>
     </div>
+  </script>
+
+  <!-- D07 (v6 §9B.2/§9B.3): global-view avatar stack + popover переопределивших
+       чатов. Компонент зарегистрирован в web/app.js (provide/inject: root).
+       Геометрия панели — inline style (zero-build; классы — только из
+       скомпилированного tailwind.css / канона app.css). -->
+  <script type="text/x-template" id="override-stack-tpl">
+    <span v-if="rows.length" class="relative inline-flex shrink-0"
+          :data-override-stack="itemKey">
+      <button ref="btn" type="button" class="btn-ghost text-xs px-1 flex items-center gap-1"
+              :aria-expanded="open ? 'true' : 'false'"
+              :title="'Переопределено в чатах: ' + rows.length"
+              aria-label="Чаты с локальным переопределением"
+              data-override-stack-toggle
+              @click.stop="toggle">
+        <span v-for="r in shown" :key="r.chat_id"
+              class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-violet-600/30 text-violet-300 text-[10px]"
+              :title="r.chat_title">{{ initial(r) }}</span>
+        <span v-if="extraCount > 0"
+              class="inline-flex items-center justify-center h-5 px-1.5 rounded-full bg-white/10 border border-white/10 text-[10px] text-gray-400"
+              data-override-extra>+{{ extraCount }}</span>
+      </button>
+      <!-- Панель — teleport в body (fixed, z80): карточка — stacking context
+           (backdrop-filter), внутри неё панель всегда была бы ПОД sticky-save
+           (z5)/bottom-nav (z40) и её действия некликабельны. -->
+      <teleport to="body">
+        <div v-if="open" role="dialog" aria-label="Переопределения параметра по чатам"
+             class="p-2 rounded-lg border border-white/10"
+             data-override-pop
+             :style="{ position: 'fixed', left: pos.left + 'px', top: pos.top + 'px',
+                       width: pos.width + 'px', zIndex: 80,
+                       background: 'var(--surface-2)',
+                       boxShadow: '0 12px 32px rgba(0,0,0,.5)' }">
+          <div class="text-[10px] text-gray-500 mb-1">
+            Переопределено в чатах: {{ rows.length }}
+          </div>
+          <ul class="flex flex-col gap-1 overflow-y-auto scroll-thin max-h-40">
+            <li v-for="r in rows" :key="r.chat_id"
+                class="rounded-lg border border-white/5 p-2" data-override-row>
+              <div class="flex items-center gap-1.5 min-w-0">
+                <span class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-violet-600/30 text-violet-300 text-[10px] shrink-0">{{ initial(r) }}</span>
+                <span class="truncate flex-1 min-w-0 text-gray-400"
+                      :title="r.chat_title">{{ r.chat_title }}</span>
+                <span class="font-mono text-[10px] text-violet-300 truncate"
+                      style="max-width:45%;" :title="fmt(r.value)">{{ fmt(r.value) }}</span>
+              </div>
+              <div class="flex items-center flex-wrap gap-1 mt-1">
+                <button type="button" class="btn-ghost text-[10px] px-1.5"
+                        data-override-open
+                        @click="openChat(r)">Настройки чата</button>
+                <button v-if="canDisable && canWriteRow(r)" type="button"
+                        class="btn-ghost text-[10px] px-1.5"
+                        :disabled="rowBusy(r)"
+                        data-override-disable
+                        @click="disableIn(r)">Отключить в чате</button>
+                <button v-if="canWriteRow(r)" type="button"
+                        class="btn-ghost text-[10px] px-1.5"
+                        :disabled="rowBusy(r)"
+                        data-override-reset
+                        @click="resetIn(r)">Вернуть глобальные</button>
+              </div>
+            </li>
+          </ul>
+          <button v-if="writableRows.length" type="button"
+                  class="btn-ghost text-[10px] px-1.5 mt-1 w-full"
+                  :disabled="rowBusy(writableRows[0])"
+                  data-override-reset-all
+                  @click="resetAll">Вернуть глобальные во всех чатах ({{ rows.length }})</button>
+        </div>
+      </teleport>
+    </span>
   </script>
 
   <!-- KV-редактор (3.5.2): шаблон компонента kv-editor для полей c

@@ -149,6 +149,10 @@ def _window(rows):
 
 
 def _patch_chat_with_tools(monkeypatch, result, capture=None):
+    """ASAP 7 (legacy pin): патч tool-фазы. С v6 D04 (§18C.7) L1-путь
+    использует execution modes (deterministic executor / orchestrator),
+    поэтому для L1-тестов используйте :class:`_FakeRouter`; этот патч
+    остаётся для legacy-веток (L1 OFF)."""
     import services.direct_chat_service as dcs
 
     async def fake_chat_with_tools(llm, payload, *, tools, router, ctx,
@@ -164,6 +168,26 @@ def _patch_chat_with_tools(monkeypatch, result, capture=None):
         return result
 
     monkeypatch.setattr(dcs, "chat_with_tools", fake_chat_with_tools)
+
+
+class _FakeRouter:
+    """v6 D04: async-роутер для детерминированного исполнителя —
+    реальный seam dispatch (вместо патча chat_with_tools). Записывает
+    (tool, arguments) диспетчей; outputs — по имени тулa или дефолт."""
+
+    def __init__(self, outputs=None, default="найденные данные поиска",
+                 fail=()):
+        self.dispatched = []
+        self.outputs = dict(outputs or {})
+        self.default = default
+        self.fail = set(fail)
+
+    async def dispatch(self, name, arguments, ctx):
+        self.dispatched.append({"tool": name,
+                                "arguments": dict(arguments or {})})
+        if name in self.fail:
+            raise RuntimeError(f"{name} exploded")
+        return self.outputs.get(name, self.default)
 
 
 def _tool_result_ok(text="финал тулов"):
@@ -293,23 +317,25 @@ class TestGoldenD1D6:
 class TestGoldenCapabilities:
     @pytest.mark.asyncio
     async def test_d7_web_plus_memory_without_two_urls(self, monkeypatch):
-        """D7: «проверь в интернете и сравни с перепиской» →
-        web_search + chat_history; 2-URL больше не «единственный мозг»."""
-        capture = []
-        _patch_chat_with_tools(monkeypatch, _tool_result_ok(), capture)
+        """D7 (v6 D04 simple_tools): «проверь в интернете и сравни с
+        перепиской» → web_search + chat_history детерминированно
+        (параллельная волна, 0 LLM в tool-фазе); evidence доходит до L2."""
+        router = _FakeRouter(outputs={
+            "execute_web_search": "найденные данные поиска",
+            "get_recent_history": "вася: упоминание модели"})
         llm = _FakeLLM(l1=_plan_json(tool_policy="auto",
                                      capabilities_needed=["web_search",
                                                           "chat_history"]),
                        l2="вот сравнение")
-        router = MagicMock()
         svc, react, bot, msg, user = _drive(
             monkeypatch, "проверь это в интернете и сравни с нашей перепиской",
             tool_router=router, llm=llm)
         await svc.handle(bot, msg, user)
-        assert capture, "tool-фаза должна была запуститься"
-        assert set(capture[0]["tools"]) == {"execute_web_search",
-                                            "get_recent_history"}
-        # evidence packet дошёл до L2 (дет., без LLM-Синтезатора).
+        tools = [d["tool"] for d in router.dispatched]
+        assert set(tools) == {"execute_web_search", "get_recent_history"}
+        # Топология simple_tools: 0 LLM-вызовов в tool-фазе
+        # (третий вызов запрещён), evidence packet дошёл до L2.
+        assert "stage1" not in llm.steps() and "tool" not in llm.steps()
         l2_text = "".join(str(m.get("content"))
                           for m in llm.last_messages("l2_writer"))
         assert "Tool_Evidence" in l2_text
@@ -319,34 +345,37 @@ class TestGoldenCapabilities:
     @pytest.mark.asyncio
     async def test_d8_history_only_no_url(self, monkeypatch):
         """D8: «сравни с тем, что он говорил вчера» → chat_history, без URL."""
-        capture = []
-        _patch_chat_with_tools(monkeypatch, _tool_result_ok(), capture)
+        router = _FakeRouter(outputs={"get_recent_history": "хроника вчера"})
         llm = _FakeLLM(l1=_plan_json(tool_policy="auto",
                                      capabilities_needed=["chat_history"]),
                        l2="вчера он говорил другое")
         svc, react, bot, msg, user = _drive(
             monkeypatch, "сравни с тем, что он говорил вчера",
-            tool_router=MagicMock(), llm=llm)
+            tool_router=router, llm=llm)
         await svc.handle(bot, msg, user)
-        assert capture and capture[0]["tools"] == ["get_recent_history"]
+        assert [d["tool"] for d in router.dispatched] == \
+            ["get_recent_history"]
         svc._send_direct_answer.assert_awaited_once()
 
     @pytest.mark.asyncio
     async def test_tool_plan_fastpath_urls_still_work(self, monkeypatch):
-        """§1.4: дет. fast-path «2+ URL + явное сравнение» сохранён как
-        дополнение; шаги строятся по resolved-подсету."""
-        capture = []
-        _patch_chat_with_tools(monkeypatch, _tool_result_ok(), capture)
+        """§1.4 + v6 simple_tools: 2 URL в запросе → дет. fetch обоих
+        источников (параллельная волна, 0 LLM в tool-фазе)."""
+        router = _FakeRouter(outputs={"fetch_article": "содержимое статьи"})
         llm = _FakeLLM(l1=_plan_json(tool_policy="auto",
                                      capabilities_needed=["fetch_url"]),
                        l2="сравнил")
         svc, react, bot, msg, user = _drive(
             monkeypatch,
             "сравни https://a.example/1 и https://b.example/2",
-            tool_router=MagicMock(), llm=llm)
+            tool_router=router, llm=llm)
         await svc.handle(bot, msg, user)
-        assert capture and capture[0]["tools"] == ["fetch_article"]
-        assert capture[0]["tool_plan"], "2-URL fast-path должен строить план"
+        fetches = [d for d in router.dispatched
+                   if d["tool"] == "fetch_article"]
+        assert len(fetches) == 2
+        urls = {d["arguments"].get("url") for d in fetches}
+        assert urls == {"https://a.example/1", "https://b.example/2"}
+        assert "stage1" not in llm.steps()
         svc._send_direct_answer.assert_awaited_once()
 
 
@@ -358,8 +387,7 @@ class TestGoldenClarification:
     async def test_d9_contextual_media_no_clarification(self, monkeypatch):
         """D9: reply на медиа «расшифруй» — цель разрешима из контекста,
         clarification не задаётся, тула transcription запускается."""
-        capture = []
-        _patch_chat_with_tools(monkeypatch, _tool_result_ok(), capture)
+        router = _FakeRouter(outputs={"transcribe_video": "расшифровка"})
         llm = _FakeLLM(l1=_plan_json(tool_policy="auto",
                                      capabilities_needed=["transcription"]),
                        l2="вот расшифровка")
@@ -368,9 +396,9 @@ class TestGoldenClarification:
         reply.text = None
         svc, react, bot, msg, user = _drive(
             monkeypatch, "расшифруй", reply=reply,
-            tool_router=MagicMock(), llm=llm)
+            tool_router=router, llm=llm)
         await svc.handle(bot, msg, user)
-        assert capture and capture[0]["tools"] == ["transcribe_video"]
+        assert [d["tool"] for d in router.dispatched] == ["transcribe_video"]
         bot.send_message.assert_not_called()   # фикс-вопроса не было
         svc._send_direct_answer.assert_awaited_once()
 
@@ -379,8 +407,7 @@ class TestGoldenClarification:
             self, monkeypatch):
         """D10: «скачай это» без цели → ровно один clarification; тула НЕ
         запускается; формулирует L2 (не fixed-фраза)."""
-        capture = []
-        _patch_chat_with_tools(monkeypatch, _tool_result_ok(), capture)
+        router = _FakeRouter()
         llm = _FakeLLM(
             l1=_plan_json(response_act="clarification",
                           needs_clarification=True,
@@ -388,9 +415,9 @@ class TestGoldenClarification:
                           capabilities_needed=["media_download"]),
             l2="что именно скачать — скинь ссылку")
         svc, react, bot, msg, user = _drive(
-            monkeypatch, "скачай это", tool_router=MagicMock(), llm=llm)
+            monkeypatch, "скачай это", tool_router=router, llm=llm)
         await svc.handle(bot, msg, user)
-        assert capture == [], "при clarification тула не запускаются"
+        assert router.dispatched == [], "при clarification тула не запускаются"
         svc._send_direct_answer.assert_awaited_once()
         assert svc._send_direct_answer.await_args.args[2].startswith(
             "что именно скачать")
@@ -533,18 +560,19 @@ class TestGoldenFailureLadder:
         monkeypatch.setattr(
             _caps, "emit_capability_rejected",
             lambda cap, reason, **kw: rejected_events.append((cap, reason)))
-        capture = []
-        _patch_chat_with_tools(monkeypatch, _tool_result_ok(), capture)
+        router = _FakeRouter(outputs={"execute_web_search":
+                                      "результат поиска"})
         llm = _FakeLLM(l1=_plan_json(tool_policy="auto",
                                      capabilities_needed=["quantum_telepathy",
                                                           "web_search"]),
                        l2="ответ без телепатии")
         svc, react, bot, msg, user = _drive(
-            monkeypatch, "проверь в интернете", tool_router=MagicMock(),
+            monkeypatch, "проверь в интернете", tool_router=router,
             llm=llm)
         await svc.handle(bot, msg, user)
         assert ("quantum_telepathy", "unknown_capability") in rejected_events
-        assert capture and capture[0]["tools"] == ["execute_web_search"]
+        assert [d["tool"] for d in router.dispatched] == \
+            ["execute_web_search"]
         l2_text = "".join(str(m.get("content"))
                           for m in llm.last_messages("l2_writer"))
         assert "quantum_telepathy" in l2_text      # честная пометка L2
@@ -554,14 +582,13 @@ class TestGoldenFailureLadder:
     async def test_d15b_statistics_no_tool_honest_note(self, monkeypatch):
         """§1.4: statistics тула не имеет → ∅ + честная пометка L2; тул-фаза
         не запускается."""
-        capture = []
-        _patch_chat_with_tools(monkeypatch, _tool_result_ok(), capture)
+        router = _FakeRouter()
         llm = _FakeLLM(l1=_plan_json(capabilities_needed=["statistics"]),
                        l2="статистику не считаю честно")
         svc, react, bot, msg, user = _drive(monkeypatch, "бот, статистика",
-                                            tool_router=MagicMock(), llm=llm)
+                                            tool_router=router, llm=llm)
         await svc.handle(bot, msg, user)
-        assert capture == []
+        assert router.dispatched == []
         l2_text = "".join(str(m.get("content"))
                           for m in llm.last_messages("l2_writer"))
         assert "statistics" in l2_text
@@ -653,20 +680,23 @@ class TestGatesTopologyLegacy:
 
     @pytest.mark.asyncio
     async def test_topology_two_semantic_calls_on_reply_path(self, monkeypatch):
-        """§22 п.3/§2.7: reply-путь — ровно 2 semantic LLM call
-        (l1_planner + l2_writer); третий запрещён."""
-        capture = []
-        _patch_chat_with_tools(monkeypatch, _tool_result_ok(), capture)
+        """§22 п.3/§2.7 + v6 D04: reply-путь — ровно 2 semantic LLM call
+        (l1_planner + l2_writer); третий запрещён (simple_tools = 0 LLM
+        в tool-фазе)."""
+        router = _FakeRouter(outputs={"execute_web_search":
+                                      "результат поиска"})
         llm = _FakeLLM(l1=_plan_json(tool_policy="auto",
                                      capabilities_needed=["web_search"]),
                        l2="итог тулов")
         svc, react, bot, msg, user = _drive(
-            monkeypatch, "бот, загугли новости", tool_router=MagicMock(),
+            monkeypatch, "бот, загугли новости", tool_router=router,
             llm=llm)
         await svc.handle(bot, msg, user)
         semantic = [s for s in llm.steps() if s in ("l1_planner",
                                                     "l2_writer")]
         assert semantic == ["l1_planner", "l2_writer"]
+        assert "stage1" not in llm.steps() and "tool" not in llm.steps() \
+            and "orchestrator" not in llm.steps()
         svc._send_direct_answer.assert_awaited_once()
 
     @pytest.mark.asyncio

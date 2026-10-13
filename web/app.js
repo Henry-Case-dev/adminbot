@@ -2111,6 +2111,13 @@
         // F7 (10.24, ADR-1024-3 D1): черновик регулируемого лимита паттернов.
         clicheLimitDraft: '',
         saving: new Set(),
+        // D07 (§9B.2/§9B.3): карта per-chat overrides (GET
+        // /api/config/overrides-map) — global-view avatar stack + popover.
+        // Пусто в chat-скоупе (стек — только global view; badge уже есть).
+        overrideMap: [],
+        overrideMapBusy: false,
+        // Идущие popover-действия: {'<key>:<chat_id>': true} / 'all:<key>'.
+        overrideBusy: {},
         keyDrafts: {},
         secretMask: SECRET_MASK,  // контракт/тесты; рантайм-guard'ы читают SECRET_MASK напрямую
         // 3.5.1: показать/скрыть маску ключа — F9/ADR-1025-22 D4: локально в
@@ -4934,11 +4941,18 @@
         // Флаг не должен утекать в fetch-инициализатор.
         var init = Object.assign({}, options);
         delete init.global;
+        // D07 (§9B.3): явный chatId popover-действий — старше контекста
+        // (в global view activeChatId==null, но контракт явный: действие
+        // адресует КОНКРЕТНЫЙ чат из popover, а не активную область).
+        var explicitChatId = (options.chatId == null) ? null : String(options.chatId);
+        delete init.chatId;
         init.headers = Object.assign({}, options.headers || {});
         if (!init.headers['Content-Type'] && init.body) {
           init.headers['Content-Type'] = 'application/json';
         }
-        if (this.activeChatId != null && options.global !== true) {
+        if (explicitChatId != null) {
+          init.headers['X-Chat-Id'] = explicitChatId;
+        } else if (this.activeChatId != null && options.global !== true) {
           init.headers['X-Chat-Id'] = String(this.activeChatId);
         }
         var initData = getInitData();   // T-1099: тот же кэш, что на BOOT
@@ -7768,6 +7782,172 @@
         } finally {
           this.saving.delete(item.key);
         }
+      },
+
+      // ═══ D07 (v6 §9B.2/§9B.3): global-view overrides — stack/popover ═══
+      // Карта перечитывается на каждый loadConfig в global-скоупе; ответы
+      // гвардятся scopeEpoch (D01: снимок до await, сверка после).
+      loadOverrideMap: async function () {
+        var epoch = this.scopeEpoch;   // D01: снимок scope до await
+        this.overrideMapBusy = true;
+        try {
+          var data = await this.api('/api/config/overrides-map',
+                                    { global: true });
+          if (!this._scopeGuard(epoch)) return;   // устаревший ответ — мимо UI
+          this.overrideMap = (data && data.items) || [];
+        } catch (e) {
+          if (!this._scopeGuard(epoch)) return;   // устаревшая ошибка
+          // 403 (plain user)/503/сеть — честно пусто: стек не рендерится.
+          this.overrideMap = [];
+        } finally {
+          if (this._scopeGuard(epoch)) this.overrideMapBusy = false;
+        }
+      },
+      overrideRowsFor: function (key) {
+        return (this.overrideMap || []).filter(function (r) {
+          return r.key === key;
+        });
+      },
+      // §9B.2 пример: «Chat A: OFF», «Chat B: model=X», «timeout=…».
+      formatOverrideValue: function (v) {
+        if (v === true) return 'ON';
+        if (v === false) return 'OFF';
+        if (v == null) return '—';
+        var s = (typeof v === 'object') ? JSON.stringify(v) : String(v);
+        if (s.length > 60) s = s.slice(0, 57) + '…';
+        return s;
+      },
+      // Паритет с серверными гейтами: DELETE override (routes.py
+      // delete_chat_param) — global/local admin, DM — владелец; POST
+      // override — тот же класс прав (сервер дополнительно проверит
+      // can_edit_param по матрице чата).
+      overrideCanWriteRow: function (row) {
+        return !!row && ['global_admin', 'local_admin', 'dm']
+          .indexOf(row.access) >= 0;
+      },
+      overrideRowBusy: function (row, key) {
+        return !!this.overrideBusy[key + ':' + row.chat_id];
+      },
+      // «Открыть настройки чата» — deep-link: переключаем область на чат,
+      // остаёмся на текущей config-вкладке (параметр перечитается уже в
+      // скоупе чата: setActiveChat → loadConfig; route не трогаем).
+      openOverrideChatSettings: function (row) {
+        if (!row || row.chat_id == null) return;
+        this.setActiveChat(String(row.chat_id));
+      },
+      // «Отключить в этом чате» — пишет ТОЛЬКО chat override (POST
+      // /api/config с явным X-Chat-Id); global value не меняется.
+      disableOverrideInChat: async function (row, key, title) {
+        var chatId = row.chat_id;
+        var epoch = this.scopeEpoch;   // D01: захват цели ДО await
+        var busyKey = key + ':' + chatId;
+        if (!this.overrideCanWriteRow(row)) {
+          this.toast('Нет права менять настройки этого чата', 'err');
+          return;
+        }
+        if (this.overrideBusy[busyKey]) return;
+        if (!window.confirm('«' + title + '» → OFF в чате «'
+            + row.chat_title + '»? Запишется локальное переопределение '
+            + 'только этого чата; глобальное значение не изменится.')) return;
+        this.overrideBusy[busyKey] = true;
+        try {
+          await this.api('/api/config', {
+            method: 'POST', chatId: chatId,
+            body: JSON.stringify({ items: [{ key: key, value: false }],
+                                   updated_at: null }),
+          });
+          if (!this._scopeGuard(epoch)) return;   // scope сменился — без UI
+          this.toast('Отключено в «' + row.chat_title + '» (локальный '
+            + 'override; глобальное значение не тронуто)', 'ok');
+          await this.loadOverrideMap();
+        } catch (e) {
+          if (!this._scopeGuard(epoch)) return;
+          if (e.status === 409) {
+            this.toast('Конфликт версии (409) — обновите конфигурацию', 'warn');
+          } else {
+            this.toast('Ошибка: ' + e.message, 'err');
+          }
+        } finally {
+          if (this._scopeGuard(epoch)) delete this.overrideBusy[busyKey];
+        }
+      },
+      // «Вернуть глобальные» — удаляет ТОЛЬКО chat override выбранного
+      // чата (DELETE /api/config/chat/<key>); global value не меняется.
+      resetOverrideInChat: async function (row, key, title) {
+        var chatId = row.chat_id;
+        var epoch = this.scopeEpoch;   // D01: захват цели ДО await
+        var busyKey = key + ':' + chatId;
+        if (!this.overrideCanWriteRow(row)) {
+          this.toast('Нет права сбросить override этого чата', 'err');
+          return;
+        }
+        if (this.overrideBusy[busyKey]) return;
+        if (!window.confirm('Вернуть «' + title + '» на глобальное значение '
+            + 'в чате «' + row.chat_title + '»? Локальный override будет '
+            + 'удалён; глобальное значение не изменится.')) return;
+        this.overrideBusy[busyKey] = true;
+        try {
+          await this.api('/api/config/chat/' + encodeURIComponent(key), {
+            method: 'DELETE', chatId: chatId,
+          });
+          if (!this._scopeGuard(epoch)) return;
+          this.toast('Сброшено на глобальное: ' + title + ' («'
+            + row.chat_title + '»)', 'ok');
+          await this.loadOverrideMap();
+        } catch (e) {
+          if (!this._scopeGuard(epoch)) return;
+          if (e.status === 409) {
+            this.toast('Конфликт версии (409) — обновите конфигурацию', 'warn');
+          } else {
+            this.toast('Ошибка: ' + e.message, 'err');
+          }
+        } finally {
+          if (this._scopeGuard(epoch)) delete this.overrideBusy[busyKey];
+        }
+      },
+      // Bulk (§9B.3): ТОЛЬКО через explicit confirm с перечислением
+      // affected chats; без подтверждения не делаем вообще.
+      resetAllOverridesInChats: async function (rows, key, title) {
+        if (!Array.isArray(rows) || !rows.length) return;
+        var writable = rows.filter(function (r) {
+          return ['global_admin', 'local_admin', 'dm']
+            .indexOf(r.access) >= 0;
+        });
+        if (!writable.length) {
+          this.toast('Нет чатов с правом сброса', 'warn');
+          return;
+        }
+        var listing = writable.map(function (r) {
+          return '• ' + (r.chat_title || ('Чат ' + r.chat_id));
+        }).join('\n');
+        if (!window.confirm('Вернуть «' + title + '» на глобальное значение '
+            + 'в ' + writable.length + ' чат(ах)?\n' + listing
+            + '\n\nЛокальные override-ы будут удалены; глобальное значение '
+            + 'не изменится.')) return;
+        var epoch = this.scopeEpoch;   // D01: гвард scope на весь цикл
+        this.overrideBusy['all:' + key] = true;
+        var ok = 0, fail = 0, aborted = false;
+        for (var i = 0; i < writable.length; i++) {
+          if (!this._scopeGuard(epoch)) { aborted = true; break; }
+          try {
+            await this.api('/api/config/chat/' + encodeURIComponent(key), {
+              method: 'DELETE', chatId: writable[i].chat_id,
+            });
+            ok++;
+          } catch (e) {
+            fail++;
+          }
+        }
+        delete this.overrideBusy['all:' + key];
+        if (!this._scopeGuard(epoch)) return;   // устаревший scope — без UI
+        if (aborted) {
+          this.toast('Сброс прерван сменой области: ok=' + ok, 'warn');
+        } else if (fail) {
+          this.toast('Сброшено: ' + ok + ', с ошибкой: ' + fail, 'warn');
+        } else {
+          this.toast('Сброшено на глобальное в ' + ok + ' чат(ах)', 'ok');
+        }
+        await this.loadOverrideMap();
       },
 
       // ═══ Hash-роутер (T-1099, §6.2/§6.4.4): applyRoute — применитель ═══
@@ -13082,6 +13262,13 @@
           if (this.activeTab === 'prompts') this.maybeLoadCliche();
           // ASAP-3 (D17): диагностика последнего прогона композера чата.
           this.loadDirectDiagnostics();
+          // D07 (§9B.2): global view — карта per-chat overrides для avatar
+          // stack/popover; в chat-скоупе карта не нужна (badge уже есть).
+          if (this.scopeKind === 'global') {
+            this.loadOverrideMap();
+          } else if (this.overrideMap.length) {
+            this.overrideMap = [];
+          }
         } catch (e) {
           if (!this._scopeGuard(epoch)) return;   // R2: устаревшая ошибка
           // ПРОД-ИНЦИДЕНТ (C): 401 различается — понятное сообщение вместо
@@ -18342,6 +18529,167 @@
       },
     },
     template: '#secret-field-tpl',
+  });
+
+  // ═══ D07 (v6 §9B.2/§9B.3): global-view avatar stack + popover ═════════════
+  // Компактный стек [чат A][чат B][+N] на карточке параметра в global view;
+  // клик → popover со списком переопределивших чатов и их значениями
+  // (§9B.2) + quick actions (§9B.3): открыть настройки чата / отключить
+  // в этом чате / вернуть глобальные (только chat override) / bulk через
+  // explicit confirm. Шаблон — #override-stack-tpl (index.html).
+  // ПАНЕЛЬ — <teleport to="body"> + fixed-позиционирование: карточка —
+  // stacking context (backdrop-filter), z-index внутри неё всегда под
+  // sticky-save (z5)/bottom-nav (z40); телепорт на level тела даёт честный
+  // z80 и кликабельные действия (не перекрыты футером).
+  app.component('override-stack', {
+    name: 'override-stack',
+    inject: ['root'],
+    props: {
+      itemKey: { type: String, default: '' },
+      itemTitle: { type: String, default: '' },
+      itemType: { type: String, default: '' },
+    },
+    data: function () {
+      return {
+        open: false,
+        pos: { left: 8, top: 8, width: 272 },
+      };
+    },
+    computed: {
+      rows: function () {
+        return (this.root && typeof this.root.overrideRowsFor === 'function')
+          ? this.root.overrideRowsFor(this.itemKey) : [];
+      },
+      shown: function () { return this.rows.slice(0, 2); },
+      extraCount: function () {
+        return Math.max(0, this.rows.length - this.shown.length);
+      },
+      writableRows: function () {
+        var root = this.root;
+        return this.rows.filter(function (r) {
+          return root && typeof root.overrideCanWriteRow === 'function'
+            && root.overrideCanWriteRow(r);
+        });
+      },
+      // «Отключить в этом чате» — если применимо (§9B.3): bool-параметры.
+      canDisable: function () { return this.itemType === 'bool'; },
+    },
+    methods: {
+      // Позиция панели: fixed по rect кнопки; не вылезает за viewport
+      // по горизонтали; мало места снизу → раскрывается вверх.
+      computePos: function () {
+        var btn = this.$refs.btn;
+        var vw = (typeof window !== 'undefined' && window.innerWidth) || 1280;
+        var vh = (typeof window !== 'undefined' && window.innerHeight) || 800;
+        var W = Math.min(272, vw - 24);
+        if (!btn || typeof btn.getBoundingClientRect !== 'function') {
+          return { left: 12, top: 12, width: W };
+        }
+        var r = btn.getBoundingClientRect();
+        var left = Math.max(8, Math.min(r.left, vw - W - 8));
+        var estH = 360;                    // оценка высоты панели (max-h список)
+        var below = vh - r.bottom;
+        var top = (below < estH && r.top > estH)
+          ? Math.max(8, r.top - estH - 6)
+          : r.bottom + 6;
+        return { left: left, top: top, width: W };
+      },
+      toggle: function () {
+        if (this.open) { this.close(); return; }
+        this.pos = this.computePos();
+        this.open = true;
+        // после монтирования панели — пересчёт по фактической раскладке
+        var self = this;
+        this.$nextTick(function () {
+          if (self.open) self.pos = self.computePos();
+        });
+      },
+      close: function () { this.open = false; },
+      onDocClick: function (e) {
+        if (!this.open) return;
+        var t = e && e.target;
+        if (this.$el && t && this.$el.contains(t)) return;   // стек/кнопка
+        // панель телепортирована в body — не «мимо», если клик в ней
+        if (t && t.closest && t.closest('[data-override-pop]')) return;
+        this.open = false;
+      },
+      onKeydown: function (e) {
+        if (e && e.key === 'Escape') this.close();
+      },
+      // скролл/ресайз при открытой панели: панель fixed — ПЕРЕПОЗИЦИОНИРУЕМ
+      // к актуальному rect кнопки (не закрываем: иначе гонка с
+      // programmatic scrollIntoView закрывает только что открытую панель).
+      // Закрываем только когда якорь ушёл из вьюпорта (панель «потеряна»).
+      onViewportChange: function () {
+        if (!this.open) return;
+        var btn = this.$refs.btn;
+        if (!btn || typeof btn.getBoundingClientRect !== 'function') {
+          this.open = false;
+          return;
+        }
+        var r = btn.getBoundingClientRect();
+        var vh = (typeof window !== 'undefined' && window.innerHeight) || 800;
+        if (!r.width || r.bottom < 0 || r.top > vh) {
+          this.open = false;
+          return;
+        }
+        this.pos = this.computePos();
+      },
+      initial: function (row) {
+        var t = (row && row.chat_title) || '';
+        return t ? t.slice(0, 1).toUpperCase() : '?';
+      },
+      fmt: function (v) {
+        return (this.root && typeof this.root.formatOverrideValue === 'function')
+          ? this.root.formatOverrideValue(v) : String(v);
+      },
+      canWriteRow: function (row) {
+        return !!(this.root && this.root.overrideCanWriteRow
+                  && this.root.overrideCanWriteRow(row));
+      },
+      rowBusy: function (row) {
+        return !!(this.root && this.root.overrideRowBusy
+                  && this.root.overrideRowBusy(row, this.itemKey));
+      },
+      openChat: function (row) {
+        this.close();
+        this.root.openOverrideChatSettings(row);
+      },
+      disableIn: function (row) {
+        this.close();
+        this.root.disableOverrideInChat(row, this.itemKey, this.itemTitle);
+      },
+      resetIn: function (row) {
+        this.close();
+        this.root.resetOverrideInChat(row, this.itemKey, this.itemTitle);
+      },
+      resetAll: function () {
+        this.close();
+        this.root.resetAllOverridesInChats(this.rows, this.itemKey,
+                                           this.itemTitle);
+      },
+    },
+    mounted: function () {
+      if (typeof document !== 'undefined' && document.addEventListener) {
+        document.addEventListener('click', this.onDocClick);
+        document.addEventListener('keydown', this.onKeydown);
+      }
+      if (typeof window !== 'undefined' && window.addEventListener) {
+        window.addEventListener('scroll', this.onViewportChange, true);
+        window.addEventListener('resize', this.onViewportChange);
+      }
+    },
+    unmounted: function () {
+      if (typeof document !== 'undefined' && document.removeEventListener) {
+        document.removeEventListener('click', this.onDocClick);
+        document.removeEventListener('keydown', this.onKeydown);
+      }
+      if (typeof window !== 'undefined' && window.removeEventListener) {
+        window.removeEventListener('scroll', this.onViewportChange, true);
+        window.removeEventListener('resize', this.onViewportChange);
+      }
+    },
+    template: '#override-stack-tpl',
   });
 
   app.mount('#app');

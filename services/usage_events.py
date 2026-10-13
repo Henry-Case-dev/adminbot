@@ -49,10 +49,14 @@ PLAN_META_FIELDS = frozenset({
     "action", "response_act", "extent", "tone", "bucket", "confidence",
     "capabilities", "tools", "inherited", "fallback", "latency_ms",
     "input_chars", "model", "source",
+    # ASAP 8 v6 (D03/D04): axes of execution_mode/credentials/temperature
+    # (§18C.6/§18C.7/§18C.8 — durable observability of the full chain).
+    "execution_mode", "planner_fallback_reason", "required_capability",
+    "credential_source", "temperature", "temperature_unsupported",
 })
 _PLAN_META_LIST_FIELDS = frozenset({"capabilities", "tools"})
 _PLAN_META_NUM_FIELDS = frozenset(
-    {"confidence", "latency_ms", "input_chars"})
+    {"confidence", "latency_ms", "input_chars", "temperature"})
 _IDENT_VALUE_RE = re.compile(r"^[A-Za-z0-9_\-:.]{0,64}$")
 _MODEL_VALUE_RE = re.compile(r"^[A-Za-z0-9_\-./:]{0,64}$")
 _PLAN_META_MAX_BYTES = 2048   # bounded durable-колонка (одна строка JSON)

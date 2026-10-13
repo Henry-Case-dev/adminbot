@@ -57,6 +57,7 @@ from services.permissions import (
     requires_permission as match_permission,
     validate_permissions,
 )
+from web.api.avatars import chat_display_info
 from web.api.deps import (
     can_edit_param,
     can_view_key_value,
@@ -777,6 +778,14 @@ async def direct_context_diagnostics(
     if data:
         out.update(data)
     out["metrics"] = _asap3_composer.direct_metrics_snapshot()
+    # ASAP 8 v6 (D03/D04, §18C.6/§18C.7): R17-safe оси последнего L1-прогона
+    # (configured vs applied temperature, credential source, execution_mode,
+    # planner fallback reasons). Аддитивное поле; UI не меняется.
+    try:
+        from services import direct_l1 as _direct_l1
+        out["l1"] = _direct_l1.get_l1_diagnostics(chat_id)
+    except Exception:
+        pass
     return out
 
 
@@ -1014,6 +1023,114 @@ async def delete_chat_param(
     logger.info("[api] chat param reset | chat=%s | key=%s | by=%s",
                 chat_id, key, user.id)
     return {"reset": key, "chat_id": chat_id}
+
+
+# D07 (ASAP 8 v6, §9B.2/§9B.3): карта per-chat overrides для global-view.
+# Читаем chat_profiles целиком (админ-масштаб — десятки чатов); RBAC-фильтр —
+# в Python (chat_admins-гранты + F-14 DM-правило), каталог-фильтр — тоже.
+OVERRIDES_FOR_USER_SQL = (
+    "SELECT p.chat_id, p.chat_params->'overrides' AS overrides, "
+    "a.role_name AS chat_role "
+    "FROM chat_profiles p "
+    "LEFT JOIN chat_admins a ON a.chat_id = p.chat_id AND a.telegram_id = $1 "
+    "WHERE p.chat_params ? 'overrides' "
+    "AND p.chat_params->'overrides' IS NOT NULL "
+    "ORDER BY p.chat_id"
+)
+
+
+@api_router.get("/config/overrides-map")
+async def config_overrides_map(
+    request: Request,
+    user: Annotated[WebAppUser, Depends(get_tma_user)],
+    key: Annotated[str | None, Query()] = None,
+):
+    """D07 (v6 §9B.2/§9B.3): карта per-chat overrides — global-view popover.
+
+    Read-only. Для per_chat-ключей — список чатов с ЯВНЫМ override:
+    {key, chat_id, chat_title, value, source:'chat', access, is_dm}.
+    Без `key` — все ключи (avatar stack на карточках); с `key` — только
+    этот ключ (popover конкретной карточки).
+
+    RBAC: только чаты, доступные текущему админу — global admin → все
+    группы; chat-грант local_admin/moderator → свои чаты; ЛС → только
+    свои (F-14: чужие ЛС не видны никому, включая global admin).
+    Plain user без админ-грантов (rank < moderator) → 403. Значения
+    секретов маскируются ({configured,last4}, R17: секреты не отдаются).
+    """
+    cache: ConfigCache = get_cache(request)
+    ctx = await roles_srv.access_for(user.id, cache=cache)
+    pool = getattr(cache.pg, "pool", None) if cache.pg is not None else None
+    if pool is None:
+        raise HTTPException(status_code=503,
+                            detail="PostgreSQL недоступен (R6)")
+    try:
+        async with pool.acquire() as conn:
+            rows = await conn.fetch(OVERRIDES_FOR_USER_SQL, user.id)
+    except Exception:
+        logger.warning("[api] overrides-map read failed", exc_info=True)
+        raise HTTPException(status_code=503,
+                            detail="PostgreSQL недоступен (R6)")
+    out: list[dict] = []
+    for r in rows:
+        chat_id = int(r["chat_id"])
+        role = r["chat_role"]
+        if chat_params.is_dm_scope(chat_id):
+            # F-14: DM-скоуп — только свои ЛС; чужие ЛС не видит никто.
+            if chat_id != user.id:
+                continue
+            access, is_dm = "dm", True
+        else:
+            if ctx.is_global_admin:
+                access, is_dm = "global_admin", False
+            elif role in (roles_srv.ROLE_LOCAL_ADMIN,
+                          roles_srv.ROLE_MODERATOR):
+                access, is_dm = role, False
+            else:
+                continue    # чужой чат без гранта — настройки не утекают
+        overrides = r["overrides"]
+        if isinstance(overrides, str):
+            try:
+                overrides = json.loads(overrides)
+            except ValueError:
+                continue
+        if not isinstance(overrides, dict):
+            continue
+        title: str | None = None    # лениво: только если ключ виден
+        for okey, raw in overrides.items():
+            if key is not None and okey != key:
+                continue
+            spec = get_by_pg_key(okey)
+            # Каталог-фильтр: в popover живут только per_chat-ключи;
+            # легаси-мусор (не per_chat/hidden/секреты) в chat_params
+            # наружу не отдаём.
+            if spec is None or spec.hidden or not spec.per_chat:
+                continue
+            if spec.category == CATEGORY_KEYS:
+                continue   # defense-in-depth: секреты через overrides не ходят
+            if title is None:
+                if is_dm:
+                    title = "Личные сообщения"
+                else:
+                    try:
+                        info = await chat_display_info(chat_id)
+                    except Exception:
+                        info = {}
+                    title = info.get("title") or f"Чат {chat_id}"
+            value = raw
+            if spec.secret:
+                value = _mask_secret(value, user.id, okey, cache)
+            out.append({"key": okey, "chat_id": chat_id,
+                        "chat_title": title, "value": value,
+                        "source": "chat", "access": access,
+                        "is_dm": is_dm})
+    out.sort(key=lambda it: (it["key"], it["chat_id"]))
+    # Гейт «не-админ → 403»: либо есть админ-доступ вообще (global admin /
+    # moderator+ / custom с правами — can_access_chat), либо пользователь
+    # видит хотя бы свой chat-grant/свои ЛС (иначе список пуст и прав нет).
+    if not access_srv.can_access_chat(ctx) and not out:
+        raise HTTPException(status_code=403, detail="нет доступа")
+    return {"key": key, "items": out}
 
 
 def _same_global_value(a, b) -> bool:

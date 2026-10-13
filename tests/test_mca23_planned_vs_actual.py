@@ -42,7 +42,10 @@ _ANALYTICS = (_ROOT / "web" / "api" / "analytics.py").read_text(
 ROUTES_SHA256_F11 = (
     # ASAP 7 (F3): переутверждён — аддитивный ключ `modules` в GET /api/config;
     # канон пина — tests/test_round1025_f8_registry.py (L-F11S-1).
-    "1b04e524374b203e17ea2d334deb980d3e9ba80ce023a85300cf3c00326e38ff")
+    # ASAP 8 v6 W-C-DIRECT re-pin (D03/D04, 14.10.2026): аддитивное поле `l1`
+    # в GET /api/direct/context-diagnostics (+ D07 overrides-map в той же
+    # параллельной зоне) — комбинированный хэш рабочего дерева.
+    "989779c651282791b95b5f4d82d5c42afd63eb3954d105ca6d06d5895a4c677b")
 
 
 @pytest.fixture(autouse=True)

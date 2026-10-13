@@ -329,11 +329,14 @@ def test_blockE_f8_check_green_and_baselines():
     # re-pin синхронно с ROUTES_SHA256_F11.
     # ASAP 7 (F3): аддитивный ключ `modules` в GET /api/config (реестр
     # ModuleSpec → фронт); routes-набор без роста, hash переутверждён.
+    # ASAP 8 F9 (dc9ca1c, REV-F9 Approved): routes +2 (/api/youtube/proxy/
+    # health|test); этот байт-пин был пропущен переизданием F9 (pre-existing
+    # red на HEAD F5) — синхронизирован.
+    # ASAP 8 v6 Wave C re-pin (D03/D04, 14.10.2026): routes-pin больше НЕ
+    # хардкодится — единый источник истины ROUTES_SHA256_F11 из
+    # test_round1025_f8_registry (дрейф между копиями пина исключён).
+    from tests.test_round1025_f8_registry import ROUTES_SHA256_F11
     import hashlib
     routes_sha = hashlib.sha256(
         (ROOT / "web/api/routes.py").read_bytes()).hexdigest()
-    # ASAP 8 F9 (dc9ca1c, REV-F9 Approved): routes +2 (/api/youtube/proxy/
-    # health|test) → ROUTES_SHA256_F11 1b04e524…; этот байт-пин был пропущен
-    # переизданием F9 (pre-existing red на HEAD F5) — синхронизирован.
-    assert routes_sha == ("1b04e524374b203e17ea2d334deb980d3"
-                          "e9ba80ce023a85300cf3c00326e38ff")
+    assert routes_sha == ROUTES_SHA256_F11
