@@ -48,7 +48,7 @@ class TestDefaultInfoText:
         assert DEFAULT_INFO_TEXT.count("<h5>") == 0
         assert DEFAULT_INFO_TEXT.count("<blockquote>") == \
             DEFAULT_INFO_TEXT.count("</blockquote>") == 31
-        assert DEFAULT_INFO_TEXT.count("<p>") == DEFAULT_INFO_TEXT.count("</p>") == 61
+        assert DEFAULT_INFO_TEXT.count("<p>") == DEFAULT_INFO_TEXT.count("</p>") == 62
 
     def test_html_tags_balanced(self):
         """asap7 (2.58.74): инлайн-акценты — b=48, i=48, u=0, a=2

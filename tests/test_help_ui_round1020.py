@@ -47,7 +47,7 @@ class TestCanonV3:
         # mca-21 (round 10.48): 5 → 6 (распознавание изображений);
         # mca-23 (2.58.71): 6 → 7 («13. Просьбы посложнее» + §7);
         # asap7 (2.58.74): 7 → 8 (Direct-семантика + обложки из выжимки).
-        assert INFO_CANON_VERSION == 8
+        assert INFO_CANON_VERSION == 9
 
     def test_known_snapshots_cover_all_prev_canons(self):
         assert PREV_DEFAULT_INFO_TEXT in KNOWN_INFO_SNAPSHOTS          # v1
@@ -57,7 +57,7 @@ class TestCanonV3:
         assert PREV_R1048_DEFAULT_INFO_TEXT in KNOWN_INFO_SNAPSHOTS    # v5
         assert PREV_MCA23_DEFAULT_INFO_TEXT in KNOWN_INFO_SNAPSHOTS    # v6
         assert PREV_ASAP7_DEFAULT_INFO_TEXT in KNOWN_INFO_SNAPSHOTS    # v7
-        assert len(KNOWN_INFO_SNAPSHOTS) == 7
+        assert len(KNOWN_INFO_SNAPSHOTS) == 8
 
     def test_snapshots_distinct_from_current_canon(self):
         assert DEFAULT_INFO_TEXT != PREV_R1022_DEFAULT_INFO_TEXT
@@ -217,7 +217,7 @@ class TestMigrationKnowsPrevSnapshot:
         await cache.init()
         value = cache.get(INFO_KEY)
         assert value["html"] == DEFAULT_INFO_TEXT
-        assert value["canon_version"] == INFO_CANON_VERSION == 8
+        assert value["canon_version"] == INFO_CANON_VERSION == 9
         assert value["canon_delivered_version"] == INFO_CANON_VERSION
         assert len(_info_inserts(conn)) == 1
 

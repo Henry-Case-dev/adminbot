@@ -80,6 +80,9 @@ function makeCtx(overrides) {
     scopeKind: 'global',
     syncActiveChatTitle() {},
     hasUnsavedEdits: methods.hasUnsavedEdits,
+    // D13 (§18I.13): guard ухода называет область/число полей; в стабе —
+    // реальный метод (confirm мокается глобально в тестах (e)).
+    _dirtyLeaveGuard: methods._dirtyLeaveGuard,
     loadConfig() { calls.push('config'); },
     loadKeyStatus() { calls.push('keys'); },
     loadGateInfo() { calls.push('gate'); },

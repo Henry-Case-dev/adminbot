@@ -7,7 +7,7 @@
 и v5 (гайд); слепки v7/v4 — PREV_ASAP7_*.
 
 Покрытие (ADR-1023-9, spec §6; review iter1; mca-21; mca-23; asap7):
-  * канон-версия ``INFO_CANON_VERSION == 8`` + слепки v1…v7
+  * канон-версия ``INFO_CANON_VERSION == 9`` + слепки v1…v8
     (``PREV_ASAP7_DEFAULT_INFO_TEXT`` = v7) в ``KNOWN_INFO_SNAPSHOTS``;
   * байт-зеркало ``DEFAULT_INFO_TEXT ↔ info_text.md``;
   * секция «11. Генерация изображений»: команды в ``<blockquote>``, только
@@ -16,7 +16,7 @@
   * идемпотентная PG-миграция справки слепок → канон (повтор → no-op;
     ручной дрейф → не затирается; «текст == канон, маркеры устарели»; откат);
     mca-23: v6 → v7; asap7: v7 → v8;
-  * версионирование гайда: ``GUIDE_CANON_VERSION == 5`` + слепки v1…v4 в
+  * версионирование гайда: ``GUIDE_CANON_VERSION == 6`` + слепки v1…v5 в
     ``KNOWN_GUIDE_SNAPSHOTS``; контент (манеры ответа, анти-штампы, System 2,
     mca-23: объём/уточняющий вопрос/цепочка/статья);
     целостность канона (заголовки §1…§19 по порядку); идемпотентная миграция
@@ -73,7 +73,7 @@ class TestInfoCanonV5:
         # v6 заморожен слепком PREV_MCA23_DEFAULT_INFO_TEXT;
         # asap7 (2.58.74): 7 → 8 (Direct-семантика, обложки из выжимки, §7);
         # v7 заморожен слепком PREV_ASAP7_DEFAULT_INFO_TEXT.
-        assert INFO_CANON_VERSION == 8
+        assert INFO_CANON_VERSION == 9
 
     def test_v4_snapshot_registered_and_chain_kept(self):
         assert PREV_MCA23_DEFAULT_INFO_TEXT in KNOWN_INFO_SNAPSHOTS    # v6
@@ -83,7 +83,7 @@ class TestInfoCanonV5:
         assert PREV_R1022_DEFAULT_INFO_TEXT in KNOWN_INFO_SNAPSHOTS   # v3
         assert PREV_R2020_DEFAULT_INFO_TEXT in KNOWN_INFO_SNAPSHOTS   # v2
         assert PREV_DEFAULT_INFO_TEXT in KNOWN_INFO_SNAPSHOTS         # v1
-        assert len(KNOWN_INFO_SNAPSHOTS) == 7
+        assert len(KNOWN_INFO_SNAPSHOTS) == 8
 
     def test_v4_snapshot_is_previous_not_current(self):
         assert normalize_canon(PREV_ASAP7_DEFAULT_INFO_TEXT) != \
@@ -266,7 +266,7 @@ class TestInfoMigrationV5ToV6:
         await cache.init()
         value = cache.get(INFO_KEY)
         assert value["html"] == DEFAULT_INFO_TEXT
-        assert value["canon_version"] == INFO_CANON_VERSION == 8
+        assert value["canon_version"] == INFO_CANON_VERSION == 9
         assert value["canon_delivered_version"] == INFO_CANON_VERSION
         assert len(_inserts(conn, INFO_KEY)) == 1
 
@@ -278,7 +278,7 @@ class TestInfoMigrationV5ToV6:
         await cache.init()
         value = cache.get(INFO_KEY)
         assert value["html"] == DEFAULT_INFO_TEXT
-        assert value["canon_version"] == INFO_CANON_VERSION == 8
+        assert value["canon_version"] == INFO_CANON_VERSION == 9
         assert value["canon_delivered_version"] == INFO_CANON_VERSION
         assert len(_inserts(conn, INFO_KEY)) == 1
 
@@ -290,7 +290,7 @@ class TestInfoMigrationV5ToV6:
         await cache.init()
         value = cache.get(INFO_KEY)
         assert value["html"] == DEFAULT_INFO_TEXT
-        assert value["canon_version"] == INFO_CANON_VERSION == 8
+        assert value["canon_version"] == INFO_CANON_VERSION == 9
         assert value["canon_delivered_version"] == INFO_CANON_VERSION
         assert len(_inserts(conn, INFO_KEY)) == 1
 
@@ -365,14 +365,14 @@ class TestGuideCanonV3:
         # v3 заморожен слепком PREV_MCA23_INTELLIGENCE_GUIDE;
         # asap7 (2.58.74): 4 → 5 (Direct-семантика, модули миниаппа, §18);
         # v4 заморожен слепком PREV_ASAP7_INTELLIGENCE_GUIDE.
-        assert GUIDE_CANON_VERSION == 5
+        assert GUIDE_CANON_VERSION == 6
 
     def test_v1_snapshot_registered(self):
         assert PREV_R1023_INTELLIGENCE_GUIDE in KNOWN_GUIDE_SNAPSHOTS
         assert PREV_R1048_INTELLIGENCE_GUIDE in KNOWN_GUIDE_SNAPSHOTS
         assert PREV_MCA23_INTELLIGENCE_GUIDE in KNOWN_GUIDE_SNAPSHOTS
         assert PREV_ASAP7_INTELLIGENCE_GUIDE in KNOWN_GUIDE_SNAPSHOTS
-        assert len(KNOWN_GUIDE_SNAPSHOTS) == 4
+        assert len(KNOWN_GUIDE_SNAPSHOTS) == 5
 
     def test_v1_snapshot_differs_from_current_file(self):
         current = GUIDE_MD.read_text(encoding="utf-8")
@@ -463,7 +463,7 @@ class TestGuideMigrationV2ToV3:
         await cache.init()
         value = cache.get(GUIDE_KEY)
         assert value["markdown"] == V2_CANON
-        assert value["guide_version"] == GUIDE_CANON_VERSION == 5
+        assert value["guide_version"] == GUIDE_CANON_VERSION == 6
         assert value["guide_delivered_version"] == GUIDE_CANON_VERSION
         assert len(_inserts(conn, GUIDE_KEY)) == 1
 
@@ -475,7 +475,7 @@ class TestGuideMigrationV2ToV3:
         await cache.init()
         value = cache.get(GUIDE_KEY)
         assert value["markdown"] == V2_CANON
-        assert value["guide_version"] == GUIDE_CANON_VERSION == 5
+        assert value["guide_version"] == GUIDE_CANON_VERSION == 6
         assert value["guide_delivered_version"] == GUIDE_CANON_VERSION
         assert len(_inserts(conn, GUIDE_KEY)) == 1
 
@@ -487,7 +487,7 @@ class TestGuideMigrationV2ToV3:
         await cache.init()
         value = cache.get(GUIDE_KEY)
         assert value["markdown"] == V2_CANON
-        assert value["guide_version"] == GUIDE_CANON_VERSION == 5
+        assert value["guide_version"] == GUIDE_CANON_VERSION == 6
         assert value["guide_delivered_version"] == GUIDE_CANON_VERSION
         assert len(_inserts(conn, GUIDE_KEY)) == 1
 
@@ -568,7 +568,7 @@ class TestGuideMigrationV2ToV3:
         svc = InfoService(file_path=str(INFO_MD))
         value = await svc.reset_guide(updated_by=42, cache=cache)
         assert value["markdown"] == V2_CANON
-        assert value["guide_version"] == GUIDE_CANON_VERSION == 5
+        assert value["guide_version"] == GUIDE_CANON_VERSION == 6
         assert value["prev_markdown"] == manual
         assert value["updated_by"] == 42
         persisted = _persisted(conn, GUIDE_KEY)
