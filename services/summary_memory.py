@@ -118,6 +118,20 @@ _GRAPH_VEC_TABLE_SQL_INT8 = (
     "+fact_id INTEGER, +chat_id INTEGER, +origin TEXT, +expires_at INTEGER)"
 )
 
+# v6 D06 (§9A.3/§18F.4): chat-scope ДО effective top-K. vec0 0.1.9 не умеет
+# фильтр auxiliary-колонки внутри KNN-запроса (проба: OperationalError «illegal
+# WHERE constraint … auxiliary column»), а DDL-миграция partition key — вне
+# слайса → доказанная staged overfetch-стратегия: k растёт ×4 до жёсткого cap,
+# пока после chat-фильтра не наберётся нужное число фактов СВОЕГО чата либо не
+# исчерпается индекс. Исчерпание — честное «в чате меньше фактов» (не partial);
+# cap при заполненном K — partial (телеметрия + WARNING, результат не
+# «молчаливо неполный»). Простой больший глобальный K фиксом НЕ считается
+# (§18F.4) — именно поэтому добор стадийный с гарантией per-chat.
+_KNN_SCOPE_OVERFETCH_MULT = 4
+_KNN_SCOPE_K_CAP = 512
+_DEDUP_KNN_WANT = 3               # семантика 64.1: до 3 ближайших кандидатов
+_DEDUP_KNN_CAP = 192
+
 # ── GraphRAG v2 (Epic 46, Sections 55.4/55.5/55.6/55.8) ───────────
 
 # КАНОН R46-2 — промпт-экстрактор (VERBATIM, байт-в-байт; тест-якорь backlog
@@ -2748,70 +2762,151 @@ class MemoryManager:
         )
         return facts
 
-    async def _search_archive_knn(self, chat_id: int, vector: list[float], limit: int) -> list[str]:
-        # vec0 (0.1.x) не поддерживает JOIN внутри KNN-запроса — поэтому
-        # KNN top-k выполняется отдельно, фильтр chat_id и выборка фактов — в Python.
-        # Epic 60 (66.6, T-484): int8 — грубый KNN k=limit×4 → реранк float →
-        # top-limit; float-only — ровно старый точный MATCH.
+    @staticmethod
+    async def _staged_knn_scope(run_knn, k_first: int, k_cap: int, want: int,
+                                keep) -> tuple[list, dict]:
+        """v6 D06 (§9A.3/§18F.4): staged overfetch для vec0-KNN, который не
+        умеет фильтр по auxiliary-колонке внутри MATCH. run_knn(k) → строки
+        top-k в порядке дистанции; keep(row) — предикат «свой чат» (+TTL/
+        liveness). k растёт ×4 от k_first (кламп в k_cap), пока keep-строк
+        < want и выборка не исчерпана (строк < k). Каждая попытка — полный
+        top-k скан (надмножество предыдущей), ответ строится по последней.
+        Возвращает (rows, tele); tele: attempts, k_last, own, want,
+        overfetch_used (потребовался стадийный добор, attempts > 1),
+        filtered_other_chat (чужие/просроченные в последнем скане),
+        exhausted (индекс дочитан), partial (своего < want при НЕ
+        исчерпанном индексе — чужие заняли K вплоть до cap)."""
+        k = max(1, min(int(k_first), int(k_cap)))
+        tele = {"attempts": 0, "k_last": k, "own": 0, "want": int(want),
+                "overfetch_used": False, "filtered_other_chat": 0,
+                "exhausted": False, "partial": False}
+        kept: list = []
+        while True:
+            tele["attempts"] += 1
+            tele["k_last"] = k
+            rows = list(await run_knn(k) or [])
+            kept = [row for row in rows if keep(row)]
+            tele["own"] = len(kept)
+            tele["filtered_other_chat"] = len(rows) - len(kept)
+            if len(rows) < k:
+                tele["exhausted"] = True
+            if tele["own"] >= want or tele["exhausted"] or k >= k_cap:
+                break
+            k = min(k * _KNN_SCOPE_OVERFETCH_MULT, k_cap)
+            tele["overfetch_used"] = True
+        tele["partial"] = tele["own"] < tele["want"] and not tele["exhausted"]
+        return kept, tele
+
+    @staticmethod
+    def _log_knn_scope(tele: dict, tag: str, chat_id: int) -> None:
+        """R17 (только числа/коды): честная деградация — partial WARNING,
+        стадийный добор INFO; здоровый первый-проб без добора не логируется."""
+        if tele.get("partial"):
+            logger.warning(
+                "%s: chat-scope KNN partial — чужие чаты заполнили K до cap, "
+                "результат частичный | chat_id=%s | own=%d/%d | attempts=%d | "
+                "k_last=%d | overfetch_used=%d | filtered_other_chat=%d",
+                tag, chat_id, tele["own"], tele["want"], tele["attempts"],
+                tele["k_last"], int(tele["overfetch_used"]),
+                tele["filtered_other_chat"])
+        elif tele.get("overfetch_used"):
+            logger.info(
+                "%s: chat-scope KNN overfetch | chat_id=%s | own=%d/%d | "
+                "attempts=%d | k_last=%d | filtered_other_chat=%d",
+                tag, chat_id, tele["own"], tele["want"], tele["attempts"],
+                tele["k_last"], tele["filtered_other_chat"])
+
+    async def _search_archive_knn(self, chat_id: int, vector: list[float],
+                                  limit: int) -> list[str]:
+        facts, _tele = await self._search_archive_knn_scoped(
+            chat_id, vector, limit)
+        return facts
+
+    async def _search_archive_knn_scoped(
+            self, chat_id: int, vector: list[float], limit: int,
+    ) -> tuple[list[str], dict]:
+        # vec0 (0.1.x) не поддерживает ни JOIN, ни фильтр auxiliary-колонки
+        # внутри KNN-запроса — chat-scope обеспечивается ДО effective top-K
+        # доказанным staged overfetch (v6 D06, §9A.3/§18F.4): k растёт ×4 до
+        # cap, пока после chat-фильтра не наберётся limit фактов СВОЕГО чата;
+        # исчерпание индекса — честное «в чате меньше фактов», cap при
+        # заполненном K — partial (телеметрия + WARNING, не молчаливо
+        # неполный). Epic 60 (66.6, T-484): int8 — грубый KNN → реранк float →
+        # top-limit; float-only — точный MATCH.
         embedding_json = json.dumps(vector)
+
+        async def _run_int8(k: int):
+            cursor = await self.db.db.execute(
+                "SELECT fact_id, chat_id FROM smart_archive "
+                "WHERE embedding_i8 MATCH vec_quantize_int8(?, 'unit') AND k = ?",
+                (embedding_json, k))
+            return await cursor.fetchall()
+
         if self._vec_int8:
             try:
-                cursor = await self.db.db.execute(
-                    "SELECT fact_id, chat_id FROM smart_archive "
-                    "WHERE embedding_i8 MATCH vec_quantize_int8(?, 'unit') AND k = ?",
-                    (embedding_json, limit * 4))
-                rows = await cursor.fetchall()
+                rows, tele = await self._staged_knn_scope(
+                    _run_int8, limit * _KNN_SCOPE_OVERFETCH_MULT,
+                    _KNN_SCOPE_K_CAP, limit,
+                    lambda row: row["chat_id"] == chat_id)
             except Exception:
                 logger.warning(
                     "SmartModule L3: int8 KNN failed — float path", exc_info=True)
-                rows = None
-            if rows is not None:
-                ids = [row["fact_id"] for row in rows if row["chat_id"] == chat_id]
+            else:
+                self._log_knn_scope(tele, "SmartModule L3 int8", chat_id)
+                if not rows:
+                    return [], tele
+                ids = [row["fact_id"] for row in rows]
+                placeholders = ",".join("?" for _ in ids)
+                cursor = await self.db.db.execute(
+                    f"SELECT rowid AS fact_id, embedding FROM smart_archive "
+                    f"WHERE rowid IN ({placeholders})", ids)
+                vecs = {}
+                for row in await cursor.fetchall():
+                    blob = row["embedding"]
+                    try:
+                        if isinstance(blob, str):
+                            vec = json.loads(blob)
+                        else:
+                            vec = list(struct.unpack(
+                                f"<{len(bytes(blob)) // 4}f", bytes(blob)))
+                        vecs[row["fact_id"]] = vec
+                    except Exception:
+                        continue
+                ranked = sorted(
+                    ((fid, _cosine(vector, vec)) for fid, vec in vecs.items()),
+                    key=lambda item: item[1], reverse=True)
+                ids = [fid for fid, _ in ranked[:limit]]
                 if ids:
                     placeholders = ",".join("?" for _ in ids)
                     cursor = await self.db.db.execute(
-                        f"SELECT rowid AS fact_id, embedding FROM smart_archive "
-                        f"WHERE rowid IN ({placeholders})", ids)
-                    vecs = {}
-                    for row in await cursor.fetchall():
-                        blob = row["embedding"]
-                        try:
-                            if isinstance(blob, str):
-                                vec = json.loads(blob)
-                            else:
-                                vec = list(struct.unpack(
-                                    f"<{len(bytes(blob)) // 4}f", bytes(blob)))
-                            vecs[row["fact_id"]] = vec
-                        except Exception:
-                            continue
-                    ranked = sorted(
-                        ((fid, _cosine(vector, vec)) for fid, vec in vecs.items()),
-                        key=lambda item: item[1], reverse=True)
-                    ids = [fid for fid, _ in ranked[:limit]]
-                    if ids:
-                        placeholders = ",".join("?" for _ in ids)
-                        cursor = await self.db.db.execute(
-                            f"SELECT id, fact FROM smart_archive_facts "
-                            f"WHERE id IN ({placeholders})", ids)
-                        by_id = {row["id"]: row["fact"]
-                                 for row in await cursor.fetchall()}
-                        return [by_id[fid] for fid in ids if fid in by_id]
-        cursor = await self.db.db.execute(
-            "SELECT fact_id, chat_id, distance FROM smart_archive "
-            "WHERE embedding MATCH ? AND k = ?",
-            (embedding_json, limit),
-        )
-        rows = await cursor.fetchall()
-        fact_ids = [row["fact_id"] for row in rows if row["chat_id"] == chat_id][:limit]
+                        f"SELECT id, fact FROM smart_archive_facts "
+                        f"WHERE id IN ({placeholders})", ids)
+                    by_id = {row["id"]: row["fact"]
+                             for row in await cursor.fetchall()}
+                    return [by_id[fid] for fid in ids if fid in by_id], tele
+                return [], tele
+
+        async def _run_float(k: int):
+            cursor = await self.db.db.execute(
+                "SELECT fact_id, chat_id, distance FROM smart_archive "
+                "WHERE embedding MATCH ? AND k = ?",
+                (embedding_json, k))
+            return await cursor.fetchall()
+
+        rows, tele = await self._staged_knn_scope(
+            _run_float, limit * _KNN_SCOPE_OVERFETCH_MULT, _KNN_SCOPE_K_CAP,
+            limit, lambda row: row["chat_id"] == chat_id)
+        self._log_knn_scope(tele, "SmartModule L3", chat_id)
+        fact_ids = [row["fact_id"] for row in rows][:limit]
         if not fact_ids:
-            return []
+            return [], tele
         placeholders = ",".join("?" for _ in fact_ids)
         cursor = await self.db.db.execute(
             f"SELECT id, fact FROM smart_archive_facts WHERE id IN ({placeholders})",
             fact_ids,
         )
         by_id = {row["id"]: row["fact"] for row in await cursor.fetchall()}
-        return [by_id[fid] for fid in fact_ids if fid in by_id]
+        return [by_id[fid] for fid in fact_ids if fid in by_id], tele
 
     async def _fts_search_archive(self, chat_id: int, query: str, limit: int) -> list[str]:
         keywords = _TOKEN_RE.findall(str(query).lower())
@@ -3340,18 +3435,33 @@ class MemoryManager:
             return {"action": "add", "old_id": None, "old_text": None}
 
     async def _dedup_knn(self, chat_id: int, vector: list[float]) -> list:
-        """64.1: KNN k=3 по graph_facts_vec (chat-фильтр + TTL). БЕЗ фильтров
-        origin/status — unconfirmed участвует как кандидат подтверждения."""
+        """64.1 + v6 D06 (§9A.3/§18F.4): KNN-дедуп по graph_facts_vec —
+        кандидаты ТОЛЬКО своего чата, chat-scope ДО top-K (было k=3 ГЛОБАЛЬНО
+        → фильтр в Python: три чужих кандидата могли скрыть реальный дубликат
+        своего чата). Staged overfetch ×4 до cap: пока не наберётся 3 своих
+        живых (TTL) кандидата либо индекс не исчерпан; исчерпание — честное
+        «в чате меньше фактов», недобор из-за cap при заполненном K — partial
+        (WARNING, не молчаливо). БЕЗ фильтров origin/status — unconfirmed
+        участвует как кандидат подтверждения."""
         now = int(time.time())
-        cursor = await self.db.db.execute(
-            "SELECT fact_id, chat_id, expires_at, distance FROM graph_facts_vec "
-            "WHERE embedding MATCH ? AND k = ?",
-            (json.dumps(vector), 3))
-        return [
-            row for row in await cursor.fetchall()
-            if row["chat_id"] == chat_id
-            and (row["expires_at"] is None or row["expires_at"] > now)
-        ]
+        embedding_json = json.dumps(vector)
+
+        async def _run_knn(k: int):
+            cursor = await self.db.db.execute(
+                "SELECT fact_id, chat_id, expires_at, distance FROM graph_facts_vec "
+                "WHERE embedding MATCH ? AND k = ?",
+                (embedding_json, k))
+            return await cursor.fetchall()
+
+        def _own_live(row) -> bool:
+            return (row["chat_id"] == chat_id
+                    and (row["expires_at"] is None or row["expires_at"] > now))
+
+        rows, tele = await self._staged_knn_scope(
+            _run_knn, _DEDUP_KNN_WANT, _DEDUP_KNN_CAP, _DEDUP_KNN_WANT,
+            _own_live)
+        self._log_knn_scope(tele, "graphrag dedup", chat_id)
+        return rows
 
     async def _save_graph_fact_embedding(self, fact_id, chat_id, fact, origin,
                                          expires_at, vector=None,
