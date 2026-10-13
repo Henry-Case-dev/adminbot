@@ -123,23 +123,40 @@ MOVE_PROFILE_SQL = (
     "WHERE chat_id = $2"
 )
 # merge (новый профиль занят): данные из старого переносятся по Q9.
+# D02 (v6): связи (relations/relations_enabled), per-chat параметры
+# (chat_params: overrides/gates/perm_overrides/keys-мета — оптины,
+# module state) и gates_opt_in НЕ теряются при merge: готовые значения
+# считает Python-мерж (_merge_json_maps — новое живое значение
+# приоритетно, старое заполняет пробелы), SQL пишет результат явно.
 MERGE_PROFILE_SQL = (
     "UPDATE chat_profiles SET manual_lore = $2, auto_lore = $3, "
     "auto_enabled = $4, auto_period_hours = $5, auto_window_hours = $6, "
-    "is_active = $7, last_auto_at = $8::timestamptz, updated_at = now() "
+    "is_active = $7, last_auto_at = $8::timestamptz, "
+    "relations = $9::jsonb, relations_enabled = $10, "
+    "chat_params = $11::jsonb, gates_opt_in = $12, updated_at = now() "
     "WHERE chat_id = $1 RETURNING *"
 )
 DELETE_PROFILE_SQL = "DELETE FROM chat_profiles WHERE chat_id = $1"
 
+# D02 (v6): аудит-история лора переезжает вместе с профилем — иначе
+# timeline на новом id пуст (история остаётся читаемой только по старому
+# id). Обе ветки (move/merge) — та же транзакция.
+MOVE_HISTORY_SQL = (
+    "UPDATE chat_lore_history SET chat_id = $1 WHERE chat_id = $2"
+)
+
 # chat_admins: перенос при merge (Q9): копируем строки старого на новый
 # (конфликты не дублируем), затем удаляем ВСЕ строки старого чата — после
 # копирования они целиком переехали (админы, бывшие только у нового, живы).
+# D02 (v6): role_name копируется ЯВНО — иначе вставка получила бы DB
+# default 'local_admin' (эскалация moderator → local_admin при переезде).
 MOVE_ADMINS_SQL = (
     "UPDATE chat_admins SET chat_id = $1 WHERE chat_id = $2"
 )
 COPY_ADMINS_SQL = (
-    "INSERT INTO chat_admins (chat_id, telegram_id, added_by, created_at) "
-    "SELECT $1, telegram_id, added_by, created_at FROM chat_admins "
+    "INSERT INTO chat_admins (chat_id, telegram_id, added_by, created_at, "
+    "role_name) "
+    "SELECT $1, telegram_id, added_by, created_at, role_name FROM chat_admins "
     "WHERE chat_id = $2 ON CONFLICT (chat_id, telegram_id) DO NOTHING"
 )
 PRUNE_ADMINS_SQL = "DELETE FROM chat_admins WHERE chat_id = $1"
@@ -238,6 +255,24 @@ def _load_relations(value) -> dict:
             return {}
         return loaded if isinstance(loaded, dict) else {}
     return {}
+
+
+def _merge_json_maps(old, new) -> dict:
+    """D02 (v6): merge JSONB-карт профиля (relations/chat_params) в ветке
+    Q9-merge. Политика: новое живое значение приоритетно (профиль нового
+    id — текущий срез), старое заполняет пробелы; общие dict-ключи
+    объединяются на один уровень вглубь (внутри тоже новое выигрывает).
+    Не-dict мусор (повреждённый JSONB) игнорируется безопасно."""
+    merged: dict = dict(old) if isinstance(old, dict) else {}
+    if not isinstance(new, dict):
+        return merged
+    for key, new_value in new.items():
+        old_value = merged.get(key)
+        if isinstance(new_value, dict) and isinstance(old_value, dict):
+            merged[key] = {**old_value, **new_value}
+        else:
+            merged[key] = new_value
+    return merged
 
 
 def _to_profile(row) -> LoreProfile:
@@ -744,8 +779,18 @@ class ChatLoreStore:
     async def migrate_profile(self, old_chat_id: int, new_chat_id: int,
                               changed_by: int | None = None) -> dict:
         """Переезд чата (Q9, D5): перенос/merge профиля + chat_links +
-        chat_admins + история field='remap' + NOTIFY old+new. Возврат
-        {"moved": bool, "merged": bool}; профиля old нет → WARNING + no-op."""
+        chat_admins + chat_lore_history + история field='remap' + NOTIFY
+        old+new. Возврат {"moved": bool, "merged": bool}; профиля old нет →
+        WARNING + no-op.
+
+        D02 (v6) идемпотентность: link old→new, записанный ДО этого вызова
+        (lifecycle-хендлер шлёт add_link раньше migrate_profile, чтобы
+        резолв старых id жил даже при сбое миграции) или оставленный
+        прерванной попыткой, — НЕ доказательство переезда. Если профиль ещё
+        лежит под ИСХОДНЫМ id — миграция досносится (безопасный ретрай
+        после частичного сбоя: link и профиль в РАЗНЫХ транзакциях); если
+        профиля под old уже нет — переезд завершался ранее, duplicate
+        event → честный no-op без второй записи remap."""
         if old_chat_id == new_chat_id:
             return {"moved": False, "merged": False}
         pool = self._pool()
@@ -753,8 +798,20 @@ class ChatLoreStore:
             async with conn.transaction():
                 resolved_old = await self._resolve_on(conn, old_chat_id)
                 if resolved_old == new_chat_id:
-                    return {"moved": False, "merged": False}
-                cols = ", ".join(_PROFILE_COLS)
+                    straggler = await conn.fetchrow(
+                        _PROFILE_SELECT.format(cols="chat_id"), old_chat_id)
+                    if straggler is None:
+                        return {"moved": False, "merged": False}
+                    logger.info(
+                        "[chat_lore_store] migrate_profile: link уже записан,"
+                        " профиль %s не перенесён — досносим (ретрай) "
+                        "| new=%s", old_chat_id, new_chat_id)
+                    resolved_old = old_chat_id
+                # D02: migrate-выборка шире _PROFILE_COLS — chat_params
+                # (overrides/gates/perm_overrides: оптины, module state)
+                # и gates_opt_in участвуют в Q9-мерже.
+                cols = (", ".join(_PROFILE_COLS)
+                        + ", chat_params, gates_opt_in")
                 old_row = await conn.fetchrow(
                     _PROFILE_SELECT.format(cols=cols), resolved_old)
                 if old_row is None:
@@ -774,6 +831,8 @@ class ChatLoreStore:
                                        resolved_old)
                     await conn.execute(MOVE_ADMINS_SQL, new_chat_id,
                                        resolved_old)
+                    await conn.execute(MOVE_HISTORY_SQL, new_chat_id,
+                                       resolved_old)
                     moved, merged = True, False
                 else:
                     # merge по Q9: новый профиль занят — объединяем
@@ -789,11 +848,23 @@ class ChatLoreStore:
                         old.is_active or new.is_active,
                         _parse_ts(_max_ts(old.last_auto_at,
                                           new.last_auto_at)),
+                        json.dumps(_merge_json_maps(
+                            old_row.get("relations"),
+                            new_row.get("relations"))),
+                        bool(old_row.get("relations_enabled"))
+                        or bool(new_row.get("relations_enabled")),
+                        json.dumps(_merge_json_maps(
+                            old_row.get("chat_params"),
+                            new_row.get("chat_params"))),
+                        bool(old_row.get("gates_opt_in"))
+                        or bool(new_row.get("gates_opt_in")),
                     )
                     await conn.execute(DELETE_PROFILE_SQL, resolved_old)
                     await conn.execute(COPY_ADMINS_SQL, new_chat_id,
                                        resolved_old)
                     await conn.execute(PRUNE_ADMINS_SQL, resolved_old)
+                    await conn.execute(MOVE_HISTORY_SQL, new_chat_id,
+                                       resolved_old)
                     moved, merged = False, True
                 await conn.execute(NOTIFY_SQL, str(resolved_old))
                 await conn.execute(NOTIFY_SQL, str(new_chat_id))

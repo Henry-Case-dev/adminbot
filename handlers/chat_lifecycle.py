@@ -240,6 +240,10 @@ async def on_chat_migrated(message: types.Message):
                     exc_info=True)
         if _store is None:
             return UNHANDLED
+        # D02 (v6): add_link ДО migrate_profile сознательно — резолв старых
+        # id жив даже при сбое самой миграции. migrate_profile НЕ считает
+        # голый link доказательством переезда: если профиль ещё под old —
+        # досносит его (идемпотентный ретрай, duplicate event → no-op).
         await _store.add_link(old_chat_id, new_chat_id)
         result = await _store.migrate_profile(
             old_chat_id=old_chat_id, new_chat_id=new_chat_id,
