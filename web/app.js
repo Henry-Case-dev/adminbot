@@ -1795,7 +1795,6 @@
             : (window.innerWidth < 1200 ? 'compact' : 'desktop'))
           : 'desktop',
         drawerOpen: false,   // 768–1199: временная навигация (не персистится)
-        moreOpen: false,     // <768: шторка «Ещё» в нижней навигации
         helpQuery: '',       // T-2400: поиск по «Справке» (mobile)
         me: null,
         authError: null,
@@ -2524,46 +2523,32 @@
       sidebarItems: function () {
         return this.navItems;
       },
-      // Mobile bottom-nav: не более 4. hotfix4 (T-2519/T-2520, ADR-1025-8 D3):
-      // Статус+Справка — ВСЕГДА первые два для ЛЮБОЙ роли; далее ОДИН
-      // приоритетный админ-раздел (Модули, иначе ИИ); «Ещё» — только при
-      // наличии реально скрытых (непубличных) разделов.
-      // H-1 (Scanner): «Ещё» обязателен при ЛЮБОМ непубличном разделе
-      // (Память/Доступы/PERMsoc/Модули/ИИ) — иначе раздел недостижим на <768.
-      bottomNavItems: function () {
-        var items = this.navItems;
-        var byId = {};
-        items.forEach(function (n) { byId[n.id] = n; });
-        var out = [];
-        if (byId['status']) out.push(byId['status']);
-        if (byId['how']) out.push(byId['how']);
-        // Один приоритетный админ-раздел: Модули (иначе ИИ) — остальные
-        // непубличные уходят в «Ещё».
-        var pri = byId['modules'] || byId['ai'];
-        if (pri) out.push(pri);
-        var shown = {};
-        out.forEach(function (n) { shown[n.id] = true; });
-        var hiddenCount = items.filter(function (n) {
-          return n.group !== 'public' && !shown[n.id];
-        }).length;
-        if (hiddenCount) {
-          out.push({ id: 'more', label: 'Ещё', route: '', icon: 'expand_more',
-            more: true });
-        }
-        return out;
+      // D13 (§18I.14): bottom-nav удалён. Мобильная верхняя навигация —
+      // КОМПАКТНАЯ горизонтально-скроллимая строка (row 2 шапки) по тому же
+      // каноническому реестру `navItems`, что и desktop sidebar (тот же
+      // набор разделов, никаких скрытых «Ещё»).
+      mobileTopnavItems: function () {
+        return this.navItems;
       },
-      // Меню «Ещё» (шторка, T-2520): только реально скрытые непубличные
-      // разделы (Память/Доступы/PERMsoc + вытесненный ИИ); дубля «Справки»
-      // нет. «Профиль» — существующий identity-блок (UPD §8.2), не экран.
-      mobileMoreItems: function () {
-        var items = this.navItems;
-        var byId = {};
-        items.forEach(function (n) { byId[n.id] = n; });
-        var inlineId = byId['modules'] ? 'modules'
-          : (byId['ai'] ? 'ai' : '');
-        return items.filter(function (n) {
-          return n.group !== 'public' && n.id !== inlineId;
-        });
+      // D13 (§18I.13): состояние компактного Save-чипа в шапке. clean →
+      // visible=false (чипа нет); dirty → число изменённых полей; saving →
+      // «Сохранение…»; error/conflict → остаётся с причиной; success →
+      // чип исчезает (тост доставляет F0).
+      headerSaveChip: function () {
+        var s = this.saveState
+          || ((this.stickyDirtyCount || 0) > 0 ? 'dirty' : 'clean');
+        var count = this.stickyDirtyCount || 0;
+        var failed = (this.stickyFailed || []).length > 0;
+        var visible = count > 0 || s === 'saving' || s === 'error'
+          || s === 'conflict' || failed;
+        var map = { dirty: 'Сохранить', saving: 'Сохранение…',
+                    error: 'Ошибка', conflict: 'Конфликт' };
+        return {
+          visible: visible,
+          count: count,
+          state: s,
+          label: map[s] || (failed ? 'Ошибка' : 'Сохранить'),
+        };
       },
       // Управляемая мобильная навигация (<768) или drawer (768–1199).
       isMobileShell: function () {
@@ -3387,6 +3372,202 @@
         }
         return (d && d.run) || null;
       },
+      // ═══ D12 (§18I.11/§18I.12): Unified Run Card — проекции ═══
+      // Summary (F4): шапка прогона — run id/scope/outcome/latency/evidence/
+      // fallback + счётчики стадий + honest «откуда данные». Подробные
+      // стадии рендерит существующий pipe-timeline (не дублируем).
+      runCardSummary: function () {
+        var r = this.pipelineRunView;
+        if (!r) return null;
+        var badge = this.pipelineHealthBadge(r.health) || {};
+        var cov = r.coverage || {};
+        var fb = r.fallback;
+        var counts = { ok: 0, warn: 0, fail: 0, muted: 0 };
+        (r.nodes || []).forEach(function (n) {
+          var s = n && n.state;
+          if (s === 'success') counts.ok += 1;
+          else if (s === 'repaired' || s === 'fallback') counts.warn += 1;
+          else if (s === 'failed') counts.fail += 1;
+          else counts.muted += 1;
+        });
+        var pub = r.publication || {};
+        var stages = [
+          { label: 'Стадий ок', value: counts.ok, state: 'ok',
+            pct: null, hint: 'Стадии выполнились без деградации (success)' },
+          { label: 'С деградацией', value: counts.warn, state: 'warn',
+            pct: null, hint: 'repaired/fallback: резервный контур или самоисправление' },
+          { label: 'Провалено', value: counts.fail, state: 'fail',
+            pct: null, hint: 'failed: функция не выполнена downstream' },
+          { label: 'Не выполнено', value: counts.muted, state: 'muted',
+            pct: null, hint: 'skipped/pending/running: по дизайну или ещё в работе' },
+          { label: 'Публикация',
+            value: pub.status ? (pub.channel ? String(pub.channel) : 'есть')
+                              : (r.running ? 'в работе' : '—'),
+            state: (pub.status === 'failed' ? 'fail'
+                    : pub.status ? 'ok' : 'muted'),
+            pct: null,
+            hint: 'Финальная доставка: rich/plain и message id — в карточке публикации' },
+        ];
+        return {
+          title: 'Прогон Саммари',
+          runId: r.run_id || '',
+          scopeLabel: r.chat_id ? ('чат ' + r.chat_id)
+            : (r.mode ? ('режим ' + r.mode) : ''),
+          outcome: r.health_label || r.health || '',
+          outcomeCls: 'badge ' + (badge.cls || 'badge-muted'),
+          reason: '',
+          latency: r.duration_ms != null ? this.fmtSec(r.duration_ms) : '',
+          tokens: '',
+          cost: '',
+          evidence: (cov.total != null)
+            ? ('источников учтено: '
+               + (cov.considered != null ? cov.considered : '—') + '/'
+               + cov.total
+               + (cov.percent != null ? ' (' + cov.percent + '%)' : ''))
+            : '',
+          fallback: (fb && fb !== 'none' && fb !== false)
+            ? ('fallback: ' + fb) : '',
+          sourceHint: 'Источник: durable события прогона '
+            + '(pipeline_events/mca_events) — /api/analytics/pipeline/runs/latest',
+          stages: stages,
+          links: [
+            { label: 'Запуски', route: '#/oversight?tab=runs' },
+          ],
+        };
+      },
+      // Инициатива (C06A intent_snapshot): воронка §18I.12-E «Возможности →
+      // Намерения → Решения → Отправлено» + top blocker сразу виден.
+      runCardInitiative: function () {
+        var m = this.statusData && this.statusData.intents
+          && this.statusData.intents.module;
+        if (!m) return null;
+        // F1 (REV-UI-D1213): funnel.producers_24h — ОБЪЕКТ {origin: count}
+        // (status_service.intent_snapshot: GROUP BY origin; intents_created_24h
+        // = сумма значений). Число-агрегат считаем сами; согласовано с
+        // funnelProducersLabel (тот же шейп, см. recheck REV-UI-D1213).
+        var f = Object.assign({}, m.funnel || {});
+        var producers = f.producers_24h;
+        var producersTotal = 0;
+        if (producers && typeof producers === 'object') {
+          Object.keys(producers).forEach(function (origin) {
+            producersTotal += Math.max(0,
+              parseInt(producers[origin], 10) || 0);
+          });
+        } else {
+          producersTotal = Math.max(0, parseInt(producers, 10) || 0);
+        }
+        f.producers_24h = producersTotal;
+        var stageDefs = [
+          { key: 'producers_24h', label: 'Возможности',
+            hint: 'Продюсеры зафиксировали возможности за 24ч' },
+          { key: 'intents_created_24h', label: 'Намерения',
+            hint: 'Создано намерений за 24ч' },
+          { key: 'due', label: 'К исполнению',
+            hint: 'Намерений достигло срока проверки' },
+          { key: 'decisions_24h', label: 'Решения',
+            hint: 'Решений (выполнить/отложить/отклонить) за 24ч' },
+          { key: 'sent_24h', label: 'Отправлено',
+            hint: 'Сообщений фактически отправлено за 24ч' },
+        ];
+        var maxV = 0;
+        stageDefs.forEach(function (d) {
+          d.value = Math.max(0, parseInt(f[d.key], 10) || 0);
+          if (d.value > maxV) maxV = d.value;
+        });
+        stageDefs.forEach(function (d) {
+          d.pct = maxV ? Math.round(100 * d.value / maxV) : 0;
+          d.state = 'ok';
+        });
+        // Стадия останова: первое нулевое звено после ненулевого — подсветка.
+        var stopped = false;
+        stageDefs.forEach(function (d) {
+          if (stopped && d.value === 0) { d.state = 'warn'; }
+          if (d.value > 0) stopped = true;
+        });
+        var hb = m.heartbeat || {};
+        return {
+          title: 'Инициатива',
+          runId: '',
+          scopeLabel: '24ч',
+          outcome: m.state_label || '',
+          outcomeCls: 'badge ' + (m.top_block_reason ? 'badge-warn'
+            : 'badge-ok'),
+          reason: m.top_block_reason
+            ? ('Блокер: ' + (this.topBlockLabel
+               ? this.topBlockLabel(m.top_block_reason)
+               : m.top_block_reason))
+            : '',
+          latency: '',
+          tokens: '',
+          cost: '',
+          evidence: hb.last_tick && hb.last_tick.ts
+            ? ('последний тик: ' + this.fmtTs(hb.last_tick.ts)) : '',
+          fallback: '',
+          sourceHint: 'Источник: durable намерения/решения (task_jobs) — '
+            + 'intent_snapshot в /api/status (mca-09)',
+          stages: stageDefs,
+          links: [
+            { label: 'Журнал в Аналитике', route: '#/oversight?tab=runs' },
+          ],
+        };
+      },
+      // Уроки (D05): mini funnel §18I.12-F «Замечено → Уроки → Проверено →
+      // Применено → Помогло» + usefulness рядом.
+      runCardExperience: function () {
+        var ch = (typeof this.d05ExperienceChain === 'function')
+          ? this.d05ExperienceChain() : null;
+        if (!ch) return null;
+        var defs = [
+          { label: 'Замечено', value: ch.noticed,
+            hint: 'Исправлений, замеченных детектором (feedback-кандидаты)' },
+          { label: 'Уроки', value: ch.candidates,
+            hint: 'Выделено уроков-кандидатов' },
+          { label: 'Проверено', value: ch.checked,
+            hint: 'Прошли проверку (validated/active)' },
+          { label: 'Применено', value: ch.applied,
+            hint: 'Фактических применений уроков' },
+          { label: 'Помогло', value: ch.helped, state: 'ok',
+            hint: 'Измеренный положительный исход применения' },
+        ];
+        var maxV = 0;
+        defs.forEach(function (d) {
+          if (d.value > maxV) maxV = d.value;
+        });
+        defs.forEach(function (d) {
+          d.pct = maxV ? Math.round(100 * d.value / maxV) : 0;
+          d.state = d.state || 'ok';
+        });
+        var out = [
+          { label: 'Не помогло', value: ch.notHelped, state: 'fail',
+            pct: maxV ? Math.round(100 * ch.notHelped / maxV) : 0,
+            hint: 'Измеренный отрицательный исход — отдельная строка, не скрывается' },
+          { label: 'Неизвестно', value: ch.unknownOutcomes, state: 'muted',
+            pct: maxV ? Math.round(100 * ch.unknownOutcomes / maxV) : 0,
+            hint: 'Исход ещё не измерен — ≠ провал и ≠ успех' },
+        ];
+        return {
+          title: 'Уроки',
+          runId: '',
+          scopeLabel: 'за период',
+          outcome: (ch.usefulness && ch.usefulness.label)
+            ? ('Полезность: ' + ch.usefulness.label) : 'Полезность: —',
+          outcomeCls: 'badge ' + (ch.usefulness && ch.usefulness.ready
+            ? 'badge-ok' : 'badge-muted'),
+          reason: '',
+          latency: '',
+          tokens: '',
+          cost: '',
+          evidence: '',
+          fallback: '',
+          sourceHint: 'Источник: durable строки уроков/применений — '
+            + '/api/oversight/experience/funnel (D05)',
+          stages: defs.concat(out),
+          links: [
+            { label: 'Таблица уроков', route: '#/memory' },
+          ],
+        };
+      },
+      // ═══ конец D12 проекций ═══
       pipelineAggregate: function () {
         return (this.pipelineData && this.pipelineData.aggregate) || null;
       },
@@ -5274,21 +5455,41 @@
         }
         return false;
       },
+      // D13 (§18I.3/§18I.4/§18I.13): guard ухода с dirty-страницы. Возвращает
+      // true = уходить можно; false = оператор отказался (черновик сохранён).
+      // Сообщение называет область (chat/global) и число изменённых полей.
+      _dirtyLeaveGuard: function (actionLabel) {
+        if (typeof this.hasUnsavedEdits !== 'function'
+            || !this.hasUnsavedEdits()) return true;
+        var count = (typeof this.stickyDirtyCount === 'number'
+                     && this.stickyDirtyCount > 0) ? this.stickyDirtyCount
+          : ((this.dirtyItems || []).length + (this.dirtyKeyItems || []).length);
+        var scope = (typeof this.scopeTriggerTitle === 'string'
+                     && this.scopeTriggerTitle)
+          ? this.scopeTriggerTitle
+          : (this.isChatContext && this.isChatContext()
+              ? 'выбранный чат' : 'весь бот (global)');
+        var msg = 'Есть несохранённые изменения (' + count
+          + ') для «' + scope + '». ' + (actionLabel || 'Уйти и потерять их?');
+        var proceed = true;
+        try {
+          proceed = (typeof window === 'undefined'
+            || typeof window.confirm !== 'function')
+            || window.confirm(msg);
+        } catch (e) { proceed = true; }
+        return proceed;
+      },
       setActiveChat: function (chatId) {
         var id = (chatId == null || chatId === '') ? null : parseInt(chatId, 10);
         this.scopeOpen = false;
         if (id === this.activeChatId) return;
-        // F3 (§5.1/§5.2): смена области при несохранённых правках — сначала
-        // предупредить; отказ = область НЕ меняем (черновик не теряем).
-        if (typeof this.hasUnsavedEdits === 'function' && this.hasUnsavedEdits()) {
-          var proceed = true;
-          try {
-            proceed = (typeof window === 'undefined'
-              || typeof window.confirm !== 'function')
-              || window.confirm('Есть несохранённые изменения. '
-                + 'Переключить область и потерять их?');
-          } catch (e) { proceed = true; }
-          if (!proceed) return;
+        // F3 (§5.1/§5.2) + D13 (§18I.3): смена области при несохранённых
+        // правках — guard называет область и число полей; отказ = область
+        // НЕ меняем (черновик не теряем). Защитно: стабы без guard-метода
+        // (юнит-тесты) считаются чистыми.
+        if (typeof this._dirtyLeaveGuard === 'function'
+            && !this._dirtyLeaveGuard('Переключить область и потерять их?')) {
+          return;
         }
         this.activeChatId = id;
         if (id == null) {
@@ -7415,12 +7616,20 @@
                }[code] || (code || '—');
       },
       // v6 C06A: producers_24h {origin: count} → «origin: N, origin: M».
+      // F1 (REV-UI-D1213 recheck): единая семантика значений с
+      // runCardInitiative — оба шейпа (объект по origin'ам / число),
+      // отрицательные/мусорные значения не проходят (Math.max(0, parseInt)).
       funnelProducersLabel: function (producers) {
         if (!producers) return '';
+        if (typeof producers !== 'object') {
+          var total = Math.max(0, parseInt(producers, 10) || 0);
+          return total ? String(total) : '';
+        }
         var parts = [];
         for (var k in producers) {
           if (Object.prototype.hasOwnProperty.call(producers, k)) {
-            parts.push(k + ': ' + producers[k]);
+            var v = Math.max(0, parseInt(producers[k], 10) || 0);
+            if (v > 0) parts.push(k + ': ' + v);
           }
         }
         return parts.join(', ');
@@ -8079,6 +8288,18 @@
           this.syncBackButton();
           return;
         }
+        // D13 (§18I.4/§18I.13): уход с dirty-страницы защищает черновик —
+        // явный confirm (Stay/Leave); отказ → hash откатывается на текущий
+        // маршрут, навигации нет. Только для реальной смены маршрута
+        // авторизованным оператором (не первый apply и не повтор).
+        if (this.me && this.route && route !== this.route
+            && typeof this._dirtyLeaveGuard === 'function'
+            && !this._dirtyLeaveGuard(
+              'Уйти со страницы и потерять их? (Изменения можно сохранить кнопкой «Сохранить изменения»)')) {
+          try { history.replaceState(null, '', this.route); } catch (e) { /* file:// */ }
+          this.syncBackButton();
+          return;
+        }
         var tabId = routeToTab(route);
         var hubs = this.iaV2 ? HUBS_V2 : HUBS;
         var isHub = Object.prototype.hasOwnProperty.call(hubs, route);
@@ -8223,27 +8444,20 @@
       },
       toggleDrawer: function () {
         this.drawerOpen = !this.drawerOpen;
-        if (this.drawerOpen) this.moreOpen = false;
       },
       closeDrawer: function () {
         this.drawerOpen = false;
-      },
-      toggleMore: function () {
-        this.moreOpen = !this.moreOpen;
-        if (this.moreOpen) this.drawerOpen = false;
-      },
-      closeMore: function () {
-        this.moreOpen = false;
       },
       // F1 (UPD §8.4/T-2399): путь назад на родителя (in-app + TMA BackButton).
       goParent: function () {
         var p = routeParent(this.route);
         this.navigateTo(p || '#/');
       },
-      // Навигация из shell (sidebar/bottom-nav/шторка): закрыть оверлеи.
+      // Навигация из shell (sidebar/drawer/mobile-topnav): закрыть оверлеи.
+      // D13 (§18I.14): bottom-nav/шторка «Ещё» удалены — мобильная навигация
+      // компактная верхняя; shellNavTo больше не обслуживает moreOpen.
       shellNavTo: function (route) {
         this.closeDrawer();
-        this.closeMore();
         this.navigateTo(route);
       },
       // A9/T-1206 + 10.8/ADR-001: «Доступы» — route-driven окна подразделов
@@ -8313,6 +8527,10 @@
         }
       },
       closeModule: function () {
+        // D13 (§18I.4): ESC/backdrop/✕ не молча отбрасывают правки — guard
+        // предлагает сохранить/остаться; отказ (Stay) не закрывает модалку.
+        if (typeof this._dirtyLeaveGuard === 'function'
+            && !this._dirtyLeaveGuard('Закрыть окно и потерять их?')) return;
         this.openModuleId = null;
         // S10.18-22: модалка «Сон» живёт на вкладке modules — ускоренный
         // polling/ретраи, запущенные кнопкой «Сон сейчас», не должны жить
@@ -14423,8 +14641,12 @@
         try {
           var tree = await this.api('/api/roles/tree?role_name=' + encodeURIComponent(role.role_name));
           this.applyTree(tree);
+          // F2 (REV-UI-D1213): baseline проверенных узлов — строго ПОСЛЕ
+          // применения дерева; dirty считается от него в closeRoleEditor.
+          this._roleEditorBaseline = this._roleEditorSnapshot();
         } catch (e) {
           this.toast('Ошибка загрузки дерева прав: ' + e.message, 'err');
+          this._roleEditorBaseline = null;
           this.roleEditor.open = false;
         } finally {
           this.roleEditor.loading = false;
@@ -14670,7 +14892,53 @@
         this.roleEditor.sections = sections;
         this.roleEditor.actions = actions;
       },
+      // F2 (REV-UI-D1213, §18I.4): dirty-машина роль-эдитора. Снапшот —
+      // множество проверенных узлов (params/keys по секциям + actions);
+      // dirty = размер симметрической разности с baseline. ESC/backdrop/✕
+      // не молча теряют правки — guard-диалог по паттерну _dirtyLeaveGuard
+      // (роль названа, число изменений указано; отказ = остаёмся).
+      _roleEditorSnapshot: function () {
+        var keys = [];
+        this.roleEditor.sections.forEach(function (s) {
+          s.params.forEach(function (p) {
+            if (p.checked) keys.push('p:' + s.id + ':' + p.key);
+          });
+          s.keys.forEach(function (k) {
+            if (k.checked) keys.push('k:' + s.id + ':' + k.key);
+          });
+        });
+        this.roleEditor.actions.forEach(function (a) {
+          if (a.checked) keys.push('a:' + a.id);
+        });
+        return keys;
+      },
+      _roleEditorDirtyCount: function () {
+        var base = this._roleEditorBaseline;
+        if (!base) return 0;
+        var now = this._roleEditorSnapshot();
+        var baseSet = {};
+        base.forEach(function (k) { baseSet[k] = true; });
+        var nowSet = {};
+        now.forEach(function (k) { nowSet[k] = true; });
+        var diff = 0;
+        now.forEach(function (k) { if (!baseSet[k]) diff += 1; });
+        base.forEach(function (k) { if (!nowSet[k]) diff += 1; });
+        return diff;
+      },
       closeRoleEditor: function () {
+        var dirty = this._roleEditorDirtyCount();
+        if (dirty > 0) {
+          var proceed = true;
+          try {
+            proceed = (typeof window === 'undefined'
+              || typeof window.confirm !== 'function')
+              || window.confirm('Есть несохранённые изменения прав роли «'
+                + (this.roleEditor.roleName || '') + '» (' + dirty
+                + '). Закрыть и потерять их?');
+          } catch (e) { proceed = true; }
+          if (!proceed) return;
+        }
+        this._roleEditorBaseline = null;
         this.roleEditor.open = false;
         this.roleEditor.sections = [];
         this.roleEditor.actions = [];
@@ -14727,6 +14995,8 @@
           });
           this.toast('Роль сохранена: ' + saved.role_name, 'ok');
           this.roleEditor.wildcard = !!(saved.permissions && saved.permissions.wildcard);
+          // F2 (REV-UI-D1213): сервер подтвердил → новый baseline (dirty=0).
+          this._roleEditorBaseline = this._roleEditorSnapshot();
           await this.loadRoles();
         } catch (e) {
           this.toast('Ошибка: ' + e.message, 'err');   // 409 (последняя wildcard) / 422
@@ -15208,6 +15478,12 @@
           // поллеров; переиспользуем ритм статус-поллинга 30с).
           this.loadBudgetInfo();
           this.loadDossierFeed();
+          // D12 (§18I.12-F): виджет «Уроки» на Статусе — та же read-only
+          // воронка oversight (durable строки), что в «Памяти»; вторая
+          // телеметрия не создаётся. Загружается один раз (кэш в поле).
+          if (!this.mca17cFunnel && !this.mca17cFunnelBusy) {
+            this.oversightLoadFunnel();
+          }
         }
         // F11 (§20/D5): счётчики ошибок/предупреждений (viewer не тронут).
         this.loadLogCounts();
@@ -17070,6 +17346,17 @@
         if (this.activeChatId == null) return '';
         return (first ? '?' : '&') + 'chat_id=' + this.activeChatId;
       },
+      // D12 (§18I.12-D): компактные sleep-бейджи «Мониторинга Интеллекта»
+      // скроллят к ЕДИНСТВЕННОМУ детальному виджету «Сон и активность»
+      // (дублей нет — бейджи не повторяют last-run/details).
+      scrollToSleepWidget: function () {
+        try {
+          var el = document.querySelector('.status-sleep');
+          if (el && typeof el.scrollIntoView === 'function') {
+            el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
+        } catch (e) { /* вне браузера/юнит-стаб */ }
+      },
       loadCognition: async function () {
         if (!this.isGlobalAdmin) return;
         this.cognitionBusy = true;
@@ -18516,6 +18803,9 @@
   // конфиг-вкладках. Dirty-поля считает root (configSnapshot vs configItems),
   // тумблеры/select — мгновенный auto-save (saveConfigItem) и в dirty не
   // попадают до следующей загрузки каталога.
+  // D13 (§18I.13): постоянный Save-футер запрещён — clean state → панель
+  // ОТСУТСТВУЕТ в DOM (v-if), dirty/saving/failed/conflict → компактная
+  // панель (не full-width). Reserved spacer убран.
   app.component('sticky-save', {
     name: 'sticky-save',
     inject: ['root'],
@@ -18524,6 +18814,16 @@
     },
     computed: {
       dirtyCount: function () { return this.root.stickyDirtyCount || 0; },
+      // D13 (§18I.13): «clean → no Save bar». Панель монтируется только
+      // когда есть что показать: dirty-поля, идущее сохранение, неудачи
+      // (частичный провал/ошибка/конфликт). loading — чистый стейт
+      // загрузки каталога: бара нет.
+      visible: function () {
+        var s = this.saveState;
+        return this.active || this.saving
+          || (this.failed && this.failed.length > 0)
+          || s === 'error' || s === 'conflict';
+      },
       // F0 (ревью, T-2416/T-2437): единое состояние формы из root.saveState,
       // а не набор независимых флагов. Корневой `saveState` — Vue computed
       // (на инстансе это ЗНАЧЕНИЕ-строка, не функция); поддерживаем и
@@ -18557,7 +18857,7 @@
       save: function () { this.root.saveModalEdits(); },
     },
     template:
-      '<div class="sticky-save" role="group" aria-label="Сохранение изменений"'
+      '<div v-if="visible" class="sticky-save" role="group" aria-label="Сохранение изменений"'
       + ' :data-save-state="saveState">'
       + '<span class="sticky-save__count">'
       + '{{ dirtyCount ? ("Изменено: " + dirtyCount) : "Нет изменений" }}'
@@ -18570,6 +18870,78 @@
       + '<button class="btn-accent text-sm" type="button"'
       + ' :disabled="saving || !active" @click="save">'
       + '{{ saving ? "Сохранение…" : label }}</button>'
+      + '</div>',
+  });
+
+  // ═══ D12 (§18I.11): Unified Run Card — центральный диагностический
+  // примитив. Один концепт-карточки для всех крупных пайплайнов: human
+  // outcome + run ID + scope + latency/tokens/cost/evidence/fallback +
+  // стадия-воронка (§18I.12-K outcome funnel) + честная подсказка
+  // «откуда данные» + links в детали. Props-driven (глупый компонент),
+  // данные строят root-проекциями из СУЩЕСТВУЮЩИХ контрактов:
+  //   * Summary: F4 /api/analytics/pipeline/runs/latest (durable
+  //     pipeline_events/mca_events);
+  //   * Инициатива: C06A intent_snapshot() в /api/status (durable task_jobs);
+  //   * Уроки/Опыт: D05 /api/oversight/experience/funnel (durable строки
+  //     lessons/applications).
+  // Синтетические шкалы (IQ/score) запрещены: только counts/labels/причины.
+  app.component('run-card', {
+    name: 'run-card',
+    props: {
+      title: { type: String, default: '' },
+      runId: { type: String, default: '' },
+      scopeLabel: { type: String, default: '' },
+      outcome: { type: String, default: '' },
+      outcomeCls: { type: String, default: 'badge-muted' },
+      reason: { type: String, default: '' },
+      latency: { type: String, default: '' },
+      tokens: { type: String, default: '' },
+      cost: { type: String, default: '' },
+      evidence: { type: String, default: '' },
+      fallback: { type: String, default: '' },
+      sourceHint: { type: String, default: '' },
+      stages: { type: Array, default: function () { return []; } },
+      links: { type: Array, default: function () { return []; } },
+    },
+    computed: {
+      shortId: function () {
+        return this.runId ? String(this.runId).slice(0, 8) : '';
+      },
+    },
+    template:
+      '<div class="run-card" data-testid="run-card">'
+      + '<div class="run-card__head">'
+      + '<span class="run-card__title">{{ title }}</span>'
+      + '<span v-if="runId" class="badge badge-muted"'
+      + ' :title="\'Полный run ID: \' + runId">run {{ shortId }}</span>'
+      + '<span v-if="scopeLabel" class="badge badge-muted">{{ scopeLabel }}</span>'
+      + '<span v-if="outcome" class="badge" :class="outcomeCls">{{ outcome }}</span>'
+      + '</div>'
+      + '<div class="run-card__facts">'
+      + '<span v-if="latency" title="Время полного прогона">⏱ {{ latency }}</span>'
+      + '<span v-if="tokens" title="Токены — технические единицы текста модели">{{ tokens }}</span>'
+      + '<span v-if="cost" title="Стоимость известна только для моделей с прайсом; unknown ≠ 0">{{ cost }}</span>'
+      + '<span v-if="evidence">{{ evidence }}</span>'
+      + '<span v-if="fallback" class="text-amber-300" title="Резервный контур был задействован — основной не завершился">⚠ {{ fallback }}</span>'
+      + '</div>'
+      + '<div v-if="reason" class="run-card__reason">{{ reason }}</div>'
+      + '<div v-if="stages.length" class="run-card__stages">'
+      + '<div v-for="(st, i) in stages" :key="st.label" class="run-stage"'
+      + ' :class="\'run-stage--\' + st.state" :title="st.hint || \'\'">'
+      + '<span class="run-stage__label">{{ st.label }}</span>'
+      + '<span v-if="st.pct != null" class="run-stage__bar" aria-hidden="true"><span'
+      + ' class="run-stage__fill" :style="{ width: st.pct + \'%\' }"></span></span>'
+      + '<span v-else class="run-stage__nobar" aria-hidden="true"></span>'
+      + '<span class="run-stage__value">{{ st.value }}</span>'
+      + '<span v-if="i < stages.length - 1" class="run-stage__arrow" aria-hidden="true">→</span>'
+      + '</div>'
+      + '</div>'
+      + '<div v-if="sourceHint || links.length" class="run-card__foot">'
+      + '<span v-if="sourceHint" class="run-card__source">{{ sourceHint }}</span>'
+      + '<span class="run-card__links">'
+      + '<a v-for="l in links" :key="l.route" :href="l.route" class="underline text-violet-300">{{ l.label }}</a>'
+      + '</span>'
+      + '</div>'
       + '</div>',
   });
 

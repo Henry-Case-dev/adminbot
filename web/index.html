@@ -146,6 +146,19 @@
             </nav>
             <div class="text-sm font-semibold truncate">{{ currentTabLabel }}</div>
           </div>
+          <!-- D13 (§18I.13): компактный Save в ШАПКЕ — появляется ТОЛЬКО при
+              dirty/saving/failed (clean → чипа нет). Показывает число
+              изменённых полей; клик = сохранить; success → чип исчезает;
+              failure/conflict → остаётся с причиной. Не полный футер. -->
+          <button v-if="headerSaveChip.visible" type="button"
+                  class="header-save-chip btn-accent text-xs shrink-0"
+                  :data-save-state="headerSaveChip.state"
+                  :title="'Сохранить изменения (' + headerSaveChip.count + ')'"
+                  @click="saveModalEdits()">
+            <span class="header-save-chip__count">{{ headerSaveChip.count }}</span>
+            <span aria-hidden="true">·</span>
+            <span>{{ headerSaveChip.label }}</span>
+          </button>
           <!-- D1/T-2606: ⛶ — правый верхний угол (compact) / правый край строки
                (legacy). Тач-цель ≥44×44 в compact; нативные кнопки Telegram
                (⋮/Закрыть) CSS НЕ двигаем (ARCHITECTURE §604/§642/§56). -->
@@ -236,7 +249,8 @@
                иконка + МАЛЕНЬКАЯ подпись ПОД ней (видна mobile+desktop),
                активный — по route (activeNav), aria-current.
                F1 (ADR-1025-1 D5): при IA v2 полоса НЕ рендерится — её роль
-               выполняют sidebar (≥1200) / drawer (768–1199) / bottom-nav (<768).
+               выполняют sidebar (≥1200) / drawer (768–1199) / mobile-topnav
+               (<768, D13 §18I.14).
                OFF (IA_V2_ENABLED=false) → эта разметка байт-в-байт. -->
           <nav v-if="!iaV2" class="navbar-band scroll-thin" aria-label="Основная навигация">
             <button v-for="n in navItems" :key="n.id"
@@ -245,6 +259,21 @@
                     :title="n.label" @click="navTo(n.route)">
               <span class="msr nav-icon" aria-hidden="true">{{ iconGlyph(n.icon) }}</span>
               <span class="nav-label">{{ n.label }}</span>
+            </button>
+          </nav>
+          <!-- ═══ D13 (§18I.14): компактная ВЕРХНЯЯ мобильная навигация
+               (<768, IA v2) — row 2 шапки, горизонтальный скролл, тот же
+               канонический реестр navItems, что и desktop sidebar.
+               bottom-nav/шторка «Ещё» удалены. ═══ -->
+          <nav v-if="iaV2 && isMobileShell" class="mobile-topnav scroll-thin"
+               aria-label="Разделы">
+            <button v-for="n in mobileTopnavItems" :key="'mt-' + n.id"
+                    type="button" class="mobile-topnav-link"
+                    :class="{ active: activeNav === n.id }"
+                    :aria-current="activeNav === n.id ? 'page' : null"
+                    @click="shellNavTo(n.route)">
+              <span class="msr" aria-hidden="true">{{ iconGlyph(n.icon) }}</span>
+              <span class="mobile-topnav-label">{{ n.label }}</span>
             </button>
           </nav>
         </header>
@@ -3441,11 +3470,11 @@
                   </div>
                 </div>
               </div>
-              <!-- S10.20-1 (High, регресс T-1900): sticky-панель — ЕДИНСТВЕННЫЙ
-                   способ сохранить textarea/input/JSON/промпты и key-drafts на
-                   конфиг-вкладках (точечные кнопки удалены). Финальный блок
-                   ветки currentTabIsConfig. -->
-              <div class="sticky-spacer col-span-full" aria-hidden="true"></div>
+              <!-- S10.20-1 (High, регресс T-1900) + D13 (§18I.13): sticky-
+                   панель — ЕДИНСТВЕННЫЙ способ сохранить textarea/input/JSON/
+                   промпты и key-drafts на конфиг-вкладках; рендерится ТОЛЬКО
+                   при dirty/saving/failed (clean → absent, v-if в компоненте).
+                   Reserved spacer удалён. Финальный блок ветки currentTabIsConfig. -->
               <sticky-save class="col-span-full"></sticky-save>
             </template>
           </template>
@@ -4804,6 +4833,14 @@
                               v-if="pipelineSelectedRunId"
                               @click="clearPipelineRunSelection()">← к последнему</button>
                     </div>
+                    <!-- ═══ D12 (§18I.11): Unified Run Card — шапка прогона:
+                         run id / scope / outcome / latency / evidence /
+                         fallback + счётчики стадий + «откуда данные».
+                         Подробная стадия-лента — существующий pipe-timeline
+                         ниже (не дублируем per-stage details). ═══ -->
+                    <div v-if="runCardSummary" class="mb-2" data-run-card-summary>
+                      <run-card v-bind="runCardSummary"></run-card>
+                    </div>
                     <!-- ═══ ASAP 8 F1 (§1.5): единый скаляр coverage из
                          headline УБРАН — «0 / 865» больше не выглядит как
                          «L1 ничего не увидел». Coverage — только раздельные
@@ -6071,10 +6108,9 @@
                          :disabled="!canEditConfig('reactions.admin_user_id')">
                 </div>
               </div>
-              <!-- 10.20 (T-1900): нижняя sticky-панель конфиг-вкладки — вместо
-                   кнопок «Сохранить» под каждым инпутом (тумблеры/select —
-                   мгновенный auto-save). -->
-              <div class="sticky-spacer col-span-full" aria-hidden="true"></div>
+              <!-- 10.20 (T-1900) + D13 (§18I.13): нижняя sticky-панель
+                   конфиг-вкладки — вместо кнопок «Сохранить» под каждым
+                   инпутом; только при dirty (см. компонент), spacer убран. -->
               <sticky-save class="col-span-full"></sticky-save>
             </template>
           </template>
@@ -6956,8 +6992,17 @@
             <div v-if="isGlobalAdmin" class="card p-4 sg-12">
               <div class="intel-header mb-2">
                 <div class="intel-title text-sm font-bold"><span class="msr" aria-hidden="true">{{ iconGlyph('psychology') }}</span> Мониторинг Интеллекта</div>
-                <span class="badge" :class="dreamPhaseBadge.cls">{{ dreamPhaseBadge.text }}</span>
-                <span class="badge" :class="deepPhaseBadge.cls">{{ deepPhaseBadge.text }}</span>
+                <!-- D12 (§18I.12-D): здесь ТОЛЬКО компактные sleep-бейджи —
+                     кликом открывают authoritative виджет «Сон и активность»
+                     (скролл к карточке), деталей не дублируют. -->
+                <button type="button" class="badge badge-btn"
+                        :class="[dreamPhaseBadge.cls, { 'badge--active': sleepWidget.dream && sleepWidget.dream.active }]"
+                        title="Открыть виджет «Сон и активность»"
+                        @click="scrollToSleepWidget()">{{ dreamPhaseBadge.text }}</button>
+                <button type="button" class="badge badge-btn"
+                        :class="[deepPhaseBadge.cls, { 'badge--active': sleepWidget.deep && sleepWidget.deep.active }]"
+                        title="Открыть виджет «Сон и активность»"
+                        @click="scrollToSleepWidget()">{{ deepPhaseBadge.text }}</button>
                 <button class="btn-ghost text-xs ml-auto" :disabled="cognitionBusy"
                         @click="loadCognition()">⟳</button>
               </div>
@@ -7091,7 +7136,14 @@
                     {{ statusData.intents.module.state_label }}
                     <template v-if="statusData.intents.module.top_block_reason">
                       · блокер: {{ topBlockLabel(statusData.intents.module.top_block_reason) }}</template>
-                    <div v-if="statusData.intents.module.funnel" class="mt-1 flex flex-wrap gap-1"
+                    <!-- D12 (§18I.12-E): воронка «Возможности → Намерения →
+                         Решения → Отправлено» — Unified Run Card на durable
+                         данных C06A; top blocker виден сразу. -->
+                    <div v-if="runCardInitiative" class="mt-1"
+                         data-initiative-funnel>
+                      <run-card v-bind="runCardInitiative"></run-card>
+                    </div>
+                    <div v-else class="mt-1 flex flex-wrap gap-1"
                          data-initiative-funnel>
                       <span class="badge badge-muted">Продюсеры 24ч: {{ funnelProducersLabel(statusData.intents.module.funnel.producers_24h) || '0' }}</span>
                       <span class="badge badge-muted">Создано: {{ statusData.intents.module.funnel.intents_created_24h }}</span>
@@ -7658,6 +7710,12 @@
                 Опыт и уроки выключены — записей, разбора и применения нет.
               </div>
               <template v-else>
+                <!-- D12 (§18I.12-F): mini funnel «Замечено → Уроки → Проверено →
+                     Применено → Помогло» + полезность — Unified Run Card на
+                     durable данных D05. -->
+                <div v-if="runCardExperience" class="mb-2" data-experience-funnel>
+                  <run-card v-bind="runCardExperience"></run-card>
+                </div>
                 <div v-if="!experienceFeed.items.length" class="text-xs text-gray-500">
                   Записей опыта пока нет — уроки появятся после проверенного опыта.
                 </div>
@@ -8080,54 +8138,10 @@
         </nav>
       </aside>
 
-      <!-- Bottom-nav (<768): ≤4 пункта. hotfix4 (T-2519): Статус+Справка —
-           всегда первые два для всех ролей; далее Модули (иначе ИИ); «Ещё» —
-           только при скрытых разделах. Пользователь: Статус/Справка. -->
-      <nav v-if="iaV2 && isMobileShell" class="bottom-nav" data-glass="shell"
-           aria-label="Нижняя навигация">
-        <button v-for="n in bottomNavItems" :key="'bn-' + n.id"
-                type="button" class="bottom-nav-link"
-                :class="{ active: !n.more && activeNav === n.id }"
-                :aria-current="!n.more && activeNav === n.id ? 'page' : null"
-                :title="n.label"
-                @click="n.more ? toggleMore() : shellNavTo(n.route)">
-          <span class="msr" aria-hidden="true">{{ iconGlyph(n.icon) }}</span>
-          <span class="bottom-nav-label">{{ n.label }}</span>
-        </button>
-      </nav>
-      <!-- Шторка «Ещё» (T-2520): скрытые разделы (Память/Доступы/PERMsoc +
-           вытесненный ИИ) / Профиль. ASAP 4.2 (D5.1, T-4823): closed-state
-           контракт — при `moreOpen=false` шторка ОТСУТСТВУЕТ в DOM
-           (`v-if`+transition, как backdrop) → visible intersection = 0px,
-           не перехватывает pointer/touch, не создаёт stacking overlay над
-           SaveBar/bottom-nav. НЕ косметический `translateY` без unmount. -->
-      <div v-if="iaV2 && isMobileShell && moreOpen"
-           class="more-backdrop" @click="closeMore()"></div>
-      <transition name="more-sheet">
-      <div v-if="iaV2 && isMobileShell && moreOpen" class="more-sheet" data-glass="shell"
-           role="menu" aria-label="Ещё">
-        <div class="more-sheet-handle" aria-hidden="true"></div>
-        <button v-for="n in mobileMoreItems" :key="'mm-' + n.id"
-                type="button" class="more-item" role="menuitem"
-                :class="{ active: activeNav === n.id }"
-                @click="shellNavTo(n.route)">
-          <span class="msr" aria-hidden="true">{{ iconGlyph(n.icon) }}</span>
-          <span class="sidebar-label">{{ n.label }}</span>
-        </button>
-        <!-- «Профиль» — существующий блок Telegram-пользователя (UPD §8.2),
-             нового экрана нет: показываем identity-данные из /api/me. -->
-        <div v-if="me" class="more-profile">
-          <img v-if="meAvatarUrl" :src="meAvatarUrl" alt=""
-               class="w-8 h-8 rounded-full object-cover shrink-0"
-               @error="onMeAvatarError()">
-          <span v-else class="scope-initial">{{ (me.first_name || '?').slice(0, 1) }}</span>
-          <span class="min-w-0 flex-1">
-            <span class="block truncate">{{ me.first_name || me.username || ('@' + (me.username || me.telegram_id)) }}</span>
-            <span class="text-[10px] text-gray-500">{{ me.role_name }}</span>
-          </span>
-        </div>
-      </div>
-      </transition>
+      <!-- ═══ D13 (§18I.14): мобильная нижняя навигация (bottom-nav) и шторка
+           «Ещё» (more-sheet) УДАЛЕНЫ по решению владельца. Мобильная (<768)
+           навигация — компактная верхняя строка внутри sticky-шапки ниже
+           (mobile-topnav, row 2), тот же канонический реестр navItems. -->
     </div>
 
     <!-- Модалка подтверждения control -->
@@ -8288,13 +8302,14 @@
             </div>
           </template>
         </div>
-        <!-- HOTFIX9 D3 (T-2806): SaveBar досье — отдельная нижняя область
-             модалки (footer.modal-actions), не sticky поверх полей. -->
-        <footer class="modal-actions">
+        <!-- HOTFIX9 D3 (T-2806) + D13 (§18I.13): SaveBar досье — отдельная
+             нижняя область модалки; рендерится ТОЛЬКО при правке/сохранении
+             (clean → футера с Save нет; §18I.4: ESC/backdrop не теряют
+             черновик — closeDossier сохраняет pending-черновик). -->
+        <footer v-if="dossierDraft !== ((dossierData && dossierData.manual_traits) || '') || dossierSaving"
+                class="modal-actions">
           <div class="sticky-save">
-            <span class="sticky-save__count">
-              {{ dossierDraft === ((dossierData && dossierData.manual_traits) || '') ? 'Нет изменений' : 'Есть правка' }}
-            </span>
+            <span class="sticky-save__count">Есть правка</span>
             <button class="btn-ghost text-sm" type="button"
                     :disabled="dossierSaving" @click="closeDossier()">Отмена</button>
             <button class="btn-accent text-sm" type="button"
