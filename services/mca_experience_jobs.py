@@ -41,6 +41,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import re
 import time
 
 from services import mca_gates
@@ -91,10 +92,236 @@ PROPOSAL_RULE_PREFERENCE = ("social_preference", "explicit_user_preference")
 
 _PRUNE_BATCH = 5000              # bounded-удаление за шаг (GEN-R8)
 
+# ── D05 (§18E.1, v6 §C D05): hybrid production feedback entry ────────────────
+# Детерминированный semantic detector обычного чата: worker-проход по НОВЫМ
+# сообщениям (durable cursor `cursor_message_rowid`), не на каждое сообщение,
+# без LLM. High-confidence очевидная коррекция → feedback candidate через
+# СУЩЕСТВУЮЩИЙ `record_feedback` (candidate ≠ fact ≠ lesson; валидация
+# отдельно). Шутка/агрессия/мнение третьего лица/спор → НЕ истина/урок
+# (deliberate skip с кодом причины). R17: в telemetry только коды/числа.
+
+#: Курсор детектора по `smart_messages.id` (durable в payload job).
+DETECTOR_CURSOR_KEY = "cursor_message_rowid"
+
+#: Верхняя граница анализа текста (стоимость regex; R17 — текст не логируется).
+DETECTOR_TEXT_CAP = 500
+
+#: Классы сигналов (закрытый набор).
+DETECTOR_CLASS_PREFERENCE = "preference"     # конкретная нормализованная форма
+DETECTOR_CLASS_CORRECTION = "correction"     # стиль/процесс/ошибка ответа
+DETECTOR_CLASS_FACT_USER = "fact_user"       # факт о пользователе исправляют
+
+#: Причины deliberate skip (закрытый набор; ≠ technical loss).
+DETECTOR_SKIP_NON_TEXT = "non_text"
+DETECTOR_SKIP_FORWARD = "forward"
+DETECTOR_SKIP_COMMAND = "command"
+DETECTOR_SKIP_EMPTY = "empty"
+DETECTOR_SKIP_JOKE = "joke"
+DETECTOR_SKIP_AGGRESSION = "aggression"
+DETECTOR_SKIP_THIRD_PARTY = "third_party"
+DETECTOR_SKIP_DISPUTE = "dispute"
+DETECTOR_SKIP_CHAT_DISABLED = "chat_disabled"
+DETECTOR_SKIP_LOW_CONFIDENCE = "low_confidence"
+
+#: Смены тона/смеха — сомнительный сигнал (не истина; §18E.1).
+_JOKE_RE = re.compile(
+    r"(ахах|хах|хех|лол|кек|ъъ|:d|;\)|\)\)|\)\)\)|xd|шучу|это шутка|jk\b)",
+    re.IGNORECASE)
+#: Агрессия/оскорбления — сигнал не годится для урока (не спор по существу).
+_AGGRESSION_RE = re.compile(
+    r"(иди в|пош[её]л на|пошел на|иди ты|дурак|дура\b|тупой|тупая|дебил|"
+    r"кретин|лох\b|ничтожество|moron|stupid|идиот)",
+    re.IGNORECASE)
+#: Мнение третьего лица («он сказал, что…») — не самонаблюдение автора.
+_THIRD_PARTY_RE = re.compile(
+    r"^\s*(он|она|они|они\s+говорят|кто-то|люди|народ|мне\s+говорили|"
+    r"говорят,?\s+что)\b.{0,40}\b(сказал|сказала|говорит|говорят|думает|"
+    r"считает|утверждает|написал|написала|говорили)", re.IGNORECASE)
+#: Спор участников (не коррекция бота).
+_DISPUTE_RE = re.compile(r"(не согласен|не согласна|поспорим|давай поспорим)",
+                         re.IGNORECASE)
+#: Служебные команды — не разговорные реплики.
+_COMMAND_RE = re.compile(r"^\s*/\w")
+
+#: Нормализованные конкретные предпочтения (закрытый набор «ключ.значение»;
+#: X3 — value сохраняется как нормализованный токен, не сырой текст).
+_PREFERENCE_RULES: tuple[tuple[str, str, tuple[re.Pattern, ...]], ...] = (
+    ("address", "no_nickname", (
+        re.compile(r"не\s+называй\s+меня"), re.compile(r"не\s+зови\s+меня"),
+        re.compile(r"не\s+величай\s+меня"),)),
+    ("address", "by_name", (
+        re.compile(r"(зови|называй|величай)\s+меня\s+по\s+имени"),)),
+    ("reply_length", "short", (
+        re.compile(r"отвечай\s+(короче|кратко|сжато)"),
+        re.compile(r"(пиши|писать)\s+(короче|кратко|сжато)"),
+        re.compile(r"(будь|будьте)\s+(лаконичн\w+|короче)"),
+        re.compile(r"(без|меньше)\s+воды"),)),
+    ("reply_length", "long", (
+        re.compile(r"отвечай\s+(подробнее|разв[её]рнуто|развернуто|длиннее|"
+                   r"полнее)"),
+        re.compile(r"(пиши|писать)\s+(подробнее|разв[её]рнуто|развернуто)"),
+        re.compile(r"больше\s+подробност(ей|ей)"),)),
+    ("reply_language", "ru", (
+        re.compile(r"отвечай\s+по\s*русски"),
+        re.compile(r"(отвечай|пиши)\s+на\s+русском"),)),
+    ("reply_language", "en", (
+        re.compile(r"respond\s+in\s+english", re.IGNORECASE),
+        re.compile(r"(отвечай|пиши)\s+по\s*английски"),
+        re.compile(r"(отвечай|пиши)\s+на\s+английском"),)),
+)
+
+#: Синонимы уже типизированных preference-токенов (совместимость с ручным
+#: `record_feedback(signal={"preference": …})`; всё сводится к закрытому
+#: набору «ключ.значение»).
+_PREFERENCE_SYNONYMS = {
+    "short_answers": "reply_length.short",
+    "short": "reply_length.short",
+    "long_answers": "reply_length.long",
+    "detailed": "reply_length.long",
+    "no_nickname": "address.no_nickname",
+    "by_name": "address.by_name",
+}
+
+#: Явная коррекция ошибки/процесса (второе лицо, адресовано боту).
+_CORRECTION_PATTERNS: tuple[re.Pattern, ...] = (
+    re.compile(r"\b(ты|вы)\s+(ошиб|неправ|неверн|неточн|путаеш|вр[её]ш|"
+               r"вреш|выдаёш|выдаеш)", re.IGNORECASE),
+    re.compile(r"^(нет,?\s+)?(ты|вы)\s+(же\s+)?(неправ|ошиб)", re.IGNORECASE),
+    re.compile(r"(ответ|результат)\s+(неверн\w+|неправильн\w+|неточн\w+)",
+               re.IGNORECASE),
+    re.compile(r"(проверяй|перепроверяй|проверь)\s+(перед|сначала|факты|"
+               r"ответ|данные)", re.IGNORECASE),
+    re.compile(r"(не\s+выдумывай|не\s+придумывай|не\s+угадывай)",
+               re.IGNORECASE),
+)
+#: Перволичная фактическая самокоррекция («я не из Y» — исправление факта
+#: о пользователе; §18E.1 E2E).
+_FACT_USER_PATTERNS: tuple[re.Pattern, ...] = (
+    re.compile(r"^(нет,?\s+)?(вообще-то,?\s+|на\s+самом\s+деле,?\s+)?"
+               r"я\s+не\s+\S", re.IGNORECASE),
+    re.compile(r"^меня\s+зовут\s+не\b", re.IGNORECASE),
+    re.compile(r"^(вообще-то|на\s+самом\s+деле)\s+меня\s+зовут\b",
+               re.IGNORECASE),
+)
+#: Перволичные когнитивные глаголы — НЕ факт о пользователе («я не знаю» —
+#: не коррекция); uncertain → skip.
+_NOT_FACT_USER_RE = re.compile(
+    r"^я\s+не\s+(зна|хочу|могу|буд|понял|понима|уверен|помн|видел|слышал|"
+    r"дума|счита|шуч)", re.IGNORECASE)
+
 
 def review_coalesce_key() -> str:
     """Unique key durable-задачи (singleflight; без параллельного запуска)."""
     return REVIEW_COALESCE_KEY
+
+
+# ── D05: классификация сообщения (чистая функция; без I/O/LLM) ───────────────
+
+def normalize_pref_token(raw) -> str | None:
+    """Произвольный preference-токен → нормализованный «ключ.значение».
+
+    Закрытый набор: известные ключи/синонимы → канон; уже нормализованный
+    «key.value» — как есть; прочий safe-токен → `custom.<token>` (R17-safe,
+    bounded). Сырой текст пользователя НЕ сохраняется (X3)."""
+    text = str(raw or "").strip().lower()
+    if not text or len(text) > 64:
+        return None
+    if text in _PREFERENCE_SYNONYMS:
+        return _PREFERENCE_SYNONYMS[text]
+    for key, _value, patterns in _PREFERENCE_RULES:
+        if text == f"{key}.{_value}":
+            return text
+    if re.fullmatch(r"[a-z0-9_]+\.[a-z0-9_]+", text):
+        return text
+    if re.fullmatch(r"[a-z0-9_]{1,32}", text):
+        return f"custom.{text}"
+    return None
+
+
+def pref_applicability(user_id, pref_token: str) -> str:
+    """Applicability preference-урока: `user:<id> pref:<key>.<value>` (X3)."""
+    return f"user:{int(user_id)} pref:{pref_token}"
+
+
+def parse_pref_applicability(applicability):
+    """Разобрать applicability preference-урока → (user_id, token)|None."""
+    parts = str(applicability or "").split()
+    if len(parts) != 2 or not parts[0].startswith("user:") \
+            or not parts[1].startswith("pref:"):
+        return None
+    try:
+        user_id = int(parts[0][len("user:"):])
+    except ValueError:
+        return None
+    return user_id, parts[1][len("pref:"):]
+
+
+def classify_chat_message(*, text: str | None, media_type: str | None,
+                          is_forward: bool, reply_to_user_id=None
+                          ) -> dict | None:
+    """Детерминированная классификация одной реплики чата (§18E.1).
+
+    Возврат:
+      ``{"skip": <reason_code>}`` — deliberate skip (НЕ technical loss);
+      ``{"signal": {...typed...}, "class": ..., "source_kind": ...}`` —
+      high-confidence очевидный сигнал → feedback candidate.
+
+    Приоритет: сомнительное (шутка/агрессия/третье лицо/спор/forward)
+    проверяется ДО коррекционных паттернов — сомнительная реплика никогда
+    не становится истиной/уроком. Только коды/числа (R17)."""
+
+    def _skip(reason: str) -> dict:
+        return {"skip": reason}
+
+    if media_type is not None and str(media_type) != "text":
+        return _skip(DETECTOR_SKIP_NON_TEXT)
+    if is_forward:
+        return _skip(DETECTOR_SKIP_FORWARD)      # третье лицо по определению
+    body = str(text or "").strip()
+    if not body:
+        return _skip(DETECTOR_SKIP_EMPTY)
+    if _COMMAND_RE.match(body):
+        return _skip(DETECTOR_SKIP_COMMAND)
+    head = body[:DETECTOR_TEXT_CAP]
+    if _JOKE_RE.search(head):
+        return _skip(DETECTOR_SKIP_JOKE)
+    if _AGGRESSION_RE.search(head):
+        return _skip(DETECTOR_SKIP_AGGRESSION)
+    if _THIRD_PARTY_RE.match(head):
+        return _skip(DETECTOR_SKIP_THIRD_PARTY)
+    if _DISPUTE_RE.search(head):
+        return _skip(DETECTOR_SKIP_DISPUTE)
+    # Реплика-ответ ДРУГОМУ участнику — спор между людьми, не коррекция бота.
+    if reply_to_user_id is not None:
+        return _skip(DETECTOR_SKIP_DISPUTE)
+
+    for key, value, patterns in _PREFERENCE_RULES:
+        for pattern in patterns:
+            if pattern.search(head):
+                return {
+                    "class": DETECTOR_CLASS_PREFERENCE,
+                    "pref_key": key, "pref_value": value,
+                    "pref_token": f"{key}.{value}",
+                    "confidence": "high",
+                }
+
+    for pattern in _FACT_USER_PATTERNS:
+        if pattern.match(head):
+            if _NOT_FACT_USER_RE.match(head):
+                return _skip(DETECTOR_SKIP_LOW_CONFIDENCE)
+            return {
+                "class": DETECTOR_CLASS_FACT_USER,
+                "confidence": "high",
+            }
+
+    for pattern in _CORRECTION_PATTERNS:
+        if pattern.search(head):
+            return {
+                "class": DETECTOR_CLASS_CORRECTION,
+                "confidence": "high",
+            }
+
+    return _skip(DETECTOR_SKIP_LOW_CONFIDENCE)
 
 
 def default_counters() -> dict:
@@ -105,6 +332,11 @@ def default_counters() -> dict:
         "suspended": 0, "outcomes_linked": 0, "utility_updates": 0,
         "stale_marked": 0, "pruned_episodes": 0, "pruned_feedback": 0,
         "pruned_applications": 0, "errors": 0, "batches": 0,
+        # D05: детектор + долговечность (X1) + resume (X4) + fair scan (X5).
+        "detector_scanned": 0, "detector_detected": 0, "detector_skipped": 0,
+        "capture_write_failures": 0, "resumed_validated": 0,
+        "resumed_activated": 0, "resume_rejected": 0,
+        "outcomes_unmatchable": 0, "preference_superseded_signals": 0,
     }
 
 
@@ -193,6 +425,8 @@ async def enqueue_experience_review(db, *, max_attempts: int = 3
     payload = json.dumps({
         "cursor_feedback_rowid": 0,
         "cursor_event_rowid": 0,
+        DETECTOR_CURSOR_KEY: 0,
+        "link_scan_application_id": 0,
         "counters": default_counters(),
     }, ensure_ascii=True)
     return await store.enqueue(
@@ -367,6 +601,7 @@ class ExperienceReviewRunner:
             data = {}
         data.setdefault("cursor_feedback_rowid", 0)
         data.setdefault("cursor_event_rowid", 0)
+        data.setdefault(DETECTOR_CURSOR_KEY, 0)
         counters = data.setdefault("counters", default_counters())
         for key, value in default_counters().items():
             counters.setdefault(key, value)
@@ -374,7 +609,8 @@ class ExperienceReviewRunner:
         # последнего терминального review-прогона (идемпотентный повтор
         # событий не сканируется заново; bounded-порции продолжаются).
         if not int(data.get("cursor_feedback_rowid") or 0) \
-                and not int(data.get("cursor_event_rowid") or 0):
+                and not int(data.get("cursor_event_rowid") or 0) \
+                and not int(data.get(DETECTOR_CURSOR_KEY) or 0):
             await self._inherit_cursor(data)
         return data
 
@@ -397,6 +633,12 @@ class ExperienceReviewRunner:
             data["cursor_event_rowid"] = max(
                 int(data.get("cursor_event_rowid") or 0),
                 int(prev.get("cursor_event_rowid") or 0))
+            data[DETECTOR_CURSOR_KEY] = max(
+                int(data.get(DETECTOR_CURSOR_KEY) or 0),
+                int(prev.get(DETECTOR_CURSOR_KEY) or 0))
+            data["link_scan_application_id"] = max(
+                int(data.get("link_scan_application_id") or 0),
+                int(prev.get("link_scan_application_id") or 0))
         except Exception:
             logger.warning("[mca16] review cursor inherit failed — from zero",
                            exc_info=True)
@@ -436,10 +678,27 @@ class ExperienceReviewRunner:
         counters = payload["counters"]
         try:
             await self._store.heartbeat(job_id)
+            # D05 (§18E.1): hybrid production feedback entry — детектор
+            # обычного чата пишет feedback candidates ДО capture (тот же
+            # проход доводит очевидную коррекцию до эпизода/кандидата).
+            detector = await self._detect_chat_feedback(payload)
+            counters["detector_scanned"] += int(detector.get("scanned") or 0)
+            counters["detector_detected"] += int(detector.get("detected") or 0)
+            counters["detector_skipped"] += int(detector.get("skipped") or 0)
+            counters["capture_write_failures"] += int(
+                detector.get("write_failures") or 0)
             counters["captured_feedback"] += await self._capture_feedback(
                 payload)
             counters["captured_events"] += await self._capture_tool_events(
                 payload)
+            # D05 (§18E.5): каждый проход возобновляет незавершённые
+            # durable-кандидаты с последнего durable состояния.
+            resumed = await self._resume_incomplete()
+            counters["resumed_validated"] += int(
+                resumed.get("validated") or 0)
+            counters["resumed_activated"] += int(
+                resumed.get("activated") or 0)
+            counters["resume_rejected"] += int(resumed.get("rejected") or 0)
             batch = await self._propose_batch()
             counters["proposed"] += int(batch.get("proposed") or 0)
             counters["skipped_existing"] += int(batch.get("skipped") or 0)
@@ -448,7 +707,10 @@ class ExperienceReviewRunner:
             counters["validated"] += int(outcome.get("validated") or 0)
             counters["activated"] += int(outcome.get("activated") or 0)
             counters["suspended"] += await self._suspend_contradicted()
-            counters["outcomes_linked"] += await self._link_outcomes()
+            linked = await self._link_outcomes(payload)
+            counters["outcomes_linked"] += int(linked.get("linked") or 0)
+            counters["outcomes_unmatchable"] += int(
+                linked.get("unmatchable") or 0)
             if counters["outcomes_linked"]:
                 counters["utility_updates"] += 1
                 _emit("utility_updated", outcome="success",
@@ -483,7 +745,12 @@ class ExperienceReviewRunner:
         """Новые active-feedback без эпизода → ExperienceEpisode (idempotent).
 
         K2 OFF: нетекнические сигналы не читаются/не обрабатываются (курсор
-        всё равно продвигается — без цикла)."""
+        всё равно продвигается — без цикла).
+        X1 (§18E.2): курсор продвигается ТОЛЬКО после durable обработки
+        (эпизод записан ИЛИ deliberate skip). Технический сбой записи →
+        курсор НЕ двигается, pass останавливается — событие переобрабатывается
+        следующим проходом (повтор идемпотентен по idempotency_key);
+        deliberate skip ≠ technical loss."""
         limit = me.ExperiencePolicy.review_batch_max()
         cursor = await self._db.db.execute(
             "SELECT rowid AS rid, * FROM mca_experience_feedback "
@@ -493,18 +760,20 @@ class ExperienceReviewRunner:
         rows = [dict(r) for r in await cursor.fetchall()]
         captured = 0
         for row in rows:
-            payload["cursor_feedback_rowid"] = int(row["rid"])
             # F5 (§5.4, M6/U4): worker глобальный, обучение — по чатам.
             # Чат с learning OFF (per-chat override или глобальная ось) не
-            # капитонируется; курсор продвигается (без цикла).
+            # капитонируется; курсор продвигается (deliberate skip).
             if not await learning_enabled_for_chat(row.get("chat_id")):
+                payload["cursor_feedback_rowid"] = int(row["rid"])
                 continue
             source_kind = str(row.get("source_kind") or "")
             if source_kind not in _FEEDBACK_OUTCOME:
-                continue
+                payload["cursor_feedback_rowid"] = int(row["rid"])
+                continue                       # deliberate skip: не сигнал
             if source_kind != "technical" \
                     and not mca_gates.experience_feedback_enabled():
-                continue                       # K2 OFF: контур закрыт
+                payload["cursor_feedback_rowid"] = int(row["rid"])
+                continue                       # K2 OFF: контур закрыт (policy)
             outcome_kind, outcome_source = _FEEDBACK_OUTCOME[source_kind]
             try:
                 episode_id = await self._service.capture_episode(
@@ -517,9 +786,14 @@ class ExperienceReviewRunner:
                     outcome_kind=outcome_kind,
                     outcome_source=outcome_source)
             except Exception:
-                logger.warning("[mca16] feedback capture failed — skip",
-                               exc_info=True)
-                continue
+                # X1: техническая потеря недопустима — курсор остаётся на
+                # предыдущей строке; следующий проход повторит (идемпотентно).
+                payload["counters"]["capture_write_failures"] = int(
+                    payload["counters"].get("capture_write_failures") or 0) + 1
+                logger.warning("[mca16] feedback capture failed — retry next "
+                               "pass | feedback_id=%s", row.get("feedback_id"))
+                break
+            payload["cursor_feedback_rowid"] = int(row["rid"])
             if episode_id:
                 captured += 1
         return captured
@@ -529,7 +803,9 @@ class ExperienceReviewRunner:
 
         Только `outcome='failed'` (error/timeout): типизированный технический
         исход своей стадии. Каждое событие — отдельный primary event
-        (`operation_id="mca_event:<id>"`), повторный ingest → no-op."""
+        (`operation_id="mca_event:<id>"`), повторный ingest → no-op.
+        X1: курсор — только после durable обработки/deliberate skip; сбой
+        записи останавливает pass без продвижения курсора."""
         limit = me.ExperiencePolicy.review_batch_max()
         cursor = await self._db.db.execute(
             "SELECT id, ts, event_name, outcome, chat_id, trace_id, "
@@ -539,18 +815,20 @@ class ExperienceReviewRunner:
         rows = [dict(r) for r in await cursor.fetchall()]
         captured = 0
         for row in rows:
-            payload["cursor_event_rowid"] = int(row["id"])
             if str(row.get("outcome")) != "failed":
+                payload["cursor_event_rowid"] = int(row["id"])
                 continue                       # cancelled/denied ≠ неудача
             # F5 (§5.4, M6/U4): chat-scoped технические уроки — тоже по
             # чатам (глобальный ON + чат OFF → только выбранный чат тише).
             # None-чат (вне чатов) — не chat-learning, идёт мимо резолвера.
             if not await learning_enabled_for_chat(row.get("chat_id")):
+                payload["cursor_event_rowid"] = int(row["id"])
                 continue
             entity = _parse_json_dict(row.get("entity_ids"))
             tool = str(entity.get("tool") or "")
             if not tool:
-                continue
+                payload["cursor_event_rowid"] = int(row["id"])
+                continue                       # deliberate skip: без subject
             try:
                 episode_id = await self._service.capture_episode(
                     scope="chat", chat_id=row.get("chat_id"),
@@ -562,12 +840,270 @@ class ExperienceReviewRunner:
                               "event_ts": int(row.get("ts") or 0)},
                     outcome_kind="failure", outcome_source="technical")
             except Exception:
-                logger.warning("[mca16] tool event capture failed — skip",
-                               exc_info=True)
-                continue
+                payload["counters"]["capture_write_failures"] = int(
+                    payload["counters"].get("capture_write_failures") or 0) + 1
+                logger.warning("[mca16] tool event capture failed — retry "
+                               "next pass | event_id=%s", row.get("id"))
+                break
+            payload["cursor_event_rowid"] = int(row["id"])
             if episode_id:
                 captured += 1
         return captured
+
+    # ── шаг 1b: D05 semantic detector (§18E.1; без LLM, батч, durable) ────
+
+    async def _detect_chat_feedback(self, payload: dict) -> dict:
+        """Worker-проход по новым сообщениям чата → feedback candidates.
+
+        Hybrid production feedback entry: high-confidence очевидная
+        коррекция/предпочтение → `record_feedback` (candidate ≠ fact ≠
+        lesson; валидация — отдельные шаги). Сомнительное (шутка/агрессия/
+        третье лицо/спор/forward/команда) → deliberate skip с кодом причины,
+        никогда не истина. U4: гейт обучения — `learning_enabled_for_chat`
+        (глобальный master OFF глушит все чаты; chat OFF — только этот чат;
+        stored override не переписывается). X1: курсор — только после
+        durable записи/deliberate skip; сбой записи останавливает pass без
+        продвижения курсора (retry идемпотентен по dedup_key)."""
+        limit = me.ExperiencePolicy.review_batch_max()
+        cursor = await self._db.db.execute(
+            "SELECT id, chat_id, user_id, text, reply_to_id, is_forward, "
+            "media_type FROM smart_messages WHERE id > ? ORDER BY id "
+            "LIMIT ?", (int(payload.get(DETECTOR_CURSOR_KEY) or 0), limit))
+        rows = [dict(r) for r in await cursor.fetchall()]
+        scanned = detected = skipped = write_failures = 0
+        skip_reasons: dict[str, int] = {}
+        for row in rows:
+            scanned += 1
+            # Reply-target: ответ ДРУГОМУ участнику — спор, не коррекция бота.
+            reply_to_user_id = await self._reply_target_user_id(
+                row.get("chat_id"), row.get("reply_to_id"))
+            verdict = classify_chat_message(
+                text=row.get("text"), media_type=row.get("media_type"),
+                is_forward=bool(row.get("is_forward")),
+                reply_to_user_id=reply_to_user_id)
+            if verdict is None or "skip" in verdict:
+                reason = str((verdict or {}).get("skip")
+                             or DETECTOR_SKIP_LOW_CONFIDENCE)
+                skip_reasons[reason] = skip_reasons.get(reason, 0) + 1
+                skipped += 1
+                payload[DETECTOR_CURSOR_KEY] = int(row["id"])
+                continue
+            # U4: глобальная ось/per-chat override (мастер OFF глушит всех;
+            # stored override не читается на запись и не переписывается).
+            if not await learning_enabled_for_chat(row.get("chat_id")):
+                skip_reasons[DETECTOR_SKIP_CHAT_DISABLED] = \
+                    skip_reasons.get(DETECTOR_SKIP_CHAT_DISABLED, 0) + 1
+                skipped += 1
+                payload[DETECTOR_CURSOR_KEY] = int(row["id"])
+                continue
+            user_id = row.get("user_id")
+            if user_id is None:
+                # Импорт истории без автора — не self-report (fail-closed).
+                skip_reasons[DETECTOR_SKIP_LOW_CONFIDENCE] = \
+                    skip_reasons.get(DETECTOR_SKIP_LOW_CONFIDENCE, 0) + 1
+                skipped += 1
+                payload[DETECTOR_CURSOR_KEY] = int(row["id"])
+                continue
+            signal = self._detector_signal(row, verdict,
+                                           reply_to_user_id is not None
+                                           or row.get("reply_to_id") is not None)
+            source_kind = self._detector_source_kind(row.get("user_id"))
+            try:
+                feedback_id = await self._service.record_feedback(
+                    source_kind=source_kind, chat_id=row.get("chat_id"),
+                    ref_type="chat_message", ref_id=int(row["id"]),
+                    signal=signal)
+            except Exception:
+                # X1: сбой записи — курсор не двигается; retry следующим
+                # проходом, dedup_key даёт ровно один durable event.
+                write_failures += 1
+                logger.warning("[mca16] detector feedback write failed — "
+                               "retry next pass | message_id=%s", row["id"])
+                break
+            payload[DETECTOR_CURSOR_KEY] = int(row["id"])
+            if feedback_id:
+                detected += 1
+                _emit("detector_signal", outcome="success",
+                      reason_code=f"detector_{verdict.get('class')}",
+                      chat_id=row.get("chat_id"), entity_ids=[feedback_id])
+        if scanned:
+            _emit("detector_scan", outcome="success",
+                  reason_code="detector_scan", scanned=scanned,
+                  detected=detected, skipped=skipped,
+                  write_failures=write_failures,
+                  **{f"skip_{k}": v for k, v in sorted(skip_reasons.items())})
+        return {"scanned": scanned, "detected": detected,
+                "skipped": skipped, "write_failures": write_failures}
+
+    def _detector_signal(self, row: dict, verdict: dict,
+                         has_reply: bool) -> dict:
+        """Типизированный signal (R17: только коды/числа; БЕЗ текста)."""
+        signal: dict = {
+            "class": str(verdict.get("class") or ""),
+            "confidence": str(verdict.get("confidence") or "high"),
+            "user_id": int(row["user_id"]),
+            "author_user_id": int(row["user_id"]),
+            "msg": int(row["id"]),
+        }
+        if verdict.get("class") == DETECTOR_CLASS_PREFERENCE:
+            signal["preference"] = str(verdict.get("pref_token") or "")
+            signal["pref_key"] = str(verdict.get("pref_key") or "")
+            signal["pref_value"] = str(verdict.get("pref_value") or "")
+        if has_reply and row.get("reply_to_id") is not None:
+            signal["reply_to"] = int(row["reply_to_id"])
+        return signal
+
+    def _detector_source_kind(self, user_id) -> str:
+        """Кто говорит: владелец → owner_correction, участник → participant."""
+        try:
+            from config.settings import settings
+            if user_id is not None \
+                    and int(user_id) == int(settings.ADMIN_USER_ID):
+                return "owner_correction"
+        except Exception:
+            pass
+        return "participant_correction"
+
+    async def _reply_target_user_id(self, chat_id, reply_to_id):
+        """Автор сообщения-цели reply (или None: цель — бот/не найдена)."""
+        if reply_to_id is None:
+            return None
+        try:
+            cursor = await self._db.db.execute(
+                "SELECT user_id FROM smart_messages WHERE chat_id = ? AND "
+                "tg_message_id = ? ORDER BY id DESC LIMIT 1",
+                (chat_id, int(reply_to_id)))
+            row = await cursor.fetchone()
+            return int(row["user_id"]) if row is not None and row["user_id"] \
+                is not None else None
+        except (TypeError, ValueError):
+            return None
+
+    # ── шаг 1c: D05 resume (§18E.5; crash после create/verify) ────────────
+
+    async def _resume_incomplete(self) -> dict:
+        """Возобновить незавершённые durable-кандидаты (каждый проход).
+
+        Находит candidate/validated-версии (актуальная версия урока),
+        оставшиеся после сбоя между create → verify → activate, и доводит
+        их детерминированной повторной валидацией. Семантический отказ
+        (мало независимых эпизодов/нет provenance) ≠ transient technical
+        failure: строка остаётся candidate (не удаляется, не активируется);
+        повтор — bounded следующим проходом (эпизоды накапливаются →
+        eventual validation)."""
+        limit = me.ExperiencePolicy.review_batch_max()
+        cursor = await self._db.db.execute(
+            "SELECT l.lesson_id, l.version, l.type, l.scope, "
+            "l.scope_chat_id, l.scope_user_id, l.applicability, l.status, "
+            "l.source_ref_id FROM mca_lessons l WHERE l.version = "
+            "(SELECT MAX(x.version) FROM mca_lessons x WHERE "
+            "x.lesson_id = l.lesson_id) AND l.status IN "
+            "('candidate','validated') ORDER BY l.created_at, l.lesson_id "
+            "LIMIT ?", (limit,))
+        rows = [dict(r) for r in await cursor.fetchall()]
+        validated = activated = rejected = 0
+        pref_provenance: dict | None = None
+        for row in rows:
+            lesson_id = str(row["lesson_id"])
+            version = int(row["version"])
+            if str(row["status"]) == "validated":
+                # crash после verify — осталось только activation.
+                if await self._service.lesson.activate(lesson_id, version):
+                    activated += 1
+                continue
+            if str(row["type"]) == "social_preference" \
+                    and str(row["scope"]) == "user_in_chat":
+                if pref_provenance is None:
+                    pref_provenance = await self._load_preference_provenance()
+                evidence = await self._preference_evidence(row,
+                                                           pref_provenance)
+            else:
+                episode_ids = await self._lesson_episode_evidence(row)
+                independent = tuple(dict.fromkeys(
+                    str(x) for x in episode_ids if x))
+                if len(independent) < me.ExperiencePolicy \
+                        .min_independent_episodes():
+                    rejected += 1             # semantic rejection: остаётся
+                    continue
+                evidence = me.ValidationEvidence(
+                    kind="generalization", independent_episode_ids=independent)
+            if evidence is None:
+                rejected += 1                 # semantic rejection: остаётся
+                continue
+            if await self._service.lesson.validate(lesson_id, version,
+                                                   evidence=evidence):
+                validated += 1
+                if await self._service.lesson.activate(lesson_id, version):
+                    activated += 1
+            else:
+                rejected += 1                 # semantic rejection: остаётся
+        return {"validated": validated, "activated": activated,
+                "rejected": rejected}
+
+    async def _load_preference_provenance(self) -> dict:
+        """Provenance preference-кандидатов из durable feedback (X4).
+
+        Возврат: {(scope_user_id, pref_token): {"author_user_id", "chat_id",
+        "msg"}} из active correction-feedback с preference-сигналом."""
+        limit = 500
+        cursor = await self._db.db.execute(
+            "SELECT chat_id, signal_json FROM mca_experience_feedback "
+            "WHERE status = 'active' AND source_kind IN "
+            "('owner_correction','participant_correction') AND signal_json "
+            "IS NOT NULL ORDER BY rowid DESC LIMIT ?", (limit,))
+        provenance: dict = {}
+        for row in await cursor.fetchall():
+            row = dict(row)
+            signal = _parse_json_dict(row.get("signal_json"))
+            token = str(signal.get("preference") or "")
+            try:
+                user_id = int(signal.get("user_id"))
+            except (TypeError, ValueError):
+                continue
+            token = normalize_pref_token(token)
+            if not token:
+                continue
+            entry = {
+                "author_user_id": signal.get("author_user_id", user_id),
+                "chat_id": row.get("chat_id"),
+                "msg": signal.get("msg"),
+            }
+            provenance.setdefault((user_id, token), entry)
+        return provenance
+
+    async def _preference_evidence(self, lesson: dict, provenance: dict):
+        """ValidationEvidence для preference-кандидата (fail-closed)."""
+        parsed = parse_pref_applicability(lesson.get("applicability"))
+        if parsed is None:
+            return None
+        user_id, token = parsed
+        entry = provenance.get((int(user_id), token))
+        if entry is None:
+            return None                       # нет durable provenance
+        from services import mca_experience as _me
+        if not _me.authorize_preference(
+                subject_user_id=user_id,
+                author_user_id=entry.get("author_user_id")):
+            return None                       # fail-closed (mca-08-модель)
+        conflict_free = not await self._has_verified_contradiction(lesson)
+        return _me.ValidationEvidence(
+            kind="explicit_preference", permission_granted=True,
+            conflict_free=conflict_free)
+
+    async def _lesson_episode_evidence(self, lesson: dict) -> list[str]:
+        """Независимые эпизоды-основания урока (mca-04a derived_from)."""
+        ref_id = lesson.get("source_ref_id")
+        if ref_id is None:
+            return []
+        try:
+            cursor = await self._db.db.execute(
+                "SELECT r.entity_id AS episode_id FROM mca_evidence_links l "
+                "JOIN mca_source_refs r ON r.source_ref_id = l.source_ref_id "
+                "WHERE l.subject_ref_id = ? AND r.entity_type = 'episode'",
+                (int(ref_id),))
+            return [str(r["episode_id"]) for r in await cursor.fetchall()]
+        except Exception:
+            return []
 
     # ── шаг 2: propose (детерминированные канонические правила) ──────────
 
@@ -605,7 +1141,8 @@ class ExperienceReviewRunner:
                 continue
             if await self._lesson_exists(type=PROPOSAL_RULE_TOOL_FAILURES[0],
                                          scope="chat", scope_chat_id=chat_id,
-                                         rule_key=PROPOSAL_RULE_TOOL_FAILURES[1]):
+                                         rule_key=PROPOSAL_RULE_TOOL_FAILURES[1],
+                                         applicability=f"tool:{tool}"):
                 skipped += 1
                 continue
             created = await self._service.lesson.propose(
@@ -656,17 +1193,27 @@ class ExperienceReviewRunner:
             })
 
         # P3: типизированное явное предпочтение участника (self-report):
-        # signal_json {"preference": <token>, "user_id": <int>[, "author_user_id"]}.
+        # signal_json {"preference": <token>, "user_id": <int>[, "author_user_id",
+        # "msg", "pref_key", "pref_value"]}. X3: applicability несёт
+        # НОРМАЛИЗОВАННУЮ конкретную форму `pref:<key>.<value>`; повтор той же
+        # формы — идемпотентный skip; явная замена (тот же ключ, другое
+        # значение) → supersede предыдущей версии (старая не инжектируется).
+        # Анти-ping-pong: сигналы обходятся в порядке rowid DESC (новейший
+        # первый); НОВЕЙШИЙ сигнал ключа выигрывает, старые конфликтующие —
+        # deliberate skip (исторический сигнал не откатывает позднюю замену).
         cursor = await self._db.db.execute(
-            "SELECT feedback_id, chat_id, source_kind, signal_json "
+            "SELECT feedback_id, chat_id, source_kind, signal_json, ts "
             "FROM mca_experience_feedback WHERE status = 'active' "
             "AND source_kind IN ('owner_correction','participant_correction') "
             "AND signal_json IS NOT NULL "
             "ORDER BY rowid DESC LIMIT ?", (limit,))
+        seen_pref: dict[tuple[int, int, str], str] = {}
+        superseded_signals = 0
         for row in await cursor.fetchall():
             row = dict(row)
             signal = _parse_json_dict(row.get("signal_json"))
-            if not signal.get("preference"):
+            pref_token = normalize_pref_token(signal.get("preference"))
+            if not pref_token:
                 continue
             try:
                 user_id = int(signal.get("user_id"))
@@ -679,43 +1226,145 @@ class ExperienceReviewRunner:
             chat_id = row.get("chat_id")
             if chat_id is None:
                 continue
+            applicability = pref_applicability(user_id, pref_token)
+            pref_key = str(pref_token).split(".")[0]
+            winner = seen_pref.get((int(chat_id), user_id, pref_key))
+            if winner is not None:
+                # старый сигнал того же ключа: решение уже принято новейшим
+                superseded_signals += 1
+                continue
+            seen_pref[(int(chat_id), user_id, pref_key)] = applicability
             if await self._lesson_exists(type=PROPOSAL_RULE_PREFERENCE[0],
                                          scope="user_in_chat",
                                          scope_chat_id=int(chat_id),
                                          rule_key=PROPOSAL_RULE_PREFERENCE[1],
-                                         scope_user_id=user_id):
-                skipped += 1
+                                         scope_user_id=user_id,
+                                         applicability=applicability):
+                skipped += 1                   # идемпотентный повтор события
                 continue
-            created = await self._service.lesson.propose(
-                type=PROPOSAL_RULE_PREFERENCE[0], scope="user_in_chat",
-                rule_key=PROPOSAL_RULE_PREFERENCE[1],
-                scope_chat_id=int(chat_id), scope_user_id=user_id,
-                applicability=f"user:{user_id}")
+            created = await self._propose_preference(
+                chat_id=int(chat_id), user_id=user_id,
+                applicability=applicability, pref_token=pref_token,
+                signal_ts=int(row.get("ts") or 0))
             if created is None:
                 continue
-            candidates.append({
-                "lesson_id": created[0], "version": created[1],
+            lesson_id, version = created
+            candidate = {
+                "lesson_id": lesson_id, "version": version,
                 "kind": "explicit_preference",
                 "episode_ids": (),
-            })
+                "pref_msg": signal.get("msg"),
+                "pref_chat_id": chat_id,
+            }
+            candidates.append(candidate)
+            await self._link_message_provenance(candidate)
 
         return {"candidates": candidates, "proposed": len(candidates),
-                "skipped": skipped}
+                "skipped": skipped,
+                "preference_superseded_signals": superseded_signals}
+
+    async def _propose_preference(self, *, chat_id: int, user_id: int,
+                                  applicability: str, pref_token: str,
+                                  signal_ts: int = 0) -> tuple[str, int] | None:
+        """Preference-кандидат: fresh propose ИЛИ supersede при явной замене.
+
+        X3: открытый урок с тем же pref-ключом и ДРУГИМ значением — явная
+        замена → `revise` создаёт новую версию (supersedes предыдущую; старая
+        больше не active и не инжектируется). Заменяет только сигнал НОВЕЕ
+        открытого урока: исторический сигнал не откатывает позднюю явную
+        замену (анти-ping-pong). Тот же ключ+значение уже отсечены
+        `_lesson_exists` (идемпотентность)."""
+        parsed = parse_pref_applicability(applicability)
+        key = (str(pref_token).split(".")[0]
+               if parsed is not None else None)
+        if key:
+            existing = await self._open_preference_lesson(
+                chat_id=chat_id, user_id=user_id, pref_key=key)
+            if existing is not None:
+                if int(existing.get("created_at") or 0) > int(signal_ts or 0):
+                    return None            # устаревший сигнал: не откатывает
+                if str(existing.get("applicability")) != applicability:
+                    return await self._service.lesson.revise(
+                        str(existing["lesson_id"]),
+                        applicability=applicability)
+        return await self._service.lesson.propose(
+            type=PROPOSAL_RULE_PREFERENCE[0], scope="user_in_chat",
+            rule_key=PROPOSAL_RULE_PREFERENCE[1],
+            scope_chat_id=chat_id, scope_user_id=user_id,
+            applicability=applicability)
+
+    async def _open_preference_lesson(self, *, chat_id: int, user_id: int,
+                                      pref_key: str) -> dict | None:
+        """Открытый (не superseded) preference-урок того же pref-ключа."""
+        try:
+            cursor = await self._db.db.execute(
+                "SELECT lesson_id, version, applicability, status, "
+                "created_at FROM mca_lessons WHERE status != 'superseded' "
+                "AND type = ? AND scope = 'user_in_chat' AND "
+                "scope_chat_id = ? AND scope_user_id = ? AND applicability "
+                "LIKE ? ORDER BY version DESC LIMIT 1",
+                (PROPOSAL_RULE_PREFERENCE[0], int(chat_id), int(user_id),
+                 f"user:{int(user_id)} pref:{pref_key}.%"))
+            row = await cursor.fetchone()
+            return dict(row) if row is not None else None
+        except Exception:
+            return None                        # fail-closed: предложим fresh
+
+    async def _link_message_provenance(self, candidate: dict) -> None:
+        """X3 provenance: источник сообщения чата → evidence link урока."""
+        msg_id = candidate.get("pref_msg")
+        chat_id = candidate.get("pref_chat_id")
+        if msg_id is None or chat_id is None:
+            return
+        try:
+            from services.provenance import (EvidenceLink, SourceRef,
+                                             add_evidence_link,
+                                             resolve_source_ref)
+            lesson = await self._service.get_lesson(
+                str(candidate["lesson_id"]), int(candidate["version"]))
+            if lesson is None or lesson.get("source_ref_id") is None:
+                return
+            src = SourceRef(store="sqlite", entity_type="message",
+                            entity_id=str(int(msg_id)), chat_id=int(chat_id),
+                            resolution="resolved")
+            src_id = await resolve_source_ref(self._db, src)
+            if src_id is None:
+                return
+            await add_evidence_link(self._db, EvidenceLink(
+                subject_ref_id=int(lesson["source_ref_id"]),
+                source_ref_id=int(src_id), link_type="derived_from",
+                method="direct_reference", verification="verified",
+                independence="independent", extractor_version="mca-16/d05",
+                basis="detector source message (id only)"))
+        except Exception:
+            logger.warning("[mca16] message provenance link failed",
+                           exc_info=True)
 
     async def _lesson_exists(self, *, type: str, scope: str, rule_key: str,
-                             scope_chat_id=None, scope_user_id=None) -> bool:
-        """Открытый (не superseded) урок с тем же каноном/scope существует?"""
+                             scope_chat_id=None, scope_user_id=None,
+                             applicability=None) -> bool:
+        """Открытый (не superseded) урок с тем же каноном/scope существует?
+
+        X2 (§18E.3): identity включает subject (`applicability`, напр.
+        `tool:A` / `user:N pref:…`) — урок для tool A не глушит эквивалентный
+        для tool B; повтор того же события (тот же subject) → skip
+        (идемпотентность)."""
         canonical = me.CANONICAL_RECOMMENDATIONS.get((type, rule_key))
         if canonical is None:
             return True
+        # Схема хранит applicability как "" (не NULL); None → "" (P2-уроки
+        # без subject), чтобы NULL-паттерн не прятал существующий урок.
+        applicability = "" if applicability is None else str(applicability)
         try:
             cursor = await self._db.db.execute(
                 "SELECT COUNT(*) AS c FROM mca_lessons WHERE status != "
                 "'superseded' AND type = ? AND scope = ? AND recommendation = ? "
                 "AND (scope_chat_id IS ? OR scope_chat_id = ?) "
-                "AND (scope_user_id IS ? OR scope_user_id = ?)",
+                "AND (scope_user_id IS ? OR scope_user_id = ?) "
+                "AND ((applicability IS NULL AND ? = '') OR applicability = ?)",
                 (str(type), str(scope), canonical, scope_chat_id,
-                 scope_chat_id, scope_user_id, scope_user_id))
+                 scope_chat_id, scope_user_id, scope_user_id,
+                 applicability, applicability))
             row = await cursor.fetchone()
             return bool(row is not None and int(row["c"]) > 0)
         except Exception:
@@ -789,24 +1438,41 @@ class ExperienceReviewRunner:
 
     # ── шаг 5: outcome-link + шаг 6: utility-update ──────────────────────
 
-    async def _link_outcomes(self) -> int:
+    async def _link_outcomes(self, payload: dict) -> dict:
         """Исход → реально применённый урок (идемпотентно, позже применения).
 
         Только независимые типизированные события (technical/explicit) с
         `reliability=verified` и `created_at >= applied_at`; unknown/social/
-        LLM не улучшают success/failure. «Применение ≠ причинность»."""
+        LLM не улучшают success/failure. «Применение ≠ причинность».
+        X5 (§18E.6): fair scanning — вращающийся durable курсор
+        `link_scan_application_id` не даёт старым permanently-unmatchable
+        строкам блокировать новые matchable; строки без chat/trace исключены
+        из скана как deliberate skip (остаются unknown: не авто-success,
+        не удаление); окно < limit → курсор возвращается в начало (wrap)."""
         limit = me.ExperiencePolicy.review_batch_max()
+        scan_after = int(payload.get("link_scan_application_id") or 0)
         cursor = await self._db.db.execute(
             "SELECT application_id, lesson_id, lesson_version, "
             "application_ref, trace_id, chat_id, applied_at "
             "FROM mca_lesson_applications WHERE outcome = 'unknown' "
-            "AND linked_at IS NULL ORDER BY application_id LIMIT ?", (limit,))
+            "AND linked_at IS NULL AND chat_id IS NOT NULL "
+            "AND trace_id IS NOT NULL AND application_id > ? "
+            "ORDER BY application_id LIMIT ?", (scan_after, limit))
+        rows = [dict(r) for r in await cursor.fetchall()]
+        try:
+            unmatchable_cursor = await self._db.db.execute(
+                "SELECT COUNT(*) AS c FROM mca_lesson_applications WHERE "
+                "outcome = 'unknown' AND linked_at IS NULL AND "
+                "(chat_id IS NULL OR trace_id IS NULL)")
+            unmatchable = int((await unmatchable_cursor.fetchone())["c"])
+        except Exception:
+            unmatchable = 0
         linked = 0
-        for row in await cursor.fetchall():
-            row = dict(row)
+        for row in rows:
+            payload["link_scan_application_id"] = int(row["application_id"])
             chat_id, trace_id = row.get("chat_id"), row.get("trace_id")
             if chat_id is None or not trace_id:
-                continue
+                continue                       # исключено SQL; защита
             try:
                 episodes = await self._service.store.find_episodes_by_ref(
                     chat_id, trace_id=str(trace_id), limit=5)
@@ -836,7 +1502,11 @@ class ExperienceReviewRunner:
                 if ok:
                     linked += 1
                 break
-        return linked
+        if len(rows) < limit:
+            # Wrap: следующий проход снова с начала (проверенные строки
+            # покинули окно по linked_at; unknown остаётся unknown).
+            payload["link_scan_application_id"] = 0
+        return {"linked": linked, "unmatchable": unmatchable}
 
     # ── шаг 7: recheck (совместимость; без выдуманного успеха) ───────────
 
