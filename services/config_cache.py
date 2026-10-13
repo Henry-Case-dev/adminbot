@@ -49,6 +49,42 @@ _INFO_KEY = "content.info_how_it_works"
 # только санкционированной правкой (R17: plaintext не существует).
 _SYNTHETIC_SECRET_GROUPS = frozenset({"keys_random"})
 
+# D08 (asap8-v6, Wave A1): честные дефолты PG-only bool-ключей каталога
+# (settings_field/env_name = None) для синтетики get_all(). Значения —
+# ЗЕРКАЛО рантайм-резолверов, не выдумка:
+#   * flags.direct_l1_* — services/direct_l1.py (direct_l1_enabled /
+#     l1_fallback_enabled: hot.get(key, True));
+#   * flags.summary_* — env ClassVar контуров Summary (config/settings.py)
+#     через getattr-резолвы summary_generator/summary_l1_clusterizer;
+#   * flags.chat_silent_ack_enabled — env DIRECT_SILENT_ACK_ENABLED
+#     (direct_chat_service.silent_ack_enabled);
+#   * memory.random_enabled — module_registry.PRODUCT_DEFAULTS (F5 §5.3);
+#   * memory.random_uses_* — fail-open True (MCA-10b, worker_settings).
+# Контракт-тест (tests/test_asap8_v6_wa1_config_cache.py) требует покрытия
+# ВСЕХ PG-only bool каталога: новый ключ без записи здесь = RED (осознанное
+# решение о дефолте, не молчаливый null в UI).
+_PG_ONLY_BOOL_DEFAULTS: dict[str, bool] = {
+    "flags.direct_l1_enabled": True,
+    "flags.direct_l1_fallback_enabled": True,
+    "flags.summary_hybrid_l2_enabled": bool(getattr(
+        settings, "SUMMARY_HYBRID_L2_ENABLED", True)),
+    "flags.summary_hybrid_l1_repair_enabled": bool(getattr(
+        settings, "SUMMARY_L1_REPAIR_ENABLED", True)),
+    "flags.summary_hybrid_l1_retry_enabled": bool(getattr(
+        settings, "SUMMARY_L1_RETRY_ENABLED", True)),
+    "flags.summary_legacy_fallback_enabled": bool(getattr(
+        settings, "SUMMARY_LEGACY_FALLBACK_ENABLED", True)),
+    "flags.chat_silent_ack_enabled": bool(getattr(
+        settings, "DIRECT_SILENT_ACK_ENABLED", True)),
+    "memory.random_enabled": True,
+    "memory.random_uses_archive_sample": True,
+    "memory.random_uses_association_pair": True,
+    "memory.random_uses_belief_review": True,
+    "memory.random_uses_conversation_variant": True,
+    "memory.random_uses_memory_recall": True,
+    "memory.random_uses_ui_visualization": True,
+}
+
 
 def _read_guide_canon() -> str:
     """F9 10.23 (ADR-1023-9): чтение код-канона гайда из seed-файла
@@ -487,39 +523,104 @@ class ConfigCache:
         переживает рестарт by construction). Иначе карточка «Случайность:
         подключение ANU» неоткуда рендерится: сид ключей категории keys
         строки не создаёт (pg_db._seed_settings), а items строятся только
-        из bot_settings (RCA G5/14A.0)."""
+        из bot_settings (RCA G5/14A.0).
+
+        D08 (asap8-v6, Wave A1): синтетика обобщена на ВСЕ PG-only ключи
+        каталога (ParamSpec без Settings-поля, не hidden). Root cause D08:
+        PG-only master `memory.random_enabled` отсутствовал в /api/config
+        до первой записи → карточка Random получала null → тумблер модуля
+        упирался в «Параметр недоступен» (app.js). Честные дефолты по
+        классам и флаг источника (default vs persistent) — в
+        `_synthetic_group_items`. Синхронное `get()` читает только
+        bot_settings: рантайм-резолверы (hot_config) синтетикой не
+        затрагиваются."""
         snapshot = dict(self._settings)
         snapshot.update(self._synthetic_group_items())
         return snapshot
 
     def _synthetic_group_items(self) -> dict:
-        """D13/T-5262: catalog-only items незаданных ключей санкциониро-
-        ванных secret-групп. Секреты → "" (маска configured=false), не-
-        секреты → дефолт Settings (без выдуманных значений). Никаких
-        фиктивных секретов/строк БД; незатронутые группы — прежнее
-        поведение."""
+        """D13/T-5262 + D08 (asap8-v6): catalog-only items незаданных
+        ключей каталога (строки БД НЕ создаёт — деривация на чтении).
+
+        Приоритет и классы:
+          1) Persistent выигрывает: ключ из bot_settings не синтезируется.
+          2) Санкционированные secret-группы (`keys_random`) — прежнее
+             поведение D13: секрет → "" (маска configured=false),
+             не-секрет с Settings-полем → дефолт Settings.
+          3) D08: PG-only ключи (settings_field/env_name = None, не
+             hidden) — иначе карточки/тумблеры до первой записи отсутствуют
+             в /api/config («Параметр недоступен»). Честный дефолт:
+             - code_source → код-канон (прецедент pg_db._seed_settings;
+               не резолвится → item не синтезируем);
+             - секрет → "" (ANU-прецедент: configured=false placeholder);
+             - bool → module_registry.PRODUCT_DEFAULTS, затем
+               _PG_ONLY_BOOL_DEFAULTS (зеркало рантайм-резолверов);
+               не покрытый таблицей bool НЕ синтезируется (не выдумываем);
+             - str → "" («пусто = наследуется/по умолчанию» — семантика
+               спецификации слотов);
+             - int/float/json → None («не задано владельцем»; effective
+               env-дефолт продолжает жить в рантайме).
+        Честный флаг источника: синтетический item → get_updated_at(key)
+        = None (default); после первой записи — persistent (строка БД)."""
         out: dict = {}
         try:
             from services.param_catalog import REGISTRY
-            from services.pg_db import coerce_catalog_value
+            from services.pg_db import (coerce_catalog_value,
+                                        resolve_code_source)
         except Exception:      # pragma: no cover - fail-open (старое поведение)
             return out
         for spec in REGISTRY.values():
-            if spec.group not in _SYNTHETIC_SECRET_GROUPS:
+            if spec.category is None or spec.hidden:
                 continue
             key = spec.pg_key
             if not key or key in self._settings:
                 continue
-            if spec.secret:
-                out[key] = ""
-                continue
-            try:
-                if spec.settings_field is None:
+            if spec.settings_field is not None:
+                # Не PG-only: прежнее поведение D13 — синтетика только для
+                # санкционированных secret-групп (keys_random).
+                if spec.group not in _SYNTHETIC_SECRET_GROUPS:
                     continue
-                out[key] = coerce_catalog_value(
-                    spec, getattr(settings, spec.settings_field))
-            except Exception:      # нет Settings-поля → item не синтезируем
+                if spec.secret:
+                    out[key] = ""
+                    continue
+                try:
+                    out[key] = coerce_catalog_value(
+                        spec, getattr(settings, spec.settings_field))
+                except Exception:  # нет Settings-поля → item не синтезируем
+                    continue
                 continue
+            if spec.env_name is not None:
+                continue           # env-only (в каталоге сейчас нет)
+            # ── D08: PG-only ключи (settings_field/env_name = None) ────────
+            if spec.code_source is not None:
+                try:
+                    out[key] = resolve_code_source(spec.code_source)
+                except Exception:  # как в сиде: не резолвится → пропускаем
+                    logger.warning(
+                        "[config_cache] PG-only code_source не резолвится "
+                        "(item не синтезирован) | key=%s | source=%s",
+                        key, spec.code_source, exc_info=True)
+                continue
+            if spec.secret:
+                out[key] = ""      # ANU-прецедент: configured=false
+                continue
+            if spec.type == "bool":
+                default: object | None = None
+                try:
+                    from services.module_registry import PRODUCT_DEFAULTS
+                    if key in PRODUCT_DEFAULTS:
+                        default = bool(PRODUCT_DEFAULTS[key])
+                except Exception:  # pragma: no cover — fail-open
+                    default = None
+                if default is None:
+                    default = _PG_ONLY_BOOL_DEFAULTS.get(key)
+                if default is not None:
+                    out[key] = default
+                continue
+            if spec.type == "str":
+                out[key] = ""      # «пусто = наследуется/по умолчанию»
+                continue
+            out[key] = None        # int/float/json: «не задано владельцем»
         return out
 
     def get_role(self, telegram_id: int) -> str | None:

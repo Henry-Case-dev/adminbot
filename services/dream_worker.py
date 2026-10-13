@@ -402,6 +402,26 @@ def _local_hour(now_ts: int, tz_name: str | None = None) -> int:
     return datetime.datetime.fromtimestamp(now_ts, zone).hour
 
 
+def _hour_or(raw, default: int) -> int:
+    """D09-S (18F.2, asap8-v6): час суток из hot-ключа БЕЗ подмены нуля.
+
+    Прежний паттерн `int(x or 7)` подменял ВАЛИДНЫЙ числовой 0 (00:00)
+    дефолтом: Deep Sleep, настроенный на полночь, молча переезжал на 07:00,
+    а окно сна со start=00:00 — на 04:00. Семантика — как у `_hot_number`
+    (S10.13-7): None/пропуск/пустая строка/мусор → default, числовой 0
+    (и "0") → 0."""
+    if raw is None:
+        return int(default)
+    if isinstance(raw, str):
+        raw = raw.strip()
+        if not raw:
+            return int(default)
+    try:
+        return int(raw)
+    except (TypeError, ValueError):
+        return int(default)
+
+
 def greedy_cluster_facts(rows: list, *, overlap_tokens: int = 2,
                          extra_terms=()) -> list[list]:
     """Жадная кластеризация БЕЗ LLM (spec §3.4.3/D-4): факты по id ASC;
@@ -1077,12 +1097,16 @@ class DreamWorker:
     async def _window_open_for(self, chat_id: int, now_ts: int) -> bool:
         """Local-час в окне [start, end) дистилляций (D-5; дефолт 4–6).
         F7: границы окна резолвятся по чату."""
-        start = int(await self._key_for(
-            chat_id, "window_start_hour",
-            settings.DREAM_WINDOW_START_HOUR) or 4)
-        end = int(await self._key_for(
-            chat_id, "window_end_hour",
-            settings.DREAM_WINDOW_END_HOUR) or 6)
+        start = _hour_or(
+            await self._key_for(
+                chat_id, "window_start_hour",
+                settings.DREAM_WINDOW_START_HOUR),
+            settings.DREAM_WINDOW_START_HOUR)
+        end = _hour_or(
+            await self._key_for(
+                chat_id, "window_end_hour",
+                settings.DREAM_WINDOW_END_HOUR),
+            settings.DREAM_WINDOW_END_HOUR)
         hour = _local_hour(now_ts, self._tz_name)
         return start <= hour < end
 
@@ -1677,9 +1701,13 @@ class DreamWorker:
                     default=settings.DEEP_SLEEP_TRIGGER) or "after_sleep")
                 if trigger != "fixed":
                     continue
-                target = int(await resolve_setting_cached(
-                    "memory.deep_sleep_hour", chat_id=cid,
-                    default=settings.DEEP_SLEEP_HOUR) or 7)
+                # D09-S (18F.2): None/missing → env-дефолт, валидный 0
+                # (00:00) → 0. Прежний `or 7` игнорировал даже env-дефолт.
+                target = _hour_or(
+                    await resolve_setting_cached(
+                        "memory.deep_sleep_hour", chat_id=cid,
+                        default=settings.DEEP_SLEEP_HOUR),
+                    settings.DEEP_SLEEP_HOUR)
             except Exception:
                 continue
             if hour == target:
