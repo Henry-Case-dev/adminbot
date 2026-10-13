@@ -70,19 +70,22 @@ const methods = captured.methods;
     'a: есть кнопка «Проверить стиль»');
 }
 
-// (b) `.more-sheet` closed = unmount
+// (b) D13 (§18I.14): bottom-nav/шторка «Ещё» УДАЛЕНЫ полностью — ни
+// разметки, ни CSS-правил, ни состояния moreOpen (unmount стал полным
+// удалением).
 {
-  const idx = INDEX.indexOf('class="more-sheet" data-glass="shell"');
-  assert.ok(idx > 0, 'b: .more-sheet найден');
-  const window = INDEX.slice(Math.max(0, idx - 220), idx);
-  assert.ok(window.indexOf('moreOpen') >= 0,
-    'b: v-if содержит moreOpen (unmount)');
-  assert.ok(INDEX.indexOf(':class="{ open: moreOpen }"') < 0,
-    'b: старый dormant-overlay паттерн удалён');
-  assert.ok(INDEX.indexOf('<transition name="more-sheet">') >= 0,
-    'b: transition для анимации');
-  assert.ok(CSS.indexOf('.more-sheet-enter-from') >= 0, 'b: enter-from CSS');
-  assert.ok(CSS.indexOf('.more-sheet-leave-to') >= 0, 'b: leave-to CSS');
+  assert.ok(INDEX.indexOf('class="more-sheet"') < 0,
+    'b: .more-sheet отсутствует в разметке (D13)');
+  assert.ok(INDEX.indexOf('moreOpen') < 0,
+    'b: состояние moreOpen удалено (D13)');
+  assert.ok(INDEX.indexOf('class="bottom-nav"') < 0,
+    'b: bottom-nav отсутствует (D13)');
+  assert.ok(!/\.more-sheet[\s{,:-]/.test(CSS)
+    && !/\.bottom-nav[\s{,:-]/.test(CSS),
+    'b: CSS-правила more-sheet/bottom-nav удалены (D13)');
+  // Мобильная навигация — компактная верхняя строка.
+  assert.ok(INDEX.indexOf('class="mobile-topnav scroll-thin"') >= 0,
+    'b: мобильная верхняя навигация присутствует (D13 §18I.14)');
 }
 
 // (c) Quick Access удалена

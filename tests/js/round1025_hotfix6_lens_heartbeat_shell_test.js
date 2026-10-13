@@ -89,12 +89,15 @@ function firstPartyWeb() {
   // HOTFIX8 (ADR-1025-16 D2): панели выведены из цветной allow-линзы A →
   // нейтральный `data-glass="shell"` (без teal/blue/violet ореола). Уровень A
   // остаётся у контентных карточек (allow-list непуст).
+  // D13 (§18I.14): bottom-nav/more-sheet удалены — shell-панели: sidebar/
+  // drawer + шапка; мобильная навигация — верхняя (mobile-topnav в шапке).
   for (const sel of ['class="app-sidebar" data-glass="shell"',
-                     'class="app-drawer" :class',
-                     'class="bottom-nav" data-glass="shell"',
-                     'class="more-sheet" data-glass="shell"']) {
+                     'class="app-drawer" :class']) {
     assert.ok(INDEX.indexOf(sel) >= 0, 'A2: панель в shell-слое: ' + sel);
   }
+  assert.ok(INDEX.indexOf('class="bottom-nav"') < 0
+    && INDEX.indexOf('class="more-sheet"') < 0,
+    'A2/D13: нижняя навигация и шторка удалены');
   assert.ok(/header class="main-header header-sticky[^>]*\n[^>]*data-glass="shell"/.test(INDEX),
     'A2: шапка в shell-слое');
   assert.ok(INDEX.indexOf('data-glass="a"') >= 0,

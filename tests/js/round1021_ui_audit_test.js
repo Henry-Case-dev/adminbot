@@ -217,7 +217,8 @@ const CSS = fs.readFileSync(
     'градиент: reduced-motion глушит body::before');
 }
 
-// ── 5. Sticky (M-1): панель прижата к низу, не «висит» на 88px ──────────────
+// ── 5. Sticky (M-1 + D13 §18I.13): панель прижата к низу, compact pill,
+// clean state → панели нет (spacer удалён). ─────────────────────────────────
 {
   const m = CSS.match(/\.scroll-area:has\(> \.sticky-save\)\s*\{([^}]*)\}/);
   assert.ok(m, 'sticky: правило .scroll-area:has(> .sticky-save)');
@@ -226,12 +227,21 @@ const CSS = fs.readFileSync(
   const pb = m[1].match(/(?:^|[;\s])padding-bottom\s*:\s*([^;]+)/);
   assert.ok(!pb || /^0(px)?$/.test(pb[1].trim()),
     'sticky(M-1): padding-bottom контейнера = 0 (панель прижата к низу)');
-  assert.ok(/\.sticky-spacer\s*\{[^}]*height:\s*var\(--sticky-save-h\)/.test(CSS),
-    'sticky: .sticky-spacer резервирует место над панелью');
-  assert.ok(/class="sticky-spacer[^"]*"[^>]*><\/div>\s*<sticky-save/.test(INDEX),
-    'sticky: спейсер стоит непосредственно перед <sticky-save>');
+  // D13: spacer удалён; панель монтируется только при dirty (v-if в шаблоне).
+  assert.ok(!/\.sticky-spacer\s*\{/.test(CSS),
+    'D13: .sticky-spacer CSS удалён');
+  assert.ok(INDEX.indexOf('sticky-spacer') < 0,
+    'D13: sticky-spacer элементы удалены из разметки');
   assert.strictEqual((INDEX.match(/<sticky-save/g) || []).length >= 2, true,
     'sticky: панель есть во всех ветках сохранения (config/modules/access)');
+  const compIdx = APP_JS.indexOf("app.component('sticky-save'");
+  const compSeg = APP_JS.slice(compIdx, compIdx + 4000);
+  assert.ok(compSeg.indexOf('v-if="visible"') >= 0,
+    'D13: sticky-save рендерится только при dirty/saving/failed');
+  const pill = CSS.match(/\.sticky-save\s*\{([^}]*)\}/);
+  assert.ok(pill && /fit-content/.test(pill[1])
+    && /margin-left:\s*auto/.test(pill[1]),
+    'D13: .sticky-save компактный (не full-width footer)');
   const fb = CSS.match(/@supports not \(selector\(:has\(\*\)\)\)\s*\{([^}]*)\}/);
   assert.ok(fb, 'sticky: фолбэк @supports not (:has())');
   assert.ok(!/(?:^|[;\s{])padding-bottom\s*:/.test(fb[1]),

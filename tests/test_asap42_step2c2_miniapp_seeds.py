@@ -523,19 +523,23 @@ class TestModulesQuickAccess:
 
 class TestMoreSheetClosedContract:
     def test_more_sheet_is_unmounted_when_closed(self):
+        # re-pin ASAP 8 v6 D13 (§18I.14): шторка «Ещё» и bottom-nav удалены
+        # владельцем ПОЛНОСТЬЮ (не unmount-при-closed, а отсутствие в DOM/CSS);
+        # мобильная навигация — компактная верхняя строка (mobile-topnav).
         html = _html()
-        idx = html.index('class="more-sheet" data-glass="shell"')
-        # ближайший v-if перед тегом содержит moreOpen (unmount, не overlay)
-        window = html[max(0, idx - 220):idx]
-        assert "moreOpen" in window, \
-            "closed .more-sheet должен отсутствовать в DOM (v-if moreOpen)"
-        assert "<transition name=\"more-sheet\">" in html
-        # старый «всегда смонтирован» паттерн удалён
-        assert ':class="{ open: moreOpen }"' not in html
-        # transition-классы в CSS (анимация без dormant-overlay)
+        assert 'class="more-sheet"' not in html, \
+            "D13: .more-sheet удалён из разметки"
+        assert "moreOpen" not in html, \
+            "D13: состояние moreOpen удалено"
+        assert 'class="bottom-nav"' not in html, \
+            "D13: bottom-nav удалён из разметки"
         css = _css()
-        assert ".more-sheet-enter-from" in css
-        assert ".more-sheet-leave-to" in css
+        assert ".more-sheet-enter-from" not in css, \
+            "D13: transition-CSS удалён вместе с элементом"
+        assert ".more-sheet-leave-to" not in css, \
+            "D13: transition-CSS удалён вместе с элементом"
+        assert 'class="mobile-topnav scroll-thin"' in html, \
+            "D13 §18I.14: компактная верхняя навигация присутствует"
 
 
 class TestStyleCardsCompact:

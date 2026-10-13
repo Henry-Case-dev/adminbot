@@ -126,7 +126,11 @@ class TestD5SaveBarVisual:
 
     def test_last_field(self):
         assert "scroll-padding-bottom" in CSS
-        assert ".sticky-spacer" in CSS
+        # re-pin ASAP 8 v6 D13 (§18I.13): reserved spacer удалён — панель
+        # монтируется только при dirty и места в clean state не занимает;
+        # scroll-margin полей сохранён (последнее поле нажимаемо).
+        assert ".sticky-spacer" not in CSS, \
+            "D13: .sticky-spacer CSS удалён"
         assert "scroll-margin-bottom" in CSS
 
     def test_savebar_outside_modal_body(self):

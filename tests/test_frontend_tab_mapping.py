@@ -344,13 +344,18 @@ class TestJsMirror:
         assert self.JS.count("mod_") >= 11
 
     def test_ia_v2_shell_markers(self):
-        """F1 (T-2393, SUPERSEDE menu-freeze 10.20/10.21): введён раздельный
-        app shell (ADR-1025-1 D6) — sidebar ≥1200, drawer 768–1199,
-        bottom-nav <768. Legacy dead-menu токены по-прежнему запрещены."""
+        """F1 (T-2393, SUPERSEDE menu-freeze 10.20/10.21): раздельный
+        app shell (ADR-1025-1 D6) — sidebar ≥1200, drawer 768–1199.
+        re-pin ASAP 8 v6 D13 (§18I.14): bottom-nav удалён владельцем —
+        мобильная навигация компактная ВЕРХНЯЯ (mobile-topnav, <768).
+        Legacy dead-menu токены по-прежнему запрещены."""
         for token in ("sidebarOpen", "MENU_ORDER", "MENU_LABELS"):
             assert token not in self.JS, token
         assert 'class="app-sidebar"' in self.HTML
-        assert 'class="bottom-nav"' in self.HTML
+        assert 'class="bottom-nav"' not in self.HTML, \
+            "D13: нижняя навигация удалена"
+        assert 'class="mobile-topnav scroll-thin"' in self.HTML, \
+            "D13: верхняя мобильная навигация присутствует"
         assert 'class="app-drawer"' in self.HTML
         # OFF-режим (IA_V2_ENABLED=false) сохраняет navbar-полосу.
         assert 'class="navbar-band' in self.HTML

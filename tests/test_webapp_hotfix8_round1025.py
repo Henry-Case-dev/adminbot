@@ -81,10 +81,15 @@ class TestShellV3:
         assert "--shell-sheen-opacity: .05" in APP_CSS
 
     def test_panels_shell_not_lens_a(self):
+        # re-pin ASAP 8 v6 D13 (§18I.14): shell-слой — sidebar/шапка
+        # (+mobile-topnav); bottom-nav/more-sheet удалены.
         for marker in ('class="app-sidebar" data-glass="shell"',
-                       'class="bottom-nav" data-glass="shell"',
-                       'class="more-sheet" data-glass="shell"'):
+                       'class="mobile-topnav scroll-thin"'):
             assert marker in INDEX, marker
+        assert 'class="bottom-nav"' not in INDEX, \
+            "D13: нижняя навигация удалена"
+        assert 'class="more-sheet"' not in INDEX, \
+            "D13: шторка «Ещё» удалена"
         assert 'data-glass="shell"\n' in INDEX          # header (multiline)
         assert 'data-glass="a"' in INDEX                # контентный A сохранён
         # Цветная линза A остаётся только у контента.
@@ -97,10 +102,13 @@ class TestShellV3:
         pad = re.search(r"\.app-shell\.ia-v2 \{\s*padding-left:\s*(\d+)px",
                         APP_CSS)
         assert pad and 208 <= int(pad.group(1)) <= 224, pad and pad.group(1)
-        assert re.search(r"\.more-sheet \{[\s\S]{0,1600}"
-                         r"border-radius:\s*18px 18px 0 0", APP_CSS)
-        assert re.search(r"\.bottom-nav \{[\s\S]{0,1200}"
-                         r"border-radius:\s*18px 18px 0 0", APP_CSS)
+        # re-pin D13: 18px-радиусы удалённых нижних панелей не существуют
+        # (правила убраны вместе с элементами); desktop-sidebar инвариант
+        # (208–224 px) выше не ослаблен.
+        assert ".more-sheet {" not in APP_CSS, \
+            "D13: .more-sheet CSS удалён"
+        assert ".bottom-nav {" not in APP_CSS, \
+            "D13: .bottom-nav CSS удалён"
 
     def test_shell_v3_off_rollback(self):
         assert ".app-shell.shell-v3-off" in APP_CSS
@@ -252,7 +260,12 @@ class TestFlagsAcceptance:
         assert "PASS" in text and "4.5" in text
 
     def test_ia_and_store_untouched(self):
-        assert re.search(r"bottomNavItems:\s*function", APP_JS)
+        # re-pin ASAP 8 v6 D13: нижняя навигация удалена — канон navItems
+        # един для sidebar и mobile-topnav; computeBottomOffset в TG
+        # сохранён (единый источник высоты).
+        assert not re.search(r"bottomNavItems:\s*function", APP_JS), \
+            "D13: bottomNavItems удалён"
+        assert re.search(r"mobileTopnavItems:\s*function", APP_JS)
         assert "sidebarGroups" in APP_JS
         assert "computeBottomOffset" in (ROOT / "web" / "static" /
                                           "telegram-init.js").read_text(

@@ -114,15 +114,18 @@ const CSS = fs.readFileSync(
     'D5: в footer панель static (не overlay)');
 }
 
-// ── 3. Последнее поле: scroll-padding + spacer + scroll-margin ──────────────
+// ── 3. Последнее поле: scroll-padding + scroll-margin (D13: spacer удалён) ──
 {
   assert.ok(/\.modal-body\s*\{[^}]*scroll-padding-bottom/.test(CSS),
     'D5: .modal-body scroll-padding-bottom сохранён');
   const scrollArea = CSS.match(/\.scroll-area:has\(> \.sticky-save\)\s*\{([^}]*)\}/);
   assert.ok(scrollArea && /scroll-padding-bottom/.test(scrollArea[1]),
     'D5: .scroll-area:has(> .sticky-save) scroll-padding-bottom');
-  assert.ok(/\.sticky-spacer\s*\{[^}]*height:\s*var\(--sticky-save-h\)/.test(CSS),
-    'D5: .sticky-spacer резервирует место');
+  // D13 (§18I.13): reserved spacer удалён — панель монтируется только при
+  // dirty (v-if="visible"), в clean state места не занимает.
+  assert.ok(!/\.sticky-spacer\s*\{/.test(CSS), 'D13: .sticky-spacer CSS удалён');
+  assert.ok(INDEX.indexOf('sticky-spacer') < 0,
+    'D13: sticky-spacer элементы удалены из разметки');
   assert.ok(/\.field,[\s\S]{0,80}scroll-margin-bottom/.test(CSS),
     'D5: scroll-margin-bottom на полях (последнее поле нажимаемо)');
   assert.ok(/--kb-offset\s*:/.test(CSS),

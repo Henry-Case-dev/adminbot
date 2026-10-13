@@ -130,7 +130,82 @@ D05: noticed→candidate→validated→active→applied→success/failure/unknow
   лениво и в стабе пуст (0 узлов) — вне скоупа; F4 «Последние запуски» пуст в стабе
   («Запусков ещё не было») — корректный honest empty state.
 
-## 8. Остаточный риск
+## 8. Shell pin reissue (34) — финальный полный sweep
+
+Полный pytest-прогон до re-pin: **34 failed / 13321 passed**. Все 34
+классифицированы; после переиздания — см. финальные числа ниже.
+
+### 8.1 Пины старого shell-контракта → переизданы на D13 (30)
+
+Все — класс (a): закрепляли bottom-nav/more-sheet/постоянный sticky-save/
+spacer/канон bottomNavItems — решения, удалённые владельцем в §18I.13/§18I.14.
+Desktop-инварианты (sidebar 208–224, glass-токены, reduced-motion, F0 write-path)
+в каждом сохранены и не ослаблены.
+
+| # | Тест | Что пинил | Re-pin (D13) |
+|---|---|---|---|
+| 1 | test_asap42_step2c2_miniapp_seeds::TestMoreSheetClosedContract | more-sheet unmount+transition-CSS | полное отсутствие more-sheet/bottom-nav/moreOpen в DOM и CSS; mobile-topnav присутствует |
+| 2 | test_frontend_tab_mapping::TestJsMirror::test_ia_v2_shell_markers | `class="bottom-nav"` в HTML | bottom-nav отсутствует; mobile-topnav присутствует; legacy dead-menu по-прежнему запрещён |
+| 3 | test_hotfix4_…::TestBottomPanelInViewport::test_bottom_nav_offset_var_with_fallback | CSS потребляет нижний offset | ни одно CSS-правило не потребляет `--tg-viewport-bottom-offset`; stable-height (единый источник высоты) сохранён |
+| 4 | test_hotfix4_…::test_more_sheet_uses_same_offset | правило .more-sheet с offset | правило отсутствует |
+| 5 | test_hotfix4_…::TestBottomNavOrder::test_bottom_nav_starts_status_how_and_priority_admin | bottomNavItems-канон (4 пункта) | bottomNavItems удалён; mobileTopnavItems = `return this.navItems` (канон един) |
+| 6 | test_hotfix4_…::TestBottomNavOrder::test_more_items_no_duplicate_how | mobileMoreItems (шторка) | mobileMoreItems удалён; Память/Доступы достижимы напрямую |
+| 7 | test_ia_shell::TestShellMarkers::test_sidebar_drawer_bottom_nav | bottom-nav+more-sheet маркеры | отсутствие + mobile-topnav; sidebar-инварианты (1200px, ia-v2) сохранены |
+| 8 | test_ia_shell::test_mobile_shell_and_breakpoints | bottomNavItems/mobileMoreItems | удалены; mobileTopnavItems присутствует |
+| 9 | test_ia_shell::test_hotfix4_bottom_nav_order_and_viewport_offset | offset в HTML + порядок | offset не потребляется web/*; viewport-fit=cover сохранён |
+| 10 | test_round106_ia_smoke::TestNavShell::test_no_legacy_sidebar_dead_menu | `class="bottom-nav"` | отсутствие + mobile-topnav; legacy dead-menu по-прежнему нет |
+| 11 | test_webapp_f9_round1025::TestD5SaveBarVisual::test_last_field | `.sticky-spacer` в CSS | spacer отсутствует; scroll-padding/margin сохранены |
+| 12 | test_webapp_hotfix6::TestAreaA::test_panels_in_allow_list | bottom-nav/more-sheet в shell-слое | shell-слой: sidebar/drawer/шапка + mobile-topnav |
+| 13 | test_webapp_hotfix6::TestAreaA::test_panels_glass_and_fallback | .bottom-nav/.more-sheet в CSS+fallback | правила отсутствуют; fallback-набор sidebar/drawer/шапки сохранён |
+| 14 | test_webapp_hotfix6::TestAreaB::test_nav_and_sheet_use_offset | CSS использует offset | offset не потребляется; computeBottomOffset в TG сохранён |
+| 15 | test_webapp_hotfix6::TestAreaB::test_nav_order_untouched | bottomNavItems | удалён; канон navItems един (mobileTopnavItems) |
+| 16 | test_webapp_hotfix7::TestAreaA_Layout::test_two_explicit_modes | .bottom-nav flex-child | .mobile-topnav flex-child в потоке шапки, не fixed |
+| 17 | test_webapp_hotfix7::TestAreaC_GlassShell::test_shell_panels_use_shell_layer | bottom-nav/more-sheet в shell-панелях | sidebar/drawer/шапка + mobile-topnav; specular/shadow-токены сохранены |
+| 18 | test_webapp_hotfix7::TestAreaD_FlagsAcceptance::test_ia_and_nav_untouched | bottomNavItems | удалён; sidebarGroups сохранены |
+| 19 | test_webapp_hotfix10::TestHeight::test_more_sheet_single_offset | single-offset правила шторки | правило удалено; инвариант удержан отсутствием потребления offset |
+| 20 | test_webapp_hubs_matrix_ui::TestNavbarAndHubs::test_six_nav_items | `class="bottom-nav"` | отсутствие + mobile-topnav; app-drawer/shellNavTo сохранены |
+| 21 | test_webapp_nav_disclosure_ui::TestMenu::test_no_sidebar_dead_menu | `class="bottom-nav"` | отсутствие + mobile-topnav; dead-menu по-прежнему нет |
+| 22 | test_webapp_ui_rework_round1020::TestStickySave::test_sticky_rule | `margin: 0` (full-width) | compact-pill: `margin-left:auto` + `width:fit-content`; sticky/bottom/glass/safe-area инварианты сохранены |
+| 23 | test_webapp_ui_rework_round1020::TestStickySave::test_sticky_spacer_reserves_space | spacer-резерв ×2 | spacer отсутствует (CSS+DOM); sticky-save `v-if="visible"` |
+| 24 | test_webapp_ui_rework_round1020::TestStickySave::test_panel_inside_modal_actions_markup | досье-футер всегда в DOM | досье-футер dirty-only (`v-if` по dossierDraft); ветки config/modules/access сохранены |
+| 25 | test_webapp_hotfix8::TestShellV3::test_panels_shell_not_lens_a | bottom-nav/more-sheet в shell-слое | sidebar + mobile-topnav в shell-слое; линза A только у контента |
+| 26 | test_webapp_hotfix8::TestShellV3::test_sidebar_width_and_radii | 18px-радиусы нижних панелей | правила удалены; sidebar width/padding 208–224 не ослаблен |
+| 27 | test_webapp_hotfix8::TestFlagsAcceptance::test_ia_and_store_untouched | bottomNavItems | удалён; mobileTopnavItems + sidebarGroups + computeBottomOffset сохранены |
+| 28 | test_webapp_hotfix9::TestGeometry::test_flex_column_and_nav | .bottom-nav правило | .mobile-topnav правило (flex-child, не fixed, без offset); единая модель высоты сохранена |
+| 29 | test_webapp_hotfix9::TestModal::test_modal_dom_actions | досье-футер adjacency | dirty-only досье-футер (v-if); modal-actions static/static-правила сохранены |
+| 30 | test_webapp_hotfix9::TestFlagsAcceptance::test_persist_and_ia_untouched | bottomNavItems | удалён; persistItems F0 + mobileTopnavItems сохранены |
+
+### 8.2 Остальные 4 — не shell (выяснено полным прогоном)
+
+| # | Тест | Классификация | Действие |
+|---|---|---|---|
+| 31 | test_scope_selector_round1025::TestReturnGlobal::test_reset_uses_delete_override_endpoint | (a′) устаревший пин-граница блока: нижняя граница `applyRoute` захватила 5 `this.api(` из D07-методов overrides-map (loadOverrideMap и др., вставлены коммитом 2ef6189 ДО лейна; подтверждено stash-прогоном на HEAD) | re-pin: граница тела метода = следующий метод `loadOverrideMap`; инвариант «ровно одна DELETE-мутация» сохранён |
+| 32 | test_scope_selector_round1025::TestSwitchGuard::test_switch_warns_on_unsaved | (a) пин старой реализации seam: `this.hasUnsavedEdits()` инлайн в setActiveChat → D13 вынес guard в `_dirtyLeaveGuard` (общий с applyRoute/closeModule) | re-pin: `this._dirtyLeaveGuard(` до присваивания activeChatId + hasUnsavedEdits/window.confirm внутри общего guard'а; контракт (confirm с областью/числом, отказ = stay) сохранён |
+| 33 | test_asap5_paradigms_diagnostics::test_bootstrap_cooldown_bypass_then_cap | **pre-existing, чужая зона** (services/asap5 paradigms diagnostics; gate=None). Подтверждено stash-прогоном: падает на HEAD без диффа лейна; services лейном не трогались | не чиню (вне WRITE_SCOPE — чужие зоны); эскалация владельцу asap5/D09-зоны |
+| 34 | test_direct_chat_concurrency::TestDirectChatConcurrency::test_third_handle_waits_for_slot_at_n2 | **pre-existing, чужая зона** (services/direct_chat_service; llm.call_count 9 vs 3 — семантика счётчика разошлась с D04/WaveC-оркестратором). Подтверждено stash-прогоном на HEAD | не чиню (вне WRITE_SCOPE — direct_*); эскалация владельцу Direct-зоны |
+
+### 8.3 Финальный прогон
+
+- 15 пере-пиннутых py-файлов: **416 passed, 0 failed**.
+- scope_selector_round1025 (после re-pin #31/#32): 21 passed (вместе с
+  #33/#34 в одном прогоне — 2 pre-existing чужих зон).
+- JS standalone: 78/78 (без изменений в этом раунде).
+- **Полный sweep после re-pin: 3 failed / 13352 passed** — все 34 пункта
+  лейна закрыты (0 осталось). Остаточные 3, все вне зоны D12/D13:
+  * #33 test_asap5_paradigms_diagnostics (pre-existing, stash-пруф на HEAD);
+  * #34 test_direct_chat_concurrency (pre-existing, stash-пруф на HEAD);
+  * test_nostalgia_worker::test_nostalgia_uses_background_role — **(c) flaky**:
+    services/nostalgia_worker лейном не трогались; standalone на кандидате
+    И на HEAD — 5/5 passed (падает только под нагрузкой полного прогона,
+    order/timing-зависимость детектора background-role). Эскалация
+    владельцам соответствующих зон; в «0 failed лейна» не входят.
+
+Граница соблюдена: desktop sidebar (208–224), glass-токены/эстетика,
+reduced-motion, F0 write-path, канон navItems, досье-гвард — сохранены;
+инварианты вне D13 не ослаблены (пины #26/#28/#29 переизданы с явным
+сохранением исходных инвариантов).
+
+## 9. Остаточный риск
 
 - `LIVE_UNVERIFIED` (владелец): прод-данные в run-cards (реальные funnel/coverage
   числа) и визуальный вкус владельца по compact-pill (OWNER_VISUAL_PENDING по
@@ -138,5 +213,8 @@ D05: noticed→candidate→validated→active→applied→success/failure/unknow
 - Guard-диалоги используют native `window.confirm` — единообразно с существующим
   паттерном смены scope (F3); кастомная модалка Stay/Save/Discard — возможный
   следующий шаг без изменения контракта.
+- Pre-existing #33/#34 (чужие зоны, см. §8.2) и flaky nostalgia (§8.3) —
+  эскалированы владельцам asap5/D09, Direct/D04 и Nostalgia; в полный
+  «0 failed» лейна не входят.
 
 @Orchestrator — на строгую независимую ревью.

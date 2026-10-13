@@ -83,24 +83,21 @@ assert.strictEqual(
 assert.notStrictEqual(offsetFor(700, 0), 700,
   'guard: невалидный stable не выставляет offset во всю высоту');
 
-// ── CSS: offset-переменная + безопасный резерв ───────────────────────────
-const navBlock = CSS.slice(CSS.indexOf('.bottom-nav {'));
-assert.ok(navBlock.indexOf('bottom: var(--tg-viewport-bottom-offset,') >= 0,
-  '.bottom-nav использует --tg-viewport-bottom-offset');
-assert.ok(/\.bottom-nav \{[^}]*bottom:\s*0;/.test(CSS),
-  '.bottom-nav имеет безопасный резерв bottom:0 (L10.25H4-2)');
-assert.ok(/100dvh - var\(--tg-viewport-stable-height/.test(CSS),
-  'CSS-фолбэк max(0px, 100dvh − stable-height) присутствует');
-const moreIdx = CSS.search(/^ {4}\.more-sheet \{/m);
-assert.ok(moreIdx >= 0, 'правило .more-sheet найдено');
-const moreBlock = CSS.slice(moreIdx);
-assert.ok(moreBlock.slice(0, 1200)
-  .indexOf('--tg-viewport-bottom-offset') >= 0,
-  '.more-sheet использует тот же offset');
-// HOTFIX10 (ADR-1025-18 D3): safe-reserve остаётся, но БЕЗ сложения с
-// --tg-viewport-bottom-offset (один offset). Fallback для старых WebKit — env.
-assert.ok(/\.more-sheet \{[^}]*bottom:\s*calc\(52px \+ env\(safe-area-inset-bottom/.test(CSS),
-  '.more-sheet имеет безопасный резерв bottom (L10.25H4-2)');
+// ── CSS: D13 (§18I.14) — нижней панели и шторки «Ещё» больше нет; токен
+// --tg-viewport-bottom-offset больше не используется ни одним правилом CSS
+// (переменная остаётся в telegram-init.js для совместимости). ─────────────
+assert.ok(!/\.bottom-nav[\s{,:-]/.test(CSS),
+  'D13: CSS .bottom-nav удалён');
+assert.ok(!/\.more-sheet[\s{,:-]/.test(CSS),
+  'D13: CSS .more-sheet удалён');
+assert.ok(INDEX.indexOf('class="bottom-nav"') < 0,
+  'D13: bottom-nav разметка удалена');
+assert.ok(INDEX.indexOf('moreOpen') < 0,
+  'D13: moreOpen-состояние удалено');
+assert.ok(INDEX.indexOf('class="mobile-topnav scroll-thin"') >= 0,
+  'D13: компактная верхняя навигация присутствует');
+assert.ok(/\.mobile-topnav \{/.test(CSS),
+  'D13: .mobile-topnav правило присутствует');
 assert.ok(/min-height:\s*44px/.test(CSS), 'touch ≥44px сохранён');
 assert.ok(/env\(safe-area-inset-bottom/.test(CSS), 'safe-area сохранён');
 

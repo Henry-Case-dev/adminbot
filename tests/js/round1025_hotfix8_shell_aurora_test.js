@@ -103,24 +103,25 @@ function token(name) {
   assert.ok(!/mask-image/.test(sheen[1]), 'B: sheen без radial-mask-ореола');
   // Цветная линза A осталась только контенту; на shell не применяется.
   assert.ok(/\[data-glass="a"\]::before\s*\{/.test(CSS), 'B: линза A сохранена');
-  // Панели в shell-слое.
+  // Панели в shell-слое. D13 (§18I.14): bottom-nav/more-sheet удалены —
+  // мобильная навигация живёт в шапке (header data-glass="shell").
   for (const sel of ['class="app-sidebar" data-glass="shell"',
-                     'class="bottom-nav" data-glass="shell"',
-                     'class="more-sheet" data-glass="shell"',
                      'data-glass="shell"\n']) {
     assert.ok(INDEX.indexOf(sel) >= 0, 'B: shell-слой: ' + sel);
   }
+  assert.ok(INDEX.indexOf('class="bottom-nav"') < 0
+    && INDEX.indexOf('class="more-sheet"') < 0,
+    'B/D13: нижняя навигация и шторка удалены');
   // Sidebar 208–224px.
   const w = CSS.match(/\.app-shell\.ia-v2 \.app-sidebar\s*\{[\s\S]{0,200}width:\s*(\d+)px/);
   assert.ok(w, 'A: sidebar width правило');
   assert.ok(+w[1] >= 208 && +w[1] <= 224, 'A: sidebar 208–224px, факт ' + w[1]);
   const pad = CSS.match(/\.app-shell\.ia-v2 \{\s*padding-left:\s*(\d+)px/);
   assert.ok(pad && +pad[1] >= 208 && +pad[1] <= 224, 'A: padding-left 208–224px');
-  // Радиусы §4.
-  assert.ok(/\.more-sheet \{[\s\S]{0,1600}border-radius:\s*18px 18px 0 0/.test(CSS),
-    'A: more-sheet радиус 18px');
-  assert.ok(/\.bottom-nav \{[\s\S]{0,1200}border-radius:\s*18px 18px 0 0/.test(CSS),
-    'A: bottom-nav радиус 18px');
+  // D13: 18px shell-радиусы bottom-nav/more-sheet больше не существуют
+  // (правила удалены вместе с элементами).
+  assert.ok(!/\.more-sheet \{/.test(CSS) && !/\.bottom-nav \{/.test(CSS),
+    'A/D13: правила more-sheet/bottom-nav удалены');
   // UI_SHELL_GRAPHITE_V3=OFF (класс shell-v3-off) → hotfix8 значения, без
   // возврата линзы и БЕЗ возврата диагональной текстуры.
   assert.ok(/\.app-shell\.shell-v3-off\s*\{[\s\S]{0,900}--shell-bg:\s*rgba\(24, 28, 38, 0\.72\)/.test(CSS),

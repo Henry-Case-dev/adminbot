@@ -397,19 +397,25 @@ class TestCoverFallbackEmptyDraft:
 
 
 # ── B. Панель mobile: offset + CSS-фолбэк + viewport-fit + матрица ────────
+# re-pin ASAP 8 v6 D13 (§18I.14): нижние панели (bottom-nav/more-sheet)
+# удалены владельцем — CSS больше НЕ потребляет нижний offset-токен
+# (он только вычисляется в telegram-init.js для совместимости).
 
 class TestBottomPanelInViewport:
     def test_bottom_nav_offset_var_with_fallback(self):
-        assert "--tg-viewport-bottom-offset" in CSS
-        assert "bottom: var(--tg-viewport-bottom-offset," in CSS
-        assert "100dvh - var(--tg-viewport-stable-height" in CSS
+        # D13: ни одно CSS-правило не смещается на нижний offset
+        # (панелей снизу больше нет); stable-height по-прежнему задаёт
+        # единый источник высоты shell.
+        assert "var(--tg-viewport-bottom-offset" not in CSS, \
+            "D13: нижний offset не используется в CSS"
+        assert "--tg-viewport-stable-height" in CSS, \
+            "единый источник высоты (--app-usable-height) сохранён"
 
     def test_more_sheet_uses_same_offset(self):
-        # hotfix6 (T-2594): ищем РЕАЛЬНОЕ правило `.more-sheet {` (4 пробела
-        # в начале строки), а не вхождение в fallback-селекторе `…, .more-sheet {`.
+        # D13: правило .more-sheet удалено вместе с элементом.
         m = re.search(r"^ {4}\.more-sheet \{", CSS, re.M)
-        assert m, "правило .more-sheet не найдено"
-        assert "--tg-viewport-bottom-offset" in CSS[m.start():m.start() + 900]
+        assert not m, "D13: .more-sheet CSS-правило удалено"
+        assert "var(--tg-viewport-bottom-offset" not in CSS
 
     def test_telegram_init_computes_and_updates(self):
         assert "--tg-viewport-bottom-offset" in TG_INIT
@@ -434,24 +440,26 @@ class TestBottomPanelInViewport:
         assert "more-sheet(open)" in MATRIX
 
 
-# ── C. Нижняя навигация: Статус+Справка первыми, без дубля ────────────────
+# ── C. Нижняя навигация — УДАЛЕНА (D13 §18I.14): верхняя mobile-topnav ────
 
 class TestBottomNavOrder:
     def test_bottom_nav_starts_status_how_and_priority_admin(self):
-        seg = APP_JS[APP_JS.index("bottomNavItems: function"):
-                     APP_JS.index("mobileMoreItems: function")]
-        assert "byId['status']" in seg
-        assert "byId['how']" in seg
-        assert "byId['modules'] || byId['ai']" in seg
-        # ≤4 пункта: status, how, (modules|ai), more.
-        assert "hiddenCount" in seg
+        # re-pin ASAP 8 v6 D13: bottomNavItems удалён; мобильная навигация —
+        # ТОТ ЖЕ канонический реестр navItems (скрытых разделов нет).
+        assert "bottomNavItems: function" not in APP_JS, \
+            "D13: bottomNavItems computed удалён"
+        seg = APP_JS[APP_JS.index("mobileTopnavItems: function"):
+                     APP_JS.index("mobileTopnavItems: function") + 300]
+        assert "return this.navItems;" in seg, \
+            "D13: mobile-topnav = канонический реестр navItems"
+        assert 'class="mobile-topnav scroll-thin"' in INDEX
 
     def test_more_items_no_duplicate_how(self):
-        seg = APP_JS[APP_JS.index("mobileMoreItems: function"):
-                     APP_JS.index("isMobileShell: function")]
-        assert "n.group !== 'public'" in seg
-        assert "n.id !== inlineId" in seg
-        assert "'how'" not in seg
+        # re-pin D13: шторка «Ещё» (mobileMoreItems) удалена — Память/
+        # Доступы/PERMsoc достижимы напрямую из верхней навигации.
+        assert "mobileMoreItems: function" not in APP_JS, \
+            "D13: mobileMoreItems computed удалён"
+        assert "mobileTopnavItems: function" in APP_JS
 
 
 # ── Совместимость: системный флаг System 2 не задет ──────────────────────

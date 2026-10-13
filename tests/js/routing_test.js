@@ -373,9 +373,8 @@ assert.strictEqual(methods._scopeGuard.call({ scopeEpoch: 8 }, 7), false);
     .indexOf('memory') < 0, 'F1: memory скрыт без прав');
 })();
 
-// ── F1/hotfix4 (§4.3): bottom-nav ровно 4 ────────────────────────────────
-// hotfix4 (T-2519/T-2520, ADR-1025-8 D3): Статус+Справка — всегда первые два;
-// «Ещё» без дубля «Справки».
+// ── D13 (§18I.14): bottom-nav/«Ещё» удалены — мобильная верхняя навигация
+// рендерит тот же канонический реестр navItems (скрытых разделов нет).
 (function () {
   const admin = {
     route: '#/', iaV2: true,
@@ -383,15 +382,15 @@ assert.strictEqual(methods._scopeGuard.call({ scopeEpoch: 8 }, 7), false);
     navItems: captured.computed.navItems.call({
       route: '#/', iaV2: true, canViewTab() { return true; } }),
   };
-  const bottom = captured.computed.bottomNavItems.call(admin);
-  assert.deepStrictEqual(bottom.map((n) => n.id),
-    ['status', 'how', 'modules', 'more'],
-    'hotfix4: bottom-nav админа = Статус/Справка/Модули/Ещё.');
-  const more = captured.computed.mobileMoreItems.call(admin).map((n) => n.id);
-  assert.ok(more.indexOf('memory') >= 0,
-    'F1: «Память» живёт в шторке «Ещё»');
-  assert.ok(more.indexOf('how') < 0,
-    'hotfix4: «Справка» НЕ дублируется в «Ещё»');
+  assert.strictEqual(captured.computed.bottomNavItems, undefined,
+    'D13: bottomNavItems удалён (bottom-nav больше нет)');
+  assert.strictEqual(captured.computed.mobileMoreItems, undefined,
+    'D13: mobileMoreItems («Ещё») удалён');
+  const top = captured.computed.mobileTopnavItems.call(admin);
+  assert.strictEqual(top.length, admin.navItems.length,
+    'D13: mobile-topnav = тот же канонический реестр, что sidebar');
+  assert.ok(top.map((n) => n.id).indexOf('memory') >= 0,
+    'D13: «Память» достижима в верхней навигации без шторки');
 })();
 
 // ── F1 (ADR-1025-1 D3): legacy-алиасы памяти → канон #/memory* ────────────

@@ -65,26 +65,37 @@ class TestAreaA:
         assert "backdrop-filter', 'url(#lg-displace)" not in APP_JS
 
     def test_panels_in_allow_list(self):
-        """A2 + HOTFIX8 (ADR-1025-16 D2): панели (sidebar/drawer/header/
-        bottom-nav/more-sheet) выведены из цветной allow-линзы A в нейтральный
-        `data-glass="shell"` (без teal/blue/violet ореола). Уровень A остаётся
-        у контентных карточек — allow-list непуст."""
+        """A2 + HOTFIX8 (ADR-1025-16 D2): панели выведены из цветной
+        allow-линзы A в нейтральный `data-glass="shell"`.
+        re-pin ASAP 8 v6 D13 (§18I.14): bottom-nav/more-sheet удалены —
+        shell-слой держат sidebar/drawer/шапка (+mobile-topnav в шапке);
+        уровень A остаётся у контентных карточек."""
         assert 'class="app-sidebar" data-glass="shell"' in INDEX
         assert 'class="app-drawer"' in INDEX and 'data-glass="shell"' in INDEX
-        assert 'class="bottom-nav" data-glass="shell"' in INDEX
-        assert 'class="more-sheet" data-glass="shell"' in INDEX
+        assert 'class="bottom-nav"' not in INDEX, \
+            "D13: нижняя навигация удалена"
+        assert 'class="more-sheet"' not in INDEX, \
+            "D13: шторка «Ещё» удалена"
+        assert 'class="mobile-topnav scroll-thin"' in INDEX, \
+            "D13: верхняя мобильная навигация присутствует"
         assert 'data-glass="shell"\n' in INDEX  # header (многострочный тег)
         assert 'data-glass="a"' in INDEX        # контентный A сохранён
 
     def test_panels_glass_and_fallback(self):
-        """A2: панели получают blur; @supports-фолбэк переводит их в C."""
-        for sel in (".app-sidebar", ".app-drawer", ".bottom-nav", ".more-sheet"):
+        """A2: панели получают blur; @supports-фолбэк переводит их в C.
+        re-pin D13: набор панелей без bottom-nav/more-sheet."""
+        for sel in (".app-sidebar", ".app-drawer"):
             assert sel in APP_CSS
+        assert ".bottom-nav" not in APP_CSS, \
+            "D13: CSS-правила нижней навигации удалены"
+        assert ".more-sheet" not in APP_CSS, \
+            "D13: CSS-правила шторки удалены"
         assert "backdrop-filter: var(--glass-blur) saturate(140%)" in APP_CSS
         # fallback-набор включает панели (непрозрачная подложка).
         assert re.search(
             r"@supports not \(\(backdrop-filter: blur\(1px\)\)[\s\S]{0,900}"
-            r"\.bottom-nav, \.more-sheet", APP_CSS), "панели не в fallback-наборе"
+            r"background-color: var\(--shell-bg-strong\)", APP_CSS), \
+            "панели не в fallback-наборе"
 
     def test_reduced_motion_tier_b(self):
         """LOW/T-2548/D1: reduced-motion → tier B (осознанное решение)."""
@@ -114,11 +125,11 @@ class TestAreaB:
         assert "contentSafeAreaInset" in TG_INIT and "safeAreaInset" in TG_INIT
 
     def test_nav_and_sheet_use_offset(self):
-        assert "var(--tg-viewport-bottom-offset" in APP_CSS
-        assert re.search(
-            r"\.bottom-nav \{[^}]*--tg-viewport-bottom-offset", APP_CSS)
-        assert re.search(
-            r"\.more-sheet \{[^}]*--tg-viewport-bottom-offset", APP_CSS)
+        # re-pin ASAP 8 v6 D13 (§18I.14): нижних панелей нет — CSS не
+        # потребляет нижний offset (токен только вычисляется в TG_INIT).
+        assert "var(--tg-viewport-bottom-offset" not in APP_CSS, \
+            "D13: нижний offset не используется в CSS"
+        assert "computeBottomOffset" in TG_INIT
 
     def test_matrix_vertical_and_contentsafe(self):
         """T-2595: матрица усиливает вертикаль + симулирует contentSafeArea."""
@@ -128,9 +139,16 @@ class TestAreaB:
         assert "rect.bottom" in MATRIX or "bottom: Math.round(r.bottom)" in MATRIX
 
     def test_nav_order_untouched(self):
-        """Порядок навигации F1/hotfix4 не менялся."""
-        assert "bottomNavItems" in APP_JS
-        assert re.search(r"bottomNavItems:\s*function", APP_JS)
+        """re-pin ASAP 8 v6 D13: порядок навигации больше не отдельный
+        computed — mobile-topnav рендерит тот же канонический реестр
+        navItems, что и desktop sidebar (канон не менялся)."""
+        assert "bottomNavItems" not in APP_JS, \
+            "D13: bottomNavItems удалён"
+        assert re.search(r"mobileTopnavItems:\s*function", APP_JS)
+        seg = APP_JS[APP_JS.index("mobileTopnavItems: function"):
+                     APP_JS.index("mobileTopnavItems: function") + 200]
+        assert "return this.navItems;" in seg, \
+            "D13: канонический реестр navItems един для shell-навигаций"
 
     def test_matrix_stable_bar_restored(self):
         """LOW/T-2595: системный бар = разница видимой высоты (stable=h−56)."""

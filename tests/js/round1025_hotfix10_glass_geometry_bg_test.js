@@ -232,16 +232,10 @@ function token(name) {
   assert.ok(!/env\(safe-area-inset-bottom/.test(stripCss(fsArea[1])),
     'D: второй вычет safe-area снят');
   assert.ok(/padding-bottom:\s*1rem/.test(fsArea[1]), 'D: базовый отступ fullscreen');
-  const sheet = CSS.match(/^    \.more-sheet \{([\s\S]*?)^    \}/m);
-  assert.ok(sheet, 'D: .more-sheet');
-  const sheetCode = stripCss(sheet[1]);
-  assert.ok(sheetCode.indexOf('--tg-viewport-bottom-offset') >= 0,
-    'D: один учтённый offset');
-  const bottoms = sheetCode.match(/bottom:\s*calc\(52px[^\n]*/g) || [];
-  for (const b of bottoms) {
-    assert.ok(!/\+\s*var\(--tg-viewport-bottom-offset[\s\S]*safe-area/.test(b),
-      'D: offset НЕ складывается с safe-area');
-  }
+  // D13 (§18I.14): нижней шторки/панели больше нет — double-safe-area зона
+  // .more-sheet/.bottom-nav удалена вместе с правилами.
+  assert.ok(!/\.more-sheet[\s{,:-]/.test(CSS), 'D13: .more-sheet CSS удалён');
+  assert.ok(!/\.bottom-nav[\s{,:-]/.test(CSS), 'D13: .bottom-nav CSS удалён');
   // Источник высоты — единый.
   assert.ok(APP_JS.indexOf('_auroraResize') >= 0, 'D: app.js resize-хук');
 }

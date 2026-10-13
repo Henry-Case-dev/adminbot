@@ -73,9 +73,14 @@ class TestAreaA_Layout:
         assert re.search(
             r"\.app-shell\.shell-mobile:not\(\.shell-layout-legacy\)"
             r" > main\.scroll-area[\s\S]{0,200}overflow-y:\s*auto", APP_CSS)
-        # Навигация — последний flex-child, не fixed.
-        assert re.search(r"\.bottom-nav \{[^}]*flex: 0 0 auto", APP_CSS)
-        assert re.search(r"\.bottom-nav \{[^}]*position: relative", APP_CSS)
+        # re-pin ASAP 8 v6 D13 (§18I.14): нижней навигации нет — мобильная
+        # верхняя в потоке шапки (flex-child, не fixed).
+        assert ".bottom-nav {" not in APP_CSS, \
+            "D13: .bottom-nav CSS удалён"
+        assert re.search(r"\.mobile-topnav \{[^}]*flex: 0 0 auto", APP_CSS)
+        assert "position: fixed" not in APP_CSS[
+            APP_CSS.index(".mobile-topnav {"):
+            APP_CSS.index(".mobile-topnav {") + 300]
 
     def test_legacy_layout_rollback(self):
         assert ".app-shell.shell-layout-legacy" in APP_CSS
@@ -135,17 +140,23 @@ class TestAreaC_GlassShell:
         assert "var(--shell-texture)" not in APP_CSS
 
     def test_shell_panels_use_shell_layer(self):
+        # re-pin ASAP 8 v6 D13 (§18I.14): shell-слой — sidebar/drawer/шапка
+        # (+mobile-topnav); bottom-nav/more-sheet удалены.
         for sel in (".app-sidebar", ".app-drawer", "header.header-sticky",
-                    ".bottom-nav", ".more-sheet"):
+                    ".mobile-topnav"):
             assert sel in APP_CSS
+        assert ".bottom-nav {" not in APP_CSS, \
+            "D13: .bottom-nav CSS удалён"
+        assert ".more-sheet {" not in APP_CSS, \
+            "D13: .more-sheet CSS удалён"
         assert "box-shadow: var(--shell-shadow)" in APP_CSS
         assert re.search(r"background-image: var\(--shell-specular\);", APP_CSS)
         assert not re.search(
             r"background-image: var\(--shell-specular\), var\(--shell-texture\)",
             APP_CSS)
-        assert re.search(r"\.bottom-nav \{[\s\S]{0,1200}"
+        assert re.search(r"\.app-sidebar \{[\s\S]{0,1200}"
                          r"background-color: var\(--shell-bg\)", APP_CSS)
-        assert re.search(r"\.more-sheet \{[\s\S]{0,1400}"
+        assert re.search(r"\.app-drawer \{[\s\S]{0,1400}"
                          r"background-color: var\(--shell-bg\)", APP_CSS)
 
     def test_cards_not_repainted(self):
@@ -217,6 +228,9 @@ class TestAreaD_FlagsAcceptance:
         assert "PASS" in text and "4.5" in text
 
     def test_ia_and_nav_untouched(self):
-        # Порядок навигации F1/hotfix4 не менялся.
-        assert re.search(r"bottomNavItems:\s*function", APP_JS)
+        # re-pin ASAP 8 v6 D13: нижняя навигация удалена — канон navItems
+        # един для desktop sidebar и mobile-topnav; группы sidebar сохранены.
+        assert not re.search(r"bottomNavItems:\s*function", APP_JS), \
+            "D13: bottomNavItems удалён"
+        assert re.search(r"mobileTopnavItems:\s*function", APP_JS)
         assert "sidebarGroups" in APP_JS

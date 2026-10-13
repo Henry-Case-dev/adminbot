@@ -120,8 +120,13 @@ class TestReturnGlobal:
         assert 'button[aria-label="Вернуть глобальное значение"] {' not in CSS
 
     def test_reset_uses_delete_override_endpoint(self):
+        # re-pin (sweep D13): нижняя граница блока уточнена — после
+        # resetChatOverride в файле идут D07-методы overrides-map
+        # (loadOverrideMap и др., свой api-трафик), поэтому границей тела
+        # метода служит СЛЕДУЮЩИЙ метод, а не applyRoute. Инвариант прежний:
+        # ровно одна мутация — DELETE override.
         body = _block(JS, "resetChatOverride: async function",
-                      "applyRoute: function")
+                      "loadOverrideMap: async function")
         assert "this.api('/api/config/chat/' + encodeURIComponent(item.key)" in body
         assert "method: 'DELETE'" in body
         # Ровно одна мутация — снятие переопределения (не POST значения/
@@ -139,14 +144,22 @@ class TestSwitchGuard:
         assert "stickyDirtyCount" in JS
 
     def test_switch_warns_on_unsaved(self):
+        # re-pin ASAP 8 v6 D13 (§18I.3/§18I.4): guard ухода вынесен в общий
+        # `_dirtyLeaveGuard` (используется также applyRoute/closeModule);
+        # контракт прежний: confirm называет область и число полей,
+        # отказ = область НЕ меняем (черновик не теряем), guard стоит ДО
+        # присваивания activeChatId.
         body = _block(JS, "setActiveChat: function (chatId)",
                       "isChatContext: function ()")
-        assert "this.hasUnsavedEdits()" in body
-        assert "window.confirm" in body
+        assert "this._dirtyLeaveGuard(" in body
         assert "Переключить область и потерять их?" in body
-        # отказ → область НЕ меняем (черновик не теряем): guard стоит ДО
-        # присваивания activeChatId.
-        assert body.index("this.hasUnsavedEdits()") < body.index("this.activeChatId = id;")
+        assert body.index("this._dirtyLeaveGuard(") < \
+            body.index("this.activeChatId = id;")
+        # hasUnsavedEdits + window.confirm живут в общем _dirtyLeaveGuard.
+        guard = _block(JS, "_dirtyLeaveGuard: function (actionLabel)",
+                       "setActiveChat: function (chatId)")
+        assert "this.hasUnsavedEdits()" in guard
+        assert "window.confirm" in guard
 
     def test_stale_scope_guard_intact(self):
         # §42: отброс запоздавших ответов старого scope не сломан F3.

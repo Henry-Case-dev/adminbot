@@ -1,7 +1,8 @@
 'use strict';
 /* F1 round 10.25 — shell/адаптивность (§6/§7/§70, T-2397/T-2398/T-2405):
  *   * постоянный sidebar СТРОГО ≥1200 px; 768–1199 — drawer (без sidebar);
- *   * <768 — bottom-nav ровно из 4 + шторка «Ещё», без полосы из 7 вкладок;
+ *   * D13 (§18I.14): <768 — КОМПАКТНАЯ ВЕРХНЯЯ навигация (mobile-topnav,
+ *     тот же реестр navItems); bottom-nav/шторка «Ещё» УДАЛЕНЫ владельцем;
  *   * touch-таргеты ≥44px; safe-area; нет горизонтального скролла страницы;
  *   * container queries (container-type) для компонент-зависимых раскладок;
  *   * CSP-safe: нет inline-скриптов/стилей в новых зонах.
@@ -21,7 +22,7 @@ const JS = fs.readFileSync(
 const TG = fs.readFileSync(
   path.join(__dirname, '..', '..', 'web', 'static', 'telegram-init.js'), 'utf8');
 
-// ── Breakpoints: sidebar строго с 1200; bottom-nav <768 ──────────────────
+// ── Breakpoints: sidebar строго с 1200; mobile — верхняя навигация ────────
 assert.ok(/@media \(min-width:\s*1200px\)/.test(CSS), 'есть @media 1200px');
 assert.ok(/\.app-shell\.ia-v2 \{ padding-left: 216px; \}/.test(CSS),
   'desktop: контент смещён на 216px (sidebar 208–224)');
@@ -32,27 +33,33 @@ assert.ok(CSS.indexOf('@media (min-width: 1200px)') >= 0,
 
 // ── Shell-элементы в разметке ────────────────────────────────────────────
 for (const cls of ['class="app-sidebar"', 'class="app-drawer"',
-                   'class="bottom-nav"', 'class="more-sheet"']) {
+                   'class="mobile-topnav scroll-thin"']) {
   assert.ok(INDEX.indexOf(cls) >= 0, 'разметка: ' + cls);
 }
+// D13 (§18I.14): нижней навигации и шторки «Ещё» НЕТ нигде.
+assert.ok(INDEX.indexOf('class="bottom-nav"') < 0,
+  'D13: bottom-nav удалён из разметки');
+assert.ok(INDEX.indexOf('class="more-sheet"') < 0,
+  'D13: more-sheet удалён из разметки');
 assert.ok(/v-if="iaV2 && hasSidebar"/.test(INDEX),
   'sidebar — только ≥1200 (hasSidebar)');
-assert.ok(/v-if="iaV2 && isMobileShell"/.test(INDEX),
-  'bottom-nav — только <768 (isMobileShell)');
+assert.ok(/class="mobile-topnav scroll-thin"\s*\n\s*aria-label="Разделы">/.test(INDEX)
+  || /v-if="iaV2 && isMobileShell" class="mobile-topnav/.test(INDEX),
+  'mobile-topnav — только <768 (isMobileShell)');
 assert.ok(/v-if="iaV2 && isCompactShell"/.test(INDEX),
   'drawer — только 768–1199 (isCompactShell)');
 
 // ── Нет полосы из 7 вкладок; navbar gated legacy ─────────────────────────
 assert.ok(/v-if="!iaV2" class="navbar-band/.test(INDEX),
   'navbar-полоса рендерится только в legacy-режиме');
-// bottom-nav не имеет 7 пунктов: список формируется computed (ровно 4).
-assert.ok(/bottomNavItems: function \(\)/.test(JS), 'bottomNavItems computed');
+// D13: мобильная верхняя навигация = канонический реестр navItems.
+assert.ok(/mobileTopnavItems: function \(\)/.test(JS),
+  'mobileTopnavItems computed (тот же navItems)');
 
 // ── Touch ≥44×44 + safe-area ─────────────────────────────────────────────
-assert.ok(/\.sidebar-link, \.more-item \{[^}]*min-height: 44px/.test(CSS)
-  || /min-height: 44px/.test(CSS), 'touch-таргеты ≥44px');
-assert.ok(/\.bottom-nav-link \{[^}]*min-width: 44px/.test(CSS),
-  'bottom-nav тач ≥44px');
+assert.ok(/min-height: 44px/.test(CSS), 'touch-таргеты ≥44px');
+assert.ok(/\.mobile-topnav-link \{[^}]*min-width: 44px/.test(CSS),
+  'mobile-topnav тач ≥44px');
 assert.ok(/env\(safe-area-inset-bottom/.test(CSS), 'safe-area учтён');
 assert.ok(/viewportStableHeight/.test(TG), 'TMA viewportStableHeight');
 assert.ok(/safeAreaInset/.test(TG) && /contentSafeAreaInset/.test(TG),
@@ -70,9 +77,9 @@ assert.ok(!inlineScript.test(stripped), 'нет inline-<script> (CSP script-src 
 assert.ok(!/\son\w+\s*=\s*"/.test(INDEX.replace(/<!--[\s\S]*?-->/g, '')),
   'нет inline on*-обработчиков');
 
-// ── hotfix4 (T-2514/T-2516): offset нижней панели + viewport-fit=cover ───
-assert.ok(/--tg-viewport-bottom-offset/.test(CSS),
-  'hotfix4: панель смещается на --tg-viewport-bottom-offset');
+// ── hotfix4 (T-2514/T-2516) + D13: нижней панели больше нет — токен
+// `--tg-viewport-bottom-offset` остаётся только для legacy/Telegram-слоёв;
+// viewport-fit=cover сохранён (safe-area без обрезки).
 assert.ok(/viewport-fit=cover/.test(INDEX), 'hotfix4: viewport-fit=cover');
 
 console.log('JS-UNIT-OK round1025_shell_breakpoints_test');

@@ -56,19 +56,30 @@ class TestKillSwitch:
 
 class TestShellMarkers:
     def test_sidebar_drawer_bottom_nav(self):
+        # re-pin ASAP 8 v6 D13 (§18I.14): нижняя навигация/шторка удалены —
+        # мобильная навигация компактная ВЕРХНЯЯ; desktop sidebar сохранён.
         assert 'class="app-sidebar"' in HTML
         assert 'class="app-drawer"' in HTML
-        assert 'class="bottom-nav"' in HTML
-        assert 'class="more-sheet"' in HTML
-        # Постоянный sidebar — строго с 1200 px.
+        assert 'class="bottom-nav"' not in HTML, \
+            "D13: нижняя навигация удалена"
+        assert 'class="more-sheet"' not in HTML, \
+            "D13: шторка «Ещё» удалена"
+        assert 'class="mobile-topnav scroll-thin"' in HTML, \
+            "D13: верхняя мобильная навигация присутствует"
+        # Постоянный sidebar — строго с 1200 px (инвариант D13-зоны не задет).
         assert "@media (min-width: 1200px)" in HTML
         assert ".app-shell.ia-v2 .app-sidebar" in HTML
 
     def test_mobile_shell_and_breakpoints(self):
         assert "isMobileShell: function ()" in JS
         assert "isCompactShell: function ()" in JS
-        assert "bottomNavItems: function ()" in JS
-        assert "mobileMoreItems: function ()" in JS
+        # re-pin D13: bottomNavItems/mobileMoreItems удалены, верхняя
+        # навигация рендерит канонический реестр navItems.
+        assert "bottomNavItems: function ()" not in JS, \
+            "D13: bottomNavItems удалён"
+        assert "mobileMoreItems: function ()" not in JS, \
+            "D13: mobileMoreItems удалён"
+        assert "mobileTopnavItems: function ()" in JS
         # touch ≥44×44 + safe-area.
         assert "min-height: 44px" in HTML
         assert "env(safe-area-inset-bottom" in HTML
@@ -83,18 +94,17 @@ class TestShellMarkers:
         assert "viewportStableHeight" in TG_INIT
 
     def test_hotfix4_bottom_nav_order_and_viewport_offset(self):
-        """hotfix4 (T-2514/T-2516/T-2519, ADR-1025-8 D2/D3): offset-переменная + cover.
-        C: `status`+`how` — первые два для всех ролей."""
-        # B: viewport-fit=cover + CSS-компенсация нижнего бара (HTML = index + app.css).
+        """hotfix4 (T-2514/T-2516/T-2519, ADR-1025-8 D2/D3) — SUPERSEDED
+        частично. re-pin ASAP 8 v6 D13: viewport-fit=cover сохранён; нижний
+        offset-токен больше не потребляется разметкой/CSS (панелей снизу
+        нет); порядок нижней навигации не существует — канонический реестр
+        navItems един для sidebar и mobile-topnav."""
         assert "viewport-fit=cover" in HTML
-        assert "--tg-viewport-bottom-offset" in HTML
-        assert "100dvh - var(--tg-viewport-stable-height" in HTML
-        # C: порядок нижней навигации.
-        seg = JS[JS.index("bottomNavItems: function"):
-                 JS.index("mobileMoreItems: function")]
-        assert "byId['status']" in seg
-        assert "byId['how']" in seg
-        assert "byId['modules'] || byId['ai']" in seg
+        assert "--tg-viewport-bottom-offset" not in HTML, \
+            "D13: нижний offset не потребляется web/*"
+        assert "bottomNavItems: function" not in JS, \
+            "D13: bottomNavItems удалён"
+        assert "mobileTopnavItems: function ()" in JS
 
 
 class TestNoCompetingHome:

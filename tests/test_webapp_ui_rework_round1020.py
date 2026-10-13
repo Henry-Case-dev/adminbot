@@ -383,7 +383,10 @@ class TestStickySave:
         assert decls.get("bottom") == "0", decls
         assert "var(--glass-bg-strong)" in _bg_decls(decls), decls
         assert "safe-area-inset-bottom" in decls.get("padding-bottom", ""), decls
-        assert decls.get("margin") == "0", decls
+        # re-pin ASAP 8 v6 D13 (§18I.13): панель — компактный pill (не
+        # full-width footer), прижата вправо.
+        assert decls.get("margin-left") == "auto", decls
+        assert decls.get("width") == "fit-content", decls
 
     def test_sticky_h_token(self):
         m = re.match(r"^([\d.]+)rem$", _token("--sticky-save-h"))
@@ -430,17 +433,15 @@ class TestStickySave:
                 "M-1/L-3: фолбэк не должен задавать padding-bottom"
 
     def test_sticky_spacer_reserves_space(self):
-        """M-1: место над панелью резервирует спейсер в потоке (перед
-        панелью), чтобы контент не уходил под неё, а панель не отрывалась
-        от низа скролл-порта."""
-        _, _, decls = _last_rule_for(".sticky-spacer", top_level_only=False)
-        assert "height" in decls, decls
-        assert "var(--sticky-save-h)" in decls["height"], decls
-        assert INDEX.count('class="sticky-spacer') >= 2, \
-            "нет спейсера в обеих scroll-area-ветках (config/access)"
-        assert re.search(
-            r'<div class="sticky-spacer[^"]*"[^>]*></div>\s*<sticky-save',
-            INDEX), "спейсер обязан стоять непосредственно перед <sticky-save>"
+        """re-pin ASAP 8 v6 D13 (§18I.13): reserved spacer УДАЛЁН — панель
+        монтируется только при dirty (v-if в компоненте) и места в clean
+        state не занимает; место в потоке не резервируется ничем."""
+        rules = _rules_for(".sticky-spacer", top_level_only=False)
+        assert not rules, "D13: .sticky-spacer CSS-правило удалено"
+        assert 'class="sticky-spacer' not in INDEX, \
+            "D13: sticky-spacer элементы удалены из разметки"
+        assert 'v-if="visible"' in APP_JS, \
+            "D13: sticky-save рендерится только при dirty/saving/failed"
 
     def test_no_inline_max_height(self):
         assert "max-height:80dvh" not in INDEX
@@ -449,6 +450,8 @@ class TestStickySave:
     def test_panel_inside_modal_actions_markup(self):
         # HOTFIX9 D3 (T-2806): SaveBar — отдельная нижняя область модалки
         # (footer.modal-actions), НЕ sticky поверх полей и НЕ в .modal-body.
+        # re-pin ASAP 8 v6 D13: footer монтируется dirty-only (v-if) —
+        # adjacency сохраняется в рендере при dirty, в clean футера нет.
         assert re.search(r'<footer class="modal-actions[^"]*">[\s\S]{0,400}'
                          r"<sticky-save", INDEX), \
             "нет <sticky-save> внутри footer.modal-actions (модалка модуля)"
@@ -464,11 +467,14 @@ class TestStickySave:
         for name, block in (("config", config), ("modules", modules),
                             ("access", access)):
             assert "<sticky-save" in block, f"нет панели в ветке {name}"
-        # Досье: SaveBar вынесена из .modal-body в modal-actions.
+        # Досье: SaveBar в modal-actions и ТОЛЬКО при правке/сохранении
+        # (D13 §18I.13 + §18I.4: clean → футера нет; ESC/backdrop не теряют
+        # черновик — closeDossier сохраняет pending-черновик).
         dossier = INDEX[INDEX.index("dossierOpen"):INDEX.index("roleEditor.open")]
-        assert re.search(r'<footer class="modal-actions">[\s\S]{0,400}'
-                         r'<div class="sticky-save">', dossier), \
-            "досье: sticky-save не в modal-actions"
+        assert re.search(
+            r'<footer v-if="[^"]*dossierDraft[^"]*"[\s\S]{0,600}'
+            r'<div class="sticky-save">', dossier), \
+            "досье: sticky-save не в dirty-only modal-actions"
 
     def test_footer_static_defensive_rule(self):
         assert ".modal-actions > .sticky-save" in CSS

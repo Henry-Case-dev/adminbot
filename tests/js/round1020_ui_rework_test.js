@@ -366,7 +366,8 @@ function makeSaveCtx(configItems, keyDrafts) {
 
   // M-1: sticky-панель прилипает к самому низу скролл-порта — у скролл-
   // контейнера НЕТ собственного padding-bottom (он сужал content-box и
-  // «подвешивал» панель). Место над панелью резервирует спейсер в потоке.
+  // «подвешивал» панель). D13 (§18I.13): reserved spacer УДАЛЁН — панель
+  // монтируется только при dirty и места в clean state не занимает.
   {
     const m = CSS.match(/\.scroll-area:has\(> \.sticky-save\)\s*\{([^}]*)\}/);
     assert.ok(m, 'M-1: нет правила .scroll-area:has(> .sticky-save)');
@@ -375,10 +376,16 @@ function makeSaveCtx(configItems, keyDrafts) {
     const pb = m[1].match(/(?:^|[;\s])padding-bottom\s*:\s*([^;]+)/);
     assert.ok(!pb || /^0(px)?$/.test(pb[1].trim()),
       'M-1: padding-bottom контейнера не резервирует место (допустим только 0)');
-    assert.ok(/\.sticky-spacer\s*\{[^}]*height:\s*var\(--sticky-save-h\)/.test(CSS),
-      'M-1: .sticky-spacer резервирует место над панелью');
-    assert.ok(/class="sticky-spacer[^"]*"[^>]*><\/div>\s*<sticky-save/.test(INDEX),
-      'M-1: спейсер стоит непосредственно перед <sticky-save> в скролл-ветке');
+    // D13: spacer удалён — ни CSS-правила, ни элементов в разметке.
+    assert.ok(!/\.sticky-spacer\s*\{/.test(CSS),
+      'D13: .sticky-spacer CSS удалён');
+    assert.ok(INDEX.indexOf('sticky-spacer') < 0,
+      'D13: sticky-spacer элементы удалены из разметки');
+    // D13: панель компактная (pill) и не full-width.
+    const pill = CSS.match(/\.sticky-save\s*\{([^}]*)\}/);
+    assert.ok(pill && /fit-content/.test(pill[1])
+      && /margin-left:\s*auto/.test(pill[1]),
+      'D13: .sticky-save компактный (fit-content, прижат вправо)');
     const fb = CSS.match(/@supports not \(selector\(:has\(\*\)\)\)\s*\{([^}]*)\}/);
     assert.ok(fb, 'M-1: нет @supports-фолбэка (selector(:has(*)))');
     assert.ok(!/(?:^|[;\s{])padding-bottom\s*:/.test(fb[1]),

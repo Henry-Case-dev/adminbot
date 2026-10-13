@@ -91,18 +91,16 @@ class TestGeometry:
         assert re.search(
             r"\.app-shell\.shell-mobile:not\(\.shell-layout-legacy\)"
             r" > main\.scroll-area[\s\S]{0,220}overflow-y:\s*auto", APP_CSS)
-        nav = re.search(r"\.bottom-nav \{([^}]*)\}", APP_CSS).group(1)
-        assert "position: relative" in nav and "flex: 0 0 auto" in nav
-        assert "position: fixed" not in nav
-        # ASAP-3.1 (T-4083, §92/§93, ADR-1028-3 Q6): ЕДИНАЯ модель геометрии —
-        # shell = фактически видимая высота (guessed-offset-паттерн УХОДИТ),
-        # нижний inset применяется РОВНО ОДИН РАЗ на самой .bottom-nav
-        # (padding-bottom как flex-child). Прежний запрет «padding-bottom на
-        # панели» SUPERSEDED: inset на панели = единственный слой; старую
-        # переменную компенсации панель больше не читает.
-        assert "--tg-viewport-bottom-offset" not in nav
-        assert "env(safe-area-inset-bottom" in nav
-        assert "padding-bottom" in nav
+        # re-pin ASAP 8 v6 D13 (§18I.14): нижней навигации нет — мобильная
+        # верхняя в потоке шапки (flex-child, не fixed, без нижнего offset).
+        nav = re.search(r"\.mobile-topnav \{([^}]*)\}", APP_CSS)
+        assert nav, "D13: .mobile-topnav правило присутствует"
+        assert "flex: 0 0 auto" in nav.group(1)
+        assert "position: fixed" not in nav.group(1)
+        assert "--tg-viewport-bottom-offset" not in nav.group(1)
+        # Единая модель геометрии (§92/§93) сохранена: shell = фактически
+        # видимая высота; нижний offset в CSS не потребляется никем.
+        assert "var(--tg-viewport-bottom-offset" not in APP_CSS
 
     def test_telegram_init_sets_usable_height(self):
         assert "--app-usable-height" in TG_INIT
@@ -149,8 +147,11 @@ class TestModal:
                          APP_CSS)
         assert re.search(r'<footer class="modal-actions[^"]*">[\s\S]{0,300}'
                          r"<sticky-save", INDEX)
-        assert re.search(r'<footer class="modal-actions">[\s\S]{0,400}'
-                         r'<div class="sticky-save">', INDEX)
+        # re-pin ASAP 8 v6 D13 (§18I.13): досье-футер dirty-only (v-if по
+        # правке/сохранению); в clean стейте футера с Save нет.
+        assert re.search(r'<footer v-if="[^"]*dossierDraft[^"]*"'
+                         r'[\s\S]{0,500}<div class="sticky-save">', INDEX), \
+            "D13: досье-SaveBar в dirty-only modal-actions"
 
     def test_modal_actions_sibling_of_body(self):
         # H-H9S-1: футер обязан быть СИБЛИНГОМ `.modal-body` (не внутри него) —
@@ -235,5 +236,9 @@ class TestFlagsAcceptance:
 
     def test_persist_and_ia_untouched(self):
         assert "persistItems" in APP_JS
-        assert re.search(r"bottomNavItems:\s*function", APP_JS)
+        # re-pin ASAP 8 v6 D13: нижняя навигация удалена — канон navItems
+        # един (mobileTopnavItems); persistItems F0 не тронут.
+        assert not re.search(r"bottomNavItems:\s*function", APP_JS), \
+            "D13: bottomNavItems удалён"
+        assert re.search(r"mobileTopnavItems:\s*function", APP_JS)
         assert "computeBottomOffset" in TG_INIT

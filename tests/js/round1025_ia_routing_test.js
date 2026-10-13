@@ -88,66 +88,34 @@ const computed = captured.computed;
     'OFF + #/ai* → активный «ИИ»');
 }
 
-// ── bottom-nav ровно 4 (админ) + «Память» в «Ещё» ────────────────────────
-// hotfix4 (T-2519/T-2520, ADR-1025-8 D3): Статус+Справка — первые два для
-// всех ролей; «Справка» НЕ дублируется в «Ещё».
+// ── D13 (§18I.14): bottom-nav/«Ещё» УДАЛЕНЫ; мобильная верхняя навигация
+// использует ТОТ ЖЕ канонический реестр navItems (все разделы, скрытых нет).
 {
   const ctx = {
     route: '#/', iaV2: true, canViewTab() { return true; },
     navItems: computed.navItems.call(
       { route: '#/', iaV2: true, canViewTab() { return true; } }),
   };
-  assert.deepStrictEqual(computed.bottomNavItems.call(ctx).map((n) => n.id),
-    ['status', 'how', 'modules', 'more'],
-    'bottom-nav админа = Статус/Справка/Модули/Ещё');
-  const moreIds = computed.mobileMoreItems.call(ctx).map((n) => n.id);
-  assert.ok(moreIds.indexOf('memory') >= 0, '«Память» — внутри «Ещё»');
-  assert.ok(moreIds.indexOf('how') < 0,
-    '«Справка» НЕ дублируется в «Ещё» (hotfix4)');
-  assert.ok(moreIds.indexOf('ai') >= 0 && moreIds.indexOf('access') >= 0
-    && moreIds.indexOf('permsoc') >= 0,
-    '«Ещё»: вытесненные ИИ/Доступы/PERMsoc доступны');
-  // Пользователь без прав: только Статус/Справка (≤4).
+  const topIds = computed.mobileTopnavItems.call(ctx).map((n) => n.id);
+  assert.strictEqual(computed.bottomNavItems, undefined,
+    'D13: computed bottomNavItems удалён');
+  assert.strictEqual(computed.mobileMoreItems, undefined,
+    'D13: computed mobileMoreItems («Ещё») удалён');
+  assert.ok(topIds.indexOf('status') === 0 && topIds.indexOf('how') >= 0,
+    'mobile-topnav: Статус/Справка присутствуют');
+  assert.ok(topIds.indexOf('memory') >= 0 && topIds.indexOf('access') >= 0,
+    'D13: Память/Доступы достижимы в верхней навигации без «Ещё»');
+  assert.strictEqual(topIds.length, ctx.navItems.length,
+    'D13: тот же канонический реестр, что и desktop sidebar');
+  // Пользователь без прав: только доступные разделы (реестр один).
   const user = {
     route: '#/', iaV2: true, canViewTab(id) { return id === 'status' || id === 'info'; },
     navItems: computed.navItems.call({
       route: '#/', iaV2: true,
       canViewTab(id) { return id === 'status' || id === 'info'; } }),
   };
-  assert.deepStrictEqual(computed.bottomNavItems.call(user).map((n) => n.id),
-    ['status', 'how'], 'bottom-nav пользователя = Статус/Справка');
-}
-
-// ── H-1 (Scanner): «Ещё» обязателен при любом непубличном разделе ─────────
-{
-  const navFor = (canView) => computed.navItems.call(
-    { route: '#/', iaV2: true, canViewTab: canView });
-  const bottomFor = (canView) => computed.bottomNavItems.call(
-    { iaV2: true, navItems: navFor(canView) }).map((n) => n.id);
-  const moreFor = (canView) => computed.mobileMoreItems.call(
-    { iaV2: true, navItems: navFor(canView) }).map((n) => n.id);
-
-  const memoryOnly = (id) => id === 'status' || id === 'info' || id === 'chat_lore';
-  assert.deepStrictEqual(navFor(memoryOnly).map((n) => n.id),
-    ['status', 'how', 'memory'], 'роль «только Память»: раздел виден в nav');
-  assert.ok(bottomFor(memoryOnly).indexOf('more') >= 0,
-    'H-1: Память-only <768 → «Ещё» присутствует');
-  assert.ok(moreFor(memoryOnly).indexOf('memory') >= 0,
-    'H-1: Память-only → раздел достижим из «Ещё»');
-
-  const accessOnly = (id) => id === 'status' || id === 'info' || id === 'access';
-  assert.deepStrictEqual(navFor(accessOnly).map((n) => n.id),
-    ['status', 'how', 'access'], 'роль «только Доступы»: раздел виден в nav');
-  assert.ok(bottomFor(accessOnly).indexOf('more') >= 0,
-    'H-1: Доступы-only <768 → «Ещё» присутствует');
-  assert.ok(moreFor(accessOnly).indexOf('access') >= 0,
-    'H-1: Доступы-only → раздел достижим из «Ещё»');
-
-  const permsocOnly = (id) => id === 'status' || id === 'info' || id === 'permsoc';
-  assert.ok(bottomFor(permsocOnly).indexOf('more') >= 0,
-    'H-1: PERMsoc-only <768 → «Ещё» присутствует');
-  assert.ok(moreFor(permsocOnly).indexOf('permsoc') >= 0,
-    'H-1: PERMsoc-only → раздел достижим из «Ещё»');
+  assert.deepStrictEqual(computed.mobileTopnavItems.call(user).map((n) => n.id),
+    ['status', 'how'], 'mobile-topnav пользователя = Статус/Справка');
 }
 
 // ── applyRoute: алиасы памяти + мусорный hash + nested parent ────────────

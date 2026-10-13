@@ -169,9 +169,9 @@ const methods = captured.methods;
   assert.ok(!/bottom:\s*\d+px/.test(editorCss), 'e: без bottom:Npx костылей');
   assert.ok(INDEX.indexOf('data-cover-editor-footer') >= 0, 'e: footer DOM');
   assert.ok(INDEX.indexOf('data-cover-style-save') >= 0, 'e: save DOM');
-  // more-sheet closed = unmount (регресс 4.2)
-  assert.ok(INDEX.indexOf('<transition name="more-sheet">') >= 0,
-    'e: more-sheet transition');
+  // D13 (§18I.14): шторка «Ещё» удалена (вместе с bottom-nav).
+  assert.ok(INDEX.indexOf('<transition name="more-sheet">') < 0,
+    'e: more-sheet удалён (D13)');
 }
 
 console.log('ASAP43-COVER-STYLE-SURGICAL-OK');

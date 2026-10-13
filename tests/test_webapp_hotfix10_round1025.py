@@ -125,13 +125,13 @@ class TestHeight:
         assert "padding-bottom: 1rem" in code
 
     def test_more_sheet_single_offset(self):
+        # re-pin ASAP 8 v6 D13 (§18I.14): шторка удалена — правило исчезло,
+        # инвариант «offset не складывается с safe-area» удерживается
+        # отсутствием потребления offset в CSS вообще.
         m = re.search(r"^    \.more-sheet \{([\s\S]*?)^    \}", APP_CSS, re.M)
-        assert m
-        code = re.sub(r"/\*[\s\S]*?\*/", "", m.group(1))
-        assert "--tg-viewport-bottom-offset" in code
-        # Нет сложения offset + max(safe-area…).
-        assert not re.search(r"max\(env\(safe-area-inset-bottom[\s\S]{0,160}"
-                             r"\+ var\(--tg-viewport-bottom-offset", code)
+        assert not m, "D13: .more-sheet CSS-правило удалено"
+        assert "--tg-viewport-bottom-offset" not in APP_CSS, \
+            "D13: нижний offset не потребляется CSS (нет сложения с safe-area)"
 
     def test_usable_height_single_source(self):
         assert "--app-usable-height" in TG_INIT

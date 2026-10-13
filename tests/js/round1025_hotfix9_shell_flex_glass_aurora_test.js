@@ -91,22 +91,15 @@ function token(name) {
   // Скроллится только центр.
   assert.ok(/\.app-shell\.shell-mobile:not\(\.shell-layout-legacy\) > main\.scroll-area[\s\S]{0,220}overflow-y:\s*auto/
     .test(CSS), 'A: main.scroll-area — единственный скроллер');
-  // Нижняя навигация — в потоке, не fixed.
-  const nav = CSS.match(/\.bottom-nav \{([^}]*)\}/);
-  assert.ok(nav, 'A: правило .bottom-nav');
-  assert.ok(/position:\s*relative/.test(nav[1]), 'A: nav position:relative');
-  assert.ok(/flex:\s*0 0 auto/.test(nav[1]), 'A: nav flex:0 0 auto');
-  assert.ok(/width:\s*100%/.test(nav[1]), 'A: nav width:100%');
-  assert.ok(!/position:\s*fixed/.test(nav[1]), 'A: nav не fixed');
-  // Safe-area считается ровно один раз — на nav нет offset/padding.
-  assert.ok(!/--tg-viewport-bottom-offset/.test(nav[1]),
-    'A: nav не использует --tg-viewport-bottom-offset');
-  // ASAP-3.1 (T-4083, §93, ADR-1028-3 Q6): SUPERSEDED — единая модель
-  // геометрии: shell = фактически видимая высота (без guessed-offset),
-  // нижний inset применяется РОВНО ОДИН РАЗ на самой .bottom-nav
-  // (padding-bottom как flex-child) — это НЕ «дублирующий» слой.
-  assert.ok(/padding-bottom:\s*max\(/.test(nav[1]),
-    'A: nav несёт единственный нижний inset (padding-bottom max(...))');
+  // D13 (§18I.14): нижняя навигация удалена — мобильная навигация верхняя
+  // (mobile-topnav в шапке); fixed-панелей снизу нет.
+  assert.ok(!/\.bottom-nav[\s{,:-]/.test(CSS),
+    'A/D13: правило .bottom-nav удалено');
+  assert.ok(INDEX.indexOf('class="bottom-nav"') < 0,
+    'A/D13: bottom-nav разметка удалена');
+  assert.ok(/\.mobile-topnav \{/.test(CSS)
+    && /flex:\s*0 0 auto/.test(CSS.match(/\.mobile-topnav \{([^}]*)\}/)[1]),
+    'A/D13: mobile-topnav в потоке шапки (flex:0 0 auto)');
   // Единый источник задаётся в telegram-init.js.
   assert.ok(/--app-usable-height/.test(TG) && /computeBottomOffset/.test(TG),
     'A: telegram-init задаёт --app-usable-height');
