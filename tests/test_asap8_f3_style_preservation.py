@@ -79,7 +79,7 @@ def _caps_limit(value: int):
 SCENE = ("Человек чинит серверную стойку, аварийная лампа горит "
          "над стойкой.")
 SUMMARY = "Медведь открывает чемпионат по шахматам. Вторая фраза."
-STYLED_BYTES = b"F3-STYLED-BYTES"
+STYLED_BYTES = b"\xff\xd8\xff\xe0" + b"0" * 64
 
 
 def _slot_stub(monkeypatch):

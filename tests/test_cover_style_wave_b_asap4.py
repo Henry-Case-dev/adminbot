@@ -64,6 +64,11 @@ def _png(path, size=64):
     return str(path)
 
 
+# C03A: ответ style-провайдера — валидное изображение (payload-валидация
+# run_style_job отклоняет не-изображение: текст → semantic_preservation_failed).
+_STYLE_IMG = b"\xff\xd8\xff\xe0" + b"0" * 64
+
+
 def _jpg(path):
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_bytes(b"\xff\xd8" + b"1" * 32)
@@ -229,7 +234,7 @@ def _gen(monkeypatch, tmp_path, *, edit_result=None, edit_calls=None,
             edit_calls.append(kw)
         if callable(edit_result):
             return edit_result(state)
-        return edit_result or EditResult(ok=True, content=b"STYLED-BYTES",
+        return edit_result or EditResult(ok=True, content=_STYLE_IMG,
                                          reason="ok", latency_ms=5)
 
     monkeypatch.setattr(j, "edit_image", _edit)
@@ -418,7 +423,7 @@ class TestUnifiedPipeline:
         assert gen._wb_edit_state["calls"] == 1
         assert len(gen._wb_media_seen) == 1
         assert gen._wb_media_seen[0].endswith(".jpg")
-        assert gen._wb_media_bytes[0] == b"STYLED-BYTES"   # styled, не base
+        assert gen._wb_media_bytes[0] == _STYLE_IMG   # styled, не base
         assert _lines(caplog, "COVER_STYLE_SUCCEEDED")
         styled = [r for r in prov.rows if r.get("status") == "styled"]
         assert styled and styled[0]["style_id"] == "medved_press"
@@ -449,7 +454,7 @@ class TestUnifiedPipeline:
         assert gen._wb_edit_state["calls"] == 1
         assert _lines(caplog, "COVER_STYLE_START")
         assert _lines(caplog, "COVER_STYLE_SUCCEEDED")
-        assert gen._wb_media_bytes[0] == b"STYLED-BYTES"   # styled финал
+        assert gen._wb_media_bytes[0] == _STYLE_IMG   # styled финал
 
     @pytest.mark.asyncio
     async def test_provider_failure_base_fallback_visible_reason(
@@ -476,7 +481,7 @@ class TestUnifiedPipeline:
         assert published2 is True
         assert gen2._wb_edit_state["calls"] == 1       # повторная попытка
         assert [r for r in prov2.rows if r.get("status") == "styled"]
-        assert gen2._wb_media_bytes[0] == b"STYLED-BYTES"
+        assert gen2._wb_media_bytes[0] == _STYLE_IMG
 
     @pytest.mark.asyncio
     async def test_no_cover_provenance_on_base_failure(self, monkeypatch,
@@ -697,7 +702,7 @@ class TestReferenceIntegrityAndDiagnostics:
 
         async def edit(prompt, **kw):
             seen["reference_paths"] = kw.get("reference_paths")
-            return EditResult(ok=True, content=b"S", reason="ok")
+            return EditResult(ok=True, content=_STYLE_IMG, reason="ok")
 
         with caplog.at_level(logging.INFO):
             meta = await j.run_style_job(
@@ -734,7 +739,7 @@ class TestReferenceIntegrityAndDiagnostics:
                 chat_id=CHAT, base_image_path=_png(tmp_path / "b.png"),
                 profile=profile, summary_run_id=RID, capabilities=tiny,
                 edit_call=AsyncMock(return_value=EditResult(
-                    ok=True, content=b"S", reason="ok")),
+                    ok=True, content=_STYLE_IMG, reason="ok")),
                 reference_paths=[], summary_text="Герой в лесу. Дальше.",
                 base_style_prompt="cinematic")
         diag = meta["prompt_diagnostics"]
@@ -769,7 +774,7 @@ class TestReferenceIntegrityAndDiagnostics:
             chat_id=CHAT, base_image_path=base, profile=_profile(),
             summary_run_id=RID, capabilities=_caps(image_edit=UNKNOWN),
             edit_call=AsyncMock(return_value=EditResult(
-                ok=True, content=b"S", reason="ok")),
+                ok=True, content=_STYLE_IMG, reason="ok")),
             reference_paths=[])
         assert meta["applied"] is True
         assert meta["capability_state"] == "unknown"
@@ -780,7 +785,7 @@ class TestReferenceIntegrityAndDiagnostics:
             chat_id=CHAT, base_image_path=base, profile=_profile(),
             summary_run_id=RID, capabilities=_caps(image_edit=TRUE),
             edit_call=AsyncMock(return_value=EditResult(
-                ok=True, content=b"S", reason="ok")),
+                ok=True, content=_STYLE_IMG, reason="ok")),
             reference_paths=[])
         assert meta["capability_state"] == "yes"
         os.remove(meta["styled_path"])
@@ -850,13 +855,13 @@ class TestReferenceIntegrityAndDiagnostics:
         preview = await j.run_style_preview(
             profile=_profile(), base_image_path=base,
             edit_call=AsyncMock(return_value=EditResult(
-                ok=True, content=b"S", reason="ok")),
+                ok=True, content=_STYLE_IMG, reason="ok")),
             reference_paths=[], capabilities=_caps())
         prod = await j.run_style_job(
             chat_id=CHAT, base_image_path=base, profile=_profile(),
             summary_run_id=RID,
             edit_call=AsyncMock(return_value=EditResult(
-                ok=True, content=b"S", reason="ok")),
+                ok=True, content=_STYLE_IMG, reason="ok")),
             reference_paths=[], capabilities=_caps())
         assert len(slots) == 2 and slots[0] == slots[1]
         assert preview["mode"] == "preview"

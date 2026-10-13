@@ -115,6 +115,16 @@ async def sweep(db, job_store=None, *, now: int | None = None,
             result["recovered"] = list(recovered)
         except Exception:
             logger.warning("[mca_watchdog] recover_stale failed", exc_info=True)
+    # ASAP 8 v6 C03A: recovery-контур styled cover (restart mid-style /
+    # bounded style retry с сохранённой Base). Неблокирующий kick (background
+    # task в cover_style_jobs), fail-open — не влияет на sweep-контракт.
+    try:
+        from services import cover_style_jobs as _csj
+        result["cover_style_recovery_kicked"] = \
+            bool(_csj.kick_cover_style_recovery(db))
+    except Exception:
+        logger.debug("[mca_watchdog] cover style recovery hook failed",
+                     exc_info=True)
     await _emit("WATCHDOG_SWEEP", None, stage="sweep")
     for row in stale:
         await _emit("WATCHDOG_TAKEOVER", "takeover_recovered",

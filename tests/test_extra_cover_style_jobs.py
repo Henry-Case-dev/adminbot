@@ -52,6 +52,11 @@ def _png(path):
     return str(path)
 
 
+# C03A: ответ style-провайдера — ВАЛИДНОЕ изображение (payload-валидация
+# run_style_job честно отклоняет не-изображение: текст/битые байты → Base).
+_STYLE_IMG = b"\xff\xd8\xff\xe0" + b"0" * 64
+
+
 # ══ §42 state machine + durable job state ═══════════════════════════════════
 
 class TestJobState:
@@ -429,7 +434,7 @@ class TestRunStyleJob:
 
         async def edit_call(prompt, **kw):
             assert "ВЫПУСК" in prompt
-            return EditResult(ok=True, content=b"STYLED", reason="ok",
+            return EditResult(ok=True, content=_STYLE_IMG, reason="ok",
                               latency_ms=12)
 
         meta = await j.run_style_job(
@@ -511,7 +516,7 @@ class TestRunStyleJob:
                     ok=False, reason="prompt_limit",
                     meta={"prompt_limit": {"value": limit, "unit": "chars"},
                           "route": "image_api"})
-            return EditResult(ok=True, content=b"STYLED2", reason="ok")
+            return EditResult(ok=True, content=_STYLE_IMG, reason="ok")
 
         meta = await j.run_style_job(
             chat_id=-100, base_image_path=base, profile=_profile(),
@@ -564,7 +569,7 @@ class TestRunStyleJob:
         base = _png(tmp_path / "base.png")
 
         async def edit_call(prompt, **kw):
-            return EditResult(ok=True, content=b"S", reason="ok")
+            return EditResult(ok=True, content=_STYLE_IMG, reason="ok")
 
         meta = await j.run_style_preview(profile=_profile(),
                                          base_image_path=base,
@@ -701,7 +706,7 @@ class TestDurableRestart:
 
             async def resume_call(prompt, **kw):
                 seen["existing"] = kw.get("existing_task_id")
-                return EditResult(ok=True, content=b"STYLED", reason="ok",
+                return EditResult(ok=True, content=_STYLE_IMG, reason="ok",
                                   task_id="prov-1", async_used=True,
                                   reused_task=True)
 
@@ -799,7 +804,7 @@ class TestDynamicBrief:
 
         async def edit_call(prompt, **kw):
             seen["prompt"] = prompt
-            return EditResult(ok=True, content=b"S", reason="ok")
+            return EditResult(ok=True, content=_STYLE_IMG, reason="ok")
 
         await j.run_style_job(
             chat_id=-100, base_image_path=base, profile=_profile(),

@@ -107,6 +107,32 @@ REASON_NO_STYLE_STAGE = "style_stage_not_applicable"
 STYLE_PUBLISH_SKIP_OVERFLOW = "prompt_limit_exceeded"
 STYLE_PUBLISH_SKIP_STORY = "story_identity_dropped"
 
+# ── ASAP 8 v6 C03A: recovery-контур styled cover (Base опубликован,
+# styled не появился / не восстанавливался). Честные reason-коды:
+#   style_disabled                — стиль явно не выбран/выключен: Base
+#                                   финальный ПО НАМЕРЕНИЮ (не false success
+#                                   и не false style_failed);
+#   semantic_preservation_failed  — детерминированный сигнал потери сюжета в
+#                                   результате (провайдер ответил текстом/без
+#                                   изображения вместо edit сцены);
+#   invalid_image_payload         — провайдер вернул не-изображение (битые
+#                                   байты); публикация сломанной обложки
+#                                   запрещена (RCA R3 bonus-дефект);
+#   base_asset_missing            — recovery не нашёл сохранённую Base:
+#                                   повторная генерация Base запрещена (v6:
+#                                   «без генерации второго Base»);
+#   recovery_exhausted            — bounded retry исчерпан (честный финал).
+REASON_STYLE_DISABLED = "style_disabled"
+REASON_SEMANTIC_LOST = "semantic_preservation_failed"
+REASON_INVALID_PAYLOAD = "invalid_image_payload"
+REASON_BASE_ASSET_MISSING = "base_asset_missing"
+REASON_STYLE_INPUTS_MISSING = "style_inputs_missing"
+REASON_RECOVERY_EXHAUSTED = "recovery_exhausted"
+
+# Recovery-события (§44-стиль; R17-safe поля).
+COVER_STYLE_RETRY_SCHEDULED = "COVER_STYLE_RETRY_SCHEDULED"
+COVER_STYLE_RECOVERED = "COVER_STYLE_RECOVERED"
+
 # ── T-4619/T-4620 (spec §6 F.2/F.3; ADR-1028-8 D7.2): событие резолва
 # Style-слота с ИСТОЧНИКОМ наследования (лестница §35 — точная причина
 # видима, не generic `style_failed`).
@@ -124,6 +150,11 @@ STYLE_REASON_CODES = frozenset({
     "prompt_limit_unknown", "prompt_limit_unknown_after_retry",
     # ASAP 8 F3 (§5.4): fail-soft — story identity потерян при компиляции.
     STYLE_PUBLISH_SKIP_STORY,
+    # ASAP 8 v6 C03A: recovery-контур и честные исходы styled.
+    REASON_STYLE_DISABLED, REASON_SEMANTIC_LOST, REASON_INVALID_PAYLOAD,
+    REASON_BASE_ASSET_MISSING, REASON_STYLE_INPUTS_MISSING,
+    REASON_RECOVERY_EXHAUSTED,
+    "style_stage_error",
 })
 
 
@@ -165,6 +196,24 @@ REASON_DETAILS_RU = {
                          "применена базовая обложка"),
     STYLE_PUBLISH_SKIP_STORY: ("промпт стиля не гарантирует сохранение "
                                "сюжета сцены — применена базовая обложка"),
+    # ASAP 8 v6 C03A: recovery-контур и честные исходы styled.
+    REASON_STYLE_DISABLED: ("стиль не выбран или выключен — базовая обложка "
+                            "опубликована по намерению"),
+    REASON_SEMANTIC_LOST: ("результат обработки не сохранил сюжет сцены — "
+                           "применена базовая обложка"),
+    REASON_INVALID_PAYLOAD: ("провайдер вернул некорректное изображение — "
+                             "применена базовая обложка"),
+    REASON_BASE_ASSET_MISSING: ("сохранённая базовая обложка недоступна — "
+                                "восстановление стиля невозможно без "
+                                "повторной генерации Base (запрещено)"),
+    REASON_STYLE_INPUTS_MISSING: ("durable-компоненты промпта стиля "
+                                  "(Base-манифест run) недоступны — "
+                                  "восстановление невозможно без повторной "
+                                  "сборки (запрещено)"),
+    REASON_RECOVERY_EXHAUSTED: ("повторные попытки восстановления стиля "
+                                "исчерпаны — применена базовая обложка"),
+    "style_stage_error": ("стадия стиля прервана ошибкой — "
+                          "применена базовая обложка"),
     REASON_STYLE_FAILED: ("обработка стилем не завершилась "
                           "(ошибка провайдера)"),
 }
@@ -181,6 +230,168 @@ def style_skip_status(reason: str) -> str:
     if not detail:
         return ""
     return "Обработка стилем — не выполнена. Причина: %s." % detail
+
+
+# ── ASAP 8 v6 C03A: recovery-контур styled cover ────────────────────────────
+
+def recovery_enabled() -> bool:
+    """Kill-switch recovery-контура (`COVER_STYLE_RECOVERY_ENABLED`, env-only,
+    default ON). OFF — прежнее поведение: style-фейл терминален, рестарт
+    посреди стиля оставляет зомби-строку (v6 C03A кейсы 2/3 нарушены)."""
+    try:
+        return bool(getattr(settings, "COVER_STYLE_RECOVERY_ENABLED", True))
+    except Exception:
+        return True
+
+
+def recovery_max_attempts() -> int:
+    """Bounded retry: максимальное число recovery-попыток на job
+    (`COVER_STYLE_RECOVERY_MAX_ATTEMPTS`, default 2; ≥0). Начальная
+    инлайн-попытка публикации НЕ считается."""
+    try:
+        raw = getattr(settings, "COVER_STYLE_RECOVERY_MAX_ATTEMPTS", 2)
+        return max(0, int(raw))
+    except Exception:
+        return 2
+
+
+# Постоянные (не повторяемые автоматически) причины: конфигурация/контракт —
+# повторная попытка даст тот же исход (v6: «классификация permanent/transient»).
+_PERMANENT_STYLE_REASONS = frozenset({
+    REASON_NO_STYLE, REASON_PROFILE_MISSING, REASON_DISABLED,
+    REASON_CONNECTION_MISSING, REASON_REFERENCE_MISSING,
+    REASON_CAPABILITY_UNKNOWN, REASON_NOT_CONFIGURED, REASON_NO_STYLE_STAGE,
+    "edit_unsupported", "route_unverified",
+    STYLE_PUBLISH_SKIP_OVERFLOW, STYLE_PUBLISH_SKIP_STORY,
+    "prompt_limit", "prompt_limit_unknown", "prompt_limit_unknown_after_retry",
+    REASON_SEMANTIC_LOST, REASON_INVALID_PAYLOAD, REASON_BASE_ASSET_MISSING,
+    REASON_STYLE_INPUTS_MISSING, REASON_RECOVERY_EXHAUSTED,
+    REASON_STYLE_DISABLED,
+    "bad_request", "unauthorized", "forbidden", "payment_required",
+    "not_found", "invalid_request_error", "content_policy_violation",
+})
+
+# Подстроки временных причин (provider timeout/network/5xx/limit-pressure).
+_TRANSIENT_STYLE_MARKERS = (
+    "timeout", "deadline", "network", "temp_write_failed", "server_error",
+    "unavailable", "rate_limit", "429", "http_5", "reset", "reconnect",
+    "cancelled",
+)
+
+
+def classify_style_failure(reason: str) -> str:
+    """Классификация причины style-фейла: ``transient`` | ``permanent``.
+
+    Точные permanent-коды проверяются первыми (`connection_missing` содержит
+    «conn», но постоянна); затем подстроки transient-класса; неизвестная
+    причина → permanent (bounded by default: слепой retry неизвестного
+    опаснее честного финала — причина видна в Inspector).
+    """
+    reason = str(reason or "").strip().lower()
+    if not reason:
+        return "permanent"
+    if reason in _PERMANENT_STYLE_REASONS:
+        return "permanent"
+    if reason.startswith("http_4") or reason in ("400", "401", "403", "404",
+                                                 "422"):
+        return "permanent"
+    if any(marker in reason for marker in _TRANSIENT_STYLE_MARKERS):
+        return "transient"
+    return "permanent"
+
+
+def recovery_backoff_seconds(retry_count: int) -> int:
+    """Backoff перед следующей recovery-попыткой (bounded 5–60 мин)."""
+    return min(300 * (2 ** max(0, int(retry_count) - 1)), 3600)
+
+
+def recovery_dir():
+    """Managed-каталог durable cover-артефактов recovery-контура
+    (env `COVER_STYLE_RECOVERY_DIR`, default `var/cover_style_recovery`).
+
+    Отдельно от `cover_style_assets` (регистр референсов/seed — R18 не
+    задеваем); файлы run-артефактов prune'ятся bounded (см.
+    `persist_style_artifact`)."""
+    import pathlib
+    raw = os.getenv("COVER_STYLE_RECOVERY_DIR", "").strip()
+    if raw:
+        return pathlib.Path(raw)
+    return pathlib.Path(__file__).resolve().parents[1] / "var" / \
+        "cover_style_recovery"
+
+
+def _recovery_prune(directory, keep: int = 200) -> None:
+    """Bounded retention recovery-артефактов: новейшие `keep` файлов живут,
+    более старые удаляются (иначе каждый styled-успех рос бы неограниченно)."""
+    try:
+        entries = [p for p in directory.iterdir() if p.is_file()]
+    except OSError:
+        return
+    if len(entries) <= keep:
+        return
+    try:
+        entries.sort(key=lambda p: p.stat().st_mtime, reverse=True)
+    except OSError:
+        return
+    for stale in entries[keep:]:
+        try:
+            stale.unlink()
+        except OSError:
+            pass
+
+
+def persist_style_artifact(run_id: str, src_path: str | None,
+                           kind: str) -> str | None:
+    """Сохранить cover-артефакт run'а (base/styled) в recovery-каталог.
+
+    Base сохраняется ДО style-вызова (restart-mid-style обязан найти её),
+    styled — при успехе (связь «run ↔ финальный styled-артефакт» переживает
+    удаление temp-файла публикацией). Имя детерминировано от run_id
+    (R17-safe: без chat-данных в имени). None — источник не читается."""
+    if not src_path or not str(run_id or "").strip():
+        return None
+    try:
+        with open(src_path, "rb") as handle:
+            data = handle.read()
+    except OSError:
+        return None
+    name = hashlib.sha256(str(run_id).encode("utf-8")).hexdigest()[:20]
+    target = recovery_dir() / ("%s_%s.jpg" % (name, "styled" if kind ==
+                                              "styled" else "base"))
+    try:
+        target.parent.mkdir(parents=True, exist_ok=True)
+        if not target.exists() or kind == "styled":
+            # base — идемпотентная запись (перезапуск не перезатирает);
+            # styled — последняя успешная попытка win (retry обновляет).
+            target.write_bytes(data)
+        _recovery_prune(target.parent)
+    except OSError:
+        logger.warning("[cover_style_jobs] recovery artifact write failed",
+                       exc_info=True)
+        return None
+    return str(target)
+
+
+def set_styled_status(state, *, status: str, reason: str | None = None,
+                       route: str | None = None,
+                       attempt: int | None = None) -> None:
+    """Честный styled-статус в durable state + манифест (Inspector читает
+    `state.prompt_manifest` через `load_run_cover_prompts`)."""
+    if state is None:
+        return
+    state.styled_status = status
+    state.styled_fail_reason = reason
+    if route is not None:
+        state.styled_route = route
+    manifest = state.prompt_manifest
+    if isinstance(manifest, dict):
+        manifest["styled_status"] = {
+            "status": status,
+            "reason": reason,
+            "route": route,
+            "attempt": int(attempt if attempt is not None
+                           else (state.retry_count or 0)),
+        }
 
 # ── §48/§75: человекочитаемые RU-статусы ────────────────────────────────────
 RU_STYLE_FAILED = ("Обработка стилем не завершилась вовремя. "
@@ -527,6 +738,19 @@ class CoverJobState:
     # job evidence, bounded retention вместе с task_jobs); наружу — только
     # admin-authorized API через cpa.manifest_public (fail-closed).
     prompt_manifest: dict | None = None
+    # ── ASAP 8 v6 C03A: recovery-контур styled cover ──
+    # Durable путь сохранённой Base (recovery-артефакт run'а): вторая попытка
+    # style использует ЕЁ — повторная генерация Base запрещена (v6 кейс 2/3).
+    base_asset_path: str | None = None
+    # Durable styled-артефакт успешной (в т.ч. восстановленной) обработки.
+    styled_asset_path: str | None = None
+    # Честный styled-статус для Inspector:
+    # styled | failed | retry_scheduled | base_fallback | None.
+    styled_status: str | None = None
+    styled_fail_reason: str | None = None
+    styled_route: str | None = None
+    # Счётчик recovery-попыток (bounded; начальная инлайн-попытка не считается).
+    retry_count: int = 0
 
     def mark(self, state: str, *, provider_task_id: str | None = None,
              note: str | None = None) -> None:
@@ -559,6 +783,13 @@ class CoverJobState:
             "draft_snapshot": self.draft_snapshot,
             "draft_fingerprint": self.draft_fingerprint,
             "prompt_manifest": self.prompt_manifest,
+            # ASAP 8 v6 C03A: recovery-поля (additive, backward-compatible).
+            "base_asset_path": self.base_asset_path,
+            "styled_asset_path": self.styled_asset_path,
+            "styled_status": self.styled_status,
+            "styled_fail_reason": self.styled_fail_reason,
+            "styled_route": self.styled_route,
+            "retry_count": int(self.retry_count or 0),
             "stages": self.stages[-32:]}, ensure_ascii=False)
 
     @classmethod
@@ -595,6 +826,12 @@ class CoverJobState:
             prompt_manifest=(data.get("prompt_manifest")
                              if isinstance(data.get("prompt_manifest"),
                                            dict) else None),
+            base_asset_path=data.get("base_asset_path"),
+            styled_asset_path=data.get("styled_asset_path"),
+            styled_status=data.get("styled_status"),
+            styled_fail_reason=data.get("styled_fail_reason"),
+            styled_route=data.get("styled_route"),
+            retry_count=int(data.get("retry_count") or 0),
             stages=list(data.get("stages") or []))
 
 
@@ -1336,8 +1573,13 @@ def heartbeat_interval() -> float:
 
 async def _run_with_heartbeat(factory, *, interval: float, event: str,
                               run_id: str | None, job_id: str | None,
-                              model: str, provider: str):
-    """Дождаться корутины, логируя heartbeat раз в `interval` (§46, без спама)."""
+                              model: str, provider: str,
+                              on_beat=None) -> None:
+    """Дождаться корутины, логируя heartbeat раз в `interval` (§46, без спама).
+
+    C03A: `on_beat` — асинхронный колбэк живости владельца durable-джобы
+    (`task_jobs.heartbeat_at`): без него `recover_stale`/watchdog видят
+    только mca_events и реапают живую долгую style-стадию."""
     task = asyncio.ensure_future(factory())
     started = time.monotonic()
     try:
@@ -1345,6 +1587,11 @@ async def _run_with_heartbeat(factory, *, interval: float, event: str,
             done, _ = await asyncio.wait({task}, timeout=interval)
             if task in done:
                 return task.result()
+            if on_beat is not None:
+                try:
+                    await on_beat()
+                except Exception:      # pragma: no cover - fail-open
+                    pass
             emit_cover_event(
                 event, outcome="pending_external", run_id=run_id,
                 job_id=job_id, model=model, provider=provider,
@@ -1383,6 +1630,32 @@ def _write_temp_image(content: bytes) -> str | None:
     except Exception:
         logger.warning("[cover_style_jobs] temp write failed — fail-open")
         return None
+
+
+def _styled_payload_signal(content: bytes) -> tuple[bool, str]:
+    """C03A (кейс 5): детерминированная проверка результата edit.
+
+    (True, "")            — магические байты валидного изображения;
+    (False, semantic_preservation_failed) — декодируемый текст вместо
+                            изображения: модель подменила edit сцены
+                            текстовым ответом, сюжет сохранён быть не может;
+    (False, invalid_image_payload) — бинарный мусор/битая кодировка.
+    R17: контент не логируется, только классификация."""
+    data = bytes(content or b"")
+    head = data[:16]
+    if head.startswith(b"\xff\xd8") or head.startswith(b"\x89PNG\r\n\x1a\n"):
+        return True, ""
+    if head[:4] == b"RIFF" and data[8:12] == b"WEBP":
+        return True, ""
+    probe = data[:2048]
+    try:
+        text = probe.decode("utf-8")
+    except (UnicodeDecodeError, ValueError):
+        return False, REASON_INVALID_PAYLOAD
+    printable = sum(ch.isprintable() or ch in "\r\n\t" for ch in text)
+    if probe and printable / len(text) >= 0.9:
+        return False, REASON_SEMANTIC_LOST
+    return False, REASON_INVALID_PAYLOAD
 
 
 def _resolve_api_key() -> str:
@@ -1567,7 +1840,8 @@ async def run_style_job(*, chat_id: int, base_image_path: str | None,
                         summary_text: str | None = None,
                         base_style_prompt: str | None = None,
                         story_scene: str | None = None,
-                        manifest_out: dict | None = None) -> dict:
+                        manifest_out: dict | None = None,
+                        heartbeat=None) -> dict:
     """Выполнить Style Edit поверх готовой base cover (нормализатор, §23).
 
     Возвращает meta-словарь. При любом сбое `applied=False`,
@@ -1591,6 +1865,15 @@ async def run_style_job(*, chat_id: int, base_image_path: str | None,
     reference integrity §45 + метрики, prompt diagnostics §46; mca_events
     `reason_code` не схлопывается в generic `style_failed`. OFF — прежний
     порядок и прежние события бит-в-бит (parity-тест).
+
+    ASAP 8 v6 C03A: `heartbeat` — async-колбэк живости durable-джобы
+    (`task_jobs.heartbeat_at`, recover_stale не реапает живую стадию);
+    результат провайдера проходит детерминированную payload-валидацию
+    (не-изображение → `semantic_preservation_failed`/`invalid_image_payload`,
+    fail-soft Base вместо публикации сломанной обложки); успешный styled
+    получает честную метку `semantic_verification=unverified` (автоматический
+    semantic-compare изображения ненадёжен — visual check остаётся
+    visual-only gate) и durable-артефакт в recovery-каталоге.
     """
     started = time.monotonic()
     _wb = snapshot_enabled()
@@ -1996,7 +2279,7 @@ async def run_style_job(*, chat_id: int, base_image_path: str | None,
         result = await _run_with_heartbeat(
             _call, interval=heartbeat_interval(), event=COVER_STYLE_RUNNING,
             run_id=correlation_id, job_id=job_id, model=meta["model"],
-            provider=meta["provider"])
+            provider=meta["provider"], on_beat=heartbeat)
     except Exception as exc:
         result = EditResult(ok=False, reason=type(exc).__name__,
                             model=meta["model"], provider=meta["provider"])
@@ -2077,7 +2360,8 @@ async def run_style_job(*, chat_id: int, base_image_path: str | None,
                                 interval=heartbeat_interval(),
                                 event=COVER_STYLE_RUNNING,
                                 run_id=correlation_id, job_id=job_id,
-                                model=meta["model"], provider=meta["provider"])
+                                model=meta["model"], provider=meta["provider"],
+                                on_beat=heartbeat)
                         except Exception as exc:
                             result = EditResult(
                                 ok=False, reason=type(exc).__name__,
@@ -2117,8 +2401,9 @@ async def run_style_job(*, chat_id: int, base_image_path: str | None,
                             lambda: _call(recompiled.prompt),
                             interval=heartbeat_interval(),
                             event=COVER_STYLE_RUNNING, run_id=correlation_id,
-                            job_id=job_id, model=meta["model"],
-                            provider=meta["provider"])
+                            job_id=job_id,
+                            model=meta["model"], provider=meta["provider"],
+                            on_beat=heartbeat)
                     except Exception as exc:
                         result = EditResult(
                             ok=False, reason=type(exc).__name__,
@@ -2184,15 +2469,63 @@ async def run_style_job(*, chat_id: int, base_image_path: str | None,
         await _persist_state(db, job_id, state)
 
     if result.ok and result.content:
+        # ── ASAP 8 v6 C03A (кейс 5): детерминированная payload-валидация
+        # результата edit. 2xx с НЕ-изображением — это НЕ успех: провайдер,
+        # ответивший текстом (отказ/подмена сцены), теряет сюжет проверяемо
+        # → `semantic_preservation_failed`; битые бинарные байты →
+        # `invalid_image_payload` (RCA R3 bonus: прежде битый payload
+        # писался как .jpg и публиковался «успехом»). Оба исхода —
+        # fail-soft Base, платного повтора нет. ────────────────────────────
+        payload_ok, payload_reason = _styled_payload_signal(result.content)
+        if not payload_ok:
+            meta["fail_reason"] = payload_reason
+            _manifest_mark_outcome(manifest, applied=False,
+                                   reason=payload_reason)
+            await _record_provenance(
+                obj, meta, summary_run_id=summary_run_id, job_id=job_id,
+                snapshot=snapshot, status=registry.PROVENANCE_BASE,
+                fallback_mode=payload_reason, mode=mode)
+            return await _style_failed(
+                meta, state, reason=payload_reason,
+                message=reason_detail_ru(payload_reason),
+                run_id=correlation_id, job_id=job_id, chat_id=chat_id,
+                started=started, db=db)
         path = _write_temp_image(result.content)
         if path is not None:
             meta.update(applied=True, styled_path=path, outcome=RESULT_STYLED,
                         reason="", duration_ms=_elapsed(started),
                         final_asset_id=_asset_id_of(path))
+            # C03A (кейс 5/6): автоматический semantic-compare изображения
+            # ненадёжен — честный unknown, не фейковая уверенность; owner
+            # visual check остаётся только visual-гейтом, не условием
+            # доставки.
+            meta["semantic_verification"] = {
+                "status": "unverified",
+                "note": "no_automated_image_semantic_check",
+            }
+            if mode == MODE_PRODUCTION:
+                # Durable styled-артефакт run'а (переживает удаление
+                # temp-файла публикацией; recovery/retry переиспользует).
+                saved = persist_style_artifact(
+                    str(summary_run_id or ""), path, "styled")
+                if saved:
+                    meta["styled_asset_path"] = saved
             _manifest_mark_outcome(manifest, applied=True)
+            if isinstance(manifest, dict):
+                manifest["semantic_verification"] = dict(
+                    meta["semantic_verification"])
+                # C03A: styled-статус в самом манифесте (Inspector читает
+                # state.prompt_manifest через load_run_cover_prompts).
+                manifest["styled_status"] = {
+                    "status": "styled", "reason": None,
+                    "route": meta.get("edit_route"), "attempt": 0}
             if state is not None:
                 state.mark(STATE_STYLE_SUCCEEDED,
                            provider_task_id=result.task_id)
+                state.styled_status = RESULT_STYLED
+                state.styled_fail_reason = None
+                if meta.get("styled_asset_path"):
+                    state.styled_asset_path = meta["styled_asset_path"]
                 await _persist_state(db, job_id, state)
             emit_cover_event(
                 COVER_STYLE_SUCCEEDED, outcome="success", run_id=correlation_id,
@@ -2226,8 +2559,14 @@ async def _style_failed(meta: dict, state, *, reason: str, message: str,
     meta.update(applied=False, styled_path=None, outcome=RESULT_BASE,
                 reason=REASON_STYLE_FAILED, fail_reason=reason,
                 message=message, duration_ms=_elapsed(started))
+    # C03A: честный styled-статус прямо в meta (публикующий владелец может
+    # уточнить его на retry_scheduled — recovery-бюджет/классификация).
+    meta["styled_status"] = "failed"
+    meta["styled_fail_reason"] = reason
     if state is not None:
         state.mark(STATE_STYLE_FAILED, note=reason)
+        set_styled_status(state, status="failed", reason=reason,
+                           route=meta.get("edit_route"))
         await _persist_state(db, job_id, state)
     if snapshot_enabled():
         # ASAP-4 волна B (§2 B.4): mca_events reason_code перестаёт
@@ -2298,6 +2637,318 @@ async def run_style_preview(*, profile: dict, base_image_path: str,
     return meta
 
 
+# ── ASAP 8 v6 C03A: recovery-контур styled cover (кейсы 2/3) ────────────────
+# Механизм (ADR в plans/features/asap8-v6-remediation/c03a-report.md):
+#   * публикация остаётся inline (второй очереди НЕТ — §42/Q6), но durable
+#     job помечается running+heartbeat на время style-вызова, а Base
+#     сохраняется в recovery-каталог ДО вызова — рестарт посреди стиля
+#     оставляет возобновляемое состояние, а не зомби;
+#   * recovery-в sweeps (`recover_cover_style_jobs`) дообрабатывает:
+#     - `interrupted`/stale-`queued` (restart mid-style),
+#     - `completed` с STYLE_FAILED и transient-причиной (style упал, Base
+#       опубликован) — вторая попытка использует СОХРАНЁННУЮ Base (не
+#       генерирует вторую), тот же issue-номер (pin run+profile),
+#       idempotent publication: Telegram НЕ вызывается — восстановленный
+#       styled связывается с тем же run (артефакт+manifest+provenance),
+#       дублей публикации нет;
+#   * bounded: max_attempts на job + backoff + batch limit; permanent-причины
+#     не зацикливаются (честный failed + причина в Inspector).
+
+_RECOVERY_LOCK: asyncio.Lock | None = None
+_RECOVERY_KICK_TASK: asyncio.Task | None = None
+
+
+async def _recovery_style_inputs(db, run_id: str) -> dict | None:
+    """Компиляционные входы для recovery-попытки — из durable Base-манифеста
+    run'а (компоненты STORY_SCENE/SUMMARY_CONTEXT/BASE_STYLE хранят
+    sent_text). None — манифеста нет (честный отказ, не слепой retry)."""
+    try:
+        manifest = await load_base_cover_manifest(db, run_id)
+    except Exception:
+        return None
+    if not isinstance(manifest, dict):
+        return None
+    comps = {}
+    for comp in (manifest.get("components") or []):
+        if isinstance(comp, dict) and comp.get("key"):
+            comps[str(comp["key"])] = comp
+    def _txt(key: str) -> str:
+        comp = comps.get(key) or {}
+        return str(comp.get("sent_text") or comp.get("original_text") or "")
+    story = _txt("STORY_SCENE")
+    if not story:
+        return None
+    context = _txt("SUMMARY_CONTEXT")
+    return {
+        "story_scene": story,
+        "summary_text": context or story,
+        "base_style_prompt": _txt("BASE_STYLE"),
+    }
+
+
+async def _recover_one_cover_style_job(db, row: dict, *, pg=None,
+                                       edit_call=None,
+                                       now: int | None = None) -> dict | None:
+    """Дообработать одну cover_style-джобу (см. `recover_cover_style_jobs`)."""
+    from services.task_supervisor import TaskJobStore
+    store = TaskJobStore(db)
+    job_id = str(row.get("job_id") or "")
+    payload: dict = {}
+    try:
+        payload = json.loads(row.get("payload") or "{}")
+        if not isinstance(payload, dict):
+            payload = {}
+    except (ValueError, TypeError):
+        payload = {}
+    cursor = payload.get("cursor")
+    state = CoverJobState.from_json(cursor if isinstance(cursor, str) else "")
+    if state is None or not state.style_id or state.state == STATE_DONE:
+        return None                       # не наша/завершённая — пропустить
+    # REV-WAVE-B F1 (Critical): УЖЕ УСПЕШНЫЙ styled recovery не перезапускает.
+    # Production-инлайн ставит task_jobs='completed' (finish_cover_job c
+    # RESULT_STYLED), а cursor навсегда остаётся STATE_STYLE_SUCCEEDED /
+    # styled_status='styled' — DONE ставит только preview-путь
+    # (cover_style_preview). Без этой ветки sweep ретраил платный edit и
+    # финализировал успешную джобу как failed/recovery_exhausted.
+    # Идемпотентность: 0 edit-вызовов, статус/manifest не изменяются.
+    # Legacy-успехи (cursor без base_asset_path, но со styled-результатом)
+    # защищены той же веткой (styled_status='styled' или
+    # STATE_STYLE_SUCCEEDED).
+    if row.get("status") == "completed" and (
+            state.state == STATE_STYLE_SUCCEEDED
+            or state.styled_status == RESULT_STYLED):
+        return None
+    run_id = str(payload.get("correlation_id")
+                 or row.get("coalesce_key") or "").strip()
+    run_id = run_id.replace("cover_style:", "", 1) if run_id else ""
+    chat_id = int(payload.get("chat_id") or 0)
+    obj = pg if pg is not None else _pg()
+
+    def _finish_failed(reason: str) -> dict:
+        state.styled_status = "failed"
+        state.styled_fail_reason = reason
+        set_styled_status(state, status="failed", reason=reason,
+                           attempt=state.retry_count)
+        return {"job_id": job_id, "action": "failed", "reason": reason}
+
+    # Bounded retry: бюджет исчерпан → честный терминальный failed.
+    if state.retry_count >= recovery_max_attempts():
+        await save_cover_state(db, job_id, state)
+        await store.finish(job_id, status="failed",
+                           reason_code=REASON_RECOVERY_EXHAUSTED)
+        emit_cover_event(
+            COVER_STYLE_RETRY_SCHEDULED, outcome="failed",
+            level=logging.WARNING, run_id=run_id or None, job_id=job_id,
+            chat_id=chat_id or None, reason_code=REASON_RECOVERY_EXHAUSTED,
+            reason=REASON_RECOVERY_EXHAUSTED, attempt=state.retry_count,
+            status="recovery_exhausted")
+        result = _finish_failed(REASON_RECOVERY_EXHAUSTED)
+        await save_cover_state(db, job_id, state)
+        return result
+
+    # Permanent-причина style-фейла (completed после публикации Base) —
+    # повторять вслепую запрещено: тот же исход.
+    last_fail = str(state.styled_fail_reason
+                    or row.get("reason_code") or "")
+    if row.get("status") == "completed" and last_fail \
+            and classify_style_failure(last_fail) != "transient":
+        return None
+
+    # ── Ресурсы recovery: Base/profile/inputs. Что-то недоступно → честный
+    # permanent-финал (вторая генерация Base запрещена v6). ────────────────
+    base_path = state.base_asset_path
+    if not base_path or not os.path.exists(str(base_path)):
+        await save_cover_state(db, job_id, state)
+        await store.finish(job_id, status="failed",
+                           reason_code=REASON_BASE_ASSET_MISSING)
+        emit_cover_event(
+            COVER_STYLE_RETRY_SCHEDULED, outcome="failed",
+            level=logging.WARNING, run_id=run_id or None, job_id=job_id,
+            chat_id=chat_id or None, reason_code=REASON_BASE_ASSET_MISSING,
+            reason=REASON_BASE_ASSET_MISSING, attempt=state.retry_count,
+            status="recovery_failed")
+        result = _finish_failed(REASON_BASE_ASSET_MISSING)
+        await save_cover_state(db, job_id, state)
+        return result
+    profile = None
+    if obj is not None:
+        try:
+            profile = await registry.get_profile_with_refs(obj, state.style_id)
+        except Exception:
+            profile = None
+    if not profile or not profile.get("enabled"):
+        await save_cover_state(db, job_id, state)
+        await store.finish(job_id, status="failed",
+                           reason_code=REASON_PROFILE_MISSING)
+        result = _finish_failed(REASON_PROFILE_MISSING)
+        await save_cover_state(db, job_id, state)
+        return result
+    inputs = await _recovery_style_inputs(db, run_id)
+    if inputs is None:
+        await save_cover_state(db, job_id, state)
+        await store.finish(job_id, status="failed",
+                           reason_code=REASON_STYLE_INPUTS_MISSING)
+        result = _finish_failed(REASON_STYLE_INPUTS_MISSING)
+        await save_cover_state(db, job_id, state)
+        return result
+
+    # ── Возобновляемая попытка: queued/running владение + heartbeat. ──────
+    state.retry_count = int(state.retry_count or 0) + 1
+    state.styled_status = "retry_scheduled"
+    await save_cover_state(db, job_id, state)
+    await requeue_cover_job(db, job_id, reason_code="style_recovery")
+    await store.mark_running(job_id)
+
+    async def _beat():
+        await store.heartbeat(job_id)
+
+    meta = await run_style_job(
+        chat_id=chat_id, base_image_path=str(base_path), profile=profile,
+        summary_run_id=run_id or None, correlation_id=run_id or None,
+        db=db, job_id=job_id, state=state, pg=obj, edit_call=edit_call,
+        mode=MODE_PRODUCTION, heartbeat=_beat, **inputs)
+    if meta.get("styled_path"):
+        set_styled_status(state, status="styled", reason=None,
+                           route=meta.get("edit_route"),
+                           attempt=state.retry_count)
+        await save_cover_state(db, job_id, state)
+        await finish_cover_job(db, job_id, outcome=RESULT_STYLED,
+                               reason_code=None, checkpoint=state)
+        emit_cover_event(
+            COVER_STYLE_RECOVERED, outcome="success", run_id=run_id or None,
+            job_id=job_id, chat_id=chat_id or None, model=meta.get("model"),
+            provider=meta.get("provider"), attempt=state.retry_count,
+            style_id=meta.get("style_id"), status="styled_recovered")
+        return {"job_id": job_id, "action": "recovered", "reason": "",
+                "attempt": state.retry_count}
+    reason = str(meta.get("fail_reason") or "style_failed")
+    cls = classify_style_failure(reason)
+    if cls == "transient" and state.retry_count < recovery_max_attempts():
+        set_styled_status(state, status="retry_scheduled", reason=reason,
+                           route=meta.get("edit_route"),
+                           attempt=state.retry_count)
+        await save_cover_state(db, job_id, state)
+        try:
+            ts = int(now if now is not None else time.time())
+            await store.set_next_retry(
+                job_id, ts + recovery_backoff_seconds(state.retry_count),
+                reason_code=reason)
+        except Exception:
+            pass
+        emit_cover_event(
+            COVER_STYLE_RETRY_SCHEDULED, outcome="skipped",
+            level=logging.WARNING, run_id=run_id or None, job_id=job_id,
+            chat_id=chat_id or None, reason_code=reason, reason=reason,
+            attempt=state.retry_count, status="retry_scheduled")
+        return {"job_id": job_id, "action": "scheduled", "reason": reason,
+                "attempt": state.retry_count}
+    set_styled_status(state, status="failed", reason=reason,
+                       route=meta.get("edit_route"),
+                       attempt=state.retry_count)
+    await save_cover_state(db, job_id, state)
+    await store.finish(job_id, status="failed", reason_code=reason)
+    emit_cover_event(
+        COVER_STYLE_RETRY_SCHEDULED, outcome="failed", level=logging.WARNING,
+        run_id=run_id or None, job_id=job_id, chat_id=chat_id or None,
+        reason_code=reason, reason=reason, attempt=state.retry_count,
+        status="recovery_failed")
+    return {"job_id": job_id, "action": "failed", "reason": reason,
+            "attempt": state.retry_count}
+
+
+async def recover_cover_style_jobs(db, *, pg=None, edit_call=None,
+                                   limit: int = 1,
+                                   now: int | None = None) -> list[dict]:
+    """Recovery-проход durable cover_style-джоб (v6 C03A кейсы 2/3).
+
+    Кандидаты: ``interrupted`` (restart mid-style — ставится recover_stale),
+    stale ``queued`` (зомби прежних деплоев, R2) и ``completed`` с
+    STYLE_FAILED в checkpoint (style упал, Base опубликован — bounded retry
+    transient-причин). ``running`` не трогается: это живая инлайн-стадия
+    (heartbeat) или зона `recover_stale` (fencing).
+
+    Каждая попытка: сохранённая Base (никогда не вторая генерация), тот же
+    issue-номер (pin run+profile), recompiled-промпт из durable-компонент
+    Base-манифеста (детерминированный компилятор), идемпотентная
+    публикация: Telegram НЕ вызывается, styled связывается с run как
+    артефакт+manifest+provenance. Возвращает список действий."""
+    if db is None or not recovery_enabled():
+        return []
+    global _RECOVERY_LOCK
+    if _RECOVERY_LOCK is None:
+        _RECOVERY_LOCK = asyncio.Lock()
+    if _RECOVERY_LOCK.locked():
+        return []                         # параллельный sweep уже работает
+    async with _RECOVERY_LOCK:
+        ts = int(now if now is not None else time.time())
+        stale_cutoff = ts - max(60, stale_window_seconds())
+        try:
+            cursor = await db.db.execute(
+                "SELECT * FROM task_jobs WHERE kind = ? AND ("
+                "status = 'interrupted' OR "
+                "(status = 'queued' AND updated_at < ?) OR "
+                "(status = 'completed' AND (next_retry_at IS NULL OR "
+                "next_retry_at <= ?)) "
+                ") AND (next_retry_at IS NULL OR next_retry_at <= ?) "
+                "ORDER BY updated_at ASC LIMIT 25",
+                ("cover_style", stale_cutoff, ts, ts))
+            rows = [dict(r) for r in await cursor.fetchall()]
+        except Exception:
+            logger.warning("[cover_style_jobs] recovery select failed",
+                           exc_info=True)
+            return []
+        out: list[dict] = []
+        for row in rows:
+            if len(out) >= max(1, int(limit)):
+                break
+            try:
+                action = await _recover_one_cover_style_job(
+                    db, row, pg=pg, edit_call=edit_call, now=ts)
+            except Exception:
+                logger.warning("[cover_style_jobs] recovery attempt failed "
+                               "| job_id=%s", row.get("job_id"),
+                               exc_info=True)
+                continue
+            if action is not None:
+                out.append(action)
+        return out
+
+
+def stale_window_seconds() -> int:
+    """Окно stale для queued-зомби (сек): heartbeat-watchdog stale."""
+    try:
+        from services import mca_gates
+        return int(mca_gates.job_stale_seconds())
+    except Exception:
+        return 600
+
+
+def kick_cover_style_recovery(db) -> int:
+    """Неблокирующий запуск recovery-прохода (watchdog sweep/startup).
+
+    Возвращает 1 — проход запланирован (background task), 0 — уже идёт или
+    выключен. Ошибки прохода не всплывают в sweep (fail-open)."""
+    global _RECOVERY_KICK_TASK
+    if db is None or not recovery_enabled():
+        return 0
+    task = _RECOVERY_KICK_TASK
+    if task is not None and not task.done():
+        return 0
+
+    async def _run():
+        try:
+            await recover_cover_style_jobs(db)
+        except Exception:
+            logger.warning("[cover_style_jobs] recovery kick failed",
+                           exc_info=True)
+
+    try:
+        _RECOVERY_KICK_TASK = asyncio.ensure_future(_run())
+    except RuntimeError:                  # нет running loop — fail-open
+        return 0
+    return 1
+
+
 def _elapsed(started: float) -> int:
     return max(0, int((time.monotonic() - started) * 1000))
 
@@ -2333,4 +2984,13 @@ __all__ = [
     "selection_stage", "profile_for_snapshot", "report_style_skip",
     "record_no_cover_provenance", "style_reason_code", "reason_detail_ru",
     "style_skip_status", "profile_diagnostics", "resolve_selected_style_id",
+    # ASAP 8 v6 C03A: recovery-контур styled cover
+    "REASON_STYLE_DISABLED", "REASON_SEMANTIC_LOST", "REASON_INVALID_PAYLOAD",
+    "REASON_BASE_ASSET_MISSING", "REASON_STYLE_INPUTS_MISSING",
+    "REASON_RECOVERY_EXHAUSTED",
+    "COVER_STYLE_RETRY_SCHEDULED", "COVER_STYLE_RECOVERED",
+    "recovery_enabled", "recovery_max_attempts", "classify_style_failure",
+    "recovery_backoff_seconds", "recovery_dir", "persist_style_artifact",
+    "recover_cover_style_jobs", "kick_cover_style_recovery",
+    "set_styled_status",
 ]

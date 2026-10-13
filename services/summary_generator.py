@@ -2940,6 +2940,8 @@ class SummaryGenerator:
         fallback_done = False
         cover_outcome = _csj.RESULT_BASE
         cover_reason = ""
+        # C03A кейс 4: причина раннего выхода style-стадии (Base по намерению).
+        _style_skip: dict = {}
         _csj.emit_cover_event(
             _csj.COVER_PIPELINE_START, outcome="start",
             run_id=correlation_id, chat_id=chat_id)
@@ -3203,13 +3205,19 @@ class SummaryGenerator:
                 chat_id, base_path, correlation_id, cover_prompt=cover_prompt,
                 base_style=style, snapshot=snapshot,
                 summary_text=(self._document_plain_text(document)
-                              or cover_prompt))
+                              or cover_prompt),
+                skip_out=_style_skip)
             if style_meta and style_meta.get("styled_path"):
                 styled_path = style_meta["styled_path"]
                 cover_outcome = _csj.RESULT_STYLED
             elif style_meta and style_meta.get("reason") == _csj.REASON_STYLE_FAILED:
                 cover_outcome = _csj.RESULT_BASE
                 cover_reason = _csj.REASON_STYLE_FAILED
+            elif not style_meta and _style_skip.get("reason"):
+                # C03A кейс 4: Base финальный по намерению — честный
+                # `style_disabled` (или гранулярная причина потери выбранного
+                # стиля), не false success и не generic style_failed.
+                cover_reason = str(_style_skip["reason"])
             cover_for_publish = styled_path or base_path
             format_started = log_format_start(
                 run_id=correlation_id, chat_id=chat_id, channel="rich")
@@ -3361,7 +3369,8 @@ class SummaryGenerator:
                                        cover_prompt: str = "",
                                        base_style: str = "",
                                        snapshot: dict | None = None,
-                                       summary_text: str | None = None
+                                       summary_text: str | None = None,
+                                       skip_out: dict | None = None
                                        ) -> dict | None:
         """EXTRA §3.2/§49: применить выбранный per-chat Style к base cover.
 
@@ -3379,10 +3388,29 @@ class SummaryGenerator:
         видимый reason (`COVER_STYLE_SKIPPED` + human-причина + provenance
         base_fallback), ничего не молчит. OFF — прежняя тихая цепочка
         бит-в-бит.
+
+        ASAP 8 v6 C03A (restart-safety + recovery):
+          * durable-джоба переводится в `running` с heartbeat на время
+            style-вызова (watchdog/recover_stale видят стадию);
+          * Base сохраняется в recovery-каталог ДО платного вызова — рестарт
+            посреди стиля оставляет возобновляемое состояние, recovery
+            (`csj.recover_cover_style_jobs`) дообрабатывает его с СОХРАНЁННОЙ
+            Base (вторая генерация Base запрещена);
+          * transient style-фейл при живом бюджете → `styled_status=
+            retry_scheduled` (recovery-восстановление), permanent/исчерпан →
+            `failed`;
+          * `skip_out` — out-словарь причины раннего выхода (кейс 4: Base
+            финальный по намерению — `style_disabled`, не false
+            style_failed).
         """
+        def _skip(reason: str) -> None:
+            if skip_out is not None:
+                skip_out["reason"] = reason
+
         try:
             from services import cover_style_jobs as csj
             if not csj.cover_styles_enabled():
+                _skip(csj.REASON_STYLE_DISABLED)
                 return None
             if snapshot is None and csj.snapshot_enabled():
                 # Страховка для вызовов мимо `_publish_rich_document`:
@@ -3397,20 +3425,29 @@ class SummaryGenerator:
                     await csj.report_style_skip(
                         snapshot, summary_run_id=correlation_id,
                         reason=skip_reason)
+                    # C03A кейс 4: Base финальный по намерению — честный
+                    # `style_disabled`, не false style_failed.
+                    _skip(csj.REASON_STYLE_DISABLED if skip_reason in (
+                        csj.REASON_NO_STYLE, csj.REASON_DISABLED)
+                        else skip_reason)
                     return None
                 if not csj.uses_style_stage(profile):
                     # Режим профиля без Style-стадии — не fail: pipeline_mode
                     # виден в COVER_STYLE_SELECTION.
+                    _skip(csj.REASON_STYLE_DISABLED)
                     return None
             else:
                 # COVER_STYLE_SNAPSHOT_ENABLED=OFF — прежний контур (бит-в-бит):
                 style_id = await csj.resolve_selected_style_id(chat_id)
                 if not style_id:
+                    _skip(csj.REASON_STYLE_DISABLED)
                     return None
                 profile = await csj.load_selected_profile(chat_id)
                 if not profile or not profile.get("enabled"):
+                    _skip(csj.REASON_PROFILE_MISSING)
                     return None
                 if not csj.uses_style_stage(profile):
+                    _skip(csj.REASON_STYLE_DISABLED)
                     return None
             # §42: durable job REUSE `task_jobs` (второй очереди нет).
             db = getattr(self.memory, "db", None)
@@ -3419,6 +3456,27 @@ class SummaryGenerator:
                 style_id=profile.get("profile_id"),
                 summary_run_id=correlation_id,
                 payload={"mode": "production"})
+            # C03A: durable-стадия видима (running + heartbeat) на время
+            # инлайн-вызова; рестарт → recover_stale → interrupted → recovery.
+            if db is not None and job_id:
+                try:
+                    from services.task_supervisor import TaskJobStore
+                    await TaskJobStore(db).mark_running(job_id)
+                except Exception:      # pragma: no cover - fail-open
+                    pass
+                # C03A: Base в recovery-каталог ДО платного вызова — вторая
+                # попытка использует её (вторая генерация Base запрещена).
+                if correlation_id and base_image_path:
+                    saved = csj.persist_style_artifact(
+                        str(correlation_id), base_image_path, "base")
+                    if saved:
+                        state.base_asset_path = saved
+                        await csj.save_cover_state(db, job_id, state)
+
+            async def _beat():
+                from services.task_supervisor import TaskJobStore as _TJS
+                await _TJS(db).heartbeat(job_id)
+
             meta = await csj.run_style_job(
                 chat_id=chat_id, base_image_path=base_image_path,
                 profile=profile, summary_run_id=correlation_id,
@@ -3429,7 +3487,31 @@ class SummaryGenerator:
                 summary_text=(summary_text
                               if summary_text is not None else cover_prompt),
                 story_scene=cover_prompt,
-                base_style_prompt=base_style)
+                base_style_prompt=base_style,
+                heartbeat=(_beat if db is not None and job_id else None))
+            if not meta.get("applied") and meta.get("outcome") \
+                    == csj.RESULT_BASE:
+                # C03A: transient-фейл при живом бюджете — bounded recovery
+                # восстановит styled с сохранённой Base; permanent — честный
+                # failed (причина/route/attempt видны в Inspector).
+                fail_reason = str(meta.get("fail_reason") or "")
+                budget_left = state.retry_count < csj.recovery_max_attempts()
+                if (job_id and csj.recovery_enabled()
+                        and csj.classify_style_failure(fail_reason)
+                        == "transient" and budget_left):
+                    meta["styled_status"] = "retry_scheduled"
+                    csj.set_styled_status(
+                        state, status="retry_scheduled",
+                        reason=fail_reason, route=meta.get("edit_route"))
+                    await csj.save_cover_state(db, job_id, state)
+                    csj.emit_cover_event(
+                        csj.COVER_STYLE_RETRY_SCHEDULED, outcome="skipped",
+                        level=logging.WARNING, run_id=correlation_id,
+                        job_id=job_id, chat_id=chat_id,
+                        reason_code=fail_reason, reason=fail_reason,
+                        attempt=state.retry_count,
+                        model=meta.get("model"), provider=meta.get("provider"),
+                        status="retry_scheduled")
             try:
                 outcome = (csj.RESULT_STYLED if meta.get("styled_path")
                            else csj.RESULT_BASE)
@@ -3446,6 +3528,7 @@ class SummaryGenerator:
             logger.warning(
                 "summary cover: style stage skipped (fail-open) | chat_id=%s",
                 chat_id, exc_info=True)
+            _skip("style_stage_error")
             return None
 
     async def _degrade_without_cover(self, chat_id: int, document, *,

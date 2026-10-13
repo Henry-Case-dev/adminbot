@@ -309,7 +309,8 @@ def test_medved_reference_chain_into_edit_request(pg, monkeypatch, tmp_path):
 
     async def edit_call(prompt, **kw):
         captured.update(kw)
-        return EditResult(ok=True, content=b"STYLED", reason="ok")
+        return EditResult(ok=True, content=b"\xff\xd8\xff\xe0" + b"0" * 64,
+                          reason="ok")
 
     base = tmp_path / "base.png"
     base.write_bytes(PNG_BYTES)
@@ -383,7 +384,8 @@ def test_unknown_limit_does_not_pre_block(tmp_path, monkeypatch):
 
     async def edit_call(prompt, **kw):
         prompts.append(prompt)
-        return EditResult(ok=True, content=b"S", reason="ok")
+        return EditResult(ok=True, content=b"\xff\xd8\xff\xe0" + b"0" * 64,
+                          reason="ok")
 
     caps = cap.ImageModelCapabilities(image_edit=cap.TRUE,
                                       max_input_images=3,
