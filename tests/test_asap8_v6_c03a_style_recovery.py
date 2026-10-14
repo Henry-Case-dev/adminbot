@@ -294,7 +294,10 @@ class TestCase1HappyPath:
             manifest = prompts["style"]
             assert manifest is not None
             assert prompts["cover_prompts_status"]["style"] == "ok"
-            assert manifest["semantic_verification"]["status"] == "unverified"
+            # B04.6: format_valid и scene_preserved — разные честные сигнала
+            verification = manifest["semantic_verification"]
+            assert verification["format_valid"] is True
+            assert verification["scene_preserved"] == "unknown"
             assert manifest["styled_status"]["status"] == "styled"
             # Base-манифест того же run существует (обе стадии связаны run'ом)
             assert prompts["base"] is not None
@@ -351,6 +354,10 @@ class TestCase2RetryWithoutSecondBase:
             with caplog.at_level(logging.INFO):
                 actions = await j.recover_cover_style_jobs(db, limit=1)
             assert actions and actions[0]["action"] == "recovered"
+            # B04.5: политика доставки ЯВНАЯ — по умолчанию Telegram НЕ
+            # вызывается (не тихий «recovered=доставлен»), статус durable.
+            assert actions[0]["telegram_delivery"] == \
+                j.DELIVERY_NOT_ATTEMPTED
             # НЕ второй Base: генератор Base не вызывался повторно
             assert gen._c03a_image_counts["image"] == 1
             # ровно один повтор style-edit (итого 2), тот же issue-номер
@@ -363,6 +370,7 @@ class TestCase2RetryWithoutSecondBase:
             # styled восстановлен и связан с тем же run
             jid2, state2 = await _job_state(db, RID)
             assert state2.styled_status == "styled"
+            assert state2.telegram_delivery == j.DELIVERY_NOT_ATTEMPTED
             assert state2.retry_count == 1
             assert state2.styled_asset_path and os.path.exists(
                 state2.styled_asset_path)

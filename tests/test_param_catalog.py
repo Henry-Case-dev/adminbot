@@ -59,7 +59,21 @@ class TestCompleteness:
                                       "MCA_CHARACTER_LAYERS_ENABLED",
                                       "MCA_CHARACTER_SPEECH_ENABLED",
                                       "MCA_STYLE_SCOPE_ENABLED",
-                                      "MCA_POSTPROCESS_FORM_GUARD_ENABLED"})
+                                      "MCA_POSTPROCESS_FORM_GUARD_ENABLED",
+                                      # v6.3 B01 (W1-CHAT-INTEL): env-ось
+                                      # observer'а инициативы; product-оси —
+                                      # каталоговые pg-ключи initiative.*
+                                      # (generic-резолв, initiative_observer).
+                                      "INITIATIVE_OBSERVER_ENABLED",
+                                      "INITIATIVE_ENABLED",
+                                      "INITIATIVE_FREQUENCY_PROFILE",
+                                      "INITIATIVE_MIN_GAP_SECONDS",
+                                      "INITIATIVE_MAX_REPLIES_PER_DAY",
+                                      "INITIATIVE_DAY_WINDOW_SECONDS",
+                                      "INITIATIVE_MAX_REPLIES_PER_TOPIC",
+                                      "INITIATIVE_EVAL_MIN_MESSAGES",
+                                      "INITIATIVE_EVAL_MIN_INTERVAL_SECONDS",
+                                      "INITIATIVE_EVAL_LLM_BUDGET_PER_DAY"})
 
     def test_every_settings_field_covered(self):
         missing, extra = pc.settings_field_coverage()
@@ -162,11 +176,18 @@ class TestCompleteness:
     def test_pg_keys_dotted_and_unique(self):
         keys = [s.pg_key for s in REGISTRY.values()]
         assert len(keys) == len(set(keys))
+        # v6.3 B01 (W1-CHAT-INTEL): product-ключи резолва инициативы живут
+        # в собственном namespace `initiative.*` (инициатива читает их через
+        # chat_params/hot по этим строкам — B01-снапшот 37423-EOF), при
+        # категориях flags/limits. Осознанное ns-исключение, прецедент
+        # названия-осей §3.3 (effective = env AND product).
+        NS_EXCEPTIONS = ("initiative.",)
         for spec in REGISTRY.values():
             if spec.category is None:
                 continue
             assert spec.pg_key.count(".") >= 1
-            assert spec.pg_key.startswith(spec.category + ".")
+            assert (spec.pg_key.startswith(spec.category + ".")
+                    or spec.pg_key.startswith(NS_EXCEPTIONS))
 
     def test_titles_and_types(self):
         for spec in REGISTRY.values():
@@ -523,8 +544,12 @@ class TestGroups8424:
         # (L1 Planner); параллельный F4 in-flight: flags +13 — 560.
         # ASAP 8 F5 (§5.3): +1 memory (product master Random
         # memory.random_enabled, PG-only) — 561.
+        # v6.3 B01 (W1-CHAT-INTEL): +10 INITIATIVE_* — flags +2
+        # (flags_intent: observer master + per-chat гейт) / limits +8
+        # (limits_intent: профиль частоты + тонкие лимиты и бюджеты оценок)
+        # → flags 98 / limits 220, итого 571.
         assert counts == {"prompts": 24, "models": 74, "keys": 35,
-                          "limits": 212, "flags": 96, "reactions": 39,
+                          "limits": 220, "flags": 98, "reactions": 39,
                           "content": 5, "memory": 47, "temporal": 4}
         assert {g.category for g in GROUPS} >= set(CATEGORIES)
 

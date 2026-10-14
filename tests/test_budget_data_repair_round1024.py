@@ -605,5 +605,5 @@ class TestFlagBoundary:
 
     def test_delta_catalog_zero(self):
         from services import param_catalog as pc
-        assert len(pc.REGISTRY) == 561
+        assert len(pc.REGISTRY) == 571
         assert len(pc.GROUPS) == 120

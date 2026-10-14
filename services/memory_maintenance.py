@@ -84,6 +84,16 @@ _LEGACY_TRAITS_PARSE_TICK_SECONDS = 3600
 # Совпадает с `_VEC_REACTIVATE_INTERVAL` (10 мин) — re-probe без read-пути.
 _EMBED_RECOVERY_TICK_SECONDS = 600
 
+# ASAP 8 v6.3 (B01): тик initiative opportunity observer (сек; код-константа,
+# Δ каталога = 0). Scan-фаза дёшевa (курсор по smart_messages, без LLM);
+# semantic evaluation — bounded по расписанию внутри job.
+_INITIATIVE_OBSERVER_TICK_SECONDS = 300
+
+# v6.3 B01: честный штамп последнего тика наблюдателя (in-memory вид для
+# Status; durable-состояние — payload durable-задачи initiative.observe).
+_initiative_observer_last_tick: dict = {"ts": None, "status": None,
+                                        "observed": 0, "opportunities": 0}
+
 
 def _experience_review_tick_enabled() -> bool:
     """K1+K3+UI-настройка review опыта (fail-closed, никогда не бросает)."""
@@ -225,6 +235,10 @@ class MemoryMaintenanceService:
     # embeddings не зависит от других джобов и read-трафика (почти бесплатен
     # при здоровом vec: cadence-гейт внутри `embed_recovery_tick`).
     JOB_EMBED_RECOVERY_ID = "embed_recovery_tick"
+    # ASAP 8 v6.3 (B01): тик initiative opportunity observer — тот же
+    # планировщик; gate читается тиком на каждом заходе (прецедент
+    # intent_heartbeat: регистрация всегда, OFF-hot → тик инертен).
+    JOB_INITIATIVE_OBSERVER_ID = "initiative_observer_tick"
 
     def __init__(self, db, memory, llm, bot=None) -> None:
         self.db = db
@@ -314,6 +328,18 @@ class MemoryMaintenanceService:
                                  settings.SUMMARY_TIMEZONE)),
             id=self.JOB_EMBED_RECOVERY_ID, replace_existing=True,
             max_instances=1, coalesce=True)
+        # ASAP 8 v6.3 (B01): тик initiative opportunity observer — регистри-
+        # руется ВСЕГДА (прецедент intent_heartbeat C06A): gate
+        # flags.initiative_observer_enabled + K1 читается тиком на каждом
+        # заходе → toggle симметричен без рестарта.
+        self._scheduler.add_job(
+            self._tick_initiative_observer,
+            IntervalTrigger(
+                seconds=_INITIATIVE_OBSERVER_TICK_SECONDS,
+                timezone=hot.get("limits.summary_timezone",
+                                 settings.SUMMARY_TIMEZONE)),
+            id=self.JOB_INITIATIVE_OBSERVER_ID, replace_existing=True,
+            max_instances=1, coalesce=True)
         self._scheduler.start()
         # v6 C06A: сервис запущен → registered/next_tick доступны Status;
         # durable-штамп последнего тика восстанавливается (fail-open) —
@@ -384,15 +410,62 @@ class MemoryMaintenanceService:
         """MCA-16 (T-5003): тик пакетного review опыта (durable job).
 
         Каденция/настройка читаются hot на каждом тике — применение без
-        рестарта. Ошибка не рвёт планировщик; OFF → честный `disabled`."""
+        рестарта. Ошибка не рвёт планировщик; OFF → честный `disabled`.
+        ASAP 8 v6.3 (B02): semantic extractor получает СУЩЕСТВУЮЩИЙ LLM-клиент
+        (DI из DirectChatService-синглтона); клиент недоступен → семантическая
+        стадия честно `unavailable` (детерминированный контур работает)."""
         try:
             from services import mca_experience_jobs as jobs
-            status = await jobs.tick_experience_review(self.db)
+            service = _direct_chat_service_singleton()
+            llm = getattr(service, "llm", None) if service is not None \
+                else None
+            status = await jobs.tick_experience_review(self.db, llm=llm)
             if status not in ("not_due", "disabled", "running"):
                 logger.info("[mca16] experience review tick | status=%s",
                             status)
         except Exception:
             logger.warning("[mca16] experience review tick failed",
+                           exc_info=True)
+
+    async def _tick_initiative_observer(self) -> None:
+        """ASAP 8 v6.3 (B01, REQ-B01): тик initiative opportunity observer.
+
+        Сигналы из обычного чата НЕ зависят от Direct entrypoint: observer
+        читает human-corpus `smart_messages` напрямую; Writer переиспользуется
+        (DirectChatService-синглтон), при его недоступности — явный статус
+        `initiative_writer_unavailable` (внутри job), не молчание. Ошибка не
+        рвёт планировщик; master OFF → честный `disabled`."""
+        try:
+            from services import initiative_observer as observer
+            service = _direct_chat_service_singleton()
+            llm = getattr(service, "llm", None) if service is not None \
+                else None
+            status = await observer.observe_tick(
+                self.db, bot=self.bot, writer_service=service, llm=llm)
+            counters = {}
+            try:
+                active = await observer.get_active_observe(self.db)
+                if active is not None:
+                    counters = json.loads(
+                        (active.get("payload") or "{}")).get("counters") or {}
+            except Exception:
+                counters = {}
+            _initiative_observer_last_tick["ts"] = int(time.time())
+            _initiative_observer_last_tick["status"] = status
+            _initiative_observer_last_tick["observed"] = int(
+                counters.get("observed") or 0)
+            _initiative_observer_last_tick["opportunities"] = int(
+                counters.get("opportunities") or 0)
+            if status not in ("disabled", "not_due", "running"):
+                logger.info("[b01] initiative observer tick | status=%s "
+                            "observed=%s opportunities=%s", status,
+                            _initiative_observer_last_tick["observed"],
+                            _initiative_observer_last_tick["opportunities"])
+            else:
+                logger.debug("[b01] initiative observer tick | status=%s",
+                             status)
+        except Exception:
+            logger.warning("[b01] initiative observer tick failed",
                            exc_info=True)
 
     async def _tick_intent_heartbeat(self) -> None:
@@ -439,6 +512,18 @@ class MemoryMaintenanceService:
             # за генерацию); intent'ы ограничены expiry/hygiene.
             service = _direct_chat_service_singleton()
             if due and self.bot is not None and service is None:
+                # B01.5: недоступность переиспользуемого Writer — явный
+                # статус/событие `initiative_writer_unavailable`, не молчание
+                # (кандидаты остаются due; intent-жизненный цикл не зависит
+                # от Direct-trigger-gate).
+                try:
+                    from services import mca_events
+                    mca_events.emit_mca_event(
+                        "initiative_writer_unavailable", outcome="skipped",
+                        component="initiative", stage="writer:unavailable",
+                        due=len(due))
+                except Exception:
+                    pass
                 logger.warning(
                     "[f6] direct chat service unavailable — initiative "
                     "decisions skipped | due=%d", len(due))

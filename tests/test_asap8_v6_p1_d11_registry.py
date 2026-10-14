@@ -130,14 +130,18 @@ class TestD11Inventory:
 
     def test_registry_payload_for_new_modules(self):
         data = {e["id"]: e for e in mr.registry_for_frontend()}
-        for module_id in D11_PRODUCT + tuple(D11_SUBMODULES) + \
-                ("embeddings",):
+        # B07 (v6.3): temporal — функция Фактчека, НЕ карточка модуля:
+        # записи в MODULE_REGISTRY/inspector живут, в выдаче карточек её НЕТ.
+        assert "factcheck_temporal" not in data
+        assert "factcheck_temporal" in mr.MODULE_REGISTRY
+        for module_id in D11_PRODUCT + ("embeddings",):
             entry = data[module_id]
             assert entry["gate"]["requested"] is not None
             assert entry["status_source"]
             assert entry["help_anchor"]
-        # factcheck_temporal — подкарточка на поверхности родителя
-        assert data["factcheck_temporal"]["config_tab"] == "mod_factcheck"
+        # temporal-функция принадлежит поверхности Фактчека (родитель жив)
+        assert mr.MODULE_REGISTRY["factcheck_temporal"].parent_id \
+            in mr.MODULE_REGISTRY
         assert data["embeddings"]["classification"] == "infrastructure"
 
 

@@ -755,11 +755,13 @@ def _vision_tool_enabled() -> bool:
 def _fact_check_tool_enabled() -> bool:
     """env-only kill-switch ``MCA_TEMPORAL_FACTCHECK_TOOL_ENABLED`` (MCA-20,
     ADR-1028-20 §8.3 K2; ON) + каталог-тумблер владельца
-    ``temporal.tool_enabled``. Гейтит ТОЛЬКО LLM-доступность
-    ``fact_check``: OFF → инструмент скрыт из набора (устаревшие вызовы
-    получают честный disabled-ToolResult — серверная проверка в диспетчере,
-    defence in depth). Наличие схемы ``TOOL_FACT_CHECK`` и канон 14 —
-    безусловны. Инертен при мастере OFF (K1)."""
+    ``temporal.tool_enabled`` (B07.2: чтение через hot — PG-значение
+    применяется без рестарта; фолбэк — Settings-канон). Гейтит ТОЛЬКО
+    LLM-доступность ``fact_check``: OFF → инструмент скрыт из набора
+    (устаревшие вызовы получают честный disabled-ToolResult — серверная
+    проверка в диспетчере, defence in depth). Наличие схемы
+    ``TOOL_FACT_CHECK`` и канон 14 — безусловны. Инертен при мастере
+    OFF (K1)."""
     try:
         from services import mca_gates
         if not mca_gates.temporal_factcheck_tool_enabled():
@@ -768,7 +770,23 @@ def _fact_check_tool_enabled() -> bool:
         if not bool(getattr(settings, "MCA_TEMPORAL_FACTCHECK_TOOL_ENABLED",
                             True)):
             return False
-    return bool(getattr(settings, "TEMPORAL_TOOL_ENABLED", True))
+    # B07.3 (ASAP 8 v6.3): master Фактчека блокирует ЕГО функцию —
+    # инструмент fact_check недоступен при выключенном Factcheck
+    # (Direct продолжает работать: LLM просто не получает инструмент).
+    try:
+        from services import hot_config as hot_cfg
+        if not bool(hot_cfg.get("flags.factcheck_enabled", getattr(
+                settings, "FACTCHECK_ENABLED", True))):
+            return False
+    except Exception:      # pragma: no cover - кэш не поднят → Settings
+        if not bool(getattr(settings, "FACTCHECK_ENABLED", True)):
+            return False
+    try:
+        from services import hot_config as hot_cfg
+        return bool(hot_cfg.get("temporal.tool_enabled", getattr(
+            settings, "TEMPORAL_TOOL_ENABLED", True)))
+    except Exception:      # pragma: no cover - кэш не поднят → Settings
+        return bool(getattr(settings, "TEMPORAL_TOOL_ENABLED", True))
 
 
 def active_tools(lore_compiler_enabled: bool = True,

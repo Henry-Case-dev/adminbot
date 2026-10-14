@@ -20,10 +20,12 @@ provider/model, task id); API key/полный prompt/raw Summary/приватн
 from __future__ import annotations
 
 import asyncio
+import dataclasses
 import hashlib
 import json
 import logging
 import os
+import re
 import tempfile
 import time
 import uuid
@@ -749,6 +751,10 @@ class CoverJobState:
     styled_status: str | None = None
     styled_fail_reason: str | None = None
     styled_route: str | None = None
+    # B04.5: честный статус доставки восстановленного styled
+    # (not_attempted_policy_off | replaced | rich_message_edit_unsupported |
+    # publication_reference_missing); None — recovery не завершался.
+    telegram_delivery: str | None = None
     # Счётчик recovery-попыток (bounded; начальная инлайн-попытка не считается).
     retry_count: int = 0
 
@@ -789,6 +795,7 @@ class CoverJobState:
             "styled_status": self.styled_status,
             "styled_fail_reason": self.styled_fail_reason,
             "styled_route": self.styled_route,
+            "telegram_delivery": self.telegram_delivery,
             "retry_count": int(self.retry_count or 0),
             "stages": self.stages[-32:]}, ensure_ascii=False)
 
@@ -831,6 +838,7 @@ class CoverJobState:
             styled_status=data.get("styled_status"),
             styled_fail_reason=data.get("styled_fail_reason"),
             styled_route=data.get("styled_route"),
+            telegram_delivery=data.get("telegram_delivery"),
             retry_count=int(data.get("retry_count") or 0),
             stages=list(data.get("stages") or []))
 
@@ -1399,42 +1407,263 @@ def style_reference_text(profile: dict) -> str:
         for r in refs)
 
 
-def _story_identity_text(story_scene: str, brief) -> str:
-    """STORY_IDENTITY-текст (ASAP 8 F3 §5.2): сцена base cover + компактный
-    контекст финального Summary (CoverBrief). Whitespace-нормализация —
-    детерминированный floor-containment для fail-soft (§5.4) и манифеста."""
+# ══ ASAP 8 v6.3 B04: компактный EDIT-контракт (не GENERATE) ══════════════════
+# Источник сцены в image-to-image — Base bitmap (+ референс логотипа).
+# story_scene/summary ПОВТОРНО в текст не переносится (дефект 1133/800);
+# сцена в тексте максимум ОДИН раз (опциональный короткий anchor); один язык
+# (язык инструкции профиля); semantic dedupe компонентов; preflight
+# chars/tokens в единицах capability с configurable headroom; overflow →
+# платный вызов НЕ делается.
+
+def style_edit_headroom_chars() -> int:
+    """B04.3: configurable headroom preflight (env
+    `COVER_STYLE_EDIT_HEADROOM_CHARS`, default 0) — запас на gateway/transport
+    wrapper. НЕ искусственное увеличение лимита: вычитается из известного,
+    неизвестный лимит headroom не меняет."""
+    raw = os.getenv("COVER_STYLE_EDIT_HEADROOM_CHARS", "").strip()
+    try:
+        value = int(raw) if raw else 0
+    except ValueError:
+        return 0
+    return max(0, min(value, 400))
+
+
+# Компактные компоненты EDIT: канон в `cover_prompt_assembly` (единый
+# источник для compile/манифеста); здесь — совместимые алиасы.
+edit_preservation_text = cpa.edit_preservation_text
+edit_runtime_invariants_text = cpa.edit_runtime_invariants_text
+edit_reference_roles_text = cpa.edit_reference_roles_text
+edit_content_language = cpa.edit_content_language
+
+
+def scene_anchor_policy() -> str:
+    """B04.3: политика scene anchor (env `COVER_STYLE_EDIT_SCENE_ANCHOR`:
+    ``auto`` | ``on`` | ``off``, default ``auto``).
+
+    ``auto`` — короткий anchor только для компактного сюжета (≤240 симв.:
+    маленький сюжет, который модель склонна игнорировать); ``on`` — пробовать
+    всегда (первое предложение, ограничение длины сохраняется); ``off`` —
+    никогда. В любом режиме anchor проходит dedupe и preflight вместимости."""
+    raw = os.getenv("COVER_STYLE_EDIT_SCENE_ANCHOR", "auto").strip().lower()
+    return raw if raw in ("auto", "on", "off") else "auto"
+
+
+_SCENE_ANCHOR_MAX_SOURCE = 240
+_SCENE_ANCHOR_MAX_CHARS = 200
+
+
+def scene_anchor_candidate(story_scene: str) -> tuple[str, str]:
+    """Кандидат scene anchor: первое предложение сюжета, ограниченное
+    `_SCENE_ANCHOR_MAX_CHARS`. Возвращает ``(anchor, skip_reason)``:
+    anchor пуст → skip_reason объясняет почему (``empty``/``policy_off``/
+    ``scene_too_long``/``cut``)."""
     scene = " ".join(str(story_scene or "").split())
-    brief_text = " ".join(str(brief.render() if brief is not None
-                              else "").split())
-    return " ".join(p for p in (scene, brief_text) if p)
+    if not scene:
+        return "", "empty"
+    policy = scene_anchor_policy()
+    if policy == "off":
+        return "", "policy_off"
+    if policy == "auto" and len(scene) > _SCENE_ANCHOR_MAX_SOURCE:
+        # Длинная сцена выражена самой Base bitmap; повтор в тексте —
+        # тот самый дефект B04 (не компакт).
+        return "", "scene_too_long"
+    match = re.search(r"^(.+?[.!?])(?:\s|$)", scene)
+    anchor = (match.group(1) if match else scene).strip()
+    if len(anchor) > _SCENE_ANCHOR_MAX_CHARS:
+        anchor = anchor[:_SCENE_ANCHOR_MAX_CHARS].rsplit(" ", 1)[0].strip()
+    if not anchor:
+        return "", "empty"
+    return anchor, ""
 
 
-def style_publish_skip_reason(compiled, *, story_text: str) -> str | None:
-    """ASAP 8 F3 (§5.4): fail-soft сигнал «styled cover будет сюжетно
-    ложной» — детерминированный, из результата компиляции (НЕ LLM-суждение).
+_SENT_SPLIT_RE = re.compile(r"(?<=[.!?])\s+")
+_WS_RUN_RE = re.compile(r"\s+")
 
-    * ``prompt_limit_exceeded`` — P0-ядро (preservation + runtime + story
-      identity + style identity) не влезает в resolved limit;
-    * ``story_identity_dropped`` — story floor не вошёл в фактический
-      промпт (budget-drop в legacy byte-контуре, срез короче floor и т.п.);
-      ``dropped[]`` больше не «виден только в манифесте» — он меняет исход
-      публикации.
+# Стоп-слова (функциональная лексика не несёт смысла для сравнения).
+_STOP_TOKENS = frozenset({
+    "и", "а", "но", "не", "ни", "на", "в", "во", "с", "со", "по", "у", "за",
+    "для", "же", "бы", "ли", "уже", "еще", "ещё", "которые", "который",
+    "которая", "которое", "это", "этот", "эта", "there", "and", "the", "of",
+    "to", "in", "on", "with", "please", "пожалуйста",
+})
 
-    ``None`` — story identity гарантированно в промпте (или сюжета не было:
-    пустой story text терять нечего)."""
-    if getattr(compiled, "exceeded", False):
-        return STYLE_PUBLISH_SKIP_OVERFLOW
-    story = str(story_text or "").strip()
-    if not story:
-        return None
-    floor = cpa.story_floor_text(story)
-    if not floor:
-        return None
-    dropped = list(getattr(compiled, "dropped", None) or [])
-    if "cover_brief" in dropped \
-            or floor not in str(getattr(compiled, "prompt", "") or ""):
-        return STYLE_PUBLISH_SKIP_STORY
-    return None
+_RU_SUFFIXES = ("ами", "ями", "ого", "его", "ому", "ему", "ыми", "ими",
+                "ых", "их", "ах", "ях", "ов", "ев", "ам", "ям", "ой", "ей",
+                "ый", "ий", "ая", "яя", "ое", "ее", "ые", "ие", "ую", "юю",
+                "ом", "ем", "ы", "и", "а", "я", "е", "у", "ю", "ь")
+
+
+def _stem(token: str) -> str:
+    """Наивный морфологический хвост: снимает 1–3 флексии (RU) — dedupe
+    сравнивает смысловые основы, а не поверхностные формы."""
+    if len(token) <= 4:
+        return token
+    for _ in range(3):
+        for suffix in _RU_SUFFIXES:
+            if token.endswith(suffix) and len(token) - len(suffix) >= 4:
+                token = token[:len(token) - len(suffix)]
+                break
+        else:
+            break
+    return token
+
+
+def _norm_sentence(text: str) -> tuple[str, frozenset[str]]:
+    low = _WS_RUN_RE.sub(" ", str(text or "").lower().replace("ё", "е"))
+    low = re.sub(r"[^\w\s]", " ", low).strip()
+    return low, frozenset(low.split())
+
+
+def _content_tokens(text: str) -> frozenset[str]:
+    """Смысловые токены: стоп-слова сняты, основы простефлены."""
+    _norm, toks = _norm_sentence(text)
+    return frozenset(_stem(t) for t in toks
+                     if t not in _STOP_TOKENS and len(t) >= 2)
+
+
+def _jaccard(a: frozenset[str], b: frozenset[str]) -> float:
+    if not a or not b:
+        return 0.0
+    return len(a & b) / len(a | b)
+
+
+def _overlap(a: frozenset[str], b: frozenset[str]) -> float:
+    """Overlap-коэффициент |∩|/min — устойчив к короткому предложению
+    внутри длинного (вежливые обороты, порядок слов)."""
+    if not a or not b:
+        return 0.0
+    return len(a & b) / min(len(a), len(b))
+
+
+_NEAR_DUP_JACCARD = 0.8
+_NEAR_DUP_OVERLAP = 0.75
+
+
+def _is_near_duplicate(toks_a: frozenset[str], toks_b: frozenset[str]) -> bool:
+    toks_a = {t for t in toks_a if t not in _STOP_TOKENS}
+    toks_b = {t for t in toks_b if t not in _STOP_TOKENS}
+    content_a = frozenset(_stem(t) for t in toks_a)
+    content_b = frozenset(_stem(t) for t in toks_b)
+    if not content_a or not content_b:
+        return False
+    return (_jaccard(content_a, content_b) >= _NEAR_DUP_JACCARD
+            or _overlap(content_a, content_b) >= _NEAR_DUP_OVERLAP)
+
+
+def normalize_style_edit_components(
+        components: list, *, issue_display: str = "") -> tuple[list, list[dict]]:
+    """B04.3 нормализатор «style-edit prompt components».
+
+    Semantic dedupe НА УРОВНЕ ПРЕДЛОЖЕНИЙ (не слепая подстрока): точные и
+    near-дубли (Jaccard ≥ 0.8 по токенам) снимаются у НИЗКОПРИОРИТЕТНОЙ
+    компоненты. Protected-токены (номер выпуска, бренд-токены референсов:
+    «PERMsoc один раз, выпуск один раз») живут в тексте один раз — ПОВТОРНОЕ
+    появление снимается, если предложение почти не добавляет нового смысла
+    (легитимная новая инструкция с брендом сохраняется). Вход:
+    ``[(label, text, priority)]`` в порядке приоритета. Выход:
+    ``(normalized [(label, text, priority)], dropped [{label, reason}])``.
+    Детерминировано, 0 LLM, 0 сети.
+    """
+    seen: list[tuple[str, frozenset[str], str]] = []
+    seen_union: set[str] = set()
+    emitted_protected: set[str] = set()
+    dropped: list[dict] = []
+    out: list[tuple[str, str, int]] = []
+    _issue_norm, issue_tokens = _norm_sentence(issue_display)
+    # Protected: токены выпуска + бренд-токены labels референсов (логотип).
+    protected = {t for t in issue_tokens if len(t) >= 4}
+    protected |= _brand_tokens_of_components(components)
+    for label, text, priority in components:
+        raw = _WS_RUN_RE.sub(" ", str(text or "")).strip()
+        if not raw:
+            continue
+        kept_sentences: list[str] = []
+        for sentence in _SENT_SPLIT_RE.split(raw):
+            s = sentence.strip()
+            if not s:
+                continue
+            norm, toks = _norm_sentence(s)
+            dup_reason = ""
+            for seen_norm, seen_toks, owner in seen:
+                if norm == seen_norm:
+                    dup_reason = "duplicate_of:%s" % owner
+                    break
+                if _is_near_duplicate(toks, seen_toks):
+                    dup_reason = "near_duplicate_of:%s" % owner
+                    break
+            if not dup_reason:
+                hits = toks & protected
+                if hits and hits & emitted_protected:
+                    # Повтор protected-сущности: снять, если предложение
+                    # почти целиком состоит из уже сказанного.
+                    new_tokens = toks - seen_union
+                    if len(new_tokens) <= max(1, len(toks) // 3):
+                        dup_reason = "protected_repeat"
+            if dup_reason:
+                dropped.append({"label": label, "reason": dup_reason})
+                continue
+            seen.append((norm, toks, label))
+            seen_union |= toks
+            emitted_protected |= (toks & protected)
+            kept_sentences.append(s)
+        if kept_sentences:
+            out.append((label, " ".join(kept_sentences), priority))
+    return out, dropped
+
+
+def _brand_tokens_of_components(components: list) -> set[str]:
+    """Бренд-токены: слова ≥5 символов из labels референсов (компонента
+    ``references`` перечисляет labels дословно). Латиница/кириллица."""
+    tokens: set[str] = set()
+    for label, text, _p in components:
+        if label != "references":
+            continue
+        for token in re.findall(r"[a-zA-Zа-яА-ЯёЁ]{5,}", str(text or "")):
+            tokens.add(token.lower().replace("ё", "е"))
+    return tokens
+
+
+def compile_style_edit_components(profile: dict, *, issue_display: str,
+                                  story_scene: str = "") -> list:
+    """B04.1/B04.2: сырые компоненты EDIT-инструкции (image-to-image).
+
+    Источник сцены — Base bitmap: story_scene/summary в текст НЕ переносится
+    (кроме опционального короткого scene anchor); «что изменить» — инструкция
+    профиля; «что оставить» — компактный preservation; роль референсов —
+    графический образец. Pure text-to-image (base cover) здесь НЕ смешан —
+    у него свой сборщик `cover_prompt_assembly`."""
+    instruction = str(profile.get("instruction") or "").strip()
+    lang = edit_content_language(instruction)
+    refs = profile.get("references") or []
+    anchor, _anchor_skip = scene_anchor_candidate(story_scene)
+    components: list[tuple[str, str, int]] = [
+        ("content_preservation", edit_preservation_text(lang), compiler.P0),
+        ("runtime_invariants",
+         edit_runtime_invariants_text(issue_display, lang), compiler.P0),
+    ]
+    if instruction:
+        components.append(("style_instruction", instruction, compiler.P1))
+    if anchor:
+        components.append(("scene_anchor", anchor, compiler.P1))
+    if refs:
+        components.append(("references",
+                           edit_reference_roles_text(refs, lang), compiler.P2))
+    return components
+
+
+def _headroom_caps(capabilities):
+    """Копия capabilities с лимитом минус headroom (B04.3 preflight)."""
+    headroom = style_edit_headroom_chars()
+    if headroom <= 0 or capabilities is None:
+        return capabilities, headroom
+    limit = capabilities.prompt_limit
+    if not limit.known or limit.value is None:
+        return capabilities, headroom
+    value = max(1, int(limit.value) - headroom)
+    adjusted = dataclasses.replace(
+        capabilities, prompt_limit=dataclasses.replace(
+            limit, value=value))
+    return adjusted, headroom
 
 
 def compile_style_prompt(profile: dict, *, issue_display: str,
@@ -1442,52 +1671,61 @@ def compile_style_prompt(profile: dict, *, issue_display: str,
                          brief=None, story_scene: str = "",
                          retry_core: bool = False
                          ) -> compiler.CompiledPrompt:
-    """Собрать priority-aware prompt Style Edit (§19–§21; ASAP 8 F3 §5.2).
+    """Собрать compact EDIT prompt Style Edit (ASAP 8 v6.3 B04; замена
+    v6-контракта «полный story identity в P1-ядре»).
 
-    Новый порядок приоритетов (ASAP 8 F3, §5.2 ТЗ):
+    EDIT-контракт (image-to-image, источник сцены — Base bitmap):
 
-      P0 CONTENT_PRESERVATION_INVARIANTS — инвариант сохранения сюжета
-        (``cpa.content_preservation_text``, §5.3): первый в строке, в
-        required-ядре И в retry_core-ядре — никогда не режется;
-      P0 ISSUE/TEXT INVARIANTS — runtime-инварианты (номер выпуска,
-        запрет дубликатов) — как сейчас;
-      P1 STORY_IDENTITY — story_scene + ``CoverBrief.render()`` (поднят
-        из budget_component в P1: сюжет едет целиком в обязательном
-        ядре; story floor 160 сохраняется в retry-ядре);
-      P1 STYLE_IDENTITY minimum — инструкция стиля профиля;
-      P2 REFERENCE_DESCRIPTIONS, P2 base_style_prompt (ПОНИЖЕН с P1:
-        эффект base-стиля уже запечён в input image; текст нужен
-        preview-ветке — при давлении падает первым из P2);
-      P3 decorative extras.
+      P0 «что оставить» — компактный preservation на языке контента;
+      P0 runtime-инварианты — выпуск один раз, без дублей;
+      P1 «что изменить» — инструкция профиля (стиль не добавляет событий —
+        смысл зафиксирован в preservation-компоненте);
+      P1 scene anchor — ОПЦИОНАЛЬНЫЙ короткий якорь сюжета (policy §см.
+        `scene_anchor_policy`), проходит semantic dedupe;
+      P2 роль референсов — логотип/брендинг как графический образец;
+      P3 base_style_prompt — эффект base-стиля запечён в input image.
 
-    Механика ``image_prompt_compiler.compile_prompt`` не меняется
-    (P-уровни как данные, required = P0+P1): если P0+P1 (включая полный
-    сюжет) не влезает в лимит — честный ``prompt_limit_exceeded``,
-    вызывающий публикует Base (§5.4 fail-soft).
+    story_scene/summary ПОЛНОСТЬЮ в текст не переносится (B04.1: дефект
+    1133/800); нормализатор снимает семантические дубли предложений ДО
+    fit-механики; preflight — units capability минус headroom; overflow →
+    честный ``prompt_limit_exceeded`` без платного вызова (§5.4).
 
-    `retry_core=True` (ASAP 5/D9/T-5251): bounded semantic squeeze для
-    unknown-limit retry — mandatory-ядро в порядке §5.2 (preservation →
-    runtime → story-minimum 160 chars/100% → profile identity ≥50% →
-    mandatory reference roles); base_style_prompt (P2) и описания
-    референсов опускаются, все сокращения фиксируются в Manifest.
-    Old `minimal` parameter removed — запрещён spec'ом (D9).
+    `retry_core=True` (unknown-limit retry): компактное mandatory-ядро
+    preservation → runtime → identity floor инструкции → ref roles; story
+    floor из ядра изъят (сюжет гарантирован Base bitmap, не текстом).
+
+    Dynamic-атрибут ``edit_report`` (dict) — normalized/preflight отчёт для
+    Inspector/preview (original/deduped/final, dropped+why, язык, anchor).
     """
-    preservation_text = cpa.content_preservation_text()
-    runtime_text = cpa.runtime_invariants_text(issue_display)
-    instruction = str(profile.get("instruction") or "")
-    base_style = str(base_style_prompt or "").strip()
-    refs_text = style_reference_text(profile)
+    raw_components = compile_style_edit_components(
+        profile, issue_display=issue_display, story_scene=story_scene)
+    original_text = " ".join(str(t or "") for _l, t, _p in raw_components
+                             if str(t or "").strip())
+    norm_components, dedupe_dropped = normalize_style_edit_components(
+        raw_components, issue_display=issue_display)
+    deduped_text = " ".join(str(t or "") for _l, t, _p in norm_components)
+    anchor, anchor_skip = scene_anchor_candidate(story_scene)
+    edit_report: dict = {
+        "language": edit_content_language(
+            str(profile.get("instruction") or "")),
+        "original_chars": len(original_text),
+        "deduped_chars": len(deduped_text),
+        "dedupe_dropped": [dict(d) for d in dedupe_dropped],
+        "scene_anchor": {
+            "included": bool(anchor), "chars": len(anchor),
+            "skip_reason": anchor_skip,
+        },
+        "headroom_chars": 0,
+        "summary_retransferred": False,
+    }
     if retry_core:
-        # D9 + ASAP 8 F3: mandatory-ядро в порядке §5.2 (preservation →
-        # runtime → story floor → profile identity → reference roles);
-        # P2 (base_style_prompt, описания refs) и хвост instruction —
-        # опущены и видны в Manifest.
-        story_text = _story_identity_text(story_scene, brief)
-        story_floor = cpa.story_floor_text(story_text) if story_text else ""
+        # Unknown-limit retry: компактное mandatory-ядро (прежде — story
+        # floor; B04: сюжет в Base bitmap, текстовое ядро без сюжета).
+        instruction = str(profile.get("instruction") or "")
         parts = [
-            preservation_text,
-            runtime_text,
-            story_floor,
+            edit_preservation_text(edit_report["language"]),
+            edit_runtime_invariants_text(issue_display,
+                                         edit_report["language"]),
             cpa.profile_identity_floor(instruction),
             cpa.reference_roles_text(profile.get("references") or []),
         ]
@@ -1496,53 +1734,355 @@ def compile_style_prompt(profile: dict, *, issue_display: str,
         sent_floor = cpa.profile_identity_floor(instruction)
         if instruction.strip() and sent_floor != instruction.strip():
             dropped.append("style_instruction_tail")
-        if base_style:
+        if base_style_prompt:
             dropped.append("base_style_prompt")
-        if refs_text and refs_text not in prompt:
+        if style_reference_text(profile) and \
+                style_reference_text(profile) not in prompt:
             dropped.append("references_descriptions")
-        brief_text_full = brief.render() if brief is not None else ""
-        if brief_text_full and brief_text_full not in prompt \
-                and not story_scene.strip():
-            dropped.append("summary_context")
-        return compiler.CompiledPrompt(
+        edit_report["final_chars"] = len(prompt)
+        edit_report["dropped"] = list(dropped)
+        compiled = compiler.CompiledPrompt(
             prompt=prompt,
             static_len=len(prompt), reserve_len=0, scene_allowance=0,
             limit=None, unit="unknown", dropped=dropped,
             original_len=len(prompt), resolved_limit=None, exceeded=False,
             reason="semantic_squeeze",
             components={
-                "content_preservation": len(preservation_text),
-                "runtime_invariants": len(runtime_text),
+                "content_preservation": len(parts[0] if parts else ""),
+                "runtime_invariants": len(parts[1] if len(parts) > 1 else ""),
                 "style_instruction": len(sent_floor) if instruction else 0,
                 "base_style_prompt": 0,
                 "references": len(cpa.reference_roles_text(
                     profile.get("references") or [])),
-                "cover_brief": len(story_floor),
+                "cover_brief": 0,
             })
-    # Нормальный путь (ASAP 8 F3 §5.2): story identity — P1-компонента в
-    # обязательном ядре; компакт/бюджет-механика на сюжет больше не
-    # применяется — сюжет едет целиком, иначе честный overflow (§5.4).
-    story_text = _story_identity_text(story_scene, brief)
-    components = [
-        compiler.PromptComponent(preservation_text,
-                                 priority=compiler.P0,
-                                 label="content_preservation"),
-        compiler.PromptComponent(runtime_text,
-                                 priority=compiler.P0,
-                                 label="runtime_invariants"),
+        compiled.edit_report = edit_report
+        return compiled
+    caps_eff, headroom = _headroom_caps(capabilities)
+    edit_report["headroom_chars"] = headroom
+    components = [compiler.PromptComponent(text, priority=priority,
+                                           label=label)
+                  for label, text, priority in norm_components]
+    if base_style_prompt:
+        components.append(compiler.PromptComponent(
+            base_style_prompt, priority=compiler.P3, label="base_style_prompt"))
+    compiled = compiler.compile_prompt(components, capabilities=caps_eff)
+    edit_report["final_chars"] = len(compiled.prompt)
+    edit_report["dropped"] = [
+        {"label": label, "reason": "overflow"}
+        for label in (compiled.dropped or [])
     ]
-    if story_text:
-        components.append(compiler.PromptComponent(
-            story_text, priority=compiler.P1, label="cover_brief"))
-    components.append(compiler.PromptComponent(
-        instruction, priority=compiler.P1, label="style_instruction"))
-    if refs_text:
-        components.append(compiler.PromptComponent(
-            refs_text, priority=compiler.P2, label="references"))
-    if base_style:
-        components.append(compiler.PromptComponent(
-            base_style, priority=compiler.P2, label="base_style_prompt"))
-    return compiler.compile_prompt(components, capabilities=capabilities)
+    compiled.edit_report = edit_report
+    return compiled
+
+
+def style_edit_preview_report(profile: dict, *, issue_display: str,
+                              capabilities, base_style_prompt: str = "",
+                              story_scene: str = "",
+                              image_input: dict | None = None,
+                              limit_source: str = "",
+                              route: str = "",
+                              model: str = "",
+                              provider: str = "") -> dict:
+    """B04.4: preview компилирует ТОТ ЖЕ маршрут, что production
+    (`compile_style_prompt`), с настоящими Base/style/refs/issue/capabilities,
+    и отдаёт полный отчёт компиляции БЕЗ test-контекста и БЕЗ платного
+    вызова: image input, model/route, limit source, язык, original/deduped/
+    final chars, dropped+why, точный финальный prompt. ``limited_preview``
+    — честный маркер ограниченности (провайдер не вызывался)."""
+    compiled = compile_style_prompt(
+        profile, issue_display=issue_display, capabilities=capabilities,
+        base_style_prompt=base_style_prompt, story_scene=story_scene)
+    report = dict(getattr(compiled, "edit_report", {}) or {})
+    report.update({
+        "limited_preview": True,
+        "image_input_used": dict(image_input or {}),
+        "model": str(model or ""),
+        "provider": str(provider or ""),
+        "route": str(route or ""),
+        "limit_source": str(limit_source or ""),
+        "limit_value": (capabilities.prompt_limit.value
+                        if capabilities is not None and
+                        capabilities.prompt_limit.known else None),
+        "limit_unit": (capabilities.prompt_limit.unit
+                       if capabilities is not None else "unknown"),
+        "exceeded": bool(compiled.exceeded),
+        "overflow_reason": compiled.reason or "",
+        "final_prompt": compiled.prompt,
+        "final_prompt_chars": len(compiled.prompt),
+    })
+    return report
+
+
+# ── B04.6: bounded scene verification (preview/canary) ──────────────────────
+
+SCENE_VERIFY_OFF = "off"
+SCENE_VERIFY_PREVIEW = "preview"
+SCENE_VERIFY_ALL = "all"
+
+
+def scene_verify_mode() -> str:
+    """B04.6 политика image-comparison проверки сюжета (env
+    `COVER_STYLE_SCENE_VERIFY`: ``preview`` | ``off`` | ``all``;
+    НЕ задано → ``preview``): bounded сравнение Base vs styled на
+    preview/canary прогонах; НЕ на каждый прод-вызов (бюджет)."""
+    raw = os.getenv("COVER_STYLE_SCENE_VERIFY",
+                    SCENE_VERIFY_PREVIEW).strip().lower()
+    return raw if raw in (SCENE_VERIFY_OFF, SCENE_VERIFY_PREVIEW,
+                          SCENE_VERIFY_ALL) else SCENE_VERIFY_PREVIEW
+
+
+def scene_verify_env_explicit() -> bool:
+    """Активация: verification выполняется только при ЯВНО заданном env
+    (прозрачная политика включения — каждый preview-вызов это платный
+    compare-запрос; молчаливых платных вызовов нет). Инъекция verifier
+    (тесты/канарейка) активна независимо."""
+    return bool(os.getenv("COVER_STYLE_SCENE_VERIFY", "").strip())
+
+
+_SCENE_VERIFY_TIMEOUT = 60.0
+_SCENE_VERIFY_PROMPT = (
+    "Compare the two images. Image 1 is the original cover, image 2 is the "
+    "styled version. Answer ONLY with compact JSON: {\"scene_preserved\": "
+    "true|false, \"people_same\": true|false, \"event_same\": true|false, "
+    "\"composition_same\": true|false, \"note\": \"<=120 chars\"}. "
+    "scene_preserved=false only if people, pose, event or composition were "
+    "replaced, not for style differences.")
+
+
+def _scene_verify_payload(base_b64: str, styled_b64: str) -> dict:
+    return {
+        "model": "",
+        "messages": [{
+            "role": "user",
+            "content": [
+                {"type": "image_url",
+                 "image_url": {"url": "data:image/jpeg;base64," + base_b64}},
+                {"type": "image_url",
+                 "image_url": {"url": "data:image/jpeg;base64," + styled_b64}},
+                {"type": "text", "text": _SCENE_VERIFY_PROMPT},
+            ],
+        }],
+        "temperature": 0,
+    }
+
+
+def _data_url_b64(path: str) -> tuple[str | None, str]:
+    """(b64, mime) локального файла; None — файл не читается."""
+    import base64
+    mime = {".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
+            ".webp": "image/webp"}.get(
+        os.path.splitext(str(path))[1].lower(), "image/jpeg")
+    try:
+        with open(path, "rb") as handle:
+            data = handle.read()
+    except OSError:
+        return None, mime
+    return base64.b64encode(data).decode("ascii"), mime
+
+
+async def _default_scene_verifier(base_path: str, styled_path: str
+                                  ) -> tuple[str, str]:
+    """Один bounded compare-вызов через действующий image-анализ маршрут
+    (mca_vision.resolve_route). Любая ошибка → честный ``unknown``."""
+    try:
+        from services import mca_vision
+        route = mca_vision.resolve_route()
+    except Exception:
+        return "unknown", "route_unavailable"
+    base_b64, base_mime = _data_url_b64(base_path)
+    styled_b64, styled_mime = _data_url_b64(styled_path)
+    if not base_b64 or not styled_b64:
+        return "unknown", "image_unreadable"
+    payload = _scene_verify_payload(base_b64, styled_b64)
+    payload["model"] = route.model
+    endpoint = str(route.base_url or "").rstrip("/") + "/chat/completions"
+    key = ""
+    try:
+        from services import hot_config as hot
+        key = str(hot.get("keys.vision_api_key", "") or "") if \
+            route.source == "dedicated" else ""
+        if not key:
+            key = str(hot.get("keys.llm_api_key",
+                              getattr(settings, "LLM_API_KEY", "")) or "")
+    except Exception:
+        key = str(getattr(settings, "LLM_API_KEY", "") or "")
+    headers = {"Authorization": "Bearer %s" % key} if key else {}
+    try:
+        import httpx
+        async with httpx.AsyncClient(timeout=_SCENE_VERIFY_TIMEOUT) as client:
+            resp = await client.post(endpoint, json=payload, headers=headers)
+            resp.raise_for_status()
+            body = resp.json()
+        text = str(((body.get("choices") or [{}])[0].get("message") or {})
+                   .get("content") or "")
+        match = re.search(r"\{.*\}", text, re.DOTALL)
+        if not match:
+            return "unknown", "unparsable_answer"
+        verdict = json.loads(match.group(0))
+    except Exception as exc:            # network/timeout/parse — fail-open
+        return "unknown", type(exc).__name__
+    preserved = verdict.get("scene_preserved")
+    if preserved is True:
+        return "pass", ""
+    if preserved is False:
+        return "replaced", str(verdict.get("note") or "")[:120]
+    return "unknown", "missing_verdict"
+
+
+async def verify_scene_preserved(base_path: str, styled_path: str, *,
+                                 verifier=None) -> dict:
+    """B04.6: bounded semantic-сравнение Base и styled (люди/поза/событие/
+    композиция). Возвращает ``{"scene_preserved": "pass"|"replaced"|"unknown",
+    "detail": str}``; verifier — инъекция для тестов. Магические байты —
+    НЕ семантика (format_valid отдельно, `_styled_payload_signal`)."""
+    if verifier is None:
+        verifier = _default_scene_verifier
+    try:
+        verdict, detail = await verifier(base_path, styled_path)
+    except Exception as exc:            # pragma: no cover - защитная ветка
+        return {"scene_preserved": "unknown", "detail": type(exc).__name__}
+    verdict = str(verdict or "unknown")
+    if verdict not in ("pass", "replaced", "unknown"):
+        verdict = "unknown"
+    return {"scene_preserved": verdict, "detail": str(detail or "")[:120]}
+
+
+def scene_verification_due(mode: str, *, verifier=None) -> bool:
+    """Прозрачная политика: verification запускается на preview-прогонах
+    (mode=preview) либо на всех прогонах при ``all``; требует ЯВНОГО env
+    `COVER_STYLE_SCENE_VERIFY` (платный compare-вызов — сознательное
+    включение). Инъекция verifier (тесты/канарейка) снимает требование env,
+    но НЕ политику режима: прод без ``all`` сравнение не запускает."""
+    policy = scene_verify_mode()
+    if policy == SCENE_VERIFY_OFF:
+        return False
+    if policy == SCENE_VERIFY_ALL:
+        return True
+    if str(mode) != MODE_PREVIEW:
+        return False
+    return scene_verify_env_explicit() or verifier is not None
+
+
+# ── B04.5: идемпотентная замена изображения существующего выпуска ───────────
+
+TELEGRAM_REPLACE_ENABLED_ENV = "COVER_STYLE_TELEGRAM_REPLACE_ENABLED"
+DELIVERY_NOT_ATTEMPTED = "not_attempted_policy_off"
+DELIVERY_REPLACED = "replaced"
+DELIVERY_UNSUPPORTED = "rich_message_edit_unsupported"
+DELIVERY_NO_REFERENCE = "publication_reference_missing"
+
+
+def telegram_replace_enabled() -> bool:
+    """B04.5 политика замены изображения опубликованного выпуска (env
+    `COVER_STYLE_TELEGRAM_REPLACE_ENABLED`, default OFF). OFF — честный
+    статус доставки (артефакт восстановлен, Telegram НЕ дёргается), без
+    тихого «recovered как доставленный». Решение зафиксировано явно."""
+    raw = os.getenv(TELEGRAM_REPLACE_ENABLED_ENV, "").strip().lower()
+    return raw in ("1", "true", "yes", "on")
+
+
+async def lookup_published_message_id(db, run_id: str | None,
+                                      chat_id: int | None) -> int | None:
+    """message_id опубликованного саммари run'а из durable-события
+    `SUMMARY_RUN_DONE` (usage_json.message_id, §109). None — ссылки нет
+    (честная причина замены, не слепой edit)."""
+    if db is None or not str(run_id or "").strip():
+        return None
+    rid = str(run_id).strip()
+    queries = (
+        ("SELECT usage_json FROM mca_events WHERE event_name = ? "
+         "AND pipeline_run_id = ? ORDER BY id DESC LIMIT 1",
+         ("SUMMARY_RUN_DONE", rid)),
+        ("SELECT usage_json FROM mca_events WHERE event_name = ? "
+         "AND chat_id = ? ORDER BY id DESC LIMIT 1",
+         ("SUMMARY_RUN_DONE", chat_id)),
+    )
+    for sql, args in queries:
+        try:
+            cursor = await db.db.execute(sql, args)
+            row = await cursor.fetchone()
+        except Exception:
+            continue
+        if row is None:
+            continue
+        try:
+            usage = json.loads(dict(row).get("usage_json") or "{}")
+        except (ValueError, TypeError):
+            continue
+        message_id = (usage or {}).get("message_id")
+        try:
+            return int(message_id) if message_id is not None else None
+        except (TypeError, ValueError):
+            continue
+    return None
+
+
+async def replace_published_cover_image(bot, *, chat_id: int,
+                                        message_id: int, styled_path: str
+                                        ) -> tuple[bool, str]:
+    """Идемпотентная замена изображения СУЩЕСТВУЮЩЕГО выпуска (B04.5):
+    `editMessageMedia` с новым InputMediaPhoto; caption/article/номер не
+    затрагиваются (меняется только media). Telegram Bot API (aiogram 3.29)
+    editRichMessage НЕ предоставляет — rich-публикация отвечает 400; исход
+    классифицируется честно (``rich_message_edit_unsupported``), дубликат
+    публикации НЕ создаётся. Возвращает ``(delivered, delivery_status)``."""
+    if bot is None:
+        return False, DELIVERY_NO_REFERENCE
+    try:
+        with open(styled_path, "rb") as handle:
+            data = handle.read()
+    except OSError:
+        return False, DELIVERY_NO_REFERENCE
+    if not data:
+        return False, DELIVERY_NO_REFERENCE
+    from aiogram.types import BufferedInputFile, InputMediaPhoto
+    media = InputMediaPhoto(
+        media=BufferedInputFile(data, filename="summary_cover_styled.jpg"))
+    try:
+        await bot.edit_message_media(chat_id=chat_id, message_id=message_id,
+                                     media=media)
+        return True, DELIVERY_REPLACED
+    except Exception as exc:
+        name = type(exc).__name__
+        text = str(exc).lower()
+        if "telegram" in name.lower() or "bad request" in text or \
+                "can't be edited" in text or "no media" in text:
+            return False, DELIVERY_UNSUPPORTED
+        return False, DELIVERY_UNSUPPORTED
+
+
+def _story_identity_text(story_scene: str, brief) -> str:
+    """STORY_IDENTITY-текст (ASAP 8 F3 §5.2): сцена base cover + компактный
+    контекст финального Summary (CoverBrief). Whitespace-нормализация —
+    детерминированный floor-containment для fail-soft (§5.4) и манифеста.
+
+    B04 v6.3: в EDIT-маршруте полный текст БОЛЬШЕ не является обязательным
+    ядром (источник сцены — Base bitmap); helper остаётся для манифеста
+    (компоненты STORY_SCENE/SUMMARY_CONTEXT durable Base-run) и диагностики."""
+    scene = " ".join(str(story_scene or "").split())
+    brief_text = " ".join(str(brief.render() if brief is not None
+                              else "").split())
+    return " ".join(p for p in (scene, brief_text) if p)
+
+
+def style_publish_skip_reason(compiled, *, story_text: str = "") -> str | None:
+    """B04 v6.3 (замена ASAP 8 F3 §5.4 для EDIT-маршрута): детерминированный
+    preflight-сигнал из результата компиляции (НЕ LLM-суждение).
+
+    ``prompt_limit_exceeded`` — нормализованный EDIT-payload не влезает в
+    resolved limit минус headroom: платный вызов НЕ делается, публикуется
+    Base (честная причина).
+
+    ``story_identity_dropped`` больше НЕ триггерится компиляцией: в
+    image-to-image сюжет гарантирован передаваемой Base bitmap, повторный
+    перенос story_scene/summary в текст — сам дефект B04. Semantic-
+    сохранность результата проверяет bounded image-comparison
+    (``verify_scene_preserved``, preview/canary — B04.6), а не текстовый
+    floor. ``None`` — payload прошёл preflight."""
+    if getattr(compiled, "exceeded", False):
+        return STYLE_PUBLISH_SKIP_OVERFLOW
+    return None
 
 
 def _prompt_breakdown(compiled) -> dict:
@@ -1808,6 +2348,9 @@ def _build_style_manifest(*, profile: dict, issue_display: str,
     final_prompt = str(sent_prompts[-1][1] or "")
     limit_unit = (str(resolved_limit) if resolved_limit is not None
                   else "unknown") + ":" + limit_unit_raw
+    # B04 v6.3: P0-тексты фактически на языке контента EDIT-сборки —
+    # манифест описывает отправленное, а не канон-EN (см. cpa docstring).
+    lang = edit_content_language(str(profile.get("instruction") or ""))
     return cpa.build_style_manifest(
         issue_display=issue_display,
         instruction=str(profile.get("instruction") or ""),
@@ -1825,7 +2368,9 @@ def _build_style_manifest(*, profile: dict, issue_display: str,
         resolved_limit=resolved_limit,
         limit_unit=limit_unit,
         limit_source=limit_source,
-        attempts=attempts)
+        attempts=attempts,
+        preservation_sent=edit_preservation_text(lang),
+        runtime_sent=edit_runtime_invariants_text(issue_display, lang))
 
 
 async def run_style_job(*, chat_id: int, base_image_path: str | None,
@@ -1841,7 +2386,7 @@ async def run_style_job(*, chat_id: int, base_image_path: str | None,
                         base_style_prompt: str | None = None,
                         story_scene: str | None = None,
                         manifest_out: dict | None = None,
-                        heartbeat=None) -> dict:
+                        heartbeat=None, scene_verifier=None) -> dict:
     """Выполнить Style Edit поверх готовой base cover (нормализатор, §23).
 
     Возвращает meta-словарь. При любом сбое `applied=False`,
@@ -1870,11 +2415,14 @@ async def run_style_job(*, chat_id: int, base_image_path: str | None,
     (`task_jobs.heartbeat_at`, recover_stale не реапает живую стадию);
     результат провайдера проходит детерминированную payload-валидацию
     (не-изображение → `semantic_preservation_failed`/`invalid_image_payload`,
-    fail-soft Base вместо публикации сломанной обложки); успешный styled
-    получает честную метку `semantic_verification=unverified` (автоматический
-    semantic-compare изображения ненадёжен — visual check остаётся
-    visual-only gate) и durable-артефакт в recovery-каталоге.
-    """
+    fail-soft Base вместо публикации сломанной обложки).
+
+    ASAP 8 v6.3 B04: компактный EDIT-контракт (story/summary в текст не
+    переносятся — источник сцены Base bitmap; semantic dedupe; preflight
+    headroom). `scene_verifier` — инъекция bounded image-comparison
+    (B04.6); формат (`format_valid`) и семантика (`scene_preserved`) —
+    разные сигнала Inspector'а; подмена сюжета на preview/canary — НЕ
+    успешный styled (fail-soft Base)."""
     started = time.monotonic()
     _wb = snapshot_enabled()
     # §43 restart-resume: восстановить state из durable `task_jobs`, если он не
@@ -2090,18 +2638,20 @@ async def run_style_job(*, chat_id: int, base_image_path: str | None,
     # §21 + ASAP 5 (D8/T-5251): сюжетная часть = STORY_SCENE (сцена base
     # cover) + SUMMARY_CONTEXT (CoverBrief от ФИНАЛЬНОГО approved Summary —
     # больше не 300-char seed; 0 LLM).
+    # B04 v6.3: в EDIT-маршруте scene/summary в текст НЕ переносятся —
+    # источник сцены Base bitmap; тексты остаются durable-входами манифеста
+    # и диагностикой (scene_anchor решает, нужен ли короткий якорь).
     brief = compiler.brief_from_text(summary_text)
     scene_text = str(story_scene or "").strip()
     brief_text = brief.render() if brief is not None else ""
     budget_text = " ".join(p for p in (scene_text, brief_text) if p)
-    # ASAP 8 F3 (§5.2): тот же STORY_IDENTITY-текст, что едет в P1-ядро —
-    # детерминированная база fail-soft проверки (§5.4) и диагностики.
     story_text = _story_identity_text(scene_text, brief)
     meta["base_asset_id"] = _asset_id_of(base_image_path)
     compiled = compile_style_prompt(
         profile, issue_display=issue_display, capabilities=caps,
         base_style_prompt=base_style_prompt or "", brief=brief,
         story_scene=scene_text)
+    edit_report = dict(getattr(compiled, "edit_report", {}) or {})
     # D7 attempts[]: фактически отправленные строки (attempt 1 + retry).
     sent_prompts: list = [(1, compiled.prompt)]
     if _wb:
@@ -2123,11 +2673,20 @@ async def run_style_job(*, chat_id: int, base_image_path: str | None,
             "limit_unit": (str(compiled.limit) if compiled.limit is not None
                            else "unknown") + ":" + str(compiled.unit),
             "dropped_sections": list(compiled.dropped),
-            # ASAP 8 F3 (§5.4): story identity floor фактически доехал
-            # в compiled-промпт (детерминированный containment-чек).
-            "story_identity_present": bool(
-                story_text and cpa.story_floor_text(story_text)
-                in compiled.prompt),
+            # B04 v6.3: компактный EDIT-отчёт (Inspector B04.3/B04.4).
+            "content_language": edit_report.get("language") or "",
+            "image_input_used": {
+                "base": bool(base_image_path),
+                "references": len(ref_paths),
+            },
+            "edit_original_chars": edit_report.get("original_chars") or 0,
+            "edit_deduped_chars": edit_report.get("deduped_chars") or 0,
+            "edit_headroom_chars": edit_report.get("headroom_chars") or 0,
+            "edit_scene_anchor": dict(edit_report.get("scene_anchor") or {}),
+            "edit_dropped_detail": list(
+                edit_report.get("dedupe_dropped") or []),
+            "summary_retransferred": bool(
+                edit_report.get("summary_retransferred")),
             # ASAP 4.3 (§9, T-4849): breakdown Style/Context/Refs/System из
             # фактически собранных компонент (units compiled prompt).
             **_prompt_breakdown(compiled),
@@ -2177,21 +2736,20 @@ async def run_style_job(*, chat_id: int, base_image_path: str | None,
             fallback=(",".join(compiled.dropped)
                       if compiled.dropped else None))
 
-    # ── T-4815 + ASAP 8 F3 (§5.4): fail-soft публикации styled cover.
-    # Детерминированный сигнал из результата компиляции: P0-ядро (включая
-    # story identity) не влезло в resolved limit (prompt_limit_exceeded)
-    # ИЛИ story floor потерян при компиляции (story_identity_dropped) —
-    # в обоих случаях styled НЕ публикуется (сюжетно ложная «красивая»
-    # обложка запрещена), публикуется сохранённая Base; манифест помечает
-    # style_publish_skipped{reason}. Порядок выпуска (П0-механика) не
-    # меняется: платный edit-call не вызывается. ─────────────────────────
+    # ── T-4815 + B04 v6.3 (§5.4-замена): fail-soft публикации styled cover.
+    # Детерминированный preflight из результата компиляции: нормализованный
+    # EDIT-payload не влезает в resolved limit минус headroom
+    # (prompt_limit_exceeded) — styled НЕ публикуется и платный edit-call
+    # НЕ вызывается, публикуется сохранённая Base; манифест помечает
+    # style_publish_skipped{reason}. Textual story-floor-отказ изъят
+    # (B04.1: сюжет в Base bitmap); semantic-сохранность результата —
+    # bounded image-comparison (B04.6). ────────────────────────────────
     skip_reason = style_publish_skip_reason(compiled, story_text=story_text)
     if skip_reason:
-        floor = cpa.story_floor_text(story_text) if story_text.strip() else ""
         meta["prompt_diagnostics"] = {
             **(meta.get("prompt_diagnostics") or {}),
             "overflow_reason": skip_reason,
-            "story_identity_present": bool(floor) and floor in compiled.prompt,
+            "preflight": "normalized_edit_payload_over_limit",
         }
         # F3: dropped[] меняет исход публикации — манифест строится и для
         # skip-исхода (durable evidence для Inspector; прежде overflow
@@ -2213,21 +2771,6 @@ async def run_style_job(*, chat_id: int, base_image_path: str | None,
             meta["prompt_manifest_hash"] = manifest.get("prompt_hash") or ""
             meta["prompt_manifest_chars"] = manifest.get("final_chars") or 0
         meta["style_publish_skipped"] = {"reason": skip_reason}
-        if skip_reason == STYLE_PUBLISH_SKIP_STORY:
-            emit_cover_event(
-                COVER_STYLE_FAILED, outcome="failed", level=logging.WARNING,
-                run_id=correlation_id, job_id=job_id, chat_id=chat_id,
-                model=meta["model"], provider=meta["provider"],
-                reason=STYLE_PUBLISH_SKIP_STORY,
-                reason_code=STYLE_PUBLISH_SKIP_STORY,
-                style_id=meta["style_id"], issue_number=issue_no)
-            return await _style_failed(
-                meta, state, reason=STYLE_PUBLISH_SKIP_STORY,
-                message=("Стиль не применён: компиляция промпта не "
-                         "гарантирует сохранение сюжета сцены — "
-                         "опубликована базовая обложка."),
-                run_id=correlation_id, job_id=job_id, chat_id=chat_id,
-                started=started, db=db)
         emit_cover_event(
             COVER_STYLE_FAILED, outcome="failed", level=logging.WARNING,
             run_id=correlation_id, job_id=job_id, chat_id=chat_id,
@@ -2469,39 +3012,87 @@ async def run_style_job(*, chat_id: int, base_image_path: str | None,
         await _persist_state(db, job_id, state)
 
     if result.ok and result.content:
-        # ── ASAP 8 v6 C03A (кейс 5): детерминированная payload-валидация
-        # результата edit. 2xx с НЕ-изображением — это НЕ успех: провайдер,
-        # ответивший текстом (отказ/подмена сцены), теряет сюжет проверяемо
-        # → `semantic_preservation_failed`; битые бинарные байты →
-        # `invalid_image_payload` (RCA R3 bonus: прежде битый payload
-        # писался как .jpg и публиковался «успехом»). Оба исхода —
-        # fail-soft Base, платного повтора нет. ────────────────────────────
-        payload_ok, payload_reason = _styled_payload_signal(result.content)
-        if not payload_ok:
-            meta["fail_reason"] = payload_reason
+        # ── ASAP 8 v6 C03A (кейс 5) + B04.6 v6.3: детерминированная
+        # payload-валидация результата edit. 2xx с НЕ-изображением — это НЕ
+        # успех: провайдер, ответивший текстом (отказ/подмена сцены),
+        # теряет сюжет проверяемо → `semantic_preservation_failed`; битые
+        # бинарные байты → `invalid_image_payload`. Magic bytes — ТОЛЬКО
+        # формат (format_valid), не семантика; semantic-сохранность —
+        # bounded image-comparison (scene_preserved) по прозрачной
+        # политике (`scene_verify_mode`): preview/canary — да, каждый
+        # прод-вызов — нет (бюджет). Оба фейла — fail-soft Base, платного
+        # повтора нет. ────────────────────────────────────────────────────
+        format_valid, format_reason = _styled_payload_signal(result.content)
+        if not format_valid:
+            meta["semantic_verification"] = {
+                "format_valid": False,
+                "scene_preserved": "unknown",
+                "detail": format_reason,
+                "policy": scene_verify_mode(),
+            }
+            meta["fail_reason"] = format_reason
             _manifest_mark_outcome(manifest, applied=False,
-                                   reason=payload_reason)
+                                   reason=format_reason)
+            if isinstance(manifest, dict):
+                manifest["semantic_verification"] = dict(
+                    meta["semantic_verification"])
             await _record_provenance(
                 obj, meta, summary_run_id=summary_run_id, job_id=job_id,
                 snapshot=snapshot, status=registry.PROVENANCE_BASE,
-                fallback_mode=payload_reason, mode=mode)
+                fallback_mode=format_reason, mode=mode)
             return await _style_failed(
-                meta, state, reason=payload_reason,
-                message=reason_detail_ru(payload_reason),
+                meta, state, reason=format_reason,
+                message=reason_detail_ru(format_reason),
                 run_id=correlation_id, job_id=job_id, chat_id=chat_id,
                 started=started, db=db)
         path = _write_temp_image(result.content)
+        scene_check: dict = {"scene_preserved": "unknown",
+                             "detail": "policy_off",
+                             "policy": scene_verify_mode()}
+        if path is not None and scene_verification_due(
+                mode, verifier=scene_verifier) and base_image_path:
+            scene_check = await verify_scene_preserved(
+                base_image_path, path, verifier=scene_verifier)
+            scene_check["policy"] = scene_verify_mode()
+        elif path is not None and not scene_verify_env_explicit():
+            scene_check = {"scene_preserved": "unknown",
+                           "detail": "verification_env_not_set",
+                           "policy": scene_verify_mode()}
+        elif path is not None:
+            scene_check = {"scene_preserved": "unknown",
+                           "detail": "production_budget_policy",
+                           "policy": scene_verify_mode()}
+        if scene_check.get("scene_preserved") == "replaced":
+            # B04.6: необоснованная подмена сюжета — НЕ успешный styled;
+            # публикация сюжетно ложной обложки запрещена (fail-soft Base).
+            meta["semantic_verification"] = {
+                "format_valid": True,
+                **scene_check,
+            }
+            meta["fail_reason"] = REASON_SEMANTIC_LOST
+            _manifest_mark_outcome(manifest, applied=False,
+                                   reason=REASON_SEMANTIC_LOST)
+            if isinstance(manifest, dict):
+                manifest["semantic_verification"] = dict(
+                    meta["semantic_verification"])
+            await _record_provenance(
+                obj, meta, summary_run_id=summary_run_id, job_id=job_id,
+                snapshot=snapshot, status=registry.PROVENANCE_BASE,
+                fallback_mode=REASON_SEMANTIC_LOST, mode=mode)
+            return await _style_failed(
+                meta, state, reason=REASON_SEMANTIC_LOST,
+                message=reason_detail_ru(REASON_SEMANTIC_LOST),
+                run_id=correlation_id, job_id=job_id, chat_id=chat_id,
+                started=started, db=db)
         if path is not None:
             meta.update(applied=True, styled_path=path, outcome=RESULT_STYLED,
                         reason="", duration_ms=_elapsed(started),
                         final_asset_id=_asset_id_of(path))
-            # C03A (кейс 5/6): автоматический semantic-compare изображения
-            # ненадёжен — честный unknown, не фейковая уверенность; owner
-            # visual check остаётся только visual-гейтом, не условием
-            # доставки.
+            # B04.6: format_valid и scene_preserved — РАЗНЫЕ сигнала;
+            # «unknown» честен (не молчаливое true).
             meta["semantic_verification"] = {
-                "status": "unverified",
-                "note": "no_automated_image_semantic_check",
+                "format_valid": True,
+                **scene_check,
             }
             if mode == MODE_PRODUCTION:
                 # Durable styled-артефакт run'а (переживает удаление
@@ -2657,6 +3248,16 @@ async def run_style_preview(*, profile: dict, base_image_path: str,
 _RECOVERY_LOCK: asyncio.Lock | None = None
 _RECOVERY_KICK_TASK: asyncio.Task | None = None
 
+# B04.5: runtime-держатель бота для explicit Telegram-замены (по умолчанию
+# recovery Telegram НЕ вызывает — `telegram_replace_enabled`).
+_COVER_BOT_HOLDER: dict = {"bot": None}
+
+
+def bind_cover_runtime(bot) -> None:
+    """DI-точка бота для B04.5-замены изображения выпуска. Вызывается
+    composition root'ом; recovery сам бот не достаёт."""
+    _COVER_BOT_HOLDER["bot"] = bot
+
 
 async def _recovery_style_inputs(db, run_id: str) -> dict | None:
     """Компиляционные входы для recovery-попытки — из durable Base-манифеста
@@ -2808,9 +3409,33 @@ async def _recover_one_cover_style_job(db, row: dict, *, pg=None,
         db=db, job_id=job_id, state=state, pg=obj, edit_call=edit_call,
         mode=MODE_PRODUCTION, heartbeat=_beat, **inputs)
     if meta.get("styled_path"):
+        # ── B04.5: ЯВНОЕ решение доставки восстановленного styled. ─────────
+        # Политика `telegram_replace_enabled` (env
+        # COVER_STYLE_TELEGRAM_REPLACE_ENABLED, default OFF): OFF — артефакт
+        # восстановлен и связан с run (manifest+provenance), Telegram НЕ
+        # вызывается и исход помечен `not_attempted_policy_off` — НЕ тихий
+        # «recovered=доставлен». ON — идемпотентная замена media
+        # существующего выпуска (editMessageMedia): unsupported/нет ссылки —
+        # честный статус, дубль-публикация запрещена.
+        delivery_status = DELIVERY_NOT_ATTEMPTED
+        delivery_detail = "policy_off"
+        if telegram_replace_enabled():
+            bot_obj = _COVER_BOT_HOLDER.get("bot")
+            message_id = await lookup_published_message_id(
+                db, run_id, chat_id)
+            if bot_obj is None or message_id is None or not chat_id:
+                delivery_status = DELIVERY_NO_REFERENCE
+                delivery_detail = "bot_or_message_reference_missing"
+            else:
+                ok_delivered, delivery_status = (
+                    await replace_published_cover_image(
+                        bot_obj, chat_id=chat_id, message_id=message_id,
+                        styled_path=str(meta.get("styled_path"))))
+                delivery_detail = delivery_status
         set_styled_status(state, status="styled", reason=None,
                            route=meta.get("edit_route"),
                            attempt=state.retry_count)
+        state.telegram_delivery = delivery_status
         await save_cover_state(db, job_id, state)
         await finish_cover_job(db, job_id, outcome=RESULT_STYLED,
                                reason_code=None, checkpoint=state)
@@ -2818,9 +3443,12 @@ async def _recover_one_cover_style_job(db, row: dict, *, pg=None,
             COVER_STYLE_RECOVERED, outcome="success", run_id=run_id or None,
             job_id=job_id, chat_id=chat_id or None, model=meta.get("model"),
             provider=meta.get("provider"), attempt=state.retry_count,
-            style_id=meta.get("style_id"), status="styled_recovered")
+            style_id=meta.get("style_id"), status="styled_recovered",
+            telegram_delivery=delivery_status)
         return {"job_id": job_id, "action": "recovered", "reason": "",
-                "attempt": state.retry_count}
+                "attempt": state.retry_count,
+                "telegram_delivery": delivery_status,
+                "delivery_detail": delivery_detail}
     reason = str(meta.get("fail_reason") or "style_failed")
     cls = classify_style_failure(reason)
     if cls == "transient" and state.retry_count < recovery_max_attempts():
@@ -2993,4 +3621,12 @@ __all__ = [
     "recovery_backoff_seconds", "recovery_dir", "persist_style_artifact",
     "recover_cover_style_jobs", "kick_cover_style_recovery",
     "set_styled_status",
+    # ASAP 8 v6.3 B04: компактный EDIT-контракт + control сюжета + доставка.
+    "compile_style_edit_components", "normalize_style_edit_components",
+    "style_edit_headroom_chars", "edit_content_language",
+    "scene_anchor_policy", "scene_anchor_candidate", "scene_verify_mode",
+    "scene_verification_due", "verify_scene_preserved",
+    "style_edit_preview_report", "bind_cover_runtime",
+    "replace_published_cover_image", "lookup_published_message_id",
+    "telegram_replace_enabled",
 ]

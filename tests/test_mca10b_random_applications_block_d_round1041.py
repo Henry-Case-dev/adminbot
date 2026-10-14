@@ -263,7 +263,7 @@ def test_blockE_catalog_random_uses_keys():
     memory_random: per-chat, не-секреты, все default ON (read-path
     fail-open True); GROUPS/_TAB_BY_GROUP/TAB_RULES без роста."""
     from services import param_catalog as pc
-    assert len(pc.REGISTRY) == 561
+    assert len(pc.REGISTRY) == 571
     assert len(pc.GROUPS) == 120
     assert len(pc._TAB_BY_GROUP) == 118
     assert len(pc.TAB_RULES) == 23
@@ -297,17 +297,18 @@ def test_blockE_f8_check_green_and_baselines():
     # ASAP 7 (F2 direct_l1 + F4 §3.2, переиздание общих фикс одним окном):
     # live 560 (538 + 9 direct_l1 + 13 stories/character); gen --check
     # печатает текущий счётчик реестра.
-    assert "561" in res.stdout
+    assert "571" in res.stdout
     fx = json.loads((ROOT / "tests/fixtures/round1025/f8_baseline.json")
                     .read_text(encoding="utf-8"))
-    assert fx["counts"]["REGISTRY"] == 561
+    assert fx["counts"]["REGISTRY"] == 571
     assert fx["counts"]["GROUPS"] == 120
     assert fx["counts"]["TAB_BY_GROUP"] == 118
     assert fx["counts"]["TAB_RULES"] == 23
-    assert fx["counts"]["delta"] == 150   # F5: +1 ParamSpec (memory.random_enabled)
+    # v6.3 B01 (W1-CHAT-INTEL): delta 150→160 (+10 INITIATIVE_*, все new).
+    assert fx["counts"]["delta"] == 160   # F5: +1; v6.3 B01: +10 → 160
     cb = json.loads((ROOT / "tests/fixtures/round1025/catalog_baseline.json")
                     .read_text(encoding="utf-8"))
-    assert len(cb["registry_keys"]) == 561
+    assert len(cb["registry_keys"]) == 571
     for key in ("memory.random_uses_belief_review",
                 "memory.random_uses_ui_visualization"):
         assert key in cb["registry_keys"]

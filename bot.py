@@ -92,6 +92,11 @@ from handlers.direct_chat import direct_chat_router, setup_direct_chat
 from services.direct_chat_service import DirectChatService
 from services.persistent_throttling import PersistentThrottle
 from services.smart_cache import close_smart_cache, get_smart_cache
+# B06.1 (ASAP 8 v6.3): per-chat Summary — producer/existence-резолв.
+from services.summary_scheduler import (
+    summary_any_chat_opted_in,
+    summary_emergency_disabled,
+)
 # ── Epic 66 (D262): локальный Bot API для скачивания >50MB ──
 from aiogram.client.session.aiohttp import AiohttpSession
 from aiogram.client.telegram import TelegramAPIServer
@@ -449,7 +454,16 @@ async def on_startup():
     )
     xml_builder = XmlGroundingBuilder()
 
-    if hot.get("flags.summary_enabled", settings.SUMMARY_ENABLED):
+    # B06.1 (ASAP 8 v6.3): producer стартует при global ON, ИЛИ при
+    # выключенном global default, если есть ЯВНЫЙ chat=ON override
+    # (per-chat Summary operable). Emergency env-рубильник важнее UI.
+    # Условие СОХРАНЯЕТ канон §18H(2): Summary-контур остаётся под своим
+    # флагом (flags.summary_enabled в выражении), bootstrap ≠ фича.
+    if ((
+        hot.get("flags.summary_enabled", settings.SUMMARY_ENABLED)
+        and not summary_emergency_disabled()
+    ) or (not summary_emergency_disabled()
+          and await summary_any_chat_opted_in(pg=pg.pg if pg else None))):
         generator = SummaryGenerator(memory, xml_builder, _llm_client, bot, aliases)
         # S9 (ADR-1026-8 D1): dry-run тест-контур «Тестирование» (§113) берёт
         # генератор из runtime-держателя (read-only окно + run_l1/run_l2).

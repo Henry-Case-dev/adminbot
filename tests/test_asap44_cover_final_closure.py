@@ -817,8 +817,8 @@ def test_cover12_prompt_limit_unknown_one_shorter_retry(
         # (здесь — до границы слова), полный текст опущен.
         assert "Сделай обложку в стиле серии" in prompts[1]
         assert profile["instruction"] not in prompts[1]
-        # D9 story-minimum: оригинал короче 160 chars → едет 100% сюжета.
-        assert "Сюжетная фраза" in prompts[1]
+        # B04.1: story в текстовое ядро не возвращается — сюжет в Base bitmap.
+        assert "Сюжетная фраза" not in prompts[1]
         # mandatory reference role: label не выбрасывается молча
         # (описание — optional detail, опускается).
         assert "REF-UNIQUE-LABEL" in prompts[1]

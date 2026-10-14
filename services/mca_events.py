@@ -326,6 +326,11 @@ REASON_CODES = frozenset({
     "temporal_insufficient_evidence", "temporal_source_unavailable",
     "temporal_media_pending", "temporal_fallback_mode",
     "temporal_cache_disabled", "fact_check_disabled",
+    # расширение ASAP 8 v6.3 (B01/B02 W1-CHAT-INTEL; §17.2 — словарь
+    # расширяемый): честные исходы observer инициативы и семантического
+    # опыта; машинные оси при отсутствующем коде несут значение в stage.
+    "initiative_writer_unavailable", "no_opportunities_24h",
+    "hearsay_or_joke", "no_canonical_rule", "semantic_parse_error",
 })
 
 # ── контракт полей §17.1 ────────────────────────────────────────────────────

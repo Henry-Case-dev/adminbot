@@ -643,14 +643,31 @@ def build_style_manifest(*, issue_display: str, instruction: str,
                          operation: str = "edit", resolved_limit=None,
                          limit_unit: str = "unknown",
                          limit_source: str = "unknown",
-                         attempts: list | None = None) -> dict:
+                         attempts: list | None = None,
+                         preservation_sent: str = "",
+                         runtime_sent: str = "") -> dict:
     """D7-манифест Style Edit (T-5249/T-5251) по факту финального промпта.
 
     ASAP 8 F3 (§5.2): приоритеты компонентов отражают новый порядок
     компилятора — CONTENT_PRESERVATION (новый P0-компонент, §5.3),
-    STORY_SCENE P1 (story identity), BASE_STYLE понижен до P2."""
-    preservation_text = content_preservation_text()
-    runtime_text = runtime_invariants_text(issue_display)
+    STORY_SCENE P1 (story identity), BASE_STYLE понижен до P2.
+
+    B04 v6.3 (аддитивно): ``preservation_sent``/``runtime_sent`` — фактически
+    отправленные P0-тексты, когда EDIT-компилятор собрал их на языке
+    контента (RU-вариант); пусто → авто-детект по факту финального промпта
+    → прежний канон (байт-в-бит)."""
+    preservation_text = preservation_sent or content_preservation_text()
+    runtime_text = runtime_sent or runtime_invariants_text(issue_display)
+    if preservation_sent == "" and \
+            preservation_text not in final_prompt and \
+            EDIT_PRESERVATION_RU in final_prompt:
+        # Язык контента EDIT-сборки — RU: манифест описывает отправленное.
+        preservation_text = EDIT_PRESERVATION_RU
+    if runtime_sent == "" and runtime_text not in final_prompt:
+        lang = edit_content_language(instruction)
+        runtime_lang = edit_runtime_invariants_text(issue_display, lang)
+        if runtime_lang in final_prompt:
+            runtime_text = runtime_lang
     story_full = _collapse(story_scene)
     story_floor = story_floor_text(story_scene)
     instruction_floor = profile_identity_floor(instruction)
@@ -757,6 +774,50 @@ CONTENT_PRESERVATION_TEXT = (
     "scene. Apply the requested visual style without changing the story "
     "content."
 )
+
+# ══ ASAP 8 v6.3 B04: компактные EDIT-компоненты (канон — здесь, cpa) ════════
+# Один язык сборки (язык инструкции профиля); semantic-смысл §5.3 сохранён.
+EDIT_PRESERVATION_RU = (
+    "Оставь без изменений людей, действия, событие, композицию и кадр "
+    "исходного изображения; не заменяй сцену и не добавляй новых событий.")
+_EDIT_REFS_RU = ("Референсы — только графический образец (логотип, "
+                 "брендинг): применяй знак, не меняя по ним сюжет.")
+EDIT_REFS_EN = ("References are a graphic sample (logo, branding) only; "
+                "apply the mark without changing the story.")
+EDIT_RUNTIME_EN = ("Keep the issue number «%s». Do not add duplicates of "
+                   "elements already present on the cover.")
+
+
+def edit_content_language(instruction: str) -> str:
+    """B04.2: язык сборки EDIT-инструкции — язык инструкции профиля/чата
+    (кириллица → ``ru``; латиница → ``en``; пусто → ``ru``)."""
+    text = str(instruction or "")
+    cyr = sum(1 for ch in text if "\u0400" <= ch <= "\u04ff")
+    latin = sum(1 for ch in text if ch.isascii() and ch.isalpha())
+    if cyr >= latin:
+        return "ru"
+    return "en" if latin else "ru"
+
+
+def edit_preservation_text(lang: str) -> str:
+    """P0 «что оставить» на языке контента (компакт; EN — канон §5.3)."""
+    if str(lang) == "en":
+        return CONTENT_PRESERVATION_TEXT
+    return EDIT_PRESERVATION_RU
+
+
+def edit_runtime_invariants_text(issue_display: str, lang: str) -> str:
+    """P0 runtime-инварианты (выпуск один раз, без дублей) на языке."""
+    if str(lang) == "en":
+        return EDIT_RUNTIME_EN % (issue_display or "")
+    return runtime_invariants_text(issue_display)
+
+
+def edit_reference_roles_text(refs: list | None, lang: str) -> str:
+    """P2 роль референсов (логотип — графический референс) + labels."""
+    labels = reference_roles_text(refs or [])
+    body = EDIT_REFS_EN if str(lang) == "en" else _EDIT_REFS_RU
+    return "%s %s" % (body, labels) if labels else body
 
 
 def content_preservation_text() -> str:

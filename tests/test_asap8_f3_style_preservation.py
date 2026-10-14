@@ -1,21 +1,23 @@
-"""ASAP 8 F3 — Style Edit больше не съедает сюжет Base Cover.
+"""ASAP 8 F3 → ASAP 8 v6.3 B04 — Style Edit: компактный EDIT-контракт.
 
-Контракт (plans/features/asap8-reliability-truthfulness/architecture.md §3,
-ТЗ §5.1–§5.4, §20 C1/C2/C4):
+История: ASAP 8 F3 поднял story identity в P1-ядро против потери сюжета.
+v6.3 B04 заменяет контракт: источник сцены в image-to-image — Base bitmap,
+повторный перенос story_scene/summary в текст — сам дефект (1133/800).
+Текущие инварианты:
 
-* P0 CONTENT_PRESERVATION_INVARIANTS — новый обязательный компонент,
-  первый в строке, в required-ядре И в retry_core-ядре (§5.3);
-* P1 STORY_IDENTITY — story_scene + CoverBrief.render() поднят из
-  budget_component в обязательное ядро (story floor 160 сохраняется
-  в retry-ядре);
-* P2 base_style_prompt — ПОНИЖЕН с P1 (не удалён: нужен preview-ветке),
-  при давлении падает первым из P2;
-* fail-soft (§5.4): story identity потерян при компиляции ИЛИ P0-overflow
-  ⇒ styled НЕ публикуется, публикуется Base; манифест помечает
-  style_publish_skipped{reason}.
+* P0 компактный preservation («что оставить») + runtime-инварианты
+  (выпуск один раз, без дублей) — первый в строке;
+* P1 инструкция профиля («что изменить») + ОПЦИОНАЛЬНЫЙ короткий scene
+  anchor (policy, dedupe);
+* P2 роль референсов (логотип — графический образец);
+* P3 base_style_prompt;
+* fail-soft (B04.3): нормализованный payload не влезает в resolved limit
+  минус headroom ⇒ платный вызов НЕ делается, публикуется Base, манифест
+  помечает style_publish_skipped{prompt_limit_exceeded}.
 
-TEST-LIFECYCLE: REGRESSION owner=ASAP8/F3 (C2/C4, приоритеты compile_style_prompt)
-TEST-LIFECYCLE: CONTRACT owner=ASAP8/F3 (style_publish_skipped-маркер манифеста)
+TEST-LIFECYCLE: REGRESSION owner=REQ-B04 (контракт F3 заменён B04 v6.3:
+компакт без повторного переноса сюжета; overflow → Base без платного вызова)
+TEST-LIFECYCLE: CONTRACT owner=REQ-B04 (style_publish_skipped-маркер манифеста)
 """
 from __future__ import annotations
 
@@ -95,57 +97,75 @@ def _slot_stub(monkeypatch):
     monkeypatch.setattr(cjobs, "resolve_style_slot_inherited", _slot)
 
 
-# ── C2: порядок строки и новый приоритет-карт ───────────────────────────────
+# ── B04: порядок строки и компактный приоритет-карт ─────────────────────────
 
 class TestCompileOrder:
-    def test_line_order_preservation_issue_story_style_refs_base(self):
-        """§5.2: preservation → issue → story → style_instruction → refs →
-        base_style; preservation — первый в строке (P0)."""
+    def test_line_order_preservation_issue_style_anchor_refs_base(self):
+        """B04.1/B04.2: preservation → issue → style_instruction → scene
+        anchor → refs → base_style; preservation — первый в строке; сцена
+        в тексте максимум ОДИН раз (anchor, не полный перенос)."""
         c = cjobs.compile_style_prompt(
             _profile(), issue_display="ВЫПУСК 42",
             capabilities=_caps_unknown(), base_style_prompt="base style",
             brief=compiler.brief_from_text(SUMMARY), story_scene=SCENE)
         p = c.prompt
-        pres = cpa.content_preservation_text()
-        assert p.startswith(pres), "P0 preservation — первый в строке"
+        assert p.startswith(cjobs.edit_preservation_text("ru")), \
+            "P0 preservation — первый в строке"
         positions = [p.find(x) for x in
-                     ("ВЫПУСК 42", SCENE.split(",")[0],
-                      "Сделай обложку в стиле серии", "logo:",
-                      "base style")]
+                     ("ВЫПУСК 42", "Сделай обложку в стиле серии",
+                      SCENE.split(",")[0], "logo", "base style")]
         assert positions == sorted(positions), positions
         assert all(x >= 0 for x in positions)
         assert not c.exceeded and not c.dropped
 
+    def test_summary_not_retransferred_in_edit(self):
+        """B04.1: story_scene/summary НЕ переносятся в текст повторно —
+        только опциональный короткий anchor; CoverBrief в промпте отсутствует
+        (сюжет выражен Base bitmap)."""
+        long_summary = ("Медведь открывает чемпионат по шахматам. "
+                        "Вторая фраза. Третья деталь сцены. " * 3)
+        brief = compiler.brief_from_text(long_summary)
+        c = cjobs.compile_style_prompt(
+            _profile(), issue_display="ВЫПУСК 42",
+            capabilities=_caps_unknown(),
+            brief=brief, story_scene=SCENE)
+        assert "Сюжет:" not in c.prompt, "CoverBrief.render не переносится"
+        assert "Настроение" not in c.prompt
+        assert c.prompt.count(SCENE.split(",")[0]) == 1, "сцена один раз"
+        report = getattr(c, "edit_report", {})
+        assert report.get("summary_retransferred") is False
+
     def test_preservation_text_meaning_fixed(self):
-        """§5.3: формулировка фиксирует смысл (event/people/actions/
-        composition/framing + запрет generic-подмены + style-not-content)."""
+        """§5.3/B04.2: смысл сохранения сюжета зафиксирован в компоненте
+        (event/people/actions/composition + запрет generic-подмены)."""
         text = cpa.content_preservation_text().lower()
         for token in ("event", "people", "actions", "composition",
                       "framing", "generic portrait", "generic city",
                       "without changing the story"):
             assert token in text, token
+        ru_text = cjobs.edit_preservation_text("ru").lower()
+        for token in ("людей", "действия", "событие", "композицию",
+                      "не заменяй сцену", "не добавляй новых событий"):
+            assert token in ru_text, token
 
-    def test_story_identity_in_required_core_not_budget(self):
-        """C4: при давлении story (P1) не сжимается — падают P2
-        (refs/base_style); core влез → exceeded=False, сюжет целиком."""
-        # limit: ровно между core и core+refs: считаем по probe.
-        probe = cjobs.compile_style_prompt(
-            _profile(), issue_display="ВЫПУСК 42",
-            capabilities=_caps_unknown(),
-            brief=compiler.brief_from_text(SUMMARY), story_scene=SCENE)
-        core = int(probe.static_len)          # preservation+runtime+story+instr
-        caps = _caps_limit(core + 8)          # refs/base_style не влезают
+    def test_compact_payload_fits_confirmed_limit(self):
+        """B04.3: компактный payload профиля-владельца укладывается в
+        confirmed 800 chars (дефект 1133/800 устранён архитектурно)."""
+        profile = _profile(instruction=(
+            "Сделай обложку в стиле серии «Графический роман»: чёрно-белые "
+            "страницы с редкими синими акцентами, плотная штриховка, "
+            "плашки кадра как в комиксе. Логотип издательства сохри."))
         c = cjobs.compile_style_prompt(
-            _profile(), issue_display="ВЫПУСК 42", capabilities=caps,
-            base_style_prompt="base style",
-            brief=compiler.brief_from_text(SUMMARY), story_scene=SCENE)
+            profile, issue_display="ВЫПУСК 42",
+            capabilities=_caps_limit(800),
+            base_style_prompt="base style", brief=compiler.brief_from_text(
+                SUMMARY), story_scene=SCENE)
         assert not c.exceeded, c.reason
-        assert SCENE in c.prompt, "story identity не сжимается (P1 core)"
-        assert set(c.dropped) == {"references", "base_style_prompt"}
+        assert len(c.prompt) <= 800
 
     def test_base_style_lowered_not_removed(self):
-        """§3.2 судьба base_style_prompt: P2 — едет без давления (нужен
-        preview-ветке), при давлении падает (не в required-ядре)."""
+        """base_style_prompt — P3: едет без давления (эффект base-стиля уже
+        в input image), при давлении падает первым."""
         caps = _caps_unknown()
         c = cjobs.compile_style_prompt(
             _profile(), issue_display="ВЫПУСК 1", capabilities=caps,
@@ -153,13 +173,13 @@ class TestCompileOrder:
             brief=compiler.brief_from_text(SUMMARY), story_scene=SCENE)
         assert "base style text" in c.prompt
         assert c.components.get("content_preservation", 0) > 0
-        # unknown limit → всё ездит, включая base_style (P2)
+        # unknown limit → всё ездит, включая base_style (P3)
         assert c.dropped == []
 
-    def test_retry_core_preservation_and_story_floor_base_style_dropped(self):
-        """retry_core-ядро (§3.1): preservation → runtime → story floor
-        (160 сохраняется) → identity floor → ref roles; base_style (P2)
-        из ядра изъят и зафиксирован в dropped[]."""
+    def test_retry_core_compact_no_story_floor(self):
+        """retry_core (unknown-limit): компактное ядро preservation →
+        runtime → identity floor → ref roles; textual story floor из ядра
+        изъят (сюжет гарантирован Base bitmap, B04.1)."""
         long_scene = ("Два человека спорят возле разбитой машины на "
                       "закатном перекрёстке. " * 6)
         r = cjobs.compile_style_prompt(
@@ -168,18 +188,12 @@ class TestCompileOrder:
             brief=compiler.brief_from_text(SUMMARY), story_scene=long_scene,
             retry_core=True)
         p = r.prompt
-        assert p.startswith(cpa.content_preservation_text())
+        assert p.startswith(cjobs.edit_preservation_text("ru"))
         assert "ВЫПУСК 42" in p
-        floor = cpa.story_floor_text(long_scene)
-        assert floor in p and len(floor) >= cpa.STORY_MIN_CHARS
-        assert long_scene not in p, "сверх floor — обрезано (semantic squeeze)"
+        assert long_scene not in p, "полный сюжет в текст не возвращается"
         assert "base style" not in p
         assert "base_style_prompt" in r.dropped
         assert r.reason == "semantic_squeeze"
-        # детерминированный fail-soft: retry-ядро не теряет story identity
-        assert cjobs.style_publish_skip_reason(
-            r, story_text=cjobs._story_identity_text(
-                long_scene, compiler.brief_from_text(SUMMARY))) is None
 
 
 # ── §5.4: детерминированный skip-сигнал ─────────────────────────────────────
@@ -196,7 +210,10 @@ class TestSkipReason:
                 SCENE, compiler.brief_from_text(SUMMARY))) \
             == "prompt_limit_exceeded"
 
-    def test_lost_story_floor_maps_to_story_identity_dropped(self):
+    def test_no_textual_story_floor_requirement(self):
+        """B04.1: textual story floor больше НЕ обязательное требование —
+        отсутствие сюжета в тексте не триггерит story_identity_dropped
+        (семантику результата проверяет vision verification, B04.6)."""
         class _C:
             prompt = "preservation runtime style only"
             dropped: list = []
@@ -205,11 +222,10 @@ class TestSkipReason:
         story = cjobs._story_identity_text(
             SCENE, compiler.brief_from_text(SUMMARY))
         assert cjobs.style_publish_skip_reason(
-            _C(), story_text=story) == "story_identity_dropped"
-        # cover_brief в dropped[] — тоже fail-soft сигнал
+            _C(), story_text=story) is None
         _C.dropped = ["cover_brief"]
         assert cjobs.style_publish_skip_reason(
-            _C(), story_text=story) == "story_identity_dropped"
+            _C(), story_text=story) is None
 
     def test_empty_story_and_healthy_pass(self):
         class _C:
@@ -233,9 +249,9 @@ class TestSkipReason:
 class TestFailSoftPublication:
     def test_overflow_no_paid_call_base_with_manifest_marker(
             self, tmp_path, monkeypatch):
-        """C4/§5.4: P0-ядро (включая story) не влезает → styled НЕ
-        публикуется: платный call не вызывается, outcome=Base, манифест
-        помечен style_publish_skipped{reason: prompt_limit_exceeded}."""
+        """B04.3: нормализованный payload не влезает (длинная инструкция
+        против лимита 500) → styled НЕ публикуется: платный call не
+        вызывается, outcome=Base, манифест помечен style_publish_skipped."""
         base = _png(tmp_path / "f3_overflow.png")
         _slot_stub(monkeypatch)
         events: list = []
@@ -260,9 +276,7 @@ class TestFailSoftPublication:
         assert meta["reason"] == cjobs.REASON_STYLE_FAILED
         diag = meta["prompt_diagnostics"]
         assert diag["overflow_reason"] == "prompt_limit_exceeded"
-        # compiled required-строка содержала story (P1-ядро) — но ядро
-        # целиком не влезло в лимит: skip по overflow.
-        assert diag["story_identity_present"] is True
+        assert diag["preflight"] == "normalized_edit_payload_over_limit"
         manifest = state.prompt_manifest
         assert manifest is not None
         assert manifest["style_publish_skipped"] == {
@@ -274,62 +288,11 @@ class TestFailSoftPublication:
                   and f.get("reason") == "prompt_limit_exceeded"]
         assert failed and failed[-1]["reason_code"] == "prompt_limit_exceeded"
 
-    def test_story_identity_dropped_no_paid_call_base_fallback(
-            self, tmp_path, monkeypatch):
-        """C4/§5.4: story floor потерян при компиляции (legacy byte-контур
-        `IMAGE_PROMPT_SEMANTIC_COMPRESSION_ENABLED=false`, лимит между
-        P0-ядром и story) → styled НЕ публикуется, Base fallback с честным
-        reason story_identity_dropped в манифесте и reason_detail_ru."""
-        monkeypatch.setattr(cjobs.compiler, "semantic_compression_enabled",
-                            lambda: False)
-        base = _png(tmp_path / "f3_story.png")
-        _slot_stub(monkeypatch)
-        profile = _profile()
-        caps_unknown = _caps_unknown()
-        # issue_display прогона — preview "ВЫПУСК 01" (counter off).
-        probe = cjobs.compile_style_prompt(
-            profile, issue_display="ВЫПУСК 01", capabilities=caps_unknown)
-        p0_len = int(probe.static_len) - len(profile["instruction"]) - 1
-        # P0 влезает, story (floor 160 < сцена) — нет.
-        caps = _caps_limit(p0_len + 10)
-        events: list = []
-        monkeypatch.setattr(cjobs, "emit_cover_event",
-                            lambda name, **fields: events.append(
-                                (name, dict(fields))))
-        edit_call = AsyncMock(return_value=EditResult(
-            ok=True, content=STYLED_BYTES, reason="ok"))
-        state = cjobs.CoverJobState(style_id="csp_f3")
-        meta = _run(cjobs.run_style_job(
-            chat_id=0, base_image_path=base, profile=profile,
-            summary_run_id="run-f3s", capabilities=caps,
-            edit_call=edit_call, reference_paths=[],
-            summary_text=SUMMARY, story_scene=SCENE,
-            state=state))
-        assert edit_call.await_count == 0, "сюжетно ложный styled не шлётся"
-        assert meta["applied"] is False
-        assert meta["outcome"] == cjobs.RESULT_BASE
-        assert meta["fail_reason"] == "story_identity_dropped"
-        assert meta["style_publish_skipped"] == {
-            "reason": "story_identity_dropped"}
-        manifest = state.prompt_manifest
-        assert manifest is not None
-        assert manifest["style_publish_skipped"] == {
-            "reason": "story_identity_dropped"}
-        assert manifest["components"][0]["key"] == "CONTENT_PRESERVATION"
-        story_comp = [c for c in manifest["components"]
-                      if c["key"] == "STORY_SCENE"][0]
-        assert story_comp["status"] == "omitted", "сюжет честно omitted"
-        failed = [f for n, f in events if n == cjobs.COVER_STYLE_FAILED
-                  and f.get("reason") == "story_identity_dropped"]
-        assert failed and failed[-1]["reason_code"] == "story_identity_dropped"
-        assert cjobs.reason_detail_ru("story_identity_dropped")
-
     def test_healthy_run_publishes_styled_without_skip_marker(
             self, tmp_path, monkeypatch):
-        """C2 happy path: preservation + story + base_style в фактическом
-        промпте; манифест: CONTENT_PRESERVATION kept, STORY_SCENE kept (P1),
-        BASE_STYLE P2, маркер style_publish_skipped отсутствует; parity
-        manifest == отправленный prompt."""
+        """B04 happy path: компактный EDIT-промпт (сцена один раз через
+        anchor, summary не переносится), манифест без skip-маркера,
+        format_valid отдельно от scene_preserved."""
         base = _png(tmp_path / "f3_ok.png")
         _slot_stub(monkeypatch)
         sent: list = []
@@ -352,20 +315,20 @@ class TestFailSoftPublication:
             cjobs.RESULT_STYLED
         assert len(sent) == 1
         prompt = sent[0]
-        assert prompt.startswith(cpa.content_preservation_text())
-        assert SCENE in prompt, "story identity целиком"
+        assert prompt.startswith(cjobs.edit_preservation_text("ru"))
+        assert "Сюжет:" not in prompt, "summary не переносится (B04.1)"
         assert "base style" in prompt
         diag = meta["prompt_diagnostics"]
-        assert diag["story_identity_present"] is True
+        assert diag["content_language"] == "ru"
+        assert diag["image_input_used"] == {"base": True, "references": 0}
+        verification = meta["semantic_verification"]
+        assert verification["format_valid"] is True
+        assert verification["scene_preserved"] == "unknown", \
+            "без активации политики — честный unknown, не молчаливый true"
         manifest = state.prompt_manifest
         assert "style_publish_skipped" not in manifest
         assert manifest["final_prompt"] == prompt
-        comps = {c["key"]: c for c in manifest["components"]}
-        assert comps["CONTENT_PRESERVATION"]["status"] == "kept"
-        assert comps["STORY_SCENE"]["priority"] == "P1"
-        assert comps["STORY_SCENE"]["status"] == "kept", \
-            "полный сюжет в промпте — честный kept"
-        assert comps["BASE_STYLE"]["priority"] == "P2"
+        assert manifest["semantic_verification"]["format_valid"] is True
 
 
 # ── C1: Base Cover Generation без style — поведение прежнее ────────────────

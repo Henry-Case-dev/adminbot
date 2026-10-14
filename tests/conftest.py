@@ -44,6 +44,35 @@ def _settings_module_identity_restore():
     _cs.__dict__.update(_snapshot)
 
 
+@pytest.fixture(scope="module", autouse=True)
+def _global_singletons_reset_per_file():
+    """SWEEP-FIX (v6.3 W1-REPIN): гигиена глобалов между тестовыми ФАЙЛАМИ.
+
+    Часть сервисов держит процесс-глобальное состояние, которое отдельные
+    тесты оставляют после себя, ломая ПОРЯДОК-ЗАВИСИМЫЕ файлы в полном
+    свипте (при изолированном прогоне файла — зелёные; подтверждено
+    парными прогонами и на HEAD bc91b90 — предсуществующая утечка):
+
+      * ``services/hot_config._cache`` — ``bot.main()`` инсталлирует
+        ConfigCache глобально (bot.py ``set_config_cache``); smoke-тесты
+        main() оставляют фейк-кэш (``get() → default``), после чего
+        гейт-цепочки (например nostalgia) читают Settings-дефолты вместо
+        значений теста;
+      * ``services/mca_events._pending`` — bounded in-memory буфер
+        терминальных событий; накапливается между файлами и искажает
+        coalesce/idempotent-поведение оркестратора.
+
+    Фикстура НЕ трогает состояние ВНУТРИ файла (teardown после последнего
+    теста модуля) — межфайловая изоляция без вмешательства в семантику
+    отдельных тестов. TEST-LIFECYCLE: REGRESSION owner=W1-integration
+    (санкция брифа W1-REPIN п.5: autouse-фикстура в conftest.py)."""
+    from services import hot_config as _hot
+    from services import mca_events as _me
+    yield
+    _hot.set_config_cache(None)
+    _me.reset_pending()
+
+
 @pytest.fixture(autouse=True)
 def _system2_flags_off_by_default(request, monkeypatch):
     """Изоляция раунда 10.22 (F3–F6): старые тесты (без маркера ``system2``)

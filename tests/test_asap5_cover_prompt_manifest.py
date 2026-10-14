@@ -140,11 +140,10 @@ class TestStyleManifestAndSqueeze:
             story_scene=scene, retry_core=True)
         assert "ВЫПУСК 42" in compiled.prompt            # P0 полностью
         assert compiled.reason == "semantic_squeeze"
-        # story-minimum: 160 chars или 100%, если короче
+        # B04.1: textual story floor изъят из ядра — сюжет в Base bitmap
         floor = cpa.story_floor_text(scene)
-        assert floor in compiled.prompt
-        assert len(floor) >= cpa.STORY_MIN_CHARS
-        assert scene not in compiled.prompt              # optional детали срезаны
+        assert floor not in compiled.prompt
+        assert scene not in compiled.prompt
         # profile identity ≥50%
         ident = cpa.profile_identity_floor(profile["instruction"])
         assert ident in compiled.prompt
@@ -179,8 +178,8 @@ class TestStyleManifestAndSqueeze:
         assert meta["applied"] is True, meta
         manifest = holder["prompt_manifest"]
         comps = {c["key"]: c for c in manifest["components"]}
-        # ASAP 8 F3: P0 CONTENT_PRESERVATION (§5.3) — новый обязательный
-        # компонент манифеста (описывает фактически отправленные компоненты).
+        # B04: P0 CONTENT_PRESERVATION kept; story в retry-ядро не
+        # возвращается (Base bitmap) → STORY_SCENE честно omitted.
         assert set(comps) == {"CONTENT_PRESERVATION", "RUNTIME_INVARIANTS",
                               "STYLE_PROFILE", "BASE_STYLE", "REFERENCES",
                               "STORY_SCENE", "SUMMARY_CONTEXT"}
@@ -191,11 +190,9 @@ class TestStyleManifestAndSqueeze:
         assert comps["STYLE_PROFILE"]["reason"] == "profile_identity_floor"
         assert comps["REFERENCES"]["status"] == "compacted"
         assert comps["REFERENCES"]["sent_text"] == "logo"
-        assert comps["STORY_SCENE"]["status"] == "compacted"
-        assert len(comps["STORY_SCENE"]["sent_text"]) >= cpa.STORY_MIN_CHARS
-        # контекст сверх story-minimum — optional: при squeeze опущен
+        assert comps["STORY_SCENE"]["status"] == "omitted", \
+            "story в retry-ядро не возвращается (B04.1) — честный omitted"
         assert comps["SUMMARY_CONTEXT"]["status"] == "omitted"
-        assert comps["SUMMARY_CONTEXT"]["reason"] == "squeezed"
         assert len(manifest["attempts"]) == 2
         assert manifest["attempts"][0]["outcome"] == "retry_superseded"
         assert manifest["attempts"][0]["reason"] == "prompt_limit_unknown"
@@ -242,9 +239,10 @@ class TestFinalSummaryBrief:
 
 class TestUnknownRetryStoryMinimum:
     def test_retry_keeps_story_minimum(self):
-        """Прод-факт RCA: attempt 1 (911) → retry minimal=True (708) БЕЗ
-        сюжета. D9: semantic squeeze сохраняет story ≥160 (или 100%).
-        RED на прежнем коде: minimal выбрасывал сюжет целиком."""
+        """B04 (замена D9 story-minimum): attempt 1 → bounded semantic
+        squeeze retry; textual story-minimum изъят из ядра — сюжет
+        гарантирован Base bitmap (B04.1), retry короче без сюжета.
+        Honesty: limit_source неизвестен → БЕЗ выдуманного числового лимита."""
         profile = _profile()
         scene = LONG_SCENE
         prompts: list = []
@@ -265,16 +263,14 @@ class TestUnknownRetryStoryMinimum:
         assert len(prompts) == 2, "ровно один bounded retry"
         assert len(prompts[1]) < len(prompts[0]), "retry короче"
         story_in_retry = cpa.story_floor_text(scene)
-        assert story_in_retry in prompts[1]
-        assert len(story_in_retry) >= cpa.STORY_MIN_CHARS
-        # honesty: limit_source неизвестен → БЕЗ выдуманного числового лимита
+        assert story_in_retry not in prompts[1], \
+            "story floor в retry-ядро не возвращается (B04.1)"
         manifest = holder["prompt_manifest"]
         assert manifest["limit_source"] == "unknown"
         assert manifest["resolved_limit"] is None
         assert manifest["limit_unit"].startswith("unknown")
         retry = meta.get("prompt_limit_unknown_retry") or {}
         assert retry.get("mode") == "semantic_squeeze"
-        assert retry.get("story_min_chars") == len(story_in_retry)
 
 
 # ── 6/7. manifest == фактическая отправка + durable state round-trip ────────

@@ -225,7 +225,9 @@ class TestCatalog109:
         # +2 GROUPS, +2 mapped, +1 TAB_RULES → 437/92/90/20/407.
         # 10.23 (F5/ADR-1023-5 D5): +5/+3/+3 → 446/95/93/20/416.
         # 10.24 (F21/ADR-1024-22 D8): +1/+1/+1 → 459/98/96/20/418.
-        assert len(pc.REGISTRY) == 561
+        # v6.3 B01 (W1-CHAT-INTEL): +10 REGISTRY (INITIATIVE_*), GROUPS/
+        # _TAB_BY_GROUP/TAB_RULES/Settings без роста → 571/120/118/23/454.
+        assert len(pc.REGISTRY) == 571
         assert len(pc.GROUPS) == 120
         assert len(pc._TAB_BY_GROUP) == 118
         assert len(pc.TAB_RULES) == 23

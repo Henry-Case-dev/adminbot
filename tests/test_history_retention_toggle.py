@@ -182,7 +182,15 @@ class TestCatalogSeed:
                   "MCA_CHARACTER_SPEECH_ENABLED", "MCA_STYLE_SCOPE_ENABLED",
                   "MCA_TRAIT_RULES_ENABLED", "MCA_SELF_MODEL_ENABLED",
                   "MCA_LEGACY_TRAITS_MIGRATION_ENABLED",
-                  "MCA_POSTPROCESS_FORM_GUARD_ENABLED"}
+                  "MCA_POSTPROCESS_FORM_GUARD_ENABLED",
+        # v6.3 B01 (W1-CHAT-INTEL): +10 ClassVar INITIATIVE_* — env-ось
+        # observer'а инициативы; product-оси initiative.* в каталоге.
+        "INITIATIVE_OBSERVER_ENABLED", "INITIATIVE_ENABLED",
+        "INITIATIVE_FREQUENCY_PROFILE", "INITIATIVE_MIN_GAP_SECONDS",
+        "INITIATIVE_MAX_REPLIES_PER_DAY", "INITIATIVE_DAY_WINDOW_SECONDS",
+        "INITIATIVE_MAX_REPLIES_PER_TOPIC", "INITIATIVE_EVAL_MIN_MESSAGES",
+        "INITIATIVE_EVAL_MIN_INTERVAL_SECONDS",
+        "INITIATIVE_EVAL_LLM_BUDGET_PER_DAY"}
         assert (missing, extra) == (set(), set())
 
     def test_seed_categories_include_memory(self):

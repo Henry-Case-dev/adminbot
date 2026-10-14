@@ -49,6 +49,12 @@ _INFO_KEY = "content.info_how_it_works"
 # только санкционированной правкой (R17: plaintext не существует).
 _SYNTHETIC_SECRET_GROUPS = frozenset({"keys_random"})
 
+# B07.2 (ASAP 8 v6.3): Settings-backed категории, отсутствующие ключи
+# которых дополняются синтетикой с каталоговым дефолтом Settings (то же
+# значение, что runtime использует через hot.get(key, Settings)).
+# Расширение категории — только с добавлением её в pg_db.SEED_CATEGORIES.
+_SETTINGS_BACKED_SYNTH_CATEGORIES = frozenset({"temporal"})
+
 # D08 (asap8-v6, Wave A1): честные дефолты PG-only bool-ключей каталога
 # (settings_field/env_name = None) для синтетики get_all(). Значения —
 # ЗЕРКАЛО рантайм-резолверов, не выдумка:
@@ -576,6 +582,21 @@ class ConfigCache:
             if not key or key in self._settings:
                 continue
             if spec.settings_field is not None:
+                # B07.2 (ASAP 8 v6.3): Settings-backed ключи сидируемых
+                # категорий, отсутствующие в bot_settings (историческая БД
+                # до добавления категории в SEED_CATEGORIES; напр.
+                # temporal.*), честно отдаются каталоговым дефолтом
+                # Settings (то же значение, что runtime использует через
+                # hot.get(key, Settings)); строки БД НЕ создаёт — персист
+                # появляется при первой записи/сиде, деривация на чтении.
+                if spec.group not in _SYNTHETIC_SECRET_GROUPS and \
+                        spec.category in _SETTINGS_BACKED_SYNTH_CATEGORIES:
+                    try:
+                        out[key] = coerce_catalog_value(
+                            spec, getattr(settings, spec.settings_field))
+                    except Exception:  # нет Settings-поля → не синтезируем
+                        continue
+                    continue
                 # Не PG-only: прежнее поведение D13 — синтетика только для
                 # санкционированных secret-групп (keys_random).
                 if spec.group not in _SYNTHETIC_SECRET_GROUPS:

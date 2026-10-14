@@ -49,6 +49,30 @@ def _summary_enabled() -> bool:
     выключение в UI действует без рестарта."""
     return bool(hot.get("flags.summary_enabled", settings.SUMMARY_ENABLED))
 
+
+async def _summary_allowed_for_chat(chat_id: int | None) -> bool:
+    """B06.1 (ASAP 8 v6.3): гейт /summary — единый per-chat резолвер.
+
+    Emergency env OFF важнее всего; для ГРУПП (chat_id < 0) явный chat
+    ON/OFF override важнее global default (локальное OFF глушит только
+    этот чат; chat ON при global OFF разрешает); ЛС (F-14 S4) и inherit —
+    прежний global-only гейт. Observer (общий сбор сообщений) НЕ меняется —
+    его вход нужен бегущему конспекту независимо от периодических сводок."""
+    try:
+        from services.summary_scheduler import (
+            summary_chat_override,
+            summary_emergency_disabled,
+        )
+        if summary_emergency_disabled():
+            return False
+        if chat_id is not None and int(chat_id) < 0:
+            override = await summary_chat_override(int(chat_id))
+            if override is not None:
+                return bool(override)
+    except Exception:            # pragma: no cover - fail-open к global
+        pass
+    return _summary_enabled()
+
 # B1/D82 (Epic 29): ручной вызов, до пайплайна; random.choice при каждом вызове.
 # Канон (D82) — первым элементом; 20 вариаций, полный список — Section 38.2.
 _UX_ACK_VARIANTS: tuple[str, ...] = (
@@ -529,8 +553,10 @@ async def cmd_summary(message: types.Message, bot: Bot = None):
     """Manual summary trigger (R9/D62). Delete → ack → pipeline (D81/B1/B2).
 
     F5 (§18H(4)): мастер-флаг — runtime-гейт ДО admin-проверок; OFF →
-    UNHANDLED (паритет «роутер не зарегистрирован»: пропагация живёт)."""
-    if not _summary_enabled():
+    UNHANDLED (паритет «роутер не зарегистрирован»: пропагация живёт).
+    B06.1: гейт per-chat (emergency → explicit chat override для групп →
+    global default)."""
+    if not await _summary_allowed_for_chat(message.chat.id):
         return UNHANDLED
     user_id = message.from_user.id if message.from_user else 0
     # D94 (Epic 31): порядок проверок — SUMMARY_ADMIN_ONLY → ALLOWED_SUMMARY_IDS.

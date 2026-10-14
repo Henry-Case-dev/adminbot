@@ -53,9 +53,37 @@ logger = logging.getLogger(__name__)
 _RETENTION_PG_KEY = "memory.infinite_retention"
 
 
-def _infinite_retention_on() -> bool:
-    """ON-состояние тумблера бессрочного хранения (фолбэк False без кэша)."""
-    return bool(hot.get(_RETENTION_PG_KEY, settings.INFINITE_RETENTION))
+async def _infinite_retention_on(chat_id=None) -> bool:
+    """ON-состояние тумблера бессрочного хранения (фолбэк False без кэша).
+
+    B03.5 (v6.3): global ИЛИ per-chat override. `chat_id=None` — только
+    global (`memory.infinite_retention`); для конкретного чата явный
+    chat_params.overrides['memory.infinite_retention']=True включает
+    бессрочный режим НЕЗАВИСИМО от остальных чатов (global может быть OFF).
+    Global ON доминирует (ON у всех). Fail-open: недоступный chat_params →
+    global-значение (поведение baseline)."""
+    g = bool(hot.get(_RETENTION_PG_KEY, settings.INFINITE_RETENTION))
+    if g or chat_id is None:
+        return g
+    try:
+        from services.chat_params import get_chat_param_defaulted
+        override = await get_chat_param_defaulted(
+            int(chat_id), _RETENTION_PG_KEY, None)
+    except Exception:
+        return False
+    return bool(override) if override is not None else False
+
+
+async def _infinite_retention_chat_ids(chat_ids) -> set:
+    """B03.5: подмножество chat_ids с per-chat бессрочным режимом.
+
+    Bounded-фильтр для глобального purge-прохода: override читается через
+    кэш chat_params (один вызов на чат, только среди чатов-кандидатов)."""
+    result: set = set()
+    for chat_id in set(int(c) for c in chat_ids or ()):
+        if await _infinite_retention_on(chat_id):
+            result.add(chat_id)
+    return result
 
 _BUSY_TIMEOUT_MS = 5000          # R46-8: «database is locked» → ждём до 5с
 _REFRESH_ACTIVE_CAP = 5000       # recalc_chat_users: потолок участников окна
@@ -9562,7 +9590,8 @@ class DatabaseService:
     async def search_graph_facts_fts(self, chat_id, match_query, limit, now_ts,
                                      include_direct_reply=False,
                                      include_archived=False,
-                                     include_self=False) -> list:
+                                     include_self=False,
+                                     include_expired=None) -> list:
         """FTS-фолбек RAG с ленивым TTL-фильтром (D175). Epic 50 (58.8, D206):
         include_direct_reply=False (default) → origin='bot_direct_reply' НЕ
         подмешивается в чужие пайплайны; + created_at/target_user в SELECT.
@@ -9579,9 +9608,20 @@ class DatabaseService:
         вызывающий (`summary_memory._search_graph_facts`) домножает Python-ранг
         на ``_importance_factor(imp)=0.5+0.05·imp ∈ [0.55,1.0]``, чтобы
         мета-факты (imp=1) не перебивали важные (SQL-порядок по FTS-рангу не
-        меняется; множитель накладывается при пересортировке в Python)."""
+        меняется; множитель накладывается при пересортировке в Python).
+        B03.1/B03.2 (v6.3): include_expired — retrieval-eligibility
+        просроченных ОТДЕЛЬНО от retention: None → наследует include_archived
+        (историческое копание видит и expired-версии — «что говорили в 2022»
+        находит их полноценно); False (default RAG) → только свежие; True →
+        expired участвуют всегда. SELECT аддитивно несёт ``f.expires_at`` —
+        вызывающий отличает archive-hit (``expires_at <= now_ts``) от свежих
+        и помечает trust/as-of на своей стороне."""
         statuses = ("('confirmed', 'archived_belief')" if include_archived
                     else "('confirmed')")
+        expired_visible = (include_archived if include_expired is None
+                           else bool(include_expired))
+        ttl_clause = ("" if expired_visible
+                      else "AND (f.expires_at IS NULL OR f.expires_at > ?) ")
         # MCA-22 (ADR-1028-6 D7/C5): SELECT АДДИТИВНО расширен provenance-
         # колонками v17 (subject_ref_id/attribution_method/assertion_kind/
         # speaker_author_id/provenance_channel) — retrieval переносит
@@ -9590,21 +9630,25 @@ class DatabaseService:
         sql = (
             "SELECT f.id, f.fact, f.origin, f.created_at, f.target_user, "
             "f.weight, f.last_confirmed_at, f.message_timestamp, f.status, "
-            "f.importance, f.tg_message_id, f.forward_from, "
+            "f.importance, f.tg_message_id, f.forward_from, f.expires_at, "
             "f.subject_ref_id, f.attribution_method, f.assertion_kind, "
             "f.speaker_author_id, f.provenance_channel, "
             "COALESCE(f.message_timestamp, f.created_at) AS rag_ts "
             "FROM graph_facts_fts "
             "JOIN graph_facts f ON f.id = graph_facts_fts.rowid "
             "WHERE graph_facts_fts MATCH ? AND f.chat_id = ? "
-            "AND (f.expires_at IS NULL OR f.expires_at > ?) "
+            f"{ttl_clause}"
             f"AND f.status IN {statuses} ")
         if not include_direct_reply:
             sql += "AND f.origin != 'bot_direct_reply' "
         if not include_self:
             sql += "AND f.origin != 'bot_self_reply' "
         sql += "ORDER BY graph_facts_fts.rank LIMIT ?"
-        cursor = await self.db.execute(sql, (match_query, chat_id, now_ts, limit))
+        params: list = [match_query, chat_id]
+        if not expired_visible:
+            params.append(now_ts)
+        params.append(limit)
+        cursor = await self.db.execute(sql, params)
         return await cursor.fetchall()
 
     async def get_graph_fact_texts(self, fact_ids, status=None) -> list:
@@ -9650,8 +9694,11 @@ class DatabaseService:
           - expires_at IS NULL (вечные — и не кандидаты по условию).
         FTS-строки чистятся тем же предикатом (иначе защищённый факт
         потерял бы поиск). nodes/edges — общий граф без per-fact-атрибуции,
-        их expires_at-каскад не меняется."""
-        if _infinite_retention_on():
+        их expires_at-каскад не меняется.
+        B03.5 (v6.3): per-chat override — в глобальном проходе (chat_id=None)
+        чаты с явным chat_params-override `memory.infinite_retention`=true
+        исключаются из удаления (bounded: DISTINCT chat_id по кандидатам)."""
+        if await _infinite_retention_on():
             logger.info(
                 "[database] purge_expired_graph_facts skipped — "
                 "memory.infinite_retention ON (T-756)")
@@ -9664,9 +9711,44 @@ class DatabaseService:
             "limits.graph_purge_protect_days",
             settings.GRAPH_PURGE_PROTECT_DAYS) or 0) or 3
         protect_cutoff = now - protect_days * 86400
+        # B03.5: bounded per-chat override-фильтр глобального прохода.
+        if chat_id is None:
+            cursor = await self.db.execute(
+                "SELECT DISTINCT chat_id FROM graph_facts "
+                "WHERE expires_at IS NOT NULL AND expires_at <= ?", (now,))
+            protected_chats = await _infinite_retention_chat_ids(
+                r["chat_id"] for r in await cursor.fetchall())
+        else:
+            if await _infinite_retention_on(chat_id):
+                logger.info(
+                    "[database] purge_expired_graph_facts skipped — "
+                    "chat %s infinite override (B03.5)", chat_id)
+                return 0
+            protected_chats = set()
         chat_filter = "AND e.chat_id = ?" if chat_id is not None else ""
-        node_chat = "AND chat_id = ?" if chat_id is not None else ""
-        params = (now,) if chat_id is None else (now, chat_id)
+        if chat_id is not None:
+            node_chat = "AND chat_id = ?"
+        elif protected_chats:
+            prot_sql = ",".join("?" for _ in protected_chats)
+            node_chat = f"AND chat_id NOT IN ({prot_sql})"
+        else:
+            node_chat = ""
+        # edges-джойн по узлам: в глобальном проходе тоже не трогаем рёбра
+        # бессрочных чатов (те же chat_id-факты участвуют в графе).
+        if chat_id is not None:
+            edge_chat_filter = chat_filter
+        elif protected_chats:
+            edge_chat_filter = node_chat.replace("AND chat_id",
+                                                 "AND e.chat_id")
+        else:
+            edge_chat_filter = ""
+        base_params: tuple = (now,)
+        if chat_id is not None:
+            base_params = (now, chat_id)
+        elif protected_chats:
+            base_params = (now, *protected_chats)
+        params = base_params
+        edge_join_params = base_params
         # E3: предикат «факт — кандидат на удаление» (истёкший, слабый,
         # давно не подтверждённый, не защищённый текстом).
         fact_candidate = (
@@ -9681,7 +9763,7 @@ class DatabaseService:
                 f"DELETE FROM edges WHERE id IN ("
                 f"SELECT e.id FROM edges e JOIN nodes n ON n.id = e.{side} "
                 f"WHERE n.expires_at IS NOT NULL AND n.expires_at <= ? "
-                f"{chat_filter})", params)
+                f"{edge_chat_filter})", edge_join_params)
         await self.db.execute(
             "DELETE FROM edges WHERE expires_at IS NOT NULL AND expires_at <= ?"
             + node_chat,
@@ -9691,7 +9773,9 @@ class DatabaseService:
             + node_chat,
             params)
         fact_params = (now, protect_weight, protect_cutoff) + \
-            (() if chat_id is None else (chat_id,))
+            (() if chat_id is None else (chat_id,)) + \
+            (tuple(protected_chats)
+             if (chat_id is None and protected_chats) else ())
         await self.db.execute(
             "DELETE FROM graph_facts_fts WHERE rowid IN "
             f"(SELECT id FROM graph_facts WHERE {fact_candidate}{node_chat})",
@@ -9701,6 +9785,59 @@ class DatabaseService:
             fact_params)
         await self.db.commit()
         return cursor.rowcount
+
+    async def expired_graph_facts_overview(self, chat_id=None,
+                                           now_ts=None) -> dict:
+        """B03.3 (v6.3): recency-классификация expired-памяти (данные для
+        блока «Просрочено N» и bounded revalidation-приоритизации).
+
+        Разделяет retention (что удаляется), temporal truth (что устарело) и
+        retrieval eligibility (что доступно поиску). Bounded агрегаты по
+        graph_facts (без re-embedding, без выборки контента):
+          expired_total      — истёкшие факты (TTL <= now, still on disk);
+          expired_searchable — доступны историческому FTS-поиску (строка+
+                               FTS живы; в infinite-режиме это все);
+          needs_recheck      — истёкшие confirmed (требуют перепроверки/
+                               актуализации, не «мёртвые»);
+          superseded_total   — чей-то supersedes-преемник жив (версия);
+          infinite_retention — режим хранения (global) на момент среза."""
+        now = int(now_ts if now_ts is not None else time.time())
+        chat_sql = "AND chat_id = ?" if chat_id is not None else ""
+        params: tuple = (now,) if chat_id is None else (now, chat_id)
+
+        async def _count(sql: str, p: tuple) -> int:
+            cursor = await self.db.execute(sql, p)
+            row = await cursor.fetchone()
+            return int(row["n"] or 0)
+
+        expired_total = await _count(
+            f"SELECT COUNT(*) AS n FROM graph_facts "
+            f"WHERE expires_at IS NOT NULL AND expires_at <= ? {chat_sql}",
+            params)
+        searchable = await _count(
+            f"SELECT COUNT(*) AS n FROM graph_facts f "
+            f"JOIN graph_facts_fts t ON t.rowid = f.id "
+            f"WHERE f.expires_at IS NOT NULL AND f.expires_at <= ? {chat_sql}",
+            params)
+        needs_recheck = await _count(
+            f"SELECT COUNT(*) AS n FROM graph_facts "
+            f"WHERE expires_at IS NOT NULL AND expires_at <= ? "
+            f"AND status = 'confirmed' {chat_sql}", params)
+        superseded = await _count(
+            f"SELECT COUNT(*) AS n FROM graph_facts g "
+            f"WHERE g.expires_at IS NOT NULL AND g.expires_at <= ? "
+            f"{chat_sql.replace('chat_id', 'g.chat_id') if chat_sql else ''}"
+            f" AND EXISTS (SELECT 1 FROM graph_facts s "
+            f"WHERE s.supersedes = g.id)",
+            params)
+        return {
+            "now_ts": now,
+            "expired_total": expired_total,
+            "expired_searchable": searchable,
+            "needs_recheck": needs_recheck,
+            "superseded_total": superseded,
+            "infinite_retention": await _infinite_retention_on(chat_id),
+        }
 
     # ── bot_replies (Epic 60, Section 63.1, T-460) ─────────────
     # Персистентный аналог in-memory LRU _bot_replies (TTL 3600с лениво,
@@ -10296,15 +10433,23 @@ class DatabaseService:
     async def invalidate_graph_fact(self, fact_id: int, now_ts: int) -> None:
         """64.2: инвалидация (НЕ удаление) — expires_at = now; vec-строка
         удаляется (иначе KNN продолжил бы выдавать старый текст — TTL в
-        vec-таблице живёт своей копией)."""
+        vec-таблице живёт своей копией).
+        B03.1 (v6.3): при memory.infinite_retention ON vec-строка СОХРАНЯЕТСЯ
+        (embeddings не удаляются) — вместо DELETE её auxiliary `expires_at`
+        актуализируется: свежий KNN её не выдаёт (TTL-фильтр), а архивный/
+        expired-aware retrieval находит с пометкой устаревания."""
         await self.db.execute(
             "UPDATE graph_facts SET expires_at = ? WHERE id = ?",
             (now_ts, fact_id),
         )
         try:
-            await self.db.execute(
-                "DELETE FROM graph_facts_vec WHERE rowid = ?", (fact_id,)
-            )
+            if await _infinite_retention_on():
+                await self.db.execute(
+                    "UPDATE graph_facts_vec SET expires_at = ? "
+                    "WHERE rowid = ?", (now_ts, fact_id))
+            else:
+                await self.db.execute(
+                    "DELETE FROM graph_facts_vec WHERE rowid = ?", (fact_id,))
         except Exception:
             pass                        # vec-таблицы может не быть (FTS-режим)
         await self.db.commit()
@@ -10450,13 +10595,14 @@ class DatabaseService:
         F2/T-1427 (spec §4.2): + belief_meta/kind — KNN-путь различает
         архивные beliefs (status='archived_belief', пенальти) и читает
         base_weight из belief_meta при воскрешении. status=None → без
-        SQL-фильтра (фильтрация статусов — на стороне вызывающего)."""
+        SQL-фильтра (фильтрация статусов — на стороне вызывающего).
+        B03.2 (v6.3): + expires_at — as-of-пометка архивного top-up."""
         if not fact_ids:
             return []
         placeholders = ",".join("?" for _ in fact_ids)
         sql = (f"SELECT id, fact, origin, created_at, target_user, weight, "
                f"status, last_confirmed_at, message_timestamp, belief_meta, "
-               f"kind, importance, tg_message_id, forward_from "
+               f"kind, importance, tg_message_id, forward_from, expires_at "
                f"FROM graph_facts "
                f"WHERE id IN ({placeholders})")
         params: list = list(fact_ids)
@@ -10611,17 +10757,21 @@ class DatabaseService:
         """66.11 (T-489): выброс unconfirmed старше retention (64.2) — по всем
         чатам; vec/FTS-строки чистим вместе (иначе KNN выдавал бы текст).
         Фаза 2 (T-756, гейт G4): memory.infinite_retention ON → return 0
-        без SQL."""
-        if _infinite_retention_on():
+        без SQL. B03.5 (v6.3): per-chat override — бессрочные чаты защищены
+        и в глобальном проходе."""
+        if await _infinite_retention_on():
             logger.info(
                 "[database] purge_unconfirmed_graph_facts skipped — "
                 "memory.infinite_retention ON (T-756)")
             return 0
         cursor = await self.db.execute(
-            "SELECT id FROM graph_facts WHERE status = 'unconfirmed' "
+            "SELECT id, chat_id FROM graph_facts WHERE status = 'unconfirmed' "
             "AND created_at <= ?",
             (now_ts - retention_days * 86400,))
-        ids = [row["id"] for row in await cursor.fetchall()]
+        rows = await cursor.fetchall()
+        protected = await _infinite_retention_chat_ids(
+            r["chat_id"] for r in rows)
+        ids = [r["id"] for r in rows if r["chat_id"] not in protected]
         for fact_id in ids:
             await self.db.execute(
                 "DELETE FROM graph_facts_fts WHERE rowid = ?", (fact_id,))
@@ -10639,15 +10789,29 @@ class DatabaseService:
     async def trim_compression_log(self, now: float, retention_days: int) -> int:
         """66.11 (T-489): усечение graph_fact_compressions старше retention —
         лог не растёт вечно. Фаза 2 (T-756, гейт G5): memory.infinite_retention
-        ON → return 0 без SQL."""
-        if _infinite_retention_on():
+        ON → return 0 без SQL. B03.5 (v6.3): строки бессрочных чатов
+        (история версий) защищены и в глобальном проходе."""
+        if await _infinite_retention_on():
             logger.info(
                 "[database] trim_compression_log skipped — "
                 "memory.infinite_retention ON (T-756)")
             return 0
+        cutoff = now - retention_days * 86400.0
         cursor = await self.db.execute(
-            "DELETE FROM graph_fact_compressions WHERE created_at < ?",
-            (now - retention_days * 86400.0,))
+            "SELECT DISTINCT chat_id FROM graph_fact_compressions "
+            "WHERE created_at < ?", (cutoff,))
+        protected = await _infinite_retention_chat_ids(
+            r["chat_id"] for r in await cursor.fetchall())
+        if protected:
+            placeholders = ",".join("?" for _ in protected)
+            cursor = await self.db.execute(
+                f"DELETE FROM graph_fact_compressions WHERE created_at < ? "
+                f"AND chat_id NOT IN ({placeholders})",
+                (cutoff, *protected))
+        else:
+            cursor = await self.db.execute(
+                "DELETE FROM graph_fact_compressions WHERE created_at < ?",
+                (cutoff,))
         await self.db.commit()
         return cursor.rowcount
 

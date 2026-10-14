@@ -1213,7 +1213,10 @@ class TestBuildRagContextDates:
 class TestGetRagContext:
     @pytest.mark.asyncio
     async def test_ttl_expired_not_in_context_fts_path(self, db, monkeypatch):
-        """#15: ленивый TTL — истёкший факт не попадает в контекст (FTS-путь)."""
+        """#15/B03 (v6.3): ленивый TTL — истёкший факт не выдаётся как
+        СВЕЖИЙ (fresh-first), но участвует архивным top-up с честной
+        as-of-пометкой «срок актуальности истёк» (владелец: «нельзя
+        объявлять их мёртыми только потому, что expires_at < now»)."""
         now = 1_800_000_000
         monkeypatch.setattr("services.summary_memory.time.time", lambda: now)
         await db.insert_graph_fact(-100, "озон быстрее чем вб", "search_fact", now + 100)
@@ -1221,11 +1224,15 @@ class TestGetRagContext:
         memory = MemoryManager(db, FactsLLM())
         ctx = await memory.get_rag_context(-100, "озон")
         assert "озон быстрее чем вб" in ctx
-        assert "древний" not in ctx
+        # архивная версия присутствует, но явно помечена и ниже свежей
+        assert "озон древний факт (Внимание: срок актуальности истёк" in ctx
+        assert ctx.index("озон быстрее чем вб") < \
+            ctx.index("озон древний факт")
 
     @pytest.mark.asyncio
     async def test_knn_path_ttl_expired_excluded(self, db, monkeypatch):
-        """#15: KNN-путь — факт с истёкшим expires_at НЕ в контексте."""
+        """#15/B03 (v6.3): KNN-путь — истёкший факт не подменяет свежий:
+        fresh-first, архивная версия — с trust-пометкой ниже свежей."""
         try:
             import sqlite_vec  # noqa: F401
         except ImportError:
@@ -1246,7 +1253,10 @@ class TestGetRagContext:
             f2, -100, "озон устаревший факт", "search_fact", now - 100)
         ctx = await memory.get_rag_context(-100, "озон")
         assert "озон быстрее чем вб" in ctx
-        assert "устаревший" not in ctx
+        assert "озон устаревший факт (Внимание: срок актуальности истёк" \
+            in ctx
+        assert ctx.index("озон быстрее чем вб") < \
+            ctx.index("озон устаревший факт")
 
     @pytest.mark.asyncio
     async def test_vec_off_uses_fts(self, db):
@@ -2909,13 +2919,16 @@ class TestF1Extraction4Tuples:
         memory._vec_available = False        # → FTS-ветка
         facts = await memory.get_rag_facts(-100, "озон")
         assert len(facts) == 1
-        assert len(facts[0]) == 6
+        # B03 (v6.3): 7-й элемент — expired-флаг (аддитивно, R16-политика:
+        # потребители читают по индексу; 3/4/6-кортежи остаются валидными).
+        assert len(facts[0]) == 7
         assert facts[0][0] == "chat_history"
         assert facts[0][1] == "озон быстрее чем вб"
         assert facts[0][2] == now
         assert facts[0][3] == "Толян"
         assert facts[0][4].startswith("fact:")
         assert facts[0][5] == ""
+        assert facts[0][6] is False
 
     @pytest.mark.asyncio
     async def test_fts_path_null_author(self, db, monkeypatch):
@@ -2925,7 +2938,7 @@ class TestF1Extraction4Tuples:
         memory = MemoryManager(db, FactsLLM())
         memory._vec_available = False
         facts = await memory.get_rag_facts(-100, "погода")
-        assert len(facts) == 1 and len(facts[0]) == 6
+        assert len(facts) == 1 and len(facts[0]) == 7
         assert facts[0][3] is None
 
     @pytest.mark.asyncio
@@ -2939,7 +2952,8 @@ class TestF1Extraction4Tuples:
         memory._vec_candidates = AsyncMock(
             return_value=[(fid, 0.9, [1.0, 0.0])])
         rows = await memory._knn_graph_facts(-100, [1.0, 0.0], 1)
-        assert rows and len(rows[0]) == 6
+        # B03 (v6.3): 7-й элемент 6-кортежа — expired-флаг (аддитивно).
+        assert rows and len(rows[0]) == 7
         assert rows[0][0] == "search_fact"
         assert rows[0][3] == "Вася"
         assert rows[0][4] == f"fact:{fid}"

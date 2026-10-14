@@ -797,8 +797,9 @@ class TestDynamicBrief:
     @pytest.mark.asyncio
     async def test_run_style_job_prompt_contains_brief_and_base_style(self,
                                                                       tmp_path):
-        """M-EXTRA-2: dynamic CoverBrief из Summary-prose + base style prompt
-        реально попадают в итоговый Style Edit prompt (§19/§21)."""
+        """B04.1 (замена M-EXTRA-2): dynamic CoverBrief из Summary-prose
+        БОЛЬШЕ НЕ переносится в Style Edit prompt текстом — источник сцены
+        Base bitmap; base style prompt (P3) и P0-инварианты сохранены."""
         base = _png(tmp_path / "base.png")
         seen = {}
 
@@ -813,8 +814,8 @@ class TestDynamicBrief:
             summary_text="Герой идёт по зимнему лесу. Его ждёт поезд.",
             base_style_prompt="photorealistic, cinematic light")
         prompt = seen["prompt"]
-        assert "зимнему лесу" in prompt            # dynamic brief (§21)
-        assert "photorealistic" in prompt          # base style prompt (§19)
+        assert "Сюжет:" not in prompt, "brief текстом не переносится (B04.1)"
+        assert "photorealistic" in prompt          # base style prompt (P3)
         assert "ВЫПУСК" in prompt                  # P0 сохранён
         brief = compiler.brief_from_text("Герой идёт по зимнему лесу. Далее.")
         assert brief.render().startswith("Сюжет: Герой идёт по зимнему лесу.")

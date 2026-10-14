@@ -1583,6 +1583,31 @@ class Settings:
         "MCA_INTENT_RETENTION_DAYS", 180, 1)
     MCA_INTENT_DEFER_BACKOFF_SECONDS: ClassVar[int] = _env_int_min(
         "MCA_INTENT_DEFER_BACKOFF_SECONDS", 1800, 60)
+    # ── ASAP 8 v6.3 (B01, W1-CHAT-INTEL): наблюдатель инициативы в обычных
+    # групповых чатах. settings-ось — дефолты каталоговых ключей INITIATIVE_*
+    # (pg seed читает getattr без default) + аварийные env для двух флагов;
+    # product-оси — per-chat каталоговые ключи (hot, без рестарта,
+    # services/initiative_observer.py). Дефолты лимитов = профиль «normal».
+    INITIATIVE_OBSERVER_ENABLED: ClassVar[bool] = _env_bool(
+        "INITIATIVE_OBSERVER_ENABLED", True)
+    INITIATIVE_ENABLED: ClassVar[bool] = _env_bool(
+        "INITIATIVE_ENABLED", True)
+    INITIATIVE_FREQUENCY_PROFILE: ClassVar[str] = _env_str(
+        "INITIATIVE_FREQUENCY_PROFILE", "normal")
+    INITIATIVE_MIN_GAP_SECONDS: ClassVar[int] = _env_int_min(
+        "INITIATIVE_MIN_GAP_SECONDS", 7200, 0)
+    INITIATIVE_MAX_REPLIES_PER_DAY: ClassVar[int] = _env_int_min(
+        "INITIATIVE_MAX_REPLIES_PER_DAY", 6, 0)
+    INITIATIVE_DAY_WINDOW_SECONDS: ClassVar[int] = _env_int_min(
+        "INITIATIVE_DAY_WINDOW_SECONDS", 86400, 0)
+    INITIATIVE_MAX_REPLIES_PER_TOPIC: ClassVar[int] = _env_int_min(
+        "INITIATIVE_MAX_REPLIES_PER_TOPIC", 1, 1)
+    INITIATIVE_EVAL_MIN_MESSAGES: ClassVar[int] = _env_int_min(
+        "INITIATIVE_EVAL_MIN_MESSAGES", 8, 1)
+    INITIATIVE_EVAL_MIN_INTERVAL_SECONDS: ClassVar[int] = _env_int_min(
+        "INITIATIVE_EVAL_MIN_INTERVAL_SECONDS", 2700, 0)
+    INITIATIVE_EVAL_LLM_BUDGET_PER_DAY: ClassVar[int] = _env_int_min(
+        "INITIATIVE_EVAL_LLM_BUDGET_PER_DAY", 12, 0)
     # ── Раунд 10.42 (MCA-18, ADR-1028-18 §8.3): kill-switches SelfModel ─────
     # env-only ClassVar, default ON, резолв per-call (`services/mca_gates.py`),
     # никогда не бросают; OFF = бит-в-бит 2.58.61 для соответствующего пути

@@ -1629,6 +1629,14 @@ async def _preview_compile_style(body: PreviewCompileBody, user: WebAppUser,
     story_identity = jobs._story_identity_text(story, brief)
     skip_reason = jobs.style_publish_skip_reason(
         compiled, story_text=story_identity)
+    # B04.4 (ASAP 8 v6.3 W1-COVER-MODULES handoff): полный отчёт production-
+    # маршрута Style Edit — аддитивный ключ, прежний ответ не ломается.
+    edit_report = jobs.style_edit_preview_report(
+        profile, issue_display=issue_display, capabilities=caps,
+        base_style_prompt=base_style, story_scene=story,
+        image_input={"base": True, "references": 0},
+        limit_source=str(limit_source or "unknown"), route="preview_compile",
+        model="", provider="")
     return {
         "status": "ok",
         "mode": "style",
@@ -1648,6 +1656,8 @@ async def _preview_compile_style(body: PreviewCompileBody, user: WebAppUser,
         "route": "preview_compile",
         "exceeded": bool(compiled.exceeded),
         "compile_reason": compiled.reason or "",
+        "edit_report": edit_report,
+        "limited_preview": True,
     }
 
 

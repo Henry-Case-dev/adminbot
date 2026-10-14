@@ -2466,6 +2466,60 @@ _INTENT: list[ParamSpec] = [
                           "инициатива вернётся не раньше, чем через этот "
                           "интервал (минимум 60; ограниченная пауза, "
                           "а не назойливый таймер)."),
+    # ── ASAP 8 v6.3 B01 (W1-CHAT-INTEL): наблюдатель инициативы в обычных
+    # групповых чатах. Ключи уже читаются generic-резолвом
+    # (chat_params.overrides → hot → дефолт); записи — для UI-редактирования.
+    ParamSpec("INITIATIVE_OBSERVER_ENABLED", "INITIATIVE_OBSERVER_ENABLED",
+              CATEGORY_FLAGS, "Наблюдатель инициативы (обычный чат)", "bool",
+              pg_id="flags.initiative_observer_enabled", group="flags_intent",
+              description="ASAP8 v6.3 B01: observer opportunities в обычных "
+                          "групповых чатах. Аварийный env: "
+                          "INITIATIVE_OBSERVER_ENABLED."),
+    ParamSpec("INITIATIVE_ENABLED", "INITIATIVE_ENABLED",
+              CATEGORY_FLAGS, "Инициатива в этом чате", "bool",
+              pg_id="initiative.enabled", group="flags_intent",
+              description="Per-chat гейт автономной инициативы (B01)."),
+    ParamSpec("INITIATIVE_FREQUENCY_PROFILE", "INITIATIVE_FREQUENCY_PROFILE",
+              CATEGORY_LIMITS, "Профиль частоты инициативы", "str",
+              pg_id="initiative.frequency_profile", group="limits_intent",
+              description="rare | normal | active — базовые лимиты частоты "
+                          "(B01.4); тонкие override'ы сильнее профиля."),
+    ParamSpec("INITIATIVE_MIN_GAP_SECONDS", "INITIATIVE_MIN_GAP_SECONDS",
+              CATEGORY_LIMITS, "Мин. пауза между инициативами, с", "int",
+              pg_id="initiative.min_gap_seconds", group="limits_intent",
+              description="0 = без ограничения (бюджет остаётся)."),
+    ParamSpec("INITIATIVE_MAX_REPLIES_PER_DAY", "INITIATIVE_MAX_REPLIES_PER_DAY",
+              CATEGORY_LIMITS, "Макс. инициатив в сутки", "int",
+              pg_id="initiative.max_replies_per_day", group="limits_intent",
+              description="Сколько инициативных реплик допустимо в этом чате "
+                          "за сутки (точечный override профиля частоты)."),
+    ParamSpec("INITIATIVE_DAY_WINDOW_SECONDS", "INITIATIVE_DAY_WINDOW_SECONDS",
+              CATEGORY_LIMITS, "Окно дневного лимита, с", "int",
+              pg_id="initiative.day_window_seconds", group="limits_intent",
+              description="Ширина скользящего окна (не меньше 600 секунд), в "
+                          "котором считается суточный лимит инициатив."),
+    ParamSpec("INITIATIVE_MAX_REPLIES_PER_TOPIC", "INITIATIVE_MAX_REPLIES_PER_TOPIC",
+              CATEGORY_LIMITS, "Реплик на одну тему", "int",
+              pg_id="initiative.max_replies_per_topic", group="limits_intent",
+              description="Сколько инициативных реплик допустимо по одной "
+                          "теме, чтобы не зациклиться (минимум 1)."),
+    ParamSpec("INITIATIVE_EVAL_MIN_MESSAGES", "INITIATIVE_EVAL_MIN_MESSAGES",
+              CATEGORY_LIMITS, "Мин. сообщений для оценки", "int",
+              pg_id="initiative.eval_min_messages", group="limits_intent",
+              description="Минимум новых сообщений в чате, прежде чем "
+                          "наблюдатель запустит семантическую оценку."),
+    ParamSpec("INITIATIVE_EVAL_MIN_INTERVAL_SECONDS",
+              "INITIATIVE_EVAL_MIN_INTERVAL_SECONDS",
+              CATEGORY_LIMITS, "Мин. интервал оценок, с", "int",
+              pg_id="initiative.eval_min_interval_seconds", group="limits_intent",
+              description="0 = без ограничения (бюджет оценок остаётся)."),
+    ParamSpec("INITIATIVE_EVAL_LLM_BUDGET_PER_DAY",
+              "INITIATIVE_EVAL_LLM_BUDGET_PER_DAY",
+              CATEGORY_LIMITS, "Семантических оценок в сутки на чат", "int",
+              pg_id="initiative.eval_llm_budget_per_day", group="limits_intent",
+              description="Дневной бюджет семантических оценок чата; "
+                          "0 = без ограничения (расход всё равно ограничен "
+                          "общим бюджетом фона)."),
 ]
 
 

@@ -107,6 +107,14 @@ ROUTES_SHA256_F11 = (
 # ASAP 8 v6 W-C-DIRECT re-pin (D03/D04, 14.10.2026): аддитивное R17-safe
 # поле `l1` в payload СУЩЕСТВУЮЩЕГО GET /api/direct/context-diagnostics
 # (Inspector configured-vs-applied, без изменения UI). Маршруты Δ=0.
+# ASAP 8 v6.3 B07.2 (W1-COVER-MODULES, 15.10.2026): pg_db.py re-pin
+# (L-F11S-1 прецедент, fixture НЕ меняется). Аддитивная дельта:
+#   * SEED_CATEGORIES += CATEGORY_TEMPORAL (confirmed code cause B07:
+#     Settings-backed temporal.* не сидился);
+#   * модульная `_seed_settings_into()` (тело сида — тестируемо без пула);
+#   * Δ DDL = 0 (DDL_STATEMENTS не менялись; инвариант D11-тестов).
+PG_DB_SHA256_B07 = (
+    "44f58924f4732d5b2c7f81245127d20c91448462cfb5042d4f86269c9fc8e35e")
 
 
 def _sha256(path: Path) -> str:
@@ -154,8 +162,18 @@ class TestFrozenInvariants:
             FIXTURE["sha256"]["services/param_catalog.py"]
 
     def test_ddl_source_unchanged(self):
-        assert _sha256(ROOT / "services/pg_db.py") == \
-            FIXTURE["sha256"]["services/pg_db.py"]
+        # B07.2 re-pin (L-F11S-1): byte-freeze pg_db.py переутверждён
+        # константой PG_DB_SHA256_B07 (аддитивный сид temporal + модульное
+        # тело сида; Δ DDL = 0). Исторический fixture не меняется.
+        assert _sha256(ROOT / "services/pg_db.py") == PG_DB_SHA256_B07, (
+            "services/pg_db.py изменился вне санкционированной B07-дельты — "
+            "переутвердите hash осознанно (L-F11S-1)")
+        # Инвариант намерения freeze: DDL-сегмент не тронут.
+        import services.pg_db as pg_db_mod
+        ddl_src = "\n".join(pg_db_mod.DDL_STATEMENTS)
+        for table in ("bot_settings", "bot_roles", "bot_admins",
+                      "cover_style_connections"):
+            assert table in ddl_src
 
     def test_routes_file_unchanged(self):
         # F11 (ADR-1025-23 D6 + L-F11S-1): строгий byte-freeze восстановлен.
@@ -187,7 +205,9 @@ class TestFrozenInvariants:
         # MCA-10a (ADR-1028-14 D8/D12, санкция §13.2): +13 ключей / +2 группы
         # (memory_random/keys_random) / +2 tab-маппинга; TAB_RULES 21 in-place;
         # delta 78→91 → 502/107/105/21.
-        assert len(pc.REGISTRY) == FIXTURE["counts"]["REGISTRY"] == 561
+        # v6.3 B01 (W1-CHAT-INTEL): +10 ключей INITIATIVE_* (2 flags_intent,
+        # 8 limits_intent), группы/табы in-place → 571/120/118/23.
+        assert len(pc.REGISTRY) == FIXTURE["counts"]["REGISTRY"] == 571
         assert len(pc.GROUPS) == FIXTURE["counts"]["GROUPS"] == 120
         assert len(pc._TAB_BY_GROUP) == FIXTURE["counts"]["TAB_BY_GROUP"] == 118
         assert len(pc.TAB_RULES) == FIXTURE["counts"]["TAB_RULES"] == 23
@@ -238,7 +258,8 @@ class TestRegistry:
         # Δ +13 (memory.random_* ×4 + keys.random_quantum_* ×9) → 502.
         # ASAP 7 F2 (§1.6): +9 (L1 Planner); параллельный F4 in-flight — снято
         # фактом на момент reissue (560).
-        assert len(rows) == 561
+        # v6.3 B01 (W1-CHAT-INTEL): +10 (INITIATIVE_*) → 571.
+        assert len(rows) == 571
         assert [r["internal_key"] for r in rows] == sorted(_registry_keys())
         assert all(v != "" for r in rows for v in r.values())
         assert len(rows[0]) == len(gen.TSV_COLUMNS) == 23
@@ -252,9 +273,10 @@ class TestRegistry:
         # ASAP-3.1 (ADR-1028-3): санкционированная Δ +1 → дельта 73.
         # ASAP 4.4 (T-4880): санкционированная Δ +1 → дельта 78.
         # MCA-10a (ADR-1028-14 D8/D12): санкционированная Δ +13 → дельта 91.
+        # v6.3 B01 (W1-CHAT-INTEL): санкционированная Δ +10 → дельта 160.
         delta = _registry_keys() - _inventory_keys()
         # ASAP 7 F2 (§1.10): дельта 127→149 (+9 F2; F4 in-flight — фактом).
-        assert len(delta) == FIXTURE["counts"]["delta"] == 150
+        assert len(delta) == FIXTURE["counts"]["delta"] == 160
         new_rows = {r["internal_key"] for r in _read_registry_rows()
                     if r["status"] == "new"}
         assert new_rows == delta
@@ -304,7 +326,8 @@ class TestRegistry:
         # ASAP 5 (asap5-final-fixes, T-5256): переиздание после Δ +6
         # (529, 118).
         # ASAP 7 F2: reissue под 560/149 (+9 F2; F4 in-flight — фактом).
-        assert "561" in meta and "411" in meta and "150" in meta
+        # v6.3 B01 (W1-CHAT-INTEL): reissue под 571/160 (+10 INITIATIVE_*).
+        assert "571" in meta and "411" in meta and "160" in meta
         from config.settings import APP_VERSION
         assert APP_VERSION in meta
 
@@ -320,7 +343,8 @@ class TestScreenMap:
         # ASAP 4.4 (T-4880): санкционированная Δ +1 → 489.
         # MCA-10a (ADR-1028-14 D8/D12): санкционированная Δ +13 → 502.
         # MCA-10b (ADR-1028-17 D16): санкционированная Δ +6 → 510.
-        assert len(keys) == 561
+        # v6.3 B01 (W1-CHAT-INTEL): санкционированная Δ +10 → 571.
+        assert len(keys) == 571
 
     def test_no_empty_new_screen(self):
         text = (ROOT / "plans/docs/screen-map-round1025.md").read_text(encoding="utf-8")

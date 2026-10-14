@@ -111,6 +111,9 @@ from services.image_generation import (
 from services.smartmodule_concurrency import get_smartmodule_concurrency_pool
 # ASAP-2 §11 (контракт (g)): единая точка Hybrid-бюджета для режима фильтра.
 from services.summary_hybrid_budget import resolve_hybrid_context_budget
+# B06.1: единый per-chat резолвер Summary (scheduler — владелец резолюции;
+# встречного импорта generator→scheduler нет: scheduler не импортирует generator).
+from services.summary_scheduler import summary_effective_enabled
 from services.summary_xml import escape_xml_text
 from services.telegram_send import (
     SUMMARY_COVER_MEDIA_ID,
@@ -430,6 +433,9 @@ _UX_DB_FAILED = "база данных подавилась"
 _UX_GENERIC_FAILED = "не смог сделать саммари"
 _UX_EMPTY = "тут тишина, саммарить нечего"        # B4: пустое окно L1, только manual
 _UX_BUSY = "уже делаю саммари, подожди"          # B5: lock занят, только manual
+# B06.1: честный UX при per-chat gate OFF (только manual — крон молчит).
+_UX_SUMMARY_OFF_CHAT = "саммари для этого чата выключены"
+_UX_SUMMARY_OFF_EMERGENCY = "саммари временно отключены полностью"
 
 
 def _elapsed_since(started) -> float | None:
@@ -502,7 +508,25 @@ class SummaryGenerator:
         лог, затем очередь (как раньше у глобального лока B5).
         Раунд 10.23 (F1, ADR-1023-1): trigger_message_id — Telegram id
         сообщения-команды /summary (маркировка в истории); None (авто-крон)
-        → legacy-путь без маркера."""
+        → legacy-путь без маркера.
+
+        ASAP 8 v6.3 B06.1: единая точка per-chat гейта — producer/queue/
+        trigger/manual/retry реально следуют резолверу
+        `summary_effective_enabled` (emergency env → explicit chat →
+        global default). OFF — чат не генерирует сводки (UX при manual);
+        global OFF не глушит чат с явным chat ON."""
+        # B06.1: гейт ДО слота пула — выключенный чат не занимает очередь.
+        enabled, source = await summary_effective_enabled(chat_id)
+        if not enabled:
+            logger.info(
+                "summary: gate off (source=%s) | chat_id=%s manual=%s",
+                source, chat_id, manual)
+            if manual:
+                await self._send_ux(
+                    chat_id,
+                    _UX_SUMMARY_OFF_EMERGENCY if source == "emergency_env"
+                    else _UX_SUMMARY_OFF_CHAT)
+            return
         # Проба без ожидания: занят ли слот этого чата (B5-семантика).
         permit = await self._pool.try_acquire(chat_id, timeout=0.0)
         if permit is None:

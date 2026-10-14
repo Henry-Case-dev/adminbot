@@ -23,6 +23,7 @@ from services.param_catalog import (
     CATEGORY_MODELS,
     CATEGORY_PROMPTS,
     CATEGORY_REACTIONS,
+    CATEGORY_TEMPORAL,
     ParamSpec,
     REGISTRY,
 )
@@ -569,9 +570,12 @@ INSERT_SETTING_SQL = """
 
 # Категории belt-and-suspenders сида дефолтов (84.12.3): БЕЗ ключей-секретов.
 # memory (фаза 2, T-755): стартовый сид memory.infinite_retention=false.
+# B07.2 (ASAP 8 v6.3): + temporal — Settings-backed `temporal.tool_enabled`
+# и режимы/TTL не сиделись (confirmed code cause); INSERT ... ON CONFLICT
+# (key) DO NOTHING — существующие PG owner-значения НЕ перетираются.
 SEED_CATEGORIES: frozenset[str] = frozenset(
     {CATEGORY_PROMPTS, CATEGORY_MODELS, CATEGORY_LIMITS, CATEGORY_FLAGS,
-     CATEGORY_REACTIONS, CATEGORY_MEMORY}
+     CATEGORY_REACTIONS, CATEGORY_MEMORY, CATEGORY_TEMPORAL}
 )
 
 
@@ -717,25 +721,7 @@ class PgDatabase:
     async def _seed_settings(self, conn) -> None:
         """Стартовый bot_settings по каталогу (84.12.3): дефолты настроек
         (не секреты) + prompts из код-канонов. ON CONFLICT DO NOTHING."""
-        count = 0
-        for spec in REGISTRY.values():
-            if spec.category is None or spec.category not in SEED_CATEGORIES:
-                continue
-            if spec.code_source is not None:
-                try:
-                    value = resolve_code_source(spec.code_source)
-                except Exception:
-                    logger.warning("[pg_db] code_source не резолвится: %s | %s",
-                                   spec.pg_key, spec.code_source, exc_info=True)
-                    continue
-            elif spec.settings_field is not None and not spec.secret:
-                value = coerce_catalog_value(
-                    spec, getattr(settings, spec.settings_field))
-            else:
-                continue  # секреты НЕ сидятся (пусто = уровень выключен)
-            await conn.execute(
-                INSERT_SETTING_SQL, spec.pg_key, json.dumps(value), spec.category)
-            count += 1
+        count = await _seed_settings_into(conn)
         logger.info("[pg_db] starter bot_settings seeded: %d (ON CONFLICT DO NOTHING)",
                     count)
 
@@ -746,3 +732,30 @@ class PgDatabase:
             await pool.close()
         self._connected = False
         logger.info("[pg_db] pool closed")
+
+
+async def _seed_settings_into(conn) -> int:
+    """Тело сида (модульная — тестируема без пула): дефолты не-секретов
+    сидируемых категорий + prompts из код-канонов. B07.2: temporal входит
+    в SEED_CATEGORIES; INSERT .. ON CONFLICT (key) DO NOTHING — существующие
+    owner-значения не перетираются."""
+    count = 0
+    for spec in REGISTRY.values():
+        if spec.category is None or spec.category not in SEED_CATEGORIES:
+            continue
+        if spec.code_source is not None:
+            try:
+                value = resolve_code_source(spec.code_source)
+            except Exception:
+                logger.warning("[pg_db] code_source не резолвится: %s | %s",
+                               spec.pg_key, spec.code_source, exc_info=True)
+                continue
+        elif spec.settings_field is not None and not spec.secret:
+            value = coerce_catalog_value(
+                spec, getattr(settings, spec.settings_field))
+        else:
+            continue  # секреты НЕ сидятся (пусто = уровень выключен)
+        await conn.execute(
+            INSERT_SETTING_SQL, spec.pg_key, json.dumps(value), spec.category)
+        count += 1
+    return count

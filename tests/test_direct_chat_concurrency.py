@@ -146,6 +146,12 @@ class FakeDB:
     async def get_bot_reply(self, chat_id, tg_message_id, now):
         return None
 
+    async def get_active_participants(self, chat_id, since, cap):
+        return []
+
+    async def get_running_summary(self, chat_id, now):
+        return None
+
 
 class GateLLM:
     """LLM с активностью под асинхронным затвором (детерминированная гонка
@@ -178,6 +184,18 @@ def lock_wait_short(monkeypatch):
         settings_module.Settings(CHAT_LOCK_WAIT_SECONDS=0.05))
 
 
+@pytest.fixture
+def direct_l1_off(monkeypatch):
+    """ASAP 7 (F1): модуль — контракт конкуренции слотов (per-chat пул),
+    а не топологии reply-пути. L1-линия (default ON) добавляет на каждый
+    handle L1 planner + bounded repair + L2 writer (3 LLM-вызова) и ломает
+    call_count-гейты слотов. Пин DIRECT_L1_ENABLED=false (конвенция F1,
+    test_direct_chat.py) → legacy 1 вызов на handle; L1-ветка покрыта
+    tests/test_asap7_direct_l1.py."""
+    from config.settings import Settings
+    monkeypatch.setattr(Settings, "DIRECT_L1_ENABLED", False)
+
+
 def _make_service(llm=None, concurrency_pool=None):
     return DirectChatService(
         FakeMemory(),
@@ -203,6 +221,7 @@ async def _until(pred, ticks: int = 20) -> bool:
     return pred()
 
 
+@pytest.mark.usefixtures("direct_l1_off")
 class TestDirectChatConcurrency:
     @pytest.mark.asyncio
     async def test_two_handles_same_chat_parallel_at_n2(self, pool_n):

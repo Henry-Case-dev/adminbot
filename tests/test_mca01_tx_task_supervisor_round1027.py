@@ -964,6 +964,12 @@ def test_write_points_go_through_single_writer():
         # CREATE/DROP shadow vec0-таблиц + батч-вставки; активация/статусы —
         # через `write_transaction` mca-01).
         "graphrag_rebuild.py": 3,
+        # ASAP 8 v6.3 B09 (W1-MEMORY-MIG): идемпотентный перенос памяти
+        # supergroup (backup-DDL + backup-вставки + UPDATE chat_id, 0 DELETE)
+        # через общий `db.db` (single-writer канал), lifecycle-hook
+        # on_chat_migrated, fail-open; того же класса обслуживающие записи,
+        # что graphrag_rebuild/dossier_rebuild.
+        "chat_migration.py": 4,
         "memory_maintenance.py": 1,     # внутри `async with self.db.serialized()`
         "persistent_throttling.py": 1,  # fallback-двойник без write_transaction
         "smart_cache.py": 3,            # ОТДЕЛЬНОЕ соединение (F17), не общая

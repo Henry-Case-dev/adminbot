@@ -271,6 +271,25 @@ async def on_chat_migrated(message: types.Message):
                 "[chat_lifecycle] migrated profile ensure failed — "
                 "fail-open | old=%s new=%s", old_chat_id, new_chat_id,
                 exc_info=True)
+        # ── B09 (v6.3): сквозной перенос SQLite-памяти (graph_facts/GraphRAG
+        # vec, summary smart_archive, конспекты, эпизоды, L1-сообщения) —
+        # закрытие wa3-остатка «Summary/Memory вне доказанного переноса».
+        # Идемпотентно, только UPDATE (без удалений), safe backup ДО записи;
+        # fail-open: ошибка переноса не роняет lifecycle-обработку.
+        if _db is not None:
+            try:
+                from services.chat_migration import migrate_chat_memory
+                mig = await migrate_chat_memory(_db, old_chat_id, new_chat_id)
+                if mig.get("errors"):
+                    logger.warning(
+                        "[chat_lifecycle] memory migration incomplete — "
+                        "fail-open | old=%s new=%s | errors=%s",
+                        old_chat_id, new_chat_id, mig["errors"])
+            except Exception:
+                logger.warning(
+                    "[chat_lifecycle] memory migration failed — fail-open "
+                    "| old=%s new=%s", old_chat_id, new_chat_id,
+                    exc_info=True)
     except Exception:
         logger.warning(
             "[chat_lifecycle] migrate failed — fail-open | old=%s new=%s",

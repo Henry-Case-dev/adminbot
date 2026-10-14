@@ -234,8 +234,12 @@ _register(ModuleSpec(
                "регистрация закрывает orphan-класс фичи."),
 ))
 
-# Temporal Factcheck → Submodule «Фактчек» (эталон D11): master
-# temporal.tool_enabled в каталоге (таб mod_factcheck), env-оси — аварийные.
+# Temporal Factcheck — B07 (ASAP 8 v6.3, жёсткий продуктовый выбор): temporal
+# — НЕ карточка модуля (ни top-level, ни subcard витрины), а функция
+# Фактчека. Запись остаётся в реестре (инвентарь M2/env-оси/inspector),
+# visibility="hidden" — `registry_for_frontend()` НЕ выдаёт её в карточки;
+# настройки живут на поверхности Фактчека (mod_factcheck), backend-сервис
+# `temporal_factcheck` и events/inspector сохранены.
 _register(ModuleSpec(
     id="factcheck_temporal",
     title="Временная проверка",
@@ -250,13 +254,15 @@ _register(ModuleSpec(
     status_source="factcheck_temporal события + mca_factcheck_runs",
     analytics_anchor="temporal.factcheck",
     help_anchor="Временная проверка",
-    visibility="visible",
+    visibility="hidden",
     classification="submodule",
     config_tab="mod_factcheck",
-    rationale=("D11-инвентарь (v6 §C; аудиторский «эталон submodule»): "
-               "master temporal.tool_enabled + группа temporal_factcheck "
-               "в каталоге на поверхности родителя mod_factcheck; env-оси "
-               "MCA_TEMPORAL_FACTCHECK_* — аварийные (MODULE_ENV_GATES)."),
+    rationale=("B07 (v6.3): «Временная проверка» — опция/функция существующего "
+               "Factcheck, НЕ самостоятельный модуль; из выдачи карточек "
+               "убрана (registry_for_frontend фильтрует hidden), backend "
+               "temporal_factcheck + events/inspector остаются; настройки — "
+               "в workspace Фактчек (temporal_factcheck, таб mod_factcheck); "
+               "env-оси MCA_TEMPORAL_FACTCHECK_* — аварийные."),
 ))
 
 # Vision → Product Module (карточка mod_vision существует; master
@@ -455,6 +461,10 @@ def registry_for_frontend() -> list[dict]:
     `GET /api/config` (§3.1: frontend рендерит из registry при наличии записи,
     fallback — hardcoded список; порядок детерминированный).
 
+    B07 (ASAP 8 v6.3): записи с ``visibility="hidden"`` — НЕ в выдаче
+    карточек (factcheck_temporal — функция Фактчека, не модуль-карточка;
+    backend-сервис/events/inspector не затронуты).
+
     F4: + ``config_tab`` (поверхность подмодуля) и + ``gate`` — снимок
     `gate_snapshot` на момент запроса (requested/effective/source + env-ось),
     чтобы подкарточки без собственного /api/status-блока показывали честный
@@ -462,6 +472,8 @@ def registry_for_frontend() -> list[dict]:
     менялся)."""
     out: list[dict] = []
     for spec in MODULE_REGISTRY.values():
+        if spec.visibility == "hidden":
+            continue
         out.append({
             "id": spec.id,
             "title": spec.title,

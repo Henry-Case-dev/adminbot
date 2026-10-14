@@ -42,7 +42,7 @@ VISION_KILL_SWITCHES = {"MCA_VISION_ENABLED", "MCA_VISION_AUTO_ENABLED",
 # ── Δ каталога +9 (F8-переиздание) ──────────────────────────────────────────
 
 def test_catalog_counts_sanctioned():
-    assert len(pc.REGISTRY) == 561          # 510 → 519 (+9)
+    assert len(pc.REGISTRY) == 571          # 510 → 519 (+9)
     assert len(pc.GROUPS) == 120            # 108 → 112 (+4 группы)
     assert len(pc._TAB_BY_GROUP) == 118     # 106 → 110
     assert len(pc.TAB_RULES) == 23          # 21 → 22 (mod_vision)
@@ -110,12 +110,13 @@ def test_screen_map_and_registry_artifacts_regenerated():
     # ASAP 5 (asap5-final-fixes, T-5256, санкция §5): 523→529 (+6 PG-only
     # профилей embeddings) → header + 529 = 530 строк.
     # ASAP 7 F2 (§1.6): +9 L1 Planner; F4 §3.2: +13 — 560+header=561.
-    assert len(tsv) == 562
+    # v6.3 B01 (W1-CHAT-INTEL): +10 INITIATIVE_* → 571+header=572.
+    assert len(tsv) == 572
     assert "flags.vision_enabled" in "\t".join(tsv)
     meta = (ROOT / "plans/docs/param-registry-round1025.meta.md").read_text(
         encoding="utf-8")
     # ASAP 7 F2: reissue под 560/149 (см. meta.md).
-    assert "561" in meta and "411" in meta and "150" in meta
+    assert "571" in meta and "411" in meta and "160" in meta
 
 
 # ── Kill-switches +4 (76→80; env-only default ON; OFF-инертности) ───────────
@@ -155,7 +156,11 @@ def test_reason_codes_269():
     # mca-17c (round 10.47): 279 → 280 (+1 oversight_job_action);
     # ASAP 8 (F6): 280 → 285 (+5 инициативы: writer_failed/direct_pending/
     # recheck_passed/writer_generated/initiative_sent).
-    assert len(mca_events.REASON_CODES) == 285       # 280 → 285
+    # v6.3 B01/B02 (W1-CHAT-INTEL): 285 → 290 (+5: initiative_writer_
+    # unavailable/no_opportunities_24h/hearsay_or_joke/no_canonical_rule/
+    # semantic_parse_error; честные исходы observer инициативы и
+    # семантического опыта, §17.2 — словарь расширяемый).
+    assert len(mca_events.REASON_CODES) == 290       # 285 → 290
     assert VISION_REASON_CODES <= mca_events.REASON_CODES
     # `no_text`/`pending`/`ready` — статусы MediaAnalysis, НЕ reason-коды
     # (spec §8.5).

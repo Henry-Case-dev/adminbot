@@ -451,7 +451,12 @@ class TestPreviewCompileStyle:
         assert "CONTENT_PRESERVATION" in keys
         by_key = {c["key"]: c for c in manifest["components"]}
         assert by_key["CONTENT_PRESERVATION"]["status"] == "kept"
-        assert by_key["STORY_SCENE"]["status"] == "kept"
+        # B04.1: story текстом не обязателен. Короткая сцена едет как
+        # scene anchor (= kept по факту промпта), длинная — omitted
+        # (сцена — Base bitmap). Манифест описывает фактическую отправку.
+        anchor_due = len(" ".join(PREVIEW_STORY.split())) <= 240
+        assert by_key["STORY_SCENE"]["status"] == \
+            ("kept" if anchor_due else "omitted")
         assert by_key["BASE_STYLE"]["status"] == "kept"
         assert by_key["BASE_STYLE"]["sent_text"] == PREVIEW_STYLE
         assert body["style_publish_skip_reason"] is None
@@ -493,8 +498,9 @@ class TestPreviewCompileStyle:
         by_key = {c["key"]: c for c in manifest["components"]}
         assert by_key["CONTENT_PRESERVATION"]["status"] == "kept"
         assert by_key["BASE_STYLE"]["status"] == "omitted"
-        # story identity (P1) при overflow не теряется молча — либо в
-        # промпте, либо честный skip (здесь: skip = prompt_limit_exceeded).
+        # B04: skip-сигнал детерминированный overflow; textual story-floor
+        # отказ изъят (story в Base bitmap), семантику проверяет
+        # image-comparison (B04.6).
 
     def test_base_mode_default_backward_compatible(self, client_psc):
         """Default mode="base" — прежний контракт цел (обратная

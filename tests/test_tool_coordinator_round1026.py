@@ -832,16 +832,26 @@ class TestBounds:
                                     "services/summary_l1_capacity.py",
                                     "services/summary_llm_supervisor.py",
                                     "services/summary_quote_repair.py",
-                                    "services/summary_semantic_reduction.py"}, \
+                                    "services/summary_semantic_reduction.py",
+                                    # ASAP 8 v6.3 B06.1 (W1-COVER-MODULES,
+                                    # делегированный WRITE_SCOPE): единый
+                                    # per-chat резолвер Summary
+                                    # (`summary_effective_enabled`) —
+                                    # producer/cron реально следуют
+                                    # global default → explicit chat →
+                                    # emergency env; summary_generator —
+                                    # гейт на входе generate_and_send.
+                                    "services/summary_scheduler.py",
+                                    "services/summary_generator.py"}, \
             summary_changed
 
     def test_version_and_catalog(self):
         assert APP_VERSION == "2.58.78"
         # ASAP-3 (ADR-1028-2 D12, санкция spec §6): Δ +2 каталога-ключа → 483/423/458 (см. примечание в test_round1025_f8_registry).
-        assert len(pc.REGISTRY) == 561
+        assert len(pc.REGISTRY) == 571
         assert len({f.name for f in dataclasses.fields(Settings)}) == 454
         assert len([s for s in pc.REGISTRY.values()
-                    if s.category is not None]) == 536   # +4 temporal (mca-20)
+                    if s.category is not None]) == 546   # +4 temporal (mca-20)
         assert len(pc.GROUPS) == 120
         assert len(pc._TAB_BY_GROUP) == 118
         assert len(pc.TAB_RULES) == 23

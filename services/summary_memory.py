@@ -1331,6 +1331,20 @@ def order_rag_facts_asc(facts: list) -> list:
     return sorted(facts, key=_rag_ts)
 
 
+def _expired_suffix(item) -> str:
+    """B03.2 (v6.3): честная as-of-пометка архивного (expired) факта в
+    контексте. item — 7-кортеж `_search_graph_facts`/`_knn_graph_facts`
+    (7-й элемент — expired-флаг); более короткие кортежи → '' (legacy).
+    Текст указывает, что срок актуальности истёк: модель не должна выдавать
+    факт за текущее состояние (temporal truth ≠ свежая выдача)."""
+    try:
+        if len(item) < 7 or not item[6]:
+            return ""
+    except (TypeError, ValueError):
+        return ""
+    return " (Внимание: срок актуальности истёк; может быть неактуально)"
+
+
 def _format_origin_labeled_line(item) -> str:
     """F1/T-1418 (spec §3.3): одна строка direct-рендера RAG —
     '[{label}] {_fact_prefix}{текст}{_stale_suffix}' (label из _ORIGIN_LABELS;
@@ -1350,14 +1364,16 @@ def _format_origin_labeled_line(item) -> str:
     item_id = item[4] if len(item) >= 5 else None
     forward = item[5] if len(item) >= 6 else None
     label = _ORIGIN_LABELS.get(origin, origin)
+    stale = bool(_stale_suffix(rag_ts)) or bool(_expired_suffix(item))
     if item_id or forward:
         line = format_context_item(
             ts=rag_ts, author=author, item_id=item_id or None,
             forward_source=forward or None, text=fact, kind="fact",
-            stale=bool(_stale_suffix(rag_ts)))
+            stale=stale)
         return f"[{label}] {escape_xml_text(line)}"
     return (f"[{label}] {_fact_prefix(rag_ts, author)}"
-            f"{escape_xml_text(fact)}{_stale_suffix(rag_ts)}")
+            f"{escape_xml_text(fact)}"
+            f"{_stale_suffix(rag_ts)}{_expired_suffix(item)}")
 
 
 def build_rag_context(facts: list, *, origin_labels: bool = False) -> str:
@@ -1389,15 +1405,17 @@ def build_rag_context(facts: list, *, origin_labels: bool = False) -> str:
         author = item[3] if len(item) >= 4 else None
         item_id = item[4] if len(item) >= 5 else None
         forward = item[5] if len(item) >= 6 else None
+        expired_suffix = _expired_suffix(item)
         if item_id or forward:
             # T-1924: канонический header факта (ID-политика + «Переслано»);
             # структура XML ниже не меняется — меняется только текст строки.
+            # (stale/expired-суффиксы добавляются вручную после текста.)
             date = escape_xml_text(format_context_item(
                 ts=rag_ts, author=author, item_id=item_id or None,
                 forward_source=forward or None, text="", kind="fact"))
         else:
             date = _fact_prefix(rag_ts, author)
-        suffix = _stale_suffix(rag_ts)
+        suffix = _stale_suffix(rag_ts) + expired_suffix
         text = escape_xml_text(fact)
         if origin == "chat_history":
             gossip.append(date + text + suffix)
@@ -3900,6 +3918,20 @@ class MemoryManager:
                 "chat_id=%s", chat_id, exc_info=True)
             return []
 
+    async def expired_memory_overview(self, chat_id=None) -> dict:
+        """B03.3 (v6.3): recency-классификация expired-памяти (данные для
+        блока «Просрочено N»: сколько доступно поиску / требует перепроверки /
+        superseded). Bounded COUNT-агрегаты, без re-embedding и выборки
+        контента. Никогда не бросает (fail-open → нули + флаг ошибки)."""
+        try:
+            return await self.db.expired_graph_facts_overview(chat_id)
+        except Exception:
+            logger.warning("graphrag memory: expired overview failed",
+                           exc_info=True)
+            return {"now_ts": int(time.time()), "expired_total": 0,
+                    "expired_searchable": 0, "needs_recheck": 0,
+                    "superseded_total": 0, "error": "overview_failed"}
+
     async def rerank_rag_facts(self, query: str, facts: list) -> list:
         """F4/T-810 (spec §3.F4): LLM-фильтр кандидатов direct-RAG после F1/F2,
         ПЕРЕД рендером. Кандидаты сериализуются нумерованным списком
@@ -4140,23 +4172,53 @@ class MemoryManager:
             chat_id, match_query, limit * 2, now,
             include_direct_reply=include_direct_reply,
             include_self=include_self)
-        if not rows:
-            return []
         # 66.3 (T-481): время-взвешивание в Python (SQL-ранг не меняем);
         # стабильная сортировка — равные w_eff сохраняют FTS-порядок.
         # B4-1 (F5, ADR-1018-5 D7): × ограниченный множитель importance, чтобы
         # мета-факт (imp=1) не перебивал важные факты в RAG-выборке.
-        ranked = sorted(
-            rows,
-            key=lambda r: (_effective_weight(
-                r["weight"], r["last_confirmed_at"], now)
-                * _importance_factor(_row_importance(r))),
-            reverse=True)
+        # B03.2 (v6.3): fresh-first → по необходимости дополняем архивными
+        # (expired) со снижением trust (пенальти к рангу); expired не входят
+        # в touch (без немого продления TTL). Флаг flags.memory_archive_
+        # retrieval (default ON) — общий выключатель архивного top-up.
+        archive_flag_on = bool(hot.get("flags.memory_archive_retrieval", True))
+        expired_penalty = float(hot.get(
+            "limits.expired_retrieval_penalty", 0.25) or 0.25)
+        fresh_ids = {r["id"] for r in rows}
+        expired_rows: list = []
+        if len(rows) < limit and archive_flag_on:
+            try:
+                exp_rows = await self.db.search_graph_facts_fts(
+                    chat_id, match_query, limit * 2, now,
+                    include_direct_reply=include_direct_reply,
+                    include_self=include_self, include_expired=True)
+            except Exception:
+                logger.warning("graphrag RAG: expired FTS top-up failed",
+                               exc_info=True)
+                exp_rows = []
+            now_i = now
+            expired_rows = [
+                r for r in exp_rows
+                if r["id"] not in fresh_ids
+                and r["expires_at"] is not None
+                and r["expires_at"] <= now_i]
+        expired_row_ids = {r["id"] for r in expired_rows}
+
+        def _rank_key(r):
+            base = (_effective_weight(r["weight"], r["last_confirmed_at"],
+                                      now)
+                    * _importance_factor(_row_importance(r)))
+            if r["id"] in expired_row_ids:
+                return base - expired_penalty
+            return base
+
+        ranked = sorted(list(rows) + expired_rows, key=_rank_key,
+                        reverse=True)
         kept = ranked[:limit]
-        if kept and hot.get("flags.graph_fact_touch_enabled", settings.GRAPH_FACT_TOUCH_ENABLED):
+        fresh_kept = [r for r in kept if r["id"] not in expired_row_ids]
+        if fresh_kept and hot.get("flags.graph_fact_touch_enabled", settings.GRAPH_FACT_TOUCH_ENABLED):
             try:
                 await self.db.touch_graph_facts(
-                    [r["id"] for r in kept], (hot.get("limits.graph_fact_touch_extend_days", settings.GRAPH_FACT_TOUCH_EXTEND_DAYS) or 0),
+                    [r["id"] for r in fresh_kept], (hot.get("limits.graph_fact_touch_extend_days", settings.GRAPH_FACT_TOUCH_EXTEND_DAYS) or 0),
                     (hot.get("limits.chat_direct_reply_ttl_days", settings.CHAT_DIRECT_REPLY_TTL_DAYS) or 0), (hot.get("limits.graph_fact_ttl_days", settings.GRAPH_FACT_TTL_DAYS) or 0),
                     now)
             except Exception:
@@ -4167,6 +4229,8 @@ class MemoryManager:
         # 10.20 (T-1924): + item_id (ID-политика `tg:`/`fact:`) и forward_from —
         # 6-кортеж (R16-аддитивно; 3/4-кортежи остаются валидными).
         # MCA-07 (T-3844): with_meta=True → + стабильный `id`/score.
+        # B03.2 (v6.3): + `expired`/`expires_at` (with_meta) и 7-й элемент
+        # 6-кортежа — as-of-пометка архивного top-up (аддитивно).
         if with_meta:
             return [
                 {"id": int(row["id"]), "origin": row["origin"],
@@ -4181,12 +4245,15 @@ class MemoryManager:
                  "forward_from": row["forward_from"] or "",
                  "item_id": resolve_item_id(
                      tg_message_id=row["tg_message_id"], fact_id=row["id"]),
-                 "score": float(len(kept) - i)}
+                 "score": float(len(kept) - i),
+                 "expired": row["id"] in expired_row_ids,
+                 "expires_at": row["expires_at"]}
                 for i, row in enumerate(kept)]
         return [(row["origin"], row["fact"], row["rag_ts"], row["target_user"],
                  resolve_item_id(tg_message_id=row["tg_message_id"],
                                  fact_id=row["id"]),
-                 row["forward_from"] or "")
+                 row["forward_from"] or "",
+                 row["id"] in expired_row_ids)
                 for row in kept]
 
     async def _knn_graph_facts(self, chat_id, vector, limit,
@@ -4207,19 +4274,55 @@ class MemoryManager:
             chat_id, vector, fetch_k, include_direct_reply, now,
             include_self=include_self)
         ranked = ranked[:fetch_k]
-        if not ranked:
-            return []
         # F2/T-1427 (spec §4.2): архив НЕ исключаем из векторного поиска —
         # берём confirmed + archived_belief (unconfirmed/legacy отбрасываем),
         # архивным даём пенальти к score и воскрешаем при пробитии порога.
         records = await self.db.get_graph_fact_records(
-            [fid for fid, _, _ in ranked])
+            [fid for fid, _, _ in ranked]) if ranked else []
         # dict (не sqlite3.Row): ниже помечаем воскрешённые статусы локально.
         by_id = {r["id"]: dict(r) for r in records
                  if str(r["status"] or "") in ("confirmed", "archived_belief")}
+        # B03.2 (v6.3): fresh-first исчерпан → по необходимости дополняем
+        # архивными (истёкшими) со снижением trust: отдельная expired-only
+        # стадия KNN (chat-scope сохранён), пенальти к score, пометка
+        # expired/as-of в выдаче. Silent-TTL-продления нет: expired не
+        # участвуют в touch и в молчаливом воскрешении. Флаг
+        # flags.memory_archive_retrieval (default ON) — общий выключатель
+        # архивного top-up (vec- и FTS-путь). Второй KNN — только при
+        # нехватке свежих (горячий путь не платит за архив).
+        archive_flag_on = bool(hot.get("flags.memory_archive_retrieval", True))
+        expired_by_id: dict = {}
+        if len(by_id) < limit and archive_flag_on:
+            try:
+                exp_ranked = await self._vec_candidates(
+                    chat_id, vector, max(limit * 2, 4), include_direct_reply,
+                    now, include_self=include_self, expired_only=True)
+            except Exception:
+                logger.warning(
+                    "graphrag RAG: expired top-up failed | chat_id=%s",
+                    chat_id, exc_info=True)
+                exp_ranked = []
+            exp_ranked = exp_ranked[:limit * 2]
+            if exp_ranked:
+                exp_records = await self.db.get_graph_fact_records(
+                    [fid for fid, _, _ in exp_ranked])
+                # B03.2: истёканность верифицируется по graph_facts (истина),
+                # не по aux-копии vec (её обновляет только invalidate) —
+                # свежий belief случайно не попадает в архивную стадию.
+                for r in exp_records:
+                    if str(r["status"] or "") in ("confirmed",
+                                                  "archived_belief") \
+                            and r["expires_at"] is not None \
+                            and r["expires_at"] <= now:
+                        expired_by_id[r["id"]] = (dict(r), next(
+                            c for f2, c, _ in exp_ranked if f2 == r["id"]))
+        if not ranked and not expired_by_id:
+            return []
         penalty = float(hot.get(
             "limits.belief_resonance_penalty",
             settings.BELIEF_RESONANCE_PENALTY) or 0.3)
+        expired_penalty = float(hot.get(
+            "limits.expired_retrieval_penalty", 0.25) or 0.25)
         threshold = float(hot.get(
             "limits.belief_resonance_threshold",
             settings.BELIEF_RESONANCE_THRESHOLD) or 0.78)
@@ -4237,6 +4340,20 @@ class MemoryManager:
                 score -= penalty
             cosine_by_id[fid] = float(cosine)
             sims.append((fid, score, vec))
+        # B03.2: архивная (expired) часть — ниже свежей: пенальти к score
+        # (свежие подтверждённые данные всегда впереди архивных при прочих
+        # равных; конфликт/неуверенность видны по пометке в выдаче).
+        for fid, (row, cosine) in expired_by_id.items():
+            w_eff = _effective_weight(row["weight"], row["last_confirmed_at"],
+                                      now)
+            score = (cosine * w_eff
+                     * _importance_factor(_row_importance(row))
+                     - expired_penalty)
+            if str(row["status"] or "") == "archived_belief":
+                score -= penalty
+            by_id[fid] = row
+            cosine_by_id[fid] = float(cosine)
+            sims.append((fid, score, None))
         if not sims:
             return []
         if hot.get("flags.graph_mmr_enabled", settings.GRAPH_MMR_ENABLED):
@@ -4249,12 +4366,15 @@ class MemoryManager:
         # F2/T-1427 (§4.2): выбранный архивный belief с cosine ≥ порога —
         # «воскрешение»: status='confirmed', вес=base, last_confirmed_at=now
         # (+ событие телеметрии). Fail-open: ошибка БД не роняет RAG.
+        # B03.2: expired-факты НЕ воскрешаются молча (переподтверждение —
+        # только dedup-путём с новой версией/датой).
+        fresh_chosen = [f for f in chosen if f not in expired_by_id]
         await self._resurrect_resonant(
-            chat_id, chosen, by_id, cosine_by_id, threshold, now)
-        if chosen and hot.get("flags.graph_fact_touch_enabled", settings.GRAPH_FACT_TOUCH_ENABLED):
+            chat_id, fresh_chosen, by_id, cosine_by_id, threshold, now)
+        if fresh_chosen and hot.get("flags.graph_fact_touch_enabled", settings.GRAPH_FACT_TOUCH_ENABLED):
             try:
                 await self.db.touch_graph_facts(
-                    chosen, (hot.get("limits.graph_fact_touch_extend_days", settings.GRAPH_FACT_TOUCH_EXTEND_DAYS) or 0),
+                    fresh_chosen, (hot.get("limits.graph_fact_touch_extend_days", settings.GRAPH_FACT_TOUCH_EXTEND_DAYS) or 0),
                     (hot.get("limits.chat_direct_reply_ttl_days", settings.CHAT_DIRECT_REPLY_TTL_DAYS) or 0), (hot.get("limits.graph_fact_ttl_days", settings.GRAPH_FACT_TTL_DAYS) or 0),
                     now)
             except Exception:
@@ -4268,6 +4388,9 @@ class MemoryManager:
         # MCA-07 (T-3844): with_meta=True → те же поля + стабильный `id`
         # граф-факта и score (для единого retrieval-контракта). Default —
         # прежний 6-кортеж (обратная совместимость).
+        # B03.2 (v6.3): + 7-й элемент 6-кортежа и ключи with_meta
+        # `expired`/`expires_at` (as-of/trust-пометка архивного top-up;
+        # аддитивно, существующие потребители читают по индексу/имени).
         if with_meta:
             return [
                 {"id": int(by_id[f]["id"]),
@@ -4286,7 +4409,10 @@ class MemoryManager:
                  "item_id": resolve_item_id(
                      tg_message_id=by_id[f]["tg_message_id"],
                      fact_id=by_id[f]["id"]),
-                 "score": float(len(chosen) - i)}
+                 "score": float(len(chosen) - i),
+                 # B03.2 (v6.3): as-of-пометка архивного top-up (additive).
+                 "expired": f in expired_by_id,
+                 "expires_at": by_id[f]["expires_at"]}
                 for i, f in enumerate(chosen)]
         return [(by_id[f]["origin"], by_id[f]["fact"],
                  by_id[f]["message_timestamp"] or by_id[f]["created_at"],
@@ -4294,7 +4420,8 @@ class MemoryManager:
                  resolve_item_id(
                      tg_message_id=by_id[f]["tg_message_id"],
                      fact_id=by_id[f]["id"]),
-                 by_id[f]["forward_from"] or "")
+                 by_id[f]["forward_from"] or "",
+                 f in expired_by_id)
                 for f in chosen]
 
     async def _resurrect_resonant(self, chat_id, chosen, by_id,
@@ -4422,50 +4549,76 @@ class MemoryManager:
 
     async def _vec_candidates(self, chat_id, vector, fetch_k,
                               include_direct_reply, now,
-                              include_self=False) -> list:
+                              include_self=False,
+                              expired_only=False) -> list:
         """[(fact_id, cosine, float_vector|None), ...] по убыванию cosine.
-        int8-путь: грубый KNN → реранк по float (66.6); фейл int8 → float-MATCH
-        (точная дистанция). Float-only: точный MATCH k=fetch_k×2.
-        Раунд 10.14 (F1, ADR-1014-2 D7): include_self (default False) —
-        self-факты исключаются в _filter_vec_rows."""
+
+        B03.4/D06-остаток (v6.3, §18F.4): chat-scope ДО effective top-K —
+        РОВНО тот же анти-паттерн «глобальный KNN → фильтр после k», что был
+        в archive-KNN и dedup, лечится доказанным staged overfetch
+        (`_staged_knn_scope`): k растёт ×4 до жёсткого cap, пока после
+        chat/TTL/origin-фильтра не наберётся fetch_k фактов СВОЕГО чата либо
+        не исчерпается индекс. Чужие факты никогда не возвращаются и не
+        вытесняют свои. `expired_only=True` — вторая (архивная) стадия
+        B03.2: кандидаты ТОЛЬКО истёкшие (TTL <= now) для top-up свежей
+        выдачи/исторического поиска.
+
+        int8-путь: грубый KNN → реранк по float (66.6); фейл int8 →
+        float-MATCH (точная дистанция). include_self (default False) —
+        self-факты исключаются."""
+        keep = self._vec_row_keep(chat_id, include_direct_reply, now,
+                                  include_self, expired_only)
+        want = max(1, int(fetch_k))
         if self._vec_int8:
-            rows = await self._vec_int8_rows(
-                chat_id, vector, fetch_k * 4, include_direct_reply, now,
-                include_self=include_self)
-            if rows is not None:
+            async def _run_int8(k: int):
+                cursor = await self.db.db.execute(
+                    "SELECT fact_id, chat_id, origin, expires_at FROM "
+                    "graph_facts_vec WHERE embedding_i8 MATCH "
+                    "vec_quantize_int8(?, 'unit') AND k = ?",
+                    (json.dumps(vector), k))
+                return await cursor.fetchall()
+
+            try:
+                rows, tele = await self._staged_knn_scope(
+                    _run_int8, want * _KNN_SCOPE_OVERFETCH_MULT,
+                    _KNN_SCOPE_K_CAP, want, keep)
+            except Exception:
+                logger.warning(
+                    "graphrag RAG: int8 KNN failed — float path | chat_id=%s",
+                    chat_id, exc_info=True)
+            else:
+                self._log_knn_scope(tele, "graphrag RAG int8", chat_id)
                 return await self._rerank_by_float(vector, rows)
-        rows = await self._vec_float_rows(
-            chat_id, vector, fetch_k * 2, include_direct_reply, now,
-            include_self=include_self)
+
+        async def _run_float(k: int):
+            cursor = await self.db.db.execute(
+                "SELECT fact_id, chat_id, origin, expires_at, distance "
+                "FROM graph_facts_vec WHERE embedding MATCH ? AND k = ?",
+                (json.dumps(vector), k))
+            return await cursor.fetchall()
+
+        rows, tele = await self._staged_knn_scope(
+            _run_float, want * _KNN_SCOPE_OVERFETCH_MULT, _KNN_SCOPE_K_CAP,
+            want, keep)
+        self._log_knn_scope(tele, "graphrag RAG", chat_id)
         return [(row["fact_id"], 1.0 - row["distance"], None) for row in rows]
 
-    async def _vec_int8_rows(self, chat_id, vector, k, include_direct_reply,
-                             now, include_self=False):
-        """66.6: грубый KNN по int8-колонке (query квантизуется в SQL).
-        Ошибка → None (float-fallback честная деградация)."""
-        try:
-            cursor = await self.db.db.execute(
-                "SELECT fact_id, chat_id, origin, expires_at FROM graph_facts_vec "
-                "WHERE embedding_i8 MATCH vec_quantize_int8(?, 'unit') AND k = ?",
-                (json.dumps(vector), k))
-            return self._filter_vec_rows(
-                await cursor.fetchall(), chat_id, include_direct_reply, now,
-                include_self=include_self)
-        except Exception:
-            logger.warning(
-                "graphrag RAG: int8 KNN failed — float path | chat_id=%s",
-                chat_id, exc_info=True)
-            return None
-
-    async def _vec_float_rows(self, chat_id, vector, k, include_direct_reply,
-                              now, include_self=False) -> list:
-        cursor = await self.db.db.execute(
-            "SELECT fact_id, chat_id, origin, expires_at, distance "
-            "FROM graph_facts_vec WHERE embedding MATCH ? AND k = ?",
-            (json.dumps(vector), k))
-        return self._filter_vec_rows(
-            await cursor.fetchall(), chat_id, include_direct_reply, now,
-            include_self=include_self)
+    @staticmethod
+    def _vec_row_keep(chat_id, include_direct_reply, now,
+                      include_self=False, expired_only=False):
+        """Предикат «строка vec-таблицы — кандидат» для staged scope:
+        свой чат + origin-фильтры + (expired_only ? TTL истёк : TTL жив)."""
+        def _keep(row) -> bool:
+            if row["chat_id"] != chat_id:
+                return False
+            if not include_direct_reply and row["origin"] == "bot_direct_reply":
+                return False
+            if not include_self and row["origin"] == "bot_self_reply":
+                return False
+            expired = (row["expires_at"] is not None
+                       and row["expires_at"] <= now)
+            return expired if expired_only else not expired
+        return _keep
 
     @staticmethod
     def _filter_vec_rows(rows, chat_id, include_direct_reply, now,
