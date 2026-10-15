@@ -239,6 +239,70 @@ class TestSupergroupMemoryMigration:
         await db.close()
 
     @pytest.mark.asyncio
+    async def test_chunked_backup_covers_all_rows_rev_w1_f1(
+            self, db_file, monkeypatch):
+        """REGRESSION (REV-W1 F1): backup читается ЧАНКАМИ до исчерпания —
+        объём больше одного чанка НЕ приводит к переносу без полного backup
+        (прод-чат >1M сообщений: старое поведение LIMIT cap переносило
+        не-забэкапленные строки). TEST-LIFECYCLE: REGRESSION owner=REQ-B09."""
+        import services.chat_migration as cm
+        monkeypatch.setattr(cm, "_BACKUP_CHUNK", 2)   # крошечный чанк
+        db = await _open(db_file)
+        await _init_memory(db, monkeypatch)
+        now = 1_700_000_000
+        total_msgs = 25
+        for i in range(total_msgs):
+            await db.save_smart_message(
+                777, OLD, f"реплика {i} про биллинг", None, now + i,
+                "text", "Игорь")
+        await _register_migration(db)
+
+        result = await cm.migrate_chat_memory(db, OLD, NEW)
+        assert isinstance(result, dict)        # N1: всегда dict
+        assert result["errors"] == [], result["errors"]
+        assert result["backup_rows"] >= total_msgs
+        cursor = await db.db.execute(
+            "SELECT COUNT(*) AS n FROM smart_messages WHERE chat_id = ?",
+            (OLD,))
+        assert (await cursor.fetchone())["n"] == 0     # перенесено всё
+        # каждая исходная строка присутствует в backup-журнале
+        cursor = await db.db.execute(
+            "SELECT COUNT(*) AS n FROM chat_migration_backup "
+            "WHERE table_name = 'smart_messages'")
+        assert (await cursor.fetchone())["n"] >= total_msgs
+        report = await cm.verify_chat_memory_integrity(db, OLD, NEW)
+        assert report["ok"] is True
+        await db.close()
+
+    @pytest.mark.asyncio
+    async def test_backup_hard_cap_aborts_move_rev_w1_f1(
+            self, db_file, monkeypatch):
+        """REGRESSION (REV-W1 F1): аварийный потолок backup — явный abort
+        переноса (ошибка + строки НЕ переезжают), а не молчаливое
+        продолжение; функция возвращает dict (N1)."""
+        import services.chat_migration as cm
+        monkeypatch.setattr(cm, "_BACKUP_CHUNK", 2)
+        monkeypatch.setattr(cm, "_BACKUP_HARD_CAP", 10)
+        db = await _open(db_file)
+        await _init_memory(db, monkeypatch)
+        now = 1_700_000_000
+        for i in range(25):
+            await db.save_smart_message(
+                777, OLD, f"реплика {i} про биллинг", None, now + i,
+                "text", "Игорь")
+        await _register_migration(db)
+
+        result = await cm.migrate_chat_memory(db, OLD, NEW)
+        assert isinstance(result, dict)
+        assert any(e.endswith("backup_hard_cap") for e in result["errors"])
+        cursor = await db.db.execute(
+            "SELECT COUNT(*) AS n FROM smart_messages WHERE chat_id = ?",
+            (OLD,))
+        # mass-move НЕ начинался: строки остались под old
+        assert (await cursor.fetchone())["n"] == 25
+        await db.close()
+
+    @pytest.mark.asyncio
     async def test_no_delete_contract(self, db_file, monkeypatch):
         """Перенос только UPDATE: суммарное число строк носителей не меняется."""
         db = await _open(db_file)

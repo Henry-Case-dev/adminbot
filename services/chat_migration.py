@@ -60,9 +60,12 @@ _VEC_TABLES: tuple[str, ...] = (
     "smart_archive",           # aux chat_id (rowid=archive vec row)
 )
 
-# Bounded backup: разумный потолок строк на таблицу (защита от
-# непропорциональной транзакции; превышение фиксируется в результате).
-_BACKUP_ROW_CAP = 200_000
+# Bounded backup (REV-W1 F1): чтение чанками ДО ИСЧЕРПАНИЯ — перенос без
+# полного backup запрещён («много строк» не повод продолжать без backup).
+# _BACKUP_CHUNK — размер чтения; _BACKUP_HARD_CAP — аварийный потолок строк
+# на таблицу: превышение = явная ошибка abort (не молчаливое усечение).
+_BACKUP_CHUNK = 5_000
+_BACKUP_HARD_CAP = 5_000_000
 
 _BACKUP_DDL = (
     "CREATE TABLE IF NOT EXISTS chat_migration_backup ("
@@ -116,52 +119,71 @@ async def migrate_chat_memory(db, old_chat_id: int, new_chat_id: int) -> dict:
             result["errors"].append(f"backup_ddl: {type(exc).__name__}")
             logger.warning("[chat_migration] backup DDL failed | old=%s new=%s",
                            old_chat_id, new_chat_id, exc_info=True)
-            return
+            return result
 
         total_backup = 0
         for table in _ROW_TABLES:
-            try:
-                cursor = await db.db.execute(
-                    f"SELECT rowid AS __rid, * FROM {table} WHERE chat_id = ? "
-                    f"LIMIT {_BACKUP_ROW_CAP}", (old_chat_id,))
-                rows = await cursor.fetchall()
-            except Exception as exc:
-                if "no such table" in str(exc).lower():
-                    continue                 # факультативная таблица отсутствует
-                result["errors"].append(f"{table}:backup:{type(exc).__name__}")
-                logger.warning("[chat_migration] backup read failed | table=%s",
-                               table, exc_info=True)
-                continue
-            for row in rows:
+            table_rows = 0
+            last_rid = -1
+            abort_table = False
+            while True:
                 try:
-                    await db.db.execute(
-                        "INSERT INTO chat_migration_backup (migration_id, "
-                        "table_name, rowid_value, row_json, created_at) "
-                        "VALUES (?,?,?,?,?)",
-                        (migration_id, table, row["__rid"],
-                         json.dumps({k: row[k] for k in row.keys()
-                                     if k != "__rid"},
-                                    ensure_ascii=False, default=str),
-                         int(time.time())))
+                    cursor = await db.db.execute(
+                        f"SELECT rowid AS __rid, * FROM {table} "
+                        f"WHERE chat_id = ? AND rowid > ? "
+                        f"ORDER BY rowid LIMIT {_BACKUP_CHUNK}",
+                        (old_chat_id, last_rid))
+                    rows = await cursor.fetchall()
                 except Exception as exc:
+                    if "no such table" in str(exc).lower():
+                        break            # факультативная таблица отсутствует
                     result["errors"].append(
-                        f"{table}:backup_write:{type(exc).__name__}")
+                        f"{table}:backup:{type(exc).__name__}")
                     logger.warning(
-                        "[chat_migration] backup write failed | table=%s",
+                        "[chat_migration] backup read failed | table=%s",
                         table, exc_info=True)
                     break
-            total_backup += len(rows)
-            if len(rows) >= _BACKUP_ROW_CAP:
-                logger.warning(
-                    "[chat_migration] backup cap hit | table=%s | cap=%d",
-                    table, _BACKUP_ROW_CAP)
+                for row in rows:
+                    last_rid = row["__rid"]
+                    try:
+                        await db.db.execute(
+                            "INSERT INTO chat_migration_backup (migration_id, "
+                            "table_name, rowid_value, row_json, created_at) "
+                            "VALUES (?,?,?,?,?)",
+                            (migration_id, table, row["__rid"],
+                             json.dumps({k: row[k] for k in row.keys()
+                                         if k != "__rid"},
+                                        ensure_ascii=False, default=str),
+                             int(time.time())))
+                    except Exception as exc:
+                        result["errors"].append(
+                            f"{table}:backup_write:{type(exc).__name__}")
+                        logger.warning(
+                            "[chat_migration] backup write failed | table=%s",
+                            table, exc_info=True)
+                        abort_table = True
+                        break
+                    table_rows += 1
+                total_backup += len(rows)
+                if abort_table:
+                    break
+                if table_rows > _BACKUP_HARD_CAP:
+                    # REV-W1 F1: аварийный потолок — явный abort переноса,
+                    # никакой записи без полного backup.
+                    result["errors"].append(f"{table}:backup_hard_cap")
+                    logger.warning(
+                        "[chat_migration] backup hard cap | table=%s | "
+                        "rows>%d — aborting move", table, _BACKUP_HARD_CAP)
+                    break
+                if len(rows) < _BACKUP_CHUNK:
+                    break                # таблица исчерпана целиком
         # vec0: backup только aux-метаданных (embedding восстанавливаем штатным
         # backfill; копия float-BLOB в JSON дала бы сотни МБ без пользы).
         for table in _VEC_TABLES:
             try:
                 cursor = await db.db.execute(
                     f"SELECT rowid, chat_id FROM {table} WHERE chat_id = ? "
-                    f"LIMIT {_BACKUP_ROW_CAP}", (old_chat_id,))
+                    f"LIMIT {_BACKUP_CHUNK}", (old_chat_id,))
                 rows = await cursor.fetchall()
             except Exception as exc:
                 if "no such table" in str(exc).lower():
@@ -194,7 +216,7 @@ async def migrate_chat_memory(db, old_chat_id: int, new_chat_id: int) -> dict:
                 "[chat_migration] backup incomplete — aborting move | old=%s "
                 "new=%s | errors=%d", old_chat_id, new_chat_id,
                 len(result["errors"]))
-            return
+            return result
         try:
             await db.db.commit()          # backup закоммичен ДО переноса
         except Exception:
