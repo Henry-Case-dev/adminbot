@@ -128,11 +128,17 @@ def _clip(value, limit: int = _TEXT_LIMIT) -> str:
 
 # ── лента (read-проекция mca_events; cursor/dedup/bounded) ──────────────────
 
-def _feed_item(row: dict, titles: dict[str, str]) -> dict:
+def _feed_item(row: dict, titles: dict[str, str],
+               display: dict[str, dict] | None = None) -> dict:
     """Публичная форма события (TH-4/R17): refs/id/счётчики/даты, без
-    message-контента; entity.summary ≤200 символов (emit_story_event)."""
+    message-контента; entity.summary ≤200 символов (emit_story_event).
+    REV-W3PRE N1: лента использует ТЕ ЖЕ честные display-правила, что
+    карточки (_display_fields) — легаси-цифровые заглушки («Эпизод 1780…»)
+    не уходят в ленту как факт; content_status/участники/rebuilt_at
+    прилагаются."""
     entity = _json_loads(row.get("entity_ids"), {})
     story_id = str(entity.get("story_id") or "")
+    disp = (display or {}).get(story_id) or {}
     return {
         "id": int(row.get("id") or 0),
         "ts": int(row.get("ts") or 0),
@@ -140,7 +146,9 @@ def _feed_item(row: dict, titles: dict[str, str]) -> dict:
         "outcome": str(row.get("outcome") or ""),
         "reason_code": row.get("reason_code"),
         "story_id": story_id,
-        "title": titles.get(story_id) or "",
+        "title": disp.get("display_title") or titles.get(story_id) or "",
+        "content_status": disp.get("content_status"),
+        "display_summary": disp.get("display_summary"),
         "text": _clip(entity.get("summary")),
         "episode_ids": [str(e) for e in
                         (entity.get("episode_ids") or ())][:20],
@@ -149,9 +157,38 @@ def _feed_item(row: dict, titles: dict[str, str]) -> dict:
         "event_start": _norm_ts(entity.get("event_start")),
         "event_end": _norm_ts(entity.get("event_end")),
         "discovered_at": _norm_ts(entity.get("discovered_at")),
+        "rebuilt_at": disp.get("rebuilt_at"),
         "participants": [str(p) for p in
                          (entity.get("participants") or ())][:50],
+        "primary_participants": list(disp.get("primary_participants") or []),
+        "others_count": int(disp.get("others_count") or 0),
     }
+
+
+async def _stories_display(db, story_ids: list[str]) -> dict[str, dict]:
+    """REV-W3PRE N1: map story_id → честные display-поля (те же правила,
+    что карточки). Fail-open — пустая карта (лента остаётся рабочей)."""
+    if not story_ids:
+        return {}
+    try:
+        rows = await EpisodeRepository(db).stories_rows(story_ids)
+    except Exception:
+        logger.warning("[web_stories] stories_display failed — fail-open",
+                       exc_info=True)
+        return {}
+    out: dict[str, dict] = {}
+    for r in rows:
+        rid = str((r or {}).get("story_id") or "")
+        if not rid:
+            continue
+        fields = _display_fields(r, story=True)
+        participants = _json_loads(r.get("participants_json"), [])
+        primary, others = _primary_participants(participants)
+        out[rid] = {**fields,
+                    "primary_participants": primary,
+                    "others_count": others,
+                    "rebuilt_at": _norm_ts(r.get("updated_at"))}
+    return out
 
 
 async def stories_feed(db, chat_id: int, *, cursor: int = 0,
@@ -186,7 +223,8 @@ async def stories_feed(db, chat_id: int, *, cursor: int = 0,
     rows = rows[:limit]
     story_ids = [_entity_story_id(r) for r in rows]
     titles = await EpisodeRepository(db).stories_titles(story_ids)
-    events = [_feed_item(r, titles) for r in rows]
+    display = await _stories_display(db, story_ids)
+    events = [_feed_item(r, titles, display) for r in rows]
     # Дедуп по id (защита от дублей на границе курсора) + монотонный курсор.
     seen: set[int] = set()
     deduped: list[dict] = []

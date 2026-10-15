@@ -35,6 +35,16 @@ asyncpg) — только SELECT; каждая секция fail-soft → `unava
 """
 from __future__ import annotations
 
+import sys
+from pathlib import Path
+
+# REV-W3PRE N2: запуск из корня репо без PYTHONPATH (прецедент
+# config_snapshot_diff.py) — иначе `ModuleNotFoundError: No module named
+# 'config'`; ломает задокументированный прод-прогон Wave 4.
+ROOT = Path(__file__).resolve().parent.parent
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
 import argparse
 import asyncio
 import json

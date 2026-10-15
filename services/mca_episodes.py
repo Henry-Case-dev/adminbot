@@ -793,6 +793,18 @@ class EpisodeRepository:
         return {str(r["story_id"]): str(r.get("title") or "")
                 for r in rows}
 
+    async def stories_rows(self, story_ids: list[str]) -> list[dict]:
+        """Полные строки историй для read-проекций (REV-W3PRE N1: лента
+        обязана использовать те же честные display-правила, что карточки).
+        Fail-open — без записей."""
+        if not story_ids:
+            return []
+        bounded = [str(s) for s in dict.fromkeys(story_ids)][:100]
+        placeholders = ",".join("?" * len(bounded))
+        return await self._fetch_all(
+            f"SELECT * FROM mca_stories "
+            f"WHERE story_id IN ({placeholders})", tuple(bounded))
+
     # ── записи (write_transaction, короткие) ──────────────────────────────
 
     async def insert_episode(self, *, chat_id: int, title: str, summary: str,

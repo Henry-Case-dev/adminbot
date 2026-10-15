@@ -39,6 +39,7 @@ from services.web_stories import (
     _story_dto,
     _table_row,
     build_original,
+    stories_feed,
     story_card,
     story_timeline,
 )
@@ -614,4 +615,80 @@ class TestInsufficientSourcesAndBackfill:
         dto = _story_dto(stories[0])
         assert dto["content_status"] == CONTENT_INSUFFICIENT
         assert dto["display_title"] == "Не удалось восстановить сюжет"
+        await db.close()
+
+
+class TestFeedHonestDisplayRevW3preN1:
+    """REGRESSION (REV-W3PRE N1): лента обязана использовать те же честные
+    display-правила, что карточки — легаси-цифровая заглушка «Эпизод 1780…»
+    не уходит в ленту как факт; content_status/участники/rebuilt_at
+    прилагаются. TEST-LIFECYCLE: REGRESSION owner=REQ-B08."""
+
+    @pytest.mark.asyncio
+    async def test_feed_sanitizes_stub_title_and_carries_display(self, tmp_path):
+        db = await _db(tmp_path)
+        now = _NOW
+        await db.db.execute(
+            "INSERT INTO mca_stories (story_id, chat_id, title, summary, "
+            "participants_json, event_start_ts, event_end_ts, discovered_at, "
+            "updated_at, claims_json, outcome, open_questions, state) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            ("story-stub-1", CHAT, "Эпизод 1780000000", "",
+             json.dumps([f"участник{i}" for i in range(7)]),
+             T_OLD, T_OLD + 600, now - 3600, now, "[]", "", "", "open"))
+        await db.db.execute(
+            "INSERT INTO mca_events (ts, level, event_name, outcome, "
+            "chat_id, component, stage, entity_ids) "
+            "VALUES (?, 'info', 'story_rebuilt', 'ok', ?, 'mca_episodes', "
+            "'story', ?)",
+            (now - 1800, CHAT,
+             json.dumps({"story_id": "story-stub-1", "episode_ids": ["e1"],
+                         "summary": "", "participants": [], "event_start":
+                         None, "event_end": None, "discovered_at": None})))
+        await db.db.commit()
+
+        feed = await stories_feed(db, CHAT)
+        events = feed.get("events") or []
+        assert events, "событие ленты должно присутствовать"
+        item = events[0]
+        # Цифровая заглушка НЕ показывается как факт:
+        assert item["title"] != "Эпизод 1780000000"
+        assert item["content_status"] == "insufficient_sources"
+        assert item["display_summary"]  # честная метка вместо пустоты
+        # Участники: ключевые ≤5 + others_count; rebuilt_at не фальшивый 1970:
+        assert len(item["primary_participants"]) <= 5
+        assert item["others_count"] == 2
+        assert item["rebuilt_at"] in (None, now)
+        await db.close()
+
+    @pytest.mark.asyncio
+    async def test_feed_ready_title_passes_through(self, tmp_path):
+        db = await _db(tmp_path)
+        now = _NOW
+        await db.db.execute(
+            "INSERT INTO mca_stories (story_id, chat_id, title, summary, "
+            "participants_json, event_start_ts, event_end_ts, discovered_at, "
+            "updated_at, claims_json, outcome, open_questions, state) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            ("story-ok-1", CHAT, "Сервер переезжает в новую зону",
+             "обсудили переезд", json.dumps(["Аня", "Борис"]),
+             T_OLD, T_OLD + 60, now - 3600, now, "[]", "", "", "open"))
+        await db.db.execute(
+            "INSERT INTO mca_events (ts, level, event_name, outcome, "
+            "chat_id, component, stage, entity_ids) "
+            "VALUES (?, 'info', 'story_discovered', 'ok', ?, 'mca_episodes', "
+            "'story', ?)",
+            (now - 1800, CHAT,
+             json.dumps({"story_id": "story-ok-1", "episode_ids": ["e2"],
+                         "summary": "обсудили переезд", "participants": [],
+                         "event_start": None, "event_end": None,
+                         "discovered_at": None})))
+        await db.db.commit()
+
+        feed = await stories_feed(db, CHAT)
+        item = (feed.get("events") or [])[0]
+        assert item["title"] == "Сервер переезжает в новую зону"
+        assert item["content_status"] == "ready"
+        assert item["primary_participants"] == ["Аня", "Борис"]
+        assert item["others_count"] == 0
         await db.close()
