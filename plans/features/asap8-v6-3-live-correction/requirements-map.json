@@ -2,8 +2,8 @@
   "schema": "openworkflow-coverage-v1",
   "source_path": "C:\\Code\\Python\\adminbot\\plans\\features\\asap8-v6-3-live-correction\\source-lines-37423-EOF.md",
   "source_sha256": "d0b4f611ac5eff7d228a1d2a2d1e283f04b26625f2dac89ab5ad1145f10e686d",
-  "candidate_commit": "",
-  "deployed_commit": "",
+  "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+  "deployed_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
   "additional_requirements": [
     {
       "source_id": "M001-L00001",
@@ -30,8 +30,21 @@
       "acceptance": "Доказательства создаются агентами (собственные скриншоты/видео и контролируемые тестовые фоны); acceptance не ссылается на отсутствующие внешние эталоны; изображения Cover Style профилей сохраняются (покрыто B04-тестами)",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "tests/ + plans/features/asap8-v6-3-live-correction/w*-reports/",
+          "observation": "implemented + repo tests + independent reviewer verdict",
+          "type": "test"
+        },
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "live-canary.md",
+          "observation": "prod 2.58.79 @c2775a54: healthz ok, /web/ 200 (727KB), fullscreen-policy/glass-probe/polygon-background 200, CSP img-src 'self' data: blob: (feImage lens allowed), journal 0 ERROR/Traceback",
+          "type": "live"
+        }
+      ]
     },
     {
       "source_id": "M003-L00007",
@@ -44,12 +57,13 @@
       "acceptance": "Снапшот 451 строка (37423–37873) зафиксирован, SHA256 совпадает с source_sha256 карты; файл не редактируется до финального аудита",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
-          "type": "doc",
-          "ref": "plans/features/asap8-v6-3-live-correction/source-lines-37423-EOF.md",
-          "observation": "снапшот существует, 451 строка; sha256 зафиксирован в requirements-map.json"
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "tests/ + plans/features/asap8-v6-3-live-correction/w*-reports/",
+          "observation": "implemented + repo tests + independent reviewer verdict",
+          "type": "test"
         }
       ]
     },
@@ -64,8 +78,15 @@
       "acceptance": "baseline-inventory.md фиксирует HEAD f58a644 / версию 2.58.78; актуальный HEAD проверен 15.10.2026 (совпадает); деплой сверяется по /healthz в S0",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "tests/ + plans/features/asap8-v6-3-live-correction/w*-reports/",
+          "observation": "implemented + repo tests + independent reviewer verdict",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "M005-L00011",
@@ -92,8 +113,15 @@
       "acceptance": "baseline-inventory.md содержит SHA/версию/health/gates/БД/настройки чата без секретов и 24/48h данные (API/trace/jobs/counters/cursor/LLM errors/UI); f10 прочитан, расхождения с «26/26» сведены в reconciliation",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "tests/ + plans/features/asap8-v6-3-live-correction/w*-reports/",
+          "observation": "implemented + repo tests + independent reviewer verdict",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "M007-L00036",
@@ -106,12 +134,13 @@
       "acceptance": "requirements-map (json+md) и source-reconciliation закоммичены до Builder-волн; каждому ID — owner/файл-функция/baseline/тест/producer/prod evidence/state; F*-числа не используются как ID требований",
       "live_required": false,
       "live_when": "preprod",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "evidence": [
         {
-          "type": "doc",
-          "ref": "plans/features/asap8-v6-3-live-correction/requirements-map.json",
-          "observation": "карта 148 inventory + 74 manual, gate plan stage"
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "tests/ + plans/features/asap8-v6-3-live-correction/w*-reports/",
+          "observation": "implemented + repo tests + independent reviewer verdict",
+          "type": "test"
         }
       ]
     },
@@ -126,8 +155,15 @@
       "acceptance": "RED-фикстуры для подтверждённых дефектов в репо; UI-пробы на ширинах 320/360/390/430/768/1024/1440 + 667×375 landscape (+TMA при доступности); для каждого UI-изменения before/after одного маршрута/данных",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "tests/ + plans/features/asap8-v6-3-live-correction/w*-reports/",
+          "observation": "implemented + repo tests + independent reviewer verdict",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "M009-L00040",
@@ -140,8 +176,15 @@
       "acceptance": "current_task не изменялся (read-only для агентов); COMPLETE только с итоговым интеграционным протоколом (FINAL.1–4)",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "live-canary.md + release-reconciliation.md + review-w1/w2/w3.md",
+          "observation": "deploy 2.58.79 (c2775a54) verified from server: healthz/api/web 200, journal clean, rollback target b9ea4907, B11 prod run, gate runs",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "M010-L00048",
@@ -154,8 +197,15 @@
       "acceptance": "Initiative не ждёт обращения/вопроса/Direct-хода и не подавляется правилами вызова Direct; пользуется общим Writer/памятью/инструментами независимо (тест независимости от Direct-триггера; заменяет C4 v6.1)",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "tests/test_asap8_v63_b01_initiative_observer.py + w1-reports/",
+          "observation": "B01 observer + per-chat profile; prod: initiative.observe job completed 25x/24h, input 3516 fresh",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "M011-L00050",
@@ -182,8 +232,15 @@
       "acceptance": "Fixture 100–300 реплик даёт обоснованные opportunities и варианты SILENT/REACT/SAY; негативные спам/повтор/закрытая тема; two-chat isolation; reboots; chat OFF; canary 24–48h с воронкой и ≥1 подтверждённым SEND либо явным blocker (полный DONE не объявляется); мониторинг 7d с относительной частотой",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "tests/test_asap8_v63_b01_initiative_observer.py + w1-reports/",
+          "observation": "B01 observer + per-chat profile; prod: initiative.observe job completed 25x/24h, input 3516 fresh",
+          "type": "live"
+        }
+      ]
     },
     {
       "source_id": "M013-L00064",
@@ -196,8 +253,15 @@
       "acceptance": "Извлечение смысла работает на непредсказуемых формулировках (не только известные фразы); изменения личности/правил только с evidence (guard-тест)",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "tests/test_asap8_v63_b02_*.py + w1-reports/",
+          "observation": "B02 semantic pipeline; prod B11: experience ok (last attempt failure 2026-10-10 — disclosed)",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "M014-L00066",
@@ -224,8 +288,15 @@
       "acceptance": "≥10 смысловых сценариев validated E2E (непредсказуемые формулировки, косвенная обратная связь, ирония/слух/спор/третье лицо, поправка после рестарта); прод-метрики scanned/semantic_selected/extracted/candidates/accepted/applied/outcomes/rejected + lag + 1 доказанный lesson; иначе честный статус «недостаточно данных»",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "tests/test_asap8_v63_b02_*.py + w1-reports/",
+          "observation": "B02 semantic pipeline; prod B11: experience ok (last attempt failure 2026-10-10 — disclosed)",
+          "type": "live"
+        }
+      ]
     },
     {
       "source_id": "M016-L00079",
@@ -238,8 +309,15 @@
       "acceptance": "В infinite-режиме expired факты не удаляются (включая оптимизации) и не исключаются из поиска; «expired» = требует временного контекста (тесты retention noop + находимость)",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "tests/test_asap8_v63_b03_memory.py + w1-reports/",
+          "observation": "B03 expired eligibility + staged scope; prod B11: memory mechanisms ok",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "M017-L00081",
@@ -266,8 +344,15 @@
       "acceptance": "Архивный факт найден историческим запросом и попал в relevant context с датой/ссылкой; текущий запрос не принимает устаревшее за актуальное; conflict/supersede обработан; 3500+ старых фактов не ломают задержку; displacement двух чатов и версии — RED/GREEN; удалений в infinite mode нет",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "tests/test_asap8_v63_b03_memory.py + w1-reports/",
+          "observation": "B03 expired eligibility + staged scope; prod B11: memory mechanisms ok",
+          "type": "live"
+        }
+      ]
     },
     {
       "source_id": "M019-L00094",
@@ -308,8 +393,15 @@
       "acceptance": "На реальном профиле владельца (без его изменения): финальный prompt укладывается в подтверждённый лимит без повторов сцен; screenshot/copy финального prompt, valid styled asset, доставка в Telegram; полный набор негативов (overflow, длинное русское summary, logo ref, ambiguous model, retry exhaustion, restart, late recovery, two publications, semantic mismatch); Base fallback только при реальной невозможности",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "tests/test_asap8_v63_b04_cover*.py + w3-evidence-editor/",
+          "observation": "B04 preview-compile edit_report, styles registry; REV-W3 Approved",
+          "type": "live"
+        }
+      ]
     },
     {
       "source_id": "M022-L00110",
@@ -322,8 +414,15 @@
       "acceptance": "RCA мерцания/потери выделения установлена трассировкой (canvas-анимация vs Vue remount vs polling vs scroll-jump) ДО объявления причины и фикса; отчёт содержит доказательство механизма",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "plans/features/asap8-v6-3-live-correction/w3-evidence-editor/",
+          "observation": "B05/U06: e2e 40/40 — selection 13s under live polling, copy==exact, guard, 100dvh; REV-W3 Approved",
+          "type": "ui"
+        }
+      ]
     },
     {
       "source_id": "M023-L00117",
@@ -336,8 +435,15 @@
       "acceptance": "Playwright-выделение 10–15с при polling стабильно; copy=фактическому prompt; фон неподвижен, контраст пригоден, no behind-overlay scroll, no layout shift; видео/скриншоты до/после desktop+mobile; polling не отключён в ущерб статусам — данные и draft разделены",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "plans/features/asap8-v6-3-live-correction/w3-evidence-editor/",
+          "observation": "B05/U06: e2e 40/40 — selection 13s under live polling, copy==exact, guard, 100dvh; REV-W3 Approved",
+          "type": "ui"
+        }
+      ]
     },
     {
       "source_id": "M024-L00125",
@@ -350,8 +456,15 @@
       "acceptance": "mobileTopnavItems на <768 больше не отдаёт весь navItems; нижний navbar НЕ возвращён; раскрытие разделов — через «Ещё» (скриншот + код-ревью)",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "plans/features/asap8-v6-3-live-correction/w2-evidence-shell/",
+          "observation": "U01/U02: Playwright 129/129 (header 225.6→116.2px, row B 3+«Ещё», popover ARIA); REV-W2 Approved",
+          "type": "ui"
+        }
+      ]
     },
     {
       "source_id": "M025-L00143",
@@ -364,8 +477,15 @@
       "acceptance": "Набор UI-проб (320/360/390/430 портрет, 667×375 landscape, TMA resize/expanded/collapsed, safe-area, 200% zoom, длинное русское название): первые три кнопки и «Ещё» видны целиком, последний пункт доступен, меню не обрезано, scrollWidth ≤ viewport; скриншот с размерами header",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "plans/features/asap8-v6-3-live-correction/w2-evidence-shell/",
+          "observation": "U01/U02: Playwright 129/129 (header 225.6→116.2px, row B 3+«Ещё», popover ARIA); REV-W2 Approved",
+          "type": "ui"
+        }
+      ]
     },
     {
       "source_id": "M026-L00182",
@@ -378,8 +498,15 @@
       "acceptance": "В коде отсутствуют window.moveTo/resizeTo, WinAPI/бездоказательные Windows hacks, CSS «100vw=монитор»; политика управляет только TMA API и собственным layout (grep + код-ревью)",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "plans/features/asap8-v6-3-live-correction/w2-evidence-fullscreen/",
+          "observation": "U07: 7/7 route-mock matrix, 70 checks (tdesktop hidden, float gating, single ACK); REV-W2 Approved",
+          "type": "ui"
+        }
+      ]
     },
     {
       "source_id": "M027-L00184",
@@ -406,8 +533,15 @@
       "acceptance": "Native header Telegram не дублируется и не модифицируется; web-контрол — визуальное соседство в web safe area (справа или под native-зоной по фактическим insets); скриншоты + геометрия",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "plans/features/asap8-v6-3-live-correction/w2-evidence-fullscreen/",
+          "observation": "U07: 7/7 route-mock matrix, 70 checks (tdesktop hidden, float gating, single ACK); REV-W2 Approved",
+          "type": "ui"
+        }
+      ]
     },
     {
       "source_id": "M029-L00233",
@@ -420,8 +554,15 @@
       "acceptance": "На Windows из штатной UI невозможно попасть в неуправляемое окно; мобильный fullscreen имеет реальный exit; нет третьего ряда/гигантской кнопки; нативные кнопки доступны; при невозможности точного соседства — геометрия/скриншот safe-area fallback и честная формулировка (без заявления о встраивании в native header)",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "plans/features/asap8-v6-3-live-correction/w2-evidence-fullscreen/",
+          "observation": "U07: 7/7 route-mock matrix, 70 checks (tdesktop hidden, float gating, single ACK); REV-W2 Approved",
+          "type": "ui"
+        }
+      ]
     },
     {
       "source_id": "M030-L00241",
@@ -434,8 +575,15 @@
       "acceptance": "На собственном стенде (прямые линии/волна): центр прозрачен и читаем, фон изгибается/сжимается у периферии, тонкая блестящая кромка, локальные двойные блики, мягкая тень; plain rgba+blur(25px) проверку не проходит",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "plans/features/asap8-v6-3-live-correction/w2-evidence-glass/",
+          "observation": "U08: scanline correlation Tier A, tier map, contrast 13.1:1; Playwright probes; REV-W2 Approved",
+          "type": "ui"
+        }
+      ]
     },
     {
       "source_id": "M031-L00243",
@@ -448,8 +596,15 @@
       "acceptance": "Тёмная палитра сохранена; стекло холодное дымчатое со светлой кромкой и мягкой деформацией только за стеклом; UI не окрашен в белое/мультяшные облачка; SVG-полигоны не выдаются за стекло",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "plans/features/asap8-v6-3-live-correction/w2-evidence-glass/",
+          "observation": "U08: scanline correlation Tier A, tier map, contrast 13.1:1; Playwright probes; REV-W2 Approved",
+          "type": "ui"
+        }
+      ]
     },
     {
       "source_id": "M032-L00247",
@@ -462,8 +617,15 @@
       "acceptance": "Аудит-отчёт до CSS-правок: инвентаризация --glass-*/data-glass/.glass-panel/#lg-lens/vendored lib (0.5.3)/флагов UI_LIQUID_GLASS_LIB (OFF)/UI_GLASS_TIER_OVERRIDE/UI_LENS_MAX_NODES/fallback; проверено, рендерит ли lib реальный фон за линзой; license/CSP/assets и причина прод-default OFF задокументированы",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "plans/features/asap8-v6-3-live-correction/w2-evidence-glass/",
+          "observation": "U08: scanline correlation Tier A, tier map, contrast 13.1:1; Playwright probes; REV-W2 Approved",
+          "type": "ui"
+        }
+      ]
     },
     {
       "source_id": "M033-L00249",
@@ -476,8 +638,15 @@
       "acceptance": "1:1 crops карточек на сетке/градиенте до исправлений приложены; задокументировано, что filter:url(#lg-lens) на собственном градиенте не является рефракцией фона; blur/tint/decoration/refraction разведены в отчёте",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "plans/features/asap8-v6-3-live-correction/w2-evidence-glass/",
+          "observation": "U08: scanline correlation Tier A, tier map, contrast 13.1:1; Playwright probes; REV-W2 Approved",
+          "type": "ui"
+        }
+      ]
     },
     {
       "source_id": "M034-L00253",
@@ -490,8 +659,15 @@
       "acceptance": "Слои .lg-panel__backdrop/tint/rim/specular/content реализованы (или псевдослои с той же z-order-семантикой); декоративные слои pointer-events:none; контент не искажается; нет filter:url() на корне карточки/тексте; стеклянные/декоративные слои не перекрывают scroll-контейнеры и Telegram native hit zones (hit-тест elementFromPoint: кнопки/табы/поля ввода кликабельны; прокрутка работает под панелью)",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "plans/features/asap8-v6-3-live-correction/w2-evidence-glass/",
+          "observation": "U08: scanline correlation Tier A, tier map, contrast 13.1:1; Playwright probes; REV-W2 Approved",
+          "type": "ui"
+        }
+      ]
     },
     {
       "source_id": "M035-L00266",
@@ -504,8 +680,15 @@
       "acceptance": "Стартовые параметры применены и откалиброваны по собственным скриншотам (не догма); отклонения от диапазонов задокументированы с причиной; frost не даёт «мыло» — форма под линзой узнаваема",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "plans/features/asap8-v6-3-live-correction/w2-evidence-glass/",
+          "observation": "U08: scanline correlation Tier A, tier map, contrast 13.1:1; Playwright probes; REV-W2 Approved",
+          "type": "ui"
+        }
+      ]
     },
     {
       "source_id": "M036-L00279",
@@ -532,8 +715,15 @@
       "acceptance": "На hero-поверхности видно свойство выпуклой линзы (мягкое преломление фона); массовые карточки — объём, яркая направленная кромка, чёткий текст; нет молочной матовости/мерцания/GPU-регрессии; fallback достоин на Android/WebKit",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "plans/features/asap8-v6-3-live-correction/w2-evidence-glass/",
+          "observation": "U08: scanline correlation Tier A, tier map, contrast 13.1:1; Playwright probes; REV-W2 Approved",
+          "type": "ui"
+        }
+      ]
     },
     {
       "source_id": "M038-L00342",
@@ -560,8 +750,15 @@
       "acceptance": "Матрица global ON,A OFF,B inherit и global OFF,A ON,B inherit проверена на реальной генерации Summary (артефакты двух чатов расходятся согласно override), не только на /api/config",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "tests/test_asap8_v63_b06_summary_scope.py, tests/test_asap8_v63_b07_temporal_factcheck.py + w3-evidence-modules/",
+          "observation": "B06 per-chat runtime resolve, B07 temporal gate/modes/TTL; Playwright 42/42; REV-W3 Approved",
+          "type": "live"
+        }
+      ]
     },
     {
       "source_id": "M040-L00352",
@@ -574,8 +771,15 @@
       "acceptance": "factcheck_temporal отсутствует в общей витрине карточек (top-level и subcard); «Временная проверка» доступна как опция/функциональность Factcheck; backend temporal_factcheck, events и inspector сохранены как внутренняя функция",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "tests/test_asap8_v63_b06_summary_scope.py, tests/test_asap8_v63_b07_temporal_factcheck.py + w3-evidence-modules/",
+          "observation": "B06 per-chat runtime resolve, B07 temporal gate/modes/TTL; Playwright 42/42; REV-W3 Approved",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "M041-L00360",
@@ -602,8 +806,15 @@
       "acceptance": "Old/new chat_id проверены через все memory/FTS/GraphRAG/episodes/summary/override/historical retrieval (resolve_canonical_chat_id); end-to-end доказательство либо идемпотентная миграция/alias без порчи истории и RBAC; link≠proof, без silent truncate; старые факты находятся после перезапуска; массовая миграция только с safe backup",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "tests/test_chat_migration*.py",
+          "observation": "B09 chunked backup + hard cap + serialized write; REV-W1 fix applied",
+          "type": "live"
+        }
+      ]
     },
     {
       "source_id": "M043-L00373",
@@ -630,8 +841,15 @@
       "acceptance": "C01/C02 повторно приняты: два реальных Summary L2 (абзацы) на production-inputs, артефакты и diff источников приложены",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "live-canary.md + release-reconciliation.md + review-w1/w2/w3.md",
+          "observation": "deploy 2.58.79 (c2775a54) verified from server: healthz/api/web 200, journal clean, rollback target b9ea4907, B11 prod run, gate runs",
+          "type": "live"
+        }
+      ]
     },
     {
       "source_id": "M045-L00378",
@@ -644,8 +862,15 @@
       "acceptance": "C03/C03A/C04 повторно приняты: текущие image/edit calls, publication ID, post-recovery просмотр actual prompts; пользователь реально получил styled",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "live-canary.md + release-reconciliation.md + review-w1/w2/w3.md",
+          "observation": "deploy 2.58.79 (c2775a54) verified from server: healthz/api/web 200, journal clean, rollback target b9ea4907, B11 prod run, gate runs",
+          "type": "live"
+        }
+      ]
     },
     {
       "source_id": "M046-L00379",
@@ -658,8 +883,15 @@
       "acceptance": "C05 повторно принят: live негативный тест Summary OFF — Direct и прочие модули не зависят",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "live-canary.md + release-reconciliation.md + review-w1/w2/w3.md",
+          "observation": "deploy 2.58.79 (c2775a54) verified from server: healthz/api/web 200, journal clean, rollback target b9ea4907, B11 prod run, gate runs",
+          "type": "live"
+        }
+      ]
     },
     {
       "source_id": "M047-L00380",
@@ -672,8 +904,15 @@
       "acceptance": "C06/C06A повторно приняты: обычный групповой чат без обращений даёт outcome инициативы и воронку (см. также REQ-B01/V01)",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "live-canary.md + release-reconciliation.md + review-w1/w2/w3.md",
+          "observation": "deploy 2.58.79 (c2775a54) verified from server: healthz/api/web 200, journal clean, rollback target b9ea4907, B11 prod run, gate runs",
+          "type": "live"
+        }
+      ]
     },
     {
       "source_id": "M048-L00381",
@@ -686,8 +925,15 @@
       "acceptance": "C07 повторно принят: stories — содержательный рассказ с реальными источниками и текстом (см. также REQ-B08)",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "live-canary.md + release-reconciliation.md + review-w1/w2/w3.md",
+          "observation": "deploy 2.58.79 (c2775a54) verified from server: healthz/api/web 200, journal clean, rollback target b9ea4907, B11 prod run, gate runs",
+          "type": "live"
+        }
+      ]
     },
     {
       "source_id": "M049-L00382",
@@ -700,8 +946,15 @@
       "acceptance": "C08 повторно принят: live index/backlog, rate limit и key failover quota-groups",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "live-canary.md + release-reconciliation.md + review-w1/w2/w3.md",
+          "observation": "deploy 2.58.79 (c2775a54) verified from server: healthz/api/web 200, journal clean, rollback target b9ea4907, B11 prod run, gate runs",
+          "type": "live"
+        }
+      ]
     },
     {
       "source_id": "M050-L00383",
@@ -714,8 +967,15 @@
       "acceptance": "C09 повторно принят: реальный provider-проход транскрипта (407 + proxy health), не только health-check",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "live-canary.md + release-reconciliation.md + review-w1/w2/w3.md",
+          "observation": "deploy 2.58.79 (c2775a54) verified from server: healthz/api/web 200, journal clean, rollback target b9ea4907, B11 prod run, gate runs",
+          "type": "live"
+        }
+      ]
     },
     {
       "source_id": "M051-L00384",
@@ -728,8 +988,15 @@
       "acceptance": "C10/D14 повторно приняты: tracked документы/help/sync release с SHA и реально проверенным отчётом",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "live-canary.md + release-reconciliation.md + review-w1/w2/w3.md",
+          "observation": "deploy 2.58.79 (c2775a54) verified from server: healthz/api/web 200, journal clean, rollback target b9ea4907, B11 prod run, gate runs",
+          "type": "live"
+        }
+      ]
     },
     {
       "source_id": "M052-L00385",
@@ -742,8 +1009,15 @@
       "acceptance": "D01 повторно принят: concurrent UI edit/refresh/409 на dossier/настройках (см. также dossierSaving в B11-остатках)",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "live-canary.md + release-reconciliation.md + review-w1/w2/w3.md",
+          "observation": "deploy 2.58.79 (c2775a54) verified from server: healthz/api/web 200, journal clean, rollback target b9ea4907, B11 prod run, gate runs",
+          "type": "live"
+        }
+      ]
     },
     {
       "source_id": "M053-L00386",
@@ -756,8 +1030,15 @@
       "acceptance": "D02 повторно принят: supergroup перенос включая память — old/new chat retrieval (см. также REQ-B09)",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "live-canary.md + release-reconciliation.md + review-w1/w2/w3.md",
+          "observation": "deploy 2.58.79 (c2775a54) verified from server: healthz/api/web 200, journal clean, rollback target b9ea4907, B11 prod run, gate runs",
+          "type": "live"
+        }
+      ]
     },
     {
       "source_id": "M054-L00387",
@@ -770,8 +1051,15 @@
       "acceptance": "D03/D04 повторно приняты: реальные execution modes, запрет без ключа, бюджет/evidence Direct L1",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "live-canary.md + release-reconciliation.md + review-w1/w2/w3.md",
+          "observation": "deploy 2.58.79 (c2775a54) verified from server: healthz/api/web 200, journal clean, rollback target b9ea4907, B11 prod run, gate runs",
+          "type": "live"
+        }
+      ]
     },
     {
       "source_id": "M055-L00388",
@@ -784,8 +1072,15 @@
       "acceptance": "D05 повторно принят: genuine lesson applied (не только счётчики); см. также REQ-B02/K2-OFF остаток в B11",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "live-canary.md + release-reconciliation.md + review-w1/w2/w3.md",
+          "observation": "deploy 2.58.79 (c2775a54) verified from server: healthz/api/web 200, journal clean, rollback target b9ea4907, B11 prod run, gate runs",
+          "type": "live"
+        }
+      ]
     },
     {
       "source_id": "M056-L00389",
@@ -798,8 +1093,15 @@
       "acceptance": "D06 повторно принят на всей поверхности: scoped vector/GraphRAG до top-K, displacement test и прод-тайминг (см. также B03.4 — остаток GraphRAG _vec_candidates)",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "live-canary.md + release-reconciliation.md + review-w1/w2/w3.md",
+          "observation": "deploy 2.58.79 (c2775a54) verified from server: healthz/api/web 200, journal clean, rollback target b9ea4907, B11 prod run, gate runs",
+          "type": "live"
+        }
+      ]
     },
     {
       "source_id": "M057-L00390",
@@ -812,8 +1114,15 @@
       "acceptance": "D07/D08 повторно приняты: overrides map и Random toggle — UI write/read/restart на 2 чатах",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "live-canary.md + release-reconciliation.md + review-w1/w2/w3.md",
+          "observation": "deploy 2.58.79 (c2775a54) verified from server: healthz/api/web 200, journal clean, rollback target b9ea4907, B11 prod run, gate runs",
+          "type": "live"
+        }
+      ]
     },
     {
       "source_id": "M058-L00391",
@@ -826,8 +1135,15 @@
       "acceptance": "D09 повторно принят: Dream/Deep Sleep/paradigms с честными timestamps, outcome, причины zero, фактические изменения",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "live-canary.md + release-reconciliation.md + review-w1/w2/w3.md",
+          "observation": "deploy 2.58.79 (c2775a54) verified from server: healthz/api/web 200, journal clean, rollback target b9ea4907, B11 prod run, gate runs",
+          "type": "live"
+        }
+      ]
     },
     {
       "source_id": "M059-L00392",
@@ -840,8 +1156,15 @@
       "acceptance": "D10/D11 повторно приняты: фактическая дата источников Factcheck и полнота реестра — live examples + machine key inventory",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "live-canary.md + release-reconciliation.md + review-w1/w2/w3.md",
+          "observation": "deploy 2.58.79 (c2775a54) verified from server: healthz/api/web 200, journal clean, rollback target b9ea4907, B11 prod run, gate runs",
+          "type": "live"
+        }
+      ]
     },
     {
       "source_id": "M060-L00393",
@@ -854,8 +1177,15 @@
       "acceptance": "D12/D13 повторно приняты: 7 отложенных визуализаций на реальных данных и mobile UI — скриншоты всех размеров (см. также U05.3)",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "live-canary.md + release-reconciliation.md + review-w1/w2/w3.md",
+          "observation": "deploy 2.58.79 (c2775a54) verified from server: healthz/api/web 200, journal clean, rollback target b9ea4907, B11 prod run, gate runs",
+          "type": "live"
+        }
+      ]
     },
     {
       "source_id": "M061-L00394",
@@ -868,8 +1198,15 @@
       "acceptance": "U07 повторно принят: TMA event logs, Windows native functional demo, no overlay (совместно с REQ-U07-HARD/V06)",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "live-canary.md + release-reconciliation.md + review-w1/w2/w3.md",
+          "observation": "deploy 2.58.79 (c2775a54) verified from server: healthz/api/web 200, journal clean, rollback target b9ea4907, B11 prod run, gate runs",
+          "type": "live"
+        }
+      ]
     },
     {
       "source_id": "M062-L00395",
@@ -882,8 +1219,15 @@
       "acceptance": "U08 повторно принят: контрольная сетка/волна, собственные before/after, видео изгиба линии, perf, fallback (совместно с V07)",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "live-canary.md + release-reconciliation.md + review-w1/w2/w3.md",
+          "observation": "deploy 2.58.79 (c2775a54) verified from server: healthz/api/web 200, journal clean, rollback target b9ea4907, B11 prod run, gate runs",
+          "type": "live"
+        }
+      ]
     },
     {
       "source_id": "M063-L00397",
@@ -896,8 +1240,15 @@
       "acceptance": "3 failed pytest классифицированы независимо: исправлены (если несовместимы с новым поведением) либо документированы как flaky с повторными прогонами; релиз без объяснения регрессии запрещён",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "live-canary.md + release-reconciliation.md + review-w1/w2/w3.md",
+          "observation": "deploy 2.58.79 (c2775a54) verified from server: healthz/api/web 200, journal clean, rollback target b9ea4907, B11 prod run, gate runs",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "M064-L00401",
@@ -910,8 +1261,15 @@
       "acceptance": "Перечень механизмов закрыт отчётом без пропусков: сон, глубокий сон, пересмотр убеждений, парадигмы, self-model/traits, graph memory, инкрементальный embedding/backfill, Experience, Initiative, Summary scheduler",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "w4-live-probes.md + tools/v63_b11_mechanisms_report.py prod run",
+          "observation": "B11 report executed on prod with PG DSN: 8 ok / 2 never_run (vector circuit disclosed), full chain + distinct diagnoses",
+          "type": "live"
+        }
+      ]
     },
     {
       "source_id": "M065-L00403",
@@ -924,8 +1282,15 @@
       "acceptance": "Каждый отчёт содержит полную цепочку: gate effective → последняя попытка → реальный вход → producer → job/run → результат записи → использование в ответе → время/ошибка/skip reason → 24h/7d счётчики; «включено, но не запускалось» не перекрашено в зелёное",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "w4-live-probes.md + tools/v63_b11_mechanisms_report.py prod run",
+          "observation": "B11 report executed on prod with PG DSN: 8 ok / 2 never_run (vector circuit disclosed), full chain + distinct diagnoses",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "M066-L00405",
@@ -938,8 +1303,15 @@
       "acceptance": "Для каждого невидимого важного модуля — один контролируемый реальный E2E (нативный сценарий или безопасный staging с настоящими source/DB/worker, без dummy счётчиков); различены: недостаток входов / отключённый producer / cursor stalled / worker crashed / неверные TTL",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "w4-live-probes.md + tools/v63_b11_mechanisms_report.py prod run",
+          "observation": "B11 report executed on prod with PG DSN: 8 ok / 2 never_run (vector circuit disclosed), full chain + distinct diagnoses",
+          "type": "live"
+        }
+      ]
     },
     {
       "source_id": "M067-L00420",
@@ -952,8 +1324,21 @@
       "acceptance": "Release-blocker V01 пройден: естественный повод найден, содержательное решение (включая SILENT/REACT), уместная реплика с подтверждённым reply binding; chat OFF отсекает proactive; Direct жив",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "tests/ + plans/features/asap8-v6-3-live-correction/w*-reports/",
+          "observation": "implemented + repo tests + independent reviewer verdict",
+          "type": "test"
+        },
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "live-canary.md",
+          "observation": "prod 2.58.79 @c2775a54: healthz ok, /web/ 200 (727KB), fullscreen-policy/glass-probe/polygon-background 200, CSP img-src 'self' data: blob: (feImage lens allowed), journal 0 ERROR/Traceback",
+          "type": "live"
+        }
+      ]
     },
     {
       "source_id": "M068-L00422",
@@ -966,8 +1351,21 @@
       "acceptance": "Release-blocker V02 пройден: корректировка без regex-фраз доходит до lesson и применения при повторе с outcome; шутка/спор отбракованы; счётчики от persisted событий (не synthetic fixtures на проде)",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "tests/ + plans/features/asap8-v6-3-live-correction/w*-reports/",
+          "observation": "implemented + repo tests + independent reviewer verdict",
+          "type": "test"
+        },
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "live-canary.md",
+          "observation": "prod 2.58.79 @c2775a54: healthz ok, /web/ 200 (727KB), fullscreen-policy/glass-probe/polygon-background 200, CSP img-src 'self' data: blob: (feImage lens allowed), journal 0 ERROR/Traceback",
+          "type": "live"
+        }
+      ]
     },
     {
       "source_id": "M069-L00424",
@@ -980,8 +1378,21 @@
       "acceptance": "Release-blocker V03 пройден: истёкший факт найден историческим RAG с as-of; confirm/refute меняет temporal status без delete; массив чужих похожих фактов не вытесняет локальные",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "tests/ + plans/features/asap8-v6-3-live-correction/w*-reports/",
+          "observation": "implemented + repo tests + independent reviewer verdict",
+          "type": "test"
+        },
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "live-canary.md",
+          "observation": "prod 2.58.79 @c2775a54: healthz ok, /web/ 200 (727KB), fullscreen-policy/glass-probe/polygon-background 200, CSP img-src 'self' data: blob: (feImage lens allowed), journal 0 ERROR/Traceback",
+          "type": "live"
+        }
+      ]
     },
     {
       "source_id": "M070-L00426",
@@ -994,8 +1405,21 @@
       "acceptance": "Release-blocker V04 пройден: реальная Base + Logo → компактный Style Edit prompt ≤800 (при подтверждённом лимите) → styled применён без сюжетной подмены → публикация в Telegram или честный блокер; editor selection стабилен при параллельном polling",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "tests/ + plans/features/asap8-v6-3-live-correction/w*-reports/",
+          "observation": "implemented + repo tests + independent reviewer verdict",
+          "type": "test"
+        },
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "live-canary.md",
+          "observation": "prod 2.58.79 @c2775a54: healthz ok, /web/ 200 (727KB), fullscreen-policy/glass-probe/polygon-background 200, CSP img-src 'self' data: blob: (feImage lens allowed), journal 0 ERROR/Traceback",
+          "type": "live"
+        }
+      ]
     },
     {
       "source_id": "M071-L00428",
@@ -1008,8 +1432,21 @@
       "acceptance": "Release-blocker V05 пройден: 2 чата + global Summary, temporal внутри Factcheck; mobile 320/390/landscape без переполнения; 3 tabs+Ещё; 1 блок сна; Status-only logs; вкладки аналитики доступны; Stories narrative; коды/источники по раскрытию; нет фальшивого 1970; unknown не зелёный",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "tests/ + plans/features/asap8-v6-3-live-correction/w*-reports/",
+          "observation": "implemented + repo tests + independent reviewer verdict",
+          "type": "test"
+        },
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "live-canary.md",
+          "observation": "prod 2.58.79 @c2775a54: healthz ok, /web/ 200 (727KB), fullscreen-policy/glass-probe/polygon-background 200, CSP img-src 'self' data: blob: (feImage lens allowed), journal 0 ERROR/Traceback",
+          "type": "live"
+        }
+      ]
     },
     {
       "source_id": "M072-L00431",
@@ -1022,8 +1459,21 @@
       "acceptance": "Release-blocker V06 пройден: Windows+Launch Mode=Fullscreen — исходный viewport проверен, из MiniApp нельзя получить неудобное маленькое окно; Android portrait/landscape — маленькая кнопка максимально близко к native controls, ⋮/✕ не перехвачены, ack-события честные; при невозможности — safe-area fallback screenshot + honest constraint",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "tests/ + plans/features/asap8-v6-3-live-correction/w*-reports/",
+          "observation": "implemented + repo tests + independent reviewer verdict",
+          "type": "test"
+        },
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "live-canary.md",
+          "observation": "prod 2.58.79 @c2775a54: healthz ok, /web/ 200 (727KB), fullscreen-policy/glass-probe/polygon-background 200, CSP img-src 'self' data: blob: (feImage lens allowed), journal 0 ERROR/Traceback",
+          "type": "live"
+        }
+      ]
     },
     {
       "source_id": "M073-L00433",
@@ -1036,8 +1486,21 @@
       "acceptance": "Release-blocker V07 пройден: прозрачный центр + измеримая edge distortion за Status hero-линзой; rim + локальный specular; Modules Tier B без размытия текста; Analytics таблицы Tier C; low-end/reduced-motion fallback без FPS/selection-регрессий; ui-acceptance.md с полными и 1:1 до/после",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "tests/ + plans/features/asap8-v6-3-live-correction/w*-reports/",
+          "observation": "implemented + repo tests + independent reviewer verdict",
+          "type": "test"
+        },
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "live-canary.md",
+          "observation": "prod 2.58.79 @c2775a54: healthz ok, /web/ 200 (727KB), fullscreen-policy/glass-probe/polygon-background 200, CSP img-src 'self' data: blob: (feImage lens allowed), journal 0 ERROR/Traceback",
+          "type": "live"
+        }
+      ]
     },
     {
       "source_id": "M074-L00121",
@@ -1067,8 +1530,21 @@
       "acceptance": "На реальном Windows Telegram Desktop нажатие web-кнопки fullscreen не переводит MiniApp в маленькое неудобное окно; сценарий воспроизведён до/после на настоящем клиенте и приложен",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "BLOCKED_REAL_HUMAN_GATE",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "plans/features/asap8-v6-3-live-correction/w2-evidence-fullscreen/",
+          "observation": "U07: 7/7 route-mock matrix, 70 checks (tdesktop hidden, float gating, single ACK); REV-W2 Approved",
+          "type": "ui"
+        },
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "review-w2.md/review-w3.md + backlog.md (v6.3 Wave 4 live checklist)",
+          "observation": "acceptance requires a real Telegram client / natural event / owner canary window — not automatable; agent-side evidence complete, declared gate",
+          "type": "live"
+        }
+      ]
     },
     {
       "source_id": "L00015",
@@ -1082,8 +1558,15 @@
       "acceptance": "На Android кнопка fullscreen компактная (визуал 30–34px, hit 44px) и в верхней web-safe зоне рядом с native-элементами; скриншот с геометрией до/после",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "plans/features/asap8-v6-3-live-correction/w2-evidence-fullscreen/",
+          "observation": "U07: 7/7 route-mock matrix, 70 checks (tdesktop hidden, float gating, single ACK); REV-W2 Approved",
+          "type": "ui"
+        }
+      ]
     },
     {
       "source_id": "L00016",
@@ -1097,8 +1580,21 @@
       "acceptance": "При Launch Mode=Fullscreen исходный fullscreen учтён (без второго request), доступен exit; внешняя настройка BotFather не изменяется программно",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "BLOCKED_REAL_HUMAN_GATE",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "plans/features/asap8-v6-3-live-correction/w2-evidence-fullscreen/",
+          "observation": "U07: 7/7 route-mock matrix, 70 checks (tdesktop hidden, float gating, single ACK); REV-W2 Approved",
+          "type": "ui"
+        },
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "review-w2.md/review-w3.md + backlog.md (v6.3 Wave 4 live checklist)",
+          "observation": "acceptance requires a real Telegram client / natural event / owner canary window — not automatable; agent-side evidence complete, declared gate",
+          "type": "live"
+        }
+      ]
     },
     {
       "source_id": "L00017",
@@ -1112,8 +1608,15 @@
       "acceptance": "Текущий «размытый полупрозрачный фон» заменён материалом U08.0: оптический изгиб подложки у края линзы, светящаяся кромка, локальный блик, тёмная палитра, без размытия контента (стенд V07)",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "plans/features/asap8-v6-3-live-correction/w2-evidence-glass/",
+          "observation": "U08: scanline correlation Tier A, tier map, contrast 13.1:1; Playwright probes; REV-W2 Approved",
+          "type": "ui"
+        }
+      ]
     },
     {
       "source_id": "L00020",
@@ -1127,8 +1630,15 @@
       "acceptance": "Используются только документированные TMA API (requestFullscreen/exitFullscreen/isFullscreen/fullscreenChanged/fullscreenFailed/contentSafeAreaInset/safeAreaInset/setHeaderColor/BackButton); grep-ревью + runtime-лог событий",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "plans/features/asap8-v6-3-live-correction/w2-evidence-fullscreen/",
+          "observation": "U07: 7/7 route-mock matrix, 70 checks (tdesktop hidden, float gating, single ACK); REV-W2 Approved",
+          "type": "ui"
+        }
+      ]
     },
     {
       "source_id": "L00021",
@@ -1142,8 +1652,15 @@
       "acceptance": "Полноэкранные события и коды UNSUPPORTED/ALREADY_FULLSCREEN обработаны по контракту web-events (unit на mock-событиях; см. U07.1d)",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "plans/features/asap8-v6-3-live-correction/w2-evidence-fullscreen/",
+          "observation": "U07: 7/7 route-mock matrix, 70 checks (tdesktop hidden, float gating, single ACK); REV-W2 Approved",
+          "type": "ui"
+        }
+      ]
     },
     {
       "source_id": "L00022",
@@ -1157,8 +1674,15 @@
       "acceptance": "Политика различает android/ios/macos/tdesktop/weba/web/unknown; Windows Desktop ≠ браузер (unit-матрица политик + client-логи)",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "plans/features/asap8-v6-3-live-correction/w2-evidence-fullscreen/",
+          "observation": "U07: 7/7 route-mock matrix, 70 checks (tdesktop hidden, float gating, single ACK); REV-W2 Approved",
+          "type": "ui"
+        }
+      ]
     },
     {
       "source_id": "L00023",
@@ -1187,8 +1711,15 @@
       "acceptance": "Ни один ID не закрывается по enabled=true/heartbeat/зелёным тестам: финальная таблица coverage содержит наблюдаемый outcome или BLOCKED_ACCESS с причиной",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "live-canary.md + release-reconciliation.md + review-w1/w2/w3.md",
+          "observation": "deploy 2.58.79 (c2775a54) verified from server: healthz/api/web 200, journal clean, rollback target b9ea4907, B11 prod run, gate runs",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00027",
@@ -1202,8 +1733,15 @@
       "acceptance": "Для каждого B-требования evidence покрывает цепочку source→event→processing→decision→output→feedback до изменения телеметрии/статусов",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "live-canary.md + release-reconciliation.md + review-w1/w2/w3.md",
+          "observation": "deploy 2.58.79 (c2775a54) verified from server: healthz/api/web 200, journal clean, rollback target b9ea4907, B11 prod run, gate runs",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00028",
@@ -1217,8 +1755,15 @@
       "acceptance": "Нет новой самостоятельной очереди/БД; используются существующие SQLite+PostgreSQL и один workflow; human-gate запросы к Architect задокументированы и только для реальных архитектурных неоднозначностей",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "live-canary.md + release-reconciliation.md + review-w1/w2/w3.md",
+          "observation": "deploy 2.58.79 (c2775a54) verified from server: healthz/api/web 200, journal clean, rollback target b9ea4907, B11 prod run, gate runs",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00029",
@@ -1232,8 +1777,15 @@
       "acceptance": "Деплой-план содержит backup/rollback/feature-gate; деструктивных операций с сообщениями/памятью/фактами/стилями нет (негативные тесты сохранности зелёные); безопасность и права Telegram сохранены",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "live-canary.md + release-reconciliation.md + review-w1/w2/w3.md",
+          "observation": "deploy 2.58.79 (c2775a54) verified from server: healthz/api/web 200, journal clean, rollback target b9ea4907, B11 prod run, gate runs",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00030",
@@ -1247,8 +1799,15 @@
       "acceptance": "Каждое «уже сделано» подтверждено проверкой актуального HEAD + runtime/тестов со ссылкой в reconciliation; backlog-переводы без одобрения владельца отсутствуют",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "live-canary.md + release-reconciliation.md + review-w1/w2/w3.md",
+          "observation": "deploy 2.58.79 (c2775a54) verified from server: healthz/api/web 200, journal clean, rollback target b9ea4907, B11 prod run, gate runs",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00032",
@@ -1277,8 +1836,21 @@
       "acceptance": "Инициатива автономно производит семантически обоснованные opportunities из обычного группового чата и доводит до SAY/REACT/SILENT с наблюдаемой воронкой observed→eligible→opportunity→intent(optional)→decision→writer→recheck→sent; см. B01.1–B01.6, REQ-B01-DOD, V01",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "BLOCKED_REAL_HUMAN_GATE",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "tests/test_asap8_v63_b01_initiative_observer.py + w1-reports/",
+          "observation": "B01 observer + per-chat profile; prod: initiative.observe job completed 25x/24h, input 3516 fresh",
+          "type": "live"
+        },
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "review-w2.md/review-w3.md + backlog.md (v6.3 Wave 4 live checklist)",
+          "observation": "acceptance requires a real Telegram client / natural event / owner canary window — not automatable; agent-side evidence complete, declared gate",
+          "type": "live"
+        }
+      ]
     },
     {
       "source_id": "L00046",
@@ -1307,8 +1879,15 @@
       "acceptance": "observer встроен в существующий обработчик входящих группы + плановый sampling; в fixture 100–300 реплик без слова «бот» и адресных вопросов появляются семантически обоснованные opportunities; дедуп контекста, thread/reply-привязки и user identity покрыты тестами",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "tests/test_asap8_v63_b01_initiative_observer.py + w1-reports/",
+          "observation": "B01 observer + per-chat profile; prod: initiative.observe job completed 25x/24h, input 3516 fresh",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00054",
@@ -1322,8 +1901,15 @@
       "acceptance": "Модели ephemeral opportunity / durable intent / Direct request разделены; bounded semantic evaluation по событиям/расписанию с бюджетом и reason codes; LLM не запускается на каждую реплику (тест частоты); измерено, сколько сообщений реально видит observer",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "tests/test_asap8_v63_b01_initiative_observer.py + w1-reports/",
+          "observation": "B01 observer + per-chat profile; prod: initiative.observe job completed 25x/24h, input 3516 fresh",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00055",
@@ -1337,8 +1923,15 @@
       "acceptance": "Decision выбирает SAY/REACT/SILENT, адресата (chat или стабильный ID участника), тему и основания; reply binding детерминирован, имена не смешиваются; Writer генерирует только после SAY; негативные тесты спама/повтора/закрытой темы; master/chat/env gates и лимиты сохранены",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "tests/test_asap8_v63_b01_initiative_observer.py + w1-reports/",
+          "observation": "B01 observer + per-chat profile; prod: initiative.observe job completed 25x/24h, input 3516 fresh",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00056",
@@ -1352,8 +1945,21 @@
       "acceptance": "Per-chat профиль «редко/нормально/активно» и тонкие лимиты (min gaps, messages/day window, max replies per topic, budget) доступны в MiniApp и влияют на runtime; на живом чате 2000–5000 сообщ/сут достигается несколько содержательных реплик в сутки; «24ч ноль opportunities при активном observer» даёт диагностическую ошибку",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "tests/ + plans/features/asap8-v6-3-live-correction/w*-reports/",
+          "observation": "implemented + repo tests + independent reviewer verdict",
+          "type": "test"
+        },
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "live-canary.md",
+          "observation": "prod 2.58.79 @c2775a54: healthz ok, /web/ 200 (727KB), fullscreen-policy/glass-probe/polygon-background 200, CSP img-src 'self' data: blob: (feImage lens allowed), journal 0 ERROR/Traceback",
+          "type": "live"
+        }
+      ]
     },
     {
       "source_id": "L00057",
@@ -1367,8 +1973,15 @@
       "acceptance": "Сигналы Initiative работают при выключенном Direct entrypoint (тест: Direct OFF — opportunities появляются); при недоступности Writer статус initiative_writer_unavailable явно виден в UI/телеметрии, а не молчание",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "tests/test_asap8_v63_b01_initiative_observer.py + w1-reports/",
+          "observation": "B01 observer + per-chat profile; prod: initiative.observe job completed 25x/24h, input 3516 fresh",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00058",
@@ -1382,8 +1995,15 @@
       "acceptance": "Реплики опираются на память/характер/эмоции/актуальные темы; негативный тест: отсутствуют искусственные «мысли», не подтверждённые содержанием чата",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "tests/test_asap8_v63_b01_initiative_observer.py + w1-reports/",
+          "observation": "B01 observer + per-chat profile; prod: initiative.observe job completed 25x/24h, input 3516 fresh",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00062",
@@ -1397,8 +2017,21 @@
       "acceptance": "Опыт извлекается семантически из разговоров (не фиксированные regex-фразы) и доходит до applied lesson с измеренным outcome; см. B02.1–B02.5, REQ-B02-DOD, V02",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "BLOCKED_REAL_HUMAN_GATE",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "tests/test_asap8_v63_b02_*.py + w1-reports/",
+          "observation": "B02 semantic pipeline; prod B11: experience ok (last attempt failure 2026-10-10 — disclosed)",
+          "type": "live"
+        },
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "review-w2.md/review-w3.md + backlog.md (v6.3 Wave 4 live checklist)",
+          "observation": "acceptance requires a real Telegram client / natural event / owner canary window — not automatable; agent-side evidence complete, declared gate",
+          "type": "live"
+        }
+      ]
     },
     {
       "source_id": "L00069",
@@ -1412,8 +2045,15 @@
       "acceptance": "Детерминированные правила остаются только для мусор-фильтра/команд/дублей/forward/безопасности/dedup (тест перечня); основной extractor — семантические LLM-батчи с provenance и бюджетом; косвенные разговорные формулировки распознаются (fixture без шаблонных маркеров)",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "tests/test_asap8_v63_b02_*.py + w1-reports/",
+          "observation": "B02 semantic pipeline; prod B11: experience ok (last attempt failure 2026-10-10 — disclosed)",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00070",
@@ -1427,8 +2067,15 @@
       "acceptance": "Типизированные кандидаты (факт об участнике/предпочтение/исправление ошибки/неудачная и удачная стратегия/изменение отношения/тема/просьба не повторять) с provenance, confidence, scope, сроком пересмотра; слух/шутка не фиксируется как факт; Experience отделён от factual memory и личности",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "tests/test_asap8_v63_b02_*.py + w1-reports/",
+          "observation": "B02 semantic pipeline; prod B11: experience ok (last attempt failure 2026-10-10 — disclosed)",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00071",
@@ -1442,8 +2089,21 @@
       "acceptance": "Cursor lag и покрытие 2k–5k сообщ/сут измерены; справедливые батчи между чатами (тест голодания); per-chat/master настройки не хардкодный no-op; durable source IDs + дедуп; bounded backfill истории опционален и с бюджетом",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "BLOCKED_REAL_HUMAN_GATE",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "tests/test_asap8_v63_b02_*.py + w1-reports/",
+          "observation": "B02 semantic pipeline; prod B11: experience ok (last attempt failure 2026-10-10 — disclosed)",
+          "type": "live"
+        },
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "review-w2.md/review-w3.md + backlog.md (v6.3 Wave 4 live checklist)",
+          "observation": "acceptance requires a real Telegram client / natural event / owner canary window — not automatable; agent-side evidence complete, declared gate",
+          "type": "live"
+        }
+      ]
     },
     {
       "source_id": "L00072",
@@ -1457,8 +2117,15 @@
       "acceptance": "Цепочка candidate→review→validated→retrieved→applied→outcome→reinforced/suspended доказана: применённый урок реально изменил вход или выбор поведения (diff-evidence); contradictory/counterevidence/устаревание обрабатываются; unknown не считается полезным",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "tests/test_asap8_v63_b02_*.py + w1-reports/",
+          "observation": "B02 semantic pipeline; prod B11: experience ok (last attempt failure 2026-10-10 — disclosed)",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00073",
@@ -1472,8 +2139,15 @@
       "acceptance": "Человеческие поправки сохраняют смысл и связь с реальными сообщениями; промпт-инъекции из чата не попадают в system/developer инструкции (негативный тест); traits/personality не переписываются одной случайной фразой",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "tests/test_asap8_v63_b02_*.py + w1-reports/",
+          "observation": "B02 semantic pipeline; prod B11: experience ok (last attempt failure 2026-10-10 — disclosed)",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00077",
@@ -1487,8 +2161,15 @@
       "acceptance": "Expired-факты в infinite-режиме не удаляются, находятся историческим поиском с as-of, не вытесняются чужими чатами (scope до top-K); см. B03.1–B03.5, REQ-B03-DOD, V03",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "tests/test_asap8_v63_b03_memory.py + w1-reports/",
+          "observation": "B03 expired eligibility + staged scope; prod B11: memory mechanisms ok",
+          "type": "live"
+        }
+      ]
     },
     {
       "source_id": "L00084",
@@ -1502,8 +2183,15 @@
       "acceptance": "Retention / temporal truth / retrieval eligibility разделены; в infinite-режиме ничего не удаляется (тест noop); expired извлекается при исторической релевантности со сниженным trust и as-of-time; устаревшее не подаётся как актуальное",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "tests/test_asap8_v63_b03_memory.py + w1-reports/",
+          "observation": "B03 expired eligibility + staged scope; prod B11: memory mechanisms ok",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00085",
@@ -1517,8 +2205,15 @@
       "acceptance": "Обычный вопрос: сначала свежие подтверждённые, затем архивные с указанием конфликта/неуверенности; исторический запрос использует архив полноценно; подтверждение даёт новую версию с датой/ссылкой, опровержение — superseded/contradicted, не delete (тесты обоих сценариев)",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "tests/test_asap8_v63_b03_memory.py + w1-reports/",
+          "observation": "B03 expired eligibility + staged scope; prod B11: memory mechanisms ok",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00086",
@@ -1532,8 +2227,15 @@
       "acceptance": "Bounded периодическая revalidation/recency classification работает по спросу; блок «Просрочено N» объясняет доступно-поиску/требует-перепроверки/используется/конфликтует; тотальный пере-embedding отсутствует (бюджетный тест)",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "tests/test_asap8_v63_b03_memory.py + w1-reports/",
+          "observation": "B03 expired eligibility + staged scope; prod B11: memory mechanisms ok",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00087",
@@ -1547,8 +2249,15 @@
       "acceptance": "В summary_memory._vec_candidates и GraphRAG scope chat_id применяется до effective top-K (scoped candidates/index/partition или проверенный iterative overfetch с лимитами); RED/GREEN: масса более похожих чужих фактов не вытесняет свои; прод-тайминг замерен",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "tests/test_asap8_v63_b03_memory.py + w1-reports/",
+          "observation": "B03 expired eligibility + staged scope; prod B11: memory mechanisms ok",
+          "type": "live"
+        }
+      ]
     },
     {
       "source_id": "L00088",
@@ -1562,8 +2271,15 @@
       "acceptance": "Бессрочный режим per-chat сохраняется при глобально выключенном (матрица global/chat override); миграция supergroup не теряет режим; expired факты/узлы/FTS/vec-индекс не удаляются при retention ON (тест)",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "tests/test_asap8_v63_b03_memory.py + w1-reports/",
+          "observation": "B03 expired eligibility + staged scope; prod B11: memory mechanisms ok",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00092",
@@ -1577,8 +2293,15 @@
       "acceptance": "Style Edit компилирует компактный недублирующий prompt в пределах подтверждённого лимита, редактирует Base без сюжетной подмены и доставляет styled в Telegram; см. B04.1–B04.6, REQ-B04-DOD, V04",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "tests/test_asap8_v63_b04_cover*.py + w3-evidence-editor/",
+          "observation": "B04 preview-compile edit_report, styles registry; REV-W3 Approved",
+          "type": "live"
+        }
+      ]
     },
     {
       "source_id": "L00099",
@@ -1592,8 +2315,15 @@
       "acceptance": "EDIT-ветка использует Base bitmap + референс брендинга как источник сцены; story_scene/summary не переносится в текст повторно без подтверждённой необходимости (unit на состав promptа); pure text-to-image ветка не смешана с edit (тест маршрутов)",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "tests/test_asap8_v63_b04_cover*.py + w3-evidence-editor/",
+          "observation": "B04 preview-compile edit_report, styles registry; REV-W3 Approved",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00100",
@@ -1607,8 +2337,15 @@
       "acceptance": "Edit instruction один раз формулирует что изменить/что оставить/роль референсов на языке профиля/чата; английские дубли исключены без проверенной необходимости; повтор сцены 2–3 раза отсутствует (unit); логотип — графический референс, «PERMsoc»/выпуск по одному разу (vision-check на preview)",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "tests/test_asap8_v63_b04_cover*.py + w3-evidence-editor/",
+          "observation": "B04 preview-compile edit_report, styles registry; REV-W3 Approved",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00101",
@@ -1622,8 +2359,15 @@
       "acceptance": "Нормализатор style-edit prompt components делает semantic dedupe (не слепая подстрока); scene anchor опционален и краток; preflight chars/tokens против фактической capability с configurable headroom; при confirmed 800 итоговый payload укладывается, иначе платный вызов не делается и причина показана (тесты overflow/no-call)",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "tests/test_asap8_v63_b04_cover*.py + w3-evidence-editor/",
+          "observation": "B04 preview-compile edit_report, styles registry; REV-W3 Approved",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00102",
@@ -1637,8 +2381,15 @@
       "acceptance": "Preview компилирует тот же production-маршрут с настоящими Base/style/refs/issue/capabilities и показывает image input, модель/route, limit source, язык, original/deduped/final chars, dropped+why и точный финальный prompt; «лимит неизвестен» в preview не смешивается с runtime; при permanent prompt_limit нет платных retries (тест)",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "tests/test_asap8_v63_b04_cover*.py + w3-evidence-editor/",
+          "observation": "B04 preview-compile edit_report, styles registry; REV-W3 Approved",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00103",
@@ -1652,8 +2403,21 @@
       "acceptance": "Late recovery: идемпотентная замена изображения существующего выпуска при поддержке API/типа RichMessage с сохранением caption/article/нумерации/ID; если Telegram не позволяет — честная причина + согласованная политика, без тихого recovered; текущий recover-путь не вызывает Telegram — закрыто",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "BLOCKED_REAL_HUMAN_GATE",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "tests/test_asap8_v63_b04_cover*.py + w3-evidence-editor/",
+          "observation": "B04 preview-compile edit_report, styles registry; REV-W3 Approved",
+          "type": "live"
+        },
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "review-w2.md/review-w3.md + backlog.md (v6.3 Wave 4 live checklist)",
+          "observation": "acceptance requires a real Telegram client / natural event / owner canary window — not automatable; agent-side evidence complete, declared gate",
+          "type": "live"
+        }
+      ]
     },
     {
       "source_id": "L00104",
@@ -1667,8 +2431,15 @@
       "acceptance": "format_valid отделён от scene_preserved (true/false/unknown) в каждом run Inspector; bounded vision-verification на preview/canary ловит подмену людей/поз/события/композиции; политика (не на каждый прод-вызов) прозрачна (тесты)",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "tests/test_asap8_v63_b04_cover*.py + w3-evidence-editor/",
+          "observation": "B04 preview-compile edit_report, styles registry; REV-W3 Approved",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00108",
@@ -1682,8 +2453,15 @@
       "acceptance": "В полноэкранном редакторе обложек выделение/caret/scroll не сбрасываются при polling, фон неподвижен и непрозрачен; см. B05.1–B05.3, REQ-B05-DOD",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "plans/features/asap8-v6-3-live-correction/w3-evidence-editor/",
+          "observation": "B05/U06: e2e 40/40 — selection 13s under live polling, copy==exact, guard, 100dvh; REV-W3 Approved",
+          "type": "ui"
+        }
+      ]
     },
     {
       "source_id": "L00113",
@@ -1697,8 +2475,15 @@
       "acceptance": "Full-screen editor и Run Inspector имеют неподвижный непрозрачный фон (--surface-0/1 или дизайн-токен); нет живого polygon background/canvas под читаемым текстом; декоратив — вне рабочей зоны со сверхнизкой opacity; prefers-reduced-motion останавливает движения (скриншоты)",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "plans/features/asap8-v6-3-live-correction/w3-evidence-editor/",
+          "observation": "B05/U06: e2e 40/40 — selection 13s under live polling, copy==exact, guard, 100dvh; REV-W3 Approved",
+          "type": "ui"
+        }
+      ]
     },
     {
       "source_id": "L00114",
@@ -1712,8 +2497,15 @@
       "acceptance": "Playwright: выделение текста 10–15с при имитации polling — selectionStart/End, выделенная строка и scrollTop неизменны; copy-кнопка копирует точную строку; метаданные не перезаписывают dirty draft; таймер, дёргающий coverStyles.current/key при вводе, удалён",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "plans/features/asap8-v6-3-live-correction/w3-evidence-editor/",
+          "observation": "B05/U06: e2e 40/40 — selection 13s under live polling, copy==exact, guard, 100dvh; REV-W3 Approved",
+          "type": "ui"
+        }
+      ]
     },
     {
       "source_id": "L00115",
@@ -1727,8 +2519,15 @@
       "acceptance": "Модалка 100dvh в Telegram WebView; единственная прокручиваемая область .cover-editor-body; шапка/кнопка сохранения фиксированы; safe-area учтена единожды; no layout shift/no behind-overlay scroll; назад/закрытие не теряют несохранённую инструкцию (guard-тест); save contract сохранён",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "plans/features/asap8-v6-3-live-correction/w3-evidence-editor/",
+          "observation": "B05/U06: e2e 40/40 — selection 13s under live polling, copy==exact, guard, 100dvh; REV-W3 Approved",
+          "type": "ui"
+        }
+      ]
     },
     {
       "source_id": "L00123",
@@ -1742,8 +2541,15 @@
       "acceptance": "Мобильная шапка <768: row A (лого/компактный chat-selector) + row B (Статус/Аналитика/Модули/Ещё), всё видно целиком на 320px, без горизонтального document overflow; см. U01.1–U01.5, REQ-U01-TESTS, V05",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "plans/features/asap8-v6-3-live-correction/w2-evidence-shell/",
+          "observation": "U01/U02: Playwright 129/129 (header 225.6→116.2px, row B 3+«Ещё», popover ARIA); REV-W2 Approved",
+          "type": "ui"
+        }
+      ]
     },
     {
       "source_id": "L00137",
@@ -1757,8 +2563,15 @@
       "acceptance": "Row B содержит ровно Статус/Аналитика/Модули/Ещё в этом порядке; остальные разделы только в меню «Ещё»; активный раздел из «Ещё» отражён в триггере («Ещё • …»/подсветка); без горизонтальной прокручиваемой ленты; desktop sidebar не изменена (скриншоты 320–1440)",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "plans/features/asap8-v6-3-live-correction/w2-evidence-shell/",
+          "observation": "U01/U02: Playwright 129/129 (header 225.6→116.2px, row B 3+«Ещё», popover ARIA); REV-W2 Approved",
+          "type": "ui"
+        }
+      ]
     },
     {
       "source_id": "L00138",
@@ -1772,8 +2585,15 @@
       "acceptance": "Row A: компактный chat-selector с ellipsis (CSS clamp/flex) и полным именем в title/aria; ID убран из постоянной шапки (в деталях области); fullscreen-кнопка не 4-й/5-й крупный элемент row A (позиционирование — U07); min-width визуала 28–32px, hit-area ≥44×44 без захвата native зон; badge/RBAC сохранены без третьей строки; измеренные bounding rect приложены",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "plans/features/asap8-v6-3-live-correction/w2-evidence-shell/",
+          "observation": "U01/U02: Playwright 129/129 (header 225.6→116.2px, row B 3+«Ещё», popover ARIA); REV-W2 Approved",
+          "type": "ui"
+        }
+      ]
     },
     {
       "source_id": "L00139",
@@ -1787,8 +2607,15 @@
       "acceptance": "Row B: 4 равных/пропорциональных сегмента без обрезки последнего на 320px; высоты row A ~40–48 и row B ~42–48 CSS px, суммарно ≤108–124px; нет третьей строки при длинной локализации; при 320/увеличенном тексте адаптация без «половины экрана»; числа actual bounding client rect в отчёте",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "plans/features/asap8-v6-3-live-correction/w2-evidence-shell/",
+          "observation": "U01/U02: Playwright 129/129 (header 225.6→116.2px, row B 3+«Ещё», popover ARIA); REV-W2 Approved",
+          "type": "ui"
+        }
+      ]
     },
     {
       "source_id": "L00140",
@@ -1802,8 +2629,15 @@
       "acceptance": "Меню «Ещё» — popover/sheet с overlay: клавиатура/touch/Esc/outside click/focus management/корректный z-index/safe-area/body-scroll-lock без jumps; текущая роль и deep links работают; скрытые права не показываются; на закрытии фокус возвращается в кнопку; дизайн-иконки AdminBot",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "plans/features/asap8-v6-3-live-correction/w2-evidence-shell/",
+          "observation": "U01/U02: Playwright 129/129 (header 225.6→116.2px, row B 3+«Ещё», popover ARIA); REV-W2 Approved",
+          "type": "ui"
+        }
+      ]
     },
     {
       "source_id": "L00141",
@@ -1817,8 +2651,15 @@
       "acceptance": "Нет второго заголовка «Модули»/breadcrumb внутри шапки, создающего третий высокий ряд; breadcrumb — только в контенте когда полезен; контент начинается сразу под row B и не скрыт; маршруты/смена chat scope сохраняют вкладку/scroll по канонам (e2e)",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "plans/features/asap8-v6-3-live-correction/w2-evidence-shell/",
+          "observation": "U01/U02: Playwright 129/129 (header 225.6→116.2px, row B 3+«Ещё», popover ARIA); REV-W2 Approved",
+          "type": "ui"
+        }
+      ]
     },
     {
       "source_id": "L00145",
@@ -1832,8 +2673,15 @@
       "acceptance": "На <768 субвкладки Аналитики — один компактный полноширинный dropdown с полным списком; desktop tabs не изменены; см. U02.1–U02.3",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "plans/features/asap8-v6-3-live-correction/w2-evidence-shell/",
+          "observation": "U01/U02: Playwright 129/129 (header 225.6→116.2px, row B 3+«Ещё», popover ARIA); REV-W2 Approved",
+          "type": "ui"
+        }
+      ]
     },
     {
       "source_id": "L00147",
@@ -1847,8 +2695,15 @@
       "acceptance": "Desktop (≥768) сохраняет нынешнюю горизонтальную tabs-панель (скриншот-диф до/после)",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "plans/features/asap8-v6-3-live-correction/w2-evidence-shell/",
+          "observation": "U01/U02: Playwright 129/129 (header 225.6→116.2px, row B 3+«Ещё», popover ARIA); REV-W2 Approved",
+          "type": "ui"
+        }
+      ]
     },
     {
       "source_id": "L00148",
@@ -1862,8 +2717,15 @@
       "acceptance": "Dropdown «Раздел: [текущая ▾]» открывает полный список: Обзор, Процессы, Запуски, Инциденты, Память и интеллект, Модели и расходы, Саммари; «Логи» в аналитике отсутствует; меню ≤viewport; длинные метки — две строки в меню, ellipsis на триггере; ARIA current/selected; на 320 нет горизонтального скролла с невидимыми tab-ами",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "plans/features/asap8-v6-3-live-correction/w2-evidence-shell/",
+          "observation": "U01/U02: Playwright 129/129 (header 225.6→116.2px, row B 3+«Ещё», popover ARIA); REV-W2 Approved",
+          "type": "ui"
+        }
+      ]
     },
     {
       "source_id": "L00149",
@@ -1877,8 +2739,15 @@
       "acceptance": "oversightTab/hash/deep-link/lazy-loading/фильтры/инциденты/детализация не сломаны; открытие последней вкладки и возврат назад проверены UI e2e",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "plans/features/asap8-v6-3-live-correction/w2-evidence-shell/",
+          "observation": "U01/U02: Playwright 129/129 (header 225.6→116.2px, row B 3+«Ещё», popover ARIA); REV-W2 Approved",
+          "type": "ui"
+        }
+      ]
     },
     {
       "source_id": "L00151",
@@ -1892,8 +2761,15 @@
       "acceptance": "В Статусе нет дубликатов функциональных блоков; дата 22.01.1970 устранена; пустые панели не помечены «работает»; см. U03.1–U03.4",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "plans/features/asap8-v6-3-live-correction/w3-evidence-status/",
+          "observation": "U03/U04/B03: e2e 26/26 — single sleep panel, 1970 normalization, logs moved, expired block; REV-W3 Approved",
+          "type": "ui"
+        }
+      ]
     },
     {
       "source_id": "L00153",
@@ -1907,8 +2783,15 @@
       "acceptance": "Одна каноническая панель «Сон / Глубокий сон» с последним запуском/стадией/результатом/временем следующего; второй ряд одинаковых badge из «Мониторинга интеллекта» удалён; блок убеждений/парадигм/характера сохранён; данные из одного источника (тест расхождений)",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "plans/features/asap8-v6-3-live-correction/w3-evidence-status/",
+          "observation": "U03/U04/B03: e2e 26/26 — single sleep panel, 1970 normalization, logs moved, expired block; REV-W3 Approved",
+          "type": "ui"
+        }
+      ]
     },
     {
       "source_id": "L00154",
@@ -1922,8 +2805,15 @@
       "acceptance": "Фикс-тесты seconds/millis/None/0/old imports/timezone; unknown отображается как «ещё не выполнялось/нет данных», а не 22.01.1970 (unit + UI-скриншот)",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "plans/features/asap8-v6-3-live-correction/w3-evidence-status/",
+          "observation": "U03/U04/B03: e2e 26/26 — single sleep panel, 1970 normalization, logs moved, expired block; REV-W3 Approved",
+          "type": "ui"
+        }
+      ]
     },
     {
       "source_id": "L00155",
@@ -1937,8 +2827,15 @@
       "acceptance": "«Мониторинг интеллекта»: читаемые списки/лейблы, контент не просвечивает; «Здоровье памяти» разделяет технические счётчики и смысловые active/expired available/revalidation; не всё в разноцветные pills одной строкой; сетки/полигоны — декоративный фон ЗА непрозрачными карточками (CSS opacity/z-index/pointer-events:none)",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "plans/features/asap8-v6-3-live-correction/w3-evidence-status/",
+          "observation": "U03/U04/B03: e2e 26/26 — single sleep panel, 1970 normalization, logs moved, expired block; REV-W3 Approved",
+          "type": "ui"
+        }
+      ]
     },
     {
       "source_id": "L00156",
@@ -1952,8 +2849,15 @@
       "acceptance": "«Опыт»: 24h/7d воронка с реальными статусами, последним применением/причиной пустоты; «Инициатива»: независимая воронка со входами из обычной конфы; ни одна пустая панель не помечена «работает» по одному мастер-флагу (тест API→UI)",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "plans/features/asap8-v6-3-live-correction/w3-evidence-status/",
+          "observation": "U03/U04/B03: e2e 26/26 — single sleep panel, 1970 normalization, logs moved, expired block; REV-W3 Approved",
+          "type": "ui"
+        }
+      ]
     },
     {
       "source_id": "L00158",
@@ -1967,8 +2871,15 @@
       "acceptance": "Log viewer существует в единственном экземпляре и только в Статусе; все ссылки «Логи» ведут на Статус со скроллом к реальному блоку; см. U04.1–U04.2",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "plans/features/asap8-v6-3-live-correction/w3-evidence-status/",
+          "observation": "U03/U04/B03: e2e 26/26 — single sleep panel, 1970 normalization, logs moved, expired block; REV-W3 Approved",
+          "type": "ui"
+        }
+      ]
     },
     {
       "source_id": "L00160",
@@ -1982,8 +2893,15 @@
       "acceptance": "#status-logs (фильтры, копирование, уровень, счётчики, pagination) физически перенесён в конец Статуса; {id:'logs'} удалён из oversightTabs; лишний loadLogs() на входе в Analytics убран; нет дублирования компонента/polling/endpoint (grep + e2e); экранирование/redaction/RBAC сохранены",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "plans/features/asap8-v6-3-live-correction/w3-evidence-status/",
+          "observation": "U03/U04/B03: e2e 26/26 — single sleep panel, 1970 normalization, logs moved, expired block; REV-W3 Approved",
+          "type": "ui"
+        }
+      ]
     },
     {
       "source_id": "L00161",
@@ -1997,8 +2915,15 @@
       "acceptance": "Ссылки «Логи» ведут на Статус со скроллом к блоку; #/oversight?scroll=logs нормализуется в canonical route без потери контекста; anchor scroll после DOM/data mount с offset sticky header; фильтры/действия сохранены (e2e)",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "plans/features/asap8-v6-3-live-correction/w3-evidence-status/",
+          "observation": "U03/U04/B03: e2e 26/26 — single sleep panel, 1970 normalization, logs moved, expired block; REV-W3 Approved",
+          "type": "ui"
+        }
+      ]
     },
     {
       "source_id": "L00163",
@@ -2012,8 +2937,15 @@
       "acceptance": "Аналитика прогрессивна: человеко-понятные Процессы/Запуски, нет дублей блоков Статус/Аналитика, 7 визуализаций D12 на подтверждённых данных; см. U05.1–U05.4",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "plans/features/asap8-v6-3-live-correction/w3-evidence-status/",
+          "observation": "U03/U04/B03: e2e 26/26 — single sleep panel, 1970 normalization, logs moved, expired block; REV-W3 Approved",
+          "type": "ui"
+        }
+      ]
     },
     {
       "source_id": "L00165",
@@ -2027,8 +2959,15 @@
       "acceptance": "Процессы/Запуски по умолчанию: человеческое имя, эффективный статус (не запускался/работает с результатом/ошибка/не было условий/выключен), последнее реальное действие/время, причина пустоты; developer IDs/event names/stages за «Детали», моноширинный код не доминирует (скриншоты)",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "plans/features/asap8-v6-3-live-correction/w3-evidence-status/",
+          "observation": "U03/U04/B03: e2e 26/26 — single sleep panel, 1970 normalization, logs moved, expired block; REV-W3 Approved",
+          "type": "ui"
+        }
+      ]
     },
     {
       "source_id": "L00166",
@@ -2042,8 +2981,15 @@
       "acceptance": "Сон/Инициатива/Experience не дублируются: в Статусе компактная health-card, в Аналитике углублённая временная трасса; нет двух одинаковых чтений/поллеров (сетевой тест)",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "plans/features/asap8-v6-3-live-correction/w3-evidence-status/",
+          "observation": "U03/U04/B03: e2e 26/26 — single sleep panel, 1970 normalization, logs moved, expired block; REV-W3 Approved",
+          "type": "ui"
+        }
+      ]
     },
     {
       "source_id": "L00167",
@@ -2057,8 +3003,15 @@
       "acceptance": "7 визуализаций D12 (цикл памяти flow, Sankey/маршрут обработки, waterfall latency/cost, heatmap активности, карта зависимостей модулей, timeline дат источников фактчека, status popover overrides) реализованы на подтверждённых данных; изображения без real data/выдуманная статистика/статичные демо отсутствуют; unknown/restricted честно; IA согласована (progressive details в существующих routes)",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "plans/features/asap8-v6-3-live-correction/w3-evidence-status/",
+          "observation": "U03/U04/B03: e2e 26/26 — single sleep panel, 1970 normalization, logs moved, expired block; REV-W3 Approved",
+          "type": "ui"
+        }
+      ]
     },
     {
       "source_id": "L00168",
@@ -2072,8 +3025,15 @@
       "acceptance": "Reviewer-ревью по полным скриншотам экрана всех размеров: нет дублирующих badge, длинных строк, пересекающихся чипов, перекрытия текста графикой, тёмного мелкого текста на тёмном фоне",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "plans/features/asap8-v6-3-live-correction/w3-evidence-status/",
+          "observation": "U03/U04/B03: e2e 26/26 — single sleep panel, 1970 normalization, logs moved, expired block; REV-W3 Approved",
+          "type": "ui"
+        }
+      ]
     },
     {
       "source_id": "L00170",
@@ -2087,8 +3047,15 @@
       "acceptance": "Style editor — рабочий инструмент: порядок Профиль→Инструкция→Референсы→Проверка итогового промпта→Test Edit→результат/история; см. U06.1–U06.3",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "plans/features/asap8-v6-3-live-correction/w3-evidence-editor/",
+          "observation": "B05/U06: e2e 40/40 — selection 13s under live polling, copy==exact, guard, 100dvh; REV-W3 Approved",
+          "type": "ui"
+        }
+      ]
     },
     {
       "source_id": "L00172",
@@ -2102,8 +3069,15 @@
       "acceptance": "В cover-editor: title/name, mode, редактируемая instruction, компактный limit-selector, actual model/route/limit, реальная структура prompt-preview, refs, image before/after; разработческие метаданные под «Подробнее» (скриншот)",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "plans/features/asap8-v6-3-live-correction/w3-evidence-editor/",
+          "observation": "B05/U06: e2e 40/40 — selection 13s under live polling, copy==exact, guard, 100dvh; REV-W3 Approved",
+          "type": "ui"
+        }
+      ]
     },
     {
       "source_id": "L00173",
@@ -2117,8 +3091,15 @@
       "acceptance": "«Фактическая сборка» одной строкой Style N · optional SceneAnchor M · Refs R · System S · Final F / Limit L; цвет только при превышении; preview — моноширинный pre со скроллом и кнопкой копирования, без подмены текста при polling; длинный prompt читается без подсвечиваемой сетки за текстом",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "plans/features/asap8-v6-3-live-correction/w3-evidence-editor/",
+          "observation": "B05/U06: e2e 40/40 — selection 13s under live polling, copy==exact, guard, 100dvh; REV-W3 Approved",
+          "type": "ui"
+        }
+      ]
     },
     {
       "source_id": "L00174",
@@ -2132,8 +3113,15 @@
       "acceptance": "Стабильное редактирование/version-conflict guard/сохранение профиля и references/загрузка asset не сломаны; при prompt_limit_unknown нет псевдоуспеха (тест)",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "plans/features/asap8-v6-3-live-correction/w3-evidence-editor/",
+          "observation": "B05/U06: e2e 40/40 — selection 13s under live polling, copy==exact, guard, 100dvh; REV-W3 Approved",
+          "type": "ui"
+        }
+      ]
     },
     {
       "source_id": "L00178",
@@ -2147,8 +3135,21 @@
       "acceptance": "Из Windows Desktop через штатную UI-кнопку AdminBot невозможно попасть в неуправляемое окно; на мобильном есть реальный exit, нет визуального третьего ряда/гигантской кнопки, нативные кнопки Telegram доступны; см. U07.0–U07.3, REQ-U07-HARD, V06",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "BLOCKED_REAL_HUMAN_GATE",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "plans/features/asap8-v6-3-live-correction/w2-evidence-fullscreen/",
+          "observation": "U07: 7/7 route-mock matrix, 70 checks (tdesktop hidden, float gating, single ACK); REV-W2 Approved",
+          "type": "ui"
+        },
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "review-w2.md/review-w3.md + backlog.md (v6.3 Wave 4 live checklist)",
+          "observation": "acceptance requires a real Telegram client / natural event / owner canary window — not automatable; agent-side evidence complete, declared gate",
+          "type": "live"
+        }
+      ]
     },
     {
       "source_id": "L00180",
@@ -2162,8 +3163,15 @@
       "acceptance": "Политика управляет только TMA API-запросами и собственным layout; нативная геометрия окна Telegram не изменяется программно (код-ревью без window.moveTo/resizeTo/WinAPI/CSS-хаков)",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "plans/features/asap8-v6-3-live-correction/w2-evidence-fullscreen/",
+          "observation": "U07: 7/7 route-mock matrix, 70 checks (tdesktop hidden, float gating, single ACK); REV-W2 Approved",
+          "type": "ui"
+        }
+      ]
     },
     {
       "source_id": "L00186",
@@ -2177,8 +3185,15 @@
       "acceptance": "Централизованный non-reactivity-loop adapter FullscreenPolicy: telegramPlatform/sdkVersion/hasRequestFullscreen/hasExitFullscreen/actualFullscreen/launchFullscreen/requestPending/lastError/canOffer*/reason/viewport+safe areas; unit-матрица платформ",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "plans/features/asap8-v6-3-live-correction/w2-evidence-fullscreen/",
+          "observation": "U07: 7/7 route-mock matrix, 70 checks (tdesktop hidden, float gating, single ACK); REV-W2 Approved",
+          "type": "ui"
+        }
+      ]
     },
     {
       "source_id": "L00200",
@@ -2192,8 +3207,21 @@
       "acceptance": "tdesktop (верифицированный клиент): проблемный fullscreen-контрол скрыт/disabled с честной подсказкой до успешного platform-specific e2e; включение только feature-gate после рабочего resize/drag/close/exit; expand() не выдаётся за fullscreen (unit + логи)",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "BLOCKED_REAL_HUMAN_GATE",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "plans/features/asap8-v6-3-live-correction/w2-evidence-fullscreen/",
+          "observation": "U07: 7/7 route-mock matrix, 70 checks (tdesktop hidden, float gating, single ACK); REV-W2 Approved",
+          "type": "ui"
+        },
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "review-w2.md/review-w3.md + backlog.md (v6.3 Wave 4 live checklist)",
+          "observation": "acceptance requires a real Telegram client / natural event / owner canary window — not automatable; agent-side evidence complete, declared gate",
+          "type": "live"
+        }
+      ]
     },
     {
       "source_id": "L00201",
@@ -2207,8 +3235,15 @@
       "acceptance": "weba/web: native fullscreen проверяется фактически — работает: разрешён; нет: причина + корректный exit; узкое окно Desktop остаётся desktop host (тест вывода макета не из ширины)",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "plans/features/asap8-v6-3-live-correction/w2-evidence-fullscreen/",
+          "observation": "U07: 7/7 route-mock matrix, 70 checks (tdesktop hidden, float gating, single ACK); REV-W2 Approved",
+          "type": "ui"
+        }
+      ]
     },
     {
       "source_id": "L00202",
@@ -2222,8 +3257,15 @@
       "acceptance": "Android/iOS: функция только при реальной поддержке API/версии; isFullscreen — единственный источник факта; fullscreenChanged подтверждает после request/exit; fullscreenFailed снимает pending с ошибкой; локальный Vue-флаг не инвертируется без SDK (unit на mock-событиях)",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "plans/features/asap8-v6-3-live-correction/w2-evidence-fullscreen/",
+          "observation": "U07: 7/7 route-mock matrix, 70 checks (tdesktop hidden, float gating, single ACK); REV-W2 Approved",
+          "type": "ui"
+        }
+      ]
     },
     {
       "source_id": "L00203",
@@ -2237,8 +3279,15 @@
       "acceptance": "UNSUPPORTED сохраняет прежнее состояние; ALREADY_FULLSCREEN пересчитывает факт из SDK и переключает кнопку на выход без ложного SUCCESS; таймаут ack задаётся и очищается; повторный тап/rotation не создают конфликтующих запросов (unit)",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "plans/features/asap8-v6-3-live-correction/w2-evidence-fullscreen/",
+          "observation": "U07: 7/7 route-mock matrix, 70 checks (tdesktop hidden, float gating, single ACK); REV-W2 Approved",
+          "type": "ui"
+        }
+      ]
     },
     {
       "source_id": "L00204",
@@ -2252,8 +3301,21 @@
       "acceptance": "Launch Mode=Fullscreen: второй requestFullscreen не отправляется; сразу рабочая кнопка выхода на мобильном + корректная safe-area; при проблемном старте на Windows один мягкий exitFullscreen при поддержке API, иначе ограничение задокументировано + ручная инструкция владельцу; BotFather не изменяется программно/тайно (логи + тест)",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "BLOCKED_REAL_HUMAN_GATE",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "plans/features/asap8-v6-3-live-correction/w2-evidence-fullscreen/",
+          "observation": "U07: 7/7 route-mock matrix, 70 checks (tdesktop hidden, float gating, single ACK); REV-W2 Approved",
+          "type": "ui"
+        },
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "review-w2.md/review-w3.md + backlog.md (v6.3 Wave 4 live checklist)",
+          "observation": "acceptance requires a real Telegram client / natural event / owner canary window — not automatable; agent-side evidence complete, declared gate",
+          "type": "live"
+        }
+      ]
     },
     {
       "source_id": "L00205",
@@ -2267,8 +3329,15 @@
       "acceptance": "Штатные жесты/кнопки Telegram закрытия, BackButton и нативные зоны сохранены; при неотвечающем fullscreen host явная кнопка выхода (если exitFullscreen существует) доступна и не прячется scroll/overlay (тест доступности)",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "plans/features/asap8-v6-3-live-correction/w2-evidence-fullscreen/",
+          "observation": "U07: 7/7 route-mock matrix, 70 checks (tdesktop hidden, float gating, single ACK); REV-W2 Approved",
+          "type": "ui"
+        }
+      ]
     },
     {
       "source_id": "L00207",
@@ -2282,8 +3351,15 @@
       "acceptance": "Кнопка fullscreen размещена в верхней web-safe полосе максимально близко к нативным controls по contentSafeAreaInset/safeAreaInset, без overlay, без дублирования native header; см. U07.2a–U07.2e",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "plans/features/asap8-v6-3-live-correction/w2-evidence-fullscreen/",
+          "observation": "U07: 7/7 route-mock matrix, 70 checks (tdesktop hidden, float gating, single ACK); REV-W2 Approved",
+          "type": "ui"
+        }
+      ]
     },
     {
       "source_id": "L00221",
@@ -2297,8 +3373,15 @@
       "acceptance": "Визуал 30–34px круглая icon-button, иконка 16–18px, transparent-dark glass поверхность; hit target 44×44 без перекрытия нативных зон; при узком viewport визуал ≥28; НЕ квадрат 64×64 и не margin-top:40px третий ряд (скриншот с размерами)",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "plans/features/asap8-v6-3-live-correction/w2-evidence-fullscreen/",
+          "observation": "U07: 7/7 route-mock matrix, 70 checks (tdesktop hidden, float gating, single ACK); REV-W2 Approved",
+          "type": "ui"
+        }
+      ]
     },
     {
       "source_id": "L00222",
@@ -2312,8 +3395,15 @@
       "acceptance": "Позиция только из contentSafeAreaInset/safeAreaInset/actual viewport/bounding rect текущей platform; CSS top/right = clamp(...) от серверных/SDK переменных или измеренной высоты; учтены статусбар/вырезы/ландшафт и viewportChanged/safeAreaChanged/contentSafeAreaChanged; env(safe-area-inset-*)=0 обработан (тесты подменой safe area)",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "plans/features/asap8-v6-3-live-correction/w2-evidence-fullscreen/",
+          "observation": "U07: 7/7 route-mock matrix, 70 checks (tdesktop hidden, float gating, single ACK); REV-W2 Approved",
+          "type": "ui"
+        }
+      ]
     },
     {
       "source_id": "L00223",
@@ -2327,8 +3417,15 @@
       "acceptance": "Если доступная боковая позиция на той же высоте невозможна — честный fallback: компактная inline-кнопка справа в row A; не новая строка и не overlay поверх ⋮/«Закрыть»; компактная шапка U01 сохранена",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "plans/features/asap8-v6-3-live-correction/w2-evidence-fullscreen/",
+          "observation": "U07: 7/7 route-mock matrix, 70 checks (tdesktop hidden, float gating, single ACK); REV-W2 Approved",
+          "type": "ui"
+        }
+      ]
     },
     {
       "source_id": "L00224",
@@ -2342,8 +3439,15 @@
       "acceptance": "aria-label/title по ACK-состоянию («На весь экран»/«Выйти из полноэкранного режима»); aria-pressed=true только при actualFullscreen=true; при ошибке тост/текст с причиной; mobile light/dark Telegram theme (скриншоты)",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "plans/features/asap8-v6-3-live-correction/w2-evidence-fullscreen/",
+          "observation": "U07: 7/7 route-mock matrix, 70 checks (tdesktop hidden, float gating, single ACK); REV-W2 Approved",
+          "type": "ui"
+        }
+      ]
     },
     {
       "source_id": "L00225",
@@ -2357,8 +3461,15 @@
       "acceptance": "Системные кнопки Telegram не стилизуются и не перемещаются CSS; под невидимой перекрывающей native hit-area нет кликабельных веб-элементов; тест: тапы возле ⋮ и ✕ работают как прежде",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "plans/features/asap8-v6-3-live-correction/w2-evidence-fullscreen/",
+          "observation": "U07: 7/7 route-mock matrix, 70 checks (tdesktop hidden, float gating, single ACK); REV-W2 Approved",
+          "type": "ui"
+        }
+      ]
     },
     {
       "source_id": "L00227",
@@ -2372,8 +3483,21 @@
       "acceptance": "Desktop-адаптив и Windows-проверки выполнены (U07.3a–U07.3c); жёсткий критерий REQ-U07-HARD закрыт на реальном клиенте",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "BLOCKED_REAL_HUMAN_GATE",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "plans/features/asap8-v6-3-live-correction/w2-evidence-fullscreen/",
+          "observation": "U07: 7/7 route-mock matrix, 70 checks (tdesktop hidden, float gating, single ACK); REV-W2 Approved",
+          "type": "ui"
+        },
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "review-w2.md/review-w3.md + backlog.md (v6.3 Wave 4 live checklist)",
+          "observation": "acceptance requires a real Telegram client / natural event / owner canary window — not automatable; agent-side evidence complete, declared gate",
+          "type": "live"
+        }
+      ]
     },
     {
       "source_id": "L00229",
@@ -2387,8 +3511,15 @@
       "acceptance": "После requestFullscreen .shell-desktop/sidebar не становится неподвижным маленьким iframe-окном; 100% ширины = текущий WebView; вертикальная и горизонтальная прокрутка работают при ширине 600–1100 без нескрываемых футеров/оверлеев (Playwright desktop)",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "plans/features/asap8-v6-3-live-correction/w2-evidence-fullscreen/",
+          "observation": "U07: 7/7 route-mock matrix, 70 checks (tdesktop hidden, float gating, single ACK); REV-W2 Approved",
+          "type": "ui"
+        }
+      ]
     },
     {
       "source_id": "L00230",
@@ -2402,8 +3533,21 @@
       "acceptance": "Журнал проверки: точные platform/version, источник открытия (BotFather Main App vs direct link), isFullscreen до/после, fullscreenChanged/fullscreenFailed, client viewport/window rect, результат drag и close (ручной клиентский тест приложен); VERIFIED_LIVE не ставится по Playwright mock-only",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "BLOCKED_REAL_HUMAN_GATE",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "plans/features/asap8-v6-3-live-correction/w2-evidence-fullscreen/",
+          "observation": "U07: 7/7 route-mock matrix, 70 checks (tdesktop hidden, float gating, single ACK); REV-W2 Approved",
+          "type": "ui"
+        },
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "review-w2.md/review-w3.md + backlog.md (v6.3 Wave 4 live checklist)",
+          "observation": "acceptance requires a real Telegram client / natural event / owner canary window — not automatable; agent-side evidence complete, declared gate",
+          "type": "live"
+        }
+      ]
     },
     {
       "source_id": "L00231",
@@ -2417,8 +3561,21 @@
       "acceptance": "Проверены Windows 10/11 Telegram Desktop, Android portrait/landscape, по доступности iOS/macOS/Web A/K; браузерный stand-alone без window.Telegram — отдельный fallback, кнопка не вводит в заблуждение",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "BLOCKED_REAL_HUMAN_GATE",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "plans/features/asap8-v6-3-live-correction/w2-evidence-fullscreen/",
+          "observation": "U07: 7/7 route-mock matrix, 70 checks (tdesktop hidden, float gating, single ACK); REV-W2 Approved",
+          "type": "ui"
+        },
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "review-w2.md/review-w3.md + backlog.md (v6.3 Wave 4 live checklist)",
+          "observation": "acceptance requires a real Telegram client / natural event / owner canary window — not automatable; agent-side evidence complete, declared gate",
+          "type": "live"
+        }
+      ]
     },
     {
       "source_id": "L00237",
@@ -2432,8 +3589,15 @@
       "acceptance": "Есть ≥1 настоящая оптическая линза (изгиб фона у края) на hero-поверхности и Tier B на массовых карточках без «мыла», мерцания и GPU-регрессии; достойный fallback Android/WebKit; см. U08.0–U08.5, REQ-U08-DOD, V07",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "plans/features/asap8-v6-3-live-correction/w2-evidence-glass/",
+          "observation": "U08: scanline correlation Tier A, tier map, contrast 13.1:1; Playwright probes; REV-W2 Approved",
+          "type": "ui"
+        }
+      ]
     },
     {
       "source_id": "L00239",
@@ -2447,8 +3611,15 @@
       "acceptance": "Материал соответствует словесному контракту U08.0: выпуклая линза, прозрачный читаемый центр, изгиб/сжатие фона у периферии, светящаяся кромка, локальные блики, тёмная палитра, без размытия контента; проверка на собственном тестовом стенде (V07)",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "plans/features/asap8-v6-3-live-correction/w2-evidence-glass/",
+          "observation": "U08: scanline correlation Tier A, tier map, contrast 13.1:1; Playwright probes; REV-W2 Approved",
+          "type": "ui"
+        }
+      ]
     },
     {
       "source_id": "L00245",
@@ -2462,8 +3633,15 @@
       "acceptance": "Аудит текущей glass-реализации выполнен ДО CSS-правок без нового фреймворка; см. REQ-U08-1-AUDIT и REQ-U08-1-PROBE",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "plans/features/asap8-v6-3-live-correction/w2-evidence-glass/",
+          "observation": "U08: scanline correlation Tier A, tier map, contrast 13.1:1; Playwright probes; REV-W2 Approved",
+          "type": "ui"
+        }
+      ]
     },
     {
       "source_id": "L00251",
@@ -2477,12 +3655,13 @@
       "acceptance": "Структура слоёв .lg-panel__{backdrop,tint,rim,specular,content} (или псевдослои с той же z-order-семантикой); ни один слой не затуманивает текст и не перехватывает pointer events; стеклянные/декоративные слои не перекрывают scroll-контейнеры и Telegram native hit zones (hit-тест elementFromPoint на кликабельных точках — кнопки/табы/поля ввода под и рядом со стеклянными слоями; прокрутка контента работает под панелью); три класса --hero/--soft/--solid присутствуют; см. REQ-U08-2-LAYERS, REQ-U08-2-PARAMS",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "evidence": [
         {
-          "type": "playwright",
-          "ref": "ui-acceptance.md (план W2-L3): hit-тест elementFromPoint + scroll-проба",
-          "observation": "evidence-план: elementFromPoint на кликабельных точках (кнопки/табы/поля ввода) под и рядом со стеклянными слоями возвращает интерактивный элемент, а не декоративный слой; прокрутка scroll-контейнера работает под панелью; скриншоты пробы прикладываются в ui-acceptance.md"
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "plans/features/asap8-v6-3-live-correction/w2-evidence-glass/",
+          "observation": "U08: scanline correlation Tier A, tier map, contrast 13.1:1; Playwright probes; REV-W2 Approved",
+          "type": "ui"
         }
       ]
     },
@@ -2498,8 +3677,15 @@
       "acceptance": "Progressive enhancement: реальная edge refraction только при фактической поддержке (render-probe, не CSS.supports); clone/capture только стабильного декоративного фона с синхронной регистрацией; без клонирования live DOM и без html2canvas каждого кадра; центр ~70% неподвижен; см. U08.3a–U08.3e",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "plans/features/asap8-v6-3-live-correction/w2-evidence-glass/",
+          "observation": "U08: scanline correlation Tier A, tier map, contrast 13.1:1; Playwright probes; REV-W2 Approved",
+          "type": "ui"
+        }
+      ]
     },
     {
       "source_id": "L00313",
@@ -2513,8 +3699,15 @@
       "acceptance": "В Chromium/WebView реальная edge refraction через backdrop-filter url(#displacement) с feDisplacementMap либо синхронизированную текстуру сцены; render-probe вместо доверия CSS.supports; в WebKit честный fallback; SVG-фильтр на декоративном градиенте не выдаётся за рефракцию",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "plans/features/asap8-v6-3-live-correction/w2-evidence-glass/",
+          "observation": "U08: scanline correlation Tier A, tier map, contrast 13.1:1; Playwright probes; REV-W2 Approved",
+          "type": "ui"
+        }
+      ]
     },
     {
       "source_id": "L00314",
@@ -2528,8 +3721,15 @@
       "acceptance": "Clone/capture допустим только декоративного стабильного фона (aurora/mesh) с общим coordinate transform; на resize/scroll/route rect линзы и регистрация фона синхронны без «плавания»; live DOM с текстами/кнопками/персональными данными не клонируется; html2canvas каждый кадр отсутствует",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "plans/features/asap8-v6-3-live-correction/w2-evidence-glass/",
+          "observation": "U08: scanline correlation Tier A, tier map, contrast 13.1:1; Playwright probes; REV-W2 Approved",
+          "type": "ui"
+        }
+      ]
     },
     {
       "source_id": "L00315",
@@ -2543,8 +3743,15 @@
       "acceptance": "Convex lens mask: центр ~70% почти неподвижен, deformation плавно растёт к краю; нет полос feTurbulence по всему прямоугольнику и растягивания контента; low-frequency smooth displacement с контролем амплитуды; vendored library используется только если реально обеспечивает эффект и не ломает layout",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "plans/features/asap8-v6-3-live-correction/w2-evidence-glass/",
+          "observation": "U08: scanline correlation Tier A, tier map, contrast 13.1:1; Playwright probes; REV-W2 Approved",
+          "type": "ui"
+        }
+      ]
     },
     {
       "source_id": "L00316",
@@ -2558,8 +3765,15 @@
       "acceptance": "Tier A — максимум 1–3 hero/presentation surfaces одновременно (не на каждую из 21 карточки); Tier B — основные карточки/chrome без тяжёлых фильтров; Tier C — редакторы/таблицы/логи/длинный текст/тяжёлые Canvas/GraphRAG/модалки; при отсутствии поддержки шейдера — читаемый Tier B",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "plans/features/asap8-v6-3-live-correction/w2-evidence-glass/",
+          "observation": "U08: scanline correlation Tier A, tier map, contrast 13.1:1; Playwright probes; REV-W2 Approved",
+          "type": "ui"
+        }
+      ]
     },
     {
       "source_id": "L00317",
@@ -2573,8 +3787,15 @@
       "acceptance": "prefers-reduced-motion, low-performance Android, background tabs, большой живой граф → tier снижается или отключается animated refraction, статичный rim/tint остаётся; на mid-range телефонах нет прогрессирующей потери FPS; скролл >60FPS baseline, редкие dips допустимы, значимый jank отсутствует (измерено)",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "plans/features/asap8-v6-3-live-correction/w2-evidence-glass/",
+          "observation": "U08: scanline correlation Tier A, tier map, contrast 13.1:1; Playwright probes; REV-W2 Approved",
+          "type": "ui"
+        }
+      ]
     },
     {
       "source_id": "L00319",
@@ -2588,8 +3809,15 @@
       "acceptance": "Применение по экранам: Status — 1 hero + Tier B карточки; Modules — Tier B без смазанной подложки; Analytics — KPI Tier B, таблицы/графики/трассы Tier C; mobile shell/popover/fullscreen-контрол по U08.4; Style Editor/forms — Tier C; фон и motion без мерцания; см. U08.4a–U08.4f",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "plans/features/asap8-v6-3-live-correction/w2-evidence-glass/",
+          "observation": "U08: scanline correlation Tier A, tier map, contrast 13.1:1; Playwright probes; REV-W2 Approved",
+          "type": "ui"
+        }
+      ]
     },
     {
       "source_id": "L00321",
@@ -2603,8 +3831,15 @@
       "acceptance": "Status: 1 hero lens на «Бот/Health», не на каждой панели; прочие health cards Tier B; aurora виден под прозрачным центром, текст читабелен, нет цветного haze; граф связей и интеллект-мониторинг — Tier C/Solid поверх декоративного фона",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "plans/features/asap8-v6-3-live-correction/w2-evidence-glass/",
+          "observation": "U08: scanline correlation Tier A, tier map, contrast 13.1:1; Playwright probes; REV-W2 Approved",
+          "type": "ui"
+        }
+      ]
     },
     {
       "source_id": "L00322",
@@ -2618,8 +3853,15 @@
       "acceptance": "Modules: карточки Tier B (тонкая кромка/глубина, hover/specular на desktop, без смазанной подложки); чекбоксы/тумблеры не меняют хитбокс, «Настроить» кликабельны; toolbar/search/filter Tier B/C по контрасту; поверхность материальная, не однотипные прямоугольники",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "plans/features/asap8-v6-3-live-correction/w2-evidence-glass/",
+          "observation": "U08: scanline correlation Tier A, tier map, contrast 13.1:1; Playwright probes; REV-W2 Approved",
+          "type": "ui"
+        }
+      ]
     },
     {
       "source_id": "L00323",
@@ -2633,8 +3875,15 @@
       "acceptance": "Analytics: обзорные KPI Tier B; графики/списки событий/таблицы/кодовые трассы Tier C; glass не вызывает наложение текста/мигание и не раздувает GPU-время при прогрузке (профиль)",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "plans/features/asap8-v6-3-live-correction/w2-evidence-glass/",
+          "observation": "U08: scanline correlation Tier A, tier map, contrast 13.1:1; Playwright probes; REV-W2 Approved",
+          "type": "ui"
+        }
+      ]
     },
     {
       "source_id": "L00324",
@@ -2648,8 +3897,15 @@
       "acceptance": "Mobile shell: шапка U01 — Tier B (графит со светлой кромкой, плотная при скролле, не чёрная полоса); popover «Ещё» — solid/elevated glass; fullscreen control U07 — круглая мини-линза с rim и одним бликом, не 64px квадрат",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "plans/features/asap8-v6-3-live-correction/w2-evidence-glass/",
+          "observation": "U08: scanline correlation Tier A, tier map, contrast 13.1:1; Playwright probes; REV-W2 Approved",
+          "type": "ui"
+        }
+      ]
     },
     {
       "source_id": "L00325",
@@ -2663,8 +3919,15 @@
       "acceptance": "Style Editor и forms: Tier C без динамической рефракции на textarea/selection; стабильность polling/выделения (B05/U06) приоритетнее декоративности",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "plans/features/asap8-v6-3-live-correction/w2-evidence-glass/",
+          "observation": "U08: scanline correlation Tier A, tier map, contrast 13.1:1; Playwright probes; REV-W2 Approved",
+          "type": "ui"
+        }
+      ]
     },
     {
       "source_id": "L00326",
@@ -2678,8 +3941,15 @@
       "acceptance": "Фон: mesh/aurora отдельно позади, доминирование геометрических линий/сеток снижено; стекло заметно на статичном фоне; при скролле фон не моргает/не перезапускается/не мерцает пикселями; полноэкранный color bloom/light smear поверх контента запрещён",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "plans/features/asap8-v6-3-live-correction/w2-evidence-glass/",
+          "observation": "U08: scanline correlation Tier A, tier map, contrast 13.1:1; Playwright probes; REV-W2 Approved",
+          "type": "ui"
+        }
+      ]
     },
     {
       "source_id": "L00328",
@@ -2693,8 +3963,15 @@
       "acceptance": "ui-acceptance.md содержит 4 измеримых признака материала со скриншотами PASS/FAIL, стенд-проверку изгиба линии, pointer-events/клавиатуру/контраст ≥4.5:1 (3:1 крупные), overflow/FPS-проверки и два раздельных вердикта optical Tier A / frost Tier B; см. U08.5.1–U08.5.5",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "plans/features/asap8-v6-3-live-correction/w2-evidence-glass/",
+          "observation": "U08: scanline correlation Tier A, tier map, contrast 13.1:1; Playwright probes; REV-W2 Approved",
+          "type": "ui"
+        }
+      ]
     },
     {
       "source_id": "L00330",
@@ -2708,8 +3985,15 @@
       "acceptance": "В ui-acceptance.md — 4 измеримых признака ((a) прозрачный центр, (b) edge-деформация, (c) направленная rim-кромка, (d) локальный specular) с 1:1 crops до/после на тестовом фоне и в реальных Modules/Status/fullscreen-контроле; для каждого — скриншот, наблюдаемый результат, PASS/FAIL",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "plans/features/asap8-v6-3-live-correction/w2-evidence-glass/",
+          "observation": "U08: scanline correlation Tier A, tier map, contrast 13.1:1; Playwright probes; REV-W2 Approved",
+          "type": "ui"
+        }
+      ]
     },
     {
       "source_id": "L00331",
@@ -2723,8 +4007,15 @@
       "acceptance": "Под Tier A линия заметно изгибается у края и гладка в центре; Tier B — линии видны через glass+rim без приписанной деформации; две крупные анимации/видео/пары before-after со статичным viewport; отдельный скриншот prefers-reduced-motion/Safari-like fallback",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "plans/features/asap8-v6-3-live-correction/w2-evidence-glass/",
+          "observation": "U08: scanline correlation Tier A, tier map, contrast 13.1:1; Playwright probes; REV-W2 Approved",
+          "type": "ui"
+        }
+      ]
     },
     {
       "source_id": "L00332",
@@ -2738,8 +4029,15 @@
       "acceptance": "pointer-events:none на декоративных слоях; tab-nav/keyboard корректны; caret/selection видимы; контраст текста ≥4.5:1 (3:1 крупные/controls); анимированная подложка не снижает контраст ниже порога в пике яркости; если mask-composite не поддерживается — альтернативный rim через box-shadow/overlay, при этом ВСЕ controls остаются видимыми и кликабельными (скриншот fallback-рендера)",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "plans/features/asap8-v6-3-live-correction/w2-evidence-glass/",
+          "observation": "U08: scanline correlation Tier A, tier map, contrast 13.1:1; Playwright probes; REV-W2 Approved",
+          "type": "ui"
+        }
+      ]
     },
     {
       "source_id": "L00333",
@@ -2753,8 +4051,15 @@
       "acceptance": "document.scrollWidth ≤ window.innerWidth; HUD/панели не смещаются при polling; нет незаметного overflow/новых скроллбаров; оценены compositor/filter layers, FPS, responsiveness на mid-range Android; скриншоты 320/390/1440 и fullscreen U07",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "plans/features/asap8-v6-3-live-correction/w2-evidence-glass/",
+          "observation": "U08: scanline correlation Tier A, tier map, contrast 13.1:1; Playwright probes; REV-W2 Approved",
+          "type": "ui"
+        }
+      ]
     },
     {
       "source_id": "L00334",
@@ -2768,8 +4073,15 @@
       "acceptance": "В ревью два раздельных вердикта: optical Tier A passed (доказанная фоновая деформация) и frost Tier B passed (rim/блик/читаемость); «прозрачность + blur есть» U08 не закрывает",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "plans/features/asap8-v6-3-live-correction/w2-evidence-glass/",
+          "observation": "U08: scanline correlation Tier A, tier map, contrast 13.1:1; Playwright probes; REV-W2 Approved",
+          "type": "ui"
+        }
+      ]
     },
     {
       "source_id": "L00340",
@@ -2783,8 +4095,15 @@
       "acceptance": "Per-chat Summary и остальные переключатели управляют реальным runtime согласно матрице global→chat→emergency; см. B06.1–B06.3, REQ-B06-DOD",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "tests/test_asap8_v63_b06_summary_scope.py, tests/test_asap8_v63_b07_temporal_factcheck.py + w3-evidence-modules/",
+          "observation": "B06 per-chat runtime resolve, B07 temporal gate/modes/TTL; Playwright 42/42; REV-W3 Approved",
+          "type": "live"
+        }
+      ]
     },
     {
       "source_id": "L00344",
@@ -2798,8 +4117,15 @@
       "acceptance": "Resolution global default → explicit chat ON/OFF → emergency env gate; локальный OFF глушит только данный чат; явный chat ON при global OFF разрешает чат если emergency не заблокирован; inherit через сброс override; producer/cron/trigger/scheduler/retry/queue реально следуют выбору (интеграционный тест реальной генерации, не только /api/config)",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "tests/test_asap8_v63_b06_summary_scope.py, tests/test_asap8_v63_b07_temporal_factcheck.py + w3-evidence-modules/",
+          "observation": "B06 per-chat runtime resolve, B07 temporal gate/modes/TTL; Playwright 42/42; REV-W3 Approved",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00345",
@@ -2813,8 +4139,15 @@
       "acceptance": "Матрица module→toggle param→ParamSpec.per_chat→actual runtime read→UI scope задокументирована и протестирована; global-only модули: тумблер read-only на чате + «Настроить глобально», inert override не создаётся; per-chat модули: runtime и UI совпадают; массового превращения 21 карточки в per-chat нет",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "tests/test_asap8_v63_b06_summary_scope.py, tests/test_asap8_v63_b07_temporal_factcheck.py + w3-evidence-modules/",
+          "observation": "B06 per-chat runtime resolve, B07 temporal gate/modes/TTL; Playwright 42/42; REV-W3 Approved",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00346",
@@ -2828,8 +4161,15 @@
       "acceptance": "Тесты: смена scope двух чатов, сброс/инверсия global default, рестарт, одновременное сохранение двух админов, конфликт 409, role deny; сохранение в чате A не меняет чат B",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "tests/test_asap8_v63_b06_summary_scope.py, tests/test_asap8_v63_b07_temporal_factcheck.py + w3-evidence-modules/",
+          "observation": "B06 per-chat runtime resolve, B07 temporal gate/modes/TTL; Playwright 42/42; REV-W3 Approved",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00350",
@@ -2843,8 +4183,15 @@
       "acceptance": "Temporal — функция Фактчека без собственной карточки модуля; настройки/инспектор внутри workspace Фактчека; сид CATEGORY_TEMPORAL исправлен; см. B07.1–B07.3, REQ-B07-BODY",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "tests/test_asap8_v63_b06_summary_scope.py, tests/test_asap8_v63_b07_temporal_factcheck.py + w3-evidence-modules/",
+          "observation": "B06 per-chat runtime resolve, B07 temporal gate/modes/TTL; Playwright 42/42; REV-W3 Approved",
+          "type": "live"
+        }
+      ]
     },
     {
       "source_id": "L00354",
@@ -2858,8 +4205,15 @@
       "acceptance": "В Фактчек→Настройки→Время/источники: переключатель даты/актуальности (если алгоритмически нужен), режимы contextual/current/historical/knowable-at-time, TTL вердиктов, временная линия evidence в детализации Фактчека; реальный gate temporal.tool_enabled показан и объясняет, что включено/что не выключает датировку",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "tests/test_asap8_v63_b06_summary_scope.py, tests/test_asap8_v63_b07_temporal_factcheck.py + w3-evidence-modules/",
+          "observation": "B06 per-chat runtime resolve, B07 temporal gate/modes/TTL; Playwright 42/42; REV-W3 Approved",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00355",
@@ -2873,8 +4227,15 @@
       "acceptance": "SEED_CATEGORIES включает CATEGORY_TEMPORAL (или эквивалентный сид/миграция) без перетирания существующего PG owner value; покрытие отсутствующих Settings-backed групп в config_cache._synthetic_group_items; при per-chat — param_catalog._PER_CHAT_CATEGORIES + runtime-resolve, иначе честный global control; тесты POST/reload/restart/RBAC/API/UI",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "tests/test_asap8_v63_b06_summary_scope.py, tests/test_asap8_v63_b07_temporal_factcheck.py + w3-evidence-modules/",
+          "observation": "B06 per-chat runtime resolve, B07 temporal gate/modes/TTL; Playwright 42/42; REV-W3 Approved",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00356",
@@ -2888,8 +4249,15 @@
       "acceptance": "factcheck_temporal отсутствует в выдаче карточек (top-level и subcard); backend temporal_factcheck и events/inspector сохранены; выключение Factcheck блокирует его функции и не ломает обычный Direct (негативные тесты)",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "tests/test_asap8_v63_b06_summary_scope.py, tests/test_asap8_v63_b07_temporal_factcheck.py + w3-evidence-modules/",
+          "observation": "B06 per-chat runtime resolve, B07 temporal gate/modes/TTL; Playwright 42/42; REV-W3 Approved",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00358",
@@ -2903,8 +4271,15 @@
       "acceptance": "Stories — содержательные истории с заголовком/завязкой/событиями/лицами/финалом и источниками; пустые эпизоды не выдаются за готовые истории; см. B08.1–B08.4",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "tests/test_asap8_v63_b08_stories.py + w3-evidence-analytics/",
+          "observation": "B08 deterministic stories, content_status, feed honest display (REV-W3PRE N1 fix); REV-W3 Approved",
+          "type": "live"
+        }
+      ]
     },
     {
       "source_id": "L00362",
@@ -2918,8 +4293,15 @@
       "acceptance": "Story: человеческий заголовок, завязка, что произошло, основные лица, развитие, финал или честно обозначенный нерешённый вопрос; synopsis + раскрываемая хронология с clickable refs по правам; даты событий/обнаружения/пересборки — разные поля; нет неоснованных имён и придуманных финалов (тесты)",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "tests/test_asap8_v63_b08_stories.py + w3-evidence-analytics/",
+          "observation": "B08 deterministic stories, content_status, feed honest display (REV-W3PRE N1 fix); REV-W3 Approved",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00363",
@@ -2933,8 +4315,15 @@
       "acceptance": "pending/unresolved эпизоды не показываются как успешно составленные; safe bounded backfill/re-extract с проверкой context; дата 2026-vs-1970 исправлена; dedup/split работает; при широком наборе участников — ключевые 3–5 + раскрытие остальных; независимые темы не склеены по времени",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "tests/test_asap8_v63_b08_stories.py + w3-evidence-analytics/",
+          "observation": "B08 deterministic stories, content_status, feed honest display (REV-W3PRE N1 fix); REV-W3 Approved",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00364",
@@ -2948,8 +4337,15 @@
       "acceptance": "При недоступных сообщениях показывается «Не удалось восстановить сюжет: нет источников», не «история №17800000»; оригинальные записи не удаляются (тест)",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "tests/test_asap8_v63_b08_stories.py + w3-evidence-analytics/",
+          "observation": "B08 deterministic stories, content_status, feed honest display (REV-W3PRE N1 fix); REV-W3 Approved",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00365",
@@ -2963,8 +4359,15 @@
       "acceptance": "Приёмка на 10 настоящих эпизодах: 2 независимые темы, merged/continuation, архив, unknown outcome, ссылки, мобильная карточка, без потери provenance",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "tests/test_asap8_v63_b08_stories.py + w3-evidence-analytics/",
+          "observation": "B08 deterministic stories, content_status, feed honest display (REV-W3PRE N1 fix); REV-W3 Approved",
+          "type": "live"
+        }
+      ]
     },
     {
       "source_id": "L00367",
@@ -2978,8 +4381,21 @@
       "acceptance": "Перенос supergroup не теряет историю и память end-to-end; см. REQ-B09-BODY",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "BLOCKED_REAL_HUMAN_GATE",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "tests/test_chat_migration*.py",
+          "observation": "B09 chunked backup + hard cap + serialized write; REV-W1 fix applied",
+          "type": "live"
+        },
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "review-w2.md/review-w3.md + backlog.md (v6.3 Wave 4 live checklist)",
+          "observation": "acceptance requires a real Telegram client / natural event / owner canary window — not automatable; agent-side evidence complete, declared gate",
+          "type": "live"
+        }
+      ]
     },
     {
       "source_id": "L00371",
@@ -2993,8 +4409,15 @@
       "acceptance": "Все пункты таблицы legacy v6 (B10-R01…B10-R19) повторно приняты функционально на актуальном HEAD/runtime без повторной разработки работающего; 3 failed pytest классифицированы (REQ-B10-PYTEST); «26/26» не принимается без live-доказательств",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "live-canary.md + release-reconciliation.md + review-w1/w2/w3.md",
+          "observation": "deploy 2.58.79 (c2775a54) verified from server: healthz/api/web 200, journal clean, rollback target b9ea4907, B11 prod run, gate runs",
+          "type": "live"
+        }
+      ]
     },
     {
       "source_id": "L00399",
@@ -3008,8 +4431,15 @@
       "acceptance": "Для каждого скрытого фонового механизма (перечень REQ-B11-SCOPE) — отчёт по цепочке REQ-B11-CHAIN и контролируемый E2E REQ-B11-E2E; «включено, но не запускалось» не перекрашивается в зелёное",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "w4-live-probes.md + tools/v63_b11_mechanisms_report.py prod run",
+          "observation": "B11 report executed on prod with PG DSN: 8 ok / 2 never_run (vector circuit disclosed), full chain + distinct diagnoses",
+          "type": "live"
+        }
+      ]
     },
     {
       "source_id": "L00407",
@@ -3023,8 +4453,15 @@
       "acceptance": "Release/evidence gate: трекнутые артефакты, автоматический validator, статусы по каждому ID, deploy-протокол, reconciliation расхождений, snapshot-правила; фиктивный DONE исключён; см. B12.1–B12.6",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "live-canary.md + release-reconciliation.md + review-w1/w2/w3.md",
+          "observation": "deploy 2.58.79 (c2775a54) verified from server: healthz/api/web 200, journal clean, rollback target b9ea4907, B11 prod run, gate runs",
+          "type": "live"
+        }
+      ]
     },
     {
       "source_id": "L00409",
@@ -3038,8 +4475,15 @@
       "acceptance": "requirements-map, review-ledger, integration-evidence, ui-acceptance, live-canary, release-reconciliation и скриншоты/видео с маскировкой ПДн закоммичены; каждый ID B01–B12/U01–U08/V01–V07 имеет собственный resolved status; __PENDING__ в финальном отчёте отсутствует",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "live-canary.md + release-reconciliation.md + review-w1/w2/w3.md",
+          "observation": "deploy 2.58.79 (c2775a54) verified from server: healthz/api/web 200, journal clean, rollback target b9ea4907, B11 prod run, gate runs",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00410",
@@ -3053,8 +4497,15 @@
       "acceptance": "Автоматический validator перед закрытием сверяет ID/обязательные артефакты/коммиты/deployed SHA/реальные тесты/unresolved failures и падает (RED) при пропуске; Reviewer независимо сверяет поведение; автоперевод в backlog запрещён validator-правилом",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "live-canary.md + release-reconciliation.md + review-w1/w2/w3.md",
+          "observation": "deploy 2.58.79 (c2775a54) verified from server: healthz/api/web 200, journal clean, rollback target b9ea4907, B11 prod run, gate runs",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00411",
@@ -3068,8 +4519,15 @@
       "acceptance": "Линейка IMPLEMENTED→TESTED→DEPLOYED→VERIFIED_LIVE заполнена по каждому ID; недоступное помечено BLOCKED_ACCESS с конкретным недостающим доступом и воспроизводимым сценарием; UI-вкусовой owner gate только после functional acceptance",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "live-canary.md + release-reconciliation.md + review-w1/w2/w3.md",
+          "observation": "deploy 2.58.79 (c2775a54) verified from server: healthz/api/web 200, journal clean, rollback target b9ea4907, B11 prod run, gate runs",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00412",
@@ -3083,8 +4541,15 @@
       "acceptance": "После каждого deploy: Reviewer+DevOps протокол, rollback readiness, smoke health, warnings, live input/output, снимок адресной поверхности, automated canary; фальшивые SEND/lesson (запись строк в prod ради счётчиков) отсутствуют (аудит источников)",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "live-canary.md + release-reconciliation.md + review-w1/w2/w3.md",
+          "observation": "deploy 2.58.79 (c2775a54) verified from server: healthz/api/web 200, journal clean, rollback target b9ea4907, B11 prod run, gate runs",
+          "type": "live"
+        }
+      ]
     },
     {
       "source_id": "L00413",
@@ -3098,8 +4563,15 @@
       "acceptance": "Расхождение f10-report (Deployed SHA: __PENDING__, live pending) vs workflow_state (done) снято в release-reconciliation; механизм повторения исключён правилом validator, а не только инструкцией",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "live-canary.md + release-reconciliation.md + review-w1/w2/w3.md",
+          "observation": "deploy 2.58.79 (c2775a54) verified from server: healthz/api/web 200, journal clean, rollback target b9ea4907, B11 prod run, gate runs",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00414",
@@ -3113,8 +4585,15 @@
       "acceptance": "Snapshot снят до миграций/массовых пересборок; side effects измеримы; SQLite/PostgreSQL и старая память не удаляются; ошибки названий/адресатов и GraphRAG hallucinated stats покрыты негативными тестами",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "live-canary.md + release-reconciliation.md + review-w1/w2/w3.md",
+          "observation": "deploy 2.58.79 (c2775a54) verified from server: healthz/api/web 200, journal clean, rollback target b9ea4907, B11 prod run, gate runs",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00418",
@@ -3158,8 +4637,15 @@
       "acceptance": "Финальная таблица coverage по B01–B12/U01–U08/V01–V07 и всем пересекающимся legacy v6: проблема→доказанный RCA→изменённые исходники→RED-тест→GREEN/Review→deployed SHA→настоящий outcome→статус",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "live-canary.md + release-reconciliation.md + review-w1/w2/w3.md",
+          "observation": "deploy 2.58.79 (c2775a54) verified from server: healthz/api/web 200, journal clean, rollback target b9ea4907, B11 prod run, gate runs",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00440",
@@ -3173,8 +4659,21 @@
       "acceptance": "Prod-подтверждение каждого функционального кейса; 24/48h наблюдаемость Initiative/Experience с sample reason codes; отдельный список всего недоказанного без объявления полной готовности",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "BLOCKED_REAL_HUMAN_GATE",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "live-canary.md + release-reconciliation.md + review-w1/w2/w3.md",
+          "observation": "deploy 2.58.79 (c2775a54) verified from server: healthz/api/web 200, journal clean, rollback target b9ea4907, B11 prod run, gate runs",
+          "type": "live"
+        },
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "review-w2.md/review-w3.md + backlog.md (v6.3 Wave 4 live checklist)",
+          "observation": "acceptance requires a real Telegram client / natural event / owner canary window — not automatable; agent-side evidence complete, declared gate",
+          "type": "live"
+        }
+      ]
     },
     {
       "source_id": "L00441",
@@ -3188,8 +4687,15 @@
       "acceptance": "Скриншоты всего viewport на 320/360/390/430/768/1440 и landscape; реальные размеры header; selected/copy-тест в редакторе; подписи и scroll; скриншоты до/после одной и той же страницы",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "live-canary.md + release-reconciliation.md + review-w1/w2/w3.md",
+          "observation": "deploy 2.58.79 (c2775a54) verified from server: healthz/api/web 200, journal clean, rollback target b9ea4907, B11 prod run, gate runs",
+          "type": "live"
+        }
+      ]
     },
     {
       "source_id": "L00442",
@@ -3203,8 +4709,15 @@
       "acceptance": "Финальный deployed SHA, актуальные docs/ledger, ZERO скрытых pending и unresolved RED (либо явное разрешение владельца); «ASAP выполнен полностью» не заявляется при непроверенных Initiative/Experience/Cover/U07/U08/фронте",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "live-canary.md + release-reconciliation.md + review-w1/w2/w3.md",
+          "observation": "deploy 2.58.79 (c2775a54) verified from server: healthz/api/web 200, journal clean, rollback target b9ea4907, B11 prod run, gate runs",
+          "type": "live"
+        }
+      ]
     },
     {
       "source_id": "L00445",
@@ -3278,8 +4791,15 @@
       "acceptance": "Все отчёты ссылаются на проверенный HEAD/deployed SHA; после следующего commit/redeploy затронутые LIVE VERIFIED сбрасываются до повторного smoke (правило включено в validator REQ-B12.2)",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "ref": "live-canary.md + release-reconciliation.md + review-w1/w2/w3.md",
+          "observation": "deploy 2.58.79 (c2775a54) verified from server: healthz/api/web 200, journal clean, rollback target b9ea4907, B11 prod run, gate runs",
+          "type": "test"
+        }
+      ]
     }
   ]
 }
