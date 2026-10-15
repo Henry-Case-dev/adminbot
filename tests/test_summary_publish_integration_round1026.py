@@ -1,4 +1,4 @@
-"""S6 round1026 (`summary-publish-integration-round1026`, ADR-1026-11 D1–D10)
+﻿"""S6 round1026 (`summary-publish-integration-round1026`, ADR-1026-11 D1–D10)
 — публикационная интеграция живой доставки Саммари (§100–§106).
 
 Покрытие T-3438…T-3453 (SC-01…SC-20):
@@ -1316,7 +1316,7 @@ class TestBoundaries:
         assert len(pc.TAB_RULES) == 23
 
     def test_app_version(self):
-        assert APP_VERSION == "2.58.78"
+        assert APP_VERSION == "2.58.79"
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
         assert "v2.58.34" in readme
 

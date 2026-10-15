@@ -1,4 +1,4 @@
-"""F3 round 10.25 `global-scope-selector-round1025` — глобальный селектор области.
+﻿"""F3 round 10.25 `global-scope-selector-round1025` — глобальный селектор области.
 
 Маркерные тесты ТЗ §5/§14/§42/§43/§70 (поверх реального JS-теста
 `tests/js/round1025_scope_selector_test.js`, который запускается из
@@ -191,4 +191,4 @@ class TestBackendContract:
     def test_app_version_bumped(self):
         # HOTFIX10 (10.25) — bump 2.58.12 → 2.58.13 (откат стекла/GlassSurface,
         # рабочая поверхность Main, высота, resize OGL-фона, ADR-1025-18, T-2864).
-        assert 'APP_VERSION = "2.58.78"' in SETTINGS
+        assert 'APP_VERSION = "2.58.79"' in SETTINGS

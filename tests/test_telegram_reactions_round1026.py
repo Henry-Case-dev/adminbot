@@ -1,4 +1,4 @@
-"""A8 `telegram-reactions-round1026` (Эпик 3 Wave 5, §41/§44-механика,
+﻿"""A8 `telegram-reactions-round1026` (Эпик 3 Wave 5, §41/§44-механика,
 ADR-1026-21 D1–D14).
 
 Покрытие (T-3671…T-3680):
@@ -517,7 +517,7 @@ class TestBoundaries:
 
     def test_canon_twelve_and_version(self):
         assert len(TOOL_CALLING_TOOLS) == 14
-        assert APP_VERSION == "2.58.78"
+        assert APP_VERSION == "2.58.79"
 
     def test_kill_switch_env_only_not_catalog(self):
         assert "REACTION_MECHANICS_ENABLED" not in pc.REGISTRY

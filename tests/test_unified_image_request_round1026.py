@@ -1,4 +1,4 @@
-"""A3 `unified-image-request-round1026` (Эпик 3, Wave 2; ADR-1026-16; risk R3).
+﻿"""A3 `unified-image-request-round1026` (Эпик 3, Wave 2; ADR-1026-16; risk R3).
 
 Покрытие §18/§19/§20/§21:
 * §20/§18 (T-3559…T-3562): единый ``ImageRequest`` + единственная сборка
@@ -767,7 +767,7 @@ class TestBoundsA3:
         import dataclasses
         from services import param_catalog as pc
         from config.settings import APP_VERSION
-        assert APP_VERSION == "2.58.78"            # bump запрещён (D8)
+        assert APP_VERSION == "2.58.79"            # bump запрещён (D8)
         assert "UNIFIED_IMAGE_REQUEST_ENABLED" not in pc.REGISTRY
         assert "UNIFIED_IMAGE_REQUEST_ENABLED" not in {
             f.name for f in dataclasses.fields(Settings)}

@@ -1,4 +1,4 @@
-"""A4 `image-context-memory-round1026` (Эпик 3, Wave 4; ADR-1026-19; risk R3).
+﻿"""A4 `image-context-memory-round1026` (Эпик 3, Wave 4; ADR-1026-19; risk R3).
 
 Покрытие §22–§25/§37 + §52 п.3/4/5 + §53:
 * B (T-3629/T-3630): reuse `AliasResolver`; same-name → ambiguous без
@@ -1145,7 +1145,7 @@ class TestFlagsAndCanon:
         import dataclasses
         from config.settings import APP_VERSION
         from services import param_catalog as pc
-        assert APP_VERSION == "2.58.78"
+        assert APP_VERSION == "2.58.79"
         assert "IMAGE_CONTEXT_MEMORY_ENABLED" not in pc.REGISTRY
         assert "IMAGE_CONTEXT_MEMORY_ENABLED" not in {
             f.name for f in dataclasses.fields(Settings)}

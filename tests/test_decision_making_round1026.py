@@ -1,4 +1,4 @@
-"""A7 `decision-making-round1026` (Эпик 3 Wave 5, §38–§48, ADR-1026-20 D1–D12).
+﻿"""A7 `decision-making-round1026` (Эпик 3 Wave 5, §38–§48, ADR-1026-20 D1–D12).
 
 Покрытие (T-3651…T-3662):
   * Контракт решения: `action` ≠ `style`, `style=silent` невозможен, аддитивные
@@ -920,7 +920,7 @@ class TestBounds:
         assert len(pc.TAB_RULES) == 23
 
     def test_version_unchanged(self):
-        assert APP_VERSION == "2.58.78"
+        assert APP_VERSION == "2.58.79"
 
     def test_canon_twelve_tools(self):
         assert len(TOOL_CALLING_TOOLS) == 14

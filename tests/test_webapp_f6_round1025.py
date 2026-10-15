@@ -1,4 +1,4 @@
-"""F6 round 10.25 (`memory-analytics-reorg-round1025`, ADR-1025-19) —
+﻿"""F6 round 10.25 (`memory-analytics-reorg-round1025`, ADR-1025-19) —
 статический контроль фронтенда «Аналитика»/«Память» и инвариантов §116.
 
 Не API-тест: контракт `/api/analytics/*` (`web/api/analytics.py`) НЕ меняется
@@ -168,4 +168,4 @@ class TestAnalyticsFilters:
 class TestVersionBump:
     def test_app_version(self):
         m = re.search(r'APP_VERSION = "([\d.]+)"', _SETTINGS)
-        assert m and m.group(1) == "2.58.78", m and m.group(1)
+        assert m and m.group(1) == "2.58.79", m and m.group(1)

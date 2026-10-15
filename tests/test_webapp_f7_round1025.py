@@ -1,4 +1,4 @@
-"""F7 round 10.25 — UI/инвариант-маркеры PERMsoc (ADR-1025-20 D1–D7, §60–§67).
+﻿"""F7 round 10.25 — UI/инвариант-маркеры PERMsoc (ADR-1025-20 D1–D7, §60–§67).
 
 Поведение (6 блоков, guard, round-trip единиц) реально прогоняется в
 `tests/js/round1025_f7_permsoc_local_test.js`; серверные гейты — в
@@ -121,7 +121,7 @@ class TestInvariants:
 
     def test_app_version_bump(self):
         m = re.search(r'APP_VERSION = "([\d.]+)"', SETTINGS)
-        assert m and m.group(1) == "2.58.78", m and m.group(1)
+        assert m and m.group(1) == "2.58.79", m and m.group(1)
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
         assert "v2.58.34" in readme
 

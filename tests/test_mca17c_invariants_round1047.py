@@ -1,4 +1,4 @@
-"""MCA-17c (round 10.47, ADR-1028-23) — инварианты санкций (spec §7).
+﻿"""MCA-17c (round 10.47, ADR-1028-23) — инварианты санкций (spec §7).
 
 Замеры дельт фичи против пост-mca-12 baseline (прод 2.58.65):
   * Δ DDL = 0 сверх санкционированного хвоста v34 (NOTE P2-D, ASAP 6 §8,
@@ -133,7 +133,7 @@ def test_coverage_matrix_sync():
 
 def test_app_version_not_bumped():
     # bump 2.58.65→2.58.66 — домен @DevOps (T-5198), Builder не делает.
-    assert APP_VERSION == "2.58.78"
+    assert APP_VERSION == "2.58.79"
 
 
 def test_routes_plus3_and_registration():

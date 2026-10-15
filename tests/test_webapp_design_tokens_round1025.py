@@ -1,4 +1,4 @@
-"""F2 round 10.25 — дизайн-токены §8, Liquid Glass A/B/C §9, фон §10.
+﻿"""F2 round 10.25 — дизайн-токены §8, Liquid Glass A/B/C §9, фон §10.
 
 Задачи: T-2531…T-2534 (палитра/контраст), T-2535 (иерархия кнопок),
 T-2536 (зачистка OD4-хардкода), T-2538…T-2540 (Liquid Glass A/B/C, allow/deny),
@@ -188,7 +188,7 @@ class TestInventory:
         m = re.search(r'APP_VERSION\s*=\s*"([\d.]+)"', SETTINGS)
         assert m, "APP_VERSION не найден"
         # HOTFIX10 (10.25) — bump 2.58.12 → 2.58.13 (ADR-1025-18, T-2864).
-        assert m.group(1) == "2.58.78", f"APP_VERSION = {m.group(1)} (ожидалось 2.58.34)"
+        assert m.group(1) == "2.58.79", f"APP_VERSION = {m.group(1)} (ожидалось 2.58.34)"
 
 
 # ═══════════════ T-2531/T-2533/T-2534: палитра §8 и контраст ═══════════════

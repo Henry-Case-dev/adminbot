@@ -1,4 +1,4 @@
-"""F8 round 10.25 — маркер-тесты реестра/карт/сохранности (T-3011/T-3012, ADR-1025-21 D6).
+﻿"""F8 round 10.25 — маркер-тесты реестра/карт/сохранности (T-3011/T-3012, ADR-1025-21 D6).
 
 Доказывают (read-only enabler):
   * полноту реестра: `{internal_key}` == REGISTRY == 459; пустых ячеек нет;
@@ -227,7 +227,7 @@ class TestFrozenInvariants:
         # `>=`-послабления).
         assert FIXTURE["app_version"] == "2.58.15"
         from config.settings import APP_VERSION
-        assert APP_VERSION == "2.58.78"
+        assert APP_VERSION == "2.58.79"
     def test_routes_set_unchanged(self):
         import re
         txt = (ROOT / "web/api/routes.py").read_text(encoding="utf-8")

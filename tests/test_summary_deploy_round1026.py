@@ -1,4 +1,4 @@
-"""S10 round1026 (`summary-deploy-round1026`, ADR-1026-12 D2/D3/D6/D8) —
+﻿"""S10 round1026 (`summary-deploy-round1026`, ADR-1026-12 D2/D3/D6/D8) —
 §114-предполётный harness (11 сценариев, **0 реальных отправок**) + инварианты
 активации Hybrid-пайплайна (§107) + границы/§116/§117.
 
@@ -517,7 +517,7 @@ class TestBounds:
         assert len(pc.TAB_RULES) == 23
 
     def test_app_version_bumped(self):
-        assert APP_VERSION == "2.58.78"
+        assert APP_VERSION == "2.58.79"
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
         assert "v2.58.34" in readme
 
