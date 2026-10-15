@@ -1,0 +1,14 @@
+﻿d6366e31ab58e1cbc8d7b19e57cc4d9ef1333d73
+ web/app.js         |  881 ++++++++++++++++++++++++++++++++++++------
+ web/app.py         |    6 +
+ web/index.html     | 1076 +++++++++++++++++++++++++++++-----------------------
+ web/static/app.css |  226 +++++++++++
+ 4 files changed, 1590 insertions(+), 599 deletions(-)
+A5F24EA7DA8D6FCA  web/app.js
+69DBE05D8A3ADDC5  web/app.py
+31AAB5C63365D9A4  web/index.html
+EEDCC134852FC1F3  web/static/app.css
+21BFAC39E246068B  web/api/memory_overview.py
+EFBEDE742D95C9E8  tests/js/asap8_v63_w3_status_logs_test.js
+AABBDDC232C3B089  tests/test_webapp_memory_overview_api.py
+2DAB8B3F416414D4  tools/ui_asap8_v63_w3_status_e2e.py

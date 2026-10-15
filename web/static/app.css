@@ -3572,3 +3572,229 @@ html.lg-bg-paused .lg-mini-lens::after {
   }
 }
 /* ═══ /W2-GLASS ═══ */
+
+/* ═══ W3-EDITOR (asap8-v6-3 B05/U06): Style editor — стабильный solid
+   инструмент (Tier C по U08.4; стабильность B05 важнее декоративности).
+   CORR-1: полигональный фон production ЗАМОРОЖЕН — редактор получает
+   неподвижный НЕПРОЗРАЧНЫЙ фон ЛОКАЛЬНОЙ поверхностью контейнера
+   (дизайн-токены --surface-*), глобальный фон не меняется. ═══ */
+
+/* B05.1: редактор — непрозрачная поверхность поверх оверлея; живой
+   polygon/canvas сквозь текст не виден. Декоративный фон остаётся только
+   ВНЕ рабочей области (за rgba-оверлеем). */
+.cover-editor {
+  background: var(--surface-1, #151B2A);
+}
+
+/* B05.3: overlay — 100dvh внутри Telegram WebView (dvh с vh-fallback);
+   сам оверлей не скроллится и не перепускает скролл наружу. */
+@media (max-width: 639.98px) {
+  .cover-overlay {
+    height: 100vh;
+    height: 100dvh;
+  }
+}
+.cover-overlay { overscroll-behavior: contain; }
+
+/* B05.3: no behind-overlay scroll — пока открыт редактор, скролл app
+   позади заблокирован (класс ставит watch coverStyles.editorOpen).
+   Оверлей fixed, документ не скроллится — layout app не сдвигается. */
+html.cover-editor-open { overflow: hidden; }
+
+/* U06.1: секции рабочего инструмента — solid-карточки Tier C (читаемый
+   текст без стекла/рефракции на textarea и selection). */
+.cover-editor-sec {
+  border: 1px solid var(--surface-border);
+  background: var(--surface-0, #090D17);
+  border-radius: 0.75rem;
+  padding: 0.75rem;
+}
+.cover-sec-title {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: rgba(156, 163, 175, 1);
+  margin-bottom: 0.5rem;
+}
+
+/* U06.2: «Фактическая сборка» — одна строка; цвет ТОЛЬКО при превышении
+   (никакого постоянного зелёного «успеха»). */
+[data-cover-compile-summary] {
+  font-weight: 600;
+  color: rgba(229, 231, 235, 1);
+}
+.cover-limit-over {
+  color: #f87171 !important;
+}
+
+/* U06.2: точный промпт — моноширинный pre со скроллом и копированием;
+   длинный prompt читается без подсвечиваемой сетки за текстом
+   (непрозрачная подложка секции). */
+.cover-prompt-pre {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas,
+    "Liberation Mono", monospace;
+  font-size: 0.72rem;
+  line-height: 1.45;
+  max-height: 16rem;
+  overflow: auto;
+  overscroll-behavior: contain;
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin: 0;
+  padding: 0.5rem;
+  border-radius: 0.5rem;
+  background: var(--surface-1, #151B2A);
+  color: rgba(209, 213, 219, 1);
+  border: 1px solid var(--surface-border);
+}
+
+/* B05.3: guard закрытия — модальный слой ВНУТРИ оверлея редактора. */
+.cover-guard-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.6);
+  padding: 1rem;
+}
+.cover-guard {
+  background: var(--surface-2, #1C2537);
+  border: 1px solid var(--surface-border);
+  border-radius: 0.75rem;
+  padding: 1rem;
+  max-width: 22rem;
+  width: 100%;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+}
+
+/* B05.1: prefers-reduced-motion — внутри редактора движения нет
+   (редактор и так без анимаций; правило страхует будущие декорации). */
+@media (prefers-reduced-motion: reduce) {
+  .cover-editor *,
+  .cover-guard * {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+/* ═══ /W3-EDITOR ═══ */
+/* ═══ W3-STATUS (asap8-v6-3-live-correction: U03/U04/B03) ═══
+   Правки только status-слоёв; полигональный фон ЗАМОРОЖЕН (CORR-1):
+   читаемость достигается ПОДЛОЖКАМИ карточек/ячеек (opacity/pointer-events),
+   НЕ правкой background-stack. */
+
+/* U03.1: каноническая панель «Сон / Глубокий сон» — фазы читаемыми
+   строками; подложка фазы — плотная (контент не просвечивает через
+   анимацию/фон), это слой карточки, не фона. */
+.status-sleep .sleep-phase b { color: var(--text-1, #F4F7FB); }
+
+/* U03.3: «Здоровье памяти» — смысловые результаты и технические счётчики
+   раздельно; раскладка строками «имя → значение» (не разноцветные pills
+   одной строкой на мобиле). */
+.mem-kv {
+  border: 1px solid rgba(255, 255, 255, .08);
+  border-radius: 10px;
+  padding: .5rem .6rem;
+  margin-top: .5rem;
+  background: rgba(10, 14, 22, .55);  /* подложка над фоном, не фон */
+}
+.mem-kv--semantic { border-color: rgba(139, 92, 246, .25); }
+.mem-kv__title { font-weight: 700; color: var(--text-1, #F4F7FB);
+  margin-bottom: .25rem; font-size: .78rem; }
+.mem-kv__row {
+  display: flex; justify-content: space-between; gap: .75rem;
+  padding: .12rem 0; font-size: .72rem; color: #AAB6C8; min-width: 0;
+}
+.mem-kv__row b { color: var(--text-1, #F4F7FB); font-weight: 600;
+  white-space: nowrap; }
+.mem-kv__empty { font-size: .72rem; color: #94a3b8; padding: .15rem 0; }
+
+/* U03.3: ленты «Мониторинга Интеллекта» — контент не просвечивает через
+   анимацию: плотная подложка ленты и элементов (слои карточек). */
+.intel-card .ribbon { background: rgba(10, 14, 22, .55); }
+.ribbon-item {
+  background: rgba(10, 14, 22, .45);
+  border-radius: 6px;
+}
+
+/* U03.4: independent-воронка «Инициативы» — сетка ячеек стадий;
+   desktop 4 колонки, tablet 4→2, mobile — 2 колонки (читаемо на 320). */
+.funnel-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: .4rem;
+}
+@media (max-width: 991px) { .funnel-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.funnel-cell {
+  border: 1px solid rgba(255, 255, 255, .08);
+  border-radius: 8px;
+  padding: .35rem .5rem;
+  min-width: 0;
+  background: rgba(10, 14, 22, .55);
+}
+.funnel-cell__label { font-size: .66rem; color: #AAB6C8; }
+.funnel-cell__value { font-size: .95rem; font-weight: 700;
+  color: var(--text-1, #F4F7FB); line-height: 1.2; }
+.funnel-cell__sub { font-size: .62rem; color: #8b98ab; }
+.funnel-cell--ok { border-color: rgba(255, 255, 255, .08); }
+.funnel-cell--warn { border-color: rgba(251, 191, 36, .45); }
+.funnel-cell--warn .funnel-cell__value { color: #fbbf24; }
+
+/* U03.4: окна 24ч/7д «Опыта» — две карточки рядом, mobile — столбик. */
+.exp-windows {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: .5rem;
+}
+@media (max-width: 640px) { .exp-windows { grid-template-columns: 1fr; } }
+.exp-window {
+  border: 1px solid rgba(255, 255, 255, .08);
+  border-radius: 8px;
+  padding: .4rem .55rem;
+  min-width: 0;
+  background: rgba(10, 14, 22, .55);
+}
+.exp-window__title { font-weight: 700; color: var(--text-1, #F4F7FB);
+  margin-bottom: .2rem; font-size: .74rem; }
+.exp-window__row {
+  display: flex; justify-content: space-between; gap: .5rem;
+  font-size: .7rem; color: #AAB6C8; padding: .08rem 0; min-width: 0;
+}
+.exp-window__row b { color: var(--text-1, #F4F7FB); font-weight: 600; }
+
+/* U04: якорный скролл к блоку логов — гарантированный резерв под
+   sticky-шапку (JS считает offset измерением; scroll-margin страхует
+   нативный anchor-переход). */
+#status-logs { scroll-margin-top: calc(var(--header-h, 4.5rem) + 1rem); }
+/* В mobile-скроллере scroll-padding-top уже резервирует шапку — не
+   удваиваем отступ. */
+.app-shell.shell-mobile:not(.shell-layout-legacy) .scroll-area #status-logs,
+.app-shell.fullscreen-mode:not(.shell-layout-legacy) .scroll-area #status-logs {
+  scroll-margin-top: 0;
+}
+/* Внутри .status-grid карточка логов — полная ширина строки на всех
+   брейкпоинтах (эквивалент sg-12 задан классом; правило страхует
+   kill-switch UI_STATUS_GRID_V2=OFF, где каждая ячейка и так 1/-1). */
+.status-grid > .status-logs { grid-column: 1 / -1; }
+
+/* U04: тач-цели контролов viewer логов в Статусе (чип «Саммари»/Обновить
+   в один ряд с селектором — ≥36px, на таче 44px через существующие
+   btn-ghost паддинги; прямого сужения нет). */
+.status-logs .log-chip.active {
+  border-color: rgba(139, 92, 246, .5);
+  background: rgba(139, 92, 246, .18);
+}
+@media (max-width: 767px) {
+  .status-logs .log-chip, .status-logs .btn-ghost { min-height: 44px; }
+}
+/* Visual Neighborhood Sweep (U04): .field { width:100% } перебивал
+   Tailwind w-32/w-40 — селектор уровня и trace-фильтры растягивались на
+   всю карточку и переносились по одному в ряд. На ≥768 возвращаем
+   компактные ширины (утилиты w-* применяются), на мобиле — полноширинные
+   (тач-дружелюбно), как было. */
+@media (min-width: 768px) {
+  .status-logs select.field { width: auto; }
+  .status-logs #mca-log-filters .field { width: auto; flex: 0 1 auto; }
+}
+/* ═══ /W3-STATUS ═══ */

@@ -440,11 +440,15 @@ const components = (global.__components) || {};
     'D12: воронка инициативы на Статусе');
   assert.ok(INDEX.indexOf('data-experience-funnel') >= 0,
     'D12: воронка уроков на Статусе');
-  // Сон: единственный детальный виджет + компактные клик-бейджи.
+  // Сон: единственный детальный виджет. U03.1 (v6.3): каноническая панель
+  // «Сон / Глубокий сон»; дублирующий ряд sleep-бейджей в шапке
+  // «Мониторинга Интеллекта» удалён (скролл-хелпер больше не нужен).
   assert.strictEqual((INDEX.match(/class="card p-4 status-sleep sg-4"/g) || []).length, 1,
     'D12 §18I.12-D: ровно один детальный виджет сна');
-  assert.ok(INDEX.indexOf('scrollToSleepWidget()') >= 0,
-    'D12: sleep-бейджи в «Мониторинге Интеллекта» — клик к детальному виджету');
+  assert.ok(INDEX.indexOf('Сон / Глубокий сон') >= 0,
+    'U03.1: каноническое название панели «Сон / Глубокий сон»');
+  assert.strictEqual(INDEX.indexOf('scrollToSleepWidget()'), -1,
+    'U03.1: дубль sleep-бейджей/скролл-хелпер удалены');
   // Heartbeat sparkline сохранён.
   assert.ok(INDEX.indexOf('Сердцебиение') >= 0
     && (INDEX.indexOf('hb-canvas') >= 0 || INDEX.indexOf('class="ekg"') >= 0),

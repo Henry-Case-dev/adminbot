@@ -88,33 +88,28 @@ class TestD1Grid:
         assert '"UI_STATUS_GRID_V2": bool(settings.UI_STATUS_GRID_V2),' in ROUTES
 
     def test_dom_order_section12(self):
-        # NOTE (FIX-logs-anchor, поправка владельца): «Логи» — НЕ вкладка,
-        # а ФИЗИЧЕСКИЙ дом внизу «Аналитики» (вне таб-гвардов, всегда в DOM);
-        # на «Статусе» — компактная карточка-переход id="status-logs-link".
-        # Хвост §12 — ссылка-переход; дом логов ассертится ниже (защита
-        # от потери блока сохранена).
+        # NOTE (U04, v6.3 W3-STATUS): «Логи» — ФИЗИЧЕСКИЙ дом в конце
+        # «Статуса» (последняя карточка .status-grid); карточка-переход
+        # id="status-logs-link" удалена, в Аналитике блока логов нет.
         order = ["status-hero", 'class="card p-4 status-block"', "status-graph",
                  "status-sleep", "Мониторинг Интеллекта", "exec-preview",
-                 "status-facts", "status-budgets", "status-logs-link"]
+                 "status-facts", "status-budgets", "card p-4 status-logs"]
         prev = -1
         for marker in order:
             i = INDEX.index(marker)
             assert i > prev, "§12: порядок DOM нарушен на %s" % marker
             prev = i
-        # Перенесённый дом логов существует ровно один раз — в шаблоне
-        # «Аналитики» ВНЕ таб-гвардов (последний блок oversight); на
-        # «Статусе» — ссылка, не дубликат.
-        j = INDEX.index('id="status-logs"')
-        overs_end = INDEX.index("</template>", j)
-        assert j < INDEX.index("activeTab === 'status'"), \
-            "дом логов — внутри шаблона «Аналитики»"
-        logs_tail = INDEX[j:overs_end]
-        assert "oversightTab ===" not in logs_tail, \
-            "логи — последний блок oversight, после них таб-гвардов нет"
-        assert "oversightTab === 'logs'" not in logs_tail, \
-            "логи не под v-if вкладки «Логи» (якорь-контракт)"
-        assert INDEX.count('id="status-logs"') == 1
-        assert INDEX.count('id="status-logs-link"') == 1
+        # Дом логов существует ровно один раз — в шаблоне «Статуса»
+        # (второе вхождение строки — комментарий-указатель в oversight).
+        status_start = INDEX.index("activeTab === 'status'")
+        j = INDEX.index('id="status-logs"', status_start)
+        assert j > status_start, "дом логов — внутри шаблона «Статуса»"
+        assert INDEX.count('id="status-logs"') == 2
+        assert 'id="status-logs-link"' not in INDEX
+        overs_seg = INDEX[INDEX.index("activeTab === 'oversight'"):
+                          status_start]
+        assert '<div class="card p-4 status-logs' not in overs_seg, \
+            "в шаблоне «Аналитики» блока логов больше нет (U04)"
 
 
 class TestD2HeroMetrics:

@@ -83,14 +83,17 @@ const CSS = fs.readFileSync(
 // ── 1) вкладки: список/человеческие названия/sync с oversightView ──────────
 const dataOpts = captured.data();
 const tabs = dataOpts.oversightTabs;
-assert.strictEqual(tabs.length, 8, '8 суб-вкладок');
+// U04 (v6.3): «Логи» — ТОЛЬКО в Статусе; вкладки-якоря больше нет.
+assert.strictEqual(tabs.length, 7, '7 суб-вкладок (без якоря «Логи»)');
 assert.deepStrictEqual(tabs.map(function (t) { return t.id; }),
   ['overview', 'processes', 'runs', 'incidents', 'memory', 'models',
-   'summary', 'logs'], 'порядок вкладок по visual-preservation-map');
+   'summary'], 'порядок вкладок (якорь «Логи» удалён — U04)');
 assert.deepStrictEqual(tabs.map(function (t) { return t.label; }),
   ['Обзор', 'Процессы', 'Запуски', 'Инциденты', 'Память и интеллект',
-   'Модели и расходы', 'Саммари', 'Логи'],
+   'Модели и расходы', 'Саммари'],
   'человеческие русские названия вкладок');
+assert.strictEqual(tabs.some(function (t) { return t.id === 'logs'; }), false,
+  'U04: {id:"logs"} удалён из oversightTabs');
 
 const vm = Object.create(methods);
 vm.oversightTab = 'overview';
@@ -118,19 +121,11 @@ vm.loadLogs = function () { this._logs = true; };
 vm.loadLogCounts = function () {};
 vm.loadStatus = function () { this._status = true; };
 vm.loadOversight = function () {};
-// FIX-logs-anchor: якорь-скролл к #status-logs (счётчик вызовов)
 let anchorCalls = 0;
 vm._scrollToLogsAnchor = function () { anchorCalls++; };
 
-// FIX-logs-anchor: «Логи» — якорь/шорткат, НЕ режим: oversightTab НЕ меняется,
-// выполняется скролл к физическому блоку логов.
-methods.oversightSetTab.call(vm, 'logs');
-assert.strictEqual(vm.oversightTab, 'overview',
-  'вкладка «Логи» НЕ переключает oversightTab (anchor-контракт)');
-assert.strictEqual(anchorCalls, 1,
-  'клик по вкладке «Логи» вызывает скролл к #status-logs');
-assert.strictEqual(vm._leaveRuns, undefined,
-  'якорь не трогает суб-поллинг (ухода с mca-вью нет)');
+// U04 (v6.3): вход в Аналитику больше НЕ тянет логи — viewer переехал в
+// конец «Статуса»; loadLogCounts тоже не дёргается здесь (живёт в loadStatus).
 methods.oversightSetTab.call(vm, 'runs');
 assert.strictEqual(vm.oversightView, 'runs',
   'REUSE: mca-вью синхронизируется с табом');
@@ -138,12 +133,12 @@ methods.oversightSetTab.call(vm, 'memory');
 assert.strictEqual(vm._factcheck, true, '«Память и интеллект» лениво грузит фактчек');
 methods.oversightSetTab.call(vm, 'models');
 assert.strictEqual(vm._keyHistory, true, '«Модели» лениво грузит историю ключей');
-// FIX-logs-anchor: блок логов всегда в DOM → данные грузятся на ЛЮБОЙ
-// суб-вкладке (не только на бывшей вкладке «Логи»).
 vm.oversightTab = 'summary'; vm.logs = []; vm.logsLoading = false;
 methods.oversightTabEnter.call(vm);
-assert.strictEqual(vm._logs, true, 'логи лениво грузятся при входе на любую вкладку');
-methods.oversightTabEnter.call(vm);
+assert.strictEqual(vm._logs, undefined,
+  'U04: loadLogs на входе в Аналитику убран (логи в Статусе)');
+assert.strictEqual(anchorCalls, 0,
+  'U04: вход в Аналитику не скроллит к логам');
 
 // ── 2) deep-link: новый `?tab=` и старый `?view=` ──────────────────────────
 {
@@ -177,17 +172,18 @@ methods.oversightTabEnter.call(vm);
   vm2.oversightSyncHash = function () { syncCalls2++; };
   global.window = { location: { hash: '#/oversight?tab=logs' } };
   methods.oversightApplyDeepLink.call(vm2);
-  // FIX-logs-anchor: `?tab=logs` — якорь, НЕ режим: oversightTab не меняется,
-  // выполняется скролл к физическому блоку логов, hash нормализуется.
+  // U04 (v6.3): `?tab=logs` больше не якорь Аналитики — тут он НЕ скроллит
+  // и НЕ нормализует hash; нормализацию к Статусу делает
+  // applyRoute/_consumeLogsScrollLink (см. блок 2b).
   assert.strictEqual(vm2.oversightTab, 'overview',
-    'deep-link ?tab=logs НЕ переключает oversightTab');
-  assert.strictEqual(anchorCalls2, 1,
-    'deep-link ?tab=logs скроллит к #status-logs');
-  assert.strictEqual(syncCalls2, 1,
-    'после якорного маппинга hash нормализуется (режим не создаётся)');
+    'deep-link ?tab=logs не переключает oversightTab');
+  assert.strictEqual(anchorCalls2, 0,
+    'U04: oversight-скролл к логам убран (логи в Статусе)');
+  assert.strictEqual(syncCalls2, 0,
+    'U04: oversightSyncHash для scroll=logs не вызывается');
   assert.strictEqual(vm2.oversightView, 'processes',
     'якорь вне mca-группы не трогает mca-вью');
-  // прямой параметр `?scroll=logs` (карточка «Логи → Аналитика») — тот же якорь
+  // прямой параметр `?scroll=logs` — тоже без oversight-скролла
   const vm2b = Object.create(methods);
   vm2b.oversightTab = 'overview';
   vm2b.oversightView = 'processes';
@@ -205,7 +201,26 @@ methods.oversightTabEnter.call(vm);
   global.window = { location: { hash: '#/oversight?scroll=logs' } };
   methods.oversightApplyDeepLink.call(vm2b);
   assert.strictEqual(vm2b.oversightTab, 'overview');
-  assert.strictEqual(anchorCalls2b, 1, '?scroll=logs вызывает якорь-скролл');
+  assert.strictEqual(anchorCalls2b, 0, 'U04: ?scroll=logs не скроллит из oversight');
+  // 2b) U04.2: нормализация канона и легаси — _consumeLogsScrollLink.
+  {
+    const written = [];
+    const vmN = Object.create(methods);
+    global.window = { location: { hash: '' },
+      history: { replaceState: function (s, t, u) { written.push(u); } } };
+    assert.strictEqual(vmN._consumeLogsScrollLink('#/?scroll=logs'), true,
+      'канон #/?scroll=logs потребляется');
+    assert.strictEqual(vmN._consumeLogsScrollLink(
+      '#/oversight?scroll=logs'), true, 'легаси oversight?scroll=logs');
+    assert.strictEqual(vmN._consumeLogsScrollLink(
+      '#/oversight?tab=logs'), true, 'легаси oversight?tab=logs');
+    assert.strictEqual(vmN._consumeLogsScrollLink(
+      '#/oversight?view=runs'), false, 'чужие query не потребляются');
+    assert.strictEqual(vmN._consumeLogsScrollLink('#/'), false,
+      'без query — false');
+    assert.deepStrictEqual(written, ['#/', '#/', '#/'],
+      'адрес нормализуется к канону #/ (F5 не повторяет скролл)');
+  }
   // старый формат: ?view=learning → mca-вью + таб «Процессы»
   const vm3 = Object.create(methods);
   vm3.oversightTab = 'overview';
@@ -422,33 +437,41 @@ methods.oversightTabEnter.call(vm);
   inOversight('id="mca-metrics-block"');
   inOversight('dossier-ticker-wrap');
 
-  // FIX-logs-anchor: логи — ФИЗИЧЕСКИЙ блок внизу Аналитики, ВНЕ таб-гвардов
-  // (вкладка «Логи» — якорь); переход-карточка на Статусе осталась.
-  const logsCard = inOversight('id="status-logs"');
-  assert.ok(!oversightGuardBefore(INDEX, logsCard, "'logs'"),
-    'логи НЕ под v-if вкладки «Логи» (всегда в DOM при любом табе)');
-  assert.strictEqual(INDEX.split('id="status-logs"').length - 1, 1,
-    'дом логов ровно один (без дублей)');
-  assert.ok(INDEX.indexOf(':class="{ \'status-logs--flash\': logsAnchorFlash }"') > 0,
-    'якорь-подсветка блока (вспышка ~1с)');
-  assert.ok(CSS.indexOf('status-logs-flash') > 0,
-    'CSS-анимация вспышки якоря');
-  // Логи — ПОСЛЕДНИЙ блок oversight-шаблона (дальше только закрытие).
-  const oversTplEnd = INDEX.indexOf('</template>', logsCard);
-  const logsTail = INDEX.slice(logsCard, oversTplEnd);
-  assert.ok(logsTail.indexOf('oversightTab ===') < 0,
-    'после блока логов таб-гвардов нет (логи — хвост Аналитики)');
+  // U04 (v6.3): логи — ФИЗИЧЕСКИЙ блок в конце «Статуса» (id="status-logs");
+  // в Аналитике блока и вкладки-якоря больше нет.
+  assert.strictEqual(INDEX.split('id="status-logs"').length - 1, 2,
+    'дом логов ровно один (второе вхождение — комментарий-указатель)');
+  // ищем вхождение ВНУТРИ статус-шаблона (первое — комментарий-указатель
+  // в oversight-шаблоне, где блок был до U04)
+  const logsCard = INDEX.indexOf('id="status-logs"', statusStart);
+  assert.ok(logsCard > statusStart, 'в шаблоне Статуса: id="status-logs"');
+  const statusGridEnd = INDEX.indexOf('/F11 §12 .status-grid', logsCard);
+  assert.ok(statusGridEnd > logsCard,
+    'блок логов — ПОСЛЕДНЯЯ карточка .status-grid Статуса');
+  const logsTail = INDEX.slice(logsCard, statusGridEnd);
   assert.ok(logsTail.indexOf('v-model="logLevel"') > 0, 'level-select в доме');
   assert.ok(logsTail.indexOf('toggleLogSummary()') > 0, 'чип «Саммари» в доме');
   assert.ok(logsTail.indexOf('id="mca-log-filters"') > 0, 'trace-фильтры в доме');
   assert.ok(logsTail.indexOf('copyAllLogs()') > 0, 'копирование в доме');
-  inStatus('id="status-logs-link"');
+  assert.ok(INDEX.indexOf(':class="{ \'status-logs--flash\': logsAnchorFlash }"') > 0,
+    'якорь-подсветка блока (вспышка ~1с)');
+  assert.ok(CSS.indexOf('status-logs-flash') > 0,
+    'CSS-анимация вспышки якоря');
+  assert.strictEqual(INDEX.indexOf('status-logs-link'), -1,
+    'U04: карточка-переход «Логи → Аналитика» удалена');
+  const oversSeg = INDEX.slice(oversStart, statusStart);
+  assert.strictEqual(
+    oversSeg.indexOf('<div class="card p-4 status-logs'), -1,
+    'U04: в шаблоне Аналитики блока логов нет (остался только комментарий'
+    + '-указатель)');
   assert.ok(INDEX.indexOf('scrollToLogs()') > statusStart,
-    'клик по счётчику/переходу ведёт к логам в Аналитике');
-  assert.ok(APP.indexOf("'#/oversight?scroll=logs'") > 0,
-    'Status → якорь-переход: deep-link ?scroll=logs (app.js)');
-  assert.ok(APP.indexOf("p.scroll === 'logs'") > 0,
-    'deep-link ?scroll=logs обрабатывается в oversightApplyDeepLink');
+    'U04: клик по счётчику на Статусе ведёт к блоку логов');
+  assert.ok(APP.indexOf('_consumeLogsScrollLink') > 0,
+    'U04.2: нормализация канона/легаси scroll=logs (app.js)');
+  assert.ok(APP.indexOf("'#/?scroll=logs'") > 0,
+    'U04.2: ссылка «Логи» ведёт на канон Статуса (app.js)');
+  assert.strictEqual(APP.indexOf("p.scroll === 'logs'"), -1,
+    'U04: старый oversight-обработчик scroll=logs удалён');
 
   // Статус: strip ключей + компактная случайность
   inStatus('data-key-strip');
@@ -489,6 +512,9 @@ function oversightGuardBefore(html, pos, tabExpr) {
     '/api/factcheck/temporal/runs', '/api/factcheck/temporal/runs/',
     '/api/analytics/usage/latest', '/api/analytics/usage/summary',
     '/api/analytics/exec/graph', '/api/analytics/exec/trace',
+    // U03 (v6.3 W3-STATUS): честные блоки Статуса — B03 expired-обзор и
+    // durable-воронки (read-only, global admin).
+    '/api/memory/expired-overview', '/api/memory/intel-funnels',
   ]);
   // Тест проверяет, что Wave 2 НЕ добавила сетевых вызовов: strip-методы
   // только читают существующее состояние (упоминания /api/... в

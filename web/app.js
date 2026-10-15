@@ -1530,6 +1530,57 @@
     };
   }
 
+  // ── U03.2 (v6.3 W3-STATUS): честные timestamps — нормализация эпохи ──
+  // Module-функция (не метод): форматтеры не зависят от `this` (контракты
+  // .call({}) в тестах/рендере не ломаются). Проблема: статусные поля
+  // показывали «22.01.1970» — мусорные значения (0, длительности ~1.8e6,
+  // старые импорты-заглушки), отрендеренные как валидный epoch. Контракт:
+  // 0/None/мусор → null (caller показывает «ещё не выполнялось / нет
+  // данных», никогда не фальшивый timestamp); seconds (с) и milliseconds
+  // (мс) различаются по порядку величины; всё вне [1990, 2100) — не дата,
+  // а заглушка.
+  var _TS_FLOOR_MS = 631152000000;   // 1990-01-01: ниже — epoch-заглушки
+  var _TS_CEIL_MS = 4102444800000;   // 2100-01-01: выше — мусор
+  function _tsNormalizeMs(value) {
+    if (value === null || value === undefined || value === '') return null;
+    var num = null;
+    if (typeof value === 'number') {
+      num = value;
+    } else if (typeof value === 'string') {
+      var trimmed = value.trim();
+      if (!trimmed) return null;
+      if (/^-?\d+(?:\.\d+)?$/.test(trimmed)) {
+        num = Number(trimmed);
+      } else {
+        var parsed = Date.parse(trimmed);   // ISO «2026-01-02T…»
+        return isNaN(parsed) ? null : parsed;
+      }
+    } else if (typeof value === 'object' &&
+               Object.prototype.toString.call(value) === '[object Date]') {
+      num = value.getTime();
+    } else {
+      return null;
+    }
+    if (!isFinite(num)) return null;
+    // Порядок величины: >= 1e11 — уже миллисекунды (1e11 мс = 1973);
+    // меньше — секунды. Отрицательные такого масштаба — мусор.
+    if (num > -1e11 && num < 1e11) {
+      num = num * 1000;                   // секунды → мс
+    }
+    if (num <= 0) return null;                    // 0/отрицательные
+    if (num < _TS_FLOOR_MS) return null;          // epoch-заглушка (1970…)
+    if (num >= _TS_CEIL_MS) return null;          // за пределами разумного
+    return Math.round(num);
+  }
+
+  // Честная статусная метка: нет данных → фраза («ещё не выполнялось» /
+  // «нет данных»), никогда не фальшивый timestamp.
+  function _tsStatusLabel(value, unknownPhrase) {
+    var ms = _tsNormalizeMs(value);
+    if (ms == null) return unknownPhrase || 'нет данных';
+    return new Date(ms).toLocaleString('ru-RU', { hour12: false });
+  }
+
   // Маршрут валиден ТОЛЬКО если hash начинается с '#/' (иначе launch-hash).
   function normalizeRoute(hash) {
     if (typeof hash !== 'string') return null;
@@ -1864,6 +1915,13 @@
           compile: { result: null, message: '' },
           editorOpen: false,      // §108: dedicated editor surface
           editorDirty: false,     // есть несохранённые изменения
+          // B05.2: серверный снимок метаданных открытого профиля (refs/
+          // preview/can_edit/issue). Обновляется ТОЛЬКО фетчами (loadMeta);
+          // dirty draft (current) фетчи не трогают — разделение данных и
+          // редактируемого state, «приход данных не перетирает ввод».
+          server: null,
+          // B05.3: guard закрытия редактора с несохранённой инструкцией.
+          guardOpen: false,
           draftStep: '',          // 'name' (§112 шаг 1) | 'full'
           draftName: '',
           draftInstruction: '',
@@ -2016,8 +2074,8 @@
         // ── ASAP 6 Wave 2 UX: суб-вкладки внутри #/oversight (новых
         //    маршрутов/страниц нет; view-механика mca-17c сохранена, таб —
         //    надстройка: какой набор секций виден). ──
-        // FIX-logs-anchor: «Логи» — НЕ значение oversightTab (не режим):
-        // вкладка-якорь скроллит к физическому блоку логов внизу Аналитики.
+        // U04 (v6.3): вкладка-якорь «Логи» УДАЛЕНА — логи живут ТОЛЬКО в
+        // конце «Статуса» (id="status-logs"); дублирующих точек входа нет.
         oversightTab: 'overview',     // overview|processes|runs|incidents|memory|models|summary
         oversightTabs: [
           { id: 'overview', label: 'Обзор' },
@@ -2027,8 +2085,6 @@
           { id: 'memory', label: 'Память и интеллект' },
           { id: 'models', label: 'Модели и расходы' },
           { id: 'summary', label: 'Саммари' },
-          // anchor-вкладка: ведёт к блоку #status-logs, oversightTab не меняет
-          { id: 'logs', label: 'Логи' },
         ],
         // FIX-logs-anchor: короткая вспышка блока логов после якорь-скролла
         logsAnchorFlash: false,
@@ -2235,6 +2291,14 @@
         // F7 (memory-retention-health, D-6): метрики здоровья памяти
         // (GET /api/memory/health) — overdue/unconfirmed/сырьё/хранилище.
         memoryHealth: null,
+        // ── U03 (v6.3 W3-STATUS): B03 «Просрочено N» + durable-воронки ──
+        expiredOverview: null,        // GET /api/memory/expired-overview
+        expiredOverviewBusy: false,
+        intelFunnels: null,           // GET /api/memory/intel-funnels (B01/B02)
+        intelFunnelsBusy: false,
+        expWindowsBusy: false,        // окна 24ч/7д опыта
+        expWindow24h: null,           // /api/oversight/experience/funnel?days=1
+        expWindow7d: null,            // /api/oversight/experience/funnel?days=7
         memoryHealthBusy: false,
         cognitionBusy: false,
         cognitionTimer: null,          // polling 15с (только вкладка «Статус»)
@@ -2577,12 +2641,10 @@
         }, this);
       },
       // ═══ W2-SHELL (U02.2): мобильный dropdown суб-вкладок Аналитики —
-      // ПОЛНЫЙ список реальных режимов; «Логи» — НЕ режим (якорь-скролл),
-      // в списке его нет (desktop-табы не тронуты).
+      // ПОЛНЫЙ список реальных режимов. U04 (v6.3): вкладки-якоря «Логи»
+      // больше не существует — логи в «Статусе», фильтр не нужен.
       oversightMobileTabs: function () {
-        return (this.oversightTabs || []).filter(function (t) {
-          return t.id !== 'logs';
-        });
+        return (this.oversightTabs || []).slice();
       },
       // U02.2: подпись текущего выбора в триггере «Раздел: [текущая ▾]».
       oversightTabLabel: function () {
@@ -4419,6 +4481,225 @@
                  this.fmtCountdown(Number(d.next_run_at) - now),
                  cls: 'badge-muted' };
       },
+      // ── U03 (v6.3 W3-STATUS): проекции честных блоков Статуса ──────────
+      // B03.3 «Просрочено N»: раскладка expired-памяти
+      // (/api/memory/expired-overview → MemoryManager.expired_memory_overview,
+      // W1-MEMORY-MIG §7). unavailable → честная метка, не нули.
+      expiredBlock: function () {
+        var o = this.expiredOverview;
+        if (!o || o.available === false) {
+          return { ready: false, totalLabel: '—',
+                   emptyLabel: 'данные недоступны — сервис памяти не ответил' };
+        }
+        var num = function (v) {
+          var n = parseInt(v, 10);
+          return isNaN(n) ? 0 : Math.max(0, n);
+        };
+        return {
+          ready: true,
+          totalLabel: String(num(o.expired_total)),
+          searchable: num(o.expired_searchable),
+          needsRecheck: num(o.needs_recheck),
+          superseded: num(o.superseded_total),
+          modeLabel: o.infinite_retention ? 'бессрочный' : 'обычный',
+        };
+      },
+      // U03.4 «Инициатива»: независимая воронка наблюдателя. Значения —
+      // durable-счётчики task_jobs kind='initiative.observe'; в скобках —
+      // оконные события mca_events. Пустая панель ≠ «работает»: если
+      // состояние disabled/restricted — воронки нет (честная строка выше).
+      initiativeFunnel: function () {
+        var f = this.intelFunnels;
+        var intents = this.statusData && this.statusData.intents;
+        if (!f || f.available === false || !intents) return null;
+        if (intents.state === 'disabled' || intents.state === 'restricted') {
+          return null;
+        }
+        var ini = f.initiative || {};
+        var c = (ini.job && ini.job.counters) || {};
+        var ev = ini.events || {};
+        var e24 = ev['24h'] || {};
+        var e7 = ev['7d'] || {};
+        var num = function (v) {
+          var n = parseInt(v, 10);
+          return isNaN(n) ? 0 : Math.max(0, n);
+        };
+        var observed = num(c.observed);
+        var eligible = num(c.eligible);
+        var opp = num(c.opportunities);
+        var created = num(c.intents_created);
+        var silent = num(c.silent_decisions);
+        var react = num(c.react_decisions);
+        var sent = num(c.sent);
+        var writerUn = num(c.writer_unavailable);
+        var errs = num(c.errors);
+        // Оконные события (24ч/7д) — подпись под durable-значением.
+        var sub2 = function (a, b) {
+          if (!a && !b) return '';
+          return 'события 24ч: ' + num(a) + ' · 7д: ' + num(b);
+        };
+        var writer7 = num(e7.initiative_writer_generated);
+        var recheck7 = num(e7.initiative_recheck_passed);
+        var diag7 = num(e7.initiative_observer_diagnostic);
+        var evalSkips = c.eval_skips;
+        var skipTotal = 0;
+        if (evalSkips && typeof evalSkips === 'object') {
+          Object.keys(evalSkips).forEach(function (k) {
+            skipTotal += num(evalSkips[k]);
+          });
+        }
+        var defs = [
+          { label: 'Наблюдено', value: observed,
+            sub: sub2(e24.initiative_observer_scan,
+                      e7.initiative_observer_scan),
+            hint: 'Сообщений просканировано наблюдателем (durable)' },
+          { label: 'Квалифицировано', value: eligible,
+            sub: skipTotal ? ('пропусков оценки: ' + skipTotal) : '',
+            hint: 'Прошли дешёвую квалификацию и дошли до LLM-оценки' },
+          { label: 'Возможности', value: opp,
+            sub: sub2(e24.initiative_opportunity,
+                      e7.initiative_opportunity),
+            hint: 'Возможностей для инициативы найдено' },
+          { label: 'Намерения', value: created,
+            hint: 'Создано намерений (durable)' },
+          { label: 'Решения', value: silent + react,
+            sub: react ? ('реакций: ' + react) : '',
+            hint: 'Решений принято: молчание ' + silent + ' · реакций '
+              + react },
+          { label: 'Текст', value: writer7,
+            sub: writerUn ? ('writer недоступен: ' + writerUn) : '',
+            state: writerUn ? 'warn' : 'ok',
+            hint: 'Генераций текста (события 7д); durable-счётчик ведёт '
+              + 'только недоступности writer' },
+          { label: 'Перепроверка', value: recheck7,
+            hint: 'initiative_recheck_passed (события 7д; пишется при '
+              + 'intent_id — ephemeral-кандидаты без события)' },
+          { label: 'Отправлено', value: sent,
+            sub: sub2(e24.initiative_sent, e7.initiative_sent),
+            hint: 'Фактически отправлено инициативных сообщений (durable)' },
+        ];
+        // Стадия останова: первое нулевое звено после ненулевого — warn.
+        var stopped = false;
+        defs.forEach(function (d) {
+          var v = (typeof d.value === 'number') ? d.value : 0;
+          if (stopped && v === 0 && d.state !== 'warn') d.state = 'warn';
+          if (v > 0) stopped = true;
+        });
+        // Liveness-штамп наблюдателя (memory_maintenance) — честно: тиков
+        // не было → «работает» не заявляем.
+        var live = ini.liveness || {};
+        var liveLabel = '';
+        var liveTs = _tsNormalizeMs(live.ts);
+        if (liveTs == null && ini.job == null) {
+          liveLabel = 'наблюдение ещё не выполнялось';
+        } else if (liveTs == null) {
+          liveLabel = 'тиков наблюдателя ещё не было';
+        } else {
+          liveLabel = 'последний тик: ' + _tsStatusLabel(live.ts, '—')
+            + (live.status ? (' · ' + live.status) : '');
+        }
+        // Честная причина пустоты — по первой нулевой стадии.
+        var emptyReason;
+        if (ini.job == null && !observed && !num(e7.initiative_observer_scan)) {
+          emptyReason = 'durable-задача наблюдателя ещё не создавалась — '
+            + 'наблюдение не выполнялось';
+        } else if (!observed) {
+          emptyReason = 'наблюдатель не просканировал ни одного сообщения '
+            + '(статус job: ' + ((ini.job && ini.job.status) || '—') + ')';
+        } else if (!opp) {
+          emptyReason = 'возможностей не найдено (пропусков скана: '
+            + num(c.scan_skipped) + ', пропусков оценки: ' + skipTotal
+            + (writerUn || errs ? ', ошибок: ' + errs : '') + ')';
+        } else if (!created) {
+          emptyReason = 'возможности есть, намерений не создано (решений '
+            + 'молчанием: ' + silent + ')';
+        } else if (!sent) {
+          emptyReason = 'намерения создаются, отправок нет (writer '
+            + 'недоступен: ' + writerUn + ', ошибок: ' + errs
+            + (diag7 ? ', диагностик: ' + diag7 : '') + ')';
+        } else {
+          emptyReason = 'наблюдение работает: отправлено ' + sent
+            + ' (durable)';
+        }
+        return { stages: defs, liveLabel: liveLabel,
+                 emptyReason: emptyReason };
+      },
+      // U03.4 «Опыт»: окна 24ч/7д — существующая read-only воронка
+      // oversight (mca-17c) с days=1/days=7. disabled → честные «—».
+      expWindows: function () {
+        var self = this;
+        var mk = function (key, title, f) {
+          if (!f) return null;
+          var off = f.available === false || f.enabled === false;
+          var fb = f.feedback || {};
+          var les = f.lessons || {};
+          var app = f.applications || {};
+          return {
+            key: key, title: title, off: off,
+            feedback: off ? '—' : (fb.total || 0),
+            lessons: off ? '—'
+              : (les.new_in_period != null ? les.new_in_period : 0),
+            applied: off ? '—' : (app.total || 0),
+            success: off ? '—' : (app.success || 0),
+            failure: off ? '—' : (app.failure || 0),
+            unknown: off ? 0 : (app.unknown || 0),
+          };
+        };
+        var a = mk('24h', '24ч', this.expWindow24h);
+        var b = mk('7d', '7д', this.expWindow7d);
+        var out = [];
+        if (a) out.push(a);
+        if (b) out.push(b);
+        return out.length ? out : null;
+      },
+      // Последнее применение урока — событие/строка применений mca-16.
+      expLastAppliedLabel: function () {
+        var f = this.intelFunnels;
+        var last = f && f.experience && f.experience.last_application;
+        if (!last || !last.ts) return 'применений ещё не было';
+        return 'последнее применение: '
+          + _tsStatusLabel(last.ts, '—')
+          + (last.outcome ? (' · исход: ' + last.outcome) : '');
+      },
+      // Честная причина пустоты «Опыта» — по B02-счётчикам семантики.
+      expEmptyReason: function () {
+        var f = this.intelFunnels;
+        var win24 = this.expWindow24h;
+        if (win24 && (win24.available === false || win24.enabled === false)) {
+          return 'самообучение выключено — записей, разбора и применений нет';
+        }
+        var job = f && f.experience && f.experience.job;
+        var c = (job && job.counters) || {};
+        var num = function (v) {
+          var n = parseInt(v, 10);
+          return isNaN(n) ? 0 : Math.max(0, n);
+        };
+        var scanned = num(c.semantic_scanned);
+        var extracted = num(c.semantic_extracted);
+        var candidates = num(c.semantic_candidates);
+        var rejected = num(c.semantic_rejected);
+        var dup = num(c.semantic_duplicates);
+        var llmUn = num(c.semantic_llm_unavailable);
+        var applied = win24 && win24.applications ? (win24.applications.total || 0) : null;
+        if (job == null && !scanned) {
+          return 'семантический обзор ещё не выполнялся — durable-задачи '
+            + 'нет';
+        }
+        if (!scanned) {
+          return 'семантика ещё не сканировала сообщения (водяной знак: '
+            + num(f && f.experience && f.experience.semantic_lag
+                  && f.experience.semantic_lag.watermark) + ')';
+        }
+        if (!extracted && !candidates) {
+          return 'сообщения сканируются, кандидатов не отобрано '
+            + '(отклонено: ' + rejected + ', дубликатов: ' + dup
+            + (llmUn ? ', LLM недоступен: ' + llmUn + ' раз' : '') + ')';
+        }
+        if (applied != null && !applied) {
+          return 'уроки есть, применений за окно не было';
+        }
+        return '';
+      },
       // F5 (T-1455): бюджет контекста из аддитивного /api/status.context
       // (in-memory accounting); красный — урезание или загрузка > 90%.
       // D-7 (10.19): `unlimited` (бюджет `-1`) → «Безлимит (∞)», без
@@ -4548,11 +4829,12 @@
         };
       },
       // F11 (§13/D2): последняя активность бота из uptime.last_heartbeat;
-      // нет данных → «—» (не выдумываем).
+      // нет данных/мусорная заглушка → честное «нет данных» (U03.2: не
+      // рендерим фальшивый timestamp вида 22.01.1970).
       botLastActivity: function () {
         var u = (this.statusData && this.statusData.uptime) || null;
         if (!u || !u.last_heartbeat) return '—';
-        return this.fmtLogTs(u.last_heartbeat);
+        return _tsStatusLabel(u.last_heartbeat, 'нет данных');
       },
       // F11 (§17/D3): виджет сна — ЕДИНЫЙ источник времени (cognition,
       // серверный `generated_at`); активность ТОЛЬКО с сервера; countdown
@@ -4959,6 +5241,14 @@
         // effective-линия (fail-open: 403/RBAC → линии нет).
         if (tab === 'models') this.maybeLoadVisionState();
       },
+      // B05.3: пока открыт cover-editor — блокируем скролл app позади
+      // оверлея (no behind-overlay scroll); guard сбрасывается вместе.
+      'coverStyles.editorOpen': function (open) {
+        if (typeof document === 'undefined') return;
+        var root = document.documentElement;
+        if (root) root.classList.toggle('cover-editor-open', !!open);
+        if (!open) this.coverStyles.guardOpen = false;
+      },
     },
 
     // T-1099/§6.2 п.1-4: initData — ДО hash. created() вычисляет стартовый
@@ -4995,6 +5285,19 @@
         // F1 (T-2396): неизвестный '#/…'-hash → канонический '#/' (replaceState),
         // launch-hash без '#/' игнорируем как раньше.
         var raw = window.location.hash;
+        // U04 (v6.3): «Логи» — только в Статусе. Легаси
+        // `#/oversight?scroll=logs`/`?tab=logs` и канон `#/?scroll=logs`
+        // нормализуются ДО applyRoute: маршрут сразу «Статус» (без
+        // транзитного входа в Аналитику), адрес — канон `#/`, скролл к
+        // блоку после mount (с offset sticky-шапки).
+        var logsLink = false;
+        if (typeof _appVm._consumeLogsScrollLink === 'function') {
+          logsLink = _appVm._consumeLogsScrollLink(raw);
+          if (logsLink) {
+            raw = '#/';
+            window.history.replaceState(null, '', '#/');
+          }
+        }
         var norm = normalizeRoute(raw);
         if (!norm && typeof raw === 'string' && raw.indexOf('#/') === 0) {
           try { history.replaceState(null, '', '#/'); } catch (e) { /* file:// */ }
@@ -5007,6 +5310,12 @@
         // маршрут → applyRoute выходит early и таб бы не переключился.
         if (typeof _appVm.oversightApplyDeepLink === 'function') {
           _appVm.oversightApplyDeepLink();
+        }
+        // U04.2: якорь-скролл к блоку логов ПОСЛЕ mount Статуса ($nextTick —
+        // после сброса скролла в setTab, иначе reset перебьёт позицию).
+        if (logsLink) {
+          if (_appVm.activeTab !== 'status') _appVm.setTab('status');
+          _appVm.$nextTick(function () { _appVm._scrollToLogsAnchor(); });
         }
       };
       window.addEventListener('hashchange', _onHashChange);
@@ -5107,6 +5416,14 @@
         // loader активной вкладки (loadStatus+loadLogs+polling для 'status').
         self.setTab(self.activeTab);
         self.applyRoute(self.route);   // T-1099: персист + syncBackButton
+        // U04.2 (v6.3): холодный старт с каноном `#/?scroll=logs` (или
+        // легаси `#/oversight?scroll=logs`) — raw hash нормализуется к '#/',
+        // скролл к блоку логов после mount Статуса ($nextTick — после
+        // сброса скролла в setTab).
+        if (typeof self._consumeLogsScrollLink === 'function'
+            && self._consumeLogsScrollLink(window.location.hash)) {
+          self.$nextTick(function () { self._scrollToLogsAnchor(); });
+        }
       });
       // Опц. рекомендация ревью: контекст Telegram может появиться ПОЗЖЕ
       // готовности WebView — подписываемся на событие ready (дебаунс —
@@ -7002,6 +7319,66 @@
           this.memoryHealth = null;
         } finally {
           this.memoryHealthBusy = false;
+        }
+      },
+      // ── U03/B03 (v6.3 W3-STATUS): данные честных блоков Статуса ──
+      // B03.3: раскладка expired-памяти («Просрочено N») — W1
+      // expired_memory_overview через /api/memory/expired-overview.
+      // Fail-open: ошибка → null (блок показывает «данные недоступны»).
+      loadExpiredOverview: async function () {
+        if (!this.isGlobalAdmin || this.expiredOverviewBusy) return;
+        this.expiredOverviewBusy = true;
+        var epoch = this.scopeEpoch;
+        try {
+          var q = this._cidQuery(true);
+          var data = await this.api('/api/memory/expired-overview' + q);
+          if (!this._scopeGuard(epoch)) return;
+          this.expiredOverview = data || null;
+        } catch (e) {
+          if (this._scopeGuard(epoch)) this.expiredOverview = null;
+        } finally {
+          this.expiredOverviewBusy = false;
+        }
+      },
+      // U03.4: durable-воронка наблюдателя (initiative.observe) и семантики
+      // (experience.review) — counters + liveness + окна событий 24ч/7д.
+      loadIntelFunnels: async function () {
+        if (!this.isGlobalAdmin || this.intelFunnelsBusy) return;
+        this.intelFunnelsBusy = true;
+        var epoch = this.scopeEpoch;
+        try {
+          var q = this._cidQuery(true);
+          var data = await this.api('/api/memory/intel-funnels' + q);
+          if (!this._scopeGuard(epoch)) return;
+          this.intelFunnels = data || null;
+        } catch (e) {
+          if (this._scopeGuard(epoch)) this.intelFunnels = null;
+        } finally {
+          this.intelFunnelsBusy = false;
+        }
+      },
+      // U03.4 «Опыт»: окна 24ч/7д — СУЩЕСТВУЮЩАЯ read-only воронка
+      // oversight (mca-17c), два запроса days=1/days=7. Без новых endpoint.
+      loadExperienceWindows: async function () {
+        if (!this.isGlobalAdmin || this.expWindowsBusy) return;
+        this.expWindowsBusy = true;
+        var epoch = this.scopeEpoch;
+        var chatQ = this._cidQuery(false);
+        try {
+          var d1 = await this.api('/api/oversight/experience/funnel?days=1'
+            + chatQ);
+          var d7 = await this.api('/api/oversight/experience/funnel?days=7'
+            + chatQ);
+          if (!this._scopeGuard(epoch)) return;
+          this.expWindow24h = d1 || null;
+          this.expWindow7d = d7 || null;
+        } catch (e) {
+          if (this._scopeGuard(epoch)) {
+            this.expWindow24h = null;
+            this.expWindow7d = null;
+          }
+        } finally {
+          this.expWindowsBusy = false;
         }
       },
       // Предупреждение о низком свободном месте (порог 2 ГБ).
@@ -9308,9 +9685,9 @@
       oversightApplyDeepLink: function () {
         var link = this.oversightParseDeepLink(
           typeof window !== 'undefined' ? window.location.hash : '');
-        // FIX-logs-anchor: «Логи» — якорь, а не режим: deep-link `?tab=logs`
-        // (как клик по вкладке) скроллит к физическому блоку логов,
-        // oversightTab не переключается.
+        // U04 (v6.3): «Логи» больше не часть Аналитики — старые deep-links
+        // `?tab=logs`/`?scroll=logs` нормализуются к канону (Статус +
+        // скролл к блоку) в applyRoute; здесь их не обрабатываем.
         if (link.tab === 'logs') {
           link.tab = null;
           link.params.scroll = 'logs';
@@ -9355,16 +9732,10 @@
           this.oversightViewEnter();
           this.oversightTabEnter();
         }
-        // FIX-logs-anchor: `?scroll=logs` (карточка «Логи → Аналитика» на
-        // «Статусе» / deep-link) — скролл к физическому блоку логов после
-        // рендера oversight; режимов/страниц не создаёт. Hash сразу
-        // нормализуется к реальному табу: якорь не «режим», F5 после
-        // перехода не должен повторно скроллить и держать мёртвый
-        // `tab=logs`/`scroll=logs` в URL.
-        if (p.scroll === 'logs') {
-          this._scrollToLogsAnchor();
-          this.oversightSyncHash();
-        }
+        // U04 (v6.3): `?scroll=logs` в oversight-хеше больше не скроллит
+        // здесь — applyRoute нормализует ссылку к канону «Статус + скролл»
+        // (см. _consumeLogsScrollLink). Hash-мусор (scroll=logs) убирается
+        // той же нормализацией.
         return this.mca17cDeepLinkDone;
       },
 
@@ -9407,14 +9778,9 @@
       // Wave 2: смена суб-вкладки Аналитики (какой набор секций виден).
       // mca-группа табов синхронизирует существующий oversightView; уход
       // с mca-таба останавливает суб-поллинг (как oversightLeave).
-      // FIX-logs-anchor: «Логи» — якорь/шорткат, НЕ режим: не переключает
-      // oversightTab, а скроллит к физическому блоку логов внизу Аналитики
-      // (+ вспышка контура — пользователь видит, что произошло).
+      // U04 (v6.3): ветки «logs» больше нет — логи в «Статусе»
+      // (scrollToLogs ведёт туда; вкладок-якорей в Аналитике нет).
       oversightSetTab: function (tab) {
-        if (tab === 'logs') {
-          this._scrollToLogsAnchor();
-          return;
-        }
         if (!tab || this.oversightTab === tab) return;
         this.oversightTab = tab;
         var mcaViews = ['processes', 'runs', 'incidents'];
@@ -9482,11 +9848,8 @@
             && !this.responsePipelineBusy) {
           this.loadResponsePipeline();
         }
-        // FIX-logs-anchor: блок логов живёт в «Аналитике» ВСЕГДА (вне
-        // таб-гвардов) → данные грузим при входе на любую суб-вкладку
-        // (viewer, level-select, чип «Саммари» — без изменений).
-        if (!this.logs.length && !this.logsLoading) this.loadLogs();
-        this.loadLogCounts();
+        // U04 (v6.3): логи переехали в «Статус» — на входе в Аналитику
+        // viewer-загрузка больше не нужна (loadLogCounts живёт в loadStatus).
       },
 
       // Смена суб-представления (без перезагрузки чужих блоков oversight).
@@ -11138,35 +11501,29 @@
       },
       coverStyleOpen: function (s) {
         var st = this.coverStyles;
-        if (!s) { st.current = null; st.meta = null; st.preview = null;
-                  st.editorOpen = false; return; }
+        if (!s) { st.current = null; st.meta = null; st.server = null;
+                  st.preview = null; st.editorOpen = false; return; }
+        // B05.2: `current` — редактируемый draft (только поля ввода);
+        // серверные метаданные — в `server`, фетчи их обновляют отдельно.
         st.current = {
-          profile_id: s.profile_id, name: s.name, origin: s.origin,
-          is_example: s.is_example, pipeline_mode: s.pipeline_mode,
+          profile_id: s.profile_id,
+          name: s.name,
+          pipeline_mode: s.pipeline_mode,
           instruction: s.instruction || '',
           counter_enabled: !!s.counter_enabled,
           next_issue_number: s.next_issue_number,
-          counter_value: s.counter_value, counter_format: s.counter_format,
+          counter_format: s.counter_format,
           model_mode: s.model_mode || 'default',
           connection_id: s.connection_id, model_id: s.model_id,
-          enabled: s.enabled !== false, revision: s.revision,
-          references: (s.references || []).slice(),
-          preview_before_url: s.preview_before_url,
-          preview_after_url: s.preview_after_url,
-          preview_before_asset_id: s.preview_before_asset_id,
-          preview_after_asset_id: s.preview_after_asset_id,
-          preview_revision: s.preview_revision,
-          preview_stale: !!s.preview_stale,
-          preview_source: s.preview_source || 'example',
-          preview_source_label: s.preview_source_label || 'Пример',
-          can_edit: s.can_edit !== false,
-          preview_issue: s.preview_issue, _isNew: false,
+          enabled: s.enabled !== false,
         };
+        st.server = this._coverServerSnapshot(s);
         st.meta = null;
         // ASAP 4.3 (§11): job state НЕ сбрасывается закрытием/сменой
         // редактора — при возврате состояние восстанавливается.
         st.editorOpen = true;
         st.editorDirty = false;
+        st.guardOpen = false;
         st.draftStep = 'full';
         this.coverStylesLoadConnections();
         this.coverStyleLoadMeta(s.profile_id);
@@ -11175,14 +11532,57 @@
           this.coverStylePollJob();
         }
       },
+      // B05.2: серверные (не редактируемые вручную) поля профиля — единый
+      // снимок для listing-элемента и loadMeta-ответа.
+      _coverServerSnapshot: function (src) {
+        return {
+          profile_id: src.profile_id,
+          origin: src.origin,
+          is_example: !!src.is_example,
+          revision: src.revision,
+          can_edit: src.can_edit !== false,
+          references: (src.references || []).slice(),
+          preview_before_url: src.preview_before_url,
+          preview_after_url: src.preview_after_url,
+          preview_before_asset_id: src.preview_before_asset_id,
+          preview_after_asset_id: src.preview_after_asset_id,
+          preview_revision: src.preview_revision,
+          preview_stale: !!src.preview_stale,
+          preview_source: src.preview_source || 'example',
+          preview_source_label: src.preview_source_label || 'Пример',
+          preview_issue: src.preview_issue,
+        };
+      },
+      // B05.2: чтение серверного снимка открытого профиля из шаблона
+      // (references/preview/can_edit); нет снимка → fallback.
+      coverServer: function (prop, fallback) {
+        var s = this.coverStyles.server;
+        if (!s) return fallback;
+        var v = s[prop];
+        return (v === undefined || v === null) ? fallback : v;
+      },
       coverStyleEditorClose: function () {
+        // B05.3: несохранённая инструкция не теряется молча — guard.
+        var st = this.coverStyles;
+        if (st.editorDirty && st.current && !st.guardOpen) {
+          st.guardOpen = true;
+          return;
+        }
+        this.coverStyleEditorDiscard();
+      },
+      coverStyleEditorCancelGuard: function () {
+        this.coverStyles.guardOpen = false;
+      },
+      coverStyleEditorDiscard: function () {
         var st = this.coverStyles;
         st.editorOpen = false;
+        st.guardOpen = false;
         st.draftStep = '';
         st.draftName = '';
         st.draftInstruction = '';
         st.editorDirty = false;
         st.current = null;
+        st.server = null;
         // §11: закрытие редактора НЕ отменяет job и НЕ теряет его состояние;
         // polling продолжается фоново (job durable на сервере).
         this.loadCoverStyles();
@@ -11227,31 +11627,22 @@
                                         global: true })
           .then(function (created) {
             st.saving = false;
+            // B05.2: draft (current) и серверные метаданные (server) раздельно.
             st.current = {
               profile_id: created.profile_id,
-              name: created.name, origin: created.origin || 'custom',
-              is_example: false, pipeline_mode: created.pipeline_mode,
+              name: created.name,
+              pipeline_mode: created.pipeline_mode,
               instruction: created.instruction || '',
               counter_enabled: !!created.counter_enabled,
               next_issue_number: created.next_issue_number,
-              counter_value: created.counter_value || 0,
               counter_format: created.counter_format,
               model_mode: created.model_mode || 'default',
               connection_id: created.connection_id,
               model_id: created.model_id,
               enabled: created.enabled !== false,
-              revision: created.revision,
-              references: (created.references || []).slice(),
-              preview_before_asset_id: created.preview_before_asset_id,
-              preview_after_asset_id: created.preview_after_asset_id,
-              preview_revision: created.preview_revision,
-              preview_stale: false,
-              preview_source: 'example',
-              preview_source_label: 'Пример',
-              can_edit: true,
-              preview_issue: created.preview_issue,
-              _isNew: false,
             };
+            st.server = self._coverServerSnapshot(created);
+            st.guardOpen = false;
             // §112: референсы доступны СРАЗУ (сущность уже на сервере).
             st.draftStep = 'full';
             st.editorDirty = false;
@@ -11269,25 +11660,38 @@
         this.api('/api/cover/styles/' + encodeURIComponent(profileId),
                  { global: true })
           .then(function (data) {
+            // B05.2: meta — только серверные данные; prompt_limit нужен
+            // coverLimitText/coverBudgetText (ранее терялся — лимит всегда
+            // показывался «неизвестно»).
             st.meta = {
               capabilities: data.capabilities || null,
               connection: data.connection || null,
               budget: data.budget || null,
               effective: data.effective || null,
+              prompt_limit: data.prompt_limit || null,
             };
-            if (st.current && st.current.profile_id === profileId) {
-              st.current.references = (data.references || []).slice();
+            // B05.2: приход метаданных НЕ перезаписывает dirty draft —
+            // обновляется только server-снимок (refs/preview/can_edit).
+            if (!st.server || st.server.profile_id !== profileId) return;
+            var snap = self._coverServerSnapshot(data);
+            snap.profile_id = profileId;
+            // name/instruction из meta-ответа в draft НЕ переносим.
+            st.server.references = snap.references;
+            st.server.can_edit = snap.can_edit;
+            st.server.preview_before_asset_id = snap.preview_before_asset_id;
+            st.server.preview_after_asset_id = snap.preview_after_asset_id;
+            st.server.preview_revision = snap.preview_revision;
+            st.server.preview_stale = snap.preview_stale;
+            st.server.preview_source = snap.preview_source;
+            st.server.preview_source_label = snap.preview_source_label;
+            st.server.preview_issue = snap.preview_issue;
+            // ASAP 4.4: next_issue_number — сервер авторитетен; B05.2: пока
+            // draft dirty, поле ввода не перетираем (синк только в server).
+            st.server.next_issue_number = data.next_issue_number;
+            if (!st.editorDirty && st.current
+                && st.current.profile_id === profileId
+                && data.next_issue_number != null) {
               st.current.next_issue_number = data.next_issue_number;
-              st.current.preview_issue = data.preview_issue;
-              // §10/SC-24: актуальность preview синхронизируется с сервером.
-              st.current.preview_after_asset_id = data.preview_after_asset_id;
-              st.current.preview_before_asset_id = data.preview_before_asset_id;
-              st.current.preview_revision = data.preview_revision;
-              st.current.preview_stale = !!data.preview_stale;
-              st.current.preview_source = data.preview_source || 'example';
-              st.current.preview_source_label =
-                data.preview_source_label || 'Пример';
-              st.current.can_edit = data.can_edit !== false;
             }
             // §7.2: «Ограничение промпта» из серверного состояния.
             var pl = data.prompt_limit || null;
@@ -11304,6 +11708,8 @@
         var st = this.coverStyles;
         var c = st.current;
         if (!c || st.saving) return;
+        // B05.2: права редактирования — серверный снимок, не draft.
+        if (st.server && st.server.can_edit === false) return;
         if (!(c.name || '').trim()) { this.toast('Укажите название стиля', 'err'); return; }
         st.saving = true;
         var self = this;
@@ -11522,7 +11928,8 @@
           this.toast('Сначала сохраните стиль', 'err');
           return;
         }
-        if (c.can_edit === false) return;
+        var st2 = this.coverStyles;
+        if (st2.server && st2.server.can_edit === false) return;
         // §11: двойной тап — никакого второго paid job.
         if (st.previewBusy || (this.coverStyleJobActive()
             && st.previewJob.profile_id === c.profile_id)) {
@@ -11786,6 +12193,8 @@
           REFERENCES: 'Референсы',
           // F3-хвост (REV-F3/F4): новый P0-компонент манифеста.
           CONTENT_PRESERVATION: 'Инвариант сохранения сюжета',
+          // U06.2 (asap8-v6-3): scene anchor — опциональный компактный якорь.
+          SCENE_ANCHOR: 'Якорь сюжета',
         };
         var k = (c && c.key) || '';
         return keys[k] || (c && c.source) || k || '—';
@@ -11905,6 +12314,102 @@
             + ' · контекст ≤' + b.reserved.context_max);
         }
         return parts.join(' · ');
+      },
+      // ── U06.2 (asap8-v6-3): «Фактическая сборка» из edit_report W1 API ──
+      // Единственный источник чисел — ответ server compiler (edit_report +
+      // manifest). Нет данных → пусто (fail-closed), никаких выдуманных
+      // цифр и псевдоуспехов при неизвестном лимите.
+      coverEditReport: function (result) {
+        var r = result || this.coverStyles.compile.result;
+        return (r && r.edit_report) || null;
+      },
+      coverManifestSent: function (result, key) {
+        var r = result || this.coverStyles.compile.result;
+        var comps = (r && ((r.manifest && r.manifest.components)
+                           || r.components)) || [];
+        for (var i = 0; i < comps.length; i++) {
+          if (comps[i] && comps[i].key === key) {
+            return comps[i].sent_chars || 0;
+          }
+        }
+        return null;
+      },
+      coverEditOverLimit: function (result) {
+        var er = this.coverEditReport(result);
+        if (!er) return false;
+        if (er.exceeded) return true;
+        if (er.limit_value != null
+            && er.final_prompt_chars != null
+            && er.final_prompt_chars > er.limit_value) {
+          return true;
+        }
+        return false;
+      },
+      coverEditLimitText: function (result) {
+        var er = this.coverEditReport(result);
+        if (!er || er.limit_value == null) return 'неизвестно';
+        return er.limit_value + ' ' + this.coverLimitUnitLabel(er.limit_unit);
+      },
+      coverEditSummaryLine: function (result) {
+        // «Style N · SceneAnchor M · Refs R · System S · Final F / Limit L»
+        // (SceneAnchor — только когда якорь реально включён в сборку).
+        var er = this.coverEditReport(result);
+        if (!er) return '';
+        var style = this.coverManifestSent(result, 'STYLE_PROFILE');
+        var refs = this.coverManifestSent(result, 'REFERENCES');
+        var sysPreserve = this.coverManifestSent(result,
+                                                 'CONTENT_PRESERVATION') || 0;
+        var sysRuntime = this.coverManifestSent(result,
+                                                'RUNTIME_INVARIANTS') || 0;
+        var parts = [];
+        if (style != null) parts.push('Style ' + style);
+        if (er.scene_anchor && er.scene_anchor.included
+            && er.scene_anchor.chars) {
+          parts.push('SceneAnchor ' + er.scene_anchor.chars);
+        }
+        if (refs != null) parts.push('Refs ' + refs);
+        parts.push('System ' + (sysPreserve + sysRuntime));
+        parts.push('Final ' + (er.final_prompt_chars != null
+          ? er.final_prompt_chars : (er.final_chars || 0))
+          + ' / ' + this.coverEditLimitText(result));
+        return parts.join(' · ');
+      },
+      // U06.1: «Подробнее о сборке» — edit_report-метаданные (язык,
+      // headroom, image input, дропы) без псевдоуспехов.
+      coverEditDetailsLines: function (result) {
+        var er = this.coverEditReport(result);
+        if (!er) return [];
+        var lines = [];
+        lines.push('Язык сборки: ' + (er.language || 'unknown'));
+        lines.push('Headroom preflight: '
+          + (er.headroom_chars != null ? er.headroom_chars : 0) + ' симв.');
+        var ii = er.image_input_used || {};
+        lines.push('Image input: ' + (ii.base ? 'base bitmap' : 'нет')
+          + (ii.references ? (', референсов: ' + ii.references) : ''));
+        var dropped = er.dropped || [];
+        if (dropped.length) {
+          lines.push('Dropped: ' + dropped.map(function (d) {
+            return (d.label || '?') + ' (' + (d.reason || '?') + ')';
+          }).join('; '));
+        } else {
+          lines.push('Dropped: нет — все компоненты ушли целиком');
+        }
+        var dedup = er.dedupe_dropped || [];
+        if (dedup.length) {
+          lines.push('Semantic dedupe: ' + dedup.map(function (d) {
+            return (d.label || '?') + ' (' + (d.reason || '?') + ')';
+          }).join('; '));
+        }
+        lines.push('limited_preview: '
+          + (er.limited_preview
+             ? 'ограниченный preview — провайдер не вызывался'
+             : 'нет'));
+        if (er.limit_value == null) {
+          // Честное «неизвестно»: никакого зелёного «готово» (U06.3).
+          lines.push('Лимит: неизвестно — провайдер не сообщил лимит');
+        }
+        if (er.overflow_reason) lines.push('overflow: ' + er.overflow_reason);
+        return lines;
       },
       // ── F4 (ASAP 8 §4.3, C7): live-превью на странице «ИИ → Промпты →
       // Стиль обложки» — ТОТ ЖЕ server compiler (POST /api/cover/
@@ -12829,10 +13334,10 @@
         });
         if (id === 'status') {
           this.loadStatus();
-          // Wave 2 UX: полный viewer логов переехал в «Аналитику» (вкладка
-          // «Логи») — на «Статусе» остались только счётчики (loadLogCounts
-          // внутри loadStatus); 200-строчный fetch логов на каждый вход
-          // больше не нужен.
+          // U04 (v6.3): viewer логов теперь ЖИВЁТ в конце «Статуса» —
+          // лениво догружаем при входе (как раньше на входе в Аналитику;
+          // счётчики — по-прежнему в loadStatus, fetch один).
+          if (!this.logs.length && !this.logsLoading) this.loadLogs();
           this.startStatusPolling();
           this.loadCognition();          // F5/§5: блок «Осмысление»
           this.startCognitionPolling();  // F5-Q3: polling 15с
@@ -16185,45 +16690,107 @@
           this.logWarnCount = null;
         }
       },
-      // F11 (§20/D5): клик по счётчику. FIX-logs-anchor (поправка владельца):
-      // логи — ФИЗИЧЕСКИЙ блок внизу «Аналитики» (вне таб-гвардов), а вкладка
-      // «Логи» и карточка «Логи → Аналитика» — якоря: со «Статуса» →
-      // deep-link `#/oversight?scroll=logs` (hash-change → applyRoute →
-      // oversightApplyDeepLink → _scrollToLogsAnchor после рендера); внутри
-      // «Аналитики» — скролл к карточке сразу (id сохранён). Режимов/страниц
-      // якорь не создаёт.
-      // I-F11S-1: `$refs.statusLogs` в разметке нет — мёртвая ветка удалена.
+      // F11 (§20/D5): клик по счётчику. U04 (v6.3): логи — ФИЗИЧЕСКИЙ блок
+      // в конце «Статуса» (id="status-logs"); любой вызов извне ведёт на
+      // Статус (канон `#/?scroll=logs`), изнутри — скролл к блоку сразу.
+      // Легаси-ссылки `#/oversight?scroll=logs` нормализует hashchange.
       scrollToLogs: function () {
-        if (this.activeTab !== 'oversight') {
-          try { window.location.hash = '#/oversight?scroll=logs'; }
+        if (this.activeTab !== 'status') {
+          try { window.location.hash = '#/?scroll=logs'; }
           catch (e) { /* file:// — fallback ниже */ }
           return;
         }
         this._scrollToLogsAnchor();
       },
-      // FIX-logs-anchor: скролл к физическому блоку логов + вспышка контура.
-      // Рендер #/oversight асинхронный (Vue batch) — если блока ещё нет в
-      // DOM, добираемся следующими тиками (до 5 попыток), без таймеров.
+      // U04.2: consumer raw-hash для «Логи → Статус». Возвращает true, если
+      // hash несёт scroll=logs / tab=logs (легаси-вкладка) на '#/' или
+      // '#/oversight'; адресная строка нормализуется к канону '#/'
+      // (replaceState — F5 не повторяет скролл, мёртвого query в URL нет).
+      // Остальной oversight-контекст ссылок не трогается (парсится
+      // oversightApplyDeepLink как раньше).
+      _consumeLogsScrollLink: function (rawHash) {
+        if (typeof rawHash !== 'string') return false;
+        var q = rawHash.indexOf('?');
+        if (q < 0) return false;
+        var base = rawHash.slice(0, q);
+        if (base !== '#/oversight' && base !== '#/') return false;
+        var want = false;
+        rawHash.slice(q + 1).split('&').forEach(function (kv) {
+          var kvParts = kv.split('=');
+          if (kvParts[0] === 'scroll' && kvParts[1] === 'logs') want = true;
+          if (kvParts[0] === 'tab' && kvParts[1] === 'logs') want = true;
+        });
+        if (!want) return false;
+        try {
+          if (typeof window !== 'undefined' && window.history) {
+            window.history.replaceState(null, '', '#/');
+          }
+        } catch (e) { /* file:// / стаб — no-op */ }
+        return true;
+      },
+      // U04.2: скролл к физическому блоку логов В КОНЦЕ «Статуса» с offset
+      // реальной sticky-шапки (высота измеряется, не константа) + вспышка
+      // контура. Рендер/данные Статуса асинхронные: если блока ещё нет в
+      // DOM — добираемся следующими тиками (до 5 попыток); после первого
+      // скролла догрузка данных ВЫШЕ блока (граф/ленты) меняет высоту
+      // контента — добиваем позицию bounded-settle (≤5 × 180мс), без
+      // бесконечных таймеров.
       _scrollToLogsAnchor: function (attempt) {
+        attempt = attempt || 0;
         var self = this;
         var el = (typeof document !== 'undefined')
           ? document.getElementById('status-logs') : null;
-        if (!el && (attempt || 0) < 5) {
+        if (!el && attempt < 5) {
           this.$nextTick(function () {
-            self._scrollToLogsAnchor((attempt || 0) + 1);
+            self._scrollToLogsAnchor(attempt + 1);
           });
           return;
         }
-        if (!el || typeof el.scrollIntoView !== 'function') return;
+        if (!el) return;
+        var header = (typeof document !== 'undefined')
+          ? document.querySelector('header.header-sticky') : null;
+        var offset = (header && header.getBoundingClientRect()
+                      && header.getBoundingClientRect().height) || 0;
+        var behavior = this.reducedMotion ? 'auto' : 'smooth';
         try {
-          el.scrollIntoView({
-            behavior: this.reducedMotion ? 'auto' : 'smooth',
-            block: 'start',
-          });
+          var area = document.querySelector('.app-shell .scroll-area');
+          var rect = el.getBoundingClientRect();
+          if (area && area.contains(el)
+              && area.scrollHeight > area.clientHeight + 2) {
+            // mobile/fullscreen: скроллер — main.scroll-area; его
+            // scroll-padding-top уже резервирует шапку — небольшой зазор.
+            var target = area.scrollTop + rect.top
+              - area.getBoundingClientRect().top - 8;
+            if (typeof area.scrollTo === 'function') {
+              area.scrollTo({ top: target, behavior: behavior });
+            } else {
+              area.scrollTop = target;
+            }
+          } else if (typeof window !== 'undefined') {
+            var top = rect.top + (window.pageYOffset || 0) - offset - 12;
+            if (typeof window.scrollTo === 'function') {
+              window.scrollTo({ top: Math.max(0, top), behavior: behavior });
+            }
+          } else {
+            el.scrollIntoView();
+          }
         } catch (e) {
-          el.scrollIntoView();
+          try { el.scrollIntoView(); } catch (e2) { /* стаб */ }
         }
         this._flashLogsAnchor();
+        if (attempt < 5 && typeof setTimeout === 'function') {
+          setTimeout(function () {
+            var el2 = (typeof document !== 'undefined')
+              ? document.getElementById('status-logs') : null;
+            if (!el2) return;
+            var top2 = el2.getBoundingClientRect().top;
+            var hdr2 = document.querySelector('header.header-sticky');
+            var h2 = (hdr2 && hdr2.getBoundingClientRect().height) || 0;
+            if (Math.abs(top2 - h2 - 12) > 48) {
+              self._scrollToLogsAnchor(attempt + 1);
+            }
+          }, 180);
+        }
       },
       // Вспышка контура блока (~1с): пользователь видит, куда пришёл якорь.
       // Цвет — не единственный носитель: движение (анимация) + позиция скролла.
@@ -16298,29 +16865,42 @@
         if (level === 'DEBUG') return 'badge-muted';
         return 'badge-info';
       },
+      // ── U03.2 (v6.3): честные timestamps для статусных полей ──
+      // Нормализация — module-функция _tsNormalizeMs (см. выше): seconds/
+      // millis/None/0/старые импорты/мусор вне [1990, 2100) → null →
+      // «ещё не выполнялось / нет данных», никогда «22.01.1970».
+      normalizeTsMs: function (value) {
+        return _tsNormalizeMs(value);
+      },
+      // Честная метка времени для статусных полей: нет данных → фраза
+      // («ещё не выполнялось» / «нет данных»), не «22.01.1970».
+      statusTsLabel: function (value, unknownPhrase) {
+        return _tsStatusLabel(value, unknownPhrase);
+      },
       fmtLogTs: function (ts) {
-        if (!ts) return '';
-        var d = new Date(ts);
-        if (isNaN(d.getTime())) return String(ts).slice(0, 19).replace('T', ' ');
+        var ms = _tsNormalizeMs(ts);
+        if (ms == null) return '';
+        var d = new Date(ms);
         return d.toLocaleString('ru-RU', { hour12: false });
       },
       // 10.8 (3b): компактные ДАТА+ВРЕМЯ «DD.MM HH:MM:SS» — дата снова видна
       // на тач-устройствах, где :title (fmtLogTs) недоступен без hover.
       fmtLogTime: function (ts) {
-        if (!ts) return '';
-        var d = new Date(ts);
-        if (isNaN(d.getTime())) {
-          return String(ts).slice(0, 19).replace('T', ' ');
-        }
+        var ms = _tsNormalizeMs(ts);
+        if (ms == null) return '';
+        var d = new Date(ms);
         var pad = function (n) { return (n < 10 ? '0' : '') + n; };
         return pad(d.getDate()) + '.' + pad(d.getMonth() + 1) + ' '
           + pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':'
           + pad(d.getSeconds());
       },
-      // Раунд 9: формат unix-секунд (users_meta/graph_facts/logs в секундах)
+      // Раунд 9: формат unix-секунд (users_meta/graph_facts/logs в секундах).
+      // U03.2: seconds/millis/None/0/мусор нормализует _tsNormalizeMs;
+      // неизвестное время — честное «—».
       fmtTs: function (ts) {
-        if (!ts) return '—';
-        return this.fmtLogTs(new Date(ts * 1000));
+        var ms = _tsNormalizeMs(ts);
+        if (ms == null) return '—';
+        return this.fmtLogTs(ms);
       },
       // Раунд 9: русская подпись стадии отношений (спец. зеркало STAGE_RU)
       stageRu: function (stage) {
@@ -17570,16 +18150,60 @@
         if (this.activeChatId == null) return '';
         return (first ? '?' : '&') + 'chat_id=' + this.activeChatId;
       },
-      // D12 (§18I.12-D): компактные sleep-бейджи «Мониторинга Интеллекта»
-      // скроллят к ЕДИНСТВЕННОМУ детальному виджету «Сон и активность»
-      // (дублей нет — бейджи не повторяют last-run/details).
-      scrollToSleepWidget: function () {
-        try {
-          var el = document.querySelector('.status-sleep');
-          if (el && typeof el.scrollIntoView === 'function') {
-            el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          }
-        } catch (e) { /* вне браузера/юнит-стаб */ }
+      // D12 (§18I.12-D) → U03.1 (v6.3): компактные sleep-бейджи «Мониторинга
+      // Интеллекта» удалены вместе с дублем; каноническая панель «Сон /
+      // Глубокий сон» — на этой же странице. Скролл-хелпер больше не нужен.
+      // U03.1 (v6.3): каноническая панель «Сон / Глубокий сон» — стадия и
+      // результат каждой фазы. Источник ОДИН: cognition-payload
+      // (/api/memory/cognition/status, уже загружен loadCognition) +
+      // deep-sleep-диагностика последней попытки; новых запросов нет.
+      dreamStageLabel: function () {
+        var c = this.cognition;
+        var d = (c && c.dream) || {};
+        if (d.running) {
+          return d.manual ? 'синтез (ручной прогон)' : 'синтез (плановый прогон)';
+        }
+        if (d.state === 'limit_exhausted') return 'лимит сна исчерпан';
+        if (d.state === 'synthesizing') return 'синтез';
+        if (d.enabled === false) return 'выключен настройками';
+        return 'ожидание окна расписания';
+      },
+      deepStageLabel: function () {
+        var c = this.cognition;
+        var d = (c && c.deep_sleep) || {};
+        if (d.running) {
+          return d.manual ? 'прогон (ручной)' : 'прогон (плановый)';
+        }
+        if (d.enabled === false) return 'выключен настройками';
+        return 'ожидание расписания';
+      },
+      // Результат обычного сна — факты дневного бюджета (синтезы/токены);
+      // нет данных → честное «—», нули не выдумываем.
+      dreamResultLabel: function () {
+        var c = this.cognition;
+        var b = c && c.dream && c.dream.budget;
+        if (!b) return '—';
+        var dist = b.distilled_today;
+        var distMax = b.distilled_limit;
+        var tok = b.tokens_today;
+        var tokMax = b.tokens_limit;
+        if (dist == null && tok == null) return '—';
+        var parts = [];
+        if (dist != null) {
+          parts.push('синтезов сегодня: ' + dist +
+            (distMax ? '/' + distMax : ''));
+        }
+        if (tok != null) {
+          parts.push('токенов: ' + tok + (tokMax ? '/' + tokMax : ''));
+        }
+        return parts.join(' · ');
+      },
+      // Результат глубокого сна — исход последней попытки (deep-sleep
+      // диагностика, D14); ещё не было попытки → «ещё не выполнялся».
+      deepResultLabel: function () {
+        var label = (typeof this.lastAttemptLabel === 'function')
+          ? this.lastAttemptLabel() : null;
+        return label || 'ещё не выполнялся';
       },
       loadCognition: async function () {
         if (!this.isGlobalAdmin) return;
@@ -17660,6 +18284,11 @@
           // F7 (D-6): метрики здоровья памяти (просрочено/не подтверждено/
           // сырьё/хранилище) — аддитивный блок «Мониторинга Интеллекта».
           this.loadMemoryHealth();
+          // U03 (v6.3): B03 «Просрочено N» + durable-воронки Инициативы/
+          // Опыта — тот же ритм cognition-polling (без новых поллеров).
+          this.loadExpiredOverview();
+          this.loadIntelFunnels();
+          this.loadExperienceWindows();
         } catch (e) {
           if (e.status !== 401 && e.status !== 403 && e.status !== 503) {
             this.toast('Осмысление: ' + e.message, 'err');

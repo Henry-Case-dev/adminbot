@@ -903,9 +903,9 @@
                 data-cover-editor-back aria-label="Назад">← Закрыть</button>
         <span class="text-sm font-bold truncate flex-1">
           {{ coverStyles.current.name || 'Стиль' }}</span>
-        <span v-if="coverStyles.current.is_example"
+        <span v-if="coverServer('is_example', false)"
               class="badge badge-info flex-none">Пример</span>
-        <span v-if="!coverStyles.current.can_edit"
+        <span v-if="!coverServer('can_edit', true)"
               class="badge badge-muted flex-none"
               data-cover-readonly>Только просмотр</span>
         <span v-if="coverStyles.editorDirty"
@@ -913,264 +913,335 @@
               data-cover-unsaved-dot>● несохранено</span>
       </div>
 
+      <!-- U06.1 (asap8-v6-3): порядок рабочего инструмента —
+           Профиль → Инструкция → Референсы → Проверка итогового промпта →
+           Test Edit → результат/история; разработческие метаданные — под
+           «Подробнее». B05.2: данные сервера — coverStyles.server, dirty
+           draft — coverStyles.current; фетчи draft не перетирают. -->
       <div class="cover-editor-body flex-1 overflow-y-auto scroll-thin p-4 flex flex-col gap-4">
-        <!-- §109 progressive disclosure: creative fields первичны -->
-        <div class="grid gap-3 md:grid-cols-2">
-          <label class="flex flex-col text-xs gap-1">
-            <span class="text-gray-400">Название</span>
-            <input class="field" v-model="coverStyles.current.name"
-                   @input="coverStyles.editorDirty = true"
-                   data-cover-style-name>
-          </label>
-          <div class="flex flex-col text-xs gap-1">
-            <span class="text-gray-400">Как применяется</span>
-            <select class="field" v-model="coverStyles.current.pipeline_mode"
-                    @change="coverStyles.editorDirty = true">
-              <option value="generate_only">Только генерация</option>
-              <option value="generate_then_edit">Базовая обложка → обработка стилем</option>
-              <option value="edit_only">Только обработка (edit)</option>
-            </select>
-          </div>
-        </div>
 
-        <label class="flex flex-col text-xs gap-1">
-          <span class="text-gray-400">Инструкция стиля</span>
-          <textarea class="field scroll-thin" rows="5"
-                    v-model="coverStyles.current.instruction"
-                    @input="coverStyles.editorDirty = true"
-                    data-cover-style-instruction></textarea>
-          <span class="text-gray-500" data-cover-style-budget>{{ coverBudgetText() }}</span>
-          <span v-if="coverBudgetBreakdown()" class="text-gray-500"
-                data-cover-budget-breakdown>{{ coverBudgetBreakdown() }}</span>
-          <span v-if="coverBudgetUnknownText()" class="text-gray-500"
-                data-cover-budget-unknown>{{ coverBudgetUnknownText() }}</span>
-        </label>
-
-        <!-- ASAP 4.3 (§7.2, T-4847): «Ограничение промпта» —
-             [Автоматически]/[Задать вручную] + единица + значение.
-             Manual — высший приоритет; сохранение стиля не блокируется. -->
-        <div class="flex flex-col text-xs gap-2" data-cover-prompt-limit>
-          <span class="text-gray-400">Ограничение промпта</span>
-          <div class="flex items-center gap-2 flex-wrap">
-            <select class="field max-w-xs" v-model="coverStyles.limitMode"
-                    data-cover-limit-mode>
-              <option value="auto">Автоматически</option>
-              <option value="manual">Задать вручную</option>
-            </select>
-            <template v-if="coverStyles.limitMode === 'manual'">
-              <select class="field w-32" v-model="coverStyles.limitUnit"
-                      data-cover-limit-unit>
-                <option value="chars">символы</option>
-                <option value="tokens">токены</option>
+        <!-- ── 1. Профиль: название, режим, активность, нумерация ── -->
+        <section class="cover-editor-sec" data-cover-sec-profile>
+          <div class="cover-sec-title">Профиль</div>
+          <div class="grid gap-3 md:grid-cols-2">
+            <label class="flex flex-col text-xs gap-1">
+              <span class="text-gray-400">Название</span>
+              <input class="field" v-model="coverStyles.current.name"
+                     @input="coverStyles.editorDirty = true"
+                     data-cover-style-name>
+            </label>
+            <div class="flex flex-col text-xs gap-1">
+              <span class="text-gray-400">Как применяется</span>
+              <select class="field" v-model="coverStyles.current.pipeline_mode"
+                      @change="coverStyles.editorDirty = true">
+                <option value="generate_only">Только генерация</option>
+                <option value="generate_then_edit">Базовая обложка → обработка стилем</option>
+                <option value="edit_only">Только обработка (edit)</option>
               </select>
-              <input type="number" min="1" class="field w-28"
-                     v-model="coverStyles.limitValue"
-                     placeholder="Значение" data-cover-limit-value>
-              <button type="button" class="btn-ghost text-xs"
+            </div>
+          </div>
+          <label class="inline-flex items-center gap-2 mt-2">
+            <input type="checkbox" v-model="coverStyles.current.enabled"
+                   @change="coverStyles.editorDirty = true">
+            <span class="text-xs">Стиль активен</span>
+          </label>
+          <!-- Нумерация выпуска (§25–§28/§66) — часть профиля -->
+          <div class="flex flex-col text-xs gap-2 mt-3">
+            <span class="text-gray-400">Нумерация выпуска</span>
+            <div class="flex items-center gap-3 flex-wrap">
+              <label class="inline-flex items-center gap-2">
+                <input type="checkbox" v-model="coverStyles.current.counter_enabled"
+                       @change="coverStyles.editorDirty = true">
+                <span>Включить нумерацию выпусков</span>
+              </label>
+              <label class="inline-flex items-center gap-2">
+                <span class="text-gray-400">Следующий номер</span>
+                <input type="number" class="field w-24"
+                       v-model="coverStyles.current.next_issue_number"
+                       @input="coverStyles.editorDirty = true">
+              </label>
+              <label class="inline-flex items-center gap-2">
+                <span class="text-gray-400">Формат</span>
+                <input type="text" class="field w-40"
+                       v-model="coverStyles.current.counter_format"
+                       @input="coverStyles.editorDirty = true">
+              </label>
+              <span class="text-gray-500">Предпросмотр: {{ coverServer('preview_issue', '') }}</span>
+            </div>
+          </div>
+        </section>
+
+        <!-- ── 2. Инструкция: редактируемая инструкция + компактный лимит ── -->
+        <section class="cover-editor-sec" data-cover-sec-instruction>
+          <div class="cover-sec-title">Инструкция</div>
+          <label class="flex flex-col text-xs gap-1">
+            <textarea class="field scroll-thin" rows="5"
+                      v-model="coverStyles.current.instruction"
+                      @input="coverStyles.editorDirty = true"
+                      data-cover-style-instruction></textarea>
+            <span class="text-gray-500" data-cover-style-budget>{{ coverBudgetText() }}</span>
+            <span v-if="coverBudgetBreakdown()" class="text-gray-500"
+                  data-cover-budget-breakdown>{{ coverBudgetBreakdown() }}</span>
+            <span v-if="coverBudgetUnknownText()" class="text-gray-500"
+                  data-cover-budget-unknown>{{ coverBudgetUnknownText() }}</span>
+          </label>
+          <!-- ASAP 4.3 (§7.2, T-4847) — компактный limit-selector:
+               [Автоматически]/[Задать вручную] + единица + значение в одну
+               строку. Manual — высший приоритет; сохранение не блокируется. -->
+          <div class="flex flex-col text-xs gap-1 mt-2" data-cover-prompt-limit>
+            <span class="text-gray-400">Ограничение промпта</span>
+            <div class="flex items-center gap-2 flex-wrap">
+              <select class="field max-w-[12rem]" v-model="coverStyles.limitMode"
+                      data-cover-limit-mode>
+                <option value="auto">Автоматически</option>
+                <option value="manual">Задать вручную</option>
+              </select>
+              <template v-if="coverStyles.limitMode === 'manual'">
+                <select class="field w-28" v-model="coverStyles.limitUnit"
+                        data-cover-limit-unit>
+                  <option value="chars">символы</option>
+                  <option value="tokens">токены</option>
+                </select>
+                <input type="number" min="1" class="field w-24"
+                       v-model="coverStyles.limitValue"
+                       placeholder="Значение" data-cover-limit-value>
+                <button type="button" class="btn-ghost text-xs"
+                        :disabled="coverStyles.limitSaving"
+                        @click="coverStyleSavePromptLimit()"
+                        data-cover-limit-save>
+                  {{ coverStyles.limitSaving ? 'Сохранение…' : 'Сохранить лимит' }}
+                </button>
+              </template>
+              <button v-else type="button" class="btn-ghost text-xs"
                       :disabled="coverStyles.limitSaving"
                       @click="coverStyleSavePromptLimit()"
-                      data-cover-limit-save>
-                {{ coverStyles.limitSaving ? 'Сохранение…' : 'Сохранить лимит' }}
+                      data-cover-limit-auto>
+                Применить автоматически
               </button>
+              <span class="text-gray-500" data-cover-limit-resolved>
+                Лимит текущей модели: {{ coverLimitText() }}
+              </span>
+            </div>
+          </div>
+        </section>
+
+        <!-- ── 3. Референсы ── -->
+        <section class="cover-editor-sec" data-cover-sec-refs>
+          <div class="cover-sec-title">Референсы</div>
+          <div class="flex flex-col text-xs gap-2">
+            <div class="flex flex-wrap gap-2" data-cover-style-refs>
+              <div v-for="r in coverServer('references', [])" :key="r.ref_id"
+                   class="flex flex-col items-center gap-1 rounded-xl border border-white/10 p-2 w-36">
+                <img v-if="coverStyles._assets[r.asset_id]"
+                     :src="coverStyles._assets[r.asset_id]" alt=""
+                     class="w-28 h-28 object-cover rounded-lg"
+                     data-cover-ref-thumb>
+                <span v-else class="w-28 h-28 rounded-lg bg-white/5"></span>
+                <span class="truncate w-full text-center font-semibold"
+                      :title="r.description">{{ r.label || 'Референс' }}</span>
+                <span class="text-gray-500 text-[0.65rem] text-center w-full truncate">{{ r.description }}</span>
+                <div class="flex items-center gap-1 flex-wrap justify-center">
+                  <label v-if="coverServer('can_edit', true)" class="btn-ghost text-xs">
+                    Заменить
+                    <input type="file" accept="image/png,image/jpeg,image/webp"
+                           class="sr-only"
+                           :data-cover-replace-input="r.ref_id"
+                           :disabled="coverStyles.uploadBusy || !coverServer('can_edit', true)"
+                           @change="coverStyleReplaceReference(r, $event)">
+                  </label>
+                  <button v-if="coverServer('can_edit', true)" class="btn-danger text-xs"
+                          @click="coverStyleRemoveReference(r)">Убрать</button>
+                </div>
+              </div>
+            </div>
+            <div v-if="coverServer('can_edit', true)"
+                 class="flex items-center gap-2 flex-wrap">
+              <input type="text" class="field max-w-[10rem]" placeholder="Название"
+                     v-model="coverStyles.current._refLabel">
+              <input type="text" class="field max-w-[14rem]" placeholder="Описание роли"
+                     v-model="coverStyles.current._refDescription">
+              <label class="btn-ghost text-xs">
+                {{ coverStyles.uploadBusy ? 'Загрузка…' : 'Добавить референс' }}
+                <input type="file" accept="image/png,image/jpeg,image/webp"
+                       class="sr-only" data-cover-reference-input
+                       :disabled="coverStyles.uploadBusy || !coverServer('can_edit', true)"
+                       @change="coverStyleUploadReference($event)">
+              </label>
+            </div>
+            <span v-if="!coverServer('can_edit', true)"
+                  class="text-gray-500"
+                  data-cover-refs-locked>Встроенный стиль редактирует только администратор. Можно скопировать стиль в свой.</span>
+            <span class="text-gray-500">Загружайте логотип, персонажа, рамку, цвет или вёрстку — и опишите их роль.</span>
+          </div>
+        </section>
+
+        <!-- ── 4. Проверка итогового промпта (admin; server compiler) ── -->
+        <!-- ASAP 7 F7 (§9.2–§9.4) + U06.2: live-превью компиляции ТОЛЬКО
+             server-compiler'ом (POST /api/cover/preview-compile, global
+             admin). «Фактическая сборка» — одна строка из edit_report,
+             цвет ТОЛЬКО при превышении; exact prompt — моноширинный pre со
+             скроллом + копирование; edit_report-метаданные — в «Подробнее
+             о сборке». Frontend ничего не собирает сам (§22 п.15). -->
+        <section v-if="coverStyles.isAdmin"
+                 class="cover-editor-sec" data-cover-sec-compile>
+          <div class="cover-sec-title">Проверка итогового промпта</div>
+          <div class="flex flex-col text-xs gap-2" data-cover-compile>
+            <div class="flex items-center gap-2 flex-wrap">
+              <select class="field max-w-xs"
+                      v-model.number="coverStyles.compileChatId"
+                      data-cover-compile-chat>
+                <option :value="0">— без test-контекста (честный предпросмотр) —</option>
+                <option v-for="c in accessChats" :key="'ccc-' + c.chat_id"
+                        :value="c.chat_id">
+                  {{ c.title || ('Чат ' + c.chat_id) }}
+                </option>
+              </select>
+              <button type="button" class="btn-ghost text-xs"
+                      :disabled="coverStyles.compileBusy"
+                      @click="coverCompilePreview()" data-cover-compile-run>
+                {{ coverStyles.compileBusy ? 'Сборка…' : 'Собрать промпт' }}
+              </button>
+            </div>
+            <div v-if="coverStyles.compile.message" class="text-amber-300"
+                 data-cover-compile-message>{{ coverStyles.compile.message }}</div>
+            <template v-if="coverStyles.compile.result">
+              <!-- U06.2: одна строка фактической сборки
+                   Style N · SceneAnchor M · Refs R · System S · Final F / Limit L;
+                   цвет только при превышении (никакого зелёного «успеха»). -->
+              <div data-cover-compile-summary
+                   :class="{ 'cover-limit-over': coverEditOverLimit() }">
+                {{ coverEditSummaryLine() }}
+              </div>
+              <div v-if="coverCompileFinalText()"
+                   class="flex flex-col gap-1" data-cover-compile-final>
+                <div class="flex items-center gap-2 flex-wrap">
+                  <span class="text-gray-500">Exact compiled prompt</span>
+                  <button type="button" class="btn-ghost text-xs"
+                          @click="copyText(coverCompileFinalText())"
+                          data-cover-compile-copy>Копировать</button>
+                </div>
+                <pre class="cover-prompt-pre"
+                     data-cover-compile-final-text>{{ coverCompileFinalText() }}</pre>
+              </div>
+              <div class="text-gray-500" data-cover-compile-budget>
+                {{ coverCompileBudgetText() }}</div>
+              <!-- U06.1: реальная структура prompt-preview — таблица компонент -->
+              <table class="w-full text-left" data-cover-compile-table>
+                <thead>
+                  <tr class="text-gray-500">
+                    <th class="pr-2 font-normal">Компонента</th>
+                    <th class="pr-2 font-normal">Отправлено</th>
+                    <th class="pr-2 font-normal">Статус</th>
+                    <th class="font-normal">Причина</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="c in coverStyles.compile.result.components"
+                      :key="'cc-' + c.key" data-cover-compile-row>
+                    <td class="pr-2 align-top">{{ coverManifestSourceLabel(c) }}</td>
+                    <td class="pr-2 align-top">{{ c.sent_chars || 0 }}<span v-if="c.original_chars" class="text-gray-500"> / {{ c.original_chars }}</span></td>
+                    <td class="pr-2 align-top"
+                        :class="coverManifestStatusClass(c)">{{ coverManifestStatusText(c) }}</td>
+                    <td class="align-top text-gray-500">{{ coverCompileReasonText(c) }}</td>
+                  </tr>
+                </tbody>
+              </table>
+              <!-- U06.1: разработческие метаданные сборки — под «Подробнее» -->
+              <details class="text-gray-500" data-cover-compile-details>
+                <summary class="cursor-pointer">Подробнее о сборке (edit_report)</summary>
+                <ul class="mt-1 list-disc list-inside">
+                  <li v-for="(line, i) in coverEditDetailsLines()"
+                      :key="'edr-' + i">{{ line }}</li>
+                </ul>
+              </details>
+              <details class="text-gray-500" data-cover-compile-texts>
+                <summary class="cursor-pointer">Тексты компонент (исходник → ушло модели)</summary>
+                <div v-for="c in coverStyles.compile.result.components"
+                     :key="'cct-' + c.key"
+                     class="mt-1 flex flex-col gap-1"
+                     data-cover-compile-component-text>
+                  <div class="text-gray-400">{{ coverManifestSourceLabel(c) }}</div>
+                  <div v-if="c.original_text" class="flex flex-col">
+                    <span>Исходный текст</span>
+                    <pre class="whitespace-pre-wrap break-words m-0">{{ c.original_text }}</pre>
+                  </div>
+                  <div v-if="c.sent_text" class="flex flex-col">
+                    <span>Ушло модели</span>
+                    <pre class="whitespace-pre-wrap break-words m-0 text-gray-300">{{ c.sent_text }}</pre>
+                  </div>
+                  <div v-if="!c.original_text">—</div>
+                </div>
+              </details>
             </template>
-            <button v-else type="button" class="btn-ghost text-xs"
-                    :disabled="coverStyles.limitSaving"
-                    @click="coverStyleSavePromptLimit()"
-                    data-cover-limit-auto>
-              Применить автоматически
-            </button>
           </div>
-          <span class="text-gray-500" data-cover-limit-resolved>
-            Лимит текущей модели: {{ coverLimitText() }}
-          </span>
-        </div>
+        </section>
 
-        <!-- ASAP 7 F7 (§9.2–§9.4): «Фактическая сборка промпта» — live
-             превью компиляции ТОЛЬКО server-compiler'ом (POST
-             /api/cover/preview-compile, global admin). Frontend ничего не
-             собирает сам (§22 п.15). Без test-контекста — честный
-             placeholder (§9.4), не fake production prompt. -->
-        <div v-if="coverStyles.isAdmin"
-             class="flex flex-col text-xs gap-2 rounded-xl border border-white/10 p-3"
-             data-cover-compile>
-          <span class="text-gray-400">Фактическая сборка промпта</span>
-          <div class="flex items-center gap-2 flex-wrap">
-            <select class="field max-w-xs"
-                    v-model.number="coverStyles.compileChatId"
-                    data-cover-compile-chat>
-              <option :value="0">— без test-контекста (честный предпросмотр) —</option>
-              <option v-for="c in accessChats" :key="'ccc-' + c.chat_id"
-                      :value="c.chat_id">
-                {{ c.title || ('Чат ' + c.chat_id) }}
-              </option>
-            </select>
-            <button type="button" class="btn-ghost text-xs"
-                    :disabled="coverStyles.compileBusy"
-                    @click="coverCompilePreview()" data-cover-compile-run>
-              {{ coverStyles.compileBusy ? 'Сборка…' : 'Собрать промпт' }}
-            </button>
-          </div>
-          <div v-if="coverStyles.compile.message" class="text-amber-300"
-               data-cover-compile-message>{{ coverStyles.compile.message }}</div>
-          <template v-if="coverStyles.compile.result">
-            <div v-if="coverCompileFinalText()"
-                 class="flex flex-col gap-1" data-cover-compile-final>
-              <div class="flex items-center gap-2 flex-wrap">
-                <span class="text-gray-500">Exact compiled prompt</span>
-                <button type="button" class="btn-ghost text-xs"
-                        @click="copyText(coverCompileFinalText())"
-                        data-cover-compile-copy>Копировать</button>
-              </div>
-              <pre class="whitespace-pre-wrap break-words text-gray-300 m-0"
-                   data-cover-compile-final-text>{{ coverCompileFinalText() }}</pre>
-            </div>
-            <div class="text-gray-500" data-cover-compile-budget>
-              {{ coverCompileBudgetText() }}</div>
-            <table class="w-full text-left" data-cover-compile-table>
-              <thead>
-                <tr class="text-gray-500">
-                  <th class="pr-2 font-normal">Компонента</th>
-                  <th class="pr-2 font-normal">Отправлено</th>
-                  <th class="pr-2 font-normal">Статус</th>
-                  <th class="font-normal">Причина</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="c in coverStyles.compile.result.components"
-                    :key="'cc-' + c.key" data-cover-compile-row>
-                  <td class="pr-2 align-top">{{ coverManifestSourceLabel(c) }}</td>
-                  <td class="pr-2 align-top">{{ c.sent_chars || 0 }}<span v-if="c.original_chars" class="text-gray-500"> / {{ c.original_chars }}</span></td>
-                  <td class="pr-2 align-top"
-                      :class="coverManifestStatusClass(c)">{{ coverManifestStatusText(c) }}</td>
-                  <td class="align-top text-gray-500">{{ coverCompileReasonText(c) }}</td>
-                </tr>
-              </tbody>
-            </table>
-            <details class="text-gray-500" data-cover-compile-texts>
-              <summary class="cursor-pointer">Тексты компонент (исходник → ушло модели)</summary>
-              <div v-for="c in coverStyles.compile.result.components"
-                   :key="'cct-' + c.key"
-                   class="mt-1 flex flex-col gap-1"
-                   data-cover-compile-component-text>
-                <div class="text-gray-400">{{ coverManifestSourceLabel(c) }}</div>
-                <div v-if="c.original_text" class="flex flex-col">
-                  <span>Исходный текст</span>
-                  <pre class="whitespace-pre-wrap break-words m-0">{{ c.original_text }}</pre>
-                </div>
-                <div v-if="c.sent_text" class="flex flex-col">
-                  <span>Ушло модели</span>
-                  <pre class="whitespace-pre-wrap break-words m-0 text-gray-300">{{ c.sent_text }}</pre>
-                </div>
-                <div v-if="!c.original_text">—</div>
-              </div>
-            </details>
-          </template>
-        </div>
-
-        <!-- §111: reference card с реальным thumbnail (видна сразу) -->
-        <div class="flex flex-col text-xs gap-2">
-          <span class="text-gray-400">Референсы</span>
-          <div class="flex flex-wrap gap-2" data-cover-style-refs>
-            <div v-for="r in coverStyles.current.references" :key="r.ref_id"
-                 class="flex flex-col items-center gap-1 rounded-xl border border-white/10 p-2 w-36">
-              <img v-if="coverStyles._assets[r.asset_id]"
-                   :src="coverStyles._assets[r.asset_id]" alt=""
-                   class="w-28 h-28 object-cover rounded-lg"
-                   data-cover-ref-thumb>
-              <span v-else class="w-28 h-28 rounded-lg bg-white/5"></span>
-              <span class="truncate w-full text-center font-semibold"
-                    :title="r.description">{{ r.label || 'Референс' }}</span>
-              <span class="text-gray-500 text-[0.65rem] text-center w-full truncate">{{ r.description }}</span>
-              <div class="flex items-center gap-1 flex-wrap justify-center">
-                <label v-if="coverStyles.current.can_edit" class="btn-ghost text-xs">
-                  Заменить
-                  <input type="file" accept="image/png,image/jpeg,image/webp"
-                         class="sr-only"
-                         :data-cover-replace-input="r.ref_id"
-                         :disabled="coverStyles.uploadBusy || !coverStyles.current.can_edit"
-                         @change="coverStyleReplaceReference(r, $event)">
-                </label>
-                <button v-if="coverStyles.current.can_edit" class="btn-danger text-xs"
-                        @click="coverStyleRemoveReference(r)">Убрать</button>
-              </div>
-            </div>
-          </div>
-          <div v-if="coverStyles.current.can_edit"
-               class="flex items-center gap-2 flex-wrap">
-            <input type="text" class="field max-w-[10rem]" placeholder="Название"
-                   v-model="coverStyles.current._refLabel">
-            <input type="text" class="field max-w-[14rem]" placeholder="Описание роли"
-                   v-model="coverStyles.current._refDescription">
-            <label class="btn-ghost text-xs">
-              {{ coverStyles.uploadBusy ? 'Загрузка…' : 'Добавить референс' }}
-              <input type="file" accept="image/png,image/jpeg,image/webp"
-                     class="sr-only" data-cover-reference-input
-                     :disabled="coverStyles.uploadBusy || !coverStyles.current.can_edit"
-                     @change="coverStyleUploadReference($event)">
-            </label>
-          </div>
-          <span v-if="!coverStyles.current.can_edit"
-                class="text-gray-500"
-                data-cover-refs-locked>Встроенный стиль редактирует только администратор. Можно скопировать стиль в свой.</span>
-          <span class="text-gray-500">Загружайте логотип, персонажа, рамку, цвет или вёрстку — и опишите их роль.</span>
-        </div>
-
+        <!-- ── 5. Test Edit: before→after + реальный тестовый pipeline ── -->
         <!-- §110 + ASAP 4.2 (D5.4/D5.5): before→after — вторичный, компактный
              preview (max-width/height в CSS); стрелка — Material Symbol. -->
-        <div class="flex flex-col text-xs gap-2">
-          <span class="text-gray-400">Как работает стиль
-            <span class="badge badge-muted ml-1" data-cover-editor-preview-source>{{ coverStyles.current.preview_source_label || 'Пример' }}</span>
-            <span class="sr-only" data-cover-preview-source-labels>Пример / Результат теста</span>
-          </span>
-          <div class="cover-preview-group flex items-end gap-2" data-cover-style-preview>
-            <div class="flex flex-col items-center gap-1 min-w-0">
-              <span class="text-gray-500">До</span>
-              <img v-if="coverPairAsset(coverStyles.current, 'before')"
-                   :src="coverPairAsset(coverStyles.current, 'before')"
-                   alt="" class="cover-preview" data-cover-before-img>
-              <span v-else class="cover-preview-empty">нет примера</span>
+        <section class="cover-editor-sec" data-cover-sec-testedit>
+          <div class="cover-sec-title">Test Edit</div>
+          <div class="flex flex-col text-xs gap-2">
+            <span class="text-gray-400">Как работает стиль
+              <span class="badge badge-muted ml-1" data-cover-editor-preview-source>{{ coverServer('preview_source_label', 'Пример') }}</span>
+              <span class="sr-only" data-cover-preview-source-labels>Пример / Результат теста</span>
+            </span>
+            <div class="cover-preview-group flex items-end gap-2" data-cover-style-preview>
+              <div class="flex flex-col items-center gap-1 min-w-0">
+                <span class="text-gray-500">До</span>
+                <img v-if="coverPairAsset(coverStyles.server, 'before')"
+                     :src="coverPairAsset(coverStyles.server, 'before')"
+                     alt="" class="cover-preview" data-cover-before-img>
+                <span v-else class="cover-preview-empty">нет примера</span>
+              </div>
+              <span class="msr cover-preview-arrow" aria-hidden="true"
+                    data-cover-preview-arrow>{{ iconGlyph('chevron_right') }}</span>
+              <div class="flex flex-col items-center gap-1 min-w-0">
+                <span class="text-gray-500">После</span>
+                <img v-if="coverPairAsset(coverStyles.server, 'after')"
+                     :src="coverPairAsset(coverStyles.server, 'after')"
+                     alt="" class="cover-preview" data-cover-after-img>
+                <span v-else class="cover-preview-empty">нет примера</span>
+              </div>
             </div>
-            <span class="msr cover-preview-arrow" aria-hidden="true"
-                  data-cover-preview-arrow>{{ iconGlyph('chevron_right') }}</span>
-            <div class="flex flex-col items-center gap-1 min-w-0">
-              <span class="text-gray-500">После</span>
-              <img v-if="coverPairAsset(coverStyles.current, 'after')"
-                   :src="coverPairAsset(coverStyles.current, 'after')"
-                   alt="" class="cover-preview" data-cover-after-img>
-              <span v-else class="cover-preview-empty">нет примера</span>
+            <div class="flex items-center gap-2 flex-wrap">
+              <!-- ASAP 4.2 (D5.5): НЕ file picker — реальный тестовый pipeline
+                   (base cover → style edit), upload остаётся отдельным действием. -->
+              <button type="button" class="btn-ghost text-xs"
+                      :disabled="coverStyles.previewBusy || !coverServer('can_edit', true)"
+                      @click="coverStylePreview()"
+                      data-cover-test-button>
+                {{ coverStyles.previewBusy ? 'Обработка…' : 'Проверить стиль' }}
+              </button>
+              <span class="text-gray-500">Тест не тратит номер выпуска и не публикует пост.</span>
+            </div>
+            <!-- ASAP 4.3 (§11, T-4853): stage-прогресс durable job; elapsed —
+                 информация, решение об ошибке по времени НЕ принимается. -->
+            <div v-if="coverStyleJobActive()"
+                 class="text-gray-300 flex items-center gap-2 flex-wrap"
+                 data-cover-test-progress>
+              <span class="spinner"></span>
+              <span data-cover-test-stage>{{ coverPreviewStageText(coverStyles.previewJob.stage) }}</span>
+              <span class="text-gray-500">Прошло: {{ coverStyles.previewJob.elapsed }} с</span>
+            </div>
+            <div v-if="coverServer('preview_stale', false)"
+                 class="text-amber-300 text-xs flex items-center gap-2 flex-wrap"
+                 data-cover-preview-stale>
+              <span>Пример создан для предыдущей версии стиля.</span>
+              <button class="btn-ghost text-xs"
+                      @click="coverStyleRefreshExample()"
+                      :disabled="coverStyles.previewBusy"
+                      data-cover-preview-update>Обновить пример</button>
             </div>
           </div>
-          <div class="flex items-center gap-2 flex-wrap">
-            <!-- ASAP 4.2 (D5.5): НЕ file picker — реальный тестовый pipeline
-                 (base cover → style edit), upload остаётся отдельным действием. -->
-            <button type="button" class="btn-ghost text-xs"
-                    :disabled="coverStyles.previewBusy || !coverStyles.current.can_edit"
-                    @click="coverStylePreview()"
-                    data-cover-test-button>
-              {{ coverStyles.previewBusy ? 'Обработка…' : 'Проверить стиль' }}
-            </button>
-            <span class="text-gray-500">Тест не тратит номер выпуска и не публикует пост.</span>
-          </div>
-          <!-- ASAP 4.3 (§11, T-4853): stage-прогресс durable job; elapsed —
-               информация, решение об ошибке по времени НЕ принимается. -->
-          <div v-if="coverStyleJobActive()"
-               class="text-gray-300 flex items-center gap-2 flex-wrap"
-               data-cover-test-progress>
-            <span class="spinner"></span>
-            <span data-cover-test-stage>{{ coverPreviewStageText(coverStyles.previewJob.stage) }}</span>
-            <span class="text-gray-500">Прошло: {{ coverStyles.previewJob.elapsed }} с</span>
-          </div>
-          <div v-if="coverStyles.current.preview_stale"
-               class="text-amber-300 text-xs flex items-center gap-2 flex-wrap"
-               data-cover-preview-stale>
-            <span>Пример создан для предыдущей версии стиля.</span>
-            <button class="btn-ghost text-xs"
-                    @click="coverStyleRefreshExample()"
-                    :disabled="coverStyles.previewBusy"
-                    data-cover-preview-update>Обновить пример</button>
-          </div>
-          <div v-if="coverStyles.preview" class="rounded-lg border border-white/10 p-2"
-               data-cover-test-result>
+        </section>
+
+        <!-- ── 6. Результат/история теста + манифест отправки ── -->
+        <section class="cover-editor-sec" data-cover-sec-result>
+          <div class="cover-sec-title">Результат</div>
+          <div class="flex flex-col text-xs gap-2">
+            <div v-if="coverStyles.preview" class="rounded-lg border border-white/10 p-2"
+                 data-cover-test-result>
             <div v-if="coverStyles.preview.applied" class="flex items-center gap-2 flex-wrap">
               <span class="text-green-400" data-cover-test-human>{{ coverStyles.preview.message || 'Стиль применён' }}</span>
               <span v-if="coverStyles.preview.provider || coverStyles.preview.model"
@@ -1253,86 +1324,66 @@
                 </div>
               </div>
             </details>
+            </div>
+            <div v-else class="text-gray-500"
+                 data-cover-result-empty>Тест ещё не запускался в этой сессии редактора.</div>
           </div>
-        </div>
+        </section>
 
-        <!-- Нумерация (§25–§28/§66) -->
-        <div class="flex flex-col text-xs gap-2">
-          <span class="text-gray-400">Нумерация выпуска</span>
-          <div class="flex items-center gap-3 flex-wrap">
-            <label class="inline-flex items-center gap-2">
-              <input type="checkbox" v-model="coverStyles.current.counter_enabled"
-                     @change="coverStyles.editorDirty = true">
-              <span>Включить нумерацию выпусков</span>
-            </label>
-            <label class="inline-flex items-center gap-2">
-              <span class="text-gray-400">Следующий номер</span>
-              <input type="number" class="field w-24"
-                     v-model="coverStyles.current.next_issue_number"
-                     @input="coverStyles.editorDirty = true">
-            </label>
-            <label class="inline-flex items-center gap-2">
-              <span class="text-gray-400">Формат</span>
-              <input type="text" class="field w-40"
-                     v-model="coverStyles.current.counter_format"
-                     @input="coverStyles.editorDirty = true">
-            </label>
-            <span class="text-gray-500">Предпросмотр: {{ coverStyles.current.preview_issue }}</span>
-          </div>
-        </div>
-
-        <!-- §109: техника — collapsed («Модель и подключение») -->
-        <details class="text-xs rounded-xl border border-white/10 p-3">
-          <summary class="cursor-pointer text-gray-400 font-semibold"
-                   data-cover-model-section>Модель и подключение</summary>
-          <div class="flex flex-col gap-2 mt-2">
-            <div class="flex items-center gap-2 flex-wrap">
-              <select class="field max-w-xs" v-model="coverStyles.current.model_mode"
-                      @change="coverStyles.editorDirty = true">
-                <option value="default">Подключение по умолчанию</option>
-                <option value="custom">Другое подключение</option>
-              </select>
-              <template v-if="coverStyles.current.model_mode === 'custom'">
-                <select class="field max-w-xs" v-model="coverStyles.current.connection_id"
-                        @change="coverStyles.editorDirty = true"
-                        data-cover-connection-select>
-                  <option value="">— выберите подключение —</option>
-                  <option v-for="c in (coverStyles.connections || [])"
-                          :key="c.connection_id" :value="c.connection_id">
-                    {{ c.label || c.connection_id }} ({{ c.provider || 'provider' }})
-                  </option>
-                </select>
-                <input type="text" class="field max-w-xs" placeholder="Модель"
-                       v-model="coverStyles.current.model_id"
-                       @input="coverStyles.editorDirty = true">
-              </template>
-            </div>
-            <div v-if="coverStyles.meta && coverStyles.meta.connection"
-                 class="text-gray-500" data-cover-connection>
-              Подключение: {{ coverStyles.meta.connection.message
-              }}<span v-if="coverStyles.meta.connection_label">
-              · {{ coverStyles.meta.connection_label }}</span>
-              <span v-if="coverStyles.meta.connection.edit_supported === false"
-                    class="text-amber-300">
-                · модель не умеет редактировать изображения — будет опубликована базовая обложка
-              </span>
-            </div>
-            <div v-else-if="!coverStyles.meta || !coverStyles.meta.connection"
-                 class="text-amber-300" data-cover-connection-unconfigured>
-              Обработка стилем пока не настроена.
-              <button class="btn-ghost text-xs" @click="openCoverConnections()"
-                      data-cover-connections-link>Настроить подключение</button>
-            </div>
-            <label class="inline-flex items-center gap-2">
-              <input type="checkbox" v-model="coverStyles.current.enabled"
-                     @change="coverStyles.editorDirty = true">
-              <span>Стиль активен</span>
-            </label>
+        <!-- ── 7. Подробнее: разработческие метаданные (модель/подключение) ── -->
+        <details class="cover-editor-sec" data-cover-sec-more>
+          <summary class="cursor-pointer cover-sec-title"
+                   data-cover-more-toggle>Подробнее</summary>
+          <div class="flex flex-col gap-2 mt-2 text-xs">
+            <!-- §109: техника — collapsed («Модель и подключение») -->
             <details class="text-xs">
-              <summary class="cursor-pointer text-gray-500">Дополнительные настройки</summary>
-              <ul class="mt-1 text-gray-400 list-disc list-inside">
-                <li v-for="(line, i) in coverCapabilityLines()" :key="'cap-' + i">{{ line }}</li>
-              </ul>
+              <summary class="cursor-pointer text-gray-400 font-semibold"
+                       data-cover-model-section>Модель и подключение</summary>
+              <div class="flex flex-col gap-2 mt-2">
+                <div class="flex items-center gap-2 flex-wrap">
+                  <select class="field max-w-xs" v-model="coverStyles.current.model_mode"
+                          @change="coverStyles.editorDirty = true">
+                    <option value="default">Подключение по умолчанию</option>
+                    <option value="custom">Другое подключение</option>
+                  </select>
+                  <template v-if="coverStyles.current.model_mode === 'custom'">
+                    <select class="field max-w-xs" v-model="coverStyles.current.connection_id"
+                            @change="coverStyles.editorDirty = true"
+                            data-cover-connection-select>
+                      <option value="">— выберите подключение —</option>
+                      <option v-for="c in (coverStyles.connections || [])"
+                              :key="c.connection_id" :value="c.connection_id">
+                        {{ c.label || c.connection_id }} ({{ c.provider || 'provider' }})
+                      </option>
+                    </select>
+                    <input type="text" class="field max-w-xs" placeholder="Модель"
+                           v-model="coverStyles.current.model_id"
+                           @input="coverStyles.editorDirty = true">
+                  </template>
+                </div>
+                <div v-if="coverStyles.meta && coverStyles.meta.connection"
+                     class="text-gray-500" data-cover-connection>
+                  Подключение: {{ coverStyles.meta.connection.message
+                  }}<span v-if="coverStyles.meta.connection_label">
+                  · {{ coverStyles.meta.connection_label }}</span>
+                  <span v-if="coverStyles.meta.connection.edit_supported === false"
+                        class="text-amber-300">
+                    · модель не умеет редактировать изображения — будет опубликована базовая обложка
+                  </span>
+                </div>
+                <div v-else-if="!coverStyles.meta || !coverStyles.meta.connection"
+                     class="text-amber-300" data-cover-connection-unconfigured>
+                  Обработка стилем пока не настроена.
+                  <button class="btn-ghost text-xs" @click="openCoverConnections()"
+                          data-cover-connections-link>Настроить подключение</button>
+                </div>
+                <details class="text-xs">
+                  <summary class="cursor-pointer text-gray-500">Дополнительные настройки</summary>
+                  <ul class="mt-1 text-gray-400 list-disc list-inside">
+                    <li v-for="(line, i) in coverCapabilityLines()" :key="'cap-' + i">{{ line }}</li>
+                  </ul>
+                </details>
+              </div>
             </details>
           </div>
         </details>
@@ -1344,10 +1395,33 @@
         <button class="btn-ghost text-xs" @click="coverStyleEditorClose()"
                 data-cover-editor-close>Закрыть</button>
         <button class="btn-accent text-sm"
-                :disabled="coverStyles.saving || !coverStyles.current.can_edit"
+                :disabled="coverStyles.saving || !coverServer('can_edit', true)"
                 @click="coverStyleSave()" data-cover-style-save>
           {{ coverStyles.saving ? 'Сохранение…' : 'Сохранить стиль' }}
         </button>
+      </div>
+    </div>
+
+    <!-- B05.3: guard закрытия — несохранённая инструкция не теряется молча.
+         in-DOM alertdialog (Telegram WebView-совместимо, детерминированно
+         для UI-тестов); cancel возвращает в редактор с текстом. -->
+    <div v-if="coverStyles.guardOpen"
+         class="cover-guard-backdrop" data-cover-guard>
+      <div class="cover-guard" role="alertdialog" aria-modal="true"
+           aria-labelledby="cover-guard-title">
+        <div class="text-sm font-bold" id="cover-guard-title"
+             data-cover-guard-title>Закрыть без сохранения?</div>
+        <div class="text-xs text-gray-400 mt-1">
+          Инструкция стиля изменена и ещё не сохранена — изменения будут потеряны.
+        </div>
+        <div class="flex items-center justify-end gap-2 mt-3">
+          <button class="btn-ghost text-xs"
+                  @click="coverStyleEditorCancelGuard()"
+                  data-cover-guard-cancel>Продолжить редактирование</button>
+          <button class="btn-danger text-xs"
+                  @click="coverStyleEditorDiscard()"
+                  data-cover-guard-close>Закрыть без сохранения</button>
+        </div>
       </div>
     </div>
   </div>
@@ -5771,111 +5845,11 @@
                 </template>
               </div>
 
-              <!-- ═══ FIX-logs-anchor (поправка владельца): «Логи» — НЕ
-                   отдельный режим, а ФИЗИЧЕСКИЙ блок внизу «Аналитики»:
-                   после таб-контейнера, ВНЕ v-if-гвардов вкладок, всегда
-                   в DOM при любой активной вкладке. Viewer, level-select,
-                   чип «Саммари», trace-фильтры, копирование, счётчики —
-                   как до Wave 2. Вкладка «Логи» в таб-баре и карточка
-                   «Логи → Аналитика» на «Статусе» — якоря/шорткаты: они
-                   скроллят к этому блоку (scrollToLogs) + короткая
-                   вспышка контура (.status-logs--flash). ═══ -->
-              <div class="card p-4 status-logs col-span-full" id="status-logs"
-                   data-glass="c"
-                   :class="{ 'status-logs--flash': logsAnchorFlash }">
-                <div class="flex items-center gap-2 flex-wrap mb-2">
-                  <div class="text-sm font-bold"><span class="msr" aria-hidden="true">{{ iconGlyph('receipt_long') }}</span> Логи</div>
-                  <select class="field w-32 shrink-0" v-model="logLevel" aria-label="Уровень логов">
-                    <option v-for="lvl in ['ERROR+WARNING','ERROR','WARNING','INFO','DEBUG','CRITICAL','ALL']" :key="lvl" :value="lvl">{{ lvl }}</option>
-                  </select>
-                  <!-- S7 (ADR-1026-9 D4, §110): клиентский чип «Саммари» —
-                       существующий viewer, без нового endpoint; раскрытие и
-                       копирование строк сохраняются. -->
-                  <button class="btn-ghost log-chip text-xs shrink-0"
-                          :class="{ active: logSummaryOnly }"
-                          :aria-pressed="logSummaryOnly ? 'true' : 'false'"
-                          title="Показать только события Саммари (run_id, этапы, ошибки)"
-                          @click="toggleLogSummary()">Саммари</button>
-                  <button class="btn-ghost text-sm shrink-0" @click="loadLogs()">Обновить</button>
-                  <span class="text-xs text-gray-500 min-w-0 truncate">показано {{ shownLogs.length }} из {{ logsCount }}</span>
-                  <button class="btn-ghost text-xs ml-auto shrink-0" @click="copyAllLogs()">Копировать всё</button>
-                </div>
-                <div class="text-xs mb-2">
-                  <span class="badge badge-err mr-1">ERROR {{ errorLogs.length }}</span>
-                  <span class="badge badge-warn">WARN {{ warnLogs.length }}</span>
-                </div>
-                <!-- mca-17a (10.27, carry-over §94.5/SC-14): аддитивные фильтры
-                     связанных событий trace в СУЩЕСТВУЮЩЕМ viewer; без новых
-                     панелей/маршрутов/endpoint. Пустой результат — empty state. -->
-                <div class="flex items-center gap-2 flex-wrap mb-2" id="mca-log-filters">
-                  <input class="field w-40" v-model="mcaLogFilter.trace_id"
-                         placeholder="trace_id / run_id" aria-label="Фильтр trace_id">
-                  <input class="field w-28" v-model="mcaLogFilter.chat_id"
-                         placeholder="chat_id" aria-label="Фильтр chat_id">
-                  <input class="field w-32" v-model="mcaLogFilter.component"
-                         placeholder="component" aria-label="Фильтр component">
-                  <input class="field w-32" v-model="mcaLogFilter.reason_code"
-                         placeholder="reason_code" aria-label="Фильтр reason_code">
-                  <button class="btn-ghost text-xs shrink-0"
-                          @click="loadRelatedEvents()">Связанные события</button>
-                  <button class="btn-ghost text-xs shrink-0"
-                          v-if="mcaEvents.length || mcaLogFilter.trace_id || mcaLogFilter.chat_id || mcaLogFilter.component || mcaLogFilter.reason_code"
-                          @click="clearMcaLogFilter()">Сброс</button>
-                </div>
-                <div v-if="mcaEvents.length" class="mb-2" id="mca-related-events">
-                  <div class="text-xs text-gray-500 mb-1">Связанные события: {{ mcaEvents.length }}</div>
-                  <div class="log-code">
-                    <div v-for="(ev, i) in mcaEvents" :key="'me' + i"
-                         class="log-row border-b border-white/5 py-1 text-xs">
-                      <span class="badge" :class="levelBadge(ev.level)">{{ ev.level }}</span>
-                      <span class="text-gray-300 ml-1">{{ ev.event_name }}</span>
-                      <span class="text-gray-500 ml-1">{{ ev.stage || '' }}</span>
-                      <span class="text-gray-500 ml-1">{{ ev.status || '' }}</span>
-                      <span class="text-gray-500 ml-1">{{ ev.trace_id || ev.pipeline_run_id || '' }}</span>
-                    </div>
-                  </div>
-                </div>
-                <div v-else-if="mcaLogFilter.trace_id || mcaLogFilter.pipeline_run_id"
-                     class="text-xs text-gray-500 mb-2">Связанных событий нет.</div>
-                <!-- Раунд 10 (F-8 T-871), 10.8 (§3.2): блочная раскладка логов
-                     (div вместо <pre><span>) — на Android WebView строка тянется
-                     на ширину карточки. Toggle — Material-иконка (только при
-                     exc_text; иначе spacer). Клик = копировать; автоскролл к
-                     ВЕРХУ (сервер отдаёт новые сверху). -->
-                <div class="log-panel scroll-thin" ref="logPanel">
-                  <div v-if="logsLoading" class="spinner my-4"></div>
-                  <div v-else-if="shownLogs.length === 0" class="text-gray-500 text-sm py-2">Логов нет.</div>
-                  <div v-else class="log-code">
-                    <template v-for="(log, i) in shownLogs">
-                      <div :key="i" class="log-row border-b border-white/5 py-1.5 cursor-pointer"
-                           title="Клик — копировать строку"
-                           :class="{ 'log-copied': copiedIndex === i }"
-                           @click="copyLogRow(log, i)">
-                        <div class="log-head">
-                          <button v-if="log.exc_text" class="log-toggle shrink-0"
-                                  :title="log.expanded ? 'Свернуть стек' : 'Развернуть стек'"
-                                  :aria-expanded="log.expanded ? 'true' : 'false'"
-                                  aria-label="Развернуть или свернуть стек"
-                                  @click.stop="log.expanded = !log.expanded">
-                            <span class="msr" aria-hidden="true">{{ iconGlyph(log.expanded ? 'expand_more' : 'chevron_right') }}</span>
-                          </button>
-                          <span v-else class="log-toggle-spacer" aria-hidden="true"></span>
-                          <span class="log-level">
-                            <span class="badge" :class="levelBadge(log.level)">{{ log.level }}</span>
-                          </span>
-                          <span class="log-ts" :title="fmtLogTs(log.ts)">{{ fmtLogTime(log.ts) }}</span>
-                          <span class="log-logger text-gray-400">{{ log.logger }}</span>
-                        </div>
-                        <div class="log-msg text-gray-200">
-                          <span v-if="logSummaryOnly && summaryErrorLabel(log)"
-                                class="badge badge-err mr-1">{{ summaryErrorLabel(log) }}</span>{{ log.message }}
-                        </div>
-                        <div v-if="log.expanded && log.exc_text" class="log-exc">{{ log.exc_text }}</div>
-                      </div>
-                    </template>
-                  </div>
-                </div>
-              </div>
+              <!-- U04 (v6.3): блок логов ПЕРЕНЕСЕН в конец «Статуса»
+                   (id="status-logs" теперь там; единственный экземпляр
+                   компонента/polling/endpoint). Ссылки «Логи» ведут на
+                   Статус со скроллом к блоку; #/oversight?scroll=logs
+                   нормализуется к канону. -->
             </div>
           </template>
           <template v-else-if="activeTab === 'access'">
@@ -7055,10 +7029,17 @@
             <!-- ═══ F11 (§12/§17, ADR-1025-23 D1/D3): Строка 2 — Виджет сна — 4 кол.
                  Единый источник времени — существующий cognition (серверный
                  `generated_at`); активность ТОЛЬКО с сервера (таймер ≠ запуск);
-                 новых таймеров/поллеров нет. Бейджи/эмодзи/glow сохранены. -->
-            <div v-if="isGlobalAdmin" class="card p-4 status-sleep sg-4">
+                 новых таймеров/поллеров нет. Бейджи/эмодзи/glow сохранены.
+                 U03.1 (v6.3): ЕДИНСТВЕННАЯ каноническая панель «Сон /
+                 Глубокий сон» — последний настоящий запуск, стадия, результат
+                 и время следующего запуска. Второй (дублирующий) ряд sleep-
+                 бейджей из шапки «Мониторинга Интеллекта» удалён; данные —
+                 один источник (cognition + deep-sleep payload, уже загружен
+                 loadCognition — без новых запросов). -->
+            <div v-if="isGlobalAdmin" class="card p-4 status-sleep sg-4"
+                 data-status-sleep>
               <div class="flex items-center gap-2 mb-2 flex-wrap">
-                <div class="text-sm font-bold">🌙 Сон и активность</div>
+                <div class="text-sm font-bold">Сон / Глубокий сон</div>
                 <button class="btn-ghost text-xs ml-auto" :disabled="cognitionBusy"
                         @click="loadCognition()">⟳</button>
               </div>
@@ -7070,15 +7051,19 @@
               <div v-else class="text-xs text-gray-400">
                 <div class="sleep-phase">
                   <div class="text-gray-300 font-semibold mb-1">Обычный сон</div>
+                  <div>Стадия: <b>{{ dreamStageLabel() }}</b></div>
                   <div>Сейчас: <b>{{ sleepWidget.dream.active ? 'активен' : 'не активен' }}</b></div>
                   <div>Следующий запуск: {{ sleepWidget.dream.text }}</div>
-                  <div>Последнее выполнение: {{ sleepWidget.dream.lastRun ? fmtLogTs(sleepWidget.dream.lastRun) : '—' }}</div>
+                  <div>Последний запуск: {{ statusTsLabel(sleepWidget.dream.lastRun, 'ещё не выполнялся') }}</div>
+                  <div>Результат: {{ dreamResultLabel() }}</div>
                 </div>
                 <div class="sleep-phase">
                   <div class="text-gray-300 font-semibold mb-1">Глубокий сон</div>
+                  <div>Стадия: <b>{{ deepStageLabel() }}</b></div>
                   <div>Сейчас: <b>{{ sleepWidget.deep.active ? 'активен' : 'не активен' }}</b></div>
                   <div>Следующий запуск: {{ sleepWidget.deep.text }}</div>
-                  <div>Последнее выполнение: {{ sleepWidget.deep.lastRun ? fmtLogTs(sleepWidget.deep.lastRun) : '—' }}</div>
+                  <div>Последний запуск: {{ statusTsLabel(sleepWidget.deep.lastRun, 'ещё не выполнялся') }}</div>
+                  <div>Результат: {{ deepResultLabel() }}</div>
                 </div>
               </div>
             </div>
@@ -7089,20 +7074,12 @@
                  (код/разметка лент не меняются — только композиция).
                  F11 (§12, ADR-1025-23 D1): Строка 3 — вся ширина (12 кол.);
                  граф §16 вынесен в отдельную карточку строки 2. -->
-            <div v-if="isGlobalAdmin" class="card p-4 sg-12">
+            <div v-if="isGlobalAdmin" class="card p-4 sg-12 intel-card">
               <div class="intel-header mb-2">
                 <div class="intel-title text-sm font-bold"><span class="msr" aria-hidden="true">{{ iconGlyph('psychology') }}</span> Мониторинг Интеллекта</div>
-                <!-- D12 (§18I.12-D): здесь ТОЛЬКО компактные sleep-бейджи —
-                     кликом открывают authoritative виджет «Сон и активность»
-                     (скролл к карточке), деталей не дублируют. -->
-                <button type="button" class="badge badge-btn"
-                        :class="[dreamPhaseBadge.cls, { 'badge--active': sleepWidget.dream && sleepWidget.dream.active }]"
-                        title="Открыть виджет «Сон и активность»"
-                        @click="scrollToSleepWidget()">{{ dreamPhaseBadge.text }}</button>
-                <button type="button" class="badge badge-btn"
-                        :class="[deepPhaseBadge.cls, { 'badge--active': sleepWidget.deep && sleepWidget.deep.active }]"
-                        title="Открыть виджет «Сон и активность»"
-                        @click="scrollToSleepWidget()">{{ deepPhaseBadge.text }}</button>
+                <!-- U03.1 (v6.3): второй ряд одинаковых sleep-бейджей из
+                     заголовка УДАЛЁН — каноническая панель «Сон / Глубокий
+                     сон» выше на этой же странице; дублей фаз нет. -->
                 <button class="btn-ghost text-xs ml-auto" :disabled="cognitionBusy"
                         @click="loadCognition()">⟳</button>
               </div>
@@ -7166,38 +7143,49 @@
               <!-- F7 (memory-retention-health, D-6): метрики здоровья памяти
                    (GET /api/memory/health) — аддитивно: просрочено,
                    не подтверждено, сырьё (smart_messages), хранилище.
-                   Предупреждение при низком свободном месте диска. -->
+                   Предупреждение при низком свободном месте диска.
+                   U03.3 (v6.3): смысловые результаты (блок «Просрочено N»
+                   B03 + активные убеждения) ОТДЕЛЕНЫ от технических
+                   счётчиков; раскладка — строки «имя → значение», не
+                   разноцветные pills одной строкой на мобиле. -->
               <div class="mt-3 pt-2 border-t border-white/10">
                 <div class="flex items-center gap-2 mb-1 flex-wrap">
                   <div class="text-xs font-bold">Здоровье памяти</div>
-                  <span class="text-xs text-gray-500">факты · сырьё · хранилище</span>
+                  <span class="text-xs text-gray-500">смысловые результаты · технические счётчики</span>
                   <button class="btn-ghost text-xs ml-auto" :disabled="memoryHealthBusy"
                           @click="loadMemoryHealth()">⟳</button>
                 </div>
-                <div v-if="memoryHealth" class="flex flex-wrap gap-2 text-xs">
-                  <span class="badge" :class="memoryHealth.facts_overdue ? 'badge-warn' : 'badge-muted'">
-                    Просрочено: {{ memoryHealth.facts_overdue }}
-                  </span>
-                  <span class="badge" :class="memoryHealth.facts_unconfirmed ? 'badge-warn' : 'badge-muted'">
-                    Не подтверждено: {{ memoryHealth.facts_unconfirmed }}
-                  </span>
-                  <span class="badge badge-muted">Сырьё (сообщений): {{ memoryHealth.smart_messages_total }}</span>
-                  <span class="badge badge-muted" v-if="memoryHealth.storage">
-                    БД: {{ (memoryHealth.storage.db_size_mb || 0) }} МБ
-                  </span>
-                  <span class="badge" :class="memoryStorageWarn() ? 'badge-err' : 'badge-muted'"
-                        v-if="memoryHealth.storage">
-                    Диск свободно: {{ fmtBytes(memoryHealth.storage.disk_free_bytes) }}
-                  </span>
-                  <span class="badge badge-ok">Активных убеждений: {{ memoryHealth.beliefs_active }}</span>
-                  <span class="badge badge-muted">Архив убеждений: {{ memoryHealth.beliefs_archived }}</span>
+                <!-- B03 (v6.3): блок «Просрочено N» — честная раскладка
+                     expired-памяти (W1: expired_memory_overview). Недоступно
+                     → честная метка, не нули. -->
+                <div class="mem-kv mem-kv--semantic" data-expired-block>
+                  <div class="mem-kv__title">Просрочено: {{ expiredBlock.totalLabel }}</div>
+                  <template v-if="expiredBlock.ready">
+                    <div class="mem-kv__row"><span>доступно поиску</span><b>{{ expiredBlock.searchable }}</b></div>
+                    <div class="mem-kv__row"><span>требует перепроверки</span><b>{{ expiredBlock.needsRecheck }}</b></div>
+                    <div class="mem-kv__row"><span>вытеснено новыми версиями</span><b>{{ expiredBlock.superseded }}</b></div>
+                    <div class="mem-kv__row"><span>режим хранения</span><b>{{ expiredBlock.modeLabel }}</b></div>
+                    <div class="mem-kv__row"><span>активных убеждений</span><b>{{ memoryHealth ? memoryHealth.beliefs_active : '—' }}</b></div>
+                    <div class="mem-kv__row"><span>архив убеждений</span><b>{{ memoryHealth ? memoryHealth.beliefs_archived : '—' }}</b></div>
+                  </template>
+                  <div v-else class="mem-kv__empty">{{ expiredBlock.emptyLabel }}</div>
+                </div>
+                <!-- Технические счётчики (U03.3): сырьё/хранилище — отдельно
+                     от смысловых результатов. -->
+                <div class="mem-kv mem-kv--tech" data-memory-tech>
+                  <div class="mem-kv__title">Технические счётчики</div>
+                  <template v-if="memoryHealth">
+                    <div class="mem-kv__row"><span>не подтверждено</span><b>{{ memoryHealth.facts_unconfirmed }}</b></div>
+                    <div class="mem-kv__row"><span>фактов к переизвлечению</span><b :class="memoryHealth.facts_overdue ? 'text-amber-300' : ''">{{ memoryHealth.facts_overdue }}</b></div>
+                    <div class="mem-kv__row"><span>сырьё (сообщений)</span><b>{{ memoryHealth.smart_messages_total }}</b></div>
+                    <div class="mem-kv__row" v-if="memoryHealth.storage"><span>БД</span><b>{{ (memoryHealth.storage.db_size_mb || 0) }} МБ</b></div>
+                    <div class="mem-kv__row" v-if="memoryHealth.storage"><span>диск свободно</span><b :class="memoryStorageWarn() ? 'text-red-300' : ''">{{ fmtBytes(memoryHealth.storage.disk_free_bytes) }}</b></div>
+                  </template>
+                  <div v-else class="mem-kv__empty">Метрики недоступны (не глобальный админ или БД недоступна).</div>
                 </div>
                 <div v-if="memoryStorageWarn()" class="text-xs text-red-300 mt-1">
                   Мало свободного места на диске — база может перестать расти.
                   Проверьте retention импорта (удаление сырья по сроку).
-                </div>
-                <div v-else-if="!memoryHealth" class="text-xs text-gray-500">
-                  Метрики недоступны (не глобальный админ или БД недоступна).
                 </div>
               </div>
               <!-- Раунд 10.46 (MCA-12, ADR-1028-21 D10, §16.3): компактное
@@ -7334,6 +7322,34 @@
                     </div>
                   </div>
                 </template>
+                <!-- U03.4 (v6.3): полноценная independent-воронка
+                     наблюдателя: observed → eligible → возможности →
+                     намерения → решения → текст → перепроверка →
+                     отправлено/реакции. Данные — durable-задача
+                     initiative.observe (counters) + события mca_events
+                     (24ч/7д) через /api/memory/intel-funnels (W1 B01).
+                     Пустая панель ≠ «работает»: честная причина пустоты
+                     и liveness-штамп. -->
+                <div v-if="initiativeFunnel" class="mt-2 pt-2 border-t border-white/10 text-xs"
+                     data-initiative-independent>
+                  <div class="flex items-center gap-2 flex-wrap mb-1">
+                    <div class="font-bold">Воронка наблюдателя</div>
+                    <span class="text-gray-500">durable счётчики · события 24ч/7д</span>
+                    <span v-if="initiativeFunnel.liveLabel" class="badge badge-muted">{{ initiativeFunnel.liveLabel }}</span>
+                    <button class="btn-ghost text-xs ml-auto" :disabled="intelFunnelsBusy"
+                            @click="loadIntelFunnels()">⟳</button>
+                  </div>
+                  <div class="funnel-grid">
+                    <div v-for="st in initiativeFunnel.stages" :key="'if-' + st.label"
+                         class="funnel-cell" :class="'funnel-cell--' + st.state"
+                         :title="st.hint">
+                      <div class="funnel-cell__label">{{ st.label }}</div>
+                      <div class="funnel-cell__value">{{ st.value }}</div>
+                      <div class="funnel-cell__sub" v-if="st.sub">{{ st.sub }}</div>
+                    </div>
+                  </div>
+                  <div class="text-gray-500 mt-1">{{ initiativeFunnel.emptyReason }}</div>
+                </div>
               </div>
             </div>
 
@@ -7816,6 +7832,30 @@
                 <div v-if="runCardExperience" class="mb-2" data-experience-funnel>
                   <run-card v-bind="runCardExperience"></run-card>
                 </div>
+                <!-- U03.4 (v6.3): воронка 24ч/7д с реальными статусами +
+                     последнее применение + честная причина пустоты
+                     (B02-счётчики семантики + окна таблиц mca-16). -->
+                <div v-if="expWindows" class="mb-2 text-xs" data-experience-windows>
+                  <div class="flex items-center gap-2 flex-wrap mb-1">
+                    <div class="font-bold">За 24ч / 7д</div>
+                    <button class="btn-ghost text-xs ml-auto" :disabled="expWindowsBusy"
+                            @click="loadExperienceWindows()">⟳</button>
+                  </div>
+                  <div class="exp-windows">
+                    <div v-for="w in expWindows" :key="'exw-' + w.key" class="exp-window"
+                         :data-exp-window="w.key">
+                      <div class="exp-window__title">{{ w.title }}</div>
+                      <div class="exp-window__row"><span>замечено</span><b>{{ w.feedback }}</b></div>
+                      <div class="exp-window__row"><span>новых уроков</span><b>{{ w.lessons }}</b></div>
+                      <div class="exp-window__row"><span>применений</span><b>{{ w.applied }}</b></div>
+                      <div class="exp-window__row"><span>помогло / не помогло</span>
+                        <b><span class="text-green-300">{{ w.success }}</span> / <span class="text-red-300">{{ w.failure }}</span>
+                        <template v-if="w.unknown"> · unknown: {{ w.unknown }}</template></b></div>
+                    </div>
+                  </div>
+                  <div class="text-gray-500 mt-1">{{ expLastAppliedLabel }}</div>
+                  <div class="text-gray-500">{{ expEmptyReason }}</div>
+                </div>
                 <div v-if="!experienceFeed.items.length" class="text-xs text-gray-500">
                   Записей опыта пока нет — уроки появятся после проверенного опыта.
                 </div>
@@ -7852,20 +7892,110 @@
                  (REDESIGN по visual-preservation-map). На «Статусе» —
                  компактный strip «Доступность ключей» + deep-link. -->
 
-            <!-- Wave 2 UX: «Логи» переехали в «Аналитику» → вкладка «Логи»
-                 (REDESIGN по visual-preservation-map; viewer/level-select/
-                 чип «Саммари» сохранены байт-в-байт). Здесь — компактная
-                 карточка-переход. -->
-            <div class="card p-4 sg-12" data-glass="c" id="status-logs-link">
-              <div class="flex items-center gap-2 flex-wrap">
+            <!-- ═══ U04 (v6.3, поперечная правка владельца): «Логи» —
+                 ТОЛЬКО в Статусе. Рабочий viewer (#status-logs: level-select,
+                 чип «Саммари», trace-фильтры, копирование, счётчики,
+                 pagination «показано N из M») физически перенесён ИЗ секции
+                 Аналитики В конец Статуса; второй экземпляр компонента/
+                 polling/endpoint отсутствует. Экранирование/redaction/RBAC
+                 не тронуты (тот же /api/status/logs). Вкладка «Логи» в
+                 таб-баре Аналитики удалена; ссылки «Логи» и
+                 #/oversight?scroll=logs нормализуются к Статусу со скроллом
+                 к этому блоку (+ вспышка контура .status-logs--flash). ═══ -->
+            <div class="card p-4 status-logs sg-12" id="status-logs"
+                 data-glass="c"
+                 :class="{ 'status-logs--flash': logsAnchorFlash }">
+              <div class="flex items-center gap-2 flex-wrap mb-2">
                 <div class="text-sm font-bold"><span class="msr" aria-hidden="true">{{ iconGlyph('receipt_long') }}</span> Логи</div>
-                <span class="text-xs text-gray-500">полный просмотр — в «Аналитике»</span>
-                <button type="button" class="btn-ghost text-xs ml-auto"
-                        @click="scrollToLogs()">Логи → Аналитика</button>
+                <select class="field w-32 shrink-0" v-model="logLevel" aria-label="Уровень логов">
+                  <option v-for="lvl in ['ERROR+WARNING','ERROR','WARNING','INFO','DEBUG','CRITICAL','ALL']" :key="lvl" :value="lvl">{{ lvl }}</option>
+                </select>
+                <!-- S7 (ADR-1026-9 D4, §110): клиентский чип «Саммари» —
+                     существующий viewer, без нового endpoint; раскрытие и
+                     копирование строк сохраняются. -->
+                <button class="btn-ghost log-chip text-xs shrink-0"
+                        :class="{ active: logSummaryOnly }"
+                        :aria-pressed="logSummaryOnly ? 'true' : 'false'"
+                        title="Показать только события Саммари (run_id, этапы, ошибки)"
+                        @click="toggleLogSummary()">Саммари</button>
+                <button class="btn-ghost text-sm shrink-0" @click="loadLogs()">Обновить</button>
+                <span class="text-xs text-gray-500 min-w-0 truncate">показано {{ shownLogs.length }} из {{ logsCount }}</span>
+                <button class="btn-ghost text-xs ml-auto shrink-0" @click="copyAllLogs()">Копировать всё</button>
               </div>
-              <div class="text-xs mt-2">
-                <span class="badge badge-err mr-1">Ошибки: {{ logErrorCount == null ? '—' : logErrorCount }}</span>
-                <span class="badge badge-warn">Предупреждения: {{ logWarnCount == null ? '—' : logWarnCount }}</span>
+              <div class="text-xs mb-2">
+                <span class="badge badge-err mr-1">ERROR {{ errorLogs.length }}</span>
+                <span class="badge badge-warn">WARN {{ warnLogs.length }}</span>
+              </div>
+              <!-- mca-17a (10.27, carry-over §94.5/SC-14): аддитивные фильтры
+                   связанных событий trace в СУЩЕСТВУЮЩЕМ viewer; без новых
+                   панелей/маршрутов/endpoint. Пустой результат — empty state. -->
+              <div class="flex items-center gap-2 flex-wrap mb-2" id="mca-log-filters">
+                <input class="field w-40" v-model="mcaLogFilter.trace_id"
+                       placeholder="trace_id / run_id" aria-label="Фильтр trace_id">
+                <input class="field w-28" v-model="mcaLogFilter.chat_id"
+                       placeholder="chat_id" aria-label="Фильтр chat_id">
+                <input class="field w-32" v-model="mcaLogFilter.component"
+                       placeholder="component" aria-label="Фильтр component">
+                <input class="field w-32" v-model="mcaLogFilter.reason_code"
+                       placeholder="reason_code" aria-label="Фильтр reason_code">
+                <button class="btn-ghost text-xs shrink-0"
+                        @click="loadRelatedEvents()">Связанные события</button>
+                <button class="btn-ghost text-xs shrink-0"
+                        v-if="mcaEvents.length || mcaLogFilter.trace_id || mcaLogFilter.chat_id || mcaLogFilter.component || mcaLogFilter.reason_code"
+                        @click="clearMcaLogFilter()">Сброс</button>
+              </div>
+              <div v-if="mcaEvents.length" class="mb-2" id="mca-related-events">
+                <div class="text-xs text-gray-500 mb-1">Связанные события: {{ mcaEvents.length }}</div>
+                <div class="log-code">
+                  <div v-for="(ev, i) in mcaEvents" :key="'me' + i"
+                       class="log-row border-b border-white/5 py-1 text-xs">
+                    <span class="badge" :class="levelBadge(ev.level)">{{ ev.level }}</span>
+                    <span class="text-gray-300 ml-1">{{ ev.event_name }}</span>
+                    <span class="text-gray-500 ml-1">{{ ev.stage || '' }}</span>
+                    <span class="text-gray-500 ml-1">{{ ev.status || '' }}</span>
+                    <span class="text-gray-500 ml-1">{{ ev.trace_id || ev.pipeline_run_id || '' }}</span>
+                  </div>
+                </div>
+              </div>
+              <div v-else-if="mcaLogFilter.trace_id || mcaLogFilter.pipeline_run_id"
+                   class="text-xs text-gray-500 mb-2">Связанных событий нет.</div>
+              <!-- Раунд 10 (F-8 T-871), 10.8 (§3.2): блочная раскладка логов
+                   (div вместо <pre><span>) — на Android WebView строка тянется
+                   на ширину карточки. Toggle — Material-иконка (только при
+                   exc_text; иначе spacer). Клик = копировать; автоскролл к
+                   ВЕРХУ (сервер отдаёт новые сверху). -->
+              <div class="log-panel scroll-thin" ref="logPanel">
+                <div v-if="logsLoading" class="spinner my-4"></div>
+                <div v-else-if="shownLogs.length === 0" class="text-gray-500 text-sm py-2">Логов нет.</div>
+                <div v-else class="log-code">
+                  <template v-for="(log, i) in shownLogs">
+                    <div :key="i" class="log-row border-b border-white/5 py-1.5 cursor-pointer"
+                         title="Клик — копировать строку"
+                         :class="{ 'log-copied': copiedIndex === i }"
+                         @click="copyLogRow(log, i)">
+                      <div class="log-head">
+                        <button v-if="log.exc_text" class="log-toggle shrink-0"
+                                :title="log.expanded ? 'Свернуть стек' : 'Развернуть стек'"
+                                :aria-expanded="log.expanded ? 'true' : 'false'"
+                                aria-label="Развернуть или свернуть стек"
+                                @click.stop="log.expanded = !log.expanded">
+                          <span class="msr" aria-hidden="true">{{ iconGlyph(log.expanded ? 'expand_more' : 'chevron_right') }}</span>
+                        </button>
+                        <span v-else class="log-toggle-spacer" aria-hidden="true"></span>
+                        <span class="log-level">
+                          <span class="badge" :class="levelBadge(log.level)">{{ log.level }}</span>
+                        </span>
+                        <span class="log-ts" :title="fmtLogTs(log.ts)">{{ fmtLogTime(log.ts) }}</span>
+                        <span class="log-logger text-gray-400">{{ log.logger }}</span>
+                      </div>
+                      <div class="log-msg text-gray-200">
+                        <span v-if="logSummaryOnly && summaryErrorLabel(log)"
+                              class="badge badge-err mr-1">{{ summaryErrorLabel(log) }}</span>{{ log.message }}
+                      </div>
+                      <div v-if="log.expanded && log.exc_text" class="log-exc">{{ log.exc_text }}</div>
+                    </div>
+                  </template>
+                </div>
               </div>
             </div>
             </div><!-- /F11 §12 .status-grid -->

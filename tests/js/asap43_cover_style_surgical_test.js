@@ -106,10 +106,12 @@ const methods = captured.methods;
 }
 
 // (c) before/after только из valid-пары; иначе placeholders
+//     B05.2 (asap8-v6-3): редактор читает серверный снимок coverStyles.server
+//     (фетчи обновляют его отдельно от dirty draft); поведение то же.
 {
-  assert.ok(INDEX.indexOf("coverPairAsset(coverStyles.current, 'before')") >= 0,
+  assert.ok(INDEX.indexOf("coverPairAsset(coverStyles.server, 'before')") >= 0,
     'c: editor before из pair');
-  assert.ok(INDEX.indexOf("coverPairAsset(coverStyles.current, 'after')") >= 0,
+  assert.ok(INDEX.indexOf("coverPairAsset(coverStyles.server, 'after')") >= 0,
     'c: editor after из pair');
   assert.ok(INDEX.indexOf("coverPairAsset(s, 'before')") >= 0, 'c: list before');
   assert.ok(INDEX.indexOf("coverPairAsset(s, 'after')") >= 0, 'c: list after');

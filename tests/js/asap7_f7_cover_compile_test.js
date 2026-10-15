@@ -230,17 +230,24 @@ const OK_RESULT = {
 
   // (5) index.html: зона compile в редакторе стиля + гейт admin +
   //     exact-бинды + copy; R17 — нет секретов.
+  //     U06.1 (asap8-v6-3): канонический порядок редактора —
+  //     Профиль → Инструкция → Референсы → Проверка итогового промпта →
+  //     Test Edit → результат; зона compile — ПОСЛЕ референсов.
   const INDEX = fs.readFileSync(
     path.join(ROOT, 'web', 'index.html'), 'utf8');
   const startG = INDEX.indexOf('<!-- ASAP 7 F7');
   assert.ok(startG > 0, '5: блок data-cover-compile найден');
-  const endG = INDEX.indexOf('data-cover-style-refs');
-  assert.ok(endG > startG, '5: блок внутри редактора (до референсов)');
+  const refsG = INDEX.indexOf('data-cover-sec-refs');
+  const testG = INDEX.indexOf('data-cover-sec-testedit');
+  assert.ok(refsG > 0 && refsG < startG,
+    '5: референсы ДО зоны compile (порядок U06.1)');
+  const endG = testG > startG ? testG : INDEX.indexOf('data-cover-compile-texts');
+  assert.ok(endG > startG, '5: зона compile внутри редактора (до Test Edit)');
   const zoneHtml = INDEX.slice(startG, endG);
   assert.ok(zoneHtml.indexOf('coverStyles.isAdmin') >= 0,
     '5: гейт global admin');
-  assert.ok(zoneHtml.indexOf('Фактическая сборка промпта') >= 0,
-    '5: заголовок §9.3');
+  assert.ok(zoneHtml.indexOf('Проверка итогового промпта') >= 0,
+    '5: заголовок U06.1');
   assert.ok(zoneHtml.indexOf('data-cover-compile-final-text') > 0,
     '5: exact compiled text рендерится');
   assert.ok(zoneHtml.indexOf("@click=\"copyText(coverCompileFinalText())\"") > 0,

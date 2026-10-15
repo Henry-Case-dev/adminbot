@@ -83,22 +83,25 @@ const methods = captured.methods || {};
   // → превью → факты → бюджеты → карточка-переход к логам.
   const order = ['status-hero', 'class="card p-4 status-block"', 'status-graph',
     'status-sleep', 'Мониторинг Интеллекта', 'exec-preview', 'status-facts',
-    'status-budgets', 'status-logs-link'];
+    'status-budgets', 'card p-4 status-logs'];
   let prev = -1;
   order.forEach(function (m) {
     const i = INDEX.indexOf(m);
     assert.ok(i > prev, '§12: порядок DOM ' + m);
     prev = i;
   });
-  // Wave 2: полный viewer логов — в шаблоне «Аналитики» (до «Статуса»),
-  // а НЕ в .status-grid; на «Статусе» — компактная карточка-переход.
+  // U04 (v6.3): полный viewer логов — ПОСЛЕДНЯЯ карточка .status-grid
+  // «Статуса»; в шаблоне Аналитики блока логов больше нет.
   const statusStart = INDEX.indexOf("activeTab === 'status'");
   const oversightStart = INDEX.indexOf("activeTab === 'oversight'");
   assert.ok(oversightStart > 0 && oversightStart < statusStart,
-    'Wave 2: oversight-шаблон раньше status-шаблона');
-  const logsAnchor = INDEX.indexOf('id="status-logs"');
-  assert.ok(logsAnchor > 0 && logsAnchor < statusStart,
-    'Wave 2: логи в шаблоне Аналитики (до Статуса)');
+    'oversight-шаблон раньше status-шаблона');
+  const logsAnchor = INDEX.indexOf('id="status-logs"', statusStart);
+  assert.ok(logsAnchor > statusStart,
+    'U04: логи в шаблоне Статуса (после его начала)');
+  assert.ok(INDEX.slice(oversightStart, statusStart)
+    .indexOf('<div class="card p-4 status-logs') < 0,
+    'U04: в Аналитике блока логов нет');
   assert.ok(INDEX.indexOf('data-key-history') > oversightStart
     && INDEX.indexOf('data-key-history') < statusStart,
     'Wave 2: история ключей переехала в Аналитику');

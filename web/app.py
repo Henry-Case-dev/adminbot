@@ -186,6 +186,12 @@ def create_app(cache: ConfigCache, control=None) -> FastAPI:
     # ручной запуск воркеров + логи (только глобальный admin).
     from web.api.memory_agi import memory_router
     app.include_router(memory_router, prefix="/api")
+    # ASAP 8 v6.3 W3-STATUS (U03/B03): read-only данные Статуса — блок
+    # «Просрочено N» (expired-overview) и durable-воронки «Инициатива»/
+    # «Опыт» (intel-funnels). Отдельный файл-зона (прецедент stories);
+    # routes.py/cover_styles не затрагиваются; RBAC — global admin.
+    from web.api.memory_overview import memory_overview_router
+    app.include_router(memory_overview_router, prefix="/api")
     # UI-полировка TMA: прокси аватаров (GET /api/avatar/{kind}/{tid}) —
     # bot из services.web_runtime; отдельный router рядом с остальными.
     from web.api.avatars import avatar_router

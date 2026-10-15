@@ -311,42 +311,44 @@ class TestStatusLayoutOrderF7:
             assert block.count(marker) == 1, (name, block.count(marker))
 
     def test_moved_blocks_live_in_analytics(self):
-        """Перенесённые блоки не потеряны: полный дом — в «Аналитике».
+        """Перенесённые блоки не потеряны.
 
-        NOTE (FIX-logs-anchor, поправка владельца): блок «Логи» — НЕ вкладка,
-        а ФИЗИЧЕСКИЙ дом внизу «Аналитики» (вне таб-гвардов, всегда в DOM,
-        последний блок oversight); вкладка «Логи» — якорь/шорткат (скролл к
-        #status-logs), отдельный режим не создаётся. «История доступности
-        ключей» остаётся на вкладке «Модели и расходы». Рендер-внутренности
-        реестра ключей гейтятся test_webapp_key_availability_ui (компактный
-        список/график/no-hardcode), поведение логов — test_webapp_f11
-        (log counts) + js-тесты; здесь — инвариант ПЕРЕНОСА (дом + отсутствие
-        дублей + якорная ссылка на Статусе)."""
+        NOTE (U04, v6.3 W3-STATUS): блок «Логи» — ФИЗИЧЕСКИЙ дом в конце
+        «Статуса» (последняя карточка .status-grid); вкладка/якорь «Логи»
+        в Аналитике и карточка-переход id="status-logs-link" удалены
+        (один компонент/polling/endpoint). «История доступности ключей»
+        остаётся на вкладке «Модели и расходы». Рендер-внутренности
+        реестра ключей гейтятся test_webapp_key_availability_ui, поведение
+        логов — test_webapp_f11 (log counts) + js-тесты; здесь — инвариант
+        ПЕРЕНОСА (дом в Статусе + отсутствие дублей + ссылка на Статусе)."""
         # «История доступности ключей» → «Модели и расходы» (единый дом).
         i = HTML.index("data-key-history")
-        seg_keys = HTML[HTML.rfind("<div", 0, i):HTML.index('id="status-logs"', i)]
+        status_start = HTML.index("activeTab === 'status'")
+        seg_keys = HTML[HTML.rfind("<div", 0, i):status_start]
         assert "История доступности ключей" in seg_keys
         assert "oversightTab === 'models'" in seg_keys
         assert "isGlobalAdmin" in seg_keys
-        # «Логи» — физический дом в #/oversight ВНЕ таб-гвардов (последним):
-        # НЕ внутри v-if вкладки «Логи»; viewer/level-select/чип «Саммари».
-        j = HTML.index('id="status-logs"')
-        seg_logs = HTML[j:HTML.index("</template>", j)]
-        assert "oversightTab === 'logs'" not in seg_logs, \
-            "логи не должны жить под v-if вкладки «Логи» (якорь-контракт)"
+        # «Логи» — физический дом в шаблоне «Статуса» (последним в гриде):
+        # viewer/level-select/чип «Саммари».
+        j = HTML.index('id="status-logs"', status_start)
+        grid_end = HTML.index("<!-- /F11 §12 .status-grid", j)
+        seg_logs = HTML[j:grid_end]
         assert 'v-model="logLevel"' in seg_logs
         assert "toggleLogSummary()" in seg_logs
         # Полный дом: trace-фильтры и копирование на месте.
         assert 'id="mca-log-filters"' in seg_logs
         assert "copyAllLogs()" in seg_logs
-        # На «Статусе» остались strip ключей и карточка-переход логов.
+        # На «Статусе» остались strip ключей и скролл-ссылка к логам.
         block = _status_block()
         assert "data-key-strip" in block
-        assert 'id="status-logs-link"' in block
         assert "scrollToLogs()" in block
         # Прежний статусный дом истории ключей не дублируется: блок ровно один.
         assert HTML.count("data-key-history") == 1
-        assert HTML.count('id="status-logs"') == 1
+        # Дом логов один (второе вхождение строки — комментарий-указатель).
+        assert HTML.count('id="status-logs"') == 2
+        assert 'id="status-logs-link"' not in HTML
+        overs_seg = HTML[HTML.index("activeTab === 'oversight'"):status_start]
+        assert '<div class="card p-4 status-logs' not in overs_seg
 
     def test_heartbeat_between_summary_and_bot(self):
         block = _status_block()

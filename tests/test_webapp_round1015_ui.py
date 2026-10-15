@@ -317,7 +317,11 @@ class TestUiMarkersMobileColumn:
         assert ".intel-header .intel-title { width: 100%; }" in HTML
 
     def test_mobile_order(self):
-        # в шапке порядок: заголовок → бейдж Сна → бейдж Глубокого сна.
+        # U03.1 (v6.3): дублирующий ряд sleep-бейджей из шапки удалён —
+        # каноническая панель «Сон / Глубокий сон» выше на странице; в шапке
+        # остался заголовок + ⟳ (порядок: intel-title → loadCognition).
         block = _block(HTML, 'class="intel-header mb-2"', "cognition-ribbons")
-        assert block.index("intel-title") < block.index("dreamPhaseBadge")
-        assert block.index("dreamPhaseBadge") < block.index("deepPhaseBadge")
+        assert block.index("intel-title") < block.index("loadCognition()")
+        assert "dreamPhaseBadge" not in block, \
+            "U03.1: дубль sleep-бейджей в шапке «Мониторинга» удалён"
+        assert "deepPhaseBadge" not in block

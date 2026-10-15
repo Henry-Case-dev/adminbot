@@ -67,8 +67,10 @@ class TestKeyAvailabilityUi:
         # (статусный каталог llm-row снят со «Статуса»); инвариант
         # «без хардкода провайдеров» сохранён.
         html = _html()
+        # U04 (v6.3): блок логов переехал в Статус — границей среза служит
+        # начало шаблона Статуса, а не id="status-logs" (тот теперь дальше).
         block = html[html.index("data-key-history"):]
-        block = block[:block.index('id="status-logs"')]
+        block = block[:block.index("activeTab === 'status'")]
         # Динамический провайдер/модель: значения берутся с сервера.
         assert "p.provider" in block
         assert "p.model" in block
