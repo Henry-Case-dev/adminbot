@@ -67,6 +67,24 @@ _STORY_EPS_CAP = 200                # кап эпизодов компонент
 _NEGATION_MARKERS = ("не ", "нет ", "никогда", "отмен", "перенес", "никак")
 _WS_RE = re.compile(r"\s+")
 
+# ── B08 (asap8-v6.3): честный контент историй ───────────────────────────────
+# Пустая техзапись (pending/unresolved, «Эпизод 1780…», «Краткое содержание:
+# неизвестно») — НЕ готовая история. Статус контента выводится (derived, без
+# DDL): ready = есть непустой summary ИЛИ ≥1 утверждение; иначе честный
+# insufficient_sources (read-side показывает «Не удалось восстановить сюжет»).
+CONTENT_READY = "ready"
+CONTENT_INSUFFICIENT = "insufficient_sources"
+NO_SOURCES_MESSAGE = "Не удалось восстановить сюжет: нет источников"
+CONTENT_PENDING_MESSAGE = ("Сюжет ещё не восстановлен по источникам — "
+                           "ожидает повторной сборки")
+PRIMARY_PARTICIPANTS_MAX = 5      # ключевые участники карточки (кап 3–5)
+_DETERMINISTIC_CLAIMS_MAX = 20    # кап утверждений детерминированной сборки
+_SUBSTANTIVE_TEXT_MIN = 12        # порог содержательного сообщения
+_DETERMINISTIC_TITLE_MAX = 120
+# Авто-заглушки старых пайплайнов («Эпизод 1780000000», «История 1650…») —
+# не человеческий заголовок; read-side подменяет отображение на честное.
+_AUTO_TITLE_RE = re.compile(r"^(?:Эпизод|История)\s+[-+]?[0-9][0-9]*$")
+
 
 class StaleUpdateError(RuntimeError):
     """CAS-конфликт: `expected_version` не совпал (stale update отклонён,
@@ -215,6 +233,91 @@ def segment_times(segment: list[dict]) -> tuple[int | None, int | None]:
     if not timestamps:
         return None, None
     return min(timestamps), max(timestamps)
+
+
+def participants_by_involvement(segment: list[dict]) -> list[str]:
+    """Участники по вовлечённости (больше сообщений → «ключевой»);
+    детерминированный порядок: (-count, id). Ключевые 3–5 выбирает
+    read-side (`primary_participants` + `others_count`), список полный
+    сохраняется — раскрытие остальных без потери данных (B08)."""
+    counts: dict[str, int] = {}
+    for m in segment or ():
+        uid = _normalize_id(_field(m, "user_id"))
+        if uid is None:
+            continue
+        key = str(uid)
+        counts[key] = counts.get(key, 0) + 1
+    return [key for key, _count in sorted(
+        counts.items(), key=lambda kv: (-kv[1], kv[0]))]
+
+
+def deterministic_episode_card(segment: list[dict]) -> dict:
+    """B08: детерминированная сборка карточки эпизода из фактов (LLM
+    недоступен). Заголовок — из самого содержательного сообщения (НЕ
+    «Эпизод 1780…»); утверждения — сами исходные сообщения с refs на их
+    стабильные ключи; summary — честная выжимка фактов. Ничего не
+    выдумывается (имена/итоги/даты); нет содержательных сообщений →
+    пустая карточка (read-side покажет честный insufficient_sources)."""
+    substantive: list[dict] = []
+    for m in segment or ():
+        text = _WS_RE.sub(" ", str(_field(m, "text") or "")).strip()
+        if len(text) < _SUBSTANTIVE_TEXT_MIN:
+            continue
+        try:
+            key = str(_field(m, "message_key") or message_key(m))
+        except ValueError:
+            continue
+        substantive.append({"text": text, "key": key,
+                            "ts": int(_field(m, "timestamp") or 0)})
+    if not substantive:
+        return {"title": "", "summary": "", "claims": []}
+    substantive.sort(key=lambda r: (-len(r["text"]), r["ts"], r["key"]))
+    key_row = substantive[0]
+    title = key_row["text"][:_DETERMINISTIC_TITLE_MAX]
+    claims = [{"text": row["text"][:300], "refs": [row["key"]]}
+              for row in substantive[:_DETERMINISTIC_CLAIMS_MAX]]
+    preview = "; ".join(row["text"][:160] for row in substantive[:3])
+    summary = (f"Хронология по исходным сообщениям ({len(claims)} шт.): "
+               f"{preview}")[:2000]
+    return {"title": title, "summary": summary, "claims": claims}
+
+
+def deterministic_title_fallback(segment: list[dict]) -> str:
+    """Честный fallback-заголовок без цифровых заглушек: содержательное
+    сообщение или нейтральная метка по числу сообщений (не дата-«1970»)."""
+    card = deterministic_episode_card(segment)
+    if card["title"]:
+        return card["title"]
+    count = len(segment or ())
+    return f"Обсуждение ({count} сообщ.)" if count else "Обсуждение"
+
+
+def is_auto_stub_title(title) -> bool:
+    """Заглушка-цифра («Эпизод 1780000000»/«История 1650…») — не
+    человеческий заголовок (read-side подменяет отображение)."""
+    return bool(_AUTO_TITLE_RE.match(str(title or "").strip()))
+
+
+def _content_status_of(row: dict) -> str:
+    """derived-статус контента записи (episode/story row): ready — есть
+    непустой summary ИЛИ ≥1 утверждение; иначе insufficient_sources
+    (пустая техзапись не выдаётся за готовую историю, B08.2)."""
+    if str(_field(row, "summary") or "").strip():
+        return CONTENT_READY
+    for claim in _json_loads(row.get("claims_json"), []):
+        if isinstance(claim, dict) and str(claim.get("text") or "").strip():
+            return CONTENT_READY
+    return CONTENT_INSUFFICIENT
+
+
+def episode_content_status(row: dict) -> str:
+    """Статус контента эпизода (derived, Δ DDL = 0)."""
+    return _content_status_of(row or {})
+
+
+def story_content_status(row: dict) -> str:
+    """Статус контента истории (override-поля применяются — A13)."""
+    return _content_status_of(effective_story(row or {}))
 
 
 def split_by_participant_clusters(segment: list[dict]) -> list[list[dict]]:
@@ -1799,6 +1902,28 @@ async def queue_source_recheck(db, chat_id: int,
     return marked
 
 
+async def episodes_needing_backfill(db, chat_id: int, *,
+                                    limit: int = 20) -> list[dict]:
+    """B08: bounded-кандидаты безопасного backfill/re-extract — пустые
+    техэпизоды (`insufficient_sources`), у которых ЕСТЬ исходные ключи
+    сообщений (пересобирать есть из чего). Эпизоды без ключей не
+    кандидаты (честный insufficient_sources, записи не удаляются)."""
+    repo = EpisodeRepository(db)
+    out: list[dict] = []
+    cap = max(1, int(limit))
+    for row in await repo.list_episodes(int(chat_id), limit=500):
+        if len(out) >= cap:
+            break
+        if episode_content_status(row) == CONTENT_READY:
+            continue
+        if not _json_loads(row.get("message_keys_json"), []):
+            continue
+        if int(row.get("recheck_pending") or 0):
+            continue      # уже стоит в очереди перепроверки (D10)
+        out.append(row)
+    return out
+
+
 # ── EpisodeService: владелец пайплайна (D1/D4/D5/D7) ────────────────────────
 
 class EpisodeService:
@@ -1843,10 +1968,19 @@ class EpisodeService:
             return counters
 
         episode_ids: list[str] = []
+        # B08: исходные строки сообщений по стабильным ключам — источник
+        # фактов детерминированной сборки (нормализованный сегмент текст
+        # не несёт).
+        sources: dict[str, dict] = {}
+        for row in messages or ():
+            try:
+                sources[str(message_key(row))] = row
+            except ValueError:
+                continue
         for segment in segments:
             try:
                 episode_id = await self._process_segment(
-                    chat_id, segment, now, counters,
+                    chat_id, segment, now, counters, sources=sources,
                     pipeline_run_id=pipeline_run_id)
                 if episode_id:
                     episode_ids.append(episode_id)
@@ -1889,10 +2023,12 @@ class EpisodeService:
 
     async def _process_segment(self, chat_id: int, segment: list[dict],
                                now: int, counters: dict, *,
+                               sources: dict[str, dict] | None = None,
                                pipeline_run_id=None) -> str | None:
         """Извлечение одного сегмента (D5): LLM-контракт + офлайн-валидатор;
         дедуп по `(chat_id, segment_key)`/overlap-отношению; unknown не
-        превращается в факт."""
+        превращается в факт. `sources` — исходные строки сообщений по
+        стабильным ключам (для детерминированной сборки B08)."""
         keys = [str(m.get("message_key")) for m in segment]
         seg_key = segment_key(keys)
         existing = await self.repo.find_episode_by_segment(chat_id, seg_key)
@@ -1904,6 +2040,7 @@ class EpisodeService:
         participant_ids = sorted({
             str(m["user_id"]) for m in segment
             if m.get("user_id") is not None})
+        participants_ordered = participants_by_involvement(segment)
         member_keys = set(keys)
         window_lines = [
             f"[{m.get('timestamp')}] {m.get('user_id')}: "
@@ -1956,13 +2093,13 @@ class EpisodeService:
                 created_any = None
                 for cluster in clusters:
                     episode_id = await self._process_segment(
-                        chat_id, cluster, now, counters,
+                        chat_id, cluster, now, counters, sources=sources,
                         pipeline_run_id=pipeline_run_id)
                     if episode_id:
                         created_any = episode_id
                 return created_any
         if payload is not None:
-            title = payload["title"] or f"Эпизод {event_start or ''}".strip()
+            title = payload["title"] or deterministic_title_fallback(segment)
             summary = payload["summary"]
             participants = payload["participants"]
             claims = payload["claims"]
@@ -1974,12 +2111,19 @@ class EpisodeService:
                 reason_code="episode_extracted",
                 pipeline_run_id=pipeline_run_id)
         else:
-            # Без LLM — детерминированная карточка (A11-путь): время из
-            # исходных сообщений, содержимое не выдумывается.
-            title = f"Эпизод {event_start or now}"
-            summary = ""
-            participants = participant_ids
-            claims = []
+            # Без LLM — детерминированная сборка из фактов (B08): время из
+            # исходных сообщений, заголовок из ключевого содержательного
+            # сообщения (НЕ «Эпизод 1780…»), утверждения = сами исходные
+            # сообщения с refs, честная выжимка; содержимое не выдумывается.
+            source_rows = [ (sources or {}).get(str(m.get("message_key")), m)
+                            for m in segment ]
+            card = deterministic_episode_card(source_rows)
+            title = card["title"] or deterministic_title_fallback(source_rows)
+            summary = card["summary"]
+            claims = card["claims"]
+            # Порядок по вовлечённости: read-side берёт ключевые 3–5
+            # (`primary_participants`) + раскрытие остальных.
+            participants = participants_ordered
             outcome = EPISODE_UNKNOWN_OUTCOME
             outcome_known = False
             open_questions = []
@@ -2062,6 +2206,17 @@ class EpisodeService:
             claims = payload["claims"]
             outcome = payload["outcome"]
             open_questions = payload["open_questions"]
+        elif episode_content_status(episode) == CONTENT_INSUFFICIENT:
+            # B08: без LLM пустой техэпизод (insufficient_sources)
+            # детерминированно пересобирается из исходных сообщений
+            # (bounded backfill/re-extract); непустой контент не трогается.
+            card = deterministic_episode_card(messages)
+            title = card["title"] or str(episode.get("title") or "")
+            summary = card["summary"]
+            claims = card["claims"]
+            outcome = EPISODE_UNKNOWN_OUTCOME
+            open_questions = list(_json_loads(
+                episode.get("open_questions"), []))
         else:
             title = str(episode.get("title") or "")
             summary = str(episode.get("summary") or "")

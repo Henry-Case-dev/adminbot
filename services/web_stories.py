@@ -23,9 +23,16 @@ import time
 
 from services import mca_episodes
 from services.mca_episodes import (
+    CONTENT_INSUFFICIENT,
     EpisodeRepository,
+    NO_SOURCES_MESSAGE,
+    CONTENT_PENDING_MESSAGE,
+    PRIMARY_PARTICIPANTS_MAX,
     effective_story,
     emit_story_event,
+    episode_content_status,
+    is_auto_stub_title,
+    story_content_status,
 )
 
 logger = logging.getLogger(__name__)
@@ -49,6 +56,62 @@ TABLE_DEFAULT_LIMIT = 20
 FEED_BOUNDED_LIMIT = FEED_DEFAULT_LIMIT
 
 _TEXT_LIMIT = 200
+
+# U03.2-принцип для историй: 0/отрицательные/мусор → None (не «1970»);
+# значения в миллисекундах (≥ 1e11) нормализуются к секундам.
+_MS_TS_THRESHOLD = 10 ** 11
+_TIMELINE_MAX = 100          # кап раскрытой хронологии карточки (bounded)
+
+
+def _norm_ts(value):
+    """Unix-секунды или None: 0/мусор → None (честное «нет данных» вместо
+    фальшивого 1970), ms → sec. Никогда не бросает."""
+    try:
+        ts = int(value)
+    except (TypeError, ValueError):
+        return None
+    if ts <= 0:
+        return None
+    if ts >= _MS_TS_THRESHOLD:
+        ts //= 1000
+    return ts
+
+
+def _primary_participants(participants) -> tuple[list[str], int]:
+    """B08: ключевые участники (до `PRIMARY_PARTICIPANTS_MAX`) + число
+    остальных; полный список остаётся в `participants` (раскрытие без
+    потери данных)."""
+    ppl = [str(p).strip() for p in (participants or ())
+           if str(p or "").strip()]
+    primary = ppl[:PRIMARY_PARTICIPANTS_MAX]
+    return primary, max(0, len(ppl) - len(primary))
+
+
+def _display_fields(row: dict, *, story: bool = False,
+                    has_sources: bool | None = None) -> dict:
+    """Честное отображение (B08): insufficient_sources → «Не удалось
+    восстановить сюжет: нет источников» (нет исходных ключей) либо честная
+    метка ожидания пересборки; авто-цифровая заглушка заголовка
+    («Эпизод 1780…») не показывается как факт — первый факт/честная метка."""
+    status = (story_content_status(row) if story
+              else episode_content_status(row))
+    summary = str((effective_story(row) if story else row).get("summary")
+                  or "")
+    if status == CONTENT_INSUFFICIENT:
+        message = (NO_SOURCES_MESSAGE
+                   if has_sources is False else CONTENT_PENDING_MESSAGE)
+        return {"content_status": status, "display_title":
+                "Не удалось восстановить сюжет", "display_summary": message}
+    card = effective_story(row) if story else row
+    title = str(card.get("title") or "")
+    claims = _json_loads(row.get("claims_json"), [])
+    if is_auto_stub_title(title) or not title.strip():
+        first = next((str(c.get("text") or "").strip()
+                      for c in claims if isinstance(c, dict)
+                      and str(c.get("text") or "").strip()), "")
+        title = first[:120] if first else "Обсуждение"
+    return {"content_status": status, "display_title": title,
+            "display_summary": summary}
 
 
 def _now(now: int | None) -> int:
@@ -81,10 +144,11 @@ def _feed_item(row: dict, titles: dict[str, str]) -> dict:
         "text": _clip(entity.get("summary")),
         "episode_ids": [str(e) for e in
                         (entity.get("episode_ids") or ())][:20],
-        # Обе даты (A11): период событий vs дата обнаружения.
-        "event_start": entity.get("event_start"),
-        "event_end": entity.get("event_end"),
-        "discovered_at": entity.get("discovered_at"),
+        # Обе даты (A11): период событий vs дата обнаружения; None = нет
+        # данных (не фальшивый 1970).
+        "event_start": _norm_ts(entity.get("event_start")),
+        "event_end": _norm_ts(entity.get("event_end")),
+        "discovered_at": _norm_ts(entity.get("discovered_at")),
         "participants": [str(p) for p in
                          (entity.get("participants") or ())][:50],
     }
@@ -237,17 +301,21 @@ def _table_row(row: dict) -> dict:
     story = effective_story(row)
     participants = _json_loads(row.get("participants_json"), [])
     claims = _json_loads(row.get("claims_json"), [])
-    return {
+    primary, others = _primary_participants(participants)
+    out = {
         "story_id": str(row.get("story_id") or ""),
         "chat_id": int(row.get("chat_id") or 0),
         "title": _clip(story.get("title"), 300),
         "summary": _clip(story.get("summary"), 500),
         "participants": [str(p) for p in participants][:50],
+        "primary_participants": primary,
+        "others_count": others,
         "claims_count": len(claims),
-        "event_start_ts": row.get("event_start_ts"),
-        "event_end_ts": row.get("event_end_ts"),
-        "discovered_at": int(row.get("discovered_at") or 0) or None,
-        "updated_at": int(row.get("updated_at") or 0) or None,
+        "event_start_ts": _norm_ts(row.get("event_start_ts")),
+        "event_end_ts": _norm_ts(row.get("event_end_ts")),
+        "discovered_at": _norm_ts(row.get("discovered_at")),
+        "updated_at": _norm_ts(row.get("updated_at")),
+        "rebuilt_at": _norm_ts(row.get("updated_at")),
         "outcome": str(row.get("outcome") or ""),
         "state": str(row.get("state") or ""),
         "verification": str(row.get("verification") or ""),
@@ -259,6 +327,8 @@ def _table_row(row: dict) -> dict:
             for f in ("title", "summary", "outcome", "state",
                       "open_questions")),
     }
+    out.update(_display_fields(row, story=True))
+    return out
 
 
 async def stories_table(db, chat_id: int, **filters) -> dict:
@@ -338,24 +408,30 @@ def _episode_row(row: dict) -> dict:
     participants = _json_loads(row.get("participants_json"), [])
     claims = _json_loads(row.get("claims_json"), [])
     keys = _json_loads(row.get("message_keys_json"), [])
-    return {
+    primary, others = _primary_participants(participants)
+    out = {
         "episode_id": str(row.get("episode_id") or ""),
         "title": _clip(row.get("title"), 300),
         "summary": _clip(row.get("summary"), 500),
         "participants": [str(p) for p in participants][:50],
+        "primary_participants": primary,
+        "others_count": others,
         "claims": [{"text": _clip(c.get("text"), 300),
                     "refs": [str(r) for r in (c.get("refs") or ())][:10]}
                    for c in claims if isinstance(c, dict)][:20],
-        "event_start_ts": row.get("event_start_ts"),
-        "event_end_ts": row.get("event_end_ts"),
-        "discovered_at": int(row.get("discovered_at") or 0) or None,
-        "updated_at": int(row.get("updated_at") or 0) or None,
+        "event_start_ts": _norm_ts(row.get("event_start_ts")),
+        "event_end_ts": _norm_ts(row.get("event_end_ts")),
+        "discovered_at": _norm_ts(row.get("discovered_at")),
+        "updated_at": _norm_ts(row.get("updated_at")),
+        "rebuilt_at": _norm_ts(row.get("updated_at")),
         "outcome": str(row.get("outcome") or ""),
         "open_questions": [str(q) for q in _json_loads(
             row.get("open_questions"), [])][:10],
         "message_keys": [str(k) for k in keys][:50],
         "recheck_pending": bool(row.get("recheck_pending")),
     }
+    out.update(_display_fields(row, has_sources=bool(keys)))
+    return out
 
 
 def _version_row(row: dict) -> dict:
@@ -363,7 +439,7 @@ def _version_row(row: dict) -> dict:
     return {
         "version_id": str(row.get("version_id") or ""),
         "version_no": int(row.get("version_no") or 0),
-        "created_at": int(row.get("created_at") or 0) or None,
+        "created_at": _norm_ts(row.get("created_at")),
         "created_by": str(row.get("created_by") or ""),
         "extractor_version": row.get("extractor_version"),
         "title": _clip(payload.get("title"), 200),
@@ -377,19 +453,25 @@ def _story_dto(row: dict) -> dict:
     story = effective_story(row)
     claims = _json_loads(row.get("claims_json"), [])
     participants = _json_loads(row.get("participants_json"), [])
-    return {
+    primary, others = _primary_participants(participants)
+    out = {
         "story_id": str(row.get("story_id") or ""),
         "chat_id": int(row.get("chat_id") or 0),
         "title": _clip(story.get("title"), 300),
         "summary": _clip(story.get("summary"), 2000),
         "participants": [str(p) for p in participants][:50],
+        "primary_participants": primary,
+        "others_count": others,
         "claims": [{"text": _clip(c.get("text"), 300),
                     "refs": [str(r) for r in (c.get("refs") or ())][:10]}
                    for c in claims if isinstance(c, dict)][:50],
-        "event_start_ts": row.get("event_start_ts"),
-        "event_end_ts": row.get("event_end_ts"),
-        "discovered_at": int(row.get("discovered_at") or 0) or None,
-        "updated_at": int(row.get("updated_at") or 0) or None,
+        # Три РАЗНЫЕ даты (B08): период оригинальных событий / обнаружения
+        # / пересборки; None = «нет данных» (не фальшивый 1970).
+        "event_start_ts": _norm_ts(row.get("event_start_ts")),
+        "event_end_ts": _norm_ts(row.get("event_end_ts")),
+        "discovered_at": _norm_ts(row.get("discovered_at")),
+        "rebuilt_at": _norm_ts(row.get("updated_at")),
+        "updated_at": _norm_ts(row.get("updated_at")),
         "outcome": str(story.get("outcome") or ""),
         "state": str(story.get("state") or ""),
         "verification": str(story.get("verification") or ""),
@@ -403,6 +485,46 @@ def _story_dto(row: dict) -> dict:
         "override_state": row.get("override_state"),
         "override_open_questions": row.get("override_open_questions"),
     }
+    out.update(_display_fields(row, story=True))
+    return out
+
+
+def _claim_refs(chat_id: int, refs) -> list[dict]:
+    """Refs утверждения → данные для clickable-ссылок по правам (B08):
+    валидированный t.me/c-ключ супергруппы → url; archive_only/ЛС-ключи —
+    без ссылки (честный archive_only, ссылка не выдумывается)."""
+    out: list[dict] = []
+    for ref in (refs or ())[:10]:
+        key = str(ref or "")
+        tg = _parse_tg_key(int(chat_id), key)
+        url = _tg_link(int(chat_id), tg) if tg is not None else None
+        out.append({"message_key": key, "tg_message_id": tg, "url": url})
+    return out
+
+
+def story_timeline(chat_id: int, episode_rows: list[dict]) -> list[dict]:
+    """Раскрываемая хронология истории (B08): утверждения эпизодов в
+    порядке исходных событий; каждое — с источниками (refs + ссылки по
+    правам). Данные для синопсиса/хронологии карточки; bounded-кап."""
+    entries: list[dict] = []
+    for ep in episode_rows:
+        ep_id = str(ep.get("episode_id") or "")
+        ts = _norm_ts(ep.get("event_start_ts"))
+        for claim in _json_loads(ep.get("claims_json"), []):
+            if not isinstance(claim, dict):
+                continue
+            text = str(claim.get("text") or "").strip()
+            if not text:
+                continue
+            entries.append({
+                "ts": ts,
+                "episode_id": ep_id,
+                "text": _clip(text, 300),
+                "refs": _claim_refs(chat_id, claim.get("refs")),
+            })
+    entries.sort(key=lambda e: (e["ts"] is None, e["ts"] or 0,
+                                e["episode_id"], e["text"]))
+    return entries[:_TIMELINE_MAX]
 
 
 async def _story_contradictions(db, chat_id: int, story_id: str) -> list[dict]:
@@ -418,11 +540,11 @@ async def _story_contradictions(db, chat_id: int, story_id: str) -> list[dict]:
         entity = _json_loads(r.get("entity_ids"), {})
         if story_id and str(entity.get("story_id") or "") != str(story_id):
             continue
-        out.append({"ts": int(r.get("ts") or 0) or None,
+        out.append({"ts": _norm_ts(r.get("ts")),
                     "reason_code": r.get("reason_code"),
-                    "event_start": entity.get("event_start"),
-                    "event_end": entity.get("event_end"),
-                    "discovered_at": entity.get("discovered_at"),
+                    "event_start": _norm_ts(entity.get("event_start")),
+                    "event_end": _norm_ts(entity.get("event_end")),
+                    "discovered_at": _norm_ts(entity.get("discovered_at")),
                     "text": _clip(entity.get("summary"))})
     return out
 
@@ -450,6 +572,7 @@ async def story_card(db, chat_id: int, story_id: str) -> dict | None:
     return {"enabled": True, "state": "ok", "chat_id": int(chat_id),
             "story": _story_dto(row),
             "episodes": [_episode_row(ep) for ep in episode_rows],
+            "timeline": story_timeline(int(chat_id), episode_rows),
             "versions": [_version_row(v) for v in versions],
             "contradictions": await _story_contradictions(
                 db, int(chat_id), resolved),
