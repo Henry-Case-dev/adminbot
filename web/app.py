@@ -241,6 +241,12 @@ def create_app(cache: ConfigCache, control=None) -> FastAPI:
     # Отдельный файл-зона (прецедент stories); routes.py не меняется.
     from web.api.oversight_router import oversight17c_router
     app.include_router(oversight17c_router, prefix="/api/oversight")
+    # ASAP 8 v6.3 W3-ANALYTICS (U05.1/U05.3, D12 §18I.12): read-only данные
+    # визуализаций Аналитики (heatmap активности, эффективные статусы
+    # процессов) — отдельный файл-зона (прецедент memory_overview/stories);
+    # только глобальный админ, fail-open, R17-safe.
+    from web.api.analytics_viz import analytics_viz_router
+    app.include_router(analytics_viz_router, prefix="/api")
 
     rendered_index = _render_index()   # один раз at startup (84.21.2)
     rendered_css = _render_app_css()   # F4 10.16: подстановка ?v= в @font-face

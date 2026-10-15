@@ -14,9 +14,9 @@
  *   (k) moduleRuntimeNotice по таблице §43;
  *   (l) §72 единый переключатель (три представления = одно состояние);
  *   (m) openModuleWorkspace → openModuleWindow (§D6);
- *   (o) F4-M1: gate='global' + глобально OFF + локально ON → runtime
- *       'blocked' («Включён, но не работает»), модуль в счётчике/фильтре
- *       «Есть проблемы» и НЕ в «Включено» (+ negative: глобально ON).
+ *   (o) v6.3 B06.1/B06.2: Summary per_chat (chat-ON при global OFF работает,
+ *       notice честного резолва; blocked-семантика осталась у global-only —
+ *       Direct) + moduleChatToggleReadonly.
  *
  * Запуск: node tests/js/round1025_f4_module_store_test.js
  */
@@ -544,10 +544,10 @@ function summaryItem(extra) {
       'n: формулировка F3 сохранена');
   }
 
-  // ── (o) F4-M1: gate='global' + глобально OFF + локально ON → blocked ──
+  // ── (o) B06.1 (v6.3): Summary per_chat + F4-M1 blocked у global-only ──
   {
-    // Полный набор модулей: все выключены, summary — локально включён при
-    // глобально выключенном (`gate='global'` → override не действует).
+    // Summary теперь per-chat-operable (единый резолвер B06.1): локально
+    // включён при глобально выключенном — РАБОТАЕТ (не blocked).
     const conflictItems = function () {
       const arr = MODULES.map(function (m) {
         return item(m.toggleKey, false,
@@ -565,42 +565,78 @@ function summaryItem(extra) {
     };
 
     const ctx = mkConflict();
+    assert.strictEqual(moduleById('mod_summary').runtimeGate, 'per_chat',
+      'o: B06.1 — Summary runtimeGate per_chat (витрина = резолверу)');
     const st = methods.getModuleState.call(
       ctx, { type: 'chat', id: -100 }, 'mod_summary');
     assert.strictEqual(st.effective, true, 'o: эффективно включён локально');
     assert.strictEqual(st.globalValue, false, 'o: глобально выключен');
-    assert.strictEqual(st.runtime, 'blocked',
-      'o: F4-M1 — gate=global + global OFF + effective ON → blocked');
+    assert.strictEqual(st.runtime, 'on',
+      'o: B06.1 — gate=per_chat + global OFF + effective ON → работает');
     assert.strictEqual(
       methods.moduleStateText.call(ctx, moduleById('mod_summary')),
-      'Включён, но не работает', 'o: текст фактического состояния');
-    // §43: подпись notice сохранена (не изменялась фиксом).
+      'Включён', 'o: текст фактического состояния');
+    // Честный резолв: источник — настройки чата, глобально выключено.
     assert.strictEqual(
       methods.moduleRuntimeNotice.call(ctx, moduleById('mod_summary')),
-      'Не работает: отключён глобально (локальное значение сохранено)',
-      'o: notice §43 без изменений');
+      'Включено для этой области (глобально выключено)',
+      'o: notice per_chat-резолва (не «не работает»)');
+    assert.strictEqual(
+      methods.moduleSourceText.call(ctx, moduleById('mod_summary')),
+      'Источник: настройки чата', 'o: источник — chat override');
 
-    // §45: конфликт — в «Есть проблемы», НЕ в «Включено»/«Выключено».
+    // §45: счётчики честны — чат-включённый Summary в «Включено».
     const c = computed.moduleCounters.call(ctx);
-    assert.strictEqual(c.on, 0, 'o: конфликт не в «Включено»');
-    assert.strictEqual(c.off, 14, 'o: конфликт не в «Выключено» (ASAP 7 F3: база 15)');
-    assert.strictEqual(c.issues, 1, 'o: конфликт в «Есть проблемы»');
+    assert.strictEqual(c.on, 1, 'o: chat-ON при global OFF — в «Включено»');
+    assert.strictEqual(c.off, 14, 'o: остальные выключены (ASAP 7 F3: база 15)');
+    assert.strictEqual(c.issues, 0, 'o: конфликтов больше нет');
     assert.strictEqual(c.total, c.on + c.off + c.issues,
       'o: инвариант Всего = Вкл + Выкл + Проблемы');
 
-    // Фильтр «Есть проблемы» включает модуль; «Включённые» — исключает.
+    // Фильтры: «Включённые» включают Summary; «Есть проблемы» — нет.
     const idsFor = function (f) {
       return computed.filteredModules.call(mkConflict({ moduleFilter: f }))
         .map(function (m) { return m.id; });
     };
-    assert.ok(idsFor('issues').indexOf('mod_summary') >= 0,
-      'o: фильтр «Есть проблемы» включает конфликт');
-    assert.strictEqual(idsFor('on').indexOf('mod_summary'), -1,
-      'o: фильтр «Включённые» исключает конфликт');
+    assert.ok(idsFor('on').indexOf('mod_summary') >= 0,
+      'o: фильтр «Включённые» включает chat-override');
+    assert.strictEqual(idsFor('issues').indexOf('mod_summary'), -1,
+      'o: фильтр «Есть проблемы» не выдумывает проблему');
     assert.strictEqual(idsFor('off').indexOf('mod_summary'), -1,
-      'o: фильтр «Выключенные» исключает конфликт');
+      'o: фильтр «Выключенные» исключает включённый');
 
-    // Негативный кейс: глобально ON + локально ON → работает ('on'), не blocked.
+    // F4-M1 (blocked) сохраняется для реально global-only карточек:
+    // Direct локально включён при глобально выключенном — не работает.
+    const dirItems = function () {
+      const arr = MODULES.map(function (m) {
+        return item(m.toggleKey, false,
+          { global_value: false, chat_source: '' });
+      });
+      const d = arr.filter(function (i) {
+        return i.key === 'flags.direct_chat_botword_enabled';
+      })[0];
+      d.value = true; d.global_value = false; d.chat_source = 'chat';
+      return arr;
+    };
+    const ctxDir = mkCtx({ scopeKind: 'chat', activeChatId: -100,
+      configItems: dirItems() });
+    ctxDir.visibleModules = computed.visibleModules.call(ctxDir);
+    assert.strictEqual(
+      methods.getModuleState.call(
+        ctxDir, { type: 'chat', id: -100 }, 'mod_direct').runtime,
+      'blocked', 'o: gate=global + global OFF + local ON → blocked (Direct)');
+    assert.strictEqual(
+      methods.moduleRuntimeNotice.call(ctxDir, moduleById('mod_direct')),
+      'Не работает: отключён глобально (локальное значение сохранено)',
+      'o: notice blocked-семантики у global-only');
+    assert.strictEqual(
+      methods.moduleChatToggleReadonly.call(ctxDir, moduleById('mod_direct')),
+      true, 'o: B06.2 — Direct на чат-scope read-only');
+    assert.strictEqual(
+      methods.moduleChatToggleReadonly.call(ctxDir, moduleById('mod_summary')),
+      false, 'o: B06.2 — Summary на чат-scope активен');
+
+    // Негативный кейс: глобально ON + локально ON → работает ('on'), без пометки.
     const itemsOn = conflictItems();
     const sOn = itemsOn.filter(function (i) { return i.key === SUM; })[0];
     sOn.global_value = true;
@@ -609,7 +645,10 @@ function summaryItem(extra) {
     ok.visibleModules = computed.visibleModules.call(ok);
     const stOk = methods.getModuleState.call(
       ok, { type: 'chat', id: -100 }, 'mod_summary');
-    assert.strictEqual(stOk.runtime, 'on', 'o: глобально ON → on (не blocked)');
+    assert.strictEqual(stOk.runtime, 'on', 'o: глобально ON → on');
+    assert.strictEqual(
+      methods.moduleRuntimeNotice.call(ok, moduleById('mod_summary')),
+      '', 'o: негатив — глобально и локально ON — без пометки');
     assert.strictEqual(
       methods.moduleStateText.call(ok, moduleById('mod_summary')),
       'Включён', 'o: negative — текст «Включён»');

@@ -417,16 +417,25 @@
                   <span class="badge" :class="moduleEnabled(workspaceModule) ? 'badge-ok' : 'badge-muted'">
                     {{ moduleStateText(workspaceModule) }}
                   </span>
+                  <!-- B06.2: global-only мастер на области чата/ЛС —
+                       read-only тумблер + «Настроить глобально». -->
+                  <span v-if="moduleChatToggleReadonly(workspaceModule)"
+                        class="badge badge-muted shrink-0">глобальный рубильник</span>
                   <label v-if="!workspaceModule.noToggle"
-                         class="relative inline-flex items-center cursor-pointer shrink-0">
+                         class="relative inline-flex items-center shrink-0"
+                         :class="moduleChatToggleReadonly(workspaceModule) ? '' : 'cursor-pointer'">
                     <input type="checkbox" class="sr-only peer"
                            :checked="moduleEnabled(workspaceModule)"
-                           :disabled="!canEditModule(workspaceModule) || modulePendingFor(workspaceModule)"
+                           :disabled="moduleChatToggleReadonly(workspaceModule) || !canEditModule(workspaceModule) || modulePendingFor(workspaceModule)"
                            @change="toggleModule(workspaceModule, $event.target.checked)"
                            :aria-label="'Включить модуль ' + workspaceModule.title">
                     <div class="w-11 h-6 rounded-full peer bg-white/10 peer-checked:bg-violet-600 transition-colors"></div>
                     <div class="absolute left-0.5 w-5 h-5 rounded-full bg-white transition-transform peer-checked:translate-x-5"></div>
                   </label>
+                  <button v-if="moduleChatToggleReadonly(workspaceModule) && isGlobalAdmin"
+                          type="button" class="btn-ghost text-xs shrink-0"
+                          :aria-label="'Настроить глобально: ' + workspaceModule.title"
+                          @click="configureModuleGlobally(workspaceModule)">Настроить глобально</button>
                 </div>
                 <div v-if="moduleRuntimeNotice(workspaceModule)" class="text-xs text-amber-300 mt-1">
                   {{ moduleRuntimeNotice(workspaceModule) }}
@@ -498,6 +507,62 @@
                       <a :href="l.route" class="underline text-violet-300">{{ l.label }}</a>
                       <span class="text-gray-600 ml-1">→ {{ l.hint }}</span>
                     </span>
+                  </div>
+                </div>
+                <!-- B06.1: Summary — per-chat-operable (единый резолвер
+                     emergency env → chat override → global default). Честная
+                     env-ось: UI не читает env напрямую — только объясняет. -->
+                <div v-if="workspaceModule.id === 'mod_summary'"
+                     class="mt-3 pt-2 border-t border-white/10 text-xs text-gray-500"
+                     data-summary-runtime-note>
+                  Сводки включаются и выключаются для каждого чата отдельно;
+                  глобальный тумблер — общий default. Источник действующего
+                  значения (настройки чата или глобальная настройка) показан
+                  рядом с состоянием.
+                  Аварийная ось: env SUMMARY_EMERGENCY_DISABLE — если она
+                  выставлена на сервере, сводки заблокированы во всех чатах,
+                  важнее любых тумблеров (снимается только в .env).
+                </div>
+                <!-- B07: временная линия evidence — детализация Фактчека.
+                     Данные те же, что в «Аналитике» (runs + общий
+                     detail-modal с evidence-карточками); RBAC API — global
+                     admin, остальным честная подсказка (без выдуманных
+                     данных). -->
+                <div v-if="workspaceModule.id === 'mod_factcheck'"
+                     class="mt-3 pt-2 border-t border-white/10 text-xs"
+                     data-factcheck-temporal>
+                  <div class="flex flex-wrap gap-2 items-center mb-1">
+                    <span class="text-gray-400">Проверки во времени
+                      (детализация):</span>
+                    <button v-if="isGlobalAdmin" type="button"
+                            class="btn-ghost text-xs shrink-0"
+                            :disabled="temporalRunsBusy"
+                            @click="loadTemporalRuns(true)"
+                            aria-label="Обновить журнал проверок">⟳</button>
+                  </div>
+                  <template v-if="isGlobalAdmin">
+                    <div v-if="temporalRunsBusy" class="spinner my-2"></div>
+                    <div v-else-if="!temporalRuns || !temporalRuns.length"
+                         class="text-gray-500">проверок пока нет</div>
+                    <div v-else class="flex flex-col gap-1">
+                      <button v-for="r in temporalRuns.slice(0, 5)"
+                              :key="'ws-tfr-' + r.run_id" type="button"
+                              class="btn-ghost text-xs text-left truncate"
+                              data-temporal-run-btn
+                              @click="openTemporalDetail(r.run_id)">
+                        {{ fmtTs(r.created_at) }} · чат {{ r.chat_id == null ? '—' : r.chat_id }}
+                        · {{ temporalModeLabel(r.assessment_mode) }}
+                        · {{ temporalFactualLabel(r.factual_verdict) }}
+                      </button>
+                    </div>
+                    <div class="text-gray-500 mt-1">
+                      Полный журнал и карточки источников — «Аналитика» →
+                      «Память и интеллект».
+                    </div>
+                  </template>
+                  <div v-else class="text-gray-500">
+                    Журнал проверок с источниками доступен владельцу бота
+                    («Аналитика» → «Память и интеллект»).
                   </div>
                 </div>
                 <!-- ASAP 7 F3 (§3.3): живой гейт/статус модуля «Инициатива»
@@ -722,6 +787,28 @@
                 </div>
                 <div class="text-xs text-gray-400" data-autonomous-consequence>
                   {{ directAutonomousSemantics().text }}
+                </div>
+              </div>
+
+              <!-- ── B07: секция «Время и источники» — функция Фактчека на
+                   его workspace-вкладке «Основные настройки» (НЕ карточка
+                   модуля). Объясняет реальный гейт temporal.tool_enabled:
+                   что включает, что НЕ выключает; env-оси — аварийные.
+                   Сами параметры рендерит общий generic-грид ниже
+                   (группа temporal_factcheck, зеркало TAB_RULES). -->
+              <div v-if="workspaceModule && workspaceModule.id === 'mod_factcheck'
+                        && workspaceTab === 'settings'"
+                   class="col-span-full card p-4" data-factcheck-temporal-intro>
+                <div class="text-sm font-bold mb-1">Время и источники</div>
+                <div class="text-xs text-gray-400">
+                  Проверяя утверждение, бот учитывает время: дату репоста и
+                  дату оригинала, устаревание данных и «что было известно на
+                  тот момент». Тумблер «Проверять дату и актуальность»
+                  включает дополнительную проверку дат в диалоге — сама
+                  привязка сообщений к датам и режим проверки от него не
+                  зависят и не отключаются. Аварийные env-рубильники
+                  (MCA_TEMPORAL_FACTCHECK_TOOL_ENABLED) действуют независимо
+                  от настроек здесь.
                 </div>
               </div>
 
@@ -2850,7 +2937,10 @@
                             :class="{ 'opacity-60': s.excluded_from_retrieval }"
                             @click="openStoriesManageCard(s.story_id)">
                           <td>
-                            {{ s.title || 'Без названия' }}
+                            {{ s.display_title || s.title || 'Без названия' }}
+                            <span v-if="s.content_status === 'insufficient_sources'"
+                                  class="badge badge-muted ml-1"
+                                  title="Источники недоступны — сюжет не восстановлен">нет источников</span>
                             <span v-if="s.has_overrides" class="badge badge-muted ml-1">ручная правка</span>
                             <span v-if="s.excluded_from_retrieval" class="badge badge-warn ml-1">исключена из поиска</span>
                           </td>
@@ -2879,11 +2969,19 @@
                             @click="storiesTableMore()">Показать ещё (серверная страница)</button>
                     <span v-else class="text-[10px] text-gray-500">Страница последняя (keyset по updated_at).</span>
                   </div>
-                  <!-- Полная карточка истории (D7) + действия (D8). -->
+                  <!-- ═══ Полная карточка истории (D7) — B08 UI (v6.3):
+                       synopsis + раскрываемая хронология с refs (clickable
+                       по правам), три РАЗНЫЕ даты, участники ≤5 + «ещё N»,
+                       insufficient_sources — без success-раскраски. ═══ -->
                   <div v-if="storiesManageCard && storiesManageCard.story"
-                       class="mt-3 rounded-lg border border-white/10 p-3 text-xs" data-story-card>
+                       class="mt-3 rounded-lg border p-3 text-xs story-card"
+                       :class="{ 'story-card--insufficient': storyIsInsufficient(storiesManageCard) }"
+                       data-story-card>
                     <div class="flex items-center gap-2 flex-wrap mb-1">
-                      <b>{{ storiesManageCard.story.title || 'Без названия' }}</b>
+                      <b data-story-title>{{ storyCardTitle(storiesManageCard) }}</b>
+                      <span v-if="storyIsInsufficient(storiesManageCard)"
+                            class="badge badge-muted"
+                            data-story-insufficient>сюжет не восстановлен</span>
                       <span class="badge badge-muted">v{{ storiesManageCard.story.expected_version }}</span>
                       <span class="badge badge-muted">{{ storiesStateRu(storiesManageCard.story.state) }}</span>
                       <span class="badge badge-muted">{{ storiesVerificationRu(storiesManageCard.story.verification) }}</span>
@@ -2891,32 +2989,91 @@
                         объединена: редирект на {{ storiesManageCard.redirect_target }}</span>
                       <button class="btn-ghost text-[10px] ml-auto" @click="closeStoriesManageCard()">скрыть</button>
                     </div>
-                    <div class="text-gray-300"><b>Краткое содержание:</b> {{ storiesManageCard.story.summary || 'неизвестно' }}</div>
-                    <div class="text-gray-400 mt-1">
-                      <b>Результат:</b> {{ storiesOutcomeRu(storiesManageCard.story.outcome) }} ·
-                      <b>события:</b> {{ fmtStoryDate(storiesManageCard.story.event_start_ts || storiesManageCard.story.event_end_ts) }}<template v-if="storiesManageCard.story.event_start_ts && storiesManageCard.story.event_end_ts && storiesManageCard.story.event_end_ts !== storiesManageCard.story.event_start_ts"> — {{ fmtStoryDate(storiesManageCard.story.event_end_ts) }}</template>
-                      · <b>обнаружена:</b> {{ fmtStoryDate(storiesManageCard.story.discovered_at) }}
+                    <!-- Synopsis / честное сообщение о недостаче (B08.3). -->
+                    <div class="story-card__synopsis" data-story-summary>
+                      {{ storyCardSummary(storiesManageCard) || 'Краткое содержание пока не восстановлено.' }}
+                    </div>
+                    <!-- Три РАЗНЫЕ даты (события / обнаружена / пересобрана);
+                         null = «нет данных» — никогда не 1970. -->
+                    <div class="story-card__dates" data-story-dates>
+                      <div v-for="d in storyDatesRows(storiesManageCard)"
+                           :key="'sd' + d.label" class="story-card__date-row">
+                        <span class="story-card__date-label">{{ d.label }}:</span>
+                        <span>{{ d.value }}</span>
+                      </div>
                     </div>
                     <div class="text-gray-400 mt-1">
-                      <b>Участники:</b> {{ storiesParticipantsLabel(storiesManageCard.story.display_names, storiesManageCard.story.participants) || 'неизвестно' }}
+                      <b>Результат:</b> {{ storiesOutcomeRu(storiesManageCard.story.outcome) }}
+                    </div>
+                    <!-- Участники: ключевые ≤5 + «ещё N» (раскрытие без потери). -->
+                    <div class="text-gray-400 mt-1" data-story-participants>
+                      <b>Участники:</b>
+                      <template v-if="storyPrimaryNames(storiesManageCard).length">
+                        {{ storyPrimaryNames(storiesManageCard).join(', ') }}
+                        <button v-if="storyOthersCount(storiesManageCard) > 0"
+                                class="btn-ghost text-[10px] ml-1" type="button"
+                                :aria-expanded="!!vizStoriesOthers[storiesManageCard.story.story_id] ? 'true' : 'false'"
+                                @click.stop="storiesToggleOthers(storiesManageCard.story.story_id)">
+                          ещё {{ storyOthersCount(storiesManageCard) }}
+                        </button>
+                        <span v-if="vizStoriesOthers[storiesManageCard.story.story_id]"
+                              class="text-gray-500">· {{ storyOtherNames(storiesManageCard).join(', ') }}</span>
+                      </template>
+                      <template v-else>неизвестно</template>
                     </div>
                     <div class="text-gray-400 mt-1">
                       <b>Исходных сообщений:</b> {{ storiesSourceCount(storiesManageCard) }} ·
                       <b>бот:</b> {{ storiesUsageLabel(storiesManageCard.story) }}
                     </div>
+                    <!-- Нерешённый вопрос — честный «вопрос» вместо выдуманного финала. -->
+                    <div v-if="storyOpenQuestions(storiesManageCard).length"
+                         class="story-card__questions mt-1" data-story-questions>
+                      <b>Нерешённый вопрос:</b>
+                      <div v-for="(q, qi) in storyOpenQuestions(storiesManageCard)"
+                           :key="'sq' + qi" class="ml-2">• {{ q }}</div>
+                    </div>
+                    <!-- Раскрываемая хронология с источниками (B08.1):
+                         ref с url → clickable (права валидированы сервером);
+                         url: null → «только в архиве» (ссылка не выдумывается). -->
+                    <div v-if="(storiesManageCard.timeline || []).length" class="mt-1">
+                      <button class="btn-ghost text-xs" type="button"
+                              :aria-expanded="storyTimelineOpen(storiesManageCard.story.story_id) ? 'true' : 'false'"
+                              data-story-timeline-toggle
+                              @click="storiesToggleTimeline(storiesManageCard.story.story_id)">
+                        {{ storyTimelineOpen(storiesManageCard.story.story_id)
+                          ? 'Скрыть хронологию' : 'Хронология (' + storiesManageCard.timeline.length + ')' }}
+                      </button>
+                      <div v-if="storyTimelineOpen(storiesManageCard.story.story_id)"
+                           class="story-card__timeline ml-2" data-story-timeline>
+                        <div v-for="(t, ti) in storiesManageCard.timeline"
+                             :key="'tl' + ti" class="story-card__tl-item">
+                          <span class="text-gray-500 flex-none">{{ t.ts != null ? fmtStoryDate(t.ts) : 'дата неизвестна' }}</span>
+                          <span class="story-card__tl-text">{{ t.text }}</span>
+                          <span class="story-card__tl-refs">
+                            <template v-for="(r, ri) in (t.refs || [])" :key="'ref' + ti + ':' + ri">
+                              <a v-if="storyRefHref(r)" class="underline text-violet-300 mr-1"
+                                 target="_blank" rel="noopener"
+                                 :href="storyRefHref(r)">сообщение {{ r.tg_message_id }}</a>
+                              <span v-else class="text-gray-500 mr-1"
+                                    :title="'источник ' + r.message_key + ' — только в архиве'">в архиве</span>
+                            </template>
+                          </span>
+                        </div>
+                      </div>
+                    </div>
                     <!-- Утверждения и источники (SourceRef-formа mca-04a: refs =
                          ключи сообщений); исходный контекст — ключи эпизодов.
                          F7: raw-ключи источников — под Developer details. -->
                     <div v-if="(storiesManageCard.story.claims || []).length" class="mt-1">
-                      <b>Утверждения:</b>
+                      <b>Факты сюжета:</b>
                       <div v-for="(c, ci) in storiesManageCard.story.claims" :key="'cl' + ci"
                            class="text-gray-300 ml-2">• {{ c.text }}</div>
                     </div>
-                    <div v-else class="text-gray-500 mt-1">Утверждений не извлечено (честно: данных нет).</div>
-                    <!-- Хронология эпизодов (F7: дата + суть + display names
-                         участников эпизода). -->
-                    <div v-if="(storiesManageCard.episodes || []).length" class="mt-1">
-                      <b>Хронология эпизодов:</b>
+                    <div v-else class="text-gray-500 mt-1">Фактов не извлечено (честно: данных нет).</div>
+                    <!-- Эпизоды (F7: дата + суть + display names участников) —
+                         раскрываемые детали (хронология сообщений выше). -->
+                    <details v-if="(storiesManageCard.episodes || []).length" class="mt-1">
+                      <summary class="cursor-pointer text-gray-400">Эпизоды ({{ storiesManageCard.episodes.length }})</summary>
                       <div v-for="ep in storiesManageCard.episodes" :key="ep.episode_id"
                            class="text-gray-300 ml-2">
                         • {{ fmtStoryDate(ep.event_start_ts || ep.discovered_at) }} — {{ ep.title || 'без названия' }}
@@ -2925,7 +3082,7 @@
                               class="text-gray-400"> · участники: {{ storiesParticipantsLabel(ep.display_names, ep.participants) }}</span>
                         <span v-if="ep.recheck_pending" class="text-amber-300"> · нужна повторная проверка</span>
                       </div>
-                    </div>
+                    </details>
                     <!-- Противоречия и неизвестное (честно). -->
                     <div v-if="(storiesManageCard.contradictions || []).length" class="text-amber-300 mt-1">
                       <b>Противоречия ({{ storiesManageCard.contradictions.length }}):</b>
@@ -3668,12 +3825,14 @@
                       <div class="module-title text-sm font-semibold">{{ m.title }}</div>
                       <div class="module-sub text-xs text-gray-500">{{ m.subtitle }}</div>
                     </div>
-                    <!-- F4 D6: карточка ≠ тумблер; noToggle — только «Всего» -->
+                    <!-- F4 D6: карточка ≠ тумблер; noToggle — только «Всего».
+                         B06.2: global-only мастер на области чата/ЛС — тумблер
+                         read-only (инертный override не создаём), hitbox тот же. -->
                     <span v-if="m.noToggle" class="badge badge-muted shrink-0">без тумблера</span>
-                    <label v-else class="module-toggle relative inline-flex items-center cursor-pointer shrink-0"
-                           :class="{ 'is-saving': modulePendingFor(m) }">
+                    <label v-else class="module-toggle relative inline-flex items-center shrink-0"
+                           :class="{ 'is-saving': modulePendingFor(m), 'is-readonly': moduleChatToggleReadonly(m) }">
                       <input type="checkbox" class="sr-only peer" :checked="moduleEnabled(m)"
-                             :disabled="!canEditModule(m) || modulePendingFor(m)"
+                             :disabled="moduleChatToggleReadonly(m) || !canEditModule(m) || modulePendingFor(m)"
                              @change="toggleModule(m, $event.target.checked)"
                              :aria-label="'Включить модуль ' + m.title">
                       <div class="w-11 h-6 rounded-full peer bg-white/10 peer-checked:bg-violet-600 transition-colors"></div>
@@ -3689,6 +3848,9 @@
                   <div v-if="moduleRuntimeNotice(m)" class="module-problem text-xs">
                     ⚠ {{ moduleRuntimeNotice(m) }}
                   </div>
+                  <div v-if="moduleGlobalHint(m)" class="module-global-hint text-xs">
+                    {{ moduleGlobalHint(m) }}
+                  </div>
                   <div v-if="moduleSaveErrorFor(m)" class="module-error text-xs">
                     {{ moduleSaveErrorFor(m) }}
                   </div>
@@ -3701,6 +3863,12 @@
                     </button>
                     <button class="btn-ghost module-params-btn text-xs shrink-0"
                             @click="openModuleWorkspace(m)">Настроить</button>
+                    <!-- B06.2: глобальный мастер на области чата — переход к
+                         общему рубильнику (существующий канал смены scope). -->
+                    <button v-if="moduleChatToggleReadonly(m) && isGlobalAdmin"
+                            type="button" class="btn-ghost module-global-btn text-xs shrink-0"
+                            :aria-label="'Настроить глобально: ' + m.title"
+                            @click="configureModuleGlobally(m)">Настроить глобально</button>
                   </div>
                 </article>
               </div>
@@ -3729,13 +3897,14 @@
                     {{ activeModule.title }}
                   </h2>
                   <!-- F4 §37/§40: головной тумблер модуля — тот же канонический
-                       store, что карточка каталога и панель избранного. -->
+                       store, что карточка каталога и панель избранного.
+                       B06.2: global-only мастер на области чата — read-only. -->
                   <label v-if="!activeModule.noToggle"
-                         class="module-toggle relative inline-flex items-center cursor-pointer shrink-0 ml-auto"
-                         :class="{ 'is-saving': modulePendingFor(activeModule) }">
+                         class="module-toggle relative inline-flex items-center shrink-0 ml-auto"
+                         :class="{ 'is-saving': modulePendingFor(activeModule), 'is-readonly': moduleChatToggleReadonly(activeModule) }">
                     <input type="checkbox" class="sr-only peer"
                            :checked="moduleEnabled(activeModule)"
-                           :disabled="!canEditModule(activeModule) || modulePendingFor(activeModule)"
+                           :disabled="moduleChatToggleReadonly(activeModule) || !canEditModule(activeModule) || modulePendingFor(activeModule)"
                            @change="toggleModule(activeModule, $event.target.checked)"
                            :aria-label="'Включить модуль ' + activeModule.title">
                     <div class="w-11 h-6 rounded-full peer bg-white/10 peer-checked:bg-violet-600 transition-colors"></div>
@@ -4125,6 +4294,57 @@
                   Саммари · полнота источника: {{ summaryCoverageLabel() }}
                 </div>
               </div>
+              <!-- ═══ W3-ANALYTICS (U05.3, D12 §18I.12-J): waterfall задержек
+                   последнего прогона — реальные latency стадий (F4 API).
+                   Стоимости по стадиям честно нет (usage не делится по
+                   стадиям) — показывается план ёмкости прогона. ═══ -->
+              <div class="card p-4 col-span-full mb-3" data-viz-waterfall
+                   v-if="oversightTab === 'models' && isGlobalAdmin">
+                <div class="flex items-center gap-2 flex-wrap mb-1">
+                  <div class="text-xs font-bold">Задержки последнего прогона</div>
+                  <span class="text-xs text-gray-500">стадия за стадией ·
+                    длительность каждой полосы — реальные мс</span>
+                  <button class="btn-ghost text-xs ml-auto"
+                          :disabled="vizPipelineBusy"
+                          @click="vizLoadPipelineWaterfall(true)">⟳</button>
+                </div>
+                <div v-if="vizPipelineBusy && !vizPipeline" class="spinner my-2"></div>
+                <div v-else-if="vizPipelineError" class="text-xs text-amber-300">
+                  Недоступно: {{ vizPipelineError }} — обновите кнопкой ⟳.
+                </div>
+                <div v-else-if="!vizWaterfall()" class="text-xs text-gray-500">
+                  Завершённых прогонов нет — waterfall появится после первого
+                  прогона сводки (честное пустое состояние).
+                </div>
+                <template v-else>
+                  <div class="text-xs text-gray-400 mb-1">
+                    прогон {{ vizWaterfall().run_id }}
+                    <template v-if="vizWaterfall().chat_id"> · чат {{ vizWaterfall().chat_id }}</template>
+                    · всего {{ vizHumanMs(vizWaterfall().total_ms) }}
+                    <template v-if="vizWaterfall().health_label"> · {{ vizWaterfall().health_label }}</template>
+                  </div>
+                  <div class="viz-wf">
+                    <div v-for="(it, wi) in vizWaterfall().items" :key="'wf' + wi"
+                         class="viz-wf__row">
+                      <span class="viz-wf__label" :title="it.label">{{ it.label }}</span>
+                      <span class="viz-wf__track">
+                        <span class="viz-wf__spacer" :style="{ width: it.left + '%' }"></span>
+                        <span class="viz-wf__bar" :class="vizWaterfallClass(it.state)"
+                              :style="{ width: it.width + '%' }"
+                              :title="it.label + ': ' + vizHumanMs(it.latency_ms)"></span>
+                      </span>
+                      <span class="viz-wf__num">{{ vizHumanMs(it.latency_ms) }}</span>
+                    </div>
+                  </div>
+                  <div class="text-xs text-gray-500 mt-1">
+                    <template v-if="vizWaterfall().required_input_tokens != null">
+                      план ёмкости прогона: вход ~{{ humanTokens(vizWaterfall().required_input_tokens) }}<template v-if="vizWaterfall().reserved_output_tokens != null"> · резерв ответа ~{{ humanTokens(vizWaterfall().reserved_output_tokens) }}</template>
+                    </template>
+                    <template v-else>стоимость по стадиям недоступна (usage не
+                      размечен по стадиям — честно, не распределяем выдуманно)</template>
+                  </div>
+                </template>
+              </div>
             <!-- Wave 2: шапка «Аналитики» (поиск/сортировка/бюджет фона)
                  — на суб-вкладке «Обзор» (таблица чатов там же). -->
             <div class="card glass-panel p-4 col-span-full" data-glass="b"
@@ -4216,6 +4436,60 @@
                   нет данных: {{ (oversightData.mca_metrics.unknown || []).join(', ') || '—' }}
                 </div>
               </div>
+              <!-- ═══ W3-ANALYTICS (U05.3, D12 §18I.12-L): heatmap фактической
+                   активности — durable mca_events, день × час (время сервера).
+                   Телеметрия OFF / пустое окно — честная причина, НЕ нули. ═══ -->
+              <div class="mb-3 rounded-lg border border-white/10 px-3 py-2"
+                   data-viz-heatmap
+                   v-if="oversightTab === 'overview'">
+                <div class="flex items-center gap-2 flex-wrap mb-1">
+                  <div class="text-xs font-bold">Активность по часам</div>
+                  <span class="text-xs text-gray-500">события телеметрии ·
+                    {{ vizActivityDays }} дней · время сервера</span>
+                  <select class="field viz-heat__select ml-auto" v-model.number="vizActivityDays"
+                          @change="vizLoadActivity(true)"
+                          aria-label="Окно heatmap">
+                    <option :value="7">7 дн</option>
+                    <option :value="14">14 дн</option>
+                    <option :value="30">30 дн</option>
+                  </select>
+                  <button class="btn-ghost text-xs" :disabled="vizActivityBusy"
+                          @click="vizLoadActivity(true)">⟳</button>
+                </div>
+                <div v-if="vizActivityBusy && !vizActivity" class="spinner my-2"></div>
+                <div v-else-if="vizActivityError" class="text-xs text-amber-300">
+                  Heatmap недоступна: {{ vizActivityError }} — обновите кнопкой ⟳.
+                </div>
+                <div v-else-if="!vizActivity || vizActivity.available === false"
+                     class="text-xs text-gray-500">
+                  Данных нет: {{ (vizActivity && vizActivity.reason) || 'телеметрия отключена' }}.
+                </div>
+                <div v-else-if="vizActivity.empty_reason"
+                     class="text-xs text-gray-500">
+                  За окно {{ vizActivityDays }} дней событий не было
+                  (честное пустое состояние — нули не рисуем).
+                </div>
+                <template v-else>
+                  <div class="viz-heat" role="img"
+                       aria-label="Тепловая карта активности по часам">
+                    <div class="viz-heat__hours">
+                      <span class="viz-heat__day"></span>
+                      <span v-for="h in 24" :key="'hh' + h"
+                            class="viz-heat__hour">{{ (h - 1) % 6 === 0 ? (h - 1) : '' }}</span>
+                    </div>
+                    <div v-for="(row, di) in vizHeatRows" :key="'hr' + row.day"
+                        class="viz-heat__row">
+                      <span class="viz-heat__day">{{ di % 2 === 0 ? row.day.slice(5) : '' }}</span>
+                      <span v-for="c in row.cells" :key="'hc' + c.d + ':' + c.h"
+                            :class="vizHeatClass(c)" :title="vizHeatTitle(c)"></span>
+                    </div>
+                  </div>
+                  <div class="text-xs text-gray-500 mt-1">
+                    всего событий: {{ vizActivity.total }}<template v-if="vizActivity.errors_total"> · с ошибками: {{ vizActivity.errors_total }}</template>
+                    · ячейка темнее — больше событий; красная точка — были ошибки
+                  </div>
+                </template>
+              </div>
               </div><!-- /Wave 2: шапка «Обзора» (поиск/бюджет фона/здоровье) -->
               <!-- MCA-20 (round 10.44, ADR-1028-20 D14/T-5143): «Временной
                    фактчек» — виджет в СУЩЕСТВУЮЩЕЙ «Аналитике» (новых
@@ -4270,6 +4544,70 @@
                       </tr>
                     </tbody>
                   </table>
+                </div>
+                <!-- ═══ W3-ANALYTICS (U05.3, D12 §18I.12-O): timeline дат
+                     источников фактчека — где взята дата каждого прогона и
+                     разброс «оригинал → проверка». Данные — уже загруженный
+                     список temporalRuns (нового запроса нет). ═══ -->
+                <details class="mt-2" data-viz-factdates
+                         v-if="temporalRuns && temporalRuns.length">
+                  <summary class="cursor-pointer select-none text-xs text-gray-400">
+                    Даты источников прогонов (раскрыть)
+                  </summary>
+                  <div class="mt-1 text-xs">
+                    <div class="flex flex-wrap gap-1 mb-1">
+                      <span v-for="(n, src) in vizFactDates().dist" :key="'fds' + src"
+                            class="badge badge-muted">{{ vizDateSourceLabel(src) }}: {{ n }}</span>
+                    </div>
+                    <div v-for="it in vizFactDates().items" :key="'fdt' + it.run_id"
+                         class="viz-factdates__row">
+                      <span class="text-gray-500 flex-none">{{ fmtTs(it.checked) }}</span>
+                      <span class="viz-factdates__track" :title="'проверен через ' + (it.span_days != null ? it.span_days + ' дн после публикации оригинала' : '— публикация без даты (честно)')">
+                        <div class="viz-factdates__bar"
+                             :class="{ 'viz-factdates__bar--nodate': it.span_days == null }"
+                             :style="{ width: (it.span_days != null ? it.spanWidth : 4) + '%' }"></div>
+                      </span>
+                      <span class="text-gray-500 flex-none">
+                        {{ it.span_days != null ? ('+' + it.span_days + ' дн') : 'даты нет' }}
+                        · {{ vizDateSourceLabel(it.date_source) }}
+                      </span>
+                    </div>
+                    <div class="text-gray-600 mt-0.5">
+                      полоса — сколько дней прошло от публикации оригинала до
+                      проверки; «даты нет» — источник без даты (не выдумываем)
+                    </div>
+                  </div>
+                </details>
+              </div>
+              <!-- ═══ W3-ANALYTICS (U05.3, D12 §18I.12-C): цикл памяти —
+                   реальные счётчики durable-событий за 24ч; подписи узлов —
+                   durable-итоги из уже загруженных данных вкладки. ═══ -->
+              <div class="card p-4 col-span-full mb-3" data-viz-flow
+                   v-if="oversightTab === 'memory' && isGlobalAdmin">
+                <div class="flex items-center gap-2 flex-wrap mb-1">
+                  <div class="text-xs font-bold">Цикл памяти (24ч)</div>
+                  <span class="text-xs text-gray-500">числа — реальные события
+                    процессов за окно</span>
+                  <button class="btn-ghost text-xs ml-auto"
+                          :disabled="mca17cActivityBusy"
+                          @click="vizLoadProcessActivity(true)">⟳</button>
+                </div>
+                <div v-if="vizFlowNote()" class="text-xs text-gray-500">{{ vizFlowNote() }}</div>
+                <div v-else class="viz-flow">
+                  <div v-for="n in vizFlowNodes()" :key="'vf' + n.key"
+                       class="viz-flow__node"
+                       :class="{ 'viz-flow__node--err': n.err,
+                                 'viz-flow__node--zero': !n.total }">
+                    <div class="viz-flow__label">{{ n.label }}</div>
+                    <div class="viz-flow__num"
+                         :class="{ 'text-gray-500': !n.total }">{{ n.seen ? n.total : '—' }}</div>
+                    <div v-if="vizFlowCaption(n.key)" class="viz-flow__caption">
+                      {{ vizFlowCaption(n.key) }}
+                    </div>
+                    <div v-if="n.last" class="viz-flow__caption">
+                      {{ fmtTs(n.last) }}
+                    </div>
+                  </div>
                 </div>
               </div>
               <!-- mca-17c (round 10.47, ADR-1028-23): представления «Обзор
@@ -4345,38 +4683,98 @@
                       <div class="text-xs font-bold mb-1">{{ g.widget_id }}
                         <span class="text-gray-500 font-normal">· {{ g.items.length }}</span>
                       </div>
+                      <!-- ═══ W3-ANALYTICS (U05.1): по умолчанию — человеческое
+                           имя, ЭФФЕКТИВНЫЙ статус, последнее реальное действие
+                           и причина пустоты; developer-IDs/stages/события —
+                           за «Детали» (моноширинный код не доминирует). ═══ -->
                       <div v-for="p in g.items" :key="'pr' + p.process_id"
-                           class="border-t border-white/5 py-1">
+                           class="border-t border-white/5 py-1" data-viz-process>
                         <div class="flex items-center gap-2 flex-wrap">
-                          <span class="text-xs font-mono">{{ p.process_id }}</span>
-                          <span class="badge" :class="oversightProcessBadge(p.status).cls">
-                            {{ oversightProcessBadge(p.status).label }}
+                          <span class="text-xs font-semibold">{{ processHumanName(p) }}</span>
+                          <span class="badge" :class="processEff(p).cls" data-viz-eff>
+                            {{ processEff(p).label }}
                           </span>
-                          <span v-if="p.owner_feature" class="badge badge-muted">{{ p.owner_feature }}</span>
-                          <span v-if="p.status === 'disabled' && mca17cProcessGate(p)"
-                                class="text-xs text-gray-500">гейт {{ mca17cProcessGate(p) }}</span>
-                          <span v-if="p.version" class="text-xs text-gray-500">v{{ p.version }}</span>
+                          <span class="text-xs text-gray-500">{{ processCountsLabel(p) }}</span>
                           <button class="btn-ghost text-xs ml-auto"
                                   @click="oversightDrillProcess(p)">Запуски →</button>
                         </div>
-                        <div class="text-xs text-gray-400">{{ p.purpose }}</div>
-                        <div v-if="p.stages && p.stages.length" class="text-xs text-gray-500 mt-0.5">
-                          стадии:
-                          <span v-for="s in p.stages" :key="'st' + p.process_id + s"
-                                class="mr-1 font-mono">{{ s }}</span>
-                          <span v-if="p.stages_to_events">
-                            · события:
-                            <span v-for="(ev, stKey) in p.stages_to_events"
-                                  :key="'se' + p.process_id + stKey"
-                                  class="mr-1">{{ stKey }}→{{ ev }}</span>
-                          </span>
+                        <div class="text-xs text-gray-400">{{ processLastAction(p) }}</div>
+                        <div class="text-xs text-gray-500 mt-0.5">{{ processHumanPurpose(p) }}</div>
+                        <details class="mt-0.5" :data-viz-details="p.process_id"
+                                 :open="!!vizProcDetails[p.process_id]">
+                          <summary class="cursor-pointer select-none text-gray-500 text-xs"
+                                   @click.prevent="vizToggleDetails(p.process_id)">Детали</summary>
+                          <div class="text-xs text-gray-500 ml-2 mt-0.5">
+                            <div>process: <code class="text-[10px]">{{ p.process_id }}</code>
+                              <template v-if="p.version"> · v{{ p.version }}</template>
+                              <template v-if="p.owner_feature"> · {{ p.owner_feature }}</template>
+                            </div>
+                            <div v-if="p.stages && p.stages.length">
+                              стадии:
+                              <span v-for="s in p.stages" :key="'st' + p.process_id + s"
+                                    class="mr-1 font-mono text-[10px]">{{ s }}</span>
+                            </div>
+                            <div v-if="p.stages_to_events">
+                              события стадий:
+                              <span v-for="(ev, stKey) in p.stages_to_events"
+                                    :key="'se' + p.process_id + stKey"
+                                    class="mr-1 font-mono text-[10px]">{{ stKey }}→{{ ev }}</span>
+                            </div>
+                            <div v-if="(p.event_names || []).length">
+                              имена событий:
+                              <span v-for="ev in p.event_names" :key="'en' + p.process_id + ev"
+                                    class="mr-1 font-mono text-[10px]">{{ ev }}</span>
+                            </div>
+                            <div v-if="p.trigger_kind || p.schedule">
+                              запуск: {{ p.trigger_kind || '—' }} · {{ p.schedule || '—' }}
+                            </div>
+                            <div v-if="(p.settings_ref || []).length">
+                              настройки: <span class="font-mono text-[10px]">{{ (p.settings_ref || []).join(', ') }}</span>
+                            </div>
+                            <div v-if="(p.inputs || []).length || (p.outputs || []).length">
+                              входы: {{ (p.inputs || []).join(', ') || '—' }} → выходы: {{ (p.outputs || []).join(', ') || '—' }}
+                            </div>
+                            <div v-if="p.note">{{ p.note }}</div>
+                            <div v-if="processEff(p).reason">
+                              причина статуса: {{ processEff(p).reason }}
+                              <template v-if="processEff(p).last_reason"> · код: {{ processEff(p).last_reason }}</template>
+                              <template v-if="processEff(p).last_error_type"> · тип ошибки: {{ processEff(p).last_error_type }}</template>
+                            </div>
+                          </div>
+                        </details>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- ═══ W3-ANALYTICS (U05.3, D12 §18I.12-M): карта
+                       зависимостей модулей — слои из реального реестра,
+                       рёбра = артефакт из outputs заявлен во inputs другого
+                       процесса (реальные данные, не выдумка). ═══ -->
+                  <div class="mt-2" data-viz-deps>
+                    <button class="btn-ghost text-xs" type="button"
+                            :aria-expanded="vizDepsOpen ? 'true' : 'false'"
+                            @click="vizDepsOpen = !vizDepsOpen">
+                      {{ vizDepsOpen ? 'Скрыть карту зависимостей' : 'Карта зависимостей модулей' }}
+                    </button>
+                    <div v-if="vizDepsOpen" class="mt-2">
+                      <div class="viz-deps">
+                        <div v-for="L in vizDeps().layers" :key="'dl' + L.key"
+                             class="viz-deps__col">
+                          <div class="viz-deps__title">{{ L.label }}</div>
+                          <div class="viz-deps__chips">
+                            <span v-for="c in L.chips" :key="'dc' + c.pid"
+                                  class="badge viz-deps__chip" :class="c.cls"
+                                  :title="c.pid">{{ c.name }}</span>
+                          </div>
                         </div>
-                        <div v-if="p.note" class="text-xs text-gray-600 mt-0.5">{{ p.note }}</div>
-                        <div v-if="p.status === 'implemented' && p.status !== 'disabled'"
-                             class="text-xs text-gray-600">
-                          реестр: implemented · фактическое состояние — по статусу выше
-                          (расхождение показывается, не скрывается)
-                        </div>
+                      </div>
+                      <div class="text-xs text-gray-500 mt-1">
+                        потоки данных:
+                        <span v-for="(e, ei) in vizDeps().edges" :key="'de' + ei"
+                              class="mr-2">· {{ layerLabel(e.from) }} →
+                          {{ layerLabel(e.to) }} <span class="text-gray-600">({{ e.sample }})</span>
+                        </span>
+                        <span v-if="!vizDeps().edges.length">прямых заявленных потоков между слоями нет (честно)</span>
                       </div>
                     </div>
                   </div>
@@ -4384,6 +4782,51 @@
 
                 <!-- ═══ «Запуски»: уровни 3–5 (T-5183/T-5184; A54/A56) ═══ -->
                 <div v-else-if="oversightView === 'runs'" data-mca17c="runs">
+                  <!-- ═══ W3-ANALYTICS (U05.3, D12 §18I.12-H): маршрут
+                       обработки — куда реально уходит поток событий за окно
+                       (durable-счётчики процессов, Sankey-lite). Честные
+                       пустые ветки видны с нулём. ═══ -->
+                  <div class="rounded border border-white/10 px-2 py-2 mb-2"
+                       data-viz-route>
+                    <div class="flex items-center gap-2 flex-wrap mb-1">
+                      <div class="text-xs font-bold">Маршрут обработки (24ч)</div>
+                      <span class="text-xs text-gray-500">события процессов ·
+                        ширина полосы — доля от самой активной ветви</span>
+                      <button class="btn-ghost text-xs ml-auto"
+                              :disabled="mca17cActivityBusy"
+                              @click="vizLoadProcessActivity(true)">⟳</button>
+                    </div>
+                    <div v-if="!mca17cActivity && mca17cActivityBusy" class="spinner my-1"></div>
+                    <div v-else-if="!mca17cActivity || mca17cActivity.available === false"
+                         class="text-xs text-gray-500">
+                      Данных нет: {{ (mca17cActivity && mca17cActivity.reason) || 'сервис процессов недоступен' }}.
+                    </div>
+                    <div v-else-if="!vizRouteRows().root.seen"
+                         class="text-xs text-gray-500">
+                      За окно 24ч входящих событий не было — маршрут пуст
+                      (честное состояние, нули-от-балды не рисуем).
+                    </div>
+                    <template v-else>
+                      <div class="viz-route__root">
+                        <span class="viz-route__label">Вход: принятые сообщения</span>
+                        <div class="viz-route__bar viz-route__bar--root"
+                             :style="{ width: '100%' }"></div>
+                        <span class="viz-route__num">{{ vizRouteRows().root.total }}</span>
+                      </div>
+                      <div v-for="r in vizRouteRows().rows" :key="'vr' + r.key"
+                           class="viz-route__branch">
+                        <span class="viz-route__label viz-route__label--branch">{{ r.label }}</span>
+                        <div class="viz-route__track">
+                          <div class="viz-route__bar"
+                               :class="{ 'viz-route__bar--zero': !r.total,
+                                         'viz-route__bar--err': r.err }"
+                               :style="{ width: r.width + '%' }"></div>
+                        </div>
+                        <span class="viz-route__num"
+                              :class="{ 'text-gray-600': !r.total }">{{ r.total }}</span>
+                      </div>
+                    </template>
+                  </div>
                   <div class="flex items-center gap-1 flex-wrap mb-2">
                     <button v-for="(n, sKey) in mca17cRunCounts" :key="'rc' + sKey"
                             class="btn-ghost text-xs"
@@ -4509,7 +4952,7 @@
                       </span>
                       <span v-if="r.stalled" class="badge badge-warn">stalled</span>
                       <span class="text-xs font-mono">{{ r.pipeline_run_id }}</span>
-                      <span class="text-xs text-gray-500">{{ r.pipeline_type }}<span v-if="r.component"> · {{ r.component }}</span></span>
+                      <span class="text-xs text-gray-500">{{ runTypeLabel(r.pipeline_type) || r.pipeline_type }}<span v-if="r.component"> · {{ runTypeLabel(r.component) !== r.component ? runTypeLabel(r.component) : r.component }}</span></span>
                       <span class="text-xs text-gray-500">
                         стадии {{ r.stages_ok }}✓/{{ r.stages_failed }}✕
                       </span>
@@ -5724,6 +6167,7 @@
                       <th class="py-2 pr-3">PERMsoc</th>
                       <th class="py-2 pr-3">Ключ</th>
                       <th class="py-2 pr-3">Бюджет</th>
+                      <th class="py-2 pr-3">Overrides</th>
                       <th class="py-2">Админы</th>
                     </tr>
                   </thead>
@@ -5787,6 +6231,40 @@
                           <span class="text-gray-500">{{ limitsPairText(c.budget.calls) }} вызовов</span>
                         </template>
                         <span v-else class="text-gray-600">—</span>
+                      </td>
+                      <!-- ═══ W3-ANALYTICS (U05.3, D12 §18I.12-P): popover
+                           per-chat overrides (данные D07 /api/config/overrides-map).
+                           Пусто = явных override нет (честно), маски значений
+                           серверные (R17). ═══ -->
+                      <td class="py-2 pr-3 relative" data-viz-ovcell
+                          @click.stop>
+                        <button class="btn-ghost text-xs" type="button"
+                                :aria-expanded="overridesPopChat === c.chat_id ? 'true' : 'false'"
+                                aria-label="Overrides чата"
+                                @click.stop="overridesTogglePop(c.chat_id)">
+                          {{ overridesForChat(c.chat_id).length || '—' }}
+                        </button>
+                        <div v-if="overridesPopChat === c.chat_id"
+                             class="viz-ovpop" data-viz-ovpop
+                             @keydown.esc.stop="overridesClosePop()">
+                          <div class="flex items-center gap-2 mb-1">
+                            <b class="text-xs">Overrides чата</b>
+                            <button class="btn-ghost text-xs ml-auto" type="button"
+                                    @click.stop="overridesClosePop()">закрыть</button>
+                          </div>
+                          <div v-if="!overridesForChat(c.chat_id).length"
+                               class="text-gray-500">
+                            явных переопределений нет — действуют глобальные
+                            значения
+                          </div>
+                          <div v-else class="space-y-1">
+                            <div v-for="r in overridesForChat(c.chat_id)"
+                                 :key="'ov' + r.key + ':' + r.chat_id">
+                              <span class="font-mono text-[10px]">{{ r.key }}</span> =
+                              <span>{{ formatOverrideValue(r.value) }}</span>
+                            </div>
+                          </div>
+                        </div>
                       </td>
                       <td class="py-2">{{ c.admins_count }}</td>
                     </tr>

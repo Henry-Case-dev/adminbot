@@ -3798,3 +3798,304 @@ html.cover-editor-open { overflow: hidden; }
   .status-logs #mca-log-filters .field { width: auto; flex: 0 1 auto; }
 }
 /* ═══ /W3-STATUS ═══ */
+
+/* ═══ W3-MODULES-UI (ASAP 8 v6.3: B06/B07/B01.4) ═══ */
+/* B06.2: read-only мастер-тумблер global-only карточки на области чата.
+   Хитбокс НЕ меняется (тот же w-11 h-6 peer, U08.4): только курсор и
+   приглушение активного цвета — состояние остаётся читаемым. */
+.module-toggle.is-readonly { cursor: default; opacity: .72; }
+.module-toggle.is-readonly .peer { cursor: default; }
+/* Подпись причины read-only на карточке каталога (вместо ⚠-проблемы:
+   это не сбой, а честная природа master-флага). */
+.module-global-hint { color: rgba(156, 163, 175, .9); margin-top: 2px; }
+/* «Настроить глобально» — существующий btn-ghost; компактная тач-цель. */
+.module-card-actions .module-global-btn { min-height: 32px; }
+/* B07: строка детализации проверок во времени на Обзоре Фактчека —
+   усечение длинных заголовков без роста ширины карточки. */
+[data-factcheck-temporal] .btn-ghost { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* ═══ /W3-MODULES-UI ═══ */
+
+/* ═══ W3-ANALYTICS ═══ */
+/* U05 (v6.3): прогрессивная Аналитика + 7 визуализаций D12 §18I.12
+   на реальных durable-данных. Тёмная палитра AdminBot; читаемый
+   контраст (текст ≥ rgba(244,247,251,…)); текст не лежит на графике;
+   мобильные 320/390 + landscape 667×375 без переполнения;
+   prefers-reduced-motion: блоки статичны (анимаций нет). */
+
+/* ── Viz 4: heatmap активности (день × час) ── */
+.viz-heat { overflow-x: auto; }
+.viz-heat__select { width: 88px; min-width: 88px; }
+.viz-heat__hours,
+.viz-heat__row {
+  display: grid;
+  grid-template-columns: 38px repeat(24, minmax(10px, 1fr));
+  gap: 2px;
+  align-items: center;
+  min-width: 340px;
+}
+.viz-heat__hour,
+.viz-heat__day {
+  font-size: 9px;
+  color: rgba(178, 192, 212, .85);
+  text-align: center;
+  line-height: 1.1;
+}
+.viz-heat__day { text-align: left; white-space: nowrap; }
+.viz-heat__hours .viz-heat__day { min-height: 12px; }
+.viz-heat__row .viz-heat__cell {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  max-height: 16px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, .05);
+  position: relative;
+}
+.viz-heat__cell--l1 { background: rgba(66, 214, 196, .18); }
+.viz-heat__cell--l2 { background: rgba(66, 214, 196, .38); }
+.viz-heat__cell--l3 { background: rgba(66, 214, 196, .62); }
+.viz-heat__cell--l4 { background: rgba(139, 111, 232, .75); }
+.viz-heat__cell--err::after {
+  content: "";
+  position: absolute;
+  inset: auto 2px 2px auto;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: #F87171;
+}
+
+/* ── Viz 2: маршрут обработки (Sankey-lite) ── */
+.viz-route__root,
+.viz-route__branch {
+  display: grid;
+  grid-template-columns: minmax(120px, 180px) 1fr 48px;
+  gap: 8px;
+  align-items: center;
+  padding: 2px 0;
+}
+.viz-route__label {
+  font-size: 11px;
+  color: var(--text-1, #F4F7FB);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.viz-route__label--branch { padding-left: 12px; color: rgba(220, 230, 244, .92); }
+.viz-route__track { position: relative; height: 10px; }
+.viz-route__bar {
+  height: 100%;
+  min-width: 2px;
+  border-radius: 5px;
+  background: linear-gradient(90deg, rgba(66, 214, 196, .85), rgba(139, 111, 232, .85));
+}
+.viz-route__bar--root {
+  background: linear-gradient(90deg, rgba(66, 214, 196, .95), rgba(47, 185, 168, .75));
+}
+.viz-route__bar--zero { background: rgba(255, 255, 255, .10); }
+.viz-route__bar--err { box-shadow: inset 0 0 0 1.5px rgba(248, 113, 113, .8); }
+.viz-route__num {
+  font-size: 11px;
+  color: var(--text-1, #F4F7FB);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Viz 1: цикл памяти (flow) ── */
+.viz-flow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: stretch;
+}
+.viz-flow__node {
+  flex: 1 1 150px;
+  min-width: 140px;
+  max-width: 240px;
+  border: 1px solid rgba(255, 255, 255, .10);
+  border-radius: 10px;
+  background: rgba(10, 14, 22, .55);
+  padding: 8px 10px;
+}
+.viz-flow__node--err { border-color: rgba(248, 113, 113, .55); }
+.viz-flow__node--zero { opacity: .78; }
+.viz-flow__label { font-size: 11px; color: rgba(220, 230, 244, .92); }
+.viz-flow__num { font-size: 18px; font-weight: 700;
+  color: var(--text-1, #F4F7FB); font-variant-numeric: tabular-nums; }
+.viz-flow__caption { font-size: 10px; color: rgba(178, 192, 212, .9); }
+
+/* ── Viz 3: waterfall задержек ── */
+.viz-wf__row {
+  display: grid;
+  grid-template-columns: minmax(110px, 160px) 1fr 64px;
+  gap: 8px;
+  align-items: center;
+  padding: 2px 0;
+}
+.viz-wf__label {
+  font-size: 11px;
+  color: var(--text-1, #F4F7FB);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.viz-wf__track {
+  position: relative;
+  display: flex;
+  height: 12px;
+  min-width: 0;
+}
+.viz-wf__spacer { flex: none; }
+.viz-wf__bar { height: 100%; border-radius: 4px; min-width: 2px; }
+.viz-wf__bar--ok { background: rgba(66, 214, 196, .75); }
+.viz-wf__bar--warn { background: rgba(251, 191, 36, .75); }
+.viz-wf__bar--err { background: rgba(248, 113, 113, .85); }
+.viz-wf__bar--muted { background: rgba(255, 255, 255, .18); }
+.viz-wf__num {
+  font-size: 11px;
+  color: rgba(220, 230, 244, .92);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* ── Viz 5: карта зависимостей ── */
+.viz-deps {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+.viz-deps__col {
+  flex: 1 1 180px;
+  min-width: 170px;
+  border: 1px solid rgba(255, 255, 255, .08);
+  border-radius: 10px;
+  padding: 6px 8px;
+  background: rgba(10, 14, 22, .45);
+}
+.viz-deps__title {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-1, #F4F7FB);
+  margin-bottom: 4px;
+  white-space: nowrap;
+}
+.viz-deps__chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.viz-deps__chip { font-size: 10px; max-width: 100%; overflow: hidden;
+  text-overflow: ellipsis; white-space: nowrap; }
+
+/* ── Viz 6: timeline дат источников фактчека ── */
+.viz-factdates__row {
+  display: grid;
+  grid-template-columns: 96px 1fr minmax(140px, auto);
+  gap: 8px;
+  align-items: center;
+  padding: 2px 0;
+}
+.viz-factdates__track { position: relative; height: 8px;
+  background: rgba(255, 255, 255, .05); border-radius: 4px; }
+.viz-factdates__bar {
+  height: 100%;
+  min-width: 2px;
+  border-radius: 4px;
+  background: rgba(139, 111, 232, .65);
+}
+.viz-factdates__bar--nodate { background: rgba(255, 255, 255, .16); }
+
+/* ── Viz 7: popover overrides чата ── */
+.viz-ovpop {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 4px);
+  z-index: 40;
+  width: min(320px, 86vw);
+  background: var(--surface-2, #1C2537);
+  border: 1px solid var(--surface-border);
+  border-radius: 10px;
+  box-shadow: 0 12px 32px rgba(0, 6, 22, .45);
+  padding: 8px 10px;
+  color: var(--text-2, #D7DFEC);
+  text-align: left;
+}
+
+/* ── B08: карточка истории ── */
+/* Секция историй не должна наследовать широкий grid-трек воркспейса
+   (предсуществующие min-w-max/таблицы в той же вкладке): на 320px
+   карточка обязана читаться (B08 mobile), поэтому секция ограничена
+   шириной вьюпорта, а её фильтры сжимаются. */
+[data-stories-manage] { max-width: 100vw; overflow-x: hidden; }
+[data-stories-filters] .field { max-width: 100%; }
+.story-card {
+  background: rgba(10, 14, 22, .55);
+  border-color: rgba(66, 214, 196, .30);
+}
+.story-card--insufficient {
+  border-color: rgba(170, 182, 200, .22);
+  background: rgba(15, 19, 28, .6);
+}
+.story-card__synopsis {
+  color: var(--text-1, #F4F7FB);
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+.story-card__dates {
+  margin-top: 6px;
+  display: grid;
+  gap: 2px;
+}
+.story-card__date-row { color: rgba(215, 223, 236, .95); }
+.story-card__date-label {
+  color: rgba(178, 192, 212, .9);
+  margin-right: 4px;
+}
+.story-card__questions {
+  border-left: 3px solid rgba(251, 191, 36, .55);
+  padding-left: 8px;
+  color: rgba(253, 230, 138, .95);
+}
+.story-card__timeline {
+  margin-top: 4px;
+  display: grid;
+  gap: 4px;
+}
+.story-card__tl-item {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  border-left: 2px solid rgba(139, 111, 232, .35);
+  padding-left: 8px;
+  flex-wrap: wrap;
+}
+.story-card__tl-text {
+  color: var(--text-1, #F4F7FB);
+  flex: 1 1 200px;
+  overflow-wrap: anywhere;
+}
+.story-card__tl-refs { flex: none; }
+
+/* ── Мобильная адаптация (U05/V05: 320/390, landscape 667×375) ── */
+@media (max-width: 640px) {
+  .viz-route__root,
+  .viz-route__branch { grid-template-columns: minmax(96px, 1fr) 64px 40px; }
+  .viz-route__label--branch { padding-left: 6px; }
+  .viz-wf__row { grid-template-columns: minmax(84px, 1fr) 72px 56px; }
+  .viz-factdates__row { grid-template-columns: 72px 1fr minmax(110px, auto); }
+  .viz-flow__node { flex-basis: 100%; max-width: none; }
+  .viz-deps__col { flex-basis: 62%; }
+  .viz-heat__hours,
+  .viz-heat__row { grid-template-columns: 30px repeat(24, minmax(8px, 1fr)); min-width: 280px; }
+}
+@media (max-width: 380px) {
+  .viz-route__root,
+  .viz-route__branch { grid-template-columns: minmax(80px, 1fr) 48px 36px; }
+  .viz-wf__row { grid-template-columns: minmax(72px, 1fr) 56px 48px; }
+  .viz-wf__num, .viz-route__num { font-size: 10px; }
+}
+/* landscape-телефон: высота ограничена — панели компактны и без новых
+   фиксированных высот; горизонтальный overflow исключён min-width'ами
+   внутренних скролл-контейнеров (.viz-heat/.viz-deps). */
+@media (max-height: 480px) and (orientation: landscape) {
+  .viz-flow__node { padding: 4px 8px; }
+  .viz-flow__num { font-size: 14px; }
+}
+/* ═══ /W3-ANALYTICS ═══ */

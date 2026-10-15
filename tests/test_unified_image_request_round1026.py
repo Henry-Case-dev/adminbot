@@ -720,6 +720,28 @@ class TestBoundsA3:
                                               # pre-round1026-a1 и в diff
                                               # не входил).
                                               "web/api/summary_test.py",
+                                              # ASAP 8 v6.3 (Wave 3a/3b;
+                                              # тот же NOTE-санкционный
+                                              # прецедент): +
+                                              # `web/api/memory_overview.py`
+                                              # (read-only expired-overview,
+                                              # Статус) и +
+                                              # `web/api/analytics_viz.py`
+                                              # (read-only данные 7
+                                              # визуализаций U05).
+                                              "web/api/memory_overview.py",
+                                              "web/api/analytics_viz.py",
+                                              # Wave 2 (U07/U08): политика
+                                              # fullscreen, render-probe,
+                                              # feImage-карта линзы.
+                                              "web/static/fullscreen-policy.js",
+                                              "web/static/glass-probe.js",
+                                              "web/static/vendor/lg-lens-map.png",
+                                              # U08.5/CORR-1: teststand —
+                                              # только test/evidence.
+                                              "web/static/glass-teststand.css",
+                                              "web/static/glass-teststand.html",
+                                              "web/static/glass-teststand.js",
                                               "web/api/__init__.py"))
                        for ln in self._diff_names())
 

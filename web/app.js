@@ -144,9 +144,13 @@
       ] },
     { id: 'mod_factcheck', icon: 'radar', label: 'Фактчек',
       type: 'config', menu: 'modules',
+      // Раунд 10.44 → v6.3 B07 (зеркало TAB_RULES mod_factcheck): группа
+      // «Время и источники» (категория temporal) — функция Фактчека на его
+      // workspace-вкладке «Основные настройки», НЕ отдельная карточка модуля.
       sources: [
         { category: 'flags', groups: ['flags_module_factcheck'] },
         { category: 'limits', groups: ['limits_factcheck'] },
+        { category: 'temporal', groups: ['temporal_factcheck'] },
       ] },
     { id: 'mod_search', icon: 'grid_view', label: 'Поиск',
       type: 'config', menu: 'modules',
@@ -577,7 +581,12 @@
     { id: 'mod_summary', title: 'Сводки чатов',
       subtitle: 'Пересказы разговоров и каналов', icon: 'description',
       toggleKey: 'flags.summary_enabled', tab: 'mod_summary',
-      runtimeGate: 'global',
+      // ASAP 8 v6.3 B06.1: Summary — per-chat-operable (единый резолвер
+      // services/summary_scheduler.summary_effective_enabled: emergency env
+      // → явный chat override `flags.summary_enabled` → global default).
+      // Локальный OFF глушит сводки только этого чата; явный chat ON при
+      // global OFF разрешает чат (если emergency не заблокирован).
+      runtimeGate: 'per_chat',
       keywords: ['саммари', 'саммаризация', 'сводка', 'сводки', 'суммаризация',
                  'summary', 'пересказ', 'пересказы'] },
     { id: 'mod_direct', title: 'Ответы в чате',
@@ -1237,6 +1246,52 @@
   var PERMSOC_LIST_WIDGET_KEYS = {
     'reactions.olya_saveasbot_channel_ids': true,
     'reactions.olya_saveasbot_user_ids': true,
+  };
+  // ═══ ASAP 8 v6.3 W3-MODULES-UI (B07/B01): presentation-оверрайды
+  // подписей/виджетов (Δ каталога = 0 — прецедент M-F7-2 выше). Каталог
+  // остаётся источником ключей/значений/валидации; витрина переименует
+  // только отображаемые title/description и форму ввода.
+  // B07: «Временная проверка» — функция Фактчека; humans-подпись гейта
+  // `temporal.tool_enabled` (без жаргона «fact_check») + честное
+  // объяснение, ЧТО включает и что НЕ выключает.
+  // B01.4: профиль частоты инициативы — select «редко/нормально/активно»
+  // вместо сырого текстового поля (значения rare/normal/active — канон
+  // services/initiative_observer.frequency_profile; POST-валидация каталога
+  // для str-ключа пропускает эти значения).
+  var CONFIG_ITEM_DISPLAY_OVERRIDES = {
+    'temporal.tool_enabled': {
+      title: 'Проверять дату и актуальность',
+      description: ('Включает проверку дат и свежести при проверке фактов '
+        + 'в диалоге (репост выдаёт себя за свежее, устаревшие данные, '
+        + '«знание на момент»). Сама привязка сообщений к датам и выбор '
+        + 'режима не отключаются — рубильник убирает только '
+        + 'дополнительный инструмент проверки. Аварийный env-рубильник '
+        + 'MCA_TEMPORAL_FACTCHECK_TOOL_ENABLED действует независимо.'),
+    },
+    'flags.initiative_observer_enabled': {
+      title: 'Автономные реплики в обычных чатах',
+      description: ('Бот сам ищет уместный повод вступить в разговор в '
+        + 'обычных групповых чатах: смена темы, спор, продолжение '
+        + 'мысли. Оценка происходит порциями с бюджетом — не на каждое '
+        + 'сообщение. Аварийный env: INITIATIVE_OBSERVER_ENABLED.'),
+    },
+  };
+  // B01.4: виджет профиля частоты (ключ каталога — str; select добавляет
+  // витрина). Значения — канон резолвера initiative_observer.
+  var INITIATIVE_PROFILE_SELECT = {
+    widget: 'select',
+    select_options: ['rare', 'normal', 'active'],
+    select_labels: ['Редко', 'Нормально', 'Активно'],
+  };
+  // B07: человекочитаемое имя группы «Временной фактчек» внутри Фактчека —
+  // название раздела ТЗ «Время/источники» (кривой слэш — только в ТЗ).
+  var CONFIG_GROUP_DISPLAY = {
+    temporal_factcheck: {
+      title: 'Время и источники',
+      description: ('Как фактчек относится ко времени утверждений: режим '
+        + 'по умолчанию, сроки свежести вердиктов и включён ли '
+        + 'дополнительный инструмент проверки дат.'),
+    },
   };
   // Ключи-тумблеры рендерятся ТОЛЬКО в <summary> owner-блоков; мастер
   // выведен в отдельный уровень §61 (не в тело блока).
@@ -2122,6 +2177,109 @@
         mca17cSelfModel: null,        // СУЩЕСТВУЮЩИЙ GET /api/persona/self-model
         mca17cSelfBusy: false,
         mca17cDeepLinkDone: false,
+        // ═══ W3-ANALYTICS (U05/D12 §18I.12): данные визуализаций.
+        // Все загрузки — ленивые по суб-вкладке, с кэшем 60с; НОВЫХ
+        // поллеров нет (только перечитка ⟳/вход во вкладку).
+        vizActivity: null,            // GET /api/analytics/viz/activity
+        vizActivityBusy: false,
+        vizActivityError: '',
+        vizActivityAt: 0,
+        vizActivityDays: 14,
+        mca17cActivity: null,         // GET /api/analytics/viz/process-activity
+        mca17cActivityBusy: false,
+        mca17cActivityAt: 0,
+        vizPipeline: null,            // GET /api/analytics/pipeline/runs/latest
+        vizPipelineBusy: false,
+        vizPipelineError: '',
+        vizPipelineAt: 0,
+        vizProcDetails: {},           // раскрытые «Детали» процессов
+        vizDepsOpen: false,           // карта зависимостей (Процессы)
+        // Слой имён/статусов/слоёв UI (реестр даёт только технические id).
+        vizProcessNames: {
+          'ingestion.live': 'Приём сообщений чата',
+          'ingestion.import': 'Импорт истории',
+          'identity.resolve': 'Идентичность сообщений',
+          'chat.lifecycle': 'Жизненный цикл чата',
+          'summary.window': 'Окно и краткое резюме',
+          'summary.hybrid': 'Сводки (уровни L1/L2)',
+          'facts.extract': 'Извлечение фактов',
+          'dossier.rebuild': 'Досье (пересборка)',
+          'provenance.record': 'Источники фактов',
+          'embeddings.index': 'Эмбеддинги и индексы',
+          'retrieval.query': 'Поиск по памяти',
+          'nostalgia.run': 'Ностальгические подборки',
+          'lore.compile': 'Эпизоды и лор',
+          'sleep.dream': 'Сон (убеждения)',
+          'sleep.deep': 'Глубокий сон (парадигмы)',
+          'persona.traits': 'Черты личности',
+          'anticliche.run': 'Анти-клише',
+          'goodmorning.run': 'Утренние сообщения',
+          'scheduler.reactions': 'Реакции на события',
+          'direct.reply': 'Прямые ответы',
+          'style.scope': 'Стилевые просьбы',
+          'tools.chain': 'Цепочка инструментов',
+          'random.source': 'Источник случайности',
+          'web.fetch': 'Загрузка веб-страниц',
+          'media.download': 'Видео и транскрипты',
+          'image.generate': 'Генерация изображений',
+          'summary.publish': 'Публикация сводок',
+          'factcheck.run': 'Проверка фактов',
+          'maintenance.retention': 'Ретенция памяти',
+          'backup.memory': 'Резервные копии',
+          'uptime.heartbeat': 'Внешний heartbeat',
+          'telemetry.events': 'Хранение телеметрии',
+          'watchdog.jobs': 'Смотритель задач',
+          'incidents.delivery': 'Доставка инцидентов',
+          'episodes.build': 'Сборка эпизодов и историй',
+          'episodes.backfill': 'Досборка историй',
+          'context.compress': 'Сжатие контекста',
+          'context.selective': 'Выборка контекста',
+          'memory.lifecycle': 'Жизненный цикл памяти',
+          'relations.semantic': 'Отношения участников',
+          'chat.statistics': 'Измерения чата',
+          'self_learning.run': 'Опыт и уроки',
+          'intent.initiative': 'Инициатива',
+          'random.uses': 'Применения случайности',
+          'self.model': 'Самомодель',
+          'vision.media': 'Понимание изображений',
+          'temporal.factcheck': 'Временной фактчек',
+        },
+        // Эффективные статусы (U05.1): ровно словарь ТЗ + честные служебные.
+        vizEffMap: {
+          working: { cls: 'badge-ok', label: 'работает с результатом' },
+          fallback: { cls: 'badge-warn', label: 'резервный контур' },
+          running: { cls: 'badge-info', label: 'выполняется сейчас' },
+          error: { cls: 'badge-err', label: 'ошибка' },
+          no_conditions: { cls: 'badge-warn', label: 'не было условий' },
+          never_run: { cls: 'badge-warn', label: 'не запускался' },
+          off: { cls: 'badge-muted', label: 'выключен' },
+          not_instrumented: { cls: 'badge-muted', label: 'не инструментирован' },
+        },
+        // Слои карты зависимостей (Viz 5) — группировка по ролям процессов.
+        vizDepLayers: {
+          src: { label: 'Источники', pids: ['ingestion.live',
+            'ingestion.import', 'scheduler.reactions', 'web.fetch',
+            'media.download', 'vision.media'] },
+          memory: { label: 'Память', pids: ['summary.window',
+            'summary.hybrid', 'facts.extract', 'dossier.rebuild',
+            'lore.compile', 'episodes.build', 'embeddings.index',
+            'provenance.record', 'memory.lifecycle'] },
+          mind: { label: 'Интеллект и ответы', pids: ['retrieval.query',
+            'context.compress', 'context.selective', 'direct.reply',
+            'tools.chain', 'factcheck.run', 'temporal.factcheck',
+            'intent.initiative', 'self_learning.run', 'random.source',
+            'random.uses', 'style.scope', 'anticliche.run', 'persona.traits',
+            'self.model', 'sleep.dream', 'sleep.deep', 'chat.statistics',
+            'relations.semantic', 'image.generate'] },
+          out: { label: 'Выход и надёжность', pids: ['summary.publish',
+            'goodmorning.run', 'nostalgia.run', 'telemetry.events',
+            'watchdog.jobs', 'incidents.delivery', 'maintenance.retention',
+            'backup.memory', 'uptime.heartbeat', 'identity.resolve',
+            'chat.lifecycle', 'episodes.backfill'] },
+        },
+        overridesPopChat: null,       // popover overrides в таблице чатов
+        vizStoriesOthers: {},         // B08: раскрытие «ещё N» участников
+        vizStoriesTimeline: {},       // B08: раскрытие хронологии истории
         dossierFeedTimer: null,
         // ── Раунд 10.20 (БЛОК 3.2/T-1896): Досье участника (модалка) ──
         dossierOpen: false,
@@ -2653,6 +2811,20 @@
           return x.id === cur;
         });
         return t ? t.label : 'Обзор';
+      },
+      // W3-ANALYTICS: строки heatmap (день → 24 ячейки) одним проходом.
+      vizHeatRows: function () {
+        var cells = this.vizHeatCells();
+        var byDay = {};
+        var order = [];
+        cells.forEach(function (c) {
+          if (!byDay[c.d]) {
+            byDay[c.d] = [];
+            order.push(c.d);
+          }
+          byDay[c.d].push(c);
+        });
+        return order.map(function (d) { return { day: d, cells: byDay[d] }; });
       },
       // D13 (§18I.13): состояние компактного Save-чипа в шапке. clean →
       // visible=false (чипа нет); dirty → число изменённых полей; saving →
@@ -9039,6 +9211,11 @@
           if (!this.nostalgiaLog.length && !this.memoryRagBusy) {
             this.loadNostalgiaLog();
           }
+        } else if (m.id === 'mod_factcheck') {
+          // B07: временная линия evidence в детализации Фактчека — те же
+          // данные/API, что в «Аналитике» (runs + общий detail-modal);
+          // лениво, ~30с кэш (loadTemporalRuns внутри).
+          this.loadTemporalRuns();
         }
       },
       closeModule: function () {
@@ -9745,6 +9922,12 @@
         var v = this.oversightView;
         if (v === 'processes' && !this.mca17cProcesses
             && !this.mca17cProcessesBusy) this.oversightLoadProcesses();
+        // W3-ANALYTICS (U05.1): эффективные статусы/последнее действие —
+        // тот же вход во view, отдельного поллера нет (кэш 60с).
+        if ((v === 'processes' || v === 'runs')
+            && !this.mca17cActivityBusy) {
+          this.vizLoadProcessActivity();
+        }
         if (v === 'runs') {
           if (!this.mca17cRuns && !this.mca17cRunsBusy) {
             this.oversightLoadRuns(true);
@@ -9829,17 +10012,28 @@
           // данные strips — из существующих /api/status и /api/oversight
           if (!this.statusData) this.loadStatus();
           if (!this.oversightData) this.loadOversight();
+          // W3-ANALYTICS: heatmap фактической активности (лениво, кэш 60с)
+          this.vizLoadActivity();
+          // D12 §18I.12-P: popover overrides чатов — карта уже глобальная
+          // (loadOverrideMap в global-скоупе); досчитываем при входе.
+          if (this.isGlobalAdmin && !(this.overrideMap || []).length
+              && !this.overrideMapBusy) this.loadOverrideMap();
         }
         if (t === 'memory') {
           if (!this.temporalRuns && !this.temporalRunsBusy) {
             this.loadTemporalRuns();
           }
+          // W3-ANALYTICS: цикл памяти (flow) считает рёбра по тем же
+          // durable-событиям процессов — один и тот же запрос, кэш 60с.
+          this.vizLoadProcessActivity();
         }
         if (t === 'models') {
           if (!this.budgetsAuto && !this.budgetsAutoBusy) {
             this.loadBudgetsAuto();
           }
           if (this.isGlobalAdmin && !this.keyHistory) this.loadKeyHistory();
+          // W3-ANALYTICS: waterfall latency последнего прогона (F4 API).
+          this.vizLoadPipelineWaterfall();
         }
         // MCA-23 (P2-B): «Ответ (Pipeline)» на вкладке «Саммари» — лениво,
         // fail-open (образец Run Inspector §61).
@@ -9870,11 +10064,14 @@
       // ⟳ — перечитать активное представление (только чтение; A56).
       oversightRefreshView: function () {
         var v = this.oversightView;
-        if (v === 'processes') this.oversightLoadProcesses();
-        else if (v === 'runs') {
+        if (v === 'processes') {
+          this.oversightLoadProcesses();
+          this.vizLoadProcessActivity(true);
+        } else if (v === 'runs') {
           if (this.mca17cRunDetail) this.oversightOpenRun(
             this.mca17cRunDetail.pipeline_run_id, true);
           else this.oversightLoadRuns(true);
+          this.vizLoadProcessActivity(true);
         } else if (v === 'incidents') this.oversightLoadIncidents();
         else if (v === 'learning') {
           this.oversightLoadFunnel();
@@ -9977,6 +10174,613 @@
           if (String(refs[i]).indexOf('ENABLED') >= 0) return String(refs[i]);
         }
         return '';
+      },
+
+      // ═══ W3-ANALYTICS (U05/D12 §18I.12) — визуализации на реальных
+      // durable-данных. Все лоадеры ленивые (вход во вкладку/⟳), кэш 60с,
+      // новых поллеров нет. unknown/restricted — честные пустые состояния.
+      // ── Лоадеры ──
+      vizLoadActivity: async function (force) {
+        if (this.vizActivityBusy) return;
+        var now = Date.now();
+        if (!force && this.vizActivity && this.vizActivityAt
+            && (now - this.vizActivityAt) < 60000) return;
+        this.vizActivityBusy = true;
+        var self = this;
+        try {
+          var data = await this.api('/api/analytics/viz/activity?days='
+            + encodeURIComponent(String(this.vizActivityDays || 14)),
+            { global: true });
+          self.vizActivity = data || null;
+          self.vizActivityError = '';
+          self.vizActivityAt = Date.now();
+        } catch (e) {
+          self.vizActivity = null;
+          self.vizActivityError = (e && e.message) || 'недоступно';
+          self.vizActivityAt = Date.now();
+        } finally {
+          self.vizActivityBusy = false;
+        }
+      },
+      vizLoadProcessActivity: async function (force) {
+        if (this.mca17cActivityBusy) return;
+        var now = Date.now();
+        if (!force && this.mca17cActivity && this.mca17cActivityAt
+            && (now - this.mca17cActivityAt) < 60000) return;
+        this.mca17cActivityBusy = true;
+        var self = this;
+        try {
+          var data = await this.api('/api/analytics/viz/process-activity',
+            { global: true });
+          self.mca17cActivity = data || null;
+          self.mca17cActivityAt = Date.now();
+        } catch (e) {
+          self.mca17cActivity = null;
+          self.mca17cActivityAt = Date.now();
+        } finally {
+          self.mca17cActivityBusy = false;
+        }
+      },
+      vizLoadPipelineWaterfall: async function (force) {
+        if (this.vizPipelineBusy) return;
+        var now = Date.now();
+        if (!force && this.vizPipeline && this.vizPipelineAt
+            && (now - this.vizPipelineAt) < 60000) return;
+        this.vizPipelineBusy = true;
+        var self = this;
+        try {
+          var data = await this.api(
+            '/api/analytics/pipeline/runs/latest', { global: true });
+          self.vizPipeline = data || null;
+          self.vizPipelineError = '';
+          self.vizPipelineAt = Date.now();
+        } catch (e) {
+          self.vizPipeline = null;
+          self.vizPipelineError = (e && e.message) || 'недоступно';
+          self.vizPipelineAt = Date.now();
+        } finally {
+          self.vizPipelineBusy = false;
+        }
+      },
+
+      // ── U05.1: человеческое имя процесса (словарь vizProcessNames — в
+      // data(); fallback — первая фраза назначения, тех-id в «Детали»). ──
+      processHumanName: function (p) {
+        if (!p) return '—';
+        var pid = String(p.process_id || '');
+        if (this.vizProcessNames[pid]) return this.vizProcessNames[pid];
+        // fallback: первая содержательная фраза назначения (реальные данные
+        // реестра), технический id — в «Детали».
+        var purpose = String(p.purpose || '').trim();
+        var cut = purpose.split(/[:;(]/)[0].trim();
+        return cut || pid || '—';
+      },
+      // Короткое назначение под именем (первое предложение purpose).
+      processHumanPurpose: function (p) {
+        if (!p) return '';
+        var purpose = String(p.purpose || '').trim();
+        if (!purpose) return '';
+        var cut = purpose.split(/(?<=[.!?])\s/)[0];
+        return (cut || purpose).slice(0, 160);
+      },
+      // Эффективный статус (U05.1): реестр + последнее реальное событие
+      // (словарь меток vizEffMap — в data()).
+      processEff: function (p) {
+        var acts = this.mca17cActivity
+          && (this.mca17cActivity.processes || []);
+        var entry = null;
+        if (acts && acts.length) {
+          var pid = String(p.process_id || '');
+          for (var i = 0; i < acts.length; i++) {
+            if (String(acts[i].process_id) === pid) { entry = acts[i]; break; }
+          }
+        }
+        if (!entry) {
+          // сервис недоступен → честный статус реестра (не выдумка)
+          return this.oversightProcessBadge(p.status);
+        }
+        var eff = String(entry.effective || '');
+        var map = this.vizEffMap[eff]
+          || this.oversightProcessBadge(p.status);
+        return { cls: map.cls, label: map.label, reason: entry.reason,
+                 last_ts: entry.last_ts, counts: entry.counts,
+                 last_outcome: entry.last_outcome,
+                 last_reason: entry.last_reason,
+                 last_error_type: entry.last_error_type };
+      },
+      // «Последнее реальное действие/время» + причина пустоты.
+      processLastAction: function (p) {
+        var eff = this.processEff(p);
+        if (!eff || eff.label === undefined) return '';
+        if (String(p.status) === 'disabled' || String(eff.label) === 'выключен') {
+          var gate = this.mca17cProcessGate(p);
+          return gate ? ('выключен гейтом ' + gate) : 'выключен';
+        }
+        if (String(eff.label).indexOf('не инструментирован') >= 0) {
+          return 'событий нет: процесс не инструментирован в mca_events';
+        }
+        if (String(eff.label).indexOf('не запускался') >= 0) {
+          var why = eff.reason && eff.reason.indexOf('запусков не было') === 0
+            ? eff.reason
+            : ('запусков не было: ' + (eff.reason || 'событий нет'));
+          return why + ' — это честное состояние, не ошибка';
+        }
+        if (eff.last_ts) {
+          var stamp = typeof this.fmtLogTs === 'function'
+            ? this.fmtLogTs(eff.last_ts)
+            : this.fmtTs(eff.last_ts);
+          var out = 'последнее действие: ' + stamp;
+          if (eff.last_error_type) out += ' · ' + eff.last_error_type;
+          else if (eff.last_reason) out += ' · ' + eff.last_reason;
+          return out;
+        }
+        return eff.reason || '';
+      },
+      // Счётчик событий за окно (для честной подписи «24ч: N»).
+      processCountsLabel: function (p) {
+        var eff = this.processEff(p);
+        if (!eff || !eff.counts) return '';
+        return 'события 24ч: ' + (eff.counts['24h'] || 0)
+          + ' · 7д: ' + (eff.counts['7d'] || 0);
+      },
+      vizToggleDetails: function (pid) {
+        var key = String(pid || '');
+        var cur = !!this.vizProcDetails[key];
+        this.vizProcDetails[key] = !cur;
+      },
+
+      // ── Viz 4 (§18I.12-L): heatmap фактической активности ──
+      vizHeatCells: function () {
+        var v = this.vizActivity;
+        if (!v || !v.available) return [];
+        var byKey = {};
+        var maxC = 1;
+        (v.buckets || []).forEach(function (b) {
+          byKey[b.d + ':' + b.h] = b;
+          if (b.c > maxC) maxC = b.c;
+        });
+        var days = Math.min(60, Math.max(1, parseInt(this.vizActivityDays,
+          10) || 14));
+        var cells = [];
+        var now = new Date();
+        for (var d = days - 1; d >= 0; d--) {
+          var day = new Date(now.getTime() - d * 86400000);
+          var pad = function (n) {
+            return (n < 10 ? '0' : '') + n;
+          };
+          var key = day.getFullYear() + '-' + pad(day.getMonth() + 1) + '-'
+            + pad(day.getDate());
+          for (var h = 0; h < 24; h++) {
+            var b = byKey[key + ':' + h];
+            cells.push({
+              d: key, h: h,
+              c: b ? b.c : 0,
+              errs: b ? b.errs : 0,
+              level: b ? Math.min(4, Math.ceil((b.c || 0) * 4 / maxC)) : 0,
+              has: !!b,
+            });
+          }
+        }
+        this._vizHeatMax = maxC;
+        return cells;
+      },
+      vizHeatClass: function (cell) {
+        return 'viz-heat__cell viz-heat__cell--l' + (cell && cell.level
+          ? cell.level : 0)
+          + (cell && cell.errs > 0 ? ' viz-heat__cell--err' : '');
+      },
+      vizHeatTitle: function (cell) {
+        if (!cell) return '';
+        return cell.d + ' ' + (cell.h < 10 ? '0' : '') + cell.h
+          + ':00 — событий: ' + cell.c
+          + (cell.errs ? (' (ошибок: ' + cell.errs + ')') : '');
+      },
+
+      // ── Viz 1 (§18I.12-C): цикл памяти (flow) ──
+      // Рёбра — РЕАЛЬНЫЕ счётчики durable-событий процессов (24ч) из
+      // /api/analytics/viz/process-activity; подписи узлов — durable
+      // итоги из уже загруженных cognitionStats (без нового запроса).
+      vizActivityFor: function (pid) {
+        var acts = (this.mca17cActivity || {}).processes || [];
+        for (var i = 0; i < acts.length; i++) {
+          if (String(acts[i].process_id) === String(pid)) return acts[i];
+        }
+        return null;
+      },
+      vizSum24: function (pids) {
+        var total = 0;
+        var last = null;
+        var err = false;
+        var seen = false;
+        var self = this;
+        (pids || []).forEach(function (pid) {
+          var a = self.vizActivityFor(pid);
+          if (!a) return;
+          seen = true;
+          total += (a.counts && a.counts['24h']) || 0;
+          if (a.effective === 'error') err = true;
+          if (a.last_ts && (!last || a.last_ts > last)) last = a.last_ts;
+        });
+        return { total: total, last: last, err: err, seen: seen };
+      },
+      vizFlowNodes: function () {
+        var self = this;
+        var defs = [
+          { key: 'ingest', label: 'Приём сообщений',
+            pids: ['ingestion.live', 'ingestion.import'] },
+          { key: 'facts', label: 'Факты и граф',
+            pids: ['facts.extract', 'dossier.rebuild'] },
+          { key: 'summary', label: 'Сводки',
+            pids: ['summary.window', 'summary.hybrid'] },
+          { key: 'episodes', label: 'Эпизоды и истории',
+            pids: ['episodes.build', 'lore.compile', 'episodes.backfill'] },
+          { key: 'retrieval', label: 'Поиск (retrieval)',
+            pids: ['retrieval.query'] },
+          { key: 'reply', label: 'Прямые ответы',
+            pids: ['direct.reply'] },
+          { key: 'initiative', label: 'Инициатива',
+            pids: ['intent.initiative'] },
+          { key: 'publish', label: 'Публикации',
+            pids: ['summary.publish', 'goodmorning.run'] },
+          { key: 'sleep', label: 'Пересмотр (сон)',
+            pids: ['sleep.dream', 'sleep.deep'] },
+        ];
+        return defs.map(function (d) {
+          var s = self.vizSum24(d.pids);
+          return { key: d.key, label: d.label, total: s.total,
+                   last: s.last, err: s.err, seen: s.seen };
+        });
+      },
+      // Подписи durable-итогов на узлах (из уже загруженных данных вкладки).
+      vizFlowCaption: function (key) {
+        var st = this.cognitionStats;
+        if (!st) return '';
+        if (key === 'facts') {
+          return 'в графе: ' + (st.facts != null ? st.facts : '—')
+            + ' фактов · ' + (st.beliefs != null ? st.beliefs : '—')
+            + ' убеждений';
+        }
+        if (key === 'episodes') {
+          return 'мемов: ' + (st.memes != null ? st.memes : '—');
+        }
+        return '';
+      },
+      vizFlowNote: function () {
+        var v = this.mca17cActivity;
+        if (!v) return 'данные недоступны — обновите блок';
+        if (v.available === false) {
+          return 'недоступно: ' + (v.reason || 'ошибка чтения');
+        }
+        if (!v.events_available) {
+          return 'событий телеметрии пока нет — цикл не активен '
+            + '(честное пустое состояние, не нули)';
+        }
+        var any = this.vizFlowNodes().some(function (n) { return n.seen; });
+        if (!any) return 'за окно 24ч событий не было (внизу — 7д счётчики)';
+        return '';
+      },
+
+      // ── Viz 2 (§18I.12-H/I): маршрут обработки (Sankey-lite) ──
+      vizRouteRows: function () {
+        var self = this;
+        var root = this.vizSum24(['ingestion.live', 'ingestion.import']);
+        var defs = [
+          { key: 'memory', label: 'контекст и память',
+            pids: ['summary.window', 'summary.hybrid', 'facts.extract',
+                   'retrieval.query'] },
+          { key: 'reply', label: 'прямые ответы',
+            pids: ['direct.reply'] },
+          { key: 'initiative', label: 'инициатива',
+            pids: ['intent.initiative'] },
+          { key: 'stories', label: 'истории и эпизоды',
+            pids: ['episodes.build', 'lore.compile'] },
+          { key: 'publish', label: 'публикации сводок',
+            pids: ['summary.publish'] },
+          { key: 'sleep', label: 'ночная обработка (сон)',
+            pids: ['sleep.dream', 'sleep.deep'] },
+        ];
+        var rows = defs.map(function (d) {
+          var s = self.vizSum24(d.pids);
+          return { key: d.key, label: d.label, total: s.total,
+                   err: s.err, seen: s.seen };
+        });
+        var maxTotal = 1;
+        rows.forEach(function (r) { if (r.total > maxTotal) maxTotal = r.total; });
+        rows.forEach(function (r) {
+          // Ноль событий = нет полосы (не минимальный «фантомный» бар).
+          r.width = r.total > 0
+            ? Math.max(6, Math.round(r.total * 100 / maxTotal)) : 0;
+        });
+        return { root: root, rows: rows };
+      },
+
+      // ── Viz 3 (§18I.12-J): waterfall latency/cost последнего прогона ──
+      vizWaterfall: function () {
+        var run = (this.vizPipeline || {}).run;
+        if (!run) return null;
+        var nodes = (run.nodes || []).filter(function (n) {
+          return n && n.latency_ms != null;
+        });
+        var cursor = 0;
+        var items = nodes.map(function (n) {
+          var start = cursor;
+          var ms = Math.max(0, Math.round(Number(n.latency_ms) || 0));
+          cursor = start + ms;
+          return { label: String(n.label || n.key || ''),
+                   state: String(n.state || ''),
+                   latency_ms: ms, start: start, end: cursor };
+        });
+        var total = Math.max(cursor, Math.round(Number(run.duration_ms) || 0));
+        var scale = total > 0 ? 100 / total : 0;
+        items.forEach(function (it) {
+          it.left = it.start * scale;
+          it.width = Math.max(it.latency_ms > 0 ? 1.5 : 0,
+            (it.end - it.start) * scale);
+        });
+        var cap = run.capacity || {};
+        return {
+          items: items,
+          total_ms: total,
+          duration_ms: run.duration_ms,
+          chat_id: run.chat_id,
+          health_label: run.health_label,
+          required_input_tokens: cap.required_input_tokens,
+          reserved_output_tokens: cap.reserved_output_tokens,
+          run_id: run.run_id,
+        };
+      },
+      vizWaterfallClass: function (state) {
+        var map = { success: 'viz-wf__bar--ok', repaired: 'viz-wf__bar--ok',
+                    fallback: 'viz-wf__bar--warn',
+                    failed: 'viz-wf__bar--err',
+                    skipped: 'viz-wf__bar--muted' };
+        return map[state] || 'viz-wf__bar--muted';
+      },
+      vizHumanMs: function (ms) {
+        var n = Math.round(Number(ms) || 0);
+        if (n >= 1000) {
+          return (n / 1000).toFixed(n % 1000 ? 1 : 0) + ' с';
+        }
+        return n + ' мс';
+      },
+
+      // ── Viz 5 (§18I.12-M): карта зависимостей модулей ──
+      // Строится из РЕАЛЬНОГО реестра (inputs/outputs): ребро —
+      // артефакт процесса X, заявленный во входах процесса Y.
+      // Слои (vizDepLayers) — в data().
+      layerLabel: function (key) {
+        var L = this.vizDepLayers[key];
+        return L ? L.label : String(key || '—');
+      },
+      vizDeps: function () {
+        var snap = this.mca17cProcesses;
+        var list = (snap && snap.processes) || [];
+        var self = this;
+        var byId = {};
+        list.forEach(function (p) { byId[String(p.process_id)] = p; });
+        // артефакт → производящие процессы
+        var producers = {};
+        list.forEach(function (p) {
+          (p.outputs || []).forEach(function (a) {
+            var k = String(a).trim();
+            if (!producers[k]) producers[k] = [];
+            producers[k].push(String(p.process_id));
+          });
+        });
+        // слои с чипами
+        var layers = [];
+        Object.keys(this.vizDepLayers).forEach(function (lk) {
+          var L = self.vizDepLayers[lk];
+          var chips = L.pids.filter(function (pid) { return !!byId[pid]; })
+            .map(function (pid) {
+              var eff = self.processEff(byId[pid]);
+              return { pid: pid, name: self.processHumanName(byId[pid]),
+                       cls: eff && eff.cls ? eff.cls : 'badge-muted' };
+            });
+          layers.push({ key: lk, label: L.label, chips: chips });
+        });
+        // рёбра: (producer layer) → (consumer layer), подпись — артефакт
+        var pidLayer = {};
+        layers.forEach(function (L) {
+          L.chips.forEach(function (c) { pidLayer[c.pid] = L.key; });
+        });
+        var edgeMap = {};
+        var edgeLabel = {};
+        list.forEach(function (p) {
+          (p.inputs || []).forEach(function (a) {
+            var k = String(a).trim();
+            (producers[k] || []).forEach(function (src) {
+              var from = pidLayer[src];
+              var to = pidLayer[String(p.process_id)];
+              if (!from || !to || from === to) return;
+              var key = from + '>' + to;
+              edgeMap[key] = (edgeMap[key] || 0) + 1;
+              if (!edgeLabel[key]) edgeLabel[key] = [];
+              if (edgeLabel[key].length < 3 && edgeLabel[key].indexOf(k) < 0) {
+                edgeLabel[key].push(k);
+              }
+            });
+          });
+        });
+        var edges = Object.keys(edgeMap).map(function (key) {
+          var parts = key.split('>');
+          return { from: parts[0], to: parts[1], weight: edgeMap[key],
+                   sample: edgeLabel[key].join(', ') };
+        });
+        return { layers: layers, edges: edges };
+      },
+
+      // ── Viz 6 (§18I.12-O): timeline дат источников фактчека ──
+      // Данные — уже загруженный список temporalRuns (нового запроса нет):
+      // для каждого прогона — оригинал (published) → получен (repost) →
+      // проверен (created); распределение по date_source.
+      vizFactDates: function () {
+        var runs = this.temporalRuns || [];
+        var dist = {};
+        var items = [];
+        var self = this;
+        runs.slice(0, 12).forEach(function (r) {
+          var src = String(r.date_source || 'unknown');
+          dist[src] = (dist[src] || 0) + 1;
+          var o = r.original_published_at;
+          var rp = r.repost_received_at;
+          var c = r.created_at;
+          var span = null;
+          if (o && c && c > o) span = c - o;
+          items.push({
+            run_id: r.run_id,
+            published: o,
+            received: rp,
+            checked: c,
+            span_days: span != null ? Math.round(span / 86400) : null,
+            date_source: src,
+            verdict: r.factual_verdict,
+            status: r.temporal_status,
+          });
+        });
+        var maxSpan = 1;
+        items.forEach(function (it) {
+          if (it.span_days != null && it.span_days > maxSpan) {
+            maxSpan = it.span_days;
+          }
+        });
+        items.forEach(function (it) {
+          it.spanWidth = it.span_days != null
+            ? Math.max(2, Math.round(it.span_days * 100 / maxSpan)) : 0;
+        });
+        return { items: items, dist: dist, max_span_days: maxSpan };
+      },
+      vizDateSourceLabel: function (src) {
+        var map = {
+          telegram_origin: 'дата из источника (пересылка)',
+          telegram_message: 'дата сообщения Telegram',
+          publication_metadata: 'метаданные публикации',
+          explicit_user: 'указана пользователем',
+          content_reference: 'упомянута в тексте',
+          unknown: 'неизвестна (честно)',
+        };
+        return map[String(src || 'unknown')] || String(src || '—');
+      },
+
+      // ── Viz 7 (§18I.12-P): popover overrides чата в «Обзоре» ──
+      overridesForChat: function (chatId) {
+        var id = String(chatId);
+        return (this.overrideMap || []).filter(function (r) {
+          return String(r.chat_id) === id;
+        });
+      },
+      overridesTogglePop: function (chatId) {
+        this.overridesPopChat = this.overridesPopChat === chatId
+          ? null : chatId;
+      },
+      overridesClosePop: function () {
+        this.overridesPopChat = null;
+      },
+
+      // ── Запуски: человеческое имя типа прогона (U05.1) ──
+      runTypeLabel: function (t) {
+        var map = {
+          summary: 'Сводка', summary_hybrid: 'Сводка (гибрид)',
+          factcheck: 'Проверка фактов', temporal: 'Временной фактчек',
+          temporal_factcheck: 'Временной фактчек',
+          initiative: 'Инициатива', experience: 'Опыт',
+          episodes: 'Эпизоды', stories: 'Истории',
+          publish: 'Публикация', vision: 'Изображения',
+          dossier: 'Досье', random: 'Случайность',
+        };
+        var k = String(t || '').trim();
+        if (!k) return '';
+        return map[k] || k;
+      },
+
+      // ── B08 UI: карточка истории (честные display-поля) ──
+      storyIsInsufficient: function (card) {
+        var s = card && card.story;
+        return String((s && s.content_status) || '')
+          === 'insufficient_sources';
+      },
+      storyCardTitle: function (card) {
+        var s = card && card.story;
+        if (!s) return 'Без названия';
+        return String(s.display_title || s.title || '').trim()
+          || 'Без названия';
+      },
+      storyCardSummary: function (card) {
+        var s = card && card.story;
+        if (!s) return '';
+        return String(s.display_summary != null ? s.display_summary
+          : (s.summary || ''));
+      },
+      // Участники: ключевые ≤5 + «ещё N» (раскрытие без потери).
+      storyPrimaryNames: function (card) {
+        var s = card && card.story;
+        if (!s) return [];
+        var names = (s.primary_participants || s.participants || []);
+        var dn = s.display_names || {};
+        return (names || []).slice(0, 5).map(function (id) {
+          return String(dn[String(id)] || dn[id] || id);
+        });
+      },
+      storyOthersCount: function (card) {
+        var s = card && card.story;
+        if (!s) return 0;
+        if (s.others_count != null) return Number(s.others_count) || 0;
+        var all = (s.participants || []).length;
+        var prim = (s.primary_participants || []).length;
+        return Math.max(0, all - prim);
+      },
+      storyOtherNames: function (card) {
+        var s = card && card.story;
+        if (!s) return [];
+        var dn = s.display_names || {};
+        var prim = {};
+        (s.primary_participants || []).forEach(function (id) {
+          prim[String(id)] = true;
+        });
+        return (s.participants || []).filter(function (id) {
+          return !prim[String(id)];
+        }).map(function (id) {
+          return String(dn[String(id)] || dn[id] || id);
+        });
+      },
+      storiesToggleOthers: function (sid) {
+        var key = String(sid || '');
+        this.vizStoriesOthers[key] = !this.vizStoriesOthers[key];
+      },
+      storiesToggleTimeline: function (sid) {
+        var key = 'tl:' + String(sid || '');
+        this.vizStoriesTimeline[key] = !this.vizStoriesTimeline[key];
+      },
+      storyTimelineOpen: function (sid) {
+        return !!this.vizStoriesTimeline['tl:' + String(sid || '')];
+      },
+      storyRefHref: function (ref) {
+        return (ref && ref.url) ? String(ref.url) : null;
+      },
+      // Три РАЗНЫЕ даты; null = «нет данных» (не 1970).
+      storyDatesRows: function (card) {
+        var s = card && card.story;
+        if (!s) return [];
+        var self = this;
+        var fmt = function (ts, withTime) {
+          if (ts == null) return 'нет данных';
+          return withTime ? self.fmtStoryDateTime(ts) : self.fmtStoryDate(ts);
+        };
+        var rows = [];
+        var es = s.event_start_ts;
+        var ee = s.event_end_ts;
+        var ev = (es == null && ee == null)
+          ? 'нет данных'
+          : (fmt(es, false) + (ee && ee !== es ? ' — ' + fmt(ee, false)
+            : ''));
+        rows.push({ label: 'События', value: ev });
+        rows.push({ label: 'Обнаружена', value: fmt(s.discovered_at, false) });
+        rows.push({ label: 'Пересобрана', value: fmt(s.rebuilt_at, true) });
+        return rows;
+      },
+      storyOpenQuestions: function (card) {
+        var s = card && card.story;
+        return (s && s.open_questions) || [];
       },
 
       // Drill-down карточки → «Запуски» (серверный фильтр по фактическому
@@ -10538,6 +11342,36 @@
         return !!m && this.canEditConfig(m.toggleKey);
       },
 
+      // ═══ ASAP 8 v6.3 B06.2: global-only мастер на области чата/ЛС ═══
+      // Витрина `runtimeGate: 'global'` (природа master-флага по коду,
+      // F4 D3) = runtime читает флаг БЕЗ чата → локальный override был бы
+      // инертным. Тумблер на chat/dm-scope — read-only; правка — «Весь бот».
+      // per_chat-карточки (Summary/Sleep/Ностальгия/Бюджеты/…, реестр:
+      // experience) — тумблер активен, runtime читает per-chat.
+      moduleChatToggleReadonly: function (m) {
+        if (!m || !m.toggleKey) return false;
+        if (this.scopeKind === 'global') return false;
+        return (m.runtimeGate || 'global') === 'global';
+      },
+      // Человекочитаемая причина read-only (подпись без жаргона).
+      moduleGlobalHint: function (m) {
+        return this.moduleChatToggleReadonly(m)
+          ? 'Управляется глобально — общий рубильник для всех чатов' : '';
+      },
+      // «Настроить глобально» — переключение области на «Весь бот» через
+      // СУЩЕСТВУЮЩИЙ scope-канал (setActiveChat: dirty-guard, epoch, reload
+      // configItems; вкладка модуля остаётся открытой). Кнопка видна только
+      // глобальному админу (локальный админ глобальную область не правит).
+      configureModuleGlobally: function (m) {
+        if (!m) return;
+        if (!this.isGlobalAdmin) {
+          this.toast('Глобальные настройки доступны владельцу бота', 'warn');
+          return;
+        }
+        if (this.scopeKind === 'global') return;
+        this.setActiveChat(null);
+      },
+
       // ═══════ F4 (10.25, ADR-1025-14 D1/D2): ModuleConfigurationStore ═══════
       // Тонкий слой над существующим `configItems` (§39: без новых
       // библиотек). Канонический источник значений — configItems; store
@@ -10804,6 +11638,14 @@
         if (typeof this.canEditModule === 'function' && !this.canEditModule(m)) {
           this.toast('Нет права изменить модуль', 'err');
           return { ok: false, error: 'forbidden' };
+        }
+        // 1b) B06.2: global-only карточка на chat/dm-области — read-only.
+        // Инертный override не создаём ни через UI, ни программно (backend
+        // 422 отдаёт только models/keys/temporal; flags-оси он пропустил бы).
+        if (scope.type !== 'global'
+            && (m.runtimeGate || 'global') === 'global') {
+          this.toast('Этот модуль управляется глобально', 'warn');
+          return { ok: false, error: 'global-only' };
         }
         // 2) данные чужой области в памяти отсутствуют → мутации нет.
         if (!this._isActiveScope(scope)) {
@@ -14234,12 +15076,25 @@
       //    сырой CSV/textarea);
       // 3) остальные json без виджета — строкифаем (textarea-текст как раньше);
       //    json с widget='keyvalue'/'list' НЕ строкифаим (остаётся объектом/
-      //    массивом для компонента-редактора).
+      //    массивом для компонента-редактора);
+      // 4) W3-MODULES-UI (B07/B01): человекочитаемые подписи/виджеты
+      //    (temporal.tool_enabled, профиль частоты инициативы) — Δ каталога=0.
       _normalizeConfigItems: function (items) {
         (items || []).forEach(function (item) {
           if (!item.widget) item.widget = '';
           if (!item.widget && PERMSOC_LIST_WIDGET_KEYS[item.key]) {
             item.widget = 'list';
+          }
+          // W3-MODULES-UI: display-оверрайды (title/description/виджет).
+          var ov = CONFIG_ITEM_DISPLAY_OVERRIDES[item.key];
+          if (ov) {
+            if (ov.title) item.title = ov.title;
+            if (ov.description) item.description = ov.description;
+          }
+          if (item.key === 'initiative.frequency_profile') {
+            item.widget = INITIATIVE_PROFILE_SELECT.widget;
+            item.select_options = INITIATIVE_PROFILE_SELECT.select_options;
+            item.select_labels = INITIATIVE_PROFILE_SELECT.select_labels;
           }
           if (item.type === 'json' && !item.widget &&
               typeof item.value === 'object' && item.value !== null) {
@@ -14690,9 +15545,19 @@
       },
 
       groupTitle: function (grp) {
+        // W3-MODULES-UI (B07): display-оверрайды групп (Δ каталога = 0).
+        var gid = grp && grp.id;
+        if (gid && CONFIG_GROUP_DISPLAY[gid] && CONFIG_GROUP_DISPLAY[gid].title) {
+          return CONFIG_GROUP_DISPLAY[gid].title;
+        }
         return (grp.meta && grp.meta.title) || 'Прочее';
       },
       groupDescription: function (grp) {
+        var gid = grp && grp.id;
+        if (gid && CONFIG_GROUP_DISPLAY[gid]
+            && CONFIG_GROUP_DISPLAY[gid].description) {
+          return CONFIG_GROUP_DISPLAY[gid].description;
+        }
         return (grp.meta && grp.meta.description) || '';
       },
       clearConfigSearch: function () {

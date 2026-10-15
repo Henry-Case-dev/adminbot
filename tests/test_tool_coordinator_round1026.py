@@ -734,6 +734,40 @@ class TestBounds:
                                              # pre-round1026-a1 и в diff
                                              # не входил).
                                              "web/api/summary_test.py",
+                                             # ASAP 8 v6.3 (Wave 3a/3b,
+                                             # REQ-B03-block/REQ-U05; тот же
+                                             # NOTE-санкционный прецедент):
+                                             # + `web/api/memory_overview.py`
+                                             # (read-only expired-overview +
+                                             # intel-funnels для Статуса;
+                                             # global-admin RBAC, R17-safe,
+                                             # fail-open) и + `web/api/
+                                             # analytics_viz.py` (read-only
+                                             # данные 7 визуализаций D12 U05:
+                                             # activity heatmap и др.; без
+                                             # новых поллеров, кэш 60с).
+                                             "web/api/memory_overview.py",
+                                             "web/api/analytics_viz.py",
+                                             # ASAP 8 v6.3 Wave 2 (U07/U08;
+                                             # CORR-1 — фон не тронут):
+                                             # + fullscreen-policy.js и
+                                             # + glass-probe.js (новые
+                                             # first-party модули политик/
+                                             # probe) и + vendor/lg-lens-map.png
+                                             # (feImage-карта линзы; на неё
+                                             # ссылается app.js).
+                                             "web/static/fullscreen-policy.js",
+                                             "web/static/glass-probe.js",
+                                             "web/static/vendor/lg-lens-map.png",
+                                             # ASAP 8 v6.3 U08.5/CORR-1:
+                                             # glass-teststand (контролируемый
+                                             # стенд edge-refraction: сетка/
+                                             # волна — ТОЛЬКО test/evidence,
+                                             # никогда в production UI; N3:
+                                             # закрытие по auth — Wave 4).
+                                             "web/static/glass-teststand.css",
+                                             "web/static/glass-teststand.html",
+                                             "web/static/glass-teststand.js",
                                              "web/api/__init__.py"))
                        for n in names)
         # NOTE (round1027, MCA-01 / ADR-1027-3 D3): `services/summary_memory.py`

@@ -427,14 +427,22 @@ def test_ui_human_explanation_and_vitrina_labels():
 
 def test_ui_no_numeric_id_dump_in_main_ui():
     """§28.17: raw IDs/episode_id/ключи-источники НЕ показываются в главном
-    UI — только под Developer details (collapsed)."""
+    UI — только под Developer details (collapsed).
+    re-pin ASAP 8 v6.3 B08 (REQ-B08, Wave 3a): карточки переведены на
+    display_title/primary_participants (+others_count) и раскрываемую
+    хронологию; «Участники (ID):» из главного вида убраны вовсе (строже
+    старого контракта), data-stories-dev/claims-refs инварианты сохранены."""
     html = _read("web/index.html")
     # лента: участники больше не raw join
     assert "участники: {{ ev.participants.join" not in html
-    # manage-карточка: главный вид — display names
-    assert "<b>Участники:</b> {{ storiesParticipantsLabel(" in html
-    # «Участники (ID):» остался ровно один раз — внутри Developer details
-    assert html.count("Участники (ID):") == 1
+    # участники — через display_names (ключевые + «ещё N»), не raw-список
+    assert html.count("storiesParticipantsLabel(") >= 3, \
+        "v6.3 B08: участники рендерятся storiesParticipantsLabel"
+    assert "display_names" in html
+    # raw-ID блок «Участники (ID):» — ровно один, внутри collapsed
+    # Developer details (главный вид — display_names без ID)
+    assert html.count("Участники (ID):") == 1, \
+        "v6.3 B08: raw IDs — только в collapsed dev details"
     dev_idx = html.find("Участники (ID):")
     dev_block = html.rfind("data-stories-dev", 0, dev_idx)
     assert dev_block > 0, "raw IDs — внутри блока data-stories-dev"

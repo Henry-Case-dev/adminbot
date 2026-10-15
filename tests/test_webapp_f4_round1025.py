@@ -115,9 +115,11 @@ def test_runtime_gate_metadata_complete():
     assert modules.count("runtimeGate:") == 15, modules.count("runtimeGate:")
     assert modules.count("keywords:") == 15, modules.count("keywords:")
     # 10 модулей глобальные, 5 — по-чатово (аудит ADR §D3;
-    # ASAP 7 F3: Initiative — global, effective = env AND product §3.3)
-    assert modules.count("runtimeGate: 'per_chat'") == 5
-    assert modules.count("runtimeGate: 'global'") == 10
+    # ASAP 7 F3: Initiative — global, effective = env AND product §3.3).
+    # v6.3 B06.1: Summary — per_chat (единый резолвер
+    # summary_scheduler.summary_effective_enabled; 6/9).
+    assert modules.count("runtimeGate: 'per_chat'") == 6
+    assert modules.count("runtimeGate: 'global'") == 9
     # ASAP 8 F5 (ТЗ §11/§28.10, архитектура §5.2): ложный parentGate
     # (Summary как fake bootstrap-master) удалён у ВСЕХ 7 модулей —
     # все independent; parent_off-механика зарезервирована, ни одна
