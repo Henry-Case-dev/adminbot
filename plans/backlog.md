@@ -336,3 +336,23 @@ recovery после реального сбоя (C03/C03A); живое пове�
 - N4: нет 1:1 crop ⛶ в glass-evidence — добить в Wave 4.
 - N5: дубликат _prefersReducedMotion (app.js:18314/18333) — схлопнуть в W3.
 - Wave 4 live-чеклист: реальные TMA/Windows клиенты (V06), прод-CSP feImage data-URI (V07), физический FPS mid-range, COVER_STYLE_SCENE_VERIFY на canary (REV-W1 N6), B11-прогон на проде, 24-48h initiative canary, prod-сид temporal, supergroup live, stories UI narrative.
+
+## v6.3 Wave 4 — прод-деградация векторного контура (расследовано 2026-10-16, прод-факты)
+
+**Симптомы (owner-выборка журнала):**
+1. `SmartModule: embedding generation not serviceable | index=smart_archive|graph_facts_vec | status=building | gen_fp=96f80838f683 new_fp=96f80838f683 — FTS-only (A06)` — каждые 600 с.
+2. `graphrag memorize: embedding unavailable for batch — facts saved text-only | state=EmbeddingGroupCoolingDown | next_allowed_at=1792109100` + события `EMBED_API_DEFERRED`/`FACTS_EXTRACT reason_code=embed_deferred`.
+
+**Это ОДИН механизм, не два дефекта.** Корневая причина — квота эмбеддингов у провайдера исчерпана: провайдер отвечает `kind=spend` **без** `Retry-After` (`retry_after=None`, `429_last_10m=1..3`), поэтому контрол-плейн паркует ВСЕ группы до конца суток UTC (`EMBED_QUOTA_*`: `parked kind=spend est=utc_day_end`). Прод-доказательства: `embedding_quota_state` = `primary/fallback_1/fallback_2 → state=exhausted, next_allowed_at=1792109100` (= 2026-10-16 00:05 UTC = UTC-midnight + 300 с), `unknown` — парк предыдущих суток; журнал `embed rate limit | parked=1 | cooldown_s≈86391`.
+
+**Цепочка:** квота припаркована → (A) новые факты пишутся text-only (`embed_deferred`), векторный дедуп пропускается — данные НЕ теряются; (B) shadow-rebuild GraphRAG, который переводит поколение индекса `building → active`, не может идти: `EMBEDDING_GENERATION_PAUSED | index=graph_facts_vec | gen=1 | reason=paused_rate_limit | checkpoint preserved` → активного поколения нет → `_index_generation_ok()` возвращает False → предупреждение каждые 600 с и режим **FTS-only** (A06). B11 это уже показывал: `graph_memory` и `embeddings` = `never_run` (попыток 0).
+
+**Регрессия ли? НЕТ.** v6.3 не трогал этот контур: `git diff f58a644..HEAD --stat` = 0 изменений в `embedding_control_plane.py` и `graphrag_rebuild.py`; в `summary_memory.py` изменены только регионы 1331–1405 и 3900–4400 (rag-формат, retrieval/overfetch/expired), а quarantin-регистрация поколений (1507–1966, 2520–2536) не тронута. Парк от 2026-10-15 00:05 UTC предшествует деплою 2.58.79 (14:55); состояние переживает рестарт по дизайну (T-4402, `embedding_quota_state`).
+
+**Поправка к live-canary:** «no such module: vec0» — НЕ дефект прода. Прод-доказательство: `sqlite_master` содержит `smart_archive` и `graph_facts_vec`, журнал старта: `SmartModule: sqlite-vec available`. Ошибка — артефакт read-only-скрипта B11, который не грузит расширение sqlite-vec в своём соединении (fail-soft секции). Прод-векторный контур физически присутствует.
+
+**Что работает / что деградировано:** текст фактов сохраняется и ищется через FTS5 (A06), потерь данных нет. Деградация: нет семантического (векторного) recall, L3-поиск `smart_archive` — только текстовый, перестроение векторов стоит. Влияет на честный статус V03 (memory live) — проба пройдёт на FTS-уровне, семантика не проверяется.
+
+**Self-heal по дизайну:** в 00:05 UTC парк снимается, resume-тикер (900 с) перезапускает rebuild с сохранённого checkpoint'а; при успешном построении поколение станет `active` и предупреждения прекратятся.
+
+**Human gate (владелец):** парк повторяется ежедневно (парк 13.10 и 15.10) → суточная квота эмбеддингов исчерпывается сразу после сброса. Нужна проверка лимитов/ключа провайдера эмбеддингов; технические levers (НЕ решают без владельца): `EMBED_QUOTA_RESET_HORIZON_SECONDS` (если реальный reset провайдера не в UTC-midnight — код это прямо отмечает), смена/разведение API-ключей по группам, увеличение квоты. До решения — фиксировать V03 как degraded (FTS-only), не как VERIFIED.
