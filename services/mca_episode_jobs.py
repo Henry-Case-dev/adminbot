@@ -41,6 +41,10 @@ BACKFILL_JOB_KIND = "episodes.backfill"
 JOB_PAUSED = "paused"            # durable-статус паузы (прецедент mca-04b D3)
 BACKFILL_REASON_BUDGET = "story_backfill_paused_budget"
 
+# B08: safe bounded content-backfill — максимум пустых техэпизодов на один
+# вызов (код-константа, Δ каталога = 0; повторный вызов продолжает).
+CONTENT_BACKFILL_MAX = 20
+
 # Пауза между LLM-порциями при direct-приоритете (backfill уступает
 # direct-пути; код-константа, Δ каталога = 0).
 _DIRECT_PRIORITY_YIELD_SECONDS = 2.0
@@ -294,6 +298,62 @@ class EpisodesBackfillRunner:
             if row is not None:
                 messages.append(row)
         return messages
+
+    async def process_content_backfill(
+            self, chat_id: int, *,
+            limit: int = CONTENT_BACKFILL_MAX) -> dict:
+        """B08: safe bounded backfill пустых техэпизодов («Краткое
+        содержание: неизвестно» не выдаётся за готовую историю).
+
+        Для каждого кандидата (`episodes_needing_backfill`: пустой контент
+        + есть исходные ключи, cap `limit`) исходные сообщения читаются из
+        архива: есть источники → re-extract (LLM или детерминированная
+        сборка из фактов) + пересборка историй; источников нет → честный
+        `no_sources` (запись НЕ удаляется и не выдумывается). Возврат —
+        счётчики {candidates, reextracted, no_sources, failed}."""
+        from services import mca_episodes as episodes_mod
+        if not mca_gates.episodes_enabled():
+            return {"candidates": 0, "reextracted": 0, "no_sources": 0,
+                    "failed": 0, "disabled": True}
+        candidates = await episodes_mod.episodes_needing_backfill(
+            self._db, int(chat_id), limit=limit)
+        counters = {"candidates": len(candidates), "reextracted": 0,
+                    "no_sources": 0, "failed": 0}
+        touched = False
+        for episode in candidates:
+            try:
+                messages = await self._episode_source_messages(
+                    int(chat_id), episode)
+                if not messages:
+                    # Источники недоступны: честный skip, оригиналы (что
+                    # осталось) не удаляются — B08.3.
+                    counters["no_sources"] += 1
+                    continue
+                ok = await self._service.reextract_episode(
+                    int(chat_id), episode, messages)
+                if ok:
+                    counters["reextracted"] += 1
+                    touched = True
+                else:
+                    counters["failed"] += 1
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                logger.warning("[mca05] content backfill failed",
+                               exc_info=True)
+                counters["failed"] += 1
+        if touched:
+            # Пересборка историй чата: контент эпизодов изменился →
+            # истории получают новые версии (override не затирается).
+            try:
+                await self._service.assemble_stories(
+                    int(chat_id), int(time.time()))
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                logger.warning("[mca05] content backfill assemble failed",
+                               exc_info=True)
+        return counters
 
     async def _message_by_key(self, chat_id: int, key: str):
         if ":tg:" in key:
