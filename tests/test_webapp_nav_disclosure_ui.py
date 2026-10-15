@@ -29,8 +29,9 @@ class TestMenu:
     def test_no_sidebar_dead_menu(self):
         """A1/T-1157: мёртвое legacy-меню (MENU_ORDER/MENU_LABELS/
         sidebarOpen) удалено. F1 (T-2393, SUPERSEDE): НОВЫЙ shell.
-        re-pin ASAP 8 v6 D13 (§18I.14): нижняя навигация удалена владельцем
-        — мобильная навигация верхняя (mobile-topnav); это не dead-menu."""
+        re-pin ASAP 8 v6 D13 (§18I.14) → v6.3 U01 (REQ-U01-3): нижняя
+        навигация удалена владельцем — мобильная навигация верхняя
+        (mobile-topnav, без scroll-thin); это не dead-menu."""
         js, html = _js(), _html()
         for token in ("MENU_ORDER", "MENU_LABELS", "sidebarOpen"):
             assert token not in js, token
@@ -39,8 +40,10 @@ class TestMenu:
         assert 'class="app-drawer"' in html
         assert 'class="bottom-nav"' not in html, \
             "D13: нижняя навигация удалена"
-        assert 'class="mobile-topnav scroll-thin"' in html, \
-            "D13: верхняя мобильная навигация присутствует"
+        assert 'class="mobile-topnav"' in html, \
+            "U01 §REQ-U01-3: верхняя мобильная навигация присутствует"
+        assert 'mobile-topnav scroll-thin' not in html, \
+            "U01: мобильный topnav без scroll-thin"
 
     def test_user_sees_only_home(self):
         js = _js()

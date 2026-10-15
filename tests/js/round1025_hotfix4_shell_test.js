@@ -94,8 +94,8 @@ assert.ok(INDEX.indexOf('class="bottom-nav"') < 0,
   'D13: bottom-nav разметка удалена');
 assert.ok(INDEX.indexOf('moreOpen') < 0,
   'D13: moreOpen-состояние удалено');
-assert.ok(INDEX.indexOf('class="mobile-topnav scroll-thin"') >= 0,
-  'D13: компактная верхняя навигация присутствует');
+assert.ok(INDEX.indexOf('class="mobile-topnav"') >= 0,
+  'D13+U01: компактная верхняя навигация присутствует (без scroll-thin-ленты)');
 assert.ok(/\.mobile-topnav \{/.test(CSS),
   'D13: .mobile-topnav правило присутствует');
 assert.ok(/min-height:\s*44px/.test(CSS), 'touch ≥44px сохранён');

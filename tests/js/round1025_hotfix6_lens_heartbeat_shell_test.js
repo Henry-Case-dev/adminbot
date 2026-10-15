@@ -1,7 +1,9 @@
 'use strict';
 /* hotfix6 round 10.25 (T-2583…T-2613, ADR-1025-12) — регресс областей A/B/C/D:
- *   A  — преломление на foreground-линзе (#lg-lens, ::before), БЕЗ
- *        backdrop url-фильтра; tier по feature-detect + перф-кап UI_LENS_MAX_NODES.
+ *   A  — edge-рефракция подложки: backdrop url(#lg-lens) ТОЛЬКО на
+ *        probe-гейте [data-glass-tier="a"] (render-probe glass-probe.js;
+ *        re-pin v6.3 U08, REQ-U08-*); foreground ::before — tint-слой без
+ *        filter:url(); перф-кап UI_LENS_MAX_NODES сохранён.
  *   B  — нижний offset = max(A,B,C) (contentSafeAreaInset/safeAreaInset) — в
  *        round1025_hotfix4_shell_test.js (здесь — сквозной инвариант).
  *   C  — §15: чистая машина состояний (гистерезис/UNKNOWN/reduced-motion),
@@ -52,6 +54,10 @@ const methods = captured.methods;
 const ROOT = path.join(__dirname, '..', '..');
 const INDEX = fs.readFileSync(path.join(ROOT, 'web', 'index.html'), 'utf8');
 const APP_JS = fs.readFileSync(path.join(ROOT, 'web', 'app.js'), 'utf8');
+// ASAP 8 v6.3 U07.1: fullscreen-политика вынесена в web/static/fullscreen-policy.js
+// (plain IIFE); устойчивость к вариантам метода (ADR-1024-24) живёт там.
+const FS_POLICY = fs.readFileSync(
+  path.join(ROOT, 'web', 'static', 'fullscreen-policy.js'), 'utf8');
 const CSS = fs.readFileSync(
   path.join(ROOT, 'web', 'static', 'app.css'), 'utf8');
 const TG_INIT = fs.readFileSync(
@@ -71,21 +77,36 @@ function firstPartyWeb() {
   return out;
 }
 
-// ── A. Преломление без backdrop url-фильтра ─────────────────────────────────
+// ── A. Преломление: W2-GLASS U08.3 (SUPERSEDE §9/hotfix6) ───────────────────
+//  §9-канон «нигде нет backdrop url-фильтра» заменён ТЗ U08.3a: реальная
+//  edge-рефракция заднего слоя в Chromium через backdrop-filter: url(#…)
+//  с feDisplacementMap; форграунд-линза ::before с filter:url() на
+//  собственном градиенте удалена (это декорация, не рефракция — U08.1).
 {
   const files = firstPartyWeb();
-  const offenders = Object.entries(files).filter(([, t]) =>
-    /backdrop-filter\s*:\s*url\(/.test(t));
+  // backdrop url-фильтр разрешён ТОЛЬКО в app.css (цепочки tier A).
+  // Сканируем КОД без комментариев (в доккомментариях glass-probe.js имя
+  // конструкции упоминается текстом — это не использование).
+  const offenders = Object.entries(files).filter(([p, t]) => {
+    const code = t.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '');
+    return /backdrop-filter\s*:\s*url\(/.test(code) && !p.endsWith('app.css');
+  });
   assert.deepStrictEqual(offenders.map(([p]) => p), [],
-    'A: нигде нет backdrop url-фильтра (§9)');
+    'A: backdrop url-фильтр только в app.css (U08.3a)');
   assert.ok(/id="lg-lens"/.test(INDEX), 'A: inline-фильтр #lg-lens');
-  assert.ok(/--glass-displace\s*:\s*url\(#lg-lens\)/.test(CSS),
-    'A: --glass-displace → url(#lg-lens)');
+  // re-pin v6.3 U08 (REQ-U08-2): мёртвый --glass-displace удалён владельцем;
+  // канон смещения — Tier A backdrop url(#lg-lens) (assert ниже).
+  assert.ok(CSS.indexOf('--glass-displace') < 0,
+    'A: --glass-displace удалён (U08)');
+  // U08.1/U08.2: форграунд-линзы с filter:url() на собственном градиенте
+  // больше нет; ::before — tint-слой без filter.
   const lens = CSS.match(/\[data-glass="a"\]::before\s*\{([^}]*)\}/);
-  assert.ok(lens, 'A: foreground-линза ::before');
-  assert.ok(lens[1].indexOf('var(--glass-displace)') >= 0, 'A: filter линзы');
-  assert.ok(/radial-gradient/.test(lens[1]) && /mask-image/.test(lens[1]),
-    'A: edge-weighted радиальная маска');
+  assert.ok(lens, 'A: ::before = tint-слой');
+  assert.ok(lens[1].indexOf('var(--glass-displace)') < 0,
+    'A: на ::before НЕТ filter линзы (запрет U08.2)');
+  const tierA = CSS.match(/\[data-glass="a"\]\[data-glass-tier="a"\]\s*\{([^}]*)\}/);
+  assert.ok(tierA && /backdrop-filter:[^;]*url\(#lg-lens\)/.test(tierA[1]),
+    'A: РЕАЛЬНАЯ edge-рефракция — backdrop url() только при tier="a" (probe)');
   // HOTFIX8 (ADR-1025-16 D2): панели выведены из цветной allow-линзы A →
   // нейтральный `data-glass="shell"` (без teal/blue/violet ореола). Уровень A
   // остаётся у контентных карточек (allow-list непуст).
@@ -102,9 +123,9 @@ function firstPartyWeb() {
     'A2: шапка в shell-слое');
   assert.ok(INDEX.indexOf('data-glass="a"') >= 0,
     'A: контентный allow-list A сохранён');
-  // Перф-кап + override.
-  assert.strictEqual(methods._lensMaxNodes.call({ me: null }), 6,
-    'A: дефолт UI_LENS_MAX_NODES=6');
+  // Перф-кап + override. W2-GLASS U08.3d: дефолт 3 (максимум 1–3 hero).
+  assert.strictEqual(methods._lensMaxNodes.call({ me: null }), 3,
+    'A: дефолт UI_LENS_MAX_NODES=3 (W2-GLASS U08.3d)');
   assert.strictEqual(
     methods._lensMaxNodes.call({ me: { ui_flags: { UI_LENS_MAX_NODES: 3 } } }), 3,
     'A: кап из ui_flags');
@@ -186,7 +207,9 @@ function firstPartyWeb() {
   assert.ok(/\.status-block \{ max-width: 100%; overflow: hidden; \}/.test(CSS),
     'C1: .status-block ограничен');
   assert.ok(/\.hb-canvas \{[^}]*width: 100%/.test(CSS), 'C1: canvas width:100%');
-  assert.ok(/radial-gradient\(ellipse at center/.test(CSS), 'A: edge-маска');
+  assert.ok(/mask-composite:\s*exclude/.test(CSS) ||
+    /-webkit-mask-composite:\s*xor/.test(CSS),
+    'A: edge-маска (W2-GLASS: masked ring rim, mask-composite)');
   // reduced-motion → статичный кадр.
   assert.ok(/prefers-reduced-motion: reduce[\s\S]{0,260}\.hb-canvas/.test(CSS),
     'C: reduced-motion правило для canvas');
@@ -334,9 +357,13 @@ function firstPartyWeb() {
   assert.ok(/scroll-padding-top: calc\(var\(--header-h/.test(CSS),
     'D: резерв контента (--header-h)');
   // fullscreen: устойчивый toggle (камел-варианты имени метода), контракт
-  // ADR-1024-24 не отменён.
-  assert.ok(/requestFullScreen/.test(APP_JS) && /requestFullscreen/.test(APP_JS),
-    'D: toggleFullscreen устойчив к вариантам метода');
+  // ADR-1024-24 не отменён — v6.3 U07.1: варианты метода обрабатывает
+  // fullscreen-policy.js (оба имени), app.js держит зеркало на requestFullscreen.
+  assert.ok(/requestFullScreen/.test(FS_POLICY) &&
+      /requestFullscreen/.test(FS_POLICY),
+    'D: toggleFullscreen устойчив к вариантам метода (fullscreen-policy.js)');
+  assert.ok(/requestFullscreen/.test(APP_JS),
+    'D: app.js зеркало requestFullscreen');
   assert.ok(typeof methods.toggleFullscreen === 'function' &&
     typeof methods.setFullscreenFromTma === 'function',
     'D: fullscreen-sync (ADR-1024-24) сохранён');

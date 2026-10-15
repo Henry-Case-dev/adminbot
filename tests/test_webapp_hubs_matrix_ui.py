@@ -22,13 +22,16 @@ class TestNavbarAndHubs:
         assert "id: 'memory', label: 'Память', route: '#/memory'" in _JS
         assert "navTo(n.route)" in _HTML
         assert "activeNav === n.id" in _HTML
-        # shell-навигация (T-2397/T-2398). re-pin ASAP 8 v6 D13 (§18I.14):
-        # нижняя навигация удалена — мобильная верхняя (mobile-topnav).
+        # shell-навигация (T-2397/T-2398). re-pin ASAP 8 v6 D13 (§18I.14)
+        # → v6.3 U01 (REQ-U01-3): нижняя навигация удалена — мобильная
+        # верхняя (mobile-topnav, без scroll-thin).
         assert 'class="app-sidebar"' in _HTML
         assert 'class="bottom-nav"' not in _HTML, \
             "D13: нижняя навигация удалена"
-        assert 'class="mobile-topnav scroll-thin"' in _HTML, \
-            "D13: верхняя мобильная навигация присутствует"
+        assert 'class="mobile-topnav"' in _HTML, \
+            "U01 §REQ-U01-3: верхняя мобильная навигация присутствует"
+        assert 'mobile-topnav scroll-thin' not in _HTML, \
+            "U01: мобильный topnav без scroll-thin"
         assert 'class="app-drawer"' in _HTML
         assert "shellNavTo(" in _HTML
 

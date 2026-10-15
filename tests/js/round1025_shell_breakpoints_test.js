@@ -33,7 +33,7 @@ assert.ok(CSS.indexOf('@media (min-width: 1200px)') >= 0,
 
 // ── Shell-элементы в разметке ────────────────────────────────────────────
 for (const cls of ['class="app-sidebar"', 'class="app-drawer"',
-                   'class="mobile-topnav scroll-thin"']) {
+                   'class="mobile-topnav"']) {
   assert.ok(INDEX.indexOf(cls) >= 0, 'разметка: ' + cls);
 }
 // D13 (§18I.14): нижней навигации и шторки «Ещё» НЕТ нигде.
@@ -43,9 +43,12 @@ assert.ok(INDEX.indexOf('class="more-sheet"') < 0,
   'D13: more-sheet удалён из разметки');
 assert.ok(/v-if="iaV2 && hasSidebar"/.test(INDEX),
   'sidebar — только ≥1200 (hasSidebar)');
-assert.ok(/class="mobile-topnav scroll-thin"\s*\n\s*aria-label="Разделы">/.test(INDEX)
-  || /v-if="iaV2 && isMobileShell" class="mobile-topnav/.test(INDEX),
+assert.ok(/v-if="iaV2 && isMobileShell" class="mobile-topnav/.test(INDEX),
   'mobile-topnav — только <768 (isMobileShell)');
+// W2-SHELL (asap8-v6.3, U01): старый канон (горизонтально-скроллимая лента
+// scroll-thin) заменён — класс больше не содержит scroll-thin.
+assert.ok(INDEX.indexOf('class="mobile-topnav scroll-thin"') < 0,
+  'U01: скроллимая лента всех пунктов удалена (4 сегмента + «Ещё»)');
 assert.ok(/v-if="iaV2 && isCompactShell"/.test(INDEX),
   'drawer — только 768–1199 (isCompactShell)');
 

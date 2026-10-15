@@ -215,6 +215,10 @@ class TestLiquidGlass:
             "rgba(170,182,200,0.16)"
 
     def test_each_glass_selector_carries_glass(self):
+        # re-pin v6.3 U08 (REQ-U08-2): канон blur-токена — семейство frost:
+        # Tier B default var(--lg-frost)/var(--lg-frost-hero); legacy
+        # var(--glass-blur) тоже каноничен. Живой интент прежний: каждая
+        # стеклянная поверхность несёт прозрачный фон + backdrop-blur.
         for sel in GLASS_SET:
             classes = re.findall(r"\.([\w-]+)", sel)
             el = sel.split(".")[0]
@@ -223,20 +227,27 @@ class TestLiquidGlass:
             assert bg is not None and "var(--glass-bg)" in bg, (sel, bsel, bg)
             blur, _, _ = _resolve(classes, "backdrop-filter", tag=tag)
             wblur, _, _ = _resolve(classes, "-webkit-backdrop-filter", tag=tag)
-            assert blur is not None and "var(--glass-blur)" in blur, (sel, blur)
-            assert wblur is not None and "var(--glass-blur)" in wblur, (sel, wblur)
+            for blur_val in (blur, wblur):
+                assert blur_val is not None and (
+                    "var(--glass-blur)" in blur_val
+                    or "var(--lg-frost" in blur_val), (sel, blur_val)
 
     def test_cascade_modal_card_chain(self):
-        """Реальная цепочка class="modal-card card …" → glass."""
+        """Реальная цепочка class="modal-card card …" → glass.
+        re-pin v6.3 U08 (REQ-U08-2): blur-токен — frost-семейство
+        (--lg-frost/--lg-frost-hero/--glass-blur)."""
         value, sel, _ = _resolve(["modal-card", "card"], "background-color",
                                  tag="div")
         assert value is not None and "var(--glass-bg)" in value, (sel, value)
         blur, bsel, _ = _resolve(["modal-card", "card"], "backdrop-filter",
                                  tag="div")
-        assert blur is not None and "var(--glass-blur)" in blur, (bsel, blur)
+        assert blur is not None and (
+            "var(--glass-blur)" in blur or "var(--lg-frost" in blur), \
+            (bsel, blur)
         wblur, _, _ = _resolve(["modal-card", "card"],
                                "-webkit-backdrop-filter", tag="div")
-        assert wblur is not None and "var(--glass-blur)" in wblur
+        assert wblur is not None and (
+            "var(--glass-blur)" in wblur or "var(--lg-frost" in wblur)
 
     def test_cascade_beats_card_solid(self):
         """Даже при наличии card-solid стекло выигрывает по порядку."""

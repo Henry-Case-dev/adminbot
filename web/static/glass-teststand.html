@@ -1,0 +1,180 @@
+﻿<!doctype html>
+<!-- ═══ W2-GLASS (U08, REQ-U08-5): тестовый стенд Liquid Glass ═══
+     Локальный статичный fixture (не маршрут прод-навигации): контролируемый
+     фон (прямые контрастные линии + плавная волна) и полный набор панелей
+     для приёмки U08.5 — 1:1 crops, hit-тест elementFromPoint, контраст,
+     reduced-motion, до/после.
+     CSP-safe: без inline-скриптов/обработчиков; стили и логика — внешние.
+     Запуск: любой статик-сервер от корня web/ (см. отчёт лейна W2-GLASS). -->
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>AdminBot — Glass Test Stand (U08)</title>
+  <link rel="stylesheet" href="/static/app.css?v=stand">
+  <link rel="stylesheet" href="/static/glass-teststand.css?v=stand">
+</head>
+<body class="stand">
+  <!-- Копия SVG-defs фильтра линзы из web/index.html (#lg-lens) — стенд
+       самодостаточен вне Vue-приложения. Синхронизируется вручную. -->
+  <svg class="lg-filter-defs" width="0" height="0" aria-hidden="true" focusable="false"
+       style="position:absolute;width:0;height:0;overflow:hidden">
+    <defs>
+      <filter id="lg-lens" x="-6%" y="-6%" width="112%" height="112%"
+              color-interpolation-filters="sRGB">
+        <feImage id="lg-lens-map" href="data:image/png;base64,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" x="0" y="0"
+                 width="360" height="120" preserveAspectRatio="none"
+                 result="lg-map"/>
+        <feDisplacementMap in="SourceGraphic" in2="lg-map" scale="16"
+                           xChannelSelector="R" yChannelSelector="G"/>
+      </filter>
+    </defs>
+  </svg>
+
+  <!-- Контролируемый фон: (а) прямые контрастные линии-сетка, (б) плавная
+       синяя волна (SVG), (в) градиент. Переключается кнопками (stand.js). -->
+  <div class="stand-stage" aria-hidden="true">
+    <div class="stand-bg stand-bg--grid" data-bg="grid"></div>
+    <svg class="stand-bg stand-bg--wave" data-bg="wave" viewBox="0 0 1200 600"
+         preserveAspectRatio="none" aria-hidden="true">
+      <defs>
+        <linearGradient id="stand-wave-g" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#0a2f6b"/>
+          <stop offset=".5" stop-color="#1273a8"/>
+          <stop offset="1" stop-color="#0a1e3f"/>
+        </linearGradient>
+      </defs>
+      <rect width="1200" height="600" fill="#071022"/>
+      <path d="M0,250 C150,180 300,320 450,260 C600,200 700,330 850,275
+               C1000,220 1100,310 1200,255 L1200,600 L0,600 Z"
+            fill="url(#stand-wave-g)"/>
+      <path d="M0,285 C180,205 340,365 520,305 C700,245 820,365 980,315
+               C1100,275 1150,335 1200,305 L1200,600 L0,600 Z"
+            fill="none" stroke="#7fd4ff" stroke-width="3" opacity=".9"/>
+      <path d="M0,225 C200,160 380,300 560,240 C740,185 860,300 1020,255
+               C1120,222 1170,268 1200,248" fill="none"
+            stroke="#b6f0ff" stroke-width="1.5" opacity=".65"/>
+    </svg>
+    <div class="stand-bg stand-bg--gradient" data-bg="gradient"></div>
+  </div>
+
+  <main class="stand-wrap">
+    <header class="stand-head card glass-panel p-3" data-glass="b">
+      <div class="stand-title">Glass Test Stand — U08 (W2-GLASS)</div>
+      <div class="stand-probe" id="stand-probe" data-testid="probe-status">probe: …</div>
+      <div class="stand-controls" role="group" aria-label="Управление стендом">
+        <button type="button" class="stand-btn" data-set-bg="grid">Сетка</button>
+        <button type="button" class="stand-btn" data-set-bg="wave">Волна</button>
+        <button type="button" class="stand-btn" data-set-bg="gradient">Градиент</button>
+        <button type="button" class="stand-btn" data-toggle-tier>Hero tier A/B</button>
+        <button type="button" class="stand-btn" data-toggle-reduced>Reduced-motion</button>
+      </div>
+    </header>
+
+    <!-- A. Легаси-референс и текущая карточка (аудит U08.1 «до»). -->
+    <section class="stand-row" id="row-before">
+      <h2 class="stand-row-title">Аудит «до»: карточка текущего glass + легаси-референс</h2>
+      <div class="stand-row-flex">
+        <div class="card glass-panel p-4 stand-card-340" data-glass="a"
+             data-glass-tier="a" id="legacy-card">
+          <div class="text-sm font-bold mb-1">Карточка [data-glass=a] (текущий стек)</div>
+          <div class="text-xs" style="color:#c9d6ea">blur + tint + градиент-линза на ::before
+            с собственным градиентом — фон под карточкой НЕ преломляется.</div>
+        </div>
+        <div class="lg-legacy-ref stand-card-340" id="legacy-ref">
+          <div class="text-sm font-bold mb-1">Легаси-референс (rgba + blur16)</div>
+          <div class="text-xs" style="color:#c9d6ea">Фиксированная реплика старого рецепта
+            для 1:1-сравнения «до/после» между прогонами.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- B. Новая слоистая модель .lg-panel (реальные дочерние слои). -->
+    <section class="stand-row" id="row-lg-panel">
+      <h2 class="stand-row-title">Новая модель .lg-panel: hero / soft / solid</h2>
+      <div class="stand-row-flex">
+        <div class="lg-panel lg-panel--hero stand-card-360" id="panel-hero"
+             data-glass-tier="a" data-testid="lg-hero">
+          <div class="lg-panel__backdrop" aria-hidden="true"></div>
+          <div class="lg-panel__tint" aria-hidden="true"></div>
+          <div class="lg-panel__rim" aria-hidden="true"></div>
+          <div class="lg-panel__specular" aria-hidden="true"></div>
+          <div class="lg-panel__content">
+            <div class="text-sm font-bold mb-1">Hero-линза (Tier A)</div>
+            <div class="text-xs" style="color:#dbe7fa">5 реальных слоёв: backdrop/tint/rim/
+              specular/content. Центр прозрачен, кромка светится, фон у края изгибается.</div>
+            <button type="button" class="stand-btn mt-2" id="hero-btn">Контрол кликабелен</button>
+          </div>
+        </div>
+        <div class="lg-panel lg-panel--soft stand-card-360" id="panel-soft"
+             data-testid="lg-soft">
+          <div class="lg-panel__backdrop" aria-hidden="true"></div>
+          <div class="lg-panel__tint" aria-hidden="true"></div>
+          <div class="lg-panel__rim" aria-hidden="true"></div>
+          <div class="lg-panel__specular" aria-hidden="true"></div>
+          <div class="lg-panel__content">
+            <div class="text-sm font-bold mb-1">Soft-стекло (Tier B)</div>
+            <div class="text-xs" style="color:#c9d6ea">Frost blur(8)+saturate(1.3), светлая
+              rim-кромка, локальный specular. Без тяжёлых фильтров.</div>
+          </div>
+        </div>
+        <div class="lg-panel lg-panel--solid stand-card-360" id="panel-solid"
+             data-testid="lg-solid">
+          <div class="lg-panel__content">
+            <div class="text-sm font-bold mb-1">Solid (Tier C)</div>
+            <div class="text-xs" style="color:#c9d6ea">Формы/таблицы/логи: плотная подложка,
+              без blur и преломления.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- C. Атрибутивный путь приложения (pseudo-слои на [data-glass]). -->
+    <section class="stand-row" id="row-app">
+      <h2 class="stand-row-title">Атрибутивный путь [data-glass] + mini-lens</h2>
+      <div class="stand-row-flex">
+        <div class="card p-4 status-hero stand-card-360" data-glass="a"
+             data-glass-tier="a" id="app-hero"
+             data-testid="app-hero">
+          <div class="text-sm font-bold mb-1">Status-hero (Tier A, pseudo-слои)</div>
+          <div class="text-xs" style="color:#dbe7fa">Тот же рецепт на [data-glass="a"]:
+            root=backdrop, ::before=tint+rim, ::after=specular+fringe.</div>
+        </div>
+        <div class="card module-card p-4 stand-card-360" data-glass="b" id="app-module"
+             data-testid="app-module">
+          <div class="flex items-center gap-2 mb-1">
+            <span class="msr" aria-hidden="true">extension</span>
+            <div class="text-sm font-bold">Module-карточка (Tier B)</div>
+          </div>
+          <div class="text-xs" style="color:#c9d6ea">Тонкая светящаяся кромка, hover-specular;
+            тумблеры/кнопки не меняют хитбокс.</div>
+        </div>
+        <div class="stand-minilens-row">
+          <button type="button" class="lg-mini-lens" id="mini-lens"
+                  data-testid="mini-lens" aria-label="Полноэкранный режим">⛶</button>
+          <span class="text-xs" style="color:#c9d6ea">lg-mini-lens (U07-контрол)</span>
+        </div>
+      </div>
+    </section>
+
+    <footer class="stand-foot text-xs" id="stand-foot" style="color:#8fa3c0">
+      Evidence: plans/features/asap8-v6-3-live-correction/w2-evidence-glass/
+    </footer>
+
+    <!-- D. Измерительная панель (только для U08.5.2): пустой hero без
+         контента/спекуляра — чистое поле displacement+blur над сеткой.
+         Используется численным измерением изгиба (measure-скрипты в
+         OPENCODE_WORKFLOW_SCRATCH/w2-glass), в UI не показывается отдельно. -->
+    <div class="lg-panel lg-panel--hero" id="panel-measure"
+         data-glass-tier="a"
+         style="width:360px;max-width:100%;height:120px;margin-top:16px"
+         aria-hidden="true">
+      <div class="lg-panel__backdrop"></div>
+      <div class="lg-panel__tint"></div>
+    </div>
+  </main>
+
+  <script src="/static/glass-probe.js?v=stand"></script>
+  <script src="/static/glass-teststand.js?v=stand"></script>
+</body>
+</html>

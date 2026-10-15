@@ -46,12 +46,13 @@
       --shadow-lg:0 10px 25px -3px rgba(0,0,0,.08);--shadow-xl:0 20px 50px -12px rgba(0,0,0,.12);
       --dur-fast:.15s;--dur-normal:.3s;--dur-slow:.5s;--ease-out:cubic-bezier(0,0,.2,1);
       --page-padding:2.5rem;--navbar-height:4.5rem;
-      /* Liquid Glass v2 (§9, раунд 10.25/F2; AMEND ADR-1025-12 D1) — уровни A/B/C.
+      /* Liquid Glass v2 → v6.3 U08 (REQ-U08-*; SUPERSEDE ADR-1025-12 D1) — уровни A/B/C.
          B (default, glass-set): blur + светлая кромка + блик + тень.
-         A (opt-in [data-glass="a"]): + преломление --glass-displace на
-         ФОРГРАУНД-линзе (::before), НЕ на backdrop-фильтре с url(#…) (WebKit
-         его не поддерживает; ADR-1025-9 D2 — SUPERSEDE). Выбор tier — по
-         feature-detect `CSS.supports('filter','url(#lg-lens)')`, не по UA.
+         A (opt-in [data-glass="a"]): НАСТОЯЩАЯ рефракция подложки —
+         backdrop-filter url(#lg-lens) ТОЛЬКО при probe-подтверждённом
+         [data-glass-tier="a"] (render-probe glass-probe.js); до probe —
+         честный Tier B frost. WebKit/WebKit-like → probe fail → Tier B
+         (bug 245510). ::before — rim/specular/tint, БЕЗ фильтра на тексте.
          C ([data-glass="c"]/deny-list/без blur): непрозрачный fallback.
          Токены — единый источник для панелей/карточек/модалок/sticky. */
       --glass-bg: rgba(21, 27, 42, 0.5);
@@ -59,13 +60,45 @@
       --glass-blur: blur(16px);
       --glass-border-color: rgba(170, 182, 200, 0.16);
       --glass-border: 1px solid var(--glass-border-color);
-      --glass-displace: url(#lg-lens);
       --glass-highlight: rgba(255, 255, 255, 0.16);
       --glass-highlight-soft: rgba(255, 255, 255, 0.05);
       /* D3.5/ADR-1025-13: «грязь» убрана — alpha .75 → .55; карточкам даётся
          отдельная лёгкая --card-shadow (ниже), модалки/тултипы остаются на
          --glass-shadow (сохранён для них). */
       --glass-shadow: 0 18px 40px -18px rgba(3, 7, 18, 0.55);
+      /* ═══ W2-GLASS (U08.2/U08.3): токены материала Liquid Glass ═══
+         Новые ключи --lg-* (существующие --glass-* не переименовываются —
+         их читают другие секции). Значения — по таблице параметров ТЗ U08.2
+         (Frost blur 6–12/saturate 1.25–1.55, Tint alpha 0.05–0.12 light +
+         0.12–0.28 dark, Rim 1px 0.40–0.75, Specular 1–3px, bend 2–8px,
+         fringe 0.3–1.2px edge-only, corners 16–22). Калибровка — по
+         скриншотам стенда (w2-evidence-glass/). */
+      --lg-frost: blur(8px) saturate(130%);
+      --lg-frost-hero: blur(5px) saturate(140%);
+      --lg-tint-hero: linear-gradient(150deg,
+          rgba(190, 225, 255, 0.10) 0%, rgba(21, 27, 42, 0.18) 46%,
+          rgba(100, 155, 235, 0.07) 100%);
+      --lg-tint-soft: linear-gradient(160deg,
+          rgba(190, 225, 255, 0.07) 0%, rgba(21, 27, 42, 0.14) 55%,
+          rgba(100, 155, 235, 0.05) 100%);
+      --lg-rim: linear-gradient(115deg,
+          rgba(248, 254, 255, 0.62) 0%, rgba(210, 238, 255, 0.16) 34%,
+          rgba(105, 153, 220, 0.10) 69%, rgba(236, 249, 255, 0.42) 100%);
+      --lg-specular-arc: radial-gradient(120% 70% at 14% 0%,
+          rgba(245, 252, 255, 0.34) 0%, rgba(245, 252, 255, 0) 46%);
+      --lg-specular-soft: radial-gradient(90% 60% at 88% 6%,
+          rgba(210, 238, 255, 0.12) 0%, rgba(210, 238, 255, 0) 52%);
+      --lg-fringe: linear-gradient(170deg,
+          rgba(120, 235, 255, 0.30) 0%, rgba(120, 235, 255, 0) 12%,
+          rgba(120, 235, 255, 0) 74%, rgba(167, 139, 250, 0.26) 100%);
+      --lg-ring-mask: linear-gradient(#fff 0 0) content-box,
+          linear-gradient(#fff 0 0);
+      --lg-shadow: 0 12px 32px rgba(0, 6, 22, 0.28),
+          inset 0 1px rgba(245, 252, 255, 0.23),
+          inset 0 -1px rgba(160, 206, 255, 0.08);
+      --lg-radius: 20px;
+      --lg-radius-hero: 22px;
+      --lg-radius-solid: 16px;
       --sticky-save-h: 4.5rem;
       /* F9 (ADR-1025-22 D5): keyboard-offset от visualViewport (app.js
          `_syncKeyboardOffset`). Отдельно от safe-area — НЕ складывается с ним
@@ -352,10 +385,11 @@
       body::after { animation: none !important; }
       .aurora-bg .aurora-blob { animation: none !important; }
       :root { --grad-angle: 135deg; }
-      /* T-2548: при reduced-motion гасим дорогое преломление уровня A (остаётся B). */
+      /* T-2548/W2-GLASS: при reduced-motion гасим тяжёлое преломление
+         уровня A (остаётся честный frost — U08.3e, стекло не убиваем). */
       [data-glass="a"] {
-        -webkit-backdrop-filter: var(--glass-blur) saturate(140%) !important;
-        backdrop-filter: var(--glass-blur) saturate(140%) !important;
+        -webkit-backdrop-filter: var(--lg-frost-hero) !important;
+        backdrop-filter: var(--lg-frost-hero) !important;
       }
     }
     @media (prefers-contrast: more) {
@@ -1359,20 +1393,18 @@
       outline: 2px solid rgba(139, 92, 246, .7);
       outline-offset: 2px;
     }
+    /* ═══ W2-SHELL (U02): mobile <768 — лента обрезанных pills ЗАМЕНЕНА
+       компактным полноширинным dropdown «Раздел: [текущая ▾]» (стили —
+       в блоке W2-SHELL ниже). Горизонтальный скролл табов больше не канон:
+       на 320px не должно быть невидимых крайних вкладок. Desktop ≥768 —
+       прежняя горизонтальная панель (правила выше без изменений). ═══ */
     @media (max-width: 767px) {
-      .oversight-tabs__row {
-        flex-wrap: nowrap;
-        overflow-x: auto;
-        -webkit-overflow-scrolling: touch;
-        scrollbar-width: none;
-      }
-      .oversight-tabs__row::-webkit-scrollbar { display: none; }
-      .oversight-tab {
-        flex: 0 0 auto;
-        min-height: 44px;
-        padding: 10px 14px;
-      }
+      .oversight-tabs__row { display: none; }
+      .oversight-tab { min-height: 44px; }
     }
+    /* Открытый mobile-dropdown поднимает карточку над соседями (grid-item
+       z-index; панель не должна перекрываться следующими карточками). */
+    .oversight-tabs.oversight-dd-open { position: relative; z-index: 45; }
     .status-graph-full .badge {
       min-height: 44px; display: inline-flex; align-items: center;
     }
@@ -1499,41 +1531,74 @@
       box-shadow: var(--glass-shadow),
                   inset 0 1px 0 var(--glass-highlight);
     }
-    /* §9/F2 (AMEND ADR-1025-12 D1, SUPERSEDE ADR-1025-9 D2): уровень A —
-       преломление на ФОРГРАУНД-линзе (::before `.lg-lens`), НЕ на backdrop
-       url-фильтре (WebKit его не поддерживает). Линза лежит над
-       полупрозрачным фоном панели, но ПОД контентом (z-index:-1 в изолированном
-       stacking-context `isolation:isolate`) → текст/кнопки НЕ искажаются.
-       Edge-weighted: CSS radial-mask (центр прозрачен 0–52 %, плотно к краям
-       78–100 %) + feDisplacementMap малой амплитуды. Это документированное
-       ПРИБЛИЖЕНИЕ оптического преломления (векторное поле + радиальная весовка),
-       не физическая рефракция. Выбор tier — feature-detect (app.js). */
+    /* ═══ W2-GLASS (U08.2/U08.3): Tier A hero — реальная edge-рефракция ═══
+       Слоистая семантика .lg-panel на атрибутивном пути (псевдослои, ТЗ U08.2
+       допускает при той же z-order-семантике):
+         root            = .lg-panel__backdrop  (pixels/refraction ЗА панелью:
+                           backdrop-filter; url(#lg-lens) — ТОЛЬКО при
+                           data-glass-tier="a" (render-probe + Chromium;
+                           WebKit игнорирует url() — bug 245510 → честный B))
+         ::before        = .lg-panel__tint      (tint + мягкий направленный
+                           sheen; z-index:-1, под контентом)
+         ::after         = .lg-panel__rim       (masked ring: rim-градиент +
+                           specular-дуга + chromatic fringe 0.3–1.2px,
+                           всё edge-only)
+       content-слой — сами дочерние узлы (in-flow, поверх z:-1-псевдо);
+       фильтр НИКОГДА не вешается на корень с текстом/на текст (U08.2).
+       До первого успешного probe узел живёт как Tier B (frost) — честный
+       дефолт без ожидания JS. */
     [data-glass="a"] {
       position: relative;
       isolation: isolate;
+      border-radius: var(--lg-radius-hero);
       background-color: var(--glass-bg);
-      -webkit-backdrop-filter: var(--glass-blur) saturate(140%);
-      backdrop-filter: var(--glass-blur) saturate(140%);
       border: var(--glass-border);
-      box-shadow: var(--glass-shadow),
-                  inset 0 1px 0 var(--glass-highlight),
-                  inset 0 -1px 0 var(--glass-highlight-soft);
+      box-shadow: var(--lg-shadow),
+                  inset 0 1px 0 var(--glass-highlight);
+    }
+    [data-glass="a"]:not([data-glass-tier="a"]) {
+      -webkit-backdrop-filter: var(--lg-frost-hero);
+      backdrop-filter: var(--lg-frost-hero);
+    }
+    [data-glass="a"][data-glass-tier="a"] {
+      -webkit-backdrop-filter: var(--lg-frost-hero) url(#lg-lens);
+      backdrop-filter: var(--lg-frost-hero) url(#lg-lens);
     }
     [data-glass="a"]::before {
       content: "";
       position: absolute; inset: 0; z-index: -1;
       pointer-events: none; border-radius: inherit;
-      /* LOW (T-2591): градиент-реплика фона — на токенах §10 (--grad-*), без
-         хардкод-rgba; плотность слоя задаётся opacity (палитра §8 не меняется). */
-      background: linear-gradient(135deg,
-                  var(--grad-a), var(--grad-b) 45%, var(--grad-c));
-      opacity: .14;
-      -webkit-filter: var(--glass-displace);
-      filter: var(--glass-displace);
-      -webkit-mask-image: radial-gradient(ellipse at center,
-                  transparent 0%, transparent 52%, #000 78%, #000 100%);
-      mask-image: radial-gradient(ellipse at center,
-                  transparent 0%, transparent 52%, #000 78%, #000 100%);
+      background:
+        radial-gradient(90% 60% at 88% 6%,
+          rgba(210, 238, 255, 0.10) 0%, rgba(210, 238, 255, 0) 52%),
+        var(--lg-tint-hero);
+    }
+    [data-glass="a"]::after {
+      content: "";
+      position: absolute; inset: 0; z-index: -1;
+      pointer-events: none; border-radius: inherit; padding: 1.5px;
+      background:
+        var(--lg-specular-arc),
+        var(--lg-fringe),
+        var(--lg-rim);
+    }
+    @supports ((mask-composite: exclude) or (-webkit-mask-composite: xor)) {
+      [data-glass="a"]::after {
+        -webkit-mask: var(--lg-ring-mask);
+        mask: var(--lg-ring-mask);
+        -webkit-mask-composite: xor;
+        mask-composite: exclude;
+      }
+    }
+    /* mask-composite НЕ поддерживается → rim по box-shadow/overlay
+       (U08.5.3: ВСЕ контролы видимы и кликабельны, скриншот fallback). */
+    @supports not ((mask-composite: exclude) or (-webkit-mask-composite: xor)) {
+      [data-glass="a"]::after {
+        background: none;
+        box-shadow: inset 0 0 0 1px rgba(210, 235, 255, 0.45),
+                    inset 0 1px 0 rgba(248, 254, 255, 0.55),
+                    inset 0 -1px 0 rgba(150, 190, 240, 0.25);
+      }
     }
     /* ═══ HOTFIX8 (ADR-1025-16 D2): shell v3 — нейтральный графитовый glass ═══
        Панели (sidebar/header/drawer/bottom-nav/more-sheet) больше НЕ несут
@@ -1553,10 +1618,10 @@
       backdrop-filter: var(--shell-blur);
     }
     /* Очень слабый нейтральный specular (бесцветный, opacity ≤ .05, z-index:-1
-       в изолированном контексте → под контентом). `--glass-displace`
-       переиспользует #lg-lens: «заметно лишь при внимательном рассмотрении»,
-       не лупа/желе, текст и интерактив не искажаются. Цветной radial-маски-ореола
-       (как у уровня A) здесь НЕТ. */
+       в изолированном контексте → под контентом). W2-GLASS: filter:url(#lg-lens)
+       снят — это displacement-фильтр реальной рефракции ЗАДНЕГО плана (Tier A
+       hero) и на sheen-градиенте shell не имеет смысла (U08.1: фильтр на
+       собственном градиенте = декорация, не рефракция). Shell — Tier B. */
     [data-glass="shell"]::after {
       content: "";
       position: absolute; inset: 0; z-index: -1;
@@ -1564,30 +1629,27 @@
       background: linear-gradient(135deg,
                   rgba(255, 255, 255, .06), transparent 68%);
       opacity: var(--shell-sheen-opacity, .05);
-      -webkit-filter: var(--glass-displace);
-      filter: var(--glass-displace);
     }
-    /* §9/F2 (AMEND ADR-1025-12 D1): обратимое понижение A → B (нет поддержки
-       `filter:url()` / перф-кап / reduced-motion): JS ставит
-       `data-glass-downgraded`; линза отключается, остаётся blur-B. opt-in
+    /* §9/F2 (AMEND ADR-1025-12 D1): обратимое понижение A → B (нет
+       поддержки рендера url-фильтра (probe) / перф-кап / reduced-motion /
+       low-end): JS ставит `data-glass-downgraded` + `data-glass-tier="b"`.
+       W2-GLASS (U08.3e): понижение НЕ убивает стекло — статичные rim/tint/
+       specular (::before/::after выше) остаются; снимается только тяжёлая
+       рефракция (url(#lg-lens) не применяется без tier="a"). opt-in
        `data-glass` (декларация) НЕ переписывается — b→a обратимо. */
     [data-glass="a"][data-glass-downgraded="1"] {
-      -webkit-backdrop-filter: var(--glass-blur) saturate(140%);
-      backdrop-filter: var(--glass-blur) saturate(140%);
+      -webkit-backdrop-filter: var(--lg-frost-hero);
+      backdrop-filter: var(--lg-frost-hero);
     }
-    [data-glass="a"][data-glass-downgraded="1"]::before {
-      content: none;
-      -webkit-filter: none; filter: none;
-      -webkit-mask-image: none; mask-image: none;
-    }
-    /* §9/F2 (T-2538): явный уровень B — профиль для элементов, понижённых из A
-       (нет поддержки url-фильтра или min-сторона <240px): blur без преломления. */
+    /* §9/F2 (T-2538): явный уровень B — frost без преломления. W2-GLASS:
+       blur снижен 16→8px (перф mid-range Android, U08.3e), кромка/блик —
+       в appended-секции W2-GLASS. */
     [data-glass="b"] {
       background-color: var(--glass-bg);
-      -webkit-backdrop-filter: var(--glass-blur) saturate(140%);
-      backdrop-filter: var(--glass-blur) saturate(140%);
+      -webkit-backdrop-filter: var(--lg-frost);
+      backdrop-filter: var(--lg-frost);
       border: var(--glass-border);
-      box-shadow: var(--glass-shadow),
+      box-shadow: var(--card-shadow),
                   inset 0 1px 0 var(--glass-highlight);
     }
     /* §9/F2 (T-2539): deny-list — уровень C. textarea/таблицы прав/логи/длинные
@@ -1649,8 +1711,13 @@
     @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
       .card, .modal-card, .module-card, .hub-card, .prov-block,
       details.advanced, .scope-panel, .glass-panel, .oversight-panel,
-      [data-glass="a"], [data-glass="c"] {
+      [data-glass="a"], [data-glass="c"], .lg-panel {
         background-color: var(--glass-bg-strong);
+        -webkit-backdrop-filter: none;
+        backdrop-filter: none;
+      }
+      .lg-panel__backdrop,
+      .lg-panel__tint, .lg-panel__rim, .lg-panel__specular {
         -webkit-backdrop-filter: none;
         backdrop-filter: none;
       }
@@ -2440,26 +2507,23 @@
        labels над системной зоной собственным padding-bottom. Инварианты §94:
        rect.top ≥ 0; rect.bottom ≤ visible bottom; icon/label видны; main
        (flex-1) структурно не под nav. */
-    /* ═══ D13 (§18I.14): мобильная ВЕРХНЯЯ навигация (<768, row 2 шапки).
-       bottom-nav/more-sheet удалены по решению владельца. Компактная
-       горизонтально-скроллимая строка: иконка + подпись, тач ≥40×44,
-       ландшафт — ещё компактнее (не перекрывает контент). ═══ */
+    /* ═══ W2-SHELL (asap8-v6.3, U01.1/U01.3): мобильная row B (<768) —
+       ровно 4 сегмента «Статус / Аналитика / Модули / Ещё ▾», равные/
+       пропорциональные доли ширины, БЕЗ горизонтальной прокрутки и БЕЗ
+       третьей строки. bottom-nav НЕ возвращается. Высота сегмента ~44px. ═══ */
     .mobile-topnav {
       flex: 0 0 auto; width: 100%;
       display: flex; align-items: stretch; gap: .2rem;
-      overflow-x: auto; overscroll-behavior-x: contain;
-      -webkit-overflow-scrolling: touch;
-      padding: .1rem 0 .25rem;
-      scrollbar-width: none;
+      padding: .05rem 0 .15rem;
+      min-width: 0;
     }
-    .mobile-topnav::-webkit-scrollbar { display: none; }
     .mobile-topnav-link {
-      flex: 0 0 auto; min-height: 40px; min-width: 44px;
+      flex: 1 1 0; min-width: 44px; min-height: 44px;
       display: flex; flex-direction: column; align-items: center;
-      justify-content: center; gap: 1px; padding: .25rem .55rem;
+      justify-content: center; gap: 1px; padding: .25rem .25rem;
       background: transparent; border: none; cursor: pointer;
       color: var(--text-2); font-size: .625rem; border-radius: .5rem;
-      white-space: nowrap;
+      white-space: nowrap; overflow: hidden;
     }
     .mobile-topnav-link.active { color: var(--text-1); font-weight: 600;
       background: rgba(255, 255, 255, 0.07); }
@@ -2467,7 +2531,10 @@
     .mobile-topnav-label { font-size: .625rem; line-height: 1.05;
       max-width: 100%; overflow: hidden; text-overflow: ellipsis;
       white-space: nowrap; }
-    /* Ландшафт/низкое окно: nav компактнее — контент остаётся большинством
+    /* U01.1: триггер «Ещё» — активный раздел из меню отражается подписью
+       «Ещё • …» (ellipsis по доступной ширине). */
+    .mobile-topnav-more { font-weight: 500; }
+    /* Ландшафт/низкое окно: row B компактнее — контент остаётся большинством
        экрана (§18I.14: no three simultaneous fixed bars). */
     @media (orientation: landscape) and (max-height: 500px) {
       .mobile-topnav-link { min-height: 32px; padding: .1rem .45rem; }
@@ -3039,3 +3106,469 @@
    Tailwind-канона); канонический путь — rebuild (tailwind.config.js). */
 .gap-x-4 { column-gap: 1rem; }
 .gap-y-1 { row-gap: 0.25rem; }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   ═══ W2-SHELL (asap8-v6.3 live-correction): U01 mobile-шапка + U02 ═══
+   Владелец секции: лейн W2-L1 SHELL. Геометрия шапки/row A/row B,
+   меню «Ещё» (popover), мобильный dropdown суб-вкладок Аналитики.
+   Материал (background/backdrop-filter/box-shadow/токены --glass-*) —
+   НЕ здесь (лейн GLASS, property-split w2-contract §3.1/HS-3).
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ── U01 row A: мобильная геометрия (<768, shell-mobile, IA v2) ─────────
+   [←/AdminBot] [чат-селектор compact ellipsis] [профиль компактно] [⛶].
+   Заголовок/крошки из шапки убраны (U01.5: нет второго заголовка,
+   контент начинается сразу под row B); chat_id/роль — в меню «Ещё». */
+.mobile-brand {
+  display: none;
+  align-items: center; gap: .3rem;
+  color: var(--text-1);
+  min-width: 0;
+}
+.mobile-brand .msr { font-size: 20px; line-height: 1; color: var(--teal-500, #2dd4bf); }
+.mobile-brand-name { font-size: .8rem; font-weight: 700; letter-spacing: .01em; }
+.app-shell.shell-mobile .mobile-brand { display: inline-flex; }
+/* Заголовок/крошки — только desktop/compact shell; на mobile row A без
+   второго заголовка (раздел виден в row B / «Ещё • …»). */
+.app-shell.shell-mobile header.header-sticky.header-compact-v2 .header-title-wrap {
+  display: none;
+}
+/* row A: селектор области — гибкий, с ellipsis (не полная строка названия);
+   ширина по flex/clamp, полное имя — в title/aria-label триггера. */
+.app-shell.shell-mobile header.header-sticky.header-compact-v2 .header-scope-row {
+  order: 1;
+  /* flex-basis 0% (не auto): строка A занимает одну линию, селектор
+     сжимается с ellipsis — без этого max-content переносит её на 2-ю линию. */
+  flex: 1 1 0%;
+  flex-wrap: nowrap;
+  min-width: 0;
+}
+.app-shell.shell-mobile .scope-wrap {
+  flex: 1 1 auto;
+  order: 0;
+  max-width: 100%;
+  min-width: 0;
+}
+.app-shell.shell-mobile .scope-trigger {
+  width: 100%;
+  max-width: clamp(96px, 100%, 280px);
+  min-height: 40px;
+}
+/* U01.2: ID области — НЕ в постоянной шапке (доступен в меню «Ещё»,
+   блок профиля); на desktop <details class="scope-tech"> сохранён. */
+.app-shell.shell-mobile .scope-tech { display: none; }
+/* U01.2: профиль в row A — компактно (аватар); имя/роль — в «Ещё»
+   (без третьей строки, всё влезает на 320px). */
+.app-shell.shell-mobile .header-user { gap: .25rem; }
+.app-shell.shell-mobile .header-user span { display: none; }
+/* mobile: ровно 2 flex-линии — row A (бренд/селектор/профиль/⛶) и row B.
+   Явный order у row B: без него (order auto = 0) topnav упаковывается
+   РАНЬШЕ scope-row(order 1) и шапка разваливается на 3–4 строки. */
+.app-shell.shell-mobile header.header-sticky.header-compact-v2 .mobile-topnav {
+  order: 10;
+}
+.app-shell.shell-mobile header.header-sticky.header-compact-v2 {
+  row-gap: .3rem;
+}
+
+/* ── U01.4: меню «Ещё» — popover/sheet поверх контента ──────────────────
+   Overlay + панель под шапкой; z-index: header=40, drawer=40, dropdowns=50,
+   модалки=59/60 → меню 55/56 (выше шапки, ниже модалок). */
+.more-menu-root { position: fixed; inset: 0; z-index: 55; }
+.more-menu-backdrop {
+  position: absolute; inset: 0;
+  background: rgba(0, 0, 0, .45);
+}
+.more-menu-panel {
+  position: absolute;
+  left: max(8px, env(safe-area-inset-left, 0px));
+  right: max(8px, env(safe-area-inset-right, 0px));
+  top: calc(var(--header-h, 96px) + env(safe-area-inset-top, 0px) + 4px);
+  max-height: calc(100dvh - var(--header-h, 96px)
+             - env(safe-area-inset-top, 0px)
+             - max(env(safe-area-inset-bottom, 0px), 12px) - 8px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  display: flex; flex-direction: column; gap: 2px;
+  padding: .4rem;
+  /* SHELL-baseline читаемости (popover поверх контента, U01.4): solid.
+     GLASS вправе перетюсить материал через [data-glass="c"] (§3.2). */
+  background-color: var(--surface-1, #11151c);
+  border: var(--card-border, 1px solid rgba(255, 255, 255, .12));
+  box-shadow: var(--shadow-xl);
+  border-radius: 14px;
+  outline: none;
+}
+.more-menu-item {
+  display: flex; align-items: center; gap: .6rem;
+  min-height: 44px;
+  padding: .5rem .6rem;
+  border: none; border-radius: 10px;
+  background: transparent; color: var(--text-1);
+  font-size: .875rem; text-align: left; cursor: pointer;
+  width: 100%;
+}
+.more-menu-item:hover { background: rgba(255, 255, 255, .07); }
+.more-menu-item.active { font-weight: 600; background: rgba(139, 92, 246, .18); }
+.more-menu-item .msr { font-size: 22px; color: var(--teal-500, #2dd4bf); flex-shrink: 0; }
+.more-menu-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.more-menu-item:focus-visible, .mobile-topnav-link:focus-visible,
+.oversight-mobile-trigger:focus-visible, .oversight-mobile-option:focus-visible {
+  outline: 2px solid rgba(139, 92, 246, .7);
+  outline-offset: 2px;
+}
+.more-menu-profile {
+  display: flex; align-items: center; gap: .5rem;
+  margin-top: .3rem; padding: .5rem .6rem;
+  border-top: 1px solid rgba(255, 255, 255, .12);
+}
+.more-menu-profile-main { display: flex; flex-direction: column; min-width: 0; }
+.more-menu-profile-name {
+  font-size: .8rem; font-weight: 600; color: var(--text-1);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.more-menu-profile-meta {
+  font-size: .7rem; color: var(--text-3, #8B96A5);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+/* U01.4 body-scroll-lock без прыжков: единственный скроллер mobile-shell
+   (main.scroll-area) блокируется на время открытого меню. */
+.app-shell.more-menu-open.shell-mobile main.scroll-area { overflow: hidden; }
+
+/* ── U02: мобильный dropdown суб-вкладок Аналитики (<768) ───────────────
+   Один полноширинный триггер «Раздел: [текущая ▾]»; полный список в
+   панели; длинные метки — до 2 строк в меню, ellipsis на триггере. */
+.oversight-mobile-dd { position: relative; }
+.oversight-mobile-trigger {
+  display: flex; align-items: center; gap: .4rem;
+  width: 100%; min-height: 44px;
+  padding: .4rem .6rem;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, .05);
+  color: var(--text-1); font-size: .85rem;
+  cursor: pointer; text-align: left;
+}
+.oversight-mobile-dd__label { color: var(--text-3, #8B96A5); flex-shrink: 0; }
+.oversight-mobile-dd__current {
+  flex: 1 1 auto; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-weight: 600;
+}
+.oversight-mobile-dd__caret { flex-shrink: 0; color: var(--text-3, #8B96A5); }
+.oversight-mobile-panel {
+  position: absolute; left: 0; right: 0;
+  top: calc(100% + 4px);
+  z-index: 46;
+  display: flex; flex-direction: column; gap: 2px;
+  padding: .35rem;
+  /* SHELL-baseline читаемости; GLASS перетюсит через [data-glass="c"]. */
+  background-color: var(--surface-1, #11151c);
+  border: var(--card-border, 1px solid rgba(255, 255, 255, .12));
+  box-shadow: var(--shadow-xl);
+  border-radius: 12px;
+  max-height: 60vh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.oversight-mobile-option {
+  min-height: 44px;
+  padding: .45rem .6rem;
+  border: none; border-radius: 9px;
+  background: transparent; color: var(--text-1);
+  font-size: .85rem; text-align: left; cursor: pointer;
+  white-space: normal;           /* длинные метки — до 2 строк в меню */
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.oversight-mobile-option:hover { background: rgba(255, 255, 255, .07); }
+.oversight-mobile-option.is-active { font-weight: 600; background: rgba(139, 92, 246, .18); }
+@media (min-width: 768px) {
+  .oversight-mobile-dd { display: none; }
+}
+
+/* Ландшафт: шапка компактнее — контент остаётся большинством экрана. */
+@media (orientation: landscape) and (max-height: 500px) {
+  .app-shell.shell-mobile header.header-sticky.header-compact-v2 {
+    row-gap: .15rem;
+    padding-top: calc(.35rem + max(env(safe-area-inset-top, 0px),
+                  var(--tg-content-safe-area-inset-top, 0px),
+                  var(--tg-safe-area-inset-top, 0px)));
+    padding-bottom: .35rem;
+  }
+  .app-shell.shell-mobile .scope-trigger { min-height: 36px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .more-menu-root, .oversight-mobile-panel { scroll-behavior: auto; }
+}
+
+/* ═══ W2-FULLSCREEN (asap8-v6.3, U07.2a/2b/2d, REQ-U07-2): слот кнопки ⛶ ═══
+   Один DOM-узел .header-fs-btn; слот выбирает fullscreen-policy.js.
+   Писатели html.fs-slot-float / html.fs-hidden / data-fs-reason — ТОЛЬКО
+   fullscreen-policy.js (контракт §2.3); --tg-* переменные пишет
+   telegram-init.js, здесь они только читаются.
+     inline  — в потоке row A (базовые правила выше: hit ≥44×44, order 5/99);
+     float   — position:fixed у native-зоны Telegram. Геометрия ТОЛЬКО из
+               Telegram-переменных: в Telegram Android env() часто = 0 →
+               max(env(safe-area-inset-*), --tg-content-safe-area-*,
+                   --tg-safe-area-*);
+     hidden  — html.fs-hidden: кнопка не рендерится (v-if в index.html),
+               честная причина — data-fs-reason на <html>. */
+
+/* Визуал: круглая icon-button 32px (норма 30–34), инлайн-SVG-иконка 18px
+   (16–18px норма; чёткая, без зависимости от шрифтовых субсетов),
+   прозрачный тёмный glass с тонкой кромкой; hit-цель — сам узел ≥44×44
+   (в float-режиме начинается ниже csa.top — в native-зоны не заходит). */
+.header-fs-btn {
+  position: relative;
+  border-radius: 50%;
+  overflow: visible;
+  /* чёткая иконка на тёмном glass-круге (U07.2a); light-вариант ниже */
+  color: rgba(235, 242, 255, 0.95);
+}
+.header-fs-btn .fs-ic {
+  display: block;
+  /* поверх ::before-glass (позиционированный псевдослой красится выше
+     static-контента — иконке нужен свой positioned-слой) */
+  position: relative;
+  z-index: 1;
+}
+.header-fs-btn::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 32px;
+  height: 32px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: rgba(21, 27, 42, 0.55);
+  border: 1px solid rgba(210, 230, 255, 0.28);
+  -webkit-backdrop-filter: blur(6px) saturate(1.25);
+  backdrop-filter: blur(6px) saturate(1.25);
+  box-shadow: inset 0 1px rgba(245, 252, 255, 0.22),
+              0 2px 10px rgba(0, 6, 22, 0.30);
+  pointer-events: none;     /* декоративный слой не перехватывает тапы */
+}
+/* Light Telegram theme (U07.2d): маркер data-fs-scheme ставит app.js из
+   Telegram.WebApp.colorScheme; тёмная тема — дефолт палитры админки. */
+html[data-fs-scheme="light"] .header-fs-btn::before {
+  background: rgba(244, 248, 255, 0.62);
+  border-color: rgba(20, 30, 50, 0.28);
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.80),
+              0 2px 10px rgba(30, 40, 60, 0.18);
+}
+html[data-fs-scheme="light"] .header-fs-btn {
+  color: #1d2534;
+}
+
+/* float: визуальное соседство с native ⋮/✕ в пределах web safe area
+   (контракт §2.1, формула обязательна: env-одиночка в Telegram Android = 0). */
+html.fs-slot-float .header-fs-btn {
+  position: fixed;
+  top: calc(var(--tg-content-safe-area-inset-top, 0px) + 6px);
+  right: calc(max(env(safe-area-inset-right, 0px),
+                  var(--tg-content-safe-area-inset-right, 0px),
+                  var(--tg-safe-area-inset-right, 0px)) + 6px);
+  z-index: 60;
+}
+/* Верхний резерв row A в float-режиме (контракт §2.1: FULLSCREEN сам
+   добавляет резерв). Хит-бокс 44px живёт на csa.top+6 → шапка начинается
+   после него. !important — намеренно: float-геометрия — overlay-геометрия
+   U07 (вне inline-бюджета шапки), и она обязана переживать любые
+   SHELL/базовые padding-top-правила, пока активен класс fs-slot-float
+   (его ставит только fullscreen-policy.js и только при float-слоте). */
+html.fs-slot-float header.header-sticky {
+  padding-top: calc(var(--tg-content-safe-area-inset-top, 0px) + 6px + 44px) !important;
+}
+/* Узкий viewport: визуал можно сократить до 28px (U07.2a). */
+@media (max-width: 359px) {
+  .header-fs-btn::before {
+    width: 28px;
+    height: 28px;
+  }
+}
+/* ═══ /W2-FULLSCREEN ═══ */
+
+/* ═════════════════════════════════════════════════════════════════════
+   ═══ W2-GLASS (U08): слоистая модель Liquid Glass — lg-panel ═══
+   Каноническая структура (ТЗ U08.2, имена заморожены w2-contract §3.4):
+     .lg-panel                     position:relative; isolate; radius 16–22
+       ├ .lg-panel__backdrop       pixels/refraction/blur ЗА панелью
+       ├ .lg-panel__tint           tint + полупрозрачная толща
+       ├ .lg-panel__rim            1–2 градиентные кромки (masked ring)
+       ├ .lg-panel__specular       локальный направленный блик
+       └ .lg-panel__content        контент; z поверх оптики; не искажается
+   Инварианты: декоративные слои pointer-events:none (hit-тест REQ-U08-2);
+   filter:url() НИКОГДА не на корне карточки/тексте/.lg-panel__content;
+   контент не затуманивается; слои не перекрывают scroll/native hit-зоны.
+   Модификаторы: --hero (Tier A линза), --soft (Tier B), --solid (Tier C).
+   ═════════════════════════════════════════════════════════════════════ */
+.lg-panel {
+  position: relative;
+  isolation: isolate;
+  border-radius: var(--lg-radius);
+  background: transparent;
+}
+.lg-panel--hero { border-radius: var(--lg-radius-hero); }
+.lg-panel--soft { border-radius: var(--lg-radius); }
+.lg-panel--solid {
+  border-radius: var(--lg-radius-solid);
+  background-color: var(--glass-bg-strong);
+  border: 1px solid var(--glass-border-color);
+  box-shadow: var(--glass-shadow);
+}
+/* Декоративные слои: рисуют оптику, никогда не перехватывают pointer. */
+.lg-panel__backdrop,
+.lg-panel__tint,
+.lg-panel__rim,
+.lg-panel__specular {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  border-radius: inherit;
+}
+/* backdrop: единственный слой, трогающий задние пиксели.
+   hero: Tier A — реальная edge-рефракция url(#lg-lens) (Chromium, probe);
+   без tier="a" — честный frost (WebKit/эконом-режим/reduced-motion). */
+.lg-panel__backdrop {
+  -webkit-backdrop-filter: var(--lg-frost-hero);
+  backdrop-filter: var(--lg-frost-hero);
+}
+.lg-panel--hero .lg-panel__backdrop { -webkit-backdrop-filter: var(--lg-frost-hero); backdrop-filter: var(--lg-frost-hero); }
+.lg-panel--hero[data-glass-tier="a"] .lg-panel__backdrop {
+  -webkit-backdrop-filter: var(--lg-frost-hero) url(#lg-lens);
+  backdrop-filter: var(--lg-frost-hero) url(#lg-lens);
+}
+.lg-panel__tint { background: var(--lg-tint-soft); }
+.lg-panel--hero .lg-panel__tint { background: var(--lg-tint-hero); }
+/* rim: 1–2 полосы градиентной кромки через masked ring (padding 1.5px). */
+.lg-panel__rim {
+  padding: 1.5px;
+  background:
+    linear-gradient(170deg,
+      rgba(120, 235, 255, 0.22) 0%, rgba(120, 235, 255, 0) 10%,
+      rgba(120, 235, 255, 0) 78%, rgba(167, 139, 250, 0.20) 100%),
+    var(--lg-rim);
+}
+.lg-panel--solid .lg-panel__rim { background: none; }
+@supports ((mask-composite: exclude) or (-webkit-mask-composite: xor)) {
+  .lg-panel__rim {
+    -webkit-mask: var(--lg-ring-mask);
+    mask: var(--lg-ring-mask);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+  }
+}
+/* U08.5.3 fallback: mask-composite нет → rim по box-shadow,
+   контролы видимы и кликабельны (скриншот fallback в evidence). */
+@supports not ((mask-composite: exclude) or (-webkit-mask-composite: xor)) {
+  .lg-panel__rim {
+    background: none;
+    box-shadow: inset 0 0 0 1px rgba(210, 235, 255, 0.40),
+                inset 0 1px 0 rgba(248, 254, 255, 0.50),
+                inset 0 -1px 0 rgba(150, 190, 240, 0.22);
+  }
+}
+/* specular: ЛОКАЛЬНЫЙ верхне-левый блик + второй мягкий по боковине
+   (не равномерная заливка — направленный свет, ТЗ U08.2). */
+.lg-panel__specular {
+  background:
+    radial-gradient(130% 65% at 12% -2%,
+      rgba(248, 254, 255, 0.30) 0%, rgba(248, 254, 255, 0) 42%),
+    radial-gradient(60% 34% at 88% 4%,
+      rgba(210, 238, 255, 0.14) 0%, rgba(210, 238, 255, 0) 55%);
+  opacity: .9;
+}
+.lg-panel--soft .lg-panel__specular { opacity: .55; }
+.lg-panel--solid .lg-panel__specular { display: none; }
+.lg-panel__content {
+  position: relative;
+  z-index: 2;
+}
+
+/* ═══ W2-GLASS (U08.4b): массовые карточки — Tier B материал ═══
+   blur снижен 16→8px + saturate(130%) (ТЗ-таблица U08.2; перф mid-range
+   Android, U08.3e). Кромка/объём — inset-полосы box-shadow (без псевдо —
+   не трогаем stacking 94 узлов .card). Поверхность материальная, не
+   «однотипные тёмные прямоугольники». */
+.card,
+.module-card,
+.hub-card,
+.prov-block,
+.glass-panel,
+.oversight-panel {
+  -webkit-backdrop-filter: var(--lg-frost);
+  backdrop-filter: var(--lg-frost);
+  box-shadow: var(--card-shadow),
+              inset 0 1px 0 rgba(240, 248, 255, 0.26),
+              inset 1px 0 0 rgba(210, 235, 255, 0.10),
+              inset -1px 0 0 rgba(140, 180, 230, 0.08),
+              inset 0 -1px 0 rgba(150, 190, 240, 0.12);
+}
+/* hover-specular на desktop (U08.4b): только фон-градиент, без layout. */
+@media (hover: hover) {
+  .module-card:hover {
+    background-image:
+      radial-gradient(120% 90% at 18% 0%,
+        rgba(215, 240, 255, 0.10) 0%, rgba(215, 240, 255, 0) 55%);
+  }
+}
+
+/* ═══ W2-GLASS (U08.4d): lg-mini-lens — круглый Tier B-контрол ⛶ ═══
+   Материал для кнопки U07 (класс применяет FULLSCREEN-лейн; геометрия —
+   их собственность, здесь только визуал: круглая мини-линза с rim и
+   одним бликом, НЕ «64px затемнённый квадрат»). */
+.lg-mini-lens {
+  position: relative;
+  isolation: isolate;
+  border-radius: 50%;
+  background:
+    radial-gradient(90% 90% at 30% 22%,
+      rgba(220, 240, 255, 0.22) 0%, rgba(220, 240, 255, 0) 55%),
+    rgba(21, 27, 42, 0.55);
+  border: 1px solid rgba(210, 235, 255, 0.35);
+  box-shadow: 0 4px 14px rgba(0, 6, 22, 0.30),
+              inset 0 1px 0 rgba(248, 254, 255, 0.45),
+              inset 0 -1px 0 rgba(150, 190, 240, 0.18);
+  -webkit-backdrop-filter: var(--lg-frost-hero);
+  backdrop-filter: var(--lg-frost-hero);
+  color: #eaf2ff;
+}
+.lg-mini-lens::after {
+  content: "";
+  position: absolute; inset: 0; z-index: -1;
+  pointer-events: none; border-radius: inherit; padding: 1px;
+  background: var(--lg-rim);
+}
+@supports ((mask-composite: exclude) or (-webkit-mask-composite: xor)) {
+  .lg-mini-lens::after {
+    -webkit-mask: var(--lg-ring-mask);
+    mask: var(--lg-ring-mask);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+  }
+}
+
+/* ═══ W2-GLASS (U08.3e): pause/деградация ═══
+   Скрытая вкладка/TMA (html.lg-bg-paused из app.js::setBgPaused):
+   стеклянные слои статичны по дизайну (нет rAF/анимаций в оптике),
+   правило фиксирует отсутствие анимаций и будущие регрессии ловит. */
+html.lg-bg-paused .lg-panel__specular,
+html.lg-bg-paused .lg-panel__rim,
+html.lg-bg-paused .lg-mini-lens::after {
+  animation: none !important;
+  transition: none !important;
+}
+/* prefers-reduced-motion: само стекло НЕ убивать — статичный rim/tint
+   остаётся (U08.3e); анимаций в оптике нет и не должно появляться. */
+@media (prefers-reduced-motion: reduce) {
+  .lg-panel__specular,
+  .lg-panel__rim,
+  .lg-panel__backdrop,
+  .lg-mini-lens::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+/* ═══ /W2-GLASS ═══ */

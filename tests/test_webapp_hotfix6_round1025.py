@@ -17,6 +17,8 @@ ROOT = Path(".")
 APP_CSS = (ROOT / "web" / "static" / "app.css").read_text(encoding="utf-8")
 INDEX = (ROOT / "web" / "index.html").read_text(encoding="utf-8")
 APP_JS = (ROOT / "web" / "app.js").read_text(encoding="utf-8")
+# W2-FULLSCREEN (U07.1): политика fullscreen — новый модуль-owner TMA API.
+POLICY = (ROOT / "web" / "static" / "fullscreen-policy.js").read_text(encoding="utf-8")
 TG_INIT = (ROOT / "web" / "static" / "telegram-init.js").read_text(encoding="utf-8")
 SETTINGS = (ROOT / "config" / "settings.py").read_text(encoding="utf-8")
 ROUTES = (ROOT / "web" / "api" / "routes.py").read_text(encoding="utf-8")
@@ -37,26 +39,48 @@ def _first_party_web() -> dict:
 # ═══════════════════════════ A — преломление ═══════════════════════════════
 class TestAreaA:
     def test_no_backdrop_url_filter_anywhere(self):
-        """§9/ADR-1025-12 D1: нигде в first-party web/** нет backdrop url-фильтра."""
+        """re-pin ASAP 8 v6.3 U08.3 (REQ-U08-3): backdrop url-фильтр — только
+        в glass-слоях (app.css/index.html/app.js/glass-probe.js) и только
+        через probe-гейт [data-glass-tier="a"]; вне glass-слоёв запрещён.
+        (Рефракция live: `backdrop-filter: var(--lg-frost-hero) url(#lg-lens)`
+        — regex старого пина её не ловил; пин усилен честно.)"""
+        glass_owned = ("app.css", "index.html", "app.js", "glass-probe.js")
         found = {p: True for p, t in _first_party_web().items()
-                 if re.search(r"backdrop-filter\s*:\s*url\(", t)}
-        assert not found, f"backdrop url-фильтр остался: {sorted(found)}"
+                 if re.search(r"backdrop-filter[^;\n]*url\(", t)}
+        for p in found:
+            name = p.replace("\\", "/").rsplit("/", 1)[-1]
+            assert name in glass_owned, \
+                f"v6.3 U08.3: backdrop url-фильтр вне glass-слоёв: {sorted(found)}"
+        assert "GlassProbe" in APP_JS
 
     def test_foreground_lens_mechanism(self):
-        """A = foreground-линза (#lg-lens) через filter:url(), не backdrop."""
+        """re-pin ASAP 8 v6.3 U08.3 (REQ-U08-3, CORR-0): рефракция настоящая —
+        backdrop-слой hero: url(#lg-lens) ТОЛЬКО при probe-подтверждённом
+        [data-glass-tier="a"]; без tier-подтверждения — честный Tier B frost.
+        Старый форграунд-механизм ADR-1025-12 (url-фильтр собственного
+        градиента ::before) удалён как фейк-рефракция (U08.1); мёртвый токен
+        --glass-displace убран. Фильтр НИКОГДА не на тексте."""
         assert INDEX.count('id="lg-lens"') == 1
-        assert re.search(r"--glass-displace\s*:\s*url\(#lg-lens\)", APP_CSS)
-        lens = re.search(r'\[data-glass="a"\]::before\s*\{([^}]*)\}', APP_CSS)
-        assert lens, "нет линзы [data-glass=\"a\"]::before"
-        body = lens.group(1)
-        assert "var(--glass-displace)" in body          # foreground filter
-        assert "radial-gradient(ellipse at center" in body  # edge-weighted
-        assert "mask-image" in body
-        assert "z-index: -1" in body                    # под контентом
+        assert re.search(
+            r'\[data-glass="a"\]\[data-glass-tier="a"\]\s*\{[^}]*'
+            r'backdrop-filter:[^}]*url\(#lg-lens\)', APP_CSS), \
+            "v6.3 U08.3: tier A = probe-gated backdrop url(#lg-lens)"
+        assert re.search(
+            r'\[data-glass="a"\]:not\(\[data-glass-tier="a"\]\)\s*\{[^}]*'
+            r'backdrop-filter:\s*var\(--lg-frost-hero\)', APP_CSS), \
+            "v6.3 U08.3: до probe — Tier B frost (честный дефолт)"
+        assert '--glass-displace' not in APP_CSS, \
+            "v6.3 U08.3: мёртвый токен форграунд-линзы удалён"
 
     def test_feature_detect_and_cap(self):
-        """A: tier — feature-detect filter:url(#lg-lens) + кап (не UA/min-240)."""
-        assert "css.supports('filter', 'url(#lg-lens)')" in APP_JS
+        """A: tier-детект. re-pin ASAP 8 v6.3 U08.1/U08.3 (REQ-U08-1-PROBE):
+        render-probe GlassProbe (реальный рендер feDisplacementMap + пиксельная
+        сверка) заменяет неработоспособный css.supports-детект; кап сохранён
+        (не UA/min-240); UA-gate Blink-only снят."""
+        assert "GlassProbe" in APP_JS, \
+            "v6.3 U08.1: tier-детект через render-probe GlassProbe"
+        assert "css.supports('filter', 'url(#lg-lens)')" not in APP_JS, \
+            "v6.3 U08.1: css.supports-детект удалён"
         assert "UI_LENS_MAX_NODES" in APP_JS
         assert "_lensMaxNodes" in APP_JS
         assert "data-glass-tier" in APP_JS and "data-glass-reason" in APP_JS
@@ -76,8 +100,8 @@ class TestAreaA:
             "D13: нижняя навигация удалена"
         assert 'class="more-sheet"' not in INDEX, \
             "D13: шторка «Ещё» удалена"
-        assert 'class="mobile-topnav scroll-thin"' in INDEX, \
-            "D13: верхняя мобильная навигация присутствует"
+        assert 'class="mobile-topnav"' in INDEX, \
+            "v6.3 U01: верхняя мобильная навигация присутствует"
         assert 'data-glass="shell"\n' in INDEX  # header (многострочный тег)
         assert 'data-glass="a"' in INDEX        # контентный A сохранён
 
@@ -102,11 +126,16 @@ class TestAreaA:
         assert "else if (reduced) reason = 'reduced-motion';" in APP_JS
 
     def test_lens_gradient_uses_tokens(self):
-        """LOW/T-2591: градиент линзы — токены §10 (--grad-*), без хардкод-rgba."""
+        """LOW/T-2591: градиент линзы — без хардкод-цветов старой палитры.
+        re-pin ASAP 8 v6.3 U08 (REQ-U08-2, CORR-0): слои линзы переведены
+        на токены --lg-* (--lg-tint-hero); specular/rim-градиенты заданы
+        референсом ТЗ U08.2 (inline rgba светлой кромки — санкционировано
+        таблицей параметров ТЗ). Старый teal 66,214,196 запрещён по-прежнему."""
         lens = re.search(r'\[data-glass="a"\]::before\s*\{([^}]*)\}', APP_CSS)
         assert lens
         assert "rgba(66, 214, 196" not in lens.group(1), "хардкод-градиент остался"
-        assert "var(--grad-a)" in lens.group(1)
+        assert "var(--lg-tint-hero)" in lens.group(1), \
+            "v6.3 U08: tint линзы через токен --lg-tint-hero"
 
     def test_matrix_aa_panel_probe(self):
         """HIGH/T-2591: матрица меряет AA текста панелей (композит стекла)."""
@@ -139,16 +168,23 @@ class TestAreaB:
         assert "rect.bottom" in MATRIX or "bottom: Math.round(r.bottom)" in MATRIX
 
     def test_nav_order_untouched(self):
-        """re-pin ASAP 8 v6 D13: порядок навигации больше не отдельный
-        computed — mobile-topnav рендерит тот же канонический реестр
-        navItems, что и desktop sidebar (канон не менялся)."""
+        """re-pin ASAP 8 v6 D13 → v6.3 U01 (REQ-U01-1, владелец): row B —
+        ровно 3 фиксированных раздела (Статус/Аналитика/Модули) + «Ещё»;
+        РЕЕСТР navItems по-прежнему ЕДИН: и row B, и меню «Ещё» деривируются
+        из this.navItems (канон реестра сохранён, состав рендера изменён
+        владельцем). bottomNavItems по-прежнему запрещён."""
         assert "bottomNavItems" not in APP_JS, \
             "D13: bottomNavItems удалён"
         assert re.search(r"mobileTopnavItems:\s*function", APP_JS)
         seg = APP_JS[APP_JS.index("mobileTopnavItems: function"):
-                     APP_JS.index("mobileTopnavItems: function") + 200]
-        assert "return this.navItems;" in seg, \
-            "D13: канонический реестр navItems един для shell-навигаций"
+                     APP_JS.index("mobileTopnavItems: function") + 300]
+        assert "this.navItems" in seg, \
+            "v6.3 U01: row B деривируется из канонического navItems"
+        assert "'status'" in seg and "'oversight'" in seg and "'modules'" in seg, \
+            "v6.3 U01: фиксированные Статус/Аналитика/Модули"
+        assert re.search(r"mobileMoreItems:\s*function", APP_JS) and \
+            "moreMenuTriggerLabel" in APP_JS, \
+            "v6.3 U01: остальные разделы — только в меню «Ещё»"
 
     def test_matrix_stable_bar_restored(self):
         """LOW/T-2595: системный бар = разница видимой высоты (stable=h−56)."""
@@ -240,11 +276,14 @@ class TestAreaD:
         assert ".header-compact-v2 .header-scope-row .header-user span" in APP_CSS
 
     def test_fullscreen_preserved_and_hardened(self):
-        # ADR-1024-24 не отменён.
+        # ADR-1024-24 не отменён; W2-FULLSCREEN (U07.1): вся работа с TMA API
+        # переехала в fullscreen-policy.js (единственный owner request/exit),
+        # app.js держит зеркало/мосты. Устойчивость к вариантам имени метода
+        # (requestFullScreen) теперь в политике.
         for m in ("toggleFullscreen", "initFullscreen",
                   "setFullscreenFromTma", "teardownFullscreen"):
             assert m in APP_JS, m
-        assert "requestFullScreen" in APP_JS  # устойчивость к вариантам имени
+        assert "requestFullScreen" in POLICY
 
 
 # ═══════════════════════════ Общее: версия/флаги ═══════════════════════════

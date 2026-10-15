@@ -174,10 +174,23 @@ class TestAreaC_GlassShell:
         assert "--grad-speed:75s" in APP_CSS
 
     def test_no_backdrop_url_and_no_assets(self):
+        # re-pin ASAP 8 v6.3 U08.3 (REQ-U08-3, CORR-0): настоящий Tier A
+        # рефракции использует backdrop-filter: url(#displacement) — но
+        # ТОЛЬКО в glass-слоях (app.css / index.html svg / app.js /
+        # glass-probe.js) и ТОЛЬКО после render-probe (WebKit → Tier B).
+        # В остальных first-party файлах url()-фильтр запрещён по-прежнему.
+        glass_owned = ("app.css", "index.html", "app.js", "glass-probe.js")
         for _path, text in _first_party_web().items():
-            assert not re.search(r"backdrop-filter\s*:\s*url\(", text)
+            if not re.search(r"backdrop-filter\s*:\s*url\(", text):
+                continue
+            name = _path.replace("\\", "/").rsplit("/", 1)[-1]
+            assert name in glass_owned, \
+                f"v6.3 U08.3: backdrop url( вне glass-слоёв: {name}"
         assert not re.search(r"--shell-(texture|specular)\s*:\s*url\(", APP_CSS)
         assert "data:image" not in APP_CSS
+        # probe-гейт обязателен: url-линза включается решением GlassProbe.
+        assert "GlassProbe" in APP_JS, \
+            "v6.3 U08.3: tier A только после render-probe"
 
 
 class TestAreaD_FlagsAcceptance:

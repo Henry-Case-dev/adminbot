@@ -1795,6 +1795,12 @@
             : (window.innerWidth < 1200 ? 'compact' : 'desktop'))
           : 'desktop',
         drawerOpen: false,   // 768–1199: временная навигация (не персистится)
+        // ═══ W2-SHELL (asap8-v6.3, REQ-U01.4/REQ-U02): состояние мобильных
+        // оверлеев навигации. «Ещё» — popover поверх контента (<768);
+        // oversight-mobile-dropdown — компактный выбор суб-вкладки
+        // Аналитики (<768). Оба состояния НЕ персистятся. ═══
+        moreMenuOpen: false,          // U01.4: меню «Ещё» (mobile <768)
+        oversightMobileOpen: false,   // U02: dropdown суб-вкладок (<768)
         helpQuery: '',       // T-2400: поиск по «Справке» (mobile)
         me: null,
         authError: null,
@@ -2106,6 +2112,16 @@
         // модульный _avatarCache (см. выше в файле) — реактивность не нужна.
         meAvatarUrl: '',
         isFullscreen: false,
+        // W2-FULLSCREEN (REQ-U07-1): зеркала FullscreenPolicy (НЕ источник
+        // истины). Копируются по window.__FullscreenPolicy.subscribe();
+        // фактический fullscreen — только из SDK-факта (инверсии нет).
+        fsSlot: 'inline',          // inline | float | hidden (решает политика)
+        fsCanOffer: false,         // можно предложить requestFullscreen
+        fsCanOfferExit: false,     // доступен корректный exitFullscreen
+        fsReason: '',              // причина honest-disable/hidden
+        fsPending: false,          // запрос в полёте (ack-таймаут — в политике)
+        fsActualUnknown: false,    // SDK не отдаёт boolean isFullscreen
+        _fsLastErrorSeen: null,    // дедуп тоста причины (последний показанный код)
         // config
         configItems: [],
         // F10 (10.24, ADR-1024-11 D2): версия загрузки конфига — растёт в
@@ -2239,7 +2255,7 @@
         reducedMotion: false,          // prefers-reduced-motion (анимации off)
         // hotfix6 (ADR-1025-12 D1/D4): диагностика tier стекла (R17-safe) +
         // состояние §15 «Сердцебиение» (Canvas 2D, телеметрия отдельно от рендера).
-        glassTierDiag: null,           // {supported, override, maxNodes, active, reducedMotion}
+        glassTierDiag: null,           // W2-GLASS: {supported, probeReason, override, maxNodes, active, reducedMotion, lowEnd}
         hbState: 'unknown',            // HEALTHY | WARNING | CRITICAL | UNKNOWN
         hbEma: null,                   // EMA-сглаживание метрики нагрузки (0..1)
         hbReason: 'нет данных',        // причина состояния (для тултипа/подписи)
@@ -2431,6 +2447,12 @@
     },
 
     computed: {
+      // W2-FULLSCREEN (U07.2d): aria-pressed — ТОЛЬКО по подтверждённому
+      // SDK-факту; «unknown» → атрибут не ставится вовсе (без угадываний).
+      fsAriaPressed: function () {
+        if (this.fsActualUnknown) return null;
+        return this.isFullscreen ? 'true' : 'false';
+      },
       currentTabLabel: function () {
         // ASAP 7 F4: страница ПОДКАРТОЧКИ реестра — заголовок карточки
         // (напр. «Случайность» на поверхности «Сна»); топ-модули сохраняют
@@ -2523,12 +2545,52 @@
       sidebarItems: function () {
         return this.navItems;
       },
-      // D13 (§18I.14): bottom-nav удалён. Мобильная верхняя навигация —
-      // КОМПАКТНАЯ горизонтально-скроллимая строка (row 2 шапки) по тому же
-      // каноническому реестру `navItems`, что и desktop sidebar (тот же
-      // набор разделов, никаких скрытых «Ещё»).
+      // ═══ W2-SHELL (asap8-v6.3, U01.1/U01.3): мобильная row B — РОВНО
+      // фиксированные назначения «Статус / Аналитика / Модули» в этом
+      // порядке (четвёртая кнопка — «Ещё», см. mobileMoreItems).
+      // Больше НЕ весь navItems: без горизонтально-скроллимой ленты.
+      // RBAC — тот же фильтр, что у navItems (скрытые права не показываются).
       mobileTopnavItems: function () {
-        return this.navItems;
+        var byId = {};
+        this.navItems.forEach(function (n) { byId[n.id] = n; });
+        return ['status', 'oversight', 'modules']
+          .map(function (id) { return byId[id]; })
+          .filter(Boolean);
+      },
+      // U01.1: всё остальное (ИИ, Память, Справка, Доступы, PERMsoc и
+      // доступные по ролям разделы) — ТОЛЬКО в меню «Ещё».
+      mobileMoreItems: function () {
+        var fixed = {};
+        this.mobileTopnavItems.forEach(function (n) { fixed[n.id] = true; });
+        return this.navItems.filter(function (n) { return !fixed[n.id]; });
+      },
+      // U01.1: активный раздел из «Ещё» отражается в триггере («Ещё • …»).
+      moreMenuTriggerLabel: function () {
+        var active = this.mobileMoreItems.find(function (n) {
+          return n.id === this.activeNav;
+        }, this);
+        return active ? 'Ещё • ' + active.label : 'Ещё';
+      },
+      moreMenuActive: function () {
+        return this.mobileMoreItems.some(function (n) {
+          return n.id === this.activeNav;
+        }, this);
+      },
+      // ═══ W2-SHELL (U02.2): мобильный dropdown суб-вкладок Аналитики —
+      // ПОЛНЫЙ список реальных режимов; «Логи» — НЕ режим (якорь-скролл),
+      // в списке его нет (desktop-табы не тронуты).
+      oversightMobileTabs: function () {
+        return (this.oversightTabs || []).filter(function (t) {
+          return t.id !== 'logs';
+        });
+      },
+      // U02.2: подпись текущего выбора в триггере «Раздел: [текущая ▾]».
+      oversightTabLabel: function () {
+        var cur = this.oversightTab;
+        var t = (this.oversightTabs || []).find(function (x) {
+          return x.id === cur;
+        });
+        return t ? t.label : 'Обзор';
       },
       // D13 (§18I.13): состояние компактного Save-чипа в шапке. clean →
       // visible=false (чипа нет); dirty → число изменённых полей; saving →
@@ -8246,6 +8308,11 @@
       applyRoute: function (rawHash) {
         var route = normalizeRoute(rawHash);
         if (!route) route = this.route || '#/';
+        // W2-SHELL (U01.4/U02): мобильные навигационные оверлеи не
+        // переживают смену маршрута (назад/вперёд и hash-переходы мимо
+        // shellNavTo). Без refocus-джагглера — фокус следует за контентом.
+        if (this.moreMenuOpen) this.closeMoreMenu(false);
+        if (this.oversightMobileOpen) this.oversightMobileClose(false);
         // MINOR-1: legacy-алиасы нормализуем в канонический hash (replaceState).
         var aliasTarget = ROUTE_ALIAS[route];
         if (aliasTarget) {
@@ -8454,11 +8521,78 @@
         this.navigateTo(p || '#/');
       },
       // Навигация из shell (sidebar/drawer/mobile-topnav): закрыть оверлеи.
-      // D13 (§18I.14): bottom-nav/шторка «Ещё» удалены — мобильная навигация
-      // компактная верхняя; shellNavTo больше не обслуживает moreOpen.
+      // D13 (§18I.14): bottom-nav удалён. W2-SHELL (U01): мобильное меню
+      // «Ещё» закрывается при любом shell-переходе.
       shellNavTo: function (route) {
         this.closeDrawer();
+        this.closeMoreMenu();
         this.navigateTo(route);
+      },
+      // ═══ W2-SHELL (U01.4): меню «Ещё» — popover/sheet ПОВЕРХ контента
+      // (не новый ряд шапки). Клавиатура (Esc/Tab-trap), outside click,
+      // focus management (фокус в панель при открытии, возврат в триггер
+      // при закрытии), body-scroll-lock без прыжков (класс на .app-shell
+      // блокирует единственный скроллер main.scroll-area). ═══
+      toggleMoreMenu: function () {
+        if (this.moreMenuOpen) this.closeMoreMenu();
+        else this.openMoreMenu();
+      },
+      openMoreMenu: function () {
+        if (this.moreMenuOpen) return;
+        this.moreMenuOpen = true;
+        this.$nextTick(function () {
+          var panel = this.$refs.moreMenuPanel;
+          if (panel && typeof panel.focus === 'function') panel.focus();
+        }.bind(this));
+      },
+      closeMoreMenu: function (refocus) {
+        if (!this.moreMenuOpen) return;
+        this.moreMenuOpen = false;
+        // Возврат фокуса в кнопку-триггер (U01.4); refocus=false —
+        // когда закрытие сопровождается переходом маршрута.
+        if (refocus !== false) {
+          var trigger = this.$refs.moreMenuTrigger;
+          if (trigger && typeof trigger.focus === 'function') {
+            try { trigger.focus(); } catch (e) { /* no-op */ }
+          }
+        }
+      },
+      moreMenuPick: function (item) {
+        if (!item) return;
+        this.closeMoreMenu(false);
+        this.shellNavTo(item.route);
+      },
+      // Tab-trap внутри панели: фокус не уходит под overlay, Esc всегда
+      // закрывает (глобальный escClose — см. guard в escClose()).
+      moreMenuOnKeydown: function (e) {
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          this.closeMoreMenu();
+          return;
+        }
+        if (e.key !== 'Tab') return;
+        var panel = this.$refs.moreMenuPanel;
+        if (!panel) return;
+        var focusables = Array.prototype.slice.call(
+          panel.querySelectorAll('button, [href], input, [tabindex]:not([tabindex="-1"])')
+        ).filter(function (el) {
+          return !el.disabled && el.offsetParent !== null;
+        });
+        if (!focusables.length) return;
+        var first = focusables[0];
+        var last = focusables[focusables.length - 1];
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      },
+      moreMenuProfileId: function () {
+        if (!this.isChatContext() || this.activeChatId == null) return '';
+        return this.isDmCtx() ? 'ЛС #' + this.activeChatId
+                              : '#' + this.activeChatId;
       },
       // A9/T-1206 + 10.8/ADR-001: «Доступы» — route-driven окна подразделов
       // (hash `#/access/<id>`; состояние окна — производная applyRoute).
@@ -8477,6 +8611,10 @@
       // открыто), иначе route-driven окно «Доступов». Вынесено из глобального
       // keydown ради юнит-тестируемости.
       escClose: function () {
+        // W2-SHELL (U01.4): меню «Ещё» — верхний mobile-оверлей, Esc
+        // закрывает его первым (как модалки ниже).
+        if (this.moreMenuOpen) { this.closeMoreMenu(); return; }
+        if (this.oversightMobileOpen) { this.oversightMobileClose(); return; }
         // F11 (L-F11S-3, §16/D4): полноэкранный граф — верхний слой;
         // Esc закрывает его первым (fallback-шторка или hash-маршрут).
         if (this.graphFullVisible) { this.closeGraphFull(); return; }
@@ -9292,6 +9430,29 @@
         }
         this.oversightTabEnter();
         this.oversightSyncHash();
+      },
+
+      // ═══ W2-SHELL (U02): мобильный dropdown суб-вкладок Аналитики.
+      // Выбор идёт через СУЩЕСТВУЮЩИЙ oversightSetTab → oversightTab/hash/
+      // deep-link/lazy-loading/фильтры не затронуты. Esc/outside click/
+      // возврат фокуса в триггер — как у меню «Ещё». ═══
+      oversightMobileToggle: function () {
+        if (this.oversightMobileOpen) this.oversightMobileClose();
+        else this.oversightMobileOpen = true;
+      },
+      oversightMobileClose: function (refocus) {
+        if (!this.oversightMobileOpen) return;
+        this.oversightMobileOpen = false;
+        if (refocus !== false) {
+          var trigger = this.$refs.oversightMobileTrigger;
+          if (trigger && typeof trigger.focus === 'function') {
+            try { trigger.focus(); } catch (e) { /* no-op */ }
+          }
+        }
+      },
+      oversightMobilePick: function (tab) {
+        this.oversightMobileClose(false);
+        this.oversightSetTab(tab);
       },
 
       // Ленивые загрузки активной суб-вкладки (только существующие API;
@@ -12792,56 +12953,109 @@
       // F-13 (AC-2): метод принудительного закрытия миниаппа удалён
       // вместе с крестиком ✕ выхода — закрытие в Telegram штатное
       // (свайп/системная кнопка); остаются ⛶ и мобильный ✕ сайдбара.
-      // F24 (ADR-1024-24 D1, AMEND решения 10.10): ⛶ — user-action
-      // (`requestFullscreen`/`exitFullscreen`). Флаг НЕ «угадывается»: если
-      // SDK отдаёт фактический boolean `isFullscreen` — берём его, НО не
-      // синхронно (свойство обновляется асинхронно после transition; review
-      // iter1): основной путь — события fullscreenChanged/viewportChanged,
-      // плюс отложенный re-read (microtask + rAF). Иначе (старый SDK/вне TG)
-      // — legacy-инверсия локального флага.
+      // W2-FULLSCREEN (asap8-v6.3 U07, REQ-U07-1): ВСЯ политика
+      // platform × capability × launch mode — в /static/fullscreen-policy.js
+      // (window.__FullscreenPolicy, plain IIFE без Vue). app.js держит только
+      // ЗЕРКАЛО отображаемых полей (isFullscreen/fsSlot/fsCanOffer/fsReason/
+      // fsPending) по subscribe(); обратных путей «Vue computed → policy →
+      // запись в Vue в том же тике» нет (non-reactivity-loop, §4.1 контракта).
+      // Legacy-инверсия локального флага (бывш. строки 12818–12821) УДАЛЕНА:
+      // isFullscreen — только из SDK-факта, иначе 'unknown' (U07.1c).
+      // request()/exit() политики — единственные пути к TMA requestFullscreen/
+      // exitFullscreen; expand() fullscreen-фолбэком НЕ используется (U07.1a).
+      _fsPolicySync: function (policy) {
+        try {
+          var s = policy.state();
+          var prevFs = this.isFullscreen;
+          this.isFullscreen = s.actualFullscreen === true;
+          this.fsActualUnknown = s.actualFullscreen !== true &&
+                                 s.actualFullscreen !== false;
+          this.fsSlot = s.slot || 'inline';
+          this.fsCanOffer = !!s.canOfferFullscreen;
+          this.fsCanOfferExit = !!s.canOfferExit;
+          this.fsReason = s.reason || '';
+          this.fsPending = !!s.requestPending;
+          // U07.2d/U07.1d: ошибка — тост с причиной, не молчание.
+          var code = s.lastError ? s.lastError.code : null;
+          if (code && code !== this._fsLastErrorSeen) {
+            this._fsLastErrorSeen = code;
+            this.toast('Полноэкранный режим: ' +
+                       (s.lastError.message || code),
+                       code === 'ACK_TIMEOUT' ? 'warn' : 'err');
+          } else if (!code) {
+            this._fsLastErrorSeen = null;
+          }
+          // HOTFIX9 D7 (T-2832)/HOTFIX10 D5: после фактической смены
+          // fullscreen — перерисовка canvas по новому размеру.
+          if (prevFs !== this.isFullscreen) this._fsRedraw();
+        } catch (e) { /* зеркало не роняет приложение */ }
+      },
+
       toggleFullscreen: function () {
+        // W2-FULLSCREEN: решение принимает политика (pending-guard,
+        // ALREADY_FULLSCREEN без второго request, honest-disable). Vue-флаг
+        // здесь НЕ инвертируется — факт придёт событием ack.
+        var policy = (typeof window !== 'undefined') && window.__FullscreenPolicy;
+        if (policy) {
+          if (this.isFullscreen) policy.exit();
+          else policy.request();
+          return;
+        }
+        // Defensive-путь (политика не загрузилась — не ожидается): прямой
+        // вызов только реального SDK-метода, БЕЗ угадывания состояния.
         try {
           var wa = window.Telegram && Telegram.WebApp;
           if (!wa) return;
-          // D5/T-2607: не полагаемся на единственное имя метода — Telegram SDK
-          // отдаёт `requestFullscreen`/`exitFullscreen` (Bot API 8.0), но в
-          // старых/нишевых клиентах встречаются камел-варианты. Fallback —
-          // ближайший доступный (без «мёртвой» кнопки).
           if (this.isFullscreen) {
             if (typeof wa.exitFullscreen === 'function') wa.exitFullscreen();
-            else if (typeof wa.expand === 'function') wa.expand();
-          } else {
-            if (typeof wa.requestFullscreen === 'function') wa.requestFullscreen();
-            else if (typeof wa.requestFullScreen === 'function') wa.requestFullScreen();
-            else if (typeof wa.expand === 'function') wa.expand();
+          } else if (typeof wa.requestFullscreen === 'function') {
+            wa.requestFullscreen();
           }
-          if (typeof wa.isFullscreen !== 'boolean') {
-            this.isFullscreen = !this.isFullscreen;   // legacy-фолбэк
-            return;
-          }
-          var self = this;
-          var reread = function () { self.setFullscreenFromTma(); };
-          try { Promise.resolve().then(reread); } catch (e1) { /* нет Promise */ }
-          try {
-            if (window.requestAnimationFrame) window.requestAnimationFrame(reread);
-          } catch (e2) { /* нет rAF */ }
         } catch (e) { /* вне TG/старый SDK — молча */ }
       },
 
-      // F24 (ADR-1024-24 C3): источник истины — TMA. Инициализируем флаг из
-      // `Telegram.WebApp.isFullscreen` и подписываемся на события (ровно раз —
-      // guard `_fsSubscribed`). Вызывается из mounted() и из `ready`
-      // (контекст Telegram может появиться позже). Вне TG/без методов — no-op.
+      // F24 (ADR-1024-24 C3) → W2-FULLSCREEN: инициализация — политика
+      // (init+subscribe, ровно раз), fallback — прямые подписки. Вызывается
+      // из mounted() и из `ready` (контекст Telegram может появиться позже).
       initFullscreen: function () {
+        var self = this;
+        var policy = (typeof window !== 'undefined') && window.__FullscreenPolicy;
+        if (policy) {
+          // U07.2d: light/dark Telegram theme — маркер на <html> для CSS ⛶.
+          try {
+            var waCs = window.Telegram && Telegram.WebApp;
+            if (waCs && waCs.colorScheme) {
+              document.documentElement.dataset.fsScheme = String(waCs.colorScheme);
+            }
+          } catch (e0) { /* no-op */ }
+          policy.init();
+          if (!this._fsPolicySubscribed) {
+            this._fsPolicyUnsub = policy.subscribe(function () {
+              self._fsPolicySync(policy);
+            });
+            this._fsPolicySubscribed = true;
+          }
+          this._fsPolicySync(policy);
+          // HOTFIX9 D7: перерисовка canvas на viewportChanged (resize/поворот)
+          // — в дополнение к политике (та отвечает только за состояние/slot).
+          try {
+            var waVp = window.Telegram && Telegram.WebApp;
+            if (waVp && typeof waVp.onEvent === 'function' && !this._fsViewportBound) {
+              this._fsViewportBound = true;
+              waVp.onEvent('viewportChanged', function () { self._fsRedraw(); });
+            }
+          } catch (e1) { /* no-op */ }
+          return;
+        }
         if (_fsSubscribed) { this.setFullscreenFromTma(); return; }
         try {
           var wa = window.Telegram && Telegram.WebApp;
           if (!wa) return;
           if (typeof wa.isFullscreen === 'boolean') {
             this.isFullscreen = wa.isFullscreen;
+            this.fsActualUnknown = false;
           }
           if (typeof wa.onEvent !== 'function') return;
-          var self = this;
           _fsOnFullscreen = function () { self.setFullscreenFromTma(); };
           _fsOnViewport = function () { self.setFullscreenFromTma(); };
           wa.onEvent('fullscreenChanged', _fsOnFullscreen);
@@ -12864,24 +13078,25 @@
         }
       },
 
-      // F24 (C3): локальный флаг — производный от фактического TMA. Если SDK
-      // не отдаёт boolean `isFullscreen` — НЕ угадываем (no-op).
+      // F24 (C3) legacy-путь (только когда политика не загрузилась): зеркало
+      // из SDK-факта. «unknown» НЕ заменяется угадыванием (U07.1c).
       setFullscreenFromTma: function () {
         try {
           var wa = window.Telegram && Telegram.WebApp;
           if (wa && typeof wa.isFullscreen === 'boolean') {
             this.isFullscreen = wa.isFullscreen;
+            this.fsActualUnknown = false;
           }
         } catch (e) { /* no-op */ }
-        // HOTFIX9 D7 (T-2832): после смены fullscreen даём Vue перерисовать
-        // разметку и перерисовываем canvas по новому размеру (иначе в fullscreen
-        // сердебиение могло «исчезнуть»). Дизайн/данные не затрагиваются.
+        this._fsRedraw();
+      },
+
+      // HOTFIX9 D7 (T-2832) + HOTFIX10 (ADR-1025-18 D5): перерисовка canvas
+      // после смены fullscreen/viewport по новому размеру контейнера.
+      _fsRedraw: function () {
         var self = this;
         var redraw = function () {
           if (typeof self._hbResize === 'function') self._hbResize();
-          // HOTFIX10 (ADR-1025-18 D5, T-2857): после входа/выхода из fullscreen
-          // пересчитываем фон по новому размеру контейнера (не оставляем старые
-          // drawing buffer/viewport/uniforms).
           _auroraResize();
         };
         if (typeof this.$nextTick === 'function') {
@@ -12895,9 +13110,18 @@
         } catch (e3) { /* no-op */ }
       },
 
-      // F24 (C3/C4): отписки в beforeUnmount — `offEvent` с ТЕМИ ЖЕ fn-ссылками
-      // (паттерн `_onVisibility`). Повторный вызов безопасен.
+      // F24 (C3/C4) → W2-FULLSCREEN: отписки в beforeUnmount. Политика —
+      // через её unsubscribe; fallback — offEvent с ТЕМИ ЖЕ fn-ссылками.
       teardownFullscreen: function () {
+        if (this._fsPolicySubscribed) {
+          try { if (this._fsPolicyUnsub) this._fsPolicyUnsub(); } catch (e) { /* no-op */ }
+          this._fsPolicyUnsub = null;
+          this._fsPolicySubscribed = false;
+        }
+        var policy = (typeof window !== 'undefined') && window.__FullscreenPolicy;
+        if (policy) {
+          try { policy.teardown(); } catch (e2) { /* no-op */ }
+        }
         try {
           var wa = window.Telegram && Telegram.WebApp;
           if (wa && typeof wa.offEvent === 'function') {
@@ -18042,17 +18266,37 @@
           }, restoreMs);
         }
       },
-      // F2/AMEND ADR-1025-12 D1 (T-2585): Liquid Glass уровень A — преломление
-      // на ФОРГРАУНД-линзе (`filter: url(#lg-lens)`), НЕ на backdrop
-      // url-фильтре (WebKit его не поддерживает). Выбор — чистая
-      // feature-detect, без UA-gate (WKWebView/iOS-Edge учитываются честно).
+      // F2/AMEND ADR-1025-12 D1 (T-2585) — SUPERSEDED W2-GLASS U08.3:
+      // выбор tier A решает РЕНДЕР-ПРОБА (window.__GlassProbe, реальный
+      // canvas-тест displacement + пиксельная сверка), а не
+      // CSS.supports('filter','url(#…)'), который не доказывает рендер
+      // (WebKit bug 245510: формальный true при отсутствии эффекта).
+      // _liquidGlassSupported оставлен как sync-обёртка над кэшем пробы
+      // (совместимость маркеров); probe запускается лениво, результат
+      // кэшируется за сессию.
       _liquidGlassSupported: function () {
-        try {
-          var win = (typeof window !== 'undefined' && window) || {};
-          var css = win.CSS;
-          if (!css || typeof css.supports !== 'function') return false;
-          return css.supports('filter', 'url(#lg-lens)');
-        } catch (e) { return false; }
+        var cached = (typeof window !== 'undefined' &&
+          window.__GlassProbe && typeof window.__GlassProbe.cached === 'function')
+          ? window.__GlassProbe.cached() : null;
+        return !!(cached && cached.tierA);
+      },
+      // W2-GLASS (REQ-U08-1-PROBE): sync-доступ к решению пробы. Если проба
+      // ещё не готова — честный «нет» + перекур reconcile по готовности
+      // (probe кэшируется в __GlassProbe, повторных рендер-тестов нет).
+      _probeTierA: function () {
+        if (typeof window === 'undefined' ||
+            !window.__GlassProbe || typeof window.__GlassProbe.probe !== 'function') {
+          return { tierA: false, reason: 'probe-missing' };
+        }
+        var cached = window.__GlassProbe.cached();
+        if (cached) return cached;
+        var self = this;
+        window.__GlassProbe.probe().then(function () {
+          // Проба готова → пересчёт tier-разметки (идемпотентно, троттлинг
+          // внутри _lgSchedule).
+          self._lgSchedule();
+        });
+        return { tierA: false, reason: 'probe-pending' };
       },
       // Ручной откат/диагностика (env-only через GET /api/me.ui_flags).
       _glassTierOverride: function () {
@@ -18060,12 +18304,12 @@
         var v = String(flags.UI_GLASS_TIER_OVERRIDE || 'auto').toLowerCase();
         return (v === 'a' || v === 'b' || v === 'c') ? v : 'auto';
       },
-      // Перф-кап числа узлов tier A (env-only, default 6; min 1) — заменяет
-      // старое правило min-стороны ≥240 (оно отсекало низкие панели).
+      // Перф-кап числа узлов tier A (env-only, default 3; жёсткий максимум 3 —
+      // ТЗ U08.3d «максимум 1–3 hero-поверхности»; min 1).
       _lensMaxNodes: function () {
         var flags = (this.me && this.me.ui_flags) || {};
         var n = parseInt(flags.UI_LENS_MAX_NODES, 10);
-        return (isFinite(n) && n > 0) ? n : 6;
+        return (isFinite(n) && n > 0) ? n : 3;
       },
       _prefersReducedMotion: function () {
         if (this.reducedMotion) return true;
@@ -18074,49 +18318,162 @@
             window.matchMedia('(prefers-reduced-motion: reduce)').matches);
         } catch (e) { return !!this.reducedMotion; }
       },
-      // T-2585: tier выбирается feature-detect + перф-кап (не UA, не min-240),
-      // обратимо/транзитивно: `data-glass` (opt-in) НЕ переписывается, ведём
-      // `data-glass-downgraded` + диагностические `data-glass-tier/-reason`.
-      // Нет поддержки/бюджет/reduced-motion → честный B (не «пустое стекло»).
+      // W2-GLASS (U08.3e): low-end Android/устройство → tier A выкл,
+      // стекло (Tier B: статичный rim/tint/frost) НЕ убивается.
+      _lowEndDevice: function () {
+        try {
+          var nav = window.navigator || {};
+          var mem = nav.deviceMemory;
+          var cores = nav.hardwareConcurrency;
+          if (typeof mem === 'number' && mem > 0 && mem < 4) return true;
+          if (typeof cores === 'number' && cores > 0 && cores <= 2) return true;
+        } catch (e) { /* no-op */ }
+        return false;
+      },
+      _prefersReducedMotion: function () {
+        if (this.reducedMotion) return true;
+        try {
+          return !!(window.matchMedia &&
+            window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+        } catch (e) { return !!this.reducedMotion; }
+      },
+      // T-2585 (SUPERSEDED W2-GLASS U08.3): tier выбирается render-пробой +
+      // перф-капом (не UA, не min-240), обратимо/транзитивно: `data-glass`
+      // (opt-in) НЕ переписывается, ведём `data-glass-downgraded` +
+      // диагностические `data-glass-tier/-reason` на ВСЕХ [data-glass]-узлах
+      // (a/b/c/shell — словарь w2-contract §3.4). Приоритет: override →
+      // probe → reduced-motion/low-end → бюджет. Нет поддержки/бюджет →
+      // честный B (статичный rim/tint остаётся, U08.3e).
+      // W2-GLASS U08.3a: subregion feImage-карты размероспецифичен —
+      // проценты внутри скрытого <svg width=0> резолвятся в 0 (диагностика
+      // w2-glass: V1 без subregion = равномерный сдвиг scale/2, не линза).
+      // Для каждого tier-A узла — фильтр из пула клонов #lg-lens (≤3 по капу)
+      // с subregion = фактический border-box; resize пересчитывает
+      // _lgResizeObserver → _lgSchedule → reconcile.
+      _syncLensFilters: function (nodes) {
+        if (typeof document === 'undefined') return;
+        var base = document.getElementById('lg-lens');
+        if (!base) return;
+        if (!this._lgFilterPool) this._lgFilterPool = [];
+        var used = [];
+        for (var i = 0; i < nodes.length; i++) {
+          var el = nodes[i];
+          var isA = el.getAttribute('data-glass-tier') === 'a';
+          // .lg-panel носит backdrop на дочернем __backdrop-слое.
+          var target = el.classList && el.classList.contains('lg-panel')
+            ? (el.querySelector('.lg-panel__backdrop') || el) : el;
+          if (!isA) {
+            // Даунгрейд: снять inline-фильтры — работает CSS-fallback (frost).
+            try {
+              target.style.removeProperty('-webkit-backdrop-filter');
+              target.style.removeProperty('backdrop-filter');
+            } catch (e0) { /* no-op */ }
+            continue;
+          }
+          var rect = el.getBoundingClientRect();
+          var w = Math.max(1, Math.round(rect.width));
+          var h = Math.max(1, Math.round(rect.height));
+          var fid = null, fe = null;
+          for (var p = 0; p < this._lgFilterPool.length; p++) {
+            var rec = this._lgFilterPool[p];
+            if (used.indexOf(rec.fid) >= 0) continue;
+            if (Math.abs(rec.w - w) <= 2 && Math.abs(rec.h - h) <= 2) {
+              fid = rec.fid; fe = rec.fe; rec.w = w; rec.h = h; break;
+            }
+          }
+          if (!fid) {
+            var slot = this._lgFilterPool.length;
+            if (slot === 0) {
+              fid = 'lg-lens';
+              fe = document.getElementById('lg-lens-map');
+            } else {
+              var clone = base.cloneNode(true);
+              fid = 'lg-lens-p' + slot;
+              clone.setAttribute('id', fid);
+              var cloneFe = clone.querySelector('feImage');
+              if (cloneFe) cloneFe.setAttribute('id', 'lg-lens-map-p' + slot);
+              base.parentNode.appendChild(clone);
+              fe = cloneFe;
+            }
+            this._lgFilterPool.push({ fid: fid, fe: fe, w: w, h: h });
+          }
+          try {
+            if (fe) {
+              fe.setAttribute('x', '0'); fe.setAttribute('y', '0');
+              fe.setAttribute('width', String(w));
+              fe.setAttribute('height', String(h));
+            }
+            target.style.setProperty('-webkit-backdrop-filter',
+              'blur(5px) saturate(140%) url(#' + fid + ')');
+            target.style.setProperty('backdrop-filter',
+              'blur(5px) saturate(140%) url(#' + fid + ')');
+          } catch (e2) { /* no-op */ }
+          used.push(fid);
+        }
+      },
       reconcileLiquidGlass: function () {
         if (typeof document === 'undefined') return;
         // D-2/@Reviewer: ранний выход — скрытая вкладка.
         if (document.hidden) return;
-        var nodes = document.querySelectorAll('[data-glass="a"]');
-        if (!nodes.length) return;
-        var supported = this._liquidGlassSupported();
+        var probeRes = this._probeTierA();
+        var supported = !!probeRes.tierA;
+        var probeReason = probeRes.reason || 'probe-pending';
         var override = this._glassTierOverride();
-        var maxNodes = this._lensMaxNodes();
+        // ТЗ U08.3d: Tier A — максимум 1–3 hero-поверхности. Кап = min(env, 3).
+        var maxNodes = Math.min(this._lensMaxNodes(), 3);
         var reduced = this._prefersReducedMotion();
+        var lowEnd = this._lowEndDevice();
+        var nodes = document.querySelectorAll('[data-glass]');
         var active = 0;
         for (var i = 0; i < nodes.length; i++) {
           var el = nodes[i];
+          var declared = (el.getAttribute('data-glass') || '').toLowerCase();
           var tier = 'b';
-          var reason = 'fallback';
-          if (!supported) reason = 'filter-unsupported';
-          else if (override === 'c') reason = 'override-c';
-          else if (override === 'b') reason = 'override-b';
-          else if (reduced) reason = 'reduced-motion';
-          else if (active >= maxNodes) reason = 'budget';
-          else { tier = 'a'; reason = override === 'a' ? 'override-a' : 'auto'; }
-          if (tier === 'a') {
-            active++;
-            el.removeAttribute('data-glass-downgraded');
-          } else {
-            el.setAttribute('data-glass-downgraded', '1');
+          var reason = 'tier-static';
+          if (declared === 'c') {
+            tier = 'c';
+          } else if (declared === 'shell') {
+            tier = 'b';
+          } else if (declared === 'b') {
+            tier = 'b';
+          } else if (declared === 'a') {
+            // Кандидат Tier A: probe + override + motion/low-end + бюджет.
+            tier = 'b';
+            reason = 'fallback';
+            if (probeReason === 'probe-pending' || probeReason === 'probe-missing') {
+              reason = probeReason;
+            } else if (!supported) reason = probeReason;
+            else if (override === 'c') reason = 'override-c';
+            else if (override === 'b') reason = 'override-b';
+            else if (reduced) reason = 'reduced-motion';
+            else if (lowEnd) reason = 'low-end';
+            else if (active >= maxNodes) reason = 'budget';
+            else {
+              tier = 'a';
+              reason = override === 'a' ? 'override-a' : 'probe-chromium';
+            }
+            if (tier === 'a') {
+              active++;
+              el.removeAttribute('data-glass-downgraded');
+            } else {
+              el.setAttribute('data-glass-downgraded', '1');
+            }
           }
           el.setAttribute('data-glass-tier', tier);
           el.setAttribute('data-glass-reason', reason);
           // D-2: рост/смена размера allow-узла → пересчёт (b↔a), наблюдаем точечно.
-          if (this._lgResizeObserver) {
+          if (tier === 'a' && this._lgResizeObserver) {
             try { this._lgResizeObserver.observe(el); } catch (e) { /* no-op */ }
           }
         }
+        // W2-GLASS: subregion feImage-карты под размер каждого tier-A узла.
+        this._syncLensFilters(nodes);
         // T-2583: R17-safe маркер выбранного tier (только числа/строки-флаги,
         // без контента и секретов) — используется диагностикой и live-гейтом.
         this.glassTierDiag = {
-          supported: supported, override: override, maxNodes: maxNodes,
-          active: active, reducedMotion: reduced,
+          supported: supported, probeReason: probeReason, override: override,
+          maxNodes: maxNodes, active: active, reducedMotion: reduced,
+          lowEnd: lowEnd,
         };
       },
       // Транзитивность (T-2540/@Reviewer): `[data-glass="a"]` достраивается

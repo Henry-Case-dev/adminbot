@@ -88,34 +88,53 @@ const computed = captured.computed;
     'OFF + #/ai* → активный «ИИ»');
 }
 
-// ── D13 (§18I.14): bottom-nav/«Ещё» УДАЛЕНЫ; мобильная верхняя навигация
-// использует ТОТ ЖЕ канонический реестр navItems (все разделы, скрытых нет).
+// ── W2-SHELL (asap8-v6.3, U01.1): новый канон мобильной row B ────────────
+// (замена маркера D13 «mobile-topnav = весь navItems / Ещё удалён»):
+// ровно 3 фиксированных назначения + «Ещё»; остальное — только в меню.
 {
+  const nav = computed.navItems.call(
+    { route: '#/', iaV2: true, canViewTab() { return true; },
+      isGlobalAdmin: true });
   const ctx = {
     route: '#/', iaV2: true, canViewTab() { return true; },
-    navItems: computed.navItems.call(
-      { route: '#/', iaV2: true, canViewTab() { return true; } }),
+    isGlobalAdmin: true,
+    navItems: nav,
+    mobileTopnavItems: computed.mobileTopnavItems.call({ navItems: nav }),
+    mobileMoreItems: computed.mobileMoreItems.call({
+      navItems: nav,
+      mobileTopnavItems: computed.mobileTopnavItems.call({ navItems: nav }),
+    }),
   };
   const topIds = computed.mobileTopnavItems.call(ctx).map((n) => n.id);
   assert.strictEqual(computed.bottomNavItems, undefined,
-    'D13: computed bottomNavItems удалён');
-  assert.strictEqual(computed.mobileMoreItems, undefined,
-    'D13: computed mobileMoreItems («Ещё») удалён');
-  assert.ok(topIds.indexOf('status') === 0 && topIds.indexOf('how') >= 0,
-    'mobile-topnav: Статус/Справка присутствуют');
-  assert.ok(topIds.indexOf('memory') >= 0 && topIds.indexOf('access') >= 0,
-    'D13: Память/Доступы достижимы в верхней навигации без «Ещё»');
-  assert.strictEqual(topIds.length, ctx.navItems.length,
-    'D13: тот же канонический реестр, что и desktop sidebar');
-  // Пользователь без прав: только доступные разделы (реестр один).
+    'D13: computed bottomNavItems удалён (нижнего navbar нет)');
+  assert.deepStrictEqual(topIds, ['status', 'oversight', 'modules'],
+    'U01.1: row B = Статус/Аналитика/Модули в этом порядке');
+  const moreIds = computed.mobileMoreItems.call(ctx).map((n) => n.id);
+  assert.deepStrictEqual(moreIds.slice().sort(),
+    ['access', 'ai', 'how', 'memory', 'permsoc'],
+    'U01.1: остальное (ИИ/Память/Справка/Доступы/PERMsoc) — только в «Ещё»');
+  // U01.1: активный раздел из «Ещё» отражается в триггере («Ещё • …»).
+  const ctxAi = Object.assign({}, ctx, { activeNav: 'ai' });
+  assert.strictEqual(computed.moreMenuTriggerLabel.call(ctxAi), 'Ещё • ИИ',
+    'U01.1: активный пункт «Ещё» виден в триггере');
+  assert.strictEqual(computed.moreMenuActive.call(ctxAi), true,
+    'U01.1: триггер «Ещё» подсвечен для активного раздела меню');
+  const ctxStatus = Object.assign({}, ctx, { activeNav: 'status' });
+  assert.strictEqual(computed.moreMenuTriggerLabel.call(ctxStatus), 'Ещё',
+    'U01.1: без активного раздела меню триггер — просто «Ещё»');
+  // Пользователь без прав: скрытые права не показываются (row B и «Ещё»).
   const user = {
-    route: '#/', iaV2: true, canViewTab(id) { return id === 'status' || id === 'info'; },
+    route: '#/', iaV2: true, activeNav: '',
+    canViewTab(id) { return id === 'status'; },
     navItems: computed.navItems.call({
       route: '#/', iaV2: true,
-      canViewTab(id) { return id === 'status' || id === 'info'; } }),
+      canViewTab(id) { return id === 'status'; } }),
   };
-  assert.deepStrictEqual(computed.mobileTopnavItems.call(user).map((n) => n.id),
-    ['status', 'how'], 'mobile-topnav пользователя = Статус/Справка');
+  user.mobileTopnavItems = computed.mobileTopnavItems.call(user);  assert.deepStrictEqual(computed.mobileTopnavItems.call(user).map((n) => n.id),
+    ['status'], 'U01: row B пользователя = только Статус');
+  assert.deepStrictEqual(computed.mobileMoreItems.call(user).map((n) => n.id),
+    ['how'], 'U01: в «Ещё» только доступные разделы');
 }
 
 // ── applyRoute: алиасы памяти + мусорный hash + nested parent ────────────

@@ -357,8 +357,19 @@ methods.oversightTabEnter.call(vm);
   assert.ok(CSS.indexOf('.oversight-tab') > 0
     && CSS.indexOf('.oversight-tab.is-active') > 0,
     'CSS табов (desktop-ряд + активный)');
-  assert.ok(/\.oversight-tabs__row[^}]*overflow-x: auto/.test(CSS),
-    'mobile: горизонтальный скролл табов');
+  // W2-SHELL (U02): замена маркера «mobile: горизонтальный скролл табов» —
+  // на <768 лента обрезанных pills скрыта, показан компактный полноширинный
+  // dropdown с ПОЛНЫМ списком («Логи» — якорь, не режим: в списке нет).
+  assert.ok(/\.oversight-mobile-dd \{/.test(CSS)
+    && /\.oversight-mobile-panel \{/.test(CSS),
+    'U02: mobile dropdown суб-вкладок в CSS');
+  assert.ok(INDEX.indexOf('oversight-mobile-trigger') > 0
+    && INDEX.indexOf('oversightMobileTabs') > 0,
+    'U02: mobile dropdown в разметке (ARIA, полный список)');
+  assert.ok(/@media \(max-width: 767px\) \{\s*\n\s*\.oversight-tabs__row \{ display: none; \}/.test(CSS),
+    'U02: на <768 лента pills скрыта');
+  assert.ok(/@media \(min-width: 768px\) \{\s*\n\s*\.oversight-mobile-dd \{ display: none; \}/.test(CSS),
+    'U02.1: desktop ≥768 — dropdown скрыт, прежняя панель сохранена');
 
   const inOversight = function (marker) {
     const i = INDEX.indexOf(marker);

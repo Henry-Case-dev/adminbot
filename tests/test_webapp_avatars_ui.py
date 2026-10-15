@@ -223,19 +223,30 @@ class TestAvatarFrontAudit:
         assert _Static.has_method(src, "toggleFullscreen")
 
     def test_toggle_fullscreen_method(self):
-        """F24 (10.24, ADR-1024-24 C3): ⛶ — user-action; флаг ПРОИЗВОДНЫЙ от
-        TMA (`wa.isFullscreen` + события). Синхронно устаревшее значение НЕ
-        фиксируется — отложенный re-read (setFullscreenFromTma); legacy-
-        инверсия остаётся фолбэком для SDK без boolean."""
+        """F24 (10.24, ADR-1024-24 C3) → re-pin v6.3 U07 (REQ-U07-1):
+        ⛶ — user-action; решение platform/capability/launch-mode принимает
+        window.__FullscreenPolicy (web/static/fullscreen-policy.js). app.js
+        хранит ТОЛЬКО зеркало (toggleFullscreen/setFullscreenFromTma):
+        делегирование policy.request()/policy.exit(), defensive-путь —
+        прямые реальные SDK-методы; legacy-инверсия флага удалена (U07.1c:
+        isFullscreen — только SDK-факт, unknown не инвертируется)."""
         src = _Static.read("web/app.js")
         assert _Static.has_method(src, "toggleFullscreen")
         body = _Static.body(src, "toggleFullscreen")
+        assert "__FullscreenPolicy" in body, "U07: делегирование политике"
+        assert "policy.request()" in body and "policy.exit()" in body, \
+            "U07: request/exit через политику"
         assert "Telegram.WebApp" in body
-        assert "wa.requestFullscreen" in body
-        assert "wa.exitFullscreen" in body
-        assert "typeof wa.isFullscreen !== 'boolean'" in body
-        assert "setFullscreenFromTma" in body          # отложенный re-read
-        assert "this.isFullscreen = !this.isFullscreen" in body  # legacy-фолбэк
+        assert "wa.requestFullscreen" in body, \
+            "defensive-фолбэк: прямой SDK-запрос сохранён"
+        assert "wa.exitFullscreen" in body, \
+            "defensive-фолбэк: прямой SDK-exit сохранён"
+        # U07.1c: legacy-инверсия/синхронный re-read в toggle больше НЕ живут
+        # в app.js — факт состояния приходит по subscribe из политики.
+        assert "this.isFullscreen = !this.isFullscreen" not in body, \
+            "U07.1c: legacy-инверсия удалена"
+        assert "typeof wa.isFullscreen !== 'boolean'" not in body, \
+            "U07.1c: синхронная проверка флага удалена"
 
     def test_resolve_relation_name_no_id_fallback(self):
         """Раунд 10.2: resolveRelationName — alias → name → username (без
@@ -414,7 +425,9 @@ class TestAvatarFrontAudit:
     def test_close_and_fullscreen_buttons(self):
         """F-13 (AC-2) + 10.8 (§4): ✕-кнопки закрытия модалок — окно модуля
         (1) + три окна «Доступов» (roles/local/admins); @click closeApp()
-        отсутствует; ⛶ (toggleFullscreen) на месте."""
+        отсутствует. re-pin v6.3 U07 (REQ-U07-2): ⛶-кнопка шапки — inline
+        SVG-иконки (fs-ic, два состояния), gate fsSlot!=='hidden'
+        (tdesktop/вне TG — скрыта), aria-pressed только по ACK-факту."""
         html = _Static.read("web/index.html")
         assert "@click=\"closeApp()\"" not in html
         assert "@click=\"toggleFullscreen()\"" in html
@@ -422,7 +435,16 @@ class TestAvatarFrontAudit:
         # 10.8: 4 модальных ✕ (модуль + roles/local/admins «Доступов»).
         # 10.20 (T-1896): +1 — модалка «Досье участника» (БЛОК 3.2).
         assert html.count(">✕</button>") == 5
-        assert ">⛶</button>" in html
+        # U07.2: fullscreen-кнопка — inline SVG (не текстовый глиф), slot-гейт.
+        assert 'class="fs-ic"' in html, "U07.2: inline SVG-иконка fs-ic"
+        assert 'v-if="me && fsSlot !== \'hidden\'"' in html, \
+            "U07.2: кнопка скрыта на hidden-slot (tdesktop/вне TG)"
+        assert "fs-slot-' + fsSlot" in html, \
+            "U07.2: slot-класс для CSS-состояний кнопки"
+        assert ':aria-pressed="fsAriaPressed"' in html, \
+            "U07.2: aria-pressed только по ACK-факту"
+        assert html.count('class="fs-ic"') == 2, \
+            "U07.2: два состояния иконки (вход/выход)"
 
     def test_sticky_header_class(self):
         html = _Static.read("web/index.html")
@@ -433,7 +455,15 @@ class TestAvatarFrontAudit:
         assert "z-index: 40" in css                # шапка — без изменений
         assert 'class="main-header header-sticky card-solid' in html
         # Раунд 10.6 (A1/T-1161): sidebar (z-index:45) удалён; скролл — main.
-        assert "z-index: 45" not in css
+        # re-pin v6.3 U02.2: единственный законный z-index:45 — подъём
+        # mobile-dropdown oversight над соседями grid (бывший sidebar-слой
+        # не восстановлен).
+        assert re.search(r"oversight-tabs\.oversight-dd-open[^{]*\{[^}]*"
+                         r"z-index: 45", css), \
+            "U02.2: z-45 — только mobile-dropdown oversight"
+        sidebar_rules = re.findall(r"[^{}]*\.app-sidebar[^{]*\{[^}]*\}", css)
+        assert not any("z-index: 45" in r for r in sidebar_rules), \
+            "T-1161: sidebar-слой с z-45 не восстановлен"
         assert ".app-shell" in css
         assert ".fullscreen-mode .scroll-area" in css
         assert "overscroll-behavior: contain" in css

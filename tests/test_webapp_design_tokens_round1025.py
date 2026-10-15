@@ -19,6 +19,8 @@ TG_INIT = (ROOT / "web" / "static" / "telegram-init.js").read_text(encoding="utf
 SETTINGS = (ROOT / "config" / "settings.py").read_text(encoding="utf-8")
 
 # ── D5: жёсткий эталон-множество маркеров дизайн-системы (presence) ──────────
+# re-pin v6.3 U08 (REQ-U08-2): мёртвый --glass-displace удалён владельцем;
+# presence-маркеры нового канона Liquid Glass — --lg-frost/--lg-frost-hero.
 EXPECTED_TOKENS = {
     "--surface-0", "--surface-1", "--surface-2", "--surface-3",
     "--text-1", "--text-2", "--text-3",
@@ -27,7 +29,7 @@ EXPECTED_TOKENS = {
     "--grad-a", "--grad-b", "--grad-c", "--grad-d",
     "--grad-speed", "--grad-speed-slow", "--grad-angle", "--accent-grad",
     "--glass-bg", "--glass-bg-strong", "--glass-blur", "--glass-border",
-    "--glass-displace",
+    "--lg-frost", "--lg-frost-hero",
 }
 EXPECTED_VALUES = {
     "--surface-0": "#090D17", "--surface-1": "#151B2A", "--surface-2": "#1C2537",
@@ -43,7 +45,9 @@ EXPECTED_VALUES = {
 # D5 (симметрия, итерация @Reviewer): полный набор токенов дизайн-системы.
 # Сравниваем множество фактических токенов семейств с эталоном → ловим и
 # пропажи, и ЛИШНИЕ маркеры (напр. забытый --grad-old / --glass-foo).
-INVENTORY_PREFIXES = ("--surface-", "--text-", "--grad-", "--glass-",
+# re-pin v6.3 U08 (REQ-U08-2): семейство --lg-* — новый канон Liquid Glass;
+# инвентарь-симметрия покрывает и его; --glass-displace удалён владельцем.
+INVENTORY_PREFIXES = ("--surface-", "--text-", "--grad-", "--glass-", "--lg-",
                       "--teal-", "--purple-", "--indigo-", "--magenta-",
                       "--lilac-")
 INVENTORY_STATUS = {"--ok", "--warn", "--err", "--err-text", "--ok-bg",
@@ -55,13 +59,18 @@ INVENTORY_TOKENS = {
     "--grad-a", "--grad-b", "--grad-c", "--grad-d", "--grad-angle",
     "--grad-ease", "--grad-speed", "--grad-speed-slow",
     "--glass-bg", "--glass-bg-strong", "--glass-blur", "--glass-border",
-    "--glass-border-color", "--glass-displace", "--glass-highlight",
+    "--glass-border-color", "--glass-highlight",
     "--glass-highlight-soft", "--glass-shadow",
     # HOTFIX10 (ADR-1025-18 D1): тема frosted-слоя GlassSurface — тёмная
     # paper/ink вместо белого дефолта vendored-библиотеки.
     "--glass-paper", "--glass-ink",
     "--teal-500", "--teal-600", "--purple-400", "--purple-500", "--indigo-300",
     "--magenta-400", "--magenta-600", "--lilac-200",
+    # v6.3 U08: канон Liquid Glass v2 (слои .lg-panel__*, frost/tint/rim).
+    "--lg-fringe", "--lg-frost", "--lg-frost-hero", "--lg-radius",
+    "--lg-radius-hero", "--lg-radius-solid", "--lg-rim", "--lg-ring-mask",
+    "--lg-shadow", "--lg-specular-arc", "--lg-specular-soft",
+    "--lg-tint-hero", "--lg-tint-soft",
 } | INVENTORY_STATUS
 GLASS_LEVELS = {"a", "b", "c"}
 
@@ -303,27 +312,61 @@ class TestUtilityColorsOnGlass:
 # ═══════════ T-2538…T-2543: Liquid Glass A/B/C, allow/deny ═══════════
 class TestLiquidGlassV2:
     def test_single_inline_svg_filter(self):
+        # re-pin v6.3 U08 (REQ-U08-3/U08.3a): фильтр #lg-lens ПЕРЕСТРОЕН —
+        # PNG-карта смещения (feImage id="lg-lens-map", data:image/png,
+        # same-origin/CSP-safe) + feDisplacementMap; старый
+        # feTurbulence/feGaussianBlur-вариант удалён вместе с форграунд-
+        # линзой ::before (U08.1). Инлайн-фильтр по-прежнему РОВНО ОДИН.
         assert INDEX.count('id="lg-lens"') == 1, "должен быть ОДИН фильтр #lg-lens"
+        assert 'id="lg-lens-map"' in INDEX, "U08: PNG-карта смещения (feImage)"
+        assert 'href="data:image/png' in INDEX, \
+            "U08: карта инлайн (same-origin, без внешних ссылок)"
         assert "feDisplacementMap" in INDEX
-        assert "feTurbulence" in INDEX and "feGaussianBlur" in INDEX
-        # CSP/zero-build: без внешних ссылок/data-URI на фильтр.
+        assert "feGaussianBlur" not in INDEX, \
+            "U08.1: старый turbulence/blur-вариант фильтра удалён"
+        # CSP/zero-build: фильтр объявлен инлайн, без внешних ссылок.
         assert "lg-lens" in INDEX.split("filter id=")[1][:2000]
         assert 'href="http' not in INDEX.split("lg-lens")[0][-400:]
 
     def test_level_a_opt_in_only(self):
-        # A (AMEND ADR-1025-12 D1): преломление на ФОРГРАУНД-линзе ::before через
-        # токен --glass-displace; backdrop несёт только blur (без url()).
-        base = re.search(r'\[data-glass="a"\]\s*\{([^}]*)\}', APP_CSS)
-        assert base, "нет базового правила [data-glass=\"a\"]"
-        assert "var(--glass-blur)" in base.group(1)
-        assert "url(#lg-lens)" not in base.group(1), "url() НЕ на backdrop"
+        # re-pin v6.3 U08 (REQ-U08-2/U08.3a): Tier A — реальная edge-рефракция
+        # ПОДЛОЖКИ через backdrop-filter url(#lg-lens) и ТОЛЬКО на probe-гейте
+        # [data-glass-tier="a"]; без пробы узел живёт как честный Tier B
+        # (var(--lg-frost-hero)). Форграунд-линза ::before с filter:url()
+        # удалена владельцем (U08.1) — ::before теперь tint-слой.
+        base_blocks = re.findall(r'\[data-glass="a"\]\s*\{([^}]*)\}', APP_CSS)
+        assert base_blocks, "нет базовых правил [data-glass=\"a\"]"
+        # U08.3a: ни одно «голое» правило A не тянет url() — преломление
+        # только на probe-гейте; рецепт (фон/радиус) находим среди блоков.
+        for b in base_blocks:
+            assert "url(#lg-lens)" not in b, \
+                "url() НЕ в голом правиле A (только tier=\"a\")"
+        base = next((b for b in base_blocks if "var(--glass-bg)" in b), None)
+        assert base, "нет рецепта [data-glass=\"a\"] с var(--glass-bg)"
+        tier_b = re.search(
+            r'\[data-glass="a"\]:not\(\[data-glass-tier="a"\]\)\s*\{([^}]*)\}',
+            APP_CSS)
+        assert tier_b, "нет Tier B профиля [data-glass=\"a\"]"
+        assert "var(--lg-frost-hero)" in tier_b.group(1), \
+            "U08: без probe — честный frost-hero"
+        assert "url(#lg-lens)" not in tier_b.group(1)
+        tier_a = re.search(
+            r'\[data-glass="a"\]\[data-glass-tier="a"\]\s*\{([^}]*)\}', APP_CSS)
+        assert tier_a, "нет Tier A правила [data-glass-tier=\"a\"]"
+        assert re.search(
+            r"backdrop-filter:[^;]*var\(--lg-frost-hero\)\s+url\(#lg-lens\)",
+            tier_a.group(1)), \
+            "U08.3a: backdrop url(#lg-lens) только на tier=\"a\" (probe opt-in)"
         m = re.search(r'\[data-glass="a"\]::before\s*\{([^}]*)\}', APP_CSS)
-        assert m, "нет foreground-линзы [data-glass=\"a\"]::before"
+        assert m, "нет tint-слоя [data-glass=\"a\"]::before"
         body = m.group(1)
-        assert "var(--glass-displace)" in body
-        assert "radial-gradient" in body and "mask-image" in body
+        assert "filter" not in body, "U08.1: ::before БЕЗ filter (tint-слой)"
+        assert "var(--glass-displace)" not in APP_CSS, \
+            "U08: мёртвый --glass-displace удалён"
+        assert "var(--lg-tint-hero)" in body
+        assert "radial-gradient" in body
         assert "z-index: -1" in body
-        assert _token_value("--glass-displace").startswith("url(#lg-lens")
+        assert _token_value("--lg-frost-hero").startswith("blur(")
 
     def test_level_b_default(self):
         assert "backdrop-filter: var(--glass-blur) saturate(140%)" in APP_CSS
@@ -370,17 +413,37 @@ class TestLiquidGlassV2:
         assert "$nextTick" in APP_JS
 
     def test_feature_detect_tier(self):
-        """AMEND ADR-1025-12 D1: tier — feature-detect filter:url(#lg-lens),
-        БЕЗ UA-gate Blink-only (WKWebView/iOS-Edge учитываются честно)."""
-        assert "css.supports('filter', 'url(#lg-lens)')" in APP_JS
+        """re-pin v6.3 U08 (REQ-U08-1-PROBE): feature-detect
+        css.supports('filter', url()) удалён владельцем — tier решает
+        render-probe window.__GlassProbe (web/static/glass-probe.js):
+        пиксельная проба svg-рендера + backdrop-filter, честный Tier B
+        на webkit/gecko/unknown. UA-gate по-прежнему запрещён."""
+        assert "css.supports('filter', 'url(#lg-lens)')" not in APP_JS, \
+            "U08: css.supports-детект удалён из app.js"
         assert "AppleWebKit" not in APP_JS
+        probe = (ROOT / "web" / "static" / "glass-probe.js").read_text(
+            encoding="utf-8")
+        assert "window.__GlassProbe" in probe, "U08: render-probe модуль"
+        assert "__GlassProbe" in APP_JS, \
+            "U08: app.js consumes probe (tier/reason)"
+        assert "data-glass-tier" in APP_JS, \
+            "U08: tier проставляется атрибутом на узлы"
 
     def test_glass_approximation_documented(self):
-        """@Reviewer: приближение карты смещения зафиксировано (не выдаётся за оптику)."""
-        assert "ДОКУМЕНТИРОВАННОЕ" in INDEX and "ПРИБЛИЖЕНИЕ" in INDEX
-        assert "feTurbulence" in INDEX and "feGaussianBlur" in INDEX
-        # усиление у краёв — CSS radial-mask линзы, а не равномерный шум
-        assert "radial-gradient(ellipse at center" in APP_CSS
+        """re-pin v6.3 U08 (REQ-U08-3): приближение карты смещения
+        зафиксировано в каноне (не выдаётся за оптику): комментарий над
+        SVG-фильтром в index.html документирует PNG-карту 256×256
+        (R=X/G=Y/B=128), smoothstep-фронт ≈8px у центра-края и генератор
+        (gen_lens_map, w2-contract §3.4); усиление у краёв — rim/specular
+        слои (::after, --lg-specular-arc/--lg-rim), не равномерный шум."""
+        assert "PNG 256" in INDEX and "smoothstep" in INDEX, \
+            "U08: карта смещения задокументирована в разметке"
+        assert "gen_lens_map" in INDEX and "w2-contract.md" in INDEX, \
+            "U08: воспроизводимость карты (генератор + контракт)"
+        assert "feImage" in INDEX and "feDisplacementMap" in INDEX
+        # усиление у краёв — слои rim/specular + highlight-кромка
+        assert "var(--lg-specular-arc)" in APP_CSS
+        assert "var(--lg-rim)" in APP_CSS
         assert "inset 0 1px 0 var(--glass-highlight)" in APP_CSS
 
 

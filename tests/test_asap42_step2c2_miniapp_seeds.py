@@ -523,9 +523,10 @@ class TestModulesQuickAccess:
 
 class TestMoreSheetClosedContract:
     def test_more_sheet_is_unmounted_when_closed(self):
-        # re-pin ASAP 8 v6 D13 (§18I.14): шторка «Ещё» и bottom-nav удалены
-        # владельцем ПОЛНОСТЬЮ (не unmount-при-closed, а отсутствие в DOM/CSS);
-        # мобильная навигация — компактная верхняя строка (mobile-topnav).
+        # re-pin ASAP 8 v6 D13 (§18I.14) → v6.3 U01 (REQ-U01-4): .more-sheet
+        # удалён владельцем; вместо шторки — popover «Ещё» (.more-menu-*),
+        # размеченный v-if="… && moreMenuOpen" → при закрытии узел НЕ в DOM
+        # (unmount-контракт сохранён, не display-переключение).
         html = _html()
         assert 'class="more-sheet"' not in html, \
             "D13: .more-sheet удалён из разметки"
@@ -538,8 +539,16 @@ class TestMoreSheetClosedContract:
             "D13: transition-CSS удалён вместе с элементом"
         assert ".more-sheet-leave-to" not in css, \
             "D13: transition-CSS удалён вместе с элементом"
-        assert 'class="mobile-topnav scroll-thin"' in html, \
-            "D13 §18I.14: компактная верхняя навигация присутствует"
+        # U01: компактная верхняя навигация row B — БЕЗ scroll-thin.
+        assert 'class="mobile-topnav"' in html, \
+            "U01 §REQ-U01-3: компактная верхняя навигация присутствует"
+        assert 'mobile-topnav scroll-thin' not in html, \
+            "U01: мобильный topnav без горизонтального скролла"
+        # U01.4: popover «Ещё» смонтирован только при открыт menu → unmount.
+        assert 'v-if="iaV2 && isMobileShell && moreMenuOpen"' in html, \
+            "U01.4: more-menu gated v-if (unmount при закрытии)"
+        assert 'class="more-menu-root"' in html, \
+            "U01.4: корень popover «Ещё» на месте"
 
 
 class TestStyleCardsCompact:

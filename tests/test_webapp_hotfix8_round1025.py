@@ -81,10 +81,12 @@ class TestShellV3:
         assert "--shell-sheen-opacity: .05" in APP_CSS
 
     def test_panels_shell_not_lens_a(self):
-        # re-pin ASAP 8 v6 D13 (§18I.14): shell-слой — sidebar/шапка
-        # (+mobile-topnav); bottom-nav/more-sheet удалены.
+        # re-pin ASAP 8 v6 D13 (§18I.14) → v6.3 U01 (REQ-U01-1): shell-слой —
+        # sidebar/шапка (+mobile-topnav, редизайн row A/B — класс без
+        # scroll-thin, горизонтальная лента удалена); bottom-nav/more-sheet
+        # удалены (в v6.3 вместо шторки — popover «Ещё», класс more-menu).
         for marker in ('class="app-sidebar" data-glass="shell"',
-                       'class="mobile-topnav scroll-thin"'):
+                       'class="mobile-topnav"'):
             assert marker in INDEX, marker
         assert 'class="bottom-nav"' not in INDEX, \
             "D13: нижняя навигация удалена"
@@ -166,8 +168,18 @@ class TestAurora:
         assert "@keyframes grad-drift" in APP_CSS
 
     def test_no_csp_violations(self):
+        # re-pin ASAP 8 v6.3 U08.3 (REQ-U08-3): backdrop url( разрешён только
+        # в glass-слоях и только через render-probe (см. hotfix7 re-pin);
+        # WebGL/CSP-инварианты сохранены. NOTE Wave 4: живая CSP-проверка
+        # feImage data-URI в index.html — на проде (owner CORR-0/V07).
+        glass_owned = ("app.css", "index.html", "app.js", "glass-probe.js")
         for _path, text in _first_party_web().items():
-            assert not re.search(r"backdrop-filter\s*:\s*url\(", text)
+            if not re.search(r"backdrop-filter\s*:\s*url\(", text):
+                continue
+            name = _path.replace("\\", "/").rsplit("/", 1)[-1]
+            assert name in glass_owned, \
+                f"v6.3 U08.3: backdrop url( вне glass-слоёв: {name}"
+        assert "GlassProbe" in APP_JS
         assert not re.search(r"getContext\(['\"]webgl", APP_JS)
         assert "data:image" not in APP_CSS
         # Никаких новых библиотек/Framer/React/CDN.

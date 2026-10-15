@@ -255,20 +255,31 @@ const components = (global.__components) || {};
     'F2: baseline снапшот после applyTree (openRoleEditor)');
 }
 
-// ── D13.5: mobile shell — верхняя навигация, нижней нет ────────────────────
+// ── D13.5 + W2-SHELL (asap8-v6.3, U01): mobile shell — row B 4 сегмента,
+// нижней навигации нет. Маркеры scroll-thin/«mobileMoreItems удалён»
+// заменены новым каноном «4 destination + Ещё» (w2-contract §1.2).
 {
   assert.ok(INDEX.indexOf('class="bottom-nav"') < 0,
     'D13 §18I.14: bottom-nav удалён');
+  // Старая шторка-лента (moreOpen) не возвращена; новое меню «Ещё» —
+  // popover (more-menu), НЕ нижний navbar.
   assert.ok(INDEX.indexOf('moreOpen') < 0,
     'D13 §18I.14: шторка «Ещё» (moreOpen) удалена');
-  assert.ok(INDEX.indexOf('class="mobile-topnav scroll-thin"') >= 0,
-    'D13 §18I.14: компактная верхняя навигация присутствует');
+  assert.ok(INDEX.indexOf('class="more-sheet"') < 0
+    && INDEX.indexOf('class="bottom-nav"') < 0,
+    'U01: меню «Ещё» — popover поверх контента, не ряд шапки/низ-бар');
+  assert.ok(INDEX.indexOf('class="mobile-topnav"') >= 0,
+    'U01: компактная верхняя row B присутствует (без scroll-thin-ленты)');
   assert.ok(INDEX.indexOf('v-if="iaV2 && isMobileShell" class="mobile-topnav') >= 0,
     'D13: верхняя навигация — только mobile shell (<768)');
+  assert.ok(INDEX.indexOf('mobile-topnav-more') >= 0
+    && INDEX.indexOf('more-menu-root') >= 0,
+    'U01.1: 4-я кнопка «Ещё» + popover-меню в разметке');
   assert.ok(computed.mobileTopnavItems, 'D13: mobileTopnavItems computed');
-  assert.strictEqual(computed.bottomNavItems, undefined
-    && computed.mobileMoreItems, undefined,
-    'D13: bottomNavItems/mobileMoreItems удалены');
+  assert.strictEqual(computed.bottomNavItems, undefined,
+    'D13: bottomNavItems удалён');
+  assert.strictEqual(typeof computed.mobileMoreItems, 'function',
+    'U01.1: mobileMoreItems («Ещё») определён');
   // Ландшафт: контролы не перекрываются (компактный ряд, не fixed-стек).
   assert.ok(/@media \(orientation: landscape\) and \(max-height: 500px\)[\s\S]{0,400}\.mobile-topnav-link/.test(CSS),
     'D13 §18I.14: landscape-правило для верхней навигации');

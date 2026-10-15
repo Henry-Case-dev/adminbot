@@ -1,0 +1,185 @@
+{
+ "console_errors": [],
+ "checks": {},
+ "measurements": {
+  "before_390": {
+   "vw": 390,
+   "vh": 844,
+   "scrollWidth": 390,
+   "headerH": 225.6,
+   "navH": 45.6,
+   "navScrollW": 455,
+   "navClientW": 358,
+   "shellMode": "app-shell shell-mobile ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "moreLabel": null,
+   "links": [
+    {
+     "t": "Статус",
+     "x": 16,
+     "right": 63.4,
+     "y": 38,
+     "bottom": 78,
+     "w": 47,
+     "h": 40
+    },
+    {
+     "t": "Справка",
+     "x": 66.6,
+     "right": 122.5,
+     "y": 38,
+     "bottom": 78,
+     "w": 56,
+     "h": 40
+    },
+    {
+     "t": "Модули",
+     "x": 125.7,
+     "right": 179.5,
+     "y": 38,
+     "bottom": 78,
+     "w": 54,
+     "h": 40
+    },
+    {
+     "t": "ИИ",
+     "x": 182.7,
+     "right": 226.7,
+     "y": 38,
+     "bottom": 78,
+     "w": 44,
+     "h": 40
+    },
+    {
+     "t": "Память",
+     "x": 229.9,
+     "right": 280.9,
+     "y": 38,
+     "bottom": 78,
+     "w": 51,
+     "h": 40
+    },
+    {
+     "t": "Аналитика",
+     "x": 284.1,
+     "right": 350,
+     "y": 38,
+     "bottom": 78,
+     "w": 66,
+     "h": 40
+    },
+    {
+     "t": "Доступы",
+     "x": 353.2,
+     "right": 410,
+     "y": 38,
+     "bottom": 78,
+     "w": 57,
+     "h": 40
+    },
+    {
+     "t": "PERMsoc",
+     "x": 413.2,
+     "right": 471.1,
+     "y": 38,
+     "bottom": 78,
+     "w": 58,
+     "h": 40
+    }
+   ]
+  },
+  "before_u02_390": {
+   "ddDisplay": null,
+   "rowDisplay": "flex",
+   "triggerText": null,
+   "options": null,
+   "panelRight": null,
+   "panelBottom": null
+  },
+  "before_320": {
+   "vw": 320,
+   "vh": 700,
+   "scrollWidth": 320,
+   "headerH": 225.6,
+   "navH": 45.6,
+   "navScrollW": 455,
+   "navClientW": 288,
+   "shellMode": "app-shell shell-mobile ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "moreLabel": null,
+   "links": [
+    {
+     "t": "Статус",
+     "x": 16,
+     "right": 63.4,
+     "y": 38,
+     "bottom": 78,
+     "w": 47,
+     "h": 40
+    },
+    {
+     "t": "Справка",
+     "x": 66.6,
+     "right": 122.5,
+     "y": 38,
+     "bottom": 78,
+     "w": 56,
+     "h": 40
+    },
+    {
+     "t": "Модули",
+     "x": 125.7,
+     "right": 179.5,
+     "y": 38,
+     "bottom": 78,
+     "w": 54,
+     "h": 40
+    },
+    {
+     "t": "ИИ",
+     "x": 182.7,
+     "right": 226.7,
+     "y": 38,
+     "bottom": 78,
+     "w": 44,
+     "h": 40
+    },
+    {
+     "t": "Память",
+     "x": 229.9,
+     "right": 280.9,
+     "y": 38,
+     "bottom": 78,
+     "w": 51,
+     "h": 40
+    },
+    {
+     "t": "Аналитика",
+     "x": 284.1,
+     "right": 350,
+     "y": 38,
+     "bottom": 78,
+     "w": 66,
+     "h": 40
+    },
+    {
+     "t": "Доступы",
+     "x": 353.2,
+     "right": 410,
+     "y": 38,
+     "bottom": 78,
+     "w": 57,
+     "h": 40
+    },
+    {
+     "t": "PERMsoc",
+     "x": 413.2,
+     "right": 471.1,
+     "y": 38,
+     "bottom": 78,
+     "w": 58,
+     "h": 40
+    }
+   ]
+  }
+ },
+ "screenshots": []
+}

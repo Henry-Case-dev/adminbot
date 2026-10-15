@@ -94,16 +94,19 @@ class TestRuntimeGates:
 class TestNavShell:
     def test_no_legacy_sidebar_dead_menu(self):
         """F1 (T-2393, SUPERSEDE 10.20/10.21): legacy dead-menu удалён.
-        re-pin ASAP 8 v6 D13 (§18I.14): нижняя навигация удалена владельцем —
-        мобильная навигация верхняя (mobile-topnav); app-sidebar сохранён."""
+        re-pin ASAP 8 v6 D13 (§18I.14) → v6.3 U01 (REQ-U01-3): нижняя
+        навигация удалена владельцем — мобильная навигация верхняя
+        (mobile-topnav, без scroll-thin); app-sidebar сохранён."""
         assert "MENU_ORDER" not in JS
         assert "MENU_LABELS" not in JS
         assert "☰" not in HTML
         assert 'class="app-sidebar"' in HTML
         assert 'class="bottom-nav"' not in HTML, \
             "D13: нижняя навигация удалена"
-        assert 'class="mobile-topnav scroll-thin"' in HTML, \
-            "D13: верхняя мобильная навигация присутствует"
+        assert 'class="mobile-topnav"' in HTML, \
+            "U01 §REQ-U01-3: верхняя мобильная навигация присутствует"
+        assert 'mobile-topnav scroll-thin' not in HTML, \
+            "U01: мобильный topnav без scroll-thin"
 
     def test_navbar_labels_visible(self):
         assert 'class="nav-label"' in HTML

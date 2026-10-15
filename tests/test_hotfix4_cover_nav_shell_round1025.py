@@ -444,22 +444,37 @@ class TestBottomPanelInViewport:
 
 class TestBottomNavOrder:
     def test_bottom_nav_starts_status_how_and_priority_admin(self):
-        # re-pin ASAP 8 v6 D13: bottomNavItems удалён; мобильная навигация —
-        # ТОТ ЖЕ канонический реестр navItems (скрытых разделов нет).
+        # re-pin ASAP 8 v6 D13 → v6.3 U01 (REQ-U01-1/U01.3): bottomNavItems
+        # удалён; мобильная row B — ровно 3 фиксированных сегмента
+        # Статус → Аналитика → Модули в этом порядке, производные от
+        # канонического реестра navItems (четвёртый сегмент — триггер «Ещё»).
         assert "bottomNavItems: function" not in APP_JS, \
             "D13: bottomNavItems computed удалён"
-        seg = APP_JS[APP_JS.index("mobileTopnavItems: function"):
-                     APP_JS.index("mobileTopnavItems: function") + 300]
-        assert "return this.navItems;" in seg, \
-            "D13: mobile-topnav = канонический реестр navItems"
-        assert 'class="mobile-topnav scroll-thin"' in INDEX
+        start = APP_JS.index("mobileTopnavItems: function")
+        end = APP_JS.index("mobileMoreItems: function", start)
+        seg = APP_JS[start:end]
+        assert "this.navItems.forEach" in seg, \
+            "U01.3: мобильный topnav деривируется из канона navItems"
+        assert "['status', 'oversight', 'modules']" in seg, \
+            "U01.3: фиксированный порядок Статус → Аналитика → Модули"
+        assert 'class="mobile-topnav"' in INDEX, \
+            "U01 §REQ-U01-3: компактная верхняя навигация присутствует"
+        assert 'mobile-topnav scroll-thin' not in INDEX, \
+            "U01: мобильный topnav без scroll-thin"
 
     def test_more_items_no_duplicate_how(self):
-        # re-pin D13: шторка «Ещё» (mobileMoreItems) удалена — Память/
-        # Доступы/PERMsoc достижимы напрямую из верхней навигации.
-        assert "mobileMoreItems: function" not in APP_JS, \
-            "D13: mobileMoreItems computed удалён"
+        # re-pin D13 → v6.3 U01 (REQ-U01-1/U01.2): mobileMoreItems снова есть,
+        # но это СТРОГАЯ дополненность: navItems минус фиксированные сегменты
+        # row B («Как»/Память/Доступы/PERMsoc… живут только в «Ещё»).
+        assert "mobileMoreItems: function" in APP_JS
         assert "mobileTopnavItems: function" in APP_JS
+        start = APP_JS.index("mobileMoreItems: function")
+        end = APP_JS.index("moreMenuTriggerLabel: function", start)
+        seg = APP_JS[start:end]
+        assert "mobileTopnavItems.forEach" in seg, \
+            "U01.1: фиксированные берутся из mobileTopnavItems (единый реестр)"
+        assert "!fixed[n.id]" in seg, \
+            "U01.1: «Ещё» = navItems минус фиксированные (без дублей row B)"
 
 
 # ── Совместимость: системный флаг System 2 не задет ──────────────────────

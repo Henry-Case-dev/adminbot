@@ -27,6 +27,9 @@ import pytest
 ROOT = Path(".")
 JS = (ROOT / "web" / "app.js").read_text(encoding="utf-8")
 HTML = (ROOT / "web" / "index.html").read_text(encoding="utf-8")
+# re-pin v6.3 U07 (REQ-U07-1): вся fullscreen-политика — отдельный модуль.
+FS_POLICY = (ROOT / "web" / "static" / "fullscreen-policy.js").read_text(
+    encoding="utf-8")
 
 
 class TestReactiveAccordionBindings:
@@ -78,10 +81,17 @@ class TestFullscreenSync:
     """`web/app.js` — синхронизация fullscreen с TMA (C3/C4)."""
 
     def test_methods_present(self):
+        # re-pin v6.3 U07 (REQ-U07-1): зеркало методов в app.js сохранено;
+        # чтение TMA-факта (Telegram.WebApp.isFullscreen) переехало в
+        # fullscreen-policy.js — проверяем там, где требование теперь живёт.
         for token in ("initFullscreen: function", "setFullscreenFromTma: function",
                       "teardownFullscreen: function"):
             assert token in JS, token
-        assert "Telegram.WebApp.isFullscreen" in JS
+        assert "Telegram.WebApp.isFullscreen" in FS_POLICY, \
+            "U07: чтение SDK-факта живёт в fullscreen-policy.js"
+        # legacy-путь зеркала (только при недогруженной политике) — тоже
+        # только SDK-факт через wa.isFullscreen.
+        assert "typeof wa.isFullscreen === 'boolean'" in JS
 
     def test_subscriptions_and_off(self):
         assert "onEvent('fullscreenChanged'" in JS
@@ -90,15 +100,30 @@ class TestFullscreenSync:
         assert "offEvent('viewportChanged'" in JS
 
     def test_toggle_fullscreen_defers_state(self):
-        """review iter1: ⛶ не фиксирует устаревшее `wa.isFullscreen`
-        синхронно — отложенный re-read; legacy-инверсия сохранена."""
+        """re-pin v6.3 U07 (REQ-U07-1/U07.1c): ⛶ не фиксирует синхронно
+        устаревшее состояние — решение и pending-guard (deferred state по
+        ACK) принимает fullscreen-policy.js; app.js только делегирует
+        (policy.request/policy.exit), defensive-путь — прямые реальные
+        SDK-методы; legacy-инверсия флага удалена."""
         start = JS.index("toggleFullscreen: function")
         end = JS.index("initFullscreen: function", start)
         body = JS[start:end]
-        assert "typeof wa.isFullscreen !== 'boolean'" in body
-        assert "this.isFullscreen = !this.isFullscreen;" in body  # legacy
-        assert "setFullscreenFromTma" in body                     # deferred
-        assert "requestAnimationFrame" in body
+        assert "__FullscreenPolicy" in body, "U07: делегирование политике"
+        assert "policy.request()" in body and "policy.exit()" in body
+        assert "wa.requestFullscreen" in body   # defensive-фолбэк
+        assert "wa.exitFullscreen" in body      # defensive-фолбэк
+        # U07.1c: инверсия/синхронная фиксация флага в app.js больше не живут.
+        assert "this.isFullscreen = !this.isFullscreen;" not in body, \
+            "U07.1c: legacy-инверсия удалена"
+        assert "typeof wa.isFullscreen !== 'boolean'" not in body, \
+            "U07.1c: синхронная проверка SDK-флага удалена"
+        # Отложенность состояния теперь в политике: pending-guard + ack-таймер
+        # + публикация факта подписчикам (в app.js — sync из state()).
+        assert "requestPending" in FS_POLICY, "U07: pending-guard в политике"
+        assert "_ackTimer" in FS_POLICY or "DEFAULT_ACK_TIMEOUT_MS" in FS_POLICY, \
+            "U07: ack-таймер (отложенный факт) в политике"
+        assert "_fsPolicySync" in JS and "s.actualFullscreen === true" in JS, \
+            "U07: зеркало Vue обновляется из факта политики по subscribe"
 
     def test_init_fullscreen_cleans_up_on_error(self):
         """review iter1: catch initFullscreen сбрасывает guard/ссылки и

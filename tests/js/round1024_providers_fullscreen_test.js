@@ -177,7 +177,11 @@ setTelegram({
   },
 });
 {
-  const fctx = { isFullscreen: false,
+  // W2-FULLSCREEN: канон изменён (основной путь — FullscreenPolicy); этот
+  // блок проверяет СОХРАНЁННЫЙ fallback-путь (без политики): зеркало только
+  // из SDK-факта, guard подписок, offEvent с теми же fn-ссылками.
+  const fctx = { isFullscreen: false, fsActualUnknown: false,
+                 _fsRedraw: methods._fsRedraw, _hbResize: null,
                  initFullscreen: methods.initFullscreen,
                  setFullscreenFromTma: methods.setFullscreenFromTma,
                  teardownFullscreen: methods.teardownFullscreen };
@@ -261,24 +265,23 @@ setTelegram({
                  setFullscreenFromTma: methods.setFullscreenFromTma };
   methods.toggleFullscreen.call(tctx);
   // requestFullscreen уже сменил wa.isFullscreen на true, но синхронно флаг
-  // НЕ фиксируем — ждём событие/отложенный re-read (иначе UI врёт).
+  // НЕ фиксируем. W2-FULLSCREEN (U07.1c): канон «отложенного rAF re-read +
+  // инверсии» УДАЛЕН — факт приходит только событием fullscreenChanged
+  // (основной путь — FullscreenPolicy; fallback ждёт тот же ack).
   assert.strictEqual(tctx.isFullscreen, false,
     'review: без синхронной фиксации устаревшего значения');
-  assert.strictEqual(typeof flushed, 'function',
-    'review: запланирован отложенный re-read (rAF)');
-  flushed();
-  assert.strictEqual(tctx.isFullscreen, true,
-    'review: отложенный re-read берёт фактический режим TMA');
+  assert.strictEqual(flushed, null,
+    'W2 (U07.1c): rAF re-read угадывания удалён — факт только по ack-событию');
+  assert.strictEqual(typeof tctx.isFullscreen, 'boolean',
+    'W2: флаг остаётся честным boolean (без unknown-утечки в fallback-зеркале)');
 
-  // Legacy-фолбэк: SDK без boolean → прежняя инверсия (сразу).
+  // W2 (U07.1c): SDK без boolean isFullscreen — инверсии БОЛЬШЕ НЕТ,
+  // флаг не меняется (честный unknown обрабатывает FullscreenPolicy).
   setTelegram({ WebApp: { requestFullscreen() {}, exitFullscreen() {} } });
   const lctx = { isFullscreen: false, toggleFullscreen: methods.toggleFullscreen };
   methods.toggleFullscreen.call(lctx);
-  assert.strictEqual(lctx.isFullscreen, true,
-    'review: legacy-фолбэк (нет boolean) — инверсия');
-  methods.toggleFullscreen.call(lctx);
   assert.strictEqual(lctx.isFullscreen, false,
-    'review: legacy-фолбэк — обратная инверсия');
+    'W2 (U07.1c): legacy-инверсия удалена — без boolean флаг не меняется');
 
   if (savedRaf === undefined) delete global.window.requestAnimationFrame;
   else global.window.requestAnimationFrame = savedRaf;
@@ -287,7 +290,8 @@ setTelegram({
 // ── 6) Безопасность вне TG / SDK без методов ────────────────────────────────
 {
   setTelegram(null);
-  const nctx = { isFullscreen: false,
+  const nctx = { isFullscreen: false, fsActualUnknown: false,
+                 _fsRedraw: methods._fsRedraw, _hbResize: null,
                  initFullscreen: methods.initFullscreen,
                  setFullscreenFromTma: methods.setFullscreenFromTma,
                  teardownFullscreen: methods.teardownFullscreen,

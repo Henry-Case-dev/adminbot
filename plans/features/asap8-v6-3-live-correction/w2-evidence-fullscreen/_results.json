@@ -1,0 +1,197 @@
+[
+  {
+    "scenario": "S1_android_float",
+    "status": "PASS",
+    "checks": 21,
+    "failures": [],
+    "extra": {
+      "btnPresent": true,
+      "rect": {
+        "x": 335,
+        "y": 42,
+        "w": 49,
+        "h": 44,
+        "right": 384,
+        "bottom": 86
+      },
+      "visual": {
+        "w": 32,
+        "h": 32,
+        "radius": "50%"
+      },
+      "posFixed": true,
+      "ariaPressed": "false",
+      "ariaLabel": "На весь экран",
+      "title": "На весь экран",
+      "slotFloatClass": true,
+      "hiddenClass": false,
+      "fsReason": null,
+      "shellFullscreen": false,
+      "scrollWidth": 390,
+      "innerWidth": 390,
+      "hOverflow": false,
+      "headerRect": {
+        "y": 0,
+        "h": 189
+      },
+      "headerPadTop": 86,
+      "interceptTopRight": "main-header header-sticky card-solid px-4 py-3 flex items-center gap-2 flex-wrap header-compact-v2#HEADER",
+      "interceptTopLeft": "main-header header-sticky card-solid px-4 py-3 flex items-center gap-2 flex-wrap header-compact-v2#HEADER",
+      "toasts": []
+    }
+  },
+  {
+    "scenario": "S2_inline_fallback",
+    "status": "PASS",
+    "checks": 10,
+    "failures": [],
+    "extra": {}
+  },
+  {
+    "scenario": "S3_tdesktop_hidden",
+    "status": "PASS",
+    "checks": 4,
+    "failures": [],
+    "extra": {
+      "btnPresent": false,
+      "rect": null,
+      "visual": null,
+      "posFixed": null,
+      "ariaPressed": null,
+      "ariaLabel": "",
+      "title": "",
+      "slotFloatClass": false,
+      "hiddenClass": true,
+      "fsReason": "tdesktop_disabled_until_e2e",
+      "shellFullscreen": false,
+      "scrollWidth": 1024,
+      "innerWidth": 1024,
+      "hOverflow": false,
+      "headerRect": {
+        "y": 0,
+        "h": 113
+      },
+      "headerPadTop": 9.6,
+      "interceptTopRight": "main-header header-sticky card-solid px-4 py-3 flex items-center gap-2 flex-wrap header-compact-v2#HEADER",
+      "interceptTopLeft": "btn-ghost text-base px-2 shrink-0#BUTTON",
+      "toasts": []
+    }
+  },
+  {
+    "scenario": "S4_no_telegram",
+    "status": "PASS",
+    "checks": 2,
+    "failures": [],
+    "extra": {
+      "btnPresent": false,
+      "rect": null,
+      "visual": null,
+      "posFixed": null,
+      "ariaPressed": null,
+      "ariaLabel": "",
+      "title": "",
+      "slotFloatClass": false,
+      "hiddenClass": true,
+      "fsReason": "no_telegram_context",
+      "shellFullscreen": false,
+      "scrollWidth": 1280,
+      "innerWidth": 1280,
+      "hOverflow": false,
+      "headerRect": {
+        "y": 0,
+        "h": 64
+      },
+      "headerPadTop": 9.6,
+      "interceptTopRight": "main-header header-sticky card-solid px-4 py-3 flex items-center gap-2 flex-wrap header-compact-v2#HEADER",
+      "interceptTopLeft": "sidebar-brand#DIV",
+      "toasts": []
+    }
+  },
+  {
+    "scenario": "S5_ack_flows",
+    "status": "PASS",
+    "checks": 13,
+    "failures": [],
+    "extra": {}
+  },
+  {
+    "scenario": "S6S7_launch_fullscreen",
+    "status": "PASS",
+    "checks": 5,
+    "failures": [],
+    "extra": {}
+  },
+  {
+    "scenario": "S8_widths",
+    "status": "PASS",
+    "checks": 15,
+    "failures": [],
+    "extra": {
+      "rows": [
+        {
+          "width": 320,
+          "height": 700,
+          "btn": {
+            "x": 265,
+            "y": 42,
+            "w": 49,
+            "h": 44,
+            "right": 314,
+            "bottom": 86
+          },
+          "visual": {
+            "w": 28,
+            "h": 28,
+            "radius": "50%"
+          },
+          "header": {
+            "y": 0,
+            "h": 189
+          }
+        },
+        {
+          "width": 390,
+          "height": 844,
+          "btn": {
+            "x": 335,
+            "y": 42,
+            "w": 49,
+            "h": 44,
+            "right": 384,
+            "bottom": 86
+          },
+          "visual": {
+            "w": 32,
+            "h": 32,
+            "radius": "50%"
+          },
+          "header": {
+            "y": 0,
+            "h": 189
+          }
+        },
+        {
+          "width": 667,
+          "height": 375,
+          "btn": {
+            "x": 612,
+            "y": 42,
+            "w": 49,
+            "h": 44,
+            "right": 661,
+            "bottom": 86
+          },
+          "visual": {
+            "w": 32,
+            "h": 32,
+            "radius": "50%"
+          },
+          "header": {
+            "y": 0,
+            "h": 169
+          }
+        }
+      ]
+    }
+  }
+]

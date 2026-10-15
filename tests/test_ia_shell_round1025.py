@@ -56,16 +56,19 @@ class TestKillSwitch:
 
 class TestShellMarkers:
     def test_sidebar_drawer_bottom_nav(self):
-        # re-pin ASAP 8 v6 D13 (§18I.14): нижняя навигация/шторка удалены —
-        # мобильная навигация компактная ВЕРХНЯЯ; desktop sidebar сохранён.
+        # re-pin ASAP 8 v6 D13 (§18I.14) → v6.3 U01 (REQ-U01-3): нижняя
+        # навигация удалена владельцем; мобильная навигация компактная
+        # ВЕРХНЯЯ (mobile-topnav, без scroll-thin); desktop sidebar сохранён.
         assert 'class="app-sidebar"' in HTML
         assert 'class="app-drawer"' in HTML
         assert 'class="bottom-nav"' not in HTML, \
             "D13: нижняя навигация удалена"
         assert 'class="more-sheet"' not in HTML, \
             "D13: шторка «Ещё» удалена"
-        assert 'class="mobile-topnav scroll-thin"' in HTML, \
-            "D13: верхняя мобильная навигация присутствует"
+        assert 'class="mobile-topnav"' in HTML, \
+            "U01 §REQ-U01-3: верхняя мобильная навигация присутствует"
+        assert 'mobile-topnav scroll-thin' not in HTML, \
+            "U01: мобильный topnav без scroll-thin"
         # Постоянный sidebar — строго с 1200 px (инвариант D13-зоны не задет).
         assert "@media (min-width: 1200px)" in HTML
         assert ".app-shell.ia-v2 .app-sidebar" in HTML
@@ -73,12 +76,15 @@ class TestShellMarkers:
     def test_mobile_shell_and_breakpoints(self):
         assert "isMobileShell: function ()" in JS
         assert "isCompactShell: function ()" in JS
-        # re-pin D13: bottomNavItems/mobileMoreItems удалены, верхняя
-        # навигация рендерит канонический реестр navItems.
+        # re-pin D13 → v6.3 U01 (REQ-U01-1): bottomNavItems удалён;
+        # mobileMoreItems ВЕРНУЛСЯ как popover «Ещё» — строгая дополненность
+        # к фиксированной row B (navItems минус fixed), единый реестр.
         assert "bottomNavItems: function ()" not in JS, \
             "D13: bottomNavItems удалён"
-        assert "mobileMoreItems: function ()" not in JS, \
-            "D13: mobileMoreItems удалён"
+        assert "mobileMoreItems: function ()" in JS, \
+            "U01.1: popover «Ещё» (mobileMoreItems) на месте"
+        assert "!fixed[n.id]" in JS, \
+            "U01.1: «Ещё» = navItems минус фиксированные (без дублей)"
         assert "mobileTopnavItems: function ()" in JS
         # touch ≥44×44 + safe-area.
         assert "min-height: 44px" in HTML

@@ -148,10 +148,13 @@ def test_js_unit_round1025_scope_selector():
 
 
 def test_js_unit_round1025_hotfix6_lens_heartbeat_shell():
-    """hotfix6 round 10.25 (ADR-1025-12, T-2583…T-2613): линза-преломление без
-    backdrop url-фильтра (feature-detect+кап), offset max(A,B,C),
-    Canvas-2D §15 (гистерезис/UNKNOWN/телеметрия отдельно), двухстрочная шапка
-    + резерв --header-h + fullscreen."""
+    """hotfix6 round 10.25 (ADR-1025-12, T-2583…T-2613) — re-pin v6.3 U08
+    (REQ-U08-*): edge-рефракция подложки — backdrop url(#lg-lens) только на
+    probe-гейте [data-glass-tier="a"] (render-probe glass-probe.js),
+    мёртвый --glass-displace удалён; перф-кап UI_LENS_MAX_NODES; offset
+    max(A,B,C); Canvas-2D §15 (гистерезис/UNKNOWN/телеметрия отдельно),
+    двухстрочная шапка + резерв --header-h; fullscreen-методы зеркала
+    делегируют fullscreen-policy.js (U07)."""
     _run_js(os.path.join("tests", "js",
                          "round1025_hotfix6_lens_heartbeat_shell_test.js"),
             ok_marker="HOTFIX6-LENS-HEARTBEAT-SHELL-OK")

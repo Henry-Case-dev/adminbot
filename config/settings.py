@@ -1243,7 +1243,8 @@ class Settings:
     #   * UI_HEADER_COMPACT_V2 — OFF → прежняя компоновка шапки (откат D),
     #     действует только в IA v2; default ON.
     #   * UI_LENS_MAX_NODES — перф-кап числа узлов tier A (сверх — B);
-    #     диагностический, default 6 (min 1).
+    #     W2-GLASS (U08.3d): default 3 (ТЗ «максимум 1–3 hero-поверхности»),
+    #     в app.js дополнительно жёсткий clamp min(env, 3); min 1.
     UI_GLASS_TIER_OVERRIDE: ClassVar[str] = _env_str(
         "UI_GLASS_TIER_OVERRIDE", "auto")
     UI_HEARTBEAT_CANVAS_ENABLED: ClassVar[bool] = _env_bool(
@@ -1251,7 +1252,7 @@ class Settings:
     UI_HEADER_COMPACT_V2: ClassVar[bool] = _env_bool(
         "UI_HEADER_COMPACT_V2", True)
     UI_LENS_MAX_NODES: ClassVar[int] = _env_int_min(
-        "UI_LENS_MAX_NODES", 6, 1)
+        "UI_LENS_MAX_NODES", 3, 1)
     # ── Хотфикс-7 (10.25, ADR-1025-13 D5.3): env-only ClassVar-флаги трёх
     # областей (layout/fullscreen, glass-shell, premium-heartbeat). Δ каталога = 0
     # (в param_catalog НЕ входят). Доставка — `GET /api/me.ui_flags`
