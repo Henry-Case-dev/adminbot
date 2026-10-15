@@ -319,3 +319,12 @@ recovery после реального сбоя (C03/C03A); живое пове�
 - Новый раунд добавляет свой `### ⚡ Follow-up (reconcile …)` блок и НЕ удаляет чужие хвосты без ссылки на закрытие.
 - Закрытие хвоста — пометить в строке (✅ + где доказательство), не удалять строку до следующей реорганизации.
 - Канон-блоки промптов — в plans/docs/canon/; закрытые эпики — plans/archive/ (см. archive/INDEX.md).
+
+## v6.3 W1 non-blocking (REV-W1, 2026-10-15)
+- N2: reply_to_id не попадает в eval-промпт B01 (initiative_observer) — обогащение контекста.
+- N3: REACT — только уровень решения; recheck-плечо события для ephemeral не пишется.
+- N4: 422 inert override покрыт source-тестом; добавить HTTP-поведенческий.
+- N5: regex-детектор feedback оставлен hybrid-входом (смягчён валидацией) — наблюдать долю на проде.
+- N6 → Wave 4: на canary включить COVER_STYLE_SCENE_VERIFY (preview/all).
+- Флейк: test_mca09_intents_block_e — порядок-зависимый (isolate+HEAD зелёные; conftest-фикстура сняла часть); наблюдать.
+- Предсуществующие свипта (6): 2× aiogram 3.29.1 InputRichMessageMedia (нужен апгрейд/обход для rich-media edit — влияет на B04.5 prod-доставку), mca02 network, mca16, 2× summary-publish (FAIL изолированно на чистом HEAD).
