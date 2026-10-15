@@ -328,3 +328,11 @@ recovery после реального сбоя (C03/C03A); живое пове�
 - N6 → Wave 4: на canary включить COVER_STYLE_SCENE_VERIFY (preview/all).
 - Флейк: test_mca09_intents_block_e — порядок-зависимый (isolate+HEAD зелёные; conftest-фикстура сняла часть); наблюдать.
 - Предсуществующие свипта (6): 2× aiogram 3.29.1 InputRichMessageMedia (нужен апгрейд/обход для rich-media edit — влияет на B04.5 prod-доставку), mca02 network, mca16, 2× summary-publish (FAIL изолированно на чистом HEAD).
+
+## v6.3 W2 non-blocking (REV-W2, 2026-10-15) + Wave 4 checklist
+- N1: .lg-mini-lens не применён к прод-⛶ (контракт-имя §3.4) — применить в W3/W4 полировке fullscreen-кнопки.
+- N2: мёртвый vendor/lg-lens-map.png (feImage использует data-URI) — удалить после подтверждения на проде.
+- N3: glass-teststand доступен по /static без auth — закрыть в Wave 4 (security).
+- N4: нет 1:1 crop ⛶ в glass-evidence — добить в Wave 4.
+- N5: дубликат _prefersReducedMotion (app.js:18314/18333) — схлопнуть в W3.
+- Wave 4 live-чеклист: реальные TMA/Windows клиенты (V06), прод-CSP feImage data-URI (V07), физический FPS mid-range, COVER_STYLE_SCENE_VERIFY на canary (REV-W1 N6), B11-прогон на проде, 24-48h initiative canary, prod-сид temporal, supergroup live, stories UI narrative.
