@@ -2,32 +2,30 @@
 
 Task: ASAP 8 v6.3 — live correction (B01–B12, U01–U08, V01–V07) + plans cleanup + final audit
 Task source: root prompt; канонический снапшот ТЗ plans/features/asap8-v6-3-live-correction/source-lines-37423-EOF.md
-Status: in_progress
-Primary phase: build (Wave 1 закоммичена; Wave 2 запущена)
+Status: in_progress (код+деплой закрыты; финальная приёмка упирается в 14 owner-гейтов)
+Primary phase: delivery
 Active feature: asap8-v6-3-live-correction
 
 Active lanes:
-- REV-W1 | Reviewer | read-only | Wave 1 verdict | bg:ses_ec3252143ffeyqolahtqNUeAhO | независимая проверка B01/B02/B03/B04/B06/B07/B09/B10
-- W2-SHELL | Builder | writer | U01+U02 | bg:ses_ec3252140ffeyb3xX8QArDtcfC | mobile header rows + Ещё-меню + analytics dropdown
-- W2-FULLSCREEN | Builder | writer | U07 | bg:ses_ec3252141ffePq2gFFXE7XwCma | FullscreenPolicy + кнопка ⛶ + safe-area
-- W2-GLASS | Builder | writer | U08 | bg:ses_ec3252142ffe3X7SX42B54xn4U | lg-panel слои + probe + tiers + стенд
+- (none) — сабагенты недоступны (rate limit провайдера); прод-пробы и гейты выполнены напрямую
 
 Join barriers:
-- W2-JOIN ← 3 лейна → интеграция по w2-contract merge-порядку SHELL→FULLSCREEN→GLASS, js-тесты + playwright, коммит W2
-- REV-W1 вердикт ← блокеры (если есть) → маленький фикс-цикл параллельно W2 (backend-файлы, конфликтов нет)
-- Wave 3 (EDITOR B05+U06 ∥ STATUS-ANALYTICS U03/U04/U05+UI-handoff'ы W1 ∥ STORIES+B11) ← W2-JOIN
+- Финальный DONE заблокирован 14 BLOCKED_REAL_HUMAN_GATE: реальные клиенты fullscreen (8, U07.*), натуральный canary инициативы (REQ-B01), естественная нагрузка/измерение Опыта (REQ-B02, B02.3), real supergroup migration (REQ-B09), styled-image delivery (B04.5), окно наблюдаемости 24/48 ч (FINAL.2)
+- Дополнительно к решению владельца: суточная квота эмбеддингов parked est=utc_day_end → семантика памяти деградирована (FTS-only)
 
 Last verified:
-- Коммиты: ae2e09c/a9da06c/a03d87b (plans cleanup), bc91b90 (docs v6.3), 1e24eca (W1 backend), f1418d7 (F8+v6-артефакты)
-- Финальный свипт W1: 13452 passed / 6 failed — все 6 предсуществующие/env (2× aiogram InputRichMessageMedia, mca02 network, mca16, 2× summary-publish), FAIL изолированно на чистом HEAD
-- Join-фиксы: settings INITIATIVE_* ClassVar ×10; chat_migration в serialized(); mca01 allow; каталог re-pin
-- Базис: прод 2.58.78 = f58a644 (деплой W2+/W3/W4 впереди)
+- Deploy: прод 2.58.79 @ c2775a54 (server-verified: healthz/api/web 200, journal чист, rollback b9ea4907)
+- Gate: --stage review зелёный по 12/14 слайсов; красные только 14 объявленных гейтов; --stage release красный (14 гейтов + 87 «нет live-evidence») — честный сигнал, финал не объявляется
+- Карта: 139 required → 112 VERIFIED / 13 READY_FOR_LIVE / 14 BLOCKED_REAL_HUMAN_GATE, evidence привязан к candidate SHA
+- Live: CSP `img-src 'self' data: blob:` (линза разрешена), инициатива жива (25 job/24ч, вход 3516), B11 с PG: 8 ok / 2 never_run
+- Финальный аудит всего current_task.md: 28 программ HISTORICAL-CLOSED/WITH-OPEN-TAILS, BLOCKER-AUDIT чист (final-audit-current-task.md)
+- Ревью: REV-W1 Approved (после fix B09), REV-W2 Approved (CORR-1 «background unchanged, glass changed»), REV-W3 Approved
 
 Next unlocks:
-- REV-W1 Approved → W1 финально закрыта (gate --stage review по слайсам при релизе)
-- W2-JOIN → Wave 3 → Wave 4 (V01–V07 live + B10/B12 REL-GATE + деплой)
+- Владелец: (1) прогнать owner-проверки real-клиентов/canary и отметить в карте; (2) решить по квоте эмбеддингов у apinet.cloud; (3) опционально — диагностика пустого primary-слота эмбеддингов
+- После закрытия гейтов: повторный gate --stage review/--stage release → DONE
 
-Review: pending (REV-W1 running)
-Deployment: pending (prod 2.58.78 = f58a644)
-Human gate: none
-Updated: 2026-10-15
+Review: approved (W1/W2/W3)
+Deployment: verified (2.58.79 = c2775a54)
+Human gate: 14 owner-проверок (real clients / natural canary / styled delivery / supergroup migration / 24-48h observability) + решение по квоте эмбеддингов
+Updated: 2026-10-16
