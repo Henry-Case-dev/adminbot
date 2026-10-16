@@ -1,0 +1,22 @@
+SOUL-1 / W2 — fix-pass F2: один владелец speech/lessons на payload (композер ON)
+produced_by: plans/features/soul-1/evidence/w2/dump_on_single_copy_payload.py
+flags: env UNIFIED_COMPOSER_ENABLED=1 + hot flags.unified_composer_enabled=true
+offline: без Telegram/LLM/БД; PG недоступен (глобальный слой = in-memory hot-кэш)
+
+## сценарий 1 — L2 Writer (complete turn, flag ON)
+system chars=2229 sha256_12=4d12389e8505
+user   chars=158 sha256_12=aaf972648703
+system: <Speech_Understanding>×1, <Verified_Lessons>×1
+user  : <Speech_Understanding>×0, <Verified_Lessons>×0
+payload (system+user): <Speech_Understanding>×1, <Verified_Lessons>×1   <- ожидание: ×1 на каждый маркер
+duplication (payload>1): False
+protected user-parts (×1 each): <Plan>extent=detailed</Plan>×1, <Context>окно чата</Context>×1, Время: 16.10.2026 10:05×1, <Tool_Evidence>×1
+manifest rendered block_ids: channel_canon, core, identity, response_plan, speech_understanding, style_requests, verified_lessons
+context_lessons rendered: ['style_requests', 'verified_lessons', 'speech_understanding']
+
+## сценарий 2 — edge: speech/lessons едут только слоями
+user == query: True
+system: <Speech_Understanding>×1, <Verified_Lessons>×1
+user  : <Speech_Understanding>×0, <Verified_Lessons>×0
+payload: <Speech_Understanding>×1, <Verified_Lessons>×1
+

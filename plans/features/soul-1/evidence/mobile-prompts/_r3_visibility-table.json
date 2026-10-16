@@ -1,0 +1,266 @@
+{
+ "summary": {
+  "total_prompts_keys_in_api": 24,
+  "hidden_in_catalog_excluded": [
+   "prompts.summary_cover_style_id"
+  ],
+  "hidden_reason": "catalog hidden=True -> /api/config исключает (как и до правки)",
+  "where_counts_320": {
+   "item_card": 20,
+   "fallback_select": 1,
+   "mode_tabs": 3
+  },
+  "persist_proof": {
+   "l1": "все 4 вьюпорта: ввод -> sticky Save -> POST -> reload",
+   "mode_casual": "все 4 вьюпорта: ввод -> sticky Save -> POST -> reload",
+   "default_mode": "все 4 вьюпорта: смена select -> автосейв POST -> reload"
+  },
+  "groups": {
+   "rendered_as_cards": 8,
+   "prompts_verbilizer": "карточка группы не рендерится намеренно под V2 (index.html:2305-2308); 4 ключа группы достижимы/редактируемы: 3 mode_tabs в карточках модулей + fallback-select в шапке",
+   "limits_anticliche": "generic-карточка не рендерится намеренно (F7/ADR-1024-3: ключ редактируется в карточке монитора анти-клише)"
+  }
+ },
+ "rows": [
+  {
+   "key": "prompts.checkup_system_prompt",
+   "in_catalog_and_api": true,
+   "where_320": "item_card",
+   "where_390": "item_card",
+   "where_430": "item_card",
+   "where_1024": "item_card",
+   "canEdit_admin": true,
+   "persist_proven": "same_path_not_exercised"
+  },
+  {
+   "key": "prompts.compress_system_prompt",
+   "in_catalog_and_api": true,
+   "where_320": "item_card",
+   "where_390": "item_card",
+   "where_430": "item_card",
+   "where_1024": "item_card",
+   "canEdit_admin": true,
+   "persist_proven": "same_path_not_exercised"
+  },
+  {
+   "key": "prompts.direct_chat_synthesizer_system_prompt",
+   "in_catalog_and_api": true,
+   "where_320": "item_card",
+   "where_390": "item_card",
+   "where_430": "item_card",
+   "where_1024": "item_card",
+   "canEdit_admin": true,
+   "persist_proven": "same_path_not_exercised"
+  },
+  {
+   "key": "prompts.direct_chat_system_prompt",
+   "in_catalog_and_api": true,
+   "where_320": "item_card",
+   "where_390": "item_card",
+   "where_430": "item_card",
+   "where_1024": "item_card",
+   "canEdit_admin": true,
+   "persist_proven": "same_path_not_exercised"
+  },
+  {
+   "key": "prompts.direct_chat_verbalizer_system_prompt",
+   "in_catalog_and_api": true,
+   "where_320": "item_card",
+   "where_390": "item_card",
+   "where_430": "item_card",
+   "where_1024": "item_card",
+   "canEdit_admin": true,
+   "persist_proven": "same_path_not_exercised"
+  },
+  {
+   "key": "prompts.direct_l1_planner_system_prompt",
+   "in_catalog_and_api": true,
+   "where_320": "item_card",
+   "where_390": "item_card",
+   "where_430": "item_card",
+   "where_1024": "item_card",
+   "canEdit_admin": true,
+   "persist_proven": "real_typed_save"
+  },
+  {
+   "key": "prompts.extract_system_prompt",
+   "in_catalog_and_api": true,
+   "where_320": "item_card",
+   "where_390": "item_card",
+   "where_430": "item_card",
+   "where_1024": "item_card",
+   "canEdit_admin": true,
+   "persist_proven": "same_path_not_exercised"
+  },
+  {
+   "key": "prompts.factcheck_analyst_system_prompt",
+   "in_catalog_and_api": true,
+   "where_320": "item_card",
+   "where_390": "item_card",
+   "where_430": "item_card",
+   "where_1024": "item_card",
+   "canEdit_admin": true,
+   "persist_proven": "same_path_not_exercised"
+  },
+  {
+   "key": "prompts.factcheck_system_prompt",
+   "in_catalog_and_api": true,
+   "where_320": "item_card",
+   "where_390": "item_card",
+   "where_430": "item_card",
+   "where_1024": "item_card",
+   "canEdit_admin": true,
+   "persist_proven": "same_path_not_exercised"
+  },
+  {
+   "key": "prompts.factcheck_verbalizer_system_prompt",
+   "in_catalog_and_api": true,
+   "where_320": "item_card",
+   "where_390": "item_card",
+   "where_430": "item_card",
+   "where_1024": "item_card",
+   "canEdit_admin": true,
+   "persist_proven": "same_path_not_exercised"
+  },
+  {
+   "key": "prompts.search_system_prompt",
+   "in_catalog_and_api": true,
+   "where_320": "item_card",
+   "where_390": "item_card",
+   "where_430": "item_card",
+   "where_1024": "item_card",
+   "canEdit_admin": true,
+   "persist_proven": "same_path_not_exercised"
+  },
+  {
+   "key": "prompts.summary_cover_style",
+   "in_catalog_and_api": true,
+   "where_320": "item_card",
+   "where_390": "item_card",
+   "where_430": "item_card",
+   "where_1024": "item_card",
+   "canEdit_admin": true,
+   "persist_proven": "same_path_not_exercised"
+  },
+  {
+   "key": "prompts.summary_editor_system_prompt",
+   "in_catalog_and_api": true,
+   "where_320": "item_card",
+   "where_390": "item_card",
+   "where_430": "item_card",
+   "where_1024": "item_card",
+   "canEdit_admin": true,
+   "persist_proven": "same_path_not_exercised"
+  },
+  {
+   "key": "prompts.summary_l1_clusterizer_system_prompt",
+   "in_catalog_and_api": true,
+   "where_320": "item_card",
+   "where_390": "item_card",
+   "where_430": "item_card",
+   "where_1024": "item_card",
+   "canEdit_admin": true,
+   "persist_proven": "same_path_not_exercised"
+  },
+  {
+   "key": "prompts.summary_l2_writer_system_prompt",
+   "in_catalog_and_api": true,
+   "where_320": "item_card",
+   "where_390": "item_card",
+   "where_430": "item_card",
+   "where_1024": "item_card",
+   "canEdit_admin": true,
+   "persist_proven": "same_path_not_exercised"
+  },
+  {
+   "key": "prompts.summary_narrator_system_prompt",
+   "in_catalog_and_api": true,
+   "where_320": "item_card",
+   "where_390": "item_card",
+   "where_430": "item_card",
+   "where_1024": "item_card",
+   "canEdit_admin": true,
+   "persist_proven": "same_path_not_exercised"
+  },
+  {
+   "key": "prompts.summary_system_prompt",
+   "in_catalog_and_api": true,
+   "where_320": "item_card",
+   "where_390": "item_card",
+   "where_430": "item_card",
+   "where_1024": "item_card",
+   "canEdit_admin": true,
+   "persist_proven": "same_path_not_exercised"
+  },
+  {
+   "key": "prompts.verbilizer_default_mode",
+   "in_catalog_and_api": true,
+   "where_320": "fallback_select",
+   "where_390": "fallback_select",
+   "where_430": "fallback_select",
+   "where_1024": "fallback_select",
+   "canEdit_admin": true,
+   "persist_proven": "real_select_save"
+  },
+  {
+   "key": "prompts.verbilizer_mode_casual",
+   "in_catalog_and_api": true,
+   "where_320": "mode_tabs",
+   "where_390": "mode_tabs",
+   "where_430": "mode_tabs",
+   "where_1024": "mode_tabs",
+   "canEdit_admin": true,
+   "persist_proven": "real_typed_save"
+  },
+  {
+   "key": "prompts.verbilizer_mode_deep_research",
+   "in_catalog_and_api": true,
+   "where_320": "mode_tabs",
+   "where_390": "mode_tabs",
+   "where_430": "mode_tabs",
+   "where_1024": "mode_tabs",
+   "canEdit_admin": true,
+   "persist_proven": "same_path_not_exercised"
+  },
+  {
+   "key": "prompts.verbilizer_mode_serious",
+   "in_catalog_and_api": true,
+   "where_320": "mode_tabs",
+   "where_390": "mode_tabs",
+   "where_430": "mode_tabs",
+   "where_1024": "mode_tabs",
+   "canEdit_admin": true,
+   "persist_proven": "same_path_not_exercised"
+  },
+  {
+   "key": "prompts.webpage_system_prompt",
+   "in_catalog_and_api": true,
+   "where_320": "item_card",
+   "where_390": "item_card",
+   "where_430": "item_card",
+   "where_1024": "item_card",
+   "canEdit_admin": true,
+   "persist_proven": "same_path_not_exercised"
+  },
+  {
+   "key": "prompts.youtube_system_prompt",
+   "in_catalog_and_api": true,
+   "where_320": "item_card",
+   "where_390": "item_card",
+   "where_430": "item_card",
+   "where_1024": "item_card",
+   "canEdit_admin": true,
+   "persist_proven": "same_path_not_exercised"
+  },
+  {
+   "key": "prompts.youtube_video_system_prompt",
+   "in_catalog_and_api": true,
+   "where_320": "item_card",
+   "where_390": "item_card",
+   "where_430": "item_card",
+   "where_1024": "item_card",
+   "canEdit_admin": true,
+   "persist_proven": "same_path_not_exercised"
+  }
+ ]
+}

@@ -1,0 +1,261 @@
+{
+  "lane": "AUDIT-2",
+  "epic": "SOUL-1",
+  "generated": "2026-10-16",
+  "repo": "C:\\Code\\Python\\adminbot",
+  "branch": "master",
+  "local_head_at_audit": "a854ad953d360e0dcda1174b3a171cdecebc0417",
+  "read_only": true,
+  "notes": "Evidence is (a) exact code file:line, and (b) real local read-only probes (FastAPI TestClient over web.app, anon HTTP GET, bounded pytest, local SQLite). External platform claims are marked EXTERNAL_UNVERIFIED when they cannot be proven from the repo/runtime. Fullscreen operations A (launch shell) / B (WebApp fullscreen API) / C (responsive CSS) are kept separate throughout.",
+  "areas": {
+    "A": "SOUL-11 - UI routes and Direct prompt editing",
+    "B": "SOUL-12 - Telegram fullscreen",
+    "C": "SOUL-18 - initiative diagnostics/observability",
+    "D": "SOUL-13 - legacy v6.3 tails (baseline, glass-teststand exposure, live gates, embedding quota, git evidence, pytest)"
+  },
+  "findings": [
+    {
+      "id": "SOUL11-01",
+      "area": "A",
+      "claim": "The Direct L1 planner prompt key exists in runtime and UI code but is absent from the editable param registry, so it cannot be edited and reads back null from /api/config.",
+      "evidence_ref": "services/direct_chat_service.py:3641, services/direct_chat_service.py:7552, web/app.js:13439, services/param_catalog.py (grep 'direct_l1_planner' -> 0 matches)",
+      "observed_result": "grep for 'direct_l1_planner' in services/param_catalog.py returns no matches; the key is used at runtime (direct_chat_service.py:3641,7552) and displayed in UI stageCard (app.js:13439). No REGISTRY entry => GET /api/config yields null and there is no editing path (code default only).",
+      "status": "VERIFIED",
+      "blocking_question": "Owner: should prompts.direct_l1_planner_system_prompt become an editable registry/catalog key (with /api/config seed), or is read-only code default an accepted contract?"
+    },
+    {
+      "id": "SOUL11-02",
+      "area": "A",
+      "claim": "Only one of the three Direct prompts is reachable on the mod_direct tab screen; the library 'Open' lands on the synthesizer tab and mod_direct has no 'prompts' tab.",
+      "evidence_ref": "web/app.js:705 (mod_direct tabs), web/app.js:750 (back-link to prompts_direct_chat), web/index.html:1804-1818",
+      "observed_result": "MODULE tabs for mod_direct = ['overview','settings','synthesizer','verbalizer','models','limits','testing'] - no 'prompts' tab. Library 'Open' maps to the synthesizer tab, so 1 of 3 direct prompts is visible on that screen; the others require the library/proфиль screen.",
+      "status": "VERIFIED",
+      "blocking_question": "Owner: is the two-door (module tab vs prompt library) model intended, or should mod_direct expose all three Direct prompt stages directly?"
+    },
+    {
+      "id": "SOUL11-03",
+      "area": "A",
+      "claim": "In PROMPTS_UI_V2 the prompts_verbilizer group card is deliberately skipped, so verbilizer modes are only reachable via module-card mode tabs or the fallback header dropdown.",
+      "evidence_ref": "web/index.html:2286-2293 (skip condition), web/index.html:2299-2332 (rendered content when not skipped)",
+      "observed_result": "The div is guarded by `!(uiFlag('PROMPTS_UI_V2_ENABLED') && grp.id === 'prompts_verbilizer')`; with V2 on, the group card (tabs + mode blocks + default-mode select) is not rendered. Modes remain editable only from module cards / fallback dropdown (comment at 2286-2289 states this intent).",
+      "status": "VERIFIED",
+      "blocking_question": "Owner: with V2 enabled, is the mode-editing path discoverable enough, or does prompts_verbilizer need a visible entry point in the prompt library?"
+    },
+    {
+      "id": "SOUL11-04",
+      "area": "A",
+      "claim": "Prompt library empty states are misleading: promptSections/promptVisibleItems do not apply isAdminIdHidden, and workspacePromptStale returns false on empty item lists so an empty list is shown without a reason.",
+      "evidence_ref": "web/app.js:14649-14795 (promptStageItems/promptSections/promptVisibleItems), web/app.js:18530 (isAdminIdHidden), web/index.html:2193-2199 (empty texts)",
+      "observed_result": "The hidden-admin filter (isAdminIdHidden) is applied elsewhere but not inside promptSections/promptVisibleItems; workspacePromptStale is false when item list is empty. index.html:2193 states 'Параметры этой вкладки ещё не загружены в базу (вкладка пустая)' and 2196 states 'Ничего не найдено по запросу ...' even when the search box is empty.",
+      "status": "VERIFIED",
+      "blocking_question": "Owner: should the empty-state distinguish 'no seed row', 'hidden by RBAC', and 'filtered out by search' instead of one misleading message?"
+    },
+    {
+      "id": "SOUL11-05",
+      "area": "A",
+      "claim": "On mobile (<768px) the top nav is exactly Status/Analytics/Modules plus 'More'; the AI/prompt-library entry lives only in the 'More' popover.",
+      "evidence_ref": "web/app.js:2775-2781 (mobileTopnavItems), web/app.js:2782-2787 (mobileMoreItems)",
+      "observed_result": "mobileTopnavItems returns ['status','oversight','modules'] only; mobileMoreItems = navItems minus those fixed ids, which is where 'ИИ' (prompt library) and others appear. Confirmed by code; aligns with W2-SHELL U01.1 intent.",
+      "status": "VERIFIED",
+      "blocking_question": "Owner: is one extra tap ('More' -> 'ИИ') an accepted mobile cost for reaching the prompt library, or should the AI hub be promoted?"
+    },
+    {
+      "id": "SOUL11-06",
+      "area": "A",
+      "claim": "GET /api/config anonymously returns 401, and the served config contains 23 prompts.* keys including prompts_verbilizer; the endpoint chain is real and RBAC-gated.",
+      "evidence_ref": "web/api/routes.py:456 (GET /api/config), web/api/deps.py (TMA auth: 401/403), local TestClient probe (scratch lanes/AUDIT-2/probe_ui_prompts.py)",
+      "observed_result": "Anon GET /api/config -> 401; with a TMA user override + fake PG ConfigCache the response contained 23 prompts.* keys and 9 groups incl. prompts_verbilizer. Real endpoint evidence, not static HTML.",
+      "status": "VERIFIED",
+      "blocking_question": null
+    },
+    {
+      "id": "SOUL12-01",
+      "area": "B",
+      "claim": "Operation A (launch shell): the mini app calls wa.ready() and wa.expand() at startup.",
+      "evidence_ref": "web/static/telegram-init.js:12 (wa.ready), web/static/telegram-init.js:13 (wa.expand)",
+      "observed_result": "telegram-init.js invokes Telegram.WebApp.ready() then .expand() during init; safe-area events are also wired here. This is the app-shell launch path, independent of the fullscreen API.",
+      "status": "VERIFIED",
+      "blocking_question": null
+    },
+    {
+      "id": "SOUL12-02",
+      "area": "B",
+      "claim": "Operation B (WebApp fullscreen API): for platform 'tdesktop' the policy returns slot='hidden' with reason='tdesktop_disabled_until_e2e'; the launch 'expand' path does not drive fullscreen for tdesktop.",
+      "evidence_ref": "web/static/fullscreen-policy.js:32-40, 58-65, 77-92, 258-267",
+      "observed_result": "slotFromGeometry returns 'hidden' when platform==='tdesktop' (line 65); the capability branch sets reason='tdesktop_disabled_until_e2e' and slot='hidden' (lines 89-90). Writer adds class fs-hidden / data-fs-reason from these values (258-267). SDK methods exercised: requestFullscreen (+legacy requestFullScreen fallback), exitFullscreen, isFullscreen, onEvent/offEvent for fullscreenChanged/fullscreenFailed/viewportChanged/safeAreaChanged/contentSafeAreaChanged, viewportStableHeight, safeAreaInset, contentSafeAreaInset.",
+      "status": "VERIFIED",
+      "blocking_question": "Owner: is 'hidden' on tdesktop the accepted decision until a platform-specific e2e exists, or must tdesktop fullscreen be delivered (see SOUL12-04)?"
+    },
+    {
+      "id": "SOUL12-03",
+      "area": "B",
+      "claim": "Operation C (responsive CSS): the policy is geometry-driven and the CSS class writer is separate from the SDK calls, so fullscreen slot/class rendering can be verified locally without a real client.",
+      "evidence_ref": "web/static/fullscreen-policy.js:104-108 (slotFromGeometry decision), 258-267 (fs-hidden/fs-slot-* writer)",
+      "observed_result": "slot is derived from platform + content safe-area top + capability booleans; the writer toggles fs-slot-float / fs-hidden and data-fs-reason. This is the CSS/slot layer, distinct from A (launch shell) and B (SDK fullscreen API).",
+      "status": "VERIFIED",
+      "blocking_question": null
+    },
+    {
+      "id": "SOUL12-04",
+      "area": "B",
+      "claim": "External contract: Bot API 8.0 added requestFullscreen/exitFullscreen/isFullscreen and fullscreen_failed.error ∈ {UNSUPPORTED, ALREADY_FULLSCREEN}; Main Mini App fullscreen mode is configured only in @BotFather and cannot be changed by the bot.",
+      "evidence_ref": "core.telegram.org/bots/webapps (Bot API 8.0, 2024-11-17), core.telegram.org/api/bots/webapps (fullscreen_failed codes), docs.telegram-mini-apps.com/platform/viewport, retrieved via Exa (see recon doc)",
+      "observed_result": "Confirmed by external docs: methods and error codes exist as stated; on desktop mini apps open maximized in a medium window and web_app_expand has no effect there; Main Mini App compact/fullscreen is a BotFather-only setting. Telegram Desktop Windows supports mini-app fullscreen but has a documented client bug (panel resized but origin retained / taskbar visible; tdesktop issues #30963/#31041/#31114, fix in lib_ui PR #342/#343).",
+      "status": "EXTERNAL_UNVERIFIED",
+      "blocking_question": "Owner/integration: confirm the currently installed Telegram Desktop version's fullscreen behavior after the lib_ui fix - this cannot be proven from the repo."
+    },
+    {
+      "id": "SOUL12-05",
+      "area": "B",
+      "claim": "The repo issue 225c3c2b/regression commit and the v6.3 map record fullscreen mock/playwright evidence but the real-client acceptance (Windows/Android/tdesktop) is still blocked.",
+      "evidence_ref": "plans/features/asap8-v6-3-live-correction/w4-live-probes.md:28 (V06), w2-evidence-fullscreen/_results.json",
+      "observed_result": "V06 = BLOCKED_REAL_HUMAN_GATE: 8 map items (U07.*) require real clients; mock matrix + Playwright screenshots cannot substitute. Screenshots S1-S8 exist but are simulated viewports.",
+      "status": "VERIFIED",
+      "blocking_question": "Owner: run the real-client fullscreen matrix (Windows Telegram Desktop, Android, and tdesktop) and return visual proof, or explicitly waive (no mock-DONE)."
+    },
+    {
+      "id": "SOUL18-01",
+      "area": "C",
+      "claim": "The initiative observer runs as a durable task_jobs kind 'initiative.observe' scheduled every 300s (288 ticks/day), NOT 25 jobs/day; the 25 figure is completed-job count from one 24h window.",
+      "evidence_ref": "services/memory_maintenance.py:335-342 (job registration), services/memory_maintenance.py:430-469 (_tick_initiative_observer), services/memory_maintenance.py (_INITIATIVE_OBSERVER_TICK_SECONDS=300), services/initiative_observer.py:913-1028",
+      "observed_result": "Code: tick interval is 300s => 288 scheduled ticks/day. w4-live-probes.md:16 reports job 'initiative.observe' completed 25x/24h in a live window - that is observed completions (coalesced), not the schedule.",
+      "status": "VERIFIED",
+      "blocking_question": null
+    },
+    {
+      "id": "SOUL18-02",
+      "area": "C",
+      "claim": "The pipeline phases are scan -> evaluate -> diagnose with entry handle_initiative (existing) -> decision SAY/REACT/SILENT -> Direct L2 Writer -> SendRecheck -> send.",
+      "evidence_ref": "services/initiative_observer.py:581-871 (gates), 913-1028 (act), 1032-1043 (diagnose), 245-254 (default_counters)",
+      "observed_result": "Code structure matches: counters include passes, observed, eligible, scan_skipped, evals, opportunities, silent_decisions, intents_created, sent, react_decisions, writer_unavailable, eval_unavailable, errors, eval_skips{reason}. Phases and decision vocabulary confirmed in code.",
+      "status": "VERIFIED",
+      "blocking_question": null
+    },
+    {
+      "id": "SOUL18-03",
+      "area": "C",
+      "claim": "Suppressors/skip codes are explicit and enumerable; master flag initiative_observer_enabled + K1 mca_gates.intents_enabled() (fail-closed), per-chat initiative.enabled for groups, plus profiles and eval budget.",
+      "evidence_ref": "services/initiative_observer.py:81-93 (skip codes), 104-127 (profiles), 245-254, 1035 (DIAG_MIN_OBSERVED)",
+      "observed_result": "Skip codes: chat_disabled, direct_address_seen, min_gap, day_cap, topic_cap, eval_budget, eval_not_due, not_enough_messages, context_duplicate, no_opportunity, semantic_parse_error, semantic_eval_unavailable. Profiles rare/normal/active: min_gap 2700-21600s, max_replies_per_day 2-12, eval_min_interval 1200-21600s, eval_min_messages 6-12, eval_llm_budget 4-24/day. Context hash TTL 12h; worker_budget.consume fail-open; LLM None => eval_unavailable. Diagnostic 'no opportunities 24h' requires observed>=DIAG_MIN_OBSERVED=20.",
+      "status": "VERIFIED",
+      "blocking_question": null
+    },
+    {
+      "id": "SOUL18-04",
+      "area": "C",
+      "claim": "The initiative funnel is exposed by GET /memory/intel-funnels, global-admin only.",
+      "evidence_ref": "web/api/memory_overview.py:216-289",
+      "observed_result": "Route implemented; RBAC gated (global admin). It reads durable telemetry to build the funnel; not anonymously reachable.",
+      "status": "VERIFIED",
+      "blocking_question": null
+    },
+    {
+      "id": "SOUL18-05",
+      "area": "C",
+      "claim": "Local SQLite backups contain only smart_messages (no mca_events / task_jobs), so real 24-48h initiative telemetry exists only in production and must be requested, not fetched.",
+      "evidence_ref": "local DB probe (scratch lanes/AUDIT-2/probe_local_db.py) over pre_migration_20261007_010900.db and local_database_2026-09-04_history.db",
+      "observed_result": "Both backups have smart_messages (60k / 1.93M rows) and no mca_events/task_jobs tables; local_database.db is an empty 12KB dev file. Therefore no local runtime telemetry for initiative.",
+      "status": "VERIFIED",
+      "blocking_question": "Owner/DevOps: provide, from production, 24-48h per-chat scans/observed/eligible, opportunities by kind, decisions, SILENCE-reason distribution, send attempts, deliveries with message_id, dupes/refusals, latency, last timestamps, and which suppressors actually fired."
+    },
+    {
+      "id": "SOUL13-01",
+      "area": "D",
+      "claim": "The glass teststand is publicly exposed: /web/static/glass-teststand.html is served without authentication (anon 200), and it mounts the whole web/static tree.",
+      "evidence_ref": "web/app.py:338 (mount /web -> web), web/app.py:344-347 (mount /static -> web/static), anon HTTP probes",
+      "observed_result": "Anon GET /static/glass-teststand.html -> 200; GET /web/static/glass-teststand.html -> 200; GET /glass-teststand.html -> 404; anon GET /web/ -> 200. Mounts have no auth dependency. Related files: web/static/glass-teststand.{html,css,js}, web/static/glass-probe.js.",
+      "status": "VERIFIED",
+      "blocking_question": "Owner: decide minimal safe fix - remove glass-teststand.{html,css,js}+glass-probe.js from production static (keep web/static/vendor/lg-lens-map.png used by production liquid glass) and update the tests that reference them, OR add server-side auth. Do not touch polygon background / runtime glass."
+    },
+    {
+      "id": "SOUL13-02",
+      "area": "D",
+      "claim": "Tests reference the teststand/probe assets and must be updated if those assets are removed from production static.",
+      "evidence_ref": "tests/js/glass_probe_test.js:110-111, tests/test_unified_image_request_round1026.py:742-744, tests/test_tool_coordinator_round1026.py:763-770",
+      "observed_result": "These tests assert on glass-probe.js / teststand strings; removal of assets without updating them would break the suite.",
+      "status": "VERIFIED",
+      "blocking_question": null
+    },
+    {
+      "id": "SOUL13-03",
+      "area": "D",
+      "claim": "The asap8-v6-3-live-correction directory DOES contain the live/audit artifacts (contradicting a claim they were 'not found'); they are tracked in git.",
+      "evidence_ref": "git ls-files plans/features/asap8-v6-3-live-correction (lists release-reconciliation.md, final-audit-current-task.md, live-canary.md, w4-live-probes.md, baseline-pytest-b10.md, SNAPSHOT_MANIFEST.md, requirements-map.json, waves.md, ...)",
+      "observed_result": "All named files exist and are git-tracked. Only some PNG evidence files show as modified (M) in working tree; the markdown/JSON artifacts are tracked and present.",
+      "status": "VERIFIED",
+      "blocking_question": null
+    },
+    {
+      "id": "SOUL13-04",
+      "area": "D",
+      "claim": "The deployed production SHA is c2775a54258512a3e20c97341d3e8a6738b1a33b (version 2.58.79), server-verified; local HEAD a854ad95 is 6 doc-only commits ahead of it, and c2775a54 is an ancestor of HEAD.",
+      "evidence_ref": "plans/features/asap8-v6-3-live-correction/live-canary.md:9, 21-24; release-reconciliation.md:3; local git: merge-base --is-ancestor c2775a54 HEAD -> 0; git log c2775a54..HEAD = 6 commits (all docs(v6.3)/chore(workflow))",
+      "observed_result": "Live-canary records post HEAD = c2775a5 (deploy 2.58.78->2.58.79, healthz {\"status\":\"ok\",\"version\":\"2.58.79\"}). Locally, c2775a54 is an ancestor of a854ad95; the 6 intervening commits are documentation/workflow only (`225c3c2b`, `736a8834`, `8c960df6`, `4ca40730`, `00eb362b`, `a854ad95`) - no application code change. APP_VERSION = 2.58.79 (config/settings.py:3286).",
+      "status": "VERIFIED",
+      "blocking_question": null
+    },
+    {
+      "id": "SOUL13-05",
+      "area": "D",
+      "claim": "The v6.3 map release gate is intentionally RED because the coverage map is unbound (candidate_commit/deployed_commit empty, all 148 statuses PENDING); release must not be declared DONE.",
+      "evidence_ref": "plans/features/asap8-v6-3-live-correction/live-canary.md:75-85 (gate FAIL exit 1), final-audit-current-task.md:155-165 (plan gate exit 0; release exit 1, 202 errors)",
+      "observed_result": "check --stage plan exit 0 (inventory=148 manual=74 scoped=0 errors=0); check --stage release exit 1 (202 errors) because map is unbound. Map was NOT edited to force green.",
+      "status": "VERIFIED",
+      "blocking_question": "PM/Reviewer: bind candidate_commit=deployed_commit=c2775a54, fill live statuses + evidence, then re-run release gate."
+    },
+    {
+      "id": "SOUL13-06",
+      "area": "D",
+      "claim": "Legacy v6.3 live-probe registry: 14 items remain BLOCKED_REAL_HUMAN_GATE (owner-only), consistent with the wave summary.",
+      "evidence_ref": "plans/features/asap8-v6-3-live-correction/w4-live-probes.md:19-29 (V01-V07 statuses); requirements-map.json (14 x status=BLOCKED_REAL_HUMAN_GATE at lines 1533,1583,1839,2020,2092,2406,3138,3210,3304,3486,3536,3564,4384,4662)",
+      "observed_result": "V01 initiative live SEND (opportunities=0), V02 experience live, V04 styled cover delivery, V06 real-client fullscreen are BLOCKED_REAL_HUMAN_GATE; V03/V05/V07 are READY_FOR_LIVE (owner visual/API). requirements-map.json contains 14 BLOCKED_REAL_HUMAN_GATE entries. No false DONE.",
+      "status": "VERIFIED",
+      "blocking_question": "Owner: run the 14 live gates (real clients, real chats, monitoring windows) or waive explicitly; these cannot be closed by agents."
+    },
+    {
+      "id": "SOUL13-07",
+      "area": "D",
+      "claim": "Embedding quota: the code has THREE (plus extra_N) credential slots each with its own quota group and rotation; the production journal shows primary->fallback_1->fallback_2 all 429 against one shared provider host (apinet.cloud) - a proxy-side cap, not our rotation.",
+      "evidence_ref": "services/embedding_control_plane.py:295-341 (_pick_credential: primary=keys.embedding_api_key/env EMBEDDING_API_KEY, fallback_1/2, extra_N; auto-group = alias or EMBEDDING_QUOTA_GROUP_LABELS), :656-678 (embedding_quota_state), :959 (cooling), :2035-2086; plans/.../w4-live-probes.md:41-54",
+      "observed_result": "Code confirms per-alias quota groups + cooldown skip + rotation (`_pick_credential` skips cooling groups and takes the next key). Live journal (w4-live-probes.md:46-51): 00:05:08 primary 429 -> 00:05:19 fallback_1 429 -> 00:05:28 fallback_2 429; all three go to the same host apinet.cloud (model gemini-embedding-001). Conclusion (documented, not assumed): three distinct keys/independent provider responses, but shared proxy cap on IP/upstream - do NOT claim 'three keys = three independent quotas'.",
+      "status": "VERIFIED",
+      "blocking_question": "Owner/provider: confirm the proxy (apinet.cloud) rate-limit/reset horizon for the shared upstream - the real reset horizon cannot be derived from the repo."
+    },
+    {
+      "id": "SOUL13-08",
+      "area": "D",
+      "claim": "EMBEDDING_API_KEY is absent from the local .env; the primary embedding key is supplied by hot-config (keys.embedding_api_key), and a missing primary slot is not diagnosed (pool_rotation_diagnosis degenerate:False with 2 keys).",
+      "evidence_ref": "local .env probe (only LLM_API_KEY and EMBEDDING_FALLBACK_API_KEY present; EMBEDDING_API_KEY and EMBEDDING_BASE_URL absent), config/settings.py:374-375 (defaults empty/ apinet.cloud/v1), services/llm_client.py:434-436 (empty primary -> LLM_API_KEY), services/embedding_control_plane.py:295-341, w4-live-probes.md:52-54",
+      "observed_result": "Local .env: EMBEDDING_API_KEY has no entry (no secret printed); EMBEDDING_BASE_URL absent => default https://apinet.cloud/v1. Primary key therefore resolves from hot-config keys.embedding_api_key, else falls back to LLM_API_KEY. pool_rotation_diagnosis stays silent at degenerate:False when 2 keys remain, so loss of primary is not surfaced. This is a diagnostic/observability gap, not a rewrite trigger.",
+      "status": "VERIFIED",
+      "blocking_question": "Owner: accept a non-destructive WARN + explicit 'primary missing / degraded pool' state (no secret written to reports/code)?"
+    },
+    {
+      "id": "SOUL13-09",
+      "area": "D",
+      "claim": "6 pytest failures are exactly the pre-existing sweep failures; they reproduce on the current local HEAD, unrelated to v6.3 changes.",
+      "evidence_ref": "plans/features/asap8-v6-3-live-correction/w2-reports/W2-REPIN.md:36-51 (list of 6 + sweep 13493 passed/6 failed), and a local bounded run of the same 6 node IDs",
+      "observed_result": "Local run result: '6 failed, 2 warnings in 3.13s' for exactly: tests/test_mca02_safe_fetch_round1027.py::TestOffParityAndTrusted::test_web_extractor_blocks_destination_without_fallback; tests/test_mca16_experience_block_d_round1039.py::test_no_per_message_llm_reflection_module_is_llm_free; tests/test_outgoing_guard_round1022.py::TestTelegramSendWrappers::test_send_rich_message_sanitizes_and_uses_html_mode; tests/test_outgoing_guard_round1022.py::TestTelegramSendWrappers::test_send_rich_message_markdown_cover_uses_markdown_link; tests/test_summary_asap2_failsoft_round1027.py::test_t3959_10_l1_dead_level2_l2_called_and_cover_fallback; tests/test_summary_publish_integration_round1026.py::TestOnDelivery::test_on_l1_not_usable_level2_l2_publishes_article.",
+      "status": "VERIFIED",
+      "blocking_question": "Owner/Builder: classify each as (a) genuine regression to fix or (b) intentional contract change to re-pin, with an RCA note - release must not go green with an unexplained regression."
+    },
+    {
+      "id": "SOUL13-10",
+      "area": "D",
+      "claim": "The v6.3 vector circuit degradation (quota parked -> shadow rebuild paused_rate_limit -> FTS-only) is NOT a v6.3 code regression.",
+      "evidence_ref": "plans/features/asap8-v6-3-live-correction/w4-live-probes.md:31-39; git diff check embedding_control_plane.py/graphrag_rebuild.py = 0 diff for v6.3",
+      "observed_result": "embedding_quota_state = primary/fallback_1/fallback_2 exhausted, next_allowed_at=1792109100 (2026-10-16 00:05 UTC), note 'parked kind=spend est=utc_day_end'; journal 'embed rate limit | parked=1 | cooldown_s~86391' and 'EMBEDDING_GENERATION_PAUSED | index=graph_facts_vec | reason=paused_rate_limit'. v6.3 did not touch this circuit. Correction recorded: 'no such module: vec0' was a B11-script artifact, on prod sqlite-vec is available.",
+      "status": "VERIFIED",
+      "blocking_question": null
+    },
+    {
+      "id": "SOUL13-11",
+      "area": "D",
+      "claim": "The local checkout is ahead of production by documentation-only commits; no code drift and no embedded secrets in git working state.",
+      "evidence_ref": "git rev-parse HEAD = a854ad953d360e0dcda1174b3a171cdecebc0417; git log c2775a54..HEAD (6 commits, all docs(v6.3)/chore(workflow)); APP_VERSION 2.58.79",
+      "observed_result": "Production runs c2775a54 (2.58.79); local HEAD a854ad95 contains 6 additional commits that only add plans/docs (live-canary, release-reconciliation, backlog, live-probes, final-audit, workflow state). Application version identical. No secrets committed (deploy_commands.txt is untracked per final-audit-current-task.md:84-86).",
+      "status": "VERIFIED",
+      "blocking_question": null
+    }
+  ]
+}

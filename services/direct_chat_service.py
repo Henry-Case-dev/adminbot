@@ -104,6 +104,7 @@ from services import command_prefix  # ASAP-3: persona-name force-детект (
 from services import mca_intents as _mca_intents  # MCA-09 (D3, T-5029)
 from services import telegram_send as _tg_send     # MCA-09 (T-5038: транспорт)
 from services import response_extent as _extent  # MCA-23 (W3): ResponsePlan
+from services import prompt_composer as _pcomp  # SOUL-1 (W2): Composer
 from services import response_document as _rd  # MCA-23 фаза 2 (§22): артефакт
 from services.chat_params import (
     chat_summary_enabled,
@@ -493,6 +494,21 @@ def _map_names(block: str) -> list[str]:
         if name:
             names.append(name)
     return names
+
+
+async def _composer_resolve_gates(chat_id: int):
+    """Оси SOUL-1/W2 (composer/core/style/humor) per-chat.
+
+    Env-ось выключена (код-дефолт) → резолв не делает ни одного обращения к
+    chat_params: OFF-путь остаётся байт-в-байт прежним и бесплатным.
+    Никогда не бросает.
+    """
+    try:
+        return await _pcomp.resolve_gates(chat_id)
+    except Exception:          # pragma: no cover — защитная ветка
+        logger.warning("[soul1] composer gates failed — OFF (parity)",
+                       exc_info=True)
+        return _pcomp.GateState(unified_composer_enabled=False)
 
 
 def _bundle_scoped_slice(bundle) -> str:
@@ -2345,6 +2361,13 @@ class DirectChatService:
                 chat_id, "prompts.direct_chat_system_prompt",
                 hot.get("prompts.direct_chat_system_prompt",
                         CHAT_SYSTEM_PROMPT))
+            # ── SOUL-1 (W2, §4 п.1): единственный владелец сборки речи.
+            # Флаг OFF (дефолт) → существующий путь ниже байт-в-байт; ON →
+            # system собирает `prompt_composer.compose_prompt` из тех же
+            # блоков (Core вставляется ровно между каналом и личностью).
+            _composer_gates = await _composer_resolve_gates(chat_id)
+            _composer_on = _pcomp.composer_enabled_now(_composer_gates)
+            _system_prompt_base = system_prompt
             # Раунд 10.14 (F2 persona-storage-core, spec §3.2): persona-блок —
             # ХВОСТ системного промпта (system_prompt + "\n\n" + block).
             # Пусто/PG down/флаг OFF → промпт байт-в-байт прежний (F2-Q5).
@@ -2665,19 +2688,20 @@ class DirectChatService:
                     response_plan = None
             if response_plan is not None:
                 extent_block = _extent.render_extent_block(response_plan)
-                if extent_block:
+                if extent_block and not _composer_on:
                     system_prompt = (system_prompt + "\n\n"
                                      + extent_block)
                 if response_plan.is_longform():
-                    system_prompt, _scrubbed = _extent.scrub_for_plan(
-                        system_prompt, response_plan)
-                    if _scrubbed:
-                        logger.warning(
-                            "[direct] extent-conflict scrub | chat=%s | "
-                            "stage=system_prompt | removed=%d",
-                            chat_id, _scrubbed)
                     longform_max_tokens = \
                         _extent.longform_max_output_tokens()
+                    if not _composer_on:
+                        system_prompt, _scrubbed = _extent.scrub_for_plan(
+                            system_prompt, response_plan)
+                        if _scrubbed:
+                            logger.warning(
+                                "[direct] extent-conflict scrub | chat=%s | "
+                                "stage=system_prompt | removed=%d",
+                                chat_id, _scrubbed)
                 try:   # MCA-23 §33 (P2-B): planned-слой ExecutionGraph —
                     # единственная guarded интеграционная точка, fail-open.
                     from services import execution_graph_source as _egs
@@ -2686,6 +2710,51 @@ class DirectChatService:
                         action=pre_action)
                 except Exception:
                     pass
+            # ── SOUL-1 (W2, §4 п.1 + §5): при флаге ON весь system
+            # собирается композером из тех же блоков и ровно один раз:
+            # channel_contract → core → identity → lessons/style → plan.
+            # Флаг OFF → строки выше остаются байт-в-байт прежними.
+            if _composer_on:
+                system_prompt, _composer_manifest = \
+                    await self._compose_speech_system(
+                        chat_id=chat_id, writer="tool_phase",
+                        run_id=correlation_id,
+                        base_prompt=_system_prompt_base,
+                        base_key="prompts.direct_chat_system_prompt",
+                        base_default=CHAT_SYSTEM_PROMPT,
+                        channel="plain", html_safe=True,
+                        response_plan=response_plan,
+                        extent_block=extent_block,
+                        identity_text=character_block,
+                        identity_source=("chat"
+                                         if mca_gates.character_layers_enabled()
+                                         else "legacy_persona"),
+                        identity_skipped=("" if persona_enabled
+                                          else "persona_disabled"),
+                        style_block=style_directives,
+                        style_skip=("style_scope_disabled"
+                                    if not mca_gates.style_scope_enabled()
+                                    else "style_requests_absent"),
+                        lessons_block=_lessons_block,
+                        lessons_skip="lessons_absent",
+                        speech_block=_speech_block,
+                        speech_skip=("character_speech_disabled"
+                                     if not mca_gates.character_speech_enabled()
+                                     else "speech_absent"),
+                        gates=_composer_gates,
+                        user_parts=tuple(
+                            str(b) for b in (user_blocks or []) if b))
+                # Единый владелец нормализации — `response_extent`: тот же
+                # (и единственный) проход, но уже на ФИНАЛЬНОЙ сборке.
+                if response_plan is not None and response_plan.is_longform():
+                    system_prompt, _scrubbed_on = _extent.scrub_for_plan(
+                        system_prompt, response_plan)
+                    if _scrubbed_on:
+                        logger.warning(
+                            "[direct] extent-conflict scrub | chat=%s | "
+                            "stage=tool_phase_composer | removed=%d",
+                            chat_id, _scrubbed_on)
+                _pcomp.emit_layer_events_once(_composer_manifest)
             time_line = await self._chat_time_line(chat_id)
             payload = build_messages(system_prompt, user_blocks,
                                      time_line=time_line)
@@ -3640,6 +3709,14 @@ class DirectChatService:
         system_prompt_l1 = resolve_prompt(
             "prompts.direct_l1_planner_system_prompt",
             DIRECT_L1_PLANNER_SYSTEM_PROMPT)
+        # ── SOUL-1 (W2, §4 п.5): L1 — машинная стадия (`machine_json`):
+        # канал-контракт без Core/юмора; ON даёт ту же строку + трассу.
+        _l1_gates = await _composer_resolve_gates(chat_id)
+        if _pcomp.composer_enabled_now(_l1_gates):
+            _pcomp.emit_layer_events_once(
+                _pcomp.compose_machine_system(
+                    system_prompt_l1, writer="l1_planner", chat_id=chat_id,
+                    run_id=correlation_id))
         context_text = _l1.build_l1_context(
             query=query,
             current_question=self._render_current_question(message),
@@ -3915,6 +3992,63 @@ class DirectChatService:
                                                   or "adaptive_fallback")
         return result
 
+    async def _compose_speech_system(self, *, chat_id: int, writer: str,
+                                     run_id: str | None,
+                                     base_prompt: str, base_key: str,
+                                     base_default: str, gates,
+                                     profile: str = "speech_plain",
+                                     channel: str = "plain",
+                                     html_safe: bool = False,
+                                     base_source: str = "",
+                                     include_mode_block: bool = True,
+                                     response_mode: str = "",
+                                     response_plan=None, extent_block: str = "",
+                                     identity_text: str = "",
+                                     identity_source: str = "chat",
+                                     identity_skipped: str = "",
+                                     style_block: str = "",
+                                     style_skip: str = "",
+                                     lessons_block: str = "",
+                                     lessons_skip: str = "",
+                                     speech_block: str = "",
+                                     speech_skip: str = "",
+                                     user_parts: tuple[str, ...] = ()
+                                     ):
+        """Собрать system речевого пути через ЕДИНЫЙ композер (SOUL-1 W2 §4).
+
+        Один рендер личности на ход: пин по ``run_id`` даёт tool-phase и
+        L2 Writer одну и ту же ревизию ``identity`` (SOUL-03.6/15.5).
+        Никогда не бросает: сбой композера → честный fallback на базу.
+        """
+        snapshot = await _pcomp.turn_snapshot(chat_id, run_id)
+        source = base_source or await _pcomp.resolve_base_source(
+            chat_id, base_key, base_default)
+        plan = _pcomp.PromptPlan(
+            profile=profile, writer=writer, chat_id=chat_id, channel=channel,
+            html_safe=html_safe, run_id=run_id, base_prompt=base_prompt,
+            base_source=source, include_mode_block=include_mode_block,
+            response_mode=response_mode,
+            core=snapshot.core,
+            identity=_pcomp.identity_from_text(
+                identity_text, chat_id=chat_id, run_id=run_id,
+                source=identity_source, skipped=identity_skipped),
+            response_plan=_pcomp.plan_ref_from_response_plan(
+                response_plan, extent_block),
+            style_policy=snapshot.style_policy,
+            scoped_requests=(_pcomp.Block(
+                "style_requests", style_block, owner="l1",
+                source="participant", skip_reason=style_skip),),
+            lessons=(_pcomp.Block(
+                "verified_lessons", lessons_block, owner="experience",
+                source="chat", skip_reason=lessons_skip),),
+            speech=_pcomp.Block(
+                "speech_understanding", speech_block, owner="l1",
+                source="code", skip_reason=speech_skip),
+            user_parts=tuple(str(p) for p in (user_parts or ())),
+            gates=gates or _pcomp.gates_from_config())
+        manifest = _pcomp.compose_prompt(plan)
+        return manifest.system, manifest
+
     async def _l2_write_answer(self, chat_id: int, query: str, *,
                                temperature, correlation_id=None,
                                character_block: str = "",
@@ -3924,6 +4058,7 @@ class DirectChatService:
                                time_line: str = "", evidence: str = "",
                                lessons_block: str = "",
                                speech_block: str = "",
+                               writer: str = "l2_writer",
                                fallback_budget_tokens: int | None = None,
                                max_tokens=None) -> tuple[str, str] | None:
         """ASAP 7 (F1, §1.2) + v6 D04 (§18C.4): L2 WRITER —
@@ -3936,7 +4071,11 @@ class DirectChatService:
         ПЕРЕСОБИРАЕТСЯ с защищёнными блоками (current request, mandatory
         tool evidence, safety/role system); не помещается — честная
         capacity reason. Возврат ``(текст, response_mode)``; ``None`` →
-        честный отказ."""
+        честный отказ.
+
+        SOUL-1 (W2): при ON блоки speech/lessons — слои композера (system),
+        в user-часть они не дублируются (один владелец блока на payload).
+        """
         modes_on = getattr(settings, "SMART_VERBALIZER_MODES_ENABLED", True)
         response_mode = _l1.plan_response_mode(response_plan)
         verbalizer_template = (
@@ -3945,35 +4084,81 @@ class DirectChatService:
             if modes_on else PREV_CHAT_VERBALIZER_R1023)
         _plan_extent_block = (_extent.render_extent_block(response_plan)
                               if response_plan is not None else "")
-        verbalizer_system = (
-            compose_verbalizer_system(
-                verbalizer_template, response_mode, "plain", html_safe=True,
-                character_block=character_block,
-                style_directives=style_directives,
-                extent_block=_plan_extent_block)
-            if modes_on else verbalizer_template)
+        # ── SOUL-1 (W2, §4 п.2/§4 п.3): у блоков speech/lessons РОВНО один
+        # владелец в payload. При ON их рендерит композер слоем
+        # `context_lessons` (system), поэтому в user-часть они не попадают —
+        # иначе один текст уходит в payload дважды (review-w2 F2: ×2
+        # <Speech_Understanding>/<Verified_Lessons> в одном ходе). OFF →
+        # user-часть байт-в-байт прежняя (блоки здесь, как и раньше).
+        _c_gates = await _composer_resolve_gates(chat_id)
+        _c_on = _pcomp.composer_enabled_now(_c_gates)
+        # User-часть строится до сборки system и передаётся композеру как
+        # ЗАЩИЩЁННАЯ часть (вопрос/инструкция/evidence не вытесняются).
+        parts: list[str] = []
+        if time_line:
+            parts.append(str(time_line))
+        if plan_block:
+            parts.append(plan_block)
+        if not _c_on:
+            if speech_block:
+                parts.append(speech_block)
+            if lessons_block:
+                parts.append(lessons_block)
+        for block in (user_blocks or []):
+            if block:
+                parts.append(str(block))
+        if evidence:
+            parts.append("<Tool_Evidence>\n" + evidence + "\n</Tool_Evidence>")
+        # ── SOUL-1 (W2, §4 п.2/§4 п.3): единый владелец сборки. Флаг OFF →
+        # ветка ниже байт-в-байт прежняя; ON → тот же набор блоков через
+        # композер (+Core/Style/Humor/Samples), личность — один рендер на ход.
+        _c_manifest = None
+        if _c_on:
+            verbalizer_system, _c_manifest = await self._compose_speech_system(
+                chat_id=chat_id, writer=writer, run_id=correlation_id,
+                base_prompt=verbalizer_template,
+                base_key="prompts.direct_chat_verbalizer_system_prompt",
+                base_default=DIRECT_VERBALIZER_SYSTEM_PROMPT,
+                base_source=("legacy_mode" if not modes_on else ""),
+                include_mode_block=bool(modes_on),
+                gates=_c_gates, response_mode=response_mode,
+                response_plan=response_plan, extent_block=_plan_extent_block,
+                identity_text=character_block,
+                identity_source=("chat"
+                                 if mca_gates.character_layers_enabled()
+                                 else "legacy_persona"),
+                identity_skipped=("" if _c_gates.persona_enabled
+                                  else "persona_disabled"),
+                style_block=style_directives,
+                style_skip=("style_scope_disabled"
+                            if not mca_gates.style_scope_enabled()
+                            else "style_requests_absent"),
+                lessons_block=lessons_block,
+                lessons_skip="lessons_absent",
+                speech_block=speech_block,
+                speech_skip=("character_speech_disabled"
+                             if not mca_gates.character_speech_enabled()
+                             else "speech_absent"),
+                user_parts=tuple(parts))
+            _pcomp.emit_layer_events_once(_c_manifest)
+        else:
+            verbalizer_system = (
+                compose_verbalizer_system(
+                    verbalizer_template, response_mode, "plain",
+                    html_safe=True,
+                    character_block=character_block,
+                    style_directives=style_directives,
+                    extent_block=_plan_extent_block)
+                if modes_on else verbalizer_template)
         # MCA-23 §32-семантика: prompt-conflict scrub старого cap-текста
-        # (PG-кастом) из ФИНАЛЬНОЙ сборки L2.
+        # (PG-кастом) из ФИНАЛЬНОЙ сборки L2 (единое решение W2: scrub
+        # выполняется и при выключенных режимах — как здесь и было).
         verbalizer_system, _scrubbed = _extent.scrub_for_plan(
             verbalizer_system, response_plan)
         if _scrubbed:
             logger.warning(
                 "[direct] extent-conflict scrub | chat=%s | "
                 "stage=l2_writer | removed=%d", chat_id, _scrubbed)
-        parts: list[str] = []
-        if time_line:
-            parts.append(str(time_line))
-        if plan_block:
-            parts.append(plan_block)
-        if speech_block:
-            parts.append(speech_block)
-        if lessons_block:
-            parts.append(lessons_block)
-        for block in (user_blocks or []):
-            if block:
-                parts.append(str(block))
-        if evidence:
-            parts.append("<Tool_Evidence>\n" + evidence + "\n</Tool_Evidence>")
         base_messages = [
             {"role": "system", "content": verbalizer_system},
             {"role": "user",
@@ -4091,10 +4276,20 @@ class DirectChatService:
             bundle_slice = _bundle_scoped_slice(bundle)
             if bundle_slice:
                 synth_user = f"{bundle_slice}\n\n{synth_user}"
+            # ── SOUL-1 (W2, §4 п.4): Stage-1 — машинный профиль
+            # (`machine_json`): только канал-контракт, Core/юмор физически
+            # не подключаются. OFF → байт-в-байт прежняя строка ниже.
+            _c_gates = await _composer_resolve_gates(chat_id)
+            _stage1_base = resolve_prompt(
+                "prompts.direct_chat_synthesizer_system_prompt",
+                DIRECT_SYNTHESIZER_SYSTEM_PROMPT)
+            if _pcomp.composer_enabled_now(_c_gates):
+                _stage1_manifest = _pcomp.compose_machine_system(
+                    _stage1_base, writer="system2_stage1", chat_id=chat_id,
+                    run_id=correlation_id)
+                _pcomp.emit_layer_events_once(_stage1_manifest)
             synth_messages = [
-                {"role": "system", "content": resolve_prompt(
-                    "prompts.direct_chat_synthesizer_system_prompt",
-                    DIRECT_SYNTHESIZER_SYSTEM_PROMPT)},
+                {"role": "system", "content": _stage1_base},
                 {"role": "user", "content": synth_user},
             ]
             raw_synth = await self.llm.generate(
@@ -4123,22 +4318,50 @@ class DirectChatService:
                 _plan_extent_block = _extent.render_extent_block(plan)
             # Review iter1 (H2): direct deep_research доставляется safe-HTML
             # (`parse_mode="HTML"` + escape_lore_html) → HTML-capable блок.
-            verbalizer_system = (compose_verbalizer_system(
-                verbalizer_template, response_mode, "plain", html_safe=True,
-                character_block=character_block,
-                style_directives=style_directives,
-                extent_block=_plan_extent_block)
-                if modes_on else verbalizer_template)
+            # ── SOUL-1 (W2, §4 п.3): тот же композер, что у L2 (Core/личность
+            # из того же хода — общая ревизия identity). OFF → прежняя строка.
+            if _pcomp.composer_enabled_now(_c_gates):
+                verbalizer_system, _s2_manifest = \
+                    await self._compose_speech_system(
+                        chat_id=chat_id, writer="system2_stage2",
+                        run_id=correlation_id,
+                        base_prompt=verbalizer_template,
+                        base_key="prompts.direct_chat_verbalizer_system_prompt",
+                        base_default=DIRECT_VERBALIZER_SYSTEM_PROMPT,
+                        base_source=("legacy_mode" if not modes_on else ""),
+                        include_mode_block=bool(modes_on),
+                        gates=_c_gates, response_mode=response_mode,
+                        response_plan=plan, extent_block=_plan_extent_block,
+                        identity_text=character_block,
+                        identity_source=("chat"
+                                         if mca_gates.character_layers_enabled()
+                                         else "legacy_persona"),
+                        identity_skipped=("" if _c_gates.persona_enabled
+                                          else "persona_disabled"),
+                        style_block=style_directives,
+                        style_skip=("style_scope_disabled"
+                                    if not mca_gates.style_scope_enabled()
+                                    else "style_requests_absent"))
+                _pcomp.emit_layer_events_once(_s2_manifest)
+            else:
+                verbalizer_system = (compose_verbalizer_system(
+                    verbalizer_template, response_mode, "plain",
+                    html_safe=True,
+                    character_block=character_block,
+                    style_directives=style_directives,
+                    extent_block=_plan_extent_block)
+                    if modes_on else verbalizer_template)
             # MCA-23 (W3, §11/§32): prompt-conflict scrub — старый cap-текст
             # (PG-кастом 10.23) не должен душить longform. Детерминированная
             # вычистка из ФИНАЛЬНОЙ сборки; БД не трогается, WARN в лог.
-            if modes_on:
-                verbalizer_system, _scrubbed = _extent.scrub_for_plan(
-                    verbalizer_system, plan)
-                if _scrubbed:
-                    logger.warning(
-                        "[direct] extent-conflict scrub | chat=%s | "
-                        "stage=verbalizer | removed=%d", chat_id, _scrubbed)
+            # SOUL-1 (W2, §4 «доп.»): скраб больше НЕ гейтится режимами —
+            # Stage-2 приведён к единому решению с L2 (шаг нормализации один).
+            verbalizer_system, _scrubbed = _extent.scrub_for_plan(
+                verbalizer_system, plan)
+            if _scrubbed:
+                logger.warning(
+                    "[direct] extent-conflict scrub | chat=%s | "
+                    "stage=verbalizer | removed=%d", chat_id, _scrubbed)
             # MCA-23 (W3, §Model slots): longform-план получает явный
             # max_tokens; compact/micro/None → None (ключ не едет, паритет).
             _longform_tokens = (_extent.longform_max_output_tokens()
@@ -7553,6 +7776,13 @@ class DirectChatService:
                  DIRECT_L1_PLANNER_SYSTEM_PROMPT)},
             {"role": "user", "content": context_text},
         ]
+        # ── SOUL-1 (W2, §4 п.5): Initiative L1 — тот же машинный профиль.
+        _init_l1_gates = await _composer_resolve_gates(chat_id)
+        if _pcomp.composer_enabled_now(_init_l1_gates):
+            _pcomp.emit_layer_events_once(
+                _pcomp.compose_machine_system(
+                    messages[0]["content"], writer="initiative_l1",
+                    chat_id=chat_id, run_id=correlation_id))
         try:
             raw = await asyncio.wait_for(
                 self.llm.generate(
@@ -7618,7 +7848,7 @@ class DirectChatService:
                 correlation_id=correlation_id,
                 character_block=persona_block, response_plan=response_plan,
                 plan_block=plan_block, user_blocks=user_blocks,
-                max_tokens=700)
+                writer="initiative_writer", max_tokens=700)
         except Exception:
             logger.warning(
                 "[f6] initiative writer failed | chat=%s", chat_id,

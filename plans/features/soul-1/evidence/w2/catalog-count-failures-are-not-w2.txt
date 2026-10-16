@@ -1,0 +1,12 @@
+﻿SOUL-1 / W2 — доказательство: 3 падения на счётчиках каталога вызваны НЕ W2
+Причина: незакоммиченный diff соседнего слайса в services/param_catalog.py (+18 строк,
+добавлен ключ prompts.direct_l1_planner_system_prompt) вне WRITE_SCOPE W2.
+Проверка (git worktree HEAD без кода W2 + только param_catalog.py рабочего дерева):
+  git worktree add --detach OPENCODE_WORKFLOW_SCRATCH/w2_probe HEAD
+  Copy-Item services/param_catalog.py OPENCODE_WORKFLOW_SCRATCH/w2_probe/services/
+  cd OPENCODE_WORKFLOW_SCRATCH/w2_probe && ..\..\.venv\Scripts\python.exe -m pytest
+     tests/test_unified_image_request_round1026.py::TestBoundsA3::test_catalog_counts_unchanged
+     tests/test_ui_verbilizer_tabs_round1023.py::TestCatalogDelta -q
+Результат на ЧИСТОМ HEAD без кода W2: 3 failed, 6 passed — те же три теста.
+Вывод: счётчики каталога падают от diff соседнего слайса; W2 не добавляет ни одного
+ключа каталога и правит только чтение.

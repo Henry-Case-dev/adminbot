@@ -1,0 +1,472 @@
+{
+ "meta": {
+  "ports": {
+   "full": 8871,
+   "restricted": 8872
+  },
+  "payload_full_items": 570,
+  "payload_restricted_items": 24,
+  "query": "zzzqqq",
+  "expect_red": false,
+  "viewports": [
+   "320",
+   "390"
+  ]
+ },
+ "cases": {
+  "320": {
+   "d_library": {
+    "ai_entries": [
+     "summary|6",
+     "direct|4",
+     "factcheck|3",
+     "search|1",
+     "video_summary|2",
+     "web|1",
+     "checkup|1",
+     "sleep|2"
+    ],
+    "ai_cards": 1,
+    "module": "mod_direct",
+    "tree_present": true,
+    "tree_visible": true,
+    "dom_keys": [
+     "prompts.direct_chat_synthesizer_system_prompt",
+     "prompts.direct_l1_planner_system_prompt"
+    ],
+    "dom_groups": [],
+    "model_keys": [
+     "prompts.direct_chat_synthesizer_system_prompt",
+     "prompts.direct_l1_planner_system_prompt"
+    ],
+    "missing": [],
+    "extra": [],
+    "l1_in_dom": true,
+    "overflow_x": false
+   },
+   "search_via": "ui",
+   "c_before_clear": {
+    "route": "#/ai/prompts",
+    "activeTab": "prompts",
+    "scopeKind": "chat",
+    "activeChatId": -1001234567890,
+    "search": "zzzqqq",
+    "totalItems": 570,
+    "itemCount": 25,
+    "groupIds": [],
+    "cardA": {
+     "visible": false,
+     "text": ""
+    },
+    "cardB": {
+     "visible": true,
+     "text": "Ничего не найдено по запросу «zzzqqq»."
+    },
+    "searchInputVisible": true,
+    "width": 320
+   },
+   "c_after_clear": {
+    "route": "#/ai/prompts",
+    "activeTab": "prompts",
+    "scopeKind": "chat",
+    "activeChatId": -1001234567890,
+    "search": "",
+    "totalItems": 570,
+    "itemCount": 25,
+    "groupIds": [
+     "prompts_factcheck",
+     "prompts_search",
+     "prompts_checkup",
+     "prompts_direct_chat",
+     "prompts_summary",
+     "prompts_youtube",
+     "prompts_web",
+     "prompts_memory",
+     "prompts_verbilizer",
+     "limits_anticliche"
+    ],
+    "cardA": {
+     "visible": false,
+     "text": ""
+    },
+    "cardB": {
+     "visible": false,
+     "text": ""
+    },
+    "searchInputVisible": true,
+    "width": 320
+   },
+   "scope_calls": [
+    "",
+    "-1"
+   ],
+   "a1_no_query": {
+    "route": "#/ai/smart-cache",
+    "activeTab": "smart_cache",
+    "scopeKind": "global",
+    "activeChatId": null,
+    "search": "",
+    "totalItems": 24,
+    "itemCount": 0,
+    "groupIds": [],
+    "cardA": {
+     "visible": true,
+     "text": "На этой вкладке нет доступных параметров На этой вкладке нет параметров, доступных вашей роли (сервер отфильтровал их по правам)."
+    },
+    "cardB": {
+     "visible": false,
+     "text": ""
+    },
+    "searchInputVisible": true,
+    "width": 320
+   },
+   "b_empty_with_query": {
+    "route": "#/ai/smart-cache",
+    "activeTab": "smart_cache",
+    "scopeKind": "global",
+    "activeChatId": null,
+    "search": "zzzqqq",
+    "totalItems": 24,
+    "itemCount": 0,
+    "groupIds": [],
+    "cardA": {
+     "visible": true,
+     "text": "На этой вкладке нет доступных параметров На этой вкладке нет параметров, доступных вашей роли (сервер отфильтровал их по правам). Запрос «zzzqqq» здесь ничего не изменит: фильтровать в пустой вкладке нечего."
+    },
+    "cardB": {
+     "visible": false,
+     "text": ""
+    },
+    "searchInputVisible": true,
+    "width": 320
+   },
+   "a2_chat_scope_with_query": {
+    "route": "#/ai/smart-cache",
+    "activeTab": "smart_cache",
+    "scopeKind": "chat",
+    "activeChatId": -1,
+    "search": "zzzqqq",
+    "totalItems": 24,
+    "itemCount": 0,
+    "groupIds": [],
+    "cardA": {
+     "visible": true,
+     "text": "На этой вкладке нет доступных параметров Для выбранной области (чат) нет применимых параметров этой вкладки: часть настроек живёт только на уровне всего бота. Переключите область на «Весь бот». Запрос «zzzqqq» здесь ничего не изменит: фильтровать в пустой вкладке нечего."
+    },
+    "cardB": {
+     "visible": false,
+     "text": ""
+    },
+    "searchInputVisible": true,
+    "width": 320
+   },
+   "page_errors": []
+  },
+  "390": {
+   "d_library": {
+    "ai_entries": [
+     "summary|6",
+     "direct|4",
+     "factcheck|3",
+     "search|1",
+     "video_summary|2",
+     "web|1",
+     "checkup|1",
+     "sleep|2"
+    ],
+    "ai_cards": 1,
+    "module": "mod_direct",
+    "tree_present": true,
+    "tree_visible": true,
+    "dom_keys": [
+     "prompts.direct_chat_synthesizer_system_prompt",
+     "prompts.direct_l1_planner_system_prompt"
+    ],
+    "dom_groups": [],
+    "model_keys": [
+     "prompts.direct_chat_synthesizer_system_prompt",
+     "prompts.direct_l1_planner_system_prompt"
+    ],
+    "missing": [],
+    "extra": [],
+    "l1_in_dom": true,
+    "overflow_x": false
+   },
+   "search_via": "ui",
+   "c_before_clear": {
+    "route": "#/ai/prompts",
+    "activeTab": "prompts",
+    "scopeKind": "chat",
+    "activeChatId": -1001234567890,
+    "search": "zzzqqq",
+    "totalItems": 570,
+    "itemCount": 25,
+    "groupIds": [],
+    "cardA": {
+     "visible": false,
+     "text": ""
+    },
+    "cardB": {
+     "visible": true,
+     "text": "Ничего не найдено по запросу «zzzqqq»."
+    },
+    "searchInputVisible": true,
+    "width": 390
+   },
+   "c_after_clear": {
+    "route": "#/ai/prompts",
+    "activeTab": "prompts",
+    "scopeKind": "chat",
+    "activeChatId": -1001234567890,
+    "search": "",
+    "totalItems": 570,
+    "itemCount": 25,
+    "groupIds": [
+     "prompts_factcheck",
+     "prompts_search",
+     "prompts_checkup",
+     "prompts_direct_chat",
+     "prompts_summary",
+     "prompts_youtube",
+     "prompts_web",
+     "prompts_memory",
+     "prompts_verbilizer",
+     "limits_anticliche"
+    ],
+    "cardA": {
+     "visible": false,
+     "text": ""
+    },
+    "cardB": {
+     "visible": false,
+     "text": ""
+    },
+    "searchInputVisible": true,
+    "width": 390
+   },
+   "scope_calls": [
+    "",
+    "-1"
+   ],
+   "a1_no_query": {
+    "route": "#/ai/smart-cache",
+    "activeTab": "smart_cache",
+    "scopeKind": "global",
+    "activeChatId": null,
+    "search": "",
+    "totalItems": 24,
+    "itemCount": 0,
+    "groupIds": [],
+    "cardA": {
+     "visible": true,
+     "text": "На этой вкладке нет доступных параметров На этой вкладке нет параметров, доступных вашей роли (сервер отфильтровал их по правам)."
+    },
+    "cardB": {
+     "visible": false,
+     "text": ""
+    },
+    "searchInputVisible": true,
+    "width": 390
+   },
+   "b_empty_with_query": {
+    "route": "#/ai/smart-cache",
+    "activeTab": "smart_cache",
+    "scopeKind": "global",
+    "activeChatId": null,
+    "search": "zzzqqq",
+    "totalItems": 24,
+    "itemCount": 0,
+    "groupIds": [],
+    "cardA": {
+     "visible": true,
+     "text": "На этой вкладке нет доступных параметров На этой вкладке нет параметров, доступных вашей роли (сервер отфильтровал их по правам). Запрос «zzzqqq» здесь ничего не изменит: фильтровать в пустой вкладке нечего."
+    },
+    "cardB": {
+     "visible": false,
+     "text": ""
+    },
+    "searchInputVisible": true,
+    "width": 390
+   },
+   "a2_chat_scope_with_query": {
+    "route": "#/ai/smart-cache",
+    "activeTab": "smart_cache",
+    "scopeKind": "chat",
+    "activeChatId": -1,
+    "search": "zzzqqq",
+    "totalItems": 24,
+    "itemCount": 0,
+    "groupIds": [],
+    "cardA": {
+     "visible": true,
+     "text": "На этой вкладке нет доступных параметров Для выбранной области (чат) нет применимых параметров этой вкладки: часть настроек живёт только на уровне всего бота. Переключите область на «Весь бот». Запрос «zzzqqq» здесь ничего не изменит: фильтровать в пустой вкладке нечего."
+    },
+    "cardB": {
+     "visible": false,
+     "text": ""
+    },
+    "searchInputVisible": true,
+    "width": 390
+   },
+   "page_errors": []
+  }
+ },
+ "checks": [
+  {
+   "case": "d-library-320/tree-visible",
+   "ok": true,
+   "detail": "treePresent=True"
+  },
+  {
+   "case": "d-library-320/all-model-keys",
+   "ok": true,
+   "detail": "missing=[] extra=[]"
+  },
+  {
+   "case": "d-library-320/l1-entry",
+   "ok": true,
+   "detail": "L1=prompts.direct_l1_planner_system_prompt keys=2"
+  },
+  {
+   "case": "d-library-320/module-cards",
+   "ok": true,
+   "detail": "cards=1 entries=['summary|6', 'direct|4', 'factcheck|3', 'search|1', 'video_summary|2', 'web|1', 'checkup|1', 'sleep|2']"
+  },
+  {
+   "case": "d-library-320/no-overflow",
+   "ok": true,
+   "detail": "scrollWidth=320 innerWidth=320"
+  },
+  {
+   "case": "c-320/query-message",
+   "ok": true,
+   "detail": "cardB='Ничего не найдено по запросу «zzzqqq».' cardA_visible=False itemCount=25 groups=[]"
+  },
+  {
+   "case": "c-320/tab-has-items",
+   "ok": true,
+   "detail": "itemCount=25 groups=[]"
+  },
+  {
+   "case": "c-320/clear-restores-groups",
+   "ok": true,
+   "detail": "groups=['prompts_factcheck', 'prompts_search', 'prompts_checkup', 'prompts_direct_chat', 'prompts_summary', 'prompts_youtube', 'prompts_web', 'prompts_memory', 'prompts_verbilizer', 'limits_anticliche'] cardB_visible=False"
+  },
+  {
+   "case": "a1-320/empty-tab-card",
+   "ok": true,
+   "detail": "itemCount=0 totalItems=24 scope=global"
+  },
+  {
+   "case": "a1-320/honest-role-reason",
+   "ok": true,
+   "detail": "cardA='На этой вкладке нет доступных параметров На этой вкладке нет параметров, доступных вашей роли (сервер отфильтровал их по правам).'"
+  },
+  {
+   "case": "b-320/no-query-as-cause",
+   "ok": true,
+   "detail": "cardA='На этой вкладке нет доступных параметров На этой вкладке нет параметров, доступных вашей роли (сервер отфильтровал их по правам). Запрос «zzzqqq» здесь ничего не изменит: фильтровать в пустой вкладке нечего.' itemCount=0"
+  },
+  {
+   "case": "b-320/real-cause-named",
+   "ok": true,
+   "detail": "cardA='На этой вкладке нет доступных параметров На этой вкладке нет параметров, доступных вашей роли (сервер отфильтровал их по правам). Запрос «zzzqqq» здесь ничего не изменит: фильтровать в пустой вкладке нечего.' itemCount=0 totalItems=24"
+  },
+  {
+   "case": "b-320/query-only-as-non-cause",
+   "ok": true,
+   "detail": "cardA='На этой вкладке нет доступных параметров На этой вкладке нет параметров, доступных вашей роли (сервер отфильтровал их по правам). Запрос «zzzqqq» здесь ничего не изменит: фильтровать в пустой вкладке нечего.'"
+  },
+  {
+   "case": "a2-320/chat-scope",
+   "ok": true,
+   "detail": "scopeKind=chat activeChatId=-1"
+  },
+  {
+   "case": "a2-320/honest-scope-reason",
+   "ok": true,
+   "detail": "cardA='На этой вкладке нет доступных параметров Для выбранной области (чат) нет применимых параметров этой вкладки: часть настроек живёт только на уровне всего бота. Переключите область на «Весь бот». Запрос «zzzqqq» здесь ничего не изменит: фильтровать в пустой вкладке нечего.'"
+  },
+  {
+   "case": "d-library-390/tree-visible",
+   "ok": true,
+   "detail": "treePresent=True"
+  },
+  {
+   "case": "d-library-390/all-model-keys",
+   "ok": true,
+   "detail": "missing=[] extra=[]"
+  },
+  {
+   "case": "d-library-390/l1-entry",
+   "ok": true,
+   "detail": "L1=prompts.direct_l1_planner_system_prompt keys=2"
+  },
+  {
+   "case": "d-library-390/module-cards",
+   "ok": true,
+   "detail": "cards=1 entries=['summary|6', 'direct|4', 'factcheck|3', 'search|1', 'video_summary|2', 'web|1', 'checkup|1', 'sleep|2']"
+  },
+  {
+   "case": "d-library-390/no-overflow",
+   "ok": true,
+   "detail": "scrollWidth=390 innerWidth=390"
+  },
+  {
+   "case": "c-390/query-message",
+   "ok": true,
+   "detail": "cardB='Ничего не найдено по запросу «zzzqqq».' cardA_visible=False itemCount=25 groups=[]"
+  },
+  {
+   "case": "c-390/tab-has-items",
+   "ok": true,
+   "detail": "itemCount=25 groups=[]"
+  },
+  {
+   "case": "c-390/clear-restores-groups",
+   "ok": true,
+   "detail": "groups=['prompts_factcheck', 'prompts_search', 'prompts_checkup', 'prompts_direct_chat', 'prompts_summary', 'prompts_youtube', 'prompts_web', 'prompts_memory', 'prompts_verbilizer', 'limits_anticliche'] cardB_visible=False"
+  },
+  {
+   "case": "a1-390/empty-tab-card",
+   "ok": true,
+   "detail": "itemCount=0 totalItems=24 scope=global"
+  },
+  {
+   "case": "a1-390/honest-role-reason",
+   "ok": true,
+   "detail": "cardA='На этой вкладке нет доступных параметров На этой вкладке нет параметров, доступных вашей роли (сервер отфильтровал их по правам).'"
+  },
+  {
+   "case": "b-390/no-query-as-cause",
+   "ok": true,
+   "detail": "cardA='На этой вкладке нет доступных параметров На этой вкладке нет параметров, доступных вашей роли (сервер отфильтровал их по правам). Запрос «zzzqqq» здесь ничего не изменит: фильтровать в пустой вкладке нечего.' itemCount=0"
+  },
+  {
+   "case": "b-390/real-cause-named",
+   "ok": true,
+   "detail": "cardA='На этой вкладке нет доступных параметров На этой вкладке нет параметров, доступных вашей роли (сервер отфильтровал их по правам). Запрос «zzzqqq» здесь ничего не изменит: фильтровать в пустой вкладке нечего.' itemCount=0 totalItems=24"
+  },
+  {
+   "case": "b-390/query-only-as-non-cause",
+   "ok": true,
+   "detail": "cardA='На этой вкладке нет доступных параметров На этой вкладке нет параметров, доступных вашей роли (сервер отфильтровал их по правам). Запрос «zzzqqq» здесь ничего не изменит: фильтровать в пустой вкладке нечего.'"
+  },
+  {
+   "case": "a2-390/chat-scope",
+   "ok": true,
+   "detail": "scopeKind=chat activeChatId=-1"
+  },
+  {
+   "case": "a2-390/honest-scope-reason",
+   "ok": true,
+   "detail": "cardA='На этой вкладке нет доступных параметров Для выбранной области (чат) нет применимых параметров этой вкладки: часть настроек живёт только на уровне всего бота. Переключите область на «Весь бот». Запрос «zzzqqq» здесь ничего не изменит: фильтровать в пустой вкладке нечего.'"
+  }
+ ],
+ "failures": [],
+ "summary": {
+  "checks": 30,
+  "passed": 30,
+  "failed": 0
+ }
+}

@@ -265,6 +265,31 @@ def format_block(channel: str | None, *, html_safe: bool = False) -> str:
     return FORMAT_PLAIN_BLOCK if html_safe else FORMAT_PLAIN_TEXT_BLOCK
 
 
+def resolve_mode_parts(base_prompt: str, response_mode: str = "", *,
+                       extent_block: str = "",
+                       modes_enabled: bool = True) -> tuple[str, str, str]:
+    """Части сборки нарратора: ``(candidate, base, mode_or_extent_block)``.
+
+    SOUL-1 (W2): композер обязан использовать ТУ ЖЕ семантику режима, что
+    ``compose_verbalizer_system`` (один владелец — этот модуль), поэтому
+    выбор режима/дефолт/overrides/extent вынесены в общий хелпер, а
+    ``compose_verbalizer_system`` собран поверх него байт-в-байт.
+
+    ``modes_enabled=False`` (kill-switch `SMART_VERBALIZER_MODES_ENABLED`
+    OFF) → режимный/extent-блок не выбирается вовсе (паритет legacy-пути),
+    база по-прежнему проходит `.rstrip()` и ``_apply_mode_overrides``.
+    """
+    candidate = str(response_mode or "").strip().lower()
+    if candidate not in MODE_BLOCKS:
+        candidate = _resolve_default_mode()
+    base = _apply_mode_overrides(str(base_prompt or "").rstrip(), candidate)
+    if not modes_enabled:
+        return candidate, base, ""
+    block = str(extent_block) if str(extent_block or "").strip() \
+        else _resolve_mode_block(candidate)
+    return candidate, base, block
+
+
 def compose_verbalizer_system(base_prompt: str, response_mode: str = "",
                               channel: str = _CHANNEL_PLAIN, *,
                               html_safe: bool = False,
@@ -306,15 +331,11 @@ def compose_verbalizer_system(base_prompt: str, response_mode: str = "",
     режим: так вызов без явного режима тоже уходит на fallback-ключ, и
     второй источник правды о дефолте не заводится (канон — ``casual``).
     """
-    candidate = str(response_mode or "").strip().lower()
-    if candidate not in MODE_BLOCKS:
-        candidate = _resolve_default_mode()
-    base = _apply_mode_overrides(str(base_prompt or "").rstrip(), candidate)
+    candidate, base, mode_block = resolve_mode_parts(
+        base_prompt, response_mode, extent_block=extent_block)
     parts = [base]
-    if str(extent_block or "").strip():
-        parts.append(str(extent_block))
-    else:
-        parts.append(_resolve_mode_block(candidate))
+    if mode_block:
+        parts.append(mode_block)
     if candidate == "deep_research":
         parts.append(format_block(channel, html_safe=html_safe))
     if character_block:

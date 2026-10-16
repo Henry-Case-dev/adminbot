@@ -1,0 +1,1345 @@
+{
+ "meta": {
+  "port": 8869,
+  "payload_items": 570,
+  "prompts_keys": [
+   "prompts.checkup_system_prompt",
+   "prompts.compress_system_prompt",
+   "prompts.direct_chat_synthesizer_system_prompt",
+   "prompts.direct_chat_system_prompt",
+   "prompts.direct_chat_verbalizer_system_prompt",
+   "prompts.direct_l1_planner_system_prompt",
+   "prompts.extract_system_prompt",
+   "prompts.factcheck_analyst_system_prompt",
+   "prompts.factcheck_system_prompt",
+   "prompts.factcheck_verbalizer_system_prompt",
+   "prompts.search_system_prompt",
+   "prompts.summary_cover_style",
+   "prompts.summary_editor_system_prompt",
+   "prompts.summary_l1_clusterizer_system_prompt",
+   "prompts.summary_l2_writer_system_prompt",
+   "prompts.summary_narrator_system_prompt",
+   "prompts.summary_system_prompt",
+   "prompts.verbilizer_default_mode",
+   "prompts.verbilizer_mode_casual",
+   "prompts.verbilizer_mode_deep_research",
+   "prompts.verbilizer_mode_serious",
+   "prompts.webpage_system_prompt",
+   "prompts.youtube_system_prompt",
+   "prompts.youtube_video_system_prompt"
+  ],
+  "l1_present": true,
+  "red": false
+ },
+ "viewports": {
+  "320": {
+   "route": "#/ai/prompts",
+   "activeTab": "prompts",
+   "promptKeys": [
+    "prompts.checkup_system_prompt",
+    "prompts.compress_system_prompt",
+    "prompts.direct_chat_synthesizer_system_prompt",
+    "prompts.direct_chat_system_prompt",
+    "prompts.direct_chat_verbalizer_system_prompt",
+    "prompts.direct_l1_planner_system_prompt",
+    "prompts.extract_system_prompt",
+    "prompts.factcheck_analyst_system_prompt",
+    "prompts.factcheck_system_prompt",
+    "prompts.factcheck_verbalizer_system_prompt",
+    "prompts.search_system_prompt",
+    "prompts.summary_cover_style",
+    "prompts.summary_editor_system_prompt",
+    "prompts.summary_l1_clusterizer_system_prompt",
+    "prompts.summary_l2_writer_system_prompt",
+    "prompts.summary_narrator_system_prompt",
+    "prompts.summary_system_prompt",
+    "prompts.verbilizer_default_mode",
+    "prompts.verbilizer_mode_casual",
+    "prompts.verbilizer_mode_deep_research",
+    "prompts.verbilizer_mode_serious",
+    "prompts.webpage_system_prompt",
+    "prompts.youtube_system_prompt",
+    "prompts.youtube_video_system_prompt"
+   ],
+   "classify": {
+    "prompts.checkup_system_prompt": "item_card",
+    "prompts.compress_system_prompt": "item_card",
+    "prompts.direct_chat_synthesizer_system_prompt": "item_card",
+    "prompts.direct_chat_system_prompt": "item_card",
+    "prompts.direct_chat_verbalizer_system_prompt": "item_card",
+    "prompts.direct_l1_planner_system_prompt": "item_card",
+    "prompts.extract_system_prompt": "item_card",
+    "prompts.factcheck_analyst_system_prompt": "item_card",
+    "prompts.factcheck_system_prompt": "item_card",
+    "prompts.factcheck_verbalizer_system_prompt": "item_card",
+    "prompts.search_system_prompt": "item_card",
+    "prompts.summary_cover_style": "item_card",
+    "prompts.summary_editor_system_prompt": "item_card",
+    "prompts.summary_l1_clusterizer_system_prompt": "item_card",
+    "prompts.summary_l2_writer_system_prompt": "item_card",
+    "prompts.summary_narrator_system_prompt": "item_card",
+    "prompts.summary_system_prompt": "item_card",
+    "prompts.verbilizer_default_mode": "fallback_select",
+    "prompts.verbilizer_mode_casual": "mode_tabs",
+    "prompts.verbilizer_mode_deep_research": "mode_tabs",
+    "prompts.verbilizer_mode_serious": "mode_tabs",
+    "prompts.webpage_system_prompt": "item_card",
+    "prompts.youtube_system_prompt": "item_card",
+    "prompts.youtube_video_system_prompt": "item_card"
+   },
+   "missing": [],
+   "canEdit": {
+    "prompts.checkup_system_prompt": true,
+    "prompts.compress_system_prompt": true,
+    "prompts.direct_chat_synthesizer_system_prompt": true,
+    "prompts.direct_chat_system_prompt": true,
+    "prompts.direct_chat_verbalizer_system_prompt": true,
+    "prompts.direct_l1_planner_system_prompt": true,
+    "prompts.extract_system_prompt": true,
+    "prompts.factcheck_analyst_system_prompt": true,
+    "prompts.factcheck_system_prompt": true,
+    "prompts.factcheck_verbalizer_system_prompt": true,
+    "prompts.search_system_prompt": true,
+    "prompts.summary_cover_style": true,
+    "prompts.summary_editor_system_prompt": true,
+    "prompts.summary_l1_clusterizer_system_prompt": true,
+    "prompts.summary_l2_writer_system_prompt": true,
+    "prompts.summary_narrator_system_prompt": true,
+    "prompts.summary_system_prompt": true,
+    "prompts.verbilizer_default_mode": true,
+    "prompts.verbilizer_mode_casual": true,
+    "prompts.verbilizer_mode_deep_research": true,
+    "prompts.verbilizer_mode_serious": true,
+    "prompts.webpage_system_prompt": true,
+    "prompts.youtube_system_prompt": true,
+    "prompts.youtube_video_system_prompt": true
+   },
+   "modeBlocks": 6,
+   "modeBlocksVisible": 6,
+   "modeTextareas": 18,
+   "fallbackVisible": true,
+   "fallbackHasSelect": true,
+   "groupIds": [
+    "prompts_factcheck",
+    "prompts_search",
+    "prompts_checkup",
+    "prompts_direct_chat",
+    "prompts_summary",
+    "prompts_youtube",
+    "prompts_web",
+    "prompts_memory",
+    "prompts_verbilizer",
+    "limits_anticliche"
+   ],
+   "groups": [
+    {
+     "id": "prompts_factcheck",
+     "title": "Фактчек",
+     "titleInDom": true
+    },
+    {
+     "id": "prompts_search",
+     "title": "Поиск",
+     "titleInDom": true
+    },
+    {
+     "id": "prompts_checkup",
+     "title": "Чек-ап",
+     "titleInDom": true
+    },
+    {
+     "id": "prompts_direct_chat",
+     "title": "Прямой чат",
+     "titleInDom": true
+    },
+    {
+     "id": "prompts_summary",
+     "title": "Саммари",
+     "titleInDom": true
+    },
+    {
+     "id": "prompts_youtube",
+     "title": "YouTube",
+     "titleInDom": true
+    },
+    {
+     "id": "prompts_web",
+     "title": "Веб-страницы",
+     "titleInDom": true
+    },
+    {
+     "id": "prompts_memory",
+     "title": "Память и граф знаний",
+     "titleInDom": true
+    },
+    {
+     "id": "prompts_verbilizer",
+     "title": "Вербализатор: режимы",
+     "titleInDom": false
+    },
+    {
+     "id": "limits_anticliche",
+     "title": "Анти-клише: лимиты",
+     "titleInDom": false
+    }
+   ],
+   "itemCount": 25,
+   "libraryEntries": [
+    {
+     "slug": "summary",
+     "count": 6,
+     "stages": [
+      "synthesizer",
+      "verbalizer"
+     ]
+    },
+    {
+     "slug": "direct",
+     "count": 4,
+     "stages": [
+      "synthesizer",
+      "verbalizer"
+     ]
+    },
+    {
+     "slug": "factcheck",
+     "count": 3,
+     "stages": [
+      "synthesizer",
+      "verbalizer"
+     ]
+    },
+    {
+     "slug": "search",
+     "count": 1,
+     "stages": [
+      "verbalizer"
+     ]
+    },
+    {
+     "slug": "video_summary",
+     "count": 2,
+     "stages": [
+      "verbalizer"
+     ]
+    },
+    {
+     "slug": "web",
+     "count": 1,
+     "stages": [
+      "verbalizer"
+     ]
+    },
+    {
+     "slug": "checkup",
+     "count": 1,
+     "stages": []
+    },
+    {
+     "slug": "sleep",
+     "count": 2,
+     "stages": []
+    }
+   ],
+   "scrollWidth": 320,
+   "innerWidth": 320,
+   "overflowX": false,
+   "page_errors": [],
+   "l1_flow": {
+    "marker": "SOUL1R3_MARKER_DIRECT_L1_320",
+    "after_typing_item": {
+     "exists": true,
+     "value": "SOUL1R3_MARKER_DIRECT_L1_320",
+     "canEdit": true
+    },
+    "saved_ok": true,
+    "posted_values": [
+     "SOUL1R3_MARKER_DIRECT_L1_320"
+    ],
+    "reopened_item": {
+     "exists": true,
+     "value": "SOUL1R3_MARKER_DIRECT_L1_320",
+     "canEdit": true
+    },
+    "reopened_textarea": "SOUL1R3_MARKER_DIRECT_L1_320"
+   },
+   "mode_flow": {
+    "marker": "SOUL1R3_MARKER_MODE_CASUAL_320",
+    "after_typing": {
+     "promptMode": "casual",
+     "modes": {
+      "casual": "SOUL1R3_MARKER_MODE_CASUAL_320",
+      "serious": "РЕЖИМ SERIOUS - ГРАМОТНО, ПО ДЕЛУ:\nПиши грамотно и по сущест",
+      "deep_research": "РЕЖИМ DEEP_RESEARCH - ГЛУБОКИЙ РАЗБОР:\nВыведи переданный теб"
+     },
+     "defaultMode": "casual"
+    },
+    "saved_ok": true,
+    "posted_values": [
+     "SOUL1R3_MARKER_MODE_CASUAL_320"
+    ],
+    "reopened": {
+     "promptMode": "casual",
+     "modes": {
+      "casual": "SOUL1R3_MARKER_MODE_CASUAL_320",
+      "serious": "РЕЖИМ SERIOUS - ГРАМОТНО, ПО ДЕЛУ:\nПиши грамотно и по сущест",
+      "deep_research": "РЕЖИМ DEEP_RESEARCH - ГЛУБОКИЙ РАЗБОР:\nВыведи переданный теб"
+     },
+     "defaultMode": "casual"
+    },
+    "reopened_textarea": "SOUL1R3_MARKER_MODE_CASUAL_320"
+   },
+   "fallback_flow": {
+    "from": "casual",
+    "to": "deep_research",
+    "posted_values": [
+     "deep_research"
+    ],
+    "reopened": {
+     "promptMode": "deep_research",
+     "modes": {
+      "casual": "SOUL1R3_MARKER_MODE_CASUAL_320",
+      "serious": "РЕЖИМ SERIOUS - ГРАМОТНО, ПО ДЕЛУ:\nПиши грамотно и по сущест",
+      "deep_research": "РЕЖИМ DEEP_RESEARCH - ГЛУБОКИЙ РАЗБОР:\nВыведи переданный теб"
+     },
+     "defaultMode": "deep_research"
+    },
+    "reopened_select": "deep_research"
+   },
+   "library": {
+    "direct": {
+     "route": "#/ai/prompts/direct",
+     "workspaceTab": "synthesizer",
+     "promptTree": [
+      "prompts.direct_chat_synthesizer_system_prompt",
+      "prompts.direct_l1_planner_system_prompt"
+     ],
+     "focusKey": "prompts.direct_chat_synthesizer_system_prompt",
+     "editorChars": [
+      1107
+     ],
+     "wsPromptList": [
+      "prompts.direct_chat_synthesizer_system_prompt|synthesizer",
+      "prompts.direct_l1_planner_system_prompt|synthesizer"
+     ]
+    },
+    "synthesizer": {
+     "route": "#/ai/prompts/direct/synthesizer",
+     "workspaceTab": "synthesizer",
+     "promptTree": [
+      "prompts.direct_chat_synthesizer_system_prompt",
+      "prompts.direct_l1_planner_system_prompt"
+     ],
+     "focusKey": "prompts.direct_chat_synthesizer_system_prompt",
+     "editorChars": [
+      1107
+     ],
+     "wsPromptList": [
+      "prompts.direct_chat_synthesizer_system_prompt|synthesizer",
+      "prompts.direct_l1_planner_system_prompt|synthesizer"
+     ]
+    },
+    "verbalizer": {
+     "route": "#/ai/prompts/direct/verbalizer",
+     "workspaceTab": "verbalizer",
+     "promptTree": [
+      "prompts.direct_chat_verbalizer_system_prompt"
+     ],
+     "focusKey": "prompts.direct_chat_verbalizer_system_prompt",
+     "editorChars": [
+      1690
+     ],
+     "wsPromptList": [
+      "prompts.direct_chat_verbalizer_system_prompt|verbalizer"
+     ]
+    }
+   }
+  },
+  "390": {
+   "route": "#/ai/prompts",
+   "activeTab": "prompts",
+   "promptKeys": [
+    "prompts.checkup_system_prompt",
+    "prompts.compress_system_prompt",
+    "prompts.direct_chat_synthesizer_system_prompt",
+    "prompts.direct_chat_system_prompt",
+    "prompts.direct_chat_verbalizer_system_prompt",
+    "prompts.direct_l1_planner_system_prompt",
+    "prompts.extract_system_prompt",
+    "prompts.factcheck_analyst_system_prompt",
+    "prompts.factcheck_system_prompt",
+    "prompts.factcheck_verbalizer_system_prompt",
+    "prompts.search_system_prompt",
+    "prompts.summary_cover_style",
+    "prompts.summary_editor_system_prompt",
+    "prompts.summary_l1_clusterizer_system_prompt",
+    "prompts.summary_l2_writer_system_prompt",
+    "prompts.summary_narrator_system_prompt",
+    "prompts.summary_system_prompt",
+    "prompts.verbilizer_default_mode",
+    "prompts.verbilizer_mode_casual",
+    "prompts.verbilizer_mode_deep_research",
+    "prompts.verbilizer_mode_serious",
+    "prompts.webpage_system_prompt",
+    "prompts.youtube_system_prompt",
+    "prompts.youtube_video_system_prompt"
+   ],
+   "classify": {
+    "prompts.checkup_system_prompt": "item_card",
+    "prompts.compress_system_prompt": "item_card",
+    "prompts.direct_chat_synthesizer_system_prompt": "item_card",
+    "prompts.direct_chat_system_prompt": "item_card",
+    "prompts.direct_chat_verbalizer_system_prompt": "item_card",
+    "prompts.direct_l1_planner_system_prompt": "item_card",
+    "prompts.extract_system_prompt": "item_card",
+    "prompts.factcheck_analyst_system_prompt": "item_card",
+    "prompts.factcheck_system_prompt": "item_card",
+    "prompts.factcheck_verbalizer_system_prompt": "item_card",
+    "prompts.search_system_prompt": "item_card",
+    "prompts.summary_cover_style": "item_card",
+    "prompts.summary_editor_system_prompt": "item_card",
+    "prompts.summary_l1_clusterizer_system_prompt": "item_card",
+    "prompts.summary_l2_writer_system_prompt": "item_card",
+    "prompts.summary_narrator_system_prompt": "item_card",
+    "prompts.summary_system_prompt": "item_card",
+    "prompts.verbilizer_default_mode": "fallback_select",
+    "prompts.verbilizer_mode_casual": "mode_tabs",
+    "prompts.verbilizer_mode_deep_research": "mode_tabs",
+    "prompts.verbilizer_mode_serious": "mode_tabs",
+    "prompts.webpage_system_prompt": "item_card",
+    "prompts.youtube_system_prompt": "item_card",
+    "prompts.youtube_video_system_prompt": "item_card"
+   },
+   "missing": [],
+   "canEdit": {
+    "prompts.checkup_system_prompt": true,
+    "prompts.compress_system_prompt": true,
+    "prompts.direct_chat_synthesizer_system_prompt": true,
+    "prompts.direct_chat_system_prompt": true,
+    "prompts.direct_chat_verbalizer_system_prompt": true,
+    "prompts.direct_l1_planner_system_prompt": true,
+    "prompts.extract_system_prompt": true,
+    "prompts.factcheck_analyst_system_prompt": true,
+    "prompts.factcheck_system_prompt": true,
+    "prompts.factcheck_verbalizer_system_prompt": true,
+    "prompts.search_system_prompt": true,
+    "prompts.summary_cover_style": true,
+    "prompts.summary_editor_system_prompt": true,
+    "prompts.summary_l1_clusterizer_system_prompt": true,
+    "prompts.summary_l2_writer_system_prompt": true,
+    "prompts.summary_narrator_system_prompt": true,
+    "prompts.summary_system_prompt": true,
+    "prompts.verbilizer_default_mode": true,
+    "prompts.verbilizer_mode_casual": true,
+    "prompts.verbilizer_mode_deep_research": true,
+    "prompts.verbilizer_mode_serious": true,
+    "prompts.webpage_system_prompt": true,
+    "prompts.youtube_system_prompt": true,
+    "prompts.youtube_video_system_prompt": true
+   },
+   "modeBlocks": 6,
+   "modeBlocksVisible": 6,
+   "modeTextareas": 18,
+   "fallbackVisible": true,
+   "fallbackHasSelect": true,
+   "groupIds": [
+    "prompts_factcheck",
+    "prompts_search",
+    "prompts_checkup",
+    "prompts_direct_chat",
+    "prompts_summary",
+    "prompts_youtube",
+    "prompts_web",
+    "prompts_memory",
+    "prompts_verbilizer",
+    "limits_anticliche"
+   ],
+   "groups": [
+    {
+     "id": "prompts_factcheck",
+     "title": "Фактчек",
+     "titleInDom": true
+    },
+    {
+     "id": "prompts_search",
+     "title": "Поиск",
+     "titleInDom": true
+    },
+    {
+     "id": "prompts_checkup",
+     "title": "Чек-ап",
+     "titleInDom": true
+    },
+    {
+     "id": "prompts_direct_chat",
+     "title": "Прямой чат",
+     "titleInDom": true
+    },
+    {
+     "id": "prompts_summary",
+     "title": "Саммари",
+     "titleInDom": true
+    },
+    {
+     "id": "prompts_youtube",
+     "title": "YouTube",
+     "titleInDom": true
+    },
+    {
+     "id": "prompts_web",
+     "title": "Веб-страницы",
+     "titleInDom": true
+    },
+    {
+     "id": "prompts_memory",
+     "title": "Память и граф знаний",
+     "titleInDom": true
+    },
+    {
+     "id": "prompts_verbilizer",
+     "title": "Вербализатор: режимы",
+     "titleInDom": false
+    },
+    {
+     "id": "limits_anticliche",
+     "title": "Анти-клише: лимиты",
+     "titleInDom": false
+    }
+   ],
+   "itemCount": 25,
+   "libraryEntries": [
+    {
+     "slug": "summary",
+     "count": 6,
+     "stages": [
+      "synthesizer",
+      "verbalizer"
+     ]
+    },
+    {
+     "slug": "direct",
+     "count": 4,
+     "stages": [
+      "synthesizer",
+      "verbalizer"
+     ]
+    },
+    {
+     "slug": "factcheck",
+     "count": 3,
+     "stages": [
+      "synthesizer",
+      "verbalizer"
+     ]
+    },
+    {
+     "slug": "search",
+     "count": 1,
+     "stages": [
+      "verbalizer"
+     ]
+    },
+    {
+     "slug": "video_summary",
+     "count": 2,
+     "stages": [
+      "verbalizer"
+     ]
+    },
+    {
+     "slug": "web",
+     "count": 1,
+     "stages": [
+      "verbalizer"
+     ]
+    },
+    {
+     "slug": "checkup",
+     "count": 1,
+     "stages": []
+    },
+    {
+     "slug": "sleep",
+     "count": 2,
+     "stages": []
+    }
+   ],
+   "scrollWidth": 390,
+   "innerWidth": 390,
+   "overflowX": false,
+   "page_errors": [],
+   "l1_flow": {
+    "marker": "SOUL1R3_MARKER_DIRECT_L1_390",
+    "after_typing_item": {
+     "exists": true,
+     "value": "SOUL1R3_MARKER_DIRECT_L1_390",
+     "canEdit": true
+    },
+    "saved_ok": true,
+    "posted_values": [
+     "SOUL1R3_MARKER_DIRECT_L1_390"
+    ],
+    "reopened_item": {
+     "exists": true,
+     "value": "SOUL1R3_MARKER_DIRECT_L1_390",
+     "canEdit": true
+    },
+    "reopened_textarea": "SOUL1R3_MARKER_DIRECT_L1_390"
+   },
+   "mode_flow": {
+    "marker": "SOUL1R3_MARKER_MODE_CASUAL_390",
+    "after_typing": {
+     "promptMode": "casual",
+     "modes": {
+      "casual": "SOUL1R3_MARKER_MODE_CASUAL_390",
+      "serious": "РЕЖИМ SERIOUS - ГРАМОТНО, ПО ДЕЛУ:\nПиши грамотно и по сущест",
+      "deep_research": "РЕЖИМ DEEP_RESEARCH - ГЛУБОКИЙ РАЗБОР:\nВыведи переданный теб"
+     },
+     "defaultMode": "deep_research"
+    },
+    "saved_ok": true,
+    "posted_values": [
+     "SOUL1R3_MARKER_MODE_CASUAL_390"
+    ],
+    "reopened": {
+     "promptMode": "deep_research",
+     "modes": {
+      "casual": "SOUL1R3_MARKER_MODE_CASUAL_390",
+      "serious": "РЕЖИМ SERIOUS - ГРАМОТНО, ПО ДЕЛУ:\nПиши грамотно и по сущест",
+      "deep_research": "РЕЖИМ DEEP_RESEARCH - ГЛУБОКИЙ РАЗБОР:\nВыведи переданный теб"
+     },
+     "defaultMode": "deep_research"
+    },
+    "reopened_textarea": "SOUL1R3_MARKER_MODE_CASUAL_390"
+   },
+   "fallback_flow": {
+    "from": "deep_research",
+    "to": "serious",
+    "posted_values": [
+     "serious"
+    ],
+    "reopened": {
+     "promptMode": "serious",
+     "modes": {
+      "casual": "SOUL1R3_MARKER_MODE_CASUAL_390",
+      "serious": "РЕЖИМ SERIOUS - ГРАМОТНО, ПО ДЕЛУ:\nПиши грамотно и по сущест",
+      "deep_research": "РЕЖИМ DEEP_RESEARCH - ГЛУБОКИЙ РАЗБОР:\nВыведи переданный теб"
+     },
+     "defaultMode": "serious"
+    },
+    "reopened_select": "serious"
+   },
+   "library": {
+    "direct": {
+     "route": "#/ai/prompts/direct",
+     "workspaceTab": "synthesizer",
+     "promptTree": [
+      "prompts.direct_chat_synthesizer_system_prompt",
+      "prompts.direct_l1_planner_system_prompt"
+     ],
+     "focusKey": "prompts.direct_chat_synthesizer_system_prompt",
+     "editorChars": [
+      1107
+     ],
+     "wsPromptList": [
+      "prompts.direct_chat_synthesizer_system_prompt|synthesizer",
+      "prompts.direct_l1_planner_system_prompt|synthesizer"
+     ]
+    },
+    "synthesizer": {
+     "route": "#/ai/prompts/direct/synthesizer",
+     "workspaceTab": "synthesizer",
+     "promptTree": [
+      "prompts.direct_chat_synthesizer_system_prompt",
+      "prompts.direct_l1_planner_system_prompt"
+     ],
+     "focusKey": "prompts.direct_chat_synthesizer_system_prompt",
+     "editorChars": [
+      1107
+     ],
+     "wsPromptList": [
+      "prompts.direct_chat_synthesizer_system_prompt|synthesizer",
+      "prompts.direct_l1_planner_system_prompt|synthesizer"
+     ]
+    },
+    "verbalizer": {
+     "route": "#/ai/prompts/direct/verbalizer",
+     "workspaceTab": "verbalizer",
+     "promptTree": [
+      "prompts.direct_chat_verbalizer_system_prompt"
+     ],
+     "focusKey": "prompts.direct_chat_verbalizer_system_prompt",
+     "editorChars": [
+      1690
+     ],
+     "wsPromptList": [
+      "prompts.direct_chat_verbalizer_system_prompt|verbalizer"
+     ]
+    }
+   }
+  },
+  "430": {
+   "route": "#/ai/prompts",
+   "activeTab": "prompts",
+   "promptKeys": [
+    "prompts.checkup_system_prompt",
+    "prompts.compress_system_prompt",
+    "prompts.direct_chat_synthesizer_system_prompt",
+    "prompts.direct_chat_system_prompt",
+    "prompts.direct_chat_verbalizer_system_prompt",
+    "prompts.direct_l1_planner_system_prompt",
+    "prompts.extract_system_prompt",
+    "prompts.factcheck_analyst_system_prompt",
+    "prompts.factcheck_system_prompt",
+    "prompts.factcheck_verbalizer_system_prompt",
+    "prompts.search_system_prompt",
+    "prompts.summary_cover_style",
+    "prompts.summary_editor_system_prompt",
+    "prompts.summary_l1_clusterizer_system_prompt",
+    "prompts.summary_l2_writer_system_prompt",
+    "prompts.summary_narrator_system_prompt",
+    "prompts.summary_system_prompt",
+    "prompts.verbilizer_default_mode",
+    "prompts.verbilizer_mode_casual",
+    "prompts.verbilizer_mode_deep_research",
+    "prompts.verbilizer_mode_serious",
+    "prompts.webpage_system_prompt",
+    "prompts.youtube_system_prompt",
+    "prompts.youtube_video_system_prompt"
+   ],
+   "classify": {
+    "prompts.checkup_system_prompt": "item_card",
+    "prompts.compress_system_prompt": "item_card",
+    "prompts.direct_chat_synthesizer_system_prompt": "item_card",
+    "prompts.direct_chat_system_prompt": "item_card",
+    "prompts.direct_chat_verbalizer_system_prompt": "item_card",
+    "prompts.direct_l1_planner_system_prompt": "item_card",
+    "prompts.extract_system_prompt": "item_card",
+    "prompts.factcheck_analyst_system_prompt": "item_card",
+    "prompts.factcheck_system_prompt": "item_card",
+    "prompts.factcheck_verbalizer_system_prompt": "item_card",
+    "prompts.search_system_prompt": "item_card",
+    "prompts.summary_cover_style": "item_card",
+    "prompts.summary_editor_system_prompt": "item_card",
+    "prompts.summary_l1_clusterizer_system_prompt": "item_card",
+    "prompts.summary_l2_writer_system_prompt": "item_card",
+    "prompts.summary_narrator_system_prompt": "item_card",
+    "prompts.summary_system_prompt": "item_card",
+    "prompts.verbilizer_default_mode": "fallback_select",
+    "prompts.verbilizer_mode_casual": "mode_tabs",
+    "prompts.verbilizer_mode_deep_research": "mode_tabs",
+    "prompts.verbilizer_mode_serious": "mode_tabs",
+    "prompts.webpage_system_prompt": "item_card",
+    "prompts.youtube_system_prompt": "item_card",
+    "prompts.youtube_video_system_prompt": "item_card"
+   },
+   "missing": [],
+   "canEdit": {
+    "prompts.checkup_system_prompt": true,
+    "prompts.compress_system_prompt": true,
+    "prompts.direct_chat_synthesizer_system_prompt": true,
+    "prompts.direct_chat_system_prompt": true,
+    "prompts.direct_chat_verbalizer_system_prompt": true,
+    "prompts.direct_l1_planner_system_prompt": true,
+    "prompts.extract_system_prompt": true,
+    "prompts.factcheck_analyst_system_prompt": true,
+    "prompts.factcheck_system_prompt": true,
+    "prompts.factcheck_verbalizer_system_prompt": true,
+    "prompts.search_system_prompt": true,
+    "prompts.summary_cover_style": true,
+    "prompts.summary_editor_system_prompt": true,
+    "prompts.summary_l1_clusterizer_system_prompt": true,
+    "prompts.summary_l2_writer_system_prompt": true,
+    "prompts.summary_narrator_system_prompt": true,
+    "prompts.summary_system_prompt": true,
+    "prompts.verbilizer_default_mode": true,
+    "prompts.verbilizer_mode_casual": true,
+    "prompts.verbilizer_mode_deep_research": true,
+    "prompts.verbilizer_mode_serious": true,
+    "prompts.webpage_system_prompt": true,
+    "prompts.youtube_system_prompt": true,
+    "prompts.youtube_video_system_prompt": true
+   },
+   "modeBlocks": 6,
+   "modeBlocksVisible": 6,
+   "modeTextareas": 18,
+   "fallbackVisible": true,
+   "fallbackHasSelect": true,
+   "groupIds": [
+    "prompts_factcheck",
+    "prompts_search",
+    "prompts_checkup",
+    "prompts_direct_chat",
+    "prompts_summary",
+    "prompts_youtube",
+    "prompts_web",
+    "prompts_memory",
+    "prompts_verbilizer",
+    "limits_anticliche"
+   ],
+   "groups": [
+    {
+     "id": "prompts_factcheck",
+     "title": "Фактчек",
+     "titleInDom": true
+    },
+    {
+     "id": "prompts_search",
+     "title": "Поиск",
+     "titleInDom": true
+    },
+    {
+     "id": "prompts_checkup",
+     "title": "Чек-ап",
+     "titleInDom": true
+    },
+    {
+     "id": "prompts_direct_chat",
+     "title": "Прямой чат",
+     "titleInDom": true
+    },
+    {
+     "id": "prompts_summary",
+     "title": "Саммари",
+     "titleInDom": true
+    },
+    {
+     "id": "prompts_youtube",
+     "title": "YouTube",
+     "titleInDom": true
+    },
+    {
+     "id": "prompts_web",
+     "title": "Веб-страницы",
+     "titleInDom": true
+    },
+    {
+     "id": "prompts_memory",
+     "title": "Память и граф знаний",
+     "titleInDom": true
+    },
+    {
+     "id": "prompts_verbilizer",
+     "title": "Вербализатор: режимы",
+     "titleInDom": false
+    },
+    {
+     "id": "limits_anticliche",
+     "title": "Анти-клише: лимиты",
+     "titleInDom": false
+    }
+   ],
+   "itemCount": 25,
+   "libraryEntries": [
+    {
+     "slug": "summary",
+     "count": 6,
+     "stages": [
+      "synthesizer",
+      "verbalizer"
+     ]
+    },
+    {
+     "slug": "direct",
+     "count": 4,
+     "stages": [
+      "synthesizer",
+      "verbalizer"
+     ]
+    },
+    {
+     "slug": "factcheck",
+     "count": 3,
+     "stages": [
+      "synthesizer",
+      "verbalizer"
+     ]
+    },
+    {
+     "slug": "search",
+     "count": 1,
+     "stages": [
+      "verbalizer"
+     ]
+    },
+    {
+     "slug": "video_summary",
+     "count": 2,
+     "stages": [
+      "verbalizer"
+     ]
+    },
+    {
+     "slug": "web",
+     "count": 1,
+     "stages": [
+      "verbalizer"
+     ]
+    },
+    {
+     "slug": "checkup",
+     "count": 1,
+     "stages": []
+    },
+    {
+     "slug": "sleep",
+     "count": 2,
+     "stages": []
+    }
+   ],
+   "scrollWidth": 430,
+   "innerWidth": 430,
+   "overflowX": false,
+   "page_errors": [],
+   "l1_flow": {
+    "marker": "SOUL1R3_MARKER_DIRECT_L1_430",
+    "after_typing_item": {
+     "exists": true,
+     "value": "SOUL1R3_MARKER_DIRECT_L1_430",
+     "canEdit": true
+    },
+    "saved_ok": true,
+    "posted_values": [
+     "SOUL1R3_MARKER_DIRECT_L1_430"
+    ],
+    "reopened_item": {
+     "exists": true,
+     "value": "SOUL1R3_MARKER_DIRECT_L1_430",
+     "canEdit": true
+    },
+    "reopened_textarea": "SOUL1R3_MARKER_DIRECT_L1_430"
+   },
+   "mode_flow": {
+    "marker": "SOUL1R3_MARKER_MODE_CASUAL_430",
+    "after_typing": {
+     "promptMode": "casual",
+     "modes": {
+      "casual": "SOUL1R3_MARKER_MODE_CASUAL_430",
+      "serious": "РЕЖИМ SERIOUS - ГРАМОТНО, ПО ДЕЛУ:\nПиши грамотно и по сущест",
+      "deep_research": "РЕЖИМ DEEP_RESEARCH - ГЛУБОКИЙ РАЗБОР:\nВыведи переданный теб"
+     },
+     "defaultMode": "serious"
+    },
+    "saved_ok": true,
+    "posted_values": [
+     "SOUL1R3_MARKER_MODE_CASUAL_430"
+    ],
+    "reopened": {
+     "promptMode": "serious",
+     "modes": {
+      "casual": "SOUL1R3_MARKER_MODE_CASUAL_430",
+      "serious": "РЕЖИМ SERIOUS - ГРАМОТНО, ПО ДЕЛУ:\nПиши грамотно и по сущест",
+      "deep_research": "РЕЖИМ DEEP_RESEARCH - ГЛУБОКИЙ РАЗБОР:\nВыведи переданный теб"
+     },
+     "defaultMode": "serious"
+    },
+    "reopened_textarea": "SOUL1R3_MARKER_MODE_CASUAL_430"
+   },
+   "fallback_flow": {
+    "from": "serious",
+    "to": "deep_research",
+    "posted_values": [
+     "deep_research"
+    ],
+    "reopened": {
+     "promptMode": "deep_research",
+     "modes": {
+      "casual": "SOUL1R3_MARKER_MODE_CASUAL_430",
+      "serious": "РЕЖИМ SERIOUS - ГРАМОТНО, ПО ДЕЛУ:\nПиши грамотно и по сущест",
+      "deep_research": "РЕЖИМ DEEP_RESEARCH - ГЛУБОКИЙ РАЗБОР:\nВыведи переданный теб"
+     },
+     "defaultMode": "deep_research"
+    },
+    "reopened_select": "deep_research"
+   },
+   "library": {
+    "direct": {
+     "route": "#/ai/prompts/direct",
+     "workspaceTab": "synthesizer",
+     "promptTree": [
+      "prompts.direct_chat_synthesizer_system_prompt",
+      "prompts.direct_l1_planner_system_prompt"
+     ],
+     "focusKey": "prompts.direct_chat_synthesizer_system_prompt",
+     "editorChars": [
+      1107
+     ],
+     "wsPromptList": [
+      "prompts.direct_chat_synthesizer_system_prompt|synthesizer",
+      "prompts.direct_l1_planner_system_prompt|synthesizer"
+     ]
+    },
+    "synthesizer": {
+     "route": "#/ai/prompts/direct/synthesizer",
+     "workspaceTab": "synthesizer",
+     "promptTree": [
+      "prompts.direct_chat_synthesizer_system_prompt",
+      "prompts.direct_l1_planner_system_prompt"
+     ],
+     "focusKey": "prompts.direct_chat_synthesizer_system_prompt",
+     "editorChars": [
+      1107
+     ],
+     "wsPromptList": [
+      "prompts.direct_chat_synthesizer_system_prompt|synthesizer",
+      "prompts.direct_l1_planner_system_prompt|synthesizer"
+     ]
+    },
+    "verbalizer": {
+     "route": "#/ai/prompts/direct/verbalizer",
+     "workspaceTab": "verbalizer",
+     "promptTree": [
+      "prompts.direct_chat_verbalizer_system_prompt"
+     ],
+     "focusKey": "prompts.direct_chat_verbalizer_system_prompt",
+     "editorChars": [
+      1690
+     ],
+     "wsPromptList": [
+      "prompts.direct_chat_verbalizer_system_prompt|verbalizer"
+     ]
+    }
+   }
+  },
+  "1024": {
+   "route": "#/ai/prompts",
+   "activeTab": "prompts",
+   "promptKeys": [
+    "prompts.checkup_system_prompt",
+    "prompts.compress_system_prompt",
+    "prompts.direct_chat_synthesizer_system_prompt",
+    "prompts.direct_chat_system_prompt",
+    "prompts.direct_chat_verbalizer_system_prompt",
+    "prompts.direct_l1_planner_system_prompt",
+    "prompts.extract_system_prompt",
+    "prompts.factcheck_analyst_system_prompt",
+    "prompts.factcheck_system_prompt",
+    "prompts.factcheck_verbalizer_system_prompt",
+    "prompts.search_system_prompt",
+    "prompts.summary_cover_style",
+    "prompts.summary_editor_system_prompt",
+    "prompts.summary_l1_clusterizer_system_prompt",
+    "prompts.summary_l2_writer_system_prompt",
+    "prompts.summary_narrator_system_prompt",
+    "prompts.summary_system_prompt",
+    "prompts.verbilizer_default_mode",
+    "prompts.verbilizer_mode_casual",
+    "prompts.verbilizer_mode_deep_research",
+    "prompts.verbilizer_mode_serious",
+    "prompts.webpage_system_prompt",
+    "prompts.youtube_system_prompt",
+    "prompts.youtube_video_system_prompt"
+   ],
+   "classify": {
+    "prompts.checkup_system_prompt": "item_card",
+    "prompts.compress_system_prompt": "item_card",
+    "prompts.direct_chat_synthesizer_system_prompt": "item_card",
+    "prompts.direct_chat_system_prompt": "item_card",
+    "prompts.direct_chat_verbalizer_system_prompt": "item_card",
+    "prompts.direct_l1_planner_system_prompt": "item_card",
+    "prompts.extract_system_prompt": "item_card",
+    "prompts.factcheck_analyst_system_prompt": "item_card",
+    "prompts.factcheck_system_prompt": "item_card",
+    "prompts.factcheck_verbalizer_system_prompt": "item_card",
+    "prompts.search_system_prompt": "item_card",
+    "prompts.summary_cover_style": "item_card",
+    "prompts.summary_editor_system_prompt": "item_card",
+    "prompts.summary_l1_clusterizer_system_prompt": "item_card",
+    "prompts.summary_l2_writer_system_prompt": "item_card",
+    "prompts.summary_narrator_system_prompt": "item_card",
+    "prompts.summary_system_prompt": "item_card",
+    "prompts.verbilizer_default_mode": "fallback_select",
+    "prompts.verbilizer_mode_casual": "mode_tabs",
+    "prompts.verbilizer_mode_deep_research": "mode_tabs",
+    "prompts.verbilizer_mode_serious": "mode_tabs",
+    "prompts.webpage_system_prompt": "item_card",
+    "prompts.youtube_system_prompt": "item_card",
+    "prompts.youtube_video_system_prompt": "item_card"
+   },
+   "missing": [],
+   "canEdit": {
+    "prompts.checkup_system_prompt": true,
+    "prompts.compress_system_prompt": true,
+    "prompts.direct_chat_synthesizer_system_prompt": true,
+    "prompts.direct_chat_system_prompt": true,
+    "prompts.direct_chat_verbalizer_system_prompt": true,
+    "prompts.direct_l1_planner_system_prompt": true,
+    "prompts.extract_system_prompt": true,
+    "prompts.factcheck_analyst_system_prompt": true,
+    "prompts.factcheck_system_prompt": true,
+    "prompts.factcheck_verbalizer_system_prompt": true,
+    "prompts.search_system_prompt": true,
+    "prompts.summary_cover_style": true,
+    "prompts.summary_editor_system_prompt": true,
+    "prompts.summary_l1_clusterizer_system_prompt": true,
+    "prompts.summary_l2_writer_system_prompt": true,
+    "prompts.summary_narrator_system_prompt": true,
+    "prompts.summary_system_prompt": true,
+    "prompts.verbilizer_default_mode": true,
+    "prompts.verbilizer_mode_casual": true,
+    "prompts.verbilizer_mode_deep_research": true,
+    "prompts.verbilizer_mode_serious": true,
+    "prompts.webpage_system_prompt": true,
+    "prompts.youtube_system_prompt": true,
+    "prompts.youtube_video_system_prompt": true
+   },
+   "modeBlocks": 6,
+   "modeBlocksVisible": 6,
+   "modeTextareas": 18,
+   "fallbackVisible": true,
+   "fallbackHasSelect": true,
+   "groupIds": [
+    "prompts_factcheck",
+    "prompts_search",
+    "prompts_checkup",
+    "prompts_direct_chat",
+    "prompts_summary",
+    "prompts_youtube",
+    "prompts_web",
+    "prompts_memory",
+    "prompts_verbilizer",
+    "limits_anticliche"
+   ],
+   "groups": [
+    {
+     "id": "prompts_factcheck",
+     "title": "Фактчек",
+     "titleInDom": true
+    },
+    {
+     "id": "prompts_search",
+     "title": "Поиск",
+     "titleInDom": true
+    },
+    {
+     "id": "prompts_checkup",
+     "title": "Чек-ап",
+     "titleInDom": true
+    },
+    {
+     "id": "prompts_direct_chat",
+     "title": "Прямой чат",
+     "titleInDom": true
+    },
+    {
+     "id": "prompts_summary",
+     "title": "Саммари",
+     "titleInDom": true
+    },
+    {
+     "id": "prompts_youtube",
+     "title": "YouTube",
+     "titleInDom": true
+    },
+    {
+     "id": "prompts_web",
+     "title": "Веб-страницы",
+     "titleInDom": true
+    },
+    {
+     "id": "prompts_memory",
+     "title": "Память и граф знаний",
+     "titleInDom": true
+    },
+    {
+     "id": "prompts_verbilizer",
+     "title": "Вербализатор: режимы",
+     "titleInDom": false
+    },
+    {
+     "id": "limits_anticliche",
+     "title": "Анти-клише: лимиты",
+     "titleInDom": false
+    }
+   ],
+   "itemCount": 25,
+   "libraryEntries": [
+    {
+     "slug": "summary",
+     "count": 6,
+     "stages": [
+      "synthesizer",
+      "verbalizer"
+     ]
+    },
+    {
+     "slug": "direct",
+     "count": 4,
+     "stages": [
+      "synthesizer",
+      "verbalizer"
+     ]
+    },
+    {
+     "slug": "factcheck",
+     "count": 3,
+     "stages": [
+      "synthesizer",
+      "verbalizer"
+     ]
+    },
+    {
+     "slug": "search",
+     "count": 1,
+     "stages": [
+      "verbalizer"
+     ]
+    },
+    {
+     "slug": "video_summary",
+     "count": 2,
+     "stages": [
+      "verbalizer"
+     ]
+    },
+    {
+     "slug": "web",
+     "count": 1,
+     "stages": [
+      "verbalizer"
+     ]
+    },
+    {
+     "slug": "checkup",
+     "count": 1,
+     "stages": []
+    },
+    {
+     "slug": "sleep",
+     "count": 2,
+     "stages": []
+    }
+   ],
+   "scrollWidth": 1024,
+   "innerWidth": 1024,
+   "overflowX": false,
+   "page_errors": [],
+   "l1_flow": {
+    "marker": "SOUL1R3_MARKER_DIRECT_L1_1024",
+    "after_typing_item": {
+     "exists": true,
+     "value": "SOUL1R3_MARKER_DIRECT_L1_1024",
+     "canEdit": true
+    },
+    "saved_ok": true,
+    "posted_values": [
+     "SOUL1R3_MARKER_DIRECT_L1_1024"
+    ],
+    "reopened_item": {
+     "exists": true,
+     "value": "SOUL1R3_MARKER_DIRECT_L1_1024",
+     "canEdit": true
+    },
+    "reopened_textarea": "SOUL1R3_MARKER_DIRECT_L1_1024"
+   },
+   "mode_flow": {
+    "marker": "SOUL1R3_MARKER_MODE_CASUAL_1024",
+    "after_typing": {
+     "promptMode": "casual",
+     "modes": {
+      "casual": "SOUL1R3_MARKER_MODE_CASUAL_1024",
+      "serious": "РЕЖИМ SERIOUS - ГРАМОТНО, ПО ДЕЛУ:\nПиши грамотно и по сущест",
+      "deep_research": "РЕЖИМ DEEP_RESEARCH - ГЛУБОКИЙ РАЗБОР:\nВыведи переданный теб"
+     },
+     "defaultMode": "deep_research"
+    },
+    "saved_ok": true,
+    "posted_values": [
+     "SOUL1R3_MARKER_MODE_CASUAL_1024"
+    ],
+    "reopened": {
+     "promptMode": "deep_research",
+     "modes": {
+      "casual": "SOUL1R3_MARKER_MODE_CASUAL_1024",
+      "serious": "РЕЖИМ SERIOUS - ГРАМОТНО, ПО ДЕЛУ:\nПиши грамотно и по сущест",
+      "deep_research": "РЕЖИМ DEEP_RESEARCH - ГЛУБОКИЙ РАЗБОР:\nВыведи переданный теб"
+     },
+     "defaultMode": "deep_research"
+    },
+    "reopened_textarea": "SOUL1R3_MARKER_MODE_CASUAL_1024"
+   },
+   "fallback_flow": {
+    "from": "deep_research",
+    "to": "serious",
+    "posted_values": [
+     "serious"
+    ],
+    "reopened": {
+     "promptMode": "serious",
+     "modes": {
+      "casual": "SOUL1R3_MARKER_MODE_CASUAL_1024",
+      "serious": "РЕЖИМ SERIOUS - ГРАМОТНО, ПО ДЕЛУ:\nПиши грамотно и по сущест",
+      "deep_research": "РЕЖИМ DEEP_RESEARCH - ГЛУБОКИЙ РАЗБОР:\nВыведи переданный теб"
+     },
+     "defaultMode": "serious"
+    },
+    "reopened_select": "serious"
+   },
+   "library": {
+    "direct": {
+     "route": "#/ai/prompts/direct",
+     "workspaceTab": "synthesizer",
+     "promptTree": [
+      "prompts.direct_chat_synthesizer_system_prompt",
+      "prompts.direct_l1_planner_system_prompt"
+     ],
+     "focusKey": "prompts.direct_chat_synthesizer_system_prompt",
+     "editorChars": [
+      1107
+     ],
+     "wsPromptList": [
+      "prompts.direct_chat_synthesizer_system_prompt|synthesizer",
+      "prompts.direct_l1_planner_system_prompt|synthesizer"
+     ]
+    },
+    "synthesizer": {
+     "route": "#/ai/prompts/direct/synthesizer",
+     "workspaceTab": "synthesizer",
+     "promptTree": [
+      "prompts.direct_chat_synthesizer_system_prompt",
+      "prompts.direct_l1_planner_system_prompt"
+     ],
+     "focusKey": "prompts.direct_chat_synthesizer_system_prompt",
+     "editorChars": [
+      1107
+     ],
+     "wsPromptList": [
+      "prompts.direct_chat_synthesizer_system_prompt|synthesizer",
+      "prompts.direct_l1_planner_system_prompt|synthesizer"
+     ]
+    },
+    "verbalizer": {
+     "route": "#/ai/prompts/direct/verbalizer",
+     "workspaceTab": "verbalizer",
+     "promptTree": [
+      "prompts.direct_chat_verbalizer_system_prompt"
+     ],
+     "focusKey": "prompts.direct_chat_verbalizer_system_prompt",
+     "editorChars": [
+      1690
+     ],
+     "wsPromptList": [
+      "prompts.direct_chat_verbalizer_system_prompt|verbalizer"
+     ]
+    }
+   }
+  }
+ },
+ "empty_states": {
+  "no_prompt_items_320": {
+   "tab": "На этой вкладке нет доступных параметров Для выбранной области (чат) нет применимых параметров этой вкладки: часть настроек живёт только на уровне всего бота. Переключите область на «Весь бот».",
+   "search": "",
+   "itemCount": 0,
+   "groups": [],
+   "screenshot": "_r3_empty-state-320.png"
+  },
+  "search_no_match_320": {
+   "tab": "",
+   "search": "Ничего не найдено по запросу «zzzz».",
+   "itemCount": 25,
+   "groups": [],
+   "screenshot": "_r3_empty-state-search-320.png"
+  }
+ },
+ "failures": []
+}

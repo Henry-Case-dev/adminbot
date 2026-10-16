@@ -1,0 +1,463 @@
+{
+  "meta": {
+    "lane_id": "AUDIT-1",
+    "epic": "SOUL-1",
+    "feature_dir": "plans/features/soul-1",
+    "authoritative_source": "plans/features/soul-1/source-current-task.md",
+    "source_sha256": "8C42DDFABCE635FE4E1F24F9522FF8642F3BD3049FAC05C77CA162687051196B",
+    "generated": "2026-10-16",
+    "method": "static read of current code + REAL offline runtime assembly dump (see evidence/direct-runtime-assembly.txt); local PG is DOWN so every hot_config.get() returned the code canon",
+    "not_proven": [
+      "production effective prompt values for prompts.* keys (prod PG/SSH out of lane scope): only summary keys were proven genuinely-custom at baseline 2.58.33 in plans/archive/mca-asap21-summary-quality-ui-cleanup-round1028/prompt-map-audit.md",
+      "per-chat (chat_params) prompt values other than prompts.summary_cover_style",
+      "DB-backed layers (persona, character layers, lessons, scoped style) resolve empty locally",
+      "Initiative/Summary/etc. write paths were not executed end-to-end (need DB + worker loop)"
+    ]
+  },
+  "paths": [
+    {
+      "path_id": "DIRECT-L1",
+      "name": "Direct Chat L1 Planner",
+      "trigger": "incoming group/private message addressed to the bot (direct_chat handle -> _handle_turn)",
+      "decision_layer": "L1 planner LLM (step=l1_planner); decides action/extent/structure/delivery/tool_policy",
+      "tools_evidence": "no tools yet; active_tools(lore_enabled, image_enabled) list is only announced as capabilities",
+      "writer_function": "DirectChatService._plan_direct_l1 @ services/direct_chat_service.py:3571",
+      "postprocess_validator": "_l1.parse_l1_plan + normalize_l1_plan (services/direct_l1.py:219,299); bounded repair x1 (build_repair_messages direct_l1.py:315)",
+      "telegram_publish": "none (no user-visible text on this stage)",
+      "telemetry_counters": "usage_events step=l1_planner; chat_usage.report_call; agentic event L1_PLAN (_l1.emit_l1_plan_event); _l1.record_l1_diagnostics; _attach_l1_plan_meta (sanitize_plan_meta)",
+      "prompt_keys": ["prompts.direct_l1_planner_system_prompt"],
+      "effective_source": "resolve_prompt -> hot_config.get -> code default DIRECT_L1_PLANNER_SYSTEM_PROMPT (services/chat_prompts.py:435); no per-chat slot read",
+      "delivery_channel": "internal",
+      "exclusions": [
+        "no STYLE_BLOCKS_SUFFIX / TYPOGRAPHY / MODE / FORMAT blocks (pure base canon; verified in dump P4)",
+        "character_block enters only as a 400-char head [ХАРАКТЕР (кадр)] via build_l1_context (direct_l1.py:555,596-598)",
+        "scoped-style / lessons / speech tail blocks never reach L1 as-is (only codes)"
+      ]
+    },
+    {
+      "path_id": "DIRECT-L2",
+      "name": "Direct Chat L2 Writer (primary answer path)",
+      "trigger": "after L1 plan + optional tool phase",
+      "decision_layer": "ResponsePlan (services/response_extent.py) or L1Plan.to_response_plan()",
+      "tools_evidence": "evidence packet appended as <Tool_Evidence>; bounded multi-tool plan (response_extent.build_tool_plan)",
+      "writer_function": "DirectChatService._l2_write_answer @ services/direct_chat_service.py:3918",
+      "postprocess_validator": "compose_verbalizer_system (prompt_style_blocks.py:268) + _extent.scrub_for_plan (response_extent.py:494) + verbalize_validated (rules: channel_enabled_rules, anticliche_cache, numeric_contract, form_contract)",
+      "telegram_publish": "DirectChatService._send_direct_answer @ services/direct_chat_service.py:4219 -> _tg_send.send_rich_message:4261 / _tg_send.send_text:8188 (services/telegram_send.py:105)",
+      "telemetry_counters": "usage_events module=direct_chat step=l2_writer; [direct] l2 writer log line (mode/attempts/retries/hits/fallback); postprocess_form / numeric_claim_guard mca_events",
+      "prompt_keys": ["prompts.direct_chat_verbalizer_system_prompt", "prompts.verbilizer_mode_casual|serious|deep_research (only if extent_block empty)", "prompts.verbilizer_default_mode (failure path only)"],
+      "effective_source": "resolve_prompt -> hot_config.get -> DIRECT_VERBALIZER_SYSTEM_PROMPT (chat_prompts.py:347); kill-switch SMART_VERBALIZER_MODES_ENABLED=OFF -> PREV_CHAT_VERBALIZER_R1023 snapshot",
+      "delivery_channel": "plain (parse_mode=None) or safe-HTML rich for lore/deep_research",
+      "exclusions": [
+        "MODE_* block replaced by extent_block whenever a ResponsePlan is present (verified dump P1/P2)",
+        "character_block is NOT rendered as its own system message: it is a tail part of the single verbalizer system message",
+        "the same character_block is appended to the LEGACY system_prompt at direct_chat_service.py:2374 and again passed as character_block (double render on that path)"
+      ]
+    },
+    {
+      "path_id": "DIRECT-SYSTEM2",
+      "name": "Direct Chat System2 synthesizer->verbalizer (legacy tool path)",
+      "trigger": "tool loop produced raw results and System2 is enabled",
+      "decision_layer": "Stage-1 synthesizer LLM returns response_mode (normalize_response_mode)",
+      "tools_evidence": "sanitized tool_context + tool_trace summary; scoped EvidenceBundle slice prepended",
+      "writer_function": "DirectChatService._synthesize_direct_answer @ services/direct_chat_service.py:4025 (stage-1 :4094, stage-2 :4147)",
+      "postprocess_validator": "parse_direct_synthesis (services/system2_handoff.py:272) + compose_verbalizer_system + scrub_for_plan (gated behind modes_on) + verbalize_validated (form_contract=FormContract)",
+      "telegram_publish": "same as DIRECT-L2 (_send_direct_answer -> telegram_send)",
+      "telemetry_counters": "usage_events step=stage1/stage2; [direct] system2 log; postprocess_form / numeric_claim_guard mca_events",
+      "prompt_keys": ["prompts.direct_chat_synthesizer_system_prompt", "prompts.direct_chat_verbalizer_system_prompt", "prompts.verbilizer_mode_*"],
+      "effective_source": "resolve_prompt -> code defaults DIRECT_SYNTHESIZER_SYSTEM_PROMPT (chat_prompts.py:307) / DIRECT_VERBALIZER_SYSTEM_PROMPT (chat_prompts.py:347)",
+      "delivery_channel": "plain / safe-HTML rich",
+      "exclusions": [
+        "Stage-1 gets NO persona / no style / no extent tail (verified dump P5a): the personality lives only in Stage-2",
+        "Stage-2 user message is a JSON справка, not the raw chat context"
+      ]
+    },
+    {
+      "path_id": "DIRECT-LEGACY-SYSTEM",
+      "name": "Direct Chat legacy single-prompt system message",
+      "trigger": "chat_with_tools / legacy single-call branch (no L1/L2 split)",
+      "decision_layer": "none (model decides tools itself)",
+      "tools_evidence": "chat_with_tools tool results",
+      "writer_function": "DirectChatService._handle_turn @ services/direct_chat_service.py:2344 (system_prompt cascade) and :4370 (_build_user_content caller path)",
+      "postprocess_validator": "build_messages + payload_builder (services/payload_builder.py:19,33); anticliche/negative_constraints retries",
+      "telegram_publish": "_send_direct_answer -> telegram_send",
+      "telemetry_counters": "usage_events module=direct_chat step=stage1/tool_loop",
+      "prompt_keys": ["prompts.direct_chat_system_prompt"],
+      "effective_source": "chat_params.get_chat_param(chat_id, 'prompts.direct_chat_system_prompt', hot.get(...CHAT_SYSTEM_PROMPT)) -> code default CHAT_SYSTEM_PROMPT (chat_prompts.py:274); THE ONLY direct key with a real per-chat slot",
+      "delivery_channel": "plain / rich",
+      "exclusions": [
+        "persona/Character_Rules/Style_Requests/Verified_Lessons/Speech_Understanding are appended to THIS system prompt (direct_chat_service.py:2371-2430) and the same character_block+style_directives are passed AGAIN into the verbalizer/system2 call -> duplicate owner identity in one turn"
+      ]
+    },
+    {
+      "path_id": "INITIATIVE-L1",
+      "name": "Initiative decision (F6/MCA-09)",
+      "trigger": "initiative intent row due (timer/unanswered), services/initiative_observer + f6 producers",
+      "decision_layer": "L1 planner reused (REPLY/REACT/SILENT)",
+      "tools_evidence": "none; fresh chat window only",
+      "writer_function": "DirectChatService.plan_initiative_decision @ services/direct_chat_service.py:7518",
+      "postprocess_validator": "parse_l1_plan; None -> SILENT (no repair ladder)",
+      "telegram_publish": "none at this stage",
+      "telemetry_counters": "usage_events step=l1_planner; [f6] log",
+      "prompt_keys": ["prompts.direct_l1_planner_system_prompt"],
+      "effective_source": "resolve_prompt -> code default",
+      "delivery_channel": "internal",
+      "exclusions": ["no repair attempt, no fallback plan"]
+    },
+    {
+      "path_id": "INITIATIVE-WRITER",
+      "name": "Initiative reply text",
+      "trigger": "L1 decision = REPLY",
+      "decision_layer": "L1Plan -> to_response_plan()",
+      "tools_evidence": "none",
+      "writer_function": "DirectChatService.generate_initiative_reply @ services/direct_chat_service.py:7571 (delegates to _l2_write_answer:7616)",
+      "postprocess_validator": "same composer as DIRECT-L2; max_tokens=700",
+      "telegram_publish": "services/telegram_send.py send_text; bot_output_ledger.record_delivered_output",
+      "telemetry_counters": "usage_events step=l2_writer; bot_output_ledger",
+      "prompt_keys": ["prompts.direct_chat_verbalizer_system_prompt", "prompts.verbilizer_mode_*"],
+      "effective_source": "_initiative_persona_block (direct_chat_service.py:7489) -> bot_persona.resolve_character_context/resolve_bot_persona (DB); local PG down -> empty block",
+      "delivery_channel": "plain",
+      "exclusions": [
+        "no per-chat system-prompt override (prompts.direct_chat_system_prompt not read on this path)",
+        "no speech/lessons blocks",
+        "user message is a synthetic <Initiative_Context>, not a user question"
+      ]
+    },
+    {
+      "path_id": "FACTCHECK-TWO-CALL",
+      "name": "Fact-check analyst -> verbalizer",
+      "trigger": "/factcheck or check_claim on a claim with search context",
+      "decision_layer": "analyst returns machine JSON + response_mode",
+      "tools_evidence": "SearchAggregator.search results",
+      "writer_function": "factcheck_service._check_claim_two_call @ services/factcheck_service.py:216 (analyst :223, verbalizer :251)",
+      "postprocess_validator": "parse_factcheck synthesis + compose_verbalizer_system + scrub_for_plan (factcheck_service.py:726 base resolve)",
+      "telegram_publish": "caller sends via telegram_send",
+      "telemetry_counters": "usage_events (factcheck steps); mca_events",
+      "prompt_keys": ["prompts.factcheck_analyst_system_prompt", "prompts.factcheck_verbalizer_system_prompt", "prompts.verbilizer_mode_*"],
+      "effective_source": "resolve_prompt -> code defaults FACTCHECK_ANALYST_SYSTEM_PROMPT / FACTCHECK_VERBALIZER_SYSTEM_PROMPT (factcheck_prompts.py:214,237)",
+      "delivery_channel": "plain",
+      "exclusions": ["no persona/character block, no lessons/scoped style"]
+    },
+    {
+      "path_id": "FACTCHECK-SINGLE-10.21",
+      "name": "Fact-check single-call (pre-10.23 path)",
+      "trigger": "kill-switch / legacy single-pass factcheck",
+      "decision_layer": "single LLM decides both text and tone",
+      "tools_evidence": "search context",
+      "writer_function": "factcheck_service._check_claim_pipeline @ services/factcheck_service.py:160 (system :181, user :208)",
+      "postprocess_validator": "{max_symbols} substitution (:206) + anticliche",
+      "telegram_publish": "caller via telegram_send",
+      "telemetry_counters": "usage_events",
+      "prompt_keys": ["prompts.factcheck_system_prompt"],
+      "effective_source": "hot.get -> code default FACTCHECK_SYSTEM_PROMPT (factcheck_prompts.py:142)",
+      "delivery_channel": "plain",
+      "exclusions": ["no composer, no extent block, no persona"]
+    },
+    {
+      "path_id": "SEARCH",
+      "name": "Web search answer",
+      "trigger": "/search or search intent",
+      "decision_layer": "none",
+      "tools_evidence": "provider search results",
+      "writer_function": "search_service.research @ services/search_service.py:57 (system :92, rerank :106-112)",
+      "postprocess_validator": "anticliche retries",
+      "telegram_publish": "smartmodule_utils.send_text (services/smartmodule_utils.py:292)",
+      "telemetry_counters": "usage_events; search counters",
+      "prompt_keys": ["prompts.search_system_prompt"],
+      "effective_source": "hot.get -> code default SEARCH_SYSTEM_PROMPT (search_prompts.py)",
+      "delivery_channel": "plain",
+      "exclusions": ["its own toxic-persona canon copy; no shared style suffix logic with direct"]
+    },
+    {
+      "path_id": "WEBPAGE",
+      "name": "Web page retelling",
+      "trigger": "URL in message",
+      "decision_layer": "none",
+      "tools_evidence": "fetched article",
+      "writer_function": "web_summarizer_service.summarize @ services/web_summarizer_service.py:39 (system :73)",
+      "postprocess_validator": "anticliche",
+      "telegram_publish": "smartmodule_utils.send_text",
+      "telemetry_counters": "usage_events",
+      "prompt_keys": ["prompts.webpage_system_prompt"],
+      "effective_source": "hot.get -> WEBPAGE_SYSTEM_PROMPT (web_prompts.py)",
+      "delivery_channel": "plain",
+      "exclusions": ["separate toxic-persona canon copy"]
+    },
+    {
+      "path_id": "YOUTUBE",
+      "name": "YouTube transcript / video retelling",
+      "trigger": "YouTube link",
+      "decision_layer": "cascade (transcript vs multimodal video)",
+      "tools_evidence": "transcript / video frames",
+      "writer_function": "youtube_summarizer_service.summarize @ :80 (transcript :126-147) and summarize_cascade @ :64",
+      "postprocess_validator": "anticliche; YOUTUBE_RETRY_PHRASES",
+      "telegram_publish": "smartmodule_utils.send_text",
+      "telemetry_counters": "usage_events; video_cascade_client:173",
+      "prompt_keys": ["prompts.youtube_system_prompt", "prompts.youtube_video_system_prompt"],
+      "effective_source": "hot.get -> YOUTUBE_SYSTEM_PROMPT / YOUTUBE_VIDEO_SYSTEM_PROMPT (youtube_prompts.py)",
+      "delivery_channel": "plain",
+      "exclusions": ["two separate canon copies; neither composes with the direct verbalizer"]
+    },
+    {
+      "path_id": "CHECKUP",
+      "name": "Server health checkup",
+      "trigger": "scheduled /checkup",
+      "decision_layer": "none",
+      "tools_evidence": "server logs + metrics",
+      "writer_function": "checkup_service.checkup @ services/checkup_service.py:43 (system :47, user :89)",
+      "postprocess_validator": "{max_symbols} substitution (:55); CHECKUP_*_PHRASES fallbacks",
+      "telegram_publish": "smartmodule_utils.send_text",
+      "telemetry_counters": "usage_events; checkup counters",
+      "prompt_keys": ["prompts.checkup_system_prompt"],
+      "effective_source": "hot.get -> CHECKUP_SYSTEM_PROMPT (checkup_prompts.py:64)",
+      "delivery_channel": "plain",
+      "exclusions": ["own toxin canon copy; no persona"]
+    },
+    {
+      "path_id": "SUMMARY-LEGACY-SINGLE",
+      "name": "Summary legacy single-call",
+      "trigger": "summary OFF-path / LEVEL-3",
+      "decision_layer": "none",
+      "tools_evidence": "chat history",
+      "writer_function": "summary_generator @ services/summary_generator.py:987 (system :1602/:1768)",
+      "postprocess_validator": "{max_symbols}; summary_article_formatter; Rich cut",
+      "telegram_publish": "summary_generator._deliver_* -> send_text (services/summary_generator.py:4097-4283)",
+      "telemetry_counters": "usage_events; summary telemetry",
+      "prompt_keys": ["prompts.summary_system_prompt"],
+      "effective_source": "hot.get (PG) -> code default SYSTEM_PROMPT (summary_prompts.py); PROD VALUE PROVEN CUSTOM (sha 67344524cd16, 3578 ch @2.58.33)",
+      "delivery_channel": "plain / rich article",
+      "exclusions": ["prompt_migrations will NOT overwrite the custom PG value"]
+    },
+    {
+      "path_id": "SUMMARY-LEGACY-TWO-CALL",
+      "name": "Summary legacy editor -> narrator",
+      "trigger": "summary two-call legacy",
+      "decision_layer": "editor returns digest + response_mode",
+      "tools_evidence": "chat history",
+      "writer_function": "summary_generator @ services/summary_generator.py:3765 (narrator :3805; editor resolve :987 path)",
+      "postprocess_validator": "parse_summary_handoff (system2_handoff.py:249) + compose_verbalizer_system + TYPOGRAPHY",
+      "telegram_publish": "summary_generator._deliver_* -> send_text",
+      "telemetry_counters": "usage_events; summary telemetry",
+      "prompt_keys": ["prompts.summary_editor_system_prompt", "prompts.summary_narrator_system_prompt", "prompts.verbilizer_mode_*"],
+      "effective_source": "resolve_prompt -> PG-first; PROD VALUES PROVEN CUSTOM (editor 14ae80070e29/2063, narrator 58c9d4237eaa/1693)",
+      "delivery_channel": "plain / rich",
+      "exclusions": ["SMART_VERBALIZER_MODES_ENABLED=OFF -> PREV_SUMMARY_NARRATOR_R1023 snapshot"]
+    },
+    {
+      "path_id": "SUMMARY-HYBRID",
+      "name": "Summary Hybrid L1 clusterizer -> L2 writer -> review",
+      "trigger": "scheduled summary (primary path)",
+      "decision_layer": "L1 structures topics, L2 writes article",
+      "tools_evidence": "chat history rows",
+      "writer_function": "summary_l1_clusterizer.run_l1 @ :1668 (system :1525/:1746); summary_l2_writer @ :1661 (system :1678); summary_l2_review @ :1065/:1264/:1297",
+      "postprocess_validator": "summary_l2_review + summary_article_formatter + Rich cut",
+      "telegram_publish": "summary_generator._deliver_* -> send_text",
+      "telemetry_counters": "usage_events; summary telemetry; agentic events",
+      "prompt_keys": ["prompts.summary_l1_clusterizer_system_prompt", "prompts.summary_l2_writer_system_prompt", "prompts.summary_cover_style", "prompts.summary_cover_style_id"],
+      "effective_source": "resolve_prompt_with_source (summary_l2_writer.py:1661) -> PG-first; PROD L1/L2 PROVEN CUSTOM (8237880de15f/3778, c913a4b4c53d/3110). summary_cover_style is the ONLY per-chat prompt key actually read per-chat",
+      "delivery_channel": "rich article + cover image",
+      "exclusions": ["cover style concatenated with visual prompt before image API (cover_prompt_assembly.py)"]
+    },
+    {
+      "path_id": "DREAMS-LORE",
+      "name": "Dreams / deep-sleep / persona evolution",
+      "trigger": "nightly dream worker",
+      "decision_layer": "distill -> bridge -> persona evolution",
+      "tools_evidence": "chat history + memory",
+      "writer_function": "dream_worker @ services/dream_worker.py:1327 (DREAM_DISTILL_PROMPT), :2297, :2778 (PERSONA_EVOLUTION_PROMPT)",
+      "postprocess_validator": "own validators; no shared composer",
+      "telegram_publish": "none by default (writes to memory/dossier)",
+      "telemetry_counters": "usage_events; dream telemetry",
+      "prompt_keys": [],
+      "effective_source": "CODE CONSTANTS ONLY (services/dream_prompts.py:42,154,301) - not in the prompts.* catalog, not PG-editable",
+      "delivery_channel": "internal (dossier/memory)",
+      "exclusions": ["PERSONA_EVOLUTION_PROMPT can rewrite the persona the runtime persona block renders -> direct conflict surface with a new Personality Core"]
+    },
+    {
+      "path_id": "LORE-DOSSIER",
+      "name": "Lore compiler / dossier (multilayer + per-user)",
+      "trigger": "lore worker tick / manual rebuild",
+      "decision_layer": "classify -> layer A/B -> synthesize",
+      "tools_evidence": "chat window messages",
+      "writer_function": "lore_worker @ services/lore_worker.py:712,798,834,882,1323,1484,1540; lore_compiler_service.py:188",
+      "postprocess_validator": "own validators",
+      "telegram_publish": "lore delivery via _send_direct_answer safe-HTML path when in direct chat",
+      "telemetry_counters": "usage_events; lore telemetry; _emit_progress",
+      "prompt_keys": [],
+      "effective_source": "CODE CONSTANTS ONLY (services/lore_prompts.py incl. LORE_STORY_SYSTEM_PROMPT) - not in prompts.* catalog",
+      "delivery_channel": "internal + optional rich lore output",
+      "exclusions": ["own toxin canon copy (lore_prompts.py:101,107)"]
+    },
+    {
+      "path_id": "NOSTALGIA",
+      "name": "Nostalgia worker (year-ago memories)",
+      "trigger": "cron tick",
+      "decision_layer": "candidate pick + budget check",
+      "tools_evidence": "golden rows / year-back lines",
+      "writer_function": "nostalgia_worker @ services/nostalgia_worker.py:744 (_llm_once, system :782)",
+      "postprocess_validator": "budget ok + unanswered stop",
+      "telegram_publish": "_delegate_initiative @ :604 -> initiative funnel -> telegram_send",
+      "telemetry_counters": "nostalgia log rows (_log :792)",
+      "prompt_keys": [],
+      "effective_source": "CODE CONSTANTS ONLY (services/nostalgia_prompts.py, own toxin copy at :24,32) - not in prompts.* catalog",
+      "delivery_channel": "plain",
+      "exclusions": ["no persona block; no composer"]
+    },
+    {
+      "path_id": "DOSSIER-EPISODES-VISION",
+      "name": "Episodes / vision / memory maintenance",
+      "trigger": "background jobs",
+      "decision_layer": "none",
+      "tools_evidence": "frames / image bytes / memory rows",
+      "writer_function": "mca_episodes.py:1859,2068,2201,2317; mca_vision.py:906; memory_maintenance.py:747; mca_experience_jobs.py:1347; self_reflection.py:108",
+      "postprocess_validator": "own validators",
+      "telegram_publish": "mostly internal",
+      "telemetry_counters": "usage_events; mca_events",
+      "prompt_keys": [],
+      "effective_source": "CODE CONSTANTS ONLY (dossier_prompts.py:21,63,92) - not in prompts.* catalog",
+      "delivery_channel": "internal",
+      "exclusions": ["no persona/character tail"]
+    },
+    {
+      "path_id": "MEMORY-EXTRACT-COMPRESS",
+      "name": "Memory fact extraction / history compression",
+      "trigger": "memory worker",
+      "decision_layer": "none",
+      "tools_evidence": "chat history",
+      "writer_function": "summary_memory.py:1253,2708,2775,3140,3156,3962,5002,5112,5139",
+      "postprocess_validator": "own validators",
+      "telegram_publish": "none",
+      "telemetry_counters": "usage_events",
+      "prompt_keys": ["prompts.extract_system_prompt", "prompts.compress_system_prompt"],
+      "effective_source": "hot.get -> EXTRACT_PROMPT / COMPRESS_PROMPT (summary_prompts.py)",
+      "delivery_channel": "internal",
+      "exclusions": ["no persona"]
+    },
+    {
+      "path_id": "TEMPLATE-PHRASES",
+      "name": "Non-LLM template / phrase output",
+      "trigger": "slash commands, errors, throttles, cooldowns",
+      "decision_layer": "deterministic",
+      "tools_evidence": "none",
+      "writer_function": "services/smartmodule_phrases.py (CHAT_PERSONA_PHRASE :161, CHAT_TONE_* :162-181; error/throttle tuples :11-157)",
+      "postprocess_validator": "none (static strings, {tone}/{directive} substitution)",
+      "telegram_publish": "handlers/direct_chat.py:253 (CHAT_PERSONA_PHRASE.replace) and smartmodule_utils.send_text",
+      "telemetry_counters": "none specific",
+      "prompt_keys": [],
+      "effective_source": "CODE CONSTANTS ONLY - NOT PG-editable (no prompts.* key)",
+      "delivery_channel": "plain",
+      "exclusions": ["invisible to any prompt-migration or Core-injection that only covers the prompts.* catalog"]
+    },
+    {
+      "path_id": "MANUAL-TEST",
+      "name": "Manual/dry-run test paths",
+      "trigger": "admin UI test buttons, tools scripts",
+      "decision_layer": "copies of the production writers or short-circuits",
+      "tools_evidence": "n/a",
+      "writer_function": "services/summary_test_run.py (documented as NOT calling telegram_send.* / SummaryGenerator._deliver_*)",
+      "postprocess_validator": "may skip postprocessors -> test text can differ from production text",
+      "telegram_publish": "none (dry-run) by contract",
+      "telemetry_counters": "test-only",
+      "prompt_keys": ["prompts.summary_* (whichever the tested stage uses)"],
+      "effective_source": "same PG/code chain as production",
+      "delivery_channel": "UI only",
+      "exclusions": ["not a proof of production output"]
+    }
+  ],
+  "silent_fallbacks_rendering_the_old_toxic_bot": [
+    "SMART_VERBALIZER_MODES_ENABLED=OFF -> PREV_CHAT_VERBALIZER_R1023 (services/chat_prompts.py PREV snapshot) replaces the whole verbalizer body on the Direct L2 path (direct_chat_service.py:3942-3954) - old cap + old tone",
+    "prompts.* key empty/whitespace in PG -> resolve_prompt silently returns the code canon (prompt_style_blocks.py:186-197): no warning, no counter",
+    "PG unreachable -> hot_config.get returns the passed default (code canon) - whole per-chat override layer silently ignored",
+    "character_layers_enabled() OFF -> persona frame degrades to resolve_bot_persona/get_traits legacy (direct_chat_service.py:2367-2370) - different identity text",
+    "persona gate OFF/empty -> character_block='' -> verbalizer loses the owner identity entirely, no signal to the caller",
+    "plan_response_mode(ResponsePlan) returns 'serious' for every non-rich/non-report plan (direct_l1.py:186-188) - MODE alias mismatch, masked only because extent_block replaces MODE",
+    "extent 'one_word' collapses to 'micro' (direct_l1.py:146-147; response_extent.EXTENTS has no one_word) - the one-word contract is unreachable",
+    "scrub_for_plan in _l2_write_answer is NOT gated behind modes_on (unlike _synthesize_direct_answer:4135) -> even the legacy cap prompt is stripped, silently changing the kill-switch path",
+    "verbalize_validated fallback_text=None on the L2 path -> empty/failed generation returns None (honest refusal) while System2 returns the raw draft as fallback_text",
+    "own toxin-persona canon copies in checkup/factcheck/search/summary/web/youtube/lore/nostalgia prompts keep the old 'toxic bot' voice on every non-direct path"
+  ],
+  "persisted_custom_pg_prompts_untouched_by_defaults_migration": {
+    "contract": "services/prompt_migrations.py: PROMPT_MIGRATIONS only rewrite a PG value when it byte-equals a known PREV snapshot; genuinely-custom values are skipped (log '[prompt_migration] кастом юзера - НЕ трогаем').",
+    "proven_custom_prod_values": [
+      "prompts.summary_l1_clusterizer_system_prompt sha256_12=8237880de15f len=3778",
+      "prompts.summary_l2_writer_system_prompt sha256_12=c913a4b4c53d len=3110",
+      "prompts.summary_system_prompt sha256_12=67344524cd16 len=3578",
+      "prompts.summary_editor_system_prompt sha256_12=14ae80070e29 len=2063",
+      "prompts.summary_narrator_system_prompt sha256_12=58c9d4237eaa len=1693",
+      "prompts.summary_cover_style sha256_12=faed624c9d0b len=33 (global) + sha256_12=35013bd88081 len=110 (per-chat, the only per-chat prompt value found)"
+    ],
+    "proven_at": "28.09.2026 / baseline 2.58.33 (plans/archive/mca-asap21-summary-quality-ui-cleanup-round1028/prompt-map-audit.md §2)",
+    "not_proven": "direct/factcheck/search/checkup/youtube/webpage/memory prompt keys were never prod-verified in this lane; their custom status is UNKNOWN",
+    "consequence": "any 'set all prompts to the new canon' migration or a Core-injection that assumes the code canon is the effective prompt WILL be wrong on production for at least the 6 summary keys"
+  },
+  "precedence_contracts": [
+    {
+      "id": "PC1 legaс-y system prompt",
+      "chain": "chat override (chat_params.get_chat_param) -> global (hot_config.get) -> code canon",
+      "code": "services/direct_chat_service.py:2343-2347",
+      "note": "per-chat slot actually read; prompt_migrations only writes the global layer"
+    },
+    {
+      "id": "PC2 L1/L2/System2 stage prompts",
+      "chain": "global (hot_config.get) -> code canon; NO per-chat slot read",
+      "code": "services/direct_chat_service.py:3640-3642, 3942-3945, 4095-4097, 4115-4118",
+      "note": "resolve_prompt_with_source returns source in {global, default} only"
+    },
+    {
+      "id": "PC3 verbalizer tail composition",
+      "chain": "base(+STYLE_BLOCKS_SUFFIX+TYPOGRAPHY) -> [extent_block XOR MODE_*] -> [FORMAT (deep_research only)] -> character_block -> style_directives",
+      "code": "services/prompt_style_blocks.py:309-324",
+      "note": "join('\\n\\n'); empty parts dropped; verified exact by runtime dump P1/P2/P5b"
+    },
+    {
+      "id": "PC4 legacy system prompt tail composition",
+      "chain": "system_prompt -> <Persona> -> <Character_Rules> -> <Style_Requests> -> <Verified_Lessons> -> <Speech_Understanding>",
+      "code": "services/direct_chat_service.py:2371-2430",
+      "note": "single system message; the same persona/style text is ALSO passed to the verbalizer call"
+    },
+    {
+      "id": "PC5 L2 user-message order",
+      "chain": "time_line -> plan_block -> speech_block -> lessons_block -> user_blocks[] -> <Tool_Evidence>",
+      "code": "services/direct_chat_service.py:3963-3981",
+      "note": "join('\\n\\n'); verified exact by runtime dump P1"
+    },
+    {
+      "id": "PC6 character layers",
+      "chain": "CHARACTER_LAYERS/CHARACTER_PRECEDENCE in services/bot_persona.py (build_persona_prompt_block); system_prompt_overrides is excluded from the rendered block",
+      "code": "services/bot_persona.py:75,87,208,593",
+      "note": "flag flags.persona_enabled + mca_gates.character_layers_enabled() gate the whole block"
+    },
+    {
+      "id": "PC7 scoped style",
+      "chain": "participant > topic > chat (services/mca_style_scope.py DIRECTIVE_CANON); rendered as <Style_Requests>",
+      "code": "services/mca_style_scope.py render_style_block; consumed at direct_chat_service.py:2390-2391",
+      "note": "form-only, never semantics"
+    },
+    {
+      "id": "PC8 self-model / awareness",
+      "chain": "services/mca_self_model.py SettingState -> resolve_is_aware_ai -> guards -> select_behavior -> render_frame_block",
+      "code": "services/mca_self_model.py",
+      "note": "_owner_core_conflict + _NO_AI_DISCLOSURE_BLOCK (bot_persona.py) already encode an owner/Core conflict rule"
+    },
+    {
+      "id": "PC9 prompt-conflict scrub",
+      "chain": "scrub_for_plan applies ONLY for LONGFORM_FAMILY extents {detailed, longform, exhaustive}",
+      "code": "services/response_extent.py:494-498, :463-491",
+      "note": "on L2 the call is unconditional w.r.t. modes_on; System2 gates it"
+    }
+  ],
+  "blockers_for_one_core_injection": [
+    "There is no single shared system-prompt surface: 6 distinct composer families (prompt_style_blocks.compose_verbalizer_system, direct_chat_service legacy tail, summary_generator, factcheck_service, search_service/web/youtube, checkup_service) each build their own system message.",
+    "15+ independent 'toxic/cynical/sarcastic' canon copies live in separate modules (chat/checkup/factcheck/search/summary/web/youtube/lore/nostalgia + smartmodule_phrases.CHAT_PERSONA_PHRASE) - only prompt_style_blocks.STYLE_BLOCKS_SUFFIX is shared, and only by the rebuttal canons.",
+    "Non-catalog prompt constants (dream_prompts, lore_prompts, nostalgia_prompts, dossier_prompts, smartmodule_phrases, ORCHESTRATOR_SYSTEM_PROMPT) are not PG-editable and have no prompts.* key - a Core that only edits the catalog is invisible to them.",
+    "Persisted genuinely-custom PG values (at least the 6 summary keys) override the code canon: injecting a Core by editing canon constants or a defaults-migration changes nothing on production.",
+    "Direct turn renders owner identity TWICE (legacy system prompt tail + verbalizer character_block) - a Core appended to only one place creates contradictory instructions in the same request.",
+    "Initiative and L1 do not read prompts.direct_chat_system_prompt at all - a Core injected there never reaches the initiative path or the L1 decision layer.",
+    "Kill-switch branches (SMART_VERBALIZER_MODES_ENABLED=OFF, persona gate OFF, character_layers OFF, response_plan_enabled OFF) silently replace the whole style surface - a Core must define its behaviour for each branch or it is bypassed.",
+    "Kill-switch/fallback branches emit no counter/warning on the hot_config fallback path (resolve_prompt), so a 'Core is active' claim cannot be verified from telemetry today."
+  ],
+  "evidence_files": [
+    "plans/features/soul-1/audit-prompt-matrix.md",
+    "plans/features/soul-1/evidence/prompt-matrix.json",
+    "plans/features/soul-1/evidence/direct-runtime-assembly.txt"
+  ]
+}

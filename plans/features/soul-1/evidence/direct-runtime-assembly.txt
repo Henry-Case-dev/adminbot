@@ -1,0 +1,119 @@
+SOUL-1 / AUDIT-1 — DIRECT RUNTIME PROMPT ASSEMBLY (real code, offline)
+produced by OPENCODE_WORKFLOW_SCRATCH/soul1_dump_assembly.py
+no Telegram send, no external LLM call, no DB write
+local PG is DOWN -> every hot_config.get() falls back to the code canon
+
+==============================================================================
+## P1  Direct L2 WRITER (primary Direct answer path)
+note: response_mode=serious | scrub_for_plan removed=0 | system_after_scrub_equals_reported=True
+SYSTEM  chars=2088 tokens=709 sha256_12=6dc4aafa6167
+USER    chars=277 tokens=90 sha256_12=5bbb2c1c44e7
+decomposition_exact=True
+------------------------------------------------------------------------------
+idx block / source of truth                               chars   tok  sha12
+0   base: prompts.direct_chat_verbalizer_system_prompt     1690   581  39a7cce1523e
+1   extent_block(replace MODE_serious)                      211    70  2579eaeb36dc
+2   character_block: Persona + Character_Rules              125    40  bd902f20c0ca
+3   style_directives: <Style_Requests>                       56    18  967168fb043a
+
+[base: prompts.direct_chat_verbalizer_system_prompt (PG->code)] len=1690 sha12=39a7cce1523e
+[extent_block(replace MODE_serious)] len=211 sha12=2579eaeb36dc
+[character_block: Persona + Character_Rules] len=125 sha12=bd902f20c0ca
+[style_directives: <Style_Requests>] len=56 sha12=967168fb043a
+
+USER decomposition_exact=True
+idx user block                                    chars   tok  sha12
+0   time_line                                        23    14  d18ca3017a21
+1   plan_block                                       28     9  3a9d3d154d97
+2   speech_block: <Speech_Understanding>             57    16  2f9d2b031b87
+3   lessons_block: <Verified_Lessons>                58    19  3ee71340094e
+4   user_blocks[0..n]                                28    10  f5e07fdc14f7
+5   <Tool_Evidence> wrapper                          73    21  7f8fe06821b4
+MODE-block is NOT used on this path (extent_block replaces it).
+real _l1.build_l2_plan_block(L1Plan(detailed)) kwargs: exists=True
+
+==============================================================================
+## P2  Direct L2 WRITER (extent=micro, no style_directives, no persona)
+note: response_mode=serious | FINDING: plan_response_mode(ResponsePlan) returns 'serious' for any non-rich/non-report ResponsePlan, incl. micro chat (MODE alias mismatched; harmless only because extent_block replaces it)
+SYSTEM  chars=1936 tokens=668 sha256_12=abd6cc49be6c
+USER    chars=50 tokens=17 sha256_12=e9cd60e6a92e
+decomposition_exact=True
+------------------------------------------------------------------------------
+idx block / source of truth                               chars   tok  sha12
+0   base: direct_chat_verbalizer_system_prompt (PG->cod    1690   581  39a7cce1523e
+1   extent_block(micro) replaces MODE_casual                117    47  ea0a450a36aa
+2   character_block: Persona + Character_Rules              125    40  bd902f20c0ca
+
+[base: direct_chat_verbalizer_system_prompt (PG->code)] len=1690 sha12=39a7cce1523e
+[extent_block(micro) replaces MODE_casual] len=117 sha12=ea0a450a36aa
+[character_block: Persona + Character_Rules] len=125 sha12=bd902f20c0ca
+
+P2b response_mode route: ResponsePlan(micro) -> 'serious' ; L1Plan(one_word) -> 'casual'
+
+==============================================================================
+## P3  Direct L2 WRITER with SMART_VERBALIZER_MODES_ENABLED=OFF
+note: kill-switch OFF -> template = PREV_CHAT_VERBALIZER_R1023 (R10.23 snapshot, old cap text); no compose, no extent block.
+FINDING: in _l2_write_answer the scrub_for_plan call is NOT gated behind modes_on (unlike _synthesize_direct_answer, which guards it) -> even the legacy cap prompt is deterministically stripped.
+SYSTEM chars=1289 tokens=431 sha256_12=18af54a36e67
+system == PREV_CHAT_VERBALIZER_R1023 : False
+PREV_CHAT_VERBALIZER_R1023 chars=1324 -> after scrub chars=1289 removed=1
+
+==============================================================================
+## P4  Direct L1 PLANNER (pre-tool decision layer)
+note: real DirectChatService._plan_direct_l1; llm.generate stub returns a valid L1Plan JSON, no network.
+SYSTEM chars=2423 tokens=685 sha256_12=99a207313889
+  system == prompts.direct_l1_planner_system_prompt (PG->code): True
+USER (build_l1_context) chars=561 tokens=195 sha256_12=93f39071c704
+USER section headers actually present (in order):
+  - СООБЩЕНИЕ
+  - ПОСЛЕДНИЕ СООБЩЕНИЯ
+  - УЧАСТНИКИ
+  - РЕЧЕВОЙ СИГНАЛ
+  - ДОСТУПНЫЕ ВОЗМОЖНОСТИ
+  - ХАРАКТЕР (кадр)
+plan origin: source=llm extent=detailed structure=answer
+to_response_plan(): extent=detailed structure=answer task_kind=explanation
+
+persona frame cap: L1_PERSONA_FRAME_CHARS=400 (head of character_block only; character_block len=125)
+
+P4b one_word collapse: L1Plan(extent='one_word').to_response_plan() -> extent='micro' (EXTENTS has no 'one_word': True) | render_extent_block='ОЖИДАЕМАЯ ПОЛНОТА: МИКРО. Ответ - ...'
+
+==============================================================================
+## P5a System2 Stage-1 SYNTHESIZER (legacy tool path)
+note: NO persona/style/extent tail: Stage-1 gets only base canon.
+SYSTEM  chars=1107 tokens=342 sha256_12=6bae7eb26bc3
+USER    chars=115 tokens=51 sha256_12=17994b2973a9
+decomposition_exact=True
+------------------------------------------------------------------------------
+idx block / source of truth                               chars   tok  sha12
+0   base: prompts.direct_chat_synthesizer_system_prompt    1107   342  6bae7eb26bc3
+
+[base: prompts.direct_chat_synthesizer_system_prompt (PG->code)] len=1107 sha12=6bae7eb26bc3
+
+==============================================================================
+## P5b System2 Stage-2 VERBALIZER (same builder as L2)
+note: USER = 'СПРАВКА (JSON):' + stage2_payload(data)
+SYSTEM  chars=2088 tokens=709 sha256_12=6dc4aafa6167
+USER    chars=232 tokens=69 sha256_12=47ee6857d5c8
+decomposition_exact=True
+------------------------------------------------------------------------------
+idx block / source of truth                               chars   tok  sha12
+0   base: prompts.direct_chat_verbalizer_system_prompt     1690   581  39a7cce1523e
+1   extent_block(detailed) replaces MODE_serious            211    70  2579eaeb36dc
+2   character_block                                         125    40  bd902f20c0ca
+3   style_directives                                         56    18  967168fb043a
+
+[base: prompts.direct_chat_verbalizer_system_prompt (PG->code)] len=1690 sha12=39a7cce1523e
+[extent_block(detailed) replaces MODE_serious] len=211 sha12=2579eaeb36dc
+[character_block] len=125 sha12=bd902f20c0ca
+[style_directives] len=56 sha12=967168fb043a
+
+==============================================================================
+## P6  INITIATIVE writer (generate_initiative_reply)
+note: MIRROR of the real user-block builder (direct_chat_service.py 7594-7621). Persona block comes from DB (_initiative_persona_block -> bot_persona.resolve_*), so with local PG down it is '' and the run floor is not reachable without a DB.
+sys = SAME _l2_write_answer builder (see P1/P2); character_block = _initiative_persona_block(chat_id)
+user_blocks[0] = <Initiative_Context> chars=290 sha12=21b3541467df
+user_blocks[1] = <Fresh_Chat_Window> (render_window_lines(window,12))
+call: _l2_write_answer(..., max_tokens=700, plan_block=_l1.build_l2_plan_block(plan))
+
+## Delivery: Direct/Initiative reach Telegram only through services/telegram_send.py (send_text); no second send path.

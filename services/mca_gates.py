@@ -488,6 +488,54 @@ KILL_SWITCHES: dict[str, tuple[bool, str]] = {
     ),
 }
 
+# ── SOUL-1 (W2) — оси речи/характера единого Prompt Composer ────────────────
+# Те же правила, что у KILL_SWITCHES: резолв per-call, никогда не бросает,
+# OFF = документированный паритет. В KILL_SWITCHES НЕ добавляются намеренно:
+# этот словарь 1:1 связан с `module_registry.MODULE_ENV_GATES` тестами
+# (`test_asap7_module_registry`, `test_asap7_module_completeness`,
+# `test_asap8_v6_p1_d11_registry`), а `services/module_registry.py` и каталог
+# `flags.*` принадлежат соседнему слайсу регистрации. До его мержа новые оси
+# живут здесь отдельным реестром той же формы (имя → (default, OFF-паритет)) и
+# не дублируют 4 существующих «тихих» рубильника
+# (`SMART_VERBALIZER_MODES_ENABLED`, `flags.persona_enabled`,
+# `MCA_CHARACTER_LAYERS_ENABLED`, `DIRECT_RESPONSE_PLAN_ENABLED`).
+W2_GATES: dict[str, tuple[bool, str]] = {
+    "UNIFIED_COMPOSER_ENABLED": (
+        False,
+        "OFF → сборка system/user = байт-в-байт текущая "
+        "(`prompt_style_blocks.compose_verbalizer_system` + существующие "
+        "хвосты); Core/Style/Examples/Humor-инъекции не рендерятся",
+    ),
+    "CHARACTER_CORE_ENABLED": (
+        True,
+        "OFF → Core не рендерится (`skip_reason=core_disabled`), остальные "
+        "слои без изменений",
+    ),
+    "SPEECH_STYLE_POLICY_ENABLED": (
+        True,
+        "OFF → нет effective policy: ни semantic hint, ни нормализации; "
+        "Core жив; downgrade виден в манифесте (`style_policy_disabled`)",
+    ),
+    "HUMOR_LIBRARY_ENABLED": (
+        False,
+        "OFF → нет отбора примеров и few-shot слоя; Humor Craft (статические "
+        "приёмы) может работать",
+    ),
+    "HUMOR_FEEDBACK_ENABLED": (
+        False,
+        "OFF → нет сбора feedback/обновлений выборки; речь работает",
+    ),
+}
+
+# Имя оси GateState → env-имя реестра (для per-chat резолва композера).
+W2_ENV_KEYS: dict[str, str] = {
+    "unified_composer_enabled": "UNIFIED_COMPOSER_ENABLED",
+    "character_core_enabled": "CHARACTER_CORE_ENABLED",
+    "speech_style_policy_enabled": "SPEECH_STYLE_POLICY_ENABLED",
+    "humor_library_enabled": "HUMOR_LIBRARY_ENABLED",
+    "humor_feedback_enabled": "HUMOR_FEEDBACK_ENABLED",
+}
+
 
 def tx_ownership_enabled() -> bool:
     """`MCA_TX_OWNERSHIP_ENABLED` (default ON).
@@ -2133,3 +2181,128 @@ def stories_manage_enabled() -> bool:
     if not bool(getattr(settings, "MCA_STORIES_MANAGE_ENABLED", True)):
         return False
     return _module_catalog_flag("flags.stories_manage_enabled", True)
+
+
+# ── SOUL-1 (W2) — оси речи/характера (единый Prompt Composer) ───────────────
+# Политика та же, что у KILL_SWITCHES: env-ось (emergency) AND каталоговый
+# тумблер (product, hot/per-chat), резолв per-call, никогда не бросает.
+# Env-половины читаются из `settings` (когда атрибут появится в
+# `config/settings.py`), иначе напрямую из окружения — так ось работает и до
+# регистрации ключей в каталоге (`flags.*` + module_registry — соседний слайс).
+
+def w2_env_axis(name: str, default: bool = False) -> bool:
+    """Env-половина оси W2 (settings → окружение → default). Не бросает."""
+    if not name:
+        return bool(default)
+    try:
+        value = getattr(settings, name, None)
+        if isinstance(value, bool):
+            return value
+    except Exception:          # pragma: no cover — защитная ветка
+        pass
+    try:
+        import os
+        raw = os.environ.get(name)
+    except Exception:          # pragma: no cover
+        return bool(default)
+    if raw is None:
+        return bool(default)
+    text = str(raw).strip().lower()
+    if text in ("1", "true", "yes", "y", "on"):
+        return True
+    if text in ("0", "false", "no", "n", "off", ""):
+        return False
+    return bool(default)
+
+
+def w2_gate_default(name: str) -> bool:
+    """Код-дефолт оси W2 из реестра (`W2_GATES`)."""
+    return bool(W2_GATES.get(str(name), (False, ""))[0])
+
+
+def _w2_axis(env_name: str, pg_key: str) -> bool:
+    """Effective = env-половина AND каталоговый тумблер (hot, per-call)."""
+    default = w2_gate_default(env_name)
+    if not w2_env_axis(env_name, default):
+        return False
+    return _module_catalog_flag(pg_key, default)
+
+
+def unified_composer_env_enabled() -> bool:
+    """Env-половина мастера композера (`UNIFIED_COMPOSER_ENABLED`, default OFF)."""
+    return w2_env_axis("UNIFIED_COMPOSER_ENABLED",
+                       w2_gate_default("UNIFIED_COMPOSER_ENABLED"))
+
+
+def unified_composer_enabled() -> bool:
+    """`UNIFIED_COMPOSER_ENABLED` (мастер; env AND `flags.unified_composer_enabled`).
+
+    ON → сборку system/user ведёт `services.prompt_composer.compose_prompt`
+    (Core/Identity/Style/Humor/Samples по уровням). OFF → точный паритет
+    текущей сборки (`compose_verbalizer_system` + существующие хвосты);
+    Core/Style/Examples/Humor не рендерятся. Default OFF: фича включается
+    владельцем после регистрации ключа в каталоге."""
+    return _w2_axis("UNIFIED_COMPOSER_ENABLED", "flags.unified_composer_enabled")
+
+
+def character_core_enabled() -> bool:
+    """`CHARACTER_CORE_ENABLED` (env AND `flags.character_core_enabled`).
+
+    ON → слой Core рендерится при наличии документа `character.core`.
+    OFF → Core не рендерится (`skip_reason=core_disabled`), остальное без
+    изменений (диагностическое выключение характера, SOUL-06.6/§6)."""
+    return _w2_axis("CHARACTER_CORE_ENABLED", "flags.character_core_enabled")
+
+
+def speech_style_policy_enabled() -> bool:
+    """`SPEECH_STYLE_POLICY_ENABLED` (env AND `flags.speech_style_policy_enabled`).
+
+    ON → короткий hint effective_style_policy и (W3) нормализация формы.
+    OFF → нет effective policy: ни hint, ни валидации; Core жив; причина
+    `style_policy_disabled` видна в манифесте. Не заменяет
+    `flags.postprocess_form_guard_enabled` (тот про form-гард вербализатора)."""
+    return _w2_axis("SPEECH_STYLE_POLICY_ENABLED",
+                    "flags.speech_style_policy_enabled")
+
+
+def humor_library_enabled() -> bool:
+    """`HUMOR_LIBRARY_ENABLED` (env AND `flags.humor_library_enabled`).
+
+    ON → отбор примеров Sample Library и слой few-shot. OFF → слоя нет
+    (`samples_disabled`), Humor Craft (статические приёмы) может работать.
+    Не дублирует `memory.experience_learning_enabled`."""
+    return _w2_axis("HUMOR_LIBRARY_ENABLED", "flags.humor_library_enabled")
+
+
+def humor_feedback_enabled() -> bool:
+    """`HUMOR_FEEDBACK_ENABLED` (env AND `flags.humor_feedback_enabled`).
+
+    ON → сбор feedback/обновлений выборки (внутри существующего
+    `mca_experience`, второго learning-контура нет). OFF → обратной связи
+    нет, **речь работает** (не гейтит ни один рендер-слой)."""
+    return _w2_axis("HUMOR_FEEDBACK_ENABLED", "flags.humor_feedback_enabled")
+
+
+def composer_additive_budget_tokens() -> int:
+    """Аддитивный бюджет новых слоёв композера (`COMPOSER_LAYER_BUDGET_TOKENS`).
+
+    Ограничивает добавку Core/Expression/Humor/Few-Shot/Style-Hint; вопрос,
+    инструкция и tool-evidence не вытесняются никогда. <=0 → без лимита."""
+    raw = None
+    try:
+        value = getattr(settings, "COMPOSER_LAYER_BUDGET_TOKENS", None)
+        if isinstance(value, int) and not isinstance(value, bool):
+            raw = value
+    except Exception:          # pragma: no cover
+        pass
+    if raw is None:
+        try:
+            import os
+            raw = os.environ.get("COMPOSER_LAYER_BUDGET_TOKENS")
+        except Exception:      # pragma: no cover
+            raw = None
+    try:
+        value = int(raw) if raw is not None else 1200
+    except Exception:
+        return 1200
+    return 0 if value <= 0 else value

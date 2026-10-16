@@ -1,0 +1,32 @@
+{
+ "meta": {
+  "source": "param_catalog.REGISTRY"
+ },
+ "total_items": 570,
+ "prompt_keys": [
+  "prompts.checkup_system_prompt",
+  "prompts.compress_system_prompt",
+  "prompts.direct_chat_synthesizer_system_prompt",
+  "prompts.direct_chat_system_prompt",
+  "prompts.direct_chat_verbalizer_system_prompt",
+  "prompts.direct_l1_planner_system_prompt",
+  "prompts.extract_system_prompt",
+  "prompts.factcheck_analyst_system_prompt",
+  "prompts.factcheck_system_prompt",
+  "prompts.factcheck_verbalizer_system_prompt",
+  "prompts.search_system_prompt",
+  "prompts.summary_cover_style",
+  "prompts.summary_editor_system_prompt",
+  "prompts.summary_l1_clusterizer_system_prompt",
+  "prompts.summary_l2_writer_system_prompt",
+  "prompts.summary_narrator_system_prompt",
+  "prompts.summary_system_prompt",
+  "prompts.verbilizer_default_mode",
+  "prompts.verbilizer_mode_casual",
+  "prompts.verbilizer_mode_deep_research",
+  "prompts.verbilizer_mode_serious",
+  "prompts.webpage_system_prompt",
+  "prompts.youtube_system_prompt",
+  "prompts.youtube_video_system_prompt"
+ ]
+}

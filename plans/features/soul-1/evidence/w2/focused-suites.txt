@@ -1,0 +1,43 @@
+﻿SOUL-1 / W2 — focused suites (touched seams): Direct L1/L2, style-blocks, persona/self-model, mca_gates registry
+revision: fix-pass review-w2 F1–F3 + Core budget (2026-10-16, working tree, no commit)
+commands (repo root, .venv\Scripts\python.exe -m pytest ... -q):
+  [A] tests/test_soul1_composer_layers.py tests/test_soul1_composer_parity_off.py
+      tests/test_soul1_core_version_propagation.py tests/test_soul1_legacy_custom_preserved.py
+      tests/test_soul1_flags_composition.py tests/test_soul1_machine_profile_no_core.py
+  [B] tests/test_direct_chat_prompts.py tests/test_verbilizer_response_modes_round1023.py
+      tests/test_asap7_direct_l1.py tests/test_direct_two_call_round1022.py
+      tests/test_asap8_v6_wc_direct_d03.py tests/test_asap8_v6_wc_direct_d04.py
+      tests/test_asap8_v6_wc_direct_matrix.py tests/test_persona_prompt.py tests/test_direct_chat.py
+      tests/test_asap7_module_registry.py tests/test_asap7_module_completeness.py
+      tests/test_asap8_v6_p1_d11_registry.py
+  [C] tests/test_mca08_character_speech.py tests/test_mca08_style_form.py
+      tests/test_mca18_contract_round1042.py tests/test_mca18_self_model_block_a_round1042.py
+      tests/test_mca18_paired_replay_round1042.py tests/test_asap8_f4_prompt_truth.py
+      tests/test_webapp_dm_ui.py
+candidate (working tree) sha256_12:
+  prompt_composer.py=426D93014FC9 direct_chat_service.py=D603E00DB241
+  mca_gates.py=2DA5986D8CCD prompt_style_blocks.py=A62AB337A2D6
+  tests: parity_off=33C0D128B3A4 layers=296BE6D5F300 legacy_custom=13801A5FCB88
+  evidence/w2/on-payload-single-copy.txt (sha256_16=D05D0CB5AE2A3CCC, детерминирован)
+[before fix-pass] [A] 52 / [B] 432 / [C] 200 (см. review-w2 §1)
+[after fix-pass, те же списки]
+[A]
+.......................................................                  [100%]
+55 passed in 3.38s
+[B]
+........................................................................ [ 16%]
+........................................................................ [ 33%]
+........................................................................ [ 50%]
+........................................................................ [ 66%]
+........................................................................ [ 83%]
+........................................................................ [100%]
+432 passed in 17.29s
+[C]
+........................................................................ [ 36%]
+........................................................................ [ 72%]
+........................................................                 [100%]
+200 passed, 1 warning in 10.74s
+;
+прирост [A] +3: tests/test_soul1_composer_layers.py::test_core_is_never_evicted_by_additive_budget,
+tests/test_soul1_composer_parity_off.py::test_stage2_modes_off_with_composer_on_single_scrub_pass,
+tests/test_soul1_composer_parity_off.py::test_l2_on_has_single_copy_of_speech_and_lessons_in_payload.

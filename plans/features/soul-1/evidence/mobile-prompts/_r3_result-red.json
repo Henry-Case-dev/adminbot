@@ -1,0 +1,886 @@
+{
+ "meta": {
+  "port": 8869,
+  "payload_items": 569,
+  "prompts_keys": [
+   "prompts.checkup_system_prompt",
+   "prompts.compress_system_prompt",
+   "prompts.direct_chat_synthesizer_system_prompt",
+   "prompts.direct_chat_system_prompt",
+   "prompts.direct_chat_verbalizer_system_prompt",
+   "prompts.extract_system_prompt",
+   "prompts.factcheck_analyst_system_prompt",
+   "prompts.factcheck_system_prompt",
+   "prompts.factcheck_verbalizer_system_prompt",
+   "prompts.search_system_prompt",
+   "prompts.summary_cover_style",
+   "prompts.summary_editor_system_prompt",
+   "prompts.summary_l1_clusterizer_system_prompt",
+   "prompts.summary_l2_writer_system_prompt",
+   "prompts.summary_narrator_system_prompt",
+   "prompts.summary_system_prompt",
+   "prompts.verbilizer_default_mode",
+   "prompts.verbilizer_mode_casual",
+   "prompts.verbilizer_mode_deep_research",
+   "prompts.verbilizer_mode_serious",
+   "prompts.webpage_system_prompt",
+   "prompts.youtube_system_prompt",
+   "prompts.youtube_video_system_prompt"
+  ],
+  "l1_present": false,
+  "red": true
+ },
+ "viewports": {
+  "320": {
+   "route": "#/ai/prompts",
+   "activeTab": "prompts",
+   "promptKeys": [
+    "prompts.checkup_system_prompt",
+    "prompts.compress_system_prompt",
+    "prompts.direct_chat_synthesizer_system_prompt",
+    "prompts.direct_chat_system_prompt",
+    "prompts.direct_chat_verbalizer_system_prompt",
+    "prompts.extract_system_prompt",
+    "prompts.factcheck_analyst_system_prompt",
+    "prompts.factcheck_system_prompt",
+    "prompts.factcheck_verbalizer_system_prompt",
+    "prompts.search_system_prompt",
+    "prompts.summary_cover_style",
+    "prompts.summary_editor_system_prompt",
+    "prompts.summary_l1_clusterizer_system_prompt",
+    "prompts.summary_l2_writer_system_prompt",
+    "prompts.summary_narrator_system_prompt",
+    "prompts.summary_system_prompt",
+    "prompts.verbilizer_default_mode",
+    "prompts.verbilizer_mode_casual",
+    "prompts.verbilizer_mode_deep_research",
+    "prompts.verbilizer_mode_serious",
+    "prompts.webpage_system_prompt",
+    "prompts.youtube_system_prompt",
+    "prompts.youtube_video_system_prompt"
+   ],
+   "classify": {
+    "prompts.checkup_system_prompt": "item_card",
+    "prompts.compress_system_prompt": "item_card",
+    "prompts.direct_chat_synthesizer_system_prompt": "item_card",
+    "prompts.direct_chat_system_prompt": "item_card",
+    "prompts.direct_chat_verbalizer_system_prompt": "item_card",
+    "prompts.extract_system_prompt": "item_card",
+    "prompts.factcheck_analyst_system_prompt": "item_card",
+    "prompts.factcheck_system_prompt": "item_card",
+    "prompts.factcheck_verbalizer_system_prompt": "item_card",
+    "prompts.search_system_prompt": "item_card",
+    "prompts.summary_cover_style": "item_card",
+    "prompts.summary_editor_system_prompt": "item_card",
+    "prompts.summary_l1_clusterizer_system_prompt": "item_card",
+    "prompts.summary_l2_writer_system_prompt": "item_card",
+    "prompts.summary_narrator_system_prompt": "item_card",
+    "prompts.summary_system_prompt": "item_card",
+    "prompts.verbilizer_default_mode": "fallback_select",
+    "prompts.verbilizer_mode_casual": "mode_tabs",
+    "prompts.verbilizer_mode_deep_research": "mode_tabs",
+    "prompts.verbilizer_mode_serious": "mode_tabs",
+    "prompts.webpage_system_prompt": "item_card",
+    "prompts.youtube_system_prompt": "item_card",
+    "prompts.youtube_video_system_prompt": "item_card"
+   },
+   "missing": [],
+   "canEdit": {
+    "prompts.checkup_system_prompt": true,
+    "prompts.compress_system_prompt": true,
+    "prompts.direct_chat_synthesizer_system_prompt": true,
+    "prompts.direct_chat_system_prompt": true,
+    "prompts.direct_chat_verbalizer_system_prompt": true,
+    "prompts.extract_system_prompt": true,
+    "prompts.factcheck_analyst_system_prompt": true,
+    "prompts.factcheck_system_prompt": true,
+    "prompts.factcheck_verbalizer_system_prompt": true,
+    "prompts.search_system_prompt": true,
+    "prompts.summary_cover_style": true,
+    "prompts.summary_editor_system_prompt": true,
+    "prompts.summary_l1_clusterizer_system_prompt": true,
+    "prompts.summary_l2_writer_system_prompt": true,
+    "prompts.summary_narrator_system_prompt": true,
+    "prompts.summary_system_prompt": true,
+    "prompts.verbilizer_default_mode": true,
+    "prompts.verbilizer_mode_casual": true,
+    "prompts.verbilizer_mode_deep_research": true,
+    "prompts.verbilizer_mode_serious": true,
+    "prompts.webpage_system_prompt": true,
+    "prompts.youtube_system_prompt": true,
+    "prompts.youtube_video_system_prompt": true
+   },
+   "modeBlocks": 6,
+   "modeBlocksVisible": 6,
+   "modeTextareas": 18,
+   "fallbackVisible": true,
+   "fallbackHasSelect": true,
+   "groupIds": [
+    "prompts_factcheck",
+    "prompts_search",
+    "prompts_checkup",
+    "prompts_direct_chat",
+    "prompts_summary",
+    "prompts_youtube",
+    "prompts_web",
+    "prompts_memory",
+    "prompts_verbilizer",
+    "limits_anticliche"
+   ],
+   "groups": [
+    {
+     "id": "prompts_factcheck",
+     "title": "Фактчек",
+     "titleInDom": true
+    },
+    {
+     "id": "prompts_search",
+     "title": "Поиск",
+     "titleInDom": true
+    },
+    {
+     "id": "prompts_checkup",
+     "title": "Чек-ап",
+     "titleInDom": true
+    },
+    {
+     "id": "prompts_direct_chat",
+     "title": "Прямой чат",
+     "titleInDom": true
+    },
+    {
+     "id": "prompts_summary",
+     "title": "Саммари",
+     "titleInDom": true
+    },
+    {
+     "id": "prompts_youtube",
+     "title": "YouTube",
+     "titleInDom": true
+    },
+    {
+     "id": "prompts_web",
+     "title": "Веб-страницы",
+     "titleInDom": true
+    },
+    {
+     "id": "prompts_memory",
+     "title": "Память и граф знаний",
+     "titleInDom": true
+    },
+    {
+     "id": "prompts_verbilizer",
+     "title": "Вербализатор: режимы",
+     "titleInDom": false
+    },
+    {
+     "id": "limits_anticliche",
+     "title": "Анти-клише: лимиты",
+     "titleInDom": false
+    }
+   ],
+   "itemCount": 24,
+   "libraryEntries": [
+    {
+     "slug": "summary",
+     "count": 6,
+     "stages": [
+      "synthesizer",
+      "verbalizer"
+     ]
+    },
+    {
+     "slug": "direct",
+     "count": 3,
+     "stages": [
+      "synthesizer",
+      "verbalizer"
+     ]
+    },
+    {
+     "slug": "factcheck",
+     "count": 3,
+     "stages": [
+      "synthesizer",
+      "verbalizer"
+     ]
+    },
+    {
+     "slug": "search",
+     "count": 1,
+     "stages": [
+      "verbalizer"
+     ]
+    },
+    {
+     "slug": "video_summary",
+     "count": 2,
+     "stages": [
+      "verbalizer"
+     ]
+    },
+    {
+     "slug": "web",
+     "count": 1,
+     "stages": [
+      "verbalizer"
+     ]
+    },
+    {
+     "slug": "checkup",
+     "count": 1,
+     "stages": []
+    },
+    {
+     "slug": "sleep",
+     "count": 2,
+     "stages": []
+    }
+   ],
+   "scrollWidth": 320,
+   "innerWidth": 320,
+   "overflowX": false,
+   "page_errors": []
+  },
+  "390": {
+   "route": "#/ai/prompts",
+   "activeTab": "prompts",
+   "promptKeys": [
+    "prompts.checkup_system_prompt",
+    "prompts.compress_system_prompt",
+    "prompts.direct_chat_synthesizer_system_prompt",
+    "prompts.direct_chat_system_prompt",
+    "prompts.direct_chat_verbalizer_system_prompt",
+    "prompts.extract_system_prompt",
+    "prompts.factcheck_analyst_system_prompt",
+    "prompts.factcheck_system_prompt",
+    "prompts.factcheck_verbalizer_system_prompt",
+    "prompts.search_system_prompt",
+    "prompts.summary_cover_style",
+    "prompts.summary_editor_system_prompt",
+    "prompts.summary_l1_clusterizer_system_prompt",
+    "prompts.summary_l2_writer_system_prompt",
+    "prompts.summary_narrator_system_prompt",
+    "prompts.summary_system_prompt",
+    "prompts.verbilizer_default_mode",
+    "prompts.verbilizer_mode_casual",
+    "prompts.verbilizer_mode_deep_research",
+    "prompts.verbilizer_mode_serious",
+    "prompts.webpage_system_prompt",
+    "prompts.youtube_system_prompt",
+    "prompts.youtube_video_system_prompt"
+   ],
+   "classify": {
+    "prompts.checkup_system_prompt": "item_card",
+    "prompts.compress_system_prompt": "item_card",
+    "prompts.direct_chat_synthesizer_system_prompt": "item_card",
+    "prompts.direct_chat_system_prompt": "item_card",
+    "prompts.direct_chat_verbalizer_system_prompt": "item_card",
+    "prompts.extract_system_prompt": "item_card",
+    "prompts.factcheck_analyst_system_prompt": "item_card",
+    "prompts.factcheck_system_prompt": "item_card",
+    "prompts.factcheck_verbalizer_system_prompt": "item_card",
+    "prompts.search_system_prompt": "item_card",
+    "prompts.summary_cover_style": "item_card",
+    "prompts.summary_editor_system_prompt": "item_card",
+    "prompts.summary_l1_clusterizer_system_prompt": "item_card",
+    "prompts.summary_l2_writer_system_prompt": "item_card",
+    "prompts.summary_narrator_system_prompt": "item_card",
+    "prompts.summary_system_prompt": "item_card",
+    "prompts.verbilizer_default_mode": "fallback_select",
+    "prompts.verbilizer_mode_casual": "mode_tabs",
+    "prompts.verbilizer_mode_deep_research": "mode_tabs",
+    "prompts.verbilizer_mode_serious": "mode_tabs",
+    "prompts.webpage_system_prompt": "item_card",
+    "prompts.youtube_system_prompt": "item_card",
+    "prompts.youtube_video_system_prompt": "item_card"
+   },
+   "missing": [],
+   "canEdit": {
+    "prompts.checkup_system_prompt": true,
+    "prompts.compress_system_prompt": true,
+    "prompts.direct_chat_synthesizer_system_prompt": true,
+    "prompts.direct_chat_system_prompt": true,
+    "prompts.direct_chat_verbalizer_system_prompt": true,
+    "prompts.extract_system_prompt": true,
+    "prompts.factcheck_analyst_system_prompt": true,
+    "prompts.factcheck_system_prompt": true,
+    "prompts.factcheck_verbalizer_system_prompt": true,
+    "prompts.search_system_prompt": true,
+    "prompts.summary_cover_style": true,
+    "prompts.summary_editor_system_prompt": true,
+    "prompts.summary_l1_clusterizer_system_prompt": true,
+    "prompts.summary_l2_writer_system_prompt": true,
+    "prompts.summary_narrator_system_prompt": true,
+    "prompts.summary_system_prompt": true,
+    "prompts.verbilizer_default_mode": true,
+    "prompts.verbilizer_mode_casual": true,
+    "prompts.verbilizer_mode_deep_research": true,
+    "prompts.verbilizer_mode_serious": true,
+    "prompts.webpage_system_prompt": true,
+    "prompts.youtube_system_prompt": true,
+    "prompts.youtube_video_system_prompt": true
+   },
+   "modeBlocks": 6,
+   "modeBlocksVisible": 6,
+   "modeTextareas": 18,
+   "fallbackVisible": true,
+   "fallbackHasSelect": true,
+   "groupIds": [
+    "prompts_factcheck",
+    "prompts_search",
+    "prompts_checkup",
+    "prompts_direct_chat",
+    "prompts_summary",
+    "prompts_youtube",
+    "prompts_web",
+    "prompts_memory",
+    "prompts_verbilizer",
+    "limits_anticliche"
+   ],
+   "groups": [
+    {
+     "id": "prompts_factcheck",
+     "title": "Фактчек",
+     "titleInDom": true
+    },
+    {
+     "id": "prompts_search",
+     "title": "Поиск",
+     "titleInDom": true
+    },
+    {
+     "id": "prompts_checkup",
+     "title": "Чек-ап",
+     "titleInDom": true
+    },
+    {
+     "id": "prompts_direct_chat",
+     "title": "Прямой чат",
+     "titleInDom": true
+    },
+    {
+     "id": "prompts_summary",
+     "title": "Саммари",
+     "titleInDom": true
+    },
+    {
+     "id": "prompts_youtube",
+     "title": "YouTube",
+     "titleInDom": true
+    },
+    {
+     "id": "prompts_web",
+     "title": "Веб-страницы",
+     "titleInDom": true
+    },
+    {
+     "id": "prompts_memory",
+     "title": "Память и граф знаний",
+     "titleInDom": true
+    },
+    {
+     "id": "prompts_verbilizer",
+     "title": "Вербализатор: режимы",
+     "titleInDom": false
+    },
+    {
+     "id": "limits_anticliche",
+     "title": "Анти-клише: лимиты",
+     "titleInDom": false
+    }
+   ],
+   "itemCount": 24,
+   "libraryEntries": [
+    {
+     "slug": "summary",
+     "count": 6,
+     "stages": [
+      "synthesizer",
+      "verbalizer"
+     ]
+    },
+    {
+     "slug": "direct",
+     "count": 3,
+     "stages": [
+      "synthesizer",
+      "verbalizer"
+     ]
+    },
+    {
+     "slug": "factcheck",
+     "count": 3,
+     "stages": [
+      "synthesizer",
+      "verbalizer"
+     ]
+    },
+    {
+     "slug": "search",
+     "count": 1,
+     "stages": [
+      "verbalizer"
+     ]
+    },
+    {
+     "slug": "video_summary",
+     "count": 2,
+     "stages": [
+      "verbalizer"
+     ]
+    },
+    {
+     "slug": "web",
+     "count": 1,
+     "stages": [
+      "verbalizer"
+     ]
+    },
+    {
+     "slug": "checkup",
+     "count": 1,
+     "stages": []
+    },
+    {
+     "slug": "sleep",
+     "count": 2,
+     "stages": []
+    }
+   ],
+   "scrollWidth": 390,
+   "innerWidth": 390,
+   "overflowX": false,
+   "page_errors": []
+  },
+  "430": {
+   "route": "#/ai/prompts",
+   "activeTab": "prompts",
+   "promptKeys": [
+    "prompts.checkup_system_prompt",
+    "prompts.compress_system_prompt",
+    "prompts.direct_chat_synthesizer_system_prompt",
+    "prompts.direct_chat_system_prompt",
+    "prompts.direct_chat_verbalizer_system_prompt",
+    "prompts.extract_system_prompt",
+    "prompts.factcheck_analyst_system_prompt",
+    "prompts.factcheck_system_prompt",
+    "prompts.factcheck_verbalizer_system_prompt",
+    "prompts.search_system_prompt",
+    "prompts.summary_cover_style",
+    "prompts.summary_editor_system_prompt",
+    "prompts.summary_l1_clusterizer_system_prompt",
+    "prompts.summary_l2_writer_system_prompt",
+    "prompts.summary_narrator_system_prompt",
+    "prompts.summary_system_prompt",
+    "prompts.verbilizer_default_mode",
+    "prompts.verbilizer_mode_casual",
+    "prompts.verbilizer_mode_deep_research",
+    "prompts.verbilizer_mode_serious",
+    "prompts.webpage_system_prompt",
+    "prompts.youtube_system_prompt",
+    "prompts.youtube_video_system_prompt"
+   ],
+   "classify": {
+    "prompts.checkup_system_prompt": "item_card",
+    "prompts.compress_system_prompt": "item_card",
+    "prompts.direct_chat_synthesizer_system_prompt": "item_card",
+    "prompts.direct_chat_system_prompt": "item_card",
+    "prompts.direct_chat_verbalizer_system_prompt": "item_card",
+    "prompts.extract_system_prompt": "item_card",
+    "prompts.factcheck_analyst_system_prompt": "item_card",
+    "prompts.factcheck_system_prompt": "item_card",
+    "prompts.factcheck_verbalizer_system_prompt": "item_card",
+    "prompts.search_system_prompt": "item_card",
+    "prompts.summary_cover_style": "item_card",
+    "prompts.summary_editor_system_prompt": "item_card",
+    "prompts.summary_l1_clusterizer_system_prompt": "item_card",
+    "prompts.summary_l2_writer_system_prompt": "item_card",
+    "prompts.summary_narrator_system_prompt": "item_card",
+    "prompts.summary_system_prompt": "item_card",
+    "prompts.verbilizer_default_mode": "fallback_select",
+    "prompts.verbilizer_mode_casual": "mode_tabs",
+    "prompts.verbilizer_mode_deep_research": "mode_tabs",
+    "prompts.verbilizer_mode_serious": "mode_tabs",
+    "prompts.webpage_system_prompt": "item_card",
+    "prompts.youtube_system_prompt": "item_card",
+    "prompts.youtube_video_system_prompt": "item_card"
+   },
+   "missing": [],
+   "canEdit": {
+    "prompts.checkup_system_prompt": true,
+    "prompts.compress_system_prompt": true,
+    "prompts.direct_chat_synthesizer_system_prompt": true,
+    "prompts.direct_chat_system_prompt": true,
+    "prompts.direct_chat_verbalizer_system_prompt": true,
+    "prompts.extract_system_prompt": true,
+    "prompts.factcheck_analyst_system_prompt": true,
+    "prompts.factcheck_system_prompt": true,
+    "prompts.factcheck_verbalizer_system_prompt": true,
+    "prompts.search_system_prompt": true,
+    "prompts.summary_cover_style": true,
+    "prompts.summary_editor_system_prompt": true,
+    "prompts.summary_l1_clusterizer_system_prompt": true,
+    "prompts.summary_l2_writer_system_prompt": true,
+    "prompts.summary_narrator_system_prompt": true,
+    "prompts.summary_system_prompt": true,
+    "prompts.verbilizer_default_mode": true,
+    "prompts.verbilizer_mode_casual": true,
+    "prompts.verbilizer_mode_deep_research": true,
+    "prompts.verbilizer_mode_serious": true,
+    "prompts.webpage_system_prompt": true,
+    "prompts.youtube_system_prompt": true,
+    "prompts.youtube_video_system_prompt": true
+   },
+   "modeBlocks": 6,
+   "modeBlocksVisible": 6,
+   "modeTextareas": 18,
+   "fallbackVisible": true,
+   "fallbackHasSelect": true,
+   "groupIds": [
+    "prompts_factcheck",
+    "prompts_search",
+    "prompts_checkup",
+    "prompts_direct_chat",
+    "prompts_summary",
+    "prompts_youtube",
+    "prompts_web",
+    "prompts_memory",
+    "prompts_verbilizer",
+    "limits_anticliche"
+   ],
+   "groups": [
+    {
+     "id": "prompts_factcheck",
+     "title": "Фактчек",
+     "titleInDom": true
+    },
+    {
+     "id": "prompts_search",
+     "title": "Поиск",
+     "titleInDom": true
+    },
+    {
+     "id": "prompts_checkup",
+     "title": "Чек-ап",
+     "titleInDom": true
+    },
+    {
+     "id": "prompts_direct_chat",
+     "title": "Прямой чат",
+     "titleInDom": true
+    },
+    {
+     "id": "prompts_summary",
+     "title": "Саммари",
+     "titleInDom": true
+    },
+    {
+     "id": "prompts_youtube",
+     "title": "YouTube",
+     "titleInDom": true
+    },
+    {
+     "id": "prompts_web",
+     "title": "Веб-страницы",
+     "titleInDom": true
+    },
+    {
+     "id": "prompts_memory",
+     "title": "Память и граф знаний",
+     "titleInDom": true
+    },
+    {
+     "id": "prompts_verbilizer",
+     "title": "Вербализатор: режимы",
+     "titleInDom": false
+    },
+    {
+     "id": "limits_anticliche",
+     "title": "Анти-клише: лимиты",
+     "titleInDom": false
+    }
+   ],
+   "itemCount": 24,
+   "libraryEntries": [
+    {
+     "slug": "summary",
+     "count": 6,
+     "stages": [
+      "synthesizer",
+      "verbalizer"
+     ]
+    },
+    {
+     "slug": "direct",
+     "count": 3,
+     "stages": [
+      "synthesizer",
+      "verbalizer"
+     ]
+    },
+    {
+     "slug": "factcheck",
+     "count": 3,
+     "stages": [
+      "synthesizer",
+      "verbalizer"
+     ]
+    },
+    {
+     "slug": "search",
+     "count": 1,
+     "stages": [
+      "verbalizer"
+     ]
+    },
+    {
+     "slug": "video_summary",
+     "count": 2,
+     "stages": [
+      "verbalizer"
+     ]
+    },
+    {
+     "slug": "web",
+     "count": 1,
+     "stages": [
+      "verbalizer"
+     ]
+    },
+    {
+     "slug": "checkup",
+     "count": 1,
+     "stages": []
+    },
+    {
+     "slug": "sleep",
+     "count": 2,
+     "stages": []
+    }
+   ],
+   "scrollWidth": 430,
+   "innerWidth": 430,
+   "overflowX": false,
+   "page_errors": []
+  },
+  "1024": {
+   "route": "#/ai/prompts",
+   "activeTab": "prompts",
+   "promptKeys": [
+    "prompts.checkup_system_prompt",
+    "prompts.compress_system_prompt",
+    "prompts.direct_chat_synthesizer_system_prompt",
+    "prompts.direct_chat_system_prompt",
+    "prompts.direct_chat_verbalizer_system_prompt",
+    "prompts.extract_system_prompt",
+    "prompts.factcheck_analyst_system_prompt",
+    "prompts.factcheck_system_prompt",
+    "prompts.factcheck_verbalizer_system_prompt",
+    "prompts.search_system_prompt",
+    "prompts.summary_cover_style",
+    "prompts.summary_editor_system_prompt",
+    "prompts.summary_l1_clusterizer_system_prompt",
+    "prompts.summary_l2_writer_system_prompt",
+    "prompts.summary_narrator_system_prompt",
+    "prompts.summary_system_prompt",
+    "prompts.verbilizer_default_mode",
+    "prompts.verbilizer_mode_casual",
+    "prompts.verbilizer_mode_deep_research",
+    "prompts.verbilizer_mode_serious",
+    "prompts.webpage_system_prompt",
+    "prompts.youtube_system_prompt",
+    "prompts.youtube_video_system_prompt"
+   ],
+   "classify": {
+    "prompts.checkup_system_prompt": "item_card",
+    "prompts.compress_system_prompt": "item_card",
+    "prompts.direct_chat_synthesizer_system_prompt": "item_card",
+    "prompts.direct_chat_system_prompt": "item_card",
+    "prompts.direct_chat_verbalizer_system_prompt": "item_card",
+    "prompts.extract_system_prompt": "item_card",
+    "prompts.factcheck_analyst_system_prompt": "item_card",
+    "prompts.factcheck_system_prompt": "item_card",
+    "prompts.factcheck_verbalizer_system_prompt": "item_card",
+    "prompts.search_system_prompt": "item_card",
+    "prompts.summary_cover_style": "item_card",
+    "prompts.summary_editor_system_prompt": "item_card",
+    "prompts.summary_l1_clusterizer_system_prompt": "item_card",
+    "prompts.summary_l2_writer_system_prompt": "item_card",
+    "prompts.summary_narrator_system_prompt": "item_card",
+    "prompts.summary_system_prompt": "item_card",
+    "prompts.verbilizer_default_mode": "fallback_select",
+    "prompts.verbilizer_mode_casual": "mode_tabs",
+    "prompts.verbilizer_mode_deep_research": "mode_tabs",
+    "prompts.verbilizer_mode_serious": "mode_tabs",
+    "prompts.webpage_system_prompt": "item_card",
+    "prompts.youtube_system_prompt": "item_card",
+    "prompts.youtube_video_system_prompt": "item_card"
+   },
+   "missing": [],
+   "canEdit": {
+    "prompts.checkup_system_prompt": true,
+    "prompts.compress_system_prompt": true,
+    "prompts.direct_chat_synthesizer_system_prompt": true,
+    "prompts.direct_chat_system_prompt": true,
+    "prompts.direct_chat_verbalizer_system_prompt": true,
+    "prompts.extract_system_prompt": true,
+    "prompts.factcheck_analyst_system_prompt": true,
+    "prompts.factcheck_system_prompt": true,
+    "prompts.factcheck_verbalizer_system_prompt": true,
+    "prompts.search_system_prompt": true,
+    "prompts.summary_cover_style": true,
+    "prompts.summary_editor_system_prompt": true,
+    "prompts.summary_l1_clusterizer_system_prompt": true,
+    "prompts.summary_l2_writer_system_prompt": true,
+    "prompts.summary_narrator_system_prompt": true,
+    "prompts.summary_system_prompt": true,
+    "prompts.verbilizer_default_mode": true,
+    "prompts.verbilizer_mode_casual": true,
+    "prompts.verbilizer_mode_deep_research": true,
+    "prompts.verbilizer_mode_serious": true,
+    "prompts.webpage_system_prompt": true,
+    "prompts.youtube_system_prompt": true,
+    "prompts.youtube_video_system_prompt": true
+   },
+   "modeBlocks": 6,
+   "modeBlocksVisible": 6,
+   "modeTextareas": 18,
+   "fallbackVisible": true,
+   "fallbackHasSelect": true,
+   "groupIds": [
+    "prompts_factcheck",
+    "prompts_search",
+    "prompts_checkup",
+    "prompts_direct_chat",
+    "prompts_summary",
+    "prompts_youtube",
+    "prompts_web",
+    "prompts_memory",
+    "prompts_verbilizer",
+    "limits_anticliche"
+   ],
+   "groups": [
+    {
+     "id": "prompts_factcheck",
+     "title": "Фактчек",
+     "titleInDom": true
+    },
+    {
+     "id": "prompts_search",
+     "title": "Поиск",
+     "titleInDom": true
+    },
+    {
+     "id": "prompts_checkup",
+     "title": "Чек-ап",
+     "titleInDom": true
+    },
+    {
+     "id": "prompts_direct_chat",
+     "title": "Прямой чат",
+     "titleInDom": true
+    },
+    {
+     "id": "prompts_summary",
+     "title": "Саммари",
+     "titleInDom": true
+    },
+    {
+     "id": "prompts_youtube",
+     "title": "YouTube",
+     "titleInDom": true
+    },
+    {
+     "id": "prompts_web",
+     "title": "Веб-страницы",
+     "titleInDom": true
+    },
+    {
+     "id": "prompts_memory",
+     "title": "Память и граф знаний",
+     "titleInDom": true
+    },
+    {
+     "id": "prompts_verbilizer",
+     "title": "Вербализатор: режимы",
+     "titleInDom": false
+    },
+    {
+     "id": "limits_anticliche",
+     "title": "Анти-клише: лимиты",
+     "titleInDom": false
+    }
+   ],
+   "itemCount": 24,
+   "libraryEntries": [
+    {
+     "slug": "summary",
+     "count": 6,
+     "stages": [
+      "synthesizer",
+      "verbalizer"
+     ]
+    },
+    {
+     "slug": "direct",
+     "count": 3,
+     "stages": [
+      "synthesizer",
+      "verbalizer"
+     ]
+    },
+    {
+     "slug": "factcheck",
+     "count": 3,
+     "stages": [
+      "synthesizer",
+      "verbalizer"
+     ]
+    },
+    {
+     "slug": "search",
+     "count": 1,
+     "stages": [
+      "verbalizer"
+     ]
+    },
+    {
+     "slug": "video_summary",
+     "count": 2,
+     "stages": [
+      "verbalizer"
+     ]
+    },
+    {
+     "slug": "web",
+     "count": 1,
+     "stages": [
+      "verbalizer"
+     ]
+    },
+    {
+     "slug": "checkup",
+     "count": 1,
+     "stages": []
+    },
+    {
+     "slug": "sleep",
+     "count": 2,
+     "stages": []
+    }
+   ],
+   "scrollWidth": 1024,
+   "innerWidth": 1024,
+   "overflowX": false,
+   "page_errors": []
+  }
+ },
+ "empty_states": {},
+ "failures": [
+  "320: RED подтверждён — prompts.direct_l1_planner_system_prompt отсутствует в /api/config",
+  "390: RED подтверждён — prompts.direct_l1_planner_system_prompt отсутствует в /api/config",
+  "430: RED подтверждён — prompts.direct_l1_planner_system_prompt отсутствует в /api/config",
+  "1024: RED подтверждён — prompts.direct_l1_planner_system_prompt отсутствует в /api/config"
+ ]
+}

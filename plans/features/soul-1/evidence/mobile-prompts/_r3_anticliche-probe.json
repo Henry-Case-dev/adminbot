@@ -1,0 +1,10 @@
+{
+ "groupInTab": true,
+ "monitorVisible": true,
+ "anticlicheKeys": [
+  "limits.anticliche_max_patterns"
+ ],
+ "canEdit": true,
+ "inputValue": "1",
+ "inputDisabled": false
+}
