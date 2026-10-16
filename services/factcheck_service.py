@@ -178,8 +178,10 @@ class FactCheckService:
         # T-619: лимит и промпт — горячие точки (ConfigCache с settings-фолбеком)
         max_symbols = hot.get("limits.factcheck_max_symbols",
                               settings.FACTCHECK_MAX_SYMBOLS)
-        system_prompt = hot.get("prompts.factcheck_system_prompt",
-                                FACTCHECK_SYSTEM_PROMPT)
+        # SOUL-1 (W1 fix-pass, BLOCKER-2): единый резолвер реестра —
+        # persisted-значение канона проходит провенанс/вычистку legacy-речи.
+        system_prompt = resolve_prompt("prompts.factcheck_system_prompt",
+                                       FACTCHECK_SYSTEM_PROMPT)
         results = await self.aggregator.search(target_text, max_symbols)
         if self.memory is not None and chat_id is not None:
             fire_and_forget(

@@ -157,6 +157,12 @@ def _parse_screen_keys() -> set[str]:
 # ── Δ каталога = 0 / Δ DDL = 0 / роуты / версия ─────────────────────────────
 
 class TestFrozenInvariants:
+    # SOUL-1 W1 re-pin (L-F11S-1, 16.10.2026): каталог получил ТОЛЬКО
+    # read-only экспозицию реестра речевых инструкций
+    # (`speech_registry_view`/`unmanaged_speech_blocks`, реестр
+    # `services/prompt_registry.py`). Δ каталога = 0 (новых ParamSpec/GROUPS
+    # нет), `tools/gen_param_registry_round1025.py --check` → OK
+    # (572/120/118/23, дельта 161 без изменений).
     def test_param_catalog_unchanged(self):
         assert _sha256(ROOT / "services/param_catalog.py") == \
             FIXTURE["sha256"]["services/param_catalog.py"]

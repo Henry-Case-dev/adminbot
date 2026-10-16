@@ -625,9 +625,18 @@ class TestMca23Migration:
 
     @pytest.mark.asyncio
     async def test_resolve_after_migration_gives_new_canon(self, monkeypatch):
-        """resolve после миграции: hot-слой отдаёт новый канон (обе ступени)."""
+        """resolve после миграции: hot-слой отдаёт новый канон (обе ступени).
+
+        SOUL-1 (W1, §1.2/§7.2): effective-значение проходит реестр речевых
+        инструкций — известные сегменты legacy-личности вычищаются на сборке.
+        Проверяется ЛЕСТНИЦА (новый канон, не PREV), а не байты канона.
+        """
         from services import hot_config as hot
+        from services import prompt_registry as pr
         from services.prompt_style_blocks import resolve_prompt
+        effective_canon, _info = pr.suppress_legacy_speech(
+            DIRECT_VERBALIZER_SYSTEM_PROMPT, source="global")
+        assert effective_canon != DIRECT_VERBALIZER_SYSTEM_PROMPT
         for prev in (PREV_CHAT_VERBALIZER_R1023, PREV_CHAT_VERBALIZER_MCA23):
             cache = FakeCache(values={
                 "prompts.direct_chat_verbalizer_system_prompt": prev})
@@ -637,9 +646,12 @@ class TestMca23Migration:
                 cache.values[_key] = _value
             hot.set_config_cache(cache)
             try:
-                assert resolve_prompt(
+                resolved = resolve_prompt(
                     "prompts.direct_chat_verbalizer_system_prompt",
-                    "CODE_DEFAULT") == DIRECT_VERBALIZER_SYSTEM_PROMPT
+                    "CODE_DEFAULT")
+                assert resolved == effective_canon
+                assert resolved != prev
+                assert "бот-абьюзер" not in resolved
             finally:
                 hot.set_config_cache(None)
 

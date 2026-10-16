@@ -1596,7 +1596,9 @@ class SummaryGenerator:
         # NOTE: {username} must stay literal in the prompt (R11), so we
         # substitute only {max_symbols} via replace, not str.format.
         # T-619: промпт саммари — горячая точка (фолбек код-канона).
-        summary_prompt = hot.get("prompts.summary_system_prompt", SYSTEM_PROMPT)
+        # SOUL-1 (W1 fix-pass, BLOCKER-2): единый резолвер реестра.
+        summary_prompt = resolve_prompt("prompts.summary_system_prompt",
+                                        SYSTEM_PROMPT)
         system = summary_prompt.replace("{max_symbols}", str(max_symbols))
         payload = [
             {"role": "system", "content": system},
@@ -1749,8 +1751,8 @@ class SummaryGenerator:
         covered: set = set()
         source_total = len(rows)
         max_symbols = max_parts * 4000 - 200
-        summary_prompt = hot.get("prompts.summary_system_prompt",
-                                 SYSTEM_PROMPT)
+        summary_prompt = resolve_prompt("prompts.summary_system_prompt",
+                                        SYSTEM_PROMPT)
         system = summary_prompt.replace("{max_symbols}", str(max_symbols))
         for seg_index, segment in enumerate(partitions, start=1):
             seg_items = _sl1.build_l1_payload(segment, chat_id)

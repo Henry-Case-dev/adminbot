@@ -2357,10 +2357,17 @@ class DirectChatService:
             # канон) — «Использовать мой» локального админа работает ТОЛЬКО
             # в его чате; fail-open: PG down → глобальный.
             from services.chat_params import get_chat_param as _cpg
-            system_prompt = await _cpg(
-                chat_id, "prompts.direct_chat_system_prompt",
-                hot.get("prompts.direct_chat_system_prompt",
-                        CHAT_SYSTEM_PROMPT))
+            # SOUL-1 (W1, §1.2/§7.2): единый резолвер реестра — известные
+            # сегменты legacy-личности («токсичный … бот-абьюзер») из
+            # ПЕРСИСТЕНТНОГО значения не доходят до effective-слоя; кастом
+            # владельца и кодовый fallback (PG down) не изменяются.
+            from services import prompt_registry as _prompt_registry
+            system_prompt, _base_source = await _prompt_registry.resolve_chat_speech(
+                "prompts.direct_chat_system_prompt", CHAT_SYSTEM_PROMPT,
+                chat_id=chat_id)
+            logger.debug("[direct] base channel resolved | chat=%s | "
+                         "source=%s | chars=%d", chat_id, _base_source,
+                         len(system_prompt or ""))
             # ── SOUL-1 (W2, §4 п.1): единственный владелец сборки речи.
             # Флаг OFF (дефолт) → существующий путь ниже байт-в-байт; ON →
             # system собирает `prompt_composer.compose_prompt` из тех же
@@ -4589,11 +4596,13 @@ class DirectChatService:
         external = 0
         try:
             from services.chat_params import get_chat_param as _cpg
+            from services import prompt_registry as _pr
             try:
-                system_prompt = await _cpg(
-                    chat_id, "prompts.direct_chat_system_prompt",
-                    hot.get("prompts.direct_chat_system_prompt",
-                            CHAT_SYSTEM_PROMPT))
+                # SOUL-1 (W1 fix-pass, BLOCKER-2): тот же резолвер, что и на
+                # реальном пути, — оценка payload не расходится с payload.
+                system_prompt, _src = await _pr.resolve_chat_speech(
+                    "prompts.direct_chat_system_prompt", CHAT_SYSTEM_PROMPT,
+                    chat_id=int(chat_id))
                 external += count_tokens(system_prompt)
             except Exception:
                 logger.debug("[mca07] payload est: system prompt failed",

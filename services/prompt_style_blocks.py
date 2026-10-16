@@ -189,12 +189,32 @@ def resolve_prompt(pg_key: str, code_default: str) -> str:
     Правка промпта в UI применяется без рестарта (hot-get); **пустое/
     whitespace** значение или отсутствие ключа → прежняя код-константа
     (инвариант spec §4.1/ADR D4: пустота не должна «обнулять» system-промпт).
+
+    SOUL-1 (W1, §1.2/§7.2): ПЕРСИСТЕНТНОЕ значение проходит через единый
+    реестр речевых инструкций — известные сегменты legacy-личности
+    («токсичный … бот-абьюзер») вычищаются детерминированно на сборке
+    (``prompt_registry.suppress_legacy_speech``), а незаписанное через API
+    реестра значение канона старой личности удерживается (действует
+    заводская редакция, fix-pass review-w1 BLOCKER-1). Кодовый fallback
+    (PG down) не изменяется.
     """
     from services import hot_config as hot
     value = hot.get(pg_key, code_default)
     if isinstance(value, str) and value.strip():
-        return value
+        return _effective_speech(pg_key, value)
     return code_default
+
+
+def _effective_speech(pg_key: str, value: str) -> str:
+    """Единый проход persisted-значения через реестр (fail-open)."""
+    try:
+        from services import prompt_registry as pr
+        text, _source = pr.resolve_hot_prompt(pg_key, value)
+        return text
+    except Exception:          # pragma: no cover — реестр не роняет резолв
+        logger.warning("[prompt_style_blocks] реестр недоступен | key=%s",
+                       pg_key, exc_info=True)
+        return value
 
 
 def resolve_prompt_with_source(pg_key: str, code_default: str) -> tuple:
@@ -203,11 +223,22 @@ def resolve_prompt_with_source(pg_key: str, code_default: str) -> tuple:
     source ∈ ``{"global", "default"}``: непустое PG-значение → ``global``
     (hot-слой bot_settings; per-chat-слот для stage-ключей не читается —
     аудит T-3965/prompt-map-audit.md), иначе ``default`` (код-канон).
+    SOUL-1 (W1): ``global`` отдаётся только при РЕАЛЬНОМ наличии ключа в
+    персистентном слое (иначе это кодовый фолбек), само значение проходит
+    общий реестр — см. ``resolve_prompt``; удержанное (без провенанса)
+    значение канона старой личности отдаёт ``default``, потому что действует
+    заводская редакция.
     """
     from services import hot_config as hot
     value = hot.get(pg_key, code_default)
     if isinstance(value, str) and value.strip():
-        return value, "global"
+        try:
+            from services import prompt_registry as pr
+            return pr.resolve_hot_prompt(pg_key, value)
+        except Exception:      # pragma: no cover — реестр не роняет резолв
+            logger.warning("[prompt_style_blocks] реестр недоступен | key=%s",
+                           pg_key, exc_info=True)
+            return value, "global"
     return code_default, "default"
 
 

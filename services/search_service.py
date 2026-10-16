@@ -18,6 +18,7 @@ from services import hot_config as hot
 from services.llm_client import LLMBadResponseError, LLMClient
 from services.search_aggregator import SearchAggregator
 from services.search_prompts import SEARCH_SYSTEM_PROMPT
+from services.prompt_style_blocks import resolve_prompt
 from services import mca_retrieval_context as _mca_rc
 from services.summary_cleanup import cleanup_llm_text
 from services.summary_memory import MemoryManager, fire_and_forget
@@ -67,8 +68,10 @@ class SearchService:
         # T-619: лимит/флаг реранка/промпт — горячие точки (фолбек settings)
         max_symbols = hot.get("limits.search_max_symbols",
                               settings.SEARCH_MAX_SYMBOLS)
-        system_prompt = hot.get("prompts.search_system_prompt",
-                                SEARCH_SYSTEM_PROMPT)
+        # SOUL-1 (W1 fix-pass, BLOCKER-2): persisted-значение канона — через
+        # единый резолвер реестра (провенанс + вычистка legacy-речи).
+        system_prompt = resolve_prompt("prompts.search_system_prompt",
+                                       SEARCH_SYSTEM_PROMPT)
         results = await self.aggregator.search(query, max_symbols)
         if hot.get("flags.search_rerank_enabled", settings.SEARCH_RERANK_ENABLED) \
                 and results.strip():

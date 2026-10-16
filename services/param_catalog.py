@@ -3482,6 +3482,53 @@ def by_category(category: str | None) -> list[ParamSpec]:
     return [s for s in REGISTRY.values() if s.category == category]
 
 
+# ── SOUL-1 (W1): экспозиция реестра речевых инструкций (read-only) ──────────
+# Новых ParamSpec/GROUPS здесь НЕ добавляется: каталог — источник ключей и
+# прав, а реестр (``services.prompt_registry``) — источник смысла/потребителей.
+# Совмещённый вид нужен UI «Речь и характер» (W6) и правам по ключу.
+# Обоснование «почему не через каталог»: добавление ключей меняет committed
+# артефакты ``plans/docs/param-registry-round1025.*`` (генератор F8), то есть
+# требует перегенерации в том же diff — это делает владелец UI-слайса (W6).
+
+def speech_registry_view() -> list[dict]:
+    """Реестр речевых инструкций, объединённый со спекой каталога.
+
+    Возвращает список словарей: блок реестра + поля каталога (``pg_key``,
+    ``title_ru``, ``group``, ``per_chat``, ``hidden``) там, где ключ есть.
+    Fail-open: реестр недоступен → пустой список (каталог не падает).
+    """
+    try:
+        from services import prompt_registry as pr
+    except Exception:          # pragma: no cover — реестр необязателен
+        logger.warning("[param_catalog] prompt_registry недоступен",
+                       exc_info=True)
+        return []
+    rows: list[dict] = []
+    for row in pr.registry_view():
+        pg_key = row.get("pg_key") or ""
+        spec = REGISTRY.get(pg_key) if pg_key else None
+        rows.append({
+            **row,
+            "catalog_key": bool(spec),
+            "title_ru": spec.title_ru if spec else "",
+            "group": spec.group if spec else "",
+            "per_chat": spec.per_chat if spec else False,
+            "hidden": spec.hidden if spec else False,
+        })
+    return rows
+
+
+def unmanaged_speech_blocks() -> list[dict]:
+    """Речевые блоки реестра БЕЗ ключа каталога (UI-редактор ещё недоступен).
+
+    Требование SOUL-AMD.3.2: «никаких речевых инструкций, видимых лишь в
+    Python или SQL» — такие блоки обязаны быть видны как минимум здесь,
+    с владельцем-слайсом, который добавит ключ/редактор.
+    """
+    return [row for row in speech_registry_view()
+            if row.get("speech") and not row.get("catalog_key")]
+
+
 def settings_field_coverage() -> tuple[set[str], set[str]]:
     """(не покрытые поля Settings, лишние записи) — для юнит-теста полноты."""
     covered = {s.settings_field for s in REGISTRY.values() if s.settings_field}

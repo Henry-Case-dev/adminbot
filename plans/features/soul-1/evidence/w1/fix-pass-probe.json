@@ -1,0 +1,125 @@
+{
+ "block": "factcheck.base.single",
+ "pg_key": "prompts.factcheck_system_prompt",
+ "flags": {
+  "unified_composer_env_enabled": false,
+  "unified_composer_enabled": false
+ },
+ "stored_custom_chars": 4728,
+ "stored_custom_sha256_12": "2c6ee597f83a",
+ "stored_custom_markers": [
+  "бот-абьюзер",
+  "токсичн",
+  "унизь"
+ ],
+ "before_registry_write": {
+  "resolve_prompt_is_the_stored_custom": false,
+  "resolve_prompt_markers": [],
+  "resolution": {
+   "withheld": true,
+   "source": "default",
+   "diagnostics": [
+    "persisted_value_withheld",
+    "provenance_missing",
+    "persisted_legacy_persona_marker"
+   ],
+   "provenance_reason": "provenance_missing",
+   "markers_in_effective": []
+  },
+  "effective_prompt": {
+   "source": "default",
+   "withheld": true,
+   "withheld_revision": "act:2c6ee597f83a",
+   "factory_source": "Factory",
+   "stored_source": "global",
+   "diagnostics": [
+    "persisted_value_withheld",
+    "provenance_missing",
+    "persisted_legacy_persona_marker"
+   ],
+   "markers_in_effective": []
+  },
+  "resolve_chat_speech": {
+   "source": "default",
+   "markers": []
+  },
+  "real_consumer_factcheck_single": {
+   "markers_in_system": [],
+   "contracts_kept": [
+    "вердикт",
+    "АНТИ-БОТ"
+   ]
+  },
+  "withheld_view": [
+   {
+    "block_id": "factcheck.base.single",
+    "pg_key": "prompts.factcheck_system_prompt",
+    "stored_sha256_12": "2c6ee597f83a",
+    "stored_chars": 4728,
+    "stored_legacy_persona_marker": true,
+    "stored_known_canon": false,
+    "withheld_reason": "provenance_missing",
+    "attested_revision": null,
+    "factory_revision": "fac:76c4beb11c63(factcheck-r1022)",
+    "family": "factcheck"
+   }
+  ],
+  "stored_value_retrievable": {
+   "equals_stored_bytes": true,
+   "sha256_12": "2c6ee597f83a",
+   "untouched_writes": true
+  }
+ },
+ "after_registry_write": {
+  "write_result": {
+   "applied": true,
+   "scope": "global",
+   "revision": "act:2c6ee597f83a",
+   "provenance_persisted": true,
+   "effective": true,
+   "legacy_persona_marker": true
+  },
+  "attested_revision": {
+   "revision": "act:2c6ee597f83a",
+   "sha256_12": "2c6ee597f83a",
+   "chars": 4728,
+   "kind": "owner_edit",
+   "scope": "global",
+   "chat_id": null,
+   "at": "2026-10-16T11:17:05+00:00",
+   "by": "owner",
+   "reason": "probe",
+   "block_id": "factcheck.base.single",
+   "pg_key": "prompts.factcheck_system_prompt"
+  },
+  "resolution": {
+   "withheld": false,
+   "source": "global",
+   "provenance_reason": "attested",
+   "text_equals_written": true,
+   "markers_in_effective": [
+    "бот-абьюзер",
+    "токсичн",
+    "унизь"
+   ]
+  },
+  "resolve_prompt_equals_written": true,
+  "real_consumer_factcheck_single": {
+   "markers_in_system": [
+    "бот-абьюзер",
+    "токсичн",
+    "унизь"
+   ],
+   "equals_written": true
+  },
+  "stored_custom_retrievable": true
+ },
+ "restore_backup": {
+  "applied": [
+   "prompts.factcheck_system_prompt"
+  ],
+  "effective_layer": "withheld_factory_governs",
+  "stored_value_after_restore": true,
+  "runtime_note": "записи с effective_layer=withheld_factory_governs возвращены как данные: старый речевой канон не становится действующим слоем (SOUL-AMD.4.6)"
+ }
+}

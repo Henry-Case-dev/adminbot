@@ -1,0 +1,16 @@
+........................................................................ [ 75%]
+.......................                                                  [100%]
+95 passed in 5.55s
+
+--- W2 OFF-паритет (отдельный прогон) ---
+.............                                                            [100%]
+13 passed in 3.34s
+
+--- gen_param_registry_round1025.py --check ---
+CHECK OK: реестр 572 == REGISTRY, карта полна, R17-чисто, TSV/map идемпотентны.
+
+--- composer flag / untouched modules ---
+env set: False
+env_enabled: False
+enabled: False
+prompt_composer.py/mca_gates.py diff: <пусто> = не изменены

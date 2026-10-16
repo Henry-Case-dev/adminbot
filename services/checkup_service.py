@@ -12,6 +12,7 @@ from services import hot_config as hot
 from services.checkup_prompts import CHECKUP_FALLBACK_NOTICE, CHECKUP_SYSTEM_PROMPT
 from services.llm_client import LLMBadResponseError, LLMClient
 from services.memory_health import collect_metrics
+from services.prompt_style_blocks import resolve_prompt
 from services.summary_cleanup import cleanup_llm_text
 from services.summary_xml import escape_xml_text
 
@@ -44,8 +45,9 @@ class CheckupService:
         """logs_text = результат fetcher.fetch(); used_fallback → скрытая
         приписка CHECKUP_FALLBACK_NOTICE в КОНЕЦ system-сообщения (51.4)."""
         # T-619: промпт/лимиты/флаг метрик — горячие точки (фолбек settings)
-        system_prompt = hot.get("prompts.checkup_system_prompt",
-                                CHECKUP_SYSTEM_PROMPT)
+        # SOUL-1 (W1 fix-pass, BLOCKER-2): промпт — через единый резолвер реестра.
+        system_prompt = resolve_prompt("prompts.checkup_system_prompt",
+                                       CHECKUP_SYSTEM_PROMPT)
         max_symbols = hot.get("limits.checkup_max_symbols",
                               settings.CHECKUP_MAX_SYMBOLS)
         max_input = hot.get("limits.checkup_max_input_symbols",

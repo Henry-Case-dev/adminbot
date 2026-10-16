@@ -1,0 +1,304 @@
+{
+ "source": "soul-1 W1",
+ "phase": "A (read-only dry-run)",
+ "live_pg": {
+  "pg_available": false,
+  "reason": "локальный PG недоступен"
+ },
+ "simulated_seeded_pg": {
+  "pg_available": true,
+  "write": false,
+  "registry_version": "soul1-w1-1",
+  "snapshots_key": "character.migration_snapshots",
+  "items": [
+   {
+    "registry_id": "checkup.base.system",
+    "key": "prompts.checkup_system_prompt",
+    "class": "canon_current",
+    "action": "normalize:вычистить известные сегменты личности",
+    "owner_lane": "W2",
+    "chars": 2312,
+    "sha256_12": "1e8a3c69cf7b",
+    "target_chars": 2071,
+    "target_sha256_12": "b5295b0c250a",
+    "removed": 5,
+    "removed_labels": [
+     "persona.identity_sentence",
+     "persona.safety_circumvention",
+     "persona.tone_label",
+     "persona.checkup_humiliation",
+     "persona.checkup_language"
+    ]
+   },
+   {
+    "registry_id": "direct.base.l2_writer",
+    "key": "prompts.direct_chat_verbalizer_system_prompt",
+    "class": "canon_current",
+    "action": "normalize:вычистить известные сегменты личности",
+    "owner_lane": "W2",
+    "chars": 1690,
+    "sha256_12": "39a7cce1523e",
+    "target_chars": 1620,
+    "target_sha256_12": "3c4e0608968f",
+    "removed": 1,
+    "removed_labels": [
+     "persona.identity_sentence"
+    ]
+   },
+   {
+    "registry_id": "direct.base.tool_phase",
+    "key": "prompts.direct_chat_system_prompt",
+    "class": "canon_current",
+    "action": "normalize:вычистить известные сегменты личности",
+    "owner_lane": "W2",
+    "chars": 5294,
+    "sha256_12": "cf404931f84c",
+    "target_chars": 5216,
+    "target_sha256_12": "45b531879b50",
+    "removed": 2,
+    "removed_labels": [
+     "persona.identity_sentence",
+     "persona.direct_style_label"
+    ]
+   },
+   {
+    "registry_id": "factcheck.base.single",
+    "key": "prompts.factcheck_system_prompt",
+    "class": "canon_current",
+    "action": "normalize:вычистить известные сегменты личности",
+    "owner_lane": "W2",
+    "chars": 4666,
+    "sha256_12": "76c4beb11c63",
+    "target_chars": 4466,
+    "target_sha256_12": "2f61c20e3eaa",
+    "removed": 4,
+    "removed_labels": [
+     "persona.identity_sentence",
+     "persona.safety_circumvention",
+     "persona.tone_label",
+     "persona.bot_knowledge_hostility"
+    ]
+   },
+   {
+    "registry_id": "factcheck.base.verbalizer",
+    "key": "prompts.factcheck_verbalizer_system_prompt",
+    "class": "canon_current",
+    "action": "normalize:вычистить известные сегменты личности",
+    "owner_lane": "W2",
+    "chars": 1712,
+    "sha256_12": "5fbf61cea310",
+    "target_chars": 1586,
+    "target_sha256_12": "332c39223389",
+    "removed": 2,
+    "removed_labels": [
+     "persona.identity_sentence",
+     "persona.bot_knowledge_hostility"
+    ]
+   },
+   {
+    "registry_id": "search.base.system",
+    "key": "prompts.search_system_prompt",
+    "class": "canon_current",
+    "action": "normalize:вычистить известные сегменты личности",
+    "owner_lane": "W2",
+    "chars": 2622,
+    "sha256_12": "ba43fb679db6",
+    "target_chars": 2397,
+    "target_sha256_12": "b74c40b30ec1",
+    "removed": 5,
+    "removed_labels": [
+     "persona.identity_sentence",
+     "persona.safety_circumvention",
+     "persona.tone_label",
+     "persona.bot_knowledge_hostility",
+     "persona.search_sneer"
+    ]
+   },
+   {
+    "registry_id": "summary.base.narrator",
+    "key": "prompts.summary_narrator_system_prompt",
+    "class": "canon_current",
+    "action": "normalize:вычистить известные сегменты личности",
+    "owner_lane": "W2",
+    "chars": 1850,
+    "sha256_12": "43160d5f9c2c",
+    "target_chars": 1774,
+    "target_sha256_12": "95141f190d8b",
+    "removed": 1,
+    "removed_labels": [
+     "persona.identity_sentence"
+    ]
+   },
+   {
+    "registry_id": "summary.base.single",
+    "key": "prompts.summary_system_prompt",
+    "class": "canon_current",
+    "action": "normalize:вычистить известные сегменты личности",
+    "owner_lane": "W2",
+    "chars": 3558,
+    "sha256_12": "d697b0745b29",
+    "target_chars": 3376,
+    "target_sha256_12": "5d991ee57a74",
+    "removed": 4,
+    "removed_labels": [
+     "persona.identity_sentence",
+     "persona.safety_circumvention",
+     "persona.tone_label",
+     "persona.bot_knowledge_hostility"
+    ]
+   },
+   {
+    "registry_id": "verbilizer.mode.deep_research",
+    "key": "prompts.verbilizer_mode_deep_research",
+    "class": "canon_current",
+    "action": "normalize:вычистить известные сегменты личности",
+    "owner_lane": "W2",
+    "chars": 193,
+    "sha256_12": "4e0c83a7b0ea",
+    "target_chars": 169,
+    "target_sha256_12": "73c6c6ee0a7a",
+    "removed": 1,
+    "removed_labels": [
+     "persona.mode_deep_research"
+    ]
+   },
+   {
+    "registry_id": "web.base.system",
+    "key": "prompts.webpage_system_prompt",
+    "class": "canon_current",
+    "action": "normalize:вычистить известные сегменты личности",
+    "owner_lane": "W2",
+    "chars": 2071,
+    "sha256_12": "7801085b6ef5",
+    "target_chars": 1889,
+    "target_sha256_12": "6820550d641f",
+    "removed": 4,
+    "removed_labels": [
+     "persona.identity_sentence",
+     "persona.safety_circumvention",
+     "persona.tone_label",
+     "persona.bot_knowledge_hostility"
+    ]
+   },
+   {
+    "registry_id": "youtube.base.system",
+    "key": "prompts.youtube_system_prompt",
+    "class": "canon_current",
+    "action": "normalize:вычистить известные сегменты личности",
+    "owner_lane": "W2",
+    "chars": 2252,
+    "sha256_12": "e0a1ffaf18a1",
+    "target_chars": 2067,
+    "target_sha256_12": "fd5967747978",
+    "removed": 4,
+    "removed_labels": [
+     "persona.identity_sentence",
+     "persona.safety_circumvention",
+     "persona.tone_label",
+     "persona.bot_knowledge_hostility"
+    ]
+   },
+   {
+    "registry_id": "youtube.base.video",
+    "key": "prompts.youtube_video_system_prompt",
+    "class": "canon_current",
+    "action": "normalize:вычистить известные сегменты личности",
+    "owner_lane": "W2",
+    "chars": 2248,
+    "sha256_12": "c8bba06ec6a8",
+    "target_chars": 2063,
+    "target_sha256_12": "5d6600996eb9",
+    "removed": 4,
+    "removed_labels": [
+     "persona.identity_sentence",
+     "persona.safety_circumvention",
+     "persona.tone_label",
+     "persona.bot_knowledge_hostility"
+    ]
+   }
+  ],
+  "predicted_writes": 12
+ },
+ "dry_run_normalize": {
+  "apply": false,
+  "updated": {
+   "prompts.checkup_system_prompt": {
+    "registry_id": "checkup.base.system",
+    "from_sha256_12": "1e8a3c69cf7b",
+    "to_sha256_12": "b5295b0c250a",
+    "removed": 5
+   },
+   "prompts.direct_chat_verbalizer_system_prompt": {
+    "registry_id": "direct.base.l2_writer",
+    "from_sha256_12": "39a7cce1523e",
+    "to_sha256_12": "3c4e0608968f",
+    "removed": 1
+   },
+   "prompts.direct_chat_system_prompt": {
+    "registry_id": "direct.base.tool_phase",
+    "from_sha256_12": "cf404931f84c",
+    "to_sha256_12": "45b531879b50",
+    "removed": 2
+   },
+   "prompts.factcheck_system_prompt": {
+    "registry_id": "factcheck.base.single",
+    "from_sha256_12": "76c4beb11c63",
+    "to_sha256_12": "2f61c20e3eaa",
+    "removed": 4
+   },
+   "prompts.factcheck_verbalizer_system_prompt": {
+    "registry_id": "factcheck.base.verbalizer",
+    "from_sha256_12": "5fbf61cea310",
+    "to_sha256_12": "332c39223389",
+    "removed": 2
+   },
+   "prompts.search_system_prompt": {
+    "registry_id": "search.base.system",
+    "from_sha256_12": "ba43fb679db6",
+    "to_sha256_12": "b74c40b30ec1",
+    "removed": 5
+   },
+   "prompts.summary_narrator_system_prompt": {
+    "registry_id": "summary.base.narrator",
+    "from_sha256_12": "43160d5f9c2c",
+    "to_sha256_12": "95141f190d8b",
+    "removed": 1
+   },
+   "prompts.summary_system_prompt": {
+    "registry_id": "summary.base.single",
+    "from_sha256_12": "d697b0745b29",
+    "to_sha256_12": "5d991ee57a74",
+    "removed": 4
+   },
+   "prompts.verbilizer_mode_deep_research": {
+    "registry_id": "verbilizer.mode.deep_research",
+    "from_sha256_12": "4e0c83a7b0ea",
+    "to_sha256_12": "73c6c6ee0a7a",
+    "removed": 1
+   },
+   "prompts.webpage_system_prompt": {
+    "registry_id": "web.base.system",
+    "from_sha256_12": "7801085b6ef5",
+    "to_sha256_12": "6820550d641f",
+    "removed": 4
+   },
+   "prompts.youtube_system_prompt": {
+    "registry_id": "youtube.base.system",
+    "from_sha256_12": "e0a1ffaf18a1",
+    "to_sha256_12": "fd5967747978",
+    "removed": 4
+   },
+   "prompts.youtube_video_system_prompt": {
+    "registry_id": "youtube.base.video",
+    "from_sha256_12": "c8bba06ec6a8",
+    "to_sha256_12": "5d6600996eb9",
+    "removed": 4
+   }
+  },
+  "kept_custom": [],
+  "skipped": [],
+  "pg_available": true,
+  "would_write": 12,
+  "written": 0
+ }
+}

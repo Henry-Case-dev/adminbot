@@ -17,6 +17,7 @@ import time
 from config.settings import settings
 from services import hot_config as hot
 from services.llm_client import LLMBadResponseError, LLMClient
+from services.prompt_style_blocks import resolve_prompt
 from services.summary_cleanup import cleanup_llm_text
 from services.summary_memory import MemoryManager, fire_and_forget
 from services.summary_xml import escape_xml_text
@@ -52,8 +53,9 @@ class WebSummarizerService:
         # T-619: лимит и промпт — горячие точки (фолбек settings)
         max_symbols = hot.get("limits.webpage_max_symbols",
                               settings.WEBPAGE_MAX_SYMBOLS)
-        system_prompt = hot.get("prompts.webpage_system_prompt",
-                                WEBPAGE_SYSTEM_PROMPT)
+        # SOUL-1 (W1 fix-pass, BLOCKER-2): единый резолвер реестра.
+        system_prompt = resolve_prompt("prompts.webpage_system_prompt",
+                                       WEBPAGE_SYSTEM_PROMPT)
         markdown = await self.extractor.extract(url, max_symbols)
         if self.memory is not None and chat_id is not None:
             fire_and_forget(
