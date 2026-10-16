@@ -1,0 +1,27 @@
+CORE-DOC / первоисточник Personality Core (SOUL-AMD.1.1)
+source: plans/features/soul-1/source-current-task.md
+chapter: §3 SOUL-02 — Единый Personality Core как собственность владельца
+heading: ### Речь, юмор и мышление (строка 41)
+диапазон строк: 43–53 (следующий абзац: '**Runtime:** храни полную версию как неи')
+map: plans/features/soul-1/requirements-map.json | amendment: SOUL-AMD.1.1
+
+source_sha256 (файл): 8c42ddfabce635fe4e1f24f9522ff8642f3bd3049fac05c77ca162687051196b
+map source_sha256    : 8c42ddfabce635fe4e1f24f9522ff8642f3bd3049fac05c77ca162687051196b
+equal                : True
+
+factory block_id : core.personality
+factory revision : fac:040581a3b4b0(soul02-author-full-v1)
+chars            : 2835
+sha256           : 040581a3b4b0c1cd6fb18cb428eee281cb7fc8bb461e997229f2877ee2e22125
+sha256_12        : 040581a3b4b0
+source chars     : 2835
+BYTE-EXACT       : True
+code == constant : True
+
+строки-хеши SOUL-1 карты (source_text_sha256):
+  SOUL-02.1    строка 43  карта ee5f96d4462a1154… файл ee5f96d4462a1154… совпало True в-тексте True
+  SOUL-02.2    строка 45  карта e551049be4d0c68f… файл e551049be4d0c68f… совпало True в-тексте True
+  SOUL-02.3    строка 47  карта dc71d861bbafa945… файл dc71d861bbafa945… совпало True в-тексте True
+  SOUL-02.4    строка 49  карта 3cad0802336d1729… файл 3cad0802336d1729… совпало True в-тексте True
+  SOUL-02.5    строка 51  карта 053124e6e67a3169… файл 053124e6e67a3169… совпало True в-тексте True
+  SOUL-02.6    строка 53  карта 20f0513a4fed061c… файл 20f0513a4fed061c… совпало True в-тексте True

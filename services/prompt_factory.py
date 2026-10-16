@@ -19,8 +19,7 @@
   * ``plan_factory_reset``  — предпросмотр и diff, НИЧЕГО не пишет;
   * ``apply_factory_reset`` — записывает заводской текст как НОВУЮ активную
     ревизию; предыдущее значение (если оно было) сохраняется в историю
-    ``character.prompt_history`` (append-only, bounded);
-  * ``reset_chat_override`` — только снимает per-chat override (наследование
+    ``character.prompt_history`` (append-only, bounded);  * ``reset_chat_override`` — только снимает per-chat override (наследование
     глобального значения); НЕ трогает глобальный ключ и НЕ является
     заводским сбросом;
   * ``apply_speech_profile_reset`` — предпросмотр + сброс набора речевых
@@ -36,6 +35,15 @@
     ``character.prompt_history.provenance``; глобальный ключ или per-chat
     override).
 
+Блоки-ПОЛЯ JSON-документа (Personality Core, SOUL-AMD.1.1): у
+``core.personality`` / ``core.personality.compact`` значение живёт в документе
+``character.core`` (поля ``full_text`` / ``compact_text``). Все операции этого
+модуля для них документ-осознанные: правка одного поля НИКОГДА не затирает
+второе, per-chat правка собирает документ из глобального (наследование
+остальных полей), а «Вернуть заводской вариант» возвращает заводской текст
+именно этого поля. Правка редакции делает её действующей (``detail_level``
+документа), иначе правка «неактивной» версии не имела бы наблюдаемого эффекта.
+
 TEST-LIFECYCLE: CONTRACT owner=SOUL-AMD.4.1/4.2/4.3/4.5 (soul-1, слайс W1)
 """
 from __future__ import annotations
@@ -44,6 +52,7 @@ import datetime
 import difflib
 import json
 import logging
+from typing import Mapping
 
 from services import prompt_registry as pr
 
@@ -62,6 +71,10 @@ FACTORY_HISTORY_CATEGORY = "content"
 HISTORY_MAX_PER_BLOCK = 12
 HISTORY_VERSION = 1
 
+#: Категория записи документа Personality Core (design-source-of-truth §2.1:
+#: глобальный `character.core` управляется правом на ключ категории content).
+CORE_DOC_CATEGORY = "content"
+
 
 class FactoryConflict(Exception):
     """Optimistic-конфликт: значение изменилось между diff и записью."""
@@ -72,6 +85,104 @@ class FactoryConflict(Exception):
         self.pg_key = pg_key
         self.expected = expected
         self.current = current
+
+
+# ── Блоки-поля JSON-документа (Personality Core, SOUL-02/AMD.1.1) ───────────
+# `character.core` — один документ на scope (design §2.1), два поля которого
+# зарегистрированы как два блока реестра. Поэтому чтение/запись/сброс таких
+# блоков идут через документ: правка одного поля НИКОГДА не затирает другое,
+# а скалярные `prompts.*`-блоки работают ровно как раньше.
+
+def _doc_field(spec) -> str:
+    """Имя поля JSON-документа для блока Core ("" — обычный блок)."""
+    return str(getattr(spec, "pg_doc_field", "") or "")
+
+
+def _doc_from_raw(raw) -> dict:
+    """JSON-документ из значения слоя (dict/jsonb-строка); {} — документа нет."""
+    if isinstance(raw, Mapping):
+        return dict(raw)
+    if isinstance(raw, (str, bytes, bytearray)):
+        try:
+            parsed = json.loads(raw.decode("utf-8")
+                                if isinstance(raw, (bytes, bytearray)) else raw)
+        except Exception:
+            return {}
+        return dict(parsed) if isinstance(parsed, Mapping) else {}
+    return {}
+
+
+def _doc_with_field(document: dict, field: str, text: str, *,
+                    set_level: bool = True) -> dict:
+    """Документ Core с записанным полем: остальные поля и служебные ключи целы.
+
+    ``set_level`` (по умолчанию True): правка редакции делает ЕЁ действующей —
+    владелец правит ту версию, которой хочет говорить; иначе правка
+    «неактивной» редакции не давала бы наблюдаемого эффекта, а требование
+    «правка Core меняет следующую генерацию» (SOUL-EC/§4.1) не выполнялось бы.
+    Уровень остаётся явным полем документа: виден в манифесте и Inspector
+    (``level``/``reason``/``active_field``), а не «угадывается» по тексту.
+    """
+    doc = dict(document or {})
+    doc[field] = text
+    try:
+        previous = int(doc.get("revision") or 0)
+    except Exception:          # pragma: no cover — нечисловая ревизия владельца
+        previous = 0
+    doc["revision"] = previous + 1
+    doc["origin"] = "owner_edit"
+    doc["updated_at"] = _utc_now()
+    if field == "compact_text":
+        doc["compact_words"] = len(text.split()) if text else 0
+    if set_level:
+        doc["detail_level"] = "full" if field == "full_text" else "compact"
+    return doc
+
+
+def _read_spec_value(spec, cache) -> tuple[bool, str, dict]:
+    """``(есть_значение_в_слое, текст_значения, документ)`` ГЛОБАЛЬНОГО слоя.
+
+    Скалярный блок → ``(значение есть, значение, {})``; блок-поле →
+    ``(документ есть, поле документа или "", документ)``. Документ возвращается
+    целиком, чтобы запись не потеряла остальные поля.
+    """
+    if cache is None:
+        return False, "", {}
+    try:
+        raw = cache.get(spec.pg_key, None)
+    except Exception:          # pragma: no cover — PG down
+        return False, "", {}
+    if raw is None:
+        return False, "", {}
+    field = _doc_field(spec)
+    if not field:
+        return True, str(raw), {}
+    doc = _doc_from_raw(raw)
+    return True, pr.doc_field_text(doc, field), doc
+
+
+def _value_changed(spec, present: bool, text: str, factory: str) -> bool:
+    """Отличается ли ЗАПИСАННОЕ значение блока от заводского (diff/сброс).
+
+    Для блока-поля отсутствующее поле — это уже заводское значение (сброс
+    ничего не меняет); для скаляра сохранённое значение сравнивается как есть.
+    """
+    if _doc_field(spec):
+        return bool(text) and text != factory
+    return bool(present) and text != factory
+
+
+async def _store_spec_value(spec, text: str, cache, *, document=None,
+                            set_level: bool = True) -> None:
+    """Записать значение блока в глобальный слой (скаляр или поле документа)."""
+    field = _doc_field(spec)
+    if not field:
+        await cache.set(spec.pg_key, text, "prompts")
+        return
+    await cache.set(spec.pg_key,
+                    _doc_with_field(document or {}, field, text,
+                                    set_level=set_level),
+                    CORE_DOC_CATEGORY)
 
 
 def _utc_now() -> str:
@@ -223,25 +334,20 @@ async def plan_factory_reset(block_id: str, *, cache=None) -> dict:
     if spec is None or not spec.pg_key:
         return {"block_id": block_id, "pg_key": "", "applies": False,
                 "reason": "block_not_pg_managed", "changed": False}
-    current = None
-    present = False
-    if cache is not None:
-        try:
-            current = cache.get(spec.pg_key, None)
-            present = current is not None
-        except Exception:      # pragma: no cover — PG down
-            current = None
-    effective = str(current) if present else None
-    changed = (effective is not None) and (effective != factory)
+    field = _doc_field(spec)
+    present, current, _doc = _read_spec_value(spec, cache)
+    effective = current if present else None
+    changed = _value_changed(spec, present, current, factory)
     return {
         "block_id": block_id,
         "pg_key": spec.pg_key,
+        "document_field": field,
         "applies": True,
         "changed": changed,
         "source": "global" if present else "default",
-        "current_present": present,
-        "current_chars": len(effective or ""),
-        "current_sha256_12": pr.sha12(effective or "") if present else "",
+        "current_present": bool(present),
+        "current_chars": len(current or ""),
+        "current_sha256_12": pr.sha12(current or "") if current else "",
         "factory_chars": len(factory),
         "factory_sha256_12": pr.sha12(factory),
         "factory_revision": pr.factory_revision(block_id),
@@ -264,7 +370,8 @@ async def apply_factory_reset(block_id: str, *, cache=None,
         return {"applied": False, "reason": "config_cache_unavailable",
                 "block_id": block_id}
     factory = factory_default(block_id)
-    current = cache.get(spec.pg_key, None)
+    field = _doc_field(spec)
+    present, current, document = _read_spec_value(spec, cache)
     if expected_updated_at is not None:
         actual = None
         try:
@@ -273,13 +380,13 @@ async def apply_factory_reset(block_id: str, *, cache=None,
             actual = None
         if actual != expected_updated_at:
             raise FactoryConflict(spec.pg_key, expected_updated_at, actual)
-    if current is not None and current == factory:
+    if not _value_changed(spec, present, current, factory):
         return {"applied": False, "reason": "already_factory",
                 "block_id": block_id, "pg_key": spec.pg_key,
                 "revision": pr.ACTIVE_PREFIX + pr.sha12(factory),
                 "factory_revision": pr.factory_revision(block_id)}
-    previous = str(current) if current is not None else ""
-    if current is not None:
+    previous = current or ""
+    if previous:
         await _append_history(cache, block_id, pg_key=spec.pg_key,
                               value=previous, source="global",
                               kind="factory_reset", actor=actor,
@@ -290,7 +397,8 @@ async def apply_factory_reset(block_id: str, *, cache=None,
     await _mark_provenance(cache, block_id, pg_key=spec.pg_key, value=factory,
                            kind="factory_reset", actor=actor,
                            reason=reason or "factory_reset", scope="global")
-    await cache.set(spec.pg_key, factory, "prompts")
+    await _store_spec_value(spec, factory, cache, document=document,
+                            set_level=False)
     logger.info("[prompt_factory] factory reset | block=%s | key=%s | "
                 "was=%s | now=%s", block_id, spec.pg_key,
                 pr.sha12(previous), pr.sha12(factory))
@@ -298,6 +406,7 @@ async def apply_factory_reset(block_id: str, *, cache=None,
         "applied": True,
         "block_id": block_id,
         "pg_key": spec.pg_key,
+        "document_field": field,
         "changed": previous != factory,
         "previous_revision": pr.ACTIVE_PREFIX + pr.sha12(previous) if previous
         else "",
@@ -355,8 +464,7 @@ async def write_speech_value(block_id: str, text: str, *, cache=None,
             actual = None
         if actual != expected_updated_at:
             raise FactoryConflict(spec.pg_key, expected_updated_at, actual)
-    current = cache.get(spec.pg_key, None)
-    previous = str(current) if current is not None else ""
+    _present, previous, document = _read_spec_value(spec, cache)
     if previous:
         await _append_history(cache, block_id, pg_key=spec.pg_key,
                               value=previous, source="global",
@@ -367,7 +475,7 @@ async def write_speech_value(block_id: str, text: str, *, cache=None,
     entry, persisted = await _mark_provenance(
         cache, block_id, pg_key=spec.pg_key, value=value, kind="owner_edit",
         actor=actor, reason=reason or "owner_edit", scope="global")
-    await cache.set(spec.pg_key, value, "prompts")
+    await _store_spec_value(spec, value, cache, document=document)
     marker = pr.legacy_persona_present(value)
     if marker:
         logger.warning("[prompt_factory] owner edit несёт маркер старой "
@@ -397,7 +505,13 @@ async def _write_chat_speech_value(spec, value: str, *, cache=None, actor=None,
                                    expected_updated_at: str | None = None,
                                    pg=None, get_root=None,
                                    set_root=None) -> dict:
-    """Per-chat override через API реестра (наследование глобала сохраняется)."""
+    """Per-chat override через API реестра (наследование глобала сохраняется).
+
+    Для блока-поля JSON-документа (Personality Core) чат получает документ,
+    СОБРАННЫЙ из глобального (наследование всех полей) с правкой целевого
+    поля: локальная адаптация не «обнуляет» вторую редакцию Core и не меняет
+    глобальное ядро (SOUL-02.8).
+    """
     from services import chat_params
     cache = cache if cache is not None else _default_cache()
     get_root = get_root or chat_params.get_all_chat_params
@@ -406,7 +520,20 @@ async def _write_chat_speech_value(spec, value: str, *, cache=None, actor=None,
     root = await get_root(chat_id, pg=pg) if pg is not None else \
         await get_root(chat_id)
     overrides = dict((root or {}).get("overrides") or {})
-    previous = overrides.get(spec.pg_key)
+    field = _doc_field(spec)
+    if field:
+        own_doc = _doc_from_raw(overrides.get(spec.pg_key))
+        if not own_doc:
+            # Наследование: базой для локальной правки служит документ
+            # владельца (глобальный слой), а не пустой документ.
+            _present, _text, global_doc = _read_spec_value(spec, cache)
+            current_doc = global_doc
+        else:
+            current_doc = own_doc
+        previous = pr.doc_field_text(current_doc, field)
+    else:
+        current = overrides.get(spec.pg_key)
+        previous = None if current is None else str(current)
     if previous is not None and str(previous) == value:
         entry, persisted = await _mark_provenance(
             cache, spec.block_id, pg_key=spec.pg_key, value=value,
@@ -418,7 +545,9 @@ async def _write_chat_speech_value(spec, value: str, *, cache=None, actor=None,
                 "revision": entry["revision"],
                 "provenance_persisted": persisted,
                 "history_key": FACTORY_HISTORY_KEY}
-    overrides[spec.pg_key] = value
+    overrides[spec.pg_key] = (
+        _doc_with_field(current_doc, field, value)
+        if field else value)
     patch: dict = {"overrides": overrides}
     entry, persisted = await _mark_provenance(
         cache, spec.block_id, pg_key=spec.pg_key, value=value,
@@ -496,15 +625,11 @@ def _inherit_view(block_id: str) -> dict:
     """Что унаследует чат после снятия override (global → factory)."""
     spec = pr.block(block_id)
     cache = _default_cache()
-    value = None
     present = False
+    current = ""
     if cache is not None and spec is not None and spec.pg_key:
-        try:
-            value = cache.get(spec.pg_key, None)
-            present = value is not None
-        except Exception:      # pragma: no cover
-            value = None
-    text = str(value) if present else factory_default(block_id)
+        present, current, _doc = _read_spec_value(spec, cache)
+    text = current if current else factory_default(block_id)
     resolved = (pr.resolve_speech_value(spec.pg_key, text,
                                        source="global" if present else "default")
                 if spec is not None and spec.pg_key else None)
@@ -544,19 +669,15 @@ async def plan_speech_profile_reset(*, cache=None,
         if spec is None or not spec.pg_key:
             continue
         factory = factory_default(block_id)
-        current = None
-        if cache is not None:
-            try:
-                current = cache.get(spec.pg_key, None)
-            except Exception:  # pragma: no cover
-                current = None
-        if current is None or current == factory:
+        present, current, _doc = _read_spec_value(spec, cache)
+        if not _value_changed(spec, present, current, factory):
             unchanged.append(block_id)
             continue
         affected.append({"block_id": block_id, "pg_key": spec.pg_key,
-                         "current_chars": len(str(current)),
+                         "document_field": _doc_field(spec),
+                         "current_chars": len(current),
                          "factory_chars": len(factory),
-                         "diff": _diff_summary(str(current), factory)})
+                         "diff": _diff_summary(current, factory)})
     return {"applies": True, "affected": affected, "unchanged": unchanged,
             "chat_overrides_touched": False, "data_touched": False,
             "history_key": FACTORY_HISTORY_KEY}
@@ -739,7 +860,7 @@ def _cli(argv: list[str] | None = None) -> int:
 
 
 __all__ = [
-    "FACTORY_HISTORY_KEY", "FACTORY_HISTORY_CATEGORY",
+    "FACTORY_HISTORY_KEY", "FACTORY_HISTORY_CATEGORY", "CORE_DOC_CATEGORY",
     "HISTORY_MAX_PER_BLOCK", "FactoryConflict", "factory_default",
     "plan_factory_reset", "apply_factory_reset", "write_speech_value",
     "history_for", "reset_chat_override", "plan_speech_profile_reset",

@@ -1,0 +1,72 @@
+==============================================================================
+## 1_factory_default_no_owner_doc
+-- tool_phase: chars=2469 manifest_id=6de4dd9a45d62640 tokens_total=618
+layer               rendered  source    revision                 chars  tok  detail/skip
+channel_contract    True      default   236cdb93a360                47   12  
+core                True      default   fac:ff28f0720a23          1934  484  level=compact reason=factory_default origin=factory words=249 doc=factory
+identity            True      chat      44d962217014a041            94   24  
+self_model_traits   False     code                                   0    0  self_model_folded_into_identity
+context_lessons     True      participant967168fb043a                56   14  
+context_lessons     True      chat      3ee71340094e                58   15  
+context_lessons     True      code      2f9d2b031b87                57   15  
+response_plan       True      code      2579eaeb36dc               211   53  
+expression          False     global                                 0    0  expression_absent
+humor_craft         False     code                                   0    0  humor_no_strategy
+few_shot            False     code                                   0    0  samples_disabled
+style_policy_hint   False     default                                0    0  style_policy_absent
+channel_output      False     code                                   0    0  channel_output_not_required
+versions.core=fac:ff28f0720a23 | core_detail=compact:factory_default
+-- l2_writer: chars=4112 manifest_id=7c2954167bfb36dc tokens_total=1028
+layer               rendered  source    revision                 chars  tok  detail/skip
+channel_contract    True      default   39a7cce1523e              1690  423  
+core                True      default   fac:ff28f0720a23          1934  484  level=compact reason=factory_default origin=factory words=249 doc=factory
+identity            True      chat      44d962217014a041            94   24  
+self_model_traits   False     code                                   0    0  self_model_folded_into_identity
+context_lessons     True      participant967168fb043a                56   14  
+context_lessons     True      chat      3ee71340094e                58   15  
+context_lessons     True      code      2f9d2b031b87                57   15  
+response_plan       True      code      2579eaeb36dc               211   53  
+expression          False     global                                 0    0  expression_absent
+humor_craft         False     code                                   0    0  humor_no_strategy
+few_shot            False     code                                   0    0  samples_disabled
+style_policy_hint   False     default                                0    0  style_policy_absent
+channel_output      False     code                                   0    0  channel_output_not_required
+versions.core=fac:ff28f0720a23 | core_detail=compact:factory_default
+factory compact in system: True
+core revision same turn: {"tool_phase": "fac:ff28f0720a23", "l2_writer": "fac:ff28f0720a23", "same": true}
+==============================================================================
+## 2_owner_edit_via_registry_api
+-- tool_phase: chars=647 manifest_id=fd0006cbf71317b6 tokens_total=162
+layer               rendered  source    revision                 chars  tok  detail/skip
+channel_contract    True      default   236cdb93a360                47   12  
+core                True      global    r1.d06347b7a4da            112   28  level=compact reason=owner_setting origin=owner_edit words=14 doc=1
+identity            True      chat      44d962217014a041            94   24  
+self_model_traits   False     code                                   0    0  self_model_folded_into_identity
+context_lessons     True      participant967168fb043a                56   14  
+context_lessons     True      chat      3ee71340094e                58   15  
+context_lessons     True      code      2f9d2b031b87                57   15  
+response_plan       True      code      2579eaeb36dc               211   53  
+expression          False     global                                 0    0  expression_absent
+humor_craft         False     code                                   0    0  humor_no_strategy
+few_shot            False     code                                   0    0  samples_disabled
+style_policy_hint   False     default                                0    0  style_policy_absent
+channel_output      False     code                                   0    0  channel_output_not_required
+versions.core=r1.d06347b7a4da | core_detail=compact:owner_setting
+-- l2_writer: chars=2290 manifest_id=962a814045dfe2c4 tokens_total=573
+layer               rendered  source    revision                 chars  tok  detail/skip
+channel_contract    True      default   39a7cce1523e              1690  423  
+core                True      global    r1.d06347b7a4da            112   28  level=compact reason=owner_setting origin=owner_edit words=14 doc=1
+identity            True      chat      44d962217014a041            94   24  
+self_model_traits   False     code                                   0    0  self_model_folded_into_identity
+context_lessons     True      participant967168fb043a                56   14  
+context_lessons     True      chat      3ee71340094e                58   15  
+context_lessons     True      code      2f9d2b031b87                57   15  
+response_plan       True      code      2579eaeb36dc               211   53  
+expression          False     global                                 0    0  expression_absent
+humor_craft         False     code                                   0    0  humor_no_strategy
+few_shot            False     code                                   0    0  samples_disabled
+style_policy_hint   False     default                                0    0  style_policy_absent
+channel_output      False     code                                   0    0  channel_output_not_required
+versions.core=r1.d06347b7a4da | core_detail=compact:owner_setting
+factory compact in system: False
+core revision same turn: {"tool_phase": "r1.d06347b7a4da", "l2_writer": "r1.d06347b7a4da", "same": true}

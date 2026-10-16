@@ -47,6 +47,13 @@ Factcheck, Summary, Search, Checkup, Youtube, Web (ветки режимов и�
   * ``BLOCKS`` — машиночитаемая карта ``источник → смысл → потребитель →
     Registry ID → решение о миграции`` по всем путям аудита (PG-ключи каталога
     берутся из ``param_catalog`` — единый источник, без дублей текста);
+  * Personality Core (CORE-DOC, SOUL-AMD.1.1): два блока-ПОЛЯ документа
+    ``character.core`` — ``core.personality`` (полный авторский текст SOUL-02
+    «Речь, юмор и мышление», байт-в-байт первоисточник) и
+    ``core.personality.compact`` (ручное сжатие того же характера). Действующую
+    редакцию выбирает ``core_selection`` (детерминированно, без LLM; причина —
+    из ``CORE_DETAIL_REASONS``), провенанс первоисточника — ``CORE_SOURCE``,
+    Inspector-вид — ``core_selection_view``;
   * ``factory_text`` / ``factory_revision`` / ``effective_prompt`` —
     фабричная ревизия против активной (effective) с диагностируемым
     источником (``global|chat|default|code``);
@@ -78,10 +85,11 @@ import dataclasses
 import hashlib
 import logging
 import re
+from typing import Mapping
 
 logger = logging.getLogger(__name__)
 
-REGISTRY_VERSION = "soul1-w1-2"
+REGISTRY_VERSION = "soul1-w1-3"
 
 #: Документ журнала записей реестра (одна аддитивная JSON-запись bot_settings;
 #: владелец записи — ``prompt_factory``). Внутри:
@@ -177,6 +185,9 @@ FACTORY_REVISION_LABELS: dict[str, str] = {
     "message.clarify_media_target": "clarify-media-mca23",
     "message.smartmodule.phrases": "smartmodule-phrases-r1021",
     "message.smartmodule.chat_persona": "chat-persona-legacy",
+    # Personality Core (CORE-DOC): первоисточник SOUL-02 и ручное сжатие
+    "core.personality": "soul02-author-full-v1",
+    "core.personality.compact": "soul02-compact-v1",
 }
 
 
@@ -191,6 +202,11 @@ class PromptBlockSpec:
     ``pg_key`` — ключ ``bot_settings`` (если блок PG-управляем); ``code_source``
     — ``module.attr`` (+ ``code_index``/``code_call``) для фабричного текста.
     Ровно один из них должен давать текст: реестр не дублирует содержимое.
+
+    ``pg_doc_field`` — блок живёт не скаляром, а ПОЛЕМ JSON-документа по
+    ``pg_key`` (Personality Core: ``character.core`` → ``full_text`` /
+    ``compact_text``, ``design-source-of-truth`` §2.1). Резолв/запись такого
+    блока идут через документ, но фабричная редакция — тот же код-канон.
     """
 
     block_id: str                  # стабильный ID (никаких автогенераций)
@@ -211,6 +227,7 @@ class PromptBlockSpec:
     code_call: bool = False        # code_source — функция без аргументов
     code_members: tuple[str, ...] | str | None = None  # "*" — все UPPER-str
     note: str = ""
+    pg_doc_field: str = ""         # поле JSON-документа pg_key (Core)
 
 
 # ── 1.1 PG-управляемые ключи каталога: метаданные по ключу ──────────────────
@@ -418,17 +435,47 @@ def _b(block_id: str, purpose: str, family: str, scope: str,
        migration: str = "registered_pending:W3", legacy_persona: bool = False,
        ui: str = "code_only", enabled_by: str = "", code_index: str | None = None,
        code_call: bool = False, code_members=None,
-       note: str = "") -> PromptBlockSpec:
+       note: str = "", pg_key: str | None = None,
+       pg_doc_field: str = "") -> PromptBlockSpec:
     return PromptBlockSpec(
         block_id=block_id, purpose=purpose, family=family, scope=scope,
-        pg_key=None, code_source=code_source, consumers=consumers,
+        pg_key=pg_key, code_source=code_source, consumers=consumers,
         composition_point=composition_point, enabled_by=enabled_by,
         migration=migration, owner_lane=owner_lane, speech=speech,
         legacy_persona=legacy_persona, ui=ui, code_index=code_index,
-        code_call=code_call, code_members=code_members, note=note)
+        code_call=code_call, code_members=code_members, note=note,
+        pg_doc_field=pg_doc_field)
 
 
 _CODE_BLOCKS: tuple[PromptBlockSpec, ...] = (
+    # ── Personality Core (CORE-DOC, SOUL-02/AMD.1.1): документ владельца ────
+    _b("core.personality",
+       "Personality Core — ПОЛНАЯ авторская редакция «Речь, юмор и мышление» "
+       "(первоисточник владельца): постоянный характер бота, доступен для "
+       "правки любым фрагментом.",
+       "core", "global_chat",
+       "services.chat_prompts.PERSONALITY_CORE_FULL_TEXT",
+       ("prompt_composer.py:615", "prompt_factory.py:319",
+        "tests/test_soul1_core_doc_text.py"),
+       "speech_plain|channel_text_only/core (слой core)",
+       owner_lane="W2", speech=True, migration="factory", ui="catalog_pending",
+       pg_key="character.core", pg_doc_field="full_text",
+       note="Поле full_text JSON-документа `character.core` (design §2.1); "
+            "фабричная ревизия байт-в-байт из SOUL-02 (строки 43–53), "
+            "провенанс — CORE_SOURCE. Ключ/редактор в каталоге — W6."),
+    _b("core.personality.compact",
+       "Personality Core, компактная runtime-редакция: тот же характер и те "
+       "же запреты ручным сжатием полного текста (экономия контекста).",
+       "core", "global_chat",
+       "services.chat_prompts.PERSONALITY_CORE_COMPACT_TEXT",
+       ("prompt_composer.py:615", "prompt_factory.py:319",
+        "tests/test_soul1_core_doc_text.py"),
+       "speech_plain|channel_text_only/core (слой core)",
+       owner_lane="W2", speech=True, migration="factory", ui="catalog_pending",
+       pg_key="character.core", pg_doc_field="compact_text",
+       note="Не LLM-пересказ: производная полного текста (см. "
+            "PERSONALITY_CORE_COMPACT_DERIVATION); дефолт runtime при "
+            "UNIFIED_COMPOSER_ENABLED (виден в манифесте слоя core)."),
     # ── Управляемые пользовательские шаблоны (SOUL-AMD.3.4, §5.3) ──────────
     _b("message.image_generation_fallback",
        "Текст пользователю при провале генерации изображения (реальный код "
@@ -674,6 +721,194 @@ _CODE_BLOCKS: tuple[PromptBlockSpec, ...] = (
 
 
 # ═══════════════════════════════════════════════════════════════════════════
+# 1.3 Personality Core (CORE-DOC): документ характера и выбор редакции
+# ═══════════════════════════════════════════════════════════════════════════
+# Один JSON-документ на scope (``design-source-of-truth`` §2.1): глобальный —
+# ``bot_settings('character.core')``, per-chat — ``chat_params.overrides``
+# того же ключа. Два ПОЛЯ документа = два зарегистрированных блока выше
+# (``full_text`` / ``compact_text``); ``detail_level`` выбирает действующую
+# редакцию, ``revision`` — версия документа (история/откат — prompt_factory).
+
+CORE_DOC_KEY = "character.core"
+CORE_FULL_BLOCK_ID = "core.personality"
+CORE_COMPACT_BLOCK_ID = "core.personality.compact"
+CORE_DETAIL_LEVELS = frozenset({"compact", "full"})
+CORE_FIELD_BY_LEVEL = {"compact": "compact_text", "full": "full_text"}
+
+#: Закрытый набор причин выбора редакции Core (виден в манифесте слоя core и
+#: в Inspector-виде): «почему ушла именно эта редакция».
+CORE_DETAIL_REASONS = frozenset({
+    "factory_default",       # документа владельца нет — действует заводская
+    "document_default",      # документ есть, detail_level владелец не выбирал
+    "owner_setting",         # выбор владельца (detail_level документа)
+    "context_budget",        # просили полную, не влезает в бюджет слоёв
+    "full_text_missing",     # полной редакции нет → компактная
+    "compact_text_missing",  # компактной редакции нет → полная
+})
+
+#: Провенанс первоисточника полной редакции (SOUL-AMD.1.1): откуда именно
+#: взят авторский текст и какие требования SOUL-1 он закрывает. Equality с
+#: файлом и со строками-хешами карты проверяет
+#: ``tests/test_soul1_core_doc_text.py`` (не копия текста в тесте).
+CORE_SOURCE: dict = {
+    "path": "plans/features/soul-1/source-current-task.md",
+    "chapter": "§3 SOUL-02 — Единый Personality Core как собственность владельца",
+    "heading": "### Речь, юмор и мышление",
+    "line_start": 43,
+    "line_end": 53,
+    "req_ids": ("SOUL-02.1", "SOUL-02.2", "SOUL-02.3", "SOUL-02.4",
+                "SOUL-02.5", "SOUL-02.6"),
+    "map": "plans/features/soul-1/requirements-map.json",
+    "amendment": "SOUL-AMD.1.1",
+    "factory_rev_label": FACTORY_REVISION_LABELS[CORE_FULL_BLOCK_ID],
+}
+
+
+def _token_estimate(text: str) -> int:
+    """Тот же оценщик, что ``prompt_composer.estimate_tokens`` (4 симв. ≈ токен)."""
+    return max(1, (len(str(text or "")) + 3) // 4)
+
+
+def doc_field_text(doc, field: str) -> str:
+    """Текст поля JSON-документа ("" — поля нет, пусто или это не документ)."""
+    if not isinstance(doc, Mapping):
+        return ""
+    value = doc.get(field)
+    if isinstance(value, (bytes, bytearray)):
+        try:
+            value = value.decode("utf-8")
+        except Exception:      # pragma: no cover — битые байты
+            return ""
+    return value if isinstance(value, str) else ""
+
+
+def core_selection(doc=None, *, source: str = "default",
+                   budget_tokens: int | None = None) -> dict:
+    """Детерминированный выбор редакции Core: полная/компактная + причина.
+
+    Здесь НЕТ и не может быть LLM: выбор — чистая функция от документа
+    владельца, заводских редакций и бюджета аддитивных слоёв (SOUL-02:
+    «вручную согласованная, а не нестабильное LLM-пересказывание»). Правила:
+
+    * пустое поле документа наследует ЗАВОДСКУЮ редакцию этого поля —
+      правка одного поля не обнуляет второе;
+    * ``detail_level`` документа — выбор владельца (``owner_setting``); без
+      него действует заводской дефолт ``compact`` (``factory_default`` /
+      ``document_default``);
+    * запрошена полная редакция, но её стоимость превышает бюджет слоёв →
+      компактная, причина ``context_budget`` (видно в манифесте);
+    * запрошенной редакции нет → берётся другая, причина ``*_text_missing``.
+
+    Возвращает тексты обеих редакций (для композера) и провенанс выбора.
+    """
+    factory_full = factory_text(CORE_FULL_BLOCK_ID)
+    factory_compact = factory_text(CORE_COMPACT_BLOCK_ID)
+    document = doc if isinstance(doc, Mapping) else None
+    if document is None:
+        full_text, compact_text = factory_full, factory_compact
+        origin, revision = "factory", ""
+        raw_level = ""
+    else:
+        full_text = doc_field_text(document, "full_text") or factory_full
+        compact_text = doc_field_text(document, "compact_text") or factory_compact
+        origin = str(document.get("origin") or "owner_edit")
+        revision = str(document.get("revision") or "")
+        raw_level = str(document.get("detail_level") or "").strip().lower()
+    explicit = raw_level in CORE_DETAIL_LEVELS
+    level = raw_level if explicit else "compact"
+    reason = ("owner_setting" if explicit else
+              ("factory_default" if document is None else "document_default"))
+    if level == "full":
+        if not full_text.strip():
+            level, reason = "compact", "full_text_missing"
+        elif budget_tokens and budget_tokens > 0 and \
+                _token_estimate(full_text) > int(budget_tokens):
+            level, reason = "compact", "context_budget"
+    elif not compact_text.strip():
+        level, reason = "full", "compact_text_missing"
+    text = full_text if level == "full" else compact_text
+    active_field = CORE_FIELD_BY_LEVEL[level]
+    active_from_owner = bool(document is not None
+                             and doc_field_text(document, active_field).strip())
+    return {
+        "level": level,
+        "reason": reason,
+        "text": text,
+        "full_text": full_text,
+        "compact_text": compact_text,
+        "source": str(source or "default"),
+        "origin": origin,
+        "document_revision": revision,
+        "requested_level": raw_level or "compact",
+        "active_field": active_field,
+        "active_from_owner": active_from_owner,
+        "compact_words": (len(compact_text.split()) if compact_text else 0),
+        "revision": core_active_revision(text=text, document_revision=revision),
+    }
+
+
+def core_active_revision(*, text: str, document_revision: str = "") -> str:
+    """Ревизия действующей редакции Core: ``r<doc>.<sha12>`` | ``fac:<sha12>``.
+
+    Формат ``r<revision>.<sha12>`` сохранён от W2 (hot-apply тесты): правка
+    документа меняет и номер, и хеш текста. Для заводской редакции (документа
+    нет) используется префикс фабрики ``fac:`` — видно, что действует заводское.
+    """
+    text = str(text or "")
+    if not text:
+        return ""
+    rev = str(document_revision or "")
+    if not rev:
+        return FACTORY_PREFIX + sha12(text)
+    return f"r{rev}.{sha12(text)}"
+
+
+def core_selection_view(doc=None, *, source: str = "default",
+                        budget_tokens: int | None = None) -> dict:
+    """Inspector-вид выбора Core: какая редакция действует и почему.
+
+    Без сырых текстов (R17-safe): ревизии/хеши/размеры + провенанс + источник
+    каждой редакции (владелец или заводская).
+    """
+    sel = core_selection(doc, source=source, budget_tokens=budget_tokens)
+    document = doc if isinstance(doc, Mapping) else None
+
+    def _field_view(field: str, text: str) -> dict:
+        owner_text = doc_field_text(document, field)
+        return {
+            "chars": len(text),
+            "words": len(text.split()) if text else 0,
+            "tokens": _token_estimate(text) if text else 0,
+            "sha256_12": sha12(text) if text else "",
+            "origin": "owner" if owner_text.strip() else "factory",
+        }
+
+    return {
+        "doc_key": CORE_DOC_KEY,
+        "present": document is not None,
+        "level": sel["level"],
+        "reason": sel["reason"],
+        "requested_level": sel["requested_level"],
+        "source": sel["source"],
+        "origin": sel["origin"],
+        "document_revision": sel["document_revision"],
+        "active_revision": sel["revision"],
+        "active_field": sel["active_field"],
+        "active_from_owner": sel["active_from_owner"],
+        "budget_tokens": int(budget_tokens or 0),
+        "full": _field_view("full_text", sel["full_text"]),
+        "compact": _field_view("compact_text", sel["compact_text"]),
+        "factory_revisions": {
+            "full": factory_revision(CORE_FULL_BLOCK_ID),
+            "compact": factory_revision(CORE_COMPACT_BLOCK_ID),
+        },
+        "source_provenance": dict(CORE_SOURCE),
+        "edit_blocks": {"full": CORE_FULL_BLOCK_ID,
+                        "compact": CORE_COMPACT_BLOCK_ID},
+    }
+
+
+# ═══════════════════════════════════════════════════════════════════════════
 # 2. Сборка реестра (PG-ключи берутся из каталога — единый источник)
 # ═══════════════════════════════════════════════════════════════════════════
 
@@ -854,12 +1089,13 @@ def factory_revision(block_id: str) -> str:
 
 
 def production_kind(block_id: str) -> str:
-    """``factory`` (PG-управляемый) | ``managed_message`` | ``registered``."""
+    """``factory`` (PG-ключ) | ``factory_document`` (поле JSON-документа) |
+    ``managed_message`` | ``registered``."""
     spec = block(block_id)
     if spec is None:
         return "unknown"
     if spec.pg_key:
-        return "factory"
+        return "factory_document" if spec.pg_doc_field else "factory"
     if spec.migration == "managed_message":
         return "managed_message"
     return "registered"
@@ -890,7 +1126,11 @@ def factory_set_fingerprint() -> str:
 #: Guard-константа: обновляется ЯВНО при осознанной правке фабричной редакции
 #: (кто меняет канон — бампает отпечаток и метку в FACTORY_REVISION_LABELS).
 #: Проверяется ``tests/test_soul1_registry_completeness.py``.
-FACTORY_SET_SHA256_12 = "8cc27a902dae"
+#: Последний бамп (CORE-DOC, 16.10.2026): зарегистрированы два блока
+#: Personality Core (`core.personality` = полный авторский текст SOUL-02,
+#: `core.personality.compact` = ручная компактная редакция) — было
+#: ``8cc27a902dae`` (fix-pass W1), стало ``381aa1f0a9e4``.
+FACTORY_SET_SHA256_12 = "381aa1f0a9e4"
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -994,6 +1234,8 @@ def effective_prompt(pg_key_or_id: str, *, pg_value=None,
     ``pg_value``/``chat_value`` — значения ПЕРСИСТЕНТНОГО слоя (``None`` —
     слоя нет). Кодовый fallback применяется здесь же (``source="default"``):
     реестр показывает то, что реально уйдёт в LLM, а не «намерение».
+    Для блока-поля JSON-документа (``pg_doc_field``, Personality Core)
+    персистентное значение — САМ документ, а эффективное значение — его поле.
     """
     spec = block_for(pg_key_or_id)
     if spec is None:
@@ -1015,6 +1257,16 @@ def effective_prompt(pg_key_or_id: str, *, pg_value=None,
     else:
         source, value = "code", factory
     text = str(value or "")
+    if spec.pg_doc_field and source in ("chat", "global"):
+        field_text = doc_field_text(value, spec.pg_doc_field)
+        if field_text.strip():
+            text = field_text
+        else:
+            # Поле владельцем не задано → действует заводская редакция ЭТОГО
+            # поля (та же семантика, что у ``core_selection`` и композиции:
+            # правка одной редакции не обнуляет вторую).
+            text = factory
+            diagnostics.append("document_field_absent")
     resolved = resolve_speech_value(spec.pg_key or spec.block_id, text,
                                     source=source)
     stripped = resolved.text
@@ -1065,6 +1317,7 @@ def registry_view() -> list[dict]:
             "family": spec.family,
             "scope": spec.scope,
             "pg_key": spec.pg_key or "",
+            "pg_doc_field": spec.pg_doc_field,
             "code_source": spec.code_source or "",
             "consumers": list(spec.consumers),
             "composition_point": spec.composition_point,
@@ -1506,6 +1759,10 @@ __all__ = [
     "LegacySuppression", "SpeechResolution", "FACTORY_SET_SHA256_12",
     "LEGACY_PERSONA_RULES", "PROVENANCE_DOC_KEY", "PROVENANCE_MAP_FIELD",
     "PROVENANCE_WRITE_KINDS",
+    "CORE_DOC_KEY", "CORE_FULL_BLOCK_ID", "CORE_COMPACT_BLOCK_ID",
+    "CORE_DETAIL_LEVELS", "CORE_DETAIL_REASONS", "CORE_SOURCE",
+    "core_selection", "core_selection_view", "core_active_revision",
+    "doc_field_text",
     "all_blocks", "block", "block_for", "by_pg_key", "speech_blocks",
     "legacy_persona_blocks", "unregistered_catalog_keys", "reset_cache",
     "factory_text", "factory_default", "factory_revision", "factory_texts",

@@ -248,6 +248,10 @@ class CoreRef:
     origin: str = "owner_edit"
     enabled: bool = True
     skip_reason: str = ""
+    #: Почему действует именно эта редакция (закрытый набор
+    #: ``prompt_registry.CORE_DETAIL_REASONS``): выбор владельца, заводской
+    #: дефолт или бюджет контекста. Видно в манифесте слоя ``core``.
+    detail_reason: str = ""
 
 
 @dataclass(frozen=True)
@@ -417,6 +421,9 @@ class LayerTrace:
     rendered: bool = False
     skip_reason: str = ""
     conflict: str = ""
+    #: Уточнение провенанса блока (без текста промпта): например выбор
+    #: редакции Core (`level=… reason=… origin=… doc=…`).
+    detail: str = ""
 
 
 @dataclass(frozen=True)
@@ -544,6 +551,9 @@ def composer_enabled_now(gates: GateState) -> bool:
 
 CORE_KEY = "character.core"
 STYLE_POLICY_KEY = "style.policy"
+#: Уровни подробности Core. Действующий уровень выбирает
+#: ``prompt_registry.core_selection`` (владелец — реестр: там же закрытый набор
+#: причин ``CORE_DETAIL_REASONS``); здесь оставлено как публичное имя контракта.
 CORE_DETAIL_LEVELS = frozenset({"compact", "full"})
 STYLE_HINT_MAX_ITEMS = 5
 STYLE_HINT_MAX_CHARS = 400
@@ -598,15 +608,29 @@ def _document_layers(raw_global: Any, raw_chat: Any) -> tuple[dict | None,
 async def resolve_core_ref(chat_id: int) -> CoreRef:
     """Снимок Personality Core на ход (§2.1). Никогда не бросает.
 
-    Возвращает ref с ``skip_reason`` вместо исключения: отсутствие
-    документа — легальное состояние (``core_absent``), источник остаётся
-    видимым (``chat`` не подменяет глобальное ядро молча, SOUL-02.8).
+    Документ владельца — ``character.core`` (chat → global). Если документа
+    нет, действует ЗАВОДСКАЯ редакция зарегистрированного Core
+    (``core.personality`` = полный авторский текст SOUL-02 /
+    ``core.personality.compact`` = ручное сжатие, SOUL-AMD.1.1): Core больше
+    не «отсутствует» — он виден как ``source="default"``, ``origin="factory"``
+    с заводской ревизией ``fac:<sha12>``.
+
+    Если конфигурационный слой недоступен (PG down), поведение прежнее:
+    ``core_absent`` без выдуманной конфигурации — тот же инвариант, что у W1
+    (кодовый fallback не подменяется на сборке) и OFF-паритет W2 не
+    затрагивается.
+
+    Выбор редакции (полная/компактная) и его причина детерминированы
+    (``prompt_registry.core_selection``: документ владельца + заводские
+    редакции + бюджет слоёв, без единого LLM-вызова) и видны в манифесте:
+    слой ``core`` (``detail``) и ``versions["core_detail"]``.
     """
     try:
         from services import hot_config as hot
         raw_global = hot.get(CORE_KEY, None)
-    except Exception:
-        raw_global = None
+        layer_available = hot.get_config_cache() is not None
+    except Exception:          # pragma: no cover — защитная ветка
+        raw_global, layer_available = None, False
     raw_chat = None
     try:
         raw_chat = await _chat_override(chat_id, CORE_KEY)
@@ -617,36 +641,83 @@ async def resolve_core_ref(chat_id: int) -> CoreRef:
     except Exception:
         logger.warning("[composer] core doc unreadable", exc_info=True)
         return CoreRef(skip_reason="core_read_error")
-    if doc is None:
+    if doc is None and not layer_available:
+        # PG down: конфигурацию не выдумываем (прежнее честное состояние).
         return CoreRef(source="default", skip_reason="core_absent")
     try:
-        enabled = bool(doc.get("enabled", True))
-        level = str(doc.get("detail_level") or "compact").strip().lower()
-        if level not in CORE_DETAIL_LEVELS:
-            level = "compact"
-        full_text = str(doc.get("full_text") or "")
-        compact_text = str(doc.get("compact_text") or "")
-        text = compact_text if level == "compact" else full_text
-        if not text.strip():
-            text = full_text if level == "compact" else compact_text
-        revision = str(doc.get("revision", "") or "")
-        compact_words = doc.get("compact_words")
-        if not isinstance(compact_words, int):
-            compact_words = len(compact_text.split()) if compact_text else 0
+        from services import prompt_registry as _pr
+        enabled = True if doc is None else bool(doc.get("enabled", True))
+        selection = _pr.core_selection(
+            doc, source=source,
+            budget_tokens=mca_gates.composer_additive_budget_tokens())
+        text = str(selection["text"] or "")
+        present = bool(text.strip())
+        skip_reason = ("core_disabled" if not enabled
+                       else "" if present else "core_absent")
         return CoreRef(
             text=text,
-            revision=f"r{revision}.{sha12(text)}",
+            revision=str(selection["revision"]),
             source=source,
-            document_revision=revision,
-            detail_level=level,
-            compact_words=int(compact_words),
-            origin=str(doc.get("origin") or "owner_edit"),
+            document_revision=str(selection["document_revision"]),
+            detail_level=str(selection["level"]),
+            detail_reason=str(selection["reason"]),
+            compact_words=int(selection["compact_words"]),
+            origin=str(selection["origin"]),
             enabled=enabled,
-            skip_reason="" if (enabled and text.strip()) else (
-                "" if enabled else "core_disabled"))
+            skip_reason=skip_reason)
     except Exception:
         logger.warning("[composer] core doc malformed", exc_info=True)
         return CoreRef(source=source, skip_reason="core_read_error")
+
+
+def core_detail_label(core_ref: CoreRef | None) -> str:
+    """Короткая метка выбора Core для трассы/Inspector (без текста промпта)."""
+    if core_ref is None:
+        return ""
+    return (f"level={core_ref.detail_level} "
+            f"reason={core_ref.detail_reason or 'n/a'} "
+            f"origin={core_ref.origin or 'n/a'} "
+            f"words={int(core_ref.compact_words or 0)} "
+            f"doc={core_ref.document_revision or 'factory'}")
+
+
+async def core_inspection(chat_id: int) -> dict:
+    """Inspector-вид Core на текущем конфиге: редакция, версии, причина выбора.
+
+    Inspector-side данные (SOUL-AMD.6.4/§10 «Effective Prompt Inspector»):
+    что именно получит модель в слое ``core`` и почему. Сырого текста не
+    отдаёт — ревизии/размеры/провенанс; тексты доступны владельцу отдельно.
+    """
+    try:
+        ref = await resolve_core_ref(chat_id)
+    except Exception:          # pragma: no cover — resolve уже fail-open
+        ref = CoreRef(skip_reason="core_read_error")
+    try:
+        from services import prompt_registry as _pr
+        factory_view = _pr.core_selection_view(
+            None, source="default",
+            budget_tokens=mca_gates.composer_additive_budget_tokens())
+    except Exception:          # pragma: no cover — реестр недоступен
+        factory_view = {}
+    return {
+        "chat_id": int(chat_id or 0),
+        "doc_key": CORE_KEY,
+        "level": ref.detail_level,
+        "reason": ref.detail_reason,
+        "source": ref.source,
+        "origin": ref.origin,
+        "document_revision": ref.document_revision,
+        "active_revision": ref.revision,
+        "chars": len(ref.text or ""),
+        "compact_words": int(ref.compact_words or 0),
+        "enabled": bool(ref.enabled),
+        "skip_reason": ref.skip_reason,
+        "factory_revisions": dict(factory_view.get("factory_revisions") or {}),
+        "factory": {"full": factory_view.get("full") or {},
+                    "compact": factory_view.get("compact") or {}},
+        "edit_blocks": dict(factory_view.get("edit_blocks") or {}),
+        "source_provenance": dict(factory_view.get("source_provenance") or {}),
+    }
 
 
 def _style_hint(doc: Mapping) -> str:
@@ -887,7 +958,8 @@ def get_manifest(chat_id: int, *, run_id: str | None = None,
 
 def _trace(layer: str, *, block_id: str = "", text: str = "", owner: str = "",
            source: str = "code", revision: str = "", rendered: bool = False,
-           skip_reason: str = "", conflict: str = "") -> LayerTrace:
+           skip_reason: str = "", conflict: str = "",
+           detail: str = "") -> LayerTrace:
     origin = str(source or "code")
     if origin not in SOURCES:
         # Ref может называть свой этап («l1»/«library»); контракт трассы —
@@ -904,6 +976,7 @@ def _trace(layer: str, *, block_id: str = "", text: str = "", owner: str = "",
         rendered=bool(rendered),
         skip_reason=str(skip_reason or ""),
         conflict=str(conflict or ""),
+        detail=str(detail or ""),
     )
 
 
@@ -992,17 +1065,18 @@ def _compose(plan: PromptPlan) -> PromptManifest:
     # ── 2. core: Personality Core (единственная точка инъекции) ─────────────
     core_text = ""
     core_ref = plan.core
+    core_detail = core_detail_label(core_ref)
     if not core_allowed:
         traces.append(_trace(
             LAYER_CORE, block_id="core", owner="core",
             revision=(core_ref.revision if core_ref is not None else ""),
-            skip_reason=profile_reason))
+            skip_reason=profile_reason, detail=core_detail))
     elif not gates.character_core_enabled:
         traces.append(_trace(
             LAYER_CORE, block_id="core", owner="core",
             revision=(core_ref.revision if core_ref is not None else ""),
             source=(core_ref.source if core_ref is not None else "default"),
-            skip_reason="core_disabled"))
+            skip_reason="core_disabled", detail=core_detail))
     else:
         reason = ""
         if core_ref is None:
@@ -1016,7 +1090,7 @@ def _compose(plan: PromptPlan) -> PromptManifest:
                 LAYER_CORE, block_id="core", owner="core",
                 revision=(core_ref.revision if core_ref is not None else ""),
                 source=(core_ref.source if core_ref is not None else "default"),
-                skip_reason=reason))
+                skip_reason=reason, detail=core_detail))
         else:
             core_text = str(core_ref.text)
             cost = estimate_tokens(core_text)
@@ -1042,7 +1116,7 @@ def _compose(plan: PromptPlan) -> PromptManifest:
             traces.append(_trace(
                 LAYER_CORE, block_id="core", text=core_text, owner="core",
                 source=core_ref.source, revision=core_ref.revision,
-                rendered=True))
+                rendered=True, detail=core_detail))
 
     # ── 3. identity: имя/биография/отношения/owner style ────────────────────
     identity_text = ""
@@ -1415,8 +1489,14 @@ def _versions(plan: PromptPlan, profile: str, base_text: str, core_text: str,
         str(s.revision or s.library_version or sha12(s.text))
         for s in samples) if samples else ""
     identity = plan.identity
+    core = plan.core
     return {
-        "core": (plan.core.revision if plan.core is not None else ""),
+        "core": (core.revision if core is not None else ""),
+        # Какая редакция Core действует и почему (SOUL-AMD.1.1/§10):
+        # «compact:owner_setting» | «full:context_budget» | «compact:factory_default».
+        "core_detail": ((f"{core.detail_level}:{core.detail_reason}"
+                         if core is not None and core.detail_reason else "")
+                        if core is not None else ""),
         "style_policy": (policy.revision if policy is not None else ""),
         "identity": ((identity.revision if identity is not None else "")
                      or (_sha16(identity_text) if identity_text else "")),
@@ -1555,6 +1635,7 @@ def render_effective_layers(manifest: PromptManifest) -> dict:
             "rendered": trace.rendered,
             "skip_reason": trace.skip_reason,
             "conflict": trace.conflict,
+            "detail": trace.detail,
         })
     order = [t.layer for t in manifest.layers]
     unique_order = list(dict.fromkeys(order))
@@ -1617,6 +1698,7 @@ def manifest_for_events(manifest: PromptManifest) -> dict:
             "rendered": t.rendered,
             "skip_reason": t.skip_reason,
             "conflict": t.conflict,
+            "detail": t.detail,
         } for t in manifest.layers],
         "conflict_ids": [c.conflict_id for c in manifest.conflicts],
     }

@@ -330,8 +330,12 @@ const OD4 = ['#0E0E0E', '#161616', '#1F1F1F', '#262626', '#F5F5F5', '#BABABA',
   });
   const oldQSA = global.document.querySelectorAll;
   const el1 = mkEl(320, 400), el2 = mkEl(200, 300);
+  // HOTFIX-TIERA (SOUL-1): reconcile ищет стекло КОМПАУНД-селектором
+  // (`[data-glass], .card, …`) — мок отвечает на любой селектор, ведущий
+  // `[data-glass]` (декларация hero остаётся в приоритете словаря tier).
   global.document.querySelectorAll = (sel) =>
-    sel === '[data-glass]' ? [el1, el2] : [];
+    (typeof sel === 'string' && sel.indexOf('[data-glass]') === 0)
+      ? [el1, el2] : [];
   const fake = (sup, cap, ovr, rm) => ({
     _probeTierA: () => ({ tierA: !!sup, reason: sup ? 'probe-chromium' : 'svg-render-failed' }),
     _glassTierOverride: () => ovr || 'auto',
@@ -339,6 +343,11 @@ const OD4 = ['#0E0E0E', '#161616', '#1F1F1F', '#262626', '#F5F5F5', '#BABABA',
     _prefersReducedMotion: () => !!rm,
     _lowEndDevice: () => false,
     _syncLensFilters: () => {},
+    // HOTFIX-TIERA (SOUL-1): классовые поверхности и вложенность — реальная
+    // логика app.js (мок-узлы без parentElement → «не вложено»).
+    _lgGlassSelector: methods._lgGlassSelector,
+    _lgDenseSelector: methods._lgDenseSelector,
+    _lgNestedInGlass: methods._lgNestedInGlass,
   });
   methods.reconcileLiquidGlass.call(fake(true, 6));
   assert.strictEqual(el1.hasAttribute('data-glass-downgraded'), false,
@@ -365,8 +374,12 @@ const OD4 = ['#0E0E0E', '#161616', '#1F1F1F', '#262626', '#F5F5F5', '#BABABA',
   assert.strictEqual(el1.hasAttribute('data-glass-downgraded'), true, 'override=b → B');
   assert.strictEqual(el1._attrs['data-glass-reason'], 'override-b', 'override-b');
   // W2-GLASS U08.3d: жёсткий максимум 3 hero-поверхности (env 6 → clamp 3).
+  // HOTFIX-TIERA (SOUL-1): кап действует ровно на HERO-декларации
+  // `data-glass="a"`; массовые стеклянные поверхности (`.card` и др.) идут
+  // без капа — приказ владельца «Tier A = основной материал».
   const many = [mkEl(320, 200), mkEl(320, 200), mkEl(320, 200), mkEl(320, 200)];
-  global.document.querySelectorAll = (sel) => sel === '[data-glass]' ? many : [];
+  global.document.querySelectorAll = (sel) =>
+    (typeof sel === 'string' && sel.indexOf('[data-glass]') === 0) ? many : [];
   methods.reconcileLiquidGlass.call(fake(true, 6));
   const tiersA = many.filter((e) => e._attrs['data-glass-tier'] === 'a').length;
   assert.strictEqual(tiersA, 3, 'U08.3d: максимум 3 hero в Tier A (env-кап clamp)');
