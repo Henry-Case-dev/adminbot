@@ -1,0 +1,397 @@
+{
+ "generated": "2026-10-16",
+ "port": 8861,
+ "u02": {
+  "320x700": {
+   "ddPresent": true,
+   "ddDisplay": "block",
+   "ddRect": {
+    "x": 17,
+    "y": 141,
+    "w": 286,
+    "h": 44,
+    "right": 303,
+    "bottom": 185
+   },
+   "trigText": "Раздел:Обзор▾",
+   "trigRect": {
+    "x": 17,
+    "y": 141,
+    "w": 286,
+    "h": 44,
+    "right": 303,
+    "bottom": 185
+   },
+   "tabsPresent": true,
+   "tabsDisplay": "block",
+   "tabsCount": 8,
+   "vw": 320,
+   "vh": 700,
+   "scrollWidth": 320,
+   "hOverflow": false,
+   "openDisplay": "block",
+   "options": [
+    "Обзор",
+    "Процессы",
+    "Запуски",
+    "Инциденты",
+    "Память и интеллект",
+    "Модели и расходы",
+    "Саммари"
+   ],
+   "ddRectOpen": {
+    "x": 17,
+    "y": 141,
+    "w": 286,
+    "h": 44,
+    "right": 303,
+    "bottom": 185
+   },
+   "menuInViewport": true
+  },
+  "360x780": {
+   "ddPresent": true,
+   "ddDisplay": "block",
+   "ddRect": {
+    "x": 17,
+    "y": 141,
+    "w": 326,
+    "h": 44,
+    "right": 343,
+    "bottom": 185
+   },
+   "trigText": "Раздел:Обзор▾",
+   "trigRect": {
+    "x": 17,
+    "y": 141,
+    "w": 326,
+    "h": 44,
+    "right": 343,
+    "bottom": 185
+   },
+   "tabsPresent": true,
+   "tabsDisplay": "block",
+   "tabsCount": 8,
+   "vw": 360,
+   "vh": 780,
+   "scrollWidth": 360,
+   "hOverflow": false,
+   "openDisplay": "block",
+   "options": [
+    "Обзор",
+    "Процессы",
+    "Запуски",
+    "Инциденты",
+    "Память и интеллект",
+    "Модели и расходы",
+    "Саммари"
+   ],
+   "ddRectOpen": {
+    "x": 17,
+    "y": 141,
+    "w": 326,
+    "h": 44,
+    "right": 343,
+    "bottom": 185
+   },
+   "menuInViewport": true
+  },
+  "390x844": {
+   "ddPresent": true,
+   "ddDisplay": "block",
+   "ddRect": {
+    "x": 17,
+    "y": 141,
+    "w": 356,
+    "h": 44,
+    "right": 373,
+    "bottom": 185
+   },
+   "trigText": "Раздел:Обзор▾",
+   "trigRect": {
+    "x": 17,
+    "y": 141,
+    "w": 356,
+    "h": 44,
+    "right": 373,
+    "bottom": 185
+   },
+   "tabsPresent": true,
+   "tabsDisplay": "block",
+   "tabsCount": 8,
+   "vw": 390,
+   "vh": 844,
+   "scrollWidth": 390,
+   "hOverflow": false,
+   "openDisplay": "block",
+   "options": [
+    "Обзор",
+    "Процессы",
+    "Запуски",
+    "Инциденты",
+    "Память и интеллект",
+    "Модели и расходы",
+    "Саммари"
+   ],
+   "ddRectOpen": {
+    "x": 17,
+    "y": 141,
+    "w": 356,
+    "h": 44,
+    "right": 373,
+    "bottom": 185
+   },
+   "menuInViewport": true
+  },
+  "430x932": {
+   "ddPresent": true,
+   "ddDisplay": "block",
+   "ddRect": {
+    "x": 17,
+    "y": 141,
+    "w": 396,
+    "h": 44,
+    "right": 413,
+    "bottom": 185
+   },
+   "trigText": "Раздел:Обзор▾",
+   "trigRect": {
+    "x": 17,
+    "y": 141,
+    "w": 396,
+    "h": 44,
+    "right": 413,
+    "bottom": 185
+   },
+   "tabsPresent": true,
+   "tabsDisplay": "block",
+   "tabsCount": 8,
+   "vw": 430,
+   "vh": 932,
+   "scrollWidth": 430,
+   "hOverflow": false,
+   "openDisplay": "block",
+   "options": [
+    "Обзор",
+    "Процессы",
+    "Запуски",
+    "Инциденты",
+    "Память и интеллект",
+    "Модели и расходы",
+    "Саммари"
+   ],
+   "ddRectOpen": {
+    "x": 17,
+    "y": 141,
+    "w": 396,
+    "h": 44,
+    "right": 413,
+    "bottom": 185
+   },
+   "menuInViewport": true
+  },
+  "667x375_landscape": {
+   "ddPresent": true,
+   "ddDisplay": "block",
+   "ddRect": {
+    "x": 17,
+    "y": 119,
+    "w": 633,
+    "h": 44,
+    "right": 650,
+    "bottom": 163
+   },
+   "trigText": "Раздел:Обзор▾",
+   "trigRect": {
+    "x": 17,
+    "y": 119,
+    "w": 633,
+    "h": 44,
+    "right": 650,
+    "bottom": 163
+   },
+   "tabsPresent": true,
+   "tabsDisplay": "block",
+   "tabsCount": 8,
+   "vw": 667,
+   "vh": 375,
+   "scrollWidth": 667,
+   "hOverflow": false,
+   "openDisplay": "block",
+   "options": [
+    "Обзор",
+    "Процессы",
+    "Запуски",
+    "Инциденты",
+    "Память и интеллект",
+    "Модели и расходы",
+    "Саммари"
+   ],
+   "ddRectOpen": {
+    "x": 17,
+    "y": 119,
+    "w": 633,
+    "h": 44,
+    "right": 650,
+    "bottom": 163
+   },
+   "menuInViewport": true
+  },
+  "768x1024": {
+   "ddPresent": true,
+   "ddDisplay": "none",
+   "ddRect": {
+    "x": 0,
+    "y": 0,
+    "w": 0,
+    "h": 0,
+    "right": 0,
+    "bottom": 0
+   },
+   "trigText": "Раздел:Обзор▾",
+   "trigRect": {
+    "x": 0,
+    "y": 0,
+    "w": 0,
+    "h": 0,
+    "right": 0,
+    "bottom": 0
+   },
+   "tabsPresent": true,
+   "tabsDisplay": "block",
+   "tabsCount": 8,
+   "vw": 768,
+   "vh": 1024,
+   "scrollWidth": 768,
+   "hOverflow": false
+  },
+  "1024x768": {
+   "ddPresent": true,
+   "ddDisplay": "none",
+   "ddRect": {
+    "x": 0,
+    "y": 0,
+    "w": 0,
+    "h": 0,
+    "right": 0,
+    "bottom": 0
+   },
+   "trigText": "Раздел:Обзор▾",
+   "trigRect": {
+    "x": 0,
+    "y": 0,
+    "w": 0,
+    "h": 0,
+    "right": 0,
+    "bottom": 0
+   },
+   "tabsPresent": true,
+   "tabsDisplay": "block",
+   "tabsCount": 8,
+   "vw": 1024,
+   "vh": 768,
+   "scrollWidth": 1024,
+   "hOverflow": false
+  },
+  "1440x900": {
+   "ddPresent": true,
+   "ddDisplay": "none",
+   "ddRect": {
+    "x": 0,
+    "y": 0,
+    "w": 0,
+    "h": 0,
+    "right": 0,
+    "bottom": 0
+   },
+   "trigText": "Раздел:Обзор▾",
+   "trigRect": {
+    "x": 0,
+    "y": 0,
+    "w": 0,
+    "h": 0,
+    "right": 0,
+    "bottom": 0
+   },
+   "tabsPresent": true,
+   "tabsDisplay": "block",
+   "tabsCount": 8,
+   "vw": 1440,
+   "vh": 900,
+   "scrollWidth": 1440,
+   "hOverflow": false
+  }
+ },
+ "more": {
+  "320x700": {
+   "open": true,
+   "items": [
+    "Справка",
+    "ИИ",
+    "Память",
+    "Доступы",
+    "PERMsoc"
+   ],
+   "escCloses": true,
+   "focusBackOnTrigger": true
+  },
+  "360x780": {
+   "open": true,
+   "items": [
+    "Справка",
+    "ИИ",
+    "Память",
+    "Доступы",
+    "PERMsoc"
+   ],
+   "escCloses": true,
+   "focusBackOnTrigger": true
+  },
+  "390x844": {
+   "open": true,
+   "items": [
+    "Справка",
+    "ИИ",
+    "Память",
+    "Доступы",
+    "PERMsoc"
+   ],
+   "escCloses": true,
+   "focusBackOnTrigger": true
+  },
+  "430x932": {
+   "open": true,
+   "items": [
+    "Справка",
+    "ИИ",
+    "Память",
+    "Доступы",
+    "PERMsoc"
+   ],
+   "escCloses": true,
+   "focusBackOnTrigger": true
+  },
+  "667x375_landscape": {
+   "open": true,
+   "items": [
+    "Справка",
+    "ИИ",
+    "Память",
+    "Доступы",
+    "PERMsoc"
+   ],
+   "escCloses": true,
+   "focusBackOnTrigger": true
+  },
+  "768x1024": {
+   "err": "Page.click: Timeout 3000ms exceeded.\nCall log:\n  - waiting for locator(\".mobile-topnav-more\")\n"
+  },
+  "1024x768": {
+   "err": "Page.click: Timeout 3000ms exceeded.\nCall log:\n  - waiting for locator(\".mobile-topnav-more\")\n"
+  },
+  "1440x900": {
+   "err": "Page.click: Timeout 3000ms exceeded.\nCall log:\n  - waiting for locator(\".mobile-topnav-more\")\n"
+  }
+ },
+ "console_errors": []
+}

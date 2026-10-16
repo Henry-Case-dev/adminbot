@@ -1,0 +1,211 @@
+{
+ "generated": "2026-10-16",
+ "port": 8861,
+ "cases": [
+  {
+   "headerText": " AdminBot P PERMsoc и очень длинное имя чата ЧАТ ▾  Статус  Аналитика  Модули  Ещё",
+   "chatIdInHeader": false,
+   "selText": "PPERMsoc и очень длинное имя чатаЧАТ▾",
+   "selTitle": "PERMsoc и очень длинное имя чата",
+   "selAria": "Выбор контекста",
+   "selRect": {
+    "x": 109,
+    "y": 12,
+    "w": 132,
+    "h": 40,
+    "right": 241,
+    "bottom": 52
+   },
+   "selOverflowX": "clip/visible",
+   "selScrollW": 130,
+   "selClientW": 130,
+   "fsBtnRect": {
+    "x": 255,
+    "y": 10,
+    "w": 49,
+    "h": 44,
+    "right": 304,
+    "bottom": 54
+   },
+   "fsVisualRect": {
+    "x": 271,
+    "y": 23,
+    "w": 18,
+    "h": 18,
+    "right": 289,
+    "bottom": 41
+   },
+   "vw": 320,
+   "vh": 700,
+   "scrollWidth": 320,
+   "hOverflow": false,
+   "rows": 5,
+   "tag": "320_zero_inset",
+   "console_errors": []
+  },
+  {
+   "headerText": " AdminBot P PERMsoc и очень длинное имя чата ЧАТ ▾  Статус  Аналитика  Модули  Ещё",
+   "chatIdInHeader": false,
+   "selText": "PPERMsoc и очень длинное имя чатаЧАТ▾",
+   "selTitle": "PERMsoc и очень длинное имя чата",
+   "selAria": "Выбор контекста",
+   "selRect": {
+    "x": 109,
+    "y": 12,
+    "w": 202,
+    "h": 40,
+    "right": 311,
+    "bottom": 52
+   },
+   "selOverflowX": "clip/visible",
+   "selScrollW": 200,
+   "selClientW": 200,
+   "fsBtnRect": {
+    "x": 325,
+    "y": 10,
+    "w": 49,
+    "h": 44,
+    "right": 374,
+    "bottom": 54
+   },
+   "fsVisualRect": {
+    "x": 341,
+    "y": 23,
+    "w": 18,
+    "h": 18,
+    "right": 359,
+    "bottom": 41
+   },
+   "vw": 390,
+   "vh": 844,
+   "scrollWidth": 390,
+   "hOverflow": false,
+   "rows": 5,
+   "tag": "390_zero_inset",
+   "console_errors": []
+  },
+  {
+   "headerText": " AdminBot P PERMsoc и очень длинное имя чата ЧАТ ▾  Статус  Аналитика  Модули  Ещё",
+   "chatIdInHeader": false,
+   "selText": "PPERMsoc и очень длинное имя чатаЧАТ▾",
+   "selTitle": "PERMsoc и очень длинное имя чата",
+   "selAria": "Выбор контекста",
+   "selRect": {
+    "x": 109,
+    "y": 68,
+    "w": 202,
+    "h": 40,
+    "right": 311,
+    "bottom": 108
+   },
+   "selOverflowX": "clip/visible",
+   "selScrollW": 200,
+   "selClientW": 200,
+   "fsBtnRect": {
+    "x": 325,
+    "y": 66,
+    "w": 49,
+    "h": 44,
+    "right": 374,
+    "bottom": 110
+   },
+   "fsVisualRect": {
+    "x": 341,
+    "y": 79,
+    "w": 18,
+    "h": 18,
+    "right": 359,
+    "bottom": 97
+   },
+   "vw": 390,
+   "vh": 844,
+   "scrollWidth": 390,
+   "hOverflow": false,
+   "rows": 5,
+   "tag": "390_safearea_56",
+   "console_errors": []
+  },
+  {
+   "headerText": " AdminBot P PERMsoc и очень длинное имя чата ЧАТ ▾  Статус  Аналитика  Модули  Ещё",
+   "chatIdInHeader": false,
+   "selText": "PPERMsoc и очень длинное имя чатаЧАТ▾",
+   "selTitle": "PERMsoc и очень длинное имя чата",
+   "selAria": "Выбор контекста",
+   "selRect": {
+    "x": 109,
+    "y": 32,
+    "w": 280,
+    "h": 39,
+    "right": 389,
+    "bottom": 71
+   },
+   "selOverflowX": "clip/visible",
+   "selScrollW": 278,
+   "selClientW": 278,
+   "fsBtnRect": {
+    "x": 602,
+    "y": 30,
+    "w": 49,
+    "h": 44,
+    "right": 651,
+    "bottom": 74
+   },
+   "fsVisualRect": {
+    "x": 618,
+    "y": 43,
+    "w": 18,
+    "h": 18,
+    "right": 636,
+    "bottom": 61
+   },
+   "vw": 667,
+   "vh": 375,
+   "scrollWidth": 667,
+   "hOverflow": false,
+   "rows": 5,
+   "tag": "667_safearea_cutout",
+   "console_errors": []
+  },
+  {
+   "headerText": " AdminBot P PERMsoc и очень длинное имя чата ЧАТ ▾  Статус  Аналитика  Модули  Ещё",
+   "chatIdInHeader": false,
+   "selText": "PPERMsoc и очень длинное имя чатаЧАТ▾",
+   "selTitle": "PERMsoc и очень длинное имя чата",
+   "selAria": "Выбор контекста",
+   "selRect": {
+    "x": 109,
+    "y": 59,
+    "w": 202,
+    "h": 40,
+    "right": 311,
+    "bottom": 99
+   },
+   "selOverflowX": "clip/visible",
+   "selScrollW": 200,
+   "selClientW": 200,
+   "fsBtnRect": {
+    "x": 325,
+    "y": 57,
+    "w": 49,
+    "h": 44,
+    "right": 374,
+    "bottom": 101
+   },
+   "fsVisualRect": {
+    "x": 341,
+    "y": 70,
+    "w": 18,
+    "h": 18,
+    "right": 359,
+    "bottom": 88
+   },
+   "vw": 390,
+   "vh": 844,
+   "scrollWidth": 390,
+   "hOverflow": false,
+   "rows": 5,
+   "tag": "390_ios_notch",
+   "console_errors": []
+  }
+ ]
+}

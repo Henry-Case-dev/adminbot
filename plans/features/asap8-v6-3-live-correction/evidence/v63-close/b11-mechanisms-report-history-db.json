@@ -1,0 +1,852 @@
+{
+ "generated_at": 1792128143,
+ "db": "C:\\Code\\Python\\adminbot\\local_database_2026-09-04_history.db",
+ "chat_id": null,
+ "stale_seconds": 1800,
+ "pg_available": false,
+ "pg_reason": "pg_dsn_not_provided",
+ "db_read_errors": [
+  "SELECT COUNT(*) AS c FROM graph_facts WHERE kind = 'belief': no such column: kind",
+  "SELECT COUNT(*) AS c FROM graph_facts WHERE (belief_meta LIK: no such column: belief_meta",
+  "SELECT reviewed_at, belief_id, outcome, reason_code, job_id : no such table: mca_belief_reviews",
+  "SELECT COUNT(*) AS c FROM graph_facts WHERE kind = 'belief': no such column: kind",
+  "SELECT COUNT(*) AS c FROM graph_facts WHERE kind = 'belief' : no such column: kind",
+  "SELECT COUNT(*) AS c FROM mca_belief_reviews: no such table: mca_belief_reviews",
+  "SELECT outcome, COUNT(*) AS c FROM mca_belief_reviews WHERE : no such table: mca_belief_reviews",
+  "SELECT outcome, COUNT(*) AS c FROM mca_belief_reviews WHERE : no such table: mca_belief_reviews",
+  "SELECT COUNT(*) AS c FROM graph_facts WHERE (belief_meta LIK: no such column: belief_meta",
+  "SELECT COUNT(*) AS c FROM graph_facts WHERE (belief_meta LIK: no such column: belief_meta",
+  "SELECT COUNT(*) AS c FROM mca_trait_observations: no such table: mca_trait_observations",
+  "SELECT COUNT(*) AS c FROM mca_trait_observations WHERE obser: no such table: mca_trait_observations",
+  "SELECT COUNT(*) AS c FROM mca_behavior_rules: no such table: mca_behavior_rules",
+  "SELECT (SELECT COUNT(*) FROM graph_facts) - (SELECT COUNT(*): no such module: vec0",
+  "SELECT (SELECT COUNT(*) FROM graph_facts) - (SELECT COUNT(*): no such module: vec0",
+  "SELECT COUNT(*) AS c FROM mca_experience_episodes: no such table: mca_experience_episodes",
+  "SELECT COUNT(*) AS c FROM mca_experience_episodes WHERE crea: no such table: mca_experience_episodes"
+ ],
+ "mechanisms": [
+  {
+   "key": "dream",
+   "title": "Сон (dream)",
+   "gate": {
+    "env": {
+     "DREAM_ENABLED": {
+      "value": false,
+      "source": "default",
+      "default": false
+     }
+    },
+    "pg_catalog": {},
+    "pg_available": false,
+    "pg_reason": "pg_dsn_not_provided",
+    "effective": false,
+    "effective_source": "default:DREAM_ENABLED=off",
+    "chat_id": null
+   },
+   "producer": {
+    "registered": true,
+    "processes": [
+     {
+      "process_id": "sleep.dream",
+      "declared": true,
+      "enabled_gate": "DREAM_ENABLED",
+      "enabled": false,
+      "instrumented": true,
+      "event_names": [
+       "sleep_dream"
+      ]
+     }
+    ]
+   },
+   "sources": [
+    "memory_dream_log",
+    "dream_state",
+    "graph_facts",
+    "mca_events"
+   ],
+   "last_attempt": null,
+   "real_input": {
+    "available": true,
+    "total": 10447,
+    "fresh_24h": 0,
+    "detail": "по ['memory_dream_log']"
+   },
+   "write_result": {
+    "state": "no_watermark"
+   },
+   "used_in_response": {
+    "tracked": true,
+    "source": "graph_facts(kind='belief')",
+    "beliefs_total": null
+   },
+   "counters_24h": null,
+   "counters_7d": null,
+   "events_24h": null,
+   "events_7d": null,
+   "last_event": null,
+   "last_job": null,
+   "job_24h": null,
+   "job_7d": null,
+   "ttl_seconds": 90000,
+   "extra": {},
+   "diagnosis": {
+    "code": "producer_off",
+    "detail": "gate off (default:DREAM_ENABLED=off)"
+   },
+   "missing_tables": [
+    "memory_dream_log",
+    "dream_state"
+   ]
+  },
+  {
+   "key": "deep_sleep",
+   "title": "Глубокий сон (deep sleep)",
+   "gate": {
+    "env": {
+     "DEEP_SLEEP_ENABLED": {
+      "value": false,
+      "source": "default",
+      "default": false
+     }
+    },
+    "pg_catalog": {},
+    "pg_available": false,
+    "pg_reason": "pg_dsn_not_provided",
+    "effective": false,
+    "effective_source": "default:DEEP_SLEEP_ENABLED=off",
+    "chat_id": null
+   },
+   "producer": {
+    "registered": true,
+    "processes": [
+     {
+      "process_id": "sleep.dream",
+      "declared": true,
+      "enabled_gate": "DREAM_ENABLED",
+      "enabled": false,
+      "instrumented": true,
+      "event_names": [
+       "sleep_dream"
+      ]
+     }
+    ]
+   },
+   "sources": [
+    "memory_dream_log",
+    "graph_facts",
+    "mca_events"
+   ],
+   "last_attempt": null,
+   "real_input": {
+    "available": true,
+    "total": 10447,
+    "fresh_24h": 0,
+    "detail": "по ['memory_dream_log']"
+   },
+   "write_result": {
+    "paradigms_total": null,
+    "bootstrap_pending": false
+   },
+   "used_in_response": {
+    "tracked": false,
+    "note": "парадигмы входят в retrieval graph_facts; прямой трейс нет"
+   },
+   "counters_24h": null,
+   "counters_7d": null,
+   "events_24h": null,
+   "events_7d": null,
+   "last_event": null,
+   "last_job": null,
+   "job_24h": null,
+   "job_7d": null,
+   "ttl_seconds": null,
+   "extra": {},
+   "diagnosis": {
+    "code": "producer_off",
+    "detail": "gate off (default:DEEP_SLEEP_ENABLED=off)"
+   },
+   "missing_tables": [
+    "memory_dream_log",
+    "mca_events"
+   ]
+  },
+  {
+   "key": "belief_revision",
+   "title": "Пересмотр убеждений (belief revision)",
+   "gate": {
+    "env": {
+     "MCA_DREAM_REVISION_QUEUE_ENABLED": {
+      "value": true,
+      "source": "default",
+      "default": true
+     }
+    },
+    "pg_catalog": {},
+    "pg_available": false,
+    "pg_reason": "pg_dsn_not_provided",
+    "effective": true,
+    "effective_source": "default_on",
+    "chat_id": null
+   },
+   "producer": {
+    "registered": true,
+    "processes": [
+     {
+      "process_id": "sleep.dream",
+      "declared": true,
+      "enabled_gate": "DREAM_ENABLED",
+      "enabled": false,
+      "instrumented": true,
+      "event_names": [
+       "sleep_dream"
+      ]
+     }
+    ]
+   },
+   "sources": [
+    "mca_belief_reviews",
+    "graph_facts",
+    "memory_dream_log",
+    "mca_events"
+   ],
+   "last_attempt": null,
+   "real_input": {
+    "available": false,
+    "total": null,
+    "fresh_24h": null,
+    "detail": "по ['mca_belief_reviews']"
+   },
+   "write_result": {
+    "reviews_total": null
+   },
+   "used_in_response": {
+    "tracked": false,
+    "note": "пересмотренные убеждения живут в graph_facts; трейс в ответе нет"
+   },
+   "counters_24h": null,
+   "counters_7d": null,
+   "events_24h": null,
+   "events_7d": null,
+   "last_event": null,
+   "last_job": null,
+   "job_24h": null,
+   "job_7d": null,
+   "ttl_seconds": null,
+   "extra": {},
+   "diagnosis": {
+    "code": "no_input",
+    "detail": "нет входных данных"
+   },
+   "missing_tables": [
+    "mca_belief_reviews",
+    "memory_dream_log"
+   ]
+  },
+  {
+   "key": "paradigms",
+   "title": "Парадигмы (paradigms)",
+   "gate": {
+    "env": {
+     "DEEP_SLEEP_ENABLED": {
+      "value": false,
+      "source": "default",
+      "default": false
+     },
+     "DEEP_SLEEP_MAX_PARADIGMS": {
+      "value": true,
+      "source": "default",
+      "default": 3
+     }
+    },
+    "pg_catalog": {},
+    "pg_available": false,
+    "pg_reason": "pg_dsn_not_provided",
+    "effective": false,
+    "effective_source": "default:DEEP_SLEEP_ENABLED=off",
+    "chat_id": null
+   },
+   "producer": {
+    "registered": true,
+    "processes": [
+     {
+      "process_id": "sleep.dream",
+      "declared": true,
+      "enabled_gate": "DREAM_ENABLED",
+      "enabled": false,
+      "instrumented": true,
+      "event_names": [
+       "sleep_dream"
+      ]
+     }
+    ]
+   },
+   "sources": [
+    "graph_facts",
+    "memory_dream_log",
+    "mca_events"
+   ],
+   "last_attempt": null,
+   "real_input": {
+    "available": false,
+    "total": null,
+    "fresh_24h": null,
+    "detail": "по ['graph_facts']"
+   },
+   "write_result": {
+    "paradigms_total": null,
+    "bootstrap_pending": false
+   },
+   "used_in_response": {
+    "tracked": false,
+    "note": "парадигмы входят в retrieval graph_facts; прямой трейс нет"
+   },
+   "counters_24h": null,
+   "counters_7d": null,
+   "events_24h": null,
+   "events_7d": null,
+   "last_event": null,
+   "last_job": null,
+   "job_24h": null,
+   "job_7d": null,
+   "ttl_seconds": null,
+   "extra": {},
+   "diagnosis": {
+    "code": "producer_off",
+    "detail": "gate off (default:DEEP_SLEEP_ENABLED=off)"
+   },
+   "missing_tables": [
+    "memory_dream_log",
+    "mca_events"
+   ]
+  },
+  {
+   "key": "self_model",
+   "title": "Self-model / traits (характер)",
+   "gate": {
+    "env": {
+     "MCA_SELF_MODEL_ENABLED": {
+      "value": true,
+      "source": "default",
+      "default": true
+     }
+    },
+    "pg_catalog": {},
+    "pg_available": false,
+    "pg_reason": "pg_dsn_not_provided",
+    "effective": true,
+    "effective_source": "default_on",
+    "chat_id": null
+   },
+   "producer": {
+    "registered": true,
+    "processes": [
+     {
+      "process_id": "self.model",
+      "declared": true,
+      "enabled_gate": "MCA_SELF_MODEL_ENABLED",
+      "enabled": true,
+      "instrumented": true,
+      "event_names": [
+       "self_model"
+      ]
+     },
+     {
+      "process_id": "persona.traits",
+      "declared": true,
+      "enabled_gate": "PERSONA_ENABLED",
+      "enabled": true,
+      "instrumented": true,
+      "event_names": [
+       "persona_traits"
+      ]
+     }
+    ]
+   },
+   "sources": [
+    "mca_trait_observations",
+    "mca_self_identity",
+    "mca_behavior_rules",
+    "mca_events"
+   ],
+   "last_attempt": null,
+   "real_input": {
+    "available": false,
+    "total": null,
+    "fresh_24h": null,
+    "detail": "по ['mca_trait_observations']"
+   },
+   "write_result": {
+    "self_identity": null,
+    "behavior_rules_total": null
+   },
+   "used_in_response": {
+    "tracked": true,
+    "source": "persona (bot_persona) читает traits; events component=self_model"
+   },
+   "counters_24h": null,
+   "counters_7d": null,
+   "events_24h": null,
+   "events_7d": null,
+   "last_event": null,
+   "last_job": null,
+   "job_24h": null,
+   "job_7d": null,
+   "ttl_seconds": null,
+   "extra": {},
+   "diagnosis": {
+    "code": "unavailable",
+    "detail": "источники секции недоступны (fail-soft)"
+   },
+   "missing_tables": [
+    "mca_trait_observations",
+    "mca_self_identity",
+    "mca_behavior_rules"
+   ]
+  },
+  {
+   "key": "graph_memory",
+   "title": "Graph memory (GraphRAG)",
+   "gate": {
+    "env": {
+     "GRAPHRAG_SHADOW_REBUILD_ENABLED": {
+      "value": true,
+      "source": "default",
+      "default": true
+     }
+    },
+    "pg_catalog": {},
+    "pg_available": false,
+    "pg_reason": "pg_dsn_not_provided",
+    "effective": true,
+    "effective_source": "default_on",
+    "chat_id": null
+   },
+   "producer": {
+    "registered": true,
+    "processes": [
+     {
+      "process_id": "embeddings.index",
+      "declared": true,
+      "enabled_gate": "MCA_RETRIEVAL_CONTEXT_ENABLED",
+      "enabled": true,
+      "instrumented": true,
+      "event_names": [
+       "EMBED_API_FAILED",
+       "EMBED_API_DEFERRED",
+       "EMBEDDING_GENERATION_BUILD_START",
+       "EMBEDDING_GENERATION_PROGRESS",
+       "EMBEDDING_GENERATION_VALIDATED",
+       "EMBEDDING_GENERATION_ACTIVATED",
+       "EMBEDDING_GENERATION_FAILED"
+      ]
+     }
+    ]
+   },
+   "sources": [
+    "graph_facts",
+    "nodes",
+    "edges",
+    "mca_embedding_index_generations",
+    "task_jobs",
+    "mca_events"
+   ],
+   "last_attempt": null,
+   "real_input": {
+    "available": true,
+    "total": 10447,
+    "fresh_24h": 0,
+    "detail": "по ['graph_facts']"
+   },
+   "write_result": {
+    "recent_generations": null,
+    "quota_state": null,
+    "backlog_missing_embedding": null
+   },
+   "used_in_response": {
+    "tracked": true,
+    "source": "GraphRAG retrieval читает graph_facts/nodes/edges"
+   },
+   "counters_24h": null,
+   "counters_7d": null,
+   "events_24h": null,
+   "events_7d": null,
+   "last_job": null,
+   "job_24h": null,
+   "job_7d": null,
+   "ttl_seconds": null,
+   "extra": {
+    "payload_cursor": {
+     "cursor_ts": null,
+     "cursor_id": null,
+     "counters": null
+    }
+   },
+   "diagnosis": {
+    "code": "never_run",
+    "detail": "включено, но попыток не было (не зелёное)"
+   },
+   "missing_tables": []
+  },
+  {
+   "key": "embeddings",
+   "title": "Инкрементальный embedding/backfill",
+   "gate": {
+    "env": {
+     "EMBED_CONTROL_PLANE_ENABLED": {
+      "value": true,
+      "source": "default",
+      "default": true
+     },
+     "EMBED_ASYNC_BATCH_ENABLED": {
+      "value": false,
+      "source": "default",
+      "default": false
+     }
+    },
+    "pg_catalog": {},
+    "pg_available": false,
+    "pg_reason": "pg_dsn_not_provided",
+    "effective": true,
+    "effective_source": "default_on",
+    "chat_id": null
+   },
+   "producer": {
+    "registered": true,
+    "processes": [
+     {
+      "process_id": "embeddings.index",
+      "declared": true,
+      "enabled_gate": "MCA_RETRIEVAL_CONTEXT_ENABLED",
+      "enabled": true,
+      "instrumented": true,
+      "event_names": [
+       "EMBED_API_FAILED",
+       "EMBED_API_DEFERRED",
+       "EMBEDDING_GENERATION_BUILD_START",
+       "EMBEDDING_GENERATION_PROGRESS",
+       "EMBEDDING_GENERATION_VALIDATED",
+       "EMBEDDING_GENERATION_ACTIVATED",
+       "EMBEDDING_GENERATION_FAILED"
+      ]
+     }
+    ]
+   },
+   "sources": [
+    "mca_embedding_index_generations",
+    "embedding_quota_state",
+    "graph_facts",
+    "task_jobs",
+    "mca_events"
+   ],
+   "last_attempt": null,
+   "real_input": {
+    "available": true,
+    "total": 10447,
+    "fresh_24h": 0,
+    "detail": "по ['mca_embedding_index_generations']"
+   },
+   "write_result": {
+    "recent_generations": null,
+    "quota_state": null,
+    "backlog_missing_embedding": null
+   },
+   "used_in_response": {
+    "tracked": true,
+    "source": "GraphRAG retrieval читает graph_facts/nodes/edges"
+   },
+   "counters_24h": null,
+   "counters_7d": null,
+   "events_24h": null,
+   "events_7d": null,
+   "last_job": null,
+   "job_24h": null,
+   "job_7d": null,
+   "ttl_seconds": null,
+   "extra": {
+    "payload_cursor": {
+     "cursor_ts": null,
+     "cursor_id": null,
+     "counters": null
+    }
+   },
+   "diagnosis": {
+    "code": "never_run",
+    "detail": "включено, но попыток не было (не зелёное)"
+   },
+   "missing_tables": [
+    "mca_embedding_index_generations",
+    "embedding_quota_state"
+   ]
+  },
+  {
+   "key": "experience",
+   "title": "Experience (семантическое обучение)",
+   "gate": {
+    "env": {
+     "MCA_EXPERIENCE_LESSONS_ENABLED": {
+      "value": true,
+      "source": "default",
+      "default": true
+     },
+     "MCA_EXPERIENCE_REVIEW_ENABLED": {
+      "value": true,
+      "source": "default",
+      "default": true
+     }
+    },
+    "pg_catalog": {},
+    "pg_available": false,
+    "pg_reason": "pg_dsn_not_provided",
+    "effective": true,
+    "effective_source": "default_on",
+    "chat_id": null
+   },
+   "producer": {
+    "registered": true,
+    "processes": [
+     {
+      "process_id": "self_learning.run",
+      "declared": true,
+      "enabled_gate": "MCA_EXPERIENCE_LESSONS_ENABLED",
+      "enabled": true,
+      "instrumented": true,
+      "event_names": [
+       "experience_recorded",
+       "lesson_proposed",
+       "validation_passed",
+       "validation_failed",
+       "activated",
+       "retrieved",
+       "applied",
+       "feedback_linked",
+       "utility_updated",
+       "suspended",
+       "superseded"
+      ]
+     }
+    ]
+   },
+   "sources": [
+    "mca_experience_episodes",
+    "mca_experience_feedback",
+    "mca_lessons",
+    "mca_lesson_applications",
+    "task_jobs",
+    "mca_events"
+   ],
+   "last_attempt": null,
+   "real_input": {
+    "available": false,
+    "total": null,
+    "fresh_24h": null,
+    "detail": "по ['mca_experience_episodes']"
+   },
+   "write_result": {
+    "lessons_total": null,
+    "lesson_applications_total": null
+   },
+   "used_in_response": {
+    "tracked": true,
+    "source": "mca_lesson_applications (инъекция-гард Direct)"
+   },
+   "counters_24h": null,
+   "counters_7d": null,
+   "events_24h": null,
+   "events_7d": null,
+   "last_job": null,
+   "job_24h": null,
+   "job_7d": null,
+   "ttl_seconds": null,
+   "extra": {},
+   "diagnosis": {
+    "code": "unavailable",
+    "detail": "источники секции недоступны (fail-soft)"
+   },
+   "missing_tables": [
+    "mca_experience_episodes",
+    "mca_experience_feedback",
+    "mca_lessons"
+   ]
+  },
+  {
+   "key": "initiative",
+   "title": "Initiative (проактивный наблюдатель)",
+   "gate": {
+    "env": {
+     "INITIATIVE_OBSERVER_ENABLED": {
+      "value": true,
+      "source": "default",
+      "default": true
+     },
+     "INITIATIVE_ENABLED": {
+      "value": true,
+      "source": "default",
+      "default": true
+     }
+    },
+    "pg_catalog": {},
+    "pg_available": false,
+    "pg_reason": "pg_dsn_not_provided",
+    "effective": true,
+    "effective_source": "default_on",
+    "chat_id": null
+   },
+   "producer": {
+    "registered": true,
+    "processes": [
+     {
+      "process_id": "intent.initiative",
+      "declared": true,
+      "enabled_gate": "MCA_INTENTS_ENABLED",
+      "enabled": true,
+      "instrumented": true,
+      "event_names": [
+       "intent_created",
+       "intent_merged",
+       "intent_fulfilled",
+       "intent_abandoned",
+       "intent_archived",
+       "initiative_decided",
+       "recheck_deferred"
+      ]
+     }
+    ]
+   },
+   "sources": [
+    "mca_intents",
+    "task_jobs",
+    "smart_messages",
+    "mca_events"
+   ],
+   "last_attempt": null,
+   "real_input": {
+    "available": false,
+    "total": 0,
+    "fresh_24h": 0,
+    "detail": "по ['mca_intents']"
+   },
+   "write_result": {
+    "intents_total": null,
+    "intents_active": null
+   },
+   "used_in_response": {
+    "tracked": true,
+    "source": " Initiative funnel mca_events component=initiative/intents"
+   },
+   "counters_24h": null,
+   "counters_7d": null,
+   "events_24h": null,
+   "events_7d": null,
+   "last_job": null,
+   "job_24h": null,
+   "job_7d": null,
+   "ttl_seconds": 21600,
+   "extra": {},
+   "diagnosis": {
+    "code": "no_input",
+    "detail": "нет входных данных"
+   },
+   "missing_tables": [
+    "mca_intents",
+    "task_jobs"
+   ]
+  },
+  {
+   "key": "summary_scheduler",
+   "title": "Summary scheduler (планировщик пересказа)",
+   "gate": {
+    "env": {
+     "SUMMARY_ENABLED": {
+      "value": true,
+      "source": "default",
+      "default": true
+     },
+     "SYSTEM2_SUMMARY_ENABLED": {
+      "value": true,
+      "source": "default",
+      "default": true
+     }
+    },
+    "pg_catalog": {},
+    "pg_available": false,
+    "pg_reason": "pg_dsn_not_provided",
+    "effective": true,
+    "effective_source": "default_on",
+    "chat_id": null
+   },
+   "producer": {
+    "registered": true,
+    "processes": [
+     {
+      "process_id": "summary.window",
+      "declared": true,
+      "enabled_gate": "",
+      "enabled": true,
+      "instrumented": true,
+      "event_names": [
+       "SUMMARY_WINDOW_BUILD"
+      ]
+     },
+     {
+      "process_id": "summary.publish",
+      "declared": true,
+      "enabled_gate": "SUMMARY_ENABLED",
+      "enabled": true,
+      "instrumented": true,
+      "event_names": [
+       "SUMMARY_PUBLISH"
+      ]
+     }
+    ]
+   },
+   "sources": [
+    "summary_runs",
+    "summary_run_stages",
+    "chat_running_summary",
+    "smart_messages",
+    "mca_events"
+   ],
+   "last_attempt": null,
+   "real_input": {
+    "available": false,
+    "total": 0,
+    "fresh_24h": 0,
+    "detail": "по ['summary_runs']"
+   },
+   "write_result": {
+    "runs_total": null
+   },
+   "used_in_response": {
+    "tracked": true,
+    "source": "summary публикуется в чат; summary_runs.publication_status"
+   },
+   "counters_24h": null,
+   "counters_7d": null,
+   "events_24h": null,
+   "events_7d": null,
+   "last_job": null,
+   "job_24h": null,
+   "job_7d": null,
+   "ttl_seconds": 43200,
+   "extra": {},
+   "diagnosis": {
+    "code": "no_input",
+    "detail": "нет входных данных"
+   },
+   "missing_tables": [
+    "summary_runs",
+    "summary_run_stages"
+   ]
+  }
+ ],
+ "summary": {
+  "diagnoses": {
+   "producer_off": 3,
+   "no_input": 3,
+   "unavailable": 2,
+   "never_run": 2
+  },
+  "not_green_rule": "never_run/producer_off/no_input никогда не считаются зелёными (REQ-B11-E2E)"
+ },
+ "_lane_note": "Lane V63-CLOSE 2026-10-16: run on extracted candidate tree c2775a54 (git worktree --detach), db=local_database_2026-09-04_history.db, read-only, no PG DSN. Prod run (8 ok / 2 never_run) is documented in w4-live-probes.md."
+}

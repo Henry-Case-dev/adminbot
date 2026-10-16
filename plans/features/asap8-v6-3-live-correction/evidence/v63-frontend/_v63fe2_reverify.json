@@ -1,0 +1,869 @@
+{
+ "generated": "2026-10-16",
+ "port": 8861,
+ "purpose": "V63-FE-2 independent re-verification of _v63fe_measurements.json",
+ "checks": {
+  "status/320x700": {
+   "vw": 320,
+   "scrollWidth": 320,
+   "hOverflow": false,
+   "headerH": 116.2,
+   "fsBtn": {
+    "x": 255,
+    "y": 10,
+    "w": 49,
+    "h": 44,
+    "right": 304,
+    "bottom": 54
+   },
+   "fsAriaLabel": "На весь экран",
+   "fsAriaPressed": null,
+   "fsVisible": true,
+   "route": "#/",
+   "shellClass": "app-shell shell-mobile ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "more": {
+    "open": false,
+    "reason": "no-more-button"
+   }
+  },
+  "analytics/320x700": {
+   "vw": 320,
+   "scrollWidth": 320,
+   "hOverflow": false,
+   "headerH": 116.2,
+   "fsBtn": {
+    "x": 255,
+    "y": 10,
+    "w": 49,
+    "h": 44,
+    "right": 304,
+    "bottom": 54
+   },
+   "fsAriaLabel": "На весь экран",
+   "fsAriaPressed": null,
+   "fsVisible": true,
+   "route": "#/oversight",
+   "shellClass": "app-shell shell-mobile ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "dd": {
+    "vw": 320,
+    "vh": 700,
+    "scrollWidth": 320,
+    "hOverflow": false,
+    "trigText": null,
+    "ddRect": null,
+    "ddDisplay": null,
+    "tabsPresent": true,
+    "tabsDisplay": "block",
+    "tabsCount": 8,
+    "options": null,
+    "optionsInViewport": 0
+   }
+  },
+  "modules/320x700": {
+   "vw": 320,
+   "scrollWidth": 320,
+   "hOverflow": false,
+   "headerH": 116.2,
+   "fsBtn": {
+    "x": 255,
+    "y": 10,
+    "w": 49,
+    "h": 44,
+    "right": 304,
+    "bottom": 54
+   },
+   "fsAriaLabel": "На весь экран",
+   "fsAriaPressed": null,
+   "fsVisible": true,
+   "route": "#/modules",
+   "shellClass": "app-shell shell-mobile ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "glass": {
+    "dataGlass": 1,
+    "dataGlassHero": 0,
+    "lgPanel": 0,
+    "lgHero": 0,
+    "lgSoft": 0,
+    "lgSolid": 0,
+    "glassPanel": 0,
+    "heroLens": 0,
+    "scrollW": 320,
+    "vw": 320,
+    "shellClass": "app-shell shell-mobile ia-v2 shell-flex-v3 shell-glass-v2 shell-v3"
+   }
+  },
+  "editor/320x700": {
+   "vw": 320,
+   "scrollWidth": 320,
+   "hOverflow": false,
+   "headerH": 116.2,
+   "fsBtn": {
+    "x": 255,
+    "y": 10,
+    "w": 49,
+    "h": 44,
+    "right": 304,
+    "bottom": 54
+   },
+   "fsAriaLabel": "На весь экран",
+   "fsAriaPressed": null,
+   "fsVisible": true,
+   "route": "#/modules/summary/styles",
+   "shellClass": "app-shell shell-mobile ia-v2 shell-flex-v3 shell-glass-v2 shell-v3"
+  },
+  "status/360x780": {
+   "vw": 360,
+   "scrollWidth": 360,
+   "hOverflow": false,
+   "headerH": 116.2,
+   "fsBtn": {
+    "x": 295,
+    "y": 10,
+    "w": 49,
+    "h": 44,
+    "right": 344,
+    "bottom": 54
+   },
+   "fsAriaLabel": "На весь экран",
+   "fsAriaPressed": null,
+   "fsVisible": true,
+   "route": "#/",
+   "shellClass": "app-shell shell-mobile ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "more": {
+    "open": false,
+    "reason": "no-more-button"
+   }
+  },
+  "analytics/360x780": {
+   "vw": 360,
+   "scrollWidth": 360,
+   "hOverflow": false,
+   "headerH": 116.2,
+   "fsBtn": {
+    "x": 295,
+    "y": 10,
+    "w": 49,
+    "h": 44,
+    "right": 344,
+    "bottom": 54
+   },
+   "fsAriaLabel": "На весь экран",
+   "fsAriaPressed": null,
+   "fsVisible": true,
+   "route": "#/oversight",
+   "shellClass": "app-shell shell-mobile ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "dd": {
+    "vw": 360,
+    "vh": 780,
+    "scrollWidth": 360,
+    "hOverflow": false,
+    "trigText": null,
+    "ddRect": null,
+    "ddDisplay": null,
+    "tabsPresent": true,
+    "tabsDisplay": "block",
+    "tabsCount": 8,
+    "options": null,
+    "optionsInViewport": 0
+   }
+  },
+  "modules/360x780": {
+   "vw": 360,
+   "scrollWidth": 360,
+   "hOverflow": false,
+   "headerH": 116.2,
+   "fsBtn": {
+    "x": 295,
+    "y": 10,
+    "w": 49,
+    "h": 44,
+    "right": 344,
+    "bottom": 54
+   },
+   "fsAriaLabel": "На весь экран",
+   "fsAriaPressed": null,
+   "fsVisible": true,
+   "route": "#/modules",
+   "shellClass": "app-shell shell-mobile ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "glass": {
+    "dataGlass": 1,
+    "dataGlassHero": 0,
+    "lgPanel": 0,
+    "lgHero": 0,
+    "lgSoft": 0,
+    "lgSolid": 0,
+    "glassPanel": 0,
+    "heroLens": 0,
+    "scrollW": 360,
+    "vw": 360,
+    "shellClass": "app-shell shell-mobile ia-v2 shell-flex-v3 shell-glass-v2 shell-v3"
+   }
+  },
+  "editor/360x780": {
+   "vw": 360,
+   "scrollWidth": 360,
+   "hOverflow": false,
+   "headerH": 116.2,
+   "fsBtn": {
+    "x": 295,
+    "y": 10,
+    "w": 49,
+    "h": 44,
+    "right": 344,
+    "bottom": 54
+   },
+   "fsAriaLabel": "На весь экран",
+   "fsAriaPressed": null,
+   "fsVisible": true,
+   "route": "#/modules/summary/styles",
+   "shellClass": "app-shell shell-mobile ia-v2 shell-flex-v3 shell-glass-v2 shell-v3"
+  },
+  "status/390x844": {
+   "vw": 390,
+   "scrollWidth": 390,
+   "hOverflow": false,
+   "headerH": 116.2,
+   "fsBtn": {
+    "x": 325,
+    "y": 10,
+    "w": 49,
+    "h": 44,
+    "right": 374,
+    "bottom": 54
+   },
+   "fsAriaLabel": "На весь экран",
+   "fsAriaPressed": null,
+   "fsVisible": true,
+   "route": "#/",
+   "shellClass": "app-shell shell-mobile ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "more": {
+    "open": false,
+    "reason": "no-more-button"
+   }
+  },
+  "analytics/390x844": {
+   "vw": 390,
+   "scrollWidth": 390,
+   "hOverflow": false,
+   "headerH": 116.2,
+   "fsBtn": {
+    "x": 325,
+    "y": 10,
+    "w": 49,
+    "h": 44,
+    "right": 374,
+    "bottom": 54
+   },
+   "fsAriaLabel": "На весь экран",
+   "fsAriaPressed": null,
+   "fsVisible": true,
+   "route": "#/oversight",
+   "shellClass": "app-shell shell-mobile ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "dd": {
+    "vw": 390,
+    "vh": 844,
+    "scrollWidth": 390,
+    "hOverflow": false,
+    "trigText": null,
+    "ddRect": null,
+    "ddDisplay": null,
+    "tabsPresent": true,
+    "tabsDisplay": "block",
+    "tabsCount": 8,
+    "options": null,
+    "optionsInViewport": 0
+   }
+  },
+  "modules/390x844": {
+   "vw": 390,
+   "scrollWidth": 390,
+   "hOverflow": false,
+   "headerH": 116.2,
+   "fsBtn": {
+    "x": 325,
+    "y": 10,
+    "w": 49,
+    "h": 44,
+    "right": 374,
+    "bottom": 54
+   },
+   "fsAriaLabel": "На весь экран",
+   "fsAriaPressed": null,
+   "fsVisible": true,
+   "route": "#/modules",
+   "shellClass": "app-shell shell-mobile ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "glass": {
+    "dataGlass": 1,
+    "dataGlassHero": 0,
+    "lgPanel": 0,
+    "lgHero": 0,
+    "lgSoft": 0,
+    "lgSolid": 0,
+    "glassPanel": 0,
+    "heroLens": 0,
+    "scrollW": 390,
+    "vw": 390,
+    "shellClass": "app-shell shell-mobile ia-v2 shell-flex-v3 shell-glass-v2 shell-v3"
+   }
+  },
+  "editor/390x844": {
+   "vw": 390,
+   "scrollWidth": 390,
+   "hOverflow": false,
+   "headerH": 116.2,
+   "fsBtn": {
+    "x": 325,
+    "y": 10,
+    "w": 49,
+    "h": 44,
+    "right": 374,
+    "bottom": 54
+   },
+   "fsAriaLabel": "На весь экран",
+   "fsAriaPressed": null,
+   "fsVisible": true,
+   "route": "#/modules/summary/styles",
+   "shellClass": "app-shell shell-mobile ia-v2 shell-flex-v3 shell-glass-v2 shell-v3"
+  },
+  "status/430x932": {
+   "vw": 430,
+   "scrollWidth": 430,
+   "hOverflow": false,
+   "headerH": 116.2,
+   "fsBtn": {
+    "x": 365,
+    "y": 10,
+    "w": 49,
+    "h": 44,
+    "right": 414,
+    "bottom": 54
+   },
+   "fsAriaLabel": "На весь экран",
+   "fsAriaPressed": null,
+   "fsVisible": true,
+   "route": "#/",
+   "shellClass": "app-shell shell-mobile ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "more": {
+    "open": false,
+    "reason": "no-more-button"
+   }
+  },
+  "analytics/430x932": {
+   "vw": 430,
+   "scrollWidth": 430,
+   "hOverflow": false,
+   "headerH": 116.2,
+   "fsBtn": {
+    "x": 365,
+    "y": 10,
+    "w": 49,
+    "h": 44,
+    "right": 414,
+    "bottom": 54
+   },
+   "fsAriaLabel": "На весь экран",
+   "fsAriaPressed": null,
+   "fsVisible": true,
+   "route": "#/oversight",
+   "shellClass": "app-shell shell-mobile ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "dd": {
+    "vw": 430,
+    "vh": 932,
+    "scrollWidth": 430,
+    "hOverflow": false,
+    "trigText": null,
+    "ddRect": null,
+    "ddDisplay": null,
+    "tabsPresent": true,
+    "tabsDisplay": "block",
+    "tabsCount": 8,
+    "options": null,
+    "optionsInViewport": 0
+   }
+  },
+  "modules/430x932": {
+   "vw": 430,
+   "scrollWidth": 430,
+   "hOverflow": false,
+   "headerH": 116.2,
+   "fsBtn": {
+    "x": 365,
+    "y": 10,
+    "w": 49,
+    "h": 44,
+    "right": 414,
+    "bottom": 54
+   },
+   "fsAriaLabel": "На весь экран",
+   "fsAriaPressed": null,
+   "fsVisible": true,
+   "route": "#/modules",
+   "shellClass": "app-shell shell-mobile ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "glass": {
+    "dataGlass": 1,
+    "dataGlassHero": 0,
+    "lgPanel": 0,
+    "lgHero": 0,
+    "lgSoft": 0,
+    "lgSolid": 0,
+    "glassPanel": 0,
+    "heroLens": 0,
+    "scrollW": 430,
+    "vw": 430,
+    "shellClass": "app-shell shell-mobile ia-v2 shell-flex-v3 shell-glass-v2 shell-v3"
+   }
+  },
+  "editor/430x932": {
+   "vw": 430,
+   "scrollWidth": 430,
+   "hOverflow": false,
+   "headerH": 116.2,
+   "fsBtn": {
+    "x": 365,
+    "y": 10,
+    "w": 49,
+    "h": 44,
+    "right": 414,
+    "bottom": 54
+   },
+   "fsAriaLabel": "На весь экран",
+   "fsAriaPressed": null,
+   "fsVisible": true,
+   "route": "#/modules/summary/styles",
+   "shellClass": "app-shell shell-mobile ia-v2 shell-flex-v3 shell-glass-v2 shell-v3"
+  },
+  "status/768x1024": {
+   "vw": 768,
+   "scrollWidth": 768,
+   "hOverflow": false,
+   "headerH": 113.4,
+   "fsBtn": {
+    "x": 703,
+    "y": 12,
+    "w": 49,
+    "h": 44,
+    "right": 752,
+    "bottom": 56
+   },
+   "fsAriaLabel": "На весь экран",
+   "fsAriaPressed": null,
+   "fsVisible": true,
+   "route": "#/",
+   "shellClass": "app-shell shell-compact ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "more": {
+    "open": false,
+    "reason": "no-more-button"
+   }
+  },
+  "analytics/768x1024": {
+   "vw": 768,
+   "scrollWidth": 768,
+   "hOverflow": false,
+   "headerH": 113.4,
+   "fsBtn": {
+    "x": 703,
+    "y": 12,
+    "w": 49,
+    "h": 44,
+    "right": 752,
+    "bottom": 56
+   },
+   "fsAriaLabel": "На весь экран",
+   "fsAriaPressed": null,
+   "fsVisible": true,
+   "route": "#/oversight",
+   "shellClass": "app-shell shell-compact ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "dd": {
+    "vw": 768,
+    "vh": 1024,
+    "scrollWidth": 768,
+    "hOverflow": false,
+    "trigText": null,
+    "ddRect": null,
+    "ddDisplay": null,
+    "tabsPresent": true,
+    "tabsDisplay": "block",
+    "tabsCount": 8,
+    "options": null,
+    "optionsInViewport": 0
+   }
+  },
+  "modules/768x1024": {
+   "vw": 768,
+   "scrollWidth": 768,
+   "hOverflow": false,
+   "headerH": 113.4,
+   "fsBtn": {
+    "x": 703,
+    "y": 12,
+    "w": 49,
+    "h": 44,
+    "right": 752,
+    "bottom": 56
+   },
+   "fsAriaLabel": "На весь экран",
+   "fsAriaPressed": null,
+   "fsVisible": true,
+   "route": "#/modules",
+   "shellClass": "app-shell shell-compact ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "glass": {
+    "dataGlass": 2,
+    "dataGlassHero": 0,
+    "lgPanel": 0,
+    "lgHero": 0,
+    "lgSoft": 0,
+    "lgSolid": 0,
+    "glassPanel": 0,
+    "heroLens": 0,
+    "scrollW": 768,
+    "vw": 768,
+    "shellClass": "app-shell shell-compact ia-v2 shell-flex-v3 shell-glass-v2 shell-v3"
+   }
+  },
+  "editor/768x1024": {
+   "vw": 768,
+   "scrollWidth": 768,
+   "hOverflow": false,
+   "headerH": 113.4,
+   "fsBtn": {
+    "x": 703,
+    "y": 12,
+    "w": 49,
+    "h": 44,
+    "right": 752,
+    "bottom": 56
+   },
+   "fsAriaLabel": "На весь экран",
+   "fsAriaPressed": null,
+   "fsVisible": true,
+   "route": "#/modules/summary/styles",
+   "shellClass": "app-shell shell-compact ia-v2 shell-flex-v3 shell-glass-v2 shell-v3"
+  },
+  "status/1024x768": {
+   "vw": 1024,
+   "scrollWidth": 1024,
+   "hOverflow": false,
+   "headerH": 113.4,
+   "fsBtn": {
+    "x": 959,
+    "y": 12,
+    "w": 49,
+    "h": 44,
+    "right": 1008,
+    "bottom": 56
+   },
+   "fsAriaLabel": "На весь экран",
+   "fsAriaPressed": null,
+   "fsVisible": true,
+   "route": "#/",
+   "shellClass": "app-shell shell-compact ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "more": {
+    "open": false,
+    "reason": "no-more-button"
+   }
+  },
+  "analytics/1024x768": {
+   "vw": 1024,
+   "scrollWidth": 1024,
+   "hOverflow": false,
+   "headerH": 113.4,
+   "fsBtn": {
+    "x": 959,
+    "y": 12,
+    "w": 49,
+    "h": 44,
+    "right": 1008,
+    "bottom": 56
+   },
+   "fsAriaLabel": "На весь экран",
+   "fsAriaPressed": null,
+   "fsVisible": true,
+   "route": "#/oversight",
+   "shellClass": "app-shell shell-compact ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "dd": {
+    "vw": 1024,
+    "vh": 768,
+    "scrollWidth": 1024,
+    "hOverflow": false,
+    "trigText": null,
+    "ddRect": null,
+    "ddDisplay": null,
+    "tabsPresent": true,
+    "tabsDisplay": "block",
+    "tabsCount": 8,
+    "options": null,
+    "optionsInViewport": 0
+   }
+  },
+  "modules/1024x768": {
+   "vw": 1024,
+   "scrollWidth": 1024,
+   "hOverflow": false,
+   "headerH": 113.4,
+   "fsBtn": {
+    "x": 959,
+    "y": 12,
+    "w": 49,
+    "h": 44,
+    "right": 1008,
+    "bottom": 56
+   },
+   "fsAriaLabel": "На весь экран",
+   "fsAriaPressed": null,
+   "fsVisible": true,
+   "route": "#/modules",
+   "shellClass": "app-shell shell-compact ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "glass": {
+    "dataGlass": 2,
+    "dataGlassHero": 0,
+    "lgPanel": 0,
+    "lgHero": 0,
+    "lgSoft": 0,
+    "lgSolid": 0,
+    "glassPanel": 0,
+    "heroLens": 0,
+    "scrollW": 1024,
+    "vw": 1024,
+    "shellClass": "app-shell shell-compact ia-v2 shell-flex-v3 shell-glass-v2 shell-v3"
+   }
+  },
+  "editor/1024x768": {
+   "vw": 1024,
+   "scrollWidth": 1024,
+   "hOverflow": false,
+   "headerH": 113.4,
+   "fsBtn": {
+    "x": 959,
+    "y": 12,
+    "w": 49,
+    "h": 44,
+    "right": 1008,
+    "bottom": 56
+   },
+   "fsAriaLabel": "На весь экран",
+   "fsAriaPressed": null,
+   "fsVisible": true,
+   "route": "#/modules/summary/styles",
+   "shellClass": "app-shell shell-compact ia-v2 shell-flex-v3 shell-glass-v2 shell-v3"
+  },
+  "status/1440x900": {
+   "vw": 1440,
+   "scrollWidth": 1440,
+   "hOverflow": false,
+   "headerH": 109.4,
+   "fsBtn": {
+    "x": 1375,
+    "y": 10,
+    "w": 49,
+    "h": 44,
+    "right": 1424,
+    "bottom": 54
+   },
+   "fsAriaLabel": "На весь экран",
+   "fsAriaPressed": null,
+   "fsVisible": true,
+   "route": "#/",
+   "shellClass": "app-shell shell-desktop ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "more": {
+    "open": false,
+    "reason": "no-more-button"
+   }
+  },
+  "analytics/1440x900": {
+   "vw": 1440,
+   "scrollWidth": 1440,
+   "hOverflow": false,
+   "headerH": 109.4,
+   "fsBtn": {
+    "x": 1375,
+    "y": 10,
+    "w": 49,
+    "h": 44,
+    "right": 1424,
+    "bottom": 54
+   },
+   "fsAriaLabel": "На весь экран",
+   "fsAriaPressed": null,
+   "fsVisible": true,
+   "route": "#/oversight",
+   "shellClass": "app-shell shell-desktop ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "dd": {
+    "vw": 1440,
+    "vh": 900,
+    "scrollWidth": 1440,
+    "hOverflow": false,
+    "trigText": null,
+    "ddRect": null,
+    "ddDisplay": null,
+    "tabsPresent": true,
+    "tabsDisplay": "block",
+    "tabsCount": 8,
+    "options": null,
+    "optionsInViewport": 0
+   }
+  },
+  "modules/1440x900": {
+   "vw": 1440,
+   "scrollWidth": 1440,
+   "hOverflow": false,
+   "headerH": 109.4,
+   "fsBtn": {
+    "x": 1375,
+    "y": 10,
+    "w": 49,
+    "h": 44,
+    "right": 1424,
+    "bottom": 54
+   },
+   "fsAriaLabel": "На весь экран",
+   "fsAriaPressed": null,
+   "fsVisible": true,
+   "route": "#/modules",
+   "shellClass": "app-shell shell-desktop ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "glass": {
+    "dataGlass": 2,
+    "dataGlassHero": 0,
+    "lgPanel": 0,
+    "lgHero": 0,
+    "lgSoft": 0,
+    "lgSolid": 0,
+    "glassPanel": 0,
+    "heroLens": 0,
+    "scrollW": 1440,
+    "vw": 1440,
+    "shellClass": "app-shell shell-desktop ia-v2 shell-flex-v3 shell-glass-v2 shell-v3"
+   }
+  },
+  "editor/1440x900": {
+   "vw": 1440,
+   "scrollWidth": 1440,
+   "hOverflow": false,
+   "headerH": 109.4,
+   "fsBtn": {
+    "x": 1375,
+    "y": 10,
+    "w": 49,
+    "h": 44,
+    "right": 1424,
+    "bottom": 54
+   },
+   "fsAriaLabel": "На весь экран",
+   "fsAriaPressed": null,
+   "fsVisible": true,
+   "route": "#/modules/summary/styles",
+   "shellClass": "app-shell shell-desktop ia-v2 shell-flex-v3 shell-glass-v2 shell-v3"
+  },
+  "status/667x375": {
+   "vw": 667,
+   "scrollWidth": 667,
+   "hOverflow": false,
+   "headerH": 93.8,
+   "fsBtn": {
+    "x": 602,
+    "y": 6,
+    "w": 49,
+    "h": 44,
+    "right": 651,
+    "bottom": 50
+   },
+   "fsAriaLabel": "На весь экран",
+   "fsAriaPressed": null,
+   "fsVisible": true,
+   "route": "#/",
+   "shellClass": "app-shell shell-mobile ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "more": {
+    "open": false,
+    "reason": "no-more-button"
+   }
+  },
+  "analytics/667x375": {
+   "vw": 667,
+   "scrollWidth": 667,
+   "hOverflow": false,
+   "headerH": 93.8,
+   "fsBtn": {
+    "x": 602,
+    "y": 6,
+    "w": 49,
+    "h": 44,
+    "right": 651,
+    "bottom": 50
+   },
+   "fsAriaLabel": "На весь экран",
+   "fsAriaPressed": null,
+   "fsVisible": true,
+   "route": "#/oversight",
+   "shellClass": "app-shell shell-mobile ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "dd": {
+    "vw": 667,
+    "vh": 375,
+    "scrollWidth": 667,
+    "hOverflow": false,
+    "trigText": null,
+    "ddRect": null,
+    "ddDisplay": null,
+    "tabsPresent": true,
+    "tabsDisplay": "block",
+    "tabsCount": 8,
+    "options": null,
+    "optionsInViewport": 0
+   }
+  },
+  "modules/667x375": {
+   "vw": 667,
+   "scrollWidth": 667,
+   "hOverflow": false,
+   "headerH": 93.8,
+   "fsBtn": {
+    "x": 602,
+    "y": 6,
+    "w": 49,
+    "h": 44,
+    "right": 651,
+    "bottom": 50
+   },
+   "fsAriaLabel": "На весь экран",
+   "fsAriaPressed": null,
+   "fsVisible": true,
+   "route": "#/modules",
+   "shellClass": "app-shell shell-mobile ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "glass": {
+    "dataGlass": 1,
+    "dataGlassHero": 0,
+    "lgPanel": 0,
+    "lgHero": 0,
+    "lgSoft": 0,
+    "lgSolid": 0,
+    "glassPanel": 0,
+    "heroLens": 0,
+    "scrollW": 667,
+    "vw": 667,
+    "shellClass": "app-shell shell-mobile ia-v2 shell-flex-v3 shell-glass-v2 shell-v3"
+   }
+  },
+  "editor/667x375": {
+   "vw": 667,
+   "scrollWidth": 667,
+   "hOverflow": false,
+   "headerH": 93.8,
+   "fsBtn": {
+    "x": 602,
+    "y": 6,
+    "w": 49,
+    "h": 44,
+    "right": 651,
+    "bottom": 50
+   },
+   "fsAriaLabel": "На весь экран",
+   "fsAriaPressed": null,
+   "fsVisible": true,
+   "route": "#/modules/summary/styles",
+   "shellClass": "app-shell shell-mobile ia-v2 shell-flex-v3 shell-glass-v2 shell-v3"
+  }
+ },
+ "console_errors": [],
+ "summary": {
+  "states": 32,
+  "hOverflow_states": 0,
+  "console_err_states": 0
+ }
+}

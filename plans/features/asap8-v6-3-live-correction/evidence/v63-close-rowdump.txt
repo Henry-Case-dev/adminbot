@@ -1,0 +1,153 @@
+﻿====================================================================================================
+REQ: B01.4 | line 56 | disposition required | slice BE-INITIATIVE+FE-SHELL
+LIVE_REQ: True | when postdeploy | STATUS READY_FOR_LIVE
+EXCERPT: 4. **╨з╨░╤Б╤В╨╛╤В╨░:** ╨┤╨░╤В╤М ╨▓ MiniApp ╨┐╨╛╨╜╤П╤В╨╜╤Л╨╣ per-chat ╨┐╤А╨╛╤Д╨╕╨╗╤М ┬л╤А╨╡╨┤╨║╨╛ / ╨╜╨╛╤А╨╝╨░╨╗╤М╨╜╨╛ / ╨░╨║╤В╨╕╨▓╨╜╨╛┬╗ ╨╕ ╤В╨╛╨╜╨║╨╕╨╡ ╨╗╨╕╨╝╨╕╤В╤Л ╨▓ ╤А╨░╤Б╤И╨╕╤А╨╡╨╜╨╜╤Л╤Е ╨╜╨░╤Б╤В╤А╨╛╨╣╨║╨░╤Е (min gaps, messages/day window, max replies per topic, budget). **╨Ф╨╗╤П ╨┤╨╡╨╣╤Б╤В╨▓╨╕╤В╨╡╨╗╤М╨╜╨╛ ╨╢╨╕╨▓╨╛╨│╨╛ ╤З╨░╤В╨░ 2000тАУ5000 ╤Б╨╛╨╛╨▒╤Й╨╡
+ACCEPTANCE: Per-chat ╨┐╤А╨╛╤Д╨╕╨╗╤М ┬л╤А╨╡╨┤╨║╨╛/╨╜╨╛╤А╨╝╨░╨╗╤М╨╜╨╛/╨░╨║╤В╨╕╨▓╨╜╨╛┬╗ ╨╕ ╤В╨╛╨╜╨║╨╕╨╡ ╨╗╨╕╨╝╨╕╤В╤Л (min gaps, messages/day window, max replies per topic, budget) ╨┤╨╛╤Б╤В╤Г╨┐╨╜╤Л ╨▓ MiniApp ╨╕ ╨▓╨╗╨╕╤П╤О╤В ╨╜╨░ runtime; ╨╜╨░ ╨╢╨╕╨▓╨╛╨╝ ╤З╨░╤В╨╡ 2000тАУ5000 ╤Б╨╛╨╛╨▒╤Й/╤Б╤Г╤В ╨┤╨╛╤Б╤В╨╕╨│╨░╨╡╤В╤Б╤П ╨╜╨╡╤Б╨║╨╛╨╗╤М╨║╨╛ ╤Б╨╛╨┤╨╡╤А╨╢╨░╤В╨╡╨╗╤М╨╜╤Л╤Е ╤А╨╡╨┐╨╗╨╕╨║ ╨▓ ╤Б╤Г╤В╨║╨╕; ┬л24╤З ╨╜╨╛╨╗╤М opportunities ╨┐╤А╨╕ ╨░╨║╤В╨╕╨▓╨╜╨╛╨╝ observer┬╗ ╨┤╨░╤С╤В ╨┤╨╕╨░╨│╨╜╨╛╤Б╤В╨╕╤З╨╡╤Б╨║╤Г╤О ╨╛╤И╨╕╨▒╨║╤Г
+  EV test | tests/ + plans/features/asap8-v6-3-live-correction/w*-reports/ | implemented + repo tests + independent reviewer verdict | c2775a54258512a3e20c97341d3e8a6738b1a33b
+  EV live | live-canary.md | prod 2.58.79 @c2775a54: healthz ok, /web/ 200 (727KB), fullscreen-policy/glass-probe/polygon-background 200, CSP img-src 'self' data: blob: (feImage lens allowed), journal 0 ERROR/Traceback | c2775a54258512a3e20c97341d3e8a6738b1a33b
+====================================================================================================
+REQ: REQ-B07 | line 350 | disposition required | slice BE-MODULES
+LIVE_REQ: True | when postdeploy | STATUS READY_FOR_LIVE
+EXCERPT: ## B07 [P0] Temporal тАФ **╨Э╨Х ╨║╨░╤А╤В╨╛╤З╨║╨░ ╨╝╨╛╨┤╤Г╨╗╤П**, ╨░ ╤Д╤Г╨╜╨║╤Ж╨╕╤П ╨д╨░╨║╤В╤З╨╡╨║╨░
+ACCEPTANCE: Temporal тАФ ╤Д╤Г╨╜╨║╤Ж╨╕╤П ╨д╨░╨║╤В╤З╨╡╨║╨░ ╨▒╨╡╨╖ ╤Б╨╛╨▒╤Б╤В╨▓╨╡╨╜╨╜╨╛╨╣ ╨║╨░╤А╤В╨╛╤З╨║╨╕ ╨╝╨╛╨┤╤Г╨╗╤П; ╨╜╨░╤Б╤В╤А╨╛╨╣╨║╨╕/╨╕╨╜╤Б╨┐╨╡╨║╤В╨╛╤А ╨▓╨╜╤Г╤В╤А╨╕ workspace ╨д╨░╨║╤В╤З╨╡╨║╨░; ╤Б╨╕╨┤ CATEGORY_TEMPORAL ╨╕╤Б╨┐╤А╨░╨▓╨╗╨╡╨╜; ╤Б╨╝. B07.1тАУB07.3, REQ-B07-BODY
+  EV live | tests/test_asap8_v63_b06_summary_scope.py, tests/test_asap8_v63_b07_temporal_factcheck.py + w3-evidence-modules/ | B06 per-chat runtime resolve, B07 temporal gate/modes/TTL; Playwright 42/42; REV-W3 Approved | c2775a54258512a3e20c97341d3e8a6738b1a33b
+====================================================================================================
+REQ: REQ-B08 | line 358 | disposition required | slice BE-STORIES
+LIVE_REQ: True | when postdeploy | STATUS READY_FOR_LIVE
+EXCERPT: ## B08 [P1] Stories тАФ ╨╕╤Б╤В╨╛╤А╨╕╨╕ ╤Б ╤Б╨╛╨┤╨╡╤А╨╢╨░╨╜╨╕╨╡╨╝, ╨▓╤А╨╡╨╝╨╡╨╜╨╡╨╝ ╨╕ ╤Г╤З╨░╤Б╤В╨╜╨╕╨║╨░╨╝╨╕
+ACCEPTANCE: Stories тАФ ╤Б╨╛╨┤╨╡╤А╨╢╨░╤В╨╡╨╗╤М╨╜╤Л╨╡ ╨╕╤Б╤В╨╛╤А╨╕╨╕ ╤Б ╨╖╨░╨│╨╛╨╗╨╛╨▓╨║╨╛╨╝/╨╖╨░╨▓╤П╨╖╨║╨╛╨╣/╤Б╨╛╨▒╤Л╤В╨╕╤П╨╝╨╕/╨╗╨╕╤Ж╨░╨╝╨╕/╤Д╨╕╨╜╨░╨╗╨╛╨╝ ╨╕ ╨╕╤Б╤В╨╛╤З╨╜╨╕╨║╨░╨╝╨╕; ╨┐╤Г╤Б╤В╤Л╨╡ ╤Н╨┐╨╕╨╖╨╛╨┤╤Л ╨╜╨╡ ╨▓╤Л╨┤╨░╤О╤В╤Б╤П ╨╖╨░ ╨│╨╛╤В╨╛╨▓╤Л╨╡ ╨╕╤Б╤В╨╛╤А╨╕╨╕; ╤Б╨╝. B08.1тАУB08.4
+  EV live | tests/test_asap8_v63_b08_stories.py + w3-evidence-analytics/ | B08 deterministic stories, content_status, feed honest display (REV-W3PRE N1 fix); REV-W3 Approved | c2775a54258512a3e20c97341d3e8a6738b1a33b
+====================================================================================================
+REQ: B08.4 | line 365 | disposition required | slice BE-STORIES
+LIVE_REQ: True | when postdeploy | STATUS READY_FOR_LIVE
+EXCERPT: - ╨Я╤А╨╕╤С╨╝╨║╨░: 10 ╨╜╨░╤Б╤В╨╛╤П╤Й╨╕╤Е ╤Н╨┐╨╕╨╖╨╛╨┤╨╛╨▓, 2 ╨╜╨╡╨╖╨░╨▓╨╕╤Б╨╕╨╝╤Л╨╡ ╤В╨╡╨╝╤Л, merged/continuation, ╨░╤А╤Е╨╕╨▓, unknown outcome, ╤Б╤Б╤Л╨╗╨║╨╕, ╨╝╨╛╨▒╨╕╨╗╤М╨╜╨░╤П ╨║╨░╤А╤В╨╛╤З╨║╨░, ╨╛╤В╤Б╤Г╤В╤Б╤В╨▓╨╕╨╡ ╨┐╨╛╤В╨╡╤А╨╕ provenance.
+ACCEPTANCE: ╨Я╤А╨╕╤С╨╝╨║╨░ ╨╜╨░ 10 ╨╜╨░╤Б╤В╨╛╤П╤Й╨╕╤Е ╤Н╨┐╨╕╨╖╨╛╨┤╨░╤Е: 2 ╨╜╨╡╨╖╨░╨▓╨╕╤Б╨╕╨╝╤Л╨╡ ╤В╨╡╨╝╤Л, merged/continuation, ╨░╤А╤Е╨╕╨▓, unknown outcome, ╤Б╤Б╤Л╨╗╨║╨╕, ╨╝╨╛╨▒╨╕╨╗╤М╨╜╨░╤П ╨║╨░╤А╤В╨╛╤З╨║╨░, ╨▒╨╡╨╖ ╨┐╨╛╤В╨╡╤А╨╕ provenance
+  EV live | tests/test_asap8_v63_b08_stories.py + w3-evidence-analytics/ | B08 deterministic stories, content_status, feed honest display (REV-W3PRE N1 fix); REV-W3 Approved | c2775a54258512a3e20c97341d3e8a6738b1a33b
+====================================================================================================
+REQ: REQ-B10 | line 371 | disposition required | slice REL-GATE
+LIVE_REQ: True | when postdeploy | STATUS READY_FOR_LIVE
+EXCERPT: ## B10 [P1] ╨Х╤Й╤С ╨╜╨╡ ╨┐╤А╨╕╨╜╤П╤В╤Л╨╡ ╤В╤А╨╡╨▒╨╛╨▓╨░╨╜╨╕╤П v6: ╤Д╤Г╨╜╨║╤Ж╨╕╨╛╨╜╨░╨╗╤М╨╜╨░╤П ╤А╨╡╨│╤А╨╡╤Б╤Б╨╕╤П, ╨╜╨╡ ┬л26/26┬╗
+ACCEPTANCE: ╨Т╤Б╨╡ ╨┐╤Г╨╜╨║╤В╤Л ╤В╨░╨▒╨╗╨╕╤Ж╤Л legacy v6 (B10-R01тАжB10-R19) ╨┐╨╛╨▓╤В╨╛╤А╨╜╨╛ ╨┐╤А╨╕╨╜╤П╤В╤Л ╤Д╤Г╨╜╨║╤Ж╨╕╨╛╨╜╨░╨╗╤М╨╜╨╛ ╨╜╨░ ╨░╨║╤В╤Г╨░╨╗╤М╨╜╨╛╨╝ HEAD/runtime ╨▒╨╡╨╖ ╨┐╨╛╨▓╤В╨╛╤А╨╜╨╛╨╣ ╤А╨░╨╖╤А╨░╨▒╨╛╤В╨║╨╕ ╤А╨░╨▒╨╛╤В╨░╤О╤Й╨╡╨│╨╛; 3 failed pytest ╨║╨╗╨░╤Б╤Б╨╕╤Д╨╕╤Ж╨╕╤А╨╛╨▓╨░╨╜╤Л (REQ-B10-PYTEST); ┬л26/26┬╗ ╨╜╨╡ ╨┐╤А╨╕╨╜╨╕╨╝╨░╨╡╤В╤Б╤П ╨▒╨╡╨╖ live-╨┤╨╛╨║╨░╨╖╨░╤В╨╡╨╗╤М╤Б╤В╨▓
+  EV live | live-canary.md + release-reconciliation.md + review-w1/w2/w3.md | deploy 2.58.79 (c2775a54) verified from server: healthz/api/web 200, journal clean, rollback target b9ea4907, B11 prod run, gate runs | c2775a54258512a3e20c97341d3e8a6738b1a33b
+====================================================================================================
+REQ: REQ-B11 | line 399 | disposition required | slice BE-INT-REPORT
+LIVE_REQ: True | when postdeploy | STATUS READY_FOR_LIVE
+EXCERPT: ## B11 [P0] ╨Ш╨╜╤В╨╡╨│╤А╨░╤Ж╨╕╨╛╨╜╨╜╨░╤П ╨┐╤А╨╛╨▓╨╡╤А╨║╨░ ╤Б╨║╤А╤Л╤В╤Л╤Е ╤Д╨╛╨╜╨╛╨▓╤Л╤Е ╨╝╨╡╤Е╨░╨╜╨╕╨╖╨╝╨╛╨▓
+ACCEPTANCE: ╨Ф╨╗╤П ╨║╨░╨╢╨┤╨╛╨│╨╛ ╤Б╨║╤А╤Л╤В╨╛╨│╨╛ ╤Д╨╛╨╜╨╛╨▓╨╛╨│╨╛ ╨╝╨╡╤Е╨░╨╜╨╕╨╖╨╝╨░ (╨┐╨╡╤А╨╡╤З╨╡╨╜╤М REQ-B11-SCOPE) тАФ ╨╛╤В╤З╤С╤В ╨┐╨╛ ╤Ж╨╡╨┐╨╛╤З╨║╨╡ REQ-B11-CHAIN ╨╕ ╨║╨╛╨╜╤В╤А╨╛╨╗╨╕╤А╤Г╨╡╨╝╤Л╨╣ E2E REQ-B11-E2E; ┬л╨▓╨║╨╗╤О╤З╨╡╨╜╨╛, ╨╜╨╛ ╨╜╨╡ ╨╖╨░╨┐╤Г╤Б╨║╨░╨╗╨╛╤Б╤М┬╗ ╨╜╨╡ ╨┐╨╡╤А╨╡╨║╤А╨░╤И╨╕╨▓╨░╨╡╤В╤Б╤П ╨▓ ╨╖╨╡╨╗╤С╨╜╨╛╨╡
+  EV live | w4-live-probes.md + tools/v63_b11_mechanisms_report.py prod run | B11 report executed on prod with PG DSN: 8 ok / 2 never_run (vector circuit disclosed), full chain + distinct diagnoses | c2775a54258512a3e20c97341d3e8a6738b1a33b
+====================================================================================================
+REQ: REQ-B12 | line 407 | disposition required | slice REL-GATE
+LIVE_REQ: True | when postdeploy | STATUS READY_FOR_LIVE
+EXCERPT: ## B12 [P0] Release & evidence gate: ╨╖╨░╨┐╤А╨╡╤Й╨╡╨╜╨╛ ╨┐╨╛╨▓╤В╨╛╤А╨╕╤В╤М ╤Д╨╕╨║╤В╨╕╨▓╨╜╤Л╨╣ DONE
+ACCEPTANCE: Release/evidence gate: ╤В╤А╨╡╨║╨╜╤Г╤В╤Л╨╡ ╨░╤А╤В╨╡╤Д╨░╨║╤В╤Л, ╨░╨▓╤В╨╛╨╝╨░╤В╨╕╤З╨╡╤Б╨║╨╕╨╣ validator, ╤Б╤В╨░╤В╤Г╤Б╤Л ╨┐╨╛ ╨║╨░╨╢╨┤╨╛╨╝╤Г ID, deploy-╨┐╤А╨╛╤В╨╛╨║╨╛╨╗, reconciliation ╤А╨░╤Б╤Е╨╛╨╢╨┤╨╡╨╜╨╕╨╣, snapshot-╨┐╤А╨░╨▓╨╕╨╗╨░; ╤Д╨╕╨║╤В╨╕╨▓╨╜╤Л╨╣ DONE ╨╕╤Б╨║╨╗╤О╤З╤С╨╜; ╤Б╨╝. B12.1тАУB12.6
+  EV live | live-canary.md + release-reconciliation.md + review-w1/w2/w3.md | deploy 2.58.79 (c2775a54) verified from server: healthz/api/web 200, journal clean, rollback target b9ea4907, B11 prod run, gate runs | c2775a54258512a3e20c97341d3e8a6738b1a33b
+====================================================================================================
+REQ: B12.4 | line 412 | disposition required | slice REL-GATE
+LIVE_REQ: True | when postdeploy | STATUS READY_FOR_LIVE
+EXCERPT: 4. ╨Я╨╛╤Б╨╗╨╡ ╨║╨░╨╢╨┤╨╛╨│╨╛ deploy: ╤Б╤Г╤Й╨╡╤Б╤В╨▓╤Г╤О╤Й╨╕╨╣ Reviewer + DevOps, rollback readiness, smoke health, warnings, live input/output, ╤Б╨╜╨╕╨╝╨╛╨║ ╨░╨┤╤А╨╡╤Б╨╜╨╛╨╣ ╨┐╨╛╨▓╨╡╤А╤Е╨╜╨╛╤Б╤В╨╕ ╨╕ automated canary. ╨Э╨╡ ╤Б╨╛╨╖╨┤╨░╨▓╨░╤В╤М ╨╕╤Б╨║╤Г╤Б╤Б╤В╨▓╨╡╨╜╨╜╤Л╨╣ ╨┤╨╛╤Е╨╛╨┤╤П╤Й╨╕╨╣ ╨┤╨╛ ╨║╨╛╨╜╤Ж╨░ SEND/lesson ╨┐╤Г╤В╤С╨╝ ╨╖╨░╨┐╨╕╤Б╨╕ ╤Д
+ACCEPTANCE: ╨Я╨╛╤Б╨╗╨╡ ╨║╨░╨╢╨┤╨╛╨│╨╛ deploy: Reviewer+DevOps ╨┐╤А╨╛╤В╨╛╨║╨╛╨╗, rollback readiness, smoke health, warnings, live input/output, ╤Б╨╜╨╕╨╝╨╛╨║ ╨░╨┤╤А╨╡╤Б╨╜╨╛╨╣ ╨┐╨╛╨▓╨╡╤А╤Е╨╜╨╛╤Б╤В╨╕, automated canary; ╤Д╨░╨╗╤М╤И╨╕╨▓╤Л╨╡ SEND/lesson (╨╖╨░╨┐╨╕╤Б╤М ╤Б╤В╤А╨╛╨║ ╨▓ prod ╤А╨░╨┤╨╕ ╤Б╤З╤С╤В╤З╨╕╨║╨╛╨▓) ╨╛╤В╤Б╤Г╤В╤Б╤В╨▓╤Г╤О╤В (╨░╤Г╨┤╨╕╤В ╨╕╤Б╤В╨╛╤З╨╜╨╕╨║╨╛╨▓)
+  EV live | live-canary.md + release-reconciliation.md + review-w1/w2/w3.md | deploy 2.58.79 (c2775a54) verified from server: healthz/api/web 200, journal clean, rollback target b9ea4907, B11 prod run, gate runs | c2775a54258512a3e20c97341d3e8a6738b1a33b
+====================================================================================================
+REQ: FINAL.4 | line 442 | disposition required | slice REL-GATE
+LIVE_REQ: True | when postdeploy | STATUS READY_FOR_LIVE
+EXCERPT: 4. ╨д╨╕╨╜╨░╨╗╤М╨╜╤Л╨╣ deployed SHA, ╨░╨║╤В╤Г╨░╨╗╤М╨╜╤Л╨╡ docs/ledger; ZERO ╤Б╨║╤А╤Л╤В╤Л╤Е `pending`, RED unresolved ╨╗╨╕╨▒╨╛ ╤П╨▓╨╜╨╛╨╡ ╤А╨░╨╖╤А╨╡╤И╨╡╨╜╨╕╨╡ ╨▓╨╗╨░╨┤╨╡╨╗╤М╤Ж╨░ ╨╜╨░ ╨╕╤Б╨║╨╗╤О╤З╨╡╨╜╨╕╨╡. **╨Э╨╡ ╨╖╨░╤П╨▓╨╗╤П╤В╤М ┬лASAP ╨▓╤Л╨┐╨╛╨╗╨╜╨╡╨╜ ╨┐╨╛╨╗╨╜╨╛╤Б╤В╤М╤О┬╗ ╨┐╤А╨╕ ╨╛╤В╤Б╤Г╤В╤Б╤В╨▓╨╕╨╕ ╨┐╤А╨╛╨▓╨╡╤А╨╡╨╜╨╜╨╛╨│╨╛ ╤А╨╡╨╖╤Г╨╗╤М╤В╨░╤В╨░ Initiative, Experience, 
+ACCEPTANCE: ╨д╨╕╨╜╨░╨╗╤М╨╜╤Л╨╣ deployed SHA, ╨░╨║╤В╤Г╨░╨╗╤М╨╜╤Л╨╡ docs/ledger, ZERO ╤Б╨║╤А╤Л╤В╤Л╤Е pending ╨╕ unresolved RED (╨╗╨╕╨▒╨╛ ╤П╨▓╨╜╨╛╨╡ ╤А╨░╨╖╤А╨╡╤И╨╡╨╜╨╕╨╡ ╨▓╨╗╨░╨┤╨╡╨╗╤М╤Ж╨░); ┬лASAP ╨▓╤Л╨┐╨╛╨╗╨╜╨╡╨╜ ╨┐╨╛╨╗╨╜╨╛╤Б╤В╤М╤О┬╗ ╨╜╨╡ ╨╖╨░╤П╨▓╨╗╤П╨╡╤В╤Б╤П ╨┐╤А╨╕ ╨╜╨╡╨┐╤А╨╛╨▓╨╡╤А╨╡╨╜╨╜╤Л╤Е Initiative/Experience/Cover/U07/U08/╤Д╤А╨╛╨╜╤В╨╡
+  EV live | live-canary.md + release-reconciliation.md + review-w1/w2/w3.md | deploy 2.58.79 (c2775a54) verified from server: healthz/api/web 200, journal clean, rollback target b9ea4907, B11 prod run, gate runs | c2775a54258512a3e20c97341d3e8a6738b1a33b
+====================================================================================================
+REQ: REQ-B11-SCOPE | line 401 | disposition required | slice BE-INT-REPORT
+LIVE_REQ: True | when postdeploy | STATUS READY_FOR_LIVE
+EXCERPT: ╨Ф╨╗╤П **╤Б╨╛╨╜, ╨│╨╗╤Г╨▒╨╛╨║╨╕╨╣ ╤Б╨╛╨╜, ╨┐╨╡╤А╨╡╤Б╨╝╨╛╤В╤А ╤Г╨▒╨╡╨╢╨┤╨╡╨╜╨╕╨╣, ╨┐╨░╤А╨░╨┤╨╕╨│╨╝╤Л, self-model/traits, graph memory, ╨╕╨╜╨║╤А╨╡╨╝╨╡╨╜╤В╨░╨╗╤М╨╜╤Л╨╣ embedding/backfill, Experience, Initiative, Summary scheduler** ╨┐╤А╨╕╨▓╨╡╤Б╤В╨╕ ╨╛╤В╤З╤С╤В
+ACCEPTANCE: ╨Я╨╡╤А╨╡╤З╨╡╨╜╤М ╨╝╨╡╤Е╨░╨╜╨╕╨╖╨╝╨╛╨▓ ╨╖╨░╨║╤А╤Л╤В ╨╛╤В╤З╤С╤В╨╛╨╝ ╨▒╨╡╨╖ ╨┐╤А╨╛╨┐╤Г╤Б╨║╨╛╨▓: ╤Б╨╛╨╜, ╨│╨╗╤Г╨▒╨╛╨║╨╕╨╣ ╤Б╨╛╨╜, ╨┐╨╡╤А╨╡╤Б╨╝╨╛╤В╤А ╤Г╨▒╨╡╨╢╨┤╨╡╨╜╨╕╨╣, ╨┐╨░╤А╨░╨┤╨╕╨│╨╝╤Л, self-model/traits, graph memory, ╨╕╨╜╨║╤А╨╡╨╝╨╡╨╜╤В╨░╨╗╤М╨╜╤Л╨╣ embedding/backfill, Experience, Initiative, Summary scheduler
+  EV live | w4-live-probes.md + tools/v63_b11_mechanisms_report.py prod run | B11 report executed on prod with PG DSN: 8 ok / 2 never_run (vector circuit disclosed), full chain + distinct diagnoses | c2775a54258512a3e20c97341d3e8a6738b1a33b
+====================================================================================================
+REQ: V03 | line 424 | disposition required | slice E2E-VERIFY
+LIVE_REQ: True | when postdeploy | STATUS READY_FOR_LIVE
+EXCERPT: **V03. Memory:** ╨╕╤Б╤В╤С╨║╤И╨╕╨╣ ╤Д╨░╨║╤В ╨╕╨╖ ╨▒╨╡╤Б╤Б╤А╨╛╤З╨╜╨╛╨│╨╛ ╤З╨░╤В╨░ ╨╜╨░╤Е╨╛╨┤╨╕╤В ╨╕╤Б╤В╨╛╤А╨╕╤З╨╡╤Б╨║╨╕╨╣ RAG ╤Б as-of; ╨┐╨╛╨┤╤В╨▓╨╡╤А╨╢╨┤╨╡╨╜╨╕╨╡/╨╛╨┐╤А╨╛╨▓╨╡╤А╨╢╨╡╨╜╨╕╨╡ ╨╝╨╡╨╜╤П╨╡╤В temporal status ╨▒╨╡╨╖ delete; ╨╝╨░╤Б╤Б╨╕╨▓ ╨┐╨╛╤Е╨╛╨╢╨╕╤Е ╤Д╨░╨║╤В╨╛╨▓ ╨┤╤А╤Г╨│╨╛╨│╨╛ ╤З╨░╤В╨░ ╨╜╨╡ ╨▓╤Л╤В╨╡╤Б╨╜╤П╨╡╤В ╨╗╨╛╨║╨░╨╗╤М╨╜╤Л╨╡
+ACCEPTANCE: Release-blocker V03 ╨┐╤А╨╛╨╣╨┤╨╡╨╜: ╨╕╤Б╤В╤С╨║╤И╨╕╨╣ ╤Д╨░╨║╤В ╨╜╨░╨╣╨┤╨╡╨╜ ╨╕╤Б╤В╨╛╤А╨╕╤З╨╡╤Б╨║╨╕╨╝ RAG ╤Б as-of; confirm/refute ╨╝╨╡╨╜╤П╨╡╤В temporal status ╨▒╨╡╨╖ delete; ╨╝╨░╤Б╤Б╨╕╨▓ ╤З╤Г╨╢╨╕╤Е ╨┐╨╛╤Е╨╛╨╢╨╕╤Е ╤Д╨░╨║╤В╨╛╨▓ ╨╜╨╡ ╨▓╤Л╤В╨╡╤Б╨╜╤П╨╡╤В ╨╗╨╛╨║╨░╨╗╤М╨╜╤Л╨╡
+  EV test | tests/ + plans/features/asap8-v6-3-live-correction/w*-reports/ | implemented + repo tests + independent reviewer verdict | c2775a54258512a3e20c97341d3e8a6738b1a33b
+  EV live | live-canary.md | prod 2.58.79 @c2775a54: healthz ok, /web/ 200 (727KB), fullscreen-policy/glass-probe/polygon-background 200, CSP img-src 'self' data: blob: (feImage lens allowed), journal 0 ERROR/Traceback | c2775a54258512a3e20c97341d3e8a6738b1a33b
+====================================================================================================
+REQ: V05 | line 428 | disposition required | slice E2E-VERIFY
+LIVE_REQ: True | when postdeploy | STATUS READY_FOR_LIVE
+EXCERPT: **V05. UI/operational:** ╨┤╨▓╨░ ╤З╨░╤В╨░ ╨╕ global ╨┐╨╡╤А╨╡╨║╨╗╤О╤З╨░╤В╨╡╨╗╨╕ Summary, temporal ╨▓╨╜╤Г╤В╤А╨╕ Factcheck, mobile 320/390/landscape ╨▒╨╡╨╖ ╨┐╨╡╤А╨╡╨┐╨╛╨╗╨╜╨╡╨╜╨╕╤П, 3 tabs+More, 1 ╨▒╨╗╨╛╨║ ╤Б╨╜╨░, Status-only logs, ╨░╨╜╨░╨╗╨╕╤В╨╕╤З╨╡╤Б╨║╨╕╨╡ ╨▓╨║╨╗╨░╨┤╨║╨╕ ╨┤╨╛╤Б╤В╤Г╨┐╨╜╤Л, Stories narrative, ╨║╨╛╨┤╤Л ╨╕ ╨╕╤Б╤В
+ACCEPTANCE: Release-blocker V05 ╨┐╤А╨╛╨╣╨┤╨╡╨╜: 2 ╤З╨░╤В╨░ + global Summary, temporal ╨▓╨╜╤Г╤В╤А╨╕ Factcheck; mobile 320/390/landscape ╨▒╨╡╨╖ ╨┐╨╡╤А╨╡╨┐╨╛╨╗╨╜╨╡╨╜╨╕╤П; 3 tabs+╨Х╤Й╤С; 1 ╨▒╨╗╨╛╨║ ╤Б╨╜╨░; Status-only logs; ╨▓╨║╨╗╨░╨┤╨║╨╕ ╨░╨╜╨░╨╗╨╕╤В╨╕╨║╨╕ ╨┤╨╛╤Б╤В╤Г╨┐╨╜╤Л; Stories narrative; ╨║╨╛╨┤╤Л/╨╕╤Б╤В╨╛╤З╨╜╨╕╨║╨╕ ╨┐╨╛ ╤А╨░╤Б╨║╤А╤Л╤В╨╕╤О; ╨╜╨╡╤В ╤Д╨░╨╗╤М╤И╨╕╨▓╨╛╨│╨╛ 1970; unknown ╨╜╨╡ ╨╖╨╡╨╗╤С╨╜╤Л╨╣
+  EV test | tests/ + plans/features/asap8-v6-3-live-correction/w*-reports/ | implemented + repo tests + independent reviewer verdict | c2775a54258512a3e20c97341d3e8a6738b1a33b
+  EV live | live-canary.md | prod 2.58.79 @c2775a54: healthz ok, /web/ 200 (727KB), fullscreen-policy/glass-probe/polygon-background 200, CSP img-src 'self' data: blob: (feImage lens allowed), journal 0 ERROR/Traceback | c2775a54258512a3e20c97341d3e8a6738b1a33b
+====================================================================================================
+REQ: B10-R01 | line 377 | disposition required | slice REL-GATE
+LIVE_REQ: True | when postdeploy | STATUS READY_FOR_LIVE
+EXCERPT: | C01/C02 | Summary L2 ╨░╨▒╨╖╨░╤Ж╤Л ╨╕ Test=production inputs | ╨Ф╨▓╨░ ╤А╨╡╨░╨╗╤М╨╜╤Л╤Е Summary, ╨░╤А╤В╨╡╤Д╨░╨║╤В╤Л, diff ╨╕╤Б╤В╨╛╤З╨╜╨╕╨║╨╛╨▓ |
+ACCEPTANCE: C01/C02 ╨┐╨╛╨▓╤В╨╛╤А╨╜╨╛ ╨┐╤А╨╕╨╜╤П╤В╤Л: ╨┤╨▓╨░ ╤А╨╡╨░╨╗╤М╨╜╤Л╤Е Summary L2 (╨░╨▒╨╖╨░╤Ж╤Л) ╨╜╨░ production-inputs, ╨░╤А╤В╨╡╤Д╨░╨║╤В╤Л ╨╕ diff ╨╕╤Б╤В╨╛╤З╨╜╨╕╨║╨╛╨▓ ╨┐╤А╨╕╨╗╨╛╨╢╨╡╨╜╤Л
+  EV live | live-canary.md + release-reconciliation.md + review-w1/w2/w3.md | deploy 2.58.79 (c2775a54) verified from server: healthz/api/web 200, journal clean, rollback target b9ea4907, B11 prod run, gate runs | c2775a54258512a3e20c97341d3e8a6738b1a33b
+====================================================================================================
+REQ: B10-R03 | line 379 | disposition required | slice REL-GATE
+LIVE_REQ: True | when postdeploy | STATUS READY_FOR_LIVE
+EXCERPT: | C05 | Direct/╨┐╤А╨╛╤З╨╕╨╡ ╨╝╨╛╨┤╤Г╨╗╨╕ ╨╜╨╡ ╨╖╨░╨▓╨╕╤Б╤П╤В ╨╛╤И╨╕╨▒╨╛╤З╨╜╨╛ ╨╛╤В Summary | Live ╨╛╤В╤А╨╕╤Ж╨░╤В╨╡╨╗╤М╨╜╤Л╨╣ ╤В╨╡╤Б╤В Summary OFF |
+ACCEPTANCE: C05 ╨┐╨╛╨▓╤В╨╛╤А╨╜╨╛ ╨┐╤А╨╕╨╜╤П╤В: live ╨╜╨╡╨│╨░╤В╨╕╨▓╨╜╤Л╨╣ ╤В╨╡╤Б╤В Summary OFF тАФ Direct ╨╕ ╨┐╤А╨╛╤З╨╕╨╡ ╨╝╨╛╨┤╤Г╨╗╨╕ ╨╜╨╡ ╨╖╨░╨▓╨╕╤Б╤П╤В
+  EV live | live-canary.md + release-reconciliation.md + review-w1/w2/w3.md | deploy 2.58.79 (c2775a54) verified from server: healthz/api/web 200, journal clean, rollback target b9ea4907, B11 prod run, gate runs | c2775a54258512a3e20c97341d3e8a6738b1a33b
+====================================================================================================
+REQ: B10-R05 | line 381 | disposition required | slice REL-GATE
+LIVE_REQ: True | when postdeploy | STATUS READY_FOR_LIVE
+EXCERPT: | C07 | stories ╨║╨░╨║ ╤Б╨╛╨┤╨╡╤А╨╢╨░╤В╨╡╨╗╤М╨╜╤Л╨╣ ╤А╨░╤Б╤Б╨║╨░╨╖ | ╤А╨╡╨░╨╗╤М╨╜╤Л╨╡ ╨╕╤Б╤В╨╛╤З╨╜╨╕╨║╨╕ ╨╕ ╤В╨╡╨║╤Б╤В |
+ACCEPTANCE: C07 ╨┐╨╛╨▓╤В╨╛╤А╨╜╨╛ ╨┐╤А╨╕╨╜╤П╤В: stories тАФ ╤Б╨╛╨┤╨╡╤А╨╢╨░╤В╨╡╨╗╤М╨╜╤Л╨╣ ╤А╨░╤Б╤Б╨║╨░╨╖ ╤Б ╤А╨╡╨░╨╗╤М╨╜╤Л╨╝╨╕ ╨╕╤Б╤В╨╛╤З╨╜╨╕╨║╨░╨╝╨╕ ╨╕ ╤В╨╡╨║╤Б╤В╨╛╨╝ (╤Б╨╝. ╤В╨░╨║╨╢╨╡ REQ-B08)
+  EV live | live-canary.md + release-reconciliation.md + review-w1/w2/w3.md | deploy 2.58.79 (c2775a54) verified from server: healthz/api/web 200, journal clean, rollback target b9ea4907, B11 prod run, gate runs | c2775a54258512a3e20c97341d3e8a6738b1a33b
+====================================================================================================
+REQ: B10-R07 | line 383 | disposition required | slice REL-GATE
+LIVE_REQ: True | when postdeploy | STATUS READY_FOR_LIVE
+EXCERPT: | C09 | YouTube 407 + proxy health + ╤В╤А╨░╨╜╤Б╨║╤А╨╕╨┐╤В | ╤А╨╡╨░╨╗╤М╨╜╤Л╨╣ provider ╨┐╤А╨╛╤Е╨╛╨┤, ╨╜╨╡ ╤В╨╛╨╗╤М╨║╨╛ health |
+ACCEPTANCE: C09 ╨┐╨╛╨▓╤В╨╛╤А╨╜╨╛ ╨┐╤А╨╕╨╜╤П╤В: ╤А╨╡╨░╨╗╤М╨╜╤Л╨╣ provider-╨┐╤А╨╛╤Е╨╛╨┤ ╤В╤А╨░╨╜╤Б╨║╤А╨╕╨┐╤В╨░ (407 + proxy health), ╨╜╨╡ ╤В╨╛╨╗╤М╨║╨╛ health-check
+  EV live | live-canary.md + release-reconciliation.md + review-w1/w2/w3.md | deploy 2.58.79 (c2775a54) verified from server: healthz/api/web 200, journal clean, rollback target b9ea4907, B11 prod run, gate runs | c2775a54258512a3e20c97341d3e8a6738b1a33b
+====================================================================================================
+REQ: B10-R08 | line 384 | disposition required | slice REL-GATE
+LIVE_REQ: True | when postdeploy | STATUS READY_FOR_LIVE
+EXCERPT: | C10/D14 | tracked ╨┤╨╛╨║╤Г╨╝╨╡╨╜╤В╤Л, help, sync release | SHA ╨╕ ╤А╨╡╨░╨╗╤М╨╜╤Л╨╣ ╨┐╤А╨╛╨▓╨╡╤А╨╡╨╜╨╜╤Л╨╣ report |
+ACCEPTANCE: C10/D14 ╨┐╨╛╨▓╤В╨╛╤А╨╜╨╛ ╨┐╤А╨╕╨╜╤П╤В╤Л: tracked ╨┤╨╛╨║╤Г╨╝╨╡╨╜╤В╤Л/help/sync release ╤Б SHA ╨╕ ╤А╨╡╨░╨╗╤М╨╜╨╛ ╨┐╤А╨╛╨▓╨╡╤А╨╡╨╜╨╜╤Л╨╝ ╨╛╤В╤З╤С╤В╨╛╨╝
+  EV live | live-canary.md + release-reconciliation.md + review-w1/w2/w3.md | deploy 2.58.79 (c2775a54) verified from server: healthz/api/web 200, journal clean, rollback target b9ea4907, B11 prod run, gate runs | c2775a54258512a3e20c97341d3e8a6738b1a33b
+====================================================================================================
+REQ: B10-R09 | line 385 | disposition required | slice REL-GATE
+LIVE_REQ: True | when postdeploy | STATUS READY_FOR_LIVE
+EXCERPT: | D01 | dossier/╨╜╨░╤Б╤В╤А╨╛╨╣╨║╨╕ race | concurrent UI edit/refresh/409 |
+ACCEPTANCE: D01 ╨┐╨╛╨▓╤В╨╛╤А╨╜╨╛ ╨┐╤А╨╕╨╜╤П╤В: concurrent UI edit/refresh/409 ╨╜╨░ dossier/╨╜╨░╤Б╤В╤А╨╛╨╣╨║╨░╤Е (╤Б╨╝. ╤В╨░╨║╨╢╨╡ dossierSaving ╨▓ B11-╨╛╤Б╤В╨░╤В╨║╨░╤Е)
+  EV live | live-canary.md + release-reconciliation.md + review-w1/w2/w3.md | deploy 2.58.79 (c2775a54) verified from server: healthz/api/web 200, journal clean, rollback target b9ea4907, B11 prod run, gate runs | c2775a54258512a3e20c97341d3e8a6738b1a33b
+====================================================================================================
+REQ: B10-R11 | line 387 | disposition required | slice REL-GATE
+LIVE_REQ: True | when postdeploy | STATUS READY_FOR_LIVE
+EXCERPT: | D03/D04 | Direct L1 auth/budget/execution modes/tools | ╤А╨╡╨░╨╗╤М╨╜╤Л╨╡ ╨╝╨╛╨┤╤Л, ╨╖╨░╨┐╤А╨╡╤В ╨▒╨╡╨╖ ╨║╨╗╤О╤З╨░, evidence |
+ACCEPTANCE: D03/D04 ╨┐╨╛╨▓╤В╨╛╤А╨╜╨╛ ╨┐╤А╨╕╨╜╤П╤В╤Л: ╤А╨╡╨░╨╗╤М╨╜╤Л╨╡ execution modes, ╨╖╨░╨┐╤А╨╡╤В ╨▒╨╡╨╖ ╨║╨╗╤О╤З╨░, ╨▒╤О╨┤╨╢╨╡╤В/evidence Direct L1
+  EV live | live-canary.md + release-reconciliation.md + review-w1/w2/w3.md | deploy 2.58.79 (c2775a54) verified from server: healthz/api/web 200, journal clean, rollback target b9ea4907, B11 prod run, gate runs | c2775a54258512a3e20c97341d3e8a6738b1a33b
+====================================================================================================
+REQ: B10-R12 | line 388 | disposition required | slice REL-GATE
+LIVE_REQ: True | when postdeploy | STATUS READY_FOR_LIVE
+EXCERPT: | D05 | Experience, semantic learning, utility | genuine lesson applied, ╨╜╨╡ ╤В╨╛╨╗╤М╨║╨╛ counts |
+ACCEPTANCE: D05 ╨┐╨╛╨▓╤В╨╛╤А╨╜╨╛ ╨┐╤А╨╕╨╜╤П╤В: genuine lesson applied (╨╜╨╡ ╤В╨╛╨╗╤М╨║╨╛ ╤Б╤З╤С╤В╤З╨╕╨║╨╕); ╤Б╨╝. ╤В╨░╨║╨╢╨╡ REQ-B02/K2-OFF ╨╛╤Б╤В╨░╤В╨╛╨║ ╨▓ B11
+  EV live | live-canary.md + release-reconciliation.md + review-w1/w2/w3.md | deploy 2.58.79 (c2775a54) verified from server: healthz/api/web 200, journal clean, rollback target b9ea4907, B11 prod run, gate runs | c2775a54258512a3e20c97341d3e8a6738b1a33b
+====================================================================================================
+REQ: B10-R14 | line 390 | disposition required | slice REL-GATE
+LIVE_REQ: True | when postdeploy | STATUS READY_FOR_LIVE
+EXCERPT: | D07/D08 | overrides map ╨╕ Random toggle | UI write/read/restart 2 ╤З╨░╤В╨░ |
+ACCEPTANCE: D07/D08 ╨┐╨╛╨▓╤В╨╛╤А╨╜╨╛ ╨┐╤А╨╕╨╜╤П╤В╤Л: overrides map ╨╕ Random toggle тАФ UI write/read/restart ╨╜╨░ 2 ╤З╨░╤В╨░╤Е
+  EV live | live-canary.md + release-reconciliation.md + review-w1/w2/w3.md | deploy 2.58.79 (c2775a54) verified from server: healthz/api/web 200, journal clean, rollback target b9ea4907, B11 prod run, gate runs | c2775a54258512a3e20c97341d3e8a6738b1a33b
+====================================================================================================
+REQ: B10-R15 | line 391 | disposition required | slice REL-GATE
+LIVE_REQ: True | when postdeploy | STATUS READY_FOR_LIVE
+EXCERPT: | D09 | Dream/Deep Sleep/paradigms + honest timestamps | outcome, ╨┐╤А╨╕╤З╨╕╨╜╤Л zero, ╤Д╨░╨║╤В╨╕╤З╨╡╤Б╨║╨╕╨╡ ╨╕╨╖╨╝╨╡╨╜╨╡╨╜╨╕╤П |
+ACCEPTANCE: D09 ╨┐╨╛╨▓╤В╨╛╤А╨╜╨╛ ╨┐╤А╨╕╨╜╤П╤В: Dream/Deep Sleep/paradigms ╤Б ╤З╨╡╤Б╤В╨╜╤Л╨╝╨╕ timestamps, outcome, ╨┐╤А╨╕╤З╨╕╨╜╤Л zero, ╤Д╨░╨║╤В╨╕╤З╨╡╤Б╨║╨╕╨╡ ╨╕╨╖╨╝╨╡╨╜╨╡╨╜╨╕╤П
+  EV live | live-canary.md + release-reconciliation.md + review-w1/w2/w3.md | deploy 2.58.79 (c2775a54) verified from server: healthz/api/web 200, journal clean, rollback target b9ea4907, B11 prod run, gate runs | c2775a54258512a3e20c97341d3e8a6738b1a33b
+====================================================================================================
+REQ: B10-R16 | line 392 | disposition required | slice REL-GATE
+LIVE_REQ: True | when postdeploy | STATUS READY_FOR_LIVE
+EXCERPT: | D10/D11 | ╤Д╨░╨║╤В╨╕╤З╨╡╤Б╨║╨░╤П ╨┤╨░╤В╨░ ╨╕╤Б╤В╨╛╤З╨╜╨╕╨║╨╛╨▓ Factcheck ╨╕ ╨┐╨╛╨╗╨╜╨╛╤В╨░ ╤А╨╡╨╡╤Б╤В╤А╨░ | live examples ╨╕ machine key inventory |
+ACCEPTANCE: D10/D11 ╨┐╨╛╨▓╤В╨╛╤А╨╜╨╛ ╨┐╤А╨╕╨╜╤П╤В╤Л: ╤Д╨░╨║╤В╨╕╤З╨╡╤Б╨║╨░╤П ╨┤╨░╤В╨░ ╨╕╤Б╤В╨╛╤З╨╜╨╕╨║╨╛╨▓ Factcheck ╨╕ ╨┐╨╛╨╗╨╜╨╛╤В╨░ ╤А╨╡╨╡╤Б╤В╤А╨░ тАФ live examples + machine key inventory
+  EV live | live-canary.md + release-reconciliation.md + review-w1/w2/w3.md | deploy 2.58.79 (c2775a54) verified from server: healthz/api/web 200, journal clean, rollback target b9ea4907, B11 prod run, gate runs | c2775a54258512a3e20c97341d3e8a6738b1a33b
+====================================================================================================
+REQ: B10-R17 | line 393 | disposition required | slice REL-GATE
+LIVE_REQ: True | when postdeploy | STATUS READY_FOR_LIVE
+EXCERPT: | D12/D13 | ╨▓╤Б╨╡ 7 ╨╛╤В╨╗╨╛╨╢╨╡╨╜╨╜╤Л╤Е ╨▓╨╕╨╖╤Г╨░╨╗╨╕╨╖╨░╤Ж╨╕╨╣ ╨╕ mobile UI | ╤А╨╡╨░╨╗╤М╨╜╤Л╨╡ data, ╤Б╨║╤А╨╕╨╜╤И╨╛╤В╤Л ╨▓╤Б╨╡╤Е ╤А╨░╨╖╨╝╨╡╤А╨╛╨▓ |
+ACCEPTANCE: D12/D13 ╨┐╨╛╨▓╤В╨╛╤А╨╜╨╛ ╨┐╤А╨╕╨╜╤П╤В╤Л: 7 ╨╛╤В╨╗╨╛╨╢╨╡╨╜╨╜╤Л╤Е ╨▓╨╕╨╖╤Г╨░╨╗╨╕╨╖╨░╤Ж╨╕╨╣ ╨╜╨░ ╤А╨╡╨░╨╗╤М╨╜╤Л╤Е ╨┤╨░╨╜╨╜╤Л╤Е ╨╕ mobile UI тАФ ╤Б╨║╤А╨╕╨╜╤И╨╛╤В╤Л ╨▓╤Б╨╡╤Е ╤А╨░╨╖╨╝╨╡╤А╨╛╨▓ (╤Б╨╝. ╤В╨░╨║╨╢╨╡ U05.3)
+  EV live | live-canary.md + release-reconciliation.md + review-w1/w2/w3.md | deploy 2.58.79 (c2775a54) verified from server: healthz/api/web 200, journal clean, rollback target b9ea4907, B11 prod run, gate runs | c2775a54258512a3e20c97341d3e8a6738b1a33b
+====================================================================================================
+REQ: B10-R19 | line 395 | disposition required | slice REL-GATE
+LIVE_REQ: True | when postdeploy | STATUS READY_FOR_LIVE
+EXCERPT: | U08 (╨╜╨╛╨▓.) | optical glass + ╤З╨╕╤В╨░╨╡╨╝╤Л╨╣ Tier B/Tier C | ╨║╨╛╨╜╤В╤А╨╛╨╗╤М╨╜╨░╤П ╤Б╨╡╤В╨║╨░/╨▓╨╛╨╗╨╜╨░, ╤Б╨╛╨▒╤Б╤В╨▓╨╡╨╜╨╜╤Л╨╡ UI before/after, ╨▓╨╕╨┤╨╡╨╛ ╨╕╨╖╨│╨╕╨▒╨░ ╨╗╨╕╨╜╨╕╨╕, perf, fallback |
+ACCEPTANCE: U08 ╨┐╨╛╨▓╤В╨╛╤А╨╜╨╛ ╨┐╤А╨╕╨╜╤П╤В: ╨║╨╛╨╜╤В╤А╨╛╨╗╤М╨╜╨░╤П ╤Б╨╡╤В╨║╨░/╨▓╨╛╨╗╨╜╨░, ╤Б╨╛╨▒╤Б╤В╨▓╨╡╨╜╨╜╤Л╨╡ before/after, ╨▓╨╕╨┤╨╡╨╛ ╨╕╨╖╨│╨╕╨▒╨░ ╨╗╨╕╨╜╨╕╨╕, perf, fallback (╤Б╨╛╨▓╨╝╨╡╤Б╤В╨╜╨╛ ╤Б V07)
+  EV live | live-canary.md + release-reconciliation.md + review-w1/w2/w3.md | deploy 2.58.79 (c2775a54) verified from server: healthz/api/web 200, journal clean, rollback target b9ea4907, B11 prod run, gate runs | c2775a54258512a3e20c97341d3e8a6738b1a33b

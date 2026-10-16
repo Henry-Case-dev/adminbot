@@ -1,0 +1,1868 @@
+{
+ "generated": "2026-10-16",
+ "port": 8861,
+ "shots": [
+  "status_320x700.png",
+  "analytics_overview_320x700.png",
+  "analytics_processes_320x700.png",
+  "modules_320x700.png",
+  "style_editor_320x700.png",
+  "status_360x780.png",
+  "analytics_overview_360x780.png",
+  "analytics_processes_360x780.png",
+  "modules_360x780.png",
+  "style_editor_360x780.png",
+  "status_390x844.png",
+  "analytics_overview_390x844.png",
+  "analytics_processes_390x844.png",
+  "modules_390x844.png",
+  "style_editor_390x844.png",
+  "status_430x932.png",
+  "analytics_overview_430x932.png",
+  "analytics_processes_430x932.png",
+  "modules_430x932.png",
+  "style_editor_430x932.png",
+  "status_768x1024.png",
+  "analytics_overview_768x1024.png",
+  "analytics_processes_768x1024.png",
+  "modules_768x1024.png",
+  "style_editor_768x1024.png",
+  "status_1024x768.png",
+  "analytics_overview_1024x768.png",
+  "analytics_processes_1024x768.png",
+  "modules_1024x768.png",
+  "style_editor_1024x768.png",
+  "status_1440x900.png",
+  "analytics_overview_1440x900.png",
+  "analytics_processes_1440x900.png",
+  "modules_1440x900.png",
+  "style_editor_1440x900.png",
+  "status_667x375.png",
+  "analytics_overview_667x375.png",
+  "analytics_processes_667x375.png",
+  "modules_667x375.png",
+  "style_editor_667x375.png",
+  "fullscreen_390x844_fs.png",
+  "fullscreen_320x700_fs.png",
+  "fullscreen_tdesktop_1440x900.png"
+ ],
+ "measurements": {
+  "status/320x700": {
+   "vw": 320,
+   "vh": 700,
+   "scrollWidth": 320,
+   "hOverflow": false,
+   "header": {
+    "x": 0,
+    "y": 0,
+    "w": 320,
+    "h": 116,
+    "right": 320,
+    "bottom": 116
+   },
+   "nav": {
+    "x": 16,
+    "y": 58,
+    "w": 288,
+    "h": 47,
+    "right": 304,
+    "bottom": 106
+   },
+   "headerH": 116.2,
+   "fsBtn": {
+    "x": 255,
+    "y": 10,
+    "w": 49,
+    "h": 44,
+    "right": 304,
+    "bottom": 54
+   },
+   "fsAriaPressed": null,
+   "fsAriaLabel": "На весь экран",
+   "fsVisible": true,
+   "route": "#/",
+   "shellClass": "app-shell shell-mobile ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "oversightTrigger": null,
+   "contentStart": {
+    "x": 0,
+    "y": 116,
+    "w": 320,
+    "h": 528,
+    "right": 320,
+    "bottom": 644
+   }
+  },
+  "analytics_overview/320x700": {
+   "vw": 320,
+   "vh": 700,
+   "scrollWidth": 320,
+   "hOverflow": false,
+   "header": {
+    "x": 0,
+    "y": 0,
+    "w": 320,
+    "h": 116,
+    "right": 320,
+    "bottom": 116
+   },
+   "nav": {
+    "x": 16,
+    "y": 58,
+    "w": 288,
+    "h": 47,
+    "right": 304,
+    "bottom": 106
+   },
+   "headerH": 116.2,
+   "fsBtn": {
+    "x": 255,
+    "y": 10,
+    "w": 49,
+    "h": 44,
+    "right": 304,
+    "bottom": 54
+   },
+   "fsAriaPressed": null,
+   "fsAriaLabel": "На весь экран",
+   "fsVisible": true,
+   "route": "#/oversight",
+   "shellClass": "app-shell shell-mobile ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "oversightTrigger": null,
+   "contentStart": {
+    "x": 0,
+    "y": 116,
+    "w": 320,
+    "h": 528,
+    "right": 320,
+    "bottom": 644
+   }
+  },
+  "analytics_processes/320x700": {
+   "vw": 320,
+   "vh": 700,
+   "scrollWidth": 320,
+   "hOverflow": false,
+   "header": {
+    "x": 0,
+    "y": 0,
+    "w": 320,
+    "h": 116,
+    "right": 320,
+    "bottom": 116
+   },
+   "nav": {
+    "x": 16,
+    "y": 58,
+    "w": 288,
+    "h": 47,
+    "right": 304,
+    "bottom": 106
+   },
+   "headerH": 116.2,
+   "fsBtn": {
+    "x": 255,
+    "y": 10,
+    "w": 49,
+    "h": 44,
+    "right": 304,
+    "bottom": 54
+   },
+   "fsAriaPressed": null,
+   "fsAriaLabel": "На весь экран",
+   "fsVisible": true,
+   "route": "#/oversight?view=processes",
+   "shellClass": "app-shell shell-mobile ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "oversightTrigger": null,
+   "contentStart": {
+    "x": 0,
+    "y": 116,
+    "w": 320,
+    "h": 528,
+    "right": 320,
+    "bottom": 644
+   }
+  },
+  "modules/320x700": {
+   "vw": 320,
+   "vh": 700,
+   "scrollWidth": 320,
+   "hOverflow": false,
+   "header": {
+    "x": 0,
+    "y": 0,
+    "w": 320,
+    "h": 116,
+    "right": 320,
+    "bottom": 116
+   },
+   "nav": {
+    "x": 16,
+    "y": 58,
+    "w": 288,
+    "h": 47,
+    "right": 304,
+    "bottom": 106
+   },
+   "headerH": 116.2,
+   "fsBtn": {
+    "x": 255,
+    "y": 10,
+    "w": 49,
+    "h": 44,
+    "right": 304,
+    "bottom": 54
+   },
+   "fsAriaPressed": null,
+   "fsAriaLabel": "На весь экран",
+   "fsVisible": true,
+   "route": "#/modules",
+   "shellClass": "app-shell shell-mobile ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "oversightTrigger": null,
+   "contentStart": {
+    "x": 0,
+    "y": 116,
+    "w": 320,
+    "h": 528,
+    "right": 320,
+    "bottom": 644
+   }
+  },
+  "style_editor/320x700": {
+   "vw": 320,
+   "vh": 700,
+   "scrollWidth": 320,
+   "hOverflow": false,
+   "header": {
+    "x": 0,
+    "y": 0,
+    "w": 320,
+    "h": 116,
+    "right": 320,
+    "bottom": 116
+   },
+   "nav": {
+    "x": 16,
+    "y": 58,
+    "w": 288,
+    "h": 47,
+    "right": 304,
+    "bottom": 106
+   },
+   "headerH": 116.2,
+   "fsBtn": {
+    "x": 255,
+    "y": 10,
+    "w": 49,
+    "h": 44,
+    "right": 304,
+    "bottom": 54
+   },
+   "fsAriaPressed": null,
+   "fsAriaLabel": "На весь экран",
+   "fsVisible": true,
+   "route": "#/modules/summary/styles",
+   "shellClass": "app-shell shell-mobile ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "oversightTrigger": null,
+   "contentStart": {
+    "x": 0,
+    "y": 116,
+    "w": 320,
+    "h": 528,
+    "right": 320,
+    "bottom": 644
+   }
+  },
+  "status/360x780": {
+   "vw": 360,
+   "vh": 780,
+   "scrollWidth": 360,
+   "hOverflow": false,
+   "header": {
+    "x": 0,
+    "y": 0,
+    "w": 360,
+    "h": 116,
+    "right": 360,
+    "bottom": 116
+   },
+   "nav": {
+    "x": 16,
+    "y": 58,
+    "w": 328,
+    "h": 47,
+    "right": 344,
+    "bottom": 106
+   },
+   "headerH": 116.2,
+   "fsBtn": {
+    "x": 295,
+    "y": 10,
+    "w": 49,
+    "h": 44,
+    "right": 344,
+    "bottom": 54
+   },
+   "fsAriaPressed": null,
+   "fsAriaLabel": "На весь экран",
+   "fsVisible": true,
+   "route": "#/",
+   "shellClass": "app-shell shell-mobile ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "oversightTrigger": null,
+   "contentStart": {
+    "x": 0,
+    "y": 116,
+    "w": 360,
+    "h": 608,
+    "right": 360,
+    "bottom": 724
+   }
+  },
+  "analytics_overview/360x780": {
+   "vw": 360,
+   "vh": 780,
+   "scrollWidth": 360,
+   "hOverflow": false,
+   "header": {
+    "x": 0,
+    "y": 0,
+    "w": 360,
+    "h": 116,
+    "right": 360,
+    "bottom": 116
+   },
+   "nav": {
+    "x": 16,
+    "y": 58,
+    "w": 328,
+    "h": 47,
+    "right": 344,
+    "bottom": 106
+   },
+   "headerH": 116.2,
+   "fsBtn": {
+    "x": 295,
+    "y": 10,
+    "w": 49,
+    "h": 44,
+    "right": 344,
+    "bottom": 54
+   },
+   "fsAriaPressed": null,
+   "fsAriaLabel": "На весь экран",
+   "fsVisible": true,
+   "route": "#/oversight",
+   "shellClass": "app-shell shell-mobile ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "oversightTrigger": null,
+   "contentStart": {
+    "x": 0,
+    "y": 116,
+    "w": 360,
+    "h": 608,
+    "right": 360,
+    "bottom": 724
+   }
+  },
+  "analytics_processes/360x780": {
+   "vw": 360,
+   "vh": 780,
+   "scrollWidth": 360,
+   "hOverflow": false,
+   "header": {
+    "x": 0,
+    "y": 0,
+    "w": 360,
+    "h": 116,
+    "right": 360,
+    "bottom": 116
+   },
+   "nav": {
+    "x": 16,
+    "y": 58,
+    "w": 328,
+    "h": 47,
+    "right": 344,
+    "bottom": 106
+   },
+   "headerH": 116.2,
+   "fsBtn": {
+    "x": 295,
+    "y": 10,
+    "w": 49,
+    "h": 44,
+    "right": 344,
+    "bottom": 54
+   },
+   "fsAriaPressed": null,
+   "fsAriaLabel": "На весь экран",
+   "fsVisible": true,
+   "route": "#/oversight?view=processes",
+   "shellClass": "app-shell shell-mobile ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "oversightTrigger": null,
+   "contentStart": {
+    "x": 0,
+    "y": 116,
+    "w": 360,
+    "h": 608,
+    "right": 360,
+    "bottom": 724
+   }
+  },
+  "modules/360x780": {
+   "vw": 360,
+   "vh": 780,
+   "scrollWidth": 360,
+   "hOverflow": false,
+   "header": {
+    "x": 0,
+    "y": 0,
+    "w": 360,
+    "h": 116,
+    "right": 360,
+    "bottom": 116
+   },
+   "nav": {
+    "x": 16,
+    "y": 58,
+    "w": 328,
+    "h": 47,
+    "right": 344,
+    "bottom": 106
+   },
+   "headerH": 116.2,
+   "fsBtn": {
+    "x": 295,
+    "y": 10,
+    "w": 49,
+    "h": 44,
+    "right": 344,
+    "bottom": 54
+   },
+   "fsAriaPressed": null,
+   "fsAriaLabel": "На весь экран",
+   "fsVisible": true,
+   "route": "#/modules",
+   "shellClass": "app-shell shell-mobile ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "oversightTrigger": null,
+   "contentStart": {
+    "x": 0,
+    "y": 116,
+    "w": 360,
+    "h": 608,
+    "right": 360,
+    "bottom": 724
+   }
+  },
+  "style_editor/360x780": {
+   "vw": 360,
+   "vh": 780,
+   "scrollWidth": 360,
+   "hOverflow": false,
+   "header": {
+    "x": 0,
+    "y": 0,
+    "w": 360,
+    "h": 116,
+    "right": 360,
+    "bottom": 116
+   },
+   "nav": {
+    "x": 16,
+    "y": 58,
+    "w": 328,
+    "h": 47,
+    "right": 344,
+    "bottom": 106
+   },
+   "headerH": 116.2,
+   "fsBtn": {
+    "x": 295,
+    "y": 10,
+    "w": 49,
+    "h": 44,
+    "right": 344,
+    "bottom": 54
+   },
+   "fsAriaPressed": null,
+   "fsAriaLabel": "На весь экран",
+   "fsVisible": true,
+   "route": "#/modules/summary/styles",
+   "shellClass": "app-shell shell-mobile ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "oversightTrigger": null,
+   "contentStart": {
+    "x": 0,
+    "y": 116,
+    "w": 360,
+    "h": 608,
+    "right": 360,
+    "bottom": 724
+   }
+  },
+  "status/390x844": {
+   "vw": 390,
+   "vh": 844,
+   "scrollWidth": 390,
+   "hOverflow": false,
+   "header": {
+    "x": 0,
+    "y": 0,
+    "w": 390,
+    "h": 116,
+    "right": 390,
+    "bottom": 116
+   },
+   "nav": {
+    "x": 16,
+    "y": 58,
+    "w": 358,
+    "h": 47,
+    "right": 374,
+    "bottom": 106
+   },
+   "headerH": 116.2,
+   "fsBtn": {
+    "x": 325,
+    "y": 10,
+    "w": 49,
+    "h": 44,
+    "right": 374,
+    "bottom": 54
+   },
+   "fsAriaPressed": null,
+   "fsAriaLabel": "На весь экран",
+   "fsVisible": true,
+   "route": "#/",
+   "shellClass": "app-shell shell-mobile ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "oversightTrigger": null,
+   "contentStart": {
+    "x": 0,
+    "y": 116,
+    "w": 390,
+    "h": 672,
+    "right": 390,
+    "bottom": 788
+   }
+  },
+  "analytics_overview/390x844": {
+   "vw": 390,
+   "vh": 844,
+   "scrollWidth": 390,
+   "hOverflow": false,
+   "header": {
+    "x": 0,
+    "y": 0,
+    "w": 390,
+    "h": 116,
+    "right": 390,
+    "bottom": 116
+   },
+   "nav": {
+    "x": 16,
+    "y": 58,
+    "w": 358,
+    "h": 47,
+    "right": 374,
+    "bottom": 106
+   },
+   "headerH": 116.2,
+   "fsBtn": {
+    "x": 325,
+    "y": 10,
+    "w": 49,
+    "h": 44,
+    "right": 374,
+    "bottom": 54
+   },
+   "fsAriaPressed": null,
+   "fsAriaLabel": "На весь экран",
+   "fsVisible": true,
+   "route": "#/oversight",
+   "shellClass": "app-shell shell-mobile ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "oversightTrigger": null,
+   "contentStart": {
+    "x": 0,
+    "y": 116,
+    "w": 390,
+    "h": 672,
+    "right": 390,
+    "bottom": 788
+   }
+  },
+  "analytics_processes/390x844": {
+   "vw": 390,
+   "vh": 844,
+   "scrollWidth": 390,
+   "hOverflow": false,
+   "header": {
+    "x": 0,
+    "y": 0,
+    "w": 390,
+    "h": 116,
+    "right": 390,
+    "bottom": 116
+   },
+   "nav": {
+    "x": 16,
+    "y": 58,
+    "w": 358,
+    "h": 47,
+    "right": 374,
+    "bottom": 106
+   },
+   "headerH": 116.2,
+   "fsBtn": {
+    "x": 325,
+    "y": 10,
+    "w": 49,
+    "h": 44,
+    "right": 374,
+    "bottom": 54
+   },
+   "fsAriaPressed": null,
+   "fsAriaLabel": "На весь экран",
+   "fsVisible": true,
+   "route": "#/oversight?view=processes",
+   "shellClass": "app-shell shell-mobile ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "oversightTrigger": null,
+   "contentStart": {
+    "x": 0,
+    "y": 116,
+    "w": 390,
+    "h": 672,
+    "right": 390,
+    "bottom": 788
+   }
+  },
+  "modules/390x844": {
+   "vw": 390,
+   "vh": 844,
+   "scrollWidth": 390,
+   "hOverflow": false,
+   "header": {
+    "x": 0,
+    "y": 0,
+    "w": 390,
+    "h": 116,
+    "right": 390,
+    "bottom": 116
+   },
+   "nav": {
+    "x": 16,
+    "y": 58,
+    "w": 358,
+    "h": 47,
+    "right": 374,
+    "bottom": 106
+   },
+   "headerH": 116.2,
+   "fsBtn": {
+    "x": 325,
+    "y": 10,
+    "w": 49,
+    "h": 44,
+    "right": 374,
+    "bottom": 54
+   },
+   "fsAriaPressed": null,
+   "fsAriaLabel": "На весь экран",
+   "fsVisible": true,
+   "route": "#/modules",
+   "shellClass": "app-shell shell-mobile ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "oversightTrigger": null,
+   "contentStart": {
+    "x": 0,
+    "y": 116,
+    "w": 390,
+    "h": 672,
+    "right": 390,
+    "bottom": 788
+   }
+  },
+  "style_editor/390x844": {
+   "vw": 390,
+   "vh": 844,
+   "scrollWidth": 390,
+   "hOverflow": false,
+   "header": {
+    "x": 0,
+    "y": 0,
+    "w": 390,
+    "h": 116,
+    "right": 390,
+    "bottom": 116
+   },
+   "nav": {
+    "x": 16,
+    "y": 58,
+    "w": 358,
+    "h": 47,
+    "right": 374,
+    "bottom": 106
+   },
+   "headerH": 116.2,
+   "fsBtn": {
+    "x": 325,
+    "y": 10,
+    "w": 49,
+    "h": 44,
+    "right": 374,
+    "bottom": 54
+   },
+   "fsAriaPressed": null,
+   "fsAriaLabel": "На весь экран",
+   "fsVisible": true,
+   "route": "#/modules/summary/styles",
+   "shellClass": "app-shell shell-mobile ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "oversightTrigger": null,
+   "contentStart": {
+    "x": 0,
+    "y": 116,
+    "w": 390,
+    "h": 672,
+    "right": 390,
+    "bottom": 788
+   }
+  },
+  "status/430x932": {
+   "vw": 430,
+   "vh": 932,
+   "scrollWidth": 430,
+   "hOverflow": false,
+   "header": {
+    "x": 0,
+    "y": 0,
+    "w": 430,
+    "h": 116,
+    "right": 430,
+    "bottom": 116
+   },
+   "nav": {
+    "x": 16,
+    "y": 58,
+    "w": 398,
+    "h": 47,
+    "right": 414,
+    "bottom": 106
+   },
+   "headerH": 116.2,
+   "fsBtn": {
+    "x": 365,
+    "y": 10,
+    "w": 49,
+    "h": 44,
+    "right": 414,
+    "bottom": 54
+   },
+   "fsAriaPressed": null,
+   "fsAriaLabel": "На весь экран",
+   "fsVisible": true,
+   "route": "#/",
+   "shellClass": "app-shell shell-mobile ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "oversightTrigger": null,
+   "contentStart": {
+    "x": 0,
+    "y": 116,
+    "w": 430,
+    "h": 760,
+    "right": 430,
+    "bottom": 876
+   }
+  },
+  "analytics_overview/430x932": {
+   "vw": 430,
+   "vh": 932,
+   "scrollWidth": 430,
+   "hOverflow": false,
+   "header": {
+    "x": 0,
+    "y": 0,
+    "w": 430,
+    "h": 116,
+    "right": 430,
+    "bottom": 116
+   },
+   "nav": {
+    "x": 16,
+    "y": 58,
+    "w": 398,
+    "h": 47,
+    "right": 414,
+    "bottom": 106
+   },
+   "headerH": 116.2,
+   "fsBtn": {
+    "x": 365,
+    "y": 10,
+    "w": 49,
+    "h": 44,
+    "right": 414,
+    "bottom": 54
+   },
+   "fsAriaPressed": null,
+   "fsAriaLabel": "На весь экран",
+   "fsVisible": true,
+   "route": "#/oversight",
+   "shellClass": "app-shell shell-mobile ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "oversightTrigger": null,
+   "contentStart": {
+    "x": 0,
+    "y": 116,
+    "w": 430,
+    "h": 760,
+    "right": 430,
+    "bottom": 876
+   }
+  },
+  "analytics_processes/430x932": {
+   "vw": 430,
+   "vh": 932,
+   "scrollWidth": 430,
+   "hOverflow": false,
+   "header": {
+    "x": 0,
+    "y": 0,
+    "w": 430,
+    "h": 116,
+    "right": 430,
+    "bottom": 116
+   },
+   "nav": {
+    "x": 16,
+    "y": 58,
+    "w": 398,
+    "h": 47,
+    "right": 414,
+    "bottom": 106
+   },
+   "headerH": 116.2,
+   "fsBtn": {
+    "x": 365,
+    "y": 10,
+    "w": 49,
+    "h": 44,
+    "right": 414,
+    "bottom": 54
+   },
+   "fsAriaPressed": null,
+   "fsAriaLabel": "На весь экран",
+   "fsVisible": true,
+   "route": "#/oversight?view=processes",
+   "shellClass": "app-shell shell-mobile ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "oversightTrigger": null,
+   "contentStart": {
+    "x": 0,
+    "y": 116,
+    "w": 430,
+    "h": 760,
+    "right": 430,
+    "bottom": 876
+   }
+  },
+  "modules/430x932": {
+   "vw": 430,
+   "vh": 932,
+   "scrollWidth": 430,
+   "hOverflow": false,
+   "header": {
+    "x": 0,
+    "y": 0,
+    "w": 430,
+    "h": 116,
+    "right": 430,
+    "bottom": 116
+   },
+   "nav": {
+    "x": 16,
+    "y": 58,
+    "w": 398,
+    "h": 47,
+    "right": 414,
+    "bottom": 106
+   },
+   "headerH": 116.2,
+   "fsBtn": {
+    "x": 365,
+    "y": 10,
+    "w": 49,
+    "h": 44,
+    "right": 414,
+    "bottom": 54
+   },
+   "fsAriaPressed": null,
+   "fsAriaLabel": "На весь экран",
+   "fsVisible": true,
+   "route": "#/modules",
+   "shellClass": "app-shell shell-mobile ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "oversightTrigger": null,
+   "contentStart": {
+    "x": 0,
+    "y": 116,
+    "w": 430,
+    "h": 760,
+    "right": 430,
+    "bottom": 876
+   }
+  },
+  "style_editor/430x932": {
+   "vw": 430,
+   "vh": 932,
+   "scrollWidth": 430,
+   "hOverflow": false,
+   "header": {
+    "x": 0,
+    "y": 0,
+    "w": 430,
+    "h": 116,
+    "right": 430,
+    "bottom": 116
+   },
+   "nav": {
+    "x": 16,
+    "y": 58,
+    "w": 398,
+    "h": 47,
+    "right": 414,
+    "bottom": 106
+   },
+   "headerH": 116.2,
+   "fsBtn": {
+    "x": 365,
+    "y": 10,
+    "w": 49,
+    "h": 44,
+    "right": 414,
+    "bottom": 54
+   },
+   "fsAriaPressed": null,
+   "fsAriaLabel": "На весь экран",
+   "fsVisible": true,
+   "route": "#/modules/summary/styles",
+   "shellClass": "app-shell shell-mobile ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "oversightTrigger": null,
+   "contentStart": {
+    "x": 0,
+    "y": 116,
+    "w": 430,
+    "h": 760,
+    "right": 430,
+    "bottom": 876
+   }
+  },
+  "status/768x1024": {
+   "vw": 768,
+   "vh": 1024,
+   "scrollWidth": 768,
+   "hOverflow": false,
+   "header": {
+    "x": 0,
+    "y": 0,
+    "w": 768,
+    "h": 113,
+    "right": 768,
+    "bottom": 113
+   },
+   "nav": null,
+   "headerH": 113.4,
+   "fsBtn": {
+    "x": 703,
+    "y": 12,
+    "w": 49,
+    "h": 44,
+    "right": 752,
+    "bottom": 56
+   },
+   "fsAriaPressed": null,
+   "fsAriaLabel": "На весь экран",
+   "fsVisible": true,
+   "route": "#/",
+   "shellClass": "app-shell shell-compact ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "oversightTrigger": null,
+   "contentStart": {
+    "x": 0,
+    "y": 113,
+    "w": 768,
+    "h": 4667,
+    "right": 768,
+    "bottom": 4780
+   }
+  },
+  "analytics_overview/768x1024": {
+   "vw": 768,
+   "vh": 1024,
+   "scrollWidth": 768,
+   "hOverflow": false,
+   "header": {
+    "x": 0,
+    "y": 0,
+    "w": 768,
+    "h": 113,
+    "right": 768,
+    "bottom": 113
+   },
+   "nav": null,
+   "headerH": 113.4,
+   "fsBtn": {
+    "x": 703,
+    "y": 12,
+    "w": 49,
+    "h": 44,
+    "right": 752,
+    "bottom": 56
+   },
+   "fsAriaPressed": null,
+   "fsAriaLabel": "На весь экран",
+   "fsVisible": true,
+   "route": "#/oversight",
+   "shellClass": "app-shell shell-compact ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "oversightTrigger": null,
+   "contentStart": {
+    "x": 0,
+    "y": 113,
+    "w": 768,
+    "h": 1054,
+    "right": 768,
+    "bottom": 1168
+   }
+  },
+  "analytics_processes/768x1024": {
+   "vw": 768,
+   "vh": 1024,
+   "scrollWidth": 768,
+   "hOverflow": false,
+   "header": {
+    "x": 0,
+    "y": 0,
+    "w": 768,
+    "h": 113,
+    "right": 768,
+    "bottom": 113
+   },
+   "nav": null,
+   "headerH": 113.4,
+   "fsBtn": {
+    "x": 703,
+    "y": 12,
+    "w": 49,
+    "h": 44,
+    "right": 752,
+    "bottom": 56
+   },
+   "fsAriaPressed": null,
+   "fsAriaLabel": "На весь экран",
+   "fsVisible": true,
+   "route": "#/oversight?view=processes",
+   "shellClass": "app-shell shell-compact ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "oversightTrigger": null,
+   "contentStart": {
+    "x": 0,
+    "y": 113,
+    "w": 768,
+    "h": 1293,
+    "right": 768,
+    "bottom": 1406
+   }
+  },
+  "modules/768x1024": {
+   "vw": 768,
+   "vh": 1024,
+   "scrollWidth": 768,
+   "hOverflow": false,
+   "header": {
+    "x": 0,
+    "y": 0,
+    "w": 768,
+    "h": 113,
+    "right": 768,
+    "bottom": 113
+   },
+   "nav": null,
+   "headerH": 113.4,
+   "fsBtn": {
+    "x": 703,
+    "y": 12,
+    "w": 49,
+    "h": 44,
+    "right": 752,
+    "bottom": 56
+   },
+   "fsAriaPressed": null,
+   "fsAriaLabel": "На весь экран",
+   "fsVisible": true,
+   "route": "#/modules",
+   "shellClass": "app-shell shell-compact ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "oversightTrigger": null,
+   "contentStart": {
+    "x": 0,
+    "y": 113,
+    "w": 768,
+    "h": 1993,
+    "right": 768,
+    "bottom": 2107
+   }
+  },
+  "style_editor/768x1024": {
+   "vw": 768,
+   "vh": 1024,
+   "scrollWidth": 768,
+   "hOverflow": false,
+   "header": {
+    "x": 0,
+    "y": 0,
+    "w": 768,
+    "h": 113,
+    "right": 768,
+    "bottom": 113
+   },
+   "nav": null,
+   "headerH": 113.4,
+   "fsBtn": {
+    "x": 703,
+    "y": 12,
+    "w": 49,
+    "h": 44,
+    "right": 752,
+    "bottom": 56
+   },
+   "fsAriaPressed": null,
+   "fsAriaLabel": "На весь экран",
+   "fsVisible": true,
+   "route": "#/modules/summary/styles",
+   "shellClass": "app-shell shell-compact ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "oversightTrigger": null,
+   "contentStart": {
+    "x": 0,
+    "y": 113,
+    "w": 768,
+    "h": 855,
+    "right": 768,
+    "bottom": 968
+   }
+  },
+  "status/1024x768": {
+   "vw": 1024,
+   "vh": 768,
+   "scrollWidth": 1024,
+   "hOverflow": false,
+   "header": {
+    "x": 0,
+    "y": 0,
+    "w": 1024,
+    "h": 113,
+    "right": 1024,
+    "bottom": 113
+   },
+   "nav": null,
+   "headerH": 113.4,
+   "fsBtn": {
+    "x": 959,
+    "y": 12,
+    "w": 49,
+    "h": 44,
+    "right": 1008,
+    "bottom": 56
+   },
+   "fsAriaPressed": null,
+   "fsAriaLabel": "На весь экран",
+   "fsVisible": true,
+   "route": "#/",
+   "shellClass": "app-shell shell-compact ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "oversightTrigger": null,
+   "contentStart": {
+    "x": 0,
+    "y": 113,
+    "w": 1024,
+    "h": 3877,
+    "right": 1024,
+    "bottom": 3991
+   }
+  },
+  "analytics_overview/1024x768": {
+   "vw": 1024,
+   "vh": 768,
+   "scrollWidth": 1024,
+   "hOverflow": false,
+   "header": {
+    "x": 0,
+    "y": 0,
+    "w": 1024,
+    "h": 113,
+    "right": 1024,
+    "bottom": 113
+   },
+   "nav": null,
+   "headerH": 113.4,
+   "fsBtn": {
+    "x": 959,
+    "y": 12,
+    "w": 49,
+    "h": 44,
+    "right": 1008,
+    "bottom": 56
+   },
+   "fsAriaPressed": null,
+   "fsAriaLabel": "На весь экран",
+   "fsVisible": true,
+   "route": "#/oversight",
+   "shellClass": "app-shell shell-compact ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "oversightTrigger": null,
+   "contentStart": {
+    "x": 0,
+    "y": 113,
+    "w": 1024,
+    "h": 1022,
+    "right": 1024,
+    "bottom": 1136
+   }
+  },
+  "analytics_processes/1024x768": {
+   "vw": 1024,
+   "vh": 768,
+   "scrollWidth": 1024,
+   "hOverflow": false,
+   "header": {
+    "x": 0,
+    "y": 0,
+    "w": 1024,
+    "h": 113,
+    "right": 1024,
+    "bottom": 113
+   },
+   "nav": null,
+   "headerH": 113.4,
+   "fsBtn": {
+    "x": 959,
+    "y": 12,
+    "w": 49,
+    "h": 44,
+    "right": 1008,
+    "bottom": 56
+   },
+   "fsAriaPressed": null,
+   "fsAriaLabel": "На весь экран",
+   "fsVisible": true,
+   "route": "#/oversight?view=processes",
+   "shellClass": "app-shell shell-compact ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "oversightTrigger": null,
+   "contentStart": {
+    "x": 0,
+    "y": 113,
+    "w": 1024,
+    "h": 1277,
+    "right": 1024,
+    "bottom": 1390
+   }
+  },
+  "modules/1024x768": {
+   "vw": 1024,
+   "vh": 768,
+   "scrollWidth": 1024,
+   "hOverflow": false,
+   "header": {
+    "x": 0,
+    "y": 0,
+    "w": 1024,
+    "h": 113,
+    "right": 1024,
+    "bottom": 113
+   },
+   "nav": null,
+   "headerH": 113.4,
+   "fsBtn": {
+    "x": 959,
+    "y": 12,
+    "w": 49,
+    "h": 44,
+    "right": 1008,
+    "bottom": 56
+   },
+   "fsAriaPressed": null,
+   "fsAriaLabel": "На весь экран",
+   "fsVisible": true,
+   "route": "#/modules",
+   "shellClass": "app-shell shell-compact ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "oversightTrigger": null,
+   "contentStart": {
+    "x": 0,
+    "y": 113,
+    "w": 1024,
+    "h": 1616,
+    "right": 1024,
+    "bottom": 1730
+   }
+  },
+  "style_editor/1024x768": {
+   "vw": 1024,
+   "vh": 768,
+   "scrollWidth": 1024,
+   "hOverflow": false,
+   "header": {
+    "x": 0,
+    "y": 0,
+    "w": 1024,
+    "h": 113,
+    "right": 1024,
+    "bottom": 113
+   },
+   "nav": null,
+   "headerH": 113.4,
+   "fsBtn": {
+    "x": 959,
+    "y": 12,
+    "w": 49,
+    "h": 44,
+    "right": 1008,
+    "bottom": 56
+   },
+   "fsAriaPressed": null,
+   "fsAriaLabel": "На весь экран",
+   "fsVisible": true,
+   "route": "#/modules/summary/styles",
+   "shellClass": "app-shell shell-compact ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "oversightTrigger": null,
+   "contentStart": {
+    "x": 0,
+    "y": 113,
+    "w": 1024,
+    "h": 701,
+    "right": 1024,
+    "bottom": 814
+   }
+  },
+  "status/1440x900": {
+   "vw": 1440,
+   "vh": 900,
+   "scrollWidth": 1440,
+   "hOverflow": false,
+   "header": {
+    "x": 216,
+    "y": 0,
+    "w": 1224,
+    "h": 109,
+    "right": 1440,
+    "bottom": 109
+   },
+   "nav": null,
+   "headerH": 109.4,
+   "fsBtn": {
+    "x": 1375,
+    "y": 10,
+    "w": 49,
+    "h": 44,
+    "right": 1424,
+    "bottom": 54
+   },
+   "fsAriaPressed": null,
+   "fsAriaLabel": "На весь экран",
+   "fsVisible": true,
+   "route": "#/",
+   "shellClass": "app-shell shell-desktop ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "oversightTrigger": null,
+   "contentStart": {
+    "x": 216,
+    "y": 109,
+    "w": 1224,
+    "h": 3829,
+    "right": 1440,
+    "bottom": 3939
+   }
+  },
+  "analytics_overview/1440x900": {
+   "vw": 1440,
+   "vh": 900,
+   "scrollWidth": 1440,
+   "hOverflow": false,
+   "header": {
+    "x": 216,
+    "y": 0,
+    "w": 1224,
+    "h": 109,
+    "right": 1440,
+    "bottom": 109
+   },
+   "nav": null,
+   "headerH": 109.4,
+   "fsBtn": {
+    "x": 1375,
+    "y": 10,
+    "w": 49,
+    "h": 44,
+    "right": 1424,
+    "bottom": 54
+   },
+   "fsAriaPressed": null,
+   "fsAriaLabel": "На весь экран",
+   "fsVisible": true,
+   "route": "#/oversight",
+   "shellClass": "app-shell shell-desktop ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "oversightTrigger": null,
+   "contentStart": {
+    "x": 216,
+    "y": 109,
+    "w": 1224,
+    "h": 994,
+    "right": 1440,
+    "bottom": 1103
+   }
+  },
+  "analytics_processes/1440x900": {
+   "vw": 1440,
+   "vh": 900,
+   "scrollWidth": 1440,
+   "hOverflow": false,
+   "header": {
+    "x": 216,
+    "y": 0,
+    "w": 1224,
+    "h": 109,
+    "right": 1440,
+    "bottom": 109
+   },
+   "nav": null,
+   "headerH": 109.4,
+   "fsBtn": {
+    "x": 1375,
+    "y": 10,
+    "w": 49,
+    "h": 44,
+    "right": 1424,
+    "bottom": 54
+   },
+   "fsAriaPressed": null,
+   "fsAriaLabel": "На весь экран",
+   "fsVisible": true,
+   "route": "#/oversight?view=processes",
+   "shellClass": "app-shell shell-desktop ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "oversightTrigger": null,
+   "contentStart": {
+    "x": 216,
+    "y": 109,
+    "w": 1224,
+    "h": 1277,
+    "right": 1440,
+    "bottom": 1386
+   }
+  },
+  "modules/1440x900": {
+   "vw": 1440,
+   "vh": 900,
+   "scrollWidth": 1440,
+   "hOverflow": false,
+   "header": {
+    "x": 216,
+    "y": 0,
+    "w": 1224,
+    "h": 109,
+    "right": 1440,
+    "bottom": 109
+   },
+   "nav": null,
+   "headerH": 109.4,
+   "fsBtn": {
+    "x": 1375,
+    "y": 10,
+    "w": 49,
+    "h": 44,
+    "right": 1424,
+    "bottom": 54
+   },
+   "fsAriaPressed": null,
+   "fsAriaLabel": "На весь экран",
+   "fsVisible": true,
+   "route": "#/modules",
+   "shellClass": "app-shell shell-desktop ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "oversightTrigger": null,
+   "contentStart": {
+    "x": 216,
+    "y": 109,
+    "w": 1224,
+    "h": 1324,
+    "right": 1440,
+    "bottom": 1434
+   }
+  },
+  "style_editor/1440x900": {
+   "vw": 1440,
+   "vh": 900,
+   "scrollWidth": 1440,
+   "hOverflow": false,
+   "header": {
+    "x": 216,
+    "y": 0,
+    "w": 1224,
+    "h": 109,
+    "right": 1440,
+    "bottom": 109
+   },
+   "nav": null,
+   "headerH": 109.4,
+   "fsBtn": {
+    "x": 1375,
+    "y": 10,
+    "w": 49,
+    "h": 44,
+    "right": 1424,
+    "bottom": 54
+   },
+   "fsAriaPressed": null,
+   "fsAriaLabel": "На весь экран",
+   "fsVisible": true,
+   "route": "#/modules/summary/styles",
+   "shellClass": "app-shell shell-desktop ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "oversightTrigger": null,
+   "contentStart": {
+    "x": 216,
+    "y": 109,
+    "w": 1224,
+    "h": 735,
+    "right": 1440,
+    "bottom": 844
+   }
+  },
+  "status/667x375": {
+   "vw": 667,
+   "vh": 375,
+   "scrollWidth": 667,
+   "hOverflow": false,
+   "header": {
+    "x": 0,
+    "y": 0,
+    "w": 667,
+    "h": 94,
+    "right": 667,
+    "bottom": 94
+   },
+   "nav": {
+    "x": 16,
+    "y": 52,
+    "w": 635,
+    "h": 35,
+    "right": 651,
+    "bottom": 87
+   },
+   "headerH": 93.8,
+   "fsBtn": {
+    "x": 602,
+    "y": 6,
+    "w": 49,
+    "h": 44,
+    "right": 651,
+    "bottom": 50
+   },
+   "fsAriaPressed": null,
+   "fsAriaLabel": "На весь экран",
+   "fsVisible": true,
+   "route": "#/",
+   "shellClass": "app-shell shell-mobile ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "oversightTrigger": null,
+   "contentStart": {
+    "x": 0,
+    "y": 94,
+    "w": 667,
+    "h": 225,
+    "right": 667,
+    "bottom": 319
+   }
+  },
+  "analytics_overview/667x375": {
+   "vw": 667,
+   "vh": 375,
+   "scrollWidth": 667,
+   "hOverflow": false,
+   "header": {
+    "x": 0,
+    "y": 0,
+    "w": 667,
+    "h": 94,
+    "right": 667,
+    "bottom": 94
+   },
+   "nav": {
+    "x": 16,
+    "y": 52,
+    "w": 635,
+    "h": 35,
+    "right": 651,
+    "bottom": 87
+   },
+   "headerH": 93.8,
+   "fsBtn": {
+    "x": 602,
+    "y": 6,
+    "w": 49,
+    "h": 44,
+    "right": 651,
+    "bottom": 50
+   },
+   "fsAriaPressed": null,
+   "fsAriaLabel": "На весь экран",
+   "fsVisible": true,
+   "route": "#/oversight",
+   "shellClass": "app-shell shell-mobile ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "oversightTrigger": null,
+   "contentStart": {
+    "x": 0,
+    "y": 94,
+    "w": 667,
+    "h": 225,
+    "right": 667,
+    "bottom": 319
+   }
+  },
+  "analytics_processes/667x375": {
+   "vw": 667,
+   "vh": 375,
+   "scrollWidth": 667,
+   "hOverflow": false,
+   "header": {
+    "x": 0,
+    "y": 0,
+    "w": 667,
+    "h": 94,
+    "right": 667,
+    "bottom": 94
+   },
+   "nav": {
+    "x": 16,
+    "y": 52,
+    "w": 635,
+    "h": 35,
+    "right": 651,
+    "bottom": 87
+   },
+   "headerH": 93.8,
+   "fsBtn": {
+    "x": 602,
+    "y": 6,
+    "w": 49,
+    "h": 44,
+    "right": 651,
+    "bottom": 50
+   },
+   "fsAriaPressed": null,
+   "fsAriaLabel": "На весь экран",
+   "fsVisible": true,
+   "route": "#/oversight?view=processes",
+   "shellClass": "app-shell shell-mobile ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "oversightTrigger": null,
+   "contentStart": {
+    "x": 0,
+    "y": 94,
+    "w": 667,
+    "h": 225,
+    "right": 667,
+    "bottom": 319
+   }
+  },
+  "modules/667x375": {
+   "vw": 667,
+   "vh": 375,
+   "scrollWidth": 667,
+   "hOverflow": false,
+   "header": {
+    "x": 0,
+    "y": 0,
+    "w": 667,
+    "h": 94,
+    "right": 667,
+    "bottom": 94
+   },
+   "nav": {
+    "x": 16,
+    "y": 52,
+    "w": 635,
+    "h": 35,
+    "right": 651,
+    "bottom": 87
+   },
+   "headerH": 93.8,
+   "fsBtn": {
+    "x": 602,
+    "y": 6,
+    "w": 49,
+    "h": 44,
+    "right": 651,
+    "bottom": 50
+   },
+   "fsAriaPressed": null,
+   "fsAriaLabel": "На весь экран",
+   "fsVisible": true,
+   "route": "#/modules",
+   "shellClass": "app-shell shell-mobile ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "oversightTrigger": null,
+   "contentStart": {
+    "x": 0,
+    "y": 94,
+    "w": 667,
+    "h": 225,
+    "right": 667,
+    "bottom": 319
+   }
+  },
+  "style_editor/667x375": {
+   "vw": 667,
+   "vh": 375,
+   "scrollWidth": 667,
+   "hOverflow": false,
+   "header": {
+    "x": 0,
+    "y": 0,
+    "w": 667,
+    "h": 94,
+    "right": 667,
+    "bottom": 94
+   },
+   "nav": {
+    "x": 16,
+    "y": 52,
+    "w": 635,
+    "h": 35,
+    "right": 651,
+    "bottom": 87
+   },
+   "headerH": 93.8,
+   "fsBtn": {
+    "x": 602,
+    "y": 6,
+    "w": 49,
+    "h": 44,
+    "right": 651,
+    "bottom": 50
+   },
+   "fsAriaPressed": null,
+   "fsAriaLabel": "На весь экран",
+   "fsVisible": true,
+   "route": "#/modules/summary/styles",
+   "shellClass": "app-shell shell-mobile ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "oversightTrigger": null,
+   "contentStart": {
+    "x": 0,
+    "y": 94,
+    "w": 667,
+    "h": 225,
+    "right": 667,
+    "bottom": 319
+   }
+  },
+  "fullscreen/390x844_fs": {
+   "vw": 390,
+   "vh": 844,
+   "scrollWidth": 390,
+   "hOverflow": false,
+   "header": {
+    "x": 0,
+    "y": 0,
+    "w": 390,
+    "h": 119,
+    "right": 390,
+    "bottom": 119
+   },
+   "nav": {
+    "x": 16,
+    "y": 61,
+    "w": 358,
+    "h": 47,
+    "right": 374,
+    "bottom": 108
+   },
+   "headerH": 118.6,
+   "fsBtn": {
+    "x": 325,
+    "y": 12,
+    "w": 49,
+    "h": 44,
+    "right": 374,
+    "bottom": 56
+   },
+   "fsAriaPressed": "true",
+   "fsAriaLabel": "Выйти из полноэкранного режима",
+   "fsVisible": true,
+   "route": "#/",
+   "shellClass": "app-shell fullscreen-mode shell-mobile ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "oversightTrigger": null,
+   "contentStart": {
+    "x": 0,
+    "y": 119,
+    "w": 390,
+    "h": 669,
+    "right": 390,
+    "bottom": 788
+   }
+  },
+  "fullscreen/320x700_fs": {
+   "vw": 320,
+   "vh": 700,
+   "scrollWidth": 320,
+   "hOverflow": false,
+   "header": {
+    "x": 0,
+    "y": 0,
+    "w": 320,
+    "h": 119,
+    "right": 320,
+    "bottom": 119
+   },
+   "nav": {
+    "x": 16,
+    "y": 61,
+    "w": 288,
+    "h": 47,
+    "right": 304,
+    "bottom": 108
+   },
+   "headerH": 118.6,
+   "fsBtn": {
+    "x": 255,
+    "y": 12,
+    "w": 49,
+    "h": 44,
+    "right": 304,
+    "bottom": 56
+   },
+   "fsAriaPressed": "true",
+   "fsAriaLabel": "Выйти из полноэкранного режима",
+   "fsVisible": true,
+   "route": "#/",
+   "shellClass": "app-shell fullscreen-mode shell-mobile ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "oversightTrigger": null,
+   "contentStart": {
+    "x": 0,
+    "y": 119,
+    "w": 320,
+    "h": 525,
+    "right": 320,
+    "bottom": 644
+   }
+  },
+  "fullscreen/tdesktop_1440x900": {
+   "vw": 1440,
+   "vh": 900,
+   "scrollWidth": 1440,
+   "hOverflow": false,
+   "header": {
+    "x": 216,
+    "y": 0,
+    "w": 1224,
+    "h": 85,
+    "right": 1440,
+    "bottom": 85
+   },
+   "nav": null,
+   "headerH": 85.4,
+   "fsBtn": null,
+   "fsAriaPressed": null,
+   "fsAriaLabel": null,
+   "fsVisible": false,
+   "route": "#/",
+   "shellClass": "app-shell shell-desktop ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "oversightTrigger": null,
+   "contentStart": {
+    "x": 216,
+    "y": 85,
+    "w": 1224,
+    "h": 3829,
+    "right": 1440,
+    "bottom": 3915
+   }
+  }
+ },
+ "console_errors": []
+}

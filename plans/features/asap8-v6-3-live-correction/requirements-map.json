@@ -34,9 +34,9 @@
       "evidence": [
         {
           "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
-          "ref": "tests/ + plans/features/asap8-v6-3-live-correction/w*-reports/",
-          "observation": "implemented + repo tests + independent reviewer verdict",
-          "type": "test"
+          "ref": "plans/features/asap8-v6-3-live-correction/w2-evidence-glass/ui-acceptance.md + tests/test_asap8_v63_b04_edit_contract.py",
+          "observation": "Доказательства созданы агентами: собственные скриншоты/кары в w2-evidence-fullscreen, w2-evidence-glass, w3-evidence-*, evidence/v63-frontend; ui-acceptance.md содержит оба вердикта «optical Tier A passed» и «frost Tier B passed»; изображения Cover Style профилей сохраняются — покрыто B04-тестами (tests/test_asap8_v63_b04_edit_contract.py).",
+          "type": "ui"
         },
         {
           "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
@@ -61,8 +61,8 @@
       "evidence": [
         {
           "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
-          "ref": "tests/ + plans/features/asap8-v6-3-live-correction/w*-reports/",
-          "observation": "implemented + repo tests + independent reviewer verdict",
+          "ref": "source-lines-37423-EOF.md (SHA256 d0b4f611…) + SNAPSHOT_MANIFEST.md + current_task.snapshot_2026-10-15.md (SHA256 91f754e3…)",
+          "observation": "Пересчитано 2026-10-16: SHA256(source-lines-37423-EOF.md)=d0b4f611ac5eff7d228a1d2a2d1e283f04b26625f2dac89ab5ad1145f10e686d = source_sha256 карты; SHA256(current_task.snapshot_2026-10-15.md)=91f754e3993477e888e874cd88dcfaf3234d54a92e3409f4d6744150a4ca5c05 = SNAPSHOT_MANIFEST.md. Файлы не редактировались.",
           "type": "test"
         }
       ]
@@ -82,8 +82,8 @@
       "evidence": [
         {
           "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
-          "ref": "tests/ + plans/features/asap8-v6-3-live-correction/w*-reports/",
-          "observation": "implemented + repo tests + independent reviewer verdict",
+          "ref": "baseline-inventory.md §1-§2 + release-reconciliation.md §1 + live-canary.md",
+          "observation": "baseline-inventory.md фиксирует HEAD f58a644 = deployed 2.58.78; фактический pre-deploy SHA сервера b9ea4907ffa52e7b2974e9511113e03350820a6e установлен в release-reconciliation.md §1; healthz/version сверяются live-canary.md (2.58.79 @ c2775a54).",
           "type": "test"
         }
       ]
@@ -107,18 +107,18 @@
       "source_line": 34,
       "source_excerpt": "0.1. Зафиксировать Git SHA, deployed SHA, версию, health, environment-gates, рабочую PostgreSQL/SQLite, настройки выбранного чата (без секретов), реальные за 24/48 часов данные… Прочитать прошлые C01–C10, D01–D14… и f10-report.md целиком",
       "disposition": "required",
-      "reason": "",
+      "reason": "F-3 аудита verification-report-2026-10-16.md §3: baseline-inventory.md:82 — «## 3. §0.1-данные **для сбора на S0** (не секреты)», т.е. 24/48h датасет (API-логи, trace, job states, counters, ingest cursor, LLM errors, UI по Status/Analytics) не собран. review-coverage.md (blocker #3) уже помечал REQ-0-1 как осиротевший — строка не принадлежала ни одной волне.",
       "req_id": "REQ-0-1",
       "slice": "S0-BASELINE",
       "acceptance": "baseline-inventory.md содержит SHA/версию/health/gates/БД/настройки чата без секретов и 24/48h данные (API/trace/jobs/counters/cursor/LLM errors/UI); f10 прочитан, расхождения с «26/26» сведены в reconciliation",
       "live_required": false,
       "live_when": "preprod",
-      "status": "VERIFIED",
+      "status": "PENDING",
       "evidence": [
         {
           "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
-          "ref": "tests/ + plans/features/asap8-v6-3-live-correction/w*-reports/",
-          "observation": "implemented + repo tests + independent reviewer verdict",
+          "ref": "baseline-inventory.md:82-84",
+          "observation": "ОБНАРУЖЕН ПРОПУСК: §0.1-данные помечены как «для сбора на S0» — 24/48h метрики (API/trace/jobs/counters/cursor/LLM errors/UI) отсутствуют; review-coverage.md blocker #3 фиксирует REQ-0-1 без волны-владельца. Предыдущая evidence-строка была шаблоном «tests/ + w*-reports/».",
           "type": "test"
         }
       ]
@@ -138,8 +138,8 @@
       "evidence": [
         {
           "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
-          "ref": "tests/ + plans/features/asap8-v6-3-live-correction/w*-reports/",
-          "observation": "implemented + repo tests + independent reviewer verdict",
+          "ref": "requirements-map.json + requirements-map.md + source-reconciliation.md",
+          "observation": "Карта (148 inventory + 74 manual = 222 строки, required=200) и source-reconciliation.md закоммичены до Builder-волн; у каждой обязательной строки есть req_id/slice/acceptance/live_required/live_when/status/evidence; F*-числа старого плана как ID требований не используются.",
           "type": "test"
         }
       ]
@@ -159,9 +159,9 @@
       "evidence": [
         {
           "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
-          "ref": "tests/ + plans/features/asap8-v6-3-live-correction/w*-reports/",
-          "observation": "implemented + repo tests + independent reviewer verdict",
-          "type": "test"
+          "ref": "plans/features/asap8-v6-3-live-correction/evidence/v63-frontend/_v63fe_measurements.json + plans/features/asap8-v6-3-live-correction/w2-evidence-shell/w2_shell_e2e.json + plans/features/asap8-v6-3-live-correction/w3-evidence-editor/w3_editor_e2e_after.json",
+          "observation": "UI-пробы на 320/360/390/430/768/1024/1440 CSS px + 667×375 landscape для 5 маршрутов: hOverflow=false, scrollWidth==vw, headerH 116.2, console_errors=[] (_v63fe_measurements.json, 40 кадров); before/after одного маршрута — w2_shell_e2e.json; selected/copy редактора — w3_editor_e2e_after.json. Папка evidence/ untracked в git (NB-1), RED-фикстуры дефектов — в tests/ (B01–B09).",
+          "type": "ui"
         }
       ]
     },
@@ -180,8 +180,8 @@
       "evidence": [
         {
           "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
-          "ref": "live-canary.md + release-reconciliation.md + review-w1/w2/w3.md",
-          "observation": "deploy 2.58.79 (c2775a54) verified from server: healthz/api/web 200, journal clean, rollback target b9ea4907, B11 prod run, gate runs",
+          "ref": "plans/current_task.md (user-owned) + SNAPSHOT_MANIFEST.md + verification-report-2026-10-16.md §8",
+          "observation": "plans/current_task.md агентами не перетирался: диапазон v6.3 (строки 1–450) байт-идентичен excerpt d0b4f611…; снапшот и манифест зафиксированы. COMPLETE не объявляется: FINAL.1–4 открыты, release-gate RED, 18 owner-гейтов не закрыты.",
           "type": "test"
         }
       ]
@@ -810,8 +810,8 @@
       "evidence": [
         {
           "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
-          "ref": "tests/test_chat_migration*.py",
-          "observation": "B09 chunked backup + hard cap + serialized write; REV-W1 fix applied",
+          "ref": "tests/test_asap8_v63_b09_migration.py + plans/features/asap8-v6-3-live-correction/w1-reports/W1-MEMORY-MIG.md",
+          "observation": "B09 chunked backup + hard cap + serialized write; REV-W1 fix applied (services/chat_migration.py:67-68 _BACKUP_CHUNK=5_000 / _BACKUP_HARD_CAP=5_000_000).",
           "type": "live"
         }
       ]
@@ -835,7 +835,7 @@
       "source_line": 377,
       "source_excerpt": "| C01/C02 | Summary L2 абзацы и Test=production inputs | Два реальных Summary, артефакты, diff источников |",
       "disposition": "required",
-      "reason": "",
+      "reason": "Клауза «два реальных Summary L2 на production-inputs + артефакты и diff источников» не выполнена: в пакете нет двух опубликованных Summary и diff'а (механизм GREEN, 39+20 тестов).",
       "req_id": "B10-R01",
       "slice": "REL-GATE",
       "acceptance": "C01/C02 повторно приняты: два реальных Summary L2 (абзацы) на production-inputs, артефакты и diff источников приложены",
@@ -856,7 +856,7 @@
       "source_line": 378,
       "source_excerpt": "| C03/C03A/C04 | Style identity/preservation, durable recovery, просмотр actual prompts, пользовательское получение styled | Текущие image/edit call, publication ID и post-recovery |",
       "disposition": "required",
-      "reason": "",
+      "reason": "Live-публикация styled-обложки в реальный чат не подтверждена (зависит от InputRichMessageMedia в прод-aiogram) — owner.",
       "req_id": "B10-R02",
       "slice": "REL-GATE",
       "acceptance": "C03/C03A/C04 повторно приняты: текущие image/edit calls, publication ID, post-recovery просмотр actual prompts; пользователь реально получил styled",
@@ -877,7 +877,7 @@
       "source_line": 379,
       "source_excerpt": "| C05 | Direct/прочие модули не зависят ошибочно от Summary | Live отрицательный тест Summary OFF |",
       "disposition": "required",
-      "reason": "",
+      "reason": "«Live негативный тест Summary OFF»: реальная генерация доказана (17/17, 0 LLM-вызовов при OFF/inherit), прод-прогона с OFF нет.",
       "req_id": "B10-R03",
       "slice": "REL-GATE",
       "acceptance": "C05 повторно принят: live негативный тест Summary OFF — Direct и прочие модули не зависят",
@@ -898,7 +898,7 @@
       "source_line": 380,
       "source_excerpt": "| C06/C06A | автономная Initiative и её воронка | обычный групповой чат без обращений → outcome |",
       "disposition": "required",
-      "reason": "",
+      "reason": "Естественного группового чата без обращений нет — owner (см. V01).",
       "req_id": "B10-R04",
       "slice": "REL-GATE",
       "acceptance": "C06/C06A повторно приняты: обычный групповой чат без обращений даёт outcome инициативы и воронку (см. также REQ-B01/V01)",
@@ -925,13 +925,19 @@
       "acceptance": "C07 повторно принят: stories — содержательный рассказ с реальными источниками и текстом (см. также REQ-B08)",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
-          "ref": "live-canary.md + release-reconciliation.md + review-w1/w2/w3.md",
-          "observation": "deploy 2.58.79 (c2775a54) verified from server: healthz/api/web 200, journal clean, rollback target b9ea4907, B11 prod run, gate runs",
-          "type": "live"
+          "type": "test",
+          "ref": "tests/test_asap8_v63_b08_stories.py + tests/test_asap8_f7_stories.py",
+          "observation": "24/24 + 9/9 на дереве c2775a54 (подтверждено): stories — содержательный рассказ с реальными источниками/refs по правам, без выдуманного текста и числовых ID; acceptance делегирован REQ-B08 (VERIFIED)"
+        },
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "type": "production",
+          "ref": "evidence/v63-close/prod-probes-2026-10-16.md",
+          "observation": "прод-бандл /web/ побайтово = c2775a54; healthz 2.58.79 — та же привязка, что у REQ-B08"
         }
       ]
     },
@@ -940,7 +946,7 @@
       "source_line": 382,
       "source_excerpt": "| C08 | embeddings quota-groups, реальный backfill/recovery | live index/backlog, rate limit/key failover |",
       "disposition": "required",
-      "reason": "",
+      "reason": "Live index/backfill невозможен (parked-квота эмбеддингов, FTS-only; не регрессия v6.3).",
       "req_id": "B10-R06",
       "slice": "REL-GATE",
       "acceptance": "C08 повторно принят: live index/backlog, rate limit и key failover quota-groups",
@@ -961,7 +967,7 @@
       "source_line": 383,
       "source_excerpt": "| C09 | YouTube 407 + proxy health + транскрипт | реальный provider проход, не только health |",
       "disposition": "required",
-      "reason": "",
+      "reason": "«Реальный provider-проход транскрипта (407 + proxy health)»: классификация 41/41 есть, реального прохода транскрипта в пакете нет.",
       "req_id": "B10-R07",
       "slice": "REL-GATE",
       "acceptance": "C09 повторно принят: реальный provider-проход транскрипта (407 + proxy health), не только health-check",
@@ -982,7 +988,7 @@
       "source_line": 384,
       "source_excerpt": "| C10/D14 | tracked документы, help, sync release | SHA и реальный проверенный report |",
       "disposition": "required",
-      "reason": "",
+      "reason": "Help/docs-sync 24/24 на кандидате; клауза «tracked документы/help/sync release с SHA и реально проверенным отчётом» — закрывается коммитом пакета v6.3.",
       "req_id": "B10-R08",
       "slice": "REL-GATE",
       "acceptance": "C10/D14 повторно приняты: tracked документы/help/sync release с SHA и реально проверенным отчётом",
@@ -1003,7 +1009,7 @@
       "source_line": 385,
       "source_excerpt": "| D01 | dossier/настройки race | concurrent UI edit/refresh/409 |",
       "disposition": "required",
-      "reason": "",
+      "reason": "Поведенческого теста concurrent UI edit/refresh/409 на dossier/настройках не найдено (есть клиентский guard asap8_v6_wa2_dossier_guard_test.js); нужен 1 тест.",
       "req_id": "B10-R09",
       "slice": "REL-GATE",
       "acceptance": "D01 повторно принят: concurrent UI edit/refresh/409 на dossier/настройках (см. также dossierSaving в B11-остатках)",
@@ -1024,7 +1030,7 @@
       "source_line": 386,
       "source_excerpt": "| D02 | supergroup включая память | old/new chat retrieval |",
       "disposition": "required",
-      "reason": "",
+      "reason": "Live-переноса supergroup нет — owner (см. REQ-B09).",
       "req_id": "B10-R10",
       "slice": "REL-GATE",
       "acceptance": "D02 повторно принят: supergroup перенос включая память — old/new chat retrieval (см. также REQ-B09)",
@@ -1045,7 +1051,7 @@
       "source_line": 387,
       "source_excerpt": "| D03/D04 | Direct L1 auth/budget/execution modes/tools | реальные моды, запрет без ключа, evidence |",
       "disposition": "required",
-      "reason": "",
+      "reason": "Контракт доказан 43 тестами (d03 9 + d04 34) на кандидате; live-режимов Direct L1 в пакете нет — owner.",
       "req_id": "B10-R11",
       "slice": "REL-GATE",
       "acceptance": "D03/D04 повторно приняты: реальные execution modes, запрет без ключа, бюджет/evidence Direct L1",
@@ -1066,7 +1072,7 @@
       "source_line": 388,
       "source_excerpt": "| D05 | Experience, semantic learning, utility | genuine lesson applied, не только counts |",
       "disposition": "required",
-      "reason": "",
+      "reason": "18/18 e2e (коррекция→применённый урок) доказали контракт; live-урока из боя нет — owner.",
       "req_id": "B10-R12",
       "slice": "REL-GATE",
       "acceptance": "D05 повторно принят: genuine lesson applied (не только счётчики); см. также REQ-B02/K2-OFF остаток в B11",
@@ -1087,7 +1093,7 @@
       "source_line": 389,
       "source_excerpt": "| D06 | весь scoped vector/GraphRAG до top-K | displacement test и prod timing |",
       "disposition": "required",
-      "reason": "",
+      "reason": "Прод-timing не измерен — owner.",
       "req_id": "B10-R13",
       "slice": "REL-GATE",
       "acceptance": "D06 повторно принят на всей поверхности: scoped vector/GraphRAG до top-K, displacement test и прод-тайминг (см. также B03.4 — остаток GraphRAG _vec_candidates)",
@@ -1108,7 +1114,7 @@
       "source_line": 390,
       "source_excerpt": "| D07/D08 | overrides map и Random toggle | UI write/read/restart 2 чата |",
       "disposition": "required",
-      "reason": "",
+      "reason": "11/11 overrides (RBAC, изоляция, fail-closed); restart-сценарий именно на 2 чатах через UI не воспроизведён — owner.",
       "req_id": "B10-R14",
       "slice": "REL-GATE",
       "acceptance": "D07/D08 повторно приняты: overrides map и Random toggle — UI write/read/restart на 2 чатах",
@@ -1129,7 +1135,7 @@
       "source_line": 391,
       "source_excerpt": "| D09 | Dream/Deep Sleep/paradigms + honest timestamps | outcome, причины zero, фактические изменения |",
       "disposition": "required",
-      "reason": "",
+      "reason": "10 тестов + B11 (prod dream/deep_sleep ok); артефакта «фактические изменения» нет — owner.",
       "req_id": "B10-R15",
       "slice": "REL-GATE",
       "acceptance": "D09 повторно принят: Dream/Deep Sleep/paradigms с честными timestamps, outcome, причины zero, фактические изменения",
@@ -1150,7 +1156,7 @@
       "source_line": 392,
       "source_excerpt": "| D10/D11 | фактическая дата источников Factcheck и полнота реестра | live examples и machine key inventory |",
       "disposition": "required",
-      "reason": "",
+      "reason": "Machine key inventory 16/16 и контракт дат 23/23 доказаны; live-примеров датирования Фактчека в пакете нет — owner.",
       "req_id": "B10-R16",
       "slice": "REL-GATE",
       "acceptance": "D10/D11 повторно приняты: фактическая дата источников Factcheck и полнота реестра — live examples + machine key inventory",
@@ -1171,7 +1177,7 @@
       "source_line": 393,
       "source_excerpt": "| D12/D13 | все 7 отложенных визуализаций и mobile UI | реальные data, скриншоты всех размеров |",
       "disposition": "required",
-      "reason": "",
+      "reason": "«7 визуализаций на реальных данных / скриншоты всех размеров»: U05.3 — OWNER-ONLY (подтверждённые прод-данные); у status нет одиночного кадра 768/1024/1440, у cover_editor/fullscreen нет 360/430/768; прогоны V63-FE-2 привязаны к fingerprint a854ad95+незакоммиченный web/ — НЕ к c2775a54 (доп. fingerprint-нота обязательна; нужен коммит дерева или перепрогон). 74/74 e2e на фикстурах структуры есть.",
       "req_id": "B10-R17",
       "slice": "REL-GATE",
       "acceptance": "D12/D13 повторно приняты: 7 отложенных визуализаций на реальных данных и mobile UI — скриншоты всех размеров (см. также U05.3)",
@@ -1192,7 +1198,7 @@
       "source_line": 394,
       "source_excerpt": "| U07 (нов.) | fullscreen policy: Windows Desktop trap / Android control / BotFather launch-mode | TMA event logs, Windows native functional demo, no overlay |",
       "disposition": "required",
-      "reason": "",
+      "reason": "Реальные клиенты (TMA event logs, Windows native демо) не задействованы — owner (см. V06).",
       "req_id": "B10-R18",
       "slice": "REL-GATE",
       "acceptance": "U07 повторно принят: TMA event logs, Windows native functional demo, no overlay (совместно с REQ-U07-HARD/V06)",
@@ -1213,7 +1219,7 @@
       "source_line": 395,
       "source_excerpt": "| U08 (нов.) | optical glass + читаемый Tier B/Tier C | контрольная сетка/волна, собственные UI before/after, видео изгиба линии, perf, fallback |",
       "disposition": "required",
-      "reason": "",
+      "reason": "Tier A/Tier B приняты (ui-acceptance), dx −5…−8/центр 0/контроль corr 1.0; видео изгиба линии в пакете отсутствует, физический FPS — owner (V07).",
       "req_id": "B10-R19",
       "slice": "REL-GATE",
       "acceptance": "U08 повторно принят: контрольная сетка/волна, собственные before/after, видео изгиба линии, perf, fallback (совместно с V07)",
@@ -1244,8 +1250,8 @@
       "evidence": [
         {
           "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
-          "ref": "live-canary.md + release-reconciliation.md + review-w1/w2/w3.md",
-          "observation": "deploy 2.58.79 (c2775a54) verified from server: healthz/api/web 200, journal clean, rollback target b9ea4907, B11 prod run, gate runs",
+          "ref": "baseline-pytest-b10.md",
+          "observation": "3 failed pytest классифицированы независимо от заверений «вне зоны»: item 1 (tests/test_direct_chat_concurrency.py::test_third_handle_waits_for_slot_at_n2) — реальный RCA с подтверждением двумя повторными прогонами; item 2 — PASSED, item 3 — 68 passed. Неисправленных failed на HEAD нет (проверено 2026-10-15).",
           "type": "test"
         }
       ]
@@ -1261,13 +1267,19 @@
       "acceptance": "Перечень механизмов закрыт отчётом без пропусков: сон, глубокий сон, пересмотр убеждений, парадигмы, self-model/traits, graph memory, инкрементальный embedding/backfill, Experience, Initiative, Summary scheduler",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
-          "ref": "w4-live-probes.md + tools/v63_b11_mechanisms_report.py prod run",
-          "observation": "B11 report executed on prod with PG DSN: 8 ok / 2 never_run (vector circuit disclosed), full chain + distinct diagnoses",
-          "type": "live"
+          "type": "production",
+          "ref": "w4-live-probes.md §1 + live-canary.md",
+          "observation": "прод-прогон отчёта: 8 ok / 2 never_run (graph_memory, embeddings) — перечень 10 механизмов закрыт без пропусков; PG-каталог прод-прогоном не покрыт (pg_dsn_not_provided), на SCOPE не влияет"
+        },
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "type": "test",
+          "ref": "evidence/v63-close/b11-mechanisms-report-history-db.json",
+          "observation": "прогон инструмента на дереве c2775a54: 10 секций полной цепочки, ключи точно = перечень SCOPE (dream…summary_scheduler), not_green_rule соблюдён; tests/test_asap8_v63_b11_report.py 17/17 (подтверждено)"
         }
       ]
     },
@@ -1297,7 +1309,7 @@
       "source_line": 405,
       "source_excerpt": "Ничего «включено, но не запускалось» не перекрашивать в зелёное; отличать недостаток входов от отключённого producer, cursor stalled, worker crashed, неправильных TTL/ремонта. Один контролируемый реальный end-to-end кейс для каждого невидим",
       "disposition": "required",
-      "reason": "",
+      "reason": "Для graph_memory/embeddings контролируемый E2E невозможен (parked-квота эмбеддингов, never_run; не регрессия v6.3); для не-векторных механизмов безопасный staging с настоящими source/DB/worker выполним агентом — строка не закрыта отдельным прогоном.",
       "req_id": "REQ-B11-E2E",
       "slice": "BE-INT-REPORT",
       "acceptance": "Для каждого невидимого важного модуля — один контролируемый реальный E2E (нативный сценарий или безопасный staging с настоящими source/DB/worker, без dummy счётчиков); различены: недостаток входов / отключённый producer / cursor stalled / worker crashed / неверные TTL",
@@ -1318,17 +1330,17 @@
       "source_line": 420,
       "source_excerpt": "**V01. Initiative:** обычный многолюдный разговор без упоминания бота → model/observer находит естественный повод… состояние chat OFF отсекает весь proactive-путь; Direct при этом не выключается",
       "disposition": "required",
-      "reason": "",
+      "reason": "Артефакт w4-live-probes.md §2 (строка 23) помечает сценарий V01 как BLOCKED_REAL_HUMAN_GATE: механизм жив на проде, но приёмка требует реального клиента/естественного события/окна canary 24–48 ч — выполнима только владельцем. Карта приведена к артефакту; итоговое число owner-гейтов — 18 (14 BLOCKED_REAL_HUMAN_GATE + V01/V02/V04/V06), не 14.",
       "req_id": "V01",
       "slice": "E2E-VERIFY",
       "acceptance": "Release-blocker V01 пройден: естественный повод найден, содержательное решение (включая SILENT/REACT), уместная реплика с подтверждённым reply binding; chat OFF отсекает proactive; Direct жив",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "BLOCKED_REAL_HUMAN_GATE",
       "evidence": [
         {
           "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
-          "ref": "tests/ + plans/features/asap8-v6-3-live-correction/w*-reports/",
+          "ref": "tests/ + w1-reports/ + w2-reports/ + w3-reports/",
           "observation": "implemented + repo tests + independent reviewer verdict",
           "type": "test"
         },
@@ -1345,17 +1357,17 @@
       "source_line": 422,
       "source_excerpt": "**V02. Experience:** русская корректировка без известных regex-фраз → semantic capture → validation → lesson → retrieval/application при релевантном повторе → outcome, отбраковка шутки/спора. Счётчики идут от persisted событий, не synthetic",
       "disposition": "required",
-      "reason": "",
+      "reason": "Артефакт w4-live-probes.md §2 (строка 24) помечает сценарий V02 как BLOCKED_REAL_HUMAN_GATE: механизм жив на проде, но приёмка требует реального клиента/естественного события/окна canary 24–48 ч — выполнима только владельцем. Карта приведена к артефакту; итоговое число owner-гейтов — 18 (14 BLOCKED_REAL_HUMAN_GATE + V01/V02/V04/V06), не 14.",
       "req_id": "V02",
       "slice": "E2E-VERIFY",
       "acceptance": "Release-blocker V02 пройден: корректировка без regex-фраз доходит до lesson и применения при повторе с outcome; шутка/спор отбракованы; счётчики от persisted событий (не synthetic fixtures на проде)",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "BLOCKED_REAL_HUMAN_GATE",
       "evidence": [
         {
           "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
-          "ref": "tests/ + plans/features/asap8-v6-3-live-correction/w*-reports/",
+          "ref": "tests/ + w1-reports/ + w2-reports/ + w3-reports/",
           "observation": "implemented + repo tests + independent reviewer verdict",
           "type": "test"
         },
@@ -1372,7 +1384,7 @@
       "source_line": 424,
       "source_excerpt": "**V03. Memory:** истёкший факт из бессрочного чата находит исторический RAG с as-of; подтверждение/опровержение меняет temporal status без delete; массив похожих фактов другого чата не вытесняет локальные",
       "disposition": "required",
-      "reason": "",
+      "reason": "Прод-проверка требует админ-сессии и реальных данных; векторный контур деградирован (parked-квота) → семантика не проверяется, только FTS. Код-уровень доказан на кандидате (historical-only поиск, confirm/refute без delete, чужие факты не вытесняют).",
       "req_id": "V03",
       "slice": "E2E-VERIFY",
       "acceptance": "Release-blocker V03 пройден: истёкший факт найден историческим RAG с as-of; confirm/refute меняет temporal status без delete; массив чужих похожих фактов не вытесняет локальные",
@@ -1382,7 +1394,7 @@
       "evidence": [
         {
           "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
-          "ref": "tests/ + plans/features/asap8-v6-3-live-correction/w*-reports/",
+          "ref": "tests/ + w1-reports/ + w2-reports/ + w3-reports/",
           "observation": "implemented + repo tests + independent reviewer verdict",
           "type": "test"
         },
@@ -1399,17 +1411,17 @@
       "source_line": 426,
       "source_excerpt": "**V04. Cover/Visual:** реальная Base с людьми/событием + Logo reference → компактный prompt Style Edit в 800 char (при подтверждённом ограничении модели) → styled действительно применён к Base без сюжетной подмены → верная Telegram публикац",
       "disposition": "required",
-      "reason": "",
+      "reason": "Артефакт w4-live-probes.md §2 (строка 26) помечает сценарий V04 как BLOCKED_REAL_HUMAN_GATE: механизм жив на проде, но приёмка требует реального клиента/естественного события/окна canary 24–48 ч — выполнима только владельцем. Карта приведена к артефакту; итоговое число owner-гейтов — 18 (14 BLOCKED_REAL_HUMAN_GATE + V01/V02/V04/V06), не 14.",
       "req_id": "V04",
       "slice": "E2E-VERIFY",
       "acceptance": "Release-blocker V04 пройден: реальная Base + Logo → компактный Style Edit prompt ≤800 (при подтверждённом лимите) → styled применён без сюжетной подмены → публикация в Telegram или честный блокер; editor selection стабилен при параллельном polling",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "BLOCKED_REAL_HUMAN_GATE",
       "evidence": [
         {
           "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
-          "ref": "tests/ + plans/features/asap8-v6-3-live-correction/w*-reports/",
+          "ref": "tests/ + w1-reports/ + w2-reports/ + w3-reports/",
           "observation": "implemented + repo tests + independent reviewer verdict",
           "type": "test"
         },
@@ -1432,19 +1444,37 @@
       "acceptance": "Release-blocker V05 пройден: 2 чата + global Summary, temporal внутри Factcheck; mobile 320/390/landscape без переполнения; 3 tabs+Ещё; 1 блок сна; Status-only logs; вкладки аналитики доступны; Stories narrative; коды/источники по раскрытию; нет фальшивого 1970; unknown не зелёный",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
-          "ref": "tests/ + plans/features/asap8-v6-3-live-correction/w*-reports/",
-          "observation": "implemented + repo tests + independent reviewer verdict",
-          "type": "test"
+          "type": "ui",
+          "ref": "w3-evidence-status/_ui_w3_status.json + w3-evidence-modules/ + w3-evidence-analytics/ + w3-reports/",
+          "observation": "STATUS 26/26 (один блок Сна, Status-only logs, 1970→«ещё не выполнялся»), MODULES 42/42, ANALYTICS 74/74; перепрогон REV-W3 волны — все чеки"
         },
         {
           "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
-          "ref": "live-canary.md",
-          "observation": "prod 2.58.79 @c2775a54: healthz ok, /web/ 200 (727KB), fullscreen-policy/glass-probe/polygon-background 200, CSP img-src 'self' data: blob: (feImage lens allowed), journal 0 ERROR/Traceback",
-          "type": "live"
+          "type": "test",
+          "ref": "evidence/v63-close/c2775a54-verification-runs.md §3 + tests/",
+          "observation": "asap8-js 11/11 на дереве c2775a54 (перепроверено); tests/test_asap8_v63_w3_analytics_viz.py 5/5; tests/test_asap8_v63_b06_summary_scope.py 17/17 (TestTwoChatsAndRestart — 2 чата+Summary); B07-клауза закрыта в REQ-B07"
+        },
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "type": "ui",
+          "ref": "w2-evidence-shell/w2_shell_e2e.json",
+          "observation": "scrollWidth==vw, hOverflow=false на 320/360/390/430/667 + zoom200; header 116.2 (93.8 landscape) — подтверждено по файлу"
+        },
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "type": "ui",
+          "ref": "v63-frontend-verification-2026-10-16.md §4",
+          "observation": "V63-FE-2: V05 VERIFIED-BY-AGENT — 3 tabs+«Ещё», один блок Сна, Status-only logs, вкладки аналитики, нет hOverflow 320/390/landscape (cross-check; прогоны FE-2 привязаны к fingerprint a854ad95+незакоммиченный web/ — не binding)"
+        },
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "type": "production",
+          "ref": "evidence/v63-close/prod-probes-2026-10-16.md",
+          "observation": "прод-бандл /web/ побайтово = c2775a54; healthz 2.58.79"
         }
       ]
     },
@@ -1453,17 +1483,17 @@
       "source_line": 431,
       "source_excerpt": "**V06. Fullscreen / platform:** открыть Main App из BotFather в Windows Telegram Desktop с Launch Mode=Fullscreen → проверить фактический исходный viewport/окно; из MiniApp нельзя вызвать переход в неудобное маленькое немобильное окно… вход",
       "disposition": "required",
-      "reason": "",
+      "reason": "Артефакт w4-live-probes.md §2 (строка 28) помечает сценарий V06 как BLOCKED_REAL_HUMAN_GATE: механизм жив на проде, но приёмка требует реального клиента/естественного события/окна canary 24–48 ч — выполнима только владельцем. Карта приведена к артефакту; итоговое число owner-гейтов — 18 (14 BLOCKED_REAL_HUMAN_GATE + V01/V02/V04/V06), не 14.",
       "req_id": "V06",
       "slice": "E2E-VERIFY",
       "acceptance": "Release-blocker V06 пройден: Windows+Launch Mode=Fullscreen — исходный viewport проверен, из MiniApp нельзя получить неудобное маленькое окно; Android portrait/landscape — маленькая кнопка максимально близко к native controls, ⋮/✕ не перехвачены, ack-события честные; при невозможности — safe-area fallback screenshot + honest constraint",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "BLOCKED_REAL_HUMAN_GATE",
       "evidence": [
         {
           "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
-          "ref": "tests/ + plans/features/asap8-v6-3-live-correction/w*-reports/",
+          "ref": "tests/ + w1-reports/ + w2-reports/ + w3-reports/",
           "observation": "implemented + repo tests + independent reviewer verdict",
           "type": "test"
         },
@@ -1490,7 +1520,7 @@
       "evidence": [
         {
           "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
-          "ref": "tests/ + plans/features/asap8-v6-3-live-correction/w*-reports/",
+          "ref": "tests/ + w1-reports/ + w2-reports/ + w3-reports/",
           "observation": "implemented + repo tests + independent reviewer verdict",
           "type": "test"
         },
@@ -1540,7 +1570,7 @@
         },
         {
           "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
-          "ref": "review-w2.md/review-w3.md + backlog.md (v6.3 Wave 4 live checklist)",
+          "ref": "review-w2.md + review-w3.md + plans/backlog.md (§ «v6.3 W2 non-blocking (REV-W2) + Wave 4 checklist»)",
           "observation": "acceptance requires a real Telegram client / natural event / owner canary window — not automatable; agent-side evidence complete, declared gate",
           "type": "live"
         }
@@ -1590,7 +1620,7 @@
         },
         {
           "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
-          "ref": "review-w2.md/review-w3.md + backlog.md (v6.3 Wave 4 live checklist)",
+          "ref": "review-w2.md + review-w3.md + plans/backlog.md (§ «v6.3 W2 non-blocking (REV-W2) + Wave 4 checklist»)",
           "observation": "acceptance requires a real Telegram client / natural event / owner canary window — not automatable; agent-side evidence complete, declared gate",
           "type": "live"
         }
@@ -1715,9 +1745,9 @@
       "evidence": [
         {
           "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
-          "ref": "live-canary.md + release-reconciliation.md + review-w1/w2/w3.md",
-          "observation": "deploy 2.58.79 (c2775a54) verified from server: healthz/api/web 200, journal clean, rollback target b9ea4907, B11 prod run, gate runs",
-          "type": "test"
+          "type": "test",
+          "ref": "v63-final-coverage-report-2026-10-16.md §2 + §4",
+          "observation": "таблица coverage по каждому ID содержит наблюдаемый outcome либо открытый статус с причиной (§4.1–4.4); закрытия опираются на тесты/прод-пробы, не на enabled/heartbeat; скрытых «зелёных» нет"
         }
       ]
     },
@@ -1737,9 +1767,9 @@
       "evidence": [
         {
           "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
-          "ref": "live-canary.md + release-reconciliation.md + review-w1/w2/w3.md",
-          "observation": "deploy 2.58.79 (c2775a54) verified from server: healthz/api/web 200, journal clean, rollback target b9ea4907, B11 prod run, gate runs",
-          "type": "test"
+          "type": "test",
+          "ref": "integration-evidence.md §3 + tools/v63_b11_mechanisms_report.py",
+          "observation": "цепочка source→event→processing→decision→output→feedback построена по B-требованиям (B01–B09, B12; §3) и полной цепочкой B11 на 10 механизмах (прогон на дереве кандидата); live-плечи честно отмечены owner-гейтами"
         }
       ]
     },
@@ -1759,9 +1789,9 @@
       "evidence": [
         {
           "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
-          "ref": "live-canary.md + release-reconciliation.md + review-w1/w2/w3.md",
-          "observation": "deploy 2.58.79 (c2775a54) verified from server: healthz/api/web 200, journal clean, rollback target b9ea4907, B11 prod run, gate runs",
-          "type": "test"
+          "type": "test",
+          "ref": "evidence/v63-close/preserve-and-workflow-audit.md §1",
+          "observation": "ΔDDL=0 (database.py/pg_db.py), новых очередей/брокеров/воркеров 0, используются существующие SQLite+PostgreSQL; один workflow; human-gate к Architect задокументирован (db8dae53; 2d68b331/d6366e31)"
         }
       ]
     },
@@ -1781,9 +1811,9 @@
       "evidence": [
         {
           "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
-          "ref": "live-canary.md + release-reconciliation.md + review-w1/w2/w3.md",
-          "observation": "deploy 2.58.79 (c2775a54) verified from server: healthz/api/web 200, journal clean, rollback target b9ea4907, B11 prod run, gate runs",
-          "type": "test"
+          "type": "test",
+          "ref": "evidence/v63-close/preserve-and-workflow-audit.md §2 + live-canary.md",
+          "observation": "деплой-план: ΔDDL=0 (backup не требуется), rollback b9ea4907, git pull --ff-only; feature-gates с emergency-осью; негативные тесты сохранности зелёные на кандидате (152+616 passed, вкл. b03/b09/d06/d07); новых BotFather-мутаций нет"
         }
       ]
     },
@@ -1803,8 +1833,8 @@
       "evidence": [
         {
           "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
-          "ref": "live-canary.md + release-reconciliation.md + review-w1/w2/w3.md",
-          "observation": "deploy 2.58.79 (c2775a54) verified from server: healthz/api/web 200, journal clean, rollback target b9ea4907, B11 prod run, gate runs",
+          "ref": "verification-report-2026-10-16.md §0 + release-reconciliation.md §2 + live-canary.md",
+          "observation": "Независимый аудит привязан к HEAD/кандидату/деплою: candidate = deployed = c2775a54, git merge-base --is-ancestor к a854ad95 = True, version-пины и HTTP-факты сверены (§7). release-reconciliation.md §2 и live-canary.md содержат deployed SHA в каждой значимой строке; строк с disposition user_excluded или backlog-переводами в карте нет.",
           "type": "test"
         }
       ]
@@ -1846,7 +1876,7 @@
         },
         {
           "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
-          "ref": "review-w2.md/review-w3.md + backlog.md (v6.3 Wave 4 live checklist)",
+          "ref": "review-w2.md + review-w3.md + plans/backlog.md (§ «v6.3 W2 non-blocking (REV-W2) + Wave 4 checklist»)",
           "observation": "acceptance requires a real Telegram client / natural event / owner canary window — not automatable; agent-side evidence complete, declared gate",
           "type": "live"
         }
@@ -1939,7 +1969,7 @@
       "source_text_sha256": "4c6500ae1d674e53676a0273abed9769f724c7b704b834c89007674c3dbdfa15",
       "source_excerpt": "4. **Частота:** дать в MiniApp понятный per-chat профиль «редко / нормально / активно» и тонкие лимиты в расширенных настройках (min gaps, messages/day window, max replies per topic, budget). **Для действительно живого чата 2000–5000 сообще",
       "disposition": "required",
-      "reason": "",
+      "reason": "Live-клауза «несколько содержательных реплик/сут на 2000–5000 сообщ» не выполнена: прод-факт opportunities=0 (w4-live-probes §1); UI-профиль «редко/нормально/активно» и диагностика «24ч ноль» доказаны тестами/js на кандидате. Нужен естественный повод + canary-окно 24–48ч.",
       "req_id": "B01.4",
       "slice": "BE-INITIATIVE+FE-SHELL",
       "acceptance": "Per-chat профиль «редко/нормально/активно» и тонкие лимиты (min gaps, messages/day window, max replies per topic, budget) доступны в MiniApp и влияют на runtime; на живом чате 2000–5000 сообщ/сут достигается несколько содержательных реплик в сутки; «24ч ноль opportunities при активном observer» даёт диагностическую ошибку",
@@ -1949,7 +1979,7 @@
       "evidence": [
         {
           "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
-          "ref": "tests/ + plans/features/asap8-v6-3-live-correction/w*-reports/",
+          "ref": "tests/ + w1-reports/ + w2-reports/ + w3-reports/",
           "observation": "implemented + repo tests + independent reviewer verdict",
           "type": "test"
         },
@@ -1958,6 +1988,12 @@
           "ref": "live-canary.md",
           "observation": "prod 2.58.79 @c2775a54: healthz ok, /web/ 200 (727KB), fullscreen-policy/glass-probe/polygon-background 200, CSP img-src 'self' data: blob: (feImage lens allowed), journal 0 ERROR/Traceback",
           "type": "live"
+        },
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "type": "test",
+          "ref": "tests/test_asap8_v63_b01_initiative_observer.py + tests/js/asap8_v63_w3_modules_ui_test.js",
+          "observation": "13/13 b01 (профили частоты, дневной cap, min gap, «24ч ноль» как диагностика); js 11/11 (профиль частоты в UI) — код-часть V05/B01.4 на кандидате"
         }
       ]
     },
@@ -2027,7 +2063,7 @@
         },
         {
           "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
-          "ref": "review-w2.md/review-w3.md + backlog.md (v6.3 Wave 4 live checklist)",
+          "ref": "review-w2.md + review-w3.md + plans/backlog.md (§ «v6.3 W2 non-blocking (REV-W2) + Wave 4 checklist»)",
           "observation": "acceptance requires a real Telegram client / natural event / owner canary window — not automatable; agent-side evidence complete, declared gate",
           "type": "live"
         }
@@ -2099,7 +2135,7 @@
         },
         {
           "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
-          "ref": "review-w2.md/review-w3.md + backlog.md (v6.3 Wave 4 live checklist)",
+          "ref": "review-w2.md + review-w3.md + plans/backlog.md (§ «v6.3 W2 non-blocking (REV-W2) + Wave 4 checklist»)",
           "observation": "acceptance requires a real Telegram client / natural event / owner canary window — not automatable; agent-side evidence complete, declared gate",
           "type": "live"
         }
@@ -2297,7 +2333,7 @@
       "evidence": [
         {
           "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
-          "ref": "tests/test_asap8_v63_b04_cover*.py + w3-evidence-editor/",
+          "ref": "tests/test_asap8_v63_b04_edit_contract.py + tests/test_asap8_v63_b04_scene_delivery.py + plans/features/asap8-v6-3-live-correction/w3-evidence-editor/",
           "observation": "B04 preview-compile edit_report, styles registry; REV-W3 Approved",
           "type": "live"
         }
@@ -2319,7 +2355,7 @@
       "evidence": [
         {
           "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
-          "ref": "tests/test_asap8_v63_b04_cover*.py + w3-evidence-editor/",
+          "ref": "tests/test_asap8_v63_b04_edit_contract.py + tests/test_asap8_v63_b04_scene_delivery.py + plans/features/asap8-v6-3-live-correction/w3-evidence-editor/",
           "observation": "B04 preview-compile edit_report, styles registry; REV-W3 Approved",
           "type": "test"
         }
@@ -2341,7 +2377,7 @@
       "evidence": [
         {
           "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
-          "ref": "tests/test_asap8_v63_b04_cover*.py + w3-evidence-editor/",
+          "ref": "tests/test_asap8_v63_b04_edit_contract.py + tests/test_asap8_v63_b04_scene_delivery.py + plans/features/asap8-v6-3-live-correction/w3-evidence-editor/",
           "observation": "B04 preview-compile edit_report, styles registry; REV-W3 Approved",
           "type": "test"
         }
@@ -2363,7 +2399,7 @@
       "evidence": [
         {
           "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
-          "ref": "tests/test_asap8_v63_b04_cover*.py + w3-evidence-editor/",
+          "ref": "tests/test_asap8_v63_b04_edit_contract.py + tests/test_asap8_v63_b04_scene_delivery.py + plans/features/asap8-v6-3-live-correction/w3-evidence-editor/",
           "observation": "B04 preview-compile edit_report, styles registry; REV-W3 Approved",
           "type": "test"
         }
@@ -2385,7 +2421,7 @@
       "evidence": [
         {
           "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
-          "ref": "tests/test_asap8_v63_b04_cover*.py + w3-evidence-editor/",
+          "ref": "tests/test_asap8_v63_b04_edit_contract.py + tests/test_asap8_v63_b04_scene_delivery.py + plans/features/asap8-v6-3-live-correction/w3-evidence-editor/",
           "observation": "B04 preview-compile edit_report, styles registry; REV-W3 Approved",
           "type": "test"
         }
@@ -2407,13 +2443,13 @@
       "evidence": [
         {
           "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
-          "ref": "tests/test_asap8_v63_b04_cover*.py + w3-evidence-editor/",
+          "ref": "tests/test_asap8_v63_b04_edit_contract.py + tests/test_asap8_v63_b04_scene_delivery.py + plans/features/asap8-v6-3-live-correction/w3-evidence-editor/",
           "observation": "B04 preview-compile edit_report, styles registry; REV-W3 Approved",
           "type": "live"
         },
         {
           "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
-          "ref": "review-w2.md/review-w3.md + backlog.md (v6.3 Wave 4 live checklist)",
+          "ref": "review-w2.md + review-w3.md + plans/backlog.md (§ «v6.3 W2 non-blocking (REV-W2) + Wave 4 checklist»)",
           "observation": "acceptance requires a real Telegram client / natural event / owner canary window — not automatable; agent-side evidence complete, declared gate",
           "type": "live"
         }
@@ -2435,7 +2471,7 @@
       "evidence": [
         {
           "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
-          "ref": "tests/test_asap8_v63_b04_cover*.py + w3-evidence-editor/",
+          "ref": "tests/test_asap8_v63_b04_edit_contract.py + tests/test_asap8_v63_b04_scene_delivery.py + plans/features/asap8-v6-3-live-correction/w3-evidence-editor/",
           "observation": "B04 preview-compile edit_report, styles registry; REV-W3 Approved",
           "type": "test"
         }
@@ -3145,7 +3181,7 @@
         },
         {
           "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
-          "ref": "review-w2.md/review-w3.md + backlog.md (v6.3 Wave 4 live checklist)",
+          "ref": "review-w2.md + review-w3.md + plans/backlog.md (§ «v6.3 W2 non-blocking (REV-W2) + Wave 4 checklist»)",
           "observation": "acceptance requires a real Telegram client / natural event / owner canary window — not automatable; agent-side evidence complete, declared gate",
           "type": "live"
         }
@@ -3217,7 +3253,7 @@
         },
         {
           "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
-          "ref": "review-w2.md/review-w3.md + backlog.md (v6.3 Wave 4 live checklist)",
+          "ref": "review-w2.md + review-w3.md + plans/backlog.md (§ «v6.3 W2 non-blocking (REV-W2) + Wave 4 checklist»)",
           "observation": "acceptance requires a real Telegram client / natural event / owner canary window — not automatable; agent-side evidence complete, declared gate",
           "type": "live"
         }
@@ -3311,7 +3347,7 @@
         },
         {
           "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
-          "ref": "review-w2.md/review-w3.md + backlog.md (v6.3 Wave 4 live checklist)",
+          "ref": "review-w2.md + review-w3.md + plans/backlog.md (§ «v6.3 W2 non-blocking (REV-W2) + Wave 4 checklist»)",
           "observation": "acceptance requires a real Telegram client / natural event / owner canary window — not automatable; agent-side evidence complete, declared gate",
           "type": "live"
         }
@@ -3493,7 +3529,7 @@
         },
         {
           "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
-          "ref": "review-w2.md/review-w3.md + backlog.md (v6.3 Wave 4 live checklist)",
+          "ref": "review-w2.md + review-w3.md + plans/backlog.md (§ «v6.3 W2 non-blocking (REV-W2) + Wave 4 checklist»)",
           "observation": "acceptance requires a real Telegram client / natural event / owner canary window — not automatable; agent-side evidence complete, declared gate",
           "type": "live"
         }
@@ -3543,7 +3579,7 @@
         },
         {
           "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
-          "ref": "review-w2.md/review-w3.md + backlog.md (v6.3 Wave 4 live checklist)",
+          "ref": "review-w2.md + review-w3.md + plans/backlog.md (§ «v6.3 W2 non-blocking (REV-W2) + Wave 4 checklist»)",
           "observation": "acceptance requires a real Telegram client / natural event / owner canary window — not automatable; agent-side evidence complete, declared gate",
           "type": "live"
         }
@@ -3571,7 +3607,7 @@
         },
         {
           "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
-          "ref": "review-w2.md/review-w3.md + backlog.md (v6.3 Wave 4 live checklist)",
+          "ref": "review-w2.md + review-w3.md + plans/backlog.md (§ «v6.3 W2 non-blocking (REV-W2) + Wave 4 checklist»)",
           "observation": "acceptance requires a real Telegram client / natural event / owner canary window — not automatable; agent-side evidence complete, declared gate",
           "type": "live"
         }
@@ -4183,13 +4219,25 @@
       "acceptance": "Temporal — функция Фактчека без собственной карточки модуля; настройки/инспектор внутри workspace Фактчека; сид CATEGORY_TEMPORAL исправлен; см. B07.1–B07.3, REQ-B07-BODY",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
-          "ref": "tests/test_asap8_v63_b06_summary_scope.py, tests/test_asap8_v63_b07_temporal_factcheck.py + w3-evidence-modules/",
-          "observation": "B06 per-chat runtime resolve, B07 temporal gate/modes/TTL; Playwright 42/42; REV-W3 Approved",
-          "type": "live"
+          "type": "test",
+          "ref": "tests/test_asap8_v63_b07_temporal_factcheck.py",
+          "observation": "12/12 на дереве c2775a54 (подтверждено независимым повторным прогоном PM-APPLY): сид CATEGORY_TEMPORAL идемпотентен, factcheck_temporal отсутствует в выдаче карточек, новой top-level карточки нет, hot-gate/RBAC/env-ось"
+        },
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "type": "test",
+          "ref": "tests/js/asap8_v63_w3_modules_ui_test.js + review-w1.md + review-w3.md §7",
+          "observation": "asap8-js 11/11 на c2775a54 (перепроверено); REV-W1 APPROVED (B07); REV-W3 §7 — секция «Время и источники» в Фактчеке"
+        },
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "type": "production",
+          "ref": "evidence/v63-close/prod-probes-2026-10-16.md",
+          "observation": "/web/ и /web/static/fullscreen-policy.js побайтово равны блобам c2775a54; healthz 200 2.58.79 — код-уровневая верификация на дереве кандидата относится к живому рантайму"
         }
       ]
     },
@@ -4271,13 +4319,25 @@
       "acceptance": "Stories — содержательные истории с заголовком/завязкой/событиями/лицами/финалом и источниками; пустые эпизоды не выдаются за готовые истории; см. B08.1–B08.4",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
-          "ref": "tests/test_asap8_v63_b08_stories.py + w3-evidence-analytics/",
-          "observation": "B08 deterministic stories, content_status, feed honest display (REV-W3PRE N1 fix); REV-W3 Approved",
-          "type": "live"
+          "type": "test",
+          "ref": "tests/test_asap8_v63_b08_stories.py",
+          "observation": "24/24 на дереве c2775a54 (подтверждено независимым повторным прогоном): детерминизм без выдуманных финалов, content_status, три даты, 1970→None, участники ≤5+ещё N, bounded backfill, честная лента display_title"
+        },
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "type": "test",
+          "ref": "tests/test_asap8_f7_stories.py + review-w3-stories-mech.md + review-w3.md §8",
+          "observation": "9/9 f7 (display-имена, fallback unknown/ambiguous, нет числовых ID в UI); REV-W3PRE VERIFIED после фикса N1; REV-W3 §8 B08-UI VERIFIED"
+        },
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "type": "production",
+          "ref": "evidence/v63-close/prod-probes-2026-10-16.md",
+          "observation": "прод-бандл /web/ побайтово = c2775a54; healthz 2.58.79 — связывание кода кандидата с живым рантаймом"
         }
       ]
     },
@@ -4353,7 +4413,7 @@
       "source_text_sha256": "9b4b9dd750fc814ac908a1670b60c7ad6d5bde697e84a95aa618f401053b49ff",
       "source_excerpt": "- Приёмка: 10 настоящих эпизодов, 2 независимые темы, merged/continuation, архив, unknown outcome, ссылки, мобильная карточка, отсутствие потери provenance.",
       "disposition": "required",
-      "reason": "",
+      "reason": "Нужны 10 настоящих эпизодов из живого чата; механизм воспроизведён детерминированно на fixtures (b08 24/24). Владелец может принять fixture-приёмку явно — тогда VERIFIED.",
       "req_id": "B08.4",
       "slice": "BE-STORIES",
       "acceptance": "Приёмка на 10 настоящих эпизодах: 2 независимые темы, merged/continuation, архив, unknown outcome, ссылки, мобильная карточка, без потери provenance",
@@ -4385,13 +4445,13 @@
       "evidence": [
         {
           "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
-          "ref": "tests/test_chat_migration*.py",
+          "ref": "tests/test_asap8_v63_b09_migration.py + plans/features/asap8-v6-3-live-correction/w1-reports/W1-MEMORY-MIG.md",
           "observation": "B09 chunked backup + hard cap + serialized write; REV-W1 fix applied",
           "type": "live"
         },
         {
           "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
-          "ref": "review-w2.md/review-w3.md + backlog.md (v6.3 Wave 4 live checklist)",
+          "ref": "review-w2.md + review-w3.md + plans/backlog.md (§ «v6.3 W2 non-blocking (REV-W2) + Wave 4 checklist»)",
           "observation": "acceptance requires a real Telegram client / natural event / owner canary window — not automatable; agent-side evidence complete, declared gate",
           "type": "live"
         }
@@ -4403,7 +4463,7 @@
       "source_text_sha256": "5ef8eaca946d0bde7961df981ba3d05d5e5d289d933aa52a2e08e08b7f0a8b62",
       "source_excerpt": "## B10 [P1] Ещё не принятые требования v6: функциональная регрессия, не «26/26»",
       "disposition": "required",
-      "reason": "",
+      "reason": "Umbrella: 19 строк B10-R остаются открытыми (live/owner-клаузы); REQ-B10-PYTEST опирается на deploy-текст, не на классификацию; плюс 4 js-RED на кандидате (см. FINAL.4).",
       "req_id": "REQ-B10",
       "slice": "REL-GATE",
       "acceptance": "Все пункты таблицы legacy v6 (B10-R01…B10-R19) повторно приняты функционально на актуальном HEAD/runtime без повторной разработки работающего; 3 failed pytest классифицированы (REQ-B10-PYTEST); «26/26» не принимается без live-доказательств",
@@ -4425,7 +4485,7 @@
       "source_text_sha256": "14e1cb9eee007ffd8f6fed0755be046dbee88fd286640bfe477102d85319f78f",
       "source_excerpt": "## B11 [P0] Интеграционная проверка скрытых фоновых механизмов",
       "disposition": "required",
-      "reason": "",
+      "reason": "SCOPE/CHAIN закрыты (REQ-B11-SCOPE=VERIFIED); клауза «контролируемый E2E» не выполнена: для graph_memory/embeddings E2E невозможен при parked-квоте эмбеддингов (never_run), для остальных механизмов отдельный контролируемый E2E-прогон не оформлен.",
       "req_id": "REQ-B11",
       "slice": "BE-INT-REPORT",
       "acceptance": "Для каждого скрытого фонового механизма (перечень REQ-B11-SCOPE) — отчёт по цепочке REQ-B11-CHAIN и контролируемый E2E REQ-B11-E2E; «включено, но не запускалось» не перекрашивается в зелёное",
@@ -4435,9 +4495,9 @@
       "evidence": [
         {
           "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
-          "ref": "w4-live-probes.md + tools/v63_b11_mechanisms_report.py prod run",
-          "observation": "B11 report executed on prod with PG DSN: 8 ok / 2 never_run (vector circuit disclosed), full chain + distinct diagnoses",
-          "type": "live"
+          "type": "live",
+          "ref": "live-canary.md + w4-live-probes.md §1 + evidence/v63-close/b11-mechanisms-report-history-db.json",
+          "observation": "прод-прогон: 8 ok / 2 never_run (graph_memory, embeddings; PG-каталог не покрыт — pg_dsn_not_provided); локальный артефакт на дереве кандидата — 10 механизмов полной цепочки, not_green_rule соблюдён"
         }
       ]
     },
@@ -4447,7 +4507,7 @@
       "source_text_sha256": "383de1f9662c20d0c61d28e0adc54b45be9f0f82ab3a505cc72e7788d14c1d8a",
       "source_excerpt": "## B12 [P0] Release & evidence gate: запрещено повторить фиктивный DONE",
       "disposition": "required",
-      "reason": "",
+      "reason": "Все клаузы, кроме «трекнутые артефакты», подтверждены (validator plan-прогон 0/release RED честный, статусы по 222 ID, deploy-протокол, reconciliation f10, snapshot-правила); пакет артефактов untracked — закрывается коммитом (B12.1).",
       "req_id": "REQ-B12",
       "slice": "REL-GATE",
       "acceptance": "Release/evidence gate: трекнутые артефакты, автоматический validator, статусы по каждому ID, deploy-протокол, reconciliation расхождений, snapshot-правила; фиктивный DONE исключён; см. B12.1–B12.6",
@@ -4460,6 +4520,12 @@
           "ref": "live-canary.md + release-reconciliation.md + review-w1/w2/w3.md",
           "observation": "deploy 2.58.79 (c2775a54) verified from server: healthz/api/web 200, journal clean, rollback target b9ea4907, B11 prod run, gate runs",
           "type": "live"
+        },
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "type": "test",
+          "ref": "requirements-map.json + release-reconciliation.md §1–§3 + live-canary.md",
+          "observation": "validator: plan-stage exit 0 / release-stage RED (не привязанное фиктивно); статусы по 222 ID; deploy-протокол + rollback b9ea4907; reconciliation f10 снят. Незакрыта клауза «трекнутые артефакты» — коммит пакета."
         }
       ]
     },
@@ -4469,19 +4535,19 @@
       "source_text_sha256": "ac1276eb7ca40d9e65acb17cea8c86fc26cd78d801a885e7061209d75ccd9738",
       "source_excerpt": "1. Трекнуть `requirements-map.md`, `review-ledger.md`, `integration-evidence.md`, `ui-acceptance.md`, `live-canary.md`, `release-reconciliation.md`, скриншоты/видео с замаскированными личными данными. **Каждый подпункт B01–B12, U01–U08, V01",
       "disposition": "required",
-      "reason": "",
+      "reason": "ЧАСТИЧНО ЗАКРЫТО этой lane: review-ledger.md, integration-evidence.md, v63-final-coverage-report-2026-10-16.md созданы; ui-acceptance.md tracked (w2-evidence-glass/); __PENDING__ в финальном отчёте отсутствует (grep=0); каждый ID имеет статус в карте. Незакрытая клауза — «закоммичены»: четыре документа и папка evidence/ пока untracked (git status ??), скриншоты/видео не в git. Закрывается коммитом пакета.",
       "req_id": "B12.1",
       "slice": "REL-GATE",
       "acceptance": "requirements-map, review-ledger, integration-evidence, ui-acceptance, live-canary, release-reconciliation и скриншоты/видео с маскировкой ПДн закоммичены; каждый ID B01–B12/U01–U08/V01–V07 имеет собственный resolved status; __PENDING__ в финальном отчёте отсутствует",
       "live_required": false,
       "live_when": "preprod",
-      "status": "VERIFIED",
+      "status": "PENDING",
       "evidence": [
         {
           "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
-          "ref": "live-canary.md + release-reconciliation.md + review-w1/w2/w3.md",
-          "observation": "deploy 2.58.79 (c2775a54) verified from server: healthz/api/web 200, journal clean, rollback target b9ea4907, B11 prod run, gate runs",
-          "type": "test"
+          "type": "test",
+          "ref": "review-ledger.md + integration-evidence.md + v63-final-coverage-report-2026-10-16.md + git status --short",
+          "observation": "документы созданы в рабочем дереве; untracked: review-ledger.md, integration-evidence.md, v63-final-coverage-report-2026-10-16.md, evidence/ (?? в git status); ui-acceptance.md — tracked; __PENDING__ grep=0"
         }
       ]
     },
@@ -4501,8 +4567,8 @@
       "evidence": [
         {
           "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
-          "ref": "live-canary.md + release-reconciliation.md + review-w1/w2/w3.md",
-          "observation": "deploy 2.58.79 (c2775a54) verified from server: healthz/api/web 200, journal clean, rollback target b9ea4907, B11 prod run, gate runs",
+          "ref": "release-reconciliation.md §2 + live-canary.md:75-83 + verification-report-2026-10-16.md §2",
+          "observation": "Исполняемый validator requirements_gate.py: live-canary.md фиксирует фактический RED (exit 1) на release-стадии до биндинга candidate/deployed; независимый аудит воспроизвёл exit 1, scoped=200, errors=101 (62 × mandatory not VERIFIED + 39 × live evidence). Машинная проверка candidate/deployed-биndинга и статусов работает.",
           "type": "test"
         }
       ]
@@ -4523,8 +4589,8 @@
       "evidence": [
         {
           "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
-          "ref": "live-canary.md + release-reconciliation.md + review-w1/w2/w3.md",
-          "observation": "deploy 2.58.79 (c2775a54) verified from server: healthz/api/web 200, journal clean, rollback target b9ea4907, B11 prod run, gate runs",
+          "ref": "requirements-map.json (222 строки) + release-reconciliation.md §3 + w4-live-probes.md §2",
+          "observation": "Линейка статусов заполнена по всем 222 строкам карты; недоступное помечено BLOCKED_REAL_HUMAN_GATE с причиной — 18 owner-гейтов после правки 2026-10-16 (w4-live-probes.md §2 + §2 этой карты); UI-вкусовой owner gate идёт после functional acceptance.",
           "type": "test"
         }
       ]
@@ -4541,13 +4607,25 @@
       "acceptance": "После каждого deploy: Reviewer+DevOps протокол, rollback readiness, smoke health, warnings, live input/output, снимок адресной поверхности, automated canary; фальшивые SEND/lesson (запись строк в prod ради счётчиков) отсутствуют (аудит источников)",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
-          "ref": "live-canary.md + release-reconciliation.md + review-w1/w2/w3.md",
-          "observation": "deploy 2.58.79 (c2775a54) verified from server: healthz/api/web 200, journal clean, rollback target b9ea4907, B11 prod run, gate runs",
-          "type": "live"
+          "type": "live",
+          "ref": "live-canary.md + w4-live-probes.md §1",
+          "observation": "deploy-протокол: rollback readiness b9ea4907, smoke health 200/2.58.79, journal 0 ERROR/Traceback, live input/output (ingestion_live success; initiative.observe completed 25×/24h)"
+        },
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "type": "live",
+          "ref": "evidence/v63-close/prod-probes-2026-10-16.md",
+          "observation": "снимок адресной поверхности + automated canary: /healthz,/api/health,/web/,/web/static/fullscreen-policy.js — 200, версия 2.58.79, побайтовая сверка бандла"
+        },
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "type": "test",
+          "ref": "evidence/v63-close/preserve-and-workflow-audit.md §3",
+          "observation": "аудит источников: запись уроков/SEND возможна только через persistence-слой services/database.py и продюсера services/mca_experience.py; скриптов «донабрать счётчиков» в tools/services нет — фальшивые SEND/lesson в прод не создаются"
         }
       ]
     },
@@ -4567,8 +4645,8 @@
       "evidence": [
         {
           "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
-          "ref": "live-canary.md + release-reconciliation.md + review-w1/w2/w3.md",
-          "observation": "deploy 2.58.79 (c2775a54) verified from server: healthz/api/web 200, journal clean, rollback target b9ea4907, B11 prod run, gate runs",
+          "ref": "release-reconciliation.md §1-§2",
+          "observation": "Расхождение f10-report.md (Deployed SHA: __PENDING__ при workflow_state done) снято в release-reconciliation.md §1 фактическим deployed SHA b9ea4907; §2 фиксирует механизм исключения повтора — deploy-binding в requirements-map, RED воспроизведён до биндинга.",
           "type": "test"
         }
       ]
@@ -4579,19 +4657,19 @@
       "source_text_sha256": "3f7bb87aaeb83024b8fc63ef3ae5ab54a509c8d590912f831aa9a1144adbf642",
       "source_excerpt": "6. Снять snapshot до миграций/массовых пересборок, side effects измеримы. Не удалять SQLite/PostgreSQL или старую память. Уцелевшие ошибки названий/адресатов и GraphRAG hallucinated stats — отрицательные тесты, не «это другое направление».",
       "disposition": "required",
-      "reason": "",
+      "reason": "ЧАСТИЧНО: snapshot 91f754e3 = SNAPSHOT_MANIFEST (снят до миграций); 0 DELETE / infinite-retention / ΔDDL=0 подтверждены (preserve-and-workflow-audit §2); ошибки названий закрыты f7-тестами. Не закрыто (3 пункта): негативный тест на ошибочного адресата; негативный тест GraphRAG hallucinated stats; артефакт измерения side effects. Предложение — малый лейн (3 теста + 1 замер).",
       "req_id": "B12.6",
       "slice": "REL-GATE",
       "acceptance": "Snapshot снят до миграций/массовых пересборок; side effects измеримы; SQLite/PostgreSQL и старая память не удаляются; ошибки названий/адресатов и GraphRAG hallucinated stats покрыты негативными тестами",
       "live_required": false,
       "live_when": "preprod",
-      "status": "VERIFIED",
+      "status": "PENDING",
       "evidence": [
         {
           "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
-          "ref": "live-canary.md + release-reconciliation.md + review-w1/w2/w3.md",
-          "observation": "deploy 2.58.79 (c2775a54) verified from server: healthz/api/web 200, journal clean, rollback target b9ea4907, B11 prod run, gate runs",
-          "type": "test"
+          "type": "test",
+          "ref": "evidence/v63-close/preserve-and-workflow-audit.md §2/§4 + SNAPSHOT_MANIFEST.md",
+          "observation": "частично: snapshot снят, 0 DELETE, ошибки названий (f7) закрыты; НЕ закрыто: ошибочный адресат, GraphRAG hallucinated stats, измеримость side effects → VERIFIED недопустим"
         }
       ]
     },
@@ -4641,9 +4719,9 @@
       "evidence": [
         {
           "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
-          "ref": "live-canary.md + release-reconciliation.md + review-w1/w2/w3.md",
-          "observation": "deploy 2.58.79 (c2775a54) verified from server: healthz/api/web 200, journal clean, rollback target b9ea4907, B11 prod run, gate runs",
-          "type": "test"
+          "type": "test",
+          "ref": "v63-final-coverage-report-2026-10-16.md §2 (предисловие)",
+          "observation": "финальная таблица coverage: B01–B12, U01–U08, V01–V07 и legacy v6 (R01–R19) — проблема→RCA→исходники→RED→GREEN/Review→outcome→статус; все строки привязаны к deployed SHA c2775a54; документ пока в рабочем дереве (коммит — клауза B12.1)"
         }
       ]
     },
@@ -4669,7 +4747,7 @@
         },
         {
           "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
-          "ref": "review-w2.md/review-w3.md + backlog.md (v6.3 Wave 4 live checklist)",
+          "ref": "review-w2.md + review-w3.md + plans/backlog.md (§ «v6.3 W2 non-blocking (REV-W2) + Wave 4 checklist»)",
           "observation": "acceptance requires a real Telegram client / natural event / owner canary window — not automatable; agent-side evidence complete, declared gate",
           "type": "live"
         }
@@ -4681,19 +4759,19 @@
       "source_text_sha256": "5f5ccb2fd05e1f238bd6acc50bc5ea32b3e8b1fe609bf4c6dfbd527a4daf1e3b",
       "source_excerpt": "3. Скриншоты всего viewport на 320/360/390/430/768/1440 и landscape, реальные header dimensions, selected/copy test в редакторе, подписи и scroll, скриншоты до/после одной и той же страницы.",
       "disposition": "required",
-      "reason": "",
+      "reason": "Вердикт V63-FE-2 получен и учтён (49 PNG подлинные, IHDR+pixel-variance; все 8 классов viewport). Остаётся: (1) у status нет одиночного-viewport кадра 768/1024/1440 (сняты full-page 768×4780 / 1024×3991 / 1440×3939); (2) cover_editor/fullscreen без 360/430/768, полноэкранного кадра на desktop нет вовсе; (3) прогоны V63-FE-2 привязаны к fingerprint a854ad95+незакоммиченный web/ — НЕ к c2775a54 (нужен коммит дерева или перепрогон с явной fingerprint-нотой); evidence/ untracked (NB-1).",
       "req_id": "FINAL.3",
       "slice": "REL-GATE",
       "acceptance": "Скриншоты всего viewport на 320/360/390/430/768/1440 и landscape; реальные размеры header; selected/copy-тест в редакторе; подписи и scroll; скриншоты до/после одной и той же страницы",
       "live_required": true,
       "live_when": "preprod",
-      "status": "VERIFIED",
+      "status": "PENDING",
       "evidence": [
         {
           "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
-          "ref": "live-canary.md + release-reconciliation.md + review-w1/w2/w3.md",
-          "observation": "deploy 2.58.79 (c2775a54) verified from server: healthz/api/web 200, journal clean, rollback target b9ea4907, B11 prod run, gate runs",
-          "type": "live"
+          "type": "ui",
+          "ref": "evidence/v63-frontend/_v63fe_measurements.json + v63-frontend-verification-2026-10-16.md §1/§4",
+          "observation": "ЧАСТИЧНО: 49 PNG подлинные, 8 классов viewport; пробелы: status без одиночного кадра 768/1024/1440; cover_editor/fullscreen без 360/430/768; нет desktop-fullscreen кадра; прогоны FE-2 привязаны к a854ad95+незакомм. web/ (не c2775a54 — до коммита/перепрогона не binding); evidence/ untracked → VERIFIED недопустим"
         }
       ]
     },
@@ -4703,7 +4781,7 @@
       "source_text_sha256": "c24b5e1b7a71252c7dd77f12d7e10a078203ca1c829a47259c1b35cce0b803fa",
       "source_excerpt": "4. Финальный deployed SHA, актуальные docs/ledger; ZERO скрытых `pending`, RED unresolved либо явное разрешение владельца на исключение. **Не заявлять «ASAP выполнен полностью» при отсутствии проверенного результата Initiative, Experience, ",
       "disposition": "required",
-      "reason": "",
+      "reason": "4 js-RED на задеплоенном c2775a54 (round1025_hotfix{7,8,9,10}: пин APP_VERSION «2.58.78» при 2.58.79; воспроизведено повторным прогоном) — клауза «unresolved RED либо явное разрешение владельца» не выполнена. Остальные клаузы (deployed SHA, docs/ledger, ZERO скрытых pending) выполнены. Нужен ре-пин тестов или waver владельца.",
       "req_id": "FINAL.4",
       "slice": "REL-GATE",
       "acceptance": "Финальный deployed SHA, актуальные docs/ledger, ZERO скрытых pending и unresolved RED (либо явное разрешение владельца); «ASAP выполнен полностью» не заявляется при непроверенных Initiative/Experience/Cover/U07/U08/фронте",
@@ -4716,6 +4794,12 @@
           "ref": "live-canary.md + release-reconciliation.md + review-w1/w2/w3.md",
           "observation": "deploy 2.58.79 (c2775a54) verified from server: healthz/api/web 200, journal clean, rollback target b9ea4907, B11 prod run, gate runs",
           "type": "live"
+        },
+        {
+          "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+          "type": "test",
+          "ref": "evidence/v63-close/c2775a54-verification-runs.md §3",
+          "observation": "4 js-RED воспроизведены на c2775a54 (версионный пин, не функциональная регрессия; повторный локальный прогон hotfix7 → exit 1); asap8-js при этом 11/11"
         }
       ]
     },
@@ -4795,8 +4879,8 @@
       "evidence": [
         {
           "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
-          "ref": "live-canary.md + release-reconciliation.md + review-w1/w2/w3.md",
-          "observation": "deploy 2.58.79 (c2775a54) verified from server: healthz/api/web 200, journal clean, rollback target b9ea4907, B11 prod run, gate runs",
+          "ref": "verification-report-2026-10-16.md §0 + release-reconciliation.md §2 + live-canary.md",
+          "observation": "Все 222 evidence привязаны к c2775a54 (0 расхождений по аудиту); map candidate_commit == deployed_commit == c2775a54. Новый candidate/redeploy обнуляет релизную приёмку машинно: requirements_gate.py падает с «candidate mismatch; map candidate_commit must match --candidate».",
           "type": "test"
         }
       ]

@@ -1,0 +1,2477 @@
+{
+  "phase": "before",
+  "generated": "2026-10-16",
+  "appCssOverride": true,
+  "cases": [
+    {
+      "tag": "320x700_right44",
+      "gate": true,
+      "legacyHeader": false,
+      "viewport": {
+        "width": 320,
+        "height": 700
+      },
+      "safeAreaInset": {
+        "top": 0,
+        "bottom": 0,
+        "left": 0,
+        "right": 44
+      },
+      "contentSafeAreaInset": {
+        "top": 0,
+        "bottom": 0,
+        "left": 0,
+        "right": 0
+      },
+      "expectedSlot": "inline",
+      "safeEdge": {
+        "left": 0,
+        "right": 276,
+        "top": 0,
+        "bottom": 700
+      },
+      "btn": {
+        "x": 255,
+        "y": 10,
+        "w": 49,
+        "h": 44,
+        "right": 304,
+        "bottom": 54
+      },
+      "visual": {
+        "x": 266,
+        "y": 18,
+        "right": 294,
+        "bottom": 46
+      },
+      "visualCss": {
+        "w": 28,
+        "h": 28,
+        "radius": "50%",
+        "pe": "none"
+      },
+      "slot": "inline",
+      "fsSlotFloatClass": false,
+      "hiddenClass": false,
+      "fsReason": null,
+      "posFixed": false,
+      "margin": {
+        "top": "0px",
+        "right": "0px",
+        "bottom": "0px",
+        "left": "0px"
+      },
+      "headerRect": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 116,
+        "right": 320
+      },
+      "headerPad": {
+        "top": "9.6px",
+        "right": "16px",
+        "left": "16px",
+        "bottom": "9.6px"
+      },
+      "headerCompact": true,
+      "headerChildren": [
+        {
+          "cls": "mobile-brand shrink-0",
+          "x": 16,
+          "right": 103,
+          "y": 22,
+          "bottom": 42,
+          "order": "0",
+          "paddingRight": "0px",
+          "display": "flex"
+        },
+        {
+          "cls": "header-title-wrap min-w-0",
+          "x": 0,
+          "right": 0,
+          "y": 0,
+          "bottom": 0,
+          "order": "0",
+          "paddingRight": "0px",
+          "display": "none"
+        },
+        {
+          "cls": "btn-ghost text-xs px-1.5 py-1 shrink-0 header-fs-btn fs-slot",
+          "x": 255,
+          "right": 304,
+          "y": 10,
+          "bottom": 54,
+          "order": "5",
+          "paddingRight": "14.4px",
+          "display": "flex"
+        },
+        {
+          "cls": "header-scope-row",
+          "x": 109,
+          "right": 249,
+          "y": 12,
+          "bottom": 52,
+          "order": "1",
+          "paddingRight": "0px",
+          "display": "flex"
+        },
+        {
+          "cls": "mobile-topnav",
+          "x": 16,
+          "right": 304,
+          "y": 58,
+          "bottom": 106,
+          "order": "10",
+          "paddingRight": "0px",
+          "display": "flex"
+        }
+      ],
+      "hOverflow": false,
+      "scrollWidth": 320,
+      "tgVars": {
+        "safeR": "44px",
+        "safeL": "0px",
+        "csaR": "0px",
+        "csaL": "0px",
+        "csaT": "0px",
+        "safeT": "0px"
+      },
+      "ariaLabel": "На весь экран",
+      "ariaPressed": "false",
+      "title": "На весь экран",
+      "interceptBtnCenter": "header-fs-btn",
+      "interceptNativeRight": "main-header header-sticky card-solid px-4 py-3 flex items-center gap-2 flex-wrap header-compact-v2",
+      "interceptNativeLeft": "main-header header-sticky card-solid px-4 py-3 flex items-center gap-2 flex-wrap header-compact-v2",
+      "interceptTopRight": "main-header header-sticky card-solid px-4 py-3 flex items-center gap-2 flex-wrap header-compact-v2",
+      "interceptTopLeft": "main-header header-sticky card-solid px-4 py-3 flex items-center gap-2 flex-wrap header-compact-v2",
+      "policyInsets": {
+        "width": 320,
+        "height": 700,
+        "stableHeight": 644,
+        "safeAreaInset": {
+          "top": 0,
+          "bottom": 0,
+          "left": 0,
+          "right": 44
+        },
+        "contentSafeAreaInset": {
+          "top": 0,
+          "bottom": 0,
+          "left": 0,
+          "right": 0
+        }
+      },
+      "insideSafeArea": {
+        "left": true,
+        "right": false,
+        "top": true,
+        "bottom": true
+      },
+      "pxInsideNativeRight": 28,
+      "pxInsideNativeLeft": 0.0,
+      "pxInsideNativeTop": 0.0,
+      "pxInsideNativeBottom": 0.0,
+      "gapToSafeRight": -28,
+      "hitMin44": true,
+      "visual28_34": true,
+      "noWebControlInNativeRight": true,
+      "centerHitsButton": true,
+      "topZoneFree": true,
+      "slotAsExpected": true,
+      "visualInSafeArea": false,
+      "checks": {
+        "insideBothAxes": false,
+        "hitMin44": true,
+        "visual28_34": true,
+        "noHOverflow": true,
+        "noWebControlInNativeRight": true,
+        "centerHitsButton": true,
+        "slotAsExpected": true,
+        "topZoneFree": true,
+        "visualInSafeArea": false
+      },
+      "ok": false
+    },
+    {
+      "tag": "390x844_right44",
+      "gate": true,
+      "legacyHeader": false,
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "safeAreaInset": {
+        "top": 0,
+        "bottom": 0,
+        "left": 0,
+        "right": 44
+      },
+      "contentSafeAreaInset": {
+        "top": 0,
+        "bottom": 0,
+        "left": 0,
+        "right": 0
+      },
+      "expectedSlot": "inline",
+      "safeEdge": {
+        "left": 0,
+        "right": 346,
+        "top": 0,
+        "bottom": 844
+      },
+      "btn": {
+        "x": 325,
+        "y": 10,
+        "w": 49,
+        "h": 44,
+        "right": 374,
+        "bottom": 54
+      },
+      "visual": {
+        "x": 334,
+        "y": 16,
+        "right": 366,
+        "bottom": 48
+      },
+      "visualCss": {
+        "w": 32,
+        "h": 32,
+        "radius": "50%",
+        "pe": "none"
+      },
+      "slot": "inline",
+      "fsSlotFloatClass": false,
+      "hiddenClass": false,
+      "fsReason": null,
+      "posFixed": false,
+      "margin": {
+        "top": "0px",
+        "right": "0px",
+        "bottom": "0px",
+        "left": "0px"
+      },
+      "headerRect": {
+        "x": 0,
+        "y": 0,
+        "w": 390,
+        "h": 116,
+        "right": 390
+      },
+      "headerPad": {
+        "top": "9.6px",
+        "right": "16px",
+        "left": "16px",
+        "bottom": "9.6px"
+      },
+      "headerCompact": true,
+      "headerChildren": [
+        {
+          "cls": "mobile-brand shrink-0",
+          "x": 16,
+          "right": 103,
+          "y": 22,
+          "bottom": 42,
+          "order": "0",
+          "paddingRight": "0px",
+          "display": "flex"
+        },
+        {
+          "cls": "header-title-wrap min-w-0",
+          "x": 0,
+          "right": 0,
+          "y": 0,
+          "bottom": 0,
+          "order": "0",
+          "paddingRight": "0px",
+          "display": "none"
+        },
+        {
+          "cls": "btn-ghost text-xs px-1.5 py-1 shrink-0 header-fs-btn fs-slot",
+          "x": 325,
+          "right": 374,
+          "y": 10,
+          "bottom": 54,
+          "order": "5",
+          "paddingRight": "14.4px",
+          "display": "flex"
+        },
+        {
+          "cls": "header-scope-row",
+          "x": 109,
+          "right": 319,
+          "y": 12,
+          "bottom": 52,
+          "order": "1",
+          "paddingRight": "0px",
+          "display": "flex"
+        },
+        {
+          "cls": "mobile-topnav",
+          "x": 16,
+          "right": 374,
+          "y": 58,
+          "bottom": 106,
+          "order": "10",
+          "paddingRight": "0px",
+          "display": "flex"
+        }
+      ],
+      "hOverflow": false,
+      "scrollWidth": 390,
+      "tgVars": {
+        "safeR": "44px",
+        "safeL": "0px",
+        "csaR": "0px",
+        "csaL": "0px",
+        "csaT": "0px",
+        "safeT": "0px"
+      },
+      "ariaLabel": "На весь экран",
+      "ariaPressed": "false",
+      "title": "На весь экран",
+      "interceptBtnCenter": "header-fs-btn",
+      "interceptNativeRight": "main-header header-sticky card-solid px-4 py-3 flex items-center gap-2 flex-wrap header-compact-v2",
+      "interceptNativeLeft": "main-header header-sticky card-solid px-4 py-3 flex items-center gap-2 flex-wrap header-compact-v2",
+      "interceptTopRight": "main-header header-sticky card-solid px-4 py-3 flex items-center gap-2 flex-wrap header-compact-v2",
+      "interceptTopLeft": "main-header header-sticky card-solid px-4 py-3 flex items-center gap-2 flex-wrap header-compact-v2",
+      "policyInsets": {
+        "width": 390,
+        "height": 844,
+        "stableHeight": 788,
+        "safeAreaInset": {
+          "top": 0,
+          "bottom": 0,
+          "left": 0,
+          "right": 44
+        },
+        "contentSafeAreaInset": {
+          "top": 0,
+          "bottom": 0,
+          "left": 0,
+          "right": 0
+        }
+      },
+      "insideSafeArea": {
+        "left": true,
+        "right": false,
+        "top": true,
+        "bottom": true
+      },
+      "pxInsideNativeRight": 28,
+      "pxInsideNativeLeft": 0.0,
+      "pxInsideNativeTop": 0.0,
+      "pxInsideNativeBottom": 0.0,
+      "gapToSafeRight": -28,
+      "hitMin44": true,
+      "visual28_34": true,
+      "noWebControlInNativeRight": true,
+      "centerHitsButton": true,
+      "topZoneFree": true,
+      "slotAsExpected": true,
+      "visualInSafeArea": false,
+      "checks": {
+        "insideBothAxes": false,
+        "hitMin44": true,
+        "visual28_34": true,
+        "noHOverflow": true,
+        "noWebControlInNativeRight": true,
+        "centerHitsButton": true,
+        "slotAsExpected": true,
+        "topZoneFree": true,
+        "visualInSafeArea": false
+      },
+      "ok": false
+    },
+    {
+      "tag": "667x375_right44",
+      "gate": true,
+      "legacyHeader": false,
+      "viewport": {
+        "width": 667,
+        "height": 375
+      },
+      "safeAreaInset": {
+        "top": 20,
+        "bottom": 0,
+        "left": 0,
+        "right": 44
+      },
+      "contentSafeAreaInset": {
+        "top": 0,
+        "bottom": 0,
+        "left": 0,
+        "right": 0
+      },
+      "expectedSlot": "inline",
+      "safeEdge": {
+        "left": 0,
+        "right": 623,
+        "top": 20,
+        "bottom": 375
+      },
+      "btn": {
+        "x": 602,
+        "y": 26,
+        "w": 49,
+        "h": 44,
+        "right": 651,
+        "bottom": 70
+      },
+      "visual": {
+        "x": 611,
+        "y": 32,
+        "right": 643,
+        "bottom": 64
+      },
+      "visualCss": {
+        "w": 32,
+        "h": 32,
+        "radius": "50%",
+        "pe": "none"
+      },
+      "slot": "inline",
+      "fsSlotFloatClass": false,
+      "hiddenClass": false,
+      "fsReason": null,
+      "posFixed": false,
+      "margin": {
+        "top": "0px",
+        "right": "0px",
+        "bottom": "0px",
+        "left": "0px"
+      },
+      "headerRect": {
+        "x": 0,
+        "y": 0,
+        "w": 667,
+        "h": 114,
+        "right": 667
+      },
+      "headerPad": {
+        "top": "25.6px",
+        "right": "16px",
+        "left": "16px",
+        "bottom": "5.6px"
+      },
+      "headerCompact": true,
+      "headerChildren": [
+        {
+          "cls": "mobile-brand shrink-0",
+          "x": 16,
+          "right": 103,
+          "y": 38,
+          "bottom": 58,
+          "order": "0",
+          "paddingRight": "0px",
+          "display": "flex"
+        },
+        {
+          "cls": "header-title-wrap min-w-0",
+          "x": 0,
+          "right": 0,
+          "y": 0,
+          "bottom": 0,
+          "order": "0",
+          "paddingRight": "0px",
+          "display": "none"
+        },
+        {
+          "cls": "btn-ghost text-xs px-1.5 py-1 shrink-0 header-fs-btn fs-slot",
+          "x": 602,
+          "right": 651,
+          "y": 26,
+          "bottom": 70,
+          "order": "5",
+          "paddingRight": "14.4px",
+          "display": "flex"
+        },
+        {
+          "cls": "header-scope-row",
+          "x": 109,
+          "right": 596,
+          "y": 28,
+          "bottom": 67,
+          "order": "1",
+          "paddingRight": "0px",
+          "display": "flex"
+        },
+        {
+          "cls": "mobile-topnav",
+          "x": 16,
+          "right": 651,
+          "y": 72,
+          "bottom": 107,
+          "order": "10",
+          "paddingRight": "0px",
+          "display": "flex"
+        }
+      ],
+      "hOverflow": false,
+      "scrollWidth": 667,
+      "tgVars": {
+        "safeR": "44px",
+        "safeL": "0px",
+        "csaR": "0px",
+        "csaL": "0px",
+        "csaT": "0px",
+        "safeT": "20px"
+      },
+      "ariaLabel": "На весь экран",
+      "ariaPressed": "false",
+      "title": "На весь экран",
+      "interceptBtnCenter": "header-fs-btn",
+      "interceptNativeRight": "main-header header-sticky card-solid px-4 py-3 flex items-center gap-2 flex-wrap header-compact-v2",
+      "interceptNativeLeft": "main-header header-sticky card-solid px-4 py-3 flex items-center gap-2 flex-wrap header-compact-v2",
+      "interceptTopRight": "main-header header-sticky card-solid px-4 py-3 flex items-center gap-2 flex-wrap header-compact-v2",
+      "interceptTopLeft": "main-header header-sticky card-solid px-4 py-3 flex items-center gap-2 flex-wrap header-compact-v2",
+      "policyInsets": {
+        "width": 667,
+        "height": 375,
+        "stableHeight": 319,
+        "safeAreaInset": {
+          "top": 20,
+          "bottom": 0,
+          "left": 0,
+          "right": 44
+        },
+        "contentSafeAreaInset": {
+          "top": 0,
+          "bottom": 0,
+          "left": 0,
+          "right": 0
+        }
+      },
+      "insideSafeArea": {
+        "left": true,
+        "right": false,
+        "top": true,
+        "bottom": true
+      },
+      "pxInsideNativeRight": 28,
+      "pxInsideNativeLeft": 0.0,
+      "pxInsideNativeTop": 0.0,
+      "pxInsideNativeBottom": 0.0,
+      "gapToSafeRight": -28,
+      "hitMin44": true,
+      "visual28_34": true,
+      "noWebControlInNativeRight": true,
+      "centerHitsButton": true,
+      "topZoneFree": true,
+      "slotAsExpected": true,
+      "visualInSafeArea": false,
+      "checks": {
+        "insideBothAxes": false,
+        "hitMin44": true,
+        "visual28_34": true,
+        "noHOverflow": true,
+        "noWebControlInNativeRight": true,
+        "centerHitsButton": true,
+        "slotAsExpected": true,
+        "topZoneFree": true,
+        "visualInSafeArea": false
+      },
+      "ok": false
+    },
+    {
+      "tag": "390_zero_inset",
+      "gate": true,
+      "legacyHeader": false,
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "safeAreaInset": {
+        "top": 0,
+        "bottom": 0,
+        "left": 0,
+        "right": 0
+      },
+      "contentSafeAreaInset": {
+        "top": 0,
+        "bottom": 0,
+        "left": 0,
+        "right": 0
+      },
+      "expectedSlot": "inline",
+      "safeEdge": {
+        "left": 0,
+        "right": 390,
+        "top": 0,
+        "bottom": 844
+      },
+      "btn": {
+        "x": 325,
+        "y": 10,
+        "w": 49,
+        "h": 44,
+        "right": 374,
+        "bottom": 54
+      },
+      "visual": {
+        "x": 334,
+        "y": 16,
+        "right": 366,
+        "bottom": 48
+      },
+      "visualCss": {
+        "w": 32,
+        "h": 32,
+        "radius": "50%",
+        "pe": "none"
+      },
+      "slot": "inline",
+      "fsSlotFloatClass": false,
+      "hiddenClass": false,
+      "fsReason": null,
+      "posFixed": false,
+      "margin": {
+        "top": "0px",
+        "right": "0px",
+        "bottom": "0px",
+        "left": "0px"
+      },
+      "headerRect": {
+        "x": 0,
+        "y": 0,
+        "w": 390,
+        "h": 116,
+        "right": 390
+      },
+      "headerPad": {
+        "top": "9.6px",
+        "right": "16px",
+        "left": "16px",
+        "bottom": "9.6px"
+      },
+      "headerCompact": true,
+      "headerChildren": [
+        {
+          "cls": "mobile-brand shrink-0",
+          "x": 16,
+          "right": 103,
+          "y": 22,
+          "bottom": 42,
+          "order": "0",
+          "paddingRight": "0px",
+          "display": "flex"
+        },
+        {
+          "cls": "header-title-wrap min-w-0",
+          "x": 0,
+          "right": 0,
+          "y": 0,
+          "bottom": 0,
+          "order": "0",
+          "paddingRight": "0px",
+          "display": "none"
+        },
+        {
+          "cls": "btn-ghost text-xs px-1.5 py-1 shrink-0 header-fs-btn fs-slot",
+          "x": 325,
+          "right": 374,
+          "y": 10,
+          "bottom": 54,
+          "order": "5",
+          "paddingRight": "14.4px",
+          "display": "flex"
+        },
+        {
+          "cls": "header-scope-row",
+          "x": 109,
+          "right": 319,
+          "y": 12,
+          "bottom": 52,
+          "order": "1",
+          "paddingRight": "0px",
+          "display": "flex"
+        },
+        {
+          "cls": "mobile-topnav",
+          "x": 16,
+          "right": 374,
+          "y": 58,
+          "bottom": 106,
+          "order": "10",
+          "paddingRight": "0px",
+          "display": "flex"
+        }
+      ],
+      "hOverflow": false,
+      "scrollWidth": 390,
+      "tgVars": {
+        "safeR": "0px",
+        "safeL": "0px",
+        "csaR": "0px",
+        "csaL": "0px",
+        "csaT": "0px",
+        "safeT": "0px"
+      },
+      "ariaLabel": "На весь экран",
+      "ariaPressed": "false",
+      "title": "На весь экран",
+      "interceptBtnCenter": "header-fs-btn",
+      "interceptNativeRight": "main-header header-sticky card-solid px-4 py-3 flex items-center gap-2 flex-wrap header-compact-v2",
+      "interceptNativeLeft": "main-header header-sticky card-solid px-4 py-3 flex items-center gap-2 flex-wrap header-compact-v2",
+      "interceptTopRight": "main-header header-sticky card-solid px-4 py-3 flex items-center gap-2 flex-wrap header-compact-v2",
+      "interceptTopLeft": "main-header header-sticky card-solid px-4 py-3 flex items-center gap-2 flex-wrap header-compact-v2",
+      "policyInsets": {
+        "width": 390,
+        "height": 844,
+        "stableHeight": 788,
+        "safeAreaInset": {
+          "top": 0,
+          "bottom": 0,
+          "left": 0,
+          "right": 0
+        },
+        "contentSafeAreaInset": {
+          "top": 0,
+          "bottom": 0,
+          "left": 0,
+          "right": 0
+        }
+      },
+      "insideSafeArea": {
+        "left": true,
+        "right": true,
+        "top": true,
+        "bottom": true
+      },
+      "pxInsideNativeRight": 0.0,
+      "pxInsideNativeLeft": 0.0,
+      "pxInsideNativeTop": 0.0,
+      "pxInsideNativeBottom": 0.0,
+      "gapToSafeRight": 16,
+      "hitMin44": true,
+      "visual28_34": true,
+      "noWebControlInNativeRight": true,
+      "centerHitsButton": true,
+      "topZoneFree": true,
+      "slotAsExpected": true,
+      "visualInSafeArea": true,
+      "checks": {
+        "insideBothAxes": true,
+        "hitMin44": true,
+        "visual28_34": true,
+        "noHOverflow": true,
+        "noWebControlInNativeRight": true,
+        "centerHitsButton": true,
+        "slotAsExpected": true,
+        "topZoneFree": true,
+        "visualInSafeArea": true
+      },
+      "ok": true
+    },
+    {
+      "tag": "320_lr_insets",
+      "gate": true,
+      "legacyHeader": false,
+      "viewport": {
+        "width": 320,
+        "height": 700
+      },
+      "safeAreaInset": {
+        "top": 20,
+        "bottom": 0,
+        "left": 24,
+        "right": 24
+      },
+      "contentSafeAreaInset": {
+        "top": 0,
+        "bottom": 0,
+        "left": 0,
+        "right": 0
+      },
+      "expectedSlot": "inline",
+      "safeEdge": {
+        "left": 24,
+        "right": 296,
+        "top": 20,
+        "bottom": 700
+      },
+      "btn": {
+        "x": 255,
+        "y": 30,
+        "w": 49,
+        "h": 44,
+        "right": 304,
+        "bottom": 74
+      },
+      "visual": {
+        "x": 266,
+        "y": 38,
+        "right": 294,
+        "bottom": 66
+      },
+      "visualCss": {
+        "w": 28,
+        "h": 28,
+        "radius": "50%",
+        "pe": "none"
+      },
+      "slot": "inline",
+      "fsSlotFloatClass": false,
+      "hiddenClass": false,
+      "fsReason": null,
+      "posFixed": false,
+      "margin": {
+        "top": "0px",
+        "right": "0px",
+        "bottom": "0px",
+        "left": "0px"
+      },
+      "headerRect": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 136,
+        "right": 320
+      },
+      "headerPad": {
+        "top": "29.6px",
+        "right": "16px",
+        "left": "16px",
+        "bottom": "9.6px"
+      },
+      "headerCompact": true,
+      "headerChildren": [
+        {
+          "cls": "mobile-brand shrink-0",
+          "x": 16,
+          "right": 103,
+          "y": 42,
+          "bottom": 62,
+          "order": "0",
+          "paddingRight": "0px",
+          "display": "flex"
+        },
+        {
+          "cls": "header-title-wrap min-w-0",
+          "x": 0,
+          "right": 0,
+          "y": 0,
+          "bottom": 0,
+          "order": "0",
+          "paddingRight": "0px",
+          "display": "none"
+        },
+        {
+          "cls": "btn-ghost text-xs px-1.5 py-1 shrink-0 header-fs-btn fs-slot",
+          "x": 255,
+          "right": 304,
+          "y": 30,
+          "bottom": 74,
+          "order": "5",
+          "paddingRight": "14.4px",
+          "display": "flex"
+        },
+        {
+          "cls": "header-scope-row",
+          "x": 109,
+          "right": 249,
+          "y": 32,
+          "bottom": 72,
+          "order": "1",
+          "paddingRight": "0px",
+          "display": "flex"
+        },
+        {
+          "cls": "mobile-topnav",
+          "x": 16,
+          "right": 304,
+          "y": 78,
+          "bottom": 126,
+          "order": "10",
+          "paddingRight": "0px",
+          "display": "flex"
+        }
+      ],
+      "hOverflow": false,
+      "scrollWidth": 320,
+      "tgVars": {
+        "safeR": "24px",
+        "safeL": "24px",
+        "csaR": "0px",
+        "csaL": "0px",
+        "csaT": "0px",
+        "safeT": "20px"
+      },
+      "ariaLabel": "На весь экран",
+      "ariaPressed": "false",
+      "title": "На весь экран",
+      "interceptBtnCenter": "header-fs-btn",
+      "interceptNativeRight": "main-header header-sticky card-solid px-4 py-3 flex items-center gap-2 flex-wrap header-compact-v2",
+      "interceptNativeLeft": "main-header header-sticky card-solid px-4 py-3 flex items-center gap-2 flex-wrap header-compact-v2",
+      "interceptTopRight": "main-header header-sticky card-solid px-4 py-3 flex items-center gap-2 flex-wrap header-compact-v2",
+      "interceptTopLeft": "main-header header-sticky card-solid px-4 py-3 flex items-center gap-2 flex-wrap header-compact-v2",
+      "policyInsets": {
+        "width": 320,
+        "height": 700,
+        "stableHeight": 644,
+        "safeAreaInset": {
+          "top": 20,
+          "bottom": 0,
+          "left": 24,
+          "right": 24
+        },
+        "contentSafeAreaInset": {
+          "top": 0,
+          "bottom": 0,
+          "left": 0,
+          "right": 0
+        }
+      },
+      "insideSafeArea": {
+        "left": true,
+        "right": false,
+        "top": true,
+        "bottom": true
+      },
+      "pxInsideNativeRight": 8,
+      "pxInsideNativeLeft": 0.0,
+      "pxInsideNativeTop": 0.0,
+      "pxInsideNativeBottom": 0.0,
+      "gapToSafeRight": -8,
+      "hitMin44": true,
+      "visual28_34": true,
+      "noWebControlInNativeRight": true,
+      "centerHitsButton": true,
+      "topZoneFree": true,
+      "slotAsExpected": true,
+      "visualInSafeArea": true,
+      "checks": {
+        "insideBothAxes": false,
+        "hitMin44": true,
+        "visual28_34": true,
+        "noHOverflow": true,
+        "noWebControlInNativeRight": true,
+        "centerHitsButton": true,
+        "slotAsExpected": true,
+        "topZoneFree": true,
+        "visualInSafeArea": true
+      },
+      "ok": false
+    },
+    {
+      "tag": "667x375_float_right44",
+      "gate": true,
+      "legacyHeader": false,
+      "viewport": {
+        "width": 667,
+        "height": 375
+      },
+      "safeAreaInset": {
+        "top": 20,
+        "bottom": 0,
+        "left": 0,
+        "right": 44
+      },
+      "contentSafeAreaInset": {
+        "top": 36,
+        "bottom": 0,
+        "left": 0,
+        "right": 0
+      },
+      "expectedSlot": "float",
+      "safeEdge": {
+        "left": 0,
+        "right": 623,
+        "top": 36,
+        "bottom": 375
+      },
+      "btn": {
+        "x": 568,
+        "y": 42,
+        "w": 49,
+        "h": 44,
+        "right": 617,
+        "bottom": 86
+      },
+      "visual": {
+        "x": 577,
+        "y": 48,
+        "right": 609,
+        "bottom": 80
+      },
+      "visualCss": {
+        "w": 32,
+        "h": 32,
+        "radius": "50%",
+        "pe": "none"
+      },
+      "slot": "float",
+      "fsSlotFloatClass": true,
+      "hiddenClass": false,
+      "fsReason": null,
+      "posFixed": true,
+      "margin": {
+        "top": "0px",
+        "right": "0px",
+        "bottom": "0px",
+        "left": "0px"
+      },
+      "headerRect": {
+        "x": 0,
+        "y": 0,
+        "w": 667,
+        "h": 169,
+        "right": 667
+      },
+      "headerPad": {
+        "top": "86px",
+        "right": "16px",
+        "left": "16px",
+        "bottom": "5.6px"
+      },
+      "headerCompact": true,
+      "headerChildren": [
+        {
+          "cls": "mobile-brand shrink-0",
+          "x": 16,
+          "right": 103,
+          "y": 95,
+          "bottom": 115,
+          "order": "0",
+          "paddingRight": "0px",
+          "display": "flex"
+        },
+        {
+          "cls": "header-title-wrap min-w-0",
+          "x": 0,
+          "right": 0,
+          "y": 0,
+          "bottom": 0,
+          "order": "0",
+          "paddingRight": "0px",
+          "display": "none"
+        },
+        {
+          "cls": "btn-ghost text-xs px-1.5 py-1 shrink-0 header-fs-btn fs-slot",
+          "x": 568,
+          "right": 617,
+          "y": 42,
+          "bottom": 86,
+          "order": "5",
+          "paddingRight": "14.4px",
+          "display": "flex"
+        },
+        {
+          "cls": "header-scope-row",
+          "x": 109,
+          "right": 651,
+          "y": 86,
+          "bottom": 125,
+          "order": "1",
+          "paddingRight": "0px",
+          "display": "flex"
+        },
+        {
+          "cls": "mobile-topnav",
+          "x": 16,
+          "right": 651,
+          "y": 127,
+          "bottom": 162,
+          "order": "10",
+          "paddingRight": "0px",
+          "display": "flex"
+        }
+      ],
+      "hOverflow": false,
+      "scrollWidth": 667,
+      "tgVars": {
+        "safeR": "44px",
+        "safeL": "0px",
+        "csaR": "0px",
+        "csaL": "0px",
+        "csaT": "36px",
+        "safeT": "20px"
+      },
+      "ariaLabel": "На весь экран",
+      "ariaPressed": "false",
+      "title": "На весь экран",
+      "interceptBtnCenter": "header-fs-btn",
+      "interceptNativeRight": "main-header header-sticky card-solid px-4 py-3 flex items-center gap-2 flex-wrap header-compact-v2",
+      "interceptNativeLeft": "main-header header-sticky card-solid px-4 py-3 flex items-center gap-2 flex-wrap header-compact-v2",
+      "interceptTopRight": "main-header header-sticky card-solid px-4 py-3 flex items-center gap-2 flex-wrap header-compact-v2",
+      "interceptTopLeft": "main-header header-sticky card-solid px-4 py-3 flex items-center gap-2 flex-wrap header-compact-v2",
+      "policyInsets": {
+        "width": 667,
+        "height": 375,
+        "stableHeight": 319,
+        "safeAreaInset": {
+          "top": 20,
+          "bottom": 0,
+          "left": 0,
+          "right": 44
+        },
+        "contentSafeAreaInset": {
+          "top": 36,
+          "bottom": 0,
+          "left": 0,
+          "right": 0
+        }
+      },
+      "insideSafeArea": {
+        "left": true,
+        "right": true,
+        "top": true,
+        "bottom": true
+      },
+      "pxInsideNativeRight": 0.0,
+      "pxInsideNativeLeft": 0.0,
+      "pxInsideNativeTop": 0.0,
+      "pxInsideNativeBottom": 0.0,
+      "gapToSafeRight": 6,
+      "hitMin44": true,
+      "visual28_34": true,
+      "noWebControlInNativeRight": true,
+      "centerHitsButton": true,
+      "topZoneFree": true,
+      "slotAsExpected": true,
+      "visualInSafeArea": true,
+      "checks": {
+        "insideBothAxes": true,
+        "hitMin44": true,
+        "visual28_34": true,
+        "noHOverflow": true,
+        "noWebControlInNativeRight": true,
+        "centerHitsButton": true,
+        "slotAsExpected": true,
+        "topZoneFree": true,
+        "visualInSafeArea": true
+      },
+      "ok": true
+    },
+    {
+      "tag": "390_csa56_float",
+      "gate": true,
+      "legacyHeader": false,
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "safeAreaInset": {
+        "top": 0,
+        "bottom": 0,
+        "left": 0,
+        "right": 0
+      },
+      "contentSafeAreaInset": {
+        "top": 56,
+        "bottom": 0,
+        "left": 0,
+        "right": 0
+      },
+      "expectedSlot": "float",
+      "safeEdge": {
+        "left": 0,
+        "right": 390,
+        "top": 56,
+        "bottom": 844
+      },
+      "btn": {
+        "x": 335,
+        "y": 62,
+        "w": 49,
+        "h": 44,
+        "right": 384,
+        "bottom": 106
+      },
+      "visual": {
+        "x": 344,
+        "y": 68,
+        "right": 376,
+        "bottom": 100
+      },
+      "visualCss": {
+        "w": 32,
+        "h": 32,
+        "radius": "50%",
+        "pe": "none"
+      },
+      "slot": "float",
+      "fsSlotFloatClass": true,
+      "hiddenClass": false,
+      "fsReason": null,
+      "posFixed": true,
+      "margin": {
+        "top": "0px",
+        "right": "0px",
+        "bottom": "0px",
+        "left": "0px"
+      },
+      "headerRect": {
+        "x": 0,
+        "y": 0,
+        "w": 390,
+        "h": 209,
+        "right": 390
+      },
+      "headerPad": {
+        "top": "106px",
+        "right": "16px",
+        "left": "16px",
+        "bottom": "9.6px"
+      },
+      "headerCompact": true,
+      "headerChildren": [
+        {
+          "cls": "mobile-brand shrink-0",
+          "x": 16,
+          "right": 103,
+          "y": 116,
+          "bottom": 136,
+          "order": "0",
+          "paddingRight": "0px",
+          "display": "flex"
+        },
+        {
+          "cls": "header-title-wrap min-w-0",
+          "x": 0,
+          "right": 0,
+          "y": 0,
+          "bottom": 0,
+          "order": "0",
+          "paddingRight": "0px",
+          "display": "none"
+        },
+        {
+          "cls": "btn-ghost text-xs px-1.5 py-1 shrink-0 header-fs-btn fs-slot",
+          "x": 335,
+          "right": 384,
+          "y": 62,
+          "bottom": 106,
+          "order": "5",
+          "paddingRight": "14.4px",
+          "display": "flex"
+        },
+        {
+          "cls": "header-scope-row",
+          "x": 109,
+          "right": 374,
+          "y": 106,
+          "bottom": 146,
+          "order": "1",
+          "paddingRight": "0px",
+          "display": "flex"
+        },
+        {
+          "cls": "mobile-topnav",
+          "x": 16,
+          "right": 374,
+          "y": 151,
+          "bottom": 198,
+          "order": "10",
+          "paddingRight": "0px",
+          "display": "flex"
+        }
+      ],
+      "hOverflow": false,
+      "scrollWidth": 390,
+      "tgVars": {
+        "safeR": "0px",
+        "safeL": "0px",
+        "csaR": "0px",
+        "csaL": "0px",
+        "csaT": "56px",
+        "safeT": "0px"
+      },
+      "ariaLabel": "На весь экран",
+      "ariaPressed": "false",
+      "title": "На весь экран",
+      "interceptBtnCenter": "header-fs-btn",
+      "interceptNativeRight": "main-header header-sticky card-solid px-4 py-3 flex items-center gap-2 flex-wrap header-compact-v2",
+      "interceptNativeLeft": "main-header header-sticky card-solid px-4 py-3 flex items-center gap-2 flex-wrap header-compact-v2",
+      "interceptTopRight": "main-header header-sticky card-solid px-4 py-3 flex items-center gap-2 flex-wrap header-compact-v2",
+      "interceptTopLeft": "main-header header-sticky card-solid px-4 py-3 flex items-center gap-2 flex-wrap header-compact-v2",
+      "policyInsets": {
+        "width": 390,
+        "height": 844,
+        "stableHeight": 788,
+        "safeAreaInset": {
+          "top": 0,
+          "bottom": 0,
+          "left": 0,
+          "right": 0
+        },
+        "contentSafeAreaInset": {
+          "top": 56,
+          "bottom": 0,
+          "left": 0,
+          "right": 0
+        }
+      },
+      "insideSafeArea": {
+        "left": true,
+        "right": true,
+        "top": true,
+        "bottom": true
+      },
+      "pxInsideNativeRight": 0.0,
+      "pxInsideNativeLeft": 0.0,
+      "pxInsideNativeTop": 0.0,
+      "pxInsideNativeBottom": 0.0,
+      "gapToSafeRight": 6,
+      "hitMin44": true,
+      "visual28_34": true,
+      "noWebControlInNativeRight": true,
+      "centerHitsButton": true,
+      "topZoneFree": true,
+      "slotAsExpected": true,
+      "visualInSafeArea": true,
+      "checks": {
+        "insideBothAxes": true,
+        "hitMin44": true,
+        "visual28_34": true,
+        "noHOverflow": true,
+        "noWebControlInNativeRight": true,
+        "centerHitsButton": true,
+        "slotAsExpected": true,
+        "topZoneFree": true,
+        "visualInSafeArea": true
+      },
+      "ok": true
+    },
+    {
+      "tag": "390_csa56_float_right44",
+      "gate": true,
+      "legacyHeader": false,
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "safeAreaInset": {
+        "top": 0,
+        "bottom": 0,
+        "left": 0,
+        "right": 44
+      },
+      "contentSafeAreaInset": {
+        "top": 56,
+        "bottom": 0,
+        "left": 0,
+        "right": 0
+      },
+      "expectedSlot": "float",
+      "safeEdge": {
+        "left": 0,
+        "right": 346,
+        "top": 56,
+        "bottom": 844
+      },
+      "btn": {
+        "x": 291,
+        "y": 62,
+        "w": 49,
+        "h": 44,
+        "right": 340,
+        "bottom": 106
+      },
+      "visual": {
+        "x": 300,
+        "y": 68,
+        "right": 332,
+        "bottom": 100
+      },
+      "visualCss": {
+        "w": 32,
+        "h": 32,
+        "radius": "50%",
+        "pe": "none"
+      },
+      "slot": "float",
+      "fsSlotFloatClass": true,
+      "hiddenClass": false,
+      "fsReason": null,
+      "posFixed": true,
+      "margin": {
+        "top": "0px",
+        "right": "0px",
+        "bottom": "0px",
+        "left": "0px"
+      },
+      "headerRect": {
+        "x": 0,
+        "y": 0,
+        "w": 390,
+        "h": 209,
+        "right": 390
+      },
+      "headerPad": {
+        "top": "106px",
+        "right": "16px",
+        "left": "16px",
+        "bottom": "9.6px"
+      },
+      "headerCompact": true,
+      "headerChildren": [
+        {
+          "cls": "mobile-brand shrink-0",
+          "x": 16,
+          "right": 103,
+          "y": 116,
+          "bottom": 136,
+          "order": "0",
+          "paddingRight": "0px",
+          "display": "flex"
+        },
+        {
+          "cls": "header-title-wrap min-w-0",
+          "x": 0,
+          "right": 0,
+          "y": 0,
+          "bottom": 0,
+          "order": "0",
+          "paddingRight": "0px",
+          "display": "none"
+        },
+        {
+          "cls": "btn-ghost text-xs px-1.5 py-1 shrink-0 header-fs-btn fs-slot",
+          "x": 291,
+          "right": 340,
+          "y": 62,
+          "bottom": 106,
+          "order": "5",
+          "paddingRight": "14.4px",
+          "display": "flex"
+        },
+        {
+          "cls": "header-scope-row",
+          "x": 109,
+          "right": 374,
+          "y": 106,
+          "bottom": 146,
+          "order": "1",
+          "paddingRight": "0px",
+          "display": "flex"
+        },
+        {
+          "cls": "mobile-topnav",
+          "x": 16,
+          "right": 374,
+          "y": 151,
+          "bottom": 198,
+          "order": "10",
+          "paddingRight": "0px",
+          "display": "flex"
+        }
+      ],
+      "hOverflow": false,
+      "scrollWidth": 390,
+      "tgVars": {
+        "safeR": "44px",
+        "safeL": "0px",
+        "csaR": "0px",
+        "csaL": "0px",
+        "csaT": "56px",
+        "safeT": "0px"
+      },
+      "ariaLabel": "На весь экран",
+      "ariaPressed": "false",
+      "title": "На весь экран",
+      "interceptBtnCenter": "header-fs-btn",
+      "interceptNativeRight": "main-header header-sticky card-solid px-4 py-3 flex items-center gap-2 flex-wrap header-compact-v2",
+      "interceptNativeLeft": "main-header header-sticky card-solid px-4 py-3 flex items-center gap-2 flex-wrap header-compact-v2",
+      "interceptTopRight": "main-header header-sticky card-solid px-4 py-3 flex items-center gap-2 flex-wrap header-compact-v2",
+      "interceptTopLeft": "main-header header-sticky card-solid px-4 py-3 flex items-center gap-2 flex-wrap header-compact-v2",
+      "policyInsets": {
+        "width": 390,
+        "height": 844,
+        "stableHeight": 788,
+        "safeAreaInset": {
+          "top": 0,
+          "bottom": 0,
+          "left": 0,
+          "right": 44
+        },
+        "contentSafeAreaInset": {
+          "top": 56,
+          "bottom": 0,
+          "left": 0,
+          "right": 0
+        }
+      },
+      "insideSafeArea": {
+        "left": true,
+        "right": true,
+        "top": true,
+        "bottom": true
+      },
+      "pxInsideNativeRight": 0.0,
+      "pxInsideNativeLeft": 0.0,
+      "pxInsideNativeTop": 0.0,
+      "pxInsideNativeBottom": 0.0,
+      "gapToSafeRight": 6,
+      "hitMin44": true,
+      "visual28_34": true,
+      "noWebControlInNativeRight": true,
+      "centerHitsButton": true,
+      "topZoneFree": true,
+      "slotAsExpected": true,
+      "visualInSafeArea": true,
+      "checks": {
+        "insideBothAxes": true,
+        "hitMin44": true,
+        "visual28_34": true,
+        "noHOverflow": true,
+        "noWebControlInNativeRight": true,
+        "centerHitsButton": true,
+        "slotAsExpected": true,
+        "topZoneFree": true,
+        "visualInSafeArea": true
+      },
+      "ok": true
+    },
+    {
+      "tag": "diag_667x375_right44_legacy",
+      "gate": false,
+      "legacyHeader": true,
+      "viewport": {
+        "width": 667,
+        "height": 375
+      },
+      "safeAreaInset": {
+        "top": 20,
+        "bottom": 0,
+        "left": 0,
+        "right": 44
+      },
+      "contentSafeAreaInset": {
+        "top": 0,
+        "bottom": 0,
+        "left": 0,
+        "right": 0
+      },
+      "expectedSlot": "inline",
+      "safeEdge": {
+        "left": 0,
+        "right": 623,
+        "top": 20,
+        "bottom": 375
+      },
+      "btn": {
+        "x": 602,
+        "y": 102,
+        "w": 49,
+        "h": 36,
+        "right": 651,
+        "bottom": 138
+      },
+      "visual": {
+        "x": 611,
+        "y": 104,
+        "right": 643,
+        "bottom": 136
+      },
+      "visualCss": {
+        "w": 32,
+        "h": 32,
+        "radius": "50%",
+        "pe": "none"
+      },
+      "slot": "inline",
+      "fsSlotFloatClass": false,
+      "hiddenClass": false,
+      "fsReason": null,
+      "posFixed": false,
+      "margin": {
+        "top": "0px",
+        "right": "0px",
+        "bottom": "0px",
+        "left": "0px"
+      },
+      "headerRect": {
+        "x": 0,
+        "y": 0,
+        "w": 667,
+        "h": 151,
+        "right": 667
+      },
+      "headerPad": {
+        "top": "12px",
+        "right": "16px",
+        "left": "16px",
+        "bottom": "12px"
+      },
+      "headerCompact": false,
+      "headerChildren": [
+        {
+          "cls": "mobile-brand shrink-0",
+          "x": 16,
+          "right": 103,
+          "y": 21,
+          "bottom": 41,
+          "order": "0",
+          "paddingRight": "0px",
+          "display": "flex"
+        },
+        {
+          "cls": "header-title-wrap min-w-0",
+          "x": 111,
+          "right": 308,
+          "y": 21,
+          "bottom": 41,
+          "order": "0",
+          "paddingRight": "0px",
+          "display": "block"
+        },
+        {
+          "cls": "btn-ghost text-xs px-1.5 py-1 shrink-0 header-fs-btn fs-slot",
+          "x": 602,
+          "right": 651,
+          "y": 102,
+          "bottom": 138,
+          "order": "99",
+          "paddingRight": "14.4px",
+          "display": "block"
+        },
+        {
+          "cls": "header-scope-row",
+          "x": 0,
+          "right": 0,
+          "y": 0,
+          "bottom": 0,
+          "order": "0",
+          "paddingRight": "0px",
+          "display": "contents"
+        },
+        {
+          "cls": "mobile-topnav",
+          "x": 16,
+          "right": 651,
+          "y": 59,
+          "bottom": 94,
+          "order": "0",
+          "paddingRight": "0px",
+          "display": "flex"
+        }
+      ],
+      "hOverflow": false,
+      "scrollWidth": 667,
+      "tgVars": {
+        "safeR": "44px",
+        "safeL": "0px",
+        "csaR": "0px",
+        "csaL": "0px",
+        "csaT": "0px",
+        "safeT": "20px"
+      },
+      "ariaLabel": "На весь экран",
+      "ariaPressed": "false",
+      "title": "На весь экран",
+      "interceptBtnCenter": "header-fs-btn",
+      "interceptNativeRight": "main-header header-sticky card-solid px-4 py-3 flex items-center gap-2 flex-wrap",
+      "interceptNativeLeft": "main-header header-sticky card-solid px-4 py-3 flex items-center gap-2 flex-wrap",
+      "interceptTopRight": "main-header header-sticky card-solid px-4 py-3 flex items-center gap-2 flex-wrap",
+      "interceptTopLeft": "main-header header-sticky card-solid px-4 py-3 flex items-center gap-2 flex-wrap",
+      "policyInsets": {
+        "width": 667,
+        "height": 375,
+        "stableHeight": 319,
+        "safeAreaInset": {
+          "top": 20,
+          "bottom": 0,
+          "left": 0,
+          "right": 44
+        },
+        "contentSafeAreaInset": {
+          "top": 0,
+          "bottom": 0,
+          "left": 0,
+          "right": 0
+        }
+      },
+      "insideSafeArea": {
+        "left": true,
+        "right": false,
+        "top": true,
+        "bottom": true
+      },
+      "pxInsideNativeRight": 28,
+      "pxInsideNativeLeft": 0.0,
+      "pxInsideNativeTop": 0.0,
+      "pxInsideNativeBottom": 0.0,
+      "gapToSafeRight": -28,
+      "hitMin44": false,
+      "visual28_34": true,
+      "noWebControlInNativeRight": true,
+      "centerHitsButton": true,
+      "topZoneFree": true,
+      "slotAsExpected": true,
+      "visualInSafeArea": false,
+      "checks": {
+        "insideBothAxes": false,
+        "hitMin44": false,
+        "visual28_34": true,
+        "noHOverflow": true,
+        "noWebControlInNativeRight": true,
+        "centerHitsButton": true,
+        "slotAsExpected": true,
+        "topZoneFree": true,
+        "visualInSafeArea": false
+      },
+      "ok": false
+    },
+    {
+      "tag": "diag_320x700_right44_legacy",
+      "gate": false,
+      "legacyHeader": true,
+      "viewport": {
+        "width": 320,
+        "height": 700
+      },
+      "safeAreaInset": {
+        "top": 0,
+        "bottom": 0,
+        "left": 0,
+        "right": 44
+      },
+      "contentSafeAreaInset": {
+        "top": 0,
+        "bottom": 0,
+        "left": 0,
+        "right": 0
+      },
+      "expectedSlot": "inline",
+      "safeEdge": {
+        "left": 0,
+        "right": 276,
+        "top": 0,
+        "bottom": 700
+      },
+      "btn": {
+        "x": 255,
+        "y": 143,
+        "w": 49,
+        "h": 36,
+        "right": 304,
+        "bottom": 179
+      },
+      "visual": {
+        "x": 266,
+        "y": 147,
+        "right": 294,
+        "bottom": 175
+      },
+      "visualCss": {
+        "w": 28,
+        "h": 28,
+        "radius": "50%",
+        "pe": "none"
+      },
+      "slot": "inline",
+      "fsSlotFloatClass": false,
+      "hiddenClass": false,
+      "fsReason": null,
+      "posFixed": false,
+      "margin": {
+        "top": "0px",
+        "right": "0px",
+        "bottom": "0px",
+        "left": "0px"
+      },
+      "headerRect": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 192,
+        "right": 320
+      },
+      "headerPad": {
+        "top": "12px",
+        "right": "16px",
+        "left": "16px",
+        "bottom": "12px"
+      },
+      "headerCompact": false,
+      "headerChildren": [
+        {
+          "cls": "mobile-brand shrink-0",
+          "x": 16,
+          "right": 103,
+          "y": 12,
+          "bottom": 32,
+          "order": "0",
+          "paddingRight": "0px",
+          "display": "flex"
+        },
+        {
+          "cls": "header-title-wrap min-w-0",
+          "x": 111,
+          "right": 304,
+          "y": 12,
+          "bottom": 32,
+          "order": "0",
+          "paddingRight": "0px",
+          "display": "block"
+        },
+        {
+          "cls": "btn-ghost text-xs px-1.5 py-1 shrink-0 header-fs-btn fs-slot",
+          "x": 255,
+          "right": 304,
+          "y": 143,
+          "bottom": 179,
+          "order": "99",
+          "paddingRight": "14.4px",
+          "display": "block"
+        },
+        {
+          "cls": "header-scope-row",
+          "x": 0,
+          "right": 0,
+          "y": 0,
+          "bottom": 0,
+          "order": "0",
+          "paddingRight": "0px",
+          "display": "contents"
+        },
+        {
+          "cls": "mobile-topnav",
+          "x": 16,
+          "right": 304,
+          "y": 88,
+          "bottom": 135,
+          "order": "0",
+          "paddingRight": "0px",
+          "display": "flex"
+        }
+      ],
+      "hOverflow": false,
+      "scrollWidth": 320,
+      "tgVars": {
+        "safeR": "44px",
+        "safeL": "0px",
+        "csaR": "0px",
+        "csaL": "0px",
+        "csaT": "0px",
+        "safeT": "0px"
+      },
+      "ariaLabel": "На весь экран",
+      "ariaPressed": "false",
+      "title": "На весь экран",
+      "interceptBtnCenter": "header-fs-btn",
+      "interceptNativeRight": "main-header header-sticky card-solid px-4 py-3 flex items-center gap-2 flex-wrap",
+      "interceptNativeLeft": "main-header header-sticky card-solid px-4 py-3 flex items-center gap-2 flex-wrap",
+      "interceptTopRight": "main-header header-sticky card-solid px-4 py-3 flex items-center gap-2 flex-wrap",
+      "interceptTopLeft": "msr",
+      "policyInsets": {
+        "width": 320,
+        "height": 700,
+        "stableHeight": 644,
+        "safeAreaInset": {
+          "top": 0,
+          "bottom": 0,
+          "left": 0,
+          "right": 44
+        },
+        "contentSafeAreaInset": {
+          "top": 0,
+          "bottom": 0,
+          "left": 0,
+          "right": 0
+        }
+      },
+      "insideSafeArea": {
+        "left": true,
+        "right": false,
+        "top": true,
+        "bottom": true
+      },
+      "pxInsideNativeRight": 28,
+      "pxInsideNativeLeft": 0.0,
+      "pxInsideNativeTop": 0.0,
+      "pxInsideNativeBottom": 0.0,
+      "gapToSafeRight": -28,
+      "hitMin44": false,
+      "visual28_34": true,
+      "noWebControlInNativeRight": true,
+      "centerHitsButton": true,
+      "topZoneFree": true,
+      "slotAsExpected": true,
+      "visualInSafeArea": false,
+      "checks": {
+        "insideBothAxes": false,
+        "hitMin44": false,
+        "visual28_34": true,
+        "noHOverflow": true,
+        "noWebControlInNativeRight": true,
+        "centerHitsButton": true,
+        "slotAsExpected": true,
+        "topZoneFree": true,
+        "visualInSafeArea": false
+      },
+      "ok": false
+    },
+    {
+      "tag": "diag_390_csa35_inline",
+      "gate": false,
+      "legacyHeader": false,
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "safeAreaInset": {
+        "top": 35,
+        "bottom": 0,
+        "left": 0,
+        "right": 0
+      },
+      "contentSafeAreaInset": {
+        "top": 0,
+        "bottom": 0,
+        "left": 0,
+        "right": 0
+      },
+      "expectedSlot": "inline",
+      "safeEdge": {
+        "left": 0,
+        "right": 390,
+        "top": 35,
+        "bottom": 844
+      },
+      "btn": {
+        "x": 325,
+        "y": 45,
+        "w": 49,
+        "h": 44,
+        "right": 374,
+        "bottom": 89
+      },
+      "visual": {
+        "x": 334,
+        "y": 51,
+        "right": 366,
+        "bottom": 83
+      },
+      "visualCss": {
+        "w": 32,
+        "h": 32,
+        "radius": "50%",
+        "pe": "none"
+      },
+      "slot": "inline",
+      "fsSlotFloatClass": false,
+      "hiddenClass": false,
+      "fsReason": null,
+      "posFixed": false,
+      "margin": {
+        "top": "0px",
+        "right": "0px",
+        "bottom": "0px",
+        "left": "0px"
+      },
+      "headerRect": {
+        "x": 0,
+        "y": 0,
+        "w": 390,
+        "h": 151,
+        "right": 390
+      },
+      "headerPad": {
+        "top": "44.6px",
+        "right": "16px",
+        "left": "16px",
+        "bottom": "9.6px"
+      },
+      "headerCompact": true,
+      "headerChildren": [
+        {
+          "cls": "mobile-brand shrink-0",
+          "x": 16,
+          "right": 103,
+          "y": 57,
+          "bottom": 77,
+          "order": "0",
+          "paddingRight": "0px",
+          "display": "flex"
+        },
+        {
+          "cls": "header-title-wrap min-w-0",
+          "x": 0,
+          "right": 0,
+          "y": 0,
+          "bottom": 0,
+          "order": "0",
+          "paddingRight": "0px",
+          "display": "none"
+        },
+        {
+          "cls": "btn-ghost text-xs px-1.5 py-1 shrink-0 header-fs-btn fs-slot",
+          "x": 325,
+          "right": 374,
+          "y": 45,
+          "bottom": 89,
+          "order": "5",
+          "paddingRight": "14.4px",
+          "display": "flex"
+        },
+        {
+          "cls": "header-scope-row",
+          "x": 109,
+          "right": 319,
+          "y": 47,
+          "bottom": 87,
+          "order": "1",
+          "paddingRight": "0px",
+          "display": "flex"
+        },
+        {
+          "cls": "mobile-topnav",
+          "x": 16,
+          "right": 374,
+          "y": 93,
+          "bottom": 141,
+          "order": "10",
+          "paddingRight": "0px",
+          "display": "flex"
+        }
+      ],
+      "hOverflow": false,
+      "scrollWidth": 390,
+      "tgVars": {
+        "safeR": "0px",
+        "safeL": "0px",
+        "csaR": "0px",
+        "csaL": "0px",
+        "csaT": "0px",
+        "safeT": "35px"
+      },
+      "ariaLabel": "На весь экран",
+      "ariaPressed": "false",
+      "title": "На весь экран",
+      "interceptBtnCenter": "header-fs-btn",
+      "interceptNativeRight": "main-header header-sticky card-solid px-4 py-3 flex items-center gap-2 flex-wrap header-compact-v2",
+      "interceptNativeLeft": "main-header header-sticky card-solid px-4 py-3 flex items-center gap-2 flex-wrap header-compact-v2",
+      "interceptTopRight": "main-header header-sticky card-solid px-4 py-3 flex items-center gap-2 flex-wrap header-compact-v2",
+      "interceptTopLeft": "main-header header-sticky card-solid px-4 py-3 flex items-center gap-2 flex-wrap header-compact-v2",
+      "policyInsets": {
+        "width": 390,
+        "height": 844,
+        "stableHeight": 788,
+        "safeAreaInset": {
+          "top": 35,
+          "bottom": 0,
+          "left": 0,
+          "right": 0
+        },
+        "contentSafeAreaInset": {
+          "top": 0,
+          "bottom": 0,
+          "left": 0,
+          "right": 0
+        }
+      },
+      "insideSafeArea": {
+        "left": true,
+        "right": true,
+        "top": true,
+        "bottom": true
+      },
+      "pxInsideNativeRight": 0.0,
+      "pxInsideNativeLeft": 0.0,
+      "pxInsideNativeTop": 0.0,
+      "pxInsideNativeBottom": 0.0,
+      "gapToSafeRight": 16,
+      "hitMin44": true,
+      "visual28_34": true,
+      "noWebControlInNativeRight": true,
+      "centerHitsButton": true,
+      "topZoneFree": true,
+      "slotAsExpected": true,
+      "visualInSafeArea": true,
+      "checks": {
+        "insideBothAxes": true,
+        "hitMin44": true,
+        "visual28_34": true,
+        "noHOverflow": true,
+        "noWebControlInNativeRight": true,
+        "centerHitsButton": true,
+        "slotAsExpected": true,
+        "topZoneFree": true,
+        "visualInSafeArea": true
+      },
+      "ok": true
+    },
+    {
+      "tag": "diag_390_left44_potrait",
+      "gate": false,
+      "legacyHeader": false,
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "safeAreaInset": {
+        "top": 20,
+        "bottom": 0,
+        "left": 44,
+        "right": 0
+      },
+      "contentSafeAreaInset": {
+        "top": 0,
+        "bottom": 0,
+        "left": 0,
+        "right": 0
+      },
+      "expectedSlot": "inline",
+      "safeEdge": {
+        "left": 44,
+        "right": 390,
+        "top": 20,
+        "bottom": 844
+      },
+      "btn": {
+        "x": 325,
+        "y": 30,
+        "w": 49,
+        "h": 44,
+        "right": 374,
+        "bottom": 74
+      },
+      "visual": {
+        "x": 334,
+        "y": 36,
+        "right": 366,
+        "bottom": 68
+      },
+      "visualCss": {
+        "w": 32,
+        "h": 32,
+        "radius": "50%",
+        "pe": "none"
+      },
+      "slot": "inline",
+      "fsSlotFloatClass": false,
+      "hiddenClass": false,
+      "fsReason": null,
+      "posFixed": false,
+      "margin": {
+        "top": "0px",
+        "right": "0px",
+        "bottom": "0px",
+        "left": "0px"
+      },
+      "headerRect": {
+        "x": 0,
+        "y": 0,
+        "w": 390,
+        "h": 136,
+        "right": 390
+      },
+      "headerPad": {
+        "top": "29.6px",
+        "right": "16px",
+        "left": "16px",
+        "bottom": "9.6px"
+      },
+      "headerCompact": true,
+      "headerChildren": [
+        {
+          "cls": "mobile-brand shrink-0",
+          "x": 16,
+          "right": 103,
+          "y": 42,
+          "bottom": 62,
+          "order": "0",
+          "paddingRight": "0px",
+          "display": "flex"
+        },
+        {
+          "cls": "header-title-wrap min-w-0",
+          "x": 0,
+          "right": 0,
+          "y": 0,
+          "bottom": 0,
+          "order": "0",
+          "paddingRight": "0px",
+          "display": "none"
+        },
+        {
+          "cls": "btn-ghost text-xs px-1.5 py-1 shrink-0 header-fs-btn fs-slot",
+          "x": 325,
+          "right": 374,
+          "y": 30,
+          "bottom": 74,
+          "order": "5",
+          "paddingRight": "14.4px",
+          "display": "flex"
+        },
+        {
+          "cls": "header-scope-row",
+          "x": 109,
+          "right": 319,
+          "y": 32,
+          "bottom": 72,
+          "order": "1",
+          "paddingRight": "0px",
+          "display": "flex"
+        },
+        {
+          "cls": "mobile-topnav",
+          "x": 16,
+          "right": 374,
+          "y": 78,
+          "bottom": 126,
+          "order": "10",
+          "paddingRight": "0px",
+          "display": "flex"
+        }
+      ],
+      "hOverflow": false,
+      "scrollWidth": 390,
+      "tgVars": {
+        "safeR": "0px",
+        "safeL": "44px",
+        "csaR": "0px",
+        "csaL": "0px",
+        "csaT": "0px",
+        "safeT": "20px"
+      },
+      "ariaLabel": "На весь экран",
+      "ariaPressed": "false",
+      "title": "На весь экран",
+      "interceptBtnCenter": "header-fs-btn",
+      "interceptNativeRight": "main-header header-sticky card-solid px-4 py-3 flex items-center gap-2 flex-wrap header-compact-v2",
+      "interceptNativeLeft": "main-header header-sticky card-solid px-4 py-3 flex items-center gap-2 flex-wrap header-compact-v2",
+      "interceptTopRight": "main-header header-sticky card-solid px-4 py-3 flex items-center gap-2 flex-wrap header-compact-v2",
+      "interceptTopLeft": "main-header header-sticky card-solid px-4 py-3 flex items-center gap-2 flex-wrap header-compact-v2",
+      "policyInsets": {
+        "width": 390,
+        "height": 844,
+        "stableHeight": 788,
+        "safeAreaInset": {
+          "top": 20,
+          "bottom": 0,
+          "left": 44,
+          "right": 0
+        },
+        "contentSafeAreaInset": {
+          "top": 0,
+          "bottom": 0,
+          "left": 0,
+          "right": 0
+        }
+      },
+      "insideSafeArea": {
+        "left": true,
+        "right": true,
+        "top": true,
+        "bottom": true
+      },
+      "pxInsideNativeRight": 0.0,
+      "pxInsideNativeLeft": 0.0,
+      "pxInsideNativeTop": 0.0,
+      "pxInsideNativeBottom": 0.0,
+      "gapToSafeRight": 16,
+      "hitMin44": true,
+      "visual28_34": true,
+      "noWebControlInNativeRight": true,
+      "centerHitsButton": true,
+      "topZoneFree": true,
+      "slotAsExpected": true,
+      "visualInSafeArea": true,
+      "checks": {
+        "insideBothAxes": true,
+        "hitMin44": true,
+        "visual28_34": true,
+        "noHOverflow": true,
+        "noWebControlInNativeRight": true,
+        "centerHitsButton": true,
+        "slotAsExpected": true,
+        "topZoneFree": true,
+        "visualInSafeArea": true
+      },
+      "ok": true
+    },
+    {
+      "tag": "diag_320x700_lr44_extreme",
+      "gate": false,
+      "legacyHeader": false,
+      "viewport": {
+        "width": 320,
+        "height": 700
+      },
+      "safeAreaInset": {
+        "top": 20,
+        "bottom": 0,
+        "left": 44,
+        "right": 44
+      },
+      "contentSafeAreaInset": {
+        "top": 0,
+        "bottom": 0,
+        "left": 0,
+        "right": 0
+      },
+      "expectedSlot": "inline",
+      "safeEdge": {
+        "left": 44,
+        "right": 276,
+        "top": 20,
+        "bottom": 700
+      },
+      "btn": {
+        "x": 255,
+        "y": 30,
+        "w": 49,
+        "h": 44,
+        "right": 304,
+        "bottom": 74
+      },
+      "visual": {
+        "x": 266,
+        "y": 38,
+        "right": 294,
+        "bottom": 66
+      },
+      "visualCss": {
+        "w": 28,
+        "h": 28,
+        "radius": "50%",
+        "pe": "none"
+      },
+      "slot": "inline",
+      "fsSlotFloatClass": false,
+      "hiddenClass": false,
+      "fsReason": null,
+      "posFixed": false,
+      "margin": {
+        "top": "0px",
+        "right": "0px",
+        "bottom": "0px",
+        "left": "0px"
+      },
+      "headerRect": {
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 136,
+        "right": 320
+      },
+      "headerPad": {
+        "top": "29.6px",
+        "right": "16px",
+        "left": "16px",
+        "bottom": "9.6px"
+      },
+      "headerCompact": true,
+      "headerChildren": [
+        {
+          "cls": "mobile-brand shrink-0",
+          "x": 16,
+          "right": 103,
+          "y": 42,
+          "bottom": 62,
+          "order": "0",
+          "paddingRight": "0px",
+          "display": "flex"
+        },
+        {
+          "cls": "header-title-wrap min-w-0",
+          "x": 0,
+          "right": 0,
+          "y": 0,
+          "bottom": 0,
+          "order": "0",
+          "paddingRight": "0px",
+          "display": "none"
+        },
+        {
+          "cls": "btn-ghost text-xs px-1.5 py-1 shrink-0 header-fs-btn fs-slot",
+          "x": 255,
+          "right": 304,
+          "y": 30,
+          "bottom": 74,
+          "order": "5",
+          "paddingRight": "14.4px",
+          "display": "flex"
+        },
+        {
+          "cls": "header-scope-row",
+          "x": 109,
+          "right": 249,
+          "y": 32,
+          "bottom": 72,
+          "order": "1",
+          "paddingRight": "0px",
+          "display": "flex"
+        },
+        {
+          "cls": "mobile-topnav",
+          "x": 16,
+          "right": 304,
+          "y": 78,
+          "bottom": 126,
+          "order": "10",
+          "paddingRight": "0px",
+          "display": "flex"
+        }
+      ],
+      "hOverflow": false,
+      "scrollWidth": 320,
+      "tgVars": {
+        "safeR": "44px",
+        "safeL": "44px",
+        "csaR": "0px",
+        "csaL": "0px",
+        "csaT": "0px",
+        "safeT": "20px"
+      },
+      "ariaLabel": "На весь экран",
+      "ariaPressed": "false",
+      "title": "На весь экран",
+      "interceptBtnCenter": "header-fs-btn",
+      "interceptNativeRight": "main-header header-sticky card-solid px-4 py-3 flex items-center gap-2 flex-wrap header-compact-v2",
+      "interceptNativeLeft": "main-header header-sticky card-solid px-4 py-3 flex items-center gap-2 flex-wrap header-compact-v2",
+      "interceptTopRight": "main-header header-sticky card-solid px-4 py-3 flex items-center gap-2 flex-wrap header-compact-v2",
+      "interceptTopLeft": "main-header header-sticky card-solid px-4 py-3 flex items-center gap-2 flex-wrap header-compact-v2",
+      "policyInsets": {
+        "width": 320,
+        "height": 700,
+        "stableHeight": 644,
+        "safeAreaInset": {
+          "top": 20,
+          "bottom": 0,
+          "left": 44,
+          "right": 44
+        },
+        "contentSafeAreaInset": {
+          "top": 0,
+          "bottom": 0,
+          "left": 0,
+          "right": 0
+        }
+      },
+      "insideSafeArea": {
+        "left": true,
+        "right": false,
+        "top": true,
+        "bottom": true
+      },
+      "pxInsideNativeRight": 28,
+      "pxInsideNativeLeft": 0.0,
+      "pxInsideNativeTop": 0.0,
+      "pxInsideNativeBottom": 0.0,
+      "gapToSafeRight": -28,
+      "hitMin44": true,
+      "visual28_34": true,
+      "noWebControlInNativeRight": true,
+      "centerHitsButton": true,
+      "topZoneFree": true,
+      "slotAsExpected": true,
+      "visualInSafeArea": false,
+      "checks": {
+        "insideBothAxes": false,
+        "hitMin44": true,
+        "visual28_34": true,
+        "noHOverflow": true,
+        "noWebControlInNativeRight": true,
+        "centerHitsButton": true,
+        "slotAsExpected": true,
+        "topZoneFree": true,
+        "visualInSafeArea": false
+      },
+      "ok": false
+    }
+  ]
+}

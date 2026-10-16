@@ -1,0 +1,102 @@
+{
+ "editor_shots": [
+  "cover_editor_320x700.png",
+  "cover_editor_390x844.png",
+  "cover_editor_1440x900.png",
+  "analytics_dropdown_open_320x700.png",
+  "analytics_dropdown_open_390x844.png",
+  "more_menu_open_390x844.png"
+ ],
+ "u02": {
+  "320x700": {
+   "ddPresent": true,
+   "ddDisplay": "block",
+   "trigText": "Раздел:Обзор▾",
+   "tabsPresent": true,
+   "tabsDisplay": "block",
+   "tabsCount": 8
+  },
+  "320x700_options": [
+   "Обзор",
+   "Процессы",
+   "Запуски",
+   "Инциденты",
+   "Память и интеллект",
+   "Модели и расходы",
+   "Саммари"
+  ],
+  "390x844": {
+   "ddPresent": true,
+   "ddDisplay": "block",
+   "trigText": "Раздел:Обзор▾",
+   "tabsPresent": true,
+   "tabsDisplay": "block",
+   "tabsCount": 8
+  },
+  "390x844_options": [
+   "Обзор",
+   "Процессы",
+   "Запуски",
+   "Инциденты",
+   "Память и интеллект",
+   "Модели и расходы",
+   "Саммари"
+  ],
+  "1024x768": {
+   "ddPresent": true,
+   "ddDisplay": "none",
+   "trigText": "Раздел:Обзор▾",
+   "tabsPresent": true,
+   "tabsDisplay": "block",
+   "tabsCount": 8
+  }
+ },
+ "more": {
+  "open": true,
+  "items": [
+   "Справка",
+   "ИИ",
+   "Память",
+   "Доступы",
+   "PERMsoc"
+  ]
+ },
+ "glass": {
+  "modules": {
+   "dataGlass": 2,
+   "dataGlassHero": 0,
+   "lgPanel": 0,
+   "lgHero": 0,
+   "lgSoft": 0,
+   "lgSolid": 0,
+   "glassPanel": 0,
+   "heroLens": 0,
+   "scrollW": 1440,
+   "vw": 1440
+  },
+  "status": {
+   "dataGlass": 6,
+   "dataGlassHero": 2,
+   "lgPanel": 0,
+   "lgHero": 0,
+   "lgSoft": 0,
+   "lgSolid": 0,
+   "glassPanel": 0,
+   "heroLens": 1,
+   "scrollW": 1440,
+   "vw": 1440
+  },
+  "analytics": {
+   "dataGlass": 6,
+   "dataGlassHero": 0,
+   "lgPanel": 0,
+   "lgHero": 0,
+   "lgSoft": 0,
+   "lgSolid": 0,
+   "glassPanel": 3,
+   "heroLens": 0,
+   "scrollW": 1440,
+   "vw": 1440
+  }
+ }
+}
