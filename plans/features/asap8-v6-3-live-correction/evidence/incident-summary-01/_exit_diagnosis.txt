@@ -1,0 +1,98 @@
+INC-FIX-RESIDUAL (17.10.2026) — ДИАГНОЗ: что держало процесс живым после `bye`
+============================================================================
+
+Прод-факт 2.58.82 (release-25882-report §«Graceful stop», n=2 рестарта):
+    [shutdown] summary drain done | ... | elapsed_ms=2
+    [shutdown] bye | elapsed_ms=523
+    [betterstack] shutdown flush
+    … тишина 60 с …
+    systemd: State 'stop-sigterm' timed out. Killing.  (SIGKILL, Failed with result 'timeout')
+
+ГИПОТЕЗЫ, ПРОВЕРЕННЫЕ И ОТКЛОНЁННЫЕ
+------------------------------------
+1. BetterStack-флашер (services/betterstack_handler.py:215) — daemon=True
+   (`threading.Thread(..., daemon=True)`), close() ограничен timeout'ом → НЕ он.
+2. APScheduler / планировщики — AsyncIOScheduler в том же loop, `shutdown()`
+   отрабатывает (в журнале «SmartModule scheduler stopped») → НЕ они.
+3. Сигналы / uvicorn / aiogram-handle_signals — фикс INC-SUMMARY-01 подтверждён
+   прод-журналом (`signals=(2, 15)`, фазы дренажа, `bye`) → НЕ они.
+4. Осиротевшая внутренняя таска aiogram `Dispatcher._polling` — РЕАЛЬНЫЙ дефект
+   (см. ниже п.2), но процесса НЕ удерживала: её отменял cleanup `asyncio.run`
+   (`_cancel_all_tasks`), и она завершалась (лог «Polling stopped for bot …»
+   через 0.36 с ПОСЛЕ `bye` — именно из этого cleanup'а).
+5. Зависание в `loop.shutdown_default_executor()`/`_cancel_all_tasks` — НЕ оно:
+   в локальном полностековом репро `asyncio.run()` ЗАВЕРШАЛСЯ (см. before/after).
+
+КОРНЕВАЯ ПРИЧИНА (доказана локальным полностековым репро)
+---------------------------------------------------------
+Незакрытый aiosqlite-коннект основного `DatabaseService`:
+  * открыт в `on_startup` (`bot.py:290-291` в 2.58.82; после фикса — `bot.py:300`)
+    → `services/database.py:6056` (`aiosqlite.connect`);
+  * закрывать его было НЕКОМУ: `DatabaseService.close()` (`services/database.py:6942`)
+    вызывается только в тестах/CLI (`manage.py`, `scripts/*`, `debug_remote.py`);
+    в `on_shutdown` такого closer'а не было;
+  * worker-thread aiosqlite СОЗДАЁТСЯ НЕ-ДЕМОНОМ:
+    `.venv/Lib/site-packages/aiosqlite/core.py:90`
+        self._thread = Thread(target=_connection_worker_thread, args=(self._tx,))
+    (`daemon=True` не передаётся; версия aiosqlite 0.22.1);
+  * интерпретатор на выходе делает `threading._shutdown()`
+    (`threading.py:1602`) и ЖДЁТ все не-демон-треды → процесс живёт вечно →
+    systemd SIGKILL по `TimeoutStopSec=60`.
+
+Сопутствующий факт (не улика, но подтверждение механизма): тестовая
+инфраструктура знает ровно этот эффект и глушит его вручную —
+`conftest.py:8-12`: «Каждое такое соединение держит свой фоновый тред — если
+не закрыть, интерпретатор не выходит (процесс висит после summary)».
+
+УЛИКИ (воспроизведение, Windows/CPython 3.12, прод — тот же CPython 3.12)
+-------------------------------------------------------------------------
+(A) Полностековое репро (реальный `bot.main()`: uvicorn + on_startup + реальный
+    SQLite + реальный aiogram-polling в локальную заглушку Bot API; настоящий
+    SIGTERM процессу) — `_exit_fullstack_before.txt` (closer выключен =
+    пред-фиксовое поведение) и `_exit_fullstack_after.txt`:
+
+    BEFORE: child exited=False (убит по таймауту 90 с); в хвосте:
+        [child]   SQLITE#0 running=True thread_alive=True daemon=False
+        [child]   SQLITE#0 opened_at: … bot.py on_startup → database.py:6056 initialize
+        [child] 20.70s asyncio.run() finished | threads=[('MainThread', False),
+                  ('Thread-1 (_connection_worker_thread)', False)]
+        Timeout (0:00:25)!
+          Thread … most recent call first:
+            File "...\aiosqlite\core.py", line 59 in _connection_worker_thread
+          Thread … most recent call first:
+            File "...\threading.py", line 1602 in _shutdown   ← main ждёт тред
+    AFTER:  child exited=True rc=0; SIGTERM→main() = 0.92 s; процесс целиком
+            вышел за ~1.8 с; threads=[('MainThread', False)]; SQLITE#0
+            running=False thread_alive=False.
+
+(B) Микро-репро структуры тасок aiogram (`_exit_probe_polling_cancel.py`):
+    `polling.cancel()` + `await polling` завершает ТОЛЬКО внешнюю
+    `Dispatcher.start_polling`; внутренняя `Dispatcher._polling` остаётся живой
+    и продолжает long-poll («Connection established (tryings = 1)» ПОСЛЕ
+    отмены) — гасится лишь в cleanup `asyncio.run`. Прод-следствие: в журнале
+    «Polling stopped for bot …» появился через 0.36 с ПОСЛЕ `bye`, т.е. апдейты
+    обрабатывались уже после фазы `stopping`. Фикс: `dp.stop_polling()`
+    (bounded) — после него «Polling stopped» идёт ДО `bye`, а тасок aiogram в
+    loop'е не остаётся (тест `test_aiogram_polling_stopped_gracefully_no_orphan_task`).
+
+(В) Наблюдаемость (третья задача полосы): `SUMMARY_SHUTDOWN_SQLITE_LEFTOVER |
+    open=N` перед `bye` — если открытые коннекты когда-нибудь останутся снова,
+    причина видна в журнале, а не «тишиной» (в BEFORE-прогоне строка есть:
+    `open=1`).
+
+ФИКС (file:line)
+----------------
+* `bot.py` (`_runtime_sqlite_db` + `_close_runtime_sqlite_db`): владелец
+  соединения запоминается в `on_startup`, закрывается последним closer'ом
+  `on_shutdown` (`await _safe("sqlite_db", _close_runtime_sqlite_db)`).
+* `bot.py` (`_leftover_sqlite_connections` + строка перед `bye`): диагностика
+  остатка (read-only, ничего не закрывает за чужие коннекты).
+* `bot.py` (`_stop_polling_task` + вызов в `main()` finally): штатная
+  остановка polling через `dp.stop_polling()` с бюджетом 5 с и fallback'ом на
+  прежний `polling.cancel()`.
+
+СЕМАНТИКА НЕ ОСЛАБЛЕНА
+----------------------
+Фазы (`stopping` → `draining` → `finalized` → `bye`), бюджеты дренажа,
+терминал абортированных ранов, публикация/идемпотентность, orphan-recovery —
+не тронуты; добавлена только остановка ресурсов ПОСЛЕ дренажа и до `bye`.
