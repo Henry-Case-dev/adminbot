@@ -2188,13 +2188,39 @@ class DirectChatService:
                     dig_fired = True
                     user_blocks = self._insert_dig_result(user_blocks,
                                                           dig_block)
+            # ── SOUL-1 W10 (§5.1/5.3/5.9/5.14): смысловое поручение действия →
+            # capability ТЕКУЩЕГО чата (0 LLM-вызовов). Неготовый инструмент
+            # или существенно неоднозначное поручение → детерминированный
+            # честный ответ из управляемого шаблона реестра
+            # (`message.image_failure.*`/`message.image_request.clarify`);
+            # генерация и LLM при этом не запускаются вовсе.
+            _image_intent = None
+            try:
+                _cap_reply_msg = getattr(message, "reply_to_message", None)
+                _cap_reply_text = str(
+                    getattr(_cap_reply_msg, "text", None)
+                    or getattr(_cap_reply_msg, "caption", None) or "")
+                _cap_handled, _image_intent = \
+                    await self._image_capability_gate(
+                        chat_id, query, message, bot,
+                        reply_text=_cap_reply_text)
+                if _cap_handled:
+                    return
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                logger.warning("direct: image capability gate — обычный ход | "
+                               "chat=%s", chat_id, exc_info=True)
             # Раунд 10.23 (F5, ADR-1023-5 §D2): пре-гейт ключевиков генерации
             # изображений («Бот, нарисуй …») — генерация и отправка ДО Stage-1,
             # блок <image_result> для инъекции. НЕ зависит от tool_router
             # (spec §2.2: условие — только «модуль ON»); review iter1 Finding 4.
+            # SOUL-1 W10: регекс остаётся БЫСТРЫМ путём очевидных команд;
+            # смысловые формулировки без «бот, нарисуй» доходят до той же
+            # генерации через проверку согласованности после L1 (§5.10).
             image_block = await self._image_pre_gate_block(
                 chat_id, query, bot, message, user_id,
-                correlation_id=correlation_id)
+                correlation_id=correlation_id, intent=_image_intent)
             image_pre_gate_fired = bool(image_block)
             if image_block:
                 user_blocks = self._insert_dig_result(user_blocks, image_block)
@@ -2771,6 +2797,31 @@ class DirectChatService:
                         action=pre_action)
                 except Exception:
                     pass
+            # ── SOUL-1 W10 (§5.10/§5.14): дешёвая проверка согласованности
+            # решения L1 с реальным состоянием capability (0 LLM; TTL-кеш).
+            # Доступное действие, которое L1 не выбрал, выполняется тем же
+            # единственным путём в этом же ходу; недоступное — не обещается
+            # (правдивая пометка Writer'у). Ошибка проверки → обычный ход.
+            try:
+                _cap_block, _cap_fired, _cap_denied = \
+                    await self._l1_capability_consistency(
+                        chat_id, query, message, bot, l1_plan,
+                        intent=_image_intent,
+                        image_pre_gate_fired=image_pre_gate_fired,
+                        correlation_id=correlation_id)
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                _cap_block, _cap_fired, _cap_denied = "", False, ()
+                logger.warning("direct: capability consistency — обычный ход | "
+                               "chat=%s", chat_id, exc_info=True)
+            if _cap_block:
+                user_blocks = self._insert_dig_result(user_blocks, _cap_block)
+            if _cap_fired:
+                # Один путь генерации на ход: инструмент больше не
+                # объявляется, маркер прогона ставится (дубль исключён).
+                image_pre_gate_fired = True
+                image_enabled = False
             # ── SOUL-1 (W2, §4 п.1 + §5): при флаге ON весь system
             # собирается композером из тех же блоков и ровно один раз:
             # channel_contract → core → identity → lessons/style → plan.
@@ -2966,7 +3017,7 @@ class DirectChatService:
                             await self._l1_tool_subset(
                                 chat_id, correlation_id,
                                 bool(lore_enabled), bool(image_enabled),
-                                l1_plan)
+                                l1_plan, denied=_cap_denied)
                     if direct_l1_on:
                         raw = await self._l1_tool_phase(
                             payload, tool_ctx, query=query,
@@ -4002,12 +4053,17 @@ class DirectChatService:
         self._mark_turn_text_replied(chat_id)  # F6: текст в ходе есть
 
     async def _l1_tool_subset(self, chat_id: int, correlation_id, lore: bool,
-                              image: bool, l1_plan) -> tuple:
+                              image: bool, l1_plan, denied=()) -> tuple:
         """§1.4: resolved-подсет схем tools (единственный анонс для цикла).
         Возврат ``(schemas, rejected)``; ``[]`` → тулов нет; hallucinated/
         неактивные → drop + L1_CAPABILITY_REJECTED (D15); low_confidence →
-        capabilities НЕ исполняются (§1.3, честная пометка). Никогда не
-        бросает."""
+        capabilities НЕ исполняются (§1.3, честная пометка).
+
+        SOUL-1 W10 (§5.10/§5.18): ``denied`` — capability, которые в ЭТОМ чате
+        недоступны по реальному состоянию (нет ключа/модуль выключен/квота):
+        их инструменты не анонсируются, а отказ фиксируется наблюдаемым кодом
+        ``capability_not_ready`` (никакого «формально tool есть» без блокера).
+        Никогда не бросает."""
         try:
             schemas = active_tools(bool(lore), bool(image))
             announced = {t["function"]["name"] for t in schemas
@@ -4025,6 +4081,15 @@ class DirectChatService:
             resolved, rejected = _caps.resolve_capabilities(
                 plan.capabilities_needed or (), announced,
                 skip_capabilities=skip)
+            denied_caps = {str(c or "").strip().lower()
+                           for c in (denied or ()) if str(c or "").strip()}
+            if denied_caps:
+                blocked_tools: set[str] = set()
+                for cap in sorted(denied_caps):
+                    blocked_tools.update(_caps.CAPABILITY_TOOLS.get(cap, ()))
+                    rejected = tuple(rejected) + ((cap,
+                                                   _caps.REASON_NOT_READY),)
+                resolved = [t for t in resolved if t not in blocked_tools]
             for cap, reason in rejected:
                 _caps.emit_capability_rejected(
                     cap, reason, chat_id=chat_id, run_id=correlation_id)
@@ -6193,17 +6258,219 @@ class DirectChatService:
                            exc_info=True)
             return None
 
+    async def _image_capability_gate(self, chat_id: int, query: str, message,
+                                     bot, *, reply_text: str = ""
+                                     ) -> tuple[bool, object]:
+        """SOUL-1 W10 (§5.1/5.3/5.9/5.14): смысловое поручение → capability.
+
+        Дешёвая детерминированная проверка ДО платных стадий (0 LLM):
+        ``detect_action_intent`` распознаёт поручение создать изображение по
+        смыслу, затем состояние `image_generation` берётся из runtime-реестра
+        (`services/capability_registry` — реальные модуль/ключ/квота/провайдер
+        этого чата).
+
+        Возврат ``(handled, intent)``: ``handled=True`` — ответ уже отправлен
+        из УПРАВЛЯЕМОГО шаблона реестра (неготовый инструмент либо один
+        уточняющий вопрос при неоднозначности), ход завершается; ``False`` —
+        либо это не поручение изображения, либо capability готова и генерация
+        идёт существующим единственным путём. Fail-open: любая ошибка → False
+        (обычный ход, без выдуманных отказов).
+
+        ``forwarded`` (review-w10 F2): пересланное сообщение — чужие слова, не
+        поручение пользователя (детектор отдаёт не-поручение с наблюдаемой
+        причиной ``create_image_forwarded``)."""
+        from services import capability_registry as _capreg
+        try:
+            intent = _caps.detect_action_intent(
+                query, reply_text=reply_text, addressed=True,
+                forwarded=bool(_forward_source_of(message)))
+            if intent.intent != _caps.INTENT_CREATE_IMAGE:
+                return False, intent
+            if intent.confidence == _caps.CONFIDENCE_AMBIGUOUS:
+                # §5.9: ровно ОДИН короткий уточняющий вопрос вместо генерации.
+                text, block_id, _src = _capreg.clarify_text()
+                await _reply(bot, chat_id, text, message.message_id)
+                self._mark_turn_text_replied(chat_id)
+                logger.info("[direct] capability clarify | chat=%s | reason=%s "
+                            "| template=%s", chat_id, intent.reason, block_id)
+                _capreg.emit_capability_event(
+                    _capreg.CapabilityState(
+                        capability_id="image_generation",
+                        status=_capreg.STATUS_UNKNOWN,
+                        reason_code=intent.reason),
+                    outcome="skipped", chat_id=chat_id, template_id=block_id)
+                return True, intent
+            state = await _capreg.resolve("image_generation", chat_id)
+            if not state.available:
+                # §5.14: «не умею» только после проверки — и с реальной
+                # причиной (выключено/нет ключа/провайдер/квота), в голосе
+                # бота, из редактируемого Factory Default-шаблона.
+                text, block_id, _src = _capreg.status_message(state)
+                await _reply(bot, chat_id, text, message.message_id)
+                self._mark_turn_text_replied(chat_id)
+                logger.info(
+                    "[direct] capability not ready | chat=%s | cap=%s | "
+                    "status=%s | reason=%s | template=%s",
+                    chat_id, state.capability_id, state.status,
+                    state.reason_code, block_id)
+                _capreg.emit_capability_event(state, outcome="failed",
+                                              chat_id=chat_id,
+                                              template_id=block_id)
+                return True, intent
+            return False, intent
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger.warning("direct: capability gate failed — обычный ход | "
+                           "chat=%s", chat_id, exc_info=True)
+            return False, None
+
+    async def _l1_capability_consistency(self, chat_id: int, query: str,
+                                         message, bot, l1_plan, *,
+                                         intent, image_pre_gate_fired: bool,
+                                         correlation_id: str | None = None
+                                         ) -> tuple[str, bool, tuple]:
+        """SOUL-1 W10 (§5.10/§5.14): дешёвая проверка согласованности решения
+        L1 с РЕАЛЬНЫМ состоянием capability (0 LLM; TTL-кеш реестра).
+
+        Возврат ``(блок_для_инъекции, генерация_выполнена, denied)``:
+
+        * L1 запросил capability, которой в этом чате нет → capability
+          отбрасывается (``denied``: инструмент не анонсируется, отказ с
+          наблюдаемым кодом) + правдивая пометка ``<capability_notice>``
+          Writer'у (обещать недоступное запрещено);
+        * смысловое поручение создать изображение + capability готова, но L1
+          выбрал обычный текст → маршрутизация исправляется В ЭТОМ ЖЕ ходу:
+          тот же единственный путь генерации/доставки, ровно один вызов
+          (наблюдаемый случай «доступное действие не было выбрано L1», §6.5);
+        * capability не готова → инъекция правдивого состояния, без вызова.
+
+        Никогда не бросает (любая ошибка → ``("", False, ())``)."""
+        from services import capability_registry as _capreg
+        block = ""
+        fired = False
+        denied: list[str] = []
+        try:
+            plan = l1_plan or _l1.L1Plan()
+            requested = tuple(str(c) for c in
+                              (getattr(plan, "capabilities_needed", ()) or ()))
+            state = None
+            if "image_generation" in requested or (
+                    intent is not None and intent.intent
+                    == _caps.INTENT_CREATE_IMAGE):
+                state = await _capreg.resolve("image_generation", chat_id)
+            if state is not None and not state.available:
+                blockers = _caps.intent_blockers(
+                    intent, capability_status=state.status)
+                if "image_generation" in requested:
+                    denied.append("image_generation")
+                    _capreg.emit_capability_event(
+                        state, outcome="failed", chat_id=chat_id,
+                        trace_id=correlation_id or "")
+                    try:
+                        _caps.emit_capability_rejected(
+                            "image_generation", state.reason_code or
+                            state.status, chat_id=chat_id,
+                            run_id=correlation_id)
+                    except Exception:      # pragma: no cover
+                        pass
+                if blockers:
+                    logger.info(
+                        "[direct] capability blockers | chat=%s | cap=%s | "
+                        "blockers=%s | status=%s", chat_id,
+                        state.capability_id, ",".join(blockers), state.status)
+                block = _capreg.notice_block(state)
+            elif (state is not None and state.available
+                    and not image_pre_gate_fired
+                    and intent is not None and intent.actionable
+                    and "image_generation" not in requested):
+                # §5.10: исправление маршрутизации в рамках хода — тот же
+                # единственный путь (генерация+доставка), без второго LLM.
+                # ``intent_confirms`` открывает смысловую дверь пре-гейта: L1
+                # выбрал обычный текст при однозначно доступном действии.
+                fired_block = await self._image_pre_gate_block(
+                    chat_id, query, bot, message,
+                    getattr(getattr(message, "from_user", None), "id", 0) or 0,
+                    correlation_id=correlation_id, intent=intent,
+                    intent_confirms=True)
+                if fired_block:
+                    block = fired_block
+                    fired = True
+                    blockers = _caps.intent_blockers(
+                        intent, capability_status=state.status)
+                    logger.info(
+                        "[direct] capability routing fixed | chat=%s | "
+                        "cap=%s | l1_capabilities=%s | reason=%s | blockers=%s",
+                        chat_id, state.capability_id, ",".join(requested),
+                        intent.reason, ",".join(blockers) or "-")
+                    _capreg.emit_capability_event(
+                        state, outcome="success", chat_id=chat_id,
+                        trace_id=correlation_id or "")
+                    try:
+                        from services.agentic_events import (
+                            L1_CAPABILITY_REJECTED, emit_agentic_event)
+                        emit_agentic_event(
+                            L1_CAPABILITY_REJECTED,
+                            capability="image_generation",
+                            reason="available_action_not_chosen" + (
+                                ":" + ",".join(blockers) if blockers else ""),
+                            chat_id=chat_id, run_id=correlation_id)
+                    except Exception:      # pragma: no cover
+                        pass
+            # Прочие запрошенные capability (§5.18): недоступное не обещаем —
+            # правдивая пометка Writer'у + наблюдаемый блокер. Инструмент НЕ
+            # прячем (анонс остаётся контрактом §1.4); отказ виден в trace.
+            # Выдуманные L1 имена сюда не попадают: их уже отбрасывает
+            # `resolve_capabilities` с честной пометкой (§1.4/D15).
+            others = [c for c in requested
+                      if c != "image_generation"
+                      and c.strip().lower() in _caps.CAPABILITY_TOOLS]
+            if others:
+                states = await _capreg.resolve_many(others, chat_id)
+                notes = [_capreg.notice_block(s) for s in states
+                         if not s.available]
+                notes = [n for n in notes if n]
+                if notes:
+                    block = (block + "\n" + "\n".join(notes)).strip()
+                for s in states:
+                    if not s.available:
+                        _capreg.emit_capability_event(
+                            s, outcome="failed", chat_id=chat_id,
+                            trace_id=correlation_id or "")
+            return block, fired, tuple(denied)
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger.warning("direct: capability consistency check failed | "
+                           "chat=%s", chat_id, exc_info=True)
+            return "", False, ()
+
     async def _image_pre_gate_block(self, chat_id: int, query: str, bot,
                                     message, user_id,
-                                    correlation_id: str | None = None) -> str:
+                                    correlation_id: str | None = None,
+                                    intent=None,
+                                    intent_confirms: bool = False) -> str:
         """Раунд 10.23 (F5, ADR-1023-5 §D2): пре-гейт ключевиков генерации
         изображений («Бот, нарисуй …»). Генерация+отправка ДО Stage-1, блок
         ``<image_result>`` для инъекции. `tool_choice` НЕ форсируется. Нет
         ключевика/модуль OFF/нет бота → ``""``. Fail-open — не бросает.
         F7 rework: ``correlation_id`` ответа прокидывается в ToolContext, чтобы
-        событие ``step='image'`` попало в дерево последнего вызова."""
+        событие ``step='image'`` попало в дерево последнего вызова.
+        SOUL-1 W10 fix (review-w10 F2): смысловой ``intent`` — VETO для
+        регекса: не-поручение (``actionable=False``: отрицание/«придумать»/
+        цитата/«я сам»/пересылка) подавляет быстрый путь. Дверь открывает
+        регекс ИЛИ ``intent_confirms=True`` (подтверждённое смысловое
+        поручение — путь согласованности §5.10, где L1 не выбрал доступное
+        действие: наблюдаемый случай §6.5 остаётся живым)."""
         from services import image_generation
-        if not image_generation.is_image_keyword(query):
+        # Смысловой вердикт главнее регекса: отрицание не может проиграть
+        # быстрому пути («Бот, нарисуй мем, но не рисуй» → генерации нет).
+        if intent is not None and not getattr(intent, "actionable", False):
+            return ""
+        if not (image_generation.is_image_keyword(query) or intent_confirms):
+            return ""
+        if _forward_source_of(message):
+            # Пересланное сообщение — чужие слова, не поручение пользователя.
             return ""
         if not await image_generation.resolve_module_enabled(chat_id):
             return ""
@@ -6225,7 +6492,10 @@ class DirectChatService:
                 if value is not None:
                     deps[name] = value
             return await image_generation.maybe_handle_keyword(
-                tool_ctx, query, **deps)
+                tool_ctx, query, **deps,
+                intent_confirmed=bool(intent is not None
+                                      and getattr(intent, "actionable",
+                                                  False)))
         except asyncio.CancelledError:
             raise
         except Exception:

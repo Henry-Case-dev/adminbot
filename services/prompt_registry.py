@@ -487,8 +487,111 @@ _CODE_BLOCKS: tuple[PromptBlockSpec, ...] = (
         "tests/test_unified_image_request_round1026.py:361"),
        "managed_message/image_failure", owner_lane="W10", speech=True,
        migration="managed_message", ui="catalog_pending",
-       note="Заменяется редактируемыми Factory Default-шаблонами по коду "
-            "отказа (SOUL-AMD.5.3); ключ каталога добавляет W10."),
+       note="W10: из пользовательского пути УБРАНА (SOUL-AMD.5.15) — "
+            "действуют шаблоны `message.image_failure.*` по реальному коду "
+            "отказа; эта заводская редакция остаётся в реестре как "
+            "исторический слепок/аварийный текст (не рендерится)."),
+    # ── W10 (SOUL-AMD.5.15/3.4): шаблоны отказа по РЕАЛЬНОМУ коду ───────────
+    # Одна фраза «на все случаи» (выше) больше НЕ рендерится в
+    # пользовательский путь: заменена управляемыми сообщениями по классу
+    # отказа. Каждый блок — отдельная редактируемая PG-ревизия
+    # (`content.image_failure.*`, запись через API реестра:
+    # `prompt_factory.write_speech_value`, история/откат/Factory Default).
+    _b("message.image_failure.disabled",
+       "Ответ пользователю, когда генерация изображений выключена "
+       "(модуль/лимит-запрет) — честно «выключено», без «я не умею».",
+       "message", "global_chat",
+       "services.chat_prompts.IMAGE_FAILURE_DISABLED_TEXT",
+       ("image_generation.maybe_handle_keyword", "tool_router._generate_image",
+        "direct_chat_service._image_capability_gate",
+        "tests/test_soul1_capability_fallbacks.py"),
+       "managed_message/image_failure", owner_lane="W10", speech=True,
+       migration="managed_message", ui="catalog_pending",
+       pg_key="content.image_failure.disabled",
+       note="Выбирается по статусу capability `disabled` (SOUL-AMD.5.12/5.15)."),
+    _b("message.image_failure.not_configured",
+       "Ответ пользователю, когда генератор не подключён (нет ключа/модели) — "
+       "отличается от выключенного модуля и от временного сбоя.",
+       "message", "global_chat",
+       "services.chat_prompts.IMAGE_FAILURE_NOT_CONFIGURED_TEXT",
+       ("image_generation.maybe_handle_keyword", "tool_router._generate_image",
+        "direct_chat_service._image_capability_gate",
+        "tests/test_soul1_capability_fallbacks.py"),
+       "managed_message/image_failure", owner_lane="W10", speech=True,
+       migration="managed_message", ui="catalog_pending",
+       pg_key="content.image_failure.not_configured",
+       note="Выбирается по статусу `not_configured` и по реальным кодам "
+            "`unauthorized`/`forbidden`/`payment_required`."),
+    _b("message.image_failure.temporarily_unavailable",
+       "Ответ пользователю при временном сбое провайдера (таймаут/сеть/5xx).",
+       "message", "global_chat",
+       "services.chat_prompts.IMAGE_FAILURE_TEMPORARY_TEXT",
+       ("image_generation.maybe_handle_keyword", "tool_router._generate_image",
+        "capability_registry.record_outcome",
+        "tests/test_soul1_capability_fallbacks.py"),
+       "managed_message/image_failure", owner_lane="W10", speech=True,
+       migration="managed_message", ui="catalog_pending",
+       pg_key="content.image_failure.temporarily_unavailable",
+       note="Выбирается по статусу `temporarily_unavailable` и транзиентным "
+            "кодам (`timeout`/`network`/`http_5xx`/`rate_limited`)."),
+    _b("message.image_failure.quota_exhausted",
+       "Ответ пользователю при исчерпанной суточной квоте генерации.",
+       "message", "global_chat",
+       "services.chat_prompts.IMAGE_FAILURE_QUOTA_TEXT",
+       ("image_generation.maybe_handle_keyword", "tool_router._generate_image",
+        "capability_registry._image_quota",
+        "tests/test_soul1_capability_fallbacks.py"),
+       "managed_message/image_failure", owner_lane="W10", speech=True,
+       migration="managed_message", ui="catalog_pending",
+       pg_key="content.image_failure.quota_exhausted",
+       note="Выбирается по статусу `quota_exhausted` и коду `budget` "
+            "(§17.2 `financial_limit_reached`)."),
+    _b("message.image_failure.unsupported",
+       "Ответ пользователю, когда запрос не по части генератора "
+       "(слишком большой/невалидный) — без обещаний.",
+       "message", "global_chat",
+       "services.chat_prompts.IMAGE_FAILURE_UNSUPPORTED_TEXT",
+       ("image_generation.maybe_handle_keyword", "tool_router._generate_image",
+        "tests/test_soul1_capability_fallbacks.py"),
+       "managed_message/image_failure", owner_lane="W10", speech=True,
+       migration="managed_message", ui="catalog_pending",
+       pg_key="content.image_failure.unsupported",
+       note="Выбирается по статусу `unsupported` и кодам `too_large`/"
+            "`empty_prompt`."),
+    _b("message.image_failure.unknown",
+       "Ответ пользователю при неклассифицированном отказе генерации "
+       "(честное «что-то сломалось», без выдуманных причин).",
+       "message", "global_chat",
+       "services.chat_prompts.IMAGE_FAILURE_UNKNOWN_TEXT",
+       ("image_generation.maybe_handle_keyword", "tool_router._generate_image",
+        "tests/test_soul1_capability_fallbacks.py"),
+       "managed_message/image_failure", owner_lane="W10", speech=True,
+       migration="managed_message", ui="catalog_pending",
+       pg_key="content.image_failure.unknown",
+       note="Дефолт для нераспознанных кодов отказа (не молчание)."),
+    _b("message.image_failure.delivery_failed",
+       "Ответ пользователю, когда картинка сгенерирована, но отправка в "
+       "Telegram не подтвердилась (успех ≠ доставка).",
+       "message", "global_chat",
+       "services.chat_prompts.IMAGE_FAILURE_DELIVERY_TEXT",
+       ("image_generation.maybe_handle_keyword", "tool_router._generate_image",
+        "tests/test_soul1_capability_fallbacks.py"),
+       "managed_message/image_failure", owner_lane="W10", speech=True,
+       migration="managed_message", ui="catalog_pending",
+       pg_key="content.image_failure.delivery_failed",
+       note="Выбирается по коду `send_failed`/`no_bot` (§17.2 "
+            "`delivery_unknown`): «отправил» не заявляется."),
+    _b("message.image_request.clarify",
+       "Один короткий уточняющий вопрос, когда поручение изображения "
+       "неоднозначно (есть действие, нет объекта/цели).",
+       "message", "global_chat",
+       "services.chat_prompts.IMAGE_REQUEST_CLARIFY_TEXT",
+       ("direct_chat_service._image_capability_gate",
+        "tests/test_soul1_capability_intent.py"),
+       "managed_message/clarification", owner_lane="W10", speech=True,
+       migration="managed_message", ui="catalog_pending",
+       pg_key="content.image_request_clarify",
+       note="SOUL-AMD.5.9: ровно один вопрос вместо генерации или молчания."),
     _b("message.clarify_media_target",
        "Один короткий уточняющий вопрос для media/transcription без цели.",
        "message", "code", "services.response_extent.CLARIFY_MEDIA_TARGET",
@@ -1154,7 +1257,11 @@ def factory_set_fingerprint() -> str:
 #: Последний бамп (W3, 17.10.2026): зарегистрирован блок
 #: ``style.policy.hint`` (короткий semantic hint Speech Style Policy, слой 10
 #: композера) — было ``381aa1f0a9e4`` (CORE-DOC W2), стало ``842a382c48f5``.
-FACTORY_SET_SHA256_12 = "842a382c48f5"
+#: Бамп W10 (17.10.2026): зарегистрированы 8 управляемых сообщений
+#: ``message.image_failure.*`` + ``message.image_request.clarify``
+#: (замена захардкоженной фразы отказа, SOUL-AMD.5.15/5.9) — стало
+#: ``96da8c7284a5``.
+FACTORY_SET_SHA256_12 = "96da8c7284a5"
 
 
 # ═══════════════════════════════════════════════════════════════════════════

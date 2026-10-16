@@ -1,0 +1,12 @@
+Мутации fix-pass (in-memory плагины pytest, репо НЕ правился)
+
+B (routing-fix согласованности убран):
+  плагин: OPENCODE_WORKFLOW_SCRATCH/w10-fix/w10_mut_b.py (no-op _l1_capability_consistency)
+  результат: 10 failed, 99 passed in 4.56s
+  поймано тестов: 10 (5/6 формулировок §5.1, routing-after-L1, маркер прогона, событие §6.5, capability-not-ready)
+
+F2 (смысловой veto пре-гейта снят):
+  плагин: OPENCODE_WORKFLOW_SCRATCH/w10-fix/w10_mut_veto.py (intent не доходит до _image_pre_gate_block)
+  результат: 13 failed, 96 passed in 4.70s
+  поймано: 13 (все новые FP-регресс-тесты, включая «нарисуй мем, но не рисуй» и «не надо, забудь», + прямое veto-тестирование)
+

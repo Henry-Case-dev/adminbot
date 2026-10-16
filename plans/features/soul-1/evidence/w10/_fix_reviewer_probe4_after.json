@@ -1,0 +1,46 @@
+[
+ {
+  "text": "Бот, сделай уборку в квартире",
+  "gen_calls": 0,
+  "sent": [],
+  "llm_steps": [
+   "l1_planner",
+   "l1_planner",
+   "l2_writer",
+   null
+  ]
+ },
+ {
+  "text": "Бот, сделай план на март",
+  "gen_calls": 0,
+  "sent": [],
+  "llm_steps": [
+   "l1_planner",
+   "l1_planner",
+   "l2_writer",
+   null
+  ]
+ },
+ {
+  "text": "Бот, сделай мемориальный пост про Петю",
+  "gen_calls": 0,
+  "sent": [],
+  "llm_steps": [
+   "l1_planner",
+   "l1_planner",
+   "l2_writer",
+   null
+  ]
+ },
+ {
+  "text": "Бот, надо сделать уборку в квартире",
+  "gen_calls": 0,
+  "sent": [],
+  "llm_steps": [
+   "l1_planner",
+   "l1_planner",
+   "l2_writer",
+   null
+  ]
+ }
+]

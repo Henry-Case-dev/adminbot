@@ -1,0 +1,364 @@
+{
+  "intents": [
+    {
+      "text": "Бот, нарисуй мем про двачеров",
+      "intent": "create_image",
+      "capability": "image_generation",
+      "confidence": "high",
+      "reason": "create_image_command",
+      "conceive_only": false,
+      "legacy_regex_matches": true
+    },
+    {
+      "text": "Бот, сделай мем про двачеров",
+      "intent": "create_image",
+      "capability": "image_generation",
+      "confidence": "high",
+      "reason": "create_image_command",
+      "conceive_only": false,
+      "legacy_regex_matches": false
+    },
+    {
+      "text": "Бот, надо сделать мем про двачеров",
+      "intent": "create_image",
+      "capability": "image_generation",
+      "confidence": "high",
+      "reason": "create_image_command",
+      "conceive_only": false,
+      "legacy_regex_matches": false
+    },
+    {
+      "text": "Сделай картинку из этой ситуации",
+      "intent": "create_image",
+      "capability": "image_generation",
+      "confidence": "high",
+      "reason": "create_image_command",
+      "conceive_only": false,
+      "legacy_regex_matches": false
+    },
+    {
+      "text": "Нужна инфографика по этим данным",
+      "intent": "create_image",
+      "capability": "image_generation",
+      "confidence": "high",
+      "reason": "create_image_need",
+      "conceive_only": false,
+      "legacy_regex_matches": false
+    },
+    {
+      "text": "Давай изобразим это в виде комикса",
+      "intent": "create_image",
+      "capability": "image_generation",
+      "confidence": "high",
+      "reason": "create_image_command",
+      "conceive_only": false,
+      "legacy_regex_matches": false
+    },
+    {
+      "text": "придумай концепт мема, рисовать не надо",
+      "intent": "",
+      "capability": "",
+      "confidence": "none",
+      "reason": "create_image_conceive_only",
+      "conceive_only": true,
+      "legacy_regex_matches": false
+    },
+    {
+      "text": "придумай текст мема, не рисуй",
+      "intent": "",
+      "capability": "",
+      "confidence": "none",
+      "reason": "create_image_conceive_only",
+      "conceive_only": true,
+      "legacy_regex_matches": false
+    },
+    {
+      "text": "Бот, нарисуй",
+      "intent": "create_image",
+      "capability": "image_generation",
+      "confidence": "high",
+      "reason": "create_image_command",
+      "conceive_only": false,
+      "legacy_regex_matches": true
+    },
+    {
+      "text": "Бот, сделай это",
+      "intent": "create_image",
+      "capability": "image_generation",
+      "confidence": "ambiguous",
+      "reason": "create_verb_without_object",
+      "conceive_only": false,
+      "legacy_regex_matches": false
+    },
+    {
+      "text": "Бот, поищи в интернете про двачеров",
+      "intent": "web_search",
+      "capability": "web_search",
+      "confidence": "high",
+      "reason": "search_request",
+      "conceive_only": false,
+      "legacy_regex_matches": false
+    },
+    {
+      "text": "Бот, проверь факт: земля круглая",
+      "intent": "fact_check",
+      "capability": "fact_check",
+      "confidence": "high",
+      "reason": "factcheck_request",
+      "conceive_only": false,
+      "legacy_regex_matches": false
+    }
+  ],
+  "statuses": [
+    {
+      "scenario": "ready",
+      "capability_id": "image_generation",
+      "title": "Генерация изображений",
+      "actions": [
+        "generate_image",
+        "deliver_image"
+      ],
+      "executor": "services.image_generation",
+      "tool": "generate_image",
+      "scope": "chat",
+      "inputs": [
+        "prompt"
+      ],
+      "gates": [
+        "flags.image_generation_module_enabled",
+        "keys.image_api_key",
+        "models.image_model",
+        "budget.image_calls"
+      ],
+      "status": "ready",
+      "reason_code": "",
+      "checked_at": "2026-10-16T15:40:33+00:00",
+      "source": "runtime",
+      "declared": true,
+      "tryable": true,
+      "last_result": "unknown",
+      "last_result_code": "",
+      "detail": "image_limit_ok"
+    },
+    {
+      "scenario": "disabled_module_off",
+      "capability_id": "image_generation",
+      "title": "Генерация изображений",
+      "actions": [
+        "generate_image",
+        "deliver_image"
+      ],
+      "executor": "services.image_generation",
+      "tool": "generate_image",
+      "scope": "chat",
+      "inputs": [
+        "prompt"
+      ],
+      "gates": [
+        "flags.image_generation_module_enabled",
+        "keys.image_api_key",
+        "models.image_model",
+        "budget.image_calls"
+      ],
+      "status": "disabled",
+      "reason_code": "module_disabled",
+      "checked_at": "2026-10-16T15:40:33+00:00",
+      "source": "runtime",
+      "declared": true,
+      "tryable": false,
+      "last_result": "unknown",
+      "last_result_code": "",
+      "detail": "image_module_off"
+    },
+    {
+      "scenario": "not_configured_no_key",
+      "capability_id": "image_generation",
+      "title": "Генерация изображений",
+      "actions": [
+        "generate_image",
+        "deliver_image"
+      ],
+      "executor": "services.image_generation",
+      "tool": "generate_image",
+      "scope": "chat",
+      "inputs": [
+        "prompt"
+      ],
+      "gates": [
+        "flags.image_generation_module_enabled",
+        "keys.image_api_key",
+        "models.image_model",
+        "budget.image_calls"
+      ],
+      "status": "not_configured",
+      "reason_code": "image_provider_unconfigured",
+      "checked_at": "2026-10-16T15:40:33+00:00",
+      "source": "runtime",
+      "declared": true,
+      "tryable": false,
+      "last_result": "unknown",
+      "last_result_code": "",
+      "detail": "key_absent"
+    },
+    {
+      "scenario": "quota_exhausted",
+      "capability_id": "image_generation",
+      "title": "Генерация изображений",
+      "actions": [
+        "generate_image",
+        "deliver_image"
+      ],
+      "executor": "services.image_generation",
+      "tool": "generate_image",
+      "scope": "chat",
+      "inputs": [
+        "prompt"
+      ],
+      "gates": [
+        "flags.image_generation_module_enabled",
+        "keys.image_api_key",
+        "models.image_model",
+        "budget.image_calls"
+      ],
+      "status": "quota_exhausted",
+      "reason_code": "financial_limit_reached",
+      "checked_at": "2026-10-16T15:40:33+00:00",
+      "source": "runtime",
+      "declared": true,
+      "tryable": false,
+      "last_result": "unknown",
+      "last_result_code": "",
+      "detail": "image_daily_limit"
+    },
+    {
+      "scenario": "temporarily_unavailable_provider_down",
+      "capability_id": "image_generation",
+      "title": "Генерация изображений",
+      "actions": [
+        "generate_image",
+        "deliver_image"
+      ],
+      "executor": "services.image_generation",
+      "tool": "generate_image",
+      "scope": "chat",
+      "inputs": [
+        "prompt"
+      ],
+      "gates": [
+        "flags.image_generation_module_enabled",
+        "keys.image_api_key",
+        "models.image_model",
+        "budget.image_calls"
+      ],
+      "status": "temporarily_unavailable",
+      "reason_code": "provider_unavailable",
+      "checked_at": "2026-10-16T15:40:33+00:00",
+      "source": "outcome",
+      "declared": true,
+      "tryable": false,
+      "last_result": "failed",
+      "last_result_code": "timeout",
+      "detail": "timeout"
+    },
+    {
+      "scenario": "unsupported_tool_absent",
+      "capability_id": "image_generation",
+      "title": "Генерация изображений",
+      "actions": [
+        "generate_image",
+        "deliver_image"
+      ],
+      "executor": "services.image_generation",
+      "tool": "",
+      "scope": "chat",
+      "inputs": [
+        "prompt"
+      ],
+      "gates": [
+        "flags.image_generation_module_enabled",
+        "keys.image_api_key",
+        "models.image_model",
+        "budget.image_calls"
+      ],
+      "status": "unsupported",
+      "reason_code": "tool_absent",
+      "checked_at": "2026-10-16T15:40:33+00:00",
+      "source": "runtime",
+      "declared": false,
+      "tryable": false,
+      "last_result": "unknown",
+      "last_result_code": "",
+      "detail": "schema_absent"
+    },
+    {
+      "scenario": "unknown_capability",
+      "capability_id": "no_such_capability",
+      "title": "",
+      "actions": [],
+      "executor": "",
+      "tool": "",
+      "scope": "chat",
+      "inputs": [],
+      "gates": [],
+      "status": "unknown",
+      "reason_code": "unknown_capability",
+      "checked_at": "2026-10-16T15:40:33+00:00",
+      "source": "runtime",
+      "declared": false,
+      "tryable": false,
+      "last_result": "unknown",
+      "last_result_code": "",
+      "detail": "not_in_registry"
+    }
+  ],
+  "failure_templates": [
+    {
+      "code": "disabled",
+      "block_id": "message.image_failure.disabled",
+      "source": "Factory",
+      "text": "Рисовать я сейчас не могу: генерацию картинок в этом чате выключили. Так что мем останется в воображении - оно, к счастью, безлимитное."
+    },
+    {
+      "code": "not_configured",
+      "block_id": "message.image_failure.not_configured",
+      "source": "Factory",
+      "text": "Картинку бы изобразил, но генератор не подключён - доступа к провайдеру нет. Это вопрос к хозяину бота, не к моей фантазии."
+    },
+    {
+      "code": "temporarily_unavailable",
+      "block_id": "message.image_failure.temporarily_unavailable",
+      "source": "Factory",
+      "text": "Генератор сейчас не отвечает - это не «не умею», это провайдер прилёг. Через пару минут попробуй ещё раз, и мем случится."
+    },
+    {
+      "code": "quota_exhausted",
+      "block_id": "message.image_failure.quota_exhausted",
+      "source": "Factory",
+      "text": "На сегодня картинки закончились: суточный лимит выбран. Не жадность, а квота - обнулится с новым днём, тогда нарисуем."
+    },
+    {
+      "code": "unsupported",
+      "block_id": "message.image_failure.unsupported",
+      "source": "factory",
+      "text": "Генератор такой запрос не потянул: он либо слишком тяжёлый, либо не по его части. Сформулируй проще - и попробуем снова."
+    },
+    {
+      "code": "unknown",
+      "block_id": "message.image_failure.unknown",
+      "source": "factory",
+      "text": "Что-то сломалось по дороге к генератору, и это точно не «я не умею рисовать». Попробуй ещё раз чуть позже."
+    },
+    {
+      "code": "delivery_failed",
+      "block_id": "message.image_failure.delivery_failed",
+      "source": "Factory",
+      "text": "Картинка сгенерировалась, но в чат не доехала - споткнулся на отправке. Второй раз платить за то же самое не буду: запроси заново."
+    }
+  ],
+  "clarify": {
+    "block_id": "message.image_request.clarify",
+    "source": "Factory",
+    "text": "Уточни: картинку изобразить или текстом обойтись?"
+  },
+  "legacy_phrase_still_defined": "Рисовать я, конечно, не умею — руки из кода растут. Так что довольствуйся тем, что есть, и попробуй ещё раз попозже."
+}

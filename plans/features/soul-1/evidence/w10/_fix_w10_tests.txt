@@ -1,0 +1,24 @@
+W10 fix-pass: счётчики тестов
+
+Команда: .venv\Scripts\python.exe -m pytest tests/test_soul1_capability_intent.py tests/test_soul1_capability_registry.py tests/test_soul1_capability_fallbacks.py -q -p no:randomly
+  180 passed in 4.75s
+
+По файлам:
+  tests/test_soul1_capability_intent.py   109 passed  (было 37)
+  tests/test_soul1_capability_registry.py  30 passed  (было 24)
+  tests/test_soul1_capability_fallbacks.py 41 passed  (было 41)
+
+Соседние файлы (image/unified/context-memory/daily-limit/direct/asap7/mca17/registry-legacy): 441 passed.
+
+Пробы ревьюера на его harness (OPENCODE_WORKFLOW_SCRATCH/test_w10_reviewer_probe*.py): probe1 26 passed, probe2 14 passed,
+probe3 5 passed, probe4 5 passed.
+
+Новые/изменённые тесты (TEST-LIFECYCLE: REGRESSION owner=SOUL-AMD.5.1/5.9/5.10/5.12/5.17, soul-1 W10 fix):
+  * ложные срабатывания (8 фраз-стемов, 7 «не поручение», 3 код-блока,
+    2 «рисуй внутри слова», пересылка) — детектор + реальный pipeline;
+  * пре-гейт подчинён смысловому вердикту (прямой вызов + pipeline);
+  * §6.5: событие available_action_not_chosen (routing-fix) не заглушено;
+  * обратная сторона: настоящие поручения actionable и ровно 1 генерация;
+  * F3: shared исчерпан / chat исчерпан / shared=0 / оба чисты;
+  * F4: правка значения гейта на месте инвалидирует сразу; TTL — квота;
+  * F5: replay не переписывает наблюдаемый исход; реальный успех — да.

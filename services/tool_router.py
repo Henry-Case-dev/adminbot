@@ -2980,6 +2980,14 @@ class ToolRouter:
         if signal:
             _tool_result.set_signal(ctx, signal)
         if result.ok:
+            # SOUL-1 W10 (SOUL-AMD.5.12): «вызов успешно завершён» — отдельное
+            # наблюдаемое состояние (result.ok=False при send_failed).
+            try:
+                from services import capability_registry as _caps
+                _caps.record_outcome("image_generation", chat_id=ctx.chat_id,
+                                     ok=True, code=str(result.reason or ""))
+            except Exception:      # pragma: no cover
+                pass
             payload = {"status": "success",
                        "message": "Изображение сгенерировано и отправлено в чат"}
             note = _image_memory_note(request)
@@ -2988,9 +2996,22 @@ class ToolRouter:
             return json.dumps(payload, ensure_ascii=False)
         logger.info("[tools] generate_image failed | chat=%s | reason=%s",
                     ctx.chat_id, result.reason)
+        # SOUL-1 W10 (SOUL-AMD.5.15/5.17): сообщение модели — управляемый
+        # Factory Default по РЕАЛЬНОМУ коду отказа (реестр
+        # `message.image_failure.*`); успех/доставка не заявляются, если их не
+        # подтвердил исполнитель. Реальный `reason` доводится как есть.
+        try:
+            from services import capability_registry as _caps
+            _caps.record_outcome(
+                "image_generation", chat_id=ctx.chat_id, ok=False,
+                code=str(result.reason or ""))
+            _msg, _block_id, _src = _caps.failure_message_for_reason(
+                str(result.reason or ""))
+        except Exception:      # pragma: no cover - реестр не рвёт цикл
+            _msg, _block_id = "Генерация не удалась", ""
         return json.dumps(
             {"status": "error", "reason": result.reason,
-             "message": image_generation.IMAGE_GENERATION_FALLBACK_PHRASE},
+             "message": _msg, "message_id": _block_id},
             ensure_ascii=False)
 
     # ── helpers dig (T-820; переиспользуют _require_query/_resolve_name) ──

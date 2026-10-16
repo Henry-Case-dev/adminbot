@@ -1,0 +1,311 @@
+{
+ "pipeline": [
+  {
+   "case": "f1_stem_art_flat",
+   "text": "Бот, сделай уборку в квартире",
+   "gen_calls": 1,
+   "detector": {
+    "intent": "create_image",
+    "conf": "high",
+    "reason": "create_image_command"
+   },
+   "regex": false,
+   "phase": "before"
+  },
+  {
+   "case": "f1_stem_art_march",
+   "text": "Бот, сделай план на март",
+   "gen_calls": 1,
+   "detector": {
+    "intent": "create_image",
+    "conf": "high",
+    "reason": "create_image_command"
+   },
+   "regex": false,
+   "phase": "before"
+  },
+  {
+   "case": "f1_stem_mem_memorial",
+   "text": "Бот, сделай мемориальный пост про Петю",
+   "gen_calls": 1,
+   "detector": {
+    "intent": "create_image",
+    "conf": "high",
+    "reason": "create_image_command"
+   },
+   "regex": false,
+   "phase": "before"
+  },
+  {
+   "case": "f1_stem_art_flat2",
+   "text": "Бот, надо сделать уборку в квартире",
+   "gen_calls": 1,
+   "detector": {
+    "intent": "create_image",
+    "conf": "high",
+    "reason": "create_image_command"
+   },
+   "regex": false,
+   "phase": "before"
+  },
+  {
+   "case": "f2_self_draw",
+   "text": "Бот, я сам нарисую мем, оценишь потом",
+   "gen_calls": 1,
+   "detector": {
+    "intent": "create_image",
+    "conf": "high",
+    "reason": "create_image_command"
+   },
+   "regex": false,
+   "phase": "before"
+  },
+  {
+   "case": "f2_self_draw2",
+   "text": "Бот, подскажи идею мема, я сам нарисую",
+   "gen_calls": 1,
+   "detector": {
+    "intent": "create_image",
+    "conf": "high",
+    "reason": "create_image_command"
+   },
+   "regex": false,
+   "phase": "before"
+  },
+  {
+   "case": "f2_quote",
+   "text": "Бот, Петя сказал: нарисуй мем про двачеров",
+   "gen_calls": 1,
+   "detector": {
+    "intent": "create_image",
+    "conf": "high",
+    "reason": "create_image_command"
+   },
+   "regex": false,
+   "phase": "before"
+  },
+  {
+   "case": "f2_contradiction",
+   "text": "Бот, нарисуй мем, но не рисуй",
+   "gen_calls": 1,
+   "detector": {
+    "intent": "",
+    "conf": "none",
+    "reason": "create_image_negated"
+   },
+   "regex": true,
+   "phase": "before"
+  },
+  {
+   "case": "f2_code_block",
+   "text": "Бот, вот пример кода:\n```python\nнарисуй мем про двачеров\n```",
+   "gen_calls": 1,
+   "detector": {
+    "intent": "create_image",
+    "conf": "high",
+    "reason": "create_image_command"
+   },
+   "regex": false,
+   "phase": "before"
+  },
+  {
+   "case": "f2_code_block_only",
+   "text": "```\nБот, нарисуй мем про двачеров\n```",
+   "gen_calls": 1,
+   "detector": {
+    "intent": "create_image",
+    "conf": "high",
+    "reason": "create_image_command"
+   },
+   "regex": false,
+   "phase": "before"
+  },
+  {
+   "case": "f2_forwarded",
+   "text": "Бот, нарисуй мем про двачеров",
+   "gen_calls": 1,
+   "detector": {
+    "intent": "create_image",
+    "conf": "high",
+    "reason": "create_image_command"
+   },
+   "regex": true,
+   "phase": "before"
+  },
+  {
+   "case": "f2_longer_word",
+   "text": "Бот, перерисуй схему в отчёте",
+   "gen_calls": 1,
+   "detector": {
+    "intent": "create_image",
+    "conf": "high",
+    "reason": "create_image_command"
+   },
+   "regex": false,
+   "phase": "before"
+  },
+  {
+   "case": "p1",
+   "text": "Бот, нарисуй мем про двачеров",
+   "gen_calls": 1,
+   "detector": {
+    "intent": "create_image",
+    "conf": "high"
+   },
+   "regex": true,
+   "phase": "before"
+  },
+  {
+   "case": "p2",
+   "text": "Бот, сделай мем про двачеров",
+   "gen_calls": 1,
+   "detector": {
+    "intent": "create_image",
+    "conf": "high"
+   },
+   "regex": false,
+   "phase": "before"
+  },
+  {
+   "case": "p3",
+   "text": "Бот, надо сделать мем про двачеров",
+   "gen_calls": 1,
+   "detector": {
+    "intent": "create_image",
+    "conf": "high"
+   },
+   "regex": false,
+   "phase": "before"
+  },
+  {
+   "case": "p4",
+   "text": "Сделай картинку из этой ситуации",
+   "gen_calls": 1,
+   "detector": {
+    "intent": "create_image",
+    "conf": "high"
+   },
+   "regex": false,
+   "phase": "before"
+  },
+  {
+   "case": "p5",
+   "text": "Нужна инфографика по этим данным",
+   "gen_calls": 1,
+   "detector": {
+    "intent": "create_image",
+    "conf": "high"
+   },
+   "regex": false,
+   "phase": "before"
+  },
+  {
+   "case": "p6",
+   "text": "Давай изобразим это в виде комикса",
+   "gen_calls": 1,
+   "detector": {
+    "intent": "create_image",
+    "conf": "high"
+   },
+   "regex": false,
+   "phase": "before"
+  },
+  {
+   "case": "p7",
+   "text": "Бот, нарисуй кота в шляпе",
+   "gen_calls": 1,
+   "detector": {
+    "intent": "create_image",
+    "conf": "high"
+   },
+   "regex": true,
+   "phase": "before"
+  },
+  {
+   "case": "p8",
+   "text": "Бот, нарисуй",
+   "gen_calls": 1,
+   "detector": {
+    "intent": "create_image",
+    "conf": "high"
+   },
+   "regex": true,
+   "phase": "before"
+  },
+  {
+   "case": "p9",
+   "text": "Бот, сгенерируй мем",
+   "gen_calls": 1,
+   "detector": {
+    "intent": "create_image",
+    "conf": "high"
+   },
+   "regex": true,
+   "phase": "before"
+  },
+  {
+   "case": "p10",
+   "text": "Бот, создай картинку с котиком",
+   "gen_calls": 1,
+   "detector": {
+    "intent": "create_image",
+    "conf": "high"
+   },
+   "regex": true,
+   "phase": "before"
+  },
+  {
+   "case": "p11",
+   "text": "Бот, нарисуй мем, если не сложно",
+   "gen_calls": 1,
+   "detector": {
+    "intent": "create_image",
+    "conf": "high"
+   },
+   "regex": true,
+   "phase": "before"
+  },
+  {
+   "case": "p12",
+   "text": "Бот, перерисуй мем про двачеров",
+   "gen_calls": 1,
+   "detector": {
+    "intent": "create_image",
+    "conf": "high"
+   },
+   "regex": false,
+   "phase": "before"
+  },
+  {
+   "case": "p13",
+   "text": "Бот, нарисуй мем про то, что Петя сказал вчера",
+   "gen_calls": 1,
+   "detector": {
+    "intent": "create_image",
+    "conf": "high"
+   },
+   "regex": true,
+   "phase": "before"
+  }
+ ],
+ "f3": [
+  {
+   "case": "global_exhausted_chat_clean",
+   "status": "ready",
+   "detail": "/image_limit_ok",
+   "phase": "before"
+  },
+  {
+   "case": "chat_exhausted_shared_clean",
+   "status": "quota_exhausted",
+   "detail": "financial_limit_reached/image_daily_limit",
+   "phase": "before"
+  },
+  {
+   "case": "both_clean",
+   "status": "ready",
+   "detail": "/image_limit_ok",
+   "phase": "before"
+  }
+ ]
+}

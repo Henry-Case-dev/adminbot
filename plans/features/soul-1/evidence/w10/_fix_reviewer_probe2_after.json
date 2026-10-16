@@ -1,0 +1,340 @@
+[
+ {
+  "text": "я сам нарисую мем",
+  "gen_calls": 0,
+  "sent": [],
+  "gate": [
+   {
+    "handled": false,
+    "intent": "",
+    "conf": "none",
+    "reason": "create_image_self_action"
+   }
+  ],
+  "detector": {
+   "intent": "",
+   "conf": "none",
+   "reason": "create_image_self_action",
+   "conceive": false,
+   "actionable": false
+  },
+  "regex": false,
+  "llm_steps": [
+   "l1_planner",
+   "l2_writer",
+   null
+  ]
+ },
+ {
+  "text": "Я сам нарисую мем",
+  "gen_calls": 0,
+  "sent": [],
+  "gate": [
+   {
+    "handled": false,
+    "intent": "",
+    "conf": "none",
+    "reason": "create_image_self_action"
+   }
+  ],
+  "detector": {
+   "intent": "",
+   "conf": "none",
+   "reason": "create_image_self_action",
+   "conceive": false,
+   "actionable": false
+  },
+  "regex": false,
+  "llm_steps": [
+   "l1_planner",
+   "l2_writer",
+   null
+  ]
+ },
+ {
+  "text": "подскажи идею мема, я сам нарисую",
+  "gen_calls": 0,
+  "sent": [],
+  "gate": [
+   {
+    "handled": false,
+    "intent": "",
+    "conf": "none",
+    "reason": "create_image_self_action"
+   }
+  ],
+  "detector": {
+   "intent": "",
+   "conf": "none",
+   "reason": "create_image_self_action",
+   "conceive": false,
+   "actionable": false
+  },
+  "regex": false,
+  "llm_steps": [
+   "l1_planner",
+   "l2_writer",
+   null
+  ]
+ },
+ {
+  "text": "Бот, подскажи идею мема, я сам нарисую",
+  "gen_calls": 0,
+  "sent": [],
+  "gate": [
+   {
+    "handled": false,
+    "intent": "",
+    "conf": "none",
+    "reason": "create_image_self_action"
+   }
+  ],
+  "detector": {
+   "intent": "",
+   "conf": "none",
+   "reason": "create_image_self_action",
+   "conceive": false,
+   "actionable": false
+  },
+  "regex": false,
+  "llm_steps": [
+   "l1_planner",
+   "l2_writer",
+   null
+  ]
+ },
+ {
+  "text": "Петя просил нарисовать мем",
+  "gen_calls": 0,
+  "sent": [],
+  "gate": [
+   {
+    "handled": false,
+    "intent": "",
+    "conf": "none",
+    "reason": "create_image_reported"
+   }
+  ],
+  "detector": {
+   "intent": "",
+   "conf": "none",
+   "reason": "create_image_reported",
+   "conceive": false,
+   "actionable": false
+  },
+  "regex": false,
+  "llm_steps": [
+   "l1_planner",
+   "l2_writer",
+   null
+  ]
+ },
+ {
+  "text": "Мне нужно нарисовать мем для конкурса",
+  "gen_calls": 0,
+  "sent": [],
+  "gate": [
+   {
+    "handled": false,
+    "intent": "",
+    "conf": "none",
+    "reason": "create_image_self_action"
+   }
+  ],
+  "detector": {
+   "intent": "",
+   "conf": "none",
+   "reason": "create_image_self_action",
+   "conceive": false,
+   "actionable": false
+  },
+  "regex": false,
+  "llm_steps": [
+   "l1_planner",
+   "l2_writer",
+   null
+  ]
+ },
+ {
+  "text": "Бот, мне нужно нарисовать мем для конкурса",
+  "gen_calls": 0,
+  "sent": [],
+  "gate": [
+   {
+    "handled": false,
+    "intent": "",
+    "conf": "none",
+    "reason": "create_image_self_action"
+   }
+  ],
+  "detector": {
+   "intent": "",
+   "conf": "none",
+   "reason": "create_image_self_action",
+   "conceive": false,
+   "actionable": false
+  },
+  "regex": false,
+  "llm_steps": [
+   "l1_planner",
+   "l2_writer",
+   null
+  ]
+ },
+ {
+  "text": "Нарисуй мем про двачеров",
+  "gen_calls": 1,
+  "sent": [],
+  "gate": [
+   {
+    "handled": false,
+    "intent": "create_image",
+    "conf": "high",
+    "reason": "create_image_command"
+   }
+  ],
+  "detector": {
+   "intent": "create_image",
+   "conf": "high",
+   "reason": "create_image_command",
+   "conceive": false,
+   "actionable": true
+  },
+  "regex": false,
+  "llm_steps": [
+   "l1_planner",
+   "l2_writer",
+   null
+  ]
+ },
+ {
+  "text": "Бот, нарисуй мем про двачеров",
+  "gen_calls": 1,
+  "sent": [],
+  "gate": [
+   {
+    "handled": false,
+    "intent": "create_image",
+    "conf": "high",
+    "reason": "create_image_command"
+   }
+  ],
+  "detector": {
+   "intent": "create_image",
+   "conf": "high",
+   "reason": "create_image_command",
+   "conceive": false,
+   "actionable": true
+  },
+  "regex": true,
+  "llm_steps": [
+   "l1_planner",
+   "l2_writer",
+   null
+  ]
+ },
+ {
+  "text": "Бот, сгенерируй мем",
+  "gen_calls": 1,
+  "sent": [],
+  "gate": [
+   {
+    "handled": false,
+    "intent": "create_image",
+    "conf": "high",
+    "reason": "create_image_command"
+   }
+  ],
+  "detector": {
+   "intent": "create_image",
+   "conf": "high",
+   "reason": "create_image_command",
+   "conceive": false,
+   "actionable": true
+  },
+  "regex": true,
+  "llm_steps": [
+   "l1_planner",
+   "l2_writer",
+   null
+  ]
+ },
+ {
+  "text": "Бот, создай картинку с котиком",
+  "gen_calls": 1,
+  "sent": [],
+  "gate": [
+   {
+    "handled": false,
+    "intent": "create_image",
+    "conf": "high",
+    "reason": "create_image_command"
+   }
+  ],
+  "detector": {
+   "intent": "create_image",
+   "conf": "high",
+   "reason": "create_image_command",
+   "conceive": false,
+   "actionable": true
+  },
+  "regex": true,
+  "llm_steps": [
+   "l1_planner",
+   "l2_writer",
+   null
+  ]
+ },
+ {
+  "text": "Бот, нарисуй мем, если не сложно",
+  "gen_calls": 1,
+  "sent": [],
+  "gate": [
+   {
+    "handled": false,
+    "intent": "create_image",
+    "conf": "high",
+    "reason": "create_image_command"
+   }
+  ],
+  "detector": {
+   "intent": "create_image",
+   "conf": "high",
+   "reason": "create_image_command",
+   "conceive": false,
+   "actionable": true
+  },
+  "regex": true,
+  "llm_steps": [
+   "l1_planner",
+   "l2_writer",
+   null
+  ]
+ },
+ {
+  "text": "Бот, нарисуй мем? не надо, забудь",
+  "gen_calls": 0,
+  "sent": [],
+  "gate": [
+   {
+    "handled": false,
+    "intent": "",
+    "conf": "none",
+    "reason": "create_image_negated"
+   }
+  ],
+  "detector": {
+   "intent": "",
+   "conf": "none",
+   "reason": "create_image_negated",
+   "conceive": false,
+   "actionable": false
+  },
+  "regex": true,
+  "llm_steps": [
+   "l1_planner",
+   "l2_writer",
+   null
+  ]
+ }
+]

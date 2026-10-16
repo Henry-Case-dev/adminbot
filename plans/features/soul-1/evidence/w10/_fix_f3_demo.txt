@@ -1,0 +1,13 @@
+F3 demo (review-w10): shared-квота исчерпана, per-chat строка чистая
+
+BEFORE (до правки _image_quota):
+  global_exhausted_chat_clean: ready (/image_limit_ok)
+  chat_exhausted_shared_clean: quota_exhausted (financial_limit_reached/image_daily_limit)
+  both_clean: ready (/image_limit_ok)
+
+AFTER:
+  global_exhausted_chat_clean: quota_exhausted (image_shared_limit)
+  chat_exhausted_shared_clean: quota_exhausted (image_daily_limit)
+  both_clean: ready (image_limit_ok)
+
+consume/reserve списывает shared (scope='global') ПЕРВЫМ, затем chat — статус реестра теперь читает оба контура.
