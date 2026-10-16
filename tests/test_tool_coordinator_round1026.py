@@ -759,15 +759,17 @@ class TestBounds:
                                              "web/static/fullscreen-policy.js",
                                              "web/static/glass-probe.js",
                                              "web/static/vendor/lg-lens-map.png",
-                                             # ASAP 8 v6.3 U08.5/CORR-1:
-                                             # glass-teststand (контролируемый
-                                             # стенд edge-refraction: сетка/
-                                             # волна — ТОЛЬКО test/evidence,
-                                             # никогда в production UI; N3:
-                                             # закрытие по auth — Wave 4).
-                                             "web/static/glass-teststand.css",
-                                             "web/static/glass-teststand.html",
-                                             "web/static/glass-teststand.js",
+                                             # SOUL-13.2 / v6.3 §14
+                                             # (REV-W2-N3): glass-teststand
+                                             # (контролируемый стенд
+                                             # edge-refraction) вынесен из
+                                             # публичного static в
+                                             # tests/glass-teststand/;
+                                             # записи web/static/
+                                             # glass-teststand.* из
+                                             # allowlist УДАЛЕНЫ — возврат
+                                             # страницы в web/ снова валит
+                                             # этот тест.
                                              "web/api/__init__.py"))
                        for n in names)
         # NOTE (round1027, MCA-01 / ADR-1027-3 D3): `services/summary_memory.py`

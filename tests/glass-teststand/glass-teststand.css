@@ -1,5 +1,19 @@
 /* ═══ W2-GLASS: стили тестового стенда glass-teststand.html ═══
-   Только для фикстуры; в прод-навигации не используется. */
+   Только для фикстуры; в прод-навигации не используется.
+   SOUL-13.2 / v6.3 §14: test-env-субсет Material Symbols. В тест-среде нет
+   серверного /static-роута и подстановки __APP_VERSION__, поэтому боевой
+   абсолютный url() из app.css там не резолвится (404). Объявляем отдельное
+   семейство-алиас из реального файла web/static/fonts (дубль того же
+   семейства проигрывает каскаду @font-face в Chromium) и переназначаем
+   `.msr` на него — правила иконок/вариаций наследуются из app.css. */
+@font-face {
+  font-family: 'Material Symbols Rounded Stand';
+  font-style: normal;
+  font-weight: 100 700;
+  font-display: block;
+  src: url('../../web/static/fonts/material-symbols-rounded.woff2?v=stand') format('woff2-variations');
+}
+.msr { font-family: 'Material Symbols Rounded Stand'; }
 
 body.stand {
   background: #060b16;

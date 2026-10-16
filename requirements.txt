@@ -20,6 +20,13 @@ duckduckgo-search>=8.1.0,<9.0.0
 youtube-transcript-api>=1.2.0,<2.0
 yt-dlp[default,curl-cffi]>=2026.8.19,<2027
 trafilatura>=2.2.0,<3.0
+# FIX-TAILS-EV (2026-10-16, F2 ревью хвостов v6.3): jusText 3.0.x требует `lxml[html_clean]>=4.4.2`,
+# но с lxml 6.x модуль `lxml.html.clean` живёт в отдельном пакете, а extra `html_clean`
+# (jusText) совпадает с extra `html-clean` (метаданные lxml) только на pip с PEP 685-нормализацией;
+# на pip без неё (23.2.1 из CPython 3.12.0) пакет не ставится и `import trafilatura` падает
+# `ImportError: lxml.html.clean module is now a separate project lxml_html_clean`.
+# Явная строка делает канонический env из этого файла воспроизводимым на любом pip.
+lxml_html_clean>=0.4.1
 tiktoken>=0.7.0
 openai>=1.40,<2
 bgutil-ytdlp-pot-provider>=1.0.0

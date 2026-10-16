@@ -246,12 +246,30 @@ async def test_preference_signal_scoped_user_in_chat(tmp_path):
 
 def test_no_per_message_llm_reflection_module_is_llm_free():
     src = _jobs_src()
-    for forbidden in ("llm_client", "generate(", "chat_with_tools",
-                      "llm.generate", "LLMError", "openai", "requests."):
+    for forbidden in ("llm_client", "chat_with_tools",
+                      "LLMError", "openai", "requests."):
         assert forbidden not in src, forbidden
+    # SOUL-13.6 / v6.3 B02 (1e24eca4, review-w1 B02 APPROVED): старый инвариант
+    # «модуль без LLM вообще» этой волной легитимно заменён на «LLM ровно в
+    # ОДНОМ bounded-батче»: семантический extractor — основной детектор, но
+    # вызов один на батч (≤SEMANTIC_CHATS_PER_PASS чатов × ≤SEMANTIC_PER_CHAT_MAX
+    # строк), НЕ на сообщение. Пин не ослаблен: число вызовов ровно 1, точка
+    # вызова — батч-хелпер с каноническими границами/шагом.
+    assert src.count("generate(") == 1
+    assert src.count("llm.generate") == 1
+    batch = src.split("async def _semantic_llm_batch", 1)[1]
+    batch = batch.split("\n    async def ", 1)[0].split("\n    def ", 1)[0]
+    assert "generate(" in batch
+    assert "llm.generate" in batch
+    assert 'step="semantic_extract"' in batch
+    assert "max_output_tokens=SEMANTIC_BATCH_MAX_TOKENS" in batch
+    assert "SEMANTIC_CHATS_PER_PASS" in src      # граница чатов на проход (4)
+    assert "SEMANTIC_PER_CHAT_MAX" in src        # строк на чат (10)
     import inspect
     params = inspect.signature(mj.ExperienceReviewRunner.__init__).parameters
-    assert "llm" not in params
+    # LLM опционален (default None): без него — честная недоступность
+    # (`semantic_llm_unavailable`, курсоры на месте), не per-message рефлексия.
+    assert params["llm"].default is None
     # предложения — только канонический каталог (не копии реплик)
     assert mj.PROPOSAL_RULE_TOOL_FAILURES in (
         ("tool_usage", "retry_after_typed_failure"),)

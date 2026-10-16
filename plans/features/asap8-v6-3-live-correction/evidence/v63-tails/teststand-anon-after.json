@@ -1,0 +1,56 @@
+{
+  "paths": {
+    "/static/glass-teststand.html": {
+      "status": 404,
+      "content_length": 22
+    },
+    "/web/static/glass-teststand.html": {
+      "status": 404,
+      "content_length": 22
+    },
+    "/web/glass-teststand.html": {
+      "status": 404,
+      "content_length": 22
+    },
+    "/static/glass-teststand.css": {
+      "status": 404,
+      "content_length": 22
+    },
+    "/static/glass-teststand.js": {
+      "status": 404,
+      "content_length": 22
+    },
+    "/web/static/glass-teststand.css": {
+      "status": 404,
+      "content_length": 22
+    },
+    "/web/static/vendor/lg-lens-map.png": {
+      "status": 200,
+      "content_length": 6695
+    },
+    "/static/glass-probe.js": {
+      "status": 200,
+      "content_length": 11657
+    },
+    "/static/glass.js": {
+      "status": 200,
+      "content_length": 8616
+    },
+    "/static/app.css": {
+      "status": 200,
+      "content_length": 195868
+    },
+    "/web/": {
+      "status": 200,
+      "content_length": 728255
+    },
+    "/web/index.html": {
+      "status": 200,
+      "content_length": 728255
+    },
+    "/healthz": {
+      "status": 200,
+      "content_length": 35
+    }
+  }
+}

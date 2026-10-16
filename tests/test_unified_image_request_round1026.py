@@ -737,11 +737,16 @@ class TestBoundsA3:
                                               "web/static/fullscreen-policy.js",
                                               "web/static/glass-probe.js",
                                               "web/static/vendor/lg-lens-map.png",
-                                              # U08.5/CORR-1: teststand —
-                                              # только test/evidence.
-                                              "web/static/glass-teststand.css",
-                                              "web/static/glass-teststand.html",
-                                              "web/static/glass-teststand.js",
+                                              # SOUL-13.2 / v6.3 §14
+                                              # (REV-W2-N3): страница стенда
+                                              # вынесена из публичного
+                                              # static в
+                                              # tests/glass-teststand/ —
+                                              # записи web/static/
+                                              # glass-teststand.* из
+                                              # allowlist УДАЛЕНЫ: любое
+                                              # возвращение страницы в
+                                              # web/ снова валит этот тест.
                                               "web/api/__init__.py"))
                        for ln in self._diff_names())
 
