@@ -1,0 +1,8 @@
+candidate HEAD: 4c8405e783ac005ac0044974c5fbd7e518d12e2a (правки полосы НЕ закоммичены)
+
+aeca676ebc8103ba  bot.py
+d8623e0292d4e9ae  services/summary_generator.py
+693487f55ada08ba  services/summary_scheduler.py
+aa81a1b30e6acd4f  services/summary_run_store.py
+deffda6e1c39303a  tests/test_summary_inc01_shutdown.py
+aa2517e24a838538  plans/features/asap8-v6-3-live-correction/evidence/incident-summary-01/_shutdown_sigterm_demo.py

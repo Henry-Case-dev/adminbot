@@ -1,0 +1,49 @@
+﻿INC-SUMMARY-01 fix — candidate fingerprint
+date: 2026-10-17T02:36:50
+
+ services/mca_gates.py         | 101 ++++++++++++++++++++++++++++++++
+ services/pipeline_events.py   |  10 +++-
+ services/summary_generator.py | 133 +++++++++++++++++++++++++++++++++++++++---
+ services/summary_memory.py    |  54 ++++++++++++++++-
+ services/summary_run_store.py |  37 ++++++++++++
+ services/summary_scheduler.py |  26 ++++++++-
+ 6 files changed, 349 insertions(+), 12 deletions(-)
+
+--- file hashes (sha256) ---
+DBAC851BC0A9D98793201E2374DF45B67FD19DB5DC1F5C8A77CFB670DF17BFE1  services/summary_generator.py
+77E192DF2A07B7328B5D3D0DD72ABECD12378CD6EFEB76B7EE3D41B6FC30AD83  services/summary_memory.py
+626A6163CAC419E4931777383D25B3DBFC34FCDF67968240DF770228DD081D75  services/summary_scheduler.py
+C3296970DFC39B65E8186EFAF69A604ACA4134806835C7F622605A1C16AE8C47  services/summary_run_store.py
+A7480DA83766E764E390ABA9FECA6E0DCF35B93AE889CCEFD8BEBB24CD14FB87  services/mca_gates.py
+275992919106FE04C11DEA1DF62165609CAB530E19090A9D2B12130E6AB6FD85  services/pipeline_events.py
+3B055C7F1CDDC41D12ABB7837998DF7286A681192B74B1AA25EE7569820905D9  tests/test_summary_inc01_pregen_bounds.py
+
+--- git status (my scope only) ---
+ M services/mca_gates.py
+ M services/pipeline_events.py
+ M services/summary_generator.py
+ M services/summary_memory.py
+ M services/summary_run_store.py
+ M services/summary_scheduler.py
+?? tests/test_summary_inc01_pregen_bounds.py
+
+--- HEAD ---
+746d2e8abe26af43be4051a4784f5198a1fe7ad5
+--- diff bytes (uncommitted, my scope) ---
+101	0	services/mca_gates.py
+7	3	services/pipeline_events.py
+126	7	services/summary_generator.py
+53	1	services/summary_memory.py
+37	0	services/summary_run_store.py
+25	1	services/summary_scheduler.py
+
+
+--- final verification (17.10.2026) ---
+all 7 file sha256 re-checked against this fingerprint: MATCH (candidate frozen, no edits after evidence)
+pytest tests/test_summary_inc01_pregen_bounds.py (13 tests) -> 13 passed
+pytest 22 existing suites (regression surface) -> 674 passed
+pytest -k 'summary or graphrag or mca_gates or module_registry' -> 2021 passed
+pytest 7 suites final combined run -> 204 passed
+RED/GREEN: evidence/_fix_red_rollback.txt
+demos + new tests log: evidence/_fix_demos_and_new_tests.txt
+report: plans/features/asap8-v6-3-live-correction/incident-summary-01-fix-report.md

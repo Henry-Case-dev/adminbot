@@ -1,0 +1,39 @@
+INC-SUMMARY-01-SHUTDOWN — evidence index (lane INC-FIX-SHUTDOWN, 17.10.2026)
+
+Candidate: HEAD 4c8405e7 + НЕЗАКОММИЧЕННЫЕ правки полосы (хэши — _shutdown_fingerprint.txt).
+Деплоя/SSH/коммитов не было; прод не трогался.
+
+Артефакты:
+  _shutdown_sigterm_demo.py          — исполняемый сценарий: реальный bot.main()
+                                       (реальный uvicorn) + реальный SIGTERM
+                                       во время in-flight Summary-прогона,
+                                       затем второй прогон на пустой системе.
+  _shutdown_sigterm_demo_output.txt  — вывод демо (exit 0, ИТОГ: PASS).
+  _shutdown_full_suite.txt           — полный прогон pytest (без -x, --tb=line -rf).
+  _shutdown_fingerprint.txt          — HEAD + sha256[:16] файлов полосы.
+
+Результаты:
+  14 passed   — новый tests/test_summary_inc01_shutdown.py
+  688 passed  — sibling-поверхность INC-SUMMARY-01 (§5 fix-report, 674) + новый файл
+  626 passed  — файлы, читающие bot.py как текст (source-пины) + summary/web-набор
+  13819 passed / 2 failed — полный прогон; оба фейла вне полосы:
+                * test_soul1_factory_defaults::test_factory_default_is_the_catalog_code_canon
+                  (падает в изоляции; контур prompt_registry — соседний SOUL-1 W3 lane);
+                * test_mca09_intents_block_e_round1040 (один тест файла; файл в изоляции
+                  15 passed, группа a..e 72 passed) — pre-existing order-dependent флейк.
+
+Демо (числа, текущий кандидат):
+  in-flight прогон  → остановка 0.193 с (бюджет дренажа 20 с, systemd TimeoutStopSec=60 с),
+                      терминал FAILED + reason=shutdown, публикаций 0,
+                      обслуживание памяти после abort не продолжилось;
+  пустая система    → остановка 0.173 с.
+  Строки фаз: phase=stopping → SUMMARY_SHUTDOWN_DRAIN phase=draining in_flight=1 cancelled=1 →
+              SUMMARY_SHUTDOWN_DRAIN phase=finalized finalized=1 left=0 → [shutdown] bye.
+
+Прод-ожидание после деплоя (проверка вне этой полосы):
+  * журнал: `[shutdown] signal handlers installed | signals=(2, 15)`,
+    `phase=stopping` → `SUMMARY_SHUTDOWN_DRAIN | phase=draining | in_flight=N` →
+    `phase=finalized | finalized=M | left=K` → `[shutdown] bye | elapsed_ms=`;
+  * при рестарте больше нет `State 'stop-sigterm' timed out. Killing.`;
+  * старт процесса: `SUMMARY_ORPHAN_RUN_CLOSED` для ранов без окна;
+    ран с окном — `SUMMARY_ORPHAN_RUN_KEPT ... reason=has_window` и обычный resume.

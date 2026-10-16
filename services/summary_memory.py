@@ -4953,13 +4953,48 @@ class MemoryManager:
             )
             return
         processed = 0
+        # ── INC-SUMMARY-01 (17.10.2026): границы обслуживания памяти ────────
+        # Инцидент: `while True` без общего дедлайна и без капа числа батчей —
+        # при большой очереди live-строк старше cutoff цикл шёл десятки минут,
+        # держа пермит чата и БЛОКИРУЯ публикацию сводки (48+ мин, stages 0/0,
+        # тик крона занят). Границы КООПЕРАТИВНЫЕ: батч в полёте всегда
+        # доигрывается (маркеры/данные не меняются), проверка — перед выборкой
+        # следующего. Kill-switch OFF → прежний контур байт-в-бит. Остаток
+        # очереди честно логируется и докатывается следующим прогоном
+        # (семантика `history_processed` и TTL/cutoff не меняются).
+        from services import mca_gates
+        bounds = mca_gates.summary_pregen_bounds_enabled()
+        deadline: float | None = None
+        max_batches = 0
+        budget_s = 0.0
+        if bounds:
+            budget_s = mca_gates.summary_memory_maint_deadline_seconds()
+            deadline = time.monotonic() + budget_s
+            max_batches = mca_gates.summary_memory_maint_max_batches()
+        batches = 0
+        bounded_reason: str | None = None
+        prev_ids: tuple | None = None
         while True:
+            if deadline is not None and time.monotonic() >= deadline:
+                bounded_reason = "deadline_exceeded"
+                break
+            if max_batches > 0 and batches >= max_batches:
+                bounded_reason = "batch_cap_reached"
+                break
             batch = await self.db.get_smart_raw(
                 chat_id, cutoff, batch_size, exclude_imported=True,
                 exclude_processed=True)
             if not batch:
                 break
             ids = [row["id"] for row in batch]
+            if bounds and prev_ids is not None and tuple(ids) == prev_ids:
+                # no-progress guard (INC-SUMMARY-01): маркер — no-op, та же
+                # пачка пришла второй раз → выход БЕЗ повторной экстракции
+                # (иначе спин и инфляция весов рёбер), с честной причиной.
+                bounded_reason = "no_progress_same_batch"
+                break
+            prev_ids = tuple(ids)
+            batches += 1
             try:
                 await self._extract_and_save_graph(chat_id, batch)
             except GraphExtractDropped:
@@ -4994,6 +5029,19 @@ class MemoryManager:
                 "SmartModule L3 (retention ON): extract-only %d messages kept "
                 "(no compression) | chat_id=%s", processed, chat_id
             )
+        if bounded_reason is not None:
+            # Наблюдаемость инцидента: причина остановки + объём сделанного.
+            # R17-safe (только числа/коды); уровень WARNING для no-progress
+            # (это аномалия маркера, а не штатный бюджет).
+            _log = (logger.warning
+                    if bounded_reason == "no_progress_same_batch"
+                    else logger.info)
+            _log(
+                "SmartModule L3 (retention ON): extract-only bounded | "
+                "chat_id=%s | reason=%s | processed=%d | batches=%d | "
+                "budget_s=%.0f — остаток очереди докатит следующий прогон",
+                chat_id, bounded_reason, processed, batches, budget_s)
+
 
     async def _compress_batch(self, batch: list) -> list[str]:
         user_content = _build_batch_text(batch, skip_empty=False)
@@ -5074,7 +5122,11 @@ class MemoryManager:
                         commit=False,
                     )
                 await self.db.db.commit()
-            except Exception:
+            except BaseException:
+                # INC-SUMMARY-01: отмена (``CancelledError`` — BaseException, не
+                # Exception) тоже обязана откатить транзакцию: иначе отмена
+                # внутри блока оставляет открытую транзакцию на общем
+                # single-writer соединении (наследие для следующих писателей).
                 await self.db.db.rollback()
                 raise
         logger.info("graph: triplets=%d | chat_id=%s", len(triplets), chat_id)

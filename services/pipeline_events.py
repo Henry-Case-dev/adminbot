@@ -141,10 +141,14 @@ def summary_start(run_id, *, chat_id, mode: str, manual: bool) -> None:
           counts={"mode": str(mode or ""), "manual": bool(manual)})
 
 
-def source_window(run_id, *, chat_id, messages: int) -> None:
-    """`SUMMARY_SOURCE_WINDOW` — размер окна после чтения истории."""
+def source_window(run_id, *, chat_id, messages: int,
+                  duration_ms=None) -> None:
+    """`SUMMARY_SOURCE_WINDOW` — размер окна после чтения истории.
+
+    INC-SUMMARY-01: ``duration_ms`` (аддитивно, default None → прежний вызов
+    байт-в-бит) — сколько заняла загрузка окна (snapshot/перечитка)."""
     _emit(EV_SOURCE_WINDOW, outcome="success", level="INFO", run_id=run_id,
-          chat_id=chat_id, stage="source",
+          chat_id=chat_id, stage="source", duration_ms=duration_ms,
           counts={"input_count": int(messages or 0)})
 
 

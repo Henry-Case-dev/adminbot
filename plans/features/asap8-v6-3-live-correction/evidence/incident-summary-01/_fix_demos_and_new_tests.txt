@@ -1,0 +1,68 @@
+﻿============================= test session starts =============================
+platform win32 -- Python 3.12.0, pytest-9.1.1, pluggy-1.6.0 -- C:\Code\Python\adminbot\.venv\Scripts\python.exe
+rootdir: C:\Code\Python\adminbot
+configfile: pytest.ini
+plugins: anyio-4.14.2, asyncio-1.4.0, cov-7.1.0, timeout-2.4.0
+asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+timeout: 60.0s
+timeout method: thread
+timeout func_only: False
+collecting ... collected 13 items
+
+tests/test_summary_inc01_pregen_bounds.py::test_large_graph_queue_bounded_then_publication_completes 
+-------------------------------- live log call --------------------------------
+WARNING  services.model_capacity:model_capacity.py:784 MODEL_CAPACITY_FALLBACK | provider=generic | model= | base_url_class=generic | fallback_window=16384 | reason=unknown_model_no_adapter_data
+PASSED                                                                   [  7%]
+tests/test_summary_inc01_pregen_bounds.py::test_hung_memory_maintenance_fail_soft_skip_publication_proceeds 
+-------------------------------- live log call --------------------------------
+WARNING  services.summary_generator:summary_generator.py:696 SUMMARY_MEMORY_MAINT | run_id=8c125072322243a6941c8db9ae8133c6 | chat_id=-100123 | outcome=skipped | reason=deadline_exceeded | budget_s=1.0 тАФ ╨╛╨▒╤Б╨╗╤Г╨╢╨╕╨▓╨░╨╜╨╕╨╡ ╨┐╨░╨╝╤П╤В╨╕ ╨╛╤В╨╗╨╛╨╢╨╡╨╜╨╛ ╨┤╨╛ ╤Б╨╗╨╡╨┤╤Г╤О╤Й╨╡╨│╨╛ ╨┐╤А╨╛╨│╨╛╨╜╨░, ╨┐╤Г╨▒╨╗╨╕╨║╨░╤Ж╨╕╤П ╨┐╤А╨╛╨┤╨╛╨╗╨╢╨░╨╡╤В╤Б╤П
+PASSED                                                                   [ 15%]
+tests/test_summary_inc01_pregen_bounds.py::test_red_off_path_publication_waits_for_memory 
+-------------------------------- live log call --------------------------------
+WARNING  services.summary_generator:summary_generator.py:696 SUMMARY_MEMORY_MAINT | run_id=cd3539ef84b84d50a57b555937c3efff | chat_id=-100123 | outcome=skipped | reason=deadline_exceeded | budget_s=1.0 тАФ ╨╛╨▒╤Б╨╗╤Г╨╢╨╕╨▓╨░╨╜╨╕╨╡ ╨┐╨░╨╝╤П╤В╨╕ ╨╛╤В╨╗╨╛╨╢╨╡╨╜╨╛ ╨┤╨╛ ╤Б╨╗╨╡╨┤╤Г╤О╤Й╨╡╨│╨╛ ╨┐╤А╨╛╨│╨╛╨╜╨░, ╨┐╤Г╨▒╨╗╨╕╨║╨░╤Ж╨╕╤П ╨┐╤А╨╛╨┤╨╛╨╗╨╢╨░╨╡╤В╤Б╤П
+PASSED                                                                   [ 23%]
+tests/test_summary_inc01_pregen_bounds.py::test_tick_hung_chat_does_not_stall_other_chats 
+-------------------------------- live log call --------------------------------
+WARNING  services.summary_generator:summary_generator.py:696 SUMMARY_MEMORY_MAINT | run_id=942d4ad74e754100871ee6eca7129388 | chat_id=-100111 | outcome=skipped | reason=deadline_exceeded | budget_s=1.0 тАФ ╨╛╨▒╤Б╨╗╤Г╨╢╨╕╨▓╨░╨╜╨╕╨╡ ╨┐╨░╨╝╤П╤В╨╕ ╨╛╤В╨╗╨╛╨╢╨╡╨╜╨╛ ╨┤╨╛ ╤Б╨╗╨╡╨┤╤Г╤О╤Й╨╡╨│╨╛ ╨┐╤А╨╛╨│╨╛╨╜╨░, ╨┐╤Г╨▒╨╗╨╕╨║╨░╤Ж╨╕╤П ╨┐╤А╨╛╨┤╨╛╨╗╨╢╨░╨╡╤В╤Б╤П
+PASSED                                                                   [ 30%]
+tests/test_summary_inc01_pregen_bounds.py::test_tick_chat_timeout_is_last_resort_and_loop_survives 
+-------------------------------- live log call --------------------------------
+WARNING  services.summary_scheduler:summary_scheduler.py:175 summary: chat run deadline exceeded тАФ tick continues | chat_id=-1 | budget_s=0.2
+ERROR    services.summary_scheduler:summary_scheduler.py:179 summary: chat run failed тАФ tick continues | chat_id=-2
+Traceback (most recent call last):
+  File "C:\Code\Python\adminbot\services\summary_scheduler.py", line 168, in _tick
+    await self._generator.generate_and_send(chat_id)
+  File "C:\Code\Python\adminbot\tests\test_summary_inc01_pregen_bounds.py", line 382, in generate_and_send
+    raise RuntimeError("boom")
+RuntimeError: boom
+PASSED                                                                   [ 38%]
+tests/test_summary_inc01_pregen_bounds.py::test_restart_stale_run_without_window_closed_new_run_id 
+-------------------------------- live log call --------------------------------
+WARNING  services.summary_generator:summary_generator.py:610 SUMMARY_STALE_RUN_CLOSED | run_id=run-old | chat_id=-100123 | age_s=7200 | closed=True | reason=stale_no_window тАФ ╨╜╨╡╤В╨╡╤А╨╝╨╕╨╜╨░╨╗╤М╨╜╤Л╨╣ ╤А╨░╨╜ ╨▒╨╡╨╖ ╨╛╨║╨╜╨░ ╨╕ ╨▒╨╡╨╖ ╨╢╨╕╨▓╨╛╨│╨╛ ╨▓╨╗╨░╨┤╨╡╨╗╤М╤Ж╨░ ╨╖╨░╨║╤А╤Л╤В FAILED; ╤В╨╡╨║╤Г╤Й╨╕╨╣ ╨┐╤А╨╛╨│╨╛╨╜ ╨╕╨┤╤С╤В ╨┐╨╛╨┤ ╨╜╨╛╨▓╤Л╨╝ run_id
+PASSED                                                                   [ 46%]
+tests/test_summary_inc01_pregen_bounds.py::test_restart_run_with_window_resumes_same_run_id_single_send PASSED [ 53%]
+tests/test_summary_inc01_pregen_bounds.py::test_permit_timeout_clean_skip_without_run_row_and_tick_continues 
+-------------------------------- live log call --------------------------------
+WARNING  services.summary_generator:summary_generator.py:558 SUMMARY_PERMIT_WAIT | chat_id=-100111 | manual=True | outcome=timeout | waited_s=0.05 тАФ ╨┐╤А╨╛╨│╨╛╨╜ ╨╜╨╡ ╨╜╨░╤З╨░╤В (run-row ╨╜╨╡ ╤Б╨╛╨╖╨┤╨░╤С╤В╤Б╤П); ╤В╨╕╨║ ╨┐╤А╨╛╨┤╨╛╨╗╨╢╨░╨╡╤В ╤Б╨╗╨╡╨┤╤Г╤О╤Й╨╕╨╣ ╤З╨░╤В
+WARNING  services.summary_generator:summary_generator.py:558 SUMMARY_PERMIT_WAIT | chat_id=-100111 | manual=False | outcome=timeout | waited_s=0.05 тАФ ╨┐╤А╨╛╨│╨╛╨╜ ╨╜╨╡ ╨╜╨░╤З╨░╤В (run-row ╨╜╨╡ ╤Б╨╛╨╖╨┤╨░╤С╤В╤Б╤П); ╤В╨╕╨║ ╨┐╤А╨╛╨┤╨╛╨╗╨╢╨░╨╡╤В ╤Б╨╗╨╡╨┤╤Г╤О╤Й╨╕╨╣ ╤З╨░╤В
+PASSED                                                                   [ 61%]
+tests/test_summary_inc01_pregen_bounds.py::test_no_progress_same_batch_stops_with_reason 
+-------------------------------- live log call --------------------------------
+WARNING  services.summary_memory:summary_memory.py:5039 SmartModule L3 (retention ON): extract-only bounded | chat_id=-100123 | reason=no_progress_same_batch | processed=5 | batches=1 | budget_s=600 тАФ ╨╛╤Б╤В╨░╤В╨╛╨║ ╨╛╤З╨╡╤А╨╡╨┤╨╕ ╨┤╨╛╨║╨░╤В╨╕╤В ╤Б╨╗╨╡╨┤╤Г╤О╤Й╨╕╨╣ ╨┐╤А╨╛╨│╨╛╨╜
+PASSED                                                                   [ 69%]
+tests/test_summary_inc01_pregen_bounds.py::test_llm_unavailable_batch_kept_and_loop_exits 
+-------------------------------- live log call --------------------------------
+ERROR    services.summary_memory:summary_memory.py:5010 SmartModule L3 (retention ON): extract failed тАФ batch kept, pipeline continues | chat_id=-100123
+Traceback (most recent call last):
+  File "C:\Code\Python\adminbot\services\summary_memory.py", line 4999, in _compress_purge_extract_only
+    await self._extract_and_save_graph(chat_id, batch)
+  File "C:\Code\Python\adminbot\tests\test_summary_inc01_pregen_bounds.py", line 563, in _fail
+    raise sm.GraphExtractionError(
+services.summary_memory.GraphExtractionError: graph extract failed: all 1 chunk(s) failed | reason=LLMTimeoutError
+ERROR    services.summary_memory:external_log.py:161 [pipeline] event=pipeline_step component=graph step=extract status=error reason=extract_failed chat_id=-100123 batch=2
+PASSED                                                                   [ 76%]
+tests/test_summary_inc01_pregen_bounds.py::test_off_kill_switch_unbounded_permit_and_no_new_stages PASSED [ 84%]
+tests/test_summary_inc01_pregen_bounds.py::test_off_kill_switch_extract_only_ignores_cap PASSED [ 92%]
+tests/test_summary_inc01_pregen_bounds.py::test_write_graph_triplets_rollback_on_base_exception PASSED [100%]
+
+============================= 13 passed in 8.76s ==============================

@@ -17,6 +17,7 @@
 from __future__ import annotations
 
 import dataclasses
+import os
 import time
 
 from config.settings import settings
@@ -535,6 +536,106 @@ W2_ENV_KEYS: dict[str, str] = {
     "humor_library_enabled": "HUMOR_LIBRARY_ENABLED",
     "humor_feedback_enabled": "HUMOR_FEEDBACK_ENABLED",
 }
+
+
+# ── INC-SUMMARY-01 (17.10.2026) — границы pre-generation цепочки Summary ────
+# Инцидент 17.10 01:00:06: ран Summary висел 48+ мин (`RUNNING`, stages 0/0) на
+# неограниченном ожидании пермита пула / обслуживании памяти; тик крона
+# (`max_instances=1`) держал остальные чаты и все последующие тики. Здесь —
+# единственный рубильник этой аварийной полосы + env-оси её лимитов.
+#
+# Политика — как у KILL_SWITCHES (env-only, резолв per-call, никогда не
+# бросает, OFF = документированный паритет baseline). В `KILL_SWITCHES`
+# НЕ добавляется намеренно: тот словарь 1:1 связан с
+# `module_registry.MODULE_ENV_GATES` тестами M2 (`test_asap7_module_registry`,
+# `test_asap7_module_completeness`, `test_asap8_v6_p1_d11_registry`), а
+# `services/module_registry.py` вне write-scope полосы (тот же прецедент, что
+# у `W2_GATES` выше).
+INCIDENT_GATES: dict[str, tuple[bool, str]] = {
+    "SUMMARY_PREGEN_BOUNDS_ENABLED": (
+        True,
+        "OFF → прежний контур байт-в-бит: ожидание слота пула без таймаута, "
+        "обслуживание памяти без дедлайна/капа и без pre-generation "
+        "stage-строк (`run_permit`/`run_memory_maintenance`/"
+        "`run_source_window`), устаревшие раны не закрываются (инцидент "
+        "17.10: ран RUNNING 48+ мин, stages 0/0, тик крона заблокирован); "
+        "ON → bounded permit-ожидание, hard-deadline "
+        "памяти (fail-soft skip с durable stage/reason), видимые "
+        "pre-generation стадии и закрытие устаревшего рана без окна. Окно "
+        "(6 ч), каденс, гейт публикации и семантика history_processed НЕ "
+        "меняются ни в одном режиме",
+    ),
+}
+
+_TRUTHY = frozenset({"1", "true", "yes", "on"})
+
+
+def _env_flag(name: str, default: bool = True) -> bool:
+    """env-only bool (резолв per-call): явное env-значение важнее поля
+    settings; пустое/отсутствующее → settings-поле → default."""
+    raw = os.getenv(name)
+    if raw is None or not str(raw).strip():
+        return bool(getattr(settings, name, default))
+    return str(raw).strip().lower() in _TRUTHY
+
+
+def _env_number(name: str, default: float, minimum: float) -> float:
+    """env-only число (резолв per-call, fail-safe default, floor=minimum)."""
+    raw = os.getenv(name)
+    if raw is None or not str(raw).strip():
+        raw = getattr(settings, name, default)
+    try:
+        return max(float(minimum), float(raw))
+    except (TypeError, ValueError):
+        return max(float(minimum), float(default))
+
+
+def summary_pregen_bounds_enabled() -> bool:
+    """`SUMMARY_PREGEN_BOUNDS_ENABLED` (default **ON**, INC-SUMMARY-01).
+
+    ON → pre-generation цепочка Summary ограничена (пермит/память/стадии);
+    OFF → прежнее поведение (паритет до фикса) для аварийного отката."""
+    return _env_flag("SUMMARY_PREGEN_BOUNDS_ENABLED", True)
+
+
+def summary_permit_wait_seconds() -> float:
+    """`SUMMARY_PERMIT_WAIT_SECONDS` — ожидание слота пула (default 300 с).
+
+    0 → только мгновенная проба (без ожидания). Занятый слот больше НЕ держит
+    тик крона неограниченно: таймаут → честный skip без создания run-row."""
+    return _env_number("SUMMARY_PERMIT_WAIT_SECONDS", 300.0, 0.0)
+
+
+def summary_memory_maint_deadline_seconds() -> float:
+    """`SUMMARY_MEMORY_MAINT_DEADLINE_SECONDS` — кооперативный бюджет
+    extract-only обслуживания памяти (default 600 с). Батч в полёте всегда
+    доигрывается; остаток очереди докатывает следующий прогон."""
+    return _env_number("SUMMARY_MEMORY_MAINT_DEADLINE_SECONDS", 600.0, 1.0)
+
+
+def summary_memory_maint_hard_seconds() -> float:
+    """`SUMMARY_MEMORY_MAINT_HARD_SECONDS` — жёсткий предохранитель вокруг
+    `compress_and_purge` (default 900 с): публикация не ждёт память."""
+    return _env_number("SUMMARY_MEMORY_MAINT_HARD_SECONDS", 900.0, 1.0)
+
+
+def summary_memory_maint_max_batches() -> int:
+    """`SUMMARY_MEMORY_MAINT_MAX_BATCHES` — кап graph-extract батчей за прогон
+    (default 20; ≤0 → без капа)."""
+    return int(_env_number("SUMMARY_MEMORY_MAINT_MAX_BATCHES", 20, 0))
+
+
+def summary_stale_run_seconds() -> int:
+    """`SUMMARY_STALE_RUN_SECONDS` — возраст нетерминального рана без окна и
+    без живого владельца, после которого он закрывается FAILED (default 900)."""
+    return int(_env_number("SUMMARY_STALE_RUN_SECONDS", 900, 0))
+
+
+def summary_tick_chat_timeout_seconds() -> float:
+    """`SUMMARY_TICK_CHAT_TIMEOUT_SECONDS` — потолок времени одного чата в тике
+    крона (default 3600 с; ≤0 → без потолка). Last-resort сеть для неизвестных
+    мест зависания; первичные границы — permit/memory выше."""
+    return _env_number("SUMMARY_TICK_CHAT_TIMEOUT_SECONDS", 3600.0, 0.0)
 
 
 def tx_ownership_enabled() -> bool:

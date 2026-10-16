@@ -1,0 +1,24 @@
+﻿INC-SUMMARY-01 fix - RED evidence: _write_graph_triplets rollback (temporarily reverted hunk except BaseException -> except Exception)
+python.exe : 
+строка:3 знак:1
++ & $py -m pytest "tests/test_summary_inc01_pregen_bounds.py::test_writ ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+WARNING: closed 1 leaked aiosqlite connection(s)
+F                                                                        [100%]
+================================== FAILURES ===================================
+____________ test_write_graph_triplets_rollback_on_base_exception _____________
+tests\test_summary_inc01_pregen_bounds.py:656: in test_write_graph_triplets_rollback_on_base_exception
+    assert db.db.in_transaction is False, "╤В╤А╨░╨╜╨╖╨░╨║╤Ж╨╕╤П ╨╜╨╡ ╨╛╤В╨║╨░╤З╨╡╨╜╨░"
+E   AssertionError: ╤В╤А╨░╨╜╨╖╨░╨║╤Ж╨╕╤П ╨╜╨╡ ╨╛╤В╨║╨░╤З╨╡╨╜╨░
+E   assert True is False
+E    +  where True = <aiosqlite.core.Connection object at 0x00000173B83D5CA0>.in_transaction
+E    +    where <aiosqlite.core.Connection object at 0x00000173B83D5CA0> = <services.database.DatabaseService object at 0x00000173B5B8D1C0>.db
+=========================== short test summary info ===========================
+FAILED tests/test_summary_inc01_pregen_bounds.py::test_write_graph_triplets_rollback_on_base_exception
+1 failed in 3.09s
+INC-SUMMARY-01 fix - GREEN after restore (same test)
+.                                                                        [100%]
+1 passed in 2.93s

@@ -34,6 +34,7 @@ from services.chat_params import (
 from services.database import row_get
 from services.llm_client import LLMBadResponseError, LLMError, LLMTimeoutError
 from services import anticliche_cache
+from services import mca_gates
 from services import usage_events
 from services.negative_constraints import (
     DEFAULT_ENABLED_RULES,
@@ -436,6 +437,25 @@ _UX_BUSY = "уже делаю саммари, подожди"          # B5: loc
 # B06.1: честный UX при per-chat gate OFF (только manual — крон молчит).
 _UX_SUMMARY_OFF_CHAT = "саммари для этого чата выключены"
 _UX_SUMMARY_OFF_EMERGENCY = "саммари временно отключены полностью"
+# INC-SUMMARY-01: слот чата не освободился за отведённое время (только manual;
+# крон молчит) — честно, вместо бесконечного ожидания в тишине.
+_UX_BUSY_TIMEOUT = "саммари занято, попробуй позже"
+
+# ── INC-SUMMARY-01 (17.10.2026): живые владельцы run_id ЭТОГО процесса ─────
+# Пермит-пул допускает до N параллельных прогонов одного чата, поэтому
+# «нетерминальный ран» ≠ «прерванный рестартом». Набор отвечает на вопрос
+# «у этого рана есть живой владелец?» — без него закрытие устаревшего рана
+# могло бы задеть ран, который прямо сейчас пишет своё окно.
+_LIVE_RUN_IDS: set[str] = set()
+
+# INC-SUMMARY-01 (shutdown, 17.10.2026): task + контекст каждого живого
+# прогона ЭТОГО процесса. Нужен грациозной остановке: `Task.cancel()` —
+# единственный способ прервать `await` внутри пайплайна, а дождаться его
+# `finally` надо, чтобы терминал записался штатным путём. Прод-инцидент
+# 17.10: рестарт деплоя добивал процесс SIGKILL'ом через 60 с, `finally` не
+# исполнялся, и нетерминальная строка `summary_runs` навсегда оставалась
+# «running» в UI/Oversight.
+_LIVE_RUN_TASKS: dict[str, tuple] = {}
 
 
 def _elapsed_since(started) -> float | None:
@@ -498,6 +518,106 @@ class SummaryGenerator:
         self.aliases = aliases
         self._pool = (concurrency_pool if concurrency_pool is not None
                       else get_smartmodule_concurrency_pool())
+        # INC-SUMMARY-01 (shutdown): процесс уходит — новые прогоны не
+        # начинаются (их тут же отменили бы); уже идущие дренируются
+        # `abort_in_flight`. Инстанс-локально (процесс = один генератор).
+        self._stopping = False
+
+    # ── INC-SUMMARY-01 (shutdown, 17.10.2026): приём/остановка прогонов ────
+
+    def request_stop(self) -> None:
+        """Остановить приём НОВЫХ прогонов (идемпотентно)."""
+        self._stopping = True
+
+    def accepting_runs(self) -> bool:
+        """True, пока генератор принимает новые прогоны (не в shutdown)."""
+        return not self._stopping
+
+    async def abort_in_flight(self, *, timeout: float = 20.0,
+                              reason: str = "shutdown") -> dict:
+        """Bounded drain живых прогонов ЭТОГО процесса (SIGTERM/stop).
+
+        Фазы: (1) пометить контексты причиной остановки (§109-поля, только
+        для ещё не опубликованных ранов — опубликованный ран в FAILED не
+        переписываем); (2) отменить таски прогонов; (3) дождаться их
+        `finally` в пределах бюджета — терминал пишется штатным путём
+        (`_durable_run_finish`); (4) ранам, у которых терминала всё ещё нет,
+        дописать его напрямую (REUSE `summary_run_store.close_stale_run`).
+
+        Инварианты: `publication_status`/идемпотентность НЕ трогаются
+        (повторной отправки не бывает), данные памяти не удаляются.
+        Возвращает честные счётчики фаз (в т.ч. `left` — не успело)."""
+        from services import summary_run_store as srs
+        started = time.monotonic()
+        budget = max(0.0, float(timeout))
+        owned = list(_LIVE_RUN_TASKS.items())
+        pending: list = []
+        for _run_id, entry in owned:
+            task, ctx = entry if isinstance(entry, tuple) else (entry, None)
+            if task is None or task.done():
+                continue
+            if str(getattr(ctx, "publish_status", "") or "") != "ok":
+                try:
+                    ctx.fail(stage="shutdown", reason=reason)
+                except Exception:      # pragma: no cover - защитная ветка
+                    pass
+            task.cancel()
+            pending.append(task)
+        logger.info(
+            "SUMMARY_SHUTDOWN_DRAIN | phase=draining | in_flight=%d | "
+            "cancelled=%d | timeout_s=%s",
+            len(owned), len(pending), budget)
+        if pending:
+            try:
+                await asyncio.wait(pending, timeout=budget)
+            except Exception:          # pragma: no cover - защитная ветка
+                pass
+        db = self._run_db()
+        finalized = 0
+        left = 0
+        for run_id, _entry in owned:
+            remaining = budget - (time.monotonic() - started)
+            try:
+                run = await srs.get_run(db, run_id)
+            except Exception:          # pragma: no cover - fail-open
+                run = None
+            state = str((run or {}).get("state") or "")
+            if state in srs.TERMINAL_STATES:
+                # Терминал уже записан — своим `finally` (штатный путь) или
+                # финализатором ниже в этом же проходе.
+                finalized += 1
+                _LIVE_RUN_TASKS.pop(run_id, None)
+                continue
+            if remaining <= 0:
+                left += 1
+                logger.error(
+                    "SUMMARY_RUN_ABORT | run_id=%s | reason=%s | state=%s | "
+                    "outcome=no_budget_left — терминал не записан",
+                    run_id, reason, state or "unknown")
+                continue
+            closed = False
+            try:
+                async with asyncio.timeout(max(0.5, remaining)):
+                    closed = await srs.close_stale_run(
+                        db, run_id, reason_code=reason)
+            except Exception:          # pragma: no cover - fail-open
+                closed = False
+            if closed:
+                finalized += 1
+                _LIVE_RUN_TASKS.pop(run_id, None)
+            else:
+                left += 1
+            logger.warning(
+                "SUMMARY_RUN_ABORT | run_id=%s | reason=%s | state=%s | "
+                "closed=%s | publication_status не тронут (повторной "
+                "отправки нет)", run_id, reason, state or "unknown", closed)
+        elapsed = time.monotonic() - started
+        logger.info(
+            "SUMMARY_SHUTDOWN_DRAIN | phase=finalized | finalized=%d | "
+            "left=%d | elapsed_ms=%d", finalized, left, int(elapsed * 1000))
+        return {"in_flight": len(owned), "cancelled": len(pending),
+                "finalized": finalized, "left": left,
+                "elapsed_s": round(elapsed, 3)}
 
     async def generate_and_send(self, chat_id: int, manual: bool = False,
                                 focus: str | None = None,
@@ -515,6 +635,14 @@ class SummaryGenerator:
         `summary_effective_enabled` (emergency env → explicit chat →
         global default). OFF — чат не генерирует сводки (UX при manual);
         global OFF не глушит чат с явным chat ON."""
+        # INC-SUMMARY-01 (shutdown): процесс уходит — новый прогон не
+        # начинаем (его тут же отменили бы). Run-row НЕ создаётся, публикации
+        # не бывает — честный отказ вместо оборванного рана.
+        if not self.accepting_runs():
+            logger.info(
+                "summary: shutdown in progress — new run refused | "
+                "chat_id=%s manual=%s", chat_id, manual)
+            return
         # B06.1: гейт ДО слота пула — выключенный чат не занимает очередь.
         enabled, source = await summary_effective_enabled(chat_id)
         if not enabled:
@@ -529,30 +657,59 @@ class SummaryGenerator:
             return
         # Проба без ожидания: занят ли слот этого чата (B5-семантика).
         permit = await self._pool.try_acquire(chat_id, timeout=0.0)
+        permit_started_at: int | None = None
         if permit is None:
             if manual:
                 await self._send_ux(chat_id, _UX_BUSY)          # B5: не стоять молча
             logger.info(
                 "summary: lock busy — queued | chat_id=%s manual=%s", chat_id, manual
             )
-            # Очередь, как раньше async with lock (без таймаута).
-            permit = await self._pool.acquire(chat_id)
+            # INC-SUMMARY-01: ожидание слота ОГРАНИЧЕНО. Раньше — без таймаута:
+            # занятый слот держал и прогон, и тик крона (`max_instances=1`)
+            # неограниченно. Kill-switch OFF → прежнее ожидание без таймаута.
+            if mca_gates.summary_pregen_bounds_enabled():
+                wait_s = mca_gates.summary_permit_wait_seconds()
+                permit_started_at = int(time.time())
+                permit = await self._pool.try_acquire(chat_id, timeout=wait_s)
+                if permit is None:
+                    logger.warning(
+                        "SUMMARY_PERMIT_WAIT | chat_id=%s | manual=%s | "
+                        "outcome=timeout | waited_s=%s — прогон не начат "
+                        "(run-row не создаётся); тик продолжает следующий чат",
+                        chat_id, manual, wait_s)
+                    if manual:
+                        await self._send_ux(chat_id, _UX_BUSY_TIMEOUT)
+                    return
+            else:
+                # Очередь, как раньше async with lock (без таймаута).
+                permit = await self._pool.acquire(chat_id)
         try:
-            await self._run(chat_id, manual, focus, trigger_message_id)
+            await self._run(chat_id, manual, focus, trigger_message_id,
+                            permit_started_at=permit_started_at)
         finally:
             permit.release()
 
     async def _run(self, chat_id: int, manual: bool, focus: str | None = None,
-                   trigger_message_id: int | None = None) -> None:
+                   trigger_message_id: int | None = None,
+                   permit_started_at: int | None = None) -> None:
         # F7 (ADR-1023-7 D4): один сквозной id на саммари.
         # S7 (ADR-1026-9 D1): он же формальный `run_id` — второй id не вводим.
         correlation_id = usage_events.new_correlation_id()
+        bounds = mca_gates.summary_pregen_bounds_enabled()
         # ── ASAP 4.1 волна 5 (T-4617; spec §5 E.2, §21): рестарт не начинает
         # Summary заново — незавершённый durable run чата ДОКАТЫВАЕТСЯ (тот
         # же стабильный run_id; окно — из durable snapshot'а, не перечитка).
         # Пермит-пул гарантирует один run на чат в живом процессе → активный
         # run-строка = прерванный рестартом. Fail-open; kill-switch OFF →
         # свежий run как сегодня (байт-в-бит 2.58.46).
+        #
+        # INC-SUMMARY-01: докат без окна бессмысленен — у висевшего на
+        # pre-generation рана (инцидент 17.10) нет ни окна, ни данных, а его
+        # run_id лишь тянул «running»-бейдж. Такой ран (нетерминальный, старше
+        # `SUMMARY_STALE_RUN_SECONDS`, БЕЗ durable окна и БЕЗ живого владельца
+        # в процессе) закрывается корректным терминалом FAILED/reason, а новый
+        # прогон получает СВОЙ run_id. Окно у прежнего отсутствовало → второго
+        # живого рана на то же окно и дубля публикации не возникает.
         resumed = False
         try:
             from services import summary_run_store as srs
@@ -560,6 +717,20 @@ class SummaryGenerator:
             prior = None
             if srs.run_durable_enabled() and _db is not None:
                 prior = await _db.get_active_summary_run_for_chat(chat_id)
+            prior_id = str((prior or {}).get("run_id") or "")
+            if bounds and prior_id and prior_id != correlation_id \
+                    and not srs.run_has_window(prior) \
+                    and prior_id not in _LIVE_RUN_IDS \
+                    and (srs.run_age_seconds(prior) or 0) \
+                    >= mca_gates.summary_stale_run_seconds():
+                closed = await srs.close_stale_run(_db, prior_id)
+                logger.warning(
+                    "SUMMARY_STALE_RUN_CLOSED | run_id=%s | chat_id=%s | "
+                    "age_s=%s | closed=%s | reason=stale_no_window — "
+                    "нетерминальный ран без окна и без живого владельца закрыт "
+                    "FAILED; текущий прогон идёт под новым run_id",
+                    prior_id, chat_id, srs.run_age_seconds(prior), closed)
+                prior = None
             if prior is not None and str(prior.get("run_id") or ""):
                 correlation_id = str(prior["run_id"])
                 resumed = True
@@ -608,8 +779,63 @@ class SummaryGenerator:
         except Exception:  # pragma: no cover - fail-open
             pass
         try:
-            await self.memory.compress_and_purge(chat_id)
+            # INC-SUMMARY-01: живой владелец финального run_id регистрируется до
+            # любой работы по нему — параллельный прогон того же чата (пул даёт
+            # до N слотов) не должен счесть этот ран «устаревшим» и закрыть его.
+            # INC-SUMMARY-01 (shutdown): тот же владелец регистрируется вместе с
+            # task'ом — грациозная остановка отменяет именно этот таск и ждёт
+            # его `finally` (терминал пишется штатным путём).
+            _LIVE_RUN_IDS.add(correlation_id)
+            _LIVE_RUN_TASKS[correlation_id] = (asyncio.current_task(), ctx)
+            if bounds:
+                # INC-SUMMARY-01 (наблюдаемость): pre-generation стадии видны в
+                # существующей Analytics-поверхности (`summary_run_stages` →
+                # liveness-карточки run'а: `started_at`/`finished_at`) — вместо
+                # прежних 0/0 у висевшего рана. Имена в семействе `run_*`:
+                # существующий фильтр карточек (`pipeline_analytics`
+                # `_liveness_cards`) показывает только семейства
+                # l1/l2/review/writer/legacy/run — новая UI/правки соседних
+                # файлов не нужны.
+                await self._durable_stage_result(
+                    ctx, "run_permit", "ok", started_at=permit_started_at,
+                    reason=("queued" if permit_started_at else "immediate"))
+            # ── INC-SUMMARY-01: жёсткий предохранитель вокруг обслуживания
+            # памяти. Раньше здесь не было ни одного дедлайна: незавершённое
+            # обслуживание держало ран в RUNNING (терминал пишется только в
+            # `finally`) и блокировало публикацию. Таймаут → fail-soft skip с
+            # durable stage/reason; публикация продолжается. `except
+            # TimeoutError` — ЛОКАЛЬНЫЙ и стоит ДО общего обработчика (он ниже
+            # и TimeoutError не увидит: `asyncio.TimeoutError is TimeoutError`
+            # в 3.12 — это OSError, не `_SQLITE_ERRORS`).
+            maint_started = int(time.time())
+            if bounds:
+                hard_s = mca_gates.summary_memory_maint_hard_seconds()
+                try:
+                    async with asyncio.timeout(hard_s):
+                        await self.memory.compress_and_purge(chat_id)
+                except TimeoutError:
+                    logger.warning(
+                        "SUMMARY_MEMORY_MAINT | run_id=%s | chat_id=%s | "
+                        "outcome=skipped | reason=deadline_exceeded | "
+                        "budget_s=%s — обслуживание памяти отложено до "
+                        "следующего прогона, публикация продолжается",
+                        correlation_id, chat_id, hard_s)
+                    await self._durable_stage_result(
+                        ctx, "run_memory_maintenance", "skipped",
+                        reason="deadline_exceeded", started_at=maint_started)
+                else:
+                    await self._durable_stage_result(
+                        ctx, "run_memory_maintenance", "ok",
+                        started_at=maint_started)
+            else:
+                await self.memory.compress_and_purge(chat_id)
             rows = None
+            # INC-SUMMARY-01 (наблюдаемость): метка старта загрузки окна
+            # (snapshot доката ИЛИ свежая перечитка) — стадия `source_window`
+            # получает started_at, а structured-событие SOURCE_WINDOW —
+            # duration_ms (transport принимал его и раньше).
+            source_started_ts = int(time.time())
+            source_started_mono = time.perf_counter()
             if resumed:
                 # T-4617 (§21/spec A.1): окно докатываемого run'а — ТОЛЬКО
                 # durable snapshot (перечитка истории запрещена — окно
@@ -632,6 +858,8 @@ class SummaryGenerator:
                     resumed = False
             if rows is None:
                 rows = await self.memory.get_window_messages(chat_id)
+            source_duration_ms = int(
+                (time.perf_counter() - source_started_mono) * 1000)
             ctx.source_count = len(rows)
             # ASAP-2.1 (T-3986, раздел 4 spec): SOURCE_WINDOW — первое событие
             # после SUMMARY_START (замещает FILTER_*; R17 — только числа).
@@ -640,12 +868,19 @@ class SummaryGenerator:
                 correlation_id, chat_id, len(rows))
             # Волна E: structured SOURCE_WINDOW (те же данные, что в логе —
             # §61.12: один structured source, без парсинга human-логов).
+            # INC-SUMMARY-01: + duration_ms (транспорт поддерживает; OFF
+            # kill-switch'а полосы → поле не передаётся — паритет baseline).
             try:
                 from services import pipeline_events
                 pipeline_events.source_window(
-                    correlation_id, chat_id=chat_id, messages=len(rows))
+                    correlation_id, chat_id=chat_id, messages=len(rows),
+                    duration_ms=(source_duration_ms if bounds else None))
             except Exception:  # pragma: no cover
                 pass
+            if bounds:
+                await self._durable_stage_result(
+                    ctx, "run_source_window", "ok",
+                    started_at=source_started_ts)
             if not rows:
                 if manual:
                     await self._send_ux(chat_id, _UX_EMPTY)     # B4
@@ -743,6 +978,10 @@ class SummaryGenerator:
                 await self._durable_run_finish(ctx)
             except Exception:  # pragma: no cover - fail-open
                 pass
+            # INC-SUMMARY-01: владелец снят ПОСЛЕ терминальной записи —
+            # устаревшим считается только ран без живого владельца.
+            _LIVE_RUN_IDS.discard(correlation_id)
+            _LIVE_RUN_TASKS.pop(correlation_id, None)
 
     async def _establish_source_window(self, correlation_id: str, chat_id: int,
                                        rows: list, *, resumed: bool = False
@@ -840,7 +1079,8 @@ class SummaryGenerator:
             pass
 
     async def _durable_stage_result(self, ctx, stage: str, status: str, *,
-                                    reason: str | None = None) -> None:
+                                    reason: str | None = None,
+                                    started_at: int | None = None) -> None:
         """Append-only stage event завершённой стадии (§50.54)."""
         if ctx is None:
             return
@@ -848,6 +1088,7 @@ class SummaryGenerator:
             from services import summary_run_store as srs
             await srs.record_stage(
                 self._run_db(), ctx.run_id, stage, status=status,
+                started_at=started_at,
                 provider=ctx.provider, model=ctx.model, reason_code=reason)
         except Exception:      # pragma: no cover - fail-open
             pass

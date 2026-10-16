@@ -8,6 +8,7 @@ ASAP 8 v6.3 B06.1: единый резолвер per-chat Summary — здесь
 manual/retry через generate_and_send) следует этому резолверу.
 """
 import asyncio
+import inspect
 import logging
 import os
 
@@ -17,6 +18,7 @@ from apscheduler.triggers.cron import CronTrigger
 
 from config.settings import settings
 from services import hot_config as hot
+from services import mca_gates
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +33,28 @@ SOURCE_CHAT = "chat"
 SOURCE_GLOBAL = "global"
 
 _TRUTHY = frozenset({"1", "true", "yes", "on"})
+
+# ── INC-SUMMARY-01 (shutdown, 17.10.2026): бюджет грациозного дренажа ───────
+# Env-only ось (прецедент `SUMMARY_EMERGENCY_DISABLE` выше): сколько секунд
+# процесс ждёт терминала отменённых Summary-прогонов при остановке. Должно
+# быть заметно меньше systemd `TimeoutStopSec` (прод: 60 с) — иначе systemd
+# снова пришлёт SIGKILL, `finally` не исполнится и терминал не запишется.
+SHUTDOWN_DRAIN_ENV = "SUMMARY_SHUTDOWN_DRAIN_SECONDS"
+SHUTDOWN_DRAIN_DEFAULT = 20.0
+
+
+def shutdown_drain_seconds() -> float:
+    """Бюджет bounded drain при остановке процесса (env-only, per-call,
+    fail-safe default; не число/≤0 → default)."""
+    raw = os.getenv(SHUTDOWN_DRAIN_ENV, "").strip()
+    if not raw:
+        return SHUTDOWN_DRAIN_DEFAULT
+    try:
+        return max(1.0, float(raw))
+    except (TypeError, ValueError):
+        logger.warning("[shutdown] %s=%r не число — берём default %s",
+                       SHUTDOWN_DRAIN_ENV, raw, SHUTDOWN_DRAIN_DEFAULT)
+        return SHUTDOWN_DRAIN_DEFAULT
 
 
 def summary_emergency_disabled() -> bool:
@@ -106,6 +130,7 @@ class SummarySchedulerService:
     def __init__(self, generator, db) -> None:
         self._generator = generator
         self._db = db
+        self._stopping_logged = False
         # MemoryJobStore only (default) — persistent stores break on pickle
         self._scheduler = AsyncIOScheduler(timezone=hot.get("limits.summary_timezone", settings.SUMMARY_TIMEZONE))
 
@@ -127,7 +152,26 @@ class SummarySchedulerService:
         )
 
     async def _tick(self) -> None:
+        # INC-SUMMARY-01 (shutdown): тик, попавший в окно остановки, новых
+        # прогонов не начинает (генератор их не примет — ран бы не появился).
+        # Fail-open: генератор-двойник без этого API (duck-typing в тестах)
+        # тик не блокирует; async-реализация двойника тоже поддержана.
+        accepting = getattr(self._generator, "accepting_runs", None)
+        if callable(accepting):
+            verdict = accepting()
+            if inspect.isawaitable(verdict):
+                verdict = await verdict
+            if not verdict:
+                logger.info("summary: tick skipped (shutdown in progress)")
+                return
         target = hot.get("reactions.summary_target_chat_ids", settings.SUMMARY_TARGET_CHAT_IDS) or await self._db.get_smart_chat_ids()
+        # INC-SUMMARY-01 (17.10.2026): один чат больше не держит весь тик.
+        # Первичные границы (пермит/память) живут в generator'е; здесь —
+        # (а) исключение одного чата не срывает остальные, (б) last-resort
+        # потолок времени на чат для неизвестных мест зависания.
+        bounds = mca_gates.summary_pregen_bounds_enabled()
+        chat_timeout = mca_gates.summary_tick_chat_timeout_seconds() \
+            if bounds else 0.0
         for raw_chat_id in target:
             # Хотфикс-5 (round10.25): chat_id из PG приходит строкой/NULL —
             # приводим к int ДО вызова, иначе per-chat override стиля не
@@ -154,7 +198,55 @@ class SummarySchedulerService:
                     "summary: cron skip (disabled, source=%s) | chat_id=%s",
                     source, chat_id)
                 continue
-            await self._generator.generate_and_send(chat_id)
+            try:
+                if chat_timeout and chat_timeout > 0:
+                    async with asyncio.timeout(chat_timeout):
+                        await self._generator.generate_and_send(chat_id)
+                else:
+                    await self._generator.generate_and_send(chat_id)
+            except (TimeoutError, asyncio.TimeoutError):
+                # Честный исход: чат пропущен в этом тике (терминал рана
+                # дописывается его собственным `finally`), остальные чаты и
+                # последующие тики не блокируются.
+                logger.warning(
+                    "summary: chat run deadline exceeded — tick continues | "
+                    "chat_id=%s | budget_s=%s", chat_id, chat_timeout)
+            except Exception:
+                logger.exception(
+                    "summary: chat run failed — tick continues | chat_id=%s",
+                    chat_id)
+
+    async def stop_accepting(self) -> None:
+        """INC-SUMMARY-01 (shutdown): фаза `stopping` — планировщик снят
+        (новые тики не стартуют), генератор не принимает новые прогоны.
+        Идемпотентно (повторный вызов — no-op); fail-open."""
+        try:
+            self._generator.request_stop()
+        except Exception:            # pragma: no cover - защитная ветка
+            pass
+        try:
+            if self._scheduler.running:
+                self._scheduler.shutdown(wait=False)
+                await asyncio.sleep(0)
+        except SchedulerNotRunningError:
+            pass
+        except Exception:            # pragma: no cover - fail-open
+            logger.warning("[shutdown] summary stop-accepting failed — "
+                           "fail-open", exc_info=True)
+        if not self._stopping_logged:
+            self._stopping_logged = True
+            logger.info(
+                "[shutdown] summary: stopped accepting new work | "
+                "phase=stopping (scheduler down, new runs refused)")
+
+    async def drain_runs(self, *, timeout: float | None = None) -> dict:
+        """INC-SUMMARY-01 (shutdown): bounded drain in-flight прогонов.
+
+        Бюджет — env-ось `SUMMARY_SHUTDOWN_DRAIN_SECONDS` (default 20 с) или
+        явный аргумент. Терминал пишет сам прогон (`finally`), не успевшим —
+        финализатор (`SummaryGenerator.abort_in_flight`)."""
+        budget = shutdown_drain_seconds() if timeout is None else float(timeout)
+        return await self._generator.abort_in_flight(timeout=budget)
 
     async def shutdown(self) -> None:
         try:

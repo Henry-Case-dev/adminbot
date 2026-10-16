@@ -3,6 +3,7 @@ import contextlib
 import logging
 import os
 import signal
+import time
 
 import sentry_sdk
 from aiogram import Bot, Dispatcher, F, types
@@ -453,6 +454,10 @@ async def on_startup():
         "available" if vec_ok else "UNAVAILABLE — FTS5 fallback (R3)",
     )
     xml_builder = XmlGroundingBuilder()
+
+    # ── INC-SUMMARY-01 (17.10.2026): startup-recovery нетерминальных
+    # Summary-ранов (финализатор орфанов убитого/упавшего процесса).
+    await _recover_orphan_summary_runs(db)
 
     # B06.1 (ASAP 8 v6.3): producer стартует при global ON, ИЛИ при
     # выключенном global default, если есть ЯВНЫЙ chat=ON override
@@ -1013,6 +1018,9 @@ async def on_shutdown():
     одного не мешает закрыть остальные (раньше первое исключение рвало всю
     цепочку и часть ресурсов оставалась незакрытой)."""
     logger.info("Bot shutting down...")
+    # ── INC-SUMMARY-01 (17.10.2026): фаза Summary идёт ПЕРВОЙ — пока живы
+    # БД/LLM, чтобы терминал in-flight прогона гарантированно записался.
+    await _drain_summary_runs()
 
     async def _safe(name: str, closer) -> None:
         if closer is None:
@@ -1076,6 +1084,70 @@ async def on_shutdown():
     await _safe("smart_cache", close_smart_cache)
 
 
+async def _recover_orphan_summary_runs(db) -> None:
+    """INC-SUMMARY-01 (startup-recovery, 17.10.2026): терминал для
+    нетерминальных Summary-ранов убитого/упавшего процесса.
+
+    Процесс, убитый SIGKILL'ом (рестарт деплоя) или упавший, оставлял run-row
+    без терминала: `finally` корутины не исполнялся, а финализатора не было
+    (watchdog репает только `task_jobs`) → UI/Oversight вечно выводил
+    «running» из start-события без DONE (прод-инцидент 17.10).
+
+    На старте живых владельцев нет по определению: ран БЕЗ durable окна
+    закрывается FAILED/reason (reuse stale-closer — без дубля логики), ран
+    С окном НЕ трогается (докатывается по контракту resume §21). Свежий ран
+    (младше grace-окна) не трогается — это может быть ран другого живого
+    процесса. Fail-open; OFF `SUMMARY_PREGEN_BOUNDS_ENABLED` → прежнее
+    поведение (как у stale-closer'а полосы)."""
+    try:
+        from services import mca_gates as _mca_gates
+        if not _mca_gates.summary_pregen_bounds_enabled():
+            return
+        from services import summary_run_store as _srs
+        orphans = await _srs.close_orphan_runs(db)
+        if orphans:
+            logger.warning(
+                "[shutdown] startup recovery: закрыто %d нетерминальных "
+                "Summary-ранов без живого владельца | run_ids=%s",
+                len(orphans), [o.get("run_id") for o in orphans])
+        else:
+            logger.info(
+                "[shutdown] startup recovery: нетерминальных Summary-ранов "
+                "без живого владельца нет")
+    except Exception:            # pragma: no cover - fail-open
+        logger.warning("[shutdown] startup recovery failed — fail-open",
+                       exc_info=True)
+
+
+async def _drain_summary_runs() -> None:
+    """INC-SUMMARY-01 (17.10.2026): грациозная остановка Summary.
+
+    Фазы (по одной честной строке в журнале): ``stopping`` — планировщик
+    снят, новые прогоны не принимаются; ``draining N`` — in-flight прогоны
+    отменены; ``finalized M`` — терминал записан. Бюджет дренажа — env-ось
+    `SUMMARY_SHUTDOWN_DRAIN_SECONDS` (default 20 с, заметно меньше systemd
+    `TimeoutStopSec=60 с`). Публикация/идемпотентность не трогаются:
+    повторной отправки не бывает, данные памяти не удаляются."""
+    if _summary_service is None:
+        return
+    try:
+        await _summary_service.stop_accepting()
+    except Exception:            # pragma: no cover - fail-open
+        logger.warning("[shutdown] summary stop-accepting failed — fail-open",
+                       exc_info=True)
+    try:
+        stats = await _summary_service.drain_runs()
+        logger.info(
+            "[shutdown] summary drain done | in_flight=%s | cancelled=%s | "
+            "finalized=%s | left=%s | elapsed_ms=%s",
+            stats.get("in_flight"), stats.get("cancelled"),
+            stats.get("finalized"), stats.get("left"),
+            int(float(stats.get("elapsed_s") or 0.0) * 1000))
+    except Exception:            # pragma: no cover - fail-open
+        logger.warning("[shutdown] summary drain failed — fail-open",
+                       exc_info=True)
+
+
 # ── Раунд 10.18 (F7 settings-worker-sync, T-1764, ADR-1018-7 D6):
 # LISTEN chat_params_updated → инвалидация ChatParamsCache. Закрывает
 # кросс-процессный рассинхрон (web-процесс пишет слой чата → бот-процесс
@@ -1097,6 +1169,49 @@ async def _start_chat_params_listener(pg) -> asyncio.Task | None:
         return None
     _chat_params_notify = ChatParamsNotify(dsn)
     return asyncio.create_task(_chat_params_notify.start())
+
+
+# ── INC-SUMMARY-01 (17.10.2026): SIGTERM/SIGINT → shutdown процесса ─────────
+# Прод-инцидент: каждый рестарт с 12.10 заканчивался SIGKILL через 60 с
+# (`State 'stop-sigterm' timed out`), `on_shutdown` не исполнялся вовсе.
+# Причина: SIGTERM-хендлер переустанавливал aiogram (`start_polling` →
+# `handle_signals=True` → `loop.add_signal_handler` ПОСЛЕ uvicorn'а), поэтому
+# `server.should_exit` не выставлялся, `main()` навсегда оставался в
+# `server.serve()`, а `stop_event` никто не ожидал (watcher-таска была
+# создана, но не использовалась). Фикс: aiogram не трогает сигналы
+# (`handle_signals=False`), хендлером становится `request_shutdown` (тот же
+# путь, что у dev-stop: stop_event + server.should_exit), а `stop_event`
+# получил реального потребителя (watcher).
+# ВНИМАНИЕ (пин T-5150): в комментариях не писать литералы старт-порядка
+# (serve/on_startup/uvicorn.Server) — `src.index(...)` в
+# `test_t5150_startup_migrations_round1046` берёт ПЕРВОЕ вхождение и по нему
+# проверяет порядок запуска.
+_SHUTDOWN_SIGNALS = (signal.SIGINT, signal.SIGTERM)
+
+
+def _install_signal_handlers(loop, request_shutdown) -> tuple[int, ...]:
+    """SIGTERM/SIGINT → ``request_shutdown`` (идемпотентный graceful-stop).
+
+    POSIX — ``loop.add_signal_handler``; Windows-дев — ``signal.signal`` +
+    ``call_soon_threadsafe`` (там ``add_signal_handler`` не поддерживается).
+    Fail-open: ничего не установилось → пустой кортеж (прежнее поведение,
+    Ctrl+C обрабатывается как раньше)."""
+    installed: list[int] = []
+    for sig in _SHUTDOWN_SIGNALS:
+        try:
+            loop.add_signal_handler(sig, request_shutdown)
+            installed.append(int(sig))
+            continue
+        except (NotImplementedError, ValueError, RuntimeError, OSError):
+            pass
+        try:
+            signal.signal(
+                sig,
+                lambda *_a: loop.call_soon_threadsafe(request_shutdown))
+            installed.append(int(sig))
+        except (ValueError, OSError, RuntimeError):
+            pass
+    return tuple(installed)
 
 
 async def main():
@@ -1247,7 +1362,12 @@ async def main():
         # Epic 85: процесс «active», но polling/webapp/heartbeat не стартуют).
     ))
     server_holder[0] = server
-    polling = asyncio.create_task(dp.start_polling(bot))
+    # INC-SUMMARY-01: `handle_signals=False` — SIGTERM/SIGINT обрабатывает
+    # ТОЛЬКО наш хендлер ниже. Иначе aiogram (handle_signals=True, default)
+    # переустанавливает хендлер последним и `server.should_exit` не
+    # выставляется → serve() не завершается → graceful shutdown не наступает
+    # (прод: SIGKILL через 60 с, фантом `running` у Summary-прогона).
+    polling = asyncio.create_task(dp.start_polling(bot, handle_signals=False))
     status.set_polling_state("polling")
 
     def _watch_polling(task: asyncio.Task) -> None:
@@ -1265,18 +1385,36 @@ async def main():
 
     # ── Graceful shutdown (84.15.5/T-642): SIGTERM/SIGINT → корректная
     # остановка ≤10с (polling.cancel + on_shutdown + PG-пул).
+    # INC-SUMMARY-01: хендлер — `request_shutdown` (stop_event + should_exit);
+    # раньше здесь стоял только `stop_event.set`, который ничего не
+    # останавливал (watcher никто не ожидал) → процесс жил до SIGKILL.
     loop = asyncio.get_running_loop()
-    for sig in (signal.SIGINT, signal.SIGTERM):
-        try:
-            loop.add_signal_handler(sig, stop_event.set)
-        except (NotImplementedError, ValueError):
-            pass                     # Windows: SIGTERM недоступен — только SIGINT
-    watcher = asyncio.create_task(stop_event.wait())
+    installed_signals = _install_signal_handlers(loop, request_shutdown)
+    logger.info("[shutdown] signal handlers installed | signals=%s",
+                installed_signals or "none (KeyboardInterrupt only)")
+
+    async def _watch_stop_event() -> None:
+        """stop_event → request_shutdown: единственный потребитель события
+        (раньше таска создавалась и отменялась, не влияя ни на что)."""
+        await stop_event.wait()
+        request_shutdown()
+
+    watcher = asyncio.create_task(_watch_stop_event())
 
     try:
         await server.serve()
     finally:
+        shutdown_started = time.monotonic()
         stop_event.set()
+        # ── INC-SUMMARY-01: фаза `stopping` ДО отмены polling — новые тики
+        # крона не стартуют (планировщик снят), генератор не принимает новые
+        # прогоны. Drain/терминал in-flight прогонов — в `on_shutdown`.
+        try:
+            if _summary_service is not None:
+                await _summary_service.stop_accepting()
+        except Exception:        # pragma: no cover - fail-open
+            logger.warning("[shutdown] summary stop-accepting failed — "
+                           "fail-open", exc_info=True)
         polling.cancel()
         watcher.cancel()
         try:
@@ -1299,6 +1437,8 @@ async def main():
                 await _chat_params_listener_task
         await on_shutdown()
         await cache.close()
+        logger.info("[shutdown] bye | elapsed_ms=%d",
+                    int((time.monotonic() - shutdown_started) * 1000))
         # ── Раунд 4 (3.1.6/3.1.4, FR-B3): мягкое закрытие логов — САМЫЙ конец
         # процесса (после on_shutdown/cache.close, в финальном finally):
         # logging.shutdown() делает close() всех хендлеров → BetterStackHandler
