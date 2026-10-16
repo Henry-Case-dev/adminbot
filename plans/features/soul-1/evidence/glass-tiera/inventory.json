@@ -1,0 +1,2424 @@
+{
+ "1440x900 #/": {
+  "tiers": {
+   "count": 19,
+   "byTier": {
+    "a": 17,
+    "c": 2
+   },
+   "lens": 17,
+   "blurOnly": 0,
+   "none": 2,
+   "byClass": [
+    [
+     "card",
+     12
+    ],
+    [
+     "(none)",
+     3
+    ],
+    [
+     "header-sticky.card-solid",
+     1
+    ],
+    [
+     "hub-card",
+     1
+    ],
+    [
+     "card.status-block",
+     1
+    ],
+    [
+     "card.intel-card",
+     1
+    ]
+   ],
+   "rows": [
+    {
+     "cls": "(none)",
+     "declared": "shell",
+     "tier": "a",
+     "bf": "blur(5px) saturate(140%) url(\"#lg-lens\")",
+     "bg": "rgba(27, 29, 34, 0.94)",
+     "w": 216,
+     "h": 900,
+     "nestedInGlass": null
+    },
+    {
+     "cls": "header-sticky.card-solid",
+     "declared": "shell",
+     "tier": "a",
+     "bf": "blur(5px) saturate(140%) url(\"#lg-lens-p10\")",
+     "bg": "rgba(27, 29, 34, 0.72)",
+     "w": 1224,
+     "h": 109,
+     "nestedInGlass": null
+    },
+    {
+     "cls": "hub-card",
+     "declared": null,
+     "tier": "a",
+     "bf": "blur(5px) saturate(140%) url(\"#lg-lens-p11\")",
+     "bg": "rgba(21, 27, 42, 0.5)",
+     "w": 1192,
+     "h": 79,
+     "nestedInGlass": null
+    },
+    {
+     "cls": "card",
+     "declared": null,
+     "tier": "a",
+     "bf": "blur(5px) saturate(140%) url(\"#lg-lens-p2\")",
+     "bg": "rgba(21, 27, 42, 0.5)",
+     "w": 1192,
+     "h": 70,
+     "nestedInGlass": null
+    },
+    {
+     "cls": "(none)",
+     "declared": "",
+     "tier": "a",
+     "bf": "blur(5px) saturate(140%) url(\"#lg-lens-p3\")",
+     "bg": "rgba(0, 0, 0, 0)",
+     "w": 1192,
+     "h": 44,
+     "nestedInGlass": null
+    },
+    {
+     "cls": "card",
+     "declared": "a",
+     "tier": "a",
+     "bf": "blur(5px) saturate(140%) url(\"#lg-lens-p12\")",
+     "bg": "rgba(21, 27, 42, 0.5)",
+     "w": 487,
+     "h": 265,
+     "nestedInGlass": null
+    },
+    {
+     "cls": "card.status-block",
+     "declared": null,
+     "tier": "a",
+     "bf": "blur(5px) saturate(140%) url(\"#lg-lens-p13\")",
+     "bg": "rgba(21, 27, 42, 0.5)",
+     "w": 689,
+     "h": 265,
+     "nestedInGlass": null
+    },
+    {
+     "cls": "card",
+     "declared": null,
+     "tier": "a",
+     "bf": "blur(5px) saturate(140%) url(\"#lg-lens-p14\")",
+     "bg": "rgba(21, 27, 42, 0.5)",
+     "w": 789,
+     "h": 522,
+     "nestedInGlass": null
+    },
+    {
+     "cls": "(none)",
+     "declared": "c",
+     "tier": "c",
+     "bf": "none",
+     "bg": "rgba(21, 27, 42, 0.85)",
+     "w": 755,
+     "h": 320,
+     "nestedInGlass": "card p-4 status-graph sg-8"
+    },
+    {
+     "cls": "card",
+     "declared": null,
+     "tier": "a",
+     "bf": "blur(5px) saturate(140%) url(\"#lg-lens-p15\")",
+     "bg": "rgba(21, 27, 42, 0.5)",
+     "w": 387,
+     "h": 522,
+     "nestedInGlass": null
+    },
+    {
+     "cls": "card.intel-card",
+     "declared": null,
+     "tier": "a",
+     "bf": "blur(5px) saturate(140%) url(\"#lg-lens-p24\")",
+     "bg": "rgba(21, 27, 42, 0.5)",
+     "w": 1192,
+     "h": 672,
+     "nestedInGlass": null
+    },
+    {
+     "cls": "card",
+     "declared": null,
+     "tier": "a",
+     "bf": "blur(5px) saturate(140%) url(\"#lg-lens-p17\")",
+     "bg": "rgba(21, 27, 42, 0.5)",
+     "w": 689,
+     "h": 88,
+     "nestedInGlass": null
+    },
+    {
+     "cls": "card",
+     "declared": null,
+     "tier": "a",
+     "bf": "blur(5px) saturate(140%) url(\"#lg-lens-p18\")",
+     "bg": "rgba(21, 27, 42, 0.5)",
+     "w": 487,
+     "h": 88,
+     "nestedInGlass": null
+    },
+    {
+     "cls": "card",
+     "declared": null,
+     "tier": "a",
+     "bf": "blur(5px) saturate(140%) url(\"#lg-lens-p19\")",
+     "bg": "rgba(21, 27, 42, 0.5)",
+     "w": 1192,
+     "h": 92,
+     "nestedInGlass": null
+    },
+    {
+     "cls": "card",
+     "declared": null,
+     "tier": "a",
+     "bf": "blur(5px) saturate(140%) url(\"#lg-lens-p20\")",
+     "bg": "rgba(21, 27, 42, 0.5)",
+     "w": 1192,
+     "h": 164,
+     "nestedInGlass": null
+    },
+    {
+     "cls": "card",
+     "declared": null,
+     "tier": "a",
+     "bf": "blur(5px) saturate(140%) url(\"#lg-lens-p21\")",
+     "bg": "rgba(21, 27, 42, 0.5)",
+     "w": 1192,
+     "h": 202,
+     "nestedInGlass": null
+    },
+    {
+     "cls": "card",
+     "declared": null,
+     "tier": "a",
+     "bf": "blur(5px) saturate(140%) url(\"#lg-lens-p22\")",
+     "bg": "rgba(21, 27, 42, 0.5)",
+     "w": 1192,
+     "h": 99,
+     "nestedInGlass": null
+    },
+    {
+     "cls": "card",
+     "declared": null,
+     "tier": "a",
+     "bf": "blur(5px) saturate(140%) url(\"#lg-lens-p23\")",
+     "bg": "rgba(21, 27, 42, 0.5)",
+     "w": 1192,
+     "h": 99,
+     "nestedInGlass": null
+    },
+    {
+     "cls": "card",
+     "declared": "c",
+     "tier": "c",
+     "bf": "none",
+     "bg": "rgba(21, 27, 42, 0.85)",
+     "w": 1192,
+     "h": 194,
+     "nestedInGlass": null
+    }
+   ]
+  },
+  "lens": {
+   "card": {
+    "cls": "status-counts card p-3",
+    "tier": "a",
+    "reason": "probe-chromium",
+    "lens": true,
+    "bf": "blur(5px) saturate(140%) url(\"#lg-lens-p2\")"
+   },
+   "moduleCard": null,
+   "hubCard": {
+    "cls": "hub-card",
+    "tier": "a",
+    "reason": "probe-chromium",
+    "lens": true,
+    "bf": "blur(5px) saturate(140%) url(\"#lg-lens-p11\")"
+   },
+   "sidebar": {
+    "cls": "app-sidebar",
+    "tier": "a",
+    "reason": "probe-chromium",
+    "lens": true,
+    "bf": "blur(5px) saturate(140%) url(\"#lg-lens\")"
+   },
+   "header": {
+    "cls": "main-header header-sticky card-solid px-",
+    "tier": "a",
+    "reason": "probe-chromium",
+    "lens": true,
+    "bf": "blur(5px) saturate(140%) url(\"#lg-lens-p10\")"
+   },
+   "statusHero": {
+    "cls": "card p-4 status-hero sg-5",
+    "tier": "a",
+    "reason": "probe-chromium",
+    "lens": true,
+    "bf": "blur(5px) saturate(140%) url(\"#lg-lens-p12\")"
+   },
+   "stickySave": null,
+   "modalCard": null,
+   "probe": {
+    "tierA": true,
+    "reason": "probe-chromium",
+    "engine": "chromium",
+    "svgRender": true,
+    "backdrop": true,
+    "ms": 6
+   },
+   "diag": null
+  },
+  "freeze": {
+   "paused": true,
+   "mode": "canvas2d",
+   "seed": 424242
+  },
+  "errors": []
+ },
+ "1440x900 #/oversight": {
+  "tiers": {
+   "count": 6,
+   "byTier": {
+    "a": 5,
+    "c": 1
+   },
+   "lens": 5,
+   "blurOnly": 0,
+   "none": 1,
+   "byClass": [
+    [
+     "card.glass-panel",
+     3
+    ],
+    [
+     "(none)",
+     2
+    ],
+    [
+     "header-sticky.card-solid",
+     1
+    ]
+   ],
+   "rows": [
+    {
+     "cls": "(none)",
+     "declared": "shell",
+     "tier": "a",
+     "bf": "blur(5px) saturate(140%) url(\"#lg-lens\")",
+     "bg": "rgba(27, 29, 34, 0.94)",
+     "w": 216,
+     "h": 900,
+     "nestedInGlass": null
+    },
+    {
+     "cls": "header-sticky.card-solid",
+     "declared": "shell",
+     "tier": "a",
+     "bf": "blur(5px) saturate(140%) url(\"#lg-lens-p5\")",
+     "bg": "rgba(27, 29, 34, 0.72)",
+     "w": 1224,
+     "h": 109,
+     "nestedInGlass": null
+    },
+    {
+     "cls": "card.glass-panel",
+     "declared": "b",
+     "tier": "a",
+     "bf": "blur(5px) saturate(140%) url(\"#lg-lens-p2\")",
+     "bg": "rgba(21, 27, 42, 0.5)",
+     "w": 1192,
+     "h": 54,
+     "nestedInGlass": null
+    },
+    {
+     "cls": "(none)",
+     "declared": "c",
+     "tier": "c",
+     "bf": "none",
+     "bg": "rgba(21, 27, 42, 0.85)",
+     "w": 0,
+     "h": 0,
+     "nestedInGlass": "card glass-panel p-2 col-span-full"
+    },
+    {
+     "cls": "card.glass-panel",
+     "declared": "b",
+     "tier": "a",
+     "bf": "blur(5px) saturate(140%) url(\"#lg-lens-p6\")",
+     "bg": "rgba(21, 27, 42, 0.5)",
+     "w": 1192,
+     "h": 343,
+     "nestedInGlass": null
+    },
+    {
+     "cls": "card.glass-panel",
+     "declared": "b",
+     "tier": "a",
+     "bf": "blur(5px) saturate(140%) url(\"#lg-lens-p4\")",
+     "bg": "rgba(21, 27, 42, 0.5)",
+     "w": 1192,
+     "h": 162,
+     "nestedInGlass": null
+    }
+   ]
+  },
+  "lens": {
+   "card": {
+    "cls": "card glass-panel p-2 col-span-full overs",
+    "tier": "a",
+    "reason": "probe-chromium",
+    "lens": true,
+    "bf": "blur(5px) saturate(140%) url(\"#lg-lens-p2\")"
+   },
+   "moduleCard": null,
+   "hubCard": null,
+   "sidebar": {
+    "cls": "app-sidebar",
+    "tier": "a",
+    "reason": "probe-chromium",
+    "lens": true,
+    "bf": "blur(5px) saturate(140%) url(\"#lg-lens\")"
+   },
+   "header": {
+    "cls": "main-header header-sticky card-solid px-",
+    "tier": "a",
+    "reason": "probe-chromium",
+    "lens": true,
+    "bf": "blur(5px) saturate(140%) url(\"#lg-lens-p5\")"
+   },
+   "statusHero": null,
+   "stickySave": null,
+   "modalCard": null,
+   "probe": {
+    "tierA": true,
+    "reason": "probe-chromium",
+    "engine": "chromium",
+    "svgRender": true,
+    "backdrop": true,
+    "ms": 6
+   },
+   "diag": null
+  },
+  "freeze": {
+   "paused": true,
+   "mode": "canvas2d",
+   "seed": 424242
+  },
+  "errors": []
+ },
+ "1440x900 #/modules": {
+  "tiers": {
+   "count": 17,
+   "byTier": {
+    "a": 17
+   },
+   "lens": 17,
+   "blurOnly": 0,
+   "none": 0,
+   "byClass": [
+    [
+     "module-card.card",
+     15
+    ],
+    [
+     "(none)",
+     1
+    ],
+    [
+     "header-sticky.card-solid",
+     1
+    ]
+   ],
+   "rows": [
+    {
+     "cls": "(none)",
+     "declared": "shell",
+     "tier": "a",
+     "bf": "blur(5px) saturate(140%) url(\"#lg-lens\")",
+     "bg": "rgba(27, 29, 34, 0.94)",
+     "w": 216,
+     "h": 900,
+     "nestedInGlass": null
+    },
+    {
+     "cls": "header-sticky.card-solid",
+     "declared": "shell",
+     "tier": "a",
+     "bf": "blur(5px) saturate(140%) url(\"#lg-lens-p17\")",
+     "bg": "rgba(27, 29, 34, 0.72)",
+     "w": 1224,
+     "h": 109,
+     "nestedInGlass": null
+    },
+    {
+     "cls": "module-card.card",
+     "declared": null,
+     "tier": "a",
+     "bf": "blur(5px) saturate(140%) url(\"#lg-lens-p18\")",
+     "bg": "rgba(21, 27, 42, 0.5)",
+     "w": 356,
+     "h": 228,
+     "nestedInGlass": null
+    },
+    {
+     "cls": "module-card.card",
+     "declared": null,
+     "tier": "a",
+     "bf": "blur(5px) saturate(140%) url(\"#lg-lens-p19\")",
+     "bg": "rgba(21, 27, 42, 0.5)",
+     "w": 356,
+     "h": 228,
+     "nestedInGlass": null
+    },
+    {
+     "cls": "module-card.card",
+     "declared": null,
+     "tier": "a",
+     "bf": "blur(5px) saturate(140%) url(\"#lg-lens-p20\")",
+     "bg": "rgba(21, 27, 42, 0.5)",
+     "w": 356,
+     "h": 228,
+     "nestedInGlass": null
+    },
+    {
+     "cls": "module-card.card",
+     "declared": null,
+     "tier": "a",
+     "bf": "blur(5px) saturate(140%) url(\"#lg-lens-p21\")",
+     "bg": "rgba(21, 27, 42, 0.5)",
+     "w": 356,
+     "h": 228,
+     "nestedInGlass": null
+    },
+    {
+     "cls": "module-card.card",
+     "declared": null,
+     "tier": "a",
+     "bf": "blur(5px) saturate(140%) url(\"#lg-lens-p22\")",
+     "bg": "rgba(21, 27, 42, 0.5)",
+     "w": 356,
+     "h": 228,
+     "nestedInGlass": null
+    },
+    {
+     "cls": "module-card.card",
+     "declared": null,
+     "tier": "a",
+     "bf": "blur(5px) saturate(140%) url(\"#lg-lens-p23\")",
+     "bg": "rgba(21, 27, 42, 0.5)",
+     "w": 356,
+     "h": 228,
+     "nestedInGlass": null
+    },
+    {
+     "cls": "module-card.card",
+     "declared": null,
+     "tier": "a",
+     "bf": "blur(5px) saturate(140%) url(\"#lg-lens-p24\")",
+     "bg": "rgba(21, 27, 42, 0.5)",
+     "w": 356,
+     "h": 228,
+     "nestedInGlass": null
+    },
+    {
+     "cls": "module-card.card",
+     "declared": null,
+     "tier": "a",
+     "bf": "blur(5px) saturate(140%) url(\"#lg-lens-p25\")",
+     "bg": "rgba(21, 27, 42, 0.5)",
+     "w": 356,
+     "h": 228,
+     "nestedInGlass": null
+    },
+    {
+     "cls": "module-card.card",
+     "declared": null,
+     "tier": "a",
+     "bf": "blur(5px) saturate(140%) url(\"#lg-lens-p26\")",
+     "bg": "rgba(21, 27, 42, 0.5)",
+     "w": 356,
+     "h": 228,
+     "nestedInGlass": null
+    },
+    {
+     "cls": "module-card.card",
+     "declared": null,
+     "tier": "a",
+     "bf": "blur(5px) saturate(140%) url(\"#lg-lens-p11\")",
+     "bg": "rgba(21, 27, 42, 0.5)",
+     "w": 356,
+     "h": 152,
+     "nestedInGlass": null
+    },
+    {
+     "cls": "module-card.card",
+     "declared": null,
+     "tier": "a",
+     "bf": "blur(5px) saturate(140%) url(\"#lg-lens-p12\")",
+     "bg": "rgba(21, 27, 42, 0.5)",
+     "w": 356,
+     "h": 152,
+     "nestedInGlass": null
+    },
+    {
+     "cls": "module-card.card",
+     "declared": null,
+     "tier": "a",
+     "bf": "blur(5px) saturate(140%) url(\"#lg-lens-p13\")",
+     "bg": "rgba(21, 27, 42, 0.5)",
+     "w": 356,
+     "h": 152,
+     "nestedInGlass": null
+    },
+    {
+     "cls": "module-card.card",
+     "declared": null,
+     "tier": "a",
+     "bf": "blur(5px) saturate(140%) url(\"#lg-lens-p27\")",
+     "bg": "rgba(21, 27, 42, 0.5)",
+     "w": 356,
+     "h": 228,
+     "nestedInGlass": null
+    },
+    {
+     "cls": "module-card.card",
+     "declared": null,
+     "tier": "a",
+     "bf": "blur(5px) saturate(140%) url(\"#lg-lens-p28\")",
+     "bg": "rgba(21, 27, 42, 0.5)",
+     "w": 356,
+     "h": 228,
+     "nestedInGlass": null
+    },
+    {
+     "cls": "module-card.card",
+     "declared": null,
+     "tier": "a",
+     "bf": "blur(5px) saturate(140%) url(\"#lg-lens-p29\")",
+     "bg": "rgba(21, 27, 42, 0.5)",
+     "w": 356,
+     "h": 228,
+     "nestedInGlass": null
+    }
+   ]
+  },
+  "lens": {
+   "card": {
+    "cls": "module-card card p-4",
+    "tier": "a",
+    "reason": "probe-chromium",
+    "lens": true,
+    "bf": "blur(5px) saturate(140%) url(\"#lg-lens-p18\")"
+   },
+   "moduleCard": {
+    "cls": "module-card card p-4",
+    "tier": "a",
+    "reason": "probe-chromium",
+    "lens": true,
+    "bf": "blur(5px) saturate(140%) url(\"#lg-lens-p18\")"
+   },
+   "hubCard": null,
+   "sidebar": {
+    "cls": "app-sidebar",
+    "tier": "a",
+    "reason": "probe-chromium",
+    "lens": true,
+    "bf": "blur(5px) saturate(140%) url(\"#lg-lens\")"
+   },
+   "header": {
+    "cls": "main-header header-sticky card-solid px-",
+    "tier": "a",
+    "reason": "probe-chromium",
+    "lens": true,
+    "bf": "blur(5px) saturate(140%) url(\"#lg-lens-p17\")"
+   },
+   "statusHero": null,
+   "stickySave": null,
+   "modalCard": null,
+   "probe": {
+    "tierA": true,
+    "reason": "probe-chromium",
+    "engine": "chromium",
+    "svgRender": true,
+    "backdrop": true,
+    "ms": 6
+   },
+   "diag": null
+  },
+  "freeze": {
+   "paused": true,
+   "mode": "canvas2d",
+   "seed": 424242
+  },
+  "errors": []
+ },
+ "1440x900 #/ai/llm": {
+  "tiers": {
+   "count": 51,
+   "byTier": {
+    "a": 12,
+    "b": 39
+   },
+   "lens": 12,
+   "blurOnly": 0,
+   "none": 39,
+   "byClass": [
+    [
+     "card",
+     37
+    ],
+    [
+     "prov-block.card",
+     12
+    ],
+    [
+     "(none)",
+     1
+    ],
+    [
+     "header-sticky.card-solid",
+     1
+    ]
+   ],
+   "rows": [
+    {
+     "cls": "(none)",
+     "declared": "shell",
+     "tier": "a",
+     "bf": "blur(5px) saturate(140%) url(\"#lg-lens\")",
+     "bg": "rgba(27, 29, 34, 0.94)",
+     "w": 216,
+     "h": 900,
+     "nestedInGlass": null
+    },
+    {
+     "cls": "header-sticky.card-solid",
+     "declared": "shell",
+     "tier": "a",
+     "bf": "blur(5px) saturate(140%) url(\"#lg-lens-p3\")",
+     "bg": "rgba(27, 29, 34, 0.72)",
+     "w": 1224,
+     "h": 109,
+     "nestedInGlass": null
+    },
+    {
+     "cls": "prov-block.card",
+     "declared": null,
+     "tier": "a",
+     "bf": "blur(5px) saturate(140%) url(\"#lg-lens-p4\")",
+     "bg": "rgba(21, 27, 42, 0.5)",
+     "w": 387,
+     "h": 739,
+     "nestedInGlass": null
+    },
+    {
+     "cls": "prov-block.card",
+     "declared": null,
+     "tier": "a",
+     "bf": "blur(5px) saturate(140%) url(\"#lg-lens-p5\")",
+     "bg": "rgba(21, 27, 42, 0.5)",
+     "w": 387,
+     "h": 775,
+     "nestedInGlass": null
+    },
+    {
+     "cls": "prov-block.card",
+     "declared": null,
+     "tier": "a",
+     "bf": "blur(5px) saturate(140%) url(\"#lg-lens-p6\")",
+     "bg": "rgba(21, 27, 42, 0.5)",
+     "w": 387,
+     "h": 791,
+     "nestedInGlass": null
+    },
+    {
+     "cls": "prov-block.card",
+     "declared": null,
+     "tier": "a",
+     "bf": "blur(5px) saturate(140%) url(\"#lg-lens-p7\")",
+     "bg": "rgba(21, 27, 42, 0.5)",
+     "w": 387,
+     "h": 1809,
+     "nestedInGlass": null
+    },
+    {
+     "cls": "prov-block.card",
+     "declared": null,
+     "tier": "a",
+     "bf": "blur(5px) saturate(140%) url(\"#lg-lens-p8\")",
+     "bg": "rgba(21, 27, 42, 0.5)",
+     "w": 387,
+     "h": 421,
+     "nestedInGlass": null
+    },
+    {
+     "cls": "prov-block.card",
+     "declared": null,
+     "tier": "a",
+     "bf": "blur(5px) saturate(140%) url(\"#lg-lens-p9\")",
+     "bg": "rgba(21, 27, 42, 0.5)",
+     "w": 387,
+     "h": 421,
+     "nestedInGlass": null
+    },
+    {
+     "cls": "prov-block.card",
+     "declared": null,
+     "tier": "a",
+     "bf": "blur(5px) saturate(140%) url(\"#lg-lens-p10\")",
+     "bg": "rgba(21, 27, 42, 0.5)",
+     "w": 387,
+     "h": 421,
+     "nestedInGlass": null
+    },
+    {
+     "cls": "prov-block.card",
+     "declared": null,
+     "tier": "a",
+     "bf": "blur(5px) saturate(140%) url(\"#lg-lens-p11\")",
+     "bg": "rgba(21, 27, 42, 0.5)",
+     "w": 387,
+     "h": 413,
+     "nestedInGlass": null
+    },
+    {
+     "cls": "prov-block.card",
+     "declared": null,
+     "tier": "a",
+     "bf": "blur(5px) saturate(140%) url(\"#lg-lens-p12\")",
+     "bg": "rgba(21, 27, 42, 0.5)",
+     "w": 387,
+     "h": 430,
+     "nestedInGlass": null
+    },
+    {
+     "cls": "card",
+     "declared": null,
+     "tier": "a",
+     "bf": "blur(5px) saturate(140%) url(\"#lg-lens-p13\")",
+     "bg": "rgba(21, 27, 42, 0.5)",
+     "w": 1192,
+     "h": 66,
+     "nestedInGlass": null
+    },
+    {
+     "cls": "prov-block.card",
+     "declared": null,
+     "tier": "b",
+     "bf": "none",
+     "bg": "rgba(255, 255, 255, 0.04)",
+     "w": 386,
+     "h": 432,
+     "nestedInGlass": "col-span-full grid gap-4 advanced"
+    },
+    {
+     "cls": "prov-block.card",
+     "declared": null,
+     "tier": "b",
+     "bf": "none",
+     "bg": "rgba(255, 255, 255, 0.04)",
+     "w": 386,
+     "h": 432,
+     "nestedInGlass": "col-span-full grid gap-4 advanced"
+    },
+    {
+     "cls": "prov-block.card",
+     "declared": null,
+     "tier": "b",
+     "bf": "none",
+     "bg": "rgba(255, 255, 255, 0.04)",
+     "w": 386,
+     "h": 432,
+     "nestedInGlass": "col-span-full grid gap-4 advanced"
+    },
+    {
+     "cls": "card",
+     "declared": null,
+     "tier": "b",
+     "bf": "none",
+     "bg": "rgba(255, 255, 255, 0.04)",
+     "w": 1190,
+     "h": 320,
+     "nestedInGlass": "col-span-full grid gap-4 advanced"
+    },
+    {
+     "cls": "card",
+     "declared": null,
+     "tier": "b",
+     "bf": "none",
+     "bg": "rgba(255, 255, 255, 0.04)",
+     "w": 572,
+     "h": 238,
+     "nestedInGlass": "col-span-full grid gap-4 advanced"
+    },
+    {
+     "cls": "card",
+     "declared": null,
+     "tier": "b",
+     "bf": "none",
+     "bg": "rgba(255, 255, 255, 0.04)",
+     "w": 1190,
+     "h": 288,
+     "nestedInGlass": "col-span-full grid gap-4 advanced"
+    },
+    {
+     "cls": "card",
+     "declared": null,
+     "tier": "b",
+     "bf": "none",
+     "bg": "rgba(255, 255, 255, 0.04)",
+     "w": 572,
+     "h": 206,
+     "nestedInGlass": "col-span-full grid gap-4 advanced"
+    },
+    {
+     "cls": "card",
+     "declared": null,
+     "tier": "b",
+     "bf": "none",
+     "bg": "rgba(255, 255, 255, 0.04)",
+     "w": 572,
+     "h": 206,
+     "nestedInGlass": "col-span-full grid gap-4 advanced"
+    },
+    {
+     "cls": "card",
+     "declared": null,
+     "tier": "b",
+     "bf": "none",
+     "bg": "rgba(255, 255, 255, 0.04)",
+     "w": 1190,
+     "h": 739,
+     "nestedInGlass": "col-span-full grid gap-4 advanced"
+    },
+    {
+     "cls": "card",
+     "declared": null,
+     "tier": "b",
+     "bf": "none",
+     "bg": "rgba(255, 255, 255, 0.04)",
+     "w": 572,
+     "h": 206,
+     "nestedInGlass": "col-span-full grid gap-4 advanced"
+    },
+    {
+     "cls": "card",
+     "declared": null,
+     "tier": "b",
+     "bf": "none",
+     "bg": "rgba(255, 255, 255, 0.04)",
+     "w": 572,
+     "h": 206,
+     "nestedInGlass": "col-span-full grid gap-4 advanced"
+    },
+    {
+     "cls": "card",
+     "declared": null,
+     "tier": "b",
+     "bf": "none",
+     "bg": "rgba(255, 255, 255, 0.04)",
+     "w": 572,
+     "h": 222,
+     "nestedInGlass": "col-span-full grid gap-4 advanced"
+    },
+    {
+     "cls": "card",
+     "declared": null,
+     "tier": "b",
+     "bf": "none",
+     "bg": "rgba(255, 255, 255, 0.04)",
+     "w": 572,
+     "h": 222,
+     "nestedInGlass": "col-span-full grid gap-4 advanced"
+    },
+    {
+     "cls": "card",
+     "declared": null,
+     "tier": "b",
+     "bf": "none",
+     "bg": "rgba(255, 255, 255, 0.04)",
+     "w": 572,
+     "h": 206,
+     "nestedInGlass": "col-span-full grid gap-4 advanced"
+    },
+    {
+     "cls": "card",
+     "declared": null,
+     "tier": "b",
+     "bf": "none",
+     "bg": "rgba(255, 255, 255, 0.04)",
+     "w": 1190,
+     "h": 521,
+     "nestedInGlass": "col-span-full grid gap-4 advanced"
+    },
+    {
+     "cls": "card",
+     "declared": null,
+     "tier": "b",
+     "bf": "none",
+     "bg": "rgba(255, 255, 255, 0.04)",
+     "w": 572,
+     "h": 222,
+     "nestedInGlass": "col-span-full grid gap-4 advanced"
+    },
+    {
+     "cls": "card",
+     "declared": null,
+     "tier": "b",
+     "bf": "none",
+     "bg": "rgba(255, 255, 255, 0.04)",
+     "w": 572,
+     "h": 222,
+     "nestedInGlass": "col-span-full grid gap-4 advanced"
+    },
+    {
+     "cls": "card",
+     "declared": null,
+     "tier": "b",
+     "bf": "none",
+     "bg": "rgba(255, 255, 255, 0.04)",
+     "w": 572,
+     "h": 206,
+     "nestedInGlass": "col-span-full grid gap-4 advanced"
+    },
+    {
+     "cls": "card",
+     "declared": null,
+     "tier": "b",
+     "bf": "none",
+     "bg": "rgba(255, 255, 255, 0.04)",
+     "w": 1190,
+     "h": 288,
+     "nestedInGlass": "col-span-full grid gap-4 advanced"
+    },
+    {
+     "cls": "card",
+     "declared": null,
+     "tier": "b",
+     "bf": "none",
+     "bg": "rgba(255, 255, 255, 0.04)",
+     "w": 572,
+     "h": 206,
+     "nestedInGlass": "col-span-full grid gap-4 advanced"
+    },
+    {
+     "cls": "card",
+     "declared": null,
+     "tier": "b",
+     "bf": "none",
+     "bg": "rgba(255, 255, 255, 0.04)",
+     "w": 572,
+     "h": 206,
+     "nestedInGlass": "col-span-full grid gap-4 advanced"
+    },
+    {
+     "cls": "card",
+     "declared": null,
+     "tier": "b",
+     "bf": "none",
+     "bg": "rgba(255, 255, 255, 0.04)",
+     "w": 1190,
+     "h": 739,
+     "nestedInGlass": "col-span-full grid gap-4 advanced"
+    },
+    {
+     "cls": "card",
+     "declared": null,
+     "tier": "b",
+     "bf": "none",
+     "bg": "rgba(255, 255, 255, 0.04)",
+     "w": 572,
+     "h": 206,
+     "nestedInGlass": "col-span-full grid gap-4 advanced"
+    },
+    {
+     "cls": "card",
+     "declared": null,
+     "tier": "b",
+     "bf": "none",
+     "bg": "rgba(255, 255, 255, 0.04)",
+     "w": 572,
+     "h": 206,
+     "nestedInGlass": "col-span-full grid gap-4 advanced"
+    },
+    {
+     "cls": "card",
+     "declared": null,
+     "tier": "b",
+     "bf": "none",
+     "bg": "rgba(255, 255, 255, 0.04)",
+     "w": 572,
+     "h": 206,
+     "nestedInGlass": "col-span-full grid gap-4 advanced"
+    },
+    {
+     "cls": "card",
+     "declared": null,
+     "tier": "b",
+     "bf": "none",
+     "bg": "rgba(255, 255, 255, 0.04)",
+     "w": 572,
+     "h": 206,
+     "nestedInGlass": "col-span-full grid gap-4 advanced"
+    },
+    {
+     "cls": "card",
+     "declared": null,
+     "tier": "b",
+     "bf": "none",
+     "bg": "rgba(255, 255, 255, 0.04)",
+     "w": 572,
+     "h": 222,
+     "nestedInGlass": "col-span-full grid gap-4 advanced"
+    },
+    {
+     "cls": "card",
+     "declared": null,
+     "tier": "b",
+     "bf": "none",
+     "bg": "rgba(255, 255, 255, 0.04)",
+     "w": 1190,
+     "h": 304,
+     "nestedInGlass": "col-span-full grid gap-4 advanced"
+    },
+    {
+     "cls": "card",
+     "declared": null,
+     "tier": "b",
+     "bf": "none",
+     "bg": "rgba(255, 255, 255, 0.04)",
+     "w": 572,
+     "h": 222,
+     "nestedInGlass": "col-span-full grid gap-4 advanced"
+    },
+    {
+     "cls": "card",
+     "declared": null,
+     "tier": "b",
+     "bf": "none",
+     "bg": "rgba(255, 255, 255, 0.04)",
+     "w": 1190,
+     "h": 1378,
+     "nestedInGlass": "col-span-full grid gap-4 advanced"
+    },
+    {
+     "cls": "card",
+     "declared": null,
+     "tier": "b",
+     "bf": "none",
+     "bg": "rgba(255, 255, 255, 0.04)",
+     "w": 572,
+     "h": 361,
+     "nestedInGlass": "col-span-full grid gap-4 advanced"
+    },
+    {
+     "cls": "card",
+     "declared": null,
+     "tier": "b",
+     "bf": "none",
+     "bg": "rgba(255, 255, 255, 0.04)",
+     "w": 572,
+     "h": 361,
+     "nestedInGlass": "col-span-full grid gap-4 advanced"
+    },
+    {
+     "cls": "card",
+     "declared": null,
+     "tier": "b",
+     "bf": "none",
+     "bg": "rgba(255, 255, 255, 0.04)",
+     "w": 572,
+     "h": 222,
+     "nestedInGlass": "col-span-full grid gap-4 advanced"
+    },
+    {
+     "cls": "card",
+     "declared": null,
+     "tier": "b",
+     "bf": "none",
+     "bg": "rgba(255, 255, 255, 0.04)",
+     "w": 572,
+     "h": 222,
+     "nestedInGlass": "col-span-full grid gap-4 advanced"
+    },
+    {
+     "cls": "card",
+     "declared": null,
+     "tier": "b",
+     "bf": "none",
+     "bg": "rgba(255, 255, 255, 0.04)",
+     "w": 572,
+     "h": 222,
+     "nestedInGlass": "col-span-full grid gap-4 advanced"
+    },
+    {
+     "cls": "card",
+     "declared": null,
+     "tier": "b",
+     "bf": "none",
+     "bg": "rgba(255, 255, 255, 0.04)",
+     "w": 572,
+     "h": 222,
+     "nestedInGlass": "col-span-full grid gap-4 advanced"
+    },
+    {
+     "cls": "card",
+     "declared": null,
+     "tier": "b",
+     "bf": "none",
+     "bg": "rgba(255, 255, 255, 0.04)",
+     "w": 572,
+     "h": 222,
+     "nestedInGlass": "col-span-full grid gap-4 advanced"
+    },
+    {
+     "cls": "card",
+     "declared": null,
+     "tier": "b",
+     "bf": "none",
+     "bg": "rgba(255, 255, 255, 0.04)",
+     "w": 572,
+     "h": 222,
+     "nestedInGlass": "col-span-full grid gap-4 advanced"
+    },
+    {
+     "cls": "card",
+     "declared": null,
+     "tier": "b",
+     "bf": "none",
+     "bg": "rgba(255, 255, 255, 0.04)",
+     "w": 572,
+     "h": 222,
+     "nestedInGlass": "col-span-full grid gap-4 advanced"
+    }
+   ]
+  },
+  "lens": {
+   "card": {
+    "cls": "prov-block card p-4 w-full",
+    "tier": "a",
+    "reason": "probe-chromium",
+    "lens": true,
+    "bf": "blur(5px) saturate(140%) url(\"#lg-lens-p4\")"
+   },
+   "moduleCard": null,
+   "hubCard": null,
+   "sidebar": {
+    "cls": "app-sidebar",
+    "tier": "a",
+    "reason": "probe-chromium",
+    "lens": true,
+    "bf": "blur(5px) saturate(140%) url(\"#lg-lens\")"
+   },
+   "header": {
+    "cls": "main-header header-sticky card-solid px-",
+    "tier": "a",
+    "reason": "probe-chromium",
+    "lens": true,
+    "bf": "blur(5px) saturate(140%) url(\"#lg-lens-p3\")"
+   },
+   "statusHero": null,
+   "stickySave": null,
+   "modalCard": null,
+   "probe": {
+    "tierA": true,
+    "reason": "probe-chromium",
+    "engine": "chromium",
+    "svgRender": true,
+    "backdrop": true,
+    "ms": 6
+   },
+   "diag": null
+  },
+  "freeze": {
+   "paused": true,
+   "mode": "canvas2d",
+   "seed": 424242
+  },
+  "errors": []
+ },
+ "390x844 #/": {
+  "tiers": {
+   "count": 18,
+   "byTier": {
+    "a": 16,
+    "c": 2
+   },
+   "lens": 16,
+   "blurOnly": 0,
+   "none": 2,
+   "byClass": [
+    [
+     "card",
+     12
+    ],
+    [
+     "(none)",
+     2
+    ],
+    [
+     "header-sticky.card-solid",
+     1
+    ],
+    [
+     "hub-card",
+     1
+    ],
+    [
+     "card.status-block",
+     1
+    ],
+    [
+     "card.intel-card",
+     1
+    ]
+   ],
+   "rows": [
+    {
+     "cls": "header-sticky.card-solid",
+     "declared": "shell",
+     "tier": "a",
+     "bf": "blur(5px) saturate(140%) url(\"#lg-lens-p9\")",
+     "bg": "rgba(27, 29, 34, 0.78)",
+     "w": 390,
+     "h": 116,
+     "nestedInGlass": null
+    },
+    {
+     "cls": "hub-card",
+     "declared": null,
+     "tier": "a",
+     "bf": "blur(5px) saturate(140%) url(\"#lg-lens-p10\")",
+     "bg": "rgba(21, 27, 42, 0.5)",
+     "w": 374,
+     "h": 100,
+     "nestedInGlass": null
+    },
+    {
+     "cls": "card",
+     "declared": null,
+     "tier": "a",
+     "bf": "blur(5px) saturate(140%) url(\"#lg-lens-p1\")",
+     "bg": "rgba(21, 27, 42, 0.5)",
+     "w": 374,
+     "h": 70,
+     "nestedInGlass": null
+    },
+    {
+     "cls": "(none)",
+     "declared": "",
+     "tier": "a",
+     "bf": "blur(5px) saturate(140%) url(\"#lg-lens-p2\")",
+     "bg": "rgba(0, 0, 0, 0)",
+     "w": 374,
+     "h": 44,
+     "nestedInGlass": null
+    },
+    {
+     "cls": "card",
+     "declared": "a",
+     "tier": "a",
+     "bf": "blur(5px) saturate(140%) url(\"#lg-lens-p6\")",
+     "bg": "rgba(21, 27, 42, 0.5)",
+     "w": 374,
+     "h": 141,
+     "nestedInGlass": null
+    },
+    {
+     "cls": "card.status-block",
+     "declared": null,
+     "tier": "a",
+     "bf": "blur(5px) saturate(140%) url(\"#lg-lens-p11\")",
+     "bg": "rgba(21, 27, 42, 0.5)",
+     "w": 374,
+     "h": 473,
+     "nestedInGlass": null
+    },
+    {
+     "cls": "card",
+     "declared": null,
+     "tier": "a",
+     "bf": "blur(5px) saturate(140%) url(\"#lg-lens-p12\")",
+     "bg": "rgba(21, 27, 42, 0.5)",
+     "w": 374,
+     "h": 537,
+     "nestedInGlass": null
+    },
+    {
+     "cls": "(none)",
+     "declared": "c",
+     "tier": "c",
+     "bf": "none",
+     "bg": "rgba(21, 27, 42, 0.85)",
+     "w": 340,
+     "h": 320,
+     "nestedInGlass": "card p-4 status-graph sg-8"
+    },
+    {
+     "cls": "card",
+     "declared": null,
+     "tier": "a",
+     "bf": "blur(5px) saturate(140%) url(\"#lg-lens-p13\")",
+     "bg": "rgba(21, 27, 42, 0.5)",
+     "w": 374,
+     "h": 323,
+     "nestedInGlass": null
+    },
+    {
+     "cls": "card.intel-card",
+     "declared": null,
+     "tier": "a",
+     "bf": "blur(5px) saturate(140%) url(\"#lg-lens-p14\")",
+     "bg": "rgba(21, 27, 42, 0.5)",
+     "w": 374,
+     "h": 1192,
+     "nestedInGlass": null
+    },
+    {
+     "cls": "card",
+     "declared": null,
+     "tier": "a",
+     "bf": "blur(5px) saturate(140%) url(\"#lg-lens-p15\")",
+     "bg": "rgba(21, 27, 42, 0.5)",
+     "w": 374,
+     "h": 80,
+     "nestedInGlass": null
+    },
+    {
+     "cls": "card",
+     "declared": null,
+     "tier": "a",
+     "bf": "blur(5px) saturate(140%) url(\"#lg-lens-p16\")",
+     "bg": "rgba(21, 27, 42, 0.5)",
+     "w": 374,
+     "h": 104,
+     "nestedInGlass": null
+    },
+    {
+     "cls": "card",
+     "declared": null,
+     "tier": "a",
+     "bf": "blur(5px) saturate(140%) url(\"#lg-lens-p17\")",
+     "bg": "rgba(21, 27, 42, 0.5)",
+     "w": 374,
+     "h": 92,
+     "nestedInGlass": null
+    },
+    {
+     "cls": "card",
+     "declared": null,
+     "tier": "a",
+     "bf": "blur(5px) saturate(140%) url(\"#lg-lens-p18\")",
+     "bg": "rgba(21, 27, 42, 0.5)",
+     "w": 374,
+     "h": 249,
+     "nestedInGlass": null
+    },
+    {
+     "cls": "card",
+     "declared": null,
+     "tier": "a",
+     "bf": "blur(5px) saturate(140%) url(\"#lg-lens-p19\")",
+     "bg": "rgba(21, 27, 42, 0.5)",
+     "w": 374,
+     "h": 202,
+     "nestedInGlass": null
+    },
+    {
+     "cls": "card",
+     "declared": null,
+     "tier": "a",
+     "bf": "blur(5px) saturate(140%) url(\"#lg-lens-p20\")",
+     "bg": "rgba(21, 27, 42, 0.5)",
+     "w": 374,
+     "h": 99,
+     "nestedInGlass": null
+    },
+    {
+     "cls": "card",
+     "declared": null,
+     "tier": "a",
+     "bf": "blur(5px) saturate(140%) url(\"#lg-lens-p21\")",
+     "bg": "rgba(21, 27, 42, 0.5)",
+     "w": 374,
+     "h": 99,
+     "nestedInGlass": null
+    },
+    {
+     "cls": "card",
+     "declared": "c",
+     "tier": "c",
+     "bf": "none",
+     "bg": "rgba(21, 27, 42, 0.85)",
+     "w": 374,
+     "h": 530,
+     "nestedInGlass": null
+    }
+   ]
+  },
+  "lens": {
+   "card": {
+    "cls": "status-counts card p-3",
+    "tier": "a",
+    "reason": "probe-chromium",
+    "lens": true,
+    "bf": "blur(5px) saturate(140%) url(\"#lg-lens-p1\")"
+   },
+   "moduleCard": null,
+   "hubCard": {
+    "cls": "hub-card",
+    "tier": "a",
+    "reason": "probe-chromium",
+    "lens": true,
+    "bf": "blur(5px) saturate(140%) url(\"#lg-lens-p10\")"
+   },
+   "sidebar": null,
+   "header": {
+    "cls": "main-header header-sticky card-solid px-",
+    "tier": "a",
+    "reason": "probe-chromium",
+    "lens": true,
+    "bf": "blur(5px) saturate(140%) url(\"#lg-lens-p9\")"
+   },
+   "statusHero": {
+    "cls": "card p-4 status-hero sg-5",
+    "tier": "a",
+    "reason": "probe-chromium",
+    "lens": true,
+    "bf": "blur(5px) saturate(140%) url(\"#lg-lens-p6\")"
+   },
+   "stickySave": null,
+   "modalCard": null,
+   "probe": {
+    "tierA": true,
+    "reason": "probe-chromium",
+    "engine": "chromium",
+    "svgRender": true,
+    "backdrop": true,
+    "ms": 6
+   },
+   "diag": null
+  },
+  "freeze": {
+   "paused": true,
+   "mode": "canvas2d",
+   "seed": 424242
+  },
+  "errors": []
+ },
+ "390x844 #/oversight": {
+  "tiers": {
+   "count": 5,
+   "byTier": {
+    "a": 4,
+    "c": 1
+   },
+   "lens": 4,
+   "blurOnly": 0,
+   "none": 1,
+   "byClass": [
+    [
+     "card.glass-panel",
+     3
+    ],
+    [
+     "header-sticky.card-solid",
+     1
+    ],
+    [
+     "(none)",
+     1
+    ]
+   ],
+   "rows": [
+    {
+     "cls": "header-sticky.card-solid",
+     "declared": "shell",
+     "tier": "a",
+     "bf": "blur(5px) saturate(140%) url(\"#lg-lens-p4\")",
+     "bg": "rgba(27, 29, 34, 0.78)",
+     "w": 390,
+     "h": 116,
+     "nestedInGlass": null
+    },
+    {
+     "cls": "card.glass-panel",
+     "declared": "b",
+     "tier": "a",
+     "bf": "blur(5px) saturate(140%) url(\"#lg-lens-p1\")",
+     "bg": "rgba(21, 27, 42, 0.5)",
+     "w": 374,
+     "h": 62,
+     "nestedInGlass": null
+    },
+    {
+     "cls": "(none)",
+     "declared": "c",
+     "tier": "c",
+     "bf": "none",
+     "bg": "rgba(21, 27, 42, 0.85)",
+     "w": 356,
+     "h": 44,
+     "nestedInGlass": "card glass-panel p-2 col-span-full"
+    },
+    {
+     "cls": "card.glass-panel",
+     "declared": "b",
+     "tier": "a",
+     "bf": "blur(5px) saturate(140%) url(\"#lg-lens-p5\")",
+     "bg": "rgba(21, 27, 42, 0.5)",
+     "w": 374,
+     "h": 559,
+     "nestedInGlass": null
+    },
+    {
+     "cls": "card.glass-panel",
+     "declared": "b",
+     "tier": "a",
+     "bf": "blur(5px) saturate(140%) url(\"#lg-lens-p3\")",
+     "bg": "rgba(21, 27, 42, 0.5)",
+     "w": 374,
+     "h": 178,
+     "nestedInGlass": null
+    }
+   ]
+  },
+  "lens": {
+   "card": {
+    "cls": "card glass-panel p-2 col-span-full overs",
+    "tier": "a",
+    "reason": "probe-chromium",
+    "lens": true,
+    "bf": "blur(5px) saturate(140%) url(\"#lg-lens-p1\")"
+   },
+   "moduleCard": null,
+   "hubCard": null,
+   "sidebar": null,
+   "header": {
+    "cls": "main-header header-sticky card-solid px-",
+    "tier": "a",
+    "reason": "probe-chromium",
+    "lens": true,
+    "bf": "blur(5px) saturate(140%) url(\"#lg-lens-p4\")"
+   },
+   "statusHero": null,
+   "stickySave": null,
+   "modalCard": null,
+   "probe": {
+    "tierA": true,
+    "reason": "probe-chromium",
+    "engine": "chromium",
+    "svgRender": true,
+    "backdrop": true,
+    "ms": 5
+   },
+   "diag": null
+  },
+  "freeze": {
+   "paused": true,
+   "mode": "canvas2d",
+   "seed": 424242
+  },
+  "errors": []
+ },
+ "390x844 #/modules": {
+  "tiers": {
+   "count": 16,
+   "byTier": {
+    "a": 16
+   },
+   "lens": 16,
+   "blurOnly": 0,
+   "none": 0,
+   "byClass": [
+    [
+     "module-card.card",
+     15
+    ],
+    [
+     "header-sticky.card-solid",
+     1
+    ]
+   ],
+   "rows": [
+    {
+     "cls": "header-sticky.card-solid",
+     "declared": "shell",
+     "tier": "a",
+     "bf": "blur(5px) saturate(140%) url(\"#lg-lens-p16\")",
+     "bg": "rgba(27, 29, 34, 0.78)",
+     "w": 390,
+     "h": 116,
+     "nestedInGlass": null
+    },
+    {
+     "cls": "module-card.card",
+     "declared": null,
+     "tier": "a",
+     "bf": "blur(5px) saturate(140%) url(\"#lg-lens-p1\")",
+     "bg": "rgba(21, 27, 42, 0.5)",
+     "w": 374,
+     "h": 144,
+     "nestedInGlass": null
+    },
+    {
+     "cls": "module-card.card",
+     "declared": null,
+     "tier": "a",
+     "bf": "blur(5px) saturate(140%) url(\"#lg-lens-p17\")",
+     "bg": "rgba(21, 27, 42, 0.5)",
+     "w": 374,
+     "h": 212,
+     "nestedInGlass": null
+    },
+    {
+     "cls": "module-card.card",
+     "declared": null,
+     "tier": "a",
+     "bf": "blur(5px) saturate(140%) url(\"#lg-lens-p18\")",
+     "bg": "rgba(21, 27, 42, 0.5)",
+     "w": 374,
+     "h": 212,
+     "nestedInGlass": null
+    },
+    {
+     "cls": "module-card.card",
+     "declared": null,
+     "tier": "a",
+     "bf": "blur(5px) saturate(140%) url(\"#lg-lens-p19\")",
+     "bg": "rgba(21, 27, 42, 0.5)",
+     "w": 374,
+     "h": 212,
+     "nestedInGlass": null
+    },
+    {
+     "cls": "module-card.card",
+     "declared": null,
+     "tier": "a",
+     "bf": "blur(5px) saturate(140%) url(\"#lg-lens-p20\")",
+     "bg": "rgba(21, 27, 42, 0.5)",
+     "w": 374,
+     "h": 212,
+     "nestedInGlass": null
+    },
+    {
+     "cls": "module-card.card",
+     "declared": null,
+     "tier": "a",
+     "bf": "blur(5px) saturate(140%) url(\"#lg-lens-p21\")",
+     "bg": "rgba(21, 27, 42, 0.5)",
+     "w": 374,
+     "h": 212,
+     "nestedInGlass": null
+    },
+    {
+     "cls": "module-card.card",
+     "declared": null,
+     "tier": "a",
+     "bf": "blur(5px) saturate(140%) url(\"#lg-lens-p22\")",
+     "bg": "rgba(21, 27, 42, 0.5)",
+     "w": 374,
+     "h": 212,
+     "nestedInGlass": null
+    },
+    {
+     "cls": "module-card.card",
+     "declared": null,
+     "tier": "a",
+     "bf": "blur(5px) saturate(140%) url(\"#lg-lens-p23\")",
+     "bg": "rgba(21, 27, 42, 0.5)",
+     "w": 374,
+     "h": 212,
+     "nestedInGlass": null
+    },
+    {
+     "cls": "module-card.card",
+     "declared": null,
+     "tier": "a",
+     "bf": "blur(5px) saturate(140%) url(\"#lg-lens-p24\")",
+     "bg": "rgba(21, 27, 42, 0.5)",
+     "w": 374,
+     "h": 212,
+     "nestedInGlass": null
+    },
+    {
+     "cls": "module-card.card",
+     "declared": null,
+     "tier": "a",
+     "bf": "blur(5px) saturate(140%) url(\"#lg-lens-p2\")",
+     "bg": "rgba(21, 27, 42, 0.5)",
+     "w": 374,
+     "h": 144,
+     "nestedInGlass": null
+    },
+    {
+     "cls": "module-card.card",
+     "declared": null,
+     "tier": "a",
+     "bf": "blur(5px) saturate(140%) url(\"#lg-lens-p3\")",
+     "bg": "rgba(21, 27, 42, 0.5)",
+     "w": 374,
+     "h": 144,
+     "nestedInGlass": null
+    },
+    {
+     "cls": "module-card.card",
+     "declared": null,
+     "tier": "a",
+     "bf": "blur(5px) saturate(140%) url(\"#lg-lens-p25\")",
+     "bg": "rgba(21, 27, 42, 0.5)",
+     "w": 374,
+     "h": 152,
+     "nestedInGlass": null
+    },
+    {
+     "cls": "module-card.card",
+     "declared": null,
+     "tier": "a",
+     "bf": "blur(5px) saturate(140%) url(\"#lg-lens-p4\")",
+     "bg": "rgba(21, 27, 42, 0.5)",
+     "w": 374,
+     "h": 144,
+     "nestedInGlass": null
+    },
+    {
+     "cls": "module-card.card",
+     "declared": null,
+     "tier": "a",
+     "bf": "blur(5px) saturate(140%) url(\"#lg-lens-p5\")",
+     "bg": "rgba(21, 27, 42, 0.5)",
+     "w": 374,
+     "h": 144,
+     "nestedInGlass": null
+    },
+    {
+     "cls": "module-card.card",
+     "declared": null,
+     "tier": "a",
+     "bf": "blur(5px) saturate(140%) url(\"#lg-lens-p26\")",
+     "bg": "rgba(21, 27, 42, 0.5)",
+     "w": 374,
+     "h": 212,
+     "nestedInGlass": null
+    }
+   ]
+  },
+  "lens": {
+   "card": {
+    "cls": "module-card card p-4",
+    "tier": "a",
+    "reason": "probe-chromium",
+    "lens": true,
+    "bf": "blur(5px) saturate(140%) url(\"#lg-lens-p1\")"
+   },
+   "moduleCard": {
+    "cls": "module-card card p-4",
+    "tier": "a",
+    "reason": "probe-chromium",
+    "lens": true,
+    "bf": "blur(5px) saturate(140%) url(\"#lg-lens-p1\")"
+   },
+   "hubCard": null,
+   "sidebar": null,
+   "header": {
+    "cls": "main-header header-sticky card-solid px-",
+    "tier": "a",
+    "reason": "probe-chromium",
+    "lens": true,
+    "bf": "blur(5px) saturate(140%) url(\"#lg-lens-p16\")"
+   },
+   "statusHero": null,
+   "stickySave": null,
+   "modalCard": null,
+   "probe": {
+    "tierA": true,
+    "reason": "probe-chromium",
+    "engine": "chromium",
+    "svgRender": true,
+    "backdrop": true,
+    "ms": 5
+   },
+   "diag": null
+  },
+  "freeze": {
+   "paused": true,
+   "mode": "canvas2d",
+   "seed": 424242
+  },
+  "errors": []
+ },
+ "390x844 #/ai/llm": {
+  "tiers": {
+   "count": 50,
+   "byTier": {
+    "a": 11,
+    "b": 39
+   },
+   "lens": 11,
+   "blurOnly": 0,
+   "none": 39,
+   "byClass": [
+    [
+     "card",
+     37
+    ],
+    [
+     "prov-block.card",
+     12
+    ],
+    [
+     "header-sticky.card-solid",
+     1
+    ]
+   ],
+   "rows": [
+    {
+     "cls": "header-sticky.card-solid",
+     "declared": "shell",
+     "tier": "a",
+     "bf": "blur(5px) saturate(140%) url(\"#lg-lens-p2\")",
+     "bg": "rgba(27, 29, 34, 0.78)",
+     "w": 390,
+     "h": 116,
+     "nestedInGlass": null
+    },
+    {
+     "cls": "prov-block.card",
+     "declared": null,
+     "tier": "a",
+     "bf": "blur(5px) saturate(140%) url(\"#lg-lens-p3\")",
+     "bg": "rgba(21, 27, 42, 0.5)",
+     "w": 374,
+     "h": 739,
+     "nestedInGlass": null
+    },
+    {
+     "cls": "prov-block.card",
+     "declared": null,
+     "tier": "a",
+     "bf": "blur(5px) saturate(140%) url(\"#lg-lens-p4\")",
+     "bg": "rgba(21, 27, 42, 0.5)",
+     "w": 374,
+     "h": 775,
+     "nestedInGlass": null
+    },
+    {
+     "cls": "prov-block.card",
+     "declared": null,
+     "tier": "a",
+     "bf": "blur(5px) saturate(140%) url(\"#lg-lens-p5\")",
+     "bg": "rgba(21, 27, 42, 0.5)",
+     "w": 374,
+     "h": 791,
+     "nestedInGlass": null
+    },
+    {
+     "cls": "prov-block.card",
+     "declared": null,
+     "tier": "a",
+     "bf": "blur(5px) saturate(140%) url(\"#lg-lens-p6\")",
+     "bg": "rgba(21, 27, 42, 0.5)",
+     "w": 374,
+     "h": 1869,
+     "nestedInGlass": null
+    },
+    {
+     "cls": "prov-block.card",
+     "declared": null,
+     "tier": "a",
+     "bf": "blur(5px) saturate(140%) url(\"#lg-lens-p7\")",
+     "bg": "rgba(21, 27, 42, 0.5)",
+     "w": 374,
+     "h": 421,
+     "nestedInGlass": null
+    },
+    {
+     "cls": "prov-block.card",
+     "declared": null,
+     "tier": "a",
+     "bf": "blur(5px) saturate(140%) url(\"#lg-lens-p8\")",
+     "bg": "rgba(21, 27, 42, 0.5)",
+     "w": 374,
+     "h": 421,
+     "nestedInGlass": null
+    },
+    {
+     "cls": "prov-block.card",
+     "declared": null,
+     "tier": "a",
+     "bf": "blur(5px) saturate(140%) url(\"#lg-lens-p9\")",
+     "bg": "rgba(21, 27, 42, 0.5)",
+     "w": 374,
+     "h": 421,
+     "nestedInGlass": null
+    },
+    {
+     "cls": "prov-block.card",
+     "declared": null,
+     "tier": "a",
+     "bf": "blur(5px) saturate(140%) url(\"#lg-lens-p10\")",
+     "bg": "rgba(21, 27, 42, 0.5)",
+     "w": 374,
+     "h": 413,
+     "nestedInGlass": null
+    },
+    {
+     "cls": "prov-block.card",
+     "declared": null,
+     "tier": "a",
+     "bf": "blur(5px) saturate(140%) url(\"#lg-lens-p11\")",
+     "bg": "rgba(21, 27, 42, 0.5)",
+     "w": 374,
+     "h": 430,
+     "nestedInGlass": null
+    },
+    {
+     "cls": "card",
+     "declared": null,
+     "tier": "a",
+     "bf": "blur(5px) saturate(140%) url(\"#lg-lens-p12\")",
+     "bg": "rgba(21, 27, 42, 0.5)",
+     "w": 374,
+     "h": 66,
+     "nestedInGlass": null
+    },
+    {
+     "cls": "prov-block.card",
+     "declared": null,
+     "tier": "b",
+     "bf": "none",
+     "bg": "rgba(255, 255, 255, 0.04)",
+     "w": 375,
+     "h": 239,
+     "nestedInGlass": "col-span-full grid gap-4 advanced"
+    },
+    {
+     "cls": "prov-block.card",
+     "declared": null,
+     "tier": "b",
+     "bf": "none",
+     "bg": "rgba(255, 255, 255, 0.04)",
+     "w": 375,
+     "h": 432,
+     "nestedInGlass": "col-span-full grid gap-4 advanced"
+    },
+    {
+     "cls": "prov-block.card",
+     "declared": null,
+     "tier": "b",
+     "bf": "none",
+     "bg": "rgba(255, 255, 255, 0.04)",
+     "w": 375,
+     "h": 262,
+     "nestedInGlass": "col-span-full grid gap-4 advanced"
+    },
+    {
+     "cls": "card",
+     "declared": null,
+     "tier": "b",
+     "bf": "none",
+     "bg": "rgba(255, 255, 255, 0.04)",
+     "w": 372,
+     "h": 352,
+     "nestedInGlass": "col-span-full grid gap-4 advanced"
+    },
+    {
+     "cls": "card",
+     "declared": null,
+     "tier": "b",
+     "bf": "none",
+     "bg": "rgba(255, 255, 255, 0.04)",
+     "w": 338,
+     "h": 270,
+     "nestedInGlass": "col-span-full grid gap-4 advanced"
+    },
+    {
+     "cls": "card",
+     "declared": null,
+     "tier": "b",
+     "bf": "none",
+     "bg": "rgba(255, 255, 255, 0.04)",
+     "w": 372,
+     "h": 537,
+     "nestedInGlass": "col-span-full grid gap-4 advanced"
+    },
+    {
+     "cls": "card",
+     "declared": null,
+     "tier": "b",
+     "bf": "none",
+     "bg": "rgba(255, 255, 255, 0.04)",
+     "w": 338,
+     "h": 222,
+     "nestedInGlass": "col-span-full grid gap-4 advanced"
+    },
+    {
+     "cls": "card",
+     "declared": null,
+     "tier": "b",
+     "bf": "none",
+     "bg": "rgba(255, 255, 255, 0.04)",
+     "w": 338,
+     "h": 222,
+     "nestedInGlass": "col-span-full grid gap-4 advanced"
+    },
+    {
+     "cls": "card",
+     "declared": null,
+     "tier": "b",
+     "bf": "none",
+     "bg": "rgba(255, 255, 255, 0.04)",
+     "w": 372,
+     "h": 1254,
+     "nestedInGlass": "col-span-full grid gap-4 advanced"
+    },
+    {
+     "cls": "card",
+     "declared": null,
+     "tier": "b",
+     "bf": "none",
+     "bg": "rgba(255, 255, 255, 0.04)",
+     "w": 338,
+     "h": 222,
+     "nestedInGlass": "col-span-full grid gap-4 advanced"
+    },
+    {
+     "cls": "card",
+     "declared": null,
+     "tier": "b",
+     "bf": "none",
+     "bg": "rgba(255, 255, 255, 0.04)",
+     "w": 338,
+     "h": 222,
+     "nestedInGlass": "col-span-full grid gap-4 advanced"
+    },
+    {
+     "cls": "card",
+     "declared": null,
+     "tier": "b",
+     "bf": "none",
+     "bg": "rgba(255, 255, 255, 0.04)",
+     "w": 338,
+     "h": 222,
+     "nestedInGlass": "col-span-full grid gap-4 advanced"
+    },
+    {
+     "cls": "card",
+     "declared": null,
+     "tier": "b",
+     "bf": "none",
+     "bg": "rgba(255, 255, 255, 0.04)",
+     "w": 338,
+     "h": 222,
+     "nestedInGlass": "col-span-full grid gap-4 advanced"
+    },
+    {
+     "cls": "card",
+     "declared": null,
+     "tier": "b",
+     "bf": "none",
+     "bg": "rgba(255, 255, 255, 0.04)",
+     "w": 338,
+     "h": 222,
+     "nestedInGlass": "col-span-full grid gap-4 advanced"
+    },
+    {
+     "cls": "card",
+     "declared": null,
+     "tier": "b",
+     "bf": "none",
+     "bg": "rgba(255, 255, 255, 0.04)",
+     "w": 372,
+     "h": 771,
+     "nestedInGlass": "col-span-full grid gap-4 advanced"
+    },
+    {
+     "cls": "card",
+     "declared": null,
+     "tier": "b",
+     "bf": "none",
+     "bg": "rgba(255, 255, 255, 0.04)",
+     "w": 338,
+     "h": 222,
+     "nestedInGlass": "col-span-full grid gap-4 advanced"
+    },
+    {
+     "cls": "card",
+     "declared": null,
+     "tier": "b",
+     "bf": "none",
+     "bg": "rgba(255, 255, 255, 0.04)",
+     "w": 338,
+     "h": 222,
+     "nestedInGlass": "col-span-full grid gap-4 advanced"
+    },
+    {
+     "cls": "card",
+     "declared": null,
+     "tier": "b",
+     "bf": "none",
+     "bg": "rgba(255, 255, 255, 0.04)",
+     "w": 338,
+     "h": 222,
+     "nestedInGlass": "col-span-full grid gap-4 advanced"
+    },
+    {
+     "cls": "card",
+     "declared": null,
+     "tier": "b",
+     "bf": "none",
+     "bg": "rgba(255, 255, 255, 0.04)",
+     "w": 372,
+     "h": 553,
+     "nestedInGlass": "col-span-full grid gap-4 advanced"
+    },
+    {
+     "cls": "card",
+     "declared": null,
+     "tier": "b",
+     "bf": "none",
+     "bg": "rgba(255, 255, 255, 0.04)",
+     "w": 338,
+     "h": 222,
+     "nestedInGlass": "col-span-full grid gap-4 advanced"
+    },
+    {
+     "cls": "card",
+     "declared": null,
+     "tier": "b",
+     "bf": "none",
+     "bg": "rgba(255, 255, 255, 0.04)",
+     "w": 338,
+     "h": 222,
+     "nestedInGlass": "col-span-full grid gap-4 advanced"
+    },
+    {
+     "cls": "card",
+     "declared": null,
+     "tier": "b",
+     "bf": "none",
+     "bg": "rgba(255, 255, 255, 0.04)",
+     "w": 372,
+     "h": 1238,
+     "nestedInGlass": "col-span-full grid gap-4 advanced"
+    },
+    {
+     "cls": "card",
+     "declared": null,
+     "tier": "b",
+     "bf": "none",
+     "bg": "rgba(255, 255, 255, 0.04)",
+     "w": 338,
+     "h": 222,
+     "nestedInGlass": "col-span-full grid gap-4 advanced"
+    },
+    {
+     "cls": "card",
+     "declared": null,
+     "tier": "b",
+     "bf": "none",
+     "bg": "rgba(255, 255, 255, 0.04)",
+     "w": 338,
+     "h": 222,
+     "nestedInGlass": "col-span-full grid gap-4 advanced"
+    },
+    {
+     "cls": "card",
+     "declared": null,
+     "tier": "b",
+     "bf": "none",
+     "bg": "rgba(255, 255, 255, 0.04)",
+     "w": 338,
+     "h": 222,
+     "nestedInGlass": "col-span-full grid gap-4 advanced"
+    },
+    {
+     "cls": "card",
+     "declared": null,
+     "tier": "b",
+     "bf": "none",
+     "bg": "rgba(255, 255, 255, 0.04)",
+     "w": 338,
+     "h": 222,
+     "nestedInGlass": "col-span-full grid gap-4 advanced"
+    },
+    {
+     "cls": "card",
+     "declared": null,
+     "tier": "b",
+     "bf": "none",
+     "bg": "rgba(255, 255, 255, 0.04)",
+     "w": 338,
+     "h": 222,
+     "nestedInGlass": "col-span-full grid gap-4 advanced"
+    },
+    {
+     "cls": "card",
+     "declared": null,
+     "tier": "b",
+     "bf": "none",
+     "bg": "rgba(255, 255, 255, 0.04)",
+     "w": 372,
+     "h": 304,
+     "nestedInGlass": "col-span-full grid gap-4 advanced"
+    },
+    {
+     "cls": "card",
+     "declared": null,
+     "tier": "b",
+     "bf": "none",
+     "bg": "rgba(255, 255, 255, 0.04)",
+     "w": 338,
+     "h": 222,
+     "nestedInGlass": "col-span-full grid gap-4 advanced"
+    },
+    {
+     "cls": "card",
+     "declared": null,
+     "tier": "b",
+     "bf": "none",
+     "bg": "rgba(255, 255, 255, 0.04)",
+     "w": 372,
+     "h": 2458,
+     "nestedInGlass": "col-span-full grid gap-4 advanced"
+    },
+    {
+     "cls": "card",
+     "declared": null,
+     "tier": "b",
+     "bf": "none",
+     "bg": "rgba(255, 255, 255, 0.04)",
+     "w": 338,
+     "h": 394,
+     "nestedInGlass": "col-span-full grid gap-4 advanced"
+    },
+    {
+     "cls": "card",
+     "declared": null,
+     "tier": "b",
+     "bf": "none",
+     "bg": "rgba(255, 255, 255, 0.04)",
+     "w": 338,
+     "h": 238,
+     "nestedInGlass": "col-span-full grid gap-4 advanced"
+    },
+    {
+     "cls": "card",
+     "declared": null,
+     "tier": "b",
+     "bf": "none",
+     "bg": "rgba(255, 255, 255, 0.04)",
+     "w": 338,
+     "h": 222,
+     "nestedInGlass": "col-span-full grid gap-4 advanced"
+    },
+    {
+     "cls": "card",
+     "declared": null,
+     "tier": "b",
+     "bf": "none",
+     "bg": "rgba(255, 255, 255, 0.04)",
+     "w": 338,
+     "h": 222,
+     "nestedInGlass": "col-span-full grid gap-4 advanced"
+    },
+    {
+     "cls": "card",
+     "declared": null,
+     "tier": "b",
+     "bf": "none",
+     "bg": "rgba(255, 255, 255, 0.04)",
+     "w": 338,
+     "h": 238,
+     "nestedInGlass": "col-span-full grid gap-4 advanced"
+    },
+    {
+     "cls": "card",
+     "declared": null,
+     "tier": "b",
+     "bf": "none",
+     "bg": "rgba(255, 255, 255, 0.04)",
+     "w": 338,
+     "h": 238,
+     "nestedInGlass": "col-span-full grid gap-4 advanced"
+    },
+    {
+     "cls": "card",
+     "declared": null,
+     "tier": "b",
+     "bf": "none",
+     "bg": "rgba(255, 255, 255, 0.04)",
+     "w": 338,
+     "h": 238,
+     "nestedInGlass": "col-span-full grid gap-4 advanced"
+    },
+    {
+     "cls": "card",
+     "declared": null,
+     "tier": "b",
+     "bf": "none",
+     "bg": "rgba(255, 255, 255, 0.04)",
+     "w": 338,
+     "h": 222,
+     "nestedInGlass": "col-span-full grid gap-4 advanced"
+    },
+    {
+     "cls": "card",
+     "declared": null,
+     "tier": "b",
+     "bf": "none",
+     "bg": "rgba(255, 255, 255, 0.04)",
+     "w": 338,
+     "h": 238,
+     "nestedInGlass": "col-span-full grid gap-4 advanced"
+    }
+   ]
+  },
+  "lens": {
+   "card": {
+    "cls": "prov-block card p-4 w-full",
+    "tier": "a",
+    "reason": "probe-chromium",
+    "lens": true,
+    "bf": "blur(5px) saturate(140%) url(\"#lg-lens-p3\")"
+   },
+   "moduleCard": null,
+   "hubCard": null,
+   "sidebar": null,
+   "header": {
+    "cls": "main-header header-sticky card-solid px-",
+    "tier": "a",
+    "reason": "probe-chromium",
+    "lens": true,
+    "bf": "blur(5px) saturate(140%) url(\"#lg-lens-p2\")"
+   },
+   "statusHero": null,
+   "stickySave": null,
+   "modalCard": null,
+   "probe": {
+    "tierA": true,
+    "reason": "probe-chromium",
+    "engine": "chromium",
+    "svgRender": true,
+    "backdrop": true,
+    "ms": 6
+   },
+   "diag": null
+  },
+  "freeze": {
+   "paused": true,
+   "mode": "canvas2d",
+   "seed": 424242
+  },
+  "errors": []
+ }
+}

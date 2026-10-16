@@ -19829,6 +19829,11 @@
       },
       // Перф-кап числа узлов tier A (env-only, default 3; жёсткий максимум 3 —
       // ТЗ U08.3d «максимум 1–3 hero-поверхности»; min 1).
+      // HOTFIX-TIERA (SOUL-1): кап U08.3d действует ровно на HERO-декларации
+      // `data-glass="a"` (allow-list, ≤3). Массовые стеклянные поверхности
+      // (карточки/панели/навигация/модалки — HOTFIX-TIERA) капом не
+      // ограничены: владелец сделал Tier A основным материалом; аварийное
+      // отключение рефракции целиком — `UI_GLASS_TIER_OVERRIDE=b` (env).
       _lensMaxNodes: function () {
         var flags = (this.me && this.me.ui_flags) || {};
         var n = parseInt(flags.UI_LENS_MAX_NODES, 10);
@@ -19860,19 +19865,73 @@
             window.matchMedia('(prefers-reduced-motion: reduce)').matches);
         } catch (e) { return !!this.reducedMotion; }
       },
+      // ═══ HOTFIX-TIERA (SOUL-1, приказ владельца) ═══
+      // Tier A — ОСНОВНОЙ материал всех стеклянных поверхностей реальной
+      // админки (карточки/панели/навигация/модули/Статус/Аналитика/
+      // настройки/модалки). Стеклом считается не только явно размеченный
+      // `[data-glass]`, но и классовые поверхности (`.card`, `.module-card`,
+      // `.hub-card`, `.prov-block`, `.glass-panel`, `.modal-card`,
+      // `details.advanced`, `.lg-panel`, `.lg-mini-lens`, `.sticky-save`).
+      //   * Tier B — ТОЛЬКО честный фолбэк: probe не доказал рендер url() в
+      //     backdrop-filter, reduced-motion, low-end, hero-кап U08.3d,
+      //     ещё не готовая проба.
+      //   * Tier C — плотные поверхности (редакторы/таблицы/логи/длинные
+      //     формы) — без преломления и blur (deny-list §9/F2).
+      //   * «Стекло в стекле» (ближайший предок уже с backdrop-filter):
+      //     предок создаёт backdrop root — рефракция СТРАНИЦЫ там физически
+      //     невозможна, а второй blur даёт двойное размытие/затемнение.
+      //     Такие узлы помечаются `data-glass-nested="1"` (плоская подложка),
+      //     ложной рефракции не имитируем.
+      _lgGlassSelector: function () {
+        return '[data-glass], .card, .module-card, .hub-card, .prov-block,' +
+          ' .glass-panel, .oversight-panel, .scope-panel, .modal-card,' +
+          ' details.advanced, .lg-panel, .lg-mini-lens, .sticky-save';
+      },
+      // Плотные (непрозрачные) поверхности — Tier C: deny-list §9/F2 +
+      // явная декларация `data-glass="c"`. Совпадает с CSS-набором
+      // `[data-glass="c"], .keys-avail, .avail-list, .matrix-table,
+      // .log-panel, .log-code, textarea, .prompt-editor` (app.css).
+      _lgDenseSelector: function () {
+        return '[data-glass="c"], .keys-avail, .avail-list, .matrix-table,' +
+          ' .log-panel, .log-code, textarea, .prompt-editor';
+      },
+      // Стеклянный предок = уже созданный backdrop root (рефракция страницы
+      // недостижима). Кэш на проход: общие предки считаются один раз.
+      _lgNestedInGlass: function (el, cache) {
+        var p = el && el.parentElement, depth = 0;
+        while (p && depth < 64) {
+          if (p.nodeType === 1) {
+            var bf;
+            if (cache) {
+              try { bf = cache.get(p); } catch (e0) { bf = undefined; }
+            }
+            if (bf === undefined) {
+              try {
+                var cs = getComputedStyle(p);
+                bf = cs ? (cs.backdropFilter ||
+                           cs.webkitBackdropFilter || 'none') : 'none';
+              } catch (e) { bf = 'none'; }
+              if (cache) { try { cache.set(p, bf); } catch (e2) { /* no-op */ } }
+            }
+            if (bf !== 'none') return true;
+          }
+          p = p.parentElement; depth++;
+        }
+        return false;
+      },
       // T-2585 (SUPERSEDED W2-GLASS U08.3): tier выбирается render-пробой +
       // перф-капом (не UA, не min-240), обратимо/транзитивно: `data-glass`
       // (opt-in) НЕ переписывается, ведём `data-glass-downgraded` +
-      // диагностические `data-glass-tier/-reason` на ВСЕХ [data-glass]-узлах
-      // (a/b/c/shell — словарь w2-contract §3.4). Приоритет: override →
-      // probe → reduced-motion/low-end → бюджет. Нет поддержки/бюджет →
-      // честный B (статичный rim/tint остаётся, U08.3e).
+      // диагностические `data-glass-tier/-reason` на ВСЕХ стеклянных узлах
+      // (a/b/c — словарь w2-contract §3.4). Приоритет: правила поверхности →
+      // override → probe → reduced-motion/low-end → hero-бюджет. Нет
+      // поддержки/бюджет → честный B (статичный rim/tint остаётся, U08.3e).
       // W2-GLASS U08.3a: subregion feImage-карты размероспецифичен —
       // проценты внутри скрытого <svg width=0> резолвятся в 0 (диагностика
       // w2-glass: V1 без subregion = равномерный сдвиг scale/2, не линза).
-      // Для каждого tier-A узла — фильтр из пула клонов #lg-lens (≤3 по капу)
-      // с subregion = фактический border-box; resize пересчитывает
-      // _lgResizeObserver → _lgSchedule → reconcile.
+      // Для каждого tier-A узла — фильтр из пула клонов #lg-lens (по
+      // уникальному размеру) с subregion = фактический border-box; resize
+      // пересчитывает _lgResizeObserver → _lgSchedule → reconcile.
       _syncLensFilters: function (nodes) {
         if (typeof document === 'undefined') return;
         var base = document.getElementById('lg-lens');
@@ -19933,6 +19992,19 @@
           } catch (e2) { /* no-op */ }
           used.push(fid);
         }
+        // HOTFIX-TIERA (SOUL-1): пул не растёт бесконечно — после прохода
+        // снимаем клоны, которые больше не нужны (размеры меняются при
+        // перекладке/ресайзе). Слот 0 (`#lg-lens`) — базовый фильтр
+        // index.html (CSS-профиль tier A), он не удаляется.
+        for (var q = this._lgFilterPool.length - 1; q > 0; q--) {
+          var stale = this._lgFilterPool[q];
+          if (used.indexOf(stale.fid) >= 0) continue;
+          try {
+            var node = document.getElementById(stale.fid);
+            if (node && node.parentNode) node.parentNode.removeChild(node);
+          } catch (e3) { /* no-op */ }
+          this._lgFilterPool.splice(q, 1);
+        }
       },
       reconcileLiquidGlass: function () {
         if (typeof document === 'undefined') return;
@@ -19942,26 +20014,42 @@
         var supported = !!probeRes.tierA;
         var probeReason = probeRes.reason || 'probe-pending';
         var override = this._glassTierOverride();
-        // ТЗ U08.3d: Tier A — максимум 1–3 hero-поверхности. Кап = min(env, 3).
+        // ТЗ U08.3d: hero-кап (≤3) — ТОЛЬКО для `data-glass="a"`-деклараций;
+        // массовый стеклянный материал HOTFIX-TIERA идёт без капа.
         var maxNodes = Math.min(this._lensMaxNodes(), 3);
         var reduced = this._prefersReducedMotion();
         var lowEnd = this._lowEndDevice();
-        var nodes = document.querySelectorAll('[data-glass]');
-        var active = 0;
+        var nodes = document.querySelectorAll(this._lgGlassSelector());
+        var cache = (typeof WeakMap === 'function') ? new WeakMap() : null;
+        var active = 0, hero = 0, nested = 0, dense = 0;
         for (var i = 0; i < nodes.length; i++) {
           var el = nodes[i];
           var declared = (el.getAttribute('data-glass') || '').toLowerCase();
+          el.removeAttribute('data-glass-nested');
+          var isDense = declared === 'c';
+          if (!isDense) {
+            try {
+              isDense = !!(el.matches && el.matches(this._lgDenseSelector()));
+            } catch (e0) { isDense = false; }
+          }
           var tier = 'b';
           var reason = 'tier-static';
-          if (declared === 'c') {
+          var candidate = false;
+          if (isDense) {
+            // Плотная поверхность: C (без преломления/blur, U08.4/T-2539).
             tier = 'c';
-          } else if (declared === 'shell') {
-            tier = 'b';
-          } else if (declared === 'b') {
-            tier = 'b';
-          } else if (declared === 'a') {
-            // Кандидат Tier A: probe + override + motion/low-end + бюджет.
-            tier = 'b';
+            reason = 'tier-dense';
+            dense++;
+          } else if (this._lgNestedInGlass(el, cache)) {
+            // Стекло внутри стекла: предок — backdrop root, рефракции
+            // страницы нет; плоская подложка вместо второго blur.
+            reason = 'nested-in-glass';
+            el.setAttribute('data-glass-nested', '1');
+            nested++;
+          } else {
+            // Tier A-кандидат (массовый материал + hero).
+            candidate = true;
+            var isHero = declared === 'a';
             reason = 'fallback';
             if (probeReason === 'probe-pending' || probeReason === 'probe-missing') {
               reason = probeReason;
@@ -19970,17 +20058,20 @@
             else if (override === 'b') reason = 'override-b';
             else if (reduced) reason = 'reduced-motion';
             else if (lowEnd) reason = 'low-end';
-            else if (active >= maxNodes) reason = 'budget';
+            else if (isHero && hero >= maxNodes) reason = 'budget';
             else {
               tier = 'a';
               reason = override === 'a' ? 'override-a' : 'probe-chromium';
             }
             if (tier === 'a') {
               active++;
-              el.removeAttribute('data-glass-downgraded');
-            } else {
-              el.setAttribute('data-glass-downgraded', '1');
+              if (isHero) hero++;
             }
+          }
+          if (candidate && tier !== 'a') {
+            el.setAttribute('data-glass-downgraded', '1');
+          } else {
+            el.removeAttribute('data-glass-downgraded');
           }
           el.setAttribute('data-glass-tier', tier);
           el.setAttribute('data-glass-reason', reason);
@@ -19996,7 +20087,8 @@
         this.glassTierDiag = {
           supported: supported, probeReason: probeReason, override: override,
           maxNodes: maxNodes, active: active, reducedMotion: reduced,
-          lowEnd: lowEnd,
+          lowEnd: lowEnd, surfaces: nodes.length, hero: hero,
+          nested: nested, dense: dense,
         };
       },
       // Транзитивность (T-2540/@Reviewer): `[data-glass="a"]` достраивается

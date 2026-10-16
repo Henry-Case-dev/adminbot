@@ -1,0 +1,1028 @@
+{
+ "status@1440 visual_nolens": {
+  "nodes_delensed": 17
+ },
+ "status@1440 tiera": {
+  "tiers": {
+   "a": 17,
+   "c": 2
+  },
+  "nodes": 19,
+  "lens": 17,
+  "probe": {
+   "tierA": true,
+   "reason": "probe-chromium",
+   "engine": "chromium",
+   "svgRender": true,
+   "backdrop": true,
+   "ms": 7
+  }
+ },
+ "status@1440 boxes tiera": [
+  {
+   "tier": "a",
+   "x": 0,
+   "y": 0,
+   "w": 216,
+   "h": 900,
+   "cls": "app-sidebar"
+  },
+  {
+   "tier": "a",
+   "x": 216,
+   "y": 0,
+   "w": 1224,
+   "h": 109,
+   "cls": "main-header"
+  },
+  {
+   "tier": "a",
+   "x": 232,
+   "y": 125,
+   "w": 1192,
+   "h": 79,
+   "cls": "hub-card"
+  },
+  {
+   "tier": "a",
+   "x": 232,
+   "y": 220,
+   "w": 1192,
+   "h": 70,
+   "cls": "status-counts"
+  },
+  {
+   "tier": "a",
+   "x": 232,
+   "y": 306,
+   "w": 1192,
+   "h": 44,
+   "cls": "glass-surface"
+  },
+  {
+   "tier": "a",
+   "x": 232,
+   "y": 366,
+   "w": 487,
+   "h": 265,
+   "cls": "card"
+  },
+  {
+   "tier": "a",
+   "x": 735,
+   "y": 366,
+   "w": 689,
+   "h": 265,
+   "cls": "card"
+  },
+  {
+   "tier": "a",
+   "x": 232,
+   "y": 647,
+   "w": 789,
+   "h": 522,
+   "cls": "card"
+  },
+  {
+   "tier": "c",
+   "x": 249,
+   "y": 832,
+   "w": 755,
+   "h": 320,
+   "cls": "cognition-graph"
+  },
+  {
+   "tier": "a",
+   "x": 1037,
+   "y": 647,
+   "w": 387,
+   "h": 522,
+   "cls": "card"
+  }
+ ],
+ "status@1440 tierb": {
+  "tiers": {
+   "b": 17,
+   "c": 2
+  },
+  "nodes": 19,
+  "lens": 0,
+  "probe": {
+   "tierA": true,
+   "reason": "probe-chromium",
+   "engine": "chromium",
+   "svgRender": true,
+   "backdrop": true,
+   "ms": 5
+  }
+ },
+ "status@1440 boxes tierb": [
+  {
+   "tier": "b",
+   "x": 0,
+   "y": 0,
+   "w": 216,
+   "h": 900,
+   "cls": "app-sidebar"
+  },
+  {
+   "tier": "b",
+   "x": 216,
+   "y": 0,
+   "w": 1224,
+   "h": 109,
+   "cls": "main-header"
+  },
+  {
+   "tier": "b",
+   "x": 232,
+   "y": 125,
+   "w": 1192,
+   "h": 79,
+   "cls": "hub-card"
+  },
+  {
+   "tier": "b",
+   "x": 232,
+   "y": 220,
+   "w": 1192,
+   "h": 70,
+   "cls": "status-counts"
+  },
+  {
+   "tier": "b",
+   "x": 232,
+   "y": 306,
+   "w": 1192,
+   "h": 44,
+   "cls": "glass-surface"
+  },
+  {
+   "tier": "b",
+   "x": 232,
+   "y": 366,
+   "w": 487,
+   "h": 265,
+   "cls": "card"
+  },
+  {
+   "tier": "b",
+   "x": 735,
+   "y": 366,
+   "w": 689,
+   "h": 265,
+   "cls": "card"
+  },
+  {
+   "tier": "b",
+   "x": 232,
+   "y": 647,
+   "w": 789,
+   "h": 522,
+   "cls": "card"
+  },
+  {
+   "tier": "c",
+   "x": 249,
+   "y": 832,
+   "w": 755,
+   "h": 320,
+   "cls": "cognition-graph"
+  },
+  {
+   "tier": "b",
+   "x": 1037,
+   "y": 647,
+   "w": 387,
+   "h": 522,
+   "cls": "card"
+  }
+ ],
+ "status@390 visual_nolens": {
+  "nodes_delensed": 16
+ },
+ "status@390 tiera": {
+  "tiers": {
+   "a": 16,
+   "c": 2
+  },
+  "nodes": 18,
+  "lens": 16,
+  "probe": {
+   "tierA": true,
+   "reason": "probe-chromium",
+   "engine": "chromium",
+   "svgRender": true,
+   "backdrop": true,
+   "ms": 5
+  }
+ },
+ "status@390 boxes tiera": [
+  {
+   "tier": "a",
+   "x": 0,
+   "y": 0,
+   "w": 390,
+   "h": 116,
+   "cls": "main-header"
+  },
+  {
+   "tier": "a",
+   "x": 8,
+   "y": 132,
+   "w": 374,
+   "h": 100,
+   "cls": "hub-card"
+  },
+  {
+   "tier": "a",
+   "x": 8,
+   "y": 248,
+   "w": 374,
+   "h": 70,
+   "cls": "status-counts"
+  },
+  {
+   "tier": "a",
+   "x": 8,
+   "y": 334,
+   "w": 374,
+   "h": 44,
+   "cls": "glass-surface"
+  },
+  {
+   "tier": "a",
+   "x": 8,
+   "y": 394,
+   "w": 374,
+   "h": 141,
+   "cls": "card"
+  },
+  {
+   "tier": "a",
+   "x": 8,
+   "y": 551,
+   "w": 374,
+   "h": 473,
+   "cls": "card"
+  }
+ ],
+ "status@390 tierb": {
+  "tiers": {
+   "b": 16,
+   "c": 2
+  },
+  "nodes": 18,
+  "lens": 0,
+  "probe": {
+   "tierA": true,
+   "reason": "probe-chromium",
+   "engine": "chromium",
+   "svgRender": true,
+   "backdrop": true,
+   "ms": 6
+  }
+ },
+ "status@390 boxes tierb": [
+  {
+   "tier": "b",
+   "x": 0,
+   "y": 0,
+   "w": 390,
+   "h": 116,
+   "cls": "main-header"
+  },
+  {
+   "tier": "b",
+   "x": 8,
+   "y": 132,
+   "w": 374,
+   "h": 100,
+   "cls": "hub-card"
+  },
+  {
+   "tier": "b",
+   "x": 8,
+   "y": 248,
+   "w": 374,
+   "h": 70,
+   "cls": "status-counts"
+  },
+  {
+   "tier": "b",
+   "x": 8,
+   "y": 334,
+   "w": 374,
+   "h": 44,
+   "cls": "glass-surface"
+  },
+  {
+   "tier": "b",
+   "x": 8,
+   "y": 394,
+   "w": 374,
+   "h": 141,
+   "cls": "card"
+  },
+  {
+   "tier": "b",
+   "x": 8,
+   "y": 551,
+   "w": 374,
+   "h": 473,
+   "cls": "card"
+  }
+ ],
+ "analytics@1440 visual_nolens": {
+  "nodes_delensed": 5
+ },
+ "analytics@1440 tiera": {
+  "tiers": {
+   "a": 5,
+   "c": 1
+  },
+  "nodes": 6,
+  "lens": 5,
+  "probe": {
+   "tierA": true,
+   "reason": "probe-chromium",
+   "engine": "chromium",
+   "svgRender": true,
+   "backdrop": true,
+   "ms": 12
+  }
+ },
+ "analytics@1440 boxes tiera": [
+  {
+   "tier": "a",
+   "x": 0,
+   "y": 0,
+   "w": 216,
+   "h": 900,
+   "cls": "app-sidebar"
+  },
+  {
+   "tier": "a",
+   "x": 216,
+   "y": 0,
+   "w": 1224,
+   "h": 109,
+   "cls": "main-header"
+  },
+  {
+   "tier": "a",
+   "x": 232,
+   "y": 125,
+   "w": 1192,
+   "h": 54,
+   "cls": "card"
+  },
+  {
+   "tier": "a",
+   "x": 232,
+   "y": 195,
+   "w": 1192,
+   "h": 343,
+   "cls": "card"
+  },
+  {
+   "tier": "a",
+   "x": 232,
+   "y": 554,
+   "w": 1192,
+   "h": 162,
+   "cls": "card"
+  }
+ ],
+ "analytics@1440 tierb": {
+  "tiers": {
+   "b": 5,
+   "c": 1
+  },
+  "nodes": 6,
+  "lens": 0,
+  "probe": {
+   "tierA": true,
+   "reason": "probe-chromium",
+   "engine": "chromium",
+   "svgRender": true,
+   "backdrop": true,
+   "ms": 8
+  }
+ },
+ "analytics@1440 boxes tierb": [
+  {
+   "tier": "b",
+   "x": 0,
+   "y": 0,
+   "w": 216,
+   "h": 900,
+   "cls": "app-sidebar"
+  },
+  {
+   "tier": "b",
+   "x": 216,
+   "y": 0,
+   "w": 1224,
+   "h": 109,
+   "cls": "main-header"
+  },
+  {
+   "tier": "b",
+   "x": 232,
+   "y": 125,
+   "w": 1192,
+   "h": 54,
+   "cls": "card"
+  },
+  {
+   "tier": "b",
+   "x": 232,
+   "y": 195,
+   "w": 1192,
+   "h": 343,
+   "cls": "card"
+  },
+  {
+   "tier": "b",
+   "x": 232,
+   "y": 554,
+   "w": 1192,
+   "h": 162,
+   "cls": "card"
+  }
+ ],
+ "analytics@390 visual_nolens": {
+  "nodes_delensed": 4
+ },
+ "analytics@390 tiera": {
+  "tiers": {
+   "a": 4,
+   "c": 1
+  },
+  "nodes": 5,
+  "lens": 4,
+  "probe": {
+   "tierA": true,
+   "reason": "probe-chromium",
+   "engine": "chromium",
+   "svgRender": true,
+   "backdrop": true,
+   "ms": 6
+  }
+ },
+ "analytics@390 boxes tiera": [
+  {
+   "tier": "a",
+   "x": 0,
+   "y": 0,
+   "w": 390,
+   "h": 116,
+   "cls": "main-header"
+  },
+  {
+   "tier": "a",
+   "x": 8,
+   "y": 132,
+   "w": 374,
+   "h": 62,
+   "cls": "card"
+  },
+  {
+   "tier": "c",
+   "x": 17,
+   "y": 141,
+   "w": 356,
+   "h": 44,
+   "cls": "oversight-mobile-dd"
+  },
+  {
+   "tier": "a",
+   "x": 8,
+   "y": 210,
+   "w": 374,
+   "h": 559,
+   "cls": "card"
+  },
+  {
+   "tier": "a",
+   "x": 8,
+   "y": 785,
+   "w": 374,
+   "h": 178,
+   "cls": "card"
+  }
+ ],
+ "analytics@390 tierb": {
+  "tiers": {
+   "b": 4,
+   "c": 1
+  },
+  "nodes": 5,
+  "lens": 0,
+  "probe": {
+   "tierA": true,
+   "reason": "probe-chromium",
+   "engine": "chromium",
+   "svgRender": true,
+   "backdrop": true,
+   "ms": 6
+  }
+ },
+ "analytics@390 boxes tierb": [
+  {
+   "tier": "b",
+   "x": 0,
+   "y": 0,
+   "w": 390,
+   "h": 116,
+   "cls": "main-header"
+  },
+  {
+   "tier": "b",
+   "x": 8,
+   "y": 132,
+   "w": 374,
+   "h": 62,
+   "cls": "card"
+  },
+  {
+   "tier": "c",
+   "x": 17,
+   "y": 141,
+   "w": 356,
+   "h": 44,
+   "cls": "oversight-mobile-dd"
+  },
+  {
+   "tier": "b",
+   "x": 8,
+   "y": 210,
+   "w": 374,
+   "h": 559,
+   "cls": "card"
+  },
+  {
+   "tier": "b",
+   "x": 8,
+   "y": 785,
+   "w": 374,
+   "h": 178,
+   "cls": "card"
+  }
+ ],
+ "modules@1440 visual_nolens": {
+  "nodes_delensed": 17
+ },
+ "modules@1440 tiera": {
+  "tiers": {
+   "a": 17
+  },
+  "nodes": 17,
+  "lens": 17,
+  "probe": {
+   "tierA": true,
+   "reason": "probe-chromium",
+   "engine": "chromium",
+   "svgRender": true,
+   "backdrop": true,
+   "ms": 6
+  }
+ },
+ "modules@1440 boxes tiera": [
+  {
+   "tier": "a",
+   "x": 0,
+   "y": 0,
+   "w": 216,
+   "h": 900,
+   "cls": "app-sidebar"
+  },
+  {
+   "tier": "a",
+   "x": 216,
+   "y": 0,
+   "w": 1224,
+   "h": 109,
+   "cls": "main-header"
+  },
+  {
+   "tier": "a",
+   "x": 278,
+   "y": 290,
+   "w": 356,
+   "h": 228,
+   "cls": "module-card"
+  },
+  {
+   "tier": "a",
+   "x": 650,
+   "y": 290,
+   "w": 356,
+   "h": 228,
+   "cls": "module-card"
+  },
+  {
+   "tier": "a",
+   "x": 1022,
+   "y": 290,
+   "w": 356,
+   "h": 228,
+   "cls": "module-card"
+  },
+  {
+   "tier": "a",
+   "x": 278,
+   "y": 534,
+   "w": 356,
+   "h": 228,
+   "cls": "module-card"
+  },
+  {
+   "tier": "a",
+   "x": 650,
+   "y": 534,
+   "w": 356,
+   "h": 228,
+   "cls": "module-card"
+  },
+  {
+   "tier": "a",
+   "x": 1022,
+   "y": 534,
+   "w": 356,
+   "h": 228,
+   "cls": "module-card"
+  },
+  {
+   "tier": "a",
+   "x": 278,
+   "y": 778,
+   "w": 356,
+   "h": 228,
+   "cls": "module-card"
+  },
+  {
+   "tier": "a",
+   "x": 650,
+   "y": 778,
+   "w": 356,
+   "h": 228,
+   "cls": "module-card"
+  },
+  {
+   "tier": "a",
+   "x": 1022,
+   "y": 778,
+   "w": 356,
+   "h": 228,
+   "cls": "module-card"
+  }
+ ],
+ "modules@1440 tierb": {
+  "tiers": {
+   "b": 17
+  },
+  "nodes": 17,
+  "lens": 0,
+  "probe": {
+   "tierA": true,
+   "reason": "probe-chromium",
+   "engine": "chromium",
+   "svgRender": true,
+   "backdrop": true,
+   "ms": 6
+  }
+ },
+ "modules@1440 boxes tierb": [
+  {
+   "tier": "b",
+   "x": 0,
+   "y": 0,
+   "w": 216,
+   "h": 900,
+   "cls": "app-sidebar"
+  },
+  {
+   "tier": "b",
+   "x": 216,
+   "y": 0,
+   "w": 1224,
+   "h": 109,
+   "cls": "main-header"
+  },
+  {
+   "tier": "b",
+   "x": 278,
+   "y": 290,
+   "w": 356,
+   "h": 228,
+   "cls": "module-card"
+  },
+  {
+   "tier": "b",
+   "x": 650,
+   "y": 290,
+   "w": 356,
+   "h": 228,
+   "cls": "module-card"
+  },
+  {
+   "tier": "b",
+   "x": 1022,
+   "y": 290,
+   "w": 356,
+   "h": 228,
+   "cls": "module-card"
+  },
+  {
+   "tier": "b",
+   "x": 278,
+   "y": 534,
+   "w": 356,
+   "h": 228,
+   "cls": "module-card"
+  },
+  {
+   "tier": "b",
+   "x": 650,
+   "y": 534,
+   "w": 356,
+   "h": 228,
+   "cls": "module-card"
+  },
+  {
+   "tier": "b",
+   "x": 1022,
+   "y": 534,
+   "w": 356,
+   "h": 228,
+   "cls": "module-card"
+  },
+  {
+   "tier": "b",
+   "x": 278,
+   "y": 778,
+   "w": 356,
+   "h": 228,
+   "cls": "module-card"
+  },
+  {
+   "tier": "b",
+   "x": 650,
+   "y": 778,
+   "w": 356,
+   "h": 228,
+   "cls": "module-card"
+  },
+  {
+   "tier": "b",
+   "x": 1022,
+   "y": 778,
+   "w": 356,
+   "h": 228,
+   "cls": "module-card"
+  }
+ ],
+ "modules@390 visual_nolens": {
+  "nodes_delensed": 16
+ },
+ "modules@390 tiera": {
+  "tiers": {
+   "a": 16
+  },
+  "nodes": 16,
+  "lens": 16,
+  "probe": {
+   "tierA": true,
+   "reason": "probe-chromium",
+   "engine": "chromium",
+   "svgRender": true,
+   "backdrop": true,
+   "ms": 6
+  }
+ },
+ "modules@390 boxes tiera": [
+  {
+   "tier": "a",
+   "x": 0,
+   "y": 0,
+   "w": 390,
+   "h": 116,
+   "cls": "main-header"
+  },
+  {
+   "tier": "a",
+   "x": 8,
+   "y": 478,
+   "w": 374,
+   "h": 144,
+   "cls": "module-card"
+  },
+  {
+   "tier": "a",
+   "x": 8,
+   "y": 638,
+   "w": 374,
+   "h": 212,
+   "cls": "module-card"
+  }
+ ],
+ "modules@390 tierb": {
+  "tiers": {
+   "b": 16
+  },
+  "nodes": 16,
+  "lens": 0,
+  "probe": {
+   "tierA": true,
+   "reason": "probe-chromium",
+   "engine": "chromium",
+   "svgRender": true,
+   "backdrop": true,
+   "ms": 6
+  }
+ },
+ "modules@390 boxes tierb": [
+  {
+   "tier": "b",
+   "x": 0,
+   "y": 0,
+   "w": 390,
+   "h": 116,
+   "cls": "main-header"
+  },
+  {
+   "tier": "b",
+   "x": 8,
+   "y": 478,
+   "w": 374,
+   "h": 144,
+   "cls": "module-card"
+  },
+  {
+   "tier": "b",
+   "x": 8,
+   "y": 638,
+   "w": 374,
+   "h": 212,
+   "cls": "module-card"
+  }
+ ],
+ "settings@1440 visual_nolens": {
+  "nodes_delensed": 13
+ },
+ "settings@1440 tiera": {
+  "tiers": {
+   "a": 13,
+   "b": 39
+  },
+  "nodes": 52,
+  "lens": 13,
+  "probe": {
+   "tierA": true,
+   "reason": "probe-chromium",
+   "engine": "chromium",
+   "svgRender": true,
+   "backdrop": true,
+   "ms": 6
+  }
+ },
+ "settings@1440 boxes tiera": [
+  {
+   "tier": "a",
+   "x": 0,
+   "y": 0,
+   "w": 216,
+   "h": 900,
+   "cls": "app-sidebar"
+  },
+  {
+   "tier": "a",
+   "x": 216,
+   "y": 0,
+   "w": 1224,
+   "h": 109,
+   "cls": "main-header"
+  },
+  {
+   "tier": "a",
+   "x": 232,
+   "y": 228,
+   "w": 387,
+   "h": 739,
+   "cls": "prov-block"
+  }
+ ],
+ "settings@1440 tierb": {
+  "tiers": {
+   "b": 52
+  },
+  "nodes": 52,
+  "lens": 0,
+  "probe": {
+   "tierA": true,
+   "reason": "probe-chromium",
+   "engine": "chromium",
+   "svgRender": true,
+   "backdrop": true,
+   "ms": 7
+  }
+ },
+ "settings@1440 boxes tierb": [
+  {
+   "tier": "b",
+   "x": 0,
+   "y": 0,
+   "w": 216,
+   "h": 900,
+   "cls": "app-sidebar"
+  },
+  {
+   "tier": "b",
+   "x": 216,
+   "y": 0,
+   "w": 1224,
+   "h": 109,
+   "cls": "main-header"
+  },
+  {
+   "tier": "b",
+   "x": 232,
+   "y": 228,
+   "w": 387,
+   "h": 739,
+   "cls": "prov-block"
+  }
+ ],
+ "settings@390 visual_nolens": {
+  "nodes_delensed": 12
+ },
+ "settings@390 tiera": {
+  "tiers": {
+   "a": 12,
+   "b": 39
+  },
+  "nodes": 51,
+  "lens": 12,
+  "probe": {
+   "tierA": true,
+   "reason": "probe-chromium",
+   "engine": "chromium",
+   "svgRender": true,
+   "backdrop": true,
+   "ms": 6
+  }
+ },
+ "settings@390 boxes tiera": [
+  {
+   "tier": "a",
+   "x": 0,
+   "y": 0,
+   "w": 390,
+   "h": 116,
+   "cls": "main-header"
+  },
+  {
+   "tier": "a",
+   "x": 8,
+   "y": 277,
+   "w": 374,
+   "h": 739,
+   "cls": "prov-block"
+  }
+ ],
+ "settings@390 tierb": {
+  "tiers": {
+   "b": 51
+  },
+  "nodes": 51,
+  "lens": 0,
+  "probe": {
+   "tierA": true,
+   "reason": "probe-chromium",
+   "engine": "chromium",
+   "svgRender": true,
+   "backdrop": true,
+   "ms": 5
+  }
+ },
+ "settings@390 boxes tierb": [
+  {
+   "tier": "b",
+   "x": 0,
+   "y": 0,
+   "w": 390,
+   "h": 116,
+   "cls": "main-header"
+  },
+  {
+   "tier": "b",
+   "x": 8,
+   "y": 277,
+   "w": 374,
+   "h": 739,
+   "cls": "prov-block"
+  }
+ ]
+}
