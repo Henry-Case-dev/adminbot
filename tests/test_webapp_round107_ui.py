@@ -21,9 +21,19 @@ def _rule(selector: str) -> str:
 
 class TestSafeArea1b:
     def test_horizontal_safe_area(self):
+        # 10.7 (1b) + U07.2 (asap8-v6.3, 2026-10-16): env()-одиночка НЕ
+        # достаточен — в Telegram Android env(safe-area-inset-*) = 0, значения
+        # SDK лежат в --tg-*-переменных (пишет telegram-init.js). Горизонталь
+        # шапки (ряд A, контейнер inline-⛶) обязана их учитывать, иначе
+        # правые элементы уходят под нативную ✕/⋮ зону.
+        header_rule = _rule("header.header-sticky {")
         assert "env(safe-area-inset-right" in HTML
-        assert "calc(1rem + env(safe-area-inset-right, 0px))" in HTML
-        assert "calc(1rem + env(safe-area-inset-left, 0px))" in HTML
+        assert "max(env(safe-area-inset-right, 0px)" in header_rule
+        assert "var(--tg-content-safe-area-inset-right" in header_rule
+        assert "var(--tg-safe-area-inset-right" in header_rule
+        assert "max(env(safe-area-inset-left, 0px)" in header_rule
+        assert "var(--tg-content-safe-area-inset-left" in header_rule
+        assert "var(--tg-safe-area-inset-left" in header_rule
 
     def test_sticky_and_fullscreen_intact(self):
         assert "position: sticky" in HTML

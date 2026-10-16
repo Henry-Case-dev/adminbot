@@ -1,0 +1,446 @@
+{
+  "generated": "2026-10-16",
+  "phase": "before-vs-after",
+  "method": "pure-python PNG decode; control pixels = main frame minus frame with visibility:hidden button; header band y<=180 CSS px; device_scale_factor=2",
+  "cases": [
+    {
+      "tag": "320x700_right44",
+      "kind": "inline_inset",
+      "viewport": {
+        "w": 320,
+        "h": 700
+      },
+      "safeAreaInset": {
+        "top": 0,
+        "bottom": 0,
+        "left": 0,
+        "right": 44
+      },
+      "safeEdgeCss": {
+        "left": 0,
+        "right": 276,
+        "top": 0,
+        "bottom": 700
+      },
+      "phase": {
+        "before": {
+          "controlPixels": 6870,
+          "controlBBoxCssPx": {
+            "minX": 255.0,
+            "maxX": 303.5,
+            "minY": 10.0,
+            "maxY": 53.5
+          },
+          "insideSafeArea": {
+            "left": true,
+            "right": false,
+            "top": true,
+            "bottom": true
+          },
+          "insideBothAxes": false,
+          "maxDelta": 605
+        },
+        "after": {
+          "controlPixels": 6873,
+          "controlBBoxCssPx": {
+            "minX": 211.0,
+            "maxX": 259.5,
+            "minY": 10.0,
+            "maxY": 53.5
+          },
+          "insideSafeArea": {
+            "left": true,
+            "right": true,
+            "top": true,
+            "bottom": true
+          },
+          "insideBothAxes": true,
+          "maxDelta": 603
+        }
+      },
+      "headerBandDiffBeforeAfter": {
+        "diffPixels": 27363,
+        "bboxCssPx": {
+          "minX": 30.5,
+          "maxX": 303.5,
+          "minY": 10.0,
+          "maxY": 102.5
+        },
+        "maxDelta": 627
+      },
+      "checks": {
+        "afterPixelsInsideSafeArea": true,
+        "beforeViolationReproduced": true,
+        "noHeaderShiftWhenNoInset": true,
+        "headerShiftWhenInset": true,
+        "floatControlUnchanged": true
+      },
+      "ok": true
+    },
+    {
+      "tag": "390x844_right44",
+      "kind": "inline_inset",
+      "viewport": {
+        "w": 390,
+        "h": 844
+      },
+      "safeAreaInset": {
+        "top": 0,
+        "bottom": 0,
+        "left": 0,
+        "right": 44
+      },
+      "safeEdgeCss": {
+        "left": 0,
+        "right": 346,
+        "top": 0,
+        "bottom": 844
+      },
+      "phase": {
+        "before": {
+          "controlPixels": 6859,
+          "controlBBoxCssPx": {
+            "minX": 325.0,
+            "maxX": 373.5,
+            "minY": 10.0,
+            "maxY": 53.5
+          },
+          "insideSafeArea": {
+            "left": true,
+            "right": false,
+            "top": true,
+            "bottom": true
+          },
+          "insideBothAxes": false,
+          "maxDelta": 606
+        },
+        "after": {
+          "controlPixels": 6861,
+          "controlBBoxCssPx": {
+            "minX": 281.0,
+            "maxX": 329.5,
+            "minY": 10.0,
+            "maxY": 53.5
+          },
+          "insideSafeArea": {
+            "left": true,
+            "right": true,
+            "top": true,
+            "bottom": true
+          },
+          "insideBothAxes": true,
+          "maxDelta": 603
+        }
+      },
+      "headerBandDiffBeforeAfter": {
+        "diffPixels": 29506,
+        "bboxCssPx": {
+          "minX": 39.0,
+          "maxX": 373.5,
+          "minY": 10.0,
+          "maxY": 102.5
+        },
+        "maxDelta": 643
+      },
+      "checks": {
+        "afterPixelsInsideSafeArea": true,
+        "beforeViolationReproduced": true,
+        "noHeaderShiftWhenNoInset": true,
+        "headerShiftWhenInset": true,
+        "floatControlUnchanged": true
+      },
+      "ok": true
+    },
+    {
+      "tag": "667x375_right44",
+      "kind": "inline_inset",
+      "viewport": {
+        "w": 667,
+        "h": 375
+      },
+      "safeAreaInset": {
+        "top": 20,
+        "bottom": 0,
+        "left": 0,
+        "right": 44
+      },
+      "safeEdgeCss": {
+        "left": 0,
+        "right": 623,
+        "top": 20,
+        "bottom": 375
+      },
+      "phase": {
+        "before": {
+          "controlPixels": 6863,
+          "controlBBoxCssPx": {
+            "minX": 602.0,
+            "maxX": 650.5,
+            "minY": 26.0,
+            "maxY": 69.5
+          },
+          "insideSafeArea": {
+            "left": true,
+            "right": false,
+            "top": true,
+            "bottom": true
+          },
+          "insideBothAxes": false,
+          "maxDelta": 604
+        },
+        "after": {
+          "controlPixels": 6861,
+          "controlBBoxCssPx": {
+            "minX": 558.0,
+            "maxX": 606.5,
+            "minY": 26.0,
+            "maxY": 69.5
+          },
+          "insideSafeArea": {
+            "left": true,
+            "right": true,
+            "top": true,
+            "bottom": true
+          },
+          "insideBothAxes": true,
+          "maxDelta": 604
+        }
+      },
+      "headerBandDiffBeforeAfter": {
+        "diffPixels": 20495,
+        "bboxCssPx": {
+          "minX": 75.5,
+          "maxX": 650.5,
+          "minY": 26.0,
+          "maxY": 104.5
+        },
+        "maxDelta": 604
+      },
+      "checks": {
+        "afterPixelsInsideSafeArea": true,
+        "beforeViolationReproduced": true,
+        "noHeaderShiftWhenNoInset": true,
+        "headerShiftWhenInset": true,
+        "floatControlUnchanged": true
+      },
+      "ok": true
+    },
+    {
+      "tag": "390_zero_inset",
+      "kind": "inline_zero",
+      "viewport": {
+        "w": 390,
+        "h": 844
+      },
+      "safeAreaInset": {
+        "top": 0,
+        "bottom": 0,
+        "left": 0,
+        "right": 0
+      },
+      "safeEdgeCss": {
+        "left": 0,
+        "right": 390,
+        "top": 0,
+        "bottom": 844
+      },
+      "phase": {
+        "before": {
+          "controlPixels": 6859,
+          "controlBBoxCssPx": {
+            "minX": 325.0,
+            "maxX": 373.5,
+            "minY": 10.0,
+            "maxY": 53.5
+          },
+          "insideSafeArea": {
+            "left": true,
+            "right": true,
+            "top": true,
+            "bottom": true
+          },
+          "insideBothAxes": true,
+          "maxDelta": 606
+        },
+        "after": {
+          "controlPixels": 6859,
+          "controlBBoxCssPx": {
+            "minX": 325.0,
+            "maxX": 373.5,
+            "minY": 10.0,
+            "maxY": 53.5
+          },
+          "insideSafeArea": {
+            "left": true,
+            "right": true,
+            "top": true,
+            "bottom": true
+          },
+          "insideBothAxes": true,
+          "maxDelta": 606
+        }
+      },
+      "headerBandDiffBeforeAfter": {
+        "diffPixels": 0,
+        "bboxCssPx": null,
+        "maxDelta": 0
+      },
+      "checks": {
+        "afterPixelsInsideSafeArea": true,
+        "beforeViolationReproduced": true,
+        "noHeaderShiftWhenNoInset": true,
+        "headerShiftWhenInset": true,
+        "floatControlUnchanged": true
+      },
+      "ok": true
+    },
+    {
+      "tag": "667x375_float_right44",
+      "kind": "float",
+      "viewport": {
+        "w": 667,
+        "h": 375
+      },
+      "safeAreaInset": {
+        "top": 36,
+        "bottom": 0,
+        "left": 0,
+        "right": 44
+      },
+      "safeEdgeCss": {
+        "left": 0,
+        "right": 623,
+        "top": 36,
+        "bottom": 375
+      },
+      "phase": {
+        "before": {
+          "controlPixels": 6862,
+          "controlBBoxCssPx": {
+            "minX": 568.0,
+            "maxX": 616.5,
+            "minY": 42.0,
+            "maxY": 85.5
+          },
+          "insideSafeArea": {
+            "left": true,
+            "right": true,
+            "top": true,
+            "bottom": true
+          },
+          "insideBothAxes": true,
+          "maxDelta": 601
+        },
+        "after": {
+          "controlPixels": 6862,
+          "controlBBoxCssPx": {
+            "minX": 568.0,
+            "maxX": 616.5,
+            "minY": 42.0,
+            "maxY": 85.5
+          },
+          "insideSafeArea": {
+            "left": true,
+            "right": true,
+            "top": true,
+            "bottom": true
+          },
+          "insideBothAxes": true,
+          "maxDelta": 601
+        }
+      },
+      "headerBandDiffBeforeAfter": {
+        "diffPixels": 7159,
+        "bboxCssPx": {
+          "minX": 75.5,
+          "maxX": 580.5,
+          "minY": 128.0,
+          "maxY": 159.5
+        },
+        "maxDelta": 585
+      },
+      "checks": {
+        "afterPixelsInsideSafeArea": true,
+        "beforeViolationReproduced": true,
+        "noHeaderShiftWhenNoInset": true,
+        "headerShiftWhenInset": true,
+        "floatControlUnchanged": true
+      },
+      "ok": true
+    },
+    {
+      "tag": "390_csa56_float_right44",
+      "kind": "float",
+      "viewport": {
+        "w": 390,
+        "h": 844
+      },
+      "safeAreaInset": {
+        "top": 56,
+        "bottom": 0,
+        "left": 0,
+        "right": 44
+      },
+      "safeEdgeCss": {
+        "left": 0,
+        "right": 346,
+        "top": 56,
+        "bottom": 844
+      },
+      "phase": {
+        "before": {
+          "controlPixels": 6897,
+          "controlBBoxCssPx": {
+            "minX": 291.0,
+            "maxX": 339.5,
+            "minY": 62.0,
+            "maxY": 106.5
+          },
+          "insideSafeArea": {
+            "left": true,
+            "right": true,
+            "top": true,
+            "bottom": true
+          },
+          "insideBothAxes": true,
+          "maxDelta": 600
+        },
+        "after": {
+          "controlPixels": 6877,
+          "controlBBoxCssPx": {
+            "minX": 291.0,
+            "maxX": 339.5,
+            "minY": 62.0,
+            "maxY": 106.5
+          },
+          "insideSafeArea": {
+            "left": true,
+            "right": true,
+            "top": true,
+            "bottom": true
+          },
+          "insideBothAxes": true,
+          "maxDelta": 600
+        }
+      },
+      "headerBandDiffBeforeAfter": {
+        "diffPixels": 13035,
+        "bboxCssPx": {
+          "minX": 46.0,
+          "maxX": 365.5,
+          "minY": 106.0,
+          "maxY": 179.5
+        },
+        "maxDelta": 591
+      },
+      "checks": {
+        "afterPixelsInsideSafeArea": true,
+        "beforeViolationReproduced": true,
+        "noHeaderShiftWhenNoInset": true,
+        "headerShiftWhenInset": true,
+        "floatControlUnchanged": true
+      },
+      "ok": true
+    }
+  ]
+}

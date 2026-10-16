@@ -2190,12 +2190,27 @@
                 <button class="btn-ghost text-xs px-2 shrink-0" title="Скрыть"
                         @click="configError = ''">✕<span class="sr-only">Скрыть</span></button>
               </div>
-              <div v-if="currentTabItemCount === 0 && !configError" class="card p-6 text-gray-400 col-span-full">
-                Параметры этой вкладки ещё не загружены в базу (вкладка пустая).
+              <!-- Пустые состояния: причина МИНИМАЛЬНО честная — «не загружены
+                   в базу» врёт, когда параметры не отданы из-за ПРАВ роли или
+                   неприменимости к выбранной области (recon: владелец видел
+                   «нет доступных настроек» при пропавшем промпте). Баннер
+                   configError важнее — при нём пустые состояния не рисуются. -->
+              <div v-if="currentTabItemCount === 0 && !configError"
+                   class="card p-6 text-gray-400 col-span-full" data-empty-tab>
+                <div class="text-sm font-semibold text-gray-300 mb-1">
+                  На этой вкладке нет доступных параметров
+                </div>
+                <div class="text-xs">{{ emptyTabReason }}</div>
               </div>
               <div v-else-if="currentTabGroups.length === 0 && !configError && !workspaceModule"
-                   class="card p-6 text-gray-400 col-span-full">
-                Ничего не найдено по запросу «{{ configSearch }}».
+                   class="card p-6 text-gray-400 col-span-full" data-empty-search>
+                <span v-if="(configSearch || '').trim()">
+                  Ничего не найдено по запросу «{{ configSearch }}».
+                </span>
+                <span v-else>
+                  Параметры вкладки есть, но все они скрыты для вашей роли —
+                  показывать нечего.
+                </span>
               </div>
               <!-- 2.2.2 «Расширенные настройки»: на вкладке «LLM Провайдеры»
                    всё техническое (advanced provider-блоки + residual

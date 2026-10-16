@@ -400,6 +400,17 @@ def run(browser):
         row["ok"] = all(row["checks"].values())
         page.screenshot(path=os.path.join(EVIDENCE,
                                           "_rowa2_%s_%s.png" % (tag, PHASE)))
+        # Пиксельный контроль: кадр БЕЗ самой кнопки (visibility:hidden) —
+        # diff с основным кадром = ровно отрисованные пиксели контрола
+        # (пиксельное доказательство «control_box ⊆ content_safe_area»).
+        try:
+            page.evaluate("() => { const b = document.querySelector('.header-fs-btn');"
+                          " if (b) b.style.visibility = 'hidden'; }")
+            page.wait_for_timeout(80)
+            page.screenshot(path=os.path.join(EVIDENCE,
+                                              "_rowa2_%s_%s_nobtn.png" % (tag, PHASE)))
+        except Exception as exc:  # noqa: BLE001
+            row["nobtnShotError"] = str(exc)[:200]
         rows.append(row)
         ctx.close()
     return rows

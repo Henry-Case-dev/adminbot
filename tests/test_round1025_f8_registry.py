@@ -207,7 +207,10 @@ class TestFrozenInvariants:
         # delta 78→91 → 502/107/105/21.
         # v6.3 B01 (W1-CHAT-INTEL): +10 ключей INITIATIVE_* (2 flags_intent,
         # 8 limits_intent), группы/табы in-place → 571/120/118/23.
-        assert len(pc.REGISTRY) == FIXTURE["counts"]["REGISTRY"] == 571
+        # SOUL-1 mobile-prompts (2026-10-16): +1 PG-only промпт-ключ
+        # prompts.direct_l1_planner_system_prompt → 572/120/118/23
+        # (группа/вкладка/Settings/secret/hidden без изменений).
+        assert len(pc.REGISTRY) == FIXTURE["counts"]["REGISTRY"] == 572
         assert len(pc.GROUPS) == FIXTURE["counts"]["GROUPS"] == 120
         assert len(pc._TAB_BY_GROUP) == FIXTURE["counts"]["TAB_BY_GROUP"] == 118
         assert len(pc.TAB_RULES) == FIXTURE["counts"]["TAB_RULES"] == 23
@@ -259,7 +262,8 @@ class TestRegistry:
         # ASAP 7 F2 (§1.6): +9 (L1 Planner); параллельный F4 in-flight — снято
         # фактом на момент reissue (560).
         # v6.3 B01 (W1-CHAT-INTEL): +10 (INITIATIVE_*) → 571.
-        assert len(rows) == 571
+        # SOUL-1 mobile-prompts (2026-10-16): +1 (L1 Planner) → 572.
+        assert len(rows) == 572
         assert [r["internal_key"] for r in rows] == sorted(_registry_keys())
         assert all(v != "" for r in rows for v in r.values())
         assert len(rows[0]) == len(gen.TSV_COLUMNS) == 23
@@ -274,9 +278,10 @@ class TestRegistry:
         # ASAP 4.4 (T-4880): санкционированная Δ +1 → дельта 78.
         # MCA-10a (ADR-1028-14 D8/D12): санкционированная Δ +13 → дельта 91.
         # v6.3 B01 (W1-CHAT-INTEL): санкционированная Δ +10 → дельта 160.
+        # SOUL-1 mobile-prompts (2026-10-16): +1 → дельта 161.
         delta = _registry_keys() - _inventory_keys()
         # ASAP 7 F2 (§1.10): дельта 127→149 (+9 F2; F4 in-flight — фактом).
-        assert len(delta) == FIXTURE["counts"]["delta"] == 160
+        assert len(delta) == FIXTURE["counts"]["delta"] == 161
         new_rows = {r["internal_key"] for r in _read_registry_rows()
                     if r["status"] == "new"}
         assert new_rows == delta
@@ -327,7 +332,8 @@ class TestRegistry:
         # (529, 118).
         # ASAP 7 F2: reissue под 560/149 (+9 F2; F4 in-flight — фактом).
         # v6.3 B01 (W1-CHAT-INTEL): reissue под 571/160 (+10 INITIATIVE_*).
-        assert "571" in meta and "411" in meta and "160" in meta
+        # SOUL-1 mobile-prompts (2026-10-16): reissue под 572/161.
+        assert "572" in meta and "411" in meta and "161" in meta
         from config.settings import APP_VERSION
         assert APP_VERSION in meta
 
@@ -344,7 +350,8 @@ class TestScreenMap:
         # MCA-10a (ADR-1028-14 D8/D12): санкционированная Δ +13 → 502.
         # MCA-10b (ADR-1028-17 D16): санкционированная Δ +6 → 510.
         # v6.3 B01 (W1-CHAT-INTEL): санкционированная Δ +10 → 571.
-        assert len(keys) == 571
+        # SOUL-1 mobile-prompts (2026-10-16): санкционированная Δ +1 → 572.
+        assert len(keys) == 572
 
     def test_no_empty_new_screen(self):
         text = (ROOT / "plans/docs/screen-map-round1025.md").read_text(encoding="utf-8")

@@ -990,7 +990,12 @@
     /* UI-полировка TMA: прилипающая шапка (непрозрачнее обычной card-solid,
        чтобы контент не просвечивал сквозь неё при скролле).
        10.7 (1b): горизонтальные safe-area (Telegram-кнопки/вырезы) —
-       правые элементы шапки не уходят под нативные кнопки WebView. */
+       правые элементы шапки не уходят под нативные кнопки WebView.
+       U07.2 (asap8-v6.3): формула max(env, --tg-content-safe-area-inset-*,
+       --tg-safe-area-inset-*) обязательна и для ГОРИЗОНТАЛЬНЫХ инсетов —
+       env(safe-area-inset-*) в Telegram Android часто = 0, а значения SDK
+       лежат в --tg-*-переменных (иначе inline-⛶ в landscape уходит под
+       нативную ✕/⋮ зону). Образец: .fullscreen-mode header ниже (10.10). */
     header.header-sticky {
       position: sticky;
       top: 0;
@@ -1009,8 +1014,8 @@
       /* A2/T-2589 (ADR-1025-12 D2; AMEND ADR-1025-13 D3): стекляннее карточек. */
       -webkit-backdrop-filter: var(--shell-blur);
       backdrop-filter: var(--shell-blur);
-      padding-right: calc(1rem + env(safe-area-inset-right, 0px));
-      padding-left: calc(1rem + env(safe-area-inset-left, 0px));
+      padding-right: calc(1rem + max(env(safe-area-inset-right, 0px), var(--tg-content-safe-area-inset-right, 0px), var(--tg-safe-area-inset-right, 0px)));
+      padding-left: calc(1rem + max(env(safe-area-inset-left, 0px), var(--tg-content-safe-area-inset-left, 0px), var(--tg-safe-area-inset-left, 0px)));
     }
 
     /* D (ADR-1025-12 D5, T-2606…T-2610): компактная двухстрочная шапка.

@@ -44,7 +44,7 @@ class TestCatalogInvariant:
         import dataclasses
 
         from config.settings import Settings
-        assert len(pc.REGISTRY) == 571
+        assert len(pc.REGISTRY) == 572
         assert len(pc.GROUPS) == 120
         assert len(pc._TAB_BY_GROUP) == 118
         assert len(pc.TAB_RULES) == 23
@@ -53,7 +53,7 @@ class TestCatalogInvariant:
                        if s.category is not None]
         # ASAP 5 (asap5-final-fixes, T-5256, санкция §5): +6 categorized
         # (PG-only профили embeddings, models_embeddings) → 498→504.
-        assert len(categorized) == 546
+        assert len(categorized) == 547
 
     def test_per_chat_classification(self):
         """Маршрутизация scope: models.*/keys.* — строго глобальные (per_chat

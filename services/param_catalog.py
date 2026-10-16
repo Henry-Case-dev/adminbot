@@ -642,6 +642,24 @@ _PROMPTS: list[tuple] = [
      "services.chat_prompts.DIRECT_VERBALIZER_SYSTEM_PROMPT", "prompts_direct_chat",
      "Оформляет справку прямого чата в живой ответ. Изменения применяются сразу.",
      "advanced", "verbalizer"),
+    # ASAP 7 (F1, §1.3 architecture.md; ADR-1013-3) + SOUL-1 mobile-prompts
+    # (2026-10-16): L1 Planner Direct. Ключ читается рантаймом
+    # (`direct_chat_service._plan_direct_l1` /
+    # `plan_initiative_decision` → `resolve_prompt`) и имеет ступень
+    # `prompt_migrations.PROMPT_MIGRATIONS`, но записи в каталоге не имел →
+    # `/api/config` его не отдавал и Prompt Library его не рендерила: ключ
+    # нельзя было ни посмотреть, ни отредактировать (24 промпта в каталоге
+    # против 25 читателей). Δ каталога +1 (группа/slug/TAB_RULES без
+    # изменений; значение = код-канон, семантика дефолта не меняется).
+    # Stage=synthesizer: первичный ЛОГИЧЕСКИЙ проход прямого чата (план
+    # ответа), а не писатель — финальный текст пишет Вербализатор.
+    ("prompts.direct_l1_planner_system_prompt", "L1 Planner: план ответа",
+     "services.chat_prompts.DIRECT_L1_PLANNER_SYSTEM_PROMPT", "prompts_direct_chat",
+     "Первичный проход прямого чата: решает, отвечать / поставить реакцию / "
+     "промолчать, и каким должен быть ответ (объём, тон, структура). Сам "
+     "текст ответа не пишет — его пишет Вербализатор. Изменения применяются "
+     "сразу после сохранения.",
+     "advanced", "synthesizer"),
     ("prompts.verbilizer_mode_casual", "Режим Casual",
      "services.prompt_style_blocks.MODE_CASUAL_BLOCK", "prompts_verbilizer",
      "Режим подачи ответа «торопливое письмо»: короткие рубленые фразы без Markdown.",

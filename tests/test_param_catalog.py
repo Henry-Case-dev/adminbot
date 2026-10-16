@@ -294,7 +294,9 @@ class TestPromptsContentPgOnly:
         # + prompts.summary_l1_clusterizer_system_prompt (10.26 S3) = 22;
         # + prompts.summary_l2_writer_system_prompt (10.26 S5/ADR-1026-7 D3) = 23;
         # + prompts.summary_cover_style_id (EXTRA round1028, ADR-1028-4 D3) = 24.
-        assert len(prompts) == 24
+        # SOUL-1 mobile-prompts (2026-10-16): +1 — prompts.direct_l1_planner_
+        # system_prompt (ключ читался рантаймом, записи каталога не имел) = 25.
+        assert len(prompts) == 25
         for spec in prompts:
             assert spec.settings_field is None
             assert spec.env_name is None
@@ -548,7 +550,10 @@ class TestGroups8424:
         # (flags_intent: observer master + per-chat гейт) / limits +8
         # (limits_intent: профиль частоты + тонкие лимиты и бюджеты оценок)
         # → flags 98 / limits 220, итого 571.
-        assert counts == {"prompts": 24, "models": 74, "keys": 35,
+        # SOUL-1 mobile-prompts (2026-10-16): prompts +1
+        # (prompts.direct_l1_planner_system_prompt — ключ читался
+        # рантаймом, записи каталога не имел) → prompts 25, итого 572.
+        assert counts == {"prompts": 25, "models": 74, "keys": 35,
                           "limits": 220, "flags": 98, "reactions": 39,
                           "content": 5, "memory": 47, "temporal": 4}
         assert {g.category for g in GROUPS} >= set(CATEGORIES)

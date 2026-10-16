@@ -38,9 +38,11 @@ class TestHeaderFullscreen:
         assert "var(--tg-safe-area-inset-top" in HTML
 
     def test_107_and_109_intact(self):
-        # 10.7: базовый safe-area по ширине сохранён.
-        assert "padding-right: calc(1rem + env(safe-area-inset-right" in HTML
-        assert "padding-left: calc(1rem + env(safe-area-inset-left" in HTML
+        # 10.7: базовый safe-area по ширине сохранён — с U07.2 (asap8-v6.3)
+        # той же формулой max(env, --tg-content-safe-area-*, --tg-safe-area-*),
+        # что и у .fullscreen-mode-варианта ниже (env-одиночка = 0 в Android).
+        assert "padding-right: calc(1rem + max(env(safe-area-inset-right, 0px)" in HTML
+        assert "padding-left: calc(1rem + max(env(safe-area-inset-left, 0px)" in HTML
         # 10.9: модель скролла fullscreen сохранена.
         assert ".fullscreen-mode .scroll-area" in HTML
         assert "overflow-y: auto" in HTML
@@ -187,7 +189,11 @@ class TestCatalog1010:
         # 10.19 (F3/ADR-1019-3 D3, UPD3 п.5): → 437/92/90/20/407.
         # 10.23 (F5/ADR-1023-5 D5): +5/+3/+3 → 446/95/93/20/416.
         # 10.24 (F21/ADR-1024-22 D8): +1/+1/+1 → 459/98/96/20/418.
-        assert len(pc.REGISTRY) == 571
+        # SOUL-1 mobile-prompts (2026-10-16): +1 промпт-ключ
+        # prompts.direct_l1_planner_system_prompt (читался рантаймом,
+        # записи каталога не имел) → REGISTRY 571→572; группы/табы/
+        # Settings без изменений.
+        assert len(pc.REGISTRY) == 572
         assert len(pc.GROUPS) == 120
         assert len(pc._TAB_BY_GROUP) == 118
         assert len(pc.TAB_RULES) == 23
