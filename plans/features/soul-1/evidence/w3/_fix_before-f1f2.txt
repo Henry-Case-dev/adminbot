@@ -1,0 +1,49 @@
+=== F1: JSON под hard-правилами (no_quotes + no_trailing_period) ===
+  in : '{"path": "/api/v1/x"}'
+  out: '{path: "/api/v1/x"}'   byte_identical=False sha_in=e6de707e24e5 sha_out=b4ec2bdb6881
+  statuses: repaired=1 exempted=0 conflicts=() styled=True reasons=[('quotation_marks', 'repaired', 'ironic_quotes_removed'), ('trailing_period', 'pass', '')]
+
+  in : 'Данные: {"note": "ok"} — вот.'
+  out: 'Данные: {note: ok} — вот'   byte_identical=False sha_in=85e386832bdd sha_out=60bf92f30333
+  statuses: repaired=2 exempted=0 conflicts=() styled=True reasons=[('quotation_marks', 'repaired', 'ironic_quotes_removed'), ('trailing_period', 'repaired', 'trailing_period_removed')]
+
+  in : '{"call": "print(x)"}'
+  out: '{call: "print(x)"}'   byte_identical=False sha_in=e61799617ca3 sha_out=c64c577a65bb
+  statuses: repaired=1 exempted=0 conflicts=() styled=True reasons=[('quotation_marks', 'repaired', 'ironic_quotes_removed'), ('trailing_period', 'pass', '')]
+
+  in : 'Вот ответ: {"a": {"b": [1, 2]}, "c": "x"} и всё.'
+  out: 'Вот ответ: {a: {b: [1, 2]}, c: x} и всё'   byte_identical=False sha_in=84eb27cf7ccd sha_out=e0d1f0f586d3
+  statuses: repaired=2 exempted=0 conflicts=() styled=True reasons=[('quotation_marks', 'repaired', 'ironic_quotes_removed'), ('trailing_period', 'repaired', 'trailing_period_removed')]
+
+  in : 'Смотри [{"id": 1, "url": "https://example.org/x"}] — список.'
+  out: 'Смотри [{id: 1, url: "https://example.org/x"}] — список'   byte_identical=False sha_in=690b476179bb sha_out=7259b4ac6cd7
+  statuses: repaired=2 exempted=0 conflicts=() styled=True reasons=[('quotation_marks', 'repaired', 'ironic_quotes_removed'), ('trailing_period', 'repaired', 'trailing_period_removed')]
+
+  in : 'Итог: {"msg": "он сказал \\"да\\""} готово'
+  out: 'Итог: {msg: "он сказал \\"да\\} готово'   byte_identical=False sha_in=0f67af9d72a1 sha_out=7d2d83d964b6
+  statuses: repaired=0 exempted=0 conflicts=('quotation_marks.hard.no_graphic',) styled=False reasons=[('quotation_marks', 'conflict', 'quotes_require_rephrase'), ('trailing_period', 'pass', '')]
+
+  in : '{"k": "v"}.'
+  out: '{"k": "v"}'   byte_identical=False sha_in=61470c38f987 sha_out=4be281edc378
+  statuses: repaired=1 exempted=0 conflicts=() styled=True reasons=[('quotation_marks', 'pass', ''), ('trailing_period', 'repaired', 'trailing_period_removed')]
+
+  in : 'Фрагмент {"k": "v"} в строке.'
+  out: 'Фрагмент {k: v} в строке'   byte_identical=False sha_in=317f75fd7684 sha_out=85658913b349
+  statuses: repaired=2 exempted=0 conflicts=() styled=True reasons=[('quotation_marks', 'repaired', 'ironic_quotes_removed'), ('trailing_period', 'repaired', 'trailing_period_removed')]
+
+=== F2: повтор в ПЕРВОМ предложении, посторонний хвост ===
+  prev: 'Ну да, это классика жанра, как обычно.'
+  in  : 'Ну да, это классика жанра. И это важный нюанс.'
+  out : 'Ну да, это классика жанра'  changed=True
+  repetition=({'kind': 'ngram', 'severity': 'sticky', 'ngram_len': 3, 'phrase_sha12': 'a81a0d77aa1d', 'phrase_words': 3, 'repaired': True}, {'kind': 'ngram', 'severity': 'sticky', 'ngram_len': 3, 'phrase_sha12': 'a9cb9bd6f879', 'phrase_words': 3, 'repaired': True})
+
+  prev: 'Ну да, это классика жанра, как обычно.'
+  in  : 'Ну да, это классика жанра. И это важный нюанс, который стоит учесть.'
+  out : 'Ну да, это классика жанра'  changed=True
+  repetition=({'kind': 'ngram', 'severity': 'sticky', 'ngram_len': 3, 'phrase_sha12': 'a81a0d77aa1d', 'phrase_words': 3, 'repaired': True}, {'kind': 'ngram', 'severity': 'sticky', 'ngram_len': 3, 'phrase_sha12': 'a9cb9bd6f879', 'phrase_words': 3, 'repaired': True})
+
+  prev: 'Ну да, это классика жанра, как обычно.'
+  in  : 'Разбор простой. Ну да, это классика жанра.'
+  out : 'Разбор простой'  changed=True
+  repetition=({'kind': 'ngram', 'severity': 'sticky', 'ngram_len': 3, 'phrase_sha12': 'a81a0d77aa1d', 'phrase_words': 3, 'repaired': True}, {'kind': 'ngram', 'severity': 'sticky', 'ngram_len': 3, 'phrase_sha12': 'a9cb9bd6f879', 'phrase_words': 3, 'repaired': True})
+

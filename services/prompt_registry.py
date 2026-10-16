@@ -89,7 +89,7 @@ from typing import Mapping
 
 logger = logging.getLogger(__name__)
 
-REGISTRY_VERSION = "soul1-w1-3"
+REGISTRY_VERSION = "soul1-w3-1"
 
 #: Документ журнала записей реестра (одна аддитивная JSON-запись bot_settings;
 #: владелец записи — ``prompt_factory``). Внутри:
@@ -168,6 +168,8 @@ FACTORY_REVISION_LABELS: dict[str, str] = {
     "style.asymmetry": "asymmetry-r1022",
     "style.typography": "typography-r1023",
     "style.bot_knowledge": "bot-knowledge-r1021",
+    # SOUL-1 (W3): hint Speech Style Policy (SOUL-16.1.2/16.4.1)
+    "style.policy.hint": "style-hint-soul16-w3",
     "style.format.plain_html": "format-plain-html",
     "style.format.plain_text": "format-plain-text",
     "style.format.rich": "format-rich",
@@ -580,6 +582,29 @@ _CODE_BLOCKS: tuple[PromptBlockSpec, ...] = (
        "style", "code", "services.prompt_style_blocks.FORMAT_RICH_BLOCK",
        ("prompt_style_blocks.format_block:256",),
        "channel_output/rich", owner_lane="W3", speech=True),
+    # ── Speech Style Policy (SOUL-16, W3): короткий hint активных правил ────
+    _b("style.policy.hint",
+       "Короткий semantic hint Speech Style Policy для Writer (слой 10): "
+       "жёсткие правила формы и мягкие привычки письма владельца. НЕ вся база "
+       "правил (SOUL-16.4.1).",
+       "style", "global_chat", "services.prompt_style_blocks",
+       ("prompt_composer.py:1385 (слой style_policy_hint)",
+        "style_policy.resolve_style_policy_ref",
+        "tests/test_soul1_style_policy.py"),
+       "speech_plain/speech_rich (слой style_policy_hint)",
+       owner_lane="W3", speech=True, migration="factory",
+       ui="catalog_pending", code_members=(
+           "STYLE_POLICY_HINT_OPEN", "STYLE_POLICY_HINT_CLOSE",
+           "HINT_ONE_WORD", "HINT_MICRO", "HINT_TRAILING_PERIOD_HARD",
+           "HINT_TRAILING_PERIOD_SOFT", "HINT_QUOTES_HARD", "HINT_QUOTES_SOFT",
+           "HINT_EMOJI_HARD", "HINT_EMOJI_SOFT", "HINT_LINE_BREAKS_PREFIX",
+           "HINT_FORBIDDEN_CHARS", "HINT_VERBATIM_PROTECTED",
+           "HINT_SOFT_PREFIX"),
+       note="Фабричная редакция = тексты hint'а одного модуля; правка любой "
+            "формулировки меняет отпечаток набора и требует бампа метки "
+            "(SOUL-AMD.3.2). Типизированные правила и документ `style.policy` "
+            "— витрина `style_policy_view()` (W3); ключ каталога и редактор — "
+            "W6."),
     _b("retry.cliche",
        "Повтор при нарушении Negative Constraints (постпроцессор).",
        "style", "code", "services.prompt_style_blocks.CLICHE_RETRY_SYSTEM_PROMPT",
@@ -1126,11 +1151,10 @@ def factory_set_fingerprint() -> str:
 #: Guard-константа: обновляется ЯВНО при осознанной правке фабричной редакции
 #: (кто меняет канон — бампает отпечаток и метку в FACTORY_REVISION_LABELS).
 #: Проверяется ``tests/test_soul1_registry_completeness.py``.
-#: Последний бамп (CORE-DOC, 16.10.2026): зарегистрированы два блока
-#: Personality Core (`core.personality` = полный авторский текст SOUL-02,
-#: `core.personality.compact` = ручная компактная редакция) — было
-#: ``8cc27a902dae`` (fix-pass W1), стало ``381aa1f0a9e4``.
-FACTORY_SET_SHA256_12 = "381aa1f0a9e4"
+#: Последний бамп (W3, 17.10.2026): зарегистрирован блок
+#: ``style.policy.hint`` (короткий semantic hint Speech Style Policy, слой 10
+#: композера) — было ``381aa1f0a9e4`` (CORE-DOC W2), стало ``842a382c48f5``.
+FACTORY_SET_SHA256_12 = "842a382c48f5"
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -1334,6 +1358,48 @@ def registry_view() -> list[dict]:
             "registry_version": REGISTRY_VERSION,
         })
     return rows
+
+
+# ── Speech Style Policy (SOUL-16, W3): витрина типизированных правил ────────
+# Правила формы — управляемая сущность (документ ``style.policy``), а не
+# десятки ``prompts.*`` (SOUL-16.1.4). Здесь — единая точка входа для UI/
+# Inspector (W6) и тестов: активные правила с источником, soft-привычки,
+# presets, каталог kind, диагностика документа и hint-блок реестра.
+
+STYLE_POLICY_BLOCK_ID = "style.policy.hint"
+
+
+def style_policy_view(global_doc=None, chat_doc=None, *, context: str = "",
+                      extent: str = "", enabled: bool = True) -> dict:
+    """Витрина Speech Style Policy + регистрация hint-блока (W6/W3).
+
+    ``global_doc``/``chat_doc`` — документы ``style.policy`` (если не заданы,
+    витрина отдаёт только метаданные реестра без значений). Никогда не
+    бросает."""
+    spec = block(STYLE_POLICY_BLOCK_ID)
+    base = {
+        "block_id": STYLE_POLICY_BLOCK_ID,
+        "purpose": (spec.purpose if spec is not None else ""),
+        "owner_lane": (spec.owner_lane if spec is not None else "W3"),
+        "composition_point": (spec.composition_point if spec is not None
+                              else "speech_plain/speech_rich"),
+        "factory_revision": factory_revision(STYLE_POLICY_BLOCK_ID),
+        "factory_chars": len(factory_text(STYLE_POLICY_BLOCK_ID)),
+        "ui": (spec.ui if spec is not None else "catalog_pending"),
+        "registry_version": REGISTRY_VERSION,
+        "doc_key": "style.policy",
+    }
+    try:
+        from services import style_policy as _sp
+        view = _sp.style_policy_view(global_doc, chat_doc, context=context
+                                     or "regular", extent=extent,
+                                     enabled=enabled)
+    except Exception:
+        logger.warning("[prompt_registry] style policy view failed",
+                       exc_info=True)
+        view = {"skip_reason": "view_error", "conflicts": ["view_error"],
+                "rules": [], "soft_instructions": []}
+    return {**base, **view}
 
 
 # ═══════════════════════════════════════════════════════════════════════════

@@ -1,0 +1,52 @@
+﻿SOUL-1 / W3 — focused suites (изменённые швы + W3-периметр)
+candidate: рабочее дерево C:\Code\Python\adminbot (без коммита)
+commands (repo root, .venv\Scripts\python.exe -m pytest ... -q):
+  [W3] tests/test_soul1_style_policy.py tests/test_soul1_style_payload.py
+       tests/test_soul1_extent_one_word.py tests/test_soul1_style_repetition.py
+  [A]  tests/test_soul1_composer_layers.py tests/test_soul1_composer_parity_off.py
+       tests/test_soul1_core_version_propagation.py tests/test_soul1_legacy_custom_preserved.py
+       tests/test_soul1_flags_composition.py tests/test_soul1_machine_profile_no_core.py
+       tests/test_soul1_core_doc_text.py tests/test_soul1_core_composer_integration.py
+       tests/test_soul1_direct_prompt_reads.py tests/test_soul1_factory_defaults.py
+       tests/test_soul1_registry_completeness.py tests/test_soul1_registry_legacy_removal.py
+       tests/test_soul1_core_registry_api.py
+  [B]  tests/test_direct_chat_prompts.py tests/test_verbilizer_response_modes_round1023.py
+       tests/test_asap7_direct_l1.py tests/test_direct_two_call_round1022.py
+       tests/test_asap8_v6_wc_direct_d03.py tests/test_asap8_v6_wc_direct_d04.py
+       tests/test_asap8_v6_wc_direct_matrix.py tests/test_persona_prompt.py tests/test_direct_chat.py
+       tests/test_asap7_module_registry.py tests/test_asap7_module_completeness.py
+       tests/test_asap8_v6_p1_d11_registry.py
+  [C]  tests/test_mca08_character_speech.py tests/test_mca08_style_form.py
+       tests/test_mca18_contract_round1042.py tests/test_mca18_self_model_block_a_round1042.py
+       tests/test_mca18_paired_replay_round1042.py tests/test_asap8_f4_prompt_truth.py
+       tests/test_webapp_dm_ui.py
+  [D]  tests/test_outgoing_guard_round1022.py tests/test_anticliche_round1023.py
+       tests/test_mca23_response_plan.py tests/test_negative_constraints_round1022.py
+       tests/test_prompts_round1024.py tests/test_prompt_migrations.py
+       tests/test_round1025_f8_registry.py tests/test_ui_verbilizer_tabs_round1023.py::TestCatalogDelta
+       tests/test_unified_image_request_round1026.py::TestBoundsA3
+registry check: .venv\Scripts\python.exe tools/gen_param_registry_round1025.py --check
+  → CHECK OK: реестр 572 == REGISTRY, карта полна, R17-чисто, TSV/map идемпотентны.
+результаты:
+.......................                                                  [100%]
+95 passed in 3.83s
+---
+..                                                                       [100%]
+146 passed in 5.86s
+[B]
+........................................................................ [100%]
+432 passed in 18.36s
+[C]
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+200 passed, 1 warning in 12.90s
+[D]
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+283 passed, 1 warning in 8.95s
+---
+ФИНАЛЬНЫЙ кандидат (после последних правок: _needs_repair+DENIED, _revision_int, расширенные ассерты):
+....................................                                     [100%]
+108 passed in 3.46s
+ФИНАЛЬНЫЙ кандидат (тесты: +event-тест повтора; 96 новых):
+.....................................                                    [100%]
+109 passed in 3.33s
+ИТОГО периметр: 96 новых W3 + [A] 146 (вкл. parity 13) + [B] 432 + [C] 200 + [D] 283 = 1157 passed, 0 failed

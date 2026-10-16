@@ -1,0 +1,59 @@
+=== F1: байты машинного фрагмента (hard no_quotes + no_trailing_period)
+  fragment_byte_identical=True sha_in=e6de707e24e5 sha_out=e6de707e24e5
+    in : '{"path": "/api/v1/x"}'
+    out: '{"path": "/api/v1/x"}'
+    rules: [('quotation_marks', 'exempted', 'protected_verbatim'), ('trailing_period', 'pass', '')]
+  fragment_byte_identical=True sha_in=5453eb3fa40c sha_out=5453eb3fa40c
+    in : 'Данные: {"note": "ok"} — вот.'
+    out: 'Данные: {"note": "ok"} — вот'
+    rules: [('quotation_marks', 'exempted', 'protected_verbatim'), ('trailing_period', 'repaired', 'trailing_period_removed')]
+  fragment_byte_identical=True sha_in=e61799617ca3 sha_out=e61799617ca3
+    in : '{"call": "print(x)"}'
+    out: '{"call": "print(x)"}'
+    rules: [('quotation_marks', 'exempted', 'protected_verbatim'), ('trailing_period', 'pass', '')]
+  fragment_byte_identical=True sha_in=77720585346a sha_out=77720585346a
+    in : 'Вот ответ: {"a": {"b": [1, 2]}, "c": "x"} и всё.'
+    out: 'Вот ответ: {"a": {"b": [1, 2]}, "c": "x"} и всё'
+    rules: [('quotation_marks', 'exempted', 'protected_verbatim'), ('trailing_period', 'repaired', 'trailing_period_removed')]
+  fragment_byte_identical=True sha_in=9794c9b4158d sha_out=9794c9b4158d
+    in : 'Смотри [{"id": 1, "url": "https://example.org/x"}] — список.'
+    out: 'Смотри [{"id": 1, "url": "https://example.org/x"}] — список'
+    rules: [('quotation_marks', 'exempted', 'protected_verbatim'), ('trailing_period', 'repaired', 'trailing_period_removed')]
+  fragment_byte_identical=True sha_in=0a8fa425dc59 sha_out=0a8fa425dc59
+    in : 'Итог: {"msg": "он сказал \\"да\\""} готово'
+    out: 'Итог: {"msg": "он сказал \\"да\\""} готово'
+    rules: [('quotation_marks', 'exempted', 'protected_verbatim'), ('trailing_period', 'pass', '')]
+  fragment_byte_identical=True sha_in=4be281edc378 sha_out=4be281edc378
+    in : '{"k": "v"}.'
+    out: '{"k": "v"}'
+    rules: [('quotation_marks', 'exempted', 'protected_verbatim'), ('trailing_period', 'repaired', 'trailing_period_removed')]
+  fragment_byte_identical=True sha_in=4be281edc378 sha_out=4be281edc378
+    in : 'Фрагмент {"k": "v"} в строке.'
+    out: 'Фрагмент {"k": "v"} в строке'
+    rules: [('quotation_marks', 'exempted', 'protected_verbatim'), ('trailing_period', 'repaired', 'trailing_period_removed')]
+  fragment_byte_identical=True sha_in=af712e70e1d6 sha_out=af712e70e1d6
+    in : '{"note": "ok}'
+    out: '{"note": "ok}'
+    rules: [('quotation_marks', 'exempted', 'protected_verbatim'), ('trailing_period', 'pass', '')]
+
+=== F2: повтор и посторонний хвост (документ без правил формы)
+  in : 'Ну да, это классика жанра. И это важный нюанс.'
+  out: 'Ну да, это классика жанра. И это важный нюанс.'  changed=False expected_trim=False repaired_flag=False
+  in : 'Ну да, это классика жанра. И это важный нюанс, который стоит учесть.'
+  out: 'Ну да, это классика жанра. И это важный нюанс, который стоит учесть.'  changed=False expected_trim=False repaired_flag=False
+  in : 'Разбор простой. Ну да, это классика жанра.'
+  out: 'Разбор простой.'  changed=True expected_trim=True repaired_flag=True
+
+=== F3: порядок (проход → сериализация → egress-guard → проверка → send)
+  pre-send: 'Готово. fact:123'  delivered: 'Готово.'  payload_status='mismatch' (ожидание: mismatch)
+
+=== F4: инициатива (nostalgia prepared_text и writer)
+  nostalgia status='sent' delivered='Он сказал «база это сила»'
+
+=== стоимость: LLM-вызовы на проходе/отправке ===
+  LLM transport calls на проход+отправку: 0 (ожидание 0)
+
+=== ось SPEECH_STYLE_POLICY_ENABLED и отсутствие документа ===
+  код-дефолт W2_GATES['SPEECH_STYLE_POLICY_ENABLED']: (True, 'OFF → нет effective policy: ни semantic hint, ни нормализации; Core жив; downgrade виден в манифесте (`style_policy_disabled`)') / сейчас: True
+  без документа: rules=0 soft=0 skip_reason='style_policy_absent' hint=''
+  текст без документа: byte_identical=True styled=True repaired=0 applied=True

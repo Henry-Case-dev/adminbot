@@ -59,6 +59,13 @@ CLARIFY_TARGET_MAX = 64
 # значение от LLM или дет. деривация из capabilities (никогда не тихо).
 EXECUTION_MODES = ("none", "simple_tools", "adaptive_tool_chain")
 
+# SOUL-1 (W3, SOUL-05.1): РОВНО ОДНО необязательное поле L1 — совет по приёму
+# юмора. Это не приказ быть смешным и не новая личность: значение по умолчанию
+# ``none``, невалидное → ``none`` (план не инвалидируется). Приёмы — W4
+# (`Humor Craft`); L1 только выбирает уместность.
+COMIC_STRATEGIES = ("none", "literalism", "absurd_escalation", "deadpan",
+                    "bureaucratic_logic", "unexpected_analogy")
+
 
 def derive_execution_mode(capabilities_needed) -> str:
     """Дет. деривация mode: есть capabilities → simple_tools, нет → none
@@ -122,6 +129,8 @@ class L1Plan:
     # ASAP 8 v6 (D04 §18C.7): execution mode (closed set; normalized).
     execution_mode: str = "none"
     execution_mode_source: str = "derived"   # derived | llm
+    # SOUL-1 (W3, SOUL-05.1): ровно один необязательный совет по приёму юмора.
+    comic_strategy: str = "none"
 
     def effective_extent(self) -> str:
         """Явная форма пользователя поверх semantic extent (§2.5)."""
@@ -139,13 +148,16 @@ class L1Plan:
     def to_response_plan(self):
         """Маппинг на легаси ``ResponsePlan`` (response_extent) — кормит
         существующий дет. downstream: extent-блок, ExecutionGraph,
-        rich-gate, media_writer_needed. Никогда не бросает."""
+        rich-gate, media_writer_needed. Никогда не бросает.
+
+        SOUL-1 (W3, SOUL-05.2): ``one_word`` переносится ЗНАЧЕНИЕМ (не алиас
+        ``micro``): это два разных действующих extent со своими блоками и
+        валидаторами. Схлопывание в ``micro`` теряло строгий контракт «ровно
+        одно лексическое слово» (SOUL-AMD.1.6)."""
         from services import response_extent as _extent
 
         extent = self.effective_extent()
-        if extent == "one_word":
-            rp_extent = "micro"
-        elif extent in _extent.EXTENTS:
+        if extent in _extent.EXTENTS:
             rp_extent = extent
         else:
             rp_extent = ""     # auto → без extent-блока (D11)
@@ -165,6 +177,8 @@ class L1Plan:
             ("plain", "rich", "media") else "plain",
             tool_policy=self.tool_policy if self.tool_policy in
             ("none", "auto") else "auto",
+            comic_strategy=self.comic_strategy if self.comic_strategy in
+            COMIC_STRATEGIES else "none",
             source="l1")
 
 
@@ -261,6 +275,10 @@ def normalize_l1_plan(data) -> L1Plan | None:
                 break
         plan.capabilities_needed = tuple(seen)
     plan.needs_clarification = bool(data.get("needs_clarification"))
+    # ── SOUL-1 (W3, SOUL-05.1): ровно один необязательный comic_strategy.
+    # Закрытый набор; невалидное/отсутствующее → "none" (совет, не приказ).
+    plan.comic_strategy = _closed(data.get("comic_strategy"), COMIC_STRATEGIES,
+                                  "none")
     # ── ASAP 8 v6 (D04 §18C.7): execution_mode. Явное значение от LLM
     # (allowlisted аддитивное поле, прецедент future_intent); невалидное/
     # отсутствующее → дет. деривация из capabilities. Никогда не тихо:
@@ -759,6 +777,10 @@ def build_l2_plan_block(plan: L1Plan | None, *, rejected=(),
         mirroring = str(plan.emotional_mirroring or "none")
         if mirroring and mirroring != "none":
             lines.append(f"зеркалирование эмоций собеседника: {mirroring}")
+        strategy = str(getattr(plan, "comic_strategy", "") or "none")
+        if strategy and strategy != "none":
+            # SOUL-05.1: совет L2, а не приказ быть смешным.
+            lines.append(f"если уместно, приём юмора: {strategy}")
         note = rejected_note(rejected)
         if note:
             lines.append(note)

@@ -1,0 +1,59 @@
+=== F1: байты машинного фрагмента (hard no_quotes + no_trailing_period)
+  fragment_byte_identical=False (фрагмент потерян!)
+    in : '{"path": "/api/v1/x"}'
+    out: '{path: "/api/v1/x"}'
+    rules: [('quotation_marks', 'repaired', 'ironic_quotes_removed'), ('trailing_period', 'pass', '')]
+  fragment_byte_identical=False (фрагмент потерян!)
+    in : 'Данные: {"note": "ok"} — вот.'
+    out: 'Данные: {note: ok} — вот'
+    rules: [('quotation_marks', 'repaired', 'ironic_quotes_removed'), ('trailing_period', 'repaired', 'trailing_period_removed')]
+  fragment_byte_identical=False (фрагмент потерян!)
+    in : '{"call": "print(x)"}'
+    out: '{call: "print(x)"}'
+    rules: [('quotation_marks', 'repaired', 'ironic_quotes_removed'), ('trailing_period', 'pass', '')]
+  fragment_byte_identical=False (фрагмент потерян!)
+    in : 'Вот ответ: {"a": {"b": [1, 2]}, "c": "x"} и всё.'
+    out: 'Вот ответ: {a: {b: [1, 2]}, c: x} и всё'
+    rules: [('quotation_marks', 'repaired', 'ironic_quotes_removed'), ('trailing_period', 'repaired', 'trailing_period_removed')]
+  fragment_byte_identical=False (фрагмент потерян!)
+    in : 'Смотри [{"id": 1, "url": "https://example.org/x"}] — список.'
+    out: 'Смотри [{id: 1, url: "https://example.org/x"}] — список'
+    rules: [('quotation_marks', 'repaired', 'ironic_quotes_removed'), ('trailing_period', 'repaired', 'trailing_period_removed')]
+  fragment_byte_identical=False (фрагмент потерян!)
+    in : 'Итог: {"msg": "он сказал \\"да\\""} готово'
+    out: 'Итог: {msg: "он сказал \\"да\\} готово'
+    rules: [('quotation_marks', 'conflict', 'quotes_require_rephrase'), ('trailing_period', 'pass', '')]
+  fragment_byte_identical=True sha_in=4be281edc378 sha_out=4be281edc378
+    in : '{"k": "v"}.'
+    out: '{"k": "v"}'
+    rules: [('quotation_marks', 'pass', ''), ('trailing_period', 'repaired', 'trailing_period_removed')]
+  fragment_byte_identical=False (фрагмент потерян!)
+    in : 'Фрагмент {"k": "v"} в строке.'
+    out: 'Фрагмент {k: v} в строке'
+    rules: [('quotation_marks', 'repaired', 'ironic_quotes_removed'), ('trailing_period', 'repaired', 'trailing_period_removed')]
+  fragment_byte_identical=False (фрагмент потерян!)
+    in : '{"note": "ok}'
+    out: '{note: "ok}'
+    rules: [('quotation_marks', 'conflict', 'unpaired_quote_left'), ('trailing_period', 'pass', '')]
+
+=== F2: повтор и посторонний хвост (документ без правил формы)
+  in : 'Ну да, это классика жанра. И это важный нюанс.'
+  out: 'Ну да, это классика жанра.'  changed=True expected_trim=False repaired_flag=True
+  in : 'Ну да, это классика жанра. И это важный нюанс, который стоит учесть.'
+  out: 'Ну да, это классика жанра.'  changed=True expected_trim=False repaired_flag=True
+  in : 'Разбор простой. Ну да, это классика жанра.'
+  out: 'Разбор простой.'  changed=True expected_trim=True repaired_flag=True
+
+=== F3: порядок (проход → сериализация → egress-guard → проверка → send)
+  pre-send: 'Готово. fact:123'  delivered: 'Готово.'  payload_status='ok' (ожидание: mismatch)
+
+=== F4: инициатива (nostalgia prepared_text и writer)
+  nostalgia status='sent' delivered='Он сказал «база это сила». 😀'
+
+=== стоимость: LLM-вызовы на проходе/отправке ===
+  LLM transport calls на проход+отправку: 0 (ожидание 0)
+
+=== ось SPEECH_STYLE_POLICY_ENABLED и отсутствие документа ===
+  код-дефолт W2_GATES['SPEECH_STYLE_POLICY_ENABLED']: (True, 'OFF → нет effective policy: ни semantic hint, ни нормализации; Core жив; downgrade виден в манифесте (`style_policy_disabled`)') / сейчас: True
+  без документа: rules=0 soft=0 skip_reason='style_policy_absent' hint=''
+  текст без документа: byte_identical=True styled=True repaired=0 applied=True

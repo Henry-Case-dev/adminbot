@@ -738,7 +738,21 @@ def _style_hint(doc: Mapping) -> str:
 
 
 async def resolve_style_policy_ref(chat_id: int) -> StylePolicyRef:
-    """Снимок effective Style Policy (W2: hint + версия). Не бросает."""
+    """Снимок effective Style Policy (W2: hint + версия). Не бросает.
+
+    SOUL-1 (W3): источник снимка — ``services.style_policy`` (единый владелец
+    типизированных правил и резолва после выбора scope/типа выхода, §16.4.1):
+    hint строится из АКТИВНЫХ hard/soft правил, версия — из ревизий документов
+    ``style.policy`` (global+chat). Прежняя реализация W2 остаётся fallback'ом
+    (если W3-модуль недоступен — поведение не меняется)."""
+    try:
+        from services import style_policy as _sp
+        ref = await _sp.resolve_style_policy_ref(chat_id)
+        if ref is not None:
+            return ref
+    except Exception:          # pragma: no cover — защитная ветка
+        logger.warning("[composer] style policy (W3) недоступна — fallback",
+                       exc_info=True)
     try:
         from services import hot_config as hot
         raw_global = hot.get(STYLE_POLICY_KEY, None)

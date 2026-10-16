@@ -105,6 +105,7 @@ from services import mca_intents as _mca_intents  # MCA-09 (D3, T-5029)
 from services import telegram_send as _tg_send     # MCA-09 (T-5038: транспорт)
 from services import response_extent as _extent  # MCA-23 (W3): ResponsePlan
 from services import prompt_composer as _pcomp  # SOUL-1 (W2): Composer
+from services import style_policy as _style_policy  # SOUL-1 (W3): форма текста
 from services import response_document as _rd  # MCA-23 фаза 2 (§22): артефакт
 from services.chat_params import (
     chat_summary_enabled,
@@ -1550,6 +1551,59 @@ def _log_coordinator_outcome(*, chat_id: int, action: str, style: str,
     logger.info(
         "[coordinator] outcome | chat=%s | action=%s | style=%s | chars=%d",
         chat_id, action, style or "-", int(chars))
+
+
+def _delivered_payload(payload: str) -> str:
+    """Байты, которые РЕАЛЬНО уйдут в Telegram (SOUL-16.3.4).
+
+    Последний delivery-guard — egress ``sanitize_outgoing`` в
+    ``services/telegram_send`` — применяется ПОСЛЕ сериализации/escape ветки
+    доставки и ДО ``bot.send_message``. Проверять надо именно его результат
+    (review-w3 F3: ``Готово. fact:123`` доезжало как ``Готово.``, а проверка
+    видела до-guard-строку). Guard выключен → строка не меняется."""
+    try:
+        sanitize = getattr(_tg_send, "_maybe_sanitize", None)
+        if sanitize is not None:
+            return str(sanitize(str(payload or "")))
+        from services.outgoing_guard import sanitize_outgoing
+        return str(sanitize_outgoing(str(payload or "")))
+    except Exception:      # pragma: no cover - проверка не роняет доставку
+        return str(payload or "")
+
+
+def _verify_style_payload(payload: str, style_outcome, chat_id: int, *,
+                          stage: str) -> None:
+    """SOUL-1 (W3, SOUL-16.3.4): проверить ФАКТИЧЕСКИ доставляемый payload.
+
+    Порядок: проход формы (до сериализации) → сериализация/escape ветки
+    доставки → egress-guard (``sanitize_outgoing``) → проверка БЕЗ правок
+    именно доставляемых байтов → отправка. Если hard-правило формы нарушено на
+    payload, это видно в событии и в логе — «styled=true» при провале не
+    объявляется. Ошибка проверки не роняет доставку (fail-open)."""
+    if style_outcome is None or not getattr(style_outcome, "applied", False):
+        return
+    policy = getattr(style_outcome, "policy", None)
+    if policy is None:
+        return
+    try:
+        payload = _delivered_payload(payload)
+        check = _style_policy.verify_outbound_payload(
+            payload, policy=policy, context=getattr(style_outcome, "context",
+                                                    "regular"),
+            outcome=style_outcome)
+        style_outcome.payload = True
+        style_outcome.payload_status = check.payload_status
+        if check.payload_status == "mismatch":
+            logger.warning(
+                "[direct] style policy payload mismatch | chat=%s | stage=%s | "
+                "conflicts=%s", chat_id, stage, ",".join(check.conflicts) or "-")
+            _mca_events.emit_mca_event(
+                "style_policy", outcome="failed", level="WARN",
+                component="style_policy", stage=stage, chat_id=int(chat_id),
+                usage_json=check.as_dict())
+    except Exception:      # pragma: no cover - проверка не роняет доставку
+        logger.warning("[direct] style payload verify failed — skip | "
+                       "chat=%s", chat_id, exc_info=True)
 
 
 def _log_decision_short_circuit(*, chat_id: int, action: str, reason_code: str,
@@ -3459,6 +3513,28 @@ class DirectChatService:
                 _log_coordinator_outcome(
                     chat_id=chat_id, action=ACTION_REPLY,
                     style=response_mode, chars=len(answer))
+            # ── SOUL-1 (W3, SOUL-16.4.1 + design §6): ЕДИНЫЙ проход формы —
+            # `extent check (в т.ч. one_word) -> style policy validation/
+            # targeted repair`, ровно один раз, детерминированно (0 LLM).
+            # Выполняется ДО сериализации/отправки; доставленный payload
+            # проверяется в `_send_direct_answer`. Флаг
+            # `SPEECH_STYLE_POLICY_ENABLED` OFF → проход не запускается
+            # (байт-паритет), `answer` не меняется.
+            _style_outcome = await _style_policy.apply_style_policy(
+                answer, chat_id=chat_id, plan=response_plan,
+                context="regular",
+                explicit_form=str(getattr(l1_plan, "form_override", "") or ""),
+                emit_events=True, stage="direct_pre_send")
+            if _style_outcome.applied and str(_style_outcome.text or ""):
+                if _style_outcome.text != answer:
+                    logger.info(
+                        "[direct] style policy pass | chat=%s | repaired=%d | "
+                        "exempted=%d | conflicts=%d | failed=%d",
+                        chat_id, _style_outcome.repaired,
+                        _style_outcome.exempted,
+                        len(_style_outcome.conflicts),
+                        len(_style_outcome.failed))
+                answer = _style_outcome.text
             # ── MCA-23 (W3, §Delivery Router): RichMessage — опциональная
             # ветка для явных report/deep-research планов. Любой сбой
             # (aiogram<3.30 / capability / TelegramBadRequest) → прежний
@@ -3481,7 +3557,8 @@ class DirectChatService:
                 lore=bool(getattr(tool_ctx, "lore_compiled", False)),
                 deep_research=(response_mode == "deep_research"),
                 rich=_rich_wanted,
-                document=response_document)
+                document=response_document,
+                style_outcome=_style_outcome)
             if sent_id is not None:
                 answer_text = answer
                 self._mark_turn_text_replied(chat_id)  # F6: ответ доставлен
@@ -4452,7 +4529,8 @@ class DirectChatService:
                                   lore: bool = False,
                                   deep_research: bool = False,
                                   rich: bool = False,
-                                  document=None):
+                                  document=None,
+                                  style_outcome=None):
         """Доставка ответа DirectChat (раунд 10.20, T-1892, О5/ADR-1020-6 п.3).
 
         Обычный путь — байт-в-байт `parse_mode=None`. Под-путь safe-HTML
@@ -4488,8 +4566,11 @@ class DirectChatService:
         text = doc.plain_text()
         if rich:
             try:
-                sent = await _tg_send.send_rich_message(
-                    bot, chat_id, strip_lore_html(doc.rich_text()))
+                _rich_payload = strip_lore_html(doc.rich_text())
+                _verify_style_payload(_rich_payload, style_outcome, chat_id,
+                                      stage="direct_rich")
+                sent = await _tg_send.send_rich_message(bot, chat_id,
+                                                        _rich_payload)
                 sent_id = getattr(sent, "message_id", None)
                 if sent_id is not None:
                     return sent_id
@@ -4501,10 +4582,14 @@ class DirectChatService:
                     "[direct] rich send failed — legacy path | chat=%s | "
                     "error=%s", chat_id, type(exc).__name__)
         if not (lore or deep_research):
+            _verify_style_payload(text, style_outcome, chat_id,
+                                  stage="direct_plain")
             return await send_chunked_reply(bot, chat_id, text, reply_to)
         escaped = escape_lore_html(text)
         if len(escaped) <= _LORE_HTML_MAX_SINGLE_CHARS:
             try:
+                _verify_style_payload(escaped, style_outcome, chat_id,
+                                      stage="direct_safe_html")
                 return await send_chunked_reply(
                     bot, chat_id, escaped, reply_to, parse_mode="HTML")
             except TelegramBadRequest as exc:
@@ -4514,7 +4599,10 @@ class DirectChatService:
                 return await send_chunked_reply(bot, chat_id, text, reply_to)
         logger.info("[direct] text too long for safe HTML — plain | "
                     "chat=%s | chars=%d", chat_id, len(escaped))
-        return await send_chunked_reply(bot, chat_id, strip_lore_html(text),
+        _plain_payload = strip_lore_html(text)
+        _verify_style_payload(_plain_payload, style_outcome, chat_id,
+                              stage="direct_plain_long")
+        return await send_chunked_reply(bot, chat_id, _plain_payload,
                                         reply_to)
 
     async def _chat_time_line(self, chat_id: int) -> str:
@@ -7865,7 +7953,13 @@ class DirectChatService:
             return ""
         if not result:
             return ""
-        return str(result[0] or "").strip()
+        prepared = str(result[0] or "").strip()
+        # ── SOUL-1 (W3, SOUL-16.4.1 + SOUL-AMD.3.5, fix F4 review-w3): проход
+        # формы здесь НЕ выполняется — единственная точка применения для
+        # инициативных текстов это `handle_initiative` (перед чанкованием и
+        # отправкой), иначе ностальгия/`prepared_text` обходила бы проход, а
+        # writer-текст проходил бы его дважды (SOUL-16.4.2 «один проход»).
+        return prepared
 
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -8131,6 +8225,39 @@ async def build_initiative_situation(db, chat_id: int, intent_row: dict
         intent_id=str(row.get("intent_id") or "") or None)
 
 
+async def _style_initiative_text(text: str, chat_id: int, l1_plan=None
+                                 ) -> tuple[str, object]:
+    """Единый проход формы для инициативных текстов (SOUL-AMD.3.5).
+
+    Инициатива — авторский текст того же Core, поэтому правила формы
+    применяются тем же единственным проходом, что и в Direct: контекст
+    ``initiative`` (пакет инициативы + обычной речи), ``plan`` — из L1-решения
+    (когда оно есть). Возвращает ``(текст, StyleOutcome|None)``; ошибка прохода
+    не роняет отправку (fail-open, текст как есть)."""
+    source = str(text or "")
+    if not source.strip():
+        return source, None
+    response_plan = None
+    if l1_plan is not None:
+        try:
+            response_plan = (l1_plan.to_response_plan()
+                             if hasattr(l1_plan, "to_response_plan") else None)
+        except Exception:
+            response_plan = None
+    try:
+        outcome = await _style_policy.apply_style_policy(
+            source, chat_id=chat_id, plan=response_plan,
+            context="initiative", emit_events=True,
+            stage="initiative_pre_send")
+    except Exception:      # pragma: no cover - проход не роняет отправку
+        logger.warning("[mca09] initiative style pass failed | chat=%s",
+                       chat_id, exc_info=True)
+        return source, None
+    if outcome.applied and str(outcome.text or ""):
+        return outcome.text, outcome
+    return source, outcome
+
+
 async def handle_initiative(*, bot, chat_id: int, situation, candidates,
                             prepared_text: str | None = None, db=None,
                             correlation_id: str | None = None,
@@ -8284,6 +8411,7 @@ async def handle_initiative(*, bot, chat_id: int, situation, candidates,
             intent_row = None
         generated = False
         evaluated_version = None
+        l1_plan = None
         if prepared_text is None and writer_service is not None:
             # §18D (decision-time): свежие условия ДО решения/генерации —
             # отвечать нечему/некому: не тратим LLM-вызовы.
@@ -8347,6 +8475,8 @@ async def handle_initiative(*, bot, chat_id: int, situation, candidates,
         # условиям реального чата непосредственно перед send; ровно одна
         # переоценка при смене контекста во время подготовки (bounded).
         recheck_attempts = 0
+        styled_text = None
+        style_outcome = None
         while True:
             if db is not None and intent_row is not None:
                 context = await build_fresh_recheck_context(
@@ -8355,6 +8485,16 @@ async def handle_initiative(*, bot, chat_id: int, situation, candidates,
                     recheck_attempts=recheck_attempts)
             else:
                 context = _mca_intents.RecheckContext(intent_row=intent_row)
+            # ── SOUL-1 (W3, SOUL-16.4.1 + SOUL-AMD.3.5, fix F4 review-w3):
+            # ЕДИНСТВЕННАЯ точка применения прохода формы для инициативных
+            # текстов — перед чанкованием и отправкой, поэтому проходят его И
+            # writer-текст, И `prepared_text` (nostalgia): проверяется и
+            # правится ровно то, что уйдёт. На один текст — один проход
+            # (переоценка §18D может перегенерировать текст → проход заново).
+            if str(prepared_text or "") != styled_text:
+                prepared_text, style_outcome = await _style_initiative_text(
+                    str(prepared_text or ""), chat_id, l1_plan)
+                styled_text = str(prepared_text or "")
             plan = _mca_intents.plan_logical_send(
                 decision, recheck=_mca_intents.SendRecheck(),
                 context=context, text=prepared_text)
