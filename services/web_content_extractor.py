@@ -143,11 +143,23 @@ class WebContentExtractor:
 
         MCA-02 (ADR-1027-5 D1/D3/D5): при `MCA_SAFE_FETCH_ENABLED` загрузка
         идёт через общий SafeFetcher (нормализация/SSRF/redirect/peer-проверка/
-        потоковые лимиты). OFF → точный legacy-путь (паритет baseline)."""
-        if trafilatura is None:  # pragma: no cover
+        потоковые лимиты). OFF → точный legacy-путь (паритет baseline).
+
+        SOUL-13/SSRF-guard: состояние гарда читается ПЕРВЫМ — его позиция не
+        зависит от наличия опционального пакета trafilatura. Если пакета нет
+        (уровень-1 недоступен), pre-flight назначения всё равно выполняется до
+        выхода в облачные фолбеки: иначе SSRF-инвариант «опасное назначение не
+        уходит в Tavily/Exa» держался бы только при установленной trafilatura."""
+        safe_fetch_on = mca_gates.safe_fetch_enabled()
+        if trafilatura is None:
+            # Уровень-1 недоступен: страница не качается, нужен только
+            # pre-flight политики (normalize/credentials/SSRF-адреса), чтобы
+            # опасный URL не ушёл в облачные фолбеки.
+            if safe_fetch_on:
+                await safe_fetch.aguarded_target(target_url, trusted=False)
             raise RuntimeError("trafilatura is not installed")
         client = self._get_client()
-        if mca_gates.safe_fetch_enabled():
+        if safe_fetch_on:
             response = await self._get_safe_fetcher().fetch(
                 target_url, profile="html", client=client,
                 headers={"User-Agent": _USER_AGENT})
