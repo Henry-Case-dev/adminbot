@@ -1,0 +1,71 @@
+{
+  "lane": "FIX-SSRF",
+  "owner_marker": "TEST-LIFECYCLE: REGRESSION owner=SOUL-13/SSRF-guard",
+  "candidate": {
+    "services/web_content_extractor.py": {
+      "status": "modified (uncommitted)",
+      "sha256": "d4ddcd0b752ee68469626b41ce332b9b04a803cac78347fb63678e43f88e4218",
+      "blob_before": "380d25cf",
+      "diff": "+15 / -3"
+    },
+    "tests/test_soul13_ssrf_guard_order.py": {
+      "status": "new (untracked)",
+      "sha256": "23f182ada3d8838f5c01c315337d982165d5b04a8cfaf6772e7e532a7cdb784f"
+    }
+  },
+  "interpreters": {
+    ".venv/Scripts/python.exe": "python 3.12.0 | trafilatura 2.2.0 | aiogram 3.31.0",
+    "py -3": "python 3.12.0 | httpx 0.28.1 | trafilatura ImportError: lxml.html.clean module is now a separate project lxml_html_clean"
+  },
+  "runs": [
+    {
+      "step": "repro pre-fix",
+      "cmd": ".venv\\Scripts\\python.exe OPENCODE_WORKFLOW_SCRATCH/ssrf-fix/repro_order.py",
+      "order": "old",
+      "result": "cloud fallback calls = [('tavily','http://10.0.0.1/private'),('exa','http://10.0.0.1/private')]; safe_error=None; INVARIANT VIOLATED"
+    },
+    {
+      "step": "new regression test, old order",
+      "cmd": ".venv\\Scripts\\python.exe -m pytest tests/test_soul13_ssrf_guard_order.py -q",
+      "order": "old",
+      "result": "5 failed, 5 passed (all 4 'missing + dangerous' rows + order-seam test failed)"
+    },
+    {
+      "step": "mca02 invariant test, old order, canonical venv (bug masked)",
+      "cmd": ".venv\\Scripts\\python.exe -m pytest tests/test_mca02_safe_fetch_round1027.py::TestOffParityAndTrusted::test_web_extractor_blocks_destination_without_fallback -q",
+      "order": "old",
+      "result": "1 passed"
+    },
+    {
+      "step": "mca02 invariant test, old order, package-less interpreter",
+      "cmd": "py -3 -m pytest tests/test_mca02_safe_fetch_round1027.py::TestOffParityAndTrusted::test_web_extractor_blocks_destination_without_fallback -q",
+      "order": "old",
+      "result": "1 failed"
+    },
+    {
+      "step": "new regression test, new order",
+      "cmd": ".venv\\Scripts\\python.exe -m pytest tests/test_soul13_ssrf_guard_order.py -q",
+      "order": "new",
+      "result": "10 passed"
+    },
+    {
+      "step": "focused suite (new + module + fetch_article tool seams), new order",
+      "cmd": ".venv\\Scripts\\python.exe -m pytest tests/test_soul13_ssrf_guard_order.py tests/test_web_content_extractor.py tests/test_mca02_safe_fetch_round1027.py tests/test_tool_chains_round1026.py::TestFetchArticle tests/test_tool_chains_round1026.py::TestR17AndBoundaries tests/test_web_summarizer_service.py tests/test_web_handlers.py tests/test_mca11_tool_result_round1028.py -q",
+      "order": "new",
+      "result": "189 passed"
+    },
+    {
+      "step": "package-less interpreter, new order",
+      "cmd": "py -3 -m pytest tests/test_mca02_safe_fetch_round1027.py::TestOffParityAndTrusted::test_web_extractor_blocks_destination_without_fallback tests/test_soul13_ssrf_guard_order.py -q",
+      "order": "new",
+      "result": "11 passed"
+    },
+    {
+      "step": "repro post-fix",
+      "cmd": ".venv\\Scripts\\python.exe OPENCODE_WORKFLOW_SCRATCH/ssrf-fix/repro_order.py",
+      "order": "new",
+      "result": "destination blocked | code=destination_blocked; cloud fallback calls = []; invariant held"
+    }
+  ],
+  "restore_integrity": "after each temporary old-order run the module was restored byte-for-byte (sha256 d4ddcd0b…), git diff shows only the intended 15/3 hunk"
+}
