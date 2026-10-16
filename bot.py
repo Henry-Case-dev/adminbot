@@ -283,11 +283,20 @@ _relations_service = None
 _anticliche_worker = None
 # MCA-19 (round 10.43) — ref для on_shutdown: единый vision-планировщик.
 _vision_worker = None
+# INC-FIX-RESIDUAL (17.10.2026) — ref для on_shutdown: runtime-SQLite
+# (`DatabaseService` из `on_startup`). Без явного закрытия его aiosqlite
+# worker-thread (не демон) не даёт процессу выйти после graceful-фаз →
+# SIGKILL по TimeoutStopSec (см. `_close_runtime_sqlite_db`).
+_runtime_sqlite_db = None
 
 
 async def on_startup():
     """Initialize DB, scheduler, and wire dependencies."""
+    global _runtime_sqlite_db
     db = DatabaseService(settings.DB_PATH)
+    # INC-FIX-RESIDUAL: ref сразу (даже если initialize() упадёт) — соединение
+    # обязан закрыть on_shutdown, иначе процесс не выйдет (не-демон-thread).
+    _runtime_sqlite_db = db
     await db.initialize()
     logger.info("Database initialized")
 
@@ -1082,6 +1091,91 @@ async def on_shutdown():
     await _safe("checkup_fetcher",
                 _checkup_fetcher.close if _checkup_fetcher else None)
     await _safe("smart_cache", close_smart_cache)
+    # ── INC-FIX-RESIDUAL (17.10.2026): runtime-SQLite закрывается ПОСЛЕДНИМ —
+    # его пишут все closers выше (телеметрия/воркеры/кэш), а открытый
+    # aiosqlite-коннект держит процесс на выходе (см. helper'ы ниже).
+    await _safe("sqlite_db", _close_runtime_sqlite_db)
+
+
+# ── INC-FIX-RESIDUAL (17.10.2026): почему процесс не выходил после `bye` ────
+# Прод-факт 2.58.82: все graceful-фазы и `bye | elapsed_ms=523` отрабатывали,
+# `[betterstack] shutdown flush` печатался — и дальше тишина до SIGKILL через
+# 60 с (`State 'stop-sigterm' timed out`). Причина НЕ в сигналах (их фикс
+# INC-SUMMARY-01 отработал) и НЕ в планировщике: у процесса оставался
+# НЕзакрытый aiosqlite-коннект основного `DatabaseService` (создаётся в
+# `on_startup`), а worker-thread aiosqlite (`core.py` — `Thread(...)` без
+# `daemon=True`) НЕ демон: интерпретатор на `threading._shutdown()` ждёт его
+# вечно, systemd добивает процесс по `TimeoutStopSec`. Закрытие коннекта шлёт
+# воркеру stop-сигнал, поток завершается, процесс выходит сам.
+
+
+async def _close_runtime_sqlite_db() -> None:
+    """Закрыть runtime-SQLite (`DatabaseService` из `on_startup`).
+
+    Вызывается из `on_shutdown` последним closer'ом: до этого момента SQLite
+    пишут телеметрия, воркеры и кэш. Ref — явный владелец (`_runtime_sqlite_db`
+    из `on_startup`), а не `lore_runtime`: та регистрация идёт в fail-open
+    блоке и могла не случиться. Fail-open: ошибка закрытия логируется `_safe`,
+    остановка не рвётся (диагностика остатка — `_leftover_sqlite_connections`)."""
+    db = _runtime_sqlite_db
+    if db is None:
+        return
+    await db.close()
+    logger.info("[shutdown] runtime sqlite closed")
+
+
+def _leftover_sqlite_connections() -> int:
+    """Диагностика: сколько aiosqlite-соединений осталось ОТКРЫТЫМИ.
+
+    Read-only (ничего не закрывает: соединением владеет его владелец, и
+    «добор» за чужие коннекты — не дело остановки). Каждый открытый коннект
+    держит НЕ-демон worker-thread (`aiosqlite/core.py`) → процесс не выйдет и
+    получит SIGKILL; раньше это было НЕВИДИМО (60 с тишины в журнале после
+    `bye`). Строка ниже делает причину явной, если дефект вернётся."""
+    import gc
+    try:
+        import aiosqlite
+    except Exception:            # pragma: no cover - зависимость есть всегда
+        return 0
+    alive = 0
+    for obj in gc.get_objects():
+        try:
+            if isinstance(obj, aiosqlite.Connection) \
+                    and getattr(obj, "_running", False):
+                alive += 1
+        except Exception:        # pragma: no cover - диагностика не бросает
+            continue
+    return alive
+
+
+async def _stop_polling_task(dp, polling, *, budget: float = 5.0) -> bool:
+    """Остановить aiogram-polling ШТАТНО (bounded), не только отменой таски.
+
+    INC-FIX-RESIDUAL: `polling.cancel()` отменял внешнюю таску
+    (`Dispatcher.start_polling`), а его ВНУТРЕННЯЯ таска `Dispatcher._polling`
+    оставалась живой — продолжала ходить в Telegram и обрабатывать апдейты
+    уже ПОСЛЕ фазы `stopping`, а гасилась лишь в cleanup `asyncio.run` (в
+    прод-журнале — «Polling stopped for bot …» через 0.36 с ПОСЛЕ `bye`).
+    Штатный путь aiogram — `dp.stop_polling()`: выставляет stop-сигнал, сам
+    снимает внутренние таски, закрывает сессию и проставляет `_stopped_signal`.
+
+    Бюджет ограничен: не стартовал/упал/не уложился — возвращаем False, и
+    вызывающий идёт прежним путём (`cancel()`). Ничего не бросает."""
+    started = time.monotonic()
+    graceful = False
+    try:
+        if polling.done():
+            graceful = True      # уже остановлен/упал — гасить нечего
+        else:
+            await asyncio.wait_for(dp.stop_polling(), timeout=budget)
+            graceful = True
+    except Exception as exc:
+        logger.warning(
+            "[shutdown] graceful polling stop unavailable (%s: %s) — "
+            "fallback cancel", type(exc).__name__, exc)
+    logger.info("[shutdown] polling stop | graceful=%s | elapsed_ms=%d",
+                graceful, int((time.monotonic() - started) * 1000))
+    return graceful
 
 
 async def _recover_orphan_summary_runs(db) -> None:
@@ -1415,6 +1509,10 @@ async def main():
         except Exception:        # pragma: no cover - fail-open
             logger.warning("[shutdown] summary stop-accepting failed — "
                            "fail-open", exc_info=True)
+        # INC-FIX-RESIDUAL: сначала ШТАТНАЯ остановка polling (bounded, снимает
+        # внутренние таски aiogram — см. `_stop_polling_task`), затем прежний
+        # `cancel()` как страховка (no-op, если таска уже завершена).
+        await _stop_polling_task(dp, polling)
         polling.cancel()
         watcher.cancel()
         try:
@@ -1437,6 +1535,16 @@ async def main():
                 await _chat_params_listener_task
         await on_shutdown()
         await cache.close()
+        # INC-FIX-RESIDUAL: если после всех closers остались ОТКРЫТЫЕ
+        # aiosqlite-соединения — процесс не выйдет (их worker-thread не демон)
+        # и получит SIGKILL. Причина теперь видна в журнале, а не «тишиной».
+        leftovers = _leftover_sqlite_connections()
+        if leftovers:
+            logger.warning(
+                "SUMMARY_SHUTDOWN_SQLITE_LEFTOVER | open=%d — worker-thread "
+                "aiosqlite не демон: процесс не выйдет сам и получит SIGKILL "
+                "(владелец соединения обязан закрыть его своим closer'ом)",
+                leftovers)
         logger.info("[shutdown] bye | elapsed_ms=%d",
                     int((time.monotonic() - shutdown_started) * 1000))
         # ── Раунд 4 (3.1.6/3.1.4, FR-B3): мягкое закрытие логов — САМЫЙ конец

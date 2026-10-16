@@ -178,3 +178,115 @@ fingerprint'ами; тесты/демо/evidence на месте. Прочие �
   активной правкой W10) — отдельная задача тест-здоровья дерева, не инцидент.
 * Деплой: инцидент-коммиты выносить изолированно (как glass), SOUL-1 не выпускать;
   systemd-юнит менять не требуется (опционально TimeoutStopSec=90 как запас).
+
+---
+
+## REVIEW-INC-EXIT — residual exit fix (bounded-полоса, 17.10.2026)
+
+Лейн: REVIEW-INC-EXIT (read-only + этот вердикт; деплой/SSH/коммитов нет).
+Кандидат: HEAD `e4bb51d8` + незакоммиченные правки `INC-FIX-RESIDUAL`.
+Привязка (sha256): 4 заявленных файла == `evidence/incident-summary-01/_exit_fingerprint.txt` —
+bot.py `b5190efe…`, summary_run_store `13b2f02a…`, test_summary_inc01_exit `e485aa06…`,
+_inc01_exit_child `8e39c116…`. Байтовая сверка с прошлым ревью (через `git show HEAD:…`, не PowerShell-
+редирект): `HEAD:bot.py` = `aeca676e…`, `HEAD:services/summary_run_store.py` = `aa81a1b3…`,
+`HEAD:tests/test_summary_inc01_shutdown.py` = `deffda6e…` — совпадают с `_shutdown_fingerprint.txt`,
+т.е. коммит e4bb51d8 байт-в-байт равен прошлому кандидату, а диффы двух прод-файлов содержат
+ТОЛЬКО заявленные хунки (прочитаны целиком).
+
+### Вердикт: Approved (bounded-полоса; прод-канарейка — шаг parent/DevOps)
+
+### 1. Диагноз — подтверждён (пакеты + живые процессы)
+
+* aiosqlite 0.22.1 `core.py:90`: `Thread(target=_connection_worker_thread, args=(...))` без
+  `daemon=True`; CPython 3.12 `threading.py` `_shutdown` (1555/1602) ждёт все не-демон-треды.
+* Мой минимальный зонд (коннект удержан module-global'ом — как прод-топология, сервисы держат ref):
+  процесс ВИСНЕТ; faulthandler-дамп: MainThread `threading.py:1602 in _shutdown`, worker
+  `aiosqlite/core.py:59`; с `conn.close()` — выход за 0.16 с. Побочно объяснено, почему дефект
+  не виден при GC-нутом коннекте (`Connection.__del__` → `stop()` шлёт sentinel) — в проде
+  коннект удержан сервисами, поэтому утечка реальна.
+* `DatabaseService.close()` прод-кодом до фикса не вызывался: on_shutdown (HEAD) без closer'а;
+  smart_cache закрывает СВОЙ коннект (`smart_cache.py:161-186`); `get_lore_db()`-регистрация
+  fail-open. Прод-трейс открытия: `bot.py:1421 main → :300 on_startup → database.py:6056`
+  (BEFORE-дамп полосы).
+* Отклонённые гипотезы подтверждены: betterstack-флашер `daemon=True`
+  (`betterstack_handler.py:215-216`), close bounded (`:351-358`); сигналы/uvicorn — фикс
+  INC-SUMMARY-01; в BEFORE-репро `asyncio.run()` ЗАВЕРШАЛСЯ (зависание строго после него).
+
+### 2. Моё воспроизведение фикса и RED (реальные процессы, не переиспользование)
+
+| Прогон | Результат |
+|---|---|
+| AFTER (сабпроцесс, реальный `bot.main()` + реальный SQLite, настоящий SIGTERM) | `SIGTERM→main() returned: 0.45 с`; процесс целиком 6.97 с (старт ~5.7 с); `sqlite running=False closed=True`; `[shutdown] runtime sqlite closed` ДО `bye` |
+| RED (`INC01_CHILD_NO_CLOSERS=1`) | процесс НЕ вышел за 60 с (убит вручную); `asyncio.run() finished` в 6.06 с, затем тишина; `sqlite running=True closed=False`; `SUMMARY_SHUTDOWN_SQLITE_LEFTOVER | open=1` перед `bye` |
+| Микро-репро `cancel()` (реальный aiogram + локальная заглушка Bot API) | outer `start_polling` отменён за 0.38 с, внутренняя `Dispatcher._polling` ЖИВА и через 1 с — второй дефект подтверждён |
+
+Совпадает с AFTER-замером полосы (0.87 с до возврата main, rc=0) и BEFORE (не выходил,
+`threading._shutdown`).
+
+### 3. Остановка polling
+
+* Живой лог теста №2 (реальный aiogram): `Polling stopped for bot` (dispatcher.py:414) →
+  `Polling stopped` (:625) → `[shutdown] polling stop | graceful=True | elapsed_ms=266` →
+  `[shutdown] bye | elapsed_ms=766`; после остановки тасок `Dispatcher._polling`/`start_polling`
+  нет, сессия закрыта (ассерты теста).
+* Механика: `stop_polling()` ставит `_stop_signal`; outer-таска сама снимает внутренние таски
+  (dispatcher.py:616-620) и `_stopped_signal.set()` (:631) — помощник возвращает True только
+  после полного завершения цепочки. Бюджет 5 с: зависший `stop_polling` → `wait_for`-таймаут →
+  warning + прежний `cancel()`; процесс это не удерживает (таски не держат интерпретатор,
+  держит только не-демон-тред), `graceful=False` — честный маркер. Тест №3 (4 подкейса) зелёный.
+
+### 4. Терминальное событие и trade-off
+
+* `close_stale_run` → `set_state(FAILED)` → `record_stage` → `_emit_closed_run_terminal_event`
+  (`summary_run_store.py:298-329`): `SUMMARY_RUN_DONE(status=failed, health=failed, chat_id из
+  run-строки)`; все три пути закрытия согласованы (stale-closer `summary_generator.py:726`,
+  backstop дренажа `:601`, startup-recovery `summary_run_store.py:420`).
+* Тесты №4/№5: durable FAILED + ровно 1 DONE; `collect_run(...)["running"] is False`;
+  `collect_runs_list` — одна строка, `health=failed`; `publication_status` не тронут.
+* Дубль-DONE: `collect_runs_list` дедуплицирует по run_id (`pipeline_analytics.py:1808-1816`),
+  `collect_run` presence-based (`:1729-1732`) — не страдают. `aggregate_from_rows`
+  (`pipeline_analytics.py:1514-1528`) считает DONE-события БЕЗ дедупликации → в узком окне
+  («событие зафлашено, durable-терминал не записан, ран закрыт финализатором») агрегаты 24ч/7д
+  могут пересчитать этот ран на +1 (total+failed). Окно узкое, лечится одной дедупликацией по
+  `pipeline_run_id` в `aggregate_from_rows`, если понадобится. **Trade-off принят осознанно и
+  корректен**: read-side-альтернатива оставила бы `mca_events` без терминала навсегда, а до фикса
+  закрытый ран читался «running» в Oversight (прод-факт) — это строго хуже.
+* Примечание (не блокер): `reason_code` DONE-события (`orphan_no_owner`/`stale_no_window`/
+  `shutdown`) отбрасывается allowlist'ом `mca_events.py:561` — ровно как у штатного DONE прогона
+  (ctx.reason «shutdown» тоже не в списке); причина остаётся в durable `summary_run_stages`
+  и видна в Inspector. Не регрессия.
+
+### 5. Регрессия — мои прогоны
+
+* Инцидент-сьюты + bot_main_flow: **36 passed** (shutdown 14 + pregen 13 + exit 6 + 3).
+* Пин старт-порядка `test_t5150_startup_migrations_round1046.py`: **7 passed**.
+* Регресс-поверхность sibling'а (те же 22 сьюта): **674 passed**.
+* `-k "shutdown or sigterm or graceful or betterstack or log_ring"`: **102 passed**.
+* Хэши: `summary_generator`/`summary_scheduler`/`summary_memory`/`mca_gates`/`pipeline_events`/
+  `test_summary_inc01_shutdown`/demo — совпадают с прошлым ревью → дренаж/финализатор,
+  publication_status, pre-generation bounds, окно/каденс не тронуты.
+
+### 6. Остаточные таймаут-пути (честно)
+
+1. Прочие closers `on_shutdown` без таймаута (llm/search/web/checker/PG-пул; финальный
+   telemetry-flush; `logging.shutdown()`/betterstack — bounded join) — pre-existing; при сумме
+   >60 с systemd снова возможен SIGKILL, но ран уже терминален (фантома нет), а `bye|elapsed_ms`
+   + фазовые строки показывают виновника.
+2. Новый `db.close()` сам не ограничен таймаутом: очередь локальных SQLite-операций должна
+   доехать; сети там нет, worst case виден в журнале ДО `bye` (не «тишиной»).
+3. Fallback-путь polling (§3): процесс выходит, но возможен `graceful=False` + доигрывание
+   внутренней `_polling` до cleanup `asyncio.run` — честный маркер в журнале.
+4. Флаши не срезаются: telemetry-финал (`stop_telemetry_flusher(get_lore_db())`, `bot.py:1080`)
+   идёт ПОСЛЕ дренажа и ДО sqlite-closer'а; `logging.shutdown()` — после `bye`. Порядок проверен.
+
+### 7. Недекларированные изменения — нет
+
+4 заявленных файла == fingerprint; прод-диффы = только заявленные хунки; остальные файлы
+инцидента не менялись. Прочие M-файлы дерева — объявленные соседние полосы (SOUL-1 W10 и др.),
+в скоуп этой полосы не входят.
+
+### 8. Родителю (для канарейки)
+
+После деплоя ожидаем: `[shutdown] runtime sqlite closed`, `Polling stopped` ДО `bye`, отсутствие
+`stop-sigterm timed out` и отсутствие `SUMMARY_SHUTDOWN_SQLITE_LEFTOVER` (при наличии — в строке
+будет число оставшихся коннектов, причина не будет «тишиной»).

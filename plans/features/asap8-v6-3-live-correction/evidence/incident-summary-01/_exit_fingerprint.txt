@@ -1,0 +1,5 @@
+﻿fingerprint (sha256 изменённых файлов, HEAD e4bb51d8 + рабочее дерево):
+b5190efec94bcde8850911a1fa2be3419b887edca740e460b7bba823c5b32436  bot.py
+13b2f02aef37abf2c84feb77e2d14d5449d506671c691b642c0f8d0610c689e6  services/summary_run_store.py
+e485aa06782a2dd524c68dfb26336783e7cad18752cbaba588aeb2a541a146d3  tests/test_summary_inc01_exit.py
+8e39c116aee194a282d40a29c817b98c5d8d741fddf307f5ec5f8ff310095611  tests/_inc01_exit_child.py

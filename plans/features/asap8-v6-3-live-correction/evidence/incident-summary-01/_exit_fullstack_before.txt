@@ -1,0 +1,33 @@
+﻿=== BEFORE (RED): тот же реальный стек, closer остановки ВЫКЛЮЧЕН (пред-фиксовое поведение) ===
+[parent] stub Bot API on 127.0.0.1:61880
+[parent] child exited=False rc=1 wall=90.02s
+[parent] SIGTERM line: ['[child] 19.73s raise SIGTERM']
+[parent] tail:
+   2026-10-17 05:32:03,030 - bot - WARNING - SUMMARY_SHUTDOWN_SQLITE_LEFTOVER | open=1 тАФ worker-thread aiosqlite ╨╜╨╡ ╨┤╨╡╨╝╨╛╨╜: ╨┐╤А╨╛╤Ж╨╡╤Б╤Б ╨╜╨╡ ╨▓╤Л╨╣╨┤╨╡╤В ╤Б╨░╨╝ ╨╕ ╨┐╨╛╨╗╤Г╤З╨╕╤В SIGKILL (╨▓╨╗╨░╨┤╨╡╨╗╨╡╤Ж ╤Б╨╛╨╡╨┤╨╕╨╜╨╡╨╜╨╕╤П ╨╛╨▒╤П╨╖╨░╨╜ ╨╖╨░╨║╤А╤Л╤В╤М ╨╡╨│╨╛ ╤Б╨▓╨╛╨╕╨╝ closer'╨╛╨╝)
+   2026-10-17 05:32:03,030 - bot - INFO - [shutdown] bye | elapsed_ms=718
+   [child] 20.69s bot.main() RETURNED
+   [child]   SQLITE#0 running=True thread_alive=True daemon=False
+   [child]   SQLITE#0 opened_at:
+   [child] 20.69s asyncio.run() finished | threads=[('MainThread', False), ('Thread-1 (_connection_worker_thread)', False)]
+   [child] 20.69s END-OF-SCRIPT
+   Timeout (0:00:25)!
+     File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 1602 in _shutdown
+   Timeout (0:00:25)!
+     File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 1602 in _shutdown
+   Timeout (0:00:25)!
+     File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\threading.py", line 1602 in _shutdown
+[parent] stub methods: ['getMe', 'getUpdates', 'setMyCommands']
+
+--- кто открыл незакрытый коннект (трасса из child) ---
+   [child]   SQLITE#0 opened_at:
+     C:\Code\Python\adminbot\plans\features\asap8-v6-3-live-correction\evidence\incident-summary-01\_exit_probe_child_exit.py:102 wrapped
+     C:\Code\Python\adminbot\bot.py:1421 main
+     C:\Code\Python\adminbot\bot.py:300 on_startup
+     C:\Code\Python\adminbot\services\database.py:6056 initialize
+
+--- кто открыл незакрытый коннект (трасса из child: on_startup → database.py) ---
+   [child]   SQLITE#0 opened_at:
+     C:\Code\Python\adminbot\plans\features\asap8-v6-3-live-correction\evidence\incident-summary-01\_exit_probe_child_exit.py:102 wrapped
+     C:\Code\Python\adminbot\bot.py:1421 main
+     C:\Code\Python\adminbot\bot.py:300 on_startup
+     C:\Code\Python\adminbot\services\database.py:6056 initialize

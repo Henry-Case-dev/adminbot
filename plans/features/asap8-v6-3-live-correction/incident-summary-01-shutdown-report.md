@@ -179,3 +179,145 @@ INFO bot: [shutdown] bye | elapsed_ms=0
 6. **Тесты локальны**: фикстура `bot_module` снимает `SENTRY_DSN`, который `.env` подкладывает в
    окружение при импорте `config.settings` — иначе ERROR-терминал абортированного прогона улетал бы
    в прод-Sentry. Демо-скрипт делает то же самое.
+
+## Residual exit fix
+
+Дата: 17.10.2026. Лейн: `INC-FIX-RESIDUAL` (диагноз остатка + минимальный фикс). Деплоя/SSH/коммитов нет.
+
+### Вердикт
+
+Процесс не выходил после `bye` из-за **незакрытого aiosqlite-коннекта основного `DatabaseService`**:
+его worker-thread создаётся НЕ-демоном (`aiosqlite/core.py:90`), поэтому `threading._shutdown()`
+(`threading.py:1602`) ждёт его вечно и systemd добивает процесс по `TimeoutStopSec=60`.
+Фикс: `bot.py` — владелец соединения запоминается в `on_startup` и закрывается последним closer'ом
+`on_shutdown`; плюс штатная остановка aiogram-polling (`dp.stop_polling()`, bounded) и диагностика
+остатка перед `bye`. Локальный полностековый замер: **было — процесс не выходил вообще (SIGKILL;
+в проде 60 с), стало — 0.87 с от SIGTERM до возврата `main()`, ~1.7 с до выхода процесса**.
+
+### 1. Диагноз (file:line, доказательства)
+
+| Что | Где |
+|---|---|
+| Коннект открыт в `on_startup` (закрывать было некому: `DatabaseService.close()` зовут только тесты/CLI) | `bot.py:290-291` (2.58.82) → `services/database.py:6056` (`aiosqlite.connect`), closer `services/database.py:6942` |
+| Worker-thread aiosqlite — НЕ демон (`daemon=True` не передаётся) | `.venv/…/aiosqlite/core.py:90` (aiosqlite 0.22.1) |
+| Интерпретатор ждёт не-демон-тред вечно | CPython `threading.py:1602` (`_shutdown`) — faulthandler-дамп зависшего процесса |
+| Тот же механизм уже известен тестовой инфраструктуре («если не закрыть, интерпретатор не выходит») | `conftest.py:8-12` |
+
+Отклонённые гипотезы (проверены): betterstack-флашер — `daemon=True` (`services/betterstack_handler.py:215`);
+APScheduler/планировщики — останавливаются (`SmartModule scheduler stopped`); сигналы/uvicorn — фикс
+INC-SUMMARY-01 подтверждён прод-журналом; `loop.shutdown_default_executor`/`_cancel_all_tasks` — в репро
+`asyncio.run()` **завершался** (зависание строго на `threading._shutdown`).
+
+Воспроизведение (реальный стек: `bot.main()` + uvicorn + `on_startup` + реальный SQLite + реальный
+aiogram-polling в локальную заглушку Bot API + настоящий SIGTERM процессу):
+`_exit_fullstack_before.txt` (пред-фиксовое поведение) — `child exited=False` (убит по таймауту 90 с),
+`SQLITE#0 running=True thread_alive=True daemon=False`, дамп: `_connection_worker_thread` +
+MainThread в `threading.py:1602 in _shutdown`; `_exit_fullstack_after.txt` — `exited=True rc=0`,
+`threads=[('MainThread', False)]`, `SQLITE#0 running=False`.
+
+**Второй (сопутствующий) дефект того же участка:** `polling.cancel()` снимал только внешнюю таску
+`Dispatcher.start_polling`; внутренняя `Dispatcher._polling` оставалась живой и продолжала long-poll
+(микро-репро `_exit_probe_polling_cancel.py`: «Connection established (tryings = 1)» ПОСЛЕ отмены) —
+её гасил лишь cleanup `asyncio.run`, поэтому в проде «Polling stopped for bot …» появился через 0.36 с
+ПОСЛЕ `bye` (апдейты обрабатывались после фазы `stopping`). Процесс это не удерживало, но «остановились»
+не полностью.
+
+### 2. Фикс (file:line)
+
+| # | Изменение | Где |
+|---|---|---|
+| 1 | `_runtime_sqlite_db` (владелец коннекта) + `_close_runtime_sqlite_db`; вызов последним closer'ом `on_shutdown` | `bot.py` (`on_startup`, `on_shutdown`) |
+| 2 | `_stop_polling_task`: штатная остановка polling (`dp.stop_polling()`, бюджет 5 с) + fallback на прежний `cancel()`; вызывается в `main()` finally перед отменой таски | `bot.py` (`main()`) |
+| 3 | `_leftover_sqlite_connections` + строка `SUMMARY_SHUTDOWN_SQLITE_LEFTOVER \| open=N` перед `bye` | `bot.py` (`main()`) |
+| 4 | Терминальное событие `SUMMARY_RUN_DONE` при закрытии рана финализатором | `services/summary_run_store.py` (`close_stale_run` → `_emit_closed_run_terminal_event`) |
+
+Фазы/бюджеты/семантика не ослаблены: порядок «`stopping` → дренаж → `finalized` → закрытие ресурсов →
+`bye`» сохранён, дренаж и терминалы абортированных ранов не тронуты, публикация/идемпотентность не
+затронуты, новых флагов нет.
+
+### 3. Замер (локально, реальный стек; прод — тот же CPython 3.12)
+
+| | SIGTERM → возврат `main()` | Выход процесса | Хвост |
+|---|---|---|---|
+| БЫЛО (2.58.82 / пред-фиксовое поведение) | 0.96 с | **не выходил** (в проде SIGKILL ровно +60 с; в репро убит по таймауту 90 с) | `bye \| elapsed_ms=718` → тишина → `threading._shutdown` ждёт `_connection_worker_thread` |
+| СТАЛО | **0.87 с** | **~1.7 с** (rc=0) | `Polling stopped` (ДО `bye`) → `runtime sqlite closed` → `bye \| elapsed_ms=718` → выход |
+
+### 4. Наблюдаемость: маршрут и почему
+
+Выбран **эмиссионный** маршрут (как и просил бриф): терминал пишет сам финализатор
+(`close_stale_run` → `pipeline_events.summary_done(status="failed", health="failed", chat_id из run-строки)`),
+поэтому обе поверхности читают один терминал — durable `summary_runs.state=FAILED` и дериват Oversight
+(`SUMMARY_RUN_DONE` в `mca_events`, из которого `pipeline_analytics.collect_run` считает «running»).
+Read-side правку не делали: она оставила бы `mca_events` навсегда «без терминала» (и ломала бы
+`collect_runs_list`/агрегаты, которые строятся из DONE-событий). Закрытые ранее раны без терминала
+попадут в тот же контракт при следующем закрытии; уже закрытые — нет (исторический бэкфилл не делался:
+он вне задачи и менял бы прошлые события). Побочно: эмиссия идёт из того же closer'а, что и
+stale-closer в начале прогона (`summary_generator.py:726`), т.е. оба пути закрытия согласованы.
+
+### 5. Тесты
+
+`tests/test_summary_inc01_exit.py` — **6 passed** (`pytestmark = asap41`;
+`TEST-LIFECYCLE: REGRESSION owner=INC-SUMMARY-01/exit`), сателлит `tests/_inc01_exit_child.py` (сабпроцесс):
+
+1. `test_process_exits_within_bounded_time_after_sigterm` — живой сабпроцесс с реальным SQLite и
+   настоящим SIGTERM: процесс обязан выйти сам (без фикса — висит; RED воспроизводим через
+   `INC01_CHILD_NO_CLOSERS=1`), `bye` + `runtime sqlite closed` в выводе, остановка < 10 с;
+2. `test_aiogram_polling_stopped_gracefully_no_orphan_task` — реальный aiogram-polling (локальная
+   заглушка Bot API): после SIGTERM тасок `Dispatcher._polling` не остаётся, «Polling stopped» идёт
+   ДО `bye`, сессия бота закрыта;
+3. `test_stop_polling_helper_bounded_and_fallback` — bounded (зависший `stop_polling` не блокирует) +
+   fallback на `cancel()` при `RuntimeError`/таймауте;
+4. `test_closed_orphan_run_has_terminal_event_and_ui_not_running` — RED-ассерт «до закрытия ран
+   честно читается running», затем: durable FAILED + ровно одно `SUMMARY_RUN_DONE`
+   (`status=failed`, `chat_id`) + `collect_run(...)["running"] is False` + строка в `collect_runs_list`;
+5. `test_stale_close_emits_terminal_event_too` — тот же контракт для stale-closer'а, `publication_status`
+   не тронут;
+6. `test_leftover_sqlite_guard_reports_open_connections` — диагностика остатка (дельта-устойчива к
+   чужим открытым коннектам).
+
+Прогоны: INC-SUMMARY-01 suites (13 + 14 + 6) — **33 passed**; регресс-поверхность sibling-полосы —
+**674 passed**; широкая `-k "summary or graphrag or mca_gates or module_registry"` — **2042 passed**;
+source-пины `bot.py` (89 файлов, те же паттерны, что в релизном отчёте) — **2046 passed**;
+`-k "shutdown or sigterm or graceful or betterstack or log_ring"` — **102 passed**.
+
+### 6. Что НЕ удалось остановить безопасно / trade-off
+
+* `MemoryMaintenanceService` (merge/review/WAL) и прочие фоновые таски, не снятые явно, отменяются
+  штатным cleanup `asyncio.run` (`_cancel_all_tasks`) — процесса они не держат (проверено: в AFTER-репро
+  остаётся только `SchedulerService.run` и он не мешает выходу). Явно их не останавливали: это
+  pre-existing поверхность вне write-scope, а добавление closer'ов туда расширило бы риск без требования.
+* `os._exit()`/демонизация aiosqlite-треда НЕ применялись: первый обошёл бы graceful-флаш и скрыл утечку,
+  второй менял бы чужую библиотеку. Вместо этого — владелец закрывает соединение (корень) + видимая
+  строка остатка (если дефект вернётся, причина будет в журнале).
+* Диагностический гвард read-only: чужие соединения он НЕ закрывает (закрытие за владельца — не дело
+  остановки; в тестах такие коннекты живут дальше по своей воле).
+
+### 7. Честные ограничения
+
+1. **Прод-проверка — follow-up** (деплоя в этой полосе нет): после следующего рестарта ожидаем
+   `[shutdown] runtime sqlite closed`, `Polling stopped` ДО `bye` и отсутствие `stop-sigterm timed out`.
+   Если в проде есть ДОПОЛНИТЕЛЬНЫЙ незакрытый коннект (локально его нет), журнал теперь скажет прямо:
+   `SUMMARY_SHUTDOWN_SQLITE_LEFTOVER | open=N`.
+2. **Дубль `SUMMARY_RUN_DONE` возможен** в узком окне: прогон успел эмитировать DONE-событие, но не
+   успел записать durable-терминал (`summary_generator.py`: событие в `finally` идёт ДО durable-записи),
+   и ран затем закрывает финализатор. Дериват UI от этого не страдает (presence-based), аналитика может
+   посчитать ран дважды — принято осознанно (альтернатива: ран навсегда «running» в Oversight).
+3. **`graceful=False` в строке `[shutdown] polling stop`** означает, что aiogram-путь был недоступен
+   (polling не стартовал/упал/не уложился в 5 с) и сработал прежний `cancel()` — честный индикатор
+   в журнале, а не ошибка.
+4. **Замеры локальны** (Windows/CPython 3.12): сам механизм платформо-независим (не-демон-тред +
+   `threading._shutdown`), но абсолютные цифры прода могут отличаться (лучше/хуже на десятки мс).
+
+### 8. Что не менялось
+
+SOUL-1 файлы, `plans/current_task.md`, `plans/workflow_state.md`, карты/манифесты, версии, флаги;
+дренаж Summary, orphan-recovery, публикация и её идемпотентность, окно/каденс — без изменений.
+Файлы вне полосы (`services/*` кроме `summary_run_store.py`) не тронуты.
+
+### 9. Evidence
+
+`plans/features/asap8-v6-3-live-correction/evidence/incident-summary-01/`:
+`_exit_diagnosis.txt` (диагноз + улики), `_exit_fullstack_before.txt` / `_exit_fullstack_after.txt`
+(+ `_exit_fullstack_*_output.txt` — полный вывод сабпроцесса), `_exit_new_tests.txt`,
+`_exit_regression_surface.txt`, скрипты `_exit_probe_full_stack.py`, `_exit_probe_child_exit.py`,
+`_exit_probe_polling_cancel.py`.

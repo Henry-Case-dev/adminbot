@@ -1,0 +1,17 @@
+﻿=== AFTER: реальный стек (bot.main + uvicorn + on_startup + aiogram-polling), SIGTERM, closer'ы ВКЛЮЧЕНЫ ===
+[parent] stub Bot API on 127.0.0.1:49728
+[parent] child exited=True rc=0 wall=21.26s
+[parent] SIGTERM line: ['[child] 19.55s raise SIGTERM']
+[parent] tail:
+   [child] 19.55s raise SIGTERM
+   2026-10-17 05:31:31,367 - aiogram.dispatcher - INFO - Polling stopped for bot @probe_bot id=123456 - 'Probe'
+   2026-10-17 05:31:31,367 - aiogram.dispatcher - INFO - Polling stopped
+   2026-10-17 05:31:31,629 - bot - INFO - [shutdown] polling stop | graceful=True | elapsed_ms=264
+   2026-10-17 05:31:31,637 - bot - INFO - [shutdown] runtime sqlite closed
+   2026-10-17 05:31:32,087 - bot - INFO - [shutdown] bye | elapsed_ms=718
+   [child] 20.42s bot.main() RETURNED
+   [child]   SQLITE#0 running=False thread_alive=False daemon=False
+   [child]   SQLITE#0 opened_at:
+   [child] 20.42s asyncio.run() finished | threads=[('MainThread', False)]
+   [child] 20.42s END-OF-SCRIPT
+[parent] stub methods: ['getMe', 'getUpdates', 'setMyCommands']

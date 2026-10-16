@@ -1,0 +1,311 @@
+2026-10-17 05:31:15,990 - bot - WARNING - [betterstack] disabled (no token/host) — логи НЕ отправляются в панель
+2026-10-17 05:31:16,205 - services.pg_db - WARNING - [pg_db] POSTGRES_DSN пуст — PostgreSQL недоступен
+2026-10-17 05:31:16,205 - services.pg_db - WARNING - [pg_db] init skipped: pool отсутствует
+2026-10-17 05:31:16,205 - services.config_cache - INFO - [config_cache] seeded content.info_how_it_works | chars=12625 | updated_by=5885953495
+2026-10-17 05:31:16,206 - services.config_cache - INFO - [config_cache] seeded content.intelligence_guide | chars=34837 | updated_by=5885953495
+2026-10-17 05:31:16,207 - services.config_cache - INFO - [config_cache] initialized: settings=2 roles=0 admins=0
+2026-10-17 05:31:16,207 - bot - WARNING - [chat_params] listen unavailable — TTL fallback (120s)
+2026-10-17 05:31:16,208 - services.prompt_migrations - INFO - [prompt_migration] ключ отсутствует — сид сделает своё | key=prompts.direct_chat_system_prompt
+2026-10-17 05:31:16,208 - services.prompt_migrations - INFO - [prompt_migration] ключ отсутствует — сид сделает своё | key=prompts.direct_chat_verbalizer_system_prompt
+2026-10-17 05:31:16,208 - services.prompt_migrations - INFO - [prompt_migration] ключ отсутствует — сид сделает своё | key=prompts.direct_l1_planner_system_prompt
+2026-10-17 05:31:16,208 - services.prompt_migrations - INFO - [prompt_migration] ключ отсутствует — сид сделает своё | key=prompts.summary_system_prompt
+2026-10-17 05:31:16,208 - services.prompt_migrations - INFO - [prompt_migration] ключ отсутствует — сид сделает своё | key=prompts.compress_system_prompt
+2026-10-17 05:31:16,208 - services.prompt_migrations - INFO - [prompt_migration] ключ отсутствует — сид сделает своё | key=prompts.checkup_system_prompt
+2026-10-17 05:31:16,208 - services.prompt_migrations - INFO - [prompt_migration] ключ отсутствует — сид сделает своё | key=prompts.factcheck_system_prompt
+2026-10-17 05:31:16,208 - services.prompt_migrations - INFO - [prompt_migration] ключ отсутствует — сид сделает своё | key=prompts.search_system_prompt
+2026-10-17 05:31:16,208 - services.prompt_migrations - INFO - [prompt_migration] ключ отсутствует — сид сделает своё | key=prompts.youtube_system_prompt
+2026-10-17 05:31:16,208 - services.prompt_migrations - INFO - [prompt_migration] ключ отсутствует — сид сделает своё | key=prompts.youtube_video_system_prompt
+2026-10-17 05:31:16,208 - services.prompt_migrations - INFO - [prompt_migration] ключ отсутствует — сид сделает своё | key=prompts.webpage_system_prompt
+2026-10-17 05:31:16,208 - services.prompt_migrations - INFO - [prompt_migration] ключ отсутствует — сид сделает своё | key=prompts.summary_editor_system_prompt
+2026-10-17 05:31:16,208 - services.prompt_migrations - INFO - [prompt_migration] ключ отсутствует — сид сделает своё | key=prompts.factcheck_analyst_system_prompt
+2026-10-17 05:31:16,208 - services.prompt_migrations - INFO - [prompt_migration] ключ отсутствует — сид сделает своё | key=prompts.summary_l1_clusterizer_system_prompt
+2026-10-17 05:31:16,208 - services.prompt_migrations - INFO - [prompt_migration] ключ отсутствует — сид сделает своё | key=prompts.summary_l2_writer_system_prompt
+2026-10-17 05:31:16,208 - services.prompt_migrations - INFO - [prompt_migration] ключ отсутствует — сид сделает своё | key=prompts.summary_narrator_system_prompt
+2026-10-17 05:31:16,210 - services.config_migrations - INFO - [threshold_migration] ключ отсутствует — сид сделает своё | key=memory.dream_repeat_threshold
+2026-10-17 05:31:16,210 - services.config_migrations - INFO - [threshold_migration] ключ отсутствует — сид сделает своё | key=memory.dream_importance_sum_threshold
+2026-10-17 05:31:16,210 - services.config_migrations - INFO - [threshold_migration] ключ отсутствует — сид сделает своё | key=memory.dream_min_new_facts_per_chat
+2026-10-17 05:31:16,211 - services.config_migrations - INFO - [threshold_migration] ключ отсутствует — сид сделает своё | key=memory.dream_max_clusters_per_run
+2026-10-17 05:31:16,211 - services.config_migrations - INFO - [threshold_migration] ключ отсутствует — сид сделает своё | key=memory.dream_distillations_per_day
+2026-10-17 05:31:16,211 - services.config_migrations - INFO - [threshold_migration] ключ отсутствует — сид сделает своё | key=memory.dream_tokens_per_day
+2026-10-17 05:31:16,211 - services.config_migrations - INFO - [threshold_migration] ключ отсутствует — сид сделает своё | key=memory.dream_quiet_check_minutes
+2026-10-17 05:31:16,211 - services.config_migrations - INFO - [budget_migration] ключ отсутствует — сид сделает своё | key=limits.chat_global_key_budget_requests
+2026-10-17 05:31:16,211 - services.config_migrations - INFO - [budget_migration] ключ отсутствует — сид сделает своё | key=limits.chat_global_key_budget_tokens
+2026-10-17 05:31:16,211 - services.config_migrations - INFO - [budget_migration] ключ отсутствует — сид сделает своё | key=limits.worker_daily_llm_calls_per_chat
+2026-10-17 05:31:16,211 - services.config_migrations - INFO - [budget_migration] ключ отсутствует — сид сделает своё | key=limits.worker_daily_llm_tokens_per_chat
+2026-10-17 05:31:16,211 - services.config_migrations - INFO - [context_migration] ключ отсутствует/пуст — сид сделает своё | key=limits.chat_global_context_max_tokens
+2026-10-17 05:31:16,211 - services.config_migrations - INFO - [context_migration] ключ отсутствует/пуст — сид сделает своё | key=limits.chat_thread_max_tokens
+2026-10-17 05:31:16,211 - services.config_migrations - INFO - [context_migration] ключ отсутствует/пуст — сид сделает своё | key=limits.chat_context_budget_tokens
+2026-10-17 05:31:16,211 - services.config_migrations - INFO - [factcheck_context_migration] legacy-ключ отсутствует — skip | key=limits.factcheck_context_messages
+2026-10-17 05:31:16,211 - services.config_migrations - INFO - [image_migration] дефолт записан | key=models.image_base_url
+2026-10-17 05:31:16,211 - services.config_migrations - INFO - [image_migration] дефолт записан | key=models.image_model
+2026-10-17 05:31:16,211 - services.config_migrations - INFO - [image_migration] дефолт записан | key=models.image_get_mode
+2026-10-17 05:31:16,211 - services.config_migrations - INFO - [deep_sleep_migration] skip: выключено (ветка A аудита)
+2026-10-17 05:31:16,212 - services.chat_settings_seed - INFO - [chat_settings_seed] skip: PG недоступен
+2026-10-17 05:31:16,212 - services.summary_memory - INFO - [ttl_migration] ключ отсутствует/NULL — сид 30
+2026-10-17 05:31:16,235 - services.database - INFO - [database] migrations: start | current user_version=0 | pending=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35]
+2026-10-17 05:31:16,236 - services.database - INFO - [database] migration v1 applied in 0.0s | graphrag_v2
+2026-10-17 05:31:16,237 - services.database - INFO - [database] migration v2 applied in 0.0s | direct_chat_v2
+2026-10-17 05:31:16,240 - services.database - INFO - [database] migration v3 applied in 0.0s | epic60_v3
+2026-10-17 05:31:16,241 - services.database - INFO - [database] migration v4 applied in 0.0s | video_origins_v4
+2026-10-17 05:31:16,241 - services.database - INFO - [database] migration v5: graph_facts origins rebuild (user_memory)
+2026-10-17 05:31:16,242 - services.database - INFO - [database] migration v5 applied in 0.0s | user_memory_v5
+2026-10-17 05:31:16,243 - services.database - INFO - [database] migration v6: protected_facts rebuild (chat-level user_name NULL)
+2026-10-17 05:31:16,245 - services.database - INFO - [database] migration v6 applied in 0.0s | chat_protected_facts_v6
+2026-10-17 05:31:16,245 - services.database - INFO - [database] migration v7: graph_facts rebuild (message_timestamp + history_import origin)
+2026-10-17 05:31:16,248 - services.database - INFO - [database] migration v7 applied in 0.0s | history_import_v7
+2026-10-17 05:31:16,249 - services.database - INFO - [database] migration v8: graph_facts rebuild (importance/source_ids/kind/belief_meta + derived_belief)
+2026-10-17 05:31:16,250 - services.database - INFO - [database] migration v8 applied in 0.0s | agi_memory_v8
+2026-10-17 05:31:16,251 - services.database - INFO - [database] migration v9 applied in 0.0s | self_origin_v9
+2026-10-17 05:31:16,251 - services.database - INFO - [database] migration v10 applied in 0.0s | edges_fact_id_v10
+2026-10-17 05:31:16,252 - services.database - INFO - [database] migration v11: import_key chat-scoped UNIQUE (cross-chat isolation)
+2026-10-17 05:31:16,252 - services.database - INFO - [database] migration v11 applied in 0.0s | import_key_chat_scope_v11
+2026-10-17 05:31:16,252 - services.database - INFO - [database] migration v12: graph_facts.tg_message_id (provenance факта)
+2026-10-17 05:31:16,253 - services.database - INFO - [database] migration v12: graph_facts.forward_from (provenance факта)
+2026-10-17 05:31:16,254 - services.database - INFO - [database] migration v12 applied in 0.0s | graph_facts_metadata_v12
+2026-10-17 05:31:16,255 - services.database - INFO - [database] migration v13 applied in 0.0s | schema_migrations_book
+2026-10-17 05:31:16,255 - services.database - INFO - [database] migration v14: task_jobs durable queue
+2026-10-17 05:31:16,256 - services.database - INFO - [database] migration v14 applied in 0.0s | task_jobs
+2026-10-17 05:31:16,256 - services.database - INFO - [database] migration v15: mca_events
+2026-10-17 05:31:16,256 - services.database - INFO - [database] migration v15: mca_event_aggregates
+2026-10-17 05:31:16,257 - services.database - INFO - [database] migration v15 applied in 0.0s | mca_events
+2026-10-17 05:31:16,266 - services.database - INFO - [database] migration v16: message_source_records
+2026-10-17 05:31:16,267 - services.database - INFO - [database] migration v16: message_revisions
+2026-10-17 05:31:16,267 - services.database - INFO - [database] migration v16: chat_id_migrations
+2026-10-17 05:31:16,269 - services.database - INFO - [database] migration v16 applied in 0.0s | message_identity
+2026-10-17 05:31:16,269 - services.database - INFO - [database] migration v17: mca_source_refs
+2026-10-17 05:31:16,269 - services.database - INFO - [database] migration v17: mca_evidence_links
+2026-10-17 05:31:16,270 - services.database - INFO - [database] migration v17: mca_provenance_status
+2026-10-17 05:31:16,273 - services.database - INFO - [database] migration v17 applied in 0.0s | provenance_contract
+2026-10-17 05:31:16,275 - services.database - INFO - [database] migration v18: mca_embedding_index_generations
+2026-10-17 05:31:16,277 - services.database - INFO - [database] migration v18 applied in 0.0s | embedding_identity
+2026-10-17 05:31:16,278 - services.database - INFO - [database] migration v19: mca_pipeline_runs
+2026-10-17 05:31:16,278 - services.database - INFO - [database] migration v19: mca_incidents
+2026-10-17 05:31:16,293 - services.database - INFO - [database] migration v19 applied in 0.0s | observability_core
+2026-10-17 05:31:16,293 - services.database - INFO - [database] migration v20: mca_dossier_generations
+2026-10-17 05:31:16,294 - services.database - INFO - [database] migration v20: mca_dossier_staging_items
+2026-10-17 05:31:16,295 - services.database - INFO - [database] migration v20: graph_facts.dossier_generation_id
+2026-10-17 05:31:16,296 - services.database - INFO - [database] migration v20 applied in 0.0s | dossier_staging
+2026-10-17 05:31:16,297 - services.database - INFO - [database] migration v21: mca_episodes
+2026-10-17 05:31:16,297 - services.database - INFO - [database] migration v21: mca_stories
+2026-10-17 05:31:16,298 - services.database - INFO - [database] migration v21: mca_story_versions
+2026-10-17 05:31:16,298 - services.database - INFO - [database] migration v21: mca_story_episode_links
+2026-10-17 05:31:16,298 - services.database - INFO - [database] migration v21: mca_story_continuations
+2026-10-17 05:31:16,299 - services.database - INFO - [database] migration v21: mca_story_redirects
+2026-10-17 05:31:16,299 - services.database - INFO - [database] migration v21: mca_story_legacy_links
+2026-10-17 05:31:16,300 - services.database - INFO - [database] migration v21 applied in 0.0s | episodes_stories
+2026-10-17 05:31:16,300 - services.database - INFO - [database] migration v22: mca_bot_outputs
+2026-10-17 05:31:16,301 - services.database - INFO - [database] migration v22 applied in 0.0s | bot_outputs_ledger
+2026-10-17 05:31:16,302 - services.database - INFO - [database] migration v23: embedding_quota_state
+2026-10-17 05:31:16,304 - services.database - INFO - [database] migration v23: generations.pause_reason added
+2026-10-17 05:31:16,305 - services.database - INFO - [database] migration v23: generations.next_allowed_at added
+2026-10-17 05:31:16,306 - services.database - INFO - [database] migration v23: generations.attempts_total added
+2026-10-17 05:31:16,307 - services.database - INFO - [database] migration v23 applied in 0.0s | embedding_control_plane
+2026-10-17 05:31:16,307 - services.database - INFO - [database] migration v24: summary_source_windows
+2026-10-17 05:31:16,308 - services.database - INFO - [database] migration v24: summary_runs
+2026-10-17 05:31:16,309 - services.database - INFO - [database] migration v24: summary_run_stages
+2026-10-17 05:31:16,310 - services.database - INFO - [database] migration v24 applied in 0.0s | summary_source_windows
+2026-10-17 05:31:16,311 - services.database - INFO - [database] migration v25: pipeline_runs.chat_id added
+2026-10-17 05:31:16,312 - services.database - INFO - [database] migration v25: pipeline_runs.report_json added
+2026-10-17 05:31:16,313 - services.database - INFO - [database] migration v25 applied in 0.0s | dream_run_reports
+2026-10-17 05:31:16,314 - services.database - INFO - [database] migration v26: mca_style_requests
+2026-10-17 05:31:16,316 - services.database - INFO - [database] migration v26 applied in 0.0s | style_requests
+2026-10-17 05:31:16,317 - services.database - INFO - [database] migration v27: mca_random_batches
+2026-10-17 05:31:16,317 - services.database - INFO - [database] migration v27: mca_random_draws
+2026-10-17 05:31:16,319 - services.database - INFO - [database] migration v27: mca_random_quota_state
+2026-10-17 05:31:16,319 - services.database - INFO - [database] migration v27: mca_random_state
+2026-10-17 05:31:16,321 - services.database - INFO - [database] migration v27 applied in 0.0s | random_source
+2026-10-17 05:31:16,322 - services.database - INFO - [database] migration v28: mca_experience_episodes
+2026-10-17 05:31:16,323 - services.database - INFO - [database] migration v28: mca_experience_feedback
+2026-10-17 05:31:16,323 - services.database - INFO - [database] migration v28: mca_lessons
+2026-10-17 05:31:16,323 - services.database - INFO - [database] migration v28: mca_lesson_applications
+2026-10-17 05:31:16,327 - services.database - INFO - [database] migration v28 applied in 0.0s | experience_bank
+2026-10-17 05:31:16,328 - services.database - INFO - [database] migration v29: mca_intents
+2026-10-17 05:31:16,329 - services.database - INFO - [database] migration v29 applied in 0.0s | intents
+2026-10-17 05:31:16,330 - services.database - INFO - [database] migration v30: mca_episodes.last_retrieved_at added
+2026-10-17 05:31:16,331 - services.database - INFO - [database] migration v30: mca_episodes.last_used_in_chat_at added
+2026-10-17 05:31:16,332 - services.database - INFO - [database] migration v30: mca_associations
+2026-10-17 05:31:16,332 - services.database - INFO - [database] migration v30: mca_archive_coverage
+2026-10-17 05:31:16,333 - services.database - INFO - [database] migration v30: mca_belief_reviews
+2026-10-17 05:31:16,334 - services.database - INFO - [database] migration v30 applied in 0.0s | random_uses
+2026-10-17 05:31:16,335 - services.database - INFO - [database] migration v31: mca_self_identity
+2026-10-17 05:31:16,335 - services.database - INFO - [database] migration v31: mca_trait_observations
+2026-10-17 05:31:16,335 - services.database - INFO - [database] migration v31: mca_behavior_rules
+2026-10-17 05:31:16,337 - services.database - INFO - [database] migration v31: mca_adoption_links
+2026-10-17 05:31:16,339 - services.database - INFO - [database] migration v31: graph_facts.subject_entity_id added
+2026-10-17 05:31:16,340 - services.database - INFO - [database] migration v31: graph_facts.speaker_entity_id added
+2026-10-17 05:31:16,342 - services.database - INFO - [database] migration v31: graph_facts.perspective added
+2026-10-17 05:31:16,343 - services.database - INFO - [database] migration v31: graph_facts.memory_kind added
+2026-10-17 05:31:16,344 - services.database - INFO - [database] migration v31: graph_facts.scope added
+2026-10-17 05:31:16,345 - services.database - INFO - [database] migration v31: graph_facts.valid_from added
+2026-10-17 05:31:16,346 - services.database - INFO - [database] migration v31: graph_facts.valid_to added
+2026-10-17 05:31:16,347 - services.database - INFO - [database] migration v31: graph_facts.confidence_basis added
+2026-10-17 05:31:16,348 - services.database - INFO - [database] migration v31: graph_facts.revision added
+2026-10-17 05:31:16,350 - services.database - INFO - [database] migration v31 applied in 0.0s | self_model
+2026-10-17 05:31:16,352 - services.database - INFO - [database] migration v32: smart_messages.sender_chat_id added
+2026-10-17 05:31:16,353 - services.database - INFO - [database] migration v32: smart_messages.origin_type added
+2026-10-17 05:31:16,355 - services.database - INFO - [database] migration v32: smart_messages.origin_sent_at added
+2026-10-17 05:31:16,356 - services.database - INFO - [database] migration v32: smart_messages.origin_sender_user_id added
+2026-10-17 05:31:16,357 - services.database - INFO - [database] migration v32: smart_messages.origin_chat_id added
+2026-10-17 05:31:16,358 - services.database - INFO - [database] migration v32: smart_messages.origin_message_id added
+2026-10-17 05:31:16,359 - services.database - INFO - [database] migration v32: smart_messages.origin_display_name added
+2026-10-17 05:31:16,361 - services.database - INFO - [database] migration v32: smart_messages.origin_author_signature added
+2026-10-17 05:31:16,362 - services.database - INFO - [database] migration v32: smart_messages.thread_id added
+2026-10-17 05:31:16,364 - services.database - INFO - [database] migration v32: smart_messages.media_group_id added
+2026-10-17 05:31:16,365 - services.database - INFO - [database] migration v32: mca_media_assets
+2026-10-17 05:31:16,375 - services.database - INFO - [database] migration v32: mca_media_analyses
+2026-10-17 05:31:16,380 - services.database - INFO - [database] migration v32 applied in 0.0s | media_vision
+2026-10-17 05:31:16,381 - services.database - INFO - [database] migration v33: mca_factcheck_runs
+2026-10-17 05:31:16,381 - services.database - INFO - [database] migration v33: mca_factcheck_evidence
+2026-10-17 05:31:16,382 - services.database - INFO - [database] migration v33 applied in 0.0s | factcheck_temporal
+2026-10-17 05:31:16,384 - services.database - INFO - [database] migration v34 applied in 0.0s | embedding_generation_namespace_v34
+2026-10-17 05:31:16,384 - services.database - INFO - [database] migration v35: llm_usage_events PG-only — SQLite no-op (DDL применяет PgDatabase.init)
+2026-10-17 05:31:16,384 - services.database - INFO - [database] migration v35 applied in 0.0s | llm_usage_plan_meta_v35
+2026-10-17 05:31:16,385 - services.database - INFO - [database] migrations: complete | user_version=35 | total 0.1s
+2026-10-17 05:31:16,385 - bot - INFO - Database initialized
+2026-10-17 05:31:16,388 - bot - INFO - [media] jobs recovery | {'resumed': 0, 'unknown_after_disconnect': 0, 'active': 0}
+2026-10-17 05:31:16,394 - bot - INFO - [random_source] startup | {'status': 'blocked', 'reason': 'provider_unconfigured'}
+2026-10-17 05:31:16,395 - services.chat_lore - INFO - [chat_lore] ensure | chat_id=-1002661910336 | inserted=2 | skipped=0
+2026-10-17 05:31:16,395 - bot - INFO - [chat_lore] startup ensure | {'inserted': 2, 'skipped': 0}
+2026-10-17 05:31:16,396 - bot - WARNING - [lore] PostgreSQL недоступен — PG-лор выключен (fail-open, SQLite-легаси активен)
+2026-10-17 05:31:16,396 - bot - INFO - DeadPageRelay and Scheduler created
+2026-10-17 05:31:16,396 - handlers.war_alert - INFO - War Alert: using 5 default reply phrases
+2026-10-17 05:31:16,396 - handlers.war_alert - INFO - War Alert initialized: 5 replies, 1 channel IDs ({1654872411}), 0 channel usernames (set())
+2026-10-17 05:31:16,396 - handlers.common - INFO - Common Service: relay injected
+2026-10-17 05:31:16,396 - bot - INFO - Common Service (Epic 15) initialized
+2026-10-17 05:31:16,396 - handlers.common - INFO - Common Service: mimic relay injected
+2026-10-17 05:31:16,396 - bot - INFO - Mimic Service (Epic 18) initialized
+2026-10-17 05:31:16,396 - bot - INFO - Scheduler started
+2026-10-17 05:31:16,397 - services.param_catalog - WARNING - [catalog] json-значение не парсится (оставлено как есть) | key=limits.summary_aliases
+2026-10-17 05:31:16,397 - services.scheduler - INFO - Scheduler running (no-op, join-trigger only)
+2026-10-17 05:31:16,400 - services.summary_memory - INFO - embed cache | hits=0 misses=1
+2026-10-17 05:31:17,143 - services.llm_client - WARNING - LLM request retry | url=https://apinet.cloud/v1/embeddings | attempt=1/3 | sleep=1.9s | reason=LocalProtocolError: Illegal header value b'Bearer '
+2026-10-17 05:31:19,420 - services.llm_client - WARNING - LLM request retry | url=https://apinet.cloud/v1/embeddings | attempt=2/3 | sleep=3.8s | reason=LocalProtocolError: Illegal header value b'Bearer '
+2026-10-17 05:31:25,027 - services.mca_events - ERROR - mca_event=EMBED_API_FAILED | ts=1792171885 | event_name=EMBED_API_FAILED | outcome=failed | level=ERROR | component=embeddings | stage=embed_api | error_json={"type": "LLMTransportError"} | reason_code=provider_unavailable
+2026-10-17 05:31:25,027 - services.summary_memory - WARNING - SmartModule: probe embed failed (LLM transport error after 3 attempts: Illegal header value b'Bearer ': https://apinet.cloud/v1/embeddings) — vec deferred, FTS5 fallback (re-probe on next search)
+2026-10-17 05:31:25,027 - bot - INFO - SmartModule: sqlite-vec UNAVAILABLE — FTS5 fallback (R3)
+2026-10-17 05:31:25,029 - bot - INFO - [shutdown] startup recovery: нетерминальных Summary-ранов без живого владельца нет
+2026-10-17 05:31:25,033 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-10-17 05:31:25,033 - apscheduler.scheduler - INFO - Added job "SummarySchedulerService._tick" to job store "default"
+2026-10-17 05:31:25,033 - apscheduler.scheduler - INFO - Scheduler started
+2026-10-17 05:31:25,034 - services.summary_scheduler - INFO - SmartModule scheduler started (cron 0,6,12,18 Asia/Yekaterinburg)
+2026-10-17 05:31:25,034 - bot - INFO - SmartModule Summary (Epic 24) initialized (TZ=Asia/Yekaterinburg)
+2026-10-17 05:31:25,034 - services.search_aggregator - WARNING - Tavily level disabled: TAVILY_API_KEY is empty
+2026-10-17 05:31:25,034 - services.search_aggregator - WARNING - Exa level disabled: EXA_API_KEY is empty
+2026-10-17 05:31:25,034 - bot - INFO - SmartModule SmartSearch (Epic 33) initialized (FactCheck — после сборки ToolRouter)
+2026-10-17 05:31:25,034 - services.youtube_transcript_engine - INFO - [youtube engine] config | proxy=empty | cookies=empty | resproxy=empty
+2026-10-17 05:31:25,034 - services.youtube_transcript_engine - WARNING - [youtube engine] transcript-api resident proxy disabled (resproxy=empty)
+2026-10-17 05:31:25,035 - services.web_content_extractor - WARNING - Tavily extract level disabled: TAVILY_API_KEY is empty
+2026-10-17 05:31:25,035 - services.web_content_extractor - WARNING - Exa contents level disabled: EXA_API_KEY is empty
+2026-10-17 05:31:25,035 - bot - INFO - SmartModule YouTube + Web (Epic 37) initialized
+2026-10-17 05:31:25,035 - bot - INFO - Checkup SQL API configured=False (R17: только факт)
+2026-10-17 05:31:25,035 - bot - INFO - SmartModule Checkup (Epic 42) initialized
+2026-10-17 05:31:25,038 - bot - INFO - SmartModule DirectChat (Epic 50) initialized
+2026-10-17 05:31:25,038 - bot - INFO - VoiceTranscriber enabled (max_dur=600s, groq=False openrouter=False, max_concurrency=1)
+2026-10-17 05:31:25,038 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-10-17 05:31:25,038 - apscheduler.scheduler - INFO - Added job "MemoryBackupService._tick" to job store "default"
+2026-10-17 05:31:25,038 - apscheduler.scheduler - INFO - Scheduler started
+2026-10-17 05:31:25,038 - services.memory_backup - INFO - MemoryBackup scheduler started (daily 05:00 Asia/Yekaterinburg)
+2026-10-17 05:31:25,038 - bot - INFO - MemoryBackup (Epic 60) initialized (daily 05:00 Asia/Yekaterinburg)
+2026-10-17 05:31:25,038 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-10-17 05:31:25,038 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-10-17 05:31:25,038 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-10-17 05:31:25,045 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-10-17 05:31:25,046 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-10-17 05:31:25,046 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-10-17 05:31:25,046 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-10-17 05:31:25,046 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-10-17 05:31:25,046 - apscheduler.scheduler - INFO - Added job "MemoryMaintenanceService._tick_merge" to job store "default"
+2026-10-17 05:31:25,046 - apscheduler.scheduler - INFO - Added job "MemoryMaintenanceService._tick_review" to job store "default"
+2026-10-17 05:31:25,046 - apscheduler.scheduler - INFO - Added job "MemoryMaintenanceService._tick_wal_checkpoint" to job store "default"
+2026-10-17 05:31:25,046 - apscheduler.scheduler - INFO - Added job "MemoryMaintenanceService._tick_experience_review" to job store "default"
+2026-10-17 05:31:25,046 - apscheduler.scheduler - INFO - Added job "MemoryMaintenanceService._tick_intent_heartbeat" to job store "default"
+2026-10-17 05:31:25,046 - apscheduler.scheduler - INFO - Added job "MemoryMaintenanceService._tick_legacy_traits_parse" to job store "default"
+2026-10-17 05:31:25,046 - apscheduler.scheduler - INFO - Added job "MemoryMaintenanceService._tick_embed_recovery" to job store "default"
+2026-10-17 05:31:25,046 - apscheduler.scheduler - INFO - Added job "MemoryMaintenanceService._tick_initiative_observer" to job store "default"
+2026-10-17 05:31:25,046 - apscheduler.scheduler - INFO - Scheduler started
+2026-10-17 05:31:25,046 - services.memory_maintenance - INFO - MemoryMaintenance started (merge=True/7d, review=True/3d, wal=True/6h, embed_reprobe=600s, intent_hb=300s[always-on])
+2026-10-17 05:31:25,047 - bot - INFO - MemoryMaintenance (Epic 60, Фаза D) initialized
+2026-10-17 05:31:25,047 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-10-17 05:31:25,047 - services.dream_worker - INFO - DreamWorker job registered (enabled resolved per-tick) | tick_minutes=60 (applies on restart)
+2026-10-17 05:31:25,047 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-10-17 05:31:25,047 - services.dream_worker - INFO - DeepSleep job registered (enabled resolved per-tick) | tick_minutes=60 (applies on restart)
+2026-10-17 05:31:25,047 - apscheduler.scheduler - INFO - Added job "DreamWorker._tick" to job store "default"
+2026-10-17 05:31:25,047 - apscheduler.scheduler - INFO - Added job "DreamWorker._deep_tick" to job store "default"
+2026-10-17 05:31:25,047 - apscheduler.scheduler - INFO - Scheduler started
+2026-10-17 05:31:25,047 - bot - INFO - DreamWorker (раунд 9) initialized
+2026-10-17 05:31:25,047 - services.nostalgia_worker - INFO - NostalgiaWorker disabled (memory.nostalgia_enabled off)
+2026-10-17 05:31:25,047 - bot - INFO - NostalgiaWorker (раунд 9) initialized
+2026-10-17 05:31:25,047 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-10-17 05:31:25,047 - apscheduler.scheduler - INFO - Added job "AntiClicheWorker.tick" to job store "default"
+2026-10-17 05:31:25,047 - apscheduler.scheduler - INFO - Scheduler started
+2026-10-17 05:31:25,047 - services.anticliche_worker - INFO - AntiClicheWorker started | interval_days=7 | first_run_delay_min=5 | next_run_time=2026-10-16 17:36:25.047634+00:00
+2026-10-17 05:31:25,049 - services.anticliche_worker - INFO - [pipeline] event=pipeline_step component=anticliche step=schedule status=ok reason=started interval_days=7 first_run_delay_min=5 next_run_time=2026-10-16 17:36:25.047634+00:00
+2026-10-17 05:31:25,049 - bot - INFO - AntiClicheWorker (раунд 10.23 F4) initialized
+2026-10-17 05:31:25,049 - bot - INFO - RelationsService + db + dream/nostalgia workers (раунд 9) initialized
+2026-10-17 05:31:25,063 - services.mca_events - INFO - mca_event=WATCHDOG_SWEEP | ts=1792171885 | event_name=WATCHDOG_SWEEP | outcome=success | level=INFO | component=watchdog | stage=sweep
+2026-10-17 05:31:25,065 - services.mca_events - INFO - mca_event=WATCHDOG_SWEEP | ts=1792171885 | event_name=WATCHDOG_SWEEP | outcome=success | level=INFO | component=watchdog | stage=sweep
+2026-10-17 05:31:25,065 - bot - INFO - [mca-17a] observability runtime initialized
+2026-10-17 05:31:25,069 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-10-17 05:31:25,070 - apscheduler.scheduler - INFO - Added job "VisionMediaWorker._tick" to job store "default"
+2026-10-17 05:31:25,070 - apscheduler.scheduler - INFO - Scheduler started
+2026-10-17 05:31:25,070 - services.mca_vision - INFO - [vision] media worker started | tick=5s
+2026-10-17 05:31:25,070 - bot - INFO - [mca-19] vision media worker initialized
+2026-10-17 05:31:25,070 - services.goodmorning_scheduler - WARNING - Goodmorning: рассылка выключена — GOODMORNING_TARGET_CHAT_IDS пуст
+2026-10-17 05:31:25,070 - bot - INFO - InfoService (Epic 43) initialized | file=info_text.md
+2026-10-17 05:31:25,073 - services.bot_commands - INFO - Bot commands registered (set_my_commands ok): ['summary', 'info', 'menu']
+2026-10-17 05:31:25,073 - bot - INFO - Olya service enabled (cooldown=60.0s)
+2026-10-17 05:31:25,076 - bot - INFO - VideoDownloader enabled (cobalt=http://localhost:9000/)
+2026-10-17 05:31:25,076 - bot - INFO - All routers registered (v2.4.0)
+2026-10-17 05:31:25,077 - bot - INFO - Relay channel media group tracker registered (Epic 14)
+2026-10-17 05:31:25,077 - bot - INFO - Bot started, listening for messages...
+Бот запущен и слушает чат...
+2026-10-17 05:31:25,077 - services.uptime_heartbeat - WARNING - [uptime] heartbeat не запущен: PostgreSQL недоступен (R6)
+2026-10-17 05:31:25,509 - web.app - INFO - [webapp] WEBAPP_URL | scheme=https | host=admin-bot.duckdns.org | path=/web/
+2026-10-17 05:31:25,509 - web.app - INFO - [webapp] MEDIA_PUBLIC_BASE_URL | scheme=https | host=admin-bot.duckdns.org | path=-
+2026-10-17 05:31:25,511 - bot - INFO - [shutdown] signal handlers installed | signals=(2, 15)
+2026-10-17 05:31:25,523 - aiogram.dispatcher - INFO - Start polling
+2026-10-17 05:31:25,523 - web.app - INFO - [webapp] lifespan started | pg_available=True
+2026-10-17 05:31:25,524 - aiogram.dispatcher - INFO - Run polling for bot @probe_bot id=123456 - 'Probe'
+2026-10-17 05:31:30,071 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-16 22:31:35 +05)" (scheduled at 2026-10-16 22:31:30.069780+05:00)
+2026-10-17 05:31:30,073 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-16 22:31:35 +05)" executed successfully
+[child] 19.55s raise SIGTERM
+2026-10-17 05:31:31,366 - web.app - INFO - [webapp] lifespan finished
+2026-10-17 05:31:31,366 - apscheduler.scheduler - INFO - Scheduler has been shut down
+2026-10-17 05:31:31,366 - services.summary_scheduler - INFO - [shutdown] summary: stopped accepting new work | phase=stopping (scheduler down, new runs refused)
+2026-10-17 05:31:31,367 - aiogram.dispatcher - INFO - Polling stopped for bot @probe_bot id=123456 - 'Probe'
+2026-10-17 05:31:31,367 - aiogram.dispatcher - INFO - Polling stopped
+2026-10-17 05:31:31,629 - bot - INFO - [shutdown] polling stop | graceful=True | elapsed_ms=264
+2026-10-17 05:31:31,629 - bot - INFO - Bot shutting down...
+2026-10-17 05:31:31,629 - services.summary_generator - INFO - SUMMARY_SHUTDOWN_DRAIN | phase=draining | in_flight=0 | cancelled=0 | timeout_s=20.0
+2026-10-17 05:31:31,629 - services.summary_generator - INFO - SUMMARY_SHUTDOWN_DRAIN | phase=finalized | finalized=0 | left=0 | elapsed_ms=0
+2026-10-17 05:31:31,629 - bot - INFO - [shutdown] summary drain done | in_flight=0 | cancelled=0 | finalized=0 | left=0 | elapsed_ms=0
+2026-10-17 05:31:31,629 - services.nostalgia_worker - INFO - NostalgiaWorker stopped
+2026-10-17 05:31:31,629 - services.anticliche_worker - INFO - AntiClicheWorker stopped
+2026-10-17 05:31:31,629 - apscheduler.scheduler - INFO - Scheduler has been shut down
+2026-10-17 05:31:31,629 - apscheduler.scheduler - INFO - Scheduler has been shut down
+2026-10-17 05:31:31,629 - apscheduler.scheduler - INFO - Scheduler has been shut down
+2026-10-17 05:31:31,629 - services.dream_worker - INFO - DreamWorker stopped
+2026-10-17 05:31:31,629 - services.goodmorning_scheduler - INFO - Goodmorning scheduler stopped
+2026-10-17 05:31:31,629 - services.summary_scheduler - INFO - SmartModule scheduler stopped
+2026-10-17 05:31:31,629 - apscheduler.scheduler - INFO - Scheduler has been shut down
+2026-10-17 05:31:31,629 - services.memory_backup - INFO - MemoryBackup scheduler stopped
+2026-10-17 05:31:31,629 - apscheduler.scheduler - INFO - Scheduler has been shut down
+2026-10-17 05:31:31,630 - services.memory_maintenance - INFO - MemoryMaintenance stopped
+2026-10-17 05:31:31,637 - bot - INFO - [shutdown] runtime sqlite closed
+2026-10-17 05:31:31,637 - services.pg_db - INFO - [pg_db] pool closed
+2026-10-17 05:31:32,087 - bot - INFO - [shutdown] bye | elapsed_ms=718
+2026-10-17 05:31:32,087 - bot - INFO - [betterstack] shutdown flush
+[child] 20.42s bot.main() RETURNED
+[child] 20.42s --- after main() ---
+[child]   TASK Task-1 done=False coro=<coroutine object main.<locals>.wrapped at 0x00000225100015A0>
+[child]   TASK Task-2 done=False coro=<coroutine object SchedulerService.run at 0x000002251EBD22C0>
+[child]   THREAD MainThread daemon=False
+[child]   THREAD asyncio_0 daemon=False
+[child]   SQLITE#0 running=False thread_alive=False daemon=False
+[child]   SQLITE#0 opened_at:
+  C:\Code\Python\adminbot\plans\features\asap8-v6-3-live-correction\evidence\incident-summary-01\_exit_probe_child_exit.py:102 wrapped
+  C:\Code\Python\adminbot\bot.py:1421 main
+  C:\Code\Python\adminbot\bot.py:300 on_startup
+  C:\Code\Python\adminbot\services\database.py:6056 initialize
+[child] 20.42s asyncio.run() finished | threads=[('MainThread', False)]
+[child] 20.42s END-OF-SCRIPT
