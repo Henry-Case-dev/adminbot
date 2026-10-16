@@ -1,0 +1,9 @@
+﻿=== -k 'shutdown or sigterm or graceful or betterstack or log_ring' ===
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+102 passed, 13828 deselected, 1 warning in 24.92s
+=== широкая поверхность summary/graphrag/mca_gates/module_registry ===
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+2042 passed, 11888 deselected, 1 warning in 235.09s (0:03:55)
+=== source-пины bot.py (89 файлов, те же паттерны, что в релизном отчёте) ===
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+2046 passed, 1 warning in 160.63s (0:02:40)

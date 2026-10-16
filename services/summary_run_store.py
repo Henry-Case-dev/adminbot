@@ -288,13 +288,45 @@ async def close_stale_run(db, run_id: str, *,
     FAILED + стадия ``run`` с ``reason_code`` — и БЕЗ касания
     ``publication_status``: у такого рана нет окна, значит публикации не было
     и не будет (повторная отправка невозможна, второй живой run_id под ту же
-    запись не создаётся — следующий прогон получает свой run_id)."""
+    запись не создаётся — следующий прогон получает свой run_id).
+
+    INC-FIX-RESIDUAL (17.10.2026): закрывая ран, финализатор обязан оставить
+    и ТЕРМИНАЛЬНОЕ СОБЫТИЕ (`SUMMARY_RUN_DONE`) — иначе durable-состояние
+    FAILED и дериват UI расходятся: Oversight/Status выводит «running» из
+    `mca_events` (START без терминала), т.е. у закрытого рана бейдж читался
+    «running» (прод-факт 2.58.82, ран `da33f05d…`)."""
     ok = await set_state(db, run_id, STATE_FAILED)
     if not ok:
         return False
     await record_stage(db, run_id, "run", status="failed",
                        reason_code=reason_code)
+    await _emit_closed_run_terminal_event(db, run_id, reason_code)
     return True
+
+
+async def _emit_closed_run_terminal_event(db, run_id: str,
+                                          reason_code: str) -> None:
+    """`SUMMARY_RUN_DONE` для рана, закрытого финализатором (fail-open).
+
+    Та же точка контракта, что у штатного `finally` прогона
+    (`pipeline_events.summary_done_from_ctx`) — обе поверхности (durable-строка
+    и дериват из `mca_events`) читают один и тот же терминал. `chat_id` берём
+    из самой run-строки (строка в UI не должна оставаться без чата). Сбой
+    эмиссии терминал в `summary_runs` НЕ отменяет и остановку не рвёт."""
+    chat_id = None
+    try:
+        run = await get_run(db, str(run_id))
+        chat_id = _row_get(run, "chat_id")
+    except Exception:            # pragma: no cover - fail-open
+        chat_id = None
+    try:
+        from services import pipeline_events
+        pipeline_events.summary_done(
+            run_id, chat_id=chat_id, status="failed", health="failed",
+            reason_code=reason_code)
+    except Exception:            # pragma: no cover - эмиссия не рвёт закрытие
+        logger.warning("[summary41] closed-run terminal event failed — "
+                       "fail-open | run_id=%s", str(run_id)[:64], exc_info=True)
 
 
 # ── Startup-recovery нетерминальных ранов (INC-SUMMARY-01, 17.10.2026) ─────
