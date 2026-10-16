@@ -1,0 +1,153 @@
+===== F1: restart history (journal grep since 2026-10-08) =====
+Oct 12 17:54:47 racknerd-f4e3456 systemd[1]: Stopping admin_bot.service - Telegram Admin Bot...
+Oct 12 17:54:47 racknerd-f4e3456 python[946039]: 2026-10-12 17:54:47,919 - aiogram.dispatcher - WARNING - Received SIGTERM signal
+Oct 12 17:55:48 racknerd-f4e3456 systemd[1]: admin_bot.service: State 'stop-sigterm' timed out. Killing.
+Oct 12 17:55:48 racknerd-f4e3456 systemd[1]: admin_bot.service: Killing process 946039 (python) with signal SIGKILL.
+Oct 12 17:55:48 racknerd-f4e3456 systemd[1]: Started admin_bot.service - Telegram Admin Bot.
+Oct 12 19:11:42 racknerd-f4e3456 systemd[1]: Stopping admin_bot.service - Telegram Admin Bot...
+Oct 12 19:11:42 racknerd-f4e3456 python[1774512]: 2026-10-12 19:11:42,956 - aiogram.dispatcher - WARNING - Received SIGTERM signal
+Oct 12 19:12:43 racknerd-f4e3456 systemd[1]: admin_bot.service: State 'stop-sigterm' timed out. Killing.
+Oct 12 19:12:43 racknerd-f4e3456 systemd[1]: admin_bot.service: Killing process 1774512 (python) with signal SIGKILL.
+Oct 12 19:12:43 racknerd-f4e3456 systemd[1]: Started admin_bot.service - Telegram Admin Bot.
+Oct 12 22:49:47 racknerd-f4e3456 systemd[1]: Stopping admin_bot.service - Telegram Admin Bot...
+Oct 12 22:49:47 racknerd-f4e3456 python[1789496]: 2026-10-12 22:49:47,553 - aiogram.dispatcher - WARNING - Received SIGTERM signal
+Oct 12 22:50:47 racknerd-f4e3456 systemd[1]: admin_bot.service: State 'stop-sigterm' timed out. Killing.
+Oct 12 22:50:47 racknerd-f4e3456 systemd[1]: admin_bot.service: Killing process 1789496 (python) with signal SIGKILL.
+Oct 12 22:50:47 racknerd-f4e3456 systemd[1]: Started admin_bot.service - Telegram Admin Bot.
+Oct 13 21:59:17 racknerd-f4e3456 systemd[1]: Stopping admin_bot.service - Telegram Admin Bot...
+Oct 13 21:59:17 racknerd-f4e3456 python[1832025]: 2026-10-13 21:59:17,553 - aiogram.dispatcher - WARNING - Received SIGTERM signal
+Oct 13 22:00:17 racknerd-f4e3456 systemd[1]: admin_bot.service: State 'stop-sigterm' timed out. Killing.
+Oct 13 22:00:17 racknerd-f4e3456 systemd[1]: admin_bot.service: Killing process 1832025 (python) with signal SIGKILL.
+Oct 13 22:00:17 racknerd-f4e3456 systemd[1]: Started admin_bot.service - Telegram Admin Bot.
+Oct 15 14:43:06 racknerd-f4e3456 systemd[1]: Stopping admin_bot.service - Telegram Admin Bot...
+Oct 15 14:43:06 racknerd-f4e3456 python[2103475]: 2026-10-15 14:43:06,701 - aiogram.dispatcher - WARNING - Received SIGTERM signal
+Oct 15 14:44:06 racknerd-f4e3456 systemd[1]: admin_bot.service: State 'stop-sigterm' timed out. Killing.
+Oct 15 14:44:06 racknerd-f4e3456 systemd[1]: admin_bot.service: Killing process 2103475 (python) with signal SIGKILL.
+Oct 15 14:44:06 racknerd-f4e3456 systemd[1]: Started admin_bot.service - Telegram Admin Bot.
+Oct 15 14:54:07 racknerd-f4e3456 systemd[1]: Stopping admin_bot.service - Telegram Admin Bot...
+Oct 15 14:54:07 racknerd-f4e3456 python[2591774]: 2026-10-15 14:54:07,943 - aiogram.dispatcher - WARNING - Received SIGTERM signal
+Oct 15 14:55:08 racknerd-f4e3456 systemd[1]: admin_bot.service: State 'stop-sigterm' timed out. Killing.
+Oct 15 14:55:08 racknerd-f4e3456 systemd[1]: admin_bot.service: Killing process 2591774 (python) with signal SIGKILL.
+Oct 15 14:55:08 racknerd-f4e3456 systemd[1]: Started admin_bot.service - Telegram Admin Bot.
+Oct 16 09:43:54 racknerd-f4e3456 systemd[1]: Stopping admin_bot.service - Telegram Admin Bot...
+Oct 16 09:43:54 racknerd-f4e3456 python[2594113]: 2026-10-16 09:43:54,569 - aiogram.dispatcher - WARNING - Received SIGTERM signal
+Oct 16 09:44:54 racknerd-f4e3456 systemd[1]: admin_bot.service: State 'stop-sigterm' timed out. Killing.
+Oct 16 09:44:54 racknerd-f4e3456 systemd[1]: admin_bot.service: Killing process 2594113 (python) with signal SIGKILL.
+Oct 16 09:44:54 racknerd-f4e3456 systemd[1]: Started admin_bot.service - Telegram Admin Bot.
+Oct 16 13:00:08 racknerd-f4e3456 systemd[1]: Stopping admin_bot.service - Telegram Admin Bot...
+Oct 16 13:00:08 racknerd-f4e3456 python[2815638]: 2026-10-16 13:00:08,135 - aiogram.dispatcher - WARNING - Received SIGTERM signal
+Oct 16 13:01:08 racknerd-f4e3456 systemd[1]: admin_bot.service: State 'stop-sigterm' timed out. Killing.
+Oct 16 13:01:08 racknerd-f4e3456 systemd[1]: admin_bot.service: Killing process 2815638 (python) with signal SIGKILL.
+Oct 16 13:01:08 racknerd-f4e3456 systemd[1]: Started admin_bot.service - Telegram Admin Bot.
+===== F2: sqlite follow-up =====
+--- eligible_30d ---
+(758,)
+--- eligible_90d ---
+(0,)
+--- eligible_365d ---
+(0,)
+--- eligible_all ---
+(71867,)
+--- eligible_newer_30d ---
+(71109,)
+--- stuck_run_row ---
+('da33f05db7754a38bdea7d591cf6eccc', -1002661910336, 'CREATED', 0, None, None, None, None, None, None, 1792155606, 1792155606)
+--- stuck_run_events ---
+(59275, 1792155606, 'INFO', 'SUMMARY_RUN_START', 'start', None, None, None, -1002661910336, 'summary', 'start', None, None, None, None, None, None, None, '{"mode": "hybrid_l2", "manual": false}', None, None, 'da33f05db7754a38bdea7d591cf6eccc', 'summary', None, None, None, None, None, None, None, None, None, None, None, None, None)
+--- stuck_run_stages ---
+--- chat_running_summary ---
+(-1002661910336, 1788699601, 500, 1788699677.365463, 1788703277.365463)
+--- mca_pipeline_runs_summary ---
+--- summary_source_windows_recent ---
+('30b3677b758246188363aeb2561d1402', -1002661910336, 1792112854, 1792133932, 1792134188)
+('082217c0e30e464ba80b03e7b879db2a', -1002661910336, 1792090942, 1792110742, 1792112477)
+('d39a961b16644b0abe9b7d70094b9982', -1002661910336, 1792069779, 1792091204, 1792091243)
+('5bf360b11a5848dcbe173cef27cea8d6', -1002661910336, 1792048255, 1792069783, 1792069787)
+('b85fbbcafd01404e984918e6227d5841', -1004482340693, 1792047706, 1792067293, 1792069205)
+===== F3: postgres hot config + snapshot =====
+PG_DSN_PRESENT True
+--- bot_settings ---
+{'key': 'flags.chat_running_summary_enabled', 'value': 'true'}
+{'key': 'flags.graph_rag_enabled', 'value': 'true'}
+{'key': 'flags.summary_enabled', 'value': 'true'}
+{'key': 'limits.full_memory_retention_days', 'value': '30'}
+{'key': 'limits.graph_episode_merge_interval_days', 'value': '7'}
+{'key': 'limits.summary_compress_batch', 'value': '50'}
+{'key': 'limits.summary_timezone', 'value': '"Asia/Yekaterinburg"'}
+{'key': 'memory.infinite_retention', 'value': 'true'}
+--- chat_profiles_overrides ---
+{'chat_id': -1004482340693, 'overrides': '{"flags.summary_enabled": false}'}
+{'chat_id': -1002661910336, 'overrides': '{"flags.budgets_enabled": false, "limits.summary_aliases": "***REDACTED***", "limits.chat_burst_limit": 10, "flags.deep_sleep_enabled": true, "flags.irony_filter_enabled": true, "prompts.summary_cover_style": "Comic-book style, set in modern Russia, with Russian text and a large \\"PERMsoc\\" inscription in the foreground.", "flags.relations_tone_enabled": true, "flags.summary_filter_enabled": false, "limits.chat_level2_max_chars": 4000, "limits.chat_thread_max_depth": 200, "flags.chat_silent_ack_enabled": true, "limits.chat_thread_max_tokens": -1, "prompts.summary_system_prompt": "***REDACTED***", "prompts.summary_cover_style_id": "medved_press", "prompts.verbilizer_default_mode": "casual", "limits.chat_context_budget_tokens": -1, "limits.chat_global_key_budget_tokens": -1, "limits.import_history_retention_days": 0, "limits.chat_global_context_max_tokens": -1, "limits.chat_global_key_budget_requests": -1, "limits.worker_daily_llm_calls_per_chat": -1, "limits.youtube_transcript_proxy_domain": "196.19.159.179", "limits.worker_daily_llm_tokens_per_chat": -1}'}
+--- pg_activity ---
+{'pid': 3056683, 'state': 'active', 'wait_event_type': None, 'wait_event': None, 'dur_s': 0, 'q': 'SELECT pid, state, wait_event_type, wait_event, extract(epoch from now()-query_s'}
+--- pg_locks ---
+{'mode': 'AccessShareLock', 'granted': True, 'n': 1}
+{'mode': 'ExclusiveLock', 'granted': True, 'n': 1}
+--- uptime_events ---
+{'ts': datetime.datetime(2026, 10, 16, 14, 15, 28, 455490, tzinfo=datetime.timezone.utc), 'status': 'up'}
+{'ts': datetime.datetime(2026, 10, 16, 14, 14, 28, 447745, tzinfo=datetime.timezone.utc), 'status': 'up'}
+{'ts': datetime.datetime(2026, 10, 16, 14, 13, 28, 446714, tzinfo=datetime.timezone.utc), 'status': 'up'}
+{'ts': datetime.datetime(2026, 10, 16, 14, 12, 28, 447638, tzinfo=datetime.timezone.utc), 'status': 'up'}
+{'ts': datetime.datetime(2026, 10, 16, 14, 11, 28, 446996, tzinfo=datetime.timezone.utc), 'status': 'up'}
+{'ts': datetime.datetime(2026, 10, 16, 14, 10, 28, 446874, tzinfo=datetime.timezone.utc), 'status': 'up'}
+{'ts': datetime.datetime(2026, 10, 16, 14, 9, 28, 447281, tzinfo=datetime.timezone.utc), 'status': 'up'}
+{'ts': datetime.datetime(2026, 10, 16, 14, 8, 28, 448824, tzinfo=datetime.timezone.utc), 'status': 'up'}
+{'ts': datetime.datetime(2026, 10, 16, 14, 7, 28, 449879, tzinfo=datetime.timezone.utc), 'status': 'up'}
+{'ts': datetime.datetime(2026, 10, 16, 14, 6, 28, 452763, tzinfo=datetime.timezone.utc), 'status': 'up'}
+{'ts': datetime.datetime(2026, 10, 16, 14, 5, 28, 456526, tzinfo=datetime.timezone.utc), 'status': 'up'}
+{'ts': datetime.datetime(2026, 10, 16, 14, 4, 28, 447932, tzinfo=datetime.timezone.utc), 'status': 'up'}
+{'ts': datetime.datetime(2026, 10, 16, 14, 3, 28, 446303, tzinfo=datetime.timezone.utc), 'status': 'up'}
+{'ts': datetime.datetime(2026, 10, 16, 14, 2, 28, 446732, tzinfo=datetime.timezone.utc), 'status': 'up'}
+{'ts': datetime.datetime(2026, 10, 16, 14, 1, 28, 454661, tzinfo=datetime.timezone.utc), 'status': 'up'}
+{'ts': datetime.datetime(2026, 10, 16, 14, 0, 28, 446910, tzinfo=datetime.timezone.utc), 'status': 'up'}
+{'ts': datetime.datetime(2026, 10, 16, 13, 59, 28, 448165, tzinfo=datetime.timezone.utc), 'status': 'up'}
+{'ts': datetime.datetime(2026, 10, 16, 13, 58, 28, 447851, tzinfo=datetime.timezone.utc), 'status': 'up'}
+{'ts': datetime.datetime(2026, 10, 16, 13, 57, 28, 453016, tzinfo=datetime.timezone.utc), 'status': 'up'}
+{'ts': datetime.datetime(2026, 10, 16, 13, 56, 28, 448822, tzinfo=datetime.timezone.utc), 'status': 'up'}
+--- uptime_gaps_13h ---
+{'ts': datetime.datetime(2026, 10, 16, 11, 0, 16, 855640, tzinfo=datetime.timezone.utc), 'status': 'up'}
+{'ts': datetime.datetime(2026, 10, 16, 11, 1, 16, 856618, tzinfo=datetime.timezone.utc), 'status': 'up'}
+{'ts': datetime.datetime(2026, 10, 16, 11, 2, 16, 855774, tzinfo=datetime.timezone.utc), 'status': 'up'}
+{'ts': datetime.datetime(2026, 10, 16, 11, 3, 16, 857807, tzinfo=datetime.timezone.utc), 'status': 'up'}
+{'ts': datetime.datetime(2026, 10, 16, 11, 4, 16, 855653, tzinfo=datetime.timezone.utc), 'status': 'up'}
+{'ts': datetime.datetime(2026, 10, 16, 11, 5, 16, 866817, tzinfo=datetime.timezone.utc), 'status': 'up'}
+{'ts': datetime.datetime(2026, 10, 16, 11, 6, 16, 856796, tzinfo=datetime.timezone.utc), 'status': 'up'}
+{'ts': datetime.datetime(2026, 10, 16, 11, 7, 16, 856623, tzinfo=datetime.timezone.utc), 'status': 'up'}
+{'ts': datetime.datetime(2026, 10, 16, 11, 8, 16, 856947, tzinfo=datetime.timezone.utc), 'status': 'up'}
+{'ts': datetime.datetime(2026, 10, 16, 11, 9, 16, 856285, tzinfo=datetime.timezone.utc), 'status': 'up'}
+{'ts': datetime.datetime(2026, 10, 16, 11, 10, 16, 857919, tzinfo=datetime.timezone.utc), 'status': 'up'}
+{'ts': datetime.datetime(2026, 10, 16, 11, 11, 16, 856595, tzinfo=datetime.timezone.utc), 'status': 'up'}
+{'ts': datetime.datetime(2026, 10, 16, 11, 12, 16, 856955, tzinfo=datetime.timezone.utc), 'status': 'up'}
+{'ts': datetime.datetime(2026, 10, 16, 11, 13, 16, 857201, tzinfo=datetime.timezone.utc), 'status': 'up'}
+{'ts': datetime.datetime(2026, 10, 16, 11, 14, 16, 865922, tzinfo=datetime.timezone.utc), 'status': 'up'}
+{'ts': datetime.datetime(2026, 10, 16, 11, 15, 16, 856268, tzinfo=datetime.timezone.utc), 'status': 'up'}
+{'ts': datetime.datetime(2026, 10, 16, 11, 16, 16, 856506, tzinfo=datetime.timezone.utc), 'status': 'up'}
+{'ts': datetime.datetime(2026, 10, 16, 11, 17, 16, 862859, tzinfo=datetime.timezone.utc), 'status': 'up'}
+{'ts': datetime.datetime(2026, 10, 16, 11, 18, 16, 856385, tzinfo=datetime.timezone.utc), 'status': 'up'}
+{'ts': datetime.datetime(2026, 10, 16, 11, 19, 16, 858839, tzinfo=datetime.timezone.utc), 'status': 'up'}
+{'ts': datetime.datetime(2026, 10, 16, 11, 20, 16, 855385, tzinfo=datetime.timezone.utc), 'status': 'up'}
+{'ts': datetime.datetime(2026, 10, 16, 11, 21, 16, 859794, tzinfo=datetime.timezone.utc), 'status': 'up'}
+{'ts': datetime.datetime(2026, 10, 16, 11, 22, 16, 855701, tzinfo=datetime.timezone.utc), 'status': 'up'}
+{'ts': datetime.datetime(2026, 10, 16, 11, 23, 16, 856957, tzinfo=datetime.timezone.utc), 'status': 'up'}
+{'ts': datetime.datetime(2026, 10, 16, 11, 24, 16, 856528, tzinfo=datetime.timezone.utc), 'status': 'up'}
+{'ts': datetime.datetime(2026, 10, 16, 11, 25, 16, 855512, tzinfo=datetime.timezone.utc), 'status': 'up'}
+{'ts': datetime.datetime(2026, 10, 16, 11, 26, 16, 855302, tzinfo=datetime.timezone.utc), 'status': 'up'}
+{'ts': datetime.datetime(2026, 10, 16, 11, 27, 16, 855622, tzinfo=datetime.timezone.utc), 'status': 'up'}
+{'ts': datetime.datetime(2026, 10, 16, 11, 28, 16, 854882, tzinfo=datetime.timezone.utc), 'status': 'up'}
+{'ts': datetime.datetime(2026, 10, 16, 11, 29, 16, 855672, tzinfo=datetime.timezone.utc), 'status': 'up'}
+{'ts': datetime.datetime(2026, 10, 16, 11, 30, 16, 865060, tzinfo=datetime.timezone.utc), 'status': 'up'}
+{'ts': datetime.datetime(2026, 10, 16, 11, 31, 16, 856867, tzinfo=datetime.timezone.utc), 'status': 'up'}
+{'ts': datetime.datetime(2026, 10, 16, 11, 32, 16, 856492, tzinfo=datetime.timezone.utc), 'status': 'up'}
+{'ts': datetime.datetime(2026, 10, 16, 11, 33, 16, 855713, tzinfo=datetime.timezone.utc), 'status': 'up'}
+{'ts': datetime.datetime(2026, 10, 16, 11, 34, 16, 857075, tzinfo=datetime.timezone.utc), 'status': 'up'}
+{'ts': datetime.datetime(2026, 10, 16, 11, 35, 16, 856062, tzinfo=datetime.timezone.utc), 'status': 'up'}
+{'ts': datetime.datetime(2026, 10, 16, 11, 36, 16, 856174, tzinfo=datetime.timezone.utc), 'status': 'up'}
+{'ts': datetime.datetime(2026, 10, 16, 11, 37, 16, 855577, tzinfo=datetime.timezone.utc), 'status': 'up'}
+{'ts': datetime.datetime(2026, 10, 16, 11, 38, 16, 855784, tzinfo=datetime.timezone.utc), 'status': 'up'}
+{'ts': datetime.datetime(2026, 10, 16, 11, 39, 16, 855952, tzinfo=datetime.timezone.utc), 'status': 'up'}
+===== F4: current state sanity =====
+MainPID=2854731
+NRestarts=0
+ExecMainStartTimestamp=Fri 2026-10-16 13:01:08 UTC
+HZ={"status":"ok","version":"2.58.81"}
+===== F_DONE =====

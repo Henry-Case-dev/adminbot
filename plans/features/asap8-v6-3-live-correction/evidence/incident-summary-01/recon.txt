@@ -1,0 +1,9 @@
+HOST=racknerd-f4e3456
+DATE_LOCAL=2026-10-16 14:09:08 UTC +0000
+DATE_UTC=2026-10-16 14:09:08
+ACTIVE=active
+MainPID=2854731
+NRestarts=0
+ExecMainStartTimestamp=Fri 2026-10-16 13:01:08 UTC
+{"status":"ok","version":"2.58.81"}
+HEAD=6d4b9a7d645dcd0e7bd6c63b1e3ce2d367b58221

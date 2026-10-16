@@ -33,6 +33,7 @@ RunContext — in-memory витрина прогона; этот store — durab
 from __future__ import annotations
 
 import logging
+import os
 import time
 
 from config.settings import settings
@@ -260,6 +261,141 @@ async def stage_history(db, run_id: str) -> list[dict]:
     return await db.list_summary_run_stages(str(run_id))
 
 
+def run_has_window(run) -> bool:
+    """Есть ли у run'а durable окно (source_ref/window_from/window_to).
+
+    INC-SUMMARY-01: ран без окна после рестарта докатывать нечего — его
+    закрывают терминалом (``close_stale_run``), а не «резюмят» вслепую."""
+    if not run:
+        return False
+    return any(_row_get(run, name) is not None
+               for name in ("source_ref", "window_from", "window_to"))
+
+
+def run_age_seconds(run, *, now: int | None = None) -> int | None:
+    """Возраст run'а от ``created_at`` (None — метки нет/нечитаема)."""
+    try:
+        created = int(_row_get(run, "created_at"))
+    except (TypeError, ValueError):
+        return None
+    return max(0, int(now if now is not None else time.time()) - created)
+
+
+async def close_stale_run(db, run_id: str, *,
+                          reason_code: str = "stale_no_window") -> bool:
+    """Терминал УСТАРЕВШЕГО нетерминального run'а (INC-SUMMARY-01).
+
+    FAILED + стадия ``run`` с ``reason_code`` — и БЕЗ касания
+    ``publication_status``: у такого рана нет окна, значит публикации не было
+    и не будет (повторная отправка невозможна, второй живой run_id под ту же
+    запись не создаётся — следующий прогон получает свой run_id)."""
+    ok = await set_state(db, run_id, STATE_FAILED)
+    if not ok:
+        return False
+    await record_stage(db, run_id, "run", status="failed",
+                       reason_code=reason_code)
+    return True
+
+
+# ── Startup-recovery нетерминальных ранов (INC-SUMMARY-01, 17.10.2026) ─────
+# Прод-инцидент: процесс убит SIGKILL'ом (рестарт деплоя) → `finally` не
+# исполнился → run-row навсегда осталась нетерминальной, а UI/Oversight
+# выводил из неё «running». Watchdog репает только `task_jobs`; summary-run
+# не финализировал никто. Финализатор на старте процесса закрывает такие
+# раны тем же терминалом, что и stale-closer (без дубля логики).
+
+_ORPHAN_GRACE_ENV = "SUMMARY_ORPHAN_GRACE_SECONDS"
+_ORPHAN_GRACE_DEFAULT = 30.0
+
+
+def orphan_grace_seconds() -> float:
+    """Окно защиты СВЕЖЕГО рана при startup-recovery (env-only, per-call).
+
+    Страхует пред-генерационный ран ДРУГОГО живого процесса (оверлап
+    деплоя/ручной запуск): ран младше окна не закрывается — его закроет
+    штатный stale-closer следующего прогона этого чата."""
+    raw = os.getenv(_ORPHAN_GRACE_ENV, "").strip()
+    if not raw:
+        return _ORPHAN_GRACE_DEFAULT
+    try:
+        return max(0.0, float(raw))
+    except (TypeError, ValueError):
+        logger.warning("[summary41] %s=%r не число — берём default %s",
+                       _ORPHAN_GRACE_ENV, raw, _ORPHAN_GRACE_DEFAULT)
+        return _ORPHAN_GRACE_DEFAULT
+
+
+async def list_nonterminal_runs(db) -> list[dict]:
+    """Read-only выборка нетерминальных run'ов (startup-recovery).
+
+    Читает тот же SQLite-коннект, что и остальные durable-вызовы (SELECT —
+    без single-writer). Fail-open → ``[]`` (OFF kill-switch / нет БД / сбой)."""
+    if not run_durable_enabled() or db is None:
+        return []
+    try:
+        conn = getattr(db, "db", None)
+        if conn is None:
+            return []
+        placeholders = ",".join("?" * len(TERMINAL_STATES))
+        cursor = await conn.execute(
+            "SELECT run_id, chat_id, state, created_at, source_ref, "
+            "window_from, window_to FROM summary_runs "
+            f"WHERE state NOT IN ({placeholders})",
+            tuple(TERMINAL_STATES))
+        return [dict(row) for row in await cursor.fetchall()]
+    except Exception:          # pragma: no cover - fail-open
+        logger.warning("[summary41] nonterminal run scan failed — fail-open",
+                       exc_info=True)
+        return []
+
+
+async def close_orphan_runs(db, *, reason_code: str = "orphan_no_owner",
+                            grace_seconds: float | None = None,
+                            live_run_ids=None,
+                            now: int | None = None) -> list[dict]:
+    """Startup-recovery: терминал для нетерминальных ранов БЕЗ живого владельца.
+
+    Вызывается на старте процесса (владельцев нет по определению). Семантика
+    = stale-closer (``close_stale_run``): FAILED + стадия ``run``/``reason_code``
+    и БЕЗ касания ``publication_status`` (окна нет → публикации не было и не
+    будет; повторной отправки не возникает, второй живой run_id под ту же
+    запись не создаётся). Ран С durable окном НЕ закрывается — докатывается
+    по контракту resume (§21). Ран младше ``grace_seconds`` не закрывается
+    (возможный оверлап живого процесса). Возвращает список закрытых."""
+    result: list[dict] = []
+    grace = orphan_grace_seconds() if grace_seconds is None \
+        else max(0.0, float(grace_seconds))
+    for run in await list_nonterminal_runs(db):
+        run_id = str(_row_get(run, "run_id") or "")
+        if not run_id:
+            continue
+        if live_run_ids and run_id in live_run_ids:
+            continue
+        chat_id = _row_get(run, "chat_id")
+        age = run_age_seconds(run, now=now)
+        if run_has_window(run):
+            logger.info(
+                "SUMMARY_ORPHAN_RUN_KEPT | run_id=%s | chat_id=%s | age_s=%s | "
+                "reason=has_window — докатывается по контракту resume (§21)",
+                run_id, chat_id, age)
+            continue
+        if age is not None and grace and age < grace:
+            logger.info(
+                "SUMMARY_ORPHAN_RUN_KEPT | run_id=%s | chat_id=%s | age_s=%s | "
+                "reason=within_grace — окно защиты живого процесса (grace_s=%s)",
+                run_id, chat_id, age, grace)
+            continue
+        closed = await close_stale_run(db, run_id, reason_code=reason_code)
+        logger.warning(
+            "SUMMARY_ORPHAN_RUN_CLOSED | run_id=%s | chat_id=%s | state=%s | "
+            "age_s=%s | closed=%s | reason=%s — нетерминальный ран без живого "
+            "владельца закрыт FAILED (публикация не трогалась)",
+            run_id, chat_id, _row_get(run, "state"), age, closed, reason_code)
+        result.append({"run_id": run_id, "chat_id": chat_id, "age_s": age,
+                       "closed": bool(closed)})
+    return result
+
+
 def terminal_state_for_run(*, status: str | None, health: str | None,
                            published: bool | None = None) -> str:
     """Терминальное состояние прогона по RunContext (§20/§61.13):
@@ -303,4 +439,6 @@ __all__ = [
     "record_stage", "mark_publishing",
     "complete_publication", "fail_publication", "last_completed_stage",
     "stage_history", "terminal_state_for_run", "purge_expired_runs",
+    "run_has_window", "run_age_seconds", "close_stale_run",
+    "list_nonterminal_runs", "close_orphan_runs", "orphan_grace_seconds",
 ]
