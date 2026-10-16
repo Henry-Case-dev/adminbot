@@ -1,0 +1,24 @@
+{
+ "tierA": {
+  "frames": 314,
+  "p50": 16.69999998807907,
+  "p95": 16.900000005960464,
+  "worst": 17.200000002980232,
+  "longtasks": 0,
+  "longtaskMax": 0,
+  "longtaskSum": 0,
+  "lensNodes": 16,
+  "filters": 17
+ },
+ "tierB": {
+  "frames": 313,
+  "p50": 16.69999998807907,
+  "p95": 16.900000005960464,
+  "worst": 17.5,
+  "longtasks": 0,
+  "longtaskMax": 0,
+  "longtaskSum": 0,
+  "lensNodes": 0,
+  "filters": 1
+ }
+}

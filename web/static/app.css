@@ -1706,8 +1706,14 @@
     }
     .modal-backdrop {
       background: rgba(0, 0, 0, 0.5);
-      -webkit-backdrop-filter: var(--glass-blur);
-      backdrop-filter: var(--glass-blur);
+      /* HOTFIX-TIERA (SOUL-1, владелец): скрим модалки БОЛЬШЕ НЕ размывает
+         страницу. blur(16px) на скриме = двойное размытие (скрим + сам
+         `.modal-card`) и конфликт вложенных слоёв: скрим создавал backdrop
+         root, из-за чего рефракция карточки модалки была недостижима/мутна.
+         Дим (.5) сохранён; blur+рефракция выполняет поверхность модалки
+         (Tier A: blur 5px + url(#lg-lens); фолбэк — frost-hero). */
+      -webkit-backdrop-filter: none;
+      backdrop-filter: none;
     }
     /* webkit-фолбэк: плотный фон (уровень C), если backdrop-filter не поддержан.
        Не полагаемся на backdrop url-фильтр — без поддержки читаемый fallback.
@@ -1830,9 +1836,12 @@
       padding-left: 0;
       padding-right: 0;
       padding-bottom: .45rem;
-      background-color: transparent;
-      -webkit-backdrop-filter: none;
-      backdrop-filter: none;
+      /* HOTFIX-TIERA (SOUL-1): сейвбар внутри модалки — НЕ самостоятельное
+         стекло (прозрачный футер): !important обязателен, иначе inline
+         tier-A линза app.js навесила бы рефракцию на прозрачный футер. */
+      background-color: transparent !important;
+      -webkit-backdrop-filter: none !important;
+      backdrop-filter: none !important;
       box-shadow: none;
     }
     /* G5: модалка = flex-колонка [head / body / actions]; .modal-body —
@@ -3519,6 +3528,52 @@ html.fs-slot-float header.header-sticky {
         rgba(215, 240, 255, 0.10) 0%, rgba(215, 240, 255, 0) 55%);
   }
 }
+
+/* ═══ HOTFIX-TIERA (SOUL-1, приказ владельца): Tier A — основной материал
+   ВСЕХ стеклянных поверхностей реальной админки ═══
+   app.js ставит tier-атрибуты не только на `[data-glass]`, но и на классовые
+   поверхности (`.card/.module-card/.hub-card/.prov-block/.glass-panel/
+   .modal-card/details.advanced/.lg-panel/.lg-mini-lens/.sticky-save`) и
+   выдаёт каждой подтверждённой (probe) поверхности линзу `url(#lg-lens …)`
+   inline (пул фильтров по размеру узла). Здесь снято то, что ГАСИЛО
+   рефракцию: избыточное затемнение подложки, двойной blur и конфликт
+   вложенных слоёв. Ложной рефракции нет: без подтверждённой пробы узел
+   остаётся честным Tier B (frost) — см. `data-glass-reason`. */
+/* 1) Shell-панели (sidebar/шапка/drawer): плотная графитовая подложка §8
+   (alpha .94/.96) физически скрывала преломление (видно 6% фона) — в
+   ПОДТВЕРЖДЁННОМ Tier A она светлеет настолько, чтобы фон просвечивал и
+   рефракция читалась на кромках. Не подтверждено (WebKit/эконом-режим/
+   reduced-motion) — плотный §8-вид и честный отказ от рефракции. */
+[data-glass="shell"][data-glass-tier="a"],
+.app-shell [data-glass="shell"][data-glass-tier="a"] {
+  background-color: rgba(27, 29, 34, 0.72);
+}
+@media (max-width: 767px) {
+  [data-glass="shell"][data-glass-tier="a"],
+  .app-shell [data-glass="shell"][data-glass-tier="a"] {
+    background-color: rgba(27, 29, 34, 0.78);
+  }
+}
+/* 2) Панель сохранения (pill над скроллом) — тоже стекло: плотный
+   --glass-bg-strong (.85) скрывал линзу; в Tier A подложка светлее, кромка/
+   кнопки сохраняют свою подложку и контраст. */
+.sticky-save[data-glass-tier="a"] {
+  background-color: rgba(21, 27, 42, 0.62);
+}
+/* Сейвбар ВНУТРИ модалки — не самостоятельное стекло (прозрачный футер
+   `.modal-actions`): исключение объявлено в самом правиле футера
+   (`!important` там же) — отдельного правила здесь нет. */
+/* 3) «Стекло в стекле» (`data-glass-nested="1"` ставит app.js): ближайший
+   предок уже несёт backdrop-filter → создан backdrop root, рефракция
+   СТРАНИЦЫ там физически недостижима, а второй blur давал двойное размытие
+   и «кирпич» от суммы alpha (U08.4b/G1.5). Плоская лёгкая подложка — тот же
+   приём, что и прежний `.card .card`; ложной рефракции не имитируем. */
+[data-glass-nested="1"] {
+  background-color: rgba(255, 255, 255, .04);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+/* ═══ /HOTFIX-TIERA ═══ */
 
 /* ═══ W2-GLASS (U08.4d): lg-mini-lens — круглый Tier B-контрол ⛶ ═══
    Материал для кнопки U07 (класс применяет FULLSCREEN-лейн; геометрия —

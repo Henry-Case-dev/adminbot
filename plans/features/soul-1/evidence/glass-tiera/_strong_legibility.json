@@ -1,0 +1,1045 @@
+{
+ "status-card@1440": {
+  "sel": "main .card",
+  "route": "#/",
+  "width": 1440,
+  "tier": "a",
+  "bf_on": "blur(5px) saturate(140%) url(\"#lg-lens-p2\")",
+  "bf_off": "blur(5px) saturate(1.4)",
+  "bf_restored": "blur(5px) saturate(1.4) url(\"#lg-lens-p2\")",
+  "tierA_smallest": [
+   {
+    "w": 216,
+    "h": 900,
+    "cls": "app-sidebar"
+   },
+   {
+    "w": 387,
+    "h": 522,
+    "cls": "card p-4 status-sleep sg-4"
+   },
+   {
+    "w": 487,
+    "h": 88,
+    "cls": "card p-4 status-facts sg-5"
+   }
+  ],
+  "texts": [
+   {
+    "txt": "Ошибки: 0",
+    "tag": "SPAN",
+    "clip": {
+     "x": 256,
+     "y": 238,
+     "width": 81,
+     "height": 32
+    },
+    "on": {
+     "p10": 53.8,
+     "p50": 65.7,
+     "p90": 104.4,
+     "contrast_proxy": 2.19,
+     "n": 1950
+    },
+    "off": {
+     "p10": 53.8,
+     "p50": 65.7,
+     "p90": 104.9,
+     "contrast_proxy": 2.2,
+     "n": 1950
+    },
+    "mask": {
+     "iou": 0.9826,
+     "centroid_shift_px": 0.319,
+     "mask_px_on": 226,
+     "mask_px_off": 230
+    }
+   },
+   {
+    "txt": "Предупреждения: 0",
+    "tag": "SPAN",
+    "clip": {
+     "x": 333,
+     "y": 238,
+     "width": 132,
+     "height": 32
+    },
+    "on": {
+     "p10": 55.1,
+     "p50": 75.3,
+     "p90": 172.5,
+     "contrast_proxy": 5.27,
+     "n": 3276
+    },
+    "off": {
+     "p10": 55.0,
+     "p50": 75.0,
+     "p90": 172.5,
+     "contrast_proxy": 5.28,
+     "n": 3276
+    },
+    "mask": {
+     "iou": 1.0,
+     "centroid_shift_px": 0.0,
+     "mask_px_on": 511,
+     "mask_px_off": 511
+    }
+   }
+  ],
+  "max_rect_delta_px": 0.0
+ },
+ "modules-card@1440": {
+  "sel": ".module-card",
+  "route": "#/modules",
+  "width": 1440,
+  "tier": "a",
+  "bf_on": "blur(5px) saturate(140%) url(\"#lg-lens-p18\")",
+  "bf_off": "blur(5px) saturate(1.4)",
+  "bf_restored": "blur(5px) saturate(1.4) url(\"#lg-lens-p18\")",
+  "tierA_smallest": [
+   {
+    "w": 216,
+    "h": 900,
+    "cls": "app-sidebar"
+   },
+   {
+    "w": 356,
+    "h": 152,
+    "cls": "module-card card p-4"
+   },
+   {
+    "w": 356,
+    "h": 152,
+    "cls": "module-card card p-4"
+   }
+  ],
+  "texts": [
+   {
+    "txt": "Сводки чатов",
+    "tag": "DIV",
+    "clip": {
+     "x": 327,
+     "y": 306,
+     "width": 238,
+     "height": 28
+    },
+    "on": {
+     "p10": 38.7,
+     "p50": 40.7,
+     "p90": 71.0,
+     "contrast_proxy": 1.62,
+     "n": 5104
+    },
+    "off": {
+     "p10": 38.5,
+     "p50": 41.6,
+     "p90": 72.5,
+     "contrast_proxy": 1.66,
+     "n": 5104
+    },
+    "mask": {
+     "iou": 1.0,
+     "centroid_shift_px": 0.0,
+     "mask_px_on": 401,
+     "mask_px_off": 401
+    }
+   },
+   {
+    "txt": "Пересказы разговоров и к",
+    "tag": "DIV",
+    "clip": {
+     "x": 327,
+     "y": 326,
+     "width": 238,
+     "height": 24
+    },
+    "on": {
+     "p10": 38.7,
+     "p50": 40.9,
+     "p90": 126.2,
+     "contrast_proxy": 3.7,
+     "n": 4176
+    },
+    "off": {
+     "p10": 38.7,
+     "p50": 41.0,
+     "p90": 126.1,
+     "contrast_proxy": 3.7,
+     "n": 4176
+    },
+    "mask": {
+     "iou": 1.0,
+     "centroid_shift_px": 0.0,
+     "mask_px_on": 514,
+     "mask_px_off": 514
+    }
+   },
+   {
+    "txt": "· Источник: глобальная н",
+    "tag": "SPAN",
+    "clip": {
+     "x": 348,
+     "y": 354,
+     "width": 198,
+     "height": 24
+    },
+    "on": {
+     "p10": 38.7,
+     "p50": 39.9,
+     "p90": 144.5,
+     "contrast_proxy": 4.72,
+     "n": 3456
+    },
+    "off": {
+     "p10": 38.7,
+     "p50": 39.9,
+     "p90": 144.5,
+     "contrast_proxy": 4.72,
+     "n": 3456
+    },
+    "mask": {
+     "iou": 1.0,
+     "centroid_shift_px": 0.0,
+     "mask_px_on": 487,
+     "mask_px_off": 487
+    }
+   },
+   {
+    "txt": "★ В избранном",
+    "tag": "BUTTON",
+    "clip": {
+     "x": 291,
+     "y": 378,
+     "width": 123,
+     "height": 42
+    },
+    "on": {
+     "p10": 51.6,
+     "p50": 56.0,
+     "p90": 75.8,
+     "contrast_proxy": 1.45,
+     "n": 4212
+    },
+    "off": {
+     "p10": 50.5,
+     "p50": 55.9,
+     "p90": 75.7,
+     "contrast_proxy": 1.48,
+     "n": 4212
+    },
+    "mask": {
+     "iou": 0.9963,
+     "centroid_shift_px": 0.163,
+     "mask_px_on": 271,
+     "mask_px_off": 270
+    }
+   },
+   {
+    "txt": "Настроить",
+    "tag": "BUTTON",
+    "clip": {
+     "x": 525,
+     "y": 378,
+     "width": 95,
+     "height": 42
+    },
+    "on": {
+     "p10": 46.8,
+     "p50": 54.5,
+     "p90": 72.3,
+     "contrast_proxy": 1.47,
+     "n": 3204
+    },
+    "off": {
+     "p10": 46.8,
+     "p50": 54.5,
+     "p90": 72.1,
+     "contrast_proxy": 1.47,
+     "n": 3204
+    },
+    "mask": {
+     "iou": 1.0,
+     "centroid_shift_px": 0.0,
+     "mask_px_on": 178,
+     "mask_px_off": 178
+    }
+   }
+  ],
+  "max_rect_delta_px": 0.0
+ },
+ "sidebar@1440": {
+  "sel": ".app-sidebar",
+  "route": "#/",
+  "width": 1440,
+  "tier": "a",
+  "bf_on": "blur(5px) saturate(140%) url(\"#lg-lens\")",
+  "bf_off": "blur(5px) saturate(1.4)",
+  "bf_restored": "blur(5px) saturate(1.4) url(\"#lg-lens\")",
+  "tierA_smallest": [
+   {
+    "w": 216,
+    "h": 900,
+    "cls": "app-sidebar"
+   },
+   {
+    "w": 387,
+    "h": 522,
+    "cls": "card p-4 status-sleep sg-4"
+   },
+   {
+    "w": 487,
+    "h": 88,
+    "cls": "card p-4 status-facts sg-5"
+   }
+  ],
+  "texts": [
+   {
+    "txt": "AdminBot",
+    "tag": "SPAN",
+    "clip": {
+     "x": 45,
+     "y": 17,
+     "width": 81,
+     "height": 30
+    },
+    "on": {
+     "p10": 37.9,
+     "p50": 38.9,
+     "p90": 246.7,
+     "contrast_proxy": 14.11,
+     "n": 1800
+    },
+    "off": {
+     "p10": 37.8,
+     "p50": 38.8,
+     "p90": 246.7,
+     "contrast_proxy": 14.12,
+     "n": 1800
+    },
+    "mask": {
+     "iou": 1.0,
+     "centroid_shift_px": 0.0,
+     "mask_px_on": 477,
+     "mask_px_off": 477
+    }
+   },
+   {
+    "txt": "Аналитика",
+    "tag": "SPAN",
+    "clip": {
+     "x": 49,
+     "y": 311,
+     "width": 73,
+     "height": 28
+    },
+    "on": {
+     "p10": 33.0,
+     "p50": 33.9,
+     "p90": 147.8,
+     "contrast_proxy": 5.29,
+     "n": 1474
+    },
+    "off": {
+     "p10": 33.0,
+     "p50": 33.9,
+     "p90": 147.8,
+     "contrast_proxy": 5.29,
+     "n": 1474
+    },
+    "mask": {
+     "iou": 1.0,
+     "centroid_shift_px": 0.0,
+     "mask_px_on": 197,
+     "mask_px_off": 197
+    }
+   }
+  ],
+  "max_rect_delta_px": 0.0
+ },
+ "status-card-mobile@390": {
+  "sel": "main .card",
+  "route": "#/",
+  "width": 390,
+  "tier": "a",
+  "bf_on": "blur(5px) saturate(140%) url(\"#lg-lens-p1\")",
+  "bf_off": "blur(5px) saturate(1.4)",
+  "bf_restored": "blur(5px) saturate(1.4) url(\"#lg-lens-p1\")",
+  "tierA_smallest": [
+   {
+    "w": 374,
+    "h": 44,
+    "cls": "glass-surface ps-glass"
+   },
+   {
+    "w": 374,
+    "h": 70,
+    "cls": "status-counts card p-3"
+   },
+   {
+    "w": 374,
+    "h": 80,
+    "cls": "exec-preview card p-3 sg-7"
+   }
+  ],
+  "texts": [
+   {
+    "txt": "Ошибки: 0",
+    "tag": "SPAN",
+    "clip": {
+     "x": 32,
+     "y": 266,
+     "width": 81,
+     "height": 32
+    },
+    "on": {
+     "p10": 60.8,
+     "p50": 89.4,
+     "p90": 113.9,
+     "contrast_proxy": 2.26,
+     "n": 1950
+    },
+    "off": {
+     "p10": 59.2,
+     "p50": 89.0,
+     "p90": 113.9,
+     "contrast_proxy": 2.32,
+     "n": 1950
+    },
+    "mask": {
+     "iou": 0.9867,
+     "centroid_shift_px": 0.388,
+     "mask_px_on": 902,
+     "mask_px_off": 890
+    }
+   },
+   {
+    "txt": "Предупреждения: 0",
+    "tag": "SPAN",
+    "clip": {
+     "x": 109,
+     "y": 266,
+     "width": 132,
+     "height": 32
+    },
+    "on": {
+     "p10": 66.6,
+     "p50": 89.0,
+     "p90": 175.5,
+     "contrast_proxy": 4.56,
+     "n": 3276
+    },
+    "off": {
+     "p10": 66.6,
+     "p50": 89.0,
+     "p90": 175.5,
+     "contrast_proxy": 4.56,
+     "n": 3276
+    },
+    "mask": {
+     "iou": 1.0,
+     "centroid_shift_px": 0.0,
+     "mask_px_on": 648,
+     "mask_px_off": 648
+    }
+   }
+  ],
+  "max_rect_delta_px": 0.0
+ },
+ "analytics-card@1440": {
+  "sel": "main .card",
+  "route": "#/oversight",
+  "width": 1440,
+  "tier": "a",
+  "bf_on": "blur(5px) saturate(140%) url(\"#lg-lens-p2\")",
+  "bf_off": "blur(5px) saturate(1.4)",
+  "bf_restored": "blur(5px) saturate(1.4) url(\"#lg-lens-p2\")",
+  "tierA_smallest": [
+   {
+    "w": 216,
+    "h": 900,
+    "cls": "app-sidebar"
+   },
+   {
+    "w": 1192,
+    "h": 54,
+    "cls": "card glass-panel p-2 col-span-"
+   },
+   {
+    "w": 1192,
+    "h": 162,
+    "cls": "card glass-panel p-4 col-span-"
+   }
+  ],
+  "texts": [
+   {
+    "txt": "Обзор",
+    "tag": "BUTTON",
+    "clip": {
+     "x": 237,
+     "y": 130,
+     "width": 72,
+     "height": 44
+    },
+    "on": {
+     "p10": 24.2,
+     "p50": 40.9,
+     "p90": 76.5,
+     "contrast_proxy": 2.08,
+     "n": 2508
+    },
+    "off": {
+     "p10": 24.2,
+     "p50": 40.8,
+     "p90": 76.5,
+     "contrast_proxy": 2.08,
+     "n": 2508
+    },
+    "mask": {
+     "iou": 1.0,
+     "centroid_shift_px": 0.0,
+     "mask_px_on": 207,
+     "mask_px_off": 207
+    }
+   },
+   {
+    "txt": "Процессы",
+    "tag": "BUTTON",
+    "clip": {
+     "x": 305,
+     "y": 130,
+     "width": 93,
+     "height": 44
+    },
+    "on": {
+     "p10": 25.2,
+     "p50": 25.3,
+     "p90": 26.1,
+     "contrast_proxy": 1.01,
+     "n": 3306
+    },
+    "off": {
+     "p10": 24.3,
+     "p50": 25.2,
+     "p90": 26.1,
+     "contrast_proxy": 1.02,
+     "n": 3306
+    },
+    "mask": {
+     "iou": 1.0,
+     "centroid_shift_px": 0.0,
+     "mask_px_on": 175,
+     "mask_px_off": 175
+    }
+   },
+   {
+    "txt": "Запуски",
+    "tag": "BUTTON",
+    "clip": {
+     "x": 394,
+     "y": 130,
+     "width": 80,
+     "height": 44
+    },
+    "on": {
+     "p10": 26.3,
+     "p50": 26.4,
+     "p90": 27.3,
+     "contrast_proxy": 1.01,
+     "n": 2812
+    },
+    "off": {
+     "p10": 26.2,
+     "p50": 26.4,
+     "p90": 27.3,
+     "contrast_proxy": 1.01,
+     "n": 2812
+    },
+    "mask": {
+     "iou": 1.0,
+     "centroid_shift_px": 0.0,
+     "mask_px_on": 146,
+     "mask_px_off": 146
+    }
+   },
+   {
+    "txt": "Инциденты",
+    "tag": "BUTTON",
+    "clip": {
+     "x": 471,
+     "y": 130,
+     "width": 101,
+     "height": 44
+    },
+    "on": {
+     "p10": 27.3,
+     "p50": 27.7,
+     "p90": 44.4,
+     "contrast_proxy": 1.24,
+     "n": 3610
+    },
+    "off": {
+     "p10": 27.3,
+     "p50": 27.7,
+     "p90": 44.4,
+     "contrast_proxy": 1.24,
+     "n": 3610
+    },
+    "mask": {
+     "iou": 1.0,
+     "centroid_shift_px": 0.0,
+     "mask_px_on": 204,
+     "mask_px_off": 204
+    }
+   },
+   {
+    "txt": "Память и интеллект",
+    "tag": "BUTTON",
+    "clip": {
+     "x": 569,
+     "y": 130,
+     "width": 149,
+     "height": 44
+    },
+    "on": {
+     "p10": 29.4,
+     "p50": 32.8,
+     "p90": 50.5,
+     "contrast_proxy": 1.32,
+     "n": 5434
+    },
+    "off": {
+     "p10": 29.4,
+     "p50": 32.8,
+     "p90": 50.5,
+     "contrast_proxy": 1.32,
+     "n": 5434
+    },
+    "mask": {
+     "iou": 1.0,
+     "centroid_shift_px": 0.0,
+     "mask_px_on": 351,
+     "mask_px_off": 351
+    }
+   },
+   {
+    "txt": "Модели и расходы",
+    "tag": "BUTTON",
+    "clip": {
+     "x": 714,
+     "y": 130,
+     "width": 144,
+     "height": 44
+    },
+    "on": {
+     "p10": 27.0,
+     "p50": 29.3,
+     "p90": 47.1,
+     "contrast_proxy": 1.29,
+     "n": 5244
+    },
+    "off": {
+     "p10": 27.0,
+     "p50": 29.3,
+     "p90": 47.1,
+     "contrast_proxy": 1.29,
+     "n": 5244
+    },
+    "mask": {
+     "iou": 1.0,
+     "centroid_shift_px": 0.0,
+     "mask_px_on": 343,
+     "mask_px_off": 343
+    }
+   }
+  ],
+  "max_rect_delta_px": 0.0
+ },
+ "settings-card@1440": {
+  "sel": ".prov-block.card",
+  "route": "#/ai/llm",
+  "width": 1440,
+  "tier": "a",
+  "bf_on": "blur(5px) saturate(140%) url(\"#lg-lens-p4\")",
+  "bf_off": "blur(5px) saturate(1.4)",
+  "bf_restored": "blur(5px) saturate(1.4) url(\"#lg-lens-p4\")",
+  "tierA_smallest": [
+   {
+    "w": 216,
+    "h": 900,
+    "cls": "app-sidebar"
+   },
+   {
+    "w": 387,
+    "h": 413,
+    "cls": "prov-block card p-4 w-full"
+   },
+   {
+    "w": 387,
+    "h": 421,
+    "cls": "prov-block card p-4 w-full"
+   }
+  ],
+  "texts": [
+   {
+    "txt": "Прямые ответы",
+    "tag": "SPAN",
+    "clip": {
+     "x": 353,
+     "y": 269,
+     "width": 94,
+     "height": 24
+    },
+    "on": {
+     "p10": 39.3,
+     "p50": 48.4,
+     "p90": 146.5,
+     "contrast_proxy": 4.81,
+     "n": 1584
+    },
+    "off": {
+     "p10": 39.2,
+     "p50": 44.0,
+     "p90": 145.5,
+     "contrast_proxy": 4.75,
+     "n": 1584
+    },
+    "mask": {
+     "iou": 0.9843,
+     "centroid_shift_px": 0.088,
+     "mask_px_on": 255,
+     "mask_px_off": 251
+    }
+   },
+   {
+    "txt": "Основная модель Прямые о",
+    "tag": "DIV",
+    "clip": {
+     "x": 245,
+     "y": 269,
+     "width": 360,
+     "height": 24
+    },
+    "on": {
+     "p10": 37.7,
+     "p50": 42.4,
+     "p90": 128.9,
+     "contrast_proxy": 3.9,
+     "n": 6372
+    },
+    "off": {
+     "p10": 38.2,
+     "p50": 40.6,
+     "p90": 127.9,
+     "contrast_proxy": 3.81,
+     "n": 6372
+    },
+    "mask": {
+     "iou": 1.0,
+     "centroid_shift_px": 0.0,
+     "mask_px_on": 662,
+     "mask_px_off": 662
+    }
+   },
+   {
+    "txt": "Название модели",
+    "tag": "LABEL",
+    "clip": {
+     "x": 245,
+     "y": 289,
+     "width": 152,
+     "height": 32
+    },
+    "on": {
+     "p10": 34.4,
+     "p50": 40.7,
+     "p90": 115.8,
+     "contrast_proxy": 3.38,
+     "n": 3796
+    },
+    "off": {
+     "p10": 33.4,
+     "p50": 41.0,
+     "p90": 115.9,
+     "contrast_proxy": 3.42,
+     "n": 3796
+    },
+    "mask": {
+     "iou": 1.0,
+     "centroid_shift_px": 0.0,
+     "mask_px_on": 370,
+     "mask_px_off": 370
+    }
+   },
+   {
+    "txt": "Адрес сервера",
+    "tag": "LABEL",
+    "clip": {
+     "x": 245,
+     "y": 336,
+     "width": 152,
+     "height": 32
+    },
+    "on": {
+     "p10": 34.7,
+     "p50": 41.4,
+     "p90": 54.6,
+     "contrast_proxy": 1.32,
+     "n": 3796
+    },
+    "off": {
+     "p10": 34.5,
+     "p50": 41.4,
+     "p90": 54.6,
+     "contrast_proxy": 1.32,
+     "n": 3796
+    },
+    "mask": {
+     "iou": 1.0,
+     "centroid_shift_px": 0.0,
+     "mask_px_on": 304,
+     "mask_px_off": 304
+    }
+   },
+   {
+    "txt": "Модель",
+    "tag": "LABEL",
+    "clip": {
+     "x": 245,
+     "y": 384,
+     "width": 152,
+     "height": 32
+    },
+    "on": {
+     "p10": 34.1,
+     "p50": 38.8,
+     "p90": 49.5,
+     "contrast_proxy": 1.23,
+     "n": 3796
+    },
+    "off": {
+     "p10": 32.7,
+     "p50": 38.8,
+     "p90": 49.5,
+     "contrast_proxy": 1.25,
+     "n": 3796
+    },
+    "mask": {
+     "iou": 1.0,
+     "centroid_shift_px": 0.0,
+     "mask_px_on": 176,
+     "mask_px_off": 176
+    }
+   }
+  ],
+  "max_rect_delta_px": 0.0
+ },
+ "modal-card@1440": {
+  "sel": ".modal-card",
+  "route": "#/access/roles",
+  "width": 1440,
+  "tier": "a",
+  "bf_on": "blur(5px) saturate(140%) url(\"#lg-lens-p7\")",
+  "bf_off": "blur(5px) saturate(1.4)",
+  "bf_restored": "blur(5px) saturate(1.4) url(\"#lg-lens-p7\")",
+  "tierA_smallest": [
+   {
+    "w": 216,
+    "h": 900,
+    "cls": "app-sidebar"
+   },
+   {
+    "w": 331,
+    "h": 100,
+    "cls": "hub-card"
+   },
+   {
+    "w": 331,
+    "h": 100,
+    "cls": "hub-card"
+   }
+  ],
+  "texts": [
+   {
+    "txt": "Матрица ролей",
+    "tag": "H2",
+    "clip": {
+     "x": 433,
+     "y": 203,
+     "width": 130,
+     "height": 32
+    },
+    "on": {
+     "p10": 12.2,
+     "p50": 12.4,
+     "p90": 120.0,
+     "contrast_proxy": 4.42,
+     "n": 3224
+    },
+    "off": {
+     "p10": 11.2,
+     "p50": 12.4,
+     "p90": 120.0,
+     "contrast_proxy": 4.45,
+     "n": 3224
+    },
+    "mask": {
+     "iou": 1.0,
+     "centroid_shift_px": 0.0,
+     "mask_px_on": 763,
+     "mask_px_off": 763
+    }
+   },
+   {
+    "txt": "Роли",
+    "tag": "DIV",
+    "clip": {
+     "x": 418,
+     "y": 263,
+     "width": 604,
+     "height": 28
+    },
+    "on": {
+     "p10": 14.0,
+     "p50": 16.4,
+     "p90": 21.1,
+     "contrast_proxy": 1.06,
+     "n": 13156
+    },
+    "off": {
+     "p10": 14.0,
+     "p50": 16.4,
+     "p90": 22.0,
+     "contrast_proxy": 1.07,
+     "n": 13156
+    },
+    "mask": {
+     "iou": 1.0,
+     "centroid_shift_px": 0.0,
+     "mask_px_on": 191,
+     "mask_px_off": 191
+    }
+   },
+   {
+    "txt": "Редактировать",
+    "tag": "BUTTON",
+    "clip": {
+     "x": 701,
+     "y": 297,
+     "width": 119,
+     "height": 42
+    },
+    "on": {
+     "p10": 23.6,
+     "p50": 24.9,
+     "p90": 33.9,
+     "contrast_proxy": 1.12,
+     "n": 4068
+    },
+    "off": {
+     "p10": 23.6,
+     "p50": 24.9,
+     "p90": 33.9,
+     "contrast_proxy": 1.12,
+     "n": 4068
+    },
+    "mask": {
+     "iou": 1.0,
+     "centroid_shift_px": 0.0,
+     "mask_px_on": 268,
+     "mask_px_off": 268
+    }
+   },
+   {
+    "txt": "Переименовать",
+    "tag": "BUTTON",
+    "clip": {
+     "x": 817,
+     "y": 297,
+     "width": 126,
+     "height": 42
+    },
+    "on": {
+     "p10": 18.8,
+     "p50": 19.8,
+     "p90": 23.8,
+     "contrast_proxy": 1.05,
+     "n": 4320
+    },
+    "off": {
+     "p10": 18.8,
+     "p50": 19.8,
+     "p90": 23.8,
+     "contrast_proxy": 1.05,
+     "n": 4320
+    },
+    "mask": {
+     "iou": 1.0,
+     "centroid_shift_px": 0.0,
+     "mask_px_on": 272,
+     "mask_px_off": 272
+    }
+   },
+   {
+    "txt": "Удалить",
+    "tag": "BUTTON",
+    "clip": {
+     "x": 939,
+     "y": 297,
+     "width": 82,
+     "height": 42
+    },
+    "on": {
+     "p10": 17.8,
+     "p50": 19.0,
+     "p90": 23.0,
+     "contrast_proxy": 1.05,
+     "n": 2736
+    },
+    "off": {
+     "p10": 17.1,
+     "p50": 18.8,
+     "p90": 22.8,
+     "contrast_proxy": 1.05,
+     "n": 2736
+    },
+    "mask": {
+     "iou": 1.0,
+     "centroid_shift_px": 0.0,
+     "mask_px_on": 139,
+     "mask_px_off": 139
+    }
+   },
+   {
+    "txt": "Создать",
+    "tag": "BUTTON",
+    "clip": {
+     "x": 929,
+     "y": 350,
+     "width": 92,
+     "height": 47
+    },
+    "on": {
+     "p10": 33.8,
+     "p50": 45.3,
+     "p90": 85.0,
+     "contrast_proxy": 2.14,
+     "n": 3526
+    },
+    "off": {
+     "p10": 33.8,
+     "p50": 45.3,
+     "p90": 85.2,
+     "contrast_proxy": 2.15,
+     "n": 3526
+    },
+    "mask": {
+     "iou": 0.998,
+     "centroid_shift_px": 0.048,
+     "mask_px_on": 988,
+     "mask_px_off": 990
+    }
+   }
+  ],
+  "max_rect_delta_px": 0.0
+ }
+}

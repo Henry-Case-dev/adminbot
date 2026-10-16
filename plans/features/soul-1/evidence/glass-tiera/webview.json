@@ -1,0 +1,133 @@
+{
+ "android_tma_visual": {
+  "probe": {
+   "tierA": true,
+   "reason": "probe-chromium",
+   "engine": "chromium",
+   "svgRender": true,
+   "backdrop": true,
+   "ms": 6
+  },
+  "tierA_nodes": 16,
+  "lens_nodes": 16,
+  "diag": null
+ },
+ "android_tma": {
+  "probe": {
+   "tierA": true,
+   "reason": "probe-chromium",
+   "engine": "chromium",
+   "svgRender": true,
+   "backdrop": true,
+   "ms": 5
+  },
+  "surface": {
+   "x": 8,
+   "y": 394,
+   "w": 374,
+   "h": 141,
+   "tier": "a",
+   "declared": "a",
+   "reason": "probe-chromium",
+   "downgraded": null,
+   "nested": null,
+   "bf": "blur(5px) saturate(1.4) url(\"#lg-lens-p6\")",
+   "inlineBf": "blur(5px) saturate(140%) url(\"#lg-lens-p6\")",
+   "bg": "rgba(21, 27, 42, 0.5)"
+  },
+  "lens": {
+   "filter": "lg-lens-p6",
+   "bf": "blur(5px) saturate(140%) url(\"#lg-lens-p6\")",
+   "map": {
+    "w": "374",
+    "h": "141"
+   },
+   "scale": "16",
+   "pool": 17
+  },
+  "delens": {
+   "bf": "blur(5px) saturate(1.4)",
+   "inlineBf": "blur(5px) saturate(140%)"
+  },
+  "metric_lens": {
+   "edge_max": 7.0,
+   "edge_med": 6.5,
+   "edge_n": 2,
+   "center_max": 0.0,
+   "center_med": 0.0,
+   "center_n": 19
+  },
+  "pattern": {
+   "inside": 24.61,
+   "outside": 21.25,
+   "ratio": 1.158
+  },
+  "shifts": [
+   -7.0,
+   -5.0,
+   -4.0,
+   -2.0,
+   -1.0,
+   -1.0,
+   0.0,
+   0.0,
+   0.0,
+   0.0,
+   0.0,
+   0.0,
+   0.0,
+   0.0,
+   0.0,
+   0.0,
+   0.0,
+   0.0,
+   0.0,
+   0.0,
+   0.0,
+   0.0,
+   0.0,
+   0.0,
+   0.0,
+   0.0,
+   0.0,
+   0.0,
+   0.0,
+   0.0,
+   0.0,
+   0.0,
+   0.0,
+   0.0,
+   0.0,
+   0.0,
+   0.0,
+   0.0,
+   1.0,
+   2.0,
+   3.0,
+   5.0,
+   6.0
+  ]
+ },
+ "webkit_like_fallback": {
+  "probe": {
+   "tierA": false,
+   "reason": "engine-unproven-backdrop-url",
+   "engine": "unknown",
+   "svgRender": true,
+   "backdrop": true,
+   "ms": 5
+  },
+  "nodes": 18,
+  "lensNodes": 0,
+  "tiers": {
+   "b": 16,
+   "c": 2
+  },
+  "reasons": {
+   "engine-unproven-backdrop-url": 16,
+   "tier-dense": 2
+  },
+  "nested": 0,
+  "downgraded": 16
+ }
+}
