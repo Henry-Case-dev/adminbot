@@ -5,14 +5,22 @@
      для приёмки U08.5 — 1:1 crops, hit-тест elementFromPoint, контраст,
      reduced-motion, до/после.
      CSP-safe: без inline-скриптов/обработчиков; стили и логика — внешние.
-     Запуск: любой статик-сервер от корня web/ (см. отчёт лейна W2-GLASS). -->
+     SOUL-13.2 / v6.3 §14 (REV-W2-N3): страница вынесена из публично
+     смонтированного `web/static/` (анонимный `/static/...` → 404) и живёт
+     ТОЛЬКО как test-fixture. Запуск (разрешённая test-среда): статик-сервер
+     от КОРНЯ репозитория — `python -m http.server 8087 --directory <repo>`,
+     затем http://127.0.0.1:8087/tests/glass-teststand/glass-teststand.html
+     (пути к боевым ассетам относительные `../../web/static/...`).
+     Гард от возврата в прод-static: tests/test_webapp_teststand_guard.py
+     + tests/js/glass_probe_test.js. Отчёт лейна W2-GLASS — в
+     plans/features/asap8-v6-3-live-correction/w2-reports/. -->
 <html lang="ru">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>AdminBot — Glass Test Stand (U08)</title>
-  <link rel="stylesheet" href="/static/app.css?v=stand">
-  <link rel="stylesheet" href="/static/glass-teststand.css?v=stand">
+  <link rel="stylesheet" href="../../web/static/app.css?v=stand">
+  <link rel="stylesheet" href="glass-teststand.css?v=stand">
 </head>
 <body class="stand">
   <!-- Копия SVG-defs фильтра линзы из web/index.html (#lg-lens) — стенд
@@ -174,7 +182,7 @@
     </div>
   </main>
 
-  <script src="/static/glass-probe.js?v=stand"></script>
-  <script src="/static/glass-teststand.js?v=stand"></script>
+  <script src="../../web/static/glass-probe.js?v=stand"></script>
+  <script src="glass-teststand.js?v=stand"></script>
 </body>
 </html>

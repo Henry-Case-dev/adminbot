@@ -1,0 +1,22 @@
+{
+  "lane": "V63-TAILS",
+  "probe": "anonymous GET via fastapi TestClient over create_app (real mounts web/app.py:338,344-347; stub ConfigCache)",
+  "tree": "HEAD d9b7f389, pre-fix worktree (stand still at web/static/glass-teststand.*)",
+  "captured": "2026-10-16",
+  "paths": {
+    "/static/glass-teststand.html": {"status": 200, "content_length": 19551},
+    "/web/static/glass-teststand.html": {"status": 200, "content_length": 19551},
+    "/web/glass-teststand.html": {"status": 404, "content_length": 22},
+    "/static/glass-teststand.css": {"status": 200, "content_length": 3772},
+    "/static/glass-teststand.js": {"status": 200, "content_length": 5183},
+    "/web/static/glass-teststand.css": {"status": 200, "content_length": 3772},
+    "/web/static/vendor/lg-lens-map.png": {"status": 200, "content_length": 6695},
+    "/static/glass-probe.js": {"status": 200, "content_length": 11657},
+    "/static/glass.js": {"status": 200, "content_length": 8616},
+    "/static/app.css": {"status": 200, "content_length": 195868},
+    "/web/": {"status": 200, "content_length": 728255},
+    "/web/index.html": {"status": 200, "content_length": 728255},
+    "/healthz": {"status": 200, "content_length": 35}
+  },
+  "verdict": "REPRODUCED: the test-only stand page and its assets are served anonymously (200) by both public mounts"
+}

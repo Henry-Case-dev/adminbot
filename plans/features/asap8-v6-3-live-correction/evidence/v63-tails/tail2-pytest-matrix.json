@@ -1,0 +1,80 @@
+{
+  "lane": "V63-TAILS (tail-2, SOUL-13.6)",
+  "date": "2026-10-16",
+  "measured_by": "FIX-TAILS-EV (re-measure after review-tails F1; supersedes the run on HEAD d9b7f389)",
+  "tree": "HEAD 9e63b3cf + uncommitted tails bundle (FIX-TAILS-EV; requirements.txt + evidence/report only)",
+  "comparison": "same tree, same 6 node ids, two interpreters — reproduced 2026-10-16",
+  "interpreters": {
+    "canonical_venv": {
+      "python": ".venv\\Scripts\\python.exe (CPython 3.12.0)",
+      "aiogram": "3.31.0",
+      "trafilatura": "2.2.0 (importable)",
+      "lxml_html_clean": "0.4.5",
+      "pytest": "9.1.1",
+      "pytest_timeout": "installed",
+      "result": "6 passed in 3.26s"
+    },
+    "system": {
+      "python": "py -3 (CPython 3.12.0)",
+      "aiogram": "3.29.1",
+      "trafilatura": "2.0.0 installed but NOT importable (ImportError: lxml.html.clean → lxml_html_clean absent) → web_content_extractor treats it as None",
+      "lxml_html_clean": "absent",
+      "pytest": "9.1.1",
+      "pytest_timeout": "absent (warnings 'Unknown config option: timeout' / 'timeout_method' → --timeout=90 from pytest.ini is NOT enforced here)",
+      "result": "4 failed, 2 passed, 2 warnings in 3.12s"
+    }
+  },
+  "requirements_pins": ["aiogram>=3.31.0,<4.0.0", "trafilatura>=2.2.0,<3.0", "lxml_html_clean>=0.4.1 (added by FIX-TAILS-EV, F2)", "pytest-timeout>=2.3.0"],
+  "tests": [
+    {
+      "node_id": "tests/test_outgoing_guard_round1022.py::TestTelegramSendWrappers::test_send_rich_message_sanitizes_and_uses_html_mode",
+      "root_cause": "aiogram 3.29.1 has no InputRichMessageMedia (services/telegram_send.py:181-184 imports it); requirement pin is aiogram>=3.31.0",
+      "class": "environment-dependent (interpreter) — artefact, not a product defect",
+      "action": "none (canonical venv aiogram 3.31.0)",
+      "venv": "PASS", "py3": "FAIL (ImportError)"
+    },
+    {
+      "node_id": "tests/test_outgoing_guard_round1022.py::TestTelegramSendWrappers::test_send_rich_message_markdown_cover_uses_markdown_link",
+      "root_cause": "same aiogram 3.29.1 ImportError of InputRichMessageMedia",
+      "class": "environment-dependent (interpreter) — artefact, not a product defect",
+      "action": "none",
+      "venv": "PASS", "py3": "FAIL (ImportError)"
+    },
+    {
+      "node_id": "tests/test_summary_publish_integration_round1026.py::TestOnDelivery::test_on_l1_not_usable_level2_l2_publishes_article",
+      "root_cause": "_rich_media_supported() (services/summary_generator.py:329-350) is False on aiogram<3.30 → publish takes _deliver_l2_plain, so gen._deliver_l2_rich is awaited 0 times",
+      "class": "environment-dependent (interpreter) — artefact, not a product defect",
+      "action": "none",
+      "venv": "PASS", "py3": "FAIL (await count 0)"
+    },
+    {
+      "node_id": "tests/test_summary_asap2_failsoft_round1027.py::test_t3959_10_l1_dead_level2_l2_called_and_cover_fallback",
+      "root_cause": "same rich-channel gate on aiogram 3.29.1 (rich.assert_awaited_once → awaited 0)",
+      "class": "environment-dependent (interpreter) — artefact, not a product defect",
+      "action": "none",
+      "venv": "PASS", "py3": "FAIL (await count 0)"
+    },
+    {
+      "node_id": "tests/test_mca02_safe_fetch_round1027.py::TestOffParityAndTrusted::test_web_extractor_blocks_destination_without_fallback",
+      "root_cause": "was: trafilatura unavailable → _extract_trafilatura raised 'trafilatura is not installed' BEFORE the safe_fetch guard (old services/web_content_extractor.py:147-151), so the cascade reached tavily/exa. CLOSED by 9e63b3cf (SOUL-13/SSRF-guard): the guard state is read first and pre-flight runs before the level-1 refusal, so the destination never reaches cloud fallbacks even without trafilatura",
+      "class": "closed defect (guard order) + formation-layer packaging defect (trafilatura unimportable in a clean install — F2, closed in requirements.txt by FIX-TAILS-EV)",
+      "action": "none in this lane (guard fixed in 9e63b3cf; packaging line added to requirements.txt)",
+      "venv": "PASS", "py3": "PASS (after 9e63b3cf)"
+    },
+    {
+      "node_id": "tests/test_mca16_experience_block_d_round1039.py::test_no_per_message_llm_reflection_module_is_llm_free",
+      "root_cause": "stale pin: since v6.3 B02 (commit 1e24eca4, review-w1 B02 APPROVED) services/mca_experience_jobs.py hosts the semantic extractor with ONE bounded LLM call per batch (step='semantic_extract'), so 'module is LLM-free' is superseded",
+      "class": "stale re-pin",
+      "action": "re-pinned to exact stronger checks (single call site inside _semantic_llm_batch; canonical batch bounds; llm param optional default None)",
+      "venv": "PASS", "py3": "PASS (env-independent → confirms pin, not env)"
+    }
+  ],
+  "verdict": "canonical .venv: 6/6 PASS. py -3: 4 FAIL are interpreter artefacts (aiogram 3.29.1 < pin 3.31.0) and 2 PASS; none of the 6 is an open product defect. The only real defect this comparison surfaced is the formation-layer packaging defect (F2), now closed in requirements.txt.",
+  "note": "'pre-existing' alone was not accepted: every row has a reproduced interpreter/behaviour comparison on the same tree.",
+  "falsification_tail1_guards": {
+    "action": "temporarily re-added web/static/glass-teststand.html (stub), then removed",
+    "node": "tests/js/glass_probe_test.js FAILS ('стенд НЕ в публичном static: web/static/glass-teststand.html'); after removal exit 0",
+    "pytest": "tests/test_webapp_teststand_guard.py FAILS 2 tests (anonymous 200 + tree scan); after removal 5 passed",
+    "rerun_after_fix_tails_ev": "node tests/js/glass_probe_test.js → 'JS-UNIT-OK glass-probe' (exit 0); .venv pytest tests/test_webapp_teststand_guard.py -q → '5 passed, 1 warning in 3.40s'"
+  }
+}

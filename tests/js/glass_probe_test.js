@@ -106,10 +106,24 @@ res.then((r) => {
       'url(#lg-lens) только в backdrop-filter (не на форграунде): ' + u.trim());
   }
 
-  // ── 5. Стенд и карта линзы ───────────────────────────────────────────────
-  for (const f of ['web/static/glass-teststand.html', 'web/static/glass-teststand.css',
-    'web/static/glass-teststand.js', 'web/static/vendor/lg-lens-map.png']) {
+  // ── 5. Стенд (test-only) и карта линзы ──────────────────────────────────
+  // SOUL-13.2 / v6.3 §14 (REV-W2-N3): стенд ВЫНЕСЕН из публично
+  // смонтированного web/static в tests/glass-teststand (анонимный
+  // /static|/web/static/glass-teststand.html → 404). Прод-ассеты
+  // (glass-probe.js, lg-lens-map.png) остаются на месте.
+  for (const f of ['tests/glass-teststand/glass-teststand.html',
+    'tests/glass-teststand/glass-teststand.css',
+    'tests/glass-teststand/glass-teststand.js',
+    'web/static/glass-probe.js', 'web/static/vendor/lg-lens-map.png']) {
     assert.ok(fs.existsSync(path.join(ROOT, ...f.split('/'))), 'существует ' + f);
+  }
+  // Гард: возврат страницы стенда в публичный static снова валит тест
+  // (страница анонимно отдаётся монтами /static и /web без auth).
+  for (const f of ['web/static/glass-teststand.html',
+    'web/static/glass-teststand.css', 'web/static/glass-teststand.js',
+    'web/glass-teststand.html']) {
+    assert.ok(!fs.existsSync(path.join(ROOT, ...f.split('/'))),
+      'стенд НЕ в публичном static: ' + f);
   }
 
   console.log('JS-UNIT-OK glass-probe');

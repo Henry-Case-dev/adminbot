@@ -1,0 +1,31 @@
+{
+  "server_root": "C:\\Code\\Python\\adminbot",
+  "port": 50677,
+  "urls": {
+    "/tests/glass-teststand/glass-teststand.html": {
+      "status": 200,
+      "bytes": 20263,
+      "content_type": "text/html"
+    },
+    "/tests/glass-teststand/../../web/static/app.css": {
+      "status": 200,
+      "bytes": 195890,
+      "content_type": "text/css"
+    },
+    "/tests/glass-teststand/glass-teststand.css": {
+      "status": 200,
+      "bytes": 3772,
+      "content_type": "text/css"
+    },
+    "/tests/glass-teststand/../../web/static/glass-probe.js": {
+      "status": 200,
+      "bytes": 11657,
+      "content_type": "text/javascript"
+    },
+    "/tests/glass-teststand/glass-teststand.js": {
+      "status": 200,
+      "bytes": 5183,
+      "content_type": "text/javascript"
+    }
+  }
+}
