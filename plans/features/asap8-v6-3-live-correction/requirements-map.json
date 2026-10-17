@@ -3252,6 +3252,12 @@
      "ref": "plans/features/asap8-v6-3-live-correction/evidence/recap-25880/_31c16555_suite_ui_asap8_w2_shell_e2e.log",
      "observation": "re-verified at 31c16555: ui_asap8_w2_shell_e2e.py (u02:*) на дереве деплоя — dropdown <768, полный список 7 разделов без «Логи», ARIA/deep-link/возврат; W2-SHELL-E2E-OK (evidence/recap-25880/_31c16555_suite_ui_asap8_w2_shell_e2e.log); кадры analytics_overview/processes 8 классов — evidence/recap-25880/",
      "type": "ui"
+    },
+    {
+     "candidate_commit": "f19b514ab3ee2ef316725cbe23dac39ed779bce1",
+     "ref": "Регрессионный trail (REV-REL-25887 §6б): plans/features/soul-1/review-dropdown-wg.md + plans/features/soul-1/evidence/dropdown-wg-fix-25886/README.md + plans/features/soul-1/release-2.58.87-report.md §4г + plans/features/soul-1/evidence/release-25887/preflight-ui-shell-e2e.txt, preflight-ab-tooth-u024.txt",
+     "observation": "Контракт REQ-U02 ломался WG-слоем: релиз 2.58.85 внёс inline overflow/clip слоя рефракции → открытый dropdown «Аналитика» обрезался и перехватывал тап (REV-DROPDOWN-WG BEFORE: hit=DIV.card glass-panel, тап не переходил). Trail: WG 2.58.85 → REV-DROPDOWN `4b4ba983` Approved → fix `7d3f0ca6` (master) → порт `f19b514a` (релизная линия) → 2.58.87 `82e110d6` (healthz 2.58.87). После фикса: shell-e2e W2-SHELL-E2E-OK (failed_checks {}, console_errors []), зуб U02.4 RED→GREEN, живые прод-байты app.css d700df753d6d. Живой тап из реального Telegram — owner-check (auth-гейт вне Telegram). Статус строки не пересматривается.",
+     "type": "ui"
     }
    ]
   },
@@ -3308,6 +3314,12 @@
      "ref": "plans/features/asap8-v6-3-live-correction/evidence/recap-25880/_31c16555_suite_ui_asap8_w2_shell_e2e.log",
      "observation": "re-verified at 31c16555: ui_asap8_w2_shell_e2e.py (u02:*) на дереве деплоя — dropdown <768, полный список 7 разделов без «Логи», ARIA/deep-link/возврат; W2-SHELL-E2E-OK (evidence/recap-25880/_31c16555_suite_ui_asap8_w2_shell_e2e.log); кадры analytics_overview/processes 8 классов — evidence/recap-25880/",
      "type": "ui"
+    },
+    {
+     "candidate_commit": "f19b514ab3ee2ef316725cbe23dac39ed779bce1",
+     "ref": "Регрессионный trail (REV-REL-25887 §6б): plans/features/soul-1/review-dropdown-wg.md + plans/features/soul-1/evidence/dropdown-wg-fix-25886/README.md + plans/features/soul-1/release-2.58.87-report.md §4г + plans/features/soul-1/evidence/release-25887/preflight-ui-shell-e2e.txt, preflight-ab-tooth-u024.txt",
+     "observation": "Контракт U02.2 ломался тем же WG-клипом (2.58.85): панель «Раздел: [Обзор ▾]» не открывалась поверх карточек — тап перехватывался refraction-поверхностью (REV-DROPDOWN-WG BEFORE). Фикс `7d3f0ca6`/`f19b514a` → 2.58.87 `82e110d6`: после фикса тап переходит (hit=BUTTON.oversight-mobile-option, → `#/oversight?tab=memory` на 390×844 и 667×375), u02:триггерОбновился=True, u02:панельЗакрылась=True; прод-байты app.css d700df753d6d. Живой тап из реального Telegram — owner-check. Статус строки не пересматривается.",
+     "type": "ui"
     }
    ]
   },
@@ -3335,6 +3347,12 @@
      "candidate_commit": "31c165556dbe8c289606bd6bee1af49bb72d5794",
      "ref": "plans/features/asap8-v6-3-live-correction/evidence/recap-25880/_31c16555_suite_ui_asap8_w2_shell_e2e.log",
      "observation": "re-verified at 31c16555: ui_asap8_w2_shell_e2e.py (u02:*) на дереве деплоя — dropdown <768, полный список 7 разделов без «Логи», ARIA/deep-link/возврат; W2-SHELL-E2E-OK (evidence/recap-25880/_31c16555_suite_ui_asap8_w2_shell_e2e.log); кадры analytics_overview/processes 8 классов — evidence/recap-25880/",
+     "type": "ui"
+    },
+    {
+     "candidate_commit": "f19b514ab3ee2ef316725cbe23dac39ed779bce1",
+     "ref": "Регрессионный trail (REV-REL-25887 §6б): plans/features/soul-1/review-dropdown-wg.md + plans/features/soul-1/evidence/dropdown-wg-fix-25886/README.md + plans/features/soul-1/release-2.58.87-report.md §4г + plans/features/soul-1/evidence/release-25887/preflight-ui-shell-e2e.txt, preflight-ab-tooth-u024.txt",
+     "observation": "Контракт U02.3 ломался тем же WG-клипом (2.58.85): панель открывалась обрезанной, перехода по опциям/глубоких ссылок из открытой панели не происходило (REV-DROPDOWN-WG BEFORE). Фикс `7d3f0ca6`/`f19b514a` → 2.58.87 `82e110d6`: после фикса u02:hashTabMemory=True, u02:триггерОбновился=True, u02:панельЗакрылась=True, console_errors []; shell-e2e W2-SHELL-E2E-OK на прод-байтах. Живой тап — owner-check. Статус строки не пересматривается.",
      "type": "ui"
     }
    ]

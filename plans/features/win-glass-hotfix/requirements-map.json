@@ -762,6 +762,14 @@
           "observation": "Слой копирует только фон (#polygon-background), живой DOM/текст не клонируется, слой под контентом (pointer-events:none); текст и контролы без url()-фильтров.",
           "artifact_path": "plans/features/win-glass-hotfix/report.md",
           "artifact_sha256": "369ac17e1ab08160750eebcc0413f86aa7ee4ba6edd05a50cc08ff6457e7c970"
+        },
+        {
+          "candidate_commit": "f19b514ab3ee2ef316725cbe23dac39ed779bce1",
+          "ref": "Cross-ref (REV-REL-25887 §6б): plans/features/soul-1/review-dropdown-wg.md; plans/features/soul-1/evidence/dropdown-wg-fix-25886/README.md; plans/features/soul-1/release-2.58.87-report.md §4г",
+          "observation": "Первопричина регрессии U02 mobile dropdown («Аналитика») — inline overflow/clip слоя рефракции WG-релиза 2.58.85 на glass-карточке (обрезка открытой панели + перехват тапа). Исправлено вне WG-линии: `7d3f0ca6` (master) / `f19b514a` (порт на релизную линию), задеплоено 2.58.87 (`82e110d6`; живые байты app.css d700df753d6d; shell-e2e W2-SHELL-E2E-OK + зуб U02.4 RED→GREEN). Класс «popup внутри клипа refraction-поверхности» остаётся общим риском (риск-нота dropdown README §6); статус WG-строки не пересматривается.",
+          "artifact_path": "plans/features/soul-1/evidence/dropdown-wg-fix-25886/README.md",
+          "artifact_sha256": "297efd7192032e3fc2c544fb937464bcef114fb365fb7482733b66e04b72bb58",
+          "type": "ui"
         }
       ]
     },
