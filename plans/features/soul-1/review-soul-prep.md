@@ -1,54 +1,53 @@
-﻿# SOUL-PREP — независимая проверка подготовки релиза SOUL-1 (review-soul-prep, 18.10.2026)
+﻿# SOUL-PREP — проверка подготовки релиза SOUL-1 — РЕВИЗИЯ R2 (18.10.2026)
 
-## Привязка проверки (exact candidate)
+## Привязка (exact candidate)
 
 | Поле | Значение |
 |---|---|
-| Артефакт | `plans/features/soul-1/soul-release-prep.md` (68 строк) + `evidence/soul-prep/**` (7 файлов) |
-| Прод | `0b7a0aca` (2.58.84), APP_VERSION сверен: `config/settings.py:3290 = "2.58.84"` |
-| Кандидат релиза | master `d98e55c6` (runtime == ревью-commit `6094a2cf`; HEAD `db6a3d0a` — доки); мой прогон: `git diff 6094a2cf d98e55c6 -- services web` = пусто, то же vs `db6a3d0a` |
-| Ветка tree-port (мой прогон) | worktree от `0b7a0aca` + checkout master-путей → tree `6d51bdb8`; `git diff <tree> 6094a2cf -- services web` = пусто; дельта = 505 файлов |
-| Изоляция | прогоны в `OPENCODE_WORKFLOW_SCRATCH/soulprep-review`, `.../soulprep-trial-a` (после проверки удалены); рабочее дерево не менялось |
+| Артефакт | `plans/features/soul-1/soul-release-prep.md` — 93 строки, коммит `b4ea6779` (единственный файл) |
+| Прод / релиз-база | `0b7a0aca` (2.58.84) |
+| Кандидат | `b4ea6779`/`db6a3d0a`; runtime == `6094a2cf` (в изолированном worktree `git diff 6094a2cf HEAD -- services web` = пусто) |
+| Репетиция | `OPENCODE_WORKFLOW_SCRATCH/soulprep-r2` (worktree на `b4ea6779`), скрипт `.../review-soul-prep/r2_probe.py`; после проверки worktree удалён, дерево не менялось |
+| Директива-коррекция | `plans/features/soul-1/source-release-correction-2026-10-18.md` (5 пунктов + требование к отчёту) |
 
-## Итог: **Needs Fixes** (2 блокера документационных + 1 точность; кода менять не нужно)
+## Итог R2: **Needs Fixes** (4 микроправки в одном файле, кода не менять)
 
-## Что проверено моим исполнением (не переиспользовано)
+## F1 (R1) — **закрыт** (проверено исполнением)
 
-1. **Якоря.** Диффы (3×) пусты; tree-port даёт web-байты, равные ревью-коммиту; sha256-12 содержимого совпали с таблицей review-fs.md §2 (13/13-блоб-отпечатки): policy `96db06425079`, app.css `b17fddf4d4f8`, index.html `d2c91f46314b`, app.js `2eea2e452449`. Дельта 505 = заявленной (services 38, web 6, config 1, tests 104, tools 14, plans 340, README.md, AGENTS.md). `plans/features/cfg` в коммите отсутствует; scratch/node_modules в дереве нет.
-2. **Способ (b).** Воспроизведено: cherry-pick W1→W3 от прода даёт конфликт ровно в `services/prompt_registry.py`; cherry-pick W6 (`a5902b15`, `-n`) — без конфликтов, 115 файлов, блобы `cc4f17d0`/`c95d3a8b`/`d0e232e5` (значения evidence совпали поштучно). Отказ от (a) обоснован; в документе неточность: цитируемые «master»-значения — это блобы W6-коммита, а финальный target-app.css (`d0e232e5`) совпал с trial-байтами (см. F3).
-3. **Withheld-классификация** (пересчёт кодом кандидата, `services/prompt_registry.py`): класс удержания — 11 ключей (совпадают с evidence); **11/11 canon-equal** (`sha12(live) == sha12(factory_text)`), владельческих кастомов 0; маркеров 11/11; правила `LEGACY_PERSONA_RULES` = 9; вычистка срабатывает ровно на 12 канонах (11 удержания + `verbilizer_mode_deep_research`); `factory_set_fingerprint()` = `0fc99f73d646`. Non-canon: `summary_editor_system_prompt`, `verbilizer_default_mode` (+ `summary_cover_style_id` = пустой селектор, «factory=n/a», для строки байт-эквивалент кодового дефолта). Рекомендация «не удалять/не переписывать» не противоречит директивам и скрытого удаления не содержит (данные не мутируются; `rollback_legacy_speech` есть).
-4. **Снимок прода внутренне согласован:** HEAD/healthz 2.58.84; `flags.*` = **97**; `prompts.*` = 25; SOUL-ключей среди флагов нет; чат `-1002661910336` — 23 override, 4 `prompts.*` с заявленными длинами (3484/110/12/6); SQLite `user_version=35`, `humor_samples` отсутствует; v36 аддитивна и self-guarded (`_table_exists` + PRAGMA, PG no-op); в дереве прода нет `prompt_registry/style_policy/speech.py`.
-5. **Карта/гейт:** `check --stage plan` обеих карт = `errors=0` (мой прогон). Release-стадия красная — воспроизведено: main `errors=214`, amendment `errors=88` (asap8 `errors=242`).
-6. **Runbook исполнимо:** все файлы существуют; JS-тестов у кандидата ровно **86** (87-й — незакоммиченный чужой файл, см. F3); `pytest tests/test_soul1_composer_parity_off.py` = **13 passed**; `gen_param_registry_round1025.py --check` = **575 == REGISTRY**; WARNING R17-safe (`key/block/reason/stored_sha/stored_chars`, без текста); `character_layers_enabled`/`experience_lessons_enabled` = ON по дефолту, W5-лимиты = 0 (паритет) → лишних осей нет.
-7. **Re-anchor-список** подтверждён: строки SOUL-02.0–02.8, AMD.1.1/1.3/3.2/3.4/4.1–4.5 существуют, несут устаревшие «реестра нет/не создано» при поставленных registry/factory/Core/W6-редакторе; переанкор поручён parent с evidence на кандидата — молчаливого закрытия нет. Реально открытые строки из перечня существуют (AMD.1.5/2.2/2.4/2.5/2.7/2.9/7.3, SOUL-05.7/09.3/16.4.4/16.5.3).
+- `POST /api/config` для некаталоговых `flags.*` → 422: `get_by_pg_key('flags.unified_composer_enabled')` = `None`, а `web/api/routes.py:1176–1178` (цитата в документе верна) даёт 422; из SOUL-1-флагов в каталоге только `flags.initiative_diagnostics_publish_enabled` (`param_catalog.py:2566`).
+- PG **не hot**: `hot_config.get` читает in-memory `ConfigCache`; полный `reload()` — только in-app админ/роли (`config_cache.py:743–874`), `set/set_many` обновляют лишь свой ключ. Порядок «PG-запись ДО graceful-рестарта» подтверждён репетицией: после `.env` и до рестарта композер остаётся OFF; после рестарта (`ConfigCache.init → _load_all`) — ON.
+- SQL-шаблон §4 верен: `bot_settings(key TEXT PK, value JSONB NOT NULL, category TEXT, updated_at)`; jsonb-кодек пула (`pg_db.py:642–647`) даёт `jsonb true → True`, `jsonb false → False`; предупреждение «jsonb-bool, не строкой» обосновано — строка `'"false"'` читается как truthy (`bool('false')=True`).
+- Репетиция последовательности (env+PG → рестарт → verify → откат): pre-deploy composer/craft/library/feedback/initiative = OFF, core/style = ON (дефолты); после рестарта env+PG — composer/craft/library/feedback = ON; откат «убрать env + рестарт» гасит все четыре; PG=`false` действует (ось AND); инициатива — env-половина из шага 1, дальше `POST /api/config` hot. Колонки Hot?/«откат» §4 соответствуют коду по каждой оси.
+- **Остаётся один пробел (F4):** verify-шаг 3 через `GET /api/speech/overview → gates` не покрывает `HUMOR_CRAFT_ENABLED` (обязательный ON по директиве п.4) и ось инициативы: в `_gate_state()` ключей `humor_craft_enabled`/`initiative*` нет (мой прогон `sp._gate_state()` — 10 ключей: composer/core/style/library/feedback/experience_lessons/smart_verbalizer_modes/response_plan/persona/character_layers).
 
-## Блокеры
+## F2 (R1) — **закрыт**
 
-**F1 (блокер, Medium) — инструкции включения/отката осей не соответствуют коду.**
-- `INITIATIVE_DIAGNOSTICS_PUBLISH_ENABLED` = env AND каталоговый флаг (`W5_GATES`, `_w5_axis`), env-дефолт OFF. Мой прогон кандидата: PG=true при не заданном env → **False**; env=1 → True. В таблице §4 и шаге (e) указан только `POST /api/config` → реальная отправка останется mock, «откат тумблером» недостоверен.
-- `flags.unified_composer_enabled` / `flags.humor_*` (а также `flags.character_core_enabled`, `flags.speech_style_policy_enabled`) **не зарегистрированы в каталоге** (`param_catalog.py`: из SOUL-1 флагов есть только `flags.initiative_diagnostics_publish_enabled`) → `POST /api/config` вернёт 422 («неизвестный ключ»), запись возможна только напрямую в PG.
-- Прямая запись в PG **не hot**: `hot_config.get` читает in-memory `ConfigCache`; `reload()` вызывается только in-app admin/role-путями, `set/set_many` обновляют лишь записанные ключи. Значит скрипт/SQL-запись действует лишь после graceful-рестарта. Как записано в шаге (a) («restart → потом PG (скрипт, hot)») мастер-ось композера останется OFF; обещанный «мгновенный откат PG→false (hot)» для мастера/юмора не мгновенный (откат = снять env + graceful restart; для инициативы PG-тумблер hot только после заданного env).
-- **Минимальная правка (docs):** (1) для инициативы добавить env-половину + рестарт перед тумблером; (2) для некаталоговых флагов указать «запись в PG ДО graceful-рестарта (или явный `ConfigCache.reload()` через in-app путь)»; (3) исправить колонки Hot?/«мгновенный откат» по факту. **Recheck:** репетиция включения на ветке + `/api/speech/overview` axes после каждого шага.
+§2 переписан: «рекомендованный безопасный дефолт — НЕ “решение владельца”», OQ-4…OQ-8 — `TO_ASK` (`plans/owner_questions.md`) ✓; §6.3 включает `SOUL-AMD.1.2/4.6/7.2` ✓; §7 корректно называет пять вопросов открытыми и не блокирующими релиз ✓. Нит (non-blocking): формулировка «(не переанкорить; **все PENDING**)» относится к выборке, а не ко всем PENDING (фактически 77 + 35 = 112 обязательных PENDING) — уместнее сослаться на агрегат §6.4.
 
-**F2 (блокер, Low-Medium) — ложная атрибуция решения владельца и неполный список открытых строк.**
-- §2: «Рекомендация (= решение владельца (a) «Core-over-custom»)» — владелец этого не решал: `owner-decisions.md` (a)–(e) — это варианты+рекомендации, а `plans/owner_questions.md` (18.10) держит OQ-4…OQ-8 (политика custom, «закат» legacy, внекаталожные пути, Initiative, редакционная eligibility) в статусе **TO_ASK**. §7 «Неразрешимых продуктовых выборов нет» неверен; стоячее правило PET снимает запрет на включение готового, но не заменяет сам выбор.
-- §6.3 «Реально открытые (не переанкорить)» не включает `SOUL-AMD.1.2`, `SOUL-AMD.4.6`, `SOUL-AMD.7.2` — все три PENDING и прямо ждут решения (JB-3) и/или живого снимка.
-- **Минимальная правка:** §2/§7 — назвать это рекомендованным безопасным дефолтом (не удалять, Core-over-custom, JB-3 опционален) до ответа владельца; в §6.3 добавить AMD.1.2/4.6/7.2. **Recheck:** сверка §6.3 с фактическими PENDING обеих карт.
+## F3 (R1) — **закрыт**
 
-## Неблокирующая точность (в ту же правку)
+97 флагов ✓ (стр. 14); 288 строк = 268 обязательных (127 VERIFIED / 29 READY_FOR_LIVE / 112 PENDING) + 20 контекстных ✓ (стр. 83, совпадает с `workflow_progress.py --json`); подписи блобов исправлены — `45f07428`/`8b42cd96`/`3b616c1f` названы блобами W6-коммита, цель указана как `bfec633a`/`aca59123`/`d0e232e5` ✓; предупреждение о прогонах только в изолированном worktree есть ✓ (чужие правки WIN-GLASS-P0 в основном дереве, 86 против 87 JS-файлов ✓).
 
-**F3.** (i) §1: «среди 100 ключей flags.*» — по evidence и моему пересчёту **97** (SOUL-ключей 0 — верно). (ii) §6.4: «292 строки → 127/29/116/20» — фактически у двух карт **268 обязательных (127 VERIFIED / 29 READY_FOR_LIVE / 112 PENDING) + 20 контекстных = 288** (`workflow_progress.py --json` — воспроизведено); вывод «release-стадия красная» верен. (iii) §3: значения «master 45f07428/8b42cd96/3b616c1f» — это W6-коммит, а не релиз-цель (app.css цели совпал). (iv) Гигиена: в основном рабочем дереве лежат чужие незакоммиченные правки (`web/app.js`, `web/index.html`, `web/static/glass-probe.js`, `tests/js/glass_probe_test.js` + untracked `tests/js/glass_refraction_test.js` — отсюда 87 JS-файлов вместо 86) — в runbook стоит явно требовать прогон только в изолированном worktree ветки.
+## Директива владельца 18.10 (пп.1–4) — встроена, кроме F4/F5
 
-## Ledger
+- **п.1 (legacy не в effective, только backup; авторские настройки сохранить)** — подтверждено исполнением: для всех 11 ключей класса удержания `resolve_speech_value(pg_key, canon, source='global', cache=None)` → `withheld=True`, `source=default`, **в effective нет legacy-маркеров** (мои `eff`-хеши совпали со стендом лейна: factcheck `2f61c20e3eaa`, search `b74c40b30ec1`, checkup `b5295b0c250a`, direct `45b531879b50`, narrator `95141f190d8b`); chat-источник тоже удерживается; кастомы `summary_editor`/`verbilizer_default_mode`/per-chat `summary_cover_style` не удерживаются и **не меняют текст** (авторское сохранено); `verbilizer_mode_deep_research` — вычистка без удержания. Стенд лейна добавляет: per-chat `summary_system_prompt` 3484 рантаймом вообще не потребляется (резолвится глобальный ключ).
+- **п.2 (payload-верификация = precondition)** — в §5 заявлена ✓, но **F4**: (а) ссылка `evidence/soul-release/payload-verification.md` — мёртвая (такого файла нет; артефакты лейна — каталог `payload-verification/`: `stand-output.txt/json`, `stand.py`, `focused-tests.txt` = 96 passed, head `b4ea6779`); (б) критерии закрытия не названы: в стенде `summary_editor` и per-chat `summary_cover_style` — «content not captured / conflict unknown», а вне класса удержания остаются маркерные блоки из Python: `message.smartmodule.chat_persona` (это открытый пункт AMD.4.6(iii)), `style.bot_knowledge`, `internal.lore.story`, `internal.nostalgia.candidate`. Директива п.2 прямо требует проверки источников PG/Python/фабрика/fallback — их надо включить в критерии закрытия precondition.
+- **п.3 (все готовые оси сразу, без канареек)** — §4/§5 соответствуют; «деплой всё OFF» корректно трактуется как изоляция релиза, не канарейка.
+- **п.4 (Humor Craft + Feedback обязательны; кандидатная оценка — условно)** — обязательность в §4 отмечена ✓, но verify для craft см. F4. **F5**: строка кандидатной оценки ждёт подтверждения от PAYLOAD-VERIFY, тогда как факт проверяем в коде: `services/mca_humor_craft.py:444` `evaluate_candidates` реализован (≤2 кандидата, ≤1 вызов, таймаут 20 с, честный no-op) и покрыт юнит-тестами (`tests/test_soul1_w4_humor_craft.py:300`, `:332`), но **вызовов в рантайме нет** (по `services/web/tools` — только определение). Значит включение оси сейчас не даёт эффекта → по п.4 «не реализован [в рантайме] → не блокировать», ось оставить OFF и сказать это в отчёте; решение не должен принимать payload-лейн.
+
+## Что остаётся на релизный прогон (не блокеры этого ревью)
+
+Живой graceful-рестарт + `GET /api/speech/overview` на ветке; `POST /api/config` 200 для инициативы; `confirm_publish`; закрытие payload-precondition по расширенным критериям (F4); прогоны §5 (node 86/86, parity 13/13, registry 575, периметр/embedding/fs/W6/W7/frozen — ранее подтверждены, повтор на ветке).
+
+## Ledger R2
 
 | Пункт задания | Статус |
 |---|---|
-| 1. Якоря (диффы, дельта 505, снимок) | VERIFIED |
-| 2. Список ON-осей (полнота/корректность/откат) | FAILED (F1); набор осей полон, лишних нет |
-| 3. Withheld-классификация и отсутствие скрытого удаления | VERIFIED (F2 — атрибуция, не данные) |
-| 4. Способ (b) / отказ (a) | VERIFIED |
-| 5. Re-anchor-список | VERIFIED (F2 — неполный open-список) |
-| 6. Runbook: исполнимость и честность рисков | Частично FAILED (F1, F3) |
-| 7. Вердикт | этот файл |
+| 1. F1: механика включения/отката (код + репетиция + §4) | VERIFIED; остаточный пробел verify → F4 |
+| 2. F2: атрибуция/§6.3/§7 | VERIFIED |
+| 3. F3: 97 / 288 (268+20) / блобы / изоляция | VERIFIED |
+| 4. Директива 18.10 (пп.1–4) | п.1 VERIFIED; п.3 VERIFIED; п.2 → F4; п.4 → F5 |
+| Правки F4 (мёртвая ссылка + критерии закрытия + verify craft/инициативы) | **FAILED** (3 строки) |
+| Правки F5 (фактический статус кандидатной оценки) | **FAILED** (1 строка) |
 
-Переиспользовано (без повторного прогона): прогоны W7+FS и review-fs (13/13 отпечатков — совпали с моими), perimetr/embedding/e2e-матрицы заявлены в runbook как обязательные к прогону на ветке. Недоступно локально: живые Telegram-наблюдения (после выката) — не входят в SOUL-PREP.
+Переиспользовано: стенд лейна SOUL-PAYLOAD-VERIFY (`stand-output.txt/json`, `focused-tests.txt` — мои прогоны и хеши совпали), review-fs (13/13 отпечатков), W7+FS прогоны. Недоступно локально (вне лейна): живой прод-рестарт, `GET /api/speech/overview` на сервере, Telegram-наблюдения.
