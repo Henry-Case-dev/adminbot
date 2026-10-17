@@ -247,6 +247,11 @@ def create_app(cache: ConfigCache, control=None) -> FastAPI:
     # только глобальный админ, fail-open, R17-safe.
     from web.api.analytics_viz import analytics_viz_router
     app.include_router(analytics_viz_router, prefix="/api")
+    # SOUL-1 W6 (source-architectural-clarification §6): «Речь и характер» —
+    # API-клей MiniApp. Отдельный файл-зона (прецедент stories/oversight_router);
+    # routes.py не меняется, RBAC — существующие права персоны/ключа.
+    from web.api.speech import speech_router
+    app.include_router(speech_router, prefix="/api")
 
     rendered_index = _render_index()   # один раз at startup (84.21.2)
     rendered_css = _render_app_css()   # F4 10.16: подстановка ?v= в @font-face

@@ -93,7 +93,11 @@ class TestIaMapCoverage:
             assert route_to_tab and route, tab
 
     def test_route_to_tab_values_are_known_tabs(self):
-        tabs = set(_tabs_ids()) | {"persona"}
+        # `persona` — прецедент F3 (10.14): special-screen вне TABS.
+        # SOUL-1 W6 (§6): `speech` («Речь и характер», #/ai/speech) — второй
+        # такой экран внутри «ИИ»; состав TABS/IA при этом не менялся (ровно
+        # 5 страниц хаба сохранены).
+        tabs = set(_tabs_ids()) | {"persona", "speech"}
         values = re.findall(r"'(#/[^']*)':\s*'(\w+)'", _block("ROUTE_TO_TAB"))
         for _route, tab in values:
             assert tab in tabs, tab

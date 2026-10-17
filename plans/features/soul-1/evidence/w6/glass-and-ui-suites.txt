@@ -1,0 +1,62 @@
+$ node tests/js/glass_probe_test.js
+exit=0
+    JS-UNIT-OK glass-probe
+
+$ node tests/js/round1025_design_tokens_test.js
+exit=0
+    JS-UNIT-OK
+
+$ node tests/js/routing_test.js
+exit=0
+    JS-UNIT-OK
+
+$ node tests/js/round1025_ia_routing_test.js
+exit=0
+    JS-UNIT-OK round1025_ia_routing_test
+
+$ node tests/js/vue_mount_test.js
+exit=0
+    VUE-MOUNT-OK
+
+$ node tests/js/asap8_w2_shell_mobile_nav_test.js
+exit=0
+    W2-SHELL-UNIT-OK
+
+$ py tools/gen_param_registry_round1025.py --check
+exit=0
+    CHECK OK: реестр 572 == REGISTRY, карта полна, R17-чисто, TSV/map идемпотентны.
+
+$ pytest tests/test_soul1_w6_speech_ui.py
+exit=0
+    tests/test_soul1_w6_speech_ui.py::test_endpoints_are_actually_mounted_behind_auth
+      C:\Code\Python\adminbot\tests\test_soul1_w6_speech_ui.py:177: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+        from starlette.testclient import TestClient
+    -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+    18 passed, 1 warning in 5.17s
+
+$ pytest IA/веб-маркеры
+exit=0
+    .venv\Lib\site-packages\fastapi\testclient.py:1
+      C:\Code\Python\adminbot\.venv\Lib\site-packages\fastapi\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+        from starlette.testclient import TestClient as TestClient  # noqa
+    -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+    127 passed, 1 warning in 7.70s
+
+$ UI e2e shell (asap8-v6.3)
+exit=0
+    {
+     "failed_checks": {},
+     "console_errors": []
+    }
+    measurements: {"m320": {"vw": 320, "vh": 700, "scrollWidth": 320, "headerH": 116.2, "navH": 47.2, "navScrollW": 288, "navClientW": 288, "shellMode": "app-shell shell-mobile ia-v2 shell-flex-v3 shell-glass-v2 shell-v3", "moreLabel": "Ещё", "links": [{"t": "Статус", "x": 16, "right": 85.6, "y": 59, "bottom": 103, "w": 70, "h": 44}, {"t": "Аналитика", "x": 88.8, "right": 158.4, "y": 59, "bottom": 103, "w": 70, "h": 44}, {"t": "Модули", "x": 161.6, "right": 231.2, "y": 59, "bottom": 103, "w": 70, "h": 44}, {"t": "Ещё", "x": 234.4, "right": 304, "y": 59, "bottom": 103, "w": 70, "h": 44}]}, "m360": {"vw": 360, "vh": 780, "scrollWidth": 360, "headerH": 116.2, "navH": 47.2, "navScrollW": 328, "navClientW": 328, "shellMode": "app-shell shell-mobile ia-v2 shell-flex-v3 shell-glass-v2 shell-v3", "moreLabel": "Ещё", "links": [{"t": "Статус", "x": 16, "right": 95.6, "y": 59, "bottom": 103, "w": 80, "h": 44}, {"t": "Аналитика", "x": 98.8, "right": 178.4, "y": 59, "bottom": 103, "w": 80, "h": 44}, {"t": "Модули", "x": 181.6, "right": 261.2, "y": 59, "bottom": 103, "w": 80, "h": 44}, {"t": "Ещё", "x": 264.4, "right": 344, "y": 59, "bottom": 103, "w": 80, "h": 44}]}, "m390": {"vw": 390, "vh": 844, "scrollWidth":
+    W2-SHELL-E2E-OK
+
+$ UI e2e fullscreen (asap8-v6.3)
+exit=0
+    [w2-fs] S3_tdesktop_hidden       PASS (4 checks)
+    [w2-fs] S4_no_telegram           PASS (2 checks)
+    [w2-fs] S5_ack_flows             PASS (13 checks)
+    [w2-fs] S6S7_launch_fullscreen   PASS (5 checks)
+    [w2-fs] S8_widths                PASS (15 checks)
+    [w2-fs] итог: 7/7 PASS, артефакты: C:\Code\Python\adminbot\plans\features\asap8-v6-3-live-correction\w2-evidence-fullscreen
+

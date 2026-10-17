@@ -4159,3 +4159,229 @@ html.cover-editor-open { overflow: hidden; }
   .viz-flow__num { font-size: 14px; }
 }
 /* ═══ /W3-ANALYTICS ═══ */
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   SOUL-1 W6 — «Речь и характер» (#/ai/speech).
+   Материалы НЕ новые: карточки/панели используют существующий tier A
+   (`.card` + линза масштаба 32 из committed контракта), редакторы, таблицы и
+   dense-текст сидят на opaque/tinted подложке (tier C) — иначе выбор и каретка
+   не выживают перерисовку. Токены/линза/полигональный фон не затрагиваются.
+   Правила раскладки: 1 колонка ≤599px; 600–1023 адаптивно; ≥1024 две колонки
+   только там, где это правда полезно (редактор + предпросмотр). Тач-цели
+   ≥44×44, паддинги ≥12px, длинные строки скроллятся ВНУТРИ компонента.
+   ═══════════════════════════════════════════════════════════════════════════ */
+.speech-screen {
+  display: grid;
+  gap: 12px;
+  padding: 12px;
+  max-width: 1180px;
+  min-width: 0;
+}
+.speech-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 12px;
+  min-height: 56px;
+}
+.speech-title { font-size: 14px; font-weight: 700; display: flex; align-items: center; gap: 6px; }
+.speech-back,
+.speech-refresh { min-height: 44px; min-width: 44px; }
+.speech-entry .btn-accent { min-height: 44px; }
+
+/* Тач-цели: все интерактивные контролы раздела ≥44×44 (SOUL-10.P2). */
+.speech-screen button,
+.speech-screen select,
+.speech-screen .field,
+.speech-screen summary { min-height: 44px; }
+.speech-screen input[type="checkbox"],
+.speech-screen input[type="radio"] { width: 22px; height: 22px; flex: none; }
+.speech-screen label.flex { min-height: 44px; }
+
+/* Кнопки-действия внутри раздела: прозрачность материала сохранена, но текст
+   читается и на светлых участках tier A (блики линзы у кромки карточки). */
+.speech-screen .btn-ghost {
+  background-color: rgba(12, 18, 30, .72);
+  color: var(--text-1, #F4F7FB);
+}
+.speech-screen .btn-ghost:hover:not(:disabled) {
+  background-color: rgba(18, 26, 42, .86);
+}
+.speech-screen .btn-accent { color: #081018; }
+
+/* Витрина: карточки-кнопки; 1 колонка на телефоне */
+.speech-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(260px, 100%), 1fr)); gap: 12px; }
+.speech-grid-tight { grid-template-columns: repeat(auto-fill, minmax(min(200px, 100%), 1fr)); }
+.speech-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px;
+  min-height: 88px;
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+  min-width: 0;
+}
+.speech-card-tight { min-height: 64px; }
+.speech-card[disabled] { cursor: default; opacity: .7; }
+.speech-card-icon { font-size: 20px; line-height: 1; flex: none; }
+.speech-card-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1 1 auto; }
+.speech-card-title { font-size: 13px; font-weight: 700; }
+.speech-card-sub { font-size: 11px; color: var(--text-2, #A9B4C4); overflow-wrap: anywhere; }
+.speech-card-detail { font-size: 11px; color: var(--text-3, #7C8798); overflow-wrap: anywhere; }
+.speech-adv-title {
+  grid-column: 1 / -1;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: var(--text-3, #7C8798);
+  margin-top: 4px;
+}
+.speech-card-adv { min-height: 64px; }
+.speech-adv-note { grid-column: 1 / -1; }
+
+/* Раздел: панели/ряды/действия */
+.speech-section {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+  min-width: 0;
+}
+.speech-section > *,
+.speech-pad > *,
+.speech-table > * { min-width: 0; }
+.speech-pad { padding: 12px; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.speech-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-width: 0; }
+.speech-note { line-height: 1.4; }
+.speech-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.speech-actions .btn-accent,
+.speech-actions .btn-ghost { min-height: 44px; padding-left: 12px; padding-right: 12px; }
+.speech-select { min-height: 44px; max-width: 100%; }
+.speech-search { min-height: 44px; flex: 1 1 180px; min-width: 0; }
+.speech-warn {
+  font-size: 12px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: rgba(250, 204, 21, .10);
+  border: 1px solid rgba(250, 204, 21, .28);
+  overflow-wrap: anywhere;
+}
+
+/* Редактор (tier C): непрозрачная подложка — выбор/каретка и черновик живут
+   независимо от перерисовок и поллинга других разделов. */
+.speech-editor {
+  min-height: 180px;
+  max-height: 46vh;
+  resize: vertical;
+  overflow: auto;
+  background: var(--editor-bg, rgba(9, 14, 25, .96));
+  border: 1px solid rgba(148, 163, 184, .28);
+  color: var(--text-1, #F4F7FB);
+  padding: 10px 12px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  font-variant-ligatures: none;
+}
+.speech-editor.dirty { border-color: rgba(250, 204, 21, .55); }
+
+/* Длинные строки/JSON/prompt — скролл ВНУТРИ компонента. */
+.speech-pre,
+.speech-scrollable {
+  margin: 0;
+  padding: 10px 12px;
+  max-height: 40vh;
+  overflow: auto;
+  background: rgba(9, 14, 25, .96);
+  border: 1px solid rgba(148, 163, 184, .22);
+  border-radius: 10px;
+  font-size: 11px;
+  line-height: 1.4;
+  white-space: pre;
+  overflow-wrap: normal;
+  max-width: 100%;
+  min-width: 0;
+}
+.speech-scrollable { white-space: pre-wrap; overflow-wrap: anywhere; }
+
+/* Плотные таблицы/ряды (tier C) */
+.speech-table { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.speech-rule,
+.speech-soft,
+.speech-hist,
+.speech-lesson,
+.speech-entity-row,
+.speech-layer-row,
+.speech-cap-row,
+.speech-trace-row,
+.speech-block-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: rgba(9, 14, 25, .78);
+  border: 1px solid rgba(148, 163, 184, .18);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.speech-soft, .speech-hist, .speech-entity-row, .speech-layer-row,
+.speech-cap-row, .speech-trace-row {
+  flex-direction: row;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.speech-rule-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.speech-block-row { cursor: pointer; text-align: left; color: inherit; min-height: 44px; }
+.speech-block-row .text-xs:last-child { color: var(--text-3, #7C8798); }
+
+/* Diff/предпросмотр формы */
+.speech-diff, .speech-preview { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.speech-diff-line, .speech-preview-line {
+  font-size: 11px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: rgba(9, 14, 25, .9);
+  border: 1px solid rgba(148, 163, 184, .18);
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.speech-diff-line.before { border-color: rgba(248, 113, 113, .35); }
+.speech-diff-line.after, .speech-preview-line.after { border-color: rgba(52, 211, 153, .35); }
+
+/* Редактор редакций характера */
+.speech-tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+.speech-tab {
+  min-height: 44px;
+  padding: 0 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(148, 163, 184, .24);
+  background: rgba(9, 14, 25, .72);
+  color: inherit;
+  font-size: 12px;
+}
+.speech-tab.active { border-color: rgba(56, 189, 248, .55); background: rgba(56, 189, 248, .12); }
+.speech-adv summary { min-height: 44px; display: flex; align-items: center; cursor: pointer; }
+
+/* Редактор + предпросмотр: две колонки ТОЛЬКО там, где это правда полезно */
+.speech-split { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; min-width: 0; }
+
+@media (max-width: 599px) {
+  .speech-screen { padding: 12px; }
+  .speech-grid, .speech-grid-tight { grid-template-columns: minmax(0, 1fr); }
+  .speech-editor { min-height: 160px; max-height: 52vh; }
+  .speech-pre, .speech-scrollable { max-height: 34vh; }
+}
+@media (min-width: 1024px) {
+  .speech-split { grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); }
+}
+/* landscape-телефон: без высоких панелей */
+@media (max-height: 480px) and (orientation: landscape) {
+  .speech-editor { min-height: 120px; max-height: 40vh; }
+  .speech-pre, .speech-scrollable { max-height: 30vh; }
+}
+/* ═══ /SOUL-1 W6 ═══ */
