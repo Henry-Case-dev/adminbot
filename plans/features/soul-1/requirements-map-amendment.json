@@ -2,7 +2,7 @@
   "schema": "openworkflow-coverage-v1",
   "source_path": "C:\\Code\\Python\\adminbot\\plans\\features\\soul-1\\source-architectural-clarification.md",
   "source_sha256": "338fd9c6bd323a7ea8ad80577c2e9d8b45a714d30bdd4fc9147af75931a4a35c",
-  "candidate_commit": "bc277a3dc8bd54e721f5855fc6920f2ea401b25f",
+  "candidate_commit": "d4c33c2126afa8e214063e4d8ef9bb2d997502e5",
   "deployed_commit": "",
   "additional_requirements": [
     {
@@ -761,18 +761,30 @@
       "source_text_sha256": "6bc8163d7485427ecdc626d17c4c7bfe682b1bc5025d77d6e0720eef484835ed",
       "source_excerpt": "- сны, глубокий сон, рассказы о них, ностальгия, лор, истории, воспоминания;",
       "disposition": "required",
-      "reason": "Частично и честно: 4 жанровые редакции зарегистрированы, хелпер authorial_system поставлен, путь «Ностальгия» публикуется через Core+жанр (OFF — канон байт-в-байт, тест); проводка снов/глубокого сна/лора/историй не выполнена — следующий слайс (review-w4 §5, отчёт §8.4, note блоков реестра).",
+      "reason": "Поставлено полностью tail-слайсом AMD.2.6 (коммит d4c33c21): лор/истории («Летописец») проведены через общий композер authorial_system(writer=lore_writer, genre=lore) — OFF = канон байт-в-байт, ON = жанровая рамка genre.lore.rules + Core + Style-hint; «Ностальгия» — W4; сны/глубокий сон/«рассказы о них» — честная граница: публикующего пути в продукте нет (внутренние машинные стадии §2.2 не тронуты, Core не получают), рамка genre.dream.rules готова (review-amd26 §2–§3, amd26-authorial-wiring-report §2, evidence/amd26/paths-coverage.md).",
       "req_id": "SOUL-AMD.2.6",
       "slice": "W4",
       "acceptance": "Сны, глубокий сон, рассказы о них, ностальгия, лор, истории и воспоминания — авторские тексты бота: получают Core и жанровые правила, а не служебный нейтральный текст",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "c1cb64753ae82940843709ab2dcca9603850a1a8",
           "ref": "plans/features/soul-1/review-w4.md §5 (SOUL-AMD.2.6) + plans/features/soul-1/w4-humor-feedback-report.md §1.4/§8.4",
           "observation": "Что поставлено: жанровые рамки и путь «Ностальгии»; что отложено: проводка снов/глубокого сна/лора/историй (зафиксировано в note реестра).",
+          "type": "static"
+        },
+        {
+          "candidate_commit": "d4c33c2126afa8e214063e4d8ef9bb2d997502e5",
+          "ref": "plans/features/soul-1/review-amd26.md §2.1–§2.3/§3 (Approved) + plans/features/soul-1/amd26-authorial-wiring-report.md §2/§5",
+          "observation": "Шов OFF/ON на реальном компиляторе: OFF — канон байт-в-байт, манифеста нет; ON — genre.lore.rules + Core + Style-hint, writer=lore_writer, llm.calls==1; RED воспроизведён ревьюером независимо; свои 8/8 мутаций KILLED; тесты не ослаблены (один хунк 18+/4−, без skip/xfail).",
+          "type": "test"
+        },
+        {
+          "candidate_commit": "d4c33c2126afa8e214063e4d8ef9bb2d997502e5",
+          "ref": "plans/features/soul-1/evidence/amd26/** (perimeter.txt 3908/0, focused-tests.txt 56 passed, parity-off.json, mutation-witness.json 6/6, catalog-check.txt 575==REGISTRY, paths-coverage.md — построчный разбор путей; review-amd26.md §2.4)",
+          "observation": "Периметр 3908/0 (дельта ровно +6), Δ каталога = 0; адверсариальный скан: публикующего пути снов/глубокого сна в продукте нет, внутренние стадии не тронуты; рамка genre.dream.rules — Factory Default, контракт покрыт тестом.",
           "type": "static"
         }
       ]

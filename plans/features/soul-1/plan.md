@@ -435,7 +435,7 @@ stage=review inventory=66 manual=28 scoped=1 errors=1
 EXITCODE=1
 ```
 
-**Следующее действие (для Orchestrator):** (а) канарейка postdeploy: живые сценарии `SOUL-08.12` (7) + release-стадия гейта; (б) следующий слайс: проводка снов/глубокого сна/лора/историй через `authorial_system` (закрытие `SOUL-AMD.2.6`); (в) включение осей (`HUMOR_CRAFT_ENABLED`/`HUMOR_LIBRARY_ENABLED`/`HUMOR_FEEDBACK_ENABLED`) на одном чате под наблюдением.
+**Следующее действие (для Orchestrator):** (а) канарейка postdeploy: живые сценарии `SOUL-08.12` (7) + release-стадия гейта; (б) ~~следующий слайс: проводка снов/глубокого сна/лора/историй через `authorial_system` (закрытие `SOUL-AMD.2.6`)~~ — **выполнено tail-слайсом AMD.2.6**: лор/истории проведены через `authorial_system`, сны/глубокий сон — подтверждённая граница «публикующего пути нет»; привязка ниже (§AMD.2.6 binding); (в) включение осей (`HUMOR_CRAFT_ENABLED`/`HUMOR_LIBRARY_ENABLED`/`HUMOR_FEEDBACK_ENABLED`) на одном чате под наблюдением.
 
 ## W5 binding (bc277a3d)
 
@@ -485,3 +485,25 @@ EXITCODE=1
 **Открытые W5-строки и что осталось:** (1) канарейка postdeploy по 6 live-строкам (`18.0`, `18.2`, `18.3`, `18.4`, `18.6`, `18.7`): живые числа 24–48ч, реальные сценарии и реальная отправка по явному решению владельца — `evidence/w5/live-acceptance-plan.md`; (2) не-блокирующий бэклог REVIEW-W5 §4 и RECHECK «Хвосты» (подпись `w5CheckNote` при сорванной реальной отправке, неиспользуемый `initiative_check_no_publish`, склейка строки `loadIntelFunnels`, тест пола `min_gap` при целях >24/сутки, юнит-тест оси ON, косметический дубль в `live-acceptance-plan.md`) — в эту привязку не входит и статусы не меняет; (3) `SOUL-05.7` (SILENT/REACT и tool-result) остаётся PENDING в W3 — W5 покрывает SILENT/REACT-часть через `SOUL-05.8`, закрывающая строка этим коммитом не переносится.
 
 **Следующее действие (для Orchestrator):** (а) независимое ревью привязки — статусы, evidence, честность классификаций `SOUL-18.1` и `SOUL-18.5`; (б) решение владельца по канарейке (push/deploy — вне этого лейна); (в) postdeploy: заполнение 6 live-строк + release-стадия гейта.
+
+## AMD.2.6 binding (d4c33c2126af)
+
+**Кандидат:** `d4c33c2126afa8e214063e4d8ef9bb2d997502e5` (= `434b7ac5` (verify-W5) + tail-слайс AMD.2.6, коммит A). Независимое ревью `plans/features/soul-1/review-amd26.md` — **Approved**: своя OFF/ON-проба на реальном компиляторе, независимо воспроизведённый RED, свои 8/8 мутаций KILLED, адверсариальный скан «пути снов», периметр 3908/0, реестр 575/64→64, тесты не ослаблены. Коммит A — **16 файлов** = 2 runtime (`lore_compiler_service.py`, `prompt_registry.py`) + 2 теста + 2 инструмента-свидетеля + 8 evidence + отчёт + ревью.
+
+**Разведение кандидатов карт (сознательное, single-candidate семантика):** top-level `candidate_commit` в **amendment-карте** := `d4c33c21…` (эта привязка); **main-карта не менялась** — её кандидат остаётся `bc277a3dc8bd54e721f5855fc6920f2ea401b25f` (W5): у AMD.2.6 **нет main-строк** (клауза L00026 живёт только в amendment; сверено — в main `SOUL-AMD.2.6` отсутствует). `deployed_commit` пуст (пуша/деплоя нет). Отпечатки шести ключевых файлов сверены с коммитными блобами: `6255c2b97d69` / `4b0ef89007ef` / `b530706409dc` / `f6e3961c4372` / `c6248fd6a022` / `f009e96f4c47`.
+
+**Строка amendment:** `SOUL-AMD.2.6` → **VERIFIED** (slice W4). Основание: лор/истории («Летописец», единственный реальный публикующий путь остатка клаузы) проведены через `authorial_system(writer="lore_writer", genre="lore")` — OFF = канон байт-в-байт, ON = жанровая рамка `genre.lore.rules` + Core + Style-hint, единственный писатель (`llm.calls==1`); «Ностальгия» — W4; сны/глубокий сон/«рассказы о них» — честная граница: публикующего пути в продукте нет, внутренние машинные стадии §2.2 не тронуты, рамка `genre.dream.rules` готова (контракт покрыт тестом). Историческая evidence-запись W4 (`c1cb6475`) сохранена; добавлены две записи, привязанные к `d4c33c21`.
+
+**Гейты (review, verbatim; кандидат `d4c33c2126afa8e214063e4d8ef9bb2d997502e5`):**
+
+amendment, `--stage review --slice W4`:
+```
+stage=review inventory=66 manual=28 scoped=1 errors=0
+EXITCODE=0
+```
+
+**Структурный контроль карт** (`--stage plan`, обе карты): `stage=plan inventory=101 manual=97 scoped=0 errors=0` / `stage=plan inventory=66 manual=28 scoped=0 errors=0`, EXITCODE=0.
+
+**W4-evidence:** перезаписанный прогоном слайса `plans/features/soul-1/evidence/w4/frozen-assets.txt` восстановлен из HEAD (дифф пуст); содержимое сохранено как `plans/features/soul-1/evidence/amd26/frozen-assets.txt` (артефакт того же прогона; сверено после нормализации BOM/CRLF). Четыре evidence-`*.txt` слайса — CRLF (захват PowerShell-редиректом); байты сохранены как есть, чтобы не рвать привязанные ревью отпечатки, на будущее — LF.
+
+**Что осталось:** (1) ось `UNIFIED_COMPOSER_ENABLED` остаётся OFF — включение ON/OFF решение владельца (OFF-паритет подтверждён; у строки `live_required=false`, `live_when=preprod`); (2) чужие карты/слайсы этим коммитом не привязывались.
