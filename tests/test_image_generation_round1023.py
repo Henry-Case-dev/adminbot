@@ -188,7 +188,7 @@ class TestPreGateIntegration:
             return_value=True))
         called = {}
 
-        async def fake_handle(ctx, query):
+        async def fake_handle(ctx, query, **_kwargs):
             called["query"] = query
             return '<image_result status="ok">x</image_result>'
 
@@ -207,7 +207,7 @@ class TestPreGateIntegration:
             return_value=True))
         captured = {}
 
-        async def fake_handle(ctx, query):
+        async def fake_handle(ctx, query, **_kwargs):
             captured["correlation_id"] = getattr(ctx, "correlation_id", None)
             return ""
 
@@ -288,6 +288,17 @@ class TestPreGateIntegration:
         monkeypatch.setattr("services.image_generation."
                             "resolve_module_enabled",
                             AsyncMock(return_value=True))
+        # SOUL-1 W10: capability-гейт проверяет РЕАЛЬНЫЕ предпосылки
+        # (модуль + ключ + модель) до генерации — тест задаёт их явно через
+        # hot-слой (тот же путь, что у генератора: `hot.get("keys...")`).
+        from services import hot_config as _hot
+
+        class _Cfg:
+            def get(self, key, default=None):
+                return {"keys.image_api_key": "test-key",
+                        "models.image_model": "test-model"}.get(key, default)
+
+        _hot.set_config_cache(_Cfg())
         monkeypatch.setattr(
             "services.image_generation.maybe_handle_keyword",
             AsyncMock(return_value='<image_result status="ok">ok</image_result>'))
@@ -304,8 +315,11 @@ class TestPreGateIntegration:
         service = _make_service(tool_router=MagicMock())
         bot = dc_bot()
         user = dc_user()
-        await service.handle(bot, dc_message(text="Бот, нарисуй кота",
-                                             message_id=2, user=user), user)
+        try:
+            await service.handle(bot, dc_message(text="Бот, нарисуй кота",
+                                                 message_id=2, user=user), user)
+        finally:
+            _hot.set_config_cache(None)
         names = [t["function"]["name"] for t in captured["tools"]]
         assert "generate_image" not in names
         # Блок пре-гейта инжектится в user-content Stage-1.
@@ -582,12 +596,20 @@ class TestErrors:
 
     @pytest.mark.asyncio
     async def test_keyword_fallback_block(self, monkeypatch):
+        """SOUL-1 W10 (SOUL-AMD.5.15): текст отказа — управляемый Factory
+        Default по РЕАЛЬНОМУ коду (`unauthorized` → not_configured), а не
+        захардкоженная фраза «на все случаи»."""
+        from services import capability_registry as caps
         monkeypatch.setattr(ig, "generate_and_send", AsyncMock(return_value=(
             ig.GenerationResult(ok=False, reason="unauthorized"))))
         ctx = ToolContext(1, "Бот, нарисуй кота", bot=MagicMock())
         block = await ig.maybe_handle_keyword(ctx, "Бот, нарисуй кота")
         assert 'status="error"' in block
-        assert ig.IMAGE_GENERATION_FALLBACK_PHRASE in block
+        text, block_id, _src = caps.failure_message_for_reason("unauthorized")
+        assert block_id == "message.image_failure.not_configured"
+        assert text in block
+        # Ложная фраза «я не умею рисовать» в пользовательский путь не вернулась.
+        assert ig.IMAGE_GENERATION_FALLBACK_PHRASE not in block
 
     @pytest.mark.asyncio
     async def test_keyword_ok_block(self, monkeypatch):

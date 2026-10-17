@@ -250,7 +250,9 @@ def test_withholding_is_limited_to_legacy_persona_canons():
 
 
 def test_registry_version_and_labels_present():
-    assert pr.REGISTRY_VERSION.startswith("soul1-w1-")
+    # W1 открыл реестр (soul1-w1-*); последующие слайсы бампают свою ревизию
+    # при осознанной регистрации новых блоков (W3: `style.policy.hint`).
+    assert pr.REGISTRY_VERSION.startswith("soul1-w")
     for block_id in LEGACY_BLOCK_IDS:
         assert block_id in pr.FACTORY_REVISION_LABELS
 

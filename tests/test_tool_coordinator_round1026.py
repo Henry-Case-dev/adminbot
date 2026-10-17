@@ -770,7 +770,19 @@ class TestBounds:
                                              # allowlist УДАЛЕНЫ — возврат
                                              # страницы в web/ снова валит
                                              # этот тест.
-                                             "web/api/__init__.py"))
+                                             "web/api/__init__.py",
+                                             # NOTE (SOUL-1 W6, review-w6.md
+                                             # RECHECK-W6-2 Approved, кандидат
+                                             # a5902b15): + web/api/speech.py
+                                             # (NEW роутер «Речь и характер»,
+                                             # 21 маршрут; регистрация —
+                                             # web/app.py; web/api/routes.py
+                                             # НЕ менялся — byte-freeze
+                                             # держится; RBAC — существующие
+                                             # права персоны/ключа). Test-only
+                                             # allowlist-дельта; §104/A3-гейт
+                                             # не затронут.
+                                             "web/api/speech.py"))
                        for n in names)
         # NOTE (round1027, MCA-01 / ADR-1027-3 D3): `services/summary_memory.py`
         # санкционированно переведён на единый single-writer
