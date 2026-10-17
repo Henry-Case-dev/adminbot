@@ -110,6 +110,27 @@ def fake_wall(monkeypatch):
     return state
 
 
+@pytest.fixture
+def chat_limits(monkeypatch):
+    """CFG-01 (§01.1–§01.4): эффективные лимиты Direct Chat читаются из
+    конфиг-слоя на КАЖДОМ ходу (chat override → global ConfigCache →
+    settings-дефолт), поэтому «лимит N» задаётся в конфиг-слое, а не полями
+    инъектированного throttle (иначе параметр MiniApp снова не влиял бы на
+    рантайм). Frozen-Settings → подмена модульного объекта (прецедент
+    `test_cb_disabled_by_settings`)."""
+    import dataclasses
+
+    def _set(burst=None, cooldown=None):
+        overrides = {}
+        if burst is not None:
+            overrides["CHAT_BURST_LIMIT"] = burst
+        if cooldown is not None:
+            overrides["CHAT_COOLDOWN_SECONDS"] = cooldown
+        monkeypatch.setattr("services.persistent_throttling.settings",
+                            dataclasses.replace(settings, **overrides))
+    return _set
+
+
 def _user(user_id=10, first_name="Вася", last_name="Пупкин", username="vasya"):
     u = MagicMock()
     u.id = user_id
@@ -373,9 +394,13 @@ class TestDirectChatThrottle:
         await d2.close()
 
     @pytest.mark.asyncio
-    async def test_handle_uses_persistent_throttle_across_restart(self, tmp_path):
+    async def test_handle_uses_persistent_throttle_across_restart(
+            self, tmp_path, chat_limits):
         """63.6 #5: handle() с persistent-троттлингом — после «рестарта»
-        (новый сервис на той же БД) флудер получает кулдаун-фразу R50-7."""
+        (новый сервис на той же БД) флудер получает кулдаун-фразу R50-7.
+        CFG-01: лимит 1 задаётся конфиг-слоем (effective-резолв на каждом
+        ходу), а не параметрами инъектированного throttle."""
+        chat_limits(burst=1, cooldown=300.0)
         path = tmp_path / "svc.db"
         d1 = DatabaseService(str(path))
         await d1.initialize()
@@ -438,6 +463,33 @@ class TestDirectChatThrottleInMemory:
         assert t.allow(CHAT_ID, 10) == 0.0
         assert t.allow(CHAT_ID, 20) == 0.0      # другой юзер — свой слот
         assert t.allow(-200, 10) == 0.0         # другой чат — свой слот
+
+    def test_refresh_applies_new_limit_and_pause_without_reset(self, fake_time):
+        """CFG-01 (§01.2, fallback-режим THROTTLE_PERSISTENT_ENABLED=false):
+        refresh меняет лимит/паузу на следующей проверке; накопленный остаток
+        обрезается до нового лимита, состояние (время) не сбрасывается."""
+        t = DirectChatThrottle(10, 300.0)
+        for _ in range(5):                      # 5 зарядов из 10
+            assert t.allow(CHAT_ID, 10) == 0.0
+        t.refresh(2, 60.0)                      # MiniApp: 10/300 → 2/60
+        assert t.allow(CHAT_ID, 10) == 0.0      # кламп: остаётся ровно 2
+        assert t.allow(CHAT_ID, 10) == 0.0
+        denied = t.allow(CHAT_ID, 10)
+        assert 0.0 < denied <= 60.0             # 3-е обращение ограничено
+        fake_time["now"] += 61.0                # новая пауза истекла
+        assert t.allow(CHAT_ID, 10) == 0.0
+
+    def test_refresh_limit_increase_no_bonus(self, fake_time):
+        """CFG-01 (§01.2): увеличение лимита не выдаёт заряды до истечения
+        окна — сброса состояния нет."""
+        t = DirectChatThrottle(1, 300.0)
+        assert t.allow(CHAT_ID, 10) == 0.0
+        t.refresh(5, 300.0)
+        assert t.allow(CHAT_ID, 10) > 0         # окно то же — бонуса нет
+        fake_time["now"] += 300.0
+        for _ in range(5):                      # после окна — 5 зарядов
+            assert t.allow(CHAT_ID, 10) == 0.0
+        assert t.allow(CHAT_ID, 10) > 0
 
 
 class TestContextPartitioning:
@@ -1101,7 +1153,8 @@ class TestHandleFlow:
         assert text in candidates                   # фраза R50-7 с подстановкой
 
     @pytest.mark.asyncio
-    async def test_cooldown_does_not_call_llm(self, fake_time):
+    async def test_cooldown_does_not_call_llm(self, fake_time, chat_limits):
+        chat_limits(burst=1, cooldown=300.0)
         llm = FakeLLM()
         service = _make_service(llm=llm, throttle=DirectChatThrottle(1, 300.0))
         bot = _bot()
@@ -1140,7 +1193,9 @@ class TestSilenceAfterCooldowns:
     'direct_silence') → при CHAT_SILENCE_AFTER_COOLDOWNS — молчание без фразы;
     успешный допуск сбрасывает стачку."""
 
-    async def _make(self, path):
+    async def _make(self, path, chat_limits=None):
+        if chat_limits is not None:
+            chat_limits(burst=1, cooldown=300.0)
         d = DatabaseService(str(path))
         await d.initialize()
         service = _make_service(
@@ -1157,10 +1212,11 @@ class TestSilenceAfterCooldowns:
         return None if row is None else row["burst_left"]
 
     @pytest.mark.asyncio
-    async def test_silence_after_five_cooldowns(self, tmp_path, fake_wall, caplog):
+    async def test_silence_after_five_cooldowns(self, tmp_path, fake_wall, caplog,
+                                                chat_limits):
         """1 успех → 4 кулдаун-фразы (стачка 1..4) → 5-й кулдаун — МОЛЧАНИЕ
         (без фразы R50-7), счётчик в БД."""
-        d, service = await self._make(tmp_path / "silence.db")
+        d, service = await self._make(tmp_path / "silence.db", chat_limits)
         bot = _bot()
         for i in range(1, 7):
             await service.handle(bot, _message(message_id=i), _user())
@@ -1175,13 +1231,13 @@ class TestSilenceAfterCooldowns:
 
     @pytest.mark.asyncio
     async def test_success_resets_streak(self, tmp_path, fake_wall,
-                                         monkeypatch):
+                                         monkeypatch, chat_limits):
         # MCA-22 (C7): тест проверяет таргетированно silence-streak —
         # duplicate guard выключен (детерминированный FakeLLM дал бы
         # санкционированную §18 regeneration-попытку на повторном вопросе).
         monkeypatch.setattr(mca_gates, "response_freshness_guard_enabled",
                             lambda: False)
-        d, service = await self._make(tmp_path / "reset.db")
+        d, service = await self._make(tmp_path / "reset.db", chat_limits)
         bot = _bot()
         for i in range(1, 7):
             await service.handle(bot, _message(message_id=i), _user())
@@ -1193,9 +1249,11 @@ class TestSilenceAfterCooldowns:
         await d.close()
 
     @pytest.mark.asyncio
-    async def test_silence_disabled_old_behavior(self, tmp_path, fake_wall, monkeypatch):
+    async def test_silence_disabled_old_behavior(self, tmp_path, fake_wall, monkeypatch,
+                                                 chat_limits):
         """65.3: CHAT_SILENCE_ENABLED=false → стачка не считается — фраза
         R50-7 приходит на КАЖДЫЙ кулдаун (ровно старое поведение)."""
+        chat_limits(burst=1, cooldown=300.0)
         monkeypatch.setattr(
             "services.direct_chat_service.settings",
             _cfg(CHAT_SILENCE_ENABLED=False))
@@ -1704,8 +1762,10 @@ class TestChatLock:
         await asyncio.gather(task1, task2)
 
     @pytest.mark.asyncio
-    async def test_cooldown_not_blocked_by_lock(self, fake_time, serial_pool):
+    async def test_cooldown_not_blocked_by_lock(self, fake_time, serial_pool,
+                                                chat_limits):
         """63.2: кулдаун-фразы мгновенные — НЕ стоят в очереди за пулом."""
+        chat_limits(burst=2, cooldown=300.0)
         gated = GatedLLM(text="думаю")
         service = _make_service(
             llm=gated, throttle=DirectChatThrottle(2, 300.0))
@@ -1778,9 +1838,11 @@ class TestCircuitBreakerIntegration:
         assert any("circuit breaker open" in r.message for r in caplog.records)
 
     @pytest.mark.asyncio
-    async def test_three_transient_failures_open_fourth_skips_llm(self, fake_time):
+    async def test_three_transient_failures_open_fourth_skips_llm(
+            self, fake_time, chat_limits):
         """62.5 #12: 3× LLMServerError → CHAT_ERROR_PHRASES + OPEN; 4-й вызов —
         БЕЗ LLM, CHAT_LLM_DOWN_PHRASES."""
+        chat_limits(burst=10, cooldown=300.0)   # CFG-01: лимит из конфиг-слоя
         breaker = LLMCircuitBreaker(failure_threshold=3, cooldown_seconds=300.0)
         llm = FakeLLM(error=LLMServerError(
             "LLM server error 502 after 3 attempts: https://api.test/v1/chat/completions"))
@@ -1949,8 +2011,9 @@ class TestCircuitBreakerIntegration:
         assert bot.send_message.await_args.args[1] in CHAT_ERROR_PHRASES
 
     @pytest.mark.asyncio
-    async def test_throttle_charge_spent_when_cb_open(self, fake_time):
+    async def test_throttle_charge_spent_when_cb_open(self, fake_time, chat_limits):
         """62.1 в.5: при CB OPEN заряд троттлинга списывается как обычно."""
+        chat_limits(burst=1, cooldown=300.0)     # CFG-01: лимит из конфиг-слоя
         breaker = LLMCircuitBreaker(failure_threshold=1, cooldown_seconds=300.0)
         breaker.on_failure()
         throttle = DirectChatThrottle(1, 300.0)
@@ -3342,3 +3405,230 @@ class TestPersonaPromptIntegration:
         msg = _message(text="привет", message_id=91)
         await service.handle(_bot(), msg, msg.from_user)
         assert llm.messages[0]["content"] == CHAT_SYSTEM_PROMPT
+
+
+# ═══ CFG-01 (ADD-1, §01.1–§01.7): лимиты Direct Chat в рантайме ══════════════
+# TEST-LIFECYCLE: REGRESSION owner=CFG-01/F1..F7
+
+def _fake_hot_values(monkeypatch, values=None):
+    """ConfigCache-двойник: глобальный слой настроек. Возвращает ЖИВОЙ dict —
+    тест меняет значение «как POST /api/config» и проверяет рантайм без
+    рестарта. Пропущенные ключи → factory-дефолт (контракт hot.get)."""
+    from services import hot_config as hot
+    store = dict(values or {})
+
+    class _FakeConfigCache:
+        def get(self, key, default=None):
+            return store.get(key, default)
+
+    monkeypatch.setattr(hot, "_cache", _FakeConfigCache())
+    return store
+
+
+def _fake_chat_overrides(monkeypatch, by_chat):
+    """chat_params-двойник: per-chat override'ы (живой dict по ссылке)."""
+    from services import chat_params
+
+    class _FakeChatParamsCache:
+        def __init__(self, overrides):
+            self._by_chat = overrides
+
+        async def get_chat_params(self, chat_id):
+            return {"overrides": dict(self._by_chat.get(int(chat_id), {}))}
+
+    monkeypatch.setattr(chat_params, "_chat_params_cache",
+                        _FakeChatParamsCache(by_chat))
+    return by_chat
+
+
+class TestCfg01DirectChatLimits:
+    """CFG-01: изменение лимитов в MiniApp меняет РЕАЛЬНОЕ поведение без
+    рестарта; per-chat override независим; отказ — с фактическим остатком до
+    дорогого вызова; обход через альтернативные маршруты исключён."""
+
+    @pytest.mark.asyncio
+    async def test_global_hot_reload_without_restart(self, fake_time, monkeypatch):
+        """AC1/§01.2 (RED→GREEN): MiniApp burst 10 → 2 — после смены доступны
+        ровно 2 обращения, третье ограничено; возврат значения без рестарта
+        снова меняет поведение."""
+        hot_values = _fake_hot_values(monkeypatch, {
+            "limits.chat_burst_limit": 10,
+            "limits.chat_cooldown_seconds": 300.0,
+        })
+        llm = FakeLLM()
+        service = _make_service(llm=llm,
+                                throttle=DirectChatThrottle(10, 300.0))
+        bot = _bot()
+        for i in range(4):
+            await service.handle(bot, _message(message_id=i), _user())
+        assert llm.call_count == 4                      # лимит 10 не мешает
+
+        hot_values["limits.chat_burst_limit"] = 2       # MiniApp: 10 → 2
+        await service.handle(bot, _message(message_id=10), _user())
+        await service.handle(bot, _message(message_id=11), _user())
+        assert llm.call_count == 6                      # ровно 2 обращения
+        await service.handle(bot, _message(message_id=12), _user())
+        assert llm.call_count == 6                      # 3-е — отказ (LLM не вызван)
+        assert bot.send_message.await_args.args[1] in [
+            p.replace("{remaining_time}", "5 мин") for p in CHAT_COOLDOWN_PHRASES]
+
+        hot_values["limits.chat_burst_limit"] = 10      # обратно, без рестарта
+        fake_time["now"] += 301.0                       # окно истекло
+        await service.handle(bot, _message(message_id=13), _user())
+        assert llm.call_count == 7
+
+    @pytest.mark.asyncio
+    async def test_per_chat_override_isolated_and_inherit_restored(
+            self, fake_time, monkeypatch):
+        """AC2/§01.3: другой burst/cooldown одному чату — второй чат работает
+        по global; удаление override возвращает наследование."""
+        _fake_hot_values(monkeypatch, {
+            "limits.chat_burst_limit": 10,
+            "limits.chat_cooldown_seconds": 300.0,
+        })
+        overrides = {CHAT_ID: {"limits.chat_burst_limit": 1,
+                               "limits.chat_cooldown_seconds": 60.0}}
+        _fake_chat_overrides(monkeypatch, overrides)
+        other_chat = CHAT_ID - 1
+        llm = FakeLLM()
+        service = _make_service(llm=llm,
+                                throttle=DirectChatThrottle(10, 300.0))
+        bot = _bot()
+        # чат с override: 1 обращение, второе — отказ с паузой 60 с
+        await service.handle(bot, _message(message_id=1), _user())
+        assert llm.call_count == 1
+        fake_time["now"] += 45.0
+        await service.handle(bot, _message(message_id=2), _user())
+        assert llm.call_count == 1                      # override 1 — отказ
+        assert bot.send_message.await_args.args[1] in [
+            p.replace("{remaining_time}", "15 сек") for p in CHAT_COOLDOWN_PHRASES]
+        # другой чат по global (10): 3 обращения подряд проходят
+        for i in range(3):
+            await service.handle(
+                bot, _message(message_id=20 + i, chat_id=other_chat), _user())
+        assert llm.call_count == 4                      # override чужого чата не влияет
+
+        overrides.pop(CHAT_ID)                          # reset to inherited
+        fake_time["now"] += 400.0                       # окно global-паузы (300 с)
+        for i in range(3):
+            await service.handle(bot, _message(message_id=30 + i), _user())
+        assert llm.call_count == 7                      # снова global (10)
+
+    @pytest.mark.asyncio
+    async def test_refusal_reports_factual_remaining_and_source(
+            self, fake_time, monkeypatch, caplog):
+        """AC4/§01.6: отказ до дорогого вызова, остаток фактический и
+        неотрицательный; источник лимита — в логе и в наблюдаемости."""
+        from services import mca_events
+        _fake_hot_values(monkeypatch, {
+            "limits.chat_burst_limit": 2,
+            "limits.chat_cooldown_seconds": 300.0,
+        })
+        _fake_chat_overrides(monkeypatch, {
+            CHAT_ID: {"limits.chat_burst_limit": 2}})
+        events = []
+        monkeypatch.setattr(mca_events, "emit_mca_event",
+                            lambda name, **kw: events.append((name, kw)))
+        llm = FakeLLM()
+        service = _make_service(llm=llm,
+                                throttle=DirectChatThrottle(2, 300.0))
+        bot = _bot()
+        await service.handle(bot, _message(message_id=1), _user())
+        fake_time["now"] += 10.0
+        await service.handle(bot, _message(message_id=2), _user())
+        assert llm.call_count == 2
+        fake_time["now"] += 30.0                        # 40 с от первого заряда
+        with caplog.at_level(logging.WARNING):
+            await service.handle(bot, _message(message_id=3), _user())
+        assert llm.call_count == 2                      # отказ ДО LLM/tool
+        # остаток = 300 - 30 = 270 с (от последнего допущенного обращения)
+        assert bot.send_message.await_args.args[1] in [
+            p.replace("{remaining_time}", "4 мин 30 сек")
+            for p in CHAT_COOLDOWN_PHRASES]
+        assert any("remaining=270s" in r.message
+                   and "source=chat/global" in r.message
+                   and "burst_limit=2" in r.message
+                   for r in caplog.records)
+        refusals = [kw for name, kw in events
+                    if name == "direct_chat_throttle"]
+        # burst — из override чата, пауза — из глобального слоя (§01.6)
+        assert refusals and refusals[0]["usage_json"] == {
+            "burst_limit": 2, "cooldown_seconds": 300.0,
+            "remaining_seconds": 270.0, "source": "chat/global"}
+
+    @pytest.mark.asyncio
+    async def test_active_cooldown_not_reset_by_limit_change(
+            self, fake_time, monkeypatch):
+        """§01.2: активный кулдаун при смене лимита НЕ сбрасывается
+        случайным образом — новый лимит применяется к следующему окну, а
+        текущая пауза продолжает течь."""
+        hot_values = _fake_hot_values(monkeypatch, {
+            "limits.chat_burst_limit": 1,
+            "limits.chat_cooldown_seconds": 300.0,
+        })
+        llm = FakeLLM()
+        service = _make_service(llm=llm,
+                                throttle=DirectChatThrottle(1, 300.0))
+        bot = _bot()
+        await service.handle(bot, _message(message_id=1), _user())
+        assert llm.call_count == 1
+        hot_values["limits.chat_burst_limit"] = 5        # смена на активной паузе
+        await service.handle(bot, _message(message_id=2), _user())
+        assert llm.call_count == 1                       # пауза не сброшена
+        assert bot.send_message.await_args.args[1] in [
+            p.replace("{remaining_time}", "5 мин") for p in CHAT_COOLDOWN_PHRASES]
+        fake_time["now"] += 301.0
+        for i in range(5):                               # новое окно — 5 зарядов
+            await service.handle(bot, _message(message_id=10 + i), _user())
+        assert llm.call_count == 6
+        await service.handle(bot, _message(message_id=20), _user())
+        assert llm.call_count == 6                       # шестое — отказ
+
+    @pytest.mark.asyncio
+    async def test_persistent_limits_survive_restart_with_new_values(
+            self, tmp_path, fake_time, fake_wall, monkeypatch):
+        """§01.2/§01.5: активная пауза и счётчики живут в БД (рестарт их не
+        сбрасывает), а новые лимиты из конфига вступают в силу сразу — в том
+        числе уже после «перезапуска» процесса."""
+        from services.database import DatabaseService
+        hot_values = _fake_hot_values(monkeypatch, {
+            "limits.chat_burst_limit": 5,
+            "limits.chat_cooldown_seconds": 300.0,
+        })
+        path = tmp_path / "cfg01.db"
+        d1 = DatabaseService(str(path))
+        await d1.initialize()
+        service = _make_service(
+            db=d1, llm=FakeLLM(),
+            throttle=PersistentThrottle(5, 300.0, "direct_chat", d1))
+        bot = _bot()
+        for i in range(5):
+            await service.handle(bot, _message(message_id=i), _user())
+        assert bot.send_message.await_count == 5         # 5 допущенных ходов
+        await service.handle(bot, _message(message_id=9), _user())
+        assert bot.send_message.await_count == 6         # лимит исчерпан
+        assert bot.send_message.await_args.args[1] in [
+            p.replace("{remaining_time}", "5 мин") for p in CHAT_COOLDOWN_PHRASES]
+        await d1.close()
+
+        hot_values["limits.chat_burst_limit"] = 2        # смена во время рестарта
+        d2 = DatabaseService(str(path))
+        await d2.initialize()
+        service2 = _make_service(
+            db=d2, llm=FakeLLM(),
+            throttle=PersistentThrottle(5, 300.0, "direct_chat", d2))
+        bot2 = _bot()
+        await service2.handle(bot2, _message(message_id=10), _user())
+        assert service2.llm.call_count == 0              # пауза из БД не сброшена
+        assert bot2.send_message.await_args.args[1] in [
+            p.replace("{remaining_time}", "5 мин") for p in CHAT_COOLDOWN_PHRASES]
+
+        fake_wall["now"] += 301.0                        # окно истекло
+        for i in range(2):                               # новый лимит 2
+            await service2.handle(bot2, _message(message_id=20 + i), _user())
+        assert bot2.send_message.await_count == 3        # +2 допущенных хода
+        allowed_calls = service2.llm.call_count
+        await service2.handle(bot2, _message(message_id=30), _user())
+        assert bot2.send_message.await_count == 4        # 3-е — отказ
+        assert service2.llm.call_count == allowed_calls  # отказ ДО LLM
+        await d2.close()

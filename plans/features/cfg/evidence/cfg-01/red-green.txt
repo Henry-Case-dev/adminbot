@@ -1,0 +1,38 @@
+# CFG-01: RED -> GREEN (raw pytest summaries)
+
+BASE (pre-change, worktree at 43f86ef235c9959c4e846794755bc4ede3f3a4b3):
+  $ py -3 -m pytest tests/test_direct_chat.py tests/test_direct_chat_concurrency.py -q -k Cfg01
+FAILED tests/test_direct_chat.py::TestCfg01DirectChatLimits::test_global_hot_reload_without_restart
+FAILED tests/test_direct_chat.py::TestCfg01DirectChatLimits::test_per_chat_override_isolated_and_inherit_restored
+FAILED tests/test_direct_chat.py::TestCfg01DirectChatLimits::test_refusal_reports_factual_remaining_and_source
+FAILED tests/test_direct_chat.py::TestCfg01DirectChatLimits::test_active_cooldown_not_reset_by_limit_change
+FAILED tests/test_direct_chat.py::TestCfg01DirectChatLimits::test_persistent_limits_survive_restart_with_new_values
+FAILED tests/test_direct_chat_concurrency.py::TestCfg01AntiBypassParallel::test_parallel_burst_same_chat_obeys_limit_in_memory
+FAILED tests/test_direct_chat_concurrency.py::TestCfg01AntiBypassParallel::test_parallel_burst_two_workers_shared_persistent_state
+7 failed, 167 deselected, 2 warnings in 5.52s
+
+  $ py -3 -m pytest tests/test_persistent_throttling.py -q -k Cfg01
+E   ImportError: cannot import name 'normalize_direct_chat_limits' from 'services.persistent_throttling' (C:\Users\main\.config\opencode\OpenCodeScratch\adminbot-ccef72c25768\cfg01-red2\services\persistent_throttling.py)
+
+CANDIDATE (working tree, blob sha12):
+  services/persistent_throttling.py = 44eff460ff08
+  services/chat_params.py = 911c088a9f25
+  services/direct_chat_service.py = 506f7ca4cda2
+  tests/test_direct_chat.py = 778c599f238e
+  tests/test_direct_chat_concurrency.py = e05185cd3e23
+  tests/test_persistent_throttling.py = 7321b5103363
+
+  $ py -3 -m pytest tests/test_direct_chat.py tests/test_direct_chat_concurrency.py tests/test_persistent_throttling.py -q
+204 passed, 2 warnings in 15.43s
+
+  $ py -3 -m pytest tests/test_direct_chat.py tests/test_direct_chat_concurrency.py -q -k Cfg01
+7 passed, 167 deselected, 2 warnings in 3.39s
+
+  $ py -3 -m pytest <57 files: direct_chat*/persistent_throttling/hot_config/soul1-consumers> -q
+FAILED tests/test_asap7_direct_settings.py::test_migration_v35_idempotent_twice
+FAILED tests/test_asap7_direct_settings.py::test_backup_guard_fires_before_pending_step
+2 failed, 1693 passed, 2 warnings in 53.39s
+
+  pre-existing RED (NOT caused by CFG-01): tests/test_asap7_direct_settings.py::test_migration_v35_idempotent_twice,
+  tests/test_asap7_direct_settings.py::test_backup_guard_fires_before_pending_step
+  — reproduced on BASE 43f86ef235c9959c4e846794755bc4ede3f3a4b3 without CFG-01 changes.

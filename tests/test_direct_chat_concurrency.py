@@ -48,6 +48,17 @@ def _self_awareness_off(monkeypatch):
         else real_get(key, default))
 
 
+@pytest.fixture(autouse=True)
+def _cfg01_limits(monkeypatch):
+    """CFG-01 (§01.1/§01.2): эти тесты — про per-chat СЛОТЫ, не про частотный
+    лимит, поэтому effective-лимиты Direct Chat пинятся широкими через
+    конфиг-слой (единственный источник рантайма после CFG-01)."""
+    monkeypatch.setattr(
+        "services.persistent_throttling.settings",
+        settings_module.Settings(CHAT_BURST_LIMIT=50,
+                                 CHAT_COOLDOWN_SECONDS=300.0))
+
+
 def _user(user_id=10, first_name="Вася", last_name="Пупкин", username="vasya"):
     u = MagicMock()
     u.id = user_id
@@ -196,13 +207,13 @@ def direct_l1_off(monkeypatch):
     monkeypatch.setattr(Settings, "DIRECT_L1_ENABLED", False)
 
 
-def _make_service(llm=None, concurrency_pool=None):
+def _make_service(llm=None, concurrency_pool=None, db=None, throttle=None):
     return DirectChatService(
         FakeMemory(),
-        FakeDB(),
+        db or FakeDB(),
         llm or GateLLM(),
         AliasResolver("{}"),
-        throttle=DirectChatThrottle(50, 300.0),
+        throttle=throttle or DirectChatThrottle(50, 300.0),
         bot_id=12345,
         bot_username="test_bot",
         breaker=None,
@@ -311,3 +322,101 @@ class TestDirectChatConcurrency:
         assert llm.max_active == 2              # оба чата в генерации
         llm.gate.set()
         await asyncio.gather(task_a, task_b)
+
+
+# ═══ CFG-01 (§01.5/§01.7): анти-обход burst'а в параллель/между воркерами ════
+
+class CountingLLM:
+    """LLM без затвора: считает вызовы (для анти-обход-тестов лимита)."""
+
+    def __init__(self, text="всё по делу, иди нахуй"):
+        self.text = text
+        self.call_count = 0
+
+    async def generate(self, messages, temperature=None, chat_id=None,
+                       **kwargs):
+        self.call_count += 1
+        return self.text
+
+
+def _limit_config(monkeypatch, burst, cooldown=300.0):
+    monkeypatch.setattr(
+        "services.persistent_throttling.settings",
+        settings_module.Settings(CHAT_BURST_LIMIT=burst,
+                                 CHAT_COOLDOWN_SECONDS=cooldown))
+
+
+def _count_cooldown_phrases(bot):
+    """Число сообщений-отказов по шаблонам R50-7 (любой остаток времени:
+    реальное время в этом тесте не подменяется, поэтому «5 мин» не гарантирован)."""
+    from services.smartmodule_phrases import CHAT_COOLDOWN_PHRASES
+    import re
+
+    patterns = [
+        re.compile(r"^" + re.escape(p.split("{remaining_time}")[0]))
+        for p in CHAT_COOLDOWN_PHRASES]
+    texts = [c.args[1] for c in bot.send_message.await_args_list]
+    return sum(1 for t in texts
+               if isinstance(t, str) and any(p.match(t) for p in patterns))
+
+
+@pytest.mark.usefixtures("direct_l1_off")
+class TestCfg01AntiBypassParallel:
+    """CFG-01 §01.7: параллельные обращения и второй «воркер» не обходят
+    ограничитель. TEST-LIFECYCLE: REGRESSION owner=CFG-01/F5/F7."""
+
+    @pytest.mark.asyncio
+    async def test_parallel_burst_same_chat_obeys_limit_in_memory(
+            self, monkeypatch, pool_n):
+        """§01.5: 6 параллельных обращений одного человека с лимитом 2 —
+        ровно 2 доходят до LLM, остальные получают фразу кулдауна."""
+        pool_n(6)
+        _limit_config(monkeypatch, burst=2)
+        llm = CountingLLM()
+        service = _make_service(llm=llm,
+                                concurrency_pool=ChatConcurrencyPool())
+        bots = [_bot() for _ in range(6)]
+        await asyncio.gather(*[
+            service.handle(bots[i], _message(message_id=i, chat_id=CHAT_A),
+                           _user())
+            for i in range(6)])
+        assert llm.call_count == 2                  # лимит жёсткий
+        assert sum(_count_cooldown_phrases(b) for b in bots) == 4
+
+    @pytest.mark.asyncio
+    async def test_parallel_burst_two_workers_shared_persistent_state(
+            self, tmp_path, monkeypatch, pool_n):
+        """§01.5: два процесса («воркера») на одной БД делят один слот —
+        суммарно допускаются ровно `limit` обращений, обход невозможен."""
+        from services.database import DatabaseService
+        from services.persistent_throttling import PersistentThrottle
+        pool_n(6)
+        _limit_config(monkeypatch, burst=2)
+        path = tmp_path / "workers.db"
+        d1 = DatabaseService(str(path))
+        await d1.initialize()
+        d2 = DatabaseService(str(path))
+        await d2.initialize()
+        llm1, llm2 = CountingLLM(), CountingLLM()
+        # throttle инстансов собран СТАРЫМ значением (как при старте процесса),
+        # конфиг уже 2 → effective-резолв обязан победить (CFG-01 §01.2)
+        service1 = _make_service(
+            llm=llm1, concurrency_pool=ChatConcurrencyPool(),
+            throttle=PersistentThrottle(5, 300.0, "direct_chat", d1))
+        service2 = _make_service(
+            llm=llm2, concurrency_pool=ChatConcurrencyPool(),
+            throttle=PersistentThrottle(5, 300.0, "direct_chat", d2))
+        bots = []
+        tasks = []
+        for i in range(6):
+            service = service1 if i % 2 == 0 else service2
+            bot = _bot()
+            bots.append(bot)
+            tasks.append(asyncio.ensure_future(
+                service.handle(bot, _message(message_id=i, chat_id=CHAT_A),
+                               _user())))
+        await asyncio.gather(*tasks)
+        assert llm1.call_count + llm2.call_count == 2   # общий слот на 2
+        assert sum(_count_cooldown_phrases(b) for b in bots) == 4
+        await d1.close()
+        await d2.close()
