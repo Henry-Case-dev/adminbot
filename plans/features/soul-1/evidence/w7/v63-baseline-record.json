@@ -1,0 +1,92 @@
+{
+  "generated_by": "W7-BUILD (soul-1 slice W7, SOUL-13.0/13.1/13.5)",
+  "head": "9d8da1d76ac422eeaa3c097d6ffc278de1c55887",
+  "origin_master": "998bf4e2eef45be7cf96a1d5a1ebd00d3460bfdb",
+  "git_evidence_commit_225c3c2b": {
+    "sha": "225c3c2bbc8c5065d5a4afc2c4e0b189b403b77c",
+    "subject": "docs(v6.3): live-пробы V01-V07 + биндинг карты к кандидату c2775a54 (112 VERIFIED / 13 READY_FOR_LIVE / 14 BLOCKED_REAL_HUMAN_GATE, evidence привязан к SHA); вывод по ключам эмбеддингов (ротация исправна, слипания нет, общий прокси-кап apinet.cloud; primary из hot-конфига без диагностики)",
+    "parent": "736a8834ccb6063abc04790d99f6e8c7eb13f253",
+    "files": [
+      "plans/backlog.md                                   |   24 +",
+      " .../requirements-map.json                          | 2342 ++++++++++++++++----",
+      " .../asap8-v6-3-live-correction/w4-live-probes.md   |   54 +",
+      " 3 files changed, 2009 insertions(+), 411 deletions(-)"
+    ],
+    "ancestor_of_origin_master": true,
+    "ancestor_of_local_master": true
+  },
+  "deploy_chain_from_v63_artifacts": {
+    "v63_canary_deployed": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+    "v63_canary_version": "2.58.79",
+    "pre_deploy_sha_b9ea4907": "b9ea4907ffa52e7b2974e9511113e03350820a6e",
+    "later_release_25881": "6d4b9a7d645dcd0e7bd6c63b1e3ce2d367b58221",
+    "later_release_25883": "448cc81a9eab590ea6de599f478220dd00abd3d1",
+    "repo_app_version_now": "2.58.81"
+  },
+  "artifacts": {
+    "release-reconciliation.md": {
+      "path": "plans/features/asap8-v6-3-live-correction/release-reconciliation.md",
+      "exists": true,
+      "tracked": true,
+      "blob_HEAD": "104faae2adbadc75f9d2d2a5b88f444458802f27",
+      "sha256_worktree": "d77847eb111b09e8575259dddaff91820dddc2ed8ae83f8637d2298cb9a34e8d",
+      "dirty": false
+    },
+    "final-audit-current-task.md": {
+      "path": "plans/features/asap8-v6-3-live-correction/final-audit-current-task.md",
+      "exists": true,
+      "tracked": true,
+      "blob_HEAD": "adc9aa19a632d6e0335200584fb3a67df5f0bcdd",
+      "sha256_worktree": "355550af6a494d6b62b4e7d9249c1b97c39cf532b368e5db63e67e3c5d5ab9e1",
+      "dirty": false
+    },
+    "live-canary.md": {
+      "path": "plans/features/asap8-v6-3-live-correction/live-canary.md",
+      "exists": true,
+      "tracked": true,
+      "blob_HEAD": "de0dfd1513848aa2438f9a67fc48cb9558ec1834",
+      "sha256_worktree": "2bffa269111f57a57e78df2bdded83626590a1fff7be333e1d989b61a5b1c38f",
+      "dirty": false
+    },
+    "requirements-map.md": {
+      "path": "plans/features/asap8-v6-3-live-correction/requirements-map.md",
+      "exists": true,
+      "tracked": true,
+      "blob_HEAD": "24d98662e52515436e29c71b1f0cd3770acc2a4a",
+      "sha256_worktree": "6e4ec002f781b3b5527d6ecb2a5374926463bf24e3d9fff294229f87a651a4a9",
+      "dirty": false
+    },
+    "review-ledger.md": {
+      "path": "plans/features/asap8-v6-3-live-correction/review-ledger.md",
+      "exists": true,
+      "tracked": true,
+      "blob_HEAD": "e82d4eca24908e0b104bf9f8e6bd59fba1381277",
+      "sha256_worktree": "4e445e51c1ef6fbb349d788a346530d5e3db01b9e7e917812a83e0527786b672",
+      "dirty": false
+    },
+    "v63-final-coverage-report-2026-10-16.md": {
+      "path": "plans/features/asap8-v6-3-live-correction/v63-final-coverage-report-2026-10-16.md",
+      "exists": true,
+      "tracked": true,
+      "blob_HEAD": "b6aee2bf6ac4949723dcab94dfc72b711d6be3a9",
+      "sha256_worktree": "34f7019dba182e03281d0d9c2a4599b4e901d2133fa7ce36ddf28c26fbfc59ac",
+      "dirty": false
+    },
+    "verification-report-2026-10-16.md": {
+      "path": "plans/features/asap8-v6-3-live-correction/verification-report-2026-10-16.md",
+      "exists": true,
+      "tracked": true,
+      "blob_HEAD": "716609a2381e32f9585a71d47b551e34809e36b3",
+      "sha256_worktree": "647f2afbff5439761a97d6a5104e83f1a15bcd8bc014f761d541ae46419bfd56",
+      "dirty": false
+    },
+    "map-reconciliation-2026-10-16.md": {
+      "path": "plans/features/asap8-v6-3-live-correction/map-reconciliation-2026-10-16.md",
+      "exists": true,
+      "tracked": true,
+      "blob_HEAD": "c68702cde4e635c4da4cdbee8611446ca49572a6",
+      "sha256_worktree": "14e3fafae54b42ade0dbf4dac19c407d2a236ce2f67d394010264cc1e17ca6ed",
+      "dirty": true
+    }
+  }
+}

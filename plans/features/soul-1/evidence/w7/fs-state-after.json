@@ -1,0 +1,418 @@
+{
+  "base": "http://127.0.0.1:8810",
+  "scenarios": {
+    "tdesktop_hidden": {
+      "btnPresent": false,
+      "hiddenClass": true,
+      "fsReason": "tdesktop_disabled_until_e2e",
+      "stripPresent": true,
+      "stripOpen": false,
+      "stripText": "Полноэкранный режим недоступен — почему и что делать",
+      "policyApi": [
+        "decideOffer",
+        "diagnostics",
+        "exit",
+        "explain",
+        "init",
+        "launchExitIgnored",
+        "request",
+        "setAckTimeoutMs",
+        "slotFromGeometry",
+        "state",
+        "subscribe",
+        "teardown"
+      ],
+      "hasExplain": true,
+      "hasDiagnostics": true,
+      "explain": {
+        "code": "tdesktop_disabled_until_e2e",
+        "text": "В Telegram Desktop (Windows) кнопка «на весь экран» не показывается: встроенный API клиента не даёт визуально подтверждённого перехода в полноэкранный режим ОС, а CSS не может увеличить родное окно Telegram, поэтому обещать это нельзя.",
+        "nextStep": "Выберите нормальный режим запуска: @BotFather → /mybots → ваш бот → Bot Settings → Main App (Configure Mini App) → Launch Mode «Full» или «Compact» вместо «Fullscreen». Бот не может переключить Launch Mode за вас, а expand() — не замена полноэкранному режиму. Родное закрытие окна (✕) остаётся доступным.",
+        "supportedWorkflow": "launch_mode_full_or_compact"
+      },
+      "diagnostics": {
+        "platform": "tdesktop",
+        "sdkVersion": "8.0",
+        "launchParams": {
+          "tgWebAppPlatform": null,
+          "tgWebAppVersion": null,
+          "tgWebAppStartParam": null
+        },
+        "hasInitData": true,
+        "hasInitDataUnsafe": true,
+        "isFullscreenSupported": true,
+        "actualFullscreen": false,
+        "launchFullscreen": false,
+        "hasRequestFullscreen": true,
+        "hasExitFullscreen": true,
+        "hasExpand": true,
+        "hasReady": true,
+        "isExpanded": true,
+        "slot": "hidden",
+        "reason": "tdesktop_disabled_until_e2e",
+        "reasonText": "В Telegram Desktop (Windows) кнопка «на весь экран» не показывается: встроенный API клиента не даёт визуально подтверждённого перехода в полноэкранный режим ОС, а CSS не может увеличить родное окно Telegram, поэтому обещать это нельзя.",
+        "nextStep": "Выберите нормальный режим запуска: @BotFather → /mybots → ваш бот → Bot Settings → Main App (Configure Mini App) → Launch Mode «Full» или «Compact» вместо «Fullscreen». Бот не может переключить Launch Mode за вас, а expand() — не замена полноэкранному режиму. Родное закрытие окна (✕) остаётся доступным.",
+        "canOfferFullscreen": false,
+        "canOfferExit": false,
+        "requestPending": false,
+        "lastError": null,
+        "width": 1024,
+        "height": 768,
+        "stableHeight": 700,
+        "safeAreaInset": {
+          "top": 0,
+          "bottom": 0,
+          "left": 0,
+          "right": 0
+        },
+        "contentSafeAreaInset": {
+          "top": 0,
+          "bottom": 0,
+          "left": 0,
+          "right": 0
+        },
+        "ackTimeoutMs": 4000,
+        "initCount": 1,
+        "clickResult": "never",
+        "hostBehaviour": {
+          "softExitTried": false,
+          "launchExitIgnored": false,
+          "sdkSubscribed": true
+        },
+        "trace": [
+          {
+            "code": "init",
+            "at": 1792240701271,
+            "extra": "n=1"
+          }
+        ],
+        "warnings": []
+      },
+      "stateReasonText": "В Telegram Desktop (Windows) кнопка «на весь экран» не показывается: встроенный API клиента не даёт визуально подтверждённого перехода в полноэкранный режим ОС, а CSS не может увеличить родное окно Telegram, поэтому обещать это нельзя.",
+      "stateNextStep": "Выберите нормальный режим запуска: @BotFather → /mybots → ваш бот → Bot Settings → Main App (Configure Mini App) → Launch Mode «Full» или «Compact» вместо «Fullscreen». Бот не может переключить Launch Mode за вас, а expand() — не замена полноэкранному режиму. Родное закрытие окна (✕) остаётся доступным.",
+      "bodyMentions": {
+        "BotFather": true,
+        "Launch Mode": true,
+        "Fullscreen": true,
+        "Compact": true,
+        "На весь экран": false
+      },
+      "toasts": [
+        "В Telegram Desktop (Windows) кнопка «на весь экран» не показывается: встроенный API клиента не даёт визуально подтверждённого перехода в полноэкранный режим ОС, а CSS не может увеличить родное окно Telegram, поэтому обещать это нельзя. Выберите нормальный режим запуска: @BotFather → /mybots → ваш бот → Bot Settings → Main App (Configure Mini App) → Launch Mode «Full» или «Compact» вместо «Fullscreen». Бот не может переключить Launch Mode за вас, а expand() — не замена полноэкранному режиму. Родное закрытие окна (✕) остаётся доступным."
+      ],
+      "hOverflow": false,
+      "headerH": 113,
+      "shellFullscreen": false
+    },
+    "tdesktop_launch_fullscreen": {
+      "btnPresent": false,
+      "hiddenClass": true,
+      "fsReason": "tdesktop_disabled_until_e2e",
+      "stripPresent": true,
+      "stripOpen": false,
+      "stripText": "Полноэкранный режим недоступен — почему и что делать",
+      "policyApi": [
+        "decideOffer",
+        "diagnostics",
+        "exit",
+        "explain",
+        "init",
+        "launchExitIgnored",
+        "request",
+        "setAckTimeoutMs",
+        "slotFromGeometry",
+        "state",
+        "subscribe",
+        "teardown"
+      ],
+      "hasExplain": true,
+      "hasDiagnostics": true,
+      "explain": {
+        "code": "tdesktop_disabled_until_e2e",
+        "text": "В Telegram Desktop (Windows) кнопка «на весь экран» не показывается: встроенный API клиента не даёт визуально подтверждённого перехода в полноэкранный режим ОС, а CSS не может увеличить родное окно Telegram, поэтому обещать это нельзя.",
+        "nextStep": "Выберите нормальный режим запуска: @BotFather → /mybots → ваш бот → Bot Settings → Main App (Configure Mini App) → Launch Mode «Full» или «Compact» вместо «Fullscreen». Бот не может переключить Launch Mode за вас, а expand() — не замена полноэкранному режиму. Родное закрытие окна (✕) остаётся доступным.",
+        "supportedWorkflow": "launch_mode_full_or_compact"
+      },
+      "diagnostics": {
+        "platform": "tdesktop",
+        "sdkVersion": "8.0",
+        "launchParams": {
+          "tgWebAppPlatform": null,
+          "tgWebAppVersion": null,
+          "tgWebAppStartParam": null
+        },
+        "hasInitData": true,
+        "hasInitDataUnsafe": true,
+        "isFullscreenSupported": true,
+        "actualFullscreen": true,
+        "launchFullscreen": true,
+        "hasRequestFullscreen": true,
+        "hasExitFullscreen": true,
+        "hasExpand": true,
+        "hasReady": true,
+        "isExpanded": true,
+        "slot": "hidden",
+        "reason": "tdesktop_disabled_until_e2e",
+        "reasonText": "В Telegram Desktop (Windows) кнопка «на весь экран» не показывается: встроенный API клиента не даёт визуально подтверждённого перехода в полноэкранный режим ОС, а CSS не может увеличить родное окно Telegram, поэтому обещать это нельзя.",
+        "nextStep": "Выберите нормальный режим запуска: @BotFather → /mybots → ваш бот → Bot Settings → Main App (Configure Mini App) → Launch Mode «Full» или «Compact» вместо «Fullscreen». Бот не может переключить Launch Mode за вас, а expand() — не замена полноэкранному режиму. Родное закрытие окна (✕) остаётся доступным.",
+        "canOfferFullscreen": false,
+        "canOfferExit": false,
+        "requestPending": false,
+        "lastError": null,
+        "width": 1024,
+        "height": 768,
+        "stableHeight": 700,
+        "safeAreaInset": {
+          "top": 0,
+          "bottom": 0,
+          "left": 0,
+          "right": 0
+        },
+        "contentSafeAreaInset": {
+          "top": 0,
+          "bottom": 0,
+          "left": 0,
+          "right": 0
+        },
+        "ackTimeoutMs": 4000,
+        "initCount": 1,
+        "clickResult": "never",
+        "hostBehaviour": {
+          "softExitTried": true,
+          "launchExitIgnored": false,
+          "sdkSubscribed": true
+        },
+        "trace": [
+          {
+            "code": "init",
+            "at": 1792240702780,
+            "extra": "n=1"
+          },
+          {
+            "code": "softExit",
+            "at": 1792240702780,
+            "extra": "tdesktop-launch"
+          }
+        ],
+        "warnings": []
+      },
+      "stateReasonText": "В Telegram Desktop (Windows) кнопка «на весь экран» не показывается: встроенный API клиента не даёт визуально подтверждённого перехода в полноэкранный режим ОС, а CSS не может увеличить родное окно Telegram, поэтому обещать это нельзя.",
+      "stateNextStep": "Выберите нормальный режим запуска: @BotFather → /mybots → ваш бот → Bot Settings → Main App (Configure Mini App) → Launch Mode «Full» или «Compact» вместо «Fullscreen». Бот не может переключить Launch Mode за вас, а expand() — не замена полноэкранному режиму. Родное закрытие окна (✕) остаётся доступным.",
+      "bodyMentions": {
+        "BotFather": true,
+        "Launch Mode": true,
+        "Fullscreen": true,
+        "Compact": true,
+        "На весь экран": false
+      },
+      "toasts": [
+        "В Telegram Desktop (Windows) кнопка «на весь экран» не показывается: встроенный API клиента не даёт визуально подтверждённого перехода в полноэкранный режим ОС, а CSS не может увеличить родное окно Telegram, поэтому обещать это нельзя. Выберите нормальный режим запуска: @BotFather → /mybots → ваш бот → Bot Settings → Main App (Configure Mini App) → Launch Mode «Full» или «Compact» вместо «Fullscreen». Бот не может переключить Launch Mode за вас, а expand() — не замена полноэкранному режиму. Родное закрытие окна (✕) остаётся доступным."
+      ],
+      "hOverflow": false,
+      "headerH": 116,
+      "shellFullscreen": true
+    },
+    "android_float": {
+      "btnPresent": true,
+      "hiddenClass": false,
+      "fsReason": null,
+      "stripPresent": false,
+      "stripOpen": null,
+      "stripText": null,
+      "policyApi": [
+        "decideOffer",
+        "diagnostics",
+        "exit",
+        "explain",
+        "init",
+        "launchExitIgnored",
+        "request",
+        "setAckTimeoutMs",
+        "slotFromGeometry",
+        "state",
+        "subscribe",
+        "teardown"
+      ],
+      "hasExplain": true,
+      "hasDiagnostics": true,
+      "explain": {
+        "code": "",
+        "text": "",
+        "nextStep": "",
+        "supportedWorkflow": ""
+      },
+      "diagnostics": {
+        "platform": "android",
+        "sdkVersion": "8.0",
+        "launchParams": {
+          "tgWebAppPlatform": null,
+          "tgWebAppVersion": null,
+          "tgWebAppStartParam": null
+        },
+        "hasInitData": true,
+        "hasInitDataUnsafe": true,
+        "isFullscreenSupported": true,
+        "actualFullscreen": false,
+        "launchFullscreen": false,
+        "hasRequestFullscreen": true,
+        "hasExitFullscreen": true,
+        "hasExpand": true,
+        "hasReady": true,
+        "isExpanded": true,
+        "slot": "float",
+        "reason": "",
+        "reasonText": "",
+        "nextStep": "",
+        "canOfferFullscreen": true,
+        "canOfferExit": false,
+        "requestPending": false,
+        "lastError": null,
+        "width": 390,
+        "height": 844,
+        "stableHeight": 788,
+        "safeAreaInset": {
+          "top": 0,
+          "bottom": 0,
+          "left": 0,
+          "right": 0
+        },
+        "contentSafeAreaInset": {
+          "top": 36,
+          "bottom": 0,
+          "left": 0,
+          "right": 0
+        },
+        "ackTimeoutMs": 4000,
+        "initCount": 1,
+        "clickResult": "never",
+        "hostBehaviour": {
+          "softExitTried": false,
+          "launchExitIgnored": false,
+          "sdkSubscribed": true
+        },
+        "trace": [
+          {
+            "code": "init",
+            "at": 1792240704561,
+            "extra": "n=1"
+          }
+        ],
+        "warnings": []
+      },
+      "stateReasonText": "",
+      "stateNextStep": "",
+      "bodyMentions": {
+        "BotFather": false,
+        "Launch Mode": false,
+        "Fullscreen": false,
+        "Compact": false,
+        "На весь экран": false
+      },
+      "toasts": [],
+      "hOverflow": false,
+      "headerH": 189,
+      "shellFullscreen": false
+    },
+    "no_telegram": {
+      "btnPresent": false,
+      "hiddenClass": true,
+      "fsReason": "no_telegram_context",
+      "stripPresent": false,
+      "stripOpen": null,
+      "stripText": null,
+      "policyApi": [
+        "decideOffer",
+        "diagnostics",
+        "exit",
+        "explain",
+        "init",
+        "launchExitIgnored",
+        "request",
+        "setAckTimeoutMs",
+        "slotFromGeometry",
+        "state",
+        "subscribe",
+        "teardown"
+      ],
+      "hasExplain": true,
+      "hasDiagnostics": true,
+      "explain": {
+        "code": "no_telegram_context",
+        "text": "Приложение открыто вне Telegram — полноэкранный режим Telegram здесь недоступен.",
+        "nextStep": "Откройте Mini App из Telegram (кнопка бота) — там управление полноэкранным режимом доступно.",
+        "supportedWorkflow": ""
+      },
+      "diagnostics": {
+        "platform": "unknown",
+        "sdkVersion": "",
+        "launchParams": {
+          "tgWebAppPlatform": null,
+          "tgWebAppVersion": null,
+          "tgWebAppStartParam": null
+        },
+        "hasInitData": false,
+        "hasInitDataUnsafe": false,
+        "isFullscreenSupported": false,
+        "actualFullscreen": "unknown",
+        "launchFullscreen": null,
+        "hasRequestFullscreen": false,
+        "hasExitFullscreen": false,
+        "hasExpand": false,
+        "hasReady": false,
+        "isExpanded": false,
+        "slot": "hidden",
+        "reason": "no_telegram_context",
+        "reasonText": "Приложение открыто вне Telegram — полноэкранный режим Telegram здесь недоступен.",
+        "nextStep": "Откройте Mini App из Telegram (кнопка бота) — там управление полноэкранным режимом доступно.",
+        "canOfferFullscreen": false,
+        "canOfferExit": false,
+        "requestPending": false,
+        "lastError": null,
+        "width": 1280,
+        "height": 800,
+        "stableHeight": 0,
+        "safeAreaInset": {
+          "top": 0,
+          "bottom": 0,
+          "left": 0,
+          "right": 0
+        },
+        "contentSafeAreaInset": {
+          "top": 0,
+          "bottom": 0,
+          "left": 0,
+          "right": 0
+        },
+        "ackTimeoutMs": 4000,
+        "initCount": 1,
+        "clickResult": "never",
+        "hostBehaviour": {
+          "softExitTried": false,
+          "launchExitIgnored": false,
+          "sdkSubscribed": false
+        },
+        "trace": [
+          {
+            "code": "init",
+            "at": 1792240705884,
+            "extra": "n=1"
+          }
+        ],
+        "warnings": []
+      },
+      "stateReasonText": "Приложение открыто вне Telegram — полноэкранный режим Telegram здесь недоступен.",
+      "stateNextStep": "Откройте Mini App из Telegram (кнопка бота) — там управление полноэкранным режимом доступно.",
+      "bodyMentions": {
+        "BotFather": false,
+        "Launch Mode": false,
+        "Fullscreen": false,
+        "Compact": false,
+        "На весь экран": false
+      },
+      "toasts": [],
+      "hOverflow": false,
+      "headerH": 64,
+      "shellFullscreen": false
+    }
+  }
+}

@@ -189,6 +189,10 @@ class EmbeddingCredential:
     # F8 (§15.3): provenance группы — explicit|auto|unknown (панель честно
     # различает настроенную владельцем группу и авто-слот named-профиля).
     quota_group_source: str = GROUP_SOURCE_UNKNOWN
+    # SOUL-13.4 (W7): откуда взят ключ слота — hot | env | absent. Материал
+    # для честной диагностики «primary отсутствует ≠ primary из hot-конфига»;
+    # само значение ключа наружу не идёт (R17).
+    key_source: str = "env"
 
     @property
     def credential_id(self) -> str:
@@ -223,6 +227,26 @@ def _hot_get(key: str, default):
         return hot_config.get(key, default)
     except Exception:      # pragma: no cover
         return default
+
+
+# SOUL-13.4 (W7): единый маркер «в hot-конфиге ключа нет» — отличает
+# отсутствующий слот от слота, доступного через hot-конфиг. Значение ключа
+# наружу не отдаётся ни в лог, ни в панель (R17).
+_ABSENT = object()
+
+
+def resolve_key_slot(hot_key: str, env_name: str, env_value) -> tuple:
+    """(value, source) для слота ключа: source ∈ `hot` | `env` | `absent`.
+
+    Приоритет — как в горячем пути (hot перекрывает env, §4/§12); пустая
+    строка = отсутствие значения, а не «ключ задан»."""
+    hot_val = _hot_get(hot_key, _ABSENT)
+    if hot_val is not _ABSENT and str(hot_val or "").strip():
+        return str(hot_val).strip(), "hot"
+    env_val = str(_settings_value(env_name, env_value) or "").strip()
+    if env_val:
+        return env_val, "env"
+    return "", "absent"
 
 
 def parse_quota_group_labels(raw) -> dict[str, str]:
@@ -307,31 +331,33 @@ def build_credential_pool() -> list[EmbeddingCredential]:
         "models.embedding_model_name",
         _settings_value("EMBEDDING_MODEL_NAME", "")) or "").strip()
     provider = _provider_of(base_url)
-    primary = str(_hot_get("keys.embedding_api_key",
-                           _settings_value("EMBEDDING_API_KEY", "")) or "").strip()
-    entries: list[tuple[str, str]] = []
+    primary, primary_source = resolve_key_slot(
+        "keys.embedding_api_key", "EMBEDDING_API_KEY", "")
+    entries: list[tuple[str, str, str]] = []
     if primary:
-        entries.append(("primary", primary))
-    fb1 = str(_hot_get("keys.embedding_fallback_api_key",
-                       _settings_value("EMBEDDING_FALLBACK_API_KEY", "")) or "").strip()
-    fb2 = str(_hot_get("keys.embedding_fallback_api_key_2",
-                       _settings_value("EMBEDDING_FALLBACK_API_KEY_2", "")) or "").strip()
+        entries.append(("primary", primary, primary_source))
+    fb1, fb1_source = resolve_key_slot(
+        "keys.embedding_fallback_api_key", "EMBEDDING_FALLBACK_API_KEY", "")
+    fb2, fb2_source = resolve_key_slot(
+        "keys.embedding_fallback_api_key_2", "EMBEDDING_FALLBACK_API_KEY_2", "")
     if fb1:
-        entries.append(("fallback_1", fb1))
+        entries.append(("fallback_1", fb1, fb1_source))
     if fb2:
-        entries.append(("fallback_2", fb2))
+        entries.append(("fallback_2", fb2, fb2_source))
     extra_raw = str(_hot_get("keys.embedding_extra_api_keys",
                              _settings_value("EMBEDDING_EXTRA_API_KEYS", "")) or "")
     for idx, key in enumerate(re.split(r"[;,]", extra_raw)):
         key = key.strip()
         if key:
-            entries.append((f"extra_{idx + 1}", key))
-    for alias, key in entries:
+            entries.append((f"extra_{idx + 1}", key, "hot" if _hot_get(
+                "keys.embedding_extra_api_keys", _ABSENT) is not _ABSENT else "env"))
+    for alias, key, key_source in entries:
         group, known, source = resolve_quota_group_full(alias, labels)
         pool.append(EmbeddingCredential(
             alias=alias, api_key=key, base_url=base_url, model=model,
             provider=provider, quota_group_id=group,
-            quota_group_known=known, quota_group_source=source))
+            quota_group_known=known, quota_group_source=source,
+            key_source=key_source))
     return pool
 
 
@@ -343,18 +369,38 @@ _ROTATION_HINT_RU = ("Задайте EMBEDDING_QUOTA_GROUP_LABELS или hot-к�
 _ROTATION_WARN_COOLDOWN_S = 600.0
 _last_rotation_warn = 0.0        # monotonic; in-memory rate-limit WARN
 
+# SOUL-13.4 (W7): primary-слот embedding'ов берётся из hot-конфига
+# (`keys.embedding_api_key`), а не из env `EMBEDDING_API_KEY`. Отсутствие
+# обоих при живых fallback-ключах — деградация пула, которая раньше
+# проходила молча (`degenerate=False` из-за fallback-групп).
+_PRIMARY_HINT_RU = ("Задайте EMBEDDING_API_KEY (env) либо hot-ключ "
+                    "keys.embedding_api_key — hot подхватывается без рестарта; "
+                    "ключи по группам: keys.embedding_quota_group_labels")
+_last_primary_warn = 0.0         # monotonic; отдельный rate-limit WARN
+
 
 def pool_rotation_diagnosis(pool: list[EmbeddingCredential]) -> dict:
     """D3+F8: чистый диагноз распределения пула (R17-safe: только счётчики/
     group-id). `degenerate` = группы не известны ИЛИ |groups| == 1 →
     распределять некуда (safe default «все ключи = одна группа» не выдаётся
     за ротацию). F8 §15.3: named slots с auto-группами — известные
-    независимые группы (degenerate=False)."""
+    независимые группы (degenerate=False).
+
+    SOUL-13.4 (W7): дополнительно различается СОСТОЯНИЕ PRIMARY-СЛОТА:
+    `primary_present` / `primary_source` (hot|env|absent). Отсутствие primary
+    при живых fallback-ключах — деградация пула (`degraded=True`), которая
+    раньше не диагностировалась вовсе (fallback-группы давали
+    degenerate=False). `degenerate` НЕ переопределяется — контракт D3 цел."""
     groups = sorted({c.quota_group_id for c in pool})
     known = any(c.quota_group_known for c in pool)
     degenerate = (not known) or len(groups) <= 1
+    primary = [c for c in pool if c.alias == "primary"]
+    primary_source = primary[0].key_source if primary else "absent"
     return {"keys": len(pool), "groups": groups, "known": known,
-            "degenerate": degenerate}
+            "degenerate": degenerate,
+            "primary_present": bool(primary),
+            "primary_source": primary_source,
+            "degraded": bool(degenerate or (not primary and len(pool) > 0))}
 
 
 def _maybe_warn_degenerate_rotation(diagnosis: dict) -> bool:
@@ -380,17 +426,58 @@ def _maybe_warn_degenerate_rotation(diagnosis: dict) -> bool:
     return True
 
 
+def _maybe_warn_missing_primary(diagnosis: dict) -> bool:
+    """SOUL-13.4 (W7): недеструктивный WARN, когда primary-слот пуст, а
+    ключи в пуле есть (работают только fallback'и) — состояние, которое
+    раньше проходило молча. Rate-limit ≤1/10 мин, под мастер-флагом зоны.
+    Секретов нет: только алиасы/источник слота и счётчики. True —
+    залогировано (возврат для тестов)."""
+    global _last_primary_warn
+    if not diagnosis:
+        return False
+    if int(diagnosis.get("keys") or 0) <= 0:
+        return False                      # пул пуст — не про слот
+    if diagnosis.get("primary_present"):
+        return False                      # слот есть (hot или env) — не дефект
+    if not control_plane_enabled():
+        return False
+    now = time.monotonic()
+    if now - _last_primary_warn < _ROTATION_WARN_COOLDOWN_S:
+        return False
+    _last_primary_warn = now
+    logger.warning(
+        "embedding pool primary=absent | source=none | keys=%d | "
+        "hint=EMBEDDING_API_KEY or keys.embedding_api_key",
+        int(diagnosis["keys"]))
+    return True
+
+
 def _rotation_panel_block(diagnosis: dict) -> dict:
     """D3+F8-контракт панели: `rotation: none | grouped` + reason + hint.
     R17-safe (alias/счётчики; group-id — не секрет). `reason`:
     `unknown_group` (все ключи в одной неопознанной группе — E1/§28.18) |
     `single_group` (одна известная группа — явная ручная группировка или
-    единственный ключ)."""
+    единственный ключ).
+
+    SOUL-13.4 (W7): панель честно различает состояние primary-слота
+    (`primary_present`, `primary_source` = hot|env|absent) и деградацию пула
+    без primary (`degraded`, `primary_state`, `primary_hint`) — понятное
+    состояние вместо молчания, БЕЗ значений ключей."""
     degenerate = bool(diagnosis.get("degenerate"))
     reason = ""
     if degenerate:
         reason = ("unknown_group" if not diagnosis.get("known")
                   else "single_group")
+    has_keys = int(diagnosis.get("keys") or 0) > 0
+    primary_present = bool(diagnosis.get("primary_present"))
+    primary_source = str(diagnosis.get("primary_source") or "absent")
+    if not has_keys:
+        primary_state = "empty_pool"          # ключей нет вовсе — не про слот
+    elif primary_present:
+        primary_state = ("primary_from_env" if primary_source == "env"
+                         else "primary_from_hot")
+    else:
+        primary_state = "primary_absent"
     return {
         "status": "none" if degenerate else "grouped",
         "keys": int(diagnosis.get("keys") or 0),
@@ -399,6 +486,14 @@ def _rotation_panel_block(diagnosis: dict) -> dict:
         "warn": bool(degenerate and int(diagnosis.get("keys") or 0)),
         "reason": reason,
         "hint": _ROTATION_HINT_RU if degenerate else "",
+        # SOUL-13.4: состояние primary-слота (значение ключа не показывается —
+        # только источник: hot-конфиг / env / отсутствует).
+        "primary_present": primary_present,
+        "primary_source": primary_source,
+        "primary_state": primary_state,
+        "degraded": bool(diagnosis.get("degraded")),
+        "primary_warn": primary_state == "primary_absent",
+        "primary_hint": _PRIMARY_HINT_RU if primary_state == "primary_absent" else "",
     }
 
 
@@ -1204,6 +1299,9 @@ class EmbeddingExecutor:
         # D3 (T-4503): вырожденный пул (одна unknown-группа) репортится
         # честно — WARN ≤1/10 мин, без фейковой ротации.
         _maybe_warn_degenerate_rotation(pool_rotation_diagnosis(pool))
+        # SOUL-13.4 (W7): пустой primary-слот при живых ключах — тоже WARN
+        # (не молчать о деградации пула).
+        _maybe_warn_missing_primary(pool_rotation_diagnosis(pool))
 
         budget_left = _ATTEMPT_BUDGET
         defers = 0
@@ -1732,6 +1830,7 @@ def provider_panel() -> dict:
     # при вырожденном пуле; подхват labels живьём (пул строится на вызов).
     rotation = _rotation_panel_block(pool_rotation_diagnosis(pool))
     _maybe_warn_degenerate_rotation(pool_rotation_diagnosis(pool))
+    _maybe_warn_missing_primary(pool_rotation_diagnosis(pool))
     # F8: per-credential строки (R17 — alias/group/health, БЕЗ значений
     # ключей).
     credential_rows = [{
@@ -1741,6 +1840,8 @@ def provider_panel() -> dict:
         "quota_group": c.quota_group_id,
         "quota_group_known": c.quota_group_known,
         "quota_group_source": c.quota_group_source,
+        # SOUL-13.4: источник ключа слота (hot|env) — значение ключа не выходит.
+        "key_source": c.key_source,
         "health": REGISTRY.credential_health(c.alias),
         "cooldown_until": REGISTRY.credential_cooldown_until(c.alias),
     } for c in pool]

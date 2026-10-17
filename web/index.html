@@ -182,15 +182,16 @@
             <span aria-hidden="true">·</span>
             <span>{{ headerSaveChip.label }}</span>
           </button>
-          <!-- W2-FULLSCREEN (REQ-U07-2/U07.2): ЕДИНСТВЕННЫЙ узел ⛶. Слот
-               (inline|float|hidden) решает fullscreen-policy.js (html.fs-*,
-               data-fs-reason на <html>); hidden (tdesktop/вне TG) → кнопка
-               не рендерится вовсе (v-if, без мёртвого контрола). aria по
-               ACK-состоянию; aria-pressed только при подтверждённом факте
-               (fsAriaPressed). Тач-цель ≥44×44 — CSS (min-width/height). -->
+          <!-- W2-FULLSCREEN (REQ-U07-2/U07.2) + FS-HOTFIX 18.10: -->
+          <!-- ЕДИНСТВЕННЫЙ узел ⛶. Слот (inline|hidden) решает -->
+          <!-- fullscreen-policy.js (html.fs-hidden, data-fs-reason на <html>); -->
+          <!-- hidden (вне Telegram/клиент без API) → кнопка не рендерится -->
+          <!-- вовсе (v-if, без мёртвого контрола). Стиль — как у нативных -->
+          <!-- кнопок клиента: прозрачный фон, никакого стекла/круга/blur. -->
+          <!-- aria по ACK-состоянию; aria-pressed только при подтверждённом -->
+          <!-- факте (fsAriaPressed). Тач-цель ≥44×44 — CSS (min-width/height). -->
           <button v-if="me && fsSlot !== 'hidden'" type="button"
                   class="btn-ghost text-xs px-1.5 py-1 shrink-0 header-fs-btn"
-                  :class="'fs-slot-' + fsSlot"
                   :title="isFullscreen ? 'Выйти из полноэкранного режима' : 'На весь экран'"
                   :aria-label="isFullscreen ? 'Выйти из полноэкранного режима' : 'На весь экран'"
                   :aria-pressed="fsAriaPressed"
@@ -343,6 +344,19 @@
               <span class="msr" aria-hidden="true">{{ iconGlyph(n.icon) }}</span>
               <span class="more-menu-label">{{ n.label }}</span>
             </button>
+            <!-- FS-HOTFIX FOLLOW-UP §8 (директива владельца 18.10): временная
+                 админ-диагностика геометрии ⛶. Закрыта по умолчанию (вход —
+                 только здесь), места в обычном UI не занимает; гейт —
+                 существующие admin-права (isGlobalAdminEffective). Это НЕ
+                 раздел навигации (потому и не .more-menu-item): отдельный
+                 admin-инструмент в подвале того же меню. Убрать после приёмки. -->
+            <button v-if="isGlobalAdminEffective" type="button"
+                    class="more-menu-admin-tool" data-fs-geom-diag-entry
+                    title="Компактный снимок геометрии fullscreen (временная админ-диагностика)"
+                    @click="openFsGeomDiag()">
+              <span class="msr" aria-hidden="true">{{ iconGlyph('visibility') }}</span>
+              <span class="more-menu-label">Диагностика геометрии ⛶</span>
+            </button>
             <div v-if="me" class="more-menu-profile">
               <img v-if="meAvatarUrl" :src="meAvatarUrl" alt=""
                    class="w-7 h-7 rounded-full object-cover shrink-0 border border-white/15"
@@ -356,6 +370,62 @@
               </span>
             </div>
           </div>
+        </div>
+
+        <!-- ═══ FS-HOTFIX FOLLOW-UP §8: панель админ-диагностики геометрии ⛶.
+             Открывается ТОЛЬКО из меню «Ещё» (admin-гейт), закрыта по
+             умолчанию, в обычном UI места не занимает. Компактный снимок
+             фактов геометрии + копирование одним действием; без токенов,
+             initData, ID чатов и персональных данных. Временная (18.10):
+             удалить после приёмки владельца на живых клиентах. ═══ -->
+        <div v-if="fsGeomDiagOpen" class="fs-geom-diag-root" data-fs-geom-diag>
+          <div class="fs-geom-diag-backdrop" aria-hidden="true"
+               @click="closeFsGeomDiag()"></div>
+          <div ref="fsGeomPanel" class="fs-geom-diag-panel" role="dialog"
+               aria-modal="false" aria-label="Диагностика геометрии fullscreen"
+               tabindex="-1" @keydown.esc="closeFsGeomDiag()">
+            <div class="flex items-center justify-between gap-2">
+              <span class="text-sm font-semibold">Диагностика геометрии ⛶</span>
+              <button type="button" class="btn-ghost text-xs px-2 py-1"
+                      data-fs-geom-diag-close
+                      @click="closeFsGeomDiag()">Закрыть</button>
+            </div>
+            <pre class="fs-geom-diag-pre" data-fs-geom-diag-text>{{ fsGeomText }}</pre>
+            <div class="fs-geom-diag-actions">
+              <button type="button" class="btn-ghost text-xs"
+                      data-fs-geom-diag-copy
+                      @click="copyFsGeomDiag()">Скопировать снимок</button>
+              <button type="button" class="btn-ghost text-xs"
+                      data-fs-geom-diag-refresh
+                      @click="buildFsGeomText()">Обновить</button>
+              <button type="button" class="btn-ghost text-xs"
+                      data-fs-geom-diag-overlay
+                      :data-overlay-on="fsGeomOverlay ? '1' : '0'"
+                      @click="toggleFsGeomOverlay()">
+                {{ fsGeomOverlay ? 'Скрыть границы' : 'Показать границы' }}
+              </button>
+            </div>
+            <div class="text-[10px] text-gray-500">
+              Только факты геометрии: без токенов, initData, ID чатов и
+              персональных данных. Кнопка «Показать границы» рисует
+              вычисленную зону нативной панели поверх интерфейса — сверьте её
+              с реальной панелью Telegram.
+            </div>
+          </div>
+        </div>
+        <!-- Оверлей вычисленных границ safe area (сверка с нативной панелью,
+             §8). pointer-events:none — тапы не перехватываются. -->
+        <div v-if="fsGeomOverlay" class="fs-safe-overlay" data-fs-safe-overlay
+             aria-hidden="true">
+          <div class="fs-safe-overlay__band"
+               :style="{ height: fsGeomSafeTop + 'px' }">
+            <span class="fs-safe-overlay__label">native top {{ fsGeomSafeTop }}px
+              (safe {{ fsGeomSafeVals.top }} + content {{ fsGeomSafeVals.contentTop }})</span>
+          </div>
+          <div class="fs-safe-overlay__left"
+               :style="{ width: fsGeomSafeVals.left + 'px' }"></div>
+          <div class="fs-safe-overlay__right"
+               :style="{ width: fsGeomSafeVals.right + 'px' }"></div>
         </div>
 
         <!-- Баннеры -->
@@ -5940,6 +6010,20 @@
                       ⚠ rotation=none · все {{ embeddingsPanel.provider.rotation.keys }} ключ. в одной группе {{ embeddingsPanel.provider.rotation.reason === 'unknown_group' ? 'unknown' : ((embeddingsPanel.provider.rotation.groups || []).join('/') || '—') }}
                       <span class="block text-gray-400">{{ embeddingsPanel.provider.rotation.hint }}</span>
                     </div>
+                    <!-- SOUL-13.4 (W7): состояние PRIMARY-слота — различить
+                         «ключа нет вовсе» и «ключ приходит из hot-конфига»;
+                         при пустом слоте при живых ключах — понятное
+                         состояние вместо молчания (значений ключей нет). -->
+                    <div v-if="embeddingsPanel.provider.rotation && embeddingsPanel.provider.rotation.primary_present"
+                         class="mt-1 text-xs text-gray-500" data-embeddings-primary-state>
+                      primary: слот задан ({{ embeddingsPanel.provider.rotation.primary_state === 'primary_from_hot' ? 'hot-конфиг keys.embedding_api_key' : 'env EMBEDDING_API_KEY' }})
+                    </div>
+                    <div v-else-if="embeddingsPanel.provider.rotation && embeddingsPanel.provider.rotation.primary_warn"
+                         class="mt-1 rounded border border-amber-400/40 bg-amber-400/10 px-2 py-1 text-amber-300"
+                         data-embeddings-primary-warn>
+                      ⚠ primary-слот пуст · в пуле {{ embeddingsPanel.provider.rotation.keys }} ключ. (только fallback) · источник: {{ embeddingsPanel.provider.rotation.primary_source }}
+                      <span class="block text-gray-400">{{ embeddingsPanel.provider.rotation.primary_hint }}</span>
+                    </div>
                     <!-- F8 (§15.3): per-credential — alias, provider/model,
                          quota group (+ provenance auto/label/unknown),
                          health, cooldown until. Без секретов. -->
@@ -5948,7 +6032,7 @@
                       <div class="font-bold text-gray-300">Ключи (алиас · группа · health)</div>
                       <div v-for="cr in embeddingsPanel.provider.credential_rows"
                            :key="'ecr-' + cr.alias">
-                        {{ cr.alias }} — {{ cr.provider }}/{{ cr.model }} · группа: {{ cr.quota_group }}<template v-if="cr.quota_group_source === 'auto'"> (auto)</template><template v-else-if="cr.quota_group_source === 'unknown'"> (unknown)</template> · {{ cr.health }}<template v-if="cr.cooldown_until"> · cooldown до {{ fmtTs(cr.cooldown_until) }}</template>
+                        {{ cr.alias }} — {{ cr.provider }}/{{ cr.model }} · группа: {{ cr.quota_group }}<template v-if="cr.quota_group_source === 'auto'"> (auto)</template><template v-else-if="cr.quota_group_source === 'unknown'"> (unknown)</template> · {{ cr.health }}<template v-if="cr.cooldown_until"> · cooldown до {{ fmtTs(cr.cooldown_until) }}</template><template v-if="cr.key_source"> · ключ: {{ cr.key_source === 'hot' ? 'hot-конфиг' : 'env' }}</template>
                       </div>
                     </div>
                     <div v-if="(embeddingsPanel.provider.groups || []).length"

@@ -1947,13 +1947,20 @@ def test_degenerate_pool_hint(monkeypatch):
     diag = ecp.pool_rotation_diagnosis(build_credential_pool())
     assert diag == {"keys": 3, "groups": ["fallback_1", "fallback_2",
                                           "primary"],
-                    "known": True, "degenerate": False}
+                    "known": True, "degenerate": False,
+                    # SOUL-13.4 (W7): состояние primary-слота добавлено в
+                    # диагноз (hot|env|absent) — ре-пин точного shape, не
+                    # ослабление: все прежние поля проверяются как раньше.
+                    "primary_present": True, "primary_source": "env",
+                    "degraded": False}
     # E1/§28.18: 3 ключа БЕЗ опознания групп (extra-алиасы) — честный
     # degenerate: rotation=none, одна unknown-группа.
     _patch_keys(monkeypatch, primary="", fb1="", fb2="", extra="k1;k2;k3")
     diag = ecp.pool_rotation_diagnosis(build_credential_pool())
     assert diag == {"keys": 3, "groups": [UNKNOWN_GROUP_ID],
-                    "known": False, "degenerate": True}
+                    "known": False, "degenerate": True,
+                    "primary_present": False, "primary_source": "absent",
+                    "degraded": True}
     _patch_keys(monkeypatch, primary="k1", fb1="k2", fb2="k3",
                 labels="primary:gA, fallback_1:gA, fallback_2:gB")
     diag = ecp.pool_rotation_diagnosis(build_credential_pool())

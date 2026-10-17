@@ -1,0 +1,153 @@
+{
+  "base": "http://127.0.0.1:8810",
+  "scenarios": {
+    "tdesktop_hidden": {
+      "btnPresent": false,
+      "hiddenClass": true,
+      "fsReason": "tdesktop_disabled_until_e2e",
+      "stripPresent": false,
+      "stripOpen": null,
+      "stripText": null,
+      "policyApi": [
+        "decideOffer",
+        "exit",
+        "init",
+        "launchExitIgnored",
+        "request",
+        "setAckTimeoutMs",
+        "slotFromGeometry",
+        "state",
+        "subscribe",
+        "teardown"
+      ],
+      "hasExplain": false,
+      "hasDiagnostics": false,
+      "explain": null,
+      "diagnostics": null,
+      "stateReasonText": null,
+      "stateNextStep": null,
+      "bodyMentions": {
+        "BotFather": false,
+        "Launch Mode": false,
+        "Fullscreen": false,
+        "Compact": false,
+        "На весь экран": false
+      },
+      "toasts": [],
+      "hOverflow": false,
+      "headerH": 113,
+      "shellFullscreen": false
+    },
+    "tdesktop_launch_fullscreen": {
+      "btnPresent": false,
+      "hiddenClass": true,
+      "fsReason": "tdesktop_disabled_until_e2e",
+      "stripPresent": false,
+      "stripOpen": null,
+      "stripText": null,
+      "policyApi": [
+        "decideOffer",
+        "exit",
+        "init",
+        "launchExitIgnored",
+        "request",
+        "setAckTimeoutMs",
+        "slotFromGeometry",
+        "state",
+        "subscribe",
+        "teardown"
+      ],
+      "hasExplain": false,
+      "hasDiagnostics": false,
+      "explain": null,
+      "diagnostics": null,
+      "stateReasonText": null,
+      "stateNextStep": null,
+      "bodyMentions": {
+        "BotFather": false,
+        "Launch Mode": false,
+        "Fullscreen": false,
+        "Compact": false,
+        "На весь экран": false
+      },
+      "toasts": [],
+      "hOverflow": false,
+      "headerH": 116,
+      "shellFullscreen": true
+    },
+    "android_float": {
+      "btnPresent": true,
+      "hiddenClass": false,
+      "fsReason": null,
+      "stripPresent": false,
+      "stripOpen": null,
+      "stripText": null,
+      "policyApi": [
+        "decideOffer",
+        "exit",
+        "init",
+        "launchExitIgnored",
+        "request",
+        "setAckTimeoutMs",
+        "slotFromGeometry",
+        "state",
+        "subscribe",
+        "teardown"
+      ],
+      "hasExplain": false,
+      "hasDiagnostics": false,
+      "explain": null,
+      "diagnostics": null,
+      "stateReasonText": null,
+      "stateNextStep": null,
+      "bodyMentions": {
+        "BotFather": false,
+        "Launch Mode": false,
+        "Fullscreen": false,
+        "Compact": false,
+        "На весь экран": false
+      },
+      "toasts": [],
+      "hOverflow": false,
+      "headerH": 189,
+      "shellFullscreen": false
+    },
+    "no_telegram": {
+      "btnPresent": false,
+      "hiddenClass": true,
+      "fsReason": "no_telegram_context",
+      "stripPresent": false,
+      "stripOpen": null,
+      "stripText": null,
+      "policyApi": [
+        "decideOffer",
+        "exit",
+        "init",
+        "launchExitIgnored",
+        "request",
+        "setAckTimeoutMs",
+        "slotFromGeometry",
+        "state",
+        "subscribe",
+        "teardown"
+      ],
+      "hasExplain": false,
+      "hasDiagnostics": false,
+      "explain": null,
+      "diagnostics": null,
+      "stateReasonText": null,
+      "stateNextStep": null,
+      "bodyMentions": {
+        "BotFather": false,
+        "Launch Mode": false,
+        "Fullscreen": false,
+        "Compact": false,
+        "На весь экран": false
+      },
+      "toasts": [],
+      "hOverflow": false,
+      "headerH": 64,
+      "shellFullscreen": false
+    }
+  }
+}

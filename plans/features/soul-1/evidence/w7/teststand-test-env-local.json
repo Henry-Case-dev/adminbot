@@ -1,0 +1,17 @@
+{
+  "title": "AdminBot — Glass Test Stand (U08)",
+  "textLen": 1259,
+  "sheetCount": 2,
+  "links": [
+    "../../web/static/app.css?v=stand",
+    "glass-teststand.css?v=stand"
+  ],
+  "scripts": [
+    "../../web/static/glass-probe.js?v=stand",
+    "glass-teststand.js?v=stand"
+  ],
+  "glassNodes": 4,
+  "probeMeta": null,
+  "bodyBg": "rgb(6, 11, 22)",
+  "pageErrors": []
+}

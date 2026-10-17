@@ -1,0 +1,122 @@
+{
+  "390": {
+    "btn": {
+      "x": 330,
+      "y": 72,
+      "w": 44,
+      "h": 44,
+      "right": 374,
+      "bottom": 116
+    },
+    "scope": {
+      "x": 16,
+      "y": 74,
+      "w": 280,
+      "h": 40,
+      "right": 296,
+      "bottom": 114
+    },
+    "avatar": {
+      "x": 324,
+      "y": 94,
+      "w": 0,
+      "h": 0,
+      "right": 324,
+      "bottom": 94
+    },
+    "header": {
+      "x": 0,
+      "y": 0,
+      "w": 390,
+      "h": 178,
+      "right": 390,
+      "bottom": 178
+    },
+    "brand": "none/hidden",
+    "badge": "ЧАТ",
+    "hOverflow": false,
+    "vw": 390,
+    "vh": 844,
+    "contentH": 634
+  },
+  "320": {
+    "btn": {
+      "x": 260,
+      "y": 72,
+      "w": 44,
+      "h": 44,
+      "right": 304,
+      "bottom": 116
+    },
+    "scope": {
+      "x": 16,
+      "y": 74,
+      "w": 230,
+      "h": 40,
+      "right": 246,
+      "bottom": 114
+    },
+    "avatar": {
+      "x": 254,
+      "y": 94,
+      "w": 0,
+      "h": 0,
+      "right": 254,
+      "bottom": 94
+    },
+    "header": {
+      "x": 0,
+      "y": 0,
+      "w": 320,
+      "h": 178,
+      "right": 320,
+      "bottom": 178
+    },
+    "brand": "none/hidden",
+    "badge": "ЧАТ",
+    "hOverflow": false,
+    "vw": 320,
+    "vh": 700,
+    "contentH": 634
+  },
+  "landscape": {
+    "btn": {
+      "x": 563,
+      "y": 50,
+      "w": 44,
+      "h": 44,
+      "right": 607,
+      "bottom": 94
+    },
+    "scope": {
+      "x": 60,
+      "y": 53,
+      "w": 280,
+      "h": 38,
+      "right": 340,
+      "bottom": 91
+    },
+    "avatar": {
+      "x": 557,
+      "y": 72,
+      "w": 0,
+      "h": 0,
+      "right": 557,
+      "bottom": 72
+    },
+    "header": {
+      "x": 0,
+      "y": 0,
+      "w": 667,
+      "h": 134,
+      "right": 667,
+      "bottom": 134
+    },
+    "brand": "none/hidden",
+    "badge": "ЧАТ",
+    "hOverflow": false,
+    "vw": 667,
+    "vh": 375,
+    "contentH": 678
+  }
+}

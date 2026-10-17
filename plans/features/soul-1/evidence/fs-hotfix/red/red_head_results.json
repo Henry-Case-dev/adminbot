@@ -1,0 +1,26 @@
+[
+  {
+    "scenario": "S1_android_inline",
+    "status": "FAIL",
+    "checks": 25,
+    "failures": [
+      "кнопка видима и в потоке row A (не fixed)",
+      "стеклянной подложки ::before нет (факт content='\"\"')"
+    ]
+  },
+  {
+    "scenario": "S2_windowed_inline",
+    "status": "FAIL",
+    "checks": 21,
+    "failures": [
+      "390+insets: inline — в потоке row A (не fixed)",
+      "390+insets: y=42 >= полная нативная зона 60",
+      "390+insets: нативная зона не пересечена"
+    ]
+  },
+  {
+    "scenario": "scenario_tdesktop",
+    "status": "ERROR",
+    "error": "Page.wait_for_selector: Timeout 20000ms exceeded.\nCall log:\n  - waiting for locator(\".header-fs-btn\")\n"
+  }
+]

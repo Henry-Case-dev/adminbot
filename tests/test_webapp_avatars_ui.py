@@ -425,9 +425,10 @@ class TestAvatarFrontAudit:
     def test_close_and_fullscreen_buttons(self):
         """F-13 (AC-2) + 10.8 (§4): ✕-кнопки закрытия модалок — окно модуля
         (1) + три окна «Доступов» (roles/local/admins); @click closeApp()
-        отсутствует. re-pin v6.3 U07 (REQ-U07-2): ⛶-кнопка шапки — inline
-        SVG-иконки (fs-ic, два состояния), gate fsSlot!=='hidden'
-        (tdesktop/вне TG — скрыта), aria-pressed только по ACK-факту."""
+        отсутствует. re-pin v6.3 U07 (REQ-U07-2) + FS-HOTFIX 18.10: ⛶-кнопка
+        шапки — inline SVG-иконки (fs-ic, два состояния), gate fsSlot!=='hidden'
+        (скрыта только вне TG/без API; tdesktop по директиве владельца —
+        рабочий клиент), aria-pressed только по ACK-факту."""
         html = _Static.read("web/index.html")
         assert "@click=\"closeApp()\"" not in html
         assert "@click=\"toggleFullscreen()\"" in html
@@ -438,9 +439,10 @@ class TestAvatarFrontAudit:
         # U07.2: fullscreen-кнопка — inline SVG (не текстовый глиф), slot-гейт.
         assert 'class="fs-ic"' in html, "U07.2: inline SVG-иконка fs-ic"
         assert 'v-if="me && fsSlot !== \'hidden\'"' in html, \
-            "U07.2: кнопка скрыта на hidden-slot (tdesktop/вне TG)"
-        assert "fs-slot-' + fsSlot" in html, \
-            "U07.2: slot-класс для CSS-состояний кнопки"
+            "U07.2: кнопка скрыта только на hidden-slot (вне TG/без API)"
+        # review-fs N3: мёртвый CSS-хук fs-slot-* удалён (остаётся слот-гейт v-if).
+        assert "'fs-slot-' + fsSlot" not in html, \
+            "N3: мёртвый класс fs-slot-inline удалён"
         assert ':aria-pressed="fsAriaPressed"' in html, \
             "U07.2: aria-pressed только по ACK-факту"
         assert html.count('class="fs-ic"') == 2, \

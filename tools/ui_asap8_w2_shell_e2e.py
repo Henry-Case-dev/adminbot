@@ -334,10 +334,18 @@ def run_candidate(browser, api_handler, res):
     wait_app(page, "#/")
     rowb_checks(page, res, "zoom200_320", checks)
     # Селектор чата: длинный title — ellipsis, без расширения row A.
+    # FS-HOTFIX FOLLOW-UP (директива владельца 18.10, §4.1.2/§4.1.5): после
+    # скрытия логотипа AdminBot селектор получает освободившуюся ширину —
+    # прежняя доля «≤62%» измеряла конкуренцию с логотипом и больше не
+    # отражает контракт. Новый контракт: селектор не превышает дизайн-кламп
+    # (≤280px), не вытесняет кнопку ⛶ из строки и не создаёт overflow;
+    # длинное имя остаётся с ellipsis (проверено в fs-матрице S11).
     trig = page.locator(".scope-trigger")
     tw = trig.bounding_box()
-    checks["zoom200:селекторКомпактен<половиныRowA"] = bool(
-        tw and tw["width"] <= 320 * 0.62)
+    fs_btn = page.locator(".header-fs-btn").bounding_box()
+    checks["zoom200:селектор≤клампа280"] = bool(tw and tw["width"] <= 280)
+    checks["zoom200:кнопка⛶осталась в row A справа"] = bool(
+        tw and fs_btn and fs_btn["y"] < tw["y"] + tw["height"])
     menu_flow(page, res, "zoom200_320", checks, expect_items=5)
     page.screenshot(path=os.path.join(EVIDENCE, "after_u01_zoom200_320.png"))
     ctx.close()

@@ -1025,9 +1025,16 @@
     header.header-sticky.header-compact-v2 {
       flex-wrap: wrap;
       gap: .4rem;
+      /* FS-HOTFIX 18.10: нативная зона клиента = СУММА системной и
+         Telegram-части: contentSafeAreaInset отсчитывается от области,
+         свободной от системных элементов (docs.telegram-mini-apps.com:
+         «safe area — free from device elements, content safe area — free
+         from Telegram UI elements»; рекомендация к сумме — tma.js#695).
+         При --tg-content-safe-area-inset-top: 0 формула байт-в-байт равна
+         прежней max(env, --tg-content, --tg-safe) — фикс d9b7f389 сохранён. */
       padding-top: calc(.6rem + max(env(safe-area-inset-top, 0px),
-                    var(--tg-content-safe-area-inset-top, 0px),
-                    var(--tg-safe-area-inset-top, 0px)));
+                    var(--tg-safe-area-inset-top, 0px))
+                    + var(--tg-content-safe-area-inset-top, 0px));
       padding-bottom: .6rem;
     }
     /* Legacy (не compact): обёртка прозрачна для flex; CSS `order`
@@ -1147,7 +1154,10 @@
        базовое правило, НЕ уменьшая текущие отступы (10.7 по ширине,
        10.9 scroll-area — не тронуты). */
     .fullscreen-mode header.header-sticky {
-      padding-top: calc(0.75rem + max(env(safe-area-inset-top, 0px), var(--tg-content-safe-area-inset-top, 0px), var(--tg-safe-area-inset-top, 0px)));
+      /* FS-HOTFIX 18.10: сумма системной и Telegram-части (нативные кнопки
+         клиента рисуются ПОВЕРХ WebView — их зону шапка обязана обходить
+         целиком; формула совпадает с .header-compact-v2 выше). */
+      padding-top: calc(0.75rem + max(env(safe-area-inset-top, 0px), var(--tg-safe-area-inset-top, 0px)) + var(--tg-content-safe-area-inset-top, 0px));
       padding-right: calc(1rem + max(env(safe-area-inset-right, 0px), var(--tg-content-safe-area-inset-right, 0px), var(--tg-safe-area-inset-right, 0px)));
       padding-left: calc(1rem + max(env(safe-area-inset-left, 0px), var(--tg-content-safe-area-inset-left, 0px), var(--tg-safe-area-inset-left, 0px)));
     }
@@ -3130,9 +3140,10 @@
    ═══════════════════════════════════════════════════════════════════════ */
 
 /* ── U01 row A: мобильная геометрия (<768, shell-mobile, IA v2) ─────────
-   [←/AdminBot] [чат-селектор compact ellipsis] [профиль компактно] [⛶].
-   Заголовок/крошки из шапки убраны (U01.5: нет второго заголовка,
-   контент начинается сразу под row B); chat_id/роль — в меню «Ещё». */
+   [чат-селектор + GLOBAL/CHAT + профиль] [⛶] — логотип AdminBot НЕ
+   рендерится (см. ниже). Заголовок/крошки из шапки убраны (U01.5: нет
+   второго заголовка, контент начинается сразу под row B); chat_id/роль —
+   в меню «Ещё». */
 .mobile-brand {
   display: none;
   align-items: center; gap: .3rem;
@@ -3141,7 +3152,16 @@
 }
 .mobile-brand .msr { font-size: 20px; line-height: 1; color: var(--teal-500, #2dd4bf); }
 .mobile-brand-name { font-size: .8rem; font-weight: 700; letter-spacing: .01em; }
-.app-shell.shell-mobile .mobile-brand { display: inline-flex; }
+/* FS-HOTFIX FOLLOW-UP (директива владельца 18.10, §4.1.2/§5.5/§7 №8/§10):
+   «Главный визуальный приоритет — убрать логотип AdminBot и занять
+   освободившееся место функциональной кнопкой». Логотип — декоративный,
+   кнопка ⛶ — функциональная: в мобильном shell логотип скрыт, его место
+   отдано функциональной компоновке row A (селектор чата получает ширину,
+   ⛶ остаётся у правого края внутри ТОЙ ЖЕ строки — без новой строки и без
+   роста шапки). Desktop/compact shell (sidebar/drawer) не затронут: там
+   логотип и не рендерится (v-if isMobileShell), а правила .mobile-brand
+   остаются для узкого окна Telegram Desktop (<768 → mobile shell). */
+.app-shell.shell-mobile .mobile-brand { display: none; }
 /* Заголовок/крошки — только desktop/compact shell; на mobile row A без
    второго заголовка (раздел виден в row B / «Ещё • …»). */
 .app-shell.shell-mobile header.header-sticky.header-compact-v2 .header-title-wrap {
@@ -3183,6 +3203,90 @@
 }
 .app-shell.shell-mobile header.header-sticky.header-compact-v2 {
   row-gap: .3rem;
+}
+
+/* ── FS-HOTFIX FOLLOW-UP §8 (18.10): временная админ-диагностика геометрии ⛶
+   Панель открывается только из меню «Ещё» (admin-гейт), закрыта по
+   умолчанию — в обычном UI места не занимает. Нейтральный solid-материал
+   (это dev-инструмент, не продуктовая карточка); z-index 57 — выше меню
+   «Ещё» (55/56), ниже модалок (59). Временная: удалить после приёмки. */
+.fs-geom-diag-root { position: fixed; inset: 0; z-index: 57; }
+.fs-geom-diag-backdrop {
+  position: absolute; inset: 0;
+  background: rgba(0, 0, 0, .45);
+}
+.fs-geom-diag-panel {
+  position: absolute;
+  left: max(8px, env(safe-area-inset-left, 0px));
+  right: max(8px, env(safe-area-inset-right, 0px));
+  top: calc(var(--header-h, 96px) + env(safe-area-inset-top, 0px) + 4px);
+  max-height: calc(100dvh - var(--header-h, 96px)
+             - env(safe-area-inset-top, 0px)
+             - max(env(safe-area-inset-bottom, 0px), 12px) - 8px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  display: flex; flex-direction: column; gap: .4rem;
+  padding: .5rem;
+  background-color: var(--surface-1, #11151c);
+  border: var(--card-border, 1px solid rgba(255, 255, 255, .12));
+  box-shadow: var(--shadow-xl);
+  border-radius: 14px;
+  outline: none;
+}
+.fs-geom-diag-pre {
+  margin: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: .6875rem; line-height: 1.3;
+  white-space: pre-wrap; word-break: break-word;
+  color: var(--text-2, #C7D0DD);
+}
+.fs-geom-diag-actions { display: flex; flex-wrap: wrap; gap: .4rem; }
+/* Админ-инструмент в подвале меню «Ещё»: НЕ пункт навигации (отдельный класс,
+   чтобы RBAC-счётчик разделов меню не менялся), доступен только админу */
+.more-menu-admin-tool {
+  display: flex; align-items: center; gap: .6rem;
+  min-height: 44px;
+  margin-top: .2rem;
+  padding: .5rem .6rem;
+  border: 1px dashed rgba(255, 255, 255, .18);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text-2, #C7D0DD);
+  font-size: .8125rem;
+  text-align: left;
+  cursor: pointer;
+  width: 100%;
+}
+.more-menu-admin-tool:hover { background: rgba(255, 255, 255, .07); }
+.more-menu-admin-tool .msr { font-size: 18px; color: var(--text-3, #8B96A5); flex-shrink: 0; }
+.more-menu-admin-tool:focus-visible {
+  outline: 2px solid rgba(139, 92, 246, .7);
+  outline-offset: 2px;
+}
+/* Оверлей вычисленных границ safe area: сверка с реальной нативной панелью
+   (§8). pointer-events:none — тапы и скролл не перехватываются. */
+.fs-safe-overlay { position: fixed; inset: 0; z-index: 56; pointer-events: none; }
+.fs-safe-overlay__band {
+  position: absolute; left: 0; right: 0; top: 0;
+  height: 0;
+  background: rgba(255, 138, 128, .10);
+  border-bottom: 1px dashed rgba(255, 138, 128, .85);
+}
+.fs-safe-overlay__left {
+  position: absolute; top: 0; bottom: 0; left: 0; width: 0;
+  border-right: 1px dashed rgba(255, 138, 128, .55);
+}
+.fs-safe-overlay__right {
+  position: absolute; top: 0; bottom: 0; right: 0; width: 0;
+  border-left: 1px dashed rgba(255, 138, 128, .55);
+}
+.fs-safe-overlay__label {
+  position: absolute; right: 6px; bottom: 2px;
+  font: 10px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: rgba(255, 205, 200, .92);
+  background: rgba(24, 10, 10, .6);
+  padding: 1px 4px; border-radius: 4px;
+  white-space: nowrap;
 }
 
 /* ── U01.4: меню «Ещё» — popover/sheet поверх контента ──────────────────
@@ -3300,106 +3404,71 @@
   .oversight-mobile-dd { display: none; }
 }
 
-/* Ландшафт: шапка компактнее — контент остаётся большинством экрана. */
+/* Ландшафт: шапка МАКСИМАЛЬНО компактна — контент остаётся большинством
+   экрана (FS-HOTFIX 18.10: Android landscape «верхняя панель занимает
+   непропорционально много высоты»). Вертикальные отступы срезаны до
+   минимума (row A остаётся hit-целью ⛶ 44px, row B — компактной лентой).
+   Sum-формула нативной зоны сохранена — перекрытия с native-кнопками нет.
+   Архитектура row B (Статус/Аналитика/Модули/Ещё) не меняется.
+   Логотип не скрывается: измеренная ширина 667 даёт запас, а «скрывать
+   логотип» директива разрешает только при реальной нехватке ширины —
+   измерений нехватки нет (shell-e2e 320/390/667: overflow=0). */
 @media (orientation: landscape) and (max-height: 500px) {
   .app-shell.shell-mobile header.header-sticky.header-compact-v2 {
-    row-gap: .15rem;
-    padding-top: calc(.35rem + max(env(safe-area-inset-top, 0px),
-                  var(--tg-content-safe-area-inset-top, 0px),
-                  var(--tg-safe-area-inset-top, 0px)));
-    padding-bottom: .35rem;
+    row-gap: .1rem;
+    padding-top: calc(.15rem + max(env(safe-area-inset-top, 0px),
+                  var(--tg-safe-area-inset-top, 0px))
+                  + var(--tg-content-safe-area-inset-top, 0px));
+    padding-bottom: .15rem;
   }
-  .app-shell.shell-mobile .scope-trigger { min-height: 36px; }
+  .app-shell.shell-mobile .scope-trigger { min-height: 32px; }
 }
 @media (prefers-reduced-motion: reduce) {
   .more-menu-root, .oversight-mobile-panel { scroll-behavior: auto; }
 }
 
-/* ═══ W2-FULLSCREEN (asap8-v6.3, U07.2a/2b/2d, REQ-U07-2): слот кнопки ⛶ ═══
-   Один DOM-узел .header-fs-btn; слот выбирает fullscreen-policy.js.
-   Писатели html.fs-slot-float / html.fs-hidden / data-fs-reason — ТОЛЬКО
+/* ═══ W2-FULLSCREEN (asap8-v6.3, U07.2a/2b, REQ-U07-2) + FS-HOTFIX 18.10 ═══
+   Один DOM-узел .header-fs-btn; единственный видимый слот — inline (в потоке
+   row A). Писатели html.fs-hidden / data-fs-reason — ТОЛЬКО
    fullscreen-policy.js (контракт §2.3); --tg-* переменные пишет
    telegram-init.js, здесь они только читаются.
-     inline  — в потоке row A (базовые правила выше: hit ≥44×44, order 5/99);
-     float   — position:fixed у native-зоны Telegram. Геометрия ТОЛЬКО из
-               Telegram-переменных: в Telegram Android env() часто = 0 →
-               max(env(safe-area-inset-*), --tg-content-safe-area-*,
-                   --tg-safe-area-*);
-     hidden  — html.fs-hidden: кнопка не рендерится (v-if в index.html),
-               честная причина — data-fs-reason на <html>. */
+     inline  — кнопка стоит вплотную под нативной панелью клиента: низ
+               нативной зоны задаёт safe-area-формула шапки
+               max(env, --tg-safe) + --tg-content-safe-area (см. padding-top
+               выше). Fixed-координат нет: реальных координат нативных
+               кнопок клиента WebView не знает — официального API для них
+               не существует (Telegram-Mini-Apps/issues#62, открыт.
+               Text: «Provide a way to understand offsets and sizes of
+               Close and Menu buttons», 10.01.2025);
+     hidden  — html.fs-hidden: кнопка не рендерится (v-if в index.html);
+               data-fs-reason на <html> — dev-маркер причины, НЕ UI.
 
-/* Визуал: круглая icon-button 32px (норма 30–34), инлайн-SVG-иконка 18px
-   (16–18px норма; чёткая, без зависимости от шрифтовых субсетов),
-   прозрачный тёмный glass с тонкой кромкой; hit-цель — сам узел ≥44×44
-   (в float-режиме начинается ниже csa.top — в native-зоны не заходит). */
+   Стиль FS-HOTFIX (18.10, директива владельца): «как у нативных» —
+   ПРОЗРАЧНЫЙ фон, без стеклянной подложки/::before, без backdrop-filter,
+   без крупного круга и любого Liquid Glass. Иконка 18px (норма 16–18px),
+   сам узел остаётся hit-целью ≥44×44 (U07.2/U01). */
 .header-fs-btn {
   position: relative;
-  border-radius: 50%;
-  overflow: visible;
-  /* чёткая иконка на тёмном glass-круге (U07.2a); light-вариант ниже */
-  color: rgba(235, 242, 255, 0.95);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: .5rem;
+  color: var(--text-1, #E7EDF7);
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  transition: background 0.12s ease;
 }
-.header-fs-btn .fs-ic {
-  display: block;
-  /* поверх ::before-glass (позиционированный псевдослой красится выше
-     static-контента — иконке нужен свой positioned-слой) */
-  position: relative;
-  z-index: 1;
-}
-.header-fs-btn::before {
-  content: "";
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: 32px;
-  height: 32px;
-  transform: translate(-50%, -50%);
-  border-radius: 50%;
-  background: rgba(21, 27, 42, 0.55);
-  border: 1px solid rgba(210, 230, 255, 0.28);
-  -webkit-backdrop-filter: blur(6px) saturate(1.25);
-  backdrop-filter: blur(6px) saturate(1.25);
-  box-shadow: inset 0 1px rgba(245, 252, 255, 0.22),
-              0 2px 10px rgba(0, 6, 22, 0.30);
-  pointer-events: none;     /* декоративный слой не перехватывает тапы */
-}
-/* Light Telegram theme (U07.2d): маркер data-fs-scheme ставит app.js из
-   Telegram.WebApp.colorScheme; тёмная тема — дефолт палитры админки. */
-html[data-fs-scheme="light"] .header-fs-btn::before {
-  background: rgba(244, 248, 255, 0.62);
-  border-color: rgba(20, 30, 50, 0.28);
-  box-shadow: inset 0 1px rgba(255, 255, 255, 0.80),
-              0 2px 10px rgba(30, 40, 60, 0.18);
-}
-html[data-fs-scheme="light"] .header-fs-btn {
-  color: #1d2534;
-}
-
-/* float: визуальное соседство с native ⋮/✕ в пределах web safe area
-   (контракт §2.1, формула обязательна: env-одиночка в Telegram Android = 0). */
-html.fs-slot-float .header-fs-btn {
-  position: fixed;
-  top: calc(var(--tg-content-safe-area-inset-top, 0px) + 6px);
-  right: calc(max(env(safe-area-inset-right, 0px),
-                  var(--tg-content-safe-area-inset-right, 0px),
-                  var(--tg-safe-area-inset-right, 0px)) + 6px);
-  z-index: 60;
-}
-/* Верхний резерв row A в float-режиме (контракт §2.1: FULLSCREEN сам
-   добавляет резерв). Хит-бокс 44px живёт на csa.top+6 → шапка начинается
-   после него. !important — намеренно: float-геометрия — overlay-геометрия
-   U07 (вне inline-бюджета шапки), и она обязана переживать любые
-   SHELL/базовые padding-top-правила, пока активен класс fs-slot-float
-   (его ставит только fullscreen-policy.js и только при float-слоте). */
-html.fs-slot-float header.header-sticky {
-  padding-top: calc(var(--tg-content-safe-area-inset-top, 0px) + 6px + 44px) !important;
-}
-/* Узкий viewport: визуал можно сократить до 28px (U07.2a). */
-@media (max-width: 359px) {
-  .header-fs-btn::before {
-    width: 28px;
-    height: 28px;
-  }
+.header-fs-btn .fs-ic { display: block; }
+.header-fs-btn:hover { background: rgba(255, 255, 255, .07); }
+.header-fs-btn:active { background: rgba(255, 255, 255, .12); }
+.header-fs-btn:focus-visible {
+  outline: 2px solid rgba(139, 92, 246, .7);
+  outline-offset: 2px;
 }
 /* ═══ /W2-FULLSCREEN ═══ */
 
