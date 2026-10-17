@@ -2,7 +2,7 @@
   "schema": "openworkflow-coverage-v1",
   "source_path": "C:\\Code\\Python\\adminbot\\plans\\features\\soul-1\\source-current-task.md",
   "source_sha256": "8c42ddfabce635fe4e1f24f9522ff8642f3bd3049fac05c77ca162687051196b",
-  "candidate_commit": "a5902b15e7bf943dc454dbf59ee9b9fe1152a87e",
+  "candidate_commit": "c1cb64753ae82940843709ab2dcca9603850a1a8",
   "deployed_commit": "",
   "additional_requirements": [
     {
@@ -11,7 +11,7 @@
       "source_text_sha256": "fe4d5f007612dcdb26d64f34bdac88dabc923526dcbe877603adaa47e9156112",
       "source_excerpt": "**Самостоятельный новый эпик для AdminBot / OpenCode Orchestrator. Полная редакция v2 с учётом обратной связи владельца и результатов аудита ASAP 8 v6.3.**",
       "disposition": "required",
-      "reason": "",
+      "reason": "Эпик зафиксирован как самостоятельный SOUL-1 v2: snapshot (source-current-task.md L3/L5), манифест (SOURCE_MANIFEST.md), план (§1: epic SOUL-01…19 + AMD, отдельная нумерация) и карты — переиспользования нумерации ASAP 8 нет. Открыто: явная фиксация «не продолжение ASAP 8» в отчёте — §21-отчёт ещё не собран (W9), строка закрывается там.",
       "req_id": "SOUL-EXEC.2",
       "slice": "W1",
       "acceptance": "Эпик зафиксирован как самостоятельный SOUL-1 v2, не продолжение нумерации ASAP и не повторный запуск ASAP 8; в отчёте это видно явно",
@@ -32,8 +32,21 @@
       "acceptance": "Единственный канон - требования исходного текста и подтверждённые факты репозитория; внешние картинки и референсы не используются как основание реализации, скриншоты владельца указаны как свидетельство проблемы, эталон снят на тестируемой версии",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "3cc0b9c0541aa9c5a81c2caa995644bb1af61f11",
+          "ref": "plans/features/soul-1/review-map.md (метод: 198 записей сверены со строками источника, source_sha256 совпал, «invented obligations: 0»; F1–F7 закрыты, round 2 Approved)",
+          "observation": "Единственный канон — требования исходного текста (SHA256 8c42dd… подтверждается гейтом на каждом прогоне) и подтверждённые факты репозитория: все ручные записи карты трассируются к строкам источника, ничего не выдумано.",
+          "type": "static"
+        },
+        {
+          "candidate_commit": "3cc0b9c0541aa9c5a81c2caa995644bb1af61f11",
+          "ref": "plans/features/soul-1/audit-prompt-matrix.md §3 + plans/features/soul-1/evidence/direct-runtime-assembly.txt («РЕАЛЬНЫЙ дамп сборки, offline»; no Telegram send, no LLM call)",
+          "observation": "Эталонные дампы/аудиты сняты на тестируемой версии реальным исполнением кода (не из констант); внешние картинки/референсы как основание реализации нигде не используются — доказательная база привязана к тексту источника и файлам репозитория.",
+          "type": "static"
+        }
+      ]
     },
     {
       "source_id": "M00009",
@@ -41,7 +54,7 @@
       "source_text_sha256": "cc938cee76a321e63772fb844c595c5ec8fa9e62066f832c03fa1022c8dc91b5",
       "source_excerpt": "Ты — Orchestrator. Прочитай документ полностью до планирования. Сохрани исходный текст как immutable source snapshot с SHA256 в `plans/features/soul-1/`, составь `requirements-map` со всеми SOUL-01…SOUL-19 и вложенными критериями, назначь и",
       "disposition": "required",
-      "reason": "",
+      "reason": "Snapshot с SHA256 (SOURCE_MANIFEST.md; source_sha256 совпадает в обеих картах) и Reviewer-сверка карты с исходным текстом (review-map.md — Approved после F1–F7; все SOUL-01…19 достижимы, 0 пропусков) выполнены; исполнители назначены (plan.md §1). Открыто: release-стадия гейта ещё впереди — строка закрывается финальным release-проходом.",
       "req_id": "SOUL-EXEC.4",
       "slice": "W1",
       "acceptance": "Исходный текст сохранён как immutable source snapshot с SHA256 в plans/features/soul-1, requirements-map содержит все SOUL-01..19 и вложенные критерии, исполнители назначены, gate используется на plan/review/release; карта проверена Reviewer против исходного текста, ни одно требование не закрыто без сверки с оригиналом и наблюдаемым результатом",
@@ -62,8 +75,21 @@
       "acceptance": "Инвентаризация актуального master, PostgreSQL effective-config, других источников системных инструкций, интерфейсов и действующих писателей выполнена и приложена как артефакт с ссылками на файлы и ключи",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "3cc0b9c0541aa9c5a81c2caa995644bb1af61f11",
+          "ref": "plans/features/soul-1/audit-prompt-matrix.md (§1: 24 PG-ключа с file:line; §2: матрица путей; §4–§5: дубли/тихие фолбэки; §6: персистентные custom) + plans/features/soul-1/evidence/prompt-matrix.json (7 секций)",
+          "observation": "Инвентаризация master/PG-эффективной конфигурации/источников/потребителей приложена как артефакт со ссылками на файлы и ключи (24 ключа каталога; 22 пути с writer file:line и ключами).",
+          "type": "static"
+        },
+        {
+          "candidate_commit": "3cc0b9c0541aa9c5a81c2caa995644bb1af61f11",
+          "ref": "plans/features/soul-1/review-w1.md — RECHECK-W1: BLOCKER-2 (свип всех писателей; allow-list 5 пар прямых чтений с причинами; 6 потребителей + direct_chat_service:4603 переведены на единый резолвер) и SMALL-4 (указатели физически сверены тестом, 3 исправлены)",
+          "observation": "Точность инвентаря выборочно перепроверена ревьюером: указатели лора читаются тестом построчно; найденная неучтённая речевая фраза (checkup-fallback) зарегистрирована.",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "M00011",
@@ -77,8 +103,21 @@
       "acceptance": "Рабочие контуры L1, Direct, Initiative, SelfModel, Experience, Factcheck, Summary и доставка не переписаны заново; контракты, инструменты, RBAC, сведения об адресатах, идемпотентность и хранение сохранены; наличие старого кода не считается выполнением нового контракта",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "3cc0b9c0541aa9c5a81c2caa995644bb1af61f11",
+          "ref": "plans/features/soul-1/review-w1.md — «Сейчас ничего не сломано» (parity 13/13; 6 файлов 133 passed; периметр 1124 passed/0 failed; direct_chat 316) + RECHECK-W1 (108/13/302/1140 passed; prompt_composer.py и mca_gates.py — diff пуст)",
+          "observation": "Рабочие контуры L1/Direct/Initiative/SelfModel/Experience/Factcheck/Summary/доставка не переписаны: правки W1 точечные (реестр/фабрика/резолв-хуки/миграция), независимые прогоны периметра и потребительских сьютов зелёные, контракты/идемпотентность/хранение целы.",
+          "type": "test"
+        },
+        {
+          "candidate_commit": "3cc0b9c0541aa9c5a81c2caa995644bb1af61f11",
+          "ref": "git show --stat 3cc0b9c0541aa9c5a81c2caa995644bb1af61f11",
+          "observation": "Дифф коммита: изменены только объявленные файлы (реестр, фабрика, миграции, точки резолва, тесты) — контуры не переписывались; «наличие старого кода» нигде не зачитывалось как выполнение нового контракта (открытые строки оставлены PENDING).",
+          "type": "static"
+        }
+      ]
     },
     {
       "source_id": "M00011",
@@ -86,7 +125,7 @@
       "source_text_sha256": "47603535dcec8753fdedec8de0f88852393337a2b43aef6f6ca646d94836daed",
       "source_excerpt": "В первую очередь проведи инвентаризацию актуального `master`, PostgreSQL effective-config, других источников системных инструкций, интерфейсов и действующих писателей (Writers). **Не переписывай заново рабочие контуры L1, Direct, Initiative",
       "disposition": "required",
-      "reason": "",
+      "reason": "Документ принят как полное самодостаточное задание: уточнение внесено отдельным snapshot с сохранением источника и нумерации (SOURCE_MANIFEST.md §Amendment; amendment-карта ко-гейтится с основной), SOUL-16–18 присутствуют как required с равным статусом в карте (review-map.md: все SOUL-01…19 достижимы, 0 неучтённых строк). Открыто: «равный статус в отчёте» — §21-отчёт (W9) впереди, строка закрывается там.",
       "req_id": "SOUL-EXEC.7",
       "slice": "W1",
       "acceptance": "Документ принят как полное самодостаточное задание: будущие дополнения вносятся с сохранением источника и нумерации, старый ASAP 8 не является заменой, SOUL-16-18 обязательны наравне с SOUL-01-15 и имеют равный статус в map и отчёте",
@@ -107,8 +146,21 @@
       "acceptance": "Человеческие настройки, локальные overrides, правила стиля письма и накопленные черты не удалены; обеспечены миграция, ревизии, rollback, сравнение старое/новое и проверка наличия сохранённых данных; оригинальный владельческий текст не изменён при автоматической миграции; старые записи об опыте и архивы сохранены",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "3cc0b9c0541aa9c5a81c2caa995644bb1af61f11",
+          "ref": "plans/features/soul-1/review-w1.md — RECHECK-W1: BLOCKER-1 (stored bytes не изменены; запись через API эффективна байт-в-байт; внешняя перезапись → provenance_mismatch), «Идемпотентность/откат» (rollback восстанавливает оригинал байт-в-байт), SMALL-3 (restore идемпотентен)",
+          "observation": "Человеческие настройки, overrides и правила стиля не удалены и не изменены: сохранённые значения удерживаются (stored sha совпал), rollback возвращает оригинал байт-в-байт; сравнение старое/новое приложено.",
+          "type": "test"
+        },
+        {
+          "candidate_commit": "3cc0b9c0541aa9c5a81c2caa995644bb1af61f11",
+          "ref": "plans/features/soul-1/evidence/w1/backup-speech-config.json + README-restore.md + tests/test_soul1_legacy_custom_preserved.py (+ test_soul1_registry_legacy_removal.py)",
+          "observation": "Backup снят ДО правок (полные тексты + PREV-слепки, процедура восстановления документирована); тесты удерживают сохранность custom (повтор миграции = no-op); записи опыта/архивы W1 не затрагивает (дифф точечный).",
+          "type": "static"
+        }
+      ]
     },
     {
       "source_id": "M00015",
@@ -182,8 +234,15 @@
       "acceptance": "Конкурирующие параллельные агенты не редактируют одни файлы без явного владельца merge: для каждого общего файла в плане указан единственный writer-слайс и join barrier",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "3cc0b9c0541aa9c5a81c2caa995644bb1af61f11",
+          "ref": "plans/features/soul-1/plan.md §2 (Dependency graph, JB-1…JB-6) и §3 (Serialization of shared mutable resources: single writer per file per wave)",
+          "observation": "Для каждого общего ресурса указан единственный writer-слайс и join-барьер: direct_chat_service→W2; prompt_migrations/PG prompt registry→W1 (JB-3); direct_l1/response_extent→W3; direct_capabilities/tool_router→W10; web/api и web/static→W6 (JB-4); фон заморожен; волны — не более 3 писателей.",
+          "type": "static"
+        }
+      ]
     },
     {
       "source_id": "M00017",
@@ -717,8 +776,21 @@
       "acceptance": "L1 сохраняет response_act, extent, tone, structure, delivery_hint, tool_policy, action, source confidence и текущие capabilities без набора новых обязательных полей; добавлен ровно один необязательный comic_strategy со значениями none, literalism, absurd_escalation, deadpan, bureaucratic_logic, unexpected_analogy, по умолчанию none, и он трактуется как совет L2, а не приказ шутить",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "4c8405e783ac005ac0044974c5fbd7e518d12e2a",
+          "ref": "plans/features/soul-1/review-w3.md §4 (ledger 05.1–05.4: «one_word значением, отдельный блок в Writer, micro без cap, приоритет явной длины») + services/direct_l1.py (ResponsePlan.comic_strategy)",
+          "observation": "comic_strategy — ровно одно необязательное поле (шесть значений + none по умолчанию), трактуется как совет L2; явное пользовательское ограничение длины приоритетнее; остальные поля L1 сохранены.",
+          "type": "test"
+        },
+        {
+          "candidate_commit": "4c8405e783ac005ac0044974c5fbd7e518d12e2a",
+          "ref": "tests/test_soul1_extent_one_word.py + tests/test_soul1_style_policy.py (comic_strategy/приоритеты) на кандидате: W3-файлы 120 passed (review-w3 recheck)",
+          "observation": "Поведение закреплено тестами на кандидате.",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "M00085",
@@ -726,14 +798,21 @@
       "source_text_sha256": "2e8ff6d67d493661cf6cfa562700b962a88e4a5a4a7e4d37f06113a3cb70bac0",
       "source_excerpt": "**Обязательный фикс:** сейчас `services/direct_l1.py` знает `one_word`, но преобразует его в `micro` для `ResponsePlan`; это теряет строгий контракт. Исправить end-to-end: выбранное `one_word` или прямое «ответь одним словом» проходит весь ",
       "disposition": "required",
-      "reason": "",
+      "reason": "Движок/мок-часть подтверждены на кандидате 4c8405e7 (review-w3 §4 ledger + recheck F3; evidence/w3/style-payload-demo.txt §2: L1Plan extent=one_word без схлопывания, payload «Да» = 1 лексическое слово, честный failed без обрезки); живая половина (реальный прогон/отправка в рабочий Telegram-чат) требует включённого контура — канарейка/postdeploy; классификация по образцу SOUL-AMD.8.3 / SOUL-17.4 / SOUL-10.P5 / SOUL-11.4.",
       "req_id": "SOUL-05.2",
       "slice": "W3",
       "acceptance": "Выбранный one_word или прямое требование ответить одним словом проходит весь маршрут до финального Writer и даёт ровно одно лексическое слово без второго слова, пояснения, emoji-хвоста и служебных меток, если задача допускает такой ответ",
       "live_required": true,
-      "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "live_when": "postdeploy",
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "4c8405e783ac005ac0044974c5fbd7e518d12e2a",
+          "ref": "plans/features/soul-1/review-w3.md — §4 (ledger 05.1–05.4/05.6) + recheck F3 (перехват байтов доставляемого payload) + plans/features/soul-1/evidence/w3/style-payload-demo.txt §2 (one_word end-to-end: payload «Да» = 1 слово)",
+          "observation": "Мок/движок: one_word проходит до финального Writer как отдельный extent (без схлопывания в micro), доставляемый payload — ровно одно лексическое слово; служебные/emoji-хвосты снимаются, при 2+ словах — честный failed без обрезки.",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "M00085",
@@ -741,14 +820,21 @@
       "source_text_sha256": "2e8ff6d67d493661cf6cfa562700b962a88e4a5a4a7e4d37f06113a3cb70bac0",
       "source_excerpt": "**Обязательный фикс:** сейчас `services/direct_l1.py` знает `one_word`, но преобразует его в `micro` для `ResponsePlan`; это теряет строгий контракт. Исправить end-to-end: выбранное `one_word` или прямое «ответь одним словом» проходит весь ",
       "disposition": "required",
-      "reason": "",
+      "reason": "Движок/мок-часть подтверждены на кандидате 4c8405e7 (review-w3 §4: «one_word значением, micro без cap», tests/test_soul1_extent_one_word.py — 25 тестов); живая половина (реальный прогон/отправка) требует включённого контура — канарейка/postdeploy; классификация по образцу SOUL-AMD.8.3 / SOUL-17.4 / SOUL-10.P5 / SOUL-11.4.",
       "req_id": "SOUL-05.3",
       "slice": "W3",
       "acceptance": "one_word и micro остаются двумя разными действующими extent со своими схемами, тестами и UI; micro по-прежнему означает очень кратко, обычно 2-8 слов и не более одной короткой фразы, но не жёстко ровно одно слово",
       "live_required": true,
-      "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "live_when": "postdeploy",
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "4c8405e783ac005ac0044974c5fbd7e518d12e2a",
+          "ref": "plans/features/soul-1/review-w3.md — §4 (ledger 05.1–05.4: типы не схлопываются, micro 2–8 слов без жёсткого cap) + tests/test_soul1_extent_one_word.py (25 тестов, зелёные на кандидате)",
+          "observation": "Мок/движок: two действующих extent без молчаливого маппинга; micro остаётся «очень кратко, обычно 2–8 слов», без ограничения в одно слово; схемы/тесты на месте.",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "M00085",
@@ -762,8 +848,21 @@
       "acceptance": "Типы не схлопываются молча в alias, legacy или downstream; завершающая пунктуация в обоих режимах регулируется отдельной Speech Style Policy с возможностью запретить финальную точку; явные пользовательские ограничения длины имеют приоритет над комической экспансией; длинный технический или творческий запрос не превращается в две фразы из-за старого cap",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "4c8405e783ac005ac0044974c5fbd7e518d12e2a",
+          "ref": "plans/features/soul-1/review-w3.md §4 + recheck (old L1Plan(one_word)->micro collapse удалён; завершающая пунктуация — отдельная Speech Style Policy; приоритет явной длины; старый cap снят)",
+          "observation": "Типы не схлопываются молча (схлопывание было дефектом SOUL-05.2 — исправлено); пунктуация в обоих режимах регулируется политикой (hard/soft); длинный запрос не превращается в две фразы.",
+          "type": "test"
+        },
+        {
+          "candidate_commit": "4c8405e783ac005ac0044974c5fbd7e518d12e2a",
+          "ref": "tests/test_soul1_extent_one_word.py, tests/test_soul1_style_policy.py (на кандидате зелёные — review-w3 recheck: 120 passed)",
+          "observation": "Поведение закреплено тестами.",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "M00087",
@@ -771,14 +870,21 @@
       "source_text_sha256": "6b75c2bed29f16a7370702a0d5b7b459ecac8b1bc272cb584f7e7b518b6ad272",
       "source_excerpt": "В `one_word` финальный валидатор проверяет одно слово с учётом русского/латиницы/составных слов/восклицаний; при нарушении — минимальная локальная коррекция или один bounded repair, а не дорогое полное повторное исследование/инструменты. В ",
       "disposition": "required",
-      "reason": "",
+      "reason": "Движок/мок-часть подтверждены на кандидате 4c8405e7 (review-w3 §4, «VERIFIED (с остатком)»: кириллица/латиница/составные/«Да!!!» — pass; 2+ слова — честный failed без обрезки, mismatch на payload; bounded repair на Direct-пути сознательно не подключён); живая половина (реальный прогон/отправка) требует включённого контура — канарейка/postdeploy; классификация по образцу SOUL-AMD.8.3 / SOUL-17.4 / SOUL-10.P5 / SOUL-11.4.",
       "req_id": "SOUL-05.5",
       "slice": "W3",
       "acceptance": "Финальный валидатор one_word проверяет одно слово с учётом русских, латинских и составных слов и восклицаний и при нарушении выполняет минимальную локальную коррекцию либо один bounded repair без дорогого полного повтора исследования; micro не имеет ограничения в одно слово; сложный код, URL, дословная цитата и обязательный структурированный вывод не портятся, конфликт формы разрешается по явной иерархии",
       "live_required": true,
-      "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "live_when": "postdeploy",
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "4c8405e783ac005ac0044974c5fbd7e518d12e2a",
+          "ref": "plans/features/soul-1/review-w3.md — §4 («SOUL-05.5 VERIFIED (с остатком)») + tests/test_soul1_extent_one_word.py + plans/features/soul-1/evidence/w3/style-payload-demo.txt §2",
+          "observation": "Мок/движок: финальный валидатор one_word (составные/восклицания/латиница), micro без cap; сложный код/URL/дословная цитата не портятся (защищённые спаны); конфликт формы без порчи текста.",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "M00087",
@@ -786,14 +892,21 @@
       "source_text_sha256": "6b75c2bed29f16a7370702a0d5b7b459ecac8b1bc272cb584f7e7b518b6ad272",
       "source_excerpt": "В `one_word` финальный валидатор проверяет одно слово с учётом русского/латиницы/составных слов/восклицаний; при нарушении — минимальная локальная коррекция или один bounded repair, а не дорогое полное повторное исследование/инструменты. В ",
       "disposition": "required",
-      "reason": "",
+      "reason": "Движок/мок-часть подтверждены на кандидате 4c8405e7 (review-w3 recheck F3: перехват байтов, поданных в verify_outbound_payload == доставленные; tests/test_soul1_style_payload.py — 8 кейсов); живая половина (реальный прогон/отправка в рабочий Telegram-чат) требует включённого контура — канарейка/postdeploy; классификация по образцу SOUL-AMD.8.3 / SOUL-17.4 / SOUL-10.P5 / SOUL-11.4.",
       "req_id": "SOUL-05.6",
       "slice": "W3",
       "acceptance": "Фактическая цепочка проверена до Telegram payload, а не только до enum L1: тест подтверждает доставляемый текст и отсутствие деградации формата",
       "live_required": true,
-      "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "live_when": "postdeploy",
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "4c8405e783ac005ac0044974c5fbd7e518d12e2a",
+          "ref": "plans/features/soul-1/review-w3.md — recheck F3 (проверка на доставляемом payload после egress-guard; mismatch честный) + tests/test_soul1_style_payload.py (8 кейсов на кандидате)",
+          "observation": "Мок/движок: фактическая цепочка проверена до Telegram payload — тест подтверждает доставляемый текст и отсутствие деградации формата (после sanitize_outgoing).",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "M00089",
@@ -801,7 +914,7 @@
       "source_text_sha256": "51f45b1e56330ad87b5dc66752198b95fd3f64710eb6a6202f7fd6061cb3b693",
       "source_excerpt": "Поведение «один характер, несколько манер» проверить на: ответе одним словом, паре язвительных фраз, развёрнутом абсурде 3–6 предложений, длинном исследовании со ссылками, серьёзной технической помощи, factual correction, SILENT/REACT (Writ",
       "disposition": "required",
-      "reason": "",
+      "reason": "Классификация READY_FOR_LIVE+postdeploy не применена (решение родителя, follow-up: у строки есть не-live пробел). Закрыто: one_word/micro/пара фраз/абзац/техника — тестами W3 (review-w3 §4). Открыто: SILENT/REACT без вызова Writer и tool-result-путь — W5-покрытие (review-w3 §4: «05.7 частично (SILENT/REACT, tool-result — W5/live)»), плюс живой прогон. Закрывается слайсом W5 + канарейкой.",
       "req_id": "SOUL-05.7",
       "slice": "W3",
       "acceptance": "Поведение один характер, несколько манер проверено на ответе одним словом, паре язвительных фраз, развёрнутом абсурде 3-6 предложений, длинном исследовании со ссылками, серьёзной технической помощи, factual correction, SILENT или REACT без вызова Writer, кросс-чате и tool-result",
@@ -837,8 +950,15 @@
       "acceptance": "Главный критерий Humor Craft - причинная связность и уместность, а не частота мата, число метафор или оскорблений; нет требований в каждой реплике метафора, непременно обматери адресата, обязательно три ступени шутки; серьёзная информация не ломается комическим приёмом; не повторяются шаблоны ввода и финала, нет ты, классика жанра, это как и случайных сюрреалистических слов",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c1cb64753ae82940843709ab2dcca9603850a1a8",
+          "ref": "plans/features/soul-1/review-w4.md — §0 RECHECK-W4 (Approved; независимые пробы ревьюера) и ledger §5; tests/test_soul1_w4_humor_craft.py",
+          "observation": "Главный критерий — связность и уместность, а не частота мата/метафор: блок humor.craft.common несёт рамку и запрет шаблонов; тест проверяет отсутствие предписаний частоты; серый контекст (report/code/serious) и one_word/micro гасят приём.",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "M00104",
@@ -852,8 +972,21 @@
       "acceptance": "Есть toggle диагностического выключения Humor Craft с сохранением Personality Core и возможность тестировать влияние отдельных приёмов; дополнительных LLM-вызовов на обычный ответ по умолчанию 0, а любая дополнительная оценка или отбор кандидатов опционален, лимитирован бюджетом и отдельно измерен на качество и стоимость",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c1cb64753ae82940843709ab2dcca9603850a1a8",
+          "ref": "plans/features/soul-1/review-w4.md — §0 RECHECK-W4 (Approved; независимые пробы ревьюера) и ledger §5; tests/test_soul1_w4_humor_craft.py; tests/test_soul1_composer_layers.py",
+          "observation": "Toggle humor.craft.enabled + ось HUMOR_CRAFT_ENABLED: OFF → humor_disabled при живом Core (паритет); «Проверить приём» показывает точный слой/ревизию/токены без вызова модели; 0 доп. LLM на обычный ответ (ровно 1 Writer в интегральном тесте).",
+          "type": "test"
+        },
+        {
+          "candidate_commit": "c1cb64753ae82940843709ab2dcca9603850a1a8",
+          "ref": "plans/features/soul-1/evidence/w4/parity-off.json",
+          "observation": "Все оси OFF по умолчанию: humor_craft: humor_disabled, few_shot: samples_disabled; новых слоёв 0.",
+          "type": "static"
+        }
+      ]
     },
     {
       "source_id": "M00108",
@@ -867,8 +1000,15 @@
       "acceptance": "Стартовая подборка 15-30 оригинальных и разных по композиции примеров задаёт механизм мышления; владелец может полностью создавать, править, удалять и архивировать примеры через MiniApp с полями текст входа, ответ, техника, контекст, язык, теги, уровень грубости, автор и источник, scope global или chat, статус owner-approved, ревизия; синтетическая библиотека не объявлена проверенной владельцем",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c1cb64753ae82940843709ab2dcca9603850a1a8",
+          "ref": "plans/features/soul-1/review-w4.md — §0 RECHECK-W4 (Approved; независимые пробы ревьюера) и ledger §5; tests/test_soul1_w4_sample_library.py",
+          "observation": "Седы не выдаются за одобренные владельцем: source_kind=bot_suggested, owner_approved=0, в API approval=proposed; в runtime эталонами не проходят до отметки владельца (мутация «черновики в runtime» KILLED).",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "M00110",
@@ -882,8 +1022,15 @@
       "acceptance": "На ответ выбирается обычно 1-3 уместных и достаточно различных примера либо ни одного; нет однотипных pair examples, переполнения промпта и спонтанного копирования лексики или реальных имён из чужих чатов; работают поиск по семантике и теме, diversity, recency и penalty, пригодность к extent и сценарию; есть защита от утечки cross-chat контекста и персональных данных",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c1cb64753ae82940843709ab2dcca9603850a1a8",
+          "ref": "plans/features/soul-1/review-w4.md — §0 F1 (пробы: чужой chat-scoped approve/archive → 403, строка не мутирует; свой → ok) + §5; tests/test_soul1_w4_examples_scope.py; tests/test_soul1_w4_sample_library.py",
+          "observation": "Отбор 1-3 или ноль с diversity/recency/extent-fit; двойная PII-защита (запись + leakage_guard); жёсткая изоляция chat-скоупа: guard во всех четырёх мутациях (approve/archive/update/delete); листинг чата не отдаёт чужие chat-scope; мутации M1-M3 KILLED.",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "M00112",
@@ -897,8 +1044,15 @@
       "acceptance": "Поддержаны A/B версий библиотеки и тестовая подсказка почему выбраны именно эти примеры; различаются владелец добавил вручную, бот предложил и проверенный успешный ответ; автоматический импорт удачной шутки не означает немедленного владельческого одобрения",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c1cb64753ae82940843709ab2dcca9603850a1a8",
+          "ref": "plans/features/soul-1/review-w4.md — §0 RECHECK-W4 (Approved; независимые пробы ревьюера) и ledger §5; tests/test_soul1_w4_sample_library.py; plans/features/soul-1/evidence/w4/api-fixture.json",
+          "observation": "A/B версий библиотеки и тестовая подсказка «почему выбраны именно эти примеры» подтверждены тестами и живым слоем; роли владельца и админа различаются (RBAC edit_humor_library).",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "M00116",
@@ -912,8 +1066,15 @@
       "acceptance": "Отдельный самодельный контур самообучения не создан; mca_experience и семантический extractor с lessons расширены новыми типами evidence, feedback и контекстных речевых предпочтений",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c1cb64753ae82940843709ab2dcca9603850a1a8",
+          "ref": "plans/features/soul-1/review-w4.md — §0 RECHECK-W4 (Approved; независимые пробы ревьюера) и ledger §5; tests/test_soul1_w4_humor_feedback.py; tests/test_mca05_episodes_stories_round1027.py",
+          "observation": "Отдельный контур самообучения не создан: проход окна вызывается существующим review-джобом опыта, счётчики (humor_sends_scanned/signals/...) добавлены в его payload; хвост реестра миграций 35→36 — плановая синхронизация.",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "M00118",
@@ -927,8 +1088,21 @@
       "acceptance": "При отправке сохраняются только bounded-метаданные: chat_id, Telegram message_id, reply и thread linkage, модель и версия Core, выбранная стратегия, ref использованных few-shot, факт отправки и канал; секретные промпты и сырые пользовательские данные в открытых логах отсутствуют",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c1cb64753ae82940843709ab2dcca9603850a1a8",
+          "ref": "plans/features/soul-1/review-w4.md — §0 RECHECK-W4 (Approved; независимые пробы ревьюера) и ledger §5; tests/test_soul1_w4_humor_feedback.py::test_send_metadata_is_bounded_and_typed (C1: api_key/secret_prompt/raw_text отбрасываются; пин SEND_FIELDS)",
+          "observation": "При отправке сохраняются только bounded-метаданные закрытого набора (без текстов/секретов); C1-доработка на коммите убивает и буквальную M11 ревьюера, и форму «все kwargs» (см. plans/features/soul-1/w4-humor-feedback-report.md — §3/§4 (финальные отпечатки, commit-time прогоны) и §10 (F1-F3, C1)).",
+          "type": "test"
+        },
+        {
+          "candidate_commit": "c1cb64753ae82940843709ab2dcca9603850a1a8",
+          "ref": "plans/features/soul-1/evidence/w4/mutation-witness.json",
+          "observation": "Мутации итератора полей отправки KILLED; 14/14 суммарно.",
+          "type": "static"
+        }
+      ]
     },
     {
       "source_id": "M00127",
@@ -942,8 +1116,15 @@
       "acceptance": "Классификация выполняется семантически или через LLM там, где это уместно, с evidence links, provenance, confidence, отдельными субъектами и адресатами, timeout и bounded batch-budget; юмор не оценивается только хардкодными фразами или числом ответов; ошибка или недоступность оценщика не блокирует беседу; чат не используется для невидимого переобучения владельческих ограничений",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c1cb64753ae82940843709ab2dcca9603850a1a8",
+          "ref": "plans/features/soul-1/review-w4.md — §0 RECHECK-W4 (Approved; независимые пробы ревьюера) и ledger §5; tests/test_soul1_w4_humor_feedback.py",
+          "observation": "Классификация семантическая (evidence links, provenance, confidence) в фоновом проходе; оценщик недоступен → честный unknown, беседа не блокируется; bounded ≤2 кандидата/≤1 вызов/таймаут, ось HUMOR_CANDIDATE_EVAL_ENABLED OFF.",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "M00129",
@@ -957,8 +1138,15 @@
       "acceptance": "Обновления вероятностные и консервативные: несколько независимых наблюдений на разнообразных темах до повышения вероятности приёма; есть защита от малого N, от активности одного пользователя, от бригадинга реакциями, от обратной причинности и engagement gaming; per-chat предпочтения изолированы, per-user опционально и только на надёжной информации с действующими правами; уроки низкой уверенности остаются гипотезами, автопереписи Core нет",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c1cb64753ae82940843709ab2dcca9603850a1a8",
+          "ref": "plans/features/soul-1/review-w4.md — §0 RECHECK-W4 (Approved; независимые пробы ревьюера) и ledger §5; tests/test_soul1_w4_humor_feedback.py",
+          "observation": "Обновления консервативные: нужны независимые наблюдения/разнообразие тем; защиты малого N/одного пользователя/бригандинга/gaming (мутации M4/M5/M8 KILLED); Core не переписывается — тест на отсутствие записей character.core.",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "M00131",
@@ -972,8 +1160,21 @@
       "acceptance": "Расход Experience подключён к выбору приёмов и few-shot с измеримым эффектом на следующий ответ; сохраняются links observed, hypothesized, validated, applied, outcome; отрицательная обратная связь ослабляет стратегию в контексте, а не превращается в глобальный запрет шутить",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c1cb64753ae82940843709ab2dcca9603850a1a8",
+          "ref": "plans/features/soul-1/review-w4.md — §0 RECHECK-W4 (Approved; независимые пробы ревьюера) и ledger §5; tests/test_soul1_w4_humor_feedback.py; tests/test_soul1_w4_humor_craft.py",
+          "observation": "Расход Experience подключён к выбору приёмов/few-shot: связи observed→hypothesized→validated→applied→outcome сохраняются (типы эпизодов/вердиктов); отрицательная ОС ослабляет стратегию в контексте (тест веса ≤0.05, затухание), мутации KILLED — детерминированный эффект на следующий собранный промпт.",
+          "type": "test"
+        },
+        {
+          "candidate_commit": "c1cb64753ae82940843709ab2dcca9603850a1a8",
+          "ref": "plans/features/soul-1/evidence/w4/ui-report.json; plans/features/soul-1/evidence/w4/api-fixture.json; plans/features/soul-1/evidence/w4/shots_live/live_learning_1024.png",
+          "observation": "Живая витрина контура: раздел «Обучение» на реальном слое показывает честные числа (sends=1 при signals={metaphor_continuation:1}; counters humor_sends_scanned=1); UI-прогон failures=0. Живое измерение на реальных собеседниках — канарейка SOUL-08.12.",
+          "type": "ui"
+        }
+      ]
     },
     {
       "source_id": "M00131",
@@ -987,8 +1188,21 @@
       "acceptance": "Реализованы rollback и disable, decay и старение предпочтений, bounded хранение и отдельная видимая телеметрия",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c1cb64753ae82940843709ab2dcca9603850a1a8",
+          "ref": "plans/features/soul-1/review-w4.md — §0 F2 (реальный capture_send: telemetry(chat).sends=1 и глобально; принудительный сбой COUNT → sends=0 + WARNING, не тихий except); tests/test_soul1_w4_examples_scope.py::test_telemetry_counts_captured_sends",
+          "observation": "Реализованы rollback/disable, decay и старение предпочтений, bounded хранение и отдельная видимая телеметрия; битый биндинг счётчика исправлен (F2), мутация биндинга KILLED; фикстура больше не противоречит себе.",
+          "type": "test"
+        },
+        {
+          "candidate_commit": "c1cb64753ae82940843709ab2dcca9603850a1a8",
+          "ref": "plans/features/soul-1/evidence/w4/ui-report.json; plans/features/soul-1/evidence/w4/api-fixture.json",
+          "observation": "Телеметрия видна владельцу: «Обучение» — сколько ответов под наблюдением, какие сигналы, окна без реакции, предпочтения с затуханием, пауза/сброс.",
+          "type": "ui"
+        }
+      ]
     },
     {
       "source_id": "M00133",
@@ -996,14 +1210,27 @@
       "source_text_sha256": "0602624897f9b58504b0b7774fac395eab601ceb4d53dbe14a89b0dd22541c09",
       "source_excerpt": "**Обязательные реальные сценарии:** собеседник подхватил придуманную бюрократическую метафору; человек явно просит не повторять грубость; на спор без шутки реагируют бурно; сообщения никто не комментирует; группа активно обсуждает другой пр",
       "disposition": "required",
-      "reason": "",
+      "reason": "7 обязательных сценариев закрыты детерминированными симуляциями и live-маркерами в UI (review-w4 §5/§7 отчёта), живого прогона с реальными собеседниками не было — канарейка postdeploy (plan.md §W4 binding, «Границы»); до неё строка не закрывается.",
       "req_id": "SOUL-08.12",
       "slice": "W4",
       "acceptance": "Обязательные реальные сценарии показаны с evidence attribution и влиянием на последующий выбор примеров: собеседник подхватил бюрократическую метафору, человек просит не повторять грубость, на спор без шутки реагируют бурно, сообщения никто не комментирует, группа обсуждает другое без reply, похожие шутки в двух чатах оцениваются по-разному, несколько одинаковых реакций одного лица не накручивают успех",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "c1cb64753ae82940843709ab2dcca9603850a1a8",
+          "ref": "tests/test_soul1_w4_humor_feedback.py (scenario_1..scenario_7); plans/features/soul-1/review-w4.md — §0 RECHECK-W4 (Approved; независимые пробы ревьюера) и ledger §5",
+          "observation": "Все семь сценариев покрыты детерминированными тестами (метафора подхвачена, просьба ослабила только свой чат, бурная реакция без шутки ≠ успех, тишина = unknown, параллельная тема ≠ успех, два чата независимы, один человек не накручивает).",
+          "type": "test"
+        },
+        {
+          "candidate_commit": "c1cb64753ae82940843709ab2dcca9603850a1a8",
+          "ref": "plans/features/soul-1/evidence/w4/ui-report.json; plans/features/soul-1/evidence/w4/shots_live/live_learning_1024.png",
+          "observation": "Живые маркеры сценариев видны владельцу в разделе «Обучение» (scenario_summary, реальная отрисовка Chrome 1024).",
+          "type": "ui"
+        }
+      ]
     },
     {
       "source_id": "M00137",
@@ -1017,8 +1244,21 @@
       "acceptance": "Повторяемость оценивается по скользящему окну собственных фраз (лексические n-граммы и смысловые шаблоны по необходимости), а не по одному ban-list; удачный повтор цитаты и устойчивая привычка персонажа не наказываются без повода",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "4c8405e783ac005ac0044974c5fbd7e518d12e2a",
+          "ref": "plans/features/soul-1/review-w3.md — recheck F2 + §4 («окно/TTL/изоляция/ban-list — VERIFIED»; «повтор в середине → не меняется; нет повтора → noop; повтор в JSON → exempted»)",
+          "observation": "Повторяемость оценивается скользящим окном собственных фраз (n-граммы), а не одним ban-list; удачный повтор цитаты и устойчивая привычка не наказываются без повода.",
+          "type": "test"
+        },
+        {
+          "candidate_commit": "4c8405e783ac005ac0044974c5fbd7e518d12e2a",
+          "ref": "tests/test_soul1_style_repetition.py + plans/features/soul-1/evidence/w3/_fix_after-final.txt",
+          "observation": "Поведенческие границы закреплены тестами на кандидате.",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "M00139",
@@ -1032,8 +1272,15 @@
       "acceptance": "Обновления анти-клише не разрастают системный промпт бесконечно и не переписывают суть ответа: сначала локальная замена обнаруженного повтора, при некритичном повторе дополнительная дорогая генерация не выполняется; динамический ban-list capped, с TTL и архивацией, без персональных имён и секретов",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "4c8405e783ac005ac0044974c5fbd7e518d12e2a",
+          "ref": "plans/features/soul-1/review-w3.md §4 (локальная замена обнаруженного повтора; при некритичном повторе доп. дорогая генерация не выполняется; bounded repair только по callback) + plans/features/soul-1/evidence/w3/cost-measurement.txt",
+          "observation": "Обновления анти-клише не разрастают промпт и не переписывают суть: сначала локальная замена; 0 LLM на нарушение; ban-list capped с TTL/архивацией, без персональных имён и секретов.",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "M00141",
@@ -1041,7 +1288,7 @@
       "source_text_sha256": "0ccacf09f631e5f05f9043ced78c2a65faf15810fba2bf7b0318221d230970d1",
       "source_excerpt": "Человеческие просительные стили `/style`, chat-scoped и отношения сохраняются, но не могут отключить ядро или переписать роли фактических инструментов. Доказанный урок из Experience не меняет правила фактчека и не создаёт запрета отвечать с",
       "disposition": "required",
-      "reason": "",
+      "reason": "Часть «/style и chat-scoped правила не отключают ядро и не переписывают роли инструментов» покрыта (приоритеты формы 16.4.2; контракты целы — review W1/W3). Открыто: связка «доказанный урок Experience не меняет правила фактчека и не создаёт запрета отвечать серьёзно» в W3 не проверялась (Experience-контур — W4/W5). Закрывается слайсом Experience/уроков.",
       "req_id": "SOUL-09.3",
       "slice": "W3",
       "acceptance": "Человеческие просительные стили /style, chat-scoped правила и отношения сохранены, но не отключают ядро и не переписывают роли фактических инструментов; доказанный урок Experience не меняет правила фактчека и не создаёт запрета отвечать серьёзно",
@@ -1443,8 +1690,21 @@
       "acceptance": "Инфраструктурный блок построен на действующих БД, RBAC, ConfigCache, PG-реестре и audit или event инфраструктуре без создания отдельного config service без доказанной необходимости",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "3cc0b9c0541aa9c5a81c2caa995644bb1af61f11",
+          "ref": "plans/features/soul-1/w1-registry-report.md §2–§3 (реестр на bot_settings/PG-ключах каталога + character.prompt_history; новых таблиц/сервисов нет; param_catalog read-only, Δ=0) + plans/features/soul-1/evidence/w1/registry-snapshot.json",
+          "observation": "Инфраструктура построена на действующих БД/ConfigCache/PG-реестре: реестр и фабрика используют существующий контур (одна JSON-строка bot_settings, без новой таблицы), каталог read-only, параметров не добавлено.",
+          "type": "static"
+        },
+        {
+          "candidate_commit": "3cc0b9c0541aa9c5a81c2caa995644bb1af61f11",
+          "ref": "plans/features/soul-1/review-w1.md (периметр 1140 passed/0; композер/гейты не тронуты) + plans/features/soul-1/review-w3.md (style.policy — документ на существующем PG-контуре) + plans/features/soul-1/review-w6.md (AMD.6.6: hot-контур ConfigCache/chat_params, «без второго config-сервиса»)",
+          "observation": "Ни на одном поставленном слайсе не создан отдельный config-сервис: W1/W3/W6 живут на существующих БД/ConfigCache/PG-реестре; hot-применение — через существующий контур.",
+          "type": "static"
+        }
+      ]
     },
     {
       "source_id": "M00213",
@@ -1473,8 +1733,15 @@
       "acceptance": "Разделение зафиксировано: Personality Core определяет характер и мышление, Expression эмоциональную окраску и уместность, Speech Style Policy вид готового сообщения; политика не смешана с system_prompt_overrides, persona.biography, L1 extent и анти-клише; многие правила реально исполняются программно, а не только инструкцией LLM",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "4c8405e783ac005ac0044974c5fbd7e518d12e2a",
+          "ref": "plans/features/soul-1/review-w3.md §4 (16.0 отдельная сущность; hard исполняются программно; 16.4.1 порядок слоёв) + services/prompt_composer.py (style_policy_hint — отдельный слой композера) + plans/features/soul-1/review-w6.md (AMD.6.6/«Стиль письма» — отдельный редактор, отдельный от Core)",
+          "observation": "Разделение зафиксировано: Core/Expression/Speech Style Policy — разные владельцы и точки рендера (style_policy_hint отдельным слоем; редактор стиля отделён от редактора ядра — W6); политика не смешана с overrides/biography/extent/анти-клише; многие правила исполняются программно.",
+          "type": "static"
+        }
+      ]
     },
     {
       "source_id": "M00251",
@@ -1512,7 +1779,7 @@
       "source_text_sha256": "4c322596a052d8f47bde77c25b14d2e6e3ac073e28430b10c0bce09a9c2912fa",
       "source_excerpt": "**Приёмка обязательна:** с `hard no quotes` и `hard no trailing period` прогнать не только тестовую фразу, но 10+ разнородных реальных по структуре сообщений через Direct, Initiative и tool-backed answer на тестовом delivery-контуре; отправ",
       "disposition": "required",
-      "reason": "",
+      "reason": "Классификация READY_FOR_LIVE+postdeploy не применена (решение родителя, follow-up: у строки есть не-live пробелы). Закрыто частично: 12 разнородных входов на тест-контуре (evidence/w3/style-payload-demo.txt §3), инициативный проход (1 нормализация), 15 F1-тестов защищённых классов. Открыто (не только live): tool-backed answer путь и часть списка acceptance поимённо не подтверждены (MarkdownV2 entities, цитата фактического источника, prompt injection, разные чаты), reason/trace «для каждого исключения»; ревью 16.5.3 отдельно не верифицировало. Закрывается адресным прогоном + канарейкой.",
       "req_id": "SOUL-16.5.3",
       "slice": "W3",
       "acceptance": "С hard no quotes и hard no trailing period прогнано 10 и более разнородных реальных по структуре сообщений через Direct, Initiative и tool-backed answer на тестовом delivery-контуре (отправка в рабочий Telegram-чат только с разрешения владельца) с сохранением смысла, характера и разной длины; тесты покрывают ёлочки, ASCII-кавычки, английский апостроф, многострочное сообщение с внутренними точками, два формата многоточия, вопросы, one_word, micro, ссылку, версию, inline code и JSON, literal quote, Telegram MarkdownV2 entities, цитату фактического источника, попытку prompt injection отключить owner-hard и разные чаты; для каждого исключения есть reason и trace; strict compliance не объявляется без проверки исходящего Telegram payload",
@@ -1689,7 +1956,7 @@
       "source_text_sha256": "4ce0a787bcb55b7da51357648733e8167c94fac43ede3b9c09f2ee30385ea919",
       "source_excerpt": "## 0. Режим выполнения и базовые гарантии",
       "disposition": "required",
-      "reason": "",
+      "reason": "Гарантии §0 подтверждены частично: snapshot с SHA256 (SOURCE_MANIFEST.md; source_sha256 совпадает в обеих картах), plan- и review-стадии гейта прогнаны (gate-логи в plan.md, привязки W2/W6/W1/W3/W10), ложных DONE нет. Открыто: release-стадия гейта ещё не прогонялась (деплоя не было) — строка закрывается финальным release-проходом родителя (W8/W9).",
       "req_id": "SOUL-EXEC.1",
       "slice": "W1",
       "acceptance": "Гарантии §0 подтверждены артефактами: immutable snapshot с SHA256, requirements-map со всеми SOUL-01..19, gate на plan/review/release, статусы без ложного DONE",
@@ -1719,7 +1986,7 @@
       "source_text_sha256": "00fec47f25a3483edfc9042c45153c20070314c97169a21f9a6da521866baa82",
       "source_excerpt": "## 2. SOUL-01 — Независимый аудит и карта всех речевых путей",
       "disposition": "required",
-      "reason": "",
+      "reason": "01.1–01.4 закрыты (матрица путей; ключи/дефолты/писатели; конфликты; runtime-assembly-паритет). Открыто: 01.5 — клауза «ровно один путь к общему Core» требует заведённого Core (W2, core_absent; §3/§4 уточнения); контейнер закрывается вместе с 01.5.",
       "req_id": "SOUL-01.0",
       "slice": "W1",
       "acceptance": "Раздел SOUL-01 покрыт: вложенные критерии 1-5 имеют req_id, слайс, наблюдаемую приёмку и evidence, проверенный против исходного текста",
@@ -1740,8 +2007,21 @@
       "acceptance": "Prompt/Writer Matrix перечисляет trigger - L1/Decision - tools - Writer - postprocess - publish - telemetry и для каждого пути реальный PG-ключ, код-дефолт, приоритет, effective source, способ сборки и канал доставки; matrix обязательно включает пути Direct L1/L2, legacy/direct fallback, System2, Initiative, Factcheck, Summary human-facing, Search, Web, YouTube, Checkup, возможные сны/истории, ручные тесты и шаблоны",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "3cc0b9c0541aa9c5a81c2caa995644bb1af61f11",
+          "ref": "plans/features/soul-1/audit-prompt-matrix.md §2 (таблица путей: trigger→решение→writer file:line→publisher→ключи→канал) + plans/features/soul-1/evidence/prompt-matrix.json (полные поля по пути)",
+          "observation": "Матрица содержит все пути из приёмки: DIRECT-L1/L2, DIRECT-LEGACY-SYSTEM (fallback), DIRECT-SYSTEM2, INITIATIVE-L1/WRITER, FACTCHECK-TWO-CALL/SINGLE, SUMMARY-HYBRID и legacy, SEARCH, WEBPAGE, YOUTUBE, CHECKUP, DREAMS-LORE/NOSTALGIA/DOSSIER (сны/истории), TEMPLATE-PHRASES (шаблоны), MANUAL-TEST (ручные тесты) — 22 пути поимённо.",
+          "type": "static"
+        },
+        {
+          "candidate_commit": "3cc0b9c0541aa9c5a81c2caa995644bb1af61f11",
+          "ref": "plans/features/soul-1/review-map.md — F1 (приёмка 01.1 дополнена полным списком путей против строки L31 источника; round 2 Approved) + review-w1.md SMALL-4",
+          "observation": "Полнота списка путей закреплена приёмкой после F1; точность указателей выборочно подтверждена ревью W1 (sм. 01.2/AMD.3.1).",
+          "type": "static"
+        }
+      ]
     },
     {
       "source_id": "L00032",
@@ -1755,8 +2035,21 @@
       "acceptance": "Перечисленные файлы и реально зарегистрированные подсистемы проверены; для каждой указаны фактические ключи, дефолты и дублирующие писатели с файлом-ссылкой",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "3cc0b9c0541aa9c5a81c2caa995644bb1af61f11",
+          "ref": "plans/features/soul-1/audit-prompt-matrix.md §1 (24 ключа: каталог file:line), §2 (ключи/дефолты), §4–§6 (дублирующие писатели, ≥14 копий с file:line)",
+          "observation": "Перечисленные файлы и подсистемы проверены: для ключей указаны фактические дефолты каталога и дублирующие писатели (копии персоны по файлам и строкам).",
+          "type": "static"
+        },
+        {
+          "candidate_commit": "3cc0b9c0541aa9c5a81c2caa995644bb1af61f11",
+          "ref": "plans/features/soul-1/review-w1.md — RECHECK-W1 BLOCKER-2 (таблица прямых чтений 2/2 → 0/2; allow-list с причинами) и SMALL-4 (указатели сверены физически)",
+          "observation": "Независимая выборочная сверка ревьюером подтвердила: указатели реальны, дублирующие писатели учтены (6 bypass-потребителей закрыты).",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00033",
@@ -1770,8 +2063,15 @@
       "acceptance": "Список фактических повторов и конфликтов с указанием источника: краткость против detailed, метафора против абсурда, токсичность против уместности, persona против overrides, scoped style, lessons и tail blocks, кастомные PG-тексты вне миграции дефолтов",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "3cc0b9c0541aa9c5a81c2caa995644bb1af61f11",
+          "ref": "plans/features/soul-1/audit-prompt-matrix.md §4 («Дубли и конфликты канонов»: краткость vs detailed — PREV-кап/кастоми; метафора ASYMMETRY vs longform; ≥14 копий «токсичной» персоны; persona vs personas.system_prompt_overrides (данные задают поведение); двойной рендер персоны в одном ходу; dreams переписывает персону), §5 (тихие фолбэки), §6 (персистентные custom PG-промпты вне миграции дефолтов) + evidence/prompt-matrix.json (silent_fallbacks…, persisted_custom…, precedence_contracts)",
+          "observation": "Список фактических повторов и конфликтов с указанием источника приложен, включая все пункты приёмки (краткость/detailed, метафора/абсурд, токсичность/уместность, persona/overrides, scoped style+lessons+tail blocks, кастомные PG-тексты вне миграции дефолтов).",
+          "type": "static"
+        }
+      ]
     },
     {
       "source_id": "L00034",
@@ -1785,8 +2085,21 @@
       "acceptance": "Отдельный тест восстанавливает точную runtime-сборку реального Direct при текущем prompt key с составом блоков, порядком и токенами; кодовая константа не принимается за доказательство",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "3cc0b9c0541aa9c5a81c2caa995644bb1af61f11",
+          "ref": "tests/test_soul1_composer_parity_off.py (13 сверок) + plans/features/soul-1/evidence/direct-runtime-assembly.txt (РЕАЛЬНЫЙ offline-дамп сборки Direct: P1 2088/709, P2 1936/668, P4 2423/685, P3 1289/431, P5a 1107/342; no Telegram send, no LLM call)",
+          "observation": "Отдельный тест восстанавливает точную runtime-сборку реального Direct (system/user и токены по сценариям) и сверяет с хешами РЕАЛЬНОГО дампа, снятого исполнением кода, а не с кодовой константой; паритет 13/13 воспроизведён ревьюером на кандидате.",
+          "type": "test"
+        },
+        {
+          "candidate_commit": "3cc0b9c0541aa9c5a81c2caa995644bb1af61f11",
+          "ref": "plans/features/soul-1/review-w1.md — «Сейчас ничего не сломано» (parity 13/13) + RECHECK-W1 (parity 13/13 на фикс-кандидате)",
+          "observation": "Независимые прогоны ревьюера подтверждают восстановление сборки на кандидате.",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00035",
@@ -1794,7 +2107,7 @@
       "source_text_sha256": "0092f1ecf899e5af19fe5c59cc128201c0ccdddd9a8561c3586133061ee5efa7",
       "source_excerpt": "5. Критерий: для каждого пользовательского речевого выхода ровно один путь к общему Core или документированное обоснование исключения. Нет недоступных silently-fallback путей со старым «токсичным ботом», которые маскируют основной новый хар",
       "disposition": "required",
-      "reason": "",
+      "reason": "Клауза «нет silent-fallback на старый токсичный канон» подтверждена (известные каноны удержаны на всех путях реестра; allow-list 5 обоснованных прямых чтений; guard фальсифицируем — review-w1 RECHECK). Открыто: клауза «ровно один путь к общему Core» — Core ещё не заведён (W2, core_absent; SOUL-02.x, §3/§4 уточнения). Закрывается с поставкой Core + финальным маппингом путей (W2/W9).",
       "req_id": "SOUL-01.5",
       "slice": "W1",
       "acceptance": "Для каждого пользовательского речевого выхода ровно один путь к общему Core либо документированное обоснование исключения; нет silent-fallback на старый токсичный канон",
@@ -1869,7 +2182,7 @@
       "source_text_sha256": "e7e7a211ebaf4a2967b07cb29ae15ea0134b3941b97a095b711a70fb00dd42d7",
       "source_excerpt": "## 6. SOUL-05 — L1, ONE_WORD, авто-объём, уместность и Initiative",
       "disposition": "required",
-      "reason": "",
+      "reason": "05.1–05.6 закрыты (движок/контракт — review-w3 §4), 05.7 закрыт частично: SILENT/REACT без Writer и tool-result — W5/live. Контейнер закрывается вместе с 05.7.",
       "req_id": "SOUL-05.0",
       "slice": "W3",
       "acceptance": "Раздел SOUL-05 покрыт: L1-контракты, one_word против micro, авто-объём и Initiative-часть имеют отдельные req_id и evidence",
@@ -1890,8 +2203,21 @@
       "acceptance": "Humor Craft реализован как управляемый ситуационный блок, а не отдельный юморист, с toggle и измеримым влиянием приёмов",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c1cb64753ae82940843709ab2dcca9603850a1a8",
+          "ref": "plans/features/soul-1/review-w4.md — §0 RECHECK-W4 (Approved; независимые пробы ревьюера) и ledger §5; tests/test_soul1_w4_humor_craft.py",
+          "observation": "Пять приёмов — управляемый ситуационный слой, а не отдельный юморист: закрытый набор L1 COMIC_STRATEGIES, применение только по совету comic_strategy; заводские редакции зарегистрированы; ревьюер подтвердил независимыми прогонами.",
+          "type": "test"
+        },
+        {
+          "candidate_commit": "c1cb64753ae82940843709ab2dcca9603850a1a8",
+          "ref": "plans/features/soul-1/evidence/w4/mutation-witness.json; plans/features/soul-1/evidence/w4/parity-off.json",
+          "observation": "Мутации «снят серьёзный контекст»/«штраф перестал гасить» KILLED (14/14); при OFF новых слоёв в манифесте нет.",
+          "type": "static"
+        }
+      ]
     },
     {
       "source_id": "L00096",
@@ -1905,8 +2231,15 @@
       "acceptance": "Абсурдная эскалация воспроизводима: предпосылка как правило мира, развитие следствий, неожиданный логичный вывод",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c1cb64753ae82940843709ab2dcca9603850a1a8",
+          "ref": "plans/features/soul-1/review-w4.md — §0 RECHECK-W4 (Approved; независимые пробы ревьюера) и ledger §5; tests/test_soul1_w4_humor_craft.py",
+          "observation": "Приём «абсурдная эскалация» — заводская редакция в закрытом наборе (предпосылка как правило мира, развитие следствий, неожиданный логичный вывод); рендер только при совете comic_strategy; тест состава набора и рендера слоя.",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00097",
@@ -1920,8 +2253,15 @@
       "acceptance": "Буквализм: метафора или оговорка воспринимается буквально и доводится до комической закономерности",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c1cb64753ae82940843709ab2dcca9603850a1a8",
+          "ref": "plans/features/soul-1/review-w4.md — §0 RECHECK-W4 (Approved; независимые пробы ревьюера) и ledger §5; tests/test_soul1_w4_humor_craft.py",
+          "observation": "Приём «буквализм» — заводская редакция (метафора/оговорка воспринимается буквально и доводится до комической закономерности); закрытый набор, рендер только по совету L1.",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00098",
@@ -1935,8 +2275,15 @@
       "acceptance": "Сухой deadpan: нелепое утверждение в явно шуточной рамке без эмоциональной подачи",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c1cb64753ae82940843709ab2dcca9603850a1a8",
+          "ref": "plans/features/soul-1/review-w4.md — §0 RECHECK-W4 (Approved; независимые пробы ревьюера) и ledger §5; tests/test_soul1_w4_humor_craft.py",
+          "observation": "Приём «сухой deadpan» — заводская редакция (нелепое утверждение в явно шуточной рамке без эмоциональной подачи); закрытый набор, рендер только по совету L1.",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00099",
@@ -1950,8 +2297,15 @@
       "acceptance": "Бюрократический или экономический перенос: быт как процесс, отчёт, регламент, налог или сделка, без однообразного министерства всего в каждом ответе",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c1cb64753ae82940843709ab2dcca9603850a1a8",
+          "ref": "plans/features/soul-1/review-w4.md — §0 RECHECK-W4 (Approved; независимые пробы ревьюера) и ledger §5; tests/test_soul1_w4_humor_craft.py",
+          "observation": "Приём «бюрократический/экономический перенос» — заводская редакция (быт как процесс/отчёт/регламент; без однообразия шаблонов); закрытый набор, рендер только по совету L1.",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00100",
@@ -1965,8 +2319,15 @@
       "acceptance": "Неожиданная содержательная аналогия: отдалённые области смешаны с конкретными деталями и внутренней логикой",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c1cb64753ae82940843709ab2dcca9603850a1a8",
+          "ref": "plans/features/soul-1/review-w4.md — §0 RECHECK-W4 (Approved; независимые пробы ревьюера) и ledger §5; tests/test_soul1_w4_humor_craft.py",
+          "observation": "Приём «неожиданная содержательная аналогия» — заводская редакция (отдалённые области + конкретные детали и внутренняя логика); закрытый набор, рендер только по совету L1.",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00106",
@@ -1980,8 +2341,21 @@
       "acceptance": "Библиотека few-shot из 15-30 оригинальных разнообразных примеров и владельческое управление ею существуют и подтверждены карточками UI и тестами",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c1cb64753ae82940843709ab2dcca9603850a1a8",
+          "ref": "plans/features/soul-1/review-w4.md — §0 RECHECK-W4 (Approved; независимые пробы ревьюера) и ledger §5; tests/test_soul1_w4_sample_library.py; plans/features/soul-1/evidence/w4/api-fixture.json",
+          "observation": "Библиотека few-shot существует и владельчески управляема: таблица humor_samples (миграция v36), 18 заводских примеров (5 техник + other, разные композиции), CRUD/архив/ревизия/A-B; живой слой отдаёт 20 карточек (4 эталона / 16 черновиков).",
+          "type": "test"
+        },
+        {
+          "candidate_commit": "c1cb64753ae82940843709ab2dcca9603850a1a8",
+          "ref": "plans/features/soul-1/w4-humor-feedback-report.md — §1.2/§5",
+          "observation": "«Примеры» — не заглушка: фильтры, редактор, архив, A/B, «почему выбраны»; честные пустые состояния при недоступной базе.",
+          "type": "ui"
+        }
+      ]
     },
     {
       "source_id": "L00114",
@@ -1995,8 +2369,15 @@
       "acceptance": "Humor Feedback Loop расширяет mca_experience и не создаёт отдельный контур самообучения; подтверждено кодом и тестами",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c1cb64753ae82940843709ab2dcca9603850a1a8",
+          "ref": "plans/features/soul-1/review-w4.md — §0 RECHECK-W4 (Approved; независимые пробы ревьюера) и ledger §5; tests/test_soul1_w4_humor_feedback.py",
+          "observation": "Контур живёт ВНУТРИ mca_experience (те же таблицы/джоб): единственная новая таблица — humor_samples (v36); отдельного самодельного контура нет.",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00121",
@@ -2010,8 +2391,15 @@
       "acceptance": "Явное одобрение шутки, реакции и продолженные образы распознаются с evidence link и повышают вероятность применения стратегии",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c1cb64753ae82940843709ab2dcca9603850a1a8",
+          "ref": "plans/features/soul-1/review-w4.md — §0 RECHECK-W4 (Approved; независимые пробы ревьюера) и ledger §5; tests/test_soul1_w4_humor_feedback.py (scenario_1, single_explicit_request)",
+          "observation": "Явное одобрение/реакции/продолженные образы распознаются с evidence link и повышают вероятность применения; мутации «явное указание» и «семантический сигнал» KILLED.",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00122",
@@ -2025,8 +2413,15 @@
       "acceptance": "Семантическое продолжение метафоры другим человеком в той же ветке отделено от простого совпадения слов",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c1cb64753ae82940843709ab2dcca9603850a1a8",
+          "ref": "plans/features/soul-1/review-w4.md — §0 RECHECK-W4 (Approved; независимые пробы ревьюера) и ledger §5; tests/test_soul1_w4_humor_feedback.py",
+          "observation": "Семантическое продолжение метафоры (домен/класс) отделено от простого совпадения слов; сигнал metaphor_continuation привязан к эпизоду отправки; мутация семантического сигнала KILLED.",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00123",
@@ -2040,8 +2435,15 @@
       "acceptance": "Раздражение, просьба прекратить, коррекция адресата или факта, конфликт и потеря темы ослабляют стратегию в контексте, а не запрещают шутить глобально",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c1cb64753ae82940843709ab2dcca9603850a1a8",
+          "ref": "plans/features/soul-1/review-w4.md — §0 RECHECK-W4 (Approved; независимые пробы ревьюера) и ledger §5; tests/test_soul1_w4_humor_feedback.py (scenario_2)",
+          "observation": "Раздражение/просьба прекратить/коррекции/конфликт/потеря темы ослабляют приём в контексте (свой чат+техника), без глобального запрета; decay возвращает вес; мутации M6/M7 KILLED.",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00124",
@@ -2055,8 +2457,15 @@
       "acceptance": "Отсутствие ответа классифицируется как unknown и не считается failure",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c1cb64753ae82940843709ab2dcca9603850a1a8",
+          "ref": "plans/features/soul-1/review-w4.md — §0 RECHECK-W4 (Approved; независимые пробы ревьюера) и ledger §5; tests/test_soul1_w4_humor_feedback.py (scenario_4)",
+          "observation": "Тишина = unknown, не failure: окно закрывается unknown, исход эпизода не failure.",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00125",
@@ -2070,8 +2479,15 @@
       "acceptance": "Активность без семантической связи с ботом не считается успехом шутки",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c1cb64753ae82940843709ab2dcca9603850a1a8",
+          "ref": "plans/features/soul-1/review-w4.md — §0 RECHECK-W4 (Approved; независимые пробы ревьюера) и ledger §5; tests/test_soul1_w4_humor_feedback.py (scenario_3/5)",
+          "observation": "Активность без семантической связи (спор, параллельная тема) не считается успехом шутки.",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00135",
@@ -2085,8 +2501,21 @@
       "acceptance": "Антизалипание наблюдаемо и пропорционально: скользящее окно n-грамм и шаблонов, capped ban-list с TTL, без переписывания сути ответа",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "4c8405e783ac005ac0044974c5fbd7e518d12e2a",
+          "ref": "plans/features/soul-1/review-w3.md — recheck F2 (повтор в первом предложении + посторонний хвост → текст НЕ меняется; удаление только если хвост сам содержит найденный sticky n-грамм — sha12-сверка с findings) + §4",
+          "observation": "Антизалипание наблюдаемо и пропорционально: удаляется только реальный повтор в хвосте; суть ответа не переписывается (F2-дефект закрыт и покрыт регрессом).",
+          "type": "test"
+        },
+        {
+          "candidate_commit": "4c8405e783ac005ac0044974c5fbd7e518d12e2a",
+          "ref": "tests/test_soul1_style_repetition.py (17 тестов) + plans/features/soul-1/evidence/w3/_fix_after-final.txt (F2-блок: 3 хвоста, цитат-кейсы)",
+          "observation": "Окно 3-грамм на чат (12, TTL 6ч), capped ban-list (без имён/секретов) и границы правки закреплены тестами на кандидате.",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00143",
@@ -2423,7 +2852,7 @@
       "source_text_sha256": "b70adda2f647e3884eea9eed2f0b436044ed9b14b6f667f9fc954a29fd882420",
       "source_excerpt": "## 16. SOUL-15 — Безопасная миграция, права, конфигурация и контролируемое внедрение",
       "disposition": "required",
-      "reason": "",
+      "reason": "Блок SOUL-15 ещё не закрыт: 15.5/15.7 — W2 (открыты), 15.6/15.8/15.9 — W8 (впереди). W1-часть блока (схема источников, двухфазная миграция, права) отражена в 15.1–15.4. Закрывается вместе с подстроками.",
       "req_id": "SOUL-15.0",
       "slice": "W1",
       "acceptance": "Инфраструктурный блок SOUL-15 закрыт: единая схема источников, двухфазная миграция, права, hot apply, флаги, безопасная деградация и эффективность имеют evidence по каждому сценарию приёмки",
@@ -2438,7 +2867,7 @@
       "source_text_sha256": "52119529767325cef6b2e66668a4c3a815620420b2bfafac9e43c98796788280",
       "source_excerpt": "1. **Единая схема источников:** перечислить все старые keys и overrides для `personas`, `style.scope`, `system_prompt_overrides`, `prompts.*`, `mca_self_model`, `mca_experience`, `response_extent` и direct prompt modes. Для каждого указать ",
       "disposition": "required",
-      "reason": "",
+      "reason": "Схема источников описана (реестр: scope/owner/effective priority/migration по 65 блокам; композер OWNERS/SOURCES/LAYER_ORDER — привязка W2 4116c48a; стиль — версионный документ с ревизией W3/W6). Открыто: Core и Sample Library к общему versioned-конфигу не привязаны (Core — W2 core_absent; Sample Library — W4/впереди) — строка закрывается с ними.",
       "req_id": "SOUL-15.2",
       "slice": "W1",
       "acceptance": "Единая схема источников: старые keys и overrides для personas, style.scope, system_prompt_overrides, prompts.*, mca_self_model, mca_experience, response_extent и direct modes описаны как scope, owner, effective priority, migration, rollback; Core, Style Policy и Sample Library привязаны к общему versioned-конфигу с atomic save; UI и Writer не расходятся",
@@ -2459,8 +2888,21 @@
       "acceptance": "Двухфазная миграция: read-only inventory и dry-run с прогнозом, затем идемпотентная запись в транзакции; owner-тексты и версии сохранены; неизвестные кастомы не перезаписаны и помечены custom_legacy; повторный запуск и откат безопасны",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "3cc0b9c0541aa9c5a81c2caa995644bb1af61f11",
+          "ref": "plans/features/soul-1/evidence/w1/migration-preview.json (фаза A: классы absent|canon_current|canon_prev_step|custom_legacy|already_normalized, прогноз, sha до/после) + README-restore.md + tests/test_prompt_migrations.py + tests/test_soul1_legacy_custom_preserved.py",
+          "observation": "Двухфазная миграция: read-only inventory/dry-run с классами и прогнозом; запись — один set_many (одна PG-транзакция); unknown-кастомы классифицируются custom_legacy и НЕ перезаписываются; повторный запуск = no-op.",
+          "type": "test"
+        },
+        {
+          "candidate_commit": "3cc0b9c0541aa9c5a81c2caa995644bb1af61f11",
+          "ref": "plans/features/soul-1/review-w1.md — «Идемпотентность/откат» (removed=0 на втором проходе; rollback восстановил оригинал байт-в-байт) + RECHECK-W1 SMALL-3 (форма pg_value_at_backup: plan→apply→идемпотентный повтор без KeyError)",
+          "observation": "Идемпотентность и безопасность повтора/отката независимо проверены ревьюером исполнением.",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00207",
@@ -2468,7 +2910,7 @@
       "source_text_sha256": "3bdedd7748407c215cb342b7a1783bbc8140a6fe8b7cb750552d4a129359e4fb",
       "source_excerpt": "3. **Права:** глобальное ядро и хардовые правила может менять только явно уполномоченный администратор. Права scoped-чата и редактирования примеров/обучения — отдельные существующие permissions, не выводить их из одного frontend-чекбокса. С",
       "disposition": "required",
-      "reason": "",
+      "reason": "Модель прав проверена по факту в W6 (AMD.0.3 VERIFIED: denied→403 на всех 18 маршрутах, admin-only Inspector, маскировка секретов/ID, 409 на версии), но не на W1-кандидате: review-w1 проверок прав не выполнял, полный состав (scoped-чат/примеры/обучение — существующие permissions) на W1 не подтверждён. Закрывается переанкором строки на W6-кандидат/адресной проверкой прав (решение родителя).",
       "req_id": "SOUL-15.4",
       "slice": "W1",
       "acceptance": "Права: глобальный Core и hard-правила меняет только уполномоченный администратор; scoped-чат, примеры и обучение используют отдельные существующие permissions; сервер повторно проверяет scope, telegram user id, права и версию объекта; effective prompt редактируется и маскируется по доступу",
@@ -2549,8 +2991,15 @@
       "acceptance": "Speech Style Policy существует как отдельная первоклассная редактируемая сущность, не смешанная с overrides, biography, L1 extent и анти-клише; hard-правила исполняются программно на финальном тексте",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "4c8405e783ac005ac0044974c5fbd7e518d12e2a",
+          "ref": "plans/features/soul-1/review-w3.md §4 (16.0 VERIFIED: «отдельная сущность, hard исполняются программно») + services/style_policy.py (типизированные правила, документ style.policy со своей ревизией, StylePolicyValidator) + tests/test_soul1_style_policy.py (45)",
+          "observation": "Speech Style Policy — отдельная первоклассная редактируемая сущность (свой документ/ревизия), не смешана с overrides/biography/extent/анти-клише; hard-правила исполняются программно на финальном тексте.",
+          "type": "static"
+        }
+      ]
     },
     {
       "source_id": "L00219",
@@ -2579,8 +3028,15 @@
       "acceptance": "Жёсткие детерминированные правила типизированы и исполняются одним StylePolicyValidator и formatter с объяснимым pass, repaired, exempted, conflict, failed и без слепых массовых regex",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "4c8405e783ac005ac0044974c5fbd7e518d12e2a",
+          "ref": "plans/features/soul-1/review-w3.md §4 (16.1.1–16.1.5 VERIFIED: типы/исходы, soft/hard, контекст-пакеты, поля записи, presets) + tests/test_soul1_style_policy.py",
+          "observation": "Жёсткие правила типизированы (trailing_period/quotation_marks/emoji/line_breaks/one_word/forbidden_chars) и исполняются одним StylePolicyValidator с объяснимыми pass/repaired/exempted/conflict/failed; семантическая сегментация до правки — без слепых массовых regex.",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00222",
@@ -2594,8 +3050,15 @@
       "acceptance": "Мягкие редакционные привычки передаются как bounded-инструкции Writer без обещания 100 процентов соблюдения; различие hard и soft видно пользователю",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "4c8405e783ac005ac0044974c5fbd7e518d12e2a",
+          "ref": "plans/features/soul-1/review-w3.md §4 + tests/test_soul1_style_policy.py (soft/hard) + plans/features/soul-1/review-w6.md (витрина hard/soft в редакторе — live)",
+          "observation": "Мягкие привычки передаются bounded-инструкцией Writer без обещания 100%; различие hard/soft видно пользователю (модель правила + витрина редактора W6).",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00223",
@@ -2609,8 +3072,15 @@
       "acceptance": "Контекстные правила: отдельные пакеты для обычных ответов, инициативы, публичных редакционных публикаций и ответов с кодом; глобальный default, явный per-chat override и channel exceptions; scope не протекает в чужие чаты, effective source виден",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "4c8405e783ac005ac0044974c5fbd7e518d12e2a",
+          "ref": "plans/features/soul-1/review-w3.md §4 (контекст-пакеты, изоляция scope, effective source виден) + tests/test_soul1_style_policy.py (context packs, chat isolation, per-rule source при chat-over-scope)",
+          "observation": "Отдельные пакеты для обычных ответов/инициативы/редакционных публикаций/ответов с кодом; глобальный default, явный per-chat override и channel exceptions; scope не протекает в чужие чаты.",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00224",
@@ -2624,8 +3094,15 @@
       "acceptance": "Запись правила содержит id, kind, параметры, strictness hard или soft, scope, enabled, owner, revision, created_at, updated_at, reason, стратегию конфликта, исключения и происхождение миграции в едином структурированном реестре без десятков prompts.*",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "4c8405e783ac005ac0044974c5fbd7e518d12e2a",
+          "ref": "plans/features/soul-1/review-w3.md §4 («поля записи» — VERIFIED) + services/style_policy.py (структура правила) + plans/features/soul-1/evidence/w3/requirements-coverage.md",
+          "observation": "Запись правила содержит id/kind/параметры/strictness/scope/enabled/owner/revision/created_at/updated_at/reason/стратегию конфликта/исключения/происхождение в едином структурированном документе style.policy (без десятков prompts.*).",
+          "type": "static"
+        }
+      ]
     },
     {
       "source_id": "L00225",
@@ -2639,8 +3116,15 @@
       "acceptance": "Пресеты Обычная переписка, Без кавычек, Без точек на конце, Без эмодзи, Разговорный/лаконичный комбинируются, сохраняются как свои профили и откатываются; произвольный текст владельца допустим только как safe soft-instruction с preview, кодовое исполнение вводимого regex запрещено",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "4c8405e783ac005ac0044974c5fbd7e518d12e2a",
+          "ref": "plans/features/soul-1/review-w3.md §4 (presets — VERIFIED; редактор — W6) + tests/test_soul1_style_policy.py + plans/features/soul-1/review-w6.md (F2 live: галки/пресеты/счётчик/черновик)",
+          "observation": "5 пресетов комбинируются/сохраняются как профили/откатываются; произвольный текст владельца — только safe soft-instruction с preview; кодовое исполнение вводимого regex запрещено (тест); UI-редактор поставлен и live-проверен в W6.",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00227",
@@ -2669,8 +3153,15 @@
       "acceptance": "quotation_marks: разрешены, избегать (soft), запрещены в обычной речи (hard); hard распознаёт Unicode-формы кавычек и отличает апостроф, технические литералы, JSON и markup; владелец выбирает классы запрещаемых кавычек и видит примеры",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "4c8405e783ac005ac0044974c5fbd7e518d12e2a",
+          "ref": "plans/features/soul-1/review-w3.md — recheck F1 (JSON/машинные данные защищены: 9/9 фрагментов байт-в-байт, exempted protected_verbatim; речевые кавычки после двоеточия всё ещё правятся; «{^_^}»/«\"{привет}\"» — правило работает) + plans/features/soul-1/evidence/w3/_fix_after-final.txt",
+          "observation": "hard различает Unicode-формы кавычек, апостроф, технические литералы, JSON и markup; защита байт подтверждена независимым сравнением ревьюера и 15 F1-тестами.",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00230",
@@ -2684,8 +3175,15 @@
       "acceptance": "Writer сначала переформулирует высказывание без графических кавычек через лексическую или интонационную иронию; валидатор правит только безопасные простые случаи и не ломает смысл, вложенные высказывания и юридически значимую дословность",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "4c8405e783ac005ac0044974c5fbd7e518d12e2a",
+          "ref": "plans/features/soul-1/review-w3.md §4 (16.2.2 VERIFIED: многословные цитаты → conflict, ирония с risk) + tests/test_soul1_style_policy.py",
+          "observation": "Валидатор правит только безопасные простые случаи; многословная цитата → conflict (styled=false) c честным risk; смысл/вложенные высказывания и юридически значимая дословность не ломаются.",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00231",
@@ -2699,8 +3197,15 @@
       "acceptance": "Политика исключений для защищённых типов (дословная цитата, точное название, команда, фрагмент кода, URL, JSON, Telegram-форматирование, внешние данные) по умолчанию сохраняет protected_verbatim; manifest показывает exempted или conflict; режим строго нигде честно блокирует несовместимые ответы вместо порчи байтов",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "4c8405e783ac005ac0044974c5fbd7e518d12e2a",
+          "ref": "plans/features/soul-1/review-w3.md — recheck F1 (exempted/protected_verbatim; незакрытые JSON-фрагменты — честный exempted; over-protection не отключает владельческое правило) + plans/features/soul-1/evidence/w3/_fix_after-final.txt",
+          "observation": "Политика исключений сохраняет protected_verbatim по умолчанию (дословная цитата/точное название/код/URL/JSON/Telegram-форматирование); manifest показывает exempted/conflict; строгий режим честно даёт conflict/блокировку вместо порчи байтов.",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00232",
@@ -2714,8 +3219,15 @@
       "acceptance": "Пример hard в обычной речи: вход с кавычками-иронией даёт допустимый итог без графических кавычек при сохранении иронии; неудачный смысловой вариант не объявляется равноценным",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "4c8405e783ac005ac0044974c5fbd7e518d12e2a",
+          "ref": "plans/features/soul-1/review-w3.md §4 (16.2.4 VERIFIED: «Ну это «гениальная» идея» → без кавычек + irony_may_be_lost) + tests/test_soul1_style_policy.py",
+          "observation": "Пример hard в обычной речи воспроизведён: кавычки-ирония уходят без потери иронии (risk-метка); неудачный смысловой вариант не объявляется равноценным.",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00234",
@@ -2744,8 +3256,15 @@
       "acceptance": "trailing_period: как обычно, избегать (soft), строго убирать в обычной речи (hard); проверяется последний содержательный знак с учётом Unicode-пробелов, невидимых символов и Telegram entity markup; внутренние точки не запрещены; знаки !, ? и эмодзи не удаляются",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "4c8405e783ac005ac0044974c5fbd7e518d12e2a",
+          "ref": "plans/features/soul-1/review-w3.md §4 (16.3.1/16.3.2 VERIFIED: финальный знак, Unicode-пробелы, два независимых extent) + tests/test_soul1_style_policy.py (trailing_period)",
+          "observation": "trailing_period: soft/hard; проверяется последний содержательный знак с учётом Unicode-пробелов, невидимых символов и markup; внутренние точки не запрещены; «!», «?» и эмодзи не удаляются.",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00237",
@@ -2759,8 +3278,15 @@
       "acceptance": "В hard-режиме Ну да, логично. становится Ну да, логично, а Да, конечно. Вот почему остаётся корректным; one_word и micro сохраняют два независимых extent",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "4c8405e783ac005ac0044974c5fbd7e518d12e2a",
+          "ref": "plans/features/soul-1/review-w3.md §4 + plans/features/soul-1/evidence/w3/style-contract-demo.txt («Ну да, логично.» → без точки; «Да, конечно. Вот почему остаётся корректным» — внутренняя точка цела)",
+          "observation": "Примеры hard-режима воспроизведены на доставляемом payload; one_word/micro сохраняют два независимых extent.",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00238",
@@ -2774,8 +3300,15 @@
       "acceptance": "Не обрезается последняя точка внутри URL и домена, версии 1.2.3, сокращения, многоточия, Markdown, HTML, Telegram markup, кодового блока и вложения; перед правкой разбираются семантические сегменты; при невозможности гарантии сохраняются исходные данные и показывается exception или conflict",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "4c8405e783ac005ac0044974c5fbd7e518d12e2a",
+          "ref": "plans/features/soul-1/review-w3.md — recheck F1 (URL/версия/код/многоточие целы; 9/9 байт; незакрытые фрагменты — exempted) + plans/features/soul-1/evidence/w3/_fix_after-final.txt + style-contract-demo.txt",
+          "observation": "Последняя точка внутри URL/домена/версии/сокращений/многоточий/markdown/HTML/markup/кода не обрезается: семантические сегменты разбираются до правки; при невозможности гарантии — сохраняются исходные данные и показывается exempted/conflict.",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00239",
@@ -2789,8 +3322,15 @@
       "acceptance": "После правки нет дефектов с лишним пробелом, слэшем или служебным хвостом; message_id, ссылки, выделения и структура сообщений не меняются; преобразования выполняются до финальной сериализации и проверяется именно доставляемый payload",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "4c8405e783ac005ac0044974c5fbd7e518d12e2a",
+          "ref": "plans/features/soul-1/review-w3.md — recheck F3 (проверка на ДОСТАВЛЯЕМОМ payload после egress-guard: перехват байтов; REPAIRED→CONFLICT без правок; guard OFF = паритет) + tests/test_soul1_style_payload.py",
+          "observation": "Проверяется именно доставляемый payload (после sanitize_outgoing); лишних пробелов/слэшей/служебных хвостов нет; message_id/ссылки/выделения/структура не меняются; преобразования до финальной сериализации.",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00241",
@@ -2819,8 +3359,15 @@
       "acceptance": "effective_style_policy собирается после выбора scope и типа выхода перед Writer и добавляет только короткий semantic hint; после генерации выполняется ровно одна нормализация в порядке content/evidence invariants, extent check, style policy validation и targeted repair, Telegram serialization, outbound validation с одним owner и идемпотентностью",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "4c8405e783ac005ac0044974c5fbd7e518d12e2a",
+          "ref": "plans/features/soul-1/review-w3.md §4 (16.4.1/16.4.2/16.4.3 VERIFIED: порядок/один проход/идемпотентность; приоритеты; один владелец правил) + plans/features/soul-1/evidence/w3/style-contract-demo.txt",
+          "observation": "effective_style_policy собирается после scope/типа выхода перед Writer (hint ≤400 симв.); после генерации ровно одна нормализация в каноническом порядке (extent check → style validation → targeted repair → Telegram serialization → outbound validation), идемпотентная, с одним владельцем.",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00244",
@@ -2834,8 +3381,15 @@
       "acceptance": "Приоритет: безопасность и фактическая точность выше дословности обязательного текста и явных пользовательских задач, выше правил владельца для обычной чат-речи и исключений, выше chat-scoped правил, мягких навыков Experience и генеративных предпочтений L1; owner-hard не обходится входящим user-message, конфликт диагностируется явно",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "4c8405e783ac005ac0044974c5fbd7e518d12e2a",
+          "ref": "plans/features/soul-1/review-w3.md §4 (приоритеты — VERIFIED: owner-hard не обходится входящим user-message, конфликт диагностируется явно) + tests/test_soul1_style_policy.py",
+          "observation": "Приоритет соблюдён: безопасность/фактическая точность > дословность обязательного текста и явных задач > owner-hard > chat-scoped > soft/Experience/L1; конфликт диагностируется явно.",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00245",
@@ -2849,8 +3403,15 @@
       "acceptance": "SelfModel, Experience, L1 и несколько Writer не переписывают и не дублируют hard-правила; Experience может предложить стилевое предпочтение, но не включает глобальный запрет; legacy style.scope, анти-клише, char overrides и тон L1 участвуют по явно описанному precedence; системная инструкция будь токсичным не всплывает как альтернативный owner-style",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "4c8405e783ac005ac0044974c5fbd7e518d12e2a",
+          "ref": "plans/features/soul-1/review-w3.md §4 («один владелец правил (RBAC-точка — W6)») + tests/test_soul1_style_policy.py (дубль hard-правил ловится; Experience не включает глобальный запрет) + W1/RECHECK (удержание «будь токсичным»)",
+          "observation": "SelfModel/Experience/L1 не переписывают и не дублируют hard-правила; legacy style.scope/анти-клише/char overrides/тон L1 участвуют по описанному precedence; «будь токсичным» не всплывает как альтернативный owner-style.",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00246",
@@ -2858,7 +3419,7 @@
       "source_text_sha256": "9a41846e7d25cf59113730aea48efb112624e5d04caf1e084c642e8485840720",
       "source_excerpt": "4. Не применять правила финального чата к SQL, JSON планам, поисковым запросам, исходным цитатам, таблицам технического экспорта, Summary L1, памяти и машинным стадиям. Для финального Factcheck/редакционной Summary — отдельная явная eligibi",
       "disposition": "required",
-      "reason": "",
+      "reason": "Подтверждено: правила не применяются к машинным контекстам (SQL/JSON-планы/поисковые запросы/цитаты/таблицы/Summary L1/память/машинные стадии — review-w3 §4). Открыто: для финального Factcheck и редакционной Summary явная eligibility не подключена (§4 уточнения; NOT-IN-DIFF — безопасно, но eligibility нет); мультимодальный/подписи текстовый target формально не закрыт. Закрывается вместе с Core-проводкой AMD.2.4/2.5/2.7 (перескоп F5).",
       "req_id": "SOUL-16.4.4",
       "slice": "W3",
       "acceptance": "Правила финального чата не применяются к SQL, JSON-планам, поисковым запросам, исходным цитатам, техническим таблицам, Summary L1, памяти и машинным стадиям; для Factcheck и редакционной Summary отдельная явная eligibility с сохранностью ссылок и источников; для мультимодального и подписей явный текстовый target",
@@ -2879,8 +3440,15 @@
       "acceptance": "LLM-вызов на каждый style violation не добавляется: детерминированная проверка и локальное безопасное исправление, смысловая переформулировка максимум один bounded repair по классу контента; замерены latency, токены, exact compliance и error paths",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "4c8405e783ac005ac0044974c5fbd7e518d12e2a",
+          "ref": "plans/features/soul-1/review-w3.md §4 (16.4.5 VERIFIED: 0 LLM на нарушение; repair только по callback; замеры) + plans/features/soul-1/evidence/w3/cost-measurement.txt",
+          "observation": "LLM-вызов на каждое нарушение не добавляется: детерминированная проверка + локальное безопасное исправление; смысловая переформулировка — максимум 1 bounded repair по callback; замерены latency (p50 0.170/p95 0.261 мс), токены и error paths.",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00249",
