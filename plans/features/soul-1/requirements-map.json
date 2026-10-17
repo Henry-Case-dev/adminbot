@@ -3058,13 +3058,13 @@
       "source_text_sha256": "e36e72e5d07d7d48b081d92cd1773484ffab7397b3d6d3403fafc7cdad23b381",
       "source_excerpt": "4. Исправить единые дизайнерские токены для стекла и контраста без глобального перерасчёта всего CSS. Проверить производительность на Android/Windows, reduced-motion, умеренный overdraw; если `backdrop-filter`/SVG displacement не поддержива",
       "disposition": "required",
-      "reason": "",
+      "reason": "Токены/reduced-motion/overdraw/fallback и перф на Windows/desktop-Chrome (вкл. 390-эмуляцию) подтверждены (review-tiera, review-tiera-strengthened, byte-invariant review-w6); реальный Android/TMA GPU-замер — device-only, ждёт postdeploy live-проверки (по образцу 10.P5).",
       "req_id": "SOUL-17.4",
       "slice": "W6",
       "acceptance": "Единые дизайнерские токены стекла и контраста без глобального пересчёта CSS; проверены производительность на Android и Windows, reduced-motion, умеренный overdraw; при отсутствии поддержки backdrop-filter или SVG displacement есть читаемый fallback с объёмом и контрастом",
       "live_required": true,
-      "live_when": "preprod",
-      "status": "VERIFIED",
+      "live_when": "postdeploy",
+      "status": "READY_FOR_LIVE",
       "evidence": [
         {
           "candidate_commit": "a5902b15e7bf943dc454dbf59ee9b9fe1152a87e",

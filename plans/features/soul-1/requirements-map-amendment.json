@@ -1411,7 +1411,7 @@
       "slice": "W6",
       "acceptance": "Редактирование Core и Speech Style Policy через MiniApp действительно меняет следующую генерацию во всех соответствующих путях; `one_word` и `micro` остаются различны; fallback не возвращает старого персонажа",
       "live_required": true,
-      "live_when": "preprod",
+      "live_when": "postdeploy",
       "status": "READY_FOR_LIVE",
       "evidence": [
         {

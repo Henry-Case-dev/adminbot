@@ -261,7 +261,7 @@ stage=review inventory=66 manual=28 scoped=24 errors=24
 
 ## W6 binding (a5902b15)
 
-**Кандидат:** `a5902b15e7bf943dc454dbf59ee9b9fe1152a87e` (= master `c8cf77a5` + W6, «Approved» в `review-w6.md`, третий вердикт RECHECK-W6-2; цепочка REVIEW-W6 Needs Fixes → FIX-W6 → RECHECK-W6 Needs Fixes (EOL) → FIX-W6-EOL → FIX-W6-LESSON → RECHECK-W6-2 Approved). В обеих картах `candidate_commit` = этот SHA, `deployed_commit` пуст (деплоя нет). W6-строк: main 29 (17 inventory + 12 additional), amendment 8 (7 inventory + 1 additional). LF-инвариант коммита проверен после `git commit`: `git show HEAD:web/app.js` = `401a40a5…` (CRLF=0), `git show HEAD:web/index.html` = `8d86cd1a…` (CRLF=0), сторож `tests/js/app_methods_dup_keys_guard_test.js` = `68243a47…` (LF).
+**Кандидат:** `a5902b15e7bf943dc454dbf59ee9b9fe1152a87e` (= master `c8cf77a5` + W6, «Approved» в `review-w6.md`, третий вердикт RECHECK-W6-2; цепочка REVIEW-W6 Needs Fixes → FIX-W6 → RECHECK-W6 Needs Fixes (EOL) → FIX-W6-EOL → FIX-W6-LESSON → RECHECK-W6-2 Approved). В обеих картах `candidate_commit` = этот SHA, `deployed_commit` пуст (деплоя нет). W6-строк: main 29 (16 inventory + 13 additional), amendment 8 (7 inventory + 1 additional). LF-инвариант коммита проверен после `git commit`: `git show HEAD:web/app.js` = `401a40a5…` (CRLF=0), `git show HEAD:web/index.html` = `8d86cd1a…` (CRLF=0), сторож `tests/js/app_methods_dup_keys_guard_test.js` = `68243a47…` (LF).
 
 **Переведены в VERIFIED (main, 19):** `SOUL-10.0` (единая точка входа + 6 разделов: live Chrome, ui-report.json failures=0/94 кадра, тест состава экрана), `SOUL-10.1` (Характер: round-trip ревьюера global→chat→factory→rollback + тесты core/compact + harness POST block/core.personality), `SOUL-10.2` (Стиль письма: F2 закрыт live Browser Use — галки/пресеты/счётчик/привычки/черновик + тесты save/preview/draft), `SOUL-10.3` (Выражение: 4 контрола + рендер слоя, честный `runtime_wired=false`), `SOUL-10.5` (Попробовать: current vs candidate без отправок, `telegram_send=false`/`lessons_created=0`), `SOUL-16.5.0` (карточка «Стиль письма» → один редактор, отдельный от Core), `SOUL-10.P1–P4` (не «приборка»: хаб 5 карточек и пин f5; витрина карточек/один экран за раз; один Inspector с preview≠sent и маскировкой; pageOverflow=0/minTap=44/padding 12/сплит 1↔2 колонки на 320–1440+landscape), `SOUL-17.0–17.6`, `SOUL-17.P1`, `SOUL-EXEC.14` (стекло: `review-tiera.md` + `review-tiera-strengthened.md` (Approved, независимые замеры) связаны с кандидатом байтовым инвариантом W6-ревьюера — polygon blob `c2ad97d4…`, `#lg-lens` `5367ec45…`, `--lg-*` `89cda50a…` == HEAD; на кандидате зелёные glass_probe/design_tokens/shell/fullscreen; H2 политика «diff фона пуст»). Amendment VERIFIED (7): `SOUL-AMD.6.1` (витрина 7+3, live), `6.2` (F3 закрыт на реальном `/reset`: changed=True 2882→2835, diff{−2/+0}; фикстура снята настоящим эндпоинтом), `6.3` (320–430 + live 390/320/430, навигация не переделана), `6.4` (F1 закрыт: рантайм-форма uuid-run_id достижима; preview≠sent; маскировка), `6.5` (/capabilities + trace, «доступное действие не выбрано»), `6.6` (hot-контур без рестарта), `0.3` (владельческий контроль: единственный путь записи + RBAC).
 
@@ -296,4 +296,28 @@ stage=review inventory=66 manual=28 scoped=8 errors=1
 ```
 
 **Следующее действие (для Orchestrator):** W6 готов к коммиту/канарейке с открытыми пунктами выше: (а) humor-контур W4 закрывает 10.4/10.6; (б) mobile-prompts цепочки 11.0–11.3 требуют отдельной проверки на реальном route entry; (в) 16.5.1/16.5.2 — мини-дополнение по «Истории изменений» политики стиля и мобильной клавиатуре; (г) 10.P5/11.4/8.3 закрываются после деплоя/канарейки (postdeploy).
+
+**Corrections (REVIEW-W6-BINDING):**
+
+1. `SOUL-17.4` (main): `VERIFIED` → `READY_FOR_LIVE`, `live_when` = `postdeploy`; `reason` заполнен: токены/reduced-motion/overdraw/fallback и перф на Windows/desktop-Chrome (вкл. 390-эмуляцию) подтверждены (review-tiera, review-tiera-strengthened, byte-invariant review-w6); реальный Android/TMA GPU-замер — device-only, ждёт postdeploy live-проверки (по образцу 10.P5). Evidence-список не менялся; перечень READY_FOR_LIVE выше («main 2») — состояние до этой правки, после неё main = 3: `SOUL-10.P5`, `SOUL-11.4`, `SOUL-17.4`.
+2. `SOUL-AMD.8.3`: `live_when` = `preprod` → `postdeploy`; статус `READY_FOR_LIVE` сохранён (канарейка/postdeploy по review-w6).
+3. Счёт W6-строк уточнён: main 29 (16 inventory + 13 additional) — сумма прежняя (29), исправлена разбивка inventory/additional.
+
+**Гейты после правок (review, обе карты, кандидат `a5902b15e7bf943dc454dbf59ee9b9fe1152a87e`) — verbatim, `errors=8` exit 1 / `errors=0` exit 0:**
+
+```
+FAIL: SOUL-10.4: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: SOUL-10.6: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: SOUL-11.0: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: SOUL-11.1: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: SOUL-11.2: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: SOUL-11.3: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: SOUL-16.5.1: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: SOUL-16.5.2: mandatory not ['VERIFIED'] (got PENDING)
+stage=review inventory=101 manual=97 scoped=29 errors=8
+```
+
+```
+stage=review inventory=66 manual=28 scoped=8 errors=0
+```
 
