@@ -2,7 +2,7 @@
   "schema": "openworkflow-coverage-v1",
   "source_path": "C:\\Code\\Python\\adminbot\\plans\\features\\soul-1\\source-current-task.md",
   "source_sha256": "8c42ddfabce635fe4e1f24f9522ff8642f3bd3049fac05c77ca162687051196b",
-  "candidate_commit": "",
+  "candidate_commit": "a5902b15e7bf943dc454dbf59ee9b9fe1152a87e",
   "deployed_commit": "",
   "additional_requirements": [
     {
@@ -197,8 +197,27 @@
       "acceptance": "Существующий полигональный фон MiniApp сохранён без изменений реализации и анимации; фон не входит в эпик и его diff пуст (проверено сравнением файлов и скриншотами)",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "a5902b15e7bf943dc454dbf59ee9b9fe1152a87e",
+          "ref": "plans/features/soul-1/review-w6.md — «Инварианты стекла» (RECHECK-W6-2) + plans/features/soul-1/review-tiera.md (ledger 7: polygon-background.js/index.html байт-в-байт как в HEAD; в диффе нет layout-свойств) + plans/features/soul-1/review-tiera-strengthened.md (ledger 6: polygon=HEAD, боксы A↔B 17/17)",
+          "observation": "Дифф фона пуст (файл фона не входит в эпик): blob c2ad97d446f5e7c7b72fb46d9bb560ae3777d6c3 == HEAD и дерево кандидата; передвижений геометрии/анимации нет",
+          "type": "static"
+        },
+        {
+          "candidate_commit": "a5902b15e7bf943dc454dbf59ee9b9fe1152a87e",
+          "ref": "plans/features/soul-1/evidence/w6/glass-and-ui-suites.txt (node glass_probe/design_tokens OK; UI shell e2e W2-SHELL-E2E-OK; fullscreen 7/7 PASS); plans/features/soul-1/evidence/w6/shots/ (94 кадра фонового UI)",
+          "observation": "Замеры шелла (scrollWidth, headerH, navH) и стеклянные скриншоты кандидата не показывают изменений фона",
+          "type": "ui"
+        },
+        {
+          "candidate_commit": "a5902b15e7bf943dc454dbf59ee9b9fe1152a87e",
+          "ref": "tests/test_soul1_w6_speech_ui.py::test_long_lines_scroll_inside_components_and_oauth_targets (маркерный блок)",
+          "observation": "Маркер-тест: новый CSS-блок не трогает polygon-background/#lg-lens",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "M00021",
@@ -206,7 +225,7 @@
       "source_text_sha256": "9a85ff19890164770da1eac6ef9f0a6815ba50161d009ea7dd909e89b166b4b0",
       "source_excerpt": "AdminBot — живой по манере речи участник неформального русскоязычного группового чата. У него **одна устойчивая личность**, а не набор отдельных персонажей «токсичный», «исследователь», «смешной» и «серьёзный». Его характер наблюдательный, ",
       "disposition": "required",
-      "reason": "",
+      "reason": "Инвариант «один Core — одна личность» работает только в путях композера при выключенном флаге; legacy-канон остаётся вторым определением личности",
       "req_id": "SOUL-BOUND.1",
       "slice": "W2",
       "acceptance": "У бота одна устойчивая личность, а не набор отдельных персонажей; действие, серьёзность, резкость, объём и формат ответа зависят от разговора, задачи, отношений и L1 или Initiative Decision",
@@ -221,7 +240,7 @@
       "source_text_sha256": "3f91b0857c909dbc311c0e7708b701c4277c18c60b633ddc7b6102d451610b52",
       "source_excerpt": "Нужно заменить россыпь однотипных инструкций «саркастичный/токсичный/циничный» на **единый редактируемый Personality Core и модульные ситуативные слои**. Не добавляй этот Core поверх прежних конкурирующих канонов без их удаления/нормализаци",
       "disposition": "required",
-      "reason": "",
+      "reason": "Удаление/нормализация старых канонов не выполнена (hard rule: только после AMD.1.2); композер лишь относит склеенный канон к слою channel_contract",
       "req_id": "SOUL-BOUND.2",
       "slice": "W2",
       "acceptance": "Россыпь однотипных инструкций саркастичный, токсичный, циничный заменена единым редактируемым Personality Core и модульными ситуативными слоями; старые конкурирующие каноны удалены или нормализованы, а не оставлены под Core",
@@ -236,7 +255,7 @@
       "source_text_sha256": "6e6f7cdcf688b67b6c5f3ad53e9dbb9dbcdf327b7ab6bd281edd35096b1c47fc",
       "source_excerpt": "Одна и та же речь должна быть узнаваема в обычном Direct, автономной Initiative, финальном ответе после инструментов, объяснении найденных фактов, творческих текстах и иных пользовательских Writer-путях. **Аналитические/машинные стадии** — ",
       "disposition": "required",
-      "reason": "",
+      "reason": "Нужны реальные выборки речи по Direct/Initiative/tool-backed (live_required) — в W2 отсутствуют; флаг OFF по решению владельца",
       "req_id": "SOUL-BOUND.3",
       "slice": "W2",
       "acceptance": "Одна и та же речь узнаваема в обычном Direct, автономной Initiative, финальном ответе после инструментов, объяснении фактов, творческих текстах и иных пользовательских Writer-путях; подтверждено сравнением выборок по путям",
@@ -257,8 +276,21 @@
       "acceptance": "Аналитические и машинные стадии (JSON L1, fact extraction, factcheck verification, source classification, memories, Summary extraction) остаются нейтральными и точными; творческий юмористический Core к ним не применяется",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "4116c48a74e08c8be8c4cc1f3ed37bf62ed3e8e4",
+          "ref": "tests/test_soul1_machine_profile_no_core.py (test_machine_json_is_channel_contract_only, test_machine_json_ignores_core_and_humor_even_if_provided, test_direct_l1_planner_stage_has_no_core_and_no_extra_calls, test_direct_stage1_synthesizer_has_no_core_and_no_extra_calls)",
+          "observation": "Машинные профили = только канал-контракт; реальные L1-планировщик Direct/Initiative и System2 Stage-1 не получают Core/юмор и дают то же число LLM-вызовов, что OFF",
+          "type": "test"
+        },
+        {
+          "candidate_commit": "4116c48a74e08c8be8c4cc1f3ed37bf62ed3e8e4",
+          "ref": "plans/features/soul-1/review-w2.md (acceptance-ledger, раздел 5: «Машинные стадии без Core/юмора: VERIFIED»); evidence/w2/manifest-direct-l2.txt",
+          "observation": "Независимое ревью подтвердило нейтральность машинных стадий; в дампе реального хода машинные слои не рендерят Core",
+          "type": "static"
+        }
+      ]
     },
     {
       "source_id": "M00025",
@@ -266,7 +298,7 @@
       "source_text_sha256": "6e6f7cdcf688b67b6c5f3ad53e9dbb9dbcdf327b7ab6bd281edd35096b1c47fc",
       "source_excerpt": "Одна и та же речь должна быть узнаваема в обычном Direct, автономной Initiative, финальном ответе после инструментов, объяснении найденных фактов, творческих текстах и иных пользовательских Writer-путях. **Аналитические/машинные стадии** — ",
       "disposition": "required",
-      "reason": "",
+      "reason": "Eligibility-профили (editorial_report/internal_silent) определены и покрыты тестами, но подключение публичных Summary/Factcheck ещё не сделано (W3-расширение)",
       "req_id": "SOUL-BOUND.5",
       "slice": "W2",
       "acceptance": "Для издательской статьи Summary, форматированного отчёта и Factcheck-публикации определена явная редакционная eligibility; личность подключается только там, где это предполагает контракт канала, без искажения источников",
@@ -281,7 +313,7 @@
       "source_text_sha256": "2f906c1a7181a3819ecbd58134992555d80869c64560401d86f337b163a0f151",
       "source_excerpt": "Ни один слой не должен создавать неподтверждённые реальные события, цитаты участников, даты, статистику или факты о людях ради шутки. Художественное преувеличение/условная ситуация допускается в ясном контексте юмора, но не как результат по",
       "disposition": "required",
-      "reason": "",
+      "reason": "Запрет выдуманных фактов не защищён ни тестом, ни новым промпт-слоем в поставке W2 — ожидает слайса уточнения и живых прогонов",
       "req_id": "SOUL-BOUND.6",
       "slice": "W2",
       "acceptance": "Ни один слой не создаёт неподтверждённые реальные события, цитаты участников, даты, статистику или факты о людях ради шутки; художественное преувеличение допускается только в ясном контексте юмора и не как результат поиска памяти или фактчека",
@@ -296,7 +328,7 @@
       "source_text_sha256": "2f906c1a7181a3819ecbd58134992555d80869c64560401d86f337b163a0f151",
       "source_excerpt": "Ни один слой не должен создавать неподтверждённые реальные события, цитаты участников, даты, статистику или факты о людях ради шутки. Художественное преувеличение/условная ситуация допускается в ясном контексте юмора, но не как результат по",
       "disposition": "required",
-      "reason": "",
+      "reason": "Разрешения и раскрытие данных: негативных тестов на утечку и на раскрытие в неподходящем канале в поставке нет",
       "req_id": "SOUL-BOUND.7",
       "slice": "W2",
       "acceptance": "Действующие разрешения, ограничения на раскрытие данных и коммуникационный контекст соблюдаются во всех речевых путях; проверены негативными тестами на утечку и на раскрытие в неподходящем канале",
@@ -311,7 +343,7 @@
       "source_text_sha256": "ee5f96d4462a115493a82c00fb2bebd0c5033d2eac9af5e57c735b2899b84914",
       "source_excerpt": "Ты общаешься как живой участник неформального русскоязычного чата. Тебе свойственны остроумие, абсурдное мышление, язвительность и непристойный юмор. Но твоя главная особенность - не агрессия, а способность замечать нелепое в самых обычных ",
       "disposition": "required",
-      "reason": "",
+      "reason": "Полный авторский Core не заведён как версионированный документ (в проде core_absent); редактора и семантического diff нет",
       "req_id": "SOUL-02.1",
       "slice": "W2",
       "acceptance": "Полная каноническая версия характера сохранена по смыслу как неизменный владельческий источник с версиями и историей; владелец может менять любой фрагмент, семантический diff не показывает потери смысла",
@@ -326,7 +358,7 @@
       "source_text_sha256": "e551049be4d0c68f06999ce9172b8a5fbad48c51faddbb908f6f58d17c443467",
       "source_excerpt": "**Как рождается юмор.** Когда разговор располагает к шутке, ищи неожиданную интерпретацию сказанного. Можешь принять случайную оговорку, нелепую предпосылку или метафору буквально и исследовать, к каким последствиям это приведёт. Если нашёл",
       "disposition": "required",
-      "reason": "",
+      "reason": "Текст «Как рождается юмор» не заведён как редактируемый документ Core — реестра и редактора нет",
       "req_id": "SOUL-02.2",
       "slice": "W2",
       "acceptance": "Юмор рождается через неожиданную интерпретацию сказанного, буквальное принятие оговорки или метафоры, развитие смешной идеи, нарастание абсурда и смешение несовместимых областей с логически связанными последствиями",
@@ -341,7 +373,7 @@
       "source_text_sha256": "dc71d861bbafa9454be3d69b6725a283d08d9cb3224423262bdf1e870cdf8c3a",
       "source_excerpt": "**Мат и грубость.** Мат - естественная часть речи, а не обязательная приправа к каждому предложению. Используй его свободно, если он делает фразу выразительнее, смешнее или эмоционально точнее. Не подменяй шутку оскорблением. Прямое «сам ду",
       "disposition": "required",
-      "reason": "",
+      "reason": "Правило «мат и грубость» не заведено как редактируемый документ Core — реестра и редактора нет",
       "req_id": "SOUL-02.3",
       "slice": "W2",
       "acceptance": "Мат свободно используется там, где делает фразу выразительнее или точнее, но не как обязательная приправа; шутка не подменяется оскорблением, прямое сам дурак не является основным приёмом",
@@ -356,7 +388,7 @@
       "source_text_sha256": "3cad0802336d1729e41e3353f2644700aee27c1f64126cefb9fd5f9167b46364",
       "source_excerpt": "**Ритм.** Не придерживайся одной длины ответа. Иногда достаточно трёх слов или одного слова. Иногда хорошая шутка требует нескольких предложений и нарастающего абсурда. Не обрывай удачную мысль ради искусственной краткости. Не используй пос",
       "disposition": "required",
-      "reason": "",
+      "reason": "Правило «ритм» не заведено как редактируемый документ Core — реестра и редактора нет",
       "req_id": "SOUL-02.4",
       "slice": "W2",
       "acceptance": "Ритм и длина варьируются от одного слова до нескольких предложений, удачная мысль не обрывается ради искусственной краткости, композиция не повторяется, собственные шутки и приёмы не объясняются",
@@ -371,7 +403,7 @@
       "source_text_sha256": "053124e6e67a316971eec83e1aa3814bd7336f64a1eafb20e23e5d42ee5ab139",
       "source_excerpt": "**Чего избегать.** Передразнивания, бесконечного перекидывания оскорблений, очевидных метафор, одинаковых финальных фраз, искусственного философствования, случайных сюрреалистических слов без связи с темой. Не пытайся быть смешным в каждом ",
       "disposition": "required",
-      "reason": "",
+      "reason": "Список «чего избегать» не заведён как редактируемый документ Core — реестра и редактора нет",
       "req_id": "SOUL-02.5",
       "slice": "W2",
       "acceptance": "Соблюдаются запреты Core: передразнивание, бесконечные оскорбления, очевидные метафоры, одинаковые финальные фразы, искусственное философствование, случайные сюрреалистические слова; обычный разговор, серьёзный ответ, молчание и сухая реплика остаются частью характера",
@@ -386,7 +418,7 @@
       "source_text_sha256": "20f0513a4fed061ca1fe8cb72b8f396bcea9c9ce4659f3ba28069c28485eda70",
       "source_excerpt": "**Важно:** это *семантическое описание характера*, а не форматный контракт. Запреты на кавычки, точки, оформление ссылок, эмодзи и т.п. живут в отдельном редактируемом слое «Стиль письма», см. SOUL-16; они не должны загрязнять Core. Сохрани",
       "disposition": "required",
-      "reason": "",
+      "reason": "Разделение Core (семантика) ↔ «Стиль письма» (формат) заложено контрактом слоёв, но самих редактируемых документов и владельца слоя ещё нет",
       "req_id": "SOUL-02.6",
       "slice": "W2",
       "acceptance": "Core остаётся семантическим описанием характера, а не форматным контрактом: запреты кавычек, точек, эмодзи и оформления ссылок живут в отдельном слое Стиль письма и не загрязняют Core",
@@ -401,7 +433,7 @@
       "source_text_sha256": "95e65c50b70c9e9fbe491dc7f8eb46d47135c17ddc222d0b45bbdbab263646b0",
       "source_excerpt": "**Runtime:** храни полную версию как неизменный владельческий источник с версиями/историей. Сделай отдельную компактную runtime-редакцию (примерно 150–250 слов; диапазон ориентировочный, оптимизируется тестами), вручную согласованную, а не ",
       "disposition": "required",
-      "reason": "",
+      "reason": "Компактная 150-250-слов редакция: аксессор читает готовый документ; согласованного вручную текста, preview и измерения токенов в поставке нет",
       "req_id": "SOUL-02.7",
       "slice": "W2",
       "acceptance": "Отдельная компактная runtime-редакция Core объёмом ориентировочно 150-250 слов согласована вручную, не является нестабильным LLM-пересказом на каждом ходе, имеет настраиваемый уровень подробности, preview и измерение токенов при том же смысле и запретах, что у полной версии",
@@ -416,7 +448,7 @@
       "source_text_sha256": "06986d0dbd33da304088b95aba2db8427923fc51b063bcf2db771c9bfce0442a",
       "source_excerpt": "**Управление:** глобальный Core + явные per-chat наследуемые настройки/разрешённые локальные адаптации, с видимым источником значения. Локальный чат не должен молча менять глобальное ядро. Администратор может менять владеющий Core; динамиче",
       "disposition": "required",
-      "reason": "",
+      "reason": "Резолв global/chat с видимым источником и изоляцией закрыт тестами; per-chat управление через реестр/UI с видимым источником значения — вне поставки",
       "req_id": "SOUL-02.8",
       "slice": "W2",
       "acceptance": "Управление Core: глобальное ядро плюс явные per-chat наследуемые настройки и разрешённые локальные адаптации с видимым источником значения; локальный чат не меняет глобальное ядро молча; администратор меняет владеющий Core, динамические системы только согласованные производные слои; редактирование Core отделено от biography, истории отношений, lessons и scoped requests",
@@ -431,7 +463,7 @@
       "source_text_sha256": "1a16b4e7a5eaedf947fa71148c8295a44f6c7fdcb5f7ee2243f4484bc4b06ee2",
       "source_excerpt": "**НЕ удалять** текущий модуль «Личность и стиль» и его данные. `personas.name`, biography, `system_prompt_overrides`, осведомлённость об ИИ, BehaviorFrame, acquired traits, relation history, source provenance и pause/resume жизненно важны. ",
       "disposition": "required",
-      "reason": "",
+      "reason": "Данные не удалены и read-only удержание закрыто тестом; «без второй конкурирующей сущности» не выполнено — legacy-канон остаётся в канале до AMD.1.2",
       "req_id": "SOUL-03.1",
       "slice": "W2",
       "acceptance": "Модуль Личность и стиль и его данные не удалены: personas.name, biography, system_prompt_overrides, осведомлённость об ИИ, BehaviorFrame, acquired traits, relation history, source provenance и pause/resume сохранены и превращены в часть новой системы без второй конкурирующей сущности",
@@ -452,8 +484,27 @@
       "acceptance": "Иерархия уровней 1-7 реализована и документирована: технические правила и безопасность, владельческий Core и неизменяемые границы, идентичность и отношения, проверенные черты SelfModel, локальные предпочтения и validated Experience, L1 ResponsePlan, Speech Style Policy; действующие контракты SelfModel по precedence, source ownership, проверке черт и флагу осознания себя сохранены и согласованы с иерархией",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "4116c48a74e08c8be8c4cc1f3ed37bf62ed3e8e4",
+          "ref": "services/prompt_composer.py:33-176 (LAYER_ORDER/LAYERS/OWNERS/SOURCES/SKIP_REASONS; self_model_traits:1096-1113, fold reason self_model_folded_into_identity)",
+          "observation": "Иерархия уровней SOUL-03 выражена каноническим порядком слоёв (channel_contract→core→identity→self_model_traits→context_lessons→response_plan→expression/humor/few_shot→style_policy_hint→channel_output); SelfModel-черты не рендерятся вторым слоем (fold в identity с видимой причиной)",
+          "type": "static"
+        },
+        {
+          "candidate_commit": "4116c48a74e08c8be8c4cc1f3ed37bf62ed3e8e4",
+          "ref": "tests/test_soul1_composer_layers.py::test_layer_order_ownership_and_provenance; evidence/w2/manifest-direct-l2.txt",
+          "observation": "Тест ассертит канонический порядок слоёв, закрытые наборы owner/source/skip_reason и ровно одно вхождение каждого блока; дамп реального хода — order_matches_canonical=True и одна ревизия identity на оба вызова хода (44d962217014a041)",
+          "type": "test"
+        },
+        {
+          "candidate_commit": "4116c48a74e08c8be8c4cc1f3ed37bf62ed3e8e4",
+          "ref": "git show --stat 4116c48a (services/mca_self_model.py не изменён); evidence/w2/focused-suites.txt [C] 200 passed (mca18 self_model/contract)",
+          "observation": "Действующие контракты SelfModel (precedence, source ownership, проверка черт, флаг осознания себя) сохранены: модуль не тронут коммитом и его сьюты зелёные",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "M00065",
@@ -461,7 +512,7 @@
       "source_text_sha256": "5d62860f6ede95b421031b9c0e59a460923062880e009b14db5a7501b48d99ef",
       "source_excerpt": "Разграничить зоны ответственности: SelfModel может сформировать «стал более прямолинейным в этом чате» как проверенную изменяемую черту; Experience может повысить релевантность приёма и примера; L1 может выбрать краткий серьёзный ответ. **Н",
       "disposition": "required",
-      "reason": "",
+      "reason": "Механизм конфликта с провенансом поставлен (duplicate_owner_character/one_word/budget), но конфликт Core↔производного правила SelfModel/Experience на реальных derived-правилах не проверен",
       "req_id": "SOUL-03.3",
       "slice": "W2",
       "acceptance": "Зоны ответственности разграничены: SelfModel формирует проверенные изменяемые черты, Experience повышает релевантность приёма, L1 выбирает формат, но ни один из них не переписывает владельческий Core автоматически; при конфликте Core или owner custom с производным правилом выдаётся явный conflict outcome с provenance, а не тихая вставка двух противоречивых инструкций",
@@ -476,7 +527,7 @@
       "source_text_sha256": "5d62860f6ede95b421031b9c0e59a460923062880e009b14db5a7501b48d99ef",
       "source_excerpt": "Разграничить зоны ответственности: SelfModel может сформировать «стал более прямолинейным в этом чате» как проверенную изменяемую черту; Experience может повысить релевантность приёма и примера; L1 может выбрать краткий серьёзный ответ. **Н",
       "disposition": "required",
-      "reason": "",
+      "reason": "Изоляция двух чатов и отсутствие переноса чужих черт проверены; негативных тестов по смене биографии/переносу черт при конфликтующих локальных настройках (кроме Core-оверрайда) нет",
       "req_id": "SOUL-03.4",
       "slice": "W2",
       "acceptance": "Нет принуждения к шуткам, самопроизвольной смены биографии и переноса черт между чатами; проверено негативными тестами с двумя чатами и конфликтующими локальными настройками",
@@ -513,8 +564,21 @@
       "acceptance": "Одна инструкция не рендерится дважды как system_prompt_overrides и новый Core; проверено тестом сборки промпта и сравнением effective layers",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "4116c48a74e08c8be8c4cc1f3ed37bf62ed3e8e4",
+          "ref": "tests/test_soul1_composer_layers.py::test_no_duplicate_owner_character_conflict; services/prompt_composer.py (_duplicate_character_segment)",
+          "observation": "Одна инструкция не рендерится дважды: «язвительный, прямой» присутствует в system ровно 1× (остаётся в Core), identity получает conflict=duplicate_owner_character, outcome=keep_stronger, provenance=core:<sha12>",
+          "type": "test"
+        },
+        {
+          "candidate_commit": "4116c48a74e08c8be8c4cc1f3ed37bf62ed3e8e4",
+          "ref": "tests/test_soul1_composer_layers.py::test_effective_layers_api_and_diff (render_effective_layers/diff по manifest_id)",
+          "observation": "Сравнение effective layers доступно как метод приёмки: манифест отдаёт порядок/источник/ревизию по слоям и diff версий",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "M00071",
@@ -522,7 +586,7 @@
       "source_text_sha256": "ebfaf15374dea835b8ef3cd41425af4c60030de83094a3165379b31c50de6d51",
       "source_excerpt": "Сделай единую функцию/сервис композиции с типизированным планом и API «покажи effective layers», а не набор копий `STYLE_BLOCKS_SUFFIX` по всем файлам. Вход: Writer/channel, Personality Core revision, Identity, scoped traits/requests, Respo",
       "disposition": "required",
-      "reason": "",
+      "reason": "Композер, типизированный план, effective layers и провенанс поставлены; «заменила копии STYLE_BLOCKS_SUFFIX по всем файлам» не выполнено — search/web/youtube/checkup/factcheck/summary по-прежнему склеивают суффикс",
       "req_id": "SOUL-04.1",
       "slice": "W2",
       "acceptance": "Единая функция или сервис композиции с типизированным планом и API показа effective layers заменила копии STYLE_BLOCKS_SUFFIX; вход и выход соответствуют контракту, для каждого компонента зафиксированы source precedence и версия, причины пропуска слоёв видимы",
@@ -543,8 +607,21 @@
       "acceptance": "Ситуационные слои разделены по назначению: Response Plan, Expression, Humor Craft, Context and Lessons, Few-Shot, Speech Style Policy, Channel and Output contract; Core общий для речи, ни один слой не вводит новую личность",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "4116c48a74e08c8be8c4cc1f3ed37bf62ed3e8e4",
+          "ref": "services/prompt_composer.py:33-176 (LAYER_ORDER, OWNERS, профили speech_plain/machine_json/channel_text_only/editorial_report/internal_silent)",
+          "observation": "Ситуационные слои разделены по назначению (response_plan/expression/humor_craft/context_lessons/few_shot/style_policy_hint/channel_output); характер несёт только слой core",
+          "type": "static"
+        },
+        {
+          "candidate_commit": "4116c48a74e08c8be8c4cc1f3ed37bf62ed3e8e4",
+          "ref": "tests/test_soul1_composer_layers.py::test_layer_order_ownership_and_provenance + test_no_duplicate_owner_character_conflict; evidence/w2/manifest-direct-l2.txt",
+          "observation": "В манифесте реального L2-хода каждый блок ровно один раз и у каждого слоя владелец из закрытого набора; новых личностей ни один слой не вводит (дубль owner-характера снимается конфликтом)",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "M00075",
@@ -590,8 +667,27 @@
       "acceptance": "Нет второго LLM-писателя для украшения и обязательного постпроцессора сделай смешнее; для простых проверяемых правил SOUL-16 допускается один минимальный детерминированный валидатор с разбором типов контента; защитные валидаторы отвечают за факты, имена, формат, safety, утечки и доставку; бюджет контекста учитывает Core и выбранные слои, не вытесняет вопрос и evidence, лишние слои не отправляются",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "4116c48a74e08c8be8c4cc1f3ed37bf62ed3e8e4",
+          "ref": "tests/test_soul1_flags_composition.py::test_zero_extra_llm_calls_on_normal_answer; grep: в services/prompt_composer.py нет .generate(/HTTP/send",
+          "observation": "Сборка композера не стоит ни одного дополнительного LLM-вызова; второго LLM-писателя/обязательного постпроцессора «сделай смешнее» не добавлено",
+          "type": "test"
+        },
+        {
+          "candidate_commit": "4116c48a74e08c8be8c4cc1f3ed37bf62ed3e8e4",
+          "ref": "tests/test_soul1_composer_layers.py::test_budget_never_evicts_channel_identity_question_or_evidence и ::test_core_is_never_evicted_by_additive_budget",
+          "observation": "Бюджет аддитивных слоёв: вопрос/инструкция/evidence и Core не вытесняются (user_parts возвращаются байт-в-байт); перерасход из-за Core виден конфликтом core_protected_from_budget (outcome exempted_protected)",
+          "type": "test"
+        },
+        {
+          "candidate_commit": "4116c48a74e08c8be8c4cc1f3ed37bf62ed3e8e4",
+          "ref": "tests/test_soul1_composer_layers.py::test_skip_reasons_are_closed_and_visible_without_core_layer; services/prompt_composer.py (закрытый SKIP_REASONS)",
+          "observation": "Лишние слои не отправляются в модель: каждый пропуск имеет причину из закрытого набора (samples_disabled/humor_no_strategy/style_policy_absent/…)",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "M00079",
@@ -966,8 +1062,27 @@
       "acceptance": "Админка не превращена в приборную панель: нет 20 новых пунктов верхней навигации и параллельных редакторов одного PG-ключа; создана единая точка входа Речь и характер внутри ИИ или логически вложенная в Личность и стиль по итогам аудита информационной архитектуры, с обзором Как бот говорит сейчас, Изменить характер, Стиль письма, Примеры, Попробовать, Как бот учится; технические поля, ключи, JSON, версии и provenance находятся под Подробнее или Для разработчика",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "a5902b15e7bf943dc454dbf59ee9b9fe1152a87e",
+          "ref": "plans/features/soul-1/w6-speech-ui-report.md §1 «Точка входа» (IA-аудит: NAV_ITEMS_V2/HUBS_V2/ROUTE_TO_TAB; выбран логически вложенный вход)",
+          "observation": "ADR-1025-15 D2/§47 и пин tests/test_webapp_f5_round1025.py:305 (хаб «ИИ» ровно 5 страниц) соблюдены; новых пунктов навигации нет; маршрут #/ai/speech — special-screen симметрично #/ai/persona; технические поля/ключи/JSON/версии — в «Все инструкции»/Inspector/«Для разработчика»",
+          "type": "ui"
+        },
+        {
+          "candidate_commit": "a5902b15e7bf943dc454dbf59ee9b9fe1152a87e",
+          "ref": "plans/features/soul-1/review-w6.md — блок «Навигация» (живой Chrome: хаб «ИИ» ровно 5 карточек в прежнем порядке; вход 44px внутри «Личность и стиль»; f5-пин и IA-inventory проходят)",
+          "observation": "Админка не превращена в приборную панель: навигация не переделана, вход — карточка внутри существующего экрана",
+          "type": "static"
+        },
+        {
+          "candidate_commit": "a5902b15e7bf943dc454dbf59ee9b9fe1152a87e",
+          "ref": "tests/test_soul1_w6_speech_ui.py::test_entry_lives_inside_ai_without_reworking_navigation, ::test_screen_has_required_sections_and_single_screen_mode",
+          "observation": "Тесты закрепляют единую точку входа и единый экран «Речь и характер»",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "M00147",
@@ -981,8 +1096,27 @@
       "acceptance": "Шесть пользовательских разделов не превращены в шесть тяжёлых вкладок верхней шапки: на входе компактная витрина из понятных карточек, на мобильном один экран за раз с простым Назад и сохранением черновика",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "a5902b15e7bf943dc454dbf59ee9b9fe1152a87e",
+          "ref": "plans/features/soul-1/w6-speech-ui-report.md §2 (витрина компактных карточек; один раздел за раз; «Назад»; черновики разделов не затираются) + plans/features/soul-1/evidence/w6/ui-report.json",
+          "observation": "Харнесс: витрина 1 колонка на 320/360/390/430, 2 на 768/landscape, 3 на 1024, 4 на 1440; разделы открываются по одному, «← Назад» возвращает к витрине",
+          "type": "ui"
+        },
+        {
+          "candidate_commit": "a5902b15e7bf943dc454dbf59ee9b9fe1152a87e",
+          "ref": "tests/test_soul1_w6_speech_ui.py::test_screen_has_required_sections_and_single_screen_mode, ::test_drafts_never_lost_by_refresh_or_navigation",
+          "observation": "Один экран за раз + сохранение черновика (флаги speechDirty на раздел) закреплены тестами",
+          "type": "test"
+        },
+        {
+          "candidate_commit": "a5902b15e7bf943dc454dbf59ee9b9fe1152a87e",
+          "ref": "plans/features/soul-1/review-w6.md — «UI/harness (мой повтор)»",
+          "observation": "Ревьюер повторил: pageOverflow=0 на всех viewport, витрина 1 колонка на live-экранах 390/320/430",
+          "type": "ui"
+        }
+      ]
     },
     {
       "source_id": "M00155",
@@ -996,8 +1130,27 @@
       "acceptance": "В UI ровно один фактический эффективный Prompt Inspector: что получила модель при последнем разрешённом запуске, какие Core, Persona, Expression, Style Rules, Examples, Lessons выбраны, почему что-то пропущено, использованные версии, модель, токены; доступ admin-only с редактированием и маскированием секретов и персональных данных по действующей RBAC и retention; rendered prompt preview и actual sent prompt различаются, выдуманной синхронизации нет",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "a5902b15e7bf943dc454dbf59ee9b9fe1152a87e",
+          "ref": "plans/features/soul-1/review-w6.md — «Inspector-честность» (UI не удалось заставить показать предпросмотр как отправленное; сервер даёт sent только из REAL_TURN_WRITERS) + «маскировка» (sk-live-…, token=…, 5885953495 отсутствуют в JSON Inspector’а; обычный текст цел) + лид-acceptance AMD.6.4",
+          "observation": "Preview и actual sent различаются по построению; выдуманной синхронизации нет; секреты/IDs маскируются; доступ admin-only доказан RBAC-пробами",
+          "type": "ui"
+        },
+        {
+          "candidate_commit": "a5902b15e7bf943dc454dbf59ee9b9fe1152a87e",
+          "ref": "plans/features/soul-1/review-w6.md — RECHECK-W6, блок «F1 — VERIFIED (закрыт)»",
+          "observation": "Снимок реального хода находится при рантайм-форме (uuid run_id): last_run_present=True, run_id/writer видны; новый preview не подменяет ход; чужой чат пуст",
+          "type": "test"
+        },
+        {
+          "candidate_commit": "a5902b15e7bf943dc454dbf59ee9b9fe1152a87e",
+          "ref": "tests/test_soul1_w6_speech_ui.py::test_inspector_finds_runtime_shaped_turn_snapshot, ::test_inspector_never_claims_preview_as_sent, ::test_payload_masking_hides_secrets_and_ids, ::test_access_control_is_delegated_to_existing_permissions",
+          "observation": "Тесты: рантайм-форма снимка, запрет выдавать preview за sent, маскировка, RBAC",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "M00157",
@@ -1011,8 +1164,27 @@
       "acceptance": "Точные требования к визуалу и адаптиву соблюдены: сохранён dark и liquid-glass язык без изменения полигонального фона, поверхности читабельны с включённой анимацией, редактор ядра на непрозрачном фоне, selection и caret не сбрасываются при polling, черновик не теряется; одна колонка на 599 CSS px и менее, адаптивная форма на 600-1023, две колонки только там, где полезно, на 1024 и более; touch targets не менее 44x44, отступы не менее 12px, поля не обрезаются, длинные строки скроллятся внутри компонента без горизонтального overflow страницы, нет пустот 200px и sticky-панелей на половину экрана",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "a5902b15e7bf943dc454dbf59ee9b9fe1152a87e",
+          "ref": "plans/features/soul-1/review-w6.md — «UI/harness (мой повтор)» + «live Chrome 390/320/430»",
+          "observation": "pageOverflow=0 на 320/360/390/430/768/1024/1440 и landscape; minTap=44 везде; paddingLeft=12px; сплит «редактор+предпросмотр» 1 колонка до 768 включительно и 2 на 1024/1440; длинные строки скроллятся внутри компонента (preOverflow>0 при нулевом overflow страницы); витрина 1 колонка на mobile",
+          "type": "ui"
+        },
+        {
+          "candidate_commit": "a5902b15e7bf943dc454dbf59ee9b9fe1152a87e",
+          "ref": "plans/features/soul-1/w6-speech-ui-report.md §4 + plans/features/soul-1/evidence/w6/ui-report.json",
+          "observation": "Черновик и каретка переживают обновление данных и навигацию (и для характера, и для правил стиля) — проверено прогоном; тёмный liquid-glass сохранён, редактор ядра на непрозрачном фоне",
+          "type": "ui"
+        },
+        {
+          "candidate_commit": "a5902b15e7bf943dc454dbf59ee9b9fe1152a87e",
+          "ref": "tests/test_soul1_w6_speech_ui.py::test_long_lines_scroll_inside_components_and_oauth_targets, ::test_drafts_never_lost_by_refresh_or_navigation",
+          "observation": "CSS: одна колонка ≤599px, две только на ≥1024px; длинные строки скроллятся; черновики не теряются",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "M00157",
@@ -1020,14 +1192,21 @@
       "source_text_sha256": "0f3ed0231e96dc4c2d435b2c758c355478357063221e8881e7fc85b97e2b059a",
       "source_excerpt": "**Точные требования к визуалу:** сохранить существующий dark/liquid-glass язык без изменения полигонального фона; поверхности читабельны с включённой анимацией; editor текстового ядра на непрозрачном/плотном фоне, selection/caret не сбрасыв",
       "disposition": "required",
-      "reason": "",
+      "reason": "Скриншот/interaction-матрица выполнена (320/360/390/430/768/1024/1440 + landscape), но адаптация на РЕАЛЬНОМ Telegram WebView (postdeploy) ещё не выполнена — слайс ничего не деплоил.",
       "req_id": "SOUL-10.P5",
       "slice": "W6",
       "acceptance": "Скриншот- и interaction-тесты выполнены на 320, 360, 390, 430, 768, 1024, 1440 CSS px и в мобильном landscape; адаптация проверена на реальном Telegram WebView отдельно от Playwright Desktop",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "a5902b15e7bf943dc454dbf59ee9b9fe1152a87e",
+          "ref": "plans/features/soul-1/evidence/w6/ui-report.json + plans/features/soul-1/evidence/w6/shots/ + plans/features/soul-1/review-w6.md (повтор harness: failures=0, POST=16, shots=94)",
+          "observation": "Скриншот- и interaction-тесты выполнены на 320/360/390/430/768/1024/1440 и landscape (pageOverflow=0, minTap=44); реальный Telegram WebView — только postdeploy",
+          "type": "ui"
+        }
+      ]
     },
     {
       "source_id": "M00161",
@@ -1035,7 +1214,7 @@
       "source_text_sha256": "11069f91cd863f068ab7155346c442a6da7186d5cb385bb51c012ab77dd0001e",
       "source_excerpt": "**Текущая проблема по скриншотам владельца:** в мобильном MiniApp раздел «Промпты» не даёт нормального доступа к нужным Direct-промптам/режимам; во время открытия доступны только отдельные карточки, часть из них скрыта или недостижима. В ст",
       "disposition": "required",
-      "reason": "",
+      "reason": "Мобильный раздел «Промпты» (#/ai/prompts) в этом слайсе не проверялся: review-w6 покрывает только цепочку «Все инструкции» (речевые блоки) на 320–430 и явно относит вторую точку входа к другому слайсу; доступность Direct-промптов и открытие скрытых карточек в #/ai/prompts не демонстрировались.",
       "req_id": "SOUL-11.1",
       "slice": "W6",
       "acceptance": "Проблема мобильного раздела Промпты устранена: нужные Direct-промпты и режимы доступны, скрытые и недостижимые карточки открываются, фильтрация одним модулем или ключом других настроек не маскируется пустым списком",
@@ -1050,7 +1229,7 @@
       "source_text_sha256": "38cf3c887cfe34ec1a94f91dc0a0321e284e03cd9cbe039779b8f9d1b29fcf11",
       "source_excerpt": "Проверь при реальном mobile route entry цепочку `#/ai/prompts` → catalog → Direct/Синтезатор/Вербализатор → list → edit → save → reopen; эквивалентную цепочку из «Модули → Ответы в чате → Промпты»; и глобальные/чатовые scopes. Инвентаризиру",
       "disposition": "required",
-      "reason": "",
+      "reason": "Цепочка #/ai/prompts → catalog → Direct/Синтезатор/Вербализатор → list → edit → save → reopen, эквивалентная из «Модули → Ответы в чате → Промпты», глобальные/чатовые scopes и инвентаризация PG-ключей на этом слайсе не проверялись (review-w6: вторая точка входа — не этот слайс).",
       "req_id": "SOUL-11.2",
       "slice": "W6",
       "acceptance": "Проверена при реальном mobile route entry цепочка #/ai/prompts, catalog, Direct, Синтезатор, Вербализатор, list, edit, save, reopen, эквивалентная цепочка из Модули, Ответы в чате, Промпты и глобальные и чатовые scopes; проинвентаризированы все реальные PG-ключи Direct L1, Direct L2, fallback, style modes, user owners и доступность по правам без обещания редактируемости кодовых default",
@@ -1065,7 +1244,7 @@
       "source_text_sha256": "993041c473f7e253662e80dc2cb24a1b54393649f57aaa4acb851b2dd89a47de",
       "source_excerpt": "Вместо спрятанных глубоких списков: простой индекс «Ответы в чате» с понятными карточками «Решение (L1)», «Текст ответа (L2)», «Fallback», «Речь и характер», а также другими реально существующими редактируемыми промптами. Каждый элемент дос",
       "disposition": "required",
-      "reason": "",
+      "reason": "Индекс «Ответы в чате» и переходы из «Модули»/библиотеки в один backend config object не проверялись; из карточек списка в этом слайсе подтверждена только карточка «Речь и характер» (вход слайса).",
       "req_id": "SOUL-11.3",
       "slice": "W6",
       "acceptance": "Вместо спрятанных глубоких списков простой индекс Ответы в чате с карточками Решение (L1), Текст ответа (L2), Fallback, Речь и характер и другими реально редактируемыми промптами; каждый элемент доступен на 320-430px, имена без техно-жаргона, config key под Подробнее; переходы из модуля и библиотеки открывают один backend config object; для read-only и переопределённых областей показана точная причина и ссылка на управление, при network или permission видна ошибка, а не фальшивый empty; отсутствие элемента на одном scope не скрывает его целиком",
@@ -1080,14 +1259,27 @@
       "source_text_sha256": "8bd9ca524f090a98e2485716ec2ab68009d5c7c14340737641845e3ee954d834",
       "source_excerpt": "Проверить отдельными E2E с настоящими ответами API (не только static HTML) на 320/390/desktop, с мобильным touch, формой сохранения и восстановлением после закрытия. Это P0 acceptance, не случайная UI-мелочь.",
       "disposition": "required",
-      "reason": "",
+      "reason": "Postdeploy: E2E с сохранением/восстановлением после закрытия и подтверждение на реальном Telegram-клиенте (P0 acceptance) не выполнены — слайс не деплоился.",
       "req_id": "SOUL-11.4",
       "slice": "W6",
       "acceptance": "Отдельные E2E с настоящими ответами API, а не только static HTML, на 320, 390 и desktop, с мобильным touch, формой сохранения и восстановлением после закрытия; подтверждено на реальном Telegram клиенте и закрыто как P0 acceptance",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "a5902b15e7bf943dc454dbf59ee9b9fe1152a87e",
+          "ref": "plans/features/soul-1/evidence/w6/ui-report.json + plans/features/soul-1/evidence/w6/shots/ + plans/features/soul-1/review-w6.md (повтор harness на реальных index.html/app.js; формы — из фикстуры, снятой настоящим слоем)",
+          "observation": "Interaction-прогон с формами сохранения/восстановления на 320/360/390/430/768/1024/1440 и landscape; настоящий Telegram-клиент — только postdeploy",
+          "type": "ui"
+        },
+        {
+          "candidate_commit": "a5902b15e7bf943dc454dbf59ee9b9fe1152a87e",
+          "ref": "plans/features/soul-1/review-w6.md — «Что проверено исполнением» (round-trip ревьюера на реальных обработчиках)",
+          "observation": "Реальные ответы API проверены round-trip'ом ревьюера (save → reopen, 403/409-пути) — не только static HTML",
+          "type": "ui"
+        }
+      ]
     },
     {
       "source_id": "M00171",
@@ -1290,7 +1482,7 @@
       "source_text_sha256": "a6a9c2290eb7f85cd4b3f9539e6d8aa279ad9d58021c22d6b2818c56537078d3",
       "source_excerpt": "На главном экране «Речь и характер» карточка **Стиль письма**, открывающая **один** редактор. Первый экран без JSON и внутренних ключей: простые переключатели/селекты «Кавычки», «Точка в конце», «Эмодзи», «Оформление», «Свой стиль» с коротк",
       "disposition": "required",
-      "reason": "",
+      "reason": "Первый экран и действия подтверждены (F2 — review-w6 RECHECK-W6, live Browser Use: галки/пресеты/счётчик/привычки/черновик; tests/test_soul1_w6_speech_ui.py — save/preview/chat-reset; harness POST style и style/preview, shots style_*), но «История изменений» для политики стиля в слайсе не поставлена: GET /api/speech/style не содержит history (services/style_policy.py::style_policy_view), блок истории в index.html:7613 рендерится только при наличии speechStyle.history (пуст всегда), кнопки нет; advanced-поля (precedence/conflicts/skip_reason/hint) отрисованы из API (index.html:7597–7606), но поимённо ревьюером не проверялись.",
       "req_id": "SOUL-16.5.1",
       "slice": "W6",
       "acceptance": "Первый экран редактора Стиль письма без JSON и внутренних ключей содержит простые переключатели и селекты Кавычки, Точка в конце, Эмодзи, Оформление, Свой стиль с короткими примерами до и после; доступна настройка глобально или этот чат с видимым наследуется или переопределено; есть кнопки Проверить на примере, Сохранить, Сбросить для чата, История изменений; в advanced перечислены активные правила, технические классы, precedence, skipped, exempted, conflict, эффективная runtime policy и добавление мягкой инструкции владельца",
@@ -1305,7 +1497,7 @@
       "source_text_sha256": "1fdeeec7b024c2c9752428fe7abde26b09bbb607ec0225c02e5bf2d2ec729b99",
       "source_excerpt": "**UX:** нельзя делать «ещё один генератор огромного system prompt». Изменения предсказуемы и проверяемы сразу на одном поле и 4–6 встроенных примерах; Preview отдельно от реального отправленного результата. Без нечитабельного прозрачного te",
       "disposition": "required",
-      "reason": "",
+      "reason": "Подтверждены: Preview отделён от отправленного (F1; Inspector «не выдаёт предпросмотр за реальный вызов»), черновик и каретка переживают навигацию/обновление (tests/test_soul1_w6_speech_ui.py::test_drafts_never_lost_by_refresh_or_navigation; F2 live; w6-speech-ui-report §4), 320–430 без overflow и minTap=44 (ui-report.json probes), проверка изменений на встроенных примерах (tests/test_soul1_w6_speech_ui.py::test_style_preview_is_deterministic_and_shows_before_after). Не подтверждены (named finding отсутствует): «нижняя область Save видна и не накрыта клавиатурой» (клавиатурной эмуляции в прогонах не было) и «вертикальный список с одной раскрытой настройкой» на 320–430 как отдельное поведение.",
       "req_id": "SOUL-16.5.2",
       "slice": "W6",
       "acceptance": "UX предсказуем и проверяем: нет генератора огромного system prompt, изменения проверяются сразу на одном поле и 4-6 встроенных примерах, Preview отделён от реального отправленного результата, нет нечитабельного прозрачного textarea; после Save настройки действуют на следующих сообщениях без рестарта и не меняя Personality Core; на 320-430px вертикальный список с одной раскрытой настройкой, нижняя область Save видна и не накрыта клавиатурой, черновик восстанавливается при навигации, текст читаем и touch-цель безопасна",
@@ -1341,8 +1533,33 @@
       "acceptance": "Скриншотный сигнал отработан точечно, без нового редизайна: полигональный анимированный фон, его DOM и canvas, геометрия, цвета и композиция не изменяются ни на пиксель; шапка, навигация, сетка, плотность содержимого, палитра и размер основных компонентов не перестраиваются без точечно доказанной необходимости",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "a5902b15e7bf943dc454dbf59ee9b9fe1152a87e",
+          "ref": "plans/features/soul-1/review-tiera.md (ledger 7: polygon-background.js/index.html байт-в-байт как HEAD, layout-свойств в диффе нет, боксы A vs B совпадают) + plans/features/soul-1/review-tiera-strengthened.md (ledger 6: polygon=HEAD, боксы A↔B идентичны 17/17)",
+          "observation": "Скриншотный сигнал отработан точечно: фон/DOM/canvas/геометрия/цвета не изменены, перестройки шапки/навигации/сетки нет",
+          "type": "ui"
+        },
+        {
+          "candidate_commit": "a5902b15e7bf943dc454dbf59ee9b9fe1152a87e",
+          "ref": "plans/features/soul-1/review-tiera-strengthened.md (ledger 3/4: Δrect потомков = 0.000 px; видимость A vs A-без-lens ×1.72–3.45 — измеренный эффект только линзы)",
+          "observation": "Рост видимости объясняется линзой, а не перестройкой макета (apples-to-apples контроль)",
+          "type": "ui"
+        },
+        {
+          "candidate_commit": "a5902b15e7bf943dc454dbf59ee9b9fe1152a87e",
+          "ref": "plans/features/soul-1/review-w6.md — RECHECK-W6-2, раздел «Инварианты стекла»",
+          "observation": "Байтовый инвариант W6-ревьюера на кандидате: polygon-background.js blob c2ad97d446f5e7c7b72fb46d9bb560ae3777d6c3 (worktree==HEAD); #lg-lens 6298 б. 5367ec4566fc9e80 ==HEAD; строки --lg-*/backdrop-filter в app.css (104 строки) 89cda50a6e618ea5 ==HEAD; дифф web/** — только 4 известных файла W6. Артефакты стекла в кандидате байт-идентичны заревьюенным (и задеплоенным 2.58.81).",
+          "type": "static"
+        },
+        {
+          "candidate_commit": "a5902b15e7bf943dc454dbf59ee9b9fe1152a87e",
+          "ref": "plans/features/soul-1/evidence/w6/glass-and-ui-suites.txt (node glass_probe/design_tokens OK; UI shell e2e W2-SHELL-E2E-OK; fullscreen 7/7 PASS)",
+          "observation": "W2-SHELL-E2E-OK: замеры clientWidth/scrollWidth шелла кандидата — без перестроек",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "M00270",
@@ -1487,7 +1704,7 @@
       "source_text_sha256": "68899efbdeecd23f64f01de36ca84d08ab3adc3eda2ca06dd7a3edcaccd72636",
       "source_excerpt": "## 1. Продуктовая идея и границы",
       "disposition": "required",
-      "reason": "",
+      "reason": "§1 границы: замена конкурирующих канонов не поставлена (legacy-канон остаётся слоем channel_contract при ON; удаление — слайс уточнения AMD.1.2) и нет live-выборок по путям (BOUND.3)",
       "req_id": "SOUL-BOUND.0",
       "slice": "W2",
       "acceptance": "Границы §1 зафиксированы и сверены Reviewer с исходным текстом: одна личность, замена конкурирующих канонов, нейтральность машинных стадий, запрет выдуманных фактов",
@@ -1592,7 +1809,7 @@
       "source_text_sha256": "d92209ebf8ee3ad310ff1e88a97cd89e602fb461464a082a049b31a9c0916d48",
       "source_excerpt": "## 3. SOUL-02 — Единый Personality Core как собственность владельца",
       "disposition": "required",
-      "reason": "",
+      "reason": "Владельческий Core как документ (полный + компактная редакция), управление и наследование через реестр/MiniApp не созданы: в проде core_absent (ключ не в каталоге)",
       "req_id": "SOUL-02.0",
       "slice": "W2",
       "acceptance": "Раздел SOUL-02 покрыт: полный владельческий Core, компактная runtime-редакция, управление и наследование имеют отдельные req_id и evidence",
@@ -1622,7 +1839,7 @@
       "source_text_sha256": "318dd9804d4f9c7f920d30dc07cdd215b39758584faf10ed632c21c42422f650",
       "source_excerpt": "## 4. SOUL-03 — Сохранение модуля личности, SelfModel и строгая иерархия",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыты только 03.2/03.6; открыты 03.1 (вторая конкурирующая сущность), 03.3/03.4 (derived-правила и конфликтующие локальные настройки), 03.5 user_excluded — umbrella не закрыт",
       "req_id": "SOUL-03.0",
       "slice": "W2",
       "acceptance": "Раздел SOUL-03 покрыт: сохранение модуля личности, иерархия уровней 1-7 и разграничение зон ответственности имеют отдельные req_id и evidence",
@@ -1637,7 +1854,7 @@
       "source_text_sha256": "cde5003aa96a992ca7afb360db576b62d62bdfd69313a34d7fe94be81cb6191a",
       "source_excerpt": "## 5. SOUL-04 — Один эффективный Prompt Composer для всех Writers",
       "disposition": "required",
-      "reason": "",
+      "reason": "Композер, манифест и тесты подтверждены, но раздел §5 не закрыт: SOUL-04.1 (копии STYLE_BLOCKS_SUFFIX в пяти семействах) и legacy-строка AMD.1.2 открыты",
       "req_id": "SOUL-04.0",
       "slice": "W2",
       "acceptance": "Раздел SOUL-04 покрыт: единый Composer с типизированным планом и API показа effective layers подтверждён манифестом и тестами",
@@ -1883,8 +2100,27 @@
       "acceptance": "Единая точка входа Речь и характер с обзором и шестью пользовательскими разделами существует и доступна; подтверждено скриншотами и UI-тестами",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "a5902b15e7bf943dc454dbf59ee9b9fe1152a87e",
+          "ref": "plans/features/soul-1/review-w6.md — лид-acceptance (SOUL-10.0/AMD.6.1: «витрина 7+3, live Chrome, entry_*/section_*») + блок «Навигация»",
+          "observation": "Живой Chrome: #/ai/speech — витрина 7 пользовательских карточек + блок «Для разработчика»; вход карточкой «Речь и характер» из «Личности и стиля» (хаб «ИИ» остался ровно 5 страниц); обход всех разделов на 320/360/390/430/768/1024/1440",
+          "type": "ui"
+        },
+        {
+          "candidate_commit": "a5902b15e7bf943dc454dbf59ee9b9fe1152a87e",
+          "ref": "plans/features/soul-1/evidence/w6/ui-report.json + plans/features/soul-1/evidence/w6/shots/entry_*.png, section_*.png",
+          "observation": "failures=[]; 94 кадра; pageOverflow=0 на всех 8 viewport и на экране входа",
+          "type": "ui"
+        },
+        {
+          "candidate_commit": "a5902b15e7bf943dc454dbf59ee9b9fe1152a87e",
+          "ref": "tests/test_soul1_w6_speech_ui.py::test_screen_has_required_sections_and_single_screen_mode, ::test_entry_lives_inside_ai_without_reworking_navigation",
+          "observation": "Состав экрана (витрина + 10 разделов, один раздел за раз, «← Назад») и вход внутри «Личности и стиля» закреплены тестами",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00148",
@@ -1898,8 +2134,27 @@
       "acceptance": "Раздел Характер (Ядро): имя редакции, полная и компактная редакции, режим inherited/global/chat, diff-предпросмотр, версии и откат работают end-to-end",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "a5902b15e7bf943dc454dbf59ee9b9fe1152a87e",
+          "ref": "tests/test_soul1_w6_speech_ui.py::test_core_roundtrip_global_then_chat_isolation, ::test_core_compact_edition_and_level_are_separate",
+          "observation": "Правка полной/компактной редакции → чтение → чат-оверрайд без изменения глобального → сброс чата → заводской сброс → откат; полная и компактная редакции раздельно; diff и метаданные редактируются через /core и /core/meta",
+          "type": "test"
+        },
+        {
+          "candidate_commit": "a5902b15e7bf943dc454dbf59ee9b9fe1152a87e",
+          "ref": "plans/features/soul-1/review-w6.md — «Что проверено исполнением», пункт «Путь записи» (round-trip ревьюера, изолированный кэш)",
+          "observation": "Прогон ревьюера: global→chat байт-изоляция, сброс чата → наследование, заводской план без записи, apply → заводской текст, откат → прежняя ревизия, пустая запись → 409, provenance owner_edit",
+          "type": "test"
+        },
+        {
+          "candidate_commit": "a5902b15e7bf943dc454dbf59ee9b9fe1152a87e",
+          "ref": "tools/ui_soul1_w6_speech_e2e.py (POST block/core.personality ×4) + plans/features/soul-1/evidence/w6/ui-report.json + plans/features/soul-1/evidence/w6/shots/section_core_*.png, core_saved_*.png",
+          "observation": "Харнесс на реальных index.html/app.js: сохранение характера, «Вернуть заводской» → POST /api/speech/block/core.personality/reset (apply:false→apply:true), кадры раздела и сохранения",
+          "type": "ui"
+        }
+      ]
     },
     {
       "source_id": "L00149",
@@ -1913,8 +2168,27 @@
       "acceptance": "Раздел Стиль письма открывает единый редактор правил SOUL-16 с мягкими и строгими правилами, приоритетом, источником настройки и наглядным before/after",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "a5902b15e7bf943dc454dbf59ee9b9fe1152a87e",
+          "ref": "plans/features/soul-1/review-w6.md — RECHECK-W6, блок «F2 — VERIFIED (закрыт), live Browser Use (демо-сервер :8815)»",
+          "observation": "Live: снятая галка переживает выход/возврат + бейдж «черновик не сохранён»; пресет 1→2 сразу, счётчик «2 правил», id trailing_period.hard.strip; toggle/select по индексу после смены длины; «Убрать» 2→1; привычки 1→2→1; stale-index → честный тост",
+          "type": "ui"
+        },
+        {
+          "candidate_commit": "a5902b15e7bf943dc454dbf59ee9b9fe1152a87e",
+          "ref": "tests/test_soul1_w6_speech_ui.py::test_style_policy_save_and_chat_reset, ::test_style_preview_is_deterministic_and_shows_before_after, ::test_style_editor_renders_from_draft_and_mutations_are_visible",
+          "observation": "Save (глобально/чат) + reset-chat к наследованию; before/after детерминирован на заводских примерах (URL/версии/JSON-фрагменты целы); редактор рендерит черновик, а не серверный снапшот",
+          "type": "test"
+        },
+        {
+          "candidate_commit": "a5902b15e7bf943dc454dbf59ee9b9fe1152a87e",
+          "ref": "plans/features/soul-1/evidence/w6/fix-pass-suites.txt (мутационные проверки F2/F3; plans/features/soul-1/evidence/w6/ui-report.json — style_f2_draft/style_f2_mutations)",
+          "observation": "Харнесс на финальных байтах: rules [1,2,1], soft [1,2,1], снятая галка и dirty-бейдж «черновик не сохранён»; откат F2-кода роняет тест (мутация 4/4)",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00150",
@@ -1928,8 +2202,27 @@
       "acceptance": "Раздел Выражение содержит человеческие контролы Остроумие, Резкость, Мат, Развёрнутость, описание влияния, preview и сброс в inherited без ложных обещаний частоты",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "a5902b15e7bf943dc454dbf59ee9b9fe1152a87e",
+          "ref": "tests/test_soul1_w6_speech_ui.py::test_expression_values_render_layer_text_and_reset",
+          "observation": "4 контрола (wit/sharpness/profanity/verbosity) с описанием эффекта; детерминированный рендер слоя «Выражение»; сброс в inherited (изоляция чата)",
+          "type": "test"
+        },
+        {
+          "candidate_commit": "a5902b15e7bf943dc454dbf59ee9b9fe1152a87e",
+          "ref": "plans/features/soul-1/review-w6.md — «Секции-честность (live)» («Выражение» — runtime_wired=false + причина) + лид-acceptance (SOUL-10.3 VERIFIED)",
+          "observation": "Раздел проверен живьём; честно показано, что слой ещё не подключён на боевом пути (runtime_wired=false, expression_absent) — без ложных обещаний частоты",
+          "type": "ui"
+        },
+        {
+          "candidate_commit": "a5902b15e7bf943dc454dbf59ee9b9fe1152a87e",
+          "ref": "plans/features/soul-1/evidence/w6/shots/expression_390.png, expression_1440.png + plans/features/soul-1/evidence/w6/ui-report.json (POST expression)",
+          "observation": "Раздел «Выражение» на реальном UI: сохранение и кадры",
+          "type": "ui"
+        }
+      ]
     },
     {
       "source_id": "L00151",
@@ -1937,7 +2230,7 @@
       "source_text_sha256": "23ce962a27fd0a36164b2f9861c966712249f333d730d7e8e9d80f7eb789f507",
       "source_excerpt": "4. **Примеры шуток:** карточки, фильтр по приёму, предпросмотр input→reply, добавление/редактирование, source badges и включённость; 1–3 примера в runtime, библиотека может быть большой. Не делать карточки с несколькими экранами внутренних ",
       "disposition": "required",
-      "reason": "",
+      "reason": "Примеры шуток (карточки, фильтр по приёму, добавление/редактирование, source badges) — библиотека humor-контура поставляется слайсом W4; ревьюер: N/A_WITH_REASON (W4), UI честно отдаёт status=not_implemented_w4 (данных не выдумано). Карточек нет до W4.",
       "req_id": "SOUL-10.4",
       "slice": "W6",
       "acceptance": "Раздел Примеры шуток: карточки, фильтр по приёму, предпросмотр input-reply, добавление и редактирование, source badges, включённость, 1-3 примера в runtime",
@@ -1958,8 +2251,21 @@
       "acceptance": "Тестовая лаборатория сравнивает current и candidate на одинаковых входах по издержкам, extent, сохранению фактов и выбранной стратегии и по умолчанию ничего не отправляет в Telegram",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "a5902b15e7bf943dc454dbf59ee9b9fe1152a87e",
+          "ref": "plans/features/soul-1/review-w6.md — «Секции-честность (live)»: «Попробовать» — «ничего не отправляется в Telegram и не создаёт постоянных уроков»; платный вызов только по явной галке (код: delivery.telegram_send=false, lessons_created=0, в _generate_variants нет send/lesson-путей)",
+          "observation": "Живая проверка раздела: сравнение current vs candidate на одном входе (токены одним оценщиком, проход формы, extent, защищённые спаны = сохранность фактов, слои/конфликты = выбранная стратегия); по умолчанию 0 LLM и 0 отправок",
+          "type": "ui"
+        },
+        {
+          "candidate_commit": "a5902b15e7bf943dc454dbf59ee9b9fe1152a87e",
+          "ref": "tools/ui_soul1_w6_speech_e2e.py (POST try ×2) + plans/features/soul-1/evidence/w6/ui-report.json + plans/features/soul-1/evidence/w6/shots/try_390.png, try_1440.png",
+          "observation": "POST /api/speech/try выполнен на реальном UI; кадры раздела",
+          "type": "ui"
+        }
+      ]
     },
     {
       "source_id": "L00153",
@@ -1967,7 +2273,7 @@
       "source_text_sha256": "ff1bb0bf250561d1aa24acb47bf9868f1cbf23214dc48feddb75906103202383",
       "source_excerpt": "6. **Обучение:** простыми словами «какие шутки подхватили», «что не зашло», «какие гипотезы появились», «влияло ли это на следующий ответ». У каждой записи есть источники и уверенность, owner controls pause/approve/reject/reset-learning без",
       "disposition": "required",
-      "reason": "",
+      "reason": "Полная формулировка требует humor-контур («какие шутки подхватили», «что не зашло», реакции) и reset-learning — это W4 (w6-speech-ui-report §5.4; review-w6 «Секции-честность»: «Обучение — контур W4»). В слайсе подтверждены только уроки Experience (статус/счётчики/применения/версии) и pause/approve через существующий /api/memory/lessons/action (tests/test_soul1_w6_speech_ui.py::test_learning_binds_existing_lessons_and_marks_w4; RECHECK-W6-2 поведенческий probe speechLessonAction).",
       "req_id": "SOUL-10.6",
       "slice": "W6",
       "acceptance": "Раздел Обучение понятными словами показывает принятые и неудачные шутки, гипотезы и влияние на следующий ответ с источниками и уверенностью и контролами pause/approve/reject/reset-learning без потери данных",
@@ -1982,7 +2288,7 @@
       "source_text_sha256": "0711123f565ee7779fbe40ead4bbcb51b77a36a36ca80379dec91b94e16f776d",
       "source_excerpt": "## 12. SOUL-11 — Исправить доступность прямых промптов на mobile",
       "disposition": "required",
-      "reason": "",
+      "reason": "Подтверждена ОДНА цепочка — «Все инструкции» (список → карточка блока → правка → сохранение → повторное открытие) на 320–430: harness (ui-report.json, POST block/…; shots/all_block_320.png). ВТОРАЯ точка входа не проверена — review-w6 лид-acceptance: «UNVERIFIED на этом слайсе; цепочка „Все инструкции“ 320–430 ок; вторая точка входа — не этот слайс». E2E с реальными ответами API по обеим точкам отсутствует.",
       "req_id": "SOUL-11.0",
       "slice": "W6",
       "acceptance": "Прямые Direct-промпты доступны на mobile из обеих точек входа; цепочка список-edit-save-reopen работает на 320-430px и подтверждена E2E с реальными ответами API",
@@ -2177,7 +2483,7 @@
       "source_text_sha256": "d94e1fbc349b5e402c1d48edc9f9f4e7557109a51c6344b1439c5f6e870f06fe",
       "source_excerpt": "4. **Hot apply:** изменение стиля письма или Core применяется к **следующему новому ответу** в пределах подтверждённого SLA без обязательного рестарта; уже начатый запрос использует immutable snapshot активных версий, чтобы не смешать полов",
       "disposition": "required",
-      "reason": "",
+      "reason": "Hot apply и immutable snapshot хода закрыты тестами; не поставлены invalidate кэшей на двух чатах/параллельных запросах с атомарным rollback и шов mca_self_model (snapshot/провайдер-трасса)",
       "req_id": "SOUL-15.5",
       "slice": "W2",
       "acceptance": "Hot apply: изменение Core и Style Policy действует со следующего нового ответа в пределах подтверждённого SLA без рестарта; начатый запрос использует immutable snapshot версий; invalidate кэшей проверен на двух чатах и параллельных запросах с атомарным rollback",
@@ -2207,7 +2513,7 @@
       "source_text_sha256": "67bdcf47009646101a629ab06101fefbb2e350f20c2ff26387bb6243509ccac0",
       "source_excerpt": "6. **No silent degradation:** при недоступном новом Policy/Examples fallback не подменяет Persona неожиданно; активные правила и причина downgrade попадают в защищённую диагностику. При провале проверки хардового стилевого запрета нельзя не",
       "disposition": "required",
-      "reason": "",
+      "reason": "Причины деградации в защищённой диагностике поставлены и воспроизведены ревью; не проверены «PG outage не теряет настройки», stale cache и рестарт; провал hard-запрета (styled=true) — зона W3",
       "req_id": "SOUL-15.7",
       "slice": "W2",
       "acceptance": "No silent degradation: недоступный Policy или Examples не подменяет Persona незаметно, причина downgrade попадает в защищённую диагностику, провал hard-запрета не объявляется styled=true, PG outage не теряет владельческие настройки, stale cache и рестарт проверены",
@@ -2588,8 +2894,27 @@
       "acceptance": "Карточка Стиль письма на главном экране Речь и характер открывает один редактор, отдельный от Personality Core",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "a5902b15e7bf943dc454dbf59ee9b9fe1152a87e",
+          "ref": "plans/features/soul-1/review-w6.md — лид-acceptance (SOUL-16.5.0 VERIFIED: карточка на главном экране открывает один редактор)",
+          "observation": "Живой Chrome и harness: «Стиль письма» — отдельная карточка витрины и отдельный редактор, Core правится только в «Характере»",
+          "type": "ui"
+        },
+        {
+          "candidate_commit": "a5902b15e7bf943dc454dbf59ee9b9fe1152a87e",
+          "ref": "tests/test_soul1_w6_speech_ui.py::test_screen_has_required_sections_and_single_screen_mode",
+          "observation": "Маркер состава экрана: раздел style — отдельная секция, отдельная от core",
+          "type": "test"
+        },
+        {
+          "candidate_commit": "a5902b15e7bf943dc454dbf59ee9b9fe1152a87e",
+          "ref": "plans/features/soul-1/evidence/w6/shots/entry_*.png + section_style_*.png",
+          "observation": "Витрина и раздел «Стиль письма» на реальном UI (8 viewport)",
+          "type": "ui"
+        }
+      ]
     },
     {
       "source_id": "L00257",
@@ -2603,8 +2928,27 @@
       "acceptance": "Liquid Glass доведён точечно: поверхности согласованы, реальное оптическое преломление наблюдаемо, before/after кадры приложены, полигональный фон не изменён",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "a5902b15e7bf943dc454dbf59ee9b9fe1152a87e",
+          "ref": "plans/features/soul-1/review-tiera.md (Acceptance ledger 1/5/7/8, «Моя независимая репродукция сдвига») + plans/features/soul-1/review-tiera-strengthened.md (ledger 1–7)",
+          "observation": "Approved: Tier A — материал всех поверхностей (инвентарь 10 маршрутов); преломление реальное и воспроизведено независимо (кромки ±6–10 px, центр 0; усиленный профиль 12–15 px, модалка 23/16.5); before/after кадры на замороженном полигоне; фон не изменён",
+          "type": "ui"
+        },
+        {
+          "candidate_commit": "a5902b15e7bf943dc454dbf59ee9b9fe1152a87e",
+          "ref": "plans/features/soul-1/review-w6.md — RECHECK-W6-2, раздел «Инварианты стекла»",
+          "observation": "Байтовый инвариант W6-ревьюера на кандидате: polygon-background.js blob c2ad97d446f5e7c7b72fb46d9bb560ae3777d6c3 (worktree==HEAD); #lg-lens 6298 б. 5367ec4566fc9e80 ==HEAD; строки --lg-*/backdrop-filter в app.css (104 строки) 89cda50a6e618ea5 ==HEAD; дифф web/** — только 4 известных файла W6. Артефакты стекла в кандидате байт-идентичны заревьюенным (и задеплоенным 2.58.81).",
+          "type": "static"
+        },
+        {
+          "candidate_commit": "a5902b15e7bf943dc454dbf59ee9b9fe1152a87e",
+          "ref": "plans/features/soul-1/evidence/w6/glass-and-ui-suites.txt (node glass_probe/design_tokens OK; UI shell e2e W2-SHELL-E2E-OK; fullscreen 7/7 PASS)",
+          "observation": "На кандидате W6 прогнаны glass_probe/design_tokens/routing/vue_mount/shell-js (OK), UI shell e2e (W2-SHELL-E2E-OK) и fullscreen 7/7 — стекло-поверхности живут в реальном UI",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00261",
@@ -2618,8 +2962,27 @@
       "acceptance": "Визуальная инвентаризация surfaces с классами plain transparent, tinted glass, true optical glass, opaque-editor и reason; несогласованность убрана без превращения всего в стекло",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "a5902b15e7bf943dc454dbf59ee9b9fe1152a87e",
+          "ref": "plans/features/soul-1/review-tiera.md (ledger 1 — инвентарь 10 маршрутов: 5–17 линз на страницу, nested — плоская подложка; ledger 2/3 — tier B честный фолбэк, tier C — только редакторы/плотные) + plans/features/soul-1/review-tiera-strengthened.md (ledger 6)",
+          "observation": "Несогласованность убрана без превращения всего в стекло: классы поверхностей подтверждены inventory ревьюера",
+          "type": "ui"
+        },
+        {
+          "candidate_commit": "a5902b15e7bf943dc454dbf59ee9b9fe1152a87e",
+          "ref": "plans/features/soul-1/review-w6.md — RECHECK-W6-2, раздел «Инварианты стекла»",
+          "observation": "Байтовый инвариант W6-ревьюера на кандидате: polygon-background.js blob c2ad97d446f5e7c7b72fb46d9bb560ae3777d6c3 (worktree==HEAD); #lg-lens 6298 б. 5367ec4566fc9e80 ==HEAD; строки --lg-*/backdrop-filter в app.css (104 строки) 89cda50a6e618ea5 ==HEAD; дифф web/** — только 4 известных файла W6. Артефакты стекла в кандидате байт-идентичны заревьюенным (и задеплоенным 2.58.81).",
+          "type": "static"
+        },
+        {
+          "candidate_commit": "a5902b15e7bf943dc454dbf59ee9b9fe1152a87e",
+          "ref": "plans/features/soul-1/evidence/w6/glass-and-ui-suites.txt (node glass_probe/design_tokens OK; UI shell e2e W2-SHELL-E2E-OK; fullscreen 7/7 PASS)",
+          "observation": "Прогоны стекла на кандидате зелёные (probe/tokens/shell/fullscreen)",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00262",
@@ -2633,8 +2996,27 @@
       "acceptance": "Реальное glass: окрашенная полупрозрачная подложка, контролируемый backdrop blur, объёмные градиенты, светлая кромка и локальное оптическое смещение фона; преломление наблюдаемо на границе контрастной линии при движении; на неподдерживаемых WebViews читаемый fallback без ложного claim о рефракции",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "a5902b15e7bf943dc454dbf59ee9b9fe1152a87e",
+          "ref": "plans/features/soul-1/review-tiera.md (ledger 5, «Моя независимая репродукция сдвига»; вывод: «наблюдаемо на границе контрастной линии при движении» (SOUL-17.2) выполнено в этой формулировке) + plans/features/soul-1/review-tiera-strengthened.md (ledger 1, scale=32, сдвиг 12–15 px; ledger 6 — webkit_like: 0 линз, 16×reason, downgraded=16)",
+          "observation": "Реальное glass: профиль «края ±6–10 px, центр 0» (усиление ×1.5–3 против старой карты), выпуклая карта feDisplacementMap; на неподдерживаемом WebView — читаемый Tier B с диагностической причиной без ложного claim о рефракции",
+          "type": "ui"
+        },
+        {
+          "candidate_commit": "a5902b15e7bf943dc454dbf59ee9b9fe1152a87e",
+          "ref": "plans/features/soul-1/review-w6.md — RECHECK-W6-2, раздел «Инварианты стекла»",
+          "observation": "Байтовый инвариант W6-ревьюера на кандидате: polygon-background.js blob c2ad97d446f5e7c7b72fb46d9bb560ae3777d6c3 (worktree==HEAD); #lg-lens 6298 б. 5367ec4566fc9e80 ==HEAD; строки --lg-*/backdrop-filter в app.css (104 строки) 89cda50a6e618ea5 ==HEAD; дифф web/** — только 4 известных файла W6. Артефакты стекла в кандидате байт-идентичны заревьюенным (и задеплоенным 2.58.81).",
+          "type": "static"
+        },
+        {
+          "candidate_commit": "a5902b15e7bf943dc454dbf59ee9b9fe1152a87e",
+          "ref": "plans/features/soul-1/evidence/w6/glass-and-ui-suites.txt (node glass_probe/design_tokens OK; UI shell e2e W2-SHELL-E2E-OK; fullscreen 7/7 PASS)",
+          "observation": "Стекло-прогоны на кандидате зелёные",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00263",
@@ -2648,8 +3030,27 @@
       "acceptance": "Преломление слабое и локальное у краёв и бликов, не размывает буквы, центр спокойный и читаемый; textarea, таблицы и плотные формы на opaque или tinted backing; нет flicker и сброса selection; нет роста яркости, грязи и GPU без измеримого улучшения",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "a5902b15e7bf943dc454dbf59ee9b9fe1152a87e",
+          "ref": "plans/features/soul-1/review-tiera.md (ledger 5: профиль «края ±6–10 px, центр 0», WCAG ≥6.4 на текстовых поверхностях, боксы A↔B идентичны; ledger 3: textarea/.prompt-editor/таблицы без blur) + plans/features/soul-1/review-tiera-strengthened.md (ledger 3: Δrect потомков = 0.000 px, глифы идентичны, контраст ±0.5)",
+          "observation": "Преломление слабое и локальное (у кромок/бликов), центр статичен, буквы не размываются; плотные формы — на opaque/tinted подложке; роста яркости/грязи нет",
+          "type": "ui"
+        },
+        {
+          "candidate_commit": "a5902b15e7bf943dc454dbf59ee9b9fe1152a87e",
+          "ref": "plans/features/soul-1/review-w6.md — RECHECK-W6-2, раздел «Инварианты стекла»",
+          "observation": "Байтовый инвариант W6-ревьюера на кандидате: polygon-background.js blob c2ad97d446f5e7c7b72fb46d9bb560ae3777d6c3 (worktree==HEAD); #lg-lens 6298 б. 5367ec4566fc9e80 ==HEAD; строки --lg-*/backdrop-filter в app.css (104 строки) 89cda50a6e618ea5 ==HEAD; дифф web/** — только 4 известных файла W6. Артефакты стекла в кандидате байт-идентичны заревьюенным (и задеплоенным 2.58.81).",
+          "type": "static"
+        },
+        {
+          "candidate_commit": "a5902b15e7bf943dc454dbf59ee9b9fe1152a87e",
+          "ref": "plans/features/soul-1/evidence/w6/glass-and-ui-suites.txt (node glass_probe/design_tokens OK; UI shell e2e W2-SHELL-E2E-OK; fullscreen 7/7 PASS)",
+          "observation": "Стекло-прогоны на кандидате зелёные",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00264",
@@ -2663,8 +3064,33 @@
       "acceptance": "Единые дизайнерские токены стекла и контраста без глобального пересчёта CSS; проверены производительность на Android и Windows, reduced-motion, умеренный overdraw; при отсутствии поддержки backdrop-filter или SVG displacement есть читаемый fallback с объёмом и контрастом",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "a5902b15e7bf943dc454dbf59ee9b9fe1152a87e",
+          "ref": "plans/features/soul-1/review-tiera.md (ledger 4 — сняты перекрытия/двойной blur/лишнее затемнение: скрим модалки backdrop-filter:none, футер !important, nested bf:none) + plans/features/soul-1/review-tiera-strengthened.md (ledger 7: node 2/2 OK, pytest 333 passed, shell OK, fullscreen 7/7; ledger 6 — фолбэк честный, контракт/фон/боксы)",
+          "observation": "Единые токены стекла/контраста работают без глобального пересчёта CSS; reduced-motion → Tier B с data-glass-reason='reduced-motion' закреплён tests/js/round1025_design_tokens_test.js (зелёный на кандидате, plans/features/soul-1/evidence/w6/glass-and-ui-suites.txt); при отсутствии поддержки — читаемый фолбэк",
+          "type": "ui"
+        },
+        {
+          "candidate_commit": "a5902b15e7bf943dc454dbf59ee9b9fe1152a87e",
+          "ref": "plans/features/soul-1/review-tiera.md (ledger 6: perf на мобильном размере — p50/p95 16.7/16.9 ms, 0 longtask, паритет с Tier B) + plans/features/soul-1/review-tiera-strengthened.md (ledger 5: A 16.7/16.9 vs B 16.7/16.8; ledger 10: остаточный риск — реальный mid-range Android/TMA WebView, «только устройство»)",
+          "observation": "Производительность проверена на мобильном размере (desktop-Chrome emulation); реальный Android/Windows GPU-цена объявлена остаточным риском на устройство",
+          "type": "ui"
+        },
+        {
+          "candidate_commit": "a5902b15e7bf943dc454dbf59ee9b9fe1152a87e",
+          "ref": "plans/features/soul-1/review-w6.md — RECHECK-W6-2, раздел «Инварианты стекла»",
+          "observation": "Байтовый инвариант W6-ревьюера на кандидате: polygon-background.js blob c2ad97d446f5e7c7b72fb46d9bb560ae3777d6c3 (worktree==HEAD); #lg-lens 6298 б. 5367ec4566fc9e80 ==HEAD; строки --lg-*/backdrop-filter в app.css (104 строки) 89cda50a6e618ea5 ==HEAD; дифф web/** — только 4 известных файла W6. Артефакты стекла в кандидате байт-идентичны заревьюенным (и задеплоенным 2.58.81).",
+          "type": "static"
+        },
+        {
+          "candidate_commit": "a5902b15e7bf943dc454dbf59ee9b9fe1152a87e",
+          "ref": "plans/features/soul-1/evidence/w6/glass-and-ui-suites.txt (node glass_probe/design_tokens OK; UI shell e2e W2-SHELL-E2E-OK; fullscreen 7/7 PASS)",
+          "observation": "Стекло-прогоны на кандидате зелёные",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00265",
@@ -2678,8 +3104,27 @@
       "acceptance": "Идентичные before/after кадры с одной позиции анимированного полигона (freeze-frame только в тестовом захвате) на 390px и 1440px; на контрастном оптическом паттерне доказано смещение линий под линзой и сравнение с простым blur; тестовый URL защищён; Reviewer смотрит реальные картинки",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "a5902b15e7bf943dc454dbf59ee9b9fe1152a87e",
+          "ref": "plans/features/soul-1/review-tiera.md («Моя независимая репродукция сдвига»: замороженный фон ?bgseed+pause, мишень ZA, контроль A1–A2 = 0.0; профили по поверхностям) + plans/features/soul-1/review-tiera-strengthened.md (ledger 1–4, «Apples-to-apples»; полный verify 77/1, числа 1:1 с лейном)",
+          "observation": "Идентичные before/after кадры с одной позиции анимированного полигона (freeze-frame только в тестовом захвате) на 390/1440; на контрастном оптическом паттерне доказано смещение линий под линзой (corr ≥0.9) и сравнение с простым blur (снимается удалением только url(#…)); Reviewer смотрел реальные изображения",
+          "type": "ui"
+        },
+        {
+          "candidate_commit": "a5902b15e7bf943dc454dbf59ee9b9fe1152a87e",
+          "ref": "plans/features/soul-1/review-w6.md (инварианты стекла) + plans/features/soul-1/evidence/w6/glass-and-ui-suites.txt",
+          "observation": "Тестовый стенд/фон: polygon-background.js байт-в-байт HEAD и дерево; guard-тест teststand в IA/веб-маркерах (127 passed, plans/features/soul-1/evidence/w6/glass-and-ui-suites.txt)",
+          "type": "static"
+        },
+        {
+          "candidate_commit": "a5902b15e7bf943dc454dbf59ee9b9fe1152a87e",
+          "ref": "plans/features/soul-1/review-w6.md — RECHECK-W6-2, раздел «Инварианты стекла»",
+          "observation": "Байтовый инвариант W6-ревьюера на кандидате: polygon-background.js blob c2ad97d446f5e7c7b72fb46d9bb560ae3777d6c3 (worktree==HEAD); #lg-lens 6298 б. 5367ec4566fc9e80 ==HEAD; строки --lg-*/backdrop-filter в app.css (104 строки) 89cda50a6e618ea5 ==HEAD; дифф web/** — только 4 известных файла W6. Артефакты стекла в кандидате байт-идентичны заревьюенным (и задеплоенным 2.58.81).",
+          "type": "static"
+        }
+      ]
     },
     {
       "source_id": "L00266",
@@ -2693,8 +3138,27 @@
       "acceptance": "Запреты соблюдены: полигональный фон не изменён, непрозрачность всей страницы не увеличена, нет сотен новых filter-свойств, второго оверлея над шапкой, переделки макета Модулей и голой прозрачности фильтров",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "a5902b15e7bf943dc454dbf59ee9b9fe1152a87e",
+          "ref": "plans/features/soul-1/review-w6.md — «Инварианты стекла» + plans/features/soul-1/w6-speech-ui-report.md §4 «Запреты соблюдены»",
+          "observation": "polygon-background.js blob c2ad97d446f5e7c7b72fb46d9bb560ae3777d6c3 (HEAD и дерево); #lg-lens байт-идентичен HEAD (5367ec4566fc9e80, 6298 б.); строки --lg-*/backdrop-filter в app.css = HEAD (89cda50a6e618ea5); дифф web/** — только 4 известных файла W6; второго оверлея над шапкой и переделки макета «Модулей» нет",
+          "type": "static"
+        },
+        {
+          "candidate_commit": "a5902b15e7bf943dc454dbf59ee9b9fe1152a87e",
+          "ref": "tests/test_soul1_w6_speech_ui.py::test_long_lines_scroll_inside_components_and_oauth_targets (маркерный блок нового CSS)",
+          "observation": "В новом CSS-блоке «SOUL-1 W6» отсутствуют forbidden-строки polygon-background/#lg-lens/--lg-tint-hero:/backdrop-filter:none",
+          "type": "test"
+        },
+        {
+          "candidate_commit": "a5902b15e7bf943dc454dbf59ee9b9fe1152a87e",
+          "ref": "plans/features/soul-1/evidence/w6/glass-and-ui-suites.txt (node glass_probe/design_tokens OK; UI shell e2e W2-SHELL-E2E-OK; fullscreen 7/7 PASS)",
+          "observation": "glass_probe/design_tokens/routing/vue_mount/shell — OK; W2-SHELL-E2E-OK; fullscreen 7/7 — запреты не нарушены в рантайме кандидата",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00268",
