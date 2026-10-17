@@ -1418,8 +1418,16 @@
       .oversight-tab { min-height: 44px; }
     }
     /* Открытый mobile-dropdown поднимает карточку над соседями (grid-item
-       z-index; панель не должна перекрываться следующими карточками). */
+       z-index; панель не должна перекрываться следующими карточками).
+       WIN-GLASS-P0 2.58.85 (регресс, DROPDOWN-WG): glass-refraction.js
+       инлайнит `overflow: clip` на карточки-поверхности — открытая панель
+       уходит НИЖЕ края карточки и обрезается: elementFromPoint на опции =
+       соседняя карточка, тап не доходит. Пока список открыт, клип снят
+       (`!important` — единственный способ перебить inline); при закрытии
+       правило не действует и клип возвращается сам. Рефракция/Tier/бюджеты
+       не тронуты (слой живёт, обрезание только у открытого списка). */
     .oversight-tabs.oversight-dd-open { position: relative; z-index: 45; }
+    .oversight-tabs.oversight-dd-open { overflow: visible !important; }
     .status-graph-full .badge {
       min-height: 44px; display: inline-flex; align-items: center;
     }

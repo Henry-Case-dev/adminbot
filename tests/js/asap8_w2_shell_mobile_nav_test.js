@@ -3,7 +3,9 @@
  * навигации: U01 (row A/row B + меню «Ещё») и U02 (мобильный dropdown
  * суб-вкладок Аналитики).
  *
- * TEST-LIFECYCLE: CONTRACT owner=REQ-U01/U02 (slice FE-SHELL)
+ * TEST-LIFECYCLE: CONTRACT owner=REQ-U01/U02 (slice FE-SHELL);
+ *   REGRESSION owner=DROPDOWN-WG (валидный тап по опции dropdown поверх
+ *   карточек рефракции WIN-GLASS-P0 2.58.85, см. U02.4 ниже)
  *
  * Проверяет (по ТЗ U01 §137–143, U02 §147–149, requirements-map
  * REQ-U01-BASE / U01.1–U01.5 / REQ-U02 / U02.1–U02.3):
@@ -282,6 +284,14 @@ const CSS = fs.readFileSync(path.join(ROOT, 'web', 'static', 'app.css'), 'utf8')
     'U02.1: на ≥768 dropdown скрыт');
   assert.ok(/@media \(max-width: 767px\) \{\s*\n\s*\.oversight-tabs__row \{ display: none; \}/.test(CSS),
     'U02.2: на <768 лента pills скрыта');
+  // U02.4 (REGRESSION, DROPDOWN-WG 18.10.2026): WIN-GLASS-P0 2.58.85
+  // (glass-refraction.js) инлайнит `overflow: clip` на карточку-поверхность
+  // .oversight-tabs; открытая панель уходит НИЖЕ края карточки и обрезается —
+  // elementFromPoint на опции = соседняя карточка, тап не доходит (мёртвый
+  // dropdown 2.58.85/2.58.86). Пока список открыт, клип обязан сниматься
+  // (!important — единственный способ перебить inline-стиль слоя рефракции).
+  assert.ok(/\.oversight-tabs\.oversight-dd-open \{[^}]*overflow: visible !important/.test(CSS.replace(/\n/g, ' ')),
+    'U02.4: открытый dropdown не обрезается поверхностью рефракции');
   assert.ok(INDEX.indexOf('v-for="t in oversightTabs"') >= 0,
     'U02.1: desktop-ряд табов сохранён в разметке');
 }
