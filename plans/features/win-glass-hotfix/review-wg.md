@@ -91,3 +91,49 @@
 1. Деплой кандидата `0ca661fe…` штатным каналом; после выката `deployed_commit := 0ca661fe…` (release-стейдж гейта требует `candidate == deployed`).
 2. Живые наблюдения по 7 RFL-строкам: Windows (обход §A.1 + снимок админ-диагностики), Android (видимое смещение у кромок, перф/скролл/поворот; owner-steps §C), затем перевод строк в VERIFIED с postdeploy-evidence, привязанным к задеплоенному SHA.
 3. `check --stage release --candidate 0ca661fe… --deployed-commit <deployed>` после наблюдений; до этого — «Approved for controlled deployment, parent not DONE».
+
+---
+
+# R3 — VERIFY-WG-LEDGER (re-anchor на задеплоенный `95526863`, 2.58.85)
+
+| Поле | Значение |
+|---|---|
+| Кандидат / прод | ревью-линия `0ca661fe…`; задеплоено `9552686391dfe69dd7cb08ba7cd800a8a6c5106e` (release/win-glass-2.58.85, 2.58.85) |
+| Коммиты | `28d5516c` (артефакты релиза) + `278605b2` (ре-анкор карты + `evidence/verify/release-line.txt`) |
+| Вердикт | **Needs Fixes** — леджер/ре-анкор VERIFIED (пп.1–4 ниже), но на master остаётся **один красный guard, внесённый этим кандидатом** (находка R3-1) |
+
+## 1. Скоуп и секреты — OK
+
+- `git diff --name-only 915aa3c7..HEAD` = **31 путь**, все под `plans/features/win-glass-hotfix/**` (28× `evidence/release/**` + `release-2.58.85-report.md` + `requirements-map.json` + `evidence/verify/release-line.txt`); чужих файлов нет.
+- Секрет-скан всех 31 новых файлов (17 паттернов: password/secret/token/api_key/PRIVATE KEY/ssh-rsa…): **креды/ключи/пароли не найдены**. Единственные срабатывания — имена тестов (`design_tokens`, `F9-SECRET-OK`) и `[stderr] [sudo] password for nik:` (это текстовый prompt sudo, не значение; `SUDO_NOPASS=0` — проба) + публичный `ssh nik@198.46.175.136` в rollback-блоке отчёта (логин/IP уже в repo-доках, значений нет).
+
+## 2. Карта — привязка к прод-линии корректна
+
+- top: `candidate_commit=0ca661fe…` (не менялся), `deployed_commit=95526863…` (единственное top-изменение), `strict_evidence: true`.
+- Семантический дифф карты `f0d4b15f → 278605b2`: изменены **8 строк, у каждой +1 evidence** (WG-P0-05 +2: deploy-run + отчёт) = **9 release-записей в 8 строках**; строк не добавлено/удалено; **статусы не менялись: 16 VERIFIED / 7 READY_FOR_LIVE**.
+- Все 9 записей: `artifact_path` существуют, `artifact_sha256` **совпали** (проверил все 9, спот-чек включает `isolation-classification.txt`, `deploy-run.txt`, `hashes.txt`, `e2e/_results.json`, `postdeploy_http.txt`, `postdeploy_probe.json`). `type:"production"` — на деплой-записях (`postdeploy_http`, `postdeploy_probe`, `deploy-run`).
+- Все 7 live-строк несут явную пометку «Ждёт owner-наблюдений по owner-steps.md …»; ни одна не VERIFIED.
+
+## 3. Прод-факты подтверждены независимо
+
+- Коммит `95526863` существует, ветка `release/win-glass-2.58.85` = `origin/...` = `95526863` (запушена); цепочка `0b7a0aca → d637cfe9 → 95526863`.
+- Блобы прод-линии: `glass-refraction.js` = `6a09d962d59d`, `fullscreen-policy.js` = `96db06425079` (SAME), `glass-probe.js` = `b2e6a1f987c6`, `glass_refraction_test.js` = `4fc4f9ca7848`, e2e-инструмент = `612200f86b84` — т.е. **5/8 файлов byte-equal**, 3 порт-файла (app.js/app.css/index.html) — как в `hashes.txt`/`release-line.txt`.
+- `release-line.txt` (двухлинейная семантика, порт `d637cfe9`, 5/8 byte-equal) + секция «Леджер» в `release-2.58.85-report.md` (ре-анкор, конвенция soul-карт, release-стадия не запускалась) — на месте; **кавета про `candidate==deployed` на release-стадии зафиксирована** (release-line.txt §43-47). Изоляция: 39 = 8 порт + 31 bump, unclassified 0; prod healthz `2.58.85`, `/web/` 15×«2.58.85»/0×«2.58.84», 0 ERROR/CRITICAL.
+
+## 4. Гейты (мой прогон, verbatim; release-стадию не запускал)
+
+- `plan` → `stage=plan inventory=14 manual=16 scoped=0 errors=0` EXIT 0;
+- `review WG-WIN` → `scoped=5 errors=0` EXIT 0;
+- `review WG-ANDROID` → `scoped=6 errors=0` EXIT 0;
+- `review WG-VERIFY` → `scoped=12 errors=0` EXIT 0.
+
+## R3-1 — Блокер (внесён кандидатом; test-only): два bounds-guard'а красные на master
+
+- **Требование:** repo-дисциплина новых `web/**`-файлов — каждый новый файл с тега `pre-round1026-a1` должен иметь NOTE-sanction в двух guard-тестах (прецеденты: da58e24b W3b, SOUL-1 W6).
+- **Репро (мой прогон):** `pytest tests/test_tool_coordinator_round1026.py::TestBounds tests/test_unified_image_request_round1026.py::TestBoundsA3` → **2 failed, 10 passed**; offense: `web/static/glass-refraction.js` отсутствует в allowlist (проверено: `git diff --name-only pre-round1026-a1 -- web/` содержит этот файл). На родителе кандидата файла не было → guard'ы были зелёные; после коммита `0ca661fe` — красные. Продукт не затронут (тесты; рантайм-байты не меняются).
+- **Готовое лечение (от лейна, не применено):** `evidence/release/bounds-guard-sanction-suggested.patch` (+NOTE +allowlist в обоих guard'ах). ВАЖНО (мой пересчёт): на **master этот патч НЕ применяется** — `git apply --check` = **rc 1** (контекст патча снят с релизной версии guard-файлов; в master после `web/api/__init__.py` идут дополнительные NOTE-записи SOUL-1 W6 и др.). Для master нужна своя тривиальная правка с master-контекстом; патч лейна пригоден для релизной линии (там он и проверялся).
+- **Минимальная перепроверка:** Builder добавляет NOTE-sanction + allowlist-entry в оба guard-файла **на master** (2 тестовых файла, контекст master) → `.venv/Scripts/python.exe -m pytest -q tests/test_tool_coordinator_round1026.py::TestBounds tests/test_unified_image_request_round1026.py::TestBoundsA3` = ожидание **10 passed / 0 failed**; релизную линию не трогать сейчас (прод-байты не затронуты; sanction — при следующем касании релиза).
+
+## Итог
+
+Леджер и ре-анкор (пп.1–4) подтверждены полностью; единственное, что мешает закрытию, — красные guard'ы на master из-за нового файла слоя. После крошечного test-only патча + перепрогона двух guard'ов задачу можно закрывать; живые наблюдения остаются за владельцем (`PENDING_OWNER_E2E`, 7 RFL).
