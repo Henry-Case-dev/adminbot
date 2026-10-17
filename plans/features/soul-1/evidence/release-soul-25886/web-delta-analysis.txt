@@ -1,0 +1,37 @@
+WEB DELTA ANALYSIS (prod 9552686391dfe69dd7cb08ba7cd800a8a6c5106e -> branch): WG-port hunks preserved, delta = SOUL-1/W7
+
+### web/app.js  numstat: 1338	3	web/app.js
+  marker data-refract-layer     removed=0 added=0 head_total=6 prod_total=6 OK
+  marker glass-refraction.js    removed=0 added=0 head_total=2 prod_total=2 OK
+  marker __GlassRefraction      removed=0 added=0 head_total=8 prod_total=8 OK
+  marker __GlassProbe           removed=0 added=0 head_total=9 prod_total=9 OK
+  marker refractionLayer        removed=0 added=0 head_total=2 prod_total=2 OK
+  marker fullscreen-policy.js   removed=0 added=0 head_total=1 prod_total=1 OK
+  marker fs-slot                removed=0 added=0 head_total=0 prod_total=0 OK
+  marker launchParams           removed=0 added=0 head_total=0 prod_total=0 OK
+  marker tdesktop               removed=0 added=0 head_total=0 prod_total=0 OK
+  removed_lines=3 added_lines=1338
+
+### web/index.html  numstat: 1304	1	web/index.html
+  marker data-refract-layer     removed=0 added=0 head_total=0 prod_total=0 OK
+  marker glass-refraction.js    removed=0 added=0 head_total=1 prod_total=1 OK
+  marker __GlassRefraction      removed=0 added=0 head_total=0 prod_total=0 OK
+  marker __GlassProbe           removed=0 added=0 head_total=1 prod_total=1 OK
+  marker refractionLayer        removed=0 added=0 head_total=0 prod_total=0 OK
+  marker fullscreen-policy.js   removed=0 added=0 head_total=2 prod_total=2 OK
+  marker fs-slot                removed=0 added=0 head_total=0 prod_total=0 OK
+  marker launchParams           removed=0 added=0 head_total=0 prod_total=0 OK
+  marker tdesktop               removed=0 added=0 head_total=0 prod_total=0 OK
+  removed_lines=1 added_lines=1304
+
+### web/static/app.css  numstat: 227	1	web/static/app.css
+  marker data-refract-layer     removed=0 added=0 head_total=4 prod_total=4 OK
+  marker glass-refraction.js    removed=0 added=0 head_total=1 prod_total=1 OK
+  marker __GlassRefraction      removed=0 added=0 head_total=0 prod_total=0 OK
+  marker __GlassProbe           removed=0 added=0 head_total=0 prod_total=0 OK
+  marker refractionLayer        removed=0 added=0 head_total=0 prod_total=0 OK
+  marker fullscreen-policy.js   removed=0 added=0 head_total=1 prod_total=1 OK
+  marker fs-slot                removed=0 added=0 head_total=0 prod_total=0 OK
+  marker launchParams           removed=0 added=0 head_total=0 prod_total=0 OK
+  marker tdesktop               removed=0 added=0 head_total=0 prod_total=0 OK
+  removed_lines=1 added_lines=227

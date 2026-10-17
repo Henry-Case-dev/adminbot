@@ -1,0 +1,60 @@
+PY_INTERP=/var/www/admin_bot/venv/bin/python
+CAPTURE app_version=?
+CAPTURE postgres_dsn=present
+CAPTURE bot_settings_rows=514 backup_rows=122
+CAPTURE chat_profiles=3
+CAPTURE editor present=True sha12=6a1f3432889c len=2023 base_markers=0 ext_markers=0
+CAPTURE editor snippet='СИСТЕМНАЯ РОЛЬ: Ты — редактор саммари. Твоя задача — из сырой истории чата и архивных фактов собрать чистую рабочую выжи'
+CAPTURE editor ext_hit_terms=[]
+CAPTURE cover chat=-1002661910336 sha12=35013bd88081 len=110 base_markers=0 ext_markers=0 snippet='Comic-book style, set in modern Russia, with Russian text and a large "PERMsoc" inscription in the foreground.'
+CAPTURE personas rows=2
+CAPTURE persona id=1 chat=None global=True name sha12=e3b0c44298fc len=0 base=0 ext=0 snippet=''
+CAPTURE persona id=1 chat=None global=True biography sha12=e3b0c44298fc len=0 base=0 ext=0 snippet=''
+CAPTURE persona id=1 chat=None global=True system_prompt_overrides sha12=e3b0c44298fc len=0 base=0 ext=0 snippet=''
+CAPTURE persona id=2 chat=-1002661910336 global=False name sha12=e3b0c44298fc len=0 base=0 ext=0 snippet=''
+CAPTURE persona id=2 chat=-1002661910336 global=False biography sha12=e3b0c44298fc len=0 base=0 ext=0 snippet=''
+CAPTURE persona id=2 chat=-1002661910336 global=False system_prompt_overrides sha12=e3b0c44298fc len=0 base=0 ext=0 snippet=''
+CAPTURE persona_traits rows=50
+CAPTURE trait id=220 chat=-1002661910336 source=deep_sleep ext_markers=0 snippet='Заметно выросла привычка отказывать в запросах, ссылаясь на отсутствие данных или этику.'
+CAPTURE trait id=221 chat=-1002661910336 source=deep_sleep ext_markers=0 snippet='Всё чаще советует собеседникам идти спать, работать или не ныть вместо прямого ответа.'
+CAPTURE trait id=222 chat=-1002661910336 source=deep_sleep ext_markers=0 snippet='Проявляет инициативу в разоблачении собеседников, требуя конкретики и уличая в накрутке.'
+CAPTURE trait id=223 chat=-1002661910336 source=deep_sleep ext_markers=0 snippet='Тон стал более вольным и дерзким, будто бот не признаёт границ и субординации.'
+CAPTURE trait id=224 chat=-1002661910336 source=deep_sleep ext_markers=0 snippet='Склонен спорить и парировать упрёки встречными обвинениями вместо оправданий.'
+CAPTURE trait id=225 chat=-1002661910336 source=deep_sleep ext_markers=0 snippet='Реже проявляет теплоту, чаще отталкивает и прогоняет собеседников.'
+CAPTURE trait id=226 chat=-1002661910336 source=deep_sleep ext_markers=0 snippet='Ответы стали короче и жёстче, без развёрнутых пояснений, часто в форме приказов.'
+CAPTURE trait id=227 chat=-1002661910336 source=deep_sleep ext_markers=0 snippet='Демонстрирует любопытство к личностям участников, копаясь в их именах и репутации.'
+CAPTURE trait id=228 chat=-1002661910336 source=deep_sleep ext_markers=0 snippet='Стал чаще отказывать в запросах, ссылаясь на отсутствие данных и этику, вместо попыток вып'
+CAPTURE trait id=229 chat=-1002661910336 source=deep_sleep ext_markers=0 snippet='Усилил сарказм: язвит про безработицу, клавиатуры и чужие увлечения, советуя идти спать ил'
+CAPTURE trait omitted=40 (no markers in first 10)
+CAPTURE f5_conflict=False
+CAPTURE pg memory.nostalgia_enabled='true' present=True
+CAPTURE pgkey memory.dream_enabled=true cat=memory updated=2026-09-06 14:50:25.415525+00
+CAPTURE pgkey memory.nostalgia_enabled=true cat=memory updated=2026-09-06 14:52:42.840819+00
+CAPTURE soul_flags_present=0 []
+CAPTURE docs_present=[]
+CAPTURE backup_file=/home/nik/soul86_pg_backup_20261017T215121Z.json bytes=117227 sha256=5cc7de90e9132d05
+CAPTURE dotenv UNIFIED_COMPOSER_ENABLED=None
+CAPTURE dotenv CHARACTER_CORE_ENABLED=None
+CAPTURE dotenv SPEECH_STYLE_POLICY_ENABLED=None
+CAPTURE dotenv HUMOR_CRAFT_ENABLED=None
+CAPTURE dotenv HUMOR_LIBRARY_ENABLED=None
+CAPTURE dotenv HUMOR_FEEDBACK_ENABLED=None
+CAPTURE dotenv HUMOR_CANDIDATE_EVAL_ENABLED=None
+CAPTURE dotenv INITIATIVE_DIAGNOSTICS_PUBLISH_ENABLED=None
+CAPTURE dotenv SMART_VERBALIZER_MODES_ENABLED=None
+CAPTURE dotenv NOSTALGIA_ENABLED=None
+CAPTURE proc_env_err=PermissionError
+CAPTURE procenv UNIFIED_COMPOSER_ENABLED=None
+CAPTURE procenv CHARACTER_CORE_ENABLED=None
+CAPTURE procenv SPEECH_STYLE_POLICY_ENABLED=None
+CAPTURE procenv HUMOR_CRAFT_ENABLED=None
+CAPTURE procenv HUMOR_LIBRARY_ENABLED=None
+CAPTURE procenv HUMOR_FEEDBACK_ENABLED=None
+CAPTURE procenv HUMOR_CANDIDATE_EVAL_ENABLED=None
+CAPTURE procenv INITIATIVE_DIAGNOSTICS_PUBLISH_ENABLED=None
+CAPTURE procenv SMART_VERBALIZER_MODES_ENABLED=None
+CAPTURE procenv NOSTALGIA_ENABLED=None
+CAPTURE procenv_keys_seen=0
+CAPTURE verdict_F2 smart_verbalizer_modes=None not_zero=True
+CAPTURE verdict_F4 nostalgia_env=None
+CAPTURE done

@@ -1,0 +1,35 @@
+W6 speech-e2e — диагноз RED (и почему release-ветка тут не причина)
+
+Прогон 1 (как в runbook, с ЗАКОММИЧЕННОЙ фикстурой):
+  py -3 tools/ui_soul1_w6_speech_e2e.py
+  -> TimeoutError: waiting for locator(".speech-section") to be visible
+     ("locator resolved to hidden"), viewport 320, первый же проход.
+
+Корневая причина (доказано, не гипотеза):
+  * фикстура плана `plans/features/soul-1/evidence/w6/api-fixture.json`
+    снята в коммите a5902b15 (слайс W6) — ДО слайса W4 (c1cb6475);
+    её `examples` = `{"status": "not_implemented_w4", "available": false}`
+    и НЕ содержит полей `starter`, `telemetry`, `policy`, `policy_source`, `ab`;
+  * текущий шаблон `web/index.html` (W4/W6-контракт) читает
+    `speechExamples.starter.expected` (index.html:7890),
+    `speechExamples.telemetry.approved` (index.html:7867),
+    `speechExamples.policy.*` (index.html:8040+) — на старой форме это
+    `TypeError: Cannot read properties of undefined (reading 'expected')`
+    внутри Vue-render: падает весь поддерево `.speech-screen`
+    (bodyLen 53028 -> 22959), дальнейшие карточки разделов не открываются;
+  * ошибка воспроизведена прямым probe-скриптом (console/pageerror захват),
+    см. preflight-ui-w6-speech-stale-fixture.txt + scratch w6_debug7.
+
+Прогон 2 (та же ветка, фикстура ПЕРЕ-СНЯТА штатным генератором репозитория
+`plans/features/soul-1/evidence/w6/dump_api_fixture.py`, офлайн, без PG/LLM):
+  -> ИТОГ: failures=0, POST=16, shots=94 (8 вьюпортов + interactions).
+  Артефакт: preflight-ui-w6-speech-regenfixture.txt +
+  fixture-regenerated-by-dump-script.json (файл в репо НЕ менялся: после
+  прогона восстановлен `git checkout --`; старая копия — fixture-committed-stale.json).
+
+Вывод: UI «Речи и характера» на релиз-дереве проходит собственный e2e-матрикс;
+красный прогон вызван устаревшей тестовой фикстурой (данные-стаб), а НЕ
+релизом (web/tools/fixture байт-в-байт равны master). Правка-предложение:
+пере-снять `evidence/w6/api-fixture.json` тем же генератором в отдельном
+проходе по W6-evidence (и обновить ссылки/хэши в w6-отчёте и картах) — файл
+W6-эвиденса в релизном коммите намеренно НЕ перезаписан.

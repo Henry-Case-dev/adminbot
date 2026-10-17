@@ -1,0 +1,94 @@
+NODE GUARDS - release/soul1-2.58.86 (branch tip)
+worktree: C:\Users\main\.config\opencode\OpenCodeScratch\adminbot-ccef72c25768\soul1-release-25886\wt
+files=87
+
+OK        tests/js/app_methods_dup_keys_guard_test.js                |   WARN: мёртвый дубль (тела идентичны, известен в HEAD): `_prefersReducedMotion` ×2 @ 21354, 21373
+OK        tests/js/asap31_oversight_render_test.js                   | ASAP31-OVERSIGHT-RENDER-OK
+OK        tests/js/asap41_zone_g_inspector_test.js                   | ZONE-G-INSPECTOR-OK
+OK        tests/js/asap42_step2c2_layout_test.js                     | ASAP42-STEP2C2-LAYOUT-OK
+OK        tests/js/asap43_cover_style_surgical_test.js               | ASAP43-COVER-STYLE-SURGICAL-OK
+OK        tests/js/asap44_cover_final_closure_test.js                | asap44 cover final closure JS: OK
+OK        tests/js/asap5_cover_manifest_test.js                      | ASAP5-COVER-MANIFEST-OK
+OK        tests/js/asap5_decision_trace_test.js                      | ASAP5-DECISION-TRACE-OK
+OK        tests/js/asap6_embedding_profiles_ui_test.js               | EMBEDDING-PROFILES-UI-OK
+OK        tests/js/asap6_wave2_ux_tabs_test.js                       | WAVE2-UX-TABS-OK
+OK        tests/js/asap7_f2_direct_ui_test.js                        | ASAP7-F2-DIRECT-UI-OK
+OK        tests/js/asap7_f7_cover_compile_test.js                    | ASAP7-F7-COVER-COMPILE-OK
+OK        tests/js/asap7_f8_cover_prompts_test.js                    | ASAP7-F8-COVER-PROMPTS-OK
+OK        tests/js/asap8_d1213_save_contract_test.js                 | ASAP8-D1213-SAVE-CONTRACT-OK
+OK        tests/js/asap8_f9_youtube_proxy_health_test.js             | F9-PROXY-UI-OK
+OK        tests/js/asap8_v63_w3_analytics_test.js                    | W3-ANALYTICS-UNIT-OK: 93 checks passed
+OK        tests/js/asap8_v63_w3_modules_ui_test.js                   | W3-MODULES-UI-OK
+OK        tests/js/asap8_v63_w3_status_logs_test.js                  | W3-STATUS-UNIT-OK
+OK        tests/js/asap8_v6_d05_experience_ui_test.js                | D05-EXPERIENCE-UI-OK
+OK        tests/js/asap8_v6_d07_override_stack_test.js               | D07-OVERRIDE-STACK-OK
+OK        tests/js/asap8_v6_p1_d09_panels_test.js                    | P1-D09-PANELS-UNIT-OK
+OK        tests/js/asap8_v6_wa2_dossier_guard_test.js                | DOSSIER-GUARD-UNIT-OK
+OK        tests/js/asap8_w2_fullscreen_policy_test.js                | FS-POLICY-OK
+OK        tests/js/asap8_w2_shell_mobile_nav_test.js                 | W2-SHELL-UNIT-OK
+OK        tests/js/glass_probe_test.js                               | JS-UNIT-OK glass-probe
+OK        tests/js/glass_refraction_test.js                          | JS-UNIT-OK glass-refraction
+OK        tests/js/mca23_response_pipeline_test.js                   | MCA23-RESPONSE-PIPELINE-OK
+OK        tests/js/p0_stories_no_chat_render_test.js                 | P0-STORIES-NO-CHAT-RENDER-OK
+OK        tests/js/round1020_ui_rework_test.js                       | JS-UNIT-OK
+OK        tests/js/round1020_ui_test.js                              | JS-UNIT-OK
+OK        tests/js/round1021_ui_audit_test.js                        | JS-UNIT-OK
+OK        tests/js/round1022_aliases_test.js                         | ALIASES-UNIT-OK
+OK        tests/js/round1022_dossier_rebuild_test.js                 | DOSSIER-REBUILD-UNIT-OK
+OK        tests/js/round1022_help_test.js                            | round1022 help-ui JS gate: OK
+OK        tests/js/round1023_verbilizer_tabs_test.js                 | VERBILIZER-UNIT-OK
+OK        tests/js/round1024_aliases_render_test.js                  | ALIASES-RENDER-OK
+OK        tests/js/round1024_budget_toggle_test.js                   | BUDGET-TOGGLE-OK
+OK        tests/js/round1024_dossier_feed_test.js                    | DOSSIER-FEED-OK
+OK        tests/js/round1024_image_key_test.js                       | IMAGE-KEY-OK
+OK        tests/js/round1024_image_module_test.js                    | IMAGE-MODULE-OK
+OK        tests/js/round1024_nodeflow_test.js                        | NODEFLOW-UNIT-OK
+OK        tests/js/round1024_prompts_ui_test.js                      | PROMPTS-UI-UNIT-OK
+OK        tests/js/round1024_providers_fullscreen_test.js            | PROVIDERS-FS-OK
+OK        tests/js/round1025_cliche_ui_test.js                       | ROUND1025-CLICHE-UI-OK
+OK        tests/js/round1025_design_tokens_test.js                   | JS-UNIT-OK
+OK        tests/js/round1025_f11_log_counts_test.js                  | F11-LOG-COUNTS-OK
+OK        tests/js/round1025_f11_status_grid_test.js                 | F11-HEARTBEAT-OK
+OK        tests/js/round1025_f4_catalog_ui_test.js                   | MODULE-CATALOG-OK
+OK        tests/js/round1025_f4_module_store_test.js                 | MODULE-STORE-OK
+OK        tests/js/round1025_f5_models_test.js                       | MODELS-GROUPS-OK
+OK        tests/js/round1025_f5_prompts_single_source_test.js        | PROMPTS-SINGLE-SOURCE-OK
+OK        tests/js/round1025_f5_workspace_route_test.js              | MODULE-WORKSPACE-OK
+OK        tests/js/round1025_f6_analytics_memory_test.js             | F6-ANALYTICS-MEMORY-OK
+OK        tests/js/round1025_f6_execution_graph_test.js              | F6-EXECGRAPH-OK
+OK        tests/js/round1025_f7_permsoc_local_test.js                | F7-PERMSOC-LOCAL-UNIT-OK
+OK        tests/js/round1025_f9_savebar_visual_test.js               | F9-SAVEBAR-OK
+OK        tests/js/round1025_f9_secret_field_test.js                 | F9-SECRET-OK
+OK        tests/js/round1025_hotfix10_glass_geometry_bg_test.js      | HOTFIX10-GLASS-GEOMETRY-BG-OK
+OK        tests/js/round1025_hotfix3_cliche_report_test.js           | ROUND1025-HOTFIX3-CLICHE-REPORT-OK
+OK        tests/js/round1025_hotfix4_shell_test.js                   | JS-UNIT-OK round1025_hotfix4_shell_test
+OK        tests/js/round1025_hotfix6_lens_heartbeat_shell_test.js    | HOTFIX6-LENS-HEARTBEAT-SHELL-OK
+OK        tests/js/round1025_hotfix7_shell_glass_heartbeat_test.js   | HOTFIX7-SHELL-GLASS-HEARTBEAT-OK
+OK        tests/js/round1025_hotfix8_shell_aurora_test.js            | HOTFIX8-SHELL-AURORA-OK
+OK        tests/js/round1025_hotfix9_shell_flex_glass_aurora_test.js | HOTFIX9-SHELL-FLEX-GLASS-AURORA-OK
+OK        tests/js/round1025_ia_routing_test.js                      | JS-UNIT-OK round1025_ia_routing_test
+OK        tests/js/round1025_save_state_test.js                      | ROUND1025-SAVE-STATE-OK
+OK        tests/js/round1025_scope_selector_test.js                  | SCOPE-SELECTOR-OK
+OK        tests/js/round1025_shell_breakpoints_test.js               | JS-UNIT-OK round1025_shell_breakpoints_test
+OK        tests/js/round1026_polygon_background_test.js              | POLYGON-LUMINESCENCE-OK
+OK        tests/js/round1026_s6_publish_test.js                      | S6-PUBLISH-OK
+OK        tests/js/round1026_s7_log_summary_filter_test.js           | S7-LOG-SUMMARY-OK
+OK        tests/js/round1026_s8_execution_graph_test.js              | S8-EXECGRAPH-OK
+OK        tests/js/round1026_s9_testing_test.js                      | SUMMARY-TESTING-UI-OK
+OK        tests/js/round1027_asap2_summary_sections_test.js          | ASAP2-SUMMARY-SECTIONS-OK
+OK        tests/js/round1027_mca17a_observability_ui_test.js         | MCA17A-OBSERVABILITY-UI-OK
+OK        tests/js/round1028_anu_taxonomy_p0_test.js                 | ANU-TAXONOMY-OK
+OK        tests/js/round1028_asap3_direct_context_test.js            | ASAP3-DIRECT-CONTEXT-OK
+OK        tests/js/round1029_extra_cover_styles_test.js              | EXTRA-COVER-STYLES-UI-OK
+OK        tests/js/round1030_pipeline_inspector_test.js              | PIPELINE-INSPECTOR-OK
+OK        tests/js/round1037_random_source_test.js                   | MCA10A-RANDOM-OK
+OK        tests/js/round1039_experience_lessons_test.js              | MCA16-EXP-OK
+OK        tests/js/round1044_temporal_factcheck_ui_test.js           | MCA20-TEMPORAL-UI-OK
+OK        tests/js/round1046_mca12_stories_ui_test.js                | MCA12-STORIES-UI-OK
+OK        tests/js/round1047_mca17c_ui_test.js                       | MCA17C-UI-OK
+OK        tests/js/routing_test.js                                   | [adminbot] DOMPurify недоступен — текст без HTML
+OK        tests/js/soul1_w5_initiative_panel_test.js                 | SOUL1-W5-PANEL-OK
+OK        tests/js/vue_mount_test.js                                 | VUE-MOUNT-OK
+
+SUMMARY: ok=87 red=0 total=87
+RED: 

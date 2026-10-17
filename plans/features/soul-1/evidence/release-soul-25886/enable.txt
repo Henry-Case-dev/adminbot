@@ -1,0 +1,14 @@
+ENABLE env_backup=/home/nik/soul86_env_backup_20261017T215445Z
+ENABLE env_appended=UNIFIED_COMPOSER_ENABLED,HUMOR_CRAFT_ENABLED,HUMOR_LIBRARY_ENABLED,HUMOR_FEEDBACK_ENABLED,INITIATIVE_DIAGNOSTICS_PUBLISH_ENABLED
+ENABLE env UNIFIED_COMPOSER_ENABLED='1'
+ENABLE env HUMOR_CRAFT_ENABLED='1'
+ENABLE env HUMOR_LIBRARY_ENABLED='1'
+ENABLE env HUMOR_FEEDBACK_ENABLED='1'
+ENABLE env INITIATIVE_DIAGNOSTICS_PUBLISH_ENABLED='1'
+ENABLE env_sha256_16=67bb8b1ecb54560c
+ENABLE pg flags.humor_craft_enabled=true type=boolean updated=2026-10-17 21:54:45.957316+00
+ENABLE pg flags.humor_feedback_enabled=true type=boolean updated=2026-10-17 21:54:45.960756+00
+ENABLE pg flags.humor_library_enabled=true type=boolean updated=2026-10-17 21:54:45.95907+00
+ENABLE pg flags.unified_composer_enabled=true type=boolean updated=2026-10-17 21:54:45.92492+00
+ENABLE pg humor_candidate_eval_present=False
+ENABLE done
