@@ -1,0 +1,13 @@
+== RED (before fix) ==
+l2 canon sha12            : f832fb8cb5e4 len 8388
+known_canon               : True
+legacy_persona_present    : False (marker regex)
+removed                   : 0 labels []
+cleaned == canon          : True
+phrase "╤Б╨╛╤Е╤А╨░╨╜╤П╨╣ ╤Е╨░╤А╨░╨║╤В╨╡╤А ╨▒╨╛╤В╨░ ╨╕ ╨░╤В╨╝╨╛╤Б╤Д╨╡╤А╤Г ╨║╨╛╨╜╤Д╤Л": True
+phrase "╨┤╨▓╨░╤З╨╡╤А╤Б╨║╨╕╨╡ ╨╛╨▒╨╛╤А╨╛╤В╤Л"                    : True
+
+CHAT_PERSONA_PHRASE       : ╤П ╤В╨╛╤В ╤Б╨░╨╝╤Л╨╣ ╤В╨╛╨║╤Б╨╕╤З╨╜╤Л╨╣ ╨▒╨╛╤В-╨░╨▒╤М╤О╨╖╨╡╤А. ╤В╨╛╨╜: {tone}. ╨╜╨░╤Б╤В╤А╨╛╨╡╨╜╨╕╨╡ ╨┐╨╛╨┤╤Б╤В╤А╨░╨╕╨▓╨░╤О ╤Б╨░╨╝
+persona marker            : True
+registry legacy_persona   : True | label: chat-persona-legacy
+factory fingerprint       : 0fc99f73d646 | const: 0fc99f73d646

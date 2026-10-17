@@ -1,0 +1,27 @@
+== F1: summary.base.l2_writer cleanup (resolve-time, source=global) ==
+canon sha12 / len        : f832fb8cb5e4 8388
+effective sha12 / len    : cd3ecdfa7441 8344
+known_canon / marker     : True / True
+removed / labels         : 2 ['summary.l2_legacy_voice_reference', 'summary.l2_dvach_vocabulary']
+F1 phrase gone           : True
+dvach phrase gone        : True
+Core voice present       : True
+sarcasm/slang/mat kept   : True
+section header kept      : True
+contracts intact         : True
+idempotent               : True
+custom untouched         : True
+code fallback unchanged  : True
+
+== F3: /persona phrase ==
+phrase                   : ╤П ╨╢╨╕╨▓╨╛╨╣ ╤Г╤З╨░╤Б╤В╨╜╨╕╨║ ╤З╨░╤В╨░: ╨╛╤Б╤В╤А╨╛╤Г╨╝╨╕╨╡, ╨░╨▒╤Б╤Г╤А╨┤ ╨╕ ╤П╨╖╨▓╨╕╤В╨╡╨╗╤М╨╜╨╛╤Б╤В╤М, ╨╜╨╛ ╨╜╨╡ ╨░╨│╤А╨╡╤Б╤Б╨╕╤П. ╤В╨╛╨╜: {tone}. ╨╜╨░╤Б╤В╤А╨╛╨╡╨╜╨╕╨╡ ╨┐╨╛╨┤╤Б╤В╤А╨░╨╕╨▓╨░╤О ╤Б╨░╨╝
+{tone} slot kept         : True
+legacy marker in phrase  : False
+registry legacy_persona  : False
+revision label           : chat-persona-core-voice
+old text caught by guard : True
+
+== registry guard ==
+factory_set_fingerprint  : 7422c0385f7d
+FACTORY_SET_SHA256_12    : 7422c0385f7d
+match                    : True

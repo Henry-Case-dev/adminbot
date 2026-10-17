@@ -257,20 +257,76 @@ def test_registry_version_and_labels_present():
         assert block_id in pr.FACTORY_REVISION_LABELS
 
 
-def test_code_path_legacy_phrase_is_registered_for_replacement():
-    """Код-путь (без PG): фраза видна в реестре и назначена владельцу.
+def test_code_path_persona_phrase_is_core_voice_and_registered():
+    """FIX-SOUL-F1F3 (F3, позитив): /persona отвечает голосом Core.
 
-    Подавление на сборке к ней не применяется (значение не персистентное) —
-    поэтому она обязана быть заменена управляемым Factory Default-шаблоном
-    в слайсе-владельце (SOUL-AMD.3.4/4.6), а не «потеряться» из аудита.
+    Прежняя код-фраза (старая самоидентификация, аудит §4.2) заменена
+    (SOUL-AMD.4.6(в)): реестровая регистрация и владелец сохранены,
+    ``legacy_persona`` снят, маркеров old-persona в тексте нет; слот
+    ``{tone}`` обязателен (рендер ``handlers/direct_chat.py:253``).
     """
+    from services.smartmodule_phrases import CHAT_PERSONA_PHRASE
+
     spec = pr.block("message.smartmodule.chat_persona")
-    assert spec is not None and spec.legacy_persona is True
+    assert spec is not None and spec.legacy_persona is False
     assert spec.pg_key is None
     assert spec.owner_lane == "W3"
     assert spec.migration == "managed_message"
-    assert "W3" in spec.note or spec.ui == "catalog_pending"
-    assert pr.legacy_persona_present(pr.factory_text(spec.block_id))
+    assert spec.ui == "catalog_pending"
+    assert pr.factory_text(spec.block_id) == CHAT_PERSONA_PHRASE
+    assert "{tone}" in CHAT_PERSONA_PHRASE
+    rendered = CHAT_PERSONA_PHRASE.replace("{tone}", "сбалансированный")
+    assert "{tone}" not in rendered
+    assert not pr.legacy_persona_present(CHAT_PERSONA_PHRASE)
+    assert not pr.legacy_persona_present(rendered)
+
+
+def test_persona_phrase_guard_catches_old_text_regression():
+    """FIX-SOUL-F1F3 (F3, негатив): старая фраза снова ловится guard'ом.
+
+    Если прежняя самоидентификация вернётся (во фразу или в модуль-семейство
+    ``message.smartmodule.phrases``), маркер реестра её покажет, а тест
+    полноты упадёт — тихая регрессия невозможна.
+    """
+    from services.smartmodule_phrases import CHAT_PERSONA_PHRASE
+
+    old_phrase = ("я тот самый токсичный бот-абьюзер. тон: {tone}. "
+                  "настроение подстраиваю сам")
+    assert pr.legacy_persona_present(old_phrase) is True
+    assert "бот-абьюзер" not in CHAT_PERSONA_PHRASE
+    family_text = pr.factory_text("message.smartmodule.phrases")
+    assert "токсичный бот-абьюзер" not in family_text
+    assert f"CHAT_PERSONA_PHRASE={CHAT_PERSONA_PHRASE}" in family_text
+
+
+def test_summary_hybrid_l2_canon_legacy_voice_is_stripped():
+    """FIX-SOUL-F1F3 (F1, регрессия): канон Summary hybrid-L2 не несёт старый голос.
+
+    Живой канон (``flags.summary_hybrid_l2_enabled=true``) содержал оборот
+    «сохраняй характер бота и атмосферу конфы» (инструкция сохранять старый
+    голос) и «двачерские обороты»; гейт-маркер расширен ``двач``, добавлены
+    ДВА узких правила. Голос канала — Core; структурные/фактические
+    контракты канона (грамматика, модальность, эвиденция, формат) целы;
+    кастом владельца и кодовый fallback (OFF-паритет W2) не затрагиваются.
+    """
+    canon = pr.factory_text("summary.base.l2_writer")
+    stripped, info = pr.suppress_legacy_speech(canon, source="global")
+    assert info.known_canon is True and info.legacy_present is True
+    assert info.removed == 2, "фикс неполный: должны сработать оба правила"
+    assert info.labels == ("summary.l2_legacy_voice_reference",
+                           "summary.l2_dvach_vocabulary")
+    assert "сохраняй характер бота и атмосферу конфы" not in stripped
+    assert "двачерские обороты" not in stripped
+    assert "держи голос Core" in stripped
+    for needle in ("ГРАММАТИКА", "ФАКТЫ И МОДАЛЬНОСТЬ", "ЭВИДЕНЦИЯ",
+                   "АКЦЕНТЫ", "ЖЁСТКИЕ ПРАВИЛА", "ФИНАЛ",
+                   "ДЛИНА И ДЕДУПЛИКАЦИЯ", "АВТОРЫ И ОТВЕТЫ В ПАКЕТЕ"):
+        assert needle in stripped, needle
+    again, second = pr.suppress_legacy_speech(stripped, source="global")
+    assert again == stripped and second.removed == 0
+    custom = canon + "\n\nправка владельца"
+    assert pr.suppress_legacy_speech(custom, source="global")[0] == custom
+    assert pr.suppress_legacy_speech(canon, source="default")[0] == canon
 
 
 # ═══ Точки рантайма (интеграция резолверов) ════════════════════════════════

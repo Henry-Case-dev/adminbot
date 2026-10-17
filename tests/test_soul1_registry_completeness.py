@@ -109,13 +109,21 @@ def test_legacy_persona_canons_are_registered_with_revision_labels():
             "summary.base.single", "summary.base.narrator",
             "search.base.system", "checkup.base.system",
             "youtube.base.system", "youtube.base.video", "web.base.system",
-            "verbilizer.mode.deep_research", "message.smartmodule.chat_persona"):
+            "verbilizer.mode.deep_research"):
         assert block_id in legacy, f"{block_id} не помечен legacy_persona"
         assert pr.legacy_persona_present(pr.factory_text(block_id)), block_id
     for block_id in legacy:
         assert block_id in pr.FACTORY_REVISION_LABELS, (
             f"{block_id}: фабричная редакция без версии-метки")
         assert pr.factory_revision(block_id).startswith(pr.FACTORY_PREFIX)
+    # FIX-SOUL-F1F3 (18.10.2026, SOUL-AMD.4.6(в)): фраза /persona заменена на
+    # голос Core → реклассифицирована из legacy_persona; остаётся управляемым
+    # Factory Default-сообщением с версионированной фабричной редакцией.
+    persona = pr.block("message.smartmodule.chat_persona")
+    assert persona is not None and persona.legacy_persona is False
+    assert "message.smartmodule.chat_persona" not in legacy
+    assert pr.factory_revision(persona.block_id).startswith(pr.FACTORY_PREFIX)
+    assert not pr.legacy_persona_present(pr.factory_text(persona.block_id))
 
 
 def test_managed_user_facing_templates_registered():

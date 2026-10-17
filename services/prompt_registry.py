@@ -186,7 +186,7 @@ FACTORY_REVISION_LABELS: dict[str, str] = {
     "message.image_generation_fallback": "image-fallback-r1023",
     "message.clarify_media_target": "clarify-media-mca23",
     "message.smartmodule.phrases": "smartmodule-phrases-r1021",
-    "message.smartmodule.chat_persona": "chat-persona-legacy",
+    "message.smartmodule.chat_persona": "chat-persona-core-voice",
     # Personality Core (CORE-DOC): первоисточник SOUL-02 и ручное сжатие
     "core.personality": "soul02-author-full-v1",
     "core.personality.compact": "soul02-compact-v1",
@@ -625,14 +625,15 @@ _CODE_BLOCKS: tuple[PromptBlockSpec, ...] = (
             "message.image_generation_fallback); замена текста — W3, "
             "здесь только регистрация + видимость в реестре."),
     _b("message.smartmodule.chat_persona",
-       "Старая персона в шаблонных ответах smartmodule (дубль личности "
-       "из аудита §4.2) — user-visible, требует замены на голос Core.",
+       "Самоидентификация в ответе /persona (smartmodule) — голос Core: "
+       "прежняя legacy-фраза заменена (SOUL-AMD.4.6(в), FIX-SOUL-F1F3).",
        "message", "code", "services.smartmodule_phrases.CHAT_PERSONA_PHRASE",
        ("handlers/direct_chat.py:59", "handlers/direct_chat.py:253"),
        "managed_message/smartmodule", owner_lane="W3", speech=True,
-       migration="managed_message", legacy_persona=True, ui="catalog_pending",
+       migration="managed_message", ui="catalog_pending",
        note="Код-путь (не PG): подавление на сборке не применяется — "
-            "замена на управляемый шаблон в W3 (fallback/постпроцессоры)."),
+            "фраза заменена на голос Core (FIX-SOUL-F1F3, 18.10.2026); "
+            "дальнейшие правки текста — управляемым шаблоном в W3."),
     _b("message.smartmodule.phrases",
        "Семейство шаблонных пользовательских фраз smartmodule (память, "
        "стиль, тон): все UPPER-константы модуля под одним блоком реестра.",
@@ -1428,7 +1429,11 @@ def factory_set_fingerprint() -> str:
 #: (``experience.humor_window.system``) и 4 жанровые рамки авторских текстов
 #: (``genre.*.rules``, SOUL-AMD.2.6) — 12 новых фабричных редакций;
 #: было ``96da8c7284a5``, стало ``0fc99f73d646``.
-FACTORY_SET_SHA256_12 = "0fc99f73d646"
+#: Бамп FIX-SOUL-F1F3 (18.10.2026, review-payload-verify F3): фраза /persona
+#: ``CHAT_PERSONA_PHRASE`` заменена на голос Core (была «я тот самый
+#: токсичный бот-абьюзер…», SOUL-AMD.4.6(в)); было ``0fc99f73d646``,
+#: стало ``7422c0385f7d``.
+FACTORY_SET_SHA256_12 = "7422c0385f7d"
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -1727,6 +1732,20 @@ _LEGACY_PERSONA_RULES_RAW: tuple[tuple[str, str, str], ...] = (
     ("persona.direct_style_label",
      r"в саркастично-токсичной манере",
      "в саркастичной манере"),
+    # 10. FIX-SOUL-F1F3 (18.10.2026, review-payload-verify F1): канон Summary
+    #     hybrid-L2: «сохраняй характер бота и атмосферу конфы» — инструкция
+    #     сохранять СТАРЫЙ голос. Голос канала задаёт Core (единственный
+    #     источник характера); оборот заменяется ссылкой на него. Заголовок
+    #     секции «СТИЛЬ (характер бота)» — метка раздела, не определение.
+    ("summary.l2_legacy_voice_reference",
+     r"сохраняй характер бота и атмосферу конфы",
+     "держи голос Core"),
+    # 11. FIX-SOUL-F1F3: тот же канон: «двачерские обороты» — ссылка на
+    #     старую речевую среду; разрешение сарказма/сленга/мата
+    #     (функциональная часть списка) сохраняется.
+    ("summary.l2_dvach_vocabulary",
+     r"Сарказм, интернет-сленг, двачерские обороты и мат разрешены",
+     "Сарказм, интернет-сленг и мат разрешены"),
 )
 
 LEGACY_PERSONA_RULES: tuple[tuple[str, "re.Pattern[str]", str], ...] = tuple(
@@ -1734,8 +1753,13 @@ LEGACY_PERSONA_RULES: tuple[tuple[str, "re.Pattern[str]", str], ...] = tuple(
     for label, pattern, replacement in _LEGACY_PERSONA_RULES_RAW)
 
 #: Быстрый маркер «в тексте есть определение старой личности».
+#: FIX-SOUL-F1F3 (18.10.2026, review-payload-verify F1): добавлен ``двач`` —
+#: канон Summary hybrid-L2 несёт «двачерские обороты» и не содержит прочих
+#: маркеров, из-за чего гейт не срабатывал и «сохраняй характер бота…» не
+#: вычищался. Все остальные каноны с ``двач`` уже имеют старые маркеры, так
+#: что расширение не меняет их обработку.
 _legacy_persona_marker_re = re.compile(
-    r"токсичн|бот-абьюзер|унизить|унизив", re.IGNORECASE | re.UNICODE)
+    r"токсичн|бот-абьюзер|унизить|унизив|двач", re.IGNORECASE | re.UNICODE)
 
 _BLANK_RUN_RE = re.compile(r"\n{3,}")
 
