@@ -1,0 +1,1239 @@
+SOUL-PAYLOAD-VERIFY stand output
+meta: {"candidate_worktree_head": "b4ea67798d008b61ed0c2baf62f359689e39f29b", "services_vs_6094a2cf_diff": "<empty>", "registry_version": "soul1-w3-1", "factory_set": "0fc99f73d646", "prod_snapshot": "2026-10-17 19:04:41 UTC, prod 0b7a0aca (2.58.84)", "mode": "offline reconstruction; SOUL axes modeled ON (env+PG)", "soul_env_set": {"UNIFIED_COMPOSER_ENABLED": "1", "CHARACTER_CORE_ENABLED": "1", "SPEECH_STYLE_POLICY_ENABLED": "1", "HUMOR_CRAFT_ENABLED": "1", "HUMOR_LIBRARY_ENABLED": "1", "HUMOR_FEEDBACK_ENABLED": "1"}, "soul_flags_set": {"flags.unified_composer_enabled": true, "flags.character_core_enabled": true, "flags.speech_style_policy_enabled": true, "flags.humor_craft_enabled": true, "flags.humor_library_enabled": true, "flags.humor_feedback_enabled": true}, "chat": -1002661910336}
+
+== reconstruction ==
+{"total": 25, "reconstructed": 24, "unknown": 1}
+UNKNOWN prompts.summary_editor_system_prompt len=2023 sha=6a1f3432889c markers=0
+
+== keys effective (withheld/suppressed) ==
+prompts.checkup_system_prompt                              res=True withheld=True removed=5 eff=b5295b0c250a mk={} diag=persisted_value_withheld,provenance_missing,persisted_legacy_persona_marker
+prompts.compress_system_prompt                             res=True withheld=False removed=0 eff=746e75692d11 mk={} diag=
+prompts.direct_chat_synthesizer_system_prompt              res=True withheld=False removed=0 eff=6bae7eb26bc3 mk={} diag=
+prompts.direct_chat_system_prompt                          res=True withheld=True removed=2 eff=45b531879b50 mk={} diag=persisted_value_withheld,provenance_missing,persisted_legacy_persona_marker
+prompts.direct_chat_verbalizer_system_prompt               res=True withheld=True removed=1 eff=3c4e0608968f mk={} diag=persisted_value_withheld,provenance_missing,persisted_legacy_persona_marker
+prompts.direct_l1_planner_system_prompt                    res=True withheld=False removed=0 eff=99a207313889 mk={} diag=
+prompts.extract_system_prompt                              res=True withheld=False removed=0 eff=3459d3580788 mk={} diag=
+prompts.factcheck_analyst_system_prompt                    res=True withheld=False removed=0 eff=b8c21caf1aab mk={} diag=
+prompts.factcheck_system_prompt                            res=True withheld=True removed=4 eff=2f61c20e3eaa mk={} diag=persisted_value_withheld,provenance_missing,persisted_legacy_persona_marker
+prompts.factcheck_verbalizer_system_prompt                 res=True withheld=True removed=2 eff=332c39223389 mk={} diag=persisted_value_withheld,provenance_missing,persisted_legacy_persona_marker
+prompts.search_system_prompt                               res=True withheld=True removed=5 eff=b74c40b30ec1 mk={} diag=persisted_value_withheld,provenance_missing,persisted_legacy_persona_marker
+prompts.summary_cover_style                                res=True withheld=False removed=0 eff=19d2dd88086e mk={} diag=
+prompts.summary_cover_style_id                             res=True withheld=False removed=0 eff=e3b0c44298fc mk={} diag=effective_empty
+prompts.summary_editor_system_prompt                       res=False withheld=None removed=None eff=None mk=None diag=
+prompts.summary_l1_clusterizer_system_prompt               res=True withheld=False removed=0 eff=45117539651c mk={} diag=
+prompts.summary_l2_writer_system_prompt                    res=True withheld=False removed=0 eff=f832fb8cb5e4 mk={'двач': 1} diag=
+prompts.summary_narrator_system_prompt                     res=True withheld=True removed=1 eff=95141f190d8b mk={} diag=persisted_value_withheld,provenance_missing,persisted_legacy_persona_marker
+prompts.summary_system_prompt                              res=True withheld=True removed=4 eff=5d991ee57a74 mk={} diag=persisted_value_withheld,provenance_missing,persisted_legacy_persona_marker
+prompts.verbilizer_default_mode                            res=True withheld=False removed=0 eff=645dfcb4d1d2 mk={} diag=
+prompts.verbilizer_mode_casual                             res=True withheld=False removed=0 eff=6e5c967b3c08 mk={} diag=
+prompts.verbilizer_mode_deep_research                      res=True withheld=False removed=1 eff=73c6c6ee0a7a mk={} diag=legacy_speech_suppressed
+prompts.verbilizer_mode_serious                            res=True withheld=False removed=0 eff=e85db3cb382f mk={} diag=
+prompts.webpage_system_prompt                              res=True withheld=True removed=4 eff=6820550d641f mk={} diag=persisted_value_withheld,provenance_missing,persisted_legacy_persona_marker
+prompts.youtube_system_prompt                              res=True withheld=True removed=4 eff=fd5967747978 mk={} diag=persisted_value_withheld,provenance_missing,persisted_legacy_persona_marker
+prompts.youtube_video_system_prompt                        res=True withheld=True removed=4 eff=5d6600996eb9 mk={} diag=persisted_value_withheld,provenance_missing,persisted_legacy_persona_marker
+
+== withheld view ==
+prompts.factcheck_system_prompt                            provenance_missing
+prompts.search_system_prompt                               provenance_missing
+prompts.summary_system_prompt                              provenance_missing
+prompts.checkup_system_prompt                              provenance_missing
+prompts.direct_chat_system_prompt                          provenance_missing
+prompts.youtube_system_prompt                              provenance_missing
+prompts.youtube_video_system_prompt                        provenance_missing
+prompts.webpage_system_prompt                              provenance_missing
+prompts.factcheck_verbalizer_system_prompt                 provenance_missing
+prompts.summary_narrator_system_prompt                     provenance_missing
+prompts.direct_chat_verbalizer_system_prompt               provenance_missing
+
+== path: direct ==
+{
+ "tool_phase_base": {
+  "source": "default",
+  "withheld": true,
+  "withheld_reason": "provenance_missing",
+  "sha12": "45b531879b50",
+  "chars": 5216,
+  "markers": {},
+  "diagnostics": [
+   "persisted_value_withheld",
+   "provenance_missing",
+   "persisted_legacy_persona_marker"
+  ],
+  "contracts": {
+   "ИНСТРУМЕНТЫ": true,
+   "ПРИОРИТЕТЫ": true,
+   "АНТИ-ГАЛЛЮЦИНАЦИИ": true,
+   "ЕСЛИ ПОЙМАЛИ НА НЕСТЫКОВКЕ": true,
+   "query_chat_memory": true,
+   "execute_web_search": true,
+   "АНТИ-БОТ": true,
+   "АСИММЕТРИЯ": true
+  }
+ },
+ "l2_base": {
+  "sha12": "3c4e0608968f",
+  "chars": 1620,
+  "markers": {},
+  "contracts": {
+   "СИСТЕМНАЯ РОЛЬ": true,
+   "ОЖИДАЕМАЯ ПОЛНОТА": true,
+   "НЕСТЫКОВКЕ": false,
+   "ТИПОГРАФИКА": true
+  }
+ },
+ "identity_text_synthetic": {
+  "sha12": "46d4c2bebe0e",
+  "chars": 85,
+  "markers": {}
+ },
+ "gates": {
+  "unified_composer_enabled": true,
+  "character_core_enabled": true,
+  "speech_style_policy_enabled": true,
+  "humor_library_enabled": true,
+  "humor_feedback_enabled": true,
+  "humor_craft_enabled": true,
+  "persona_enabled": true,
+  "character_layers_enabled": true,
+  "smart_verbalizer_modes_enabled": true,
+  "response_plan_enabled": true
+ },
+ "core_ref": {
+  "source": "default",
+  "origin": "factory",
+  "level": "compact",
+  "reason": "factory_default",
+  "revision": "fac:ff28f0720a23",
+  "chars": 1934,
+  "sha12": "ff28f0720a23",
+  "markers": {},
+  "contains_authorial_opening": true
+ },
+ "manifest_tool_phase": {
+  "profile": "speech_plain",
+  "writer": "tool_phase",
+  "manifest_id": "2a7b9589f0bba68b",
+  "system_sha12": "f2fac054425b",
+  "system_chars": 7427,
+  "tokens_total": 1857,
+  "markers": {},
+  "layers": [
+   {
+    "layer": "channel_contract",
+    "block_id": "channel_canon",
+    "owner": "channel",
+    "source": "default",
+    "revision": "45b531879b50",
+    "chars": 5216,
+    "rendered": true,
+    "skip_reason": "",
+    "detail": "",
+    "conflict": ""
+   },
+   {
+    "layer": "channel_contract",
+    "block_id": "mode_block",
+    "owner": "legacy_canon",
+    "source": "code",
+    "revision": "e85db3cb382f",
+    "chars": 186,
+    "rendered": true,
+    "skip_reason": "",
+    "detail": "",
+    "conflict": ""
+   },
+   {
+    "layer": "core",
+    "block_id": "core",
+    "owner": "core",
+    "source": "default",
+    "revision": "fac:ff28f0720a23",
+    "chars": 1934,
+    "rendered": true,
+    "skip_reason": "",
+    "detail": "level=compact reason=factory_default origin=factory words=249 doc=factory",
+    "conflict": ""
+   },
+   {
+    "layer": "identity",
+    "block_id": "identity",
+    "owner": "persona",
+    "source": "chat",
+    "revision": "46d4c2bebe0e9135",
+    "chars": 85,
+    "rendered": true,
+    "skip_reason": "",
+    "detail": "",
+    "conflict": ""
+   },
+   {
+    "layer": "self_model_traits",
+    "block_id": "self_model_traits",
+    "owner": "self_model",
+    "source": "code",
+    "revision": "",
+    "chars": 0,
+    "rendered": false,
+    "skip_reason": "self_model_folded_into_identity",
+    "detail": "",
+    "conflict": ""
+   },
+   {
+    "layer": "context_lessons",
+    "block_id": "context_lessons",
+    "owner": "experience",
+    "source": "code",
+    "revision": "",
+    "chars": 0,
+    "rendered": false,
+    "skip_reason": "lessons_absent",
+    "detail": "",
+    "conflict": ""
+   },
+   {
+    "layer": "response_plan",
+    "block_id": "response_plan",
+    "owner": "l1",
+    "source": "code",
+    "revision": "",
+    "chars": 0,
+    "rendered": false,
+    "skip_reason": "response_plan_absent",
+    "detail": "",
+    "conflict": ""
+   },
+   {
+    "layer": "expression",
+    "block_id": "expression",
+    "owner": "core",
+    "source": "global",
+    "revision": "",
+    "chars": 0,
+    "rendered": false,
+    "skip_reason": "expression_absent",
+    "detail": "",
+    "conflict": ""
+   },
+   {
+    "layer": "humor_craft",
+    "block_id": "humor_craft",
+    "owner": "library",
+    "source": "code",
+    "revision": "",
+    "chars": 0,
+    "rendered": false,
+    "skip_reason": "humor_no_strategy",
+    "detail": "",
+    "conflict": ""
+   },
+   {
+    "layer": "few_shot",
+    "block_id": "few_shot",
+    "owner": "library",
+    "source": "code",
+    "revision": "",
+    "chars": 0,
+    "rendered": false,
+    "skip_reason": "samples_absent",
+    "detail": "",
+    "conflict": ""
+   },
+   {
+    "layer": "style_policy_hint",
+    "block_id": "style_policy_hint",
+    "owner": "style_policy",
+    "source": "default",
+    "revision": "",
+    "chars": 0,
+    "rendered": false,
+    "skip_reason": "style_policy_absent",
+    "detail": "",
+    "conflict": ""
+   },
+   {
+    "layer": "channel_output",
+    "block_id": "channel_output",
+    "owner": "channel",
+    "source": "code",
+    "revision": "",
+    "chars": 0,
+    "rendered": false,
+    "skip_reason": "channel_output_not_required",
+    "detail": "",
+    "conflict": ""
+   }
+  ],
+  "conflicts": [],
+  "versions": {
+   "core": "fac:ff28f0720a23",
+   "core_detail": "compact:factory_default",
+   "style_policy": "",
+   "identity": "46d4c2bebe0e9135",
+   "self_model": "",
+   "lessons": "",
+   "samples_library": "",
+   "response_plan": "",
+   "channel": "speech_plain/plain/html/45b531879b50",
+   "composer": "w2"
+  },
+  "flags": {
+   "unified_composer_enabled": true,
+   "character_core_enabled": true,
+   "speech_style_policy_enabled": true,
+   "humor_library_enabled": true,
+   "humor_feedback_enabled": true,
+   "humor_craft_enabled": true,
+   "persona_enabled": true,
+   "character_layers_enabled": true,
+   "smart_verbalizer_modes_enabled": true,
+   "response_plan_enabled": true
+  }
+ },
+ "manifest_l2_casual": {
+  "profile": "speech_plain",
+  "writer": "l2_writer",
+  "manifest_id": "b17cafcefad8028d",
+  "system_sha12": "a396369fd5cc",
+  "system_chars": 3874,
+  "tokens_total": 969,
+  "markers": {},
+  "layers": [
+   {
+    "layer": "channel_contract",
+    "block_id": "channel_canon",
+    "owner": "channel",
+    "source": "global",
+    "revision": "3c4e0608968f",
+    "chars": 1620,
+    "rendered": true,
+    "skip_reason": "",
+    "detail": "",
+    "conflict": ""
+   },
+   {
+    "layer": "channel_contract",
+    "block_id": "mode_block",
+    "owner": "legacy_canon",
+    "source": "code",
+    "revision": "6e5c967b3c08",
+    "chars": 229,
+    "rendered": true,
+    "skip_reason": "",
+    "detail": "",
+    "conflict": ""
+   },
+   {
+    "layer": "core",
+    "block_id": "core",
+    "owner": "core",
+    "source": "default",
+    "revision": "fac:ff28f0720a23",
+    "chars": 1934,
+    "rendered": true,
+    "skip_reason": "",
+    "detail": "level=compact reason=factory_default origin=factory words=249 doc=factory",
+    "conflict": ""
+   },
+   {
+    "layer": "identity",
+    "block_id": "identity",
+    "owner": "persona",
+    "source": "chat",
+    "revision": "46d4c2bebe0e9135",
+    "chars": 85,
+    "rendered": true,
+    "skip_reason": "",
+    "detail": "",
+    "conflict": ""
+   },
+   {
+    "layer": "self_model_traits",
+    "block_id": "self_model_traits",
+    "owner": "self_model",
+    "source": "code",
+    "revision": "",
+    "chars": 0,
+    "rendered": false,
+    "skip_reason": "self_model_folded_into_identity",
+    "detail": "",
+    "conflict": ""
+   },
+   {
+    "layer": "context_lessons",
+    "block_id": "context_lessons",
+    "owner": "experience",
+    "source": "code",
+    "revision": "",
+    "chars": 0,
+    "rendered": false,
+    "skip_reason": "lessons_absent",
+    "detail": "",
+    "conflict": ""
+   },
+   {
+    "layer": "response_plan",
+    "block_id": "response_plan",
+    "owner": "l1",
+    "source": "code",
+    "revision": "",
+    "chars": 0,
+    "rendered": false,
+    "skip_reason": "response_plan_absent",
+    "detail": "",
+    "conflict": ""
+   },
+   {
+    "layer": "expression",
+    "block_id": "expression",
+    "owner": "core",
+    "source": "global",
+    "revision": "",
+    "chars": 0,
+    "rendered": false,
+    "skip_reason": "expression_absent",
+    "detail": "",
+    "conflict": ""
+   },
+   {
+    "layer": "humor_craft",
+    "block_id": "humor_craft",
+    "owner": "library",
+    "source": "code",
+    "revision": "",
+    "chars": 0,
+    "rendered": false,
+    "skip_reason": "humor_no_strategy",
+    "detail": "",
+    "conflict": ""
+   },
+   {
+    "layer": "few_shot",
+    "block_id": "few_shot",
+    "owner": "library",
+    "source": "code",
+    "revision": "",
+    "chars": 0,
+    "rendered": false,
+    "skip_reason": "samples_absent",
+    "detail": "",
+    "conflict": ""
+   },
+   {
+    "layer": "style_policy_hint",
+    "block_id": "style_policy_hint",
+    "owner": "style_policy",
+    "source": "default",
+    "revision": "",
+    "chars": 0,
+    "rendered": false,
+    "skip_reason": "style_policy_absent",
+    "detail": "",
+    "conflict": ""
+   },
+   {
+    "layer": "channel_output",
+    "block_id": "channel_output",
+    "owner": "channel",
+    "source": "code",
+    "revision": "",
+    "chars": 0,
+    "rendered": false,
+    "skip_reason": "channel_output_not_required",
+    "detail": "",
+    "conflict": ""
+   }
+  ],
+  "conflicts": [],
+  "versions": {
+   "core": "fac:ff28f0720a23",
+   "core_detail": "compact:factory_default",
+   "style_policy": "",
+   "identity": "46d4c2bebe0e9135",
+   "self_model": "",
+   "lessons": "",
+   "samples_library": "",
+   "response_plan": "",
+   "channel": "speech_plain/plain/html/3c4e0608968f",
+   "composer": "w2"
+  },
+  "flags": {
+   "unified_composer_enabled": true,
+   "character_core_enabled": true,
+   "speech_style_policy_enabled": true,
+   "humor_library_enabled": true,
+   "humor_feedback_enabled": true,
+   "humor_craft_enabled": true,
+   "persona_enabled": true,
+   "character_layers_enabled": true,
+   "smart_verbalizer_modes_enabled": true,
+   "response_plan_enabled": true
+  }
+ },
+ "manifest_l2_with_humor": {
+  "profile": "speech_plain",
+  "writer": "l2_writer",
+  "manifest_id": "4e40bc52f295c54b",
+  "system_sha12": "adecd3938d4f",
+  "system_chars": 4415,
+  "tokens_total": 1104,
+  "markers": {},
+  "layers": [
+   {
+    "layer": "channel_contract",
+    "block_id": "channel_canon",
+    "owner": "channel",
+    "source": "global",
+    "revision": "3c4e0608968f",
+    "chars": 1620,
+    "rendered": true,
+    "skip_reason": "",
+    "detail": "",
+    "conflict": ""
+   },
+   {
+    "layer": "core",
+    "block_id": "core",
+    "owner": "core",
+    "source": "default",
+    "revision": "fac:ff28f0720a23",
+    "chars": 1934,
+    "rendered": true,
+    "skip_reason": "",
+    "detail": "level=compact reason=factory_default origin=factory words=249 doc=factory",
+    "conflict": ""
+   },
+   {
+    "layer": "identity",
+    "block_id": "identity",
+    "owner": "persona",
+    "source": "chat",
+    "revision": "46d4c2bebe0e9135",
+    "chars": 85,
+    "rendered": true,
+    "skip_reason": "",
+    "detail": "",
+    "conflict": ""
+   },
+   {
+    "layer": "self_model_traits",
+    "block_id": "self_model_traits",
+    "owner": "self_model",
+    "source": "code",
+    "revision": "",
+    "chars": 0,
+    "rendered": false,
+    "skip_reason": "self_model_folded_into_identity",
+    "detail": "",
+    "conflict": ""
+   },
+   {
+    "layer": "context_lessons",
+    "block_id": "context_lessons",
+    "owner": "experience",
+    "source": "code",
+    "revision": "",
+    "chars": 0,
+    "rendered": false,
+    "skip_reason": "lessons_absent",
+    "detail": "",
+    "conflict": ""
+   },
+   {
+    "layer": "response_plan",
+    "block_id": "response_plan",
+    "owner": "l1",
+    "source": "code",
+    "revision": "stand",
+    "chars": 33,
+    "rendered": true,
+    "skip_reason": "",
+    "detail": "",
+    "conflict": "one_word_not_supported"
+   },
+   {
+    "layer": "expression",
+    "block_id": "expression",
+    "owner": "core",
+    "source": "global",
+    "revision": "",
+    "chars": 0,
+    "rendered": false,
+    "skip_reason": "expression_absent",
+    "detail": "",
+    "conflict": ""
+   },
+   {
+    "layer": "humor_craft",
+    "block_id": "humor_craft",
+    "owner": "library",
+    "source": "default",
+    "revision": "eace9c9e1240",
+    "chars": 735,
+    "rendered": true,
+    "skip_reason": "",
+    "detail": "",
+    "conflict": ""
+   },
+   {
+    "lay
+
+== path: initiative ==
+{
+ "l1_decision_base": {
+  "sha12": "99a207313889",
+  "chars": 2423,
+  "markers": {}
+ },
+ "l1_machine_manifest": {
+  "profile": "machine_json",
+  "writer": "initiative_l1",
+  "manifest_id": "2a8f609a9b8ffde2",
+  "system_sha12": "99a207313889",
+  "system_chars": 2423,
+  "tokens_total": 606,
+  "markers": {},
+  "layers": [
+   {
+    "layer": "channel_contract",
+    "block_id": "channel_canon",
+    "owner": "channel",
+    "source": "default",
+    "revision": "99a207313889",
+    "chars": 2423,
+    "rendered": true,
+    "skip_reason": "",
+    "detail": "",
+    "conflict": ""
+   },
+   {
+    "layer": "core",
+    "block_id": "core",
+    "owner": "core",
+    "source": "code",
+    "revision": "",
+    "chars": 0,
+    "rendered": false,
+    "skip_reason": "profile:machine_stage",
+    "detail": "",
+    "conflict": ""
+   },
+   {
+    "layer": "identity",
+    "block_id": "identity",
+    "owner": "persona",
+    "source": "code",
+    "revision": "",
+    "chars": 0,
+    "rendered": false,
+    "skip_reason": "profile:machine_stage",
+    "detail": "",
+    "conflict": ""
+   },
+   {
+    "layer": "self_model_traits",
+    "block_id": "self_model_traits",
+    "owner": "self_model",
+    "source": "code",
+    "revision": "",
+    "chars": 0,
+    "rendered": false,
+    "skip_reason": "profile:machine_stage",
+    "detail": "",
+    "conflict": ""
+   },
+   {
+    "layer": "context_lessons",
+    "block_id": "context_lessons",
+    "owner": "legacy_canon",
+    "source": "code",
+    "revision": "",
+    "chars": 0,
+    "rendered": false,
+    "skip_reason": "profile:machine_stage",
+    "detail": "",
+    "conflict": ""
+   },
+   {
+    "layer": "response_plan",
+    "block_id": "response_plan",
+    "owner": "l1",
+    "source": "code",
+    "revision": "",
+    "chars": 0,
+    "rendered": false,
+    "skip_reason": "profile:machine_stage",
+    "detail": "",
+    "conflict": ""
+   },
+   {
+    "layer": "expression",
+    "block_id": "expression",
+    "owner": "core",
+    "source": "code",
+    "revision": "",
+    "chars": 0,
+    "rendered": false,
+    "skip_reason": "profile:machine_stage",
+    "detail": "",
+    "conflict": ""
+   },
+   {
+    "layer": "humor_craft",
+    "block_id": "humor_craft",
+    "owner": "library",
+    "source": "code",
+    "revision": "",
+    "chars": 0,
+    "rendered": false,
+    "skip_reason": "profile:machine_stage",
+    "detail": "",
+    "conflict": ""
+   },
+   {
+    "layer": "few_shot",
+    "block_id": "few_shot",
+    "owner": "library",
+    "source": "code",
+    "revision": "",
+    "chars": 0,
+    "rendered": false,
+    "skip_reason": "profile:machine_stage",
+    "detail": "",
+    "conflict": ""
+   },
+   {
+    "layer": "style_policy_hint",
+    "block_id": "style_policy_hint",
+    "owner": "style_policy",
+    "source": "code",
+    "revision": "",
+    "chars": 0,
+    "rendered": false,
+    "skip_reason": "profile:machine_stage",
+    "detail": "",
+    "conflict": ""
+   },
+   {
+    "layer": "channel_output",
+    "block_id": "channel_output",
+    "owner": "channel",
+    "source": "code",
+    "revision": "",
+    "chars": 0,
+    "rendered": false,
+    "skip_reason": "profile:machine_stage",
+    "detail": "",
+    "conflict": ""
+   }
+  ],
+  "conflicts": [],
+  "versions": {
+   "core": "",
+   "core_detail": "",
+   "style_policy": "",
+   "identity": "",
+   "self_model": "",
+   "lessons": "",
+   "samples_library": "",
+   "response_plan": "",
+   "channel": "machine_json/plain/text/99a207313889",
+   "composer": "w2"
+  },
+  "flags": {
+   "unified_composer_enabled": true,
+   "character_core_enabled": true,
+   "speech_style_policy_enabled": true,
+   "humor_library_enabled": true,
+   "humor_feedback_enabled": true,
+   "humor_craft_enabled": true,
+   "persona_enabled": true,
+   "character_layers_enabled": true,
+   "smart_verbalizer_modes_enabled": true,
+   "response_plan_enabled": true
+  }
+ },
+ "l2_manifest": {
+  "profile": "speech_plain",
+  "writer": "l2_writer",
+  "manifest_id": "d1e00cbd1cb9dfa3",
+  "system_sha12": "253e9ae18bfd",
+  "system_chars": 3823,
+  "tokens_total": 956,
+  "markers": {},
+  "layers": [
+   {
+    "layer": "channel_contract",
+    "block_id": "channel_canon",
+    "owner": "channel",
+    "source": "global",
+    "revision": "3c4e0608968f",
+    "chars": 1620,
+    "rendered": true,
+    "skip_reason": "",
+    "detail": "",
+    "conflict": ""
+   },
+   {
+    "layer": "channel_contract",
+    "block_id": "mode_block",
+    "owner": "legacy_canon",
+    "source": "code",
+    "revision": "6e5c967b3c08",
+    "chars": 229,
+    "rendered": true,
+    "skip_reason": "",
+    "detail": "",
+    "conflict": ""
+   },
+   {
+    "layer": "core",
+    "block_id": "core",
+    "owner": "core",
+    "source": "default",
+    "revision": "fac:ff28f0720a23",
+    "chars": 1934,
+    "rendered": true,
+    "skip_reason": "",
+    "detail": "level=compact reason=factory_default origin=factory words=249 doc=factory",
+    "conflict": ""
+   },
+   {
+    "layer": "identity",
+    "block_id": "identity",
+    "owner": "persona",
+    "source": "chat",
+    "revision": "3bbf5d06d6da2e9d",
+    "chars": 34,
+    "rendered": true,
+    "skip_reason": "",
+    "detail": "",
+    "conflict": ""
+   },
+   {
+    "layer": "self_model_traits",
+    "block_id": "self_model_traits",
+    "owner": "self_model",
+    "source": "code",
+    "revision": "",
+    "chars": 0,
+    "rendered": false,
+    "skip_reason": "self_model_folded_into_identity",
+    "detail": "",
+    "conflict": ""
+   },
+   {
+    "layer": "context_lessons",
+    "block_id": "context_lessons",
+    "owner": "experience",
+    "source": "code",
+    "revision": "",
+    "chars": 0,
+    "rendered": false,
+    "skip_reason": "lessons_absent",
+    "detail": "",
+    "conflict": ""
+   },
+   {
+    "layer": "response_plan",
+    "block_id": "response_plan",
+    "owner": "l1",
+    "source": "code",
+    "revision": "",
+    "chars": 0,
+    "rendered": false,
+    "skip_reason": "response_plan_absent",
+    "detail": "",
+    "conflict": ""
+   },
+   {
+    "layer": "expression",
+    "block_id": "expression",
+    "owner": "core",
+    "source": "global",
+    "revision": "",
+    "chars": 0,
+    "rendered": false,
+    "skip_reason": "expression_absent",
+    "detail": "",
+    "conflict": ""
+   },
+   {
+    "layer": "humor_craft",
+    "block_id": "humor_craft",
+    "owner": "library",
+    "source": "code",
+    "revision": "",
+    "chars": 0,
+    "rendered": false,
+    "skip_reason": "humor_no_strategy",
+    "detail": "",
+    "conflict": ""
+   },
+   {
+    "layer": "few_shot",
+    "block_id": "few_shot",
+    "owner": "library",
+    "source": "code",
+    "revision": "",
+    "chars": 0,
+    "rendered": false,
+    "skip_reason": "samples_absent",
+    "detail": "",
+    "conflict": ""
+   },
+   {
+    "layer": "style_policy_hint",
+    "block_id": "style_policy_hint",
+    "owner": "style_policy",
+    "source": "default",
+    "revision": "",
+    "chars": 0,
+    "rendered": false,
+    "skip_reason": "style_policy_absent",
+    "detail": "",
+    "conflict": ""
+   },
+   {
+    "layer": "channel_output",
+    "block_id": "channel_output",
+    "owner": "channel",
+    "source": "code",
+    "revision": "",
+    "chars": 0,
+    "rendered": false,
+    "skip_reason": "channel_output_not_required",
+    "detail": "",
+    "conflict": ""
+   }
+  ],
+  "conflicts": [],
+  "versions": {
+   "core": "fac:ff28f0720a23",
+   "core_detail": "compact:factory_default",
+   "style_policy": "",
+   "identity": "3bbf5d06d6da2e9d",
+   "self_model": "",
+   "lessons": "",
+   "samples_library": "",
+   "response_plan": "",
+   "channel": "speech_plain/plain/html/3c4e0608968f",
+   "composer": "w2"
+  },
+  "flags": {
+   "unified_composer_enabled": true,
+   "character_core_enabled": true,
+   "speech_style_policy_enabled": true,
+   "humor_library_enabled": true,
+   "humor_feedback_enabled": true,
+   "humor_craft_enabled": true,
+   "persona_enabled": true,
+   "character_layers_enabled": true,
+   "smart_verbalizer_modes_enabled": true,
+   "response_plan_enabled": true
+  }
+ }
+}
+
+== path: factcheck ==
+{
+ "single": {
+  "sha12": "2f61c20e3eaa",
+  "chars": 4466,
+  "markers": {},
+  "contracts": {
+   "вердикт": true,
+   "АНТИ-БОТ": true,
+   "АСИММЕТРИЯ": true,
+   "двача": false
+  }
+ },
+ "analyst": {
+  "sha12": "b8c21caf1aab",
+  "chars": 2078,
+  "markers": {}
+ },
+ "verbalizer_system": {
+  "sha12": "011d70a950a3",
+  "chars": 1817,
+  "markers": {},
+  "contracts": {
+   "ТИПОГРАФИКА": true,
+   "АНТИ-БОТ": true
+  }
+ },
+ "modes_off_prev_branch": {
+  "sha12": "4d7b9dfc72fe",
+  "chars": 1493,
+  "markers": {
+   "токсичн": 1,
+   "унизить": 1,
+   "двач": 1
+  }
+ }
+}
+
+== path: summary ==
+{
+ "legacy_single": {
+  "sha12": "5d991ee57a74",
+  "chars": 3376,
+  "markers": {},
+  "contracts": {
+   "<chat_history>": true,
+   "АНТИ-БОТ": true,
+   "саммари": true
+  }
+ },
+ "narrator_system": {
+  "sha12": "33f1ea2438a5",
+  "chars": 2005,
+  "markers": {}
+ },
+ "l1_clusterizer": {
+  "sha12": "45117539651c",
+  "chars": 3312,
+  "markers": {},
+  "contracts": {
+   "кластеризатор": true,
+   "JSON": true
+  }
+ },
+ "l2_writer": {
+  "sha12": "f832fb8cb5e4",
+  "chars": 8388,
+  "markers": {
+   "двач": 1
+  },
+  "legacy_voice": {
+   "phase_saved_by_w_rule": true,
+   "legacy_voice_phrases": {
+    "характер бота": true,
+    "двачерские обороты": true,
+    "атмосферу конфы": true
+   },
+   "withholding_required": false,
+   "legacy_persona_flag": false,
+   "suppression_labels": [],
+   "conclusion": "reachable legacy-voice reference in the live canon; NOT covered by the 9 removal rules and NOT withheld"
+  },
+  "contracts": {
+   "ГРАММАТИКА": true,
+   "АКЦЕНТЫ": true,
+   "ФОРМАТ ОТВЕТА": true
+  }
+ },
+ "editor_custom": {
+  "reconstructible": false,
+  "snapshot_sha12": "6a1f3432889c",
+  "snapshot_len": 2023,
+  "snapshot_markers": 0,
+  "known_canon": null,
+  "suppression": "no-op unless bytes match a known canon (snapshot says they don't)"
+ },
+ "chat_override_summary_system_prompt": {
+  "chat": -1002661910336,
+  "snapshot_sha12": "141016a95b95",
+  "snapshot_len": 3484,
+  "consumed_by_runtime_summary_path": false,
+  "note": "summary path resolves prompts.summary_system_prompt via hot(global) only; chat layer is not read (resolve_prompt)"
+ }
+}
+
+== path: fallback ==
+{
+ "composer_fail_open": {
+  "system_source": "base_prompt(effective, suppressed)",
+  "sha12": "45b531879b50",
+  "chars": 5216,
+  "markers": {},
+  "layers": [
+   {
+    "layer": "channel_contract",
+    "block_id": "channel_canon",
+    "skip_reason": "compose_error"
+   }
+  ]
+ },
+ "modes_off_prev_branch": {
+  "sha12": "9db185d9be28",
+  "chars": 1324,
+  "markers": {
+   "токсичн": 1,
+   "бот-абьюзер": 1
+  },
+  "used_when": "SMART_VERBALIZER_MODES_ENABLED=0"
+ },
+ "code_default_path": {
+  "source": "default",
+  "suppression_applied": false,
+  "sha12": "cf404931f84c",
+  "chars": 5294,
+  "markers": {
+   "токсичн": 2,
+   "бот-абьюзер": 1,
+   "саркастично-токсичн": 1
+  },
+  "note": "documented W2 OFF-parity: code fallback bytes unchanged"
+ },
+ "smart_verbalizer_modes_enabled_default": true,
+ "flag_typing_probe": {
+  "string_false_reads_as": true,
+  "json_bool_false_reads_as": false,
+  "note": "bot_settings.value is JSONB; write JSON booleans true/false"
+ }
+}
+
+== customs ==
+{
+ "verbilizer_default_mode": {
+  "global_value_reconstructed": "serious",
+  "global_snapshot_sha12": "645dfcb4d1d2",
+  "len": 7,
+  "markers": 0,
+  "factory_sha12": "c633eb52f63c",
+  "consumed": "global only: _resolve_default_mode() -> hot.get(...); applied only when Stage-1 response_mode is empty/invalid",
+  "chat_override": {
+   "chat": -1002661910336,
+   "value_reconstructed": "casual",
+   "snapshot_sha12": "c633eb52f63c",
+   "len": 6,
+   "consumed_by_runtime": false,
+   "note": "per-chat override exists in PG but the fallback resolver reads the global layer"
+  },
+  "conflict": false,
+  "verdict": "no legacy-personality instructions; mode = length/format convention; 'serious' tone (грамотно, по делу, легкая циничная ирония) compatible with Core"
+ },
+ "summary_editor": {
+  "global_snapshot_sha12": "6a1f3432889c",
+  "len": 2023,
+  "markers": 0,
+  "factory_sha12": "cbd95e5e2489",
+  "class": "custom (2023)",
+  "content_available": false,
+  "withholding_required": false,
+  "conflict": "unknown (content not captured; marker scan = 0)",
+  "note": "machine JSON stage (summary editor) — not a speech layer (speech=False in registry)"
+ },
+ "summary_cover_style_per_chat": {
+  "chat": -1002661910336,
+  "snapshot_sha12": "35013bd88081",
+  "len": 110,
+  "markers": "not captured",
+  "consumed": "cover pipeline only (summary_generator._resolve_cover_style_text -> chat layer)",
+  "conflict": "unknown (content not captured)"
+ },
+ "summary_cover_style_id_per_chat": {
+  "chat": -1002661910336,
+  "snapshot_sha12": "cdd0c0d252d0",
+  "len": 12,
+  "consumed": "cover style selection id (POST /api/cover/select)",
+  "conflict": false
+ },
+ "summary_system_prompt_per_chat": {
+  "chat": -1002661910336,
+  "snapshot_sha12": "141016a95b95",
+  "len": 3484,
+  "consumed_by_runtime": false,
+  "note": "summary runtime resolves the GLOBAL key only (resolve_prompt -> hot.get); chat layer shown in UI",
+  "conflict": "not applicable to runtime payload"
+ }
+}
+
+== humor ==
+{
+ "axes": {
+  "humor_craft_enabled": true,
+  "humor_library_enabled": true,
+  "humor_feedback_enabled": true,
+  "candidate_eval": {
+   "env_and_flag": false,
+   "default": false
+  }
+ },
+ "craft": {
+  "layer_chars": 735,
+  "layer_sha12": "eace9c9e1240",
+  "technique": "absurd_escalation",
+  "enabled": true,
+  "markers": {},
+  "serious_context_reason": "humor_serious_context",
+  "no_strategy_reason": "humor_no_strategy",
+  "layer_calls": 0,
+  "feedback_weight_no_db": 1.0
+ },
+ "callers_scan": {
+  "evaluate_candidates": [],
+  "capture_send": [
+   "services/direct_chat_service.py:3636"
+  ],
+  "run_window_pass": [
+   "services/mca_experience_jobs.py:929"
+  ],
+  "strategy_weight": [
+   "services/direct_chat_service.py:4225"
+  ],
+  "sample_penalties": [
+   "services/direct_chat_service.py:4245"
+  ]
+ },
+ "candidate_eval_probe_off": "candidate_eval_disabled",
+ "candidate_eval_probe_axis_off": "candidate_eval_disabled",
+ "candidate_eval_axis_on_no_llm": "candidate_eval_no_llm",
+ "candidate_eval_axis_on_bounded": {
+  "applied": true,
+  "reason": "candidate_eval_applied",
+  "calls": 1,
+  "candidates": [
+   "а",
+   "б"
+  ],
+  "max_candidates": 2,
+  "max_calls": 1,
+  "timeout_s": 20.0
+ },
+ "window_pass_gate_on_db_none": {
+  "humor_sends_scanned": 0,
+  "humor_signals": 0,
+  "humor_unknown": 0,
+  "humor_windows_closed": 0,
+  "humor_lessons_applied": 0,
+  "humor_hypotheses": 0,
+  "humor_skipped_disabled": 0,
+  "humor_evaluator_unavailable": 0,
+  "humor_write_failures": 0
+ },
+ "window_pass_gate_off": {
+  "humor_sends_scanned": 0,
+  "humor_signals": 0,
+  "humor_unknown": 0,
+  "humor_windows_closed": 0,
+  "humor_lessons_applied": 0,
+  "humor_hypotheses": 0,
+  "humor_skipped_disabled": 1,
+  "humor_evaluator_unavailable": 0,
+  "humor_write_failures": 0
+ }
+}
+
+== sweep registry (marker blocks) ==
+factcheck.base.single              family=factcheck  pg=prompts.factcheck_system_prompt          wp=True lp=True mk={'токсичн': 2, 'унизить': 1, 'двач': 1}
+search.base.system                 family=search     pg=prompts.search_system_prompt             wp=True lp=True mk={'токсичн': 2, 'бот-абьюзер': 1, 'унизить': 1, 'обоссав': 1, 'двач': 1}
+summary.base.single                family=summary    pg=prompts.summary_system_prompt            wp=True lp=True mk={'токсичн': 2, 'бот-абьюзер': 1, 'унизить': 1, 'двач': 1}
+checkup.base.system                family=checkup    pg=prompts.checkup_system_prompt            wp=True lp=True mk={'токсичн': 3, 'унизив': 1, 'человеческо-токсичный': 1, 'двач': 1}
+direct.base.tool_phase             family=direct     pg=prompts.direct_chat_system_prompt        wp=True lp=True mk={'токсичн': 2, 'бот-абьюзер': 1, 'саркастично-токсичн': 1}
+youtube.base.system                family=youtube    pg=prompts.youtube_system_prompt            wp=True lp=True mk={'токсичн': 2, 'бот-абьюзер': 1, 'унизить': 1, 'двач': 1}
+youtube.base.video                 family=youtube    pg=prompts.youtube_video_system_prompt      wp=True lp=True mk={'токсичн': 2, 'бот-абьюзер': 1, 'унизить': 1, 'двач': 1}
+web.base.system                    family=web        pg=prompts.webpage_system_prompt            wp=True lp=True mk={'токсичн': 2, 'бот-абьюзер': 1, 'унизить': 1, 'двач': 1}
+factcheck.base.verbalizer          family=factcheck  pg=prompts.factcheck_verbalizer_system_prompt wp=True lp=True mk={'токсичн': 1, 'унизить': 1, 'двач': 1}
+summary.base.narrator              family=summary    pg=prompts.summary_narrator_system_prompt   wp=True lp=True mk={'токсичн': 1, 'бот-абьюзер': 1, 'двач': 1}
+summary.base.l2_writer             family=summary    pg=prompts.summary_l2_writer_system_prompt  wp=False lp=False mk={'двач': 1}
+direct.base.l2_writer              family=direct     pg=prompts.direct_chat_verbalizer_system_prompt wp=True lp=True mk={'токсичн': 1, 'бот-абьюзер': 1}
+verbilizer.mode.deep_research      family=direct     pg=prompts.verbilizer_mode_deep_research    wp=False lp=True mk={'токсичн': 1}
+message.smartmodule.chat_persona   family=message    pg=None                                     wp=False lp=True mk={'токсичн': 1, 'бот-абьюзер': 1}
+message.smartmodule.phrases        family=message    pg=None                                     wp=False lp=False mk={'токсичн': 1, 'бот-абьюзер': 1}
+style.bot_knowledge                family=style      pg=None                                     wp=False lp=False mk={'унизить': 1}
+internal.lore.story                family=internal   pg=None                                     wp=False lp=False mk={'токсичн': 1}
+internal.nostalgia.candidate       family=internal   pg=None                                     wp=False lp=False mk={'токсичн': 1}
+
+== sweep python (files) ==
+["services/chat_prompts.py", "services/checkup_prompts.py", "services/direct_chat_service.py", "services/factcheck_prompts.py", "services/goodmorning_captions.py", "services/info_service.py", "services/lore_prompts.py", "services/mca_humor_craft.py", "services/memory_health.py", "services/nostalgia_prompts.py", "services/prompt_migrations.py", "services/prompt_registry.py", "services/prompt_style_blocks.py", "services/search_prompts.py", "services/smartmodule_phrases.py", "services/summary_memory.py", "services/summary_prompts.py", "services/web_prompts.py", "services/web_summarizer_service.py", "services/youtube_prompts.py", "services/youtube_summarizer_service.py"]
