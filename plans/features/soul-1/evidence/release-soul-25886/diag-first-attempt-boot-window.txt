@@ -1,0 +1,176 @@
+=== NOW ===
+2026-10-17T21:50:06Z
+=== UNIT ===
+Type=simple Restart=always TimeoutStartUSec=1min 30s TimeoutStopUSec=1min NRestarts=0 ExecMainStatus=0 
+[Unit]
+Description=Telegram Admin Bot
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/var/www/admin_bot
+ExecStart=/var/www/admin_bot/venv/bin/python /var/www/admin_bot/bot.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+=== BOOT WINDOW 21:46:00-21:47:50 (raw, last 130 lines) ===
+Oct 17 21:46:01 racknerd-f4e3456 python[3232336]: 2026-10-17 21:46:01,320 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-18 02:46:06 +05)" (scheduled at 2026-10-18 02:46:01.318792+05:00)
+Oct 17 21:46:01 racknerd-f4e3456 python[3232336]: 2026-10-17 21:46:01,332 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-18 02:46:06 +05)" executed successfully
+Oct 17 21:46:06 racknerd-f4e3456 systemd[1]: Stopping admin_bot.service - Telegram Admin Bot...
+Oct 17 21:46:06 racknerd-f4e3456 python[3232336]: 2026-10-17 21:46:06,265 - web.app - INFO - [webapp] lifespan finished
+Oct 17 21:46:06 racknerd-f4e3456 python[3232336]: 2026-10-17 21:46:06,276 - apscheduler.scheduler - INFO - Scheduler has been shut down
+Oct 17 21:46:06 racknerd-f4e3456 python[3232336]: 2026-10-17 21:46:06,279 - services.summary_scheduler - INFO - [shutdown] summary: stopped accepting new work | phase=stopping (scheduler down, new runs refused)
+Oct 17 21:46:06 racknerd-f4e3456 python[3232336]: 2026-10-17 21:46:06,287 - aiogram.dispatcher - INFO - Polling stopped for bot @PERMsoc_bot id=8802473181 - 'Базовичок'
+Oct 17 21:46:06 racknerd-f4e3456 python[3232336]: 2026-10-17 21:46:06,295 - aiogram.dispatcher - INFO - Polling stopped
+Oct 17 21:46:06 racknerd-f4e3456 python[3232336]: 2026-10-17 21:46:06,320 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-18 02:46:11 +05)" (scheduled at 2026-10-18 02:46:06.318792+05:00)
+Oct 17 21:46:06 racknerd-f4e3456 python[3232336]: 2026-10-17 21:46:06,324 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-18 02:46:11 +05)" executed successfully
+Oct 17 21:46:06 racknerd-f4e3456 python[3232336]: 2026-10-17 21:46:06,560 - __main__ - INFO - [shutdown] polling stop | graceful=True | elapsed_ms=280
+Oct 17 21:46:06 racknerd-f4e3456 python[3232336]: 2026-10-17 21:46:06,632 - __main__ - INFO - Bot shutting down...
+Oct 17 21:46:06 racknerd-f4e3456 python[3232336]: 2026-10-17 21:46:06,636 - services.summary_generator - INFO - SUMMARY_SHUTDOWN_DRAIN | phase=draining | in_flight=0 | cancelled=0 | timeout_s=20.0
+Oct 17 21:46:06 racknerd-f4e3456 python[3232336]: 2026-10-17 21:46:06,637 - services.summary_generator - INFO - SUMMARY_SHUTDOWN_DRAIN | phase=finalized | finalized=0 | left=0 | elapsed_ms=1
+Oct 17 21:46:06 racknerd-f4e3456 python[3232336]: 2026-10-17 21:46:06,638 - __main__ - INFO - [shutdown] summary drain done | in_flight=0 | cancelled=0 | finalized=0 | left=0 | elapsed_ms=1
+Oct 17 21:46:06 racknerd-f4e3456 python[3232336]: 2026-10-17 21:46:06,645 - apscheduler.scheduler - INFO - Scheduler has been shut down
+Oct 17 21:46:06 racknerd-f4e3456 python[3232336]: 2026-10-17 21:46:06,647 - services.nostalgia_worker - INFO - NostalgiaWorker stopped
+Oct 17 21:46:06 racknerd-f4e3456 python[3232336]: 2026-10-17 21:46:06,648 - services.anticliche_worker - INFO - AntiClicheWorker stopped
+Oct 17 21:46:06 racknerd-f4e3456 python[3232336]: 2026-10-17 21:46:06,652 - apscheduler.scheduler - INFO - Scheduler has been shut down
+Oct 17 21:46:06 racknerd-f4e3456 python[3232336]: 2026-10-17 21:46:06,653 - apscheduler.scheduler - INFO - Scheduler has been shut down
+Oct 17 21:46:06 racknerd-f4e3456 python[3232336]: 2026-10-17 21:46:06,654 - apscheduler.scheduler - INFO - Scheduler has been shut down
+Oct 17 21:46:06 racknerd-f4e3456 python[3232336]: 2026-10-17 21:46:06,659 - services.dream_worker - INFO - DreamWorker stopped
+Oct 17 21:46:06 racknerd-f4e3456 python[3232336]: 2026-10-17 21:46:06,660 - apscheduler.scheduler - INFO - Scheduler has been shut down
+Oct 17 21:46:06 racknerd-f4e3456 python[3232336]: 2026-10-17 21:46:06,662 - services.lore_worker - INFO - LoreWorker stopped
+Oct 17 21:46:06 racknerd-f4e3456 python[3232336]: 2026-10-17 21:46:06,697 - services.lore_notify - INFO - [lore_notify] stopped
+Oct 17 21:46:06 racknerd-f4e3456 python[3232336]: 2026-10-17 21:46:06,700 - services.chat_params_notify - INFO - [chat_params] notify stopped
+Oct 17 21:46:06 racknerd-f4e3456 python[3232336]: 2026-10-17 21:46:06,702 - services.uptime_heartbeat - INFO - [uptime] heartbeat stopped
+Oct 17 21:46:06 racknerd-f4e3456 python[3232336]: 2026-10-17 21:46:06,707 - apscheduler.scheduler - INFO - Scheduler has been shut down
+Oct 17 21:46:06 racknerd-f4e3456 python[3232336]: 2026-10-17 21:46:06,709 - apscheduler.scheduler - INFO - Scheduler has been shut down
+Oct 17 21:46:06 racknerd-f4e3456 python[3232336]: 2026-10-17 21:46:06,712 - services.goodmorning_scheduler - INFO - Goodmorning scheduler stopped
+Oct 17 21:46:06 racknerd-f4e3456 python[3232336]: 2026-10-17 21:46:06,713 - services.summary_scheduler - INFO - SmartModule scheduler stopped
+Oct 17 21:46:06 racknerd-f4e3456 python[3232336]: 2026-10-17 21:46:06,715 - apscheduler.scheduler - INFO - Scheduler has been shut down
+Oct 17 21:46:06 racknerd-f4e3456 python[3232336]: 2026-10-17 21:46:06,717 - services.memory_backup - INFO - MemoryBackup scheduler stopped
+Oct 17 21:46:06 racknerd-f4e3456 python[3232336]: 2026-10-17 21:46:06,720 - apscheduler.scheduler - INFO - Scheduler has been shut down
+Oct 17 21:46:06 racknerd-f4e3456 python[3232336]: 2026-10-17 21:46:06,722 - services.memory_maintenance - INFO - MemoryMaintenance stopped
+Oct 17 21:46:06 racknerd-f4e3456 python[3232336]: 2026-10-17 21:46:06,783 - __main__ - INFO - [shutdown] runtime sqlite closed
+Oct 17 21:46:06 racknerd-f4e3456 python[3232336]: 2026-10-17 21:46:06,910 - services.pg_db - INFO - [pg_db] pool closed
+Oct 17 21:46:07 racknerd-f4e3456 python[3232336]: 2026-10-17 21:46:07,877 - __main__ - INFO - [shutdown] bye | elapsed_ms=1605
+Oct 17 21:46:07 racknerd-f4e3456 python[3232336]: 2026-10-17 21:46:07,878 - __main__ - INFO - [betterstack] shutdown flush
+Oct 17 21:46:08 racknerd-f4e3456 python[3232336]: Бот запущен и слушает чат...
+Oct 17 21:46:08 racknerd-f4e3456 python[3232336]: Sentry is attempting to send 2 pending events
+Oct 17 21:46:08 racknerd-f4e3456 python[3232336]: Waiting up to 2 seconds
+Oct 17 21:46:08 racknerd-f4e3456 python[3232336]: Press Ctrl-C to quit
+Oct 17 21:46:12 racknerd-f4e3456 systemd[1]: admin_bot.service: Deactivated successfully.
+Oct 17 21:46:12 racknerd-f4e3456 systemd[1]: Stopped admin_bot.service - Telegram Admin Bot.
+Oct 17 21:46:12 racknerd-f4e3456 systemd[1]: admin_bot.service: Consumed 4min 11.706s CPU time, 450.8M memory peak, 218.0M memory swap peak.
+Oct 17 21:46:12 racknerd-f4e3456 systemd[1]: Started admin_bot.service - Telegram Admin Bot.
+Oct 17 21:46:31 racknerd-f4e3456 python[3240765]: 2026-10-17 21:46:31,083 - __main__ - INFO - [betterstack] attached | host=s2736363.us-west-2a.betterstackdata.com | token_len=24 | from=LOGTAIL_SOURCE_TOKEN
+Oct 17 21:46:31 racknerd-f4e3456 python[3240765]: 2026-10-17 21:46:31,240 - services.pg_db - INFO - [pg_db] asyncpg pool created (json/jsonb codecs)
+Oct 17 21:46:31 racknerd-f4e3456 python[3240765]: 2026-10-17 21:46:31,436 - services.pg_db - INFO - [pg_db] DDL ok (таблицы + индексы)
+Oct 17 21:46:31 racknerd-f4e3456 python[3240765]: 2026-10-17 21:46:31,450 - services.pg_db - INFO - [pg_db] roles seeded: ['admin', 'moderator', 'user', 'local_admin']
+Oct 17 21:46:31 racknerd-f4e3456 python[3240765]: 2026-10-17 21:46:31,460 - services.pg_db - INFO - [pg_db] admins seeded: [5885953495, 1313107079, 134812796]
+Oct 17 21:46:31 racknerd-f4e3456 python[3240765]: 2026-10-17 21:46:31,869 - services.pg_db - INFO - [pg_db] starter bot_settings seeded: 471 (ON CONFLICT DO NOTHING)
+Oct 17 21:46:31 racknerd-f4e3456 python[3240765]: 2026-10-17 21:46:31,909 - services.config_cache - INFO - [config_cache] initialized: settings=514 roles=4 admins=3
+Oct 17 21:46:32 racknerd-f4e3456 python[3240765]: 2026-10-17 21:46:32,032 - services.prompt_migrations - INFO - [prompt_migration] уже новый канон | key=prompts.direct_chat_system_prompt
+Oct 17 21:46:32 racknerd-f4e3456 python[3240765]: 2026-10-17 21:46:32,035 - services.prompt_migrations - INFO - [prompt_migration] уже новый канон | key=prompts.direct_chat_verbalizer_system_prompt
+Oct 17 21:46:32 racknerd-f4e3456 python[3240765]: 2026-10-17 21:46:32,035 - services.prompt_migrations - INFO - [prompt_migration] уже новый канон | key=prompts.direct_l1_planner_system_prompt
+Oct 17 21:46:32 racknerd-f4e3456 python[3240765]: 2026-10-17 21:46:32,037 - services.prompt_migrations - INFO - [prompt_migration] уже новый канон | key=prompts.summary_system_prompt
+Oct 17 21:46:32 racknerd-f4e3456 python[3240765]: 2026-10-17 21:46:32,039 - services.prompt_migrations - INFO - [prompt_migration] уже новый канон | key=prompts.compress_system_prompt
+Oct 17 21:46:32 racknerd-f4e3456 python[3240765]: 2026-10-17 21:46:32,040 - services.prompt_migrations - INFO - [prompt_migration] уже новый канон | key=prompts.checkup_system_prompt
+Oct 17 21:46:32 racknerd-f4e3456 python[3240765]: 2026-10-17 21:46:32,042 - services.prompt_migrations - INFO - [prompt_migration] уже новый канон | key=prompts.factcheck_system_prompt
+Oct 17 21:46:32 racknerd-f4e3456 python[3240765]: 2026-10-17 21:46:32,042 - services.prompt_migrations - INFO - [prompt_migration] уже новый канон | key=prompts.search_system_prompt
+Oct 17 21:46:32 racknerd-f4e3456 python[3240765]: 2026-10-17 21:46:32,044 - services.prompt_migrations - INFO - [prompt_migration] уже новый канон | key=prompts.youtube_system_prompt
+Oct 17 21:46:32 racknerd-f4e3456 python[3240765]: 2026-10-17 21:46:32,044 - services.prompt_migrations - INFO - [prompt_migration] уже новый канон | key=prompts.youtube_video_system_prompt
+Oct 17 21:46:32 racknerd-f4e3456 python[3240765]: 2026-10-17 21:46:32,046 - services.prompt_migrations - INFO - [prompt_migration] уже новый канон | key=prompts.webpage_system_prompt
+Oct 17 21:46:32 racknerd-f4e3456 python[3240765]: 2026-10-17 21:46:32,048 - services.prompt_migrations - WARNING - [prompt_migration] кастом юзера — НЕ трогаем | key=prompts.summary_editor_system_prompt | chars=2023
+Oct 17 21:46:32 racknerd-f4e3456 python[3240765]: 2026-10-17 21:46:32,049 - services.prompt_migrations - INFO - [prompt_migration] уже новый канон | key=prompts.factcheck_analyst_system_prompt
+Oct 17 21:46:32 racknerd-f4e3456 python[3240765]: 2026-10-17 21:46:32,049 - services.prompt_migrations - INFO - [prompt_migration] уже новый канон | key=prompts.summary_l1_clusterizer_system_prompt
+Oct 17 21:46:32 racknerd-f4e3456 python[3240765]: 2026-10-17 21:46:32,051 - services.prompt_migrations - INFO - [prompt_migration] уже новый канон | key=prompts.summary_l2_writer_system_prompt
+Oct 17 21:46:32 racknerd-f4e3456 python[3240765]: 2026-10-17 21:46:32,052 - services.prompt_migrations - INFO - [prompt_migration] уже новый канон | key=prompts.summary_narrator_system_prompt
+Oct 17 21:46:32 racknerd-f4e3456 python[3240765]: 2026-10-17 21:46:32,056 - services.config_migrations - INFO - [threshold_migration] уже новый дефолт | key=memory.dream_repeat_threshold
+Oct 17 21:46:32 racknerd-f4e3456 python[3240765]: 2026-10-17 21:46:32,058 - services.config_migrations - INFO - [threshold_migration] уже новый дефолт | key=memory.dream_importance_sum_threshold
+Oct 17 21:46:32 racknerd-f4e3456 python[3240765]: 2026-10-17 21:46:32,059 - services.config_migrations - INFO - [threshold_migration] уже новый дефолт | key=memory.dream_min_new_facts_per_chat
+Oct 17 21:46:32 racknerd-f4e3456 python[3240765]: 2026-10-17 21:46:32,059 - services.config_migrations - INFO - [threshold_migration] уже новый дефолт | key=memory.dream_max_clusters_per_run
+Oct 17 21:46:32 racknerd-f4e3456 python[3240765]: 2026-10-17 21:46:32,060 - services.config_migrations - INFO - [threshold_migration] уже новый дефолт | key=memory.dream_distillations_per_day
+Oct 17 21:46:32 racknerd-f4e3456 python[3240765]: 2026-10-17 21:46:32,060 - services.config_migrations - INFO - [threshold_migration] уже новый дефолт | key=memory.dream_tokens_per_day
+Oct 17 21:46:32 racknerd-f4e3456 python[3240765]: 2026-10-17 21:46:32,061 - services.config_migrations - INFO - [threshold_migration] уже новый дефолт | key=memory.dream_quiet_check_minutes
+Oct 17 21:46:32 racknerd-f4e3456 python[3240765]: 2026-10-17 21:46:32,061 - services.config_migrations - INFO - [budget_migration] уже новый дефолт | key=limits.chat_global_key_budget_requests
+Oct 17 21:46:32 racknerd-f4e3456 python[3240765]: 2026-10-17 21:46:32,061 - services.config_migrations - INFO - [budget_migration] уже новый дефолт | key=limits.chat_global_key_budget_tokens
+Oct 17 21:46:32 racknerd-f4e3456 python[3240765]: 2026-10-17 21:46:32,062 - services.config_migrations - INFO - [budget_migration] уже новый дефолт | key=limits.worker_daily_llm_calls_per_chat
+Oct 17 21:46:32 racknerd-f4e3456 python[3240765]: 2026-10-17 21:46:32,062 - services.config_migrations - INFO - [budget_migration] уже новый дефолт | key=limits.worker_daily_llm_tokens_per_chat
+Oct 17 21:46:32 racknerd-f4e3456 python[3240765]: 2026-10-17 21:46:32,063 - services.config_migrations - INFO - [context_migration] ключ отсутствует/пуст — сид сделает своё | key=limits.chat_global_context_max_tokens
+Oct 17 21:46:32 racknerd-f4e3456 python[3240765]: 2026-10-17 21:46:32,063 - services.config_migrations - INFO - [context_migration] ключ отсутствует/пуст — сид сделает своё | key=limits.chat_thread_max_tokens
+Oct 17 21:46:32 racknerd-f4e3456 python[3240765]: 2026-10-17 21:46:32,064 - services.config_migrations - INFO - CONFIG_MIGRATION_CUSTOM_PRESERVED | domain=context_migration | key=limits.chat_context_budget_tokens | action=preserved_owner_custom
+Oct 17 21:46:32 racknerd-f4e3456 python[3240765]: 2026-10-17 21:46:32,064 - services.config_migrations - INFO - [factcheck_context_migration] legacy == дефолт — мигрировать нечего | key=limits.factcheck_context_messages
+Oct 17 21:46:32 racknerd-f4e3456 python[3240765]: 2026-10-17 21:46:32,065 - services.config_migrations - INFO - CONFIG_MIGRATION_CUSTOM_PRESERVED | domain=image_migration | key=models.image_base_url | action=preserved_owner_custom
+Oct 17 21:46:32 racknerd-f4e3456 python[3240765]: 2026-10-17 21:46:32,065 - services.config_migrations - INFO - CONFIG_MIGRATION_CUSTOM_PRESERVED | domain=image_migration | key=models.image_model | action=preserved_owner_custom
+Oct 17 21:46:32 racknerd-f4e3456 python[3240765]: 2026-10-17 21:46:32,066 - services.config_migrations - INFO - [image_migration] уже дефолт | key=models.image_get_mode
+Oct 17 21:46:32 racknerd-f4e3456 python[3240765]: 2026-10-17 21:46:32,067 - services.config_migrations - INFO - [deep_sleep_migration] skip: выключено (ветка A аудита)
+Oct 17 21:46:32 racknerd-f4e3456 python[3240765]: 2026-10-17 21:46:32,071 - services.chat_params_notify - INFO - [chat_params] LISTEN 'chat_params_updated' attached
+Oct 17 21:46:32 racknerd-f4e3456 python[3240765]: 2026-10-17 21:46:32,078 - services.chat_settings_seed - INFO - [chat_settings_seed] без изменений (no-op) | chat=-1002661910336
+Oct 17 21:46:32 racknerd-f4e3456 python[3240765]: 2026-10-17 21:46:32,100 - services.database - INFO - [database] migrations: start | current user_version=35 | pending=[36]
+Oct 17 21:46:32 racknerd-f4e3456 python[3240765]: 2026-10-17 21:46:32,101 - services.database - INFO - [database] migration backup-guard: start | target_version=35 (VACUUM INTO + read-back копии; на прод-объёме может занимать минуты)
+Oct 17 21:47:48 racknerd-f4e3456 systemd[1]: Stopping admin_bot.service - Telegram Admin Bot...
+Oct 17 21:47:48 racknerd-f4e3456 systemd[1]: admin_bot.service: Deactivated successfully.
+Oct 17 21:47:48 racknerd-f4e3456 systemd[1]: Stopped admin_bot.service - Telegram Admin Bot.
+Oct 17 21:47:48 racknerd-f4e3456 systemd[1]: admin_bot.service: Consumed 44.657s CPU time.
+Oct 17 21:47:48 racknerd-f4e3456 systemd[1]: Started admin_bot.service - Telegram Admin Bot.
+=== STARTUP MARKERS (whole window) ===
+Oct 17 21:46:06 racknerd-f4e3456 systemd[1]: Stopping admin_bot.service - Telegram Admin Bot...
+Oct 17 21:46:06 racknerd-f4e3456 python[3232336]: 2026-10-17 21:46:06,279 - services.summary_scheduler - INFO - [shutdown] summary: stopped accepting new work | phase=stopping (scheduler down, new runs refused)
+Oct 17 21:46:06 racknerd-f4e3456 python[3232336]: 2026-10-17 21:46:06,287 - aiogram.dispatcher - INFO - Polling stopped for bot @PERMsoc_bot id=8802473181 - 'Базовичок'
+Oct 17 21:46:06 racknerd-f4e3456 python[3232336]: 2026-10-17 21:46:06,295 - aiogram.dispatcher - INFO - Polling stopped
+Oct 17 21:46:06 racknerd-f4e3456 python[3232336]: 2026-10-17 21:46:06,636 - services.summary_generator - INFO - SUMMARY_SHUTDOWN_DRAIN | phase=draining | in_flight=0 | cancelled=0 | timeout_s=20.0
+Oct 17 21:46:06 racknerd-f4e3456 python[3232336]: 2026-10-17 21:46:06,647 - services.nostalgia_worker - INFO - NostalgiaWorker stopped
+Oct 17 21:46:06 racknerd-f4e3456 python[3232336]: 2026-10-17 21:46:06,648 - services.anticliche_worker - INFO - AntiClicheWorker stopped
+Oct 17 21:46:06 racknerd-f4e3456 python[3232336]: 2026-10-17 21:46:06,659 - services.dream_worker - INFO - DreamWorker stopped
+Oct 17 21:46:06 racknerd-f4e3456 python[3232336]: 2026-10-17 21:46:06,662 - services.lore_worker - INFO - LoreWorker stopped
+Oct 17 21:46:06 racknerd-f4e3456 python[3232336]: 2026-10-17 21:46:06,697 - services.lore_notify - INFO - [lore_notify] stopped
+Oct 17 21:46:06 racknerd-f4e3456 python[3232336]: 2026-10-17 21:46:06,700 - services.chat_params_notify - INFO - [chat_params] notify stopped
+Oct 17 21:46:06 racknerd-f4e3456 python[3232336]: 2026-10-17 21:46:06,702 - services.uptime_heartbeat - INFO - [uptime] heartbeat stopped
+Oct 17 21:46:06 racknerd-f4e3456 python[3232336]: 2026-10-17 21:46:06,712 - services.goodmorning_scheduler - INFO - Goodmorning scheduler stopped
+Oct 17 21:46:06 racknerd-f4e3456 python[3232336]: 2026-10-17 21:46:06,713 - services.summary_scheduler - INFO - SmartModule scheduler stopped
+Oct 17 21:46:06 racknerd-f4e3456 python[3232336]: 2026-10-17 21:46:06,717 - services.memory_backup - INFO - MemoryBackup scheduler stopped
+Oct 17 21:46:06 racknerd-f4e3456 python[3232336]: 2026-10-17 21:46:06,722 - services.memory_maintenance - INFO - MemoryMaintenance stopped
+Oct 17 21:46:12 racknerd-f4e3456 systemd[1]: Stopped admin_bot.service - Telegram Admin Bot.
+Oct 17 21:46:12 racknerd-f4e3456 systemd[1]: Started admin_bot.service - Telegram Admin Bot.
+Oct 17 21:47:48 racknerd-f4e3456 systemd[1]: Stopping admin_bot.service - Telegram Admin Bot...
+Oct 17 21:47:48 racknerd-f4e3456 systemd[1]: Stopped admin_bot.service - Telegram Admin Bot.
+Oct 17 21:47:48 racknerd-f4e3456 systemd[1]: Started admin_bot.service - Telegram Admin Bot.
+Oct 17 21:48:10 racknerd-f4e3456 python[3241212]: 2026-10-17 21:48:10,113 - aiogram.dispatcher - INFO - Run polling for bot @PERMsoc_bot id=8802473181 - 'Базовичок'
+=== PID 3240765 (2.58.86 attempt) tail ===
+Oct 17 21:46:32 racknerd-f4e3456 python[3240765]: 2026-10-17 21:46:32,044 - services.prompt_migrations - INFO - [prompt_migration] уже новый канон | key=prompts.youtube_video_system_prompt
+Oct 17 21:46:32 racknerd-f4e3456 python[3240765]: 2026-10-17 21:46:32,046 - services.prompt_migrations - INFO - [prompt_migration] уже новый канон | key=prompts.webpage_system_prompt
+Oct 17 21:46:32 racknerd-f4e3456 python[3240765]: 2026-10-17 21:46:32,048 - services.prompt_migrations - WARNING - [prompt_migration] кастом юзера — НЕ трогаем | key=prompts.summary_editor_system_prompt | chars=2023
+Oct 17 21:46:32 racknerd-f4e3456 python[3240765]: 2026-10-17 21:46:32,049 - services.prompt_migrations - INFO - [prompt_migration] уже новый канон | key=prompts.factcheck_analyst_system_prompt
+Oct 17 21:46:32 racknerd-f4e3456 python[3240765]: 2026-10-17 21:46:32,049 - services.prompt_migrations - INFO - [prompt_migration] уже новый канон | key=prompts.summary_l1_clusterizer_system_prompt
+Oct 17 21:46:32 racknerd-f4e3456 python[3240765]: 2026-10-17 21:46:32,051 - services.prompt_migrations - INFO - [prompt_migration] уже новый канон | key=prompts.summary_l2_writer_system_prompt
+Oct 17 21:46:32 racknerd-f4e3456 python[3240765]: 2026-10-17 21:46:32,052 - services.prompt_migrations - INFO - [prompt_migration] уже новый канон | key=prompts.summary_narrator_system_prompt
+Oct 17 21:46:32 racknerd-f4e3456 python[3240765]: 2026-10-17 21:46:32,056 - services.config_migrations - INFO - [threshold_migration] уже новый дефолт | key=memory.dream_repeat_threshold
+Oct 17 21:46:32 racknerd-f4e3456 python[3240765]: 2026-10-17 21:46:32,058 - services.config_migrations - INFO - [threshold_migration] уже новый дефолт | key=memory.dream_importance_sum_threshold
+Oct 17 21:46:32 racknerd-f4e3456 python[3240765]: 2026-10-17 21:46:32,059 - services.config_migrations - INFO - [threshold_migration] уже новый дефолт | key=memory.dream_min_new_facts_per_chat
+Oct 17 21:46:32 racknerd-f4e3456 python[3240765]: 2026-10-17 21:46:32,059 - services.config_migrations - INFO - [threshold_migration] уже новый дефолт | key=memory.dream_max_clusters_per_run
+Oct 17 21:46:32 racknerd-f4e3456 python[3240765]: 2026-10-17 21:46:32,060 - services.config_migrations - INFO - [threshold_migration] уже новый дефолт | key=memory.dream_distillations_per_day
+Oct 17 21:46:32 racknerd-f4e3456 python[3240765]: 2026-10-17 21:46:32,060 - services.config_migrations - INFO - [threshold_migration] уже новый дефолт | key=memory.dream_tokens_per_day
+Oct 17 21:46:32 racknerd-f4e3456 python[3240765]: 2026-10-17 21:46:32,061 - services.config_migrations - INFO - [threshold_migration] уже новый дефолт | key=memory.dream_quiet_check_minutes
+Oct 17 21:46:32 racknerd-f4e3456 python[3240765]: 2026-10-17 21:46:32,061 - services.config_migrations - INFO - [budget_migration] уже новый дефолт | key=limits.chat_global_key_budget_requests
+Oct 17 21:46:32 racknerd-f4e3456 python[3240765]: 2026-10-17 21:46:32,061 - services.config_migrations - INFO - [budget_migration] уже новый дефолт | key=limits.chat_global_key_budget_tokens
+Oct 17 21:46:32 racknerd-f4e3456 python[3240765]: 2026-10-17 21:46:32,062 - services.config_migrations - INFO - [budget_migration] уже новый дефолт | key=limits.worker_daily_llm_calls_per_chat
+Oct 17 21:46:32 racknerd-f4e3456 python[3240765]: 2026-10-17 21:46:32,062 - services.config_migrations - INFO - [budget_migration] уже новый дефолт | key=limits.worker_daily_llm_tokens_per_chat
+Oct 17 21:46:32 racknerd-f4e3456 python[3240765]: 2026-10-17 21:46:32,063 - services.config_migrations - INFO - [context_migration] ключ отсутствует/пуст — сид сделает своё | key=limits.chat_global_context_max_tokens
+Oct 17 21:46:32 racknerd-f4e3456 python[3240765]: 2026-10-17 21:46:32,063 - services.config_migrations - INFO - [context_migration] ключ отсутствует/пуст — сид сделает своё | key=limits.chat_thread_max_tokens
+Oct 17 21:46:32 racknerd-f4e3456 python[3240765]: 2026-10-17 21:46:32,064 - services.config_migrations - INFO - CONFIG_MIGRATION_CUSTOM_PRESERVED | domain=context_migration | key=limits.chat_context_budget_tokens | action=preserved_owner_custom
+Oct 17 21:46:32 racknerd-f4e3456 python[3240765]: 2026-10-17 21:46:32,064 - services.config_migrations - INFO - [factcheck_context_migration] legacy == дефолт — мигрировать нечего | key=limits.factcheck_context_messages
+Oct 17 21:46:32 racknerd-f4e3456 python[3240765]: 2026-10-17 21:46:32,065 - services.config_migrations - INFO - CONFIG_MIGRATION_CUSTOM_PRESERVED | domain=image_migration | key=models.image_base_url | action=preserved_owner_custom
+Oct 17 21:46:32 racknerd-f4e3456 python[3240765]: 2026-10-17 21:46:32,065 - services.config_migrations - INFO - CONFIG_MIGRATION_CUSTOM_PRESERVED | domain=image_migration | key=models.image_model | action=preserved_owner_custom
+Oct 17 21:46:32 racknerd-f4e3456 python[3240765]: 2026-10-17 21:46:32,066 - services.config_migrations - INFO - [image_migration] уже дефолт | key=models.image_get_mode
+Oct 17 21:46:32 racknerd-f4e3456 python[3240765]: 2026-10-17 21:46:32,067 - services.config_migrations - INFO - [deep_sleep_migration] skip: выключено (ветка A аудита)
+Oct 17 21:46:32 racknerd-f4e3456 python[3240765]: 2026-10-17 21:46:32,071 - services.chat_params_notify - INFO - [chat_params] LISTEN 'chat_params_updated' attached
+Oct 17 21:46:32 racknerd-f4e3456 python[3240765]: 2026-10-17 21:46:32,078 - services.chat_settings_seed - INFO - [chat_settings_seed] без изменений (no-op) | chat=-1002661910336
+Oct 17 21:46:32 racknerd-f4e3456 python[3240765]: 2026-10-17 21:46:32,100 - services.database - INFO - [database] migrations: start | current user_version=35 | pending=[36]
+Oct 17 21:46:32 racknerd-f4e3456 python[3240765]: 2026-10-17 21:46:32,101 - services.database - INFO - [database] migration backup-guard: start | target_version=35 (VACUUM INTO + read-back копии; на прод-объёме может занимать минуты)
+=== ERR COUNT in window ===
+0
+=== DONE ===
+
+[sudo] password for nik: 

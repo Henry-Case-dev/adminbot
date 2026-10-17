@@ -1,0 +1,28 @@
+VERIFY admin_role=admin role_type=global_admin id_present=True
+VERIFY init_data_len=156 auth_fresh=True
+VERIFY healthz status=200 body={"status":"ok","version":"2.58.86"}
+VERIFY overview status=200
+VERIFY gates={"unified_composer_enabled": true, "character_core_enabled": true, "speech_style_policy_enabled": true, "humor_library_enabled": true, "humor_feedback_enabled": true, "experience_lessons_enabled": true, "smart_verbalizer_modes_enabled": true, "response_plan_enabled": true, "persona_enabled": true, "character_layers_enabled": true}
+VERIFY registry={"blocks": 89, "version": "soul1-w3-1", "factory_set": "7422c0385f7d"}
+VERIFY can_edit=True can_view_inspector=True
+VERIFY sections=[["core", "factory"], ["style", "factory"], ["expression", "factory"], ["humor", "enabled"], ["examples", "ready"], ["try", "ready"], ["learning", "ready"]]
+VERIFY core[before] status=200 {"selection": {"doc_key": "character.core", "present": false, "level": "compact", "reason": "factory_default", "requested_level": "compact", "source": "default", "origin": "factory", "document_revision": "", "active_revision": "fac:ff28f0720a23", "active_field": "compact_text", "active_from_owner": false, "budget_tokens": 1200, "full": {"chars": 2835, "words": 360, "tokens": 709, "sha256_12": "040581a3b4b0", "origin": "factory"}, "compact": {"chars": 1934, "words": 249, "tokens": 484, "sha256_12": "ff28f0720a23", "origin": "factory"}, "factory_revisions": {"full": "fac:040581a3b4b0(soul02-author-full-v1)", "compact": "fac:ff28f0720a23(soul02-compact-v1)"}, "source_provenance": {"path": "plan
+VERIFY core[before].full source=default revision=act:040581a3b4b0 chars=2835 withheld=False differs=False
+VERIFY core[before].compact source=default revision=act:ff28f0720a23 chars=1934 withheld=False differs=False
+VERIFY core factory_chars=2835 factory_sha12=040581a3b4b0
+VERIFY core_doc_create status=200 body={"ok": true, "block_id": "core.personality", "result": {"applied": true, "block_id": "core.personality", "pg_key": "character.core", "scope": "global", "chat_overrides_touched": false, "changed": true, "previous_revision": "", "revision": "act:040581a3b4b0", "sha256_12": "040581a3b4b0", "history_key": "character.prompt_history", "provenance_persisted": true, "effective": true, "legacy_persona_marker": false, "provenance": {"kind": "owner_edit", "scope": "global"}}, "effective": {"block_id": "core.personality", "pg_key": "character.core", "text": "Ты общаешься как живой участник неформального русскоязычного чата. Тебе свойственны остроумие, абсурдное мышление, язвительность и непристойный юмор. Но твоя главная особенность - не агрессия, а способность замечать нелепое в самых обычных вещах.\n\n**Как рождается юмор.** Когда разговор располагает к шутке, ищи неожиданную интерпретацию сказанн
+VERIFY style_doc_create status=200 body={"ok": true, "result": {"applied": true, "scope": "global", "revision": 1, "rules": 0, "soft_instructions": 0, "issues": []}}
+VERIFY core[after] status=200 {"selection": {"doc_key": "character.core", "present": true, "level": "full", "reason": "owner_setting", "requested_level": "full", "source": "global", "origin": "owner_edit", "document_revision": "1", "active_revision": "r1.040581a3b4b0", "active_field": "full_text", "active_from_owner": true, "budget_tokens": 1200, "full": {"chars": 2835, "words": 360, "tokens": 709, "sha256_12": "040581a3b4b0", "origin": "owner"}, "compact": {"chars": 1934, "words": 249, "tokens": 484, "sha256_12": "ff28f0720a23", "origin": "factory"}, "factory_revisions": {"full": "fac:040581a3b4b0(soul02-author-full-v1)", "compact": "fac:ff28f0720a23(soul02-compact-v1)"}, "source_provenance": {"path": "plans/features/so
+VERIFY core[after].full source=global revision=act:040581a3b4b0 chars=2835 withheld=False differs=False
+VERIFY core[after].compact source=global revision=act:ff28f0720a23 chars=1934 withheld=False differs=False
+VERIFY style status=200 rules=0 soft=0 source=default doc_keys=['chat_issues', 'chat_present', 'chat_revision', 'global_issues', 'global_present', 'global_revision', 'inheritance']
+VERIFY initiative_flag status=200 body={"updated": ["flags.initiative_diagnostics_publish_enabled"]}
+VERIFY try status=200 layers_current=["channel_contract", "channel_contract", "core"]
+VERIFY try layer_order=["channel_contract", "channel_contract", "core", "identity", "self_model_traits", "context_lessons", "response_plan", "expression", "humor_craft", "few_shot", "style_policy_hint", "channel_output"] tokens=1162
+VERIFY try versions={"core": "r1.040581a3b4b0", "core_detail": "full:owner_setting", "style_policy": "", "identity": "", "self_model": "", "lessons": "", "samples_library": "", "response_plan": "", "channel": "speech_plain/plain/text/3c4e0608968f", "composer": "w2"}
+VERIFY try conflicts=[]
+VERIFY blocks status=200 total=89 withheld=11
+VERIFY withheld_ids=["factcheck.base.single", "search.base.system", "summary.base.single", "checkup.base.system", "direct.base.tool_phase", "youtube.base.system", "youtube.base.video", "web.base.system", "factcheck.base.verbalizer", "summary.base.narrator", "direct.base.l2_writer"]
+VERIFY inspector status=200 keys=['chat_id', 'core', 'gates', 'last_run_note', 'last_run_present', 'masked', 'preview', 'retention', 'sent', 'sent_note', 'sent_writers']
+VERIFY inspector turns=empty (no real turn since restart)
+VERIFY done

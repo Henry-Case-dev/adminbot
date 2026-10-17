@@ -1,0 +1,10 @@
+WG-ARTIFACT BYTE-EQUALITY vs prod 9552686391dfe69dd7cb08ba7cd800a8a6c5106e
+
+web/static/fullscreen-policy.js          prod=81ab76301968 head=81ab76301968 diff_bytes=0 BYTE-EQUAL
+web/static/glass-refraction.js           prod=0c57cc25265e head=0c57cc25265e diff_bytes=0 BYTE-EQUAL
+web/static/glass-probe.js                prod=4eab69ac4aa0 head=4eab69ac4aa0 diff_bytes=0 BYTE-EQUAL
+tests/js/glass_refraction_test.js        prod=830206af4dc9 head=830206af4dc9 diff_bytes=0 BYTE-EQUAL
+tests/js/glass_probe_test.js             prod=30356ce07bdc head=30356ce07bdc diff_bytes=0 BYTE-EQUAL
+tools/ui_win_glass_refraction_e2e.py     prod=7468cc5f0322 head=7468cc5f0322 diff_bytes=0 BYTE-EQUAL
+
+ALL_WG_BYTE_EQUAL=True

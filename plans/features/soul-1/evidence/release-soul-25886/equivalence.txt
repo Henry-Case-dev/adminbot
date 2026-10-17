@@ -1,0 +1,48 @@
+RUNTIME-BYTE EQUIVALENCE
+
+### git diff 72b91d6e HEAD -- services (expect: prompt_registry.py + smartmodule_phrases.py)
+(empty)
+
+### git diff 72b91d6e HEAD -- handlers web/api web/app.py (expect empty)
+(empty)
+
+### git diff 0ca661fe master -- web services (expect empty)
+(empty)
+
+### git diff master HEAD -- services web config tests tools (expect empty)
+config/settings.py                                         | 2 +-
+ tests/js/round1025_hotfix10_glass_geometry_bg_test.js      | 2 +-
+ tests/js/round1025_hotfix7_shell_glass_heartbeat_test.js   | 2 +-
+ tests/js/round1025_hotfix8_shell_aurora_test.js            | 2 +-
+ tests/js/round1025_hotfix9_shell_flex_glass_aurora_test.js | 2 +-
+ tests/test_decision_making_round1026.py                    | 2 +-
+ tests/test_image_context_memory_round1026.py               | 2 +-
+ tests/test_mca17c_invariants_round1047.py                  | 2 +-
+ tests/test_round1025_f8_registry.py                        | 2 +-
+ tests/test_scope_selector_round1025.py                     | 2 +-
+ tests/test_summary_deploy_round1026.py                     | 2 +-
+ tests/test_summary_fact_package.py                         | 2 +-
+ tests/test_summary_logging_runid.py                        | 2 +-
+ tests/test_summary_publish_integration_round1026.py        | 2 +-
+ tests/test_summary_test_run.py                             | 2 +-
+ tests/test_telegram_reactions_round1026.py                 | 2 +-
+ tests/test_tool_coordinator_round1026.py                   | 2 +-
+ tests/test_unified_image_request_round1026.py              | 2 +-
+ tests/test_webapp_design_tokens_round1025.py               | 2 +-
+ tests/test_webapp_f11_round1025.py                         | 2 +-
+ tests/test_webapp_f6_round1025.py                          | 2 +-
+ tests/test_webapp_f7_round1025.py                          | 2 +-
+ tests/test_webapp_f9_round1025.py                          | 2 +-
+ tests/test_webapp_hotfix10_round1025.py                    | 2 +-
+ tests/test_webapp_hotfix6_round1025.py                     | 2 +-
+ tests/test_webapp_hotfix7_round1025.py                     | 2 +-
+ tests/test_webapp_hotfix8_round1025.py                     | 2 +-
+ tests/test_webapp_hotfix9_round1025.py                     | 2 +-
+ tests/test_webapp_round1026_polygon.py                     | 4 ++--
+ 29 files changed, 30 insertions(+), 30 deletions(-)
+
+### git ls-tree -r HEAD -- plans/features/cfg (expect empty)
+(empty)
+
+### stray tracked paths (scratch/node_modules/...): 1
+tools/vendor/package-lock.json

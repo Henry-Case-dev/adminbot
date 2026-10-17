@@ -1,0 +1,24 @@
+W2-SHELL e2e (U01/U02) — RED, ПРЕД-СУЩЕСТВУЕТ на базе (не релиз)
+
+Прогон на релиз-ветке: TimeoutError Locator.click 8000ms —
+  locator(".oversight-mobile-option").filter(has_text="Память и интеллект")
+  "…class="card glass-panel p-4 col-span-full">…</div> intercepts pointer events"
+
+A/B-контроль (тот же инструмент на дереве ЗАДЕПЛОЕННОЙ базы 95526863):
+  shell-e2e-on-base95526863: идентичная сигнатура (тот же локатор, тот же
+  перехватчик) -> дефект НЕ вызван SOUL-1-релизом.
+
+Прямое измерение (Playwright, 390x844, оба дерева идентично):
+  elementFromPoint(центр опции «Память и интеллект») = DIV.card.glass-panel
+  .p-4.col-span-full (position: relative, z-index: auto) — не опция;
+  панель дропдауна: position: absolute, z-index: 46 — но её stacking context
+  ниже карточки; в скриншоте панель ВИЗУАЛЬНО перекрыта карточкой
+  «Здоровье сейчас» => на мобильном (<768) переключатель разделов
+  «Раздел: …▾» в «Аналитике» не выбирается тапом.
+
+Классификация: current prod defect (регрессия от WIN-GLASS-P0 2.58.85:
+карточки получили position:relative/isolation:isolate/overflow:clip ради
+слоя рефракции и перекрывают absolute-панель), НЕ относится к SOUL-1 и не
+блокирует этот релиз. Предложение: минимальная правка stacking (z-index у
+.oversight-mobile-dd/панели или снять isolate с карточек-обёрток) + повтор
+shell-e2e; отдельная задача с визуальной приёмкой.

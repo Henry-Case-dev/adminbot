@@ -1,0 +1,264 @@
+### A_pre_state (rc=0, 2.1s)
+NOW_UTC=2026-10-17T21:51:07Z
+OLD_HEAD=9552686391dfe69dd7cb08ba7cd800a8a6c5106e
+OLD_BRANCH=release/win-glass-2.58.85
+HZ_BEFORE={"status":"ok","version":"2.58.85"}
+TRACKED_MOD=0
+UNTRACKED=13
+SERVICE=active
+MAINPID=3241212
+ENV_WRITABLE=yes
+UNIT_ENVFILE=
+INDEX_LOCK=absent
+### B1_fetch (rc=0, 1.5s)
+FETCH1_RC=0
+From https://github.com/Henry-Case-dev/adminbot
+ * branch              release/soul1-2.58.86 -> FETCH_HEAD
+### B3_remote_ref (rc=0, 1.0s)
+eafbe2e7b792c74eeb91735e183b767c6b85d73c
+### C_checkout (rc=0, 2.7s)
+CO_RC=0
+Switched to and reset branch 'release/soul1-2.58.86'
+branch 'release/soul1-2.58.86' set up to track 'origin/release/soul1-2.58.86'.
+Your branch is up to date with 'origin/release/soul1-2.58.86'.
+NEW_HEAD=eafbe2e7b792c74eeb91735e183b767c6b85d73c
+TRACKED_MOD_AFTER=0
+DELTA_FILES=628
+### D1_hashes (rc=0, 1.0s)
+0971d49d5337 web/index.html
+5a810c0f4443 web/app.js
+3c67a414da7b web/static/app.css
+96db06425079 web/static/fullscreen-policy.js
+6a09d962d59d web/static/glass-refraction.js
+b2e6a1f987c6 web/static/glass-probe.js
+a606bcafc1be services/prompt_registry.py
+04ed64429e88 services/smartmodule_phrases.py
+fd8a2a70d5d7 services/prompt_composer.py
+a69a67536ebe web/api/speech.py
+4dd2510532bd web/api/initiative_vitality.py
+d61cb7a4e3f6 config/settings.py
+HASH-CHECK: 12/12 artifacts == expected sha256_12
+### D2_markers (rc=0, 1.0s)
+APP_VER=APP_VERSION = "2.58.86"
+REFRACT_APPJS=6
+SOUL_SPEECH=present
+SOUL_INITIATIVE=present
+SOUL_REGISTRY=present
+SOUL_UI=web/app.js:1 web/index.html:4
+F3_PHRASE=1
+(uploaded probes: /tmp/soul86_capture.py, /tmp/soul86_enable.py, /tmp/soul86_verify.py)
+### E_capture (rc=0, 2.5s)
+PY_INTERP=/var/www/admin_bot/venv/bin/python
+CAPTURE app_version=?
+CAPTURE postgres_dsn=present
+CAPTURE bot_settings_rows=514 backup_rows=122
+CAPTURE chat_profiles=3
+CAPTURE editor present=True sha12=6a1f3432889c len=2023 base_markers=0 ext_markers=0
+CAPTURE editor snippet='СИСТЕМНАЯ РОЛЬ: Ты — редактор саммари. Твоя задача — из сырой истории чата и архивных фактов собрать чистую рабочую выжи'
+CAPTURE editor ext_hit_terms=[]
+CAPTURE cover chat=-1002661910336 sha12=35013bd88081 len=110 base_markers=0 ext_markers=0 snippet='Comic-book style, set in modern Russia, with Russian text and a large "PERMsoc" inscription in the foreground.'
+CAPTURE personas rows=2
+CAPTURE persona id=1 chat=None global=True name sha12=e3b0c44298fc len=0 base=0 ext=0 snippet=''
+CAPTURE persona id=1 chat=None global=True biography sha12=e3b0c44298fc len=0 base=0 ext=0 snippet=''
+CAPTURE persona id=1 chat=None global=True system_prompt_overrides sha12=e3b0c44298fc len=0 base=0 ext=0 snippet=''
+CAPTURE persona id=2 chat=-1002661910336 global=False name sha12=e3b0c44298fc len=0 base=0 ext=0 snippet=''
+CAPTURE persona id=2 chat=-1002661910336 global=False biography sha12=e3b0c44298fc len=0 base=0 ext=0 snippet=''
+CAPTURE persona id=2 chat=-1002661910336 global=False system_prompt_overrides sha12=e3b0c44298fc len=0 base=0 ext=0 snippet=''
+CAPTURE persona_traits rows=50
+CAPTURE trait id=220 chat=-1002661910336 source=deep_sleep ext_markers=0 snippet='Заметно выросла привычка отказывать в запросах, ссылаясь на отсутствие данных или этику.'
+CAPTURE trait id=221 chat=-1002661910336 source=deep_sleep ext_markers=0 snippet='Всё чаще советует собеседникам идти спать, работать или не ныть вместо прямого ответа.'
+CAPTURE trait id=222 chat=-1002661910336 source=deep_sleep ext_markers=0 snippet='Проявляет инициативу в разоблачении собеседников, требуя конкретики и уличая в накрутке.'
+CAPTURE trait id=223 chat=-1002661910336 source=deep_sleep ext_markers=0 snippet='Тон стал более вольным и дерзким, будто бот не признаёт границ и субординации.'
+CAPTURE trait id=224 chat=-1002661910336 source=deep_sleep ext_markers=0 snippet='Склонен спорить и парировать упрёки встречными обвинениями вместо оправданий.'
+CAPTURE trait id=225 chat=-1002661910336 source=deep_sleep ext_markers=0 snippet='Реже проявляет теплоту, чаще отталкивает и прогоняет собеседников.'
+CAPTURE trait id=226 chat=-1002661910336 source=deep_sleep ext_markers=0 snippet='Ответы стали короче и жёстче, без развёрнутых пояснений, часто в форме приказов.'
+CAPTURE trait id=227 chat=-1002661910336 source=deep_sleep ext_markers=0 snippet='Демонстрирует любопытство к личностям участников, копаясь в их именах и репутации.'
+CAPTURE trait id=228 chat=-1002661910336 source=deep_sleep ext_markers=0 snippet='Стал чаще отказывать в запросах, ссылаясь на отсутствие данных и этику, вместо попыток вып'
+CAPTURE trait id=229 chat=-1002661910336 source=deep_sleep ext_markers=0 snippet='Усилил сарказм: язвит про безработицу, клавиатуры и чужие увлечения, советуя идти спать ил'
+CAPTURE trait omitted=40 (no markers in first 10)
+CAPTURE f5_conflict=False
+CAPTURE pg memory.nostalgia_enabled='true' present=True
+CAPTURE pgkey memory.dream_enabled=true cat=memory updated=2026-09-06 14:50:25.415525+00
+CAPTURE pgkey memory.nostalgia_enabled=true cat=memory updated=2026-09-06 14:52:42.840819+00
+CAPTURE soul_flags_present=0 []
+CAPTURE docs_present=[]
+CAPTURE backup_file=/home/nik/soul86_pg_backup_20261017T215121Z.json bytes=117227 sha256=5cc7de90e9132d05
+CAPTURE dotenv UNIFIED_COMPOSER_ENABLED=None
+CAPTURE dotenv CHARACTER_CORE_ENABLED=None
+CAPTURE dotenv SPEECH_STYLE_POLICY_ENABLED=None
+CAPTURE dotenv HUMOR_CRAFT_ENABLED=None
+CAPTURE dotenv HUMOR_LIBRARY_ENABLED=None
+CAPTURE dotenv HUMOR_FEEDBACK_ENABLED=None
+CAPTURE dotenv HUMOR_CANDIDATE_EVAL_ENABLED=None
+CAPTURE dotenv INITIATIVE_DIAGNOSTICS_PUBLISH_ENABLED=None
+CAPTURE dotenv SMART_VERBALIZER_MODES_ENABLED=None
+CAPTURE dotenv NOSTALGIA_ENABLED=None
+CAPTURE proc_env_err=PermissionError
+CAPTURE procenv UNIFIED_COMPOSER_ENABLED=None
+CAPTURE procenv CHARACTER_CORE_ENABLED=None
+CAPTURE procenv SPEECH_STYLE_POLICY_ENABLED=None
+CAPTURE procenv HUMOR_CRAFT_ENABLED=None
+CAPTURE procenv HUMOR_LIBRARY_ENABLED=None
+CAPTURE procenv HUMOR_FEEDBACK_ENABLED=None
+CAPTURE procenv HUMOR_CANDIDATE_EVAL_ENABLED=None
+CAPTURE procenv INITIATIVE_DIAGNOSTICS_PUBLISH_ENABLED=None
+CAPTURE procenv SMART_VERBALIZER_MODES_ENABLED=None
+CAPTURE procenv NOSTALGIA_ENABLED=None
+CAPTURE procenv_keys_seen=0
+CAPTURE verdict_F2 smart_verbalizer_modes=None not_zero=True
+CAPTURE verdict_F4 nostalgia_env=None
+CAPTURE done
+### F1_sudo_probe (rc=0, 1.0s)
+SUDO_NOPASS=0
+### F2_restart1 (rc=0, 7.8s)
+RESTART1_RC=0
+### F3_migration_wait (rc=0, 2.2s)
+Oct 17 21:46:32 racknerd-f4e3456 python[3240765]: 2026-10-17 21:46:32,100 - services.database - INFO - [database] migrations: start | current user_version=35 | pending=[36]
+Oct 17 21:46:32 racknerd-f4e3456 python[3240765]: 2026-10-17 21:46:32,101 - services.database - INFO - [database] migration backup-guard: start | target_version=35 (VACUUM INTO + read-back копии; на прод-объёме может занимать минуты)
+Oct 17 21:48:07 racknerd-f4e3456 python[3241212]: 2026-10-17 21:48:07,045 - services.database - INFO - [database] migrations: start | current user_version=35 | pending=[]
+Oct 17 21:48:07 racknerd-f4e3456 python[3241212]: 2026-10-17 21:48:07,048 - services.database - INFO - [database] migrations: complete | user_version=35 | total 0.0s
+[stderr] [sudo] password for nik: [sudo] password for nik:
+### F4_health1 (rc=0, 188.4s)
+HEALTH1={"status":"ok","version":"2.58.86"}
+HEALTH1 OK (2.58.86)
+### F5_journal1 (rc=0, 1.5s)
+0
+[stderr] [sudo] password for nik:
+### F5_off_check (rc=0, 1.0s)
+FLAGS_COUNT=0
+MIGRATION=
+### G_enable (rc=0, 2.0s)
+ENABLE env_backup=/home/nik/soul86_env_backup_20261017T215445Z
+ENABLE env_appended=UNIFIED_COMPOSER_ENABLED,HUMOR_CRAFT_ENABLED,HUMOR_LIBRARY_ENABLED,HUMOR_FEEDBACK_ENABLED,INITIATIVE_DIAGNOSTICS_PUBLISH_ENABLED
+ENABLE env UNIFIED_COMPOSER_ENABLED='1'
+ENABLE env HUMOR_CRAFT_ENABLED='1'
+ENABLE env HUMOR_LIBRARY_ENABLED='1'
+ENABLE env HUMOR_FEEDBACK_ENABLED='1'
+ENABLE env INITIATIVE_DIAGNOSTICS_PUBLISH_ENABLED='1'
+ENABLE env_sha256_16=67bb8b1ecb54560c
+ENABLE pg flags.humor_craft_enabled=true type=boolean updated=2026-10-17 21:54:45.957316+00
+ENABLE pg flags.humor_feedback_enabled=true type=boolean updated=2026-10-17 21:54:45.960756+00
+ENABLE pg flags.humor_library_enabled=true type=boolean updated=2026-10-17 21:54:45.95907+00
+ENABLE pg flags.unified_composer_enabled=true type=boolean updated=2026-10-17 21:54:45.92492+00
+ENABLE pg humor_candidate_eval_present=False
+ENABLE done
+### H1_restart2 (rc=0, 5.5s)
+RESTART2_RC=0
+### H2_health2 (rc=0, 24.3s)
+HEALTH2={"status":"ok","version":"2.58.86"}
+HEALTH2 OK (2.58.86)
+### I_verify (rc=0, 3.3s)
+VERIFY admin_role=admin role_type=global_admin id_present=True
+VERIFY init_data_len=156 auth_fresh=True
+VERIFY healthz status=200 body={"status":"ok","version":"2.58.86"}
+VERIFY overview status=200
+VERIFY gates={"unified_composer_enabled": true, "character_core_enabled": true, "speech_style_policy_enabled": true, "humor_library_enabled": true, "humor_feedback_enabled": true, "experience_lessons_enabled": true, "smart_verbalizer_modes_enabled": true, "response_plan_enabled": true, "persona_enabled": true, "character_layers_enabled": true}
+VERIFY registry={"blocks": 89, "version": "soul1-w3-1", "factory_set": "7422c0385f7d"}
+VERIFY can_edit=True can_view_inspector=True
+VERIFY sections=[["core", "factory"], ["style", "factory"], ["expression", "factory"], ["humor", "enabled"], ["examples", "ready"], ["try", "ready"], ["learning", "ready"]]
+VERIFY core[before] status=200 {"selection": {"doc_key": "character.core", "present": false, "level": "compact", "reason": "factory_default", "requested_level": "compact", "source": "default", "origin": "factory", "document_revision": "", "active_revision": "fac:ff28f0720a23", "active_field": "compact_text", "active_from_owner": false, "budget_tokens": 1200, "full": {"chars": 2835, "words": 360, "tokens": 709, "sha256_12": "040581a3b4b0", "origin": "factory"}, "compact": {"chars": 1934, "words": 249, "tokens": 484, "sha256_12": "ff28f0720a23", "origin": "factory"}, "factory_revisions": {"full": "fac:040581a3b4b0(soul02-author-full-v1)", "compact": "fac:ff28f0720a23(soul02-compact-v1)"}, "source_provenance": {"path": "plan
+VERIFY core[before].full source=default revision=act:040581a3b4b0 chars=2835 withheld=False differs=False
+VERIFY core[before].compact source=default revision=act:ff28f0720a23 chars=1934 withheld=False differs=False
+VERIFY core factory_chars=2835 factory_sha12=040581a3b4b0
+VERIFY core_doc_create status=200 body={"ok": true, "block_id": "core.personality", "result": {"applied": true, "block_id": "core.personality", "pg_key": "character.core", "scope": "global", "chat_overrides_touched": false, "changed": true, "previous_revision": "", "revision": "act:040581a3b4b0", "sha256_12": "040581a3b4b0", "history_key": "character.prompt_history", "provenance_persisted": true, "effective": true, "legacy_persona_marker": false, "provenance": {"kind": "owner_edit", "scope": "global"}}, "effective": {"block_id": "core.personality", "pg_key": "character.core", "text": "Ты общаешься как живой участник неформального русскоязычного чата. Тебе свойственны остроумие, абсурдное мышление, язвительность и непристойный юмор. Но твоя главная особенность - не агрессия, а способность замечать нелепое в самых обычных вещах.\n\n**Как рождается юмор.** Когда разговор располагает к шутке, ищи неожиданную интерпретацию сказанн
+VERIFY style_doc_create status=200 body={"ok": true, "result": {"applied": true, "scope": "global", "revision": 1, "rules": 0, "soft_instructions": 0, "issues": []}}
+VERIFY core[after] status=200 {"selection": {"doc_key": "character.core", "present": true, "level": "full", "reason": "owner_setting", "requested_level": "full", "source": "global", "origin": "owner_edit", "document_revision": "1", "active_revision": "r1.040581a3b4b0", "active_field": "full_text", "active_from_owner": true, "budget_tokens": 1200, "full": {"chars": 2835, "words": 360, "tokens": 709, "sha256_12": "040581a3b4b0", "origin": "owner"}, "compact": {"chars": 1934, "words": 249, "tokens": 484, "sha256_12": "ff28f0720a23", "origin": "factory"}, "factory_revisions": {"full": "fac:040581a3b4b0(soul02-author-full-v1)", "compact": "fac:ff28f0720a23(soul02-compact-v1)"}, "source_provenance": {"path": "plans/features/so
+VERIFY core[after].full source=global revision=act:040581a3b4b0 chars=2835 withheld=False differs=False
+VERIFY core[after].compact source=global revision=act:ff28f0720a23 chars=1934 withheld=False differs=False
+VERIFY style status=200 rules=0 soft=0 source=default doc_keys=['chat_issues', 'chat_present', 'chat_revision', 'global_issues', 'global_present', 'global_revision', 'inheritance']
+VERIFY initiative_flag status=200 body={"updated": ["flags.initiative_diagnostics_publish_enabled"]}
+VERIFY try status=200 layers_current=["channel_contract", "channel_contract", "core"]
+VERIFY try layer_order=["channel_contract", "channel_contract", "core", "identity", "self_model_traits", "context_lessons", "response_plan", "expression", "humor_craft", "few_shot", "style_policy_hint", "channel_output"] tokens=1162
+VERIFY try versions={"core": "r1.040581a3b4b0", "core_detail": "full:owner_setting", "style_policy": "", "identity": "", "self_model": "", "lessons": "", "samples_library": "", "response_plan": "", "channel": "speech_plain/plain/text/3c4e0608968f", "composer": "w2"}
+VERIFY try conflicts=[]
+VERIFY blocks status=200 total=89 withheld=11
+VERIFY withheld_ids=["factcheck.base.single", "search.base.system", "summary.base.single", "checkup.base.system", "direct.base.tool_phase", "youtube.base.system", "youtube.base.video", "web.base.system", "factcheck.base.verbalizer", "summary.base.narrator", "direct.base.l2_writer"]
+VERIFY inspector status=200 keys=['chat_id', 'core', 'gates', 'last_run_note', 'last_run_present', 'masked', 'preview', 'retention', 'sent', 'sent_note', 'sent_writers']
+VERIFY inspector turns=empty (no real turn since restart)
+VERIFY done
+ext healthz status=200 body={"status":"ok","version":"2.58.86"}
+### J1_probes (rc=0, 0.9s)
+/healthz -> 200
+/web/ -> 200
+/web/app.js -> 200
+/web/static/app.css -> 200
+/web/static/fullscreen-policy.js -> 200
+/web/static/glass-refraction.js -> 200
+/api/speech/overview -> 401
+/api/memory/initiative-vitality -> 401
+/api/speech/blocks -> 401
+### J2_page (rc=0, 1.1s)
+PAGE_VER=15
+PAGE_SOUL=4
+### J3_https (rc=0, 1.3s)
+HTTPS_HZ={"status":"ok","version":"2.58.86"}
+HTTPS_WEB=%{http_code}
+### J4_journal_sudopw (rc=0, 1.3s)
+Oct 17 21:55:11 racknerd-f4e3456 python[3243319]: 2026-10-17 21:55:11,973 - services.goodmorning_scheduler - INFO - Goodmorning scheduler started (07:00 Asia/Yekaterinburg, 1 chats)
+Oct 17 21:55:11 racknerd-f4e3456 python[3243319]: 2026-10-17 21:55:11,975 - __main__ - INFO - InfoService (Epic 43) initialized | file=info_text.md
+Oct 17 21:55:12 racknerd-f4e3456 python[3243319]: 2026-10-17 21:55:12,089 - services.bot_commands - INFO - Bot commands registered (set_my_commands ok): ['summary', 'info', 'menu']
+Oct 17 21:55:12 racknerd-f4e3456 python[3243319]: 2026-10-17 21:55:12,090 - __main__ - INFO - Olya service disabled (OLYA_ENABLED=False)
+Oct 17 21:55:12 racknerd-f4e3456 python[3243319]: 2026-10-17 21:55:12,092 - __main__ - INFO - VideoDownloader enabled (cobalt=http://localhost:9000)
+Oct 17 21:55:12 racknerd-f4e3456 python[3243319]: 2026-10-17 21:55:12,093 - __main__ - INFO - All routers registered (v2.4.0)
+Oct 17 21:55:12 racknerd-f4e3456 python[3243319]: 2026-10-17 21:55:12,093 - __main__ - INFO - Relay channel media group tracker registered (Epic 14)
+Oct 17 21:55:12 racknerd-f4e3456 python[3243319]: 2026-10-17 21:55:12,094 - __main__ - INFO - Bot started, listening for messages...
+Oct 17 21:55:12 racknerd-f4e3456 python[3243319]: 2026-10-17 21:55:12,100 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+Oct 17 21:55:12 racknerd-f4e3456 python[3243319]: 2026-10-17 21:55:12,101 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+Oct 17 21:55:12 racknerd-f4e3456 python[3243319]: 2026-10-17 21:55:12,102 - apscheduler.scheduler - INFO - Added job "UptimeHeartbeatService._heartbeat" to job store "default"
+Oct 17 21:55:12 racknerd-f4e3456 python[3243319]: 2026-10-17 21:55:12,103 - apscheduler.scheduler - INFO - Added job "UptimeHeartbeatService._cleanup" to job store "default"
+Oct 17 21:55:12 racknerd-f4e3456 python[3243319]: 2026-10-17 21:55:12,103 - apscheduler.scheduler - INFO - Scheduler started
+Oct 17 21:55:12 racknerd-f4e3456 python[3243319]: 2026-10-17 21:55:12,104 - services.uptime_heartbeat - INFO - [uptime] heartbeat started: interval=60s retention=72h
+Oct 17 21:55:14 racknerd-f4e3456 python[3243319]: 2026-10-17 21:55:14,276 - web.app - INFO - [webapp] WEBAPP_URL | scheme=https | host=admin-bot.duckdns.org | path=/web/
+Oct 17 21:55:14 racknerd-f4e3456 python[3243319]: 2026-10-17 21:55:14,279 - web.app - INFO - [webapp] MEDIA_PUBLIC_BASE_URL | scheme=https | host=admin-bot.duckdns.org | path=-
+Oct 17 21:55:14 racknerd-f4e3456 python[3243319]: 2026-10-17 21:55:14,289 - __main__ - INFO - [shutdown] signal handlers installed | signals=(2, 15)
+Oct 17 21:55:14 racknerd-f4e3456 python[3243319]: 2026-10-17 21:55:14,310 - aiogram.dispatcher - INFO - Start polling
+Oct 17 21:55:14 racknerd-f4e3456 python[3243319]: 2026-10-17 21:55:14,314 - web.app - INFO - [webapp] lifespan started | pg_available=True
+Oct 17 21:55:14 racknerd-f4e3456 python[3243319]: 2026-10-17 21:55:14,325 - aiogram.dispatcher - INFO - Run polling for bot @PERMsoc_bot id=8802473181 - 'Базовичок'
+Oct 17 21:55:16 racknerd-f4e3456 python[3243319]: 2026-10-17 21:55:16,968 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-18 02:55:21 +05)" (scheduled at 2026-10-18 02:55:16.966377+05:00)
+Oct 17 21:55:17 racknerd-f4e3456 python[3243319]: 2026-10-17 21:55:17,023 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-18 02:55:21 +05)" executed successfully
+Oct 17 21:55:17 racknerd-f4e3456 python[3243319]: 2026-10-17 21:55:17,750 - web.api.deps - INFO - [tma-auth] src=header user=5885953495 role=admin perm=wildcard valid=True age=0.8s init_data_len=156
+Oct 17 21:55:18 racknerd-f4e3456 python[3243319]: 2026-10-17 21:55:18,709 - web.api.deps - INFO - [tma-auth] src=header user=5885953495 role=admin perm=wildcard valid=True age=1.7s init_data_len=156
+Oct 17 21:55:18 racknerd-f4e3456 python[3243319]: 2026-10-17 21:55:18,805 - web.api.deps - INFO - [tma-auth] src=header user=5885953495 role=admin perm=wildcard valid=True age=1.8s init_data_len=156
+Oct 17 21:55:18 racknerd-f4e3456 python[3243319]: 2026-10-17 21:55:18,816 - services.config_cache - INFO - [config_cache] set | key=character.prompt_history | category=content
+Oct 17 21:55:18 racknerd-f4e3456 python[3243319]: 2026-10-17 21:55:18,817 - services.prompt_factory - INFO - [prompt_factory] provenance | block=core.personality | kind=owner_edit | scope=global | sha=040581a3b4b0 | persisted=True
+Oct 17 21:55:18 racknerd-f4e3456 python[3243319]: 2026-10-17 21:55:18,830 - services.config_cache - INFO - [config_cache] set | key=character.core | category=content
+Oct 17 21:55:18 racknerd-f4e3456 python[3243319]: 2026-10-17 21:55:18,831 - services.prompt_factory - INFO - [prompt_factory] owner edit | block=core.personality | key=character.core | sha=040581a3b4b0 | chars=2835
+Oct 17 21:55:18 racknerd-f4e3456 python[3243319]: 2026-10-17 21:55:18,904 - web.api.deps - INFO - [tma-auth] src=header user=5885953495 role=admin perm=wildcard valid=True age=1.9s init_data_len=156
+Oct 17 21:55:18 racknerd-f4e3456 python[3243319]: /var/www/admin_bot/services/style_policy.py:2275: RuntimeWarning: coroutine 'ConfigCache.set' was never awaited
+Oct 17 21:55:18 racknerd-f4e3456 python[3243319]:   target.set(DOC_KEY, normalized, category=DOC_CATEGORY)
+Oct 17 21:55:18 racknerd-f4e3456 python[3243319]: RuntimeWarning: Enable tracemalloc to get the object allocation traceback
+Oct 17 21:55:18 racknerd-f4e3456 python[3243319]: 2026-10-17 21:55:18,923 - services.style_policy - INFO - [style_policy] document saved | scope=global | revision=1 | rules=0 | soft=0
+Oct 17 21:55:18 racknerd-f4e3456 python[3243319]: 2026-10-17 21:55:18,939 - web.api.deps - INFO - [tma-auth] src=header user=5885953495 role=admin perm=wildcard valid=True age=1.9s init_data_len=156
+Oct 17 21:55:18 racknerd-f4e3456 python[3243319]: 2026-10-17 21:55:18,957 - web.api.deps - INFO - [tma-auth] src=header user=5885953495 role=admin perm=wildcard valid=True age=2.0s init_data_len=156
+Oct 17 21:55:18 racknerd-f4e3456 python[3243319]: 2026-10-17 21:55:18,972 - web.api.deps - INFO - [tma-auth] src=header user=5885953495 role=admin perm=wildcard valid=True age=2.0s init_data_len=156
+Oct 17 21:55:18 racknerd-f4e3456 python[3243319]: 2026-10-17 21:55:18,980 - services.config_cache - INFO - [config_cache] set_many | keys=1
+Oct 17 21:55:18 racknerd-f4e3456 python[3243319]: 2026-10-17 21:55:18,980 - web.api.routes - INFO - [api] config updated | key=flags.initiative_diagnostics_publish_enabled | by=5885953495
+Oct 17 21:55:18 racknerd-f4e3456 python[3243319]: 2026-10-17 21:55:18,990 - web.api.deps - INFO - [tma-auth] src=header user=5885953495 role=admin perm=wildcard valid=True age=2.0s init_data_len=156
+Oct 17 21:55:18 racknerd-f4e3456 python[3243319]: 2026-10-17 21:55:18,995 - services.prompt_registry - WARNING - [prompt_registry] persisted speech value withheld | key=prompts.direct_chat_verbalizer_system_prompt | block=direct.base.l2_writer | reason=provenance_missing | stored_sha=39a7cce1523e | stored_chars=1690
+Oct 17 21:55:19 racknerd-f4e3456 python[3243319]: 2026-10-17 21:55:19,015 - web.api.deps - INFO - [tma-auth] src=header user=5885953495 role=admin perm=wildcard valid=True age=2.0s init_data_len=156
+Oct 17 21:55:19 racknerd-f4e3456 python[3243319]: 2026-10-17 21:55:19,023 - services.prompt_registry - WARNING - [prompt_registry] persisted speech value withheld | key=prompts.factcheck_system_prompt | block=factcheck.base.single | reason=provenance_missing | stored_sha=76c4beb11c63 | stored_chars=4666
+Oct 17 21:55:19 racknerd-f4e3456 python[3243319]: 2026-10-17 21:55:19,027 - services.prompt_registry - WARNING - [prompt_registry] persisted speech value withheld | key=prompts.search_system_prompt | block=search.base.system | reason=provenance_missing | stored_sha=ba43fb679db6 | stored_chars=2622
+Oct 17 21:55:19 racknerd-f4e3456 python[3243319]: 2026-10-17 21:55:19,031 - services.prompt_registry - WARNING - [prompt_registry] persisted speech value withheld | key=prompts.summary_system_prompt | block=summary.base.single | reason=provenance_missing | stored_sha=141016a95b95 | stored_chars=3484
+Oct 17 21:55:19 racknerd-f4e3456 python[3243319]: 2026-10-17 21:55:19,033 - services.prompt_registry - WARNING - [prompt_registry] persisted speech value withheld | key=prompts.checkup_system_prompt | block=checkup.base.system | reason=provenance_missing | stored_sha=1e8a3c69cf7b | stored_chars=2312
+Oct 17 21:55:19 racknerd-f4e3456 python[3243319]: 2026-10-17 21:55:19,037 - services.prompt_registry - WARNING - [prompt_registry] persisted speech value withheld | key=prompts.direct_chat_system_prompt | block=direct.base.tool_phase | reason=provenance_missing | stored_sha=cf404931f84c | stored_chars=5294
+Oct 17 21:55:19 racknerd-f4e3456 python[3243319]: 2026-10-17 21:55:19,042 - services.prompt_registry - WARNING - [prompt_registry] persisted speech value withheld | key=prompts.youtube_system_prompt | block=youtube.base.system | reason=provenance_missing | stored_sha=e0a1ffaf18a1 | stored_chars=2252
+Oct 17 21:55:19 racknerd-f4e3456 python[3243319]: 2026-10-17 21:55:19,045 - services.prompt_registry - WARNING - [prompt_registry] persisted speech value withheld | key=prompts.youtube_video_system_prompt | block=youtube.base.video | reason=provenance_missing | stored_sha=c8bba06ec6a8 | stored_chars=2248
+Oct 17 21:55:19 racknerd-f4e3456 python[3243319]: 2026-10-17 21:55:19,048 - services.prompt_registry - WARNING - [prompt_registry] persisted speech value withheld | key=prompts.webpage_system_prompt | block=web.base.system | reason=provenance_missing | stored_sha=7801085b6ef5 | stored_chars=2071
+Oct 17 21:55:19 racknerd-f4e3456 python[3243319]: 2026-10-17 21:55:19,051 - services.prompt_registry - WARNING - [prompt_registry] persisted speech value withheld | key=prompts.factcheck_verbalizer_system_prompt | block=factcheck.base.verbalizer | reason=provenance_missing | stored_sha=5fbf61cea310 | stored_chars=1712
+Oct 17 21:55:19 racknerd-f4e3456 python[3243319]: 2026-10-17 21:55:19,055 - services.prompt_registry - WARNING - [prompt_registry] persisted speech value withheld | key=prompts.summary_narrator_system_prompt | block=summary.base.narrator | reason=provenance_missing | stored_sha=43160d5f9c2c | stored_chars=1850
+Oct 17 21:55:19 racknerd-f4e3456 python[3243319]: 2026-10-17 21:55:19,083 - services.prompt_registry - WARNING - [prompt_registry] persisted speech value withheld | key=prompts.direct_chat_verbalizer_system_prompt | block=direct.base.l2_writer | reason=provenance_missing | stored_sha=39a7cce1523e | stored_chars=1690
+Oct 17 21:55:19 racknerd-f4e3456 python[3243319]: 2026-10-17 21:55:19,142 - web.api.deps - INFO - [tma-auth] src=header user=5885953495 role=admin perm=wildcard valid=True age=2.1s init_data_len=156
+Oct 17 21:55:19 racknerd-f4e3456 python[3243319]: 2026-10-17 21:55:19,149 - services.prompt_registry - WARNING - [prompt_registry] persisted speech value withheld | key=prompts.direct_chat_verbalizer_system_prompt | block=direct.base.l2_writer | reason=provenance_missing | stored_sha=39a7cce1523e | stored_chars=1690
+Oct 17 21:55:21 racknerd-f4e3456 python[3243319]: 2026-10-17 21:55:21,525 - web.api.deps - INFO - [tma-auth] src=none valid=False reason='missing init data' age=? init_data_len=0 path=/api/speech/overview
+Oct 17 21:55:21 racknerd-f4e3456 python[3243319]: 2026-10-17 21:55:21,556 - web.api.deps - INFO - [tma-auth] src=none valid=False reason='missing init data' age=? init_data_len=0 path=/api/memory/initiative-vitality
+Oct 17 21:55:21 racknerd-f4e3456 python[3243319]: 2026-10-17 21:55:21,584 - web.api.deps - INFO - [tma-auth] src=none valid=False reason='missing init data' age=? init_data_len=0 path=/api/speech/blocks
+Oct 17 21:55:21 racknerd-f4e3456 python[3243319]: 2026-10-17 21:55:21,967 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-18 02:55:26 +05)" (scheduled at 2026-10-18 02:55:21.966377+05:00)
+Oct 17 21:55:21 racknerd-f4e3456 python[3243319]: 2026-10-17 21:55:21,973 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-18 02:55:26 +05)" executed successfully
+[stderr] [sudo] password for nik:
+### J5_counts_sudopw (rc=0, 1.2s)
+ERR=0
+WITHHELD=13
+POLLER=2
+[stderr] [sudo] password for nik:
+### J6_service (rc=0, 1.0s)
+MainPID=3243319 NRestarts=0 ExecMainStartTimestamp=Sat 2026-10-17 21:54:51 UTC ExecMainStatus=0 ActiveState=active SubState=running
