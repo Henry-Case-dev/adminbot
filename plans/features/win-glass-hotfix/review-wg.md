@@ -137,3 +137,32 @@
 ## Итог
 
 Леджер и ре-анкор (пп.1–4) подтверждены полностью; единственное, что мешает закрытию, — красные guard'ы на master из-за нового файла слоя. После крошечного test-only патча + перепрогона двух guard'ов задачу можно закрывать; живые наблюдения остаются за владельцем (`PENDING_OWNER_E2E`, 7 RFL).
+
+---
+
+# R4 — RECHECK-FIX-GUARD (закрытие R3-1): **Approved**
+
+| Поле | Значение |
+|---|---|
+| Коммит | `de69c4e3aa1e0d7ec4aa154303c5fbc2d3d24135` (2 файла, +48/−2) — NOTE-санкции в оба bounds-guard'а |
+| Вердикт | **Approved** — R3-1 закрыт: санкции легитимны, сторожа не ослаблены, прогон зелёный |
+
+## 1. Дифф — только allowlist/NOTE
+
+- Изменены ровно два тестовых файла (`tests/test_tool_coordinator_round1026.py`, `tests/test_unified_image_request_round1026.py`), по одному хаунку: в кортежи-allowlist добавлены две записи с NOTE-комментариями.
+- **Предикаты не тронуты** (мой программный чек: среди изменённых строк нет `assert` / `not any` / `for n in` / `for ln in`) — сторожа по-прежнему требуют санкции для КАЖДОГО нового `web/**`-имени, вырос только allowlist.
+
+## 2. Обе санкции легитимны (перепроверил эмпирически)
+
+- `web/static/glass-refraction.js` → NOTE (WIN-GLASS-P0, review-wg.md R2 Approved, `0ca661fe`) — согласуется с моим вердиктом (R2/R3).
+- `web/api/initiative_vitality.py` → NOTE (SOUL-1 W5, review-w5.md RECHECK Approved, `bc277a3d`): файл добавлен именно коммитом W5 `bc277a3d` (`git log --diff-filter=A`), в `review-w5.md` зафиксировано «RECHECK: Approved (for controlled deployment; parent not DONE)» — санкция не ослабляет сторожа, а закрывает несанкционированный ранее новый роутер.
+- **Моя самокоррекция (важно):** на родителе win-glass-кандидата `8e326403` гварды **уже были красными**: из 25 имён `web/` в baseline-диффе 24 были в allowlist, единственный offender — `web/api/initiative_vitality.py` (glass-refraction.js тогда был untracked и в `git diff` не попадал). Т.е. кандидат `0ca661fe` **добавил второго offender'а**, а не перевёл сторожа из зелёного в красный, как я сформулировал в R3-1. Вывод R3-1 (нужна санкция) остаётся в силе; приписывание падения только glass-refraction.js — исправлено здесь.
+- Почему гварды оставались красными незамеченными с W5: файлы `test_tool_coordinator_round1026.py` / `test_unified_image_request_round1026.py` не входят в perimeter-селектор прогонов (`webapp/ia_/soul1/round1025/round1024/ui_/glass/persona/prompt/registry/catalog`) — рекомендация: включить оба гварда в периметр, чтобы новые `web/**`-файлы ловились сразу.
+
+## 3. Прогон (мой)
+
+`.venv/Scripts/python.exe -m pytest -q tests/test_tool_coordinator_round1026.py::TestBounds tests/test_unified_image_request_round1026.py::TestBoundsA3` → **12 passed, 0 failed** (было 2 failed / 10 passed). Offender-чек на текущем HEAD: `git diff --name-only pre-round1026-a1 HEAD -- web/` минус текущий allowlist = **[]**.
+
+## Итог R4
+
+R3-1 закрыт; леджер/ре-анкор (R3) остаётся подтверждённым, кандидат `0ca661fe` и деплой `95526863` (2.58.85) не затрагиваются. Осталось: релизная линия `95526863` несёт ту же незакрытую пару санкций в своих тестовых файлах (прод-байты не затронуты) — взять при следующем касании релиза; живые наблюдения по 7 RFL-строкам — за владельцем (`PENDING_OWNER_E2E`).
