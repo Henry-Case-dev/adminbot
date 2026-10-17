@@ -1,0 +1,808 @@
+{
+  "schema": "openworkflow-coverage-v1",
+  "source_path": "C:\\Code\\Python\\adminbot\\plans\\features\\win-glass-hotfix\\source-hotfix-2026-10-18.md",
+  "source_sha256": "69b16ce8fc0287d1ff6bd83b0c23cd035207f167b8cc6969ac8ea42db7843593",
+  "candidate_commit": "0ca661fe8109fcecf752ad3e863355a4ec96e4ae",
+  "deployed_commit": "",
+  "strict_evidence": true,
+  "slice_graph_path": "slice-graph.json",
+  "additional_requirements": [
+    {
+      "source_id": "MAN-WG-01",
+      "source_line": 3,
+      "source_text_sha256": "02599e249e0cf6670a2d4ee0df9cdf3d08944afbec2822e0fedae3a4148cd713",
+      "source_excerpt": "> Приложенные владельцем скриншоты = воспроизводимые пользовательские симптомы; в репозиторий не пер",
+      "disposition": "context",
+      "reason": "Провенанс симптомов: скриншоты владельца не переносились в репозиторий и считаются воспроизводимой базой; учтено в WG-VER-05 и живых проверках.",
+      "req_id": "",
+      "slice": "",
+      "acceptance": "",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "PENDING",
+      "evidence": []
+    },
+    {
+      "source_id": "MAN-WG-02",
+      "source_line": 4,
+      "source_text_sha256": "77de2f27709bb70d5a5a24dc5642fe864b4a6c54037f2c7f8d500988e6f12119",
+      "source_excerpt": "> Выполнить в ближайшее безопасное окно текущей работы, приоритет P0; отдельный эпик не создавать; п",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "WG-P0-01",
+      "slice": "WG-VERIFY",
+      "acceptance": "Работы выполнены как P0 в ближайшем безопасном окне текущей работы: хотфикс не отложен за другие задачи; приоритет отражён в порядке работ и отчёте.",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "0ca661fe8109fcecf752ad3e863355a4ec96e4ae",
+          "ref": "report.md (дата 2026-10-18, §3)",
+          "observation": "Директива и выполнение — один день 18.10.2026: отчёт и проверки датированы тем же днём, работы проведены вне общей очереди (P0, отдельный каталог хотфикса).",
+          "artifact_path": "plans/features/win-glass-hotfix/report.md",
+          "artifact_sha256": "369ac17e1ab08160750eebcc0413f86aa7ee4ba6edd05a50cc08ff6457e7c970"
+        },
+        {
+          "candidate_commit": "0ca661fe8109fcecf752ad3e863355a4ec96e4ae",
+          "ref": "review-wg.md §6",
+          "observation": "Ревью и привязка выполнены в тот же день (кандидат 0ca661fe, вердикт 8e326403) — хотфикс не отложен за другие задачи.",
+          "artifact_path": "plans/features/win-glass-hotfix/review-wg.md",
+          "artifact_sha256": "94cdfc03325ec49c0c7618d08380fd714ec54ca12e178dce600db7cdb22b6e15"
+        }
+      ]
+    },
+    {
+      "source_id": "MAN-WG-03",
+      "source_line": 4,
+      "source_text_sha256": "77de2f27709bb70d5a5a24dc5642fe864b4a6c54037f2c7f8d500988e6f12119",
+      "source_excerpt": "> Выполнить в ближайшее безопасное окно текущей работы, приоритет P0; отдельный эпик не создавать; п",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "WG-P0-02",
+      "slice": "WG-VERIFY",
+      "acceptance": "Хотфикс проведён одним P0-лейном без отдельного эпика, волн и канареек: каталог win-glass-hotfix содержит карту, граф, отчёт и evidence; эпик-плана нет.",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "0ca661fe8109fcecf752ad3e863355a4ec96e4ae",
+          "ref": "slice-graph.json — note и slices",
+          "observation": "Один P0-лейн: can_parallel_with пуст, слайсы WG-WIN/WG-ANDROID/WG-VERIFY в одном каталоге win-glass-hotfix; эпик-плана и отдельных волн нет.",
+          "artifact_path": "plans/features/win-glass-hotfix/slice-graph.json",
+          "artifact_sha256": "6b24b3ddfc597e083c4e4da46ba8eb8460f536b5f799cf9555d261c9e9317428"
+        },
+        {
+          "candidate_commit": "0ca661fe8109fcecf752ad3e863355a4ec96e4ae",
+          "ref": "report.md (шапка: границы лейна)",
+          "observation": "Границы лейна и состав файлов зафиксированы; каталог win-glass-hotfix содержит карту, граф, отчёт, owner-steps и evidence.",
+          "artifact_path": "plans/features/win-glass-hotfix/report.md",
+          "artifact_sha256": "369ac17e1ab08160750eebcc0413f86aa7ee4ba6edd05a50cc08ff6457e7c970"
+        }
+      ]
+    },
+    {
+      "source_id": "MAN-WG-04",
+      "source_line": 4,
+      "source_text_sha256": "77de2f27709bb70d5a5a24dc5642fe864b4a6c54037f2c7f8d500988e6f12119",
+      "source_excerpt": "> Выполнить в ближайшее безопасное окно текущей работы, приоритет P0; отдельный эпик не создавать; п",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "WG-P0-03",
+      "slice": "WG-VERIFY",
+      "acceptance": "После проверок и деплоя прежняя очередь (current_task) возобновляется автоматически, без запроса разрешения у владельца.",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "0ca661fe8109fcecf752ad3e863355a4ec96e4ae",
+          "ref": "AGENTS.md — §«Режим PET_PROJECT» пп.1,5",
+          "observation": "Стоячее правило проекта: после ревью и техпроверок функции включаются штатным релизом без ожидания разрешений; ручные проверки не блокируют очередь — отдельного гейта владельца на возобновление current_task нет.",
+          "artifact_path": "AGENTS.md",
+          "artifact_sha256": "d7d8a4451c8d93605eaaa424e3040596658c8beca924593b2c84c3ccc1c635e1"
+        },
+        {
+          "candidate_commit": "0ca661fe8109fcecf752ad3e863355a4ec96e4ae",
+          "ref": "review-wg.md §6 «что дальше»",
+          "observation": "Маршрут после ревью — привязка карты и штатный релиз тем же потоком (пп.1–4), без запроса разрешения у владельца.",
+          "artifact_path": "plans/features/win-glass-hotfix/review-wg.md",
+          "artifact_sha256": "94cdfc03325ec49c0c7618d08380fd714ec54ca12e178dce600db7cdb22b6e15"
+        }
+      ]
+    },
+    {
+      "source_id": "MAN-WG-05",
+      "source_line": 8,
+      "source_text_sha256": "3ac0b99d3db2d6d732d9a22e46ff8b099b6433ab9df20646abec168e068f067d",
+      "source_excerpt": "При запуске MiniApp из Telegram с BotFather Launch Mode = Fullscreen приложение открывается автомати",
+      "disposition": "context",
+      "reason": "Описание пользовательского симптома Windows (часть монитора, вылет за границы, недоступность перемещения/размера); производные требования — L12/L13/L15, живой сценарий — WG-VER-01.",
+      "req_id": "",
+      "slice": "",
+      "acceptance": "",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "PENDING",
+      "evidence": []
+    },
+    {
+      "source_id": "MAN-WG-06",
+      "source_line": 19,
+      "source_text_sha256": "5d3d39cb426b9791fd3d11aa74320587b772474a358ec9928f12891e97c34983",
+      "source_excerpt": "На Desktop преломление фоновой геометрии уже заметно и работает. На Android сейчас виден практически",
+      "disposition": "context",
+      "reason": "Констатация симптома Android (на Desktop рефракция видна, на Android только blur); производные обязательства — L22–L27, живое сравнение — WG-VER-02.",
+      "req_id": "",
+      "slice": "",
+      "acceptance": "",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "PENDING",
+      "evidence": []
+    },
+    {
+      "source_id": "MAN-WG-07",
+      "source_line": 31,
+      "source_text_sha256": "ac8f7c9b84d97a8429febebe6e894fefc37fcad4ff3a021b77775598adc30701",
+      "source_excerpt": "Приложенные скриншоты считать воспроизводимыми пользовательскими симптомами.",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "WG-VER-05",
+      "slice": "WG-VERIFY",
+      "acceptance": "Матрица проверок нацелена ровно на владельческие симптомы (Windows: часть монитора/вылет за границы; Android: только blur без смещения); вердикты сверяются со скриншотами-симптомами, расхождение = незавершённость.",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "0ca661fe8109fcecf752ad3e863355a4ec96e4ae",
+          "ref": "report.md §1.1/§2.1 (симптомы), §3/§5 (матрица проверок)",
+          "observation": "Матрица проверок нацелена ровно на владельческие симптомы: Windows — окно занимает часть монитора/смещено за границы; Android — практически только blur; вердикты сверены со симптомами, расхождений нет.",
+          "artifact_path": "plans/features/win-glass-hotfix/report.md",
+          "artifact_sha256": "369ac17e1ab08160750eebcc0413f86aa7ee4ba6edd05a50cc08ff6457e7c970"
+        },
+        {
+          "candidate_commit": "0ca661fe8109fcecf752ad3e863355a4ec96e4ae",
+          "ref": "evidence/README.md — индекс артефактов",
+          "observation": "Индекс фиксирует, какой артефакт доказывает какой симптом: RED/GREEN смещения линий, FS-регрессия, frozen-assets, предсуществующие падения polygon-e2e.",
+          "artifact_path": "plans/features/win-glass-hotfix/evidence/README.md",
+          "artifact_sha256": "59876c5fe14c5a38fd4263b6ee564dd933684dbf792c011fa52d2e573f8d151d"
+        }
+      ]
+    },
+    {
+      "source_id": "MAN-WG-08",
+      "source_line": 32,
+      "source_text_sha256": "22b0d08a6036c2fb543265c84107c99f5392b9827fd3c946272387c4def3220c",
+      "source_excerpt": "Для Windows обязательна проверка геометрии реального Telegram Desktop и доступности панели задач. Дл",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "WG-VER-01",
+      "slice": "WG-VERIFY",
+      "acceptance": "Проверка на реальном Telegram Desktop (Windows) выполнена либо назначена: геометрия окна и доступность панели задач; до результата — PENDING_OWNER_E2E, полный успех не объявляется.",
+      "live_required": true,
+      "live_when": "postdeploy",
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "0ca661fe8109fcecf752ad3e863355a4ec96e4ae",
+          "ref": "owner-steps.md §B (чек-лист Windows)",
+          "observation": "Сценарий проверки реального Telegram Desktop задан: версия/разрядность, симптом и обход §A.1, снимок админ-диагностики, управление ⛶, мультимонитор/DPI; статус PENDING_OWNER_E2E.",
+          "artifact_path": "plans/features/win-glass-hotfix/owner-steps.md",
+          "artifact_sha256": "6c844e6386c4938d14f513caf161fee20bd362b5cb78a307ae712c4f4b11316f"
+        },
+        {
+          "candidate_commit": "0ca661fe8109fcecf752ad3e863355a4ec96e4ae",
+          "ref": "report.md §5 (пп.1–2)",
+          "observation": "Живые пункты для Windows поименованы с ожидаемым результатом и не объявлены подтверждёнными.",
+          "artifact_path": "plans/features/win-glass-hotfix/report.md",
+          "artifact_sha256": "369ac17e1ab08160750eebcc0413f86aa7ee4ba6edd05a50cc08ff6457e7c970"
+        }
+      ]
+    },
+    {
+      "source_id": "MAN-WG-09",
+      "source_line": 32,
+      "source_text_sha256": "22b0d08a6036c2fb543265c84107c99f5392b9827fd3c946272387c4def3220c",
+      "source_excerpt": "Для Windows обязательна проверка геометрии реального Telegram Desktop и доступности панели задач. Дл",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "WG-VER-02",
+      "slice": "WG-VERIFY",
+      "acceptance": "Визуальное сравнение рефракции выполнено либо назначено на реальном Android WebView (не только Chrome/Playwright); до результата — PENDING_OWNER_E2E.",
+      "live_required": true,
+      "live_when": "postdeploy",
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "0ca661fe8109fcecf752ad3e863355a4ec96e4ae",
+          "ref": "owner-steps.md §C (живое сравнение рефракции)",
+          "observation": "Сценарий задан: кромки крупных карточек, контрастный участок фона, перф при скролле/возврате, опционально iPhone; статус PENDING_OWNER_E2E.",
+          "artifact_path": "plans/features/win-glass-hotfix/owner-steps.md",
+          "artifact_sha256": "6c844e6386c4938d14f513caf161fee20bd362b5cb78a307ae712c4f4b11316f"
+        },
+        {
+          "candidate_commit": "0ca661fe8109fcecf752ad3e863355a4ec96e4ae",
+          "ref": "report.md §5 (пп.3–5)",
+          "observation": "Живое сравнение на реальном Android WebView назначено; агентские проверки — Chromium-эмуляция WebView, и это явно оговорено.",
+          "artifact_path": "plans/features/win-glass-hotfix/report.md",
+          "artifact_sha256": "369ac17e1ab08160750eebcc0413f86aa7ee4ba6edd05a50cc08ff6457e7c970"
+        }
+      ]
+    },
+    {
+      "source_id": "MAN-WG-10",
+      "source_line": 33,
+      "source_text_sha256": "3df7928672dfc6250464689ace7f3f5fc5b0383d29f933d8baff9909a792d1fc",
+      "source_excerpt": "Browser Use не подтверждает поведение нативного окна Telegram. Недоступные живые проверки честно обо",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "WG-VER-03",
+      "slice": "WG-VERIFY",
+      "acceptance": "Ни одно подтверждение поведения нативного окна Telegram не опирается на Browser Use; нативные пункты подтверждаются реальным клиентом либо помечаются PENDING_OWNER_E2E.",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "0ca661fe8109fcecf752ad3e863355a4ec96e4ae",
+          "ref": "review-wg.md §1/§2",
+          "observation": "Ревьюер разделил документированное (issues/PR) и наблюдаемое у нас (код SDK, e2e, симптом владельца); Browser Use нигде не выдан за подтверждение поведения нативного окна.",
+          "artifact_path": "plans/features/win-glass-hotfix/review-wg.md",
+          "artifact_sha256": "94cdfc03325ec49c0c7618d08380fd714ec54ca12e178dce600db7cdb22b6e15"
+        },
+        {
+          "candidate_commit": "0ca661fe8109fcecf752ad3e863355a4ec96e4ae",
+          "ref": "report.md §5 (примечание)",
+          "observation": "«Все пункты требуют реальных клиентов; агентам недоступны (Browser Use ≠ нативное окно и ≠ Android WebView)» — граница зафиксирована.",
+          "artifact_path": "plans/features/win-glass-hotfix/report.md",
+          "artifact_sha256": "369ac17e1ab08160750eebcc0413f86aa7ee4ba6edd05a50cc08ff6457e7c970"
+        }
+      ]
+    },
+    {
+      "source_id": "MAN-WG-11",
+      "source_line": 33,
+      "source_text_sha256": "3df7928672dfc6250464689ace7f3f5fc5b0383d29f933d8baff9909a792d1fc",
+      "source_excerpt": "Browser Use не подтверждает поведение нативного окна Telegram. Недоступные живые проверки честно обо",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "WG-VER-04",
+      "slice": "WG-VERIFY",
+      "acceptance": "Каждая недоступная живая проверка помечена PENDING_OWNER_E2E с точным сценарием для владельца и не объявлена VERIFIED/PASS.",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "0ca661fe8109fcecf752ad3e863355a4ec96e4ae",
+          "ref": "report.md §5 — таблица PENDING_OWNER_E2E (5 пунктов)",
+          "observation": "Каждая недоступная живая проверка помечена PENDING_OWNER_E2E с указанием «где/что ожидать»; ни один пункт не объявлен VERIFIED/PASS.",
+          "artifact_path": "plans/features/win-glass-hotfix/report.md",
+          "artifact_sha256": "369ac17e1ab08160750eebcc0413f86aa7ee4ba6edd05a50cc08ff6457e7c970"
+        },
+        {
+          "candidate_commit": "0ca661fe8109fcecf752ad3e863355a4ec96e4ae",
+          "ref": "owner-steps.md §B/§C",
+          "observation": "Для каждого пункта есть точный сценарий для владельца (Windows и Android), включая ожидания и предупреждения.",
+          "artifact_path": "plans/features/win-glass-hotfix/owner-steps.md",
+          "artifact_sha256": "6c844e6386c4938d14f513caf161fee20bd362b5cb78a307ae712c4f4b11316f"
+        }
+      ]
+    },
+    {
+      "source_id": "MAN-WG-12",
+      "source_line": 34,
+      "source_text_sha256": "6ba63d3b7a44fb19cbc6b4ceb28691a6412c7bc66785290d7cf3dee4fe96aef4",
+      "source_excerpt": "Использовать существующий workflow, Reviewer и штатный деплой. Не затрагивать SOUL-1, Summary и оста",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "WG-P0-04",
+      "slice": "WG-VERIFY",
+      "acceptance": "Публикуемый кандидат хотфикса не содержит изменений SOUL-1, Summary/CFG и чужих задач: его состав ограничен файлами scope слайсов (проверка по диффу кандидата).",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "0ca661fe8109fcecf752ad3e863355a4ec96e4ae",
+          "ref": "evidence/verify/candidate-commit.txt — name-status кандидата",
+          "observation": "Кандидат 0ca661fe — ровно 23 пути (8 кодовых/тестов/инструментов + фича-пакет); SOUL-1, Summary/CFG и чужие файлы в него не входят (сверяемо git show --name-status).",
+          "artifact_path": "plans/features/win-glass-hotfix/evidence/verify/candidate-commit.txt",
+          "artifact_sha256": "5574b0acf2d7b78dc18044a0672187683922f8effbeaf4536b9ef0b53e2788d9"
+        },
+        {
+          "candidate_commit": "0ca661fe8109fcecf752ad3e863355a4ec96e4ae",
+          "ref": "review-wg.md §4 (гигиена)",
+          "observation": "Ревьюер до привязки подтвердил: изменены/добавлены только файлы лейна, чужие evidence-каталоги не тронуты (дифф к HEAD пуст).",
+          "artifact_path": "plans/features/win-glass-hotfix/review-wg.md",
+          "artifact_sha256": "94cdfc03325ec49c0c7618d08380fd714ec54ca12e178dce600db7cdb22b6e15"
+        }
+      ]
+    },
+    {
+      "source_id": "MAN-WG-13",
+      "source_line": 34,
+      "source_text_sha256": "6ba63d3b7a44fb19cbc6b4ceb28691a6412c7bc66785290d7cf3dee4fe96aef4",
+      "source_excerpt": "Использовать существующий workflow, Reviewer и штатный деплой. Не затрагивать SOUL-1, Summary и оста",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "WG-P0-05",
+      "slice": "WG-VERIFY",
+      "acceptance": "Проведены штатные этапы: независимое ревью Reviewer и штатный деплой; артефакты ревью и релиза приложены в evidence.",
+      "live_required": true,
+      "live_when": "postdeploy",
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "0ca661fe8109fcecf752ad3e863355a4ec96e4ae",
+          "ref": "review-wg.md §5/§6 + вердикт Approved",
+          "observation": "Независимое ревью Reviewer проведено (Approved); штатный деплой и его артефакты — будущий релизный шаг: строка закрывается релиз-evidence (deploy report) и deployed_commit на release-стадии.",
+          "artifact_path": "plans/features/win-glass-hotfix/review-wg.md",
+          "artifact_sha256": "94cdfc03325ec49c0c7618d08380fd714ec54ca12e178dce600db7cdb22b6e15"
+        },
+        {
+          "candidate_commit": "0ca661fe8109fcecf752ad3e863355a4ec96e4ae",
+          "ref": "report.md §3 (проверки кандидата)",
+          "observation": "Проверки кандидата зафиксированы: node 87/87, e2e 37/37, FS 12/12 (166), FROZEN-ASSETS-OK — база для штатного релиза.",
+          "artifact_path": "plans/features/win-glass-hotfix/report.md",
+          "artifact_sha256": "369ac17e1ab08160750eebcc0413f86aa7ee4ba6edd05a50cc08ff6457e7c970"
+        }
+      ]
+    },
+    {
+      "source_id": "MAN-WG-14",
+      "source_line": 35,
+      "source_text_sha256": "34259d486a1d656e4ac6e08b0c935060f9280b3021628b2c0709bc4f84b24d82",
+      "source_excerpt": "Human Gate только при реальном архитектурном выборе, который невозможно разрешить самостоятельно. Не",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "WG-P0-06",
+      "slice": "WG-VERIFY",
+      "acceptance": "Human Gate поднимался только при реальном архитектурном выборе (вопрос зафиксирован); необязательные ручные проверки не останавливали работу и помечались PENDING_OWNER_E2E.",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "0ca661fe8109fcecf752ad3e863355a4ec96e4ae",
+          "ref": "owner-steps.md (шапка + §B/§C)",
+          "observation": "Живые пункты не останавливали работу: для них заданы точные сценарии владельца; Human Gate не поднимался — нерешённого архитектурного выбора в хотфиксе нет.",
+          "artifact_path": "plans/features/win-glass-hotfix/owner-steps.md",
+          "artifact_sha256": "6c844e6386c4938d14f513caf161fee20bd362b5cb78a307ae712c4f4b11316f"
+        },
+        {
+          "candidate_commit": "0ca661fe8109fcecf752ad3e863355a4ec96e4ae",
+          "ref": "report.md §4/§5",
+          "observation": "Риски разобраны без архитектурного гейта; недоступные проверки помечены PENDING_OWNER_E2E, работа продолжена.",
+          "artifact_path": "plans/features/win-glass-hotfix/report.md",
+          "artifact_sha256": "369ac17e1ab08160750eebcc0413f86aa7ee4ba6edd05a50cc08ff6457e7c970"
+        }
+      ]
+    },
+    {
+      "source_id": "MAN-WG-15",
+      "source_line": 36,
+      "source_text_sha256": "97ef9ad59300b990ec02ae299017c86496087c67719f58563efa18df10a0674a",
+      "source_excerpt": "После выполнения дать короткий человеческий отчёт: что было причиной, что исправлено, что реально пр",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "WG-P0-07",
+      "slice": "WG-VERIFY",
+      "acceptance": "Дан короткий человеческий отчёт (причина / исправлено / реально проверено / что проверить владельцу); полный успех не заявлен, пока живые проверки не подтверждены.",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "0ca661fe8109fcecf752ad3e863355a4ec96e4ae",
+          "ref": "report.md §1–§5 (человеческий отчёт)",
+          "observation": "Отчёт отвечает на четыре вопроса: причина (клиентский дефект tdesktop#30963 / url() в backdrop), что исправлено (слой преломления), что реально проверено (§3), что проверить владельцу (§5); полный успех не заявлен.",
+          "artifact_path": "plans/features/win-glass-hotfix/report.md",
+          "artifact_sha256": "369ac17e1ab08160750eebcc0413f86aa7ee4ba6edd05a50cc08ff6457e7c970"
+        },
+        {
+          "candidate_commit": "0ca661fe8109fcecf752ad3e863355a4ec96e4ae",
+          "ref": "owner-steps.md (адресные шаги владельцу)",
+          "observation": "Владельцу дан точный исполнимый список проверок вместо общих формулировок.",
+          "artifact_path": "plans/features/win-glass-hotfix/owner-steps.md",
+          "artifact_sha256": "6c844e6386c4938d14f513caf161fee20bd362b5cb78a307ae712c4f4b11316f"
+        }
+      ]
+    },
+    {
+      "source_id": "MAN-WG-16",
+      "source_line": 36,
+      "source_text_sha256": "97ef9ad59300b990ec02ae299017c86496087c67719f58563efa18df10a0674a",
+      "source_excerpt": "После выполнения дать короткий человеческий отчёт: что было причиной, что исправлено, что реально пр",
+      "disposition": "duplicate",
+      "reason": "Дубль-якорь WG-P0-03: строка 36 («Затем автоматически продолжить current_task») повторяет требование строки 4; отслеживается один раз под WG-P0-03 (MAN-WG-04, слайс WG-VERIFY), чтобы гейт не видел строку дважды.",
+      "req_id": "WG-P0-03",
+      "slice": "WG-VERIFY",
+      "acceptance": "После проверок и деплоя прежняя очередь (current_task) возобновляется автоматически, без запроса разрешения у владельца.",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "PENDING",
+      "evidence": []
+    }
+  ],
+  "items": [
+    {
+      "source_id": "L00006",
+      "source_line": 6,
+      "source_text_sha256": "0a3a376cb0845a40538d35bf4dc8a02b5b3e0d054f472c8f8fce0e7e9610f779",
+      "source_excerpt": "## 1. Windows Telegram Desktop — неправильная геометрия fullscreen",
+      "disposition": "context",
+      "reason": "Заголовок раздела 1: кратко называет симптом (неправильная геометрия fullscreen); сами обязательства — L11–L15, проверки — WG-VERIFY и живой сценарий владельца.",
+      "req_id": "",
+      "slice": "",
+      "acceptance": "",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "PENDING",
+      "evidence": []
+    },
+    {
+      "source_id": "L00011",
+      "source_line": 11,
+      "source_text_sha256": "dc0ece930f5781dc9e9006864a5323ad81cb65af61c0d56e5a3893c7786c19ab",
+      "source_excerpt": "- Исследовать реальную причину на уровне Telegram Desktop, WebApp SDK, начального fullscreen и геометрии нативного окна. Учесть предыдущие исправления.",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "WG-WIN-01",
+      "slice": "WG-WIN",
+      "acceptance": "Причина геометрии задокументирована на уровне клиента/WebApp SDK/нативного окна (evidence: код клиента, трекер, пробы), учтены предыдущие fullscreen-исправления; CSS-вьюпорт не выдан за причину.",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "0ca661fe8109fcecf752ad3e863355a4ec96e4ae",
+          "ref": "report.md §1.2 «Причина — дефект клиента Telegram Desktop (Windows), не наш CSS»",
+          "observation": "Причина документирована на уровне клиента и SDK: frameless showFullScreen() без перемещения (tdesktop#30963; lib_ui PR #342 не влит), в Mini Apps API нет функций геометрии окна (только web_app_request/exit_fullscreen); CSS-вьюпорт причиной не заявлен.",
+          "artifact_path": "plans/features/win-glass-hotfix/report.md",
+          "artifact_sha256": "369ac17e1ab08160750eebcc0413f86aa7ee4ba6edd05a50cc08ff6457e7c970"
+        },
+        {
+          "candidate_commit": "0ca661fe8109fcecf752ad3e863355a4ec96e4ae",
+          "ref": "review-wg.md §1 (Windows-линия, внешняя сверка 18.10.2026)",
+          "observation": "Ревьюер подтвердил: в вендорном SDK нет функций геометрии, window.moveTo/resizeTo в web/** отсутствуют, внешние источники (#30963 open; #31041/#31114 закрыты дублями; lib_ui#342 open) и наш код/e2e проверены раздельно.",
+          "artifact_path": "plans/features/win-glass-hotfix/review-wg.md",
+          "artifact_sha256": "94cdfc03325ec49c0c7618d08380fd714ec54ca12e178dce600db7cdb22b6e15"
+        }
+      ]
+    },
+    {
+      "source_id": "L00012",
+      "source_line": 12,
+      "source_text_sha256": "d2adba2b5cb688d399ba9b64c6cd186fac2716820f357565dd23eed5efe3eaf0",
+      "source_excerpt": "- Добиться запуска на всю доступную рабочую область текущего монитора за исключением панели задач Windows. Поддержать разные разрешения, DPI, масштабирование и несколько мониторов.",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "WG-WIN-02",
+      "slice": "WG-WIN",
+      "acceptance": "Окно занимает рабочую область текущего монитора минус панель задач (в т.ч. разные разрешения, DPI, масштабирование, несколько мониторов) — либо доказанное ограничение с рабочим обходом; живое подтверждение владельца — READY_FOR_LIVE/PENDING_OWNER_E2E, полный успех не заявляется.",
+      "live_required": true,
+      "live_when": "postdeploy",
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "0ca661fe8109fcecf752ad3e863355a4ec96e4ae",
+          "ref": "owner-steps.md §A (обход), §B (чек-лист факта)",
+          "observation": "Ограничение клиента и конкретный воспроизводимый обход (левый верхний угол / второй монитор / перезапуск через ⛶) заданы; живое подтверждение «рабочая область минус панель задач» — за владельцем (PENDING_OWNER_E2E).",
+          "artifact_path": "plans/features/win-glass-hotfix/owner-steps.md",
+          "artifact_sha256": "6c844e6386c4938d14f513caf161fee20bd362b5cb78a307ae712c4f4b11316f"
+        },
+        {
+          "candidate_commit": "0ca661fe8109fcecf752ad3e863355a4ec96e4ae",
+          "ref": "evidence/e2e/_results.json — fs_audit (desktop)",
+          "observation": "FS-аудит кандидата: launchFullscreen=true, canOfferExit=true, второй request не отправляется; режим нативного окна веб-кодом не подменяется.",
+          "artifact_path": "plans/features/win-glass-hotfix/evidence/e2e/_results.json",
+          "artifact_sha256": "16f6e79305cce8fe209d5898a020dbbc1eb911e41d5e8e257bd87589d492670f"
+        }
+      ]
+    },
+    {
+      "source_id": "L00013",
+      "source_line": 13,
+      "source_text_sha256": "6018fbc4848051ef89c6fb115ba3ecbc1ee92a3ca03af8d9933c2942e6ec2e25",
+      "source_excerpt": "- Сохранить переключение fullscreen/windowed, возможность выхода, закрытия и управления окном.",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "WG-WIN-03",
+      "slice": "WG-WIN",
+      "acceptance": "Переключение fullscreen/windowed, выход, закрытие и управление окном работают без регрессий: e2e-наборы зелёные; подтверждение на реальном клиенте — PENDING_OWNER_E2E до проверки владельца.",
+      "live_required": true,
+      "live_when": "postdeploy",
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "0ca661fe8109fcecf752ad3e863355a4ec96e4ae",
+          "ref": "evidence/fs-regression/_results.json — 12 сценариев, 166 проверок",
+          "observation": "Все 12 сценариев PASS (166/166 проверок): launch-fullscreen, кнопка ⛶ (вход/выход), закрытие и управление окном без регрессий; живая проверка на реальном клиенте — за владельцем.",
+          "artifact_path": "plans/features/win-glass-hotfix/evidence/fs-regression/_results.json",
+          "artifact_sha256": "8c38a8214840c532f1bce8d6441cad661f1ee6771b057cb3de39367370fa73e2"
+        },
+        {
+          "candidate_commit": "0ca661fe8109fcecf752ad3e863355a4ec96e4ae",
+          "ref": "report.md §3 (строка FS-полосы)",
+          "observation": "Команда и результат зафиксированы: ui_asap8_w2_fullscreen_e2e.py → 12/12 сценариев, 166/166 checks на кандидате.",
+          "artifact_path": "plans/features/win-glass-hotfix/report.md",
+          "artifact_sha256": "369ac17e1ab08160750eebcc0413f86aa7ee4ba6edd05a50cc08ff6457e7c970"
+        }
+      ]
+    },
+    {
+      "source_id": "L00014",
+      "source_line": 14,
+      "source_text_sha256": "22590458e45b1efdfc171b5bd06753e89a4ef11c7de7448c6bf9ecc96c4ab0e1",
+      "source_excerpt": "- Не путать `100vw/100vh` внутри WebView с размерами нативного окна Windows.",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "WG-WIN-04",
+      "slice": "WG-WIN",
+      "acceptance": "Материалы и решения явно различают CSS-вьюпорт WebView (100vw/100vh) и геометрию нативного окна Windows; CSS нигде не заявлен решением проблемы окна.",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "0ca661fe8109fcecf752ad3e863355a4ec96e4ae",
+          "ref": "report.md §1.2 (строки про 100vw/100vh) и §1.4",
+          "observation": "Материалы явно различают CSS-вьюпорт WebView и геометрию нативного окна; CSS-исправление нигде не названо решением проблемы окна.",
+          "artifact_path": "plans/features/win-glass-hotfix/report.md",
+          "artifact_sha256": "369ac17e1ab08160750eebcc0413f86aa7ee4ba6edd05a50cc08ff6457e7c970"
+        },
+        {
+          "candidate_commit": "0ca661fe8109fcecf752ad3e863355a4ec96e4ae",
+          "ref": "owner-steps.md §A «Почему обход нужен»",
+          "observation": "Владельцу объяснено то же различие: Mini Apps API не управляет окном, обход — на уровне клиента.",
+          "artifact_path": "plans/features/win-glass-hotfix/owner-steps.md",
+          "artifact_sha256": "6c844e6386c4938d14f513caf161fee20bd362b5cb78a307ae712c4f4b11316f"
+        }
+      ]
+    },
+    {
+      "source_id": "L00015",
+      "source_line": 15,
+      "source_text_sha256": "bf1862f962bf3c4d666b27e91549d98ced5da8983b07be375894eaa58ba48de6",
+      "source_excerpt": "- Если Telegram Desktop технически не позволяет управлять размерами своего окна через MiniApp API, подтвердить ограничение на реальном клиенте и предложить конкретный рабочий обходной вариант. Не заявлять CSS-исправление решением проблемы н",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "WG-WIN-05",
+      "slice": "WG-WIN",
+      "acceptance": "При невозможности управления окном через MiniApp API: ограничение подтверждено на реальном клиенте и дан конкретный воспроизводимый обход (owner-steps.md); запрещены «CSS-исправление» как решение и заглушка «режим недоступен»; живая часть — PENDING_OWNER_E2E.",
+      "live_required": true,
+      "live_when": "postdeploy",
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "0ca661fe8109fcecf752ad3e863355a4ec96e4ae",
+          "ref": "owner-steps.md §A/§B",
+          "observation": "Ограничение подтверждено источниками и кодом; дан конкретный обход; заглушки «режим недоступен» нет; живое подтверждение на реальном клиенте — PENDING_OWNER_E2E.",
+          "artifact_path": "plans/features/win-glass-hotfix/owner-steps.md",
+          "artifact_sha256": "6c844e6386c4938d14f513caf161fee20bd362b5cb78a307ae712c4f4b11316f"
+        },
+        {
+          "candidate_commit": "0ca661fe8109fcecf752ad3e863355a4ec96e4ae",
+          "ref": "report.md §1.4/§1.5",
+          "observation": "Отчёт фиксирует обход и точный сценарий владельца (админ-диагностика геометрии, версия клиента, мультимонитор/DPI).",
+          "artifact_path": "plans/features/win-glass-hotfix/report.md",
+          "artifact_sha256": "369ac17e1ab08160750eebcc0413f86aa7ee4ba6edd05a50cc08ff6457e7c970"
+        }
+      ]
+    },
+    {
+      "source_id": "L00017",
+      "source_line": 17,
+      "source_text_sha256": "5957cc6ee029666bd60a9b0378fcaae325214548daec4b11f002758902c8b07a",
+      "source_excerpt": "## 2. Android — отсутствует оптическая рефракция Liquid Glass",
+      "disposition": "context",
+      "reason": "Заголовок раздела 2: называет симптом (на Android нет оптической рефракции); обязательства — L22–L27, живое сравнение — WG-VERIFY.",
+      "req_id": "",
+      "slice": "",
+      "acceptance": "",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "PENDING",
+      "evidence": []
+    },
+    {
+      "source_id": "L00022",
+      "source_line": 22,
+      "source_text_sha256": "a176c64cd3eda0ad68820b4c50651e7a75dd95e49eb5df2f284398e7ffad533e",
+      "source_excerpt": "- Проверить, почему Android WebView фактически использует blur/fallback вместо рабочего optical Tier A: поддержку фильтров, capability detection, настройки tier, производительность и реализацию библиотеки.",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "WG-ANDROID-01",
+      "slice": "WG-ANDROID",
+      "acceptance": "Задокументировано, почему Android WebView давал blur/fallback вместо optical Tier A: проверены фильтры (включая url()-в-backdrop), capability detection, тиры, производительность, реализация библиотеки; ложный Tier A исключён evidence-пробами.",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "0ca661fe8109fcecf752ad3e863355a4ec96e4ae",
+          "ref": "report.md §2.1 (причина)",
+          "observation": "Причина blur/fallback задокументирована: url() внутри backdrop-filter не поддержан вне Chromium (WebKit bug 245510 и др.), capability-проба честно не измеряет композит DOM (TypeError на drawImage) — ложный Tier A исключён.",
+          "artifact_path": "plans/features/win-glass-hotfix/report.md",
+          "artifact_sha256": "369ac17e1ab08160750eebcc0413f86aa7ee4ba6edd05a50cc08ff6457e7c970"
+        },
+        {
+          "candidate_commit": "0ca661fe8109fcecf752ad3e863355a4ec96e4ae",
+          "ref": "evidence/e2e/_results.json — probe_mobile",
+          "observation": "Проба кандидата: reason=engine-unproven-backdrop-url, svgRender=true, backdrop=true; носитель оптики выбирается по факту пробы, проба не притворяется, что мерит url().",
+          "artifact_path": "plans/features/win-glass-hotfix/evidence/e2e/_results.json",
+          "artifact_sha256": "16f6e79305cce8fe209d5898a020dbbc1eb911e41d5e8e257bd87589d492670f"
+        }
+      ]
+    },
+    {
+      "source_id": "L00023",
+      "source_line": 23,
+      "source_text_sha256": "5c6ce04c3828e8a568107348e2ef21953308813c7a0493747cf5b2f82bb4c967",
+      "source_excerpt": "- Добиться настоящего видимого преломления фонового полигонального рисунка у края стеклянных поверхностей, аналогично Desktop.",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "WG-ANDROID-02",
+      "slice": "WG-ANDROID",
+      "acceptance": "Видимое смещение фоновых пикселей полигонального фона у кромки стекла на подтверждённом Tier A (метрика и скриншоты стенда); живое сравнение на реальном WebView — PENDING_OWNER_E2E, без объявления полного успеха.",
+      "live_required": true,
+      "live_when": "postdeploy",
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "0ca661fe8109fcecf752ad3e863355a4ec96e4ae",
+          "ref": "evidence/e2e/_results.json — pattern_shift/metrics_mobile",
+          "observation": "Видимое смещение линий у кромок: −26/+32 device px (−13/+16 CSS px), corr 0.92/0.971; центр 0 px corr 1.0; шум OFF↔OFF 0 px corr 1.0; живое сравнение на реальном WebView — за владельцем (PENDING_OWNER_E2E).",
+          "artifact_path": "plans/features/win-glass-hotfix/evidence/e2e/_results.json",
+          "artifact_sha256": "16f6e79305cce8fe209d5898a020dbbc1eb911e41d5e8e257bd87589d492670f"
+        },
+        {
+          "candidate_commit": "0ca661fe8109fcecf752ad3e863355a4ec96e4ae",
+          "ref": "evidence/e2e/pattern_on.png (GREEN)",
+          "observation": "Скриншот контрастного паттерна со слоем: линии у левой/правой кромки смещены, центр спокойный, текст вне слоя.",
+          "artifact_path": "plans/features/win-glass-hotfix/evidence/e2e/pattern_on.png",
+          "artifact_sha256": "7ea2189995131da7d5867331d181c00d56b0a13097fd8fc2835d2fba170861ec"
+        }
+      ]
+    },
+    {
+      "source_id": "L00024",
+      "source_line": 24,
+      "source_text_sha256": "a62a91bf1b5a024ee32ee7de580c6fb9131f2da83e5c6caaeef6730a4fb97d34",
+      "source_excerpt": "- Если текущий способ не поддерживается Android WebView, использовать совместимую реализацию преломления контролируемого фонового слоя, без искажения текста и элементов управления.",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "WG-ANDROID-03",
+      "slice": "WG-ANDROID",
+      "acceptance": "Там, где текущий способ не поддержан (url() в backdrop), работает совместимое преломление контролируемого фонового слоя; текст и элементы управления не искажены (проверки/скриншоты стенда).",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "0ca661fe8109fcecf752ad3e863355a4ec96e4ae",
+          "ref": "evidence/e2e/_results.json — surface_mobile/layout_shift/metrics",
+          "observation": "Совместимое преломление контролируемого фона работает там, где url() в backdrop не поддержан: filteredContent=0, попадание центра в контент (layerHit), hosts 0 сдвинутых, scrollH 844→844, missing=0.",
+          "artifact_path": "plans/features/win-glass-hotfix/evidence/e2e/_results.json",
+          "artifact_sha256": "16f6e79305cce8fe209d5898a020dbbc1eb911e41d5e8e257bd87589d492670f"
+        },
+        {
+          "candidate_commit": "0ca661fe8109fcecf752ad3e863355a4ec96e4ae",
+          "ref": "report.md §2.2/§2.4",
+          "observation": "Слой копирует только фон (#polygon-background), живой DOM/текст не клонируется, слой под контентом (pointer-events:none); текст и контролы без url()-фильтров.",
+          "artifact_path": "plans/features/win-glass-hotfix/report.md",
+          "artifact_sha256": "369ac17e1ab08160750eebcc0413f86aa7ee4ba6edd05a50cc08ff6457e7c970"
+        }
+      ]
+    },
+    {
+      "source_id": "L00025",
+      "source_line": 25,
+      "source_text_sha256": "30c98e2e56a4c8a6c5693d5038eff8ab389ea120b5789cdc521fb832c687ad55",
+      "source_excerpt": "- Сохранить существующий полигональный фон, дизайн, прозрачность, контрастность и производительность.",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "WG-ANDROID-04",
+      "slice": "WG-ANDROID",
+      "acceptance": "Полигональный фон production не изменён (frozen-проверка), дизайн/прозрачность/контрастность сохранены, перф-бюджет подтверждён замерами.",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "0ca661fe8109fcecf752ad3e863355a4ec96e4ae",
+          "ref": "evidence/frozen-assets.txt — FROZEN-ASSETS-OK",
+          "observation": "Полигональный фон production, карта линзы, токены и стекло-классы не изменены (все маркеры «same», LF-инвариант цел).",
+          "artifact_path": "plans/features/win-glass-hotfix/evidence/frozen-assets.txt",
+          "artifact_sha256": "e6cba2d12f881752dcd150308843c290a8ff261a4e5caee6aaad04056f0d8394"
+        },
+        {
+          "candidate_commit": "0ca661fe8109fcecf752ad3e863355a4ec96e4ae",
+          "ref": "evidence/e2e/_results.json — perf_mobile/metrics_mobile",
+          "observation": "Бюджет подтверждён замерами: layers=3 (≤3), paintMs 0.29 мс средняя / 22.8 мс пик (эмуляция), p50 16.7 мс; контраст/прозрачность стабильны (яркость кромок −1.93 %).",
+          "artifact_path": "plans/features/win-glass-hotfix/evidence/e2e/_results.json",
+          "artifact_sha256": "16f6e79305cce8fe209d5898a020dbbc1eb911e41d5e8e257bd87589d492670f"
+        }
+      ]
+    },
+    {
+      "source_id": "L00026",
+      "source_line": 26,
+      "source_text_sha256": "c6d6eb720de995aae1e85a38328d3ced5529da229a172061cd6d74744178f7b2",
+      "source_excerpt": "- Не ограничиваться усилением blur, бликов или обводки — нужно именно видимое смещение фоновых пикселей за стеклом.",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "WG-ANDROID-05",
+      "slice": "WG-ANDROID",
+      "acceptance": "Evidence доказывает именно видимое смещение фоновых пикселей за стеклом (дифф/метрика у кромки), а не только усиление blur, бликов или обводки.",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "0ca661fe8109fcecf752ad3e863355a4ec96e4ae",
+          "ref": "evidence/e2e/_results.json — pattern_shift (шумовой контроль OFF↔OFF)",
+          "observation": "Доказано именно смещение фоновых пикселей: −26/+32 device px при нулевом шуме контроля (0 px, corr 1.0), moved_frac 0.149, энергия кромок/центра 4.46/0.0 — не усиление blur/блика/обводки.",
+          "artifact_path": "plans/features/win-glass-hotfix/evidence/e2e/_results.json",
+          "artifact_sha256": "16f6e79305cce8fe209d5898a020dbbc1eb911e41d5e8e257bd87589d492670f"
+        },
+        {
+          "candidate_commit": "0ca661fe8109fcecf752ad3e863355a4ec96e4ae",
+          "ref": "evidence/e2e/pattern_off.png (RED/контроль)",
+          "observation": "Скриншот паттерна без слоя: линии стоят на месте — контроль для сравнения с pattern_on.png.",
+          "artifact_path": "plans/features/win-glass-hotfix/evidence/e2e/pattern_off.png",
+          "artifact_sha256": "ddd87483d6c2a255cd4583cd7453847347dad2a74efa56d44a9332ad03704720"
+        }
+      ]
+    },
+    {
+      "source_id": "L00027",
+      "source_line": 27,
+      "source_text_sha256": "54aa5f8cf68ff98dad3cdbda6f85c0e5b301c3f740fb8d0e8a69d4d4a3a4d8a6",
+      "source_excerpt": "- Не применять тяжёлую рефракцию ко всем карточкам. Сохранить существующую систему Tier A/B/C и разумные ограничения производительности.",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "WG-ANDROID-06",
+      "slice": "WG-ANDROID",
+      "acceptance": "Тяжёлая рефракция ограничена разумно: Tier A только на 1–3 поверхностях, система Tier A/B/C и перф-лимиты сохранены; массового применения ко всем карточкам нет.",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "0ca661fe8109fcecf752ad3e863355a4ec96e4ae",
+          "ref": "evidence/e2e/_results.json — perf_mobile.layers, surface_mobile",
+          "observation": "layers=3 (бюджет ≤3 = hero-кап UI_LENS_MAX_NODES), refractOn=16 поверхностей с frost; Tier A/B/C и перф-лимиты сохранены, массового применения ко всем карточкам нет.",
+          "artifact_path": "plans/features/win-glass-hotfix/evidence/e2e/_results.json",
+          "artifact_sha256": "16f6e79305cce8fe209d5898a020dbbc1eb911e41d5e8e257bd87589d492670f"
+        },
+        {
+          "candidate_commit": "0ca661fe8109fcecf752ad3e863355a4ec96e4ae",
+          "ref": "report.md §2.2 (бюджет) и §4 п.3",
+          "observation": "Бюджет слоёв и ограничение по GPU описаны как осознанное ограничение: остальные tier-A поверхности остаются с честным frost.",
+          "artifact_path": "plans/features/win-glass-hotfix/report.md",
+          "artifact_sha256": "369ac17e1ab08160750eebcc0413f86aa7ee4ba6edd05a50cc08ff6457e7c970"
+        }
+      ]
+    },
+    {
+      "source_id": "L00029",
+      "source_line": 29,
+      "source_text_sha256": "945eeb8d4b82902d8e3d7ebe700a8ccd64445141e4e5ef468f7f28f45edf2b71",
+      "source_excerpt": "## 3. Проверка и выполнение",
+      "disposition": "context",
+      "reason": "Заголовок раздела 3 (проверка и выполнение): его сплошная проза L31–L36 добавлена вручную (WG-VER-01..05, WG-P0-01..07).",
+      "req_id": "",
+      "slice": "",
+      "acceptance": "",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "PENDING",
+      "evidence": []
+    }
+  ]
+}
