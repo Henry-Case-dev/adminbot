@@ -190,6 +190,20 @@ FACTORY_REVISION_LABELS: dict[str, str] = {
     # Personality Core (CORE-DOC): первоисточник SOUL-02 и ручное сжатие
     "core.personality": "soul02-author-full-v1",
     "core.personality.compact": "soul02-compact-v1",
+    # SOUL-1 (W4): приёмы Humor Craft, рамка few-shot и классификатор окна
+    "humor.craft.common": "humor-craft-guard-w4",
+    "humor.technique.absurd_escalation": "humor-technique-w4",
+    "humor.technique.literalism": "humor-technique-w4",
+    "humor.technique.deadpan": "humor-technique-w4",
+    "humor.technique.bureaucratic_logic": "humor-technique-w4",
+    "humor.technique.unexpected_analogy": "humor-technique-w4",
+    "humor.few_shot.block": "humor-fewshot-w4",
+    "experience.humor_window.system": "humor-window-classifier-w4",
+    # SOUL-AMD.2.6 (W4): жанровые рамки авторских текстов
+    "genre.nostalgia.rules": "genre-nostalgia-w4",
+    "genre.dream.rules": "genre-dream-w4",
+    "genre.lore.rules": "genre-lore-w4",
+    "genre.story.rules": "genre-story-w4",
 }
 
 
@@ -752,6 +766,131 @@ _CODE_BLOCKS: tuple[PromptBlockSpec, ...] = (
        "response", "code", "services.response_extent._EXTENT_BLOCKS",
        ("direct_chat_service.py:2692",), "speech_plain/response_plan",
        owner_lane="W3", speech=True, code_index="exhaustive"),
+    # ── W4 (SOUL-06/07/08): Humor Craft, Few-Shot и классификатор окна ──────
+    # Приёмы юмора — управляемый ситуационный слой (не личность): заводские
+    # редакции живут в модуле-владельце, здесь только регистрация + ID.
+    _b("humor.craft.common",
+       "Общая рамка Humor Craft: главный критерий — причинная связность и "
+       "уместность (не частота мата/метафор/оскорблений), запрет повторяемых "
+       "зачинов/финалов, неприкосновенность фактов и сути просьбы (SOUL-06.6).",
+       "humor", "code", "services.mca_humor_craft.HUMOR_CRAFT_GUARD",
+       ("prompt_composer.py:1309 (слой humor_craft)",
+        "mca_humor_craft.render_layer"),
+       "speech_plain|speech_rich/humor_craft (слой 8)",
+       owner_lane="W4", speech=True, migration="factory",
+       ui="catalog_pending",
+       note="Владелец выключает ремесло документом `humor.craft` (enabled) и "
+            "осью `flags.humor_craft_enabled`; Core при этом жив (SOUL-06.7)."),
+    _b("humor.technique.absurd_escalation",
+       "Приём «абсурдная эскалация» (SOUL-06.1): предпосылка как правило мира, "
+       "развитие следствий, неожиданный логичный вывод.",
+       "humor", "code",
+       "services.mca_humor_craft.HUMOR_TECHNIQUE_ABSURD_ESCALATION",
+       ("mca_humor_craft.TECHNIQUE_TEXTS",),
+       "speech_plain/humor_craft (по comic_strategy L1)",
+       owner_lane="W4", speech=True, migration="factory",
+       ui="catalog_pending"),
+    _b("humor.technique.literalism",
+       "Приём «буквализм» (SOUL-06.2): метафора/оговорка понята буквально, "
+       "комическая закономерность следует из буквального прочтения.",
+       "humor", "code",
+       "services.mca_humor_craft.HUMOR_TECHNIQUE_LITERALISM",
+       ("mca_humor_craft.TECHNIQUE_TEXTS",),
+       "speech_plain/humor_craft (по comic_strategy L1)",
+       owner_lane="W4", speech=True, migration="factory",
+       ui="catalog_pending"),
+    _b("humor.technique.deadpan",
+       "Приём «сухой deadpan» (SOUL-06.3): нелепое утверждение как обыденный "
+       "факт, без эмоциональной подачи.",
+       "humor", "code", "services.mca_humor_craft.HUMOR_TECHNIQUE_DEADPAN",
+       ("mca_humor_craft.TECHNIQUE_TEXTS",),
+       "speech_plain/humor_craft (по comic_strategy L1)",
+       owner_lane="W4", speech=True, migration="factory",
+       ui="catalog_pending"),
+    _b("humor.technique.bureaucratic_logic",
+       "Приём «бюрократический/экономический перенос» (SOUL-06.4): быт как "
+       "процесс/отчёт/регламент/налог/сделка, без однообразного ведомства.",
+       "humor", "code",
+       "services.mca_humor_craft.HUMOR_TECHNIQUE_BUREAUCRATIC_LOGIC",
+       ("mca_humor_craft.TECHNIQUE_TEXTS",),
+       "speech_plain/humor_craft (по comic_strategy L1)",
+       owner_lane="W4", speech=True, migration="factory",
+       ui="catalog_pending"),
+    _b("humor.technique.unexpected_analogy",
+       "Приём «неожиданная, но содержательная аналогия» (SOUL-06.5): "
+       "отдалённая область с конкретными деталями и внутренней логикой.",
+       "humor", "code",
+       "services.mca_humor_craft.HUMOR_TECHNIQUE_UNEXPECTED_ANALOGY",
+       ("mca_humor_craft.TECHNIQUE_TEXTS",),
+       "speech_plain/humor_craft (по comic_strategy L1)",
+       owner_lane="W4", speech=True, migration="factory",
+       ui="catalog_pending"),
+    _b("humor.few_shot.block",
+       "Рамка few-shot блока (SOUL-07.2): примеры задают механизм мышления, "
+       "а не готовые фразы; запрет дословного копирования лексики и чужих "
+       "реалий.",
+       "humor", "code",
+       "services.mca_sample_library.HUMOR_FEW_SHOT_TEMPLATE",
+       ("mca_sample_library.render_block",
+        "prompt_composer.py:1346 (слой few_shot)"),
+       "speech_plain|speech_rich/few_shot (слой 9)",
+       owner_lane="W4", speech=True, migration="factory",
+       ui="catalog_pending",
+       note="Само содержимое библиотеки — таблица `humor_samples` (не промпт); "
+            "владелец одобряет эталоны в разделе «Примеры». Заводская редакция "
+            "— единый шаблон `HUMOR_FEW_SHOT_TEMPLATE` (открытие/строка/"
+            "закрытие) в модуле-владельце."),
+    _b("experience.humor_window.system",
+       "Классификатор реакций на шутку (машинная стадия окна после ответа): "
+       "строгий JSON-сигнал с уверенностью и evidence, без выдумывания данных.",
+       "experience", "code",
+       "services.mca_humor_feedback.HUMOR_WINDOW_SYSTEM_PROMPT",
+       ("mca_humor_feedback.classify_rows",
+        "mca_experience_jobs.ExperienceReviewRunner.run"),
+       "machine/humor_window (внутренняя стадия Experience)",
+       owner_lane="W4", speech=False, migration="factory", ui="code_only",
+       note="Человекопонятного вывода не создаёт: только типизированный "
+            "сигнал для контура опыта (SOUL-08.8)."),
+    # ── W4 (SOUL-AMD.2.6): жанровые рамки авторских текстов ────────────────
+    # Сны/ностальгия/лор/истории — публичная речь бота: получают Core и
+    # жанровые правила (уточнение §2.1), а не служебный нейтральный текст.
+    _b("genre.nostalgia.rules",
+       "Жанровая рамка «Ностальгия»: живой голос воспоминания, без выдуманных "
+       "событий/дат; служебное слово отказа канона сохраняется.",
+       "genre", "code", "services.mca_authorial_speech.GENRE_NOSTALGIA_RULES",
+       ("mca_authorial_speech.genre_base_prompt",
+        "nostalgia_worker._llm_once"),
+       "speech_plain/nostalgia_writer (жанровая рамка в base)",
+       owner_lane="W4", speech=True, migration="factory",
+       ui="catalog_pending"),
+    _b("genre.dream.rules",
+       "Жанровая рамка «Сон»: связная история голосом бота, не отчёт о "
+       "данных и не выдуманные события чата.",
+       "genre", "code", "services.mca_authorial_speech.GENRE_DREAM_RULES",
+       ("mca_authorial_speech.genre_base_prompt",),
+       "speech_plain/dream_writer (жанровая рамка в base)",
+       owner_lane="W4", speech=True, migration="factory",
+       ui="catalog_pending",
+       note="Проводка публикующих путей снов/глубокого сна — следующий "
+            "слайс; редакция уже в реестре и Factory Default."),
+    _b("genre.lore.rules",
+       "Жанровая рамка «Лор»: история чата своим голосом на проверенных "
+       "данных, без нейтрального пересказа и вымысла.",
+       "genre", "code", "services.mca_authorial_speech.GENRE_LORE_RULES",
+       ("mca_authorial_speech.genre_base_prompt",),
+       "speech_plain/lore_writer (жанровая рамка в base)",
+       owner_lane="W4", speech=True, migration="factory",
+       ui="catalog_pending",
+       note="Переиспользуется существующими lore-путями того же контура "
+            "следующим слайсом; отдельного писателя нет."),
+    _b("genre.story.rules",
+       "Жанровая рамка «История/творческий текст»: внутренняя логика и "
+       "детали, без подмены фактов вымыслом.",
+       "genre", "code", "services.mca_authorial_speech.GENRE_STORY_RULES",
+       ("mca_authorial_speech.genre_base_prompt",),
+       "speech_plain/story_writer (жанровая рамка в base)",
+       owner_lane="W4", speech=True, migration="factory",
+       ui="catalog_pending"),
     # ── Авторские тексты вне каталога (аудит §1: «вне каталога») ───────────
     _b("internal.dream.distill",
        "Дистилляция снов (ночной worker) — авторский текст, но без Core "
@@ -1261,7 +1400,17 @@ def factory_set_fingerprint() -> str:
 #: ``message.image_failure.*`` + ``message.image_request.clarify``
 #: (замена захардкоженной фразы отказа, SOUL-AMD.5.15/5.9) — стало
 #: ``96da8c7284a5``.
-FACTORY_SET_SHA256_12 = "96da8c7284a5"
+#: Бамп W4 (17.10.2026): зарегистрированы приёмы Humor Craft
+#: (``humor.craft.common`` + 5 ``humor.technique.*``), рамка few-shot
+#: (``humor.few_shot.block``) и классификатор окна реакций
+#: (``experience.humor_window.system``) — 8 новых фабричных редакций.
+#: Бамп W4 (17.10.2026): зарегистрированы приёмы Humor Craft
+#: (``humor.craft.common`` + 5 ``humor.technique.*``), рамка few-shot
+#: (``humor.few_shot.block``), классификатор окна реакций
+#: (``experience.humor_window.system``) и 4 жанровые рамки авторских текстов
+#: (``genre.*.rules``, SOUL-AMD.2.6) — 12 новых фабричных редакций;
+#: было ``96da8c7284a5``, стало ``0fc99f73d646``.
+FACTORY_SET_SHA256_12 = "0fc99f73d646"
 
 
 # ═══════════════════════════════════════════════════════════════════════════

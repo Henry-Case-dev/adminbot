@@ -201,8 +201,18 @@ def test_writes_go_through_registry_api_only():
     assert not re.search(r"cache\.set\(\s*\"prompts\.", SPEECH_PY)
     # Статический отбор ловит только литеральные формы; единственные прямые
     # записи UI-слоя — документы новых сущностей на существующем контуре.
+    # W4: единый хелпер `_write_document(cache, chat, key, …)` пишет документы
+    # сущностей; его ключи обязаны быть из ЗАКРЫТОГО набора (никаких prompts.*).
     direct = re.findall(r"cache\.set\(\s*([A-Za-z_][A-Za-z0-9_.]*)", SPEECH_PY)
-    assert sorted(set(direct)) == ["EXPRESSION_DOC_KEY", "pr.CORE_DOC_KEY"], direct
+    assert sorted(set(direct)) == ["EXPRESSION_DOC_KEY", "key",
+                                   "pr.CORE_DOC_KEY"], direct
+    docs = set(re.findall(
+        r"_write_document\(\s*\n?\s*[^,]+,\s*[^,]+,\s*([A-Za-z_][A-Za-z0-9_.]*)",
+        SPEECH_PY))
+    docs.discard("key")           # само определение хелпера (сигнатура)
+    assert docs == {"humor_craft.HUMOR_CRAFT_DOC_KEY",
+                    "samples_lib.SELECTION_DOC_KEY"}, docs
+    assert "prompts." not in " ".join(sorted(docs))
     # Документы новых сущностей живут на существующем контуре.
     assert S.EXPRESSION_DOC_KEY == "character.expression"
     assert "chat_params.set_chat_params" in SPEECH_PY
@@ -458,15 +468,35 @@ def test_expression_values_render_layer_text_and_reset(api_env, monkeypatch):
     assert chat_view["inheritance"] == "global"
 
 
-def test_humor_and_examples_report_missing_w4_contour_honestly(api_env):
+def test_humor_and_examples_report_real_state_honestly(api_env):
+    """W4: приёмы и библиотека показывают фактическое состояние, а не каркас."""
     humor = _run(S.get_humor(None, api_env.user, None))
-    assert humor["library"]["available"] is False
-    assert humor["library"]["reason"] == "humor_library_not_landed"
     assert len(humor["techniques"]) == 6
+    assert humor["craft"]["gate"] is False        # ось ремесла OFF по умолчанию
+    assert humor["craft"]["enabled"] is True      # документ владельца: не трогали
+    assert humor["policy_version"].startswith("soul1-w4-craft")
+    legacy = next(t for t in humor["techniques"] if t["id"] == "other")
+    assert legacy["enabled"] is False and legacy["reason"]
+    # Библиотеки нет по честной причине (БД/схема), а не «not_implemented_w4».
+    assert humor["library"]["available"] is False
+    assert humor["library"]["reason"] in ("db_unavailable", "schema_absent",
+                                          "read_error")
     examples = _run(S.get_examples(None, api_env.user, None))
-    assert examples["status"] == "not_implemented_w4"
+    assert examples["available"] is False
+    assert examples["status"] == "unavailable"
     assert examples["items"] == [] and examples["count"] == 0
+    assert examples["starter"]["expected"] == len(
+        S.samples_lib.STARTER_SAMPLES)
     assert any(f["id"] == "owner_approved" for f in examples["entity_fields"])
+    assert examples["policy"]["max_items"] >= 1
+    # «Почему выбраны» и тест приёма доступны всегда (0 LLM).
+    why = _run(S.post_examples_why(None, api_env.user,
+                                   S.SampleWhyRequest(), None))
+    assert why["ok"] is False and why["reason"] == "db_unavailable"
+    probe = _run(S.post_humor_technique_test(
+        None, api_env.user, S.HumorTechniqueTest(technique="deadpan"), None))
+    assert probe["ok"] is True and probe["extra_llm_calls"] == 0
+    assert probe["layer_revision"] and probe["layer_tokens"] > 0
 
 
 def test_capabilities_and_inspector_shapes(api_env):
@@ -626,14 +656,19 @@ def test_payload_masking_hides_secrets_and_ids():
     assert S._mask_text(plain) == plain
 
 
-def test_learning_binds_existing_lessons_and_marks_w4(api_env):
+def test_learning_binds_existing_lessons_and_reports_humor_state(api_env):
+    """W4: раздел «Обучение» показывает реальный контур реакций на шутки."""
     learn = _run(S.get_learning(None, api_env.user, None))
-    assert learn["humor_feedback"]["available"] is False
-    assert learn["humor_feedback"]["reason"] == (
-        "humor_feedback_contour_not_landed")
+    feedback = learn["humor_feedback"]
+    assert feedback["enabled"] is False          # ось по умолчанию OFF
+    assert feedback["available"] is False
+    assert feedback["reason"] == "humor_feedback_disabled"
+    assert feedback["signals"] == {} and feedback["sends"] == 0
+    assert len(feedback["scenarios"]) == 7        # обязательные сценарии SOUL-08
+    assert set(feedback["controls"]) == {"pause", "approve", "reject", "reset"}
     assert learn["lessons"]["state"] in ("implemented", "not_run", "no_db",
                                          "disabled", "error")
-    assert "не провал" in learn["humor_feedback"]["note"]
+    assert "не провал" in feedback["note"]
 
 
 def test_access_control_is_delegated_to_existing_permissions(monkeypatch):

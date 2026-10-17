@@ -1,0 +1,49 @@
+{
+ "slice": "soul-1/W4",
+ "flags_default": {
+  "unified_composer_enabled": false,
+  "humor_craft_enabled": false,
+  "humor_library_enabled": false,
+  "humor_feedback_enabled": false
+ },
+ "env_gates_default": {
+  "HUMOR_CRAFT_ENABLED": false,
+  "HUMOR_CANDIDATE_EVAL_ENABLED": false
+ },
+ "manifest_new_layers_off": {
+  "humor_craft": {
+   "rendered": false,
+   "skip_reason": "humor_disabled"
+  },
+  "few_shot": {
+   "rendered": false,
+   "skip_reason": "samples_disabled"
+  }
+ },
+ "no_new_layer_rendered": true,
+ "fingerprints_sha256_12": {
+  "services/mca_humor_craft.py": "64840174880e",
+  "services/mca_sample_library.py": "033fb5c40541",
+  "services/mca_humor_feedback.py": "59b7ac37a8d8",
+  "services/mca_authorial_speech.py": "7705e7009eda",
+  "services/prompt_composer.py": "fd8a2a70d5d7",
+  "services/prompt_registry.py": "9dd5628dd4d0",
+  "services/mca_gates.py": "34bff28e9071",
+  "services/mca_experience.py": "a8879d1cbef7",
+  "services/mca_experience_jobs.py": "e69efdb36f82",
+  "services/database.py": "a30853ff1525",
+  "services/direct_chat_service.py": "d2bf56f22478",
+  "services/nostalgia_worker.py": "5ed877a123b5",
+  "services/permissions.py": "da6938f88860",
+  "web/api/speech.py": "a69a67536ebe",
+  "web/app.js": "11215e3a4d10",
+  "web/index.html": "9e0b761104ff",
+  "tools/ui_soul1_w4_speech_e2e.py": "945021a965a6",
+  "tools/ui_soul1_w4_dump_fixture.py": "189d2f8692c5",
+  "tools/soul1_w4_mutation_witness.py": "9ffcf661d730",
+  "tests/test_soul1_w4_humor_craft.py": "776db1918e0a",
+  "tests/test_soul1_w4_sample_library.py": "6cafbee40e9d",
+  "tests/test_soul1_w4_humor_feedback.py": "76d47cd7489f",
+  "tests/test_soul1_w4_authorial_genre.py": "199733d1a615"
+ }
+}

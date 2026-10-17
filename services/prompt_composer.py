@@ -368,6 +368,9 @@ class GateState:
     speech_style_policy_enabled: bool = True
     humor_library_enabled: bool = False
     humor_feedback_enabled: bool = False
+    #: W4 (SOUL-06.7): ось ремесла юмора. OFF → слой приёмов не рендерится
+    #: (`humor_disabled`), Core/Identity/Style/Samples не затронуты.
+    humor_craft_enabled: bool = False
     # ── существующие оси (композер их уважает, не переопределяет) ──────────
     persona_enabled: bool = True
     character_layers_enabled: bool = True
@@ -480,6 +483,7 @@ def gates_from_config() -> GateState:
             speech_style_policy_enabled=mca_gates.speech_style_policy_enabled(),
             humor_library_enabled=mca_gates.humor_library_enabled(),
             humor_feedback_enabled=mca_gates.humor_feedback_enabled(),
+            humor_craft_enabled=mca_gates.humor_craft_enabled(),
             persona_enabled=bool(hot.get("flags.persona_enabled",
                                         getattr(settings, "PERSONA_ENABLED",
                                                 True))),
@@ -516,7 +520,8 @@ async def resolve_gates(chat_id: int) -> GateState:
             ("speech_style_policy_enabled",
              "flags.speech_style_policy_enabled"),
             ("humor_library_enabled", "flags.humor_library_enabled"),
-            ("humor_feedback_enabled", "flags.humor_feedback_enabled")):
+            ("humor_feedback_enabled", "flags.humor_feedback_enabled"),
+            ("humor_craft_enabled", "flags.humor_craft_enabled")):
         default = bool(getattr(base, name))
         env_axis = mca_gates.w2_env_axis(
             mca_gates.W2_ENV_KEYS.get(name, ""), default)
@@ -1310,6 +1315,13 @@ def _compose(plan: PromptPlan) -> PromptManifest:
     if not speech:
         traces.append(_trace(LAYER_HUMOR_CRAFT, block_id="humor_craft",
                              owner="library", skip_reason=profile_reason))
+    elif not gates.humor_craft_enabled:
+        # SOUL-06.7: диагностическое выключение ремесла (Core живёт).
+        traces.append(_trace(LAYER_HUMOR_CRAFT, block_id="humor_craft",
+                             owner="library",
+                             revision=(plan.humor.revision
+                                       if plan.humor is not None else ""),
+                             skip_reason="humor_disabled"))
     elif plan.humor is None or not str(plan.humor.text or "").strip():
         reason = (plan.humor.skip_reason if plan.humor is not None else "") \
             or ("humor_no_strategy")

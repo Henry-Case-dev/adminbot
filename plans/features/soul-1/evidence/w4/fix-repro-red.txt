@@ -1,0 +1,16 @@
+﻿
+>       assert approve_status == 403, approve_status
+E       AssertionError: 200
+E       assert 200 == 403
+tests\test_soul1_w4_examples_scope.py:139: AssertionError
+            assert empty["sends"] == 0
+            assert captured["captured"] is True, captured
+>           assert own["sends"] == 1, own
+E           AssertionError: {'available': True, 'reason': '', 'sends': 0, 'signals': {}, ...}
+E           assert 0 == 1
+tests\test_soul1_w4_examples_scope.py:213: AssertionError
+>       assert examples["ready"] is True
+E       assert False is True
+tests\test_soul1_w4_examples_scope.py:230: AssertionError
+
+

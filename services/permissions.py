@@ -42,6 +42,10 @@ ACTIONS_TREE: tuple[dict[str, str], ...] = (
     # Раунд 10.14 (F2 persona-storage-core, spec §5): точечная правка
     # «Личности» бота (global/chat scope, `/api/persona`).
     {"id": "edit_persona", "title": "Редактировать «Личность»"},
+    # SOUL-1 / W4 (SOUL-07.1, design §3.3/§5): отдельное право на правку
+    # примеров юмора (библиотека MiniApp «Речь и характер» → «Примеры»).
+    # Не выводится из одного фронтенд-чекбокса; проверяется на сервере.
+    {"id": "edit_humor_library", "title": "Редактировать примеры юмора"},
     {"id": "control.restart", "title": "Перезапуск бота"},
     {"id": "control.stop", "title": "Остановка бота"},
     {"id": "control.start", "title": "Запуск бота"},

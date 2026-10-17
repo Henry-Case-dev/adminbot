@@ -1,0 +1,177 @@
+{
+ "slice": "soul-1/W4",
+ "tool": "tools/soul1_w4_mutation_witness.py",
+ "note": "Мутация применяется во временной копии дерева; оригинальные файлы не изменяются.",
+ "results": [
+  {
+   "mutation": "снята cross-chat изоляция выбора примеров",
+   "test": "tests/test_soul1_w4_sample_library.py::test_cross_chat_isolation_is_hard",
+   "applied": true,
+   "killed": true,
+   "exit_code": 1,
+   "tail": [
+    "=========================== short test summary info ===========================",
+    "FAILED tests/test_soul1_w4_sample_library.py::test_cross_chat_isolation_is_hard",
+    "1 failed in 3.83s"
+   ]
+  },
+  {
+   "mutation": "снят leakage-guard на отборе",
+   "test": "tests/test_soul1_w4_sample_library.py::test_leakage_guard_double_defence_on_selection",
+   "applied": true,
+   "killed": true,
+   "exit_code": 1,
+   "tail": [
+    "=========================== short test summary info ===========================",
+    "FAILED tests/test_soul1_w4_sample_library.py::test_leakage_guard_double_defence_on_selection",
+    "1 failed in 3.98s"
+   ]
+  },
+  {
+   "mutation": "черновики допущены в runtime как эталоны",
+   "test": "tests/test_soul1_w4_sample_library.py::test_selection_returns_only_owner_approved_globals",
+   "applied": true,
+   "killed": true,
+   "exit_code": 1,
+   "tail": [
+    "=========================== short test summary info ===========================",
+    "FAILED tests/test_soul1_w4_sample_library.py::test_selection_returns_only_owner_approved_globals",
+    "1 failed in 3.97s"
+   ]
+  },
+  {
+   "mutation": "явное указание владельца больше не применяется мгновенно",
+   "test": "tests/test_soul1_w4_humor_feedback.py::test_single_explicit_request_applies_immediately",
+   "applied": true,
+   "killed": true,
+   "exit_code": 1,
+   "tail": [
+    "=========================== short test summary info ===========================",
+    "FAILED tests/test_soul1_w4_humor_feedback.py::test_single_explicit_request_applies_immediately",
+    "1 failed in 4.03s"
+   ]
+  },
+  {
+   "mutation": "снят бригандинг-сторож",
+   "test": "tests/test_soul1_w4_humor_feedback.py::test_brigading_and_engagement_gaming_are_guarded",
+   "applied": true,
+   "killed": true,
+   "exit_code": 1,
+   "tail": [
+    "=========================== short test summary info ===========================",
+    "FAILED tests/test_soul1_w4_humor_feedback.py::test_brigading_and_engagement_gaming_are_guarded",
+    "1 failed in 3.99s"
+   ]
+  },
+  {
+   "mutation": "снят сторож «один пользователь»",
+   "test": "tests/test_soul1_w4_humor_feedback.py::test_small_n_single_user_and_topic_are_guarded",
+   "applied": true,
+   "killed": true,
+   "exit_code": 1,
+   "tail": [
+    "=========================== short test summary info ===========================",
+    "FAILED tests/test_soul1_w4_humor_feedback.py::test_small_n_single_user_and_topic_are_guarded",
+    "1 failed in 3.93s"
+   ]
+  },
+  {
+   "mutation": "контекстный штраф перестал гасить приём",
+   "test": "tests/test_soul1_w4_humor_craft.py::test_negative_feedback_weakens_strategy_in_context",
+   "applied": true,
+   "killed": true,
+   "exit_code": 1,
+   "tail": [
+    "=========================== short test summary info ===========================",
+    "FAILED tests/test_soul1_w4_humor_craft.py::test_negative_feedback_weakens_strategy_in_context",
+    "1 failed in 3.97s"
+   ]
+  },
+  {
+   "mutation": "серьёзный контекст перестал защищаться",
+   "test": "tests/test_soul1_w4_humor_craft.py::test_selection_requires_l1_advice_and_respects_serious_context",
+   "applied": true,
+   "killed": true,
+   "exit_code": 1,
+   "tail": [
+    "=========================== short test summary info ===========================",
+    "FAILED tests/test_soul1_w4_humor_craft.py::test_selection_requires_l1_advice_and_respects_serious_context",
+    "1 failed in 4.06s"
+   ]
+  },
+  {
+   "mutation": "снят гейт оси обратной связи при отправке",
+   "test": "tests/test_soul1_w4_humor_feedback.py::test_capture_send_writes_bounded_episode",
+   "applied": true,
+   "killed": true,
+   "exit_code": 1,
+   "tail": [
+    "=========================== short test summary info ===========================",
+    "FAILED tests/test_soul1_w4_humor_feedback.py::test_capture_send_writes_bounded_episode",
+    "1 failed in 4.08s"
+   ]
+  },
+  {
+   "mutation": "снята проверка чата на approve (F1)",
+   "test": "tests/test_soul1_w4_examples_scope.py::test_foreign_chat_approve_and_archive_are_forbidden",
+   "applied": true,
+   "killed": true,
+   "exit_code": 1,
+   "tail": [
+    "=========================== short test summary info ===========================",
+    "FAILED tests/test_soul1_w4_examples_scope.py::test_foreign_chat_approve_and_archive_are_forbidden",
+    "1 failed in 4.51s"
+   ]
+  },
+  {
+   "mutation": "снят биндинг счётчика отправок (F2)",
+   "test": "tests/test_soul1_w4_examples_scope.py::test_telemetry_counts_captured_sends",
+   "applied": true,
+   "killed": true,
+   "exit_code": 1,
+   "tail": [
+    "=========================== short test summary info ===========================",
+    "FAILED tests/test_soul1_w4_examples_scope.py::test_telemetry_counts_captured_sends",
+    "1 failed in 4.57s"
+   ]
+  },
+  {
+   "mutation": "карточка «Примеры» снова врёт про поставку (F3)",
+   "test": "tests/test_soul1_w4_examples_scope.py::test_overview_cards_reflect_delivered_sections",
+   "applied": true,
+   "killed": true,
+   "exit_code": 1,
+   "tail": [
+    "=========================== short test summary info ===========================",
+    "FAILED tests/test_soul1_w4_examples_scope.py::test_overview_cards_reflect_delivered_sections",
+    "1 failed in 4.78s"
+   ]
+  },
+  {
+   "mutation": "итератор полей расширен секрето-именами (M11 ревьюера, C1)",
+   "test": "tests/test_soul1_w4_humor_feedback.py::test_send_metadata_is_bounded_and_typed",
+   "applied": true,
+   "killed": true,
+   "exit_code": 1,
+   "tail": [
+    "=========================== short test summary info ===========================",
+    "FAILED tests/test_soul1_w4_humor_feedback.py::test_send_metadata_is_bounded_and_typed",
+    "1 failed in 4.00s"
+   ]
+  },
+  {
+   "mutation": "проходят ВСЕ переданные kwargs, а не закрытый набор (C1)",
+   "test": "tests/test_soul1_w4_humor_feedback.py::test_send_metadata_is_bounded_and_typed",
+   "applied": true,
+   "killed": true,
+   "exit_code": 1,
+   "tail": [
+    "=========================== short test summary info ===========================",
+    "FAILED tests/test_soul1_w4_humor_feedback.py::test_send_metadata_is_bounded_and_typed",
+    "1 failed in 3.97s"
+   ]
+  }
+ ],
+ "killed": 14,
+ "total": 14
+}

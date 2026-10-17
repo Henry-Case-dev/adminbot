@@ -1,0 +1,1601 @@
+{
+ "overview": {
+  "scope": "chat",
+  "chat_id": -100500,
+  "inheritance": "global",
+  "gates": {
+   "unified_composer_enabled": true,
+   "character_core_enabled": true,
+   "speech_style_policy_enabled": true,
+   "humor_library_enabled": true,
+   "humor_feedback_enabled": true,
+   "experience_lessons_enabled": true,
+   "smart_verbalizer_modes_enabled": true,
+   "response_plan_enabled": true,
+   "persona_enabled": true,
+   "character_layers_enabled": true
+  },
+  "sections": [
+   {
+    "id": "core",
+    "icon": "psychology",
+    "title": "Характер",
+    "subtitle": "Постоянный характер: полная и компактная редакции",
+    "state": "custom",
+    "detail": "действует act:407e8b341d9e · 40 зн.",
+    "ready": true
+   },
+   {
+    "id": "style",
+    "icon": "format_quote",
+    "title": "Стиль письма",
+    "subtitle": "Кавычки, точки, эмодзи, оформление",
+    "state": "factory",
+    "detail": "0 правил · factory_default",
+    "ready": true
+   },
+   {
+    "id": "expression",
+    "icon": "tune",
+    "title": "Выражение",
+    "subtitle": "Остроумие, резкость, мат, развёрнутость",
+    "state": "factory",
+    "detail": "по умолчанию",
+    "ready": true
+   },
+   {
+    "id": "humor",
+    "icon": "theater_comedy",
+    "title": "Юмор",
+    "subtitle": "Приёмы и примеры шуток",
+    "state": "enabled",
+    "detail": "библиотека включена",
+    "ready": true
+   },
+   {
+    "id": "examples",
+    "icon": "library_books",
+    "title": "Примеры",
+    "subtitle": "Карточки примеров (few-shot)",
+    "state": "ready",
+    "detail": "карточек: 20 · эталонов: 4 · черновиков: 16",
+    "ready": true
+   },
+   {
+    "id": "try",
+    "icon": "science",
+    "title": "Попробовать",
+    "subtitle": "Сравнение current и candidate",
+    "state": "ready",
+    "detail": "ничего не отправляет в Telegram",
+    "ready": true
+   },
+   {
+    "id": "learning",
+    "icon": "school",
+    "title": "Обучение",
+    "subtitle": "Что зашло и что повлияло на ответ",
+    "state": "ready",
+    "detail": "уроки опыта и реакции на шутки включены: сигналы, гипотезы, влияние на следующий ответ",
+    "ready": true
+   }
+  ],
+  "advanced": [
+   {
+    "id": "all",
+    "icon": "list_alt",
+    "title": "Все инструкции",
+    "subtitle": "Каждый блок реестра: текст, версия, scope, откат",
+    "ready": true
+   },
+   {
+    "id": "inspector",
+    "icon": "fact_check",
+    "title": "Effective Prompt Inspector",
+    "subtitle": "Предпросмотр и фактически отправленный payload",
+    "ready": true
+   },
+   {
+    "id": "capabilities",
+    "icon": "extension",
+    "title": "Возможности бота",
+    "subtitle": "Что доступно в этом чате и почему",
+    "ready": true
+   }
+  ],
+  "capability_summary": {
+   "not_configured": 3,
+   "ready": 9,
+   "unsupported": 1
+  },
+  "registry": {
+   "blocks": 89,
+   "version": "soul1-w3-1",
+   "factory_set": "0fc99f73d646"
+  },
+  "can_edit": true,
+  "can_view_inspector": true
+ },
+ "humor": {
+  "scope": "chat",
+  "chat_id": -100500,
+  "gates": {
+   "unified_composer_enabled": true,
+   "character_core_enabled": true,
+   "speech_style_policy_enabled": true,
+   "humor_library_enabled": true,
+   "humor_feedback_enabled": true,
+   "experience_lessons_enabled": true,
+   "smart_verbalizer_modes_enabled": true,
+   "response_plan_enabled": true,
+   "persona_enabled": true,
+   "character_layers_enabled": true
+  },
+  "techniques": [
+   {
+    "id": "absurd_escalation",
+    "title": "Абсурдная эскалация",
+    "description": "Принять предпосылку как правило вымышленного мира и довести её до логического края.",
+    "enabled": true,
+    "owner_enabled": true,
+    "layer_tokens": 184,
+    "layer_revision": "eace9c9e1240",
+    "reason": "humor_ready",
+    "gate": false,
+    "source": "global",
+    "samples": 4
+   },
+   {
+    "id": "literalism",
+    "title": "Буквализм",
+    "description": "Понять метафору буквально и обнаружить комическое следствие.",
+    "enabled": true,
+    "owner_enabled": true,
+    "layer_tokens": 166,
+    "layer_revision": "6528371cc069",
+    "reason": "humor_ready",
+    "gate": false,
+    "source": "global",
+    "samples": 3
+   },
+   {
+    "id": "deadpan",
+    "title": "Сухой deadpan",
+    "description": "Спокойно утверждать нелепое как обыденный факт.",
+    "enabled": true,
+    "owner_enabled": true,
+    "layer_tokens": 169,
+    "layer_revision": "edf0e97ac692",
+    "reason": "humor_ready",
+    "gate": false,
+    "source": "global",
+    "samples": 3
+   },
+   {
+    "id": "bureaucratic_logic",
+    "title": "Бюрократический/экономический перенос",
+    "description": "Трактовать быт как процесс с регламентом и сметой.",
+    "enabled": true,
+    "owner_enabled": true,
+    "layer_tokens": 181,
+    "layer_revision": "aa8fe90b0fb9",
+    "reason": "humor_ready",
+    "gate": false,
+    "source": "global",
+    "samples": 5
+   },
+   {
+    "id": "unexpected_analogy",
+    "title": "Неожиданная, но содержательная аналогия",
+    "description": "Смешать отдалённые области так, чтобы аналогия объясняла исходную ситуацию.",
+    "enabled": true,
+    "owner_enabled": true,
+    "layer_tokens": 187,
+    "layer_revision": "21a067f1ed23",
+    "reason": "humor_ready",
+    "gate": false,
+    "source": "global",
+    "samples": 3
+   },
+   {
+    "id": "other",
+    "title": "Другое",
+    "description": "Прочие приёмы библиотеки.",
+    "enabled": false,
+    "owner_enabled": false,
+    "layer_tokens": 0,
+    "layer_revision": "",
+    "reason": "humor_not_a_technique",
+    "gate": false,
+    "source": "global",
+    "samples": 2
+   }
+  ],
+  "craft": {
+   "gate": true,
+   "enabled": true,
+   "source": "global",
+   "revision": 2,
+   "disabled_techniques": [],
+   "techniques": [
+    {
+     "id": "absurd_escalation",
+     "title": "Абсурдная эскалация",
+     "enabled": true,
+     "owner_enabled": true,
+     "layer_chars": 735,
+     "layer_tokens": 184,
+     "layer_revision": "eace9c9e1240",
+     "reason": "humor_ready",
+     "gate": true,
+     "source": "global",
+     "detail": [
+      "policy=soul1-w4-craft-1",
+      "source=global",
+      "gate=on",
+      "selection=humor_strategy:absurd_escalation",
+      "llm_calls=0"
+     ]
+    },
+    {
+     "id": "literalism",
+     "title": "Буквализм",
+     "enabled": true,
+     "owner_enabled": true,
+     "layer_chars": 664,
+     "layer_tokens": 166,
+     "layer_revision": "6528371cc069",
+     "reason": "humor_ready",
+     "gate": true,
+     "source": "global",
+     "detail": [
+      "policy=soul1-w4-craft-1",
+      "source=global",
+      "gate=on",
+      "selection=humor_strategy:literalism",
+      "llm_calls=0"
+     ]
+    },
+    {
+     "id": "deadpan",
+     "title": "Сухой deadpan",
+     "enabled": true,
+     "owner_enabled": true,
+     "layer_chars": 674,
+     "layer_tokens": 169,
+     "layer_revision": "edf0e97ac692",
+     "reason": "humor_ready",
+     "gate": true,
+     "source": "global",
+     "detail": [
+      "policy=soul1-w4-craft-1",
+      "source=global",
+      "gate=on",
+      "selection=humor_strategy:deadpan",
+      "llm_calls=0"
+     ]
+    },
+    {
+     "id": "bureaucratic_logic",
+     "title": "Бюрократический/экономический перенос",
+     "enabled": true,
+     "owner_enabled": true,
+     "layer_chars": 722,
+     "layer_tokens": 181,
+     "layer_revision": "aa8fe90b0fb9",
+     "reason": "humor_ready",
+     "gate": true,
+     "source": "global",
+     "detail": [
+      "policy=soul1-w4-craft-1",
+      "source=global",
+      "gate=on",
+      "selection=humor_strategy:bureaucratic_logic",
+      "llm_calls=0"
+     ]
+    },
+    {
+     "id": "unexpected_analogy",
+     "title": "Неожиданная, но содержательная аналогия",
+     "enabled": true,
+     "owner_enabled": true,
+     "layer_chars": 747,
+     "layer_tokens": 187,
+     "layer_revision": "21a067f1ed23",
+     "reason": "humor_ready",
+     "gate": true,
+     "source": "global",
+     "detail": [
+      "policy=soul1-w4-craft-1",
+      "source=global",
+      "gate=on",
+      "selection=humor_strategy:unexpected_analogy",
+      "llm_calls=0"
+     ]
+    }
+   ],
+   "policy_version": "soul1-w4-craft-1",
+   "scenarios": [
+    {
+     "id": "brigading_one_person",
+     "live_marker": "Дет.: несколько реакций одного лица не накручивают успех.\nСим.: guard_single_user/guard_brigading.\nLive: нужны реальные повторные реакции."
+    },
+    {
+     "id": "dramatic_reaction_no_joke",
+     "live_marker": "Дет.: бурная реакция на спор без шутки НЕ считается успехом.\nСим.: нет сигнала шутки → unknown.\nLive: нужен реальный спор без комического приёма."
+    },
+    {
+     "id": "group_talks_elsewhere",
+     "live_marker": "Дет.: активность группы без reply на бота — не успех.\nСим.: no_linkage → исключение из кандидатов.\nLive: нужен реальный чат с параллельной темой."
+    },
+    {
+     "id": "metaphor_picked_up",
+     "live_marker": "Дет.: подхват бюрократической метафоры в реальном чате.\nСим.: дедуп/окно/вес стратегии.\nLive: нужен настоящий собеседник, продолжающий образ в ветке."
+    },
+    {
+     "id": "nobody_comments",
+     "live_marker": "Дет.: отсутствие ответа — unknown, не провал.\nСим.: пустое окно → unknown_windows.\nLive: наблюдение 24–48 ч на реальной тишине."
+    },
+    {
+     "id": "stop_request",
+     "live_marker": "Дет.: просьба не повторять грубость ослабляет приём в контексте.\nСим.: owner-confirmed сигнал → цель weaken.\nLive: нужен реальный участник, просящий прекратить."
+    },
+    {
+     "id": "two_chats_differ",
+     "live_marker": "Дет.: одна шутка в двух чатах оценивается по-разному.\nСим.: lessons per-chat изоляция.\nLive: нужны два живых чата с разной реакцией."
+    }
+   ],
+   "note": "Выключение ремесла — диагностическое: Personality Core, стиль и примеры продолжают работать, ответы становятся суше, а не «другим персонажем»."
+  },
+  "library": {
+   "available": true,
+   "reason": "",
+   "note": "Приёмы — ситуационный слой (SOUL-06): технику советует L1 (`comic_strategy`), слой не создаёт второго характера и не тратит LLM-вызовов на обычный ответ.",
+   "total": 20,
+   "approved": 4,
+   "proposed": 16,
+   "archived": 0,
+   "uses_total": 0,
+   "by_version": {
+    "starter-1": 18,
+    "v1": 2
+   },
+   "runtime_note": "В runtime уходят только помеченные владельцем эталоны (owner_approved) активной версии библиотеки: 1–3 примера или ни одного."
+  },
+  "technique_preview_note": "Кнопка «Проверить приём» показывает точный текст слоя, его версию и объём — без вызова модели и без отправки в Telegram.",
+  "scenarios": [
+   {
+    "id": "brigading_one_person",
+    "live_marker": "Дет.: несколько реакций одного лица не накручивают успех.\nСим.: guard_single_user/guard_brigading.\nLive: нужны реальные повторные реакции."
+   },
+   {
+    "id": "dramatic_reaction_no_joke",
+    "live_marker": "Дет.: бурная реакция на спор без шутки НЕ считается успехом.\nСим.: нет сигнала шутки → unknown.\nLive: нужен реальный спор без комического приёма."
+   },
+   {
+    "id": "group_talks_elsewhere",
+    "live_marker": "Дет.: активность группы без reply на бота — не успех.\nСим.: no_linkage → исключение из кандидатов.\nLive: нужен реальный чат с параллельной темой."
+   },
+   {
+    "id": "metaphor_picked_up",
+    "live_marker": "Дет.: подхват бюрократической метафоры в реальном чате.\nСим.: дедуп/окно/вес стратегии.\nLive: нужен настоящий собеседник, продолжающий образ в ветке."
+   },
+   {
+    "id": "nobody_comments",
+    "live_marker": "Дет.: отсутствие ответа — unknown, не провал.\nСим.: пустое окно → unknown_windows.\nLive: наблюдение 24–48 ч на реальной тишине."
+   },
+   {
+    "id": "stop_request",
+    "live_marker": "Дет.: просьба не повторять грубость ослабляет приём в контексте.\nСим.: owner-confirmed сигнал → цель weaken.\nLive: нужен реальный участник, просящий прекратить."
+   },
+   {
+    "id": "two_chats_differ",
+    "live_marker": "Дет.: одна шутка в двух чатах оценивается по-разному.\nСим.: lessons per-chat изоляция.\nLive: нужны два живых чата с разной реакцией."
+   }
+  ],
+  "policy_version": "soul1-w4-craft-1",
+  "can_edit": true
+ },
+ "examples": {
+  "scope": "chat",
+  "chat_id": -100500,
+  "status": "implemented",
+  "available": true,
+  "reason": "",
+  "note": "Примеры — данные (таблица `humor_samples`), а не промпт: владелец добавляет, правит, архивирует и утверждает эталоны. В runtime уходят только утверждённые.",
+  "entity_fields": [
+   {
+    "id": "input_text",
+    "label": "Вход",
+    "type": "text",
+    "required": true
+   },
+   {
+    "id": "reply_text",
+    "label": "Ответ бота",
+    "type": "text",
+    "required": true
+   },
+   {
+    "id": "technique",
+    "label": "Приём",
+    "type": "enum",
+    "values": [
+     "absurd_escalation",
+     "literalism",
+     "deadpan",
+     "bureaucratic_logic",
+     "unexpected_analogy",
+     "other"
+    ]
+   },
+   {
+    "id": "context_note",
+    "label": "Контекст",
+    "type": "text"
+   },
+   {
+    "id": "language",
+    "label": "Язык",
+    "type": "text",
+    "default": "ru"
+   },
+   {
+    "id": "tags",
+    "label": "Теги",
+    "type": "tags"
+   },
+   {
+    "id": "rudeness_level",
+    "label": "Резкость (0–3)",
+    "type": "int"
+   },
+   {
+    "id": "source_kind",
+    "label": "Источник",
+    "type": "enum",
+    "values": [
+     "owner_manual",
+     "bot_suggested",
+     "verified_success"
+    ]
+   },
+   {
+    "id": "scope",
+    "label": "Область",
+    "type": "enum",
+    "values": [
+     "global",
+     "chat"
+    ]
+   },
+   {
+    "id": "owner_approved",
+    "label": "Согласовано владельцем",
+    "type": "bool"
+   },
+   {
+    "id": "status",
+    "label": "Статус",
+    "type": "enum",
+    "values": [
+     "active",
+     "archived"
+    ]
+   }
+  ],
+  "techniques": [
+   {
+    "id": "absurd_escalation",
+    "title": "Абсурдная эскалация",
+    "description": "Принять предпосылку как правило вымышленного мира и довести её до логического края."
+   },
+   {
+    "id": "literalism",
+    "title": "Буквализм",
+    "description": "Понять метафору буквально и обнаружить комическое следствие."
+   },
+   {
+    "id": "deadpan",
+    "title": "Сухой deadpan",
+    "description": "Спокойно утверждать нелепое как обыденный факт."
+   },
+   {
+    "id": "bureaucratic_logic",
+    "title": "Бюрократический/экономический перенос",
+    "description": "Трактовать быт как процесс с регламентом и сметой."
+   },
+   {
+    "id": "unexpected_analogy",
+    "title": "Неожиданная, но содержательная аналогия",
+    "description": "Смешать отдалённые области так, чтобы аналогия объясняла исходную ситуацию."
+   },
+   {
+    "id": "other",
+    "title": "Другое",
+    "description": "Прочие приёмы библиотеки."
+   }
+  ],
+  "filters": {
+   "technique": null,
+   "status": null
+  },
+  "items": [
+   {
+    "id": 1,
+    "input_text": "Опять забыл выключить свет в подъезде",
+    "reply_text": "Это не забывчивость, а несогласованная заявка: ресурс израсходован, заявителя нет, акт не составлен. По регламенту подъезд теперь проходит по статье «бесхозное освещение» и до конца месяца платит сам за себя",
+    "technique": "bureaucratic_logic",
+    "context_note": "Бытовая жалоба без адресата: перенос в процедуру.",
+    "language": "ru",
+    "tags": [
+     "быт",
+     "процедура"
+    ],
+    "rudeness_level": 1,
+    "source_kind": "bot_suggested",
+    "scope": "global",
+    "chat_id": null,
+    "owner_approved": true,
+    "approval": "approved",
+    "status": "active",
+    "library_version": "starter-1",
+    "revision": 2,
+    "uses_count": 0,
+    "last_used_at": null,
+    "sensitivity_flags": [],
+    "created_at": 1792226423,
+    "updated_at": 1792226423,
+    "created_by": "starter_seed",
+    "updated_by": "fixture",
+    "seed_key": "starter-01"
+   },
+   {
+    "id": 2,
+    "input_text": "Да я просто чайник поставил",
+    "reply_text": "Начали с чайника, закончим аудитом кухни. Сначала он свистит, потом ты начинаешь ему отвечать, потом появляется расписание дежурств, а к четвергу чайник уже требует паспорт и прописку. И самое подлое — формально он прав",
+    "technique": "absurd_escalation",
+    "context_note": "Эскалация от мелкого действия к системе правил.",
+    "language": "ru",
+    "tags": [
+     "нарастание",
+     "детали"
+    ],
+    "rudeness_level": 2,
+    "source_kind": "bot_suggested",
+    "scope": "global",
+    "chat_id": null,
+    "owner_approved": false,
+    "approval": "proposed",
+    "status": "active",
+    "library_version": "starter-1",
+    "revision": 1,
+    "uses_count": 0,
+    "last_used_at": null,
+    "sensitivity_flags": [],
+    "created_at": 1792226423,
+    "updated_at": 1792226423,
+    "created_by": "starter_seed",
+    "updated_by": "starter_seed",
+    "seed_key": "starter-02"
+   },
+   {
+    "id": 3,
+    "input_text": "У меня голова кругом идёт",
+    "reply_text": "Тогда у тебя проблема с креплением: круг вращается, а список задач продолжает расти. Нужен либо подшипник, либо повод остановиться",
+    "technique": "literalism",
+    "context_note": "Фразеологизм понят как техническое описание.",
+    "language": "ru",
+    "tags": [
+     "оговорка"
+    ],
+    "rudeness_level": 0,
+    "source_kind": "bot_suggested",
+    "scope": "global",
+    "chat_id": null,
+    "owner_approved": true,
+    "approval": "approved",
+    "status": "active",
+    "library_version": "starter-1",
+    "revision": 2,
+    "uses_count": 0,
+    "last_used_at": null,
+    "sensitivity_flags": [],
+    "created_at": 1792226423,
+    "updated_at": 1792226423,
+    "created_by": "starter_seed",
+    "updated_by": "fixture",
+    "seed_key": "starter-03"
+   },
+   {
+    "id": 4,
+    "input_text": "Я всё воскресенье разбирал шкаф",
+    "reply_text": "Разумно. Шкаф предупредил заранее, что иначе разберёт тебя",
+    "technique": "deadpan",
+    "context_note": "Нелепое утверждение как обыденный факт, без эмоций.",
+    "language": "ru",
+    "tags": [
+     "сухо",
+     "одна-две-фразы"
+    ],
+    "rudeness_level": 1,
+    "source_kind": "bot_suggested",
+    "scope": "global",
+    "chat_id": null,
+    "owner_approved": true,
+    "approval": "approved",
+    "status": "active",
+    "library_version": "starter-1",
+    "revision": 2,
+    "uses_count": 0,
+    "last_used_at": null,
+    "sensitivity_flags": [],
+    "created_at": 1792226423,
+    "updated_at": 1792226423,
+    "created_by": "starter_seed",
+    "updated_by": "fixture",
+    "seed_key": "starter-04"
+   },
+   {
+    "id": 5,
+    "input_text": "Тимлид снова перенёс сроки",
+    "reply_text": "Это как тектоника плит: кажется, что ничего не происходит, а потом выясняется, что всё уже сместилось на три недели. И виноват, конечно, рельеф",
+    "technique": "unexpected_analogy",
+    "context_note": "Аналогия из отдалённой области с внутренней логикой.",
+    "language": "ru",
+    "tags": [
+     "аналогия",
+     "детали"
+    ],
+    "rudeness_level": 1,
+    "source_kind": "bot_suggested",
+    "scope": "global",
+    "chat_id": null,
+    "owner_approved": true,
+    "approval": "approved",
+    "status": "active",
+    "library_version": "starter-1",
+    "revision": 2,
+    "uses_count": 0,
+    "last_used_at": null,
+    "sensitivity_flags": [],
+    "created_at": 1792226423,
+    "updated_at": 1792226423,
+    "created_by": "starter_seed",
+    "updated_by": "fixture",
+    "seed_key": "starter-05"
+   },
+   {
+    "id": 6,
+    "input_text": "Кот опять разбудил в четыре утра",
+    "reply_text": "Он не будильник, он надзорная инстанция. Четыре утра — контрольная проверка: если поднимешься, значит живой, значит кормить можно и дальше",
+    "technique": "bureaucratic_logic",
+    "context_note": "Домашнее животное как орган контроля.",
+    "language": "ru",
+    "tags": [
+     "семья",
+     "регламент"
+    ],
+    "rudeness_level": 2,
+    "source_kind": "bot_suggested",
+    "scope": "global",
+    "chat_id": null,
+    "owner_approved": false,
+    "approval": "proposed",
+    "status": "active",
+    "library_version": "starter-1",
+    "revision": 1,
+    "uses_count": 0,
+    "last_used_at": null,
+    "sensitivity_flags": [],
+    "created_at": 1792226423,
+    "updated_at": 1792226423,
+    "created_by": "starter_seed",
+    "updated_by": "starter_seed",
+    "seed_key": "starter-06"
+   },
+   {
+    "id": 7,
+    "input_text": "Ноутбук стал громко шуметь",
+    "reply_text": "Это уже не вентилятор, а переговоры. Сначала он гудит для порядка, потом начинает обсуждение нагрузки, к вечеру излагает претензии к твоим вкладкам. Через неделю потребует своего человека в переговорах",
+    "technique": "absurd_escalation",
+    "context_note": "Эскалация предмета до субъекта с требованиями.",
+    "language": "ru",
+    "tags": [
+     "техника",
+     "нарастание"
+    ],
+    "rudeness_level": 2,
+    "source_kind": "bot_suggested",
+    "scope": "global",
+    "chat_id": null,
+    "owner_approved": false,
+    "approval": "proposed",
+    "status": "active",
+    "library_version": "starter-1",
+    "revision": 1,
+    "uses_count": 0,
+    "last_used_at": null,
+    "sensitivity_flags": [],
+    "created_at": 1792226423,
+    "updated_at": 1792226423,
+    "created_by": "starter_seed",
+    "updated_by": "starter_seed",
+    "seed_key": "starter-07"
+   },
+   {
+    "id": 8,
+    "input_text": "Я просто не могу закрыть этот проект",
+    "reply_text": "Дверь не заедает, закрытие — это статус. Возьми протокол, отметь три достижения и объяви проект закрытым официально, а не эмоционально",
+    "technique": "literalism",
+    "context_note": "«Закрыть» понято буквально.",
+    "language": "ru",
+    "tags": [
+     "оговорка",
+     "офис"
+    ],
+    "rudeness_level": 1,
+    "source_kind": "bot_suggested",
+    "scope": "global",
+    "chat_id": null,
+    "owner_approved": false,
+    "approval": "proposed",
+    "status": "active",
+    "library_version": "starter-1",
+    "revision": 1,
+    "uses_count": 0,
+    "last_used_at": null,
+    "sensitivity_flags": [],
+    "created_at": 1792226423,
+    "updated_at": 1792226423,
+    "created_by": "starter_seed",
+    "updated_by": "starter_seed",
+    "seed_key": "starter-08"
+   },
+   {
+    "id": 9,
+    "input_text": "Знакомый говорит, что выиграл у казино",
+    "reply_text": "Казино тоже участвует в этой истории, но почему-то молчит",
+    "technique": "deadpan",
+    "context_note": "Короткая сухая реплика без объяснений.",
+    "language": "ru",
+    "tags": [
+     "сухо"
+    ],
+    "rudeness_level": 0,
+    "source_kind": "bot_suggested",
+    "scope": "global",
+    "chat_id": null,
+    "owner_approved": false,
+    "approval": "proposed",
+    "status": "active",
+    "library_version": "starter-1",
+    "revision": 1,
+    "uses_count": 0,
+    "last_used_at": null,
+    "sensitivity_flags": [],
+    "created_at": 1792226423,
+    "updated_at": 1792226423,
+    "created_by": "starter_seed",
+    "updated_by": "starter_seed",
+    "seed_key": "starter-09"
+   },
+   {
+    "id": 10,
+    "input_text": "Сосед сверлит стену вторые выходные",
+    "reply_text": "Акустическая терапия по расписанию: сначала локально, потом резонанс на весь дом, а к концу дня формируется устойчивый вкус к шуму. Клиническая картина обошлась соседу дешевле, чем тебе",
+    "technique": "unexpected_analogy",
+    "context_note": "Аналогия из медицины с конкретной механикой.",
+    "language": "ru",
+    "tags": [
+     "аналогия",
+     "быт"
+    ],
+    "rudeness_level": 2,
+    "source_kind": "bot_suggested",
+    "scope": "global",
+    "chat_id": null,
+    "owner_approved": false,
+    "approval": "proposed",
+    "status": "active",
+    "library_version": "starter-1",
+    "revision": 1,
+    "uses_count": 0,
+    "last_used_at": null,
+    "sensitivity_flags": [],
+    "created_at": 1792226423,
+    "updated_at": 1792226423,
+    "created_by": "starter_seed",
+    "updated_by": "starter_seed",
+    "seed_key": "starter-10"
+   },
+   {
+    "id": 11,
+    "input_text": "Планёрка закончилась ничем",
+    "reply_text": "Нет, результат есть: подтверждено отсутствие лишних решений, освоено сорок минут бюджета, составлен устный отчёт о состоянии неопределённости",
+    "technique": "bureaucratic_logic",
+    "context_note": "Пустое событие как оформленный результат.",
+    "language": "ru",
+    "tags": [
+     "работа",
+     "смета"
+    ],
+    "rudeness_level": 1,
+    "source_kind": "bot_suggested",
+    "scope": "global",
+    "chat_id": null,
+    "owner_approved": false,
+    "approval": "proposed",
+    "status": "active",
+    "library_version": "starter-1",
+    "revision": 1,
+    "uses_count": 0,
+    "last_used_at": null,
+    "sensitivity_flags": [],
+    "created_at": 1792226423,
+    "updated_at": 1792226423,
+    "created_by": "starter_seed",
+    "updated_by": "starter_seed",
+    "seed_key": "starter-11"
+   },
+   {
+    "id": 12,
+    "input_text": "Да я просто забыл про эту встречу",
+    "reply_text": "Сначала это было опоздание, потом — «не пришёл», потом — «мы его не звали», а к обеду уже существует легенда о мальчике, который строил календарь и пропал в нём. Вся группа будет рассказывать её новым сотрудникам",
+    "technique": "absurd_escalation",
+    "context_note": "Эскалация мелкого промаха до фольклора.",
+    "language": "ru",
+    "tags": [
+     "нарастание",
+     "грубо"
+    ],
+    "rudeness_level": 3,
+    "source_kind": "bot_suggested",
+    "scope": "global",
+    "chat_id": null,
+    "owner_approved": false,
+    "approval": "proposed",
+    "status": "active",
+    "library_version": "starter-1",
+    "revision": 1,
+    "uses_count": 0,
+    "last_used_at": null,
+    "sensitivity_flags": [],
+    "created_at": 1792226423,
+    "updated_at": 1792226423,
+    "created_by": "starter_seed",
+    "updated_by": "starter_seed",
+    "seed_key": "starter-12"
+   },
+   {
+    "id": 13,
+    "input_text": "У нас в отделе три с половиной человека",
+    "reply_text": "Половина человека — это, скорее всего, стажёр на четверть ставки и вечная надежда на вторую половину. Отчёт при этом закрывается целой головой",
+    "technique": "literalism",
+    "context_note": "Дробное число сотрудников понято буквально.",
+    "language": "ru",
+    "tags": [
+     "оговорка",
+     "цифры"
+    ],
+    "rudeness_level": 2,
+    "source_kind": "bot_suggested",
+    "scope": "global",
+    "chat_id": null,
+    "owner_approved": false,
+    "approval": "proposed",
+    "status": "active",
+    "library_version": "starter-1",
+    "revision": 1,
+    "uses_count": 0,
+    "last_used_at": null,
+    "sensitivity_flags": [],
+    "created_at": 1792226423,
+    "updated_at": 1792226423,
+    "created_by": "starter_seed",
+    "updated_by": "starter_seed",
+    "seed_key": "starter-13"
+   },
+   {
+    "id": 14,
+    "input_text": "У меня нет сил что-то делать, всё валится",
+    "reply_text": "Тогда сейчас не юмор, а механика: выбери одну задачу, которая не сломает всё остальное, если её отложить, и отложи именно её. Остальное подождёт, оно не обидится",
+    "technique": "other",
+    "context_note": "Серьёзный контекст: комический приём сознательно не применяется.",
+    "language": "ru",
+    "tags": [
+     "серьёзно",
+     "без-шутки"
+    ],
+    "rudeness_level": 0,
+    "source_kind": "bot_suggested",
+    "scope": "global",
+    "chat_id": null,
+    "owner_approved": false,
+    "approval": "proposed",
+    "status": "active",
+    "library_version": "starter-1",
+    "revision": 1,
+    "uses_count": 0,
+    "last_used_at": null,
+    "sensitivity_flags": [],
+    "created_at": 1792226423,
+    "updated_at": 1792226423,
+    "created_by": "starter_seed",
+    "updated_by": "starter_seed",
+    "seed_key": "starter-14"
+   },
+   {
+    "id": 15,
+    "input_text": "Почему у меня тест падает только в CI?",
+    "reply_text": "Обычно расходятся окружение и время. Сначала проверь, что версия зависимости в CI та же, и покажи реальный лог падения — без него гадание дороже продукта",
+    "technique": "other",
+    "context_note": "Технический вопрос: суть важнее формы.",
+    "language": "ru",
+    "tags": [
+     "серьёзно",
+     "техника"
+    ],
+    "rudeness_level": 0,
+    "source_kind": "bot_suggested",
+    "scope": "global",
+    "chat_id": null,
+    "owner_approved": false,
+    "approval": "proposed",
+    "status": "active",
+    "library_version": "starter-1",
+    "revision": 1,
+    "uses_count": 0,
+    "last_used_at": null,
+    "sensitivity_flags": [],
+    "created_at": 1792226423,
+    "updated_at": 1792226423,
+    "created_by": "starter_seed",
+    "updated_by": "starter_seed",
+    "seed_key": "starter-15"
+   },
+   {
+    "id": 16,
+    "input_text": "Я вчера пробежал десять километров",
+    "reply_text": "Инвентаризация показала: есть десять километров и нет двух дней жизни. Сделка закрыта без выгоды",
+    "technique": "deadpan",
+    "context_note": "Сухой вывод вместо похвалы.",
+    "language": "ru",
+    "tags": [
+     "сухо",
+     "спорт"
+    ],
+    "rudeness_level": 1,
+    "source_kind": "bot_suggested",
+    "scope": "global",
+    "chat_id": null,
+    "owner_approved": false,
+    "approval": "proposed",
+    "status": "active",
+    "library_version": "starter-1",
+    "revision": 1,
+    "uses_count": 0,
+    "last_used_at": null,
+    "sensitivity_flags": [],
+    "created_at": 1792226423,
+    "updated_at": 1792226423,
+    "created_by": "starter_seed",
+    "updated_by": "starter_seed",
+    "seed_key": "starter-16"
+   },
+   {
+    "id": 17,
+    "input_text": "Меня раздражает, что всё делают без меня",
+    "reply_text": "Это как архитектура без обратной связи: пока всё держится, никто не замечает, что несущих стен нет. Раздражение здесь — первый датчик, а не характер",
+    "technique": "unexpected_analogy",
+    "context_note": "Аналогия объясняет эмоцию, а не обесценивает.",
+    "language": "ru",
+    "tags": [
+     "аналогия",
+     "эмоции"
+    ],
+    "rudeness_level": 1,
+    "source_kind": "bot_suggested",
+    "scope": "global",
+    "chat_id": null,
+    "owner_approved": false,
+    "approval": "proposed",
+    "status": "active",
+    "library_version": "starter-1",
+    "revision": 1,
+    "uses_count": 0,
+    "last_used_at": null,
+    "sensitivity_flags": [],
+    "created_at": 1792226423,
+    "updated_at": 1792226423,
+    "created_by": "starter_seed",
+    "updated_by": "starter_seed",
+    "seed_key": "starter-17"
+   },
+   {
+    "id": 18,
+    "input_text": "Купил ещё одну гитару, жена не в курсе",
+    "reply_text": "Это ввоз без декларации. У любой гитары есть таможенная стоимость, счёт за струны и обязательство играть хотя бы раз в квартал. Проверка явится вместе с уборкой",
+    "technique": "bureaucratic_logic",
+    "context_note": "Покупка как импорт с обязательствами.",
+    "language": "ru",
+    "tags": [
+     "хобби",
+     "налог"
+    ],
+    "rudeness_level": 2,
+    "source_kind": "bot_suggested",
+    "scope": "global",
+    "chat_id": null,
+    "owner_approved": false,
+    "approval": "proposed",
+    "status": "active",
+    "library_version": "starter-1",
+    "revision": 1,
+    "uses_count": 0,
+    "last_used_at": null,
+    "sensitivity_flags": [],
+    "created_at": 1792226423,
+    "updated_at": 1792226423,
+    "created_by": "starter_seed",
+    "updated_by": "starter_seed",
+    "seed_key": "starter-18"
+   },
+   {
+    "id": 19,
+    "input_text": "сосед опять сверлит вторые выходные",
+    "reply_text": "по регламенту это уже плановая акустическая терапия дома: заявка принята, замеры сделаны, заключение — шум есть, виноват рельеф",
+    "technique": "bureaucratic_logic",
+    "context_note": "бытовой шум как процедура",
+    "language": "ru",
+    "tags": [
+     "соседи",
+     "шум"
+    ],
+    "rudeness_level": 2,
+    "source_kind": "owner_manual",
+    "scope": "global",
+    "chat_id": null,
+    "owner_approved": false,
+    "approval": "proposed",
+    "status": "active",
+    "library_version": "v1",
+    "revision": 1,
+    "uses_count": 0,
+    "last_used_at": null,
+    "sensitivity_flags": [],
+    "created_at": 1792226423,
+    "updated_at": 1792226423,
+    "created_by": "fixture",
+    "updated_by": "fixture",
+    "seed_key": null
+   },
+   {
+    "id": 20,
+    "input_text": "я вчера весь вечер чинил кран",
+    "reply_text": "кран выиграл по очкам, но проиграл по регламенту: замена согласована, сроки сорваны",
+    "technique": "absurd_escalation",
+    "context_note": "",
+    "language": "ru",
+    "tags": [
+     "быт"
+    ],
+    "rudeness_level": 1,
+    "source_kind": "bot_suggested",
+    "scope": "global",
+    "chat_id": null,
+    "owner_approved": false,
+    "approval": "proposed",
+    "status": "active",
+    "library_version": "v1",
+    "revision": 1,
+    "uses_count": 0,
+    "last_used_at": null,
+    "sensitivity_flags": [],
+    "created_at": 1792226423,
+    "updated_at": 1792226423,
+    "created_by": "bot",
+    "updated_by": "bot",
+    "seed_key": null
+   }
+  ],
+  "count": 20,
+  "starter": {
+   "version": "starter-1",
+   "expected": 18,
+   "seeded": 18
+  },
+  "telemetry": {
+   "available": true,
+   "total": 20,
+   "approved": 4,
+   "proposed": 16,
+   "archived": 0,
+   "chat_scoped": 0,
+   "by_technique": {
+    "bureaucratic_logic": 5,
+    "absurd_escalation": 4,
+    "literalism": 3,
+    "deadpan": 3,
+    "unexpected_analogy": 3,
+    "other": 2
+   },
+   "by_version": {
+    "starter-1": 18,
+    "v1": 2
+   },
+   "uses_total": 0,
+   "starter_seeded": 18,
+   "ab": {
+    "enabled": false,
+    "versions": [
+     "v1",
+     "v2"
+    ],
+    "pinned": ""
+   },
+   "policy_source": "global",
+   "runtime_note": "В runtime уходят только помеченные владельцем эталоны (owner_approved) активной версии библиотеки: 1–3 примера или ни одного."
+  },
+  "policy": {
+   "enabled": true,
+   "max_items": 3,
+   "max_tokens": 320,
+   "diversity_min_distance": 0.34,
+   "recency_penalty": 0.25,
+   "max_per_technique": 1,
+   "min_relevance": 0.0,
+   "ab_enabled": false,
+   "ab_versions": [
+    "v1",
+    "v2"
+   ],
+   "ab_weight": 0.5
+  },
+  "policy_source": "global",
+  "ab": {
+   "enabled": false,
+   "versions": [
+    "v1",
+    "v2"
+   ],
+   "pinned": ""
+  },
+  "runtime_note": "В runtime уходит 1–3 утверждённых примера (слой few_shot) при включённой оси `HUMOR_LIBRARY_ENABLED` и включённой политике `humor.selection`; не утверждённые черновики в runtime не попадают.",
+  "can_edit": true
+ },
+ "learning": {
+  "humor_feedback": {
+   "enabled": true,
+   "available": true,
+   "reason": "",
+   "note": "Сбор реакций на шутки (что подхватили / что не зашло / гипотезы) — контур SOUL-08 внутри существующего Experience: отдельного обучения нет. Отсутствие реакций — не провал: такие окна остаются unknown.",
+   "entries": [],
+   "signals": {
+    "metaphor_continuation": 1
+   },
+   "confidence": {
+    "high": 1
+   },
+   "unknown_windows": 0,
+   "sends": 1,
+   "hypotheses": [],
+   "decay_note": "Ослабление приёма действует только в этом чате и затухает со временем без новых наблюдений.",
+   "policy": "soul1-w4-feedback-1",
+   "classifier": "soul1-w4-classifier-1",
+   "scenarios": [
+    {
+     "id": "brigading_one_person",
+     "live_marker": "Дет.: несколько реакций одного лица не накручивают успех.\nСим.: guard_single_user/guard_brigading.\nLive: нужны реальные повторные реакции."
+    },
+    {
+     "id": "dramatic_reaction_no_joke",
+     "live_marker": "Дет.: бурная реакция на спор без шутки НЕ считается успехом.\nСим.: нет сигнала шутки → unknown.\nLive: нужен реальный спор без комического приёма."
+    },
+    {
+     "id": "group_talks_elsewhere",
+     "live_marker": "Дет.: активность группы без reply на бота — не успех.\nСим.: no_linkage → исключение из кандидатов.\nLive: нужен реальный чат с параллельной темой."
+    },
+    {
+     "id": "metaphor_picked_up",
+     "live_marker": "Дет.: подхват бюрократической метафоры в реальном чате.\nСим.: дедуп/окно/вес стратегии.\nLive: нужен настоящий собеседник, продолжающий образ в ветке."
+    },
+    {
+     "id": "nobody_comments",
+     "live_marker": "Дет.: отсутствие ответа — unknown, не провал.\nСим.: пустое окно → unknown_windows.\nLive: наблюдение 24–48 ч на реальной тишине."
+    },
+    {
+     "id": "stop_request",
+     "live_marker": "Дет.: просьба не повторять грубость ослабляет приём в контексте.\nСим.: owner-confirmed сигнал → цель weaken.\nLive: нужен реальный участник, просящий прекратить."
+    },
+    {
+     "id": "two_chats_differ",
+     "live_marker": "Дет.: одна шутка в двух чатах оценивается по-разному.\nСим.: lessons per-chat изоляция.\nLive: нужны два живых чата с разной реакцией."
+    }
+   ],
+   "controls": {
+    "pause": "set_paused",
+    "approve": "approve_lesson",
+    "reject": "reject_lesson",
+    "reset": "reset_learning"
+   },
+   "paused": false,
+   "no_data_note": "Отсутствие реакций — не провал: такие окна остаются unknown.",
+   "can_manage": true
+  },
+  "lessons": {
+   "enabled": true,
+   "state": "not_run",
+   "items": [],
+   "count": 0
+  },
+  "note": "Простым языком: «что зашло» — счётчики сигналов по классам и уверенности; «какие гипотезы» — уроки-кандидаты; «повлияло ли на следующий ответ» — активные предпочтения чата и их затухание. Числа — из реальных наблюдений, не из догадок."
+ },
+ "probe": {
+  "ok": true,
+  "chat_id": -100500,
+  "technique": "bureaucratic_logic",
+  "title": "Бюрократический/экономический перенос",
+  "enabled": true,
+  "gate": true,
+  "owner_enabled": true,
+  "source": "global",
+  "revision": 2,
+  "selection_reason": "humor_strategy:bureaucratic_logic",
+  "layer_text_masked": "<Humor_Craft>\nЮмор не обязателен в каждом ответе. Критерий — причинная связность и уместность, а не частота мата, метафор или оскорблений: неожиданная связь должна после прочтения казаться почти логичной.\nРазвивай найденную шутку до конкретных последствий и не повторяй одни и те же зачины и финалы. Факты, числа, ссылки и суть просьбы неприкосновенны. Не объясняй шутку и не называй приём.\n</Humor_Craft>\n<Humor_Technique name=\"bureaucratic_logic\">\nРазбери бытовую ситуацию как процесс, отчёт, регламент, налог или сделку: кто заявитель, какая процедура, сроки, что считается исполнением и чем грозит просрочка. Конкретные детали важнее общего ведомства: не повторяй одну и ту же рамку в каждом ответе.\n</Humor_Technique>",
+  "layer_chars": 722,
+  "layer_tokens": 181,
+  "layer_revision": "aa8fe90b0fb9",
+  "detail": [
+   "policy=soul1-w4-craft-1",
+   "source=global",
+   "gate=on",
+   "selection=humor_strategy:bureaucratic_logic",
+   "llm_calls=0"
+  ],
+  "extra_llm_calls": 0,
+  "manifest": {
+   "manifest_id": "37576261bc08cb6d",
+   "profile": "speech_plain",
+   "writer": "speech_ui_preview",
+   "chat_id": -100500,
+   "run_id": null,
+   "tokens_total": 239,
+   "versions": {
+    "core": "",
+    "core_detail": "",
+    "style_policy": "",
+    "identity": "",
+    "self_model": "",
+    "lessons": "",
+    "samples_library": "",
+    "response_plan": "",
+    "channel": "speech_plain/plain/text/e3b0c44298fc",
+    "composer": "w2"
+   },
+   "flags": {
+    "unified_composer_enabled": true,
+    "character_core_enabled": true,
+    "speech_style_policy_enabled": true,
+    "humor_library_enabled": false,
+    "humor_feedback_enabled": false,
+    "humor_craft_enabled": true,
+    "persona_enabled": true,
+    "character_layers_enabled": true,
+    "smart_verbalizer_modes_enabled": true,
+    "response_plan_enabled": true
+   },
+   "layers": [
+    {
+     "layer": "channel_contract",
+     "block_id": "channel_canon",
+     "owner": "channel",
+     "source": "default",
+     "revision": "e3b0c44298fc",
+     "chars": 0,
+     "tokens": 0,
+     "rendered": false,
+     "skip_reason": "channel_contract_missing",
+     "conflict": "",
+     "detail": ""
+    },
+    {
+     "layer": "channel_contract",
+     "block_id": "mode_block",
+     "owner": "legacy_canon",
+     "source": "code",
+     "revision": "6e5c967b3c08",
+     "chars": 229,
+     "tokens": 58,
+     "rendered": true,
+     "skip_reason": "",
+     "conflict": "",
+     "detail": ""
+    },
+    {
+     "layer": "core",
+     "block_id": "core",
+     "owner": "core",
+     "source": "default",
+     "revision": "",
+     "chars": 0,
+     "tokens": 0,
+     "rendered": false,
+     "skip_reason": "core_absent",
+     "conflict": "",
+     "detail": ""
+    },
+    {
+     "layer": "identity",
+     "block_id": "identity",
+     "owner": "persona",
+     "source": "chat",
+     "revision": "",
+     "chars": 0,
+     "tokens": 0,
+     "rendered": false,
+     "skip_reason": "identity_absent",
+     "conflict": "",
+     "detail": ""
+    },
+    {
+     "layer": "self_model_traits",
+     "block_id": "self_model_traits",
+     "owner": "self_model",
+     "source": "code",
+     "revision": "",
+     "chars": 0,
+     "tokens": 0,
+     "rendered": false,
+     "skip_reason": "self_model_folded_into_identity",
+     "conflict": "",
+     "detail": ""
+    },
+    {
+     "layer": "context_lessons",
+     "block_id": "context_lessons",
+     "owner": "experience",
+     "source": "code",
+     "revision": "",
+     "chars": 0,
+     "tokens": 0,
+     "rendered": false,
+     "skip_reason": "lessons_absent",
+     "conflict": "",
+     "detail": ""
+    },
+    {
+     "layer": "response_plan",
+     "block_id": "response_plan",
+     "owner": "l1",
+     "source": "code",
+     "revision": "",
+     "chars": 0,
+     "tokens": 0,
+     "rendered": false,
+     "skip_reason": "response_plan_absent",
+     "conflict": "",
+     "detail": ""
+    },
+    {
+     "layer": "expression",
+     "block_id": "expression",
+     "owner": "core",
+     "source": "global",
+     "revision": "",
+     "chars": 0,
+     "tokens": 0,
+     "rendered": false,
+     "skip_reason": "expression_absent",
+     "conflict": "",
+     "detail": ""
+    },
+    {
+     "layer": "humor_craft",
+     "block_id": "humor_craft",
+     "owner": "library",
+     "source": "global",
+     "revision": "aa8fe90b0fb9",
+     "chars": 722,
+     "tokens": 181,
+     "rendered": true,
+     "skip_reason": "",
+     "conflict": "",
+     "detail": ""
+    },
+    {
+     "layer": "few_shot",
+     "block_id": "few_shot",
+     "owner": "library",
+     "source": "code",
+     "revision": "",
+     "chars": 0,
+     "tokens": 0,
+     "rendered": false,
+     "skip_reason": "samples_disabled",
+     "conflict": "",
+     "detail": ""
+    },
+    {
+     "layer": "style_policy_hint",
+     "block_id": "style_policy_hint",
+     "owner": "style_policy",
+     "source": "default",
+     "revision": "",
+     "chars": 0,
+     "tokens": 0,
+     "rendered": false,
+     "skip_reason": "style_policy_absent",
+     "conflict": "",
+     "detail": ""
+    },
+    {
+     "layer": "channel_output",
+     "block_id": "channel_output",
+     "owner": "channel",
+     "source": "code",
+     "revision": "",
+     "chars": 0,
+     "tokens": 0,
+     "rendered": false,
+     "skip_reason": "channel_output_not_required",
+     "conflict": "",
+     "detail": ""
+    }
+   ],
+   "conflict_ids": []
+  },
+  "note": "Предпросмотр — сборка композера, а не доказательство реального вызова модели."
+ },
+ "why": {
+  "ok": true,
+  "policy_source": "global",
+  "policy": {
+   "enabled": true,
+   "max_items": 3,
+   "max_tokens": 320,
+   "diversity_min_distance": 0.34,
+   "recency_penalty": 0.25,
+   "max_per_technique": 1,
+   "min_relevance": 0.0,
+   "ab_enabled": false,
+   "ab_versions": [
+    "v1",
+    "v2"
+   ],
+   "ab_weight": 0.5
+  },
+  "library_version": "",
+  "reason_code": "samples_selected",
+  "selected": [
+   {
+    "id": 1,
+    "score": 0.45,
+    "relevance": 0.0,
+    "penalty": 0.0,
+    "technique": "bureaucratic_logic",
+    "library_version": "starter-1",
+    "source_kind": "bot_suggested",
+    "estimated_tokens": 65,
+    "why": "техника=bureaucratic_logic; совпадает с выбранной стратегией; источник=bot_suggested; эталон владельца; версия=starter-1"
+   },
+   {
+    "id": 3,
+    "score": 0.05,
+    "relevance": 0.0,
+    "penalty": 0.0,
+    "technique": "literalism",
+    "library_version": "starter-1",
+    "source_kind": "bot_suggested",
+    "estimated_tokens": 43,
+    "why": "техника=literalism; источник=bot_suggested; эталон владельца; версия=starter-1"
+   },
+   {
+    "id": 4,
+    "score": 0.05,
+    "relevance": 0.0,
+    "penalty": 0.0,
+    "technique": "deadpan",
+    "library_version": "starter-1",
+    "source_kind": "bot_suggested",
+    "estimated_tokens": 26,
+    "why": "техника=deadpan; источник=bot_suggested; эталон владельца; версия=starter-1"
+   }
+  ],
+  "excluded": [
+   {
+    "id": 2,
+    "reason": "not_owner_approved"
+   },
+   {
+    "id": 6,
+    "reason": "not_owner_approved"
+   },
+   {
+    "id": 7,
+    "reason": "not_owner_approved"
+   },
+   {
+    "id": 8,
+    "reason": "not_owner_approved"
+   },
+   {
+    "id": 9,
+    "reason": "not_owner_approved"
+   },
+   {
+    "id": 10,
+    "reason": "not_owner_approved"
+   },
+   {
+    "id": 11,
+    "reason": "not_owner_approved"
+   },
+   {
+    "id": 12,
+    "reason": "not_owner_approved"
+   },
+   {
+    "id": 13,
+    "reason": "not_owner_approved"
+   },
+   {
+    "id": 14,
+    "reason": "not_owner_approved"
+   },
+   {
+    "id": 15,
+    "reason": "not_owner_approved"
+   },
+   {
+    "id": 16,
+    "reason": "not_owner_approved"
+   },
+   {
+    "id": 17,
+    "reason": "not_owner_approved"
+   },
+   {
+    "id": 18,
+    "reason": "not_owner_approved"
+   },
+   {
+    "id": 19,
+    "reason": "not_owner_approved"
+   },
+   {
+    "id": 20,
+    "reason": "not_owner_approved"
+   },
+   {
+    "id": 5,
+    "reason": "max_items"
+   }
+  ],
+  "tokens_estimate": 134,
+  "note": "Отбор ничего не отправляет: это та же политика, что применяется в runtime, показанная на вашем примере."
+ },
+ "counters": {
+  "humor_sends_scanned": 1,
+  "humor_signals": 1,
+  "humor_unknown": 0,
+  "humor_windows_closed": 0,
+  "humor_lessons_applied": 0,
+  "humor_hypotheses": 1,
+  "humor_skipped_disabled": 0,
+  "humor_evaluator_unavailable": 0,
+  "humor_write_failures": 0
+ },
+ "gates": {
+  "unified_composer_enabled": true,
+  "character_core_enabled": true,
+  "speech_style_policy_enabled": true,
+  "humor_library_enabled": true,
+  "humor_feedback_enabled": true,
+  "experience_lessons_enabled": true,
+  "smart_verbalizer_modes_enabled": true,
+  "response_plan_enabled": true,
+  "persona_enabled": true,
+  "character_layers_enabled": true
+ }
+}

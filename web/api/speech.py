@@ -39,6 +39,9 @@ from pydantic import BaseModel, Field
 from aiogram.utils.web_app import WebAppUser
 
 from services import prompt_registry as pr
+from services import mca_humor_craft as humor_craft
+from services import mca_humor_feedback as humor_feedback
+from services import mca_sample_library as samples_lib
 
 from web.api.deps import can_edit_param, get_cache, get_tma_user
 from web.api.routes import (
@@ -287,6 +290,164 @@ def _can_edit_inspector(ctx) -> bool:
         return True
     from web.api.routes import _persona_has_edit_action
     return bool(_persona_has_edit_action(ctx))
+
+
+def _library_can_edit(cache, user: WebAppUser, ctx, *, chat_id: int | None
+                      ) -> bool:
+    """Право на правку ПРИМЕРОВ (SOUL-07.1/design §3.3, §5).
+
+    Чат — существующий chat-level edit-путь; глобально — отдельное
+    право-действие ``edit_humor_library`` либо существующее право правки
+    речи (глобальный админ входит по умолчанию). Это серверная проверка:
+    новых фронтенд-чекбоксов нет, право не выводится из одного тумблера.
+    """
+    if bool(getattr(ctx, "is_global_admin", False)):
+        return True
+    if chat_id is None:
+        return (_has_humor_library_action(ctx)
+                or _can_edit_speech(cache, user, ctx, pg_key="", chat_id=None))
+    return bool(_persona_can_edit(ctx, is_global=False))
+
+
+def _has_humor_library_action(ctx) -> bool:
+    """Действие ``edit_humor_library`` у роли (fail-closed)."""
+    try:
+        from services.permissions import requires_permission as match_permission
+        from services.permissions import Permissions
+        perms = getattr(ctx, "effective_permissions", None)
+        if perms is None:
+            perms = Permissions.from_dict({})
+        return bool(match_permission(perms, "edit_humor_library"))
+    except Exception:                   # pragma: no cover — защитная ветка
+        return False
+
+
+async def _humor_craft_payload(cache, chat_id: int | None) -> dict:
+    """Состояние ремесла: ось гейта + документ владельца (SOUL-06.7)."""
+    cfg = await humor_craft.resolve_config(chat_id)
+    return {
+        "gate": bool(humor_craft.gate_on()),
+        "enabled": bool(cfg.enabled),
+        "source": str(cfg.source),
+        "revision": int(cfg.revision),
+        "disabled_techniques": list(cfg.disabled_techniques),
+        "techniques": humor_craft.technique_catalog(cfg),
+        "policy_version": humor_craft.HUMOR_CRAFT_POLICY_VERSION,
+        "scenarios": humor_feedback.scenario_summary(),
+        "note": ("Выключение ремесла — диагностическое: Personality Core, "
+                 "стиль и примеры продолжают работать, ответы становятся "
+                 "суше, а не «другим персонажем»."),
+    }
+
+
+async def _examples_counts(chat_id: int | None) -> dict:
+    """Реальная статистика библиотеки (честные нули/причина недоступности)."""
+    try:
+        return await samples_lib.telemetry(samples_lib.get_db(),
+                                           chat_id=chat_id)
+    except Exception:
+        logger.warning("[speech] samples telemetry failed", exc_info=True)
+        return {"available": False, "reason": "read_error", "total": 0,
+                "approved": 0, "proposed": 0}
+
+
+async def _examples_card() -> dict:
+    """Карточка «Примеры» хаба: состояние и деталь по факту (F3 REVIEW-W4).
+
+    Ничего не приукрашивается: нет таблицы/базы → `off` и точная причина;
+    есть → счётчики эталонов и черновиков (пустая библиотека — честный ноль).
+    """
+    counts = await _examples_counts(None)
+    if not counts.get("available"):
+        reason = str(counts.get("reason") or "unavailable")
+        return {"state": "off", "ready": False,
+                "detail": "библиотека недоступна: %s" % reason}
+    total = int(counts.get("total") or 0)
+    approved = int(counts.get("approved") or 0)
+    proposed = int(counts.get("proposed") or 0)
+    if not total:
+        return {"state": "ready", "ready": True,
+                "detail": "библиотека пуста: заведите подборку примеров"}
+    return {"state": "ready", "ready": True,
+            "detail": "карточек: %d · эталонов: %d · черновиков: %d"
+                      % (total, approved, proposed)}
+
+
+def _learning_card(gates: dict) -> dict:
+    """Карточка «Обучение» хаба: уроки опыта + реакции на шутки по оси."""
+    lessons_on = bool(gates.get("experience_lessons_enabled"))
+    feedback_on = bool(gates.get("humor_feedback_enabled"))
+    if not lessons_on:
+        return {"state": "off",
+                "detail": "контур опыта выключен — собирать нечего"}
+    if feedback_on:
+        return {"state": "ready",
+                "detail": ("уроки опыта и реакции на шутки включены: "
+                           "сигналы, гипотезы, влияние на следующий ответ")}
+    return {"state": "ready",
+            "detail": ("уроки опыта доступны; реакции на шутки выключены "
+                       "(ось HUMOR_FEEDBACK_ENABLED)")}
+
+
+async def _write_document(cache, chat_id: int | None, key: str, values: dict,
+                          *, actor: Any = None) -> dict:
+    """Запись JSON-документа сущности существующим контуром (SOUL-15).
+
+    Глобально — ``ConfigCache`` (bot_settings, категория ``content``);
+    per-chat — ``chat_params.overrides``. Второго config service нет;
+    ``prompts.*`` не затрагиваются (правки речи идут путём реестра).
+    """
+    from services import chat_params
+    now = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+    if chat_id is None:
+        if cache is None:
+            return {"applied": False, "reason": "config_cache_unavailable"}
+        try:
+            current = cache.get(key, None)
+        except Exception:
+            current = None
+        doc = dict(current) if isinstance(current, dict) else {}
+        history = list(doc.get("history") or [])
+        if doc:
+            history.insert(0, {
+                "revision": int(doc.get("revision", 1) or 1),
+                "values_sha256_12": pr.sha12(json.dumps(
+                    {k: v for k, v in doc.items()
+                     if k not in ("history", "revision", "updated_at")},
+                    sort_keys=True, ensure_ascii=False, default=str)),
+                "updated_at": doc.get("updated_at") or ""})
+        doc = {**{k: v for k, v in doc.items()
+                  if k not in ("history", "revision", "updated_at")}, **values}
+        doc["revision"] = int((current or {}).get("revision", 0) or 0) + 1
+        doc["history"] = history[:EXPRESSION_REVISION_MAX]
+        doc["updated_at"] = now
+        doc["updated_by"] = actor
+        try:
+            await cache.set(key, doc, category=EXPRESSION_DOC_CATEGORY)
+        except Exception:
+            logger.warning("[speech] document write failed | key=%s", key,
+                           exc_info=True)
+            return {"applied": False, "reason": "write_error"}
+        return {"applied": True, "revision": doc["revision"]}
+    try:
+        root = await chat_params.get_all_chat_params(int(chat_id))
+        overrides = dict((root or {}).get("overrides") or {})
+        current = overrides.get(key)
+        doc = dict(current) if isinstance(current, dict) else {}
+        doc = {**{k: v for k, v in doc.items()
+                  if k not in ("history", "revision", "updated_at")}, **values}
+        doc["revision"] = int(((current or {}).get("revision") or 0)) + 1
+        doc["updated_at"] = now
+        doc["updated_by"] = actor
+        overrides[key] = doc
+        await chat_params.set_chat_params(int(chat_id),
+                                         {"overrides": overrides})
+        return {"applied": True, "revision": doc["revision"],
+                "chat_id": int(chat_id)}
+    except Exception:
+        logger.warning("[speech] chat document write failed | key=%s", key,
+                       exc_info=True)
+        return {"applied": False, "reason": "write_error"}
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -1283,23 +1444,65 @@ async def _core_ref_from_doc(doc: dict, *, source: str):
 
 async def _learning_payload(chat_id: int | None) -> dict:
     gates = _gate_state()
+    humor_enabled = bool(gates.get("humor_feedback_enabled"))
+    humor: dict = {
+        "enabled": humor_enabled,
+        "available": False,
+        "reason": ("humor_feedback_disabled" if not humor_enabled else ""),
+        "note": ("Сбор реакций на шутки (что подхватили / что не зашло / "
+                 "гипотезы) — контур SOUL-08 внутри существующего Experience: "
+                 "отдельного обучения нет. Отсутствие реакций — не провал: "
+                 "такие окна остаются unknown."),
+        "entries": [], "signals": {}, "confidence": {}, "unknown_windows": 0,
+        "sends": 0, "hypotheses": [], "decay_note": (
+            "Ослабление приёма действует только в этом чате и затухает со "
+            "временем без новых наблюдений."),
+        "policy": humor_feedback.POLICY_VERSION,
+        "classifier": humor_feedback.CLASSIFIER_VERSION,
+        "scenarios": humor_feedback.scenario_summary(),
+        "controls": {"pause": "set_paused", "approve": "approve_lesson",
+                     "reject": "reject_lesson", "reset": "reset_learning"},
+    }
+    if humor_enabled:
+        try:
+            from services import lore_runtime
+            db = lore_runtime.get_lore_db()
+            telemetry = await humor_feedback.telemetry(db, chat_id=chat_id)
+            humor.update({
+                "available": bool(telemetry.get("available")),
+                "reason": str(telemetry.get("reason") or ""),
+                "sends": int(telemetry.get("sends") or 0),
+                "signals": telemetry.get("signals") or {},
+                "confidence": telemetry.get("confidence") or {},
+                "unknown_windows": int(telemetry.get("unknown_windows") or 0),
+                "hypotheses": telemetry.get("hypotheses") or [],
+                "paused": bool(telemetry.get("paused")),
+                "no_data_note": telemetry.get("no_data_note") or "",
+            })
+            humor["entries"] = [
+                {"lesson_id": lesson.get("lesson_id"),
+                 "technique": lesson.get("technique"),
+                 "direction": lesson.get("direction"),
+                 "status": lesson.get("status"),
+                 "updated_at": lesson.get("updated_at"),
+                 "decay": lesson.get("decay"),
+                 "influence": ("приём применяется реже" if
+                               str(lesson.get("direction")) == "weaken"
+                               else "приём подтверждён как уместный")}
+                for lesson in (telemetry.get("lessons") or [])
+            ]
+        except Exception:
+            logger.warning("[speech] humor feedback telemetry failed",
+                           exc_info=True)
+            humor["reason"] = "read_error"
     out: dict = {
-        "humor_feedback": {
-            "enabled": bool(gates.get("humor_feedback_enabled")),
-            "available": False,
-            "reason": "humor_feedback_contour_not_landed",
-            "note": ("Сбор реакций на шутки (что подхватили / что не зашло / "
-                     "гипотезы) — контур SOUL-08 (слайс W4). Пока его нет, "
-                     "раздел показывает реальные уроки опыта и честно "
-                     "указывает, каких данных ещё не существует. Отсутствие "
-                     "реакций — не провал."),
-            "entries": [],
-        },
+        "humor_feedback": humor,
         "lessons": {"enabled": bool(gates.get("experience_lessons_enabled")),
                     "state": "unknown", "items": [], "count": 0},
-        "note": ("Простым языком: «что зашло» — счётчики успех/провал из "
-                 "реакций; «какие гипотезы» — уроки-кандидаты; «повлияло ли "
-                 "на следующий ответ» — применения урока (чем закончились)."),
+        "note": ("Простым языком: «что зашло» — счётчики сигналов по классам и "
+                 "уверенности; «какие гипотезы» — уроки-кандидаты; «повлияло "
+                 "ли на следующий ответ» — активные предпочтения чата и их "
+                 "затухание. Числа — из реальных наблюдений, не из догадок."),
     }
     if not gates.get("experience_lessons_enabled", True):
         out["lessons"]["state"] = "disabled"
@@ -1442,6 +1645,11 @@ async def get_overview(
     except Exception:
         logger.warning("[speech] overview capabilities failed", exc_info=True)
     expression = await _expression_payload(cache, chat_id)
+    # ── F3 REVIEW-W4: карточки хаба описывают ФАКТИЧЕСКОЕ состояние
+    # поставленных разделов (примеры — реальная библиотека, обучение —
+    # существующие уроки опыта + реакции на шутки по своей оси).
+    examples_card = await _examples_card()
+    learning_card = _learning_card(gates)
     core_edition = (core.get("editions") or {}).get(
         "full" if str((core.get("selection") or {}).get("level")) == "full"
         else "compact", {})
@@ -1485,17 +1693,17 @@ async def get_overview(
              "ready": True},
             {"id": "examples", "icon": "library_books", "title": "Примеры",
              "subtitle": "Карточки примеров (few-shot)",
-             "state": "not_implemented",
-             "detail": "библиотека примеров — слайс W4",
-             "ready": False},
+             "state": str(examples_card["state"]),
+             "detail": str(examples_card["detail"]),
+             "ready": bool(examples_card["ready"])},
             {"id": "try", "icon": "science", "title": "Попробовать",
              "subtitle": "Сравнение current и candidate",
              "state": "ready", "detail": "ничего не отправляет в Telegram",
              "ready": True},
             {"id": "learning", "icon": "school", "title": "Обучение",
              "subtitle": "Что зашло и что повлияло на ответ",
-             "state": "partial",
-             "detail": "уроки опыта доступны; реакции на шутки — W4",
+             "state": str(learning_card["state"]),
+             "detail": str(learning_card["detail"]),
              "ready": True},
         ],
         "advanced": [
@@ -2023,33 +2231,170 @@ async def get_humor(
     if not _can_view(ctx, chat_id):
         raise HTTPException(status_code=403, detail="нет доступа к речи")
     gates = _gate_state()
+    can_edit = _can_edit_speech(cache, user, ctx, pg_key="", chat_id=chat_id)
+    craft = await _humor_craft_payload(cache, chat_id)
+    counts = await _examples_counts(chat_id)
+    by_technique = dict((counts or {}).get("by_technique") or {})
     techniques = []
     for item in HUMOR_TECHNIQUES:
+        state = next((t for t in craft["techniques"]
+                      if t["id"] == item["id"]), None)
+        item_id = str(item["id"])
         techniques.append({
             **item,
-            "enabled": bool(gates.get("humor_library_enabled")),
-            "samples": 0,
-            "source": "library_not_landed",
+            # Реальное состояние: ось гейта + документ владельца. Для «other»
+            # отдельной техники нет — показываем состояние реестра.
+            "enabled": bool(state["enabled"]) if state is not None
+            else bool(gates.get("humor_craft_enabled")),
+            "owner_enabled": bool(state["owner_enabled"]) if state is not None
+            else False,
+            "layer_tokens": int((state or {}).get("layer_tokens") or 0),
+            "layer_revision": str((state or {}).get("layer_revision") or ""),
+            "reason": str((state or {}).get("reason")
+                          or "humor_not_a_technique"),
+            "gate": bool(gates.get("humor_craft_enabled")),
+            "source": str(craft.get("source") or "default"),
+            "samples": int(by_technique.get(item_id) or 0),
         })
+    library_available = bool(counts.get("available"))
     return {
         "scope": "chat" if chat_id is not None else "global",
         "chat_id": chat_id,
         "gates": gates,
         "techniques": techniques,
+        "craft": craft,
         "library": {
-            "available": False,
-            "reason": "humor_library_not_landed",
-            "note": ("Отбор примеров/приёмов и слой few-shot — слайс W4 "
-                     "(таблица samples + политика humor.selection). Пока "
-                     "библиотеки нет: приёмы показаны как контракт "
-                     "(SOUL-06), источник примеров не подменяется."),
+            "available": library_available,
+            "reason": str(counts.get("reason") or ""),
+            "note": ("Приёмы — ситуационный слой (SOUL-06): технику советует "
+                     "L1 (`comic_strategy`), слой не создаёт второго "
+                     "характера и не тратит LLM-вызовов на обычный ответ."
+                     if library_available else
+                     "Библиотеки нет: показаны приёмы и их реальное "
+                     "состояние, примеры не подменяются."),
+            **{k: counts.get(k) for k in ("total", "approved", "proposed",
+                                          "archived", "uses_total",
+                                          "by_version", "runtime_note")
+               if k in counts},
         },
         "technique_preview_note": (
-            "Предпросмотр показывает, что композер положил бы слоем "
-            "humor_craft для выбранного приёма; сама библиотека примеров "
-            "появится в W4 — данные не выдумываются."),
-        "can_edit": _can_edit_speech(cache, user, ctx, pg_key="",
-                                     chat_id=chat_id),
+            "Кнопка «Проверить приём» показывает точный текст слоя, его "
+            "версию и объём — без вызова модели и без отправки в Telegram."),
+        "scenarios": humor_feedback.scenario_summary(),
+        "policy_version": humor_craft.HUMOR_CRAFT_POLICY_VERSION,
+        "can_edit": can_edit,
+    }
+
+
+class HumorCraftWrite(BaseModel):
+    """Включение ремесла и отдельные приёмы (диагностический toggle)."""
+
+    enabled: bool | None = None
+    disabled_techniques: list[str] | None = Field(default=None,
+                                                  max_length=8)
+    scope: str = Field(default="auto", max_length=8)
+
+
+@speech_router.post("/speech/humor/craft")
+async def post_humor_craft(
+    request: Request,
+    user: Annotated[WebAppUser, Depends(get_tma_user)],
+    body: HumorCraftWrite,
+    x_chat_id: Annotated[str | None, Header()] = None,
+):
+    """Запись документа `humor.craft` (toggle ремесла; Core не затрагивается).
+
+    SOUL-06.7: диагностическое выключение Humor Craft сохраняет Personality
+    Core. Запись идёт существующим контуром (`bot_settings`/`chat_params`),
+    второго сервиса настроек нет; `prompts.*` не пишутся вовсе."""
+    cache, chat_id, ctx = await _access(request, user, x_chat_id)
+    if not _can_edit_speech(cache, user, ctx, pg_key="", chat_id=chat_id):
+        raise HTTPException(status_code=403, detail="нет права на правку речи")
+    scope_chat, scope_label = _resolve_scope(body.scope, chat_id)
+    if scope_chat is None and not _can_edit_speech(cache, user, ctx, pg_key="",
+                                                   chat_id=None):
+        raise HTTPException(status_code=403,
+                            detail="нужно право на глобальную правку речи")
+    values: dict = {}
+    if body.enabled is not None:
+        values["enabled"] = bool(body.enabled)
+    if body.disabled_techniques is not None:
+        values["disabled_techniques"] = [
+            str(t) for t in body.disabled_techniques
+            if str(t) in humor_craft.TECHNIQUES][:8]
+    if not values:
+        raise HTTPException(status_code=422, detail="нечего сохранять")
+    result = await _write_document(cache, scope_chat,
+                                  humor_craft.HUMOR_CRAFT_DOC_KEY,
+                                  values, actor=user.id)
+    if not result.get("applied"):
+        raise HTTPException(status_code=503,
+                            detail="локальная запись недоступна")
+    return {"ok": True, "scope": scope_label, **result,
+            "craft": await _humor_craft_payload(cache, chat_id)}
+
+
+class HumorTechniqueTest(BaseModel):
+    """Тест влияния ОДНОГО приёма (0 LLM; манифест по правилам композера)."""
+
+    technique: str = Field(max_length=64)
+    message: str = Field(default="", max_length=2000)
+    profile: str = Field(default="speech_plain", max_length=32)
+
+
+@speech_router.post("/speech/humor/technique/test")
+async def post_humor_technique_test(
+    request: Request,
+    user: Annotated[WebAppUser, Depends(get_tma_user)],
+    body: HumorTechniqueTest,
+    x_chat_id: Annotated[str | None, Header()] = None,
+):
+    """Что именно уйдёт слоем `humor_craft` для этого приёма (без LLM)."""
+    cache, chat_id, ctx = await _access(request, user, x_chat_id)
+    if not _can_view(ctx, chat_id):
+        raise HTTPException(status_code=403, detail="нет доступа к речи")
+    if str(body.technique) not in humor_craft.TECHNIQUES:
+        raise HTTPException(status_code=422, detail="неизвестный приём")
+    cfg = await humor_craft.resolve_config(chat_id)
+    probe = humor_craft.probe_technique(body.technique, config=cfg)
+    decision = humor_craft.select_technique(
+        comic_strategy=str(body.technique), config=cfg)
+    layer = humor_craft.render_layer(body.technique) if probe.enabled else ""
+    manifest = None
+    if layer:
+        try:
+            from services import prompt_composer as composer
+            gate = composer.GateState(
+                unified_composer_enabled=True, character_core_enabled=True,
+                speech_style_policy_enabled=True, humor_library_enabled=False,
+                humor_craft_enabled=True)
+            composed = composer.compose_prompt(composer.PromptPlan(
+                profile=str(body.profile or "speech_plain"),
+                writer=PREVIEW_WRITER, chat_id=int(chat_id or 0),
+                base_prompt="", humor=composer.HumorStrategy(
+                    text=layer, technique=str(body.technique),
+                    revision=probe.layer_revision, source=cfg.source),
+                gates=gate))
+            manifest = composer.manifest_for_events(composed)
+        except Exception:
+            logger.warning("[speech] humor technique preview failed",
+                           exc_info=True)
+    return {
+        "ok": True, "chat_id": chat_id,
+        "technique": str(body.technique), "title": probe.title,
+        "enabled": bool(probe.enabled and humor_craft.gate_on()),
+        "gate": bool(humor_craft.gate_on()),
+        "owner_enabled": bool(cfg.technique_enabled(body.technique)),
+        "source": cfg.source, "revision": cfg.revision,
+        "selection_reason": decision.reason,
+        "layer_text_masked": _mask_text(layer),
+        "layer_chars": probe.layer_chars, "layer_tokens": probe.layer_tokens,
+        "layer_revision": probe.layer_revision,
+        "detail": list(probe.detail),
+        "extra_llm_calls": humor_craft.layer_calls(body.technique),
+        "manifest": manifest,
+        "note": ("Предпросмотр — сборка композера, а не доказательство "
+                 "реального вызова модели."),
     }
 
 
@@ -2061,31 +2406,327 @@ async def get_examples(
     technique: Annotated[str | None, Query(max_length=64)] = None,
     status: Annotated[str | None, Query(max_length=16)] = None,
 ):
-    """Раздел «Примеры»: карточки ровно по схеме сущности W4 (design §2.3)."""
-    _cache, chat_id, ctx = await _access(request, user, x_chat_id)
+    """Раздел «Примеры»: реальная библиотека (карточки по схеме сущности W4)."""
+    cache, chat_id, ctx = await _access(request, user, x_chat_id)
     if not _can_view(ctx, chat_id):
         raise HTTPException(status_code=403, detail="нет доступа к речи")
+    can_edit = _library_can_edit(cache, user, ctx, chat_id=chat_id)
+    db = samples_lib.get_db()
+    db_ok = await samples_lib.table_ready(db)
+    items: list[dict] = []
+    reason = "" if db_ok else ("db_unavailable" if db is None
+                               else "schema_absent")
+    if db_ok:
+        try:
+            rows = await samples_lib.list_samples(
+                db, chat_id=chat_id, technique=technique, status=status,
+                limit=200)
+            items = [dict(row) for row in rows]
+        except Exception:
+            logger.warning("[speech] samples list failed", exc_info=True)
+            reason = "read_error"
+    if not can_edit:
+        # Чужой/неполный доступ: тексты примеров не отдаём открыто.
+        items = [{**row, "input_text": _mask_text(row.get("input_text")),
+                  "reply_text": _mask_text(row.get("reply_text")),
+                  "context_note": _mask_text(row.get("context_note"))}
+                 for row in items]
+    counts = await _examples_counts(chat_id)
+    policy, policy_source = await samples_lib.resolve_policy(chat_id)
     return {
         "scope": "chat" if chat_id is not None else "global",
         "chat_id": chat_id,
-        "status": "not_implemented_w4",
-        "available": False,
-        "reason": "sample_library_not_landed",
-        "note": ("Библиотека примеров (few-shot) — единственная новая таблица "
-                 "слайса W4 (design-source-of-truth §2.3): построчный CRUD, "
-                 "ревизия, фильтры по технике/тегам, статус active/archived, "
-                 "пометка «согласовано владельцем». Пока таблицы нет, карточки "
-                 "не создаются и не подменяются вторым стором: показана схема "
-                 "полей, по которой раздел заработает."),
+        "status": ("implemented" if items else
+                   ("empty" if db_ok else "unavailable")),
+        "available": bool(db_ok),
+        "reason": reason,
+        "note": ("Примеры — данные (таблица `humor_samples`), а не промпт: "
+                 "владелец добавляет, правит, архивирует и утверждает "
+                 "эталоны. В runtime уходят только утверждённые."),
         "entity_fields": [dict(f) for f in SAMPLE_ENTITY_FIELDS],
         "techniques": [dict(t) for t in HUMOR_TECHNIQUES],
         "filters": {"technique": technique, "status": status},
-        "items": [],
-        "count": 0,
-        "runtime_note": ("В runtime уходит 1–3 отобранных примера (слой "
-                         "few_shot) при включённом `flags.humor_library_"
-                         "enabled`; отбор — политика W4."),
-        "can_edit": False,
+        "items": items,
+        "count": len(items),
+        "starter": {
+            "version": samples_lib.STARTER_LIBRARY_VERSION,
+            "expected": len(samples_lib.STARTER_SAMPLES),
+            "seeded": int(counts.get("starter_seeded") or 0),
+        },
+        "telemetry": counts,
+        "policy": policy,
+        "policy_source": policy_source,
+        "ab": counts.get("ab") or {"enabled": False, "versions": []},
+        "runtime_note": ("В runtime уходит 1–3 утверждённых примера (слой "
+                         "few_shot) при включённой оси `HUMOR_LIBRARY_ENABLED` "
+                         "и включённой политике `humor.selection`; не "
+                         "утверждённые черновики в runtime не попадают."),
+        "can_edit": can_edit,
+    }
+
+
+class SampleWrite(BaseModel):
+    """Создание/правка примера (поля ровно по схеме сущности)."""
+
+    input_text: str = Field(default="", max_length=2000)
+    reply_text: str = Field(default="", max_length=4000)
+    technique: str = Field(default="other", max_length=64)
+    context_note: str = Field(default="", max_length=600)
+    language: str = Field(default="ru", max_length=12)
+    tags: list[str] = Field(default_factory=list, max_length=12)
+    rudeness_level: int = 0
+    source_kind: str = Field(default="owner_manual", max_length=24)
+    scope: str = Field(default="global", max_length=8)
+    library_version: str = Field(default="", max_length=32)
+    owner_approved: bool | None = None
+    status: str = Field(default="active", max_length=12)
+    expected_revision: int | None = None
+
+
+class SamplePolicyWrite(BaseModel):
+    """Политика отбора `humor.selection` (bounded на сервере)."""
+
+    enabled: bool | None = None
+    max_items: int | None = None
+    max_tokens: int | None = None
+    diversity_min_distance: float | None = None
+    recency_penalty: float | None = None
+    max_per_technique: int | None = None
+    ab_enabled: bool | None = None
+    ab_versions: list[str] | None = Field(default=None, max_length=2)
+    ab_weight: float | None = None
+    scope: str = Field(default="auto", max_length=8)
+
+
+class SampleWhyRequest(BaseModel):
+    technique: str = Field(default="", max_length=64)
+    extent: str = Field(default="", max_length=16)
+    message: str = Field(default="", max_length=2000)
+
+
+@speech_router.post("/speech/examples")
+async def post_example(
+    request: Request,
+    user: Annotated[WebAppUser, Depends(get_tma_user)],
+    body: SampleWrite,
+    x_chat_id: Annotated[str | None, Header()] = None,
+):
+    """Добавить пример в библиотеку (существующий контур БД; RBAC)."""
+    cache, chat_id, ctx = await _access(request, user, x_chat_id)
+    if not _library_can_edit(cache, user, ctx, chat_id=chat_id):
+        raise HTTPException(status_code=403,
+                            detail="нет права на правку примеров")
+    fields = body.model_dump()
+    scope = str(fields.pop("scope", "global") or "global")
+    if scope == "chat" and chat_id is None:
+        raise HTTPException(status_code=422,
+                            detail="для примера чата нужен X-Chat-Id")
+    fields["scope"] = scope
+    fields["chat_id"] = int(chat_id) if scope == "chat" else None
+    fields["author_user_id"] = user.id
+    view, reason = await samples_lib.create_sample(
+        samples_lib.get_db(), fields=fields, actor=str(user.id))
+    if view is None:
+        code = 422 if reason and not reason.startswith("db_") else 503
+        raise HTTPException(status_code=code, detail=reason or "не сохранено")
+    return {"ok": True, "item": view}
+
+
+async def _guard_sample_chat_scope(sample_id: int, chat_id: int | None) -> dict:
+    """Пример доступен только своему чату (SOUL-07.2, F1 REVIEW-W4).
+
+    Одна проверка на все мутации карточки (update/delete/approve/archive),
+    чтобы граница изоляции не расходилась между обработчиками: chat-scoped
+    пример чужого чата → 403 (глобальный пример от чата не зависит).
+    """
+    current = await samples_lib.get_sample(samples_lib.get_db(), sample_id)
+    if current is None:
+        raise HTTPException(status_code=404, detail="пример не найден")
+    if str(current.get("scope")) == "chat" \
+            and int(current.get("chat_id") or 0) != int(chat_id or 0):
+        raise HTTPException(status_code=403,
+                            detail="пример принадлежит другому чату")
+    return current
+
+
+@speech_router.post("/speech/examples/{sample_id}")
+async def post_example_update(
+    request: Request,
+    user: Annotated[WebAppUser, Depends(get_tma_user)],
+    sample_id: int,
+    body: SampleWrite,
+    x_chat_id: Annotated[str | None, Header()] = None,
+):
+    """Правка примера (ревизия + optimistic-проверка версии)."""
+    cache, chat_id, ctx = await _access(request, user, x_chat_id)
+    if not _library_can_edit(cache, user, ctx, chat_id=chat_id):
+        raise HTTPException(status_code=403,
+                            detail="нет права на правку примеров")
+    await _guard_sample_chat_scope(sample_id, chat_id)
+    fields = body.model_dump()
+    expected = fields.pop("expected_revision", None)
+    fields.pop("scope", None)
+    fields.pop("library_version", None)
+    view, reason = await samples_lib.update_sample(
+        samples_lib.get_db(), sample_id, fields=fields, actor=str(user.id),
+        expected_revision=expected)
+    if view is None:
+        code = 409 if reason == "revision_conflict" else (
+            422 if reason and not reason.startswith("db_") else 503)
+        raise HTTPException(status_code=code, detail=reason or "не сохранено")
+    return {"ok": True, "item": view}
+
+
+@speech_router.post("/speech/examples/{sample_id}/approve")
+async def post_example_approve(
+    request: Request,
+    user: Annotated[WebAppUser, Depends(get_tma_user)],
+    sample_id: int,
+    x_chat_id: Annotated[str | None, Header()] = None,
+    approved: Annotated[bool, Query()] = True,
+):
+    """Отметить пример эталонным (или снять метку): runtime берёт эталоны."""
+    cache, chat_id, ctx = await _access(request, user, x_chat_id)
+    if not _library_can_edit(cache, user, ctx, chat_id=chat_id):
+        raise HTTPException(status_code=403,
+                            detail="нет права на правку примеров")
+    await _guard_sample_chat_scope(sample_id, chat_id)
+    view, reason = await samples_lib.set_approval(
+        samples_lib.get_db(), sample_id, approved=bool(approved),
+        actor=str(user.id))
+    if view is None:
+        raise HTTPException(status_code=422, detail=reason or "не сохранено")
+    return {"ok": True, "item": view}
+
+
+@speech_router.post("/speech/examples/{sample_id}/archive")
+async def post_example_archive(
+    request: Request,
+    user: Annotated[WebAppUser, Depends(get_tma_user)],
+    sample_id: int,
+    x_chat_id: Annotated[str | None, Header()] = None,
+    archived: Annotated[bool, Query()] = True,
+):
+    """Архив/возврат примера (данные сохраняются)."""
+    cache, chat_id, ctx = await _access(request, user, x_chat_id)
+    if not _library_can_edit(cache, user, ctx, chat_id=chat_id):
+        raise HTTPException(status_code=403,
+                            detail="нет права на правку примеров")
+    await _guard_sample_chat_scope(sample_id, chat_id)
+    view, reason = await samples_lib.archive_sample(
+        samples_lib.get_db(), sample_id, archived=bool(archived),
+        actor=str(user.id))
+    if view is None:
+        raise HTTPException(status_code=422, detail=reason or "не сохранено")
+    return {"ok": True, "item": view}
+
+
+@speech_router.delete("/speech/examples/{sample_id}")
+async def delete_example(
+    request: Request,
+    user: Annotated[WebAppUser, Depends(get_tma_user)],
+    sample_id: int,
+    x_chat_id: Annotated[str | None, Header()] = None,
+):
+    """Удалить пример (архив — мягкая альтернатива, подтверждает UI)."""
+    cache, chat_id, ctx = await _access(request, user, x_chat_id)
+    if not _library_can_edit(cache, user, ctx, chat_id=chat_id):
+        raise HTTPException(status_code=403,
+                            detail="нет права на правку примеров")
+    await _guard_sample_chat_scope(sample_id, chat_id)
+    ok, reason = await samples_lib.delete_sample(samples_lib.get_db(),
+                                                 sample_id)
+    if not ok:
+        raise HTTPException(status_code=503, detail=reason or "не удалено")
+    return {"ok": True, "deleted": int(sample_id)}
+
+
+@speech_router.post("/speech/examples/seed")
+async def post_examples_seed(
+    request: Request,
+    user: Annotated[WebAppUser, Depends(get_tma_user)],
+    x_chat_id: Annotated[str | None, Header()] = None,
+):
+    """Поставить заводскую подборку черновиков (идемпотентно; без «одобрения»)."""
+    cache, chat_id, ctx = await _access(request, user, x_chat_id)
+    if not _library_can_edit(cache, user, ctx, chat_id=chat_id):
+        raise HTTPException(status_code=403,
+                            detail="нет права на правку примеров")
+    result = await samples_lib.seed_starter_samples(samples_lib.get_db())
+    if result.get("reason") == "db_unavailable":
+        raise HTTPException(status_code=503, detail="база недоступна")
+    return {"ok": True, **result,
+            "note": ("Черновики заведены БЕЗ владельческого одобрения: "
+                     "эталонами их не считает ни runtime, ни статистика.")}
+
+
+@speech_router.post("/speech/examples/policy")
+async def post_examples_policy(
+    request: Request,
+    user: Annotated[WebAppUser, Depends(get_tma_user)],
+    body: SamplePolicyWrite,
+    x_chat_id: Annotated[str | None, Header()] = None,
+):
+    """Запись политики отбора `humor.selection` (bounded; chat → override)."""
+    cache, chat_id, ctx = await _access(request, user, x_chat_id)
+    if not _library_can_edit(cache, user, ctx, chat_id=chat_id):
+        raise HTTPException(status_code=403,
+                            detail="нет права на правку примеров")
+    scope_chat, scope_label = _resolve_scope(body.scope, chat_id)
+    if scope_chat is None and not _library_can_edit(cache, user, ctx,
+                                                    chat_id=None):
+        raise HTTPException(status_code=403,
+                            detail="нужно право на глобальную правку примеров")
+    values = {k: v for k, v in body.model_dump().items()
+              if k != "scope" and v is not None}
+    if not values:
+        raise HTTPException(status_code=422, detail="нечего сохранять")
+    normalized = samples_lib.normalize_policy(
+        {**samples_lib.DEFAULT_POLICY, **values})
+    result = await _write_document(
+        cache, scope_chat, samples_lib.SELECTION_DOC_KEY, normalized,
+        actor=user.id)
+    if not result.get("applied"):
+        raise HTTPException(status_code=503,
+                            detail="локальная запись недоступна")
+    policy, source = await samples_lib.resolve_policy(chat_id)
+    return {"ok": True, "scope": scope_label, "policy": policy,
+            "policy_source": source}
+
+
+@speech_router.post("/speech/examples/why")
+async def post_examples_why(
+    request: Request,
+    user: Annotated[WebAppUser, Depends(get_tma_user)],
+    body: SampleWhyRequest,
+    x_chat_id: Annotated[str | None, Header()] = None,
+):
+    """«Почему выбраны именно эти примеры»: детерминированная трасса отбора."""
+    cache, chat_id, ctx = await _access(request, user, x_chat_id)
+    if not _can_view(ctx, chat_id):
+        raise HTTPException(status_code=403, detail="нет доступа к речи")
+    db = samples_lib.get_db()
+    if not await samples_lib.table_ready(db):
+        return {"ok": False, "reason": "db_unavailable", "selected": [],
+                "excluded": []}
+    rows = [samples_lib._to_row(row)
+            for row in await samples_lib.list_samples(db, chat_id=chat_id,
+                                                      status="active")]
+    policy, source = await samples_lib.resolve_policy(chat_id)
+    selection = samples_lib.select_samples(
+        rows, chat_id=int(chat_id or 0), technique=str(body.technique or ""),
+        extent=str(body.extent or ""), context=str(body.message or ""),
+        policy=policy)
+    return {
+        "ok": True, "policy_source": source,
+        "policy": policy,
+        "library_version": selection.library_version,
+        "reason_code": selection.reason_code,
+        "selected": [dict(r) for r in selection.reasons],
+        "excluded": [dict(r) for r in selection.excluded][:50],
+        "tokens_estimate": selection.tokens_estimate,
+        "note": ("Отбор ничего не отправляет: это та же политика, что "
+                 "применяется в runtime, показанная на вашем примере."),
     }
 
 
@@ -2121,11 +2762,61 @@ async def get_learning(
     user: Annotated[WebAppUser, Depends(get_tma_user)],
     x_chat_id: Annotated[str | None, Header()] = None,
 ):
-    """Раздел «Обучение»: уроки опыта + честный статус реакций на шутки."""
+    """Раздел «Обучение»: уроки опыта + реальные реакции на шутки (W4)."""
     _cache, chat_id, ctx = await _access(request, user, x_chat_id)
     if not _can_view(ctx, chat_id):
         raise HTTPException(status_code=403, detail="нет доступа к речи")
-    return await _learning_payload(chat_id)
+    payload = await _learning_payload(chat_id)
+    payload["humor_feedback"]["can_manage"] = _library_can_edit(
+        _cache, user, ctx, chat_id=chat_id)
+    return payload
+
+
+class HumorLearningAction(BaseModel):
+    """Действия владельца по обучению юмора (SOUL-08.11)."""
+
+    action: str = Field(max_length=32)          # pause|resume|approve|reject|reset
+    lesson_id: str = Field(default="", max_length=64)
+    version: int | None = None
+
+
+@speech_router.post("/speech/learning/humor")
+async def post_learning_humor(
+    request: Request,
+    user: Annotated[WebAppUser, Depends(get_tma_user)],
+    body: HumorLearningAction,
+    x_chat_id: Annotated[str | None, Header()] = None,
+):
+    """pause/resume/approve/reject/reset-learning без потери данных."""
+    cache, chat_id, ctx = await _access(request, user, x_chat_id)
+    if chat_id is None:
+        raise HTTPException(status_code=422,
+                            detail="нужен X-Chat-Id: обучение идёт по чатам")
+    if not _library_can_edit(cache, user, ctx, chat_id=chat_id):
+        raise HTTPException(status_code=403,
+                            detail="нет права на управление обучением")
+    from services import lore_runtime
+    db = lore_runtime.get_lore_db()
+    action = str(body.action or "")
+    if action in ("pause", "resume"):
+        result = await humor_feedback.set_paused(db, int(chat_id),
+                                                 action == "pause")
+    elif action in ("approve", "reject"):
+        if not body.lesson_id:
+            raise HTTPException(status_code=422, detail="нужен lesson_id")
+        result = await humor_feedback.lesson_action(
+            db, int(chat_id), str(body.lesson_id), version=body.version,
+            action=action)
+    elif action == "reset":
+        result = await humor_feedback.reset_learning(db, int(chat_id))
+    else:
+        raise HTTPException(status_code=422, detail="неизвестное действие")
+    if not result.get("ok"):
+        raise HTTPException(status_code=409,
+                            detail=str(result.get("reason") or "не выполнено"))
+    view = await _learning_payload(chat_id)
+    view["humor_feedback"]["can_manage"] = True
+    return {"ok": True, "action": action, "result": result, "learning": view}
 
 
 @speech_router.post("/speech/try")

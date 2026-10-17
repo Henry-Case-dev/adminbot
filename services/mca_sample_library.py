@@ -1,0 +1,1209 @@
+"""SOUL-07 (W4) — Few-Shot библиотека примеров: хранение, CRUD, отбор.
+
+Контракт слайса (design-source-of-truth §2.3 + requirements-map W4):
+
+* **SOUL-07.0/07.1** — единственная новая таблица слайса `humor_samples`
+  (построчный CRUD/архив/ревизия/фильтры), заводская подборка 15–30
+  ОРИГИНАЛЬНЫХ и разных по композиции примеров сидируется как
+  **неодобренные черновики** (`owner_approved=0`,
+  `source_kind='bot_suggested'`): библиотека никогда не выдаётся за
+  проверенную владельцем.
+* **SOUL-07.2** — на ответ отбирается 1–3 уместных и различных примера
+  (или ни одного): семантика/тема, diversity, recency/penalty, пригодность к
+  extent, жёсткая cross-chat/PII изоляция (двойная защита: запись + отбор).
+* **SOUL-07.3** — A/B версий библиотеки (`library_version`) и честное
+  «почему выбраны именно эти примеры»; различаются владелец добавил вручную,
+  бот предложил, проверенный успешный ответ.
+
+Политика отбора живёт в документе `humor.selection` (bot_settings + chat
+override) — второго config service нет.
+"""
+
+from __future__ import annotations
+
+import hashlib
+import json
+import logging
+import re
+import time
+from dataclasses import dataclass, field, replace
+from typing import Any, Iterable, Mapping, Sequence
+
+logger = logging.getLogger(__name__)
+
+#: Ось A/B и версия заводской подборки.
+STARTER_LIBRARY_VERSION = "starter-1"
+DEFAULT_LIBRARY_VERSION = "v1"
+
+SAMPLE_SOURCE_KINDS: tuple[str, ...] = (
+    "owner_manual", "bot_suggested", "verified_success",
+)
+SAMPLE_STATUSES: tuple[str, ...] = ("active", "archived")
+SAMPLE_SCOPES: tuple[str, ...] = ("global", "chat")
+SAMPLE_TECHNIQUES: tuple[str, ...] = (
+    "absurd_escalation", "literalism", "deadpan", "bureaucratic_logic",
+    "unexpected_analogy", "other",
+)
+MAX_RUDENESS = 3
+
+#: Технические поля записи (design §2.3: «ровно требуемые источником +
+#: технические»): ревизия, дедуп сидов, учёт применений для recency/penalty.
+TECHNICAL_FIELDS: tuple[str, ...] = (
+    "seed_key", "revision", "sensitivity_flags", "uses_count", "last_used_at",
+    "approved_at", "created_at", "updated_at", "created_by", "updated_by",
+)
+
+# ── DDL (единственная новая таблица слайса) ────────────────────────────────
+SCHEMA_VERSION_HUMOR_SAMPLES = 36
+
+SAMPLES_DDL = (
+    "CREATE TABLE IF NOT EXISTS humor_samples ("
+    "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+    "seed_key TEXT, "
+    "input_text TEXT NOT NULL, "
+    "reply_text TEXT NOT NULL, "
+    "technique TEXT, "
+    "context_note TEXT, "
+    "language TEXT NOT NULL DEFAULT 'ru', "
+    "tags TEXT, "
+    "rudeness_level INTEGER, "
+    "author_user_id INTEGER, "
+    "source_kind TEXT NOT NULL CHECK (source_kind IN "
+    "('owner_manual','bot_suggested','verified_success')), "
+    "scope TEXT NOT NULL CHECK (scope IN ('global','chat')), "
+    "chat_id INTEGER, "
+    "owner_approved INTEGER NOT NULL DEFAULT 0, "
+    "status TEXT NOT NULL DEFAULT 'active' CHECK (status IN "
+    "('active','archived')), "
+    "library_version TEXT NOT NULL DEFAULT 'v1', "
+    "revision INTEGER NOT NULL DEFAULT 1, "
+    "sensitivity_flags TEXT, "
+    "uses_count INTEGER NOT NULL DEFAULT 0, "
+    "last_used_at INTEGER, "
+    "approved_at INTEGER, "
+    "created_at INTEGER NOT NULL, "
+    "updated_at INTEGER NOT NULL, "
+    "created_by TEXT, "
+    "updated_by TEXT, "
+    "CHECK (scope <> 'chat' OR chat_id IS NOT NULL))"
+)
+
+SAMPLES_INDEX_DDL = (
+    "CREATE UNIQUE INDEX IF NOT EXISTS idx_humor_samples_seed "
+    "ON humor_samples(seed_key) WHERE seed_key IS NOT NULL",
+    "CREATE INDEX IF NOT EXISTS idx_humor_samples_pick "
+    "ON humor_samples(status, scope, chat_id, owner_approved)",
+    "CREATE INDEX IF NOT EXISTS idx_humor_samples_technique "
+    "ON humor_samples(technique)",
+    "CREATE INDEX IF NOT EXISTS idx_humor_samples_version "
+    "ON humor_samples(library_version, status)",
+)
+
+_COLS = (
+    "seed_key", "input_text", "reply_text", "technique", "context_note",
+    "language", "tags", "rudeness_level", "author_user_id", "source_kind",
+    "scope", "chat_id", "owner_approved", "status", "library_version",
+    "revision", "sensitivity_flags", "uses_count", "last_used_at",
+    "approved_at", "created_at", "updated_at", "created_by", "updated_by",
+)
+
+# ── Политика отбора `humor.selection` ──────────────────────────────────────
+SELECTION_DOC_KEY = "humor.selection"
+SELECTION_DOC_CATEGORY = "content"
+
+#: Границы политики (bounded; SOUL-15.7 «не пихать библиотеку целиком»).
+POLICY_LIMITS: dict[str, tuple[float, float]] = {
+    "max_items": (1, 3),
+    "max_tokens": (40, 700),
+    "diversity_min_distance": (0.0, 0.9),
+    "recency_penalty": (0.0, 0.9),
+    "max_per_technique": (1, 2),
+    "min_relevance": (0.0, 0.9),
+    "ab_weight": (0.05, 0.95),
+}
+
+DEFAULT_POLICY: dict[str, Any] = {
+    "enabled": True,
+    "max_items": 3,
+    "max_tokens": 320,
+    "diversity_min_distance": 0.34,
+    "recency_penalty": 0.25,
+    "max_per_technique": 1,
+    "min_relevance": 0.0,
+    "ab_enabled": False,
+    "ab_versions": ["v1", "v2"],
+    "ab_weight": 0.5,
+}
+
+#: Блок few-shot (шаблон; реестр `humor.few_shot.block`).
+HUMOR_FEW_SHOT_OPEN = (
+    "<Examples>\n"
+    "Примеры ниже задают механизм мышления, а не готовые фразы: не копируй "
+    "лексику, имена и детали дословно и не переноси чужие реалии в этот чат."
+)
+HUMOR_FEW_SHOT_LINE = "Вход: {input}\nОтвет: {reply}"
+HUMOR_FEW_SHOT_CLOSE = "</Examples>"
+#: Единая заводская редакция рамки слоя (регистрируется как один блок
+#: `humor.few_shot.block`: Factory Default/диффы/откат видят весь шаблон).
+HUMOR_FEW_SHOT_TEMPLATE = "\n".join(
+    (HUMOR_FEW_SHOT_OPEN, HUMOR_FEW_SHOT_LINE, HUMOR_FEW_SHOT_CLOSE))
+MAX_TOTAL_CHARS = 3000
+
+# ── Защита от утечек/PII (SOUL-07.2) ───────────────────────────────────────
+_MENTION_RE = re.compile(r"(^|\s)@[A-Za-z0-9_]{3,}")
+_TG_LINK_RE = re.compile(r"tg://[^\s\"']+")
+_LONG_DIGITS_RE = re.compile(r"(?<!\d)\d{6,}(?!\d)")
+_EMAIL_RE = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
+_PHONE_RE = re.compile(r"(?<!\d)(?:\+7|8)[\s\-\(]*\d{3}[\s\-\)]*\d{3}[\s\-]*\d{2}[\s\-]*\d{2}(?!\d)")
+
+
+def scan_sensitivity(*parts: str) -> tuple[str, ...]:
+    """Маркеры персональных/чужих данных (детерминированно, без LLM)."""
+    text = " ".join(str(p or "") for p in parts)
+    flags: list[str] = []
+    if _MENTION_RE.search(text):
+        flags.append("mention")
+    if _TG_LINK_RE.search(text):
+        flags.append("tg_link")
+    if _LONG_DIGITS_RE.search(text):
+        flags.append("long_digits")
+    if _EMAIL_RE.search(text):
+        flags.append("email")
+    if _PHONE_RE.search(text):
+        flags.append("phone")
+    return tuple(flags)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Заводская подборка: 18 оригинальных примеров, разные по композиции
+# (неодобренные черновики: owner_approved=False, source_kind=bot_suggested)
+# ═══════════════════════════════════════════════════════════════════════════
+
+STARTER_SAMPLES: tuple[dict, ...] = (
+    dict(seed_key="starter-01", technique="bureaucratic_logic",
+         rudeness_level=1, tags=["быт", "процедура"],
+         input_text="Опять забыл выключить свет в подъезде",
+         reply_text="Это не забывчивость, а несогласованная заявка: ресурс "
+                    "израсходован, заявителя нет, акт не составлен. По "
+                    "регламенту подъезд теперь проходит по статье "
+                    "«бесхозное освещение» и до конца месяца платит сам за "
+                    "себя",
+         context_note="Бытовая жалоба без адресата: перенос в процедуру."),
+    dict(seed_key="starter-02", technique="absurd_escalation",
+         rudeness_level=2, tags=["нарастание", "детали"],
+         input_text="Да я просто чайник поставил",
+         reply_text="Начали с чайника, закончим аудитом кухни. Сначала он "
+                    "свистит, потом ты начинаешь ему отвечать, потом "
+                    "появляется расписание дежурств, а к четвергу чайник "
+                    "уже требует паспорт и прописку. И самое подлое — "
+                    "формально он прав",
+         context_note="Эскалация от мелкого действия к системе правил."),
+    dict(seed_key="starter-03", technique="literalism",
+         rudeness_level=0, tags=["оговорка"],
+         input_text="У меня голова кругом идёт",
+         reply_text="Тогда у тебя проблема с креплением: круг вращается, а "
+                    "список задач продолжает расти. Нужен либо подшипник, "
+                    "либо повод остановиться",
+         context_note="Фразеологизм понят как техническое описание."),
+    dict(seed_key="starter-04", technique="deadpan",
+         rudeness_level=1, tags=["сухо", "одна-две-фразы"],
+         input_text="Я всё воскресенье разбирал шкаф",
+         reply_text="Разумно. Шкаф предупредил заранее, что иначе разберёт "
+                    "тебя",
+         context_note="Нелепое утверждение как обыденный факт, без эмоций."),
+    dict(seed_key="starter-05", technique="unexpected_analogy",
+         rudeness_level=1, tags=["аналогия", "детали"],
+         input_text="Тимлид снова перенёс сроки",
+         reply_text="Это как тектоника плит: кажется, что ничего не "
+                    "происходит, а потом выясняется, что всё уже "
+                    "сместилось на три недели. И виноват, конечно, "
+                    "рельеф",
+         context_note="Аналогия из отдалённой области с внутренней логикой."),
+    dict(seed_key="starter-06", technique="bureaucratic_logic",
+         rudeness_level=2, tags=["семья", "регламент"],
+         input_text="Кот опять разбудил в четыре утра",
+         reply_text="Он не будильник, он надзорная инстанция. Четыре утра — "
+                    "контрольная проверка: если поднимешься, значит живой, "
+                    "значит кормить можно и дальше",
+         context_note="Домашнее животное как орган контроля."),
+    dict(seed_key="starter-07", technique="absurd_escalation",
+         rudeness_level=2, tags=["техника", "нарастание"],
+         input_text="Ноутбук стал громко шуметь",
+         reply_text="Это уже не вентилятор, а переговоры. Сначала он гудит "
+                    "для порядка, потом начинает обсуждение нагрузки, к "
+                    "вечеру излагает претензии к твоим вкладкам. Через "
+                    "неделю потребует своего человека в переговорах",
+         context_note="Эскалация предмета до субъекта с требованиями."),
+    dict(seed_key="starter-08", technique="literalism",
+         rudeness_level=1, tags=["оговорка", "офис"],
+         input_text="Я просто не могу закрыть этот проект",
+         reply_text="Дверь не заедает, закрытие — это статус. Возьми "
+                    "протокол, отметь три достижения и объяви проект "
+                    "закрытым официально, а не эмоционально",
+         context_note="«Закрыть» понято буквально."),
+    dict(seed_key="starter-09", technique="deadpan",
+         rudeness_level=0, tags=["сухо"],
+         input_text="Знакомый говорит, что выиграл у казино",
+         reply_text="Казино тоже участвует в этой истории, но почему-то "
+                    "молчит",
+         context_note="Короткая сухая реплика без объяснений."),
+    dict(seed_key="starter-10", technique="unexpected_analogy",
+         rudeness_level=2, tags=["аналогия", "быт"],
+         input_text="Сосед сверлит стену вторые выходные",
+         reply_text="Акустическая терапия по расписанию: сначала локально, "
+                    "потом резонанс на весь дом, а к концу дня "
+                    "формируется устойчивый вкус к шуму. Клиническая "
+                    "картина обошлась соседу дешевле, чем тебе",
+         context_note="Аналогия из медицины с конкретной механикой."),
+    dict(seed_key="starter-11", technique="bureaucratic_logic",
+         rudeness_level=1, tags=["работа", "смета"],
+         input_text="Планёрка закончилась ничем",
+         reply_text="Нет, результат есть: подтверждено отсутствие "
+                    "лишних решений, освоено сорок минут бюджета, составлен "
+                    "устный отчёт о состоянии неопределённости",
+         context_note="Пустое событие как оформленный результат."),
+    dict(seed_key="starter-12", technique="absurd_escalation",
+         rudeness_level=3, tags=["нарастание", "грубо"],
+         input_text="Да я просто забыл про эту встречу",
+         reply_text="Сначала это было опоздание, потом — «не пришёл», потом "
+                    "— «мы его не звали», а к обеду уже существует легенда "
+                    "о мальчике, который строил календарь и пропал в нём. "
+                    "Вся группа будет рассказывать её новым сотрудникам",
+         context_note="Эскалация мелкого промаха до фольклора."),
+    dict(seed_key="starter-13", technique="literalism",
+         rudeness_level=2, tags=["оговорка", "цифры"],
+         input_text="У нас в отделе три с половиной человека",
+         reply_text="Половина человека — это, скорее всего, стажёр на "
+                    "четверть ставки и вечная надежда на вторую половину. "
+                    "Отчёт при этом закрывается целой головой",
+         context_note="Дробное число сотрудников понято буквально."),
+    dict(seed_key="starter-14", technique="other",
+         rudeness_level=0, tags=["серьёзно", "без-шутки"],
+         input_text="У меня нет сил что-то делать, всё валится",
+         reply_text="Тогда сейчас не юмор, а механика: выбери одну задачу, "
+                    "которая не сломает всё остальное, если её отложить, и "
+                    "отложи именно её. Остальное подождёт, оно не "
+                    "обидится",
+         context_note="Серьёзный контекст: комический приём сознательно не "
+                      "применяется."),
+    dict(seed_key="starter-15", technique="other",
+         rudeness_level=0, tags=["серьёзно", "техника"],
+         input_text="Почему у меня тест падает только в CI?",
+         reply_text="Обычно расходятся окружение и время. Сначала проверь, "
+                    "что версия зависимости в CI та же, и покажи реальный "
+                    "лог падения — без него гадание дороже продукта",
+         context_note="Технический вопрос: суть важнее формы."),
+    dict(seed_key="starter-16", technique="deadpan",
+         rudeness_level=1, tags=["сухо", "спорт"],
+         input_text="Я вчера пробежал десять километров",
+         reply_text="Инвентаризация показала: есть десять километров и "
+                    "нет двух дней жизни. Сделка закрыта без выгоды",
+         context_note="Сухой вывод вместо похвалы."),
+    dict(seed_key="starter-17", technique="unexpected_analogy",
+         rudeness_level=1, tags=["аналогия", "эмоции"],
+         input_text="Меня раздражает, что всё делают без меня",
+         reply_text="Это как архитектура без обратной связи: пока всё "
+                    "держится, никто не замечает, что несущих стен нет. "
+                    "Раздражение здесь — первый датчик, а не характер",
+         context_note="Аналогия объясняет эмоцию, а не обесценивает."),
+    dict(seed_key="starter-18", technique="bureaucratic_logic",
+         rudeness_level=2, tags=["хобби", "налог"],
+         input_text="Купил ещё одну гитару, жена не в курсе",
+         reply_text="Это ввоз без декларации. У любой гитары есть "
+                    "таможенная стоимость, счёт за струны и обязательство "
+                    "играть хотя бы раз в квартал. Проверка явится "
+                    "вместе с уборкой",
+         context_note="Покупка как импорт с обязательствами."),
+)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Доступ к БД (единственный контур — существующий lore/experience DB)
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+def get_db():
+    """Активная БД памяти (или None — честная деградация)."""
+    try:
+        from services import lore_runtime
+        return lore_runtime.get_lore_db()
+    except Exception:
+        logger.warning("[humor-samples] db unavailable", exc_info=True)
+        return None
+
+
+def _db_ready(db) -> bool:
+    return db is not None and hasattr(db, "db") and hasattr(
+        db, "write_transaction")
+
+
+async def table_ready(db) -> bool:
+    """Таблица существует (иначе честный `schema_absent`, а не пустая выдача)."""
+    if not _db_ready(db):
+        return False
+    try:
+        cursor = await db.db.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' "
+            "AND name='humor_samples'")
+        return await cursor.fetchone() is not None
+    except Exception:
+        return False
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Записи: нормализация и проверки
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+def _now(ts: int | float | None = None) -> int:
+    return int(ts if ts is not None else time.time())
+
+
+def _tags_json(tags: Any) -> str | None:
+    if isinstance(tags, str):
+        items = [t.strip() for t in re.split(r"[,\n]", tags) if t.strip()]
+    elif isinstance(tags, (list, tuple, set)):
+        items = [str(t).strip() for t in tags if str(t).strip()]
+    else:
+        items = []
+    items = [t[:32] for t in items][:12]
+    return json.dumps(items, ensure_ascii=False) if items else None
+
+
+def parse_tags(raw: Any) -> list[str]:
+    if isinstance(raw, (list, tuple)):
+        return [str(t) for t in raw]
+    try:
+        parsed = json.loads(str(raw or "[]"))
+    except Exception:
+        return []
+    return [str(t) for t in parsed] if isinstance(parsed, list) else []
+
+
+def normalize_fields(fields: Mapping[str, Any]) -> dict:
+    """Нормализовать входные поля (fail-closed по закрытым наборам)."""
+    out: dict[str, Any] = {}
+    if "input_text" in fields:
+        out["input_text"] = str(fields.get("input_text") or "").strip()[:2000]
+    if "reply_text" in fields:
+        out["reply_text"] = str(fields.get("reply_text") or "").strip()[:4000]
+    if "technique" in fields:
+        technique = str(fields.get("technique") or "other")
+        out["technique"] = technique if technique in SAMPLE_TECHNIQUES else "other"
+    if "context_note" in fields:
+        out["context_note"] = str(fields.get("context_note") or "").strip()[:600]
+    if "language" in fields:
+        out["language"] = (str(fields.get("language") or "ru").strip()[:12]
+                           or "ru")
+    if "tags" in fields:
+        out["tags"] = _tags_json(fields.get("tags"))
+    if "rudeness_level" in fields:
+        try:
+            level = int(fields.get("rudeness_level") or 0)
+        except (TypeError, ValueError):
+            level = 0
+        out["rudeness_level"] = max(0, min(MAX_RUDENESS, level))
+    if "source_kind" in fields:
+        kind = str(fields.get("source_kind") or "owner_manual")
+        out["source_kind"] = (kind if kind in SAMPLE_SOURCE_KINDS
+                              else "owner_manual")
+    if "scope" in fields:
+        scope = str(fields.get("scope") or "global")
+        out["scope"] = scope if scope in SAMPLE_SCOPES else "global"
+    if "chat_id" in fields:
+        try:
+            out["chat_id"] = (int(fields.get("chat_id"))
+                              if fields.get("chat_id") is not None else None)
+        except (TypeError, ValueError):
+            out["chat_id"] = None
+    if "owner_approved" in fields:
+        out["owner_approved"] = 1 if fields.get("owner_approved") else 0
+    if "status" in fields:
+        status = str(fields.get("status") or "active")
+        out["status"] = status if status in SAMPLE_STATUSES else "active"
+    if "library_version" in fields:
+        out["library_version"] = (str(fields.get("library_version")
+                                      or DEFAULT_LIBRARY_VERSION).strip()[:32]
+                                  or DEFAULT_LIBRARY_VERSION)
+    if "author_user_id" in fields:
+        try:
+            out["author_user_id"] = (int(fields.get("author_user_id"))
+                                     if fields.get("author_user_id")
+                                     is not None else None)
+        except (TypeError, ValueError):
+            out["author_user_id"] = None
+    if "seed_key" in fields:
+        seed_key = str(fields.get("seed_key") or "").strip()[:64]
+        out["seed_key"] = seed_key or None
+    return out
+
+
+def validate_write(fields: Mapping[str, Any]) -> tuple[bool, str]:
+    """Проверки записи (fail-closed): обязательные поля, scope, утечки."""
+    if not str(fields.get("input_text") or "").strip():
+        return False, "empty_input_text"
+    if not str(fields.get("reply_text") or "").strip():
+        return False, "empty_reply_text"
+    if str(fields.get("scope") or "global") == "chat" \
+            and fields.get("chat_id") is None:
+        return False, "chat_scope_without_chat"
+    if str(fields.get("source_kind") or "") not in SAMPLE_SOURCE_KINDS:
+        return False, "unknown_source_kind"
+    if str(fields.get("scope") or "") not in SAMPLE_SCOPES:
+        return False, "unknown_scope"
+    return True, ""
+
+
+def record_view(row: Mapping[str, Any]) -> dict:
+    """Карточка записи для UI/API (маскирование не нужно: это свои данные)."""
+    approved = bool(row.get("owner_approved"))
+    status = str(row.get("status") or "active")
+    return {
+        "id": int(row.get("id") or 0),
+        "input_text": str(row.get("input_text") or ""),
+        "reply_text": str(row.get("reply_text") or ""),
+        "technique": str(row.get("technique") or "other"),
+        "context_note": str(row.get("context_note") or ""),
+        "language": str(row.get("language") or "ru"),
+        "tags": parse_tags(row.get("tags")),
+        "rudeness_level": int(row.get("rudeness_level") or 0),
+        "source_kind": str(row.get("source_kind") or "owner_manual"),
+        "scope": str(row.get("scope") or "global"),
+        "chat_id": row.get("chat_id"),
+        "owner_approved": approved,
+        # SOUL-07.1: черновики НЕ выдаются за одобренные владельцем.
+        "approval": "approved" if approved else "proposed",
+        "status": status,
+        "library_version": str(row.get("library_version")
+                               or DEFAULT_LIBRARY_VERSION),
+        "revision": int(row.get("revision") or 1),
+        "uses_count": int(row.get("uses_count") or 0),
+        "last_used_at": row.get("last_used_at"),
+        "sensitivity_flags": _flags(row.get("sensitivity_flags")),
+        "created_at": row.get("created_at"),
+        "updated_at": row.get("updated_at"),
+        "created_by": row.get("created_by"),
+        "updated_by": row.get("updated_by"),
+        "seed_key": row.get("seed_key"),
+    }
+
+
+def _flags(raw: Any) -> list[str]:
+    if isinstance(raw, (list, tuple)):
+        return [str(x) for x in raw]
+    try:
+        parsed = json.loads(str(raw or "[]"))
+    except Exception:
+        return []
+    return [str(x) for x in parsed] if isinstance(parsed, list) else []
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# CRUD
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+async def list_samples(db=None, *, chat_id: int | None = None,
+                       technique: str | None = None,
+                       status: str | None = None,
+                       scope: str | None = None,
+                       library_version: str | None = None,
+                       query: str = "",
+                       limit: int = 200) -> list[dict]:
+    """Карточки библиотеки: chat-scope виден только своему чату (изоляция)."""
+    db = db if db is not None else get_db()
+    if not _db_ready(db):
+        return []
+    where: list[str] = []
+    args: list[Any] = []
+    if chat_id is not None:
+        where.append("((scope = 'global') OR (scope = 'chat' AND chat_id = ?))")
+        args.append(int(chat_id))
+    else:
+        where.append("scope = 'global'")
+    if technique:
+        where.append("technique = ?")
+        args.append(str(technique))
+    if status:
+        where.append("status = ?")
+        args.append(str(status))
+    if scope:
+        where.append("scope = ?")
+        args.append(str(scope))
+    if library_version:
+        where.append("library_version = ?")
+        args.append(str(library_version))
+    sql = "SELECT * FROM humor_samples"
+    if where:
+        sql += " WHERE " + " AND ".join(where)
+    sql += " ORDER BY id LIMIT ?"
+    args.append(max(1, min(int(limit or 200), 500)))
+    try:
+        cursor = await db.db.execute(sql, tuple(args))
+        rows = [dict(r) for r in await cursor.fetchall()]
+    except Exception:
+        logger.warning("[humor-samples] list failed", exc_info=True)
+        return []
+    term = str(query or "").strip().casefold()
+    if term:
+        rows = [r for r in rows
+                if term in str(r.get("input_text") or "").casefold()
+                or term in str(r.get("reply_text") or "").casefold()
+                or any(term in t.casefold() for t in parse_tags(r.get("tags")))]
+    return [record_view(r) for r in rows]
+
+
+async def get_sample(db=None, sample_id: int = 0) -> dict | None:
+    db = db if db is not None else get_db()
+    if not _db_ready(db):
+        return None
+    try:
+        cursor = await db.db.execute(
+            "SELECT * FROM humor_samples WHERE id = ?", (int(sample_id),))
+        row = await cursor.fetchone()
+    except Exception:
+        logger.warning("[humor-samples] get failed", exc_info=True)
+        return None
+    return record_view(dict(row)) if row is not None else None
+
+
+async def _insert(db, record: dict, *, op_name: str) -> dict:
+    async def _body(conn):
+        await conn.execute(
+            "INSERT INTO humor_samples (" + ",".join(_COLS) + ") VALUES ("
+            + ",".join("?" for _ in _COLS) + ")",
+            tuple(record.get(c) for c in _COLS))
+        cursor = await conn.execute("SELECT last_insert_rowid() AS id")
+        row = await cursor.fetchone()
+        return int(row["id"]) if row is not None else 0
+
+    sample_id = await db.write_transaction(_body, op_name=op_name)
+    return await get_sample(db, int(sample_id)) or {}
+
+
+async def create_sample(db=None, *, fields: Mapping[str, Any],
+                        actor: str = "") -> tuple[dict | None, str]:
+    """Создать пример. Возврат ``(карточка|None, reason)``."""
+    db = db if db is not None else get_db()
+    if not _db_ready(db):
+        return None, "db_unavailable"
+    data = {**{"source_kind": "owner_manual", "scope": "global"},
+            **normalize_fields(fields)}
+    ok, reason = validate_write(data)
+    if not ok:
+        return None, reason
+    flags = scan_sensitivity(data.get("input_text"), data.get("reply_text"),
+                             data.get("context_note"))
+    if flags:
+        # SOUL-07.2: утечка/PII не попадает в библиотеку.
+        return None, "sensitive:" + ",".join(flags)
+    now = _now()
+    record = {**{c: None for c in _COLS}, **data}
+    record.update({
+        "language": data.get("language") or "ru",
+        "scope": data.get("scope") or "global",
+        "technique": data.get("technique") or "other",
+        "source_kind": data.get("source_kind") or "owner_manual",
+        "status": data.get("status") or "active",
+        "library_version": data.get("library_version")
+        or DEFAULT_LIBRARY_VERSION,
+        "revision": 1, "uses_count": 0, "owner_approved": 0,
+        "sensitivity_flags": None, "created_at": now, "updated_at": now,
+        "created_by": str(actor or ""), "updated_by": str(actor or ""),
+    })
+    try:
+        view = await _insert(db, record, op_name="humor_sample_insert")
+    except Exception:
+        logger.warning("[humor-samples] insert failed", exc_info=True)
+        return None, "write_error"
+    return view, ""
+
+
+async def update_sample(db=None, sample_id: int = 0, *,
+                        fields: Mapping[str, Any], actor: str = "",
+                        expected_revision: int | None = None
+                        ) -> tuple[dict | None, str]:
+    """Правка примера (ревизия инкрементируется; optimistic-проверка)."""
+    db = db if db is not None else get_db()
+    if not _db_ready(db):
+        return None, "db_unavailable"
+    current = await get_sample(db, sample_id)
+    if current is None:
+        return None, "not_found"
+    if expected_revision is not None \
+            and int(expected_revision) != int(current.get("revision") or 1):
+        return None, "revision_conflict"
+    data = normalize_fields(fields)
+    merged = {**current, **data}
+    ok, reason = validate_write(merged)
+    if not ok:
+        return None, reason
+    flags = scan_sensitivity(merged.get("input_text"), merged.get("reply_text"),
+                             merged.get("context_note"))
+    if flags:
+        return None, "sensitive:" + ",".join(flags)
+    sets = dict(data)
+    sets["revision"] = int(current.get("revision") or 1) + 1
+    sets["updated_at"] = _now()
+    sets["updated_by"] = str(actor or "")
+    if "tags" in sets and isinstance(sets["tags"], list):
+        sets["tags"] = _tags_json(sets["tags"])
+    if "owner_approved" in sets:
+        sets["owner_approved"] = 1 if sets["owner_approved"] else 0
+        sets["approved_at"] = _now() if sets["owner_approved"] else None
+    if not sets:
+        return current, ""
+
+    async def _body(conn):
+        columns = ", ".join(f"{c} = ?" for c in sets)
+        await conn.execute(
+            f"UPDATE humor_samples SET {columns} WHERE id = ?",
+            tuple(sets.values()) + (int(sample_id),))
+        return True
+
+    try:
+        await db.write_transaction(_body, op_name="humor_sample_update")
+    except Exception:
+        logger.warning("[humor-samples] update failed", exc_info=True)
+        return None, "write_error"
+    return await get_sample(db, sample_id), ""
+
+
+async def set_approval(db=None, sample_id: int = 0, *, approved: bool,
+                       actor: str = "") -> tuple[dict | None, str]:
+    """Отметить пример эталонным («согласовано владельцем») или снять метку."""
+    return await update_sample(db, sample_id,
+                               fields={"owner_approved": bool(approved)},
+                               actor=actor)
+
+
+async def archive_sample(db=None, sample_id: int = 0, *, archived: bool = True,
+                         actor: str = "") -> tuple[dict | None, str]:
+    return await update_sample(db, sample_id,
+                               fields={"status": "archived" if archived
+                                       else "active"},
+                               actor=actor)
+
+
+async def delete_sample(db=None, sample_id: int = 0) -> tuple[bool, str]:
+    """Удалить пример (архив — мягкая альтернатива; подтверждается UI)."""
+    db = db if db is not None else get_db()
+    if not _db_ready(db):
+        return False, "db_unavailable"
+
+    async def _body(conn):
+        await conn.execute("DELETE FROM humor_samples WHERE id = ?",
+                           (int(sample_id),))
+        return True
+
+    try:
+        await db.write_transaction(_body, op_name="humor_sample_delete")
+    except Exception:
+        logger.warning("[humor-samples] delete failed", exc_info=True)
+        return False, "write_error"
+    return True, ""
+
+
+async def mark_used(db=None, sample_ids: Iterable[int] = (),
+                    *, ts: int | float | None = None) -> int:
+    """Отметить применение (recency/penalty + видимая телеметрия)."""
+    ids = [int(i) for i in (sample_ids or ()) if int(i) > 0]
+    if not ids:
+        return 0
+    db = db if db is not None else get_db()
+    if not _db_ready(db):
+        return 0
+
+    async def _body(conn):
+        now = _now(ts)
+        for sample_id in ids[:3]:
+            await conn.execute(
+                "UPDATE humor_samples SET uses_count = uses_count + 1, "
+                "last_used_at = ? WHERE id = ?", (now, sample_id))
+        return True
+
+    try:
+        await db.write_transaction(_body, op_name="humor_sample_used")
+    except Exception:
+        logger.warning("[humor-samples] mark_used failed", exc_info=True)
+        return 0
+    return min(len(ids), 3)
+
+
+async def seed_starter_samples(db=None, *, force: bool = False) -> dict:
+    """Идемпотентный сид заводской подборки (черновики, НЕ одобренные).
+
+    Повтор — no-op по `seed_key`; владельческие правки не перетираются
+    (существующая строка сида не обновляется).
+    """
+    db = db if db is not None else get_db()
+    if not _db_ready(db):
+        return {"seeded": 0, "skipped": 0, "reason": "db_unavailable"}
+    seeded = skipped = 0
+    for sample in STARTER_SAMPLES:
+        seed_key = str(sample.get("seed_key") or "")
+        if not seed_key:
+            continue
+        try:
+            cursor = await db.db.execute(
+                "SELECT id FROM humor_samples WHERE seed_key = ?",
+                (seed_key,))
+            row = await cursor.fetchone()
+        except Exception:
+            logger.warning("[humor-samples] seed lookup failed", exc_info=True)
+            return {"seeded": seeded, "skipped": skipped,
+                    "reason": "read_error"}
+        if row is not None and not force:
+            skipped += 1
+            continue
+        fields = {**sample, "scope": "global", "source_kind": "bot_suggested",
+                  "library_version": STARTER_LIBRARY_VERSION,
+                  "owner_approved": False}
+        if row is not None:
+            # force: обновляем текст сида, историю владельца не выдумываем.
+            view, reason = await update_sample(
+                db, int(row["id"]), fields=fields, actor="starter_seed")
+        else:
+            view, reason = await create_sample(db, fields=fields,
+                                               actor="starter_seed")
+        if view is None:
+            logger.warning("[humor-samples] seed write failed | key=%s | "
+                           "reason=%s", seed_key, reason)
+            continue
+        seeded += 1
+    return {"seeded": seeded, "skipped": skipped, "reason": ""}
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Политика отбора `humor.selection`
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+def normalize_policy(raw: Any) -> dict:
+    """Нормализовать документ политики (fail-safe дефолты, bounded)."""
+    policy = dict(DEFAULT_POLICY)
+    if isinstance(raw, Mapping):
+        for key, value in raw.items():
+            name = str(key)
+            if name not in policy:
+                continue
+            if name in POLICY_LIMITS and not isinstance(value, bool):
+                lo, hi = POLICY_LIMITS[name]
+                try:
+                    number = float(value)
+                except (TypeError, ValueError):
+                    continue
+                policy[name] = int(max(lo, min(hi, number))) \
+                    if name in ("max_items", "max_tokens",
+                                "max_per_technique") \
+                    else max(lo, min(hi, number))
+                continue
+            if name == "enabled" or name == "ab_enabled":
+                policy[name] = bool(value)
+            elif name == "ab_versions":
+                versions = [str(v)[:32] for v in (value or [])
+                            if str(v).strip()][:2]
+                if len(versions) == 2:
+                    policy[name] = versions
+    if policy["max_per_technique"] < 1:
+        policy["max_per_technique"] = 1
+    return policy
+
+
+async def resolve_policy(chat_id: int | None = None) -> tuple[dict, str]:
+    """Действующая политика отбора: chat → global → default."""
+    global_doc: Any = None
+    chat_doc: Any = None
+    try:
+        from services import hot_config as hot
+        global_doc = hot.get(SELECTION_DOC_KEY, None)
+    except Exception:
+        global_doc = None
+    if chat_id:
+        try:
+            from services.chat_params import get_chat_params_cache
+            cache = get_chat_params_cache()
+            if cache is not None:
+                root = await cache.get_chat_params(int(chat_id))
+                if isinstance(root, Mapping):
+                    chat_doc = (root.get("overrides") or {}).get(
+                        SELECTION_DOC_KEY)
+        except Exception:
+            chat_doc = None
+    if isinstance(chat_doc, Mapping):
+        return normalize_policy({**normalize_policy(global_doc), **chat_doc}), \
+            "chat"
+    if isinstance(global_doc, Mapping):
+        return normalize_policy(global_doc), "global"
+    return dict(DEFAULT_POLICY), "default"
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Отбор 1–3 примеров (детерминированный, 0 LLM)
+# ═══════════════════════════════════════════════════════════════════════════
+
+_TOKEN_RE = re.compile(r"[\w\-]{3,}", re.UNICODE)
+
+
+def _tokens(text: str) -> set[str]:
+    return {t.casefold() for t in _TOKEN_RE.findall(str(text or ""))}
+
+
+def _jaccard(a: set[str], b: set[str]) -> float:
+    if not a or not b:
+        return 0.0
+    return len(a & b) / max(1, len(a | b))
+
+
+def _extent_fits(reply_text: str, extent: str) -> bool:
+    extent = str(extent or "")
+    words = len(str(reply_text or "").split())
+    if extent == "one_word":
+        return False                     # слой примеров не нужен вовсе
+    if extent == "micro":
+        return words <= 12
+    if extent in ("compact", "short"):
+        return words <= 40
+    return True
+
+
+def ab_version_for(chat_id: int, policy: Mapping[str, Any]) -> str:
+    """Детерминированное распределение A/B по чату (без рандома/состояния)."""
+    if not policy.get("ab_enabled"):
+        return ""
+    versions = list(policy.get("ab_versions") or [])
+    if len(versions) != 2:
+        return ""
+    try:
+        weight = float(policy.get("ab_weight", 0.5))
+    except (TypeError, ValueError):
+        weight = 0.5
+    material = hashlib.sha256(f"ab|{int(chat_id)}".encode("utf-8")).digest()
+    bucket = int.from_bytes(material[:4], "big") / 0xFFFFFFFF
+    return str(versions[0] if bucket < weight else versions[1])
+
+
+@dataclass(frozen=True)
+class Selection:
+    """Результат отбора: примеры + честные причины (SOUL-07.3)."""
+
+    samples: tuple[dict, ...] = ()
+    reasons: tuple[dict, ...] = ()
+    excluded: tuple[dict, ...] = ()
+    reason_code: str = ""
+    policy_source: str = "default"
+    library_version: str = ""
+
+    @property
+    def tokens_estimate(self) -> int:
+        return sum(int(r.get("estimated_tokens") or 0) for r in self.reasons)
+
+
+def _candidate_bonus(technique: str, wanted: str) -> float:
+    if not wanted:
+        return 0.0
+    return 0.4 if str(technique) == str(wanted) else 0.0
+
+
+def select_samples(rows: Sequence[Mapping[str, Any]], *,
+                   chat_id: int = 0, technique: str = "",
+                   extent: str = "", context: str = "",
+                   policy: Mapping[str, Any] | None = None,
+                   penalties: Mapping[str, float] | None = None,
+                   now_ts: int | float | None = None) -> Selection:
+    """Отобрать ≤max_items примеров (или ни одного) с причинами.
+
+    Чистая функция (без I/O) — проверяется тестами на изоляцию/утечки.
+    """
+    pol = normalize_policy(policy)
+    penalties = dict(penalties or {})
+    if not pol.get("enabled"):
+        return Selection(reason_code="samples_disabled")
+    if str(extent or "") == "one_word":
+        return Selection(reason_code="samples_extent_fit")
+    version = ab_version_for(int(chat_id or 0), pol)
+    now = _now(now_ts)
+    wanted = str(technique or "")
+    scored: list[tuple[float, dict]] = []
+    excluded: list[dict] = []
+    for row in rows:
+        rid = int(row.get("id") or 0)
+        if str(row.get("status") or "active") != "active":
+            excluded.append({"id": rid, "reason": "archived"})
+            continue
+        if not bool(row.get("owner_approved")):
+            # SOUL-07.1/07.3: черновики не идут в runtime как эталоны.
+            excluded.append({"id": rid, "reason": "not_owner_approved"})
+            continue
+        scope = str(row.get("scope") or "global")
+        row_chat = row.get("chat_id")
+        if scope == "chat":
+            if row_chat is None or int(row_chat) != int(chat_id or 0):
+                excluded.append({"id": rid, "reason": "cross_chat_guard"})
+                continue
+        elif row_chat is not None:
+            excluded.append({"id": rid, "reason": "cross_chat_guard"})
+            continue
+        if _flags(row.get("sensitivity_flags")):
+            excluded.append({"id": rid, "reason": "leakage_guard"})
+            continue
+        if scan_sensitivity(row.get("input_text"), row.get("reply_text")):
+            excluded.append({"id": rid, "reason": "leakage_guard"})
+            continue
+        row_version = str(row.get("library_version")
+                          or DEFAULT_LIBRARY_VERSION)
+        if version and row_version != version:
+            continue
+        if not _extent_fits(str(row.get("reply_text") or ""), extent):
+            excluded.append({"id": rid, "reason": "extent_fit"})
+            continue
+        query_tokens = _tokens(context)
+        row_tokens = _tokens(f"{row.get('input_text')} "
+                             f"{row.get('reply_text')} "
+                             f"{row.get('context_note')}")
+        relevance = _jaccard(query_tokens, row_tokens) if query_tokens else 0.0
+        freshness = 0.05 if int(row.get("uses_count") or 0) == 0 else 0.0
+        score = (0.45 * relevance
+                 + _candidate_bonus(str(row.get("technique") or ""), wanted)
+                 + freshness)
+        penalty = float(penalties.get(str(row.get("id")), 0.0))
+        penalty += float(penalties.get(
+            "technique:" + str(row.get("technique") or ""), 0.0))
+        try:
+            recency_penalty = float(pol.get("recency_penalty", 0.0))
+        except (TypeError, ValueError):
+            recency_penalty = 0.0
+        last_used = row.get("last_used_at")
+        if last_used:
+            try:
+                age_h = max(0.0, (now - float(last_used)) / 3600.0)
+            except (TypeError, ValueError):
+                age_h = 999.0
+            if age_h < 6.0:
+                penalty += recency_penalty * (1.0 - age_h / 6.0)
+        total = score - penalty
+        if total < float(pol.get("min_relevance", 0.0)):
+            excluded.append({"id": rid, "reason": "below_min_score",
+                             "score": round(total, 4)})
+            continue
+        scored.append((total, {**dict(row), "_score": total,
+                               "_relevance": round(relevance, 4),
+                               "_penalty": round(penalty, 4)}))
+    scored.sort(key=lambda item: (-item[0], int(item[1].get("id") or 0)))
+    picked: list[dict] = []
+    reasons: list[dict] = []
+    per_technique: dict[str, int] = {}
+    used_tokens = 0
+    max_items = int(pol.get("max_items", 3))
+    max_tokens = int(pol.get("max_tokens", 320))
+    max_per_technique = int(pol.get("max_per_technique", 1))
+    min_distance = float(pol.get("diversity_min_distance", 0.0))
+    for score, row in scored:
+        rid = int(row.get("id") or 0)
+        if len(picked) >= max_items:
+            excluded.append({"id": rid, "reason": "max_items"})
+            continue
+        technique_key = str(row.get("technique") or "other")
+        if per_technique.get(technique_key, 0) >= max_per_technique:
+            excluded.append({"id": rid, "reason": "same_technique"})
+            continue
+        row_tokens = _tokens(str(row.get("reply_text") or ""))
+        if any(_jaccard(row_tokens, _tokens(
+                str(other.get("reply_text") or ""))) > (1.0 - min_distance)
+                for other in picked):
+            excluded.append({"id": rid, "reason": "not_diverse"})
+            continue
+        text = render_line(row)
+        from services.prompt_composer import estimate_tokens
+        cost = estimate_tokens(text)
+        if used_tokens + cost > max_tokens:
+            excluded.append({"id": rid, "reason": "budget_exceeded"})
+            continue
+        used_tokens += cost
+        picked.append(row)
+        per_technique[technique_key] = per_technique.get(technique_key, 0) + 1
+        reasons.append({
+            "id": rid, "score": round(float(score), 4),
+            "relevance": row.get("_relevance"),
+            "penalty": row.get("_penalty"),
+            "technique": technique_key,
+            "library_version": str(row.get("library_version") or ""),
+            "source_kind": str(row.get("source_kind") or ""),
+            "estimated_tokens": cost,
+            "why": _why(row, wanted, bool(penalties)),
+        })
+    if not picked:
+        return Selection(excluded=tuple(excluded),
+                         reason_code="samples_absent", library_version=version)
+    return Selection(samples=tuple(picked), reasons=tuple(reasons),
+                     excluded=tuple(excluded), reason_code="samples_selected",
+                     library_version=version)
+
+
+def _why(row: Mapping[str, Any], wanted: str, has_penalties: bool) -> str:
+    parts = [f"техника={row.get('technique') or 'other'}"]
+    if wanted and str(row.get("technique")) == wanted:
+        parts.append("совпадает с выбранной стратегией")
+    parts.append(f"источник={row.get('source_kind')}")
+    if bool(row.get("owner_approved")):
+        parts.append("эталон владельца")
+    else:
+        parts.append("черновик (не эталон)")
+    parts.append(f"версия={row.get('library_version')}")
+    if int(row.get("uses_count") or 0):
+        parts.append(f"применений={int(row.get('uses_count') or 0)}")
+    if has_penalties:
+        parts.append("учтён контекстный штраф")
+    return "; ".join(parts)
+
+
+def render_line(row: Mapping[str, Any]) -> str:
+    """Одна строка примера (вход → ответ)."""
+    return HUMOR_FEW_SHOT_LINE.format(
+        input=str(row.get("input_text") or "").strip(),
+        reply=str(row.get("reply_text") or "").strip())
+
+
+def render_block(samples: Sequence[Mapping[str, Any]]) -> str:
+    """bounded блок few-shot для композера (или пусто)."""
+    lines = [render_line(row) for row in (samples or ())]
+    lines = [line for line in lines if line.strip()]
+    if not lines:
+        return ""
+    block = "\n\n".join([HUMOR_FEW_SHOT_OPEN, "\n\n".join(lines),
+                         HUMOR_FEW_SHOT_CLOSE])
+    return block[:MAX_TOTAL_CHARS]
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Провайдер слоя для композера + телеметрия отбора
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+async def resolve_refs(*, chat_id: int, technique: str = "", extent: str = "",
+                       context: str = "", penalties: Mapping[str, float]
+                       | None = None, db=None) -> tuple[tuple, Selection]:
+    """`SampleRef`-блоки для композера + трасса отбора (0 LLM)."""
+    from services.prompt_composer import SampleRef
+    if not mca_library_gate_on():
+        return (), Selection(reason_code="samples_disabled")
+    db = db if db is not None else get_db()
+    policy, source = await resolve_policy(chat_id)
+    if not _db_ready(db):
+        return (), Selection(reason_code="samples_unavailable",
+                             policy_source=source)
+    if not await table_ready(db):
+        return (), Selection(reason_code="samples_absent",
+                             policy_source=source)
+    rows = await list_samples(db, chat_id=chat_id, status="active")
+    raw_rows = [_to_row(view) for view in rows]
+    selection = select_samples(raw_rows, chat_id=chat_id, technique=technique,
+                               extent=extent, context=context, policy=policy,
+                               penalties=penalties)
+    selection = replace(selection, policy_source=source)
+    refs = []
+    for row in selection.samples:
+        text = render_line(row)
+        refs.append(SampleRef(
+            block_id="few_shot", text=text,
+            revision=str(row.get("revision") or 1),
+            source=str(row.get("scope") or "global"),
+            library_version=str(row.get("library_version") or ""),
+            technique=str(row.get("technique") or ""),
+            reason=_why(row, technique, bool(penalties))))
+    if refs:
+        await mark_used(db, [int(r.get("id") or 0) for r in selection.samples])
+        _emit_selection(chat_id, selection)
+    return tuple(refs), selection
+
+
+def _to_row(view: Mapping[str, Any]) -> dict:
+    """Карточка API → строка таблицы (для чистого отбора)."""
+    return {
+        "id": view.get("id"), "input_text": view.get("input_text"),
+        "reply_text": view.get("reply_text"), "technique": view.get("technique"),
+        "context_note": view.get("context_note"),
+        "language": view.get("language"), "tags": view.get("tags"),
+        "rudeness_level": view.get("rudeness_level"),
+        "source_kind": view.get("source_kind"), "scope": view.get("scope"),
+        "chat_id": view.get("chat_id"),
+        "owner_approved": view.get("owner_approved"),
+        "status": view.get("status"),
+        "library_version": view.get("library_version"),
+        "revision": view.get("revision"), "uses_count": view.get("uses_count"),
+        "last_used_at": view.get("last_used_at"),
+        "sensitivity_flags": view.get("sensitivity_flags"),
+    }
+
+
+def mca_library_gate_on() -> bool:
+    try:
+        from services import mca_gates
+        return bool(mca_gates.humor_library_enabled())
+    except Exception:                      # pragma: no cover
+        return False
+
+
+def _emit_selection(chat_id: int, selection: Selection) -> None:
+    """Трасса отбора в существующую телеметрию (без второго стора)."""
+    try:
+        from services.mca_events import emit_mca_event
+        emit_mca_event(
+            "humor_samples_selected", outcome="success", component="humor",
+            reason_code="samples_selected", chat_id=chat_id,
+            entity_ids=[str(r.get("id")) for r in selection.reasons],
+            selected=len(selection.samples),
+            excluded=len(selection.excluded),
+            library_version=selection.library_version or "")
+    except Exception:
+        return
+
+
+async def telemetry(db=None, *, chat_id: int | None = None) -> dict:
+    """Видимая телеметрия библиотеки (honest zero-состояния)."""
+    db = db if db is not None else get_db()
+    out: dict[str, Any] = {
+        "available": _db_ready(db), "total": 0, "approved": 0, "proposed": 0,
+        "archived": 0, "chat_scoped": 0, "by_technique": {},
+        "by_version": {}, "uses_total": 0, "starter_seeded": 0,
+        "ab": {"enabled": False, "versions": []},
+    }
+    if not _db_ready(db):
+        out["reason"] = "db_unavailable"
+        return out
+    if not await table_ready(db):
+        out["reason"] = "schema_absent"
+        return out
+    try:
+        rows = await list_samples(db, chat_id=chat_id, status=None, limit=500)
+    except Exception:
+        out["reason"] = "read_error"
+        return out
+    out["total"] = len(rows)
+    for row in rows:
+        technique = str(row.get("technique") or "other")
+        out["by_technique"][technique] = \
+            out["by_technique"].get(technique, 0) + 1
+        version = str(row.get("library_version") or DEFAULT_LIBRARY_VERSION)
+        out["by_version"][version] = out["by_version"].get(version, 0) + 1
+        if row.get("owner_approved"):
+            out["approved"] += 1
+        else:
+            out["proposed"] += 1
+        if str(row.get("status")) == "archived":
+            out["archived"] += 1
+        if str(row.get("scope")) == "chat":
+            out["chat_scoped"] += 1
+        if str(row.get("seed_key") or ""):
+            out["starter_seeded"] += 1
+        out["uses_total"] += int(row.get("uses_count") or 0)
+    policy, source = await resolve_policy(chat_id)
+    out["policy_source"] = source
+    out["ab"] = {"enabled": bool(policy.get("ab_enabled")),
+                 "versions": list(policy.get("ab_versions") or []),
+                 "pinned": ab_version_for(int(chat_id or 0), policy)}
+    out["runtime_note"] = (
+        "В runtime уходят только помеченные владельцем эталоны "
+        "(owner_approved) активной версии библиотеки: 1–3 примера или ни одного."
+    )
+    return out

@@ -859,7 +859,8 @@ class TestRoles:
         assert "limits" in section_ids and "keys" in section_ids \
             and "access" in section_ids
         action_ids = {a["id"] for a in body["actions"]}
-        assert action_ids == {"edit_info", "edit_persona", "control.restart",
+        assert action_ids == {"edit_info", "edit_persona",
+                              "edit_humor_library", "control.restart",
                               "control.stop", "control.start",
                               "debug.config"}
         limits = next(s for s in body["sections"] if s["id"] == "limits")

@@ -526,6 +526,20 @@ W2_GATES: dict[str, tuple[bool, str]] = {
         False,
         "OFF → нет сбора feedback/обновлений выборки; речь работает",
     ),
+    # ── W4 (SOUL-06.7): ремесло юмора и опциональная оценка кандидатов ──────
+    "HUMOR_CRAFT_ENABLED": (
+        False,
+        "OFF → нет слоя приёмов Humor Craft (`humor_disabled`); Personality "
+        "Core и все прочие слои живут как раньше — диагностическое выключение "
+        "ремесла не трогает характер (SOUL-06.7)",
+    ),
+    "HUMOR_CANDIDATE_EVAL_ENABLED": (
+        False,
+        "OFF → ноль дополнительных LLM-вызовов: оценка нескольких кандидатов "
+        "не запускается вовсе (обычный ответ всегда 0 доп. вызовов, "
+        "SOUL-06.7); ON — bounded (≤2 кандидата, ≤1 вызов, таймаут) и только "
+        "в диагностическом пути",
+    ),
 }
 
 # Имя оси GateState → env-имя реестра (для per-chat резолва композера).
@@ -535,6 +549,8 @@ W2_ENV_KEYS: dict[str, str] = {
     "speech_style_policy_enabled": "SPEECH_STYLE_POLICY_ENABLED",
     "humor_library_enabled": "HUMOR_LIBRARY_ENABLED",
     "humor_feedback_enabled": "HUMOR_FEEDBACK_ENABLED",
+    "humor_craft_enabled": "HUMOR_CRAFT_ENABLED",
+    "humor_candidate_eval_enabled": "HUMOR_CANDIDATE_EVAL_ENABLED",
 }
 
 
@@ -2382,6 +2398,27 @@ def humor_feedback_enabled() -> bool:
     `mca_experience`, второго learning-контура нет). OFF → обратной связи
     нет, **речь работает** (не гейтит ни один рендер-слой)."""
     return _w2_axis("HUMOR_FEEDBACK_ENABLED", "flags.humor_feedback_enabled")
+
+
+def humor_craft_enabled() -> bool:
+    """`HUMOR_CRAFT_ENABLED` (env AND `flags.humor_craft_enabled`).
+
+    ON → ситуационный слой приёмов Humor Craft рендерится по совету L1
+    (`comic_strategy`) с учётом уместности. OFF → слой не появляется
+    (`humor_disabled`), Core/Identity/Style/Examples не затронуты: это
+    диагностический toggle ремесла (SOUL-06.7), а не выключатель характера."""
+    return _w2_axis("HUMOR_CRAFT_ENABLED", "flags.humor_craft_enabled")
+
+
+def humor_candidate_eval_enabled() -> bool:
+    """`HUMOR_CANDIDATE_EVAL_ENABLED` (env AND `flags.*`), default OFF.
+
+    ON → разрешена опциональная оценка нескольких кандидатов в
+    диагностическом пути (bounded: ≤2 кандидата, ≤1 LLM-вызов, таймаут).
+    Обычный ответ при любом состоянии оси получает 0 дополнительных вызовов
+    (SOUL-06.7)."""
+    return _w2_axis("HUMOR_CANDIDATE_EVAL_ENABLED",
+                    "flags.humor_candidate_eval_enabled")
 
 
 def composer_additive_budget_tokens() -> int:

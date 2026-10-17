@@ -3624,6 +3624,37 @@ class DirectChatService:
                 await self.remember_bot_reply(
                     chat_id, sent_id, answer,
                     parent_tg_message_id=message.message_id)
+                # ── SOUL-08.2 (W4): bounded-метаданные отправки для окна
+                # реакций. Гейт `HUMOR_FEEDBACK_ENABLED` (default OFF) →
+                # никакой записи и никакого чтения; сырые тексты/промпты не
+                # сохраняются (только типизированные коды/числа, R17).
+                if mca_gates.humor_feedback_enabled():
+                    try:
+                        from services import mca_humor_feedback as _humor_fb
+                        _fb_manifest = _pcomp.get_manifest(
+                            chat_id, run_id=correlation_id, writer="l2_writer")
+                        await _humor_fb.capture_send(
+                            chat_id=chat_id, message_id=int(sent_id),
+                            reply_to_message_id=getattr(message, "message_id",
+                                                        None),
+                            trace_id=str(correlation_id or ""),
+                            strategy=str(getattr(response_plan,
+                                                 "comic_strategy", "")
+                                         or "none"),
+                            technique=str(getattr(response_plan,
+                                                  "comic_strategy", "")
+                                          or "none"),
+                            core_revision=str(
+                                (_fb_manifest.versions or {}).get("core", "")
+                                if _fb_manifest is not None else ""),
+                            model=str(getattr(settings, "LLM_MODEL_NAME", "")
+                                      or ""),
+                            channel=("rich" if _rich_wanted else "plain"),
+                            delivered=True)
+                    except Exception:
+                        logger.warning(
+                            "[direct] humor send metadata capture failed "
+                            "(доставка не затронута)", exc_info=True)
                 # MCA-22 (C2, T-4287): durable ledger — только реально
                 # доставленный output (после успешной send); append-only,
                 # правка → новая revision-строка. Gate OFF → не пишем
@@ -4161,6 +4192,7 @@ class DirectChatService:
                                      lessons_skip: str = "",
                                      speech_block: str = "",
                                      speech_skip: str = "",
+                                     context_text: str = "",
                                      user_parts: tuple[str, ...] = ()
                                      ):
         """Собрать system речевого пути через ЕДИНЫЙ композер (SOUL-1 W2 §4).
@@ -4172,6 +4204,56 @@ class DirectChatService:
         snapshot = await _pcomp.turn_snapshot(chat_id, run_id)
         source = base_source or await _pcomp.resolve_base_source(
             chat_id, base_key, base_default)
+        # ── SOUL-06/07 (W4): приёмы и примеры — ТОЛЬКО при своих осях ──────
+        # Обе оси по умолчанию OFF → ни одного лишнего чтения БД и ни одного
+        # LLM-вызова на обычный ответ (паритет W2/W3 сохраняется байт-в-байт).
+        _gates_now = gates or _pcomp.gates_from_config()
+        _strategy = str(getattr(response_plan, "comic_strategy", "") or "")
+        _extent_value = str(getattr(response_plan, "extent", "") or "")
+        _structure = str(getattr(response_plan, "structure", "") or "")
+        _tone = str(getattr(response_plan, "tone", "") or "")
+        humor_ref = None
+        sample_refs: tuple = ()
+        if getattr(_gates_now, "humor_craft_enabled", False):
+            try:
+                from services import mca_humor_craft as _humor_craft
+                _weight = 1.0
+                if mca_gates.humor_feedback_enabled():
+                    try:
+                        from services import mca_humor_feedback as _humor_fb
+                        from services import lore_runtime as _lore_rt
+                        _weight = await _humor_fb.strategy_weight(
+                            _lore_rt.get_lore_db(), chat_id, _strategy)
+                    except Exception:
+                        _weight = 1.0
+                humor_ref = await _humor_craft.resolve_ref(
+                    chat_id=chat_id, comic_strategy=_strategy,
+                    extent=_extent_value, structure=_structure, tone=_tone,
+                    context_weight=_weight)
+            except Exception:
+                logger.warning("direct: humor craft resolve failed "
+                               "(слой пропущен)", exc_info=True)
+                humor_ref = None
+        if getattr(_gates_now, "humor_library_enabled", False):
+            try:
+                from services import mca_sample_library as _samples_lib
+                _penalties: dict = {}
+                if mca_gates.humor_feedback_enabled():
+                    try:
+                        from services import mca_humor_feedback as _humor_fb
+                        from services import lore_runtime as _lore_rt
+                        _penalties = await _humor_fb.sample_penalties(
+                            _lore_rt.get_lore_db(), chat_id)
+                    except Exception:
+                        _penalties = {}
+                sample_refs, _selection = await _samples_lib.resolve_refs(
+                    chat_id=chat_id, technique=_strategy,
+                    extent=_extent_value, context=context_text or "",
+                    penalties=_penalties)
+            except Exception:
+                logger.warning("direct: sample library resolve failed "
+                               "(слой пропущен)", exc_info=True)
+                sample_refs = ()
         plan = _pcomp.PromptPlan(
             profile=profile, writer=writer, chat_id=chat_id, channel=channel,
             html_safe=html_safe, run_id=run_id, base_prompt=base_prompt,
@@ -4183,6 +4265,8 @@ class DirectChatService:
                 source=identity_source, skipped=identity_skipped),
             response_plan=_pcomp.plan_ref_from_response_plan(
                 response_plan, extent_block),
+            humor=humor_ref,
+            samples=sample_refs,
             style_policy=snapshot.style_policy,
             scoped_requests=(_pcomp.Block(
                 "style_requests", style_block, owner="l1",
@@ -4288,6 +4372,7 @@ class DirectChatService:
                 speech_skip=("character_speech_disabled"
                              if not mca_gates.character_speech_enabled()
                              else "speech_absent"),
+                context_text=str(query or ""),
                 user_parts=tuple(parts))
             _pcomp.emit_layer_events_once(_c_manifest)
         else:

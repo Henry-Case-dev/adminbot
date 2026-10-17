@@ -1682,6 +1682,19 @@ _SCHEMA_VERSION_EMBEDDING_GENERATION_NS = 34
 # инертна). Бронь: v35 за ASAP 7 F2 (Wave 3).
 _SCHEMA_VERSION_LLM_USAGE_PLAN_META = 35
 
+# ── SOUL-1 / W4 (SOUL-07, design-source-of-truth §2.3): v36 — Sample Library ─
+# Единственная новая таблица слайса: `humor_samples` (построчный CRUD, архив,
+# ревизия, фильтры, версия библиотеки для A/B, технические поля учёта
+# применений). DDL/индексы живут в модуле-владельце
+# `services.mca_sample_library`, чтобы «одна таблица — один владелец»: здесь
+# только идемпотентная ступень миграции + `PRAGMA user_version`.
+# Аддитивно (`CREATE TABLE/INDEX IF NOT EXISTS` под self-guard
+# `sqlite_master`); НИ ОДНОГО UPDATE/DELETE существующих строк; повтор —
+# no-op; backfill не требуется (пустая таблица = честный «библиотеки нет»);
+# PG — no-op (GEN-R4, memory-контур SQLite-only, как v28/v30). Откат: cold
+# git revert (пустая таблица инертна; старый код её не читает).
+_SCHEMA_VERSION_HUMOR_SAMPLES = 36
+
 _MCA_FACTCHECK_RUNS_DDL = (
     "CREATE TABLE IF NOT EXISTS mca_factcheck_runs ("
     "run_id              TEXT PRIMARY KEY, "
@@ -2807,6 +2820,11 @@ class DatabaseService:
             # внутри `_migrate_summary_source_window_v24` (шаги 2/3 —
             # self-guarded хелперы того же шага); шаги аддитивные,
             # повтор — no-op.
+            # SOUL-1 / W4 (SOUL-07): v36 — таблица `humor_samples`
+            # (Few-Shot библиотека слайса W4; DDL — в модуле-владельце).
+            MigrationStep(_SCHEMA_VERSION_HUMOR_SAMPLES,
+                          "humor_samples_v36",
+                          lambda svc: svc._migrate_humor_samples_v36()),
         ]
 
     @staticmethod
@@ -4020,6 +4038,30 @@ class DatabaseService:
         await self.db.execute(
             f"PRAGMA user_version = "
             f"{_SCHEMA_VERSION_LLM_USAGE_PLAN_META}")
+        await self.db.commit()
+
+    async def _migrate_humor_samples_v36(self) -> None:
+        """v36 (SOUL-1 / W4, SOUL-07 + design §2.3): таблица `humor_samples`
+        — Few-Shot библиотека примеров (единственная новая таблица слайса).
+
+        DDL и индексы — в модуле-владельце `services.mca_sample_library`
+        (одна таблица — один владелец); здесь идемпотентная ступень:
+        `CREATE TABLE/INDEX IF NOT EXISTS` под self-guard `sqlite_master`,
+        затем `PRAGMA user_version = 36`. Повтор — no-op; существующие строки
+        не трогаются (UPDATE/DELETE нет); пустая таблица = честное состояние
+        «библиотеки нет» (никакого backfill и никакого синтетического
+        «одобрения владельцем»). PG — no-op (GEN-R4: memory-контур
+        SQLite-only, как v28/v30)."""
+        from services import mca_sample_library as _samples
+        if not await self._table_exists("humor_samples"):
+            await self.db.execute(_samples.SAMPLES_DDL)
+            await self.db.commit()
+            logger.info("[database] migration v36: humor_samples")
+        for ddl in _samples.SAMPLES_INDEX_DDL:
+            await self.db.execute(ddl)
+        await self.db.commit()
+        await self.db.execute(
+            f"PRAGMA user_version = {_SCHEMA_VERSION_HUMOR_SAMPLES}")
         await self.db.commit()
 
     # ── mca-20 (ADR-1028-20 D1/D3/D9): Temporal Factcheck — тонкие методы

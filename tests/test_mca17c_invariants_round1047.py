@@ -52,6 +52,11 @@ def test_no_ddl_catalog_ks_tools_delta():
     # `llm_usage_events`; SQLite-шаг — честный bookkeeping no-op (guard
     # sqlite_master), фактический DDL — PgDatabase.init (DDL_STATEMENTS,
     # ADD COLUMN IF NOT EXISTS). Точное равенство сохранено.
+    # SOUL-1 / W4 (SOUL-07, design §2.3): v36 (humor_samples_v36) —
+    # единственная новая таблица слайса: Few-Shot библиотека примеров
+    # (аддитивно, CREATE TABLE IF NOT EXISTS под self-guard; PG no-op по
+    # GEN-R4 — memory-контур SQLite-only). Санкционированный хвост = 36;
+    # Δ каталога/KS/тулов остаётся нулевым (проверки ниже).
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     try:
@@ -60,7 +65,7 @@ def test_no_ddl_catalog_ks_tools_delta():
         loop.run_until_complete(d.initialize())
         cur = loop.run_until_complete(d.db.execute("PRAGMA user_version"))
         row = loop.run_until_complete(cur.fetchone())
-        assert int(row[0]) == 35
+        assert int(row[0]) == 36
     finally:
         loop.run_until_complete(d.close())
         loop.close()

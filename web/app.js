@@ -2707,6 +2707,16 @@
         speechQuery: '',
         speechFamily: '',
         speechHumorTechnique: '',
+        // ── W4: Humor Craft / Примеры / Обучение (реальные данные) ─────────
+        speechHumorProbe: null,       // тест одного приёма (0 LLM)
+        speechHumorCraftBusy: false,
+        speechTechniqueFilter: '',
+        speechSampleFilters: { technique: '', status: '', query: '' },
+        speechSampleDraft: null,      // форма добавления/правки карточки
+        speechSampleEditing: null,    // id правимого примера (или null)
+        speechSampleWhyDraft: { message: '', technique: '', extent: '' },
+        speechSampleWhy: null,
+        speechLearningBusy: false,
         speechDiffOpen: false,
         speechScopeChoice: 'global',
         speechFactoryPending: null,
@@ -18824,6 +18834,288 @@
         var filter = this.speechHumorTechnique;
         if (!filter) return list;
         return list.filter(function (t) { return t.id === filter; });
+      },
+      // ── Юмор: ремесло (SOUL-06) ─────────────────────────────────────────
+      humorTechniqueReason: function (t) {
+        var map = {
+          humor_ready: 'слой собирается',
+          humor_disabled: 'выключено (ось или ваш переключатель)',
+          humor_no_strategy: 'L1 не советует приём в этом ответе',
+          humor_serious_context: 'серьёзный контекст — приём не применяется',
+          humor_extent_fit: 'короткий формат — приём не применяется',
+          humor_context_penalty: 'приём ослаблен реакцией этого чата',
+          humor_unknown_strategy: 'техника не из набора',
+          humor_not_a_technique: 'это не техника, а прочие приёмы',
+        };
+        return map[String(t && t.reason)] || String((t && t.reason) || '—');
+      },
+      saveSpeechHumorCraft: async function (enabled) {
+        if (this.speechHumorCraftBusy || !this.speechHumor || !this.speechHumor.can_edit) return;
+        this.speechHumorCraftBusy = true;
+        try {
+          await this.api('/api/speech/humor/craft', {
+            method: 'POST',
+            body: JSON.stringify({ enabled: !!enabled, scope: this.speechScopeChoice }),
+          });
+          this.toast(enabled ? 'Ремесло юмора включено' : 'Ремесло юмора выключено', 'ok');
+          await this.loadSpeechSection('humor', true);
+        } catch (e) {
+          if (e.status === 403) this.toast('Нет права на правку речи', 'err');
+          else if (e.status !== 401) this.toast('Не сохранено: ' + this.loreErrText(e), 'err');
+        } finally {
+          this.speechHumorCraftBusy = false;
+        }
+      },
+      toggleSpeechTechnique: async function (t) {
+        if (this.speechHumorCraftBusy || !this.speechHumor || !this.speechHumor.can_edit) return;
+        if (!t || !t.id || t.id === 'other') {
+          this.toast('Это не отдельная техника', 'warn');
+          return;
+        }
+        var craft = this.speechHumor.craft || {};
+        var disabled = (craft.disabled_techniques || []).slice();
+        var idx = disabled.indexOf(t.id);
+        if (idx >= 0) disabled.splice(idx, 1);
+        else disabled.push(t.id);
+        this.speechHumorCraftBusy = true;
+        try {
+          await this.api('/api/speech/humor/craft', {
+            method: 'POST',
+            body: JSON.stringify({ disabled_techniques: disabled,
+                                   scope: this.speechScopeChoice }),
+          });
+          this.toast(idx >= 0 ? 'Приём снова доступен' : 'Приём выключен', 'ok');
+          await this.loadSpeechSection('humor', true);
+        } catch (e) {
+          if (e.status !== 401) this.toast('Не сохранено: ' + this.loreErrText(e), 'err');
+        } finally {
+          this.speechHumorCraftBusy = false;
+        }
+      },
+      probeSpeechTechnique: async function (t) {
+        if (this.speechHumorCraftBusy || !t || !t.id || t.id === 'other') return;
+        this.speechHumorCraftBusy = true;
+        try {
+          this.speechHumorProbe = await this.api('/api/speech/humor/technique/test', {
+            method: 'POST',
+            body: JSON.stringify({ technique: t.id, profile: 'speech_plain' }),
+          });
+          this.toast('Проверка приёма готова: ' + (this.speechHumorProbe.layer_tokens || 0)
+            + ' токенов слоя, модель не вызывалась', 'ok');
+        } catch (e) {
+          this.speechHumorProbe = null;
+          if (e.status !== 401) this.toast('Не удалось проверить приём: ' + this.loreErrText(e), 'err');
+        } finally {
+          this.speechHumorCraftBusy = false;
+        }
+      },
+      // ── Примеры: библиотека (SOUL-07) ───────────────────────────────────
+      filteredSamples: function () {
+        var data = this.speechExamples || {};
+        var items = data.items || [];
+        var f = this.speechSampleFilters || {};
+        var q = String(f.query || '').trim().toLowerCase();
+        return items.filter(function (row) {
+          if (f.technique && row.technique !== f.technique) return false;
+          if (f.status && row.status !== f.status) return false;
+          if (!q) return true;
+          return (String(row.input_text) + ' ' + String(row.reply_text) + ' '
+            + String((row.tags || []).join(' '))).toLowerCase().indexOf(q) >= 0;
+        });
+      },
+      sampleSourceLabel: function (kind) {
+        return {
+          owner_manual: 'добавили вы',
+          bot_suggested: 'предложил бот',
+          verified_success: 'подтверждённый успех',
+        }[String(kind)] || String(kind || '—');
+      },
+      sampleApprovalLabel: function (row) {
+        return (row && row.owner_approved) ? 'эталон' : 'черновик';
+      },
+      startSpeechSampleNew: function () {
+        this.speechSampleEditing = null;
+        this.speechSampleDraft = {
+          input_text: '', reply_text: '', technique: 'other', context_note: '',
+          tags: '', rudeness_level: 0, source_kind: 'owner_manual',
+          scope: 'global', library_version: '', status: 'active',
+          expected_revision: null,
+        };
+      },
+      editSpeechSample: function (row) {
+        if (!row) return;
+        this.speechSampleEditing = row.id;
+        this.speechSampleDraft = {
+          input_text: row.input_text || '', reply_text: row.reply_text || '',
+          technique: row.technique || 'other',
+          context_note: row.context_note || '',
+          tags: (row.tags || []).join(', '),
+          rudeness_level: row.rudeness_level || 0,
+          source_kind: row.source_kind || 'owner_manual',
+          scope: row.scope || 'global',
+          library_version: row.library_version || '',
+          status: row.status || 'active',
+          expected_revision: row.revision || 1,
+        };
+      },
+      cancelSpeechSample: function () {
+        this.speechSampleEditing = null;
+        this.speechSampleDraft = null;
+      },
+      saveSpeechSample: async function () {
+        var draft = this.speechSampleDraft;
+        if (this.speechBusy || !draft) return;
+        if (!String(draft.input_text || '').trim() || !String(draft.reply_text || '').trim()) {
+          this.toast('Нужны вход и ответ примера', 'warn');
+          return;
+        }
+        this.speechBusy = true;
+        try {
+          var body = Object.assign({}, draft);
+          body.tags = String(body.tags || '').split(',').map(function (t) {
+            return t.trim();
+          }).filter(function (t) { return !!t; });
+          body.rudeness_level = parseInt(body.rudeness_level, 10) || 0;
+          var url = this.speechSampleEditing
+            ? '/api/speech/examples/' + this.speechSampleEditing
+            : '/api/speech/examples';
+          await this.api(url, { method: 'POST', body: JSON.stringify(body) });
+          this.toast(this.speechSampleEditing ? 'Пример сохранён' : 'Пример добавлен', 'ok');
+          this.cancelSpeechSample();
+          await this.loadSpeechSection('examples', true);
+        } catch (e) {
+          if (e.status === 403) this.toast('Нет права на правку примеров', 'err');
+          else if (e.status === 409) this.toast('Пример изменили в другом окне — обновите данные', 'warn');
+          else if (e.status !== 401) this.toast('Не сохранено: ' + this.loreErrText(e), 'err');
+        } finally {
+          this.speechBusy = false;
+        }
+      },
+      approveSpeechSample: async function (row, approved) {
+        if (this.speechBusy || !row) return;
+        this.speechBusy = true;
+        try {
+          await this.api('/api/speech/examples/' + row.id + '/approve?approved='
+            + (approved ? 'true' : 'false'), { method: 'POST', body: '{}' });
+          this.toast(approved ? 'Пример помечен эталоном' : 'Метка эталона снята', 'ok');
+          await this.loadSpeechSection('examples', true);
+        } catch (e) {
+          if (e.status === 403) this.toast('Нет права на правку примеров', 'err');
+          else if (e.status !== 401) this.toast('Не применено: ' + this.loreErrText(e), 'err');
+        } finally {
+          this.speechBusy = false;
+        }
+      },
+      archiveSpeechSample: async function (row, archived) {
+        if (this.speechBusy || !row) return;
+        this.speechBusy = true;
+        try {
+          await this.api('/api/speech/examples/' + row.id + '/archive?archived='
+            + (archived ? 'true' : 'false'), { method: 'POST', body: '{}' });
+          this.toast(archived ? 'Пример в архиве (данные сохранены)' : 'Пример возвращён', 'ok');
+          await this.loadSpeechSection('examples', true);
+        } catch (e) {
+          if (e.status === 403) this.toast('Нет права на правку примеров', 'err');
+          else if (e.status !== 401) this.toast('Не применено: ' + this.loreErrText(e), 'err');
+        } finally {
+          this.speechBusy = false;
+        }
+      },
+      deleteSpeechSample: async function (row) {
+        if (this.speechBusy || !row) return;
+        if (typeof window !== 'undefined' && window.confirm
+            && !window.confirm('Удалить пример №' + row.id + ' без возможности вернуть?')) return;
+        this.speechBusy = true;
+        try {
+          await this.api('/api/speech/examples/' + row.id, { method: 'DELETE' });
+          this.toast('Пример удалён', 'ok');
+          await this.loadSpeechSection('examples', true);
+        } catch (e) {
+          if (e.status === 403) this.toast('Нет права на правку примеров', 'err');
+          else if (e.status !== 401) this.toast('Не удалено: ' + this.loreErrText(e), 'err');
+        } finally {
+          this.speechBusy = false;
+        }
+      },
+      seedSpeechSamples: async function () {
+        if (this.speechBusy) return;
+        this.speechBusy = true;
+        try {
+          var res = await this.api('/api/speech/examples/seed', {
+            method: 'POST', body: '{}',
+          });
+          this.toast('Черновики: добавлено ' + ((res && res.seeded) || 0)
+            + ', уже было ' + ((res && res.skipped) || 0), 'ok');
+          await this.loadSpeechSection('examples', true);
+        } catch (e) {
+          if (e.status === 403) this.toast('Нет права на правку примеров', 'err');
+          else if (e.status !== 401) this.toast('Не добавлено: ' + this.loreErrText(e), 'err');
+        } finally {
+          this.speechBusy = false;
+        }
+      },
+      runSpeechSampleWhy: async function () {
+        if (this.speechBusy) return;
+        this.speechBusy = true;
+        try {
+          this.speechSampleWhy = await this.api('/api/speech/examples/why', {
+            method: 'POST',
+            body: JSON.stringify(this.speechSampleWhyDraft || {}),
+          });
+        } catch (e) {
+          this.speechSampleWhy = null;
+          if (e.status !== 401) this.toast('Не удалось показать отбор: ' + this.loreErrText(e), 'err');
+        } finally {
+          this.speechBusy = false;
+        }
+      },
+      saveSpeechLibraryPolicy: async function () {
+        var policy = (this.speechExamples && this.speechExamples.policy) || null;
+        if (this.speechBusy || !policy) return;
+        this.speechBusy = true;
+        try {
+          await this.api('/api/speech/examples/policy', {
+            method: 'POST',
+            body: JSON.stringify(Object.assign({}, policy,
+                                               { scope: this.speechScopeChoice })),
+          });
+          this.toast('Политика отбора сохранена', 'ok');
+          await this.loadSpeechSection('examples', true);
+        } catch (e) {
+          if (e.status === 403) this.toast('Нет права на правку примеров', 'err');
+          else if (e.status !== 401) this.toast('Не сохранено: ' + this.loreErrText(e), 'err');
+        } finally {
+          this.speechBusy = false;
+        }
+      },
+      // ── Обучение: реакции на шутки (SOUL-08) ────────────────────────────
+      humorFeedbackAction: async function (action, lesson) {
+        if (this.speechLearningBusy) return;
+        this.speechLearningBusy = true;
+        try {
+          var body = { action: action };
+          if (lesson) {
+            body.lesson_id = lesson.lesson_id;
+            body.version = lesson.version;
+          }
+          var res = await this.api('/api/speech/learning/humor', {
+            method: 'POST', body: JSON.stringify(body),
+          });
+          if (res && res.learning) this.speechLearning = res.learning;
+          this.toast({
+            pause: 'Сбор реакций поставлен на паузу',
+            resume: 'Сбор реакций снова идёт',
+            approve: 'Предпочтение подтверждено',
+            reject: 'Предпочтение отклонено',
+            reset: 'Обучение сброшено (данные сохранены)',
+          }[action] || 'Готово', 'ok');
+        } catch (e) {
+          if (e.status === 403) this.toast('Нет права на управление обучением', 'err');
+          else if (e.status === 422) this.toast('Нужен выбранный чат', 'warn');
+          else if (e.status !== 401) this.toast('Не применено: ' + this.loreErrText(e), 'err');
+        } finally {
+          this.speechLearningBusy = false;
+        }
       },
       // ── Попробовать ─────────────────────────────────────────────────────
       runSpeechTry: async function () {

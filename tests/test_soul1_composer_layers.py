@@ -68,7 +68,8 @@ def full_plan(**overrides) -> pc.PromptPlan:
                                        source="global", rule_count=2,
                                        soft_count=2),
         gates=pc.GateState(unified_composer_enabled=True,
-                           humor_library_enabled=True),
+                           humor_library_enabled=True,
+                           humor_craft_enabled=True),
         user_parts=(USER_Q, EVIDENCE))
     return pc.PromptPlan(**{**plan.__dict__, **overrides}) \
         if overrides else plan
