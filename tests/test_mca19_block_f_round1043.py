@@ -42,7 +42,7 @@ VISION_KILL_SWITCHES = {"MCA_VISION_ENABLED", "MCA_VISION_AUTO_ENABLED",
 # ── Δ каталога +9 (F8-переиздание) ──────────────────────────────────────────
 
 def test_catalog_counts_sanctioned():
-    assert len(pc.REGISTRY) == 572          # 510 → 519 (+9)
+    assert len(pc.REGISTRY) == 575          # 510 → 519 (+9)
     assert len(pc.GROUPS) == 120            # 108 → 112 (+4 группы)
     assert len(pc._TAB_BY_GROUP) == 118     # 106 → 110
     assert len(pc.TAB_RULES) == 23          # 21 → 22 (mod_vision)
@@ -112,12 +112,12 @@ def test_screen_map_and_registry_artifacts_regenerated():
     # ASAP 7 F2 (§1.6): +9 L1 Planner; F4 §3.2: +13 — 560+header=561.
     # v6.3 B01 (W1-CHAT-INTEL): +10 INITIATIVE_* → 571+header=572.
     # SOUL-1 mobile-prompts (2026-10-16): +1 → 572+header=573.
-    assert len(tsv) == 573
+    assert len(tsv) == 576
     assert "flags.vision_enabled" in "\t".join(tsv)
     meta = (ROOT / "plans/docs/param-registry-round1025.meta.md").read_text(
         encoding="utf-8")
     # ASAP 7 F2: reissue под 560/149 (см. meta.md).
-    assert "572" in meta and "411" in meta and "161" in meta
+    assert "575" in meta and "411" in meta and "164" in meta
 
 
 # ── Kill-switches +4 (76→80; env-only default ON; OFF-инертности) ───────────
@@ -161,7 +161,7 @@ def test_reason_codes_269():
     # unavailable/no_opportunities_24h/hearsay_or_joke/no_canonical_rule/
     # semantic_parse_error; честные исходы observer инициативы и
     # семантического опыта, §17.2 — словарь расширяемый).
-    assert len(mca_events.REASON_CODES) == 290       # 285 → 290
+    assert len(mca_events.REASON_CODES) == 301       # 285 → 290
     assert VISION_REASON_CODES <= mca_events.REASON_CODES
     # `no_text`/`pending`/`ready` — статусы MediaAnalysis, НЕ reason-коды
     # (spec §8.5).

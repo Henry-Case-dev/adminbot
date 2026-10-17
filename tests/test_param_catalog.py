@@ -553,8 +553,12 @@ class TestGroups8424:
         # SOUL-1 mobile-prompts (2026-10-16): prompts +1
         # (prompts.direct_l1_planner_system_prompt — ключ читался
         # рантаймом, записи каталога не имел) → prompts 25, итого 572.
+        # SOUL-1 W5 initiative-diag (17.10.2026, §19 SOUL-18.4): +3 PG-only
+        # (limits_intent ×2 — мягкие цели наблюдения/активности; flags_intent
+        # ×1 — ось реальной отправки из проверки) → limits 222 / flags 99,
+        # итого 575.
         assert counts == {"prompts": 25, "models": 74, "keys": 35,
-                          "limits": 220, "flags": 98, "reactions": 39,
+                          "limits": 222, "flags": 99, "reactions": 39,
                           "content": 5, "memory": 47, "temporal": 4}
         assert {g.category for g in GROUPS} >= set(CATEGORIES)
 

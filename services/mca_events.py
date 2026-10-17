@@ -331,6 +331,21 @@ REASON_CODES = frozenset({
     # опыта; машинные оси при отсутствующем коде несут значение в stage.
     "initiative_writer_unavailable", "no_opportunities_24h",
     "hearsay_or_joke", "no_canonical_rule", "semantic_parse_error",
+    # W5 (SOUL-18.2): причины инициативного молчания/отказов на пути
+    # decision → L1 → writer → recheck → send. До этого расширения
+    # `build_event` МОЛЧА (whitelist miss) выбрасывал `reason_code`, и
+    # воронка показывала «silence без причины» — диагностика отсутствующих
+    # отправок была невозможна. Значения — те же литералы, что эмитят
+    # `mca_intents.note_decision` / `handle_initiative`.
+    "default", "recent_reply",
+    "l1_unavailable", "l1_silent", "l1_react",
+    "recheck_demoted", "delivery_not_text",
+    # W5 (SOUL-18.4): исход безопасной проверки «Проверить инициативу».
+    "initiative_check_dry_run", "initiative_check_published",
+    "initiative_check_no_publish",
+    # W5 (SOUL-18.6): сопоставление доставленной инициативы с манифестом
+    # Core/Style (ревизии в config_version, не текст).
+    "initiative_delivered_manifest",
 })
 
 # ── контракт полей §17.1 ────────────────────────────────────────────────────

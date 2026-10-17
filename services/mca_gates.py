@@ -2421,6 +2421,43 @@ def humor_candidate_eval_enabled() -> bool:
                     "flags.humor_candidate_eval_enabled")
 
 
+# ── SOUL-1 (W5) — оси инициативы: диагностика и мягкие цели ──────────────────
+# Тот же контракт, что у W2-осей: env-половина (emergency) AND каталоговый
+# тумблер (product, hot/per-chat), резолв per-call, никогда не бросает,
+# default OFF = документированный поведенческий паритет.
+W5_GATES: dict[str, tuple[bool, str]] = {
+    "INITIATIVE_DIAGNOSTICS_PUBLISH_ENABLED": (
+        False,
+        "OFF → безопасная проверка «Проверить инициативу» работает ТОЛЬКО "
+        "как mock (полный trace до mock send, ни одной отправки в чат); "
+        "OFF-паритет: публикация невозможна ни при каком теле запроса",
+    ),
+}
+
+W5_ENV_KEYS: dict[str, str] = {
+    "initiative_diagnostics_publish_enabled":
+        "INITIATIVE_DIAGNOSTICS_PUBLISH_ENABLED",
+}
+
+
+def _w5_axis(env_name: str, pg_key: str) -> bool:
+    """Effective = env-половина AND каталоговый тумблер (hot, per-call)."""
+    default = bool(W5_GATES.get(str(env_name), (False, ""))[0])
+    if not w2_env_axis(env_name, default):
+        return False
+    return _module_catalog_flag(pg_key, default)
+
+
+def initiative_diagnostics_publish_enabled() -> bool:
+    """`INITIATIVE_DIAGNOSTICS_PUBLISH_ENABLED` (env AND `flags.*`), default OFF.
+
+    ON → владелец может ЯВНО разрешить реальную отправку из диагностики
+    (дополнительно требуется `confirm_publish=true` в запросе). OFF →
+    проверка всегда mock: ни одного сообщения в рабочую группу (SOUL-18.4)."""
+    return _w5_axis("INITIATIVE_DIAGNOSTICS_PUBLISH_ENABLED",
+                    "flags.initiative_diagnostics_publish_enabled")
+
+
 def composer_additive_budget_tokens() -> int:
     """Аддитивный бюджет новых слоёв композера (`COMPOSER_LAYER_BUDGET_TOKENS`).
 

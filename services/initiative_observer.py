@@ -126,6 +126,85 @@ FREQUENCY_PROFILES: dict[str, dict] = {
 }
 DEFAULT_PROFILE = "normal"
 
+# ── W5 (SOUL-18.4): МЯГКИЕ целевые предпочтения владельца ───────────────────
+# Цель ≠ гарантия: «через N минут бот напишет» не обещается никогда. Мягкая
+# цель может только УЧАСТИТЬ проверки и сократить паузу — и только до
+# явных границ ниже. Дневной лимит, дедуп контекста, лимит на тему, бюджет
+# оценок, recheck и SILENT остаются жёсткими. 0 = цель не задана → значения
+# профиля не меняются (поведенческий паритет).
+KEY_SOFT_TARGET_DAY = "initiative.soft_target_replies_per_day"
+KEY_SOFT_TARGET_OBS = "initiative.observation_target_interval_seconds"
+#: Минимальный интервал проверок, даже при самой частой мягкой цели (с).
+MIN_OBSERVATION_INTERVAL_FLOOR = 600
+#: Минимальный порог сообщений для оценки (сообщений).
+MIN_EVAL_MESSAGES_FLOOR = 4
+#: Минимальная пауза между инициативами при мягкой цели (с) = 30 минут.
+MIN_GAP_FLOOR_SECONDS = 1800
+#: Окно измерения реального темпа чата для перевода цели в порог (с).
+RATE_WINDOW_SECONDS = 3600
+SOFT_TARGET_BOUNDS_TEXT = (
+    "мягкая цель влияет только на паузу между инициативами и на частоту "
+    "проверок окна; дневной лимит, дедуп контекста и тем, бюджет оценок, "
+    "recheck и право промолчать не отключаются")
+
+#: Человекочитаемые ярлыки причин (единый источник для MiniApp/диагностики;
+#: неизвестный код → сам код, без выдумывания смысла).
+REASON_LABELS: dict[str, str] = {
+    "chat_disabled": "наблюдение выключено для этого чата",
+    "direct_address_seen": "в окне было обращение к боту",
+    "min_gap": "пауза после последней реплики бота",
+    "day_cap": "достигнут дневной лимит инициатив",
+    "topic_cap": "достигнут лимит реплик по этой теме",
+    "eval_budget": "исчерпан бюджет оценок (дневной или общий)",
+    "eval_not_due": "интервал между проверками ещё не прошёл",
+    "not_enough_messages": "в чате пока мало новых сообщений",
+    "context_duplicate": "этот же контекст уже оценивался",
+    "no_opportunity": "повода для инициативы не нашлось",
+    "semantic_parse_error": "оценщик вернул неразборчивый ответ",
+    "semantic_eval_unavailable": "оценщик недоступен",
+    "master_off": "наблюдатель инициативы выключен в настройках",
+    "not_group": "инициатива работает только в групповых чатах",
+    "empty_context": "в чате нет живых сообщений для наблюдения",
+    "writer_unavailable": "писатель недоступен (нет Direct-контура)",
+    "llm_unavailable": "LLM недоступен — оценка невозможна",
+    "default": "решение молчать по умолчанию (уместность не подтверждена)",
+    "recent_reply": "бот недавно уже отвечал в этом чате",
+    "disabled": "инициативные решения выключены гейтом",
+    "no_eligible_alternative": "кандидат инициативы не прошёл отбор",
+    "no_new_contribution": "нечего добавить к уже сказанному",
+    "direct_update_dedup_hit": "тот же повод уже ведёт Direct-ответ",
+    "wrong_moment": "неподходящий момент (чувствительная тема/отношения)",
+    "random_fallback": "случайный выбор отложил инициативу",
+    "l1_unavailable": "L1-планировщик недоступен",
+    "l1_silent": "L1 решил промолчать",
+    "l1_react": "L1 выбрал реакцию без текста",
+    "recheck_demoted": "перед отправкой контекст изменился — решено молчать",
+    "delivery_not_text": "у решения нет текстовой доставки",
+    "already_answered": "на это уже ответили",
+    "direct_pending": "есть неотвеченный прямой запрос — он приоритетнее",
+    "intent_closed": "намерение закрылось до отправки",
+    "intent_created": "намерение создано",
+    "intent_merged": "намерение слито с существующим",
+    "intent_archived": "намерение архивировано",
+    "intent_expired": "срок намерения истёк",
+    "writer_failed": "генерация текста не удалась",
+    "writer_generated": "текст сгенерирован",
+    "recheck_passed": "проверка перед отправкой пройдена",
+    "initiative_sent": "инициативное сообщение доставлено",
+    "delivery_unknown": "исход отправки неизвестен",
+    "reason_not_recorded": "причина не записана (код отсутствовал)",
+    "no_opportunities_24h": "за сутки не нашлось ни одного повода",
+}
+
+
+def reason_label(reason_code) -> str:
+    """Ярлык причины (R17-safe: только код → короткий текст)."""
+    code = str(reason_code or "").strip()
+    if not code:
+        return REASON_LABELS["reason_not_recorded"]
+    return REASON_LABELS.get(code, code)
+
+
 # Ключи generic-резолва (chat_params.overrides → hot → settings-дефолт).
 KEY_MASTER = "flags.initiative_observer_enabled"
 KEY_CHAT_ENABLED = "initiative.enabled"
@@ -228,6 +307,7 @@ async def frequency_profile(chat_id) -> dict:
             base[key] = number
     window = await _param(int(chat_id) if chat_id is not None else None,
                           KEY_DAY_WINDOW, None)
+    base["profile"] = name
     try:
         base["day_window_seconds"] = max(600, int(window)) if window else 86400
     except (TypeError, ValueError):
@@ -239,7 +319,122 @@ async def frequency_profile(chat_id) -> dict:
             if max_topic is not None else 1
     except (TypeError, ValueError):
         base["max_replies_per_topic"] = 1
+    # W5 (SOUL-18.4): мягкие цели владельца читаются как данные; их ЭФФЕКТ
+    # (учащение проверок/сокращение паузы) считает `effective_limits` —
+    # здесь же профиль остаётся жёстким каноном (паритет при 0).
+    soft_day = await _param(int(chat_id) if chat_id is not None else None,
+                            KEY_SOFT_TARGET_DAY, None)
+    soft_obs = await _param(int(chat_id) if chat_id is not None else None,
+                            KEY_SOFT_TARGET_OBS, None)
+    base["soft_target_replies_per_day"] = _as_non_negative_int(soft_day)
+    base["soft_target_observation_interval_seconds"] = \
+        _as_non_negative_int(soft_obs)
     return base
+
+
+def _as_non_negative_int(value, default: int = 0) -> int:
+    """Мягкая цель → неотрицательное целое (мусор/None → default)."""
+    if value is None:
+        return default
+    try:
+        number = int(value)
+    except (TypeError, ValueError):
+        return default
+    return number if number > 0 else default
+
+
+async def recent_message_rate(db, chat_id, *, window_seconds: int = None,
+                              now: int | None = None) -> float:
+    """Реальный темп чата (сообщений в секунду) за последнее окно.
+
+    Источник — durable `smart_messages` (тот же корпус, что читает
+    наблюдатель; индекс `(chat_id, timestamp)`). Ошибка/пусто → 0.0
+    (не выдумываем активность)."""
+    try:
+        window = int(window_seconds or RATE_WINDOW_SECONDS)
+    except (TypeError, ValueError):
+        window = RATE_WINDOW_SECONDS
+    window = max(300, window)
+    now_ts = _now(now)
+    try:
+        cursor = await db.db.execute(
+            "SELECT COUNT(*) AS c FROM smart_messages WHERE chat_id = ? "
+            "AND timestamp >= ? AND media_type = 'text' "
+            "AND text IS NOT NULL AND text != ''",
+            (int(chat_id), now_ts - window))
+        row = await cursor.fetchone()
+        count = int((row["c"] if row is not None else 0) or 0)
+    except Exception:
+        return 0.0
+    return max(0.0, count / float(window))
+
+
+async def effective_limits(db, chat_id, *, entry: dict | None = None,
+                           now: int | None = None) -> dict:
+    """Действующие лимиты чата = профиль + мягкие цели владельца (SOUL-18.4).
+
+    Мягкая цель — предпочтение, а не обещание: она может только УЧАСТИТЬ
+    проверки и сократить паузу, и только в границах констант
+    (`MIN_OBSERVATION_INTERVAL_FLOOR` / `MIN_EVAL_MESSAGES_FLOOR` /
+    `MIN_GAP_FLOOR_SECONDS`). Жёсткие защиты (дневной лимит, дедуп, лимит
+    темы, бюджет оценок, recheck, SILENT) не меняются никогда. Обе цели 0 →
+    результат равен профилю (поведенческий паритет). Никогда не бросает."""
+    profile = await frequency_profile(chat_id)
+    out = dict(profile)
+    soft_day = int(profile.get("soft_target_replies_per_day") or 0)
+    soft_obs = int(profile.get("soft_target_observation_interval_seconds") or 0)
+    out["soft_targets"] = {
+        "replies_per_day": soft_day,
+        "observation_interval_seconds": soft_obs,
+        "active": bool(soft_day or soft_obs),
+        "bounds": SOFT_TARGET_BOUNDS_TEXT,
+        "floors": {"observation_interval_seconds": MIN_OBSERVATION_INTERVAL_FLOOR,
+                   "eval_min_messages": MIN_EVAL_MESSAGES_FLOOR,
+                   "min_gap_seconds": MIN_GAP_FLOOR_SECONDS},
+    }
+    out["easing"] = {"observation": False, "min_gap": False}
+    if soft_obs > 0:
+        target_interval = max(MIN_OBSERVATION_INTERVAL_FLOOR, soft_obs)
+        out["eval_min_interval_seconds"] = min(
+            int(profile["eval_min_interval_seconds"] or 0), target_interval) \
+            if int(profile["eval_min_interval_seconds"] or 0) > 0 \
+            else target_interval
+        rate = await recent_message_rate(db, chat_id, now=now)
+        target_messages = (MIN_EVAL_MESSAGES_FLOOR if rate <= 0
+                           else int(rate * target_interval) + 1)
+        out["eval_min_messages"] = max(
+            MIN_EVAL_MESSAGES_FLOOR,
+            min(int(profile["eval_min_messages"] or MIN_EVAL_MESSAGES_FLOOR),
+                target_messages))
+        out["easing"]["observation"] = True
+    if soft_day > 0:
+        # «Цель за сутки ещё не достигнута» → пауза короче, но не ниже floor
+        # и не длиннее профиля. Оценка — по фактическим отправкам в окне
+        # (payload-учёт наблюдателя), без выдуманных чисел.
+        window = int(profile.get("day_window_seconds") or 86400)
+        sent = 0
+        if isinstance(entry, dict):
+            sent = _sent_in_window_static(entry, _now(now), window)
+        behind = sent < soft_day
+        out["day_goal"] = {"target": soft_day, "sent_in_window": sent,
+                           "behind": bool(behind)}
+        base_gap = int(profile["min_gap_seconds"] or 0)
+        # Мягкая цель НИКОГДА не ужесточает лимит: явное «без ограничения»
+        # (0) остаётся нулём, а уже заданная пауза может только сократиться.
+        if behind and base_gap > 0:
+            eased_gap = max(MIN_GAP_FLOOR_SECONDS,
+                            window // max(1, 2 * soft_day))
+            out["min_gap_seconds"] = min(base_gap, eased_gap)
+            out["easing"]["min_gap"] = True
+    return out
+
+
+def _sent_in_window_static(entry: dict, now: int, window: int) -> int:
+    """Отправки инициативы чата в скользящем окне (без мутации entry)."""
+    stamps = [int(ts) for ts in (entry.get("sent_stamps") or [])
+              if now - int(ts) < max(600, int(window))]
+    return len(stamps)
+
 
 
 def default_counters() -> dict:
@@ -645,6 +840,7 @@ class InitiativeObserverRunner:
         if not rows:
             return
         eligible_chats: dict[int, int] = {}
+        row_max_ids: dict[int, int] = {}
         skips: dict[str, int] = {}
         for row in rows:
             payload[CURSOR_KEY] = int(row["id"])
@@ -657,6 +853,8 @@ class InitiativeObserverRunner:
             counters["observed"] = int(counters.get("observed") or 0) + 1
             chat_id = int(row["chat_id"])
             eligible_chats[chat_id] = eligible_chats.get(chat_id, 0) + 1
+            row_max_ids[chat_id] = max(int(row_max_ids.get(chat_id) or 0),
+                                       int(row["id"]))
         counters["eligible"] = int(counters.get("eligible") or 0) + \
             sum(eligible_chats.values())
         # per-chat состояние — bounded (старые чаты вытесняются)
@@ -667,6 +865,11 @@ class InitiativeObserverRunner:
                 "topics": {}, "eval_day": 0, "eval_day_count": 0,
             })
             entry["pending"] = int(entry.get("pending") or 0) + count
+            # W5 (SOUL-18.3): watermark свежести — курсор оценки должен
+            # догонять живой чат, а не отставать от него.
+            entry["last_seen_msg_id"] = int(row_max_ids.get(chat_id)
+                                            or entry.get("last_seen_msg_id")
+                                            or 0)
         if len(chats) > CHATS_TRACKED_MAX:
             for key in sorted(chats, key=lambda k: int(
                     (chats[k] or {}).get("last_eval_ts") or 0))[
@@ -690,6 +893,14 @@ class InitiativeObserverRunner:
 
     def _skip_eval(self, payload: dict, chat_id: int, reason: str,
                    *, eval_due: bool = True) -> None:
+        """Учесть пропуск оценки.
+
+        ``eval_due=True`` — «окно отработано осознанно» (лимит/дедуп/пауза):
+        порог накопления сбрасывается и интервал оценки начинается заново.
+        ``eval_due=False`` — «окно ещё не готово» (мало сообщений, интервал не
+        прошёл): НИ порог, НИ штамп интервала не трогаем, иначе тихий чат
+        никогда не накопит порог и не будет оценён (W5, SOUL-18.3: «не
+        задушить возможности»)."""
         counters = payload["counters"]
         skips = counters.setdefault("eval_skips", {})
         skips[reason] = int(skips.get(reason) or 0) + 1
@@ -714,20 +925,28 @@ class InitiativeObserverRunner:
         """Компактное окно элегибельных реплик чата (durable источник; текст
         не хранится в payload — перечитывается из БД по мере надобности).
         Якорь — монотонный rowid (не wall-clock ts): импорт/лаг записи не
-        сдвигают окно."""
+        сдвигают окно.
+
+        W5 (SOUL-18.3): берётся САМОЕ СВЕЖЕЕ окно, а не «хвост старой
+        пачки». Прежний ``ASC LIMIT 42`` при живом чате уходил в прошлое и
+        отставал от разговора всё сильнее (оценивался устаревший контекст,
+        возможности не находились)."""
         try:
             cursor = await self._db.db.execute(
                 "SELECT id, chat_id, user_id, text, author_name, timestamp, "
                 "reply_to_id FROM smart_messages WHERE chat_id = ? AND "
                 "id > ? AND media_type = 'text' AND is_forward = 0 "
                 "AND text IS NOT NULL AND text != '' "
-                "ORDER BY id ASC LIMIT ?",
+                "ORDER BY id DESC LIMIT ?",
                 (int(chat_id), int(since_id), EVAL_WINDOW_MESSAGES * 3))
             rows = [dict(r) for r in await cursor.fetchall()]
         except Exception:
             return []
         eligible = [r for r in rows if self._scan_eligible(r) is None]
-        return eligible[-EVAL_WINDOW_MESSAGES:]
+        # rows — от новых к старым; оставляем самые свежие и возвращаем
+        # окно в хронологическом порядке (как ждёт промпт оценки).
+        newest = eligible[:EVAL_WINDOW_MESSAGES]
+        return list(reversed(newest))
 
     @staticmethod
     def _window_addressed_to_bot(rows: list[dict]) -> bool:
@@ -775,19 +994,26 @@ class InitiativeObserverRunner:
             if not await chat_observer_enabled(chat_id):
                 self._skip_eval(payload, chat_id, SKIP_CHAT_DISABLED)
                 continue
-            profile = await frequency_profile(chat_id)
+            # W5 (SOUL-18.4): действующие лимиты = профиль + мягкие цели
+            # владельца (0/0 → ровно профиль, паритет). Жёсткие защиты
+            # (дневной лимит, дедуп, тема, бюджет, recheck) не меняются.
+            profile = await effective_limits(self._db, chat_id, entry=entry,
+                                             now=now)
             pending = int(entry.get("pending") or 0)
             if pending < int(profile["eval_min_messages"]):
-                self._skip_eval(payload, chat_id, SKIP_NOT_ENOUGH)
+                self._skip_eval(payload, chat_id, SKIP_NOT_ENOUGH,
+                                eval_due=False)
                 continue
             if now - int(entry.get("last_eval_ts") or 0) < \
                     int(profile["eval_min_interval_seconds"]):
-                self._skip_eval(payload, chat_id, SKIP_EVAL_NOT_DUE)
+                self._skip_eval(payload, chat_id, SKIP_EVAL_NOT_DUE,
+                                eval_due=False)
                 continue
             since_id = int(entry.get("last_eval_msg_id") or 0)
             rows = await self._window_rows(chat_id, since_id)
             if len(rows) < int(profile["eval_min_messages"]):
-                self._skip_eval(payload, chat_id, SKIP_NOT_ENOUGH)
+                self._skip_eval(payload, chat_id, SKIP_NOT_ENOUGH,
+                                eval_due=False)
                 continue
             if self._window_addressed_to_bot(rows):
                 self._skip_eval(payload, chat_id, SKIP_DIRECT_SEEN)
@@ -837,8 +1063,11 @@ class InitiativeObserverRunner:
                 -RECENT_HASHES_MAX:]
             entry["pending"] = 0
             entry["last_eval_ts"] = now
+            # W5 (SOUL-18.3): watermark догоняет живой чат — окно всегда
+            # свежее, отставание не накапливается.
             entry["last_eval_msg_id"] = max(
                 int(entry.get("last_eval_msg_id") or 0),
+                int(entry.get("last_seen_msg_id") or 0),
                 max(int(r["id"]) for r in rows))
             if verdict is None:
                 counters_skips = counters.setdefault("eval_skips", {})
@@ -943,7 +1172,8 @@ class InitiativeObserverRunner:
         topic_entry = topics.get(topic_key) or {"count": 0, "ts": 0}
         if int(topic_entry.get("count") or 0) >= 1 and \
                 now - int(topic_entry.get("ts") or 0) < HASH_TTL_SECONDS:
-            profile = await frequency_profile(chat_id)
+            profile = await effective_limits(self._db, chat_id, entry=entry,
+                                             now=now)
             if int(topic_entry.get("count") or 0) >= \
                     int(profile["max_replies_per_topic"]):
                 self._skip_eval(payload, chat_id, SKIP_TOPIC_CAP,
@@ -1041,3 +1271,251 @@ class InitiativeObserverRunner:
         payload["last_diag_ts"] = now
         self._emit("initiative_observer_diagnostic", outcome="failed",
                    stage="diagnose:no_opportunities_24h")
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# W5 (SOUL-18.4/18.5): реальное состояние ворот чата — БЕЗ LLM и БЕЗ отправок
+# ═════════════════════════════════════════════════════════════════════════════
+
+
+async def latest_observe_payload(db) -> dict:
+    """Payload последней durable-задачи наблюдателя (любой статус).
+
+    Источник per-chat состояния (pending/интервал/бюджет/темы/отправки) —
+    тот же честный checkpoint, что читает воронка. Ошибка → {} (не
+    выдумываем состояние)."""
+    try:
+        cursor = await db.db.execute(
+            "SELECT payload FROM task_jobs WHERE kind = ? "
+            "ORDER BY updated_at DESC, created_at DESC LIMIT 1",
+            (OBSERVE_JOB_KIND,))
+        row = await cursor.fetchone()
+        raw = (row["payload"] if row is not None else "") or "{}"
+        data = json.loads(raw)
+        return data if isinstance(data, dict) else {}
+    except Exception:
+        return {}
+
+
+def chat_entry_from_payload(payload: dict, chat_id) -> dict:
+    """Per-chat запись наблюдателя из payload (нет записи → {})."""
+    try:
+        chats = (payload or {}).get("chats") or {}
+        entry = chats.get(str(int(chat_id)))
+        return dict(entry) if isinstance(entry, dict) else {}
+    except Exception:
+        return {}
+
+
+async def live_messages(db, chat_id, *, window_seconds: int = 86400,
+                        now: int | None = None) -> int:
+    """Живые человеческие сообщения чата за окно (durable corpus).
+
+    Считаются текстовые сообщения с непустым текстом — тот же корпус, из
+    которого наблюдатель берёт поводы (а не «активность вообще»)."""
+    try:
+        now_ts = _now(now)
+        cursor = await db.db.execute(
+            "SELECT COUNT(*) AS c FROM smart_messages WHERE chat_id = ? "
+            "AND timestamp >= ? AND media_type = 'text' "
+            "AND text IS NOT NULL AND text != ''",
+            (int(chat_id), now_ts - max(600, int(window_seconds))))
+        row = await cursor.fetchone()
+        return int((row["c"] if row is not None else 0) or 0)
+    except Exception:
+        return 0
+
+
+def _gate(gate: str, status: str, reason_code: str = "", *, value=None,
+          limit=None, unit: str = "none", label: str = "") -> dict:
+    return {"gate": str(gate), "status": str(status),
+            "reason_code": str(reason_code or ""),
+            "label": str(label or (reason_label(reason_code)
+                                   if reason_code else "")),
+            "value": value, "limit": limit, "unit": str(unit or "none")}
+
+
+async def chat_block_state(db, chat_id, *, now: int | None = None,
+                           llm_available: bool | None = None,
+                           writer_available: bool | None = None) -> dict:
+    """Что СЕЙЧАС мешает инициативе в чате (SOUL-18.4: реальные причины).
+
+    Честная read-only оценка тех же ворот, что проходит наблюдатель: без
+    LLM-вызовов, без отправок, без изменения состояния. Пропущенные данные
+    помечаются ``n/a``, а не «всё хорошо». Никогда не бросает."""
+    now_ts = _now(now)
+    try:
+        chat_id = int(chat_id)
+    except (TypeError, ValueError):
+        return {"blocked_now": True, "items": [
+            _gate("chat_id", "block", "not_group", label="Некорректный chat_id")],
+            "effective": {}, "soft_targets": {}, "state": {}}
+    payload = await latest_observe_payload(db)
+    entry = chat_entry_from_payload(payload, chat_id)
+    profile = await effective_limits(db, chat_id, entry=entry, now=now_ts)
+    items: list[dict] = []
+    # 1) мастер-гейт наблюдателя
+    master = False
+    try:
+        master = observer_enabled()
+    except Exception:
+        master = False
+    items.append(_gate(
+        "master", "pass" if master else "block", "" if master else "master_off",
+        label="Наблюдатель инициативы включён" if master
+        else "Наблюдатель инициативы выключен (мастер-гейт)"))
+    # 2) тип чата: инициатива — только групповые чаты
+    is_group = chat_id < 0
+    items.append(_gate(
+        "chat_kind", "pass" if is_group else "block",
+        "" if is_group else "not_group",
+        label="Групповой чат" if is_group else "Не групповой чат"))
+    # 3) scope чата
+    chat_on = False
+    try:
+        chat_on = await chat_observer_enabled(chat_id) if is_group else False
+    except Exception:
+        chat_on = False
+    items.append(_gate(
+        "chat_scope", "pass" if chat_on else "block",
+        "" if chat_on else "chat_disabled",
+        label="Инициатива разрешена в этом чате" if chat_on
+        else "Инициатива выключена для этого чата"))
+    # 4) живой контекст
+    live_24h = await live_messages(db, chat_id, now=now_ts)
+    items.append(_gate(
+        "live_context", "pass" if live_24h > 0 else "warn",
+        "" if live_24h > 0 else "empty_context",
+        value=live_24h, limit=1, unit="count",
+        label="Живых сообщений за 24ч: %d" % live_24h))
+    # 5) накопление окна
+    pending = int(entry.get("pending") or 0)
+    need = int(profile["eval_min_messages"] or MIN_EVAL_MESSAGES_FLOOR)
+    items.append(_gate(
+        "pending", "pass" if pending >= need else "block",
+        "" if pending >= need else "not_enough_messages",
+        value=pending, limit=need, unit="count",
+        label="Накоплено сообщений: %d из %d" % (pending, need)))
+    # 6) интервал между проверками
+    last_eval = int(entry.get("last_eval_ts") or 0)
+    age_eval = (now_ts - last_eval) if last_eval else None
+    interval = int(profile["eval_min_interval_seconds"] or 0)
+    due = age_eval is None or interval <= 0 or age_eval >= interval
+    items.append(_gate(
+        "eval_interval", "pass" if due else "block",
+        "" if due else "eval_not_due",
+        value=age_eval, limit=interval, unit="s",
+        label=("Проверка ещё не выполнялась" if age_eval is None
+               else "С прошлой проверки: %s с (интервал %s с)"
+                    % (age_eval, interval))))
+    # 7) пауза после реплик бота (анти-спам)
+    gap_value = None
+    try:
+        outputs = await db.list_recent_bot_outputs(chat_id, limit=1)
+        if outputs:
+            gap_value = max(0, now_ts - int(outputs[0].get("sent_at") or 0))
+    except Exception:
+        gap_value = None
+    gap_limit = int(profile["min_gap_seconds"] or 0)
+    gap_ok = gap_value is None or gap_limit <= 0 or gap_value >= gap_limit
+    items.append(_gate(
+        "min_gap", "pass" if gap_ok else "block",
+        "" if gap_ok else "min_gap",
+        value=gap_value, limit=gap_limit, unit="s",
+        label=("Реплик бота ещё не было" if gap_value is None
+               else "С последней реплики бота: %s с (пауза %s с)"
+                    % (gap_value, gap_limit))))
+    # 8) дневной лимит инициатив
+    window = int(profile.get("day_window_seconds") or 86400)
+    sent_window = _sent_in_window_static(entry, now_ts, window)
+    day_cap = int(profile["max_replies_per_day"] or 0)
+    day_ok = day_cap <= 0 or sent_window < day_cap
+    items.append(_gate(
+        "day_cap", "pass" if day_ok else "block",
+        "" if day_ok else "day_cap",
+        value=sent_window, limit=day_cap, unit="count",
+        label="Отправлено инициатив в окне: %s из %s"
+              % (sent_window, day_cap)))
+    # 9) дедуп контекста
+    dedup_known = bool(entry.get("recent_hashes"))
+    items.append(_gate(
+        "context_dedup",
+        "pass" if entry else "n/a",
+        "" if entry else "",
+        value=len(entry.get("recent_hashes") or []), limit=RECENT_HASHES_MAX,
+        unit="count",
+        label=("Свежих окон в дедуп-кольце: %d" % len(
+            entry.get("recent_hashes") or [])) if entry
+        else "Чат ещё не наблюдался — состояния дедупа нет"))
+    # 10) бюджет оценок
+    eval_day = now_ts // 86400
+    used = int(entry.get("eval_day_count") or 0) \
+        if int(entry.get("eval_day") or 0) == eval_day else 0
+    budget = int(profile["eval_llm_budget_per_day"] or 0)
+    budget_ok = budget <= 0 or used < budget
+    items.append(_gate(
+        "eval_budget", "pass" if budget_ok else "block",
+        "" if budget_ok else "eval_budget",
+        value=used, limit=budget, unit="count",
+        label="Оценок израсходовано сегодня: %s из %s" % (used, budget)))
+    # 11) доступность оценщика и писателя (передаётся вызывающим кодом)
+    if llm_available is None:
+        items.append(_gate("llm", "n/a", "",
+                           label="Доступность оценщика не проверялась"))
+    else:
+        items.append(_gate(
+            "llm", "pass" if llm_available else "block",
+            "" if llm_available else "llm_unavailable",
+            label="Оценщик доступен" if llm_available
+            else "Оценщик недоступен"))
+    if writer_available is None:
+        items.append(_gate("writer", "n/a", "",
+                           label="Доступность писателя не проверялась"))
+    else:
+        items.append(_gate(
+            "writer", "pass" if writer_available else "warn",
+            "" if writer_available else "writer_unavailable",
+            label="Писатель доступен" if writer_available
+            else "Писатель недоступен (нет Direct-контура)"))
+    # 12) подписка/права бота на отправку — проверить нечем без клиента
+    items.append(_gate("subscription", "n/a", "",
+                       label="Права бота на отправку проверяются при отправке"))
+    blocked = [i for i in items if i["status"] == "block"]
+    warned = [i for i in items if i["status"] == "warn"]
+    state = {
+        "pending": pending,
+        "last_eval_age_seconds": age_eval,
+        "sent_in_window": sent_window,
+        "eval_used_today": used,
+        "last_bot_output_age_seconds": gap_value,
+        "cursor_lag_messages": await _cursor_lag(db, payload, entry),
+        "live_messages_24h": live_24h,
+    }
+    return {"blocked_now": bool(blocked or not master),
+            "blocked_count": len(blocked), "warn_count": len(warned),
+            "items": items, "state": state,
+            "effective": {k: profile.get(k) for k in (
+                "profile", "min_gap_seconds", "max_replies_per_day",
+                "eval_min_interval_seconds", "eval_min_messages",
+                "eval_llm_budget_per_day", "max_replies_per_topic",
+                "day_window_seconds")},
+            "soft_targets": dict(profile.get("soft_targets") or {}),
+            "easing": dict(profile.get("easing") or {}),
+            "day_goal": dict(profile.get("day_goal") or {})}
+
+
+async def _cursor_lag(db, payload: dict, entry: dict) -> int | None:
+    """Отставание наблюдателя от живого чата (сообщений). None → неизвестно."""
+    try:
+        cursor = await db.db.execute(
+            "SELECT COALESCE(MAX(id), 0) AS m FROM smart_messages")
+        row = await cursor.fetchone()
+        newest = int((row["m"] if row is not None else 0) or 0)
+    except Exception:
+        return None
+    seen = int(entry.get("last_seen_msg_id")
+               or payload.get(CURSOR_KEY) or 0)
+    if not newest or not seen:
+        return None
+    return max(0, newest - seen)
+

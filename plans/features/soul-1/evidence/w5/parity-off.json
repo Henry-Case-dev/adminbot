@@ -1,0 +1,20 @@
+{
+  "publish_axis_catalog_off": false,
+  "publish_axis_catalog_on": false,
+  "w5_gates_registry": {
+    "INITIATIVE_DIAGNOSTICS_PUBLISH_ENABLED": {
+      "default": false,
+      "parity_documented": true
+    }
+  },
+  "w5_axes_do_not_collide_with_existing": true,
+  "profile_hard_keys_equal_table": true,
+  "soft_targets_unset": true,
+  "easing_flags": {
+    "observation": false,
+    "min_gap": false
+  },
+  "effective_equals_profile": true,
+  "block_state_readonly": true,
+  "note": "ось публикации проверки default OFF (env AND каталог); мягкие цели 0/0 → классы лимитов не меняются; 0 доп. LLM-вызовов на обычный ответ подтверждён существующим тестом test_soul1_flags_composition.py::test_zero_extra_llm_calls_on_normal_answer"
+}

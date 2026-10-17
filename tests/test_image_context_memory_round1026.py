@@ -1154,7 +1154,7 @@ class TestFlagsAndCanon:
         import dataclasses
         from services import param_catalog as pc
         # ASAP-3.1 (ADR-1028-3, санкция spec 10.1): +1 ключ → 484.
-        assert len(pc.REGISTRY) == 572
+        assert len(pc.REGISTRY) == 575
         assert len(dataclasses.fields(Settings)) == 454
         assert len(pc.GROUPS) == 120
         assert len(pc._TAB_BY_GROUP) == 118

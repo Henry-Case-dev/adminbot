@@ -1,7 +1,7 @@
 # F8 — Карта экранов `screen-map-round1025.md` (ADR-1025-21 D3)
 
 > Сгенерировано `tools/gen_param_registry_round1025.py` (read-only). Провенанс — `param-registry-round1025.meta.md`.
-> Инвариант «ни один параметр не остался без нового места»: `set(param_key) ⊇ REGISTRY(572)`, «без места» = 0. Неизвестные ключи (нет в каталоге) → секция `registry-only` реестра.
+> Инвариант «ни один параметр не остался без нового места»: `set(param_key) ⊇ REGISTRY(575)`, «без места» = 0. Неизвестные ключи (нет в каталоге) → секция `registry-only` реестра.
 > `ui_visibility ∈ {visible,hidden,api-only}`; **api-only ≠ сохранено** (REQ-F8-08). Секреты без открытого значения (R17).
 
 | old_screen | param_key | new_screen | read_api | write_api | ui_visibility | secret | hidden | status |
@@ -68,6 +68,7 @@
 | Память | flags.graph_time_decay_enabled | Память | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | OK |
 | Память | flags.graph_user_quota_enabled | Память | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | OK |
 | Генерация изображений | flags.image_generation_module_enabled | Модули | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | new |
+| Инициатива | flags.initiative_diagnostics_publish_enabled | Модули | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | new |
 | Инициатива | flags.initiative_enabled | Модули | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | new |
 | Инициатива | flags.initiative_observer_enabled | Модули | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | new |
 | Инициатива | flags.intent_decision_enabled | Модули | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | new |
@@ -127,6 +128,8 @@
 | Инициатива | initiative.max_replies_per_day | Модули | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | new |
 | Инициатива | initiative.max_replies_per_topic | Модули | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | new |
 | Инициатива | initiative.min_gap_seconds | Модули | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | new |
+| Инициатива | initiative.observation_target_interval_seconds | Модули | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | new |
+| Инициатива | initiative.soft_target_replies_per_day | Модули | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | new |
 | Диагностика | keys.checkup_betterstack_sql_password | Модули | GET /api/config (маска {configured,last4}); GET /api/config/keys/own; GET /api/config/keys/status | PUT /api/config/keys/own; DELETE /api/config/keys/own/{key_name} | visible | true | false | OK |
 | Диагностика | keys.checkup_betterstack_sql_user | Модули | GET /api/config (маска {configured,last4}); GET /api/config/keys/own; GET /api/config/keys/status | PUT /api/config/keys/own; DELETE /api/config/keys/own/{key_name} | visible | true | false | OK |
 | Прямые ответы | keys.direct_l1_api_key | Модули | GET /api/config (маска {configured,last4}); GET /api/config/keys/own; GET /api/config/keys/status | PUT /api/config/keys/own; DELETE /api/config/keys/own/{key_name} | visible | true | false | new |
@@ -581,4 +584,4 @@
 
 ## registry-only (неизвестные каталогу параметры)
 
-Нет: множество `internal_key` каталога == множество `REGISTRY` == 572; все ключи получили новое место. Расхождений нет.
+Нет: множество `internal_key` каталога == множество `REGISTRY` == 575; все ключи получили новое место. Расхождений нет.

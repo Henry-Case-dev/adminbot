@@ -1,0 +1,72 @@
+{
+  "candidate": "рабочее дерево (без коммита)",
+  "total": 9,
+  "killed": 9,
+  "alive": 0,
+  "not_applied": 0,
+  "mutations": [
+    {
+      "id": "M1",
+      "name": "health≠outcome: «возможности есть, сообщений нет» выдаётся за ok",
+      "status": "KILLED",
+      "detail": "тест упал на мутации (KILLED)",
+      "tail": "lient` is deprecated; install `httpx2` instead.\n    from starlette.testclient import TestClient as TestClient  # noqa\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ===========================\nFAILED tests/test_soul1_w5_initiative_vitality.py::test_opportunities_without_messages_is_a_warning\n1 failed, 3 warnings in 2.81s"
+    },
+    {
+      "id": "M2",
+      "name": "mock-send проверки публикует в реальный чат",
+      "status": "KILLED",
+      "detail": "тест упал на мутации (KILLED)",
+      "tail": "estclient` is deprecated; install `httpx2` instead.\n    from starlette.testclient import TestClient as TestClient  # noqa\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ===========================\nFAILED tests/test_soul1_w5_initiative_vitality.py::test_check_publish_is_off_without_owner_axis\n1 failed, 3 warnings in 2.83s"
+    },
+    {
+      "id": "M3",
+      "name": "снят анти-спам min_gap (пауза после реплики бота)",
+      "status": "KILLED",
+      "detail": "тест упал на мутации (KILLED)",
+      "tail": "PytestConfigWarning: Unknown config option: timeout_method\n  \n    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ===========================\nFAILED tests/test_soul1_w5_observer_gates.py::test_min_gap_after_bot_reply_still_blocks\n1 failed, 2 warnings in 2.88s"
+    },
+    {
+      "id": "M4",
+      "name": "инициативный Writer теряет владельческий кадр личности (identity Direct≠Initiative)",
+      "status": "KILLED",
+      "detail": "тест упал на мутации (KILLED)",
+      "tail": "gWarning: Unknown config option: timeout_method\n  \n    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ===========================\nFAILED tests/test_soul1_w5_observer_gates.py::test_initiative_writer_shares_core_style_and_persona\n1 failed, 2 warnings in 2.92s"
+    },
+    {
+      "id": "M5",
+      "name": "мягкая цель поднимает жёсткий дневной лимит",
+      "status": "KILLED",
+      "detail": "тест упал на мутации (KILLED)",
+      "tail": " PytestConfigWarning: Unknown config option: timeout_method\n  \n    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ===========================\nFAILED tests/test_soul1_w5_observer_gates.py::test_day_cap_still_hard_with_soft_target\n1 failed, 2 warnings in 2.73s"
+    },
+    {
+      "id": "M6",
+      "name": "возврат задушенности: not_enough снова сбрасывает накопленное окно и штамп интервала",
+      "status": "KILLED",
+      "detail": "тест упал на мутации (KILLED)",
+      "tail": "onfigWarning: Unknown config option: timeout_method\n  \n    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ===========================\nFAILED tests/test_soul1_w5_observer_gates.py::test_not_enough_keeps_pending_and_interval_stamp\n1 failed, 2 warnings in 2.64s"
+    },
+    {
+      "id": "M6b",
+      "name": "интервал проверок снова «съедает» накопленное окно",
+      "status": "KILLED",
+      "detail": "тест упал на мутации (KILLED)",
+      "tail": "PytestConfigWarning: Unknown config option: timeout_method\n  \n    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ===========================\nFAILED tests/test_soul1_w5_observer_gates.py::test_eval_not_due_keeps_pending_for_later\n1 failed, 2 warnings in 2.65s"
+    },
+    {
+      "id": "M7",
+      "name": "причина инициативного молчания снова отбрасывается контрактом событий",
+      "status": "KILLED",
+      "detail": "тест упал на мутации (KILLED)",
+      "tail": "nt` is deprecated; install `httpx2` instead.\n    from starlette.testclient import TestClient as TestClient  # noqa\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ===========================\nFAILED tests/test_soul1_w5_initiative_vitality.py::test_initiative_reason_codes_survive_event_contract\n1 failed, 3 warnings in 2.72s"
+    },
+    {
+      "id": "M8",
+      "name": "UI-проверка инициативы перестаёт быть mock по умолчанию",
+      "status": "KILLED",
+      "detail": "тест упал на мутации (KILLED)",
+      "tail": ""
+    }
+  ]
+}

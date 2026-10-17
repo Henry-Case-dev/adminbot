@@ -1275,6 +1275,32 @@
         + 'мысли. Оценка происходит порциями с бюджетом — не на каждое '
         + 'сообщение. Аварийный env: INITIATIVE_OBSERVER_ENABLED.'),
     },
+    // W5 (SOUL-18.4): МЯГКИЕ цели владельца — с явным объяснением границ
+    // (мягкая цель НЕ обещает отправку каждые N минут).
+    'initiative.soft_target_replies_per_day': {
+      title: 'Мягкая цель: инициатив в сутки',
+      description: ('Сколько инициативных реплик в сутки вы считаете '
+        + 'желательными. Это цель, а не обещание: бот может промолчать, '
+        + 'если повода нет. Влияет только на паузу между репликами (не '
+        + 'короче 30 минут); дневной лимит, защита от повторов, бюджет '
+        + 'оценок и проверка перед отправкой не отключаются. 0 — цель не '
+        + 'задана.'),
+    },
+    'initiative.observation_target_interval_seconds': {
+      title: 'Мягкая цель: проверять чат каждые, с',
+      description: ('Желаемая частота проверки окна чата. Может только '
+        + 'участить проверки: не чаще, чем раз в 10 минут, и не выше '
+        + 'лимитов профиля частоты. Молчание остаётся нормальным исходом. '
+        + '0 — цель не задана.'),
+    },
+    'flags.initiative_diagnostics_publish_enabled': {
+      title: 'Разрешить реальную отправку из проверки',
+      description: ('По умолчанию выключено: кнопка «Проверить инициативу» '
+        + 'проходит цепочку до mock send и НИЧЕГО не публикует в рабочую '
+        + 'группу. Включение разрешает реальную отправку, но она всё равно '
+        + 'требует отдельного подтверждения в самом запросе. Аварийный env: '
+        + 'INITIATIVE_DIAGNOSTICS_PUBLISH_ENABLED.'),
+    },
   };
   // B01.4: виджет профиля частоты (ключ каталога — str; select добавляет
   // витрина). Значения — канон резолвера initiative_observer.
@@ -2460,6 +2486,13 @@
         expiredOverviewBusy: false,
         intelFunnels: null,           // GET /api/memory/intel-funnels (B01/B02)
         intelFunnelsBusy: false,
+        // ── W5 (SOUL-18.4/18.5/18.6): честная жизнеспособность инициативы ──
+        // ЕДИНОЕ место диагностики: вердикт health≠outcome, реальные причины
+        // ворот, последние решения/отказы и доставки с ревизиями Core/Style.
+        initiativeVitality: null,     // GET /api/memory/initiative-vitality
+        initiativeVitalityBusy: false,
+        initiativeCheck: null,        // POST /api/memory/initiative-check
+        initiativeCheckBusy: false,
         expWindowsBusy: false,        // окна 24ч/7д опыта
         expWindow24h: null,           // /api/oversight/experience/funnel?days=1
         expWindow7d: null,            // /api/oversight/experience/funnel?days=7
@@ -4890,6 +4923,134 @@
         }
         return { stages: defs, liveLabel: liveLabel,
                  emptyReason: emptyReason };
+      },
+      // W5 (SOUL-18.4/18.5/18.6): ЕДИНОЕ место диагностики инициативы —
+      // вердикт health≠outcome, реальные причины ворот, последние решения и
+      // доставки с message_id + ревизиями Core/Style, безопасная проверка.
+      // Панель показывается ТОЛЬКО когда показана воронка (disabled/
+      // restricted → честная строка выше, вторая стена не создаётся).
+      w5Vitality: function () {
+        if (!this.initiativeFunnel) return null;
+        var v = this.initiativeVitality;
+        if (!v || v.available === false) return null;
+        return v;
+      },
+      // Предупреждение показывается ТОЛЬКО когда оно есть: «нулей нет» и
+      // «всё хорошо» не выдаём за здоровье (health ≠ outcome).
+      w5Warning: function () {
+        var v = this.w5Vitality;
+        var a = (v && v.activity) || null;
+        if (!a || !a.warning) return null;
+        return { level: a.level || 'warn', title: a.title || '',
+                 warning: a.warning, recommendation: a.recommendation || '' };
+      },
+      w5Reasons: function () {
+        var v = this.w5Vitality;
+        var a = (v && v.activity) || null;
+        return (a && a.reasons) ? a.reasons : [];
+      },
+      // Что мешает инициативе СЕЙЧАС: только реальные блоки и предупреждения.
+      w5GateBlockers: function () {
+        var v = this.w5Vitality;
+        var items = (v && v.gates && v.gates.items) || [];
+        var out = [];
+        items.forEach(function (it) {
+          if (it && (it.status === 'block' || it.status === 'warn')) {
+            out.push({
+              label: it.label || it.gate || '',
+              status: it.status,
+              reason: it.reason_code || '',
+              value: (it.value == null ? '' : String(it.value)),
+              limit: (it.limit == null ? '' : String(it.limit)),
+              unit: it.unit || 'none',
+            });
+          }
+        });
+        return out;
+      },
+      // Мягкие цели владельца + ГРАНИЦЫ эффекта (мягкая цель ≠ обещание).
+      w5SoftLabel: function () {
+        var v = this.w5Vitality;
+        var st = (v && v.gates && v.gates.soft_targets) || null;
+        if (!st) return '';
+        if (!st.active) {
+          return 'Мягкие цели не заданы — действуют жёсткие лимиты профиля';
+        }
+        var parts = [];
+        if (st.replies_per_day) {
+          parts.push(st.replies_per_day + ' инициатив/сутки');
+        }
+        if (st.observation_interval_seconds) {
+          parts.push('проверять примерно каждые '
+            + st.observation_interval_seconds + ' с');
+        }
+        return 'Мягкая цель: ' + parts.join(', ');
+      },
+      w5SoftBounds: function () {
+        var v = this.w5Vitality;
+        var st = (v && v.gates && v.gates.soft_targets) || null;
+        return (st && st.bounds) ? st.bounds : '';
+      },
+      // Последние решения/отказы/доставки — компактно, без аналитической стены.
+      w5Decisions: function () {
+        var v = this.w5Vitality;
+        return (v && v.decisions) ? v.decisions.slice(0, 3) : [];
+      },
+      w5Refusals: function () {
+        var v = this.w5Vitality;
+        return (v && v.refusals) ? v.refusals.slice(0, 3) : [];
+      },
+      w5Sends: function () {
+        var v = this.w5Vitality;
+        var rows = (v && v.sends) ? v.sends.slice(0, 3) : [];
+        return rows.map(function (s) {
+          return {
+            tsLabel: _tsStatusLabel(s.ts, '—'),
+            messageId: (s.message_id == null ? '' : String(s.message_id)),
+            hasMessageId: s.message_id != null,
+            chars: (s.chars == null ? 0 : s.chars),
+            core: s.core_revision ? String(s.core_revision).slice(0, 8) : '',
+            style: s.style_policy_revision
+              ? String(s.style_policy_revision).slice(0, 8) : '',
+            composer: s.composer || '',
+            hasManifest: !!(s.core_revision || s.style_policy_revision),
+          };
+        });
+      },
+      // Trace безопасной проверки (последний прогон) — строки стадий.
+      w5CheckTrace: function () {
+        var c = this.initiativeCheck;
+        if (!c || c.available === false) return [];
+        return (c.trace || []).map(function (t) {
+          return { stage: t.stage, status: t.status, label: t.label,
+                   reason: t.reason_code || '' };
+        });
+      },
+      w5CheckPreview: function () {
+        var c = this.initiativeCheck;
+        return (c && c.mock_send && c.mock_send.preview)
+          ? c.mock_send.preview : '';
+      },
+      w5CheckNote: function () {
+        var c = this.initiativeCheck;
+        if (!c) return '';
+        if (c.published) {
+          return 'РЕАЛЬНАЯ отправка в чат выполнена с разрешения владельца';
+        }
+        if (c.publish_disabled_reason === 'publish_axis_off') {
+          return 'Проверка без отправки в чат (mock): реальная отправка '
+            + 'выключена настройкой владельца';
+        }
+        return 'Проверка без отправки в чат (mock): ни одного сообщения '
+          + 'в рабочую группу не ушло';
+      },
+      w5HealthLabel: function () {
+        var v = this.w5Vitality;
+        var h = (v && v.activity && v.activity.health) || null;
+        if (!h) return '';
+        return 'тики: ' + (h.heartbeat_ok ? 'живые' : 'нет данных')
+          + ' · прогонов в окне: ' + (h.jobs_processed || 0)
+          + ' · отправок: ' + ((v.activity.counters || {}).delivered || 0);
       },
       // U03.4 «Опыт»: окна 24ч/7д — существующая read-only воронка
       // oversight (mca-17c) с days=1/days=7. disabled → честные «—».
@@ -7609,8 +7770,7 @@
       },
       // U03.4: durable-воронка наблюдателя (initiative.observe) и семантики
       // (experience.review) — counters + liveness + окна событий 24ч/7д.
-      loadIntelFunnels: async function () {
-        if (!this.isGlobalAdmin || this.intelFunnelsBusy) return;
+      loadIntelFunnels: async function () {        if (!this.isGlobalAdmin || this.intelFunnelsBusy) return;
         this.intelFunnelsBusy = true;
         var epoch = this.scopeEpoch;
         try {
@@ -7622,6 +7782,51 @@
           if (this._scopeGuard(epoch)) this.intelFunnels = null;
         } finally {
           this.intelFunnelsBusy = false;
+        }
+      },
+      // W5 (SOUL-18.4/18.5): диагностика инициативы — ЕДИНОЕ место чтения
+      // (вердикт health≠outcome, причины ворот чата, решения/отказы/доставки
+      // с message_id и ревизиями Core/Style). Тот же ритм, что у воронки.
+      loadInitiativeVitality: async function () {
+        if (!this.isGlobalAdmin || this.initiativeVitalityBusy) return;
+        this.initiativeVitalityBusy = true;
+        var epoch = this.scopeEpoch;
+        try {
+          var q = this._cidQuery(true);
+          var data = await this.api('/api/memory/initiative-vitality' + q);
+          if (!this._scopeGuard(epoch)) return;
+          this.initiativeVitality = data || null;
+        } catch (e) {
+          if (this._scopeGuard(epoch)) this.initiativeVitality = null;
+        } finally {
+          this.initiativeVitalityBusy = false;
+        }
+      },
+      // W5 (SOUL-18.4): безопасная проверка «Проверить инициативу».
+      // ПО УМОЛЧАНИЮ — mock: ни одной отправки в рабочую группу; реальная
+      // отправка требует включённой оси владельца и отдельного подтверждения.
+      runInitiativeCheck: async function () {
+        if (!this.isGlobalAdmin || this.initiativeCheckBusy) return;
+        this.initiativeCheckBusy = true;
+        var epoch = this.scopeEpoch;
+        var chatId = (this.activeChatId == null) ? null : this.activeChatId;
+        try {
+          var data = await this.api('/api/memory/initiative-check', {
+            method: 'POST',
+            body: JSON.stringify({ chat_id: chatId, hours: 24,
+                                   publish: false, confirm_publish: false }),
+          });
+          if (!this._scopeGuard(epoch)) return;
+          this.initiativeCheck = data || null;
+          this.toast(data && data.mock_send && data.mock_send.attempted
+            ? 'Проверка: текст готов, отправки не было (mock)'
+            : 'Проверка выполнена — см. trace', 'ok');
+        } catch (e) {
+          if (!this._scopeGuard(epoch)) return;
+          this.initiativeCheck = null;
+          this.toast('Проверка инициативы: ' + e.message, 'err');
+        } finally {
+          this.initiativeCheckBusy = false;
         }
       },
       // U03.4 «Опыт»: окна 24ч/7д — СУЩЕСТВУЮЩАЯ read-only воронка
@@ -20309,6 +20514,9 @@
           // Опыта — тот же ритм cognition-polling (без новых поллеров).
           this.loadExpiredOverview();
           this.loadIntelFunnels();
+          // W5 (SOUL-18.4/18.5): та же воронка + честный вердикт
+          // health≠outcome в ОДНОМ месте; без новых поллеров.
+          this.loadInitiativeVitality();
           this.loadExperienceWindows();
         } catch (e) {
           if (e.status !== 401 && e.status !== 403 && e.status !== 503) {

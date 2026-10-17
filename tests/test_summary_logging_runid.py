@@ -934,10 +934,10 @@ class TestInvariants:
         # ASAP-2.1 (ADR-1028-1 D1, контракт (i)): санкционированная
         # ОТРИЦАТЕЛЬНАЯ Δ каталога — -8 ключей summary_filter_*, -2 группы,
         # -8 env-констант Settings (S1-слой удалён).
-        assert len(pc.REGISTRY) == 572
+        assert len(pc.REGISTRY) == 575
         assert len({f.name for f in dataclasses.fields(Settings)}) == 454
         assert len([s for s in pc.REGISTRY.values()
-                    if s.category is not None]) == 547
+                    if s.category is not None]) == 550
         assert len(pc.GROUPS) == 120
         assert len(pc._TAB_BY_GROUP) == 118
         assert len(pc.TAB_RULES) == 23

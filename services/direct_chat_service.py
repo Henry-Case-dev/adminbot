@@ -8958,6 +8958,49 @@ async def handle_initiative(*, bot, chat_id: int, situation, candidates,
             _mca_intents.note_initiative_sent(chat_id=chat_id,
                                               intent_id=decision.intent_id,
                                               chunks=sent)
+        # ── SOUL-1 (W5, SOUL-18.6): под каким Core/Style ушло сообщение.
+        # Пишется по факту доставки, только ID/ревизии; ошибка не рвёт отправку.
+        try:
+            _refs = None
+            try:
+                _refs = _pcomp.recall_turn_refs(chat_id, correlation_id)
+            except Exception:
+                _refs = None
+            _core_rev = ""
+            _policy_rev = ""
+            _identity_rev = ""
+            _manifest_id = ""
+            _composer_state = "on" if _pcomp.composer_enabled_now(
+                await _composer_resolve_gates(chat_id)) else "off"
+            try:
+                _manifest = _pcomp.get_manifest(chat_id, run_id=correlation_id,
+                                                writer="initiative_writer")
+                if _manifest is not None:
+                    _versions = dict(getattr(_manifest, "versions", {}) or {})
+                    _core_rev = str(_versions.get("core") or "")
+                    _policy_rev = str(_versions.get("style_policy") or "")
+                    _manifest_id = str(getattr(_manifest, "manifest_id", "")
+                                       or "")
+            except Exception:
+                _manifest = None
+            if _refs is not None:
+                _core_ref = getattr(_refs, "core", None)
+                _policy_ref = getattr(_refs, "style_policy", None)
+                _identity_ref = getattr(_refs, "identity", None)
+                _core_rev = _core_rev or str(getattr(_core_ref, "revision", "")
+                                             or "")
+                _policy_rev = _policy_rev or str(
+                    getattr(_policy_ref, "revision", "") or "")
+                _identity_rev = str(getattr(_identity_ref, "revision", "") or "")
+            _mca_intents.note_delivery_manifest(
+                chat_id=chat_id, correlation_id=str(correlation_id or ""),
+                message_id=sent_id, core_revision=_core_rev,
+                style_policy_revision=_policy_rev,
+                identity_revision=_identity_rev, manifest_id=_manifest_id,
+                composer_state=_composer_state)
+        except Exception:
+            logger.warning("[soul1] initiative manifest event failed",
+                           exc_info=True)
         _mca_intents.note_decision(decision, chat_id=chat_id, outcome="ok")
         logger.info(
             "[mca09] initiative sent | chat=%s | kind=%s | chunks=%d | "
