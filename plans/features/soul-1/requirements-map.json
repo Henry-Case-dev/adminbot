@@ -2,7 +2,7 @@
   "schema": "openworkflow-coverage-v1",
   "source_path": "C:\\Code\\Python\\adminbot\\plans\\features\\soul-1\\source-current-task.md",
   "source_sha256": "8c42ddfabce635fe4e1f24f9522ff8642f3bd3049fac05c77ca162687051196b",
-  "candidate_commit": "bc277a3dc8bd54e721f5855fc6920f2ea401b25f",
+  "candidate_commit": "6094a2cfa1660d1b949dcfe5ec085bc08f080de4",
   "deployed_commit": "",
   "additional_requirements": [
     {
@@ -1547,8 +1547,15 @@
       "acceptance": "Кодовый факт подтверждён и устранён: web/static/fullscreen-policy.js больше не возвращает tdesktop_disabled_until_e2e без объяснения, кнопка присутствует или отсутствует обоснованно, а поведение Launch Mode Fullscreen на Windows показано владельцу на его клиенте без задержки и ухода UI к левому краю",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "6094a2cfa1660d1b949dcfe5ec085bc08f080de4",
+          "ref": "plans/features/soul-1/fullscreen-hotfix-report.md §2/§4 (tdesktop — обычный клиент; скрытие только без API; заглушки удалены директивой); review-w7.md ledger SOUL-12.1; review-fs.md (RECHECK Approved, ledger №1)",
+          "observation": "Кодовый факт устранён: tdesktop больше не скрывается без причины, кнопка работает на всех клиентах с реальным API, отказ хоста — честный тост с причиной; живая половина (Launch Mode на клиенте владельца) — postdeploy.",
+          "type": "ui"
+        }
+      ]
     },
     {
       "source_id": "M00173",
@@ -1562,8 +1569,15 @@
       "acceptance": "Три операции разделены и не выдаются друг за друга: режим запуска и оболочка Telegram или BotFather, Telegram.WebApp.requestFullscreen и exitFullscreen с проверкой событий и isFullscreen, responsive CSS внутри предоставленного viewport; expand() не считается заменой fullscreen; нет WinAPI, moveTo, resizeTo и ложных обещаний о контроле окна Telegram Desktop",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "6094a2cfa1660d1b949dcfe5ec085bc08f080de4",
+          "ref": "plans/features/soul-1/review-w7.md (ledger SOUL-12.2; негативы 5.3b/5.3c: __calls==[]; запрет moveTo/resizeTo/expand-фолбэка)",
+          "observation": "Три операции разделены на уровне кода и защищены негативами node-сторожа; визуальная сущность fullscreen на живом клиенте (реальное окно ОС, а не CSS-класс) — postdeploy.",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "M00175",
@@ -1577,8 +1591,15 @@
       "acceptance": "Проверена матрица: Telegram Desktop Windows из BotFather Main App в режимах Compact, Full, Fullscreen, запуск из кнопки и по direct deep link; Android portrait и landscape, Telegram Web, standalone; для воспроизведения записаны platform, SDK version, launch params, actual isFullscreen, supported methods, fullscreenChanged и fullscreenFailed, viewport stableHeight, content safe area, click result и поведение окна; предупреждения SDK и UX-причины показаны владельцу в технической диагностике",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "6094a2cfa1660d1b949dcfe5ec085bc08f080de4",
+          "ref": "plans/features/soul-1/fullscreen-hotfix-report.md §4 (F1: launchParams из sessionStorage('__telegram__initParams')+hash по allowlist; live-проба {tdesktop, 8.0, e2e}); review-fs.md RECHECK (F1 live)",
+          "observation": "Диагностика собирает факты воспроизведения (platform/SDK/launchParams/isFullscreen/методы/viewport/insets/clickResult/hostBehaviour/trace/warnings) без секретов; прогон матрицы на реальных клиентах — postdeploy.",
+          "type": "ui"
+        }
+      ]
     },
     {
       "source_id": "M00177",
@@ -1592,8 +1613,15 @@
       "acceptance": "Acceptance-политика соблюдена: на поддерживаемом клиенте доступен рабочий enter и exit с визуально подтверждённым fullscreen, а не CSS-класс fullscreen-mode; на неподдерживаемом показано понятное объяснение и вариант нормального запуска без несуществующей кнопки и ложного успеха; для Windows при отсутствии поддержки дан безопасный workflow запуска и кнопка безопасного выхода с сохранением доступности native закрытия; владелец получил конкретную инструкцию по режиму BotFather с доказательством на его клиенте",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "6094a2cfa1660d1b949dcfe5ec085bc08f080de4",
+          "ref": "plans/features/soul-1/fullscreen-hotfix-report.md §2/§3 (кнопка на всех клиентах с API; native ✕ не тронут; тост по факту отказа); review-fs.md (RECHECK ledger №1/3/5)",
+          "observation": "Политика соблюдена на mock-канале: enter/exit по SDK-ack; неподдерживаемый клиент — без несуществующей кнопки и ложного успеха; «визуально подтверждённый fullscreen» на живом клиенте — postdeploy.",
+          "type": "ui"
+        }
+      ]
     },
     {
       "source_id": "M00179",
@@ -1607,8 +1635,15 @@
       "acceptance": "До живого подтверждения Fullscreen не объявлен закрытым, E2E-моки остаются только регресс-покрытием; на mobile соблюдены native safe area и отсутствие перекрытий без DOM-вставок в шапку Telegram; при мигалке или перескакивании зафиксированы ready, expand, request, viewportChanged, начальная разметка и двойная инициализация, внутренний layout jump убран там, где управление в руках WebView; полигональный фон не тронут",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "6094a2cfa1660d1b949dcfe5ec085bc08f080de4",
+          "ref": "plans/features/soul-1/evidence/fs-hotfix/frozen-check.txt; plans/features/soul-1/evidence/w7/frozen-check.txt; plans/features/soul-1/review-w7.md ledger SOUL-12.5",
+          "observation": "Моки помечены как регресс-канал; safe area и отсутствие перекрытий проверены rect-тестами и живыми рендерами; полигон/стекло не тронуты (frozen-check RESULT: OK).",
+          "type": "static"
+        }
+      ]
     },
     {
       "source_id": "M00183",
@@ -1622,8 +1657,15 @@
       "acceptance": "ASAP 8 v6.3 не переисполняется целиком, но зафиксирован его точный release baseline; актуальные и связанные с новым эпиком риски и регрессии закрыты, остальные live-гейты вынесены в отдельный видимый реестр и не скрыты под DONE",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "6094a2cfa1660d1b949dcfe5ec085bc08f080de4",
+          "ref": "plans/features/soul-1/evidence/w7/v63-live-gates-ledger.json; plans/features/soul-1/review-w7.md ledger SOUL-13.1",
+          "observation": "Видимый реестр 65 незакрытых строк (42 READY_FOR_LIVE / 18 BLOCKED_REAL_HUMAN_GATE / 5 PENDING) с причинами, сверен ревьюером 1:1; ни одна строка не переименована в «closed».",
+          "type": "static"
+        }
+      ]
     },
     {
       "source_id": "M00193",
@@ -2752,8 +2794,15 @@
       "acceptance": "Fullscreen закрыт только при живом подтверждении: рабочий enter/exit на поддерживаемом клиенте с визуальным fullscreen и честное объяснение на неподдерживаемом",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "6094a2cfa1660d1b949dcfe5ec085bc08f080de4",
+          "ref": "plans/features/soul-1/review-w7.md (ledger: SOUL-12.0 — READY_FOR_LIVE, чек-лист §8); plans/features/soul-1/w7-v63-baseline-report.md §2 SOUL-12.0",
+          "observation": "Живое подтверждение (реальный Telegram Desktop/Android) сознательно не объявлено: чек-лист владельца отменён 18.10 (PET_PROJECT), живые наблюдения выполняют агенты после выката; PENDING_OWNER_E2E — информационный.",
+          "type": "static"
+        }
+      ]
     },
     {
       "source_id": "L00181",
@@ -2767,8 +2816,15 @@
       "acceptance": "Release baseline ASAP8 v6.3 зафиксирован, актуальные связанные риски закрыты, остальные live-гейты вынесены в видимый реестр без скрытия под DONE",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "6094a2cfa1660d1b949dcfe5ec085bc08f080de4",
+          "ref": "plans/features/soul-1/evidence/w7/v63-baseline-record.json; plans/features/soul-1/review-w7.md ledger SOUL-13.0/13.1",
+          "observation": "Точный release baseline линии v6.3 зафиксирован (задеплоенные SHA 2.58.79/78/81/83, blob_HEAD/sha256 8 отчётных артефактов); git-факты (225c3c2b — ancestor origin/master) проверены.",
+          "type": "static"
+        }
+      ]
     },
     {
       "source_id": "L00185",
@@ -2782,8 +2838,15 @@
       "acceptance": "Стенд glass-teststand.html недоступен анониму (401/403/404) в production static assets либо закрыт серверной авторизацией; стенд доступен только в разрешённой test-среде (положительная проверка); боевой polygon background и liquid glass не изменены",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "6094a2cfa1660d1b949dcfe5ec085bc08f080de4",
+          "ref": "plans/features/soul-1/evidence/w7/teststand-test-env-local.json (+ teststand-test-env-local-render.png); plans/features/soul-1/review-w7.md ledger SOUL-13.2",
+          "observation": "Локально: 7 анонимных путей стенда → 401/403/404, боевые ассеты 200; положительная проверка разрешённой test-среды рендерится; прод-проба 404 существует на предыдущем кандидате — повтор на новом задеплоенном кандидате postdeploy.",
+          "type": "ui"
+        }
+      ]
     },
     {
       "source_id": "L00186",
@@ -2797,8 +2860,15 @@
       "acceptance": "Живые 14 pending-гейтов v6.3 проверены по истории и отражены реальным статусом с evidence: live Windows и Android, initiative SEND, Experience нагрузка, Cover Style publish, supergroup migration, 24/48h observability",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "6094a2cfa1660d1b949dcfe5ec085bc08f080de4",
+          "ref": "plans/features/soul-1/evidence/w7/v63-live-gates-ledger.json (category_status); plans/features/soul-1/review-w7.md ledger SOUL-13.3",
+          "observation": "Историческое «14 pending» сверено с рабочей картой (42/18/5, 135 VERIFIED); старые обязательства не спрятаны под DONE; live-наблюдения по категориям остаются отдельными открытыми строками реестра.",
+          "type": "static"
+        }
+      ]
     },
     {
       "source_id": "L00187",
@@ -2812,8 +2882,21 @@
       "acceptance": "Embedding quota: зафиксированы фактическая ротация и общий proxy-хост, отличие отсутствующего ключа от hot-config, недеструктивный WARN без записи секретов, вывод о квотах только из подтверждённого поведения провайдера",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "6094a2cfa1660d1b949dcfe5ec085bc08f080de4",
+          "ref": "plans/features/soul-1/evidence/w7/embed_primary_ui_render.json (+ embed_primary_ui_warn_absent.png, embed_primary_ui_hot_state.png); plans/features/soul-1/evidence/w7/_probe_embed_primary_ui.py (канал: browser-use, реальный Chrome; мок SDK/API стенда)",
+          "observation": "Реальный рендер панели «Embedding provider»: пустой primary → видимый WARN «primary-слот пуст … источник: absent» + hint; из hot-конфига → «primary: слот задан (hot-конфиг keys.embedding_api_key)»; секрет-маркеров в блоке нет. Мок-канал доказывает UI-wiring, не состояние прода.",
+          "type": "ui"
+        },
+        {
+          "candidate_commit": "6094a2cfa1660d1b949dcfe5ec085bc08f080de4",
+          "ref": "tests/test_soul1_w7_embedding_primary_slot.py (7 passed); plans/features/soul-1/evidence/w7/pytest-embedding-suites.txt (97 passed, артефакт перегенерирован по N1 review-w7); plans/features/soul-1/review-w7.md ledger SOUL-13.4 (97 passed, мутации 5/5 KILLED)",
+          "observation": "Код различает absent/hot/env (resolve_key_slot, key_source, degraded, primary_state/primary_warn/primary_hint); WARN недеструктивный ≤1/10 мин, без значений ключей; факты ротации и общий proxy-host задокументированы; провайдерский reset horizon честно оставлен OPEN (внешний факт).",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00188",
@@ -2827,8 +2910,15 @@
       "acceptance": "Для release-reconciliation, final-audit и live-canary указано реальное расположение артефактов; коммит B12 225c3c2b сверен с реальным deployed SHA; файлы и пути не выдуманы",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "6094a2cfa1660d1b949dcfe5ec085bc08f080de4",
+          "ref": "plans/features/soul-1/evidence/w7/v63-baseline-record.json; plans/features/soul-1/review-w7.md ledger SOUL-13.5",
+          "observation": "release-reconciliation/final-audit/live-canary найдены как tracked/clean (blob sha приведены); 225c3c2b — реальный docs-only коммит (ancestor origin/master); deployed SHA взят из live-canary, а не скопирован механически.",
+          "type": "static"
+        }
+      ]
     },
     {
       "source_id": "L00189",
@@ -2842,8 +2932,15 @@
       "acceptance": "6 failed pytest и live outcome разобраны по логам с точными файлами и ошибками; пометка pre-existing только при воспроизводимом сравнении с baseline; актуальный runtime-баг исправлен минимальным diff",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "6094a2cfa1660d1b949dcfe5ec085bc08f080de4",
+          "ref": "plans/features/soul-1/evidence/w7/pytest-6-previously-failing.txt (6/6 PASS); plans/features/soul-1/review-w7.md ledger SOUL-13.6 (свой прогон + сравнение интерпретаторов)",
+          "observation": "6 ранее падавших тестов зелёные на каноническом .venv; падения под py -3 воспроизведены как интерпретаторные (aiogram/trafilatura), а не «вне области»; актуального runtime-бага среди шести нет.",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00191",

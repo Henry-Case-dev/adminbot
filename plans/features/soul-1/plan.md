@@ -507,3 +507,53 @@ EXITCODE=0
 **W4-evidence:** перезаписанный прогоном слайса `plans/features/soul-1/evidence/w4/frozen-assets.txt` восстановлен из HEAD (дифф пуст); содержимое сохранено как `plans/features/soul-1/evidence/amd26/frozen-assets.txt` (артефакт того же прогона; сверено после нормализации BOM/CRLF). Четыре evidence-`*.txt` слайса — CRLF (захват PowerShell-редиректом); байты сохранены как есть, чтобы не рвать привязанные ревью отпечатки, на будущее — LF.
 
 **Что осталось:** (1) ось `UNIFIED_COMPOSER_ENABLED` остаётся OFF — включение ON/OFF решение владельца (OFF-паритет подтверждён; у строки `live_required=false`, `live_when=preprod`); (2) чужие карты/слайсы этим коммитом не привязывались.
+
+## W7 binding (6094a2cfa166)
+
+**Кандидат:** `6094a2cfa1660d1b949dcfe5ec085bc08f080de4` (коммит A поверх `9d8da1d7` (docs-only) = объединённый слой W7 (реконсиляция наследия v6.3: SOUL-12 fullscreen, SOUL-13 хвосты) + FS-HOTFIX/FS2 (директива владельца 18.10 + FOLLOW-UP `current-task.md` L903–1229)). Ревью-цепочка: **REVIEW-W7 Needs Fixes** (единственный блокер F1: launchParams не читались из hash) → F1 починен в этом дереве → **REVIEW-FS Needs Fixes** (не хватало FOLLOW-UP-дельты) → **FS2-дельта** (логотип скрыт, матрица №8/№12, admin-диагностика §8) → **RECHECK: Approved** (tech; свои прогоны ревьюера: 12/12·166, 5/5·88, node 86/86, периметр 3915/0, frozen OK, 10/10 отпечатков). Коммит A — **95 файлов, +7530/−489**: web 4, tests 5 (1 новый), tools 3 (1 новый), services 1, docs 5 (вкл. `fullscreen-archaeology.md`), evidence 77 (`evidence/w7/**` 34 + `evidence/fs-hotfix/**` 43, вкл. browseruse PNG). В обеих картах top-level `candidate_commit` := W7-кандидат (single-candidate семантика; прежние указатели — W5 `bc277a3d` / AMD.2.6 `d4c33c21`); `deployed_commit` пуст (пуша и деплоя нет).
+
+**Строк W7:** main **13** (7 inventory: `SOUL-12.0`, `SOUL-13.0`, `SOUL-13.2`–`SOUL-13.6`; 6 additional: `SOUL-12.1`–`SOUL-12.5`, `SOUL-13.1`); **amendment — 0**: слайс W7 в amendment не представлен, гейт amendment на слайс W7 даёт честный `FAIL: review scope has no requirements: W7` (не форсировался).
+
+| req | Статус | live_when | Основание / что осталось |
+|---|---|---|---|
+| SOUL-12.0 | READY_FOR_LIVE | postdeploy | строка закрытым не объявляется: живое подтверждение (Windows/Android) — postdeploy; чек-лист владельца отменён 18.10, живые наблюдения — агенты после выката (`PENDING_OWNER_E2E` информационный) |
+| SOUL-12.1 | READY_FOR_LIVE | postdeploy | кодовый факт устранён (tdesktop — обычный клиент, заглушки удалены директивой); живая половина — Launch Mode на клиенте владельца (postdeploy) |
+| SOUL-12.2 | READY_FOR_LIVE | postdeploy | три операции разделены (негативы 5.3b/5.3c, запрет moveTo/resizeTo/expand-фолбэка); визуальная сущность fullscreen — postdeploy |
+| SOUL-12.3 | READY_FOR_LIVE | postdeploy | диагностика собирает факты воспроизведения (F1 починен: sessionStorage+hash, allowlist); живая матрица клиентов — postdeploy |
+| SOUL-12.4 | READY_FOR_LIVE | postdeploy | политика соблюдена на mock-канале (реальная кнопка там, где есть API; без ложного успеха); «визуально подтверждённый fullscreen» — postdeploy |
+| SOUL-12.5 | READY_FOR_LIVE | postdeploy | моки — только регресс; safe area/без перекрытий; полигон не тронут (`frozen-check` OK); живое подтверждение — postdeploy |
+| SOUL-13.0 | VERIFIED | preprod | baseline v6.3 зафиксирован (`v63-baseline-record.json`); ни одна строка не «closed» |
+| SOUL-13.1 | VERIFIED | preprod | видимый реестр 65 строк (42/18/5) 1:1 сверен ревьюером, без «закрытий» |
+| SOUL-13.2 | READY_FOR_LIVE | postdeploy | локально 7 путей стенда → 401/403/404, боевые 200, test-среда рендерится; прод-проба 404 — на предыдущем кандидате, повтор на задеплоенном — postdeploy |
+| SOUL-13.3 | VERIFIED | postdeploy | реестр без переименований; «14» = историческое состояние, обязательства не спрятаны |
+| SOUL-13.4 | VERIFIED | preprod | код различает absent/hot/env + WARN без секретов; UI-состояние подтверждено реальным рендером (мок-канал); провайдерский reset horizon честно OPEN |
+| SOUL-13.5 | VERIFIED | preprod | реальные расположения артефактов и deployed SHA (без выдуманных путей); `225c3c2b` — ancestor `origin/master` |
+| SOUL-13.6 | VERIFIED | preprod | 6/6 PASS на `.venv`; падения под `py -3` воспроизведены как интерпретаторные; runtime-бага нет |
+
+**Гейты (verbatim; кандидат `6094a2cfa1660d1b949dcfe5ec085bc08f080de4`):**
+
+main, `--stage review --slice W7`:
+```
+stage=review inventory=101 manual=97 scoped=13 errors=0
+EXITCODE=0
+```
+
+amendment, `--stage review --slice W7` (**слайс W7 в amendment не представлен — честный FAIL, не форсировался**):
+```
+FAIL: review scope has no requirements: W7
+stage=review inventory=66 manual=28 scoped=0 errors=1
+EXITCODE=1
+```
+
+**Структурный контроль карт** (`--stage plan`, обе карты): `stage=plan inventory=101 manual=97 scoped=0 errors=0` / `stage=plan inventory=66 manual=28 scoped=0 errors=0`, EXITCODE=0 (после привязки).
+
+**LF/CRLF-санити коммита A (после `git commit`, сверка блобов с родителем):** `web/index.html`, `web/app.js`, `web/static/fullscreen-policy.js`, тесты, инструменты, `services/embedding_control_plane.py` — CRLF=0 (не добавлено); `web/static/app.css` — CRLF=6, ровно как в родителе (унаследовано, новых нет); карты при привязке перезаписаны с сохранением их CRLF-конвенции (дифф — только W7-строки и указатель).
+
+**Пометы:**
+1. **U07.1a — исключена ранее (не этим коммитом):** в соседней карте v6.3-коррекции (`plans/features/asap8-v6-3-live-correction/requirements-map.json`, `items/L00200`) строка `U07.1a` переведена в `user_excluded` («SUPERSEDED директивой владельца 18.10»); эта привязка её не трогает, директива подтверждена кодовой частью FS-хотфикса (заглушка → рабочая кнопка).
+2. **FOLLOW-UP-критерии (логотип / §7 №8–№12 / §8-диагностика) живут в карте v6.3-коррекции** — это соседняя карта; её файлы в коммит A сознательно не включены (чужие незакоммиченные правки, включая PNG `w2-evidence*`). Ре-анкор — после выката.
+3. **Замечания review-w7:** N1 (stale-артефакт `pytest-embedding-suites.txt` «1 failed, 96 passed») — **исправлено в A**: артефакт перегенерирован (`97 passed`); N2 (тест-гэп: приоритет hot-над-env не защищён assert'ом) — **открытая не-блокирующая заметка** (код ведёт себя верно, дефекта нет); N3 (binding) — этот коммит; N4 (аддитивное расширение области `index.html`/`app.js`) — задекларировано в отчёте §4.1, регрессий нет; N5–N8 — pre-existing/шум.
+4. **Девиация коммита A (честно):** добавлены новые доказательства SOUL-13.4-UI (`evidence/w7/embed_primary_ui_render.json` + 2 PNG + `_probe_embed_primary_ui.py`; browser-use, реальный Chrome, мок SDK/API стенда — доказывают UI-wiring, не состояние прода) и ранее untracked `fullscreen-archaeology.md` (read-only разведка FS-лейна).
+5. **Живые границы (не закрыты):** реальные Windows/Android после выката (SOUL-12.x), прод-404 стенда на новом кандидате (SOUL-13.2), reset horizon провайдера эмбеддингов (SOUL-13.4, внешний факт); `SOUL-12.0` закрытым не объявляется.
+
+**Следующее действие (для Orchestrator):** (а) независимое ревью привязки (статусы/evidence/честность классификаций); (б) push+изолированный релиз и деплой — отдельный лейн; (в) postdeploy — живые наблюдения по SOUL-12.x/13.2 и release-стадия гейта.
