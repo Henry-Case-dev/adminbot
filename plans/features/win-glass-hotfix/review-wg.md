@@ -48,3 +48,46 @@
 ## 6. Итог и что дальше
 
 `REVIEW-WG: Approved` — реализация и evidence P0-хотфикса подтверждены моими прогонами и внешней сверкой; заглушек нет, живые границы честные. Дальше: (1) учётный лейн — коммит кандидата + привязка по §5; (2) strict-review по трём слайсам; (3) релиз/деплой штатным каналом; (4) владельцу — `PENDING_OWNER_E2E`: Windows (обход §A.1 + снимок админ-диагностики), Android (видимое смещение у кромок, перф/скролл/поворот), опционально iOS.
+
+---
+
+# R2 — BINDING verification (strict): **Approved**
+
+| Поле | Значение |
+|---|---|
+| Кандидат | `0ca661fe8109fcecf752ad3e863355a4ec96e4ae` (23 файла, +3340/−27), база `8e326403` |
+| Привязка | `f0d4b15f2cd4c7710a812564107bb799636d8ad7` (карта + `evidence/verify/candidate-commit.txt`) |
+| Вердикт | **Approved** — состав кандидата, отпечатки, привязка (23 строки, артефакты+digest'ы), дубль и 4 гейта подтверждены моим исполнением |
+
+## 1. Состав и байты кандидата
+
+- `git show --stat 0ca661fe` — **ровно 23 файла** (+3340/−27), совпадает с `candidate-commit.txt` (name-status 23 пути, base `8e326403`).
+- 8 кодовых файлов по committed-блобам: `glass-refraction.js` `6a09d962d59d`, `glass-probe.js` `b2e6a1f987c6`, `app.js` `5a810c0f4443`, `app.css` `3c67a414da7b`, `index.html` `0971d49d5337`, `glass_refraction_test.js` `4fc4f9ca7848`, `glass_probe_test.js` `bed0d1dfca67`, `ui_win_glass_refraction_e2e.py` `612200f86b84` — **все совпадают** с проверенными в REV-WG.
+- Пост-коммитного дрейфа нет: `git diff 0ca661fe -- <пути кандидата>` даёт только добавленный привязкой `evidence/verify/candidate-commit.txt` (ожидаемо); сами файлы кандидата — идентичны. `fullscreen-policy.js` не тронут (`96db06425079`, в диффе 0).
+
+## 2. Привязка карты (strict)
+
+- `candidate_commit` карты = `0ca661fe…`; `strict_evidence: true`, `slice_graph_path` на месте; `deployed_commit` пуст (деплоя ещё не было).
+- **23 required-строки** (WG-WIN 5 + WG-ANDROID 6 + WG-VERIFY 12), у каждой — **2 evidence-элемента** с `candidate_commit=0ca661fe…`, существующим `artifact_path` и **совпадающим `artifact_sha256`** (мой скрипт проверил все элементы; спот-чек `report.md` `369ac17e1ab08160`, `owner-steps.md` `6c844e6386c4938d`, `evidence/e2e/_results.json` `16f6e79305cce8fe`, `evidence/fs-regression/_results.json` `8c38a8214840c532`, `frozen-assets.txt` `e6cba2d12f881752`, `candidate-commit.txt` `5574b0acf2d7b78d` — OK).
+- **Статусы:** VERIFIED 16 (preprod-строки), **READY_FOR_LIVE 7** — `WG-WIN-02/03/05`, `WG-ANDROID-02`, `WG-VER-01/02`, `WG-P0-05`; ни одна live-строка не VERIFIED.
+
+## 3. Дубль
+
+`MAN-WG-16` → `disposition: duplicate`, reason конкретный («строка 36 повторяет требование строки 4; отслеживается один раз под WG-P0-03 (MAN-WG-04)»); `source_line=36`/`source_text_sha256` сохранены и **совпадают с реальной строкой источника** (мой пересчёт), excerpt не пуст. Скоуп WG-VERIFY после этого = **12** (не 13).
+
+## 4. Гейты (мой прогон, verbatim)
+
+- `plan` → `stage=plan inventory=14 manual=16 scoped=0 errors=0` EXIT 0;
+- `review WG-WIN --candidate 0ca661fe…` → `scoped=5 errors=0` EXIT 0;
+- `review WG-ANDROID --candidate 0ca661fe…` → `scoped=6 errors=0` EXIT 0;
+- `review WG-VERIFY --candidate 0ca661fe…` → `scoped=12 errors=0` EXIT 0.
+
+## 5. Инцидент e2e (принят осознанно)
+
+6 файлов `evidence/e2e/**`, перезаписанных моим ре-прогоном (см. §4 REV-WG), закоммичены как есть; сверено: committed-блобы == рабочее дерево (дрейфа нет), детерминированные метрики совпадают с отчётом, различаются только тайминги/байты PNG. Принято.
+
+## 6. Что дальше (release-стадия)
+
+1. Деплой кандидата `0ca661fe…` штатным каналом; после выката `deployed_commit := 0ca661fe…` (release-стейдж гейта требует `candidate == deployed`).
+2. Живые наблюдения по 7 RFL-строкам: Windows (обход §A.1 + снимок админ-диагностики), Android (видимое смещение у кромок, перф/скролл/поворот; owner-steps §C), затем перевод строк в VERIFIED с postdeploy-evidence, привязанным к задеплоенному SHA.
+3. `check --stage release --candidate 0ca661fe… --deployed-commit <deployed>` после наблюдений; до этого — «Approved for controlled deployment, parent not DONE».
