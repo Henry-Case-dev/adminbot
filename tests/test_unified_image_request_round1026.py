@@ -766,7 +766,30 @@ class TestBoundsA3:
                                               # права персоны/ключа). Test-only
                                               # allowlist-дельта; §104/A3-гейт
                                               # не затронут.
-                                              "web/api/speech.py"))
+                                              "web/api/speech.py",
+                                              # NOTE (WIN-GLASS-P0, 18.10.2026, review-wg.md R2
+                                              # Approved, кандидат 0ca661fe): + web/static/
+                                              # glass-refraction.js (NEW слой преломления
+                                              # контролируемого фона для клиентов без
+                                              # backdrop-filter url(); Tier A-only,
+                                              # pointer-events:none, z-index:-1; e2e 37/37
+                                              # на задеплоенных байтах). Test-only
+                                              # allowlist-дельта.
+                                              "web/static/glass-refraction.js",
+                                              # NOTE (SOUL-1 W5, review-w5.md RECHECK
+                                              # Approved, кандидат bc277a3d): +
+                                              # web/api/initiative_vitality.py (NEW
+                                              # роутер «Инициатива/живость» MiniApp:
+                                              # GET /api/memory/initiative-vitality +
+                                              # POST /api/memory/initiative-check,
+                                              # только global-admin; регистрация —
+                                              # web/app.py; web/api/routes.py НЕ
+                                              # менялся — byte-freeze держится;
+                                              # реальная отправка — только ось ON +
+                                              # confirm, по умолчанию mock).
+                                              # Test-only allowlist-дельта; §104/A3-гейт
+                                              # не затронут.
+                                              "web/api/initiative_vitality.py"))
                        for ln in self._diff_names())
 
     def _diff_names(self):
