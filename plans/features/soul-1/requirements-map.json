@@ -2,7 +2,7 @@
   "schema": "openworkflow-coverage-v1",
   "source_path": "C:\\Code\\Python\\adminbot\\plans\\features\\soul-1\\source-current-task.md",
   "source_sha256": "8c42ddfabce635fe4e1f24f9522ff8642f3bd3049fac05c77ca162687051196b",
-  "candidate_commit": "c1cb64753ae82940843709ab2dcca9603850a1a8",
+  "candidate_commit": "bc277a3dc8bd54e721f5855fc6920f2ea401b25f",
   "deployed_commit": "",
   "additional_requirements": [
     {
@@ -935,8 +935,15 @@
       "acceptance": "Initiative самостоятельна в выборе повода: observer оценивает естественную группу, кому, зачем и когда сказать, писать, отреагировать или промолчать, без обязательного обращения к боту; финальная реплика идёт через тот же Core, Composer и Writer, SILENT законен и таймер не заставляет спамить, действуют условия со ссылками на источник и защитой от повторов, character snapshot совпадает у Direct и Initiative при одинаковом scope",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "bc277a3dc8bd54e721f5855fc6920f2ea401b25f",
+          "ref": "plans/features/soul-1/review-w5.md §5 (SOUL-05.8) и §1; tests/test_soul1_w5_observer_gates.py; plans/features/soul-1/w5-initiative-report.md §1 (05.8)",
+          "observation": "Initiative самостоятельна в выборе повода (observer оценивает естественную группу без обязательного обращения к боту) и использует тот же Core/Composer/Writer: равенство ревизий core/style_policy/identity с Direct-писателем того же чата, пин хода = ревизия Core (identity Direct=Initiative; мутация M4 KILLED); SILENT легален и Writer не вызывается; таймер не заставляет спамить. Engine-level проверка; живая половина (реальные доставки/снапшоты на конфе) едет с канарейкой строк 18.0/18.2/18.6/18.7.",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "M00102",
@@ -1840,8 +1847,15 @@
       "acceptance": "Факт владельца зафиксирован как основание runtime-диагностики: за несколько часов не было ни одной инициативы, при этом отсутствие отправки к конкретному часу не считается доказательством; в отчёте явно указано, что 25 заданий в сутки означало работу очереди, а не 25 спонтанных сообщений",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "bc277a3dc8bd54e721f5855fc6920f2ea401b25f",
+          "ref": "plans/features/soul-1/w5-initiative-report.md §2 «Контекст до»; plans/features/soul-1/review-w5.md RECHECK §1 (проверка всей атрибуции)",
+          "observation": "Факт владельца зафиксирован как основание runtime-диагностики, а не как доказательство срока: в отчёте прямо сказано, что «25 заданий/сутки» — это прогоны очереди (тик 300с = 288/сутки), а не инициативные сообщения; отсутствие отправки к конкретному часу не объявляется доказательством, D1 снят с роли причины тишины, атрибуция — по подтверждённому D2. Ревьюер проверил всю атрибуцию текстов (RECHECK §1).",
+          "type": "static"
+        }
+      ]
     },
     {
       "source_id": "M00281",
@@ -3740,8 +3754,21 @@
       "acceptance": "Раздел SOUL-18 покрыт: воронка инициативы, диагностика отсутствующих отправок, health отдельно от outcome и live acceptance подтверждены реальными данными",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "bc277a3dc8bd54e721f5855fc6920f2ea401b25f",
+          "ref": "plans/features/soul-1/review-w5.md §5 (строки слайса), §1 (мои прогоны); plans/features/soul-1/evidence/w5/focused-tests.txt; plans/features/soul-1/evidence/w5/perimeter.txt; plans/features/soul-1/w5-initiative-report.md §1",
+          "observation": "Раздел SOUL-18 покрыт на уровне движка/API/UI: оконная воронка 24ч/48ч из durable-checkpoint + событий + ledger, вердикты health≠outcome, одна панель Статуса; тесты слайса 33 passed, периметр 3902 passed/0 failed (база 3869/0 = ровно +33). Живые числа по реальной конфе в кандидате НЕ сняты (прод-БД не открывалась) → live-половина этой строки остаётся за канарейкой.",
+          "type": "test"
+        },
+        {
+          "candidate_commit": "bc277a3dc8bd54e721f5855fc6920f2ea401b25f",
+          "ref": "plans/features/soul-1/evidence/w5/live-acceptance-plan.md",
+          "observation": "План канарейки: GET /api/memory/initiative-vitality?chat_id=<id>&hours=24 (канон маршрута Статуса — #/), заполнение живых строк 24–48ч — postdeploy, владелец/DevOps.",
+          "type": "static"
+        }
+      ]
     },
     {
       "source_id": "L00272",
@@ -3755,8 +3782,21 @@
       "acceptance": "Реальные счётчики за 24-48 часов по цепочке initiative_observer - scan - opportunity - candidate - decision - Writer - send guard - Telegram: сканы, допустимые сообщения, opportunities по видам, decisions, silence с причинами, попытки send, успешные delivery, дубли, latency, last timestamps, нули видны как нули",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "bc277a3dc8bd54e721f5855fc6920f2ea401b25f",
+          "ref": "plans/features/soul-1/review-w5.md §1 (репро окон 24/48ч) и §5; tests/test_soul1_w5_initiative_vitality.py; plans/features/soul-1/evidence/w5/perimeter.txt; plans/features/soul-1/w5-initiative-report.md §1 (клауза 18.2)",
+          "observation": "Реальные счётчики по цепочке observer → scan → opportunity → decision → Writer → send guard → Telegram берутся из durable-источников окном 24ч/48ч (дельта накопительных counter + события + ledger); нули показываются нулями, покрытие окна честно помечено full/partial/insufficient. Репро ревьюера: scans=10/observed=600 (24ч), observed=1600 (48ч), coverage=full. Живые числа по конфе — postdeploy.",
+          "type": "test"
+        },
+        {
+          "candidate_commit": "bc277a3dc8bd54e721f5855fc6920f2ea401b25f",
+          "ref": "plans/features/soul-1/evidence/w5/live-acceptance-plan.md; plans/features/soul-1/w5-initiative-report.md §6.1",
+          "observation": "Живые 24–48ч числа по реальной конфе — LIVE_UNVERIFIED по плану канарейки (прод-БД агент не открывал по правилам проекта).",
+          "type": "static"
+        }
+      ]
     },
     {
       "source_id": "L00273",
@@ -3770,8 +3810,15 @@
       "acceptance": "Доказано на активной реальной конфе и негативных тестах, что возможности не задушены избыточными воротами, cooldown, малым lookback, гейтами обращения, сломанными chat ID, scope OFF, бюджетом, пустыми контекстами или silent fallback; частота не поднимается до спама, safety и budget не отключаются",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "bc277a3dc8bd54e721f5855fc6920f2ea401b25f",
+          "ref": "plans/features/soul-1/review-w5.md §3 (BLOCKER-1), RECHECK §1–§2; tests/test_soul1_w5_observer_gates.py; plans/features/soul-1/w5-initiative-report.md §2",
+          "observation": "Подтверждён D2 — устаревшее окно оценки (на базе свежий маркер реплики отсутствует в промпте оценки false, на кандидате true: окно = самые свежие 14 элигибельных реплик, watermark догоняет живой чат); подтверждён D3 — коды причин молчания больше не теряются (10/10; на базе reason_code → None); D1 (сброс pending/last_eval_ts) — реальный дефект состояния окна с 2 RED→GREEN-свидетелями, но НЕ установленная причина тишины (честная атрибуция по REVIEW-W5 §3/RECHECK). Негативы сохранены: дедуп, пауза после реплики бота, дневной и тематический лимиты, бюджет оценок, scope OFF, неэлигибельные строки. Живая конфа — postdeploy.",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00274",
@@ -3784,9 +3831,16 @@
       "slice": "W5",
       "acceptance": "Контролируемые владельцем частота observation и допустимая инициативная активность оформлены как мягкие целевые предпочтения с объяснением границ, настройкой по чату, inherited source, anti-spam, cooldown и real-time показом фактических причин отказов; диагностика Проверить инициативу имеет полный trace до mock send без публикации в рабочую группу по умолчанию",
       "live_required": true,
-      "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "live_when": "postdeploy",
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "bc277a3dc8bd54e721f5855fc6920f2ea401b25f",
+          "ref": "plans/features/soul-1/review-w5.md §1 (полы мягких целей, проба оси, провод кнопки), §5; tests/test_soul1_w5_observer_gates.py; plans/features/soul-1/evidence/w5/parity-off.json; plans/features/soul-1/w5-initiative-report.md §1 (18.3/18.4)",
+          "observation": "Частота observation и допустимая инициативная активность оформлены как МЯГКИЕ цели с границами (полы 600с / 4 сообщения / 1800с; дневной лимит, дедуп и бюджет не отключаются и не поднимаются), настройка по чату/inherited source, ключи в каталоге per-chat и visible (не hidden). Проверка «Проверить инициативу»: полный trace до mock send; ось публикации default OFF — OFF+confirm → publish_axis_off, ON+confirm → ровно одно (fake) сообщение + событие initiative_delivery_manifest, ON без confirm → confirm_required; POST-тело кнопки снято из сети. Реальная send-проверка в рабочую группу — только отдельным решением владельца → postdeploy.",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00275",
@@ -3800,8 +3854,21 @@
       "acceptance": "Health отдельно от outcome: при scans и opportunities больше нуля, но длительных SILENT показывается warning возможности есть, сообщений нет с распределением причин и рекомендацией; при opportunities=0 и 2000+ живых сообщениях диагностируется observer, scope или threshold, а не маркируется healthy; предусмотрено окно низкой естественной активности",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "bc277a3dc8bd54e721f5855fc6920f2ea401b25f",
+          "ref": "tests/test_soul1_w5_initiative_vitality.py; plans/features/soul-1/review-w5.md §1 (мои прогоны/мутации) и §5; plans/features/soul-1/w5-initiative-report.md §1 (18.4/18.5)",
+          "observation": "health≠outcome реализован: вердикты opportunities_no_messages (warning «возможности есть, сообщений нет» + распределение причин + совет), observer_silent_live_chat (0 поводов при 2000+ живых сообщениях → диагностика observer/scope/threshold, а не healthy), low_activity, disabled, no_data; в health.note прямо записано, что тики и прогоны не являются отправкой; предусмотрено окно низкой естественной активности. Мутация «health≠outcome не подменяет отправку» — KILLED.",
+          "type": "test"
+        },
+        {
+          "candidate_commit": "bc277a3dc8bd54e721f5855fc6920f2ea401b25f",
+          "ref": "plans/features/soul-1/review-w5.md §2 (рендер панели независимым ревьюером)",
+          "observation": "Предупреждение и health-строка проверены на реальном рендере (Playwright MCP + Browser Use/Chrome, реальные web/index.html + app.js, данные — стабы): «Возможности есть, сообщений нет», «тики: живые · прогонов: 288 · отправок: 0»; вьюпорты 390/320 без горизонтального скролла, 0 ошибок консоли. Это рендер-проверка UI, не прод-наблюдение.",
+          "type": "ui"
+        }
+      ]
     },
     {
       "source_id": "L00276",
@@ -3815,8 +3882,27 @@
       "acceptance": "В MiniApp компактная воронка, кнопка диагностики, последние реальные decision и reason в одном месте; доставленные инициативные сообщения сопоставлены с message_id и Core или Style Policy manifest; отдельно проверены Initiative с hard no quotes и no trailing period и с one_word или micro",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "bc277a3dc8bd54e721f5855fc6920f2ea401b25f",
+          "ref": "plans/features/soul-1/review-w5.md §2; plans/features/soul-1/w5-initiative-report.md §5",
+          "observation": "Одна панель в Статусе (якорь data-initiative-independent — ровно 1; вторая аналитическая стена не создана; полигонные токены #lg-lens/--lg-* отсутствуют). Внутри: предупреждение, распределение причин, «мешает сейчас», последние решения/отказы, доставка message_id 987654 · Core 8f3ac1b2 · Style 77ab90cd, кнопка проверки и её trace «Проверка без отправки в чат (mock) · LLM-вызовов: 1». Отдельная проверка hard no quotes/no trailing period и one_word/micro — тестами слайса и периметром.",
+          "type": "ui"
+        },
+        {
+          "candidate_commit": "bc277a3dc8bd54e721f5855fc6920f2ea401b25f",
+          "ref": "plans/features/soul-1/evidence/w5/js-guards.txt; tests/js/soul1_w5_initiative_panel_test.js; plans/features/soul-1/w5-initiative-report.md §5",
+          "observation": "Node-сторожа 4/4 (SOUL1-W5-PANEL-OK, W3-STATUS-UNIT-OK, W3-MODULES-UI-OK, METHODS-DUP-KEYS-OK); связка доставки с манифестом сборки — событие initiative_delivery_manifest (Core/Style ревизии в payload) + счётчики воронки в entity_ids.",
+          "type": "test"
+        },
+        {
+          "candidate_commit": "bc277a3dc8bd54e721f5855fc6920f2ea401b25f",
+          "ref": "plans/features/soul-1/evidence/w5/live-acceptance-plan.md",
+          "observation": "Реальные доставки инициативы (фактические send в живом чате) — postdeploy по плану канарейки; искусственных отправок не делалось.",
+          "type": "static"
+        }
+      ]
     },
     {
       "source_id": "L00277",
@@ -3830,8 +3916,15 @@
       "acceptance": "Live acceptance: несколько реальных естественных групповых контекстов без обращения к боту, включая уместный SILENT, реакцию без текста, короткую реплику, связанную абсурдную шутку, попытку send и фактическую доставку; при ожидании повода статус LIVE_UNVERIFIED с планом наблюдения 24-48h вместо искусственного DONE",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "bc277a3dc8bd54e721f5855fc6920f2ea401b25f",
+          "ref": "plans/features/soul-1/evidence/w5/live-acceptance-plan.md; plans/features/soul-1/w5-initiative-report.md §5/§6; plans/features/soul-1/review-w5.md §5",
+          "observation": "Live acceptance не сфальсифицирована: никто не заставлял бота спамить ради закрытия отчёта; статус LIVE_UNVERIFIED с конкретным планом наблюдения 24–48ч (уместный SILENT, реакция без текста, короткая реплика, связанная абсурдная шутка, попытка send, фактическая доставка) — вместо искусственного DONE. Запуск/владение — владелец/DevOps.",
+          "type": "static"
+        }
+      ]
     },
     {
       "source_id": "L00279",

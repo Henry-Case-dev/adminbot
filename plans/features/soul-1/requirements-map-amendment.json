@@ -2,7 +2,7 @@
   "schema": "openworkflow-coverage-v1",
   "source_path": "C:\\Code\\Python\\adminbot\\plans\\features\\soul-1\\source-architectural-clarification.md",
   "source_sha256": "338fd9c6bd323a7ea8ad80577c2e9d8b45a714d30bdd4fc9147af75931a4a35c",
-  "candidate_commit": "c1cb64753ae82940843709ab2dcca9603850a1a8",
+  "candidate_commit": "bc277a3dc8bd54e721f5855fc6920f2ea401b25f",
   "deployed_commit": "",
   "additional_requirements": [
     {

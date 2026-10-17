@@ -436,3 +436,52 @@ EXITCODE=1
 ```
 
 **Следующее действие (для Orchestrator):** (а) канарейка postdeploy: живые сценарии `SOUL-08.12` (7) + release-стадия гейта; (б) следующий слайс: проводка снов/глубокого сна/лора/историй через `authorial_system` (закрытие `SOUL-AMD.2.6`); (в) включение осей (`HUMOR_CRAFT_ENABLED`/`HUMOR_LIBRARY_ENABLED`/`HUMOR_FEEDBACK_ENABLED`) на одном чате под наблюдением.
+
+## W5 binding (bc277a3d)
+
+**Кандидат:** `bc277a3dc8bd54e721f5855fc6920f2ea401b25f` (= master `006fcfaa` + срез W5, коммит A; цепочка REVIEW-W5 **Needs Fixes** (overclaim D1) → FIX-W5 (только текст/докстринги, AST-идентичность) → **RECHECK: Approved (for controlled deployment; parent not DONE)**). Отпечаток 23-файлового набора W5 пересчитан по **коммитным** блобам — `20219378654acb9eeb77184b`, совпадает с отпечатком на ревью. В обеих картах top-level `candidate_commit` = этот SHA (single-candidate семантика; прежний указатель — W4 `c1cb6475`); `deployed_commit` пуст (пуша и деплоя нет). Коммит A: **91 файл** = 10 новых + 9 runtime/web + 3 артефакта каталога (`param-registry-round1025.{tsv,meta.md}`, `screen-map-round1025.md`) + 2 фикстуры + 55 ре-пинов чужих тестов + 12 документов слайса (`w5-initiative-report.md`, `review-w5.md`, `evidence/w5/**`).
+
+**Строк W5:** main **9** (7 inventory: `SOUL-18.0`, `SOUL-18.2`–`SOUL-18.7` + 2 additional: `SOUL-05.8`, `SOUL-18.1`); **amendment — 0**: слайс W5 в amendment не представлен, гейт amendment на слайс W5 даёт честный `FAIL: review scope has no requirements: W5` (не форсировался).
+
+| req | Статус | live_when | Основание / что осталось |
+|---|---|---|---|
+| SOUL-18.0 | READY_FOR_LIVE | postdeploy | движок/API/UI закрыты (33 passed слайса; периметр 3902/0, база 3869/0); живые числа 24–48ч — канарейка |
+| SOUL-18.2 | READY_FOR_LIVE | postdeploy | оконные счётчики 24/48ч из durable-источников (репро ревьюера 600/1600, coverage=full), нули — нулями; живая конфа — postdeploy |
+| SOUL-18.3 | READY_FOR_LIVE | postdeploy | D2 (свежее окно, маркер false→true) и D3 (причины 10/10) подтверждены, негативы сохранены; D1 — контрактная защита состояния окна, не причина тишины; живая конфа — postdeploy |
+| SOUL-18.4 | READY_FOR_LIVE | postdeploy | мягкие цели с полами (600с/4/1800с), per-chat и visible, trace до mock send, ось OFF+confirm (`publish_axis_off`/`confirm_required`); реальная отправка — только решением владельца |
+| SOUL-18.5 | VERIFIED | preprod | health≠outcome: вердикты, warning «возможности есть, сообщений нет», note «тики и прогоны ≠ отправка» + рендер панели (evidence type `ui`) |
+| SOUL-18.6 | READY_FOR_LIVE | postdeploy | одна панель Статуса (якорь ровно 1; полигонных токенов нет), доставка ↔ манифест (`message_id` + Core/Style), node-сторожа 4/4; реальные доставки — postdeploy |
+| SOUL-18.7 | READY_FOR_LIVE | postdeploy | план наблюдения 24–48ч конкретен; искусственных отправок в рабочую группу нет (§19 п.6) |
+| SOUL-05.8 | VERIFIED | postdeploy | равенство ревизий Core/Style/identity Direct↔Initiative и SILENT без Writer (мутация M4 KILLED), пин хода = ревизия Core |
+| SOUL-18.1 | VERIFIED | preprod | факт владельца = основание runtime-диагностики; «25 заданий/сутки» — прогоны очереди, не сообщения; overclaim снят (RECHECK §1) |
+
+**Помета про SOUL-05.8 (уточнение к REVIEW-W5 §5):** строка **существует** в карте — `M00091` в `additional_requirements`, исходная строка 91 (§6: «Initiative полностью самостоятельна в выборе повода…»), acceptance выведен из текста клаузы. Дубль НЕ заводился (конфликт manual `source_id` + дубль `req_id`); строка привязана к кандидату и переведена в VERIFIED по фактам ревью. Замечание ревью «в карте строки нет» верно только для массива `items` — там её действительно нет, она в additional.
+
+**Помета про SOUL-18.1 (собственная классификация Builder'а; нужно принятие или корректировка родителем/Reviewer'ом):** строки нет в таблице REVIEW-W5 §5 (ревьюер её отдельно не судил). Её acceptance — докладная (факт владельца как основание диагностики; 25 заданий/сутки ≠ сообщения), `live_required=false`; выполнена отчётом §2 и проверена RECHECK §1 (проверка всей атрибуции). Поэтому VERIFIED. Если Reviewer считает, что строку нужно вести по live-слоту — она переводится в `READY_FOR_LIVE`/postdeploy одной строкой без изменения кода.
+
+**Помета про top-level candidate (single-candidate семантика):** указатель отдан W5-кандидату, поэтому повторный прогон гейта по **другим** слайсам на этом кандидате даст FAIL по evidence-binding (их evidence привязано к собственным SHA: W4 `c1cb6475`, W6 `a5902b15`, W1 `3cc0b9c0`, W3 `4c8405e7`, W10 `c8cf77a5`). Для контрольных повторов чужих слайсов указатель временно восстанавливается (прецедент §W1/W3/W10 → «Контроль после восстановления candidate»); механика не менялась.
+
+**Гейты (review, verbatim; кандидат `bc277a3dc8bd54e721f5855fc6920f2ea401b25f`):**
+
+main, `--slice W5`:
+```
+stage=review inventory=101 manual=97 scoped=9 errors=0
+EXITCODE=0
+```
+
+amendment, `--slice W5` (**слайс W5 в amendment не представлен — честный FAIL, не форсировался**):
+```
+FAIL: review scope has no requirements: W5
+stage=review inventory=66 manual=28 scoped=0 errors=1
+EXITCODE=1
+```
+
+**Структурный контроль карт** (`--stage plan`, обе карты): `stage=plan inventory=101 manual=97 scoped=0 errors=0` / `stage=plan inventory=66 manual=28 scoped=0 errors=0`, EXITCODE=0 (и до, и после привязки).
+
+**LF-санити коммита A (после `git commit`):** `git show bc277a3d:web/app.js` — CRLF=0 (22483 LF), `git show bc277a3d:web/index.html` — CRLF=0 (10935 LF), `web/app.py` — CRLF=0; новые исходники/тесты/инструменты W5 — LF-only; `services/mca_gates.py` — смешанный EOL сохранён как в HEAD (CRLF 582, LF 2483).
+
+**Девиация A (честно):** в коммит A включён новый инструмент-стенд `tools/_soul1_w5_visual_server.py` (LF) — им лейн поднимал панель, стенд засветился в REVIEW-W5 §2; в 23-файловый отпечаток отчёта/ревью он не входил (там 9 новых файлов). Он принадлежит слайсу; других файлов вне W5-набора в коммите A нет.
+
+**Открытые W5-строки и что осталось:** (1) канарейка postdeploy по 6 live-строкам (`18.0`, `18.2`, `18.3`, `18.4`, `18.6`, `18.7`): живые числа 24–48ч, реальные сценарии и реальная отправка по явному решению владельца — `evidence/w5/live-acceptance-plan.md`; (2) не-блокирующий бэклог REVIEW-W5 §4 и RECHECK «Хвосты» (подпись `w5CheckNote` при сорванной реальной отправке, неиспользуемый `initiative_check_no_publish`, склейка строки `loadIntelFunnels`, тест пола `min_gap` при целях >24/сутки, юнит-тест оси ON, косметический дубль в `live-acceptance-plan.md`) — в эту привязку не входит и статусы не меняет; (3) `SOUL-05.7` (SILENT/REACT и tool-result) остаётся PENDING в W3 — W5 покрывает SILENT/REACT-часть через `SOUL-05.8`, закрывающая строка этим коммитом не переносится.
+
+**Следующее действие (для Orchestrator):** (а) независимое ревью привязки — статусы, evidence, честность классификаций `SOUL-18.1` и `SOUL-18.5`; (б) решение владельца по канарейке (push/deploy — вне этого лейна); (в) postdeploy: заполнение 6 live-строк + release-стадия гейта.
