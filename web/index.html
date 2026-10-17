@@ -11002,6 +11002,11 @@
        app.js::reconcileLiquidGlass и тестовый стенд. -->
   <script src="/static/glass-probe.js?v=__APP_VERSION__"></script>
   <script src="/static/glass.js?v=__APP_VERSION__"></script>
+  <!-- WIN-GLASS-P0 (18.10.2026): слой преломления контролируемого фонового
+       слоя (polygon-canvas + существующий SVG-фильтр линзы) для клиентов, где
+       `backdrop-filter: … url(#…)` не рендерится (Android WebView/WebKit).
+       Включается app.js по факту пробы __GlassProbe только для Tier A. -->
+  <script src="/static/glass-refraction.js?v=__APP_VERSION__"></script>
   <!-- F6 (ADR-1025-19 D1): adapter-слой ExecutionGraph — CLIENT-side
        нормализация `Backend metrics → Normalized execution graph → UI`
        (ТЗ §25). Zero-build, CSP `script-src 'self'`, ДО app.js: app.js

@@ -28,34 +28,44 @@ assert.strictEqual(typeof probe.details, 'function', 'details() — функци
 const decide = probe._test && probe._test.decide;
 assert.strictEqual(typeof decide, 'function', '_test.decide — чистая функция');
 
-// ── 2. Матрица решения decide() ────────────────────────────────────────────
-// Нет svg-рендера → честный B независимо от движка.
+// ── 2. Матрица решения decide() (WIN-GLASS-P0: + признак возможности слоя
+//    преломления refractionLayer = svgRender && backdrop) ───────────────────
+// Нет svg-рендера → честный B независимо от движка, слоя преломления нет.
 assert.deepStrictEqual(
   decide({ svgRender: false, backdrop: true, engine: 'chromium' }),
-  { tierA: false, reason: 'svg-render-failed' }, 'нет рендера → svg-render-failed');
+  { tierA: false, reason: 'svg-render-failed', refractionLayer: false },
+  'нет рендера → svg-render-failed');
 assert.deepStrictEqual(
   decide({ svgRender: false, backdrop: true, engine: 'webkit' }),
-  { tierA: false, reason: 'svg-render-failed' }, 'webkit+нет рендера → B');
+  { tierA: false, reason: 'svg-render-failed', refractionLayer: false },
+  'webkit+нет рендера → B');
 // Есть рендер, нет backdrop-filter вообще → no-backdrop-filter.
 assert.deepStrictEqual(
   decide({ svgRender: true, backdrop: false, engine: 'chromium' }),
-  { tierA: false, reason: 'no-backdrop-filter' }, 'нет backdrop → no-backdrop-filter');
-// Chromium + рендер + backdrop = единственный доказанный Tier A.
+  { tierA: false, reason: 'no-backdrop-filter', refractionLayer: false },
+  'нет backdrop → no-backdrop-filter');
+// Chromium + рендер + backdrop = доказанный url() в backdrop-filter: Tier A
+// (desktop-путь сохранён).
 assert.deepStrictEqual(
   decide({ svgRender: true, backdrop: true, engine: 'chromium' }),
-  { tierA: true, reason: 'probe-chromium' }, 'chromium → Tier A');
-// WebKit: bug 245510 — url() в backdrop-filter не рендерится.
+  { tierA: true, reason: 'probe-chromium', refractionLayer: true },
+  'chromium → Tier A (backdrop)');
+// WebKit: bug 245510 — url() в backdrop-filter не рендерится; слой
+// преломления (filter: url()) в WebKit рендерится → оптику даёт слой.
 assert.deepStrictEqual(
   decide({ svgRender: true, backdrop: true, engine: 'webkit' }),
-  { tierA: false, reason: 'engine-webkit-backdrop-url-no' },
-  'webkit → честный B (bug 245510)');
-// Gecko/unknown: рендер svg есть, но backdrop-url не доказан в целевых клиентах.
+  { tierA: false, reason: 'engine-webkit-backdrop-url-no', refractionLayer: true },
+  'webkit → честный B + слой возможен (bug 245510)');
+// Gecko/unknown: рендер svg есть, но backdrop-url не доказан в целевых
+// клиентах — ни Tier A, ни слой не заявляем.
 assert.deepStrictEqual(
   decide({ svgRender: true, backdrop: true, engine: 'gecko' }),
-  { tierA: false, reason: 'engine-unproven-backdrop-url' }, 'gecko → не доказан');
+  { tierA: false, reason: 'engine-unproven-backdrop-url', refractionLayer: false },
+  'gecko → не доказан');
 assert.deepStrictEqual(
   decide({ svgRender: true, backdrop: true, engine: 'unknown' }),
-  { tierA: false, reason: 'engine-unproven-backdrop-url' }, 'unknown → не доказан');
+  { tierA: false, reason: 'engine-unproven-backdrop-url', refractionLayer: false },
+  'unknown → не доказан');
 
 // ── 3. probe() в DOM-меньшей среде → честный отказ, без исключений ─────────
 probe.reset();

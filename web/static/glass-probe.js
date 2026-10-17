@@ -154,23 +154,41 @@
     return total ? ok / total : 0;
   }
 
-  /* Чистая функция решения (для Node-тестов): exp = {svgRender, backdrop,
-   * engine} → {tierA, reason}. */
+  /* WIN-GLASS-P0 (18.10.2026): проба НЕ пытается измерить композит
+   * `backdrop-filter: … url(#…)` из страницы: прочитать пиксели DOM-слоя
+   * нельзя — `CanvasRenderingContext2D.drawImage` принимает только
+   * image/canvas/video/ImageBitmap/OffscreenCanvas/VideoFrame, но НЕ
+   * произвольный DOM-элемент (проверено на кандидате: TypeError «The
+   * provided value is not of type '(CSSImageValue or HTMLCanvasElement or …)'»).
+   * Поэтому носителя оптики выбирает app.js по ДОКАЗАННОМУ факту окружения:
+   *   • canvas-проба доказывает рендер `filter/ctx.filter: url(#…)` на canvas
+   *     (svgRender) — на этом механизме стоит слой преломления;
+   *   • `backdrop-filter: … url(#…)` — Chromium-only (WebKit bug 245510,
+   *     mdn/browser-compat-data#24110, Fyrd/caniuse#7354) и не гарантирован
+   *     в WebView мобильных клиентов → на мобильных клиентах оптику даёт
+   *     слой преломления (glass-refraction.js), на desktop-классах —
+   *     проверенный url() в backdrop-filter. Честный frost остаётся, если не
+   *     доказано ни то, ни другое.
+   * Результат пробы: capability-факты + признак возможности слоя
+   * (refractionLayer = svgRender && backdrop). */
   function decide(exp) {
     if (!exp.svgRender) {
-      return { tierA: false, reason: 'svg-render-failed' };
+      return { tierA: false, reason: 'svg-render-failed', refractionLayer: false };
     }
     if (!exp.backdrop) {
-      return { tierA: false, reason: 'no-backdrop-filter' };
+      return { tierA: false, reason: 'no-backdrop-filter', refractionLayer: false };
     }
     if (exp.engine === 'chromium') {
-      return { tierA: true, reason: 'probe-chromium' };
+      return { tierA: true, reason: 'probe-chromium', refractionLayer: true };
     }
     if (exp.engine === 'webkit') {
-      // bug 245510: WebKit игнорирует url() в backdrop-filter — честный Tier B.
-      return { tierA: false, reason: 'engine-webkit-backdrop-url-no' };
+      // bug 245510: WebKit игнорирует url() в backdrop-filter — честный B;
+      // слой преломления (filter: url()) в WebKit рендерится.
+      return { tierA: false, reason: 'engine-webkit-backdrop-url-no',
+               refractionLayer: true };
     }
-    return { tierA: false, reason: 'engine-unproven-backdrop-url' };
+    return { tierA: false, reason: 'engine-unproven-backdrop-url',
+             refractionLayer: false };
   }
 
   function runCanvasProbe() {
@@ -211,6 +229,7 @@
       var backdrop = backdropSupported();
       var canvasRes = { svgRender: false, diff: 0, match: 0 };
       var reason = 'no-dom';
+      var dec = { tierA: false, reason: 'no-dom', refractionLayer: false };
       if (hasDom()) {
         try {
           ensureProbeFilter();
@@ -218,23 +237,24 @@
         } catch (e) {
           canvasRes = { svgRender: false, diff: 0, match: 0, error: String(e) };
         }
-        var dec = decide({
+        dec = decide({
           svgRender: canvasRes.svgRender,
           backdrop: backdrop,
           engine: engine,
         });
         reason = dec.reason;
-        // На не-Chromium: probe всё равно зафиксируем как провал tierA,
-        // но сохраним честную причину из decide().
       }
       var ms = Math.round(((typeof performance !== 'undefined' && performance.now) ?
         performance.now() : Date.now()) - t0);
       _result = {
-        tierA: !!(hasDom() && canvasRes.svgRender && backdrop && engine === 'chromium'),
+        tierA: !!dec.tierA,
         reason: reason,
         engine: engine,
         svgRender: !!canvasRes.svgRender,
         backdrop: backdrop,
+        // Слой преломления контролируемого фона (glass-refraction.js)
+        // возможен, когда рендерится filter: url(#…) на canvas.
+        refractionLayer: !!dec.refractionLayer,
         ms: ms,
       };
       _details = canvasRes;

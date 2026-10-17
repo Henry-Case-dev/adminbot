@@ -1579,6 +1579,24 @@
       -webkit-backdrop-filter: var(--lg-frost-hero) url(#lg-lens);
       backdrop-filter: var(--lg-frost-hero) url(#lg-lens);
     }
+    /* ═══ WIN-GLASS-P0 (18.10.2026): носитель оптики — слой преломления ═══
+       Клиент не рендерит `url()` внутри backdrop-filter (Android WebView/
+       WebKit, bug 245510): оптику даёт decorative-слой `.lg-refract`
+       (glass-refraction.js — полигональный фон production + SVG-карта линзы,
+       маска-рамка у кромок). У поверхности остаётся только frost без url():
+       двойное преломление и двойной blur исключены, контраст/прозрачность
+       сохраняются, текст/контролы не искажаются (слой под контентом,
+       pointer-events:none). */
+    [data-refract-layer="on"][data-glass-tier="a"],
+    [data-refract-layer="on"][data-glass-tier="a"] .lg-panel__backdrop,
+    /* выше по специфичности, чем `.lg-panel--hero[data-glass-tier="a"]
+       .lg-panel__backdrop` (секция lg-panel ниже по файлу) */
+    [data-refract-layer="on"][data-glass-tier="a"].lg-panel--hero
+      .lg-panel__backdrop,
+    [data-refract-layer="on"][data-glass-tier="a"].lg-panel .lg-panel__backdrop {
+      -webkit-backdrop-filter: var(--lg-frost-hero);
+      backdrop-filter: var(--lg-frost-hero);
+    }
     [data-glass="a"]::before {
       content: "";
       position: absolute; inset: 0; z-index: -1;

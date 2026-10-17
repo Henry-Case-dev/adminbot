@@ -21275,13 +21275,18 @@
       // W2-GLASS (REQ-U08-1-PROBE): sync-доступ к решению пробы. Если проба
       // ещё не готова — честный «нет» + перекур reconcile по готовности
       // (probe кэшируется в __GlassProbe, повторных рендер-тестов нет).
+      // WIN-GLASS-P0 (18.10.2026): «нет url() в backdrop-filter» (Android
+      // WebView/WebKit) больше НЕ означает «нет оптики»: если клиент реально
+      // рендерит `filter:url(#…)` (svgRender), оптику даёт слой преломления
+      // контролируемого фонового слоя (glass-refraction.js) — tier A остаётся
+      // подтверждённым, меняется только носитель эффекта (data-refract-layer).
       _probeTierA: function () {
         if (typeof window === 'undefined' ||
             !window.__GlassProbe || typeof window.__GlassProbe.probe !== 'function') {
           return { tierA: false, reason: 'probe-missing' };
         }
         var cached = window.__GlassProbe.cached();
-        if (cached) return cached;
+        if (cached) return this._applyRefractLayer(cached);
         var self = this;
         window.__GlassProbe.probe().then(function () {
           // Проба готова → пересчёт tier-разметки (идемпотентно, троттлинг
@@ -21289,6 +21294,44 @@
           self._lgSchedule();
         });
         return { tierA: false, reason: 'probe-pending' };
+      },
+      // WIN-GLASS-P0: мостик проба→решение. Возвращает решение для
+      // reconcileLiquidGlass: tierA + носитель оптики.
+      //   carrier='backdrop'  — url() в backdrop-filter (Chromium desktop,
+      //                         проверенный путь; поведение не меняется);
+      //   carrier='layer'     — мобильный клиент (android/ios): рендер url()
+      //                         в backdrop-filter там не гарантирован
+      //                         (WebKit bug 245510 / WebView), оптику даёт
+      //                         слой преломления контролируемого фона;
+      //   carrier=null        — оптики нет (честный frost/tint, Tier B).
+      _applyRefractLayer: function (cached) {
+        // Платформа — факт SDK-клиента (не UA-парсинг).
+        var platform = 'unknown';
+        try {
+          var wa = (typeof window !== 'undefined' && window.Telegram &&
+                    window.Telegram.WebApp) || null;
+          if (wa && wa.platform) platform = String(wa.platform).toLowerCase();
+        } catch (e) { platform = 'unknown'; }
+        var mobile = (platform === 'android' || platform === 'ios');
+        var canLayer = !!(cached && cached.svgRender && cached.backdrop);
+        var carrier = null;
+        if (mobile) {
+          // Мобильный клиент: backdrop-url не доказан → слой (если рендер
+          // filter: url() подтверждён canvas-пробой), иначе честный frost.
+          carrier = canLayer ? 'layer' : null;
+        } else if (cached && cached.tierA) {
+          carrier = 'backdrop';
+        }
+        var out = {
+          tierA: !!carrier,
+          refractionLayer: carrier === 'layer',
+          carrier: carrier,
+          platform: platform,
+          reason: cached ? cached.reason : 'probe-missing',
+          engine: cached ? cached.engine : 'unknown',
+        };
+        this._glassCarrier = carrier;
+        return out;
       },
       // Ручной откат/диагностика (env-only через GET /api/me.ui_flags).
       _glassTierOverride: function () {
@@ -21413,6 +21456,15 @@
           // .lg-panel носит backdrop на дочернем __backdrop-слое.
           var target = el.classList && el.classList.contains('lg-panel')
             ? (el.querySelector('.lg-panel__backdrop') || el) : el;
+          // WIN-GLASS-P0: оптику несёт слой преломления — backdrop-фильтр не
+          // дублируем (см. app.css [data-refract-layer="on"]).
+          if (isA && el.getAttribute('data-refract-layer') === 'on') {
+            try {
+              target.style.removeProperty('-webkit-backdrop-filter');
+              target.style.removeProperty('backdrop-filter');
+            } catch (eL) { /* no-op */ }
+            continue;
+          }
           if (!isA) {
             // Даунгрейд: снять inline-фильтры — работает CSS-fallback (frost).
             try {
@@ -21482,6 +21534,10 @@
         var probeRes = this._probeTierA();
         var supported = !!probeRes.tierA;
         var probeReason = probeRes.reason || 'probe-pending';
+        // WIN-GLASS-P0: носитель оптики — url() в backdrop-filter (desktop)
+        // или слой преломления контролируемого фона (Android WebView/WebKit).
+        var refractLayer = !!probeRes.refractionLayer;
+        var carrier = probeRes.carrier || (supported ? 'backdrop' : null);
         var override = this._glassTierOverride();
         // ТЗ U08.3d: hero-кап (≤3) — ТОЛЬКО для `data-glass="a"`-деклараций;
         // массовый стеклянный материал HOTFIX-TIERA идёт без капа.
@@ -21530,7 +21586,9 @@
             else if (isHero && hero >= maxNodes) reason = 'budget';
             else {
               tier = 'a';
-              reason = override === 'a' ? 'override-a' : 'probe-chromium';
+              if (override === 'a') reason = 'override-a';
+              else if (carrier === 'layer') reason = 'refract-layer';
+              else reason = 'probe-chromium';
             }
             if (tier === 'a') {
               active++;
@@ -21544,6 +21602,13 @@
           }
           el.setAttribute('data-glass-tier', tier);
           el.setAttribute('data-glass-reason', reason);
+          // WIN-GLASS-P0: пометить носитель оптики для CSS (снятие
+          // backdrop-filter там, где работает слой преломления) и слоя.
+          if (tier === 'a' && carrier === 'layer') {
+            el.setAttribute('data-refract-layer', 'on');
+          } else {
+            el.removeAttribute('data-refract-layer');
+          }
           // D-2: рост/смена размера allow-узла → пересчёт (b↔a), наблюдаем точечно.
           if (tier === 'a' && this._lgResizeObserver) {
             try { this._lgResizeObserver.observe(el); } catch (e) { /* no-op */ }
@@ -21551,6 +21616,15 @@
         }
         // W2-GLASS: subregion feImage-карты под размер каждого tier-A узла.
         this._syncLensFilters(nodes);
+        // WIN-GLASS-P0: слой преломления контролируемого фона — состав
+        // поверхностей = подтверждённый Tier A (решение модуля своё, но
+        // включается ТОЛЬКО здесь, по факту пробы).
+        try {
+          if (typeof window !== 'undefined' && window.__GlassRefraction &&
+              typeof window.__GlassRefraction.sync === 'function') {
+            window.__GlassRefraction.sync();
+          }
+        } catch (eLG) { /* слой не роняет приложение */ }
         // T-2583: R17-safe маркер выбранного tier (только числа/строки-флаги,
         // без контента и секретов) — используется диагностикой и live-гейтом.
         this.glassTierDiag = {
@@ -21558,6 +21632,8 @@
           maxNodes: maxNodes, active: active, reducedMotion: reduced,
           lowEnd: lowEnd, surfaces: nodes.length, hero: hero,
           nested: nested, dense: dense,
+          // WIN-GLASS-P0: носитель оптики (backdrop|layer|null) — в диагностике.
+          carrier: carrier,
         };
       },
       // Транзитивность (T-2540/@Reviewer): `[data-glass="a"]` достраивается
@@ -21678,6 +21754,32 @@
           }
         } catch (e2) { /* no-op */ }
         if (typeof this._syncGlassLib === 'function') this._syncGlassLib();
+        // WIN-GLASS-P0: слой преломления синхронизируется с фактическим
+        // фоном (polygon ↔ legacy) и его размером.
+        if (typeof this._syncGlassRefraction === 'function') {
+          this._syncGlassRefraction();
+        }
+      },
+      // WIN-GLASS-P0 (18.10.2026): слой преломления контролируемого фонового
+      // слоя (glass-refraction.js). Включается только когда проба доказала,
+      // что `backdrop-filter: … url(#…)` не рендерится, но `filter:url(#…)`
+      // рендерится (Android WebView/WebKit-класс). Состав поверхностей
+      // решает reconcileLiquidGlass (data-refract-layer="on" = Tier A);
+      // модуль сам держит rAF/бюджет и честный отказ без источника фона.
+      _syncGlassRefraction: function () {
+        try {
+          if (typeof window === 'undefined' || !window.__GlassRefraction) return;
+          if (typeof window.__GlassRefraction.start === 'function') {
+            // Бюджет поверхностей — тот же env-флаг, что у hero-линзы
+            // (UI_LENS_MAX_NODES, default 3; жёсткий максимум 3 в app.js).
+            var budget = (typeof this._lensMaxNodes === 'function')
+              ? this._lensMaxNodes() : 3;
+            window.__GlassRefraction.start({ maxLayers: budget });
+          }
+          if (typeof window.__GlassRefraction.invalidate === 'function') {
+            window.__GlassRefraction.invalidate();
+          }
+        } catch (e) { /* слой не роняет приложение */ }
       },
       // HOTFIX10 (ADR-1025-18 D1): vendored Liquid Glass применяется ТОЛЬКО к
       // изолированному декоративному `[data-glass-surface]` (см. glass.js).
@@ -21701,6 +21803,8 @@
         // F2 (T-2540/D-2): вернулись из скрытия — пересчитать стекло (reconcile
         // пропускал работу при document.hidden).
         if (!document.hidden) this._lgSchedule();
+        // WIN-GLASS-P0: слой преломления — «догнать» фон после скрытия/возврата.
+        this._syncGlassRefraction();
         // F8: свернули/вернули мини-апп с открытой модалкой Досье —
         // приостанавливаем/возобновляем опрос пересборки (источник — сервер).
         if (this.dossierOpen) {

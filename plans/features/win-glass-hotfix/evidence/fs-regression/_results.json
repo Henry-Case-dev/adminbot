@@ -1,0 +1,486 @@
+[
+  {
+    "scenario": "S1_android_inline",
+    "status": "PASS",
+    "checks": 25,
+    "failures": [],
+    "extra": {
+      "btnPresent": true,
+      "rect": {
+        "x": 330,
+        "y": 46,
+        "w": 44,
+        "h": 44,
+        "right": 374,
+        "bottom": 90
+      },
+      "bandTop": 36,
+      "stripRect": {
+        "x": 0,
+        "y": 0,
+        "w": 390,
+        "h": 36,
+        "right": 390,
+        "bottom": 36
+      },
+      "btnXStripArea": 0,
+      "btnXContentAreas": [
+        0,
+        0,
+        0
+      ],
+      "posFixed": false,
+      "btnBg": "rgba(170, 182, 200, 0.18)",
+      "btnBeforeContent": "none",
+      "btnBackdrop": "none",
+      "iconRect": {
+        "x": 343,
+        "y": 59,
+        "w": 18,
+        "h": 18,
+        "right": 361,
+        "bottom": 77
+      },
+      "ariaPressed": "false",
+      "ariaLabel": "На весь экран",
+      "title": "На весь экран",
+      "hiddenClass": false,
+      "fsReason": null,
+      "shellFullscreen": false,
+      "scrollWidth": 390,
+      "innerWidth": 390,
+      "innerHeight": 844,
+      "hOverflow": false,
+      "headerRect": {
+        "x": 0,
+        "y": 0,
+        "w": 390,
+        "h": 152,
+        "right": 390,
+        "bottom": 152
+      },
+      "headerPadTop": 45.6,
+      "interceptTopRight": "main-header header-sticky card-solid px-4 py-3 flex items-center gap-2 flex-wrap header-compact-v2#HEADER",
+      "interceptTopLeft": "main-header header-sticky card-solid px-4 py-3 flex items-center gap-2 flex-wrap header-compact-v2#HEADER",
+      "toasts": [],
+      "fsStripInDom": false,
+      "brandPresent": true,
+      "brandDisplay": "none/hidden",
+      "scopeRect": {
+        "x": 16,
+        "y": 48,
+        "w": 280,
+        "h": 40,
+        "right": 296,
+        "bottom": 88
+      },
+      "scopeBadge": "ЧАТ",
+      "scopeTitleSpanTruncated": false,
+      "scopeTriggerTitle": "Audit Chat",
+      "policyExplain": {
+        "code": "",
+        "text": "",
+        "nextStep": ""
+      }
+    }
+  },
+  {
+    "scenario": "S2_windowed_inline",
+    "status": "PASS",
+    "checks": 21,
+    "failures": [],
+    "extra": {}
+  },
+  {
+    "scenario": "S3_tdesktop_visible",
+    "status": "PASS",
+    "checks": 6,
+    "failures": [],
+    "extra": {
+      "btnPresent": true,
+      "rect": {
+        "x": 964,
+        "y": 12,
+        "w": 44,
+        "h": 44,
+        "right": 1008,
+        "bottom": 56
+      },
+      "bandTop": 0,
+      "stripRect": {
+        "x": 0,
+        "y": 0,
+        "w": 1024,
+        "h": 5,
+        "right": 1024,
+        "bottom": 5
+      },
+      "btnXStripArea": 0,
+      "btnXContentAreas": [
+        0,
+        0
+      ],
+      "posFixed": false,
+      "btnBg": "rgba(0, 0, 0, 0)",
+      "btnBeforeContent": "none",
+      "btnBackdrop": "none",
+      "iconRect": {
+        "x": 977,
+        "y": 25,
+        "w": 18,
+        "h": 18,
+        "right": 995,
+        "bottom": 43
+      },
+      "ariaPressed": "false",
+      "ariaLabel": "На весь экран",
+      "title": "На весь экран",
+      "hiddenClass": false,
+      "fsReason": null,
+      "shellFullscreen": false,
+      "scrollWidth": 1024,
+      "innerWidth": 1024,
+      "innerHeight": 768,
+      "hOverflow": false,
+      "headerRect": {
+        "x": 0,
+        "y": 0,
+        "w": 1024,
+        "h": 113,
+        "right": 1024,
+        "bottom": 113
+      },
+      "headerPadTop": 9.6,
+      "interceptTopRight": "main-header header-sticky card-solid px-4 py-3 flex items-center gap-2 flex-wrap header-compact-v2#HEADER",
+      "interceptTopLeft": "main-header header-sticky card-solid px-4 py-3 flex items-center gap-2 flex-wrap header-compact-v2#HEADER",
+      "toasts": [],
+      "fsStripInDom": false,
+      "brandPresent": false,
+      "brandDisplay": null,
+      "scopeRect": {
+        "x": 16,
+        "y": 64,
+        "w": 180,
+        "h": 39,
+        "right": 196,
+        "bottom": 103
+      },
+      "scopeBadge": "ЧАТ",
+      "scopeTitleSpanTruncated": false,
+      "scopeTriggerTitle": "Audit Chat",
+      "policyExplain": {
+        "code": "",
+        "text": "",
+        "nextStep": ""
+      }
+    }
+  },
+  {
+    "scenario": "S4_no_telegram",
+    "status": "PASS",
+    "checks": 3,
+    "failures": [],
+    "extra": {
+      "btnPresent": false,
+      "rect": null,
+      "bandTop": 0,
+      "stripRect": null,
+      "btnXStripArea": null,
+      "btnXContentAreas": [],
+      "posFixed": null,
+      "btnBg": null,
+      "btnBeforeContent": null,
+      "btnBackdrop": null,
+      "iconRect": null,
+      "ariaPressed": null,
+      "ariaLabel": "",
+      "title": "",
+      "hiddenClass": true,
+      "fsReason": "no_telegram_context",
+      "shellFullscreen": false,
+      "scrollWidth": 1280,
+      "innerWidth": 1280,
+      "innerHeight": 800,
+      "hOverflow": false,
+      "headerRect": {
+        "x": 216,
+        "y": 0,
+        "w": 1064,
+        "h": 64,
+        "right": 1280,
+        "bottom": 64
+      },
+      "headerPadTop": 9.6,
+      "interceptTopRight": "main-header header-sticky card-solid px-4 py-3 flex items-center gap-2 flex-wrap header-compact-v2#HEADER",
+      "interceptTopLeft": "app-sidebar#ASIDE",
+      "toasts": [],
+      "fsStripInDom": false,
+      "brandPresent": false,
+      "brandDisplay": null,
+      "scopeRect": null,
+      "scopeBadge": null,
+      "scopeTitleSpanTruncated": null,
+      "scopeTriggerTitle": null,
+      "policyExplain": {
+        "code": "no_telegram_context",
+        "text": "Приложение открыто вне Telegram — полноэкранный режим Telegram здесь недоступен.",
+        "nextStep": "Откройте Mini App из Telegram (кнопка бота) — там управление полноэкранным режимом доступно."
+      }
+    }
+  },
+  {
+    "scenario": "S5_ack_flows",
+    "status": "PASS",
+    "checks": 13,
+    "failures": [],
+    "extra": {}
+  },
+  {
+    "scenario": "S6S7_launch_fullscreen",
+    "status": "PASS",
+    "checks": 7,
+    "failures": [],
+    "extra": {}
+  },
+  {
+    "scenario": "S8_widths",
+    "status": "PASS",
+    "checks": 18,
+    "failures": [],
+    "extra": {
+      "rows": [
+        {
+          "width": 320,
+          "height": 700,
+          "btn": {
+            "x": 260,
+            "y": 46,
+            "w": 44,
+            "h": 44,
+            "right": 304,
+            "bottom": 90
+          },
+          "icon": {
+            "x": 273,
+            "y": 59,
+            "w": 18,
+            "h": 18,
+            "right": 291,
+            "bottom": 77
+          },
+          "header": {
+            "x": 0,
+            "y": 0,
+            "w": 320,
+            "h": 152,
+            "right": 320,
+            "bottom": 152
+          },
+          "headerPadTop": 45.6,
+          "band": 36
+        },
+        {
+          "width": 390,
+          "height": 844,
+          "btn": {
+            "x": 330,
+            "y": 46,
+            "w": 44,
+            "h": 44,
+            "right": 374,
+            "bottom": 90
+          },
+          "icon": {
+            "x": 343,
+            "y": 59,
+            "w": 18,
+            "h": 18,
+            "right": 361,
+            "bottom": 77
+          },
+          "header": {
+            "x": 0,
+            "y": 0,
+            "w": 390,
+            "h": 152,
+            "right": 390,
+            "bottom": 152
+          },
+          "headerPadTop": 45.6,
+          "band": 36
+        },
+        {
+          "width": 667,
+          "height": 375,
+          "btn": {
+            "x": 563,
+            "y": 26,
+            "w": 44,
+            "h": 44,
+            "right": 607,
+            "bottom": 70
+          },
+          "icon": {
+            "x": 576,
+            "y": 39,
+            "w": 18,
+            "h": 18,
+            "right": 594,
+            "bottom": 57
+          },
+          "header": {
+            "x": 0,
+            "y": 0,
+            "w": 667,
+            "h": 111,
+            "right": 667,
+            "bottom": 111
+          },
+          "headerPadTop": 26.4,
+          "band": 24
+        }
+      ]
+    }
+  },
+  {
+    "scenario": "S9_state_preservation",
+    "status": "PASS",
+    "checks": 20,
+    "failures": [],
+    "extra": {
+      "before": {
+        "hash": "#/",
+        "activeNav": "Статус",
+        "scopeText": "AAudit ChatЧАТ▾",
+        "dropdownOpen": true,
+        "searchValue": "PERM",
+        "keepMarker": "keep-42",
+        "navEntries": 1,
+        "scrollTop": 0
+      },
+      "after_js": {
+        "hash": "#/",
+        "activeNav": "Статус",
+        "scopeText": "AAudit ChatЧАТ▾",
+        "dropdownOpen": true,
+        "searchValue": "PERM",
+        "keepMarker": "keep-42",
+        "navEntries": 1,
+        "scrollTop": 0
+      },
+      "after_click": {
+        "hash": "#/",
+        "activeNav": "Статус",
+        "scopeText": "AAudit ChatЧАТ▾",
+        "dropdownOpen": false,
+        "searchValue": null,
+        "keepMarker": "keep-42",
+        "navEntries": 1,
+        "scrollTop": 0
+      }
+    }
+  },
+  {
+    "scenario": "S10_logo_freed_space",
+    "status": "PASS",
+    "checks": 9,
+    "failures": [],
+    "extra": {
+      "hidden": {
+        "scope": {
+          "x": 16,
+          "y": 48,
+          "w": 280,
+          "h": 40,
+          "right": 296,
+          "bottom": 88
+        },
+        "btn": {
+          "x": 330,
+          "y": 46,
+          "w": 44,
+          "h": 44,
+          "right": 374,
+          "bottom": 90
+        },
+        "header": {
+          "x": 0,
+          "y": 0,
+          "w": 390,
+          "h": 152,
+          "right": 390,
+          "bottom": 152
+        }
+      },
+      "shown": {
+        "scope": {
+          "x": 109,
+          "y": 48,
+          "w": 206,
+          "h": 40,
+          "right": 316,
+          "bottom": 88
+        },
+        "btn": {
+          "x": 330,
+          "y": 46,
+          "w": 44,
+          "h": 44,
+          "right": 374,
+          "bottom": 90
+        }
+      }
+    }
+  },
+  {
+    "scenario": "S11_long_title_scope",
+    "status": "PASS",
+    "checks": 11,
+    "failures": [],
+    "extra": {
+      "base": {
+        "x": 330,
+        "y": 46,
+        "w": 44,
+        "h": 44,
+        "right": 374,
+        "bottom": 90
+      },
+      "global": {
+        "x": 330,
+        "y": 46,
+        "w": 44,
+        "h": 44,
+        "right": 374,
+        "bottom": 90
+      },
+      "chat": {
+        "x": 330,
+        "y": 46,
+        "w": 44,
+        "h": 44,
+        "right": 374,
+        "bottom": 90
+      },
+      "badges": [
+        "ЧАТ",
+        "GLOBAL",
+        "ЧАТ"
+      ]
+    }
+  },
+  {
+    "scenario": "S12_admin_geom_diag",
+    "status": "PASS",
+    "checks": 30,
+    "failures": [],
+    "extra": {}
+  },
+  {
+    "scenario": "S13_non_admin_no_diag",
+    "status": "PASS",
+    "checks": 3,
+    "failures": [],
+    "extra": {}
+  }
+]
