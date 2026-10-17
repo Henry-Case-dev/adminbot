@@ -1,0 +1,19 @@
+POST87 admin_role=admin role_type=global_admin id_present=True
+POST87 init_data_len=156 auth_fresh=True
+POST87 healthz status=200 body={"status":"ok","version":"2.58.87"}
+POST87 gates status=200 total=10 on=10 off=[]
+POST87 gates_json={"unified_composer_enabled": true, "character_core_enabled": true, "speech_style_policy_enabled": true, "humor_library_enabled": true, "humor_feedback_enabled": true, "experience_lessons_enabled": true, "smart_verbalizer_modes_enabled": true, "response_plan_enabled": true, "persona_enabled": true, "character_layers_enabled": true}
+POST87 style_before_pg present=False revision=None updated=None
+POST87 style_get_before status=200 view={"source": "default", "revision": "", "rules": 0, "soft": 0, "global_present": false, "global_revision": 0, "inheritance": "factory_default"}
+POST87 style_save1 status=200 result={"applied": true, "scope": "global", "revision": 1, "rules": 0, "soft_instructions": 0, "issues": []}
+POST87 style_get_after1 status=200 view={"source": "global", "revision": "g1.0483be84f90e", "rules": 0, "soft": 0, "global_present": true, "global_revision": 1, "inheritance": "global"}
+POST87 style_after1_pg present=True revision=1 updated=2026-10-17 23:00:23.089508+00
+POST87 style_save2 status=200 result={"applied": true, "scope": "global", "revision": 2, "rules": 0, "soft_instructions": 0, "issues": []}
+POST87 style_after2_pg present=True revision=2 updated=2026-10-17 23:00:23.140741+00
+POST87 verdict_a style_global_save=True (revision grows: 1 -> 2)
+POST87 f5_traits_total=50
+POST87 trait_MARKER id=245 chat=-1002661910336 source=deep_sleep base=0 ext=1 snippet='Чаще отказывает в помощи, отправляя самостоятельно листать логи или идти на двач.'
+POST87 f5_marker_rows=1 [[245, 0, 1]]
+POST87 verdict_b f5_all_50_traits_marker_free=False
+POST87 blocks total=89 withheld=11 ids=["factcheck.base.single", "search.base.system", "summary.base.single", "checkup.base.system", "direct.base.tool_phase", "youtube.base.system", "youtube.base.video", "web.base.system", "factcheck.base.verbalizer", "summary.base.narrator", "direct.base.l2_writer"]
+POST87 done

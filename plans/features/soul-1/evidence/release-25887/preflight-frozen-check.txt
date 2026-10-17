@@ -1,0 +1,31 @@
+CMD: ['py', '-3', 'C:\\Users\\main\\.config\\opencode\\OpenCodeScratch\\adminbot-ccef72c25768\\release-25887\\frozen_check_25887.py']
+RC: 0
+DURATION: 0.7s
+
+=== 1. web/static/ changed vs base ===
+changed: ['web/static/app.css']
+=== 2. frozen assets ===
+web/static/vendor/lg-lens-map.png                  base=b4cb97adb8fc head=b4cb97adb8fc work=b4cb97adb8fc -> SAME
+web/static/vendor/liquidglass.core.0.5.3.min.js    base=77e8a873fb77 head=77e8a873fb77 work=77e8a873fb77 -> SAME
+=== 3. polygon blobs in index.html ===
+base=['3122756e'] head=['3122756e'] -> SAME
+=== 4. glass anchors in app.css ===
+anchor #lg-lens  base[len=185181 idx=3563 sha=c4e8f5e5] head[len=185766 idx=3563 sha=c4e8f5e5] SAME
+anchor --lg-     base[len=185181 idx=4673 sha=39b24975] head[len=185766 idx=4673 sha=39b24975] SAME
+=== 5. CRLF ===
+web/index.html                         base=0 head=0 -> OK
+web/app.js                             base=0 head=0 -> OK
+web/static/app.css                     base=6 head=6 -> OK
+web/static/fullscreen-policy.js        base=0 head=0 -> OK
+=== 6. WG-port markers preserved (head >= base) ===
+web/app.js             data-refract-layer     base=6 head=6 OK
+web/app.js             __GlassRefraction      base=8 head=8 OK
+web/app.js             __GlassProbe           base=9 head=9 OK
+web/app.js             glass-refraction.js    base=2 head=2 OK
+web/index.html         glass-refraction.js    base=1 head=1 OK
+web/index.html         fullscreen-policy.js   base=2 head=2 OK
+web/static/app.css     data-refract-layer     base=4 head=4 OK
+web/static/app.css     --lg-refract           base=0 head=0 OK
+=== 7. new dropdown fix marker present ===
+oversight-dd-open overflow rule: PRESENT
+RESULT: OK

@@ -1,0 +1,8 @@
+[recon rc=0, 4.5s]
+RECON_OK
+racknerd-f4e3456
+2026-10-17T22:49:39Z
+HEAD=eafbe2e7
+BRANCH=release/soul1-2.58.86
+HZ={"status":"ok","version":"2.58.86"}
+

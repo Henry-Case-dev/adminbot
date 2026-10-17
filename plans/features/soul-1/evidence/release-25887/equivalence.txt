@@ -1,0 +1,17 @@
+RUNTIME-BYTE EQUIVALENCE
+
+### git diff 7d3f0ca6 HEAD -- web/static/app.css tests/js/asap8_w2_shell_mobile_nav_test.js (expect empty)
+(empty)
+
+### git diff 68cd05b2 HEAD -- services/style_policy.py tests/test_soul1_style_policy.py (expect empty)
+(empty)
+
+### git diff eafbe2e7 HEAD -- services web config (expect only style_policy.py + app.css)
+config/settings.py       |  2 +-
+ services/style_policy.py |  5 ++++-
+ web/static/app.css       | 10 +++++++++-
+ 3 files changed, 14 insertions(+), 3 deletions(-)
+
+### git diff master HEAD -- web services config tools handlers (expect only app.css + style_policy.py + bump settings)
+config/settings.py | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
