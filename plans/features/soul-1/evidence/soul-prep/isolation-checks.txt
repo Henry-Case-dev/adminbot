@@ -1,0 +1,42 @@
+SOUL-PREP isolation checks (candidate master d98e55c6 / prod 0b7a0aca)
+
+$ git merge-base d98e55c6 release/fs-2.58.84
+31c165556dbe8c289606bd6bee1af49bb72d5794
+
+$ git diff --stat 0b7a0aca d98e55c6
+ web/api/speech.py                                  |  2950 +++++
+ web/app.js                                         |  1341 ++-
+ web/app.py                                         |    11 +
+ web/index.html                                     |  1305 ++-
+ web/static/app.css                                 |   228 +-
+ 505 files changed, 74873 insertions(+), 5650 deletions(-)
+
+$ git diff --stat 0b7a0aca d98e55c6 -- web/static/fullscreen-policy.js
+(empty)
+
+$ git diff --stat 6094a2cf d98e55c6 -- services web
+(empty)
+
+$ git ls-tree -r d98e55c6 --name-only -- plans/features/cfg
+(empty)
+
+$ git diff --stat 0b7a0aca d98e55c6 -- services
+ services/style_policy.py               | 2380 ++++++++++++++++++++++++++++++++
+ services/summary_generator.py          |    8 +-
+ services/tool_router.py                |   23 +-
+ services/web_summarizer_service.py     |    6 +-
+ services/youtube_summarizer_service.py |   13 +-
+ 38 files changed, 13582 insertions(+), 123 deletions(-)
+
+$ git diff --stat 0b7a0aca d98e55c6 -- web
+ web/api/speech.py              | 2950 ++++++++++++++++++++++++++++++++++++++++
+ web/app.js                     | 1341 +++++++++++++++++-
+ web/app.py                     |   11 +
+ web/index.html                 | 1305 +++++++++++++++++-
+ web/static/app.css             |  228 +++-
+ 6 files changed, 6032 insertions(+), 5 deletions(-)
+
+$ git ls-tree -r d98e55c6 --name-only | findstr /C:"OPENCODE_WORKFLOW_SCRATCH" /C:"node_modules" /C:".playwright-mcp"
+(empty)
+
+FS markers prod vs master (must match): buildFsGeomText app.js 4/4, index.html 1/1; fs-slot-float 0/0; data-fs-diagnostics 0/0; mobile-brand hide rule app.css 1/1.

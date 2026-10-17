@@ -1,0 +1,82 @@
+SOUL-PREP release runbook (SOUL-1: prod 2.58.84 -> 2.58.85) — вход для релиз-лейна
+(НЕ выполнялось в этом лейне; деплоя нет; ветка не создана/не запушена)
+
+Проверено локально на master (runtime == 6094a2cf; HEAD d98e55c6): registry --check OK (575 == REGISTRY),
+parity OFF 13/13; дельта prod->master 505 файлов (см. delta-classification.txt).
+
+[1] Изолированная ветка (способ (b): tree-port отревьюенного набора; без cherry-pick)
+
+    git worktree add OPENCODE_WORKFLOW_SCRATCH/soul-release-25885 0b7a0aca
+    cd OPENCODE_WORKFLOW_SCRATCH/soul-release-25885
+    git switch -c release/soul1-2.58.85
+    git checkout <master HEAD> -- services web config tests tools plans README.md AGENTS.md
+    # (<master HEAD> на момент SOUL-PREP = d98e55c6; runtime == 6094a2cf)
+    # bump 2.58.81 -> 2.58.85 по дисциплине bump_25884.py (31 файл):
+    #   config/settings.py: APP_VERSION = "2.58.81" -> "2.58.85" (1)
+    #   README.md: "**Версия:** v2.58.81" -> v2.58.85 (1)
+    #   plans/docs/param-registry-round1025.meta.md: APP_VERSION и HEAD (short)
+    #     := родитель релизного коммита (= коммит [2])
+    #   24 py-пина: '"2.58.81"' -> '"2.58.85"'; 4 JS-пина: 2\.58\.81 -> 2\.58\.85
+    git add -A
+    git commit -m "chore(release-soul1-iso): SOUL-1 (2.58.85) на базе 0b7a0aca; runtime == отревьюенный master 6094a2cf (byte-diff пуст); флаги OFF"
+    git push -u origin release/soul1-2.58.85
+
+    Эквивалентность (записать verbatim в evidence релиза):
+      git diff release/soul1-2.58.85 6094a2cf -- services web     -> ПУСТО (то же vs a891b721/d98e55c6)
+      git diff release/soul1-2.58.85 <master HEAD> -- config      -> только APP_VERSION
+      git diff --name-only 0b7a0aca release/soul1-2.58.85 | wc -l -> 505
+      git diff 0b7a0aca release/soul1-2.58.85 -- web/static/fullscreen-policy.js -> ПУСТО
+      git ls-tree -r release/soul1-2.58.85 --name-only -- plans/features/cfg     -> ПУСТО
+      grep -E "OPENCODE_WORKFLOW_SCRATCH|node_modules|\.playwright-mcp" -r <tree> -> нет
+      секрет-скан дельты (api[_-]?key|token|password c литералами >=16)           -> новых нет
+
+[2] Проверки перед выкатом на ТОЧНОМ дереве ветки
+      node tests/js/*.js                                             -> 86/86
+      py -3 -m pytest tests/test_soul1_*.py -q                       -> все зелёные
+      py -3 -m pytest tests/test_soul1_composer_parity_off.py -q     -> 13 passed
+      py -3 tools/gen_param_registry_round1025.py --check            -> CHECK OK: 575 == REGISTRY
+      py -3 -m pytest tests -k "webapp or ia_ or soul1 or round1025 or round1024 or ui_ or glass or persona or prompt or registry or catalog"  -> 3915/0
+      py -3 -m pytest tests -k "embedding or graphrag or quota or summary_memory or memory_maintenance" -> 534/0
+      py -3 tools/ui_asap8_w2_fullscreen_e2e.py                      -> 12/12 (166 проверок)
+      py -3 tools/ui_asap8_w2_shell_e2e.py                           -> W2-SHELL-E2E-OK
+      py -3 tools/ui_soul1_w6_speech_e2e.py                          -> W6 UI matrix (реальный Chrome)
+      py -3 tools/ui_soul1_w7_fullscreen_explain_e2e.py              -> W7 dev-API
+      py -3 plans/features/soul-1/evidence/fs-hotfix/frozen_check.py -> frozen OK (полигон не тронут)
+
+[3] Деплой (шаблон release25884; один recon+один основной SSH-коннект, graceful restart)
+      git fetch origin release/soul1-2.58.85; git checkout -B release/soul1-2.58.85 origin/...
+      ожидать: HEAD == релизный коммит; DELTA_FILES=505; TRACKED_MOD=0; untracked-конфликты=0
+      sha256-спот web/index.html, app.js, app.css, static/fullscreen-policy.js,
+                 services/prompt_registry.py, services/prompt_composer.py, web/api/speech.py,
+                 config/settings.py == блобам релизного коммита
+      restart -> graceful-стопы (polling stop -> runtime sqlite closed -> bye), healthz 2.58.85,
+                 SQLite-миграция v36 humor_samples в логе (аддитивная)
+      443: /web/ + статические SHA == релизным; /api/speech/overview -> 401/403 (НЕ 404);
+           /api/memory/initiative-vitality -> 401/403; SOUL-маркеры в отданном index
+      пост-деплой OFF-проверка: env-оси не заданы, flags.* SOUL-ключей нет, parity OFF живая
+
+[4] Включение (PET_PROJECT: после проверок; пошагово; откат на каждом шаге)
+      0) PG-backup (read-only): bot_settings prompts.* + chat_profiles.overrides + flags.* -> файл-evidence
+         (закрывает пункт (а) маркера composer_flag_release_gate)
+      a) master: .env += UNIFIED_COMPOSER_ENABLED=1  -> systemctl restart (graceful)
+                 PG: bot_settings['flags.unified_composer_enabled'] = true  (скрипт, hot)
+         verify: /api/speech/overview axes; манифест слоёв; в effective нет persona-маркеров
+         rollback: PG=false (hot); или убрать env + restart (cold)
+      b) Core:  создание документа character.core (Factory Default = авторский SOUL-02) через
+         «Характер» / POST /api/speech/block/core.personality (hot; provenance не требуется)
+         rollback: сброс блока к фабрике / flags.character_core_enabled=false (hot)
+      c) Style: документ style.policy через POST /api/speech/style (hot)
+         rollback: сброс документа/правила (hot)
+      d) Humor: env HUMOR_CRAFT_ENABLED=1 (+PG flags.humor_craft_enabled=true) и при желании
+         HUMOR_LIBRARY_ENABLED=1 (+flags.humor_library_enabled) / HUMOR_FEEDBACK_ENABLED=1
+         (+flags.humor_feedback_enabled); cache: hot после рестарта; откат — теми же осями
+         HUMOR_CANDIDATE_EVAL_ENABLED — оставить OFF (платные вызовы; не нужно для фичи)
+      e) Initiative real-send ось: POST /api/config flags.initiative_diagnostics_publish_enabled=true
+         (каталог, hot; отправка всё равно требует confirm_publish в запросе) — откат тумблером
+      f) WARNING «persisted speech value withheld» — ожидаемый диагностический поток по 11 ключам
+         (R17-safe: key/block/reason/sha/chars). Не блокер; смягчение (bounded dedup) — backlog.
+
+[5] Полный откат
+      git checkout release/fs-2.58.84 (0b7a0aca) + systemctl restart
+      SQLite v36 остаётся (аддитивно; старая версия её игнорирует); PG-значения не мутировались;
+      env-строки .env удалить; flags.* SOUL-ключи -> false/удалить (hot даже без отката кода).

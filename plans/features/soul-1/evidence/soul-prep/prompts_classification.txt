@@ -1,0 +1,69 @@
+# live prompts.* classification vs candidate registry (master a891b721)
+# factory = current code canon (registry soul1-w3-1, factory_set 0fc99f73d646)
+
+== live prompts.* classification (25 keys) ==
+prompts.checkup_system_prompt                              1e8a3c69cf7b len=2312  mk=4  WITHHOLD factory(code-canon) (factory=1e8a3c69cf7b)
+prompts.compress_system_prompt                             746e75692d11 len=396   mk=0  -        factory(code-canon) (factory=746e75692d11)
+prompts.direct_chat_synthesizer_system_prompt              6bae7eb26bc3 len=1107  mk=0  -        factory(code-canon) (factory=6bae7eb26bc3)
+prompts.direct_chat_system_prompt                          cf404931f84c len=5294  mk=3  WITHHOLD factory(code-canon) (factory=cf404931f84c)
+prompts.direct_chat_verbalizer_system_prompt               39a7cce1523e len=1690  mk=2  WITHHOLD factory(code-canon) (factory=39a7cce1523e)
+prompts.direct_l1_planner_system_prompt                    99a207313889 len=2423  mk=0  -        factory(code-canon) (factory=99a207313889)
+prompts.extract_system_prompt                              3459d3580788 len=616   mk=0  -        factory(code-canon) (factory=3459d3580788)
+prompts.factcheck_analyst_system_prompt                    b8c21caf1aab len=2078  mk=0  -        factory(code-canon) (factory=b8c21caf1aab)
+prompts.factcheck_system_prompt                            76c4beb11c63 len=4666  mk=3  WITHHOLD factory(code-canon) (factory=76c4beb11c63)
+prompts.factcheck_verbalizer_system_prompt                 5fbf61cea310 len=1712  mk=2  WITHHOLD factory(code-canon) (factory=5fbf61cea310)
+prompts.search_system_prompt                               ba43fb679db6 len=2622  mk=4  WITHHOLD factory(code-canon) (factory=ba43fb679db6)
+prompts.summary_cover_style                                19d2dd88086e len=31    mk=0  -        factory(code-canon) (factory=19d2dd88086e)
+prompts.summary_cover_style_id                             e3b0c44298fc len=0     mk=0  -        custom (factory=n/a)
+prompts.summary_editor_system_prompt                       6a1f3432889c len=2023  mk=0  -        custom (factory=cbd95e5e2489)
+prompts.summary_l1_clusterizer_system_prompt               45117539651c len=3312  mk=0  -        factory(code-canon) (factory=45117539651c)
+prompts.summary_l2_writer_system_prompt                    f832fb8cb5e4 len=8388  mk=0  -        factory(code-canon) (factory=f832fb8cb5e4)
+prompts.summary_narrator_system_prompt                     43160d5f9c2c len=1850  mk=2  WITHHOLD factory(code-canon) (factory=43160d5f9c2c)
+prompts.summary_system_prompt                              d697b0745b29 len=3558  mk=4  WITHHOLD factory(code-canon) (factory=d697b0745b29)
+prompts.verbilizer_default_mode                            645dfcb4d1d2 len=7     mk=0  -        custom (factory=c633eb52f63c)
+prompts.verbilizer_mode_casual                             6e5c967b3c08 len=229   mk=0  -        factory(code-canon) (factory=6e5c967b3c08)
+prompts.verbilizer_mode_deep_research                      4e0c83a7b0ea len=193   mk=1  -        factory(code-canon) (factory=4e0c83a7b0ea)
+prompts.verbilizer_mode_serious                            e85db3cb382f len=186   mk=0  -        factory(code-canon) (factory=e85db3cb382f)
+prompts.webpage_system_prompt                              7801085b6ef5 len=2071  mk=4  WITHHOLD factory(code-canon) (factory=7801085b6ef5)
+prompts.youtube_system_prompt                              e0a1ffaf18a1 len=2252  mk=4  WITHHOLD factory(code-canon) (factory=e0a1ffaf18a1)
+prompts.youtube_video_system_prompt                        c8bba06ec6a8 len=2248  mk=4  WITHHOLD factory(code-canon) (factory=c8bba06ec6a8)
+
+withholding-class keys with persisted values: 11
+withholding-class with markers>0: 11
+non-withholding customs: ['prompts.summary_cover_style_id', 'prompts.summary_editor_system_prompt', 'prompts.verbilizer_default_mode']
+factory-equal values: ['prompts.checkup_system_prompt', 'prompts.compress_system_prompt', 'prompts.direct_chat_synthesizer_system_prompt', 'prompts.direct_chat_system_prompt', 'prompts.direct_chat_verbalizer_system_prompt', 'prompts.direct_l1_planner_system_prompt', 'prompts.extract_system_prompt', 'prompts.factcheck_analyst_system_prompt', 'prompts.factcheck_system_prompt', 'prompts.factcheck_verbalizer_system_prompt', 'prompts.search_system_prompt', 'prompts.summary_cover_style', 'prompts.summary_l1_clusterizer_system_prompt', 'prompts.summary_l2_writer_system_prompt', 'prompts.summary_narrator_system_prompt', 'prompts.summary_system_prompt', 'prompts.verbilizer_mode_casual', 'prompts.verbilizer_mode_deep_research', 'prompts.verbilizer_mode_serious', 'prompts.webpage_system_prompt', 'prompts.youtube_system_prompt', 'prompts.youtube_video_system_prompt']
+
+
+# expected effect of suppression/withholding (candidate code)
+
+REGISTRY_VERSION=soul1-w3-1 FACTORY_SET=0fc99f73d646
+key                                                      live_sha12    factory_sha12 class     suppr  removed_labels
+prompts.checkup_system_prompt                            1e8a3c69cf7b  1e8a3c69cf7b  factory   yes    persona.identity_sentence,persona.safety_circumvention,persona.tone_label,persona.checkup_humiliation,persona.checkup_language
+prompts.compress_system_prompt                           746e75692d11  746e75692d11  factory   no     
+prompts.direct_chat_synthesizer_system_prompt            6bae7eb26bc3  6bae7eb26bc3  factory   no     
+prompts.direct_chat_system_prompt                        cf404931f84c  cf404931f84c  factory   yes    persona.identity_sentence,persona.direct_style_label
+prompts.direct_chat_verbalizer_system_prompt             39a7cce1523e  39a7cce1523e  factory   yes    persona.identity_sentence
+prompts.direct_l1_planner_system_prompt                  99a207313889  99a207313889  factory   no     
+prompts.extract_system_prompt                            3459d3580788  3459d3580788  factory   no     
+prompts.factcheck_analyst_system_prompt                  b8c21caf1aab  b8c21caf1aab  factory   no     
+prompts.factcheck_system_prompt                          76c4beb11c63  76c4beb11c63  factory   yes    persona.identity_sentence,persona.safety_circumvention,persona.tone_label,persona.bot_knowledge_hostility
+prompts.factcheck_verbalizer_system_prompt               5fbf61cea310  5fbf61cea310  factory   yes    persona.identity_sentence,persona.bot_knowledge_hostility
+prompts.search_system_prompt                             ba43fb679db6  ba43fb679db6  factory   yes    persona.identity_sentence,persona.safety_circumvention,persona.tone_label,persona.bot_knowledge_hostility,persona.search_sneer
+prompts.summary_cover_style                              19d2dd88086e  19d2dd88086e  factory   no     
+prompts.summary_cover_style_id                           e3b0c44298fc  n/a           custom    -      
+prompts.summary_editor_system_prompt                     6a1f3432889c  cbd95e5e2489  custom    -      
+prompts.summary_l1_clusterizer_system_prompt             45117539651c  45117539651c  factory   no     
+prompts.summary_l2_writer_system_prompt                  f832fb8cb5e4  f832fb8cb5e4  factory   no     
+prompts.summary_narrator_system_prompt                   43160d5f9c2c  43160d5f9c2c  factory   yes    persona.identity_sentence
+prompts.summary_system_prompt                            d697b0745b29  d697b0745b29  factory   yes    persona.identity_sentence,persona.safety_circumvention,persona.tone_label,persona.bot_knowledge_hostility
+prompts.verbilizer_default_mode                          645dfcb4d1d2  c633eb52f63c  custom    -      
+prompts.verbilizer_mode_casual                           6e5c967b3c08  6e5c967b3c08  factory   no     
+prompts.verbilizer_mode_deep_research                    4e0c83a7b0ea  4e0c83a7b0ea  factory   yes    persona.mode_deep_research
+prompts.verbilizer_mode_serious                          e85db3cb382f  e85db3cb382f  factory   no     
+prompts.webpage_system_prompt                            7801085b6ef5  7801085b6ef5  factory   yes    persona.identity_sentence,persona.safety_circumvention,persona.tone_label,persona.bot_knowledge_hostility
+prompts.youtube_system_prompt                            e0a1ffaf18a1  e0a1ffaf18a1  factory   yes    persona.identity_sentence,persona.safety_circumvention,persona.tone_label,persona.bot_knowledge_hostility
+prompts.youtube_video_system_prompt                      c8bba06ec6a8  c8bba06ec6a8  factory   yes    persona.identity_sentence,persona.safety_circumvention,persona.tone_label,persona.bot_knowledge_hostility
+
+live == current factory: 22 of 25
+live in known_canon_hashes: 22
+suppression removes segments for: [('prompts.checkup_system_prompt', 'persona.identity_sentence,persona.safety_circumvention,persona.tone_label,persona.checkup_humiliation,persona.checkup_language'), ('prompts.direct_chat_system_prompt', 'persona.identity_sentence,persona.direct_style_label'), ('prompts.direct_chat_verbalizer_system_prompt', 'persona.identity_sentence'), ('prompts.factcheck_system_prompt', 'persona.identity_sentence,persona.safety_circumvention,persona.tone_label,persona.bot_knowledge_hostility'), ('prompts.factcheck_verbalizer_system_prompt', 'persona.identity_sentence,persona.bot_knowledge_hostility'), ('prompts.search_system_prompt', 'persona.identity_sentence,persona.safety_circumvention,persona.tone_label,persona.bot_knowledge_hostility,persona.search_sneer'), ('prompts.summary_narrator_system_prompt', 'persona.identity_sentence'), ('prompts.summary_system_prompt', 'persona.identity_sentence,persona.safety_circumvention,persona.tone_label,persona.bot_knowledge_hostility'), ('prompts.verbilizer_mode_deep_research', 'persona.mode_deep_research'), ('prompts.webpage_system_prompt', 'persona.identity_sentence,persona.safety_circumvention,persona.tone_label,persona.bot_knowledge_hostility'), ('prompts.youtube_system_prompt', 'persona.identity_sentence,persona.safety_circumvention,persona.tone_label,persona.bot_knowledge_hostility'), ('prompts.youtube_video_system_prompt', 'persona.identity_sentence,persona.safety_circumvention,persona.tone_label,persona.bot_knowledge_hostility')]

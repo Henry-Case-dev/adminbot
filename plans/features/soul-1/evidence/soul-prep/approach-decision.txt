@@ -1,0 +1,31 @@
+SOUL-PREP: approach (a) cherry-pick vs (b) tree-port — trial evidence
+trial worktree: OPENCODE_WORKFLOW_SCRATCH/soulprep-merge @ 0b7a0aca (no push, no deploy)
+
+== trial A1: cherry-pick chain W1 -> W3 ==
+W1 cherry-pick rc-tail: sts/test_soul1_factory_defaults.py
+ create mode 100644 tests/test_soul1_registry_completeness.py
+ create mode 100644 tests/test_soul1_registry_legacy_removal.py
+W3 cherry-pick tail: fied Delta-catalog=0).
+hint: After resolving the conflicts, mark them with
+hint: "git add/rm <pathspec>", then run
+hint: "git cherry-pick --continue".
+hint: You can instead skip this commit with "git cherry-pick --skip".
+hint: To abort and get back to the state before "git cherry-pick",
+hint: run "git cherry-pick --abort".
+hint: Disable this message with "git config set advice.mergeConflict false"
+conflicted files:
+services/prompt_registry.py
+
+== trial A2: cherry-pick W6 (a5902b15) onto prod base ==
+(conflicts: NONE)
+files staged: 115
+web/app.js     trial=cc4f17d0abc5a54abdafdcdbd7c84ec2b165b26b  master_at_W6=45f07428016e274d15920cad2e215a4fb8c6d3a4  prod=fd6a42f2c1c74e3cd823a030408209188645bbb5
+web/index.html trial=c95d3a8b6bbc856a0c8403152c5acdfc3f1cc8f9  master_at_W6=8b42cd96990c53fd062ff387d1d096bd7f1fb8bc  prod=0884bfa2cfc75a0e487f22fce3fde73c3213ed8b
+web/static/app.css trial=d0e232e5e0feb4a05cfa5de51847cdac84199a06 master_at_W6=3b616c1f61a26e37f39cdded5aa63c8cca62f536 prod=e0fd12770cd26dbeff7bc07401979918aad26a83
+
+CONCLUSION: (a) needs conflict resolution at chain step 2 already, and
+conflict-free steps still produce web bytes that were never reviewed as a
+combination (fs-port already present on prod while master's W6/W7 commits were
+made before fs) -> any such byte would need re-review/re-test.
+(b) tree-port of the reviewed file set is byte-identical to master by
+construction; runtime delta vs master provable empty with git diff.

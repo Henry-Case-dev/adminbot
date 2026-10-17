@@ -1,0 +1,163 @@
+# SOUL-PREP live prod snapshot 2026-10-17 (single read-only SSH connect, secrets scrubbed; source OPENCODE_WORKFLOW_SCRATCH/soulprep/snapshot_out.txt)
+
+=== S0 pre-state ===
+NOW_UTC=2026-10-17 19:04:41
+HEAD=0b7a0aca416a418e099e157eca77d0a3137b3405
+BRANCH=release/fs-2.58.84
+TRACKED_MOD=0
+UNTRACKED=13
+SERVICE=active
+HZ={"status":"ok","version":"2.58.84"}
+UNIT_USER=root
+UNIT_ENVFILE=
+UNIT_EXECSTART={ path=/var/www/admin_bot/venv/bin/python ; argv[]=/var/www/admin_bot/venv/bin/python /var/www/admin_bot/bot.py ; ignore_errors=no ; start_time=[Sat 2026-10-17 18:45:49 UTC] ; stop_time=[n/a] ; pid=32
+
+=== S1 env axes (whitelist only) ===
+UNIT_ENV: none
+--- .env whitelist ---
+DOTENV: none/unreadable
+--- running process environ ---
+PROC_ENV: none/denied
+
+bash: line 1: /proc/3204968/environ: Permission denied
+
+=== S2 inventory probe ===
+PY_INTERP=/var/www/admin_bot/venv/bin/python
+SNAP app_version=?
+SNAP postgres_dsn=present
+SNAP bot_settings_rows=514
+SNAP flag flags.alan_replies_enabled=false cat=flags
+SNAP flag flags.belief_decay_enabled=false cat=flags
+SNAP flag flags.bot_self_awareness_enabled=true cat=flags
+SNAP flag flags.budgets_enabled=true cat=flags
+SNAP flag flags.character_layers_enabled=true cat=flags
+SNAP flag flags.character_speech_enabled=true cat=flags
+SNAP flag flags.chat_autonomous_reply_enabled=true cat=flags
+SNAP flag flags.chat_context_budgets_enabled=true cat=flags
+SNAP flag flags.chat_decision_ignore_trivial_enabled=true cat=flags
+SNAP flag flags.chat_decision_image_reactions_enabled=true cat=flags
+SNAP flag flags.chat_decision_reactions_enabled=true cat=flags
+SNAP flag flags.chat_dedup_enabled=true cat=flags
+SNAP flag flags.chat_importance_keep_enabled=true cat=flags
+SNAP flag flags.chat_mood_enabled=true cat=flags
+SNAP flag flags.chat_rag_rerank_enabled=true cat=flags
+SNAP flag flags.chat_running_summary_enabled=true cat=flags
+SNAP flag flags.chat_silence_enabled=true cat=flags
+SNAP flag flags.chat_silent_ack_enabled=true cat=flags
+SNAP flag flags.chat_style_anchors_enabled=true cat=flags
+SNAP flag flags.checkup_enabled=true cat=flags
+SNAP flag flags.checkup_memory_metrics_enabled=true cat=flags
+SNAP flag flags.common_media_enabled=false cat=flags
+SNAP flag flags.common_work_media_enabled=false cat=flags
+SNAP flag flags.db_wal_checkpoint_enabled=true cat=flags
+SNAP flag flags.dead_page_post_on_join=false cat=flags
+SNAP flag flags.deep_sleep_enabled=false cat=flags
+SNAP flag flags.dig_enabled=true cat=flags
+SNAP flag flags.dig_pre_gate_enabled=true cat=flags
+SNAP flag flags.direct_chat_botword_enabled=true cat=flags
+SNAP flag flags.download_enabled=true cat=flags
+SNAP flag flags.embed_cache_enabled=true cat=flags
+SNAP flag flags.enable_voice_transcription=true cat=flags
+SNAP flag flags.episodes_backfill_enabled=true cat=flags
+SNAP flag flags.episodes_compiler_facade_enabled=true cat=flags
+SNAP flag flags.episodes_continuation_enabled=true cat=flags
+SNAP flag flags.episodes_enabled=true cat=flags
+SNAP flag flags.factcheck_enabled=true cat=flags
+SNAP flag flags.graph_dedup_enabled=true cat=flags
+SNAP flag flags.graph_episode_merge_enabled=true cat=flags
+SNAP flag flags.graph_fact_touch_enabled=true cat=flags
+SNAP flag flags.graph_mmr_enabled=true cat=flags
+SNAP flag flags.graph_rag_enabled=true cat=flags
+SNAP flag flags.graph_review_enabled=true cat=flags
+SNAP flag flags.graph_time_decay_enabled=true cat=flags
+SNAP flag flags.graph_user_quota_enabled=true cat=flags
+SNAP flag flags.image_generation_module_enabled=true cat=flags
+SNAP flag flags.initiative_enabled=true cat=flags
+SNAP flag flags.initiative_observer_enabled=true cat=flags
+SNAP flag flags.intent_decision_enabled=true cat=flags
+SNAP flag flags.intent_heartbeat_enabled=true cat=flags
+SNAP flag flags.irony_filter_enabled=false cat=flags
+SNAP flag flags.kostik_enabled=true cat=flags
+SNAP flag flags.legacy_traits_migration_enabled=true cat=flags
+SNAP flag flags.llm_cb_enabled=true cat=flags
+SNAP flag flags.lore_auto_enabled=true cat=flags
+SNAP flag flags.lore_compiler_enabled=true cat=flags
+SNAP flag flags.lore_inject_enabled=true cat=flags
+SNAP flag flags.lore_worker_enabled=true cat=flags
+SNAP flag flags.memory_backup_enabled=true cat=flags
+SNAP flag flags.memory_commands_user_enabled=false cat=flags
+SNAP flag flags.mimic_enabled=false cat=flags
+SNAP flag flags.mimic_forwards_enabled=false cat=flags
+SNAP flag flags.olya_always_send=false cat=flags
+SNAP flag flags.olya_caption_enabled=false cat=flags
+SNAP flag flags.olya_caption_mention_enabled=false cat=flags
+SNAP flag flags.olya_enabled=false cat=flags
+SNAP flag flags.olya_repost_enabled=true cat=flags
+SNAP flag flags.permsoc_enabled=false cat=flags
+SNAP flag flags.persona_enabled=true cat=flags
+SNAP flag flags.postprocess_form_guard_enabled=true cat=flags
+SNAP flag flags.relations_tone_enabled=false cat=flags
+SNAP flag flags.search_enabled=true cat=flags
+SNAP flag flags.search_rerank_enabled=true cat=flags
+SNAP flag flags.self_model_enabled=true cat=flags
+SNAP flag flags.send_recheck_enabled=true cat=flags
+SNAP flag flags.slavik_enabled=true cat=flags
+SNAP flag flags.smart_cache_enabled=true cat=flags
+SNAP flag flags.stories_manage_enabled=true cat=flags
+SNAP flag flags.stories_vitrina_enabled=true cat=flags
+SNAP flag flags.style_scope_enabled=true cat=flags
+SNAP flag flags.summary_admin_only=false cat=flags
+SNAP flag flags.summary_enabled=true cat=flags
+SNAP flag flags.summary_filter_enabled=true cat=flags
+SNAP flag flags.summary_filter_reply_context_enabled=true cat=flags
+SNAP flag flags.summary_hybrid_l1_repair_enabled=true cat=flags
+SNAP flag flags.summary_hybrid_l1_retry_enabled=true cat=flags
+SNAP flag flags.summary_hybrid_l2_enabled=true cat=flags
+SNAP flag flags.summary_legacy_fallback_enabled=true cat=flags
+SNAP flag flags.summary_streaming_enabled=false cat=flags
+SNAP flag flags.throttle_persistent_enabled=true cat=flags
+SNAP flag flags.trait_rules_enabled=true cat=flags
+SNAP flag flags.typing_indicator_enabled=true cat=flags
+SNAP flag flags.vec_int8_enabled=true cat=flags
+SNAP flag flags.video_summary_enabled=true cat=flags
+SNAP flag flags.vision_enabled=false cat=flags
+SNAP flag flags.webpage_enabled=true cat=flags
+SNAP flag flags.ytdlp_for_youtube=true cat=flags
+SNAP key prompts.checkup_system_prompt cat=prompts sha12=1e8a3c69cf7b len=2312 markers=4
+SNAP key prompts.compress_system_prompt cat=prompts sha12=746e75692d11 len=396 markers=0
+SNAP key prompts.direct_chat_synthesizer_system_prompt cat=prompts sha12=6bae7eb26bc3 len=1107 markers=0
+SNAP key prompts.direct_chat_system_prompt cat=prompts sha12=cf404931f84c len=5294 markers=3
+SNAP key prompts.direct_chat_verbalizer_system_prompt cat=prompts sha12=39a7cce1523e len=1690 markers=2
+SNAP key prompts.direct_l1_planner_system_prompt cat=prompts sha12=99a207313889 len=2423 markers=0
+SNAP key prompts.extract_system_prompt cat=prompts sha12=3459d3580788 len=616 markers=0
+SNAP key prompts.factcheck_analyst_system_prompt cat=prompts sha12=b8c21caf1aab len=2078 markers=0
+SNAP key prompts.factcheck_system_prompt cat=prompts sha12=76c4beb11c63 len=4666 markers=3
+SNAP key prompts.factcheck_verbalizer_system_prompt cat=prompts sha12=5fbf61cea310 len=1712 markers=2
+SNAP key prompts.search_system_prompt cat=prompts sha12=ba43fb679db6 len=2622 markers=4
+SNAP key prompts.summary_cover_style cat=prompts sha12=19d2dd88086e len=31 markers=0
+SNAP key prompts.summary_cover_style_id cat=prompts sha12=e3b0c44298fc len=0 markers=0
+SNAP key prompts.summary_editor_system_prompt cat=prompts sha12=6a1f3432889c len=2023 markers=0
+SNAP key prompts.summary_l1_clusterizer_system_prompt cat=prompts sha12=45117539651c len=3312 markers=0 snippet='СИСТЕМНАЯ РОЛЬ: Ты — кластеризатор саммари (Conversation Disenta'
+SNAP key prompts.summary_l2_writer_system_prompt cat=prompts sha12=f832fb8cb5e4 len=8388 markers=0 snippet='СИСТЕМНАЯ РОЛЬ: Ты — писатель итоговой статьи по готовому пакету'
+SNAP key prompts.summary_narrator_system_prompt cat=prompts sha12=43160d5f9c2c len=1850 markers=2
+SNAP key prompts.summary_system_prompt cat=prompts sha12=d697b0745b29 len=3558 markers=4
+SNAP key prompts.verbilizer_default_mode cat=prompts sha12=645dfcb4d1d2 len=7 markers=0
+SNAP key prompts.verbilizer_mode_casual cat=prompts sha12=6e5c967b3c08 len=229 markers=0
+SNAP key prompts.verbilizer_mode_deep_research cat=prompts sha12=4e0c83a7b0ea len=193 markers=1
+SNAP key prompts.verbilizer_mode_serious cat=prompts sha12=e85db3cb382f len=186 markers=0
+SNAP key prompts.webpage_system_prompt cat=prompts sha12=7801085b6ef5 len=2071 markers=4
+SNAP key prompts.youtube_system_prompt cat=prompts sha12=e0a1ffaf18a1 len=2252 markers=4
+SNAP key prompts.youtube_video_system_prompt cat=prompts sha12=c8bba06ec6a8 len=2248 markers=4
+SNAP inventory_json={"flags.alan_replies_enabled": {"category": "flags", "kind": "str", "len": 5, "markers": 0, "sha12": "fcbcf165908d", "updated": "2026-08-29 17:04:33.823653+00"}, "flags.belief_decay_enabled": {"category": "flags", "kind": "str", "len": 5, "markers": 0, "sha12": "fcbcf165908d", "updated": "2026-09-12 20:52:36.638921+00"}, "flags.bot_self_awareness_enabled": {"category": "flags", "kind": "str", "len": 4, "markers": 0, "sha12": "b5bea41b6c62", "updated": "2026-09-13 09:15:16.290935+00"}, "flags.budgets_enabled": {"category": "flags", "kind": "str", "len": 4, "markers": 0, "sha12": "b5bea41b6c62", "updated": "2026-09-20 04:49:37.952173+00"}, "flags.character_layers_enabled": {"category": "flags", "kind": "str", "len": 4, "markers": 0, "sha12": "b5bea41b6c62", "updated": "2026-10-09 03:58:50.842833+00"}, "flags.character_speech_enabled": {"category": "flags", "kind": "str", "len": 4, "markers": 0, "sha12": "b5bea41b6c62", "updated": "2026-10-09 03:58:50.843902+00"}, "flags.chat_autonomous_reply_enabled": {"category": "flags", "kind": "str", "len": 4, "markers": 0, "sha12": "b5bea41b6c62", "updated": "2026-09-29 00:21:11.977513+00"}, "flags.chat_context_budgets_enabled": {"category": "flags", "kind": "str", "len": 4, "markers": 0, "sha12": "b5bea41b6c62", "updated": "2026-08-29 17:04:33.795463+00"}, "flags.chat_decision_ignore_trivial_enabled": {"category": "flags", "kind": "str", "len": 4, "markers": 0, "sha12": "b5bea41b6c62", "updated": "2026-09-25 05:14:21.502775+00"}, "flags.chat_decision_image_reactions_enabled": {"category": "flags", "kind": "str", "len": 4, "markers": 0, "sha12": "b5bea41b6c62", "updated": "2026-09-25 05:14:21.509842+00"}, "flags.chat_decision_reactions_enabled": {"category": "flags", "kind": "str", "len": 4, "markers": 0, "sha12": "b5bea41b6c62", "updated": "2026-09-25 05:14:21.507541+00"}, "flags.chat_dedup_enabled": {"category": "flags", "kind": "str", "len": 4, "markers": 0, "sha12": "b5bea41b6c62", "updated": "2026-08-29 17:04:33.794493+00"}, "flags.chat_importance_keep_enabled": {"category": "flags", "kind": "str", "len": 4, "markers": 0, "sha12": "b5bea41b6c62", "updated": "2026-09-05 21:17:31.129072+00"}, "flags.chat_mood_enabled": {"category": "flags", "kind": "str", "len": 4, "markers": 0, "sha12": "b5bea41b6c62", "updated": "2026-08-29 17:04:33.792799+00"}, "flags.chat_rag_rerank_enabled": {"category": "flags", "kind": "str", "len": 4, "markers": 0, "sha12": "b5bea41b6c62", "updated": "2026-09-06 14:48:01.866578+00"}, "flags.chat_running_summary_enabled": {"category": "flags", "kind": "str", "len": 4, "markers": 0, "sha12": "b5bea41b6c62", "updated": "2026-08-29 17:04:33.793625+00"}, "flags.chat_silence_enabled": {"category": "flags", "kind": "str", "len": 4, "markers": 0, "sha12": "b5bea41b6c62", "updated": "2026-08-29 17:04:33.790585+00"}, "flags.chat_silent_ack_enabled": {"category": "flags", "kind": "str", "len": 4, "markers": 0, "sha12": "b5bea41b6c62", "updated": "2026-09-29 00:21:11.96948+00"}, "flags.chat_style_anchors_enabled": {"category": "flags", "kind": "str", "len": 4, "markers": 0, "sha12": "b5bea41b6c62", "updated": "2026-08-29 17:04:33.791495+00"}, "flags.checkup_enabled": {"category": "flags", "kind": "str", "len": 4, "markers": 0, "sha12": "b5bea41b6c62", "updated": "2026-09-10 17:17:07.79336+00"}, "flags.checkup_memory_metrics_enabled": {"category": "flags", "kind": "str", "len": 4, "markers": 0, "sha12": "b5bea41b6c62", "updated": "2026-08-29 17:04:33.799627+00"}, "flags.common_media_enabled": {"category": "flags", "kind": "str", "len": 5, "markers": 0, "sha12": "fcbcf165908d", "updated": "2026-09-13 07:05:39.088838+00"}, "flags.common_work_media_enabled": {"category": "flags", "kind": "str", "len": 5, "markers": 0, "sha12": "fcbcf165908d", "updated": "2026-09-01 11:52:36.790468+00"}, "flags.db_wal_checkpoint_enabled": {"category": "flags", "kind": "str", "len": 4, "markers": 0, "sha12": "b5bea41b6c62", "updated": "2026-08-29 17:04:33.811745+00"}, "flags.dead_page_post_on_join": {"category": "flags", "kind": "str", "len": 5, "markers": 0, "sha12": "fcbcf165908d", "updated": "2026-08-29 17:04:33.824913+00"}, "flags.deep_sleep_enabled": {"category": "flags", "kind": "str", "len": 5, "markers": 0, "sha12": "fcbcf165908d", "updated": "2026-09-12 20:52:36.662809+00"}, "flags.dig_enabled": {"category": "flags", "kind": "str", "len": 4, "markers": 0, "sha12": "b5bea41b6c62", "updated": "2026-09-06 11:14:39.675019+00"}, "flags.dig_pre_gate_enabled": {"category": "flags", "kind": "str", "len": 4, "markers": 0, "sha12": "b5bea41b6c62", "updated": "2026-09-06 14:48:24.320883+00"}, "flags.direct_chat_botword_enabled": {"category": "flags", "kind": "str", "len": 4, "markers": 0, "sha12": "b5bea41b6c62", "updated": "2026-08-29 17:04:33.782166+00"}, "flags.download_enabled": {"category": "flags", "kind": "str", "len": 4, "markers": 0, "sha12": "b5bea41b6c62", "updated": "2026-08-29 17:04:33.787937+00"}, "flags.embed_cache_enabled": {"category": "flags", "kind": "str", "len": 4, "markers": 0, "sha12": "b5bea41b6c62", "updated": "2026-08-29 17:04:33.810088+00"}, "flags.enable_voice_transcription": {"category": "flags", "kind": "str", "len": 4, "markers": 0, "sha12": "b5bea41b6c62", "updated": "2026-08-29 17:04:33.783355+00"}, "flags.episodes_backfill_enabled": {"category": "flags", "kind": "str", "len": 4, "markers": 0, "sha12": "b5bea41b6c62", "updated": "2026-10-09 03:58:50.837903+00"}, "flags.episodes_compiler_facade_enabled": {"category": "flags", "kind": "str", "len": 4, "markers": 0, "sha12": "b5bea41b6c62", "updated": "2026-10-09 03:58:50.835386+00"}, "flags.episodes_continuation_enabled": {"category": "flags", "kind": "str", "len": 4, "markers": 0, "sha12": "b5bea41b6c62", "updated": "2026-10-09 03:58:50.836672+00"}, "flags.episodes_enabled": {"category": "flags", "kind": "str", "len": 4, "markers": 0, "sha12": "b5bea41b6c62", "updated": "2026-10-09 03:58:50.834042+00"}, "flags.factcheck_enabled": {"category": "flags", "kind": "str", "len": 4, "markers": 0, "sha12": "b5bea41b6c62", "updated": "2026-09-10 17:17:07.780186+00"}, "flags.graph_dedup_enabled": {"category": "flags", "kind": "str", "len": 4, "markers": 0, "sha12": "b5bea41b6c62", "updated": "2026-08-29 17:04:33.800586+00"}, "flags.graph_episode_merge_enabled": {"category": "flags", "kind": "str", "len": 4, "markers": 0, "sha12": "b5bea41b6c62", "updated": "2026-08-29 17:04:33.801667+00"}, "flags.graph_fact_touch_enabled": {"category": "flags", "kind": "str", "len": 4, "markers": 0, "sha12": "b5bea41b6c62", "updated": "2026-08-29 17:04:33.804618+00"}, "flags.graph_mmr_enabled": {"category": "flags", "kind": "str", "len": 4, "markers": 0, "sha12": "b5bea41b6c62", "updated": "2026-08-29 17:04:33.808234+00"}, "flags.graph_rag_enabled": {"category": "flags", "kind": "str", "len": 4, "markers": 0, "sha12": "b5bea41b6c62", "updated": "2026-08-29 17:04:33.784583+00"}, "flags.graph_review_enabled": {"category": "flags", "kind": "str", "len": 4, "markers": 0, "sha12": "b5bea41b6c62", "updated": "2026-08-29 17:04:33.80588+00"}, "flags.graph_time_decay_enabled": {"category": "flags", "kind": "str", "len": 4, "markers": 0, "sha12": "b5bea41b6c62", "updated": "2026-08-29 17:04:33.802594+00"}, "flags.graph_user_quota_enabled": {"category": "flags", "kind": "str", "len": 4, "markers": 0, "sha12": "b5bea41b6c62", "updated": "2026-08-29 17:04:33.803514+00"}, "flags.image_generation_module_enabled": {"category": "flags", "kind": "str", "len": 4, "markers": 0, "sha12": "b5bea41b6c62", "updated": "2026-09-19 00:58:02.344187+00"}, "flags.initiative_enabled": {"category": "flags", "kind": "str", "len": 4, "markers": 0, "sha12": "b5bea41b6c62", "updated": "2026-10-08 22:57:43.22696+00"}, "flags.initiative_observer_enabled": {"category": "flags", "kind": "str", "len": 4, "markers": 0, "sha12": "b5bea41b6c62", "updated": "2026-10-15 14:44:24.517669+00"}, "flags.intent_decision_enabled": {"category": "flags", "kind": "str", "len": 4, "markers": 0, "sha12": "b5bea41b6c62", "updated": "2026-10-08 22:57:43.233384+00"}, "flags.intent_heartbeat_enabled": {"category": "flags", "kind": "str", "len": 4, "markers": 0, "sha12": "b5bea41b6c62", "updated": "2026-10-08 22:57:43.231845+00"}, "flags.irony_filter_enabled": {"category": "flags", "kind": "str", "len": 5, "markers": 0, "sha12": "fcbcf165908d", "updated": "2026-09-12 20:52:36.675176+00"}, "flags.kostik_enabled": {"category": "flags", "kind": "str", "len": 4, "markers": 0, "sha12": "b5bea41b6c62", "updated": "2026-09-12 12:41:43.856831+00"}, "flags.legacy_traits_migration_enabled": {"category": "flags", "kind": "str", "len": 4, "markers": 0, "sha12": "b5bea41b6c62", "updated": "2026-10-09 03:58:50.841672+00"}, "flags.llm_cb_enabled": {"category": "flags", "kind": "str", "len": 4, "markers": 0, "sha12": "b5bea41b6c62", "updated": "2026-08-29 17:04:33.812996+00"}, "flags.lore_auto_enabled": {"category": "flags", "kind": "str", "len": 4, "markers": 0, "sha12": "b5bea41b6c62", "updated": "2026-09-05 16:09:14.928119+00"}, "flags.lore_compiler_enabled": {"category": "flags", "kind": "str", "len": 4, "markers": 0, "sha12": "b5bea41b6c62", "updated": "2026-09-16 13:17:23.788639+00"}, "flags.lore_inject_enabled": {"category": "flags", "kind": "str", "len": 4, "markers": 0, "sha12": "b5bea41b6c62", "updated": "2026-09-05 16:09:14.929732+00"}, "flags.lore_worker_enabled": {"category": "flags", "kind": "str", "len": 4, "markers": 0, "sha12": "b5bea41b6c62", "updated": "2026-09-05 16:09:14.924044+00"}, "flags.memory_backup_enabled": {"category": "flags", "kind": "str", "len": 4, "markers": 0, "sha12": "b5bea41b6c62", "updated": "2026-08-29 17:04:33.809055+00"}, "flags.memory_commands_user_enabled": {"category": "flags", "kind": "str", "len": 5, "markers": 0, "sha12": "fcbcf165908d", "updated": "2026-09-04 11:53:39.414904+00"}, "flags.mimic_enabled": {"category": "flags", "kind": "str", "len": 5, "markers": 0, "sha12": "fcbcf165908d", "updated": "2026-09-03 16:27:18.287775+00"}, "flags.mimic_forwards_enabled": {"category": "flags", "kind": "str", "len": 5, "markers": 0, "sha12": "fcbcf165908d", "updated": "2026-08-29 17:04:33.822255+00"}, "flags.olya_always_send": {"category": "flags", "kind": "str", "len": 5, "markers": 0, "sha12": "fcbcf165908d", "updated": "2026-08-29 17:04:33.819534+00"}, "flags.olya_caption_enabled": {"category": "flags", "kind": "str", "len": 5, "markers": 0, "sha12": "fcbcf165908d", "updated": "2026-09-07 10:04:42.821289+00"}, "flags.olya_caption_mention_enabled": {"category": "flags", "kind": "str", "len": 5, "markers": 0, "sha12": "fcbcf165908d", "updated": "2026-09-07 10:05:29.812581+00"}, "flags.olya_enabled": {"category": "flags", "kind": "str", "len": 5, "markers": 0, "sha12": "fcbcf165908d", "updated": "2026-09-07 10:05:11.241687+00"}, "flags.olya_repost_enabled": {"category": "flags", "kind": "str", "len": 4, "markers": 0, "sha12": "b5bea41b6c62", "updated": "2026-08-29 17:04:33.81856+00"}, "flags.permsoc_enabled": {"category": "flags", "kind": "str", "len": 5, "markers": 0, "sha12": "fcbcf165908d", "updated": "2026-09-07 14:21:35.605713+00"}, "flags.persona_enabled": {"category": "flags", "kind": "str", "len": 4, "markers": 0, "sha12": "b5bea41b6c62", "updated": "2026-09-13 09:15:16.292623+00"}, "flags.postprocess_form_guard_enabled": {"category": "flags", "kind": "str", "len": 4, "markers": 0, "sha12": "b5bea41b6c62", "updated": "2026-10-09 03:58:50.846055+00"}, "flags.relations_tone_enabled": {"category": "flags", "kind": "str", "len": 5, "markers": 0, "sha12": "fcbcf165908d", "updated": "2026-09-06 11:14:39.669756+00"}, "flags.search_enabled": {"category": "flags", "kind": "str", "len": 4, "markers": 0, "sha12": "b5bea41b6c62", "updated": "2026-09-10 17:17:07.787387+00"}, "flags.search_rerank_enabled": {"category": "flags", "kind": "str", "len": 4, "markers": 0, "sha12": "b5bea41b6c62", "updated": "2026-08-29 17:04:33.798634+00"}, "flags.self_model_enabled": {"category": "flags", "kind": "str", "len": 4, "markers": 0, "sha12": "b5bea41b6c62", "updated": "2026-10-09 03:58:50.839037+00"}, "flags.send_recheck_enabled": {"category": "flags", "kind": "str", "len": 4, "markers": 0, "sha12": "b5bea41b6c62", "updated": "2026-10-08 22:57:43.234976+00"}, "flags.slavik_enabled": {"category": "flags", "kind": "str", "len": 4, "markers": 0, "sha12": "b5bea41b6c62", "updated": "2026-09-11 17:46:13.940882+00"}, "flags.smart_cache_enabled": {"category": "flags", "kind": "str", "len": 4, "markers": 0, "sha12": "b5bea41b6c62", "updated": "2026-08-29 17:04:33.785687+00"}, "flags.stories_manage_enabled": {"category": "flags", "kind": "str", "len": 4, "markers": 0, "sha12": "b5bea41b6c62", "updated": "2026-10-09 03:58:50.832934+00"}, "flags.stories_vitrina_enabled": {"category": "flags", "kind": "str", "len": 4, "markers": 0, "sha12": "b5bea41b6c62", "updated": "2026-10-09 03:58:50.830054+00"}, "flags.style_scope_enabled": {"category": "flags", "kind": "str", "len": 4, "markers": 0, "sha12": "b5bea41b6c62", "updated": "2026-10-09 03:58:50.845019+00"}, "flags.summary_admin_only": {"category": "flags", "kind": "str", "len": 5, "markers": 0, "sha12": "fcbcf165908d", "updated": "2026-08-29 17:04:33.826514+00"}, "flags.summary_enabled": {"category": "flags", "kind": "str", "len": 4, "markers": 0, "sha12": "b5bea41b6c62", "updated": "2026-08-29 17:04:33.780927+00"}, "flags.summary_filter_enabled": {"category": "flags", "kind": "str", "len": 4, "markers": 0, "sha12": "b5bea41b6c62", "updated": "2026-09-22 23:16:42.019799+00"}, "flags.summary_filter_reply_context_enabled": {"category": "flags", "kind": "str", "len": 4, "markers": 0, "sha12": "b5bea41b6c62", "updated": "2026-09-22 23:16:42.02453+00"}, "flags.summary_hybrid_l1_repair_enabled": {"category": "flags", "kind": "str", "len": 4, "markers": 0, "sha12": "b5bea41b6c62", "updated": "2026-09-28 06:53:17.139266+00"}, "flags.summary_hybrid_l1_retry_enabled": {"category": "flags", "kind": "str", "len": 4, "markers": 0, "sha12": "b5bea41b6c62", "updated": "2026-09-28 06:44:46.870088+00"}, "flags.summary_hybrid_l2_enabled": {"category": "flags", "kind": "str", "len": 4, "markers": 0, "sha12": "b5bea41b6c62", "updated": "2026-09-28 06:44:46.850859+00"}, "flags.summary_legacy_fallback_enabled": {"category": "flags", "kind": "str", "len": 4, "markers": 0, "sha12": "b5bea41b6c62", "updated": "2026-09-28 06:44:46.871901+00"}, "flags.summary_streaming_enabled": {"category": "flags", "kind": "str", "len": 5, "markers": 0, "sha12": "fcbcf165908d", "updated": "2026-08-29 17:04:33.796529+00"}, "flags.throttle_persistent_enabled": {"category": "flags", "kind": "str", "len": 4, "markers": 0, "sha12": "b5bea41b6c62", "updated": "2026-08-29 17:04:33.786699+00"}, "flags.trait_rules_enabled": {"category": "flags", "kind": "str", "len": 4, "markers": 0, "sha12": "b5bea41b6c62", "updated": "2026-10-09 03:58:50.840354+00"}, "flags.typing_indicator_enabled": {"category": "flags", "kind": "str", "len": 4, "markers": 0, "sha12": "b5bea41b6c62", "updated": "2026-08-29 17:04:33.79769+00"}, "flags.vec_int8_enabled": {"category": "flags", "kind": "str", "len": 4, "markers": 0, "sha12": "b5bea41b6c62", "updated": "2026-08-29 17:04:33.80721+00"}, "flags.video_summary_enabled": {"category": "flags", "kind": "str", "len": 4, "markers": 0, "sha12": "b5bea41b6c62", "updated": "2026-09-10 17:17:07.789354+00"}, "flags.vision_enabled": {"category": "flags", "kind": "str", "len": 5, "markers": 0, "sha12": "fcbcf165908d", "updated": "2026-10-06 03:52:37.74216+00"}, "flags.webpage_enabled": {"category": "flags", "kind": "str", "len": 4, "markers": 0, "sha12": "b5bea41b6c62", "updated": "2026-09-10 17:17:07.790885+00"}, "flags.ytdlp_for_youtube": {"category": "flags", "kind": "str", "len": 4, "markers": 0, "sha12": "b5bea41b6c62", "updated": "2026-08-29 17:04:33.789417+00"}, "prompts.checkup_system_prompt": {"category": "prompts", "kind": "str", "len": 2312, "markers": 4, "sha12": "1e8a3c69cf7b", "updated": "2026-09-18 14:38:47.773386+00"}, "prompts.compress_system_prompt": {"category": "prompts", "kind": "str", "len": 396, "markers": 0, "sha12": "746e75692d11", "updated": "2026-09-04 14:20:59.757336+00"}, "prompts.direct_chat_synthesizer_system_prompt": {"category": "prompts", "kind": "str", "len": 1107, "markers": 0, "sha12": "6bae7eb26bc3", "updated": "2026-09-19 00:58:02.675529+00"}, "prompts.direct_chat_system_prompt": {"category": "prompts", "kind": "str", "len": 5294, "markers": 3, "sha12": "cf404931f84c", "updated": "2026-10-07 14:41:46.119658+00"}, "prompts.direct_chat_verbalizer_system_prompt": {"category": "prompts", "kind": "str", "len": 1690, "markers": 2, "sha12": "39a7cce1523e", "updated": "2026-10-07 14:41:46.134511+00"}, "prompts.direct_l1_planner_system_prompt": {"category": "prompts", "kind": "str", "len": 2423, "markers": 0, "sha12": "99a207313889", "updated": "2026-10-16 09:45:15.201737+00"}, "prompts.extract_system_prompt": {"category": "prompts", "kind": "str", "len": 616, "markers": 0, "sha12": "3459d3580788", "updated": "2026-08-29 17:07:13.926197+00"}, "prompts.factcheck_analyst_system_prompt": {"category": "prompts", "kind": "str", "len": 2078, "markers": 0, "sha12": "b8c21caf1aab", "updated": "2026-09-19 00:58:02.654958+00"}, "prompts.factcheck_system_prompt": {"category": "prompts", "kind": "str", "len": 4666, "markers": 3, "sha12": "76c4beb11c63", "updated": "2026-09-18 14:38:47.783632+00"}, "prompts.factcheck_verbalizer_system_prompt": {"category": "prompts", "kind": "str", "len": 1712, "markers": 2, "sha12": "5fbf61cea310", "updated": "2026-09-19 00:58:02.664351+00"}, "prompts.search_system_prompt": {"category": "prompts", "kind": "str", "len": 2622, "markers": 4, "sha12": "ba43fb679db6", "updated": "2026-09-18 14:38:47.792498+00"}, "prompts.summary_cover_style": {"category": "prompts", "kind": "str", "len": 31, "markers": 0, "sha12": "19d2dd88086e", "updated": "2026-09-28 16:12:00.38788+00"}, "prompts.summary_cover_style_id": {"category": "prompts", "kind": "str", "len": 0, "markers": 0, "sha12": "e3b0c44298fc", "updated": "2026-09-30 08:42:13.801367+00"}, "prompts.summary_editor_system_prompt": {"category": "prompts", "kind": "str", "len": 2023, "markers": 0, "sha12": "6a1f3432889c", "updated": "2026-09-28 16:03:25.630942+00"}, "prompts.summary_l1_clusterizer_system_prompt": {"category": "prompts", "kind": "str", "len": 3312, "markers": 0, "sha12": "45117539651c", "updated": "2026-10-03 10:28:18.004158+00"}, "prompts.summary_l2_writer_system_prompt": {"category": "prompts", "kind": "str", "len": 8388, "markers": 0, "sha12": "f832fb8cb5e4", "updated": "2026-10-03 10:28:18.026177+00"}, "prompts.summary_narrator_system_prompt": {"category": "prompts", "kind": "str", "len": 1850, "markers": 2, "sha12": "43160d5f9c2c", "updated": "2026-09-28 16:03:25.626847+00"}, "prompts.summary_system_prompt": {"category": "prompts", "kind": "str", "len": 3558, "markers": 4, "sha12": "d697b0745b29", "updated": "2026-09-28 16:03:25.634531+00"}, "prompts.verbilizer_default_mode": {"category": "prompts", "kind": "str", "len": 7, "markers": 0, "sha12": "645dfcb4d1d2", "updated": "2026-09-19 00:58:02.685977+00"}, "prompts.verbilizer_mode_casual": {"category": "prompts", "kind": "str", "len": 229, "markers": 0, "sha12": "6e5c967b3c08", "updated": "2026-09-19 00:58:02.68117+00"}, "prompts.verbilizer_mode_deep_research": {"category": "prompts", "kind": "str", "len": 193, "markers": 1, "sha12": "4e0c83a7b0ea", "updated": "2026-09-19 00:58:02.684538+00"}, "prompts.verbilizer_mode_serious": {"category": "prompts", "kind": "str", "len": 186, "markers": 0, "sha12": "e85db3cb382f", "updated": "2026-09-19 00:58:02.682756+00"}, "prompts.webpage_system_prompt": {"category": "prompts", "kind": "str", "len": 2071, "markers": 4, "sha12": "7801085b6ef5", "updated": "2026-09-18 14:38:47.810361+00"}, "prompts.youtube_system_prompt": {"category": "prompts", "kind": "str", "len": 2252, "markers": 4, "sha12": "e0a1ffaf18a1", "updated": "2026-09-18 14:38:47.798839+00"}, "prompts.youtube_video_system_prompt": {"category": "prompts", "kind": "str", "len": 2248, "markers": 4, "sha12": "c8bba06ec6a8", "updated": "2026-09-18 14:38:47.804008+00"}}
+SNAP chat_profiles=3
+SNAP chat=5885953495 overrides_total=4 prompt_keys=[] doc_keys=[]
+SNAP chat=-1004482340693 overrides_total=1 prompt_keys=[] doc_keys=[]
+SNAP chat=-1002661910336 overrides_total=23 prompt_keys=['prompts.summary_cover_style', 'prompts.summary_cover_style_id', 'prompts.summary_system_prompt', 'prompts.verbilizer_default_mode'] doc_keys=[]
+SNAP chat_over -1002661910336 prompts.summary_cover_style kind=str sha12=35013bd88081 len=110
+SNAP chat_over -1002661910336 prompts.summary_cover_style_id kind=str sha12=cdd0c0d252d0 len=12
+SNAP chat_over -1002661910336 prompts.summary_system_prompt kind=str sha12=141016a95b95 len=3484
+SNAP chat_over -1002661910336 prompts.verbilizer_default_mode kind=str sha12=c633eb52f63c len=6
+SNAP pg_table humor_samples=absent(UndefinedTableError)
+SNAP pg_table cover_style_connections=0
+SNAP sqlite user_version=35 tables=['summary_runs']
+SNAP done

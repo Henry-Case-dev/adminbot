@@ -1,0 +1,33 @@
+SOUL-PREP snapshot summary (2026-10-17 19:04:41 UTC, prod 0b7a0aca/2.58.84)
+
+pre-state lines:
+  NOW_UTC=2026-10-17 19:04:41
+  HEAD=0b7a0aca416a418e099e157eca77d0a3137b3405
+  BRANCH=release/fs-2.58.84
+  TRACKED_MOD=0
+  UNTRACKED=13
+  SERVICE=active
+  HZ={"status":"ok","version":"2.58.84"}
+  UNIT_USER=root
+  UNIT_ENVFILE=
+  UNIT_ENV: none
+  DOTENV: none/unreadable
+  PROC_ENV: none/denied
+
+flags.* total=97 ; SOUL-1 axes present in PG: NONE
+prompts.* total=25
+character.*/style.*/humor.*/message.*/expression.* keys: NONE
+
+per-chat (from snapshot):
+  SNAP chat_profiles=3
+  SNAP chat=5885953495 overrides_total=4 prompt_keys=[] doc_keys=[]
+  SNAP chat=-1004482340693 overrides_total=1 prompt_keys=[] doc_keys=[]
+  SNAP chat=-1002661910336 overrides_total=23 prompt_keys=['prompts.summary_cover_style', 'prompts.summary_cover_style_id', 'prompts.summary_system_prompt', 'prompts.verbilizer_default_mode'] doc_keys=[]
+  SNAP chat_over -1002661910336 prompts.summary_cover_style kind=str sha12=35013bd88081 len=110
+  SNAP chat_over -1002661910336 prompts.summary_cover_style_id kind=str sha12=cdd0c0d252d0 len=12
+  SNAP chat_over -1002661910336 prompts.summary_system_prompt kind=str sha12=141016a95b95 len=3484
+  SNAP chat_over -1002661910336 prompts.verbilizer_default_mode kind=str sha12=c633eb52f63c len=6
+  SNAP postgres_dsn=present
+  SNAP pg_table humor_samples=absent(UndefinedTableError)
+  SNAP pg_table cover_style_connections=0
+  SNAP sqlite user_version=35 tables=['summary_runs']
