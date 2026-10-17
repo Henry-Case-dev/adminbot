@@ -1,0 +1,11 @@
+web/api/speech.py absent=True tracked=False
+web/api/initiative_vitality.py absent=True tracked=False
+services/prompt_registry.py absent=True tracked=False
+services/prompt_factory.py absent=True tracked=False
+services/style_policy.py absent=True tracked=False
+services/capability_registry.py absent=True tracked=False
+services/initiative_diagnostics.py absent=True tracked=False
+services/mca_authorial_speech.py absent=True tracked=False
+services/mca_humor_craft.py absent=True tracked=False
+services/mca_humor_feedback.py absent=True tracked=False
+services/mca_sample_library.py absent=True tracked=False

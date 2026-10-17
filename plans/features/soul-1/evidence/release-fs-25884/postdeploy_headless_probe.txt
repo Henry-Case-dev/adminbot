@@ -1,0 +1,51 @@
+# POST-DEPLOY headless probe — prod page https://admin-bot.duckdns.org/web/ (2026-10-17 ~18:50 UTC)
+# Playwright MCP (Chromium), viewport 390x844, plain browser (no Telegram initData; SDK stub v6.0 present).
+{
+  "navigation": {
+    "url": "https://admin-bot.duckdns.org/web/#/",
+    "title": "AdminBot — Админка",
+    "console_on_load": "0 errors"
+  },
+  "probe_1": {
+    "policyType": "object",
+    "policySlot": "inline",
+    "policyReason": "",
+    "explainCode": "",
+    "hasRequestFullscreen": true,
+    "btnPresent": false,
+    "fsHiddenClass": false,
+    "fsReasonAttr": null,
+    "stripPresent": false,
+    "geomDiagPanel": false,
+    "bodyHasBotFather": false,
+    "bodyHasUnavailable": false,
+    "hasTelegram": true,
+    "appMounted": true,
+    "vueErrors": null
+  },
+  "probe_2": {
+    "viewport": "390x844",
+    "shellClass": "app-shell shell-mobile ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+    "headerH": 72,
+    "headerPadTop": "9.6px",
+    "moreTrigger": true,
+    "diag": {
+      "platform": "unknown",
+      "sdkVersion": "6.0",
+      "actualFullscreen": "false",
+      "hasRequestFullscreen": true,
+      "hasExitFullscreen": true,
+      "slot": "inline",
+      "reason": "",
+      "launchParams": {"tgWebAppPlatform": null, "tgWebAppVersion": null, "tgWebAppStartParam": null},
+      "hasInitData": false
+    },
+    "loginMarker": "Миниапп открыт без Telegram-контекста — откройте админку через кнопку меню в боте. Попробовать снова"
+  },
+  "console_final": {
+    "total": 14,
+    "errors": ["Failed to load resource: 404 @ /favicon.ico (pasteed/known, not app code)"],
+    "warnings": ["[Telegram.WebApp] BackButton/Header color/Background color/Bottom bar color is not supported in version 6.0 (vendored SDK stub guard in plain browser)"]
+  },
+  "verdict": "Страница открывается; fs-политика загружена и работоспособна (state/explain/diagnostics); в standalone-режиме кнопка не вводит в заблуждение (нет me → кнопки нет; нет заглушек/инструкций; honest-сообщение авторизации); панель §8 закрыта по умолчанию; ошибок приложения в консоли нет."
+}
