@@ -1,0 +1,118 @@
+### A_pre_state (rc=0, 1.2s)
+OLD_HEAD=0b7a0aca416a418e099e157eca77d0a3137b3405
+OLD_BRANCH=release/fs-2.58.84
+TRACKED_MOD=0
+UNTRACKED=13
+REMOTE_OK=1
+### B1_fetch (rc=0, 1.9s)
+FETCH1_RC=0
+ * branch              release/win-glass-2.58.85 -> FETCH_HEAD
+ * [new branch]        release/win-glass-2.58.85 -> origin/release/win-glass-2.58.85
+(fetch attempt 1 OK)
+### C_remote_ref (rc=0, 1.0s)
+9552686391dfe69dd7cb08ba7cd800a8a6c5106e
+### D_checkout (rc=0, 1.1s)
+CO_RC=0
+Switched to a new branch 'release/win-glass-2.58.85'
+branch 'release/win-glass-2.58.85' set up to track 'origin/release/win-glass-2.58.85'.
+### D2_post_checkout (rc=0, 1.1s)
+NEW_HEAD=9552686391dfe69dd7cb08ba7cd800a8a6c5106e
+TRACKED_MOD_AFTER=0
+UNTRACKED_AFTER=13
+95526863 chore(release-win-glass-iso): bump 2.58.85 - изолированный релиз WIN-GLASS-P0 (18.1
+d637cfe9 fix(win-glass): semantic port of WIN-GLASS-P0 hotfix (18.10) onto the prod line - Windows launch-full
+### E_hashes (rc=0, 1.0s)
+6a09d962d59d web/static/glass-refraction.js
+b2e6a1f987c6 web/static/glass-probe.js
+6c3edf36a238 web/app.js
+c01916cf3ef5 web/static/app.css
+4830df0b4049 web/index.html
+96db06425079 web/static/fullscreen-policy.js
+4d8dd03a3f63 config/settings.py
+HASH-CHECK: all 7 artifacts match expected sha256_12
+### F_markers (rc=0, 1.0s)
+APP_VER=APP_VERSION = "2.58.85"
+REFRACT_APPJS=6
+REFRACT_CSS=4
+REFRACT_INDEX=1
+PROBE_LAYER=8
+SPEECH_ABSENT=1
+web/app.js:0
+web/index.html:0
+web/static/app.css:0
+### G1_sudo_probe (rc=0, 1.0s)
+SUDO_NOPASS=0
+### G2_restart_sudopw (rc=0, 12.2s)
+RESTART_RC=0
+### H_health (rc=0, 26.2s)
+HEALTH={"status":"ok","version":"2.58.85"}
+### I1_probes (rc=0, 1.3s)
+/healthz -> 200
+/static/glass-refraction.js -> 200
+/static/glass-probe.js -> 200
+/static/app.css -> 200
+/web/ -> 200
+/web/app.js -> 200
+/web/static/app.css -> 200
+/web/static/glass-refraction.js -> 200
+/web/static/glass-probe.js -> 200
+/web/static/fullscreen-policy.js -> 200
+### I2_page_markers (rc=0, 1.0s)
+INDEX_REFRACT=1
+PAGE_VER=15
+### J1_journal (rc=0, 1.3s)
+Oct 17 21:05:16 racknerd-f4e3456 python[3232336]: 2026-10-17 21:05:16,236 - apscheduler.scheduler - INFO - Added job "NostalgiaWorker._tick" to job store "default"
+Oct 17 21:05:16 racknerd-f4e3456 python[3232336]: 2026-10-17 21:05:16,236 - apscheduler.scheduler - INFO - Scheduler started
+Oct 17 21:05:16 racknerd-f4e3456 python[3232336]: 2026-10-17 21:05:16,237 - services.nostalgia_worker - INFO - NostalgiaWorker started (tick=60min, silence=45min, max_per_day=3, aggressiveness=0.3)
+Oct 17 21:05:16 racknerd-f4e3456 python[3232336]: 2026-10-17 21:05:16,238 - __main__ - INFO - NostalgiaWorker (раунд 9) initialized
+Oct 17 21:05:16 racknerd-f4e3456 python[3232336]: 2026-10-17 21:05:16,239 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+Oct 17 21:05:16 racknerd-f4e3456 python[3232336]: 2026-10-17 21:05:16,240 - apscheduler.scheduler - INFO - Added job "AntiClicheWorker.tick" to job store "default"
+Oct 17 21:05:16 racknerd-f4e3456 python[3232336]: 2026-10-17 21:05:16,241 - apscheduler.scheduler - INFO - Scheduler started
+Oct 17 21:05:16 racknerd-f4e3456 python[3232336]: 2026-10-17 21:05:16,241 - services.anticliche_worker - INFO - AntiClicheWorker started | interval_days=7 | first_run_delay_min=5 | next_run_time=2026-10-17 21:10:16.239180+00:00
+Oct 17 21:05:16 racknerd-f4e3456 python[3232336]: 2026-10-17 21:05:16,243 - services.anticliche_worker - INFO - [pipeline] event=pipeline_step component=anticliche step=schedule status=ok reason=started interval_days=7 first_run_delay_min=5 next_run_time=2026-10-17 21:10:16.239180+00:00
+Oct 17 21:05:16 racknerd-f4e3456 python[3232336]: 2026-10-17 21:05:16,243 - __main__ - INFO - AntiClicheWorker (раунд 10.23 F4) initialized
+Oct 17 21:05:16 racknerd-f4e3456 python[3232336]: 2026-10-17 21:05:16,244 - __main__ - INFO - RelationsService + db + dream/nostalgia workers (раунд 9) initialized
+Oct 17 21:05:16 racknerd-f4e3456 python[3232336]: 2026-10-17 21:05:16,285 - services.mca_events - INFO - mca_event=WATCHDOG_SWEEP | ts=1792271116 | event_name=WATCHDOG_SWEEP | outcome=success | level=INFO | component=watchdog | stage=sweep
+Oct 17 21:05:16 racknerd-f4e3456 python[3232336]: 2026-10-17 21:05:16,288 - services.mca_events - INFO - mca_event=WATCHDOG_SWEEP | ts=1792271116 | event_name=WATCHDOG_SWEEP | outcome=success | level=INFO | component=watchdog | stage=sweep
+Oct 17 21:05:16 racknerd-f4e3456 python[3232336]: 2026-10-17 21:05:16,299 - __main__ - INFO - [mca-17a] observability runtime initialized
+Oct 17 21:05:16 racknerd-f4e3456 python[3232336]: 2026-10-17 21:05:16,319 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+Oct 17 21:05:16 racknerd-f4e3456 python[3232336]: 2026-10-17 21:05:16,319 - apscheduler.scheduler - INFO - Added job "VisionMediaWorker._tick" to job store "default"
+Oct 17 21:05:16 racknerd-f4e3456 python[3232336]: 2026-10-17 21:05:16,320 - apscheduler.scheduler - INFO - Scheduler started
+Oct 17 21:05:16 racknerd-f4e3456 python[3232336]: 2026-10-17 21:05:16,321 - services.mca_vision - INFO - [vision] media worker started | tick=5s
+Oct 17 21:05:16 racknerd-f4e3456 python[3232336]: 2026-10-17 21:05:16,322 - __main__ - INFO - [mca-19] vision media worker initialized
+Oct 17 21:05:16 racknerd-f4e3456 python[3232336]: 2026-10-17 21:05:16,323 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+Oct 17 21:05:16 racknerd-f4e3456 python[3232336]: 2026-10-17 21:05:16,324 - apscheduler.scheduler - INFO - Added job "GoodmorningSchedulerService._tick" to job store "default"
+Oct 17 21:05:16 racknerd-f4e3456 python[3232336]: 2026-10-17 21:05:16,325 - apscheduler.scheduler - INFO - Scheduler started
+Oct 17 21:05:16 racknerd-f4e3456 python[3232336]: 2026-10-17 21:05:16,325 - services.goodmorning_scheduler - INFO - Goodmorning scheduler started (07:00 Asia/Yekaterinburg, 1 chats)
+Oct 17 21:05:16 racknerd-f4e3456 python[3232336]: 2026-10-17 21:05:16,328 - __main__ - INFO - InfoService (Epic 43) initialized | file=info_text.md
+Oct 17 21:05:16 racknerd-f4e3456 python[3232336]: 2026-10-17 21:05:16,442 - services.bot_commands - INFO - Bot commands registered (set_my_commands ok): ['summary', 'info', 'menu']
+Oct 17 21:05:16 racknerd-f4e3456 python[3232336]: 2026-10-17 21:05:16,444 - __main__ - INFO - Olya service disabled (OLYA_ENABLED=False)
+Oct 17 21:05:16 racknerd-f4e3456 python[3232336]: 2026-10-17 21:05:16,447 - __main__ - INFO - VideoDownloader enabled (cobalt=http://localhost:9000)
+Oct 17 21:05:16 racknerd-f4e3456 python[3232336]: 2026-10-17 21:05:16,448 - __main__ - INFO - All routers registered (v2.4.0)
+Oct 17 21:05:16 racknerd-f4e3456 python[3232336]: 2026-10-17 21:05:16,451 - __main__ - INFO - Relay channel media group tracker registered (Epic 14)
+Oct 17 21:05:16 racknerd-f4e3456 python[3232336]: 2026-10-17 21:05:16,452 - __main__ - INFO - Bot started, listening for messages...
+Oct 17 21:05:16 racknerd-f4e3456 python[3232336]: 2026-10-17 21:05:16,461 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+Oct 17 21:05:16 racknerd-f4e3456 python[3232336]: 2026-10-17 21:05:16,463 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+Oct 17 21:05:16 racknerd-f4e3456 python[3232336]: 2026-10-17 21:05:16,463 - apscheduler.scheduler - INFO - Added job "UptimeHeartbeatService._heartbeat" to job store "default"
+Oct 17 21:05:16 racknerd-f4e3456 python[3232336]: 2026-10-17 21:05:16,465 - apscheduler.scheduler - INFO - Added job "UptimeHeartbeatService._cleanup" to job store "default"
+Oct 17 21:05:16 racknerd-f4e3456 python[3232336]: 2026-10-17 21:05:16,466 - apscheduler.scheduler - INFO - Scheduler started
+Oct 17 21:05:16 racknerd-f4e3456 python[3232336]: 2026-10-17 21:05:16,466 - services.uptime_heartbeat - INFO - [uptime] heartbeat started: interval=60s retention=72h
+Oct 17 21:05:18 racknerd-f4e3456 python[3232336]: 2026-10-17 21:05:18,647 - web.app - INFO - [webapp] WEBAPP_URL | scheme=https | host=admin-bot.duckdns.org | path=/web/
+Oct 17 21:05:18 racknerd-f4e3456 python[3232336]: 2026-10-17 21:05:18,650 - web.app - INFO - [webapp] MEDIA_PUBLIC_BASE_URL | scheme=https | host=admin-bot.duckdns.org | path=-
+Oct 17 21:05:18 racknerd-f4e3456 python[3232336]: 2026-10-17 21:05:18,659 - __main__ - INFO - [shutdown] signal handlers installed | signals=(2, 15)
+Oct 17 21:05:18 racknerd-f4e3456 python[3232336]: 2026-10-17 21:05:18,693 - aiogram.dispatcher - INFO - Start polling
+Oct 17 21:05:18 racknerd-f4e3456 python[3232336]: 2026-10-17 21:05:18,698 - web.app - INFO - [webapp] lifespan started | pg_available=True
+Oct 17 21:05:18 racknerd-f4e3456 python[3232336]: 2026-10-17 21:05:18,717 - aiogram.dispatcher - INFO - Run polling for bot @PERMsoc_bot id=8802473181 - 'Базовичок'
+Oct 17 21:05:18 racknerd-f4e3456 python[3232336]: 2026-10-17 21:05:18,788 - services.mca_events - INFO - mca_event=ingestion_live | ts=1792271118 | event_name=ingestion_live | outcome=success | level=INFO | component=ingestion | chat_id=-1002661910336 | message_id=1164407 | duration_ms=32
+Oct 17 21:05:21 racknerd-f4e3456 python[3232336]: 2026-10-17 21:05:21,320 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-18 02:05:26 +05)" (scheduled at 2026-10-18 02:05:21.318792+05:00)
+Oct 17 21:05:21 racknerd-f4e3456 python[3232336]: 2026-10-17 21:05:21,352 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-18 02:05:26 +05)" executed successfully
+[stderr] [sudo] password for nik:
+### J2_err_count (rc=0, 1.2s)
+0
+[stderr] [sudo] password for nik:
+### K_service_state (rc=0, 1.0s)
+MainPID=3232336
+NRestarts=0
+ExecMainStatus=0
+ActiveState=active
+SubState=running

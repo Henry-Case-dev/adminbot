@@ -1,0 +1,24 @@
+BOUNDS-GUARD RED (2 tests) on release tree - analysis
+
+Failing:
+  tests/test_tool_coordinator_round1026.py::TestBounds::test_forbidden_paths_out_of_diff
+  tests/test_unified_image_request_round1026.py::TestBoundsA3::test_forbidden_paths_out_of_diff_vs_baseline
+
+Mechanism: helper _diff_names() = `git diff --name-only pre-round1026-a1` (old baseline
+tag) vs working tree; assert requires every web/ name to match the NOTE-sanction allowlist.
+Offending name(s) vs deployed allowlist: ['web/static/glass-refraction.js']
+
+Cause: the sanctioned new file web/static/glass-refraction.js (WIN-GLASS-P0, review-wg.md
+R2 Approved, candidate 0ca661fe) has no NOTE-sanction entry in the two guards. The same gap
+exists on the master line (git grep 915aa3c7 - no entry) - candidate-level bookkeeping gap,
+not a release-port error.
+
+Evidence:
+  base 0b7a0aca: both tests PASS (2 passed in 6.44s, base-check worktree)
+  release tip  : both tests FAIL (pytest-24py-pins.txt: 866 passed, 2 failed)
+  prod product bytes unaffected (test-only; not imported at runtime).
+
+Suggested fix (NOT applied to the deployed tree, out of parent-approved release scope):
+  bounds-guard-sanction-suggested.patch adds one NOTE-sanction + one allowlist entry per
+  guard file (mirrors da58e24b W3b / SOUL-1 W6 precedent). git apply --check rc=0.
+  Requires Builder/Reviewer or ledger ratification; product behavior unchanged.

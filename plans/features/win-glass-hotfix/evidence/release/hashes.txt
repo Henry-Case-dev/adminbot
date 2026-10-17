@@ -1,0 +1,15 @@
+WIN-GLASS-P0 release 2.58.85 - raw sha256 (byte-true, git blobs)
+base=0b7a0aca  release_tip=9552686391dfe69dd7cb08ba7cd800a8a6c5106e
+
+web/static/glass-refraction.js                 base=NEW                               rel=6a09d962d59dfc196f170a8da86b94ca8f4a0689efe8a96e3298b7362f95c130
+web/static/glass-probe.js                      base=64a5f74484c295696e10b3a9d84e813dfdb6bed5901eb8a11a8edd8ea039625c rel=b2e6a1f987c663812abe1b2a18e58265bba71bbaf147321cc605a524a4ea014b [PORT] CRLF 0->0 bytes 11657->13445
+web/app.js                                     base=c97723298e3892b058d7a67081450f3156ca0d7369aa0ba86435fd08a7e1cbb1 rel=6c3edf36a2380288e3cca7e0a941fe971df6f5455281198cd3299c33a1481512 [PORT] CRLF 0->0 bytes 1123932->1130682
+web/static/app.css                             base=a54f385670c904111cb6811fd2e809182d83a9736f9cce6e08ced49a9ddbe0b6 rel=c01916cf3ef538cb45b6bf6a92f490fc00a391bfd8d58412608c69aed1ddc3a4 [PORT] CRLF 6->6 bytes 204846->206237
+web/index.html                                 base=4a40a78a79f054c5e7bc530c4c356e9599a909979f0cdc841c6aac68a609e8b2 rel=4830df0b4049fbdf5adf4d98c22d6fecb6671c15d20cb565935fb95cc613a7a6 [PORT] CRLF 0->0 bytes 731303->731808
+web/static/fullscreen-policy.js                base=96db064250793f02356890adff33dda090ec637c4ae9f26b232f60bbce867ded rel=96db064250793f02356890adff33dda090ec637c4ae9f26b232f60bbce867ded [SAME] CRLF 0->0 bytes 32473->32473
+tests/js/glass_refraction_test.js              base=NEW                               rel=4fc4f9ca784851dc06755a8581f7c8e850ca17e677b7d070f2492040e01ce5ee
+tests/js/glass_probe_test.js                   base=bffc3a50089645851f3f1247d9d4976d05ef9da50c7d26a1db99d58e691dc8c2 rel=bed0d1dfca6725582c7be3e40ca0161f4f69ba7fffd14d67fdfde30fa0df40da [PORT] CRLF 0->0 bytes 8051->8581
+tools/ui_win_glass_refraction_e2e.py           base=NEW                               rel=612200f86b840ede1524282f2ee51c31d322d8353bc1aa877347d8b889e2f769
+config/settings.py                             base=577ded06856561cc45b65dabdf7f8f03a805bd0968d1415a7ea544bb53f97b9f rel=4d8dd03a3f638483eabf6b31bbcc9617bdd7c8dfdbc93f05b28fa095d4b1ba9d [PORT] CRLF 0->0 bytes 255262->255262
+plans/docs/param-registry-round1025.meta.md    base=808715d0bec780152538a6ecd85a81f28e67d6b643f023bb18d31c336ebb427c rel=8067f9e2435050d2628843704e4da04473eb898483fe3a72fdf355322901ccff [PORT] CRLF 0->0 bytes 7959->7959
+README.md                                      base=5749f09ad0eb1198dc5274dba963b85c7090b7a9bc615aa3ffffe4226ee76c83 rel=ab1a0d2176cd0610e99450bfc4f57b41a95185c1cc5aa58c6de67a3f2296bdf4 [PORT] CRLF 0->0 bytes 302771->302771

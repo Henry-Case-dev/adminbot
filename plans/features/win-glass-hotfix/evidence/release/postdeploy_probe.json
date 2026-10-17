@@ -1,0 +1,21 @@
+{
+  "url": "https://admin-bot.duckdns.org/web/#/",
+  "server_utc": "2026-10-17T21:05Z (deploy) / probe run after",
+  "http_status": 200,
+  "title": "AdminBot — Админка",
+  "console_errors": [],
+  "page_errors": [],
+  "checks": {
+    "shell": true,
+    "glassRefraction": "object",
+    "glassProbe": "object",
+    "fullscreenPolicy": "object",
+    "refractScript": true,
+    "refractEls": 0,
+    "ver_hits": [
+      "2.58.85",
+      "2.58.85",
+      "2.58.85"
+    ]
+  }
+}

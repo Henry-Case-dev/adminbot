@@ -1,0 +1,326 @@
+........................................................................ [  8%]
+........................................................................ [ 16%]
+........................................................................ [ 24%]
+........................................................................ [ 33%]
+........................................................................ [ 41%]
+........................................................................ [ 49%]
+........................................................................ [ 58%]
+............................................................F........... [ 66%]
+...................F.................................................... [ 74%]
+........................................................................ [ 82%]
+........................................................................ [ 91%]
+........................................................................ [ 99%]
+....                                                                     [100%]
+================================== FAILURES ===================================
+_________________ TestBounds.test_forbidden_paths_out_of_diff _________________
+
+self = <tests.test_tool_coordinator_round1026.TestBounds object at 0x00000296CAC670E0>
+
+    def test_forbidden_paths_out_of_diff(self):
+        names = self._diff_names()
+        forbidden = [
+            # NOTE (A3, ADR-1026-16 D2/D6): `services/image_generation.py`
+            # исключён — санction A3 (ImageRequest-контракт); §104 гейтится
+            # AST-гейтом A3 (test_unified_image_request_round1026.py).
+            # NOTE (round1027, ASAP-2 `mca-asap2-summary-pipeline`, контракт (l)/
+            # ADR-1027-10): `services/summary_prompts.py` и
+            # `services/prompt_migrations.py` ИСКЛЮЧЕНЫ из запрещённых —
+            # санкционированы каноны R1027 L1/L2 (many-to-many §95-v2, ДЛИНА/
+            # ДЕДУП/авторы; PREV_SUMMARY_*_R1027 + ROLLBACK, ADR-1013-3).
+            # NOTE (MCA-23, Wave 3, §Delivery Router): `services/telegram_send.py`
+            # исключён — единственная дельта: запись `services/direct_chat_service.py`
+            # в SEND_ALLOWLIST (rich-ветка direct зовёт обёртку
+            # `send_rich_message`, sanitize внутри; bare-send'ов нет).
+            # Поведение guard'а/обёрток не менялось (Δ registry=1 запись).
+            # NOTE (MCA-23, Wave 3, `mca-23-unified-response-orchestrator`,
+            # §10/§11 current_task): `services/chat_prompts.py` исключён —
+            # эпик санкционирует снятие глобального cap «1-2 предложения»
+            # (канон MCA23 + слепки PREV_CHAT_MCA23/PREV_CHAT_VERBALIZER_MCA23,
+            # ступени миграции в prompt_migrations, ADR-1013-3). Прецедент
+            # NOTE-модели: summary_prompts/prompt_migrations (round1027).
+            # NOTE (A9, ADR-1026-22 D1/D7/D10): `services/execution_graph_source.py`
+            # и `web/static/execution_graph.js` исключены — A9 санкционирует
+            # аддитивное расширение СУЩЕСТВУЮЩЕГО ExecutionGraph (9 этапов §51,
+            # display-only; второй аналитики/endpoint/панели нет; Δ DDL=0;
+            # Δ каталога=0). Гейтится A9-тестами (test_agentic_events_round1026.py
+            # + round1026_s8_execution_graph_test.js).
+            # NOTE (round1027, mca-17a / ADR-1027-8 D13/§4.10): `web/api/routes.py`
+            # исключён — санкционированы аддитивные query-фильтры существующего
+            # `GET /api/status/logs` (REUSE viewer).
+            "plans/current_task.md",
+        ]
+        for path in forbidden:
+            assert path not in names, path
+        assert not any(n.startswith("db/") for n in names)
+        # NOTE (A5, ADR-1026-17 D9): web/app.js, web/index.html санкционированы
+        # для UI-врезки §27/§50; A9 (ADR-1026-22 D10): + web/static/
+        # execution_graph.js (display-only 9 этапов §51); mca-17a (ADR-1027-8
+        # D13/§4.10): + web/api/routes.py (фильтры log viewer) и
+        # web/api/oversight.py (аддитивный mca_metrics на существующей витрине).
+        # ASAP-2.1 (round1028, T-3982): + web/static/app.css (тач-цель кнопки
+        # «← К списку» ≥44px; токены/палитра не менялись).
+        # NOTE (round1029, EXTRA `extra-cover-style-pipeline`, ADR-1028-4 D12):
+        # + `web/app.py` (регистрация нового роутера Style Registry/Editor —
+        # `web/api/cover_styles.py`, только глобальный админ; kill-switch
+        # `COVER_STYLES_ENABLED`). Прецедент: другие роутеры включаются там же.
+        # NOTE (round1027 Wave 2, mca-04b / ADR-1027-9): + `web/api/chat_lore.py`
+        # (AMEND: единый контракт full rebuild — прогресс от полного диапазона,
+        # resume-on-paused, read-time reconstruction; admin/чат-гейтинг
+        # сохранён; Δ каталога = 0).
+        # NOTE (round1027, mca-22 / ADR-1028-6): + `web/api/memory_agi.py`
+        # (расширение СУЩЕСТВУЮЩИХ Memory-виджетов эндпоинтами attribution
+        # trace/metrics §24; новый корневой dashboard запрещён и не создан;
+        # admin-only; Δ каталога = 0).
+        # NOTE (ASAP 4.2 `asap-4-2-summary-surgical-reliability`, ADR-1028-10
+        # D1/D5.5/D5.7; санкция Reviewer, NOTE-модель ADR-1026-17 D9 /
+        # ADR-1026-22 D10 / ADR-1027-8 D13 / ADR-1027-9 / ADR-1028-6):
+        # + `web/api/cover_styles.py` (round1029 EXTRA ADR-1028-4 D12 создал
+        # роутер — файл не был добавлен в allowlist; ASAP 4.2 — Test Style
+        # no-picker/real base, RBAC seeded backend, `_public_profile.can_edit`,
+        # backend-guard `cover_test_style` M-ASAP42-1) и + `web/api/deps.py`
+        # (round1030 asap-4 control plane; ASAP 4.2 — `user_is_global_admin`,
+        # `_assert_can_edit_seeded`). Test-only allowlist-дельта, не ослабляет
+        # §104/запреты; несанкционированные web/ пути по-прежнему вне diff.
+        # NOTE (дополнение Builder, тот же NOTE-санкционный прецедент —
+        # ревью-перечень был неполон: `_diff_names` берёт diff от старого
+        # baseline `pre-round1026-a1` и видит ЗАКОММИЧЕННЫЙ дрейф прошлых
+        # санкционированных волн, не только рабочую дельту ASAP 4.2):
+        # + `web/api/analytics.py` (round1028 ASAP-3.1 autobudgets + round1030
+        # pipeline analytics; расширение существующего Analytics-дашборда),
+        # + `web/static/polygon-background.js` (round1026/1028 визуальный
+        # эпик, UI_POLYGON_BG_ENABLED), + `web/static/telegram-init.js`
+        # (round1028 TMA-init). Все три — уже выпущенные/санкционированные
+        # волны; иных несанкционированных web/-путей нет.
+>       assert not any(n.startswith("web/")
+                       and not n.startswith(("web/app.js", "web/index.html",
+                                             "web/app.py",
+                                             "web/static/execution_graph.js",
+                                             "web/static/app.css",
+                                             "web/api/routes.py",
+                                             "web/api/oversight.py",
+                                             "web/api/chat_lore.py",
+                                             "web/api/memory_agi.py",
+                                             "web/api/cover_styles.py",
+                                             "web/api/deps.py",
+                                             "web/api/analytics.py",
+                                             "web/static/polygon-background.js",
+                                             "web/static/telegram-init.js",
+                                             # mca-12 (round 10.46,
+                                             # ADR-1028-21 §7.5/D2): NEW
+                                             # `web/api/stories.py` (роутер
+                                             # «Истории чата», 5 маршрутов) +
+                                             # re-export в `web/api/__init__.py`
+                                             # (регистрация — web/app.py;
+                                             # routes.py НЕ менялся).
+                                             "web/api/stories.py",
+                                             # mca-17c (round 10.47,
+                                             # ADR-1028-23 D11/§1.2.12): NEW
+                                             # `web/api/oversight_router.py`
+                                             # (ровно 3 маршрута; прод-
+                                             # верифицирован 2.58.66;
+                                             # routes.py byte-freeze —
+                                             # пин 8153b8bd… цел).
+                                             "web/api/oversight_router.py",
+                                             # asap7 wave3 (2.58.74, REV-3
+                                             # Approved): аддитивное
+                                             # расширение СУЩЕСТВУЮЩЕГО
+                                             # `web/api/summary_test.py`
+                                             # (dry-run test-контур Testing,
+                                             # §113; до волны файл был
+                                             # байт-в-байт с baseline
+                                             # pre-round1026-a1 и в diff
+                                             # не входил).
+                                             "web/api/summary_test.py",
+                                             # ASAP 8 v6.3 (Wave 3a/3b,
+                                             # REQ-B03-block/REQ-U05; тот же
+                                             # NOTE-санкционный прецедент):
+                                             # + `web/api/memory_overview.py`
+                                             # (read-only expired-overview +
+                                             # intel-funnels для Статуса;
+                                             # global-admin RBAC, R17-safe,
+                                             # fail-open) и + `web/api/
+                                             # analytics_viz.py` (read-only
+                                             # данные 7 визуализаций D12 U05:
+                                             # activity heatmap и др.; без
+                                             # новых поллеров, кэш 60с).
+                                             "web/api/memory_overview.py",
+                                             "web/api/analytics_viz.py",
+                                             # ASAP 8 v6.3 Wave 2 (U07/U08;
+                                             # CORR-1 — фон не тронут):
+                                             # + fullscreen-policy.js и
+                                             # + glass-probe.js (новые
+                                             # first-party модули политик/
+                                             # probe) и + vendor/lg-lens-map.png
+                                             # (feImage-карта линзы; на неё
+                                             # ссылается app.js).
+                                             "web/static/fullscreen-policy.js",
+                                             "web/static/glass-probe.js",
+                                             "web/static/vendor/lg-lens-map.png",
+                                             # SOUL-13.2 / v6.3 §14
+                                             # (REV-W2-N3): glass-teststand
+                                             # (контролируемый стенд
+                                             # edge-refraction) вынесен из
+                                             # публичного static в
+                                             # tests/glass-teststand/;
+                                             # записи web/static/
+                                             # glass-teststand.* из
+                                             # allowlist УДАЛЕНЫ — возврат
+                                             # страницы в web/ снова валит
+                                             # этот тест.
+                                             "web/api/__init__.py"))
+                       for n in names)
+E       assert not True
+E        +  where True = any(<generator object TestBounds.test_forbidden_paths_out_of_diff.<locals>.<genexpr> at 0x00000296CD703440>)
+
+tests\test_tool_coordinator_round1026.py:697: AssertionError
+__________ TestBoundsA3.test_forbidden_paths_out_of_diff_vs_baseline __________
+
+self = <tests.test_unified_image_request_round1026.TestBoundsA3 object at 0x00000296CAC7A750>
+
+    def test_forbidden_paths_out_of_diff_vs_baseline(self):
+        forbidden = [
+            # NOTE (round1027, ASAP-2 `mca-asap2-summary-pipeline`, контракт (l)/
+            # ADR-1027-10): `services/summary_prompts.py` и
+            # `services/prompt_migrations.py` ИСКЛЮЧЕНЫ — санкционированы каноны
+            # R1027 L1/L2 (PREV_*/ROLLBACK, ADR-1013-3); §104/A3-контракт не
+            # затронуты (AST-гейт A3 ниже сохраняет пин).
+            # NOTE (MCA-23, Wave 3, §10/§11 current_task):
+            # `services/chat_prompts.py` исключён — эпик санкционирует снятие
+            # глобального cap «1-2 предложения» (канон MCA23 + слепки
+            # PREV_CHAT_MCA23/PREV_CHAT_VERBALIZER_MCA23, ступени миграции в
+            # prompt_migrations, ADR-1013-3). §104/A3-контракт не затронут
+            # (AST-гейт выше сохраняет пин). Прецедент NOTE-модели:
+            # test_tool_coordinator_round1026.TestBounds.
+            # NOTE (MCA-23, Wave 3, §Delivery Router): `services/telegram_send.py`
+            # исключён — единственная дельта: запись
+            # `services/direct_chat_service.py` в SEND_ALLOWLIST (rich-ветка
+            # direct зовёт обёртку `send_rich_message`, sanitize внутри;
+            # bare-send'ов нет). Поведение guard'а/обёрток не менялось
+            # (Δ registry = 1 запись); гейтится test_outgoing_guard_round1022 +
+            # rich-fallback тестами test_mca23_response_plan.
+            # NOTE (A5, ADR-1026-17 D9): `services/param_catalog.py` исключён —
+            # A5 санкционирует Δ каталога +1 ParamSpec +1 GroupSpec.
+            # NOTE (A9, ADR-1026-22 D1/D7/D10): `services/execution_graph_source.py`
+            # и `web/static/execution_graph.js` исключены — A9 санкционирует
+            # аддитивное расширение СУЩЕСТВУЮЩЕГО ExecutionGraph (9 этапов §51,
+            # display-only; Δ DDL=0; Δ каталога=0). §104 не затронут (A3 AST).
+            # NOTE (round1027, mca-17a / ADR-1027-8 D13/§4.10): `web/api/routes.py`
+            # исключён — санкционированы аддитивные query-фильтры существующего
+            # `GET /api/status/logs` (REUSE viewer, новых endpoint'ов нет).
+            "plans/current_task.md",
+        ]
+        proc = subprocess.run(
+            ["git", "-C", str(self._root()), "diff", "--name-only",
+             self._BASELINE, "--", *forbidden],
+            capture_output=True, text=True, encoding="utf-8",
+            errors="replace", timeout=30)
+        changed = [ln.strip() for ln in proc.stdout.splitlines() if ln.strip()]
+        assert changed == [], f"запрещённые пути изменены: {changed}"
+        assert not any(ln.startswith("db/") for ln in self._diff_names())
+        # NOTE (A5, ADR-1026-17 D9): web/app.js, web/index.html санкционированы
+        # для UI-врезки §27/§50; A9 (ADR-1026-22 D10): + web/static/
+        # execution_graph.js (display-only 9 этапов §51); mca-17a (ADR-1027-8
+        # D13/§4.10): + web/api/routes.py (фильтры log viewer) и
+        # web/api/oversight.py (аддитивный mca_metrics на существующей витрине).
+        # ASAP-2.1 (round1028, T-3982): + web/static/app.css (тач-цель кнопки
+        # «← К списку» ≥44px в mobile media-query; без правок токенов/палитры).
+        # NOTE (round1029, EXTRA `extra-cover-style-pipeline`, ADR-1028-4 D12):
+        # + `web/app.py` (регистрация роутера Style Registry/Editor).
+        # NOTE (round1027 Wave 2, mca-04b / ADR-1027-9): + `web/api/chat_lore.py`
+        # (AMEND: full rebuild контракт — прогресс от полного диапазона,
+        # resume-on-paused, read-time reconstruction; Δ каталога = 0).
+        # NOTE (ASAP 4.2 `asap-4-2-summary-surgical-reliability`,
+        # ADR-1028-10 D1/D5.5/D5.7; санкция Reviewer, NOTE-модель):
+        # + `web/api/cover_styles.py` (Test Style no-picker/real base, RBAC
+        # seeded backend, `_public_profile.can_edit`, backend-guard
+        # `cover_test_style` M-ASAP42-1) и + `web/api/deps.py`
+        # (`user_is_global_admin`, `_assert_can_edit_seeded`). Test-only
+        # allowlist-дельта; §104/A3-контракт не затронут (AST-гейт выше).
+        # NOTE (дополнение Builder, тот же NOTE-санкционный прецедент —
+        # ревью-перечень был неполон: `_diff_names` (diff от `e8646af`) видит
+        # закоммиченный дрейф прошлых волн): + `web/api/analytics.py`
+        # (round1028 ASAP-3.1 + round1030 ASAP-4), +
+        # `web/static/polygon-background.js` (round1026/1028 визуальный эпик),
+        # + `web/static/telegram-init.js` (round1028 TMA-init). Уже выпущены.
+        # NOTE (mca-12, round 10.46, ADR-1028-21 §7.5/D2, санкция T-5154):
+        # + `web/api/stories.py` (NEW роутер «Истории чата», 5 маршрутов) и +
+        # `web/api/__init__.py` (re-export роутера; регистрация — web/app.py,
+        # прецедент зон). `web/api/routes.py` НЕ менялся (byte-freeze
+        # ROUTES_SHA256_F11 держится).
+>       assert not any(ln.startswith("web/")
+                       and not ln.startswith(("web/app.js", "web/index.html",
+                                              "web/app.py",
+                                              "web/static/execution_graph.js",
+                                              "web/static/app.css",
+                                              "web/api/routes.py",
+                                              "web/api/oversight.py",
+                                              "web/api/chat_lore.py",
+                                              # mca-22 (ADR-1028-6): §24 —
+                                              # расширение существующих
+                                              # Memory-виджетов (trace/
+                                              # metrics), не новый dashboard.
+                                              "web/api/memory_agi.py",
+                                              "web/api/cover_styles.py",
+                                              "web/api/deps.py",
+                                              "web/api/analytics.py",
+                                              "web/static/polygon-background.js",
+                                              "web/static/telegram-init.js",
+                                              # mca-12 (ADR-1028-21 §7.5/D2)
+                                              "web/api/stories.py",
+                                              # mca-17c (round 10.47,
+                                              # ADR-1028-23 D11/§1.2.12): NEW
+                                              # `web/api/oversight_router.py`
+                                              # (ровно 3 маршрута; прод-
+                                              # верифицирован 2.58.66;
+                                              # routes.py byte-freeze —
+                                              # пин 8153b8bd… цел).
+                                              "web/api/oversight_router.py",
+                                              # asap7 wave3 (2.58.74, REV-3
+                                              # Approved): аддитивное
+                                              # расширение СУЩЕСТВУЮЩЕГО
+                                              # `web/api/summary_test.py`
+                                              # (dry-run test-контур Testing,
+                                              # §113; до волны файл был
+                                              # байт-в-байт с baseline
+                                              # pre-round1026-a1 и в diff
+                                              # не входил).
+                                              "web/api/summary_test.py",
+                                              # ASAP 8 v6.3 (Wave 3a/3b;
+                                              # тот же NOTE-санкционный
+                                              # прецедент): +
+                                              # `web/api/memory_overview.py`
+                                              # (read-only expired-overview,
+                                              # Статус) и +
+                                              # `web/api/analytics_viz.py`
+                                              # (read-only данные 7
+                                              # визуализаций U05).
+                                              "web/api/memory_overview.py",
+                                              "web/api/analytics_viz.py",
+                                              # Wave 2 (U07/U08): политика
+                                              # fullscreen, render-probe,
+                                              # feImage-карта линзы.
+                                              "web/static/fullscreen-policy.js",
+                                              "web/static/glass-probe.js",
+                                              "web/static/vendor/lg-lens-map.png",
+                                              # SOUL-13.2 / v6.3 §14
+                                              # (REV-W2-N3): страница стенда
+                                              # вынесена из публичного
+                                              # static в
+                                              # tests/glass-teststand/ —
+                                              # записи web/static/
+                                              # glass-teststand.* из
+                                              # allowlist УДАЛЕНЫ: любое
+                                              # возвращение страницы в
+                                              # web/ снова валит этот тест.
+                                              "web/api/__init__.py"))
+                       for ln in self._diff_names())
+E       assert not True
+E        +  where True = any(<generator object TestBoundsA3.test_forbidden_paths_out_of_diff_vs_baseline.<locals>.<genexpr> at 0x00000296CD702F60>)
+
+tests\test_unified_image_request_round1026.py:685: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_tool_coordinator_round1026.py::TestBounds::test_forbidden_paths_out_of_diff
+FAILED tests/test_unified_image_request_round1026.py::TestBoundsA3::test_forbidden_paths_out_of_diff_vs_baseline
+2 failed, 866 passed in 66.19s (0:01:06)
+
+----STDERR----

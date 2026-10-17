@@ -1,0 +1,11 @@
+web/api/speech.py                             tracked_at_HEAD=NO
+web/api/initiative_vitality.py                tracked_at_HEAD=NO
+services/prompt_registry.py                   tracked_at_HEAD=NO
+services/prompt_factory.py                    tracked_at_HEAD=NO
+services/style_policy.py                      tracked_at_HEAD=NO
+services/capability_registry.py               tracked_at_HEAD=NO
+services/initiative_diagnostics.py            tracked_at_HEAD=NO
+services/mca_authorial_speech.py              tracked_at_HEAD=NO
+services/mca_humor_craft.py                   tracked_at_HEAD=NO
+services/mca_humor_feedback.py                tracked_at_HEAD=NO
+services/mca_sample_library.py                tracked_at_HEAD=NO
