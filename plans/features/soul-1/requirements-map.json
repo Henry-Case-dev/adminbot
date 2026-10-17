@@ -3,7 +3,7 @@
   "source_path": "C:\\Code\\Python\\adminbot\\plans\\features\\soul-1\\source-current-task.md",
   "source_sha256": "8c42ddfabce635fe4e1f24f9522ff8642f3bd3049fac05c77ca162687051196b",
   "candidate_commit": "6094a2cfa1660d1b949dcfe5ec085bc08f080de4",
-  "deployed_commit": "",
+  "deployed_commit": "0b7a0aca416a418e099e157eca77d0a3137b3405",
   "additional_requirements": [
     {
       "source_id": "M00003",
@@ -1554,6 +1554,12 @@
           "ref": "plans/features/soul-1/fullscreen-hotfix-report.md §2/§4 (tdesktop — обычный клиент; скрытие только без API; заглушки удалены директивой); review-w7.md ledger SOUL-12.1; review-fs.md (RECHECK Approved, ledger №1)",
           "observation": "Кодовый факт устранён: tdesktop больше не скрывается без причины, кнопка работает на всех клиентах с реальным API, отказ хоста — честный тост с причиной; живая половина (Launch Mode на клиенте владельца) — postdeploy.",
           "type": "ui"
+        },
+        {
+          "candidate_commit": "0b7a0aca416a418e099e157eca77d0a3137b3405",
+          "ref": "plans/features/soul-1/release-fs-25884-report.md + plans/features/soul-1/evidence/release-fs-25884/(hashes.txt; isolation-classification.txt; soul1-diff-empty.txt; ev_deploy_run.txt)",
+          "observation": "fs-слой W7/FS-HOTFIX задеплоен на прод 2.58.84 @0b7a0aca (изолированный релиз: дельта 40 файлов = 9 fs + 31 пин). policy `96db0642…` байт-в-байт в проде (443 POLICY_SHA); прод-пробы: ban=0/soft-exit=0/заглушки=0/админ-инструмент=1/логотип скрыт=1. Не-fs элементы W7 (embedding-диагностика SOUL-13.4, W7-ханки embeddings-primary/`cr.key_source`) в релиз НЕ входили: SOUL-1 byte-diff пуст, ханки сознательно не взяты (release-fs-25884-report.md §Перенос п.4). Кодовый факт задеплоен: tdesktop-бан отсутствует в проде (policy_tdesktop_ban=0); живая половина — Launch Mode на клиенте (owner-live).",
+          "type": "live"
         }
       ]
     },
@@ -1576,6 +1582,12 @@
           "ref": "plans/features/soul-1/review-w7.md (ledger SOUL-12.2; негативы 5.3b/5.3c: __calls==[]; запрет moveTo/resizeTo/expand-фолбэка)",
           "observation": "Три операции разделены на уровне кода и защищены негативами node-сторожа; визуальная сущность fullscreen на живом клиенте (реальное окно ОС, а не CSS-класс) — postdeploy.",
           "type": "test"
+        },
+        {
+          "candidate_commit": "0b7a0aca416a418e099e157eca77d0a3137b3405",
+          "ref": "plans/features/soul-1/release-fs-25884-report.md + plans/features/soul-1/evidence/release-fs-25884/(hashes.txt; isolation-classification.txt; soul1-diff-empty.txt; ev_deploy_run.txt)",
+          "observation": "fs-слой W7/FS-HOTFIX задеплоен на прод 2.58.84 @0b7a0aca (изолированный релиз: дельта 40 файлов = 9 fs + 31 пин). policy `96db0642…` байт-в-байт в проде (443 POLICY_SHA); прод-пробы: ban=0/soft-exit=0/заглушки=0/админ-инструмент=1/логотип скрыт=1. Не-fs элементы W7 (embedding-диагностика SOUL-13.4, W7-ханки embeddings-primary/`cr.key_source`) в релиз НЕ входили: SOUL-1 byte-diff пуст, ханки сознательно не взяты (release-fs-25884-report.md §Перенос п.4). Негативы (нет WinAPI/moveTo/resizeTo/expand-фолбэка) действуют на задеплоенном дереве (FS-POLICY-OK); визуальное окно ОС — owner-live.",
+          "type": "live"
         }
       ]
     },
@@ -1598,6 +1610,12 @@
           "ref": "plans/features/soul-1/fullscreen-hotfix-report.md §4 (F1: launchParams из sessionStorage('__telegram__initParams')+hash по allowlist; live-проба {tdesktop, 8.0, e2e}); review-fs.md RECHECK (F1 live)",
           "observation": "Диагностика собирает факты воспроизведения (platform/SDK/launchParams/isFullscreen/методы/viewport/insets/clickResult/hostBehaviour/trace/warnings) без секретов; прогон матрицы на реальных клиентах — postdeploy.",
           "type": "ui"
+        },
+        {
+          "candidate_commit": "0b7a0aca416a418e099e157eca77d0a3137b3405",
+          "ref": "plans/features/soul-1/release-fs-25884-report.md + plans/features/soul-1/evidence/release-fs-25884/(hashes.txt; isolation-classification.txt; soul1-diff-empty.txt; ev_deploy_run.txt)",
+          "observation": "fs-слой W7/FS-HOTFIX задеплоен на прод 2.58.84 @0b7a0aca (изолированный релиз: дельта 40 файлов = 9 fs + 31 пин). policy `96db0642…` байт-в-байт в проде (443 POLICY_SHA); прод-пробы: ban=0/soft-exit=0/заглушки=0/админ-инструмент=1/логотип скрыт=1. Не-fs элементы W7 (embedding-диагностика SOUL-13.4, W7-ханки embeddings-primary/`cr.key_source`) в релиз НЕ входили: SOUL-1 byte-diff пуст, ханки сознательно не взяты (release-fs-25884-report.md §Перенос п.4). Диагностика в проде жива: policy_launch_storage=3, policy_diag=1; запись матрицы фактов на реальных клиентах — owner-live (§8-инструмент off by default).",
+          "type": "live"
         }
       ]
     },
@@ -1620,6 +1638,12 @@
           "ref": "plans/features/soul-1/fullscreen-hotfix-report.md §2/§3 (кнопка на всех клиентах с API; native ✕ не тронут; тост по факту отказа); review-fs.md (RECHECK ledger №1/3/5)",
           "observation": "Политика соблюдена на mock-канале: enter/exit по SDK-ack; неподдерживаемый клиент — без несуществующей кнопки и ложного успеха; «визуально подтверждённый fullscreen» на живом клиенте — postdeploy.",
           "type": "ui"
+        },
+        {
+          "candidate_commit": "0b7a0aca416a418e099e157eca77d0a3137b3405",
+          "ref": "plans/features/soul-1/release-fs-25884-report.md + plans/features/soul-1/evidence/release-fs-25884/(hashes.txt; isolation-classification.txt; soul1-diff-empty.txt; ev_deploy_run.txt)",
+          "observation": "fs-слой W7/FS-HOTFIX задеплоен на прод 2.58.84 @0b7a0aca (изолированный релиз: дельта 40 файлов = 9 fs + 31 пин). policy `96db0642…` байт-в-байт в проде (443 POLICY_SHA); прод-пробы: ban=0/soft-exit=0/заглушки=0/админ-инструмент=1/логотип скрыт=1. Не-fs элементы W7 (embedding-диагностика SOUL-13.4, W7-ханки embeddings-primary/`cr.key_source`) в релиз НЕ входили: SOUL-1 byte-diff пуст, ханки сознательно не взяты (release-fs-25884-report.md §Перенос п.4). В проде заглушек нет (idx_stub=0); честный тост по факту отказа сохранён; «визуально подтверждённый fullscreen» — owner-live.",
+          "type": "live"
         }
       ]
     },
@@ -1642,6 +1666,12 @@
           "ref": "plans/features/soul-1/evidence/fs-hotfix/frozen-check.txt; plans/features/soul-1/evidence/w7/frozen-check.txt; plans/features/soul-1/review-w7.md ledger SOUL-12.5",
           "observation": "Моки помечены как регресс-канал; safe area и отсутствие перекрытий проверены rect-тестами и живыми рендерами; полигон/стекло не тронуты (frozen-check RESULT: OK).",
           "type": "static"
+        },
+        {
+          "candidate_commit": "0b7a0aca416a418e099e157eca77d0a3137b3405",
+          "ref": "plans/features/soul-1/release-fs-25884-report.md + plans/features/soul-1/evidence/release-fs-25884/(hashes.txt; isolation-classification.txt; soul1-diff-empty.txt; ev_deploy_run.txt)",
+          "observation": "fs-слой W7/FS-HOTFIX задеплоен на прод 2.58.84 @0b7a0aca (изолированный релиз: дельта 40 файлов = 9 fs + 31 пин). policy `96db0642…` байт-в-байт в проде (443 POLICY_SHA); прод-пробы: ban=0/soft-exit=0/заглушки=0/админ-инструмент=1/логотип скрыт=1. Не-fs элементы W7 (embedding-диагностика SOUL-13.4, W7-ханки embeddings-primary/`cr.key_source`) в релиз НЕ входили: SOUL-1 byte-diff пуст, ханки сознательно не взяты (release-fs-25884-report.md §Перенос п.4). Моки остаются регресс-каналом; полигон/стекло не тронуты (перенос — только fs-дифф).",
+          "type": "live"
         }
       ]
     },
@@ -1663,6 +1693,12 @@
           "candidate_commit": "6094a2cfa1660d1b949dcfe5ec085bc08f080de4",
           "ref": "plans/features/soul-1/evidence/w7/v63-live-gates-ledger.json; plans/features/soul-1/review-w7.md ledger SOUL-13.1",
           "observation": "Видимый реестр 65 незакрытых строк (42 READY_FOR_LIVE / 18 BLOCKED_REAL_HUMAN_GATE / 5 PENDING) с причинами, сверен ревьюером 1:1; ни одна строка не переименована в «closed».",
+          "type": "static"
+        },
+        {
+          "candidate_commit": "0b7a0aca416a418e099e157eca77d0a3137b3405",
+          "ref": "plans/features/soul-1/release-fs-25884-report.md + plans/features/soul-1/evidence/release-fs-25884/(hashes.txt; isolation-classification.txt; soul1-diff-empty.txt; ev_deploy_run.txt)",
+          "observation": "fs-слой W7/FS-HOTFIX задеплоен на прод 2.58.84 @0b7a0aca (изолированный релиз: дельта 40 файлов = 9 fs + 31 пин). policy `96db0642…` байт-в-байт в проде (443 POLICY_SHA); прод-пробы: ban=0/soft-exit=0/заглушки=0/админ-инструмент=1/логотип скрыт=1. Не-fs элементы W7 (embedding-диагностика SOUL-13.4, W7-ханки embeddings-primary/`cr.key_source`) в релиз НЕ входили: SOUL-1 byte-diff пуст, ханки сознательно не взяты (release-fs-25884-report.md §Перенос п.4). Реестр не закрывается деплоем fs-части: живые гейты остаются видимыми; не-fs элементы W7 в прод не входили.",
           "type": "static"
         }
       ]
@@ -2801,6 +2837,12 @@
           "ref": "plans/features/soul-1/review-w7.md (ledger: SOUL-12.0 — READY_FOR_LIVE, чек-лист §8); plans/features/soul-1/w7-v63-baseline-report.md §2 SOUL-12.0",
           "observation": "Живое подтверждение (реальный Telegram Desktop/Android) сознательно не объявлено: чек-лист владельца отменён 18.10 (PET_PROJECT), живые наблюдения выполняют агенты после выката; PENDING_OWNER_E2E — информационный.",
           "type": "static"
+        },
+        {
+          "candidate_commit": "0b7a0aca416a418e099e157eca77d0a3137b3405",
+          "ref": "plans/features/soul-1/release-fs-25884-report.md + plans/features/soul-1/evidence/release-fs-25884/(hashes.txt; isolation-classification.txt; soul1-diff-empty.txt; ev_deploy_run.txt)",
+          "observation": "fs-слой W7/FS-HOTFIX задеплоен на прод 2.58.84 @0b7a0aca (изолированный релиз: дельта 40 файлов = 9 fs + 31 пин). policy `96db0642…` байт-в-байт в проде (443 POLICY_SHA); прод-пробы: ban=0/soft-exit=0/заглушки=0/админ-инструмент=1/логотип скрыт=1. Не-fs элементы W7 (embedding-диагностика SOUL-13.4, W7-ханки embeddings-primary/`cr.key_source`) в релиз НЕ входили: SOUL-1 byte-diff пуст, ханки сознательно не взяты (release-fs-25884-report.md §Перенос п.4). Живое подтверждение — на реальном клиенте (owner-live после выката; OQ-1 отменён владельцем).",
+          "type": "live"
         }
       ]
     },
@@ -2823,6 +2865,12 @@
           "ref": "plans/features/soul-1/evidence/w7/v63-baseline-record.json; plans/features/soul-1/review-w7.md ledger SOUL-13.0/13.1",
           "observation": "Точный release baseline линии v6.3 зафиксирован (задеплоенные SHA 2.58.79/78/81/83, blob_HEAD/sha256 8 отчётных артефактов); git-факты (225c3c2b — ancestor origin/master) проверены.",
           "type": "static"
+        },
+        {
+          "candidate_commit": "0b7a0aca416a418e099e157eca77d0a3137b3405",
+          "ref": "plans/features/soul-1/release-fs-25884-report.md + plans/features/soul-1/evidence/release-fs-25884/(hashes.txt; isolation-classification.txt; soul1-diff-empty.txt; ev_deploy_run.txt)",
+          "observation": "fs-слой W7/FS-HOTFIX задеплоен на прод 2.58.84 @0b7a0aca (изолированный релиз: дельта 40 файлов = 9 fs + 31 пин). policy `96db0642…` байт-в-байт в проде (443 POLICY_SHA); прод-пробы: ban=0/soft-exit=0/заглушки=0/админ-инструмент=1/логотип скрыт=1. Не-fs элементы W7 (embedding-диагностика SOUL-13.4, W7-ханки embeddings-primary/`cr.key_source`) в релиз НЕ входили: SOUL-1 byte-diff пуст, ханки сознательно не взяты (release-fs-25884-report.md §Перенос п.4). К деплою напрямую не привязано (baseline-запись); фиксирует линию v6.3 — после выката fs-слоя остаётся в силе.",
+          "type": "static"
         }
       ]
     },
@@ -2838,13 +2886,19 @@
       "acceptance": "Стенд glass-teststand.html недоступен анониму (401/403/404) в production static assets либо закрыт серверной авторизацией; стенд доступен только в разрешённой test-среде (положительная проверка); боевой polygon background и liquid glass не изменены",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "6094a2cfa1660d1b949dcfe5ec085bc08f080de4",
           "ref": "plans/features/soul-1/evidence/w7/teststand-test-env-local.json (+ teststand-test-env-local-render.png); plans/features/soul-1/review-w7.md ledger SOUL-13.2",
-          "observation": "Локально: 7 анонимных путей стенда → 401/403/404, боевые ассеты 200; положительная проверка разрешённой test-среды рендерится; прод-проба 404 существует на предыдущем кандидате — повтор на новом задеплоенном кандидате postdeploy.",
+          "observation": "Локально: 7 анонимных путей стенда → 401/403/404, боевые ассеты 200; положительная проверка разрешённой test-среды рендерится; прод-проба 404 существует на предыдущем кандидате; повтор выполнен на задеплоенном 2.58.84 @0b7a0aca — см. запись к 0b7a0aca.",
           "type": "ui"
+        },
+        {
+          "candidate_commit": "0b7a0aca416a418e099e157eca77d0a3137b3405",
+          "ref": "plans/features/soul-1/release-fs-25884-report.md + plans/features/soul-1/evidence/release-fs-25884/(hashes.txt; isolation-classification.txt; soul1-diff-empty.txt; ev_deploy_run.txt)",
+          "observation": "fs-слой W7/FS-HOTFIX задеплоен на прод 2.58.84 @0b7a0aca (изолированный релиз: дельта 40 файлов = 9 fs + 31 пин). policy `96db0642…` байт-в-байт в проде (443 POLICY_SHA); прод-пробы: ban=0/soft-exit=0/заглушки=0/админ-инструмент=1/логотип скрыт=1. Не-fs элементы W7 (embedding-диагностика SOUL-13.4, W7-ханки embeddings-primary/`cr.key_source`) в релиз НЕ входили: SOUL-1 byte-diff пуст, ханки сознательно не взяты (release-fs-25884-report.md §Перенос п.4). Прод-проба на задеплоенном кандидате: /web/static/glass-teststand.html → 404 и /static/glass-teststand.css → 404 анониму (ev_deploy_run.txt, Фаза E), живые боевые пути → 200; положительная проверка test-среды рендерится (teststand-test-env-local.json); полигон/liquid glass не тронуты (перенос — только fs-дифф; frozen-check SAME).",
+          "type": "live"
         }
       ]
     },
@@ -2866,6 +2920,12 @@
           "candidate_commit": "6094a2cfa1660d1b949dcfe5ec085bc08f080de4",
           "ref": "plans/features/soul-1/evidence/w7/v63-live-gates-ledger.json (category_status); plans/features/soul-1/review-w7.md ledger SOUL-13.3",
           "observation": "Историческое «14 pending» сверено с рабочей картой (42/18/5, 135 VERIFIED); старые обязательства не спрятаны под DONE; live-наблюдения по категориям остаются отдельными открытыми строками реестра.",
+          "type": "static"
+        },
+        {
+          "candidate_commit": "0b7a0aca416a418e099e157eca77d0a3137b3405",
+          "ref": "plans/features/soul-1/release-fs-25884-report.md + plans/features/soul-1/evidence/release-fs-25884/(hashes.txt; isolation-classification.txt; soul1-diff-empty.txt; ev_deploy_run.txt)",
+          "observation": "fs-слой W7/FS-HOTFIX задеплоен на прод 2.58.84 @0b7a0aca (изолированный релиз: дельта 40 файлов = 9 fs + 31 пин). policy `96db0642…` байт-в-байт в проде (443 POLICY_SHA); прод-пробы: ban=0/soft-exit=0/заглушки=0/админ-инструмент=1/логотип скрыт=1. Не-fs элементы W7 (embedding-диагностика SOUL-13.4, W7-ханки embeddings-primary/`cr.key_source`) в релиз НЕ входили: SOUL-1 byte-diff пуст, ханки сознательно не взяты (release-fs-25884-report.md §Перенос п.4). Деплой fs-части не прячет и не закрывает реестр: строки остаются видимыми (переименований нет); не-fs элементы W7 в прод не входили.",
           "type": "static"
         }
       ]
@@ -2895,6 +2955,12 @@
           "ref": "tests/test_soul1_w7_embedding_primary_slot.py (7 passed); plans/features/soul-1/evidence/w7/pytest-embedding-suites.txt (97 passed, артефакт перегенерирован по N1 review-w7); plans/features/soul-1/review-w7.md ledger SOUL-13.4 (97 passed, мутации 5/5 KILLED)",
           "observation": "Код различает absent/hot/env (resolve_key_slot, key_source, degraded, primary_state/primary_warn/primary_hint); WARN недеструктивный ≤1/10 мин, без значений ключей; факты ротации и общий proxy-host задокументированы; провайдерский reset horizon честно оставлен OPEN (внешний факт).",
           "type": "test"
+        },
+        {
+          "candidate_commit": "0b7a0aca416a418e099e157eca77d0a3137b3405",
+          "ref": "plans/features/soul-1/release-fs-25884-report.md + plans/features/soul-1/evidence/release-fs-25884/(hashes.txt; isolation-classification.txt; soul1-diff-empty.txt; ev_deploy_run.txt)",
+          "observation": "fs-слой W7/FS-HOTFIX задеплоен на прод 2.58.84 @0b7a0aca (изолированный релиз: дельта 40 файлов = 9 fs + 31 пин). policy `96db0642…` байт-в-байт в проде (443 POLICY_SHA); прод-пробы: ban=0/soft-exit=0/заглушки=0/админ-инструмент=1/логотип скрыт=1. Не-fs элементы W7 (embedding-диагностика SOUL-13.4, W7-ханки embeddings-primary/`cr.key_source`) в релиз НЕ входили: SOUL-1 byte-diff пуст, ханки сознательно не взяты (release-fs-25884-report.md §Перенос п.4). ВНИМАНИЕ (явно): embedding-диагностика — не-fs элемент W7 и в прод-релиз 2.58.84 НЕ входила (W7-ханки embeddings-primary/`cr.key_source` сознательно не взяты; SOUL-1 byte-diff пуст). Строка остаётся на dev-линии; её VERIFIED-основания — preprod-факты master-кандидата 6094a2cf.",
+          "type": "static"
         }
       ]
     },
@@ -2917,6 +2983,12 @@
           "ref": "plans/features/soul-1/evidence/w7/v63-baseline-record.json; plans/features/soul-1/review-w7.md ledger SOUL-13.5",
           "observation": "release-reconciliation/final-audit/live-canary найдены как tracked/clean (blob sha приведены); 225c3c2b — реальный docs-only коммит (ancestor origin/master); deployed SHA взят из live-canary, а не скопирован механически.",
           "type": "static"
+        },
+        {
+          "candidate_commit": "0b7a0aca416a418e099e157eca77d0a3137b3405",
+          "ref": "plans/features/soul-1/release-fs-25884-report.md + plans/features/soul-1/evidence/release-fs-25884/(hashes.txt; isolation-classification.txt; soul1-diff-empty.txt; ev_deploy_run.txt)",
+          "observation": "fs-слой W7/FS-HOTFIX задеплоен на прод 2.58.84 @0b7a0aca (изолированный релиз: дельта 40 файлов = 9 fs + 31 пин). policy `96db0642…` байт-в-байт в проде (443 POLICY_SHA); прод-пробы: ban=0/soft-exit=0/заглушки=0/админ-инструмент=1/логотип скрыт=1. Не-fs элементы W7 (embedding-диагностика SOUL-13.4, W7-ханки embeddings-primary/`cr.key_source`) в релиз НЕ входили: SOUL-1 byte-diff пуст, ханки сознательно не взяты (release-fs-25884-report.md §Перенос п.4). К деплою не привязано (git-evidence/docs-строка); fs-слой W7 задеплоен 2.58.84 @0b7a0aca.",
+          "type": "static"
         }
       ]
     },
@@ -2938,6 +3010,12 @@
           "candidate_commit": "6094a2cfa1660d1b949dcfe5ec085bc08f080de4",
           "ref": "plans/features/soul-1/evidence/w7/pytest-6-previously-failing.txt (6/6 PASS); plans/features/soul-1/review-w7.md ledger SOUL-13.6 (свой прогон + сравнение интерпретаторов)",
           "observation": "6 ранее падавших тестов зелёные на каноническом .venv; падения под py -3 воспроизведены как интерпретаторные (aiogram/trafilatura), а не «вне области»; актуального runtime-бага среди шести нет.",
+          "type": "test"
+        },
+        {
+          "candidate_commit": "0b7a0aca416a418e099e157eca77d0a3137b3405",
+          "ref": "plans/features/soul-1/release-fs-25884-report.md + plans/features/soul-1/evidence/release-fs-25884/(hashes.txt; isolation-classification.txt; soul1-diff-empty.txt; ev_deploy_run.txt)",
+          "observation": "fs-слой W7/FS-HOTFIX задеплоен на прод 2.58.84 @0b7a0aca (изолированный релиз: дельта 40 файлов = 9 fs + 31 пин). policy `96db0642…` байт-в-байт в проде (443 POLICY_SHA); прод-пробы: ban=0/soft-exit=0/заглушки=0/админ-инструмент=1/логотип скрыт=1. Не-fs элементы W7 (embedding-диагностика SOUL-13.4, W7-ханки embeddings-primary/`cr.key_source`) в релиз НЕ входили: SOUL-1 byte-diff пуст, ханки сознательно не взяты (release-fs-25884-report.md §Перенос п.4). К деплою не привязано (pytest-линия); fs-слой W7 задеплоен 2.58.84 @0b7a0aca.",
           "type": "test"
         }
       ]

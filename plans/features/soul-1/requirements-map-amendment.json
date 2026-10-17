@@ -3,7 +3,7 @@
   "source_path": "C:\\Code\\Python\\adminbot\\plans\\features\\soul-1\\source-architectural-clarification.md",
   "source_sha256": "338fd9c6bd323a7ea8ad80577c2e9d8b45a714d30bdd4fc9147af75931a4a35c",
   "candidate_commit": "6094a2cfa1660d1b949dcfe5ec085bc08f080de4",
-  "deployed_commit": "",
+  "deployed_commit": "0b7a0aca416a418e099e157eca77d0a3137b3405",
   "additional_requirements": [
     {
       "source_id": "M00003",
