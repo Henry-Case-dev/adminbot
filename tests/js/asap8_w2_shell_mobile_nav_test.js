@@ -204,10 +204,16 @@ const CSS = fs.readFileSync(path.join(ROOT, 'web', 'static', 'app.css'), 'utf8')
 
 // ── 4. U01.2/U01.3: row A компакт + row B геометрия ───────────────────────
 {
-  // Бренд [←/AdminBot] — ровно один слот, только mobile.
+  // NOTE (FS-HOTFIX FOLLOW-UP, директива владельца 18.10, §4.1.2/§5.5/§10):
+  // логотип AdminBot — декоративный элемент и СОЗНАТЕЛЬНО скрыт в mobile-
+  // shell («Главный визуальный приоритет — убрать логотип…»); его место
+  // отдано функциональной компоновке row A (селектор чата + кнопка ⛶ в той
+  // же строке). Разметка слота сохранена (v-if), desktop/compact не затронут.
   assert.ok(INDEX.indexOf('class="mobile-brand') >= 0
     && /v-if="iaV2 && isMobileShell && !\(routeDepth > 0 && !backNative\)"/.test(INDEX),
-    'U01: слот [←/AdminBot] — бренд только когда ← скрыта');
+    'U01: разметка слота [←/AdminBot] сохранена');
+  assert.ok(/\.app-shell\.shell-mobile \.mobile-brand \{ display: none; \}/.test(CSS),
+    'FS-HOTFIX: логотип скрыт в .shell-mobile (директива 18.10, §4.1.2/§10)');
   // ID из шапки скрыт на mobile (desktop <details> сохранён).
   assert.ok(/\.app-shell\.shell-mobile \.scope-tech \{ display: none; \}/.test(CSS),
     'U01.2: ID-чип скрыт в мобильной шапке');

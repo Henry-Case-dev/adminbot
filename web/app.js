@@ -2329,13 +2329,20 @@
         // W2-FULLSCREEN (REQ-U07-1): зеркала FullscreenPolicy (НЕ источник
         // истины). Копируются по window.__FullscreenPolicy.subscribe();
         // фактический fullscreen — только из SDK-факта (инверсии нет).
-        fsSlot: 'inline',          // inline | float | hidden (решает политика)
+        // FS-HOTFIX 18.10: заглушки/диагностических полей в UI нет —
+        // explain()/diagnostics() живут в dev-API window.__FullscreenPolicy.
+        fsSlot: 'inline',          // inline | hidden (решает политика)
         fsCanOffer: false,         // можно предложить requestFullscreen
         fsCanOfferExit: false,     // доступен корректный exitFullscreen
-        fsReason: '',              // причина honest-disable/hidden
         fsPending: false,          // запрос в полёте (ack-таймаут — в политике)
         fsActualUnknown: false,    // SDK не отдаёт boolean isFullscreen
         _fsLastErrorSeen: null,    // дедуп тоста причины (последний показанный код)
+        // FS-HOTFIX FOLLOW-UP §8 (18.10): временная админ-диагностика
+        // геометрии ⛶ — выключена по умолчанию, вход только в меню «Ещё»
+        // под admin-гейтом, места в обычном UI не занимает.
+        fsGeomDiagOpen: false,
+        fsGeomOverlay: false,      // оверлей вычисленных границ safe area
+        fsGeomText: '',            // компактный снимок (копируется одной кнопкой)
         // config
         configItems: [],
         // F10 (10.24, ADR-1024-11 D2): версия загрузки конфига — растёт в
@@ -2674,6 +2681,27 @@
       fsAriaPressed: function () {
         if (this.fsActualUnknown) return null;
         return this.isFullscreen ? 'true' : 'false';
+      },
+      // FS-HOTFIX FOLLOW-UP §8: вычисленная нативная зона Telegram =
+      // max(системная safe area, SDK) + Telegram-часть (content inset) —
+      // та же семантика, что в padding-top шапки (app.css). «0» честно
+      // означает «клиент не сообщает/зона нулевая», не «кнопок нет» (§6).
+      fsGeomSafeVals: function () {
+        var v = { top: 0, contentTop: 0, left: 0, right: 0 };
+        var pol = (typeof window !== 'undefined') && window.__FullscreenPolicy;
+        if (pol) {
+          var st = pol.state();
+          var sa = (st && st.viewport && st.viewport.safeAreaInset) || {};
+          var csa = (st && st.viewport && st.viewport.contentSafeAreaInset) || {};
+          v.top = Math.max(0, sa.top || 0);
+          v.contentTop = Math.max(0, csa.top || 0);
+          v.left = Math.max(0, Math.max(sa.left || 0, csa.left || 0));
+          v.right = Math.max(0, Math.max(sa.right || 0, csa.right || 0));
+        }
+        return v;
+      },
+      fsGeomSafeTop: function () {
+        return this.fsGeomSafeVals.top + this.fsGeomSafeVals.contentTop;
       },
       currentTabLabel: function () {
         // ASAP 7 F4: страница ПОДКАРТОЧКИ реестра — заголовок карточки
@@ -9140,6 +9168,114 @@
         this.closeMoreMenu(false);
         this.shellNavTo(item.route);
       },
+
+      // ═══ FS-HOTFIX FOLLOW-UP §8 (18.10): админ-диагностика геометрии ⛶ ═══
+      // Временный режим: компактный снимок фактической геометрии для владельца
+      // (platform/SDK, isFullscreen, viewport+stable, оба insets, rect кнопки,
+      // rect своего тулбара-шапки, layout-режим, наличие логотипа, высота
+      // шапки, поддержка fullscreen API и результат последнего переключения).
+      // Гейт — существующие admin-права. Секретов нет: снимок собирается
+      // точечно (никаких токенов/initData/ID чатов/персональных данных).
+      // Убрать после приёмки владельца на живых клиентах.
+      _fsRectText: function (sel) {
+        try {
+          var el = document.querySelector(sel);
+          if (!el) return '—';
+          var r = el.getBoundingClientRect();
+          return Math.round(r.left) + ',' + Math.round(r.top) + ' ' +
+                 Math.round(r.width) + '×' + Math.round(r.height);
+        } catch (e) { return '—'; }
+      },
+      buildFsGeomText: function () {
+        var pol = (typeof window !== 'undefined') && window.__FullscreenPolicy;
+        var st = null, dg = null;
+        try {
+          if (pol) { st = pol.state(); dg = pol.diagnostics(); }
+        } catch (e) { /* диагностика не роняет UI */ }
+        var vp = (st && st.viewport) || {};
+        var sa = vp.safeAreaInset || {};
+        var csa = vp.contentSafeAreaInset || {};
+        var shell = null, brand = null, header = null;
+        try {
+          shell = document.querySelector('.app-shell');
+          brand = document.querySelector('.mobile-brand');
+          header = document.querySelector('header.header-sticky');
+        } catch (e2) { /* guard */ }
+        var headerH = null, headerPad = null;
+        if (header) {
+          var hr = header.getBoundingClientRect();
+          headerH = Math.round(hr.height);
+          try { headerPad = Math.round(parseFloat(
+            getComputedStyle(header).paddingTop) || 0); } catch (e3) { headerPad = null; }
+        }
+        var logoState = 'нет узла';
+        if (brand) {
+          try {
+            logoState = String(getComputedStyle(brand).display) +
+              (brand.offsetParent === null ? ' (скрыт)' : ' (видим)');
+          } catch (e4) { logoState = '—'; }
+        }
+        var lines = [
+          '⛶ geometry snapshot (admin, временная диагностика)',
+          'platform: ' + ((st && st.telegramPlatform) || 'unknown') +
+            ' | SDK: ' + ((st && st.sdkVersion) || '—'),
+          'isFullscreen: ' + (dg ? String(dg.actualFullscreen) : '—') +
+            ' | launchFullscreen: ' + (dg ? String(dg.launchFullscreen) : '—') +
+            ' | boolean-API: ' + (dg ? (dg.isFullscreenSupported ? 'yes' : 'no') : '—'),
+          'viewport: ' + ((typeof window !== 'undefined' && window.innerWidth) || 0) +
+            '×' + ((typeof window !== 'undefined' && window.innerHeight) || 0) +
+            ' | stableHeight: ' + (dg ? dg.stableHeight : '—') +
+            ' | dpr: ' + ((typeof window !== 'undefined' && window.devicePixelRatio) || 1),
+          'safeAreaInset: top ' + (sa.top || 0) + ' bottom ' + (sa.bottom || 0) +
+            ' left ' + (sa.left || 0) + ' right ' + (sa.right || 0),
+          'contentSafeAreaInset: top ' + (csa.top || 0) + ' bottom ' + (csa.bottom || 0) +
+            ' left ' + (csa.left || 0) + ' right ' + (csa.right || 0),
+          'calc native zone: top ' + this.fsGeomSafeTop + 'px left ' +
+            this.fsGeomSafeVals.left + 'px right ' + this.fsGeomSafeVals.right + 'px',
+          'button ⛶ rect: ' + this._fsRectText('.header-fs-btn'),
+          'toolbar(header) rect: ' + this._fsRectText('header.header-sticky') +
+            ' | height ' + (headerH === null ? '—' : headerH + 'px') +
+            ' | pad-top ' + (headerPad === null ? '—' : headerPad + 'px'),
+          'layout: ' + (shell ? shell.className : '—'),
+          'logo (.mobile-brand): ' + logoState,
+          'fullscreen API: request=' + (dg ? (dg.hasRequestFullscreen ? 'yes' : 'no') : '—') +
+            ' exit=' + (dg ? (dg.hasExitFullscreen ? 'yes' : 'no') : '—'),
+          'last switch: click=' + (dg ? dg.clickResult : '—') +
+            ' pending=' + (dg ? String(dg.requestPending) : '—') +
+            ' error=' + (dg && dg.lastError ? dg.lastError : '—'),
+          'slot: ' + ((st && st.slot) || '—') +
+            (st && st.reason ? ' | reason: ' + st.reason : '')
+        ];
+        this.fsGeomText = lines.join('\n');
+        return this.fsGeomText;
+      },
+      openFsGeomDiag: function () {
+        if (!this.isGlobalAdminEffective) return;   // гейт: admin-права
+        if (this.moreMenuOpen) this.closeMoreMenu(false);
+        this.fsGeomDiagOpen = true;
+        var self = this;
+        // Снимок собирается ПОСЛЕ закрытия меню (иначе в layout-режим
+        // попадёт транзиентный класс more-menu-open) и после фокуса панели.
+        this.$nextTick(function () {
+          self.buildFsGeomText();
+          var panel = self.$refs.fsGeomPanel;
+          if (panel && typeof panel.focus === 'function') {
+            try { panel.focus(); } catch (e) { /* no-op */ }
+          }
+        });
+      },
+      closeFsGeomDiag: function () {
+        this.fsGeomDiagOpen = false;
+        this.fsGeomOverlay = false;   // оверлей живёт вместе с панелью
+      },
+      toggleFsGeomOverlay: function () {
+        this.fsGeomOverlay = !this.fsGeomOverlay;
+        this.buildFsGeomText();
+      },
+      copyFsGeomDiag: function () {
+        this.buildFsGeomText();
+        this.copyText(this.fsGeomText);   // «Скопировано» через общий хелпер
+      },
       // Tab-trap внутри панели: фокус не уходит под overlay, Esc всегда
       // закрывает (глобальный escClose — см. guard в escClose()).
       moreMenuOnKeydown: function (e) {
@@ -14332,13 +14468,16 @@
       // W2-FULLSCREEN (asap8-v6.3 U07, REQ-U07-1): ВСЯ политика
       // platform × capability × launch mode — в /static/fullscreen-policy.js
       // (window.__FullscreenPolicy, plain IIFE без Vue). app.js держит только
-      // ЗЕРКАЛО отображаемых полей (isFullscreen/fsSlot/fsCanOffer/fsReason/
-      // fsPending) по subscribe(); обратных путей «Vue computed → policy →
-      // запись в Vue в том же тике» нет (non-reactivity-loop, §4.1 контракта).
+      // ЗЕРКАЛО отображаемых полей (isFullscreen/fsSlot/fsCanOffer/fsPending)
+      // по subscribe(); обратных путей «Vue computed → policy → запись в Vue
+      // в том же тике» нет (non-reactivity-loop, §4.1 контракта).
       // Legacy-инверсия локального флага (бывш. строки 12818–12821) УДАЛЕНА:
       // isFullscreen — только из SDK-факта, иначе 'unknown' (U07.1c).
       // request()/exit() политики — единственные пути к TMA requestFullscreen/
       // exitFullscreen; expand() fullscreen-фолбэком НЕ используется (U07.1a).
+      // FS-HOTFIX 18.10: UI-заглушек нет — причина ошибки приходит тостом по
+      // факту неудачного действия (U07.2d «не молчание»), техдиагностика —
+      // только dev-API политики.
       _fsPolicySync: function (policy) {
         try {
           var s = policy.state();
@@ -14349,7 +14488,6 @@
           this.fsSlot = s.slot || 'inline';
           this.fsCanOffer = !!s.canOfferFullscreen;
           this.fsCanOfferExit = !!s.canOfferExit;
-          this.fsReason = s.reason || '';
           this.fsPending = !!s.requestPending;
           // U07.2d/U07.1d: ошибка — тост с причиной, не молчание.
           var code = s.lastError ? s.lastError.code : null;
@@ -14369,8 +14507,8 @@
 
       toggleFullscreen: function () {
         // W2-FULLSCREEN: решение принимает политика (pending-guard,
-        // ALREADY_FULLSCREEN без второго request, honest-disable). Vue-флаг
-        // здесь НЕ инвертируется — факт придёт событием ack.
+        // ALREADY_FULLSCREEN без второго request, capability-проверка).
+        // Vue-флаг здесь НЕ инвертируется — факт придёт событием ack.
         var policy = (typeof window !== 'undefined') && window.__FullscreenPolicy;
         if (policy) {
           if (this.isFullscreen) policy.exit();
@@ -14397,13 +14535,9 @@
         var self = this;
         var policy = (typeof window !== 'undefined') && window.__FullscreenPolicy;
         if (policy) {
-          // U07.2d: light/dark Telegram theme — маркер на <html> для CSS ⛶.
-          try {
-            var waCs = window.Telegram && Telegram.WebApp;
-            if (waCs && waCs.colorScheme) {
-              document.documentElement.dataset.fsScheme = String(waCs.colorScheme);
-            }
-          } catch (e0) { /* no-op */ }
+          // FS-HOTFIX 18.10: маркер data-fs-scheme и glass-подложка кнопки
+          // удалены (стиль — как у нативных кнопок клиента), поэтому тема
+          // здесь больше не прокидывается — политика инит-факты не требует.
           policy.init();
           if (!this._fsPolicySubscribed) {
             this._fsPolicyUnsub = policy.subscribe(function () {

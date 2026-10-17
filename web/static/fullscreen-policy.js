@@ -1,8 +1,23 @@
-/* ═══ W2-FULLSCREEN (asap8-v6.3, U07 / REQ-U07-1..2) ═══
- * FullscreenPolicy — единая политика «platform × client capability ×
- * launch mode» для кнопки ⛶ и TMA-fullscreen. Plain IIFE по образцу
- * glass.js/telegram-init.js: CSP-safe, БЕЗ Vue, БЕЗ inline-кода, БЕЗ
- * записи CSS-переменных (--tg-* пишет ТОЛЬКО telegram-init.js, §2.3).
+/* ═══ W2-FULLSCREEN (asap8-v6.3, U07 / REQ-U07-1..2) + FS-HOTFIX 18.10 ═══
+ * FullscreenPolicy — единая политика «client capability × launch mode» для
+ * кнопки ⛶ и TMA-fullscreen. Plain IIFE по образцу glass.js/telegram-init.js:
+ * CSP-safe, БЕЗ Vue, БЕЗ inline-кода, БЕЗ записи CSS-переменных
+ * (--tg-* пишет ТОЛЬКО telegram-init.js, §2.3).
+ *
+ * FS-HOTFIX (директива владельца, 18.10.2026): прежнее решение —
+ * honest-disable на Telegram Desktop + объясняющая заглушка вместо кнопки —
+ * признано НЕВЕРНЫМ. Кастомная кнопка РАНЬШЕ работала и реально переключала
+ * fullscreen; дефект был в геометрии окна, позиции кнопки и адаптивности, а
+ * не в отсутствии API. Поэтому:
+ *   • платформенных запретов больше нет — решение принимает фактический API
+ *     клиента, а не догадка о платформе; tdesktop — обычный клиент;
+ *   • кнопка скрывается ТОЛЬКО при реальном отсутствии API (вне Telegram или
+ *     нет ни requestFullscreen, ни exitFullscreen);
+ *   • авто-выход из стартового fullscreen (прежний «мягкий exit» на
+ *     tdesktop) удалён: клиент, открытый Launch Mode=Fullscreen, остаётся в
+ *     нём, кнопка сразу предлагает ВЫХОД (второй request не отправляется);
+ *   • UI-заглушек/инструкций нет: причина — в тосте по факту действия;
+ *     explain()/diagnostics() остаются dev-API (window.__FullscreenPolicy).
  *
  * Источник истины состояния — ТОЛЬКО факты SDK:
  *   • actualFullscreen — из Telegram.WebApp.isFullscreen (boolean) или
@@ -14,39 +29,42 @@
  *     пересчёт из SDK, кнопка = выход, без ложного SUCCESS — U07.1d);
  *   • ack-таймаут задаётся и очищается внутри политики; повторный тап /
  *     rotation не создают параллельных запросов;
- *   • Launch Mode=Fullscreen (BotFather): повторный requestFullscreen()
- *     НЕ отправляется; на мобильном сразу рабочая кнопка выхода; на
- *     Windows (tdesktop) — ОДИН мягкий exitFullscreen() при поддержке
- *     API, если хост игнорирует — документированное ограничение
- *     (последнее средство владельцу: ручная правка Launch Mode в
- *     BotFather — САМ BotFather программно не меняется, U07.1e);
+ *   • Launch Mode=Fullscreen: повторный requestFullscreen() НЕ отправляется
+ *     (clickResult=already_fullscreen) — кнопка = выход;
  *   • window.moveTo/resizeTo/WinAPI/«CSS 100vw = монитор» — запрещены
  *     (U07.0): политика управляет только TMA API и своим layout.
  *
- * Слоты кнопки (§2.1 w2-contract, один DOM-узел .header-fs-btn):
- *   inline — в потоке row A (нет Telegram; web/weba без SDK-boolean;
- *            unknown; csa.top === 0; ошибка измерений);
- *   float  — position:fixed у native-зоны: platform ∈ {android, ios,
- *            weba} И hasRequestFullscreen И csaTop >= 36 И SDK отдаёт
- *            boolean isFullscreen (без него честный ACK невозможен);
- *   hidden — tdesktop (до platform-specific e2e, U07.1a; expand() — НЕ
- *            fallback полноценного fullscreen) и клиенты без обоих
- *            методов (кнопка не должна вводить в заблуждение).
- * Писатель html-классов fs-slot-float / fs-hidden и data-fs-reason —
- * ТОЛЬКО этот модуль (контракт §2.3).
+ * Слот кнопки (один DOM-узел .header-fs-btn; писатель html.fs-hidden и
+ * data-fs-reason — ТОЛЬКО этот модуль, контракт §2.3):
+ *   inline — в потоке row A (штатный, единственный видимый слот); позицию
+ *            «рядом с нативными» даёт safe-area-геометрия шапки
+ *            (max(env, --tg-safe) + --tg-content-safe-area), а НЕ
+ *            fixed-координаты: реальные координаты нативных кнопок клиента
+ *            WebView не знает — официального API для них нет
+ *            (Telegram-Mini-Apps/issues#62, открыт);
+ *   hidden — вне Telegram или клиент без обоих методов (кнопка не должна
+ *            вводить в заблуждение, U07.3c).
  *
  * Публичное API: window.__FullscreenPolicy
  *   state() · request() · exit() · subscribe(fn) · init(opts) ·
- *   teardown() · setAckTimeoutMs(ms) · slotFromGeometry(...) ·
- *   decideOffer(...)
+ *   teardown() · setAckTimeoutMs(ms) · decideOffer(caps) · explain() ·
+ *   diagnostics()
  * Чистые функции доступны без DOM (окно-guard) — Node-юнит-тесты:
- * tests/js/asap8_w2_fullscreen_policy_test.js. */
+ * tests/js/asap8_w2_fullscreen_policy_test.js.
+ *
+ * explain()/diagnostics() (SOUL-12.1/12.3/12.4, dev-API): машинный код
+ * причины всегда сопровождается reasonText (человеческий текст) и nextStep;
+ * diagnostics() — снимок для воспроизведения (platform/SDK/launch
+ * params/факт isFullscreen/методы/viewport/safe area/click result/trace/
+ * warnings). Секреты (initData, ключи, токены) НЕ попадают — только факт
+ * наличия. launchParams читаются из sessionStorage('__telegram__initParams')
+ * (пишет официальный SDK) + hash + query URL по allowlist
+ * tgWebAppPlatform/tgWebAppVersion/tgWebAppStartParam; tgWebAppData НЕ
+ * выносится (F1 разбора W7: launch-параметры приходят в hash, не в query). */
 (function () {
   'use strict';
 
   var PLATFORMS = ['android', 'ios', 'macos', 'tdesktop', 'weba', 'web', 'unknown'];
-  var FLOAT_PLATFORMS = { android: true, ios: true, weba: true };
-  var FLOAT_MIN_CSA_TOP = 36;              // px (§2.1 w2-contract)
   var DEFAULT_ACK_TIMEOUT_MS = 4000;       // таймаут ожидания ack хоста
 
   /* ── Чистые функции (без DOM/window — unit-матрица) ─────────────────── */
@@ -55,38 +73,20 @@
     return PLATFORMS.indexOf(raw) >= 0 ? raw : 'unknown';
   }
 
-  /* slotFromGeometry(platform, csaTop, hasReq[, hasBoolean]) → 'inline'|'float'|'hidden'
-   * Геометрическое решение слота (без учёта capability-причин — их добавляет
-   * decideOffer). 4-й аргумент: SDK отдаёт boolean isFullscreen; без него
-   * float запрещён (честный ACK невозможен) — §2.1 «inline обязателен при
-   * web/weba без SDK-boolean». Вызов с тремя аргументами сохраняет
-   * контрактное поведение (hasBoolean трактуется как true). */
-  function slotFromGeometry(platform, csaTop, hasReq, hasBoolean) {
-    if (platform === 'tdesktop') return 'hidden';       // U07.1a
-    var booleanOk = (hasBoolean !== undefined) ? hasBoolean !== false : true;
-    if (hasReq && booleanOk && FLOAT_PLATFORMS[platform] &&
-        typeof csaTop === 'number' && csaTop >= FLOAT_MIN_CSA_TOP) {
-      return 'float';
-    }
-    return 'inline';
-  }
-
-  /* decideOffer(platform, caps) → {canOfferFullscreen, canOfferExit, reason, slot}
+  /* decideOffer(caps) → {canOfferFullscreen, canOfferExit, reason, slot}
    * caps: {isTelegram, hasRequestFullscreen, hasExitFullscreen,
-   *        hasBooleanIsFullscreen, actualFullscreen, csaTop}
-   * reason-коды: no_telegram_context | tdesktop_disabled_until_e2e |
-   * request_fullscreen_unsupported | fullscreen_unavailable | ''. */
-  function decideOffer(platform, caps) {
+   *        hasBooleanIsFullscreen, actualFullscreen}
+   * reason-коды: no_telegram_context | request_fullscreen_unsupported |
+   * fullscreen_unavailable | ''.
+   * FS-HOTFIX: платформа в решении НЕ участвует (tdesktop — обычный
+   * клиент); запретов/скрытий по имени платформы нет. Единственная
+   * причина скрытия — реальное отсутствие API. */
+  function decideOffer(caps) {
     caps = caps || {};
     var actual = caps.actualFullscreen;
     var out = { canOfferFullscreen: false, canOfferExit: false, reason: '', slot: 'inline' };
     if (!caps.isTelegram) {
       out.reason = 'no_telegram_context';
-      out.slot = 'hidden';
-      return out;
-    }
-    if (platform === 'tdesktop') {
-      out.reason = 'tdesktop_disabled_until_e2e';
       out.slot = 'hidden';
       return out;
     }
@@ -101,14 +101,55 @@
     } else {
       out.canOfferFullscreen = true;
     }
-    out.slot = slotFromGeometry(platform, caps.csaTop, caps.hasRequestFullscreen,
-                                caps.hasBooleanIsFullscreen);
     if (!out.canOfferFullscreen && !out.canOfferExit) {
       // Кнопка не должна вводить в заблуждение (U07.3c) — скрываем.
       out.slot = 'hidden';
       if (!out.reason) out.reason = 'fullscreen_unavailable';
     }
     return out;
+  }
+
+  /* ── Человеческие объяснения причин (dev-API, SOUL-12.1/12.4) ─────────
+   * В UI эти тексты НЕ рендерятся (FS-HOTFIX 18.10: заглушки удалены).
+   * Остаются в explain()/diagnostics() как dev-API — для отчётов, логов и
+   * воспроизведения: машинный код причины без человеческого текста не
+   * отдаётся. Коды, которые политика может выдать: no_telegram_context
+   * (кнопка скрыта — Telegram-контекста нет), request_fullscreen_unsupported
+   * и fullscreen_unavailable (клиент реально не даёт API). */
+  var REASON_TEXT = {
+    no_telegram_context:
+      'Приложение открыто вне Telegram — полноэкранный режим Telegram здесь недоступен.',
+    request_fullscreen_unsupported:
+      'Эта версия клиента Telegram не предоставляет requestFullscreen — ' +
+      'вход в полноэкранный режим недоступен.',
+    fullscreen_unavailable:
+      'Клиент не отдаёт ни вход, ни выход из полноэкранного режима — ' +
+      'кнопка не показывается, чтобы не вводить в заблуждение.'
+  };
+  var REASON_NEXT_STEP = {
+    no_telegram_context:
+      'Откройте Mini App из Telegram (кнопка бота) — там управление ' +
+      'полноэкранным режимом доступно.',
+    request_fullscreen_unsupported:
+      'Обновите Telegram до актуальной версии либо запускайте Mini App из ' +
+      'основного чата (кнопка бота) на поддерживаемом клиенте.',
+    fullscreen_unavailable:
+      'Проверьте версию и платформу клиента: на поддерживаемом клиенте ' +
+      'кнопка появляется автоматически.'
+  };
+
+  function explainReason(code) {
+    if (!code) return { code: '', text: '', nextStep: '' };
+    return {
+      code: code,
+      text: REASON_TEXT[code] || ('Полноэкранный режим недоступен (' + code + ').'),
+      nextStep: REASON_NEXT_STEP[code] || ''
+    };
+  }
+
+  /* explain() → состояние-независимое объяснение текущей причины (dev-API). */
+  function explain() {
+    return explainReason(_state.reason);
   }
 
   /* ── Состояние (plain object; источник истины — события SDK) ────────── */
@@ -125,6 +166,8 @@
     canOfferFullscreen: false,
     canOfferExit: false,
     reason: '',
+    reasonText: '',                // SOUL-12.1: причина без текста запрещена
+    nextStep: '',                  // SOUL-12.4: что владельцу сделать
     slot: 'inline',
     viewport: {
       width: 0, height: 0, stableHeight: 0,
@@ -135,11 +178,33 @@
 
   var _subscribers = [];
   var _ackTimer = null;
-  var _softExitTimer = null;       // отдельный ack-таймер launch-exit (tdesktop)
   var _ackTimeoutMs = DEFAULT_ACK_TIMEOUT_MS;
   var _sdkSubscribed = false;
-  var _softExitTried = false;      // один мягкий exit на tdesktop-launch
-  var _launchExitIgnored = false;  // хост проигнорировал мягкий exit
+  var _initCount = 0;              // SOUL-12.5: двойная инициализация видна
+  var _clickResult = 'never';      // результат последнего касания ⛶
+  var _trace = [];                 // SOUL-12.5: последовательность событий
+  var _warnings = [];              // предупреждения SDK/политики (коды)
+  var TRACE_CAP = 40;
+  var WARN_CAP = 20;
+  var LAUNCH_PARAM_KEYS = ['tgWebAppPlatform', 'tgWebAppVersion',
+                           'tgWebAppStartParam'];
+
+  function _now() {
+    try { return Date.now(); } catch (e) { return 0; }
+  }
+
+  function _pushTrace(code, extra) {
+    _trace.push({ code: code, at: _now(), extra: extra || '' });
+    if (_trace.length > TRACE_CAP) _trace.splice(0, _trace.length - TRACE_CAP);
+  }
+
+  function _pushWarning(code) {
+    for (var i = 0; i < _warnings.length; i++) {
+      if (_warnings[i].code === code) { _warnings[i].count++; return; }
+    }
+    _warnings.push({ code: code, at: _now(), count: 1 });
+    if (_warnings.length > WARN_CAP) _warnings.splice(0, _warnings.length - WARN_CAP);
+  }
 
   function _wa() {
     try {
@@ -178,6 +243,8 @@
       canOfferFullscreen: _state.canOfferFullscreen,
       canOfferExit: _state.canOfferExit,
       reason: _state.reason,
+      reasonText: _state.reasonText,
+      nextStep: _state.nextStep,
       slot: _state.slot,
       viewport: {
         width: _state.viewport.width,
@@ -223,8 +290,7 @@
                                       typeof wa.requestFullScreen === 'function')),
       hasExitFullscreen: !!(wa && typeof wa.exitFullscreen === 'function'),
       hasBooleanIsFullscreen: !!(wa && typeof wa.isFullscreen === 'boolean'),
-      actualFullscreen: _state.actualFullscreen,
-      csaTop: _state.viewport.contentSafeAreaInset.top
+      actualFullscreen: _state.actualFullscreen
     };
   }
 
@@ -236,31 +302,136 @@
     if (wa && typeof wa.isFullscreen === 'boolean') {
       _state.actualFullscreen = wa.isFullscreen;
     }
-    _readViewport(wa);   // сначала факты insets/viewport, потом решение слота
+    _readViewport(wa);   // факты insets/viewport до решения (diagnostics/dev)
     var caps = _capabilities(wa);
     _state.hasRequestFullscreen = caps.hasRequestFullscreen;
     _state.hasExitFullscreen = caps.hasExitFullscreen;
-    var offer = decideOffer(_state.telegramPlatform, caps);
+    var offer = decideOffer(caps);
     _state.canOfferFullscreen = offer.canOfferFullscreen;
     _state.canOfferExit = offer.canOfferExit;
     _state.reason = offer.reason;
     _state.slot = offer.slot;
+    // SOUL-12.1: код причины всегда с человеческим текстом и следующим шагом.
+    var quoted = explainReason(offer.reason);
+    _state.reasonText = quoted.text;
+    _state.nextStep = quoted.nextStep;
   }
 
-  /* ── DOM-зеркало слота (html.fs-* / data-fs-reason; единственный writer) */
+  /* ── diagnostics(): снимок для воспроизведения (SOUL-12.3) ────────────
+   * Секретов нет: initData/initDataUnsafe/ключи/токены НЕ читаются —
+   * только булев факт их наличия. launchParams — публичные ключи
+   * tgWebApp* по allowlist. */
+  var LAUNCH_PARAM_STORAGE_KEY = '__telegram__initParams';
+
+  function _hashPairs() {
+    var out = [];
+    try {
+      if (typeof window === 'undefined' || !window.location) return out;
+      var raw = String(window.location.search || '') +
+                '&' + String(window.location.hash || '').replace(/^#/, '');
+      var q = raw.replace(/^&+/, '').split('&');
+      for (var i = 0; i < q.length; i++) {
+        if (!q[i]) continue;
+        var kv = q[i].split('=');
+        out.push([kv[0], decodeURIComponent(kv.slice(1).join('=') || '')]);
+      }
+    } catch (e) { /* guard */ }
+    return out;
+  }
+
+  /* F1 (разбор W7): официальный SDK присылает launch-параметры в HASH
+   * (`#tgWebAppPlatform=...`) и складывает их в
+   * sessionStorage('__telegram__initParams'); приложение затем заменяет hash
+   * на `#/`. Поэтому порядок источников: storage (переживает замену hash) →
+   * hash/search URL. Значения — ТОЛЬКО allowlist-ключи (tgWebAppData,
+   * initData и секреты не выносятся). */
+  function _launchParams() {
+    var out = {};
+    var i;
+    for (i = 0; i < LAUNCH_PARAM_KEYS.length; i++) out[LAUNCH_PARAM_KEYS[i]] = null;
+    function apply(k, v) {
+      if (LAUNCH_PARAM_KEYS.indexOf(k) < 0) return;
+      if (out[k] === null || out[k] === undefined) out[k] = String(v);
+    }
+    try {
+      if (typeof window !== 'undefined' && window.sessionStorage) {
+        var raw = window.sessionStorage.getItem(LAUNCH_PARAM_STORAGE_KEY);
+        if (raw) {
+          var obj = JSON.parse(raw);
+          if (obj && typeof obj === 'object') {
+            for (i = 0; i < LAUNCH_PARAM_KEYS.length; i++) {
+              var k = LAUNCH_PARAM_KEYS[i];
+              if (typeof obj[k] === 'string' || typeof obj[k] === 'number') {
+                apply(k, obj[k]);
+              }
+            }
+          }
+        }
+      }
+    } catch (e0) { /* guard: нет storage/битый JSON */ }
+    var pairs = _hashPairs();
+    for (i = 0; i < pairs.length; i++) apply(pairs[i][0], pairs[i][1]);
+    return out;
+  }
+
+  function diagnostics() {
+    var wa = _wa();
+    var params = _launchParams();
+    // initData/ключи не отдаём: только факт присутствия (R17).
+    var hasInitData = false, hasInitDataUnsafe = false;
+    try {
+      hasInitData = !!(wa && wa.initData);
+      hasInitDataUnsafe = !!(wa && wa.initDataUnsafe);
+    } catch (e) { /* guard */ }
+    return {
+      platform: _state.telegramPlatform,
+      sdkVersion: _state.sdkVersion,
+      launchParams: params,
+      hasInitData: hasInitData,
+      hasInitDataUnsafe: hasInitDataUnsafe,
+      isFullscreenSupported: !!(_state.actualFullscreen === true ||
+                                _state.actualFullscreen === false),
+      actualFullscreen: _state.actualFullscreen,
+      launchFullscreen: _state.launchFullscreen,
+      hasRequestFullscreen: _state.hasRequestFullscreen,
+      hasExitFullscreen: _state.hasExitFullscreen,
+      hasExpand: !!(wa && typeof wa.expand === 'function'),
+      hasReady: !!(wa && typeof wa.ready === 'function'),
+      isExpanded: !!(wa && wa.isExpanded),
+      slot: _state.slot,
+      reason: _state.reason,
+      reasonText: _state.reasonText,
+      nextStep: _state.nextStep,
+      canOfferFullscreen: _state.canOfferFullscreen,
+      canOfferExit: _state.canOfferExit,
+      requestPending: _state.requestPending,
+      lastError: _state.lastError ? _state.lastError.code : null,
+      width: _state.viewport.width,
+      height: _state.viewport.height,
+      stableHeight: _state.viewport.stableHeight,
+      safeAreaInset: _state.viewport.safeAreaInset,
+      contentSafeAreaInset: _state.viewport.contentSafeAreaInset,
+      ackTimeoutMs: _ackTimeoutMs,
+      initCount: _initCount,
+      clickResult: _clickResult,
+      hostBehaviour: {
+        sdkSubscribed: _sdkSubscribed
+      },
+      trace: _trace.slice(0),
+      warnings: _warnings.slice(0)
+    };
+  }
+
+  /* ── DOM-зеркало слота (html.fs-hidden / data-fs-reason; единственный
+   * writer) ────────────────────────────────────────────────────────────── */
 
   function _applyDomMirror() {
     if (typeof document === 'undefined' || !document.documentElement) return;
     var de = document.documentElement;
     if (!de.classList) return;
-    if (_state.slot === 'float') {
-      de.classList.add('fs-slot-float');
-      de.classList.remove('fs-hidden');
-    } else if (_state.slot === 'hidden') {
+    if (_state.slot === 'hidden') {
       de.classList.add('fs-hidden');
-      de.classList.remove('fs-slot-float');
     } else {
-      de.classList.remove('fs-slot-float');
       de.classList.remove('fs-hidden');
     }
     try {
@@ -288,6 +459,8 @@
           code: 'ACK_TIMEOUT',
           message: 'Клиент не подтвердил переход в/из полноэкранного режима'
         };
+        _pushTrace('ackTimeout');
+        _pushWarning('ACK_TIMEOUT');
         // фактическое состояние НЕ меняем (не инвертируем)
         _recompute();
         _notify();
@@ -302,41 +475,11 @@
     }
   }
 
-  /* Ack-таймер мягкого launch-exit (tdesktop U07.1e): не путается с
-   * пользовательским requestPending — это диагностика ограничения хоста. */
-  function _armSoftExitTimer() {
-    _clearSoftExitTimer();
-    _softExitTimer = setTimeout(function () {
-      _softExitTimer = null;
-      _recompute();
-      if (_state.actualFullscreen === true &&
-          _state.telegramPlatform === 'tdesktop') {
-        // Хост Windows проигнорировал мягкий exit — документируем
-        // ограничение (ручная инструкция владельцу — в отчёте лейна).
-        _launchExitIgnored = true;
-        _state.lastError = {
-          code: 'TDESKTOP_LAUNCH_FULLSCREEN_EXIT_IGNORED',
-          message: 'Telegram Desktop не вышел из стартового fullscreen — ' +
-                   'измените Launch Mode в BotFather вручную'
-        };
-        _notify();
-      }
-    }, _ackTimeoutMs);
-  }
-
-  function _clearSoftExitTimer() {
-    if (_softExitTimer !== null) {
-      clearTimeout(_softExitTimer);
-      _softExitTimer = null;
-    }
-  }
-
   /* ── События SDK ─────────────────────────────────────────────────────── */
 
   function _onFullscreenChanged() {
     var wasPending = _state.requestPending;
     _clearAckTimer();
-    _clearSoftExitTimer();     // любой ack закрывает и ожидание launch-exit
     _state.requestPending = false;
     var wa = _wa();
     if (wa && typeof wa.isFullscreen === 'boolean') {
@@ -347,16 +490,19 @@
         code: 'ACK_WITHOUT_BOOLEAN',
         message: 'Клиент подтвердил событие без фактического isFullscreen'
       };
+      _pushWarning('ACK_WITHOUT_BOOLEAN');
     }
+    _pushTrace('fullscreenChanged', String(_state.actualFullscreen));
     _recompute();
     _notify();
   }
 
   function _onFullscreenFailed(payload) {
     _clearAckTimer();
-    _clearSoftExitTimer();
     _state.requestPending = false;
     var code = (payload && (payload.error_code || payload.error || payload.errorCode)) || 'UNKNOWN';
+    _pushTrace('fullscreenFailed', String(code));
+    _pushWarning(String(code));
     if (code === 'ALREADY_FULLSCREEN') {
       // U07.1d: пересчитать факт из SDK; кнопка = выход; без ложного SUCCESS.
       _recompute();
@@ -384,6 +530,7 @@
     // Rotation/resize/safe-area: пересчёт слота/viewport. НИКАКИХ запросов и
     // никаких записей в CSS-переменные (их пишет telegram-init.js);
     // requestPending не трогается (ack не подменяется rotation'ом).
+    _pushTrace('viewportChanged');
     _recompute();
     _notify();
   }
@@ -404,27 +551,38 @@
 
   function request() {
     var wa = _wa();
-    if (!wa) return false;
+    if (!wa) { _clickResult = 'no_sdk'; return false; }
     if (_state.actualFullscreen === true) {
       // U07.1e/U07.1d: Launch-fullscreen / уже в fullscreen — ВТОРОЙ
       // requestFullscreen не отправляем; честный статус + кнопка выхода.
       _recompute();
       if (_state.actualFullscreen === true) {
         _state.lastError = { code: 'ALREADY_FULLSCREEN', message: 'Уже в полноэкранном режиме' };
+        _clickResult = 'already_fullscreen';
+        _pushTrace('request', 'already_fullscreen');
         _notify();
         return false;
       }
     }
-    if (_state.requestPending) return false;          // повторный тап — игнор
+    if (_state.requestPending) {          // повторный тап — игнор
+      _clickResult = 'pending_guard';
+      _pushTrace('request', 'pending_guard');
+      return false;
+    }
     if (!_state.canOfferFullscreen || !_state.hasRequestFullscreen) {
       _state.lastError = {
         code: 'UNSUPPORTED',
         message: 'Полноэкранный режим недоступен' + (_state.reason ? ' (' + _state.reason + ')' : '')
       };
+      _clickResult = 'unsupported';
+      _pushTrace('request', 'unsupported');
+      _pushWarning('UNSUPPORTED');
       _notify();
       return false;
     }
     _state.requestPending = true;
+    _clickResult = 'request_sent';
+    _pushTrace('request', 'sent');
     _armAckTimer();
     _notify();
     try {
@@ -449,19 +607,29 @@
 
   function exit() {
     var wa = _wa();
-    if (!wa) return false;
-    if (_state.requestPending) return false;          // повторный тап — игнор
+    if (!wa) { _clickResult = 'no_sdk'; return false; }
+    if (_state.requestPending) {          // повторный тап — игнор
+      _clickResult = 'pending_guard';
+      _pushTrace('exit', 'pending_guard');
+      return false;
+    }
     if (!_state.hasExitFullscreen) {
       _state.lastError = { code: 'UNSUPPORTED', message: 'exitFullscreen недоступен' };
+      _clickResult = 'unsupported';
+      _pushTrace('exit', 'unsupported');
+      _pushWarning('UNSUPPORTED');
       _notify();
       return false;
     }
     if (_state.actualFullscreen === false) {
       // Выход, когда SDK честно говорит «не в fullscreen» — не отправляем
       // заведомо бессмысленный запрос (кнопка exit при этом скрыта политикой).
+      _clickResult = 'noop_not_fullscreen';
       return false;
     }
     _state.requestPending = true;
+    _clickResult = 'exit_sent';
+    _pushTrace('exit', 'sent');
     _armAckTimer();
     _notify();
     try {
@@ -480,6 +648,9 @@
 
   function init(opts) {
     opts = opts || {};
+    _initCount++;
+    _pushTrace('init', 'n=' + _initCount);
+    if (_initCount > 1) _pushWarning('DOUBLE_INIT');
     if (typeof opts.ackTimeoutMs === 'number') setAckTimeoutMs(opts.ackTimeoutMs);
     var wa = _wa();
     _recompute();
@@ -488,18 +659,11 @@
       _state.launchFullscreen = _state.actualFullscreen;
     }
     _subscribeSdk(wa);
-    if (_state.actualFullscreen === true) {
-      // U07.1e: повторный requestFullscreen НЕ отправляется вовсе — включая
-      // старт. Мобильный клиент получает сразу рабочую кнопку ВЫХОДА.
-      // Windows (tdesktop) в проблемном стартовом fullscreen: ОДИН мягкий
-      // exitFullscreen() при поддержке API; без WinAPI/moveTo/resizeTo.
-      if (_state.telegramPlatform === 'tdesktop' && _state.hasExitFullscreen &&
-          !_softExitTried) {
-        _softExitTried = true;
-        try { wa.exitFullscreen(); } catch (e) { /* ack/таймаут задокументируют */ }
-        _armSoftExitTimer();
-      }
-    }
+    // Launch Mode=Fullscreen: если клиент стартовал уже в fullscreen,
+    // повторный requestFullscreen НЕ отправляется (U07.1e) — кнопка сразу
+    // = выход. Прежний автоматический «мягкий exit» на tdesktop УДАЛЁН
+    // (FS-HOTFIX 18.10): политика не выводит клиента из запрошенного
+    // владельцем режима за его спиной.
     _applyDomMirror();
     _notify();               // подписчики (Vue-зеркало) получают стартовое состояние
     return state();
@@ -507,7 +671,6 @@
 
   function teardown() {
     _clearAckTimer();
-    _clearSoftExitTimer();
     var wa = _wa();
     if (wa && typeof wa.offEvent === 'function' && _sdkSubscribed) {
       try {
@@ -533,10 +696,11 @@
     init: init,
     teardown: teardown,
     setAckTimeoutMs: setAckTimeoutMs,
-    slotFromGeometry: slotFromGeometry,
+    // Чистое решение «что предлагать» (unit-матрица; платформа не участвует)
     decideOffer: decideOffer,
-    // Диагностика ограничения Windows-launch (отчёт/логи; не меняет поведение)
-    launchExitIgnored: function () { return _launchExitIgnored; }
+    // Dev-API (в UI не рендерится): объяснение причины и снимок фактов
+    explain: explain,
+    diagnostics: diagnostics
   };
 
   if (typeof window !== 'undefined') {
