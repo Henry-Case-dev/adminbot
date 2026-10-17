@@ -76,6 +76,14 @@ def test_primary_from_hot_is_distinguished(monkeypatch):
     rot = provider_panel()["rotation"]
     assert rot["primary_state"] == "primary_from_hot"
     assert rot["primary_warn"] is False and rot["primary_hint"] == ""
+    # N2 (TEST-LIFECYCLE: REGRESSION owner=W7/N2): hot перекрывает env и при
+    # НЕПУСТОМ env — оба слоя заданы, источник primary остаётся 'hot'.
+    monkeypatch.setattr(
+        ecp, "_settings_value",
+        lambda name, default: "SENTINEL-ENV-KEY" if name == "EMBEDDING_API_KEY"
+        else ("" if str(name).startswith("EMBEDDING_") else default))
+    both_layers = build_credential_pool()
+    assert _keys(both_layers)["primary"] == "hot", _keys(both_layers)
 
 
 def test_primary_from_env_when_hot_is_silent(monkeypatch):
