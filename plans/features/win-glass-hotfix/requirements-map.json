@@ -3,7 +3,7 @@
   "source_path": "C:\\Code\\Python\\adminbot\\plans\\features\\win-glass-hotfix\\source-hotfix-2026-10-18.md",
   "source_sha256": "69b16ce8fc0287d1ff6bd83b0c23cd035207f167b8cc6969ac8ea42db7843593",
   "candidate_commit": "0ca661fe8109fcecf752ad3e863355a4ec96e4ae",
-  "deployed_commit": "",
+  "deployed_commit": "9552686391dfe69dd7cb08ba7cd800a8a6c5106e",
   "strict_evidence": true,
   "slice_graph_path": "slice-graph.json",
   "additional_requirements": [
@@ -199,6 +199,14 @@
           "observation": "Живые пункты для Windows поименованы с ожидаемым результатом и не объявлены подтверждёнными.",
           "artifact_path": "plans/features/win-glass-hotfix/report.md",
           "artifact_sha256": "369ac17e1ab08160750eebcc0413f86aa7ee4ba6edd05a50cc08ff6457e7c970"
+        },
+        {
+          "candidate_commit": "0ca661fe8109fcecf752ad3e863355a4ec96e4ae",
+          "ref": "release-2.58.85-report.md §«Прод-верификация» (извне); evidence/release/postdeploy_http.txt",
+          "observation": "Прод отдаёт 2.58.85: healthz 200 извне и по loopback, /web/ 15×«2.58.85» / 0×«2.58.84». Ждёт owner-наблюдений по owner-steps.md §B: геометрия реального Telegram Desktop (Windows) и доступность панели задач.",
+          "artifact_path": "plans/features/win-glass-hotfix/evidence/release/postdeploy_http.txt",
+          "artifact_sha256": "4b4aa7764255c8a620480a3b931aa2d61cfc43df403d3571bf25c9d2e5199d37",
+          "type": "production"
         }
       ]
     },
@@ -229,6 +237,14 @@
           "observation": "Живое сравнение на реальном Android WebView назначено; агентские проверки — Chromium-эмуляция WebView, и это явно оговорено.",
           "artifact_path": "plans/features/win-glass-hotfix/report.md",
           "artifact_sha256": "369ac17e1ab08160750eebcc0413f86aa7ee4ba6edd05a50cc08ff6457e7c970"
+        },
+        {
+          "candidate_commit": "0ca661fe8109fcecf752ad3e863355a4ec96e4ae",
+          "ref": "release-2.58.85-report.md §«Прод-верификация» (headless 390×844); evidence/release/postdeploy_probe.json",
+          "observation": "Пост-деплой headless Chromium 390×844: 200, 0 ошибок консоли/страницы, __GlassRefraction/__GlassProbe = object (эмуляция, не реальный WebView). Ждёт owner-наблюдений по owner-steps.md §C: визуальное сравнение рефракции на реальном Android WebView.",
+          "artifact_path": "plans/features/win-glass-hotfix/evidence/release/postdeploy_probe.json",
+          "artifact_sha256": "57ea388cfbf8988e7959b1c5c71f384cefc3c29b1fa3ca005d5b97fc982dfe95",
+          "type": "production"
         }
       ]
     },
@@ -319,6 +335,13 @@
           "observation": "Ревьюер до привязки подтвердил: изменены/добавлены только файлы лейна, чужие evidence-каталоги не тронуты (дифф к HEAD пуст).",
           "artifact_path": "plans/features/win-glass-hotfix/review-wg.md",
           "artifact_sha256": "94cdfc03325ec49c0c7618d08380fd714ec54ca12e178dce600db7cdb22b6e15"
+        },
+        {
+          "candidate_commit": "0ca661fe8109fcecf752ad3e863355a4ec96e4ae",
+          "ref": "release-2.58.85-report.md §«Изоляция (доказательства)»; evidence/release/isolation-classification.txt; soul1-diff-empty-len.txt; soul1-markers-release-tree.txt",
+          "observation": "Задеплоенная релиз-линия изолирована: дельта 0b7a0aca..95526863 = ровно 39 файлов (8 — семантический порт кандидата d637cfe9, 31 — бамп 2.58.85), 0 неклассифицированных, пересечение 0; SOUL byte-diff пуст (0 байт; 11 SOUL-путей отсутствуют по обе стороны), маркеры SOUL-1 = 0; публикуемая линия не несёт чужих изменений.",
+          "artifact_path": "plans/features/win-glass-hotfix/evidence/release/isolation-classification.txt",
+          "artifact_sha256": "6dfa8cf3af6c1c6a6312ca53dcaa1013a92e2de9387bac341cd45ec8723f7cd7"
         }
       ]
     },
@@ -349,6 +372,21 @@
           "observation": "Проверки кандидата зафиксированы: node 87/87, e2e 37/37, FS 12/12 (166), FROZEN-ASSETS-OK — база для штатного релиза.",
           "artifact_path": "plans/features/win-glass-hotfix/report.md",
           "artifact_sha256": "369ac17e1ab08160750eebcc0413f86aa7ee4ba6edd05a50cc08ff6457e7c970"
+        },
+        {
+          "candidate_commit": "0ca661fe8109fcecf752ad3e863355a4ec96e4ae",
+          "ref": "release-2.58.85-report.md §«Deploy binding»/§«Прод-верификация»; evidence/release/deploy-run.txt (A–K)",
+          "observation": "Штатный деплой выполнен: релиз-tip 9552686391dfe69dd7cb08ba7cd800a8a6c5106e (ветка release/win-glass-2.58.85), checkout на сервере 95526863 (TRACKED_MOD=0), 7/7 хэшей отданных артефактов == расчётным, healthz 200 версии 2.58.85, 10/10 проб 200, журнал 0 ERROR/CRITICAL/Traceback, NRestarts=0; rollback-цель 0b7a0aca (2.58.84) жива.",
+          "artifact_path": "plans/features/win-glass-hotfix/evidence/release/deploy-run.txt",
+          "artifact_sha256": "ba5c421ee043b709cd8fb728d3c9ce2dab33f218e7ac5f158f9b1c3896231792",
+          "type": "production"
+        },
+        {
+          "candidate_commit": "0ca661fe8109fcecf752ad3e863355a4ec96e4ae",
+          "ref": "release-2.58.85-report.md §«Live (НЕ VERIFIED — за владельцем)»; owner-steps.md §B",
+          "observation": "Ждёт owner-наблюдений по owner-steps.md (реальный Telegram Desktop): строка остаётся READY_FOR_LIVE, НЕ VERIFIED до наблюдений владельца.",
+          "artifact_path": "plans/features/win-glass-hotfix/release-2.58.85-report.md",
+          "artifact_sha256": "a950208f865e166f88b6c3c86a54836dd0a10c15937754b9b4b2b6b9a82376e7"
         }
       ]
     },
@@ -501,6 +539,13 @@
           "observation": "FS-аудит кандидата: launchFullscreen=true, canOfferExit=true, второй request не отправляется; режим нативного окна веб-кодом не подменяется.",
           "artifact_path": "plans/features/win-glass-hotfix/evidence/e2e/_results.json",
           "artifact_sha256": "16f6e79305cce8fe209d5898a020dbbc1eb911e41d5e8e257bd87589d492670f"
+        },
+        {
+          "candidate_commit": "0ca661fe8109fcecf752ad3e863355a4ec96e4ae",
+          "ref": "release-2.58.85-report.md §«Прод-верификация»; evidence/release/e2e-run.txt; hashes.txt",
+          "observation": "На задеплоенных байтах e2e 37/37 (D_no_window_geometry_hacks: окно веб-кодом не управляется, window.moveTo/resizeTo отсутствуют); хэши отданных файлов == релиз-блобам. Ждёт owner-наблюдений по owner-steps.md §A.1/§B: панель занимает рабочую область монитора минус панель задач.",
+          "artifact_path": "plans/features/win-glass-hotfix/evidence/release/e2e-run.txt",
+          "artifact_sha256": "b097fdd423efcf818dc018f7107c56d1eb7ef42f0f1c538cf60f5a80533957c3"
         }
       ]
     },
@@ -531,6 +576,13 @@
           "observation": "Команда и результат зафиксированы: ui_asap8_w2_fullscreen_e2e.py → 12/12 сценариев, 166/166 checks на кандидате.",
           "artifact_path": "plans/features/win-glass-hotfix/report.md",
           "artifact_sha256": "369ac17e1ab08160750eebcc0413f86aa7ee4ba6edd05a50cc08ff6457e7c970"
+        },
+        {
+          "candidate_commit": "0ca661fe8109fcecf752ad3e863355a4ec96e4ae",
+          "ref": "release-2.58.85-report.md §«Семантический порт»/§«Прод-верификация»; evidence/release/hashes.txt (fullscreen-policy.js [SAME])",
+          "observation": "fullscreen-policy.js задеплоен байт-в-байт (96db06425079), e2e B_desktop/D на релиз-байтах OK. Ждёт owner-наблюдений по owner-steps.md §B п.4: ⛶ вход/выход, закрытие, перемещение/размер в оконном режиме.",
+          "artifact_path": "plans/features/win-glass-hotfix/evidence/release/hashes.txt",
+          "artifact_sha256": "32d752b8d3ef622cc6a975654cf5e1a1f2d6d25a5bf4d3da196d7191f222839c"
         }
       ]
     },
@@ -591,6 +643,13 @@
           "observation": "Отчёт фиксирует обход и точный сценарий владельца (админ-диагностика геометрии, версия клиента, мультимонитор/DPI).",
           "artifact_path": "plans/features/win-glass-hotfix/report.md",
           "artifact_sha256": "369ac17e1ab08160750eebcc0413f86aa7ee4ba6edd05a50cc08ff6457e7c970"
+        },
+        {
+          "candidate_commit": "0ca661fe8109fcecf752ad3e863355a4ec96e4ae",
+          "ref": "release-2.58.85-report.md §«Семантический порт»; evidence/release/e2e-run.txt; deploy-run.txt §F_markers",
+          "observation": "На релиз-линии ограничение SDK не подменено веб-кодом: e2e D 37/37 (window-хак'ов нет), маркеры рефракции на месте (REFRACT_APPJS=6, CSS=4, INDEX=1). Ждёт owner-наблюдений по owner-steps.md: обход §A.1 + чек-лист §B (ограничение на реальном клиенте).",
+          "artifact_path": "plans/features/win-glass-hotfix/evidence/release/e2e-run.txt",
+          "artifact_sha256": "b097fdd423efcf818dc018f7107c56d1eb7ef42f0f1c538cf60f5a80533957c3"
         }
       ]
     },
@@ -666,6 +725,13 @@
           "observation": "Скриншот контрастного паттерна со слоем: линии у левой/правой кромки смещены, центр спокойный, текст вне слоя.",
           "artifact_path": "plans/features/win-glass-hotfix/evidence/e2e/pattern_on.png",
           "artifact_sha256": "7ea2189995131da7d5867331d181c00d56b0a13097fd8fc2835d2fba170861ec"
+        },
+        {
+          "candidate_commit": "0ca661fe8109fcecf752ad3e863355a4ec96e4ae",
+          "ref": "release-2.58.85-report.md §«Семантический порт» (glass-refraction.js byte-equal)/§«Прод-верификация»; evidence/release/e2e/_results.json",
+          "observation": "Релиз-байты несут тот же слой (glass-refraction.js byte-equal 6a09d962d59d); e2e на релиз-линии 37/37: смещение −26/+32 device px (corr 0.92/0.971), центр 0 px (corr 1.0). Ждёт owner-наблюдений на реальном Android WebView (owner-steps.md §C: видимое смещение у краёв карточек).",
+          "artifact_path": "plans/features/win-glass-hotfix/evidence/release/e2e/_results.json",
+          "artifact_sha256": "d1baba4544c66cd677735d0b7c1da6a6c14f38b1341be3aaff1e11f0a2cd5639"
         }
       ]
     },

@@ -1,0 +1,47 @@
+WIN-GLASS-P0 — двухлинейная семантика (ре-анкор, лейн WG-LEDGER)
+Дата: 2026-10-18
+
+Кандидат (ревью-линия, НЕ меняется): 0ca661fe8109fcecf752ad3e863355a4ec96e4ae
+Задеплоено (прод-линия):             9552686391dfe69dd7cb08ba7cd800a8a6c5106e
+  ветка release/win-glass-2.58.85 (origin — запушена); база 0b7a0aca (2.58.84);
+  состав = 0b7a0aca + d637cfe9 (семантический порт кандидата, 8 файлов) + 95526863 (bump 2.58.85, 31 файл);
+  прод отдаёт {"status":"ok","version":"2.58.85"}.
+
+Почему две линии: байт-перенос невозможен — master-база кандидата несёт нерелизованные
+SOUL-1/W7 (~1.3k строк в web/app.js и web/index.html). 5/8 файлов перенесены байт-в-байт,
+3 файла (app.js/app.css/index.html) — семантический порт с идентичными ханками (numstat/токены
+совпали); прецедент — fs-релиз a4fb04a9. Конвенция карты как в soul-картах: candidate_commit
+остаётся ревью-линией, deployed_commit фиксирует фактически задеплоенный tip.
+
+Карта: plans/features/win-glass-hotfix/requirements-map.json
+  candidate_commit = 0ca661fe8109fcecf752ad3e863355a4ec96e4ae
+  deployed_commit  = 9552686391dfe69dd7cb08ba7cd800a8a6c5106e
+  (ре-анкор: deployed_commit был пуст; статусы не менялись: 16 VERIFIED + 7 READY_FOR_LIVE.)
+
+Гейты после ре-анкора — команды и выводы verbatim (все exit=0):
+
+  > py -3 %USERPROFILE%\.config\opencode\tools\requirements_gate.py check --map plans/features/win-glass-hotfix/requirements-map.json --stage plan
+  stage=plan inventory=14 manual=16 scoped=0 errors=0
+  EXIT=0
+
+  > py -3 ... check --map ... --stage review --slice WG-WIN --candidate 0ca661fe8109fcecf752ad3e863355a4ec96e4ae
+  stage=review inventory=14 manual=16 scoped=5 errors=0
+  EXIT=0
+
+  > py -3 ... check --map ... --stage review --slice WG-ANDROID --candidate 0ca661fe8109fcecf752ad3e863355a4ec96e4ae
+  stage=review inventory=14 manual=16 scoped=6 errors=0
+  EXIT=0
+
+  > py -3 ... check --map ... --stage review --slice WG-VERIFY --candidate 0ca661fe8109fcecf752ad3e863355a4ec96e4ae
+  stage=review inventory=14 manual=16 scoped=12 errors=0
+  EXIT=0
+
+  Числа совпадают с биндингом f0d4b15f / REVIEW-WG R2 (§4): scoped 5/6/12, errors=0.
+  Дополнительно: все 9 новых release-эвиденс-записей прошли строгую сверку artifact_sha256
+  с рабочим деревом (9/9 OK) — гейту достаточно одной на строку, сверялись все.
+
+Release-стадия НЕ запускалась: 7 RFL-строк (WG-WIN-02/03/05, WG-ANDROID-02, WG-VER-01/02,
+WG-P0-05) ждут owner-наблюдений по owner-steps.md. Пометка для релиз-стадии: текущая реализация
+requirements_gate.py на --stage release сравнивает --candidate и --deployed-commit между собой;
+на двухлинейной карте этот шаг потребует отдельного решения леджера/PM (сейчас release-гейт
+ожидаемо не пройдёт на разноимённых линиях — это состояние карты, а не дефект релиза).
