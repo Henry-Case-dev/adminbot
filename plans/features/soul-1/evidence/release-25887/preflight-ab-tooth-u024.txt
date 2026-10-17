@@ -1,0 +1,29 @@
+A/B TOOTH U02.4 (DROPDOWN-WG) — base eafbe2e7b792c74eeb91735e183b767c6b85d73c vs release/fix-2.58.87
+
+### BASE-eafbe2e7 rc=1
+[stderr] node:internal/assert/utils:77
+    throw err;
+    ^
+
+AssertionError [ERR_ASSERTION]: U02.4: открытый dropdown не обрезается поверхностью рефракции
+    at Object.<anonymous> (C:\Users\main\.config\opencode\OpenCodeScratch\adminbot-ccef72c25768\release-25887\base25887\tests\js\asap8_w2_shell_mobile_nav_test.js:293:10)
+    at Module._compile (node:internal/modules/cjs/loader:1854:14)
+    at Object..js (node:internal/modules/cjs/loader:1985:10)
+    at Module.load (node:internal/modules/cjs/loader:1577:32)
+    at Module._load (node:internal/modules/cjs/loader:1379:12)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)
+    at node:internal/main/run_main_module:33:47 {
+  generatedMessage: false,
+  code: 'ERR_ASSERTION',
+  actual: false,
+  expected: true,
+  operator: '==',
+  diff: 'simple'
+}
+
+Node.js v24.16.0
+
+### RELEASE-fix-2.58.87 rc=0
+W2-SHELL-UNIT-OK
+

@@ -1,0 +1,297 @@
+{
+  "probe_mobile": {
+    "probe": {
+      "tierA": false,
+      "reason": "engine-unproven-backdrop-url",
+      "engine": "unknown",
+      "svgRender": true,
+      "backdrop": true,
+      "refractionLayer": false,
+      "ms": 4
+    },
+    "probeDetails": {
+      "svgRender": true,
+      "diff": 190.7,
+      "match": 0.625,
+      "ctxFilterApplied": true
+    },
+    "refraction": {
+      "version": 1,
+      "enabled": true,
+      "running": true,
+      "reason": "active",
+      "backgroundSource": "polygon",
+      "backgroundSize": [
+        585,
+        1266
+      ],
+      "layers": [
+        {
+          "el": "div.card.p-4.status-hero",
+          "tier": "a",
+          "filter": "lg-refract-lens-1",
+          "w": 561,
+          "h": 212
+        },
+        {
+          "el": "div.card.p-4.status-block",
+          "tier": "a",
+          "filter": "lg-refract-lens-2",
+          "w": 561,
+          "h": 709
+        },
+        {
+          "el": "div.hub-card",
+          "tier": "a",
+          "filter": "lg-refract-lens-5",
+          "w": 561,
+          "h": 150
+        }
+      ],
+      "painted": 3,
+      "errors": 0,
+      "reducedMotion": false,
+      "dprCap": 1.5,
+      "paintMs": 0.77,
+      "paintMsMax": 3.2,
+      "paintCount": 56,
+      "renderIntervalMs": 40,
+      "layerClass": "lg-refract",
+      "filterBase": "lg-lens",
+      "maxLayers": 3
+    },
+    "tiers": {
+      "a": 16,
+      "c": 2
+    },
+    "reasons": {
+      "refract-layer": 16,
+      "tier-dense": 2
+    },
+    "refractOn": 16,
+    "layers": 3,
+    "layerHit": "hub-card-sub block",
+    "layerPtr": {
+      "pointerEvents": "none",
+      "zIndex": "-1",
+      "filter": "blur(5px) saturate(1.4) url(\"#lg-refract-lens-5\")",
+      "backdrop": "none"
+    },
+    "filteredContent": 0,
+    "shadow": {
+      "urlBackdrop": 0,
+      "count": 16
+    },
+    "hOverflow": false,
+    "innerWidth": 390,
+    "innerHeight": 844,
+    "bg": {
+      "w": 585,
+      "h": 1266,
+      "rect": [
+        0,
+        0,
+        390,
+        844
+      ]
+    },
+    "polyMode": "canvas2d"
+  },
+  "perf_mobile": {
+    "frames": 89,
+    "p50_ms": 16.7,
+    "p95_ms": 16.8,
+    "max_ms": 16.8,
+    "layers": 3,
+    "paintMs": 0.12,
+    "paintMsMax": 3.2,
+    "paintCount": 87,
+    "errors": 0,
+    "intervalMs": 40
+  },
+  "metrics_mobile": {
+    "selector": "#wg-measure-target",
+    "w": 748,
+    "h": 284,
+    "moved_frac": 0.1484,
+    "band_ring_px": 132,
+    "ring_luma_b": 61.3,
+    "ring_luma_a": 62.51,
+    "luma_delta_pct": -1.94,
+    "ring_energy": 4.451,
+    "mid_energy": 0.121,
+    "center_energy": 0.0,
+    "edge_inner_ratio": 4451.0
+  },
+  "layout_shift": {
+    "tagged": 328,
+    "hosts": 3,
+    "missing": 0,
+    "moved": 0,
+    "host_moved": 0,
+    "scrollH_off": 844,
+    "scrollH_on": 844,
+    "sample_moved": []
+  },
+  "surface_mobile": {
+    "x": 8,
+    "y": 430,
+    "w": 374,
+    "h": 141,
+    "tier": "a",
+    "reason": "refract-layer",
+    "refract": "on",
+    "cls": "card p-4 status-hero sg-5"
+  },
+  "pattern_shift": {
+    "left": {
+      "row": 99,
+      "shift_px": -26,
+      "corr": 0.92
+    },
+    "right": {
+      "row": 184,
+      "shift_px": 32,
+      "corr": 0.971
+    },
+    "center": {
+      "row": 142,
+      "shift_px": 0,
+      "corr": 1.0
+    },
+    "w": 748,
+    "h": 284,
+    "noise_off_left": {
+      "row": 99,
+      "shift_px": 0,
+      "corr": 1.0
+    },
+    "noise_off_right": {
+      "row": 184,
+      "shift_px": 0,
+      "corr": 1.0
+    }
+  },
+  "probe_desktop": {
+    "probe": {
+      "tierA": false,
+      "reason": "engine-unproven-backdrop-url",
+      "engine": "unknown",
+      "svgRender": true,
+      "backdrop": true,
+      "refractionLayer": false,
+      "ms": 4
+    },
+    "probeDetails": {
+      "svgRender": true,
+      "diff": 190.7,
+      "match": 0.625,
+      "ctxFilterApplied": true
+    },
+    "refraction": {
+      "version": 1,
+      "enabled": true,
+      "running": true,
+      "reason": "syncing",
+      "backgroundSource": "polygon",
+      "backgroundSize": [
+        1440,
+        900
+      ],
+      "layers": [],
+      "painted": 0,
+      "errors": 0,
+      "reducedMotion": false,
+      "dprCap": 1.5,
+      "paintMs": null,
+      "paintMsMax": null,
+      "paintCount": 0,
+      "renderIntervalMs": 40,
+      "layerClass": "lg-refract",
+      "filterBase": "lg-lens",
+      "maxLayers": 3
+    },
+    "tiers": {
+      "b": 17,
+      "c": 2
+    },
+    "reasons": {
+      "engine-unproven-backdrop-url": 17,
+      "tier-dense": 2
+    },
+    "refractOn": 0,
+    "layers": 0,
+    "layerHit": null,
+    "layerPtr": null,
+    "filteredContent": 0,
+    "shadow": {
+      "urlBackdrop": 0,
+      "count": 0
+    },
+    "hOverflow": false,
+    "innerWidth": 1440,
+    "innerHeight": 900,
+    "bg": {
+      "w": 1440,
+      "h": 900,
+      "rect": [
+        0,
+        0,
+        1440,
+        900
+      ]
+    },
+    "polyMode": "canvas2d"
+  },
+  "fs_audit": {
+    "platform": "tdesktop",
+    "sdkVersion": "8.0",
+    "launchParams": {
+      "tgWebAppPlatform": "tdesktop",
+      "tgWebAppVersion": "8.0",
+      "tgWebAppStartParam": "e2e"
+    },
+    "actualFullscreen": true,
+    "launchFullscreen": true,
+    "hasRequestFullscreen": true,
+    "hasExitFullscreen": true,
+    "slot": "inline",
+    "reason": "",
+    "reasonText": "",
+    "canOfferFullscreen": false,
+    "canOfferExit": true,
+    "clickResult": "never",
+    "viewport": [
+      1440,
+      900,
+      860
+    ],
+    "trace": [
+      "init"
+    ]
+  },
+  "window_hack_hits": [],
+  "checks": [
+    {
+      "name": "A_refraction_layer_android_390",
+      "count": 21,
+      "failures": []
+    },
+    {
+      "name": "C_optical_pattern_displacement",
+      "count": 4,
+      "failures": []
+    },
+    {
+      "name": "B_desktop_1440",
+      "count": 10,
+      "failures": []
+    },
+    {
+      "name": "D_no_window_geometry_hacks",
+      "count": 2,
+      "failures": []
+    }
+  ],
+  "passed": true
+}

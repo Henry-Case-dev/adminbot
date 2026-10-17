@@ -1,0 +1,135 @@
+### A_pre_state (rc=0, 1.4s)
+NOW_UTC=2026-10-17T22:49:46Z
+OLD_HEAD=eafbe2e7b792c74eeb91735e183b767c6b85d73c
+OLD_BRANCH=release/soul1-2.58.86
+HZ_BEFORE={"status":"ok","version":"2.58.86"}
+TRACKED_MOD=0
+UNTRACKED=13
+SERVICE=active
+MAINPID=3243319
+ENV_AXES=5
+ENV_WRITABLE=yes
+INDEX_LOCK=absent
+### B1_fetch (rc=0, 1.6s)
+FETCH1_RC=0
+ * branch              release/fix-2.58.87 -> FETCH_HEAD
+ * [new branch]        release/fix-2.58.87 -> origin/release/fix-2.58.87
+### B3_remote_ref (rc=0, 0.9s)
+82e110d67120b86373fb23a81c8612ec5143a589
+### C_checkout (rc=0, 1.2s)
+CO_RC=0
+Switched to a new branch 'release/fix-2.58.87'
+branch 'release/fix-2.58.87' set up to track 'origin/release/fix-2.58.87'.
+NEW_HEAD=82e110d67120b86373fb23a81c8612ec5143a589
+TRACKED_MOD_AFTER=0
+DELTA_FILES=35
+### D1_hashes (rc=0, 1.0s)
+d700df753d6d web/static/app.css
+62f7c2c4b167 tests/js/asap8_w2_shell_mobile_nav_test.js
+f5eff9607d15 services/style_policy.py
+bcdbfc6465eb tests/test_soul1_style_policy.py
+96db06425079 web/static/fullscreen-policy.js
+6a09d962d59d web/static/glass-refraction.js
+b2e6a1f987c6 web/static/glass-probe.js
+0971d49d5337 web/index.html
+5a810c0f4443 web/app.js
+a69a67536ebe web/api/speech.py
+4dd2510532bd web/api/initiative_vitality.py
+a606bcafc1be services/prompt_registry.py
+fd8a2a70d5d7 services/prompt_composer.py
+04ed64429e88 services/smartmodule_phrases.py
+b3969d7e261f config/settings.py
+f39248ad01a1 README.md
+5585499fbcaf plans/docs/param-registry-round1025.meta.md
+HASH-CHECK: 17/17 artifacts == expected sha256_12
+### D2_markers (rc=0, 1.0s)
+APP_VER=APP_VERSION = "2.58.87"
+DD_OPEN=2
+DD_OVERFLOW=1
+REFRACT_APPJS=6
+SOUL_SPEECH=present
+SOUL_INITIATIVE=present
+### F1_sudo_probe (rc=0, 1.0s)
+SUDO_NOPASS=0
+### F2_restart (rc=0, 14.7s)
+RESTART_T0=%Y-%m-%d %H:%M:%S
+RESTART_RC=0
+(uploaded probes: /tmp/soul87_post.py, /tmp/soul87_f3.sh, /tmp/soul87_final.sh)
+### F3_migration_wait (rc=0, 604.2s)
+F3_T0=
+F3_NEW_MAINPID=3254462
+F3_ITER=60
+F3_COMPLETE_LINES=0
+[stderr] [sudo] password for nik:
+### F4_health (rc=0, 1.7s)
+HEALTH={"status":"ok","version":"2.58.87"}
+HEALTH OK (2.58.87)
+### F5_journal (rc=0, 1.2s)
+0
+[stderr] [sudo] password for nik: Failed to parse timestamp:
+### G_post (rc=0, 3.6s)
+POST87 admin_role=admin role_type=global_admin id_present=True
+POST87 init_data_len=156 auth_fresh=True
+POST87 healthz status=200 body={"status":"ok","version":"2.58.87"}
+POST87 gates status=200 total=10 on=10 off=[]
+POST87 gates_json={"unified_composer_enabled": true, "character_core_enabled": true, "speech_style_policy_enabled": true, "humor_library_enabled": true, "humor_feedback_enabled": true, "experience_lessons_enabled": true, "smart_verbalizer_modes_enabled": true, "response_plan_enabled": true, "persona_enabled": true, "character_layers_enabled": true}
+POST87 style_before_pg present=False revision=None updated=None
+POST87 style_get_before status=200 view={"source": "default", "revision": "", "rules": 0, "soft": 0, "global_present": false, "global_revision": 0, "inheritance": "factory_default"}
+POST87 style_save1 status=200 result={"applied": true, "scope": "global", "revision": 1, "rules": 0, "soft_instructions": 0, "issues": []}
+POST87 style_get_after1 status=200 view={"source": "global", "revision": "g1.0483be84f90e", "rules": 0, "soft": 0, "global_present": true, "global_revision": 1, "inheritance": "global"}
+POST87 style_after1_pg present=True revision=1 updated=2026-10-17 23:00:23.089508+00
+POST87 style_save2 status=200 result={"applied": true, "scope": "global", "revision": 2, "rules": 0, "soft_instructions": 0, "issues": []}
+POST87 style_after2_pg present=True revision=2 updated=2026-10-17 23:00:23.140741+00
+POST87 verdict_a style_global_save=True (revision grows: 1 -> 2)
+POST87 f5_traits_total=50
+POST87 trait_MARKER id=245 chat=-1002661910336 source=deep_sleep base=0 ext=1 snippet='Чаще отказывает в помощи, отправляя самостоятельно листать логи или идти на двач.'
+POST87 f5_marker_rows=1 [[245, 0, 1]]
+POST87 verdict_b f5_all_50_traits_marker_free=False
+POST87 blocks total=89 withheld=11 ids=["factcheck.base.single", "search.base.system", "summary.base.single", "checkup.base.system", "direct.base.tool_phase", "youtube.base.system", "youtube.base.video", "web.base.system", "factcheck.base.verbalizer", "summary.base.narrator", "direct.base.l2_writer"]
+POST87 done
+### J_final (rc=0, 2.4s)
+=== NOW ===
+2026-10-17T23:00:24Z
+=== NODE ===
+HEAD=82e110d67120b86373fb23a81c8612ec5143a589
+BRANCH=release/fix-2.58.87
+TRACKED_MOD=0
+=== HEALTH ===
+{"status":"ok","version":"2.58.87"}
+MainPID=3254462 NRestarts=0 ExecMainStartTimestamp=Sat 2026-10-17 22:50:08 UTC ExecMainStatus=0 ActiveState=active SubState=running 
+=== ENV AXES (.env) ===
+UNIFIED_COMPOSER_ENABLED=1
+HUMOR_CRAFT_ENABLED=1
+HUMOR_LIBRARY_ENABLED=1
+HUMOR_FEEDBACK_ENABLED=1
+INITIATIVE_DIAGNOSTICS_PUBLISH_ENABLED=1
+=== PROC ENV AXES ===
+none
+=== APP.CSS (served bytes) ===
+CSS_SHA12=d700df753d6d
+CSS_MARKER_DD_OPEN=2
+CSS_MARKER_OVERFLOW=1
+CSS_HTTP_SHA12=d700df753d6d
+=== PAGE ===
+PAGE_VER=15
+=== MIGRATION LINES (since T0) ===
+=== SQLITE USER_VERSION ===
+USER_VERSION (36,)
+=== JOURNAL COUNTS (since T0) ===
+ERR=0
+RUNTIMEWARN=0
+WITHHELD=0
+GRACEFUL=0
+POLLER=0
+=== HTTPS ===
+HTTPS_HZ={"status":"ok","version":"2.58.87"}
+HTTPS_WEB=200
+=== STYLE POLICY SAVED LINES ===
+=== DONE ===
+[stderr] [sudo] password for nik: Failed to parse timestamp: -
+Failed to parse timestamp: -
+Failed to parse timestamp: -
+Failed to parse timestamp: -
+Failed to parse timestamp: -
+Failed to parse timestamp: -
+Failed to parse timestamp: -

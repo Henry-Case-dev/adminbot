@@ -1,0 +1,47 @@
+ISOLATION / DELTA CLASSIFICATION — release/fix-2.58.87
+base (prod) = eafbe2e7b792c74eeb91735e183b767c6b85d73c (release/soul1-2.58.86, APP_VERSION 2.58.86, axes ON)
+branch tip  = 82e110d67120b86373fb23a81c8612ec5143a589
+delta files = 35
+
+bump-2.58.87     31
+fix-await        2
+fix-dropdown     2
+
+UNCLASSIFIED = 0
+
+full list (family | +/- | path):
+  bump-2.58.87     +1      -1      README.md
+  bump-2.58.87     +1      -1      config/settings.py
+  bump-2.58.87     +2      -2      plans/docs/param-registry-round1025.meta.md
+  fix-await        +4      -1      services/style_policy.py
+  fix-dropdown     +11     -1      tests/js/asap8_w2_shell_mobile_nav_test.js
+  bump-2.58.87     +1      -1      tests/js/round1025_hotfix10_glass_geometry_bg_test.js
+  bump-2.58.87     +1      -1      tests/js/round1025_hotfix7_shell_glass_heartbeat_test.js
+  bump-2.58.87     +1      -1      tests/js/round1025_hotfix8_shell_aurora_test.js
+  bump-2.58.87     +1      -1      tests/js/round1025_hotfix9_shell_flex_glass_aurora_test.js
+  bump-2.58.87     +1      -1      tests/test_decision_making_round1026.py
+  bump-2.58.87     +1      -1      tests/test_image_context_memory_round1026.py
+  bump-2.58.87     +1      -1      tests/test_mca17c_invariants_round1047.py
+  bump-2.58.87     +1      -1      tests/test_round1025_f8_registry.py
+  bump-2.58.87     +1      -1      tests/test_scope_selector_round1025.py
+  fix-await        +67     -0      tests/test_soul1_style_policy.py
+  bump-2.58.87     +1      -1      tests/test_summary_deploy_round1026.py
+  bump-2.58.87     +1      -1      tests/test_summary_fact_package.py
+  bump-2.58.87     +1      -1      tests/test_summary_logging_runid.py
+  bump-2.58.87     +1      -1      tests/test_summary_publish_integration_round1026.py
+  bump-2.58.87     +1      -1      tests/test_summary_test_run.py
+  bump-2.58.87     +1      -1      tests/test_telegram_reactions_round1026.py
+  bump-2.58.87     +1      -1      tests/test_tool_coordinator_round1026.py
+  bump-2.58.87     +1      -1      tests/test_unified_image_request_round1026.py
+  bump-2.58.87     +1      -1      tests/test_webapp_design_tokens_round1025.py
+  bump-2.58.87     +1      -1      tests/test_webapp_f11_round1025.py
+  bump-2.58.87     +1      -1      tests/test_webapp_f6_round1025.py
+  bump-2.58.87     +1      -1      tests/test_webapp_f7_round1025.py
+  bump-2.58.87     +1      -1      tests/test_webapp_f9_round1025.py
+  bump-2.58.87     +1      -1      tests/test_webapp_hotfix10_round1025.py
+  bump-2.58.87     +1      -1      tests/test_webapp_hotfix6_round1025.py
+  bump-2.58.87     +1      -1      tests/test_webapp_hotfix7_round1025.py
+  bump-2.58.87     +1      -1      tests/test_webapp_hotfix8_round1025.py
+  bump-2.58.87     +1      -1      tests/test_webapp_hotfix9_round1025.py
+  bump-2.58.87     +2      -2      tests/test_webapp_round1026_polygon.py
+  fix-dropdown     +9      -1      web/static/app.css
