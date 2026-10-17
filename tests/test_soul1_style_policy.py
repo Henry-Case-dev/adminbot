@@ -768,3 +768,70 @@ def test_outcome_serialization_is_r17_safe():
     assert "гениальная" not in blob
     assert "«" not in blob and "»" not in blob
     assert outcome.as_dict()["counts"]["repaired"] == 2
+
+
+# ═══ запись глобального документа (регресс 2.58.86) ═════════════════════════
+
+class _StrictAsyncCache:
+    """Двойник ConfigCache с ЧЕСТНЫМ async ``set`` (как прод: config_cache.py:681).
+
+    ``FakeHot.set`` синхронный, поэтому проглатывание корутины через него не
+    видно; здесь значение попадает в кэш ТОЛЬКО если вызов реально awaited.
+    """
+
+    def __init__(self, values=None):
+        self.values = dict(values or {})
+        self.writes: list = []
+
+    def get(self, key, default=None):
+        return self.values.get(key, default)
+
+    async def set(self, key, value, category=None):
+        self.values[key] = value
+        self.writes.append((key, category))
+
+
+# TEST-LIFECYCLE: REGRESSION owner=SOUL-1/2.58.86-style-await
+@pytest.mark.asyncio
+async def test_global_style_save_awaits_async_config_cache_and_persists():
+    """Регресс 2.58.86: POST /api/speech/style (scope=global) отвечал
+    ``applied=true``, но документ не персистился — ``target.set`` вызывался
+    без await (RuntimeWarning «never awaited» в журнале; ключа ``style.policy``
+    в PG нет; чат-ветка не задета). Прод-контракт ``ConfigCache.set`` — async
+    (services/config_cache.py:681), поэтому глобальная запись обязана
+    дожидаться его и читаться обратно тем же слоем."""
+    import warnings
+
+    cache = _StrictAsyncCache()
+    hot.set_config_cache(cache)
+    doc = {"rules": [{"id": "trailing_period.hard.strip",
+                      "kind": "trailing_period", "strictness": "hard",
+                      "scope": "global", "enabled": True,
+                      "reason": "owner_edit",
+                      "params": {"ellipsis": "strip"}}],
+           "soft_instructions": []}
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        # Путь API-владельца: cache передаётся явно (post_style) …
+        saved = await sp.save_policy_document(doc, cache=cache, actor=42,
+                                              reason="owner_edit")
+    assert saved["applied"] is True and saved["scope"] == "global"
+    assert saved["revision"] == 1
+    stored = cache.get(sp.DOC_KEY)
+    assert stored is not None, "глобальный документ не персистился (set без await?)"
+    assert cache.writes == [(sp.DOC_KEY, sp.DOC_CATEGORY)], cache.writes
+    never_awaited = [str(w.message) for w in caught
+                     if "never awaited" in str(w.message)]
+    assert not never_awaited, never_awaited
+    # Читается обратно тем слоем, которым пользуется рантайм.
+    policy = sp.effective_policy_sync(hot.get(sp.DOC_KEY), None,
+                                      context="regular")
+    assert policy.rules_for_kind("trailing_period"), \
+        "записанные правила не видны из кэша"
+    assert policy.source == "global"
+    # Вторая правка идёт уже БЕЗ явного cache (дефолтный lookup
+    # hot.get_config_cache()) и обязана видеть предыдущую редакцию:
+    # revision растёт, а прошлая уходит в history — это read-back персистенса.
+    again = await sp.save_policy_document(doc, actor=42, reason="owner_edit")
+    assert again["applied"] is True and again["revision"] == 2
+    assert cache.get(sp.DOC_KEY)["history"][0]["revision"] == 1

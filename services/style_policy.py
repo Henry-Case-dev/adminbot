@@ -2272,7 +2272,10 @@ async def save_policy_document(document: Mapping[str, Any], *,
                 await set_root(int(chat_id), patch)
             scope = "chat"
         else:
-            target.set(DOC_KEY, normalized, category=DOC_CATEGORY)
+            # ConfigCache.set — async (services/config_cache.py:681); без
+            # await документ отдавался как applied=true, но не персистился
+            # (релиз 2.58.86: POST /api/speech/style scope=global).
+            await target.set(DOC_KEY, normalized, category=DOC_CATEGORY)
             scope = "global"
         logger.info("[style_policy] document saved | scope=%s | revision=%d | "
                     "rules=%d | soft=%d", scope, revision,
