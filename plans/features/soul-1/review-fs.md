@@ -111,3 +111,49 @@
 Живой Telegram не проверялся и не может быть проверен локально — `PENDING_OWNER_E2E` по чек-листу §9.6 (Windows/Android portrait/landscape/поворот + сверка снимка §8 с реальной панелью). Это соответствует §9/§10 владельца и стоячему правилу PET_PROJECT: техническая часть завершается, живые пункты не блокируют, деплой штатный.
 
 Родителю до релиз-гейта: зафиксировать в карте/bookkeeping строки FOLLOW-UP (логотип / §7 №8-№12 / §8-диагностика) вместе с прежними решениями (U07.1a, удаление мягкого exit U07.1d, статус SOUL-12 в UI-канале).
+
+---
+
+# BINDING verification: **Approved** (A `6094a2cf`, B `176abdde`)
+
+| Поле | Значение |
+|---|---|
+| Кандидаты | A = `6094a2cfa1660d1b949dcfe5ec085bc08f080de4` (объединённый W7+FS), B = `176abdde2be253cb68fe7e790d6720e4f5bb67e1` (привязка/карты); HEAD = B, working tree по файлам лейна чистый |
+| Проверено | состав A/B, отпечатки committed-блобов, привязка 13 строк W7, гейты verbatim, содержание B, девиации (1)/(5)/(6) |
+| Вердикт | **Approved** — состав, привязка и гейты воспроизводятся; статусы честные; блокеров нет |
+
+## 1. Состав A и B (сверено numstat/name-status)
+
+- **A: 95 файлов** = web 4 + tests 5 (1 новый `tests/test_soul1_w7_embedding_primary_slot.py`) + tools 3 (1 новый `ui_soul1_w7_fullscreen_explain_e2e.py`) + services 1 + docs 5 + evidence 77 (`evidence/w7/**` 34 + `evidence/fs-hotfix/**` 43). **Чужих нет**: ни карт v6.3 (осталась dirty и вне коммита), ни `w2-evidence*` PNG, ни scratch/`package*`/`node_modules`, ни MEMORY/runtime_task/workflow_state. `fullscreen-archaeology.md` включён — девиация заявлена в plan.md §W7 binding (п. 4); `pytest-embedding-suites.txt` перегенерирован: tail = **97 passed** (N1 закрыт).
+- **B: ровно 5 файлов** (`AGENTS.md` новый, `plan.md`, обе карты, `owner_questions.md`) — совпадает с заявленным.
+
+## 2. Отпечатки committed-блобов (A) — 13/13
+
+policy `96db06425079` · app.css `b17fddf4d4f8` · index.html `d2c91f46314b` · app.js `2eea2e452449` · js-матрица `7614df401d86` · shell-сторож `7ff4d1f69ef9` · avatars `b322174607b1` · fs-e2e `0fd689fcd22b` · shell-e2e `0b67e8d63e7d` · отчёт `1e6bfb62a6d8` · frozen_check `4152507b7a37` · ui_soul1-инструмент `9b0efbba2cbb` · run_red_head `baacc002c9ba` — все совпали с таблицей отчёта/review.
+
+**LF/CRLF:** `web/static/app.css` = 6 CRLF (ровно как в родителе `9d8da1d7`); остальные web/tests/tools/services/docs — CRLF=0; evidence-JSON сохраняют CRLF-конвенцию репозитория (сверено с v6.3-evidence: те же CRLF); ни один файл не увеличил CRLF-счёт против родителя.
+
+## 3. Привязка main (13 строк W7) и amendment
+
+- main `--stage review --slice W7`: **`stage=review inventory=101 manual=97 scoped=13 errors=0` EXIT 0** (мой прогон — verbatim как в plan.md).
+- amendment `--stage review --slice W7`: **`FAIL: review scope has no requirements: W7`, `scoped=0 errors=1` EXIT 1** (честный FAIL, не форсирован).
+- `--stage plan` обеих: **101/97 scoped=0 errors=0 EXIT 0** и **66/28 scoped=0 errors=0 EXIT 0** — как записано.
+- Диф карт: **ровно 13 W7-строк + top-level `candidate_commit`** (main: изменены только SOUL-12.0…13.6; добавленных/удалённых строк нет); amendment — **1 строка** (указатель `d4c33c21 → 6094a2cf`). `candidate_commit := 6094a2cf` в обеих; `deployed_commit` пуст. Диффы карт: main `124/27`, amend `1/1` (девиация «+125/−28» — фактически 124/27 по numstat; суть — восстановленная конвенция, а не перезапись файла).
+- Статусы: 7 RFL (`12.0–12.5`, `13.2`, `live_when=postdeploy`) — причины честные: чек-лист владельца отменён 18.10 (PET_PROJECT, OQ-1 `CANCELLED`), живые наблюдения — агенты после выката, `PENDING_OWNER_E2E` информационный, ни одна строка не объявлена закрытой. 6 VERIFIED (`13.0`, `13.1`, `13.3–13.6`) — preprod-факты, не live: spot-check ниже. Все ссылки evidence существуют на диске.
+
+**Spot-check VERIFIED-строк:** 13.0/13.5 — `v63-baseline-record.json` (head/origin/master, `225c3c2b` с флагом ancestor; мой пересчёт `git merge-base --is-ancestor 225c3c2b origin/master` = 0 ✓, коммит реальный, subject совпадает); 13.1 — ledger: `open_rows_total=65`, статусы **42 RFL / 18 BLOCKED / 5 PENDING**, VERIFIED 135 ✓; 13.4 — `embed_primary_ui_render.json` содержателен (absent/hot сценарии, rect’ы, тексты, secret-scan пуст, honest-note «доказывает UI-wiring, не состояние прода», reset horizon OPEN), 2 PNG на месте, `_probe_embed_primary_ui.py` на месте, новый тест — **7 passed** (мой прогон); 13.6 — артефакт `pytest-6-previously-failing.txt` = **11 passed**, включает ранее падавшие (6/6 зелёные; артефакт — надмножество — формулировка строки не завышает).
+
+## 4. Содержание B
+
+`owner_questions.md`: OQ-1 → **`CANCELLED`** с цитатой владельца («чек-лист на устройствах отмени…»), OQ-2 `ACTION_PENDING`, OQ-3 `ANSWERED`→PET_PROJECT, OQ-4…8 `TO_ASK`, раздел AGENT_CHECK — корректно. `AGENTS.md`: fail2ban-правила + **PET_PROJECT** (стоячее согласие; без карантинных гейтов; тесты/откат сохранять) — без секретов. `plan.md §W7 binding (6094a2cfa166)`: кандидат, цепочка ревью (W7 NF → F1 → REVIEW-FS NF → FS2 → RECHECK Approved), состав, таблица 13 строк, гейты verbatim, LF/CRLF-санити, пометы 1–5, следующий шаг — полно; совпадает с моими прогонами.
+
+## 5. Девиации — вердикты
+
+- **(1) «focused 418» не воспроизводится.** В коммите/артефактах «418» отсутствует; записано `FS focused 379 (report)` — честная атрибуция (артефакта и перечня 10 файлов нет; мой прогон покрывает эти тесты периметром 3915/0). Приемлемо: число не используется как evidence ни одной строки.
+- **(5) CRLF-конвенция восстановлена.** Проверено: main-карта полностью CRLF (4207/4207, ни одной lone-LF; рост CRLF 4110→4207 = ровно +97 добавленных строк), amendment 1873→1873, новые docs/AGENTS — LF. Это не перезапись файла (диф 124/27 против прежних ~10k строк в dirty-дереве).
+- **(6) Сдвиг amendment-указателя** (`d4c33c21 → 6094a2cf`, 1 строка): принято по single-candidate семантике; прежние per-row candidates сохранены, прецедент зафиксирован в plan.md.
+- Дополнительные мелкие нит-наблюдения (не блокируют): 13.3 VERIFIED при `live_when=postdeploy` — объяснено в observation (категорийные live-наблюдения — отдельные открытые строки); `FS focused 379` — report-only число (см. выше); в девиации B заявлен `main +125/−28`, фактически 124/27.
+
+## 6. Итог
+
+`BINDING verification: Approved` — A/B воспроизводимы, привязка и гейты verbatim, статусы честные, чужие файлы не смешаны. Пуша и деплоя нет; релиз — отдельный лейн; postdeploy-живые пункты остаются `PENDING_OWNER_E2E`.
