@@ -1,0 +1,102 @@
+diff --git a/deploy_25887.py b/deploy_25887.py
+index 6fe80c8..61f13b7 100644
+--- a/deploy_25887.py
++++ b/deploy_25887.py
+@@ -274,7 +274,7 @@ def main():
+         sudo_ok = "SUDO_NOPASS=1" in out
+         rc, out, err = step(
+             cli, "F2_restart",
+-            "T0=$(date -u '+%%Y-%%m-%%d %%H:%%M:%%S'); echo RESTART_T0=\"$T0\"; "
++            "T0=$(date -u '+%Y-%m-%d %H:%M:%S'); echo RESTART_T0=$T0; "
+             + ("sudo -n systemctl restart admin_bot "
+                "> /tmp/soul87_restart.log 2>&1; echo RESTART_RC=$?; "
+                "tail -2 /tmp/soul87_restart.log" if sudo_ok else
+@@ -284,39 +284,47 @@ def main():
+                "tail -2 /tmp/soul87_restart.log" % pw), timeout=300)
+         if "RESTART_RC=0" not in out:
+             abort = "systemctl restart failed"
+-        m = re.search(r"RESTART_T0=\"([^\"]+)\"", out)
++        m = re.search(r"RESTART_T0=(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})", out)
+         t0 = m.group(1) if m else ""
+-        # upload the f3 + final scripts before waiting
+-        sftp = cli.open_sftp()
+-        for remote, local in UPLOADS.items():
+-            with sftp.open(remote, "w") as f:
+-                f.write(io.open(os.path.join(S, local), encoding="utf-8",
+-                                newline="\n").read())
+-        sftp.close()
+-        log("(uploaded probes: %s)" % ", ".join(UPLOADS))
+-        step(cli, "F3_migration_wait",
+-             ("sudo -n sh /tmp/soul87_f3.sh \"%s\"" % t0 if sudo_ok else
+-              "SUDO87='%s' sh -c 'printf \"%%s\\n\" \"$SUDO87\" | "
+-              "sudo -S sh /tmp/soul87_f3.sh \"%s\"'" % (pw, t0)),
+-             timeout=700)
+-        rc, out, err = step(
+-            cli, "F4_health",
+-            "V=''; for i in $(seq 1 150); do V=$(curl -s --max-time 3 "
+-            "http://127.0.0.1:8000/healthz); case \"$V\" in *%s*) break;; esac; "
+-            "sleep 2; done; echo HEALTH=$V" % EXPECT_VER, timeout=360)
+-        if EXPECT_VER not in out:
+-            abort = "healthz %s not observed after restart" % EXPECT_VER
+-            _rb(abort)
+-        else:
+-            log("HEALTH OK (%s)" % EXPECT_VER)
+-            step(cli, "F5_journal",
+-                 (("sudo -n journalctl -u admin_bot --since \"%s\" --no-pager "
+-                   "| grep -cE 'ERROR|CRITICAL|Traceback' || true" % t0)
+-                  if sudo_ok else
++        if not t0:
++            # fail-fast (2.58.87 first-run nit): an empty/unparsed T0 makes
++            # every --since slice vacuous; never continue verification on a
++            # broken anchor — restore the previous verified version instead.
++            _rb("T0 capture failed (empty/unparsed)")
++            abort = "T0 capture failed (empty/unparsed)"
++        if abort is None:
++            # upload the f3 + final scripts before waiting
++            sftp = cli.open_sftp()
++            for remote, local in UPLOADS.items():
++                with sftp.open(remote, "w") as f:
++                    f.write(io.open(os.path.join(S, local), encoding="utf-8",
++                                    newline="\n").read())
++            sftp.close()
++            log("(uploaded probes: %s)" % ", ".join(UPLOADS))
++            step(cli, "F3_migration_wait",
++                 ("sudo -n sh /tmp/soul87_f3.sh \"%s\"" % t0 if sudo_ok else
+                   "SUDO87='%s' sh -c 'printf \"%%s\\n\" \"$SUDO87\" | "
+-                  "sudo -S journalctl -u admin_bot --since \"%s\" --no-pager "
+-                  "| grep -cE \"ERROR|CRITICAL|Traceback\" || true'"
+-                  % (pw, t0)))
++                  "sudo -S sh /tmp/soul87_f3.sh \"%s\"'" % (pw, t0)),
++                 timeout=700)
++        if abort is None:
++            rc, out, err = step(
++                cli, "F4_health",
++                "V=''; for i in $(seq 1 150); do V=$(curl -s --max-time 3 "
++                "http://127.0.0.1:8000/healthz); case \"$V\" in *%s*) break;; esac; "
++                "sleep 2; done; echo HEALTH=$V" % EXPECT_VER, timeout=360)
++            if EXPECT_VER not in out:
++                abort = "healthz %s not observed after restart" % EXPECT_VER
++                _rb(abort)
++            else:
++                log("HEALTH OK (%s)" % EXPECT_VER)
++                step(cli, "F5_journal",
++                     (("sudo -n journalctl -u admin_bot --since \"%s\" --no-pager "
++                       "| grep -cE 'ERROR|CRITICAL|Traceback' || true" % t0)
++                      if sudo_ok else
++                      "SUDO87='%s' sh -c 'printf \"%%s\\n\" \"$SUDO87\" | "
++                      "sudo -S journalctl -u admin_bot --since \"%s\" --no-pager "
++                      "| grep -cE \"ERROR|CRITICAL|Traceback\" || true'"
++                      % (pw, t0)))
+ 
+     # ── G. live post-checks (style save + F5 all traits + gates) ───────────
+     if abort is None:
+@@ -334,7 +342,8 @@ def main():
+ 
+     # ── J. final read-only verification ────────────────────────────────────
+     if abort is None:
+-        m = re.search(r"RESTART_T0=\"([^\"]+)\"", "\n".join(LOG))
++        m = re.search(r"RESTART_T0=(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})",
++                      "\n".join(LOG))
+         t0 = m.group(1) if m else "-"
+         rc, out, err = step(
+             cli, "J_final",

@@ -1279,7 +1279,7 @@
       "source_text_sha256": "9dee5dd7b9961f7e022f5e04a64282c13392f02f02d0c9ae548ab5c87d371ab4",
       "source_excerpt": "6. Старые речевые каноны остаются только в аварийной резервной копии, **не** в действующем runtime или пользовательском редакторе legacy.",
       "disposition": "required",
-      "reason": "Часть «каноны только в аварийной копии» подтверждена (backup до правок; известные каноны не доходят до effective-слоя ни на одном реестровом пути; удержание неизвестных). Открыто: (а) 4 неудерживаемых summary-ключа (l2_writer c913a4b4c53d, l1_clusterizer, editor, cover_style) и ветки режимов остаются действующим слоем до живого снимка (review-w1 RECHECK, не-extension); (б) legacy в пользовательском редакторе снимается только перегенерацией каталога — W6; (в) код-фраза CHAT_PERSONA_PHRASE (smartmodule_phrases; handlers/direct_chat.py:253) — замена W3/W10. Закрывается живым снимком + решением JB-3 (write-pass) + W6. Постдеплой 2.58.86: удержание работает на живом процессе (`withheld=11`, поток WARNING, 0 ERROR); F5-капчура: `personas` — 2 строки с пустыми name/biography/system_prompt_overrides, маркеров старой личности 0; `persona_traits` — маркер-скан покрыл первые 10 из 50 строк (`omitted=40 (no markers in first 10)`), т.е. закрытие по traits ЧАСТИЧНОЕ (досчёт 40 строк — окно 2.58.87, ревью §8.3). Остаётся: удаление канонов (JB-3) и полная перегенерация каталога.",
+      "reason": "Часть «каноны только в аварийной копии» подтверждена (backup до правок; известные каноны не доходят до effective-слоя ни на одном реестровом пути; удержание неизвестных). Открыто: (а) 4 неудерживаемых summary-ключа (l2_writer c913a4b4c53d, l1_clusterizer, editor, cover_style) и ветки режимов остаются действующим слоем до живого снимка (review-w1 RECHECK, не-extension); (б) legacy в пользовательском редакторе снимается только перегенерацией каталога — W6; (в) код-фраза CHAT_PERSONA_PHRASE (smartmodule_phrases; handlers/direct_chat.py:253) — замена W3/W10. Закрывается живым снимком + решением JB-3 (write-pass) + W6. Постдеплой 2.58.86: удержание работает на живом процессе (`withheld=11`, поток WARNING, 0 ERROR); F5-капчура: `personas` — 2 строки с пустыми name/biography/system_prompt_overrides, маркеров старой личности 0; `persona_traits` — F5-досчёт 50/50 ВЫПОЛНЕН в 2.58.87 (SELECT всех 50 строк; REV-REL-25887 §3): 1 EXT-хит `id=245` — текст владельческого deep-sleep-трейта («…идти на двач.»), т.е. живые данные владельца, НЕ инструкция; base-маркеров (токсичность) 0; остальные 49 чистые. Формулировка «санкционирован каноном `l2_dvach_vocabulary`» неверна: это правило наоборот ИСКЛЮЧАЕТ двачерскую лексику из legacy L2-канона («двач» здесь — из владельческого наблюдения); хит остаётся как есть, не блокер (нить F5 закрыта 50/50). Остаётся: удаление канонов (JB-3) и полная перегенерация каталога.",
       "req_id": "SOUL-AMD.4.6",
       "slice": "W1",
       "acceptance": "Старые речевые каноны остаются только в аварийной резервной копии; в действующем runtime и в пользовательском редакторе legacy их нет",
@@ -1301,6 +1301,14 @@
           "observation": "Капчура прода: personas/traits (маркер-скан 10 из 50 строк — честная граница) + backup sha256_16 5cc7de90e9132d05.",
           "artifact_path": "plans/features/soul-1/evidence/release-soul-25886/final-verification.txt",
           "artifact_sha256": "ac3cb779e4d100cd43a884dd40e4f65b85f51e40e05478a2e43eb89754df0bd5",
+          "type": "production"
+        },
+        {
+          "candidate_commit": "82e110d67120b86373fb23a81c8612ec5143a589",
+          "ref": "plans/features/soul-1/release-2.58.87-report.md §4б + plans/features/soul-1/evidence/release-25887/post-check.txt (REV-REL-25887 §3, F5)",
+          "observation": "F5-досчёт 50/50: SELECT всех 50 `persona_traits` → 1 EXT-хит `id=245` (chat −1002661910336, source=deep_sleep, «…идти на двач.») — живой трейт владельца (данные, не инструкция); base-маркеров 0; остальные 49 чистые. Классификация исправлена (REV-REL-25887 §6в); не блокер.",
+          "artifact_path": "plans/features/soul-1/evidence/release-25887/post-check.txt",
+          "artifact_sha256": "0915db4f40b6b66b7bf717d5469af73bc816b47f2dc702a4ac89df711e0bdfa6",
           "type": "production"
         }
       ]
@@ -1887,7 +1895,7 @@
       "source_text_sha256": "6a49f696bb3584b88c3c043ea61d073a0fa7f0d260104eb45f23791ffc32f83d",
       "source_excerpt": "- Редактирование Core и Speech Style Policy через MiniApp действительно меняет следующую генерацию во всех соответствующих путях. `one_word` и `micro` остаются различны. Fallback не возвращает старого персонажа.",
       "disposition": "required",
-      "reason": "Живая генерация не проверяема до канарейки (флаг ON — решение владельца): ревьюер объявил строку READY_FOR_LIVE («за канарейкой»), не VERIFIED. Запись — единым путём (доказано), фактическое изменение следующей генерации во всех путях — post-canary. deferred → 2.58.87 (await-fix `68cd05b2`): глобальное сохранение `style.policy` в 2.58.86 — молчаливый no-op (`services/style_policy.py:2275` без `await`, ревью REV-REL-SOUL §5; подтверждено прод-фактом `style.policy` отсутствует / `global_present=false`). Чат-часть сохраняется штатно. Строка НЕ закрывается до мини-релиза 2.58.87. Классификация READY_FOR_LIVE после релиза 2.58.86: агентская часть релизного прогона подтверждена (evidence ниже), остаток — owner-сценарии из `postdeploy-observations.md` (чек-лист; строки НЕ закрываются до живого подтверждения).",
+      "reason": "ИСТОРИЯ (2.58.86): живая генерация не проверялась; оговорка «до канарейки (флаг ON — решение владельца)» УСТАРЕЛА — PET: канареек нет, оси ON во всех подключённых чатах (правило владельца 18.10.2026). Запись — единым путём (доказано), фактическое изменение следующей генерации во всех путях — post-canary. deferred → 2.58.87 (await-fix `68cd05b2`): глобальное сохранение `style.policy` в 2.58.86 — молчаливый no-op (`services/style_policy.py:2275` без `await`, ревью REV-REL-SOUL §5; подтверждено прод-фактом `style.policy` отсутствует / `global_present=false`). Чат-часть сохраняется штатно. ОБНОВЛЕНО 2.58.87 (REV-REL-25887 §6а, прод `82e110d6`): дефект 2.58.86 закрыт живым доказательством — `style.policy` отсутствовал (`global_present=false`) → save1 `applied rev=1` → PG-строка (23:00:23.089508) → `GET`: `source=global`, `revision=g1.0483be84f90e`, `global_present=true`, `inheritance=global` → save2 `rev=2` (ревизии растут); журнал `[style_policy] document saved … revision=1|2`; `RuntimeWarning`/«never awaited» = 0 (срез «since T0» после сохранений); gates 10/10 ON (evidence ниже: `evidence/release-25887/**`, `release-2.58.87-report.md`). Оговорка о полноте: сохранён пустой фабрично-равный документ — доказывает сломанный механизм (персистентность + await), но НЕ поведенческую клаузу. ПОМЕТКА ЛЕДЖЕРА: VERIFIED — только после шага «реальное правило владельца + наблюдение применения» (агент: save реального правила + try-hint в сборке; финально — живой ответ владельца). Строка остаётся READY_FOR_LIVE; остаток owner-сценариев — `postdeploy-observations.md` (чек-лист).",
       "req_id": "SOUL-AMD.8.3",
       "slice": "W6",
       "acceptance": "Редактирование Core и Speech Style Policy через MiniApp действительно меняет следующую генерацию во всех соответствующих путях; `one_word` и `micro` остаются различны; fallback не возвращает старого персонажа",
@@ -1928,6 +1936,22 @@
           "artifact_path": "plans/features/soul-1/evidence/release-soul-25886/postdeploy-observations.md",
           "artifact_sha256": "482cbe9868df3d9336c2895cf18a82192926ee2d7e3a17d0cbcd6ee3b0bb78d8",
           "type": "static"
+        },
+        {
+          "candidate_commit": "82e110d67120b86373fb23a81c8612ec5143a589",
+          "ref": "plans/features/soul-1/release-2.58.87-report.md (§4а/§7) + plans/features/soul-1/evidence/release-25887/post-check.txt + final-verification.txt (REV-REL-25887 §3)",
+          "observation": "2.58.87 (прод, live): `style.policy` отсутствовал (`global_present=false`) → save1 `applied rev=1` → PG-строка (23:00:23.089508) → `GET`: `source=global`, `revision=g1.0483be84f90e`, `global_present=true` → save2 `rev=2`; журнал `[style_policy] document saved … revision=1|2`; RuntimeWarning/«never awaited» = 0 (срез «since T0» после сохранений); gates 10/10 ON. Дефект no-op 2.58.86 закрыт по существу; оговорка о полноте (пустой фабрично-равный документ) — в reason.",
+          "artifact_path": "plans/features/soul-1/evidence/release-25887/post-check.txt",
+          "artifact_sha256": "0915db4f40b6b66b7bf717d5469af73bc816b47f2dc702a4ac89df711e0bdfa6",
+          "type": "production"
+        },
+        {
+          "candidate_commit": "82e110d67120b86373fb23a81c8612ec5143a589",
+          "ref": "plans/features/soul-1/review-release-25887.md §1 (независимая живая проверка прод-байтов, read-only GET)",
+          "observation": "GET /healthz → 200 {\"status\":\"ok\",\"version\":\"2.58.87\"}; GET /web/static/app.css → 200, sha256_12 d700df753d6d (== кандидату), маркеры `oversight-dd-open`×2, `overflow: visible !important`×1.",
+          "artifact_path": "plans/features/soul-1/review-release-25887.md",
+          "artifact_sha256": "fd77bcfdac2b3cf292aac37d56e224f94d0d416a1c2f98d29c7e6d560e9b6e51",
+          "type": "production"
         }
       ]
     },
