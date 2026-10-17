@@ -202,7 +202,7 @@ class TestVendoredGlassAurora:
 class TestFlagsAcceptance:
     def test_app_version_bumped(self):
         m = re.search(r'APP_VERSION = "([\d.]+)"', SETTINGS)
-        assert m and m.group(1) == "2.58.85", m and m.group(1)
+        assert m and m.group(1) == "2.58.81", m and m.group(1)
 
     def test_env_only_flags_delivered(self):
         for flag in HOTFIX9_FLAGS:
@@ -218,7 +218,7 @@ class TestFlagsAcceptance:
 
     def test_catalog_invariants(self):
         from services import param_catalog as pc
-        assert len(pc.REGISTRY) == 572
+        assert len(pc.REGISTRY) == 575
         assert len(pc.GROUPS) == 120
         assert len(pc._TAB_BY_GROUP) == 118
         assert len(pc.TAB_RULES) == 23

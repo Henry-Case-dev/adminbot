@@ -466,8 +466,14 @@ class TestPromptConflictScrubLive:
 
         pg_prompt = (PREV_CHAT_VERBALIZER_R1023
                      + "\n\n" + TYPOGRAPHY_BLOCK)  # прод-канон 10.23 с cap
-        hot.set_config_cache(_FakeCache({
-            "prompts.direct_chat_verbalizer_system_prompt": pg_prompt}))
+        cache = _FakeCache({
+            "prompts.direct_chat_verbalizer_system_prompt": pg_prompt})
+        hot.set_config_cache(cache)
+        # SOUL-1 (W1 fix-pass, review-w1 BLOCKER-1): значение канона старой
+        # личности действует только как записанное через API реестра.
+        from services import prompt_factory as pf
+        await pf.write_speech_value(
+            "direct.base.l2_writer", pg_prompt, cache=cache)
         try:
             svc = _service([_DIRECT_JSON, "ответ"])
             plan = ResponsePlan(task_kind="creative_writing",

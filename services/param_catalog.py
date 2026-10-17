@@ -2538,6 +2538,41 @@ _INTENT: list[ParamSpec] = [
               description="Дневной бюджет семантических оценок чата; "
                           "0 = без ограничения (расход всё равно ограничен "
                           "общим бюджетом фона)."),
+    # ── SOUL-1 (W5, SOUL-18.4): МЯГКИЕ целевые предпочтения владельца +
+    # ось безопасной проверки. PG-only (новых Settings-полей нет; резолв —
+    # overrides чата → hot → код-дефолт). Цель ≠ гарантия: «через N минут
+    # бот напишет» не обещается. 0/выкл = поведение ровно как у жёстких
+    # лимитов профиля (паритет). Границы эффекта — код-константы
+    # services/initiative_observer.py (SOFT_TARGET_BOUNDS).
+    ParamSpec(None, None, CATEGORY_LIMITS,
+              "Мягкая цель: инициатив в сутки", "int",
+              pg_id="initiative.soft_target_replies_per_day",
+              group="limits_intent",
+              description="Сколько инициативных реплик в сутки владелец "
+                          "СЧИТАЕТ желательным (мягкая цель, не обещание). "
+                          "Влияет только на паузу между репликами и не ниже "
+                          "30 минут; дневной лимит, дедуп по контексту и "
+                          "темам, бюджет оценок и recheck не отключаются. "
+                          "0 = цель не задана."),
+    ParamSpec(None, None, CATEGORY_LIMITS,
+              "Мягкая цель: проверять чат каждые, с", "int",
+              pg_id="initiative.observation_target_interval_seconds",
+              group="limits_intent",
+              description="Желаемая частота проверки окна чата (мягкая цель). "
+                          "Может только УЧАСТИТЬ проверки: интервал не короче "
+                          "10 минут, порог сообщений не ниже 4, выше лимитов "
+                          "профиля частоты не поднимается. Молчание остаётся "
+                          "легальным исходом. 0 = цель не задана."),
+    ParamSpec(None, "INITIATIVE_DIAGNOSTICS_PUBLISH_ENABLED", CATEGORY_FLAGS,
+              "Разрешить реальную отправку из проверки", "bool",
+              pg_id="flags.initiative_diagnostics_publish_enabled",
+              group="flags_intent",
+              description="По умолчанию ВЫКЛ: кнопка «Проверить инициативу» "
+                          "работает до mock send и ничего не публикует в "
+                          "рабочую группу. ON — владелец дополнительно "
+                          "подтверждает реальную отправку в самом запросе; "
+                          "аварийный env: "
+                          "INITIATIVE_DIAGNOSTICS_PUBLISH_ENABLED."),
 ]
 
 
@@ -3480,6 +3515,53 @@ def iter_pg_only() -> list[ParamSpec]:
 
 def by_category(category: str | None) -> list[ParamSpec]:
     return [s for s in REGISTRY.values() if s.category == category]
+
+
+# ── SOUL-1 (W1): экспозиция реестра речевых инструкций (read-only) ──────────
+# Новых ParamSpec/GROUPS здесь НЕ добавляется: каталог — источник ключей и
+# прав, а реестр (``services.prompt_registry``) — источник смысла/потребителей.
+# Совмещённый вид нужен UI «Речь и характер» (W6) и правам по ключу.
+# Обоснование «почему не через каталог»: добавление ключей меняет committed
+# артефакты ``plans/docs/param-registry-round1025.*`` (генератор F8), то есть
+# требует перегенерации в том же diff — это делает владелец UI-слайса (W6).
+
+def speech_registry_view() -> list[dict]:
+    """Реестр речевых инструкций, объединённый со спекой каталога.
+
+    Возвращает список словарей: блок реестра + поля каталога (``pg_key``,
+    ``title_ru``, ``group``, ``per_chat``, ``hidden``) там, где ключ есть.
+    Fail-open: реестр недоступен → пустой список (каталог не падает).
+    """
+    try:
+        from services import prompt_registry as pr
+    except Exception:          # pragma: no cover — реестр необязателен
+        logger.warning("[param_catalog] prompt_registry недоступен",
+                       exc_info=True)
+        return []
+    rows: list[dict] = []
+    for row in pr.registry_view():
+        pg_key = row.get("pg_key") or ""
+        spec = REGISTRY.get(pg_key) if pg_key else None
+        rows.append({
+            **row,
+            "catalog_key": bool(spec),
+            "title_ru": spec.title_ru if spec else "",
+            "group": spec.group if spec else "",
+            "per_chat": spec.per_chat if spec else False,
+            "hidden": spec.hidden if spec else False,
+        })
+    return rows
+
+
+def unmanaged_speech_blocks() -> list[dict]:
+    """Речевые блоки реестра БЕЗ ключа каталога (UI-редактор ещё недоступен).
+
+    Требование SOUL-AMD.3.2: «никаких речевых инструкций, видимых лишь в
+    Python или SQL» — такие блоки обязаны быть видны как минимум здесь,
+    с владельцем-слайсом, который добавит ключ/редактор.
+    """
+    return [row for row in speech_registry_view()
+            if row.get("speech") and not row.get("catalog_key")]
 
 
 def settings_field_coverage() -> tuple[set[str], set[str]]:

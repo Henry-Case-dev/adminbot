@@ -1,0 +1,60 @@
+SOUL-1 / W3 — доказательства Speech Style Policy (кандидат: рабочее дерево)
+Флаг: SPEECH_STYLE_POLICY_ENABLED=1 + flags.speech_style_policy_enabled=true (тест)
+Документ: presets=no_quotes+no_trailing_period+no_emoji, revision=1
+
+═══ 1. ПРАВИЛО НА ДОСТАВЛЯЕМОМ PAYLOAD (SOUL-16.3.4) ═══
+вход (sha12=c375da669297, 81 симв.): Смотри https://example.org/path — там версия v1.2.3, и код `x = 1.2.3` в примере.
+после прохода (repaired=1, conflicts=[]): Смотри https://example.org/path — там версия v1.2.3, и код `x = 1.2.3` в примере
+ФАКТИЧЕСКИЙ payload (post-sanitize, как уходит в bot.send_message):
+    'Смотри https://example.org/path — там версия v1.2.3, и код `x = 1.2.3` в примере'
+проверка payload: status=ok conflicts=[]
+URL сохранён: True | версия сохранена: True | точка в конце: False
+
+═══ 2. one_word END-TO-END (SOUL-05.2/05.6) ═══
+L1Plan(extent=one_word).to_response_plan().extent = 'one_word' (не micro)
+вход 'Да.' → payload 'Да' → лексических слов: 1
+micro-путь без сжатия: 'Да, вполне нормально.' → слов: 3
+
+═══ 3. 10+ РАЗНОРОДНЫХ ВХОДОВ ЧЕРЕЗ DELIVERY-КОНТУР (SOUL-16.5.3) ═══
+sha12(вход)  extent     исходы правил              payload  хвост-точка
+06bfa6e648ed one_word   emoji:pass,quotation:pass,trailing:repaired 2        нет
+13aa0e0eaa1d micro      emoji:pass,quotation:pass,trailing:repaired 14       нет
+5486dfbb4ee0 compact    emoji:pass,quotation:repaired,trailing:repaired 33       нет
+ba3185035c39 normal     emoji:pass,quotation:pass,trailing:repaired 59       нет
+dd56191b6f93 normal     emoji:pass,quotation:pass,trailing:repaired 30       нет
+ebed1d5e3279 normal     emoji:pass,quotation:pass,trailing:repaired 44       нет
+c7356d114ba8 normal     emoji:pass,quotation:pass,trailing:repaired 27       нет
+0b498b30d2a8 compact    emoji:pass,quotation:pass,trailing:repaired 23       нет
+1a147dcadb7b normal     emoji:pass,quotation:conflict,trailing:repaired 39       нет
+7e7dec965e6c compact    emoji:pass,quotation:pass,trailing:repaired 30       нет
+2fb5ecc59f61 micro      emoji:pass,quotation:pass,trailing:pass 15       нет
+5ef011ba2463 detailed   emoji:pass,quotation:pass,trailing:repaired 38       нет
+
+═══ 4. СТОИМОСТЬ (SOUL-16.4.5): 0 LLM-вызовов на нарушение ═══
+проход: p50=0.207 ms | p95=0.328 ms | max=0.464 ms (n=50, детерминированно)
+hint: 321 симв. | 81 токенов (оценщик композера) — единственная добавка
+дополнительных LLM-вызовов на ответ: 0 (нет ни одного .generate в модуле: True)
+смысловой bounded-ремонт: только по явному callback вызывающего, max 1 на проход (тест test_bounded_semantic_repair_is_at_most_one_and_only_on_conflict)
+
+═══ 5. РЕЕСТР ПРАВИЛ / ПРЕСЕТЫ / HINT (SOUL-16.1.4/16.1.5/16.4.1) ═══
+kind=trailing_period  Точка в конце сообщения
+kind=quotation_marks  Кавычки
+kind=emoji            Эмодзи
+kind=line_breaks      Переносы строк
+kind=one_word         Ровно одно слово
+kind=forbidden_chars  Запрещённые символы
+presets: regular_chat, no_quotes, no_trailing_period, no_emoji, casual_concise
+активные правила (id → source): quotation_marks.hard.no_graphic→preset, trailing_period.hard.strip→preset, emoji.hard.off→preset
+hint (321 симв., 81 токенов):
+    <Style_Policy_Hint>
+    - Завершающая точка: НЕ ставь точку в самом конце сообщения. Точки внутри фраз остаются.
+    - Кавычки: НЕ используй графические кавычки в обычной речи. Иронию и цитирование передавай интонацией и лексикой (он назвал это базой), дословный текст не переписывай.
+    - Эмодзи: не используй.
+    </Style_Policy_Hint>
+
+═══ 6. АНТИЗАЛИПАНИЕ (SOUL-09): наблюдаемо и пропорционально ═══
+находки: [{"kind": "ngram", "severity": "sticky", "ngram_len": 3, "phrase_sha12": "6711d2e90d9f", "phrase_words": 3, "repaired": true}, {"kind": "ngram", "severity": "sticky", "ngram_len": 3, "phrase_sha12": "46be10bfd14b", "phrase_words": 3, "repaired": true}, {"kind": "ngram", "severity": "sticky", "ngram_len": 3, "phrase_sha12": "3e329eb746bb", "phrase_words": 3, "repaired": true}, {"kind": "ngram", "severity": "sticky", "ngram_len": 3, "phrase_sha12": "aeed94cda7da", "phrase_words": 3, "repaired": true}]
+текст после локальной замены (без повторной генерации): 'Разбор простой'
+окно (R17-safe): {"window": 2, "cap": 12, "ttl_seconds": 21600, "ngram_n": 3, "hashes": ["ef08b668c0e8", "9437c3214500"]}
+ban-list: {"active": 0, "archived": 0, "cap": 50, "ttl_seconds": 86400, "hashes": []}
+

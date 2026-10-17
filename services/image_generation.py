@@ -101,8 +101,13 @@ _RETRY_MAX = 1
 _RETRY_AFTER_CAP_SECONDS = 15.0
 _RETRY_AFTER_DEFAULT_SECONDS = 1.0
 
-# Саркастичная заглушка (код-константа; Δ каталога = 0). Показывается на
-# пре-гейт-пути, когда изображение сгенерировать/отправить не удалось.
+# Саркастичная заглушка (код-константа; Δ каталога = 0). SOUL-1 W10
+# (SOUL-AMD.5.15): из ПОЛЬЗОВАТЕЛЬСКОГО пути убрана — там действуют
+# управляемые Factory Default-шаблоны по реальному коду отказа
+# (`services/capability_registry.failure_message_for_reason` →
+# `message.image_failure.*`). Константа остаётся заводской редакцией
+# исторического слепка (реестр: `message.image_generation_fallback`),
+# не рендерится.
 IMAGE_GENERATION_FALLBACK_PHRASE = (
     "Рисовать я, конечно, не умею — руки из кода растут. "
     "Так что довольствуйся тем, что есть, и попробуй ещё раз попозже.")
@@ -1789,19 +1794,26 @@ async def generate_and_send(bot, chat_id: int, prompt: str, *,
 
 
 async def maybe_handle_keyword(ctx, query: str, *, aliases=None, db=None,
-                               memory=None) -> str:
+                               memory=None, intent_confirmed: bool = False) -> str:
     """Пре-гейт ключевиков (spec §2.2): генерация+отправка ДО Stage-1.
 
     Возвращает блок ``<image_result status="ok|error">…</image_result>`` для
     инъекции в user-content, либо ``""`` (нет ключевика/нет бота). НЕ бросает
     и НЕ форсирует ``tool_choice``.
 
+    ``intent_confirmed=True`` (SOUL-1 W10, SOUL-AMD.5.10): поручение создать
+    изображение распознано ПО СМЫСЛУ (`direct_capabilities.
+    detect_action_intent`), а не regex'ом. Регекс остаётся быстрым путём
+    очевидных команд, но перестаёт быть единственной дверью к инструменту:
+    без этого флага смысловое поручение («Бот, сделай мем …») доходило бы до
+    L1, но не до генерации.
+
     A4 (§22–§25, ADR-1026-19 D1/D2/D12): при ``UNIFIED_IMAGE_REQUEST_ENABLED``
     и ``IMAGE_CONTEXT_MEMORY_ENABLED`` запрос обогащается единым helper'ом
     (память/досье/RAG) до ``run_image_request``; reply-заметка (дисклеймер/
     уточнение/запрос фото) добавляется в блок результата. Ровно одна
     генерация — маркер прогона A3 не нарушается."""
-    if not is_image_keyword(query):
+    if not (intent_confirmed or is_image_keyword(query)):
         return ""
     bot = getattr(ctx, "bot", None)
     chat_id = getattr(ctx, "chat_id", None)
@@ -1831,15 +1843,75 @@ async def maybe_handle_keyword(ctx, query: str, *, aliases=None, db=None,
             # новую одиночную ноду в дашборде).
             correlation_id=getattr(ctx, "correlation_id", None))
     if result.ok:
+        _record_image_outcome(result, chat_id=getattr(ctx, "chat_id", None))
         note = _memory_reply_note(request) if request is not None else ""
         suffix = f" {note}" if note else ""
-        return ('<image_result status="ok">\n'
+        if str(getattr(result, "reason", "") or "") == "already":
+            # A5/D3-replay (§5.17): повтор платного вызова и повторная отправка
+            # НЕ выполнялись — «отправил» здесь не заявляется, Writer не
+            # обещает повторной отправки (idempotency по ключу прогона).
+            return ('<image_result status="ok" delivery="already">\n'
+                    "По этому запросу изображение уже обрабатывалось: "
+                    "повторная генерация и повторная отправка не выполняются.\n"
+                    f"{suffix}\n"
+                    "</image_result>")
+        return ('<image_result status="ok" delivery="sent">\n'
                 "Изображение уже сгенерировано и отправлено в чат. "
                 "Повторно инструмент generate_image не вызывай.\n"
                 f"{suffix}\n"
                 "</image_result>")
-    return (f'<image_result status="error">\n'
-            f"{IMAGE_GENERATION_FALLBACK_PHRASE}\n"
+    # SOUL-1 W10 (SOUL-AMD.5.15): текст пользователю — управляемый Factory
+    # Default по РЕАЛЬНОМУ коду отказа (реестр `message.image_failure.*`), а не
+    # одна захардкоженная фраза «на все случаи»: выключенный модуль, нет
+    # ключа, недоступный провайдер, квота и сбой доставки — разные объяснения.
+    return _image_error_block(result, chat_id=getattr(ctx, "chat_id", None))
+
+
+def _record_image_outcome(result, *, chat_id: int | None) -> None:
+    """SOUL-1 W10 (SOUL-AMD.5.12/5.17): наблюдаемый исход вызова в реестр
+    способностей («вызов успешно завершён» ≠ «объявлен»; сбой доставки —
+    отдельный результат). Fail-open: реестр не влияет на генерацию."""
+    try:
+        from services import capability_registry as _caps
+        reason = str(getattr(result, "reason", "") or "")
+        if reason in ("send_failed", "no_bot"):
+            # Генерация состоялась (расход), доставка — нет: успех не заявляем.
+            _caps.record_outcome("image_generation", chat_id=chat_id, ok=True,
+                                 delivery_ok=False, code=reason)
+        elif reason == "already":
+            # Replay: новый вызов не выполнялся — состояние не переписываем.
+            return
+        else:
+            _caps.record_outcome("image_generation", chat_id=chat_id,
+                                 ok=bool(result.ok), code=reason)
+    except Exception:      # pragma: no cover - телеметрия не рвёт чат
+        pass
+
+
+def _image_error_block(result, *, chat_id: int | None) -> str:
+    """Блок ``<image_result status="error">`` с управляемым текстом отказа.
+
+    Успех НЕ заявляется: при ``send_failed`` текст — про доставку
+    (SOUL-AMD.5.17). R17: наружу уходит только текст шаблона и код отказа."""
+    from services import capability_registry as _caps
+    _record_image_outcome(result, chat_id=chat_id)
+    text, block_id, _source = _caps.failure_message_for_reason(
+        str(getattr(result, "reason", "") or ""))
+    code = _caps.failure_code_for_reason(str(getattr(result, "reason", "") or ""))
+    try:
+        _caps.emit_capability_event(
+            _caps.CapabilityState(
+                capability_id="image_generation",
+                status=("delivery_failed" if code == "delivery_failed"
+                        else "error"), reason_code=str(
+                            getattr(result, "reason", "") or "")),
+            outcome="failed", chat_id=chat_id, template_id=block_id)
+    except Exception:      # pragma: no cover
+        pass
+    return (f'<image_result status="error" reason="{code}">\n'
+            f"{text}\n"
+            "Ничего не отправлено; повторно инструмент generate_image "
+            "не вызывай.\n"
             "</image_result>")
 
 

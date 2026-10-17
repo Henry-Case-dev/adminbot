@@ -2,8 +2,8 @@
   "schema": "openworkflow-coverage-v1",
   "source_path": "C:\\Code\\Python\\adminbot\\plans\\features\\soul-1\\source-architectural-clarification.md",
   "source_sha256": "338fd9c6bd323a7ea8ad80577c2e9d8b45a714d30bdd4fc9147af75931a4a35c",
-  "candidate_commit": "",
-  "deployed_commit": "",
+  "candidate_commit": "6094a2cfa1660d1b949dcfe5ec085bc08f080de4",
+  "deployed_commit": "0b7a0aca416a418e099e157eca77d0a3137b3405",
   "additional_requirements": [
     {
       "source_id": "M00003",
@@ -17,8 +17,21 @@
       "acceptance": "Приоритетное решение владельца: требования уточнения имеют приоритет над противоречащими старыми формулировками, включая SOUL-03/SOUL-04 о сохранении legacy-речевых кастомов; уточнение включено в существующую карту SOUL-1, противоречия устранены, реализация независимо проверяется",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "3cc0b9c0541aa9c5a81c2caa995644bb1af61f11",
+          "ref": "plans/features/soul-1/plan.md — «Amendment pass» (реконсиляция 4 строк main в user_excluded с user_approval_ref; обе карты ко-гейтятся на review/release) + source-architectural-clarification.md + review-map.md (round 2 Approved)",
+          "observation": "Уточнение включено в существующую карту SOUL-1: противоречащие формулировки SOUL-03/04 сняты решением владельца (4 user_excluded с approval_ref), конфликты устранены явно, amendment-карта ко-гейтится.",
+          "type": "static"
+        },
+        {
+          "candidate_commit": "3cc0b9c0541aa9c5a81c2caa995644bb1af61f11",
+          "ref": "plans/features/soul-1/review-w1.md — RECHECK-W1 (BLOCKER-1: механизм удержания legacy-кастомов как реализация уточнения; Approved после фиксов)",
+          "observation": "W1-часть реализации уточнения (legacy custom не активный слой; backup; JB-3-ready миграция) независимо проверена и одобрена ревью.",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "M00005",
@@ -26,7 +39,7 @@
       "source_text_sha256": "a068544cf6d71e8574960a2f2b58481893ffd589d58ec1aa7bd338c3ce5afc62",
       "source_excerpt": "**Основной принцип:** единая узнаваемая личность во всех содержательных публичных ответах; нейтральные и достоверные внутренние данные; полный контроль владельца над речевыми инструкциями через MiniApp; способности бота определяются фактиче",
       "disposition": "required",
-      "reason": "",
+      "reason": "Единая личность во всех содержательных публичных ответах и полный контроль владельца через MiniApp: публичные пути и UI в поставку W2 не входят",
       "req_id": "SOUL-AMD.0.2",
       "slice": "W2",
       "acceptance": "Единая узнаваемая личность во всех содержательных публичных ответах; внутренние данные нейтральны и достоверны",
@@ -47,8 +60,27 @@
       "acceptance": "Полный контроль владельца над речевыми инструкциями через MiniApp",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "a5902b15e7bf943dc454dbf59ee9b9fe1152a87e",
+          "ref": "plans/features/soul-1/review-w6.md — «Что проверено исполнением»: «Путь записи» + «RBAC» + «UI/harness (мой повтор)»",
+          "observation": "Владельческий контроль речевых инструкций: любые правки (Core/Style/Expression/реестр) идут только через owner-путь с провенансом; RBAC: denied→403 на всех 18 маршрутах, контент-админ чата→403 на глобальных записях/Inspector’е, edit_persona→глобальные записи 200; новых прав нет",
+          "type": "test"
+        },
+        {
+          "candidate_commit": "a5902b15e7bf943dc454dbf59ee9b9fe1152a87e",
+          "ref": "tests/test_soul1_w6_speech_ui.py::test_writes_go_through_registry_api_only, ::test_write_path_is_guarded_at_runtime_not_only_statically, ::test_access_control_is_delegated_to_existing_permissions",
+          "observation": "Единственный путь записи prompt-значений; права делегированы существующей RBAC",
+          "type": "test"
+        },
+        {
+          "candidate_commit": "a5902b15e7bf943dc454dbf59ee9b9fe1152a87e",
+          "ref": "plans/features/soul-1/w6-speech-ui-report.md §3 «Путь записи» + §2 (карточки разделов открывают редакторы владельца)",
+          "observation": "Значения из MiniApp становятся действующим слоем (не удерживаются резолвером); техническая диагностика остаётся под «Все инструкции»/Inspector",
+          "type": "static"
+        }
+      ]
     },
     {
       "source_id": "M00005b",
@@ -62,8 +94,15 @@
       "acceptance": "Способности бота определяются фактически доступными инструментами, а не памятью, догадками LLM или захардкоженными отговорками",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c8cf77a5065f4cbc0a77616da6bbd7e1154ba5c8",
+          "ref": "plans/features/soul-1/review-w10.md (Реестр: «7 статусов из реальных источников; declared/tryable/last_result различимы; lie-hunt: F3 нашлось и закрыто (F3 демо — shared quota)»; 5.15: ложная фраза убрана, шаблоны по реальному коду отказа) + services/capability_registry.py",
+          "observation": "Способности определяются фактически доступными инструментами (реестр из реальных tool schemas/config/overrides/прав/ключей/бюджета/провайдеров/наблюдённых исходов), а не памятью, догадками LLM или захардкоженными отговорками (ложная фраза удалена из пользовательского пути).",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "M00012",
@@ -71,7 +110,7 @@
       "source_text_sha256": "6efbc33384617cd6facf54c957f46144e9fe5b16f0066a838cfe6899a5dbdfa3",
       "source_excerpt": "4. Сохранить без обнуления биографию, отношения, SelfModel, Experience, память, факты, подтверждённые пользовательские сведения и технические/безопасностные контракты. Динамические черты могут влиять на проявление характера, но не должны та",
       "disposition": "required",
-      "reason": "",
+      "reason": "Композер только читает источники (тесты never-write), черты не пишут Core; но шов SelfModel↔ревизии Core не подключён, проверки на реальных динамических чертах нет",
       "req_id": "SOUL-AMD.1.5",
       "slice": "W2",
       "acceptance": "Динамические черты могут влиять на проявление характера, но не должны тайно переписывать владельческий Core",
@@ -86,14 +125,21 @@
       "source_text_sha256": "56da994c1784aa71e56d9529a2f9d55fc2052c878992c49e36feff24da879047",
       "source_excerpt": "5. `one_word` и `micro` — **два разных режима**, не маппить один в другой: `one_word` = ровно одно слово, `micro` = короткая реплика из нескольких слов. Проверять соблюдение без дорогостоящей полной регенерации; ограничения не должны ломать",
       "disposition": "required",
-      "reason": "",
+      "reason": "Движок/мок-часть подтверждены на кандидате 4c8405e7 (review-w3 ledger: «SOUL-AMD.1.6/1.7 — VERIFIED (engine)»; recheck F1: ссылки/код/точные цитаты целы; cost-measurement: 0 доп. LLM-вызовов); живая половина (реальный прогон/отправка) требует включённого контура — канарейка/postdeploy; классификация по образцу SOUL-AMD.8.3 / SOUL-17.4 / SOUL-10.P5 / SOUL-11.4.",
       "req_id": "SOUL-AMD.1.7",
       "slice": "W3",
       "acceptance": "Соблюдение режимов проверяется без дорогостоящей полной регенерации; ограничения не ломают ссылки, код и точные цитаты",
       "live_required": true,
-      "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "live_when": "postdeploy",
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "4c8405e783ac005ac0044974c5fbd7e518d12e2a",
+          "ref": "plans/features/soul-1/review-w3.md — ledger (AMD.1.6/1.7 «VERIFIED (engine)») + recheck F1 (байт-сохранность ссылок/кода/цитат) + plans/features/soul-1/evidence/w3/cost-measurement.txt",
+          "observation": "Мок/движок: соблюдение режимов проверяется без дорогой полной регенерации (0 дополнительных LLM-вызовов на нарушение); ограничения не ломают ссылки, код и точные цитаты.",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "M00017",
@@ -107,8 +153,21 @@
       "acceptance": "Все существующие pipeline-стадии классифицированы по назначению, а не по названию модуля (аудит-основание разделов 2.1/2.2/2.3)",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "3cc0b9c0541aa9c5a81c2caa995644bb1af61f11",
+          "ref": "plans/features/soul-1/design-composer-contract.md (классификация стадий по назначению — аудит-основание разделов 2.1/2.2/2.3 уточнения)",
+          "observation": "Все pipeline-стадии классифицированы по назначению: машинные (JSON L1, factcheck verification, memory.compress, editorial/silent) отделены от авторских речевых; не по названию модуля.",
+          "type": "static"
+        },
+        {
+          "candidate_commit": "3cc0b9c0541aa9c5a81c2caa995644bb1af61f11",
+          "ref": "tests/test_soul1_machine_profile_no_core.py + plans/features/soul-1/review-w2.md (SOUL-BOUND.4: машинные профили = только канал-контракт; реальные L1-планировщик и Stage-1 без Core/юмора, то же число LLM-вызовов)",
+          "observation": "Классификация подтверждена исполнением на реальных методах Direct/Initiative.",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "M00021",
@@ -116,7 +175,7 @@
       "source_text_sha256": "813ca85d778996d461abc2f91c8470e1c23466968f60d88051c6f7058240eb0d",
       "source_excerpt": "Один `Personality Core` через общий Composer во всех содержательных текстах, которые бот публикует как автор:",
       "disposition": "required",
-      "reason": "",
+      "reason": "Один Core через общий Composer — только Direct/Initiative/tool-phase/Stage-2; остальные авторские тексты (factcheck/summary/сны и др.) не подключены; флаг OFF",
       "req_id": "SOUL-AMD.2.2",
       "slice": "W2",
       "acceptance": "Один Personality Core через общий Composer во всех содержательных текстах, которые бот публикует как автор",
@@ -131,7 +190,7 @@
       "source_text_sha256": "7bd8123256b83c14a77a14da05889cb0d65a31838438181b2d772d67529de9bf",
       "source_excerpt": "Жанровый слой определяет уместность юмора, эмоциональность, длину, структуру и формат. В Factcheck и Summary не должно быть сухой универсальной ассистентской речи, но и не нужно вставлять мат или шутку в каждое предложение. Core влияет на *",
       "disposition": "required",
-      "reason": "",
+      "reason": "Не поставлено W3: голос Core в публичных Factcheck/Summary этим diff не включается (review-w3 F5/§3: NOT-IN-DIFF/PARTIAL; правила формы к публичным текстам не подключены — безопасно). Закрывается после Core-проводки (W2/W4/W9); перескоп строки — решение PM/Architect (F5).",
       "req_id": "SOUL-AMD.2.9",
       "slice": "W3",
       "acceptance": "Жанровый слой определяет уместность юмора, эмоциональность, длину, структуру и формат; в публичных Factcheck и Summary нет сухой универсальной ассистентской речи, но и нет обязательного мата/шутки в каждом предложении; Core влияет на голос подачи",
@@ -146,7 +205,7 @@
       "source_text_sha256": "7bd8123256b83c14a77a14da05889cb0d65a31838438181b2d772d67529de9bf",
       "source_excerpt": "Жанровый слой определяет уместность юмора, эмоциональность, длину, структуру и формат. В Factcheck и Summary не должно быть сухой универсальной ассистентской речи, но и не нужно вставлять мат или шутку в каждое предложение. Core влияет на *",
       "disposition": "required",
-      "reason": "",
+      "reason": "Для подключённых путей evidence/вопрос не изменяются (user-часть байт-в-байт), но публичные Factcheck/Summary через Core+жанровый слой ещё не поставлены (W3-расширение)",
       "req_id": "SOUL-AMD.2.10",
       "slice": "W2",
       "acceptance": "Проверенные числа, источники, цитаты, периоды, выводы и оговорки о неизвестном неприкосновенны: Core не влияет на истинность утверждений",
@@ -161,7 +220,7 @@
       "source_text_sha256": "c34f5c45d06e609b580ac2a1529bf0e53418ad0114f36388ece740341212b071",
       "source_excerpt": "Не применять комическое ядро к извлечению фактов, досье, GraphRAG, embedding/retrieval, классификации, JSON, журналированию, анализу доказательств Factcheck, внутренним стадиям Summary, машинным статусам, расчётам и долговременной записи па",
       "disposition": "required",
-      "reason": "",
+      "reason": "machine_json = только канал-контракт (тесты на реальных L1/Stage-1) закрывает JSON и машинные статусы Direct; фактчек-анализ, GraphRAG/embedding, внутренние стадии Summary и разделение «анализ↔публикация» — вне поставки",
       "req_id": "SOUL-AMD.2.11",
       "slice": "W2",
       "acceptance": "Комическое ядро не применяется к извлечению фактов, досье, GraphRAG, embedding/retrieval, классификации, JSON, журналированию, анализу доказательств Factcheck, внутренним стадиям Summary, машинным статусам, расчётам и долговременной записи памяти; если стадия соединяет анализ и авторскую публикацию, обязанности разделены с сохранением технических контрактов и разумной стоимости",
@@ -176,7 +235,7 @@
       "source_text_sha256": "1e640b2db9c4c487b93be4aa2dc88c4e8a29f0612eb5030f5e46c03254672271",
       "source_excerpt": "Там, где бот выступает автором человеческого сообщения, использовать Core + зарегистрированный жанровый слой; где сообщение является машинным/операционным уведомлением, Core необязателен. Не заставлять system health, миграционные алерты и м",
       "disposition": "required",
-      "reason": "",
+      "reason": "Разграничение «автор человеческого сообщения ↔ операционное уведомление» задано профилями, но «исключения описаны в реестре и видны в Inspector» — реестра и Inspector нет",
       "req_id": "SOUL-AMD.2.12",
       "slice": "W2",
       "acceptance": "Где бот — автор человеческого сообщения: Core + зарегистрированный жанровый слой; машинные/операционные уведомления (system health, миграционные алерты, машинные логи) не обязаны имитировать персонажа; исключения явно описаны в реестре и видны в Inspector; Summary или Factcheck нельзя незаметно исключить как «служебные»",
@@ -191,7 +250,7 @@
       "source_text_sha256": "d941891cf1936cefb01f3307422f22e800313c3e9f71cc616aa9fa56b1fa404d",
       "source_excerpt": "**Запрещено создавать скрытые альтернативные личности для отдельных модулей.**",
       "disposition": "required",
-      "reason": "",
+      "reason": "Скрытые личности по модулям ещё существуют (легаси-каноны, fallback-фразы, копии суффикса); композер запрещает их только на своих путях — до удаления по AMD.1.2/7.3",
       "req_id": "SOUL-AMD.2.13",
       "slice": "W2",
       "acceptance": "Скрытые альтернативные личности для отдельных модулей запрещены",
@@ -212,8 +271,15 @@
       "acceptance": "Capability Awareness & Tool Grounding — проверяемый runtime-слой, не ещё одна личность; переиспользованы direct_capabilities.py, tool_schemas.py, tool_router.py, L1 и существующие сервисы; нет параллельного реестра, второго независимого image pipeline и отдельной «LLM-памяти способностей»",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c8cf77a5065f4cbc0a77616da6bbd7e1154ba5c8",
+          "ref": "plans/features/soul-1/review-w10.md — «Переиспользование» (второй реестр/второй image-pipeline не создан: роутинг-фикс вызывает тот же _image_pre_gate_block→maybe_handle_keyword→run_image_request→generate_and_send; мутация B ловит дубли) + services/capability_registry.py, direct_capabilities.py",
+          "observation": "Capability Awareness — проверяемый runtime-слой, не личность: переиспользованы direct_capabilities/tool_schemas/tool_router/L1 и существующий image-pipeline; параллельного реестра и отдельной «LLM-памяти способностей» нет.",
+          "type": "static"
+        }
+      ]
     },
     {
       "source_id": "M00066",
@@ -227,8 +293,15 @@
       "acceptance": "Запрос на выполнение действия определяется по смыслу, а не только по одному regex/ключевику; все перечисленные явные поручения ведут к проверке image_generation при доступных разрешениях и входных данных",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c8cf77a5065f4cbc0a77616da6bbd7e1154ba5c8",
+          "ref": "plans/features/soul-1/review-w10.md — recheck F1/F2 (12 проломов → 0 генераций, включая подстрочные ловушки «уборка в квартире»/«план на март»/«мемориальный пост»; настоящие 6 формулировок §5.1 + 11 контролей → ровно 1 генерация каждая, 17/17; мутации: routing-fix убит → 11 failed, veto снят → 13 failed) + tests/test_soul1_capability_intent.py",
+          "observation": "Запрос на действие определяется по смыслу (детерминированный семантический детектор: 0 LLM, 0 сети), а не одним regex/ключевиком; все перечисленные явные поручения ведут к проверке image_generation при доступных правах/входах.",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "M00075",
@@ -242,8 +315,15 @@
       "acceptance": "Поручение создать изображение не путается с просьбой придумать идею или сценарий («придумай концепт мема, рисовать не надо» не запускает image generation); учитываются реплаи, контекст и настоящий адресат; при существенной неоднозначности задаётся один короткий уточняющий вопрос",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c8cf77a5065f4cbc0a77616da6bbd7e1154ba5c8",
+          "ref": "plans/features/soul-1/review-w10.md — recheck (F1/F2: «придумай концепт мема, рисовать не надо» → 0 генераций; «Бот, сделай это» → ровно 1 вопрос message.image_request.clarify, 0 LLM; вложенные цитаты/self-draw/forwarded/code-block/англ. «draw a meme» → 0; «не рисуй кота, нарисуй мема» → 0 — честный промах-класс) + tests/test_soul1_capability_intent.py",
+          "observation": "Поручение создать изображение не путается с просьбой придумать идею/сценарий; учитываются реплаи, контекст, настоящий адресат; при существенной неоднозначности задаётся один короткий уточняющий вопрос без LLM.",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "M00077",
@@ -257,8 +337,15 @@
       "acceptance": "Regex может оставаться быстрым путём очевидных команд, но не единственной точкой доступа к инструменту; если L1 выбрал обычный текст вместо однозначно запрошенного доступного действия — дешёвая проверка согласованности с capability и исправление маршрутизации в рамках существующего хода; без отдельного дорогого LLM-вызова на каждый чатовый запрос",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c8cf77a5065f4cbc0a77616da6bbd7e1154ba5c8",
+          "ref": "plans/features/soul-1/review-w10.md — recheck («Veto-дизайн / §5.10 — жив»: «Давай изобразим это в виде комикса» → 1 генерация И событие L1_CAPABILITY_REJECTED: available_action_not_chosen; intent=None — легаси fail-open прямым тестом) + tests/test_soul1_capability_intent.py",
+          "observation": "Regex — быстрый путь, но не единственная точка доступа: доступный путь открывает регекс-дверь, согласованность с capability проверяется дешёво в рамках хода (0 доп. LLM на запрос); событие при игнорировании доступного действия эмитится.",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "M00081",
@@ -272,8 +359,15 @@
       "acceptance": "Состояние способностей строится на реальных tool schemas, конфигурации, per-chat overrides, правах, ключах, бюджете, провайдерах и состоянии соединений; для каждой способности: ID, действия, исполнитель, scope, доступные входы, гейты, статус, причина отказа, время/источник проверки и связь с разрешённым tool вызовом",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c8cf77a5065f4cbc0a77616da6bbd7e1154ba5c8",
+          "ref": "plans/features/soul-1/review-w10.md (Реестр: «7 статусов из реальных источников; declared/tryable/last_result различимы; кеш/TTL/инвалидация — тесты + мои демо; transient снимается успехом»; F4 закрыт: ConfigCache.set_many → disabled/not_configured без ожидания TTL) + tests/test_soul1_capability_registry.py",
+          "observation": "Состояние способностей строится на реальных tool schemas/конфигурации/override/правах/ключах/бюджете/провайдерах/состоянии соединений; для каждой способности — ID/действия/исполнитель/scope/входы/гейты/статус/причина отказа/время-источник/связь с разрешённым tool-вызовом.",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "M00083",
@@ -287,8 +381,15 @@
       "acceptance": "Статусы ready, disabled, not_configured, temporarily_unavailable, quota_exhausted, unsupported, unknown; различаются «инструмент объявлен», «можно попробовать» и «вызов успешно завершён»; ready — не обещание успеха; диагностика кешируется с разумным TTL и сбросом при изменении конфигурации; дорогих probes на каждом сообщении нет",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c8cf77a5065f4cbc0a77616da6bbd7e1154ba5c8",
+          "ref": "plans/features/soul-1/review-w10.md — recheck F3 (матрица _image_quota scope-aware: shared 200/200+чистый чат → quota_exhausted/image_shared_limit; chat 60/60+shared чист → image_daily_limit; оба чисты → ready; 199/200 → ready; 0 → disabled; <0 → unlimited; порядок = reserve_image/worker_budget.py:656-679) + tests/test_soul1_capability_registry.py",
+          "observation": "Семь статусов различаются; «объявлен / можно попробовать / вызов успешно завершён» раздельны; ready — не обещание успеха; кеш TTL 60с + немедленная инвалидация при записи конфига; квота читает оба контура в порядке списания; дорогих probes на сообщении нет.",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "M00085",
@@ -302,8 +403,15 @@
       "acceptance": "Нет статического списка «я умею», расходящегося с runtime; SelfModel может влиять на самоописание личности, но не является источником технической истины о доступных инструментах",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c8cf77a5065f4cbc0a77616da6bbd7e1154ba5c8",
+          "ref": "plans/features/soul-1/review-w10.md (lie-hunt: статического списка «я умею» нет; статусы — runtime-данные; SelfModel не источник технической истины) + services/capability_registry.py + plans/features/soul-1/evidence/w6/ui-report.json (capability_view — W6 live)",
+          "observation": "Нет статического списка «я умею», расходящегося с runtime; SelfModel может влиять на самоописание личности, но не является источником технической истины о доступных инструментах.",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "M00089",
@@ -317,8 +425,15 @@
       "acceptance": "Перед сообщением «не умею»/«не могу» проверяется соответствующий capability в текущем чате; «я не умею рисовать» при действующем image_generation, отрицание поиска при доступном поиске и обещание отсутствующих инструментов запрещены; временный сбой, отсутствие ключа, выключенный модуль, квота и отсутствие способности — разные случаи",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c8cf77a5065f4cbc0a77616da6bbd7e1154ba5c8",
+          "ref": "plans/features/soul-1/review-w10.md (мок-матрица отказов: 4/4 текста = зарегистрированные шаблоны, 0 генераций/LLM; 5.15: «я вообще не умею рисовать» удалено; 5.12: разные случаи различимы) + tests/test_soul1_capability_fallbacks.py",
+          "observation": "Перед «не умею/не могу» проверяется capability текущего чата: временный сбой/отсутствие ключа/выключенный модуль/квота/отсутствие способности — разные правдивые случаи; «я не умею рисовать» при доступном image_generation невозможно (фраза удалена, тексты выбираются по реальному коду отказа).",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "M00091",
@@ -332,8 +447,15 @@
       "acceptance": "Ложная захардкоженная IMAGE_GENERATION_FALLBACK_PHRASE убрана из пользовательского пути; замена — редактируемые Factory Default-шаблоны по реальному коду отказа в голосе действующего Core; секреты, приватные ID и внутренние детали инфраструктуры не раскрываются; успех не выдаётся без подтверждения исполнения и отправки",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c8cf77a5065f4cbc0a77616da6bbd7e1154ba5c8",
+          "ref": "plans/features/soul-1/review-w10.md — 5.15 (grep: константа IMAGE_GENERATION_FALLBACK_PHRASE только в определении/комментарии/блоке реестра; guard-тесты + мутация D «фраза возвращена» → guard FAIL) + 8 блоков с pg_key (content.image_failure.*, image_request_clarify; fingerprint 96da8c7284a5)",
+          "observation": "Ложная захардкоженная фраза удалена из пользовательского пути; замена — редактируемые Factory Default-шаблоны по реальному коду отказа в голосе Core; секреты/приватные ID/внутренние детали не раскрываются; успех не выдаётся без подтверждения исполнения и отправки.",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "M00095",
@@ -347,8 +469,15 @@
       "acceptance": "Единая цепочка исполнения: User Intent → Capability Resolver → Permissions/Budget → Existing Tool Executor → Result → Delivery Confirmation → Writer/Core",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c8cf77a5065f4cbc0a77616da6bbd7e1154ba5c8",
+          "ref": "plans/features/soul-1/review-w10.md — «Переиспользование» (единственная цепочка: Intent → capability-детектор/резолвер → гейты/бюджет → существующий executor → результат/доставка → Writer; второй контур не создан) + 8.9-прогоны",
+          "observation": "Единая цепочка исполнения: User Intent → Capability Resolver → Permissions/Budget → существующий Tool Executor → Result → Delivery Confirmation → Writer/Core; дублирующих контуров нет.",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "M00097",
@@ -356,14 +485,21 @@
       "source_text_sha256": "76815aa728d8ca116d0686e5a27fc15d60511c3bab7118f10290bcc97d8da2dd",
       "source_excerpt": "Переиспользовать существующий `generate_image` и единый механизм доставки. В рамках одного пользовательского намерения не допускать дублирующей платной генерации из pre-gate, L1 и tool-loop; сохранять idempotency и trace. Если файл уже отпр",
       "disposition": "required",
-      "reason": "",
+      "reason": "Мок/движок-часть подтверждена на кандидате c8cf77a5 (review-w10 ledger 5.17: переиспользован run_image_request/generate_and_send, дублей нет — мутация B; send_failed → last_result=delivery_failed, «отправил» не заявлено; replay → 0 gen/0 send; 1 commit на интент; recheck — без изменений); живая половина (реальный прогон/отправка/провайдер и фактическая ошибка доставки Telegram) требует включённого контура — канарейка/postdeploy; классификация по образцу SOUL-AMD.8.3 / SOUL-17.4 / SOUL-10.P5 / SOUL-11.4 (review-w10: «провайдер/Telegram замоканы»).",
       "req_id": "SOUL-AMD.5.17",
       "slice": "W10",
       "acceptance": "Переиспользованы существующий generate_image и единый механизм доставки; в рамках одного намерения нет дублирующей платной генерации из pre-gate, L1 и tool-loop; сохранены idempotency и trace; если файл уже отправлен — Writer не обещает повторной отправки и не дублирует результат; генерация без успешного Telegram-send — ошибка доставки, не success",
       "live_required": true,
-      "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "live_when": "postdeploy",
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "c8cf77a5065f4cbc0a77616da6bbd7e1154ba5c8",
+          "ref": "plans/features/soul-1/review-w10.md — ledger 5.17 (переиспользован run_image_request/generate_and_send; дублей нет — мутация B ловит) + 8.9-прогоны (send_failed → last_result=delivery_failed, «отправил» не заявлено; already_handled → 0 вызовов; replay delivery=\"already\" → 0 gen/0 send; 1 commit на интент) + tests/test_soul1_capability_registry.py",
+          "observation": "Единая платная генерация и доставка на намерение (pre-gate/L1/tool-loop не дублируют); idempotency и trace сохранены; replay не заявляет успех и не сбрасывает транзиент; «уже отправлено» не дублируется; генерация без успешного Telegram-send — ошибка доставки, не success.",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "M00099",
@@ -377,8 +513,15 @@
       "acceptance": "Те же правила применены к поиску, фактчеку, видеовозможностям, памяти и другим техническим действиям; «формально tool есть, но L1 его не видит» без явного наблюдаемого блокера запрещено",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c8cf77a5065f4cbc0a77616da6bbd7e1154ba5c8",
+          "ref": "plans/features/soul-1/review-w10.md — ledger 5.18 VERIFIED (mock): «реестр знает все L1-capability; denied-тулы не анонсируются с capability_not_ready» + tests/test_soul1_capability_intent.py, tests/test_soul1_capability_registry.py",
+          "observation": "Те же правила применены к поиску/фактчеку/видео/памяти: недоступное не обещается (<capability_notice> + trace); «tool есть, но L1 его не видит» без наблюдаемого блокера отсутствует (реестр знает все L1-capability).",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "M00114",
@@ -392,8 +535,15 @@
       "acceptance": "Ложные утверждения о способностях вычищены (связка с SOUL-AMD.5.14 и SOUL-AMD.5.15)",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c8cf77a5065f4cbc0a77616da6bbd7e1154ba5c8",
+          "ref": "plans/features/soul-1/review-w10.md — 5.15-проверки (grep константы; guard-тесты + мутация D) + 5.14/8.8 (4 кейса отказа → правдивые тексты)",
+          "observation": "Ложные утверждения о способностях вычищены: жёсткая фраза не в пользовательском пути; «не умею»/отказы выбираются по реальному статусу capability (связка 5.14/5.15).",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "M00137",
@@ -448,7 +598,7 @@
       "source_text_sha256": "a582c4ecaf75af09683c090613dc6cbebe664c866e2ddab9016e5c922c1b2fd9",
       "source_excerpt": "1. **Factory Default для Personality Core — полный авторский текст «Речь, юмор и мышление» из SOUL-02 в `Soul-1.md`.** Это первоисточник. Не сочинять на его месте нового персонажа. Компактная runtime-версия может применяться ради экономии к",
       "disposition": "required",
-      "reason": "",
+      "reason": "Factory Default Core = полный авторский текст SOUL-02 не заведён: нет документа/реестра/редакций и MiniApp-видимости обеих редакций",
       "req_id": "SOUL-AMD.1.1",
       "slice": "W2",
       "acceptance": "Factory Default Personality Core — полный авторский текст «Речь, юмор и мышление» из SOUL-02 в Soul-1.md; компактная runtime-версия допустима только без потери смысла полного текста; обе редакции видны и редактируются в MiniApp",
@@ -463,7 +613,7 @@
       "source_text_sha256": "d54789f513c3e0986c883df357e94e303cd8f3c794f07e9a2bf249fc3e292b36",
       "source_excerpt": "2. Убрать старые действующие речевые каноны и конкурирующие определения личности (включая «токсичный, саркастичный бот») из Direct, Initiative, Summary, Factcheck, специализированных Writer, fallback, постпроцессоров, веток режима и старых ",
       "disposition": "required",
-      "reason": "",
+      "reason": "HARD RULE: не VERIFIED в этом проходе — legacy-каноны и owner-кастомы ещё в effective-слое (base_prompt = слой channel_contract при ON); удаление с backup — слайс уточнения после JB-3",
       "req_id": "SOUL-AMD.1.2",
       "slice": "W2",
       "acceptance": "Старые действующие речевые каноны и конкурирующие определения личности (включая «токсичный, саркастичный бот») удалены из Direct, Initiative, Summary, Factcheck, специализированных Writer, fallback, постпроцессоров, веток режима и старых PG overrides; legacy custom-промпты не сохранены активным слоем и ради них не добавлена специальная UI-миграция; до изменений сделан backup для аварийного отката",
@@ -478,7 +628,7 @@
       "source_text_sha256": "587bde051dc5d169e8923dbdf36ddfefeb3fc49179306e1d2548fca8e6b15b56",
       "source_excerpt": "3. Сохранить характер ядра: язвительность, цинизм, непристойный юмор, естественный мат, абсурдное мышление, развитие неожиданных сравнений и бытовых деталей, свободную живую русскоязычную речь. Не превращать персонажа в стерильного «дружелю",
       "disposition": "required",
-      "reason": "",
+      "reason": "Характер ядра нельзя подтвердить артефактом: Core-документ в проде не создан (core_absent), версионированных редакций ядра нет",
       "req_id": "SOUL-AMD.1.3",
       "slice": "W2",
       "acceptance": "Характер ядра сохранён: язвительность, цинизм, непристойный юмор, естественный мат, абсурдное мышление, неожиданные сравнения и бытовые детали, свободная живая русскоязычная речь; персонаж не превращён в стерильного «дружелюбного помощника», юмор не заменён бессмысленной агрессией, однотипными оскорблениями и «нет ты»; серьёзность, молчание и односложный ответ допустимы",
@@ -499,8 +649,21 @@
       "acceptance": "Биография, отношения, SelfModel, Experience, память, факты, подтверждённые пользовательские сведения и технические/безопасностные контракты сохранены без обнуления при смене канона; сохранность подтверждена проверкой данных и backup",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "3cc0b9c0541aa9c5a81c2caa995644bb1af61f11",
+          "ref": "plans/features/soul-1/review-w1.md — RECHECK-W1 BLOCKER-1/«Идемпотентность/откат» (stored bytes не изменены; API-запись эффективна байт-в-байт; rollback байт-в-байт) + plans/features/soul-1/evidence/w1/backup-speech-config.json",
+          "observation": "Смена канона не обнуляет данные: сохранённые значения не мутируются (withheld; sha совпал), backup снят до правок, rollback восстанавливает оригинал байт-в-байт.",
+          "type": "test"
+        },
+        {
+          "candidate_commit": "3cc0b9c0541aa9c5a81c2caa995644bb1af61f11",
+          "ref": "git show --stat 3cc0b9c0541aa9c5a81c2caa995644bb1af61f11 (mca_self_model.py, mca_experience*, bot_persona и др. не в диффе)",
+          "observation": "Биография, отношения, SelfModel, Experience, память и факты не затрагиваются коммитом: изменены только реестр/фабрика/миграции/точки резолва; технические контракты целы (периметр зелёный).",
+          "type": "static"
+        }
+      ]
     },
     {
       "source_id": "L00013",
@@ -508,7 +671,7 @@
       "source_text_sha256": "56da994c1784aa71e56d9529a2f9d55fc2052c878992c49e36feff24da879047",
       "source_excerpt": "5. `one_word` и `micro` — **два разных режима**, не маппить один в другой: `one_word` = ровно одно слово, `micro` = короткая реплика из нескольких слов. Проверять соблюдение без дорогостоящей полной регенерации; ограничения не должны ломать",
       "disposition": "required",
-      "reason": "",
+      "reason": "Классификация READY_FOR_LIVE+postdeploy не применена (решение родителя, follow-up: у строки есть не-live пробел — UI-часть). Engine подтверждён: два режима без молчаливого маппинга — контрактные тесты (review-w3 ledger: «VERIFIED (engine) + W6 UI + live pending»). Открыто: UI-часть — W6-кандидат (a5902b15) one_word/micro-UI поимённо не подтверждает (в W6-артефактах лишь косвенное упоминание набора kind); плюс живой прогон. Закрывается подтверждением UI (вкладки режимов/W6) + канарейкой.",
       "req_id": "SOUL-AMD.1.6",
       "slice": "W3",
       "acceptance": "`one_word` и `micro` — два разных действующих режима без молчаливого маппинга: `one_word` = ровно одно слово, `micro` = короткая реплика из нескольких слов; различие подтверждено контрактными тестами, UI и живым прогоном",
@@ -553,7 +716,7 @@
       "source_text_sha256": "930544748091e0526127a109a163388e6a4f90ef8148e72ba88fcf45d84c667d",
       "source_excerpt": "- Direct Chat, инициативные сообщения и реакции с текстом;",
       "disposition": "required",
-      "reason": "",
+      "reason": "Композер подключён к Direct/Initiative/tool-phase/Stage-2, но флаг по умолчанию OFF; словесные реакции (reactions_word_reactions) и остальные публичные пути в контур не входят",
       "req_id": "SOUL-AMD.2.3",
       "slice": "W2",
       "acceptance": "Direct Chat, инициативные сообщения и реакции с текстом идут через единый Personality Core и общий Composer",
@@ -568,7 +731,7 @@
       "source_text_sha256": "76a9a3e710e070059fae5e24c610494c729563e79adfd080fc24b6dda7e6b1b0",
       "source_excerpt": "- **публичный Factcheck** (объяснение вердикта, итоговая публикация);",
       "disposition": "required",
-      "reason": "",
+      "reason": "Не поставлено W3 (review-w3 F5: NOT DELIVERED): публичный Factcheck через единый Core + зарегистрированный жанровый слой отсутствует (Core не заведён — W2). Перескоп строки (F5, решение PM/Architect); закрывается с Core-проводкой.",
       "req_id": "SOUL-AMD.2.4",
       "slice": "W3",
       "acceptance": "Публичный Factcheck (объяснение вердикта, итоговая публикация) идёт через единый Core и зарегистрированный жанровый слой; истинность утверждений, числа, источники и доказательства не затрагиваются",
@@ -583,7 +746,7 @@
       "source_text_sha256": "e80b37af99632ac8d5f3397e160afcd6296be315cd4511eee55b7ca15fb41ccb",
       "source_excerpt": "- **публичный Summary** (статья, пересказ, рассказчик, готовая публикация, подписи от лица бота);",
       "disposition": "required",
-      "reason": "",
+      "reason": "Не поставлено W3 (F5: NOT DELIVERED): публичный Summary через единый Core + жанровый слой отсутствует (Core — W2). Закрывается с Core-проводкой (W2/W4/W9).",
       "req_id": "SOUL-AMD.2.5",
       "slice": "W3",
       "acceptance": "Публичный Summary (статья, пересказ, рассказчик, готовая публикация, подписи от лица бота) идёт через единый Core и зарегистрированный жанровый слой без сухой универсальной ассистентской речи",
@@ -598,14 +761,33 @@
       "source_text_sha256": "6bc8163d7485427ecdc626d17c4c7bfe682b1bc5025d77d6e0720eef484835ed",
       "source_excerpt": "- сны, глубокий сон, рассказы о них, ностальгия, лор, истории, воспоминания;",
       "disposition": "required",
-      "reason": "",
+      "reason": "Поставлено полностью tail-слайсом AMD.2.6 (коммит d4c33c21): лор/истории («Летописец») проведены через общий композер authorial_system(writer=lore_writer, genre=lore) — OFF = канон байт-в-байт, ON = жанровая рамка genre.lore.rules + Core + Style-hint; «Ностальгия» — W4; сны/глубокий сон/«рассказы о них» — честная граница: публикующего пути в продукте нет (внутренние машинные стадии §2.2 не тронуты, Core не получают), рамка genre.dream.rules готова (review-amd26 §2–§3, amd26-authorial-wiring-report §2, evidence/amd26/paths-coverage.md).",
       "req_id": "SOUL-AMD.2.6",
       "slice": "W4",
       "acceptance": "Сны, глубокий сон, рассказы о них, ностальгия, лор, истории и воспоминания — авторские тексты бота: получают Core и жанровые правила, а не служебный нейтральный текст",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c1cb64753ae82940843709ab2dcca9603850a1a8",
+          "ref": "plans/features/soul-1/review-w4.md §5 (SOUL-AMD.2.6) + plans/features/soul-1/w4-humor-feedback-report.md §1.4/§8.4",
+          "observation": "Что поставлено: жанровые рамки и путь «Ностальгии»; что отложено: проводка снов/глубокого сна/лора/историй (зафиксировано в note реестра).",
+          "type": "static"
+        },
+        {
+          "candidate_commit": "d4c33c2126afa8e214063e4d8ef9bb2d997502e5",
+          "ref": "plans/features/soul-1/review-amd26.md §2.1–§2.3/§3 (Approved) + plans/features/soul-1/amd26-authorial-wiring-report.md §2/§5",
+          "observation": "Шов OFF/ON на реальном компиляторе: OFF — канон байт-в-байт, манифеста нет; ON — genre.lore.rules + Core + Style-hint, writer=lore_writer, llm.calls==1; RED воспроизведён ревьюером независимо; свои 8/8 мутаций KILLED; тесты не ослаблены (один хунк 18+/4−, без skip/xfail).",
+          "type": "test"
+        },
+        {
+          "candidate_commit": "d4c33c2126afa8e214063e4d8ef9bb2d997502e5",
+          "ref": "plans/features/soul-1/evidence/amd26/** (perimeter.txt 3908/0, focused-tests.txt 56 passed, parity-off.json, mutation-witness.json 6/6, catalog-check.txt 575==REGISTRY, paths-coverage.md — построчный разбор путей; review-amd26.md §2.4)",
+          "observation": "Периметр 3908/0 (дельта ровно +6), Δ каталога = 0; адверсариальный скан: публикующего пути снов/глубокого сна в продукте нет, внутренние стадии не тронуты; рамка genre.dream.rules — Factory Default, контракт покрыт тестом.",
+          "type": "static"
+        }
+      ]
     },
     {
       "source_id": "L00027",
@@ -613,7 +795,7 @@
       "source_text_sha256": "db5fe073193491d97cb659e74051c0b9f8e41a53d74fb71ee6bcb442684f3ccc",
       "source_excerpt": "- ответы на инструменты, разъяснения их результатов, публичные сообщения о неудаче действия;",
       "disposition": "required",
-      "reason": "",
+      "reason": "Не поставлено W3 (F5: NOT DELIVERED): ответы на инструменты/разъяснения/публичные сообщения о неудаче через Core не подключены (W10 даёт правдивые шаблоны отказов, но «голос подачи» Core — с W2/W9). Закрывается после Core-проводки.",
       "req_id": "SOUL-AMD.2.7",
       "slice": "W3",
       "acceptance": "Ответы на инструменты, разъяснения их результатов и публичные сообщения о неудаче действия идут через Core (голос подачи) без изменения смысла tool evidence",
@@ -628,7 +810,7 @@
       "source_text_sha256": "48607ebeeee98575ac9c31bcc80b9b3fe769c4f9de73fda6f09830f64b6e1b77",
       "source_excerpt": "- другие существующие и будущие пользовательские Writer-выходы.",
       "disposition": "required",
-      "reason": "",
+      "reason": "Переведены не все writer-выходы (factcheck/summary/search/web/youtube/checkup — отдельный слайс); «будущие пути без скрытых личностей» обеспечены только контрактом композера",
       "req_id": "SOUL-AMD.2.8",
       "slice": "W2",
       "acceptance": "Другие существующие и будущие пользовательские Writer-выходы подключены к тому же Core/Composer; при добавлении путей новые скрытые личности не появляются",
@@ -694,8 +876,21 @@
       "acceptance": "Инвентаризация всех реально собираемых system/developer/user-инструкций и постобработчиков (L1, L2, Synthesizer, Verbalizer, Direct, Initiative, Summary, Factcheck, сны, лор, ностальгия, Experience, SelfModel, Humor Craft, Casual/Serious/Research, fallback, PG, условные конкатенации, inline-строки) с трассируемой картой `источник → смысл → runtime-потребитель → Registry ID → решение о миграции`",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "3cc0b9c0541aa9c5a81c2caa995644bb1af61f11",
+          "ref": "plans/features/soul-1/w1-registry-report.md §2 + services/prompt_registry.py (65 блоков: purpose/scope/consumers file:line/composition_point/migration/owner_lane)",
+          "observation": "Трассируемая карта «источник → смысл → runtime-потребитель → Registry ID → решение о миграции» поставлена машинночитаемо (все блоки с потребителями file:line).",
+          "type": "static"
+        },
+        {
+          "candidate_commit": "3cc0b9c0541aa9c5a81c2caa995644bb1af61f11",
+          "ref": "plans/features/soul-1/review-w1.md — RECHECK-W1 BLOCKER-2 (свип: 6 потребителей + direct_chat_service:4603 через resolve_prompt; allow-list 5 с причинами) и SMALL-4 (3 указателя лора исправлены; тест читает строки файлов)",
+          "observation": "Полнота и точность карты выборочно перепроверены ревьюером: bypass-потребители найдены и переведены на единый проход; физическая верность указателей подтверждена.",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00045",
@@ -703,7 +898,7 @@
       "source_text_sha256": "62e70df16dded908cd179d10f14326a866b257bdb0327e681c213b5fc0e22a70",
       "source_excerpt": "2. Создать единый **Prompt Registry**, в котором любая речевая или поведенческая инструкция имеет стабильный ID, назначение, полный редактируемый текст/типизированное правило, factory revision, active revision, GLOBAL/CHAT scope, источник e",
       "disposition": "required",
-      "reason": "",
+      "reason": "Prompt Registry не создан: композер читает существующие ключи (character.core/style.policy); нет стабильных ID, factory/active revision, GLOBAL/CHAT scope, истории, отката и списка потребителей",
       "req_id": "SOUL-AMD.3.2",
       "slice": "W2",
       "acceptance": "Единый Prompt Registry: у каждой речевой/поведенческой инструкции стабильный ID, назначение, полный редактируемый текст или типизированное правило, factory revision, active revision, GLOBAL/CHAT scope, источник effective-значения, включённость/наследование, история, откат, потребители и место композиции; нет речевых инструкций, видимых лишь в Python или SQL",
@@ -724,8 +919,15 @@
       "acceptance": "В коде сохранены алгоритмы, валидация, ограничения безопасности, JSON-схемы, реальные гейты доступа/бюджета, типы событий и технические контракты; ни один из них не прячет описание характера, запрет на мат или речевой шаблон (подтверждено аудитом)",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "3cc0b9c0541aa9c5a81c2caa995644bb1af61f11",
+          "ref": "plans/features/soul-1/review-w1.md — «Безопасность 9 правил» (контракты АНТИ-БОТ/вердикт/JSON-схемы целы — тест + независимый свип) + RECHECK-W1 SMALL-4 (спрятанная фраза чек-апа зарегистрирована как message.checkup_fallback_notice)",
+          "observation": "Алгоритмы/валидация/JSON-схемы/гейты доступа и бюджета/типы событий сохранены; аудит нашёл единственную спрятанную речевую фразу в техническом обработчике — вынесена в реестр; остаточные слепые зоны сканера заявлены прямо (f-string-ключи покрыты каталогом).",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00047",
@@ -733,7 +935,7 @@
       "source_text_sha256": "f762f6e101eb84c2224f203fb402d45cf903b7245d46765b423c424d3a4a2452",
       "source_excerpt": "4. Все текстовые «отмазки»/шаблонные фразы, которые слышит пользователь, в том числе ошибки image generation и fallback, зарегистрировать как управляемые сообщения с Factory Defaults. Не превращать технические ошибки в скрытый стиль.",
       "disposition": "required",
-      "reason": "",
+      "reason": "Управляемые сообщения («отмазки», ошибки image generation, fallback) как реестровые записи с Factory Defaults не созданы — реестра нет",
       "req_id": "SOUL-AMD.3.4",
       "slice": "W2",
       "acceptance": "Все текстовые «отмазки» и шаблонные фразы, слышимые пользователем (включая ошибки image generation и fallback), зарегистрированы как управляемые сообщения с Factory Defaults; технические ошибки не превращены в скрытый стиль",
@@ -754,8 +956,15 @@
       "acceptance": "Speech Style Policy — самостоятельный управляемый слой (не часть личности): кавычки, завершающая точка, эмодзи, переносы, регистр, оформление; строгие и мягкие правила; простые строгие ограничения проверяются детерминированно; URL, цитаты, код, машинные данные и технические форматы защищены; применяется ко всем подходящим авторским выходам, включая fallback",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "4c8405e783ac005ac0044974c5fbd7e518d12e2a",
+          "ref": "plans/features/soul-1/review-w3.md — recheck F1 (URL/цитаты/код/машинные данные защищены, байт-сравнения) + F4 (ностальгия prepared_text: ровно 1 проход stage=initiative_pre_send; writer-путь: 1 проход) + §4 (AMD.3.5 FAILED → закрыт)",
+          "observation": "Слой самостоятельный (отдельный документ style.policy, не часть личности); строгие ограничения проверяются детерминированно; защита данных и применение ко всем подходящим авторским выходам, включая fallback/инициативу — подтверждено исполнением (тесты падают при снятой маршрутизации).",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00049",
@@ -763,7 +972,7 @@
       "source_text_sha256": "563f53c795d6087501ee4647940fc0f301463e2b65f7edc1ab2d149fd1201288",
       "source_excerpt": "6. Если активное значение не получено, отразить диагностируемую причину; не подменять его молча заводским текстом или устаревшим PG-значением. Смена модели/провайдера и fallback не меняют личность.",
       "disposition": "required",
-      "reason": "",
+      "reason": "Для core/style причина видна (core_absent/skip_reason, без тихой подмены); реестровых активных значений и проверки «смена модели/провайдера/fallback не меняют личность» в поставке нет",
       "req_id": "SOUL-AMD.3.6",
       "slice": "W2",
       "acceptance": "При недоступном активном значении видна диагностируемая причина; молчаливой подмены заводским текстом или устаревшим PG-значением нет; смена модели/провайдера и fallback не меняют личность",
@@ -793,7 +1002,7 @@
       "source_text_sha256": "d69f51a5bb3382b8d487c27f7ecd37ad3a4be11f7f93f4ba6dc093868a3cbabc",
       "source_excerpt": "1. **Все новые промпты SOUL-1 поставляются как версионированные заводские редакции**, включая полный/компактный Core, Speech Style Policy, жанровые правила, юмор, адаптивное выражение, few-shot-примеры, соответствующие Writer/Verbalizer, Di",
       "disposition": "required",
-      "reason": "",
+      "reason": "Версионированные заводские редакции промптов (seed → активная runtime-конфигурация без кодового дубля) не поставлены — реестр отдельным слайсом",
       "req_id": "SOUL-AMD.4.1",
       "slice": "W2",
       "acceptance": "Все новые промпты SOUL-1 — версионированные заводские редакции (полный/компактный Core, Speech Style Policy, жанровые правила, юмор, адаптивное выражение, few-shot-примеры, Writer/Verbalizer, Direct, Initiative, Factcheck/Summary-выходы, управляемые fallback-шаблоны); декларативные seed-файлы допустимы, runtime использует эффективную активную конфигурацию, а не скрытый кодовый дубль",
@@ -808,7 +1017,7 @@
       "source_text_sha256": "4a233648e8a1f21163153be95a1a2452e6131447a83a5953f3daa83e1979644f",
       "source_excerpt": "2. Для каждого блока — **«Вернуть заводской вариант»**: показать разницу, при необходимости запросить подтверждение, сохранить новую active-ревизию, применить без перезапуска после штатного обновления конфигурации, оставить предыдущие ревиз",
       "disposition": "required",
-      "reason": "",
+      "reason": "«Вернуть заводской вариант» (diff, подтверждение, новая active-ревизия, hot apply) не поставлено — нет реестра ревизий",
       "req_id": "SOUL-AMD.4.2",
       "slice": "W2",
       "acceptance": "Для каждого блока работает «Вернуть заводской вариант»: diff, при необходимости подтверждение, новая active-ревизия, применение без перезапуска после штатного обновления конфигурации, сохранение предыдущих ревизий для отката",
@@ -823,7 +1032,7 @@
       "source_text_sha256": "68c1a47b20fcc5cb75d3fb433ac88ad154ceba2ac4c5c61a5a3fc5e1a5286262",
       "source_excerpt": "3. Отдельная операция **«Сбросить переопределение чата»** только возвращает наследование глобального значения. Это **не** заводской сброс. Глобальный сброс не удаляет локальные overrides. Отображать `Factory / Global Custom / Chat Override ",
       "disposition": "required",
-      "reason": "",
+      "reason": "«Сбросить переопределение чата» и индикация Factory/Global Custom/Chat Override/Inherited не поставлены; есть только аксессоры и тесты изоляции",
       "req_id": "SOUL-AMD.4.3",
       "slice": "W2",
       "acceptance": "Отдельная операция «Сбросить переопределение чата» возвращает только наследование глобального значения (не заводской сброс); глобальный сброс не удаляет локальные overrides; отображается Factory / Global Custom / Chat Override / Inherited и фактический источник",
@@ -838,7 +1047,7 @@
       "source_text_sha256": "03bb16144751bbca5f07d1905de9b143bf0fdeb92a34ac553f1d73d82e2db280",
       "source_excerpt": "4. Опциональный сброс всего **речевого профиля** — только с предпросмотром затронутых блоков. Не трогает память, SelfModel, биографию, отношения, Experience, данные, API-ключи и технические параметры.",
       "disposition": "required",
-      "reason": "",
+      "reason": "Сброс всего речевого профиля с предпросмотром затронутых блоков не поставлен",
       "req_id": "SOUL-AMD.4.4",
       "slice": "W2",
       "acceptance": "Опциональный сброс всего речевого профиля — только с предпросмотром затронутых блоков; память, SelfModel, биография, отношения, Experience, данные, API-ключи и технические параметры не затрагиваются",
@@ -853,7 +1062,7 @@
       "source_text_sha256": "a20a90284d4d0c3c6d9026428685c5983d5c1f07e8d856c27e645422d7d2a91d",
       "source_excerpt": "5. При обновлении приложения новую заводскую версию можно предложить, но нельзя автоматически перезаписывать пользовательские правки или регенерировать исходный Core моделью.",
       "disposition": "required",
-      "reason": "",
+      "reason": "Предложение новой заводской версии без перезаписи правок и без регенерации Core моделью не поставлено (нет версий/реестра)",
       "req_id": "SOUL-AMD.4.5",
       "slice": "W2",
       "acceptance": "При обновлении приложения новая заводская версия может быть предложена, но пользовательские правки не перезаписываются автоматически, исходный Core не регенерируется моделью",
@@ -868,7 +1077,7 @@
       "source_text_sha256": "9dee5dd7b9961f7e022f5e04a64282c13392f02f02d0c9ae548ab5c87d371ab4",
       "source_excerpt": "6. Старые речевые каноны остаются только в аварийной резервной копии, **не** в действующем runtime или пользовательском редакторе legacy.",
       "disposition": "required",
-      "reason": "",
+      "reason": "Часть «каноны только в аварийной копии» подтверждена (backup до правок; известные каноны не доходят до effective-слоя ни на одном реестровом пути; удержание неизвестных). Открыто: (а) 4 неудерживаемых summary-ключа (l2_writer c913a4b4c53d, l1_clusterizer, editor, cover_style) и ветки режимов остаются действующим слоем до живого снимка (review-w1 RECHECK, не-extension); (б) legacy в пользовательском редакторе снимается только перегенерацией каталога — W6; (в) код-фраза CHAT_PERSONA_PHRASE (smartmodule_phrases; handlers/direct_chat.py:253) — замена W3/W10. Закрывается живым снимком + решением JB-3 (write-pass) + W6.",
       "req_id": "SOUL-AMD.4.6",
       "slice": "W1",
       "acceptance": "Старые речевые каноны остаются только в аварийной резервной копии; в действующем runtime и в пользовательском редакторе legacy их нет",
@@ -919,8 +1128,15 @@
       "acceptance": "«Бот, нарисуй мем про двачеров» распознаётся как поручение создать изображение и при доступных правах и входах ведёт к проверке image_generation (живой прогон — SOUL-AMD.8.6)",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c8cf77a5065f4cbc0a77616da6bbd7e1154ba5c8",
+          "ref": "plans/features/soul-1/review-w10.md — ledger («5.3–5.8 (шесть формулировок §5.1): мой прогон — каждая → ровно 1 генерация, блок status=\"ok\" delivery=\"sent\", image-инструмент на ход не анонсируется; 6× тест») + recheck («6 формулировок §5.1 + 11 контролей → ровно 1 генерация каждая, 17/17») + tests/test_soul1_capability_intent.py",
+          "observation": "«Бот, нарисуй мем про двачеров» распознаётся как поручение создать изображение и при доступных правах/входах ведёт к проверке image_generation (ровно 1 вызов). Живой прогон — SOUL-AMD.8.6 (postdeploy-часть).",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00069",
@@ -934,8 +1150,15 @@
       "acceptance": "«Бот, сделай мем про двачеров» распознаётся по смыслу как поручение создать изображение, а не только regex/ключевиком",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c8cf77a5065f4cbc0a77616da6bbd7e1154ba5c8",
+          "ref": "plans/features/soul-1/review-w10.md — ledger 5.3–5.8 + recheck 17/17 + tests/test_soul1_capability_intent.py",
+          "observation": "«Бот, сделай мем про двачеров» распознаётся по смыслу (семантический детектор, не только regex): ровно 1 генерация.",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00070",
@@ -949,8 +1172,15 @@
       "acceptance": "«Бот, надо сделать мем про двачеров» ведёт к проверке image_generation при доступных разрешениях и входных данных",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c8cf77a5065f4cbc0a77616da6bbd7e1154ba5c8",
+          "ref": "plans/features/soul-1/review-w10.md — ledger 5.3–5.8 + recheck 17/17 + tests/test_soul1_capability_intent.py",
+          "observation": "«Бот, надо сделать мем про двачеров» ведёт к проверке image_generation при доступных разрешениях/входах: ровно 1 генерация.",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00071",
@@ -964,8 +1194,15 @@
       "acceptance": "«Сделай картинку из этой ситуации» распознаётся как поручение создать изображение с учётом контекста ситуации",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c8cf77a5065f4cbc0a77616da6bbd7e1154ba5c8",
+          "ref": "plans/features/soul-1/review-w10.md — ledger 5.3–5.8 + recheck 17/17 + tests/test_soul1_capability_intent.py",
+          "observation": "«Сделай картинку из этой ситуации» распознаётся как поручение с учётом контекста ситуации: ровно 1 генерация.",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00072",
@@ -979,8 +1216,15 @@
       "acceptance": "«Нужна инфографика по этим данным» распознаётся как запрос изображения, а не текстового ответа",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c8cf77a5065f4cbc0a77616da6bbd7e1154ba5c8",
+          "ref": "plans/features/soul-1/review-w10.md — ledger 5.3–5.8 + recheck 17/17 + tests/test_soul1_capability_intent.py",
+          "observation": "«Нужна инфографика по этим данным» распознаётся как запрос изображения, а не текстового ответа: ровно 1 генерация.",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00073",
@@ -994,8 +1238,15 @@
       "acceptance": "«Давай изобразим это в виде комикса» распознаётся как поручение создать изображение",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c8cf77a5065f4cbc0a77616da6bbd7e1154ba5c8",
+          "ref": "plans/features/soul-1/review-w10.md — ledger 5.3–5.8 (каждая → ровно 1 генерация) + recheck (veto-дизайн: «Давай изобразим это в виде комикса» → 1 генерация И событие L1_CAPABILITY_REJECTED: available_action_not_chosen) + tests/test_soul1_capability_intent.py",
+          "observation": "«Давай изобразим это в виде комикса» распознаётся как поручение создать изображение: ровно 1 генерация; veto-путь 5.10 живой.",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00079",
@@ -1069,8 +1320,27 @@
       "acceptance": "В «Речь и характер» сохранены понятные разделы: Характер, Стиль письма, Выражение, Юмор, Примеры, Попробовать, Обучение; основные настройки обычным языком, технические детали — в раскрываемом разделе «Все инструкции»; нет «приборки самолёта» и дублирования одних и тех же параметров в нескольких вкладках",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "a5902b15e7bf943dc454dbf59ee9b9fe1152a87e",
+          "ref": "plans/features/soul-1/review-w6.md — лид-acceptance (SOUL-AMD.6.1 VERIFIED: «витрина 7+3, live Chrome, entry_*/section_*»)",
+          "observation": "Живой Chrome: разделы Характер/Стиль письма/Выражение/Юмор/Примеры/Попробовать/Обучение — понятным языком; техника — в «Все инструкции»; дублирования параметров по вкладкам нет",
+          "type": "ui"
+        },
+        {
+          "candidate_commit": "a5902b15e7bf943dc454dbf59ee9b9fe1152a87e",
+          "ref": "plans/features/soul-1/evidence/w6/ui-report.json + plans/features/soul-1/evidence/w6/shots/entry_*.png, section_*.png",
+          "observation": "failures=[]; обход всех разделов на 8 viewport; 94 кадра",
+          "type": "ui"
+        },
+        {
+          "candidate_commit": "a5902b15e7bf943dc454dbf59ee9b9fe1152a87e",
+          "ref": "tests/test_soul1_w6_speech_ui.py::test_screen_has_required_sections_and_single_screen_mode",
+          "observation": "Состав раздела (включая отдельный блок «Для разработчика») закреплён тестом",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00104",
@@ -1084,8 +1354,27 @@
       "acceptance": "Для каждого блока Prompt Registry доступны: текущая/заводская версия, текст, scope, включённость, сохранение, тест, diff, factory reset, история, откат; все Direct, Summary, Factcheck, Initiative, fallback и жанровые Writer-промпты доступны по правам в мобильном и десктопном MiniApp",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "a5902b15e7bf943dc454dbf59ee9b9fe1152a87e",
+          "ref": "plans/features/soul-1/review-w6.md — RECHECK-W6, блок «F3 — VERIFIED (закрыт)» (реальный /reset(apply=false): changed=True, current 2882, factory 2835, diff {−2/+0}, без before_chars/after_chars; live-тост и карточка блока; стаб в харнессе убран)",
+          "observation": "Factory reset/diff читает реальную форму ответа; «undefined» нет; фикстура /reset снята настоящим эндпоинтом (evidence/w6/api-fixture.json через dump_api_fixture.py)",
+          "type": "ui"
+        },
+        {
+          "candidate_commit": "a5902b15e7bf943dc454dbf59ee9b9fe1152a87e",
+          "ref": "tests/test_soul1_w6_speech_ui.py::test_factory_reset_plan_reads_real_response_shape, ::test_router_is_mounted_with_single_prefix, ::test_endpoints_are_actually_mounted_behind_auth",
+          "observation": "Тесты: форма ответа /reset, смонтированный роутер (21 маршрут) под auth, read-only безопасность",
+          "type": "test"
+        },
+        {
+          "candidate_commit": "a5902b15e7bf943dc454dbf59ee9b9fe1152a87e",
+          "ref": "tools/ui_soul1_w6_speech_e2e.py + plans/features/soul-1/evidence/w6/ui-report.json (POST block/… ×4, shots/all_block_*.png) + plans/features/soul-1/evidence/w6/fix-pass-suites.txt (мутационный guard 4/4)",
+          "observation": "Карточка блока → сохранение → «Заводской вариант»; 77 блоков реестра в «Все инструкции»; откат F3-кода роняет тест",
+          "type": "ui"
+        }
+      ]
     },
     {
       "source_id": "L00105",
@@ -1099,8 +1388,27 @@
       "acceptance": "Мобильный путь «Ещё» → «ИИ» не переделан; исправлена реальная доступность полного списка редакторов и возможность редактировать/сохранять на узком экране",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "a5902b15e7bf943dc454dbf59ee9b9fe1152a87e",
+          "ref": "plans/features/soul-1/review-w6.md — лид-acceptance (SOUL-AMD.6.3: harness 320/360/390/430, live 390/320/430)",
+          "observation": "Навигация «Ещё → ИИ» не переделана; на 320–430 редакторы доступны, сохранение и откат работают; pageOverflow=0, minTap=44",
+          "type": "ui"
+        },
+        {
+          "candidate_commit": "a5902b15e7bf943dc454dbf59ee9b9fe1152a87e",
+          "ref": "plans/features/soul-1/w6-speech-ui-report.md §1 (вход — карточка внутри «Личности и стиля», маршрут #/ai/speech симметрично #/ai/persona) + tests/test_soul1_w6_speech_ui.py::test_entry_lives_inside_ai_without_reworking_navigation",
+          "observation": "Мобильный путь исправлен только по реальной доступности; состав хаба не менялся",
+          "type": "test"
+        },
+        {
+          "candidate_commit": "a5902b15e7bf943dc454dbf59ee9b9fe1152a87e",
+          "ref": "plans/features/soul-1/evidence/w6/ui-report.json + plans/features/soul-1/evidence/w6/shots/persona_entry_*.png, section_core_320.png",
+          "observation": "Кадры входа и редактора на узких экранах (320–430)",
+          "type": "ui"
+        }
+      ]
     },
     {
       "source_id": "L00106",
@@ -1114,8 +1422,27 @@
       "acceptance": "Effective Prompt Inspector отдельно показывает предпросмотр и фактически отправленный LLM payload с источником/версией каждого компонента, порядком, причиной включения/исключения, применённым стилем, постобработкой и безопасно замаскированными приватными данными; доступен только уполномоченным администраторам; собранный шаблон не выдаётся за доказательство реального вызова",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "a5902b15e7bf943dc454dbf59ee9b9fe1152a87e",
+          "ref": "plans/features/soul-1/review-w6.md — RECHECK-W6, блок «F1 — VERIFIED (закрыт)» (probe рантайм-формы с uuid run_id: old_lookup=False → last_run_present=True; preview после хода не вытесняет; чужой чат пуст; legacy-fallback честный)",
+          "observation": "Снимок «фактически отправленного» достижим в рантайме: читается самый свежий манифест REAL_TURN_WRITERS; фикстура/тест засеяны uuid, ассертят отсутствие старого ключа (evidence/w6/fix-pass-suites.txt §1)",
+          "type": "test"
+        },
+        {
+          "candidate_commit": "a5902b15e7bf943dc454dbf59ee9b9fe1152a87e",
+          "ref": "plans/features/soul-1/review-w6.md — «Inspector-честность» + «маскировка» + лид-acceptance",
+          "observation": "Preview и sent различаются; предпросмотр нельзя выдать за реальный вызов; секреты/IDs маскируются (sk-live-…, token=…, 5885953495 отсутствуют); доступ — edit_persona/global admin (403 для контент-админа чата)",
+          "type": "ui"
+        },
+        {
+          "candidate_commit": "a5902b15e7bf943dc454dbf59ee9b9fe1152a87e",
+          "ref": "tests/test_soul1_w6_speech_ui.py::test_capabilities_and_inspector_shapes, ::test_inspector_never_claims_preview_as_sent, ::test_inspector_finds_runtime_shaped_turn_snapshot, ::test_payload_masking_hides_secrets_and_ids",
+          "observation": "Формы Inspector’а, запрет подмены, рантайм-форма снимка, маскировка — тесты",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00107",
@@ -1129,8 +1456,27 @@
       "acceptance": "«Возможности бота» — компактный читаемый список фактических capabilities выбранного чата: что доступно/выключено/сломано, почему, в каком модуле настраивается; без дублирования тумблеров; в расширенном trace виден путь `намерение → capability → tool → check → call → result → delivery`, включая «доступное действие не было выбрано L1»",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "a5902b15e7bf943dc454dbf59ee9b9fe1152a87e",
+          "ref": "plans/features/soul-1/review-w6.md — лид-acceptance (SOUL-AMD.6.5 VERIFIED: /capabilities, live-раздел, тест)",
+          "observation": "Живой раздел «Возможности бота»: 13 способностей, 7 статусов, причины и модуль настройки; trace читается из mca_events, включая выделенный блок available_action_not_chosen; тумблеры не дублируются",
+          "type": "ui"
+        },
+        {
+          "candidate_commit": "a5902b15e7bf943dc454dbf59ee9b9fe1152a87e",
+          "ref": "tests/test_soul1_w6_speech_ui.py::test_capabilities_and_inspector_shapes",
+          "observation": "Форма /api/speech/capabilities (capability_view + trace) закреплена тестом",
+          "type": "test"
+        },
+        {
+          "candidate_commit": "a5902b15e7bf943dc454dbf59ee9b9fe1152a87e",
+          "ref": "plans/features/soul-1/evidence/w6/shots/capabilities_390.png/1440.png, section_capabilities_*.png",
+          "observation": "Кадры раздела на реальном UI",
+          "type": "ui"
+        }
+      ]
     },
     {
       "source_id": "L00108",
@@ -1144,8 +1490,27 @@
       "acceptance": "Обычные изменения владельца применяются на следующих запросах без перезапуска, с предсказуемой инвалидацией кеша",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "a5902b15e7bf943dc454dbf59ee9b9fe1152a87e",
+          "ref": "plans/features/soul-1/review-w6.md — лид-acceptance (SOUL-AMD.6.6 VERIFIED: ConfigCache/chat_params, повторный GET после POST)",
+          "observation": "Запись идёт на существующий hot-контур (ConfigCache/chat_params), ревизии читаются резолверами заново — без рестарта и без второго config-сервиса",
+          "type": "static"
+        },
+        {
+          "candidate_commit": "a5902b15e7bf943dc454dbf59ee9b9fe1152a87e",
+          "ref": "tests/test_soul1_w6_speech_ui.py::test_core_roundtrip_global_then_chat_isolation, ::test_style_policy_save_and_chat_reset",
+          "observation": "Повторный GET после POST отдаёт новое значение (core и style); сброс чата возвращает наследование",
+          "type": "test"
+        },
+        {
+          "candidate_commit": "a5902b15e7bf943dc454dbf59ee9b9fe1152a87e",
+          "ref": "plans/features/soul-1/evidence/w6/ui-report.json (reloadSpeech после POST; POST block/core.personality, style, expression)",
+          "observation": "UI после сохранения перечитывает состояние — изменения видны на следующем запросе",
+          "type": "ui"
+        }
+      ]
     },
     {
       "source_id": "L00110",
@@ -1174,8 +1539,21 @@
       "acceptance": "Поправки применены к уже запущенному SOUL-1: работающие алгоритмы не переписаны с нуля, scope не расширен несанкционированно, реальная текущая реализация проверена и доработаны конкретные точки",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "3cc0b9c0541aa9c5a81c2caa995644bb1af61f11",
+          "ref": "plans/features/soul-1/review-w1.md (18 декларированных файлов — отпечатки 1:1; «необъявленных изменений нет»; prompt_composer.py/mca_gates.py — diff пуст)",
+          "observation": "Поправки применены к уже запущенному SOUL-1 без переписывания: правки только в объявленных точках (реестр/фабрика/резолв-хуки/миграция), необъявленных изменений нет.",
+          "type": "static"
+        },
+        {
+          "candidate_commit": "3cc0b9c0541aa9c5a81c2caa995644bb1af61f11",
+          "ref": "plans/features/soul-1/w1-registry-report.md §6–§7 + plans/features/soul-1/review-w1.md (Δкаталога=0; периметр 1140 passed/0 failed)",
+          "observation": "Scope не расширен: каталог/ключи не менялись (Δ=0), работающие алгоритмы сохранены (смежные сьюты зелёные).",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00113",
@@ -1183,7 +1561,7 @@
       "source_text_sha256": "17c95f02e2fec4e677bf8df7411f8372d09f32961504abc924699b8c09b500d4",
       "source_excerpt": "2. До удаления legacy сделать backup и зафиксировать текущую конфигурацию. Удалить старый речевой канон из runtime; миграция идемпотентна, с проверяемым source→registry mapping и обратимым деплоем. Пользовательские биографии, знания, GraphR",
       "disposition": "required",
-      "reason": "",
+      "reason": "Backup и фиксация конфигурации ✓ (до правок); идемпотентная обратимая миграция и source→registry mapping ✓ (тесты/ревизии/history). Открыто: «канон удалён из runtime» — JB-3 write-pass на проде не выполнялся, 4 неудерживаемых summary-кастома не верифицированы (PG down), обратимость деплоя не проверена (деплоя ещё не было). Закрывается живым снимком + решением JB-3 + канарейкой (ср. AMD.1.2/8.4 — W2).",
       "req_id": "SOUL-AMD.7.2",
       "slice": "W1",
       "acceptance": "До удаления legacy сделан backup и зафиксирована конфигурация; старый речевой канон удалён из runtime; миграция идемпотентна, с проверяемым source→registry mapping и обратимым деплоем; биографии, знания, GraphRAG, Experience, SelfModel, чаты, ключи и бюджеты сохранены",
@@ -1198,7 +1576,7 @@
       "source_text_sha256": "a21318486bdeb11c15b4f51c0da3c1c5e5ffbe428c132263aef634e156e84694",
       "source_excerpt": "3. Устранить дублирование личности в промптах, режимных блоках и hidden fallbacks; вычистить ложные утверждения о способностях. Технические tool schemas и правила безопасности не скрывать от аудита, но и не делать их частью свободно редакти",
       "disposition": "required",
-      "reason": "",
+      "reason": "Дублирование личности в промптах/режимных блоках/hidden fallbacks не устранено (копии канонов в factcheck/summary/search/web/youtube/checkup + fallback-фразы); композер закрыл дубль только на своих путях",
       "req_id": "SOUL-AMD.7.3",
       "slice": "W2",
       "acceptance": "Дублирование личности в промптах, режимных блоках и hidden fallbacks устранено; технические tool schemas и правила безопасности не скрыты от аудита, но и не входят в свободно редактируемый характер",
@@ -1243,7 +1621,7 @@
       "source_text_sha256": "19a5d32042490d09dd11c476caeb05d88b3f8e73db129385d385502cb2644d0b",
       "source_excerpt": "- Direct, Initiative, финальные Factcheck и Summary, сон/ностальгия/истории и инструментальные ответы получают **один** effective Core и свои жанровые правила. Внутренний JSON, доказательства, граф и память не получают художественную обрабо",
       "disposition": "required",
-      "reason": "",
+      "reason": "Один effective Core подтверждён на Direct/Initiative/tool-backed в тестах, но реальных прогонов (живые сцены, публичные Factcheck/Summary) нет; флаг OFF",
       "req_id": "SOUL-AMD.8.1",
       "slice": "W2",
       "acceptance": "Direct, Initiative, финальные Factcheck и Summary, сон/ностальгия/истории и инструментальные ответы получают один effective Core и свои жанровые правила; внутренний JSON, доказательства, граф и память не получают художественную обработку (подтверждено реальными прогонами)",
@@ -1258,7 +1636,7 @@
       "source_text_sha256": "5ff8606235c9039e7564e6f45399c41c1f6ebfb712abbd21fc81f83479ba18a9",
       "source_excerpt": "- Сравнить полную и компактную редакции SOUL-02 на реальных, обезличенных сценах чата: естественный мат, остроумие, абсурдные последовательные сравнения, отсутствие «соевого» ассистентского голоса, неагрессивные серьёзные ответы. Не объявля",
       "disposition": "required",
-      "reason": "",
+      "reason": "Сравнение полной и компактной редакций SOUL-02 на реальных обезличенных сценах не проводилось (редакций Core ещё нет)",
       "req_id": "SOUL-AMD.8.2",
       "slice": "W2",
       "acceptance": "Полная и компактная редакции SOUL-02 сравнены на реальных обезличенных сценах чата: естественный мат, остроумие, абсурдные последовательные сравнения, отсутствие «соевого» ассистентского голоса, неагрессивные серьёзные ответы; качество не объявлено доказанным только по высокому баллу LLM-судьи",
@@ -1273,14 +1651,33 @@
       "source_text_sha256": "6a49f696bb3584b88c3c043ea61d073a0fa7f0d260104eb45f23791ffc32f83d",
       "source_excerpt": "- Редактирование Core и Speech Style Policy через MiniApp действительно меняет следующую генерацию во всех соответствующих путях. `one_word` и `micro` остаются различны. Fallback не возвращает старого персонажа.",
       "disposition": "required",
-      "reason": "",
+      "reason": "Живая генерация не проверяема до канарейки (флаг ON — решение владельца): ревьюер объявил строку READY_FOR_LIVE («за канарейкой»), не VERIFIED. Запись — единым путём (доказано), фактическое изменение следующей генерации во всех путях — post-canary.",
       "req_id": "SOUL-AMD.8.3",
       "slice": "W6",
       "acceptance": "Редактирование Core и Speech Style Policy через MiniApp действительно меняет следующую генерацию во всех соответствующих путях; `one_word` и `micro` остаются различны; fallback не возвращает старого персонажа",
       "live_required": true,
-      "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "live_when": "postdeploy",
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "a5902b15e7bf943dc454dbf59ee9b9fe1152a87e",
+          "ref": "plans/features/soul-1/review-w6.md — лид-acceptance (SOUL-AMD.8.3: READY_FOR_LIVE (за канарейкой, flag ON); «запись — единым путём; живая генерация не проверяема до канарейки»)",
+          "observation": "Формально подтверждён только путь записи; следующая генерация — за канарейкой",
+          "type": "static"
+        },
+        {
+          "candidate_commit": "a5902b15e7bf943dc454dbf59ee9b9fe1152a87e",
+          "ref": "tests/test_soul1_w6_speech_ui.py::test_writes_go_through_registry_api_only, ::test_write_path_is_guarded_at_runtime_not_only_statically",
+          "observation": "Правка Core/Style идёт только через prompt_factory.write_speech_value / save_policy_document (динамический runtime-сторож; прямые записи prompt-ключей ловятся)",
+          "type": "test"
+        },
+        {
+          "candidate_commit": "a5902b15e7bf943dc454dbf59ee9b9fe1152a87e",
+          "ref": "plans/features/soul-1/evidence/w6/requirements-coverage.md (SOUL-AMD.8.3) + review-w3.md",
+          "observation": "one_word/micro остаются различны и fallback не возвращает старого персонажа — закреплено W1/W2/W3 сьютами (OFF-паритет 13/13); ревьюер W6 повторил периметр 3786 passed/0 failed на кандидате",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00124",
@@ -1288,7 +1685,7 @@
       "source_text_sha256": "586de35a26640674a8ef2a8f1cd308dba14e66442ad0553144f6ea2737d6a1e1",
       "source_excerpt": "- Для каждого промпта работают Factory Default, diff, сохранение, история, откат и chat inheritance; заводской сброс не очищает данные бота. Старые PG речевые overrides не оказываются в effective prompt.",
       "disposition": "required",
-      "reason": "",
+      "reason": "HARD RULE: не VERIFIED — при ON старые PG-речевые overrides попадают в effective prompt через base_prompt (слой channel_contract, review-w2 §2); factory-операции, история и откат отсутствуют",
       "req_id": "SOUL-AMD.8.4",
       "slice": "W2",
       "acceptance": "Для каждого промпта работают Factory Default, diff, сохранение, история, откат и chat inheritance; заводской сброс не очищает данные бота; старые PG речевые overrides не оказываются в effective prompt",
@@ -1309,8 +1706,21 @@
       "acceptance": "Аудит runtime-сборки и тесты показывают отсутствие неучтённых речевых инструкций внутри технических обработчиков",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "3cc0b9c0541aa9c5a81c2caa995644bb1af61f11",
+          "ref": "plans/features/soul-1/review-w1.md — RECHECK-W1 SMALL-4 (фраза чек-апа зарегистрирована; указатели лора физически верны и проверяются тестом) + BLOCKER-2 (guard фальсифицируем: мутация литерала/неучтённый ключ/модульная константа пойманы; f-string — объявленная слепая зона, покрыта каталогом)",
+          "observation": "Аудит runtime-сборки и guard-тесты показывают отсутствие неучтённых речевых инструкций в технических обработчиках: найденное зарегистрировано, прочие прямые чтения — обоснованный allow-list; guard проверен мутациями.",
+          "type": "test"
+        },
+        {
+          "candidate_commit": "3cc0b9c0541aa9c5a81c2caa995644bb1af61f11",
+          "ref": "tests/test_soul1_direct_prompt_reads.py (интеграционная часть: реальные Checkup/WebSummarizer/Youtube/FC-сервисы — маркеров личности нет) — зелёные на кандидате (review-w1 RECHECK: 108/13/302/1140 passed)",
+          "observation": "Интеграционная проверка исполнением: в system, уходящем в LLM, нет маркеров старой личности; запись через API реестра доходит до шва.",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00129",
@@ -1318,14 +1728,21 @@
       "source_text_sha256": "d7d2535f77c289117bbc6c3aedebdc2dc26c036ea0a0deff88f57d1c37ec5853",
       "source_excerpt": "- «Бот, нарисуй», «бот, надо сделать мем», «нужна инфографика», «нарисуй это как комикс» → распознано намерение, доступный инструмент вызывается **ровно один раз**, подтверждается результат и доставка.",
       "disposition": "required",
-      "reason": "",
+      "reason": "Мок-часть подтверждена на кандидате c8cf77a5 (review-w10 ledger: 8.6 — намерение распознано, ровно 1 вызов, delivery=\"sent\" в L2-контенте; recheck — 12 проломов → 0); живая половина (реальный прогон/отправка/провайдер) требует включённого контура — канарейка/postdeploy; классификация по образцу SOUL-AMD.8.3 / SOUL-17.4 / SOUL-10.P5 / SOUL-11.4.",
       "req_id": "SOUL-AMD.8.6",
       "slice": "W10",
       "acceptance": "«Бот, нарисуй», «бот, надо сделать мем», «нужна инфографика», «нарисуй это как комикс» → распознано намерение, доступный инструмент вызывается ровно один раз, подтверждены результат и доставка (живой прогон, не мок)",
       "live_required": true,
-      "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "live_when": "postdeploy",
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "c8cf77a5065f4cbc0a77616da6bbd7e1154ba5c8",
+          "ref": "plans/features/soul-1/review-w10.md — ledger 8.6 + recheck (1 генерация; блок status=\"ok\" delivery=\"sent\")",
+          "observation": "Мок: «Бот, нарисуй…» — распознано намерение, доступный инструмент вызван ровно один раз, результат и доставка подтверждены в контенте ответа.",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00130",
@@ -1333,14 +1750,21 @@
       "source_text_sha256": "8b7ea3c273a1550ea8eb0f2d934a1033df17c7e8a4d88946c0b72d2d70088448",
       "source_excerpt": "- «Придумай текст/концепцию мема, не рисуй» → генерация **не вызывается**. Неоднозначное поручение → одно уместное уточнение.",
       "disposition": "required",
-      "reason": "",
+      "reason": "Мок-часть подтверждена на кандидате c8cf77a5 (review-w10 ledger 8.7: «придумай концепт мема, рисовать не надо» → 0 генераций; «Бот, сделай это» → ровно 1 вопрос message.image_request.clarify, 0 LLM); живая половина (реальный прогон/отправка/провайдер) требует включённого контура — канарейка/postdeploy; классификация по образцу SOUL-AMD.8.3 / SOUL-17.4 / SOUL-10.P5 / SOUL-11.4.",
       "req_id": "SOUL-AMD.8.7",
       "slice": "W10",
       "acceptance": "«Придумай текст/концепцию мема, не рисуй» → генерация не вызывается; неоднозначное поручение → одно уместное уточнение",
       "live_required": true,
-      "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "live_when": "postdeploy",
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "c8cf77a5065f4cbc0a77616da6bbd7e1154ba5c8",
+          "ref": "plans/features/soul-1/review-w10.md — ledger 8.7",
+          "observation": "Мок: поручение не путается с просьбой придумать идею/сценарий; неоднозначное поручение → одно уместное уточнение без LLM.",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00131",
@@ -1348,14 +1772,21 @@
       "source_text_sha256": "eab6d8a24b2fbaac08f1d55fe1543df5d36e1c5a5abf039f7c60d522f3e92849",
       "source_excerpt": "- `image_generation` OFF, нет API-ключа, провайдер временно не отвечает, квота исчерпана → разные, правдивые объяснения в голосе бота, без «я вообще не умею рисовать».",
       "disposition": "required",
-      "reason": "",
+      "reason": "Мок-часть подтверждена на кандидате c8cf77a5 (review-w10 ledger 8.8: 4 кейса → 4 текста message.image_failure.{disabled,not_configured,temporarily_unavailable,quota_exhausted}, 0 генераций/LLM); живая половина (реальный прогон/отправка/провайдер) требует включённого контура — канарейка/postdeploy; классификация по образцу SOUL-AMD.8.3 / SOUL-17.4 / SOUL-10.P5 / SOUL-11.4.",
       "req_id": "SOUL-AMD.8.8",
       "slice": "W10",
       "acceptance": "`image_generation` OFF, нет API-ключа, провайдер временно не отвечает, квота исчерпана → разные правдивые объяснения в голосе бота, без «я вообще не умею рисовать»",
       "live_required": true,
-      "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "live_when": "postdeploy",
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "c8cf77a5065f4cbc0a77616da6bbd7e1154ba5c8",
+          "ref": "plans/features/soul-1/review-w10.md — ledger 8.8 + «Мой матрикс отказов: 4/4 текста = зарегистрированные шаблоны»",
+          "observation": "Мок: разные правдивые объяснения по реальному коду отказа, без «я вообще не умею рисовать».",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00132",
@@ -1369,8 +1800,15 @@
       "acceptance": "Успешная генерация + ошибка Telegram-send → нельзя сообщить «отправил»; переисполнение, retry и совпадение pre-gate/tool-loop не порождают дубль или двойное списание",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "c8cf77a5065f4cbc0a77616da6bbd7e1154ba5c8",
+          "ref": "plans/features/soul-1/review-w10.md — ledger 8.9 (send_failed → last_result=delivery_failed, «отправил» не заявлено; already_handled → 0 вызовов; replay delivery=\"already\" → 0 gen/0 send; 1 commit на интент) + recheck F5 (record_outcome(ok=True, code=\"already\") не снимает транзиент и не объявляет успех; остаток — payload-строка tool_router.py:2991 «сгенерировано и отправлено» на replay, non-blocking)",
+          "observation": "Мок-прогон: успешная генерация + ошибка Telegram-send не заявляет «отправил»; переисполнение/retry/replay не порождают дубль или двойное списание. Живой кейс реальной ошибки доставки — postdeploy (live_when=postdeploy; READY_FOR_LIVE по review-w10).",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00133",
@@ -1378,14 +1816,21 @@
       "source_text_sha256": "ae8461f71f609984488e86eb7184fb99e44ec65947ff52ab88fb8665cee56b35",
       "source_excerpt": "- Включение/выключение модуля, per-chat override или смена провайдера отражаются в L1 capabilities и UI; бот не утверждает способность, которую нельзя использовать в данном scope.",
       "disposition": "required",
-      "reason": "",
+      "reason": "Мок-часть подтверждена на кандидате c8cf77a5 (review-w10 ledger 8.10: статусы следуют за модулем/override/провайдером; capability_view — runtime-данные; recheck F4 — инвалидация без ожидания TTL); живая половина (реальный прогон/отправка/провайдер) требует включённого контура — канарейка/postdeploy; классификация по образцу SOUL-AMD.8.3 / SOUL-17.4 / SOUL-10.P5 / SOUL-11.4.",
       "req_id": "SOUL-AMD.8.10",
       "slice": "W10",
       "acceptance": "Включение/выключение модуля, per-chat override или смена провайдера отражаются в L1 capabilities и UI; бот не утверждает способность, которую нельзя использовать в данном scope",
       "live_required": true,
-      "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "live_when": "postdeploy",
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "c8cf77a5065f4cbc0a77616da6bbd7e1154ba5c8",
+          "ref": "plans/features/soul-1/review-w10.md — ledger 8.10 + recheck F4 (ConfigCache.set_many → disabled/not_configured сразу)",
+          "observation": "Мок: переключение модуля/per-chat override/провайдера отражается в состоянии способностей; бот не утверждает недоступную в scope способность.",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00134",
@@ -1393,14 +1838,21 @@
       "source_text_sha256": "bc5d46cad7234e84d17e2ba9fabc0e9e70213fe9bf9b535b70cd7a15ea931865",
       "source_excerpt": "- Проверить те же принципы как минимум для поиска/фактчека/видео по одному реальному сценарию, а не только для image tool.",
       "disposition": "required",
-      "reason": "",
+      "reason": "Мок-часть подтверждена на кандидате c8cf77a5 (review-w10 ledger 8.11 (mock): поиск/фактчек/видео — недоступное не обещается, <capability_notice> + trace; recheck — 8.6–8.11 READY_FOR_LIVE); живая половина (реальный прогон/отправка/провайдер) требует включённого контура — канарейка/postdeploy; классификация по образцу SOUL-AMD.8.3 / SOUL-17.4 / SOUL-10.P5 / SOUL-11.4.",
       "req_id": "SOUL-AMD.8.11",
       "slice": "W10",
       "acceptance": "Те же принципы проверены минимум для поиска, фактчека и видео по одному реальному сценарию каждому, а не только для image tool",
       "live_required": true,
-      "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "live_when": "postdeploy",
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "c8cf77a5065f4cbc0a77616da6bbd7e1154ba5c8",
+          "ref": "plans/features/soul-1/review-w10.md — ledger 8.11 (mock) + §«Проведённые проверки» (capability_notice + trace)",
+          "observation": "Мок: те же принципы на поиске/фактчеке/видео — недоступное действие не обещается; реальные сценарии по одному на контур — канарейка.",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00135",

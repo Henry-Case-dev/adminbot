@@ -1,0 +1,13 @@
+W10 fix-pass — отпечаток кандидата (sha256[:16] по байтам файла)
+
+HEAD (база, коммитов W10 нет): 0a532f9e
+
+74e59e8c14f0abfb  services/direct_capabilities.py
+6f650a2c9771cdb9  services/capability_registry.py
+ab170165706e3461  services/direct_chat_service.py
+d5e49dd68d17cac9  services/image_generation.py
+0b0ad23784c8b5fa  services/chat_prompts.py
+a8339a274f3cce7d  services/prompt_registry.py
+b2eaf765a55d4232  tests/test_soul1_capability_intent.py
+44ad9ddc8e612570  tests/test_soul1_capability_registry.py
+12c1a845297508c1  tests/test_soul1_capability_fallbacks.py

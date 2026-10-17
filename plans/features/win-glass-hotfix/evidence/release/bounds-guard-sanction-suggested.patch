@@ -1,0 +1,42 @@
+diff --git a/tests/test_tool_coordinator_round1026.py b/tests/test_tool_coordinator_round1026.py
+index b2226dbf..32f6cc49 100644
+--- a/tests/test_tool_coordinator_round1026.py
++++ b/tests/test_tool_coordinator_round1026.py
+@@ -770,7 +770,15 @@ class TestBounds:
+                                              # allowlist УДАЛЕНЫ — возврат
+                                              # страницы в web/ снова валит
+                                              # этот тест.
+-                                             "web/api/__init__.py"))
++                                             # NOTE (WIN-GLASS-P0, 18.10.2026, review-wg.md R2
++                                             # Approved, кандидат 0ca661fe): + web/static/
++                                             # glass-refraction.js (NEW слой преломления
++                                             # контролируемого фона для клиентов без
++                                             # backdrop-filter url(); Tier A-only,
++                                             # pointer-events:none, z-index:-1; e2e 37/37
++                                             # на задеплоенных байтах). Test-only
++                                             # allowlist-дельта.
++                                             "web/static/glass-refraction.js"))
+                        for n in names)
+         # NOTE (round1027, MCA-01 / ADR-1027-3 D3): `services/summary_memory.py`
+         # санкционированно переведён на единый single-writer
+diff --git a/tests/test_unified_image_request_round1026.py b/tests/test_unified_image_request_round1026.py
+index 8506c361..922404e0 100644
+--- a/tests/test_unified_image_request_round1026.py
++++ b/tests/test_unified_image_request_round1026.py
+@@ -747,7 +747,15 @@ class TestBoundsA3:
+                                               # allowlist УДАЛЕНЫ: любое
+                                               # возвращение страницы в
+                                               # web/ снова валит этот тест.
+-                                              "web/api/__init__.py"))
++                                              # NOTE (WIN-GLASS-P0, 18.10.2026, review-wg.md R2
++                                              # Approved, кандидат 0ca661fe): + web/static/
++                                              # glass-refraction.js (NEW слой преломления
++                                              # контролируемого фона для клиентов без
++                                              # backdrop-filter url(); Tier A-only,
++                                              # pointer-events:none, z-index:-1; e2e 37/37
++                                              # на задеплоенных байтах). Test-only
++                                              # allowlist-дельта.
++                                              "web/static/glass-refraction.js"))
+                        for ln in self._diff_names())
+ 
+     def _diff_names(self):

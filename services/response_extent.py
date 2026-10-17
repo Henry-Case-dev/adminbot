@@ -33,11 +33,25 @@ logger = logging.getLogger(__name__)
 
 # ── Оси канона §4 ────────────────────────────────────────────────────────────
 
-EXTENTS = ("micro", "compact", "normal", "detailed", "longform", "exhaustive")
+# SOUL-1 (W3, SOUL-05): ``one_word`` — ДЕЙСТВУЮЩИЙ extent, не алиас ``micro``.
+# Раньше L1 ``one_word`` схлопывался в ``micro`` (`direct_l1.to_response_plan`)
+# и строгий контракт «ровно одно лексическое слово» терялся. Теперь это два
+# разных extent со своими блоками/валидаторами: ``one_word`` = ровно одно
+# слово; ``micro`` = очень кратко (обычно 2-8 слов, не жёстко одно).
+EXTENTS = ("one_word", "micro", "compact", "normal", "detailed", "longform",
+           "exhaustive")
 
 # Семейство «полных» extent'ов: для них снимается cap-семантика (§10/§11),
 # поднимается max_output_tokens и работает prompt-conflict scrub.
 LONGFORM_FAMILY = frozenset({"detailed", "longform", "exhaustive"})
+
+#: Мягкий целевой диапазон ``micro`` (SOUL-05: «очень кратко, обычно 2-8 слов
+#: и не более одной короткой фразы, но не жёстко одно слово»). Верхняя граница
+#: отчёта (не обрезки!): дальше — наблюдаемый ``conflict``, а не молчание.
+MICRO_WORD_RANGE = (2, 8)
+MICRO_REPORT_MAX_WORDS = 16
+#: ``one_word``: ровно одно лексическое слово (SOUL-05.2/SOUL-16.3.2).
+ONE_WORD_MAX = 1
 
 TASK_KINDS = ("social_chat", "direct_answer", "explanation", "creative_writing",
               "research", "comparison", "summarization", "historical_recall",
@@ -98,6 +112,11 @@ class ResponsePlan:
     delivery_hint: str = "plain"
     tool_policy: str = "auto"
     source: str = "default"
+    #: SOUL-1 (W3, SOUL-05.1): ровно один необязательный совет по приёму
+    #: юмора (закрытый набор ``direct_l1.COMIC_STRATEGIES``), по умолчанию
+    #: ``none``. Это не приказ быть смешным и не расширение объёма
+    #: (``resolve_extent_priority`` его не учитывает).
+    comic_strategy: str = "none"
 
     def is_longform(self) -> bool:
         """Семейство «полных» extent'ов (см. :data:`LONGFORM_FAMILY`)."""
@@ -404,6 +423,13 @@ def explicit_form_override(query) -> str:
 # ── §11: extent-блоки Вербализатора / системного промпта ────────────────────
 
 _EXTENT_BLOCKS: dict[str, str] = {
+    # SOUL-1 (W3, SOUL-05.2/SOUL-16.3.2): строгий one_word — отдельный блок,
+    # не подмена micro. Формулировка без ёлочек и длинных тире (R5/R9/R2020).
+    "one_word": (
+        "ОЖИДАЕМАЯ ПОЛНОТА: РОВНО ОДНО СЛОВО. Ответ - ровно одно лексическое "
+        "слово: без второго слова, пояснения, вступления, emoji-хвоста и "
+        "служебных меток. Одно слово может быть составным (через дефис) и с "
+        "одним знаком в конце."),
     "micro": (
         "ОЖИДАЕМАЯ ПОЛНОТА: МИКРО. Ответ - одна короткая фраза или да/нет. "
         "Без разворотов и списков: ровно то, о чём спросили."),
@@ -503,6 +529,187 @@ def plan_snapshot(plan: ResponsePlan | None) -> dict:
     if plan is None:
         return {}
     return dataclasses.asdict(plan)
+
+
+# ── SOUL-1 (W3, SOUL-05/SOUL-16.3): extent check на финальном тексте ────────
+# Порядок единого пост-прохода (design-composer-contract §6):
+#   content/evidence invariants -> extent check -> style policy -> serialization
+# Владелец extent-семантики — этот модуль; исполняет проход
+# ``services/style_policy`` (один владелец нормализации).
+
+#: Лексическое слово: буквы/цифры Unicode, составные через дефис/апостроф
+#: (SOUL-05.5: русские, латиница, составные слова; ``кто-то``, ``don't``).
+_LEXICAL_TOKEN_RE = re.compile(r"[^\W_]+(?:[-'\u2019][^\W_]+)*", re.UNICODE)
+#: Служебные хвосты/метки, которые не являются словом ответа (SOUL-05.2:
+#: «второе слово, пояснение, emoji-хвост и служебные метки — нет»).
+_SERVICE_TAIL_RE = re.compile(
+    r"(?:\s*[\[(](?:reply|re|id|msg|ответ|реплай)[^\])]*[\])])+\s*$",
+    re.IGNORECASE)
+_EMOJI_RUN_RE = re.compile(
+    "[\U0001F000-\U0001FAFF\u2600-\u27BF\u2B00-\u2BFF\uFE0F\u2049\u203C]+")
+_PUNCT_ONLY_RE = re.compile(r"^[^\w]+$", re.UNICODE)
+
+
+@dataclass
+class ExtentCheck:
+    """Результат extent-проверки финального текста (объяснимый, без обрезки)."""
+
+    extent: str = ""
+    status: str = "not_applicable"
+    text: str = ""
+    words: tuple[str, ...] = ()
+    reason: str = ""
+    detail: dict = dataclasses.field(default_factory=dict)
+
+    def as_dict(self) -> dict:
+        return {"extent": self.extent, "status": self.status,
+                "words": len(self.words), "reason": self.reason,
+                **dict(self.detail)}
+
+
+def lexical_words(text, *, ignore_ranges=()) -> tuple[str, ...]:
+    """Лексические слова текста (диапазоны ``ignore_ranges`` исключаются).
+
+    ``ignore_ranges`` — защищённые сегменты (URL/код/verbatim): их байты не
+    считаются словами ответа (SOUL-05.5: ограничения не ломают ссылки/код).
+    Никогда не бросает."""
+    try:
+        source = str(text or "")
+        if not source:
+            return ()
+        ranges = sorted((int(a), int(b)) for a, b in (ignore_ranges or ())
+                        if int(b) > int(a))
+        out: list[str] = []
+        for match in _LEXICAL_TOKEN_RE.finditer(source):
+            start, end = match.span()
+            if any(start < b and end > a for a, b in ranges):
+                continue
+            token = match.group(0)
+            if _PUNCT_ONLY_RE.match(token):
+                continue
+            out.append(token)
+        return tuple(out)
+    except Exception:      # pragma: no cover - счёт не роняет ответ
+        return ()
+
+
+def _one_word_tail_trim(text: str, word: str, ignore_ranges=()) -> tuple:
+    """Убрать не-лексический хвост/голову вокруг единственного слова.
+
+    ``Да 😀`` → ``Да``; ``[reply] Да`` → ``Да``; ``Да!!!`` остаётся (восклицания
+    разрешены). Защищённые сегменты не трогаются: пересечение с
+    ``ignore_ranges`` → текст как есть. Возвращает ``(текст, изменён)``."""
+    try:
+        source = str(text or "")
+        needle = str(word or "")
+        if not source or not needle:
+            return source, False
+        start = source.find(needle)
+        if start < 0:
+            return source, False
+        end = start + len(needle)
+        head, tail = source[:start], source[end:]
+        ranges = sorted((int(a), int(b)) for a, b in (ignore_ranges or ())
+                        if int(b) > int(a))
+        for begin, finish in ranges:
+            if (head and begin < end and finish > 0) or \
+                    (tail and begin < len(source) and finish > end):
+                return source, False
+        allowed = set("!?…")
+        head_clean = _EMOJI_RUN_RE.sub("", head).strip()
+        tail_clean = _EMOJI_RUN_RE.sub("", tail).strip()
+        if head_clean or (tail_clean and set(tail_clean) - allowed):
+            return source, False        # в остатке есть содержательное — не режем
+        trailing_match = re.match(r"[!?…]+", tail)
+        trailing = trailing_match.group(0) if trailing_match else ""
+        if not head.strip() and not _EMOJI_RUN_RE.search(tail):
+            return source, False        # уже чисто: ничего не меняем
+        trimmed = (needle + trailing).strip()
+        return (trimmed or source), True
+    except Exception:      # pragma: no cover - защитная ветка
+        return str(text or ""), False
+
+
+def resolve_extent_priority(*, explicit_form: str = "", l1_extent: str = "auto",
+                            comic_strategy: str = "") -> tuple[str, str]:
+    """Приоритет источника extent: ``explicit`` (явная просьба пользователя) >
+    ``l1`` (семантический план) > ``auto``.
+
+    ``comic_strategy`` — совет L2 (SOUL-05), а не расширение объёма: он НИКОГДА
+    не перекрывает явное ограничение длины пользователя и не меняет extent.
+    Возвращает ``(effective_extent, source)``; никогда не бросает."""
+    explicit = str(explicit_form or "").strip().lower()
+    if explicit in EXTENTS:
+        return explicit, "explicit"
+    semantic = str(l1_extent or "").strip().lower()
+    if semantic in EXTENTS:
+        return semantic, "l1"
+    return "", "auto"
+
+
+def check_extent(text, plan, *, explicit_form: str = "", ignore_ranges=(),
+                 context: str = "regular") -> ExtentCheck:
+    """Extent check финального текста (SOUL-05.2/05.5, SOUL-16.3.2).
+
+    ``one_word`` — ровно одно лексическое слово; нарушение → одна минимальная
+    локальная правка (служебный/emoji-хвост), затем честный ``failed``/
+    ``conflict``. ``micro`` — НЕ ограничение в одно слово: мягкий целевой
+    диапазон 2-8 слов, дальний выход (``MICRO_REPORT_MAX_WORDS``) — наблюдаемый
+    ``conflict`` без обрезки текста. Защищённые сегменты не портятся никогда.
+    Никогда не бросает."""
+    source = str(text or "")
+    extent, _origin = resolve_extent_priority(
+        explicit_form=explicit_form,
+        l1_extent=(getattr(plan, "extent", "") if plan is not None else ""))
+    if not extent:
+        return ExtentCheck(text=source, status="not_applicable",
+                           reason="extent_auto")
+    words = lexical_words(source, ignore_ranges=ignore_ranges)
+    if extent == "one_word":
+        if not words:
+            return ExtentCheck(extent=extent, status="failed", text=source,
+                               words=words, reason="one_word_empty")
+        if len(words) <= ONE_WORD_MAX:
+            trimmed, removed = _one_word_tail_trim(source, words[0],
+                                                   ignore_ranges)
+            if removed:
+                return ExtentCheck(
+                    extent=extent, status="repaired", text=trimmed,
+                    words=words, reason="one_word_extra_tail_removed",
+                    detail={"removed_chars": len(source) - len(trimmed)})
+            return ExtentCheck(extent=extent, status="pass", text=source,
+                               words=words)
+        trimmed = source
+        trimmed = _SERVICE_TAIL_RE.sub("", trimmed)
+        trimmed = _EMOJI_RUN_RE.sub(" ", trimmed)
+        trimmed = trimmed.strip()
+        words2 = lexical_words(trimmed, ignore_ranges=ignore_ranges)
+        if len(words2) <= ONE_WORD_MAX and words2:
+            return ExtentCheck(extent=extent, status="repaired", text=trimmed,
+                               words=words2,
+                               reason="one_word_service_tail_removed",
+                               detail={"removed_words": len(words) - len(words2)})
+        if ignore_ranges:
+            # Сложный код/URL/дословная цитата: форму не навязываем (SOUL-05.5).
+            return ExtentCheck(extent=extent, status="conflict", text=source,
+                               words=words,
+                               reason="one_word_vs_protected_content")
+        return ExtentCheck(extent=extent, status="failed", text=source,
+                           words=words, reason="one_word_multiple_words",
+                           detail={"words": len(words)})
+    if extent == "micro":
+        count = len(words)
+        if count <= MICRO_WORD_RANGE[1]:
+            return ExtentCheck(extent=extent, status="pass", text=source,
+                               words=words)
+        if count <= MICRO_REPORT_MAX_WORDS:
+            return ExtentCheck(extent=extent, status="pass", text=source,
+                               words=words, reason="micro_soft_exceeded",
+                               detail={"words": count})
+        return ExtentCheck(extent=extent, status="conflict", text=source,
+                           words=words, reason="micro_extent_exceeded",
+                           detail={"words": count})
+    return ExtentCheck(extent=extent, status="pass", text=source, words=words)
 
 
 # ── MCA-23 фаза 2 (§17): детерминированный multi-tool план (0 LLM) ──────────

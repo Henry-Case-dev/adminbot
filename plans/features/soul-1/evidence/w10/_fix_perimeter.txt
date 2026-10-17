@@ -1,0 +1,10 @@
+Периметр ревьюера (fix-pass)
+
+Фильтр: -k "image or direct or soul1 or tool_ or capability or asap7 or asap8 or mca or param or registry" tests
+
+С W10-файлами:
+  5626 passed, 8382 deselected, 1 warning in 269.97s (0:04:29)
+
+Без W10-файлов (--ignore=tests/test_soul1_capability_*.py):
+  1 failed, 5445 passed, 8382 deselected, 1 warning in 281.27s (0:04:41)
+

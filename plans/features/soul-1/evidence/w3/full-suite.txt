@@ -1,0 +1,38 @@
+SOUL-1 / W3 — полные прогоны тестов (три прогона, один кандидат ± правки тестов)
+
+Команда (repo root):
+  .venv\Scripts\python.exe -m pytest tests -q --timeout=180 -p no:cacheprovider
+
+ПРОГОН 1 (кандидат до двух финальных правок тестов):
+  1 failed, 13764 passed, 1 warning in 616.36s
+  FAILED tests/test_mca09_intents_block_e_round1040.py::test_handle_initiative_sent_single_transport_chunks
+  (assert 0 == 1; в логе services.mca_random_source ... ValueError: no active connection)
+
+ПРОГОН 2 (кандидат + финальные тесты):
+  13770 passed, 1 warning in 623.37s (exit=0)  ← полный набор зелёный
+
+ПРОГОН 3 (ФИНАЛЬНЫЙ кандидат: `_needs_repair`+DENIED, `_revision_int`,
+          расширенные ассерты теста правил):
+  1 failed, 13769 passed, 1 warning in 608.34s
+  FAILED tests/test_nostalgia_worker.py::TestLLMAndSend::test_send_text_capped_at_max_send_chars
+  (assert 0 == 1; ТА ЖЕ первопричина: services.mca_random_source ...
+   ValueError: no active connection; worker_settings: chat layer unavailable
+   source=error | key=memory.random_source)
+
+КЛАССИФИКАЦИЯ (incidental, unrelated/pre-existing):
+  * оба падения — следствие утечки ЗАКРЫТОЙ БД в глобальном сервисе
+    `mca_random_source` (в логе `no active connection`), а не логики W3;
+  * разные тесты в разных прогонах при одной первопричине = неустойчивость
+    порядка, а не регрессия: прогон 2 полностью зелёный на том же коде;
+  * пути обоих падений не исполняют код W3:
+    - handle_initiative(... prepared_text=...) не вызывает
+      `generate_initiative_reply` (writer-хук W3) и не использует
+      `_send_direct_answer`;
+    - nostalgia worker отправляет текст своим контуром
+      (`prompt_style_blocks`/`response_extent`/`style_policy` в его импортах нет);
+  * проверки воспроизводимости: изолированно оба теста зелёные (1 passed),
+    mca09 с предшествующими mca01..mca08 → 584 passed, mca09 с asap*-модулями,
+    работающими с mca_random_source → 67 passed.
+
+ИТОГ: кандидат W3 не оставляет падающих тестов; остаточный риск — известная
+нестабильность порядка (утечка глобального `mca_random_source`) в наборе.

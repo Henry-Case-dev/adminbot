@@ -178,3 +178,396 @@ Applied 2026-10-16 after the independent source↔map review (`review-map.md`, N
 | F7 | plan.md stated "10 slices" while W1–W9 = 9 | `plan.md` L7 (map row) | «= **193 req_ids**, 9 slices (W1–W9)» |
 
 Recheck performed (own run): `requirements_gate.py check --map plans/features/soul-1/requirements-map.json --stage plan` → `inventory=101 manual=97 scoped=0 errors=0` (exit 0). Only the fields listed above were modified; no renumbering, no disposition/slice changes, source binding `8C42DDFABCE635FE4E1F24F9522FF8642F3BD3049FAC05C77CA162687051196B` unchanged. W1 remains blocked until this fix pass is re-checked by the Reviewer lane.
+
+## W2 binding (4116c48a)
+
+**Кандидат:** `4116c48a74e08c8be8c4cc1f3ed37bf62ed3e8e4` (= master `50a7e689` + fix-pass W2, «Approved за F1–F3 + Core-budget» в `review-w2.md`). В обеих картах `candidate_commit` = этот SHA, `deployed_commit` пуст (деплоя нет). Совпадение с ревью-кандидатом подтверждено хешами: `prompt_composer.py=426D93014FC9`, `direct_chat_service.py=D603E00DB241`, `mca_gates.py=2DA5986D8CCD`, `prompt_style_blocks.py=A62AB337A2D6`; тесты `parity_off=33C0D128B3A4`, `layers=296BE6D5F300`, `legacy_custom=13801A5FCB88` — 1:1 с review-w2. W2-строк: main 33 (29 required + 4 `user_excluded`), amendment 24.
+
+**Переведены в VERIFIED (main, 5):** `SOUL-03.2` (иерархия уровней 1–7 как канонический порядок слоёв; SelfModel-контракты сохранены, черты folded), `SOUL-03.6` (одна инструкция не рендерится дважды: conflict `duplicate_owner_character`/`keep_stronger` с провенансом), `SOUL-04.2` (слои разделены по назначению, характер несёт только `core`), `SOUL-04.5` (0 доп. LLM-вызовов, бюджет не вытесняет вопрос/evidence/Core, лишние слои `skip_reason`), `SOUL-BOUND.4` (machine_json = только канал-контракт; L1/Stage-1 на реальных методах без Core/юмора). У каждой строки evidence привязано к `4116c48a…` (tests + манифест `evidence/w2/manifest-direct-l2.txt` + review-ledger).
+
+**Amendment: 0 строк переведено в VERIFIED** — правдоподобных по этой поставке нет (все требуют реестра/фабричных редакций/UI/живых прогонов либо блокированы hard rule).
+
+**Оставлено открытым с причиной в поле `reason`:**
+
+1. **Заблокировано уточнением владельца (hard rule — не VERIFIED в этом проходе):** `SOUL-AMD.1.2`, `SOUL-AMD.8.4` (при ON base_prompt = слой `channel_contract`, т.е. legacy-каноны/PG-речевые overrides остаются в effective-слое; backup+удаление — слайс W1 после JB-3). Зависящие main-строки: `SOUL-BOUND.0`, `SOUL-BOUND.1`, `SOUL-BOUND.2`, `SOUL-03.1`.
+2. **Вне поставки W2 — реестр/фабричные редакции/UI (§3/§4 уточнения):** `SOUL-AMD.1.1`, `SOUL-AMD.3.2`, `SOUL-AMD.3.4`, `SOUL-AMD.3.6`, `SOUL-AMD.4.1–4.5`, `SOUL-AMD.0.2`, `SOUL-AMD.2.12`; main: `SOUL-02.0`, `SOUL-02.1–02.8` (Core-документ не заведён — `core_absent`), `SOUL-03.0`.
+3. **Частично / нужен отдельный шов или слайс:** `SOUL-04.1` (копии `STYLE_BLOCKS_SUFFIX` остаются в search/web/youtube/checkup/factcheck/summary — пять семейств не переведены; review-w2 §4.2), `SOUL-15.5` (snapshot/rollback + шов `mca_self_model`), `SOUL-15.7` (PG outage/stale/restart-клаузы не проверялись; hard-запрет `styled=true` — W3), `SOUL-03.3`/`SOUL-03.4` (конфликт Core↔derived-правил и негативные кейсы сверх Core-оверрайда), `SOUL-04.0`, `SOUL-AMD.1.5`, `SOUL-AMD.2.2`, `SOUL-AMD.2.8`, `SOUL-AMD.2.11`, `SOUL-AMD.2.13`, `SOUL-AMD.7.3`.
+4. **Живые/реальные прогоны:** `SOUL-BOUND.3` (live_required), `SOUL-AMD.8.1`, `SOUL-AMD.8.2`.
+5. **Совместимость уточнения:** `SOUL-AMD.2.10` — истинность/evidence для подключённых путей не нарушаются, но публичные Factcheck/Summary ещё не подключены.
+
+**Флаг/релиз:** `UNIFIED_COMPOSER_ENABLED` (env + `flags.unified_composer_enabled`) и регистрация `flags.*` остаются OFF; маркер `composer_flag_release_gate` подтверждён ревью в трёх местах (отчёт :220, `prompt_composer.py:524–538`, шапка `test_soul1_legacy_custom_preserved.py`). Включение — только после слайса-amendment и повторной проверки F1.
+
+**Обратная проверка текста уточнения (item 4):** ни одна открытая строка не противоречит уточнению; недостижимых буквально строк нет — у каждой назван недостающий артефакт. Единственная строка с внешней неоднозначностью: `SOUL-AMD.2.3` в части «реакции с текстом» — отдельного словесно-реакционного writer-пути в поставке и в контуре композера нет (`reactions_word_reactions` — legacy-группа); трактовку («путь не существует» = строка закрывается иначе) должен подтвердить Orchestrator/владелец, а не PM молча.
+
+**Гейты (review, обе карты, кандидат `4116c48a74e08c8be8c4cc1f3ed37bf62ed3e8e4`) — verbatim, exit 1 каждая (ожидаемо: открытые строки, не форсировались):**
+
+```
+FAIL: SOUL-BOUND.0: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: SOUL-02.0: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: SOUL-03.0: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: SOUL-04.0: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: SOUL-15.5: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: SOUL-15.7: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: SOUL-BOUND.1: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: SOUL-BOUND.2: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: SOUL-BOUND.3: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: SOUL-BOUND.5: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: SOUL-BOUND.6: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: SOUL-BOUND.7: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: SOUL-02.1: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: SOUL-02.2: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: SOUL-02.3: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: SOUL-02.4: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: SOUL-02.5: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: SOUL-02.6: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: SOUL-02.7: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: SOUL-02.8: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: SOUL-03.1: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: SOUL-03.3: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: SOUL-03.4: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: SOUL-04.1: mandatory not ['VERIFIED'] (got PENDING)
+stage=review inventory=101 manual=97 scoped=29 errors=24
+```
+
+```
+FAIL: SOUL-AMD.1.1: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: SOUL-AMD.1.2: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: SOUL-AMD.1.3: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: SOUL-AMD.2.3: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: SOUL-AMD.2.8: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: SOUL-AMD.3.2: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: SOUL-AMD.3.4: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: SOUL-AMD.3.6: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: SOUL-AMD.4.1: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: SOUL-AMD.4.2: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: SOUL-AMD.4.3: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: SOUL-AMD.4.4: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: SOUL-AMD.4.5: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: SOUL-AMD.7.3: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: SOUL-AMD.8.1: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: SOUL-AMD.8.2: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: SOUL-AMD.8.4: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: SOUL-AMD.0.2: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: SOUL-AMD.1.5: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: SOUL-AMD.2.2: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: SOUL-AMD.2.10: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: SOUL-AMD.2.11: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: SOUL-AMD.2.12: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: SOUL-AMD.2.13: mandatory not ['VERIFIED'] (got PENDING)
+stage=review inventory=66 manual=28 scoped=24 errors=24
+```
+
+**Следующее действие (для Orchestrator):** W2 не объявляется Approved-по-гейту и не закрывает эпик; решения требуются по (а) re-slice/расширению для пяти писательских семейств и Factcheck/Summary (SOUL-04.1, SOUL-AMD.2.2/2.8/8.1), (б) мини-слайсу шва `mca_self_model` (SOUL-15.5), (в) слайсу реестра/фабричных редакций (§3/§4 уточнения), (г) слайсу удаления legacy-канонов (AMD.1.2/8.4) с backup — только после него включать флаг и повторять F1.
+
+## W6 binding (a5902b15)
+
+**Кандидат:** `a5902b15e7bf943dc454dbf59ee9b9fe1152a87e` (= master `c8cf77a5` + W6, «Approved» в `review-w6.md`, третий вердикт RECHECK-W6-2; цепочка REVIEW-W6 Needs Fixes → FIX-W6 → RECHECK-W6 Needs Fixes (EOL) → FIX-W6-EOL → FIX-W6-LESSON → RECHECK-W6-2 Approved). В обеих картах `candidate_commit` = этот SHA, `deployed_commit` пуст (деплоя нет). W6-строк: main 29 (16 inventory + 13 additional), amendment 8 (7 inventory + 1 additional). LF-инвариант коммита проверен после `git commit`: `git show HEAD:web/app.js` = `401a40a5…` (CRLF=0), `git show HEAD:web/index.html` = `8d86cd1a…` (CRLF=0), сторож `tests/js/app_methods_dup_keys_guard_test.js` = `68243a47…` (LF).
+
+**Переведены в VERIFIED (main, 19):** `SOUL-10.0` (единая точка входа + 6 разделов: live Chrome, ui-report.json failures=0/94 кадра, тест состава экрана), `SOUL-10.1` (Характер: round-trip ревьюера global→chat→factory→rollback + тесты core/compact + harness POST block/core.personality), `SOUL-10.2` (Стиль письма: F2 закрыт live Browser Use — галки/пресеты/счётчик/привычки/черновик + тесты save/preview/draft), `SOUL-10.3` (Выражение: 4 контрола + рендер слоя, честный `runtime_wired=false`), `SOUL-10.5` (Попробовать: current vs candidate без отправок, `telegram_send=false`/`lessons_created=0`), `SOUL-16.5.0` (карточка «Стиль письма» → один редактор, отдельный от Core), `SOUL-10.P1–P4` (не «приборка»: хаб 5 карточек и пин f5; витрина карточек/один экран за раз; один Inspector с preview≠sent и маскировкой; pageOverflow=0/minTap=44/padding 12/сплит 1↔2 колонки на 320–1440+landscape), `SOUL-17.0–17.6`, `SOUL-17.P1`, `SOUL-EXEC.14` (стекло: `review-tiera.md` + `review-tiera-strengthened.md` (Approved, независимые замеры) связаны с кандидатом байтовым инвариантом W6-ревьюера — polygon blob `c2ad97d4…`, `#lg-lens` `5367ec45…`, `--lg-*` `89cda50a…` == HEAD; на кандидате зелёные glass_probe/design_tokens/shell/fullscreen; H2 политика «diff фона пуст»). Amendment VERIFIED (7): `SOUL-AMD.6.1` (витрина 7+3, live), `6.2` (F3 закрыт на реальном `/reset`: changed=True 2882→2835, diff{−2/+0}; фикстура снята настоящим эндпоинтом), `6.3` (320–430 + live 390/320/430, навигация не переделана), `6.4` (F1 закрыт: рантайм-форма uuid-run_id достижима; preview≠sent; маскировка), `6.5` (/capabilities + trace, «доступное действие не выбрано»), `6.6` (hot-контур без рестарта), `0.3` (владельческий контроль: единственный путь записи + RBAC).
+
+**READY_FOR_LIVE (main 2, amendment 1):** `SOUL-10.P5` и `SOUL-11.4` — postdeploy (скриншот/interaction-матрица выполнена, реальный Telegram WebView и сохранение/восстановление на настоящем клиенте — только после деплоя); `SOUL-AMD.8.3` — вердикт ревьюера «за канарейкой, flag ON»: живая генерация на этом слайсе не проверяема, запись — единым путём.
+
+**Оставлено PENDING с причиной в поле `reason` (main 8):**
+
+1. `SOUL-10.4` — humor-библиотека («Примеры») поставляется слайсом W4; UI честно отдаёт `not_implemented_w4` (ревьюер: N/A_WITH_REASON (W4)).
+2. `SOUL-10.6` — полная формулировка требует humor-контур и `reset-learning` (W4); подтверждены только уроки Experience с pause/approve через существующий `/api/memory/lessons/action`.
+3. `SOUL-11.0` — подтверждена одна цепочка («Все инструкции» 320–430), вторая точка входа — не этот слайс (review-w6); E2E с реальными ответами API по обеим точкам нет.
+4. `SOUL-11.1`, `SOUL-11.2`, `SOUL-11.3` — цепочки `#/ai/prompts` → catalog → Direct/Синтезатор/Вербализатор и «Модули → Ответы в чате → Промпты», индекс «Ответы в чате» и инвентаризация PG-ключей на этом слайсе не проверялись.
+5. `SOUL-16.5.1` — первый экран и действия подтверждены (F2 live + тесты + харнесс), но «История изменений» для политики стиля в слайсе не поставлена (`style_policy_view` не отдаёт `history`; блок index.html:7613 пуст) и advanced-состав поимённо не проверялся.
+6. `SOUL-16.5.2` — подтверждены preview≠sent, черновик при навигации, 320–430 без overflow и minTap=44; не подтверждены «Save не накрыт клавиатурой» и «одна раскрытая настройка» на 320–430.
+
+**Гейты (review, обе карты, кандидат `a5902b15e7bf943dc454dbf59ee9b9fe1152a87e`) — verbatim, exit 1 каждая (честно: открытые строки, не форсировались; main-ошибки — только PENDING-строки, amendment — только канареечная 8.3):**
+
+```
+FAIL: SOUL-10.4: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: SOUL-10.6: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: SOUL-11.0: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: SOUL-11.1: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: SOUL-11.2: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: SOUL-11.3: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: SOUL-16.5.1: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: SOUL-16.5.2: mandatory not ['VERIFIED'] (got PENDING)
+stage=review inventory=101 manual=97 scoped=29 errors=8
+```
+
+```
+FAIL: SOUL-AMD.8.3: mandatory not ['VERIFIED'] (got READY_FOR_LIVE)
+stage=review inventory=66 manual=28 scoped=8 errors=1
+```
+
+**Следующее действие (для Orchestrator):** W6 готов к коммиту/канарейке с открытыми пунктами выше: (а) humor-контур W4 закрывает 10.4/10.6; (б) mobile-prompts цепочки 11.0–11.3 требуют отдельной проверки на реальном route entry; (в) 16.5.1/16.5.2 — мини-дополнение по «Истории изменений» политики стиля и мобильной клавиатуре; (г) 10.P5/11.4/8.3 закрываются после деплоя/канарейки (postdeploy).
+
+**Corrections (REVIEW-W6-BINDING):**
+
+1. `SOUL-17.4` (main): `VERIFIED` → `READY_FOR_LIVE`, `live_when` = `postdeploy`; `reason` заполнен: токены/reduced-motion/overdraw/fallback и перф на Windows/desktop-Chrome (вкл. 390-эмуляцию) подтверждены (review-tiera, review-tiera-strengthened, byte-invariant review-w6); реальный Android/TMA GPU-замер — device-only, ждёт postdeploy live-проверки (по образцу 10.P5). Evidence-список не менялся; перечень READY_FOR_LIVE выше («main 2») — состояние до этой правки, после неё main = 3: `SOUL-10.P5`, `SOUL-11.4`, `SOUL-17.4`.
+2. `SOUL-AMD.8.3`: `live_when` = `preprod` → `postdeploy`; статус `READY_FOR_LIVE` сохранён (канарейка/postdeploy по review-w6).
+3. Счёт W6-строк уточнён: main 29 (16 inventory + 13 additional) — сумма прежняя (29), исправлена разбивка inventory/additional.
+
+**Гейты после правок (review, обе карты, кандидат `a5902b15e7bf943dc454dbf59ee9b9fe1152a87e`) — verbatim, `errors=8` exit 1 / `errors=0` exit 0:**
+
+```
+FAIL: SOUL-10.4: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: SOUL-10.6: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: SOUL-11.0: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: SOUL-11.1: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: SOUL-11.2: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: SOUL-11.3: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: SOUL-16.5.1: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: SOUL-16.5.2: mandatory not ['VERIFIED'] (got PENDING)
+stage=review inventory=101 manual=97 scoped=29 errors=8
+```
+
+```
+stage=review inventory=66 manual=28 scoped=8 errors=0
+```
+
+## W1/W3/W10 binding (post-factum)
+
+**Кандидаты слайсов:** W1 `3cc0b9c0541aa9c5a81c2caa995644bb1af61f11` («Prompt Registry, Factory Defaults, legacy removal»; review-w1 Needs Fixes → Approved после recheck), W3 `4c8405e783ac005ac0044974c5fbd7e518d12e2a` (Speech Style Policy + one_word/micro; review-w3 NF → Approved), W10 `c8cf77a5065f4cbc0a77616da6bbd7e1154ba5c8` (Capability Awareness & Tool Grounding; review-w10 NF → Approved после recheck). Привязка выполнена post-factum по образцу W6-binding: для каждой строки слайса в обеих картах выставлены `status`/`reason`/`evidence` (evidence привязано к SHA слайса); W2/W6-строки и их evidence не трогались. Формат карт сохранён (JSON `indent=2`, `ensure_ascii=False`, CRLF); построчный дифф: изменены только поля status/reason/evidence строк W1/W3/W10 (main 53 из 198, amendment 42 из 94), прочие строки — байт-идентичны. **Top-level `candidate_commit` обеих карт остаётся W6-кандидатом `a5902b15e7bf943dc454dbf59ee9b9fe1152a87e`** (single-candidate семантика инструмента; временные подмены на SHA слайсов при прогонах откатаны, контроль W6 — зелёный по амендменту, см. ниже). **Финальный release-re-anchor на задеплоенный SHA — отдельным проходом родителя** (W8/W9).
+
+**Итог по строкам (обе карты, 95 строк W1/W3/W10 = 29+40+26; состояние после решения родителя, follow-up):**
+
+| Слайс | Строк | VERIFIED | PENDING | READY_FOR_LIVE (postdeploy) |
+|---|---|---|---|---|
+| W1 (main 20 / amend 9) | 29 | 18 (11+7) | 11 (9+2) | 0 |
+| W3 (main 33 / amend 7) | 40 | 25 (24+1) | 10 (5+5) | 5 (`SOUL-05.2/05.3/05.5/05.6` + `SOUL-AMD.1.7`) |
+| W10 (amend 26 / main 0) | 26 | 19 | 0 | 7 (`SOUL-AMD.8.6–8.11` + `SOUL-AMD.5.17`) |
+
+**Решение родителя (follow-up):** live-класс «движок/мок подтверждён, живая половина ждёт канарейку» переведён в `READY_FOR_LIVE` + `live_when=postdeploy` (образец SOUL-AMD.8.3 / SOUL-17.4 / SOUL-10.P5 / SOUL-11.4) с точными причинами: W3 — `SOUL-05.2/05.3/05.5/05.6`, `SOUL-AMD.1.7`; W10 — `SOUL-AMD.8.6/8.7/8.8/8.10/8.11`, `SOUL-AMD.5.17` (у 5.17 ранее приложенное evidence не менялось). Для переведённых строк добавлено минимальное candidate-bound evidence (ссылки на разделы ревью/артефакты; ранее приложенное evidence не переписывалось). НЕ переведены — у строки есть и не-live пробел, оставлены PENDING с точной причиной: `SOUL-05.7` (SILENT/REACT и tool-result — W5-покрытие), `SOUL-16.5.3` (tool-backed-путь и часть списка классов — поимённо ревью не подтверждены), `SOUL-AMD.1.6` (UI-часть — ledger «+ W6 UI»; W6-кандидат one_word/micro-UI поимённо не подтверждает).
+
+**Открытые строки — что именно не закрыто и чем закрывается:**
+
+1. **W1 — процессные клаузы release/report (4):** `SOUL-EXEC.1`, `SOUL-EXEC.4` — gate-стадия «release» ещё не прогонялась (деплоя нет); `SOUL-EXEC.2`, `SOUL-EXEC.7` — «видно явно в отчёте» / «равный статус в отчёте» появятся в §21-отчёте (W9). Snapshot с SHA256, полнота карты (review-map.md Approved), назначение исполнителей и plan/review-логи подтверждены артефактами.
+2. **W1 — зависят от других слайсов/живого снимка (7):** `SOUL-01.0`+`SOUL-01.5` (клауза «ровно один путь к общему Core» — Core ещё не заведён, W2 core_absent), `SOUL-15.0` (подстроки 15.5/15.7 — W2, 15.6/15.8/15.9 — W8), `SOUL-15.2` (Core/Sample Library к versioned-конфигу — W2/W4), `SOUL-15.4` (права VERIFIED по факту в W6/AMD.0.3, но не на W1-кандидате — кандидат на переанкор), `SOUL-AMD.4.6` и `SOUL-AMD.7.2` (4 неудерживаемых summary-кастома, JB-3 write-pass и обратимость деплоя — живой снимок + решение JB-3 + канарейка; ср. AMD.1.2/8.4 — W2).
+3. **W3 — live-класс (переведён решением родителя, follow-up, см. блок выше):** `SOUL-05.2/05.3/05.5/05.6` и `SOUL-AMD.1.7` → `READY_FOR_LIVE`+postdeploy (движок и тест-контур подтверждены ревью: w3-style-report §4.5 `LIVE_UNVERIFIED` была живая половина; review-w3: «live-часть — вне этого вердикта»). Остались PENDING только строки с не-live пробелом: `SOUL-05.7`, `SOUL-16.5.3`, `SOUL-AMD.1.6`.
+4. **W3 — не поставлено / перескоп F5 (7):** `SOUL-16.4.4` (eligibility финального Factcheck/редакционной Summary), `SOUL-09.3` (связка с Experience — W4/W5), `SOUL-AMD.2.4/2.5/2.7/2.9` (публичные Factcheck/Summary/tool-ответы через Core — ждут Core; перескоп — решение PM/Architect), `SOUL-05.0` (контейнер — закрывается вместе с 05.7).
+5. **W10 — live-класс (переведён решением родителя, follow-up, см. блок выше):** `SOUL-AMD.8.6/8.7/8.8/8.10/8.11` и `SOUL-AMD.5.17` → `READY_FOR_LIVE`+postdeploy (мок-часть подтверждена review-w10/recheck, включая мутации; живая половина — канарейка: 1 реальный семантический запрос + 1 кейс отказа + trace, review-w10). PENDING в слайсе W10 нет; review-гейт слайса — зелёный (`errors=0`).
+
+**Спорные/особые классификации (явно):**
+- `SOUL-AMD.5.17` — по решению родителя (follow-up) переведена из `VERIFIED` в `READY_FOR_LIVE` + `live_when=postdeploy` с точной причиной (мок/движок-часть: review-w10 ledger 5.17 + recheck — цепочка/idempotency/send-failed/replay; живая половина: реальный провайдер/Telegram и фактическая ошибка доставки — канарейка); ранее приложенное evidence не менялось. Ранее честный красный гейт (`live requirement lacks evidence`) закрыт классификацией.
+- `SOUL-16.P1` закрыт по совокупности (отдельная первосущность и слои — review-w3 §4/16.0/16.4.1 + композер style_policy_hint — W2/W6); ревью не судило строку отдельно — зафиксировано в evidence.
+- `SOUL-09.3`, `SOUL-16.5.3` ревью отдельно не судило; 09.3 оставлена PENDING (связка с Experience не проверялась), 16.5.3 на follow-up родителя специально НЕ переведена в postdeploy (есть не-live пробелы: tool-backed-путь и часть списка классов поимённо не подтверждены ревью) — осталась PENDING с точной причиной.
+- W4 (незакоммиченный в дереве) не затронут; его файлы в этой привязке не изменялись.
+
+**Гейты (review, verbatim; для каждого слайса top-level candidate временно = SHA слайса на обеих картах, затем восстановлен на `a5902b15…`):**
+
+W1 — main:
+```
+FAIL: SOUL-EXEC.1: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: SOUL-01.0: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: SOUL-01.5: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: SOUL-15.0: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: SOUL-15.2: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: SOUL-15.4: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: SOUL-EXEC.2: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: SOUL-EXEC.4: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: SOUL-EXEC.7: mandatory not ['VERIFIED'] (got PENDING)
+stage=review inventory=101 manual=97 scoped=20 errors=9
+EXITCODE=1
+```
+W1 — amendment:
+```
+FAIL: SOUL-AMD.4.6: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: SOUL-AMD.7.2: mandatory not ['VERIFIED'] (got PENDING)
+stage=review inventory=66 manual=28 scoped=9 errors=2
+EXITCODE=1
+```
+
+W3 — main (**решение родителя, follow-up**: live-класс переведён; остались только не-live открытые строки):
+```
+FAIL: SOUL-05.0: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: SOUL-16.4.4: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: SOUL-05.7: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: SOUL-09.3: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: SOUL-16.5.3: mandatory not ['VERIFIED'] (got PENDING)
+stage=review inventory=101 manual=97 scoped=33 errors=5
+EXITCODE=1
+```
+W3 — amendment (**решение родителя, follow-up**):
+```
+FAIL: SOUL-AMD.1.6: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: SOUL-AMD.2.4: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: SOUL-AMD.2.5: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: SOUL-AMD.2.7: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: SOUL-AMD.2.9: mandatory not ['VERIFIED'] (got PENDING)
+stage=review inventory=66 manual=28 scoped=7 errors=5
+EXITCODE=1
+```
+
+W10 — main (строк W10 в основной карте нет — ожидаемый честный результат, без изменений на follow-up):
+```
+FAIL: review scope has no requirements: W10
+stage=review inventory=101 manual=97 scoped=0 errors=1
+EXITCODE=1
+```
+W10 — amendment (**решение родителя, follow-up**: live-класс переведён — слайс зелёный):
+```
+stage=review inventory=66 manual=28 scoped=26 errors=0
+EXITCODE=0
+```
+
+**Контроль после восстановления candidate на `a5902b15e7bf943dc454dbf59ee9b9fe1152a87e` (W6-состояние не изменилось):** main — те же 8 PENDING-строк W6 (`SOUL-10.4, 10.6, 11.0–11.3, 16.5.1, 16.5.2`), `stage=review inventory=101 manual=97 scoped=29 errors=8, EXITCODE=1`; amendment — `stage=review inventory=66 manual=28 scoped=8 errors=0, EXITCODE=0` (совпадает с §W6 binding и его Corrections).
+
+**Следующее действие (для Orchestrator; после решения родителя — follow-up):** (а) канарейка/postdeploy: живой прогон для READY_FOR_LIVE-строк W3 (5: 05.2/05.3/05.5/05.6, AMD.1.7) и W10 (7: AMD.8.6–8.11, AMD.5.17) + release-стадия гейта (live/production evidence); (б) `SOUL-15.4` — переанкор на W6-кандидат либо адресная проверка прав; (в) `SOUL-EXEC.1/2/4/7` — закрываются финальным release-проходом и §21-отчётом (W9); (г) не-live пробелы `SOUL-05.7` (W5), `SOUL-16.5.3` (tool-backed/классы), `SOUL-AMD.1.6` (UI) и перескопы F5 (`AMD.2.4/2.5/2.7/2.9`, `16.4.4`) — решения PM/Architect/родителя.
+
+## W4 binding (c1cb6475)
+
+**Кандидат:** `c1cb64753ae82940843709ab2dcca9603850a1a8` (= master `c5900874` + W4, «Approved» в `review-w4.md` после RECHECK-W4; цепочка REVIEW-W4 Needs Fixes → FIX-W4 (F1/F2/F3, RED→GREEN) → RECHECK-W4 Approved). В обеих картах top-level `candidate_commit` = этот SHA (single-candidate семантика инструмента; прежний указатель — W6 `a5902b15e7bf`); `deployed_commit` пуст (деплоя нет). W4-строк: main 25 (13 inventory + 12 additional), amendment 1 (`SOUL-AMD.2.6`). Финальные отпечатки файлов слайса (sha256_12, final, commit-time) — `w4-humor-feedback-report.md` §3/§10. LF-инвариант коммита проверен после `git commit`: `git show HEAD:web/app.js` = `11215e3a4d10…` (CRLF=0), `git show HEAD:web/index.html` = `9e0b761104ff…` (CRLF=0), сторож `speechLessonAction` на месте, новые исходники слайса LF-only.
+
+**C1 (RECHECK-W4) — закрыт на коммите:** в dirty-вызов теста bounded-метаданных добавлены секрето-подобные kwargs `api_key`/`secret_prompt`/`raw_text` с безопасным значением (иначе утечку маскировал бы `_SAFE_TOKEN`), пин `SEND_FIELDS` сохранён; исходная выжившая мутация M11 ревьюера и форма «все переданные kwargs» — **KILLED**, мутационный свидетель расширен до 14 мутаций (**14/14**, `evidence/w4/mutation-witness.json`). Прогоны commit-time: W4-файлы **83 passed**; периметр **3869/0** (два прогона на одних байтах; промежуточная флейк-аномалия `3867/2` в `tests/test_nostalgia_worker.py` не воспроизвелась — файл изолированно 26 passed; зафиксировано в отчёте §4).
+
+**Переведены в VERIFIED (main, 24):** `SOUL-06.0–06.7` (пять приёмов = закрытый набор L1 `COMIC_STRATEGIES` + заводские редакции; рамка «связность/уместность, а не частота мата»; toggle OFF → `humor_disabled` при живом Core; «Проверить приём» без LLM; 0 доп. LLM-вызовов; паритет OFF), `SOUL-07.0–07.3` (таблица `humor_samples` v36, 18 сидов-черновиков `bot_suggested` без owner_approved; отбор 1–3/ноль с diversity/recency + двойная PII-защита; изоляция chat-скоупа — F1: approve/archive чужого чата 403 по пробам ревьюера; A/B и «почему выбраны»), `SOUL-08.0–08.11` (контур внутри Experience, второй контур не создан; bounded-метаданные закрытого набора + C1; связи observed→…→outcome; семантическая классификация с fail-open; тишина = unknown; консерватизм с защитами малого N/бригандинга, Core не переписывается; расход Experience → следующий промпт (детерминированный эффект + затухание, мутации KILLED) + живая витрина телеметрии (F2: счётчик отправок исправлен)).
+
+**READY_FOR_LIVE (main, 1):** `SOUL-08.12` — 7 сценариев закрыты детерминированными симуляциями + live-маркеры в UI; живого прогона с реальными собеседниками не было → канарейка **postdeploy**, до неё строка не закрывается.
+
+**Amendment:** 0 строк переведено в VERIFIED — `SOUL-AMD.2.6` остаётся **PENDING** с точной причиной: частичная поставка (4 жанровые редакции + хелпер `authorial_system` + путь «Ностальгии», OFF = канон байт-в-байт), проводка снов/глубокого сна/лора/историй — следующий слайс (review-w4 §5, отчёт §1.4/§8.4).
+
+**Гейты (review, обе карты, кандидат `c1cb64753ae82940843709ab2dcca9603850a1a8`) — verbatim; amendment-FAIL ожидаемый и честный (AMD.2.6 — частичная поставка), не форсировался:**
+
+```
+stage=review inventory=101 manual=97 scoped=25 errors=0
+EXITCODE=0
+```
+
+```
+FAIL: SOUL-AMD.2.6: mandatory not ['VERIFIED'] (got PENDING)
+stage=review inventory=66 manual=28 scoped=1 errors=1
+EXITCODE=1
+```
+
+**Следующее действие (для Orchestrator):** (а) канарейка postdeploy: живые сценарии `SOUL-08.12` (7) + release-стадия гейта; (б) ~~следующий слайс: проводка снов/глубокого сна/лора/историй через `authorial_system` (закрытие `SOUL-AMD.2.6`)~~ — **выполнено tail-слайсом AMD.2.6**: лор/истории проведены через `authorial_system`, сны/глубокий сон — подтверждённая граница «публикующего пути нет»; привязка ниже (§AMD.2.6 binding); (в) включение осей (`HUMOR_CRAFT_ENABLED`/`HUMOR_LIBRARY_ENABLED`/`HUMOR_FEEDBACK_ENABLED`) на одном чате под наблюдением.
+
+## W5 binding (bc277a3d)
+
+**Кандидат:** `bc277a3dc8bd54e721f5855fc6920f2ea401b25f` (= master `006fcfaa` + срез W5, коммит A; цепочка REVIEW-W5 **Needs Fixes** (overclaim D1) → FIX-W5 (только текст/докстринги, AST-идентичность) → **RECHECK: Approved (for controlled deployment; parent not DONE)**). Отпечаток 23-файлового набора W5 пересчитан по **коммитным** блобам — `20219378654acb9eeb77184b`, совпадает с отпечатком на ревью. В обеих картах top-level `candidate_commit` = этот SHA (single-candidate семантика; прежний указатель — W4 `c1cb6475`); `deployed_commit` пуст (пуша и деплоя нет). Коммит A: **91 файл** = 10 новых + 9 runtime/web + 3 артефакта каталога (`param-registry-round1025.{tsv,meta.md}`, `screen-map-round1025.md`) + 2 фикстуры + 55 ре-пинов чужих тестов + 12 документов слайса (`w5-initiative-report.md`, `review-w5.md`, `evidence/w5/**`).
+
+**Строк W5:** main **9** (7 inventory: `SOUL-18.0`, `SOUL-18.2`–`SOUL-18.7` + 2 additional: `SOUL-05.8`, `SOUL-18.1`); **amendment — 0**: слайс W5 в amendment не представлен, гейт amendment на слайс W5 даёт честный `FAIL: review scope has no requirements: W5` (не форсировался).
+
+| req | Статус | live_when | Основание / что осталось |
+|---|---|---|---|
+| SOUL-18.0 | READY_FOR_LIVE | postdeploy | движок/API/UI закрыты (33 passed слайса; периметр 3902/0, база 3869/0); живые числа 24–48ч — канарейка |
+| SOUL-18.2 | READY_FOR_LIVE | postdeploy | оконные счётчики 24/48ч из durable-источников (репро ревьюера 600/1600, coverage=full), нули — нулями; живая конфа — postdeploy |
+| SOUL-18.3 | READY_FOR_LIVE | postdeploy | D2 (свежее окно, маркер false→true) и D3 (причины 10/10) подтверждены, негативы сохранены; D1 — контрактная защита состояния окна, не причина тишины; живая конфа — postdeploy |
+| SOUL-18.4 | READY_FOR_LIVE | postdeploy | мягкие цели с полами (600с/4/1800с), per-chat и visible, trace до mock send, ось OFF+confirm (`publish_axis_off`/`confirm_required`); реальная отправка — только решением владельца |
+| SOUL-18.5 | VERIFIED | preprod | health≠outcome: вердикты, warning «возможности есть, сообщений нет», note «тики и прогоны ≠ отправка» + рендер панели (evidence type `ui`) |
+| SOUL-18.6 | READY_FOR_LIVE | postdeploy | одна панель Статуса (якорь ровно 1; полигонных токенов нет), доставка ↔ манифест (`message_id` + Core/Style), node-сторожа 4/4; реальные доставки — postdeploy |
+| SOUL-18.7 | READY_FOR_LIVE | postdeploy | план наблюдения 24–48ч конкретен; искусственных отправок в рабочую группу нет (§19 п.6) |
+| SOUL-05.8 | VERIFIED | postdeploy | равенство ревизий Core/Style/identity Direct↔Initiative и SILENT без Writer (мутация M4 KILLED), пин хода = ревизия Core |
+| SOUL-18.1 | VERIFIED | preprod | факт владельца = основание runtime-диагностики; «25 заданий/сутки» — прогоны очереди, не сообщения; overclaim снят (RECHECK §1) |
+
+**Помета про SOUL-05.8 (уточнение к REVIEW-W5 §5):** строка **существует** в карте — `M00091` в `additional_requirements`, исходная строка 91 (§6: «Initiative полностью самостоятельна в выборе повода…»), acceptance выведен из текста клаузы. Дубль НЕ заводился (конфликт manual `source_id` + дубль `req_id`); строка привязана к кандидату и переведена в VERIFIED по фактам ревью. Замечание ревью «в карте строки нет» верно только для массива `items` — там её действительно нет, она в additional.
+
+**Помета про SOUL-18.1 (собственная классификация Builder'а; нужно принятие или корректировка родителем/Reviewer'ом):** строки нет в таблице REVIEW-W5 §5 (ревьюер её отдельно не судил). Её acceptance — докладная (факт владельца как основание диагностики; 25 заданий/сутки ≠ сообщения), `live_required=false`; выполнена отчётом §2 и проверена RECHECK §1 (проверка всей атрибуции). Поэтому VERIFIED. Если Reviewer считает, что строку нужно вести по live-слоту — она переводится в `READY_FOR_LIVE`/postdeploy одной строкой без изменения кода.
+
+**Помета про top-level candidate (single-candidate семантика):** указатель отдан W5-кандидату, поэтому повторный прогон гейта по **другим** слайсам на этом кандидате даст FAIL по evidence-binding (их evidence привязано к собственным SHA: W4 `c1cb6475`, W6 `a5902b15`, W1 `3cc0b9c0`, W3 `4c8405e7`, W10 `c8cf77a5`). Для контрольных повторов чужих слайсов указатель временно восстанавливается (прецедент §W1/W3/W10 → «Контроль после восстановления candidate»); механика не менялась.
+
+**Гейты (review, verbatim; кандидат `bc277a3dc8bd54e721f5855fc6920f2ea401b25f`):**
+
+main, `--slice W5`:
+```
+stage=review inventory=101 manual=97 scoped=9 errors=0
+EXITCODE=0
+```
+
+amendment, `--slice W5` (**слайс W5 в amendment не представлен — честный FAIL, не форсировался**):
+```
+FAIL: review scope has no requirements: W5
+stage=review inventory=66 manual=28 scoped=0 errors=1
+EXITCODE=1
+```
+
+**Структурный контроль карт** (`--stage plan`, обе карты): `stage=plan inventory=101 manual=97 scoped=0 errors=0` / `stage=plan inventory=66 manual=28 scoped=0 errors=0`, EXITCODE=0 (и до, и после привязки).
+
+**LF-санити коммита A (после `git commit`):** `git show bc277a3d:web/app.js` — CRLF=0 (22483 LF), `git show bc277a3d:web/index.html` — CRLF=0 (10935 LF), `web/app.py` — CRLF=0; новые исходники/тесты/инструменты W5 — LF-only; `services/mca_gates.py` — смешанный EOL сохранён как в HEAD (CRLF 582, LF 2483).
+
+**Девиация A (честно):** в коммит A включён новый инструмент-стенд `tools/_soul1_w5_visual_server.py` (LF) — им лейн поднимал панель, стенд засветился в REVIEW-W5 §2; в 23-файловый отпечаток отчёта/ревью он не входил (там 9 новых файлов). Он принадлежит слайсу; других файлов вне W5-набора в коммите A нет.
+
+**Открытые W5-строки и что осталось:** (1) канарейка postdeploy по 6 live-строкам (`18.0`, `18.2`, `18.3`, `18.4`, `18.6`, `18.7`): живые числа 24–48ч, реальные сценарии и реальная отправка по явному решению владельца — `evidence/w5/live-acceptance-plan.md`; (2) не-блокирующий бэклог REVIEW-W5 §4 и RECHECK «Хвосты» (подпись `w5CheckNote` при сорванной реальной отправке, неиспользуемый `initiative_check_no_publish`, склейка строки `loadIntelFunnels`, тест пола `min_gap` при целях >24/сутки, юнит-тест оси ON, косметический дубль в `live-acceptance-plan.md`) — в эту привязку не входит и статусы не меняет; (3) `SOUL-05.7` (SILENT/REACT и tool-result) остаётся PENDING в W3 — W5 покрывает SILENT/REACT-часть через `SOUL-05.8`, закрывающая строка этим коммитом не переносится.
+
+**Следующее действие (для Orchestrator):** (а) независимое ревью привязки — статусы, evidence, честность классификаций `SOUL-18.1` и `SOUL-18.5`; (б) решение владельца по канарейке (push/deploy — вне этого лейна); (в) postdeploy: заполнение 6 live-строк + release-стадия гейта.
+
+## AMD.2.6 binding (d4c33c2126af)
+
+**Кандидат:** `d4c33c2126afa8e214063e4d8ef9bb2d997502e5` (= `434b7ac5` (verify-W5) + tail-слайс AMD.2.6, коммит A). Независимое ревью `plans/features/soul-1/review-amd26.md` — **Approved**: своя OFF/ON-проба на реальном компиляторе, независимо воспроизведённый RED, свои 8/8 мутаций KILLED, адверсариальный скан «пути снов», периметр 3908/0, реестр 575/64→64, тесты не ослаблены. Коммит A — **16 файлов** = 2 runtime (`lore_compiler_service.py`, `prompt_registry.py`) + 2 теста + 2 инструмента-свидетеля + 8 evidence + отчёт + ревью.
+
+**Разведение кандидатов карт (сознательное, single-candidate семантика):** top-level `candidate_commit` в **amendment-карте** := `d4c33c21…` (эта привязка); **main-карта не менялась** — её кандидат остаётся `bc277a3dc8bd54e721f5855fc6920f2ea401b25f` (W5): у AMD.2.6 **нет main-строк** (клауза L00026 живёт только в amendment; сверено — в main `SOUL-AMD.2.6` отсутствует). `deployed_commit` пуст (пуша/деплоя нет). Отпечатки шести ключевых файлов сверены с коммитными блобами: `6255c2b97d69` / `4b0ef89007ef` / `b530706409dc` / `f6e3961c4372` / `c6248fd6a022` / `f009e96f4c47`.
+
+**Строка amendment:** `SOUL-AMD.2.6` → **VERIFIED** (slice W4). Основание: лор/истории («Летописец», единственный реальный публикующий путь остатка клаузы) проведены через `authorial_system(writer="lore_writer", genre="lore")` — OFF = канон байт-в-байт, ON = жанровая рамка `genre.lore.rules` + Core + Style-hint, единственный писатель (`llm.calls==1`); «Ностальгия» — W4; сны/глубокий сон/«рассказы о них» — честная граница: публикующего пути в продукте нет, внутренние машинные стадии §2.2 не тронуты, рамка `genre.dream.rules` готова (контракт покрыт тестом). Историческая evidence-запись W4 (`c1cb6475`) сохранена; добавлены две записи, привязанные к `d4c33c21`.
+
+**Гейты (review, verbatim; кандидат `d4c33c2126afa8e214063e4d8ef9bb2d997502e5`):**
+
+amendment, `--stage review --slice W4`:
+```
+stage=review inventory=66 manual=28 scoped=1 errors=0
+EXITCODE=0
+```
+
+**Структурный контроль карт** (`--stage plan`, обе карты): `stage=plan inventory=101 manual=97 scoped=0 errors=0` / `stage=plan inventory=66 manual=28 scoped=0 errors=0`, EXITCODE=0.
+
+**W4-evidence:** перезаписанный прогоном слайса `plans/features/soul-1/evidence/w4/frozen-assets.txt` восстановлен из HEAD (дифф пуст); содержимое сохранено как `plans/features/soul-1/evidence/amd26/frozen-assets.txt` (артефакт того же прогона; сверено после нормализации BOM/CRLF). Четыре evidence-`*.txt` слайса — CRLF (захват PowerShell-редиректом); байты сохранены как есть, чтобы не рвать привязанные ревью отпечатки, на будущее — LF.
+
+**Что осталось:** (1) ось `UNIFIED_COMPOSER_ENABLED` остаётся OFF — включение ON/OFF решение владельца (OFF-паритет подтверждён; у строки `live_required=false`, `live_when=preprod`); (2) чужие карты/слайсы этим коммитом не привязывались.
+
+## W7 binding (6094a2cfa166)
+
+**Кандидат:** `6094a2cfa1660d1b949dcfe5ec085bc08f080de4` (коммит A поверх `9d8da1d7` (docs-only) = объединённый слой W7 (реконсиляция наследия v6.3: SOUL-12 fullscreen, SOUL-13 хвосты) + FS-HOTFIX/FS2 (директива владельца 18.10 + FOLLOW-UP `current-task.md` L903–1229)). Ревью-цепочка: **REVIEW-W7 Needs Fixes** (единственный блокер F1: launchParams не читались из hash) → F1 починен в этом дереве → **REVIEW-FS Needs Fixes** (не хватало FOLLOW-UP-дельты) → **FS2-дельта** (логотип скрыт, матрица №8/№12, admin-диагностика §8) → **RECHECK: Approved** (tech; свои прогоны ревьюера: 12/12·166, 5/5·88, node 86/86, периметр 3915/0, frozen OK, 10/10 отпечатков). Коммит A — **95 файлов, +7530/−489**: web 4, tests 5 (1 новый), tools 3 (1 новый), services 1, docs 5 (вкл. `fullscreen-archaeology.md`), evidence 77 (`evidence/w7/**` 34 + `evidence/fs-hotfix/**` 43, вкл. browseruse PNG). В обеих картах top-level `candidate_commit` := W7-кандидат (single-candidate семантика; прежние указатели — W5 `bc277a3d` / AMD.2.6 `d4c33c21`); `deployed_commit` пуст (пуша и деплоя нет; ре-анкор после выката — §W7 RELEASE re-anchor: `deployed_commit` = `0b7a0aca`).
+
+**Строк W7:** main **13** (7 inventory: `SOUL-12.0`, `SOUL-13.0`, `SOUL-13.2`–`SOUL-13.6`; 6 additional: `SOUL-12.1`–`SOUL-12.5`, `SOUL-13.1`); **amendment — 0**: слайс W7 в amendment не представлен, гейт amendment на слайс W7 даёт честный `FAIL: review scope has no requirements: W7` (не форсировался).
+
+| req | Статус | live_when | Основание / что осталось |
+|---|---|---|---|
+| SOUL-12.0 | READY_FOR_LIVE | postdeploy | строка закрытым не объявляется: живое подтверждение (Windows/Android) — postdeploy; чек-лист владельца отменён 18.10, живые наблюдения — агенты после выката (`PENDING_OWNER_E2E` информационный) |
+| SOUL-12.1 | READY_FOR_LIVE | postdeploy | кодовый факт устранён (tdesktop — обычный клиент, заглушки удалены директивой); живая половина — Launch Mode на клиенте владельца (postdeploy) |
+| SOUL-12.2 | READY_FOR_LIVE | postdeploy | три операции разделены (негативы 5.3b/5.3c, запрет moveTo/resizeTo/expand-фолбэка); визуальная сущность fullscreen — postdeploy |
+| SOUL-12.3 | READY_FOR_LIVE | postdeploy | диагностика собирает факты воспроизведения (F1 починен: sessionStorage+hash, allowlist); живая матрица клиентов — postdeploy |
+| SOUL-12.4 | READY_FOR_LIVE | postdeploy | политика соблюдена на mock-канале (реальная кнопка там, где есть API; без ложного успеха); «визуально подтверждённый fullscreen» — postdeploy |
+| SOUL-12.5 | READY_FOR_LIVE | postdeploy | моки — только регресс; safe area/без перекрытий; полигон не тронут (`frozen-check` OK); живое подтверждение — postdeploy |
+| SOUL-13.0 | VERIFIED | preprod | baseline v6.3 зафиксирован (`v63-baseline-record.json`); ни одна строка не «closed» |
+| SOUL-13.1 | VERIFIED | preprod | видимый реестр 65 строк (42/18/5) 1:1 сверен ревьюером, без «закрытий» |
+| SOUL-13.2 | VERIFIED (прод-наблюдение 18.10) | postdeploy | локально 7 путей стенда → 401/403/404, боевые 200, test-среда рендерится; на задеплоенном 2.58.84 @0b7a0aca прод-проба: `/web/static/glass-teststand.html` и `/static/glass-teststand.css` → 404 анониму, живые пути 200 (`evidence/release-fs-25884/ev_deploy_run.txt`) |
+| SOUL-13.3 | VERIFIED | postdeploy | реестр без переименований; «14» = историческое состояние, обязательства не спрятаны |
+| SOUL-13.4 | VERIFIED | preprod | код различает absent/hot/env + WARN без секретов; UI-состояние подтверждено реальным рендером (мок-канал); провайдерский reset horizon честно OPEN |
+| SOUL-13.5 | VERIFIED | preprod | реальные расположения артефактов и deployed SHA (без выдуманных путей); `225c3c2b` — ancestor `origin/master` |
+| SOUL-13.6 | VERIFIED | preprod | 6/6 PASS на `.venv`; падения под `py -3` воспроизведены как интерпретаторные; runtime-бага нет |
+
+**Гейты (verbatim; кандидат `6094a2cfa1660d1b949dcfe5ec085bc08f080de4`):**
+
+main, `--stage review --slice W7`:
+```
+stage=review inventory=101 manual=97 scoped=13 errors=0
+EXITCODE=0
+```
+
+amendment, `--stage review --slice W7` (**слайс W7 в amendment не представлен — честный FAIL, не форсировался**):
+```
+FAIL: review scope has no requirements: W7
+stage=review inventory=66 manual=28 scoped=0 errors=1
+EXITCODE=1
+```
+
+**Структурный контроль карт** (`--stage plan`, обе карты): `stage=plan inventory=101 manual=97 scoped=0 errors=0` / `stage=plan inventory=66 manual=28 scoped=0 errors=0`, EXITCODE=0 (после привязки).
+
+**LF/CRLF-санити коммита A (после `git commit`, сверка блобов с родителем):** `web/index.html`, `web/app.js`, `web/static/fullscreen-policy.js`, тесты, инструменты, `services/embedding_control_plane.py` — CRLF=0 (не добавлено); `web/static/app.css` — CRLF=6, ровно как в родителе (унаследовано, новых нет); карты при привязке перезаписаны с сохранением их CRLF-конвенции (дифф — только W7-строки и указатель).
+
+**Пометы:**
+1. **U07.1a — исключена ранее (не этим коммитом):** в соседней карте v6.3-коррекции (`plans/features/asap8-v6-3-live-correction/requirements-map.json`, `items/L00200`) строка `U07.1a` переведена в `user_excluded` («SUPERSEDED директивой владельца 18.10»); эта привязка её не трогает, директива подтверждена кодовой частью FS-хотфикса (заглушка → рабочая кнопка).
+2. **FOLLOW-UP-критерии (логотип / §7 №8–№12 / §8-диагностика) живут в карте v6.3-коррекции** — это соседняя карта; её файлы в коммит A сознательно не включены (чужие незакоммиченные правки, включая PNG `w2-evidence*`). Ре-анкор — после выката.
+3. **Замечания review-w7:** N1 (stale-артефакт `pytest-embedding-suites.txt` «1 failed, 96 passed») — **исправлено в A**: артефакт перегенерирован (`97 passed`); N2 (тест-гэп: приоритет hot-над-env не защищён assert'ом) — **открытая не-блокирующая заметка** (код ведёт себя верно, дефекта нет); N3 (binding) — этот коммит; N4 (аддитивное расширение области `index.html`/`app.js`) — задекларировано в отчёте §4.1, регрессий нет; N5–N8 — pre-existing/шум.
+4. **Девиация коммита A (честно):** добавлены новые доказательства SOUL-13.4-UI (`evidence/w7/embed_primary_ui_render.json` + 2 PNG + `_probe_embed_primary_ui.py`; browser-use, реальный Chrome, мок SDK/API стенда — доказывают UI-wiring, не состояние прода) и ранее untracked `fullscreen-archaeology.md` (read-only разведка FS-лейна).
+5. **Живые границы (не закрыты):** реальные Windows/Android после выката (SOUL-12.x), reset horizon провайдера эмбеддингов (SOUL-13.4, внешний факт); `SOUL-12.0` закрытым не объявляется. Прод-404 стенда (SOUL-13.2) выполнен 18.10 на 2.58.84 — §W7 RELEASE re-anchor.
+
+**Следующее действие (для Orchestrator):** (а) независимое ревью привязки (статусы/evidence/честность классификаций); (б) push+изолированный релиз и деплой — отдельный лейн (**выполнено 18.10: `0b7a0aca` / 2.58.84, см. §W7 RELEASE re-anchor**); (в) postdeploy — живые наблюдения по SOUL-12.x (**SOUL-13.2 — выполнено**, см. §W7 RELEASE re-anchor) и release-стадия гейта.
+
+## W7 RELEASE re-anchor (0b7a0aca / 2.58.84, 18.10)
+
+**Релиз:** изолированный fs-релиз `release/fs-2.58.84` → прод `0b7a0aca416a418e099e157eca77d0a3137b3405` (2.58.84); отчёт `release-fs-25884-report.md`, evidence `evidence/release-fs-25884/**`. Изоляция: дельта vs `448cc81a` = 40 файлов (9 fs + 31 пин), SOUL-1 byte-diff пуст (0 байт), маркеры SOUL-1 отсутствуют, 7/7 raw-хешей артефактов == релизному коммиту, healthz ok — детали в отчёте.
+
+**Карты (ре-анкор):** top-level `deployed_commit` := `0b7a0aca…` в **обеих** картах; `candidate_commit` остаётся W7-кандидатом `6094a2cf…` (single-candidate семантика: ревью-кандидат — master-линия, прод — release-линия; fs-файлы байт-идентичны — policy `96db0642…`, отпечатки сходятся).
+
+**W7-строки (13, все — запись к `0b7a0aca`):** fs-часть задеплоена (policy байт-в-байт; прод-пробы ban=0/soft-exit=0/заглушки=0/админ-инструмент=1/логотип скрыт=1); **не-fs элементы W7 (embedding-диагностика SOUL-13.4, W7-ханки `embeddings-primary`/`cr.key_source`) в релиз НЕ входили** (SOUL-1 byte-diff пуст; ханки сознательно не взяты — отчёт §Перенос п.4). Статусы не форсированы; продвинута одна строка по прямому прод-доказательству:
+
+- **SOUL-13.2 → VERIFIED** (прод-наблюдение acceptance на задеплоенном кандидате): `/web/static/glass-teststand.html` → 404 и `/static/glass-teststand.css` → 404 анониму (Фаза E `evidence/release-fs-25884/ev_deploy_run.txt`), живые боевые пути → 200; положительная проверка test-среды — `teststand-test-env-local.json` (локально); полигон/liquid glass не тронуты (перенос — только fs-дифф; frozen-check SAME).
+
+**Гейты verbatim (после ре-анкора):** main `--stage review --slice W7 --candidate 6094a2cf…` → `stage=review inventory=101 manual=97 scoped=13 errors=0`, EXIT 0; amendment `--slice W7` → честный `FAIL: review scope has no requirements: W7` (`scoped=0 errors=1`, EXIT 1 — слайса W7 в amendment нет). `--stage plan`: `101/97/0/0` (main), `66/28/0/0` (amendment), EXIT 0. Соседняя v6.3-карта (в том же ledger-проходе): `--stage review --slice FE-FULLSCREEN --candidate 0b7a0aca…` → `scoped=27 errors=0`, EXIT 0 (RFL-строки остались RFL — их закрытие только живым наблюдением).
+
+**Остаток (честно):** живые SOUL-12.x (реальный клиент), reset horizon SOUL-13.4 (внешний факт); release-стадия гейта soul-1 не запускалась — её условие `candidate == deployed_commit` при разных линиях (master `6094a2cf` vs прод `0b7a0aca`) не выполняется; прод-идентичность fs-части доказывается raw-хешами, а не совпадением SHA.

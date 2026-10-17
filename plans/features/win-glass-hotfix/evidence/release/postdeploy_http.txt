@@ -1,0 +1,21 @@
+POST-DEPLOY external probes (operator host -> internet), 2026-10-17 ~21:06-21:07 UTC;
+server session log: deploy-run.txt; server UTC recon start 21:04:18Z.
+
+GET https://admin-bot.duckdns.org/healthz -> 200 {"status":"ok","version":"2.58.85"}
+GET /static/glass-refraction.js -> 200 size=31744 sha256_12=6a09d962d59d (== release blob)
+GET /web/static/glass-refraction.js -> 200 sha256_12=6a09d962d59d
+GET /web/app.js -> 200 size=1130682 sha256_12=6c3edf36a238 (== release blob)
+GET /web/static/app.css -> 200 size=206237 sha256_12=c01916cf3ef5 (== release blob)
+GET /web/static/fullscreen-policy.js -> 200 size=32473 sha256_12=96db06425079 (== release blob)
+GET /web/ -> 200 size=731688; contains '/static/glass-refraction.js'; 15x '2.58.85'; 0x '2.58.84'
+
+Headless Chromium 390x844 (plain browser, no Telegram initData): http=200, title='AdminBot - Amin'
+console_errors=0, page_errors=0; window.__GlassRefraction/__GlassProbe/__FullscreenPolicy = object;
+script[glass-refraction.js] present; .lg-refract count=0 (desktop-class in plain browser - by design);
+see postdeploy_probe.json + postdeploy_390.png.
+
+Server-side in-session probes (deploy-run.txt section I1) - all 200:
+/healthz /static/glass-refraction.js /static/glass-probe.js /static/app.css /web/ /web/app.js
+/web/static/app.css /web/static/glass-refraction.js /web/static/glass-probe.js
+/web/static/fullscreen-policy.js
+Journal: 0 ERROR/CRITICAL/Traceback after restart; bot polling live; NRestarts=0; active(running).

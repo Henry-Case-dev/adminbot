@@ -679,10 +679,15 @@ def note_writer_generated(*, chat_id: int, intent_id: str,
                           chars: int = 0) -> None:
     """F6 (§13.3): `initiative_writer_generated` — текст инициативы
     сгенерирован существующим Direct L2 Writer (trigger=initiative).
-    Notable-only, R17-safe (числа/ID; текст — никогда)."""
+    Notable-only, R17-safe (числа/ID; текст — никогда).
+
+    W5 (SOUL-18.2): связка намерения едет токеном в существующей колонке
+    `entity_ids` (колонки `entity_id` в `mca_events` нет) — это позволяет
+    посчитать задержку «текст → доставка» без новых полей/таблиц."""
     _emit("initiative_writer_generated", outcome="success",
           chat_id=chat_id, reason_code="writer_generated",
-          entity_id=intent_id or None, stage="initiative",
+          entity_ids=(["intent:%s" % intent_id] if intent_id else None),
+          stage="initiative",
           usage_json={"chars": max(0, int(chars))})
 
 
@@ -691,7 +696,8 @@ def note_recheck_passed(*, chat_id: int, intent_id: str) -> None:
     перед отправкой разрешила отправку (плечо funnel `recheck_passed`)."""
     _emit("initiative_recheck_passed", outcome="success",
           chat_id=chat_id, reason_code="recheck_passed",
-          entity_id=intent_id or None, stage="send_recheck")
+          entity_ids=(["intent:%s" % intent_id] if intent_id else None),
+          stage="send_recheck")
 
 
 def note_initiative_sent(*, chat_id: int, intent_id: str,
@@ -699,8 +705,46 @@ def note_initiative_sent(*, chat_id: int, intent_id: str,
     """F6 (§13.3): `initiative_sent` — доставлено (ledger-дубль для
     chat-scope funnel; source of truth остаётся `mca_bot_outputs`)."""
     _emit("initiative_sent", outcome="success", chat_id=chat_id,
-          reason_code="initiative_sent", entity_id=intent_id or None,
+          reason_code="initiative_sent",
+          entity_ids=(["intent:%s" % intent_id] if intent_id else None),
           stage="delivery", usage_json={"chunks": max(0, int(chunks))})
+
+
+def note_delivery_manifest(*, chat_id: int, correlation_id: str,
+                           message_id: int | None = None,
+                           core_revision: str = "",
+                           style_policy_revision: str = "",
+                           identity_revision: str = "",
+                           manifest_id: str = "",
+                           composer_state: str = "") -> None:
+    """W5 (SOUL-18.6): сопоставление доставленной инициативы с Core/Style.
+
+    Пишется ПОСЛЕ подтверждённой доставки и только с ID/ревизиями (R17:
+    наружу уходят идентификаторы сборки, не текст). Позволяет панели
+    показать, под каким Core/Style-манифестом ушло конкретное сообщение —
+    без ретроспективной подстановки текущих значений.
+
+    Транспорт — существующие колонки события: `entity_ids` (JSON-список
+    machine-токенов; колонки `entity_id`/`message_id` в `mca_events` нет)
+    + `config_version` (человекочитаемая сводка)."""
+    tokens = [
+        "initiative_delivery",
+        "corr:%s" % (correlation_id or "-"),
+        "msg:%s" % (int(message_id) if message_id is not None else "-"),
+        "core:%s" % (core_revision or "-"),
+        "style:%s" % (style_policy_revision or "-"),
+        "identity:%s" % (identity_revision or "-"),
+        "manifest:%s" % (manifest_id or "-"),
+        "composer:%s" % (composer_state or "unknown"),
+    ]
+    version = ("core=%s;style=%s;identity=%s;manifest=%s;composer=%s" % (
+        core_revision or "-", style_policy_revision or "-",
+        identity_revision or "-", manifest_id or "-",
+        composer_state or "unknown"))
+    _emit("initiative_delivery_manifest", outcome="success", chat_id=chat_id,
+          reason_code="initiative_delivered_manifest",
+          stage="delivery_manifest", entity_ids=tokens,
+          config_version=version[:120])
 
 
 def note_decision(decision, *, chat_id: int, outcome: str = "ok") -> None:
@@ -713,7 +757,8 @@ def note_decision(decision, *, chat_id: int, outcome: str = "ok") -> None:
           outcome=_INITIATIVE_OUTCOMES.get(str(outcome or ""), "success"),
           chat_id=chat_id,
           reason_code=getattr(decision, "reason_code", None),
-          entity_id=(getattr(decision, "intent_id", None) or None),
+          entity_ids=(["intent:%s" % getattr(decision, "intent_id")
+                       ] if getattr(decision, "intent_id", None) else None),
           stage=(getattr(decision, "trigger_kind", "") or None),
           status=(getattr(decision, "action", "") or None))
 

@@ -1,0 +1,1 @@
+merge-base --is-ancestor 448cc81a 0b7a0aca -> exit 0 (0 = descendant)

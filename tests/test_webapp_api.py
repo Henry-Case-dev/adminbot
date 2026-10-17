@@ -859,7 +859,8 @@ class TestRoles:
         assert "limits" in section_ids and "keys" in section_ids \
             and "access" in section_ids
         action_ids = {a["id"] for a in body["actions"]}
-        assert action_ids == {"edit_info", "edit_persona", "control.restart",
+        assert action_ids == {"edit_info", "edit_persona",
+                              "edit_humor_library", "control.restart",
                               "control.stop", "control.start",
                               "debug.config"}
         limits = next(s for s in body["sections"] if s["id"] == "limits")
@@ -1418,7 +1419,7 @@ class TestParamPermissionFlagsApi:
         # 10.23 (F5/ADR-1023-5 D5): +5 categorized → 421.
         # 10.24 (F21/ADR-1024-22 D8): +1 categorized (BUDGETS_ENABLED) → 434.
         # v6.3 B01 (W1-CHAT-INTEL): +10 INITIATIVE_* → categorized 546.
-        assert len(items) == len(categorized) == 547
+        assert len(items) == len(categorized) == 550
         m = items["limits.search_max_symbols"]
         assert m["category"] == "limits"
         assert m["group"] == "limits_search"

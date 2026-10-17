@@ -66,6 +66,13 @@ DB_BACKUP_PATTERNS = ("local_database_*.db", "memory_rebuild_*.db")
 # L-MCA14-1: pre-migration копии (`pre_migration_*.db`) ротируются ОТДЕЛЬНО
 # (ровно 1), чтобы не смешиваться с daily-бэкапами и не копиться по апгрейду.
 MIGRATION_BACKUP_PATTERNS = ("pre_migration_*.db",)
+# D1-disk-diag: деплой-бэкапы (`pre_t<ticket>_<stamp>.db`, ~1.3G за релизное
+# окно) создаёт тулинг деплоя; паттерн не входил ни в один prune-пул — копии
+# копились без ротации (3.9G, диск 92%). Отдельный пул: в DB_BACKUP_PATTERNS
+# нельзя (оба call-site держат «ровно 1»), в MIGRATION_BACKUP_PATTERNS нельзя
+# (call-site миграций передаёт keep=1 — снёс бы rollback-копии). keep=2
+# новейших — roll-back readiness (disk_diagnosis.md §5A/§5B).
+DEPLOY_BACKUP_PATTERNS = ("pre_t*.db",)
 FACTS_PATTERNS = ("facts_*.txt",)
 
 # Жёсткий deny-list по имени: любые архивы/дампы истории сообщений.
@@ -330,6 +337,33 @@ def prune_migration_backups(directory, *, keep: int = 1) -> list[str]:
                         "name=%s", old.name)
         except OSError:
             logger.warning("[disk_retention] migration backup unlink failed | "
+                           "name=%s", old.name)
+    return removed
+
+
+def prune_deploy_backups(directory, *, keep: int = 2) -> list[str]:
+    """D1-disk-diag: держать `keep` новейших деплой-бэкапов `pre_t*.db`.
+
+    Отдельная ротация (как `prune_migration_backups`): тулинг деплоя кладёт
+    по копии ~1.3G за релизное окно, без ротации они не удалялись никогда.
+    Daily-бэкапы (`local_database_*`/`memory_rebuild_*`) и `pre_migration_*`
+    не матчатся. Код для будущих прогонов retention; запуск на проде —
+    отдельное решение владельца."""
+    if not _retention_enabled():
+        return []
+    base = Path(directory)
+    if not base.is_dir():
+        return []
+    keep = max(1, int(keep or 1))
+    removed: list[str] = []
+    for old in _newest_last(_collect(base, DEPLOY_BACKUP_PATTERNS))[:-keep]:
+        try:
+            old.unlink()
+            removed.append(str(old))
+            logger.info("[disk_retention] deploy backup rotated out | "
+                        "name=%s", old.name)
+        except OSError:
+            logger.warning("[disk_retention] deploy backup unlink failed | "
                            "name=%s", old.name)
     return removed
 

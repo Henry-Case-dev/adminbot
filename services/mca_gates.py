@@ -526,6 +526,20 @@ W2_GATES: dict[str, tuple[bool, str]] = {
         False,
         "OFF → нет сбора feedback/обновлений выборки; речь работает",
     ),
+    # ── W4 (SOUL-06.7): ремесло юмора и опциональная оценка кандидатов ──────
+    "HUMOR_CRAFT_ENABLED": (
+        False,
+        "OFF → нет слоя приёмов Humor Craft (`humor_disabled`); Personality "
+        "Core и все прочие слои живут как раньше — диагностическое выключение "
+        "ремесла не трогает характер (SOUL-06.7)",
+    ),
+    "HUMOR_CANDIDATE_EVAL_ENABLED": (
+        False,
+        "OFF → ноль дополнительных LLM-вызовов: оценка нескольких кандидатов "
+        "не запускается вовсе (обычный ответ всегда 0 доп. вызовов, "
+        "SOUL-06.7); ON — bounded (≤2 кандидата, ≤1 вызов, таймаут) и только "
+        "в диагностическом пути",
+    ),
 }
 
 # Имя оси GateState → env-имя реестра (для per-chat резолва композера).
@@ -535,6 +549,8 @@ W2_ENV_KEYS: dict[str, str] = {
     "speech_style_policy_enabled": "SPEECH_STYLE_POLICY_ENABLED",
     "humor_library_enabled": "HUMOR_LIBRARY_ENABLED",
     "humor_feedback_enabled": "HUMOR_FEEDBACK_ENABLED",
+    "humor_craft_enabled": "HUMOR_CRAFT_ENABLED",
+    "humor_candidate_eval_enabled": "HUMOR_CANDIDATE_EVAL_ENABLED",
 }
 
 
@@ -2382,6 +2398,64 @@ def humor_feedback_enabled() -> bool:
     `mca_experience`, второго learning-контура нет). OFF → обратной связи
     нет, **речь работает** (не гейтит ни один рендер-слой)."""
     return _w2_axis("HUMOR_FEEDBACK_ENABLED", "flags.humor_feedback_enabled")
+
+
+def humor_craft_enabled() -> bool:
+    """`HUMOR_CRAFT_ENABLED` (env AND `flags.humor_craft_enabled`).
+
+    ON → ситуационный слой приёмов Humor Craft рендерится по совету L1
+    (`comic_strategy`) с учётом уместности. OFF → слой не появляется
+    (`humor_disabled`), Core/Identity/Style/Examples не затронуты: это
+    диагностический toggle ремесла (SOUL-06.7), а не выключатель характера."""
+    return _w2_axis("HUMOR_CRAFT_ENABLED", "flags.humor_craft_enabled")
+
+
+def humor_candidate_eval_enabled() -> bool:
+    """`HUMOR_CANDIDATE_EVAL_ENABLED` (env AND `flags.*`), default OFF.
+
+    ON → разрешена опциональная оценка нескольких кандидатов в
+    диагностическом пути (bounded: ≤2 кандидата, ≤1 LLM-вызов, таймаут).
+    Обычный ответ при любом состоянии оси получает 0 дополнительных вызовов
+    (SOUL-06.7)."""
+    return _w2_axis("HUMOR_CANDIDATE_EVAL_ENABLED",
+                    "flags.humor_candidate_eval_enabled")
+
+
+# ── SOUL-1 (W5) — оси инициативы: диагностика и мягкие цели ──────────────────
+# Тот же контракт, что у W2-осей: env-половина (emergency) AND каталоговый
+# тумблер (product, hot/per-chat), резолв per-call, никогда не бросает,
+# default OFF = документированный поведенческий паритет.
+W5_GATES: dict[str, tuple[bool, str]] = {
+    "INITIATIVE_DIAGNOSTICS_PUBLISH_ENABLED": (
+        False,
+        "OFF → безопасная проверка «Проверить инициативу» работает ТОЛЬКО "
+        "как mock (полный trace до mock send, ни одной отправки в чат); "
+        "OFF-паритет: публикация невозможна ни при каком теле запроса",
+    ),
+}
+
+W5_ENV_KEYS: dict[str, str] = {
+    "initiative_diagnostics_publish_enabled":
+        "INITIATIVE_DIAGNOSTICS_PUBLISH_ENABLED",
+}
+
+
+def _w5_axis(env_name: str, pg_key: str) -> bool:
+    """Effective = env-половина AND каталоговый тумблер (hot, per-call)."""
+    default = bool(W5_GATES.get(str(env_name), (False, ""))[0])
+    if not w2_env_axis(env_name, default):
+        return False
+    return _module_catalog_flag(pg_key, default)
+
+
+def initiative_diagnostics_publish_enabled() -> bool:
+    """`INITIATIVE_DIAGNOSTICS_PUBLISH_ENABLED` (env AND `flags.*`), default OFF.
+
+    ON → владелец может ЯВНО разрешить реальную отправку из диагностики
+    (дополнительно требуется `confirm_publish=true` в запросе). OFF →
+    проверка всегда mock: ни одного сообщения в рабочую группу (SOUL-18.4)."""
+    return _w5_axis("INITIATIVE_DIAGNOSTICS_PUBLISH_ENABLED",
+                    "flags.initiative_diagnostics_publish_enabled")
 
 
 def composer_additive_budget_tokens() -> int:

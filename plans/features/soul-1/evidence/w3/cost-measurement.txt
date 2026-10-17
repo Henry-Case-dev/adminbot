@@ -1,0 +1,129 @@
+SOUL-1 / W3 — контракт-демонстрация правил формы (кандидат: рабочее дерево)
+Политика: no_quotes + no_trailing_period + no_emoji (hard), revision=1
+Фрагменты-инварианты проверяются на ФАКТИЧЕСКОМ payload доставки.
+
+── вход sha12=06bfa6e648ed extent=one_word (3 симв.)
+   payload (2 симв., sha12=93e6073f9005): 'Да'
+   emoji            pass                                      
+   quotation_marks  pass                                      
+   trailing_period  repaired     trailing_period_removed      
+   extent-check     pass         -
+   защищённые фрагменты сохранены: да
+   завершающая точка на payload: нет
+
+── вход sha12=13aa0e0eaa1d extent=micro (15 симв.)
+   payload (14 симв., sha12=26126f552689): 'Ну да, логично'
+   emoji            pass                                      
+   quotation_marks  pass                                      
+   trailing_period  repaired     trailing_period_removed      
+   extent-check     pass         -
+   защищённые фрагменты сохранены: да
+   завершающая точка на payload: нет
+
+── вход sha12=5486dfbb4ee0 extent=compact (38 симв.)
+   payload (33 симв., sha12=9d945a4e9a3f): 'Он сказал база, и это была истина'
+   emoji            pass                                      
+   quotation_marks  repaired     ironic_quotes_removed        conflicts=0,protected=0,removed_pairs=2,risk=irony_may_be_lost,unpaired=0
+   trailing_period  repaired     trailing_period_removed      
+   extent-check     pass         -
+   защищённые фрагменты сохранены: да
+   завершающая точка на payload: нет
+
+── вход sha12=ba3185035c39 extent=normal (60 симв.)
+   payload (59 симв., sha12=439fcca3af6d): 'Смотри https://example.org/path и https://example.org/other'
+   emoji            pass                                      
+   quotation_marks  pass                                      
+   trailing_period  repaired     trailing_period_removed      
+   extent-check     pass         -
+   защищённые фрагменты сохранены: да
+   завершающая точка на payload: нет
+
+── вход sha12=dd56191b6f93 extent=normal (31 симв.)
+   payload (30 симв., sha12=0084f26da0fb): 'Версия v1.2.3 и сборка 2.58.33'
+   emoji            pass                                      
+   quotation_marks  pass                                      
+   trailing_period  repaired     trailing_period_removed      
+   extent-check     pass         -
+   защищённые фрагменты сохранены: да
+   завершающая точка на payload: нет
+
+── вход sha12=ebed1d5e3279 extent=normal (45 симв.)
+   payload (44 симв., sha12=9ec686f2b589): 'Файл `report.txt` лежит в C:\\data\\report.txt'
+   emoji            pass                                      
+   quotation_marks  pass                                      
+   trailing_period  repaired     trailing_period_removed      
+   extent-check     pass         -
+   защищённые фрагменты сохранены: да
+   завершающая точка на payload: нет
+
+── вход sha12=c7356d114ba8 extent=normal (28 симв.)
+   payload (27 симв., sha12=7e7481011725): 'Код: print("hi") — работает'
+   emoji            pass                                      
+   quotation_marks  pass                                      
+   trailing_period  repaired     trailing_period_removed      
+   extent-check     pass         -
+   защищённые фрагменты сохранены: да
+   завершающая точка на payload: нет
+
+── вход sha12=0b498b30d2a8 extent=compact (24 симв.)
+   payload (23 симв., sha12=0cd8f6e75d23): 'Да, конечно. Вот почему'
+   emoji            pass                                      
+   quotation_marks  pass                                      
+   trailing_period  repaired     trailing_period_removed      
+   extent-check     pass         -
+   защищённые фрагменты сохранены: да
+   завершающая точка на payload: нет
+
+── вход sha12=1a147dcadb7b extent=normal (40 симв.)
+   payload (39 симв., sha12=d57df6ef519c): 'Ответ: «цитата источника» внутри строки'
+   emoji            pass                                      
+   quotation_marks  conflict     quotes_require_rephrase      conflicts=1,protected=0
+   trailing_period  repaired     trailing_period_removed      
+   extent-check     pass         -
+   защищённые фрагменты сохранены: да
+   завершающая точка на payload: нет
+
+── вход sha12=7e7dec965e6c extent=compact (31 симв.)
+   payload (30 симв., sha12=2aa2c722a5a8): 'Первая строка.\n\n\nВторая строка'
+   emoji            pass                                      
+   quotation_marks  pass                                      
+   trailing_period  repaired     trailing_period_removed      
+   extent-check     pass         -
+   защищённые фрагменты сохранены: да
+   завершающая точка на payload: нет
+
+── вход sha12=2fb5ecc59f61 extent=micro (15 симв.)
+   payload (15 симв., sha12=2fb5ecc59f61): 'Что это значит?'
+   emoji            pass                                      
+   quotation_marks  pass                                      
+   trailing_period  pass                                      
+   extent-check     pass         -
+   защищённые фрагменты сохранены: да
+
+── вход sha12=5ef011ba2463 extent=detailed (39 симв.)
+   payload (38 симв., sha12=ce5efe74264c): 'Разбор: 1) шаг один; 2) шаг два — итог'
+   emoji            pass                                      
+   quotation_marks  pass                                      
+   trailing_period  repaired     trailing_period_removed      
+   extent-check     pass         -
+   защищённые фрагменты сохранены: да
+   завершающая точка на payload: нет
+
+── вход sha12=60e697d24447 extent=normal (28 симв.)
+   payload (27 симв., sha12=e909f62bb557): 'Итого 5" экран и don\'t stop'
+   emoji            pass                                      
+   quotation_marks  pass                                      
+   trailing_period  repaired     trailing_period_removed      
+   extent-check     pass         -
+   защищённые фрагменты сохранены: да
+   завершающая точка на payload: нет
+
+═══ контраст режимов ═══
+one_word 'Да.'                              → payload 'Да'                       слов=1 статус extent=pass
+micro    'Да, вполне.'                      → payload 'Да, вполне'               слов=2 статус extent=pass
+micro    'Ну да, логично, и вот почему.'    → payload 'Ну да, логично, и вот почему' слов=6 статус extent=pass
+
+═══ стоимость (n=50, тот же вход) ═══
+p50=0.207 ms | p90=0.241 ms | p95=0.294 ms | max=0.412 ms
+hint: 321 симв. / 81 токенов (единственная добавка к промпту)
+LLM-вызовов на нарушение: 0 | bounded смысловой ремонт: только по явному callback вызывающего, max 1/проход

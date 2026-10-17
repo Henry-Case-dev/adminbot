@@ -518,6 +518,11 @@ def default_counters() -> dict:
         "semantic_rejected": 0, "semantic_duplicates": 0,
         "semantic_llm_unavailable": 0,
         "semantic_reject_reasons": {},
+        # W4 (SOUL-08): окно реакций на шутку — счётчики того же прохода.
+        "humor_sends_scanned": 0, "humor_signals": 0, "humor_unknown": 0,
+        "humor_windows_closed": 0, "humor_lessons_applied": 0,
+        "humor_hypotheses": 0, "humor_skipped_disabled": 0,
+        "humor_evaluator_unavailable": 0, "humor_write_failures": 0,
     }
 
 
@@ -915,6 +920,20 @@ class ExperienceReviewRunner:
                       entity_ids=[str(x) for x in
                                   (batch.get("linked_lesson_ids") or ())][:20])
             counters["stale_marked"] += await self._recheck_stale()
+            # SOUL-08 (W4): окно реакций на шутку — ЧАСТЬ этого же прохода
+            # опыта (второго контура самообучения нет). Гейт
+            # `HUMOR_FEEDBACK_ENABLED` резолвится внутри; OFF → нули и
+            # причина `humor_skipped_disabled` без единого LLM-вызова.
+            try:
+                from services import mca_humor_feedback as _humor
+                humor = await _humor.run_window_pass(self._db, llm=self._llm)
+                for key, value in (humor or {}).items():
+                    counters[key] = int(counters.get(key) or 0) + int(value or 0)
+            except Exception:
+                counters["humor_write_failures"] = int(
+                    counters.get("humor_write_failures") or 0) + 1
+                logger.warning("[mca16] humor feedback pass failed — speech "
+                               "unaffected", exc_info=True)
             pruned = await self._prune()
             for key, value in pruned.items():
                 counters[key] = int(counters.get(key) or 0) + int(value or 0)

@@ -1,0 +1,33 @@
+﻿== web/index.html
+   HEAD sha256_12 d3f93b93036e | current d3f93b93036e
+   'id="lg-lens"': 1 -> 1 [same]
+   'lg-lens-map': 1 -> 1 [same]
+   'feDisplacementMap': 2 -> 2 [same]
+   'polygon-background.js': 2 -> 2 [same]
+   '--lg-tint-hero': 0 -> 0 [same]
+   '--lg-blur': 0 -> 0 [same]
+   'glass-card': 0 -> 0 [same]
+   'lg-lens': 4 -> 4 [same]
+== web/app.js
+   HEAD sha256_12 ec7a46490a56 | current ec7a46490a56
+   'id="lg-lens"': 0 -> 0 [same]
+   'lg-lens-map': 2 -> 2 [same]
+   'feDisplacementMap': 0 -> 0 [same]
+   'polygon-background.js': 1 -> 1 [same]
+   '--lg-tint-hero': 0 -> 0 [same]
+   '--lg-blur': 0 -> 0 [same]
+   'glass-card': 0 -> 0 [same]
+   'lg-lens': 7 -> 7 [same]
+== web/static/app.css
+   HEAD sha256_12 761274ceaed1 | current 4d860466a659
+   'id="lg-lens"': 0 -> 0 [same]
+   'lg-lens-map': 0 -> 0 [same]
+   'feDisplacementMap': 0 -> 0 [same]
+   'polygon-background.js': 0 -> 0 [same]
+   '--lg-tint-hero': 3 -> 3 [same]
+   '--lg-blur': 0 -> 0 [same]
+   'glass-card': 0 -> 0 [same]
+   'lg-lens': 11 -> 11 [same]
+== web/index.html: CRLF=0 bytes=822164
+== web/app.js: CRLF=0 bytes=1183582
+FROZEN-ASSETS-OK

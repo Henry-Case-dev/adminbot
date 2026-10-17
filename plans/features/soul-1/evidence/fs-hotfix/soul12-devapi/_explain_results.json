@@ -1,0 +1,348 @@
+[
+  {
+    "scenario": "S1_tdesktop_working_button",
+    "status": "PASS",
+    "checks": 36,
+    "failures": [],
+    "extra": {
+      "btnPresent": true,
+      "btnRect": {
+        "w": 44,
+        "h": 44,
+        "y": 12
+      },
+      "hiddenClass": false,
+      "fsReason": null,
+      "stripPresent": false,
+      "diagStubMarkers": {
+        "header": false,
+        "botfather": false,
+        "platformLine": false,
+        "launchLine": false,
+        "sdkLine": false
+      },
+      "explain": {
+        "code": "",
+        "text": "",
+        "nextStep": ""
+      },
+      "diagBlobLen": 844,
+      "diagSecrets": [],
+      "diagKeys": [
+        "ackTimeoutMs",
+        "actualFullscreen",
+        "canOfferExit",
+        "canOfferFullscreen",
+        "clickResult",
+        "contentSafeAreaInset",
+        "hasExitFullscreen",
+        "hasExpand",
+        "hasInitData",
+        "hasInitDataUnsafe",
+        "hasReady",
+        "hasRequestFullscreen",
+        "height",
+        "hostBehaviour",
+        "initCount",
+        "isExpanded",
+        "isFullscreenSupported",
+        "lastError",
+        "launchFullscreen",
+        "launchParams",
+        "nextStep",
+        "platform",
+        "reason",
+        "reasonText",
+        "requestPending",
+        "safeAreaInset",
+        "sdkVersion",
+        "slot",
+        "stableHeight",
+        "trace",
+        "warnings",
+        "width"
+      ],
+      "diagLaunch": {
+        "tgWebAppPlatform": "tdesktop",
+        "tgWebAppVersion": "8.0",
+        "tgWebAppStartParam": "e2e"
+      },
+      "toasts": [],
+      "headerRect": {
+        "y": 0,
+        "h": 113
+      },
+      "hOverflow": false,
+      "scrollWidth": 1024,
+      "innerWidth": 1024
+    }
+  },
+  {
+    "scenario": "S2_tdesktop_launch_fullscreen",
+    "status": "PASS",
+    "checks": 11,
+    "failures": [],
+    "extra": {
+      "btnPresent": true,
+      "btnRect": {
+        "w": 44,
+        "h": 44,
+        "y": 14
+      },
+      "hiddenClass": false,
+      "fsReason": null,
+      "stripPresent": false,
+      "diagStubMarkers": {
+        "header": false,
+        "botfather": false,
+        "platformLine": false,
+        "launchLine": false,
+        "sdkLine": false
+      },
+      "explain": {
+        "code": "",
+        "text": "",
+        "nextStep": ""
+      },
+      "diagBlobLen": 842,
+      "diagSecrets": [],
+      "diagKeys": [
+        "ackTimeoutMs",
+        "actualFullscreen",
+        "canOfferExit",
+        "canOfferFullscreen",
+        "clickResult",
+        "contentSafeAreaInset",
+        "hasExitFullscreen",
+        "hasExpand",
+        "hasInitData",
+        "hasInitDataUnsafe",
+        "hasReady",
+        "hasRequestFullscreen",
+        "height",
+        "hostBehaviour",
+        "initCount",
+        "isExpanded",
+        "isFullscreenSupported",
+        "lastError",
+        "launchFullscreen",
+        "launchParams",
+        "nextStep",
+        "platform",
+        "reason",
+        "reasonText",
+        "requestPending",
+        "safeAreaInset",
+        "sdkVersion",
+        "slot",
+        "stableHeight",
+        "trace",
+        "warnings",
+        "width"
+      ],
+      "diagLaunch": {
+        "tgWebAppPlatform": "tdesktop",
+        "tgWebAppVersion": "8.0",
+        "tgWebAppStartParam": "e2e"
+      },
+      "toasts": [],
+      "headerRect": {
+        "y": 0,
+        "h": 116
+      },
+      "hOverflow": false,
+      "scrollWidth": 1024,
+      "innerWidth": 1024
+    }
+  },
+  {
+    "scenario": "S3_supported_unchanged",
+    "status": "PASS",
+    "checks": 13,
+    "failures": [],
+    "extra": {
+      "btnPresent": true,
+      "btnRect": {
+        "w": 44,
+        "h": 44,
+        "y": 46
+      },
+      "hiddenClass": false,
+      "fsReason": null,
+      "stripPresent": false,
+      "diagStubMarkers": {
+        "header": false,
+        "botfather": false,
+        "platformLine": false,
+        "launchLine": false,
+        "sdkLine": false
+      },
+      "explain": {
+        "code": "",
+        "text": "",
+        "nextStep": ""
+      },
+      "diagBlobLen": 842,
+      "diagSecrets": [],
+      "diagKeys": [
+        "ackTimeoutMs",
+        "actualFullscreen",
+        "canOfferExit",
+        "canOfferFullscreen",
+        "clickResult",
+        "contentSafeAreaInset",
+        "hasExitFullscreen",
+        "hasExpand",
+        "hasInitData",
+        "hasInitDataUnsafe",
+        "hasReady",
+        "hasRequestFullscreen",
+        "height",
+        "hostBehaviour",
+        "initCount",
+        "isExpanded",
+        "isFullscreenSupported",
+        "lastError",
+        "launchFullscreen",
+        "launchParams",
+        "nextStep",
+        "platform",
+        "reason",
+        "reasonText",
+        "requestPending",
+        "safeAreaInset",
+        "sdkVersion",
+        "slot",
+        "stableHeight",
+        "trace",
+        "warnings",
+        "width"
+      ],
+      "diagLaunch": {
+        "tgWebAppPlatform": "android",
+        "tgWebAppVersion": "8.0",
+        "tgWebAppStartParam": "e2e"
+      },
+      "toasts": [],
+      "headerRect": {
+        "y": 0,
+        "h": 152
+      },
+      "hOverflow": false,
+      "scrollWidth": 390,
+      "innerWidth": 390
+    }
+  },
+  {
+    "scenario": "S4_no_telegram",
+    "status": "PASS",
+    "checks": 10,
+    "failures": [],
+    "extra": {
+      "btnPresent": false,
+      "btnRect": null,
+      "hiddenClass": true,
+      "fsReason": "no_telegram_context",
+      "stripPresent": false,
+      "diagStubMarkers": {
+        "header": false,
+        "botfather": false,
+        "platformLine": false,
+        "launchLine": false,
+        "sdkLine": false
+      },
+      "explain": {
+        "code": "no_telegram_context",
+        "text": "Приложение открыто вне Telegram — полноэкранный режим Telegram здесь недоступен.",
+        "nextStep": "Откройте Mini App из Telegram (кнопка бота) — там управление полноэкранным режимом доступно."
+      },
+      "diagBlobLen": 1034,
+      "diagSecrets": [],
+      "diagKeys": [
+        "ackTimeoutMs",
+        "actualFullscreen",
+        "canOfferExit",
+        "canOfferFullscreen",
+        "clickResult",
+        "contentSafeAreaInset",
+        "hasExitFullscreen",
+        "hasExpand",
+        "hasInitData",
+        "hasInitDataUnsafe",
+        "hasReady",
+        "hasRequestFullscreen",
+        "height",
+        "hostBehaviour",
+        "initCount",
+        "isExpanded",
+        "isFullscreenSupported",
+        "lastError",
+        "launchFullscreen",
+        "launchParams",
+        "nextStep",
+        "platform",
+        "reason",
+        "reasonText",
+        "requestPending",
+        "safeAreaInset",
+        "sdkVersion",
+        "slot",
+        "stableHeight",
+        "trace",
+        "warnings",
+        "width"
+      ],
+      "diagLaunch": {
+        "tgWebAppPlatform": null,
+        "tgWebAppVersion": null,
+        "tgWebAppStartParam": null
+      },
+      "toasts": [],
+      "headerRect": {
+        "y": 0,
+        "h": 64
+      },
+      "hOverflow": false,
+      "scrollWidth": 1280,
+      "innerWidth": 1280
+    }
+  },
+  {
+    "scenario": "S5_narrow_layout",
+    "status": "PASS",
+    "checks": 18,
+    "failures": [],
+    "extra": {
+      "rows": [
+        {
+          "width": 320,
+          "height": 700,
+          "btn": {
+            "w": 44,
+            "h": 44,
+            "y": 10
+          },
+          "hOverflow": false,
+          "header": {
+            "y": 0,
+            "h": 116
+          }
+        },
+        {
+          "width": 390,
+          "height": 844,
+          "btn": {
+            "w": 44,
+            "h": 44,
+            "y": 10
+          },
+          "hOverflow": false,
+          "header": {
+            "y": 0,
+            "h": 116
+          }
+        }
+      ]
+    }
+  }
+]

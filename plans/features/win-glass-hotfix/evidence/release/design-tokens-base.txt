@@ -1,0 +1,18 @@
+
+----STDERR----
+C:\Users\main\.config\opencode\OpenCodeScratch\adminbot-ccef72c25768\win-glass-release-25885\base-check\web\app.js:20156
+        var nodes = document.querySelectorAll(this._lgGlassSelector());
+                                                   ^
+
+TypeError: this._lgGlassSelector is not a function
+    at Object.reconcileLiquidGlass (C:\Users\main\.config\opencode\OpenCodeScratch\adminbot-ccef72c25768\win-glass-release-25885\base-check\web\app.js:20156:52)
+    at Object.<anonymous> (C:\Users\main\.config\opencode\OpenCodeScratch\adminbot-ccef72c25768\win-glass-release-25885\base-check\tests\js\round1025_design_tokens_test.js:343:32)
+    at Module._compile (node:internal/modules/cjs/loader:1854:14)
+    at Object..js (node:internal/modules/cjs/loader:1985:10)
+    at Module.load (node:internal/modules/cjs/loader:1577:32)
+    at Module._load (node:internal/modules/cjs/loader:1379:12)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)
+    at node:internal/main/run_main_module:33:47
+
+Node.js v24.16.0

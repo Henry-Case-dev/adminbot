@@ -184,14 +184,44 @@ async def test_identity_rendered_once_per_turn_with_shared_version(fake_config):
 
 
 @pytest.mark.asyncio
-async def test_core_absent_is_visible_state_not_error(fake_config):
+async def test_core_absent_is_visible_state_not_error(fake_config, monkeypatch):
+    """Контракт CORE-DOC: «нет документа владельца» = действует ЗАВОДСКАЯ редакция.
+
+    До регистрации Core (SOUL-AMD.1.1) отсутствие документа означало
+    ``core_absent`` — в проде ключа `character.core` просто не существовало.
+    Теперь заводская редакция зарегистрирована, поэтому «нет документа» — это
+    ``source="default"`` + ``origin="factory"`` + заводская ревизия
+    ``fac:<sha12>``, видимая в манифесте (не тихая подстановка).
+
+    ``core_absent`` остаётся честным состоянием там, где заводского текста нет
+    (сломанный канон) или недоступен конфиг-слой (PG down → прежнее поведение и
+    OFF-паритет W2 не затрагиваются).
+    """
+    from services import prompt_registry as pr
+
     fake_config["hot"].values.pop("character.core")
     ref = await pc.resolve_core_ref(101)
-    assert ref.text == "" and ref.skip_reason == "core_absent"
+    assert ref.text == pr.factory_text(pr.CORE_COMPACT_BLOCK_ID)
+    assert ref.source == "default" and ref.origin == "factory"
+    assert ref.skip_reason == "" and ref.detail_reason == "factory_default"
+    assert ref.detail_level == "compact"
+    assert ref.revision == pr.FACTORY_PREFIX + pc.sha12(ref.text)
     manifest = pc.compose_prompt(pc.PromptPlan(
         profile="speech_plain", writer="l2_writer", chat_id=101,
         base_prompt=BASE, core=ref, include_mode_block=False,
         gates=pc.GateState(unified_composer_enabled=True)))
     core = [t for t in manifest.layers if t.layer == "core"][0]
-    assert core.rendered is False and core.skip_reason == "core_absent"
-    assert manifest.system == BASE
+    assert core.rendered is True and core.skip_reason == ""
+    assert core.detail.startswith("level=compact reason=factory_default")
+    assert manifest.system.startswith(BASE) and ref.text in manifest.system
+    # Заводского текста нет (сломанный канон) → прежнее честное состояние.
+    monkeypatch.setattr(pr, "factory_text", lambda block_id: "")
+    broken = await pc.resolve_core_ref(101)
+    assert broken.text == "" and broken.skip_reason == "core_absent"
+    # Конфиг-слой недоступен (PG down) → конфигурацию не выдумываем.
+    hot.set_config_cache(None)
+    try:
+        down = await pc.resolve_core_ref(101)
+    finally:
+        hot.set_config_cache(fake_config["hot"])
+    assert down.text == "" and down.skip_reason == "core_absent"

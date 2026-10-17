@@ -1,0 +1,16 @@
+$ node tests/js/soul1_w5_initiative_panel_test.js
+rc=0
+SOUL1-W5-PANEL-OK
+
+$ node tests/js/asap8_v63_w3_status_logs_test.js
+rc=0
+W3-STATUS-UNIT-OK
+
+$ node tests/js/asap8_v63_w3_modules_ui_test.js
+rc=0
+W3-MODULES-UI-OK
+
+$ node tests/js/app_methods_dup_keys_guard_test.js
+rc=0
+METHODS-DUP-KEYS-OK blocks=6 keys=957 duplicate-problems=0 behavioral=ok
+  WARN: мёртвый дубль (тела идентичны, известен в HEAD): `_prefersReducedMotion` ×2 @ 21177, 21196

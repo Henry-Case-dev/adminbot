@@ -297,9 +297,25 @@ class TestLiquidGlass:
         assert found, "нет @supports not (backdrop-filter) фолбэка"
 
     def test_modal_backdrop_blur_token(self):
-        rules = _rules_for(".modal-backdrop")
-        joined = " ".join(b for _, b, _ in rules)
-        assert "var(--glass-blur)" in joined or "blur(16px)" in joined
+        """re-pin HOTFIX-TIERA (SOUL-1, приказ владельца, 16.10.2026): blur
+        модалки переехал со СКРИМА на саму поверхность.
+
+        Прежний контракт round1020 («Дефект 1») требовал blur на
+        `.modal-backdrop` (var(--glass-blur)). Владелец: на реальных страницах
+        преломляться должны все стеклянные поверхности, включая модалки; blur
+        на скриме создавал backdrop root и давал двойное размытие — рефракция
+        `.modal-card` была недостижима/мутна. Теперь скрим только затемняет
+        (дим .5), а blur+рефракцию несёт `.modal-card` (Tier A:
+        --lg-frost-hero + url(#lg-lens); фолбэк — честный frost-hero)."""
+        scrim = " ".join(b for _, b, _ in _rules_for(".modal-backdrop"))
+        assert "rgba(0, 0, 0, 0.5)" in scrim, "дим скрима сохранён"
+        assert "backdrop-filter: none" in scrim.replace("-webkit-", ""), \
+            "HOTFIX-TIERA: скрим не размывает (иначе двойной blur + backdrop root)"
+        blur, bsel, _ = _resolve(["modal-card", "card"], "backdrop-filter",
+                                 tag="div")
+        assert blur is not None and (
+            "var(--glass-blur)" in blur or "var(--lg-frost" in blur), \
+            (bsel, blur)
 
     def test_no_tailwind_bg_on_glass_nodes(self):
         bad = re.compile(

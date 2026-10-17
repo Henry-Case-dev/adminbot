@@ -1,0 +1,33 @@
+{
+  "probe": "SOUL-13.4 primary-слот: реальный рендер UI-состояния (W7)",
+  "lane": "COMMIT-FS (доказательство для привязки W7; прогон 18.10.2026)",
+  "channel": "browser-use, реальный Chrome; настоящие web/index.html + web/app.js + web/static/*; мок SDK (tdesktop) и мок API-стенда (ui_round1025_matrix._Handler)",
+  "harness": "plans/features/soul-1/evidence/w7/_probe_embed_primary_ui.py (scenario=absent|hot)",
+  "stub_form": "GET /api/memory/embeddings — форма 1:1 с provider_panel().rotation (services/embedding_control_plane.py:455-497)",
+  "honest_note": "Мок-канал: доказывает UI-wiring (состояние primary-слота доходит до панели «Embedding provider» понятным текстом), НЕ состояние реального прода; провайдерский reset horizon остаётся внешним фактом (OPEN).",
+  "scenarios": [
+    {
+      "scenario": "absent",
+      "rotation": {"keys": 2, "primary_present": false, "primary_source": "absent", "primary_state": "primary_absent", "primary_warn": true},
+      "card_rect": {"x": 16, "y": 426, "w": 989, "h": 213},
+      "warn_block": {"selector": "[data-embeddings-primary-warn]", "visible": true, "rect": {"x": 45, "y": 532, "w": 930, "h": 57},
+        "text": "⚠ primary-слот пуст · в пуле 2 ключ. (только fallback) · источник: absent Задайте EMBEDDING_API_KEY (env) либо hot-ключ keys.embedding_api_key — hot подхватывается без рестарта; ключи по группам: keys.embedding_quota_group_labels"},
+      "state_block_present": false,
+      "overflow_x": false,
+      "leak_markers_found": [],
+      "screenshot": "plans/features/soul-1/evidence/w7/embed_primary_ui_warn_absent.png"
+    },
+    {
+      "scenario": "hot",
+      "rotation": {"keys": 2, "primary_present": true, "primary_source": "hot", "primary_state": "primary_from_hot", "primary_warn": false},
+      "card_rect": {"x": 16, "y": 426, "w": 989, "h": 172},
+      "state_block": {"selector": "[data-embeddings-primary-state]", "visible": true, "rect": {"x": 45, "y": 532, "w": 930, "h": 16},
+        "text": "primary: слот задан (hot-конфиг keys.embedding_api_key)"},
+      "warn_block_present": false,
+      "overflow_x": false,
+      "leak_markers_found": [],
+      "screenshot": "plans/features/soul-1/evidence/w7/embed_primary_ui_hot_state.png"
+    }
+  ],
+  "secret_scan": {"markers": ["ghp_", "sk-", "AIza", "Bearer", "token", "initData", "tgWebApp", "BEGIN PRIVATE", "password", "api_key="], "found": []}
+}

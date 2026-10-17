@@ -233,6 +233,7 @@ from services.database import (  # noqa: E402
     _SCHEMA_VERSION_FACTCHECK_TEMPORAL as _SCHEMA_VERSION_TAIL_V33,
     _SCHEMA_VERSION_EMBEDDING_GENERATION_NS as _SCHEMA_VERSION_TAIL_V34,
     _SCHEMA_VERSION_LLM_USAGE_PLAN_META as _SCHEMA_VERSION_TAIL_V35,
+    _SCHEMA_VERSION_HUMOR_SAMPLES as _SCHEMA_VERSION_TAIL_V36,
 )
 # mca-10b (ADR-1028-17 D15, санкция §13.1): хвост реестра — v30
 # (random_uses) — mark обновлён по той же конвенции (прецедент v27→v28→v29).
@@ -253,7 +254,11 @@ from services.database import (  # noqa: E402
 # (llm_usage_plan_meta_v35: nullable plan_meta JSONB в llm_usage_events,
 # PG-only DDL; SQLite no-op) — mark обновлён по той же конвенции
 # (прецедент v33→v34).
-_SCHEMA_VERSION_STORIES_MARK = _SCHEMA_VERSION_TAIL_V35
+# SOUL-1 / W4 (SOUL-07, design-source-of-truth §2.3): хвост реестра — v36
+# (humor_samples_v36: единственная новая таблица слайса — Few-Shot
+# библиотека примеров; аддитивно, идемпотентно, PG no-op) — mark обновлён по
+# той же конвенции волн (прецедент v34→v35).
+_SCHEMA_VERSION_STORIES_MARK = _SCHEMA_VERSION_TAIL_V36
 
 
 # ═══ Kill-switch OFF-паритет (SC-20, T-4249) ═════════════════════════════════

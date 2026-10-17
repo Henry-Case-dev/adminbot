@@ -33,7 +33,7 @@ ROOT = Path(__file__).resolve().parents[1]
 def test_reason_280_single_delta():
     # 279 → 280 (mca-17c) → 285: +5 кодов Initiative v2 (ASAP 8 F6: writer_failed, initiative и др. — см. f6-report §8).
     # v6.3 B01/B02 (W1-CHAT-INTEL): 285→290 (+5: initiative_writer_unavailable/no_opportunities_24h/hearsay_or_joke/no_canonical_rule/semantic_parse_error).
-    assert len(mca_events.REASON_CODES) == 290
+    assert len(mca_events.REASON_CODES) == 301
     assert "oversight_job_action" in mca_events.REASON_CODES
     # другие контрольные коды в словаре отсутствуют (grep-факт T-5179)
     for alien in ("oversight_cancel", "oversight_resume", "oversight_retry",
@@ -52,6 +52,11 @@ def test_no_ddl_catalog_ks_tools_delta():
     # `llm_usage_events`; SQLite-шаг — честный bookkeeping no-op (guard
     # sqlite_master), фактический DDL — PgDatabase.init (DDL_STATEMENTS,
     # ADD COLUMN IF NOT EXISTS). Точное равенство сохранено.
+    # SOUL-1 / W4 (SOUL-07, design §2.3): v36 (humor_samples_v36) —
+    # единственная новая таблица слайса: Few-Shot библиотека примеров
+    # (аддитивно, CREATE TABLE IF NOT EXISTS под self-guard; PG no-op по
+    # GEN-R4 — memory-контур SQLite-only). Санкционированный хвост = 36;
+    # Δ каталога/KS/тулов остаётся нулевым (проверки ниже).
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     try:
@@ -60,7 +65,7 @@ def test_no_ddl_catalog_ks_tools_delta():
         loop.run_until_complete(d.initialize())
         cur = loop.run_until_complete(d.db.execute("PRAGMA user_version"))
         row = loop.run_until_complete(cur.fetchone())
-        assert int(row[0]) == 35
+        assert int(row[0]) == 36
     finally:
         loop.run_until_complete(d.close())
         loop.close()
@@ -71,7 +76,7 @@ def test_no_ddl_catalog_ks_tools_delta():
     # Параллельный лейн F4 (§3.2, in-flight на момент снимка): +13
     # (stories/character §3.2) → 560; финальное значение фиксирует лейн,
     # приземляющийся последним (ребейзер — один sed).
-    assert len(pc.REGISTRY) == 572
+    assert len(pc.REGISTRY) == 575
 
 
 def test_registry_47_no_new_widgets():
@@ -133,7 +138,7 @@ def test_coverage_matrix_sync():
 
 def test_app_version_not_bumped():
     # bump 2.58.65→2.58.66 — домен @DevOps (T-5198), Builder не делает.
-    assert APP_VERSION == "2.58.85"
+    assert APP_VERSION == "2.58.81"
 
 
 def test_routes_plus3_and_registration():

@@ -5,7 +5,7 @@
     "source": "services/param_catalog.py"
   },
   "counts": {
-    "REGISTRY": 572,
+    "REGISTRY": 575,
     "GROUPS": 120,
     "_TAB_BY_GROUP": 118,
     "TAB_RULES": 23
@@ -497,6 +497,7 @@
     "INFO_COOLDOWN_SECONDS",
     "INFO_TEXT_FILE",
     "INITIATIVE_DAY_WINDOW_SECONDS",
+    "INITIATIVE_DIAGNOSTICS_PUBLISH_ENABLED",
     "INITIATIVE_ENABLED",
     "INITIATIVE_EVAL_LLM_BUDGET_PER_DAY",
     "INITIATIVE_EVAL_MIN_INTERVAL_SECONDS",
@@ -778,6 +779,8 @@
     "flags.summary_hybrid_l1_retry_enabled",
     "flags.summary_hybrid_l2_enabled",
     "flags.summary_legacy_fallback_enabled",
+    "initiative.observation_target_interval_seconds",
+    "initiative.soft_target_replies_per_day",
     "keys.direct_l1_api_key",
     "keys.summary_l1_api_key",
     "keys.summary_l2_api_key",

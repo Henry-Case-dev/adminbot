@@ -1,0 +1,153 @@
+CORE-DOC / каталог, флаги, отпечатки кандидата
+
+gen_param_registry_round1025.py --check: exit=0
+CHECK OK: реестр 572 == REGISTRY, карта полна, R17-чисто, TSV/map идемпотентны.
+
+флаги (код-дефолты; прод не тронут):
+{"env_UNIFIED_COMPOSER_ENABLED": false, "env_enabled": false, "effective_enabled": false, "character_core_enabled": true, "speech_style_policy_enabled": true, "humor_library_enabled": false, "humor_feedback_enabled": false}
+
+sha256_12 кандидата:
+  f4a0246947a3 services/prompt_registry.py
+  fbbab19ce304 services/prompt_factory.py
+  a0bb5f408196 services/prompt_composer.py
+  3c465e0cfa2b services/chat_prompts.py
+  b1ebd47900bb tests/test_soul1_core_doc_text.py
+  3c88ac5a1e5f tests/test_soul1_core_registry_api.py
+  d1bc98158087 tests/test_soul1_core_composer_integration.py
+  8118f48cff47 tests/test_soul1_core_version_propagation.py
+
+git status --porcelain:
+M plans/archive/mca-17c-analytics-matrix-round1047/evidence.md
+ M plans/features/asap8-v6-3-live-correction/map-reconciliation-2026-10-16.md
+ M plans/features/asap8-v6-3-live-correction/requirements-map.json
+ M plans/features/asap8-v6-3-live-correction/w2-evidence-fullscreen/S1_android_float_390.png
+ M plans/features/asap8-v6-3-live-correction/w2-evidence-fullscreen/S1_android_float_fullscreen_390.png
+ M plans/features/asap8-v6-3-live-correction/w2-evidence-fullscreen/S2_inline_320.png
+ M plans/features/asap8-v6-3-live-correction/w2-evidence-fullscreen/S2_inline_390.png
+ M plans/features/asap8-v6-3-live-correction/w2-evidence-fullscreen/S3_tdesktop_hidden_1024.png
+ M plans/features/asap8-v6-3-live-correction/w2-evidence-fullscreen/S4_standalone_hidden_1280.png
+ M plans/features/asap8-v6-3-live-correction/w2-evidence-fullscreen/S5_unsupported_toast_390.png
+ M plans/features/asap8-v6-3-live-correction/w2-evidence-fullscreen/S6_launch_fullscreen_android_390.png
+ M plans/features/asap8-v6-3-live-correction/w2-evidence-fullscreen/S7_tdesktop_launch_fullscreen_1024.png
+ M plans/features/asap8-v6-3-live-correction/w2-evidence-fullscreen/S8_float_320.png
+ M plans/features/asap8-v6-3-live-correction/w2-evidence-fullscreen/S8_float_390.png
+ M plans/features/asap8-v6-3-live-correction/w2-evidence-fullscreen/S8_float_667_375.png
+ M plans/features/asap8-v6-3-live-correction/w2-evidence-shell/after_u01_landscape_667.png
+ M plans/features/asap8-v6-3-live-correction/w2-evidence-shell/after_u01_status_320.png
+ M plans/features/asap8-v6-3-live-correction/w2-evidence-shell/after_u01_status_390.png
+ M plans/features/asap8-v6-3-live-correction/w2-evidence-shell/after_u01_zoom200_320.png
+ M plans/features/asap8-v6-3-live-correction/w2-evidence-shell/after_u02_desktop_1280.png
+ M plans/features/asap8-v6-3-live-correction/w2-evidence-shell/after_u02_open_390.png
+ M plans/features/soul-1/plan.md
+ M plans/features/soul-1/requirements-map-amendment.json
+ M plans/features/soul-1/requirements-map.json
+ M plans/runtime_task.md
+ M plans/workflow_state.md
+ M services/chat_prompts.py
+ M services/disk_retention.py
+ M services/prompt_composer.py
+ M services/prompt_factory.py
+ M services/prompt_registry.py
+ M tests/js/round1025_design_tokens_test.js
+ M tests/test_soul1_core_version_propagation.py
+ M tests/test_webapp_ui_rework_round1020.py
+ M tools/_ui_mca12_stories_e2e.json
+?? .playwright-mcp/
+?? AGENTS.md
+?? OPENCODE_WORKFLOW_SCRATCH/
+?? node_modules/
+?? package-lock.json
+?? package.json
+?? plans/features/asap8-v6-3-live-correction/decision-resolve-failed-2026-10-16.md
+?? plans/features/asap8-v6-3-live-correction/deploy-25880-report.md
+?? plans/features/asap8-v6-3-live-correction/evidence/deploy-25880/
+?? plans/features/asap8-v6-3-live-correction/evidence/rebind-31c16555/
+?? plans/features/asap8-v6-3-live-correction/evidence/recap-25880/
+?? plans/features/asap8-v6-3-live-correction/evidence/release-25881/
+?? plans/features/asap8-v6-3-live-correction/recap-25880.md
+?? plans/features/soul-1/core-doc-report.md
+?? plans/features/soul-1/evidence/w1/_core_checks.txt
+?? plans/features/soul-1/evidence/w1/_core_compact_revision.txt
+?? plans/features/soul-1/evidence/w1/_core_dump_manifest_direct_l2.py
+?? plans/features/soul-1/evidence/w1/_core_full_text_byte_exact.txt
+?? plans/features/soul-1/evidence/w1/_core_manifest_direct_l2.json
+?? plans/features/soul-1/evidence/w1/_core_manifest_direct_l2.txt
+?? plans/features/soul-1/evidence/w1/_core_provenance_probe.py
+?? plans/features/soul-1/evidence/w1/_core_run_checks.py
+?? plans/features/soul-1/evidence/w1/_core_selection_probe.json
+?? plans/features/soul-1/evidence/w1/_core_tests.txt
+?? plans/features/soul-1/review-core.md
+?? plans/verification_cache.json
+?? tests/test_soul1_core_composer_integration.py
+?? tests/test_soul1_core_doc_text.py
+?? tests/test_soul1_core_registry_api.py
+?? tools/_asap6_anu_live.py
+?? tools/_asap6_canon_log.py
+?? tools/_asap6_canon_verify.py
+?? tools/_asap6_deploy.py
+?? tools/_asap6_final_restart.py
+?? tools/_asap6_help_deploy.py
+?? tools/_asap6_quantum_proof.py
+?? tools/_asap6_verify.py
+?? tools/_asap7_f3_reissue_f8.py
+?? tools/_asap7_f4_reissue_f8.py
+?? tools/_asap7_f7_routes_pin.py
+?? tools/_asap7_w1_bump_version.py
+?? tools/_asap7_w2_bump_version.py
+?? tools/_asap7_w3_bump_version.py
+?? tools/_d2_disk_clean.py
+?? tools/_d2_mca20_deploy.py
+?? tools/_d2_mca20_drift.py
+?? tools/_d2_mca20_postmortem.py
+?? tools/_d2_mca20_preflight.py
+?? tools/_d2_mca20_retry_deploy.py
+?? tools/_d2_mca20_stabilize.py
+?? tools/_d2_t5174_deploy.py
+?? tools/_d2_t5198_deploy.py
+?? tools/_d2_t5216_deploy.py
+?? tools/_mca17c_dump_registry.py
+?? tools/_mca17c_handler_map.py
+?? tools/_mca18_reissue_f8.py
+?? tools/_mca18_repin_routes.py
+?? tools/_mca19_wave2_bump_pins.py
+?? tools/_mca19_wave2_bump_pins2.py
+?? tools/_mca19_wave2_bump_pins3.py
+?? tools/_mca19_wave2_rebump_crlf.py
+?? tools/_p2b_golden_e2e.json
+?? tools/_p2b_golden_e2e.py
+?? tools/_p2b_visual_server.py
+?? tools/_t5126_commit_plan.py
+?? tools/_t5126_preflight_manifest.py
+?? tools/_t5126_prod_dbcheck.py
+?? tools/_t5126_recipe_variants.py
+?? tools/_t5126b_battery.py
+?? tools/_t5126b_cmd_recon.sh
+?? tools/_t5126b_deploy.py
+?? tools/_t5126b_inspect.py
+?? tools/_t5126b_ssh.py
+?? tools/_t5126b_verify.py
+?? tools/_ui_asap43_cover_styles_geometry.json
+?? tools/_ui_asap43_desktop_1280x800_editor.png
+?? tools/_ui_asap43_desktop_1280x800_management.png
+?? tools/_ui_asap43_landscape_844x390_editor.png
+?? tools/_ui_asap43_landscape_844x390_management.png
+?? tools/_ui_asap43_portrait_390x844_editor.png
+?? tools/_ui_asap43_portrait_390x844_management.png
+?? tools/_ui_asap6_embedding_profiles.json
+?? tools/_ui_asap6_wave2_ux.json
+?? tools/_ui_asap7_f3_desktop_1280x800_hub.png
+?? tools/_ui_asap7_f3_desktop_1280x800_overview.png
+?? tools/_ui_asap7_f3_desktop_1280x800_settings.png
+?? tools/_ui_asap7_f3_emergency_off.png
+?? tools/_ui_asap7_f3_mobile_390x844_hub.png
+?? tools/_ui_asap7_f3_mobile_390x844_overview.png
+?? tools/_ui_fix_logs_anchor_server.py
+?? tools/_ui_fix_logs_anchor_shots.py
+?? tools/_ui_mca12_memory_desktop.png
+?? tools/_ui_mca12_status_desktop.png
+?? tools/_ui_mca12_status_mobile.png
+?? tools/_ui_wave2_init.py
+?? tools/_ui_wave2_visual_server.py
+?? tools/ui_asap6_embedding_profiles_e2e.py
+?? tools/ui_asap6_wave2_ux_e2e.py
+?? tools/ui_asap8_v6_p1_d09_d11_e2e.py

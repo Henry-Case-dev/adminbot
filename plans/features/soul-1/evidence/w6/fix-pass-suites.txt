@@ -1,0 +1,282 @@
+SOUL-1 / W6 — прогоны fix-pass'а (review-w6 F1–F3). Кандидат: рабочее дерево,
+коммита/деплоя нет. Дата: 2026-10-17.
+
+Все команды запускались из C:\Code\Python\adminbot; прогоны ниже сделаны на
+ФИНАЛЬНЫХ байтах кандидата (после нормализации окончаний строк web/** — см. §EOL).
+
+────────────────────────────────────────────────────────────────────────────
+1. F1 — проба достижимости снимка хода при рантайм-форме (run_id=uuid)
+   команда: .venv/Scripts/python.exe OPENCODE_WORKFLOW_SCRATCH/w6-fix/run_id_probe.py
+
+== A. legacy seed (run_id=None) ==
+  seed without run_id                    old_lookup=True  last_run_present=True  sent.writer=l2_writer    sent.run_id=None
+== B. runtime-shaped seed (run_id=uuid) ==
+  seed with uuid run_id                  old_lookup=False last_run_present=True  sent.writer=l2_writer    sent.run_id=b82fbbb6d9b64f10b3d3150fdbebb333
+== C. preview AFTER the real turn ==
+  real turn + newer preview              old_lookup=False last_run_present=True  sent.writer=l2_writer    sent.run_id=b82fbbb6d9b64f10b3d3150fdbebb333
+== D. chat isolation ==
+  other chat                             old_lookup=False last_run_present=False sent.writer=None         sent.run_id=None
+== E. preview-only (нет реального хода) ==
+  preview only: last_run_present=False note=Снимка фактического хода в памяти нет: показан только предпр
+PROBE-OK: F1 (uuid run_id) → снимок хода найден, предпросмотр его не подменяет и за доказательство не выдаётся
+
+   «old_lookup» — эквивалент кода ДО фикса (поиск get_manifest(chat, writer=…)
+   без run_id): на uuid-форме он даёт False — это RED из review-w6 F1; после
+   фикса (last_run_present) тот же сид даёт True с тем же run_id.
+
+2. F2/F3 — мутационная проверка новых тестов (откат правки → тест обязан упасть)
+   команда: .venv/Scripts/python.exe OPENCODE_WORKFLOW_SCRATCH/w6-fix/mutation_guard.py
+
+F1: поиск манифеста без run_id (старый код)    rc=1 1 failed, 21 deselected in 3.97s | файл восстановлен=True
+F2: редактор рендерит серверный снапшот        rc=1 1 failed, 21 deselected in 3.98s | файл восстановлен=True
+F3: чтение diff.before_chars/after_chars в тосте rc=1 1 failed, 21 deselected in 3.74s | файл восстановлен=True
+F3: кнопка «Вернуть заводской» без блок-ид     rc=1 1 failed, 21 deselected in 3.53s | файл восстановлен=True
+MUTATION-GUARD: OK
+
+3. W6 e2e-харнесс (реальные web/index.html + web/app.js/css, формы — из фикстуры)
+   команда: .venv/Scripts/python.exe tools/ui_soul1_w6_speech_e2e.py
+   итог: failures=0, POST=16, shots=94
+   ключевые записи plans/features/soul-1/evidence/w6/ui-report.json:
+     «style_f2_draft»        rules=1, unchecked=1, dirty_badge=true
+     «style_f2_mutations»    rules [1, 2, 1]  (после добавления шаблона и «Убрать»)
+                             soft  [1, 2, 1]
+     «factory_plan»          тост: «Заводской вариант: было 2882 → станет 2835 зн.
+                             (строк −2 / +0). Повторный клик — подтверждение»
+     «block_factory_plan»    «заводской сброс: было 2882 → станет 2835 зн.
+                             (строк −2 / +0)»  (карточка блока, GET /block)
+     «inspector»             sent_branch=true (ветка «есть снимок реального хода»
+                             + run_id снимка в разделе), ветка «только предпросмотр»
+                             проверена первым GET'ом
+   POST-вызовы: 16 = 8 на прогон, включая 2×/прогон POST …/reset (план + подтверждение).
+
+4. pytest — W6-файл и периметр ревью
+   .venv/Scripts/python.exe -m pytest tests/test_soul1_w6_speech_ui.py -q
+     → 22 passed (было 18; +4 новых: рантайм-run_id, сторож записи, черновик редактора,
+       форма ответа /reset)
+   .venv/Scripts/python.exe -m pytest -q -k "webapp or ia_ or soul1 or round1025 or round1024 or ui_ or glass or persona or prompt or registry or catalog"
+     → 3786 passed, 0 failed, 10244 deselected (94.06s)
+       (у ревью 3782 — ровно +4 новых теста W6-файла)
+   .venv/Scripts/python.exe -m pytest -q -k "soul1"  → 478 passed, exit code 0
+
+5. node JS-UNIT (6 прогонов, как в отчёте слайса)
+   node tests/js/glass_probe_test.js                 → JS-UNIT-OK glass-probe
+   node tests/js/round1025_design_tokens_test.js     → JS-UNIT-OK
+   node tests/js/routing_test.js                     → JS-UNIT-OK
+   node tests/js/round1025_ia_routing_test.js        → JS-UNIT-OK round1025_ia_routing_test
+   node tests/js/vue_mount_test.js                   → VUE-MOUNT-OK
+   node tests/js/asap8_w2_shell_mobile_nav_test.js   → W2-SHELL-UNIT-OK
+   node --check web/app.js                           → APP-JS-SYNTAX-OK
+
+6. стеклянные полосы (запускались на финальных байтах; артефакты чужой полосы
+   восстановлены байт-в-байт из снапшота — DO_NOT_TOUCH соблюдён)
+   tools/ui_asap8_w2_shell_e2e.py      → failed_checks {}, console_errors []
+                                         → W2-SHELL-E2E-OK
+   tools/ui_asap8_w2_fullscreen_e2e.py → S1…S8 PASS → 7/7 PASS
+   восстановление plans/features/asap8-v6-3-live-correction/w2-evidence-*:
+     28 файлов, из них 18 перезаписаны прогоном → после восстановления
+     «снапшот соседней полосы восстановлен байт-в-байт: True»
+
+────────────────────────────────────────────────────────────────────────────
+EOL — нормализация окончаний строк web/** (входит в этот fix-pass)
+  Факт: web/index.html, web/app.js, web/api/speech.py в рабочем дереве были
+  CRLF-only, тогда как HEAD хранит LF (index.html HEAD: CRLF=0, LF=9646;
+  app.js HEAD: CRLF=0, LF=21148), .gitattributes нет, core.autocrlf=false.
+  Следствие: node-тесты периметра с substring-ассертом на "\n"
+  (tests/js/round1025_hotfix8_shell_aurora_test.js: `data-glass="shell"\n`,
+  tests/js/round1026_s7_log_summary_filter_test.js) падали: «2 failed, 3784 passed».
+  Проверка авторства: проба «write → edit» (OPENCODE_WORKFLOW_SCRATCH/w6-fix/
+  eol-probe-lf.txt) показала, что инструмент правки НЕ конвертирует окончания
+  (LF-файл остался LF, 0 CRLF), а мои же правки LF-файлов слайса
+  (tests/test_soul1_w6_speech_ui.py, tools/ui_soul1_w6_speech_e2e.py,
+  plans/.../dump_api_fixture.py) остались LF → CRLF в web/** существовал ДО
+  этого fix-pass'а.
+  Действие: CRLF→LF без изменения содержимого (проверено: байты совпадают с
+  исходными после удаления \r), numstat после нормализации: web/app.js +836/−1,
+  web/index.html +871/−0 (то есть дифф снова показывает только содержательные
+  правки слайса). web/static/app.css НЕ трогался: sha256_12 = 761274ceaed1
+  (совпадает с отпечатком review-w6 → стеклянные токены не затронуты).
+  После: node round1025_hotfix8_shell_aurora_test.js → HOTFIX8-SHELL-AURORA-OK;
+  round1026_s7_log_summary_filter_test.js → S7-LOG-SUMMARY-OK; периметр 3786/0.
+
+────────────────────────────────────────────────────────────────────────────
+Инварианты стекла (сравнение с HEAD на финальном дереве)
+  web/static/polygon-background.js: git blob c2ad97d446f5e7c7b72fb46d9bb560ae3777d6c3
+    = blob HEAD = значение review-w6 (файл не изменён).
+  #lg-lens (SVG-фильтр в web/index.html): sha256_16 5367ec4566fc9e80, 6298 б —
+    идентичен HEAD и значению ревью.
+  Блок --lg-*/backdrop-filter в web/static/app.css: 89cda50a6e618ea5 == HEAD
+    (104 строки) — не изменён; весь app.css байт-идентичен ревьюированному
+    кандидату (761274ceaed1).
+
+Отпечатки кандидата (sha256_12, финальные)
+  d1fec786ee6b  web/api/speech.py                      (был b85c6d63143e: F1)
+  786fe44e4f94  web/index.html                         (был 69216b9222f6: F2/F3 + LF)
+  cea14985241d  web/app.js                             (был e094635999cc: F2/F3 + LF)
+  761274ceaed1  web/static/app.css                     (не изменялся)
+  5b61a663cf65  tests/test_soul1_w6_speech_ui.py       (был a6ad280ccd0c: 22 теста)
+  b71312860739  tools/ui_soul1_w6_speech_e2e.py        (был a6dc45f79429: реальные
+                                                       формы /reset и F2/F3-потоки)
+  a9c2373eda53  plans/features/soul-1/evidence/w6/dump_api_fixture.py
+                                                       (был c846c73b347f)
+  226252e643a8  plans/features/soul-1/evidence/w6/api-fixture.json
+                                                       (был a71942e98486: uuid-run_id,
+                                                        factory_reset_plan)
+
+────────────────────────────────────────────────────────────────────────────
+FIX-W6-EOL — байтовая LF-нормализация трёх web-файлов (закрытие блокера B1 recheck'а)
+Дата: 2026-10-17. Коммита/деплоя нет; кандидат — то же дерево поверх c8cf77a5.
+
+СОСТОЯНИЕ ДО фикса (raw-байты рабочего дерева; воспроизведено заново):
+  web/api/speech.py  sha256_12 a50854e0c77e  CRLF=2259  одиночных LF=0  blob c0453c015c85
+  web/index.html     sha256_12 b80158b59deb  CRLF=10517 одиночных LF=0  blob 33f6fcac5cf9
+  web/app.js         sha256_12 1eaebd6ba0f1  CRLF=21983 одиночных LF=0  blob 9391bbbdd87f
+
+Нормализация: read_bytes → replace(b"\r\n", b"\n") → write_bytes (текстовый IO не
+использовался). Изменение строго EOL: последовательность байтов после удаления всех
+разделителей строк совпадает, число строк не изменилось, размер уменьшился ровно на число
+CRLF (2259 / 10517 / 21983). Содержимое = HEAD + только правки слайса W6.
+
+СОСТОЯНИЕ ПОСЛЕ (ФИНАЛЬНЫЕ raw-байты кандидата; CRLF=0, одиночных CR=0):
+  web/api/speech.py  113942 б   sha256_12 d1fec786ee6b  blob 33a7a856d3c1
+  web/index.html     790804 б   sha256_12 786fe44e4f94  blob ff5a070f7ce6
+  web/app.js        1156854 б   sha256_12 cea14985241d  blob 9fc779144e1d
+  полные raw sha256 (сравнивать ИХ, а не текстовую форму):
+    d1fec786ee6b7f7602a92f0d65e7ea4c80e6a494637f15f098319a79018be427  web/api/speech.py
+    786fe44e4f94a2bc205fa92fb9e49f1e6adb61d01f8dc6c0d12800afdfcddde4  web/index.html
+    cea14985241d80f45d6973ac932080b0423a6d375760eaebf32674d23660e5c4  web/app.js
+  → совпадает с заявленными финальными LF-отпечатками (§EOL выше) и §Fix pass.
+numstat после нормализации: web/app.js +836/−1, web/index.html +871/−0 (web/api/speech.py —
+новый untracked файл); с --ignore-cr-at-eol тот же numstat (EOL-шума в диффе больше нет).
+
+РЕПРО EOL (на байтах, не на тексте): те же файлы с обратной заменой LF→CRLF → оба node-теста
+rc=1 (AssertionError «B: shell-слой: data-glass="shell"» round1025_hotfix8_shell_aurora.js:110;
+«watcher logLevel сохранён» round1026_s7_log_summary_filter.js:178); те же байты в LF-форме →
+HOTFIX8-SHELL-AURORA-OK / S7-LOG-SUMMARY-OK. После пробы файлы восстановлены байт-в-байт
+(sha256 совпали, CRLF=0).
+
+GUARD (источник регрессии): OPENCODE_WORKFLOW_SCRATCH/w6-fix/mutation_guard.py переведён на
+байтовый IO (read_bytes/write_bytes; было read_text→write_text = LF→CRLF на Windows) + добавлен
+self-check «LF=» — после каждого шага raw-байты: `\r\n` count == 0. Прогон патченного guard'а:
+4/4 мутации роняют тест, «файл восстановлен=True LF=True», MUTATION-GUARD: OK; отпечатки трёх
+файлов до и после прогона идентичны (до: d1fec786ee6b/786fe44e4f94/cea14985241d, после — те же).
+
+ПОВТОРНЫЕ ПРОГОНЫ на финальных байтах:
+  node round1025_hotfix8_shell_aurora_test.js   → HOTFIX8-SHELL-AURORA-OK (rc=0)
+  node round1026_s7_log_summary_filter_test.js  → S7-LOG-SUMMARY-OK (rc=0)
+  node glass_probe / round1025_design_tokens / routing / round1025_ia_routing / vue_mount /
+       asap8_w2_shell_mobile_nav → все rc=0 (JS-UNIT-OK glass-probe / JS-UNIT-OK / JS-UNIT-OK /
+       JS-UNIT-OK round1025_ia_routing_test / VUE-MOUNT-OK / W2-SHELL-UNIT-OK)
+  node --check web/app.js → rc=0
+  pytest tests/test_soul1_w6_speech_ui.py -q → 22 passed
+  периметр -k "webapp or ia_ or soul1 or round1025 or round1024 or ui_ or glass or persona or
+       prompt or registry or catalog" → 3786 passed, 0 failed, 10244 deselected (80.25s)
+  tools/ui_soul1_w6_speech_e2e.py → ИТОГ: failures=0, POST=16, shots=94
+  tools/ui_asap8_w2_shell_e2e.py → failed_checks {}, console_errors [] → W2-SHELL-E2E-OK
+  tools/ui_asap8_w2_fullscreen_e2e.py → S1…S8 PASS → 7/7 PASS; прогон перезаписал 18 файлов
+       соседней полосы, они восстановлены байт-в-байт из снапшота (28 файлов, mismatch=0)
+
+ИНВАРИАНТЫ СТЕКЛА (перепроверены на финальных байтах):
+  web/static/polygon-background.js blob c2ad97d446f5e7c7b72fb46d9bb560ae3777d6c3 == HEAD;
+  #lg-lens в web/index.html: `<filter … lg-lens …>…</filter>` = 6298 б, sha256_16
+  5367ec4566fc9e80, регион байт-идентичен HEAD; строки с --lg-*/backdrop-filter в
+  web/static/app.css = 104 шт., sha256_16 89cda50a6e618ea5, последовательность == HEAD;
+  весь app.css raw sha256_12 761274ceaed1 (не менялся; 6 CRLF в нём — состояние HEAD,
+  не трогалось).
+
+НАЙДЕНО ПРИ ПРОВЕРКЕ, ВНЕ ПОЛОСЫ EOL (не чинилось: no logic changes):
+  web/app.js — в одном объекте `methods` (5701–21263) дублируется ключ `lessonAction`:
+  7728 `lessonAction: async function (lesson, action, payload)` (память MCA-16) и
+  18884 `lessonAction: async function (lesson, action)` (блок W6 «Речь», +762 строки диффа).
+  Последний ключ перекрывает первый → путь памяти недостижим: `saveLessonCorrection`
+  (7760–7773) вызывает `this.lessonAction(lesson, 'correct', {applicability, exceptions})` и
+  payload теряется; кнопки таблицы «Память» (index.html:2817/2820) после действия грузят раздел
+  «Речь» (`loadSpeechSection`), а не `loadLessons()`. Доказательство: node
+  tests/js/round1039_experience_lessons_test.js → на HEAD-байтах MCA16-EXP-OK, на байтах
+  рабочего дерева rc=1 `TypeError: this.loreErrText is not a function` (app.js:18901); к EOL
+  не относится (проверено на LF-байтах; HEAD-проба и worktree-проба — оба LF). Это
+  единственный красный из 84 node-файлов tests/js. Правка логики — за владельцем W6.
+
+────────────────────────────────────────────────────────────────────────────
+FIX-W6-LESSON (17.10.2026, отдельная полоса): дубль ключа `lessonAction` устранён.
+Запись выше (строки 186–197) описывает состояние ДО правки; ниже — новые байты
+кандидата и прогоны на них. Коммита/деплоя нет.
+
+ЧТО ИЗМЕНЕНО (только имена; реализации не слиты и не удалены, тел методов не касались):
+  web/app.js:18884    `lessonAction: async function (lesson, action)` →
+                      `speechLessonAction: async function (lesson, action)` (блок W6)
+  web/index.html:7878 «Пауза»   `@click="lessonAction(l, 'suspend')"`  → `speechLessonAction(...)`
+  web/index.html:7881 «Одобрить»`@click="lessonAction(l, 'activate')"` → `speechLessonAction(...)`
+  НЕ тронуто: MCA-16 `lessonAction` (app.js:7728), его вызов `this.lessonAction(lesson,
+  'correct', {applicability, exceptions})` (app.js:7768) и кнопки таблицы «Память»
+  (index.html:2817/2820).
+
+ПРОВЕРКА МЕХАНИЗМА до/после:
+  до:    node tests/js/round1039_experience_lessons_test.js → rc=1
+         `TypeError: this.loreErrText is not a function` (app.js:18901)
+  после: node tests/js/round1039_experience_lessons_test.js → MCA16-EXP-OK (rc=0)
+
+НОВЫЕ RAW sha256 (полные байты файлов, LF-only):
+  web/app.js            401a40a5322a57630b3845aee354d2665cfb2bfed15ac22fa3c3968418dff852
+  web/index.html        8d86cd1a0a0f0e75dbe194dac243d988ad64a7d1c8d21f5af090daf14f2dc09d
+  tests/js/app_methods_dup_keys_guard_test.js (новый)
+                        68243a476f535b3f1afc6b25ce05028e50a83c593a4fb6a275bf6175f3e574c9
+  LF-контроль (байтово): web/app.js CRLF=0 / CR=0 / LF=21983 (до правки 21983),
+  размер 1156854 → 1156860 (+6 = «speech»); web/index.html CRLF=0 / CR=0 / LF=10517
+  (до правки 10517), размер 790804 → 790816 (+12 = 2×«speech»); guard CRLF=0.
+  Правки внесены ВНУТРЬ строк — новых строк не добавлено, CRLF не возвращался.
+
+НОВЫЙ СТОРОЖ (класс дефекта «дубль ключа в литерале methods web/app.js»):
+  tests/js/app_methods_dup_keys_guard_test.js — три уровня:
+   (1) статический лексер (строки/шаблоны/комментарии/регекспы) собирает ключи первого
+       уровня 6 литералов methods; дубль с РАЗНЫМИ телами → FAIL; дубль с идентичными
+       телами → FAIL (кроме явного KNOWN_DEAD_DUPES, см. ниже);
+   (2) каждый `@click(.stop)="name("` в index.html обязан разрешаться в метод (тот же
+       класс «ссылка разошлась с реализацией»);
+   (3) поведенческая: app.js грузится со стабом Vue.createApp (как в round1039) и
+       проверяется, что `lessonAction` (память MCA-16) доводит payload applicability/
+       exceptions до POST, `speechLessonAction` (блок W6) шлёт POST и перезагружает
+       раздел learning с тостом, и что это РАЗНЫЕ методы.
+  Уровень (3) нужен, потому что харнесс tools/ui_soul1_w6_speech_e2e.py кнопки
+  «Пауза»/«Одобрить» раздела «Речь» не нажимает (только стабит
+  /api/memory/lessons/action) — иначе у переименованного обработчика не было бы
+  поведенческого доказательства.
+  Фальсификация (скрипт OPENCODE_WORKFLOW_SCRATCH/fix-w6-lesson/falsify_guard.py,
+  копии там же: prefix-*, head-*, mut-*) — 7 прогонов, все как задумано:
+    1) repo-пара после фикса                     → METHODS-DUP-KEYS-OK blocks=6 keys=937
+                                                   behavioral=ok (rc=0)
+    2) pre-fix пара (app.js+index.html до правки) → FAIL: `lessonAction` ×2 @ 7728, 18884
+                                                   + `speechLessonAction` отсутствует
+                                                   + «поведенческая проверка упала:
+                                                     this.loreErrText is not a function» (rc=1)
+    3) HEAD-пара                                → FAIL: `speechLessonAction` отсутствует
+                                                   (в HEAD блока W6 ещё нет; сторож
+                                                    применяется к кандидату) (rc=1)
+    4) мутация «чужой ключ с другим телом»      → FAIL: `loadLessons` ×2 (rc=1)
+    5) мутация «неизвестный ключ, идентичное тело» → FAIL: `__probeDup` ×2 (rc=1)
+    6) мутация «опечатка в @click index.html»   → FAIL только по чеку ссылок (rc=1)
+    7) мутация «переименование только в app.js» → FAIL: ссылки index.html не разрешаются
+                                                   + метода нет (rc=1)
+  Известное исключение внутри сторожа: мёртвый дубль `_prefersReducedMotion`
+  ×2 (app.js 20677/20696; в HEAD 19842/19861, тела байт-идентичны) — вне полосы
+  (DO_NOT_TOUCH), зафиксирован явно в KNOWN_DEAD_DUPES; сторож упадёт, если тела
+  разойдутся или появится третья копия.
+
+ПРОГОНЫ НА НОВЫХ БАЙТАХ (17.10.2026, из C:\Code\Python\adminbot):
+  node tests/js/round1039_experience_lessons_test.js → MCA16-EXP-OK
+  node точечно (8 файлов отчёта): round1025_hotfix8_shell_aurora, round1026_s7_log_summary_filter,
+       glass_probe, round1025_design_tokens, routing, round1025_ia_routing, vue_mount,
+       asap8_w2_shell_mobile_nav → все rc=0
+  node весь tests/js/**: 85 файлов (84 прежних + сторож) → 0 падений (лог:
+       OPENCODE_WORKFLOW_SCRATCH/fix-w6-lesson/node-full-run.txt)
+  .venv/Scripts/python.exe -m pytest tests/test_soul1_w6_speech_ui.py -q → 22 passed
+  .venv/Scripts/python.exe tools/ui_soul1_w6_speech_e2e.py → ИТОГ: failures=0, POST=16, shots=94
+  .venv/Scripts/python.exe -m pytest -q -k "webapp or ia_ or soul1 or round1025 or round1024 or
+       ui_ or glass or persona or prompt or registry or catalog" → 3786 passed, 0 failed,
+       10244 deselected (77.86s), PYTEST_RC=0
+
+ИНВАРИАНТЫ СТЕКЛА на новых байтах (OPENCODE_WORKFLOW_SCRATCH/fix-w6-lesson/
+glass_invariants.py → GLASS-INVARIANTS: OK): polygon blob
+  c2ad97d446f5e7c7b72fb46d9bb560ae3777d6c3 (worktree == HEAD); `#lg-lens` 6298 б.,
+  sha256_16 5367ec4566fc9e80, содержимое == HEAD (CRLF→LF); строки --lg-*/backdrop-filter
+  в app.css 104 шт., sha256_16 89cda50a6e618ea5, == HEAD; app.css raw sha256_12
+  761274ceaed1. Стеклянные файлы полосой не менялись.

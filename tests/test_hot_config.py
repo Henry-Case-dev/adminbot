@@ -127,12 +127,21 @@ class TestServiceHotPoints:
 
     @pytest.mark.asyncio
     async def test_factcheck_uses_cached_max_symbols_and_prompt(self):
+        """Промпт из hot-слоя применяется без рестарта.
+
+        SOUL-1 (W1 fix-pass, review-w1 BLOCKER-1): значение канона старой
+        личности становится действующим слоем только если записано через API
+        реестра (`prompt_factory.write_speech_value`) — иначе оно удерживается.
+        """
+        from services import prompt_factory as pf
         from services.factcheck_service import FactCheckService
 
-        hot.set_config_cache(_FakeCache({
+        cache = _FakeCache({
             "limits.factcheck_max_symbols": 555,
-            "prompts.factcheck_system_prompt": "ПРОМПТ-ИЗ-БД {max_symbols}",
-        }))
+        })
+        hot.set_config_cache(cache)
+        await pf.write_speech_value("factcheck.base.single",
+                                    "ПРОМПТ-ИЗ-БД {max_symbols}", cache=cache)
 
         class _Agg:
             def __init__(self):

@@ -189,12 +189,32 @@ def resolve_prompt(pg_key: str, code_default: str) -> str:
     Правка промпта в UI применяется без рестарта (hot-get); **пустое/
     whitespace** значение или отсутствие ключа → прежняя код-константа
     (инвариант spec §4.1/ADR D4: пустота не должна «обнулять» system-промпт).
+
+    SOUL-1 (W1, §1.2/§7.2): ПЕРСИСТЕНТНОЕ значение проходит через единый
+    реестр речевых инструкций — известные сегменты legacy-личности
+    («токсичный … бот-абьюзер») вычищаются детерминированно на сборке
+    (``prompt_registry.suppress_legacy_speech``), а незаписанное через API
+    реестра значение канона старой личности удерживается (действует
+    заводская редакция, fix-pass review-w1 BLOCKER-1). Кодовый fallback
+    (PG down) не изменяется.
     """
     from services import hot_config as hot
     value = hot.get(pg_key, code_default)
     if isinstance(value, str) and value.strip():
-        return value
+        return _effective_speech(pg_key, value)
     return code_default
+
+
+def _effective_speech(pg_key: str, value: str) -> str:
+    """Единый проход persisted-значения через реестр (fail-open)."""
+    try:
+        from services import prompt_registry as pr
+        text, _source = pr.resolve_hot_prompt(pg_key, value)
+        return text
+    except Exception:          # pragma: no cover — реестр не роняет резолв
+        logger.warning("[prompt_style_blocks] реестр недоступен | key=%s",
+                       pg_key, exc_info=True)
+        return value
 
 
 def resolve_prompt_with_source(pg_key: str, code_default: str) -> tuple:
@@ -203,11 +223,22 @@ def resolve_prompt_with_source(pg_key: str, code_default: str) -> tuple:
     source ∈ ``{"global", "default"}``: непустое PG-значение → ``global``
     (hot-слой bot_settings; per-chat-слот для stage-ключей не читается —
     аудит T-3965/prompt-map-audit.md), иначе ``default`` (код-канон).
+    SOUL-1 (W1): ``global`` отдаётся только при РЕАЛЬНОМ наличии ключа в
+    персистентном слое (иначе это кодовый фолбек), само значение проходит
+    общий реестр — см. ``resolve_prompt``; удержанное (без провенанса)
+    значение канона старой личности отдаёт ``default``, потому что действует
+    заводская редакция.
     """
     from services import hot_config as hot
     value = hot.get(pg_key, code_default)
     if isinstance(value, str) and value.strip():
-        return value, "global"
+        try:
+            from services import prompt_registry as pr
+            return pr.resolve_hot_prompt(pg_key, value)
+        except Exception:      # pragma: no cover — реестр не роняет резолв
+            logger.warning("[prompt_style_blocks] реестр недоступен | key=%s",
+                           pg_key, exc_info=True)
+            return value, "global"
     return code_default, "default"
 
 
@@ -343,3 +374,107 @@ def compose_verbalizer_system(base_prompt: str, response_mode: str = "",
     if style_directives:
         parts.append(str(style_directives))
     return "\n\n".join(part for part in parts if part)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# SOUL-1 (W3, SOUL-16.1.2/16.4.1) - короткий semantic hint Speech Style Policy
+# ═══════════════════════════════════════════════════════════════════════════
+# Слой 10 композера (`style_policy_hint`): КОРОТКИЙ семантический hint по
+# активным правилам, а не вся база инструкций (SOUL-16.4.1). Жёсткие правила
+# исполняются детерминированно (`services/style_policy`), мягкие привычки -
+# bounded-инструкции Writer без обещания 100% соблюдения (SOUL-16.1.2).
+# Тексты - UPPER-константы одного модуля: правка формулировки меняет отпечаток
+# фабричного набора реестра и требует осознанной регистрации (блок реестра
+# `style.policy.hint`, SOUL-AMD.3.2). Языковая дисциплина: без кавычек-елочек,
+# длинных тире и фигурных плейсхолдеров.
+
+STYLE_POLICY_HINT_OPEN = "<Style_Policy_Hint>"
+STYLE_POLICY_HINT_CLOSE = "</Style_Policy_Hint>"
+STYLE_POLICY_HINT_MAX_CHARS = 400
+STYLE_POLICY_HINT_MAX_ITEMS = 5
+HINT_SOFT_PREFIX = "Привычки письма (мягко, не всегда строго):"
+
+HINT_ONE_WORD = ("Полнота: ровно одно лексическое слово. Без второго слова, "
+                 "пояснений, emoji-хвоста и служебных меток.")
+HINT_MICRO = ("Полнота: очень кратко, короткая реплика из нескольких слов; "
+              "жёсткого ограничения в одно слово нет.")
+HINT_TRAILING_PERIOD_HARD = ("Завершающая точка: НЕ ставь точку в самом конце "
+                             "сообщения. Точки внутри фраз остаются.")
+HINT_TRAILING_PERIOD_SOFT = ("Завершающая точка: обычно не ставь точку в самом "
+                             "конце сообщения.")
+HINT_QUOTES_HARD = ("Кавычки: НЕ используй графические кавычки в обычной речи. "
+                    "Иронию и цитирование передавай интонацией и лексикой "
+                    "(он назвал это базой), дословный текст не переписывай.")
+HINT_QUOTES_SOFT = ("Кавычки: обычно обходись без графических кавычек в обычной "
+                    "речи.")
+HINT_EMOJI_HARD = "Эмодзи: не используй."
+HINT_EMOJI_SOFT = "Эмодзи: обычно не используй."
+HINT_LINE_BREAKS_PREFIX = "Переносы строк: не больше"
+HINT_FORBIDDEN_CHARS = ("Запрещённые символы: не используй символы из списка "
+                        "владельца.")
+HINT_VERBATIM_PROTECTED = ("Защищённый текст (ссылки, код, дословные цитаты, "
+                           "версии, данные) не переписывай и не порти.")
+
+
+def render_style_policy_hint(policy=None, *, max_chars: int = 0,
+                             max_items: int = 0) -> str:
+    """Короткий hint активных правил Style Policy для Writer (слой 10).
+
+    Вход - `services.style_policy.EffectiveStylePolicy` (или любой объект с
+    полями ``extent``/``hard_kinds``/``soft_kinds``/``soft_instructions``).
+    Выход - блок в обёртке ``<Style_Policy_Hint>`` или пустая строка (нет
+    активных правил либо политика недоступна). Никогда не бросает."""
+    try:
+        limit_chars = int(max_chars) if int(max_chars or 0) > 0 \
+            else STYLE_POLICY_HINT_MAX_CHARS
+        limit_items = int(max_items) if int(max_items or 0) > 0 \
+            else STYLE_POLICY_HINT_MAX_ITEMS
+        lines: list[str] = []
+        extent = str(getattr(policy, "extent", "") or "")
+        if extent == "one_word":
+            lines.append(HINT_ONE_WORD)
+        elif extent == "micro":
+            lines.append(HINT_MICRO)
+        hard = {str(k) for k in (getattr(policy, "hard_kinds", ()) or ())}
+        soft = {str(k) for k in (getattr(policy, "soft_kinds", ()) or ())}
+        for kind, hard_line, soft_line in (
+                ("trailing_period", HINT_TRAILING_PERIOD_HARD,
+                 HINT_TRAILING_PERIOD_SOFT),
+                ("quotation_marks", HINT_QUOTES_HARD, HINT_QUOTES_SOFT),
+                ("emoji", HINT_EMOJI_HARD, HINT_EMOJI_SOFT)):
+            if kind in hard:
+                lines.append(hard_line)
+            elif kind in soft:
+                lines.append(soft_line)
+        if "forbidden_chars" in hard or "forbidden_chars" in soft:
+            lines.append(HINT_FORBIDDEN_CHARS)
+        max_breaks = getattr(policy, "line_breaks_max", None)
+        if isinstance(max_breaks, int) and max_breaks >= 0:
+            lines.append(HINT_LINE_BREAKS_PREFIX + " " + str(max_breaks) + ".")
+        if hard or soft:
+            lines.append(HINT_VERBATIM_PROTECTED)
+        soft_texts: list[str] = []
+        for item in list(getattr(policy, "soft_instructions", ()) or ()):
+            text = str(getattr(item, "text", "") or "").strip()
+            if text:
+                soft_texts.append(text)
+            if len(soft_texts) >= limit_items:
+                break
+        if soft_texts:
+            lines.append(HINT_SOFT_PREFIX)
+            lines.extend("- " + text for text in soft_texts)
+        if not lines:
+            return ""
+        body = "\n".join("- " + line for line in lines)
+        block = (STYLE_POLICY_HINT_OPEN + "\n" + body + "\n"
+                 + STYLE_POLICY_HINT_CLOSE)
+        while len(block) > limit_chars and len(lines) > 1:
+            lines.pop()
+            body = "\n".join("- " + line for line in lines)
+            block = (STYLE_POLICY_HINT_OPEN + "\n" + body + "\n"
+                     + STYLE_POLICY_HINT_CLOSE)
+        if len(block) > limit_chars:
+            return ""
+        return block
+    except Exception:      # pragma: no cover - hint не роняет сборку
+        return ""

@@ -777,10 +777,24 @@ class NostalgiaWorker:
             lore=lore_text, memes=memes)
         if not user_text:
             return None
+        # SOUL-AMD.2.6 (W4): воспоминание — авторский текст бота. Композер ON
+        # → Core + жанровая рамка «Ностальгия» (SOUL-02/AMD.2.1); OFF →
+        # прежний канон байт-в-байт (паритет W2). Функциональный контракт
+        # служебного слова отказа сохраняется в любом режиме.
+        try:
+            from services import mca_authorial_speech as _authorial
+            system_text, _manifest = await _authorial.authorial_system(
+                chat_id=int(chat_id), writer="nostalgia_writer",
+                genre="nostalgia",
+                legacy_canon=NOSTALGIA_PROMPT.format(max_words=_MAX_WORDS))
+        except Exception:
+            logger.warning("[nostalgia] authorial system build failed — "
+                           "прежний канон | chat_id=%s", chat_id,
+                           exc_info=True)
+            system_text = NOSTALGIA_PROMPT.format(max_words=_MAX_WORDS)
         try:
             raw = await self._worker_llm([
-                {"role": "system",
-                 "content": NOSTALGIA_PROMPT.format(max_words=_MAX_WORDS)},
+                {"role": "system", "content": system_text},
                 {"role": "user", "content": user_text},
             ], temperature=0.7)
         except Exception as exc:

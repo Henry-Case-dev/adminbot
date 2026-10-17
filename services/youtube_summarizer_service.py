@@ -33,6 +33,7 @@ from typing import Awaitable, Callable
 from config.settings import settings
 from services import hot_config as hot
 from services.llm_client import LLMBadResponseError, LLMClient
+from services.prompt_style_blocks import resolve_prompt
 from services.summary_cleanup import cleanup_llm_text
 from services.summary_memory import MemoryManager, _memorize_youtube, fire_and_forget
 from services.summary_xml import escape_xml_text
@@ -89,8 +90,8 @@ class YoutubeSummarizerService:
         # T-619: лимит и промпт — горячие точки (фолбек settings)
         max_symbols = hot.get("limits.youtube_max_symbols",
                               settings.YOUTUBE_MAX_SYMBOLS)
-        system_prompt = hot.get("prompts.youtube_system_prompt",
-                                YOUTUBE_SYSTEM_PROMPT)
+        system_prompt = resolve_prompt("prompts.youtube_system_prompt",
+                                       YOUTUBE_SYSTEM_PROMPT)
         transcript = await self.engine.fetch_transcript(
             video_id, max_symbols, on_retry=on_retry
         )
@@ -136,8 +137,8 @@ class YoutubeSummarizerService:
         сигнатуре (совместимость вызовов)."""
         max_symbols = hot.get("limits.youtube_max_symbols",
                               settings.YOUTUBE_MAX_SYMBOLS)
-        system_prompt = hot.get("prompts.youtube_system_prompt",
-                                YOUTUBE_SYSTEM_PROMPT)
+        system_prompt = resolve_prompt("prompts.youtube_system_prompt",
+                                       YOUTUBE_SYSTEM_PROMPT)
         capped = str(transcript or "")[:max_symbols]   # прецедент: движок режет
         system = system_prompt.replace("{max_symbols}", str(max_symbols))
         user = ("<video_id>tg-file</video_id>\n\n"
@@ -173,8 +174,8 @@ class YoutubeSummarizerService:
                 "[video cascade] file L1/L2 disabled (no openrouter key) "
                 "| label=%s", label)
             raise VideoLevelError("no openrouter key")
-        video_system = hot.get("prompts.youtube_video_system_prompt",
-                               YOUTUBE_VIDEO_SYSTEM_PROMPT)
+        video_system = resolve_prompt("prompts.youtube_video_system_prompt",
+                                      YOUTUBE_VIDEO_SYSTEM_PROMPT)
         system = video_system.replace("{max_symbols}", str(max_symbols))
         user = (f"<video_id>{label}</video_id>\n\n"
                 "посмотри ролик по ссылке и перескажи, что в нём происходит.")

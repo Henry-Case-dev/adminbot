@@ -1,0 +1,52 @@
+Isolation classification of release delta 0b7a0aca..95526863
+
+TOTAL delta files: 39
+PORTED (candidate semantics, port commit d637cfe9): 8
+   tests/js/glass_probe_test.js
+   tests/js/glass_refraction_test.js
+   tools/ui_win_glass_refraction_e2e.py
+   web/app.js
+   web/index.html
+   web/static/app.css
+   web/static/glass-probe.js
+   web/static/glass-refraction.js
+
+BUMP (2.58.84->2.58.85 pins/meta/README/settings; commit 95526863): 31
+   README.md
+   config/settings.py
+   plans/docs/param-registry-round1025.meta.md
+   tests/js/round1025_hotfix10_glass_geometry_bg_test.js
+   tests/js/round1025_hotfix7_shell_glass_heartbeat_test.js
+   tests/js/round1025_hotfix8_shell_aurora_test.js
+   tests/js/round1025_hotfix9_shell_flex_glass_aurora_test.js
+   tests/test_decision_making_round1026.py
+   tests/test_image_context_memory_round1026.py
+   tests/test_mca17c_invariants_round1047.py
+   tests/test_round1025_f8_registry.py
+   tests/test_scope_selector_round1025.py
+   tests/test_summary_deploy_round1026.py
+   tests/test_summary_fact_package.py
+   tests/test_summary_logging_runid.py
+   tests/test_summary_publish_integration_round1026.py
+   tests/test_summary_test_run.py
+   tests/test_telegram_reactions_round1026.py
+   tests/test_tool_coordinator_round1026.py
+   tests/test_unified_image_request_round1026.py
+   tests/test_webapp_design_tokens_round1025.py
+   tests/test_webapp_f11_round1025.py
+   tests/test_webapp_f6_round1025.py
+   tests/test_webapp_f7_round1025.py
+   tests/test_webapp_f9_round1025.py
+   tests/test_webapp_hotfix10_round1025.py
+   tests/test_webapp_hotfix6_round1025.py
+   tests/test_webapp_hotfix7_round1025.py
+   tests/test_webapp_hotfix8_round1025.py
+   tests/test_webapp_hotfix9_round1025.py
+   tests/test_webapp_round1026_polygon.py
+
+UNCLASSIFIED: 0 []
+ported∩bump intersection: 0
+
+Expected per plan: candidate files (8) + version bump (31) = 39; got 39; unclassified 0 => OK.
+Guard files (tests/test_tool_coordinator_round1026.py, tests/test_unified_image_request_round1026.py):
+  kept as prod bytes + version pin only; suggested NOTE-sanction NOT applied (see bounds-guard-red.txt).

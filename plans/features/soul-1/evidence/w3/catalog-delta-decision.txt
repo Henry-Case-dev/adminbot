@@ -1,0 +1,42 @@
+SOUL-1 / W3 — решение по каталогу параметров (Δcatalog)
+
+РЕШЕНИЕ: новых ключей каталога W3 НЕ добавляет (Δcatalog = 0). Файлы
+`services/param_catalog.py`, `plans/docs/param-registry-round1025.*`,
+`tests/fixtures/round1025/*` не изменялись.
+
+ПРОВЕРКА (repo root):
+  .venv\Scripts\python.exe tools/gen_param_registry_round1025.py --check
+  → CHECK OK: реестр 572 == REGISTRY, карта полна, R17-чисто, TSV/map идемпотентны.
+
+ПОЧЕМУ КЛЮЧ НЕ НУЖЕН ДЛЯ РАБОТЫ СЛОЯ:
+  1. Документ `style.policy` читается существующим контуром без регистрации:
+     глобально — `hot_config.get("style.policy")` (bot_settings), per-chat —
+     `chat_params.overrides` того же ключа (`chat_params.get_chat_param` для
+     неизвестного каталогу ключа возвращает значение как есть — `_resolve_from_root`
+     без `spec` не кастует и не отбрасывает); запись — `ConfigCache.set` /
+     `chat_params.set_chat_params` (без валидации по каталогу).
+  2. Регистрация ключа меняет счётчики REGISTRY 572→573 и GROUPS 120→121, что
+     требует регенерации трёх committed-артефактов (`param-registry-round1025.tsv`,
+     `param-registry-round1025.meta.md`, `screen-map-round1025.md`) и правки
+     `tests/fixtures/round1025/f8_baseline.json` + `catalog_baseline.json`, а также
+     трёх ассертов счётчиков в тестах ДРУГИХ слайсов
+     (`tests/test_round1025_f8_registry.py::test_counts_frozen`,
+     `tests/test_ui_verbilizer_tabs_round1023.py::TestCatalogDelta::test_counts`,
+     `tests/test_unified_image_request_round1026.py::TestBoundsA3::test_catalog_counts_unchanged`).
+     Это шире WRITE_SCOPE W3 (разрешены только каталог + его артефакты + fixture).
+  3. Ключ и редактор уже назначены слайсу W6 в самом реестре W1:
+     `services/prompt_registry.py` — блоки `core.personality` /
+     `core.personality.compact` имеют `ui="catalog_pending"` с пометкой
+     «Ключ/редактор в каталоге — W6»; блок `style.policy.hint` (W3) — та же
+     пометка. Дублировать эту работу в W3 нельзя (один владелец = один diff).
+  4. Потребность UI закрывается без каталога: `prompt_registry.style_policy_view()`
+     (`services/prompt_registry.py:1372`) + `style_policy.style_policy_view()`
+     (`services/style_policy.py:2197`) отдают правила с источником, soft-привычки,
+     presets, каталог kind, наследование global/chat/default, конфликты,
+     диагностику документа и hint с токенами. W6 подключает ключ каталога
+     (category=content, type=json, per_chat=true) и GroupSpec в своём diff.
+
+СЛЕДСТВИЕ ДЛЯ SOUL-15.1 (единая схема источников): расхождения «UI показывает
+одно, runtime читает другое» нет — UI будет читать тот же ключ `style.policy`
+через тот же резолвер; RBAC-путь (`can_edit_param`, категория `content`) уже
+существует для категории content и не требует нового фронтенд-чекбокса.

@@ -105,6 +105,7 @@ from services import mca_intents as _mca_intents  # MCA-09 (D3, T-5029)
 from services import telegram_send as _tg_send     # MCA-09 (T-5038: транспорт)
 from services import response_extent as _extent  # MCA-23 (W3): ResponsePlan
 from services import prompt_composer as _pcomp  # SOUL-1 (W2): Composer
+from services import style_policy as _style_policy  # SOUL-1 (W3): форма текста
 from services import response_document as _rd  # MCA-23 фаза 2 (§22): артефакт
 from services.chat_params import (
     chat_summary_enabled,
@@ -1552,6 +1553,59 @@ def _log_coordinator_outcome(*, chat_id: int, action: str, style: str,
         chat_id, action, style or "-", int(chars))
 
 
+def _delivered_payload(payload: str) -> str:
+    """Байты, которые РЕАЛЬНО уйдут в Telegram (SOUL-16.3.4).
+
+    Последний delivery-guard — egress ``sanitize_outgoing`` в
+    ``services/telegram_send`` — применяется ПОСЛЕ сериализации/escape ветки
+    доставки и ДО ``bot.send_message``. Проверять надо именно его результат
+    (review-w3 F3: ``Готово. fact:123`` доезжало как ``Готово.``, а проверка
+    видела до-guard-строку). Guard выключен → строка не меняется."""
+    try:
+        sanitize = getattr(_tg_send, "_maybe_sanitize", None)
+        if sanitize is not None:
+            return str(sanitize(str(payload or "")))
+        from services.outgoing_guard import sanitize_outgoing
+        return str(sanitize_outgoing(str(payload or "")))
+    except Exception:      # pragma: no cover - проверка не роняет доставку
+        return str(payload or "")
+
+
+def _verify_style_payload(payload: str, style_outcome, chat_id: int, *,
+                          stage: str) -> None:
+    """SOUL-1 (W3, SOUL-16.3.4): проверить ФАКТИЧЕСКИ доставляемый payload.
+
+    Порядок: проход формы (до сериализации) → сериализация/escape ветки
+    доставки → egress-guard (``sanitize_outgoing``) → проверка БЕЗ правок
+    именно доставляемых байтов → отправка. Если hard-правило формы нарушено на
+    payload, это видно в событии и в логе — «styled=true» при провале не
+    объявляется. Ошибка проверки не роняет доставку (fail-open)."""
+    if style_outcome is None or not getattr(style_outcome, "applied", False):
+        return
+    policy = getattr(style_outcome, "policy", None)
+    if policy is None:
+        return
+    try:
+        payload = _delivered_payload(payload)
+        check = _style_policy.verify_outbound_payload(
+            payload, policy=policy, context=getattr(style_outcome, "context",
+                                                    "regular"),
+            outcome=style_outcome)
+        style_outcome.payload = True
+        style_outcome.payload_status = check.payload_status
+        if check.payload_status == "mismatch":
+            logger.warning(
+                "[direct] style policy payload mismatch | chat=%s | stage=%s | "
+                "conflicts=%s", chat_id, stage, ",".join(check.conflicts) or "-")
+            _mca_events.emit_mca_event(
+                "style_policy", outcome="failed", level="WARN",
+                component="style_policy", stage=stage, chat_id=int(chat_id),
+                usage_json=check.as_dict())
+    except Exception:      # pragma: no cover - проверка не роняет доставку
+        logger.warning("[direct] style payload verify failed — skip | "
+                       "chat=%s", chat_id, exc_info=True)
+
+
 def _log_decision_short_circuit(*, chat_id: int, action: str, reason_code: str,
                                 target_id: int | None,
                                 reaction: str | None = None) -> None:
@@ -2134,13 +2188,39 @@ class DirectChatService:
                     dig_fired = True
                     user_blocks = self._insert_dig_result(user_blocks,
                                                           dig_block)
+            # ── SOUL-1 W10 (§5.1/5.3/5.9/5.14): смысловое поручение действия →
+            # capability ТЕКУЩЕГО чата (0 LLM-вызовов). Неготовый инструмент
+            # или существенно неоднозначное поручение → детерминированный
+            # честный ответ из управляемого шаблона реестра
+            # (`message.image_failure.*`/`message.image_request.clarify`);
+            # генерация и LLM при этом не запускаются вовсе.
+            _image_intent = None
+            try:
+                _cap_reply_msg = getattr(message, "reply_to_message", None)
+                _cap_reply_text = str(
+                    getattr(_cap_reply_msg, "text", None)
+                    or getattr(_cap_reply_msg, "caption", None) or "")
+                _cap_handled, _image_intent = \
+                    await self._image_capability_gate(
+                        chat_id, query, message, bot,
+                        reply_text=_cap_reply_text)
+                if _cap_handled:
+                    return
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                logger.warning("direct: image capability gate — обычный ход | "
+                               "chat=%s", chat_id, exc_info=True)
             # Раунд 10.23 (F5, ADR-1023-5 §D2): пре-гейт ключевиков генерации
             # изображений («Бот, нарисуй …») — генерация и отправка ДО Stage-1,
             # блок <image_result> для инъекции. НЕ зависит от tool_router
             # (spec §2.2: условие — только «модуль ON»); review iter1 Finding 4.
+            # SOUL-1 W10: регекс остаётся БЫСТРЫМ путём очевидных команд;
+            # смысловые формулировки без «бот, нарисуй» доходят до той же
+            # генерации через проверку согласованности после L1 (§5.10).
             image_block = await self._image_pre_gate_block(
                 chat_id, query, bot, message, user_id,
-                correlation_id=correlation_id)
+                correlation_id=correlation_id, intent=_image_intent)
             image_pre_gate_fired = bool(image_block)
             if image_block:
                 user_blocks = self._insert_dig_result(user_blocks, image_block)
@@ -2357,10 +2437,17 @@ class DirectChatService:
             # канон) — «Использовать мой» локального админа работает ТОЛЬКО
             # в его чате; fail-open: PG down → глобальный.
             from services.chat_params import get_chat_param as _cpg
-            system_prompt = await _cpg(
-                chat_id, "prompts.direct_chat_system_prompt",
-                hot.get("prompts.direct_chat_system_prompt",
-                        CHAT_SYSTEM_PROMPT))
+            # SOUL-1 (W1, §1.2/§7.2): единый резолвер реестра — известные
+            # сегменты legacy-личности («токсичный … бот-абьюзер») из
+            # ПЕРСИСТЕНТНОГО значения не доходят до effective-слоя; кастом
+            # владельца и кодовый fallback (PG down) не изменяются.
+            from services import prompt_registry as _prompt_registry
+            system_prompt, _base_source = await _prompt_registry.resolve_chat_speech(
+                "prompts.direct_chat_system_prompt", CHAT_SYSTEM_PROMPT,
+                chat_id=chat_id)
+            logger.debug("[direct] base channel resolved | chat=%s | "
+                         "source=%s | chars=%d", chat_id, _base_source,
+                         len(system_prompt or ""))
             # ── SOUL-1 (W2, §4 п.1): единственный владелец сборки речи.
             # Флаг OFF (дефолт) → существующий путь ниже байт-в-байт; ON →
             # system собирает `prompt_composer.compose_prompt` из тех же
@@ -2710,6 +2797,31 @@ class DirectChatService:
                         action=pre_action)
                 except Exception:
                     pass
+            # ── SOUL-1 W10 (§5.10/§5.14): дешёвая проверка согласованности
+            # решения L1 с реальным состоянием capability (0 LLM; TTL-кеш).
+            # Доступное действие, которое L1 не выбрал, выполняется тем же
+            # единственным путём в этом же ходу; недоступное — не обещается
+            # (правдивая пометка Writer'у). Ошибка проверки → обычный ход.
+            try:
+                _cap_block, _cap_fired, _cap_denied = \
+                    await self._l1_capability_consistency(
+                        chat_id, query, message, bot, l1_plan,
+                        intent=_image_intent,
+                        image_pre_gate_fired=image_pre_gate_fired,
+                        correlation_id=correlation_id)
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                _cap_block, _cap_fired, _cap_denied = "", False, ()
+                logger.warning("direct: capability consistency — обычный ход | "
+                               "chat=%s", chat_id, exc_info=True)
+            if _cap_block:
+                user_blocks = self._insert_dig_result(user_blocks, _cap_block)
+            if _cap_fired:
+                # Один путь генерации на ход: инструмент больше не
+                # объявляется, маркер прогона ставится (дубль исключён).
+                image_pre_gate_fired = True
+                image_enabled = False
             # ── SOUL-1 (W2, §4 п.1 + §5): при флаге ON весь system
             # собирается композером из тех же блоков и ровно один раз:
             # channel_contract → core → identity → lessons/style → plan.
@@ -2905,7 +3017,7 @@ class DirectChatService:
                             await self._l1_tool_subset(
                                 chat_id, correlation_id,
                                 bool(lore_enabled), bool(image_enabled),
-                                l1_plan)
+                                l1_plan, denied=_cap_denied)
                     if direct_l1_on:
                         raw = await self._l1_tool_phase(
                             payload, tool_ctx, query=query,
@@ -3452,6 +3564,28 @@ class DirectChatService:
                 _log_coordinator_outcome(
                     chat_id=chat_id, action=ACTION_REPLY,
                     style=response_mode, chars=len(answer))
+            # ── SOUL-1 (W3, SOUL-16.4.1 + design §6): ЕДИНЫЙ проход формы —
+            # `extent check (в т.ч. one_word) -> style policy validation/
+            # targeted repair`, ровно один раз, детерминированно (0 LLM).
+            # Выполняется ДО сериализации/отправки; доставленный payload
+            # проверяется в `_send_direct_answer`. Флаг
+            # `SPEECH_STYLE_POLICY_ENABLED` OFF → проход не запускается
+            # (байт-паритет), `answer` не меняется.
+            _style_outcome = await _style_policy.apply_style_policy(
+                answer, chat_id=chat_id, plan=response_plan,
+                context="regular",
+                explicit_form=str(getattr(l1_plan, "form_override", "") or ""),
+                emit_events=True, stage="direct_pre_send")
+            if _style_outcome.applied and str(_style_outcome.text or ""):
+                if _style_outcome.text != answer:
+                    logger.info(
+                        "[direct] style policy pass | chat=%s | repaired=%d | "
+                        "exempted=%d | conflicts=%d | failed=%d",
+                        chat_id, _style_outcome.repaired,
+                        _style_outcome.exempted,
+                        len(_style_outcome.conflicts),
+                        len(_style_outcome.failed))
+                answer = _style_outcome.text
             # ── MCA-23 (W3, §Delivery Router): RichMessage — опциональная
             # ветка для явных report/deep-research планов. Любой сбой
             # (aiogram<3.30 / capability / TelegramBadRequest) → прежний
@@ -3474,7 +3608,8 @@ class DirectChatService:
                 lore=bool(getattr(tool_ctx, "lore_compiled", False)),
                 deep_research=(response_mode == "deep_research"),
                 rich=_rich_wanted,
-                document=response_document)
+                document=response_document,
+                style_outcome=_style_outcome)
             if sent_id is not None:
                 answer_text = answer
                 self._mark_turn_text_replied(chat_id)  # F6: ответ доставлен
@@ -3489,6 +3624,37 @@ class DirectChatService:
                 await self.remember_bot_reply(
                     chat_id, sent_id, answer,
                     parent_tg_message_id=message.message_id)
+                # ── SOUL-08.2 (W4): bounded-метаданные отправки для окна
+                # реакций. Гейт `HUMOR_FEEDBACK_ENABLED` (default OFF) →
+                # никакой записи и никакого чтения; сырые тексты/промпты не
+                # сохраняются (только типизированные коды/числа, R17).
+                if mca_gates.humor_feedback_enabled():
+                    try:
+                        from services import mca_humor_feedback as _humor_fb
+                        _fb_manifest = _pcomp.get_manifest(
+                            chat_id, run_id=correlation_id, writer="l2_writer")
+                        await _humor_fb.capture_send(
+                            chat_id=chat_id, message_id=int(sent_id),
+                            reply_to_message_id=getattr(message, "message_id",
+                                                        None),
+                            trace_id=str(correlation_id or ""),
+                            strategy=str(getattr(response_plan,
+                                                 "comic_strategy", "")
+                                         or "none"),
+                            technique=str(getattr(response_plan,
+                                                  "comic_strategy", "")
+                                          or "none"),
+                            core_revision=str(
+                                (_fb_manifest.versions or {}).get("core", "")
+                                if _fb_manifest is not None else ""),
+                            model=str(getattr(settings, "LLM_MODEL_NAME", "")
+                                      or ""),
+                            channel=("rich" if _rich_wanted else "plain"),
+                            delivered=True)
+                    except Exception:
+                        logger.warning(
+                            "[direct] humor send metadata capture failed "
+                            "(доставка не затронута)", exc_info=True)
                 # MCA-22 (C2, T-4287): durable ledger — только реально
                 # доставленный output (после успешной send); append-only,
                 # правка → новая revision-строка. Gate OFF → не пишем
@@ -3918,12 +4084,17 @@ class DirectChatService:
         self._mark_turn_text_replied(chat_id)  # F6: текст в ходе есть
 
     async def _l1_tool_subset(self, chat_id: int, correlation_id, lore: bool,
-                              image: bool, l1_plan) -> tuple:
+                              image: bool, l1_plan, denied=()) -> tuple:
         """§1.4: resolved-подсет схем tools (единственный анонс для цикла).
         Возврат ``(schemas, rejected)``; ``[]`` → тулов нет; hallucinated/
         неактивные → drop + L1_CAPABILITY_REJECTED (D15); low_confidence →
-        capabilities НЕ исполняются (§1.3, честная пометка). Никогда не
-        бросает."""
+        capabilities НЕ исполняются (§1.3, честная пометка).
+
+        SOUL-1 W10 (§5.10/§5.18): ``denied`` — capability, которые в ЭТОМ чате
+        недоступны по реальному состоянию (нет ключа/модуль выключен/квота):
+        их инструменты не анонсируются, а отказ фиксируется наблюдаемым кодом
+        ``capability_not_ready`` (никакого «формально tool есть» без блокера).
+        Никогда не бросает."""
         try:
             schemas = active_tools(bool(lore), bool(image))
             announced = {t["function"]["name"] for t in schemas
@@ -3941,6 +4112,15 @@ class DirectChatService:
             resolved, rejected = _caps.resolve_capabilities(
                 plan.capabilities_needed or (), announced,
                 skip_capabilities=skip)
+            denied_caps = {str(c or "").strip().lower()
+                           for c in (denied or ()) if str(c or "").strip()}
+            if denied_caps:
+                blocked_tools: set[str] = set()
+                for cap in sorted(denied_caps):
+                    blocked_tools.update(_caps.CAPABILITY_TOOLS.get(cap, ()))
+                    rejected = tuple(rejected) + ((cap,
+                                                   _caps.REASON_NOT_READY),)
+                resolved = [t for t in resolved if t not in blocked_tools]
             for cap, reason in rejected:
                 _caps.emit_capability_rejected(
                     cap, reason, chat_id=chat_id, run_id=correlation_id)
@@ -4012,6 +4192,7 @@ class DirectChatService:
                                      lessons_skip: str = "",
                                      speech_block: str = "",
                                      speech_skip: str = "",
+                                     context_text: str = "",
                                      user_parts: tuple[str, ...] = ()
                                      ):
         """Собрать system речевого пути через ЕДИНЫЙ композер (SOUL-1 W2 §4).
@@ -4023,6 +4204,56 @@ class DirectChatService:
         snapshot = await _pcomp.turn_snapshot(chat_id, run_id)
         source = base_source or await _pcomp.resolve_base_source(
             chat_id, base_key, base_default)
+        # ── SOUL-06/07 (W4): приёмы и примеры — ТОЛЬКО при своих осях ──────
+        # Обе оси по умолчанию OFF → ни одного лишнего чтения БД и ни одного
+        # LLM-вызова на обычный ответ (паритет W2/W3 сохраняется байт-в-байт).
+        _gates_now = gates or _pcomp.gates_from_config()
+        _strategy = str(getattr(response_plan, "comic_strategy", "") or "")
+        _extent_value = str(getattr(response_plan, "extent", "") or "")
+        _structure = str(getattr(response_plan, "structure", "") or "")
+        _tone = str(getattr(response_plan, "tone", "") or "")
+        humor_ref = None
+        sample_refs: tuple = ()
+        if getattr(_gates_now, "humor_craft_enabled", False):
+            try:
+                from services import mca_humor_craft as _humor_craft
+                _weight = 1.0
+                if mca_gates.humor_feedback_enabled():
+                    try:
+                        from services import mca_humor_feedback as _humor_fb
+                        from services import lore_runtime as _lore_rt
+                        _weight = await _humor_fb.strategy_weight(
+                            _lore_rt.get_lore_db(), chat_id, _strategy)
+                    except Exception:
+                        _weight = 1.0
+                humor_ref = await _humor_craft.resolve_ref(
+                    chat_id=chat_id, comic_strategy=_strategy,
+                    extent=_extent_value, structure=_structure, tone=_tone,
+                    context_weight=_weight)
+            except Exception:
+                logger.warning("direct: humor craft resolve failed "
+                               "(слой пропущен)", exc_info=True)
+                humor_ref = None
+        if getattr(_gates_now, "humor_library_enabled", False):
+            try:
+                from services import mca_sample_library as _samples_lib
+                _penalties: dict = {}
+                if mca_gates.humor_feedback_enabled():
+                    try:
+                        from services import mca_humor_feedback as _humor_fb
+                        from services import lore_runtime as _lore_rt
+                        _penalties = await _humor_fb.sample_penalties(
+                            _lore_rt.get_lore_db(), chat_id)
+                    except Exception:
+                        _penalties = {}
+                sample_refs, _selection = await _samples_lib.resolve_refs(
+                    chat_id=chat_id, technique=_strategy,
+                    extent=_extent_value, context=context_text or "",
+                    penalties=_penalties)
+            except Exception:
+                logger.warning("direct: sample library resolve failed "
+                               "(слой пропущен)", exc_info=True)
+                sample_refs = ()
         plan = _pcomp.PromptPlan(
             profile=profile, writer=writer, chat_id=chat_id, channel=channel,
             html_safe=html_safe, run_id=run_id, base_prompt=base_prompt,
@@ -4034,6 +4265,8 @@ class DirectChatService:
                 source=identity_source, skipped=identity_skipped),
             response_plan=_pcomp.plan_ref_from_response_plan(
                 response_plan, extent_block),
+            humor=humor_ref,
+            samples=sample_refs,
             style_policy=snapshot.style_policy,
             scoped_requests=(_pcomp.Block(
                 "style_requests", style_block, owner="l1",
@@ -4139,6 +4372,7 @@ class DirectChatService:
                 speech_skip=("character_speech_disabled"
                              if not mca_gates.character_speech_enabled()
                              else "speech_absent"),
+                context_text=str(query or ""),
                 user_parts=tuple(parts))
             _pcomp.emit_layer_events_once(_c_manifest)
         else:
@@ -4445,7 +4679,8 @@ class DirectChatService:
                                   lore: bool = False,
                                   deep_research: bool = False,
                                   rich: bool = False,
-                                  document=None):
+                                  document=None,
+                                  style_outcome=None):
         """Доставка ответа DirectChat (раунд 10.20, T-1892, О5/ADR-1020-6 п.3).
 
         Обычный путь — байт-в-байт `parse_mode=None`. Под-путь safe-HTML
@@ -4481,8 +4716,11 @@ class DirectChatService:
         text = doc.plain_text()
         if rich:
             try:
-                sent = await _tg_send.send_rich_message(
-                    bot, chat_id, strip_lore_html(doc.rich_text()))
+                _rich_payload = strip_lore_html(doc.rich_text())
+                _verify_style_payload(_rich_payload, style_outcome, chat_id,
+                                      stage="direct_rich")
+                sent = await _tg_send.send_rich_message(bot, chat_id,
+                                                        _rich_payload)
                 sent_id = getattr(sent, "message_id", None)
                 if sent_id is not None:
                     return sent_id
@@ -4494,10 +4732,14 @@ class DirectChatService:
                     "[direct] rich send failed — legacy path | chat=%s | "
                     "error=%s", chat_id, type(exc).__name__)
         if not (lore or deep_research):
+            _verify_style_payload(text, style_outcome, chat_id,
+                                  stage="direct_plain")
             return await send_chunked_reply(bot, chat_id, text, reply_to)
         escaped = escape_lore_html(text)
         if len(escaped) <= _LORE_HTML_MAX_SINGLE_CHARS:
             try:
+                _verify_style_payload(escaped, style_outcome, chat_id,
+                                      stage="direct_safe_html")
                 return await send_chunked_reply(
                     bot, chat_id, escaped, reply_to, parse_mode="HTML")
             except TelegramBadRequest as exc:
@@ -4507,7 +4749,10 @@ class DirectChatService:
                 return await send_chunked_reply(bot, chat_id, text, reply_to)
         logger.info("[direct] text too long for safe HTML — plain | "
                     "chat=%s | chars=%d", chat_id, len(escaped))
-        return await send_chunked_reply(bot, chat_id, strip_lore_html(text),
+        _plain_payload = strip_lore_html(text)
+        _verify_style_payload(_plain_payload, style_outcome, chat_id,
+                              stage="direct_plain_long")
+        return await send_chunked_reply(bot, chat_id, _plain_payload,
                                         reply_to)
 
     async def _chat_time_line(self, chat_id: int) -> str:
@@ -4589,11 +4834,13 @@ class DirectChatService:
         external = 0
         try:
             from services.chat_params import get_chat_param as _cpg
+            from services import prompt_registry as _pr
             try:
-                system_prompt = await _cpg(
-                    chat_id, "prompts.direct_chat_system_prompt",
-                    hot.get("prompts.direct_chat_system_prompt",
-                            CHAT_SYSTEM_PROMPT))
+                # SOUL-1 (W1 fix-pass, BLOCKER-2): тот же резолвер, что и на
+                # реальном пути, — оценка payload не расходится с payload.
+                system_prompt, _src = await _pr.resolve_chat_speech(
+                    "prompts.direct_chat_system_prompt", CHAT_SYSTEM_PROMPT,
+                    chat_id=int(chat_id))
                 external += count_tokens(system_prompt)
             except Exception:
                 logger.debug("[mca07] payload est: system prompt failed",
@@ -6096,17 +6343,219 @@ class DirectChatService:
                            exc_info=True)
             return None
 
+    async def _image_capability_gate(self, chat_id: int, query: str, message,
+                                     bot, *, reply_text: str = ""
+                                     ) -> tuple[bool, object]:
+        """SOUL-1 W10 (§5.1/5.3/5.9/5.14): смысловое поручение → capability.
+
+        Дешёвая детерминированная проверка ДО платных стадий (0 LLM):
+        ``detect_action_intent`` распознаёт поручение создать изображение по
+        смыслу, затем состояние `image_generation` берётся из runtime-реестра
+        (`services/capability_registry` — реальные модуль/ключ/квота/провайдер
+        этого чата).
+
+        Возврат ``(handled, intent)``: ``handled=True`` — ответ уже отправлен
+        из УПРАВЛЯЕМОГО шаблона реестра (неготовый инструмент либо один
+        уточняющий вопрос при неоднозначности), ход завершается; ``False`` —
+        либо это не поручение изображения, либо capability готова и генерация
+        идёт существующим единственным путём. Fail-open: любая ошибка → False
+        (обычный ход, без выдуманных отказов).
+
+        ``forwarded`` (review-w10 F2): пересланное сообщение — чужие слова, не
+        поручение пользователя (детектор отдаёт не-поручение с наблюдаемой
+        причиной ``create_image_forwarded``)."""
+        from services import capability_registry as _capreg
+        try:
+            intent = _caps.detect_action_intent(
+                query, reply_text=reply_text, addressed=True,
+                forwarded=bool(_forward_source_of(message)))
+            if intent.intent != _caps.INTENT_CREATE_IMAGE:
+                return False, intent
+            if intent.confidence == _caps.CONFIDENCE_AMBIGUOUS:
+                # §5.9: ровно ОДИН короткий уточняющий вопрос вместо генерации.
+                text, block_id, _src = _capreg.clarify_text()
+                await _reply(bot, chat_id, text, message.message_id)
+                self._mark_turn_text_replied(chat_id)
+                logger.info("[direct] capability clarify | chat=%s | reason=%s "
+                            "| template=%s", chat_id, intent.reason, block_id)
+                _capreg.emit_capability_event(
+                    _capreg.CapabilityState(
+                        capability_id="image_generation",
+                        status=_capreg.STATUS_UNKNOWN,
+                        reason_code=intent.reason),
+                    outcome="skipped", chat_id=chat_id, template_id=block_id)
+                return True, intent
+            state = await _capreg.resolve("image_generation", chat_id)
+            if not state.available:
+                # §5.14: «не умею» только после проверки — и с реальной
+                # причиной (выключено/нет ключа/провайдер/квота), в голосе
+                # бота, из редактируемого Factory Default-шаблона.
+                text, block_id, _src = _capreg.status_message(state)
+                await _reply(bot, chat_id, text, message.message_id)
+                self._mark_turn_text_replied(chat_id)
+                logger.info(
+                    "[direct] capability not ready | chat=%s | cap=%s | "
+                    "status=%s | reason=%s | template=%s",
+                    chat_id, state.capability_id, state.status,
+                    state.reason_code, block_id)
+                _capreg.emit_capability_event(state, outcome="failed",
+                                              chat_id=chat_id,
+                                              template_id=block_id)
+                return True, intent
+            return False, intent
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger.warning("direct: capability gate failed — обычный ход | "
+                           "chat=%s", chat_id, exc_info=True)
+            return False, None
+
+    async def _l1_capability_consistency(self, chat_id: int, query: str,
+                                         message, bot, l1_plan, *,
+                                         intent, image_pre_gate_fired: bool,
+                                         correlation_id: str | None = None
+                                         ) -> tuple[str, bool, tuple]:
+        """SOUL-1 W10 (§5.10/§5.14): дешёвая проверка согласованности решения
+        L1 с РЕАЛЬНЫМ состоянием capability (0 LLM; TTL-кеш реестра).
+
+        Возврат ``(блок_для_инъекции, генерация_выполнена, denied)``:
+
+        * L1 запросил capability, которой в этом чате нет → capability
+          отбрасывается (``denied``: инструмент не анонсируется, отказ с
+          наблюдаемым кодом) + правдивая пометка ``<capability_notice>``
+          Writer'у (обещать недоступное запрещено);
+        * смысловое поручение создать изображение + capability готова, но L1
+          выбрал обычный текст → маршрутизация исправляется В ЭТОМ ЖЕ ходу:
+          тот же единственный путь генерации/доставки, ровно один вызов
+          (наблюдаемый случай «доступное действие не было выбрано L1», §6.5);
+        * capability не готова → инъекция правдивого состояния, без вызова.
+
+        Никогда не бросает (любая ошибка → ``("", False, ())``)."""
+        from services import capability_registry as _capreg
+        block = ""
+        fired = False
+        denied: list[str] = []
+        try:
+            plan = l1_plan or _l1.L1Plan()
+            requested = tuple(str(c) for c in
+                              (getattr(plan, "capabilities_needed", ()) or ()))
+            state = None
+            if "image_generation" in requested or (
+                    intent is not None and intent.intent
+                    == _caps.INTENT_CREATE_IMAGE):
+                state = await _capreg.resolve("image_generation", chat_id)
+            if state is not None and not state.available:
+                blockers = _caps.intent_blockers(
+                    intent, capability_status=state.status)
+                if "image_generation" in requested:
+                    denied.append("image_generation")
+                    _capreg.emit_capability_event(
+                        state, outcome="failed", chat_id=chat_id,
+                        trace_id=correlation_id or "")
+                    try:
+                        _caps.emit_capability_rejected(
+                            "image_generation", state.reason_code or
+                            state.status, chat_id=chat_id,
+                            run_id=correlation_id)
+                    except Exception:      # pragma: no cover
+                        pass
+                if blockers:
+                    logger.info(
+                        "[direct] capability blockers | chat=%s | cap=%s | "
+                        "blockers=%s | status=%s", chat_id,
+                        state.capability_id, ",".join(blockers), state.status)
+                block = _capreg.notice_block(state)
+            elif (state is not None and state.available
+                    and not image_pre_gate_fired
+                    and intent is not None and intent.actionable
+                    and "image_generation" not in requested):
+                # §5.10: исправление маршрутизации в рамках хода — тот же
+                # единственный путь (генерация+доставка), без второго LLM.
+                # ``intent_confirms`` открывает смысловую дверь пре-гейта: L1
+                # выбрал обычный текст при однозначно доступном действии.
+                fired_block = await self._image_pre_gate_block(
+                    chat_id, query, bot, message,
+                    getattr(getattr(message, "from_user", None), "id", 0) or 0,
+                    correlation_id=correlation_id, intent=intent,
+                    intent_confirms=True)
+                if fired_block:
+                    block = fired_block
+                    fired = True
+                    blockers = _caps.intent_blockers(
+                        intent, capability_status=state.status)
+                    logger.info(
+                        "[direct] capability routing fixed | chat=%s | "
+                        "cap=%s | l1_capabilities=%s | reason=%s | blockers=%s",
+                        chat_id, state.capability_id, ",".join(requested),
+                        intent.reason, ",".join(blockers) or "-")
+                    _capreg.emit_capability_event(
+                        state, outcome="success", chat_id=chat_id,
+                        trace_id=correlation_id or "")
+                    try:
+                        from services.agentic_events import (
+                            L1_CAPABILITY_REJECTED, emit_agentic_event)
+                        emit_agentic_event(
+                            L1_CAPABILITY_REJECTED,
+                            capability="image_generation",
+                            reason="available_action_not_chosen" + (
+                                ":" + ",".join(blockers) if blockers else ""),
+                            chat_id=chat_id, run_id=correlation_id)
+                    except Exception:      # pragma: no cover
+                        pass
+            # Прочие запрошенные capability (§5.18): недоступное не обещаем —
+            # правдивая пометка Writer'у + наблюдаемый блокер. Инструмент НЕ
+            # прячем (анонс остаётся контрактом §1.4); отказ виден в trace.
+            # Выдуманные L1 имена сюда не попадают: их уже отбрасывает
+            # `resolve_capabilities` с честной пометкой (§1.4/D15).
+            others = [c for c in requested
+                      if c != "image_generation"
+                      and c.strip().lower() in _caps.CAPABILITY_TOOLS]
+            if others:
+                states = await _capreg.resolve_many(others, chat_id)
+                notes = [_capreg.notice_block(s) for s in states
+                         if not s.available]
+                notes = [n for n in notes if n]
+                if notes:
+                    block = (block + "\n" + "\n".join(notes)).strip()
+                for s in states:
+                    if not s.available:
+                        _capreg.emit_capability_event(
+                            s, outcome="failed", chat_id=chat_id,
+                            trace_id=correlation_id or "")
+            return block, fired, tuple(denied)
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger.warning("direct: capability consistency check failed | "
+                           "chat=%s", chat_id, exc_info=True)
+            return "", False, ()
+
     async def _image_pre_gate_block(self, chat_id: int, query: str, bot,
                                     message, user_id,
-                                    correlation_id: str | None = None) -> str:
+                                    correlation_id: str | None = None,
+                                    intent=None,
+                                    intent_confirms: bool = False) -> str:
         """Раунд 10.23 (F5, ADR-1023-5 §D2): пре-гейт ключевиков генерации
         изображений («Бот, нарисуй …»). Генерация+отправка ДО Stage-1, блок
         ``<image_result>`` для инъекции. `tool_choice` НЕ форсируется. Нет
         ключевика/модуль OFF/нет бота → ``""``. Fail-open — не бросает.
         F7 rework: ``correlation_id`` ответа прокидывается в ToolContext, чтобы
-        событие ``step='image'`` попало в дерево последнего вызова."""
+        событие ``step='image'`` попало в дерево последнего вызова.
+        SOUL-1 W10 fix (review-w10 F2): смысловой ``intent`` — VETO для
+        регекса: не-поручение (``actionable=False``: отрицание/«придумать»/
+        цитата/«я сам»/пересылка) подавляет быстрый путь. Дверь открывает
+        регекс ИЛИ ``intent_confirms=True`` (подтверждённое смысловое
+        поручение — путь согласованности §5.10, где L1 не выбрал доступное
+        действие: наблюдаемый случай §6.5 остаётся живым)."""
         from services import image_generation
-        if not image_generation.is_image_keyword(query):
+        # Смысловой вердикт главнее регекса: отрицание не может проиграть
+        # быстрому пути («Бот, нарисуй мем, но не рисуй» → генерации нет).
+        if intent is not None and not getattr(intent, "actionable", False):
+            return ""
+        if not (image_generation.is_image_keyword(query) or intent_confirms):
+            return ""
+        if _forward_source_of(message):
+            # Пересланное сообщение — чужие слова, не поручение пользователя.
             return ""
         if not await image_generation.resolve_module_enabled(chat_id):
             return ""
@@ -6128,7 +6577,10 @@ class DirectChatService:
                 if value is not None:
                     deps[name] = value
             return await image_generation.maybe_handle_keyword(
-                tool_ctx, query, **deps)
+                tool_ctx, query, **deps,
+                intent_confirmed=bool(intent is not None
+                                      and getattr(intent, "actionable",
+                                                  False)))
         except asyncio.CancelledError:
             raise
         except Exception:
@@ -7856,7 +8308,13 @@ class DirectChatService:
             return ""
         if not result:
             return ""
-        return str(result[0] or "").strip()
+        prepared = str(result[0] or "").strip()
+        # ── SOUL-1 (W3, SOUL-16.4.1 + SOUL-AMD.3.5, fix F4 review-w3): проход
+        # формы здесь НЕ выполняется — единственная точка применения для
+        # инициативных текстов это `handle_initiative` (перед чанкованием и
+        # отправкой), иначе ностальгия/`prepared_text` обходила бы проход, а
+        # writer-текст проходил бы его дважды (SOUL-16.4.2 «один проход»).
+        return prepared
 
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -8122,6 +8580,39 @@ async def build_initiative_situation(db, chat_id: int, intent_row: dict
         intent_id=str(row.get("intent_id") or "") or None)
 
 
+async def _style_initiative_text(text: str, chat_id: int, l1_plan=None
+                                 ) -> tuple[str, object]:
+    """Единый проход формы для инициативных текстов (SOUL-AMD.3.5).
+
+    Инициатива — авторский текст того же Core, поэтому правила формы
+    применяются тем же единственным проходом, что и в Direct: контекст
+    ``initiative`` (пакет инициативы + обычной речи), ``plan`` — из L1-решения
+    (когда оно есть). Возвращает ``(текст, StyleOutcome|None)``; ошибка прохода
+    не роняет отправку (fail-open, текст как есть)."""
+    source = str(text or "")
+    if not source.strip():
+        return source, None
+    response_plan = None
+    if l1_plan is not None:
+        try:
+            response_plan = (l1_plan.to_response_plan()
+                             if hasattr(l1_plan, "to_response_plan") else None)
+        except Exception:
+            response_plan = None
+    try:
+        outcome = await _style_policy.apply_style_policy(
+            source, chat_id=chat_id, plan=response_plan,
+            context="initiative", emit_events=True,
+            stage="initiative_pre_send")
+    except Exception:      # pragma: no cover - проход не роняет отправку
+        logger.warning("[mca09] initiative style pass failed | chat=%s",
+                       chat_id, exc_info=True)
+        return source, None
+    if outcome.applied and str(outcome.text or ""):
+        return outcome.text, outcome
+    return source, outcome
+
+
 async def handle_initiative(*, bot, chat_id: int, situation, candidates,
                             prepared_text: str | None = None, db=None,
                             correlation_id: str | None = None,
@@ -8275,6 +8766,7 @@ async def handle_initiative(*, bot, chat_id: int, situation, candidates,
             intent_row = None
         generated = False
         evaluated_version = None
+        l1_plan = None
         if prepared_text is None and writer_service is not None:
             # §18D (decision-time): свежие условия ДО решения/генерации —
             # отвечать нечему/некому: не тратим LLM-вызовы.
@@ -8338,6 +8830,8 @@ async def handle_initiative(*, bot, chat_id: int, situation, candidates,
         # условиям реального чата непосредственно перед send; ровно одна
         # переоценка при смене контекста во время подготовки (bounded).
         recheck_attempts = 0
+        styled_text = None
+        style_outcome = None
         while True:
             if db is not None and intent_row is not None:
                 context = await build_fresh_recheck_context(
@@ -8346,6 +8840,16 @@ async def handle_initiative(*, bot, chat_id: int, situation, candidates,
                     recheck_attempts=recheck_attempts)
             else:
                 context = _mca_intents.RecheckContext(intent_row=intent_row)
+            # ── SOUL-1 (W3, SOUL-16.4.1 + SOUL-AMD.3.5, fix F4 review-w3):
+            # ЕДИНСТВЕННАЯ точка применения прохода формы для инициативных
+            # текстов — перед чанкованием и отправкой, поэтому проходят его И
+            # writer-текст, И `prepared_text` (nostalgia): проверяется и
+            # правится ровно то, что уйдёт. На один текст — один проход
+            # (переоценка §18D может перегенерировать текст → проход заново).
+            if str(prepared_text or "") != styled_text:
+                prepared_text, style_outcome = await _style_initiative_text(
+                    str(prepared_text or ""), chat_id, l1_plan)
+                styled_text = str(prepared_text or "")
             plan = _mca_intents.plan_logical_send(
                 decision, recheck=_mca_intents.SendRecheck(),
                 context=context, text=prepared_text)
@@ -8454,6 +8958,49 @@ async def handle_initiative(*, bot, chat_id: int, situation, candidates,
             _mca_intents.note_initiative_sent(chat_id=chat_id,
                                               intent_id=decision.intent_id,
                                               chunks=sent)
+        # ── SOUL-1 (W5, SOUL-18.6): под каким Core/Style ушло сообщение.
+        # Пишется по факту доставки, только ID/ревизии; ошибка не рвёт отправку.
+        try:
+            _refs = None
+            try:
+                _refs = _pcomp.recall_turn_refs(chat_id, correlation_id)
+            except Exception:
+                _refs = None
+            _core_rev = ""
+            _policy_rev = ""
+            _identity_rev = ""
+            _manifest_id = ""
+            _composer_state = "on" if _pcomp.composer_enabled_now(
+                await _composer_resolve_gates(chat_id)) else "off"
+            try:
+                _manifest = _pcomp.get_manifest(chat_id, run_id=correlation_id,
+                                                writer="initiative_writer")
+                if _manifest is not None:
+                    _versions = dict(getattr(_manifest, "versions", {}) or {})
+                    _core_rev = str(_versions.get("core") or "")
+                    _policy_rev = str(_versions.get("style_policy") or "")
+                    _manifest_id = str(getattr(_manifest, "manifest_id", "")
+                                       or "")
+            except Exception:
+                _manifest = None
+            if _refs is not None:
+                _core_ref = getattr(_refs, "core", None)
+                _policy_ref = getattr(_refs, "style_policy", None)
+                _identity_ref = getattr(_refs, "identity", None)
+                _core_rev = _core_rev or str(getattr(_core_ref, "revision", "")
+                                             or "")
+                _policy_rev = _policy_rev or str(
+                    getattr(_policy_ref, "revision", "") or "")
+                _identity_rev = str(getattr(_identity_ref, "revision", "") or "")
+            _mca_intents.note_delivery_manifest(
+                chat_id=chat_id, correlation_id=str(correlation_id or ""),
+                message_id=sent_id, core_revision=_core_rev,
+                style_policy_revision=_policy_rev,
+                identity_revision=_identity_rev, manifest_id=_manifest_id,
+                composer_state=_composer_state)
+        except Exception:
+            logger.warning("[soul1] initiative manifest event failed",
+                           exc_info=True)
         _mca_intents.note_decision(decision, chat_id=chat_id, outcome="ok")
         logger.info(
             "[mca09] initiative sent | chat=%s | kind=%s | chunks=%d | "

@@ -1,0 +1,12 @@
+$ py -3 tools/gen_param_registry_round1025.py --check
+CHECK OK: реестр 575 == REGISTRY, карта полна, R17-чисто, TSV/map идемпотентны.
+rc=0
+
+$ py -3 tools/_soul1_w5_reissue_f8.py   (идемпотентный повтор)
+EMIT OK: plans\docs\param-registry-round1025.tsv (575 строк; дельта 411→575=164)
+EMIT OK: plans\docs\screen-map-round1025.md
+EMIT OK: plans\docs\param-registry-round1025.meta.md
+f8_baseline: {'REGISTRY': 575, 'GROUPS': 120, 'TAB_BY_GROUP': 118, 'TAB_RULES': 23, 'delta': 164, 'inventory': 411, '_TAB_BY_GROUP': 118}
+catalog_baseline keys: 575
+re-pinned files: 0
+rc=0

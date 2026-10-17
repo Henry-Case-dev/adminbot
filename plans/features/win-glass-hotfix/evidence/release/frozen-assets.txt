@@ -1,0 +1,32 @@
+== web/index.html
+   BASE(0b7a0aca) sha256_12 4a40a78a79f0 | release 4830df0b4049
+   'id="lg-lens"': 1 -> 1 [same]
+   'lg-lens-map': 1 -> 1 [same]
+   'feDisplacementMap': 2 -> 2 [same]
+   'polygon-background.js': 2 -> 2 [same]
+   '--lg-tint-hero': 0 -> 0 [same]
+   '--lg-blur': 0 -> 0 [same]
+   'glass-card': 0 -> 0 [same]
+   'lg-lens': 4 -> 4 [same]
+== web/app.js
+   BASE(0b7a0aca) sha256_12 c97723298e38 | release 6c3edf36a238
+   'id="lg-lens"': 0 -> 0 [same]
+   'lg-lens-map': 2 -> 2 [same]
+   'feDisplacementMap': 0 -> 0 [same]
+   'polygon-background.js': 1 -> 1 [same]
+   '--lg-tint-hero': 0 -> 0 [same]
+   '--lg-blur': 0 -> 0 [same]
+   'glass-card': 0 -> 0 [same]
+   'lg-lens': 7 -> 7 [same]
+== web/static/app.css
+   BASE(0b7a0aca) sha256_12 a54f385670c9 | release 57bc3b168203
+   'id="lg-lens"': 0 -> 0 [same]
+   'lg-lens-map': 0 -> 0 [same]
+   'feDisplacementMap': 0 -> 0 [same]
+   'polygon-background.js': 0 -> 0 [same]
+   '--lg-tint-hero': 3 -> 3 [same]
+   '--lg-blur': 0 -> 0 [same]
+   'glass-card': 0 -> 0 [same]
+   'lg-lens': 11 -> 11 [same]
+== web/index.html: CRLF=0 bytes=731808
+== web/app.js: CRLF=0 bytes=1130682

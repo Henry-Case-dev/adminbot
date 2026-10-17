@@ -1,0 +1,1765 @@
+{
+ "viewports": {
+  "320": {
+   "width": 320,
+   "height": 640
+  },
+  "360": {
+   "width": 360,
+   "height": 780
+  },
+  "390": {
+   "width": 390,
+   "height": 844
+  },
+  "430": {
+   "width": 430,
+   "height": 932
+  },
+  "768": {
+   "width": 768,
+   "height": 1024
+  },
+  "1024": {
+   "width": 1024,
+   "height": 768
+  },
+  "1440": {
+   "width": 1440,
+   "height": 900
+  },
+  "landscape": {
+   "width": 667,
+   "height": 375
+  }
+ },
+ "failures": [],
+ "post_calls": [
+  "POST block/core.personality",
+  "POST block/core.personality/reset",
+  "POST block/core.personality/reset",
+  "POST style/preview",
+  "POST style",
+  "POST expression",
+  "POST try",
+  "POST block/core.personality",
+  "POST block/core.personality",
+  "POST block/core.personality/reset",
+  "POST block/core.personality/reset",
+  "POST style/preview",
+  "POST style",
+  "POST expression",
+  "POST try",
+  "POST block/core.personality"
+ ],
+ "notes": [
+  {
+   "label": "390/factory_plan",
+   "toasts": [
+    "Заводской вариант: было 2882 → станет 2835 зн. (строк −2 / +0). Повторный клик — подтверждениеСохранено: характер (полная редакция)",
+    "Заводской вариант: было 2882 → станет 2835 зн. (строк −2 / +0). Повторный клик — подтверждение",
+    "Заводской вариант: было 2882 → станет 2835 зн. (строк −2 / +0). Повторный клик — подтверждение",
+    "Сохранено: характер (полная редакция)",
+    "Сохранено: характер (полная редакция)"
+   ],
+   "expected": "было 2882 → станет 2835 зн."
+  },
+  {
+   "label": "390/factory_apply",
+   "toasts": [
+    "Заводской вариант: было 2882 → станет 2835 зн. (строк −2 / +0). Повторный клик — подтверждениеСохранено: характер (полная редакция)Заводской вариант возвращён (новая ревизия, предыдущая — в истории)",
+    "Заводской вариант: было 2882 → станет 2835 зн. (строк −2 / +0). Повторный клик — подтверждение",
+    "Заводской вариант: было 2882 → станет 2835 зн. (строк −2 / +0). Повторный клик — подтверждение",
+    "Сохранено: характер (полная редакция)",
+    "Сохранено: характер (полная редакция)",
+    "Заводской вариант возвращён (новая ревизия, предыдущая — в истории)",
+    "Заводской вариант возвращён (новая ревизия, предыдущая — в истории)"
+   ]
+  },
+  {
+   "label": "390/style_f2_draft",
+   "rules": 1,
+   "unchecked": 1,
+   "dirty_badge": true
+  },
+  {
+   "label": "390/style_f2_mutations",
+   "rules": [
+    1,
+    2,
+    1
+   ],
+   "soft": [
+    1,
+    2,
+    1
+   ]
+  },
+  {
+   "label": "390/block_factory_plan",
+   "text": "заводской сброс: было 2882 → станет 2835 зн. (строк −2 / +0)",
+   "expected": "было 2882 → станет 2835 зн."
+  },
+  {
+   "label": "390/inspector",
+   "sent_branch": true,
+   "head": "← Назад\nРечь и характер\nЧАТ\nзадано глобально\nAudit Chat\nОбновить данные"
+  },
+  {
+   "label": "1440/factory_plan",
+   "toasts": [
+    "Заводской вариант: было 2882 → станет 2835 зн. (строк −2 / +0). Повторный клик — подтверждениеСохранено: характер (полная редакция)",
+    "Заводской вариант: было 2882 → станет 2835 зн. (строк −2 / +0). Повторный клик — подтверждение",
+    "Заводской вариант: было 2882 → станет 2835 зн. (строк −2 / +0). Повторный клик — подтверждение",
+    "Сохранено: характер (полная редакция)",
+    "Сохранено: характер (полная редакция)"
+   ],
+   "expected": "было 2882 → станет 2835 зн."
+  },
+  {
+   "label": "1440/factory_apply",
+   "toasts": [
+    "Заводской вариант: было 2882 → станет 2835 зн. (строк −2 / +0). Повторный клик — подтверждениеСохранено: характер (полная редакция)Заводской вариант возвращён (новая ревизия, предыдущая — в истории)",
+    "Заводской вариант: было 2882 → станет 2835 зн. (строк −2 / +0). Повторный клик — подтверждение",
+    "Заводской вариант: было 2882 → станет 2835 зн. (строк −2 / +0). Повторный клик — подтверждение",
+    "Сохранено: характер (полная редакция)",
+    "Сохранено: характер (полная редакция)",
+    "Заводской вариант возвращён (новая ревизия, предыдущая — в истории)",
+    "Заводской вариант возвращён (новая ревизия, предыдущая — в истории)"
+   ]
+  },
+  {
+   "label": "1440/style_f2_draft",
+   "rules": 1,
+   "unchecked": 1,
+   "dirty_badge": true
+  },
+  {
+   "label": "1440/style_f2_mutations",
+   "rules": [
+    1,
+    2,
+    1
+   ],
+   "soft": [
+    1,
+    2,
+    1
+   ]
+  },
+  {
+   "label": "1440/block_factory_plan",
+   "text": "заводской сброс: было 2882 → станет 2835 зн. (строк −2 / +0)",
+   "expected": "было 2882 → станет 2835 зн."
+  },
+  {
+   "label": "1440/inspector",
+   "sent_branch": true,
+   "head": "← Назад\nРечь и характер\nЧАТ\nзадано глобально\nAudit Chat\nОбновить данные"
+  }
+ ],
+ "dialogs": [
+  "Есть несохранённые изменения (0) для «Audit Chat». Уйти со страницы и потерять их? (Изменения можно сохранить кнопкой «Сохранить изменения»)",
+  "Есть несохранённые изменения (0) для «Audit Chat». Уйти со страницы и потерять их? (Изменения можно сохранить кнопкой «Сохранить изменения»)",
+  "Есть несохранённые изменения (0) для «Audit Chat». Уйти со страницы и потерять их? (Изменения можно сохранить кнопкой «Сохранить изменения»)",
+  "Есть несохранённые изменения (0) для «Audit Chat». Уйти со страницы и потерять их? (Изменения можно сохранить кнопкой «Сохранить изменения»)",
+  "Есть несохранённые изменения (0) для «Audit Chat». Уйти со страницы и потерять их? (Изменения можно сохранить кнопкой «Сохранить изменения»)",
+  "Есть несохранённые изменения (0) для «Audit Chat». Уйти со страницы и потерять их? (Изменения можно сохранить кнопкой «Сохранить изменения»)",
+  "Есть несохранённые изменения (0) для «Audit Chat». Уйти со страницы и потерять их? (Изменения можно сохранить кнопкой «Сохранить изменения»)",
+  "Есть несохранённые изменения (0) для «Audit Chat». Уйти со страницы и потерять их? (Изменения можно сохранить кнопкой «Сохранить изменения»)"
+ ],
+ "probes": [
+  {
+   "label": "320",
+   "probe": {
+    "vw": 320,
+    "vh": 640,
+    "scrollWidth": 320,
+    "pageOverflow": 0,
+    "minTap": 44,
+    "tapCount": 11,
+    "gridCols": 1,
+    "splitCols": 0,
+    "preCount": 0,
+    "preOverflow": 0,
+    "headH": 130,
+    "paddingLeft": "12px"
+   }
+  },
+  {
+   "label": "320/core",
+   "probe": {
+    "vw": 320,
+    "vh": 640,
+    "scrollWidth": 320,
+    "pageOverflow": 0,
+    "minTap": 44,
+    "tapCount": 13,
+    "gridCols": 0,
+    "splitCols": 1,
+    "preCount": 0,
+    "preOverflow": 0,
+    "headH": 152,
+    "paddingLeft": "12px"
+   }
+  },
+  {
+   "label": "320/style",
+   "probe": {
+    "vw": 320,
+    "vh": 640,
+    "scrollWidth": 320,
+    "pageOverflow": 0,
+    "minTap": 44,
+    "tapCount": 18,
+    "gridCols": 0,
+    "splitCols": 0,
+    "preCount": 1,
+    "preOverflow": 0,
+    "headH": 152,
+    "paddingLeft": "12px"
+   }
+  },
+  {
+   "label": "320/expression",
+   "probe": {
+    "vw": 320,
+    "vh": 640,
+    "scrollWidth": 320,
+    "pageOverflow": 0,
+    "minTap": 44,
+    "tapCount": 11,
+    "gridCols": 0,
+    "splitCols": 1,
+    "preCount": 1,
+    "preOverflow": 0,
+    "headH": 152,
+    "paddingLeft": "12px"
+   }
+  },
+  {
+   "label": "320/humor",
+   "probe": {
+    "vw": 320,
+    "vh": 640,
+    "scrollWidth": 320,
+    "pageOverflow": 0,
+    "minTap": 44,
+    "tapCount": 3,
+    "gridCols": 1,
+    "splitCols": 0,
+    "preCount": 0,
+    "preOverflow": 0,
+    "headH": 152,
+    "paddingLeft": "12px"
+   }
+  },
+  {
+   "label": "320/examples",
+   "probe": {
+    "vw": 320,
+    "vh": 640,
+    "scrollWidth": 320,
+    "pageOverflow": 0,
+    "minTap": 44,
+    "tapCount": 5,
+    "gridCols": 0,
+    "splitCols": 0,
+    "preCount": 0,
+    "preOverflow": 0,
+    "headH": 152,
+    "paddingLeft": "12px"
+   }
+  },
+  {
+   "label": "320/try",
+   "probe": {
+    "vw": 320,
+    "vh": 640,
+    "scrollWidth": 320,
+    "pageOverflow": 0,
+    "minTap": 44,
+    "tapCount": 7,
+    "gridCols": 0,
+    "splitCols": 1,
+    "preCount": 0,
+    "preOverflow": 0,
+    "headH": 152,
+    "paddingLeft": "12px"
+   }
+  },
+  {
+   "label": "320/learning",
+   "probe": {
+    "vw": 320,
+    "vh": 640,
+    "scrollWidth": 320,
+    "pageOverflow": 0,
+    "minTap": 44,
+    "tapCount": 2,
+    "gridCols": 0,
+    "splitCols": 0,
+    "preCount": 0,
+    "preOverflow": 0,
+    "headH": 152,
+    "paddingLeft": "12px"
+   }
+  },
+  {
+   "label": "320/all",
+   "probe": {
+    "vw": 320,
+    "vh": 640,
+    "scrollWidth": 320,
+    "pageOverflow": 0,
+    "minTap": 44,
+    "tapCount": 81,
+    "gridCols": 0,
+    "splitCols": 0,
+    "preCount": 0,
+    "preOverflow": 0,
+    "headH": 152,
+    "paddingLeft": "12px"
+   }
+  },
+  {
+   "label": "320/inspector",
+   "probe": {
+    "vw": 320,
+    "vh": 640,
+    "scrollWidth": 320,
+    "pageOverflow": 0,
+    "minTap": 44,
+    "tapCount": 2,
+    "gridCols": 0,
+    "splitCols": 0,
+    "preCount": 1,
+    "preOverflow": 1,
+    "headH": 152,
+    "paddingLeft": "12px"
+   }
+  },
+  {
+   "label": "320/capabilities",
+   "probe": {
+    "vw": 320,
+    "vh": 640,
+    "scrollWidth": 320,
+    "pageOverflow": 0,
+    "minTap": 44,
+    "tapCount": 2,
+    "gridCols": 0,
+    "splitCols": 0,
+    "preCount": 0,
+    "preOverflow": 0,
+    "headH": 152,
+    "paddingLeft": "12px"
+   }
+  },
+  {
+   "label": "360",
+   "probe": {
+    "vw": 360,
+    "vh": 780,
+    "scrollWidth": 360,
+    "pageOverflow": 0,
+    "minTap": 44,
+    "tapCount": 11,
+    "gridCols": 1,
+    "splitCols": 0,
+    "preCount": 0,
+    "preOverflow": 0,
+    "headH": 100,
+    "paddingLeft": "12px"
+   }
+  },
+  {
+   "label": "360/core",
+   "probe": {
+    "vw": 360,
+    "vh": 780,
+    "scrollWidth": 360,
+    "pageOverflow": 0,
+    "minTap": 44,
+    "tapCount": 13,
+    "gridCols": 0,
+    "splitCols": 1,
+    "preCount": 0,
+    "preOverflow": 0,
+    "headH": 152,
+    "paddingLeft": "12px"
+   }
+  },
+  {
+   "label": "360/style",
+   "probe": {
+    "vw": 360,
+    "vh": 780,
+    "scrollWidth": 360,
+    "pageOverflow": 0,
+    "minTap": 44,
+    "tapCount": 18,
+    "gridCols": 0,
+    "splitCols": 0,
+    "preCount": 1,
+    "preOverflow": 0,
+    "headH": 152,
+    "paddingLeft": "12px"
+   }
+  },
+  {
+   "label": "360/expression",
+   "probe": {
+    "vw": 360,
+    "vh": 780,
+    "scrollWidth": 360,
+    "pageOverflow": 0,
+    "minTap": 44,
+    "tapCount": 11,
+    "gridCols": 0,
+    "splitCols": 1,
+    "preCount": 1,
+    "preOverflow": 0,
+    "headH": 152,
+    "paddingLeft": "12px"
+   }
+  },
+  {
+   "label": "360/humor",
+   "probe": {
+    "vw": 360,
+    "vh": 780,
+    "scrollWidth": 360,
+    "pageOverflow": 0,
+    "minTap": 44,
+    "tapCount": 3,
+    "gridCols": 1,
+    "splitCols": 0,
+    "preCount": 0,
+    "preOverflow": 0,
+    "headH": 152,
+    "paddingLeft": "12px"
+   }
+  },
+  {
+   "label": "360/examples",
+   "probe": {
+    "vw": 360,
+    "vh": 780,
+    "scrollWidth": 360,
+    "pageOverflow": 0,
+    "minTap": 44,
+    "tapCount": 5,
+    "gridCols": 0,
+    "splitCols": 0,
+    "preCount": 0,
+    "preOverflow": 0,
+    "headH": 152,
+    "paddingLeft": "12px"
+   }
+  },
+  {
+   "label": "360/try",
+   "probe": {
+    "vw": 360,
+    "vh": 780,
+    "scrollWidth": 360,
+    "pageOverflow": 0,
+    "minTap": 44,
+    "tapCount": 7,
+    "gridCols": 0,
+    "splitCols": 1,
+    "preCount": 0,
+    "preOverflow": 0,
+    "headH": 152,
+    "paddingLeft": "12px"
+   }
+  },
+  {
+   "label": "360/learning",
+   "probe": {
+    "vw": 360,
+    "vh": 780,
+    "scrollWidth": 360,
+    "pageOverflow": 0,
+    "minTap": 44,
+    "tapCount": 2,
+    "gridCols": 0,
+    "splitCols": 0,
+    "preCount": 0,
+    "preOverflow": 0,
+    "headH": 152,
+    "paddingLeft": "12px"
+   }
+  },
+  {
+   "label": "360/all",
+   "probe": {
+    "vw": 360,
+    "vh": 780,
+    "scrollWidth": 360,
+    "pageOverflow": 0,
+    "minTap": 44,
+    "tapCount": 81,
+    "gridCols": 0,
+    "splitCols": 0,
+    "preCount": 0,
+    "preOverflow": 0,
+    "headH": 152,
+    "paddingLeft": "12px"
+   }
+  },
+  {
+   "label": "360/inspector",
+   "probe": {
+    "vw": 360,
+    "vh": 780,
+    "scrollWidth": 360,
+    "pageOverflow": 0,
+    "minTap": 44,
+    "tapCount": 2,
+    "gridCols": 0,
+    "splitCols": 0,
+    "preCount": 2,
+    "preOverflow": 2,
+    "headH": 152,
+    "paddingLeft": "12px"
+   }
+  },
+  {
+   "label": "360/capabilities",
+   "probe": {
+    "vw": 360,
+    "vh": 780,
+    "scrollWidth": 360,
+    "pageOverflow": 0,
+    "minTap": 44,
+    "tapCount": 2,
+    "gridCols": 0,
+    "splitCols": 0,
+    "preCount": 0,
+    "preOverflow": 0,
+    "headH": 152,
+    "paddingLeft": "12px"
+   }
+  },
+  {
+   "label": "390",
+   "probe": {
+    "vw": 390,
+    "vh": 844,
+    "scrollWidth": 390,
+    "pageOverflow": 0,
+    "minTap": 44,
+    "tapCount": 11,
+    "gridCols": 1,
+    "splitCols": 0,
+    "preCount": 0,
+    "preOverflow": 0,
+    "headH": 100,
+    "paddingLeft": "12px"
+   }
+  },
+  {
+   "label": "390/core",
+   "probe": {
+    "vw": 390,
+    "vh": 844,
+    "scrollWidth": 390,
+    "pageOverflow": 0,
+    "minTap": 44,
+    "tapCount": 13,
+    "gridCols": 0,
+    "splitCols": 1,
+    "preCount": 0,
+    "preOverflow": 0,
+    "headH": 152,
+    "paddingLeft": "12px"
+   }
+  },
+  {
+   "label": "390/style",
+   "probe": {
+    "vw": 390,
+    "vh": 844,
+    "scrollWidth": 390,
+    "pageOverflow": 0,
+    "minTap": 44,
+    "tapCount": 18,
+    "gridCols": 0,
+    "splitCols": 0,
+    "preCount": 1,
+    "preOverflow": 0,
+    "headH": 152,
+    "paddingLeft": "12px"
+   }
+  },
+  {
+   "label": "390/expression",
+   "probe": {
+    "vw": 390,
+    "vh": 844,
+    "scrollWidth": 390,
+    "pageOverflow": 0,
+    "minTap": 44,
+    "tapCount": 11,
+    "gridCols": 0,
+    "splitCols": 1,
+    "preCount": 1,
+    "preOverflow": 0,
+    "headH": 152,
+    "paddingLeft": "12px"
+   }
+  },
+  {
+   "label": "390/humor",
+   "probe": {
+    "vw": 390,
+    "vh": 844,
+    "scrollWidth": 390,
+    "pageOverflow": 0,
+    "minTap": 44,
+    "tapCount": 3,
+    "gridCols": 1,
+    "splitCols": 0,
+    "preCount": 0,
+    "preOverflow": 0,
+    "headH": 152,
+    "paddingLeft": "12px"
+   }
+  },
+  {
+   "label": "390/examples",
+   "probe": {
+    "vw": 390,
+    "vh": 844,
+    "scrollWidth": 390,
+    "pageOverflow": 0,
+    "minTap": 44,
+    "tapCount": 5,
+    "gridCols": 0,
+    "splitCols": 0,
+    "preCount": 0,
+    "preOverflow": 0,
+    "headH": 152,
+    "paddingLeft": "12px"
+   }
+  },
+  {
+   "label": "390/try",
+   "probe": {
+    "vw": 390,
+    "vh": 844,
+    "scrollWidth": 390,
+    "pageOverflow": 0,
+    "minTap": 44,
+    "tapCount": 7,
+    "gridCols": 0,
+    "splitCols": 1,
+    "preCount": 0,
+    "preOverflow": 0,
+    "headH": 152,
+    "paddingLeft": "12px"
+   }
+  },
+  {
+   "label": "390/learning",
+   "probe": {
+    "vw": 390,
+    "vh": 844,
+    "scrollWidth": 390,
+    "pageOverflow": 0,
+    "minTap": 44,
+    "tapCount": 2,
+    "gridCols": 0,
+    "splitCols": 0,
+    "preCount": 0,
+    "preOverflow": 0,
+    "headH": 152,
+    "paddingLeft": "12px"
+   }
+  },
+  {
+   "label": "390/all",
+   "probe": {
+    "vw": 390,
+    "vh": 844,
+    "scrollWidth": 390,
+    "pageOverflow": 0,
+    "minTap": 44,
+    "tapCount": 81,
+    "gridCols": 0,
+    "splitCols": 0,
+    "preCount": 0,
+    "preOverflow": 0,
+    "headH": 152,
+    "paddingLeft": "12px"
+   }
+  },
+  {
+   "label": "390/inspector",
+   "probe": {
+    "vw": 390,
+    "vh": 844,
+    "scrollWidth": 390,
+    "pageOverflow": 0,
+    "minTap": 44,
+    "tapCount": 2,
+    "gridCols": 0,
+    "splitCols": 0,
+    "preCount": 1,
+    "preOverflow": 1,
+    "headH": 152,
+    "paddingLeft": "12px"
+   }
+  },
+  {
+   "label": "390/capabilities",
+   "probe": {
+    "vw": 390,
+    "vh": 844,
+    "scrollWidth": 390,
+    "pageOverflow": 0,
+    "minTap": 44,
+    "tapCount": 2,
+    "gridCols": 0,
+    "splitCols": 0,
+    "preCount": 0,
+    "preOverflow": 0,
+    "headH": 152,
+    "paddingLeft": "12px"
+   }
+  },
+  {
+   "label": "430",
+   "probe": {
+    "vw": 430,
+    "vh": 932,
+    "scrollWidth": 430,
+    "pageOverflow": 0,
+    "minTap": 44,
+    "tapCount": 11,
+    "gridCols": 1,
+    "splitCols": 0,
+    "preCount": 0,
+    "preOverflow": 0,
+    "headH": 100,
+    "paddingLeft": "12px"
+   }
+  },
+  {
+   "label": "430/core",
+   "probe": {
+    "vw": 430,
+    "vh": 932,
+    "scrollWidth": 430,
+    "pageOverflow": 0,
+    "minTap": 44,
+    "tapCount": 13,
+    "gridCols": 0,
+    "splitCols": 1,
+    "preCount": 0,
+    "preOverflow": 0,
+    "headH": 122,
+    "paddingLeft": "12px"
+   }
+  },
+  {
+   "label": "430/style",
+   "probe": {
+    "vw": 430,
+    "vh": 932,
+    "scrollWidth": 430,
+    "pageOverflow": 0,
+    "minTap": 44,
+    "tapCount": 18,
+    "gridCols": 0,
+    "splitCols": 0,
+    "preCount": 1,
+    "preOverflow": 0,
+    "headH": 122,
+    "paddingLeft": "12px"
+   }
+  },
+  {
+   "label": "430/expression",
+   "probe": {
+    "vw": 430,
+    "vh": 932,
+    "scrollWidth": 430,
+    "pageOverflow": 0,
+    "minTap": 44,
+    "tapCount": 11,
+    "gridCols": 0,
+    "splitCols": 1,
+    "preCount": 1,
+    "preOverflow": 0,
+    "headH": 122,
+    "paddingLeft": "12px"
+   }
+  },
+  {
+   "label": "430/humor",
+   "probe": {
+    "vw": 430,
+    "vh": 932,
+    "scrollWidth": 430,
+    "pageOverflow": 0,
+    "minTap": 44,
+    "tapCount": 3,
+    "gridCols": 1,
+    "splitCols": 0,
+    "preCount": 0,
+    "preOverflow": 0,
+    "headH": 122,
+    "paddingLeft": "12px"
+   }
+  },
+  {
+   "label": "430/examples",
+   "probe": {
+    "vw": 430,
+    "vh": 932,
+    "scrollWidth": 430,
+    "pageOverflow": 0,
+    "minTap": 44,
+    "tapCount": 5,
+    "gridCols": 0,
+    "splitCols": 0,
+    "preCount": 0,
+    "preOverflow": 0,
+    "headH": 122,
+    "paddingLeft": "12px"
+   }
+  },
+  {
+   "label": "430/try",
+   "probe": {
+    "vw": 430,
+    "vh": 932,
+    "scrollWidth": 430,
+    "pageOverflow": 0,
+    "minTap": 44,
+    "tapCount": 7,
+    "gridCols": 0,
+    "splitCols": 1,
+    "preCount": 0,
+    "preOverflow": 0,
+    "headH": 122,
+    "paddingLeft": "12px"
+   }
+  },
+  {
+   "label": "430/learning",
+   "probe": {
+    "vw": 430,
+    "vh": 932,
+    "scrollWidth": 430,
+    "pageOverflow": 0,
+    "minTap": 44,
+    "tapCount": 2,
+    "gridCols": 0,
+    "splitCols": 0,
+    "preCount": 0,
+    "preOverflow": 0,
+    "headH": 122,
+    "paddingLeft": "12px"
+   }
+  },
+  {
+   "label": "430/all",
+   "probe": {
+    "vw": 430,
+    "vh": 932,
+    "scrollWidth": 430,
+    "pageOverflow": 0,
+    "minTap": 44,
+    "tapCount": 81,
+    "gridCols": 0,
+    "splitCols": 0,
+    "preCount": 0,
+    "preOverflow": 0,
+    "headH": 122,
+    "paddingLeft": "12px"
+   }
+  },
+  {
+   "label": "430/inspector",
+   "probe": {
+    "vw": 430,
+    "vh": 932,
+    "scrollWidth": 430,
+    "pageOverflow": 0,
+    "minTap": 44,
+    "tapCount": 2,
+    "gridCols": 0,
+    "splitCols": 0,
+    "preCount": 2,
+    "preOverflow": 2,
+    "headH": 122,
+    "paddingLeft": "12px"
+   }
+  },
+  {
+   "label": "430/capabilities",
+   "probe": {
+    "vw": 430,
+    "vh": 932,
+    "scrollWidth": 430,
+    "pageOverflow": 0,
+    "minTap": 44,
+    "tapCount": 2,
+    "gridCols": 0,
+    "splitCols": 0,
+    "preCount": 0,
+    "preOverflow": 0,
+    "headH": 122,
+    "paddingLeft": "12px"
+   }
+  },
+  {
+   "label": "768",
+   "probe": {
+    "vw": 768,
+    "vh": 1024,
+    "scrollWidth": 768,
+    "pageOverflow": 0,
+    "minTap": 44,
+    "tapCount": 11,
+    "gridCols": 2,
+    "splitCols": 0,
+    "preCount": 0,
+    "preOverflow": 0,
+    "headH": 70,
+    "paddingLeft": "12px"
+   }
+  },
+  {
+   "label": "768/core",
+   "probe": {
+    "vw": 768,
+    "vh": 1024,
+    "scrollWidth": 768,
+    "pageOverflow": 0,
+    "minTap": 44,
+    "tapCount": 13,
+    "gridCols": 0,
+    "splitCols": 1,
+    "preCount": 0,
+    "preOverflow": 0,
+    "headH": 70,
+    "paddingLeft": "12px"
+   }
+  },
+  {
+   "label": "768/style",
+   "probe": {
+    "vw": 768,
+    "vh": 1024,
+    "scrollWidth": 768,
+    "pageOverflow": 0,
+    "minTap": 44,
+    "tapCount": 18,
+    "gridCols": 0,
+    "splitCols": 0,
+    "preCount": 1,
+    "preOverflow": 0,
+    "headH": 70,
+    "paddingLeft": "12px"
+   }
+  },
+  {
+   "label": "768/expression",
+   "probe": {
+    "vw": 768,
+    "vh": 1024,
+    "scrollWidth": 768,
+    "pageOverflow": 0,
+    "minTap": 44,
+    "tapCount": 11,
+    "gridCols": 0,
+    "splitCols": 1,
+    "preCount": 1,
+    "preOverflow": 0,
+    "headH": 70,
+    "paddingLeft": "12px"
+   }
+  },
+  {
+   "label": "768/humor",
+   "probe": {
+    "vw": 768,
+    "vh": 1024,
+    "scrollWidth": 768,
+    "pageOverflow": 0,
+    "minTap": 44,
+    "tapCount": 3,
+    "gridCols": 3,
+    "splitCols": 0,
+    "preCount": 0,
+    "preOverflow": 0,
+    "headH": 70,
+    "paddingLeft": "12px"
+   }
+  },
+  {
+   "label": "768/examples",
+   "probe": {
+    "vw": 768,
+    "vh": 1024,
+    "scrollWidth": 768,
+    "pageOverflow": 0,
+    "minTap": 44,
+    "tapCount": 5,
+    "gridCols": 0,
+    "splitCols": 0,
+    "preCount": 0,
+    "preOverflow": 0,
+    "headH": 70,
+    "paddingLeft": "12px"
+   }
+  },
+  {
+   "label": "768/try",
+   "probe": {
+    "vw": 768,
+    "vh": 1024,
+    "scrollWidth": 768,
+    "pageOverflow": 0,
+    "minTap": 44,
+    "tapCount": 7,
+    "gridCols": 0,
+    "splitCols": 1,
+    "preCount": 0,
+    "preOverflow": 0,
+    "headH": 70,
+    "paddingLeft": "12px"
+   }
+  },
+  {
+   "label": "768/learning",
+   "probe": {
+    "vw": 768,
+    "vh": 1024,
+    "scrollWidth": 768,
+    "pageOverflow": 0,
+    "minTap": 44,
+    "tapCount": 2,
+    "gridCols": 0,
+    "splitCols": 0,
+    "preCount": 0,
+    "preOverflow": 0,
+    "headH": 70,
+    "paddingLeft": "12px"
+   }
+  },
+  {
+   "label": "768/all",
+   "probe": {
+    "vw": 768,
+    "vh": 1024,
+    "scrollWidth": 768,
+    "pageOverflow": 0,
+    "minTap": 44,
+    "tapCount": 81,
+    "gridCols": 0,
+    "splitCols": 0,
+    "preCount": 0,
+    "preOverflow": 0,
+    "headH": 70,
+    "paddingLeft": "12px"
+   }
+  },
+  {
+   "label": "768/inspector",
+   "probe": {
+    "vw": 768,
+    "vh": 1024,
+    "scrollWidth": 768,
+    "pageOverflow": 0,
+    "minTap": 44,
+    "tapCount": 2,
+    "gridCols": 0,
+    "splitCols": 0,
+    "preCount": 1,
+    "preOverflow": 1,
+    "headH": 70,
+    "paddingLeft": "12px"
+   }
+  },
+  {
+   "label": "768/capabilities",
+   "probe": {
+    "vw": 768,
+    "vh": 1024,
+    "scrollWidth": 768,
+    "pageOverflow": 0,
+    "minTap": 44,
+    "tapCount": 2,
+    "gridCols": 0,
+    "splitCols": 0,
+    "preCount": 0,
+    "preOverflow": 0,
+    "headH": 70,
+    "paddingLeft": "12px"
+   }
+  },
+  {
+   "label": "1024",
+   "probe": {
+    "vw": 1024,
+    "vh": 768,
+    "scrollWidth": 1024,
+    "pageOverflow": 0,
+    "minTap": 44,
+    "tapCount": 11,
+    "gridCols": 3,
+    "splitCols": 0,
+    "preCount": 0,
+    "preOverflow": 0,
+    "headH": 70,
+    "paddingLeft": "12px"
+   }
+  },
+  {
+   "label": "1024/core",
+   "probe": {
+    "vw": 1024,
+    "vh": 768,
+    "scrollWidth": 1024,
+    "pageOverflow": 0,
+    "minTap": 44,
+    "tapCount": 13,
+    "gridCols": 0,
+    "splitCols": 2,
+    "preCount": 0,
+    "preOverflow": 0,
+    "headH": 70,
+    "paddingLeft": "12px"
+   }
+  },
+  {
+   "label": "1024/style",
+   "probe": {
+    "vw": 1024,
+    "vh": 768,
+    "scrollWidth": 1024,
+    "pageOverflow": 0,
+    "minTap": 44,
+    "tapCount": 18,
+    "gridCols": 0,
+    "splitCols": 0,
+    "preCount": 1,
+    "preOverflow": 0,
+    "headH": 70,
+    "paddingLeft": "12px"
+   }
+  },
+  {
+   "label": "1024/expression",
+   "probe": {
+    "vw": 1024,
+    "vh": 768,
+    "scrollWidth": 1024,
+    "pageOverflow": 0,
+    "minTap": 44,
+    "tapCount": 11,
+    "gridCols": 0,
+    "splitCols": 2,
+    "preCount": 1,
+    "preOverflow": 0,
+    "headH": 70,
+    "paddingLeft": "12px"
+   }
+  },
+  {
+   "label": "1024/humor",
+   "probe": {
+    "vw": 1024,
+    "vh": 768,
+    "scrollWidth": 1024,
+    "pageOverflow": 0,
+    "minTap": 44,
+    "tapCount": 3,
+    "gridCols": 4,
+    "splitCols": 0,
+    "preCount": 0,
+    "preOverflow": 0,
+    "headH": 70,
+    "paddingLeft": "12px"
+   }
+  },
+  {
+   "label": "1024/examples",
+   "probe": {
+    "vw": 1024,
+    "vh": 768,
+    "scrollWidth": 1024,
+    "pageOverflow": 0,
+    "minTap": 44,
+    "tapCount": 5,
+    "gridCols": 0,
+    "splitCols": 0,
+    "preCount": 0,
+    "preOverflow": 0,
+    "headH": 70,
+    "paddingLeft": "12px"
+   }
+  },
+  {
+   "label": "1024/try",
+   "probe": {
+    "vw": 1024,
+    "vh": 768,
+    "scrollWidth": 1024,
+    "pageOverflow": 0,
+    "minTap": 44,
+    "tapCount": 7,
+    "gridCols": 0,
+    "splitCols": 2,
+    "preCount": 0,
+    "preOverflow": 0,
+    "headH": 70,
+    "paddingLeft": "12px"
+   }
+  },
+  {
+   "label": "1024/learning",
+   "probe": {
+    "vw": 1024,
+    "vh": 768,
+    "scrollWidth": 1024,
+    "pageOverflow": 0,
+    "minTap": 44,
+    "tapCount": 2,
+    "gridCols": 0,
+    "splitCols": 0,
+    "preCount": 0,
+    "preOverflow": 0,
+    "headH": 70,
+    "paddingLeft": "12px"
+   }
+  },
+  {
+   "label": "1024/all",
+   "probe": {
+    "vw": 1024,
+    "vh": 768,
+    "scrollWidth": 1024,
+    "pageOverflow": 0,
+    "minTap": 44,
+    "tapCount": 81,
+    "gridCols": 0,
+    "splitCols": 0,
+    "preCount": 0,
+    "preOverflow": 0,
+    "headH": 70,
+    "paddingLeft": "12px"
+   }
+  },
+  {
+   "label": "1024/inspector",
+   "probe": {
+    "vw": 1024,
+    "vh": 768,
+    "scrollWidth": 1024,
+    "pageOverflow": 0,
+    "minTap": 44,
+    "tapCount": 2,
+    "gridCols": 0,
+    "splitCols": 0,
+    "preCount": 2,
+    "preOverflow": 2,
+    "headH": 70,
+    "paddingLeft": "12px"
+   }
+  },
+  {
+   "label": "1024/capabilities",
+   "probe": {
+    "vw": 1024,
+    "vh": 768,
+    "scrollWidth": 1024,
+    "pageOverflow": 0,
+    "minTap": 44,
+    "tapCount": 2,
+    "gridCols": 0,
+    "splitCols": 0,
+    "preCount": 0,
+    "preOverflow": 0,
+    "headH": 70,
+    "paddingLeft": "12px"
+   }
+  },
+  {
+   "label": "1440",
+   "probe": {
+    "vw": 1440,
+    "vh": 900,
+    "scrollWidth": 1440,
+    "pageOverflow": 0,
+    "minTap": 44,
+    "tapCount": 11,
+    "gridCols": 4,
+    "splitCols": 0,
+    "preCount": 0,
+    "preOverflow": 0,
+    "headH": 70,
+    "paddingLeft": "12px"
+   }
+  },
+  {
+   "label": "1440/core",
+   "probe": {
+    "vw": 1440,
+    "vh": 900,
+    "scrollWidth": 1440,
+    "pageOverflow": 0,
+    "minTap": 44,
+    "tapCount": 13,
+    "gridCols": 0,
+    "splitCols": 2,
+    "preCount": 0,
+    "preOverflow": 0,
+    "headH": 70,
+    "paddingLeft": "12px"
+   }
+  },
+  {
+   "label": "1440/style",
+   "probe": {
+    "vw": 1440,
+    "vh": 900,
+    "scrollWidth": 1440,
+    "pageOverflow": 0,
+    "minTap": 44,
+    "tapCount": 18,
+    "gridCols": 0,
+    "splitCols": 0,
+    "preCount": 1,
+    "preOverflow": 0,
+    "headH": 70,
+    "paddingLeft": "12px"
+   }
+  },
+  {
+   "label": "1440/expression",
+   "probe": {
+    "vw": 1440,
+    "vh": 900,
+    "scrollWidth": 1440,
+    "pageOverflow": 0,
+    "minTap": 44,
+    "tapCount": 11,
+    "gridCols": 0,
+    "splitCols": 2,
+    "preCount": 1,
+    "preOverflow": 0,
+    "headH": 70,
+    "paddingLeft": "12px"
+   }
+  },
+  {
+   "label": "1440/humor",
+   "probe": {
+    "vw": 1440,
+    "vh": 900,
+    "scrollWidth": 1440,
+    "pageOverflow": 0,
+    "minTap": 44,
+    "tapCount": 3,
+    "gridCols": 5,
+    "splitCols": 0,
+    "preCount": 0,
+    "preOverflow": 0,
+    "headH": 70,
+    "paddingLeft": "12px"
+   }
+  },
+  {
+   "label": "1440/examples",
+   "probe": {
+    "vw": 1440,
+    "vh": 900,
+    "scrollWidth": 1440,
+    "pageOverflow": 0,
+    "minTap": 44,
+    "tapCount": 5,
+    "gridCols": 0,
+    "splitCols": 0,
+    "preCount": 0,
+    "preOverflow": 0,
+    "headH": 70,
+    "paddingLeft": "12px"
+   }
+  },
+  {
+   "label": "1440/try",
+   "probe": {
+    "vw": 1440,
+    "vh": 900,
+    "scrollWidth": 1440,
+    "pageOverflow": 0,
+    "minTap": 44,
+    "tapCount": 7,
+    "gridCols": 0,
+    "splitCols": 2,
+    "preCount": 0,
+    "preOverflow": 0,
+    "headH": 70,
+    "paddingLeft": "12px"
+   }
+  },
+  {
+   "label": "1440/learning",
+   "probe": {
+    "vw": 1440,
+    "vh": 900,
+    "scrollWidth": 1440,
+    "pageOverflow": 0,
+    "minTap": 44,
+    "tapCount": 2,
+    "gridCols": 0,
+    "splitCols": 0,
+    "preCount": 0,
+    "preOverflow": 0,
+    "headH": 70,
+    "paddingLeft": "12px"
+   }
+  },
+  {
+   "label": "1440/all",
+   "probe": {
+    "vw": 1440,
+    "vh": 900,
+    "scrollWidth": 1440,
+    "pageOverflow": 0,
+    "minTap": 44,
+    "tapCount": 81,
+    "gridCols": 0,
+    "splitCols": 0,
+    "preCount": 0,
+    "preOverflow": 0,
+    "headH": 70,
+    "paddingLeft": "12px"
+   }
+  },
+  {
+   "label": "1440/inspector",
+   "probe": {
+    "vw": 1440,
+    "vh": 900,
+    "scrollWidth": 1440,
+    "pageOverflow": 0,
+    "minTap": 44,
+    "tapCount": 2,
+    "gridCols": 0,
+    "splitCols": 0,
+    "preCount": 1,
+    "preOverflow": 1,
+    "headH": 70,
+    "paddingLeft": "12px"
+   }
+  },
+  {
+   "label": "1440/capabilities",
+   "probe": {
+    "vw": 1440,
+    "vh": 900,
+    "scrollWidth": 1440,
+    "pageOverflow": 0,
+    "minTap": 44,
+    "tapCount": 2,
+    "gridCols": 0,
+    "splitCols": 0,
+    "preCount": 0,
+    "preOverflow": 0,
+    "headH": 70,
+    "paddingLeft": "12px"
+   }
+  },
+  {
+   "label": "landscape",
+   "probe": {
+    "vw": 667,
+    "vh": 375,
+    "scrollWidth": 667,
+    "pageOverflow": 0,
+    "minTap": 44,
+    "tapCount": 11,
+    "gridCols": 2,
+    "splitCols": 0,
+    "preCount": 0,
+    "preOverflow": 0,
+    "headH": 70,
+    "paddingLeft": "12px"
+   }
+  },
+  {
+   "label": "landscape/core",
+   "probe": {
+    "vw": 667,
+    "vh": 375,
+    "scrollWidth": 667,
+    "pageOverflow": 0,
+    "minTap": 44,
+    "tapCount": 13,
+    "gridCols": 0,
+    "splitCols": 1,
+    "preCount": 0,
+    "preOverflow": 0,
+    "headH": 122,
+    "paddingLeft": "12px"
+   }
+  },
+  {
+   "label": "landscape/style",
+   "probe": {
+    "vw": 667,
+    "vh": 375,
+    "scrollWidth": 667,
+    "pageOverflow": 0,
+    "minTap": 44,
+    "tapCount": 18,
+    "gridCols": 0,
+    "splitCols": 0,
+    "preCount": 1,
+    "preOverflow": 0,
+    "headH": 122,
+    "paddingLeft": "12px"
+   }
+  },
+  {
+   "label": "landscape/expression",
+   "probe": {
+    "vw": 667,
+    "vh": 375,
+    "scrollWidth": 667,
+    "pageOverflow": 0,
+    "minTap": 44,
+    "tapCount": 11,
+    "gridCols": 0,
+    "splitCols": 1,
+    "preCount": 1,
+    "preOverflow": 0,
+    "headH": 122,
+    "paddingLeft": "12px"
+   }
+  },
+  {
+   "label": "landscape/humor",
+   "probe": {
+    "vw": 667,
+    "vh": 375,
+    "scrollWidth": 667,
+    "pageOverflow": 0,
+    "minTap": 44,
+    "tapCount": 3,
+    "gridCols": 2,
+    "splitCols": 0,
+    "preCount": 0,
+    "preOverflow": 0,
+    "headH": 122,
+    "paddingLeft": "12px"
+   }
+  },
+  {
+   "label": "landscape/examples",
+   "probe": {
+    "vw": 667,
+    "vh": 375,
+    "scrollWidth": 667,
+    "pageOverflow": 0,
+    "minTap": 44,
+    "tapCount": 5,
+    "gridCols": 0,
+    "splitCols": 0,
+    "preCount": 0,
+    "preOverflow": 0,
+    "headH": 122,
+    "paddingLeft": "12px"
+   }
+  },
+  {
+   "label": "landscape/try",
+   "probe": {
+    "vw": 667,
+    "vh": 375,
+    "scrollWidth": 667,
+    "pageOverflow": 0,
+    "minTap": 44,
+    "tapCount": 7,
+    "gridCols": 0,
+    "splitCols": 1,
+    "preCount": 0,
+    "preOverflow": 0,
+    "headH": 122,
+    "paddingLeft": "12px"
+   }
+  },
+  {
+   "label": "landscape/learning",
+   "probe": {
+    "vw": 667,
+    "vh": 375,
+    "scrollWidth": 667,
+    "pageOverflow": 0,
+    "minTap": 44,
+    "tapCount": 2,
+    "gridCols": 0,
+    "splitCols": 0,
+    "preCount": 0,
+    "preOverflow": 0,
+    "headH": 122,
+    "paddingLeft": "12px"
+   }
+  },
+  {
+   "label": "landscape/all",
+   "probe": {
+    "vw": 667,
+    "vh": 375,
+    "scrollWidth": 667,
+    "pageOverflow": 0,
+    "minTap": 44,
+    "tapCount": 81,
+    "gridCols": 0,
+    "splitCols": 0,
+    "preCount": 0,
+    "preOverflow": 0,
+    "headH": 122,
+    "paddingLeft": "12px"
+   }
+  },
+  {
+   "label": "landscape/inspector",
+   "probe": {
+    "vw": 667,
+    "vh": 375,
+    "scrollWidth": 667,
+    "pageOverflow": 0,
+    "minTap": 44,
+    "tapCount": 2,
+    "gridCols": 0,
+    "splitCols": 0,
+    "preCount": 2,
+    "preOverflow": 2,
+    "headH": 122,
+    "paddingLeft": "12px"
+   }
+  },
+  {
+   "label": "landscape/capabilities",
+   "probe": {
+    "vw": 667,
+    "vh": 375,
+    "scrollWidth": 667,
+    "pageOverflow": 0,
+    "minTap": 44,
+    "tapCount": 2,
+    "gridCols": 0,
+    "splitCols": 0,
+    "preCount": 0,
+    "preOverflow": 0,
+    "headH": 122,
+    "paddingLeft": "12px"
+   }
+  }
+ ],
+ "shots": [
+  "all_block_1440.png",
+  "all_block_390.png",
+  "capabilities_1440.png",
+  "capabilities_390.png",
+  "core_saved_1440.png",
+  "core_saved_390.png",
+  "entry_1024.png",
+  "entry_1440.png",
+  "entry_320.png",
+  "entry_360.png",
+  "entry_390.png",
+  "entry_430.png",
+  "entry_768.png",
+  "entry_landscape.png",
+  "expression_1440.png",
+  "expression_390.png",
+  "factory_plan_1440.png",
+  "factory_plan_390.png",
+  "inspector_1440.png",
+  "inspector_390.png",
+  "inspector_sent_1440.png",
+  "inspector_sent_390.png",
+  "persona_entry_1024.png",
+  "persona_entry_1440.png",
+  "persona_entry_320.png",
+  "persona_entry_360.png",
+  "persona_entry_390.png",
+  "persona_entry_430.png",
+  "persona_entry_768.png",
+  "persona_entry_landscape.png",
+  "section_all_1024.png",
+  "section_all_1440.png",
+  "section_all_320.png",
+  "section_all_360.png",
+  "section_all_390.png",
+  "section_all_430.png",
+  "section_all_768.png",
+  "section_all_landscape.png",
+  "section_capabilities_1024.png",
+  "section_capabilities_1440.png",
+  "section_capabilities_320.png",
+  "section_capabilities_360.png",
+  "section_capabilities_390.png",
+  "section_capabilities_430.png",
+  "section_capabilities_768.png",
+  "section_capabilities_landscape.png",
+  "section_core_1024.png",
+  "section_core_1440.png",
+  "section_core_320.png",
+  "section_core_360.png",
+  "section_core_390.png",
+  "section_core_430.png",
+  "section_core_768.png",
+  "section_core_landscape.png",
+  "section_inspector_1024.png",
+  "section_inspector_1440.png",
+  "section_inspector_320.png",
+  "section_inspector_360.png",
+  "section_inspector_390.png",
+  "section_inspector_430.png",
+  "section_inspector_768.png",
+  "section_inspector_landscape.png",
+  "section_learning_1024.png",
+  "section_learning_1440.png",
+  "section_learning_320.png",
+  "section_learning_360.png",
+  "section_learning_390.png",
+  "section_learning_430.png",
+  "section_learning_768.png",
+  "section_learning_landscape.png",
+  "section_style_1024.png",
+  "section_style_1440.png",
+  "section_style_320.png",
+  "section_style_360.png",
+  "section_style_390.png",
+  "section_style_430.png",
+  "section_style_768.png",
+  "section_style_landscape.png",
+  "section_try_1024.png",
+  "section_try_1440.png",
+  "section_try_320.png",
+  "section_try_360.png",
+  "section_try_390.png",
+  "section_try_430.png",
+  "section_try_768.png",
+  "section_try_landscape.png",
+  "style_added_1440.png",
+  "style_added_390.png",
+  "style_draft_1440.png",
+  "style_draft_390.png",
+  "style_preview_1440.png",
+  "style_preview_390.png",
+  "try_1440.png",
+  "try_390.png"
+ ]
+}

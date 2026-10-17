@@ -1,0 +1,25 @@
+# SOUL-1 / W6 — «Речь и характер»: реальные round-trip правок (evidence)
+
+Прогон: `.venv/Scripts/python.exe -m pytest tests/test_soul1_w6_speech_ui.py -q`
+(RESULT: 17 passed — фиксируется в `glass-and-ui-suites.txt`).
+
+Что доказывается исполнением настоящего кода (без моков самого пути записи):
+
+| Шаг | Проверка |
+|---|---|
+| Заводское состояние Core | `get_core()` отдаёт заводские полную/компактную редакции, `source=default/code` |
+| Правка полной редакции (глобально) | `post_block('core.personality')` → `write_speech_value`: `applied=true`, `revision=act:<sha12>`, `provenance.kind=owner_edit` |
+| Чтение после правки | `get_core()` → `source=global`, текст == записанному, `differs_from_factory=true` |
+| Правка чата | `post_block(..., scope='chat')` → `scope=chat`; **глобальный** документ побайтово не изменился |
+| Наследование | `get_core(chat)` → `inheritance=chat`, `source=chat`, локальный текст |
+| «Сбросить переопределение чата» | `reset(mode='chat')` → `inherits=global`; чат снова читает глобальное; глобальное значение цело |
+| Заводской сброс | сначала `apply=false` (план: `changed=true`, diff), затем `apply=true` → редакция == заводской, предыдущая ревизия в истории |
+| Откат | `rollback(sha256_12 из истории)` → текст снова равен владельческой правке |
+| Компактная редакция | правка `core.personality.compact` не обнуляет полную; `detail_level` — отдельное поле документа (`/core/meta`) |
+| Стиль письма | `post_style` (глобально) → правила видны с источником; чат-документ → `inheritance=chat`; `reset-chat` → снова `global`, глобальный документ цел |
+| Предпросмотр стиля | before/after на 6 заводских примерах: точка снимается, но `https://example.org/other.`, `1.2.3` и `{"note": "ok"}` не тронуты |
+| Выражение | контролы → документ → рендер слоя `<Expression_Settings>`; чат-правка не меняет глобальное; сброс → inherited |
+| Юмор/Примеры | библиотека W4 честно `available=false` (`humor_library_not_landed` / `not_implemented_w4`), второй стор не создаётся |
+| Inspector | предпросмотр собирается композером (12 слоёв); снимок хода показывается ТОЛЬКО для writer'ов реального хода (`l2_writer`/`system2_stage2`/`tool_phase`/`initiative_writer`), предпросмотр UI за доказательство вызова не выдаётся |
+| Маскировка | `_mask_text`: Bearer/пары `key=value`/`sk-…`, длинные числовые ID и `tg://` ссылки → `***`/`[id]`; обычный текст не портится |
+| RBAC | без прав `get_core`/`get_inspector` → 403 (существующие права `edit_persona`/секция `content`/`param.<key>`) |

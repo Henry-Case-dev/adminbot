@@ -59,9 +59,16 @@ FEEDBACK_SOURCE_KINDS = frozenset({
 FEEDBACK_STATUSES = frozenset({"active", "cancelled", "corrected"})
 MEASUREMENTS = frozenset({
     "correctness", "tool_success", "contextual_fit", "preference_fit",
+    # SOUL-08.10 (W4): уместность контекстного речевого приёма в чате.
+    "humor_fit",
 })
 VALIDATION_KINDS = frozenset({
     "generalization", "technical_fix", "explicit_preference",
+    # SOUL-08.10 (W4): явное указание владельца/участника о контекстном
+    # речевом предпочтении («перестань так писать») — это инструкция, а не
+    # статистический вывод: подтверждается правами и отсутствием конфликта,
+    # а не малым N приёмов. Обратимо (suspend/reset), Core не трогает.
+    "humor_instruction",
 })
 
 # Полезность: измерение обновляется ТОЛЬКО проверяемым исходом; social/LLM —
@@ -77,6 +84,12 @@ _FEEDBACK_CLASS = {
     "llm_hypothesis": ("system", "hypothesis"),
     "technical": ("system", "verified"),
 }
+#: SOUL-08 (W4): реакции на шутку — это новые ТИПЫ evidence внутри
+#: существующих классов feedback: таблица v28 фиксирует source_kind
+#: CHECK-констрейнтом, поэтому вид сигнала едет типизированным `signal_json`
+#: (`domain=humor`, класс сигнала, приём, уверенность, маркеры), а класс
+#: источника выбирается по правам автора. Пересборка v28-таблицы ради нового
+#: CHECK не даёт функционального выигрыша и рискует данными.
 _SOURCE_RELIABILITY = {
     "technical": "verified",
     "explicit": "verified",
@@ -116,6 +129,40 @@ CANONICAL_RECOMMENDATIONS: dict[tuple[str, str], str] = {
     ("tool_usage", "historical_unverified"): (
         "Исторический пример без полного следа не считать подтверждённым "
         "успехом; проверять его заново на новых контекстах."),
+    # ── SOUL-08 (W4): контекстные речевые предпочтения по приёмам юмора ──────
+    # Ослабление действует ТОЛЬКО в своём чате и только на свой приём:
+    # это не глобальный запрет шутить (SOUL-08.10). Формулировки — без
+    # кавычек/имён/кодов: урок остаётся обезличенным и проверяемым.
+    ("social_preference", "humor_weaken_bureaucratic_logic"): (
+        "В этом чате бюрократический перенос применять реже: на него "
+        "реагировали раздражением или просьбой прекратить."),
+    ("social_preference", "humor_weaken_absurd_escalation"): (
+        "В этом чате абсурдную эскалацию применять реже: на неё реагировали "
+        "раздражением или просьбой прекратить."),
+    ("social_preference", "humor_weaken_literalism"): (
+        "В этом чате буквализм применять реже: на него реагировали "
+        "раздражением или просьбой прекратить."),
+    ("social_preference", "humor_weaken_deadpan"): (
+        "В этом чате сухой deadpan применять реже: на него реагировали "
+        "раздражением или просьбой прекратить."),
+    ("social_preference", "humor_weaken_unexpected_analogy"): (
+        "В этом чате неожиданные аналогии применять реже: на них реагировали "
+        "раздражением или просьбой прекратить."),
+    ("social_preference", "humor_strengthen_bureaucratic_logic"): (
+        "В этом чате бюрократический перенос уместен: собеседники "
+        "подхватывали и развивали эту рамку."),
+    ("social_preference", "humor_strengthen_absurd_escalation"): (
+        "В этом чате абсурдная эскалация уместна: собеседники подхватывали и "
+        "развивали её."),
+    ("social_preference", "humor_strengthen_literalism"): (
+        "В этом чате буквализм уместен: собеседники подхватывали оговорку и "
+        "развивали её."),
+    ("social_preference", "humor_strengthen_deadpan"): (
+        "В этом чате сухой deadpan уместен: собеседники принимали такую "
+        "подачу."),
+    ("social_preference", "humor_strengthen_unexpected_analogy"): (
+        "В этом чате неожиданные аналогии уместны: собеседники развивали их "
+        "дальше."),
 }
 
 _SAFE_TOKEN_RE = re.compile(r"^[A-Za-z0-9_.:\-]{1,64}$")
@@ -1036,6 +1083,18 @@ class LessonService:
                 failures.append("no_control_example")
             if int(ev.invariant_violations or 0) > 0:
                 failures.append("invariant_violation")
+        elif ev.kind == "humor_instruction":
+            # SOUL-08.10 (W4): явное указание о речевом предпочтении.
+            if str(lesson.get("type")) != "social_preference":
+                failures.append("type_not_social_preference")
+            if str(lesson.get("scope")) != "chat":
+                failures.append("scope_not_chat")
+            if not ev.permission_granted:
+                failures.append("permission_denied")
+            if not ev.conflict_free:
+                failures.append("conflict_with_invariants")
+            if not (ev.independent_episode_ids or ()):
+                failures.append("no_episode_evidence")
         else:  # generalization (неявные сигналы)
             independent = {str(e) for e in ev.independent_episode_ids or ()
                            if str(e)}

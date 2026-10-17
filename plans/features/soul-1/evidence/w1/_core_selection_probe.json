@@ -1,0 +1,129 @@
+{
+ "1_factory_default": {
+  "text": "factory_compact",
+  "level": "compact",
+  "reason": "factory_default",
+  "origin": "factory",
+  "source": "default",
+  "revision": "fac:ff28f0720a23",
+  "chars": 1934
+ },
+ "2_owner_full_edit": {
+  "text": "ПОЛНЫЙ ТЕКСТ ВЛАДЕЛЬЦА",
+  "level": "full",
+  "reason": "owner_setting",
+  "doc": {
+   "full_text": "ПОЛНЫЙ ТЕКСТ ВЛАДЕЛЬЦА",
+   "revision": 1,
+   "origin": "owner_edit",
+   "updated_at": "2026-10-16T12:10:38+00:00",
+   "detail_level": "full"
+  }
+ },
+ "3_owner_compact_edit": {
+  "text": "КОМПАКТ ВЛАДЕЛЬЦА",
+  "level": "compact",
+  "reason": "owner_setting",
+  "full_text_preserved": "ПОЛНЫЙ ТЕКСТ ВЛАДЕЛЬЦА"
+ },
+ "4_context_budget_downgrade": {
+  "level": "compact",
+  "reason": "context_budget",
+  "text": "КОМПАКТ ВЛАДЕЛЬЦА"
+ },
+ "5_chat_override": {
+  "chat": {
+   "text": "КОМПАКТ ЧАТА",
+   "source": "chat"
+  },
+  "global": {
+   "text": "ПОЛНЫЙ ТЕКСТ ВЛАДЕЛЬЦА",
+   "source": "global"
+  },
+  "chat_doc": {
+   "full_text": "ПОЛНЫЙ ТЕКСТ ВЛАДЕЛЬЦА",
+   "revision": 3,
+   "origin": "owner_edit",
+   "updated_at": "2026-10-16T12:10:38+00:00",
+   "detail_level": "compact",
+   "compact_text": "КОМПАКТ ЧАТА",
+   "compact_words": 2
+  }
+ },
+ "6_factory_reset": {
+  "plan_changed": true,
+  "plan_field": "compact_text",
+  "applied": true,
+  "revision": "act:ff28f0720a23",
+  "doc_after": {
+   "full_text": "ПОЛНЫЙ ТЕКСТ ВЛАДЕЛЬЦА",
+   "revision": 3,
+   "origin": "owner_edit",
+   "updated_at": "2026-10-16T12:10:38+00:0",
+   "detail_level": "full",
+   "compact_text": "Ты общаешься как живой у",
+   "compact_words": 249
+  }
+ },
+ "7_inspector": {
+  "chat_id": 101,
+  "doc_key": "character.core",
+  "level": "full",
+  "reason": "owner_setting",
+  "source": "global",
+  "origin": "owner_edit",
+  "document_revision": "3",
+  "active_revision": "r3.7b7e9d3eb584",
+  "chars": 22,
+  "compact_words": 249,
+  "enabled": true,
+  "skip_reason": "",
+  "factory_revisions": {
+   "full": "fac:040581a3b4b0(soul02-author-full-v1)",
+   "compact": "fac:ff28f0720a23(soul02-compact-v1)"
+  },
+  "factory": {
+   "full": {
+    "chars": 2835,
+    "words": 360,
+    "tokens": 709,
+    "sha256_12": "040581a3b4b0",
+    "origin": "factory"
+   },
+   "compact": {
+    "chars": 1934,
+    "words": 249,
+    "tokens": 484,
+    "sha256_12": "ff28f0720a23",
+    "origin": "factory"
+   }
+  },
+  "edit_blocks": {
+   "full": "core.personality",
+   "compact": "core.personality.compact"
+  },
+  "source_provenance": {
+   "path": "plans/features/soul-1/source-current-task.md",
+   "chapter": "§3 SOUL-02 — Единый Personality Core как собственность владельца",
+   "heading": "### Речь, юмор и мышление",
+   "line_start": 43,
+   "line_end": 53,
+   "req_ids": [
+    "SOUL-02.1",
+    "SOUL-02.2",
+    "SOUL-02.3",
+    "SOUL-02.4",
+    "SOUL-02.5",
+    "SOUL-02.6"
+   ],
+   "map": "plans/features/soul-1/requirements-map.json",
+   "amendment": "SOUL-AMD.1.1",
+   "factory_rev_label": "soul02-author-full-v1"
+  }
+ },
+ "8_pg_down": {
+  "text": "",
+  "skip_reason": "core_absent",
+  "source": "default"
+ }
+}

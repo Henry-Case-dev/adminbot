@@ -231,26 +231,28 @@ class TestGoldenD1D6:
 
     @pytest.mark.asyncio
     async def test_d2_one_word(self, monkeypatch):
-        """D2: «понял?» — L1 вправе выбрать one_word; L2 получает МИКРО."""
+        """D2: «понял?» — L1 вправе выбрать one_word; L2 получает СТРОГИЙ
+        one_word-блок (SOUL-1/W3, SOUL-05.2: это НЕ micro и не алиас)."""
         llm = _FakeLLM(l1=_plan_json(extent="one_word"), l2="да")
         svc, react, bot, msg, user = _drive(monkeypatch, "понял?", llm=llm)
         await svc.handle(bot, msg, user)
         l2_text = "".join(str(m.get("content"))
                           for m in llm.last_messages("l2_writer"))
-        assert "МИКРО" in l2_text
+        assert "РОВНО ОДНО СЛОВО" in l2_text
+        assert "МИКРО" not in l2_text
         svc._send_direct_answer.assert_awaited_once()
 
     @pytest.mark.asyncio
     async def test_d3_explicit_short_override_beats_semantic(self, monkeypatch):
         """D3: явная форма «одним словом» — дет. override ПОСЛЕ L1 поверх
-        semantic extent (§2.5)."""
+        semantic extent (§2.5); действует строгий one_word (не micro)."""
         llm = _FakeLLM(l1=_plan_json(extent="detailed"), l2="кот")
         svc, react, bot, msg, user = _drive(
             monkeypatch, "ответь одним словом: кто такой кот?", llm=llm)
         await svc.handle(bot, msg, user)
         l2_text = "".join(str(m.get("content"))
                           for m in llm.last_messages("l2_writer"))
-        assert "МИКРО" in l2_text
+        assert "РОВНО ОДНО СЛОВО" in l2_text
         assert "ПОДРОБНО" not in l2_text
 
     @pytest.mark.asyncio
@@ -775,7 +777,10 @@ class TestL1PlanUnit:
         plan.apply_form_override(_extent.explicit_form_override(
             "ответь одним словом"))
         assert plan.effective_extent() == "one_word"
-        assert plan.to_response_plan().extent == "micro"
+        # SOUL-1 (W3, SOUL-05.2): значение переносится КАК ЕСТЬ — one_word и
+        # micro два разных действующих extent (схлопывание было дефектом).
+        assert plan.to_response_plan().extent == "one_word"
+        assert "one_word" in _extent.EXTENTS and "micro" in _extent.EXTENTS
 
     def test_capability_table_exact_tool_names(self):
         from services.tool_schemas import TOOL_CALLING_TOOLS

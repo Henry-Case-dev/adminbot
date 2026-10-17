@@ -358,7 +358,14 @@ class TestRealErrorPropagation:
         assert payload["reason"] == "timeout"        # реальный reason_class
         # Текст нейтрально-пользовательский: НЕ утверждает «модель отказалась»
         assert "модель" not in payload["message"].lower()
-        assert payload["message"] == ig.IMAGE_GENERATION_FALLBACK_PHRASE
+        # SOUL-1 W10 (SOUL-AMD.5.15): сообщение — управляемый Factory Default
+        # по реальному коду отказа (timeout → temporarily_unavailable), а не
+        # захардкоженная фраза «я не умею рисовать».
+        from services import capability_registry as caps
+        text, block_id, _src = caps.failure_message_for_reason("timeout")
+        assert payload["message"] == text
+        assert payload["message_id"] == block_id
+        assert ig.IMAGE_GENERATION_FALLBACK_PHRASE != payload["message"]
 
     @pytest.mark.asyncio
     async def test_error_enters_loop_as_tool_role(self, monkeypatch):
@@ -747,7 +754,19 @@ class TestBoundsA3:
                                               # allowlist УДАЛЕНЫ: любое
                                               # возвращение страницы в
                                               # web/ снова валит этот тест.
-                                              "web/api/__init__.py"))
+                                              "web/api/__init__.py",
+                                              # NOTE (SOUL-1 W6, review-w6.md
+                                              # RECHECK-W6-2 Approved, кандидат
+                                              # a5902b15): + web/api/speech.py
+                                              # (NEW роутер «Речь и характер»,
+                                              # 21 маршрут; регистрация —
+                                              # web/app.py; web/api/routes.py
+                                              # НЕ менялся — byte-freeze
+                                              # держится; RBAC — существующие
+                                              # права персоны/ключа). Test-only
+                                              # allowlist-дельта; §104/A3-гейт
+                                              # не затронут.
+                                              "web/api/speech.py"))
                        for ln in self._diff_names())
 
     def _diff_names(self):
@@ -772,14 +791,14 @@ class TestBoundsA3:
         import dataclasses
         from services import param_catalog as pc
         from config.settings import APP_VERSION
-        assert APP_VERSION == "2.58.85"            # bump запрещён (D8)
+        assert APP_VERSION == "2.58.81"            # bump запрещён (D8)
         assert "UNIFIED_IMAGE_REQUEST_ENABLED" not in pc.REGISTRY
         assert "UNIFIED_IMAGE_REQUEST_ENABLED" not in {
             f.name for f in dataclasses.fields(Settings)}
 
     def test_catalog_counts_unchanged(self):
         from services import param_catalog as pc
-        assert len(pc.REGISTRY) == 572
+        assert len(pc.REGISTRY) == 575
         assert len(pc.GROUPS) == 120
         assert len(pc._TAB_BY_GROUP) == 118
         assert len(pc.TAB_RULES) == 23

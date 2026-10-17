@@ -6010,6 +6010,20 @@
                       ⚠ rotation=none · все {{ embeddingsPanel.provider.rotation.keys }} ключ. в одной группе {{ embeddingsPanel.provider.rotation.reason === 'unknown_group' ? 'unknown' : ((embeddingsPanel.provider.rotation.groups || []).join('/') || '—') }}
                       <span class="block text-gray-400">{{ embeddingsPanel.provider.rotation.hint }}</span>
                     </div>
+                    <!-- SOUL-13.4 (W7): состояние PRIMARY-слота — различить
+                         «ключа нет вовсе» и «ключ приходит из hot-конфига»;
+                         при пустом слоте при живых ключах — понятное
+                         состояние вместо молчания (значений ключей нет). -->
+                    <div v-if="embeddingsPanel.provider.rotation && embeddingsPanel.provider.rotation.primary_present"
+                         class="mt-1 text-xs text-gray-500" data-embeddings-primary-state>
+                      primary: слот задан ({{ embeddingsPanel.provider.rotation.primary_state === 'primary_from_hot' ? 'hot-конфиг keys.embedding_api_key' : 'env EMBEDDING_API_KEY' }})
+                    </div>
+                    <div v-else-if="embeddingsPanel.provider.rotation && embeddingsPanel.provider.rotation.primary_warn"
+                         class="mt-1 rounded border border-amber-400/40 bg-amber-400/10 px-2 py-1 text-amber-300"
+                         data-embeddings-primary-warn>
+                      ⚠ primary-слот пуст · в пуле {{ embeddingsPanel.provider.rotation.keys }} ключ. (только fallback) · источник: {{ embeddingsPanel.provider.rotation.primary_source }}
+                      <span class="block text-gray-400">{{ embeddingsPanel.provider.rotation.primary_hint }}</span>
+                    </div>
                     <!-- F8 (§15.3): per-credential — alias, provider/model,
                          quota group (+ provenance auto/label/unknown),
                          health, cooldown until. Без секретов. -->
@@ -6018,7 +6032,7 @@
                       <div class="font-bold text-gray-300">Ключи (алиас · группа · health)</div>
                       <div v-for="cr in embeddingsPanel.provider.credential_rows"
                            :key="'ecr-' + cr.alias">
-                        {{ cr.alias }} — {{ cr.provider }}/{{ cr.model }} · группа: {{ cr.quota_group }}<template v-if="cr.quota_group_source === 'auto'"> (auto)</template><template v-else-if="cr.quota_group_source === 'unknown'"> (unknown)</template> · {{ cr.health }}<template v-if="cr.cooldown_until"> · cooldown до {{ fmtTs(cr.cooldown_until) }}</template>
+                        {{ cr.alias }} — {{ cr.provider }}/{{ cr.model }} · группа: {{ cr.quota_group }}<template v-if="cr.quota_group_source === 'auto'"> (auto)</template><template v-else-if="cr.quota_group_source === 'unknown'"> (unknown)</template> · {{ cr.health }}<template v-if="cr.cooldown_until"> · cooldown до {{ fmtTs(cr.cooldown_until) }}</template><template v-if="cr.key_source"> · ключ: {{ cr.key_source === 'hot' ? 'hot-конфиг' : 'env' }}</template>
                       </div>
                     </div>
                     <div v-if="(embeddingsPanel.provider.groups || []).length"
@@ -7343,6 +7357,1176 @@
               </template>
             </template>
           </template>
+          <!-- ═══ SOUL-1 W6 (source-architectural-clarification §6): «Речь и
+               характер» — одна точка входа с компактной витриной разделов,
+               одним экраном за раз на мобильном и «Назад». Технические
+               поля/ключи/JSON/версии — только в секциях «Все инструкции»/
+               «Effective Prompt Inspector». Поверхности — существующие
+               материалы: карточки/панели tier A, редакторы/dense-текст tier C
+               (opaque), линза и полигональный фон не затрагиваются. ═══ -->
+          <template v-else-if="activeTab === 'speech'">
+            <div class="speech-screen" style="grid-column: 1 / -1;">
+              <div class="card speech-head">
+                <button v-if="speechSection" type="button" class="btn-ghost speech-back"
+                        aria-label="Назад к списку разделов"
+                        @click="speechBack()">← Назад</button>
+                <div class="speech-title">
+                  <span class="msr" aria-hidden="true">{{ iconGlyph('record_voice_over') }}</span>
+                  Речь и характер
+                </div>
+                <span class="badge badge-info">{{ speechScopeBadge }}</span>
+                <span v-if="speechOverview" class="badge"
+                      :class="speechOverview.inheritance === 'chat' ? 'badge-warn' : 'badge-muted'">
+                  {{ speechInheritanceLabel(speechOverview.inheritance) }}
+                </span>
+                <span class="text-xs text-gray-500 min-w-0 truncate">{{ activeChatTitle }}</span>
+                <button type="button" class="btn-ghost speech-refresh"
+                        :disabled="speechLoading"
+                        @click="reloadSpeech()">Обновить данные</button>
+              </div>
+
+              <div v-if="speechLoading && !speechSection" class="spinner my-6"></div>
+              <div v-else-if="speechError" class="card speech-pad">
+                <div class="text-sm">Не удалось получить данные: {{ speechError }}</div>
+                <button type="button" class="btn-ghost text-sm mt-2"
+                        @click="reloadSpeech(true)">Повторить</button>
+              </div>
+
+              <!-- ── Витрина: компактные карточки, не «приборка самолёта» ── -->
+              <div v-else-if="!speechSection" class="speech-grid">
+                <button v-for="s in (speechOverview ? speechOverview.sections : [])"
+                        :key="'sp-' + s.id" type="button"
+                        class="card speech-card" :data-speech-card="s.id"
+                        @click="openSpeechSection(s.id)">
+                  <span class="speech-card-icon msr" aria-hidden="true">{{ iconGlyph(s.icon) }}</span>
+                  <span class="speech-card-body">
+                    <span class="speech-card-title">{{ s.title }}</span>
+                    <span class="speech-card-sub">{{ s.subtitle }}</span>
+                    <span class="speech-card-detail">{{ s.detail }}</span>
+                  </span>
+                  <span class="badge" :class="speechStateClass(s.state)">{{ speechStateLabel(s.state) }}</span>
+                </button>
+                <div class="speech-adv-title">Для разработчика</div>
+                <button v-for="s in (speechOverview ? speechOverview.advanced : [])"
+                        :key="'spa-' + s.id" type="button"
+                        class="card speech-card speech-card-adv" :data-speech-card="s.id"
+                        :disabled="!s.ready" @click="openSpeechSection(s.id)">
+                  <span class="speech-card-icon msr" aria-hidden="true">{{ iconGlyph(s.icon) }}</span>
+                  <span class="speech-card-body">
+                    <span class="speech-card-title">{{ s.title }}</span>
+                    <span class="speech-card-sub">{{ s.subtitle }}</span>
+                  </span>
+                  <span class="badge" :class="s.ready ? 'badge-info' : 'badge-muted'">
+                    {{ s.ready ? 'открыть' : 'нет прав' }}
+                  </span>
+                </button>
+                <div class="text-xs text-gray-500 speech-adv-note">
+                  Блоков в реестре: {{ speechOverview && speechOverview.registry ? speechOverview.registry.blocks : '—' }}
+                  · реестр {{ speechOverview && speechOverview.registry ? speechOverview.registry.version : '—' }}
+                  · композер: {{ speechGateLabel('unified_composer_enabled') }}
+                  · ядро характера: {{ speechGateLabel('character_core_enabled') }}
+                  · стиль письма: {{ speechGateLabel('speech_style_policy_enabled') }}
+                </div>
+              </div>
+
+              <!-- ── Раздел (один за раз) ── -->
+              <div v-else class="speech-section">
+                <div v-if="speechSectionBusy" class="spinner my-4"></div>
+
+                <!-- ═ Характер ═ -->
+                <template v-if="speechSection === 'core' && speechCore">
+                  <div class="card speech-pad">
+                    <div class="speech-row">
+                      <div class="text-sm font-bold">Постоянный характер (Personality Core)</div>
+                      <span class="badge" :class="speechCore.document.enabled ? 'badge-info' : 'badge-warn'">
+                        {{ speechCore.document.enabled ? 'включён' : 'выключен' }}
+                      </span>
+                      <span class="badge badge-muted">{{ speechScopeLabel(speechCore) }}</span>
+                    </div>
+                    <div class="text-xs text-gray-500 speech-note">{{ speechCore.permanent_note }}</div>
+                    <div class="text-xs text-gray-500 speech-note">
+                      Действует редакция: <b>{{ speechCore.selection.level === 'full' ? 'полная' : 'компактная' }}</b>
+                      ({{ speechCore.selection.reason }}) · {{ speechCore.selection.revision }}
+                    </div>
+                    <div class="text-xs text-gray-500 speech-note">
+                      Заводские ревизии: полная {{ speechCore.factory.full_revision }}
+                      · компактная {{ speechCore.factory.compact_revision }}
+                      · документ: rev {{ speechCore.document.revision || '—' }}
+                      · ревизия текущей редакции: {{ speechCore.editions[speechCoreEdition].factory_revision }}
+                    </div>
+                    <div v-if="speechCore.editions.full.withheld || speechCore.editions.compact.withheld"
+                         class="speech-warn">
+                      Сохранённое значение удержано: действует заводская редакция, сохранённый текст не потерян
+                      (провенанс ревизии отсутствует — запись шла не через API реестра).
+                    </div>
+
+                    <div class="speech-tabs" role="tablist">
+                      <button type="button" class="speech-tab"
+                              :class="{ active: speechCoreEdition === 'full' }"
+                              role="tab" :aria-selected="speechCoreEdition === 'full'"
+                              @click="speechCoreEdition = 'full'">Полная редакция</button>
+                      <button type="button" class="speech-tab"
+                              :class="{ active: speechCoreEdition === 'compact' }"
+                              role="tab" :aria-selected="speechCoreEdition === 'compact'"
+                              @click="speechCoreEdition = 'compact'">Компактная (runtime)</button>
+                    </div>
+                    <label class="block">
+                      <span class="text-xs text-gray-400">
+                        {{ speechCoreEdition === 'full' ? 'Полный текст характера' : 'Компактная runtime-редакция' }}
+                        · {{ speechCoreEditionChars() }} зн.
+                      </span>
+                      <textarea class="field w-full speech-editor scroll-thin"
+                                :class="{ dirty: speechDirty.core }" rows="12"
+                                spellcheck="false"
+                                aria-label="Текст редакции характера"
+                                :value="speechCoreDraft()"
+                                @input="setSpeechCoreDraft($event.target.value)"></textarea>
+                    </label>
+                    <div class="text-xs text-gray-500 speech-note">
+                      {{ speechCoreEdition === 'full'
+                         ? 'Владельческий первоисточник: им можно править характер, не теряя биографию, память и контракты.'
+                         : 'Компактная редакция экономит контекст и сохраняет тот же смысл: заводская — согласованная, не LLM-пересказ на ходу.' }}
+                    </div>
+                    <div class="speech-actions">
+                      <button type="button" class="btn-accent text-sm"
+                              :disabled="speechBusy || !speechCore.can_edit"
+                              @click="saveSpeechCore()">{{ speechBusy ? 'Сохранение…' : 'Сохранить' }}</button>
+                      <button type="button" class="btn-ghost text-sm"
+                              @click="toggleSpeechDiff()">{{ speechDiffOpen ? 'Скрыть diff' : 'Показать diff с заводским' }}</button>
+                      <button type="button" class="btn-ghost text-sm"
+                              @click="loadSpeechSection('core', true)">Обновить</button>
+                      <button type="button" class="btn-ghost text-sm"
+                              :disabled="speechBusy || !speechCore.can_edit"
+                              @click="speechFactoryPlan(blockIdFor(speechCoreEdition))">Вернуть заводской</button>
+                    </div>
+                    <div v-if="speechDiffOpen" class="speech-diff" data-speech-diff>
+                      <div v-for="row in speechDiffRows()" :key="row.id" class="speech-diff-row">
+                        <div class="text-xs text-gray-400">{{ row.label }}</div>
+                        <div class="speech-diff-line before">− {{ row.before || '(пусто)' }}</div>
+                        <div class="speech-diff-line after">+ {{ row.after || '(пусто)' }}</div>
+                      </div>
+                    </div>
+
+                    <div class="speech-split">
+                      <div>
+                        <div class="text-xs text-gray-400 mb-1">Режим по умолчанию</div>
+                        <label class="block mb-2">
+                          <select class="field w-full" aria-label="Редакция по умолчанию"
+                                  :value="speechCore.document.detail_level"
+                                  @change="saveSpeechCoreLevel($event.target.value)">
+                            <option value="compact">Компактная</option>
+                            <option value="full">Полная</option>
+                          </select>
+                        </label>
+                        <label class="flex items-center gap-2">
+                          <input type="checkbox" :checked="speechCore.document.enabled"
+                                 @change="saveSpeechCoreEnabled($event.target.checked)">
+                          <span class="text-sm">Core включён в речь</span>
+                        </label>
+                      </div>
+                      <div>
+                        <div class="text-xs text-gray-400 mb-1">Область правки</div>
+                        <select class="field w-full" v-model="speechScopeChoice"
+                                aria-label="Область правки">
+                          <option value="global">Глобально (все чаты)</option>
+                          <option value="chat" :disabled="!speechChatId">Только этот чат</option>
+                        </select>
+                        <div class="text-xs text-gray-500 mt-1">
+                          Правка чата не меняет глобальный характер.
+                        </div>
+                        <button v-if="speechChatId" type="button" class="btn-ghost text-sm mt-2"
+                                :disabled="speechBusy"
+                                @click="resetSpeechChat(blockIdFor('full'))">Сбросить переопределение чата</button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="card speech-pad">
+                    <div class="text-sm font-bold mb-2">Версии и откат</div>
+                    <div v-if="!speechCore.history.length" class="text-xs text-gray-500">
+                      Предыдущих ревизий нет: действует заводская редакция.
+                    </div>
+                    <div v-for="h in speechCore.history" :key="'h-' + h.sha256_12"
+                         class="speech-hist">
+                      <span class="badge badge-muted">{{ h.kind }}</span>
+                      <span class="text-xs">{{ h.scope }}</span>
+                      <span class="text-xs text-gray-500">{{ h.sha256_12 }} · {{ h.chars }} зн.
+                        · {{ h.updated_at || '—' }}</span>
+                      <button type="button" class="btn-ghost text-xs"
+                              :disabled="speechBusy || !speechCore.can_edit"
+                              @click="rollbackSpeechBlock(blockIdFor('full'), h)">Откатить</button>
+                    </div>
+                  </div>
+                </template>
+
+                <!-- ═ Стиль письма ═ -->
+                <template v-if="speechSection === 'style' && speechStyle">
+                  <div class="card speech-pad">
+                    <div class="speech-row">
+                      <div class="text-sm font-bold">Правила оформления</div>
+                      <span class="badge badge-muted">{{ speechStyle.scope === 'chat' ? 'чат' : 'глобально' }}</span>
+                      <span class="badge"
+                            :class="speechStyle.document && speechStyle.document.inheritance === 'chat' ? 'badge-warn' : 'badge-muted'">
+                        {{ speechInheritanceLabel(speechStyle.document ? speechStyle.document.inheritance : '') }}
+                      </span>
+                      <span class="badge badge-muted">{{ speechStyleViewRules().length }} правил</span>
+                      <span v-if="speechDirty.style" class="badge badge-warn"
+                            data-speech-style-dirty>черновик не сохранён</span>
+                    </div>
+                    <div class="text-xs text-gray-500 speech-note">
+                      Строгие правила проверяются детерминированно (без вызова модели); мягкие —
+                      пожелание. URL, цитаты, код, JSON и версии защищены.
+                    </div>
+                    <div v-if="speechDirty.style" class="speech-warn" data-speech-style-dirty-note>
+                      Показаны ВАШИ правки (черновик): правил {{ speechStyleViewRules().length }},
+                      на сервере {{ speechStyleServerRuleCount() }}. Они вступят в силу только
+                      после «Сохранить».
+                    </div>
+                    <div v-if="speechStyleViewRules().length" class="speech-table">
+                      <div v-for="(r, idx) in speechStyleViewRules()" :key="'r-' + idx + '-' + r.id" class="speech-rule">
+                        <div class="speech-rule-head">
+                          <span class="text-sm font-semibold">{{ speechRuleTitle(r) }}</span>
+                          <span class="badge" :class="r.strictness === 'hard' ? 'badge-warn' : 'badge-muted'">
+                            {{ r.strictness === 'hard' ? 'строго' : 'мягко' }}
+                          </span>
+                          <span class="badge badge-muted">{{ speechSourceLabel(r.source) }}</span>
+                          <label class="flex items-center gap-2">
+                            <input type="checkbox" :checked="r.enabled"
+                                   :aria-label="'Правило ' + r.id"
+                                   @change="toggleStyleRule(idx, $event.target.checked)">
+                            <span class="text-xs">включено</span>
+                          </label>
+                        </div>
+                        <div class="text-xs text-gray-500">{{ speechRuleParams(r) }}</div>
+                        <div class="speech-actions">
+                          <select class="field speech-select" :value="r.scope"
+                                  :aria-label="'Область правила ' + r.id"
+                                  @change="setStyleRuleScope(idx, $event.target.value)">
+                            <option value="global">все чаты</option>
+                            <option value="chat">этот чат</option>
+                            <option value="initiative">инициатива</option>
+                            <option value="editorial">публикации</option>
+                            <option value="code_or_structured">код/структуры</option>
+                          </select>
+                          <button type="button" class="btn-ghost text-xs"
+                                  @click="removeStyleRule(idx)">Убрать</button>
+                        </div>
+                      </div>
+                    </div>
+                    <div v-else class="text-xs text-gray-500">
+                      Правил владельца нет — форма текста как обычно.
+                    </div>
+
+                    <div class="text-xs text-gray-400 mt-3 mb-1">Добавить из шаблона</div>
+                    <div class="speech-actions">
+                      <button v-for="p in speechStyle.available_presets" :key="'p-' + p.id"
+                              type="button" class="btn-ghost text-xs"
+                              :title="p.description"
+                              @click="addStylePreset(p.id)">+ {{ p.title_ru }}</button>
+                    </div>
+
+                    <label class="block mt-3">
+                      <span class="text-xs text-gray-400">Своя мягкая привычка (обычным языком)</span>
+                      <textarea class="field w-full scroll-thin" rows="2"
+                                aria-label="Мягкая привычка"
+                                :value="speechSoftDraft"
+                                @input="speechSoftDraft = $event.target.value"></textarea>
+                    </label>
+                    <div class="speech-actions">
+                      <button type="button" class="btn-ghost text-sm"
+                              :disabled="!speechSoftDraft.trim()"
+                              @click="addSoftInstruction()">Добавить привычку</button>
+                    </div>
+                    <div v-if="speechStyleViewSoft().length"
+                         class="speech-table mt-2">
+                      <div v-for="(s, sidx) in speechStyleViewSoft()" :key="'s-' + sidx + '-' + (s.id || '')"
+                           class="speech-soft">
+                        <span class="text-xs">{{ s.text }}</span>
+                        <span class="badge badge-muted">{{ s.scope }}</span>
+                        <button type="button" class="btn-ghost text-xs"
+                                @click="removeSoftInstruction(sidx)">Убрать</button>
+                      </div>
+                    </div>
+
+                    <div class="speech-actions mt-3">
+                      <button type="button" class="btn-accent text-sm"
+                              :disabled="speechBusy || !speechStyle.can_edit"
+                              @click="saveSpeechStyle()">{{ speechBusy ? 'Сохранение…' : 'Сохранить' }}</button>
+                      <button type="button" class="btn-ghost text-sm" @click="previewSpeechStyle()">Предпросмотр на примерах</button>
+                      <button v-if="speechChatId" type="button" class="btn-ghost text-sm"
+                              :disabled="speechBusy" @click="resetStyleChat()">Сбросить для чата</button>
+                      <button type="button" class="btn-ghost text-sm"
+                              @click="loadSpeechSection('style', true)">Обновить</button>
+                    </div>
+
+                    <div v-if="speechStylePreview" class="speech-preview" data-speech-style-preview>
+                      <div class="text-xs text-gray-400">
+                        Было (действующая политика) → станет (кандидат) · ревизия {{ speechStylePreview.candidate_revision }}
+                      </div>
+                      <div v-for="row in speechStylePreview.rows" :key="'pr-' + row.id" class="speech-preview-row">
+                        <div class="text-xs text-gray-400">{{ row.label }} — {{ row.expects }}</div>
+                        <div class="speech-preview-line">до: {{ row.before_text || '(пусто)' }}</div>
+                        <div class="speech-preview-line after">после: {{ row.after_text || '(пусто)' }}</div>
+                        <div class="text-xs text-gray-500">
+                          {{ row.after.styled ? 'правила соблюдены' : 'конфликт/провал строгого правила (не выдаётся за успех)' }}
+                          <span v-if="row.after.exempted"> · защищено: {{ row.after.exempted }}</span>
+                          <span v-if="row.after.conflicts && row.after.conflicts.length"> · конфликты: {{ row.after.conflicts.join(', ') }}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <details class="speech-adv">
+                      <summary class="text-xs">Подробнее: активные правила, приоритет, причины пропуска</summary>
+                      <div class="text-xs text-gray-500 mt-1">
+                        контекст: {{ speechStyle.context }} · источник: {{ speechStyle.source }}
+                        · причина пропуска: {{ speechStyle.skip_reason || 'нет' }}
+                        · ревизия: {{ speechStyle.revision }}
+                      </div>
+                      <div class="text-xs text-gray-500">приоритет: {{ (speechStyle.precedence || []).join(' → ') }}</div>
+                      <div class="text-xs text-gray-500">
+                        конфликты: {{ (speechStyle.conflicts || []).join(', ') || 'нет' }}
+                        · hint: {{ speechStyle.hint_tokens || 0 }} ток.
+                      </div>
+                      <div class="speech-scrollable text-xs" data-speech-hint>{{ speechStyle.hint || '(hint пуст)' }}</div>
+                      <div v-if="speechStyle.document" class="text-xs text-gray-500">
+                        документ: {{ speechStyle.document.inheritance }} · global rev {{ speechStyle.document.global_revision }}
+                        · chat rev {{ speechStyle.document.chat_revision }}
+                        <span v-if="(speechStyle.document.global_issues || []).length">
+                          · замечания: {{ speechStyle.document.global_issues.join(', ') }}</span>
+                      </div>
+                      <div v-if="speechStyle.history && speechStyle.history.length" class="mt-1">
+                        <div v-for="(h, hi) in speechStyle.history" :key="'sh-' + hi" class="text-xs text-gray-500">
+                          rev {{ h.revision }} · {{ h.rules_sha256_12 }} · {{ h.updated_at || '—' }}
+                        </div>
+                      </div>
+                    </details>
+                  </div>
+                </template>
+
+                <!-- ═ Выражение ═ -->
+                <template v-if="speechSection === 'expression' && speechExpression">
+                  <div class="card speech-pad">
+                    <div class="speech-row">
+                      <div class="text-sm font-bold">Как выражаться</div>
+                      <span class="badge badge-muted">{{ speechExpression.scope === 'chat' ? 'чат' : 'глобально' }}</span>
+                      <span class="badge"
+                            :class="speechExpression.inheritance === 'chat' ? 'badge-warn' : 'badge-muted'">
+                        {{ speechInheritanceLabel(speechExpression.inheritance) }}
+                      </span>
+                    </div>
+                    <div class="text-xs text-gray-500 speech-note">{{ speechExpression.notes }}</div>
+                    <div v-if="speechExpression.runtime_wired === false" class="speech-warn">
+                      {{ speechExpression.runtime_note }}
+                    </div>
+                    <div class="speech-split">
+                      <div>
+                        <label v-for="c in speechExpression.controls" :key="'c-' + c.id" class="block mb-3">
+                          <span class="text-xs text-gray-400">{{ c.label }} — {{ c.question }}</span>
+                          <select class="field w-full" :aria-label="c.label"
+                                  :value="speechExpressionDraft[c.id]"
+                                  @change="setExpressionValue(c.id, $event.target.value)">
+                            <option v-for="o in c.options" :key="'o-' + c.id + o.value" :value="o.value">
+                              {{ o.label }}
+                            </option>
+                          </select>
+                          <span class="text-xs text-gray-500">{{ c.effect }}</span>
+                        </label>
+                        <label class="block">
+                          <span class="text-xs text-gray-400">Пожелание своими словами (необязательно)</span>
+                          <textarea class="field w-full scroll-thin" rows="2" aria-label="Пожелание своим словами"
+                                    :value="speechExpressionDraft.note"
+                                    @input="setExpressionNote($event.target.value)"></textarea>
+                        </label>
+                      </div>
+                      <div>
+                        <div class="text-xs text-gray-400 mb-1">Что уйдёт в сборку характера</div>
+                        <pre class="speech-pre" data-speech-expression-preview>{{ speechExpressionPreview() }}</pre>
+                        <div class="text-xs text-gray-500 mt-1">
+                          Слой «Выражение» — мягкая настройка привычки; частоту и уместность выбирает L1.
+                        </div>
+                      </div>
+                    </div>
+                    <div class="speech-actions">
+                      <button type="button" class="btn-accent text-sm"
+                              :disabled="speechBusy || !speechExpression.can_edit"
+                              @click="saveSpeechExpression()">{{ speechBusy ? 'Сохранение…' : 'Сохранить' }}</button>
+                      <select class="field speech-select" v-model="speechScopeChoice" aria-label="Область правки выражения">
+                        <option value="global">глобально</option>
+                        <option value="chat" :disabled="!speechChatId">этот чат</option>
+                      </select>
+                      <button v-if="speechChatId" type="button" class="btn-ghost text-sm"
+                              :disabled="speechBusy" @click="resetExpressionChat()">Сбросить в inherited</button>
+                      <button type="button" class="btn-ghost text-sm"
+                              @click="loadSpeechSection('expression', true)">Обновить</button>
+                    </div>
+                  </div>
+                </template>
+
+                <!-- ═ Юмор ═ -->
+                <template v-if="speechSection === 'humor' && speechHumor">
+                  <div class="card speech-pad">
+                    <div class="speech-row">
+                      <div class="text-sm font-bold">Приёмы юмора</div>
+                      <span class="badge" :class="speechHumor.craft && speechHumor.craft.gate ? 'badge-info' : 'badge-warn'">
+                        ремесло {{ speechHumor.craft && speechHumor.craft.gate ? 'включено' : 'выключено' }}
+                      </span>
+                      <span class="badge" :class="speechHumor.gates.humor_library_enabled ? 'badge-info' : 'badge-muted'">
+                        примеры: {{ speechHumor.gates.humor_library_enabled ? 'вкл' : 'выкл' }}
+                      </span>
+                      <span class="badge" :class="speechHumor.gates.humor_feedback_enabled ? 'badge-info' : 'badge-muted'">
+                        реакции на шутки: {{ speechHumor.gates.humor_feedback_enabled ? 'вкл' : 'выкл' }}
+                      </span>
+                    </div>
+                    <div class="text-xs text-gray-500 speech-note">{{ speechHumor.library.note }}</div>
+                    <div class="text-xs text-gray-500 speech-note" v-if="speechHumor.craft">
+                      {{ speechHumor.craft.note }}
+                    </div>
+                    <div class="speech-actions mb-2" data-speech-humor-craft>
+                      <button type="button" class="btn-ghost text-sm"
+                              :disabled="speechHumorCraftBusy || !speechHumor.can_edit"
+                              @click="saveSpeechHumorCraft(!(speechHumor.craft && speechHumor.craft.enabled))">
+                        {{ speechHumor.craft && speechHumor.craft.enabled ? 'Выключить ремесло' : 'Включить ремесло' }}
+                      </button>
+                      <select class="field speech-select" v-model="speechScopeChoice"
+                              aria-label="Куда сохранять настройку ремесла">
+                        <option value="global">глобально</option>
+                        <option value="chat" :disabled="!speechOverview || !speechOverview.chat_id">этот чат</option>
+                      </select>
+                      <span class="text-xs text-gray-500">
+                        документ: {{ speechHumor.craft ? speechHumor.craft.source : '—' }}
+                        · ревизия {{ speechHumor.craft ? speechHumor.craft.revision : 0 }}
+                        · характер не выключается
+                      </span>
+                    </div>
+                    <div class="text-xs text-gray-400 mb-1">Выберите приём или покажите все:</div>
+                    <div class="speech-actions mb-2">
+                      <select class="field speech-select" v-model="speechHumorTechnique"
+                              aria-label="Фильтр по приёму">
+                        <option value="">все приёмы</option>
+                        <option v-for="t in speechHumor.techniques" :key="'ht-' + t.id" :value="t.id">{{ t.title }}</option>
+                      </select>
+                    </div>
+                    <div class="speech-table" data-speech-techniques>
+                      <div v-for="t in filteredHumorTechniques()" :key="'tc-' + t.id" class="speech-rule">
+                        <div class="speech-rule-head">
+                          <span class="text-sm font-semibold">{{ t.title }}</span>
+                          <span class="badge" :class="t.enabled ? 'badge-info' : 'badge-muted'">
+                            {{ t.enabled ? 'применяется' : 'не применяется' }}
+                          </span>
+                          <span class="badge badge-muted">примеров: {{ t.samples }}</span>
+                          <span class="badge badge-muted" v-if="t.layer_tokens">слой: {{ t.layer_tokens }} токенов</span>
+                        </div>
+                        <div class="text-xs text-gray-500">{{ t.description }}</div>
+                        <div class="text-xs text-gray-500">{{ humorTechniqueReason(t) }}</div>
+                        <div class="speech-actions" v-if="t.id !== 'other'">
+                          <button type="button" class="btn-ghost text-sm"
+                                  :disabled="speechHumorCraftBusy || !speechHumor.can_edit"
+                                  @click="toggleSpeechTechnique(t)">
+                            {{ t.owner_enabled ? 'Выключить приём' : 'Включить приём' }}
+                          </button>
+                          <button type="button" class="btn-ghost text-sm"
+                                  :disabled="speechHumorCraftBusy"
+                                  @click="probeSpeechTechnique(t)">Проверить приём</button>
+                        </div>
+                      </div>
+                    </div>
+                    <div v-if="speechHumorProbe" class="card speech-pad speech-card-tight" data-speech-humor-probe>
+                      <div class="speech-row">
+                        <div class="text-sm font-bold">Проверка приёма: {{ speechHumorProbe.title }}</div>
+                        <span class="badge badge-muted">LLM-вызовов: {{ speechHumorProbe.extra_llm_calls }}</span>
+                      </div>
+                      <div class="text-xs text-gray-500 mb-1">
+                        {{ humorTechniqueReason({ reason: speechHumorProbe.selection_reason }) }}
+                        · токенов слоя: {{ speechHumorProbe.layer_tokens }}
+                        · ревизия: {{ speechHumorProbe.layer_revision }}
+                        · источник: {{ speechHumorProbe.source }}
+                      </div>
+                      <pre class="speech-pre scroll-thin">{{ speechHumorProbe.layer_text_masked }}</pre>
+                      <div class="text-xs text-gray-500">{{ speechHumorProbe.note }}</div>
+                    </div>
+                    <div class="text-xs text-gray-500 speech-note">{{ speechHumor.technique_preview_note }}</div>
+                    <div class="text-xs text-gray-500">
+                      «Почему выбраны эти примеры» — в разделе «Примеры»; реальные причины слоёв
+                      видны в Inspector: <code>humor_no_strategy</code>, <code>humor_disabled</code>,
+                      <code>humor_serious_context</code>, <code>humor_extent_fit</code>,
+                      <code>humor_context_penalty</code>.
+                    </div>
+                  </div>
+                </template>
+
+                <!-- ═ Примеры ═ -->
+                <template v-if="speechSection === 'examples' && speechExamples">
+                  <div class="card speech-pad">
+                    <div class="speech-row">
+                      <div class="text-sm font-bold">Примеры (библиотека)</div>
+                      <span class="badge" :class="speechExamples.available ? 'badge-info' : 'badge-warn'">
+                        {{ speechExamples.status === 'implemented' ? ('карточек: ' + speechExamples.count)
+                          : (speechExamples.status === 'empty' ? 'библиотека пуста' : 'недоступно') }}
+                      </span>
+                      <span class="badge badge-muted" v-if="speechExamples.available">
+                        эталонов: {{ speechExamples.telemetry.approved }} · черновиков: {{ speechExamples.telemetry.proposed }}
+                      </span>
+                    </div>
+                    <div class="text-xs text-gray-500 speech-note">{{ speechExamples.note }}</div>
+                    <div class="text-xs text-gray-500 speech-note" v-if="speechExamples.reason">
+                      Причина: <code>{{ speechExamples.reason }}</code>
+                    </div>
+                    <div class="speech-actions mb-2" data-speech-examples-toolbar>
+                      <select class="field speech-select" v-model="speechSampleFilters.technique" aria-label="Фильтр по приёму">
+                        <option value="">все приёмы</option>
+                        <option v-for="t in speechExamples.techniques" :key="'ef-t-' + t.id" :value="t.id">{{ t.title }}</option>
+                      </select>
+                      <select class="field speech-select" v-model="speechSampleFilters.status" aria-label="Фильтр по статусу">
+                        <option value="">активные и архив</option>
+                        <option value="active">активные</option>
+                        <option value="archived">архив</option>
+                      </select>
+                      <input class="field speech-select" type="search" placeholder="поиск по тексту и тегам"
+                             style="min-height:44px"
+                             aria-label="Поиск по примерам" v-model="speechSampleFilters.query">
+                      <button type="button" class="btn-accent text-sm" :disabled="!speechExamples.can_edit"
+                              @click="startSpeechSampleNew()">Добавить пример</button>
+                      <button type="button" class="btn-ghost text-sm" :disabled="speechBusy || !speechExamples.can_edit"
+                              @click="seedSpeechSamples()">Заводская подборка ({{ speechExamples.starter.expected }})</button>
+                      <span class="text-xs text-gray-500">
+                        черновиков заведено: {{ speechExamples.starter.seeded }} из {{ speechExamples.starter.expected }}
+                      </span>
+                    </div>
+
+                    <div v-if="speechSampleDraft" class="card speech-pad speech-card-tight" data-speech-sample-editor>
+                      <div class="text-sm font-bold mb-1">
+                        {{ speechSampleEditing ? ('Правка примера №' + speechSampleEditing) : 'Новый пример' }}
+                      </div>
+                      <label class="block mb-2">
+                        <span class="text-xs text-gray-400">Вход (что сказал человек)</span>
+                        <textarea class="field w-full speech-editor scroll-thin" rows="2"
+                                  aria-label="Вход примера"
+                                  :value="speechSampleDraft.input_text"
+                                  @input="speechSampleDraft.input_text = $event.target.value"></textarea>
+                      </label>
+                      <label class="block mb-2">
+                        <span class="text-xs text-gray-400">Ответ бота</span>
+                        <textarea class="field w-full speech-editor scroll-thin" rows="3"
+                                  aria-label="Ответ примера"
+                                  :value="speechSampleDraft.reply_text"
+                                  @input="speechSampleDraft.reply_text = $event.target.value"></textarea>
+                      </label>
+                      <div class="speech-actions mb-2">
+                        <select class="field speech-select" v-model="speechSampleDraft.technique" aria-label="Приём примера">
+                          <option v-for="t in speechExamples.techniques" :key="'ef-s-' + t.id" :value="t.id">{{ t.title }}</option>
+                        </select>
+                        <select class="field speech-select" v-model="speechSampleDraft.source_kind" aria-label="Источник">
+                          <option value="owner_manual">добавили вы</option>
+                          <option value="bot_suggested">предложил бот</option>
+                          <option value="verified_success">подтверждённый успех</option>
+                        </select>
+                        <select class="field speech-select" v-model="speechSampleDraft.scope" aria-label="Область">
+                          <option value="global">глобально</option>
+                          <option value="chat">этот чат</option>
+                        </select>
+                        <select class="field speech-select" v-model.number="speechSampleDraft.rudeness_level" aria-label="Резкость">
+                          <option :value="0">резкость 0</option>
+                          <option :value="1">резкость 1</option>
+                          <option :value="2">резкость 2</option>
+                          <option :value="3">резкость 3</option>
+                        </select>
+                      </div>
+                      <div class="speech-actions mb-2">
+                        <input class="field speech-select" style="min-height:44px" type="text" placeholder="теги через запятую"
+                               aria-label="Теги" v-model="speechSampleDraft.tags">
+                        <input class="field speech-select" style="min-height:44px" type="text" placeholder="контекст (коротко)"
+                               aria-label="Контекст" v-model="speechSampleDraft.context_note">
+                        <input class="field speech-select" style="min-height:44px" type="text" placeholder="версия библиотеки (A/B)"
+                               aria-label="Версия библиотеки" v-model="speechSampleDraft.library_version">
+                      </div>
+                      <div class="speech-actions">
+                        <button type="button" class="btn-accent text-sm" :disabled="speechBusy"
+                                @click="saveSpeechSample()">Сохранить</button>
+                        <button type="button" class="btn-ghost text-sm" :disabled="speechBusy"
+                                @click="cancelSpeechSample()">Отмена</button>
+                      </div>
+                    </div>
+
+                    <div v-if="!filteredSamples().length" class="text-xs text-gray-500">
+                      <template v-if="!speechExamples.available">
+                        Библиотека недоступна — данные не подменяются.
+                      </template>
+                      <template v-else-if="!speechExamples.count">
+                        Карточек пока нет: заведите заводскую подборку черновиков или добавьте свой пример.
+                      </template>
+                      <template v-else>Под фильтр ничего не подошло.</template>
+                    </div>
+                    <div class="speech-table" data-speech-samples>
+                      <div v-for="row in filteredSamples()" :key="'sm-' + row.id" class="speech-rule">
+                        <div class="speech-rule-head">
+                          <span class="text-sm font-semibold">№{{ row.id }} · {{ row.technique }}</span>
+                          <span class="badge" :class="row.owner_approved ? 'badge-info' : 'badge-warn'">
+                            {{ sampleApprovalLabel(row) }}
+                          </span>
+                          <span class="badge badge-muted" v-if="row.status !== 'active'">архив</span>
+                          <span class="badge badge-muted">{{ sampleSourceLabel(row.source_kind) }}</span>
+                        </div>
+                        <div class="text-xs"><span class="text-gray-400">Вход:</span> {{ row.input_text }}</div>
+                        <div class="text-xs"><span class="text-gray-400">Ответ:</span> {{ row.reply_text }}</div>
+                        <div class="text-xs text-gray-500">
+                          {{ row.scope === 'chat' ? 'этот чат' : 'глобально' }}
+                          · резкость {{ row.rudeness_level }}
+                          · библиотека {{ row.library_version }}
+                          · применений {{ row.uses_count }}
+                          <template v-if="row.tags && row.tags.length"> · {{ row.tags.join(', ') }}</template>
+                        </div>
+                        <div class="speech-actions">
+                          <button type="button" class="btn-ghost text-sm" :disabled="speechBusy || !speechExamples.can_edit"
+                                  @click="approveSpeechSample(row, !row.owner_approved)">
+                            {{ row.owner_approved ? 'Снять эталон' : 'Сделать эталоном' }}
+                          </button>
+                          <button type="button" class="btn-ghost text-sm" :disabled="speechBusy || !speechExamples.can_edit"
+                                  @click="editSpeechSample(row)">Изменить</button>
+                          <button type="button" class="btn-ghost text-sm" :disabled="speechBusy || !speechExamples.can_edit"
+                                  @click="archiveSpeechSample(row, row.status === 'active')">
+                            {{ row.status === 'active' ? 'В архив' : 'Вернуть' }}
+                          </button>
+                          <button type="button" class="btn-ghost text-sm" :disabled="speechBusy || !speechExamples.can_edit"
+                                  @click="deleteSpeechSample(row)">Удалить</button>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="card speech-pad speech-card-tight mt-2" data-speech-examples-why>
+                      <div class="text-sm font-bold mb-1">Почему выбраны именно эти примеры</div>
+                      <div class="speech-actions mb-2">
+                        <input class="field speech-select" style="min-height:44px" type="text" placeholder="пример сообщения"
+                               aria-label="Сообщение для отбора" v-model="speechSampleWhyDraft.message">
+                        <select class="field speech-select" v-model="speechSampleWhyDraft.technique" aria-label="Приём для отбора">
+                          <option value="">приём не задан</option>
+                          <option v-for="t in speechExamples.techniques" :key="'ef-w-' + t.id" :value="t.id">{{ t.title }}</option>
+                        </select>
+                        <select class="field speech-select" v-model="speechSampleWhyDraft.extent" aria-label="Объём ответа">
+                          <option value="">объём не задан</option>
+                          <option value="micro">micro</option>
+                          <option value="compact">compact</option>
+                          <option value="normal">normal</option>
+                          <option value="detailed">detailed</option>
+                        </select>
+                        <button type="button" class="btn-ghost text-sm" :disabled="speechBusy"
+                                @click="runSpeechSampleWhy()">Показать отбор</button>
+                      </div>
+                      <template v-if="speechSampleWhy">
+                        <div class="text-xs text-gray-500 mb-1" v-if="!speechSampleWhy.ok">
+                          Отбор недоступен: <code>{{ speechSampleWhy.reason }}</code>
+                        </div>
+                        <template v-else>
+                          <div class="text-xs mb-1">
+                            выбрано: {{ speechSampleWhy.selected.length }} · исключено:
+                            {{ speechSampleWhy.excluded.length }} · токенов: {{ speechSampleWhy.tokens_estimate }}
+                            · библиотека: {{ speechSampleWhy.library_version || 'любая' }}
+                            · политика: {{ speechSampleWhy.policy_source }}
+                          </div>
+                          <div v-for="s in speechSampleWhy.selected" :key="'why-s-' + s.id" class="text-xs">
+                            №{{ s.id }} — {{ s.why }} (оценка {{ s.score }})
+                          </div>
+                          <div class="text-xs text-gray-500">
+                            причины исключений:
+                            <span v-for="e in speechSampleWhy.excluded" :key="'why-e-' + e.id + e.reason"
+                                  class="badge badge-muted">{{ e.reason }}</span>
+                          </div>
+                        </template>
+                      </template>
+                      <div class="text-xs text-gray-500" v-else>
+                        Покажем, какие примеры ушли бы в слои на этом входе — без модели, без отправки.
+                      </div>
+                    </div>
+
+                    <div class="card speech-pad speech-card-tight mt-2" v-if="speechExamples.policy" data-speech-examples-policy>
+                      <div class="speech-row">
+                        <div class="text-sm font-bold">Отбор и A/B версий</div>
+                        <span class="badge badge-muted">политика: {{ speechExamples.policy_source }}</span>
+                      </div>
+                      <div class="speech-actions mb-2">
+                        <label class="flex items-center gap-2">
+                          <input type="checkbox" v-model="speechExamples.policy.enabled">
+                          <span class="text-xs">отбор включён</span>
+                        </label>
+                        <label class="flex items-center gap-2">
+                          <input type="checkbox" v-model="speechExamples.policy.ab_enabled">
+                          <span class="text-xs">A/B версий</span>
+                        </label>
+                      </div>
+                      <div class="speech-actions mb-2">
+                        <label class="text-xs">примеров на ответ
+                          <input class="field speech-select" style="min-height:44px" type="number" min="1" max="3"
+                                 v-model.number="speechExamples.policy.max_items"></label>
+                        <label class="text-xs">бюджет токенов
+                          <input class="field speech-select" style="min-height:44px" type="number" min="40" max="700"
+                                 v-model.number="speechExamples.policy.max_tokens"></label>
+                        <label class="text-xs">разнообразие
+                          <input class="field speech-select" style="min-height:44px" type="number" step="0.05" min="0" max="0.9"
+                                 v-model.number="speechExamples.policy.diversity_min_distance"></label>
+                        <label class="text-xs">штраф за свежесть
+                          <input class="field speech-select" style="min-height:44px" type="number" step="0.05" min="0" max="0.9"
+                                 v-model.number="speechExamples.policy.recency_penalty"></label>
+                        <label class="text-xs">версия A
+                          <input class="field speech-select" style="min-height:44px" type="text"
+                                 v-model="speechExamples.policy.ab_versions[0]"></label>
+                        <label class="text-xs">версия B
+                          <input class="field speech-select" style="min-height:44px" type="text"
+                                 v-model="speechExamples.policy.ab_versions[1]"></label>
+                      </div>
+                      <div class="speech-actions">
+                        <button type="button" class="btn-accent text-sm" :disabled="speechBusy || !speechExamples.can_edit"
+                                @click="saveSpeechLibraryPolicy()">Сохранить политику</button>
+                        <span class="text-xs text-gray-500">
+                          этот чат сейчас: {{ speechExamples.ab.pinned || 'A/B выключен' }}
+                          · в библиотеке: {{ JSON.stringify(speechExamples.telemetry.by_version || {}) }}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div class="text-xs text-gray-500">{{ speechExamples.runtime_note }}</div>
+                    <details class="text-xs text-gray-500">
+                      <summary>Поля карточки (контракт сущности)</summary>
+                      <div class="speech-table">
+                        <div v-for="f in speechExamples.entity_fields" :key="'ef-' + f.id" class="speech-entity-row">
+                          <span class="text-xs font-semibold">{{ f.label }}</span>
+                          <span class="text-xs text-gray-500">{{ f.id }} · {{ f.type }}
+                            <template v-if="f.values"> · {{ (f.values || []).join(', ') }}</template>
+                          </span>
+                        </div>
+                      </div>
+                    </details>
+                  </div>
+                </template>
+
+                <!-- ═ Попробовать ═ -->
+                <template v-if="speechSection === 'try'">
+                  <div class="card speech-pad">
+                    <div class="text-sm font-bold mb-1">Тестовая лаборатория</div>
+                    <div class="text-xs text-gray-500 speech-note">
+                      Одинаковый вход, два варианта: текущая сохранённая настройка и кандидат
+                      (ваши несохранённые черновики характера/стиля/выражения). По умолчанию
+                      ничего не отправляется в Telegram и не создаёт постоянных уроков.
+                    </div>
+                    <div class="speech-split">
+                      <div>
+                        <label class="block mb-2">
+                          <span class="text-xs text-gray-400">Сообщение пользователя</span>
+                          <textarea class="field w-full speech-editor scroll-thin" rows="5"
+                                    aria-label="Сообщение для теста"
+                                    :value="speechTryDraft.text"
+                                    @input="speechTryDraft.text = $event.target.value"></textarea>
+                        </label>
+                        <label class="block mb-2">
+                          <span class="text-xs text-gray-400">Профиль сборки</span>
+                          <select class="field w-full" v-model="speechTryDraft.profile" aria-label="Профиль">
+                            <option value="speech_plain">Обычный ответ (L2 Writer)</option>
+                            <option value="speech_rich">Богатый ответ</option>
+                            <option value="editorial_report">Публикация (Factcheck/Summary)</option>
+                          </select>
+                        </label>
+                        <label class="flex items-center gap-2 mb-1">
+                          <input type="checkbox" v-model="speechTryDraft.useDrafts">
+                          <span class="text-xs">Взять кандидатом мои черновики (характер/стиль/выражение)</span>
+                        </label>
+                        <label class="flex items-center gap-2 mb-2">
+                          <input type="checkbox" v-model="speechTryDraft.generate">
+                          <span class="text-xs">Сгенерировать ответы моделью (реальный вызов провайдера, платно)</span>
+                        </label>
+                        <div class="speech-actions">
+                          <button type="button" class="btn-accent text-sm"
+                                  :disabled="speechBusy || !speechTryDraft.text.trim()"
+                                  @click="runSpeechTry()">{{ speechBusy ? 'Считаю…' : 'Сравнить' }}</button>
+                        </div>
+                      </div>
+                      <div>
+                        <div v-if="!speechTryResult" class="text-xs text-gray-500">
+                          Результат появится здесь: издержки, объём, сохранность фактов и выбранная
+                          стратегия — по текущей и кандидатной сборке.
+                        </div>
+                        <template v-else>
+                          <div class="text-xs text-gray-400">Стоимость (токены промпта)</div>
+                          <div class="text-xs mb-2" data-speech-try-cost>
+                            текущая: {{ speechTryResult.cost.current_tokens }} ·
+                            кандидат: {{ speechTryResult.cost.candidate_tokens === null ? '—' : speechTryResult.cost.candidate_tokens }} ·
+                            Δ {{ speechTryResult.cost.delta_tokens === null ? '—' : speechTryResult.cost.delta_tokens }}
+                          </div>
+                          <div class="text-xs text-gray-400">Объём и форма</div>
+                          <div class="text-xs mb-2">
+                            {{ speechTryResult.extent.style_pass.applied ? 'проход формы применён' : 'проход формы не применён (' + speechTryResult.extent.style_pass.skip_reason + ')' }}
+                            · соблюдено: {{ speechTryResult.extent.style_pass.styled ? 'да' : 'нет (честный конфликт)' }}
+                            · защищено: {{ speechTryResult.extent.style_pass.exempted }}
+                          </div>
+                          <div class="text-xs text-gray-400">Сохранность фактов ({{ speechTryResult.facts.protected_count }})</div>
+                          <div class="text-xs mb-2">
+                            <span v-if="!speechTryResult.facts.protected_count">защищённых фрагментов нет</span>
+                            <span v-for="p in speechTryResult.facts.protected_spans" :key="'ps-' + p.kind + p.text"
+                                  class="badge badge-muted">{{ p.kind }}</span>
+                          </div>
+                          <div class="text-xs text-gray-400">Стратегия (слои сборки)</div>
+                          <div class="text-xs mb-2">
+                            текущая: {{ (speechTryResult.strategy.layers_current || []).join(', ') || '—' }}<br>
+                            кандидат: {{ (speechTryResult.strategy.layers_candidate || []).join(', ') || '—' }}
+                          </div>
+                          <div v-if="speechTryResult.generation" class="text-xs">
+                            генерация: {{ speechTryResult.generation.ok ? 'выполнена' : 'ошибка' }}
+                            <span v-if="speechTryResult.generation.variants && speechTryResult.generation.variants.current">
+                              · текущая: {{ speechTryResult.generation.variants.current.reply_masked || speechTryResult.generation.variants.current.error }}
+                            </span>
+                            <span v-if="speechTryResult.generation.variants && speechTryResult.generation.variants.candidate">
+                              <br>кандидат: {{ speechTryResult.generation.variants.candidate.reply_masked || speechTryResult.generation.variants.candidate.error }}
+                            </span>
+                          </div>
+                        </template>
+                      </div>
+                    </div>
+                  </div>
+                </template>
+
+                <!-- ═ Обучение ═ -->
+                <template v-if="speechSection === 'learning' && speechLearning">
+                  <div class="card speech-pad">
+                    <div class="speech-row">
+                      <div class="text-sm font-bold">Что бот подхватывает</div>
+                      <span class="badge badge-muted">отсутствие реакций — не провал</span>
+                    </div>
+                    <div class="text-xs text-gray-500 speech-note">{{ speechLearning.note }}</div>
+
+                    <div class="card speech-pad speech-card-tight mb-2" data-speech-humor-feedback>
+                      <div class="speech-row">
+                        <div class="text-sm font-bold">Реакции на шутки</div>
+                        <span class="badge" :class="speechLearning.humor_feedback.enabled ? 'badge-info' : 'badge-muted'">
+                          {{ speechLearning.humor_feedback.enabled ? 'собираются' : 'контур выключен' }}
+                        </span>
+                        <span class="badge badge-muted" v-if="speechLearning.humor_feedback.paused">пауза</span>
+                      </div>
+                      <div v-if="!speechLearning.humor_feedback.enabled" class="speech-warn">
+                        {{ speechLearning.humor_feedback.note }}
+                      </div>
+                      <template v-else>
+                        <div class="text-xs mb-1" v-if="!speechLearning.humor_feedback.available">
+                          Данные недоступны: <code>{{ speechLearning.humor_feedback.reason }}</code>
+                        </div>
+                        <template v-else>
+                          <div class="text-xs text-gray-500 mb-1">
+                            ответов под наблюдением: {{ speechLearning.humor_feedback.sends }}
+                            · окон без реакции (unknown): {{ speechLearning.humor_feedback.unknown_windows }}
+                            · политика {{ speechLearning.humor_feedback.policy }}
+                          </div>
+                          <div class="speech-actions mb-2">
+                            <span v-for="(count, kind) in speechLearning.humor_feedback.signals"
+                                  :key="'hs-' + kind" class="badge badge-muted">{{ kind }}: {{ count }}</span>
+                            <span v-if="!Object.keys(speechLearning.humor_feedback.signals).length"
+                                  class="text-xs text-gray-500">сигналов пока нет — это честный ноль</span>
+                          </div>
+                          <div class="text-xs text-gray-500 mb-2">{{ speechLearning.humor_feedback.decay_note }}</div>
+                          <div v-if="!speechLearning.humor_feedback.entries.length" class="text-xs text-gray-500">
+                            Предпочтений чата пока нет: они появляются после нескольких независимых
+                            наблюдений на разных темах.
+                          </div>
+                          <div v-for="e in speechLearning.humor_feedback.entries" :key="'he-' + e.lesson_id"
+                               class="speech-lesson">
+                            <div class="speech-row">
+                              <span class="text-sm font-semibold">{{ e.technique }}</span>
+                              <span class="badge badge-muted">{{ e.direction === 'weaken' ? 'реже' : 'подтверждён' }}</span>
+                              <span class="badge badge-muted">{{ e.status }}</span>
+                              <span class="badge badge-muted">свежесть {{ e.decay }}</span>
+                            </div>
+                            <div class="text-xs">{{ e.influence }}</div>
+                          </div>
+                        </template>
+                      </template>
+                      <div class="speech-actions" v-if="speechLearning.humor_feedback.can_manage">
+                        <button type="button" class="btn-ghost text-xs" :disabled="speechLearningBusy"
+                                @click="humorFeedbackAction(speechLearning.humor_feedback.paused ? 'resume' : 'pause')">
+                          {{ speechLearning.humor_feedback.paused ? 'Возобновить сбор' : 'Пауза сбора' }}
+                        </button>
+                        <button type="button" class="btn-ghost text-xs" :disabled="speechLearningBusy"
+                                @click="humorFeedbackAction('reset')">Сбросить обучение юмора</button>
+                      </div>
+                      <details class="text-xs text-gray-500 mt-2">
+                        <summary>Обязательные сценарии и что проверяется живьём</summary>
+                        <div v-for="s in speechLearning.humor_feedback.scenarios" :key="'sc-' + s.id"
+                             class="text-xs mb-1">
+                          <span class="font-semibold">{{ s.id }}</span><br>
+                          <span class="whitespace-pre-line">{{ s.live_marker }}</span>
+                        </div>
+                      </details>
+                    </div>
+
+                    <div class="text-xs text-gray-400 mb-1">
+                      Уроки опыта: {{ speechLearningState(speechLearning.lessons.state) }} ({{ speechLearning.lessons.count }})
+                    </div>
+                    <div v-if="!speechLearning.lessons.items.length" class="text-xs text-gray-500">
+                      Записей пока нет: гипотезы появятся из реальных наблюдений, а не из догадок.
+                    </div>
+                    <div v-for="l in speechLearning.lessons.items" :key="'l-' + l.lesson_id"
+                         class="speech-lesson">
+                      <div class="speech-row">
+                        <span class="text-sm font-semibold">{{ l.type || 'урок' }}</span>
+                        <span class="badge" :class="l.applied ? 'badge-info' : 'badge-muted'">
+                          {{ l.applied ? 'применяется' : l.status }}
+                        </span>
+                        <span class="badge badge-muted">успех {{ l.counters.success }} /
+                          провал {{ l.counters.failure }} / неизвестно {{ l.counters.unknown }}</span>
+                        <span class="badge badge-muted">применений: {{ l.applications_count }}</span>
+                        <span class="badge" :class="l.confidence.trusted ? 'badge-muted' : 'badge-warn'">
+                          {{ l.confidence.trusted ? 'подтверждено' : 'не проверено' }}
+                        </span>
+                      </div>
+                      <div class="text-xs">{{ l.recommendation || '—' }}</div>
+                      <div class="text-xs text-gray-500">
+                        условия: {{ l.applicability || '—' }} · источники: policy {{ l.sources.policy || '—' }},
+                        proposal {{ l.sources.proposal || '—' }}, validator {{ l.sources.validator || '—' }}
+                      </div>
+                      <div class="speech-actions">
+                        <button type="button" class="btn-ghost text-xs"
+                                :disabled="speechBusy || !speechLearning.can_manage"
+                                @click="speechLessonAction(l, 'suspend')">Пауза</button>
+                        <button type="button" class="btn-ghost text-xs"
+                                :disabled="speechBusy || !speechLearning.can_manage"
+                                @click="speechLessonAction(l, 'activate')">Одобрить</button>
+                      </div>
+                    </div>
+                    <div class="text-xs text-gray-500 mt-2">
+                      Пауза/одобрение не удаляют данные: урок остаётся с историей и версиями.
+                      Характер при этом не переписывается автоматически.
+                    </div>
+                  </div>
+                </template>
+
+                <!-- ═ Все инструкции ═ -->
+                <template v-if="speechSection === 'all'">
+                  <div class="card speech-pad">
+                    <div class="speech-row">
+                      <div class="text-sm font-bold">Все инструкции реестра</div>
+                      <span v-if="speechBlocks" class="badge badge-muted">{{ speechBlocks.blocks.length }} блоков</span>
+                      <span v-if="speechBlocks && speechBlocks.stale_values"
+                            class="badge badge-warn">удержано значений: {{ speechBlocks.stale_values }}</span>
+                    </div>
+                    <div class="text-xs text-gray-500 speech-note">
+                      Любая речевая или поведенческая инструкция имеет ID, назначение, область,
+                      заводскую и текущую версию, историю и откат. Никаких инструкций, видимых
+                      только в коде.
+                    </div>
+                    <div class="speech-actions mb-2">
+                      <input class="field speech-search" type="search" placeholder="Поиск по блокам…"
+                             aria-label="Поиск по блокам" :value="speechQuery"
+                             @input="speechQuery = $event.target.value">
+                      <select class="field speech-select" v-model="speechFamily" aria-label="Семейство">
+                        <option value="">все семейства</option>
+                        <option v-for="f in (speechBlocks ? speechBlocks.families : [])" :key="'f-' + f" :value="f">{{ f }}</option>
+                      </select>
+                    </div>
+                    <div v-if="speechSectionLoading" class="spinner my-4"></div>
+                    <div class="speech-table">
+                      <button v-for="b in filteredSpeechBlocks()" :key="'b-' + b.block_id" type="button"
+                              class="speech-block-row" :data-block-id="b.block_id"
+                              @click="openSpeechBlock(b.block_id)">
+                        <span class="text-xs font-semibold truncate">{{ b.block_id }}</span>
+                        <span class="badge badge-muted">{{ b.effective.source }}</span>
+                        <span class="badge" :class="b.effective.differs_from_factory ? 'badge-warn' : 'badge-muted'">
+                          {{ b.effective.differs_from_factory ? 'изменён' : 'заводской' }}
+                        </span>
+                        <span class="text-xs text-gray-500 truncate">{{ b.purpose }}</span>
+                      </button>
+                    </div>
+                  </div>
+                  <div v-if="speechBlockDetail" class="card speech-pad" data-speech-block-detail>
+                    <div class="speech-row">
+                      <div class="text-sm font-bold">{{ speechBlockDetail.block_id }}</div>
+                      <span class="badge badge-muted">{{ speechBlockDetail.pg_key || 'код' }}</span>
+                      <span class="badge badge-muted">{{ speechBlockDetail.effective.scope_label }}</span>
+                      <span v-if="speechBlockDetail.effective.withheld" class="badge badge-err">удержано</span>
+                      <button type="button" class="btn-ghost text-xs" @click="speechBlockDetail = null">Закрыть</button>
+                    </div>
+                    <div class="text-xs text-gray-500">{{ speechBlockDetail.purpose }}</div>
+                    <div class="text-xs text-gray-500">
+                      потребители: {{ (speechBlockDetail.consumers || []).join(', ') || '—' }}
+                      · точка сборки: {{ speechBlockDetail.composition_point }}
+                      · включается: {{ speechBlockDetail.enabled_by || '—' }}
+                      <span v-if="speechBlockDetail.enabled_value !== null && speechBlockDetail.enabled_value !== undefined">
+                        → сейчас {{ speechBlockDetail.enabled_value ? 'включено' : 'выключено' }}
+                      </span>
+                      · доказательство: {{ speechBlockDetail.production_kind }}
+                      · заводская ревизия: {{ speechBlockDetail.factory_revision }}
+                    </div>
+                    <label class="block mt-2">
+                      <span class="text-xs text-gray-400">Текст ({{ speechBlockDraft.length }} зн.)</span>
+                      <textarea class="field w-full speech-editor scroll-thin" rows="8"
+                                aria-label="Текст блока"
+                                :value="speechBlockDraft"
+                                @input="speechBlockDraft = $event.target.value"></textarea>
+                    </label>
+                    <div class="speech-actions">
+                      <button type="button" class="btn-accent text-sm"
+                              :disabled="speechBusy || !speechBlockDetail.can_edit || !speechBlockDetail.editable"
+                              @click="saveSpeechBlock()">Сохранить</button>
+                      <button type="button" class="btn-ghost text-sm" @click="speechBlockDiff = !speechBlockDiff">
+                        {{ speechBlockDiff ? 'Скрыть заводской' : 'Заводской вариант' }}
+                      </button>
+                      <select class="field speech-select" v-model="speechScopeChoice" aria-label="Область правки блока">
+                        <option value="global">глобально</option>
+                        <option value="chat" :disabled="!speechChatId">этот чат</option>
+                      </select>
+                      <button type="button" class="btn-ghost text-sm"
+                              :disabled="speechBusy || !speechBlockDetail.can_edit"
+                              @click="speechFactoryPlan(speechBlockDetail.block_id)">Вернуть заводской</button>
+                      <button type="button" class="btn-ghost text-sm"
+                              @click="openSpeechSection('try')">Проверить в «Попробовать»</button>
+                      <button v-if="speechChatId" type="button" class="btn-ghost text-sm"
+                              :disabled="speechBusy"
+                              @click="resetSpeechChat(speechBlockDetail.block_id)">Сбросить для чата</button>
+                    </div>
+                    <pre v-if="speechBlockDiff" class="speech-pre" data-speech-factory>{{ speechBlockDetail.factory_text || '(нет заводского текста)' }}</pre>
+                    <div v-if="speechBlockDetail.diagnostics && speechBlockDetail.diagnostics.length"
+                         class="text-xs text-gray-500">
+                      диагностика: {{ speechBlockDetail.diagnostics.join(', ') }}
+                    </div>
+                    <div v-if="speechBlockDetail.history && speechBlockDetail.history.length" class="mt-2">
+                      <div class="text-xs text-gray-400 mb-1">История ({{ speechBlockDetail.history.length }})</div>
+                      <div v-for="h in speechBlockDetail.history" :key="'bh-' + h.sha256_12" class="speech-hist">
+                        <span class="badge badge-muted">{{ h.kind }}</span>
+                        <span class="text-xs text-gray-500">{{ h.sha256_12 }} · {{ h.chars }} зн. · {{ h.updated_at || '—' }}</span>
+                        <button type="button" class="btn-ghost text-xs"
+                                :disabled="speechBusy || !speechBlockDetail.can_edit"
+                                @click="rollbackSpeechBlock(speechBlockDetail.block_id, h)">Откатить</button>
+                      </div>
+                    </div>
+                    <div v-if="speechBlockDetail.factory_plan && speechBlockDetail.factory_plan.applies"
+                         class="text-xs text-gray-500 mt-2" data-speech-factory-plan>
+                      заводской сброс: {{ speechFactoryPlanText(speechBlockDetail.factory_plan) }}
+                    </div>
+                  </div>
+                </template>
+
+                <!-- ═ Inspector ═ -->
+                <template v-if="speechSection === 'inspector'">
+                  <div v-if="speechSectionLoading" class="spinner my-4"></div>
+                  <template v-else-if="speechInspector">
+                    <div class="card speech-pad">
+                      <div class="speech-row">
+                        <div class="text-sm font-bold">Effective Prompt Inspector</div>
+                        <span class="badge" :class="speechInspector.last_run_present ? 'badge-info' : 'badge-warn'">
+                          {{ speechInspector.last_run_present ? 'есть снимок реального хода' : 'только предпросмотр' }}
+                        </span>
+                        <span class="badge badge-muted">маскировка: секреты и длинные ID</span>
+                      </div>
+                      <div class="text-xs text-gray-500 speech-note">
+                        «Предпросмотр» — сборка текущей конфигурации тем же композером (без вызова
+                        модели). «Фактически отправлено» — снимок последнего хода. Собранный шаблон
+                        не выдаётся за доказательство реального вызова.
+                      </div>
+                      <div v-if="speechInspector.last_run_note" class="speech-warn">
+                        {{ speechInspector.last_run_note }}
+                      </div>
+                      <div class="text-xs text-gray-500">{{ speechInspector.retention }}</div>
+                    </div>
+                    <div class="card speech-pad">
+                      <div class="text-sm font-bold mb-1">Предпросмотр (сборка сейчас)</div>
+                      <div class="text-xs text-gray-500">
+                        manifest {{ speechInspector.preview.manifest_id }} ·
+                        {{ speechInspector.preview.tokens_total }} ток. ·
+                        порядок канонический: {{ speechInspector.preview.layer_order ? 'по контракту' : '—' }}
+                      </div>
+                      <div class="text-xs text-gray-500">
+                        версии: {{ speechInspectorVersionLine(speechInspector.preview.versions) }}
+                      </div>
+                      <div class="text-xs text-gray-500">
+                        конфликты: {{ (speechInspector.preview.conflicts || []).join(', ') || 'нет' }}
+                      </div>
+                      <div v-if="speechInspector.preview.preview_note" class="text-xs text-gray-500">
+                        {{ speechInspector.preview.preview_note }}
+                      </div>
+                      <div class="speech-adv-title">Слои</div>
+                      <div class="speech-table">
+                        <div v-for="(l, li) in speechInspector.preview.layers" :key="'pl-' + li" class="speech-layer-row">
+                          <span class="text-xs font-semibold">{{ l.layer }}</span>
+                          <span class="text-xs text-gray-500">{{ l.source }} · {{ l.revision || '—' }}</span>
+                          <span class="text-xs">{{ l.rendered ? 'включён' : 'пропущен' }}</span>
+                          <span class="text-xs text-gray-500">{{ l.rendered ? l.tokens + ' ток.' : (l.skip_reason || '') }}</span>
+                        </div>
+                      </div>
+                      <pre class="speech-pre" data-speech-preview-payload>{{ speechInspector.preview.system_masked }}</pre>
+                    </div>
+                    <div class="card speech-pad" v-if="speechInspector.last_run_present">
+                      <div class="text-sm font-bold mb-1">Фактически отправленный payload</div>
+                      <div class="text-xs text-gray-500">
+                        writer {{ speechInspector.sent.writer }} · профиль {{ speechInspector.sent.profile }} ·
+                        снимок хода {{ speechInspector.sent.run_id || '—' }} ·
+                        {{ speechInspector.sent.tokens_total }} ток. ·
+                        id {{ speechInspector.sent.manifest_id }}
+                      </div>
+                      <div v-if="speechInspector.sent_note" class="text-xs text-gray-500">
+                        {{ speechInspector.sent_note }}
+                      </div>
+                      <div class="text-xs text-gray-500">
+                        версии: {{ speechInspectorVersionLine(speechInspector.sent.versions) }}
+                      </div>
+                      <pre class="speech-pre" data-speech-sent-system>{{ speechInspector.sent.system_masked }}</pre>
+                      <div v-for="(p, pi) in (speechInspector.sent.user_parts_masked || [])" :key="'up-' + pi"
+                           class="speech-pre" data-speech-sent-user>{{ p }}</div>
+                    </div>
+                    <div class="card speech-pad">
+                      <div class="text-sm font-bold mb-1">Характер в сборке</div>
+                      <div class="text-xs text-gray-500">
+                        редакция: {{ speechInspector.core.level }} ({{ speechInspector.core.reason }}) ·
+                        активная ревизия {{ speechInspector.core.active_revision }} ·
+                        {{ speechInspector.core.chars }} зн.
+                      </div>
+                      <div class="text-xs text-gray-500">
+                        заводские ревизии: {{ speechInspectorVersionLine(speechInspector.core.factory_revisions) }}
+                      </div>
+                    </div>
+                  </template>
+                </template>
+
+                <!-- ═ Возможности бота ═ -->
+                <template v-if="speechSection === 'capabilities'">
+                  <div v-if="speechSectionLoading" class="spinner my-4"></div>
+                  <template v-else-if="speechCapabilities">
+                    <div class="card speech-pad">
+                      <div class="speech-row">
+                        <div class="text-sm font-bold">Возможности бота</div>
+                        <span class="badge badge-muted">чат {{ speechCapabilities.chat_id === null ? 'не выбран' : speechCapabilities.chat_id }}</span>
+                      </div>
+                      <div class="text-xs text-gray-500 speech-note">
+                        Фактическое состояние по реальным инструментам, правам, ключам и бюджету.
+                        Тумблеры здесь не дублируются — показано, где настраивается.
+                      </div>
+                      <div class="speech-table">
+                        <div v-for="c in speechCapabilities.capabilities" :key="'cap-' + c.capability_id"
+                             class="speech-cap-row">
+                          <span class="text-xs font-semibold">{{ c.title || c.capability_id }}</span>
+                          <span class="badge" :class="speechCapabilityClass(c.status)">{{ speechCapabilityStatus(c.status) }}</span>
+                          <span class="text-xs text-gray-500">{{ c.reason_code || '' }} {{ c.reason || '' }}</span>
+                          <span class="text-xs text-gray-500">{{ speechCapabilityWhere(c) }}</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="card speech-pad">
+                      <div class="text-sm font-bold mb-1">Trace: намерение → результат</div>
+                      <div class="text-xs text-gray-500">{{ speechCapabilities.trace_note }}</div>
+                      <div v-if="(speechCapabilities.trace_not_chosen || []).length" class="speech-warn">
+                        Доступное действие не было выбрано L1:
+                        {{ (speechCapabilities.trace_not_chosen || []).length }} событий.
+                      </div>
+                      <div v-if="!speechCapabilities.trace.length" class="text-xs text-gray-500">
+                        Событий пока нет — телеметрия пуста.
+                      </div>
+                      <div class="speech-table">
+                        <div v-for="(t, ti) in speechCapabilities.trace" :key="'tr-' + ti" class="speech-trace-row">
+                          <span class="text-xs font-semibold">{{ t.stage }}</span>
+                          <span class="text-xs">{{ t.event }}</span>
+                          <span class="badge badge-muted">{{ t.outcome || '—' }}</span>
+                          <span class="text-xs text-gray-500">{{ t.reason_code || '' }} {{ t.status || '' }}</span>
+                          <span class="text-xs text-gray-500 truncate">{{ t.entity_id || '' }}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </template>
+                </template>
+              </div>
+            </div>
+          </template>
           <template v-else-if="activeTab === 'status'">
             <!-- ═══ Статус ═══ -->
             <!-- T-1101: Oversight — добавочный экран (global-only), карточка
@@ -7920,6 +9104,102 @@
                     </div>
                   </div>
                   <div class="text-gray-500 mt-1">{{ initiativeFunnel.emptyReason }}</div>
+                  <!-- W5 (SOUL-18.4/18.5/18.6): честная жизнеспособность —
+                       предупреждение «возможности есть, сообщений нет»,
+                       реальные причины ворот, последние решения и доставки с
+                       message_id + ревизиями Core/Style, мягкие цели владельца
+                       и безопасная проверка до публикации. Всё — в ЭТОМ же
+                       единственном блоке (второй аналитической стены нет). -->
+                  <template v-if="w5Vitality">
+                    <div v-if="w5Warning" class="mt-1"
+                         :class="w5Warning.level === 'warn'
+                           ? 'text-amber-300' : 'text-gray-400'"
+                         data-initiative-warning>
+                      <span class="badge badge-warn">Внимание</span>
+                      <b>{{ w5Warning.title }}</b>
+                      <div>{{ w5Warning.warning }}</div>
+                      <div v-if="w5Warning.recommendation" class="text-gray-500">
+                        Что делать: {{ w5Warning.recommendation }}
+                      </div>
+                    </div>
+                    <div class="text-gray-500 mt-1">{{ w5HealthLabel }}</div>
+                    <div v-if="w5SoftLabel" class="text-gray-500"
+                         :title="w5SoftBounds">
+                      {{ w5SoftLabel }} · {{ w5SoftBounds }}
+                    </div>
+                    <div v-if="w5Reasons.length" class="mt-1">
+                      <span class="text-gray-500">Причины:</span>
+                      <span v-for="r in w5Reasons" :key="'w5r-' + r.reason_code"
+                            class="badge badge-muted ml-1"
+                            :title="r.reason_code">
+                        {{ r.label }} — {{ r.count }}
+                      </span>
+                    </div>
+                    <div v-if="w5GateBlockers.length" class="mt-1">
+                      <span class="text-gray-500">Мешает сейчас:</span>
+                      <div v-for="g in w5GateBlockers" :key="'w5g-' + g.label"
+                           class="text-gray-400">
+                        · {{ g.label }}
+                        <span v-if="g.limit !== ''" class="text-gray-600">
+                          ({{ g.value }} / {{ g.limit }})</span>
+                      </div>
+                    </div>
+                    <div v-if="w5Decisions.length" class="mt-1">
+                      <span class="text-gray-500">Последние решения:</span>
+                      <div v-for="(d, i) in w5Decisions" :key="'w5d-' + i"
+                           class="text-gray-400">
+                        · {{ d.action || '—' }} · {{ d.reason_label }}
+                        <span v-if="d.stage" class="text-gray-600">({{ d.stage }})</span>
+                      </div>
+                    </div>
+                    <div v-if="w5Refusals.length" class="mt-1">
+                      <span class="text-gray-500">Отказы до отправки:</span>
+                      <div v-for="(r, i) in w5Refusals" :key="'w5x-' + i"
+                           class="text-gray-400">
+                        · {{ r.reason_label }} <span class="text-gray-600">({{ r.reason_code }})</span>
+                      </div>
+                    </div>
+                    <div v-if="w5Sends.length" class="mt-1">
+                      <span class="text-gray-500">Доставлено:</span>
+                      <div v-for="(s, i) in w5Sends" :key="'w5s-' + i"
+                           class="text-gray-400">
+                        · <span v-if="s.hasMessageId">message_id {{ s.messageId }}</span>
+                        <span v-else>без message_id</span>
+                        · {{ s.chars }} симв.
+                        <span v-if="s.hasManifest">
+                          · Core {{ s.core }} · Style {{ s.style }}</span>
+                        <span v-else class="text-gray-600"> · манифест: нет данных</span>
+                        <span v-if="s.composer"> · сборка: {{ s.composer }}</span>
+                      </div>
+                    </div>
+                    <div class="mt-2 flex items-center gap-2 flex-wrap">
+                      <button class="btn-ghost text-xs"
+                              :disabled="initiativeCheckBusy"
+                              @click="runInitiativeCheck()"
+                              data-initiative-check>Проверить инициативу</button>
+                      <span class="text-gray-500">
+                        проверка идёт до mock send и по умолчанию ничего не
+                        публикует в чат
+                      </span>
+                    </div>
+                    <div v-if="initiativeCheck" class="mt-1" data-initiative-trace>
+                      <div class="text-gray-500">{{ w5CheckNote }}</div>
+                      <div v-for="(t, i) in w5CheckTrace" :key="'w5t-' + i"
+                           class="text-gray-400">
+                        · {{ t.stage }}: {{ t.status }}
+                        <span v-if="t.reason" class="text-gray-600">({{ t.reason }})</span>
+                        — {{ t.label }}
+                      </div>
+                      <div v-if="w5CheckPreview"
+                           class="mt-1 whitespace-pre-wrap break-words text-gray-300">
+                        {{ w5CheckPreview }}
+                      </div>
+                      <div class="text-gray-600">
+                        прогон без публикации · LLM-вызовов:
+                        {{ initiativeCheck.llm_calls }}
+                      </div>
+                    </div>
+                  </template>
                 </div>
               </div>
             </div>
@@ -8628,6 +9908,29 @@
             <!-- ═══ F3 (persona-ui-tab-round1014): "Личность" — special-screen.
                  ТОЛЬКО статические параметры (Имя/Биография/Характер +
                  «Осознаёт себя ИИ»). Никакой визуализации (динамика — F4). ═══ -->
+            <!-- ═══ SOUL-1 W6 (§6.1): «Речь и характер» — единая точка входа
+                 раздела речи внутри той же зоны identity/speech. Карточка
+                 «Личность и стиль» — компактный showcase, который ведёт на
+                 отдельный special-screen #/ai/speech (не шесть вкладок). ═══ -->
+            <div class="card p-4 col-span-full speech-entry" style="max-width: 760px;">
+              <div class="flex items-center gap-2 flex-wrap">
+                <div class="text-sm font-bold">
+                  <span class="msr" aria-hidden="true">{{ iconGlyph('record_voice_over') }}</span>
+                  Речь и характер
+                </div>
+                <span class="badge badge-info">{{ speechScopeBadge }}</span>
+                <span class="text-xs text-gray-500 min-w-0 truncate">{{ activeChatTitle }}</span>
+              </div>
+              <div class="text-xs text-gray-500 mt-1">
+                Характер (постоянный Core), стиль письма, выражение, юмор, примеры,
+                тестовая лаборатория и обучение — обычным языком, одним экраном за раз.
+              </div>
+              <div class="mt-2">
+                <button type="button" class="btn-accent text-sm"
+                        data-speech-entry
+                        @click="navigateTo('#/ai/speech')">Открыть «Речь и характер»</button>
+              </div>
+            </div>
             <div class="card p-5 col-span-full" style="max-width: 760px;">
               <div class="flex items-center gap-2 flex-wrap mb-3">
                 <div class="text-sm font-bold">

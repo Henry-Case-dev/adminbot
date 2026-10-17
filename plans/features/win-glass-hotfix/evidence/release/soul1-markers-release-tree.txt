@@ -1,0 +1,31 @@
+SOUL-1 markers (whole release tree):
+  speechLessonAction             hits=0
+  ai/speech                      hits=0
+  initiative-vitality            hits=0
+  initiativeVitality             hits=0
+  embeddings-primary             hits=0
+  cr.key_source                  hits=0
+  @app.get("/api/speech          hits=0
+
+FS-removed features (negations) in LIVE web/ scope - must be absent:
+  data-fs-diagnostics            hits_in_web=0
+  fsReasonText                   hits_in_web=0
+  fsNextStep                     hits_in_web=0
+  fsDiag                         hits_in_web=0
+  tdesktop_disabled_until_e2e    hits_in_web=0
+  _softExitTimer                 hits_in_web=0
+  launchExitIgnored              hits_in_web=0
+  fs-slot-float                  hits_in_web=0
+
+Pre-existing mentions outside web/ (NOT introduced by this delta; files not in delta):
+  data-fs-diagnostics            files=['HEAD']
+  fsReasonText                   files=['HEAD']
+  fsNextStep                     files=['HEAD']
+  fsDiag                         files=['HEAD']
+  tdesktop_disabled_until_e2e    files=['HEAD']
+  _softExitTimer                 files=['HEAD']
+  launchExitIgnored              files=['HEAD']
+  fs-slot-float                  files=['HEAD']
+
+Conclusion: 0 SOUL markers; 0 live fs-negation tokens in web/; remaining mentions are
+negative asserts in pre-existing tests and historical plans docs (untouched by delta).

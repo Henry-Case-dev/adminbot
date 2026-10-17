@@ -1,0 +1,181 @@
+{
+ "slice": "soul-1/W4",
+ "fixture": "plans/features/soul-1/evidence/w4/api-fixture.json",
+ "viewports": [
+  "320",
+  "390",
+  "430",
+  "1024",
+  "1440",
+  "landscape"
+ ],
+ "sections": [
+  "humor",
+  "examples",
+  "learning"
+ ],
+ "shots": false,
+ "failures": [],
+ "notes": [
+  {
+   "label": "320/hub",
+   "hub": " Характер Постоянный характер: полная и компактная редакции действует act:407e8b341d9e · 40 зн. изменено Стиль письма Кавычки, точки, эмодзи, оформление 0 правил · factory_default заводское Выражение Остроумие, резкость, мат, развёрнутость по умолчанию заводское Юмор Приёмы и примеры шуток библиотека включена включено Примеры Карточки примеров (few-shot) карточек: 20 · эталонов: 4 · черновиков: 1"
+  },
+  {
+   "label": "320/humor",
+   "pageOverflow": 0,
+   "minTap": 44,
+   "small": []
+  },
+  {
+   "label": "320/examples",
+   "pageOverflow": 0,
+   "minTap": 44,
+   "small": []
+  },
+  {
+   "label": "320/learning",
+   "pageOverflow": 0,
+   "minTap": 44,
+   "small": []
+  },
+  {
+   "label": "390/hub",
+   "hub": " Характер Постоянный характер: полная и компактная редакции действует act:407e8b341d9e · 40 зн. изменено Стиль письма Кавычки, точки, эмодзи, оформление 0 правил · factory_default заводское Выражение Остроумие, резкость, мат, развёрнутость по умолчанию заводское Юмор Приёмы и примеры шуток библиотека включена включено Примеры Карточки примеров (few-shot) карточек: 20 · эталонов: 4 · черновиков: 1"
+  },
+  {
+   "label": "390/humor",
+   "pageOverflow": 0,
+   "minTap": 44,
+   "small": []
+  },
+  {
+   "label": "390/examples",
+   "pageOverflow": 0,
+   "minTap": 44,
+   "small": []
+  },
+  {
+   "label": "390/learning",
+   "pageOverflow": 0,
+   "minTap": 44,
+   "small": []
+  },
+  {
+   "label": "430/hub",
+   "hub": " Характер Постоянный характер: полная и компактная редакции действует act:407e8b341d9e · 40 зн. изменено Стиль письма Кавычки, точки, эмодзи, оформление 0 правил · factory_default заводское Выражение Остроумие, резкость, мат, развёрнутость по умолчанию заводское Юмор Приёмы и примеры шуток библиотека включена включено Примеры Карточки примеров (few-shot) карточек: 20 · эталонов: 4 · черновиков: 1"
+  },
+  {
+   "label": "430/humor",
+   "pageOverflow": 0,
+   "minTap": 44,
+   "small": []
+  },
+  {
+   "label": "430/examples",
+   "pageOverflow": 0,
+   "minTap": 44,
+   "small": []
+  },
+  {
+   "label": "430/learning",
+   "pageOverflow": 0,
+   "minTap": 44,
+   "small": []
+  },
+  {
+   "label": "1024/hub",
+   "hub": " Характер Постоянный характер: полная и компактная редакции действует act:407e8b341d9e · 40 зн. изменено Стиль письма Кавычки, точки, эмодзи, оформление 0 правил · factory_default заводское Выражение Остроумие, резкость, мат, развёрнутость по умолчанию заводское Юмор Приёмы и примеры шуток библиотека включена включено Примеры Карточки примеров (few-shot) карточек: 20 · эталонов: 4 · черновиков: 1"
+  },
+  {
+   "label": "1024/humor",
+   "pageOverflow": 0,
+   "minTap": 44,
+   "small": []
+  },
+  {
+   "label": "1024/examples",
+   "pageOverflow": 0,
+   "minTap": 44,
+   "small": []
+  },
+  {
+   "label": "1024/learning",
+   "pageOverflow": 0,
+   "minTap": 44,
+   "small": []
+  },
+  {
+   "label": "1440/hub",
+   "hub": " Характер Постоянный характер: полная и компактная редакции действует act:407e8b341d9e · 40 зн. изменено Стиль письма Кавычки, точки, эмодзи, оформление 0 правил · factory_default заводское Выражение Остроумие, резкость, мат, развёрнутость по умолчанию заводское Юмор Приёмы и примеры шуток библиотека включена включено Примеры Карточки примеров (few-shot) карточек: 20 · эталонов: 4 · черновиков: 1"
+  },
+  {
+   "label": "1440/humor",
+   "pageOverflow": 0,
+   "minTap": 44,
+   "small": []
+  },
+  {
+   "label": "1440/examples",
+   "pageOverflow": 0,
+   "minTap": 44,
+   "small": []
+  },
+  {
+   "label": "1440/learning",
+   "pageOverflow": 0,
+   "minTap": 44,
+   "small": []
+  },
+  {
+   "label": "landscape/hub",
+   "hub": " Характер Постоянный характер: полная и компактная редакции действует act:407e8b341d9e · 40 зн. изменено Стиль письма Кавычки, точки, эмодзи, оформление 0 правил · factory_default заводское Выражение Остроумие, резкость, мат, развёрнутость по умолчанию заводское Юмор Приёмы и примеры шуток библиотека включена включено Примеры Карточки примеров (few-shot) карточек: 20 · эталонов: 4 · черновиков: 1"
+  },
+  {
+   "label": "landscape/humor",
+   "pageOverflow": 0,
+   "minTap": 44,
+   "small": []
+  },
+  {
+   "label": "landscape/examples",
+   "pageOverflow": 0,
+   "minTap": 44,
+   "small": []
+  },
+  {
+   "label": "landscape/learning",
+   "pageOverflow": 0,
+   "minTap": 44,
+   "small": []
+  },
+  {
+   "label": "interactions/posts",
+   "posts": [
+    "POST humor/craft",
+    "POST humor/technique/test",
+    "POST examples",
+    "POST examples/2/approve",
+    "POST examples/1/archive",
+    "POST examples/seed",
+    "POST examples/why",
+    "POST examples/policy",
+    "POST learning/humor",
+    "POST learning/humor"
+   ]
+  }
+ ],
+ "posts": [
+  "POST humor/craft",
+  "POST humor/technique/test",
+  "POST examples",
+  "POST examples/2/approve",
+  "POST examples/1/archive",
+  "POST examples/seed",
+  "POST examples/why",
+  "POST examples/policy",
+  "POST learning/humor",
+  "POST learning/humor"
+ ],
+ "dialogs": []
+}

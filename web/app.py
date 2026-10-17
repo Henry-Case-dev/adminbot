@@ -192,6 +192,12 @@ def create_app(cache: ConfigCache, control=None) -> FastAPI:
     # routes.py/cover_styles не затрагиваются; RBAC — global admin.
     from web.api.memory_overview import memory_overview_router
     app.include_router(memory_overview_router, prefix="/api")
+    # SOUL-1 W5 (SOUL-18.4/18.5/18.6): диагностика инициативы — честная
+    # жизнеспособность (health ≠ outcome), реальное состояние ворот чата и
+    # безопасная проверка «Проверить инициативу» (mock send по умолчанию).
+    # Отдельный файл-зона (прецедент memory_overview); RBAC — global admin.
+    from web.api.initiative_vitality import initiative_vitality_router
+    app.include_router(initiative_vitality_router, prefix="/api")
     # UI-полировка TMA: прокси аватаров (GET /api/avatar/{kind}/{tid}) —
     # bot из services.web_runtime; отдельный router рядом с остальными.
     from web.api.avatars import avatar_router
@@ -247,6 +253,11 @@ def create_app(cache: ConfigCache, control=None) -> FastAPI:
     # только глобальный админ, fail-open, R17-safe.
     from web.api.analytics_viz import analytics_viz_router
     app.include_router(analytics_viz_router, prefix="/api")
+    # SOUL-1 W6 (source-architectural-clarification §6): «Речь и характер» —
+    # API-клей MiniApp. Отдельный файл-зона (прецедент stories/oversight_router);
+    # routes.py не меняется, RBAC — существующие права персоны/ключа.
+    from web.api.speech import speech_router
+    app.include_router(speech_router, prefix="/api")
 
     rendered_index = _render_index()   # один раз at startup (84.21.2)
     rendered_css = _render_app_css()   # F4 10.16: подстановка ?v= в @font-face

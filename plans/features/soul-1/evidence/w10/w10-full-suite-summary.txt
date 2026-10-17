@@ -1,0 +1,2 @@
+FAILED tests/test_mca09_intents_block_e_round1040.py::test_handle_initiative_cancelled_by_recheck
+=========== 1 failed, 13923 passed, 1 warning in 711.71s (0:11:51) ============

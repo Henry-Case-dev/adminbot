@@ -378,3 +378,258 @@ async def rollback_prompt_canons(cache) -> dict[str, str]:
         report[key] = "rolled_back"
         logger.info("[prompt_rollback] канон откачен | key=%s", key)
     return report
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# SOUL-1 / W1 — удаление legacy-речи из effective-слоя (§1.2 + §7.2)
+# ═══════════════════════════════════════════════════════════════════════════
+# Контракт (source-architectural-clarification §7.2, design-source §4 R4):
+#   * до удаления сделан backup (evidence/w1/backup-speech-config.json);
+#   * удаляется ТОЛЬКО известный канон (байты совпали с известным слепком):
+#     сегменты старой личности вычищаются детерминированно
+#     (``prompt_registry.suppress_legacy_speech`` — прецедент
+#     ``response_extent.strip_cap_phrases``); кастом владельца НЕ
+#     перезаписывается никогда (owner-decisions «a»: витрина конфликта);
+#   * оригиналы неизменно сохраняются в ``character.migration_snapshots``
+#     (append-only, прецедент design §2.1) — источник не теряется;
+#   * идемпотентность: повторный прогон видит уже нормализованное значение
+#     (sha совпал с записанным) и делает no-op;
+#   * откат: ``rollback_legacy_speech`` возвращает оригиналы; значения в PG
+#     при этом всегда остаются восстановимыми.
+
+MIGRATION_SNAPSHOTS_KEY = "character.migration_snapshots"
+MIGRATION_SNAPSHOTS_CATEGORY = "content"
+
+#: Категории bot_settings, участвующие в речевом слое (IP: только prompts).
+SPEECH_MIGRATION_CATEGORY = "prompts"
+
+
+def _load_migration_snapshots(cache) -> dict:
+    """Неизменяемый блок захваченных оригиналов (только чтение/дополнение)."""
+    import json as _json
+    raw = None
+    try:
+        raw = cache.get(MIGRATION_SNAPSHOTS_KEY, None) if cache else None
+    except Exception:          # pragma: no cover — PG down
+        raw = None
+    if isinstance(raw, str):
+        try:
+            raw = _json.loads(raw)
+        except Exception:
+            raw = None
+    if not isinstance(raw, dict):
+        return {"captured_at": "", "items": {}}
+    if not isinstance(raw.get("items"), dict):
+        raw["items"] = {}
+    return raw
+
+
+def _classify_legacy_value(key: str, block_id: str, current,
+                           snapshots: dict) -> tuple[str, str, tuple]:
+    """``(класс, предсказанное действие, labels)`` для одного ключа."""
+    from services import prompt_registry as pr
+    if current is None:
+        return "absent", "skip:сид поставит канон", ()
+    if not isinstance(current, str):
+        return "invalid", "skip:не строковое значение", ()
+    item = (snapshots.get("items") or {}).get(key) or {}
+    if item.get("normalized_sha256_12") == pr.sha12(current):
+        return "already_normalized", "no-op:идемпотентно", ()
+    factory = pr.factory_text(block_id)
+    if factory and current == factory:
+        cls = "canon_current"
+    elif pr.is_known_canon(current):
+        cls = "canon_prev_step"
+    else:
+        cls = "custom_legacy"
+    stripped, info = pr.suppress_legacy_speech(current, source="global")
+    if cls == "custom_legacy":
+        action = ("keep:кастом владельца — НЕ трогаем"
+                  + (" (старая личность видна в витрине конфликта)"
+                     if info.legacy_present else ""))
+        return cls, action, ()
+    if not info.applied:
+        return cls, "no-op:legacy-сегментов не найдено", ()
+    return cls, "normalize:вычистить известные сегменты личности", info.labels
+
+
+async def plan_legacy_speech_removal(cache) -> dict:
+    """Фаза A (read-only): предпросмотр удаления legacy-речи из PG.
+
+    Ничего не пишет. Для каждого речевого блока с PG-ключом возвращает
+    класс значения, предсказанное действие, счётчики и sha —
+    «source → registry mapping» проверяем: каждый ключ привязан к Registry ID.
+    """
+    from services import prompt_registry as pr
+    snapshots = _load_migration_snapshots(cache)
+    pg_available = bool(getattr(cache, "pg_available", False))
+    items: list[dict] = []
+    for spec in sorted(pr.legacy_persona_blocks(), key=lambda s: s.block_id):
+        if not spec.pg_key:
+            continue
+        current = None
+        if pg_available and cache is not None:
+            try:
+                current = cache.get(spec.pg_key, None)
+            except Exception:      # pragma: no cover — PG down
+                current = None
+        cls, action, labels = _classify_legacy_value(
+            spec.pg_key, spec.block_id, current, snapshots)
+        stripped, info = pr.suppress_legacy_speech(
+            current if isinstance(current, str) else "", source="global")
+        items.append({
+            "registry_id": spec.block_id,
+            "key": spec.pg_key,
+            "class": cls,
+            "action": action,
+            "owner_lane": spec.owner_lane,
+            "chars": len(current) if isinstance(current, str) else 0,
+            "sha256_12": pr.sha12(current or "") if isinstance(current, str)
+            else "",
+            "target_chars": len(stripped),
+            "target_sha256_12": pr.sha12(stripped),
+            "removed": info.removed,
+            "removed_labels": list(info.labels or labels),
+        })
+    return {"pg_available": pg_available, "write": False,
+            "registry_version": pr.REGISTRY_VERSION,
+            "snapshots_key": MIGRATION_SNAPSHOTS_KEY,
+            "items": items,
+            "predicted_writes": sum(1 for row in items
+                                    if row["class"] in ("canon_current",
+                                                        "canon_prev_step")
+                                    and row["removed"] > 0)}
+
+
+async def normalize_legacy_speech(cache, *, apply: bool = False,
+                                  actor=None) -> dict:
+    """Фаза B: идемпотентная транзакционная нормализация известных канонов.
+
+    ``apply=False`` (дефолт) → dry-run, ничего не пишет.
+    ``apply=True`` → один ``ConfigCache.set_many`` (одна PG-транзакция):
+      * известные каноны заменяются версией без legacy-сегментов личности;
+      * оригиналы дописываются в ``character.migration_snapshots``
+        (неизменяемый блок, только дополнение);
+      * кастомы владельца НЕ перезаписываются (WARNING);
+      * PG down → skip (поведение рантайма не меняется — там работает
+        детерминированное подавление на сборке).
+    """
+    import json as _json
+    from services import prompt_registry as pr
+    report = {"apply": bool(apply), "updated": {}, "kept_custom": [],
+              "skipped": [], "pg_available": bool(
+                  getattr(cache, "pg_available", False))}
+    plan = await plan_legacy_speech_removal(cache)
+    if not report["pg_available"] or cache is None:
+        logger.info("[prompt_legacy_speech] skip: PG недоступен")
+        report["reason"] = "pg_unavailable"
+        return report
+    snapshots = _load_migration_snapshots(cache)
+    items = dict(snapshots.get("items") or {})
+    changed_snapshots = False
+    batch: list[tuple] = []
+    for row in plan["items"]:
+        key = row["key"]
+        cls = row["class"]
+        if cls in ("absent", "invalid", "already_normalized"):
+            report["skipped"].append({"key": key, "class": cls})
+            continue
+        if cls == "custom_legacy":
+            report["kept_custom"].append({"key": key, "chars": row["chars"],
+                                          "sha256_12": row["sha256_12"]})
+            logger.warning("[prompt_legacy_speech] кастом владельца — НЕ "
+                           "трогаем | key=%s | registry=%s", key,
+                           row["registry_id"])
+            continue
+        if row["removed"] <= 0:
+            report["skipped"].append({"key": key, "class": cls})
+            continue
+        current = cache.get(key)
+        stripped, _info = pr.suppress_legacy_speech(current, source="global")
+        entry = items.get(key) or {}
+        if entry.get("original_sha256_12") not in (None, row["sha256_12"]):
+            # Оригинал уже захвачен в другой ревизии — не перезаписываем
+            # неизменяемый блок, только дополняем нормализованный sha.
+            logger.info("[prompt_legacy_speech] snapshot уже есть | key=%s",
+                        key)
+        if not entry:
+            items[key] = {
+                "registry_id": row["registry_id"],
+                "class": cls,
+                "original_sha256_12": row["sha256_12"],
+                "original_chars": row["chars"],
+                "text": current,
+                "normalized_sha256_12": row["target_sha256_12"],
+                "at": _utc_now(),
+                "by": str(actor) if actor is not None else "",
+            }
+            changed_snapshots = True
+        else:
+            entry["normalized_sha256_12"] = row["target_sha256_12"]
+            entry["last_normalized_at"] = _utc_now()
+            items[key] = entry
+            changed_snapshots = True
+        batch.append((key, stripped, SPEECH_MIGRATION_CATEGORY))
+        report["updated"][key] = {"registry_id": row["registry_id"],
+                                  "from_sha256_12": row["sha256_12"],
+                                  "to_sha256_12": row["target_sha256_12"],
+                                  "removed": row["removed"]}
+    if not report["apply"]:
+        report["would_write"] = len(batch)
+        report["written"] = 0
+        return report
+    if changed_snapshots:
+        doc = {"captured_at": snapshots.get("captured_at") or _utc_now(),
+               "items": items}
+        batch.append((MIGRATION_SNAPSHOTS_KEY, doc,
+                      MIGRATION_SNAPSHOTS_CATEGORY))
+    report["written"] = 0
+    if not batch:
+        return report
+    await cache.set_many(batch)
+    report["written"] = len(batch)
+    logger.info("[prompt_legacy_speech] нормализовано ключей: %d "
+                "(snapshots=%s)", len(batch), changed_snapshots)
+    return report
+
+
+async def rollback_legacy_speech(cache) -> dict:
+    """Откат нормализации: вернуть оригиналы из ``migration_snapshots``.
+
+    Идемпотентно: ключ, значение которого уже не равно нормализованному
+    (правка владельца после миграции), НЕ перезаписывается — WARNING.
+    """
+    report: dict[str, str] = {}
+    if cache is None or not getattr(cache, "pg_available", False):
+        logger.info("[prompt_legacy_speech] rollback skip: PG недоступен")
+        return report
+    from services import prompt_registry as pr
+    snapshots = _load_migration_snapshots(cache)
+    batch: list[tuple] = []
+    for key, item in sorted((snapshots.get("items") or {}).items()):
+        text = item.get("text")
+        if not isinstance(text, str):
+            continue
+        current = cache.get(key, None)
+        if current is None:
+            report[key] = "absent"
+            continue
+        if current == text:
+            report[key] = "already_original"
+            continue
+        if pr.sha12(current) != item.get("normalized_sha256_12"):
+            logger.warning("[prompt_legacy_speech] rollback: значение "
+                           "изменено после миграции — НЕ трогаем | key=%s",
+                           key)
+            report[key] = "changed_after_migration"
+            continue
+        batch.append((key, text, SPEECH_MIGRATION_CATEGORY))
+        report[key] = "rolled_back"
+    if batch:
+        await cache.set_many(batch)
+    return report
+
+
+def _utc_now() -> str:
+    import datetime as _dt
+    return _dt.datetime.now(_dt.timezone.utc).isoformat(timespec="seconds")

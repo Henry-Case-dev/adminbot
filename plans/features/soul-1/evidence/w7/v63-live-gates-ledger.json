@@ -1,0 +1,945 @@
+{
+  "generated_by": "W7-BUILD (soul-1 slice W7, SOUL-13.0/13.1/13.3)",
+  "source_map": "plans/features/asap8-v6-3-live-correction/requirements-map.json",
+  "source_map_sha256": "99246125ea2900a5dd57d052a4cc45bd8f4131878932e8717294aafd42bdc9b7",
+  "source_map_candidate_commit": "31c165556dbe8c289606bd6bee1af49bb72d5794",
+  "source_map_deployed_commit": "31c165556dbe8c289606bd6bee1af49bb72d5794",
+  "source_map_working_tree": "M plans/features/asap8-v6-3-live-correction/requirements-map.json",
+  "note": "Карта v6.3 НЕ редактировалась этим лейном (соседский незакоммиченный файл). Ни одна строка не переименована в 'closed': статусы приведены как есть, включая BLOCKED_REAL_HUMAN_GATE.",
+  "status_counts": {
+    "VERIFIED": 135,
+    "PENDING": 5,
+    "READY_FOR_LIVE": 42,
+    "BLOCKED_REAL_HUMAN_GATE": 18
+  },
+  "open_rows_total": 65,
+  "open_rows": [
+    {
+      "req_id": "B01.4",
+      "status": "READY_FOR_LIVE",
+      "slice": "BE-INITIATIVE+FE-SHELL",
+      "live_required": true,
+      "live_when": "postdeploy",
+      "reason": "Live-клауза «несколько содержательных реплик/сут на 2000–5000 сообщ» не выполнена: прод-факт opportunities=0 (w4-live-probes §1); UI-профиль «редко/нормально/активно» и диагностика «24ч ноль» доказаны тестами/js на кандидате. Нужен естественный повод + canary-окно 24–48ч.",
+      "evidence_count": 3
+    },
+    {
+      "req_id": "B02.3",
+      "status": "BLOCKED_REAL_HUMAN_GATE",
+      "slice": "BE-EXPERIENCE",
+      "live_required": true,
+      "live_when": "postdeploy",
+      "reason": "",
+      "evidence_count": 2
+    },
+    {
+      "req_id": "B03.4",
+      "status": "READY_FOR_LIVE",
+      "slice": "BE-MEMORY",
+      "live_required": true,
+      "live_when": "postdeploy",
+      "reason": "",
+      "evidence_count": 1
+    },
+    {
+      "req_id": "B04.5",
+      "status": "BLOCKED_REAL_HUMAN_GATE",
+      "slice": "BE-COVER",
+      "live_required": true,
+      "live_when": "postdeploy",
+      "reason": "",
+      "evidence_count": 2
+    },
+    {
+      "req_id": "B08.4",
+      "status": "READY_FOR_LIVE",
+      "slice": "BE-STORIES",
+      "live_required": true,
+      "live_when": "postdeploy",
+      "reason": "Нужны 10 настоящих эпизодов из живого чата; механизм воспроизведён детерминированно на fixtures (b08 24/24). Владелец может принять fixture-приёмку явно — тогда VERIFIED.",
+      "evidence_count": 1
+    },
+    {
+      "req_id": "B10-R01",
+      "status": "READY_FOR_LIVE",
+      "slice": "REL-GATE",
+      "live_required": true,
+      "live_when": "postdeploy",
+      "reason": "Клауза «два реальных Summary L2 на production-inputs + артефакты и diff источников» не выполнена: в пакете нет двух опубликованных Summary и diff'а (механизм GREEN, 39+20 тестов).",
+      "evidence_count": 1
+    },
+    {
+      "req_id": "B10-R02",
+      "status": "READY_FOR_LIVE",
+      "slice": "REL-GATE",
+      "live_required": true,
+      "live_when": "postdeploy",
+      "reason": "Live-публикация styled-обложки в реальный чат не подтверждена (зависит от InputRichMessageMedia в прод-aiogram) — owner.",
+      "evidence_count": 1
+    },
+    {
+      "req_id": "B10-R03",
+      "status": "READY_FOR_LIVE",
+      "slice": "REL-GATE",
+      "live_required": true,
+      "live_when": "postdeploy",
+      "reason": "«Live негативный тест Summary OFF»: реальная генерация доказана (17/17, 0 LLM-вызовов при OFF/inherit), прод-прогона с OFF нет.",
+      "evidence_count": 1
+    },
+    {
+      "req_id": "B10-R04",
+      "status": "READY_FOR_LIVE",
+      "slice": "REL-GATE",
+      "live_required": true,
+      "live_when": "postdeploy",
+      "reason": "Естественного группового чата без обращений нет — owner (см. V01).",
+      "evidence_count": 1
+    },
+    {
+      "req_id": "B10-R06",
+      "status": "READY_FOR_LIVE",
+      "slice": "REL-GATE",
+      "live_required": true,
+      "live_when": "postdeploy",
+      "reason": "Live index/backfill невозможен (parked-квота эмбеддингов, FTS-only; не регрессия v6.3).",
+      "evidence_count": 1
+    },
+    {
+      "req_id": "B10-R07",
+      "status": "READY_FOR_LIVE",
+      "slice": "REL-GATE",
+      "live_required": true,
+      "live_when": "postdeploy",
+      "reason": "«Реальный provider-проход транскрипта (407 + proxy health)»: классификация 41/41 есть, реального прохода транскрипта в пакете нет.",
+      "evidence_count": 1
+    },
+    {
+      "req_id": "B10-R08",
+      "status": "READY_FOR_LIVE",
+      "slice": "REL-GATE",
+      "live_required": true,
+      "live_when": "postdeploy",
+      "reason": "Help/docs-sync 24/24 на кандидате; клауза «tracked документы/help/sync release с SHA и реально проверенным отчётом» — закрывается коммитом пакета v6.3.",
+      "evidence_count": 1
+    },
+    {
+      "req_id": "B10-R09",
+      "status": "READY_FOR_LIVE",
+      "slice": "REL-GATE",
+      "live_required": true,
+      "live_when": "postdeploy",
+      "reason": "Поведенческого теста concurrent UI edit/refresh/409 на dossier/настройках не найдено (есть клиентский guard asap8_v6_wa2_dossier_guard_test.js); нужен 1 тест.",
+      "evidence_count": 1
+    },
+    {
+      "req_id": "B10-R10",
+      "status": "READY_FOR_LIVE",
+      "slice": "REL-GATE",
+      "live_required": true,
+      "live_when": "postdeploy",
+      "reason": "Live-переноса supergroup нет — owner (см. REQ-B09).",
+      "evidence_count": 1
+    },
+    {
+      "req_id": "B10-R11",
+      "status": "READY_FOR_LIVE",
+      "slice": "REL-GATE",
+      "live_required": true,
+      "live_when": "postdeploy",
+      "reason": "Контракт доказан 43 тестами (d03 9 + d04 34) на кандидате; live-режимов Direct L1 в пакете нет — owner.",
+      "evidence_count": 1
+    },
+    {
+      "req_id": "B10-R12",
+      "status": "READY_FOR_LIVE",
+      "slice": "REL-GATE",
+      "live_required": true,
+      "live_when": "postdeploy",
+      "reason": "18/18 e2e (коррекция→применённый урок) доказали контракт; live-урока из боя нет — owner.",
+      "evidence_count": 1
+    },
+    {
+      "req_id": "B10-R13",
+      "status": "READY_FOR_LIVE",
+      "slice": "REL-GATE",
+      "live_required": true,
+      "live_when": "postdeploy",
+      "reason": "Прод-timing не измерен — owner.",
+      "evidence_count": 1
+    },
+    {
+      "req_id": "B10-R14",
+      "status": "READY_FOR_LIVE",
+      "slice": "REL-GATE",
+      "live_required": true,
+      "live_when": "postdeploy",
+      "reason": "11/11 overrides (RBAC, изоляция, fail-closed); restart-сценарий именно на 2 чатах через UI не воспроизведён — owner.",
+      "evidence_count": 1
+    },
+    {
+      "req_id": "B10-R15",
+      "status": "READY_FOR_LIVE",
+      "slice": "REL-GATE",
+      "live_required": true,
+      "live_when": "postdeploy",
+      "reason": "10 тестов + B11 (prod dream/deep_sleep ok); артефакта «фактические изменения» нет — owner.",
+      "evidence_count": 1
+    },
+    {
+      "req_id": "B10-R16",
+      "status": "READY_FOR_LIVE",
+      "slice": "REL-GATE",
+      "live_required": true,
+      "live_when": "postdeploy",
+      "reason": "Machine key inventory 16/16 и контракт дат 23/23 доказаны; live-примеров датирования Фактчека в пакете нет — owner.",
+      "evidence_count": 1
+    },
+    {
+      "req_id": "B10-R17",
+      "status": "READY_FOR_LIVE",
+      "slice": "REL-GATE",
+      "live_required": true,
+      "live_when": "postdeploy",
+      "reason": "ОБНОВЛЕНО на 31c16555 (recap-25880): mobile-UI клауза закрыта — скриншоты всех размеров на деплой-коммите (матрица 6×8=48 whole-viewport + единичные status 768/1024/1440 + cover_editor 360/430/768; png_index.json, fingerprint all_match=true). Остаётся клауза «7 отложенных визуализаций на реальных данных»: рендер проверен на R17-стабах, значения — owner/прод (v63-frontend-verification-2026-10-16.md §4: U05.3 data part OWNER-ONLY; recap §НЕ проверяется: real-data визуализации — прод-проверка). Строка не закрыта целиком.",
+      "evidence_count": 1
+    },
+    {
+      "req_id": "B10-R18",
+      "status": "READY_FOR_LIVE",
+      "slice": "REL-GATE",
+      "live_required": true,
+      "live_when": "postdeploy",
+      "reason": "Реальные клиенты (TMA event logs, Windows native демо) не задействованы — owner (см. V06).",
+      "evidence_count": 1
+    },
+    {
+      "req_id": "B10-R19",
+      "status": "READY_FOR_LIVE",
+      "slice": "REL-GATE",
+      "live_required": true,
+      "live_when": "postdeploy",
+      "reason": "Tier A/Tier B приняты (ui-acceptance), dx −5…−8/центр 0/контроль corr 1.0; видео изгиба линии в пакете отсутствует, физический FPS — owner (V07).",
+      "evidence_count": 1
+    },
+    {
+      "req_id": "B12.6",
+      "status": "PENDING",
+      "slice": "REL-GATE",
+      "live_required": false,
+      "live_when": "preprod",
+      "reason": "ЧАСТИЧНО: snapshot 91f754e3 = SNAPSHOT_MANIFEST (снят до миграций); 0 DELETE / infinite-retention / ΔDDL=0 подтверждены (preserve-and-workflow-audit §2); ошибки названий закрыты f7-тестами. Не закрыто (3 пункта): негативный тест на ошибочного адресата; негативный тест GraphRAG hallucinated stats; артефакт измерения side effects. Предложение — малый лейн (3 теста + 1 замер).",
+      "evidence_count": 1
+    },
+    {
+      "req_id": "FINAL.2",
+      "status": "BLOCKED_REAL_HUMAN_GATE",
+      "slice": "REL-GATE",
+      "live_required": true,
+      "live_when": "postdeploy",
+      "reason": "",
+      "evidence_count": 2
+    },
+    {
+      "req_id": "FINAL.4",
+      "status": "READY_FOR_LIVE",
+      "slice": "REL-GATE",
+      "live_required": true,
+      "live_when": "postdeploy",
+      "reason": "4 js-RED на задеплоенном c2775a54 (round1025_hotfix{7,8,9,10}: пин APP_VERSION «2.58.78» при 2.58.79; воспроизведено повторным прогоном) — клауза «unresolved RED либо явное разрешение владельца» не выполнена. Остальные клаузы (deployed SHA, docs/ledger, ZERO скрытых pending) выполнены. Нужен ре-пин тестов или waver владельца.",
+      "evidence_count": 2
+    },
+    {
+      "req_id": "REQ-0-1",
+      "status": "PENDING",
+      "slice": "S0-BASELINE",
+      "live_required": false,
+      "live_when": "preprod",
+      "reason": "F-3 аудита verification-report-2026-10-16.md §3: baseline-inventory.md:82 — «## 3. §0.1-данные **для сбора на S0** (не секреты)», т.е. 24/48h датасет (API-логи, trace, job states, counters, ingest cursor, LLM errors, UI по Status/Analytics) не собран. review-coverage.md (blocker #3) уже помечал REQ-0-1 как осиротевший — строка не принадлежала ни одной волне.",
+      "evidence_count": 1
+    },
+    {
+      "req_id": "REQ-B01",
+      "status": "BLOCKED_REAL_HUMAN_GATE",
+      "slice": "BE-INITIATIVE",
+      "live_required": true,
+      "live_when": "postdeploy",
+      "reason": "",
+      "evidence_count": 2
+    },
+    {
+      "req_id": "REQ-B01-DOD",
+      "status": "READY_FOR_LIVE",
+      "slice": "BE-INITIATIVE",
+      "live_required": true,
+      "live_when": "postdeploy",
+      "reason": "",
+      "evidence_count": 1
+    },
+    {
+      "req_id": "REQ-B02",
+      "status": "BLOCKED_REAL_HUMAN_GATE",
+      "slice": "BE-EXPERIENCE",
+      "live_required": true,
+      "live_when": "postdeploy",
+      "reason": "",
+      "evidence_count": 2
+    },
+    {
+      "req_id": "REQ-B02-DOD",
+      "status": "READY_FOR_LIVE",
+      "slice": "BE-EXPERIENCE",
+      "live_required": true,
+      "live_when": "postdeploy",
+      "reason": "",
+      "evidence_count": 1
+    },
+    {
+      "req_id": "REQ-B03",
+      "status": "READY_FOR_LIVE",
+      "slice": "BE-MEMORY",
+      "live_required": true,
+      "live_when": "postdeploy",
+      "reason": "",
+      "evidence_count": 1
+    },
+    {
+      "req_id": "REQ-B03-DOD",
+      "status": "READY_FOR_LIVE",
+      "slice": "BE-MEMORY",
+      "live_required": true,
+      "live_when": "postdeploy",
+      "reason": "",
+      "evidence_count": 1
+    },
+    {
+      "req_id": "REQ-B04",
+      "status": "READY_FOR_LIVE",
+      "slice": "BE-COVER",
+      "live_required": true,
+      "live_when": "postdeploy",
+      "reason": "",
+      "evidence_count": 1
+    },
+    {
+      "req_id": "REQ-B04-DOD",
+      "status": "READY_FOR_LIVE",
+      "slice": "BE-COVER",
+      "live_required": true,
+      "live_when": "postdeploy",
+      "reason": "",
+      "evidence_count": 1
+    },
+    {
+      "req_id": "REQ-B06",
+      "status": "READY_FOR_LIVE",
+      "slice": "BE-MODULES",
+      "live_required": true,
+      "live_when": "postdeploy",
+      "reason": "",
+      "evidence_count": 1
+    },
+    {
+      "req_id": "REQ-B06-DOD",
+      "status": "READY_FOR_LIVE",
+      "slice": "BE-MODULES",
+      "live_required": true,
+      "live_when": "postdeploy",
+      "reason": "",
+      "evidence_count": 1
+    },
+    {
+      "req_id": "REQ-B09",
+      "status": "BLOCKED_REAL_HUMAN_GATE",
+      "slice": "BE-MIGRATION",
+      "live_required": true,
+      "live_when": "postdeploy",
+      "reason": "",
+      "evidence_count": 2
+    },
+    {
+      "req_id": "REQ-B09-BODY",
+      "status": "READY_FOR_LIVE",
+      "slice": "BE-MIGRATION",
+      "live_required": true,
+      "live_when": "postdeploy",
+      "reason": "",
+      "evidence_count": 1
+    },
+    {
+      "req_id": "REQ-B10",
+      "status": "READY_FOR_LIVE",
+      "slice": "REL-GATE",
+      "live_required": true,
+      "live_when": "postdeploy",
+      "reason": "Umbrella: 19 строк B10-R остаются открытыми (live/owner-клаузы); REQ-B10-PYTEST опирается на deploy-текст, не на классификацию; плюс 4 js-RED на кандидате (см. FINAL.4).",
+      "evidence_count": 1
+    },
+    {
+      "req_id": "REQ-B11",
+      "status": "READY_FOR_LIVE",
+      "slice": "BE-INT-REPORT",
+      "live_required": true,
+      "live_when": "postdeploy",
+      "reason": "SCOPE/CHAIN закрыты (REQ-B11-SCOPE=VERIFIED); клауза «контролируемый E2E» не выполнена: для graph_memory/embeddings E2E невозможен при parked-квоте эмбеддингов (never_run), для остальных механизмов отдельный контролируемый E2E-прогон не оформлен.",
+      "evidence_count": 1
+    },
+    {
+      "req_id": "REQ-B11-E2E",
+      "status": "READY_FOR_LIVE",
+      "slice": "BE-INT-REPORT",
+      "live_required": true,
+      "live_when": "postdeploy",
+      "reason": "Для graph_memory/embeddings контролируемый E2E невозможен (parked-квота эмбеддингов, never_run; не регрессия v6.3); для не-векторных механизмов безопасный staging с настоящими source/DB/worker выполним агентом — строка не закрыта отдельным прогоном.",
+      "evidence_count": 1
+    },
+    {
+      "req_id": "REQ-B12",
+      "status": "READY_FOR_LIVE",
+      "slice": "REL-GATE",
+      "live_required": true,
+      "live_when": "postdeploy",
+      "reason": "Все клаузы, кроме «трекнутые артефакты», подтверждены (validator plan-прогон 0/release RED честный, статусы по 222 ID, deploy-протокол, reconciliation f10, snapshot-правила); пакет артефактов untracked — закрывается коммитом (B12.1).",
+      "evidence_count": 2
+    },
+    {
+      "req_id": "REQ-U07",
+      "status": "BLOCKED_REAL_HUMAN_GATE",
+      "slice": "FE-FULLSCREEN",
+      "live_required": true,
+      "live_when": "postdeploy",
+      "reason": "",
+      "evidence_count": 2
+    },
+    {
+      "req_id": "REQ-U07-3",
+      "status": "BLOCKED_REAL_HUMAN_GATE",
+      "slice": "FE-FULLSCREEN",
+      "live_required": true,
+      "live_when": "postdeploy",
+      "reason": "",
+      "evidence_count": 2
+    },
+    {
+      "req_id": "REQ-U07-HARD",
+      "status": "READY_FOR_LIVE",
+      "slice": "FE-FULLSCREEN",
+      "live_required": true,
+      "live_when": "postdeploy",
+      "reason": "",
+      "evidence_count": 1
+    },
+    {
+      "req_id": "REQ-U08",
+      "status": "READY_FOR_LIVE",
+      "slice": "FE-GLASS",
+      "live_required": true,
+      "live_when": "preprod",
+      "reason": "Переведено в READY_FOR_LIVE: UI/стенд-часть перепроверена на 31c16555; клауза «достойный fallback Android/WebKit» требует клиентского наблюдения (owner, V07/физические устройства).",
+      "evidence_count": 2
+    },
+    {
+      "req_id": "REQ-U08-4",
+      "status": "PENDING",
+      "slice": "FE-GLASS",
+      "live_required": true,
+      "live_when": "preprod",
+      "reason": "Клауза про fullscreen-контрол (⛶ = мини-линза с rim/бликом) не реализована на 31c16555: класс .lg-mini-lens существует, но кнопка его не получает (Playwright: has_mini_lens=false, bf=none; borderRadius 50% — круглая, но без линзового материала) — REV-W2-N1 (open, non-blocking, W4-hardening). Остальные клаузы строки перепроверены на 31c16555.",
+      "evidence_count": 2
+    },
+    {
+      "req_id": "REQ-U08-DOD",
+      "status": "READY_FOR_LIVE",
+      "slice": "FE-GLASS",
+      "live_required": true,
+      "live_when": "preprod",
+      "reason": "Переведено в READY_FOR_LIVE: hero-линза и Tier B перепроверены на 31c16555; клауза «fallback достоин на Android/WebKit» требует реальных клиентов (owner, V07).",
+      "evidence_count": 2
+    },
+    {
+      "req_id": "U07-LAUNCHMODE",
+      "status": "BLOCKED_REAL_HUMAN_GATE",
+      "slice": "FE-FULLSCREEN",
+      "live_required": true,
+      "live_when": "postdeploy",
+      "reason": "",
+      "evidence_count": 2
+    },
+    {
+      "req_id": "U07-SYM-DESKTOP",
+      "status": "BLOCKED_REAL_HUMAN_GATE",
+      "slice": "FE-FULLSCREEN",
+      "live_required": true,
+      "live_when": "postdeploy",
+      "reason": "",
+      "evidence_count": 2
+    },
+    {
+      "req_id": "U07.1a",
+      "status": "BLOCKED_REAL_HUMAN_GATE",
+      "slice": "FE-FULLSCREEN",
+      "live_required": true,
+      "live_when": "postdeploy",
+      "reason": "",
+      "evidence_count": 2
+    },
+    {
+      "req_id": "U07.1e",
+      "status": "BLOCKED_REAL_HUMAN_GATE",
+      "slice": "FE-FULLSCREEN",
+      "live_required": true,
+      "live_when": "postdeploy",
+      "reason": "",
+      "evidence_count": 2
+    },
+    {
+      "req_id": "U07.3b",
+      "status": "BLOCKED_REAL_HUMAN_GATE",
+      "slice": "FE-FULLSCREEN",
+      "live_required": true,
+      "live_when": "postdeploy",
+      "reason": "",
+      "evidence_count": 2
+    },
+    {
+      "req_id": "U07.3c",
+      "status": "BLOCKED_REAL_HUMAN_GATE",
+      "slice": "FE-FULLSCREEN",
+      "live_required": true,
+      "live_when": "postdeploy",
+      "reason": "",
+      "evidence_count": 2
+    },
+    {
+      "req_id": "U08.3e",
+      "status": "READY_FOR_LIVE",
+      "slice": "FE-GLASS",
+      "live_required": true,
+      "live_when": "preprod",
+      "reason": "Переведено в READY_FOR_LIVE: downgrade-переключатели и прокси-FPS перепроверены на 31c16555; клауза измерения на mid-range Android остаётся за владельцем (физическое устройство).",
+      "evidence_count": 2
+    },
+    {
+      "req_id": "U08.4d",
+      "status": "PENDING",
+      "slice": "FE-GLASS",
+      "live_required": true,
+      "live_when": "preprod",
+      "reason": "Мини-линза на ⛶ не применена на 31c16555 (REV-W2-N1 open, non-blocking → W4-hardening); остальные клаузы (mobile shell Tier B, popover solid) перепроверены в 390-прогоне.",
+      "evidence_count": 2
+    },
+    {
+      "req_id": "U08.5.1",
+      "status": "PENDING",
+      "slice": "FE-GLASS",
+      "live_required": true,
+      "live_when": "preprod",
+      "reason": "Клауза «1:1 close-up ⛶-контрола» не закрыта (REV-W2-N4 open): контроль не имеет линзового материала (см. U08.4d); 4 признака и кропы hero/Status/Modules перепроверены на 31c16555.",
+      "evidence_count": 2
+    },
+    {
+      "req_id": "U08.5.4",
+      "status": "READY_FOR_LIVE",
+      "slice": "FE-GLASS",
+      "live_required": true,
+      "live_when": "preprod",
+      "reason": "Переведено в READY_FOR_LIVE: overflow/скриншоты/FPS-прокси перепроверены на 31c16555; клауза «responsiveness на mid-range Android» — owner (физическое устройство).",
+      "evidence_count": 2
+    },
+    {
+      "req_id": "V01",
+      "status": "BLOCKED_REAL_HUMAN_GATE",
+      "slice": "E2E-VERIFY",
+      "live_required": true,
+      "live_when": "postdeploy",
+      "reason": "Артефакт w4-live-probes.md §2 (строка 23) помечает сценарий V01 как BLOCKED_REAL_HUMAN_GATE: механизм жив на проде, но приёмка требует реального клиента/естественного события/окна canary 24–48 ч — выполнима только владельцем. Карта приведена к артефакту; итоговое число owner-гейтов — 18 (14 BLOCKED_REAL_HUMAN_GATE + V01/V02/V04/V06), не 14.",
+      "evidence_count": 2
+    },
+    {
+      "req_id": "V02",
+      "status": "BLOCKED_REAL_HUMAN_GATE",
+      "slice": "E2E-VERIFY",
+      "live_required": true,
+      "live_when": "postdeploy",
+      "reason": "Артефакт w4-live-probes.md §2 (строка 24) помечает сценарий V02 как BLOCKED_REAL_HUMAN_GATE: механизм жив на проде, но приёмка требует реального клиента/естественного события/окна canary 24–48 ч — выполнима только владельцем. Карта приведена к артефакту; итоговое число owner-гейтов — 18 (14 BLOCKED_REAL_HUMAN_GATE + V01/V02/V04/V06), не 14.",
+      "evidence_count": 2
+    },
+    {
+      "req_id": "V03",
+      "status": "READY_FOR_LIVE",
+      "slice": "E2E-VERIFY",
+      "live_required": true,
+      "live_when": "postdeploy",
+      "reason": "Прод-проверка требует админ-сессии и реальных данных; векторный контур деградирован (parked-квота) → семантика не проверяется, только FTS. Код-уровень доказан на кандидате (historical-only поиск, confirm/refute без delete, чужие факты не вытесняют).",
+      "evidence_count": 2
+    },
+    {
+      "req_id": "V04",
+      "status": "BLOCKED_REAL_HUMAN_GATE",
+      "slice": "E2E-VERIFY",
+      "live_required": true,
+      "live_when": "postdeploy",
+      "reason": "Артефакт w4-live-probes.md §2 (строка 26) помечает сценарий V04 как BLOCKED_REAL_HUMAN_GATE: механизм жив на проде, но приёмка требует реального клиента/естественного события/окна canary 24–48 ч — выполнима только владельцем. Карта приведена к артефакту; итоговое число owner-гейтов — 18 (14 BLOCKED_REAL_HUMAN_GATE + V01/V02/V04/V06), не 14.",
+      "evidence_count": 2
+    },
+    {
+      "req_id": "V06",
+      "status": "BLOCKED_REAL_HUMAN_GATE",
+      "slice": "E2E-VERIFY",
+      "live_required": true,
+      "live_when": "postdeploy",
+      "reason": "Артефакт w4-live-probes.md §2 (строка 28) помечает сценарий V06 как BLOCKED_REAL_HUMAN_GATE: механизм жив на проде, но приёмка требует реального клиента/естественного события/окна canary 24–48 ч — выполнима только владельцем. Карта приведена к артефакту; итоговое число owner-гейтов — 18 (14 BLOCKED_REAL_HUMAN_GATE + V01/V02/V04/V06), не 14.",
+      "evidence_count": 2
+    },
+    {
+      "req_id": "V07",
+      "status": "READY_FOR_LIVE",
+      "slice": "E2E-VERIFY",
+      "live_required": true,
+      "live_when": "postdeploy",
+      "reason": "",
+      "evidence_count": 2
+    }
+  ],
+  "required_v63_gate_ledger_note": "§14 говорит про '14 pending-гейтов'; это состояние привязки 225c3c2b (13 READY_FOR_LIVE / 14 BLOCKED_REAL_HUMAN_GATE). Текущее НЕЗАКОММИЧЕННОЕ состояние карты — см. status_counts.",
+  "source_clause_categories": {
+    "live_windows_android": [
+      "U07-SYM-DESKTOP",
+      "U07-SYM-ANDROID",
+      "U07-LAUNCHMODE",
+      "U07.1a",
+      "U07.1e",
+      "U07.3b",
+      "U07.3c",
+      "REQ-U07",
+      "REQ-U07-3",
+      "B10-R18",
+      "U07-PLATFORMS"
+    ],
+    "initiative_send": [
+      "REQ-B01",
+      "B01.4",
+      "REQ-B01-DOD",
+      "B10-R04",
+      "B10-R06",
+      "REQ-B11-E2E",
+      "REQ-B10"
+    ],
+    "experience_load_lag": [
+      "REQ-B02",
+      "B02.3",
+      "REQ-B02-DOD",
+      "B10-R13",
+      "REQ-B03-DOD",
+      "B10-R12"
+    ],
+    "cover_style_edited_publish": [
+      "B04.5",
+      "B10-R02",
+      "REQ-B04",
+      "REQ-B04-DOD",
+      "B10-R03"
+    ],
+    "supergroup_migration": [
+      "REQ-B09",
+      "B10-R10",
+      "REQ-B09-BODY"
+    ],
+    "observ_24_48h": [
+      "B10-R01",
+      "B10-R05",
+      "B10-R07",
+      "B10-R08",
+      "B10-R09",
+      "B10-R11",
+      "B10-R14",
+      "B10-R15",
+      "B10-R16",
+      "B10-R17",
+      "B10-R19",
+      "FINAL.2",
+      "FINAL.4"
+    ],
+    "live_probes_v01_v07": [
+      "V01",
+      "V02",
+      "V03",
+      "V04",
+      "V05",
+      "V06",
+      "V07"
+    ],
+    "git_evidence_b12": [
+      "B12.1",
+      "B12.2",
+      "B12.3",
+      "B12.4",
+      "B12.5",
+      "B12.6",
+      "REQ-B12",
+      "REQ-B11",
+      "REQ-EVIDENCE-SELF"
+    ]
+  },
+  "category_status": {
+    "live_windows_android": [
+      {
+        "req_id": "U07-SYM-DESKTOP",
+        "status": "BLOCKED_REAL_HUMAN_GATE"
+      },
+      {
+        "req_id": "U07-SYM-ANDROID",
+        "status": "VERIFIED"
+      },
+      {
+        "req_id": "U07-LAUNCHMODE",
+        "status": "BLOCKED_REAL_HUMAN_GATE"
+      },
+      {
+        "req_id": "U07.1a",
+        "status": "BLOCKED_REAL_HUMAN_GATE"
+      },
+      {
+        "req_id": "U07.1e",
+        "status": "BLOCKED_REAL_HUMAN_GATE"
+      },
+      {
+        "req_id": "U07.3b",
+        "status": "BLOCKED_REAL_HUMAN_GATE"
+      },
+      {
+        "req_id": "U07.3c",
+        "status": "BLOCKED_REAL_HUMAN_GATE"
+      },
+      {
+        "req_id": "REQ-U07",
+        "status": "BLOCKED_REAL_HUMAN_GATE"
+      },
+      {
+        "req_id": "REQ-U07-3",
+        "status": "BLOCKED_REAL_HUMAN_GATE"
+      },
+      {
+        "req_id": "B10-R18",
+        "status": "READY_FOR_LIVE"
+      },
+      {
+        "req_id": "U07-PLATFORMS",
+        "status": "VERIFIED"
+      }
+    ],
+    "initiative_send": [
+      {
+        "req_id": "REQ-B01",
+        "status": "BLOCKED_REAL_HUMAN_GATE"
+      },
+      {
+        "req_id": "B01.4",
+        "status": "READY_FOR_LIVE"
+      },
+      {
+        "req_id": "REQ-B01-DOD",
+        "status": "READY_FOR_LIVE"
+      },
+      {
+        "req_id": "B10-R04",
+        "status": "READY_FOR_LIVE"
+      },
+      {
+        "req_id": "B10-R06",
+        "status": "READY_FOR_LIVE"
+      },
+      {
+        "req_id": "REQ-B11-E2E",
+        "status": "READY_FOR_LIVE"
+      },
+      {
+        "req_id": "REQ-B10",
+        "status": "READY_FOR_LIVE"
+      }
+    ],
+    "experience_load_lag": [
+      {
+        "req_id": "REQ-B02",
+        "status": "BLOCKED_REAL_HUMAN_GATE"
+      },
+      {
+        "req_id": "B02.3",
+        "status": "BLOCKED_REAL_HUMAN_GATE"
+      },
+      {
+        "req_id": "REQ-B02-DOD",
+        "status": "READY_FOR_LIVE"
+      },
+      {
+        "req_id": "B10-R13",
+        "status": "READY_FOR_LIVE"
+      },
+      {
+        "req_id": "REQ-B03-DOD",
+        "status": "READY_FOR_LIVE"
+      },
+      {
+        "req_id": "B10-R12",
+        "status": "READY_FOR_LIVE"
+      }
+    ],
+    "cover_style_edited_publish": [
+      {
+        "req_id": "B04.5",
+        "status": "BLOCKED_REAL_HUMAN_GATE"
+      },
+      {
+        "req_id": "B10-R02",
+        "status": "READY_FOR_LIVE"
+      },
+      {
+        "req_id": "REQ-B04",
+        "status": "READY_FOR_LIVE"
+      },
+      {
+        "req_id": "REQ-B04-DOD",
+        "status": "READY_FOR_LIVE"
+      },
+      {
+        "req_id": "B10-R03",
+        "status": "READY_FOR_LIVE"
+      }
+    ],
+    "supergroup_migration": [
+      {
+        "req_id": "REQ-B09",
+        "status": "BLOCKED_REAL_HUMAN_GATE"
+      },
+      {
+        "req_id": "B10-R10",
+        "status": "READY_FOR_LIVE"
+      },
+      {
+        "req_id": "REQ-B09-BODY",
+        "status": "READY_FOR_LIVE"
+      }
+    ],
+    "observ_24_48h": [
+      {
+        "req_id": "B10-R01",
+        "status": "READY_FOR_LIVE"
+      },
+      {
+        "req_id": "B10-R05",
+        "status": "VERIFIED"
+      },
+      {
+        "req_id": "B10-R07",
+        "status": "READY_FOR_LIVE"
+      },
+      {
+        "req_id": "B10-R08",
+        "status": "READY_FOR_LIVE"
+      },
+      {
+        "req_id": "B10-R09",
+        "status": "READY_FOR_LIVE"
+      },
+      {
+        "req_id": "B10-R11",
+        "status": "READY_FOR_LIVE"
+      },
+      {
+        "req_id": "B10-R14",
+        "status": "READY_FOR_LIVE"
+      },
+      {
+        "req_id": "B10-R15",
+        "status": "READY_FOR_LIVE"
+      },
+      {
+        "req_id": "B10-R16",
+        "status": "READY_FOR_LIVE"
+      },
+      {
+        "req_id": "B10-R17",
+        "status": "READY_FOR_LIVE"
+      },
+      {
+        "req_id": "B10-R19",
+        "status": "READY_FOR_LIVE"
+      },
+      {
+        "req_id": "FINAL.2",
+        "status": "BLOCKED_REAL_HUMAN_GATE"
+      },
+      {
+        "req_id": "FINAL.4",
+        "status": "READY_FOR_LIVE"
+      }
+    ],
+    "live_probes_v01_v07": [
+      {
+        "req_id": "V01",
+        "status": "BLOCKED_REAL_HUMAN_GATE"
+      },
+      {
+        "req_id": "V02",
+        "status": "BLOCKED_REAL_HUMAN_GATE"
+      },
+      {
+        "req_id": "V03",
+        "status": "READY_FOR_LIVE"
+      },
+      {
+        "req_id": "V04",
+        "status": "BLOCKED_REAL_HUMAN_GATE"
+      },
+      {
+        "req_id": "V05",
+        "status": "VERIFIED"
+      },
+      {
+        "req_id": "V06",
+        "status": "BLOCKED_REAL_HUMAN_GATE"
+      },
+      {
+        "req_id": "V07",
+        "status": "READY_FOR_LIVE"
+      }
+    ],
+    "git_evidence_b12": [
+      {
+        "req_id": "B12.1",
+        "status": "VERIFIED"
+      },
+      {
+        "req_id": "B12.2",
+        "status": "VERIFIED"
+      },
+      {
+        "req_id": "B12.3",
+        "status": "VERIFIED"
+      },
+      {
+        "req_id": "B12.4",
+        "status": "VERIFIED"
+      },
+      {
+        "req_id": "B12.5",
+        "status": "VERIFIED"
+      },
+      {
+        "req_id": "B12.6",
+        "status": "PENDING"
+      },
+      {
+        "req_id": "REQ-B12",
+        "status": "READY_FOR_LIVE"
+      },
+      {
+        "req_id": "REQ-B11",
+        "status": "READY_FOR_LIVE"
+      },
+      {
+        "req_id": "REQ-EVIDENCE-SELF",
+        "status": "VERIFIED"
+      }
+    ]
+  }
+}

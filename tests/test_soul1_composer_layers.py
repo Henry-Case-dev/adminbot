@@ -68,7 +68,8 @@ def full_plan(**overrides) -> pc.PromptPlan:
                                        source="global", rule_count=2,
                                        soft_count=2),
         gates=pc.GateState(unified_composer_enabled=True,
-                           humor_library_enabled=True),
+                           humor_library_enabled=True,
+                           humor_craft_enabled=True),
         user_parts=(USER_Q, EVIDENCE))
     return pc.PromptPlan(**{**plan.__dict__, **overrides}) \
         if overrides else plan
@@ -276,12 +277,13 @@ def test_compose_never_raises_on_broken_ref():
     assert BASE in manifest.system
 
 
-def test_one_word_extent_is_not_lost_and_reports_conflict():
-    """Шов 3: `one_word` переносится значением; до фикса W3 — явный конфликт.
+def test_one_word_extent_is_not_lost_and_has_no_conflict_after_w3():
+    """Шов 3 (обновлён W3): `one_word` — поддерживаемый extent, не алиас `micro`.
 
-    Композер не подменяет значение алиасом `micro` (никакой legacy-склейки) и
-    не теряет его: в манифесте видно `conflict=one_word_not_supported` с
-    провенансом, а рендерится текущий micro-текст (W3 доведёт до payload).
+    Композер не подменяет значение алиасом (никакой legacy-склейки) и не
+    теряет его: после W3 `one_word` входит в ``response_extent.EXTENTS``,
+    поэтому конфликта `one_word_not_supported` больше нет, а значение едет в
+    манифест как есть (строгий блок рендерит `response_extent`).
     """
     micro_text = "ОЖИДАЕМАЯ ПОЛНОТА: МИКРО."
     manifest = pc.compose_prompt(full_plan(response_plan=pc.PlanRef(
@@ -289,15 +291,15 @@ def test_one_word_extent_is_not_lost_and_reports_conflict():
         revision=pc.sha12(micro_text), source="l1")))
     trace = layers_of(manifest)["response_plan"]
     assert trace.rendered is True
-    assert trace.conflict == "one_word_not_supported"
+    assert trace.conflict == ""
     assert manifest.system.count(micro_text) == 1
-    conflict = [c for c in manifest.conflicts
-                if c.conflict_id == "one_word_not_supported"][0]
-    assert conflict.outcome == "conflict_reported"
-    assert "one_word" in conflict.detail
+    assert "one_word_not_supported" not in [
+        c.conflict_id for c in manifest.conflicts]
     assert pc.render_effective_layers(manifest)["conflict_ids"] == [
-        "duplicate_owner_character", "one_word_not_supported"]
-    # Поддерживаемое значение (micro) конфликта `one_word` не даёт.
+        "duplicate_owner_character"]
+    # Оба режима — отдельные поддерживаемые значения (никакого схлопывания).
+    from services import response_extent as _extent
+    assert "one_word" in _extent.EXTENTS and "micro" in _extent.EXTENTS
     clean = pc.compose_prompt(full_plan(response_plan=pc.PlanRef(
         text=micro_text, extent="micro", revision=pc.sha12(micro_text))))
     assert "one_word_not_supported" not in [

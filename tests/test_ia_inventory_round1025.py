@@ -53,7 +53,7 @@ class TestCatalogFrozen:
         # ASAP 4.4 (T-4880): санкционированная Δ +1 (488→489) — owner-ключ
         # keys.embedding_quota_group_labels.
         # SOUL-1 mobile-prompts (2026-10-16): +1 → REGISTRY 572.
-        assert len(pc.REGISTRY) == BASELINE["counts"]["REGISTRY"] == 572
+        assert len(pc.REGISTRY) == BASELINE["counts"]["REGISTRY"] == 575
         assert len(pc.GROUPS) == BASELINE["counts"]["GROUPS"] == 120
         # ASAP 7 F2: +3 группы L1 Planner (mod_direct); F4 in-flight — факт.
         assert len(pc._TAB_BY_GROUP) == BASELINE["counts"]["_TAB_BY_GROUP"] == 118
@@ -93,7 +93,11 @@ class TestIaMapCoverage:
             assert route_to_tab and route, tab
 
     def test_route_to_tab_values_are_known_tabs(self):
-        tabs = set(_tabs_ids()) | {"persona"}
+        # `persona` — прецедент F3 (10.14): special-screen вне TABS.
+        # SOUL-1 W6 (§6): `speech` («Речь и характер», #/ai/speech) — второй
+        # такой экран внутри «ИИ»; состав TABS/IA при этом не менялся (ровно
+        # 5 страниц хаба сохранены).
+        tabs = set(_tabs_ids()) | {"persona", "speech"}
         values = re.findall(r"'(#/[^']*)':\s*'(\w+)'", _block("ROUTE_TO_TAB"))
         for _route, tab in values:
             assert tab in tabs, tab

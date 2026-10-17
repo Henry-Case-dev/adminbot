@@ -1,0 +1,9 @@
+﻿node v24.16.0
+FAIL: round1025_design_tokens_test.js
+node.exe : C:\Code\Python\adminbot\OPENCODE_WORKFLOW_SCRATCH\fs-release-25884\web\app.js:20156
+строка:1 знак:392
++ ... ter *.js | Sort-Object Name) { $out = & node $f.FullName 2>&1 | Out-S ...
++                                           ~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (C:\Code\Python\...eb\app.js:20156:String) [], RemoteException
+    + FullyQualifiedErrorId
+node guards OK: 83 (fail=1)

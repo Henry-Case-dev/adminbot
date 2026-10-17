@@ -1,0 +1,7 @@
+Детектор: 0 LLM / 0 сетевых вызовов (fix-pass)
+
+Проба: socket.socket и socket.create_connection заблокированы (AssertionError при любом обращении), chat_with_tools заменён на падающий двойник; прогон всех 25 строк (12 ложных + 13 настоящих).
+  [DET] socket blocked, 0 LLM calls: OK
+  28 passed in 4.06s
+
+Плюс: `detect_action_intent` синхронен (не coroutine) и не делает I/O — прогон pipeline с блокировкой сокетов не упал; ложные строки дали 0 генераций, настоящие — ровно 1.

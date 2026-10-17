@@ -5,20 +5,20 @@
 **отменило** прежние SOUL-04.4/15.3: legacy speech-кастомы
 (`prompts.direct_chat_verbalizer_system_prompt` / `prompts.direct_chat_system_prompt`)
 НЕ должны быть активным слоем, а удаление — отдельный слайс-amendment с
-backup (§7.2). Поэтому здесь доказывается только retention:
+backup (§7.2). Fix-pass review-w1 BLOCKER-1 реализовал это механизмом
+провенанса (значение действует только если записано через API реестра).
+Здесь доказывается retention + отсутствие эффекта + видимость удержания:
 
 * аксессоры Core/Style Policy и композер — READ-ONLY: ни одной записи в
   `bot_settings`/`chat_params` при резолве и сборке;
-* сохранённое значение читается БАЙТ-В-БАЙТ (backup retrievability до
-  миграции W1) и не нормализуется/не мутируется чтением;
+* сохранённое значение читается БАЙТ-В-БАЙТ из слоя (backup retrievability)
+  и не нормализуется/не мутируется чтением; в effective-слой оно не попадает;
 * детерминированная вычистка известных legacy-слепков остаётся в своём
   владельце (`response_extent.scrub_for_plan`) и не задваивается в композере;
 * повторный резолв/сборка не меняет сохранённый документ (idempotent read).
 
-BLOCKER (review-w2 F1; маркер в `plans/features/soul-1/w2-composer-report.md`):
-`UNIFIED_COMPOSER_ENABLED` НЕ включать до слайса-amendment, который уберёт
-legacy speech-кастомы из effective-слоя (backup §7.2, SOUL-AMD.1.2/8.4):
-до этого ON рендерит старый кастом слоем `channel_contract`.
+BLOCKER-снят (fix-pass W1, review-w1 BLOCKER-1): legacy speech-кастомы больше
+не рендерятся слоем `channel_contract` — их удерживает провенанс-резолвер.
 
 TEST-LIFECYCLE: CONTRACT owner=SOUL-1/W2 (SOUL-AMD.1.2/8.4 retention;
 SOUL-16.4.1 — один владелец нормализации)
@@ -115,19 +115,31 @@ async def test_resolve_and_compose_never_write(custom_config):
 @pytest.mark.asyncio
 async def test_stored_custom_base_is_retrievable_but_not_active_layer(
         custom_config):
-    """F1 (review-w2): retention кастома БЕЗ утверждения «эффект сохранён».
+    """F1 (review-w2) + fix-pass review-w1 BLOCKER-1: retention БЕЗ эффекта.
 
-    Прежний `test_custom_base_goes_to_prompt_byte_for_byte` доказывал, что
-    кастом присутствует в effective prompt, — уточнение владельца это отменило.
-    Отсюда остаётся только то, что требуется сейчас: сохранённое значение
-    доступно байт-в-байт (его можно забэкапить/вернуть в слайсе-amendment),
-    сборка его не перезаписывает и не нормализует.
+    Уточнение владельца отменило прежний контракт «кастом доходит до
+    effective prompt» (§1.2/§4.6/§8). Остаётся и теперь доказывается полная
+    триада:
+      * сохранённое значение доступно БАЙТ-В-БАЙТ в самом слое (его можно
+        забэкапить/вернуть; чтение и сборка его не мутируют);
+      * действующим слоем он НЕ является: резолвер удерживает значение без
+        провенанса, работает заводская редакция;
+      * удержание видно (не тихо): source=default + диагностика/витрина.
     """
+    from services import prompt_registry as pr
     from services.prompt_style_blocks import resolve_prompt_with_source
-    text, source = resolve_prompt_with_source(
-        "prompts.direct_chat_verbalizer_system_prompt", "КОД-КАНОН")
-    assert text == CUSTOM_BASE, "сохранённый кастом недоступен (потеря данных)"
-    assert source == "global"
+    key = "prompts.direct_chat_verbalizer_system_prompt"
+    # 1. Retention: сохранённый документ читается как есть.
+    assert custom_config["hot"].values[key] == CUSTOM_BASE
+    text, source = resolve_prompt_with_source(key, "КОД-КАНОН")
+    assert text != CUSTOM_BASE, "старый кастом снова активный слой"
+    assert source == "default"
+    resolved = pr.resolve_speech_value(key, CUSTOM_BASE, source="global")
+    assert resolved.withheld is True
+    assert resolved.withheld_sha256_12 == pr.sha12(CUSTOM_BASE)
+    assert resolved.text == pr.suppress_legacy_speech(
+        pr.factory_text("direct.base.l2_writer"), source="global")[0]
+    # 2. Чтение/сборка не меняют сохранённый документ (idempotent read).
     before = json.dumps(custom_config["hot"].values, sort_keys=True,
                         ensure_ascii=False)
     pc.compose_prompt(pc.PromptPlan(
@@ -138,9 +150,9 @@ async def test_stored_custom_base_is_retrievable_but_not_active_layer(
                        ensure_ascii=False)
     assert before == after, "сборка изменила сохранённый документ"
     assert custom_config["hot"].writes == []
-    again, source_again = resolve_prompt_with_source(
-        "prompts.direct_chat_verbalizer_system_prompt", "КОД-КАНОН")
-    assert again == CUSTOM_BASE and source_again == "global"
+    again, source_again = resolve_prompt_with_source(key, "КОД-КАНОН")
+    assert again == text and source_again == "default"
+    assert custom_config["hot"].values[key] == CUSTOM_BASE
 
 
 

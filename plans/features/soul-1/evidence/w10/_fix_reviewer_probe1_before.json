@@ -1,0 +1,613 @@
+[
+ {
+  "case": "six",
+  "text": "Бот, нарисуй мем про двачеров",
+  "gen_calls": 1,
+  "sent": [],
+  "llm_steps": [
+   "l1_planner",
+   "l2_writer",
+   null
+  ],
+  "l2_user_content": "[Текущее время в чате: 16.10.2026, 22:04, Пятница]\n\n<Response_Plan>\nдействие: reply\nсмысловой акт ответа: answer\n</Response_Plan>\n\n<image_result status=\"ok\" delivery=\"sent\">\nИзображение уже сгенерировано и отправлено в чат. Повторно инструмент generate_image не вызывай.\n\n</image_result>",
+  "announced": [
+   [
+    false,
+    []
+   ]
+  ]
+ },
+ {
+  "case": "six",
+  "text": "Бот, сделай мем про двачеров",
+  "gen_calls": 1,
+  "sent": [],
+  "llm_steps": [
+   "l1_planner",
+   "l2_writer",
+   null
+  ],
+  "l2_user_content": "[Текущее время в чате: 16.10.2026, 22:04, Пятница]\n\n<Response_Plan>\nдействие: reply\nсмысловой акт ответа: answer\n</Response_Plan>\n\n<image_result status=\"ok\" delivery=\"sent\">\nИзображение уже сгенерировано и отправлено в чат. Повторно инструмент generate_image не вызывай.\n\n</image_result>",
+  "announced": [
+   [
+    false,
+    []
+   ]
+  ]
+ },
+ {
+  "case": "six",
+  "text": "Бот, надо сделать мем про двачеров",
+  "gen_calls": 1,
+  "sent": [],
+  "llm_steps": [
+   "l1_planner",
+   "l2_writer",
+   null
+  ],
+  "l2_user_content": "[Текущее время в чате: 16.10.2026, 22:04, Пятница]\n\n<Response_Plan>\nдействие: reply\nсмысловой акт ответа: answer\n</Response_Plan>\n\n<image_result status=\"ok\" delivery=\"sent\">\nИзображение уже сгенерировано и отправлено в чат. Повторно инструмент generate_image не вызывай.\n\n</image_result>",
+  "announced": [
+   [
+    false,
+    []
+   ]
+  ]
+ },
+ {
+  "case": "six",
+  "text": "Сделай картинку из этой ситуации",
+  "gen_calls": 1,
+  "sent": [],
+  "llm_steps": [
+   "l1_planner",
+   "l2_writer",
+   null
+  ],
+  "l2_user_content": "[Текущее время в чате: 16.10.2026, 22:04, Пятница]\n\n<Response_Plan>\nдействие: reply\nсмысловой акт ответа: answer\n</Response_Plan>\n\n<image_result status=\"ok\" delivery=\"sent\">\nИзображение уже сгенерировано и отправлено в чат. Повторно инструмент generate_image не вызывай.\n\n</image_result>",
+  "announced": [
+   [
+    false,
+    []
+   ]
+  ]
+ },
+ {
+  "case": "six",
+  "text": "Нужна инфографика по этим данным",
+  "gen_calls": 1,
+  "sent": [],
+  "llm_steps": [
+   "l1_planner",
+   "l2_writer",
+   null
+  ],
+  "l2_user_content": "[Текущее время в чате: 16.10.2026, 22:04, Пятница]\n\n<Response_Plan>\nдействие: reply\nсмысловой акт ответа: answer\n</Response_Plan>\n\n<image_result status=\"ok\" delivery=\"sent\">\nИзображение уже сгенерировано и отправлено в чат. Повторно инструмент generate_image не вызывай.\n\n</image_result>",
+  "announced": [
+   [
+    false,
+    []
+   ]
+  ]
+ },
+ {
+  "case": "six",
+  "text": "Давай изобразим это в виде комикса",
+  "gen_calls": 1,
+  "sent": [],
+  "llm_steps": [
+   "l1_planner",
+   "l2_writer",
+   null
+  ],
+  "l2_user_content": "[Текущее время в чате: 16.10.2026, 22:04, Пятница]\n\n<Response_Plan>\nдействие: reply\nсмысловой акт ответа: answer\n</Response_Plan>\n\n<image_result status=\"ok\" delivery=\"sent\">\nИзображение уже сгенерировано и отправлено в чат. Повторно инструмент generate_image не вызывай.\n\n</image_result>",
+  "announced": [
+   [
+    false,
+    []
+   ]
+  ]
+ },
+ {
+  "case": "break:negative_plain",
+  "text": "Бот, не рисуй мем, просто посоветуй фильм",
+  "gen_calls": 0,
+  "sent": [],
+  "llm_steps": [
+   "l1_planner",
+   "l2_writer",
+   null
+  ],
+  "l2_user_content": "[Текущее время в чате: 16.10.2026, 22:04, Пятница]\n\n<Response_Plan>\nдействие: reply\nсмысловой акт ответа: answer\n</Response_Plan>\n\n<Speech_Understanding>\nУчти отрицание буквально: не переворачивай «не» в утверждение.\n</Speech_Understanding>",
+  "announced": [
+   [
+    true,
+    []
+   ]
+  ]
+ },
+ {
+  "case": "break:negative_nado",
+  "text": "Бот, не надо рисовать мем, давай просто поболтаем",
+  "gen_calls": 0,
+  "sent": [],
+  "llm_steps": [
+   "l1_planner",
+   "l2_writer",
+   null
+  ],
+  "l2_user_content": "[Текущее время в чате: 16.10.2026, 22:04, Пятница]\n\n<Response_Plan>\nдействие: reply\nсмысловой акт ответа: answer\n</Response_Plan>\n\n<Speech_Understanding>\nУчти отрицание буквально: не переворачивай «не» в утверждение.\n</Speech_Understanding>",
+  "announced": [
+   [
+    true,
+    []
+   ]
+  ]
+ },
+ {
+  "case": "break:negative_conceive",
+  "text": "придумай концепт мема, рисовать не надо",
+  "gen_calls": 0,
+  "sent": [],
+  "llm_steps": [
+   "l1_planner",
+   "l2_writer",
+   null
+  ],
+  "l2_user_content": "[Текущее время в чате: 16.10.2026, 22:04, Пятница]\n\n<Response_Plan>\nдействие: reply\nсмысловой акт ответа: answer\n</Response_Plan>\n\n<Speech_Understanding>\nУчти отрицание буквально: не переворачивай «не» в утверждение.\n</Speech_Understanding>",
+  "announced": [
+   [
+    true,
+    []
+   ]
+  ]
+ },
+ {
+  "case": "break:negative_conceive_bot",
+  "text": "Бот, придумай концепт мема, рисовать не надо",
+  "gen_calls": 0,
+  "sent": [],
+  "llm_steps": [
+   "l1_planner",
+   "l2_writer",
+   null
+  ],
+  "l2_user_content": "[Текущее время в чате: 16.10.2026, 22:04, Пятница]\n\n<Response_Plan>\nдействие: reply\nсмысловой акт ответа: answer\n</Response_Plan>\n\n<Speech_Understanding>\nУчти отрицание буквально: не переворачивай «не» в утверждение.\n</Speech_Understanding>",
+  "announced": [
+   [
+    true,
+    []
+   ]
+  ]
+ },
+ {
+  "case": "break:past_tense",
+  "text": "Бот, я вчера нарисовал мем про двачеров",
+  "gen_calls": 0,
+  "sent": [],
+  "llm_steps": [
+   "l1_planner",
+   "l2_writer",
+   null
+  ],
+  "l2_user_content": "[Текущее время в чате: 16.10.2026, 22:04, Пятница]\n\n<Response_Plan>\nдействие: reply\nсмысловой акт ответа: answer\n</Response_Plan>",
+  "announced": [
+   [
+    true,
+    []
+   ]
+  ]
+ },
+ {
+  "case": "break:quote_other",
+  "text": "Петя сказал: нарисуй мем про двачеров",
+  "gen_calls": 1,
+  "sent": [],
+  "llm_steps": [
+   "l1_planner",
+   "l2_writer",
+   null
+  ],
+  "l2_user_content": "[Текущее время в чате: 16.10.2026, 22:04, Пятница]\n\n<Response_Plan>\nдействие: reply\nсмысловой акт ответа: answer\n</Response_Plan>\n\n<image_result status=\"ok\" delivery=\"sent\">\nИзображение уже сгенерировано и отправлено в чат. Повторно инструмент generate_image не вызывай.\n\n</image_result>",
+  "announced": [
+   [
+    false,
+    []
+   ]
+  ]
+ },
+ {
+  "case": "break:quote_other_2",
+  "text": "Мне написали в личку: «нарисуй мем про двачеров»",
+  "gen_calls": 1,
+  "sent": [],
+  "llm_steps": [
+   "l1_planner",
+   "l2_writer",
+   null
+  ],
+  "l2_user_content": "[Текущее время в чате: 16.10.2026, 22:04, Пятница]\n\n<Response_Plan>\nдействие: reply\nсмысловой акт ответа: answer\n</Response_Plan>\n\n<image_result status=\"ok\" delivery=\"sent\">\nИзображение уже сгенерировано и отправлено в чат. Повторно инструмент generate_image не вызывай.\n\n</image_result>",
+  "announced": [
+   [
+    false,
+    []
+   ]
+  ]
+ },
+ {
+  "case": "break:self_draw",
+  "text": "Я сам нарисую мем, подскажи идею",
+  "gen_calls": 1,
+  "sent": [],
+  "llm_steps": [
+   "l1_planner",
+   "l2_writer",
+   null
+  ],
+  "l2_user_content": "[Текущее время в чате: 16.10.2026, 22:04, Пятница]\n\n<Response_Plan>\nдействие: reply\nсмысловой акт ответа: answer\n</Response_Plan>\n\n<image_result status=\"ok\" delivery=\"sent\">\nИзображение уже сгенерировано и отправлено в чат. Повторно инструмент generate_image не вызывай.\n\n</image_result>",
+  "announced": [
+   [
+    false,
+    []
+   ]
+  ]
+ },
+ {
+  "case": "break:self_draw_2",
+  "text": "Бот, я сам нарисую мем, оценишь потом",
+  "gen_calls": 1,
+  "sent": [],
+  "llm_steps": [
+   "l1_planner",
+   "l2_writer",
+   null
+  ],
+  "l2_user_content": "[Текущее время в чате: 16.10.2026, 22:04, Пятница]\n\n<Response_Plan>\nдействие: reply\nсмысловой акт ответа: answer\n</Response_Plan>\n\n<image_result status=\"ok\" delivery=\"sent\">\nИзображение уже сгенерировано и отправлено в чат. Повторно инструмент generate_image не вызывай.\n\n</image_result>",
+  "announced": [
+   [
+    false,
+    []
+   ]
+  ]
+ },
+ {
+  "case": "break:nonimage_meme",
+  "text": "Бот, придумай шутку про мемы",
+  "gen_calls": 0,
+  "sent": [],
+  "llm_steps": [
+   "l1_planner",
+   "l2_writer",
+   null
+  ],
+  "l2_user_content": "[Текущее время в чате: 16.10.2026, 22:04, Пятница]\n\n<Response_Plan>\nдействие: reply\nсмысловой акт ответа: answer\n</Response_Plan>",
+  "announced": [
+   [
+    true,
+    []
+   ]
+  ]
+ },
+ {
+  "case": "break:contradictory",
+  "text": "Бот, нарисуй мем про двачеров, но не рисуй",
+  "gen_calls": 1,
+  "sent": [],
+  "llm_steps": [
+   "l1_planner",
+   "l2_writer",
+   null
+  ],
+  "l2_user_content": "[Текущее время в чате: 16.10.2026, 22:04, Пятница]\n\n<Response_Plan>\nдействие: reply\nсмысловой акт ответа: answer\n</Response_Plan>\n\n<Speech_Understanding>\nУчти отрицание буквально: не переворачивай «не» в утверждение.\n</Speech_Understanding>\n\n<image_result status=\"ok\" delivery=\"sent\">\nИзображение уже сгенерировано и отправлено в чат. Повторно инструмент generate_image не вызывай.\n\n</image_result>",
+  "announced": [
+   [
+    false,
+    []
+   ]
+  ]
+ },
+ {
+  "case": "break:contradictory_2",
+  "text": "Бот, нарисуй мем, рисовать не надо",
+  "gen_calls": 1,
+  "sent": [],
+  "llm_steps": [
+   "l1_planner",
+   "l2_writer",
+   null
+  ],
+  "l2_user_content": "[Текущее время в чате: 16.10.2026, 22:04, Пятница]\n\n<Response_Plan>\nдействие: reply\nсмысловой акт ответа: answer\n</Response_Plan>\n\n<Speech_Understanding>\nУчти отрицание буквально: не переворачивай «не» в утверждение.\n</Speech_Understanding>\n\n<image_result status=\"ok\" delivery=\"sent\">\nИзображение уже сгенерировано и отправлено в чат. Повторно инструмент generate_image не вызывай.\n\n</image_result>",
+  "announced": [
+   [
+    false,
+    []
+   ]
+  ]
+ },
+ {
+  "case": "break:discuss",
+  "text": "давай обсудим мемы",
+  "gen_calls": 0,
+  "sent": [],
+  "llm_steps": [
+   "l1_planner",
+   "l2_writer",
+   null
+  ],
+  "l2_user_content": "[Текущее время в чате: 16.10.2026, 22:04, Пятница]\n\n<Response_Plan>\nдействие: reply\nсмысловой акт ответа: answer\n</Response_Plan>",
+  "announced": [
+   [
+    true,
+    []
+   ]
+  ]
+ },
+ {
+  "case": "break:plain_make",
+  "text": "Бот, сделай кратко",
+  "gen_calls": 0,
+  "sent": [],
+  "llm_steps": [
+   "l1_planner",
+   "l2_writer",
+   null
+  ],
+  "l2_user_content": "[Текущее время в чате: 16.10.2026, 22:04, Пятница]\n\n<Response_Plan>\nдействие: reply\nсмысловой акт ответа: answer\n</Response_Plan>",
+  "announced": [
+   [
+    true,
+    []
+   ]
+  ]
+ },
+ {
+  "case": "ambiguous",
+  "text": "Бот, сделай это",
+  "gen_calls": 0,
+  "sent": [
+   "Уточни: картинку изобразить или текстом обойтись?"
+  ],
+  "llm_steps": [],
+  "l2_user_content": "",
+  "announced": []
+ },
+ {
+  "case": "ambiguous+reply",
+  "text": "Бот, сделай это",
+  "gen_calls": 0,
+  "sent": [
+   "Уточни: картинку изобразить или текстом обойтись?"
+  ],
+  "llm_steps": [],
+  "l2_user_content": "",
+  "announced": []
+ },
+ {
+  "case": "detector_matrix",
+  "rows": [
+   {
+    "text": "Бот, не рисуй мем, просто посоветуй фильм",
+    "intent": "",
+    "confidence": "none",
+    "reason": "create_image_negated",
+    "conceive_only": false,
+    "actionable": false
+   },
+   {
+    "text": "Бот, не надо рисовать мем, давай просто поболтаем",
+    "intent": "",
+    "confidence": "none",
+    "reason": "create_image_negated",
+    "conceive_only": false,
+    "actionable": false
+   },
+   {
+    "text": "придумай концепт мема, рисовать не надо",
+    "intent": "",
+    "confidence": "none",
+    "reason": "create_image_conceive_only",
+    "conceive_only": true,
+    "actionable": false
+   },
+   {
+    "text": "Бот, придумай концепт мема, рисовать не надо",
+    "intent": "",
+    "confidence": "none",
+    "reason": "create_image_conceive_only",
+    "conceive_only": true,
+    "actionable": false
+   },
+   {
+    "text": "Бот, я вчера нарисовал мем про двачеров",
+    "intent": "",
+    "confidence": "none",
+    "reason": "no_action_intent",
+    "conceive_only": false,
+    "actionable": false
+   },
+   {
+    "text": "Петя сказал: нарисуй мем про двачеров",
+    "intent": "create_image",
+    "confidence": "high",
+    "reason": "create_image_command",
+    "conceive_only": false,
+    "actionable": true
+   },
+   {
+    "text": "Мне написали в личку: «нарисуй мем про двачеров»",
+    "intent": "create_image",
+    "confidence": "high",
+    "reason": "create_image_command",
+    "conceive_only": false,
+    "actionable": true
+   },
+   {
+    "text": "Я сам нарисую мем, подскажи идею",
+    "intent": "create_image",
+    "confidence": "high",
+    "reason": "create_image_command",
+    "conceive_only": false,
+    "actionable": true
+   },
+   {
+    "text": "Бот, я сам нарисую мем, оценишь потом",
+    "intent": "create_image",
+    "confidence": "high",
+    "reason": "create_image_command",
+    "conceive_only": false,
+    "actionable": true
+   },
+   {
+    "text": "Бот, придумай шутку про мемы",
+    "intent": "",
+    "confidence": "none",
+    "reason": "no_action_intent",
+    "conceive_only": false,
+    "actionable": false
+   },
+   {
+    "text": "Бот, нарисуй мем про двачеров, но не рисуй",
+    "intent": "",
+    "confidence": "none",
+    "reason": "create_image_negated",
+    "conceive_only": false,
+    "actionable": false
+   },
+   {
+    "text": "Бот, нарисуй мем, рисовать не надо",
+    "intent": "",
+    "confidence": "none",
+    "reason": "create_image_negated",
+    "conceive_only": false,
+    "actionable": false
+   },
+   {
+    "text": "давай обсудим мемы",
+    "intent": "",
+    "confidence": "none",
+    "reason": "no_action_intent",
+    "conceive_only": false,
+    "actionable": false
+   },
+   {
+    "text": "Бот, сделай кратко",
+    "intent": "",
+    "confidence": "none",
+    "reason": "no_action_intent",
+    "conceive_only": false,
+    "actionable": false
+   },
+   {
+    "text": "Бот, нарисуй мем про двачеров",
+    "intent": "create_image",
+    "confidence": "high",
+    "reason": "create_image_command",
+    "conceive_only": false,
+    "actionable": true
+   },
+   {
+    "text": "Бот, сделай мем про двачеров",
+    "intent": "create_image",
+    "confidence": "high",
+    "reason": "create_image_command",
+    "conceive_only": false,
+    "actionable": true
+   },
+   {
+    "text": "Бот, надо сделать мем про двачеров",
+    "intent": "create_image",
+    "confidence": "high",
+    "reason": "create_image_command",
+    "conceive_only": false,
+    "actionable": true
+   },
+   {
+    "text": "Сделай картинку из этой ситуации",
+    "intent": "create_image",
+    "confidence": "high",
+    "reason": "create_image_command",
+    "conceive_only": false,
+    "actionable": true
+   },
+   {
+    "text": "Нужна инфографика по этим данным",
+    "intent": "create_image",
+    "confidence": "high",
+    "reason": "create_image_need",
+    "conceive_only": false,
+    "actionable": true
+   },
+   {
+    "text": "Давай изобразим это в виде комикса",
+    "intent": "create_image",
+    "confidence": "high",
+    "reason": "create_image_command",
+    "conceive_only": false,
+    "actionable": true
+   },
+   {
+    "text": "Бот, сделай это",
+    "intent": "create_image",
+    "confidence": "ambiguous",
+    "reason": "create_verb_without_object",
+    "conceive_only": false,
+    "actionable": false
+   },
+   {
+    "text": "не рисуй мем",
+    "intent": "",
+    "confidence": "none",
+    "reason": "create_image_negated",
+    "conceive_only": false,
+    "actionable": false
+   },
+   {
+    "text": "я сам нарисую мем",
+    "intent": "create_image",
+    "confidence": "high",
+    "reason": "create_image_command",
+    "conceive_only": false,
+    "actionable": true
+   },
+   {
+    "text": "Бот, нарисуй",
+    "intent": "create_image",
+    "confidence": "high",
+    "reason": "create_image_command",
+    "conceive_only": false,
+    "actionable": true
+   },
+   {
+    "text": "Бот, сделай мем",
+    "intent": "create_image",
+    "confidence": "high",
+    "reason": "create_image_command",
+    "conceive_only": false,
+    "actionable": true
+   },
+   {
+    "text": "Бот, сделай это",
+    "intent": "create_image",
+    "confidence": "ambiguous",
+    "reason": "create_verb_without_object",
+    "conceive_only": false,
+    "actionable": false
+   },
+   {
+    "text": "Бот, сделай это, как вчера",
+    "intent": "create_image",
+    "confidence": "ambiguous",
+    "reason": "create_verb_without_object",
+    "conceive_only": false,
+    "actionable": false
+   }
+  ]
+ },
+ {
+  "case": "detector_no_network",
+  "ok": true
+ },
+ {
+  "case": "detector_sync",
+  "ok": true
+ }
+]

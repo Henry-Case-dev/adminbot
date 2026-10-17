@@ -1,0 +1,20 @@
+Периметр fix-pass и классификация единственного падения
+
+Фильтр: -k "image or direct or soul1 or tool_ or capability or asap7 or asap8 or mca or param or registry" tests
+
+С W10-файлами:  5626 passed, 8382 deselected, 1 warning in 269.97s (0:04:29)
+Без W10-файлов: 1 failed, 5445 passed, 8382 deselected, 1 warning in 281.27s (0:04:41)
+  жертва: FAILED tests/test_mca09_intents_block_e_round1040.py::test_handle_initiative_cancelled_by_recheck
+
+Классификация: unrelated/pre-existing флейк (plans/backlog.md:239 — timing-flake mca-09, order/state-dependent).
+
+Доказательства:
+1) тот же прогон С W10-файлами (и теми же правками сервисов) — 0 падений:
+   жертва меняется вместе с порядком, а не с фиксом;
+2) файл изолированно, два прогона подряд: 15 passed, затем 1 failed —
+   флейк не требует ни W10-тестов, ни порядка периметра;
+   (промежуточный изолированный прогон в этой же сессии: 2 failed, 13 passed);
+3) grep по tests/test_mca09_intents_block_e_round1040.py: нет обращений к capability_registry / direct_capabilities / worker_budget / get_usage / record_outcome — файл не трогает изменённые модули W10 fix-pass;
+4) ревью фиксирует то же самое: W10-report §5 («единственное падение в test_mca09... но в РАЗНЫХ его тестах») и review-w10 («флейк в моём прогоне не воспроизвёлся; полоса воспроизводила его без W10 (5445/1), задокументирован в plans/backlog.md:239»).
+
+Вывод: статус fix-pass не зависит от этого флейка; W10-файлы и правки F1–F5 к нему не относятся.

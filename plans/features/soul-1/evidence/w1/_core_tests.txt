@@ -1,0 +1,27 @@
+CORE-DOC / проверки (кандидат без коммита)
+
+[1] W2 OFF-паритет (13/13 обязателен): exit=0
+.............                                                            [100%]
+13 passed in 2.82s
+
+[2] новые файлы CORE-DOC: exit=0
+.........................                                                [100%]
+25 passed in 2.88s
+
+[3] сьюты SOUL-1 целиком: exit=0
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+156 passed, 13519 deselected, 1 warning in 9.36s
+
+[4] каталог/реестр/промпты (фокус): exit=0
+........................................................................ [ 55%]
+.........................................................                [100%]
+129 passed in 3.99s
+
+[5] периметр soul1|catalog|registry|prompt|direct_chat|summary|config (без tests/test_summary_memory.py — предсуществующий teardown aiosqlite): exit=0
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+3164 passed, 10432 deselected, 1 warning in 199.31s (0:03:19)
+

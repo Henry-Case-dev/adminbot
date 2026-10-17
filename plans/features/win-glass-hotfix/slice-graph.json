@@ -1,0 +1,52 @@
+{
+  "schema": "openworkflow-slices-v1",
+  "feature": "win-glass-hotfix",
+  "note": "P0-хотфикс 18.10.2026. Единый writer-лейн WIN-GLASS-P0: параллельных писателей нет (can_parallel_with пуст), зоны файлов разведены. WG-VERIFY — join-барьер после WG-WIN и WG-ANDROID: матрица проверок, evidence и человеческий отчёт. Owner-live проверки до подтверждения остаются READY_FOR_LIVE/PENDING_OWNER_E2E и не объявляются VERIFIED.",
+  "slices": [
+    {
+      "id": "WG-WIN",
+      "depends_on": [],
+      "write_scope": [
+        "web/static/fullscreen-policy.js",
+        "plans/features/win-glass-hotfix/owner-steps.md",
+        "plans/features/win-glass-hotfix/evidence/win/**"
+      ],
+      "acceptance": "Windows: первопричина на уровне клиента/SDK задокументирована; рабочая область минус панель задач достигнута либо доказано ограничение с конкретным рабочим обходом; toggle/выход/закрытие сохранены; живой сценарий владельца помечен PENDING_OWNER_E2E.",
+      "can_parallel_with": [],
+      "join_barrier": "WG-VERIFY"
+    },
+    {
+      "id": "WG-ANDROID",
+      "depends_on": [],
+      "write_scope": [
+        "web/static/glass-refraction.js",
+        "web/static/glass-probe.js",
+        "web/app.js",
+        "web/index.html",
+        "web/static/app.css",
+        "tests/js/glass_refraction_test.js",
+        "tests/js/glass_probe_test.js",
+        "tests/glass-teststand/**",
+        "plans/features/win-glass-hotfix/evidence/android/**",
+        "plans/features/win-glass-hotfix/evidence/e2e/**"
+      ],
+      "acceptance": "Android: видимое смещение фоновых пикселей полигонального фона у кромки стекла (не blur/блик/обводка); Tier A только на 1–3 поверхностях; текст, контролы, дизайн и перф без регрессий; живое сравнение на реальном WebView помечено PENDING_OWNER_E2E.",
+      "can_parallel_with": [],
+      "join_barrier": "WG-VERIFY"
+    },
+    {
+      "id": "WG-VERIFY",
+      "depends_on": [
+        "WG-WIN",
+        "WG-ANDROID"
+      ],
+      "write_scope": [
+        "plans/features/win-glass-hotfix/report.md",
+        "plans/features/win-glass-hotfix/verification-matrix.md",
+        "plans/features/win-glass-hotfix/evidence/verify/**"
+      ],
+      "acceptance": "Матрица проверок покрывает все требования карты; живые проверки подтверждены реальными клиентами либо честно помечены PENDING_OWNER_E2E; дан человеческий отчёт (причина/исправлено/проверено/что проверить владельцу); без незакрытых живых пунктов вердикт «полный успех» не выставляется.",
+      "can_parallel_with": []
+    }
+  ]
+}

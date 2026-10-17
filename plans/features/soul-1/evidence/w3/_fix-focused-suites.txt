@@ -1,0 +1,74 @@
+SOUL-1 / W3 — FIX-W3 (review-w3 F1–F4): focused-периметр и реестр
+candidate: рабочее дерево C:\Code\Python\adminbot (без коммита, без deploy)
+fingerprints (sha256_12):
+  services/style_policy.py            = 8d26f9579472   (до фикса: b25309213660)
+  services/direct_chat_service.py     = 4d2a17cb362e   (до фикса: 3a3b4b3b0763)
+  tests/test_soul1_style_policy.py    = 23600c14e3ff
+  tests/test_soul1_style_payload.py   = c067d09aad5b
+  tests/test_soul1_style_repetition.py= eca09420b542
+  tests/test_soul1_extent_one_word.py = 4db65fb1ba3b   (не менялся)
+RED-прогон сделан на реконструкции до-фиксового кода: обратный патч F1–F4 в
+рабочем дереве (`_fix_capture_before.py`), sha реконструкции совпал с
+отпечатками review-w3 БАЙТ-в-БАЙТ (b25309213660 / 3a3b4b3b0763); после прогона
+оба файла восстановлены и sha сверен. Никаких коммитов.
+
+Команды (repo root, .venv\Scripts\python.exe -m pytest ... -q):
+  [W3] tests/test_soul1_style_policy.py tests/test_soul1_style_repetition.py
+       tests/test_soul1_style_payload.py tests/test_soul1_extent_one_word.py
+  [A]  tests/test_soul1_composer_layers.py tests/test_soul1_composer_parity_off.py
+       tests/test_soul1_core_version_propagation.py tests/test_soul1_legacy_custom_preserved.py
+       tests/test_soul1_flags_composition.py tests/test_soul1_machine_profile_no_core.py
+       tests/test_soul1_core_doc_text.py tests/test_soul1_core_composer_integration.py
+       tests/test_soul1_direct_prompt_reads.py tests/test_soul1_factory_defaults.py
+       tests/test_soul1_registry_completeness.py tests/test_soul1_registry_legacy_removal.py
+       tests/test_soul1_core_registry_api.py
+  [B]  tests/test_direct_chat_prompts.py tests/test_verbilizer_response_modes_round1023.py
+       tests/test_asap7_direct_l1.py tests/test_direct_two_call_round1022.py
+       tests/test_asap8_v6_wc_direct_d03.py tests/test_asap8_v6_wc_direct_d04.py
+       tests/test_asap8_v6_wc_direct_matrix.py tests/test_persona_prompt.py tests/test_direct_chat.py
+       tests/test_asap7_module_registry.py tests/test_asap7_module_completeness.py
+       tests/test_asap8_v6_p1_d11_registry.py
+  [C]  tests/test_mca08_character_speech.py tests/test_mca08_style_form.py
+       tests/test_mca18_contract_round1042.py tests/test_mca18_self_model_block_a_round1042.py
+       tests/test_mca18_paired_replay_round1042.py tests/test_asap8_f4_prompt_truth.py
+       tests/test_webapp_dm_ui.py
+  [D]  tests/test_outgoing_guard_round1022.py tests/test_anticliche_round1023.py
+       tests/test_mca23_response_plan.py tests/test_negative_constraints_round1022.py
+       tests/test_prompts_round1024.py tests/test_prompt_migrations.py
+       tests/test_round1025_f8_registry.py tests/test_ui_verbilizer_tabs_round1023.py::TestCatalogDelta
+       tests/test_unified_image_request_round1026.py::TestBoundsA3
+  [I]  tests/test_mca09_intents_block_e_round1040.py tests/test_asap8_f6_initiative.py
+       tests/test_asap8_v63_b01_initiative_observer.py
+       tests/test_mca10b_random_applications_block_a_round1041.py
+  [N]  tests/test_nostalgia_worker.py tests/test_nostalgia_layer_a.py
+       tests/test_nostalgia_revamp_round1015.py tests/test_nostalgia_prompts.py
+
+Результаты (фиксированный кандидат):
+  [W3] 120 passed, 0 failed   (было 96 новых W3; +23 новых теста F1/F2/F3/F4,
+                               1 тест переписан под перенос прохода инициативы)
+       из них: style_policy 60, style_repetition 23, style_payload 12,
+       extent_one_word 25
+  [A]  146 passed (вкл. parity 13/13: tests/test_soul1_composer_parity_off.py 13 passed)
+  [B]  432 passed
+  [C]  200 passed, 1 warning
+  [D]  283 passed, 1 warning
+  [I]  68 passed
+  [N]  79 passed
+  ИТОГО периметр [A]+[B]+[C]+[D] = 1061 passed, 0 failed (совпадает с review-w3 §5)
+registry check: .venv\Scripts\python.exe tools/gen_param_registry_round1025.py --check
+  → CHECK OK: реестр 572 == REGISTRY, карта полна, R17-чисто, TSV/map идемпотентны.
+    (ключи каталога/GroupSpec не добавлялись: Δcatalog=0 — решение W6 не менялось)
+
+Порядок F3 (новый, явный): проход формы (до сериализации) → сериализация/escape
+ветки доставки → egress-guard `sanitize_outgoing` → проверка БЕЗ правок именно
+доставляемых байтов (`_delivered_payload`) → `send_chunked_reply`/`send_text`.
+Байты, которые проверяются, = байты, которые уходят (для чанкованного ответа
+чанки формируются из того же текста и санитайзятся тем же guard'ом; см. раздел
+остаточных рисков в отчёте §«Fix pass»).
+
+Стоимость (см. `_fix_cost.txt`): p50=0.170 ms, p95=0.261 ms (n=600, тот же
+метод, что в `cost-measurement.txt`; база W3: p50=0.207/p95=0.294 ms);
+bounded-стресс (3199 симв., 800 пар скобок) p50=5.9 ms — распознавание
+машинных данных ограничено (`_JSON_MAX_CANDIDATES=256`, скан 20000 симв. на
+фрагмент). LLM-вызовов на проход и отправку — 0 (транспортный счётчик
+`LLMClient._post/_post_with_key`), см. `_fix_after-final.txt`.
