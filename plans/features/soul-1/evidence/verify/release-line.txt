@@ -1,0 +1,121 @@
+SOUL-1 — двухлинейная семантика (ре-анкор, лейн SOUL-LEDGER)
+Дата: 2026-10-18
+
+Ревью-кандидат (карта, НЕ меняется): 6094a2cfa1660d1b949dcfe5ec085bc08f080de4
+Задеплоено (прод-линия):             eafbe2e7b792c74eeb91735e183b767c6b85d73c
+  ветка release/soul1-2.58.86 (origin — запушена); база 95526863 (2.58.85);
+  коммиты 432edf80 (tree-port SOUL-1) + e0756310 (bump 2.58.86, 31 файл) + eafbe2e7 (runbook §4–§5 sync);
+  артефакт-коммит d5191450 (отчёт+evidence, docs-only, после деплоя) — в master перенесён коммитом ad1d4057;
+  прод отдаёт {"status":"ok","version":"2.58.86"}.
+
+Runtime-эквивалентность (мои прогоны git, 18.10.2026):
+  git diff --name-only 72b91d6e eafbe2e7 -- services            -> ПУСТО
+      (services прода == отревьюенный runtime 72b91d6e: F1/F3-фикс payload-verification R2)
+  git diff --name-only 0ca661fe eafbe2e7 -- web                 -> ПУСТО
+      (web прода == WG-кандидат 0ca661fe; слой стекла byte-equal, см. wg-byte-equal.txt)
+  git diff --name-only 6094a2cf eafbe2e7 -- services web        -> 7 файлов:
+      services/prompt_registry.py, services/smartmodule_phrases.py (отревьюенный F1/F3-фикс 72b91d6e)
+      web/app.js, web/index.html, web/static/app.css, web/static/glass-probe.js, web/static/glass-refraction.js (WIN-GLASS-P0, вне SOUL-1)
+  git diff --name-only 95526863 eafbe2e7                        -> 628 файлов (== delta-vs-base.txt; UNCLASSIFIED=0)
+  git diff --name-only 488f8c5c eafbe2e7 -- services web        -> services/style_policy.py (только он)
+      (master на срезе прохода (488f8c5c) отличался от прода ровно отревьюенным await-фиксом
+      68cd05b2 — окно 2.58.87; параллельные лейны могут добавлять свои web-дельты,
+      диффы выше привязаны к названным коммитам, а не к «текущему» master)
+
+Почему две линии и что это значит практически:
+  * карта носит candidate_commit = 6094a2cf (ревью-линия, runtime SOUL-PREP R3) и
+    deployed_commit = eafbe2e7 (фактически задеплоенный tip) — конвенция как в win-glass;
+  * деплой — не байт-перенос кандидата, а tree-port отревьюенного набора 915aa3c7 на
+    задеплоенную базу 95526863; поэтому runtime прода = кандидат + 2 отревьюенных
+    services-файла (72b91d6e) + слой WIN-GLASS-P0 в web (не SOUL-1);
+  * evidence, добавленный леджером, привязан к candidate_commit = 6094a2cf (иначе
+    review-стадия гейта не находит связку: она сравнивает evidence.candidate_commit с
+    --candidate), а факт прода фиксируется в deployed_commit + в ref/observation (type=production);
+  * release-стадия гейта на двухлинейной карте ожидаемо не пройдёт: requirements_gate.py
+    сравнивает --candidate с --deployed-commit, а здесь это разные линии (та же оговорка,
+    что в win-glass evidence/verify/release-line.txt). Это состояние карты, не дефект релиза.
+
+Состояние карт (ledger-проход, до/после, точные счётчики гейта):
+  main (101 + 97 строк): items/PENDING=37->36, items/READY_FOR_LIVE=8, items/VERIFIED=56->57, additional_requirements/PENDING=49->41, additional_requirements/READY_FOR_LIVE=12, additional_requirements/VERIFIED=36->44
+  amendment (66 + 28 строк): items/PENDING=40->33, items/READY_FOR_LIVE=7, items/VERIFIED=19->26, additional_requirements/PENDING=10, additional_requirements/READY_FOR_LIVE=2, additional_requirements/VERIFIED=16
+  Итого по двум картам: VERIFIED 127->143, PENDING 136->120, READY_FOR_LIVE 29->29
+  (все 29 RFL получили release-эвиденс и owner-пометку; ни одна RFL не переведена в VERIFIED).
+
+Гейты после ре-анкора — команды и выводы verbatim:
+
+> py -3 %USERPROFILE%\.config\opencode\tools\requirements_gate.py check --map plans/features/soul-1/requirements-map.json --stage plan
+stage=plan inventory=101 manual=97 scoped=0 errors=0
+EXIT=0
+> py -3 %USERPROFILE%\.config\opencode\tools\requirements_gate.py check --map plans/features/soul-1/requirements-map-amendment.json --stage plan
+stage=plan inventory=66 manual=28 scoped=0 errors=0
+EXIT=0
+
+  review-стадии по слайсам (EXIT=0 только там, где они проходили и до прохода):
+> py -3 %USERPROFILE%\.config\opencode\tools\requirements_gate.py check --map plans/features/soul-1/requirements-map.json --stage review --slice W1 --candidate 6094a2cfa1660d1b949dcfe5ec085bc08f080de4
+stage=review inventory=101 manual=97 scoped=20 errors=20
+EXIT=1
+> py -3 %USERPROFILE%\.config\opencode\tools\requirements_gate.py check --map plans/features/soul-1/requirements-map.json --stage review --slice W2 --candidate 6094a2cfa1660d1b949dcfe5ec085bc08f080de4
+stage=review inventory=101 manual=97 scoped=29 errors=20
+EXIT=1
+> py -3 %USERPROFILE%\.config\opencode\tools\requirements_gate.py check --map plans/features/soul-1/requirements-map.json --stage review --slice W3 --candidate 6094a2cfa1660d1b949dcfe5ec085bc08f080de4
+stage=review inventory=101 manual=97 scoped=33 errors=29
+EXIT=1
+> py -3 %USERPROFILE%\.config\opencode\tools\requirements_gate.py check --map plans/features/soul-1/requirements-map.json --stage review --slice W4 --candidate 6094a2cfa1660d1b949dcfe5ec085bc08f080de4
+stage=review inventory=101 manual=97 scoped=25 errors=25
+EXIT=1
+> py -3 %USERPROFILE%\.config\opencode\tools\requirements_gate.py check --map plans/features/soul-1/requirements-map.json --stage review --slice W5 --candidate 6094a2cfa1660d1b949dcfe5ec085bc08f080de4
+stage=review inventory=101 manual=97 scoped=9 errors=4
+EXIT=1
+> py -3 %USERPROFILE%\.config\opencode\tools\requirements_gate.py check --map plans/features/soul-1/requirements-map.json --stage review --slice W6 --candidate 6094a2cfa1660d1b949dcfe5ec085bc08f080de4
+stage=review inventory=101 manual=97 scoped=29 errors=42
+EXIT=1
+> py -3 %USERPROFILE%\.config\opencode\tools\requirements_gate.py check --map plans/features/soul-1/requirements-map.json --stage review --slice W7 --candidate 6094a2cfa1660d1b949dcfe5ec085bc08f080de4
+stage=review inventory=101 manual=97 scoped=13 errors=0
+EXIT=0
+> py -3 %USERPROFILE%\.config\opencode\tools\requirements_gate.py check --map plans/features/soul-1/requirements-map.json --stage review --slice W8 --candidate 6094a2cfa1660d1b949dcfe5ec085bc08f080de4
+stage=review inventory=101 manual=97 scoped=19 errors=19
+EXIT=1
+> py -3 %USERPROFILE%\.config\opencode\tools\requirements_gate.py check --map plans/features/soul-1/requirements-map.json --stage review --slice W9 --candidate 6094a2cfa1660d1b949dcfe5ec085bc08f080de4
+stage=review inventory=101 manual=97 scoped=12 errors=12
+EXIT=1
+> py -3 %USERPROFILE%\.config\opencode\tools\requirements_gate.py check --map plans/features/soul-1/requirements-map.json --stage review --slice W10 --candidate 6094a2cfa1660d1b949dcfe5ec085bc08f080de4
+stage=review inventory=101 manual=97 scoped=0 errors=1
+EXIT=1
+> py -3 %USERPROFILE%\.config\opencode\tools\requirements_gate.py check --map plans/features/soul-1/requirements-map-amendment.json --stage review --slice W1 --candidate 6094a2cfa1660d1b949dcfe5ec085bc08f080de4
+stage=review inventory=66 manual=28 scoped=9 errors=9
+EXIT=1
+> py -3 %USERPROFILE%\.config\opencode\tools\requirements_gate.py check --map plans/features/soul-1/requirements-map-amendment.json --stage review --slice W2 --candidate 6094a2cfa1660d1b949dcfe5ec085bc08f080de4
+stage=review inventory=66 manual=28 scoped=24 errors=17
+EXIT=1
+> py -3 %USERPROFILE%\.config\opencode\tools\requirements_gate.py check --map plans/features/soul-1/requirements-map-amendment.json --stage review --slice W3 --candidate 6094a2cfa1660d1b949dcfe5ec085bc08f080de4
+stage=review inventory=66 manual=28 scoped=7 errors=6
+EXIT=1
+> py -3 %USERPROFILE%\.config\opencode\tools\requirements_gate.py check --map plans/features/soul-1/requirements-map-amendment.json --stage review --slice W4 --candidate 6094a2cfa1660d1b949dcfe5ec085bc08f080de4
+stage=review inventory=66 manual=28 scoped=1 errors=1
+EXIT=1
+> py -3 %USERPROFILE%\.config\opencode\tools\requirements_gate.py check --map plans/features/soul-1/requirements-map-amendment.json --stage review --slice W5 --candidate 6094a2cfa1660d1b949dcfe5ec085bc08f080de4
+stage=review inventory=66 manual=28 scoped=0 errors=1
+EXIT=1
+> py -3 %USERPROFILE%\.config\opencode\tools\requirements_gate.py check --map plans/features/soul-1/requirements-map-amendment.json --stage review --slice W6 --candidate 6094a2cfa1660d1b949dcfe5ec085bc08f080de4
+stage=review inventory=66 manual=28 scoped=8 errors=13
+EXIT=1
+> py -3 %USERPROFILE%\.config\opencode\tools\requirements_gate.py check --map plans/features/soul-1/requirements-map-amendment.json --stage review --slice W7 --candidate 6094a2cfa1660d1b949dcfe5ec085bc08f080de4
+stage=review inventory=66 manual=28 scoped=0 errors=1
+EXIT=1
+> py -3 %USERPROFILE%\.config\opencode\tools\requirements_gate.py check --map plans/features/soul-1/requirements-map-amendment.json --stage review --slice W8 --candidate 6094a2cfa1660d1b949dcfe5ec085bc08f080de4
+stage=review inventory=66 manual=28 scoped=3 errors=3
+EXIT=1
+> py -3 %USERPROFILE%\.config\opencode\tools\requirements_gate.py check --map plans/features/soul-1/requirements-map-amendment.json --stage review --slice W9 --candidate 6094a2cfa1660d1b949dcfe5ec085bc08f080de4
+stage=review inventory=66 manual=28 scoped=1 errors=1
+EXIT=1
+> py -3 %USERPROFILE%\.config\opencode\tools\requirements_gate.py check --map plans/features/soul-1/requirements-map-amendment.json --stage review --slice W10 --candidate 6094a2cfa1660d1b949dcfe5ec085bc08f080de4
+stage=review inventory=66 manual=28 scoped=26 errors=19
+EXIT=1
+
+  Дополнительно (до/после, для честности): waiver-прохода не было, статусы менялись только
+  там, где есть отревьюенная поставка и release-эвиденс; оставшиеся красные слайсы красны
+  по двум унаследованным причинам: (а) evidence части строк привязан к слайс-кандидатам
+  (a5902b15/c8cf77a5/bc277a3d/4c8405e7), а не к 6094a2cf; (б) 96 обязательных строк
+  действительно PENDING (вне поставки: W8/W9, публичные пути Factcheck/Summary и др.).
+  Release-стадия НЕ запускалась: она требует candidate == deployed и все обязательные строки
+  VERIFIED; фактический прогон — после owner-окна и мини-релиза 2.58.87.

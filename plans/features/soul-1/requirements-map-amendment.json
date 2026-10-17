@@ -3,7 +3,7 @@
   "source_path": "C:\\Code\\Python\\adminbot\\plans\\features\\soul-1\\source-architectural-clarification.md",
   "source_sha256": "338fd9c6bd323a7ea8ad80577c2e9d8b45a714d30bdd4fc9147af75931a4a35c",
   "candidate_commit": "6094a2cfa1660d1b949dcfe5ec085bc08f080de4",
-  "deployed_commit": "0b7a0aca416a418e099e157eca77d0a3137b3405",
+  "deployed_commit": "eafbe2e7b792c74eeb91735e183b767c6b85d73c",
   "additional_requirements": [
     {
       "source_id": "M00003",
@@ -125,7 +125,7 @@
       "source_text_sha256": "56da994c1784aa71e56d9529a2f9d55fc2052c878992c49e36feff24da879047",
       "source_excerpt": "5. `one_word` и `micro` — **два разных режима**, не маппить один в другой: `one_word` = ровно одно слово, `micro` = короткая реплика из нескольких слов. Проверять соблюдение без дорогостоящей полной регенерации; ограничения не должны ломать",
       "disposition": "required",
-      "reason": "Движок/мок-часть подтверждены на кандидате 4c8405e7 (review-w3 ledger: «SOUL-AMD.1.6/1.7 — VERIFIED (engine)»; recheck F1: ссылки/код/точные цитаты целы; cost-measurement: 0 доп. LLM-вызовов); живая половина (реальный прогон/отправка) требует включённого контура — канарейка/postdeploy; классификация по образцу SOUL-AMD.8.3 / SOUL-17.4 / SOUL-10.P5 / SOUL-11.4.",
+      "reason": "Движок/мок-часть подтверждены на кандидате 4c8405e7 (review-w3 ledger: «SOUL-AMD.1.6/1.7 — VERIFIED (engine)»; recheck F1: ссылки/код/точные цитаты целы; cost-measurement: 0 доп. LLM-вызовов); живая половина (реальный прогон/отправка) требует включённого контура — канарейка/postdeploy; классификация по образцу SOUL-AMD.8.3 / SOUL-17.4 / SOUL-10.P5 / SOUL-11.4. Релиз 2.58.86: композер/Core ON (`try`: core в слоях, source=global, `core_detail=full:owner_setting`); реальная длинная редакционная публикация (режимы/ссылки/цитаты целы) — owner-сценарий. Классификация READY_FOR_LIVE после релиза 2.58.86: агентская часть релизного прогона подтверждена (evidence ниже), остаток — owner-сценарии из `postdeploy-observations.md` (чек-лист; строки НЕ закрываются до живого подтверждения).",
       "req_id": "SOUL-AMD.1.7",
       "slice": "W3",
       "acceptance": "Соблюдение режимов проверяется без дорогостоящей полной регенерации; ограничения не ломают ссылки, код и точные цитаты",
@@ -138,6 +138,22 @@
           "ref": "plans/features/soul-1/review-w3.md — ledger (AMD.1.6/1.7 «VERIFIED (engine)») + recheck F1 (байт-сохранность ссылок/кода/цитат) + plans/features/soul-1/evidence/w3/cost-measurement.txt",
           "observation": "Мок/движок: соблюдение режимов проверяется без дорогой полной регенерации (0 дополнительных LLM-вызовов на нарушение); ограничения не ломают ссылки, код и точные цитаты.",
           "type": "test"
+        },
+        {
+          "candidate_commit": "6094a2cfa1660d1b949dcfe5ec085bc08f080de4",
+          "ref": "release-2.58.86-report.md + evidence/release-soul-25886/**; Релиз 2.58.86: композер/Core ON (`try`: core в слоях, source=global, `core_detai…",
+          "observation": "Релиз 2.58.86: композер/Core ON (`try`: core в слоях, source=global, `core_detail=full:owner_setting`); реальная длинная редакционная публикация (режимы/ссылки/цитаты целы) — owner-сценарий.",
+          "artifact_path": "plans/features/soul-1/evidence/release-soul-25886/verify-after.txt",
+          "artifact_sha256": "ab96e78ff6584432930f11c347697eeaedbd0fabedc555753b21b95bcbbd25fc",
+          "type": "production"
+        },
+        {
+          "candidate_commit": "6094a2cfa1660d1b949dcfe5ec085bc08f080de4",
+          "ref": "postdeploy-observations.md — классификация 29 READY_FOR_LIVE (агентская часть / owner-сценарии)",
+          "observation": "Owner-чек-лист строки зафиксирован; ничего не объявлено VERIFIED релизным прогоном.",
+          "artifact_path": "plans/features/soul-1/evidence/release-soul-25886/postdeploy-observations.md",
+          "artifact_sha256": "482cbe9868df3d9336c2895cf18a82192926ee2d7e3a17d0cbcd6ee3b0bb78d8",
+          "type": "static"
         }
       ]
     },
@@ -250,14 +266,23 @@
       "source_text_sha256": "d941891cf1936cefb01f3307422f22e800313c3e9f71cc616aa9fa56b1fa404d",
       "source_excerpt": "**Запрещено создавать скрытые альтернативные личности для отдельных модулей.**",
       "disposition": "required",
-      "reason": "Скрытые личности по модулям ещё существуют (легаси-каноны, fallback-фразы, копии суффикса); композер запрещает их только на своих путях — до удаления по AMD.1.2/7.3",
+      "reason": "Скрытые личности по модулям ещё существуют (легаси-каноны, fallback-фразы, копии суффикса); композер запрещает их только на своих путях — до удаления по AMD.1.2/7.3 Постдеплой 2.58.86: известные legacy-каноны удержаны и не доходят до effective на реестровых путях (`withheld=11`, WARNING-поток); Core резолвится единственным источником в сборке (`layers_current=[channel_contract, channel_contract, core]`). Открыто: копии канонов/fallback-фразы в модулях не удалены (AMD.1.2/7.3, JB-3), F5-скан traits — 10/50. Строка остаётся PENDING.",
       "req_id": "SOUL-AMD.2.13",
       "slice": "W2",
       "acceptance": "Скрытые альтернативные личности для отдельных модулей запрещены",
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "candidate_commit": "6094a2cfa1660d1b949dcfe5ec085bc08f080de4",
+          "ref": "evidence/release-soul-25886/** (2.58.86, deployed eafbe2e7): Прод: withheld=11 и Core единственным источником в сборке.",
+          "observation": "Прод: withheld=11 и Core единственным источником в сборке.",
+          "artifact_path": "plans/features/soul-1/evidence/release-soul-25886/verify-after.txt",
+          "artifact_sha256": "ab96e78ff6584432930f11c347697eeaedbd0fabedc555753b21b95bcbbd25fc",
+          "type": "production"
+        }
+      ]
     },
     {
       "source_id": "M00062",
@@ -485,7 +510,7 @@
       "source_text_sha256": "76815aa728d8ca116d0686e5a27fc15d60511c3bab7118f10290bcc97d8da2dd",
       "source_excerpt": "Переиспользовать существующий `generate_image` и единый механизм доставки. В рамках одного пользовательского намерения не допускать дублирующей платной генерации из pre-gate, L1 и tool-loop; сохранять idempotency и trace. Если файл уже отпр",
       "disposition": "required",
-      "reason": "Мок/движок-часть подтверждена на кандидате c8cf77a5 (review-w10 ledger 5.17: переиспользован run_image_request/generate_and_send, дублей нет — мутация B; send_failed → last_result=delivery_failed, «отправил» не заявлено; replay → 0 gen/0 send; 1 commit на интент; recheck — без изменений); живая половина (реальный прогон/отправка/провайдер и фактическая ошибка доставки Telegram) требует включённого контура — канарейка/postdeploy; классификация по образцу SOUL-AMD.8.3 / SOUL-17.4 / SOUL-10.P5 / SOUL-11.4 (review-w10: «провайдер/Telegram замоканы»).",
+      "reason": "Мок/движок-часть подтверждена на кандидате c8cf77a5 (review-w10 ledger 5.17: переиспользован run_image_request/generate_and_send, дублей нет — мутация B; send_failed → last_result=delivery_failed, «отправил» не заявлено; replay → 0 gen/0 send; 1 commit на интент; recheck — без изменений); живая половина (реальный прогон/отправка/провайдер и фактическая ошибка доставки Telegram) требует включённого контура — канарейка/postdeploy; классификация по образцу SOUL-AMD.8.3 / SOUL-17.4 / SOUL-10.P5 / SOUL-11.4 (review-w10: «провайдер/Telegram замоканы»). Релиз 2.58.86: оси `humor_craft_enabled` / `humor_feedback_enabled` ON, журнал 0 ERROR/CRITICAL, `user_version=36`. Живые сценарии (один платный вызов на намерение, честные тексты отказов, поиск/фактчек/видео) — owner-сценарий. Классификация READY_FOR_LIVE после релиза 2.58.86: агентская часть релизного прогона подтверждена (evidence ниже), остаток — owner-сценарии из `postdeploy-observations.md` (чек-лист; строки НЕ закрываются до живого подтверждения).",
       "req_id": "SOUL-AMD.5.17",
       "slice": "W10",
       "acceptance": "Переиспользованы существующий generate_image и единый механизм доставки; в рамках одного намерения нет дублирующей платной генерации из pre-gate, L1 и tool-loop; сохранены idempotency и trace; если файл уже отправлен — Writer не обещает повторной отправки и не дублирует результат; генерация без успешного Telegram-send — ошибка доставки, не success",
@@ -498,6 +523,22 @@
           "ref": "plans/features/soul-1/review-w10.md — ledger 5.17 (переиспользован run_image_request/generate_and_send; дублей нет — мутация B ловит) + 8.9-прогоны (send_failed → last_result=delivery_failed, «отправил» не заявлено; already_handled → 0 вызовов; replay delivery=\"already\" → 0 gen/0 send; 1 commit на интент) + tests/test_soul1_capability_registry.py",
           "observation": "Единая платная генерация и доставка на намерение (pre-gate/L1/tool-loop не дублируют); idempotency и trace сохранены; replay не заявляет успех и не сбрасывает транзиент; «уже отправлено» не дублируется; генерация без успешного Telegram-send — ошибка доставки, не success.",
           "type": "test"
+        },
+        {
+          "candidate_commit": "6094a2cfa1660d1b949dcfe5ec085bc08f080de4",
+          "ref": "release-2.58.86-report.md + evidence/release-soul-25886/**; Релиз 2.58.86: оси `humor_craft_enabled` / `humor_feedback_enabled` ON, журнал 0…",
+          "observation": "Релиз 2.58.86: оси `humor_craft_enabled` / `humor_feedback_enabled` ON, журнал 0 ERROR/CRITICAL, `user_version=36`. Живые сценарии (один платный вызов на намерение, честные тексты отказов, поиск/фактчек/видео) — owner-сценарий.",
+          "artifact_path": "plans/features/soul-1/evidence/release-soul-25886/final-verification.txt",
+          "artifact_sha256": "ac3cb779e4d100cd43a884dd40e4f65b85f51e40e05478a2e43eb89754df0bd5",
+          "type": "production"
+        },
+        {
+          "candidate_commit": "6094a2cfa1660d1b949dcfe5ec085bc08f080de4",
+          "ref": "postdeploy-observations.md — классификация 29 READY_FOR_LIVE (агентская часть / owner-сценарии)",
+          "observation": "Owner-чек-лист строки зафиксирован; ничего не объявлено VERIFIED релизным прогоном.",
+          "artifact_path": "plans/features/soul-1/evidence/release-soul-25886/postdeploy-observations.md",
+          "artifact_sha256": "482cbe9868df3d9336c2895cf18a82192926ee2d7e3a17d0cbcd6ee3b0bb78d8",
+          "type": "static"
         }
       ]
     },
@@ -598,14 +639,39 @@
       "source_text_sha256": "a582c4ecaf75af09683c090613dc6cbebe664c866e2ddab9016e5c922c1b2fd9",
       "source_excerpt": "1. **Factory Default для Personality Core — полный авторский текст «Речь, юмор и мышление» из SOUL-02 в `Soul-1.md`.** Это первоисточник. Не сочинять на его месте нового персонажа. Компактная runtime-версия может применяться ради экономии к",
       "disposition": "required",
-      "reason": "Factory Default Core = полный авторский текст SOUL-02 не заведён: нет документа/реестра/редакций и MiniApp-видимости обеих редакций",
+      "reason": "Factory Default Core = полный авторский текст SOUL-02 заведён: `core.personality` (`fac:040581a3b4b0(soul02-author-full-v1)`), компактная runtime-редакция `fac:ff28f0720a23(soul02-compact-v1)` — сжатие тех же предложений без потери смысла; обе редакции видны и редактируются в MiniApp (W6, SOUL-10.1/10.2 VERIFIED). Прод 2.58.86: `character.core` 2835 зн., `differs_from_factory=false`, `level=full`. Переанкор: было «не заведён».",
       "req_id": "SOUL-AMD.1.1",
       "slice": "W2",
       "acceptance": "Factory Default Personality Core — полный авторский текст «Речь, юмор и мышление» из SOUL-02 в Soul-1.md; компактная runtime-версия допустима только без потери смысла полного текста; обе редакции видны и редактируются в MiniApp",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "6094a2cfa1660d1b949dcfe5ec085bc08f080de4",
+          "ref": "verify-after.txt: core[before]/core[after] — factory_revisions, chars, source",
+          "observation": "Прод: factory-ревизии обеих редакций, полный 2835 зн. (040581a3b4b0), компактный 1934 зн./249 слов (ff28f0720a23); после записи владельца `level=full`, `differs_from_factory=false`.",
+          "artifact_path": "plans/features/soul-1/evidence/release-soul-25886/verify-after.txt",
+          "artifact_sha256": "ab96e78ff6584432930f11c347697eeaedbd0fabedc555753b21b95bcbbd25fc",
+          "type": "production"
+        },
+        {
+          "candidate_commit": "6094a2cfa1660d1b949dcfe5ec085bc08f080de4",
+          "ref": "CORE-DOC §1 (реестр Core) + §2 (компактная редакция) + §7 (MiniApp-редактор как владелец W6)",
+          "observation": "Обе редакции заведены как документы реестра с factory-ревизиями; компактная — ручное сжатие.",
+          "artifact_path": "plans/features/soul-1/core-doc-report.md",
+          "artifact_sha256": "0e89551fc9a3302ee2b84bdb4419eda3fa8a5437e8c56e6a1868378815f4d9ba",
+          "type": "static"
+        },
+        {
+          "candidate_commit": "6094a2cfa1660d1b949dcfe5ec085bc08f080de4",
+          "ref": "w6-speech-ui-report §1 (раздел «Характер»: правки обеих редакций через API) + review-w6",
+          "observation": "Редактор MiniApp правит полную и компактную редакции раздельно.",
+          "artifact_path": "plans/features/soul-1/w6-speech-ui-report.md",
+          "artifact_sha256": "bf5ec094cdc21f49d76b7ce535f24296c6d71889dfdb0bc49fe167622e24f8af",
+          "type": "static"
+        }
+      ]
     },
     {
       "source_id": "L00010",
@@ -613,14 +679,31 @@
       "source_text_sha256": "d54789f513c3e0986c883df357e94e303cd8f3c794f07e9a2bf249fc3e292b36",
       "source_excerpt": "2. Убрать старые действующие речевые каноны и конкурирующие определения личности (включая «токсичный, саркастичный бот») из Direct, Initiative, Summary, Factcheck, специализированных Writer, fallback, постпроцессоров, веток режима и старых ",
       "disposition": "required",
-      "reason": "HARD RULE: не VERIFIED в этом проходе — legacy-каноны и owner-кастомы ещё в effective-слое (base_prompt = слой channel_contract при ON); удаление с backup — слайс уточнения после JB-3",
+      "reason": "HARD RULE: не VERIFIED в этом проходе — legacy-каноны и owner-кастомы ещё в effective-слое (base_prompt = слой channel_contract при ON); удаление с backup — слайс уточнения после JB-3 Постдеплой 2.58.86 (факты): `withheld=11` ровно класса удержания, WARNING-поток `persisted speech value withheld` в журнале, 0 ERROR/CRITICAL; legacy-слой не активен в effective. Поведение при этом задано директивой владельца 18.10 (`source-release-correction-2026-10-18.md` п.1): legacy остаётся исключительно в backup для аварийного отката. Остаётся: JB-3-решение и write-pass удаления/migration с обратимостью (ср. AMD.7.2). Строка остаётся PENDING (HARD RULE).",
       "req_id": "SOUL-AMD.1.2",
       "slice": "W2",
       "acceptance": "Старые действующие речевые каноны и конкурирующие определения личности (включая «токсичный, саркастичный бот») удалены из Direct, Initiative, Summary, Factcheck, специализированных Writer, fallback, постпроцессоров, веток режима и старых PG overrides; legacy custom-промпты не сохранены активным слоем и ради них не добавлена специальная UI-миграция; до изменений сделан backup для аварийного отката",
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "candidate_commit": "6094a2cfa1660d1b949dcfe5ec085bc08f080de4",
+          "ref": "evidence/release-soul-25886/** (2.58.86, deployed eafbe2e7): Прод: withheld=11 ровно класса удержания, WARNING-поток, 0 ERROR; legacy не активен.",
+          "observation": "Прод: withheld=11 ровно класса удержания, WARNING-поток, 0 ERROR; legacy не активен.",
+          "artifact_path": "plans/features/soul-1/evidence/release-soul-25886/final-verification.txt",
+          "artifact_sha256": "ac3cb779e4d100cd43a884dd40e4f65b85f51e40e05478a2e43eb89754df0bd5",
+          "type": "production"
+        },
+        {
+          "candidate_commit": "6094a2cfa1660d1b949dcfe5ec085bc08f080de4",
+          "ref": "evidence/release-soul-25886/** (2.58.86, deployed eafbe2e7): Прод: withheld=11 ровно класса удержания, WARNING-поток, 0 ERROR; legacy не активен.",
+          "observation": "Прод: withheld=11 ровно класса удержания, WARNING-поток, 0 ERROR; legacy не активен.",
+          "artifact_path": "plans/features/soul-1/evidence/release-soul-25886/deploy-run.txt",
+          "artifact_sha256": "a7126f889a623c96602956d7f385e2cab05265868870bee813102546a1459e57",
+          "type": "production"
+        }
+      ]
     },
     {
       "source_id": "L00011",
@@ -628,14 +711,31 @@
       "source_text_sha256": "587bde051dc5d169e8923dbdf36ddfefeb3fc49179306e1d2548fca8e6b15b56",
       "source_excerpt": "3. Сохранить характер ядра: язвительность, цинизм, непристойный юмор, естественный мат, абсурдное мышление, развитие неожиданных сравнений и бытовых деталей, свободную живую русскоязычную речь. Не превращать персонажа в стерильного «дружелю",
       "disposition": "required",
-      "reason": "Характер ядра нельзя подтвердить артефактом: Core-документ в проде не создан (core_absent), версионированных редакций ядра нет",
+      "reason": "Характер ядра подтверждается артефактом: заводской документ Core = авторский текст SOUL-02 (CORE-DOC §1 — поабзацная сверка с источником, PASS по тексту/размеру/деривации и сохранению смысла и запретов), в проде `character.core` персистится штатным API (`provenance=owner_edit`, 2835 зн.) и отдаётся первым в сборке (`source=global`, `level=full`). Переанкор: было «нельзя подтвердить артефактом (core_absent), версионированных редакций нет».",
       "req_id": "SOUL-AMD.1.3",
       "slice": "W2",
       "acceptance": "Характер ядра сохранён: язвительность, цинизм, непристойный юмор, естественный мат, абсурдное мышление, неожиданные сравнения и бытовые детали, свободная живая русскоязычная речь; персонаж не превращён в стерильного «дружелюбного помощника», юмор не заменён бессмысленной агрессией, однотипными оскорблениями и «нет ты»; серьёзность, молчание и односложный ответ допустимы",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "6094a2cfa1660d1b949dcfe5ec085bc08f080de4",
+          "ref": "verify-after.txt: core_doc_create + core[after] (text sha12 040581a3b4b0)",
+          "observation": "Прод: документ создан из заводского текста (ровно factory-байты: sha12 040581a3b4b0), `legacy_persona_marker=false`, `withheld=False`.",
+          "artifact_path": "plans/features/soul-1/evidence/release-soul-25886/verify-after.txt",
+          "artifact_sha256": "ab96e78ff6584432930f11c347697eeaedbd0fabedc555753b21b95bcbbd25fc",
+          "type": "production"
+        },
+        {
+          "candidate_commit": "6094a2cfa1660d1b949dcfe5ec085bc08f080de4",
+          "ref": "CORE-DOC §1 (проверки: текст, размер, деривация, сохранение смысла/запретов — PASS)",
+          "observation": "Авторский текст сохранён как первоисточник; регенерации моделью нет.",
+          "artifact_path": "plans/features/soul-1/core-doc-report.md",
+          "artifact_sha256": "0e89551fc9a3302ee2b84bdb4419eda3fa8a5437e8c56e6a1868378815f4d9ba",
+          "type": "static"
+        }
+      ]
     },
     {
       "source_id": "L00012",
@@ -898,14 +998,39 @@
       "source_text_sha256": "62e70df16dded908cd179d10f14326a866b257bdb0327e681c213b5fc0e22a70",
       "source_excerpt": "2. Создать единый **Prompt Registry**, в котором любая речевая или поведенческая инструкция имеет стабильный ID, назначение, полный редактируемый текст/типизированное правило, factory revision, active revision, GLOBAL/CHAT scope, источник e",
       "disposition": "required",
-      "reason": "Prompt Registry не создан: композер читает существующие ключи (character.core/style.policy); нет стабильных ID, factory/active revision, GLOBAL/CHAT scope, истории, отката и списка потребителей",
+      "reason": "Prompt Registry поставлен W1: стабильные ID, purpose/family/scope/consumers, factory- и active-ревизии (factory == код-канон, скрытого дубля нет), история/откат, GLOBAL/CHAT-резолв, индикация Factory / Global Custom / Chat Override / Inherited, `plan/apply_factory_reset`, `reset_chat_override`, `plan/apply_speech_profile_reset`. Прод 2.58.86: «Все инструкции» — 89 блоков, `version=soul1-w3-1`, `factory_set=7422c0385f7d`, `withheld=11`. Ниточка честная: 5 прямых чтений в allow-list (SOUL-01.5) — не блокер. Переанкор: было «реестра нет».",
       "req_id": "SOUL-AMD.3.2",
       "slice": "W2",
       "acceptance": "Единый Prompt Registry: у каждой речевой/поведенческой инструкции стабильный ID, назначение, полный редактируемый текст или типизированное правило, factory revision, active revision, GLOBAL/CHAT scope, источник effective-значения, включённость/наследование, история, откат, потребители и место композиции; нет речевых инструкций, видимых лишь в Python или SQL",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "6094a2cfa1660d1b949dcfe5ec085bc08f080de4",
+          "ref": "w1-registry-report §3 (реестр и его операции) + §отпечатки",
+          "observation": "Реестр с ID/scope/consumers/factory+active ревизиями, историей/откатом, factory-reset и сбросом чат-оверрайда; заводское = код-канон, скрытого дубля нет.",
+          "artifact_path": "plans/features/soul-1/w1-registry-report.md",
+          "artifact_sha256": "67d42cc00119456a7c649a8684c3fa2a05b2a596ec43ff7deb0b68d71dbd0daa",
+          "type": "static"
+        },
+        {
+          "candidate_commit": "6094a2cfa1660d1b949dcfe5ec085bc08f080de4",
+          "ref": "verify-after.txt: registry + blocks (89/withheld 11) + sections",
+          "observation": "Прод: реестр отвечает на живом процессе (89 блоков, версия soul1-w3-1, factory_set), withheld=11 ровно класса удержания.",
+          "artifact_path": "plans/features/soul-1/evidence/release-soul-25886/verify-after.txt",
+          "artifact_sha256": "ab96e78ff6584432930f11c347697eeaedbd0fabedc555753b21b95bcbbd25fc",
+          "type": "production"
+        },
+        {
+          "candidate_commit": "6094a2cfa1660d1b949dcfe5ec085bc08f080de4",
+          "ref": "review-w6 RECHECK-W6 F3 VERIFIED (заводской сброс/diff через реальный API)",
+          "observation": "Factory reset и diff читают реальную форму ответа; откат ревизии работает.",
+          "artifact_path": "plans/features/soul-1/review-w6.md",
+          "artifact_sha256": "90c3d48950178a1143313720c6d61735de5736112229870e7bd4ff8e932058ed",
+          "type": "static"
+        }
+      ]
     },
     {
       "source_id": "L00046",
@@ -972,14 +1097,23 @@
       "source_text_sha256": "563f53c795d6087501ee4647940fc0f301463e2b65f7edc1ab2d149fd1201288",
       "source_excerpt": "6. Если активное значение не получено, отразить диагностируемую причину; не подменять его молча заводским текстом или устаревшим PG-значением. Смена модели/провайдера и fallback не меняют личность.",
       "disposition": "required",
-      "reason": "Для core/style причина видна (core_absent/skip_reason, без тихой подмены); реестровых активных значений и проверки «смена модели/провайдера/fallback не меняют личность» в поставке нет",
+      "reason": "Для core/style причина видна (core_absent/skip_reason, без тихой подмены); реестровых активных значений и проверки «смена модели/провайдера/fallback не меняют личность» в поставке нет Переанкор фактов: причина недоступного значения для core/style видна (`reason=core_absent/factory_default/owner_setting`, `skip_reason`), тихой подмены нет; реестровые active-значения поставлены (W1: factory/active ревизии, источник effective-значения). Прод 2.58.86: `active_revision=r1.040581a3b4b0`, `source=global`, `origin=owner_edit` — личность не подменяется заводским текстом. Открыто: проверка «смена модели/провайдера и fallback не меняют личность» на живых прогонах (не выполнялась). Строка остаётся PENDING.",
       "req_id": "SOUL-AMD.3.6",
       "slice": "W2",
       "acceptance": "При недоступном активном значении видна диагностируемая причина; молчаливой подмены заводским текстом или устаревшим PG-значением нет; смена модели/провайдера и fallback не меняют личность",
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "candidate_commit": "6094a2cfa1660d1b949dcfe5ec085bc08f080de4",
+          "ref": "evidence/release-soul-25886/** (2.58.86, deployed eafbe2e7): Прод: active_revision/source/origin документа Core; тихой подмены нет.",
+          "observation": "Прод: active_revision/source/origin документа Core; тихой подмены нет.",
+          "artifact_path": "plans/features/soul-1/evidence/release-soul-25886/verify-after.txt",
+          "artifact_sha256": "ab96e78ff6584432930f11c347697eeaedbd0fabedc555753b21b95bcbbd25fc",
+          "type": "production"
+        }
+      ]
     },
     {
       "source_id": "L00051",
@@ -1017,14 +1151,39 @@
       "source_text_sha256": "4a233648e8a1f21163153be95a1a2452e6131447a83a5953f3daa83e1979644f",
       "source_excerpt": "2. Для каждого блока — **«Вернуть заводской вариант»**: показать разницу, при необходимости запросить подтверждение, сохранить новую active-ревизию, применить без перезапуска после штатного обновления конфигурации, оставить предыдущие ревиз",
       "disposition": "required",
-      "reason": "«Вернуть заводской вариант» (diff, подтверждение, новая active-ревизия, hot apply) не поставлено — нет реестра ревизий",
+      "reason": "«Вернуть заводской вариант» поставлен: `plan_factory_reset` (diff + предпросмотр, ничего не пишет) и `apply_factory_reset` (заводской текст как НОВАЯ active-ревизия; предыдущая — в `character.prompt_history`, bounded 12), применение hot через ConfigCache; в MiniApp — кнопка «Вернуть заводской» (review-w6 RECHECK F3: реальный `/reset(apply=false)`, diff {−2/+0}). Переанкор: было «не поставлено — нет реестра ревизий».",
       "req_id": "SOUL-AMD.4.2",
       "slice": "W2",
       "acceptance": "Для каждого блока работает «Вернуть заводской вариант»: diff, при необходимости подтверждение, новая active-ревизия, применение без перезапуска после штатного обновления конфигурации, сохранение предыдущих ревизий для отката",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "6094a2cfa1660d1b949dcfe5ec085bc08f080de4",
+          "ref": "w1-registry-report §3: plan/apply_factory_reset + history (bounded 12) + hot apply",
+          "observation": "Diff и предпросмотр без записи; apply пишет заводской текст новой ревизией, предыдущая сохраняется для отката.",
+          "artifact_path": "plans/features/soul-1/w1-registry-report.md",
+          "artifact_sha256": "67d42cc00119456a7c649a8684c3fa2a05b2a596ec43ff7deb0b68d71dbd0daa",
+          "type": "static"
+        },
+        {
+          "candidate_commit": "6094a2cfa1660d1b949dcfe5ec085bc08f080de4",
+          "ref": "review-w6 RECHECK-W6: F3 VERIFIED (diff заводского сброса не пуст), live-тост и карточка блока",
+          "observation": "На реальном API заводской сброс отдаёт корректный diff; в UI работает кнопка и карточка.",
+          "artifact_path": "plans/features/soul-1/review-w6.md",
+          "artifact_sha256": "90c3d48950178a1143313720c6d61735de5736112229870e7bd4ff8e932058ed",
+          "type": "static"
+        },
+        {
+          "candidate_commit": "6094a2cfa1660d1b949dcfe5ec085bc08f080de4",
+          "ref": "verify-after.txt: core_doc_create (revision act:040581a3b4b0)",
+          "observation": "Прод: запись через штатный путь даёт ревизию, provenance и history-ключ.",
+          "artifact_path": "plans/features/soul-1/evidence/release-soul-25886/verify-after.txt",
+          "artifact_sha256": "ab96e78ff6584432930f11c347697eeaedbd0fabedc555753b21b95bcbbd25fc",
+          "type": "production"
+        }
+      ]
     },
     {
       "source_id": "L00055",
@@ -1032,14 +1191,31 @@
       "source_text_sha256": "68c1a47b20fcc5cb75d3fb433ac88ad154ceba2ac4c5c61a5a3fc5e1a5286262",
       "source_excerpt": "3. Отдельная операция **«Сбросить переопределение чата»** только возвращает наследование глобального значения. Это **не** заводской сброс. Глобальный сброс не удаляет локальные overrides. Отображать `Factory / Global Custom / Chat Override ",
       "disposition": "required",
-      "reason": "«Сбросить переопределение чата» и индикация Factory/Global Custom/Chat Override/Inherited не поставлены; есть только аксессоры и тесты изоляции",
+      "reason": "Поставлено: `reset_chat_override` снимает только per-chat override и НЕ пишет глобальный ключ (тест запрещает `chat_params.set_chat_params` при глобальном сбросе), индикация Factory / Global Custom / Chat Override / Inherited и фактический источник видны в реестре/UI; W6 round-trip подтверждает байт-изоляцию global/chat и возврат наследования. Переанкор: было «не поставлено, есть только аксессоры и тесты изоляции».",
       "req_id": "SOUL-AMD.4.3",
       "slice": "W2",
       "acceptance": "Отдельная операция «Сбросить переопределение чата» возвращает только наследование глобального значения (не заводской сброс); глобальный сброс не удаляет локальные overrides; отображается Factory / Global Custom / Chat Override / Inherited и фактический источник",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "6094a2cfa1660d1b949dcfe5ec085bc08f080de4",
+          "ref": "w1-registry-report §3: reset_chat_override ≠ заводской сброс; индикация источника",
+          "observation": "Глобальный сброс не удаляет локальные overrides; чат-сброс возвращает наследование.",
+          "artifact_path": "plans/features/soul-1/w1-registry-report.md",
+          "artifact_sha256": "67d42cc00119456a7c649a8684c3fa2a05b2a596ec43ff7deb0b68d71dbd0daa",
+          "type": "static"
+        },
+        {
+          "candidate_commit": "6094a2cfa1660d1b949dcfe5ec085bc08f080de4",
+          "ref": "review-w6: round-trip global→chat, сброс чата → наследование, пустая запись → 409",
+          "observation": "UI-путь подтверждён прогоном: чат-оверрайд снимается отдельной операцией.",
+          "artifact_path": "plans/features/soul-1/review-w6.md",
+          "artifact_sha256": "90c3d48950178a1143313720c6d61735de5736112229870e7bd4ff8e932058ed",
+          "type": "static"
+        }
+      ]
     },
     {
       "source_id": "L00056",
@@ -1047,14 +1223,23 @@
       "source_text_sha256": "03bb16144751bbca5f07d1905de9b143bf0fdeb92a34ac553f1d73d82e2db280",
       "source_excerpt": "4. Опциональный сброс всего **речевого профиля** — только с предпросмотром затронутых блоков. Не трогает память, SelfModel, биографию, отношения, Experience, данные, API-ключи и технические параметры.",
       "disposition": "required",
-      "reason": "Сброс всего речевого профиля с предпросмотром затронутых блоков не поставлен",
+      "reason": "Поставлено: `plan/apply_speech_profile_reset` — предпросмотр затронутых блоков + сброс речевого профиля; данные бота (память, биография, отношения, Experience, ключи, технические параметры) не затрагиваются — операция работает только с речевыми ключами реестра. Переанкор: было «не поставлено».",
       "req_id": "SOUL-AMD.4.4",
       "slice": "W2",
       "acceptance": "Опциональный сброс всего речевого профиля — только с предпросмотром затронутых блоков; память, SelfModel, биография, отношения, Experience, данные, API-ключи и технические параметры не затрагиваются",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "6094a2cfa1660d1b949dcfe5ec085bc08f080de4",
+          "ref": "w1-registry-report §3: plan/apply_speech_profile_reset (предпросмотр + сброс, данные не трогает)",
+          "observation": "Операция сброса речевого профиля существует вместе с предпросмотром; домен ограничен речевыми ключами.",
+          "artifact_path": "plans/features/soul-1/w1-registry-report.md",
+          "artifact_sha256": "67d42cc00119456a7c649a8684c3fa2a05b2a596ec43ff7deb0b68d71dbd0daa",
+          "type": "static"
+        }
+      ]
     },
     {
       "source_id": "L00057",
@@ -1062,14 +1247,31 @@
       "source_text_sha256": "a20a90284d4d0c3c6d9026428685c5983d5c1f07e8d856c27e645422d7d2a91d",
       "source_excerpt": "5. При обновлении приложения новую заводскую версию можно предложить, но нельзя автоматически перезаписывать пользовательские правки или регенерировать исходный Core моделью.",
       "disposition": "required",
-      "reason": "Предложение новой заводской версии без перезаписи правок и без регенерации Core моделью не поставлено (нет версий/реестра)",
+      "reason": "Поставлено: заводские ревизии + история/откат; правки владельца не перезаписываются автоматически (apply_factory_reset пишет заводской текст только как новую ревизию по явному действию; в проде сохраняется `provenance=owner_edit`), исходный Core моделью не регенерируется (компактная редакция — ручное сжатие, CORE-DOC §2). Переанкор: было «не поставлено (нет версий/реестра)».",
       "req_id": "SOUL-AMD.4.5",
       "slice": "W2",
       "acceptance": "При обновлении приложения новая заводская версия может быть предложена, но пользовательские правки не перезаписываются автоматически, исходный Core не регенерируется моделью",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "6094a2cfa1660d1b949dcfe5ec085bc08f080de4",
+          "ref": "CORE-DOC §2: компактная редакция НЕ генерируется в рантайме (нет LLM); выбор детерминирован",
+          "observation": "Исходный Core не регенерируется моделью; предложение новой заводской версии — отдельная ревизия.",
+          "artifact_path": "plans/features/soul-1/core-doc-report.md",
+          "artifact_sha256": "0e89551fc9a3302ee2b84bdb4419eda3fa8a5437e8c56e6a1868378815f4d9ba",
+          "type": "static"
+        },
+        {
+          "candidate_commit": "6094a2cfa1660d1b949dcfe5ec085bc08f080de4",
+          "ref": "w1-registry-report §3 (history/rollback) + провенанс owner_edit",
+          "observation": "Правки владельца живут как ревизии с провенансом; история bounded 12, откат доступен.",
+          "artifact_path": "plans/features/soul-1/w1-registry-report.md",
+          "artifact_sha256": "67d42cc00119456a7c649a8684c3fa2a05b2a596ec43ff7deb0b68d71dbd0daa",
+          "type": "static"
+        }
+      ]
     },
     {
       "source_id": "L00058",
@@ -1077,14 +1279,31 @@
       "source_text_sha256": "9dee5dd7b9961f7e022f5e04a64282c13392f02f02d0c9ae548ab5c87d371ab4",
       "source_excerpt": "6. Старые речевые каноны остаются только в аварийной резервной копии, **не** в действующем runtime или пользовательском редакторе legacy.",
       "disposition": "required",
-      "reason": "Часть «каноны только в аварийной копии» подтверждена (backup до правок; известные каноны не доходят до effective-слоя ни на одном реестровом пути; удержание неизвестных). Открыто: (а) 4 неудерживаемых summary-ключа (l2_writer c913a4b4c53d, l1_clusterizer, editor, cover_style) и ветки режимов остаются действующим слоем до живого снимка (review-w1 RECHECK, не-extension); (б) legacy в пользовательском редакторе снимается только перегенерацией каталога — W6; (в) код-фраза CHAT_PERSONA_PHRASE (smartmodule_phrases; handlers/direct_chat.py:253) — замена W3/W10. Закрывается живым снимком + решением JB-3 (write-pass) + W6.",
+      "reason": "Часть «каноны только в аварийной копии» подтверждена (backup до правок; известные каноны не доходят до effective-слоя ни на одном реестровом пути; удержание неизвестных). Открыто: (а) 4 неудерживаемых summary-ключа (l2_writer c913a4b4c53d, l1_clusterizer, editor, cover_style) и ветки режимов остаются действующим слоем до живого снимка (review-w1 RECHECK, не-extension); (б) legacy в пользовательском редакторе снимается только перегенерацией каталога — W6; (в) код-фраза CHAT_PERSONA_PHRASE (smartmodule_phrases; handlers/direct_chat.py:253) — замена W3/W10. Закрывается живым снимком + решением JB-3 (write-pass) + W6. Постдеплой 2.58.86: удержание работает на живом процессе (`withheld=11`, поток WARNING, 0 ERROR); F5-капчура: `personas` — 2 строки с пустыми name/biography/system_prompt_overrides, маркеров старой личности 0; `persona_traits` — маркер-скан покрыл первые 10 из 50 строк (`omitted=40 (no markers in first 10)`), т.е. закрытие по traits ЧАСТИЧНОЕ (досчёт 40 строк — окно 2.58.87, ревью §8.3). Остаётся: удаление канонов (JB-3) и полная перегенерация каталога.",
       "req_id": "SOUL-AMD.4.6",
       "slice": "W1",
       "acceptance": "Старые речевые каноны остаются только в аварийной резервной копии; в действующем runtime и в пользовательском редакторе legacy их нет",
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "candidate_commit": "6094a2cfa1660d1b949dcfe5ec085bc08f080de4",
+          "ref": "evidence/release-soul-25886/** (2.58.86, deployed eafbe2e7): Капчура прода: personas/traits (маркер-скан 10 из 50 строк — честная граница) + backup sha256_16 5cc7de90e9132d05.",
+          "observation": "Капчура прода: personas/traits (маркер-скан 10 из 50 строк — честная граница) + backup sha256_16 5cc7de90e9132d05.",
+          "artifact_path": "plans/features/soul-1/evidence/release-soul-25886/capture-before.txt",
+          "artifact_sha256": "a4c4ce4cd77e5c2e28eeb6818c4d7177a7156e156f859ddfc81117bf4dcf558e",
+          "type": "production"
+        },
+        {
+          "candidate_commit": "6094a2cfa1660d1b949dcfe5ec085bc08f080de4",
+          "ref": "evidence/release-soul-25886/** (2.58.86, deployed eafbe2e7): Капчура прода: personas/traits (маркер-скан 10 из 50 строк — честная граница) + backup sha256_16 5cc7de90e9132d05.",
+          "observation": "Капчура прода: personas/traits (маркер-скан 10 из 50 строк — честная граница) + backup sha256_16 5cc7de90e9132d05.",
+          "artifact_path": "plans/features/soul-1/evidence/release-soul-25886/final-verification.txt",
+          "artifact_sha256": "ac3cb779e4d100cd43a884dd40e4f65b85f51e40e05478a2e43eb89754df0bd5",
+          "type": "production"
+        }
+      ]
     },
     {
       "source_id": "L00060",
@@ -1561,14 +1780,31 @@
       "source_text_sha256": "17c95f02e2fec4e677bf8df7411f8372d09f32961504abc924699b8c09b500d4",
       "source_excerpt": "2. До удаления legacy сделать backup и зафиксировать текущую конфигурацию. Удалить старый речевой канон из runtime; миграция идемпотентна, с проверяемым source→registry mapping и обратимым деплоем. Пользовательские биографии, знания, GraphR",
       "disposition": "required",
-      "reason": "Backup и фиксация конфигурации ✓ (до правок); идемпотентная обратимая миграция и source→registry mapping ✓ (тесты/ревизии/history). Открыто: «канон удалён из runtime» — JB-3 write-pass на проде не выполнялся, 4 неудерживаемых summary-кастома не верифицированы (PG down), обратимость деплоя не проверена (деплоя ещё не было). Закрывается живым снимком + решением JB-3 + канарейкой (ср. AMD.1.2/8.4 — W2).",
+      "reason": "Backup и фиксация конфигурации ✓ (до правок); идемпотентная обратимая миграция и source→registry mapping ✓ (тесты/ревизии/history). Открыто: «канон удалён из runtime» — JB-3 write-pass на проде не выполнялся, 4 неудерживаемых summary-кастома не верифицированы (PG down), обратимость деплоя не проверена (деплоя ещё не было). Закрывается живым снимком + решением JB-3 + канарейкой (ср. AMD.1.2/8.4 — W2). Обновление после релиза 2.58.86: (а) backup и фиксация конфигурации подтверждены живым прогоном — `./soul86_pg_backup_20261017T215121Z.json`, 117227 B, sha256_16 `5cc7de90e9132d05` (до правок); (б) **обратимость деплоя подтверждена практикой**: первый прогон 2.58.86 упёрся в health-окно и автоматически откатился на базу 2.58.85, прод был жив, следов включения нет (`first-attempt-health-miss.md`); (в) удержание legacy подтверждено на проде (`withheld=11`, WARNING-поток). Открыто: «старый канон удалён из runtime» — JB-3 write-pass не выполнялся (директива 18.10: legacy — только backup); 4 неудерживаемых summary-кастома; остаток F5-скана 40/50 строк. Строка остаётся PENDING.",
       "req_id": "SOUL-AMD.7.2",
       "slice": "W1",
       "acceptance": "До удаления legacy сделан backup и зафиксирована конфигурация; старый речевой канон удалён из runtime; миграция идемпотентна, с проверяемым source→registry mapping и обратимым деплоем; биографии, знания, GraphRAG, Experience, SelfModel, чаты, ключи и бюджеты сохранены",
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "candidate_commit": "6094a2cfa1660d1b949dcfe5ec085bc08f080de4",
+          "ref": "evidence/release-soul-25886/** (2.58.86, deployed eafbe2e7): Авто-откат первого прогона 2.58.86 подтвердил обратимость; backup до правок (117227 B, sha256_16 5cc7de90e9132d05).",
+          "observation": "Авто-откат первого прогона 2.58.86 подтвердил обратимость; backup до правок (117227 B, sha256_16 5cc7de90e9132d05).",
+          "artifact_path": "plans/features/soul-1/evidence/release-soul-25886/first-attempt-health-miss.md",
+          "artifact_sha256": "881fc79bec069a1293e99eede6a6b7615ef6fe9daeef476bdac675d984d99147",
+          "type": "production"
+        },
+        {
+          "candidate_commit": "6094a2cfa1660d1b949dcfe5ec085bc08f080de4",
+          "ref": "evidence/release-soul-25886/** (2.58.86, deployed eafbe2e7): Авто-откат первого прогона 2.58.86 подтвердил обратимость; backup до правок (117227 B, sha256_16 5cc7de90e9132d05).",
+          "observation": "Авто-откат первого прогона 2.58.86 подтвердил обратимость; backup до правок (117227 B, sha256_16 5cc7de90e9132d05).",
+          "artifact_path": "plans/features/soul-1/evidence/release-soul-25886/capture-before.txt",
+          "artifact_sha256": "a4c4ce4cd77e5c2e28eeb6818c4d7177a7156e156f859ddfc81117bf4dcf558e",
+          "type": "production"
+        }
+      ]
     },
     {
       "source_id": "L00114",
@@ -1651,7 +1887,7 @@
       "source_text_sha256": "6a49f696bb3584b88c3c043ea61d073a0fa7f0d260104eb45f23791ffc32f83d",
       "source_excerpt": "- Редактирование Core и Speech Style Policy через MiniApp действительно меняет следующую генерацию во всех соответствующих путях. `one_word` и `micro` остаются различны. Fallback не возвращает старого персонажа.",
       "disposition": "required",
-      "reason": "Живая генерация не проверяема до канарейки (флаг ON — решение владельца): ревьюер объявил строку READY_FOR_LIVE («за канарейкой»), не VERIFIED. Запись — единым путём (доказано), фактическое изменение следующей генерации во всех путях — post-canary.",
+      "reason": "Живая генерация не проверяема до канарейки (флаг ON — решение владельца): ревьюер объявил строку READY_FOR_LIVE («за канарейкой»), не VERIFIED. Запись — единым путём (доказано), фактическое изменение следующей генерации во всех путях — post-canary. deferred → 2.58.87 (await-fix `68cd05b2`): глобальное сохранение `style.policy` в 2.58.86 — молчаливый no-op (`services/style_policy.py:2275` без `await`, ревью REV-REL-SOUL §5; подтверждено прод-фактом `style.policy` отсутствует / `global_present=false`). Чат-часть сохраняется штатно. Строка НЕ закрывается до мини-релиза 2.58.87. Классификация READY_FOR_LIVE после релиза 2.58.86: агентская часть релизного прогона подтверждена (evidence ниже), остаток — owner-сценарии из `postdeploy-observations.md` (чек-лист; строки НЕ закрываются до живого подтверждения).",
       "req_id": "SOUL-AMD.8.3",
       "slice": "W6",
       "acceptance": "Редактирование Core и Speech Style Policy через MiniApp действительно меняет следующую генерацию во всех соответствующих путях; `one_word` и `micro` остаются различны; fallback не возвращает старого персонажа",
@@ -1676,6 +1912,22 @@
           "ref": "plans/features/soul-1/evidence/w6/requirements-coverage.md (SOUL-AMD.8.3) + review-w3.md",
           "observation": "one_word/micro остаются различны и fallback не возвращает старого персонажа — закреплено W1/W2/W3 сьютами (OFF-паритет 13/13); ревьюер W6 повторил периметр 3786 passed/0 failed на кандидате",
           "type": "test"
+        },
+        {
+          "candidate_commit": "6094a2cfa1660d1b949dcfe5ec085bc08f080de4",
+          "ref": "release-2.58.86-report.md + evidence/release-soul-25886/**; deferred → 2.58.87 (await-fix `68cd05b2`): глобальное сохранение `style.policy` …",
+          "observation": "deferred → 2.58.87 (await-fix `68cd05b2`): глобальное сохранение `style.policy` в 2.58.86 — молчаливый no-op (`services/style_policy.py:2275` без `await`, ревью REV-REL-SOUL §5; подтверждено прод-фактом `style.policy` отсутствует / `global_present=false`). Чат-часть сохраняется штатно. Строка НЕ закрывается до мини-релиза 2.58.87.",
+          "artifact_path": "plans/features/soul-1/evidence/release-soul-25886/verify-after.txt",
+          "artifact_sha256": "ab96e78ff6584432930f11c347697eeaedbd0fabedc555753b21b95bcbbd25fc",
+          "type": "production"
+        },
+        {
+          "candidate_commit": "6094a2cfa1660d1b949dcfe5ec085bc08f080de4",
+          "ref": "postdeploy-observations.md — классификация 29 READY_FOR_LIVE (агентская часть / owner-сценарии)",
+          "observation": "Owner-чек-лист строки зафиксирован; ничего не объявлено VERIFIED релизным прогоном.",
+          "artifact_path": "plans/features/soul-1/evidence/release-soul-25886/postdeploy-observations.md",
+          "artifact_sha256": "482cbe9868df3d9336c2895cf18a82192926ee2d7e3a17d0cbcd6ee3b0bb78d8",
+          "type": "static"
         }
       ]
     },
@@ -1685,14 +1937,23 @@
       "source_text_sha256": "586de35a26640674a8ef2a8f1cd308dba14e66442ad0553144f6ea2737d6a1e1",
       "source_excerpt": "- Для каждого промпта работают Factory Default, diff, сохранение, история, откат и chat inheritance; заводской сброс не очищает данные бота. Старые PG речевые overrides не оказываются в effective prompt.",
       "disposition": "required",
-      "reason": "HARD RULE: не VERIFIED — при ON старые PG-речевые overrides попадают в effective prompt через base_prompt (слой channel_contract, review-w2 §2); factory-операции, история и откат отсутствуют",
+      "reason": "HARD RULE: не VERIFIED — при ON старые PG-речевые overrides попадают в effective prompt через base_prompt (слой channel_contract, review-w2 §2); factory-операции, история и откат отсутствуют Постдеплой 2.58.86: factory-операции, история и откат поставлены (W1/W6: `plan/apply_factory_reset`, `character.prompt_history`, `reset_chat_override`); старые PG-речевые overrides на проде удержаны (`withheld=11`, поток WARNING, 0 ERROR) и не активны в effective. HARD RULE сохраняется до удаления legacy (AMD.1.2/7.2, JB-3). Строка остаётся PENDING.",
       "req_id": "SOUL-AMD.8.4",
       "slice": "W2",
       "acceptance": "Для каждого промпта работают Factory Default, diff, сохранение, история, откат и chat inheritance; заводской сброс не очищает данные бота; старые PG речевые overrides не оказываются в effective prompt",
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "candidate_commit": "6094a2cfa1660d1b949dcfe5ec085bc08f080de4",
+          "ref": "evidence/release-soul-25886/** (2.58.86, deployed eafbe2e7): Прод: factory-операции/история/откат поставлены; старые overrides удержаны и не в effective.",
+          "observation": "Прод: factory-операции/история/откат поставлены; старые overrides удержаны и не в effective.",
+          "artifact_path": "plans/features/soul-1/evidence/release-soul-25886/final-verification.txt",
+          "artifact_sha256": "ac3cb779e4d100cd43a884dd40e4f65b85f51e40e05478a2e43eb89754df0bd5",
+          "type": "production"
+        }
+      ]
     },
     {
       "source_id": "L00125",
@@ -1728,7 +1989,7 @@
       "source_text_sha256": "d7d2535f77c289117bbc6c3aedebdc2dc26c036ea0a0deff88f57d1c37ec5853",
       "source_excerpt": "- «Бот, нарисуй», «бот, надо сделать мем», «нужна инфографика», «нарисуй это как комикс» → распознано намерение, доступный инструмент вызывается **ровно один раз**, подтверждается результат и доставка.",
       "disposition": "required",
-      "reason": "Мок-часть подтверждена на кандидате c8cf77a5 (review-w10 ledger: 8.6 — намерение распознано, ровно 1 вызов, delivery=\"sent\" в L2-контенте; recheck — 12 проломов → 0); живая половина (реальный прогон/отправка/провайдер) требует включённого контура — канарейка/postdeploy; классификация по образцу SOUL-AMD.8.3 / SOUL-17.4 / SOUL-10.P5 / SOUL-11.4.",
+      "reason": "Мок-часть подтверждена на кандидате c8cf77a5 (review-w10 ledger: 8.6 — намерение распознано, ровно 1 вызов, delivery=\"sent\" в L2-контенте; recheck — 12 проломов → 0); живая половина (реальный прогон/отправка/провайдер) требует включённого контура — канарейка/postdeploy; классификация по образцу SOUL-AMD.8.3 / SOUL-17.4 / SOUL-10.P5 / SOUL-11.4. Релиз 2.58.86: оси `humor_craft_enabled` / `humor_feedback_enabled` ON, журнал 0 ERROR/CRITICAL, `user_version=36`. Живые сценарии (один платный вызов на намерение, честные тексты отказов, поиск/фактчек/видео) — owner-сценарий. Классификация READY_FOR_LIVE после релиза 2.58.86: агентская часть релизного прогона подтверждена (evidence ниже), остаток — owner-сценарии из `postdeploy-observations.md` (чек-лист; строки НЕ закрываются до живого подтверждения).",
       "req_id": "SOUL-AMD.8.6",
       "slice": "W10",
       "acceptance": "«Бот, нарисуй», «бот, надо сделать мем», «нужна инфографика», «нарисуй это как комикс» → распознано намерение, доступный инструмент вызывается ровно один раз, подтверждены результат и доставка (живой прогон, не мок)",
@@ -1741,6 +2002,22 @@
           "ref": "plans/features/soul-1/review-w10.md — ledger 8.6 + recheck (1 генерация; блок status=\"ok\" delivery=\"sent\")",
           "observation": "Мок: «Бот, нарисуй…» — распознано намерение, доступный инструмент вызван ровно один раз, результат и доставка подтверждены в контенте ответа.",
           "type": "test"
+        },
+        {
+          "candidate_commit": "6094a2cfa1660d1b949dcfe5ec085bc08f080de4",
+          "ref": "release-2.58.86-report.md + evidence/release-soul-25886/**; Релиз 2.58.86: оси `humor_craft_enabled` / `humor_feedback_enabled` ON, журнал 0…",
+          "observation": "Релиз 2.58.86: оси `humor_craft_enabled` / `humor_feedback_enabled` ON, журнал 0 ERROR/CRITICAL, `user_version=36`. Живые сценарии (один платный вызов на намерение, честные тексты отказов, поиск/фактчек/видео) — owner-сценарий.",
+          "artifact_path": "plans/features/soul-1/evidence/release-soul-25886/final-verification.txt",
+          "artifact_sha256": "ac3cb779e4d100cd43a884dd40e4f65b85f51e40e05478a2e43eb89754df0bd5",
+          "type": "production"
+        },
+        {
+          "candidate_commit": "6094a2cfa1660d1b949dcfe5ec085bc08f080de4",
+          "ref": "postdeploy-observations.md — классификация 29 READY_FOR_LIVE (агентская часть / owner-сценарии)",
+          "observation": "Owner-чек-лист строки зафиксирован; ничего не объявлено VERIFIED релизным прогоном.",
+          "artifact_path": "plans/features/soul-1/evidence/release-soul-25886/postdeploy-observations.md",
+          "artifact_sha256": "482cbe9868df3d9336c2895cf18a82192926ee2d7e3a17d0cbcd6ee3b0bb78d8",
+          "type": "static"
         }
       ]
     },
@@ -1750,7 +2027,7 @@
       "source_text_sha256": "8b7ea3c273a1550ea8eb0f2d934a1033df17c7e8a4d88946c0b72d2d70088448",
       "source_excerpt": "- «Придумай текст/концепцию мема, не рисуй» → генерация **не вызывается**. Неоднозначное поручение → одно уместное уточнение.",
       "disposition": "required",
-      "reason": "Мок-часть подтверждена на кандидате c8cf77a5 (review-w10 ledger 8.7: «придумай концепт мема, рисовать не надо» → 0 генераций; «Бот, сделай это» → ровно 1 вопрос message.image_request.clarify, 0 LLM); живая половина (реальный прогон/отправка/провайдер) требует включённого контура — канарейка/postdeploy; классификация по образцу SOUL-AMD.8.3 / SOUL-17.4 / SOUL-10.P5 / SOUL-11.4.",
+      "reason": "Мок-часть подтверждена на кандидате c8cf77a5 (review-w10 ledger 8.7: «придумай концепт мема, рисовать не надо» → 0 генераций; «Бот, сделай это» → ровно 1 вопрос message.image_request.clarify, 0 LLM); живая половина (реальный прогон/отправка/провайдер) требует включённого контура — канарейка/postdeploy; классификация по образцу SOUL-AMD.8.3 / SOUL-17.4 / SOUL-10.P5 / SOUL-11.4. Релиз 2.58.86: оси `humor_craft_enabled` / `humor_feedback_enabled` ON, журнал 0 ERROR/CRITICAL, `user_version=36`. Живые сценарии (один платный вызов на намерение, честные тексты отказов, поиск/фактчек/видео) — owner-сценарий. Классификация READY_FOR_LIVE после релиза 2.58.86: агентская часть релизного прогона подтверждена (evidence ниже), остаток — owner-сценарии из `postdeploy-observations.md` (чек-лист; строки НЕ закрываются до живого подтверждения).",
       "req_id": "SOUL-AMD.8.7",
       "slice": "W10",
       "acceptance": "«Придумай текст/концепцию мема, не рисуй» → генерация не вызывается; неоднозначное поручение → одно уместное уточнение",
@@ -1763,6 +2040,22 @@
           "ref": "plans/features/soul-1/review-w10.md — ledger 8.7",
           "observation": "Мок: поручение не путается с просьбой придумать идею/сценарий; неоднозначное поручение → одно уместное уточнение без LLM.",
           "type": "test"
+        },
+        {
+          "candidate_commit": "6094a2cfa1660d1b949dcfe5ec085bc08f080de4",
+          "ref": "release-2.58.86-report.md + evidence/release-soul-25886/**; Релиз 2.58.86: оси `humor_craft_enabled` / `humor_feedback_enabled` ON, журнал 0…",
+          "observation": "Релиз 2.58.86: оси `humor_craft_enabled` / `humor_feedback_enabled` ON, журнал 0 ERROR/CRITICAL, `user_version=36`. Живые сценарии (один платный вызов на намерение, честные тексты отказов, поиск/фактчек/видео) — owner-сценарий.",
+          "artifact_path": "plans/features/soul-1/evidence/release-soul-25886/final-verification.txt",
+          "artifact_sha256": "ac3cb779e4d100cd43a884dd40e4f65b85f51e40e05478a2e43eb89754df0bd5",
+          "type": "production"
+        },
+        {
+          "candidate_commit": "6094a2cfa1660d1b949dcfe5ec085bc08f080de4",
+          "ref": "postdeploy-observations.md — классификация 29 READY_FOR_LIVE (агентская часть / owner-сценарии)",
+          "observation": "Owner-чек-лист строки зафиксирован; ничего не объявлено VERIFIED релизным прогоном.",
+          "artifact_path": "plans/features/soul-1/evidence/release-soul-25886/postdeploy-observations.md",
+          "artifact_sha256": "482cbe9868df3d9336c2895cf18a82192926ee2d7e3a17d0cbcd6ee3b0bb78d8",
+          "type": "static"
         }
       ]
     },
@@ -1772,7 +2065,7 @@
       "source_text_sha256": "eab6d8a24b2fbaac08f1d55fe1543df5d36e1c5a5abf039f7c60d522f3e92849",
       "source_excerpt": "- `image_generation` OFF, нет API-ключа, провайдер временно не отвечает, квота исчерпана → разные, правдивые объяснения в голосе бота, без «я вообще не умею рисовать».",
       "disposition": "required",
-      "reason": "Мок-часть подтверждена на кандидате c8cf77a5 (review-w10 ledger 8.8: 4 кейса → 4 текста message.image_failure.{disabled,not_configured,temporarily_unavailable,quota_exhausted}, 0 генераций/LLM); живая половина (реальный прогон/отправка/провайдер) требует включённого контура — канарейка/postdeploy; классификация по образцу SOUL-AMD.8.3 / SOUL-17.4 / SOUL-10.P5 / SOUL-11.4.",
+      "reason": "Мок-часть подтверждена на кандидате c8cf77a5 (review-w10 ledger 8.8: 4 кейса → 4 текста message.image_failure.{disabled,not_configured,temporarily_unavailable,quota_exhausted}, 0 генераций/LLM); живая половина (реальный прогон/отправка/провайдер) требует включённого контура — канарейка/postdeploy; классификация по образцу SOUL-AMD.8.3 / SOUL-17.4 / SOUL-10.P5 / SOUL-11.4. Релиз 2.58.86: оси `humor_craft_enabled` / `humor_feedback_enabled` ON, журнал 0 ERROR/CRITICAL, `user_version=36`. Живые сценарии (один платный вызов на намерение, честные тексты отказов, поиск/фактчек/видео) — owner-сценарий. Классификация READY_FOR_LIVE после релиза 2.58.86: агентская часть релизного прогона подтверждена (evidence ниже), остаток — owner-сценарии из `postdeploy-observations.md` (чек-лист; строки НЕ закрываются до живого подтверждения).",
       "req_id": "SOUL-AMD.8.8",
       "slice": "W10",
       "acceptance": "`image_generation` OFF, нет API-ключа, провайдер временно не отвечает, квота исчерпана → разные правдивые объяснения в голосе бота, без «я вообще не умею рисовать»",
@@ -1785,6 +2078,22 @@
           "ref": "plans/features/soul-1/review-w10.md — ledger 8.8 + «Мой матрикс отказов: 4/4 текста = зарегистрированные шаблоны»",
           "observation": "Мок: разные правдивые объяснения по реальному коду отказа, без «я вообще не умею рисовать».",
           "type": "test"
+        },
+        {
+          "candidate_commit": "6094a2cfa1660d1b949dcfe5ec085bc08f080de4",
+          "ref": "release-2.58.86-report.md + evidence/release-soul-25886/**; Релиз 2.58.86: оси `humor_craft_enabled` / `humor_feedback_enabled` ON, журнал 0…",
+          "observation": "Релиз 2.58.86: оси `humor_craft_enabled` / `humor_feedback_enabled` ON, журнал 0 ERROR/CRITICAL, `user_version=36`. Живые сценарии (один платный вызов на намерение, честные тексты отказов, поиск/фактчек/видео) — owner-сценарий.",
+          "artifact_path": "plans/features/soul-1/evidence/release-soul-25886/final-verification.txt",
+          "artifact_sha256": "ac3cb779e4d100cd43a884dd40e4f65b85f51e40e05478a2e43eb89754df0bd5",
+          "type": "production"
+        },
+        {
+          "candidate_commit": "6094a2cfa1660d1b949dcfe5ec085bc08f080de4",
+          "ref": "postdeploy-observations.md — классификация 29 READY_FOR_LIVE (агентская часть / owner-сценарии)",
+          "observation": "Owner-чек-лист строки зафиксирован; ничего не объявлено VERIFIED релизным прогоном.",
+          "artifact_path": "plans/features/soul-1/evidence/release-soul-25886/postdeploy-observations.md",
+          "artifact_sha256": "482cbe9868df3d9336c2895cf18a82192926ee2d7e3a17d0cbcd6ee3b0bb78d8",
+          "type": "static"
         }
       ]
     },
@@ -1794,7 +2103,7 @@
       "source_text_sha256": "41084d782a47768e0b6d170c1c9fe0e577057731ded8196b77bc48c29c40d2ba",
       "source_excerpt": "- Успешная генерация + ошибка Telegram-send → нельзя сообщить «отправил». Переисполнение, retry и совпадение pre-gate/tool-loop не порождают дубль или двойное списание.",
       "disposition": "required",
-      "reason": "",
+      "reason": "Релиз 2.58.86: оси `humor_craft_enabled` / `humor_feedback_enabled` ON, журнал 0 ERROR/CRITICAL, `user_version=36`. Живые сценарии (один платный вызов на намерение, честные тексты отказов, поиск/фактчек/видео) — owner-сценарий. Классификация READY_FOR_LIVE после релиза 2.58.86: агентская часть релизного прогона подтверждена (evidence ниже), остаток — owner-сценарии из `postdeploy-observations.md` (чек-лист; строки НЕ закрываются до живого подтверждения).",
       "req_id": "SOUL-AMD.8.9",
       "slice": "W10",
       "acceptance": "Успешная генерация + ошибка Telegram-send → нельзя сообщить «отправил»; переисполнение, retry и совпадение pre-gate/tool-loop не порождают дубль или двойное списание",
@@ -1807,6 +2116,22 @@
           "ref": "plans/features/soul-1/review-w10.md — ledger 8.9 (send_failed → last_result=delivery_failed, «отправил» не заявлено; already_handled → 0 вызовов; replay delivery=\"already\" → 0 gen/0 send; 1 commit на интент) + recheck F5 (record_outcome(ok=True, code=\"already\") не снимает транзиент и не объявляет успех; остаток — payload-строка tool_router.py:2991 «сгенерировано и отправлено» на replay, non-blocking)",
           "observation": "Мок-прогон: успешная генерация + ошибка Telegram-send не заявляет «отправил»; переисполнение/retry/replay не порождают дубль или двойное списание. Живой кейс реальной ошибки доставки — postdeploy (live_when=postdeploy; READY_FOR_LIVE по review-w10).",
           "type": "test"
+        },
+        {
+          "candidate_commit": "6094a2cfa1660d1b949dcfe5ec085bc08f080de4",
+          "ref": "release-2.58.86-report.md + evidence/release-soul-25886/**; Релиз 2.58.86: оси `humor_craft_enabled` / `humor_feedback_enabled` ON, журнал 0…",
+          "observation": "Релиз 2.58.86: оси `humor_craft_enabled` / `humor_feedback_enabled` ON, журнал 0 ERROR/CRITICAL, `user_version=36`. Живые сценарии (один платный вызов на намерение, честные тексты отказов, поиск/фактчек/видео) — owner-сценарий.",
+          "artifact_path": "plans/features/soul-1/evidence/release-soul-25886/final-verification.txt",
+          "artifact_sha256": "ac3cb779e4d100cd43a884dd40e4f65b85f51e40e05478a2e43eb89754df0bd5",
+          "type": "production"
+        },
+        {
+          "candidate_commit": "6094a2cfa1660d1b949dcfe5ec085bc08f080de4",
+          "ref": "postdeploy-observations.md — классификация 29 READY_FOR_LIVE (агентская часть / owner-сценарии)",
+          "observation": "Owner-чек-лист строки зафиксирован; ничего не объявлено VERIFIED релизным прогоном.",
+          "artifact_path": "plans/features/soul-1/evidence/release-soul-25886/postdeploy-observations.md",
+          "artifact_sha256": "482cbe9868df3d9336c2895cf18a82192926ee2d7e3a17d0cbcd6ee3b0bb78d8",
+          "type": "static"
         }
       ]
     },
@@ -1816,7 +2141,7 @@
       "source_text_sha256": "ae8461f71f609984488e86eb7184fb99e44ec65947ff52ab88fb8665cee56b35",
       "source_excerpt": "- Включение/выключение модуля, per-chat override или смена провайдера отражаются в L1 capabilities и UI; бот не утверждает способность, которую нельзя использовать в данном scope.",
       "disposition": "required",
-      "reason": "Мок-часть подтверждена на кандидате c8cf77a5 (review-w10 ledger 8.10: статусы следуют за модулем/override/провайдером; capability_view — runtime-данные; recheck F4 — инвалидация без ожидания TTL); живая половина (реальный прогон/отправка/провайдер) требует включённого контура — канарейка/postdeploy; классификация по образцу SOUL-AMD.8.3 / SOUL-17.4 / SOUL-10.P5 / SOUL-11.4.",
+      "reason": "Мок-часть подтверждена на кандидате c8cf77a5 (review-w10 ledger 8.10: статусы следуют за модулем/override/провайдером; capability_view — runtime-данные; recheck F4 — инвалидация без ожидания TTL); живая половина (реальный прогон/отправка/провайдер) требует включённого контура — канарейка/postdeploy; классификация по образцу SOUL-AMD.8.3 / SOUL-17.4 / SOUL-10.P5 / SOUL-11.4. Релиз 2.58.86 (агентская часть подтверждена): capability-витрина отвечает на живом процессе, gates ON, 0 ERROR; живой прогон/смена провайдера — owner-сценарий. Классификация READY_FOR_LIVE после релиза 2.58.86: агентская часть релизного прогона подтверждена (evidence ниже), остаток — owner-сценарии из `postdeploy-observations.md` (чек-лист; строки НЕ закрываются до живого подтверждения).",
       "req_id": "SOUL-AMD.8.10",
       "slice": "W10",
       "acceptance": "Включение/выключение модуля, per-chat override или смена провайдера отражаются в L1 capabilities и UI; бот не утверждает способность, которую нельзя использовать в данном scope",
@@ -1829,6 +2154,22 @@
           "ref": "plans/features/soul-1/review-w10.md — ledger 8.10 + recheck F4 (ConfigCache.set_many → disabled/not_configured сразу)",
           "observation": "Мок: переключение модуля/per-chat override/провайдера отражается в состоянии способностей; бот не утверждает недоступную в scope способность.",
           "type": "test"
+        },
+        {
+          "candidate_commit": "6094a2cfa1660d1b949dcfe5ec085bc08f080de4",
+          "ref": "release-2.58.86-report.md + evidence/release-soul-25886/**; Релиз 2.58.86 (агентская часть подтверждена): capability-витрина отвечает на жив…",
+          "observation": "Релиз 2.58.86 (агентская часть подтверждена): capability-витрина отвечает на живом процессе, gates ON, 0 ERROR; живой прогон/смена провайдера — owner-сценарий.",
+          "artifact_path": "plans/features/soul-1/evidence/release-soul-25886/verify-after.txt",
+          "artifact_sha256": "ab96e78ff6584432930f11c347697eeaedbd0fabedc555753b21b95bcbbd25fc",
+          "type": "production"
+        },
+        {
+          "candidate_commit": "6094a2cfa1660d1b949dcfe5ec085bc08f080de4",
+          "ref": "postdeploy-observations.md — классификация 29 READY_FOR_LIVE (агентская часть / owner-сценарии)",
+          "observation": "Owner-чек-лист строки зафиксирован; ничего не объявлено VERIFIED релизным прогоном.",
+          "artifact_path": "plans/features/soul-1/evidence/release-soul-25886/postdeploy-observations.md",
+          "artifact_sha256": "482cbe9868df3d9336c2895cf18a82192926ee2d7e3a17d0cbcd6ee3b0bb78d8",
+          "type": "static"
         }
       ]
     },
@@ -1838,7 +2179,7 @@
       "source_text_sha256": "bc5d46cad7234e84d17e2ba9fabc0e9e70213fe9bf9b535b70cd7a15ea931865",
       "source_excerpt": "- Проверить те же принципы как минимум для поиска/фактчека/видео по одному реальному сценарию, а не только для image tool.",
       "disposition": "required",
-      "reason": "Мок-часть подтверждена на кандидате c8cf77a5 (review-w10 ledger 8.11 (mock): поиск/фактчек/видео — недоступное не обещается, <capability_notice> + trace; recheck — 8.6–8.11 READY_FOR_LIVE); живая половина (реальный прогон/отправка/провайдер) требует включённого контура — канарейка/postdeploy; классификация по образцу SOUL-AMD.8.3 / SOUL-17.4 / SOUL-10.P5 / SOUL-11.4.",
+      "reason": "Мок-часть подтверждена на кандидате c8cf77a5 (review-w10 ledger 8.11 (mock): поиск/фактчек/видео — недоступное не обещается, <capability_notice> + trace; recheck — 8.6–8.11 READY_FOR_LIVE); живая половина (реальный прогон/отправка/провайдер) требует включённого контура — канарейка/postdeploy; классификация по образцу SOUL-AMD.8.3 / SOUL-17.4 / SOUL-10.P5 / SOUL-11.4. Релиз 2.58.86: оси `humor_craft_enabled` / `humor_feedback_enabled` ON, журнал 0 ERROR/CRITICAL, `user_version=36`. Живые сценарии (один платный вызов на намерение, честные тексты отказов, поиск/фактчек/видео) — owner-сценарий. Классификация READY_FOR_LIVE после релиза 2.58.86: агентская часть релизного прогона подтверждена (evidence ниже), остаток — owner-сценарии из `postdeploy-observations.md` (чек-лист; строки НЕ закрываются до живого подтверждения).",
       "req_id": "SOUL-AMD.8.11",
       "slice": "W10",
       "acceptance": "Те же принципы проверены минимум для поиска, фактчека и видео по одному реальному сценарию каждому, а не только для image tool",
@@ -1851,6 +2192,22 @@
           "ref": "plans/features/soul-1/review-w10.md — ledger 8.11 (mock) + §«Проведённые проверки» (capability_notice + trace)",
           "observation": "Мок: те же принципы на поиске/фактчеке/видео — недоступное действие не обещается; реальные сценарии по одному на контур — канарейка.",
           "type": "test"
+        },
+        {
+          "candidate_commit": "6094a2cfa1660d1b949dcfe5ec085bc08f080de4",
+          "ref": "release-2.58.86-report.md + evidence/release-soul-25886/**; Релиз 2.58.86: оси `humor_craft_enabled` / `humor_feedback_enabled` ON, журнал 0…",
+          "observation": "Релиз 2.58.86: оси `humor_craft_enabled` / `humor_feedback_enabled` ON, журнал 0 ERROR/CRITICAL, `user_version=36`. Живые сценарии (один платный вызов на намерение, честные тексты отказов, поиск/фактчек/видео) — owner-сценарий.",
+          "artifact_path": "plans/features/soul-1/evidence/release-soul-25886/final-verification.txt",
+          "artifact_sha256": "ac3cb779e4d100cd43a884dd40e4f65b85f51e40e05478a2e43eb89754df0bd5",
+          "type": "production"
+        },
+        {
+          "candidate_commit": "6094a2cfa1660d1b949dcfe5ec085bc08f080de4",
+          "ref": "postdeploy-observations.md — классификация 29 READY_FOR_LIVE (агентская часть / owner-сценарии)",
+          "observation": "Owner-чек-лист строки зафиксирован; ничего не объявлено VERIFIED релизным прогоном.",
+          "artifact_path": "plans/features/soul-1/evidence/release-soul-25886/postdeploy-observations.md",
+          "artifact_sha256": "482cbe9868df3d9336c2895cf18a82192926ee2d7e3a17d0cbcd6ee3b0bb78d8",
+          "type": "static"
         }
       ]
     },
