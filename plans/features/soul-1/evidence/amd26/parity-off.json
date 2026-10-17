@@ -1,0 +1,28 @@
+{
+ "slice": "soul-1/AMD26",
+ "flags_default": {
+  "unified_composer_enabled": false,
+  "humor_craft_enabled": false,
+  "humor_library_enabled": false,
+  "humor_feedback_enabled": false
+ },
+ "env_gates_default": {
+  "UNIFIED_COMPOSER_ENABLED": false
+ },
+ "authorial_seam_off": {
+  "text_is_canon_byte_for_byte": true,
+  "manifest_is_none": true,
+  "chars": 27
+ },
+ "no_new_layer_rendered": true,
+ "fingerprints_sha256_12": {
+  "services/lore_compiler_service.py": "6255c2b97d69",
+  "services/prompt_registry.py": "4b0ef89007ef",
+  "services/mca_authorial_speech.py": "7705e7009eda",
+  "services/lore_prompts.py": "68bc214899c8",
+  "tests/test_soul1_amd26_authorial_wiring.py": "b530706409dc",
+  "tests/test_soul1_w4_authorial_genre.py": "f6e3961c4372",
+  "tools/soul1_amd26_mutation_witness.py": "c6248fd6a022",
+  "tools/soul1_amd26_parity_witness.py": "f009e96f4c47"
+ }
+}

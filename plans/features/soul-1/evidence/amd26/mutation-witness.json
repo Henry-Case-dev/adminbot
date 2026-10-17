@@ -1,0 +1,81 @@
+{
+ "slice": "soul-1/AMD26",
+ "tool": "tools/soul1_amd26_mutation_witness.py",
+ "note": "Мутация применяется во временной копии дерева; оригинальные файлы не изменяются.",
+ "results": [
+  {
+   "mutation": "M1: композер OFF больше не держит паритет (канон подменяется сборкой)",
+   "test": "tests/test_soul1_amd26_authorial_wiring.py::test_lore_story_off_parity_byte_for_byte",
+   "applied": true,
+   "killed": true,
+   "exit_code": 1,
+   "tail": [
+    "=========================== short test summary info ===========================",
+    "FAILED tests/test_soul1_amd26_authorial_wiring.py::test_lore_story_off_parity_byte_for_byte",
+    "1 failed in 3.88s"
+   ]
+  },
+  {
+   "mutation": "M2: жанровая рамка выпала из base (ON-сборка без жанра)",
+   "test": "tests/test_soul1_amd26_authorial_wiring.py::test_lore_story_on_gets_core_and_lore_genre",
+   "applied": true,
+   "killed": true,
+   "exit_code": 1,
+   "tail": [
+    "=========================== short test summary info ===========================",
+    "FAILED tests/test_soul1_amd26_authorial_wiring.py::test_lore_story_on_gets_core_and_lore_genre",
+    "1 failed in 4.04s"
+   ]
+  },
+  {
+   "mutation": "M3: на публикующем пути потерян жанр (сборка тихо вернула канон)",
+   "test": "tests/test_soul1_amd26_authorial_wiring.py::test_lore_story_on_gets_core_and_lore_genre",
+   "applied": true,
+   "killed": true,
+   "exit_code": 1,
+   "tail": [
+    "=========================== short test summary info ===========================",
+    "FAILED tests/test_soul1_amd26_authorial_wiring.py::test_lore_story_on_gets_core_and_lore_genre",
+    "1 failed in 4.06s"
+   ]
+  },
+  {
+   "mutation": "M4: материал чата вшит в system (инъекция-гард)",
+   "test": "tests/test_soul1_amd26_authorial_wiring.py::test_chat_material_never_leaks_into_system",
+   "applied": true,
+   "killed": true,
+   "exit_code": 1,
+   "tail": [
+    "=========================== short test summary info ===========================",
+    "FAILED tests/test_soul1_amd26_authorial_wiring.py::test_chat_material_never_leaks_into_system",
+    "1 failed in 4.06s"
+   ]
+  },
+  {
+   "mutation": "M5: тема не подставляется в канон ({topic} уходит в модель)",
+   "test": "tests/test_soul1_amd26_authorial_wiring.py::test_lore_story_off_parity_byte_for_byte",
+   "applied": true,
+   "killed": true,
+   "exit_code": 1,
+   "tail": [
+    "=========================== short test summary info ===========================",
+    "FAILED tests/test_soul1_amd26_authorial_wiring.py::test_lore_story_off_parity_byte_for_byte",
+    "1 failed in 4.07s"
+   ]
+  },
+  {
+   "mutation": "M6: в хранилище уходит канон вместо рассказа (payload искажён)",
+   "test": "tests/test_soul1_amd26_authorial_wiring.py::test_story_write_contract_unchanged_with_composer_on",
+   "applied": true,
+   "killed": true,
+   "exit_code": 1,
+   "tail": [
+    "=========================== short test summary info ===========================",
+    "FAILED tests/test_soul1_amd26_authorial_wiring.py::test_story_write_contract_unchanged_with_composer_on",
+    "1 failed in 4.02s"
+   ]
+  }
+ ],
+ "killed": 6,
+ "total": 6
+}

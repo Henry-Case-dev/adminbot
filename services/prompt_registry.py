@@ -871,18 +871,24 @@ _CODE_BLOCKS: tuple[PromptBlockSpec, ...] = (
        "speech_plain/dream_writer (жанровая рамка в base)",
        owner_lane="W4", speech=True, migration="factory",
        ui="catalog_pending",
-       note="Проводка публикующих путей снов/глубокого сна — следующий "
-            "слайс; редакция уже в реестре и Factory Default."),
+       note="AMD26: сны и глубокий сон в продукте — внутренние машинные "
+            "стадии (§2.2, без Core), публикующего пути «рассказ о сне» нет; "
+            "рамка зарегистрирована как Factory Default и готова, когда "
+            "такой путь появится (собирается через `authorial_system`)."),
     _b("genre.lore.rules",
        "Жанровая рамка «Лор»: история чата своим голосом на проверенных "
        "данных, без нейтрального пересказа и вымысла.",
        "genre", "code", "services.mca_authorial_speech.GENRE_LORE_RULES",
-       ("mca_authorial_speech.genre_base_prompt",),
+       ("mca_authorial_speech.genre_base_prompt",
+        "lore_compiler_service.LoreCompilerService.compile"),
        "speech_plain/lore_writer (жанровая рамка в base)",
        owner_lane="W4", speech=True, migration="factory",
        ui="catalog_pending",
-       note="Переиспользуется существующими lore-путями того же контура "
-            "следующим слайсом; отдельного писателя нет."),
+       note="AMD26: проведена на пути «Летописец» (рассказ о лоре — "
+            "публикация в чат safe-HTML, writer `lore_writer`): композер ON "
+            "→ Core + рамка, OFF → прежний канон байт-в-байт (паритет). "
+            "Генерация авто-лора (`internal.lore.init/merge`) — внутренняя "
+            "машинная стадия (§2.2), рамку не получает."),
     _b("genre.story.rules",
        "Жанровая рамка «История/творческий текст»: внутренняя логика и "
        "детали, без подмены фактов вымыслом.",
@@ -890,14 +896,21 @@ _CODE_BLOCKS: tuple[PromptBlockSpec, ...] = (
        ("mca_authorial_speech.genre_base_prompt",),
        "speech_plain/story_writer (жанровая рамка в base)",
        owner_lane="W4", speech=True, migration="factory",
-       ui="catalog_pending"),
+       ui="catalog_pending",
+       note="AMD26: у продукта нет отдельного публикующего пути «творческий "
+            "текст» с собственным каноном (творческие тексты Direct идут "
+            "через Core канала Direct, AMD.2.3) — рамка зарегистрирована и "
+            "готова для будущего пути через `authorial_system`."),
     # ── Авторские тексты вне каталога (аудит §1: «вне каталога») ───────────
     _b("internal.dream.distill",
        "Дистилляция снов (ночной worker) — авторский текст, но без Core "
        "в канале.",
        "internal", "code", "services.dream_prompts.DREAM_DISTILL_PROMPT",
        ("dream_worker.py:1327",), "internal/dream_distill",
-       owner_lane="W4", speech=False),
+       owner_lane="W4", speech=False,
+       note="AMD26: внутренняя машинная стадия (§2.2, без Core) — пишет "
+            "убеждения в память; публикующего пути «рассказ о сне» у "
+            "продукта нет (рамка `genre.dream.rules` готова для него)."),
     _b("internal.dream.deep_sleep_bridge",
        "Мост глубокого сна (связка событий) — внутренняя стадия.",
        "internal", "code",
@@ -923,9 +936,14 @@ _CODE_BLOCKS: tuple[PromptBlockSpec, ...] = (
     _b("internal.lore.story",
        "Рассказ о лоре — авторский текст, идущий в safe-HTML путь Direct.",
        "internal", "code", "services.lore_prompts.LORE_STORY_SYSTEM_PROMPT",
-       ("lore_compiler_service.py:184", "tool_router.py:2827"),
+       ("lore_compiler_service.py:190", "tool_router.py:2827",
+        "mca_authorial_speech.authorial_system"),
        "internal/lore_story", owner_lane="W4",
-       speech=True),
+       speech=True,
+       note="AMD26: публикующий путь проведён через общий композер "
+            "(writer `lore_writer`, жанр `lore`): ON → Core + жанровая рамка, "
+            "OFF → канон байт-в-байт; канон остаётся функциональной базой "
+            "(HTML/UPD/факты из данных)."),
     _b("internal.nostalgia.candidate",
        "Кандидат ностальгии (cron) — текст уходит в чат через Initiative.",
        "internal", "code", "services.nostalgia_prompts.NOSTALGIA_PROMPT",

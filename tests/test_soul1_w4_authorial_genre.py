@@ -200,10 +200,24 @@ async def test_nostalgia_path_parity_when_composer_off(monkeypatch):
 
 
 def test_wired_and_pending_paths_are_visible_in_registry_notes():
-    """Честная граница: проводка снов/лора/историй — следующий слайс."""
-    dream = pr.block("genre.dream.rules")
-    assert "следующий" in (dream.note or "") or "следующим" in (dream.note or "")
+    """Честная граница после AMD26: «Летописец» проведён; сны/глубокий сон —
+    внутренние машинные стадии без публикующего пути (§2.2); «история»
+    (творческий текст) — без отдельного пути. Реестр не выдаёт желаемое за
+    поставленное."""
     lore = pr.block("genre.lore.rules")
-    assert "следующим" in (lore.note or "") or "следующий" in (lore.note or "")
+    assert "Летописец" in (lore.note or "")
+    assert "lore_writer" in (lore.note or "")
+    assert any("LoreCompilerService.compile" in c for c in lore.consumers)
+    dream = pr.block("genre.dream.rules")
+    note = dream.note or ""
+    assert "машинные стадии" in note and "публикующего пути" in note
+    assert "следующий" not in note                # больше не «следующий слайс»
+    story = pr.block("genre.story.rules")
+    assert "нет отдельного публикующего пути" in (story.note or "")
+    path = pr.block("internal.lore.story")
+    assert path.speech is True
+    assert "lore_writer" in (path.note or "")
     nostalgia = pr.block("genre.nostalgia.rules")
     assert any("nostalgia_worker" in c for c in nostalgia.consumers)
+    assert any("nostalgia_worker._llm_once" in c
+               for c in pr.block("genre.nostalgia.rules").consumers)

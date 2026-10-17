@@ -7,6 +7,12 @@
 ``LORE_STORY_SYSTEM_PROMPT`` (HTML-разметка — О5, иначе канон DirectChat
 обрезал бы историю до 1-2 предложений) и возвращает готовый рассказ.
 
+SOUL-AMD.2.6 (AMD26): рассказ о лоре — публичная авторская речь бота,
+поэтому system собирается через ``mca_authorial_speech.authorial_system``
+(writer ``lore_writer``, жанр ``lore``): композер ON → Core + жанровая
+рамка, OFF → прежний канон байт-в-байт (паритет W2, второй писатель не
+создаётся).
+
 UPD/диффы (T-1891): hit по ``(chat_id, normalize_text(topic))`` →
 ``is_update=true`` + ``previous_story_at``; в промпт идёт сохранённая
 «Известная база» + только новые сообщения (``ts > last_ts``) и ветка
@@ -181,7 +187,23 @@ class LoreCompilerService:
             last_seen=self._date(stats.get("last_seen") or dense.get("latest"),
                                  self.tz_name),
             previous_story=(previous.get("story") if previous else None))
-        system = LORE_STORY_SYSTEM_PROMPT.replace("{topic}", clean)
+        canon = LORE_STORY_SYSTEM_PROMPT.replace("{topic}", clean)
+        # SOUL-AMD.2.6 (AMD26, уточнение §2.1): рассказ о лоре («истории»,
+        # Летописец) — публичная авторская речь бота. Композер ON → Core +
+        # жанровая рамка «Лор» (жанровая рамка — base, канон сохраняется);
+        # OFF → прежний канон байт-в-байт (паритет W2). Функциональные
+        # контракты канона (HTML-разметка, UPD-ветка, «даты/имена/порядок —
+        # только из данных») остаются на месте в обоих режимах; собственного
+        # второго «писателя» не появляется. Сбой сборки → канон (fail-open).
+        try:
+            from services import mca_authorial_speech as _authorial
+            system, _manifest = await _authorial.authorial_system(
+                chat_id=int(chat_id), writer="lore_writer", genre="lore",
+                legacy_canon=canon, channel="plain", html_safe=True)
+        except Exception:
+            logger.warning("[lore] authorial system build failed — прежний "
+                           "канон | chat=%s", chat_id, exc_info=True)
+            system = canon
 
         started = time.monotonic()
         story = await self.llm.generate(
