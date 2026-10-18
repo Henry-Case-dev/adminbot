@@ -692,6 +692,44 @@ async def observe_tick(db, *, bot=None, writer_service=None, llm=None,
         db, bot=bot, writer_service=writer_service, llm=llm).run(job_id)
 
 
+# ── Контекст эфемерного повода: ОДИН производитель ─────────────────────────
+# (боевой путь наблюдателя + безопасная проверка «Проверить инициативу»:
+#  dry-run обязан видеть ту же цепочку/причину, что и боевой путь)
+
+def build_opportunity_row(chat_id: int, *, kind: str, goal: str,
+                          fallback: str | None = None,
+                          rows: list[dict] | None = None,
+                          now: int | None = None) -> dict:
+    """Строка-контекст ЭФЕМЕРНОГО повода для ``handle_initiative``.
+
+    P0-хотфикс (18.10.2026): durable intent для эфемерного повода не
+    создаётся (B01.2), но Writer/L1 обязаны видеть САМ повод — без него они
+    получали пустую строку намерения («цель не указана») и отказывались
+    (прод: opportunity → decision reply → l1_silent, отправок нет).
+
+    ``created_at`` = момент повода: существующий SendRecheck ищет прямое
+    обращение к боту ПОСЛЕ него и не даёт инициативе соревноваться с прямым
+    ответом. ``kind`` — уже отображённый вид намерения
+    (``open_dispute``/``topic_interest``), ``fallback`` — ОРИГИНАЛЬНЫЙ
+    verdict-kind для goal-фолбэка (REV-DIAG-MINIFIX F1: извлечение обязано
+    оставаться byte-identical: пустая цель → канон оригинального kind,
+    «dispute», а не маппед-вида «open_dispute»). Форма dict — та же, что у
+    durable-строки ``mca_intents`` (ничего нового не изобретаем).
+    """
+    from services import mca_intents as _mi
+    fallback_text = str(fallback or kind)
+    return {
+        "chat_id": int(chat_id),
+        "kind": kind,
+        "origin": "observer_opportunity",
+        "status": "ephemeral",
+        "created_at": int(now if now is not None else time.time()),
+        "goal": _mi.canon_text(goal or fallback_text) or fallback_text,
+        "source_refs": ",".join(
+            f"msg:{int(r['id'])}" for r in (rows or [])[:4]),
+    }
+
+
 class InitiativeObserverRunner:
     """Исполнитель durable-задачи ``initiative.observe`` (реентерабельный).
 
@@ -1331,18 +1369,12 @@ class InitiativeObserverRunner:
         # для эфемерного повода не создаётся — B01.2). Без него L1/L2 Writer
         # получали пустую строку намерения («цель не указана») и отказывались
         # (прод 18.10.2026: opportunity → decision reply → l1_silent, отправок
-        # нет). created_at = момент повода: существующий SendRecheck ищет
-        # прямое обращение к боту ПОСЛЕ него и не даёт инициативе соревноваться
-        # с прямым ответом.
-        opportunity_row = {
-            "chat_id": int(chat_id),
-            "kind": intent_kind,
-            "origin": "observer_opportunity",
-            "status": "ephemeral",
-            "created_at": now,
-            "goal": _mi.canon_text(goal or kind) or kind,
-            "source_refs": ",".join(f"msg:{int(r['id'])}" for r in rows[:4]),
-        }
+        # нет). Строку собирает ТОТ ЖЕ производитель, что и в проверке
+        # «Проверить инициативу» (P0A-INIT) — dry-run обязан идти этой же
+        # цепочкой.
+        opportunity_row = build_opportunity_row(
+            chat_id, kind=intent_kind, goal=goal, fallback=kind,
+            rows=rows, now=now)
         result = await handle_initiative(
             bot=self._bot, chat_id=chat_id, situation=situation,
             candidates=[candidate], db=self._db,

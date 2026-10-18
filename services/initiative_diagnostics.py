@@ -933,10 +933,12 @@ async def run_check(db, *, chat_id: int, hours: int = 24,
                 dcs._style_initiative_text = _style_probe
         result: dict = {}
         try:
+            intent_kind = ("open_dispute"
+                           if str(verdict.get("kind")) == "dispute"
+                           else "topic_interest")
             candidate = mi.candidate_from_trigger(
                 trigger_kind="new_message", chat_id=int(chat_id),
-                kind=("open_dispute" if str(verdict.get("kind")) == "dispute"
-                      else "topic_interest"),
+                kind=intent_kind,
                 source="memory", goal=str(verdict.get("goal") or ""),
                 priority=1,
                 reason_code="observer_%s" % (verdict.get("kind") or "unknown"))
@@ -947,11 +949,21 @@ async def run_check(db, *, chat_id: int, hours: int = 24,
                 bot_replied_recently=False, reply_needed=False,
                 topic_open=True, open_intent_ids=None,
                 requested_source="diagnostics")
+            # P0A-INIT (REV-INIT-FIX): dry-run обязан идти ТОЙ ЖЕ цепочкой,
+            # что боевой путь наблюдателя, — контекст эфемерного повода
+            # собирает тот же производитель. Без него Writer/L1 видели
+            # пустую цель («цель не указана») и проверка показывала неправду.
+            opportunity_row = obs.build_opportunity_row(
+                int(chat_id), kind=intent_kind,
+                goal=str(verdict.get("goal") or ""),
+                fallback=str(verdict.get("kind") or "development"),
+                rows=rows, now=started)
             result = await dcs.handle_initiative(
                 bot=(mock_bot if use_mock else bot), chat_id=int(chat_id),
                 situation=situation, candidates=[candidate], db=db,
                 writer_service=writer_service,
-                correlation_id="diag%s" % _int(started)) or {}
+                correlation_id="diag%s" % _int(started),
+                opportunity_row=opportunity_row) or {}
         except Exception:
             logger.warning("[w5] initiative check failed", exc_info=True)
             result = {"status": "error"}

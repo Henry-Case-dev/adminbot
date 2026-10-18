@@ -1,0 +1,96 @@
+=== P0A-INIT diag-minifix (REV-INIT-FIX related non-blocker) ===
+date: 2026-10-18 | lane: INIT-DIAG-MINIFIX (writer, БЕЗ коммита) | прод не трогался
+base worktree HEAD: d45194d4 (все изменения — uncommitted поверх)
+
+files (sha12 = первые 12 символов sha256 рабочей копии):
+  services/initiative_observer.py             blob12=39589fc532bc  sha256_12=c42a8ecbe48f
+  services/initiative_diagnostics.py          blob12=4093e48d97cf  sha256_12=e774d5fda58f
+  tests/test_soul1_w5_initiative_vitality.py  blob12=263918982bec  sha256_12=9cc922472cd4
+
+defect (REV-INIT-FIX, related non-blocker):
+  «Проверить инициативу» (diag.run_check) звала dcs.handle_initiative БЕЗ
+  opportunity_row → в эфемерной ветке intent_row=None → Writer/L1 и §18D
+  pre-recheck получали пустую цель («цель не указана») и дефолтный контекст.
+  Диагностика показывала НЕ ту цепочку/причину, что боевой путь наблюдателя
+  (P0-хотфикс f0bd29e2 эту цепочку уже исправил — но dry-run его не видел).
+
+fix (минимальный, без дублирования логики):
+  производитель строки повода вынесен в initiative_observer.build_opportunity_row
+  (тот же dict: chat_id/kind/origin=observer_opportunity/status=ephemeral/
+  created_at/goal=canon_text(goal or kind)/source_refs) и подключён ОБОИМИ
+  местами: _act_on_opportunity (боевой наблюдатель) и diag.run_check (dry-run,
+  opportunity_row передаётся в тот же handle_initiative — в mock- и publish-режиме).
+  Поведение самого наблюдателя не изменено (значения строки — байт-в-байт прежние).
+
+--- RED (тест написан до фикса) ---
+$ py -3 -m pytest tests/test_soul1_w5_initiative_vitality.py::test_check_dry_run_carries_live_ephemeral_opportunity_context -x -q
+FAILED tests/test_soul1_w5_initiative_vitality.py::test_check_dry_run_carries_live_ephemeral_opportunity_context
+E           assert {}
+tests\test_soul1_w5_initiative_vitality.py:547: AssertionError
+  (writer получил ПУСТОЙ контекст: "dry-run отдал Writer пустой контекст повода")
+1 failed, 3 warnings in 4.11s
+
+--- GREEN (после фикса) ---
+$ py -3 -m pytest tests/test_soul1_w5_initiative_vitality.py -q
+17 passed, 3 warnings in 5.97s
+
+новый тест проверяет, что dry-run отдаёт Writer реальный row-контекст:
+  goal == "повод" (канон вердикта), kind == "topic_interest",
+  origin == "observer_opportunity", status == "ephemeral",
+  chat_id == CHAT, created_at > 0
+
+--- seams (регрессий нет) ---
+$ py -3 -m pytest tests/test_asap8_v63_b01_initiative_observer.py -q
+13 passed, 2 warnings in 4.69s
+$ py -3 -m pytest tests/test_p0_initfix_initiative_observer.py tests/test_soul1_w5_observer_gates.py tests/test_mca09_intents_block_e_round1040.py tests/test_asap8_f6_initiative.py -q
+65 passed, 2 warnings in 9.85s
+
+--- что изменилось в выводе dry-run ---
+Writer/L1 (plan_initiative_decision/generate_initiative_reply) и свежий
+SendRecheck (§18D) получают РЕАЛЬНЫЙ контекст повода (goal вердикта, kind,
+created_at = момент проверки) вместо пустой строки/None. Решение и причина
+молчания в trace теперь формируются ТОЙ ЖЕ цепочкой, что и боевой путь
+наблюдателя; ранее реальный Writer видел «цель не указана» и кнопка
+диагностики показывала дефолтный отказ (неправду).
+
+=== F1 (REV-DIAG-MINIFIX a5ab57e0, Needs Fixes) — исправлено ===
+finding: извлечение row не byte-identical по goal-фолбэку: было
+  _mi.canon_text(goal or kind) or kind с ОРИГИНАЛЬНЫМ verdict-kind
+  («dispute»/«development»), стало — с маппед intent_kind
+  (dispute→open_dispute при пустой цели; пустая цель достижима:
+  parse_verdict канонит LLM-goal, канон пустого → "").
+fix (вариант B из review, минимальным диффом):
+  helper: явный параметр fallback; fallback_text = str(fallback or kind);
+    "goal": _mi.canon_text(goal or fallback_text) or fallback_text
+  observer: вызов build_opportunity_row(..., goal=goal, fallback=kind, ...) —
+    оригинальный verdict-kind;
+  dry-run: obs.build_opportunity_row(..., goal=str(verdict.get("goal") or ""),
+    fallback=str(verdict.get("kind") or "development"), ...) — зеркально.
+
+RED (микро-тест написан до правки):
+$ py -3 -m pytest tests/test_soul1_w5_initiative_vitality.py::test_check_dry_run_goal_fallback_uses_original_verdict_kind -x -q
+E           AssertionError: assert 'open_dispute' == 'dispute'
+tests\test_soul1_w5_initiative_vitality.py:586: AssertionError
+1 failed, 3 warnings in 3.57s
+
+BYTE-IDENTITY (scratch-скрипт: новый helper против исходного inline-выражения
+f0bd29e2, 6 кейсов: dispute+goal, development+пустой, dispute+пустой,
+humor+пустой, development+goal, event+пробелы):
+BYTE-IDENTICAL: True (dispute+пустой goal → "dispute", НЕ "open_dispute";
+development+пустой goal → "development")
+
+GREEN:
+$ py -3 -m pytest tests/test_soul1_w5_initiative_vitality.py -q
+18 passed, 3 warnings (17 прежних + новый микро-тест F1)
+$ py -3 -m pytest tests/test_asap8_v63_b01_initiative_observer.py tests/test_p0_initfix_initiative_observer.py tests/test_soul1_w5_observer_gates.py tests/test_mca09_intents_block_e_round1040.py tests/test_asap8_f6_initiative.py -q
+78 passed, pytest_exit=0 (b01 13 + группа p0-initfix/w5-gates/mca09-blockE/f6 65)
+честное замечание: первый прогон объединённой группы дал 1 флаки-фейл
+(test_candidate_ready_defers_intent_backoff; DB rollback-noise и
+"closed 23 leaked aiosqlite connections" — тест-инфра шум); изолированный
+прогон и повтор группы — PASS (78/78).
+
+sha12 после F1-правки (worktree поверх HEAD a5ab57e0, без коммита; прод не трогался):
+  services/initiative_observer.py             blob12=a057c7311517  sha256_12=eef7feec36ac
+  services/initiative_diagnostics.py          blob12=515f31293971  sha256_12=0391fc582f60
+  tests/test_soul1_w5_initiative_vitality.py  blob12=75f0f6cb3c03  sha256_12=0272c086f285
+

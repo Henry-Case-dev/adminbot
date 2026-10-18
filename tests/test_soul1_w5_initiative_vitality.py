@@ -498,6 +498,97 @@ async def test_check_dry_run_reaches_mock_send_without_publishing(tmp_path):
         await db.close()
 
 
+class _RowCapturingWriter:
+    """Writer-двойник: фиксирует ФАКТИЧЕСКИЙ контекст повода из dry-run."""
+
+    def __init__(self, text="Инициативная реплика из повода"):
+        self.text = text
+        self.contexts: list[dict] = []
+
+    async def plan_initiative_decision(self, chat_id, intent_row, *,
+                                       correlation_id=None):
+        self.contexts.append(dict(intent_row or {}))
+        from services.direct_l1 import L1Plan
+        return L1Plan(action="reply", confidence=0.9,
+                      confidence_bucket="high", source="llm")
+
+    async def generate_initiative_reply(self, chat_id, intent_row, *,
+                                        l1_plan=None, correlation_id=None):
+        self.contexts.append(dict(intent_row or {}))
+        return self.text
+
+
+@pytest.mark.asyncio
+async def test_check_dry_run_carries_live_ephemeral_opportunity_context(
+        tmp_path):
+    """TEST-LIFECYCLE: REGRESSION owner=P0A-INIT
+
+    «Проверить инициативу» обязана показывать ТУ ЖЕ цепочку, что боевой
+    путь наблюдателя: dry-run передаёт Writer контекст эфемерного повода
+    (goal/kind/origin/created_at), а не пустую строку («цель не указана»).
+    Регресс (REV-INIT-FIX): dry-run звал handle_initiative БЕЗ
+    opportunity_row."""
+    db = await _db(tmp_path, "w5_check_ctx.db")
+    _caches({CHAT: {"initiative.frequency_profile": "active",
+                    "initiative.eval_min_messages": 4,
+                    "initiative.eval_min_interval_seconds": 0,
+                    "initiative.min_gap_seconds": 0,
+                    "initiative.eval_llm_budget_per_day": 10}})
+    writer = _RowCapturingWriter()
+    try:
+        for i in range(6):
+            await _msg(db, text="живой повод для проверки %d" % i,
+                       ts_ago=300 - i)
+        result = await diag.run_check(db, chat_id=CHAT, writer_service=writer,
+                                      llm=_FakeLLM())
+        assert result["mock_send"]["attempted"] is True
+        assert writer.contexts, "Writer не был вызван в dry-run"
+        row = writer.contexts[0]
+        assert row, "dry-run отдал Writer пустой контекст повода"
+        assert row.get("goal") == "повод"
+        assert row.get("kind") == "topic_interest"
+        assert row.get("origin") == "observer_opportunity"
+        assert row.get("status") == "ephemeral"
+        assert row.get("chat_id") == CHAT
+        assert int(row.get("created_at") or 0) > 0
+    finally:
+        await db.close()
+
+
+@pytest.mark.asyncio
+async def test_check_dry_run_goal_fallback_uses_original_verdict_kind(
+        tmp_path):
+    """TEST-LIFECYCLE: REGRESSION owner=P0A-INIT (review F1)
+
+    Пустая цель вердикта (канон даёт "") — фолбэк goal обязан быть каноном
+    ОРИГИНАЛЬНОГО verdict-kind («dispute»), а не маппед-вида intent-kind
+    («open_dispute»): извлечение производителя строки не имеет права менять
+    значения боевого пути наблюдателя (byte-identical, REV-DIAG-MINIFIX F1)."""
+    db = await _db(tmp_path, "w5_check_fallback.db")
+    _caches({CHAT: {"initiative.frequency_profile": "active",
+                    "initiative.eval_min_messages": 4,
+                    "initiative.eval_min_interval_seconds": 0,
+                    "initiative.min_gap_seconds": 0,
+                    "initiative.eval_llm_budget_per_day": 10}})
+    writer = _RowCapturingWriter()
+    verdict = {"opportunity": True, "kind": "dispute", "action": "say",
+               "horizon": "now", "addressee_user_id": None,
+               "topic_key": "spor", "goal": "", "rationale": "спор"}
+    try:
+        for i in range(6):
+            await _msg(db, text="спорный повод для проверки %d" % i,
+                       ts_ago=300 - i)
+        result = await diag.run_check(db, chat_id=CHAT, writer_service=writer,
+                                      llm=_FakeLLM(verdict))
+        assert result["mock_send"]["attempted"] is True
+        assert writer.contexts, "Writer не был вызван в dry-run"
+        row = writer.contexts[0]
+        assert row.get("goal") == "dispute"
+        assert row.get("kind") == "open_dispute"
+    finally:
+        await db.close()
+
+
 @pytest.mark.asyncio
 async def test_check_publish_is_off_without_owner_axis(tmp_path):
     db = await _db(tmp_path, "w5_publish.db")
