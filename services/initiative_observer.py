@@ -65,6 +65,16 @@ CURSOR_KEY = "cursor_message_rowid"
 
 # ── Бюджеты одного прохода (код-константы, Δ каталога = 0) ──────────────────
 SCAN_BATCH_MAX = 200            # строк сматывается за проход (дёшево, без LLM)
+#: P0-хотфикс (18.10.2026): наблюдать АКТУАЛЬНУЮ переписку. Курсор, стоящий в
+#: многолетней истории, ползёт по 200 строк / 300 с (≈38 суток на 2.2 млн
+#: строк) — поводов живого чата наблюдатель не видит вовсе, а «наблюдённые»
+#: счётчики наполняются древними репликами. При старте/обнаружении такого
+#: отставания курсор подтягивается к живому началу: не старее lookback-окна,
+#: но и не меньше последних N строк (тихий чат тоже должен накопить окно).
+#: Историю это не уничтожает (она остаётся в БД/памяти), а по древним
+#: обсуждениям инициатива не генерируется — ровно как требует канон B01.
+SCAN_FRESH_LOOKBACK_SECONDS = 6 * 3600
+SCAN_FRESH_MIN_ROWS = 200
 EVAL_WINDOW_MESSAGES = 14       # компактное окно семантической оценки
 EVAL_MSG_TEXT_CAP = 300         # кап текста одной реплики в окне
 MAX_CHATS_PER_PASS = 3          # справедливость: не более N чатов за проход
@@ -78,10 +88,22 @@ HASH_TTL_SECONDS = 12 * 3600    # срок жизни дедупа контек�
 DIAG_WINDOW_SECONDS = 86400
 DIAG_MIN_OBSERVED = 20          # «активный observer»: были наблюдения
 
+#: P0-хотфикс (18.10.2026): РАЗДЕЛЕНИЕ антифлуда и cooldown инициативы.
+#: Антифлуд — короткая пауза после ЛЮБОГО вывода бота (не говорить сразу
+#: после собственной реплики, в т.ч. ответа Direct). Cooldown инициативы —
+#: `initiative.min_gap_seconds` после ИНИЦИАТИВНОГО вывода (kind
+#: `initiative_reply` в ledger). Прежний код считал min_gap от любого
+#: вывода: в живом чате обычный Direct сбрасывал паузу постоянно, и
+#: автономная инициатива не могла состояться (прод-диагностика 18.10.2026:
+#: skip_reason=min_gap на живом окне).
+ANTI_FLOOD_AFTER_BOT_OUTPUT_SECONDS = 300
+INITIATIVE_OUTPUT_KINDS = ("initiative_reply",)
+
 # ── Reason codes (закрытый набор; R17) ──────────────────────────────────────
 SKIP_CHAT_DISABLED = "chat_disabled"
 SKIP_DIRECT_SEEN = "direct_address_seen"
 SKIP_MIN_GAP = "min_gap"
+SKIP_ANTI_FLOOD = "anti_flood"
 SKIP_DAY_CAP = "day_cap"
 SKIP_TOPIC_CAP = "topic_cap"
 SKIP_EVAL_BUDGET = "eval_budget"
@@ -152,7 +174,8 @@ SOFT_TARGET_BOUNDS_TEXT = (
 REASON_LABELS: dict[str, str] = {
     "chat_disabled": "наблюдение выключено для этого чата",
     "direct_address_seen": "в окне было обращение к боту",
-    "min_gap": "пауза после последней реплики бота",
+    "min_gap": "пауза после последней инициативы бота",
+    "anti_flood": "бот только что говорил в чате (анти-флуд)",
     "day_cap": "достигнут дневной лимит инициатив",
     "topic_cap": "достигнут лимит реплик по этой теме",
     "eval_budget": "исчерпан бюджет оценок (дневной или общий)",
@@ -223,6 +246,36 @@ INTENT_TTL_SECONDS = 3 * 86400
 
 _SAFE_TOPIC_RE = re.compile(r"[^a-z0-9_-]+")
 _CMD_RE = re.compile(r"^\s*/\w")
+
+#: P0-хотфикс (18.10.2026): обращение К боту — словесная форма «бот» с
+#: падежными окончаниями («бот», «боту», «бота»…), а также «ботик/ботяра».
+#: Прежний `\bбот\w*` ловил ЛЮБОЕ слово на «бот» (ботаник, ботва, боты) и
+#: выбрасывал всё окно целиком (skip_reason=direct_address_seen) — в русском
+#: чате это глушило инициативу. Часть другого слова («робот», «ботаник»)
+#: обращением не считается — границы слова с обеих сторон.
+_BOT_CALL_RE = re.compile(
+    r"(?i)(?<![а-яёa-z0-9_])(?:бот|бота|боту|ботом|боте|боты|ботов|ботам|"
+    r"ботами|ботик\w*|ботяра\w*)(?![а-яёa-z0-9_])")
+
+
+def addressed_to_bot(text, *, bot_username: str = "") -> bool:
+    """Прямое обращение к боту в одной реплике (R17-safe, без чтения БД)."""
+    value = str(text or "")
+    if not value:
+        return False
+    if bot_username and ("@" + str(bot_username).lstrip("@").lower()) in \
+            value.lower():
+        return True
+    return bool(_BOT_CALL_RE.search(value))
+
+
+def bot_username_hint() -> str:
+    """Username бота (для @-упоминаний); недоступен → '' (fail-open)."""
+    try:
+        from handlers import direct_chat as _dc_handler
+        return str(getattr(_dc_handler, "_bot_username", "") or "")
+    except Exception:
+        return ""
 
 
 def observer_enabled() -> bool:
@@ -445,6 +498,7 @@ def default_counters() -> dict:
         "silent_decisions": 0, "intents_created": 0, "sent": 0,
         "react_decisions": 0, "writer_unavailable": 0,
         "eval_unavailable": 0, "errors": 0,
+        "scan_anchored": 0,             # P0: подтяжек курсора к живому чату
         "eval_skips": {},               # reason_code → count
     }
 
@@ -825,9 +879,54 @@ class InitiativeObserverRunner:
             return "not_group"
         return None
 
+    async def _fresh_anchor_id(self, *, now: int | None = None) -> int:
+        """P0-хотфикс: ID «живого начала» переписки для курсора наблюдателя.
+
+        Курсор, стоящий в многолетней истории, не даёт наблюдателю увидеть
+        актуальный чат (200 строк / 300 с ≈ 38 суток на 2.2 млн строк).
+        Живое начало = не старее ``SCAN_FRESH_LOOKBACK_SECONDS``, но не
+        меньше последних ``SCAN_FRESH_MIN_ROWS`` строк. Ничего не удаляет:
+        история остаётся в БД, просто по древним обсуждениям инициатива не
+        генерируется. Ошибка чтения → 0 (курсор не двигаем)."""
+        try:
+            cursor = await self._db.db.execute(
+                "SELECT MAX(id) AS newest FROM smart_messages")
+            row = await cursor.fetchone()
+            newest = int((row["newest"] if row is not None else 0) or 0)
+        except Exception:
+            logger.warning("[b01] fresh anchor read failed", exc_info=True)
+            return 0
+        if newest <= 0:
+            return 0
+        floor = max(1, newest - SCAN_FRESH_MIN_ROWS + 1)
+        try:
+            cursor = await self._db.db.execute(
+                "SELECT MIN(id) AS oldest FROM smart_messages "
+                "WHERE timestamp >= ?",
+                (_now(now) - SCAN_FRESH_LOOKBACK_SECONDS,))
+            row = await cursor.fetchone()
+            by_time = int((row["oldest"] if row is not None else 0) or 0)
+        except Exception:
+            by_time = 0
+        # Берём БОЛЕЕ РАННЮЮ из двух границ: живой хвост не отрезается даже
+        # в тихом чате (последние N строк всё равно наблюдаются).
+        return max(1, min(by_time, floor)) if by_time > 0 else floor
+
     async def _scan_phase(self, payload: dict) -> None:
         counters = payload["counters"]
         cursor_pos = int(payload.get(CURSOR_KEY) or 0)
+        # P0-хотфикс: наблюдать актуальную переписку. Вперёд курсор двигаем
+        # только «подтяжкой» к живому началу (исторический backlog не
+        # пережёвываем годами); назад — никогда.
+        anchor = await self._fresh_anchor_id()
+        if anchor > cursor_pos:
+            counters["scan_anchored"] = int(
+                counters.get("scan_anchored") or 0) + 1
+            # -1: строка-якорь ещё не прочитана (`WHERE id > cursor`).
+            cursor_pos = max(0, anchor - 1)
+            payload[CURSOR_KEY] = cursor_pos
+            self._emit("initiative_observer_scan", outcome="success",
+                       stage="anchored")
         try:
             cursor = await self._db.db.execute(
                 "SELECT id, chat_id, user_id, text, media_type, is_forward "
@@ -910,10 +1009,16 @@ class InitiativeObserverRunner:
             entry["last_eval_ts"] = int(time.time())
             entry["pending"] = 0
 
-    async def _last_bot_output_age(self, chat_id: int) -> int | None:
+    async def _last_bot_output_age(self, chat_id: int, *,
+                                   kinds: tuple[str, ...] | None = None
+                                   ) -> int | None:
+        """Возраст последнего вывода бота в чате (сек).
+
+        ``kinds=None`` — ЛЮБОЙ вывод (антифлуд); ``kinds=('initiative_reply',)``
+        — только инициативные (cooldown инициативы). Ошибка → None."""
         try:
             outputs = await self._db.list_recent_bot_outputs(
-                int(chat_id), limit=1)
+                int(chat_id), limit=1, kinds=kinds)
             if not outputs:
                 return None
             return max(0, int(time.time()) -
@@ -949,16 +1054,27 @@ class InitiativeObserverRunner:
         return list(reversed(newest))
 
     @staticmethod
-    def _window_addressed_to_bot(rows: list[dict]) -> bool:
-        """В окне есть прямое обращение к боту → инициатива не соревнуется."""
-        try:
-            from services.direct_chat_service import _BOTWORD_RE
-        except Exception:
-            _BOTWORD_RE = re.compile(r"(?<!\w)бот\w*", re.IGNORECASE)
-        for row in rows:
-            if _BOTWORD_RE.search(str(row.get("text") or "")):
-                return True
-        return False
+    def _addressed_rows(rows: list[dict], *,
+                        bot_username: str = "") -> list[bool]:
+        """Прямое ли обращение к боту — по КАЖДОЙ реплике окна (P0)."""
+        return [addressed_to_bot(row.get("text"), bot_username=bot_username)
+                for row in (rows or [])]
+
+    def _window_all_addressed_to_bot(self, rows: list[dict]) -> bool:
+        """Окно ЦЕЛИКОМ состоит из обращений к боту → самостоятельного
+        повода в нём нет (инициатива не соревнуется с прямым разговором).
+
+        P0-хотфикс: раньше одного обращения в окне хватало, чтобы выбросить
+        ВСЁ окно. Теперь отбрасывается только окно, где обращений — все
+        реплики; смешанное окно доходит до оценки (system-промпт уже говорит,
+        что обращение к боту поводом НЕ считается), а от конкуренции с
+        прямым запросом защищает существующий recheck (`direct_pending`)
+        непосредственно перед отправкой."""
+        flags = self._addressed_rows(rows,
+                                     bot_username=bot_username_hint())
+        if not flags:
+            return False
+        return all(flags)
 
     def _context_hash(self, chat_id: int, rows: list[dict]) -> str:
         ids = ",".join(str(int(r["id"])) for r in rows)
@@ -1015,17 +1131,28 @@ class InitiativeObserverRunner:
                 self._skip_eval(payload, chat_id, SKIP_NOT_ENOUGH,
                                 eval_due=False)
                 continue
-            if self._window_addressed_to_bot(rows):
+            if self._window_all_addressed_to_bot(rows):
                 self._skip_eval(payload, chat_id, SKIP_DIRECT_SEEN)
                 continue
             context_hash = self._context_hash(chat_id, rows)
             if not self._hash_fresh(entry, context_hash, now):
                 self._skip_eval(payload, chat_id, SKIP_CONTEXT_DUP)
                 continue
-            # no-spam: gap после последней отправки бота
-            age = await self._last_bot_output_age(chat_id)
-            if age is not None and age < int(profile["min_gap_seconds"]):
+            # no-spam 1 (P0): cooldown ИНИЦИАТИВЫ — пауза профиля считается
+            # только от инициативных реплик (обычный Direct её не сбрасывает);
+            # проверяется ПЕРВОЙ, чтобы причина «недавно уже инициировал»
+            # оставалась честной (`min_gap`, а не общий анти-флуд).
+            init_age = await self._last_bot_output_age(
+                chat_id, kinds=INITIATIVE_OUTPUT_KINDS)
+            if init_age is not None and init_age < int(profile["min_gap_seconds"]):
                 self._skip_eval(payload, chat_id, SKIP_MIN_GAP)
+                continue
+            # no-spam 2 (P0): антифлуд — короткая пауза после ЛЮБОГО вывода
+            # бота (в т.ч. Direct), чтобы не говорить сразу после него.
+            any_age = await self._last_bot_output_age(chat_id)
+            if any_age is not None and \
+                    any_age < ANTI_FLOOD_AFTER_BOT_OUTPUT_SECONDS:
+                self._skip_eval(payload, chat_id, SKIP_ANTI_FLOOD)
                 continue
             # no-spam: дневной лимит инициатив чата
             sent_day = self._sent_in_window(entry, now,
@@ -1194,13 +1321,33 @@ class InitiativeObserverRunner:
             trigger_kind=trigger, chat_id=chat_id,
             direct_pending=False, same_event_pending=False,
             sensitive_moment=False, relations_ok=True,
+            # P0: «недавняя своя реплика» здесь НЕ дублируется — её
+            # обеспечивают антифлуд/cooldown инициативы ДО оценки; иначе
+            # эфемерный повод глушился бы дважды.
             bot_replied_recently=False, reply_needed=False, topic_open=True,
             open_intent_ids=None, requested_source="observer")
         correlation_id = uuid.uuid4().hex[:16]
+        # P0-хотфикс: контекст повода едет в единый вход явно (durable intent
+        # для эфемерного повода не создаётся — B01.2). Без него L1/L2 Writer
+        # получали пустую строку намерения («цель не указана») и отказывались
+        # (прод 18.10.2026: opportunity → decision reply → l1_silent, отправок
+        # нет). created_at = момент повода: существующий SendRecheck ищет
+        # прямое обращение к боту ПОСЛЕ него и не даёт инициативе соревноваться
+        # с прямым ответом.
+        opportunity_row = {
+            "chat_id": int(chat_id),
+            "kind": intent_kind,
+            "origin": "observer_opportunity",
+            "status": "ephemeral",
+            "created_at": now,
+            "goal": _mi.canon_text(goal or kind) or kind,
+            "source_refs": ",".join(f"msg:{int(r['id'])}" for r in rows[:4]),
+        }
         result = await handle_initiative(
             bot=self._bot, chat_id=chat_id, situation=situation,
             candidates=[candidate], db=self._db,
-            writer_service=self._writer, correlation_id=correlation_id)
+            writer_service=self._writer, correlation_id=correlation_id,
+            opportunity_row=opportunity_row)
         status = str((result or {}).get("status") or "error")
         if status == "sent":
             counters["sent"] = int(counters.get("sent") or 0) + 1
@@ -1408,7 +1555,9 @@ async def chat_block_state(db, chat_id, *, now: int | None = None,
         label=("Проверка ещё не выполнялась" if age_eval is None
                else "С прошлой проверки: %s с (интервал %s с)"
                     % (age_eval, interval))))
-    # 7) пауза после реплик бота (анти-спам)
+    # 7) анти-спам: антифлуд (ЛЮБОЙ вывод бота) + cooldown инициативы
+    # (P0-хотфикс: пауза профиля считается только от инициативных реплик —
+    # обычный Direct её больше не сбрасывает).
     gap_value = None
     try:
         outputs = await db.list_recent_bot_outputs(chat_id, limit=1)
@@ -1416,15 +1565,35 @@ async def chat_block_state(db, chat_id, *, now: int | None = None,
             gap_value = max(0, now_ts - int(outputs[0].get("sent_at") or 0))
     except Exception:
         gap_value = None
+    anti_flood_limit = int(ANTI_FLOOD_AFTER_BOT_OUTPUT_SECONDS or 0)
+    anti_flood_ok = gap_value is None or anti_flood_limit <= 0 or \
+        gap_value >= anti_flood_limit
+    items.append(_gate(
+        "anti_flood", "pass" if anti_flood_ok else "block",
+        "" if anti_flood_ok else "anti_flood",
+        value=gap_value, limit=anti_flood_limit, unit="s",
+        label=("Бот в этом чате ещё не говорил" if gap_value is None
+               else "С последнего вывода бота: %s с (анти-флуд %s с)"
+                    % (gap_value, anti_flood_limit))))
+    init_gap_value = None
+    try:
+        outputs = await db.list_recent_bot_outputs(
+            chat_id, limit=1, kinds=INITIATIVE_OUTPUT_KINDS)
+        if outputs:
+            init_gap_value = max(0, now_ts -
+                                 int(outputs[0].get("sent_at") or 0))
+    except Exception:
+        init_gap_value = None
     gap_limit = int(profile["min_gap_seconds"] or 0)
-    gap_ok = gap_value is None or gap_limit <= 0 or gap_value >= gap_limit
+    gap_ok = init_gap_value is None or gap_limit <= 0 or \
+        init_gap_value >= gap_limit
     items.append(_gate(
         "min_gap", "pass" if gap_ok else "block",
         "" if gap_ok else "min_gap",
-        value=gap_value, limit=gap_limit, unit="s",
-        label=("Реплик бота ещё не было" if gap_value is None
-               else "С последней реплики бота: %s с (пауза %s с)"
-                    % (gap_value, gap_limit))))
+        value=init_gap_value, limit=gap_limit, unit="s",
+        label=("Инициатив бот ещё не отправлял" if init_gap_value is None
+               else "С последней инициативы бота: %s с (пауза %s с)"
+                    % (init_gap_value, gap_limit))))
     # 8) дневной лимит инициатив
     window = int(profile.get("day_window_seconds") or 86400)
     sent_window = _sent_in_window_static(entry, now_ts, window)
@@ -1488,6 +1657,7 @@ async def chat_block_state(db, chat_id, *, now: int | None = None,
         "sent_in_window": sent_window,
         "eval_used_today": used,
         "last_bot_output_age_seconds": gap_value,
+        "last_initiative_output_age_seconds": init_gap_value,
         "cursor_lag_messages": await _cursor_lag(db, payload, entry),
         "live_messages_24h": live_24h,
     }

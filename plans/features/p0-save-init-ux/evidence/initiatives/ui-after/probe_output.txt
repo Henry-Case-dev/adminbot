@@ -1,0 +1,21 @@
+[matrix] config stub: items=573 groups=120
+[matrix] chat-¦-¦-TÀ¦¬¦-¦-TÂ config: override items=115
+{
+  "global_state": "no_chat",
+  "global_honest_no_chat": true,
+  "global_no_false_restricted": true,
+  "global_funnel_hidden": true,
+  "chat_state": "ok",
+  "chat_shows_intents": true,
+  "chat_no_restricted_line": true,
+  "chat_funnel_or_absent": true,
+  "chat_funnel_visible": true,
+  "denied_state_label": true,
+  "denied_no_no_chat_label": true,
+  "no_h_overflow": true,
+  "console_errors": []
+}
+
+[probe] phase=after failed=none
+[probe] raw: C:\Users\main\.config\opencode\OpenCodeScratch\adminbot-ccef72c25768\_p0_initfix_scope_ui.json
+[probe] shots: C:\Code\Python\adminbot\plans\features\p0-save-init-ux\evidence\initiatives\ui-after

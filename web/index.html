@@ -9068,7 +9068,12 @@
                   Инициатива выключена (kill-switch mca-09) — намерения не создаются и не исполняются.
                 </div>
                 <div v-else-if="statusData.intents.state === 'restricted'" class="text-xs text-gray-500">
-                  Нет разрешённого чата — данные инициативы не раскрываются (chat scope).
+                  Нет доступа к выбранному чату — данные инициативы не раскрываются (chat scope).
+                </div>
+                <div v-else-if="statusData.intents.state === 'no_chat'" class="text-xs text-gray-500"
+                     data-intents-no-chat>
+                  Инициатива привязана к чату — выберите чат в селекторе области (сверху),
+                  чтобы увидеть намерения, воронку наблюдателя и проверку.
                 </div>
                 <div v-else-if="statusData.intents.state === 'not_run'" class="text-xs text-gray-500"
                      data-intents-not-run>

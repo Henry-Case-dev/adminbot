@@ -4909,7 +4909,8 @@
         var f = this.intelFunnels;
         var intents = this.statusData && this.statusData.intents;
         if (!f || f.available === false || !intents) return null;
-        if (intents.state === 'disabled' || intents.state === 'restricted') {
+        if (intents.state === 'disabled' || intents.state === 'restricted'
+            || intents.state === 'no_chat') {
           return null;
         }
         var ini = f.initiative || {};
@@ -8710,7 +8711,8 @@
       // ── §16.3 (T-5167/T-5168): рендер intent_snapshot() + настройки ──────
       intentsStateLabel: function (state) {
         return { ok: 'данные', not_run: 'не запускалось', disabled: 'выключено',
-                 restricted: 'нет разрешённого чата',
+                 restricted: 'нет доступа к выбранному чату',
+                 no_chat: 'чат не выбран',
                  unavailable: 'недоступно' }[state] || (state || '—');
       },
       // ═══ ASAP 7 F3 (§3.3): честный гейт Initiative — подписи source ═══

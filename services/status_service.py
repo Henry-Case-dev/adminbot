@@ -784,7 +784,14 @@ class StatusService:
         if not enabled:
             return {"enabled": False, "state": "disabled", "active": 0,
                     "top": [], "last_action": None, "module": module_block}
-        if chat_id is None or not chat_scope_allowed:
+        if chat_id is None:
+            # P0-хотфикс (18.10.2026): «чат не выбран» ≠ «нет прав». Прежний
+            # ответ `restricted` («нет разрешённого чата») читался владельцем
+            # как отказ доступа/RBAC, хотя инициатива просто привязана к чату.
+            # Состояние остаётся нераскрывающим данные (0/пусто), но названо
+            # честно; реальный запрет доступа — по-прежнему `restricted`.
+            return dict(empty, state="no_chat")
+        if not chat_scope_allowed:
             return dict(empty, state="restricted")
         try:
             from services import lore_runtime

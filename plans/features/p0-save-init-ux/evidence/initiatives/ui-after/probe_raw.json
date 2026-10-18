@@ -1,0 +1,24 @@
+{
+  "phase": "after",
+  "console_errors": [],
+  "checks": {
+    "global_state": "no_chat",
+    "global_honest_no_chat": true,
+    "global_no_false_restricted": true,
+    "global_funnel_hidden": true,
+    "chat_state": "ok",
+    "chat_shows_intents": true,
+    "chat_no_restricted_line": true,
+    "chat_funnel_or_absent": true,
+    "chat_funnel_visible": true,
+    "denied_state_label": true,
+    "denied_no_no_chat_label": true,
+    "no_h_overflow": true,
+    "console_errors": []
+  },
+  "shots": [
+    "01_global_no_chat.png",
+    "02_chat_ok.png",
+    "03_denied_restricted.png"
+  ]
+}

@@ -747,16 +747,21 @@ def note_delivery_manifest(*, chat_id: int, correlation_id: str,
           config_version=version[:120])
 
 
-def note_decision(decision, *, chat_id: int, outcome: str = "ok") -> None:
+def note_decision(decision, *, chat_id: int, outcome: str = "ok",
+                  reason_code: str | None = None) -> None:
     """`initiative_decided` — ≤1 на ситуацию (notable-only; R17-safe:
     только ID/коды/enum/числа). Вызывается один раз финализатором ситуации.
 
     `outcome` — локальный статус ситуации; маппится в контрактный outcome
-    mca-13 (иначе событие молча отбрасывается `build_event`)."""
+    mca-13 (иначе событие молча отбрасывается `build_event`).
+    `reason_code` (P0-хотфикс 18.10.2026): ЯВНАЯ причина отказа конкретной
+    стадии (L1/recheck/writer) — иначе событие несло бы только код решения
+    («default») и воронка показывала молчание без причины."""
     _emit("initiative_decided",
           outcome=_INITIATIVE_OUTCOMES.get(str(outcome or ""), "success"),
           chat_id=chat_id,
-          reason_code=getattr(decision, "reason_code", None),
+          reason_code=(str(reason_code) if reason_code
+                       else getattr(decision, "reason_code", None)),
           entity_ids=(["intent:%s" % getattr(decision, "intent_id")
                        ] if getattr(decision, "intent_id", None) else None),
           stage=(getattr(decision, "trigger_kind", "") or None),

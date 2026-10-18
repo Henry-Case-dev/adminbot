@@ -273,9 +273,15 @@ async def test_m1_status_snapshot_module_block(hot_with):
     hot_with({"flags.initiative_enabled": True})
     snap2 = await StatusService.intent_snapshot(
         StatusService(), chat_id=None, chat_scope_allowed=True)
-    assert snap2["state"] == "restricted"
+    # P0-хотфикс (18.10.2026): «чат не выбран» ≠ «нет прав» — состояния
+    # разделены, воронка/данные в обоих случаях не раскрываются.
+    assert snap2["state"] == "no_chat"
     assert snap2["module"]["effective"] is True
     assert snap2["module"]["source"] == "both"
+    snap3 = await StatusService.intent_snapshot(
+        StatusService(), chat_id=-100500, chat_scope_allowed=False)
+    assert snap3["state"] == "restricted"
+    assert snap3["active"] == 0 and snap3["top"] == []
 
 
 # ═══ Фронт: registry → /api/config → MODULES ════════════════════════════════

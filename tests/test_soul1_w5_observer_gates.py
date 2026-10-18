@@ -152,6 +152,16 @@ async def _payload(db) -> dict:
     return json.loads((row["payload"] if row else "{}") or "{}")
 
 
+async def _age_outputs(db, *, chat_id=CHAT, seconds: int = 600) -> None:
+    """P0: сдвинуть записи выводов бота в прошлое (перешагнуть окно
+    антифлуда, не выдумывая состояние) — для проверок СЛЕДУЮЩИХ по порядку
+    ворот (дневной лимит, тема, cooldown) в том же чате."""
+    await db.db.execute(
+        "UPDATE mca_bot_outputs SET sent_at = sent_at - ? WHERE chat_id = ?",
+        (int(seconds), int(chat_id)))
+    await db.db.commit()
+
+
 def _entry(payload, chat_id=CHAT) -> dict:
     return dict((payload.get("chats") or {}).get(str(chat_id)) or {})
 
@@ -347,20 +357,23 @@ async def test_context_duplicate_still_blocks_repeat_evaluation(tmp_path):
 
 
 @pytest.mark.asyncio
-async def test_min_gap_after_bot_reply_still_blocks(tmp_path, monkeypatch):
+async def test_min_gap_after_bot_reply_still_blocks(tmp_path):
+    """Cooldown инициативы (P0): пауза считается от ИНИЦИАТИВНОЙ реплики.
+
+    P0-хотфикс разделил антифлуд (любой вывод, 300 с) и cooldown профиля
+    (только `initiative_reply`): здесь durable-запись инициативы 60 с назад
+    при `min_gap=7200` обязана остановить оценку — без LLM и без отправки."""
     db = await _db(tmp_path, "w5_gap.db")
     _caches({CHAT: {"initiative.frequency_profile": "normal"}})
     llm = _FakeLLM()
     base = int(time.time()) - 300
     try:
+        await db.record_bot_output(chat_id=CHAT, bot_user_id=BOT_ID,
+                                   output_kind="initiative_reply",
+                                   content_text="инициатива",
+                                   sent_at=int(time.time()) - 60)
         for i in range(10):
             await _msg(db, text="живой разговор %d" % i, ts=base + i)
-
-        async def _recent(self, chat_id):
-            return 60          # бот отвечал минуту назад
-
-        monkeypatch.setattr(obs.InitiativeObserverRunner,
-                            "_last_bot_output_age", _recent)
         await obs.observe_tick(db, bot=_FakeBot(), writer_service=_FakeWriter(),
                                llm=llm)
         payload = await _payload(db)
@@ -390,6 +403,10 @@ async def test_day_cap_still_hard_with_soft_target(tmp_path):
                         _verdict(topic_key="t3")])
         await obs.observe_tick(db, bot=bot, writer_service=writer, llm=llm)
         assert len(bot.sent) == 1
+        # P0: антифлуд (300 с) — реальный слой; чтобы проверить ЖЁСТКОСТЬ
+        # дневного лимита (а не свежесть антифлуда), сдвигаем запись отправки
+        # в прошлое: лимит дня и мягкая цель остаются главными.
+        await _age_outputs(db)
         for i in range(5):
             await _msg(db, text="новый повод %d" % i, ts=base + 200 + i)
         llm2 = _FakeLLM([_verdict(topic_key="t9"), _verdict(topic_key="t10")])

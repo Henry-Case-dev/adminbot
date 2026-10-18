@@ -173,6 +173,18 @@ async def _payload_of(db: DatabaseService) -> dict:
     return json.loads(row["payload"] or "{}")
 
 
+async def _age_outputs(db: DatabaseService, *, chat_id=CHAT,
+                       seconds: int = 600) -> None:
+    """P0: сдвинуть записи выводов бота в прошлое — перешагнуть окно
+    антифлуда (300 с), чтобы проверялись СЛЕДУЮЩИЕ ворота того же чата
+    (дневной лимит/тема/cooldown). В прод-ритме между оценками проходит
+    интервал профиля (≥1200 с), поэтому слой антифлуда не «съедает» поводы."""
+    await db.db.execute(
+        "UPDATE mca_bot_outputs SET sent_at = sent_at - ? WHERE chat_id = ?",
+        (int(seconds), int(chat_id)))
+    await db.db.commit()
+
+
 async def _flushed_events(db: DatabaseService, name: str,
                           chat_id=CHAT) -> list[dict]:
     await mca_events.flush_events(db)
@@ -249,6 +261,7 @@ async def test_b01_variety_say_react_silent_and_durable_intent(tmp_path):
         assert await obs.observe_tick(db, bot=bot, writer_service=writer,
                                       llm=llm) == "completed"
         assert len(bot.sent) == 1
+        await _age_outputs(db)          # P0: шагнуть за окно антифлуда
         # 2) спор → durable intent (horizon=later), БЕЗ немедленной отправки
         for i in range(6):
             await _msg(db, user_id=42 + i % 2,
@@ -311,7 +324,10 @@ async def test_b01_negatives_min_gap_repeat_and_topic_cap(tmp_path):
                                       llm=llm) == "completed"
         assert len(bot.sent) == 1
         # Повтор той же темы: topic_cap отсекает ВТОРУЮ отправку (после
-        # оценки; сами оценки бюджетируются отдельно).
+        # оценки; сами оценки бюджетируются отдельно). P0: антифлуд —
+        # реальный слой, поэтому шагаем за его окно (иначе вторая проверка
+        # честно остановится на нём и до темы не дойдёт).
+        await _age_outputs(db)
         for i in range(6):
             await _msg(db, user_id=42 + i % 2, text=f"поездка опять {i}",
                        ts=base + 60 + i)

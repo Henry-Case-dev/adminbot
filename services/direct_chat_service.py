@@ -8674,12 +8674,37 @@ async def _style_initiative_text(text: str, chat_id: int, l1_plan=None
     return source, outcome
 
 
+def _ephemeral_intent_row(opportunity_row: dict | None, chat_id: int
+                          ) -> dict | None:
+    """Строка-контекст для ЭФЕМЕРНОГО повода (без durable intent).
+
+    P0-хотфикс (18.10.2026): observer-возможность («уместно сказать сейчас»,
+    B01.2) не создаёт намерение, но Writer/L1 обязаны видеть САМ повод —
+    иначе `plan_initiative_decision`/`generate_initiative_reply` получали
+    пустую строку («цель не указана») и отказывались. Ничего нового не
+    изобретаем: это тот же формы dict, что и durable-строка mca_intents."""
+    row = dict(opportunity_row or {})
+    if not row:
+        return None
+    row.setdefault("chat_id", int(chat_id))
+    row.setdefault("origin", "ephemeral_opportunity")
+    row.setdefault("status", "ephemeral")
+    row.setdefault("created_at", int(time.time()))
+    return row
+
+
 async def handle_initiative(*, bot, chat_id: int, situation, candidates,
                             prepared_text: str | None = None, db=None,
                             correlation_id: str | None = None,
-                            writer_service=None) -> dict:
+                            writer_service=None,
+                            opportunity_row: dict | None = None) -> dict:
     """Аддитивный координатор-вход для решений БЕЗ входящего сообщения
     (heartbeat / nostalgia / significant event / search completion).
+
+    ``opportunity_row`` (P0-хотфикс, 18.10.2026): контекст ЭФЕМЕРНОГО повода
+    наблюдателя (goal/kind/origin/created_at) для случая, когда durable
+    намерения нет — Writer/L1 и SendRecheck получают реальный повод, а не
+    пустую строку. Для путей с `decision.intent_id` аргумент игнорируется.
 
     Возвращает R17-safe статус (без сырого текста):
       disabled / silent / candidate_ready / cancelled / writer_failed /
@@ -8771,7 +8796,8 @@ async def handle_initiative(*, bot, chat_id: int, situation, candidates,
             if writer_service is not None:
                 await _f6_plan_next_check(db, decision)
             _mca_intents.note_decision(decision, chat_id=chat_id,
-                                       outcome="silent")
+                                       outcome="silent",
+                                       reason_code="delivery_not_text")
             return {"status": "silent", "delivery_kind": kind,
                     "reason_code": "delivery_not_text", "decision": decision}
         if not prepared_text and writer_service is None:
@@ -8820,11 +8846,12 @@ async def handle_initiative(*, bot, chat_id: int, situation, candidates,
                     not in ("pending", "deferred"):
                 # намерение исчезло/закрыто, пока кандидат ждал тик
                 _mca_intents.note_decision(decision, chat_id=chat_id,
-                                           outcome="cancelled")
+                                           outcome="cancelled",
+                                           reason_code="intent_closed")
                 return {"status": "cancelled", "reason_code": "intent_closed",
                         "delivery_kind": kind, "decision": decision}
         else:
-            intent_row = None
+            intent_row = _ephemeral_intent_row(opportunity_row, chat_id)
         generated = False
         evaluated_version = None
         l1_plan = None
@@ -8840,14 +8867,16 @@ async def handle_initiative(*, bot, chat_id: int, situation, candidates,
                                            status="fulfilled",
                                            reason_code="already_answered")
                     _mca_intents.note_decision(decision, chat_id=chat_id,
-                                               outcome="cancelled")
+                                               outcome="cancelled",
+                                               reason_code="already_answered")
                     return {"status": "cancelled",
                             "reason_code": "already_answered",
                             "delivery_kind": kind, "decision": decision}
                 if pre.direct_request_pending:
                     await _f6_plan_next_check(db, decision)
                     _mca_intents.note_decision(decision, chat_id=chat_id,
-                                               outcome="cancelled")
+                                               outcome="cancelled",
+                                               reason_code="direct_pending")
                     return {"status": "cancelled",
                             "reason_code": "direct_pending",
                             "delivery_kind": kind, "decision": decision}
@@ -8859,7 +8888,8 @@ async def handle_initiative(*, bot, chat_id: int, situation, candidates,
                          else f"l1_{getattr(l1_plan, 'action', 'silent')}")
                 await _f6_plan_next_check(db, decision)
                 _mca_intents.note_decision(decision, chat_id=chat_id,
-                                           outcome="silent")
+                                           outcome="silent",
+                                           reason_code=_code)
                 return {"status": "silent", "delivery_kind": kind,
                         "reason_code": _code, "decision": decision}
             prepared_text = await writer_service.generate_initiative_reply(
@@ -8934,7 +8964,8 @@ async def handle_initiative(*, bot, chat_id: int, situation, candidates,
             if l1_plan is None or getattr(l1_plan, "action", "") != "reply":
                 await _f6_plan_next_check(db, decision)
                 _mca_intents.note_decision(decision, chat_id=chat_id,
-                                           outcome="silent")
+                                           outcome="silent",
+                                           reason_code="recheck_demoted")
                 return {"status": "silent", "delivery_kind": kind,
                         "reason_code": "recheck_demoted",
                         "decision": decision}
@@ -8968,7 +8999,9 @@ async def handle_initiative(*, bot, chat_id: int, situation, candidates,
                     context_version=getattr(context, "context_version",
                                             None))
             _mca_intents.note_decision(decision, chat_id=chat_id,
-                                       outcome="cancelled")
+                                       outcome="cancelled",
+                                       reason_code=(plan.outcome.reason_code
+                                                    or None))
             logger.info("[mca09] initiative cancelled | chat=%s | reason=%s",
                         chat_id, plan.outcome.reason_code or "-")
             return {"status": "cancelled",

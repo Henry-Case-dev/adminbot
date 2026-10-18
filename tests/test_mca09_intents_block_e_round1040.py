@@ -375,8 +375,13 @@ async def test_intent_status_snapshot(tmp_path, monkeypatch):
         assert snap["top"][0]["kind"] == "follow_up"
         assert snap["top"][0]["goal"] == "Спросить про собеседование"
         assert snap["top"][0]["status"] == "pending"
-        # без разрешённого чата данные не раскрываются
-        restricted = await status.intent_snapshot(chat_id=None)
+        # без выбранного чата данные не раскрываются (P0: «чат не выбран» —
+        # отдельное честное состояние, не «нет прав»)
+        no_chat = await status.intent_snapshot(chat_id=None)
+        assert no_chat["state"] == "no_chat" and no_chat["top"] == []
+        # явный запрет доступа — по-прежнему restricted
+        restricted = await status.intent_snapshot(chat_id=CHAT,
+                                                  chat_scope_allowed=False)
         assert restricted["state"] == "restricted" and restricted["top"] == []
         # K1 OFF → honest disabled
         monkeypatch.setattr(mca_gates, "intents_enabled", lambda: False)
