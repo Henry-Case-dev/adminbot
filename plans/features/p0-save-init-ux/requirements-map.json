@@ -2,8 +2,8 @@
   "schema": "openworkflow-coverage-v1",
   "source_path": "C:\\Code\\Python\\adminbot\\plans\\features\\p0-save-init-ux\\source-p0-hotfix-2026-10-18.md",
   "source_sha256": "76bd681ea1f78fc0de888b37928ff2cfba8e3ce026bdfaf980feb1001ac58825",
-  "candidate_commit": "",
-  "deployed_commit": "",
+  "candidate_commit": "3b02366e63022eb4c760892aa1bcb4f26516e789",
+  "deployed_commit": "3b02366e63022eb4c760892aa1bcb4f26516e789",
   "strict_evidence": false,
   "slice_graph_path": "",
   "additional_requirements": [
@@ -28,14 +28,23 @@
       "source_text_sha256": "93a9932b156df6e9213a8780776bade70a07bb238b9e707d724497d85de00073",
       "source_excerpt": "> Это корректировка уже существующей задачи, не новый эпик. Не дублировать ранее реализованные функции, не сбрасывать пр",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто: прогресс не сбрасывался — волна оформлена как корректировка существующей задачи (не новый эпик; встраивание в очередь `current_task.md`), ранее реализованное переиспользовано; все P0-линии выкачены одним релизом 2.58.90, очередь продолжена (acceptance-90 → леджер).",
       "req_id": "P0A-OPS-CONTINUE",
       "slice": "P0A-ACCEPT",
       "acceptance": "Прогресс current_task не сброшен; задача оформлена как корректировка существующей, не новый эпик; ранее реализованные функции не дублируются; после исправления, Reviewer и деплоя очередь продолжается автоматически.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "3b02366e63022eb4c760892aa1bcb4f26516e789",
+          "ref": "plans/features/p0-save-init-ux/release-25890-report.md §1/§4 + plans/features/p0-save-init-ux/README.md",
+          "observation": "Волна выкачена целиком одним релизом 2.58.90 (4 линии P0 + доки); новый свободно стоящий эпик не создавался; после ревью/деплоя очередь продолжена приёмкой и леджером.",
+          "artifact_path": "plans/features/p0-save-init-ux/release-25890-report.md",
+          "artifact_sha256": "e1683cb4c36b70b98985df04412d1086ba18a0ffe661a46055759608ba46d8fd",
+          "type": "static"
+        }
+      ],
       "note": "Сводная формулировка; детали — P0B-WF-NORESTART/PRESERVE/ADDON во follow-up карте."
     },
     {
@@ -44,13 +53,13 @@
       "source_text_sha256": "f5e284eaf5063d62d488ecd594b9d844ad4c2741866b1432173655479ae13226",
       "source_excerpt": "Снять реальную read-only диагностику production: effective gates, heartbeat, observer ticks, cursor lag, pending, evals,",
       "disposition": "required",
-      "reason": "Pre-deploy часть закрыта: реальная read-only диагностика прода снята (два дампа, ниже). Post-deploy часть — воронка прода; дополнительно: dry-run мини-фикс «Проверить инициативу» (`initiative_diagnostics`, lane INIT-DIAG-MINIFIX, `evidence/initiatives/diag-minifix.txt`, ещё на ревью) в это закрытие не входит. READY_FOR_LIVE.",
+      "reason": "Закрыто: pre-deploy read-only диагностика прода (два дампа ниже) + пост-деплой приёмка C (прод 2.58.90: панель/воронка/`scan_anchored=1`/`job completed`). Dry-run мини-фикс «Проверить инициативу» выкачен: `2af51eb6` (`build_opportunity_row`, byte-identical fallback; recheck `13729462` — Approved), dry-run несёт реальный контекст повода. VERIFIED.",
       "req_id": "P0A-INIT-DIAG",
       "slice": "P0A-INIT",
       "acceptance": "Снята и зафиксирована реальная read-only диагностика production: effective gates, heartbeat, observer ticks, cursor lag, pending, evals, opportunities, причины пропусков, Writer, Recheck и фактические отправки; успешная инициатива не имитируется тестовым сообщением.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "f0bd29e2777eb78c6d7cabe18eb5ba03111beca6",
@@ -59,9 +68,25 @@
           "artifact_path": "plans/features/p0-save-init-ux/evidence/initiatives/prod-readonly-dump-01.txt",
           "artifact_sha256": "186e02ccdf2b683d07a20a5673cdce9de31794835e08480f47d3dea602eeb0bd",
           "type": "production"
+        },
+        {
+          "candidate_commit": "3b02366e63022eb4c760892aa1bcb4f26516e789",
+          "ref": "acceptance/README.md §C + plans/features/p0-save-init-ux/evidence/release-25890/acceptance/acceptance-bc-25890-read.json + plans/features/p0-save-init-ux/evidence/release-25890/acceptance/journal-25890-phase1.json",
+          "observation": "Пост-деплой диагностика C (прод 2.58.90): эффективные гейты/воронка/vitality/панель ok; durable `scan_anchored=1`; `job completed` 13:55:05Z; журнал фазы-1 (read-only): 7 scan-событий, одна `stage='anchored'`.",
+          "artifact_path": "plans/features/p0-save-init-ux/evidence/release-25890/acceptance/acceptance-bc-25890-read.json",
+          "artifact_sha256": "8cc9914dd915cf9a17e01a9344ca4e27a93c0524e61d753c8511ea7778409cd5",
+          "type": "production"
+        },
+        {
+          "candidate_commit": "2af51eb62c163d24fdc46db960956810ea4d4722",
+          "ref": "plans/features/soul-1/review-diag-minifix.md (13729462, Addendum — Approved: F1 закрыт вариантом B; byte-identity 6/6) + plans/features/p0-save-init-ux/evidence/initiatives/diag-minifix.txt",
+          "observation": "Dry-run мини-фикс выкачен (`2af51eb6`): производитель строки повода вынесен в `initiative_observer.build_opportunity_row` и подключён обоими местами (боевой наблюдатель + `initiative_diagnostics.run_check`); RED `assert {}` → GREEN; vitality 18 + b01 13 + группа 65; dry-run отдаёт Writer реальный контекст (goal=вердикт/kind/origin/created_at>0) — той же цепочкой, что и боевой путь.",
+          "artifact_path": "plans/features/p0-save-init-ux/evidence/initiatives/diag-minifix.txt",
+          "artifact_sha256": "ec890439ebfab12404d60846a6ded3cc5deafe0d338e3a01a6f0387f04b16c7f",
+          "type": "test"
         }
       ],
-      "live_note": "postdeploy (DevOps/Orchestrator), не owner-гейт: пост-деплой воронка прода — `scan_anchored≥1`/`stage=anchored`, writer/recheck/sent-события (или честный `reason_code` стадии), снижение cursor lag; read-only, fail2ban-дисциплина.",
+      "live_note": "закрыто приёмкой C (прод 2.58.90): пост-деплой диагностика + панель ok; dry-run мини-фикс `2af51eb6` (recheck `13729462`) выкачен.",
       "alias_of": [
         "soul-1:SOUL-18.6",
         "soul-1:SOUL-18.7"
@@ -74,13 +99,13 @@
       "source_text_sha256": "f5e284eaf5063d62d488ecd594b9d844ad4c2741866b1432173655479ae13226",
       "source_excerpt": "Снять реальную read-only диагностику production: effective gates, heartbeat, observer ticks, cursor lag, pending, evals,",
       "disposition": "required",
-      "reason": "Закрыто кодом+тестами: цепочка до отправки доказана на реальном pipeline-проводе с fake-Writer (тот же duck-typed контракт из 2 методов, что у реального DirectChatService — прод-тик `memory_maintenance.py:443` передаёт именно его) и fake-ботом (не Telegram): `sent==1`, событие `initiative_sent`, ledger `output_kind='initiative_reply'`; `test_pending_direct_request_stops_observer_initiative` — pending-direct отменяет отправку (`direct_pending`). Публикаций в рабочий чат не выполнялось. Статус READY_FOR_LIVE: код-контракт доказан, засчитывание завершённым — только после реального прод-эха воронки (postdeploy).",
+      "reason": "Закрыто кодом+тестами: цепочка до отправки доказана на реальном pipeline-проводе с fake-Writer (duck-typed контракт, как в проде `memory_maintenance.py:443`) и fake-ботом (не Telegram): `sent==1`, событие `initiative_sent`, ledger `output_kind='initiative_reply'`; pending-direct отменяет отправку. ЗАКРЫТО приёмкой C на проде 2.58.90 (`3b02366e`): пост-деплойный прогон наблюдателя `completed` (13:55:05Z ≥ T0), событие `stage='anchored'` (13:40:06Z) + durable `scan_anchored=1`, воронка и панель `activity.state=ok` «Инициатива доставляется»; новых отправок после T0 не было — не требовалось (честный факт; последняя доставка из ledger — до T0). VERIFIED.",
       "req_id": "P0A-INIT-PROOF",
       "slice": "P0A-INIT",
       "acceptance": "Доказано на реальном pipeline: автономный контур обрабатывает актуальный чат и способен пройти всю цепочку до отправки; зафиксирована воронка до стадии отправки/причины; принудительной бессмысленной публикации нет.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "f0bd29e2777eb78c6d7cabe18eb5ba03111beca6",
@@ -89,9 +114,25 @@
           "artifact_path": "tests/test_p0_initfix_initiative_observer.py",
           "artifact_sha256": "6da2fcc4ee79e8b28edfd7eef15147f7ca4bd2626834b8bac9c6ce1bb06d04b9",
           "type": "test"
+        },
+        {
+          "candidate_commit": "3b02366e63022eb4c760892aa1bcb4f26516e789",
+          "ref": "acceptance/README.md §C + plans/features/p0-save-init-ux/evidence/release-25890/acceptance/acceptance-bc-25890-read.json + plans/features/p0-save-init-ux/review-release-25890.md (REV-REL-RECHECK)",
+          "observation": "C (прод 2.58.90): `/api/memory/intel-funnels` — durable `scan_anchored=1` (маркер есть только в 2.58.90); пост-деплойный прогон наблюдателя `job.status=completed` (13:55:05Z), `heartbeat_ok=true`; панель `activity.state=ok` «Инициатива доставляется»; 24ч-воронка: scan=282/decided=4/writer_generated=2/sent=2 (все доставки — до T0); причины окна — честные коды (eval_not_due/not_enough_messages/min_gap/direct_address_seen).",
+          "artifact_path": "plans/features/p0-save-init-ux/evidence/release-25890/acceptance/acceptance-bc-25890-read.json",
+          "artifact_sha256": "8cc9914dd915cf9a17e01a9344ca4e27a93c0524e61d753c8511ea7778409cd5",
+          "type": "production"
+        },
+        {
+          "candidate_commit": "3b02366e63022eb4c760892aa1bcb4f26516e789",
+          "ref": "plans/features/p0-save-init-ux/evidence/release-25890/acceptance/journal-25890-phase1.json + journal-25890-phase1.txt (read-only SQLite, один SSH-коннект)",
+          "observation": "Журнально-БД подтверждение: событие `initiative_observer_scan stage='anchored'` ts=1792330806 (13:40:06Z) через ~6 мин после деплоя; всего scan после T0 = 7 (все success); новых отправок/строк после T0 нет — не требовалось (честный факт).",
+          "artifact_path": "plans/features/p0-save-init-ux/evidence/release-25890/acceptance/journal-25890-phase1.json",
+          "artifact_sha256": "df58c11ccddd9a60ec6262ffe1b94a0df6684f435c527f9184162634ed1318fe",
+          "type": "production"
         }
       ],
-      "live_note": "postdeploy (DevOps/Orchestrator), не owner-гейт: реальное прод-эхо — события `initiative_writer_generated`/`recheck`/`sent` (или честный `reason_code` стадии) в воронке наблюдателя; read-only.",
+      "live_note": "закрыто приёмкой C (прод 2.58.90): панель ok, воронка/`scan_anchored=1` (durable) и событие `stage=anchored`; новых отправок после T0 не было — не требовалось (честный факт).",
       "alias_of": [
         "soul-1:SOUL-18.7"
       ],
@@ -198,13 +239,13 @@
       "source_text_sha256": "1b46f36e4b5dc51ae77df3187593557aa9053423f70150e8877a0d49dafab820",
       "source_excerpt": "После сохранения: reread, ревизия, effective, global/per-chat, hot без рестарта, конечные LLM payload (Direct/Initiative",
       "disposition": "required",
-      "reason": "Код-половина: правки сохранения доносят значения до effective-слоя без рестарта (hot-путь, тесты на реальном стеке). Подтверждение в конечных LLM payload (Direct/Initiative/Factcheck/Summary Writer/fallback) и «старые каноны не возвращаются активным слоем» — runtime-половина на реальных генерациях (арена AMD.8.1). READY_FOR_LIVE.",
+      "reason": "Код-половина: правки сохранения доносят значения до effective-слоя без рестарта. ЗАКРЫТО приёмкой F на проде 2.58.90: активный payload композера без рестарта переключился на применённое значение (core r5 full→r6 compact) и вернулся к baseline после снятия; честная граница: `last_run_present=false` — реальной отправки после рестарта не было, «фактически отправлено в LLM» этой пробой не утверждается. VERIFIED.",
       "req_id": "P0A-PERSIST-PAYLOADS",
       "slice": "P0A-PERSIST",
       "acceptance": "Конечные LLM payload (Direct/Initiative/Factcheck/Summary Writer/fallback) содержат применённые значения без рестарта; Personality Core — единственный источник личности; старые каноны не возвращаются активным слоем; подтверждено на runtime.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "29a9517334df495a1dfd2a4bc9fecfd7341887bc",
@@ -213,9 +254,17 @@
           "artifact_path": "plans/features/soul-1/review-persist-fix.md",
           "artifact_sha256": "f3787f8fed1dd8354aeed26f9822110d466340610e8d4de52c47500efd74999a",
           "type": "static"
+        },
+        {
+          "candidate_commit": "3b02366e63022eb4c760892aa1bcb4f26516e789",
+          "ref": "acceptance/README.md §F + plans/features/p0-save-init-ux/evidence/release-25890/acceptance/acceptance-payload-25890.json (4/4 PASS) + plans/features/p0-save-init-ux/review-release-25890.md (REV-REL-RECHECK)",
+          "observation": "F (Inspector, прод 2.58.90): до правки `preview.versions={core: r5.040581a3b4b0, core_detail: full:owner_setting}` (chars=2835); после chat-scope правки Core БЕЗ рестарта тот же композер отдаёт `r6.ff28f0720a23` / `compact:owner_setting` — активный payload реально использует применённое значение (правка только в БД); после снятия — возврат к `r5.040581a3b4b0`/`full`; `last_run_present=false` — честная граница (реальной отправки после рестарта не было).",
+          "artifact_path": "plans/features/p0-save-init-ux/evidence/release-25890/acceptance/acceptance-payload-25890.json",
+          "artifact_sha256": "d3278c13a5adf4ed20fb48bc463f74e9ec106d98dbdcf34dafb1ef84a7022753",
+          "type": "production"
         }
       ],
-      "live_note": "изменить→сохранить→перечитать→вернуть на проде (chat-scope) + наблюдение конечных LLM payload (Direct/Initiative/Factcheck/Summary/fallback) без рестарта — postdeploy (DevOps/Orchestrator), не owner-гейт.",
+      "live_note": "закрыто приёмкой F (прод 2.58.90): активный payload композера использует применённое значение без рестарта (r5→r6→r5); честная граница: `last_run_present=false` — реальной отправки после рестарта не было.",
       "alias_of": [
         "soul-1-amd:SOUL-AMD.8.1"
       ],
@@ -227,14 +276,31 @@
       "source_text_sha256": "65d9f9a52f14d5abbe6c1d991df813d67f0b872166a5d4d16839b1edd398021d",
       "source_excerpt": "**Persistence (реальная БД, каждый тип настроек):** открыть → изменить → сохранить → реальный ответ API → reread из хран",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто приёмкой A (прод 2.58.90 `3b02366e`, реальная БД, HTTPS): открыть→изменить→сохранить (реальные POST)→reread из хранилища→вернуть по каждому типу настроек (Core global/chat, Expression, Style, humor/learning); изоляция чатов (A6); конфликт 409 без потери текста (A7); финальный дифф `{}`; 17/17 PASS + независимая только-GET перепроверка (`diff_significant={}`).",
       "req_id": "P0A-ACCEPT-PERSIST",
       "slice": "P0A-ACCEPT",
       "acceptance": "Реальная БД, каждый тип настроек: открыть → изменить → сохранить → реальный ответ API → reread из хранилища → перезагрузка MiniApp → значение осталось → effective runtime → вернуть исходное → отсутствие влияния на другие чаты.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "3b02366e63022eb4c760892aa1bcb4f26516e789",
+          "ref": "acceptance/README.md §A + plans/features/p0-save-init-ux/evidence/release-25890/acceptance/acceptance-25890.json (17/17 PASS, failures=0) + plans/features/p0-save-init-ux/review-release-25890.md (REV-REL-RECHECK)",
+          "observation": "Полный real-DB цикл по каждому типу настроек: реальные POST/reread/revision/effective, перезагрузка-эквивалент (GET-сверка), возврат исходных значений; изоляция чатов A/B; 409 при устаревшем `expected_updated_at` — состояние не изменилось, текст не потерян; финальный дифф `{}`.",
+          "artifact_path": "plans/features/p0-save-init-ux/evidence/release-25890/acceptance/acceptance-25890.json",
+          "artifact_sha256": "3fce71931522ad2874f2a000d8621d17d7aa34b806e1076b8c9643a492fccd67",
+          "type": "production"
+        },
+        {
+          "candidate_commit": "3b02366e63022eb4c760892aa1bcb4f26516e789",
+          "ref": "plans/features/p0-save-init-ux/evidence/release-25890/acceptance/acceptance-recheck-25890.json + acceptance/README.md §A (прим.)",
+          "observation": "Только-GET перепроверка: `diff_significant={}`; исторический прогон-1 фиксировал единственную провенанс-дельту `humor.craft: default→global` (поведение идентично; прогон-2 с существующим документом — ноль).",
+          "artifact_path": "plans/features/p0-save-init-ux/evidence/release-25890/acceptance/acceptance-recheck-25890.json",
+          "artifact_sha256": "ad87e9dae3c58debf856f924a01fed8e52893ce449956b3b8adebd24e552290c",
+          "type": "production"
+        }
+      ],
       "alias_of": [
         "cfg:CFG-03.3"
       ],
@@ -246,14 +312,23 @@
       "source_text_sha256": "65d9f9a52f14d5abbe6c1d991df813d67f0b872166a5d4d16839b1edd398021d",
       "source_excerpt": "**Persistence (реальная БД, каждый тип настроек):** открыть → изменить → сохранить → реальный ответ API → reread из хран",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто приёмкой E (прод 2.58.90): 409 `document_invalid` (`rule_kind_unknown:no_such_kind`; состояние не изменилось), 422 («неизвестный detail_level»; уровень не изменён), итоговый дифф `{}`; конфликт 409 без потери текста (A7). Ветка «БД недоступна» — честный 503 с человеческим текстом (код+тесты persist-fix §2/§5); на проде не форсировалась.",
       "req_id": "P0A-ACCEPT-PERSIST-EDGE",
       "slice": "P0A-ACCEPT",
       "acceptance": "Отдельно проверены: concurrency conflict, неверный документ, недоступная БД, наследование, rollback — текст сохраняется, ошибки честные; интеграционные тесты на реальном PostgreSQL, не на моках.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "3b02366e63022eb4c760892aa1bcb4f26516e789",
+          "ref": "acceptance/README.md §E + plans/features/p0-save-init-ux/evidence/release-25890/acceptance/acceptance-edges-25890.json (3/3 PASS) + plans/features/soul-1/review-persist-fix.md (7356db49) §2/§5",
+          "observation": "E1: невалидный документ (неизвестный вид правила) → 409 «документ не прошёл проверку: rule_kind_unknown:no_such_kind», `chat_revision=0`, `inheritance=global` — без записи; E2: `detail_level=bogus` → 422, уровень не изменён; итоговый дифф `{}`. Наследование/сброс покрыты A2/A4 (inheritance=chat→global).",
+          "artifact_path": "plans/features/p0-save-init-ux/evidence/release-25890/acceptance/acceptance-edges-25890.json",
+          "artifact_sha256": "ada8b2bc4f68b99c6f87e8a325e90fbdcc1b54d9a3014fd5b2c4fe5b6b5c3203",
+          "type": "production"
+        }
+      ],
       "alias_of": [
         "cfg:CFG-03.11"
       ],
@@ -555,13 +630,13 @@
       "source_text_sha256": "a217a4049b8df9dd3f2ca90f252815c604da5a3112b0546a60779139a0d23689",
       "source_excerpt": "### 2.3. Фактическое применение",
       "disposition": "required",
-      "reason": "Код-половина: chat-Core (full/compact → 200 + read-after-write + изоляция чатов; `/core/meta` → 200 только при реальном применении; `reset(mode=chat)` → 200, RED был 500); humor craft/examples policy/learning/reset-inherited пути с pg; hot-без-рестарта — в тестах. Проверка «на runtime, не только по ответу API» — live. READY_FOR_LIVE.",
+      "reason": "Код-половина: chat-Core (full/compact → 200 + read-after-write + изоляция чатов; `/core/meta` → 200 только при реальном применении; `reset(mode=chat)` → 200, RED был 500); humor craft/examples policy/learning/reset-inherited пути с pg. ЗАКРЫТО приёмкой A на проде 2.58.90 (`3b02366e`, реальная БД): A2 Core chat full→compact→снят (reread/inheritance), A4 style chat-правило rev++ + живая try (`repaired=1`), A5 humor/learning toggle+восстановление, A6 изоляция чатов, A7 409 без потери, A8 дифф `{}` (recheck только-GET: `diff_significant={}`). VERIFIED.",
       "req_id": "P0A-PERSIST-APPLY",
       "slice": "P0A-PERSIST",
       "acceptance": "После сохранения параметр реально применяется: reread, ревизия, effective, global/per-chat, hot без рестарта; проверка выполнена на runtime, не только по ответу API.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "29a9517334df495a1dfd2a4bc9fecfd7341887bc",
@@ -570,9 +645,25 @@
           "artifact_path": "plans/features/p0-save-init-ux/evidence/persist-fix/report.md",
           "artifact_sha256": "efccabb18d90ac016eb6a2cc1c9fa8c54d173232dccf04bd4a2c7b998180cd92",
           "type": "test"
+        },
+        {
+          "candidate_commit": "3b02366e63022eb4c760892aa1bcb4f26516e789",
+          "ref": "acceptance/README.md §A (A1–A8) + plans/features/p0-save-init-ux/evidence/release-25890/acceptance/acceptance-25890.json (17/17 PASS, failures=0) + plans/features/p0-save-init-ux/review-release-25890.md (REV-REL-RECHECK)",
+          "observation": "Real-DB цикл на проде 2.58.90: A1 Core global full→compact→full (read-after-write тем же GET); A2 Core chat override full→compact→снят (inheritance=chat→global); A4 Style chat-правило rev 0→1, живая try `repaired=1`, снято; A5 humor craft + learning toggle/восстановление; A6 изоляция чатов (core+expression, два независимых чека); A7 конфликт 409 без потери текста; A8 финальный дифф `{}`.",
+          "artifact_path": "plans/features/p0-save-init-ux/evidence/release-25890/acceptance/acceptance-25890.json",
+          "artifact_sha256": "3fce71931522ad2874f2a000d8621d17d7aa34b806e1076b8c9643a492fccd67",
+          "type": "production"
+        },
+        {
+          "candidate_commit": "3b02366e63022eb4c760892aa1bcb4f26516e789",
+          "ref": "plans/features/p0-save-init-ux/evidence/release-25890/acceptance/acceptance-recheck-25890.json (только-GET сверка с baseline полного цикла)",
+          "observation": "Независимая перепроверка только чтением: `diff_significant={}`, `diff_provenance_only={}` — состояние после цикла совпадает с baseline; отдельного API «удалить документ» нет by design (провенанс — не потеря данных).",
+          "artifact_path": "plans/features/p0-save-init-ux/evidence/release-25890/acceptance/acceptance-recheck-25890.json",
+          "artifact_sha256": "ad87e9dae3c58debf856f924a01fed8e52893ce449956b3b8adebd24e552290c",
+          "type": "production"
         }
       ],
-      "live_note": "изменить→сохранить→перечитать→вернуть на проде: reread/revision/effective/hot без рестарта по chat-scope записям (Style/Expression/Core) — postdeploy (DevOps/Orchestrator), не owner-гейт.",
+      "live_note": "закрыто приёмкой A (прод 2.58.90, `3b02366e`): изменить→сохранить→перечитать→вернуть — reread/revision/effective/hot без рестарта (`diff_significant={}`; recheck только-GET).",
       "alias_of": [
         "soul-1-amd:SOUL-AMD.8.3"
       ],
@@ -599,14 +690,23 @@
       "source_text_sha256": "3d0b369e9306712a03131437e67357304c3938fb47c16697c9ccbcdd380238cf",
       "source_excerpt": "### 3.1. Иерархия: 1) Характер (Core, полная/компактная, версии); 2) Манера речи (мат, развёрнутость, Expression); 3) Правила письма (привычки, строгие ограничения, пунктуация, эмодзи, шаблоны); 4) Дополнительно (история, дифф, техсведения,",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто: раздел пересобран в 4 группы из серверного payload (Характер → Манера речи → Правила письма → Дополнительно), 10 карточек; `data-speech-groups/-card/-menu/-savebar`; техдетали — в раскрываемых деталях; без новой дизайн-системы (REV-UX §2; e2e failures=0). Живая проверка на прод-устройстве владельца отменена (PET_PROJECT: `AGENTS.md` §5 — отменённые device-чек-листы не воссоздаются; device-наблюдение — необязательная обратная связь, автоматические Playwright-проверки выполнены).",
       "req_id": "P0A-UX-HIER",
       "slice": "P0A-UX",
       "acceptance": "Функции «Речь и характер» сгруппированы в иерархию: Характер (Core полный/компактный, версии) → Манера речи (мат, развёрнутость, Expression) → Правила письма (привычки, строгие ограничения, пунктуация, эмодзи, шаблоны) → Дополнительно (история, дифф, техсведения, диагностика, восстановление); визуальная перегруппировка существующих функций без новой дизайн-системы; UI-артефакт Playwright/Browser Use.",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "01e1cc8d6ad479edf907e103f9594f1e55285657",
+          "ref": "plans/features/soul-1/review-ux-impl.md (57ff8c85, Approved) §1/§2 + plans/features/p0-save-init-ux/evidence/ux-impl/e2e-report.json (failures=0, POST=21)",
+          "observation": "4 группы: Характер (Core полный/компактный, версии) → Манера речи (мат, развёрнутость, Expression) → Правила письма → Дополнительно (история, дифф, техсведения, диагностика); 10 карточек — рендер e2e; визуальная перегруппировка существующих функций, новая дизайн-система не вводилась.",
+          "artifact_path": "plans/features/p0-save-init-ux/evidence/ux-impl/e2e-report.json",
+          "artifact_sha256": "9e5e671a7724cb6488282b8ef6c5c3a10868d2a91f3ec8997d3c98b8b52fcb14",
+          "type": "ui"
+        }
+      ],
       "alias_of": [
         "soul-1:SOUL-10.0",
         "soul-1-amd:SOUL-AMD.6.1"
@@ -619,14 +719,23 @@
       "source_text_sha256": "52f5a0cb1401ea1baf732d9f37fa1e0834316b7d239951ad0a1a473cfe51a846",
       "source_excerpt": "### 3.2. Убрать техмусор из основного интерфейса (`owner_setting`, `fac:040…`, `trailing_period.hard.strip`, `emoji.hard.off`, `write_error`, `inherited` без перевода, служебные ревизии) — понятные названия/описания; техдетали — в раскрывае",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто: техмусор убран из основного интерфейса — grep `web/index.html`: `owner_setting`=0, `fac:`=0, `trailing_period`=0, `emoji.hard.off`=0, `write_error`=0, `document_default`=0; коды живут только в картах подписей/ошибок и наружу не рендерятся (e2e + routing-тесты); «Все инструкции» доступны, данные/возможности не удалены (REV-UX §2). Живая проверка на прод-устройстве владельца отменена (PET_PROJECT: `AGENTS.md` §5 — отменённые device-чек-листы не воссоздаются; device-наблюдение — необязательная обратная связь, автоматические Playwright-проверки выполнены).",
       "req_id": "P0A-UX-TECHJUNK",
       "slice": "P0A-UX",
       "acceptance": "Технические токены (owner_setting, fac:040…, trailing_period.hard.strip, emoji.hard.off, write_error, непереведённый inherited, служебные ревизии) убраны из основного интерфейса в пользу понятных названий и описаний; техдетали доступны в раскрываемых деталях/диагностике; данные и возможности не удалены; UI-аудит-артефакт.",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "01e1cc8d6ad479edf907e103f9594f1e55285657",
+          "ref": "plans/features/soul-1/review-ux-impl.md (57ff8c85, Approved) §1/§2 + plans/features/p0-save-init-ux/evidence/ux-impl/report.md §2.3 (TJ-1:TJ-21)",
+          "observation": "Grep-артефакт: технические токены в основном html = 0 (перечень выше); техдетали доступны в раскрываемых деталях; удаления данных/возможностей нет — только слой подписей.",
+          "artifact_path": "plans/features/p0-save-init-ux/evidence/ux-impl/report.md",
+          "artifact_sha256": "fb97fcece7b7b4154dd14bb494f2467e44890126f67610d45a5a583aa594efdd",
+          "type": "test"
+        }
+      ],
       "alias_of": [
         "soul-1:SOUL-16.5.2",
         "cfg:CFG-04C.3"
@@ -639,14 +748,23 @@
       "source_text_sha256": "c0be9598572f679baf06bbe2abd42de151e79aff3b7547d25260ecb0f38fe537",
       "source_excerpt": "### 3.3. Компактная адаптивная компоновка (Android Portrait/Landscape): убрать огромные кнопки/отступы/вложенные карточки; компактные переключатели/списки/селекторы; единый размер элементов; операции не «каждая — большая кнопка»; сохранение",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто: компактная адаптивная компоновка — медиа 360–599 (ровно 2 кол.) и ≤599 (1 кол.), тач-цели ≥44, safe-area, sticky savebar, autogrow 40vh + «Развернуть» (≤599/landscape); e2e на 6 вьюпортах — overflow==0, failures=0; скриншоты 320/360/390/412; полигон/стекло/палитра не тронуты (REV-UX §3; glass before/after идентичны — 45-set). Живая проверка на прод-устройстве владельца отменена (PET_PROJECT: `AGENTS.md` §5 — отменённые device-чек-листы не воссоздаются; device-наблюдение — необязательная обратная связь, автоматические Playwright-проверки выполнены).",
       "req_id": "P0A-UX-COMPACT",
       "slice": "P0A-UX",
       "acceptance": "Компактная адаптивная компоновка (Android Portrait/Landscape): нет огромных кнопок/отступов/вложенных карточек; единый размер элементов; операции не «каждая — большая кнопка»; safe area, клавиатура, высота; нет горизонтального переполнения и перекрытия Telegram UI; длинные тексты — расширяемый редактор; переключение полной/компактной редакций Core не теряет введённое; полигон/стекло/палитра сохранены; Playwright на узких viewport.",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "01e1cc8d6ad479edf907e103f9594f1e55285657",
+          "ref": "plans/features/soul-1/review-ux-impl.md (57ff8c85, Approved) §3 + plans/features/p0-save-init-ux/evidence/ux-impl/shots/core_320.png (и 360/390/412) + e2e-report.json",
+          "observation": "Медиа-правила (360–599: 2 кол.; ≤599: 1 кол.), тач-цели ≥44, safe-area, sticky savebar, autogrow/«Развернуть»; скриншот 320px — 1 колонка без переполнения; e2e 6 вьюпортов overflow==0; стекло/полигон/палитра сохранены.",
+          "artifact_path": "plans/features/p0-save-init-ux/evidence/ux-impl/shots/core_320.png",
+          "artifact_sha256": "ebbbff9510c86a5471319196ff2ff3931507f4a4851bb80ad78317fcc2616c03",
+          "type": "ui"
+        }
+      ],
       "alias_of": [
         "cfg:CFG-04C.1",
         "cfg:CFG-04C.4",
@@ -660,14 +778,23 @@
       "source_text_sha256": "eec031d51986e20ff9bd72143ddd04274247a1aa946549bb1521b9d36352390a",
       "source_excerpt": "### 3.4. Логика сохранения: явные несохранённые изменения; без неочевидных перезаписей; подтверждение успеха; человеческая причина ошибки с сохранением текста; не закрывать/не сбрасывать при ошибке; предупреждать/черновик при переключении; ",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто: честное сохранение — dirty per-edition + «Есть несохранённые изменения: N», `_dirtyLeaveGuard` в трёх точках (scope/маршрут/закрытие модалки), человеческие ошибки (409-валидация → «исправьте и сохраните снова»; 409-конфликт → «обновите данные»; 422 → «Выберите чат»; 503 → тост + «Повторить сохранение»), форма при ошибке не закрывается, черновик не теряется; e2e POST=21, failures=0 (REV-UX §4). Живая проверка на прод-устройстве владельца отменена (PET_PROJECT: `AGENTS.md` §5 — отменённые device-чек-листы не воссоздаются; device-наблюдение — необязательная обратная связь, автоматические Playwright-проверки выполнены).",
       "req_id": "P0A-UX-SAVE",
       "slice": "P0A-UX",
       "acceptance": "Логика сохранения: несохранённые изменения явные; неочевидные перезаписи исключены; подтверждение успеха; человеческая причина ошибки с сохранением текста; при ошибке форма не закрывается/не сбрасывается; при переключении — предупреждение/черновик; корректное состояние после перезагрузки; уведомления не перекрывают нативные элементы; сценарии Playwright.",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "01e1cc8d6ad479edf907e103f9594f1e55285657",
+          "ref": "plans/features/soul-1/review-ux-impl.md (57ff8c85, Approved) §4 + plans/features/p0-save-init-ux/evidence/ux-impl/shots/dirty_390.png (+ shots/error409_390.png, error503_390.png) + e2e-report.json",
+          "observation": "Dirty-рамка/«Не сохранено», sticky-кнопка, guard в трёх точках, черновик переживает переключения; ошибки 409/422/503 — человеческие, с повторным сохранением; e2e подтверждает POST=21 и диалог сохранения черновика.",
+          "artifact_path": "plans/features/p0-save-init-ux/evidence/ux-impl/shots/dirty_390.png",
+          "artifact_sha256": "e72229e9d5acd0df6f692345dfc14e42e07a6377206280471fb6ba9b13d7476b",
+          "type": "ui"
+        }
+      ],
       "alias_of": [
         "cfg:CFG-04B.2",
         "cfg:CFG-04B.4"
@@ -680,14 +807,23 @@
       "source_text_sha256": "1a02873c3b4d9d5c638469bc2553e5e49014280ddf88dd2c478a00ad03648211",
       "source_excerpt": "### 3.5. Global/per-chat: видно, где задано и откуда effective; переопределение помечено; «Наследовать глобальные настройки» вместо «Сбросить в inherited»; scope ≠ права; изоляция чатов; безопасное восстановление глобального.",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто: global/per-chat видимость и защита — переопределение помечено, действие «Наследовать глобальные настройки»; per-section scope (`speechScopeTouched`): смена scope в «Характере» не меняет «Правила письма»; cross-chat guard: смена чата с черновиком → диалог, сброс на витрину, 0 POST, чужие данные не переносятся (REV-UX §4); изоляция чатов подтверждена и приёмкой A6. Живая проверка на прод-устройстве владельца отменена (PET_PROJECT: `AGENTS.md` §5 — отменённые device-чек-листы не воссоздаются; device-наблюдение — необязательная обратная связь, автоматические Playwright-проверки выполнены).",
       "req_id": "P0A-UX-SCOPE",
       "slice": "P0A-UX",
       "acceptance": "Global/per-chat: видно, где задано значение и откуда effective; переопределение помечено; действие названо «Наследовать глобальные настройки» вместо «Сбросить в inherited»; scope ≠ права; изоляция чатов; безопасное восстановление глобального значения; UI-артефакт.",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "01e1cc8d6ad479edf907e103f9594f1e55285657",
+          "ref": "plans/features/soul-1/review-ux-impl.md (57ff8c85, Approved) §4 + plans/features/p0-save-init-ux/evidence/ux-impl/shots/chat_switch_390.png + e2e-report.json (dialogs)",
+          "observation": "Смена чата с несохранённым черновиком: диалог, сброс на витрину, 0 POST, данные чужого чата не переносятся; scope — per-section; «Наследовать глобальные настройки» вместо «Сбросить в inherited».",
+          "artifact_path": "plans/features/p0-save-init-ux/evidence/ux-impl/shots/chat_switch_390.png",
+          "artifact_sha256": "d26a348e6528fa98046501f9e7875feb07c99ba57b0dd915fbdddae90e593f91",
+          "type": "ui"
+        }
+      ],
       "alias_of": [
         "soul-1:SOUL-02.8"
       ],
@@ -699,14 +835,23 @@
       "source_text_sha256": "76ab48a6fe5d66af2b77f5b01e590fe232c77a13f42b1248ce9ef5aba2700b9b",
       "source_excerpt": "### 3.6. Сохранить всю функциональность (полный/компактный Core, история/дифф/откат, привычки, строгие запреты/приоритеты, шаблоны, Expression, мат/развёрнутость, global/chat, предпросмотр применяемых правил, диагностика effective). Не заме",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто: функциональность сохранена — W6-e2e «Речь и характер» failures=0 (7 вьюпортов + интеракции, POST=16); pytest `test_soul1_w6_speech_ui` 23 passed и `test_webapp_round1013_f5_ui`+`test_p0_persistfix` 38 passed; JS-sweep PASS=87/FAIL=0; редакторы не заменены моками; стекло before/after идентично (45-set) (REV-UX §6). Живая проверка на прод-устройстве владельца отменена (PET_PROJECT: `AGENTS.md` §5 — отменённые device-чек-листы не воссоздаются; device-наблюдение — необязательная обратная связь, автоматические Playwright-проверки выполнены).",
       "req_id": "P0A-UX-KEEP",
       "slice": "P0A-UX",
       "acceptance": "Вся функциональность сохранена: полный/компактный Core, история/дифф/откат, привычки, строгие запреты/приоритеты, шаблоны, Expression, мат/развёрнутость, global/chat, предпросмотр применяемых правил, диагностика effective; редакторы не заменены моками; функциональный чек-лист через Playwright/тесты.",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "01e1cc8d6ad479edf907e103f9594f1e55285657",
+          "ref": "plans/features/soul-1/review-ux-impl.md (57ff8c85, Approved) §6 + plans/features/p0-save-init-ux/evidence/ux-impl/w6-after/ui-report.json (failures=0) + pytest 23+38 + js 87/0",
+          "observation": "W6-e2e: failures=0, POST=16 (полный чек-лист функциональности); pytest-наборы 23 и 38 passed; JS-sweep 87/0; редакторы реальные, моками не заменены; glass-регрессии отсутствуют.",
+          "artifact_path": "plans/features/p0-save-init-ux/evidence/ux-impl/w6-after/ui-report.json",
+          "artifact_sha256": "fcc6e2373b688f78081f029a0f0e0889b1d38f8e6260e3eceb245b3f79bc3a2f",
+          "type": "test"
+        }
+      ],
       "alias_of": [
         "soul-1:SOUL-16.5.1"
       ],
@@ -748,14 +893,23 @@
       "source_text_sha256": "7c357756b018e3a58827e356565746759e2a43d6f423b1c47a71f981ed8259f6",
       "source_excerpt": "- Существующий workflow и независимый Reviewer.",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто: использован существующий workflow — независимый Reviewer проверял каждого кандидата ДО деплоя, отчёт каждого ревью привязан к кандидату: `4a4d3849` (ностальгия, `ae9af516`), `7356db49` (сохранение, `29a95173`), `dea9e45b` (инициатива, `f0bd29e2`), `13729462` (минфикс диагностики, `2af51eb6`), `57ff8c85` (UX, `01e1cc8d`) — все Approved; релиз прошёл отдельный recheck `review-release-25890.md` (`3b02366e`).",
       "req_id": "P0A-OPS-REVIEW",
       "slice": "P0A-ACCEPT",
       "acceptance": "Используется существующий workflow; независимый Reviewer проверяет кандидата до деплоя; отчёт ревью привязан к кандидату.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "3b02366e63022eb4c760892aa1bcb4f26516e789",
+          "ref": "plans/features/p0-save-init-ux/review-release-25890.md (REV-REL-RECHECK, коммит `3b02366e`) + ревью-набор: review-nostalgia-fix (4a4d3849), review-persist-fix (7356db49), review-init-fix (dea9e45b), review-diag-minifix (13729462), review-ux-impl (57ff8c85)",
+          "observation": "Каждое ревью — независимое, read-only, с биндингом кандидата (sha256/кандидат-коммит в шапке); релизный recheck (REV-REL-RECHECK) отдельно проверил деплой-артефакты и пре-деплой кандидата.",
+          "artifact_path": "plans/features/p0-save-init-ux/review-release-25890.md",
+          "artifact_sha256": "2cb96cf8c92922fcb5cdae57725d3df383a1bbac98907fe804d9b2ab79609b9a",
+          "type": "static"
+        }
+      ]
     },
     {
       "source_id": "L00053",
@@ -763,14 +917,23 @@
       "source_text_sha256": "1de10b1da1e3a8dcc54dce6443608fadfc38d471484c1fb514aa6e30a26b9a27",
       "source_excerpt": "- Не дублировать CFG-03/CFG-04/CFG-07 и выполненные пункты SOUL-1; обновить их статус и исправить дефекты в существующих компонентах.",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто: повторных реализаций нет — pg прокинут в 10 УЖЕ существующих chat-записей (`review-persist-fix` §1), observer/Decision переиспользованы без второго контура (`review-init-fix` §6 — 0 пересечений смысла с соседними лейнами), UX — слой поверх существующих редакторов (`services/**` не тронуты, `review-ux-impl` §1); параллельных копий в диффах нет.",
       "req_id": "P0A-OPS-NODUP",
       "slice": "P0A-ACCEPT",
       "acceptance": "Нет повторных реализаций: сопоставление показывает, что каждый затронутый компонент исправлен в существующих местах (CFG-03/CFG-04/CFG-07, выполненные пункты SOUL-1), их статусы обновлены; диффы не содержат параллельных копий.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "3b02366e63022eb4c760892aa1bcb4f26516e789",
+          "ref": "plans/features/soul-1/review-persist-fix.md (7356db49) §1 + plans/features/soul-1/review-init-fix.md (dea9e45b) §6 + plans/features/soul-1/review-ux-impl.md (57ff8c85, Approved) §1",
+          "observation": "Фиксы легли в существующие места: 10 chat-записей получили pg без новых сервисов; наблюдатель/единый Decision переиспользованы; UX-дифф ограничен speech-слоем (index.html/CSS/app.js; services/** не тронуты); дублей компонентов нет.",
+          "artifact_path": "plans/features/soul-1/review-persist-fix.md",
+          "artifact_sha256": "f3787f8fed1dd8354aeed26f9822110d466340610e8d4de52c47500efd74999a",
+          "type": "static"
+        }
+      ],
       "alias_of": [
         "cfg:ADD-0.2"
       ],
@@ -782,14 +945,23 @@
       "source_text_sha256": "99996639ab641d3b304d2df1cd186dbe3e5f44ac8b8b40a491223ba3168b1474",
       "source_excerpt": "- Не откладывать persistence-исправления; не маскировать заглушками/оптимистичными статусами; не объявлять успех без read-after-write; не открывать Human Gate там, где решает код; штатный деплой в ближайшее безопасное окно.",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто: persistence-фиксы не отложены — выкачены в 2.58.90; заглушек/оптимистичных статусов нет (честные 409/422/503, read-after-write подтверждены приёмкой A/E); успех без применения не заявляется (F: `last_run_present=false` — честная граница); Human Gate не открывался (PET — решает код, `AGENTS.md`); деплой выполнен штатным путём.",
       "req_id": "P0A-OPS-NOFAKE",
       "slice": "P0A-ACCEPT",
       "acceptance": "Persistence-исправления не отложены; заглушки и оптимистичные статусы отсутствуют; успех не объявляется без read-after-write; Human Gate для решаемых кодом вопросов не открывается; деплой выполнен штатно в ближайшее безопасное окно.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "3b02366e63022eb4c760892aa1bcb4f26516e789",
+          "ref": "plans/features/p0-save-init-ux/evidence/release-25890/final-verification.txt (прод `3b02366e`: NRestarts=0, маркеры INIT_FRESH=3/INIT_ANCHORED=3) + acceptance/README.md §A/§E + plans/features/p0-save-init-ux/release-25890-report.md §4",
+          "observation": "Прод 2.58.90: штатный деплой (PID-анкер, NRestarts=0), маркеры нового кода в отданных байтах; честные коды ошибок и read-after-write — приёмка A/E; «успех без применения» не заявляется (payload-проба честно фиксирует `last_run_present=false`); Human Gate не открывался.",
+          "artifact_path": "plans/features/p0-save-init-ux/evidence/release-25890/final-verification.txt",
+          "artifact_sha256": "611093c9c86686beb33c36a31721072a2c8c96aa455b96d9b804e0e590fd5da9",
+          "type": "production"
+        }
+      ],
       "note": "Согласуется с PET_PROJECT: Human Gate не открывать там, где решает код."
     },
     {
