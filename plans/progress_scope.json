@@ -1,0 +1,60 @@
+{
+  "schema": "openworkflow-progress-scope-v1",
+  "updated": "2026-10-18T20:33:00+12:00",
+  "tasks": [
+    {
+      "id": "soul-1",
+      "status": "BUILDING",
+      "source_path": "plans/current_task.md",
+      "source_sha256": "23D640B7B4EC361BDD5362A092B8CB263FF049DD2CA84767174FC5FFBC74F1EF",
+      "maps": ["plans/features/soul-1/requirements-map.json", "plans/features/soul-1/requirements-map-amendment.json"],
+      "coverage_complete": true,
+      "source_note": "current_task.md: блок SOUL-1 + уточнение релиза 18.10 (снапшот plans/features/soul-1/source-release-correction-2026-10-18.md); ре-анкор точечных строк до release-гейта"
+    },
+    {
+      "id": "asap8-v6.3",
+      "status": "BUILDING",
+      "source_path": "plans/current_task.md",
+      "source_sha256": "23D640B7B4EC361BDD5362A092B8CB263FF049DD2CA84767174FC5FFBC74F1EF",
+      "maps": ["plans/features/asap8-v6-3-live-correction/requirements-map.json"],
+      "coverage_complete": true,
+      "source_note": "current_task.md: v6.3 live-correction + инцидент Summary + FULLSCREEN HOTFIX/FOLLOW-UP (FE-FULLSCREEN: задеплоено 2.58.84; 8 строк owner-live)"
+    },
+    {
+      "id": "cfg-01-07",
+      "status": "PENDING",
+      "source_path": "plans/features/cfg/source-cfg-addendum.md",
+      "source_sha256": "2ED43009E1533ECA218BE419409870EBBE85F82D85262FF2335DFA2CE36E6B10",
+      "maps": ["plans/features/cfg/requirements-map.json"],
+      "coverage_complete": true,
+      "source_note": "current_task.md L1232–1629 (снапшот addendum); 12 строго последовательных слайсов; старт после текущей очереди"
+    },
+    {
+      "id": "win-glass-hotfix",
+      "status": "BUILDING",
+      "source_path": "plans/features/win-glass-hotfix/source-hotfix-2026-10-18.md",
+      "source_sha256": "69B16CE8FC0287D1FF6BD83B0C23CD035207F167B8CC6969AC8EA42DB7843593",
+      "maps": ["plans/features/win-glass-hotfix/requirements-map.json"],
+      "coverage_complete": true,
+      "source_note": "чат-директива 18.10 (P0); карта 24 обязательных (WG-WIN 5, WG-ANDROID 6, WG-VERIFY 13), plan-гейт errors=0; live-строки 6 → owner-E2E"
+    },
+    {
+      "id": "p0-save-init-ux",
+      "status": "BUILDING",
+      "source_path": "plans/features/p0-save-init-ux/source-p0-hotfix-2026-10-18.md",
+      "source_sha256": "76BD681EA1F78FC0DE888B37928FF2CFBA8E3CE026BDFAF980FEB1001AC58825",
+      "maps": ["plans/features/p0-save-init-ux/requirements-map.json"],
+      "coverage_complete": true,
+      "source_note": "чат-директива 18.10 (P0 HOTFIX-3); карта A: 29 required + 6 context (PM-P0-MAPS `2c916f35`; plan errors=0); слайсы P0A-INIT/PERSIST/UX/ACCEPT"
+    },
+    {
+      "id": "p0-followup-nostalgia",
+      "status": "BUILDING",
+      "source_path": "plans/features/p0-save-init-ux/source-p0-followup-2026-10-18.md",
+      "source_sha256": "1E00B4AFADB0D2861A8FB72B8439E921D540D0225A6C6EA2DF1B292A8B8628D4",
+      "maps": ["plans/features/p0-save-init-ux/requirements-map-followup.json"],
+      "coverage_complete": true,
+      "source_note": "чат-директива 18.10 (P0 FOLLOW-UP); карта B: 35 required + 6 context (PM-P0-MAPS `2c916f35`; plan errors=0); слайсы P0B-INIT-ARCH/NOST/ACCEPT"
+    }
+  ]
+}
