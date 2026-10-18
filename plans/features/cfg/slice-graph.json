@@ -1,0 +1,186 @@
+{
+  "schema": "openworkflow-slices-v1",
+  "feature": "cfg",
+  "note": "Строго последовательная очередь CFG-01→CFG-07→CFG-FINAL (ADD-0.1): serial joins оформлены цепочкой depends_on; параллельных писателей нет.",
+  "slices": [
+    {
+      "id": "CFG-01",
+      "depends_on": [],
+      "write_scope": [
+        "services/persistent_throttling.py",
+        "services/direct_chat_service.py",
+        "handlers/direct_chat.py",
+        "services/chat_params.py",
+        "web/app.js",
+        "tests/test_direct_chat.py",
+        "tests/test_direct_chat_concurrency.py",
+        "tests/test_persistent_throttling.py",
+        "plans/features/cfg/evidence/cfg-01/**"
+      ],
+      "acceptance": "Лимиты Direct Chat реально применяются без рестарта (global/chat, остаток времени, устойчивость, анти-обход), подтверждено тестами и бот-реплаем."
+    },
+    {
+      "id": "CFG-02A",
+      "depends_on": [
+        "CFG-01"
+      ],
+      "write_scope": [
+        "services/budget_limits.py",
+        "services/worker_settings.py",
+        "services/image_generation.py",
+        "services/param_catalog.py",
+        "web/app.js",
+        "tests/test_budget_settings_round1019.py",
+        "plans/features/cfg/evidence/cfg-02a/**"
+      ],
+      "acceptance": "Суточная квота изображений видна и управляема в MiniApp и реально меняет разрешение/отказ пользовательской генерации без рестарта."
+    },
+    {
+      "id": "CFG-02B",
+      "depends_on": [
+        "CFG-02A"
+      ],
+      "write_scope": [
+        "services/image_generation.py",
+        "services/worker_settings.py",
+        "services/param_catalog.py",
+        "services/chat_params.py",
+        "web/app.js",
+        "tests/test_budget_settings_round1019.py",
+        "plans/features/cfg/evidence/cfg-02b/**"
+      ],
+      "acceptance": "Новый частотный лимит генераций: factory OFF, per-user/per-chat независимо проверены, отказ до платного вызова с фактическим остатком."
+    },
+    {
+      "id": "CFG-02C",
+      "depends_on": [
+        "CFG-02B"
+      ],
+      "write_scope": [
+        "services/budget_limits.py",
+        "services/worker_settings.py",
+        "services/cover_style_pipeline.py",
+        "services/cover_style_jobs.py",
+        "services/image_generation.py",
+        "tests/test_cover_style_wave_b_asap4.py",
+        "plans/features/cfg/evidence/cfg-02c/**"
+      ],
+      "acceptance": "Двусторонняя изоляция user_image/summary_cover доказана отрицательными и интеграционными тестами; shared-capacity показан честно."
+    },
+    {
+      "id": "CFG-03",
+      "depends_on": [
+        "CFG-02C"
+      ],
+      "write_scope": [
+        "services/param_catalog.py",
+        "services/chat_params.py",
+        "services/chat_settings_seed.py",
+        "web/app.js",
+        "tests/test_chat_params.py",
+        "plans/features/cfg/evidence/cfg-03/**"
+      ],
+      "acceptance": "Coverage manifest на каждый параметр MiniApp с реальным consumer или честным unverified; UI_missing и неработающие параметры исправлены либо задокументированы."
+    },
+    {
+      "id": "CFG-04",
+      "depends_on": [
+        "CFG-03"
+      ],
+      "write_scope": [
+        "web/app.js",
+        "web/index.html",
+        "web/static/app.css",
+        "tests/js/**",
+        "plans/features/cfg/evidence/cfg-04/**"
+      ],
+      "acceptance": "Мобильные формы: один сценарий сохранения, dirty-state, клавиатура/safe-area/поворот без перекрытий и потерь ввода; фон и композиция сохранены."
+    },
+    {
+      "id": "CFG-05-Verify",
+      "depends_on": [
+        "CFG-04"
+      ],
+      "write_scope": [
+        "plans/features/cfg/evidence/cfg-05/**"
+      ],
+      "acceptance": "CFG-05 закрыт как REUSED_EXISTING/OWNER_VISUAL_CONFIRMED по deployed SHA, U08/SOUL-17 evidence и наблюдению владельца — без нового кода и деплоя."
+    },
+    {
+      "id": "CFG-06",
+      "depends_on": [
+        "CFG-05-Verify"
+      ],
+      "write_scope": [
+        "handlers/factcheck.py",
+        "services/factcheck_service.py",
+        "services/factcheck_prompts.py",
+        "services/temporal_factcheck.py",
+        "services/search_aggregator.py",
+        "services/system2_handoff.py",
+        "services/prompt_style_blocks.py",
+        "tests/test_factcheck_service.py",
+        "tests/test_asap8_v63_b07_temporal_factcheck.py",
+        "plans/features/cfg/evidence/cfg-06/**"
+      ],
+      "acceptance": "Один фактчек-pipeline: suitability после контекста, реальные evidence, grounded verdict, Telegram-safe renderer; H–J объединены, ложные отказы и утечки метаданных отсутствуют."
+    },
+    {
+      "id": "CFG-07A",
+      "depends_on": [
+        "CFG-06"
+      ],
+      "write_scope": [
+        "services/prompt_composer.py",
+        "services/prompt_style_blocks.py",
+        "services/mca_authorial_speech.py",
+        "web/api/speech.py",
+        "tests/test_soul1_w4_humor_craft.py",
+        "plans/features/cfg/evidence/cfg-07a/**"
+      ],
+      "acceptance": "Ни один публичный маршрут не выпускает backstage/машинные поля; effective payload прослежен, слом персонажа отличён от честных ограничений."
+    },
+    {
+      "id": "CFG-07B",
+      "depends_on": [
+        "CFG-07A"
+      ],
+      "write_scope": [
+        "services/style_policy.py",
+        "services/mca_style_scope.py",
+        "services/param_catalog.py",
+        "web/api/speech.py",
+        "web/app.js",
+        "tests/test_soul1_w6_speech_ui.py",
+        "plans/features/cfg/evidence/cfg-07b/**"
+      ],
+      "acceptance": "Переключатель «Использовать мат» (factory ON, GLOBAL/CHAT, Inspector applied/exempted/failed) реально управляет новой речью без рестарта; цитаты защищены."
+    },
+    {
+      "id": "CFG-07C",
+      "depends_on": [
+        "CFG-07B"
+      ],
+      "write_scope": [
+        "services/prompt_composer.py",
+        "services/mca_authorial_speech.py",
+        "services/style_policy.py",
+        "web/api/speech.py",
+        "tests/test_soul1_w6_speech_ui.py",
+        "plans/features/cfg/evidence/cfg-07c/**"
+      ],
+      "acceptance": "public_speech_guard на точке outbound: машинные артефакты и метаречь не достигают Telegram, fail-soft честный, факты и цитаты не искажаются."
+    },
+    {
+      "id": "CFG-FINAL",
+      "depends_on": [
+        "CFG-07C"
+      ],
+      "write_scope": [
+        "plans/features/cfg/**",
+        "plans/workflow_state.md"
+      ],
+      "acceptance": "ADD-2 №1–8 пройдены: сквозная приёмка дельты, process-контроль ADD-0, регрессии current_task и итоговый status report с requirements-map."
+    }
+  ]
+}
