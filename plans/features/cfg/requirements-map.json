@@ -2,7 +2,7 @@
   "schema": "openworkflow-coverage-v1",
   "source_path": "C:\\Code\\Python\\adminbot\\plans\\features\\cfg\\source-cfg-addendum.md",
   "source_sha256": "2ed43009e1533eca218be419409870ebbe85f82d85262ff2335dfa2ce36e6b10",
-  "candidate_commit": "83ecd202659c2e1a30b46f8548b0809e892b77a9",
+  "candidate_commit": "7db919df79617c9ad05449dd44320a86f29f840a",
   "deployed_commit": "d59fab944bcb3eb0f5d3fa69101d8488da1c155b",
   "strict_evidence": true,
   "slice_graph_path": "slice-graph.json",
@@ -1888,7 +1888,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "note": "Слайс CFG-02B. NF-3: контент-дельта (85 файлов + slice-graph) атрибутирована к коммиту `7e5edd75` — сообщение коммита описывает только граф (гонка индекса), контент полный: 86 позиций, missing=0; ключевые sha256_12 `services/image_generation.py=881f6e9ee4ec`, `tests/test_cfg02b_image_freq_limits.py=7a7d85a94b31`; подтверждено ревьюером `ba3ff438`. NF-1: отложенная f8-пара (`tests/fixtures/round1025/f8_baseline.json` + `tests/test_round1025_f8_registry.py`, uncommitted, смешана с vision-лейном) докатывается отдельно через `tools/_cfg02b_reissue_f8.py` после приземления vision-лейна; на HEAD 6 красных freeze-проверок при зелёном `--check` (579) — осознанный временный дисбаланс, не маскируется; закрыть до релиза CFG-02B."
     },
     {
       "source_id": "L00081",
@@ -1896,14 +1897,24 @@
       "source_text_sha256": "f327d422c792085e2e209c092dbac6962042f83e8905897cbc762af68067399c",
       "source_excerpt": "1. Добавить **отдельный переключатель «Лимит частоты генерации»**. **Factory Default: ВЫКЛЮЧЕНО**. В исходном состоянии новое ограничение не должно вообще запрещать или замедлять генерации, и существующая суточная квота продолжает действова",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто кодом+UI: отдельный переключатель «Лимит частоты генерации» с Factory Default ВЫКЛЮЧЕНО; при OFF ограничение не запрещает и не замедляет генерации, суточная квота действует независимо; настройки сохраняются (review §1/§4). Живая часть — postdeploy. READY_FOR_LIVE.",
       "req_id": "CFG-02B.1",
       "slice": "CFG-02B",
       "acceptance": "Отдельный переключатель «Лимит частоты генерации» с Factory Default ВЫКЛЮЧЕНО; при OFF ограничение не запрещает и не замедляет генерации, суточная квота действует независимо; настройки сохраняются, но применяются только при ON.",
       "live_required": true,
-      "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "live_when": "postdeploy",
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "7db919df79617c9ad05449dd44320a86f29f840a",
+          "ref": "plans/features/cfg/evidence/cfg-02b/ui/01-off-global.png + plans/features/cfg/review-cfg-02b.md (ba3ff438, Approved) §3",
+          "observation": "OFF (factory): витрина показывает выключенный лимит, генерации не ограничиваются; суточная квота независима.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-02b/ui/01-off-global.png",
+          "artifact_sha256": "cee3aea328c8215b8b26f45bf7bf18f98cba1c6fd8a617eb52856f4992adf042",
+          "type": "ui"
+        }
+      ],
+      "live_note": "postdeploy (DevOps/Orchestrator), не owner-гейт: на проде OFF-состояние не ограничивает генерации, суточная квота независима; включение/выключение без рестарта."
     },
     {
       "source_id": "L00082",
@@ -1911,14 +1922,24 @@
       "source_text_sha256": "09d8f6d1e073fa753d08a49299009e5a5a43f627f597cd252c527973bcfd858d",
       "source_excerpt": "2. При включении показывать компактные настройки:",
       "disposition": "required",
-      "reason": "",
+      "reason": "Код+UI: при включении показываются компактные настройки лимита частоты (количество подряд, время ожидания, режим счёта) — один select, 4 поля, «Включено и действует» (review §3, скриншоты). Живая часть — postdeploy. READY_FOR_LIVE.",
       "req_id": "CFG-02B.2",
       "slice": "CFG-02B",
       "acceptance": "При включении показываются компактные настройки лимита частоты (количество подряд, время ожидания, режим счёта).",
       "live_required": true,
-      "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "live_when": "postdeploy",
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "7db919df79617c9ad05449dd44320a86f29f840a",
+          "ref": "plans/features/cfg/evidence/cfg-02b/ui/02-active-per-user.png + plans/features/cfg/review-cfg-02b.md (ba3ff438, Approved) §3",
+          "observation": "ON/per-user: 4 поля, один select, «Включено и действует», «≈ 10 мин 20 сек», «Остаток серии: 0 из 2».",
+          "artifact_path": "plans/features/cfg/evidence/cfg-02b/ui/02-active-per-user.png",
+          "artifact_sha256": "7f9573d2263b9f3c9e8c3ea7e2198add19487a0168480f69e8383f8444861b8c",
+          "type": "ui"
+        }
+      ],
+      "live_note": "postdeploy (DevOps/Orchestrator), не owner-гейт: включение лимита в MiniApp — компактные настройки (подряд/ожидание/режим) видны и применяются."
     },
     {
       "source_id": "L00083",
@@ -1926,14 +1947,23 @@
       "source_text_sha256": "db860ab245cf52606ff9c142904b1049b7be73b525af98854505fd6e7e21daed",
       "source_excerpt": "- «Сколько генераций подряд» (положительное целое, с документированной политикой списания);",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто: поле «Сколько генераций подряд» (положительное целое; политика списания — перед платной попыткой) задекларировано в каталоге (`limits_images`, +4 ParamSpec; REGISTRY 575→579, Settings 454→458); тесты контракта 37 passed. VERIFIED (review §1/§4).",
       "req_id": "CFG-02B.2.1",
       "slice": "CFG-02B",
       "acceptance": "Поле «Сколько генераций подряд» принимает положительное целое с документированной политикой списания.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "7db919df79617c9ad05449dd44320a86f29f840a",
+          "ref": "plans/features/cfg/evidence/cfg-02b/catalog-delta.md + plans/features/cfg/review-cfg-02b.md (ba3ff438, Approved) §4",
+          "observation": "Каталог: +4 ParamSpec в группе `limits_images` (enabled=False / burst=3 / cooldown=300 с / mode=per_user); REGISTRY 579 == `--check`; freeze переутверждён `tools/_cfg02b_reissue_f8.py`.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-02b/catalog-delta.md",
+          "artifact_sha256": "7f96909c2d2dd4c78ff8024229e04110d2fdb8e4cc8fa04bc2ef1b4b44c1d870",
+          "type": "static"
+        }
+      ]
     },
     {
       "source_id": "L00084",
@@ -1941,14 +1971,23 @@
       "source_text_sha256": "ae73fa16358a2f78481bf28cb9250ddad0e0d89042586037be6a798f0f28a0f3",
       "source_excerpt": "- «Время ожидания» (секунды/минуты, понятный формат);",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто: поле «Время ожидания» принимает секунды/минуты, человеческий формат («≈ 10 мин 20 сек» через `format_remaining_time`). VERIFIED (review §1/§4).",
       "req_id": "CFG-02B.2.2",
       "slice": "CFG-02B",
       "acceptance": "Поле «Время ожидания» принимает понятный формат секунд/минут.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "7db919df79617c9ad05449dd44320a86f29f840a",
+          "ref": "plans/features/cfg/evidence/cfg-02b/catalog-delta.md + plans/features/cfg/review-cfg-02b.md (ba3ff438, Approved) §1",
+          "observation": "Поле «Время ожидания» (cooldown, сек, с единицами в каталоге); человеческий формат остатка в UI/речи подтверждён скриншотами и тестами.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-02b/catalog-delta.md",
+          "artifact_sha256": "7f96909c2d2dd4c78ff8024229e04110d2fdb8e4cc8fa04bc2ef1b4b44c1d870",
+          "type": "static"
+        }
+      ]
     },
     {
       "source_id": "L00085",
@@ -1956,14 +1995,24 @@
       "source_text_sha256": "3a09405d511d17a552ece62e16df58c5d94d29007491023dcb96aa0c117d9922",
       "source_excerpt": "- **«Считать лимит»** — выбор одного из двух взаимоисключающих вариантов (рекомендуемый заводской выбор: «Для каждого пользователя», при выключенном лимитере он не действует): **«Для каждого пользователя»** / **«Общий на весь чат»**. Не дел",
       "disposition": "required",
-      "reason": "",
+      "reason": "Код+UI: «Считать лимит» — один из двух взаимоисключающих вариантов (per_user заводской / общий на весь чат), без двух одновременно включаемых галочек; мусор → per_user (review §1). Живая часть — postdeploy. READY_FOR_LIVE.",
       "req_id": "CFG-02B.2.3",
       "slice": "CFG-02B",
       "acceptance": "Выбор «Считать лимит» — один из двух взаимоисключающих вариантов (per-user, рекомендуемый заводской / общий на весь чат), без двух одновременно включаемых галочек.",
       "live_required": true,
-      "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "live_when": "postdeploy",
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "7db919df79617c9ad05449dd44320a86f29f840a",
+          "ref": "plans/features/cfg/evidence/cfg-02b/ui/03-active-per-chat.png + plans/features/cfg/review-cfg-02b.md (ba3ff438, Approved) §3",
+          "observation": "Режим «Общий на весь чат»: один взаимоисключающий select; второй вариант недоступен одновременно.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-02b/ui/03-active-per-chat.png",
+          "artifact_sha256": "01a7637a77a37d4dc4248446493b43cf6841ee0a4e924bcc44de2e6e44d646cc",
+          "type": "ui"
+        }
+      ],
+      "live_note": "postdeploy (DevOps/Orchestrator), не owner-гейт: переключение per-user/общий-на-чат в живой витрине применяется без двух включённых галочек."
     },
     {
       "source_id": "L00086",
@@ -1971,14 +2020,23 @@
       "source_text_sha256": "8a90eb4ae826e924523d9c61e745b42fe1119f9ee7e99d76d6adb04685ecc8b7",
       "source_excerpt": "3. **«Для каждого пользователя»**: индивидуальный счётчик на `(chat_id, user_id)`; исчерпание A не блокирует B в том же чате. **«Общий на весь чат»**: один счётчик на `chat_id`; запросы разных пользователей расходуют общий запас. Настройка ",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто: per-user счётчик (chat_id,user_id) не блокирует других; per-chat расходуется всеми; режим локален для CHAT override, глобальный — дефолт; счётчик не смешан с дневным (review §1; контрактные прогоны 234 passed).",
       "req_id": "CFG-02B.3",
       "slice": "CFG-02B",
       "acceptance": "Per-user счётчик (chat_id,user_id) не блокирует других в чате; per-chat счётчик расходуется всеми; режим локален для CHAT override, глобальный — дефолт; DM и ключ скоупа проверены; счётчик не смешан с дневным.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "7db919df79617c9ad05449dd44320a86f29f840a",
+          "ref": "plans/features/cfg/evidence/cfg-02b/green-contract.txt + plans/features/cfg/review-cfg-02b.md (ba3ff438, Approved) §1",
+          "observation": "Контракт: per-user не блокирует других в чате; per-chat расходуется всеми; режим локален для CHAT override; отдельный scope `image_freq` (без смешения с дневной квотой); DM/ключ скоупа проверены.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-02b/green-contract.txt",
+          "artifact_sha256": "9ac96496e5465c0cfd71205cf1217c6380eed20269476290d9167dbca04cf548",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00087",
@@ -1986,14 +2044,24 @@
       "source_text_sha256": "4d2cd3f0aea9bef37273e04e48369bc2ecef2e46bb5d90362535f8f90d7fb85f",
       "source_excerpt": "4. Установить и документировать точную семантику «подряд» и паузы: момент списания (перед платной попыткой), порядок восстановления (полное восстановление после заданного интервала либо другая выбранная и объяснённая модель), обратный отсчё",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто: семантика «подряд»/паузы зафиксирована (списание перед платной попыткой, порядок восстановления, конкуренция); состояние устойчиво между воркерами, смена режима счётчики не сбрасывает (`test_mode_switch_does_not_reset_counters`). VERIFIED (review §2).",
       "req_id": "CFG-02B.4",
       "slice": "CFG-02B",
       "acceptance": "Семантика «подряд» и паузы зафиксирована (списание перед платной попыткой, порядок восстановления, отсчёт, параллельные запросы, смена конфигурации посреди паузы); состояние устойчиво между воркерами без скрытых сбросов для обхода.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "7db919df79617c9ad05449dd44320a86f29f840a",
+          "ref": "plans/features/cfg/evidence/cfg-02b/red-baseline.txt + plans/features/cfg/review-cfg-02b.md (ba3ff438, Approved) §2 (L87)",
+          "observation": "Целевой набор 37 passed; RED 34 failed/1 passed (состав причин соответствует фиче); режимные/восстановительные кейсы зелёные.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-02b/red-baseline.txt",
+          "artifact_sha256": "8cc3a9953c7dc084255b7b9b400b6b8c3977e969db4faf11f06787040046ac23",
+          "type": "test"
+        }
+      ],
+      "note": "Семантика смены режима подтверждена ревьюером (счётчики не сбрасываются; скрытого сброса нет; `test_mode_switch_does_not_reset_counters`)."
     },
     {
       "source_id": "L00088",
@@ -2001,14 +2069,23 @@
       "source_text_sha256": "d2ea03ebb274469ec2336cabc6d7db7a1b4899fc8da7ce4adc79db58dc452c3f",
       "source_excerpt": "5. Все **пользовательские** пути создания изображений (ключевик, L1/Tool Router, повторный вызов) проходят через общий частотный limiter, существующий бюджет и идемпотентность. Не создавать второй image pipeline. **Любые этапы создания обло",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто: все пользовательские пути (direct-пре-гейт, tool, legacy) сходятся в единую точку `generate_and_send`; бюджет/идемпотентность без второго pipeline; этапы обложек Summary исключены (`test_summary_cover_path_is_not_charged`). VERIFIED (review §1).",
       "req_id": "CFG-02B.5",
       "slice": "CFG-02B",
       "acceptance": "Все пользовательские пути проходят через общий частотный limiter, бюджет и идемпотентность без второго pipeline; этапы обложек Summary полностью исключены, включая режим «Общий на весь чат».",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "7db919df79617c9ad05449dd44320a86f29f840a",
+          "ref": "plans/features/cfg/evidence/cfg-02b/blast-radius.txt + plans/features/cfg/review-cfg-02b.md (ba3ff438, Approved) §1",
+          "observation": "Единая точка: `maybe_handle_keyword`→`run_image_request`, `tool_router._generate_image`, legacy — все через `generate_and_send`; cover-путь (`generate_image_verbose`) частотным гейтом не затронут.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-02b/blast-radius.txt",
+          "artifact_sha256": "ffe0244fb38f9ba2c30cc4be5b55f962642169091a10598d62f17068f4317b6b",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00089",
@@ -2016,14 +2093,24 @@
       "source_text_sha256": "4e076e895813b81e150d985b5f9cc7a46ea5c21975227476ce7d665c9e413911",
       "source_excerpt": "6. При исчерпании — отказ **до платного запроса**: bot reply с фактическим остатком времени («через 8 минут 20 секунд»), в стиле текущего Personality Core, без спама поминутными обновлениями. При последующих попытках вычислять свежий остато",
       "disposition": "required",
-      "reason": "",
+      "reason": "Код-половина: отказ до платного запроса с фактическим остатком (`retry_after_seconds` → `image_freq_remaining_note` через `format_remaining_time`), свежий остаток на каждую попытку; тексты редактируемы (Style Policy/Factory Defaults; код `freq_limit`→`cooldown`) (review §1). Живая часть — postdeploy. READY_FOR_LIVE.",
       "req_id": "CFG-02B.6",
       "slice": "CFG-02B",
       "acceptance": "Отказ до платного запроса: reply с фактическим остатком времени в стиле Core без поминутного спама; свежий остаток на каждую попытку; тексты редактируемы через Style Policy/Factory Defaults.",
       "live_required": true,
-      "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "live_when": "postdeploy",
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "7db919df79617c9ad05449dd44320a86f29f840a",
+          "ref": "plans/features/cfg/evidence/cfg-02b/green-contract.txt + plans/features/cfg/review-cfg-02b.md (ba3ff438, Approved) §1 (отказ с остатком)",
+          "observation": "Отказ до платного вызова: `retry_after_seconds`/`image_freq_remaining_note`, свежий остаток на каждую попытку; код `freq_limit`→`cooldown`.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-02b/green-contract.txt",
+          "artifact_sha256": "9ac96496e5465c0cfd71205cf1217c6380eed20269476290d9167dbca04cf548",
+          "type": "test"
+        }
+      ],
+      "live_note": "postdeploy (DevOps/Orchestrator), не owner-гейт: реальный отказ лимита на проде — до платного вызова, с фактическим остатком («через N мин») и без поминутного спама."
     },
     {
       "source_id": "L00090",
@@ -2031,14 +2118,23 @@
       "source_text_sha256": "421aa0572afb718b6bff5ba22b0cfd5951b7453d5c5da2a7a12d043614e3e8c4",
       "source_excerpt": "7. Ошибка провайдера, отмена, идемпотентный повтор, ошибка доставки: политика списания/возврата попыток должна быть согласована с реальной стоимостью и зафиксирована тестами. Не выполнять повторную платную генерацию при replay. Если коротки",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто: политика списания/возврата (provider error, отмена, replay, delivery error — без повторной платной генерации; отказ в гонке освобождает дневной резерв `_commit_or_release(..., error_code=\"freq_limit\")`); при обоих лимитах — истинное самое раннее время. VERIFIED (review §1).",
       "req_id": "CFG-02B.7",
       "slice": "CFG-02B",
       "acceptance": "Политика списания/возврата при provider error, отмене, replay и delivery error зафиксирована тестами без повторной платной генерации; при исчерпании обоих лимитов показывается истинное самое раннее время с учётом обоих.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "7db919df79617c9ad05449dd44320a86f29f840a",
+          "ref": "plans/features/cfg/evidence/cfg-02b/green-contract.txt + plans/features/cfg/review-cfg-02b.md (ba3ff438, Approved) §1",
+          "observation": "Контракт: replay не трогает заряд (`already_ok`); freq-отказ в гонке освобождает резерв; порядок `_reserve_or_consume` → consume перед платным вызовом.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-02b/green-contract.txt",
+          "artifact_sha256": "9ac96496e5465c0cfd71205cf1217c6380eed20269476290d9167dbca04cf548",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00091",
@@ -2046,14 +2142,24 @@
       "source_text_sha256": "dfaadd5a89cdf7cf72a25c4cd5e47f416e3c879853e90ace350ca07cf289c544",
       "source_excerpt": "8. В секции «Лимиты генерации» в MiniApp показывать *активно ли ограничение*, scope, остаток для выбранного пользователя (где это доступно) или всего чата, источник наследования и следующую доступность. UI должен быть компактным и одинаково",
       "disposition": "required",
-      "reason": "",
+      "reason": "Код+UI: секция «Лимиты генерации» — активность/причина/режим/источник/остаток серии/следующая доступность (аддитивный блок `freq` в `/api/workers/budget`; тот же `throttle_state` scope `image_freq`); скриншоты мобильный/десктоп, фон/дизайн не изменены (review §1/§3). Живая часть — postdeploy. READY_FOR_LIVE.",
       "req_id": "CFG-02B.8",
       "slice": "CFG-02B",
       "acceptance": "Секция «Лимиты генерации» показывает активность лимита, scope, остаток пользователя/чата, источник наследования и следующую доступность; компактно и одинаково на мобильном и десктопе без изменения фона и дизайна.",
       "live_required": true,
-      "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "live_when": "postdeploy",
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "7db919df79617c9ad05449dd44320a86f29f840a",
+          "ref": "plans/features/cfg/evidence/cfg-02b/ui/browseruse-desktop-active.png + plans/features/cfg/evidence/cfg-02b/e2e-log.json + plans/features/cfg/review-cfg-02b.md (ba3ff438, Approved) §3",
+          "observation": "Витрина: активность/режим/остаток/следующая доступность; e2e PASS, console_errors=[]; мобильный/десктоп без изменения фона.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-02b/ui/browseruse-desktop-active.png",
+          "artifact_sha256": "db98d5385259f546f9c17fb20a27835da2cb2ef88963b5547f74749fabf224d8",
+          "type": "ui"
+        }
+      ],
+      "live_note": "postdeploy (DevOps/Orchestrator), не owner-гейт: секция «Лимиты генерации» на проде — активность/scope/остаток/наследование/следующая доступность; мобильный/десктоп."
     },
     {
       "source_id": "L00093",
@@ -2243,14 +2349,24 @@
       "source_text_sha256": "a9d3e5b2fd942c988c1a6ac0a0227ceba3b723a7751cf3bb67073ae06b0d9e52",
       "source_excerpt": "- При заводском `frequency_enabled=false` создать несколько пользовательских изображений (в пределах дневной квоты): **частотный** ограничитель не вмешивается.",
       "disposition": "required",
-      "reason": "",
+      "reason": "Код-половина: при заводском `frequency_enabled=false` ограничитель не вмешивается, суточная квота независима (тесты). Живая часть — реальные генерации на проде. READY_FOR_LIVE.",
       "req_id": "CFG-02.AC2",
       "slice": "CFG-02B",
       "acceptance": "При заводском frequency_enabled=false несколько пользовательских изображений в пределах дневной квоты создаются без вмешательства частотного ограничителя.",
       "live_required": true,
-      "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "live_when": "postdeploy",
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "7db919df79617c9ad05449dd44320a86f29f840a",
+          "ref": "plans/features/cfg/evidence/cfg-02b/red-baseline.txt + plans/features/cfg/review-cfg-02b.md (ba3ff438, Approved) §1 (заводской OFF)",
+          "observation": "При OFF суточная квота действует независимо; ограничитель не вмешивается (RED/GREEN состав причин подтверждает).",
+          "artifact_path": "plans/features/cfg/evidence/cfg-02b/red-baseline.txt",
+          "artifact_sha256": "8cc3a9953c7dc084255b7b9b400b6b8c3977e969db4faf11f06787040046ac23",
+          "type": "test"
+        }
+      ],
+      "live_note": "postdeploy (DevOps/Orchestrator), не owner-гейт: при заводском OFF реальные генерации в пределах дневной квоты не затрагиваются частотным ограничителем."
     },
     {
       "source_id": "L00111",
@@ -2258,14 +2374,24 @@
       "source_text_sha256": "c292455d834516b990dadb3f9dbce3c33ee77c2f4ea3ef10fd936f9ce025e916",
       "source_excerpt": "- Включить короткий лимит 2 генерации и паузу: третья попытка блокируется до платного вызова; ответ содержит корректный остаток; после паузы можно снова генерировать.",
       "disposition": "required",
-      "reason": "",
+      "reason": "Код-половина: лимит 2 подряд + пауза — третья попытка блокируется до платного вызова с корректным остатком; после паузы генерация снова доступна (тесты). Живая часть — postdeploy. READY_FOR_LIVE.",
       "req_id": "CFG-02.AC3",
       "slice": "CFG-02B",
       "acceptance": "Лимит 2 подряд + пауза: третья попытка блокируется до платного вызова с корректным остатком; после паузы генерация снова доступна.",
       "live_required": true,
-      "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "live_when": "postdeploy",
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "7db919df79617c9ad05449dd44320a86f29f840a",
+          "ref": "plans/features/cfg/evidence/cfg-02b/green-contract.txt + plans/features/cfg/review-cfg-02b.md (ba3ff438, Approved) §3",
+          "observation": "Тест: 2 подряд → третья попытка до платного вызова с корректным остатком; после паузы — снова доступна.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-02b/green-contract.txt",
+          "artifact_sha256": "9ac96496e5465c0cfd71205cf1217c6380eed20269476290d9167dbca04cf548",
+          "type": "test"
+        }
+      ],
+      "live_note": "postdeploy (DevOps/Orchestrator), не owner-гейт: живой сценарий «2 подряд + пауза» — третья попытка отклоняется с остатком, после паузы снова доступна."
     },
     {
       "source_id": "L00112",
@@ -2273,14 +2399,23 @@
       "source_text_sha256": "92bd494d1789f77d61737b28c9032229ab10c24238e25aca26ce0ddd8a83e941",
       "source_excerpt": "- Режим «Для каждого пользователя»: пользователь A достиг лимита, B продолжает генерировать в том же чате.",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто: per-user — A исчерпывает лимит, B продолжает генерировать в том же чате (контрактные тесты). VERIFIED.",
       "req_id": "CFG-02.AC4",
       "slice": "CFG-02B",
       "acceptance": "В режиме «Для каждого пользователя» A исчерпывает лимит, B продолжает генерировать в том же чате.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "7db919df79617c9ad05449dd44320a86f29f840a",
+          "ref": "plans/features/cfg/evidence/cfg-02b/green-contract.txt + plans/features/cfg/review-cfg-02b.md (ba3ff438, Approved) §1/§3",
+          "observation": "Тест per-user изоляции: A блокируется, B продолжает (ключ (chat_id,user_id), общий запас не тратится B-шником).",
+          "artifact_path": "plans/features/cfg/evidence/cfg-02b/green-contract.txt",
+          "artifact_sha256": "9ac96496e5465c0cfd71205cf1217c6380eed20269476290d9167dbca04cf548",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00113",
@@ -2288,14 +2423,23 @@
       "source_text_sha256": "cb81ed94fc11c34f28c379524702627b552885624a32028670e0b19f05e6ba80",
       "source_excerpt": "- Режим «Общий на весь чат»: A и B вместе исчерпывают один запас, очередной запрос любого из них блокируется.",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто: per-chat — A и B расходуют один запас; следующий запрос любого из них блокируется (контрактные тесты). VERIFIED.",
       "req_id": "CFG-02.AC5",
       "slice": "CFG-02B",
       "acceptance": "В режиме «Общий на весь чат» A и B расходуют один запас; следующий запрос любого из них блокируется.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "7db919df79617c9ad05449dd44320a86f29f840a",
+          "ref": "plans/features/cfg/evidence/cfg-02b/green-contract.txt + plans/features/cfg/review-cfg-02b.md (ba3ff438, Approved) §1/§3",
+          "observation": "Тест per-chat: единый запас (bucket 0), исчерпание блокирует любого участника чата.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-02b/green-contract.txt",
+          "artifact_sha256": "9ac96496e5465c0cfd71205cf1217c6380eed20269476290d9167dbca04cf548",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00114",
@@ -2303,14 +2447,23 @@
       "source_text_sha256": "a556bd33b700fab9a2b74a66eaf8ea37bc14fd8b257a500d4298ce3cc73e2699",
       "source_excerpt": "- Выключить лимит и проверить немедленное отсутствие короткого запрета; включить обратно, проверить документированную судьбу счётчиков без обхода в конкурентном режиме.",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто: выключение лимита немедленно снимает короткий запрет; повторное включение — документированная судьба счётчиков без обхода в конкурентном режиме (тесты; счётчики не сбрасываются). VERIFIED (review §2).",
       "req_id": "CFG-02.AC6",
       "slice": "CFG-02B",
       "acceptance": "Выключение лимита немедленно снимает короткий запрет; повторное включение даёт документированную судьбу счётчиков без обхода в конкурентном режиме.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "7db919df79617c9ad05449dd44320a86f29f840a",
+          "ref": "plans/features/cfg/evidence/cfg-02b/red-baseline.txt + plans/features/cfg/review-cfg-02b.md (ba3ff438, Approved) §1/§2",
+          "observation": "Тесты ON/OFF: master-рубильник снимает enforcement (состояние сохраняется); смена режима не сбрасывает счётчики (скрытого обхода нет).",
+          "artifact_path": "plans/features/cfg/evidence/cfg-02b/red-baseline.txt",
+          "artifact_sha256": "8cc3a9953c7dc084255b7b9b400b6b8c3977e969db4faf11f06787040046ac23",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00115",
@@ -2318,14 +2471,23 @@
       "source_text_sha256": "6d734e2cfb54d6c98a6d2d129836c37aea2f1e37fb5240dd6187c15cf7f20eff",
       "source_excerpt": "- Изменить настройки без рестарта; проверить global → chat → inheritance, параллельные запросы, нескольких воркеров, перезапуск, retry, idempotency, provider failure, Telegram delivery failure, суточный сброс и разные timezone.",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто: изменение без рестарта (hot), global→chat→inheritance, параллельные запросы/несколько воркеров, перезапуск, retry/idempotency, provider/delivery failure, суточный сброс и timezone — покрыто контрактными прогонами (234 passed; целевой 37). VERIFIED (review §3).",
       "req_id": "CFG-02.AC7",
       "slice": "CFG-02B",
       "acceptance": "Изменение без рестарта; global→chat→inheritance, параллельные запросы, несколько воркеров, перезапуск, retry, idempotency, provider/delivery failure, суточный сброс и разные timezone проверены.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "7db919df79617c9ad05449dd44320a86f29f840a",
+          "ref": "plans/features/cfg/evidence/cfg-02b/green-contract.txt + plans/features/cfg/review-cfg-02b.md (ba3ff438, Approved) §3 + plans/features/cfg/evidence/cfg-02b/README.md",
+          "observation": "Контракт+пины (набор из 8 файлов) 234 passed; `--check` реестра OK (579); JS-sweep 87/0; e2e PASS.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-02b/green-contract.txt",
+          "artifact_sha256": "9ac96496e5465c0cfd71205cf1217c6380eed20269476290d9167dbca04cf548",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00116",
