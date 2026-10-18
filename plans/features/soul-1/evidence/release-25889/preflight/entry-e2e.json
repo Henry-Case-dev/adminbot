@@ -1,0 +1,274 @@
+{
+ "webroot": "C:\\Users\\main\\.config\\opencode\\OpenCodeScratch\\adminbot-ccef72c25768\\release-25889\\wt\\web",
+ "failures": [],
+ "notes": [],
+ "probes": [
+  {
+   "label": "320/more",
+   "probe": {
+    "hash": "#/",
+    "topnav": [
+     "Статус",
+     "Аналитика",
+     "Модули",
+     "Ещё"
+    ],
+    "hubCards": [
+     "Аналитика"
+    ],
+    "hubEntryPresent": false,
+    "hubEntryVisible": false,
+    "hubEntryText": null,
+    "hubEntryRect": null,
+    "personaEntryVisible": false,
+    "screenVisible": false,
+    "screenTitle": "",
+    "sectionCards": 0,
+    "overflow": 0
+   }
+  },
+  {
+   "label": "320/hub",
+   "probe": {
+    "hash": "#/ai",
+    "topnav": [
+     "Статус",
+     "Аналитика",
+     "Модули",
+     "Ещё • ИИ"
+    ],
+    "hubCards": [
+     "Библиотека промптов",
+     "Модели и подключения",
+     "Личность и стиль",
+     "Имена и алиасы",
+     "Умный кэш"
+    ],
+    "hubEntryPresent": true,
+    "hubEntryVisible": true,
+    "hubEntryText": "Речь и характерХарактер (Core), стиль письма, выражение, юмор, примеры и обучение — редакторы и сохранениеОткрыть →",
+    "hubEntryRect": {
+     "x": 8,
+     "y": 199,
+     "w": 304,
+     "h": 155,
+     "bottom": 354
+    },
+    "personaEntryVisible": false,
+    "screenVisible": false,
+    "screenTitle": "",
+    "sectionCards": 0,
+    "overflow": 0
+   }
+  },
+  {
+   "label": "320/speech",
+   "probe": {
+    "hash": "#/ai/speech",
+    "topnav": [
+     "Статус",
+     "Аналитика",
+     "Модули",
+     "Ещё • ИИ"
+    ],
+    "hubCards": [],
+    "hubEntryPresent": false,
+    "hubEntryVisible": false,
+    "hubEntryText": null,
+    "hubEntryRect": null,
+    "personaEntryVisible": false,
+    "screenVisible": true,
+    "screenTitle": "Речь и характер",
+    "sectionCards": 3,
+    "overflow": 0
+   }
+  },
+  {
+   "label": "320/persona",
+   "probe": {
+    "hash": "#/ai/persona",
+    "topnav": [
+     "Статус",
+     "Аналитика",
+     "Модули",
+     "Ещё • ИИ"
+    ],
+    "hubCards": [],
+    "hubEntryPresent": false,
+    "hubEntryVisible": false,
+    "hubEntryText": null,
+    "hubEntryRect": null,
+    "personaEntryVisible": true,
+    "screenVisible": false,
+    "screenTitle": "",
+    "sectionCards": 0,
+    "overflow": 0
+   }
+  },
+  {
+   "label": "390/more",
+   "probe": {
+    "hash": "#/",
+    "topnav": [
+     "Статус",
+     "Аналитика",
+     "Модули",
+     "Ещё"
+    ],
+    "hubCards": [
+     "Аналитика"
+    ],
+    "hubEntryPresent": false,
+    "hubEntryVisible": false,
+    "hubEntryText": null,
+    "hubEntryRect": null,
+    "personaEntryVisible": false,
+    "screenVisible": false,
+    "screenTitle": "",
+    "sectionCards": 0,
+    "overflow": 0
+   }
+  },
+  {
+   "label": "390/hub",
+   "probe": {
+    "hash": "#/ai",
+    "topnav": [
+     "Статус",
+     "Аналитика",
+     "Модули",
+     "Ещё • ИИ"
+    ],
+    "hubCards": [
+     "Библиотека промптов",
+     "Модели и подключения",
+     "Личность и стиль",
+     "Имена и алиасы",
+     "Умный кэш"
+    ],
+    "hubEntryPresent": true,
+    "hubEntryVisible": true,
+    "hubEntryText": "Речь и характерХарактер (Core), стиль письма, выражение, юмор, примеры и обучение — редакторы и сохранениеОткрыть →",
+    "hubEntryRect": {
+     "x": 8,
+     "y": 199,
+     "w": 374,
+     "h": 134,
+     "bottom": 333
+    },
+    "personaEntryVisible": false,
+    "screenVisible": false,
+    "screenTitle": "",
+    "sectionCards": 0,
+    "overflow": 0
+   }
+  },
+  {
+   "label": "390/speech",
+   "probe": {
+    "hash": "#/ai/speech",
+    "topnav": [
+     "Статус",
+     "Аналитика",
+     "Модули",
+     "Ещё • ИИ"
+    ],
+    "hubCards": [],
+    "hubEntryPresent": false,
+    "hubEntryVisible": false,
+    "hubEntryText": null,
+    "hubEntryRect": null,
+    "personaEntryVisible": false,
+    "screenVisible": true,
+    "screenTitle": "Речь и характер",
+    "sectionCards": 3,
+    "overflow": 0
+   }
+  },
+  {
+   "label": "390/persona",
+   "probe": {
+    "hash": "#/ai/persona",
+    "topnav": [
+     "Статус",
+     "Аналитика",
+     "Модули",
+     "Ещё • ИИ"
+    ],
+    "hubCards": [],
+    "hubEntryPresent": false,
+    "hubEntryVisible": false,
+    "hubEntryText": null,
+    "hubEntryRect": null,
+    "personaEntryVisible": true,
+    "screenVisible": false,
+    "screenTitle": "",
+    "sectionCards": 0,
+    "overflow": 0
+   }
+  },
+  {
+   "label": "1280/hub",
+   "probe": {
+    "hash": "#/ai",
+    "topnav": [],
+    "hubCards": [
+     "Библиотека промптов",
+     "Модели и подключения",
+     "Личность и стиль",
+     "Имена и алиасы",
+     "Умный кэш"
+    ],
+    "hubEntryPresent": true,
+    "hubEntryVisible": true,
+    "hubEntryText": "Речь и характерХарактер (Core), стиль письма, выражение, юмор, примеры и обучение — редакторы и сохранениеОткрыть →",
+    "hubEntryRect": {
+     "x": 236,
+     "y": 192,
+     "w": 1024,
+     "h": 71,
+     "bottom": 263
+    },
+    "personaEntryVisible": false,
+    "screenVisible": false,
+    "screenTitle": "",
+    "sectionCards": 0,
+    "overflow": 0
+   }
+  },
+  {
+   "label": "1280/speech",
+   "probe": {
+    "hash": "#/ai/speech",
+    "topnav": [],
+    "hubCards": [],
+    "hubEntryPresent": false,
+    "hubEntryVisible": false,
+    "hubEntryText": null,
+    "hubEntryRect": null,
+    "personaEntryVisible": false,
+    "screenVisible": true,
+    "screenTitle": "Речь и характер",
+    "sectionCards": 3,
+    "overflow": 0
+   }
+  },
+  {
+   "label": "1280/persona",
+   "probe": {
+    "hash": "#/ai/persona",
+    "topnav": [],
+    "hubCards": [],
+    "hubEntryPresent": false,
+    "hubEntryVisible": false,
+    "hubEntryText": null,
+    "hubEntryRect": null,
+    "personaEntryVisible": true,
+    "screenVisible": false,
+    "screenTitle": "",
+    "sectionCards": 0,
+    "overflow": 0
+   }
+  }
+ ]
+}

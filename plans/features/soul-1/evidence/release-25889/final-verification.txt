@@ -1,0 +1,64 @@
+=== NOW ===
+2026-10-18T07:37:49Z
+=== NODE ===
+HEAD=d59fab944bcb3eb0f5d3fa69101d8488da1c155b
+BRANCH=release/fix-2.58.89
+TRACKED_MOD=0
+=== HEALTH ===
+{"status":"ok","version":"2.58.89"}
+MainPID=3359708 NRestarts=0 ExecMainStartTimestamp=Sun 2026-10-18 07:37:17 UTC ExecMainStatus=0 ActiveState=active SubState=running 
+=== ENV AXES (.env) ===
+UNIFIED_COMPOSER_ENABLED=1
+HUMOR_CRAFT_ENABLED=1
+HUMOR_LIBRARY_ENABLED=1
+HUMOR_FEEDBACK_ENABLED=1
+INITIATIVE_DIAGNOSTICS_PUBLISH_ENABLED=1
+=== CFG-01 MARKERS (still present, unchanged bytes) ===
+CFG_RESOLVER=2
+CFG_NORMALIZE=4
+CFG_SOURCED=1
+CFG_EVENT=1
+=== CFG-02A MARKERS (deployed bytes) ===
+CFG02A_RESERVE_MODE=2
+CFG02A_RESET_NOTE=2
+CFG02A_ROUTER_NOTE=1
+CFG02A_RESERVE_PATH=3
+CFG02A_UI_FACTS=2
+CFG02A_UI_TITLE=1
+CFG02A_QA_FACTS=1
+CFG02A_QA_VALID=2
+=== SPEECH-MOBILE MARKERS (deployed bytes) ===
+SP_HUB_ENTRY=1
+SP_CHARACTER_NAME=6
+SP_APP_ENTRY=1
+SP_ROUTE=7
+SP_CSS=7
+=== PAYLOAD SHA12 (disk) ===
+web/app.js 2757a25d663d
+web/static/app.css d6b848cdecd0
+services/image_generation.py db1d60cd4b54
+services/worker_budget.py e18dab826da1
+services/tool_router.py 70840e163e17
+config/settings.py a6a2d1a8408b
+README.md b260b48ee2a9
+=== SERVED SHA12 (HTTP) ===
+SERVED_APP_JS=2757a25d663d
+SERVED_APP_CSS=d6b848cdecd0
+=== PAGE ===
+PAGE_VER=15
+SUBST_CSS=2
+=== MIGRATION LINES (since T0) ===
+Oct 18 07:37:34 racknerd-f4e3456 python[3359708]: 2026-10-18 07:37:34,011 - services.database - INFO - [database] migrations: start | current user_version=36 | pending=[]
+Oct 18 07:37:34 racknerd-f4e3456 python[3359708]: 2026-10-18 07:37:34,014 - services.database - INFO - [database] migrations: complete | user_version=36 | total 0.0s
+=== SQLITE USER_VERSION ===
+USER_VERSION (36,)
+=== JOURNAL COUNTS (since T0) ===
+ERR=0
+RUNTIMEWARN=0
+GRACEFUL=2
+POLLER=1
+CFG_EVENTS=0
+=== HTTPS ===
+HTTPS_HZ={"status":"ok","version":"2.58.89"}
+HTTPS_WEB=200
+=== DONE ===

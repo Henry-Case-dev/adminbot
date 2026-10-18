@@ -1,0 +1,172 @@
+### A_pre_state (rc=0, 1.4s)
+NOW_UTC=2026-10-18T07:36:52Z
+OLD_HEAD=c37b85779cc41ad716304024ebeea86ad4081071
+OLD_BRANCH=release/cfg1-2.58.88
+HZ_BEFORE={"status":"ok","version":"2.58.88"}
+TRACKED_MOD=0
+UNTRACKED=13
+SERVICE=active
+MAINPID=3275019
+ENV_AXES=5
+INDEX_LOCK=absent
+### B1_fetch (rc=0, 1.8s)
+FETCH1_RC=0
+ * branch              release/fix-2.58.89 -> FETCH_HEAD
+ * [new branch]        release/fix-2.58.89 -> origin/release/fix-2.58.89
+### B3_remote_ref (rc=0, 1.0s)
+d59fab944bcb3eb0f5d3fa69101d8488da1c155b
+### C_checkout (rc=0, 1.2s)
+CO_RC=0
+Switched to a new branch 'release/fix-2.58.89'
+branch 'release/fix-2.58.89' set up to track 'origin/release/fix-2.58.89'.
+NEW_HEAD=d59fab944bcb3eb0f5d3fa69101d8488da1c155b
+TRACKED_MOD_AFTER=0
+DELTA_FILES=43
+### D1_hashes (rc=0, 1.0s)
+b260b48ee2a9 README.md
+a6a2d1a8408b config/settings.py
+c42cbd40a16c handlers/direct_chat.py
+eda111614331 plans/docs/param-registry-round1025.meta.md
+db1d60cd4b54 services/image_generation.py
+1a222e926aeb services/persistent_throttling.py
+fd8a2a70d5d7 services/prompt_composer.py
+a606bcafc1be services/prompt_registry.py
+04ed64429e88 services/smartmodule_phrases.py
+f5eff9607d15 services/style_policy.py
+70840e163e17 services/tool_router.py
+e18dab826da1 services/worker_budget.py
+ba0f886dbcdd tests/js/round1024_image_module_test.js
+2e80397e2562 tests/test_cfg02a_image_quota_ui.py
+cf7f08090b57 tests/test_soul1_capability_fallbacks.py
+3e444435d9e7 tests/test_speech_mobile_entry_contract.py
+eccf7509c0a7 tests/ui_speech_mobile_entry_e2e.py
+2f8a6e463957 tools/ui_cfg02a_image_quota_e2e.py
+4dd2510532bd web/api/initiative_vitality.py
+a69a67536ebe web/api/speech.py
+2757a25d663d web/app.js
+f79f9ad58457 web/index.html
+d6b848cdecd0 web/static/app.css
+96db06425079 web/static/fullscreen-policy.js
+6a09d962d59d web/static/glass-refraction.js
+HASH-CHECK: 25/25 artifacts == expected sha256_12
+### D2_markers (rc=0, 1.3s)
+APP_VER=APP_VERSION = "2.58.89"
+CFG02A_RESERVE=2
+CFG02A_NOTE=2
+CFG02A_UI=2
+CFG02A_JS=1
+CFG02A_VALID=2
+SPEECH_ENTRY=1
+SPEECH_JS=1
+CFG01_RESOLVER=2
+APPJS_SHA12=2757a25d663d
+META_HEAD_LINE - **HEAD (short):** `119b1f7d`
+### F1_sudo_probe (rc=0, 1.0s)
+SUDO_NOPASS=0
+### F2_restart (rc=0, 16.9s)
+RESTART_T0=2026-10-18 07:37:01
+RESTART_RC=0
+(uploaded probes: /tmp/rel89_post.py, /tmp/rel89_f3.sh, /tmp/rel89_final.sh)
+### F3_migration_wait (rc=0, 21.8s)
+F3_T0=2026-10-18 07:37:01
+F3_NEW_MAINPID=3359708
+F3_ITER=3
+Oct 18 07:37:34 racknerd-f4e3456 python[3359708]: 2026-10-18 07:37:34,011 - services.database - INFO - [database] migrations: start | current user_version=36 | pending=[]
+Oct 18 07:37:34 racknerd-f4e3456 python[3359708]: 2026-10-18 07:37:34,014 - services.database - INFO - [database] migrations: complete | user_version=36 | total 0.0s
+F3_COMPLETE_LINES=1
+[stderr] [sudo] password for nik:
+### F4_health (rc=0, 1.8s)
+HEALTH={"status":"ok","version":"2.58.89"}
+HEALTH OK (2.58.89)
+### F5_journal (rc=0, 1.2s)
+0
+[stderr] [sudo] password for nik:
+### G_post (rc=0, 3.0s)
+REL89 a1_healthz                     True | status=200 body={"status":"ok","version":"2.58.89"}
+REL89 a2_page_version                True | status=200 count(2.58.89)=15
+REL89 a3_page_meta                   True | raw __APP_VERSION__ left in page: False
+REL89 a4_served_app_js               True | status=200 sha12=2757a25d663d (expect 2757a25d663d) bytes=1213835
+REL89 a5_served_app_css              True | status=200 sha12=d6b848cdecd0 (expect d6b848cdecd0) bytes=218391
+REL89 a6_substituted_css_route       True | status=200 count(2.58.89)=2 raw_tag=False
+REL89 b1_entry_in_served_page        True | data-speech-hub-entry=1; Речь и характер=6; speech-hub-entry=7
+REL89 b2_hub_speech_link_in_appjs    True | hubSpeechEntry=True routes(#/ai/speech)=7
+REL89 c1_section_in_served_page      True | data-image-quota-facts=2; Лимиты генерации=1; Изображений в сутки=2
+REL89 c2_quota_js_in_appjs           True | imageQuotaFacts=1; saveImageDailyLimit=1; imageQuotaValueValid=2
+REL89 c3_deployed_markers_disk       True | image_generation: image_quota_reset_note=2 image_reserve_mode=2
+REL89 d0_auth_required               True | unauthenticated /api/config -> status=401
+REL89 admin_role=admin id_present=True
+REL89 d1_soul_gates_10of10           True | total=10 on=10 off=[]
+REL89 e1_cfg01_global_limits         True | burst=10 (source='' updated=2026-10-18T00:30:17.318189+00:00) cooldown=300.0 (source='')
+REL89 e2_cfg01_dm_limits             True | chat=58***95 burst=10 (source='' global=10) cooldown=300.0 (source='')
+REL89 f1_image_quota_item            True | value=60 source='' global_value=None updated_at=2026-09-25T05:14:21.787165+00:00
+REL89 f2_image_quota_item_dm         True | chat=58***95 value=60 source='' global=60
+REL89 f3_image_usage_facts_read_only False | status=200 global(used=4 limit=200 source=env) dm[58***95] used=None limit=None source=None reserve_path=None reserve_reason=None next_reset=None
+REL89 SUMMARY ok=17/18
+REL89 FAILED: f3_image_usage_facts_read_only
+REL89 done
+### J_final (rc=0, 2.3s)
+=== NOW ===
+2026-10-18T07:37:49Z
+=== NODE ===
+HEAD=d59fab944bcb3eb0f5d3fa69101d8488da1c155b
+BRANCH=release/fix-2.58.89
+TRACKED_MOD=0
+=== HEALTH ===
+{"status":"ok","version":"2.58.89"}
+MainPID=3359708 NRestarts=0 ExecMainStartTimestamp=Sun 2026-10-18 07:37:17 UTC ExecMainStatus=0 ActiveState=active SubState=running 
+=== ENV AXES (.env) ===
+UNIFIED_COMPOSER_ENABLED=1
+HUMOR_CRAFT_ENABLED=1
+HUMOR_LIBRARY_ENABLED=1
+HUMOR_FEEDBACK_ENABLED=1
+INITIATIVE_DIAGNOSTICS_PUBLISH_ENABLED=1
+=== CFG-01 MARKERS (still present, unchanged bytes) ===
+CFG_RESOLVER=2
+CFG_NORMALIZE=4
+CFG_SOURCED=1
+CFG_EVENT=1
+=== CFG-02A MARKERS (deployed bytes) ===
+CFG02A_RESERVE_MODE=2
+CFG02A_RESET_NOTE=2
+CFG02A_ROUTER_NOTE=1
+CFG02A_RESERVE_PATH=3
+CFG02A_UI_FACTS=2
+CFG02A_UI_TITLE=1
+CFG02A_QA_FACTS=1
+CFG02A_QA_VALID=2
+=== SPEECH-MOBILE MARKERS (deployed bytes) ===
+SP_HUB_ENTRY=1
+SP_CHARACTER_NAME=6
+SP_APP_ENTRY=1
+SP_ROUTE=7
+SP_CSS=7
+=== PAYLOAD SHA12 (disk) ===
+web/app.js 2757a25d663d
+web/static/app.css d6b848cdecd0
+services/image_generation.py db1d60cd4b54
+services/worker_budget.py e18dab826da1
+services/tool_router.py 70840e163e17
+config/settings.py a6a2d1a8408b
+README.md b260b48ee2a9
+=== SERVED SHA12 (HTTP) ===
+SERVED_APP_JS=2757a25d663d
+SERVED_APP_CSS=d6b848cdecd0
+=== PAGE ===
+PAGE_VER=15
+SUBST_CSS=2
+=== MIGRATION LINES (since T0) ===
+Oct 18 07:37:34 racknerd-f4e3456 python[3359708]: 2026-10-18 07:37:34,011 - services.database - INFO - [database] migrations: start | current user_version=36 | pending=[]
+Oct 18 07:37:34 racknerd-f4e3456 python[3359708]: 2026-10-18 07:37:34,014 - services.database - INFO - [database] migrations: complete | user_version=36 | total 0.0s
+=== SQLITE USER_VERSION ===
+USER_VERSION (36,)
+=== JOURNAL COUNTS (since T0) ===
+ERR=0
+RUNTIMEWARN=0
+GRACEFUL=2
+POLLER=1
+CFG_EVENTS=0
+=== HTTPS ===
+HTTPS_HZ={"status":"ok","version":"2.58.89"}
+HTTPS_WEB=200
+=== DONE ===
+[stderr] [sudo] password for nik:

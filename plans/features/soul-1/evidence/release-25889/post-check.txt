@@ -1,0 +1,22 @@
+REL89 a1_healthz                     True | status=200 body={"status":"ok","version":"2.58.89"}
+REL89 a2_page_version                True | status=200 count(2.58.89)=15
+REL89 a3_page_meta                   True | raw __APP_VERSION__ left in page: False
+REL89 a4_served_app_js               True | status=200 sha12=2757a25d663d (expect 2757a25d663d) bytes=1213835
+REL89 a5_served_app_css              True | status=200 sha12=d6b848cdecd0 (expect d6b848cdecd0) bytes=218391
+REL89 a6_substituted_css_route       True | status=200 count(2.58.89)=2 raw_tag=False
+REL89 b1_entry_in_served_page        True | data-speech-hub-entry=1; Речь и характер=6; speech-hub-entry=7
+REL89 b2_hub_speech_link_in_appjs    True | hubSpeechEntry=True routes(#/ai/speech)=7
+REL89 c1_section_in_served_page      True | data-image-quota-facts=2; Лимиты генерации=1; Изображений в сутки=2
+REL89 c2_quota_js_in_appjs           True | imageQuotaFacts=1; saveImageDailyLimit=1; imageQuotaValueValid=2
+REL89 c3_deployed_markers_disk       True | image_generation: image_quota_reset_note=2 image_reserve_mode=2
+REL89 d0_auth_required               True | unauthenticated /api/config -> status=401
+REL89 admin_role=admin id_present=True
+REL89 d1_soul_gates_10of10           True | total=10 on=10 off=[]
+REL89 e1_cfg01_global_limits         True | burst=10 (source='' updated=2026-10-18T00:30:17.318189+00:00) cooldown=300.0 (source='')
+REL89 e2_cfg01_dm_limits             True | chat=58***95 burst=10 (source='' global=10) cooldown=300.0 (source='')
+REL89 f1_image_quota_item            True | value=60 source='' global_value=None updated_at=2026-09-25T05:14:21.787165+00:00
+REL89 f2_image_quota_item_dm         True | chat=58***95 value=60 source='' global=60
+REL89 f3_image_usage_facts_read_only False | status=200 global(used=4 limit=200 source=env) dm[58***95] used=None limit=None source=None reserve_path=None reserve_reason=None next_reset=None
+REL89 SUMMARY ok=17/18
+REL89 FAILED: f3_image_usage_facts_read_only
+REL89 done

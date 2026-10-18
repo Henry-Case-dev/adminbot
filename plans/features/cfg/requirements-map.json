@@ -3,7 +3,7 @@
   "source_path": "C:\\Code\\Python\\adminbot\\plans\\features\\cfg\\source-cfg-addendum.md",
   "source_sha256": "2ed43009e1533eca218be419409870ebbe85f82d85262ff2335dfa2ce36e6b10",
   "candidate_commit": "83ecd202659c2e1a30b46f8548b0809e892b77a9",
-  "deployed_commit": "c37b85779cc41ad716304024ebeea86ad4081071",
+  "deployed_commit": "d59fab944bcb3eb0f5d3fa69101d8488da1c155b",
   "strict_evidence": true,
   "slice_graph_path": "slice-graph.json",
   "additional_requirements": [
@@ -272,7 +272,7 @@
           "ref": "plans/features/cfg/review-cfg-02a.md §0–§2 (R1+R2)",
           "observation": "Независимо: R1 подтвердил корневую причину и состав (19 файлов, чужих нет) и нашёл B1 (пустой ввод молча сохранялся как 0); R2 закрыл B1 на 83ecd202 живым пробником и e2e.",
           "artifact_path": "plans/features/cfg/review-cfg-02a.md",
-          "artifact_sha256": "bb6fd7e383a00d3c026119532759840f21ee7eb524526f5b7932cb3f664e6455"
+          "artifact_sha256": "660d6691a0a57411151b11d8911e055c8e6cfc1fc2257c55b2a71538125017ca"
         }
       ]
     },
@@ -1494,7 +1494,7 @@
       "acceptance": "limits.image_daily_limit выведен в «Генерация изображений»→«Основные настройки»→«Лимиты генерации» и показывает фактическое GLOBAL/CHAT-значение без обходного поиска; второго источника истины нет.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "83ecd202659c2e1a30b46f8548b0809e892b77a9",
@@ -1525,9 +1525,25 @@
           "observation": "test_vitrina_labels_and_units, test_js_mirror_declares_limits_group, test_limits_group_renders_on_settings_tab, test_group_belongs_to_images_module_tab — витринные подписи, зеркало и маппинг вкладки.",
           "artifact_path": "tests/test_cfg02a_image_quota_ui.py",
           "artifact_sha256": "2e80397e2562448c6e1781b796b2f862881df415300f3e797edd930493d821cd"
+        },
+        {
+          "candidate_commit": "83ecd202659c2e1a30b46f8548b0809e892b77a9",
+          "ref": "plans/features/soul-1/evidence/release-25889/prod-payload-bytes.txt (прод d59fab94 = 2.58.89)",
+          "observation": "Прод-байты (live HTTPS, webroot = фактически отданные файлы): /web/app.js sha12 2757a25d663d (1213835 B), /web/static/app.css d6b848cdecd0 (218391 B), /web/ (index.html) 2121a1b09e2e (836709 B) — BYTE-IDENTICAL дереву релиза; «served page contains quota section: True». Т.е. отданная витрина квоты — ровно отревьюенная (payload == кандидату 83ecd202, см. review-release-25889.md §1).",
+          "artifact_path": "plans/features/soul-1/evidence/release-25889/prod-payload-bytes.txt",
+          "artifact_sha256": "96aee12948ae94c15e08ee9524955c72912d66f7a6aa4f2b9085155fcb41cfe2",
+          "type": "production"
+        },
+        {
+          "candidate_commit": "83ecd202659c2e1a30b46f8548b0809e892b77a9",
+          "ref": "plans/features/soul-1/evidence/release-25889/post-check.txt (пост-чек прода, 17/18)",
+          "observation": "Прод read-only (admin initData, настройки владельца не менялись — 0 записей): c1_section_in_served_page=True — в отданной странице data-image-quota-facts ×2, «Лимиты генерации» ×1, «Изображений в сутки» ×2; c2 — imageQuotaFacts/saveImageDailyLimit/imageQuotaValueValid в отданном app.js; f1 — витрина читает limits.image_daily_limit=60 (source='' = глобальное владельческое значение); f2 — DM-чат наследует 60. Вывод в UI и фактическое значение подтверждены на проде.",
+          "artifact_path": "plans/features/soul-1/evidence/release-25889/post-check.txt",
+          "artifact_sha256": "ff9cd1a72d765e6f28c55743b8017b123a4637c8bf9c2fdb071f533b851ec8c7",
+          "type": "production"
         }
       ],
-      "live_note": "preprod-проверка §5.1 (видимость и фактическое значение на мобильном/десктопе) — на postdeploy. Процесс CFG (ADD-0.1; plan §процесс.4): owner/live-проверки не блокируют очередь; закрытие — postdeploy."
+      "live_note": "ЗАКРЫТО прод-эвиденсом релиза 2.58.89 (deployed d59fab94, healthz 2.58.89): вывод в модуль и фактическое GLOBAL/CHAT-значение — prod-payload-bytes.txt + post-check.txt (c1/c2/f1=60 source='' / f2 DM=60). f3-оговорка (пост-чек 17/18): у DM-чата нет строк расхода за сегодня → запись image_usage отсутствует, и «расход 0» отображается правдиво (глобальный бюджет used=4/limit=200 source=env виден; настройки владельца не менялись)."
     },
     {
       "source_id": "L00072",
@@ -1541,7 +1557,7 @@
       "acceptance": "Название, единицы, источник (чат/глобально/заводской), расход, остаток, таймзона и ближайший сброс отображаются корректно; подсказка про списание при нескольких картинках точна.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "83ecd202659c2e1a30b46f8548b0809e892b77a9",
@@ -1573,9 +1589,25 @@
           "artifact_path": "plans/features/cfg/evidence/cfg-02a/ui/06-empty-input.png",
           "artifact_sha256": "dd066cbce42069d6f6d3993f31d32199210f1fd087ccb85190e9b0b5d175e0ff",
           "type": "ui"
+        },
+        {
+          "candidate_commit": "83ecd202659c2e1a30b46f8548b0809e892b77a9",
+          "ref": "plans/features/soul-1/evidence/release-25889/post-check.txt (f1/f2/f3, прод d59fab94)",
+          "observation": "Прод-факты витрины: f1_image_quota_item — value=60, source='' (= глобальное владельческое значение, есть updated_at); f2 — DM-чат наследует 60 (source='', global=60); подписи/единицы/секция отданы в прод-байтах (c1: «Изображений в сутки» ×2, «Лимиты генерации» ×1; c2: imageQuotaFacts/saveImageDailyLimit/imageQuotaValueValid). f3 (единственная False из 18) — расход: у DM нет строк за сегодня → image_usage отсутствует; «расход 0» правдив, глобальный бюджет (used=4, limit=200, source=env) виден; настройки владельца не менялись (0 записей).",
+          "artifact_path": "plans/features/soul-1/evidence/release-25889/post-check.txt",
+          "artifact_sha256": "ff9cd1a72d765e6f28c55743b8017b123a4637c8bf9c2fdb071f533b851ec8c7",
+          "type": "production"
+        },
+        {
+          "candidate_commit": "83ecd202659c2e1a30b46f8548b0809e892b77a9",
+          "ref": "plans/features/soul-1/evidence/release-25889/hashes.txt (25/25 на выкате)",
+          "observation": "sha256_12 ключевых файлов: head(=d59fab94 == прод) совпадает с кандидатами по всем 25 строкам, включая web/app.js 2757a25d663d, web/index.html f79f9ad58457, web/static/app.css d6b848cdecd0 — реквизиты витрины на проде отдаёт ровно отревьюенный код кандидата (прод-предшественник давал 5a810c0f4443/0971d49d5337/d700df753d6d).",
+          "artifact_path": "plans/features/soul-1/evidence/release-25889/hashes.txt",
+          "artifact_sha256": "2f44e1fa248b9501bfc6984c17331c6229ebfc58861979d73bdb4b665b03736b",
+          "type": "production"
         }
       ],
-      "live_note": "preprod-проверка §5.1 (название/единицы/источник/расход/остаток/TZ/сброс) — на postdeploy. Процесс CFG (ADD-0.1; plan §процесс.4): owner/live-проверки не блокируют очередь; закрытие — postdeploy."
+      "live_note": "ЗАКРЫТО прод-эвиденсом релиза 2.58.89 (deployed d59fab94): название/единицы/источник/расход/остаток/TZ/сброс — см. post-check.txt f1/f2/f3 и hashes.txt 25/25. f3-оговорка зафиксирована как есть: у DM-чата нет строк расхода → «расход 0» отображается правдиво (не дефект, см. review-release-25889.md §4.4)."
     },
     {
       "source_id": "L00073",
@@ -1649,10 +1681,10 @@
           "ref": "plans/features/cfg/review-cfg-02a.md §0 + §R2",
           "observation": "R1 показал живую дыру ''→POST 0 (B1); R2 подтвердил закрытие на 83ecd202: POSTs=[], честная подсказка, значение восстановлено (тайминг 100 мс).",
           "artifact_path": "plans/features/cfg/review-cfg-02a.md",
-          "artifact_sha256": "bb6fd7e383a00d3c026119532759840f21ee7eb524526f5b7932cb3f664e6455"
+          "artifact_sha256": "660d6691a0a57411151b11d8911e055c8e6cfc1fc2257c55b2a71538125017ca"
         }
       ],
-      "live_note": "preprod-проверка §5.1/5.2 (управляемость, override, возврат к глобальному, невалидный/пустой ввод) — на postdeploy. Процесс CFG (ADD-0.1; plan §процесс.4): owner/live-проверки не блокируют очередь; закрытие — postdeploy."
+      "live_note": "postdeploy-агентский остаток (не владельческий): живой per-chat override / сброс override / невалидный ввод на проде без рестарта — агентская live-проверка на released-байтах; строка остаётся READY_FOR_LIVE до этой записи. Прежняя preprod-проверка §5.1/5.2. Процесс CFG (ADD-0.1): owner/live-проверки очередь не блокируют."
     },
     {
       "source_id": "L00074",
@@ -1699,7 +1731,7 @@
           "artifact_sha256": "2e80397e2562448c6e1781b796b2f862881df415300f3e797edd930493d821cd"
         }
       ],
-      "live_note": "preprod-проверка §5.3 (реальное влияние без рестарта и честность режима reserve/legacy/budgets-off) — на postdeploy. Процесс CFG (ADD-0.1; plan §процесс.4): owner/live-проверки не блокируют очередь; закрытие — postdeploy."
+      "live_note": "postdeploy-агентский остаток (не владельческий): реальное влияние правки квоты без рестарта на разрешение/отказ генерации на проде — агентская live-проверка; строка остаётся READY_FOR_LIVE до этой записи. Прежняя preprod-проверка §5.3. Процесс CFG (ADD-0.1): owner/live-проверки очередь не блокируют."
     },
     {
       "source_id": "L00075",
@@ -1744,7 +1776,7 @@
           "artifact_sha256": "c7fa17eedcfe470dc1dd8948a7a48aec2d6ebda0f8e73ad6d0f79306e3b1fb6f"
         }
       ],
-      "live_note": "preprod-проверка §5.4 (отказ с фактическим временем сброса, без платного вызова) — на postdeploy. Процесс CFG (ADD-0.1; plan §процесс.4): owner/live-проверки не блокируют очередь; закрытие — postdeploy."
+      "live_note": "postdeploy-агентский остаток (не владельческий): отказ при исчерпанной суточной квоте происходит до платного вызова на проде — агентская live-проверка; строка остаётся READY_FOR_LIVE до этой записи. Прежняя preprod-проверка §5.4. Процесс CFG (ADD-0.1): owner/live-проверки очередь не блокируют."
     },
     {
       "source_id": "L00076",
@@ -1816,7 +1848,7 @@
           "ref": "plans/features/cfg/review-cfg-02a.md §2–§3",
           "observation": "Независимые прогоны ревьюера: 27 passed, 183 passed, node IMAGE-MODULE-OK, 800 passed (24 файла).",
           "artifact_path": "plans/features/cfg/review-cfg-02a.md",
-          "artifact_sha256": "bb6fd7e383a00d3c026119532759840f21ee7eb524526f5b7932cb3f664e6455"
+          "artifact_sha256": "660d6691a0a57411151b11d8911e055c8e6cfc1fc2257c55b2a71538125017ca"
         },
         {
           "candidate_commit": "83ecd202659c2e1a30b46f8548b0809e892b77a9",
@@ -2187,7 +2219,7 @@
           "artifact_sha256": "2e80397e2562448c6e1781b796b2f862881df415300f3e797edd930493d821cd"
         }
       ],
-      "live_note": "preprod-проверка §5.1/5.5 (мобильный и десктоп: видимость/правка/сохранение, переживание перезагрузки и рестарта) — на postdeploy. Процесс CFG (ADD-0.1; plan §процесс.4): owner/live-проверки не блокируют очередь; закрытие — postdeploy."
+      "live_note": "postdeploy-агентский остаток (не владельческий): правка квоты на проде + переживание перезагрузки/рестарта и реальное влияние на разрешение/отказ — агентская live-проверка; строка остаётся READY_FOR_LIVE до этой записи. Прежняя preprod-проверка §5.1/5.5. Процесс CFG (ADD-0.1): owner/live-проверки очередь не блокируют."
     },
     {
       "source_id": "L00110",

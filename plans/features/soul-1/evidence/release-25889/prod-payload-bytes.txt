@@ -1,0 +1,11 @@
+PROD-SERVED PAYLOAD BYTES vs release-tree files (live HTTPS fetch)
+url=https://admin-bot.duckdns.org
+
+/web/app.js            http=200 bytes=1213835 tree_sha12=2757a25d663d served_sha12=2757a25d663d BYTE-IDENTICAL
+/web/static/app.css    http=200 bytes=218391 tree_sha12=d6b848cdecd0 served_sha12=d6b848cdecd0 BYTE-IDENTICAL
+/web/ (index.html)     http=200 bytes=836709 tree_expected_sha12=2121a1b09e2e served_sha12=2121a1b09e2e BYTE-IDENTICAL
+
+served page contains entry markup: True
+served page contains quota section: True
+served page version occurrences (2.58.89): 15
+webroot staged: C:\Users\main\.config\opencode\OpenCodeScratch\adminbot-ccef72c25768\release-25889\prod-webroot

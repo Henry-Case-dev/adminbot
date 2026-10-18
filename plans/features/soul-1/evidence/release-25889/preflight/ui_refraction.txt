@@ -1,0 +1,11 @@
+CMD: ['C:\\Code\\Python\\adminbot\\.venv\\Scripts\\python.exe', 'tools/ui_win_glass_refraction_e2e.py']
+RC: 0
+DURATION: 13.4s
+
+[matrix] config stub: items=573 groups=120
+[matrix] chat-вариант config: override items=115
+[OK] A_refraction_layer_android_390 (21 проверок)
+[OK] C_optical_pattern_displacement (4 проверок)
+[OK] B_desktop_1440 (10 проверок)
+[OK] D_no_window_geometry_hacks (2 проверок)
+WG-REFRACT-E2E-OK

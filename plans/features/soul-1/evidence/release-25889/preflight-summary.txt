@@ -1,0 +1,21 @@
+PREFLIGHT SUMMARY - release/fix-2.58.89 (branch tip d59fab944bcb3eb0f5d3fa69101d8488da1c155b)
+worktree=C:\Users\main\.config\opencode\OpenCodeScratch\adminbot-ccef72c25768\release-25889\wt
+
+cfg02a_file          rc=0 5s ::  | -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html | 27 passed, 2 warnings in 4.12s
+speech_contract      rc=0 3s ::  | -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html | 6 passed, 2 warnings in 2.53s
+webapp_js_unit       rc=0 6s ::  | -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html | 38 passed, 2 warnings in 5.31s
+capability_fallbacks rc=0 4s ::  | -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html | 41 passed, 2 warnings in 3.27s
+image_module_js      rc=0 0s :: IMAGE-MODULE-OK
+cfg01_files          rc=0 15s ::  | -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html | 204 passed, 2 warnings in 14.63s
+soul1_set            rc=0 17s ::  | -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html | 600 passed, 3 warnings in 16.00s
+parity               rc=0 3s ::  | -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html | 13 passed, 2 warnings in 2.52s
+registry             rc=0 0s :: CHECK OK: реестр 575 == REGISTRY, карта полна, R17-чисто, TSV/map идемпотентны.
+frozen               rc=0 2s :: === 10. image quota key untouched in catalog (no new key) === | param_catalog.py literal occurrences: 1 | RESULT: OK
+node-guards          rc=0 0s :: ok=87 red=0 total=87
+ui_speech_entry      rc=0 9s :: == viewport 1280 |  | == ИТОГ: failures=0
+ui_cfg02a_e2e        rc=0 18s ::   ] | } | RESULT: PASS
+ui_refraction        rc=0 13s :: [OK] B_desktop_1440 (10 проверок) | [OK] D_no_window_geometry_hacks (2 проверок) | WG-REFRACT-E2E-OK
+ui_shell             rc=0 30s :: } | measurements: {"m320": {"vw": 320, "vh": 700, "scrollWidth": 320, "headerH": 116.2, "navH": 47.2, "navScrollW": 288, "navClientW": 288, "shellMode": "app-shell shell-mobile ia-v2 shell-flex-v3 shell-glass-v2 shell-v3", "moreLabel": "Ещё", "links": [{"t": "Статус", "x": 16, "right": 85.6, "y": 59
+ui_fs_matrix         rc=0 40s :: [w2-fs] S12_admin_geom_diag      PASS (30 checks) | [w2-fs] S13_non_admin_no_diag    PASS (3 checks) | [w2-fs] итог: 12/12 PASS, артефакты: C:\Users\main\.config\opencode\OpenCodeScratch\adminbot-ccef72c25768\release-25889\wt\plans\features\soul-1\evidence\release-25889\preflight\fs-e2e
+
+soul1 files=30

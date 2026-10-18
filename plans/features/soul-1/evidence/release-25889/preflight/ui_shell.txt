@@ -1,0 +1,12 @@
+CMD: ['C:\\Code\\Python\\adminbot\\.venv\\Scripts\\python.exe', 'tools/ui_asap8_w2_shell_e2e.py']
+RC: 0
+DURATION: 29.9s
+
+[matrix] config stub: items=573 groups=120
+[matrix] chat-вариант config: override items=115
+{
+ "failed_checks": {},
+ "console_errors": []
+}
+measurements: {"m320": {"vw": 320, "vh": 700, "scrollWidth": 320, "headerH": 116.2, "navH": 47.2, "navScrollW": 288, "navClientW": 288, "shellMode": "app-shell shell-mobile ia-v2 shell-flex-v3 shell-glass-v2 shell-v3", "moreLabel": "Ещё", "links": [{"t": "Статус", "x": 16, "right": 85.6, "y": 59, "bottom": 103, "w": 70, "h": 44}, {"t": "Аналитика", "x": 88.8, "right": 158.4, "y": 59, "bottom": 103, "w": 70, "h": 44}, {"t": "Модули", "x": 161.6, "right": 231.2, "y": 59, "bottom": 103, "w": 70, "h": 44}, {"t": "Ещё", "x": 234.4, "right": 304, "y": 59, "bottom": 103, "w": 70, "h": 44}]}, "m360": {"vw": 360, "vh": 780, "scrollWidth": 360, "headerH": 116.2, "navH": 47.2, "navScrollW": 328, "navClientW": 328, "shellMode": "app-shell shell-mobile ia-v2 shell-flex-v3 shell-glass-v2 shell-v3", "moreLabel": "Ещё", "links": [{"t": "Статус", "x": 16, "right": 95.6, "y": 59, "bottom": 103, "w": 80, "h": 44}, {"t": "Аналитика", "x": 98.8, "right": 178.4, "y": 59, "bottom": 103, "w": 80, "h": 44}, {"t": "Модули", "x": 181.6, "right": 261.2, "y": 59, "bottom": 103, "w": 80, "h": 44}, {"t": "Ещё", "x": 264.4, "right": 344, "y": 59, "bottom": 103, "w": 80, "h": 44}]}, "m390": {"vw": 390, "vh": 844, "scrollWidth":
+W2-SHELL-E2E-OK

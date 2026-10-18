@@ -1642,6 +1642,14 @@
           "ref": "plans/features/soul-1/evidence/w6/ui-report.json + plans/features/soul-1/evidence/w6/shots/persona_entry_*.png, section_core_320.png",
           "observation": "Кадры входа и редактора на узких экранах (320–430)",
           "type": "ui"
+        },
+        {
+          "candidate_commit": "720be161d7334d23cb0caddeb9cf2411b686d57f",
+          "ref": "plans/features/soul-1/review-speech-mobile.md §5.1 (леджер: candidate = коммит фикса 720be161 + ref на RED/GREEN) + §2 (RED 3/3 FAIL → GREEN failures=0) + plans/features/soul-1/evidence/release-25889/post-prod-bytes-entry-e2e.json (прод d59fab94 = 2.58.89)",
+          "observation": "Production-эвиденс (отдельный релизный цикл 2.58.89; статус строки не меняется): e2e-контракт входа прогнан на ПРОД-БАЙТАХ (webroot = фактически отданные файлы 2.58.89) — failures=[] notes=[]; на 320/390 дверь [data-speech-hub-entry] на хабе «ИИ» видима (h=155@320, h=134@390), клик ведёт в #/ai/speech, экран «Речь и характер» с 3 карточками разделов, overflow=0; навигация хаба (Статус/Аналитика/Модули/Ещё) не переделана. Живые скриншоты: post-prod-bytes-320-hub.png, post-prod-bytes-390-hub.png, post-prod-bytes-390-speech.png.",
+          "artifact_path": "plans/features/soul-1/evidence/release-25889/post-prod-bytes-entry-e2e.json",
+          "artifact_sha256": "03229d4f6379902db6ef6e095f76e525dac04d819c82000748fe9617837ec348",
+          "type": "production"
         }
       ]
     },
