@@ -8,7 +8,8 @@
 - Источники задач: `plans/current_task.md:1633-1731` (ADD-TR.0–5); VISION-RECON
   `plans/features/p0-vision-universal/recon.md`; `plans/features/p0-save-init-ux/ux-plan.md`.
 - Рендер-замеры выполнены на **прод-байтах** коммита `3b02366e` (экспорт `git show` в scratch,
-  см. §6) — harness `tests/ui_p0a_ux_speech_compact_e2e.py` (webroot подменён на committed-копию).
+  метод в §5, артефакты в §9) — harness `tests/ui_p0a_ux_speech_compact_e2e.py` (webroot подменён
+  на committed-копию).
 
 Код-якоря ниже: HEAD рабочего дерева `ce9d17ea` (== `origin/master 3b02366e` + только `plans/**`).
 Файлы, изменённые чужими лейнами в worktree: `services/mca_vision.py`, `services/image_generation.py`,
@@ -19,7 +20,7 @@
 
 ---
 
-## 1. ADD-TR.0 §4 — master vs producer revision и effective gates
+## 1. ADD-TR.0 §4 — master vs production revision и effective gates
 
 **Git-факты (без SSH, локально):**
 
