@@ -1,0 +1,56 @@
+REL-25892 — атрибуция падений полного pytest (кандидат 2.58.92 @ bump 2c28e2a1)
+=================================================================================
+
+Команда:  .venv\Scripts\python.exe -m pytest -q   (cwd = изолированный worktree кандидата)
+Результат: 14447 passed / 9 failed / 1 warning, 723.06s   [pytest-full.txt]
+Старт: 19.10.2026 10:44:36 (локально, UTC+12; = 03:44 Asia/Yekaterinburg).
+
+Сравнение с прод-базой 2.58.91 (release-25891: 14432 passed / 9 failed):
+  14447 - 14432 = +15 passed — ровно новые тесты FIX2 (TR-FIX2 8 + V-FIX2 7).
+
+Падения (9) — все атрибутированы, дельта 2.58.92 (7 runtime-файлов) ни при чём:
+
+1-2. tests/test_asap7_direct_settings.py::test_migration_v35_idempotent_twice
+     tests/test_asap7_direct_settings.py::test_backup_guard_fires_before_pending_step
+     — ПРЕ-СУЩЕСТВУЮЩИЕ (те же в прогоне 25891 и 25890): `assert 36 == 35`
+     (ожидание счётчика/цепочки миграций отстало от схемы). Файлы дельтой не тронуты.
+
+3.   tests/test_history_cli.py::TestCliFts::test_scope_is_required
+     — НОВОЕ в списке этого прогона, но ПРЕ-СУЩЕСТВУЮЩЕЕ и ENVIRONMENT-зависимое
+     (артефакт ЧИСТОГО checkout; на прод-базе воспроизводится, в главном дереве зелёный).
+     Механизм:
+       * тест запускает `manage.py import_history --mode fts` БЕЗ охвата и ждёт «выберите охват…»;
+       * `manage.py::_resolve_scope` при отсутствии флагов охвата СНАЧАЛА зовёт `_history_files()`,
+         который кидает SystemExit «папка migrate_history не найдена…», если нет каталога
+         `migrate_history/` (относительно cwd);
+       * `migrate_history/` — untracked/git-ignored локальные данные (0 tracked файлов;
+         10.08.2025.json, 10.2024.json, 2026.json), есть только в главном дереве.
+     Доказательства (raw — history-cli-attr.txt):
+       [1] worktree кандидата: CLI -> «папка migrate_history не найдена…» (rc=1) -> assert "охват" падает;
+       [2] главное дерево (тот же код 2c28e2a1): CLI -> «выберите охват: …» (rc=1) -> тест зелёный;
+       [3] чистая прод-база f2a6248a (отдельный worktree wt-base): тот же тест FAILED
+           идентично (`assert 'охват' in ('папка migrate_history не найдена…')`, 1 failed in 3.18s).
+     Вывод: manage.py / history-CLI дельтой не тронуты; падение = отсутствие untracked-каталога
+     в чистом worktree, а не регрессия 2.58.92.
+
+4.   tests/test_mca01_tx_task_supervisor_round1027.py::test_write_points_go_through_single_writer
+     — ПРЕ-СУЩЕСТВУЮЩЕЕ (то же в 25891/25890): аудит write-точек `database.py` 201 vs allow-map 198
+     (задокументировано в plans/features/p0-vision-universal/evidence/fix-core/design-note-d9-and-flag-2026-10-19.md §4).
+
+5-9. tests/test_t5150_startup_migrations_round1046.py ×5
+     (test_a_ddl_window_survives_lock_longer_than_base_5s, test_b_step_retry_recovers_after_locked,
+      test_d_migration_chain_full_log_trail, test_e_v32_db_applies_v33_once_with_guard,
+      test_e2_v33_db_applies_v34_once_with_guard)
+     — ПРЕ-СУЩЕСТВУЮЩИЕ (те же в 25891/25890): `assert 36 == 35` / `pending=[33, 34, 35]`
+     (ожидания цепочки миграций отстали от схемы).
+
+Дополнительно (честно):
+  * clock-window тест `test_asap5_paradigms_diagnostics::test_bootstrap_cooldown_bypass_then_cap`
+    в ЭТОМ прогоне ЗЕЛЁНЫЙ: локальное время Asia/Yekaterinburg (UTC+5) вне окна 00:00–03:00
+    (старт 03:44). В прогоне 25891 он падал именно из-за окна (01:0x; механика ранее доказана
+    контролем WORKER_BUDGET_TZ=UTC). Т.е. список изменился ровно на этот обмен:
+    clock-window (-) / history_cli-артефакт worktree (+), оба объяснены.
+  * mca09-флейк (~5–6%, test_handle_initiative_sent_single_transport_chunks) в этом прогоне
+    не сработал.
+  * d11 hot-cache pollution (test_env_off_beats_product_toggle) в полном прогоне зелёный
+    (проявляется только в совместном 17-файловом наборе; воспроизведено на чистой базе => пре-сущ.).

@@ -1,0 +1,40 @@
+REL-25892 — кандидат-фингерпринт (2.58.92)
+==========================================
+Прод-базис (PROD_REF): f2a6248ae30d8e0b1878785bb6d1477f65e21c78 (2.58.91, tip origin/master на деплое 2.58.91)
+Прод-ветка отката:    release/fix-2.58.91 @ f2a6248a (создана локально этим релизом; fallback tree-restore — detach PROD_REF)
+Код-тип (payload):    f7a14994 (V-FIX2) — последний код-коммит кандидата; TR-FIX2 — 9d310996
+Bump-коммит:          2c28e2a1f472c0fa359a2adea91bbdab6c475d36 (chore(release-fix-25892); parent f7a14994; 31 файл, +33/-33)
+F8-meta:              APP_VERSION 2.58.92; HEAD (short) f7a14994
+
+Runtime-вайтлист деплой-скрипта (7) == runtime-дельта f2a6248a..2c28e2a1 (set-equality, офлайн-сверка EXIT 0):
+  config/settings.py                 (bump-версия)
+  services/direct_chat_service.py    (TR-FIX2)
+  services/direct_execution.py       (TR-FIX2)
+  services/mca_vision.py             (V-FIX2)
+  services/temporal_factcheck.py     (TR-FIX2)
+  services/tool_router.py            (TR-FIX2)
+  web/api/routes.py                  (V-FIX2)
+
+EXPECT12 (sha256_12) — payload (7) + bump (2) + sanity (3):
+  config/settings.py                             ec7434b73430
+  services/direct_chat_service.py                e32490e78b35
+  services/direct_execution.py                   aae7d74a2a9e
+  services/mca_vision.py                         f8cb004c6c84
+  services/temporal_factcheck.py                 d36a5bf861fa
+  services/tool_router.py                        b6c9700f6ce5
+  web/api/routes.py                              d54cc29695c7
+  README.md                                      5e45cd0bd981
+  plans/docs/param-registry-round1025.meta.md    8a6acd0f294a
+  --- sanity (обязаны остаться байт-в-байт прод-2.58.91) ---
+  services/telegram_send.py                      e23bced2fdb8
+  web/static/fullscreen-policy.js                96db06425079
+  services/prompt_composer.py                    fd8a2a70d5d7
+
+Скрипты релиза (scratch, НЕ запускались):
+  deploy_25892.py      sha256_12 10322d72a735   (T0-hardened, clone deploy_25891.py/caeebf41f201; NF-фиксы сохранены)
+  rel92_final.sh       sha256_12 bd4d91c2c7c2   (read-only J-проверка; + SKIPS-контроль)
+  bump_25892.py        sha256_12 6c4906456ee2   (bump 2.58.91 -> 2.58.92)
+  check_deploy_25892.py — офлайн-сверка: EXIT 0 (logs/deploy-offline-check.txt)
+
+Дельта к проду (полная, f2a6248a..2c28e2a1): 88 файлов = 49 plans/** + 39 не-plans
+(7 runtime + 31 tests/ + README.md).

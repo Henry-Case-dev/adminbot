@@ -1,0 +1,40 @@
+﻿=== [1] worktree РєР°РЅРґРёРґР°С‚Р° 2c28e2a1: manage.py import_history --mode fts
+python.exe : ╨┐╨░╨┐╨║╨░ migrate_history ╨╜╨╡ ╨╜╨░╨╣╨┤╨╡╨╜╨░ тАФ ╨┐╨╛╨╗╨╛╨╢╨╕╤В╨╡ JSON-╤Н╨║╤Б╨┐╨╛╤А╤В╤Л ╤Б╤О╨┤╨░ (╨╖╨░╨┐
+╤Г╤Б╨║ ╨╕╨╖ ╨║╨╛╤А╨╜╤П ╨┐╤А╨╛╨╡╨║╤В╨░)
+C:\Users\main\.config\opencode\OpenCodeScratch\adminbot-ccef72c25768\release-25892\run_history_cli_attr.ps1:8 знак:6
++ $r = & $py manage.py import_history --mode fts 2>&1
++      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (╨┐╨░╨┐╨║╨░ migr...╨┐╤А╨╛╨╡╨║╤В╨░):String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+rc=1
+
+=== [2] РіР»Р°РІРЅРѕРµ РґРµСЂРµРІРѕ (С‚РѕС‚ Р¶Рµ РєРѕРґ 2c28e2a1, РµСЃС‚СЊ untracked migrate_history/):
+python.exe : ╨▓╤Л╨▒╨╡╤А╨╕╤В╨╡ ╨╛╤Е╨▓╨░╤В: --files <╨┐╤Г╤В╨╕тАж> (╨┐╨╛╤А╤П╨┤╨╛╨║ = ╨┐╤А╨╕╨╛╤А╨╕╤В╨╡╤В ┬л╤Б╨▓╨╡╨╢╨╕╨╣ ╨┐╨
+╡╤А╨▓╤Л╨╝┬╗) | --all (╨▓╤Б╨╡ ╤Н╨║╤Б╨┐╨╛╤А╤В╤Л migrate_history/) | --only-live-chat
+C:\Users\main\.config\opencode\OpenCodeScratch\adminbot-ccef72c25768\release-25892\run_history_cli_attr.ps1:14 знак:6
++ $r = & $py manage.py import_history --mode fts 2>&1
++      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (╨▓╤Л╨▒╨╡╤А╨╕╤В╨...-only-live-chat:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+rc=1
+
+=== [3] С‡РёСЃС‚Р°СЏ РїСЂРѕРґ-Р±Р°Р·Р° f2a6248a (worktree wt-base): pytest test_scope_is_required
+F                                                                        [100%]
+================================== FAILURES ===================================
+______________________ TestCliFts.test_scope_is_required ______________________
+
+self = <tests.test_history_cli.TestCliFts object at 0x0000027A43CDCD70>
+
+    def test_scope_is_required(self):
+        proc = _run("import_history", "--mode", "fts")
+        assert proc.returncode != 0
+>       assert "╨╛╤Е╨▓╨░╤В" in (proc.stderr + proc.stdout)
+E       AssertionError: assert '╨╛╤Е╨▓╨░╤В' in ('╨┐╨░╨┐╨║╨░ migrate_history ╨╜╨╡ ╨╜╨░╨╣╨┤╨╡╨╜╨░ тАФ ╨┐╨╛╨╗╨╛╨╢╨╕╤В╨╡ JSON-╤Н╨║╤Б╨┐╨╛╤А╤В╤Л ╤Б╤О╨┤╨░ (╨╖╨░╨┐╤Г╤Б╨║ ╨╕╨╖ ╨║╨╛╤А╨╜╤П ╨┐╤А╨╛╨╡╨║╤В╨░)\n' + '')
+E        +  where '╨┐╨░╨┐╨║╨░ migrate_history ╨╜╨╡ ╨╜╨░╨╣╨┤╨╡╨╜╨░ тАФ ╨┐╨╛╨╗╨╛╨╢╨╕╤В╨╡ JSON-╤Н╨║╤Б╨┐╨╛╤А╤В╤Л ╤Б╤О╨┤╨░ (╨╖╨░╨┐╤Г╤Б╨║ ╨╕╨╖ ╨║╨╛╤А╨╜╤П ╨┐╤А╨╛╨╡╨║╤В╨░)\n' = CompletedProcess(args=['C:\\Code\\Python\\adminbot\\.venv\\Scripts\\python.exe', 'C:\\Users\\main\\.config\\opencode\\...code=1, stdout='', stderr='╨┐╨░╨┐╨║╨░ migrate_history ╨╜╨╡ ╨╜╨░╨╣╨┤╨╡╨╜╨░ тАФ ╨┐╨╛╨╗╨╛╨╢╨╕╤В╨╡ JSON-╤Н╨║╤Б╨┐╨╛╤А╤В╤Л ╤Б╤О╨┤╨░ (╨╖╨░╨┐╤Г╤Б╨║ ╨╕╨╖ ╨║╨╛╤А╨╜╤П ╨┐╤А╨╛╨╡╨║╤В╨░)\n').stderr
+E        +  and   '' = CompletedProcess(args=['C:\\Code\\Python\\adminbot\\.venv\\Scripts\\python.exe', 'C:\\Users\\main\\.config\\opencode\\...code=1, stdout='', stderr='╨┐╨░╨┐╨║╨░ migrate_history ╨╜╨╡ ╨╜╨░╨╣╨┤╨╡╨╜╨░ тАФ ╨┐╨╛╨╗╨╛╨╢╨╕╤В╨╡ JSON-╤Н╨║╤Б╨┐╨╛╤А╤В╤Л ╤Б╤О╨┤╨░ (╨╖╨░╨┐╤Г╤Б╨║ ╨╕╨╖ ╨║╨╛╤А╨╜╤П ╨┐╤А╨╛╨╡╨║╤В╨░)\n').stdout
+
+tests\test_history_cli.py:91: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_history_cli.py::TestCliFts::test_scope_is_required - Assert...
+1 failed in 3.18s
+rc=1

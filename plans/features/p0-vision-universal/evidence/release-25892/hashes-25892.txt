@@ -1,0 +1,19 @@
+REL-25892 — sha256_12 артефактов кандидата (worktree @ bump 2c28e2a1)
+PROD_REF = f2a6248ae30d8e0b1878785bb6d1477f65e21c78 (2.58.91)
+BUMP     = 2c28e2a1f472c0fa359a2adea91bbdab6c475d36 (2.58.92)
+
+PAYLOAD + BUMP (9):
+    "config/settings.py": "ec7434b73430",   # full ec7434b73430f0f6de4958523de45dd1b58e0a6468ab794ad9e35e34db777fe7
+    "services/direct_chat_service.py": "e32490e78b35",   # full e32490e78b35835896072c19e1237e63ec3744898d646b76276c645ee56d9025
+    "services/direct_execution.py": "aae7d74a2a9e",   # full aae7d74a2a9e25344720c525ac315c1b3be55c631338e04e36c900c2970395fc
+    "services/mca_vision.py": "f8cb004c6c84",   # full f8cb004c6c840ddf6935b2df6fdf58dfc9a568e3b6c62b4b14c980b591d4d342
+    "services/temporal_factcheck.py": "d36a5bf861fa",   # full d36a5bf861fae3ef14c840412bbe7c265d8c60e44efdb5fb6716ee6be7925ea9
+    "services/tool_router.py": "b6c9700f6ce5",   # full b6c9700f6ce50058571693ec1fc8e6eb85ce7b0ce1dac075ca0690333d7207f4
+    "web/api/routes.py": "d54cc29695c7",   # full d54cc29695c702e79b3410007bf3f08490d045a2e99679c16495a129736fb9e2
+    "README.md": "5e45cd0bd981",   # full 5e45cd0bd981d6f0b504c13bc0bf91346033ff885e75522c140d7c2fc19bf9b4
+    "plans/docs/param-registry-round1025.meta.md": "8a6acd0f294a",   # full 8a6acd0f294aacb994724a51cb4d3c9a323fb3ab8b71414c9348521ea2333a55
+
+SANITY (3) — обязаны остаться байт-в-байт прод-2.58.91:
+    "services/telegram_send.py": "e23bced2fdb8",   # full e23bced2fdb84d6735c6b68e9ce7a2bd21d7bd1e43ad2d74946e649d851b896f
+    "web/static/fullscreen-policy.js": "96db06425079",   # full 96db064250793f02356890adff33dda090ec637c4ae9f26b232f60bbce867ded
+    "services/prompt_composer.py": "fd8a2a70d5d7",   # full fd8a2a70d5d7cd0b95698a0a930b2b0fe329deb2d9ce5bdeed93fb5777d30c3a

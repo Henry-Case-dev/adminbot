@@ -1,0 +1,11 @@
+﻿BUMP_COMMIT = 2c28e2a1f472c0fa359a2adea91bbdab6c475d36
+PROD_REF    = f2a6248ae30d8e0b1878785bb6d1477f65e21c78
+whitelist   = 7
+EXPECT12    = 12
+hash errors: none
+runtime delta == whitelist: True
+delta count: 7
+delta: ['config/settings.py', 'services/direct_chat_service.py', 'services/direct_execution.py', 'services/mca_vision.py', 'services/temporal_factcheck.py', 'services/tool_router.py', 'web/api/routes.py']
+BUMP == HEAD: True (HEAD 2c28e2a1f472)
+upload rel92_final.sh exists: True
+PAGE_VER_EXPECT 15 SUBST_CSS 2 EXPECT_VER 2.58.92 ROLLBACK release/cfg1-2.58.88 2.58.88 PROD_BRANCH release/fix-2.58.91

@@ -1,0 +1,8 @@
+﻿ config/settings.py              |   2 +-
+ services/direct_chat_service.py |  14 ++
+ services/direct_execution.py    |  28 +++-
+ services/mca_vision.py          | 287 ++++++++++++++++++++++++++++++++++++----
+ services/temporal_factcheck.py  |  35 +++++
+ services/tool_router.py         |  31 ++++-
+ web/api/routes.py               |  56 +++++++-
+ 7 files changed, 417 insertions(+), 36 deletions(-)
