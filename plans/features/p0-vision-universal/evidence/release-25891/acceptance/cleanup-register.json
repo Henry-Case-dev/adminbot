@@ -1,0 +1,644 @@
+{
+ "generated_utc": "2026-10-18 21:25:30",
+ "chat_id": -1002661910336,
+ "window": {
+  "mid_lo": 1165600,
+  "mid_hi": 1165659,
+  "utc_from": "2026-10-18 20:22:19",
+  "utc_to": "2026-10-18 21:07:53"
+ },
+ "method": "Telegram Bot API deleteMessage via the deployed bot; single SSH run; sources: smart_messages + message_source_records/message_revisions + bot_replies/bot_reply_parents + ACCEPTANCE-91 harness evidence",
+ "deleted": [
+  {
+   "mid": 1165608,
+   "kind": "seed",
+   "head": "🧪 Приёмка 2.58.91 · проверка health",
+   "source": "scan",
+   "reply_to": null,
+   "status": "deleted"
+  },
+  {
+   "mid": 1165609,
+   "kind": "bot_reply",
+   "head": "По справке ничего про состояние сервера нет",
+   "source": "task-list",
+   "reply_to": 1165608,
+   "db_text_check": "match",
+   "status": "deleted"
+  },
+  {
+   "mid": 1165610,
+   "kind": "bot_reply",
+   "head": "В справке ни строчки про ошибки",
+   "source": "task-list",
+   "reply_to": 1165609,
+   "db_text_check": "match",
+   "status": "deleted"
+  },
+  {
+   "mid": 1165611,
+   "kind": "bot_reply",
+   "head": "беттерстак обосрался, лезу ковырять локальные логи",
+   "source": "task-list",
+   "reply_to": null,
+   "status": "deleted"
+  },
+  {
+   "mid": 1165612,
+   "kind": "bot_reply",
+   "head": "блять, ну классика. betterstack лег",
+   "source": "task-list",
+   "reply_to": null,
+   "status": "deleted"
+  },
+  {
+   "mid": 1165613,
+   "kind": "bot_reply",
+   "head": "Картинку посмотреть не вышло",
+   "source": "task-list",
+   "reply_to": 1165607,
+   "db_text_check": "match",
+   "status": "deleted"
+  },
+  {
+   "mid": 1165614,
+   "kind": "bot_reply",
+   "head": "Не могу - распознавание картинок у провайдера отвалилось",
+   "source": "task-list",
+   "reply_to": 1165613,
+   "db_text_check": "match",
+   "status": "deleted"
+  },
+  {
+   "mid": 1165615,
+   "kind": "seed",
+   "head": "🧪 Приёмка 2.58.91 · утверждение для фактчека",
+   "source": "scan",
+   "reply_to": null,
+   "status": "deleted"
+  },
+  {
+   "mid": 1165617,
+   "kind": "bot_reply",
+   "head": "Проверка не сработала - по времени не пролезло",
+   "source": "task-list",
+   "reply_to": 1165615,
+   "db_text_check": "match",
+   "status": "deleted"
+  },
+  {
+   "mid": 1165619,
+   "kind": "bot_reply",
+   "head": "Генератор картинок сдох по дороге к утёнку",
+   "source": "task-list",
+   "reply_to": 1165617,
+   "db_text_check": "match",
+   "status": "deleted"
+  },
+  {
+   "mid": 1165620,
+   "kind": "bot_photo",
+   "head": "(photo, удалено 18.10 followup)",
+   "source": "task-list",
+   "reply_to": null,
+   "status": "already_deleted"
+  },
+  {
+   "mid": 1165621,
+   "kind": "bot_reply",
+   "head": "Генератор картинок уже отправил что-то в чат",
+   "source": "task-list",
+   "reply_to": 1165619,
+   "db_text_check": "match",
+   "status": "deleted"
+  },
+  {
+   "mid": 1165622,
+   "kind": "bot_photo",
+   "head": "(photo, удалено 18.10 followup)",
+   "source": "task-list",
+   "reply_to": null,
+   "status": "already_deleted"
+  },
+  {
+   "mid": 1165623,
+   "kind": "bot_reply",
+   "head": "Картинка ушла в чат",
+   "source": "task-list",
+   "reply_to": 1165621,
+   "db_text_check": "match",
+   "status": "deleted"
+  },
+  {
+   "mid": 1165624,
+   "kind": "bot_reply",
+   "head": "Генератор прилёг передохнуть",
+   "source": "task-list",
+   "reply_to": 1165623,
+   "db_text_check": "match",
+   "status": "deleted"
+  },
+  {
+   "mid": 1165627,
+   "kind": "seed",
+   "head": "🧪 Приёмка 2.58.91 · health retry",
+   "source": "scan",
+   "reply_to": null,
+   "status": "deleted"
+  },
+  {
+   "mid": 1165629,
+   "kind": "bot_reply",
+   "head": "По справке сервер живой, но с бодуна",
+   "source": "task-list",
+   "reply_to": 1165627,
+   "db_text_check": "match",
+   "status": "deleted"
+  },
+  {
+   "mid": 1165630,
+   "kind": "bot_reply",
+   "head": "Не подтвержу - проверка не пролезла по времени",
+   "source": "scan",
+   "reply_to": 1165629,
+   "db_text_check": "match",
+   "status": "deleted"
+  },
+  {
+   "mid": 1165655,
+   "kind": "seed",
+   "head": "🧪 Приёмка 2.58.91 · factcheck clean claim",
+   "source": "scan",
+   "reply_to": null,
+   "status": "deleted"
+  },
+  {
+   "mid": 1165656,
+   "kind": "bot_reply",
+   "head": "Ты это к чему - проверить меня хочешь",
+   "source": "scan",
+   "reply_to": 1165655,
+   "db_text_check": "match",
+   "status": "deleted"
+  },
+  {
+   "mid": 1165657,
+   "kind": "seed",
+   "head": "🧪 Приёмка 2.58.91 · factcheck explicit+registered",
+   "source": "scan",
+   "reply_to": null,
+   "status": "deleted"
+  },
+  {
+   "mid": 1165658,
+   "kind": "bot_reply",
+   "head": "Подтверждено. На уровне моря",
+   "source": "task-list",
+   "reply_to": 1165657,
+   "db_text_check": "match",
+   "status": "deleted"
+  }
+ ],
+ "kept": [
+  {
+   "mid": 1165600,
+   "kind": "user_message",
+   "user_id": 5885953495,
+   "author": "Никита",
+   "media_type": "video",
+   "reply_to": null,
+   "ts": 1792354938,
+   "head": "",
+   "reason": "owner message (not acceptance)"
+  },
+  {
+   "mid": 1165601,
+   "kind": "user_message",
+   "user_id": 5885953495,
+   "author": "Никита",
+   "media_type": "video",
+   "reply_to": null,
+   "ts": 1792355098,
+   "head": "",
+   "reason": "owner message (not acceptance)"
+  },
+  {
+   "mid": 1165602,
+   "kind": "user_message",
+   "user_id": 1276415576,
+   "author": "Никита Философ",
+   "media_type": "photo",
+   "reply_to": null,
+   "ts": 1792355149,
+   "head": "мерч от новых людей",
+   "reason": "user message (not acceptance)"
+  },
+  {
+   "mid": 1165603,
+   "kind": "user_message",
+   "user_id": 5885953495,
+   "author": "Никита",
+   "media_type": "photo",
+   "reply_to": null,
+   "ts": 1792355173,
+   "head": "",
+   "reason": "owner message (not acceptance)"
+  },
+  {
+   "mid": 1165604,
+   "kind": "user_message",
+   "user_id": 529151103,
+   "author": "Толян",
+   "media_type": "text",
+   "reply_to": 1165601,
+   "ts": 1792355474,
+   "head": "Нихуя хуйзенберг",
+   "reason": "user message (not acceptance)"
+  },
+  {
+   "mid": 1165605,
+   "kind": "user_message",
+   "user_id": 602028847,
+   "author": "Ярик",
+   "media_type": "video",
+   "reply_to": null,
+   "ts": 1792355597,
+   "head": "машуля, 22, Санкт-Петербург – 19 рост 167 я придерживаюсь та",
+   "reason": "user message (not acceptance)"
+  },
+  {
+   "mid": 1165606,
+   "kind": "user_message",
+   "user_id": 5885953495,
+   "author": "Никита",
+   "media_type": "photo",
+   "reply_to": null,
+   "ts": 1792355775,
+   "head": "",
+   "reason": "user photo kept: asset reused as vision-probe source, not a test message"
+  },
+  {
+   "mid": 1165607,
+   "kind": "user_message",
+   "user_id": 1276415576,
+   "author": "Никита Философ",
+   "media_type": "photo",
+   "reply_to": null,
+   "ts": 1792355902,
+   "head": "",
+   "reason": "user photo kept: asset reused as vision-probe source, not a test message"
+  },
+  {
+   "mid": 1165616,
+   "kind": "user_message",
+   "user_id": 1276415576,
+   "author": "Никита Философ",
+   "media_type": "sticker",
+   "reply_to": null,
+   "ts": 1792356208,
+   "head": "",
+   "reason": "user message (not acceptance)"
+  },
+  {
+   "mid": 1165618,
+   "kind": "user_message",
+   "user_id": 922689928,
+   "author": "Алина",
+   "media_type": "video",
+   "reply_to": null,
+   "ts": 1792356303,
+   "head": "🤬В Екатеринбурге самокатчик снёс коляску с ребёнком: его тут",
+   "reason": "user message (not acceptance)"
+  },
+  {
+   "mid": 1165625,
+   "kind": "user_message",
+   "user_id": 1276415576,
+   "author": "Никита Философ",
+   "media_type": "photo",
+   "reply_to": null,
+   "ts": 1792356471,
+   "head": "",
+   "reason": "user message (not acceptance)"
+  },
+  {
+   "mid": 1165626,
+   "kind": "user_message",
+   "user_id": 146761791,
+   "author": "Инкуфен",
+   "media_type": "photo",
+   "reply_to": null,
+   "ts": 1792356528,
+   "head": "Сука пермяки до чего вы довели",
+   "reason": "user message (not acceptance)"
+  },
+  {
+   "mid": 1165628,
+   "kind": "user_message",
+   "user_id": 972412990,
+   "author": "Леха Крейсер",
+   "media_type": "text",
+   "reply_to": null,
+   "ts": 1792356650,
+   "head": "сука восстание машин",
+   "reason": "user message (not acceptance)"
+  },
+  {
+   "mid": 1165631,
+   "kind": "user_message",
+   "user_id": 972412990,
+   "author": "Леха Крейсер",
+   "media_type": "text",
+   "reply_to": 1165626,
+   "ts": 1792356687,
+   "head": "так тебе и надо пидару импортному(надеюсь все починится за н",
+   "reason": "user message (not acceptance)"
+  },
+  {
+   "mid": 1165632,
+   "kind": "user_message",
+   "user_id": 146761791,
+   "author": "Инкуфен",
+   "media_type": "text",
+   "reply_to": 1165631,
+   "ts": 1792356702,
+   "head": "Не, нашел уже все",
+   "reason": "user message (not acceptance)"
+  },
+  {
+   "mid": 1165633,
+   "kind": "user_message",
+   "user_id": 5885953495,
+   "author": "Никита",
+   "media_type": "text",
+   "reply_to": 1165628,
+   "ts": 1792356703,
+   "head": "спокойно, идет тестирование",
+   "reason": "owner message (not acceptance)"
+  },
+  {
+   "mid": 1165634,
+   "kind": "user_message",
+   "user_id": 146761791,
+   "author": "Инкуфен",
+   "media_type": "text",
+   "reply_to": null,
+   "ts": 1792356716,
+   "head": "Где-то похоже под водой камень или бордюр на дорогу вымыло",
+   "reason": "user message (not acceptance)"
+  },
+  {
+   "mid": 1165635,
+   "kind": "user_message",
+   "user_id": 146761791,
+   "author": "Инкуфен",
+   "media_type": "text",
+   "reply_to": null,
+   "ts": 1792356719,
+   "head": "Я и ебнул",
+   "reason": "user message (not acceptance)"
+  },
+  {
+   "mid": 1165636,
+   "kind": "user_message",
+   "user_id": 146761791,
+   "author": "Инкуфен",
+   "media_type": "text",
+   "reply_to": null,
+   "ts": 1792356734,
+   "head": "Пробил поддон и трансмиссионнка сказала пока",
+   "reason": "user message (not acceptance)"
+  },
+  {
+   "mid": 1165637,
+   "kind": "user_message",
+   "user_id": 972412990,
+   "author": "Леха Крейсер",
+   "media_type": "text",
+   "reply_to": null,
+   "ts": 1792356737,
+   "head": "ллм саморемонт интересная хуйня но на прод который деньги за",
+   "reason": "user message (not acceptance)"
+  },
+  {
+   "mid": 1165638,
+   "kind": "user_message",
+   "user_id": 972412990,
+   "author": "Леха Крейсер",
+   "media_type": "text",
+   "reply_to": 1165636,
+   "ts": 1792356753,
+   "head": "как к ллм сре относишься?",
+   "reason": "user message (not acceptance)"
+  },
+  {
+   "mid": 1165639,
+   "kind": "user_message",
+   "user_id": 972412990,
+   "author": "Леха Крейсер",
+   "media_type": "text",
+   "reply_to": null,
+   "ts": 1792356766,
+   "head": "чиназес али нахуй эту чепуху",
+   "reason": "user message (not acceptance)"
+  },
+  {
+   "mid": 1165640,
+   "kind": "user_message",
+   "user_id": 146761791,
+   "author": "Инкуфен",
+   "media_type": "text",
+   "reply_to": 1165638,
+   "ts": 1792356778,
+   "head": "Хуйня",
+   "reason": "user message (not acceptance)"
+  },
+  {
+   "mid": 1165641,
+   "kind": "user_message",
+   "user_id": 146761791,
+   "author": "Инкуфен",
+   "media_type": "text",
+   "reply_to": null,
+   "ts": 1792356787,
+   "head": "Плохо пока делает",
+   "reason": "user message (not acceptance)"
+  },
+  {
+   "mid": 1165642,
+   "kind": "user_message",
+   "user_id": 5885953495,
+   "author": "Никита",
+   "media_type": "text",
+   "reply_to": 1165637,
+   "ts": 1792356792,
+   "head": "он и не рассчитывался на коммерцию",
+   "reason": "owner message (not acceptance)"
+  },
+  {
+   "mid": 1165643,
+   "kind": "user_message",
+   "user_id": 972412990,
+   "author": "Леха Крейсер",
+   "media_type": "text",
+   "reply_to": null,
+   "ts": 1792356796,
+   "head": "видел репу под это дело у индусов хуета полнейшая",
+   "reason": "user message (not acceptance)"
+  },
+  {
+   "mid": 1165644,
+   "kind": "user_message",
+   "user_id": 972412990,
+   "author": "Леха Крейсер",
+   "media_type": "text",
+   "reply_to": 1165642,
+   "ts": 1792356803,
+   "head": "да я не нападаю",
+   "reason": "user message (not acceptance)"
+  },
+  {
+   "mid": 1165645,
+   "kind": "user_message",
+   "user_id": 146761791,
+   "author": "Инкуфен",
+   "media_type": "text",
+   "reply_to": 1165643,
+   "ts": 1792356811,
+   "head": ">у индусов >хуета Ого",
+   "reason": "user message (not acceptance)"
+  },
+  {
+   "mid": 1165646,
+   "kind": "user_message",
+   "user_id": 972412990,
+   "author": "Леха Крейсер",
+   "media_type": "text",
+   "reply_to": null,
+   "ts": 1792356813,
+   "head": "любопытная хуйня",
+   "reason": "user message (not acceptance)"
+  },
+  {
+   "mid": 1165647,
+   "kind": "user_message",
+   "user_id": 972412990,
+   "author": "Леха Крейсер",
+   "media_type": "text",
+   "reply_to": 1165645,
+   "ts": 1792356852,
+   "head": "ну там комитят не только индусы, они рекламят",
+   "reason": "user message (not acceptance)"
+  },
+  {
+   "mid": 1165648,
+   "kind": "user_message",
+   "user_id": 972412990,
+   "author": "Леха Крейсер",
+   "media_type": "text",
+   "reply_to": null,
+   "ts": 1792356873,
+   "head": "индусы как нация мощно посасали с выходом ллм",
+   "reason": "user message (not acceptance)"
+  },
+  {
+   "mid": 1165649,
+   "kind": "user_message",
+   "user_id": 972412990,
+   "author": "Леха Крейсер",
+   "media_type": "text",
+   "reply_to": null,
+   "ts": 1792356891,
+   "head": "у них вся концепция была хуйня за не дорого",
+   "reason": "user message (not acceptance)"
+  },
+  {
+   "mid": 1165650,
+   "kind": "user_message",
+   "user_id": 972412990,
+   "author": "Леха Крейсер",
+   "media_type": "text",
+   "reply_to": null,
+   "ts": 1792356905,
+   "head": "с чем щас робот успешно справляется",
+   "reason": "user message (not acceptance)"
+  },
+  {
+   "mid": 1165651,
+   "kind": "user_message",
+   "user_id": 146761791,
+   "author": "Инкуфен",
+   "media_type": "text",
+   "reply_to": 1165648,
+   "ts": 1792356965,
+   "head": "Ну типа да, они были литературно соннет",
+   "reason": "user message (not acceptance)"
+  },
+  {
+   "mid": 1165652,
+   "kind": "user_message",
+   "user_id": 146761791,
+   "author": "Инкуфен",
+   "media_type": "text",
+   "reply_to": null,
+   "ts": 1792356970,
+   "head": "Дешево и хуево",
+   "reason": "user message (not acceptance)"
+  },
+  {
+   "mid": 1165653,
+   "kind": "user_message",
+   "user_id": 146761791,
+   "author": "Инкуфен",
+   "media_type": "text",
+   "reply_to": null,
+   "ts": 1792356973,
+   "head": "И много",
+   "reason": "user message (not acceptance)"
+  },
+  {
+   "mid": 1165654,
+   "kind": "user_message",
+   "user_id": 972412990,
+   "author": "Леха Крейсер",
+   "media_type": "photo",
+   "reply_to": null,
+   "ts": 1792356973,
+   "head": "",
+   "reason": "user message (not acceptance)"
+  },
+  {
+   "mid": 1165659,
+   "kind": "user_message",
+   "user_id": 1276415576,
+   "author": "Никита Философ",
+   "media_type": "photo",
+   "reply_to": null,
+   "ts": 1792357673,
+   "head": "",
+   "reason": "user message (not acceptance)"
+  }
+ ],
+ "verification": {
+  "window_mids_total": 60,
+  "accounted_bot_test": 22,
+  "accounted_incoming": 38,
+  "unaccounted_mids": [],
+  "after_window_activity_mids": [],
+  "sources": {
+   "smart_messages_rows": 38,
+   "bot_replies_rows": 13,
+   "bot_reply_parents_rows": 13,
+   "message_source_records_rows": 38,
+   "message_revisions_rows": 38
+  },
+  "delete_attempts": 22,
+  "deleted_now": 20,
+  "already_deleted": 2,
+  "failed": 0,
+  "residual_test_mids": [],
+  "kept_total": 38,
+  "synthetic_db_rows_removed": [],
+  "synthetic_rows_found": 0
+ }
+}
