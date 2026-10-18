@@ -1,0 +1,50 @@
+﻿py : mca_event=vision_capability_probe | ts=1792335996 | event_name=vision_capability_probe | outcome=failed | level=WA
+RN | reason_code=vision_unavailable | stage=dedicated | component=vision.media | model=google/gemma-4-31b-it:free
+строка:1 знак:44
++ ... \adminbot"; py -3 OPENCODE_WORKFLOW_SCRATCH/p0vision_recon/probe_matr ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (mca_event=visio...a-4-31b-it:free:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+mca_event=vision_capability_probe | ts=1792335996 | event_name=vision_capability_probe | outcome=failed | level=WARN | 
+reason_code=vision_unsupported | stage=dedicated | component=vision.media | model=google/gemma-4-31b-it:free
+mca_event=vision_capability_probe | ts=1792335996 | event_name=vision_capability_probe | outcome=failed | level=WARN | 
+reason_code=vision_unsupported | stage=dedicated | component=vision.media | model=google/gemma-4-31b-it:free
+mca_event=vision_capability_probe | ts=1792335996 | event_name=vision_capability_probe | outcome=failed | level=WARN | 
+reason_code=vision_unavailable | stage=dedicated | component=vision.media | model=google/gemma-4-31b-it:free
+mca_event=vision_capability_probe | ts=1792335996 | event_name=vision_capability_probe | outcome=failed | level=WARN | 
+reason_code=vision_rate_limited | stage=dedicated | component=vision.media | model=google/gemma-4-31b-it:free
+mca_event=vision_capability_probe | ts=1792335996 | event_name=vision_capability_probe | outcome=failed | level=WARN | 
+reason_code=vision_unavailable | stage=dedicated | component=vision.media | model=google/gemma-4-31b-it:free
+=== effective-route (╨┐╤А╨╛╨┤-╨║╨╛╨╜╤Д╨╕╨│╤Г╤А╨░╤Ж╨╕╤П) ===
+source=dedicated base_url=https://nano-gpt.com/api/v1 model=google/gemma-4-31b-it:free key_present=True rev=fe861e8232b16d2e
+
+=== 1. ╨┐╤А╨╛╨┤-╤Ж╨╡╨┐╨╛╤З╨║╨░: ╤З╤Г╨╢╨╛╨╣ endpoint ╨╜╨╡ ╨╖╨╜╨░╨╡╤В ╨╝╨╛╨┤╨╡╨╗╨╕ ===
+image 404 + text 404                           capability=unavailable  reason=vision_unavailable       image_input=None detail=http_404/404
+   ╨▓╤Л╨╖╨╛╨▓╤Л: [{'url': 'https://nano-gpt.com/api/v1/chat/completions', 'model': 'google/gemma-4-31b-it:free', 'has_image': True, 'auth_last6': '3chars'}, {'url': 'https://nano-gpt.com/api/v1/chat/completions', 'model': 'google/gemma-4-31b-it:free', 'has_image': False, 'auth_last6': '3chars'}]
+
+=== 2. ┬л╤В╨╡╨║╤Б╤В OK + ╨║╨░╤А╤В╨╕╨╜╨║╨░ 400┬╗ тЖТ no_vision (╨┐╨╛ 1x1 PNG) ===
+image 400 + text 200                           capability=no_vision    reason=vision_unsupported       image_input=False detail=image_http_400_text_ok
+
+=== 3. 400 ╨╕╨╖-╨╖╨░ ╤А╨░╨╖╨╝╨╡╤А╨░ 1x1 (╨║╨░╤А╤В╨╕╨╜╨║╨░ ╨▓╨░╨╗╨╕╨┤╨╜╨░, ╨╜╨╛ ╨╝╨░╨╗╨░) ===
+image 400 (too small) + text 200               capability=no_vision    reason=vision_unsupported       image_input=False detail=image_http_400_text_ok
+
+=== 4. 401 / 429 ===
+image 401                                      capability=access_error reason=vision_unavailable       image_input=None detail=http_401
+image 429                                      capability=rate_limited reason=vision_rate_limited      image_input=None detail=http_429
+
+=== 5. ╤В╨╡╤Б╤В╨╛╨▓╨╛╨╡ ╨╕╨╖╨╛╨▒╤А╨░╨╢╨╡╨╜╨╕╨╡ ╨┐╤А╨╛╨▒╤Л ===
+_NEUTRAL_PNG: bytes=70 mime=image/png size=1x1 alpha-tRNS/╨┐╤А╨╛╨╖╤А╨░╤З╨╜╤Л╨╣=True
+
+=== 6. ╨║╨╡╤И: TTL ╨▓╤А╨╡╨╝╨╡╨╜╨╜╨╛╨│╨╛ ╤Б╨▒╨╛╤П ===
+capability_ttl_hours = 6 ╤З╨░╤Б╨╛╨▓ тЖТ ╨╜╨╡╨┤╨╛╤Б╤В╤Г╨┐╨╜╨╛╤Б╤В╤М ╨┤╨╡╤А╨╢╨╕╤В╤Б╤П ╨▓ ╨║╨╡╤И╨╡ ╨┤╨╛ 6 ╤З
+image 503 тЖТ ╨▓╨╡╤А╨┤╨╕╨║╤В                            capability=unavailable  reason=vision_unavailable       image_input=None detail=http_503
+resolve_effective_state: enabled=False reason=vision_unavailable visible='╨Т╤А╨╡╨╝╨╡╨╜╨╜╨╛ ╨╜╨╡╨┤╨╛╤Б╤В╤Г╨┐╨╜╨╛ (╨╛╤И╨╕╨▒╨║╨░ ╨┤╨╛╤Б╤В╤Г╨┐╨░/╨╜╨╡╨┤╨╛╤Б╤В╤Г╨┐╨╜╨╛╤Б╤В╤М ╨┐╤А╨╛╨▓╨░╨╣╨┤╨╡╤А╨░)' model=google/gemma-4-31b-it:free
+╨║╨╡╤И-╨╖╨░╨┐╨╕╤Б╤М ╨┤╨╡╤А╨╢╨╕╤В╤Б╤П: checked_at(now)=287991.97 | expired=False
+
+=== 7. ╨╕╨╜╨▓╨░╨╗╨╕╨┤╨░╤Ж╨╕╤П ╨┐╨╛ ╤Б╨╝╨╡╨╜╨╡ ╨Ч╨Э╨Р╨з╨Х╨Э╨Ш╨п ╨║╨╗╤О╤З╨░ ===
+rev(╨║╨╗╤О╤З A)=fe861e8232b16d2e rev(╨║╨╗╤О╤З B)=fe861e8232b16d2e тЖТ ╨╛╨┤╨╕╨╜╨░╨║╨╛╨▓╤Л=True
+╨┐╨╛╤Б╨╗╨╡ ╤Б╨╝╨╡╨╜╤Л ╨║╨╗╤О╤З╨░ effective: enabled=False reason=vision_unavailable
+
+=== 8. loop-╨▓╨╡╨╗╨╕╤З╨╕╨╜╨░: URL ╨┐╤А╨╕ base_url ╤Б ╨│╨╛╤В╨╛╨▓╤Л╨╝ ╨┐╤Г╤В╤С╨╝ ===
+base_url=https://openrouter.ai/api/v1/chat/completions тЖТ POST https://openrouter.ai/api/v1/chat/completions/chat/completions

@@ -1,0 +1,92 @@
+﻿== git ==
+3b02366e 2026-10-19T01:30:51Z docs(p0): REV-REL-RECHECK тАФ Approved (FIX-DEPLOY-90: NF-1a/b checked_out+restore to release/fix-2.58.89, confirm 3-condition, warning+summary; NF-2 PAGE_VER=15/SUBST_CSS=2 grep -cF; NF-3 tip 35789982; extra whitelist set-equality closes s2b; my sim rerun 22/22 FAILURES 0; bindings 2d47290eeeb0/c4e74d87e477; release-doc patch applied; no deploy, no push)
+== ╨╕╨╜╤В╨╡╤А╨┐╤А╨╡╤В╨░╤В╨╛╤А ==
+PY_OK=/var/www/admin_bot/venv/bin/python
+== upload ==
+7907 /tmp/p0vision_recon.py
+== RECON OUTPUT ==
+== mca_events: vision_capability_probe ==
+  outcome=failed reason=vision_unavailable stage=dedicated model=google/gemma-4-31b-it:free count=4 last=2026-10-18 14:13:25Z
+== mca_events: ╨┐╨╛╤Б╨╗╨╡╨┤╨╜╨╕╨╡ 12 probe-╤Б╨╛╨▒╤Л╤В╨╕╨╣ ==
+  10-18 14:13:25Z WARN outcome=failed reason=vision_unavailable stage=dedicated model=google/gemma-4-31b-it:free comp=vision.media
+  10-18 14:13:06Z WARN outcome=failed reason=vision_unavailable stage=dedicated model=google/gemma-4-31b-it:free comp=vision.media
+  10-18 14:12:46Z WARN outcome=failed reason=vision_unavailable stage=dedicated model=google/gemma-4-31b-it:free comp=vision.media
+  10-18 14:12:21Z WARN outcome=failed reason=vision_unavailable stage=dedicated model=google/gemma-4-31b-it:free comp=vision.media
+== mca_events: vision.* ╤Б╨╛╨▒╤Л╤В╨╕╤П ╨┐╨╛ ╨╕╨╝╨╡╨╜╨╕ (24╤З) ==
+  vision_media outcome=skipped reason=capability_check_pending count=14
+  vision_media outcome=skipped reason=vision_unavailable count=10
+  vision_capability_probe outcome=failed reason=vision_unavailable count=4
+== task_jobs: vision ==
+  kind=vision.backfill status=failed reason=capability_check_pending count=10 last=10-18 14:12:14Z
+  kind=vision.media status=cancelled reason=queue_coalesced count=4 last=10-18 14:44:09Z
+  kind=vision.media status=failed reason=capability_check_pending count=4 last=10-18 14:11:34Z
+  kind=vision.media status=failed reason=vision_unavailable count=10 last=10-18 14:47:04Z
+== task_jobs: ╨┐╨╛╤Б╨╗╨╡╨┤╨╜╨╕╨╡ 10 vision-╨┤╨╢╨╛╨▒ ==
+  de956d6001.. kind=vision.media status=failed reason=vision_unavailable att=1/4 cr=10-18 14:47:02Z up=10-18 14:47:04Z
+  6b14195716.. kind=vision.media status=failed reason=vision_unavailable att=1/4 cr=10-18 14:45:25Z up=10-18 14:45:29Z
+  1db777298b.. kind=vision.media status=failed reason=vision_unavailable att=1/4 cr=10-18 14:44:09Z up=10-18 14:44:14Z
+  c684d81087.. kind=vision.media status=cancelled reason=queue_coalesced att=1/4 cr=10-18 14:44:04Z up=10-18 14:44:09Z
+  5fac7e3cbc.. kind=vision.media status=cancelled reason=queue_coalesced att=1/4 cr=10-18 14:43:59Z up=10-18 14:44:04Z
+  0759a140c4.. kind=vision.media status=cancelled reason=queue_coalesced att=1/4 cr=10-18 14:43:54Z up=10-18 14:43:59Z
+  968a8b0c38.. kind=vision.media status=cancelled reason=queue_coalesced att=1/4 cr=10-18 14:43:53Z up=10-18 14:43:54Z
+  e956a8b849.. kind=vision.media status=failed reason=vision_unavailable att=1/4 cr=10-18 14:43:53Z up=10-18 14:43:54Z
+  8d6e958cf8.. kind=vision.media status=failed reason=vision_unavailable att=1/4 cr=10-18 14:43:53Z up=10-18 14:43:54Z
+  8301aeed8d.. kind=vision.media status=failed reason=vision_unavailable att=1/4 cr=10-18 14:43:53Z up=10-18 14:43:54Z
+== mca_media_analyses: ╨┐╨╛╤Б╨╗╨╡╨┤╨╜╨╕╨╡ 8 ==
+== mca_media_assets / analyses тАФ ╤Б╤З╤С╤В╤З╨╕╨║╨╕ ==
+  assets=3183 analyses=0
+== ENV (process env files) ==
+  MCA_VISION_ENABLED=<unset>
+  MCA_VISION_AUTO_ENABLED=<unset>
+  MCA_VISION_BACKFILL_ENABLED=<unset>
+  MCA_VISION_TOOL_ENABLED=<unset>
+  MCA_VISION_CAPABILITY_TTL_HOURS=<unset>
+  MCA_VISION_DEFERRED_TTL_HOURS=<unset>
+  VISION_ENABLED=<unset>
+  VISION_API_TYPE=<unset>
+  VISION_MODEL=<unset>
+  VISION_API_BASE_URL=<unset>
+  VISION_API_KEY=<unset>
+== bot_settings (effective config) ==
+  models.vision_api_base_url = 'https://openrouter.ai/api/v1'
+  models.vision_api_type = 'openai_compatible'
+  models.vision_model = 'google/gemma-4-31b-it:free'
+  keys.vision_api_key = 'present(len=73,last4=e0ba)'
+  flags.vision_enabled = False
+  models.llm_base_url = 'https://nano-gpt.com/api/v1'
+  models.llm_model_name = 'deepseek/deepseek-v4.1-flash'
+  keys.llm_api_key = 'present(len=44,last4=349c)'
+  limits.vision_image_max_dimension = 1600
+  limits.vision_queue_capacity = 100
+  limits.vision_user_rate = '10/10'
+  limits.vision_chat_rate = '60/30'
+
+== journalctl: skip-╤В╨╕╨║╨╕/vision ==
+SKIPPED_INSTANCES=487
+VISION_WORKER_START=0
+Oct 18 15:04:49 racknerd-f4e3456 python[3430462]: 2026-10-18 15:04:49,658 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-18 20:04:54 +05)" (scheduled at 2026-10-18 20:04:49.656874+05:00)
+Oct 18 15:04:49 racknerd-f4e3456 python[3430462]: 2026-10-18 15:04:49,678 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-18 20:04:54 +05)" executed successfully
+Oct 18 15:04:54 racknerd-f4e3456 python[3430462]: 2026-10-18 15:04:54,659 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-18 20:04:59 +05)" (scheduled at 2026-10-18 20:04:54.656874+05:00)
+Oct 18 15:04:59 racknerd-f4e3456 python[3430462]: 2026-10-18 15:04:59,660 - apscheduler.scheduler - WARNING - Execution of job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-18 20:04:59 +05)" skipped: maximum number of running instances reached (1)
+Oct 18 15:05:01 racknerd-f4e3456 python[3430462]: 2026-10-18 15:05:01,060 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-18 20:05:04 +05)" executed successfully
+Oct 18 15:05:04 racknerd-f4e3456 python[3430462]: 2026-10-18 15:05:04,658 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-18 20:05:09 +05)" (scheduled at 2026-10-18 20:05:04.656874+05:00)
+Oct 18 15:05:04 racknerd-f4e3456 python[3430462]: 2026-10-18 15:05:04,714 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-18 20:05:09 +05)" executed successfully
+Oct 18 15:05:09 racknerd-f4e3456 python[3430462]: 2026-10-18 15:05:09,658 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-18 20:05:14 +05)" (scheduled at 2026-10-18 20:05:09.656874+05:00)
+Oct 18 15:05:09 racknerd-f4e3456 python[3430462]: 2026-10-18 15:05:09,682 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-18 20:05:14 +05)" executed successfully
+Oct 18 15:05:14 racknerd-f4e3456 python[3430462]: 2026-10-18 15:05:14,659 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-18 20:05:19 +05)" (scheduled at 2026-10-18 20:05:14.656874+05:00)
+Oct 18 15:05:14 racknerd-f4e3456 python[3430462]: 2026-10-18 15:05:14,680 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-18 20:05:19 +05)" executed successfully
+Oct 18 15:05:19 racknerd-f4e3456 python[3430462]: 2026-10-18 15:05:19,658 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-18 20:05:24 +05)" (scheduled at 2026-10-18 20:05:19.656874+05:00)
+Oct 18 15:05:19 racknerd-f4e3456 python[3430462]: 2026-10-18 15:05:19,691 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-18 20:05:24 +05)" executed successfully
+Oct 18 15:05:24 racknerd-f4e3456 python[3430462]: 2026-10-18 15:05:24,658 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-18 20:05:29 +05)" (scheduled at 2026-10-18 20:05:24.656874+05:00)
+Oct 18 15:05:24 racknerd-f4e3456 python[3430462]: 2026-10-18 15:05:24,679 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-18 20:05:29 +05)" executed successfully
+Oct 18 15:05:29 racknerd-f4e3456 python[3430462]: 2026-10-18 15:05:29,658 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-18 20:05:34 +05)" (scheduled at 2026-10-18 20:05:29.656874+05:00)
+Oct 18 15:05:29 racknerd-f4e3456 python[3430462]: 2026-10-18 15:05:29,678 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-18 20:05:34 +05)" executed successfully
+Oct 18 15:05:34 racknerd-f4e3456 python[3430462]: 2026-10-18 15:05:34,658 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-18 20:05:39 +05)" (scheduled at 2026-10-18 20:05:34.656874+05:00)
+Oct 18 15:05:34 racknerd-f4e3456 python[3430462]: 2026-10-18 15:05:34,687 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-18 20:05:39 +05)" executed successfully
+Oct 18 15:05:39 racknerd-f4e3456 python[3430462]: 2026-10-18 15:05:39,659 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-18 20:05:44 +05)" (scheduled at 2026-10-18 20:05:39.656874+05:00)
+Oct 18 15:05:39 racknerd-f4e3456 python[3430462]: 2026-10-18 15:05:39,710 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-18 20:05:44 +05)" executed successfully
+Oct 18 15:05:44 racknerd-f4e3456 python[3430462]: 2026-10-18 15:05:44,657 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-18 20:05:49 +05)" (scheduled at 2026-10-18 20:05:44.656874+05:00)
+Oct 18 15:05:44 racknerd-f4e3456 python[3430462]: 2026-10-18 15:05:44,703 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-18 20:05:49 +05)" executed successfully
+Oct 18 15:05:49 racknerd-f4e3456 python[3430462]: 2026-10-18 15:05:49,665 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-18 20:05:54 +05)" (scheduled at 2026-10-18 20:05:49.656874+05:00)
+Oct 18 15:05:49 racknerd-f4e3456 python[3430462]: 2026-10-18 15:05:49,731 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-18 20:05:54 +05)" executed successfully
+
