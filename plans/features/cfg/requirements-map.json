@@ -2,7 +2,7 @@
   "schema": "openworkflow-coverage-v1",
   "source_path": "C:\\Code\\Python\\adminbot\\plans\\features\\cfg\\source-cfg-addendum.md",
   "source_sha256": "2ed43009e1533eca218be419409870ebbe85f82d85262ff2335dfa2ce36e6b10",
-  "candidate_commit": "7db919df79617c9ad05449dd44320a86f29f840a",
+  "candidate_commit": "1d9a71070f71f81324fdfdc85e7d70c4d4e2ebf9",
   "deployed_commit": "d59fab944bcb3eb0f5d3fa69101d8488da1c155b",
   "strict_evidence": true,
   "slice_graph_path": "slice-graph.json",
@@ -80,14 +80,24 @@
       "source_text_sha256": "9ff9a8d82c31af33fdb4da2019ab12bcaed7666741cd317f5e61c9551a43d71a",
       "source_excerpt": "| CFG-02 Image quota/frequency | SOUL-1 §5 capability/image generation; ASAP B04 — Summary Cover Style Edit | **Новая самостоятельная работа:** пользовательские квоты и отдельный частотный limiter; пе",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто: пользовательские квоты и частотный limiter переиспользуют существующую image pipeline; обложки Summary не входят в пользовательские счётчики; B04/SOUL-1 не перепаханы (тот же контур + типизация). VERIFIED.",
       "req_id": "ADD-1.T2",
       "slice": "CFG-02C",
       "acceptance": "CFG-02: пользовательские квоты и частотный limiter переиспользуют существующую image pipeline; обложки Summary не входят в пользовательские счётчики; B04/SOUL-1 не перепахиваются.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "1d9a71070f71f81324fdfdc85e7d70c4d4e2ebf9",
+          "ref": "plans/features/cfg/review-cfg-02c.md (77e7dd5a, Approved) (Леджер; алиас) + plans/features/cfg/evidence/cfg-02c/README.md",
+          "observation": "Алиас закрыт тем же эвиденсом — не дублируется.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-02c/README.md",
+          "artifact_sha256": "d675f5892e4f82f7a2393719175ec6275acc5fc4fa690ce89e30a6247d45cfff",
+          "type": "static"
+        }
+      ],
+      "note": "Слайс фактически 13 строк в карте (README лейна указывает «9 строк» — неточность, нит review §Леджер(a)); 4 алиас-строки (ADD-1.T2, CFG-02.F, CFG-02C.D, CFG-02C.B) закрываются тем же эвиденсом — не дублируется; гейт `scoped=13`."
     },
     {
       "source_id": "M00005",
@@ -282,14 +292,23 @@
       "source_text_sha256": "99335a0adac5b992663107b42df108632f9a7281315d2c802bf779cfaa8774e6",
       "source_excerpt": "**Не дублировать существующую дневную квоту в backend.** В коде уже есть `limits.image_daily_limit` с global/chat resolution, `worker_budget.reserve_image` и журналом idempotency. Сохранить работоспос",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто: дневная квота не дублирована (единый `worker_budget`); обложки вне пользовательских лимитов; две пользовательские настройки (суточная/частотная, default OFF) не затронуты; ΔDDL=0 (`pg_db` не тронут). VERIFIED.",
       "req_id": "CFG-02.F",
       "slice": "CFG-02C",
       "acceptance": "Не дублировать дневную квоту в backend (работоспособность/расходы/семантика сохранены); требуются две разные пользовательские настройки (суточная и частотная default OFF); обложки Summary не входят в пользовательские счётчики (разделение контуров — CFG-02C).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "1d9a71070f71f81324fdfdc85e7d70c4d4e2ebf9",
+          "ref": "plans/features/cfg/review-cfg-02c.md (77e7dd5a, Approved) §2/§7 + plans/features/cfg/evidence/cfg-02c/fingerprint.txt",
+          "observation": "F: единый учёт без дубля квоты; состав файлов подтверждает ΔDDL=0 и не-тронутые контуры.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-02c/fingerprint.txt",
+          "artifact_sha256": "bc5b48c76b914bcec173ebee5c373ebc25d649a499330d2e48d531f65cb63479",
+          "type": "static"
+        }
+      ]
     },
     {
       "source_id": "M00014",
@@ -297,14 +316,23 @@
       "source_text_sha256": "29373c3c2da8f3494455c002d8bdd9d3928819b34b4ef65afe56919b7150895c",
       "source_excerpt": "**Новое обязательное решение владельца:** лимиты раздела «Генерация изображений» относятся **только к изображениям, которые пользователи просят создать в общении**. Генерация обложек Summary — другой ",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто: решение владельца исполнено — лимиты раздела «Генерация изображений» относятся только к пользовательским изображениям; обложки Summary — отдельный бизнес-процесс с независимым учётом (разбивка из журнала). VERIFIED.",
       "req_id": "CFG-02C.D",
       "slice": "CFG-02C",
       "acceptance": "Решение владельца: лимиты раздела «Генерация изображений» относятся только к пользовательским изображениям; обложки Summary — другой бизнес-процесс с собственной политикой и независимым учётом; совпадение scope/модели/инструмента/провайдера не объединяет квоты.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "1d9a71070f71f81324fdfdc85e7d70c4d4e2ebf9",
+          "ref": "plans/features/cfg/review-cfg-02c.md (77e7dd5a, Approved) (Леджер; алиас) + plans/features/cfg/evidence/cfg-02c/README.md",
+          "observation": "D: scope лимитов — только user_image; cover-учёт независим.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-02c/README.md",
+          "artifact_sha256": "d675f5892e4f82f7a2393719175ec6275acc5fc4fa690ce89e30a6247d45cfff",
+          "type": "static"
+        }
+      ]
     },
     {
       "source_id": "M00015",
@@ -312,14 +340,23 @@
       "source_text_sha256": "aa7274704352d21ab06e8b64aa0b039041a7703d5e3eb63b83c5f3b594252de9",
       "source_excerpt": "**Блокирующий критерий CFG-02C:** пользовательские лимиты не ограничивают обложки Summary, обложки Summary не тратят пользовательские лимиты, а общий технический бюджет не маскируется под ограничения ",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто (блокирующий критерий): пользовательские лимиты не ограничивают обложки Summary (в т.ч. при user=0 и частоте ON); обложки не тратят пользовательские лимиты; общий технический бюджет не маскируется (свой код/текст/TZ). VERIFIED.",
       "req_id": "CFG-02C.B",
       "slice": "CFG-02C",
       "acceptance": "Блокирующий критерий CFG-02C: пользовательские лимиты не ограничивают обложки Summary; обложки не тратят пользовательские лимиты; общий технический бюджет не маскируется под ограничения одного из продуктов.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "1d9a71070f71f81324fdfdc85e7d70c4d4e2ebf9",
+          "ref": "plans/features/cfg/review-cfg-02c.md (77e7dd5a, Approved) §2–§4 + plans/features/cfg/evidence/cfg-02c/red-green.txt",
+          "observation": "B: двусторонний блокирующий критерий подтверждён кодом/тестами.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-02c/red-green.txt",
+          "artifact_sha256": "0eb60085f0c9a8041bb66a46dd6f691e9d65a31d543f500a9df1a2f1865ef435",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "M00016",
@@ -2182,14 +2219,23 @@
       "source_text_sha256": "cd90d45c4de333cf138bebbe4342de330421e5c030acc6d02b4b472dd339bb1b",
       "source_excerpt": "1. **Не смешивать бюджеты и счётчики.** Пользовательский `limits.image_daily_limit`, новый частотный limiter (как per-user, так и per-chat), их расход, отказ и время разблокировки **никак не учитывают** вызовы создания обложек Summary. Обра",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто (review `77e7dd5a`, Approved): пользовательские лимиты (daily+частотный) не учитывают обложки и наоборот — двусторонняя изоляция (RED 16f/3p → GREEN 19); spy `_cover_charge`=0 на direct/tool; cover-журнал `summary_cover:base`, `chat_used=0`/`shared_used=1`. VERIFIED (`1d9a7107`).",
       "req_id": "CFG-02C.1",
       "slice": "CFG-02C",
       "acceptance": "Пользовательские лимиты (daily + частотный) не учитывают обложки Summary и наоборот: обложки не уменьшают пользовательские остатки и не блокируются ими; пользовательский generate_image не расходует квоту Summary.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "1d9a71070f71f81324fdfdc85e7d70c4d4e2ebf9",
+          "ref": "plans/features/cfg/review-cfg-02c.md (77e7dd5a, Approved) §1/§4 + plans/features/cfg/evidence/cfg-02c/red-green.txt",
+          "observation": "Изоляция двусторонняя: user=0 + freq ON → cover работает; user-отказ не пишет cover-строки; user-пути не трогают cover-контур.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-02c/red-green.txt",
+          "artifact_sha256": "0eb60085f0c9a8041bb66a46dd6f691e9d65a31d543f500a9df1a2f1865ef435",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00098",
@@ -2197,14 +2243,23 @@
       "source_text_sha256": "4706860fc6a117c495d6b1d2329515becac04abf4e3ca51db0188059feae9e61",
       "source_excerpt": "2. **Сделать явный тип потребления и учёт.** На уровне источника операции/резервирования/журнала различать, как минимум, `user_image` и `summary_cover`, а внутри обложек этапы `base`, `styled_edit`, `retry/recovery`, `fallback`. Привязка до",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто: тип потребления — явный параметр от call-site (`consumption_type`/`cover_stage` → `_cover_charge` → `reserve_image` → журнал `source='summary_cover:<stage>'`); из промпта/имени инструмента не выводится; стадии base/styled_edit/retry_recovery/fallback, бюджетная — только base. VERIFIED.",
       "req_id": "CFG-02C.2",
       "slice": "CFG-02C",
       "acceptance": "Тип потребления различается на уровне резервирования/журнала (user_image | summary_cover: base/styled_edit/retry-recovery/fallback); привязка идёт от задачи до commit/release, а не из текста промпта; исторический учёт мигрирован без потерь.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "1d9a71070f71f81324fdfdc85e7d70c4d4e2ebf9",
+          "ref": "plans/features/cfg/review-cfg-02c.md (77e7dd5a, Approved) §1 + plans/features/cfg/evidence/cfg-02c/README.md",
+          "observation": "Типизация сквозная до commit/release; промпт не участвует в определении типа.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-02c/README.md",
+          "artifact_sha256": "d675f5892e4f82f7a2393719175ec6275acc5fc4fa690ce89e30a6247d45cfff",
+          "type": "static"
+        }
+      ]
     },
     {
       "source_id": "L00099",
@@ -2212,14 +2267,23 @@
       "source_text_sha256": "d23e35c0ec9386f83ec2d4c83378af21e55462056f3de36860cdd5ae9a7656c4",
       "source_excerpt": "3. **Сохранить собственные правила Summary.** Базовая обложка, стилевое редактирование, восстановление после ошибки и fallback продолжают работать согласно существующему pipeline Summary, не запускают повторную дорогую базовую генерацию без",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто: правила Summary сохранены — styled/recovery/fallback не трогают бюджетный контур (охраны зелёные и на базе); идемпотентность и отсутствие лишней дорогой генерации сохранены; новые лимиты Summary — только в разделе Summary. VERIFIED.",
       "req_id": "CFG-02C.3",
       "slice": "CFG-02C",
       "acceptance": "Правила Summary сохранены: base/styled/recovery/fallback работают по своему pipeline, идемпотентны, не запускают лишнюю дорогую генерацию; новые лимиты Summary — только в разделе Summary с независимым scope и видимой причиной отказа.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "1d9a71070f71f81324fdfdc85e7d70c4d4e2ebf9",
+          "ref": "plans/features/cfg/review-cfg-02c.md (77e7dd5a, Approved) §1/§4 + plans/features/cfg/evidence/cfg-02c/red-green.txt",
+          "observation": "Жизненный цикл обложки: один платный вызов = одно типизированное списание с commit/release.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-02c/red-green.txt",
+          "artifact_sha256": "0eb60085f0c9a8041bb66a46dd6f691e9d65a31d543f500a9df1a2f1865ef435",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00100",
@@ -2227,14 +2291,24 @@
       "source_text_sha256": "ba557beaf1dc564a38c0654848853979f4634ad6c43238b59fb78c8dccf186a4",
       "source_excerpt": "4. **Реальная общая инфраструктурная квота — исключение, но не смешанный пользовательский лимит.** Если провайдер/API-ключ, платёжный баланс или защитный общий бюджет объективно общие для разных операций, они вправе ограничивать обе ветки. ",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто: общая инфраструктурная квота — отдельный `shared_budget` (свежий deny + replay journaled-отказа); `capability_registry['shared_budget']='quota_exhausted'`; диагностика различает `image_shared_limit`/`image_daily_limit`; агрегаты: user-витрина исключает `summary_cover%`, cover-разбивка по `created_at AT TIME ZONE WORKER_BUDGET_TZ`, `cover_used` аддитивно. VERIFIED.",
       "req_id": "CFG-02C.4",
       "slice": "CFG-02C",
       "acceptance": "Общая инфраструктурная квота провайдера/баланса остаётся отдельным shared budget и не маскируется под пользовательский лимит; диагностика/админка показывают истинный источник отказа и расход по двум типам операций.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "1d9a71070f71f81324fdfdc85e7d70c4d4e2ebf9",
+          "ref": "plans/features/cfg/review-cfg-02c.md (77e7dd5a, Approved) §2/§3 + plans/features/cfg/evidence/cfg-02c/README.md",
+          "observation": "shared-потолок честен: свой код/текст/TZ; per-chat пользовательские счётчики обложек не касаются.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-02c/README.md",
+          "artifact_sha256": "d675f5892e4f82f7a2393719175ec6275acc5fc4fa690ce89e30a6247d45cfff",
+          "type": "static"
+        }
+      ],
+      "note": "cover=shared-only, per-chat только user_image; shared-текст с WORKER_BUDGET_TZ"
     },
     {
       "source_id": "L00101",
@@ -2242,14 +2316,24 @@
       "source_text_sha256": "690f33bcbded2943d2598cd75578b34fc2bb36e4fcc94d91f344128f0b2d5796",
       "source_excerpt": "5. **MiniApp:** секция «Лимиты генерации» должна ясно обозначать «Пользовательские изображения» и давать пояснение: «Обложки сводок здесь не учитываются». Настройки лимитов обложек (если существуют) размещать в Summary. На общей странице ра",
       "disposition": "required",
-      "reason": "",
+      "reason": "Код-половина: MiniApp-секция ясно обозначает «Пользовательские изображения» с пояснением «Обложки сводок здесь не учитываются»; настройки лимитов обложек — в Summary; агрегаты расходов с разбивкой по источникам; e2e PASS (детерминизм), rendered-просмотр. Живая витрина — релизный лейн (Ф6). READY_FOR_LIVE (`1d9a7107`).",
       "req_id": "CFG-02C.5",
       "slice": "CFG-02C",
       "acceptance": "MiniApp-секция ясно обозначает «Пользовательские изображения» с пояснением «Обложки сводок здесь не учитываются»; настройки лимитов обложек — в Summary; агрегаты расходов — с разбивкой по источникам.",
       "live_required": true,
-      "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "live_when": "postdeploy",
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "1d9a71070f71f81324fdfdc85e7d70c4d4e2ebf9",
+          "ref": "plans/features/cfg/review-cfg-02c.md (77e7dd5a, Approved) §5 + plans/features/cfg/evidence/cfg-02c/ui/01-desktop-user-images-label.png",
+          "observation": "Витрина: секция «Пользовательские изображения» + пояснение; e2e PASS, console_errors=[], детерминизм.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-02c/ui/01-desktop-user-images-label.png",
+          "artifact_sha256": "c3253ae1659a17f42ebf0d2d96b1d9de7f40da9c76448ef602ac926ac277eca2",
+          "type": "ui"
+        }
+      ],
+      "live_note": "preprod/postdeploy — витрина на живом; релизный лейн Ф6, не owner-гейт"
     },
     {
       "source_id": "L00102",
@@ -2257,14 +2341,23 @@
       "source_text_sha256": "9925f166a59c301bcd830c2a3d04647d4aaa69b8d2b611f5845c9a8c09b6888f",
       "source_excerpt": "6. **Конкурентность/транзакционность:** единые правила reservation/commit/release/idempotency остаются атомарными. Параллельная отправка пользовательского мема и генерация Summary в одном чате не должна мешать по продуктовым квотам; ошибки,",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто: reservation/commit/release атомарны; параллельные мем и обложка в одном чате не мешают по продуктовым квотам; ошибки/ретраи/рестарты/отмены не переносят списания между контурами (`parallel_user_and_cover_isolated`, inflight-cover не блокирует user, `provider_error_releases_shared_keeps_user_clean`). VERIFIED.",
       "req_id": "CFG-02C.6",
       "slice": "CFG-02C",
       "acceptance": "Reservation/commit/release/idempotency атомарны: параллельные мем и Summary-обложка в одном чате не мешают по продуктовым квотам; ошибки/ретраи/рестарты/отмены не переносят списания между контурами и не удваивают платные вызовы.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "1d9a71070f71f81324fdfdc85e7d70c4d4e2ebf9",
+          "ref": "plans/features/cfg/review-cfg-02c.md (77e7dd5a, Approved) §4 + plans/features/cfg/evidence/cfg-02c/red-green.txt",
+          "observation": "Атомарность/идемпотентность и развязка списаний между контурами.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-02c/red-green.txt",
+          "artifact_sha256": "0eb60085f0c9a8041bb66a46dd6f691e9d65a31d543f500a9df1a2f1865ef435",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00103",
@@ -2272,14 +2365,23 @@
       "source_text_sha256": "39fc2944ccdefb07ee92b4326351281a5aa053a308ad95ecd0cb1e4a807ef368",
       "source_excerpt": "7. **Обязательные отрицательные и интеграционные тесты** в обоих направлениях: установить пользовательский дневной лимит `0` и включить частотный запрет — Summary Base и Style Edit продолжают работать при доступном провайдере; исчерпать Sum",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто: негативные/интеграционные тесты в обоих направлениях (user 0 + частота ON → Summary работает; исчерпан Summary-лимит → пользовательское изображение работает; ретрай обложки не меняет user-баланс); новый файл 19 passed, RED 16f/3p на чистой базе. VERIFIED.",
       "req_id": "CFG-02C.7",
       "slice": "CFG-02C",
       "acceptance": "Отрицательные и интеграционные тесты в обоих направлениях (user limit 0 + частота ON → Summary работает; исчерпан Summary-лимит → пользовательское изображение работает; ретрай обложки не меняет user burst; мем не меняет summary_cover.used) пройдены.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "1d9a71070f71f81324fdfdc85e7d70c4d4e2ebf9",
+          "ref": "plans/features/cfg/review-cfg-02c.md (77e7dd5a, Approved) §4/§5 + plans/features/cfg/evidence/cfg-02c/red-green.txt",
+          "observation": "Двусторонние негативы + ретраи/fallback — тесты-свидетели (≥4 из base-падений).",
+          "artifact_path": "plans/features/cfg/evidence/cfg-02c/red-green.txt",
+          "artifact_sha256": "0eb60085f0c9a8041bb66a46dd6f691e9d65a31d543f500a9df1a2f1865ef435",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00107",
@@ -2495,14 +2597,23 @@
       "source_text_sha256": "1904036408a95c69d14cee9400e1c6b6e8bdd44d255aae090111cebfc433064c",
       "source_excerpt": "- Проверить, что «бот, нарисуй» и «бот, надо сделать мем» проходят одинаковые пользовательские лимиты, а обложки Summary не проходят **ни пользовательский суточный, ни пользовательский частотный лимитер**, включая общий burst на чат.",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто: «бот, нарисуй» и «бот, надо сделать мем» проходят одинаковые пользовательские лимиты; обложки не проходят ни суточный, ни частотный лимитер (включая общий burst на чат). VERIFIED.",
       "req_id": "CFG-02.AC8",
       "slice": "CFG-02C",
       "acceptance": "«бот, нарисуй» и «бот, надо сделать мем» проходят одинаковые пользовательские лимиты; обложки Summary не проходят ни суточный, ни частотный лимитер, включая общий burst на чат.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "1d9a71070f71f81324fdfdc85e7d70c4d4e2ebf9",
+          "ref": "plans/features/cfg/review-cfg-02c.md (77e7dd5a, Approved) §1/§4 + plans/features/cfg/evidence/cfg-02c/red-green.txt",
+          "observation": "AC8: единые пользовательские лимиты; обложки вне лимитеров.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-02c/red-green.txt",
+          "artifact_sha256": "0eb60085f0c9a8041bb66a46dd6f691e9d65a31d543f500a9df1a2f1865ef435",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00117",
@@ -2510,14 +2621,24 @@
       "source_text_sha256": "0e71b57799d4ad7b1bba2397f2785884e6a23b5ffbbd5bcc634ca724940ea030",
       "source_excerpt": "- Доказать двустороннюю изоляцию расходов `user_image`/`summary_cover` при Base, Style Edit, Recovery, конкурентных задачах и ошибках, а также честное отображение объективно общих ограничений провайдера.",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто: двусторонняя изоляция расходов при Base, Style Edit, Recovery, конкурентных задачах и ошибках; объективно общие ограничения провайдера показаны честно (shared-потолок не маскируется под пользовательский лимит). VERIFIED.",
       "req_id": "CFG-02.AC9",
       "slice": "CFG-02C",
       "acceptance": "Двусторонняя изоляция расходов user_image/summary_cover доказана при Base, Style Edit, Recovery, конкурентных задачах и ошибках; объективно общие ограничения провайдера показаны честно.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "1d9a71070f71f81324fdfdc85e7d70c4d4e2ebf9",
+          "ref": "plans/features/cfg/review-cfg-02c.md (77e7dd5a, Approved) §2–§4 + plans/features/cfg/evidence/cfg-02c/e2e-log.json",
+          "observation": "AC9: изоляция во всех стадиях; shared-потолок назван честно.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-02c/e2e-log.json",
+          "artifact_sha256": "fc41dbe2c9713bf424f4f65ad5d5c2d08873ecd0176c19d30a97771979b5d4cb",
+          "type": "test"
+        }
+      ],
+      "note": "cover=shared-only, per-chat только user_image; shared-текст с WORKER_BUDGET_TZ"
     },
     {
       "source_id": "L00119",
