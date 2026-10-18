@@ -8,7 +8,9 @@
 > Детальные durable-сущности — OpenViking: `viking://user/default/memories/entities/project/*.md`
 > (asap7_chat_membership_lifecycle, asap7_cover_prompt_manifest, asap7_cover_prompt_ordering,
 > asap7_direct_chat_architecture, asap7_help_canon, asap7_module_contract, asap7_release_workflow,
-> asap7_test_infra_settings_reload, mca_round_1027 и др.).
+> asap7_test_infra_settings_reload, mca_round_1027, incident_summary_01, soul_1_status,
+> release_isolation_and_gate_semantics, deploy_baseline_pointers, pet_project_standing_rule,
+> fullscreen_direction и др.).
 
 ## 1. Действующие правила (нарушать нельзя)
 
@@ -16,6 +18,7 @@
 - **Fail2ban на проде (198.46.175.136)** — подозрительные SSH-подключения → бан IP ~1 ч (бот/HTTP живы, banится только SSH). Запрещены: перебор логинов/паролей, коннекты чаще ~1/мин, поллеры с ретраями, сканы портов. Паттерн: один recon (~15 с) → один логин `nik` (креденшелы в `deploy_commands.txt`, не печатать) → порт закрыт = бан/cooldown, пауза ≥22 мин, макс 1 автоповтор → эскалация владельцу. Статус прода — HTTP `/healthz`:443 (не ограничен). Дублировано в `AGENTS.md`.
 - **Канон промптов (ADR-1013-3).** Прод-промпты — модульные константы в коде; правка только через `PREV_…`-снапшот + байт-тесты; `services/prompt_migrations.py` (`PROMPT_MIGRATIONS`) не трогать; HEAD-каноны в `plans/docs/canon/`. Примеры пинов: `services/{factcheck,search,web,youtube,summary}_prompts.py` («перенесено ДОСЛОВНО из plans/ARCHITECTURE.md §…»).
 - **No-false-acceptance.** Live-приёмки с платными вызовами/реальными ключами/реальным чатом — только владелец; имитация и выдача контурных проверок за live — запрещены; непроверенное помечается NOT_VERIFIED-with-причиной / PENDING OWNER.
+- **PET_PROJECT — стоячее согласие (решение владельца 18.10.2026).** Проект — пет-проект (1–2 личных чата): готовые и проверенные функции включаются штатным релизом сразу во всех чатах — без канареечных этапов, сухих прогонов «для согласования» и отдельных разрешений на флаги; канареечные и владельческие approval-гейты отменены (JB-3 закрыт); новые искусственные гейты/согласования по инициативе агентов запрещены. Сохраняются: тесты, честные проверки, изоляция релиза, быстрый откат (защита данных). После выката — проверка поведения/публикаций/ошибок/логов; при серьёзной проблеме — чинить/откатывать. Device-проверки владельца фиксируются в `plans/owner_questions.md` и не блокируют. Правило — корневой `AGENTS.md` («Режим PET_PROJECT»); детали — OpenViking `pet_project_standing_rule`.
 - **Единый Reviewer gate.** @Scanner удалён из контура (решение ~10.19) — секьюрити/аудит-линза внутри единого ревью; не назначать отдельного сканера.
 - **Каталог параметров.** Новые ключи — только через REGISTRY `services/param_catalog.py` с rationale; перед добавлением grep по PG-only ключам (errata T-5074); `models.*`/`keys.*` — строго глобальные (`per_chat=True` только для {prompts, limits, flags, reactions, content, memory} и secret=False).
 - **Бинарные артефакты/дебрис** (скриншоты, временные JSON, untracked-инструменты) в коммит не включать; рабочие пробы — в OPENCODE_WORKFLOW_SCRATCH.
@@ -40,11 +43,16 @@
 - **Release workflow.** Волны фич деплоятся агрегатно: per-feature деплой = `DEFERRED_TO_RELEASE` (§20 mca-plan); релиз = bump-коммит (APP_VERSION в коде+README/meta+version-пины) → prod fast-forward → `systemctl restart` → healthz 200 → boot-проверка; откат: cold `git revert` (DDL=0) или soft-откат env-kill-switch; binding фичи: Reviewed-Commit + Working-Tree-Hash (+product-hash), **без процесс-журналов** (урок mca-15 [I-1]: workflow_state в WTH = ложные дрейфы). OpenViking `asap7_release_workflow`.
 - **Test infra / settings reload.** Цепочка `importlib.reload(config.settings)` в тестах ломает class-identity (Settings до/после reload — разные классы) → массовые флуктуации (кейс asap7 sweep-fix: 97 failed → 2 failed после развязки); правила живут в `tests/conftest.py` (docstring + комментарии про reload-паттерн и reset кэшей после reload). Источник: `plans/archive/features/asap7-cognitive-direct-pipeline/sweep-fix-report.md`; OpenViking `asap7_test_infra_settings_reload`.
 - **MCA round 1027 (программа 10.27–10.48).** 26 фич MCA-01…22 «Память, контекст, автономия»: волны 0–5, агрегатный релиз 2.58.67 (ADR-1027-1…-25 + ADR-1028-х); итог 2.58.31→2.58.67, v12→v33, каталог 473→523; эффективные состояния §20.2 (RED-зоны owner-gate: deep sleep PG-flag, квантовый ANU, vision). OpenViking `mca_round_1027`; план — `plans/docs/mca-round1027-plan.md`.
+- **SOUL-1 (речь/характер) — ЗАДЕПЛОЕН 18.10.** Прод 2.58.86 (`eafbe2e7`) → 2.58.87 (`82e110d6`); все оси ON (gates 10/10): unified composer, character.core (фабричный авторский SOUL-02, rev `act:040581a3b4b0`, 2835 зн.), style.policy, humor craft/library/feedback, диагностика инициативы; `HUMOR_CANDIDATE_EVAL` OFF (механизм есть, 0 вызовов); withheld=11 (старые заводские удержаны, в effective не идут); style-global-save фикс (`68cd05b2`) подтверждён живьём (rev1→rev2); live-остаток 29 RFL — окно владельца 24–48 ч. OpenViking `soul_1_status` (id soul-1-release).
+- **WIN-GLASS-P0 (fullscreen) — выпущен 2.58.85** (`95526863`): Windows launch-fullscreen — клиентский баг tdesktop#30963 (веб-код не управляет окном; обход `owner-steps.md`); Android — слой `web/static/glass-refraction.js` (только контролируемый фон, реальные смещения у кромок, ≤3 поверхностей); регрессия dropdown («Аналитика») исправлена в 2.58.87 (unclip на open; ассерт U02.4). OpenViking `fullscreen_direction` (id win-glass-p0).
+- **CFG-блок (старт 18.10).** Строго последовательная очередь CFG-01→…→FINAL (CFG-01 в работе); CFG-05 = reuse существующего стекла, без нового.
 
 ## 4. Релизные/операционные инварианты
 
 - Крон-прогон саммари: при деградации ожидаем `L1_FALLBACK_PACKAGE`/`LEGACY_FALLBACK`, но **никогда** пустой пакет в `L2_START` и **никогда** мета-текст в публикации; `SUMMARY_COVERAGE_DEGRADED reason=…` — диагностика.
 - Kill-switch-паттерн: каждая MCA-фича имеет env-only флаг(и) default ON с OFF = бит-в-бит предыдущему релизу; мягкий откат — выключение флага.
+- **Релизные конвенции (серия 18.10):** dual-line карты — `candidate_commit` = ревью-линия master, `deployed_commit` = релиз-линия; release-стадия гейта требует равенства и при двух линиях по дизайну не проходит (документируется `release-line`-файлом). SOUL-делы — семантический порт (`git apply` ханков на прод-блоки; P0: 5/8 byte-equal). Деплой: `%%`-эскейпинг (T0), F3-health → PID-анкер, автопод-откат при health-miss подтверждён. OpenViking `release_isolation_and_gate_semantics` (id release-conventions).
+- **Graceful-exit контур (INC-SUMMARY-01, 2.58.82/83):** SIGTERM обрабатывают только собственные хендлеры (uvicorn `handle_signals=False` — aiogram иначе переустанавливает сигнал); runtime SQLite owner закрывается на shutdown (aiosqlite-поток non-daemon); bounds пред-генерации — kill-switch `SUMMARY_PREGEN_BOUNDS_ENABLED` (default ON) + orphan-run финализатор на старте. Детали — OpenViking `incident_summary_01`.
 - GraphRAG rebuild: honest-fail на лимитах провайдера (429) → терминальный failed с checkpoint; resume — при рестарте, cooldown/parking kind-aware; NATURAL RESUME подтверждён (03.10.2026). `smart_archive` knn_smoke_failed — fail-soft (FTS serviceable).
 - `EMBED_ASYNC_BATCH_ENABLED` — OFF до live-верификации Batch API владельцем.
 - Денежные лимиты (`MCA_MONEY_LIMITS_ENABLED`) — default OFF; Episode backfill не включать до wired worker-budget (M-MCA05-3).
@@ -56,7 +64,7 @@
 - Мок-тесты маскируют рантайм (B-1 mca-17c): persistence-пути проверять без моков; audit-пути — реальными чтениями.
 - Async-воркеры vs синхронные миграции (T-5150): guard read-back выглядит как hang — лог-след цепочки миграций обязателен.
 - Полный pytest при hang #121 — сегментными прогонами; финальные прогоны foreground (не фоновые задачи).
-- Fresnel/Liquid Glass: level-A `feDisplacementMap` может не работать в реальном Telegram WebView — визуальные эффекты проверять в реальном WebView, не только в Chromium (hotfix6 round1025).
+- Fresnel/Liquid Glass: level-A `feDisplacementMap` может не работать в реальном Telegram WebView — визуальные эффекты проверять в реальном WebView, не только в Chromium (hotfix6 round1025); оконные режимы tdesktop — клиентское поведение: launch-fullscreen веб-кодом не управляется (баг #30963, WIN-GLASS-P0).
 - BetterStack 401: причина была в ingest-контракте (path-token → Bearer), не в хосте; US-регион × Bearer = 202.
 - SSH-fleet: транзиентные таймауты порта 22 — не форсировать смену порта, переждать окно (запасные порты закрыты).
 - TG Bot API: контейнер без `--local` даёт `getFile` ≤20 МБ; единый рубильник `TELEGRAM_LOCAL` (ADR-1025-6).
