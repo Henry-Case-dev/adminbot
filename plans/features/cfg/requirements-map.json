@@ -62,7 +62,8 @@
           "candidate_commit": "0282fe4b1eac02c3339586c3abab3952d6c7eae8",
           "ref": "plans/features/cfg/review-cfg-01.md §1/§2",
           "observation": "Independent reviewer runs (b5ec2339, Approved): diff = exactly 8 files, no foreign paths; RED/GREEN reproduced on an isolated worktree; old-vs-new probe on one DB: 10/used 5 -> limit 2 allowed 5 more on base, exactly 2 on candidate; no duplicate resolver; params_catalog/web untouched.",
-          "artifact_path": "plans/features/cfg/review-cfg-01.md"
+          "artifact_path": "plans/features/cfg/review-cfg-01.md",
+          "artifact_sha256": "6258807aa8f964fda44549cd8a636043857d96e6ceadd1295a2744516ebfbcee"
         },
         {
           "candidate_commit": "0282fe4b1eac02c3339586c3abab3952d6c7eae8",
@@ -202,7 +203,8 @@
           "candidate_commit": "0282fe4b1eac02c3339586c3abab3952d6c7eae8",
           "ref": "plans/features/cfg/review-cfg-01.md §1/§2",
           "observation": "Independent reviewer runs (b5ec2339, Approved): diff = exactly 8 files, no foreign paths; RED/GREEN reproduced on an isolated worktree; old-vs-new probe on one DB: 10/used 5 -> limit 2 allowed 5 more on base, exactly 2 on candidate; no duplicate resolver; params_catalog/web untouched.",
-          "artifact_path": "plans/features/cfg/review-cfg-01.md"
+          "artifact_path": "plans/features/cfg/review-cfg-01.md",
+          "artifact_sha256": "6258807aa8f964fda44549cd8a636043857d96e6ceadd1295a2744516ebfbcee"
         }
       ]
     },
