@@ -36,6 +36,12 @@ echo "NOST_TICK_NOOP=$(grep -c 'no-op (hot-включение' "$TMP" || true)"
 echo "NOST_TICK_LINES=$(grep -c '\[nostalgia\] tick' "$TMP" || true)"
 echo "=== ACCEPTANCE-WINDOW SPEECH STEPS (не ERROR, а факт правок) ==="
 grep -E 'document saved|chat override reset|expression write|core meta|gates\] set|learning action|humor craft' "$TMP" | tail -15
+echo "=== ERROR/CRITICAL/TRACEBACK LINES (identification; cap 30) ==="
+grep -nE 'ERROR|CRITICAL|Traceback' "$TMP" | head -30 | cut -c1-400
+echo "=== TRACEBACK CONTEXT (cap 30) ==="
+grep -n -A4 'Traceback' "$TMP" | head -30 | cut -c1-300
+echo "=== [b01] LINES (tail 10) ==="
+grep -n '\[b01\]' "$TMP" | tail -10 | cut -c1-300
 echo "=== MCA_EVENTS + NOSTALGIA_LOG (sqlite, mode=ro) ==="
 cd "$APP" || exit 3
 if [ ! -x ./venv/bin/python ]; then echo "NO_VENV_PYTHON"; echo "=== DONE ==="; exit 0; fi
@@ -66,6 +72,14 @@ cur = db.execute(
     "AND event_name = 'initiative_observer_scan' AND stage = 'anchored'",
     (t0,))
 out["scan_anchored_events_since_t0"] = int(cur.fetchone()["c"])
+try:
+    cur = db.execute(
+        "SELECT ts, event_name, outcome, level, stage, reason_code, chat_id "
+        "FROM mca_events WHERE ts >= ? AND level IN ('error','warn') "
+        "ORDER BY ts DESC LIMIT 20", (t0,))
+    out["error_warn_events_since_t0"] = [dict(r) for r in cur.fetchall()]
+except Exception as exc:
+    out["error_warn_events_since_t0"] = {"_error": type(exc).__name__}
 cur = db.execute(
     "SELECT ts, event_name, outcome, stage, reason_code, chat_id "
     "FROM mca_events WHERE ts >= ? AND (event_name LIKE 'nostalgia%' OR "

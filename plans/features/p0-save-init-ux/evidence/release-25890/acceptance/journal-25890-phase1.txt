@@ -1,0 +1,39 @@
+[acc90] connected, one-shot read-only journal phase
+[sudo] password for nik: === NOW ===
+2026-10-18T14:07:29Z
+=== T0 ===
+T0_ARG=2026-10-18T13:34:23Z
+T0_EPOCH=1792330463
+=== NODE/HEALTH ===
+HEAD=3b02366e63022eb4c760892aa1bcb4f26516e789
+BRANCH=master
+{"status":"ok","version":"2.58.90"}
+MainPID=3430462 NRestarts=0 ExecMainStartTimestamp=Sun 2026-10-18 13:34:35 UTC ExecMainStatus=0 ActiveState=active 
+=== JOURNAL dumped to /tmp/acc90_journal.txt ===
+JOURNAL_LINES=1703
+=== JOURNAL COUNTS since T0 ===
+ERR=2
+CRITICAL=0
+TRACEBACK=1
+WARN_NOSTALGIA=0
+WARN_B01=7
+SPEECH_WARN=0
+STYLE_WARN=4
+=== NOSTALGIA JOURNAL LINES since T0 (tail 40) ===
+=== NOSTALGIA COUNTERS since T0 ===
+NOST_SCEN_A=0
+NOST_SKIP=0
+NOST_SENT=0
+NOST_GATE_SKIP=0
+NOST_TICK_NOOP=0
+NOST_TICK_LINES=0
+=== ACCEPTANCE-WINDOW SPEECH STEPS (не ERROR, а факт правок) ===
+Oct 18 13:52:16 racknerd-f4e3456 python[3430462]: 2026-10-18 13:52:16,704 - services.prompt_factory - INFO - [prompt_factory] chat override reset | chat=-1002661910336 | key=character.core
+Oct 18 13:52:25 racknerd-f4e3456 python[3430462]: 2026-10-18 13:52:25,042 - services.style_policy - INFO - [style_policy] document saved | scope=chat | revision=1 | rules=1 | soft=0
+Oct 18 13:59:13 racknerd-f4e3456 python[3430462]: 2026-10-18 13:59:13,185 - web.api.gates - INFO - [gates] set | chat=-1004482340693 feature=nostalgia enabled=True by=5885953495
+Oct 18 14:03:11 racknerd-f4e3456 python[3430462]: 2026-10-18 14:03:11,417 - services.prompt_factory - INFO - [prompt_factory] chat override reset | chat=-1002661910336 | key=character.core
+Oct 18 14:03:19 racknerd-f4e3456 python[3430462]: 2026-10-18 14:03:19,590 - services.style_policy - INFO - [style_policy] document saved | scope=chat | revision=1 | rules=1 | soft=0
+=== MCA_EVENTS + NOSTALGIA_LOG (sqlite, mode=ro) ===
+MCA90_JSON {"t0_epoch": 1792330463, "initiative_events_total_since_t0": 7, "events_by_name": {"initiative_observer_scan": 7}, "scan_anchored_events_since_t0": 1, "recent_rows": [{"ts": 1792332306, "event_name": "initiative_observer_scan", "outcome": "success", "stage": "observed", "reason_code": null, "chat_id": null}, {"ts": 1792332004, "event_name": "initiative_observer_scan", "outcome": "success", "stage": "observed", "reason_code": null, "chat_id": null}, {"ts": 1792331704, "event_name": "initiative_observer_scan", "outcome": "success", "stage": "observed", "reason_code": null, "chat_id": null}, {"ts": 1792331405, "event_name": "initiative_observer_scan", "outcome": "success", "stage": "observed", "reason_code": null, "chat_id": null}, {"ts": 1792331104, "event_name": "initiative_observer_scan", "outcome": "success", "stage": "observed", "reason_code": null, "chat_id": null}, {"ts": 1792330806, "event_name": "initiative_observer_scan", "outcome": "success", "stage": "observed", "reason_code": null, "chat_id": null}, {"ts": 1792330806, "event_name": "initiative_observer_scan", "outcome": "success", "stage": "anchored", "reason_code": null, "chat_id": null}], "nostalgia_log_since_t0": [], "nostalgia_log_count_since_t0": 0}
+=== DONE ===
+[acc90] rc=0 elapsed=7.4s

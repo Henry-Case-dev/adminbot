@@ -1,0 +1,68 @@
+{
+  "t0_epoch": 1792330463,
+  "initiative_events_total_since_t0": 7,
+  "events_by_name": {
+    "initiative_observer_scan": 7
+  },
+  "scan_anchored_events_since_t0": 1,
+  "recent_rows": [
+    {
+      "ts": 1792332306,
+      "event_name": "initiative_observer_scan",
+      "outcome": "success",
+      "stage": "observed",
+      "reason_code": null,
+      "chat_id": null
+    },
+    {
+      "ts": 1792332004,
+      "event_name": "initiative_observer_scan",
+      "outcome": "success",
+      "stage": "observed",
+      "reason_code": null,
+      "chat_id": null
+    },
+    {
+      "ts": 1792331704,
+      "event_name": "initiative_observer_scan",
+      "outcome": "success",
+      "stage": "observed",
+      "reason_code": null,
+      "chat_id": null
+    },
+    {
+      "ts": 1792331405,
+      "event_name": "initiative_observer_scan",
+      "outcome": "success",
+      "stage": "observed",
+      "reason_code": null,
+      "chat_id": null
+    },
+    {
+      "ts": 1792331104,
+      "event_name": "initiative_observer_scan",
+      "outcome": "success",
+      "stage": "observed",
+      "reason_code": null,
+      "chat_id": null
+    },
+    {
+      "ts": 1792330806,
+      "event_name": "initiative_observer_scan",
+      "outcome": "success",
+      "stage": "observed",
+      "reason_code": null,
+      "chat_id": null
+    },
+    {
+      "ts": 1792330806,
+      "event_name": "initiative_observer_scan",
+      "outcome": "success",
+      "stage": "anchored",
+      "reason_code": null,
+      "chat_id": null
+    }
+  ],
+  "nostalgia_log_since_t0": [],
+  "nostalgia_log_count_since_t0": 0
+}

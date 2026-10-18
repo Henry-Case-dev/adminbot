@@ -53,15 +53,16 @@ SSH в фазе A не использовался (fail2ban-дисциплина
   `[nostalgia] sent|skip reason=…`, `nostalgia_run` (start+терминальный outcome) в `mca_events`,
   новые строки `nostalgia_log` (`sent` либо честный `skipped`+reason).
 
-## C. Initiative live — ЗАКРЫТО по HTTPS-фактам (журнальная строка отложена)
+## C. Initiative live — ЗАКРЫТО (HTTPS + журнально-БД подтверждение)
 
-Артефакт: `acceptance-bc-25890-read.json`.
+Артефакты: `acceptance-bc-25890-read.json`, `journal-25890-phase1.json`.
+
+HTTPS-витрины:
 * `scan_anchored = 1` в **durable-счётчиках** задачи `initiative.observe`
   (`/api/memory/intel-funnels`). Маркер `scan_anchored`/`SCAN_FRESH_LOOKBACK_SECONDS`/`stage="anchored"`
   существует **только в 2.58.90** (`git show d59fab94:services/initiative_observer.py` — 0 совпадений),
   а инкремент счётчика и эмиссия события `stage="anchored"` — одна и та же ветка кода
-  (`services/initiative_observer.py:959-967`). Значит подтяжка курсора к живому чату
-  выполнена новым кодом уже после деплоя.
+  (`services/initiative_observer.py:959-967`).
 * Пост-деплойный прогон наблюдателя: `job.status=completed`,
   `finished_at = 2026-10-18T13:55:05Z` ≥ T0; `liveness.last_tick_ts` = 13:55:05Z, `heartbeat_ok=true`.
 * События за 24ч: `initiative_observer_scan=282`, `opportunity=5`, `decided=4`,
@@ -70,19 +71,38 @@ SSH в фазе A не использовался (fail2ban-дисциплина
   `eval_not_due=197`, `not_enough_messages=72`, `min_gap=7`, `direct_address_seen=1`
   — новые коды этой волны видны в живом прод-окне.
 * Вердикт панели: `activity.state=ok` «Инициатива доставляется»; последняя доставка из ledger —
-  `message_id=1165152` (12:57:43Z, `delivery_status=delivered`, `core_revision=r1.040581a3b4b0`,
-  `style_policy_revision=g8.fe503bd7f9d1`) — **до T0**; новых отправок после T0 нет, что согласуется
-  с `eval_not_due`/`not_enough_messages` (инициатива не подменяется тестовой отправкой).
-* Остаток: журнальная (mca_events) строка `event_name='initiative_observer_scan' AND stage='anchored'`
-  — снимается тем же одним коннектом отложенной фазы (`probe_journal_25890.sh`).
+  `message_id=1165152` (12:57:43Z, `delivery_status=delivered`, `core_revision=r1.040581a3b4b0`) — **до T0**.
+
+Журнально-БД подтверждение (`mca_events`, read-only SQLite, фаза-1):
+* `scan_anchored_events_since_t0 = 1`; сама строка —
+  **`ts=1792330806` (= 2026-10-18T13:40:06Z), `event_name='initiative_observer_scan'`,
+  `stage='anchored'`, `outcome='success'`, `chat_id=null`** — то есть подтяжка курсора к живому
+  чату выполнена новым кодом 2.58.90 через ~6 мин после деплоя.
+* Всего `initiative_observer_scan` после T0: **7** (13:40–13:58, все `success`, `stage='observed'`
+  кроме одной `anchored`).
 
 ## D. Журнал / ошибки прода
 
-* Фаза журнала отложена вместе с B/C (один SSH-коннект, read-only):
-  `journalctl -u admin_bot --since 2026-10-18T13:34:23Z` → `ERR/CRITICAL/Traceback`,
-  `[nostalgia]`-строки, `[b01]`/`[speech]`/`[style_policy]` WARNING, плюс read-only SQLite-выборка
-  `mca_events`/`nostalgia_log` после T0.
-* Уже известно из деплой-лейна (`../final-verification.txt`, 13:35:01Z): `ERR=0`, миграции без новых DDL.
+Фаза-1 (один SSH-коннект, read-only, 2026-10-18T14:07:29Z; `journal-25890-phase1.txt`):
+* узел: `HEAD=3b02366e`, `BRANCH=master`, `/healthz={"status":"ok","version":"2.58.90"}`,
+  `MainPID=3430462`, `NRestarts=0`, `ExecMainStatus=0`, `ActiveState=active`.
+* окно 1703 строк журнала с T0: `CRITICAL=0`, `WARN_NOSTALGIA=0`, `SPEECH_WARN=0`;
+  `ERR=2`, `TRACEBACK=1` — **две строки подлежат идентификации** (фаза-2 печатает их
+  вместе с контекстом). Отдельно: независимая витрина `/api/status/logs` (ring-буфер процесса,
+  `logs-ring-25890.json`) в своём окне даёт `ERROR=0`, `CRITICAL=0` (`INFO=969`, `WARNING=31`).
+* ностальгия после T0: строк нет (`NOST_SCEN_A=0`, `NOST_SKIP=0`, `NOST_SENT=0`,
+  `NOST_TICK_LINES=0`), `nostalgia_log` с T0 — 0 строк; события `nostalgia_run` с T0 — 0.
+  Это ожидаемо: первый тик — T0+60…80 мин (14:34–14:54Z).
+* журнальные следы приёмки A: `13:52:16`/`14:03:11` `[prompt_factory] chat override reset | chat=-1002661910336 | key=character.core`;
+  `13:52:25`/`14:03:19` `[style_policy] document saved | scope=chat | revision=1 | rules=1`;
+  `13:59:13` `[gates] set | chat=-1004482340693 feature=nostalgia enabled=True by=5885953495`.
+
+Наблюдение (не блокер, честно): в ring-буфере два WARNING
+`[prompt_registry] persisted speech value withheld | key=prompts.direct_chat_verbalizer_system_prompt |
+reason=provenance_missing` (13:52:27 и 14:03:21) — это следствие моих вызовов `/api/speech/try`
+(превью резолвит базу L2 Writer): сохранённое значение удерживается штатным механизмом
+legacy-подавления (не применяется), записи в прод нет. Severity: низкая, область: speech/registry.
+
 
 ## Как воспроизвести (без SSH)
 
@@ -112,14 +132,20 @@ SSH в фазе A не использовался (fail2ban-дисциплина
 | `acceptance-bc-25890-enable-gate.json` | `e419e6aa1f0c5e1f` | включение PET-гейта `nostalgia` |
 | `probe_acceptance_25890.py` | `d16ff573ea5e4657` | пробник A (readonly/full/recheck) |
 | `probe_live_bc_25890.py` | `0f8f15b838cd5a3a` | пробник B/C (read/enable-gate) |
-| `probe_journal_25890.sh` | `5ffa46d2384562fc` | журнальная фаза (bash, read-only) |
-| `run_journal_ssh_25890.py` | `236ddc8307c32a64` | раннер журнальной фазы (один коннект) |
+| `probe_journal_25890.sh` | `998f9677c8f4fe3d` | журнальная фаза (bash, read-only) |
+| `run_journal_ssh_25890.py` | `88ad20630008f325` | раннер журнальной фазы (один коннект) |
+| `journal-25890-phase1.txt` | `e260c48e8765dbd1` | фаза-1: вывод журнала + SQLite (C закрыт, B ожидает тик) |
+| `journal-25890-phase1.json` | `df58c11ccddd9a60` | фаза-1: SQLite-payload (`stage='anchored'` 13:40:06Z и др.) |
+| `logs-ring-25890.json` | `824f88728d2144b9` | `/api/status/logs` ring-буфер: `ERROR=0`, `CRITICAL=0` |
+| `probe_logs_ring_25890.py` | `714efb6c0e5c3962` | пробник ring-буфера логов |
 
 ## Остатки (не закрыто в этом лейне)
 
-1. **B**: тик ностальгии после T0 → `scenario=A`, `nostalgia_run`, новые строки `nostalgia_log`
-   (NOT_BEFORE_UTC 2026-10-18T14:58:00Z).
-2. **C**: журнальное подтверждение `stage='anchored'` в `mca_events` (тот же коннект).
-3. **D**: `ERROR=0/CRITICAL=0` за окно приёмки от T0 (тот же коннект).
-4. Итог по п.1–3 → обновление live-пунктов карт (`P0A-*`, `P0B-LIVE-*`) и
-   release-стадия requirements-gate (`--candidate 3b02366e --deployed-commit 3b02366e`).
+1. **B**: первый тик ностальгии после T0 (окно 14:34–14:54Z) → строка `[nostalgia] scenario=A`,
+   события `nostalgia_run` (`start` + терминальный outcome) и новые строки `nostalgia_log`
+   (для PET `-1004482340693` — гейт уже включён 13:59:13Z). Проверка не ранее **14:58:00Z**
+   (рекомендуется 15:00–15:10Z), фаза-2 того же пробника.
+2. **D**: идентификация `ERR=2`/`TRACEBACK=1` (фаза-2 печатает сами строки с контекстом) и
+   итоговые `ERROR/CRITICAL` за окно приёмки от T0.
+3. После п.1–2 → обновление live-пунктов карт (`P0A-*`, `P0B-LIVE-*`) и release-стадия
+   requirements-gate (`--candidate 3b02366e --deployed-commit 3b02366e`).

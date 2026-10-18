@@ -57,11 +57,10 @@ def main() -> int:
     pw, gp = load_secrets()
     SECRETS.extend([pw, gp])
     started = time.time()
-    lines: list[str] = []
+    raw_parts: list[str] = []
 
     def log(text: str) -> None:
         text = scrub(text)
-        lines.append(text)
         print(text, flush=True)
 
     cli = paramiko.SSHClient()
@@ -84,30 +83,38 @@ def main() -> int:
         cmd = ("SUDO90='%s' sh -c 'printf \"%%s\\n\" \"$SUDO90\" | sudo -S "
                "sh %s \"%s\" 2>&1'" % (pw, REMOTE, T0))
         stdin, stdout, stderr = cli.exec_command(cmd, timeout=600)
-        out = stdout.read().decode("utf-8", "replace")
-        err = stderr.read().decode("utf-8", "replace")
+        out = scrub(stdout.read().decode("utf-8", "replace"))
+        err = scrub(stderr.read().decode("utf-8", "replace"))
         rc = stdout.channel.recv_exit_status()
+        raw_parts.append(out.rstrip())
         log(out.rstrip())
         if err.strip():
+            raw_parts.append("[stderr] " + err.strip())
             log("[stderr] " + err.strip())
         log("[acc90] rc=%d elapsed=%.1fs" % (rc, time.time() - started))
     finally:
         cli.close()
 
+    text = "\n".join(raw_parts)
     with io.open(LOG, "w", encoding="utf-8", newline="\n") as fh:
-        fh.write("\n".join(lines) + "\n")
+        fh.write(text + "\n")
     payload = None
-    for line in lines:
-        if line.startswith("MCA90_JSON "):
-            try:
-                payload = json.loads(line[len("MCA90_JSON "):])
-            except ValueError:
-                payload = None
+    marker = "MCA90_JSON "
+    idx = text.find(marker)
+    if idx >= 0:
+        rest = text[idx + len(marker):]
+        line = rest.splitlines()[0] if rest.splitlines() else ""
+        try:
+            payload = json.loads(line)
+        except ValueError:
+            payload = None
     if payload is not None:
         with io.open(JSON_OUT, "w", encoding="utf-8", newline="\n") as fh:
             json.dump(payload, fh, ensure_ascii=False, indent=2)
-    print("[acc90] saved -> %s%s" % (LOG, " + journal-25890.json"
-                                     if payload else " (json not parsed)"))
+        print("[acc90] sqlite payload -> %s" % JSON_OUT)
+    else:
+        print("[acc90] WARN: MCA90_JSON не найден/не разобран")
+    print("[acc90] saved -> %s" % LOG)
     return 0
 
 

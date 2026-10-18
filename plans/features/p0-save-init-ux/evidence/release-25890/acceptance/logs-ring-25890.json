@@ -1,0 +1,409 @@
+{
+  "probe": "logs-ring-25890",
+  "lane": "ACCEPTANCE-90",
+  "now_utc": "2026-10-18T14:12:27Z",
+  "t0_utc": "2026-10-18T13:34:23Z",
+  "source": "GET /api/status/logs (ring-buffer, bounded)",
+  "note": "ring-буфер ограничен по объёму: числа/строки относятся к его текущему окну, а не ко всему окну приёмки; полное окно — journal-25890-phase*.txt (SSH, read-only)",
+  "ERROR_WARNING": {
+    "counts": {
+      "INFO": 969,
+      "WARNING": 31
+    },
+    "returned": 31,
+    "entries_total": 31,
+    "warning_error_entries": [
+      {
+        "level": "WARNING",
+        "when": "2026-10-18T14:12:21.426507+00:00",
+        "logger": "services.mca_events",
+        "message": "mca_event=vision_capability_probe | ts=1792332741 | event_name=vision_capability_probe | outcome=failed | level=WARN | reason_code=vision_unavailable | stage=dedicated | component=vision.media | model=google/gemma-4-31b-it:free"
+      },
+      {
+        "level": "WARNING",
+        "when": "2026-10-18T14:10:04.661262+00:00",
+        "logger": "apscheduler.scheduler",
+        "message": "Execution of job \"VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-18 19:10:04 +05)\" skipped: maximum number of running instances reached (1)"
+      },
+      {
+        "level": "WARNING",
+        "when": "2026-10-18T14:09:59.659637+00:00",
+        "logger": "apscheduler.scheduler",
+        "message": "Execution of job \"VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-18 19:09:59 +05)\" skipped: maximum number of running instances reached (1)"
+      },
+      {
+        "level": "WARNING",
+        "when": "2026-10-18T14:05:04.663534+00:00",
+        "logger": "apscheduler.scheduler",
+        "message": "Execution of job \"VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-18 19:05:04 +05)\" skipped: maximum number of running instances reached (1)"
+      },
+      {
+        "level": "WARNING",
+        "when": "2026-10-18T14:04:59.664270+00:00",
+        "logger": "apscheduler.scheduler",
+        "message": "Execution of job \"VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-18 19:04:59 +05)\" skipped: maximum number of running instances reached (1)"
+      },
+      {
+        "level": "WARNING",
+        "when": "2026-10-18T14:04:54.836522+00:00",
+        "logger": "services.summary_memory",
+        "message": "SmartModule: embedding generation not serviceable | index=graph_facts_vec | status=building | gen_fp=96f80838f683 new_fp=96f80838f683 — FTS-only (A06)"
+      },
+      {
+        "level": "WARNING",
+        "when": "2026-10-18T14:04:54.823892+00:00",
+        "logger": "services.summary_memory",
+        "message": "SmartModule: embedding generation not serviceable | index=smart_archive | status=building | gen_fp=96f80838f683 new_fp=96f80838f683 — FTS-only (A06)"
+      },
+      {
+        "level": "WARNING",
+        "when": "2026-10-18T14:03:21.470416+00:00",
+        "logger": "services.prompt_registry",
+        "message": "[prompt_registry] persisted speech value withheld | key=prompts.direct_chat_verbalizer_system_prompt | block=direct.base.l2_writer | reason=provenance_missing | stored_sha=39a7cce1523e | stored_chars=1690"
+      },
+      {
+        "level": "WARNING",
+        "when": "2026-10-18T14:02:14.661922+00:00",
+        "logger": "apscheduler.scheduler",
+        "message": "Execution of job \"VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-18 19:02:14 +05)\" skipped: maximum number of running instances reached (1)"
+      },
+      {
+        "level": "WARNING",
+        "when": "2026-10-18T14:02:09.662976+00:00",
+        "logger": "apscheduler.scheduler",
+        "message": "Execution of job \"VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-18 19:02:09 +05)\" skipped: maximum number of running instances reached (1)"
+      },
+      {
+        "level": "WARNING",
+        "when": "2026-10-18T14:02:04.661478+00:00",
+        "logger": "apscheduler.scheduler",
+        "message": "Execution of job \"VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-18 19:02:04 +05)\" skipped: maximum number of running instances reached (1)"
+      },
+      {
+        "level": "WARNING",
+        "when": "2026-10-18T14:01:59.667201+00:00",
+        "logger": "apscheduler.scheduler",
+        "message": "Execution of job \"VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-18 19:01:59 +05)\" skipped: maximum number of running instances reached (1)"
+      },
+      {
+        "level": "WARNING",
+        "when": "2026-10-18T14:01:54.668374+00:00",
+        "logger": "apscheduler.scheduler",
+        "message": "Execution of job \"VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-18 19:01:54 +05)\" skipped: maximum number of running instances reached (1)"
+      },
+      {
+        "level": "WARNING",
+        "when": "2026-10-18T14:01:49.668356+00:00",
+        "logger": "apscheduler.scheduler",
+        "message": "Execution of job \"VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-18 19:01:49 +05)\" skipped: maximum number of running instances reached (1)"
+      },
+      {
+        "level": "WARNING",
+        "when": "2026-10-18T14:01:44.662648+00:00",
+        "logger": "apscheduler.scheduler",
+        "message": "Execution of job \"VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-18 19:01:44 +05)\" skipped: maximum number of running instances reached (1)"
+      },
+      {
+        "level": "WARNING",
+        "when": "2026-10-18T13:59:59.661132+00:00",
+        "logger": "apscheduler.scheduler",
+        "message": "Execution of job \"VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-18 18:59:59 +05)\" skipped: maximum number of running instances reached (1)"
+      },
+      {
+        "level": "WARNING",
+        "when": "2026-10-18T13:55:04.664170+00:00",
+        "logger": "apscheduler.scheduler",
+        "message": "Execution of job \"VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-18 18:55:04 +05)\" skipped: maximum number of running instances reached (1)"
+      },
+      {
+        "level": "WARNING",
+        "when": "2026-10-18T13:54:59.667375+00:00",
+        "logger": "apscheduler.scheduler",
+        "message": "Execution of job \"VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-18 18:54:59 +05)\" skipped: maximum number of running instances reached (1)"
+      },
+      {
+        "level": "WARNING",
+        "when": "2026-10-18T13:53:59.664361+00:00",
+        "logger": "apscheduler.scheduler",
+        "message": "Execution of job \"VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-18 18:53:59 +05)\" skipped: maximum number of running instances reached (1)"
+      },
+      {
+        "level": "WARNING",
+        "when": "2026-10-18T13:53:54.662533+00:00",
+        "logger": "apscheduler.scheduler",
+        "message": "Execution of job \"VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-18 18:53:54 +05)\" skipped: maximum number of running instances reached (1)"
+      },
+      {
+        "level": "WARNING",
+        "when": "2026-10-18T13:53:49.664444+00:00",
+        "logger": "apscheduler.scheduler",
+        "message": "Execution of job \"VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-18 18:53:49 +05)\" skipped: maximum number of running instances reached (1)"
+      },
+      {
+        "level": "WARNING",
+        "when": "2026-10-18T13:53:44.662968+00:00",
+        "logger": "apscheduler.scheduler",
+        "message": "Execution of job \"VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-18 18:53:44 +05)\" skipped: maximum number of running instances reached (1)"
+      },
+      {
+        "level": "WARNING",
+        "when": "2026-10-18T13:53:39.662004+00:00",
+        "logger": "apscheduler.scheduler",
+        "message": "Execution of job \"VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-18 18:53:39 +05)\" skipped: maximum number of running instances reached (1)"
+      },
+      {
+        "level": "WARNING",
+        "when": "2026-10-18T13:52:44.660022+00:00",
+        "logger": "apscheduler.scheduler",
+        "message": "Execution of job \"VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-18 18:52:44 +05)\" skipped: maximum number of running instances reached (1)"
+      },
+      {
+        "level": "WARNING",
+        "when": "2026-10-18T13:52:39.663065+00:00",
+        "logger": "apscheduler.scheduler",
+        "message": "Execution of job \"VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-18 18:52:39 +05)\" skipped: maximum number of running instances reached (1)"
+      },
+      {
+        "level": "WARNING",
+        "when": "2026-10-18T13:52:34.663942+00:00",
+        "logger": "apscheduler.scheduler",
+        "message": "Execution of job \"VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-18 18:52:34 +05)\" skipped: maximum number of running instances reached (1)"
+      },
+      {
+        "level": "WARNING",
+        "when": "2026-10-18T13:52:29.662455+00:00",
+        "logger": "apscheduler.scheduler",
+        "message": "Execution of job \"VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-18 18:52:29 +05)\" skipped: maximum number of running instances reached (1)"
+      },
+      {
+        "level": "WARNING",
+        "when": "2026-10-18T13:52:27.111696+00:00",
+        "logger": "services.prompt_registry",
+        "message": "[prompt_registry] persisted speech value withheld | key=prompts.direct_chat_verbalizer_system_prompt | block=direct.base.l2_writer | reason=provenance_missing | stored_sha=39a7cce1523e | stored_chars=1690"
+      },
+      {
+        "level": "WARNING",
+        "when": "2026-10-18T13:52:24.661332+00:00",
+        "logger": "apscheduler.scheduler",
+        "message": "Execution of job \"VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-18 18:52:24 +05)\" skipped: maximum number of running instances reached (1)"
+      },
+      {
+        "level": "WARNING",
+        "when": "2026-10-18T13:52:19.661416+00:00",
+        "logger": "apscheduler.scheduler",
+        "message": "Execution of job \"VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-18 18:52:19 +05)\" skipped: maximum number of running instances reached (1)"
+      },
+      {
+        "level": "WARNING",
+        "when": "2026-10-18T13:52:14.663074+00:00",
+        "logger": "apscheduler.scheduler",
+        "message": "Execution of job \"VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-18 18:52:14 +05)\" skipped: maximum number of running instances reached (1)"
+      }
+    ]
+  },
+  "ERROR": {
+    "counts": {
+      "INFO": 969,
+      "WARNING": 31
+    },
+    "returned": 0,
+    "entries_total": 0,
+    "warning_error_entries": []
+  },
+  "ALL": {
+    "counts": {
+      "INFO": 969,
+      "WARNING": 31
+    },
+    "returned": 1000,
+    "entries_total": 1000,
+    "warning_error_entries": [
+      {
+        "level": "WARNING",
+        "when": "2026-10-18T14:12:21.426507+00:00",
+        "logger": "services.mca_events",
+        "message": "mca_event=vision_capability_probe | ts=1792332741 | event_name=vision_capability_probe | outcome=failed | level=WARN | reason_code=vision_unavailable | stage=dedicated | component=vision.media | model=google/gemma-4-31b-it:free"
+      },
+      {
+        "level": "WARNING",
+        "when": "2026-10-18T14:10:04.661262+00:00",
+        "logger": "apscheduler.scheduler",
+        "message": "Execution of job \"VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-18 19:10:04 +05)\" skipped: maximum number of running instances reached (1)"
+      },
+      {
+        "level": "WARNING",
+        "when": "2026-10-18T14:09:59.659637+00:00",
+        "logger": "apscheduler.scheduler",
+        "message": "Execution of job \"VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-18 19:09:59 +05)\" skipped: maximum number of running instances reached (1)"
+      },
+      {
+        "level": "WARNING",
+        "when": "2026-10-18T14:05:04.663534+00:00",
+        "logger": "apscheduler.scheduler",
+        "message": "Execution of job \"VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-18 19:05:04 +05)\" skipped: maximum number of running instances reached (1)"
+      },
+      {
+        "level": "WARNING",
+        "when": "2026-10-18T14:04:59.664270+00:00",
+        "logger": "apscheduler.scheduler",
+        "message": "Execution of job \"VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-18 19:04:59 +05)\" skipped: maximum number of running instances reached (1)"
+      },
+      {
+        "level": "WARNING",
+        "when": "2026-10-18T14:04:54.836522+00:00",
+        "logger": "services.summary_memory",
+        "message": "SmartModule: embedding generation not serviceable | index=graph_facts_vec | status=building | gen_fp=96f80838f683 new_fp=96f80838f683 — FTS-only (A06)"
+      },
+      {
+        "level": "WARNING",
+        "when": "2026-10-18T14:04:54.823892+00:00",
+        "logger": "services.summary_memory",
+        "message": "SmartModule: embedding generation not serviceable | index=smart_archive | status=building | gen_fp=96f80838f683 new_fp=96f80838f683 — FTS-only (A06)"
+      },
+      {
+        "level": "WARNING",
+        "when": "2026-10-18T14:03:21.470416+00:00",
+        "logger": "services.prompt_registry",
+        "message": "[prompt_registry] persisted speech value withheld | key=prompts.direct_chat_verbalizer_system_prompt | block=direct.base.l2_writer | reason=provenance_missing | stored_sha=39a7cce1523e | stored_chars=1690"
+      },
+      {
+        "level": "WARNING",
+        "when": "2026-10-18T14:02:14.661922+00:00",
+        "logger": "apscheduler.scheduler",
+        "message": "Execution of job \"VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-18 19:02:14 +05)\" skipped: maximum number of running instances reached (1)"
+      },
+      {
+        "level": "WARNING",
+        "when": "2026-10-18T14:02:09.662976+00:00",
+        "logger": "apscheduler.scheduler",
+        "message": "Execution of job \"VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-18 19:02:09 +05)\" skipped: maximum number of running instances reached (1)"
+      },
+      {
+        "level": "WARNING",
+        "when": "2026-10-18T14:02:04.661478+00:00",
+        "logger": "apscheduler.scheduler",
+        "message": "Execution of job \"VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-18 19:02:04 +05)\" skipped: maximum number of running instances reached (1)"
+      },
+      {
+        "level": "WARNING",
+        "when": "2026-10-18T14:01:59.667201+00:00",
+        "logger": "apscheduler.scheduler",
+        "message": "Execution of job \"VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-18 19:01:59 +05)\" skipped: maximum number of running instances reached (1)"
+      },
+      {
+        "level": "WARNING",
+        "when": "2026-10-18T14:01:54.668374+00:00",
+        "logger": "apscheduler.scheduler",
+        "message": "Execution of job \"VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-18 19:01:54 +05)\" skipped: maximum number of running instances reached (1)"
+      },
+      {
+        "level": "WARNING",
+        "when": "2026-10-18T14:01:49.668356+00:00",
+        "logger": "apscheduler.scheduler",
+        "message": "Execution of job \"VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-18 19:01:49 +05)\" skipped: maximum number of running instances reached (1)"
+      },
+      {
+        "level": "WARNING",
+        "when": "2026-10-18T14:01:44.662648+00:00",
+        "logger": "apscheduler.scheduler",
+        "message": "Execution of job \"VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-18 19:01:44 +05)\" skipped: maximum number of running instances reached (1)"
+      },
+      {
+        "level": "WARNING",
+        "when": "2026-10-18T13:59:59.661132+00:00",
+        "logger": "apscheduler.scheduler",
+        "message": "Execution of job \"VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-18 18:59:59 +05)\" skipped: maximum number of running instances reached (1)"
+      },
+      {
+        "level": "WARNING",
+        "when": "2026-10-18T13:55:04.664170+00:00",
+        "logger": "apscheduler.scheduler",
+        "message": "Execution of job \"VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-18 18:55:04 +05)\" skipped: maximum number of running instances reached (1)"
+      },
+      {
+        "level": "WARNING",
+        "when": "2026-10-18T13:54:59.667375+00:00",
+        "logger": "apscheduler.scheduler",
+        "message": "Execution of job \"VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-18 18:54:59 +05)\" skipped: maximum number of running instances reached (1)"
+      },
+      {
+        "level": "WARNING",
+        "when": "2026-10-18T13:53:59.664361+00:00",
+        "logger": "apscheduler.scheduler",
+        "message": "Execution of job \"VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-18 18:53:59 +05)\" skipped: maximum number of running instances reached (1)"
+      },
+      {
+        "level": "WARNING",
+        "when": "2026-10-18T13:53:54.662533+00:00",
+        "logger": "apscheduler.scheduler",
+        "message": "Execution of job \"VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-18 18:53:54 +05)\" skipped: maximum number of running instances reached (1)"
+      },
+      {
+        "level": "WARNING",
+        "when": "2026-10-18T13:53:49.664444+00:00",
+        "logger": "apscheduler.scheduler",
+        "message": "Execution of job \"VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-18 18:53:49 +05)\" skipped: maximum number of running instances reached (1)"
+      },
+      {
+        "level": "WARNING",
+        "when": "2026-10-18T13:53:44.662968+00:00",
+        "logger": "apscheduler.scheduler",
+        "message": "Execution of job \"VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-18 18:53:44 +05)\" skipped: maximum number of running instances reached (1)"
+      },
+      {
+        "level": "WARNING",
+        "when": "2026-10-18T13:53:39.662004+00:00",
+        "logger": "apscheduler.scheduler",
+        "message": "Execution of job \"VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-18 18:53:39 +05)\" skipped: maximum number of running instances reached (1)"
+      },
+      {
+        "level": "WARNING",
+        "when": "2026-10-18T13:52:44.660022+00:00",
+        "logger": "apscheduler.scheduler",
+        "message": "Execution of job \"VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-18 18:52:44 +05)\" skipped: maximum number of running instances reached (1)"
+      },
+      {
+        "level": "WARNING",
+        "when": "2026-10-18T13:52:39.663065+00:00",
+        "logger": "apscheduler.scheduler",
+        "message": "Execution of job \"VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-18 18:52:39 +05)\" skipped: maximum number of running instances reached (1)"
+      },
+      {
+        "level": "WARNING",
+        "when": "2026-10-18T13:52:34.663942+00:00",
+        "logger": "apscheduler.scheduler",
+        "message": "Execution of job \"VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-18 18:52:34 +05)\" skipped: maximum number of running instances reached (1)"
+      },
+      {
+        "level": "WARNING",
+        "when": "2026-10-18T13:52:29.662455+00:00",
+        "logger": "apscheduler.scheduler",
+        "message": "Execution of job \"VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-18 18:52:29 +05)\" skipped: maximum number of running instances reached (1)"
+      },
+      {
+        "level": "WARNING",
+        "when": "2026-10-18T13:52:27.111696+00:00",
+        "logger": "services.prompt_registry",
+        "message": "[prompt_registry] persisted speech value withheld | key=prompts.direct_chat_verbalizer_system_prompt | block=direct.base.l2_writer | reason=provenance_missing | stored_sha=39a7cce1523e | stored_chars=1690"
+      },
+      {
+        "level": "WARNING",
+        "when": "2026-10-18T13:52:24.661332+00:00",
+        "logger": "apscheduler.scheduler",
+        "message": "Execution of job \"VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-18 18:52:24 +05)\" skipped: maximum number of running instances reached (1)"
+      },
+      {
+        "level": "WARNING",
+        "when": "2026-10-18T13:52:19.661416+00:00",
+        "logger": "apscheduler.scheduler",
+        "message": "Execution of job \"VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-18 18:52:19 +05)\" skipped: maximum number of running instances reached (1)"
+      },
+      {
+        "level": "WARNING",
+        "when": "2026-10-18T13:52:14.663074+00:00",
+        "logger": "apscheduler.scheduler",
+        "message": "Execution of job \"VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-18 18:52:14 +05)\" skipped: maximum number of running instances reached (1)"
+      }
+    ]
+  }
+}
