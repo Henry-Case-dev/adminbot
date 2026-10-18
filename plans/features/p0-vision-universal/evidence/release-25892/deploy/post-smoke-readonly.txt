@@ -1,0 +1,73 @@
+### S0_now (rc=0, 1.0s)
+NOW_UTC=2026-10-18T23:38:34Z
+T0_ARG=2026-10-18 23:25:48
+### S1_node (rc=0, 1.3s)
+HEAD=1d367e4c561b5d1bc224c4c5ee64261945ed83bd
+BRANCH=master
+DRIFT_TO_ORIGIN=0
+TRACKED_MOD=0
+### S2_service (rc=0, 1.0s)
+MainPID=3548159 NRestarts=0 ExecMainStartTimestamp=Sun 2026-10-18 23:26:01 UTC ExecMainStatus=0 ActiveState=active SubState=running
+### S3_healthz (rc=0, 1.2s)
+{"status":"ok","version":"2.58.92"}
+### S4_codes (rc=0, 1.2s)
+CODE_WEB=200
+CODE_CSS=200
+CODE_VSTATE=401
+VSTATE_BODY={"detail":"missing init data"}
+### S5_journal_counts (rc=0, 1.6s)
+ERR_CRIT_TRACEBACK=0
+[stderr] [sudo] password for nik:
+### S6_journal_402 (rc=0, 1.1s)
+COUNT_402=0
+[stderr] [sudo] password for nik:
+### S7_journal_v (rc=0, 1.1s)
+VISION_LINES=307
+[stderr] [sudo] password for nik:
+### S8_journal_raw (rc=0, 1.2s)
+RAW_ERR_EXCERPT_END
+[stderr] [sudo] password for nik:
+### S9_journal_tail (rc=0, 1.2s)
+Oct 18 23:38:20 racknerd-f4e3456 python[3548159]: 2026-10-18 23:38:20,719 - apscheduler.executors.default - INFO - Job "UptimeHeartbeatService._heartbeat (trigger: interval[0:01:00], next run at: 2026-10-18 23:39:20 UTC)" executed successfully
+Oct 18 23:38:25 racknerd-f4e3456 python[3548159]: 2026-10-18 23:38:25,555 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-19 04:38:30 +05)" (scheduled at 2026-10-19 04:38:25.554304+05:00)
+Oct 18 23:38:25 racknerd-f4e3456 python[3548159]: 2026-10-18 23:38:25,556 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-19 04:38:30 +05)" executed successfully
+Oct 18 23:38:30 racknerd-f4e3456 python[3548159]: 2026-10-18 23:38:30,555 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-19 04:38:35 +05)" (scheduled at 2026-10-19 04:38:30.554304+05:00)
+Oct 18 23:38:30 racknerd-f4e3456 python[3548159]: 2026-10-18 23:38:30,556 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-19 04:38:35 +05)" executed successfully
+Oct 18 23:38:35 racknerd-f4e3456 python[3548159]: 2026-10-18 23:38:35,556 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-19 04:38:40 +05)" (scheduled at 2026-10-19 04:38:35.554304+05:00)
+Oct 18 23:38:35 racknerd-f4e3456 python[3548159]: 2026-10-18 23:38:35,557 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-19 04:38:40 +05)" executed successfully
+Oct 18 23:38:38 racknerd-f4e3456 python[3548159]: 2026-10-18 23:38:38,636 - web.api.deps - INFO - [tma-auth] src=none valid=False reason='missing init data' age=? init_data_len=0 path=/api/vision/state
+Oct 18 23:38:38 racknerd-f4e3456 python[3548159]: 2026-10-18 23:38:38,679 - web.api.deps - INFO - [tma-auth] src=none valid=False reason='missing init data' age=? init_data_len=0 path=/api/vision/state
+Oct 18 23:38:40 racknerd-f4e3456 python[3548159]: 2026-10-18 23:38:40,557 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-19 04:38:45 +05)" (scheduled at 2026-10-19 04:38:40.554304+05:00)
+Oct 18 23:38:40 racknerd-f4e3456 python[3548159]: 2026-10-18 23:38:40,562 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-19 04:38:45 +05)" executed successfully
+Oct 18 23:38:42 racknerd-f4e3456 python[3548159]: 2026-10-18 23:38:42,463 - services.mca_events - INFO - mca_event=WATCHDOG_SWEEP | ts=1792366722 | event_name=WATCHDOG_SWEEP | outcome=success | level=INFO | component=watchdog | stage=sweep
+[stderr] [sudo] password for nik:
+### S10_skips (rc=0, 1.2s)
+SKIPS=0
+[stderr] [sudo] password for nik:
+### S10b_claim_slow (rc=0, 1.1s)
+CLAIM_SLOW=3
+[stderr] [sudo] password for nik:
+### S10c_maint_timeout (rc=0, 1.1s)
+MAINT_TIMEOUT=0
+[stderr] [sudo] password for nik:
+### S10d_vision_tick (rc=0, 1.1s)
+VISION_TICK=4
+[stderr] [sudo] password for nik:
+### S12_migration_lines (rc=0, 1.2s)
+Oct 18 23:26:19 racknerd-f4e3456 python[3548159]: 2026-10-18 23:26:19,606 - services.database - INFO - [database] migrations: start | current user_version=36 | pending=[]
+Oct 18 23:26:19 racknerd-f4e3456 python[3548159]: 2026-10-18 23:26:19,610 - services.database - INFO - [database] migrations: complete | user_version=36 | total 0.0s
+MIGRATION_LINES_END
+[stderr] [sudo] password for nik:
+### S11_served (rc=0, 1.2s)
+SERVED_APP_JS=b14ef48ab16a
+DISK_APP_JS=b14ef48ab16a
+SERVED_EQ_APP_JS=SAME
+SERVED_APP_CSS=6d3ae1112d50
+DISK_APP_CSS=6d3ae1112d50
+SERVED_EQ_APP_CSS=SAME
+PAGE_VER=15
+SUBST_CSS=2
+PAGE_VER_EXPECT=15
+SUBST_CSS_EXPECT=2
+### S13_user_version (rc=0, 1.1s)
+USER_VERSION (36,)

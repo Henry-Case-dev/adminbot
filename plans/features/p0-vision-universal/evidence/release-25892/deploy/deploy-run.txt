@@ -1,0 +1,185 @@
+### A_pre_state (rc=0, 3.3s)
+NOW_UTC=2026-10-18T23:25:38Z
+OLD_HEAD=f2a6248ae30d8e0b1878785bb6d1477f65e21c78
+OLD_BRANCH=master
+HZ_BEFORE={"status":"ok","version":"2.58.91"}
+TRACKED_MOD=0
+UNTRACKED=13
+SERVICE=active
+MAINPID=3508490
+ENV_AXES=5
+PROD_RUNTIME_DRIFT=0
+INDEX_LOCK=absent
+### B1_fetch (rc=0, 2.0s)
+FETCH1_RC=0
+ * branch              master     -> FETCH_HEAD
+   f2a6248a..1d367e4c  master     -> origin/master
+### B3_remote_ref (rc=0, 1.0s)
+1d367e4c561b5d1bc224c4c5ee64261945ed83bd
+BUMP_IS_ANCESTOR=1
+### C_checkout (rc=0, 1.3s)
+CO_RC=0
+Reset branch 'master'
+branch 'master' set up to track 'origin/master'.
+Your branch is up to date with 'origin/master'.
+NEW_HEAD=1d367e4c561b5d1bc224c4c5ee64261945ed83bd
+TRACKED_MOD_AFTER=0
+DELTA_TOTAL=107
+DELTA_RUNTIME:config/settings.py services/direct_chat_service.py services/direct_execution.py services/mca_vision.py services/temporal_factcheck.py services/tool_router.py web/api/routes.py
+DELTA_RUNTIME expected (7 whitelist-файлов): config/settings.py services/direct_chat_service.py services/direct_execution.py services/mca_vision.py services/temporal_factcheck.py services/tool_router.py web/api/routes.py
+### D1_hashes (rc=0, 1.0s)
+5e45cd0bd981 README.md
+ec7434b73430 config/settings.py
+8a6acd0f294a plans/docs/param-registry-round1025.meta.md
+e32490e78b35 services/direct_chat_service.py
+aae7d74a2a9e services/direct_execution.py
+f8cb004c6c84 services/mca_vision.py
+fd8a2a70d5d7 services/prompt_composer.py
+e23bced2fdb8 services/telegram_send.py
+d36a5bf861fa services/temporal_factcheck.py
+b6c9700f6ce5 services/tool_router.py
+d54cc29695c7 web/api/routes.py
+96db06425079 web/static/fullscreen-policy.js
+HASH-CHECK: 12/12 artifacts == expected sha256_12
+### D2_markers (rc=0, 1.3s)
+APP_VER=APP_VERSION = "2.58.92"
+TRFIX_MEDIA_TARGET_ROUTER=4
+TRFIX_MEDIA_TARGET_EXEC=1
+TRFIX_MEDIA_TARGET_DCS=1
+TRFIX_REPLY_SRC_ROUTER=3
+TRFIX_REPLY_SRC_DCS=1
+TRFIX_REFCLAIM_TF=1
+TRFIX_REFCLAIM_ROUTER=1
+VFIX_SCOPE=3
+VFIX_CLAIM_ONCE=3
+VFIX_MAINT=3
+VFIX_429WINDOW=2
+VFIX_GRANULE=3
+VFIX_REARM=2
+VISION_URL=4
+VISION_CLAIM=7
+ENTRY_CAPTION=4
+TOOLS_HEALTH=6
+POSTGEN_MODULE=1
+CFG02B_FLAG=3
+GRID_SPEECH=5
+UI_VISION_LINE=2
+UI_VISION_FACTS=2
+PINS_REISSUED=2
+META_HEAD_LINE - **HEAD (short):** `f7a14994`
+### F1_sudo_probe (rc=0, 1.0s)
+SUDO_NOPASS=0
+### F2_restart (rc=0, 13.9s)
+RESTART_T0=2026-10-18 23:25:48
+RESTART_RC=0
+(uploaded probes: /tmp/rel92_final.sh)
+### F3_health (rc=0, 22.2s)
+HEALTH={"status":"ok","version":"2.58.92"}
+HEALTH OK (2.58.92)
+### F4_journal (rc=0, 1.5s)
+0
+[stderr] [sudo] password for nik:
+### G_served (rc=0, 1.2s)
+SERVED_APP_JS=b14ef48ab16a
+DISK_APP_JS=b14ef48ab16a
+SERVED_EQ_APP_JS=SAME
+SERVED_APP_CSS=6d3ae1112d50
+DISK_APP_CSS=6d3ae1112d50
+SERVED_EQ_APP_CSS=SAME
+PAGE_VER=15
+SUBST_CSS=2
+PAGE_VER_EXPECT=15
+SUBST_CSS_EXPECT=2
+### J_final (rc=0, 3.5s)
+=== NOW ===
+2026-10-18T23:26:29Z
+=== NODE ===
+HEAD=1d367e4c561b5d1bc224c4c5ee64261945ed83bd
+BRANCH=master
+TRACKED_MOD=0
+=== HEALTH ===
+{"status":"ok","version":"2.58.92"}
+MainPID=3548159 NRestarts=0 ExecMainStartTimestamp=Sun 2026-10-18 23:26:01 UTC ExecMainStatus=0 ActiveState=active SubState=running 
+=== ENV AXES (.env) ===
+UNIFIED_COMPOSER_ENABLED=1
+HUMOR_CRAFT_ENABLED=1
+HUMOR_LIBRARY_ENABLED=1
+HUMOR_FEEDBACK_ENABLED=1
+INITIATIVE_DIAGNOSTICS_PUBLISH_ENABLED=1
+=== FIX2 MARKERS (deployed bytes) ===
+TRFIX_MEDIA_TARGET_ROUTER=4
+TRFIX_MEDIA_TARGET_EXEC=1
+TRFIX_MEDIA_TARGET_DCS=1
+TRFIX_REPLY_SRC_ROUTER=3
+TRFIX_REPLY_SRC_DCS=1
+TRFIX_REFCLAIM_TF=1
+TRFIX_REFCLAIM_ROUTER=1
+VFIX_SCOPE=3
+VFIX_CLAIM_ONCE=3
+VFIX_MAINT=3
+VFIX_429WINDOW=2
+VFIX_GRANULE=3
+VFIX_REARM=2
+=== REGRESSION MARKERS (линия 2.58.91 — не должны исчезнуть) ===
+VISION_URL=4
+VISION_VIS=2
+VISION_PROBE=5
+VISION_CLAIM=7
+ENTRY_CAPTION=4
+TOOLS_HEALTH=6
+POSTGEN_MODULE=1
+CFG02B_FLAG=3
+GRID_SPEECH=5
+UI_VISION_LINE=2
+UI_VISION_FACTS=2
+PINS_REISSUED=2
+CFG_RESOLVER=2
+CFG02A_RESERVE_MODE=3
+SP_HUB_ENTRY=1
+FULLSCREEN_POLICY=29
+=== PAYLOAD SHA12 (disk) ===
+config/settings.py ec7434b73430
+services/direct_chat_service.py e32490e78b35
+services/direct_execution.py aae7d74a2a9e
+services/mca_vision.py f8cb004c6c84
+services/temporal_factcheck.py d36a5bf861fa
+services/tool_router.py b6c9700f6ce5
+web/api/routes.py d54cc29695c7
+README.md 5e45cd0bd981
+=== SERVED SHA12 (HTTP) vs DISK (SERVED_EQ_*=SAME/DIFF) ===
+SERVED_APP_JS=b14ef48ab16a
+SERVED_EQ_APP_JS=SAME
+SERVED_APP_CSS=6d3ae1112d50
+SERVED_EQ_APP_CSS=SAME
+=== PAGE (expect PAGE_VER=15 / SUBST_CSS=2) ===
+PAGE_VER=15
+SUBST_CSS=2
+PAGE_VER_EXPECT=15
+SUBST_CSS_EXPECT=2
+=== VISION STATE API (read-only, no secrets) ===
+{"detail":"missing init data"}
+=== WORKER TICK (since T0): SKIPS обязаны быть 0 ===
+SKIPS=0
+CLAIM_SLOW=0
+MAINT_TIMEOUT=0
+VISION_TICK=1
+=== MIGRATION LINES (since T0) ===
+Oct 18 23:26:19 racknerd-f4e3456 python[3548159]: 2026-10-18 23:26:19,606 - services.database - INFO - [database] migrations: start | current user_version=36 | pending=[]
+Oct 18 23:26:19 racknerd-f4e3456 python[3548159]: 2026-10-18 23:26:19,610 - services.database - INFO - [database] migrations: complete | user_version=36 | total 0.0s
+=== SQLITE USER_VERSION ===
+USER_VERSION (36,)
+=== JOURNAL COUNTS (since T0) ===
+ERR=0
+RUNTIMEWARN=0
+GRACEFUL=2
+POLLER=1
+VISION_PROBE_FAIL=0
+VISION_EVENTS=0
+=== SMOKE ROUTES (HTTPS) ===
+ROUTE /healthz 200
+ROUTE /web/ 200
+ROUTE /static/app.css 200
+=== HTTPS ===
+HTTPS_HZ={"status":"ok","version":"2.58.92"}
+=== DONE ===
+[stderr] [sudo] password for nik:

@@ -1,0 +1,91 @@
+=== NOW ===
+2026-10-18T23:26:29Z
+=== NODE ===
+HEAD=1d367e4c561b5d1bc224c4c5ee64261945ed83bd
+BRANCH=master
+TRACKED_MOD=0
+=== HEALTH ===
+{"status":"ok","version":"2.58.92"}
+MainPID=3548159 NRestarts=0 ExecMainStartTimestamp=Sun 2026-10-18 23:26:01 UTC ExecMainStatus=0 ActiveState=active SubState=running 
+=== ENV AXES (.env) ===
+UNIFIED_COMPOSER_ENABLED=1
+HUMOR_CRAFT_ENABLED=1
+HUMOR_LIBRARY_ENABLED=1
+HUMOR_FEEDBACK_ENABLED=1
+INITIATIVE_DIAGNOSTICS_PUBLISH_ENABLED=1
+=== FIX2 MARKERS (deployed bytes) ===
+TRFIX_MEDIA_TARGET_ROUTER=4
+TRFIX_MEDIA_TARGET_EXEC=1
+TRFIX_MEDIA_TARGET_DCS=1
+TRFIX_REPLY_SRC_ROUTER=3
+TRFIX_REPLY_SRC_DCS=1
+TRFIX_REFCLAIM_TF=1
+TRFIX_REFCLAIM_ROUTER=1
+VFIX_SCOPE=3
+VFIX_CLAIM_ONCE=3
+VFIX_MAINT=3
+VFIX_429WINDOW=2
+VFIX_GRANULE=3
+VFIX_REARM=2
+=== REGRESSION MARKERS (линия 2.58.91 — не должны исчезнуть) ===
+VISION_URL=4
+VISION_VIS=2
+VISION_PROBE=5
+VISION_CLAIM=7
+ENTRY_CAPTION=4
+TOOLS_HEALTH=6
+POSTGEN_MODULE=1
+CFG02B_FLAG=3
+GRID_SPEECH=5
+UI_VISION_LINE=2
+UI_VISION_FACTS=2
+PINS_REISSUED=2
+CFG_RESOLVER=2
+CFG02A_RESERVE_MODE=3
+SP_HUB_ENTRY=1
+FULLSCREEN_POLICY=29
+=== PAYLOAD SHA12 (disk) ===
+config/settings.py ec7434b73430
+services/direct_chat_service.py e32490e78b35
+services/direct_execution.py aae7d74a2a9e
+services/mca_vision.py f8cb004c6c84
+services/temporal_factcheck.py d36a5bf861fa
+services/tool_router.py b6c9700f6ce5
+web/api/routes.py d54cc29695c7
+README.md 5e45cd0bd981
+=== SERVED SHA12 (HTTP) vs DISK (SERVED_EQ_*=SAME/DIFF) ===
+SERVED_APP_JS=b14ef48ab16a
+SERVED_EQ_APP_JS=SAME
+SERVED_APP_CSS=6d3ae1112d50
+SERVED_EQ_APP_CSS=SAME
+=== PAGE (expect PAGE_VER=15 / SUBST_CSS=2) ===
+PAGE_VER=15
+SUBST_CSS=2
+PAGE_VER_EXPECT=15
+SUBST_CSS_EXPECT=2
+=== VISION STATE API (read-only, no secrets) ===
+{"detail":"missing init data"}
+=== WORKER TICK (since T0): SKIPS обязаны быть 0 ===
+SKIPS=0
+CLAIM_SLOW=0
+MAINT_TIMEOUT=0
+VISION_TICK=1
+=== MIGRATION LINES (since T0) ===
+Oct 18 23:26:19 racknerd-f4e3456 python[3548159]: 2026-10-18 23:26:19,606 - services.database - INFO - [database] migrations: start | current user_version=36 | pending=[]
+Oct 18 23:26:19 racknerd-f4e3456 python[3548159]: 2026-10-18 23:26:19,610 - services.database - INFO - [database] migrations: complete | user_version=36 | total 0.0s
+=== SQLITE USER_VERSION ===
+USER_VERSION (36,)
+=== JOURNAL COUNTS (since T0) ===
+ERR=0
+RUNTIMEWARN=0
+GRACEFUL=2
+POLLER=1
+VISION_PROBE_FAIL=0
+VISION_EVENTS=0
+=== SMOKE ROUTES (HTTPS) ===
+ROUTE /healthz 200
+ROUTE /web/ 200
+ROUTE /static/app.css 200
+=== HTTPS ===
+HTTPS_HZ={"status":"ok","version":"2.58.92"}
+=== DONE ===
