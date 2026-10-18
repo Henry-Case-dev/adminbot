@@ -4480,3 +4480,37 @@ html.cover-editor-open { overflow: hidden; }
   .speech-pre, .speech-scrollable { max-height: 30vh; }
 }
 /* ═══ /SOUL-1 W6 ═══ */
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   FIX-SPEECH-MOBILE (18.10, директива владельца §6.3) — явная строка-вход
+   «Речь и характер» на хабе «ИИ» (мобильный путь «Ещё» → «ИИ»).
+   Это НЕ карточка хаба: состав 5 страниц «ИИ» и навигация не меняются;
+   это дверь к существующему special-screen'у #/ai/speech. Поверхность
+   намеренно НЕ стеклянная (не входит в glass-селектор поверхностей) и не
+   трогает фон/линзу/шапку: акцентная рамка + подложка из существующих
+   токенов. Тач-цель ≥ 56px, длинные строки переносятся (320px-экран).
+   ═══════════════════════════════════════════════════════════════════════════ */
+.speech-hub-entry {
+  grid-column: 1 / -1;
+  display: flex; align-items: center; gap: 10px; text-align: left;
+  width: 100%; min-height: 56px; padding: 10px 12px;
+  border-radius: var(--radius-lg);
+  border: 1px solid rgba(56, 189, 248, .45);
+  background: rgba(56, 189, 248, .10);
+  color: var(--text-1); cursor: pointer;
+}
+.speech-hub-entry:hover { border-color: var(--teal-500); }
+.speech-hub-entry__icon { color: var(--teal-500); font-size: 22px; flex: none; }
+.speech-hub-entry__body {
+  display: flex; flex-direction: column; gap: 1px;
+  min-width: 0; flex: 1 1 auto;
+}
+.speech-hub-entry__title { font-size: var(--tx-med); font-weight: 600; }
+.speech-hub-entry__sub {
+  font-size: var(--tx-small); color: var(--text-3); overflow-wrap: anywhere;
+}
+.speech-hub-entry__cta {
+  flex: none; font-size: var(--tx-small); color: var(--teal-500);
+  font-weight: 600; white-space: nowrap;
+}
+/* ═══ /FIX-SPEECH-MOBILE ═══ */

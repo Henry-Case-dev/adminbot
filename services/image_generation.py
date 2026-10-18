@@ -243,6 +243,47 @@ def image_daily_limit_enabled() -> bool:
         return True
 
 
+async def image_reserve_mode(chat_id: int | None) -> tuple[str, str]:
+    """CFG-02A (§02A.4): фактический путь применения суточной квоты.
+
+    Возвращает ``('reserve', 'ok')`` — атомарный резерв/журнал/commit-release
+    (A5 ON) либо ``('legacy', reason)`` с ЧЕСТНОЙ причиной: ``kill_switch_off``
+    (env-only ``IMAGE_DAILY_LIMIT_ENABLED=OFF``) / ``budgets_off`` (master
+    ``flags.budgets_enabled`` OFF для этого чата).
+
+    ЕДИНЫЙ источник гейтов для ``_reserve_or_consume`` и для диагностики/UI:
+    интерфейс не заявляет «лимит применён», когда фактическое ограничение
+    идёт legacy-путём. Fail-open: недоступность master-флага → ``reserve``
+    (паритет с ``_reserve_or_consume``)."""
+    if not image_daily_limit_enabled():
+        return "legacy", "kill_switch_off"
+    try:
+        from services import budget_gate
+        if not await budget_gate.budgets_enabled(chat_id):
+            return "legacy", "budgets_off"
+    except Exception:
+        pass  # master fail-open → ON (reserve path)
+    return "reserve", "ok"
+
+
+def image_quota_reset_note(chat_id: int | None) -> str:
+    """CFG-02A (§02A.5): честная строка о ближайшем сбросе СУТОЧНОЙ квоты.
+
+    День квоты — календарный день чата в его TZ (``worker_budget.image_day``);
+    это НЕ короткий cooldown (CFG-02B) и не «24 часа от первого запроса».
+    Fail-open: ошибка резолва периода → ``''`` (отказ не дополняется
+    выдуманным временем). R17: наружу идут только дата/время и имя tz."""
+    try:
+        from services import worker_budget as _wb
+        nxt = _wb.image_next_reset(chat_id)
+        tz_name = str(_wb.image_timezone(chat_id) or "")
+        stamp = nxt.strftime("%d.%m.%Y %H:%M")
+        return (f"Суточная квота обновится {stamp}"
+                + (f" ({tz_name})." if tz_name else "."))
+    except Exception:      # pragma: no cover - диагностика не рвёт отказ
+        return ""
+
+
 def image_context_memory_enabled() -> bool:
     """A4 (ADR-1026-19 D7): env-only киль-свитч ``IMAGE_CONTEXT_MEMORY_ENABLED``
     (default ON). OFF → режим A3: память не читается, `context_required=False`,
@@ -1587,14 +1628,9 @@ async def _reserve_or_consume(chat_id: int | None, *, source: str,
       * ``('deny', key, reason)`` — честный отказ ДО платного вызова
         (лимит → ``budget``; replay released/denied → journaled-код
         прежнего отказа)."""
-    if not image_daily_limit_enabled():
-        return "legacy", "", "kill_switch_off"
-    try:
-        from services import budget_gate
-        if not await budget_gate.budgets_enabled(chat_id):
-            return "legacy", "", "budgets_off"
-    except Exception:
-        pass  # master fail-open → ON (reserve path)
+    mode, mode_reason = await image_reserve_mode(chat_id)
+    if mode == "legacy":
+        return "legacy", "", mode_reason
     try:
         from services import worker_budget
         idem_key = build_image_idem_key(
@@ -1898,6 +1934,12 @@ def _image_error_block(result, *, chat_id: int | None) -> str:
     text, block_id, _source = _caps.failure_message_for_reason(
         str(getattr(result, "reason", "") or ""))
     code = _caps.failure_code_for_reason(str(getattr(result, "reason", "") or ""))
+    # CFG-02A (§02A.5): при исчерпании СУТОЧНОЙ квоты — честное фактическое
+    # время следующего сброса (календарный день чата в его TZ; не cooldown).
+    # Редактируемая речевая форма остаётся управляемым текстом реестра
+    # (`message.image_failure.quota_exhausted`); строка сброса — факт кода.
+    reset_note = (image_quota_reset_note(chat_id)
+                  if code == "quota_exhausted" else "")
     try:
         _caps.emit_capability_event(
             _caps.CapabilityState(
@@ -1910,7 +1952,8 @@ def _image_error_block(result, *, chat_id: int | None) -> str:
         pass
     return (f'<image_result status="error" reason="{code}">\n'
             f"{text}\n"
-            "Ничего не отправлено; повторно инструмент generate_image "
+            + (f"{reset_note}\n" if reset_note else "")
+            + "Ничего не отправлено; повторно инструмент generate_image "
             "не вызывай.\n"
             "</image_result>")
 

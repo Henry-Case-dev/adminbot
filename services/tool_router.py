@@ -3009,6 +3009,12 @@ class ToolRouter:
                 str(result.reason or ""))
         except Exception:      # pragma: no cover - реестр не рвёт цикл
             _msg, _block_id = "Генерация не удалась", ""
+        # CFG-02A (§02A.5): исчерпание СУТОЧНОЙ квоты — честное фактическое
+        # время следующего сброса (единый helper с direct-путём; не cooldown).
+        if str(result.reason or "") == "budget":
+            _note = image_generation.image_quota_reset_note(ctx.chat_id)
+            if _note:
+                _msg = f"{_msg} {_note}"
         return json.dumps(
             {"status": "error", "reason": result.reason,
              "message": _msg, "message_id": _block_id},
