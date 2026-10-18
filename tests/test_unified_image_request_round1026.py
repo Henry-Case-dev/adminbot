@@ -789,7 +789,21 @@ class TestBoundsA3:
                                               # confirm, по умолчанию mock).
                                               # Test-only allowlist-дельта; §104/A3-гейт
                                               # не затронут.
-                                              "web/api/initiative_vitality.py"))
+                                              "web/api/initiative_vitality.py",
+                                              # CFG-02B (§02B.8, ADR-1031-1,
+                                              # requirements-map слайс CFG-02B):
+                                              # + web/api/gates.py — аддитивная
+                                              # передача запросившего админа в
+                                              # существующий GET /api/workers/
+                                              # budget (viewer_user_id) ради
+                                              # честного «остатка для выбранного
+                                              # пользователя» в секции «Лимиты
+                                              # генерации»; новых endpoint'ов
+                                              # и правок RBAC нет. Test-only
+                                              # allowlist-дельта; §104/A3-гейт
+                                              # не затронут.
+                                              "web/api/gates.py",
+                                              ))
                        for ln in self._diff_names())
 
     def _diff_names(self):
@@ -821,7 +835,7 @@ class TestBoundsA3:
 
     def test_catalog_counts_unchanged(self):
         from services import param_catalog as pc
-        assert len(pc.REGISTRY) == 575
+        assert len(pc.REGISTRY) == 579
         assert len(pc.GROUPS) == 120
         assert len(pc._TAB_BY_GROUP) == 118
         assert len(pc.TAB_RULES) == 23

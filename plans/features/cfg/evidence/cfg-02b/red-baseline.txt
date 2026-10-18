@@ -1,0 +1,668 @@
+﻿FFF.FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF                                      [100%]
+================================== FAILURES ===================================
+________ TestCatalogAndDefaults.test_factory_defaults_off_and_per_user ________
+
+self = <tests.test_cfg02b_image_freq_limits.TestCatalogAndDefaults object at 0x000001B5054BD820>
+
+    def test_factory_defaults_off_and_per_user(self):
+        """Factory Default: ╨Т╨л╨Ъ╨Ы╨о╨з╨Х╨Э╨Ю; ╤А╨╡╨╢╨╕╨╝ тАФ per_user (╨╖╨░╨▓╨╛╨┤╤Б╨║╨╛╨╣ ╨▓╤Л╨▒╨╛╤А)."""
+>       assert Settings.IMAGE_FREQ_LIMIT_ENABLED is False
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: type object 'Settings' has no attribute 'IMAGE_FREQ_LIMIT_ENABLED'
+
+tests\test_cfg02b_image_freq_limits.py:241: AttributeError
+_______________ TestCatalogAndDefaults.test_catalog_keys_shapes _______________
+
+self = <tests.test_cfg02b_image_freq_limits.TestCatalogAndDefaults object at 0x000001B5054BDC40>
+
+    def test_catalog_keys_shapes(self):
+        for key, typ in ((FREQ_ENABLED_KEY, "bool"), (FREQ_BURST_KEY, "int"),
+                         (FREQ_COOLDOWN_KEY, "int"), (FREQ_MODE_KEY, "str")):
+            spec = pc.get_by_pg_key(key)
+>           assert spec is not None, key
+E           AssertionError: limits.image_freq_limit_enabled
+E           assert None is not None
+
+tests\test_cfg02b_image_freq_limits.py:250: AssertionError
+_____ TestCatalogAndDefaults.test_mode_is_single_select_with_two_options ______
+
+self = <tests.test_cfg02b_image_freq_limits.TestCatalogAndDefaults object at 0x000001B5054BE0C0>
+
+    def test_mode_is_single_select_with_two_options(self):
+        spec = pc.get_by_pg_key(FREQ_MODE_KEY)
+>       assert spec.widget == "select"
+               ^^^^^^^^^^^
+E       AttributeError: 'NoneType' object has no attribute 'widget'
+
+tests\test_cfg02b_image_freq_limits.py:258: AttributeError
+_____ TestCatalogAndDefaults.test_resolver_paths_source_and_normalization _____
+
+self = <tests.test_cfg02b_image_freq_limits.TestCatalogAndDefaults object at 0x000001B5054BE9C0>
+env = namespace(pg=namespace(pool=<tests.test_image_daily_limit_round1026._Pool object at 0x000001B511074410>), state=<tests...e\\OpenCodeScratch\\adminbot-ccef72c25768\\tmp\\pytest-of-main\\pytest-1430\\test_resolver_paths_source_and0\\freq.db')
+
+    @pytest.mark.asyncio
+    async def test_resolver_paths_source_and_normalization(self, env):
+>       limits = await pt.resolve_image_freq_limits(CHAT)
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'services.persistent_throttling' has no attribute 'resolve_image_freq_limits'. Did you mean: 'resolve_direct_chat_limits'?
+
+tests\test_cfg02b_image_freq_limits.py:267: AttributeError
+__________ TestFactoryOff.test_off_does_not_limit_and_writes_nothing __________
+
+self = <tests.test_cfg02b_image_freq_limits.TestFactoryOff object at 0x000001B5054BE0F0>
+env = namespace(pg=namespace(pool=<tests.test_image_daily_limit_round1026._Pool object at 0x000001B511075850>), state=<tests...e\\OpenCodeScratch\\adminbot-ccef72c25768\\tmp\\pytest-of-main\\pytest-1430\\test_off_does_not_limit_and_wr0\\freq.db')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001B5124FB4A0>
+
+    @pytest.mark.asyncio
+    async def test_off_does_not_limit_and_writes_nothing(self, env,
+                                                         monkeypatch):
+        calls = []
+        monkeypatch.setattr(ig, "generate", _fake_generate_factory(calls))
+        monkeypatch.setattr(telegram_send, "send_photo", _noop_send())
+        for i in range(3):
+>           res = await ig.generate_and_send(object(), CHAT, "p",
+                                             reply_to_message_id=10 + i,
+                                             user_id=USER_A)
+E           TypeError: generate_and_send() got an unexpected keyword argument 'user_id'
+
+tests\test_cfg02b_image_freq_limits.py:303: TypeError
+________ TestFactoryOff.test_off_state_is_not_applied_even_when_saved _________
+
+self = <tests.test_cfg02b_image_freq_limits.TestFactoryOff object at 0x000001B5054BEC90>
+env = namespace(pg=namespace(pool=<tests.test_image_daily_limit_round1026._Pool object at 0x000001B511077E00>), state=<tests...e\\OpenCodeScratch\\adminbot-ccef72c25768\\tmp\\pytest-of-main\\pytest-1430\\test_off_state_is_not_applied_0\\freq.db')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001B510023F80>
+
+    @pytest.mark.asyncio
+    async def test_off_state_is_not_applied_even_when_saved(self, env,
+                                                            monkeypatch):
+        """╨Э╨░╤Б╤В╤А╨╛╨╣╨║╨╕ ╤Б╨╛╤Е╤А╨░╨╜╨╡╨╜╤Л ╨┐╤А╨╕ OFF тАФ ╨╜╨╡ ╨┐╤А╨╕╨╝╨╡╨╜╤П╤О╤В╤Б╤П (┬з02B.1)."""
+        env.hot[FREQ_BURST_KEY] = 1
+        env.hot[FREQ_COOLDOWN_KEY] = 600.0
+        env.hot[FREQ_MODE_KEY] = "per_chat"
+        calls = []
+        monkeypatch.setattr(ig, "generate", _fake_generate_factory(calls))
+        monkeypatch.setattr(telegram_send, "send_photo", _noop_send())
+        for i in range(2):
+>           assert (await ig.generate_and_send(object(), CHAT, "p",
+                                               reply_to_message_id=40 + i,
+                                               user_id=USER_A)).ok
+E           TypeError: generate_and_send() got an unexpected keyword argument 'user_id'
+
+tests\test_cfg02b_image_freq_limits.py:321: TypeError
+_____ TestBurstCooldownRefusal.test_third_attempt_denied_before_paid_call _____
+
+self = <tests.test_cfg02b_image_freq_limits.TestBurstCooldownRefusal object at 0x000001B5054BF1D0>
+env = namespace(pg=namespace(pool=<tests.test_image_daily_limit_round1026._Pool object at 0x000001B511074350>), state=<tests...e\\OpenCodeScratch\\adminbot-ccef72c25768\\tmp\\pytest-of-main\\pytest-1430\\test_third_attempt_denied_befo0\\freq.db')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001B5124FA810>
+
+    @pytest.mark.asyncio
+    async def test_third_attempt_denied_before_paid_call(self, env,
+                                                         monkeypatch):
+        _enable_freq(env, burst=2, cooldown=600.0, mode="per_chat")
+        calls = []
+        monkeypatch.setattr(ig, "generate", _fake_generate_factory(calls))
+        monkeypatch.setattr(telegram_send, "send_photo", _noop_send())
+    
+>       first = await ig.generate_and_send(object(), CHAT, "p",
+                                          reply_to_message_id=1,
+                                          user_id=USER_A)
+E       TypeError: generate_and_send() got an unexpected keyword argument 'user_id'
+
+tests\test_cfg02b_image_freq_limits.py:338: TypeError
+_____ TestBurstCooldownRefusal.test_after_pause_generation_allowed_again ______
+
+self = <tests.test_cfg02b_image_freq_limits.TestBurstCooldownRefusal object at 0x000001B5054BF7A0>
+env = namespace(pg=namespace(pool=<tests.test_image_daily_limit_round1026._Pool object at 0x000001B510FEDD00>), state=<tests...e\\OpenCodeScratch\\adminbot-ccef72c25768\\tmp\\pytest-of-main\\pytest-1430\\test_after_pause_generation_al0\\freq.db')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001B5124FB200>
+
+    @pytest.mark.asyncio
+    async def test_after_pause_generation_allowed_again(self, env,
+                                                        monkeypatch):
+        _enable_freq(env, burst=2, cooldown=600.0, mode="per_chat")
+        calls = []
+        monkeypatch.setattr(ig, "generate", _fake_generate_factory(calls))
+        monkeypatch.setattr(telegram_send, "send_photo", _noop_send())
+        for i in (1, 2):
+>           assert (await ig.generate_and_send(object(), CHAT, "p",
+                                               reply_to_message_id=i,
+                                               user_id=USER_A)).ok
+E           TypeError: generate_and_send() got an unexpected keyword argument 'user_id'
+
+tests\test_cfg02b_image_freq_limits.py:370: TypeError
+______ TestBurstCooldownRefusal.test_bot_reply_carries_factual_remaining ______
+
+self = <tests.test_cfg02b_image_freq_limits.TestBurstCooldownRefusal object at 0x000001B5054BFD70>
+env = namespace(pg=namespace(pool=<tests.test_image_daily_limit_round1026._Pool object at 0x000001B510FEFA10>), state=<tests...e\\OpenCodeScratch\\adminbot-ccef72c25768\\tmp\\pytest-of-main\\pytest-1430\\test_bot_reply_carries_factual0\\freq.db')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001B510FEC4A0>
+
+    @pytest.mark.asyncio
+    async def test_bot_reply_carries_factual_remaining(self, env,
+                                                       monkeypatch):
+        """╨Я╤А╤П╨╝╨╛╨╣ ╨┐╨╛╨╗╤М╨╖╨╛╨▓╨░╤В╨╡╨╗╤М╤Б╨║╨╕╨╣ ╨┐╤Г╤В╤М: ╨╛╤В╨▓╨╡╤В ╨▒╨╛╤В╨░ ╤Б╨╛╨┤╨╡╤А╨╢╨╕╤В ╤Д╨░╨║╤В╨╕╤З╨╡╤Б╨║╨╕╨╣
+        ╨╛╤Б╤В╨░╤В╨╛╨║ ╨╕ ╤Г╨║╨░╨╖╤Л╨▓╨░╨╡╤В, ╨┤╨╗╤П ╨║╨╛╨│╨╛ ╨┤╨╡╨╣╤Б╤В╨▓╤Г╨╡╤В ╨╛╨│╤А╨░╨╜╨╕╤З╨╡╨╜╨╕╨╡."""
+        _enable_freq(env, burst=1, cooldown=620.0, mode="per_chat")
+        calls = []
+        monkeypatch.setattr(ig, "generate", _fake_generate_factory(calls))
+        monkeypatch.setattr(telegram_send, "send_photo", _noop_send())
+        ctx = SimpleNamespace(bot=object(), chat_id=CHAT, user_id=USER_A,
+                              reply_to_message_id=1, correlation_id="r1")
+        ok_block = await ig.maybe_handle_keyword(ctx, "╨▒╨╛╤В, ╨╜╨░╤А╨╕╤Б╤Г╨╣ ╨╝╨╡╨╝")
+        assert 'status="ok"' in ok_block
+        ctx2 = SimpleNamespace(bot=object(), chat_id=CHAT, user_id=USER_A,
+                               reply_to_message_id=2, correlation_id="r2")
+        block = await ig.maybe_handle_keyword(ctx2, "╨▒╨╛╤В, ╨╜╨░╤А╨╕╤Б╤Г╨╣ ╨╝╨╡╨╝")
+>       assert 'status="error"' in block
+E       assert 'status="error"' in '<image_result status="ok" delivery="sent">\n╨Ш╨╖╨╛╨▒╤А╨░╨╢╨╡╨╜╨╕╨╡ ╤Г╨╢╨╡ ╤Б╨│╨╡╨╜╨╡╤А╨╕╤А╨╛╨▓╨░╨╜╨╛ ╨╕ ╨╛╤В╨┐╤А╨░╨▓╨╗╨╡╨╜╨╛ ╨▓ ╤З╨░╤В. ╨Я╨╛╨▓╤В╨╛╤А╨╜╨╛ ╨╕╨╜╤Б╤В╤А╤Г╨╝╨╡╨╜╤В generate_image ╨╜╨╡ ╨▓╤Л╨╖╤Л╨▓╨░╨╣.\n\n</image_result>'
+
+tests\test_cfg02b_image_freq_limits.py:400: AssertionError
+________ TestBurstCooldownRefusal.test_per_user_reply_names_user_scope ________
+
+self = <tests.test_cfg02b_image_freq_limits.TestBurstCooldownRefusal object at 0x000001B5054EC4D0>
+env = namespace(pg=namespace(pool=<tests.test_image_daily_limit_round1026._Pool object at 0x000001B510FEC650>), state=<tests...e\\OpenCodeScratch\\adminbot-ccef72c25768\\tmp\\pytest-of-main\\pytest-1430\\test_per_user_reply_names_user0\\freq.db')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001B510FEC560>
+
+    @pytest.mark.asyncio
+    async def test_per_user_reply_names_user_scope(self, env, monkeypatch):
+        _enable_freq(env, burst=1, cooldown=300.0, mode="per_user")
+        calls = []
+        monkeypatch.setattr(ig, "generate", _fake_generate_factory(calls))
+        monkeypatch.setattr(telegram_send, "send_photo", _noop_send())
+>       assert (await ig.generate_and_send(object(), CHAT, "p",
+                                           reply_to_message_id=1,
+                                           user_id=USER_A)).ok
+E       TypeError: generate_and_send() got an unexpected keyword argument 'user_id'
+
+tests\test_cfg02b_image_freq_limits.py:410: TypeError
+__________ TestPerUserPerChat.test_per_user_a_exhausted_b_continues ___________
+
+self = <tests.test_cfg02b_image_freq_limits.TestPerUserPerChat object at 0x000001B5054ECB30>
+env = namespace(pg=namespace(pool=<tests.test_image_daily_limit_round1026._Pool object at 0x000001B511077C20>), state=<tests...e\\OpenCodeScratch\\adminbot-ccef72c25768\\tmp\\pytest-of-main\\pytest-1430\\test_per_user_a_exhausted_b_co0\\freq.db')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001B5124FA990>
+
+    @pytest.mark.asyncio
+    async def test_per_user_a_exhausted_b_continues(self, env, monkeypatch):
+        _enable_freq(env, burst=1, cooldown=600.0, mode="per_user")
+        calls = []
+        monkeypatch.setattr(ig, "generate", _fake_generate_factory(calls))
+        monkeypatch.setattr(telegram_send, "send_photo", _noop_send())
+>       assert (await ig.generate_and_send(object(), CHAT, "p",
+                                           reply_to_message_id=1,
+                                           user_id=USER_A)).ok
+E       TypeError: generate_and_send() got an unexpected keyword argument 'user_id'
+
+tests\test_cfg02b_image_freq_limits.py:430: TypeError
+_______________ TestPerUserPerChat.test_per_chat_shared_supply ________________
+
+self = <tests.test_cfg02b_image_freq_limits.TestPerUserPerChat object at 0x000001B5054ED190>
+env = namespace(pg=namespace(pool=<tests.test_image_daily_limit_round1026._Pool object at 0x000001B511075A30>), state=<tests...code\\OpenCodeScratch\\adminbot-ccef72c25768\\tmp\\pytest-of-main\\pytest-1430\\test_per_chat_shared_supply0\\freq.db')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001B5124FBA70>
+
+    @pytest.mark.asyncio
+    async def test_per_chat_shared_supply(self, env, monkeypatch):
+        _enable_freq(env, burst=2, cooldown=600.0, mode="per_chat")
+        calls = []
+        monkeypatch.setattr(ig, "generate", _fake_generate_factory(calls))
+        monkeypatch.setattr(telegram_send, "send_photo", _noop_send())
+>       assert (await ig.generate_and_send(object(), CHAT, "p",
+                                           reply_to_message_id=1,
+                                           user_id=USER_A)).ok
+E       TypeError: generate_and_send() got an unexpected keyword argument 'user_id'
+
+tests\test_cfg02b_image_freq_limits.py:448: TypeError
+____________ TestPerUserPerChat.test_buckets_are_isolated_per_chat ____________
+
+self = <tests.test_cfg02b_image_freq_limits.TestPerUserPerChat object at 0x000001B5054ED7F0>
+env = namespace(pg=namespace(pool=<tests.test_image_daily_limit_round1026._Pool object at 0x000001B510FECFB0>), state=<tests...e\\OpenCodeScratch\\adminbot-ccef72c25768\\tmp\\pytest-of-main\\pytest-1430\\test_buckets_are_isolated_per_0\\freq.db')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001B51107FF50>
+
+    @pytest.mark.asyncio
+    async def test_buckets_are_isolated_per_chat(self, env, monkeypatch):
+        _enable_freq(env, burst=1, cooldown=600.0, mode="per_chat")
+        calls = []
+        monkeypatch.setattr(ig, "generate", _fake_generate_factory(calls))
+        monkeypatch.setattr(telegram_send, "send_photo", _noop_send())
+>       assert (await ig.generate_and_send(object(), CHAT, "p",
+                                           reply_to_message_id=1,
+                                           user_id=USER_A)).ok
+E       TypeError: generate_and_send() got an unexpected keyword argument 'user_id'
+
+tests\test_cfg02b_image_freq_limits.py:469: TypeError
+______ TestPerUserPerChat.test_dm_positive_chat_id_not_mixed_with_daily _______
+
+self = <tests.test_cfg02b_image_freq_limits.TestPerUserPerChat object at 0x000001B5054EDE50>
+env = namespace(pg=namespace(pool=<tests.test_image_daily_limit_round1026._Pool object at 0x000001B510FEE2D0>), state=<tests...e\\OpenCodeScratch\\adminbot-ccef72c25768\\tmp\\pytest-of-main\\pytest-1430\\test_dm_positive_chat_id_not_m0\\freq.db')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001B511076930>
+
+    @pytest.mark.asyncio
+    async def test_dm_positive_chat_id_not_mixed_with_daily(self, env,
+                                                            monkeypatch):
+        """DM (chat_id = user_id, ╨┐╨╛╨╗╨╛╨╢╨╕╤В╨╡╨╗╤М╨╜╤Л╨╣) ╤А╨░╨▒╨╛╤В╨░╨╡╤В; ╤З╨░╤Б╤В╨╛╤В╨╜╤Л╨╣ ╤Б╤З╤С╤В╤З╨╕╨║
+        ╨╜╨╡ ╤Б╨╝╨╡╤И╨░╨╜ ╤Б ╨┤╨╜╨╡╨▓╨╜╨╛╨╣ ╨║╨▓╨╛╤В╨╛╨╣ (daily ╨╕╤Б╨┐╨╛╨╗╤М╨╖╤Г╨╡╤В╤Б╤П ╨╜╨╡╨╖╨░╨▓╨╕╤Б╨╕╨╝╨╛)."""
+        _enable_freq(env, burst=1, cooldown=600.0, mode="per_user")
+        calls = []
+        monkeypatch.setattr(ig, "generate", _fake_generate_factory(calls))
+        monkeypatch.setattr(telegram_send, "send_photo", _noop_send())
+        dm = USER_A
+>       assert (await ig.generate_and_send(object(), dm, "p",
+                                           reply_to_message_id=1,
+                                           user_id=USER_A)).ok
+E       TypeError: generate_and_send() got an unexpected keyword argument 'user_id'
+
+tests\test_cfg02b_image_freq_limits.py:487: TypeError
+____ TestPerUserPerChat.test_unknown_requester_uses_chat_bucket_no_bypass _____
+
+self = <tests.test_cfg02b_image_freq_limits.TestPerUserPerChat object at 0x000001B5054BF500>
+env = namespace(pg=namespace(pool=<tests.test_image_daily_limit_round1026._Pool object at 0x000001B5110C8DA0>), state=<tests...e\\OpenCodeScratch\\adminbot-ccef72c25768\\tmp\\pytest-of-main\\pytest-1430\\test_unknown_requester_uses_ch0\\freq.db')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001B510FEFC80>
+
+    @pytest.mark.asyncio
+    async def test_unknown_requester_uses_chat_bucket_no_bypass(self, env,
+                                                                monkeypatch):
+        """╨Э╨╡╨╕╨╖╨▓╨╡╤Б╤В╨╜╤Л╨╣ requester ╨▓ ╤А╨╡╨╢╨╕╨╝╨╡ per_user ╨╜╨╡ ╨┐╨╛╨╗╤Г╤З╨░╨╡╤В ┬л╨╜╨╛╨▓╤Л╨╣┬╗
+        ╤Б╤З╤С╤В╤З╨╕╨║ тАФ ╤Б╤З╨╕╤В╨░╨╡╤В╤Б╤П ╨╛╨▒╤Й╨╕╨╣ ╨╖╨░╨┐╨░╤Б ╤З╨░╤В╨░ (╨╛╨▒╤Е╨╛╨┤╨░ ╨╜╨╡╤В)."""
+        _enable_freq(env, burst=1, cooldown=600.0, mode="per_user")
+>       assert pt.image_freq_bucket_user("per_user", None) == 0
+               ^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'services.persistent_throttling' has no attribute 'image_freq_bucket_user'
+
+tests\test_cfg02b_image_freq_limits.py:504: AttributeError
+___ TestSemanticsLifecycle.test_off_lifts_pause_immediately_state_preserved ___
+
+self = <tests.test_cfg02b_image_freq_limits.TestSemanticsLifecycle object at 0x000001B5054BF350>
+env = namespace(pg=namespace(pool=<tests.test_image_daily_limit_round1026._Pool object at 0x000001B5110CB350>), state=<tests...e\\OpenCodeScratch\\adminbot-ccef72c25768\\tmp\\pytest-of-main\\pytest-1430\\test_off_lifts_pause_immediate0\\freq.db')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001B510FEEDB0>
+
+    @pytest.mark.asyncio
+    async def test_off_lifts_pause_immediately_state_preserved(self, env,
+                                                               monkeypatch):
+        _enable_freq(env, burst=1, cooldown=600.0, mode="per_chat")
+        calls = []
+        monkeypatch.setattr(ig, "generate", _fake_generate_factory(calls))
+        monkeypatch.setattr(telegram_send, "send_photo", _noop_send())
+>       assert (await ig.generate_and_send(object(), CHAT, "p",
+                                           reply_to_message_id=1,
+                                           user_id=USER_A)).ok
+E       TypeError: generate_and_send() got an unexpected keyword argument 'user_id'
+
+tests\test_cfg02b_image_freq_limits.py:529: TypeError
+_____ TestSemanticsLifecycle.test_config_change_during_pause_keeps_state ______
+
+self = <tests.test_cfg02b_image_freq_limits.TestSemanticsLifecycle object at 0x000001B5054ECE00>
+env = namespace(pg=namespace(pool=<tests.test_image_daily_limit_round1026._Pool object at 0x000001B510FEE6C0>), state=<tests...e\\OpenCodeScratch\\adminbot-ccef72c25768\\tmp\\pytest-of-main\\pytest-1430\\test_config_change_during_paus0\\freq.db')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001B510FED910>
+
+    @pytest.mark.asyncio
+    async def test_config_change_during_pause_keeps_state(self, env,
+                                                          monkeypatch):
+        _enable_freq(env, burst=1, cooldown=600.0, mode="per_chat")
+        calls = []
+        monkeypatch.setattr(ig, "generate", _fake_generate_factory(calls))
+        monkeypatch.setattr(telegram_send, "send_photo", _noop_send())
+>       assert (await ig.generate_and_send(object(), CHAT, "p",
+                                           reply_to_message_id=1,
+                                           user_id=USER_A)).ok
+E       TypeError: generate_and_send() got an unexpected keyword argument 'user_id'
+
+tests\test_cfg02b_image_freq_limits.py:556: TypeError
+_______ TestSemanticsLifecycle.test_mode_switch_does_not_reset_counters _______
+
+self = <tests.test_cfg02b_image_freq_limits.TestSemanticsLifecycle object at 0x000001B5054EE150>
+env = namespace(pg=namespace(pool=<tests.test_image_daily_limit_round1026._Pool object at 0x000001B5105B27B0>), state=<tests...e\\OpenCodeScratch\\adminbot-ccef72c25768\\tmp\\pytest-of-main\\pytest-1430\\test_mode_switch_does_not_rese0\\freq.db')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001B5105B0B60>
+
+    @pytest.mark.asyncio
+    async def test_mode_switch_does_not_reset_counters(self, env,
+                                                       monkeypatch):
+        """╨Я╨╡╤А╨╡╨║╨╗╤О╤З╨╡╨╜╨╕╨╡ scope ╨╜╨╡ ╤Б╨▒╤А╨░╤Б╤Л╨▓╨░╨╡╤В ╤Б╤З╤С╤В╤З╨╕╨║╨╕ (╨╛╨▒╤Е╨╛╨┤ ╨╖╨░╨┐╤А╨╡╤Й╤С╨╜)."""
+        _enable_freq(env, burst=1, cooldown=600.0, mode="per_user")
+        calls = []
+        monkeypatch.setattr(ig, "generate", _fake_generate_factory(calls))
+        monkeypatch.setattr(telegram_send, "send_photo", _noop_send())
+>       assert (await ig.generate_and_send(object(), CHAT, "p",
+                                           reply_to_message_id=1,
+                                           user_id=USER_A)).ok
+E       TypeError: generate_and_send() got an unexpected keyword argument 'user_id'
+
+tests\test_cfg02b_image_freq_limits.py:581: TypeError
+_ TestSemanticsLifecycle.test_state_survives_restart_and_is_shared_between_workers _
+
+self = <tests.test_cfg02b_image_freq_limits.TestSemanticsLifecycle object at 0x000001B5054EE7B0>
+env = namespace(pg=namespace(pool=<tests.test_image_daily_limit_round1026._Pool object at 0x000001B510FEEBA0>), state=<tests...e\\OpenCodeScratch\\adminbot-ccef72c25768\\tmp\\pytest-of-main\\pytest-1430\\test_state_survives_restart_an0\\freq.db')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001B5105B21E0>
+
+    @pytest.mark.asyncio
+    async def test_state_survives_restart_and_is_shared_between_workers(
+            self, env, monkeypatch):
+        _enable_freq(env, burst=1, cooldown=600.0, mode="per_chat")
+        calls = []
+        monkeypatch.setattr(ig, "generate", _fake_generate_factory(calls))
+        monkeypatch.setattr(telegram_send, "send_photo", _noop_send())
+>       assert (await ig.generate_and_send(object(), CHAT, "p",
+                                           reply_to_message_id=1,
+                                           user_id=USER_A)).ok
+E       TypeError: generate_and_send() got an unexpected keyword argument 'user_id'
+
+tests\test_cfg02b_image_freq_limits.py:603: TypeError
+_____ TestSemanticsLifecycle.test_parallel_attempts_consume_exactly_burst _____
+
+self = <tests.test_cfg02b_image_freq_limits.TestSemanticsLifecycle object at 0x000001B5054EEE10>
+env = namespace(pg=namespace(pool=<tests.test_image_daily_limit_round1026._Pool object at 0x000001B510FEFDD0>), state=<tests...e\\OpenCodeScratch\\adminbot-ccef72c25768\\tmp\\pytest-of-main\\pytest-1430\\test_parallel_attempts_consume0\\freq.db')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001B51067A210>
+
+    @pytest.mark.asyncio
+    async def test_parallel_attempts_consume_exactly_burst(self, env,
+                                                           monkeypatch):
+        _enable_freq(env, burst=2, cooldown=600.0, mode="per_chat")
+        calls = []
+        monkeypatch.setattr(ig, "generate", _fake_generate_factory(calls))
+        monkeypatch.setattr(telegram_send, "send_photo", _noop_send())
+        results = await asyncio.gather(*[
+>           ig.generate_and_send(object(), CHAT, "p",
+                                 reply_to_message_id=100 + i,
+                                 user_id=USER_A)
+            for i in range(5)])
+E       TypeError: generate_and_send() got an unexpected keyword argument 'user_id'
+
+tests\test_cfg02b_image_freq_limits.py:624: TypeError
+__ TestSemanticsLifecycle.test_hot_reload_burst_takes_effect_without_restart __
+
+self = <tests.test_cfg02b_image_freq_limits.TestSemanticsLifecycle object at 0x000001B5054EF470>
+env = namespace(pg=namespace(pool=<tests.test_image_daily_limit_round1026._Pool object at 0x000001B5110757F0>), state=<tests...e\\OpenCodeScratch\\adminbot-ccef72c25768\\tmp\\pytest-of-main\\pytest-1430\\test_hot_reload_burst_takes_ef0\\freq.db')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001B51067B380>
+
+    @pytest.mark.asyncio
+    async def test_hot_reload_burst_takes_effect_without_restart(self, env,
+                                                                 monkeypatch):
+        _enable_freq(env, burst=3, cooldown=600.0, mode="per_chat")
+        calls = []
+        monkeypatch.setattr(ig, "generate", _fake_generate_factory(calls))
+        monkeypatch.setattr(telegram_send, "send_photo", _noop_send())
+>       assert (await ig.generate_and_send(object(), CHAT, "p",
+                                           reply_to_message_id=1,
+                                           user_id=USER_A)).ok
+E       TypeError: generate_and_send() got an unexpected keyword argument 'user_id'
+
+tests\test_cfg02b_image_freq_limits.py:638: TypeError
+_____ TestUserPathsAndCovers.test_direct_and_tool_paths_share_one_limiter _____
+
+self = <tests.test_cfg02b_image_freq_limits.TestUserPathsAndCovers object at 0x000001B5054EFB60>
+env = namespace(pg=namespace(pool=<tests.test_image_daily_limit_round1026._Pool object at 0x000001B5124FA450>), state=<tests...e\\OpenCodeScratch\\adminbot-ccef72c25768\\tmp\\pytest-of-main\\pytest-1430\\test_direct_and_tool_paths_sha0\\freq.db')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001B51107D1C0>
+
+    @pytest.mark.asyncio
+    async def test_direct_and_tool_paths_share_one_limiter(self, env,
+                                                           monkeypatch):
+        _enable_freq(env, burst=1, cooldown=600.0, mode="per_chat")
+        calls = []
+        monkeypatch.setattr(ig, "generate", _fake_generate_factory(calls))
+        monkeypatch.setattr(telegram_send, "send_photo", _noop_send())
+        # direct-╨┐╤Г╤В╤М (source="direct")
+>       assert (await ig.generate_and_send(object(), CHAT, "p",
+                                           reply_to_message_id=1,
+                                           source="direct",
+                                           user_id=USER_A)).ok
+E       TypeError: generate_and_send() got an unexpected keyword argument 'user_id'
+
+tests\test_cfg02b_image_freq_limits.py:659: TypeError
+________ TestUserPathsAndCovers.test_summary_cover_path_is_not_charged ________
+
+self = <tests.test_cfg02b_image_freq_limits.TestUserPathsAndCovers object at 0x000001B5054F4200>
+env = namespace(pg=namespace(pool=<tests.test_image_daily_limit_round1026._Pool object at 0x000001B511074500>), state=<tests...e\\OpenCodeScratch\\adminbot-ccef72c25768\\tmp\\pytest-of-main\\pytest-1430\\test_summary_cover_path_is_not0\\freq.db')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001B510299C70>
+tmp_path = WindowsPath('C:/Users/main/.config/opencode/OpenCodeScratch/adminbot-ccef72c25768/tmp/pytest-of-main/pytest-1430/test_summary_cover_path_is_not0')
+
+    @pytest.mark.asyncio
+    async def test_summary_cover_path_is_not_charged(self, env, monkeypatch,
+                                                     tmp_path):
+        """╨Ъ╨╛╨╜╤В╤Г╤А ╨╛╨▒╨╗╨╛╨╢╨╡╨║ (generate_image_verbose) ╨╜╨╡ ╨┐╤А╨╛╤Е╨╛╨┤╨╕╤В ╨┐╨╛╨╗╤М╨╖╨╛╨▓╨░╤В╨╡╨╗╤М╤Б╨║╨╕╨╣
+        ╤З╨░╤Б╤В╨╛╤В╨╜╤Л╨╣ ╨╗╨╕╨╝╨╕╤В╨╡╤А ╨╜╨╕ per-user, ╨╜╨╕ per-chat."""
+        _enable_freq(env, burst=1, cooldown=600.0, mode="per_chat")
+    
+        async def _budget_ok(chat_id):
+            return True
+    
+        monkeypatch.setattr(ig, "_consume_budget", _budget_ok)
+        monkeypatch.setattr(ig, "_write_temp_image",
+                            lambda content: str(tmp_path / "cover.jpg"))
+    
+        async def _fake_generate(prompt, **kw):
+            return ig.GenerationResult(ok=True, reason="ok", content=b"cover")
+    
+        monkeypatch.setattr(ig, "generate", _fake_generate)
+        path, reason = await ig.generate_image_verbose(
+            "cover prompt", chat_id=CHAT, correlation_id="cover-1")
+        assert reason == "ok" and path
+>       assert await _throttle_rows(env.db) == []   # ╨╖╨░╤А╤П╨┤ ╨╜╨╡ ╨╕╨╖╤А╨░╤Б╤Е╨╛╨┤╨╛╨▓╨░╨╜
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\test_cfg02b_image_freq_limits.py:693: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+db = <services.database.DatabaseService object at 0x000001B5110744A0>
+
+    async def _throttle_rows(db) -> list[tuple]:
+        """╨б╨╜╨╕╨╝╨╛╨║ ╤Б╤В╤А╨╛╨║ throttle_state scope='image_freq' (read-only)."""
+        cur = await db.db.execute(
+            "SELECT chat_id, user_id, burst_left, last_ts FROM throttle_state "
+>           "WHERE scope = ?", (pt.IMAGE_FREQ_SCOPE,))
+                                ^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'services.persistent_throttling' has no attribute 'IMAGE_FREQ_SCOPE'
+
+tests\test_cfg02b_image_freq_limits.py:134: AttributeError
+_____ TestReplayAndFailures.test_replay_does_not_consume_frequency_twice ______
+
+self = <tests.test_cfg02b_image_freq_limits.TestReplayAndFailures object at 0x000001B5054F4860>
+env = namespace(pg=namespace(pool=<tests.test_image_daily_limit_round1026._Pool object at 0x000001B5110C8950>), state=<tests...e\\OpenCodeScratch\\adminbot-ccef72c25768\\tmp\\pytest-of-main\\pytest-1430\\test_replay_does_not_consume_f0\\freq.db')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001B5103AF0B0>
+
+    @pytest.mark.asyncio
+    async def test_replay_does_not_consume_frequency_twice(self, env,
+                                                           monkeypatch):
+        _enable_freq(env, burst=3, cooldown=600.0, mode="per_chat")
+        calls = []
+        monkeypatch.setattr(ig, "generate", _fake_generate_factory(calls))
+        monkeypatch.setattr(telegram_send, "send_photo", _noop_send())
+>       first = await ig.generate_and_send(object(), CHAT, "p",
+                                          reply_to_message_id=1,
+                                          user_id=USER_A)
+E       TypeError: generate_and_send() got an unexpected keyword argument 'user_id'
+
+tests\test_cfg02b_image_freq_limits.py:714: TypeError
+____ TestReplayAndFailures.test_provider_error_keeps_charge_quota_returned ____
+
+self = <tests.test_cfg02b_image_freq_limits.TestReplayAndFailures object at 0x000001B5054F4EC0>
+env = namespace(pg=namespace(pool=<tests.test_image_daily_limit_round1026._Pool object at 0x000001B510FEF590>), state=<tests...e\\OpenCodeScratch\\adminbot-ccef72c25768\\tmp\\pytest-of-main\\pytest-1430\\test_provider_error_keeps_char0\\freq.db')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001B51059F050>
+
+    @pytest.mark.asyncio
+    async def test_provider_error_keeps_charge_quota_returned(self, env,
+                                                              monkeypatch):
+        """╨Я╤А╨╛╨▓╨░╨╣╨┤╨╡╤А ╤Г╨┐╨░╨╗: ╨┤╨╜╨╡╨▓╨╜╨░╤П ╨║╨▓╨╛╤В╨░ ╨▓╨╛╨╖╨▓╤А╨░╤Й╨╡╨╜╨░ (release), ╨╖╨░╤А╤П╨┤ ╤З╨░╤Б╤В╨╛╤В╤Л
+        ╨Э╨Х ╨▓╨╛╨╖╨▓╤А╨░╤Й╨░╨╡╤В╤Б╤П (╨▓╨╛╤Б╤Б╤В╨░╨╜╨╛╨▓╨╗╨╡╨╜╨╕╨╡ ╤В╨╛╨╗╤М╨║╨╛ ╨┐╨╛ ╨▓╤А╨╡╨╝╨╡╨╜╨╕) тАФ ╨┐╨╛╨╗╨╕╤В╨╕╨║╨░
+        ╨╖╨░╤Д╨╕╨║╤Б╨╕╤А╨╛╨▓╨░╨╜╨░ ╤В╨╡╤Б╤В╨╛╨╝."""
+        _enable_freq(env, burst=2, cooldown=600.0, mode="per_chat")
+        calls = []
+        monkeypatch.setattr(ig, "generate",
+                            _fake_generate_factory(calls, ok=False,
+                                                   reason="timeout"))
+>       failed = await ig.generate_and_send(object(), CHAT, "p",
+                                           reply_to_message_id=1,
+                                           user_id=USER_A)
+E       TypeError: generate_and_send() got an unexpected keyword argument 'user_id'
+
+tests\test_cfg02b_image_freq_limits.py:737: TypeError
+__________ TestReplayAndFailures.test_delivery_failure_keeps_charge ___________
+
+self = <tests.test_cfg02b_image_freq_limits.TestReplayAndFailures object at 0x000001B5054BEE70>
+env = namespace(pg=namespace(pool=<tests.test_image_daily_limit_round1026._Pool object at 0x000001B51067A5A0>), state=<tests...e\\OpenCodeScratch\\adminbot-ccef72c25768\\tmp\\pytest-of-main\\pytest-1430\\test_delivery_failure_keeps_ch0\\freq.db')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001B5110CAE70>
+
+    @pytest.mark.asyncio
+    async def test_delivery_failure_keeps_charge(self, env, monkeypatch):
+        _enable_freq(env, burst=2, cooldown=600.0, mode="per_chat")
+        calls = []
+        monkeypatch.setattr(ig, "generate", _fake_generate_factory(calls))
+    
+        async def _boom(*a, **kw):
+            raise RuntimeError("telegram down")
+    
+        monkeypatch.setattr(telegram_send, "send_photo", _boom)
+>       res = await ig.generate_and_send(object(), CHAT, "p",
+                                        reply_to_message_id=1,
+                                        user_id=USER_A)
+E       TypeError: generate_and_send() got an unexpected keyword argument 'user_id'
+
+tests\test_cfg02b_image_freq_limits.py:757: TypeError
+__________ TestReplayAndFailures.test_both_limits_details_list_both ___________
+
+self = <tests.test_cfg02b_image_freq_limits.TestReplayAndFailures object at 0x000001B5054EF530>
+env = namespace(pg=namespace(pool=<tests.test_image_daily_limit_round1026._Pool object at 0x000001B5105B3440>), state=<tests...e\\OpenCodeScratch\\adminbot-ccef72c25768\\tmp\\pytest-of-main\\pytest-1430\\test_both_limits_details_list_0\\freq.db')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001B5110CB9E0>
+
+    @pytest.mark.asyncio
+    async def test_both_limits_details_list_both(self, env, monkeypatch):
+        """╨Ю╨▒╨░ ╨╗╨╕╨╝╨╕╤В╨░ ╨╕╤Б╤З╨╡╤А╨┐╨░╨╜╤Л тЖТ ╤Б╨╛╨╛╨▒╤Й╨╡╨╜╨╕╨╡ ╤Б╨╛╨┤╨╡╤А╨╢╨╕╤В ╨╛╨▒╨╡ ╨┐╤А╨╕╤З╨╕╨╜╤Л ╨╕ ╤Б╤А╨╛╨║╨╕."""
+        _enable_freq(env, burst=1, cooldown=600.0, mode="per_chat")
+        calls = []
+        monkeypatch.setattr(ig, "generate", _fake_generate_factory(calls))
+        monkeypatch.setattr(telegram_send, "send_photo", _noop_send())
+>       assert (await ig.generate_and_send(object(), CHAT, "p",
+                                           reply_to_message_id=1,
+                                           user_id=USER_A)).ok
+E       TypeError: generate_and_send() got an unexpected keyword argument 'user_id'
+
+tests\test_cfg02b_image_freq_limits.py:771: TypeError
+_____ TestUsageFacts.test_facts_report_activity_scope_source_availability _____
+
+self = <tests.test_cfg02b_image_freq_limits.TestUsageFacts object at 0x000001B5054EE2D0>
+env = namespace(pg=namespace(pool=<tests.test_image_daily_limit_round1026._Pool object at 0x000001B51064D160>), state=<tests...e\\OpenCodeScratch\\adminbot-ccef72c25768\\tmp\\pytest-of-main\\pytest-1430\\test_facts_report_activity_sco0\\freq.db')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001B510FEC710>
+
+    @pytest.mark.asyncio
+    async def test_facts_report_activity_scope_source_availability(
+            self, env, monkeypatch):
+        _enable_freq(env, burst=2, cooldown=600.0, mode="per_user")
+        monkeypatch.setattr(telegram_send, "send_photo", _noop_send())
+        calls = []
+        monkeypatch.setattr(ig, "generate", _fake_generate_factory(calls))
+>       assert (await ig.generate_and_send(object(), CHAT, "p",
+                                           reply_to_message_id=1,
+                                           user_id=USER_A)).ok
+E       TypeError: generate_and_send() got an unexpected keyword argument 'user_id'
+
+tests\test_cfg02b_image_freq_limits.py:802: TypeError
+____________ TestUsageFacts.test_facts_are_honest_when_not_active _____________
+
+self = <tests.test_cfg02b_image_freq_limits.TestUsageFacts object at 0x000001B5054EE090>
+env = namespace(pg=namespace(pool=<tests.test_image_daily_limit_round1026._Pool object at 0x000001B51064EFC0>), state=<tests...e\\OpenCodeScratch\\adminbot-ccef72c25768\\tmp\\pytest-of-main\\pytest-1430\\test_facts_are_honest_when_not0\\freq.db')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001B5105B34A0>
+
+    @pytest.mark.asyncio
+    async def test_facts_are_honest_when_not_active(self, env, monkeypatch):
+        # ╨Ч╨░╨▓╨╛╨┤╤Б╨║╨╛╨╣ OFF: ╨░╨║╤В╨╕╨▓╨╜╨╛╤Б╤В╤М ╤З╨╡╤Б╤В╨╜╨╛ ╨▓╤Л╨║╨╗╤О╤З╨╡╨╜╨░.
+>       summary = await wb.image_usage_summary(None, CHAT,
+                                               viewer_user_id=USER_A)
+E       TypeError: image_usage_summary() got an unexpected keyword argument 'viewer_user_id'
+
+tests\test_cfg02b_image_freq_limits.py:830: TypeError
+________________ TestUsageFacts.test_day_summary_passes_viewer ________________
+
+self = <tests.test_cfg02b_image_freq_limits.TestUsageFacts object at 0x000001B5054F4770>
+env = namespace(pg=namespace(pool=<tests.test_image_daily_limit_round1026._Pool object at 0x000001B51064D7F0>), state=<tests...e\\OpenCodeScratch\\adminbot-ccef72c25768\\tmp\\pytest-of-main\\pytest-1430\\test_day_summary_passes_viewer0\\freq.db')
+
+    @pytest.mark.asyncio
+    async def test_day_summary_passes_viewer(self, env):
+        _enable_freq(env, burst=2, cooldown=600.0, mode="per_user")
+>       summary = await wb.get_day_summary(env.pg, viewer_user_id=USER_B)
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       TypeError: get_day_summary() got an unexpected keyword argument 'viewer_user_id'
+
+tests\test_cfg02b_image_freq_limits.py:853: TypeError
+___________ TestUiContract.test_js_declares_keys_labels_and_helpers ___________
+
+self = <tests.test_cfg02b_image_freq_limits.TestUiContract object at 0x000001B5054F5820>
+
+    def test_js_declares_keys_labels_and_helpers(self):
+        for token in ("IMAGE_FREQ_ENABLED_KEY", "IMAGE_FREQ_BURST_KEY",
+                      "IMAGE_FREQ_COOLDOWN_KEY", "IMAGE_FREQ_MODE_KEY",
+                      "'limits.image_freq_limit_enabled'",
+                      "'limits.image_freq_limit_mode'",
+                      "imageFreqSettingsHidden", "imageFreqFacts",
+                      "imageFreqStateLabel", "imageFreqRemainingText",
+                      "imageFreqNextLabel"):
+>           assert token in JS, token
+E           AssertionError: IMAGE_FREQ_ENABLED_KEY
+E           assert 'IMAGE_FREQ_ENABLED_KEY' in "\ufeff/* Epic 85 (84.7, T-620/T-621/T-632/T-639/T-640/T-644) тАФ ╤Д╤А╨╛╨╜╤В╨╡╨╜╨┤ TMA-╨░╨┤╨╝╨╕╨╜╨║╨╕.\n * Vue 3 Options API (global bu...(status, message) {\n    this.status = status;\n    this.message = message;\n    this.name = 'ApiError';\n  }\n})();\n"
+
+tests\test_cfg02b_image_freq_limits.py:870: AssertionError
+_____________ TestUiContract.test_js_labels_are_human_and_factual _____________
+
+self = <tests.test_cfg02b_image_freq_limits.TestUiContract object at 0x000001B5054F5D00>
+
+    def test_js_labels_are_human_and_factual(self):
+        m = re.search(r"'limits\.image_freq_limit_enabled': \{\s*title: "
+                      r"'([^']+)'", JS)
+>       assert m and "╤З╨░╤Б╤В╨╛╤В" in m.group(1).lower()
+E       assert (None)
+
+tests\test_cfg02b_image_freq_limits.py:875: AssertionError
+_______ TestUiContract.test_ui_marks_facts_block_and_dependent_settings _______
+
+self = <tests.test_cfg02b_image_freq_limits.TestUiContract object at 0x000001B5054F61E0>
+
+    def test_ui_marks_facts_block_and_dependent_settings(self):
+        for marker in ("data-image-freq-facts", "data-image-freq-active",
+                       "data-image-freq-mode", "data-image-freq-remaining",
+                       "data-image-freq-source", "data-image-freq-next",
+                       "data-image-freq-note"):
+>           assert marker in HTML, marker
+E           AssertionError: data-image-freq-facts
+E           assert 'data-image-freq-facts' in '<!DOCTYPE html>\n<html lang="ru">\n<head>\n  <meta charset="utf-8">\n  <!-- hotfix4 (T-2516, ADR-1025-8 D2): viewport...afe-inline\'/nonce/hash. -->\n  <script src="/static/telegram-init.js?v=__APP_VERSION__"></script>\n</body>\n</html>\n'
+
+tests\test_cfg02b_image_freq_limits.py:896: AssertionError
+____________ TestUiContract.test_mode_is_rendered_as_single_select ____________
+
+self = <tests.test_cfg02b_image_freq_limits.TestUiContract object at 0x000001B5054F66C0>
+
+    def test_mode_is_rendered_as_single_select(self):
+        assert "widget === 'select'" in HTML        # ╨╛╨▒╤Й╨╕╨╣ select-╤А╨╡╨╜╨┤╨╡╤А
+>       assert "IMAGE_FREQ_MODE_KEY" in JS
+E       assert 'IMAGE_FREQ_MODE_KEY' in "\ufeff/* Epic 85 (84.7, T-620/T-621/T-632/T-639/T-640/T-644) тАФ ╤Д╤А╨╛╨╜╤В╨╡╨╜╨┤ TMA-╨░╨┤╨╝╨╕╨╜╨║╨╕.\n * Vue 3 Options API (global bu...(status, message) {\n    this.status = status;\n    this.message = message;\n    this.name = 'ApiError';\n  }\n})();\n"
+
+tests\test_cfg02b_image_freq_limits.py:902: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_cfg02b_image_freq_limits.py::TestCatalogAndDefaults::test_factory_defaults_off_and_per_user
+FAILED tests/test_cfg02b_image_freq_limits.py::TestCatalogAndDefaults::test_catalog_keys_shapes
+FAILED tests/test_cfg02b_image_freq_limits.py::TestCatalogAndDefaults::test_mode_is_single_select_with_two_options
+FAILED tests/test_cfg02b_image_freq_limits.py::TestCatalogAndDefaults::test_resolver_paths_source_and_normalization
+FAILED tests/test_cfg02b_image_freq_limits.py::TestFactoryOff::test_off_does_not_limit_and_writes_nothing
+FAILED tests/test_cfg02b_image_freq_limits.py::TestFactoryOff::test_off_state_is_not_applied_even_when_saved
+FAILED tests/test_cfg02b_image_freq_limits.py::TestBurstCooldownRefusal::test_third_attempt_denied_before_paid_call
+FAILED tests/test_cfg02b_image_freq_limits.py::TestBurstCooldownRefusal::test_after_pause_generation_allowed_again
+FAILED tests/test_cfg02b_image_freq_limits.py::TestBurstCooldownRefusal::test_bot_reply_carries_factual_remaining
+FAILED tests/test_cfg02b_image_freq_limits.py::TestBurstCooldownRefusal::test_per_user_reply_names_user_scope
+FAILED tests/test_cfg02b_image_freq_limits.py::TestPerUserPerChat::test_per_user_a_exhausted_b_continues
+FAILED tests/test_cfg02b_image_freq_limits.py::TestPerUserPerChat::test_per_chat_shared_supply
+FAILED tests/test_cfg02b_image_freq_limits.py::TestPerUserPerChat::test_buckets_are_isolated_per_chat
+FAILED tests/test_cfg02b_image_freq_limits.py::TestPerUserPerChat::test_dm_positive_chat_id_not_mixed_with_daily
+FAILED tests/test_cfg02b_image_freq_limits.py::TestPerUserPerChat::test_unknown_requester_uses_chat_bucket_no_bypass
+FAILED tests/test_cfg02b_image_freq_limits.py::TestSemanticsLifecycle::test_off_lifts_pause_immediately_state_preserved
+FAILED tests/test_cfg02b_image_freq_limits.py::TestSemanticsLifecycle::test_config_change_during_pause_keeps_state
+FAILED tests/test_cfg02b_image_freq_limits.py::TestSemanticsLifecycle::test_mode_switch_does_not_reset_counters
+FAILED tests/test_cfg02b_image_freq_limits.py::TestSemanticsLifecycle::test_state_survives_restart_and_is_shared_between_workers
+FAILED tests/test_cfg02b_image_freq_limits.py::TestSemanticsLifecycle::test_parallel_attempts_consume_exactly_burst
+FAILED tests/test_cfg02b_image_freq_limits.py::TestSemanticsLifecycle::test_hot_reload_burst_takes_effect_without_restart
+FAILED tests/test_cfg02b_image_freq_limits.py::TestUserPathsAndCovers::test_direct_and_tool_paths_share_one_limiter
+FAILED tests/test_cfg02b_image_freq_limits.py::TestUserPathsAndCovers::test_summary_cover_path_is_not_charged
+FAILED tests/test_cfg02b_image_freq_limits.py::TestReplayAndFailures::test_replay_does_not_consume_frequency_twice
+FAILED tests/test_cfg02b_image_freq_limits.py::TestReplayAndFailures::test_provider_error_keeps_charge_quota_returned
+FAILED tests/test_cfg02b_image_freq_limits.py::TestReplayAndFailures::test_delivery_failure_keeps_charge
+FAILED tests/test_cfg02b_image_freq_limits.py::TestReplayAndFailures::test_both_limits_details_list_both
+FAILED tests/test_cfg02b_image_freq_limits.py::TestUsageFacts::test_facts_report_activity_scope_source_availability
+FAILED tests/test_cfg02b_image_freq_limits.py::TestUsageFacts::test_facts_are_honest_when_not_active
+FAILED tests/test_cfg02b_image_freq_limits.py::TestUsageFacts::test_day_summary_passes_viewer
+FAILED tests/test_cfg02b_image_freq_limits.py::TestUiContract::test_js_declares_keys_labels_and_helpers
+FAILED tests/test_cfg02b_image_freq_limits.py::TestUiContract::test_js_labels_are_human_and_factual
+FAILED tests/test_cfg02b_image_freq_limits.py::TestUiContract::test_ui_marks_facts_block_and_dependent_settings
+FAILED tests/test_cfg02b_image_freq_limits.py::TestUiContract::test_mode_is_rendered_as_single_select
+34 failed, 1 passed in 6.79s

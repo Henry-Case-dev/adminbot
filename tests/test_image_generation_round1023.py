@@ -626,8 +626,11 @@ class TestErrors:
 
         async def fake_send(bot, chat_id, prompt, *,
                             reply_to_message_id=None, correlation_id=None,
-                            source="direct"):
+                            source="direct", user_id=None):
+            # CFG-02B (§02B.3): генератор принимает участника (режим per_user);
+            # этот тест проверяет прежний контракт — correlation_id.
             captured["correlation_id"] = correlation_id
+            captured["user_id"] = user_id
             return ig.GenerationResult(ok=True, content=b"x")
 
         monkeypatch.setattr(ig, "generate_and_send", fake_send)

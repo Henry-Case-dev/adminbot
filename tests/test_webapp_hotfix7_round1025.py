@@ -211,11 +211,11 @@ class TestAreaD_FlagsAcceptance:
 
     def test_catalog_invariants(self):
         from services import param_catalog as pc
-        assert len(pc.REGISTRY) == 575
+        assert len(pc.REGISTRY) == 579
         assert len(pc.GROUPS) == 120
         assert len(pc._TAB_BY_GROUP) == 118
         assert len(pc.TAB_RULES) == 23
-        assert len({f.name for f in dataclasses.fields(Settings)}) == 454
+        assert len({f.name for f in dataclasses.fields(Settings)}) == 458
 
     def test_matrix_five_modes_and_probes(self):
         for mode in ("desktop_normal", "desktop_fullscreen", "tablet",

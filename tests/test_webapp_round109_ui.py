@@ -227,8 +227,8 @@ class TestCatalog109:
         # 10.24 (F21/ADR-1024-22 D8): +1/+1/+1 → 459/98/96/20/418.
         # v6.3 B01 (W1-CHAT-INTEL): +10 REGISTRY (INITIATIVE_*), GROUPS/
         # _TAB_BY_GROUP/TAB_RULES/Settings без роста → 571/120/118/23/454.
-        assert len(pc.REGISTRY) == 575
+        assert len(pc.REGISTRY) == 579
         assert len(pc.GROUPS) == 120
         assert len(pc._TAB_BY_GROUP) == 118
         assert len(pc.TAB_RULES) == 23
-        assert len({f.name for f in dataclasses.fields(Settings)}) == 454
+        assert len({f.name for f in dataclasses.fields(Settings)}) == 458

@@ -410,6 +410,16 @@ async def _image_quota(chat_id: int | None) -> tuple[str, str]:
         return "", "quota_unavailable"
 
 
+async def image_quota_state(chat_id: int | None) -> tuple[str, str]:
+    """CFG-02B (§02B.7): публичный доступ к существующей проверке квоты.
+
+    ``(''|'disabled'|'quota_exhausted', detail)`` — «о что реально
+    споткнётся резерв». Нужен отказу по частотному лимиту: при исчерпании
+    ОБОИХ лимитов сообщение обязано показать обе истинные причины и оба
+    срока (второй копии правил квоты не создаётся)."""
+    return await _image_quota(chat_id)
+
+
 async def _build_image_generation(chat_id: int | None,
                                   now: float | None = None
                                   ) -> CapabilityState:
@@ -759,6 +769,10 @@ _FAILURE_CODE_BY_REASON: dict[str, str] = {
     "delivery_unknown": "delivery_failed",
     "budget": "quota_exhausted",
     "financial_limit_reached": "quota_exhausted",
+    # CFG-02B (§02B.6): отказ короткой паузы частотного лимита — отдельный
+    # редактируемый текст (`message.image_failure.freq_limited`), НЕ «квота»
+    # и НЕ «провайдер прилёг» (истина: слишком часто просят).
+    "freq_limit": "freq_limited",
     "financial_limit_disabled": "disabled",
     "module_disabled": "disabled",
     "image_module_off": "disabled",
@@ -950,4 +964,5 @@ __all__ = [
     "failure_message_for_reason", "failure_code_for_reason",
     "failure_code_for_status", "clarify_text", "message_block_id",
     "CLARIFY_BLOCK_ID", "notice_block", "emit_capability_event",
+    "image_quota_state",
 ]

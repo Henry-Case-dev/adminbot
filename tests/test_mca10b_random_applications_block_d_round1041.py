@@ -263,7 +263,7 @@ def test_blockE_catalog_random_uses_keys():
     memory_random: per-chat, не-секреты, все default ON (read-path
     fail-open True); GROUPS/_TAB_BY_GROUP/TAB_RULES без роста."""
     from services import param_catalog as pc
-    assert len(pc.REGISTRY) == 575
+    assert len(pc.REGISTRY) == 579
     assert len(pc.GROUPS) == 120
     assert len(pc._TAB_BY_GROUP) == 118
     assert len(pc.TAB_RULES) == 23
@@ -298,19 +298,21 @@ def test_blockE_f8_check_green_and_baselines():
     # live 560 (538 + 9 direct_l1 + 13 stories/character); gen --check
     # печатает текущий счётчик реестра. SOUL-1 W5: 572 → 575 (+3 PG-only
     # ключа инициативы: мягкие цели ×2 + ось реальной отправки).
-    assert "575" in res.stdout
+    # CFG-02B (19.10.2026, §02B.1/§02B.2, ADR-1031-1): 575 → 579 (+4
+    # limits_images: тумблер частоты + серия + пауза + режим счёта).
+    assert "579" in res.stdout
     fx = json.loads((ROOT / "tests/fixtures/round1025/f8_baseline.json")
                     .read_text(encoding="utf-8"))
-    assert fx["counts"]["REGISTRY"] == 575
+    assert fx["counts"]["REGISTRY"] == 579
     assert fx["counts"]["GROUPS"] == 120
     assert fx["counts"]["TAB_BY_GROUP"] == 118
     assert fx["counts"]["TAB_RULES"] == 23
     # v6.3 B01 (W1-CHAT-INTEL): delta 150→160 (+10 INITIATIVE_*, все new).
     # SOUL-1 mobile-prompts (2026-10-16): delta 160→161 (+1 L1 Planner).
-    assert fx["counts"]["delta"] == 164   # F5: +1; v6.3 B01: +10 → 160; SOUL-1 mobile-prompts: +1 → 161
+    assert fx["counts"]["delta"] == 168   # F5: +1; v6.3 B01: +10 → 160; SOUL-1 mobile-prompts: +1 → 161
     cb = json.loads((ROOT / "tests/fixtures/round1025/catalog_baseline.json")
                     .read_text(encoding="utf-8"))
-    assert len(cb["registry_keys"]) == 575
+    assert len(cb["registry_keys"]) == 579
     for key in ("memory.random_uses_belief_review",
                 "memory.random_uses_ui_visualization"):
         assert key in cb["registry_keys"]

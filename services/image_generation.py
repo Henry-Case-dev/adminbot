@@ -33,6 +33,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import dataclasses
 import logging
 import os
 import random
@@ -153,13 +154,18 @@ class GenerationResult:
 
     ASAP 7 (§2.2): ``meta`` — machine-readable diagnostics классификации
     (``prompt_limit`` {value, unit} / ``prompt_limit_unknown``); только
-    enum/числа, полный prompt/тело ответа сюда не попадают (R17)."""
+    enum/числа, полный prompt/тело ответа сюда не попадают (R17).
+
+    CFG-02B (§02B.6): ``retry_after_seconds`` — ФАКТИЧЕСКИЙ остаток короткой
+    паузы частотного лимита на момент отказа (fresh на каждую попытку):
+    заполняется только отказом ``freq_limit`` (0/None у остальных)."""
 
     ok: bool
     reason: str = ""
     content: bytes | None = None
     filename: str = "image.jpg"
     meta: dict = field(default_factory=dict)
+    retry_after_seconds: float | None = None
 
 
 @dataclass
@@ -282,6 +288,160 @@ def image_quota_reset_note(chat_id: int | None) -> str:
                 + (f" ({tz_name})." if tz_name else "."))
     except Exception:      # pragma: no cover - диагностика не рвёт отказ
         return ""
+
+
+# ── CFG-02B (§02B.3–§02B.7, ADR-1031-1): частотный лимит генераций ─────────
+# Единый контур для ВСЕХ пользовательских путей (ключевик/direct-пре-гейт,
+# L1/Tool Router, повторный вызов): проверка живёт в `generate_and_send`
+# (единственная точка перед платным вызовом, второй image pipeline не
+# создаётся). Контур обложек Summary (`generate_image_verbose` вызывается
+# cover-пipeline/summary_generator напрямую) НЕ проходит этот лимитер
+# (§02B.5) — полная двусторонняя изоляция учёта — CFG-02C.
+FREQ_REASON = "freq_limit"
+
+
+@dataclasses.dataclass(frozen=True)
+class ImageFreqDecision:
+    """Исход частотной проверки (§02B.4/§02B.6).
+
+    ``applied=False`` — лимитер фактически не действует (заводской OFF,
+    master-рубильник бюджетов OFF, нет runtime-БД) и генерация НЕ замедляется;
+    ``allowed=False`` — отказ ДО платного вызова с остатком паузы."""
+
+    applied: bool
+    allowed: bool
+    remaining_seconds: float = 0.0
+    limits: object | None = None
+    reason: str = ""      # ok | denied | switch_off | master_off | no_db
+
+
+async def image_freq_config(chat_id: int | None):
+    """(limits, reason) — эффективный конфиг и фактическая активность лимита.
+
+    Активность = тумблер ON AND master-рубильник бюджетов ON AND доступна
+    runtime-БД состояния. Master OFF снимает enforcement (учёт/состояние НЕ
+    сбрасываются) — паритет с `image_reserve_mode` (master → legacy).
+    Публичная точка для гейта генерации и витрины «Лимиты генерации»
+    (§02B.8), чтобы UI не заявлял действующее ограничение при OFF."""
+    from services import persistent_throttling as pt
+    limits = await pt.resolve_image_freq_limits(chat_id)
+    if not limits.enabled:
+        return limits, "switch_off"
+    if pt.image_freq_db() is None:
+        return limits, "no_db"
+    try:
+        from services import budget_gate
+        if not await budget_gate.budgets_enabled(chat_id):
+            return limits, "master_off"
+    except Exception:      # fail-open ON — лимитер не роняет ход
+        pass
+    return limits, "ok"
+
+
+async def image_freq_state(chat_id: int | None,
+                           user_id: int | None) -> ImageFreqDecision:
+    """READ-ONLY проверка серии перед журналом/дневной квотой (§02B.4).
+
+    Нужна, чтобы отказ по активной паузе не создавал запись в дневном
+    журнале и не расходовал суточную квоту. Ничего не списывает."""
+    from services import persistent_throttling as pt
+    limits, reason = await image_freq_config(chat_id)
+    if reason != "ok":
+        return ImageFreqDecision(applied=False, allowed=True, limits=limits,
+                                 reason=reason)
+    snap = await pt.image_freq_snapshot(chat_id, user_id, limits=limits)
+    if snap.remaining_seconds > 0:
+        return ImageFreqDecision(applied=True, allowed=False,
+                                 remaining_seconds=snap.remaining_seconds,
+                                 limits=limits, reason="denied")
+    return ImageFreqDecision(applied=True, allowed=True, limits=limits,
+                             reason="ok")
+
+
+async def image_freq_consume(chat_id: int | None, user_id: int | None, *,
+                             limits=None) -> ImageFreqDecision:
+    """Атомарное списание заряда серии ПЕРЕД платной попыткой (§02B.4).
+
+    `limits` — уже резолвнутый конфиг (переиспользуется из read-only
+    проверки); None → резолвится здесь. Отказ НИЧЕГО не списывает."""
+    from services import persistent_throttling as pt
+    if limits is None:
+        limits, reason = await image_freq_config(chat_id)
+        if reason != "ok":
+            return ImageFreqDecision(applied=False, allowed=True,
+                                     limits=limits, reason=reason)
+    allowed, remaining = await pt.image_freq_allow(chat_id, user_id,
+                                                   limits=limits)
+    return ImageFreqDecision(applied=True, allowed=allowed,
+                             remaining_seconds=remaining, limits=limits,
+                             reason="ok" if allowed else "denied")
+
+
+def image_freq_remaining_note(seconds: float | None, mode: str = "") -> str:
+    """CFG-02B (§02B.6): ФАКТ-строка отказа — свежий остаток короткой паузы.
+
+    «Лимит частоты: снова можно через 8 мин 20 сек (для тебя).» Формат
+    остатка — существующий `format_remaining_time` (тот же, что в CFG-01);
+    TZ не участвует (пауза — относительное время, не суточный сброс).
+    Речевая форма (шаблон) — редактируемый Factory Default
+    (`message.image_failure.freq_limited`); здесь только факт (R17)."""
+    try:
+        rem = float(seconds)
+    except (TypeError, ValueError):
+        return ""
+    if rem <= 0:
+        return ""
+    from services.smartmodule_throttling import format_remaining_time
+    scope = ("для тебя" if str(mode or "per_user") == "per_user"
+             else "на весь чат")
+    return (f"Лимит частоты: снова можно через "
+            f"{format_remaining_time(rem)} ({scope}).")
+
+
+async def image_denial_details(result, chat_id: int | None, *,
+                               user_id: int | None = None,
+                               daily_already_shown: bool = False) -> str:
+    """CFG-02B (§02B.6/§02B.7): факт-строки отказа генерации.
+
+    При отказе частоты — свежий остаток паузы; если к тому же исчерпана
+    СУТОЧНАЯ квота — и её срок (истинные причины обоих лимитов + оговорка,
+    что генерация станет доступна после более позднего ограничения).
+    `daily_already_shown=True` — вызывающий уже выводит строку сброса
+    (шаблон `quota_exhausted`), повторно её не дублируем."""
+    from services import persistent_throttling as pt
+    lines: list[str] = []
+    rem = getattr(result, "retry_after_seconds", None)
+    mode = ""
+    try:
+        limits = await pt.resolve_image_freq_limits(chat_id)
+        mode = limits.mode
+        if rem is None and str(getattr(result, "reason", "")) == FREQ_REASON:
+            snap = await pt.image_freq_snapshot(chat_id, user_id,
+                                                limits=limits)
+            rem = snap.remaining_seconds
+    except Exception:      # pragma: no cover - диагностика не рвёт отказ
+        pass
+    freq_line = image_freq_remaining_note(rem, mode)
+    if freq_line:
+        lines.append(freq_line)
+    if not daily_already_shown:
+        status = ""
+        try:
+            from services import capability_registry as _caps
+            status, _detail = await _caps.image_quota_state(chat_id)
+        except Exception:      # pragma: no cover - диагностика fail-open
+            status = ""
+        if status == "quota_exhausted":
+            note = image_quota_reset_note(chat_id)
+            if note:
+                lines.append(note)
+        elif status == "disabled":
+            lines.append("Суточная генерация сейчас запрещена "
+                         "(суточный лимит 0).")
+    if len(lines) > 1:
+        lines.append("Раньше, чем закончатся оба ограничения, генерация "
+                     "будет недоступна.")
+    return "\n".join(lines)
 
 
 def image_context_memory_enabled() -> bool:
@@ -502,7 +662,10 @@ async def run_image_request(request: ImageRequest, *, bot=None,
         bot, request.chat_id, prompt,
         reply_to_message_id=request.original_message_id,
         correlation_id=correlation_id,
-        source=source)
+        source=source,
+        # CFG-02B (§02B.3): участник для режима per_user (тот же вход, что
+        # у memory-обогащения; None → общий запас чата).
+        user_id=getattr(request, "requester_id", None))
     duration_ms = int((time.monotonic() - started) * 1000)
     if getattr(result, "ok", False):
         emit_agentic_event(
@@ -1681,6 +1844,9 @@ _IMAGE_REASON_TO_CODE = {
     "empty_prompt": "validation_failed",
     "too_large": "too_many_bytes",
     "budget": "financial_limit_reached",
+    # CFG-02B (§02B.4): отказ частотной паузы — существующий честный код
+    # словаря §17.2 (`cooldown`), не «финансовый» и не «провайдер упал».
+    "freq_limit": "cooldown",
     "send_failed": "delivery_unknown",
     "no_bot": "delivery_unknown",
 }
@@ -1731,7 +1897,8 @@ async def _commit_or_release(idem_key: str, chat_id: int, *,
 async def generate_and_send(bot, chat_id: int, prompt: str, *,
                             reply_to_message_id=None,
                             correlation_id: str | None = None,
-                            source: str = "direct") -> GenerationResult:
+                            source: str = "direct",
+                            user_id: int | None = None) -> GenerationResult:
     """Сгенерировать и отправить изображение в чат (байты из памяти).
 
     R17: keyed-URL провайдера не покидает сервер; в Telegram уходит
@@ -1747,12 +1914,29 @@ async def generate_and_send(bot, chat_id: int, prompt: str, *,
     (direct|tool). ``message_id`` берётся из ``reply_to_message_id``
     (оба входа A3 кладут туда текущий ``message.message_id``).
 
+    CFG-02B (§02B.4–§02B.7, ADR-1031-1): частотный лимитер — ОДИН контур
+    для всех пользовательских путей. Порядок: read-only проверка активной
+    паузы ДО дневного журнала/квоты (такой отказ ничего не пишет и не
+    расходует суточную квоту) → дневной резерв/legacy → атомарное списание
+    заряда серии ПЕРЕД платным вызовом → генерация. Replay (``already``)
+    лимитер не трогает — повторная обработка того же сообщения заряд НЕ
+    списывает. ``user_id`` — участник (режим per-user); None → общий запас
+    чата (личного счётчика-обхода не появляется).
+
     A5/D3-replay: тот же ключ (ретрай/повторная доставка update) → ВТОРАЯ
     платная генерация НЕ запускается: committed/reserved → «уже обработано»
     (ok=True, reason='already'); released/denied → прежний journaled-отказ
     (ok=False, без нового списания и без генерации). Kill-switch/fail-open
     OFF → legacy-путь байт-в-байт (consume внутри generate)."""
     started = time.monotonic()
+    # §02B.6: отказ по активной паузе — ДО журнала/квоты/платного вызова.
+    freq = await image_freq_state(chat_id, user_id)
+    if freq.applied and not freq.allowed:
+        _emit_image("skipped", reason_code="cooldown", chat_id=chat_id)
+        logger.info("[image] freq limit | chat=%s | remaining=%ss",
+                    chat_id, int(freq.remaining_seconds))
+        return GenerationResult(ok=False, reason=FREQ_REASON,
+                                retry_after_seconds=freq.remaining_seconds)
     action, idem_key, reason = await _reserve_or_consume(
         chat_id, source=source, message_id=reply_to_message_id,
         correlation_id=correlation_id)
@@ -1767,6 +1951,22 @@ async def generate_and_send(bot, chat_id: int, prompt: str, *,
         _emit_image("skipped", reason_code="action_idempotent_replay",
                     chat_id=chat_id)
         return GenerationResult(ok=True, reason="already")
+    # §02B.4: заряд серии — атомарно перед платной попыткой (replay выше
+    # заряд не трогает). Отказ здесь — гонка с параллельным запросом при
+    # остатке 1: дневной резерв уже создан → освобождаем его (квота
+    # возвращается, журнал фиксирует исход freq_limit — повтор НЕ генерирует).
+    if freq.applied:
+        charged = await image_freq_consume(chat_id, user_id,
+                                           limits=freq.limits)
+        if not charged.allowed:
+            if action == "reserve":
+                await _commit_or_release(idem_key, chat_id,
+                                         generation_failed=True,
+                                         error_code=FREQ_REASON)
+            _emit_image("skipped", reason_code="cooldown", chat_id=chat_id)
+            return GenerationResult(ok=False, reason=FREQ_REASON,
+                                    retry_after_seconds=
+                                    charged.remaining_seconds)
     if action == "reserve":
         result = await generate(prompt, chat_id=chat_id,
                                 correlation_id=correlation_id,
@@ -1877,7 +2077,9 @@ async def maybe_handle_keyword(ctx, query: str, *, aliases=None, db=None,
             # F7 rework: пре-гейт встраивается в дерево ответа — тот же сквозной
             # correlation_id, что у Stage-1/Stage-2 (иначе step='image' создаёт
             # новую одиночную ноду в дашборде).
-            correlation_id=getattr(ctx, "correlation_id", None))
+            correlation_id=getattr(ctx, "correlation_id", None),
+            # CFG-02B (§02B.3): участник — тот же вход, что у A3-ветки.
+            user_id=getattr(ctx, "user_id", None))
     if result.ok:
         _record_image_outcome(result, chat_id=getattr(ctx, "chat_id", None))
         note = _memory_reply_note(request) if request is not None else ""
@@ -1900,7 +2102,20 @@ async def maybe_handle_keyword(ctx, query: str, *, aliases=None, db=None,
     # Default по РЕАЛЬНОМУ коду отказа (реестр `message.image_failure.*`), а не
     # одна захардкоженная фраза «на все случаи»: выключенный модуль, нет
     # ключа, недоступный провайдер, квота и сбой доставки — разные объяснения.
-    return _image_error_block(result, chat_id=getattr(ctx, "chat_id", None))
+    # CFG-02B (§02B.6/§02B.7): к отказу добавляются ФАКТ-строки — свежий
+    # остаток короткой паузы и/или суточный сброс (при обоих лимитах — оба).
+    try:
+        from services import capability_registry as _caps
+        code = _caps.failure_code_for_reason(
+            str(getattr(result, "reason", "") or ""))
+    except Exception:      # pragma: no cover - реестр не рвёт отказ
+        code = ""
+    extra = await image_denial_details(
+        result, chat_id=getattr(ctx, "chat_id", None),
+        user_id=getattr(ctx, "user_id", None),
+        daily_already_shown=(code == "quota_exhausted"))
+    return _image_error_block(result, chat_id=getattr(ctx, "chat_id", None),
+                              extra_note=extra)
 
 
 def _record_image_outcome(result, *, chat_id: int | None) -> None:
@@ -1924,11 +2139,16 @@ def _record_image_outcome(result, *, chat_id: int | None) -> None:
         pass
 
 
-def _image_error_block(result, *, chat_id: int | None) -> str:
+def _image_error_block(result, *, chat_id: int | None,
+                       extra_note: str = "") -> str:
     """Блок ``<image_result status="error">`` с управляемым текстом отказа.
 
     Успех НЕ заявляется: при ``send_failed`` текст — про доставку
-    (SOUL-AMD.5.17). R17: наружу уходит только текст шаблона и код отказа."""
+    (SOUL-AMD.5.17). R17: наружу уходит только текст шаблона и код отказа.
+
+    CFG-02B (§02B.6): ``extra_note`` — ФАКТ-строки от ``image_denial_details``
+    (свежий остаток короткой паузы и/или второй лимит). Необязательный
+    параметр: прямой вызов без него сохраняет поведение CFG-02A/CFG-01."""
     from services import capability_registry as _caps
     _record_image_outcome(result, chat_id=chat_id)
     text, block_id, _source = _caps.failure_message_for_reason(
@@ -1953,6 +2173,7 @@ def _image_error_block(result, *, chat_id: int | None) -> str:
     return (f'<image_result status="error" reason="{code}">\n'
             f"{text}\n"
             + (f"{reset_note}\n" if reset_note else "")
+            + (f"{extra_note}\n" if extra_note else "")
             + "Ничего не отправлено; повторно инструмент generate_image "
             "не вызывай.\n"
             "</image_result>")

@@ -138,11 +138,11 @@ class TestFlagsAndInvariants:
     def test_catalog_invariants(self):
         from services import param_catalog as pc
         # Базовые числа round1026: 467/426/442/100/98/21 — эпик их не меняет.
-        assert len(pc.REGISTRY) == 575
+        assert len(pc.REGISTRY) == 579
         assert len(pc.GROUPS) == 120
         assert len(pc._TAB_BY_GROUP) == 118
         assert len(pc.TAB_RULES) == 23
-        assert len({f.name for f in dataclasses.fields(Settings)}) == 454
+        assert len({f.name for f in dataclasses.fields(Settings)}) == 458
 
     def test_app_version_bumped(self):
         assert APP_VERSION == "2.58.90", APP_VERSION

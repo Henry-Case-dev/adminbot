@@ -179,7 +179,7 @@ class TestTabMappingAudit:
         # TAB_RULES 22→23 (+mod_initiative) → 538/115/113.
         assert len(pc._TAB_BY_GROUP) == 118
         assert len(GROUPS) == 120
-        assert len(pc.REGISTRY) == 575
+        assert len(pc.REGISTRY) == 579
 
 
 class TestModuleTabs:
@@ -467,6 +467,9 @@ def test_widget_keyvalue_on_summary_aliases():
         # MCA-20 (ADR-1028-20 D13, round 10.44): +1 select — режим проверки
         # по умолчанию (contextual/current/historical_truth/knowable_at_time).
         "temporal.default_mode",
+        # CFG-02B (§02B.2.3, ADR-1031-1): +1 select — режим счёта частотного
+        # лимита (per_user/per_chat; один контрол, не две галочки).
+        "limits.image_freq_limit_mode",
     }
     for spec in sel:
         assert spec.select_options and spec.select_labels

@@ -423,9 +423,11 @@ async def get_usage(pg=None, scope: str | None = None,
     return out
 
 
-async def get_day_summary(pg=None) -> dict:
+async def get_day_summary(pg=None, *,
+                          viewer_user_id: int | None = None) -> dict:
     """Для GET /api/workers/budget и F-12: {day, timezone, global, chats,
-    priorities}."""
+    priorities}. ``viewer_user_id`` (CFG-02B §02B.8) — запросивший админ:
+    его личный остаток частотного лимита показывается «где это доступно»."""
     rows = await get_usage(pg)
     global_usages = {}
     chats = {}
@@ -446,7 +448,8 @@ async def get_day_summary(pg=None) -> dict:
         image_meta = await _image_meta_safe(chat_id)
         # A5 (T-3603/R16-аддитивно): §28-агрегаты и shared-строка UI —
         # из журнала `image_reservation` (не второй счётчик, D6).
-        image_usage = await image_usage_summary(pg, chat_id)
+        image_usage = await image_usage_summary(pg, chat_id,
+                                                viewer_user_id=viewer_user_id)
         chat_entries.append({
             "scope": scope,
             "calls": {"used": metrics.get(METRIC_CALLS, {}).get("used", 0),
@@ -800,6 +803,69 @@ async def release_image(pg, idem_key: str,
                        "metric=%s", METRIC_IMAGE_CALLS)
 
 
+def _freq_bucket_payload(snap) -> dict:
+    """Факты одного счётчика серии: остаток + следующая доступность (ISO).
+
+    Второго времени не выдумывается: `next_available_at` считается от
+    ФАКТИЧЕСКОГО остатка паузы (`last_ts` + cooldown, стена `time.time`)."""
+    remaining = float(getattr(snap, "remaining_seconds", 0.0) or 0.0)
+    nxt = None
+    if remaining > 0:
+        try:
+            nxt = (datetime.datetime.now(datetime.timezone.utc)
+                   + datetime.timedelta(seconds=remaining)).isoformat()
+        except Exception:      # pragma: no cover - защитная ветка
+            nxt = None
+    return {
+        "charges_left": int(getattr(snap, "charges_left", 0) or 0),
+        "remaining_seconds": round(remaining, 3),
+        "next_available_at": nxt,
+    }
+
+
+async def _image_freq_facts(chat_id: int, viewer_user_id: int | None = None
+                            ) -> dict:
+    """CFG-02B (§02B.8, ADR-1031-1): честные факты частотного лимита.
+
+    Активность (`active`) — фактическая: тумблер ON AND master-рубильник
+    бюджетов ON AND доступна runtime-БД состояния; иначе `active_reason`
+    честно называет причину (switch_off/master_off/no_db/error), чтобы UI не
+    заявлял действующее ограничение. Остаток показывается для ОБОИХ счётчиков
+    (чат и — «где это доступно» — запросивший админ), выбор отображаемого —
+    по фактическому `mode`. Fail-open: ошибка резолва → неактивно с 'error'."""
+    out = {
+        "enabled": False, "active": False, "active_reason": "error",
+        "mode": "per_user", "burst": 0, "cooldown_seconds": 0.0,
+        "source": "default", "per_chat": None, "per_user": None,
+    }
+    try:
+        from services import image_generation as _ig
+        from services import persistent_throttling as _pt
+        limits, reason = await _ig.image_freq_config(chat_id)
+        out.update({
+            "enabled": bool(limits.enabled),
+            "active": reason == "ok",
+            "active_reason": str(reason),
+            "mode": str(limits.mode),
+            "burst": int(limits.burst),
+            "cooldown_seconds": float(limits.cooldown),
+            "source": str(limits.source or "default"),
+        })
+        snap_chat = await _pt.image_freq_snapshot(chat_id, None, limits=limits)
+        out["per_chat"] = _freq_bucket_payload(snap_chat)
+        if viewer_user_id is not None:
+            snap_user = await _pt.image_freq_snapshot(
+                chat_id, int(viewer_user_id), limits=limits)
+            out["per_user"] = {
+                **_freq_bucket_payload(snap_user),
+                "user_id": int(viewer_user_id),
+            }
+    except Exception:
+        logger.warning("[worker_budget] image freq facts failed — fail-open | "
+                       "chat=%s", chat_id, exc_info=True)
+    return out
+
+
 async def image_limits(chat_id: int | None) -> tuple[int, int, str]:
     """(shared_env_limit, per_chat_limit, per_chat_source) — контракт
     spec §6.2 (A5/D4): shared = env-only ``WORKER_DAILY_IMAGE_CALLS_GLOBAL``
@@ -822,13 +888,19 @@ async def image_limits(chat_id: int | None) -> tuple[int, int, str]:
     return int(shared), int(per_chat), str(source or "default")
 
 
-async def image_usage_summary(pg, chat_id) -> dict:
+async def image_usage_summary(pg, chat_id, *,
+                              viewer_user_id: int | None = None) -> dict:
     """Агрегаты §28 (SC-A5-07) ИЗ ЖУРНАЛА `image_reservation` + usage
     `worker_budget` (spec §6.2, D1/D6 — НЕ второй счётчик):
     {day, timezone, used, limit, source, next_reset_at, shared_used,
     shared_limit, requests, success, errors, denied, delivery_failed,
     expenses} (расходы = 'N/A' — провайдер не отдаёт стоимость,
-    документировано; D6)."""
+    документировано; D6).
+
+    CFG-02B (§02B.8, ADR-1031-1): аддитивный блок ``freq`` — честные факты
+    частотного лимита (активность/режим/источник/остаток/следующая
+    доступность) для секции «Лимиты генерации»; ``viewer_user_id`` —
+    запросивший админ (остаток per_user «где это доступно»)."""
     chat_id = int(chat_id)
     day = image_day(chat_id)
     used = 0
@@ -870,6 +942,10 @@ async def image_usage_summary(pg, chat_id) -> dict:
         # §28 «фактические расходы, если доступны» — N/A (D6): провайдер
         # не отдаёт стоимость генерации.
         "expenses": "N/A",
+        # CFG-02B (§02B.8): факты частотного лимита (активность/режим/
+        # источник/остаток/следующая доступность). Отдельного счётчика нет —
+        # читается тот же throttle_state (scope='image_freq').
+        "freq": await _image_freq_facts(chat_id, viewer_user_id),
     }
     if pool is not None:
         try:

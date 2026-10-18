@@ -165,7 +165,7 @@ class TestCompleteness:
         #   MCA-20 (ADR-1028-20 D13, round 10.44): +4 instance-поля
         #   TEMPORAL_* (группа temporal_factcheck) → 439→454 (ClassVar-KS
         #   не в счёте).
-        assert len(fields) == 454
+        assert len(fields) == 458
         covered = {s.settings_field for s in REGISTRY.values() if s.settings_field}
         assert covered - TestCompleteness._CLASSVAR_CATALOGUED == fields
 
@@ -557,8 +557,11 @@ class TestGroups8424:
         # (limits_intent ×2 — мягкие цели наблюдения/активности; flags_intent
         # ×1 — ось реальной отправки из проверки) → limits 222 / flags 99,
         # итого 575.
+        # CFG-02B (19.10.2026, §02B.1/§02B.2, ADR-1031-1): +4 limits
+        # (limits_images: тумблер частоты + серия + пауза + режим счёта),
+        # GROUPS/TAB-маппинги in-place → limits 226, итого 579.
         assert counts == {"prompts": 25, "models": 74, "keys": 35,
-                          "limits": 222, "flags": 99, "reactions": 39,
+                          "limits": 226, "flags": 99, "reactions": 39,
                           "content": 5, "memory": 47, "temporal": 4}
         assert {g.category for g in GROUPS} >= set(CATEGORIES)
 

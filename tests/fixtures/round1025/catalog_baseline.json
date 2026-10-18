@@ -5,7 +5,7 @@
     "source": "services/param_catalog.py"
   },
   "counts": {
-    "REGISTRY": 575,
+    "REGISTRY": 579,
     "GROUPS": 120,
     "_TAB_BY_GROUP": 118,
     "TAB_RULES": 23
@@ -486,6 +486,10 @@
     "IMAGE_API_KEY",
     "IMAGE_BASE_URL",
     "IMAGE_DAILY_LIMIT",
+    "IMAGE_FREQ_LIMIT_BURST",
+    "IMAGE_FREQ_LIMIT_COOLDOWN_SECONDS",
+    "IMAGE_FREQ_LIMIT_ENABLED",
+    "IMAGE_FREQ_LIMIT_MODE",
     "IMAGE_GENERATION_MODULE_ENABLED",
     "IMAGE_GET_MODE",
     "IMAGE_MODEL",

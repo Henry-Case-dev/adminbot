@@ -1,0 +1,87 @@
+{
+  "console_errors": [],
+  "checks": {
+    "section_visible": true,
+    "freq_facts_visible": true,
+    "freq_active_label_off": "Выключено (заводской режим)",
+    "freq_toggle_present": true,
+    "freq_toggle_state": false,
+    "dependent_hidden_when_off": 0,
+    "freq_note_off": "Частотный лимит выключен: генерации не ограничиваются (суточная квота выше продолжает действовать).",
+    "freq_source_label": "Заводской",
+    "toggle_post": {
+      "key": "limits.image_freq_limit_enabled",
+      "value": true,
+      "chat": false
+    },
+    "dependent_visible_when_on": 3,
+    "burst_input_present": true,
+    "cooldown_input_present": true,
+    "freq_active_label_on": "Включено и действует",
+    "freq_mode_label_user": "Для каждого пользователя",
+    "freq_remaining_user": "0 из 2",
+    "freq_next_label": "18.10.2026, 10:20",
+    "cooldown_human_label": "10 мин 20 сек",
+    "summary_line": "Короткий лимит частоты: не более 2 генераций подряд, пауза 10 мин 20 сек. Единицы: подряд — генерации, пауза — секунды.",
+    "mode_select_options": {
+      "opts": [
+        "Для каждого пользователя",
+        "Общий на весь чат"
+      ],
+      "bound": true
+    },
+    "freq_mode_label_chat": "Общий на весь чат",
+    "freq_remaining_chat": "1 из 2",
+    "freq_source_global": "Глобальный (по умолчанию)",
+    "master_off_label": "Включено, но не действует: мастер-рубильник бюджетов выключен",
+    "master_off_note": "Мастер-рубильник бюджетов выключен: частотный лимит не ограничивает генерацию (состояние серии сохраняется).",
+    "no_db_label": "Включено, но не действует: состояние счётчика недоступно",
+    "chat_burst_post": {
+      "key": "limits.image_freq_limit_burst",
+      "value": 2,
+      "chat": true
+    },
+    "chat_facts_visible": true,
+    "mobile_section_visible": true,
+    "mobile_facts_visible": true,
+    "mobile_no_overflow": true
+  },
+  "screenshots": [
+    "C:\\Code\\Python\\adminbot\\plans\\features\\cfg\\evidence\\cfg-02b\\ui\\01-off-global.png",
+    "C:\\Code\\Python\\adminbot\\plans\\features\\cfg\\evidence\\cfg-02b\\ui\\02-active-per-user.png",
+    "C:\\Code\\Python\\adminbot\\plans\\features\\cfg\\evidence\\cfg-02b\\ui\\03-active-per-chat.png",
+    "C:\\Code\\Python\\adminbot\\plans\\features\\cfg\\evidence\\cfg-02b\\ui\\04-inactive-honest.png",
+    "C:\\Code\\Python\\adminbot\\plans\\features\\cfg\\evidence\\cfg-02b\\ui\\05-chat-scope.png",
+    "C:\\Code\\Python\\adminbot\\plans\\features\\cfg\\evidence\\cfg-02b\\ui\\06-mobile-chat.png"
+  ],
+  "posts": [
+    {
+      "mark": "A-off"
+    },
+    {
+      "mark": "B-toggle-on"
+    },
+    {
+      "key": "limits.image_freq_limit_enabled",
+      "value": true,
+      "chat": false
+    },
+    {
+      "mark": "C-active-per-user"
+    },
+    {
+      "mark": "D-active-per-chat"
+    },
+    {
+      "mark": "E-inactive-states"
+    },
+    {
+      "mark": "F-chat-scope"
+    },
+    {
+      "key": "limits.image_freq_limit_burst",
+      "value": 2,
+      "chat": true
+    }
+  ]
+}

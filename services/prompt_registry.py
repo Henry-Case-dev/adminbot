@@ -595,6 +595,23 @@ _CODE_BLOCKS: tuple[PromptBlockSpec, ...] = (
        pg_key="content.image_failure.delivery_failed",
        note="Выбирается по коду `send_failed`/`no_bot` (§17.2 "
             "`delivery_unknown`): «отправил» не заявляется."),
+    # CFG-02B (§02B.6): отказ короткой паузы частотного лимита — отдельный
+    # редактируемый текст (не «квота» и не «провайдер»); факт-строка с
+    # остатком («снова можно через …») добавляется кодом как факт.
+    _b("message.image_failure.freq_limited",
+       "Ответ пользователю, когда сработал короткий лимит частоты генераций "
+       "(слишком много картинок подряд) — честно «пауза», с фактическим "
+       "остатком отдельной строкой.",
+       "message", "global_chat",
+       "services.chat_prompts.IMAGE_FAILURE_FREQ_TEXT",
+       ("image_generation.generate_and_send",
+        "image_generation.maybe_handle_keyword", "tool_router._generate_image",
+        "tests/test_cfg02b_image_freq_limits.py"),
+       "managed_message/image_failure", owner_lane="W-CFG-02B", speech=True,
+       migration="managed_message", ui="catalog_pending",
+       pg_key="content.image_failure.freq_limited",
+       note="Выбирается по реальному коду `freq_limit`; параметры серии и "
+            "режим (per-user/per-chat) — настройки «Лимиты генерации»."),
     _b("message.image_request.clarify",
        "Один короткий уточняющий вопрос, когда поручение изображения "
        "неоднозначно (есть действие, нет объекта/цели).",
@@ -1433,7 +1450,7 @@ def factory_set_fingerprint() -> str:
 #: ``CHAT_PERSONA_PHRASE`` заменена на голос Core (была «я тот самый
 #: токсичный бот-абьюзер…», SOUL-AMD.4.6(в)); было ``0fc99f73d646``,
 #: стало ``7422c0385f7d``.
-FACTORY_SET_SHA256_12 = "7422c0385f7d"
+FACTORY_SET_SHA256_12 = "5a3d211b36be"
 
 
 # ═══════════════════════════════════════════════════════════════════════════

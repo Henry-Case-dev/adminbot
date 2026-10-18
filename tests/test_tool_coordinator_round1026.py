@@ -805,7 +805,20 @@ class TestBounds:
                                              # confirm, по умолчанию mock).
                                              # Test-only allowlist-дельта; §104/A3-гейт
                                              # не затронут.
-                                             "web/api/initiative_vitality.py"))
+                                             "web/api/initiative_vitality.py",
+                                             # NOTE (CFG-02B, 19.10.2026,
+                                             # requirements-map слайс CFG-02B,
+                                             # ADR-1031-1): + web/api/gates.py —
+                                             # аддитивная передача запросившего
+                                             # админа (viewer_user_id) в
+                                             # СУЩЕСТВУЮЩИЙ GET /api/workers/
+                                             # budget ради честного остатка
+                                             # частотного лимита «для
+                                             # выбранного пользователя» (§02B.8).
+                                             # Новых endpoint'ов/RBAC-правок нет;
+                                             # routes.py НЕ менялся. Test-only
+                                             # allowlist-дельта.
+                                             "web/api/gates.py"))
                        for n in names)
         # NOTE (round1027, MCA-01 / ADR-1027-3 D3): `services/summary_memory.py`
         # санкционированно переведён на единый single-writer
@@ -919,10 +932,10 @@ class TestBounds:
     def test_version_and_catalog(self):
         assert APP_VERSION == "2.58.90"
         # ASAP-3 (ADR-1028-2 D12, санкция spec §6): Δ +2 каталога-ключа → 483/423/458 (см. примечание в test_round1025_f8_registry).
-        assert len(pc.REGISTRY) == 575
-        assert len({f.name for f in dataclasses.fields(Settings)}) == 454
+        assert len(pc.REGISTRY) == 579
+        assert len({f.name for f in dataclasses.fields(Settings)}) == 458
         assert len([s for s in pc.REGISTRY.values()
-                    if s.category is not None]) == 550   # +4 temporal (mca-20)
+                    if s.category is not None]) == 554   # +4 temporal (mca-20)
         assert len(pc.GROUPS) == 120
         assert len(pc._TAB_BY_GROUP) == 118
         assert len(pc.TAB_RULES) == 23

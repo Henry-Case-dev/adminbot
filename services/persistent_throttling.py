@@ -2,7 +2,7 @@
 
 Таблица `throttle_state` (миграция user_version 2→3, 63.3): все слоты
 смарт-модуля в одной таблице (scope: 'search'|'factcheck'|'youtube'|'web'|
-'checkup'|'info'|'direct_chat'|'direct_silence').
+'checkup'|'info'|'direct_chat'|'direct_silence'|'image_freq').
 
 - PersistentCooldownTracker — те же семантики, что у in-memory
   CooldownTracker (dict-TTL per (chat, user)), но async и в БД:
@@ -41,6 +41,7 @@ CFG-01 (§01.2/§01.4/§01.5) — effective-лимиты Direct Chat и судь
   persistent-режиме делят один слот (проверено тестами).
 """
 import asyncio
+import dataclasses
 import logging
 import math
 import time
@@ -422,3 +423,189 @@ async def cooldown_touch(tracker, chat_id: int, user_id: int) -> None:
     result = tracker.touch(chat_id, user_id)
     if asyncio.iscoroutine(result):
         await result
+
+
+# ── CFG-02B (§02B.1–§02B.4, ADR-1031-1): частотный лимит генераций ─────────
+# Тот же token bucket (`throttle_state`, scope='image_freq'), но лимиты —
+# per (chat_id, user_id|0): режим `per_user` считает на участника, `per_chat` —
+# один запас на чат (user_id=0). Семантика «подряд»:
+#   * заряд списывается ПЕРЕД платной попыткой (перед вызовом генератора);
+#   * полное восстановление — через `cooldown` секунд после ПОСЛЕДНЕГО
+#     допущенного обращения (R50-7, общий ровно с Direct Chat-лимитом);
+#   * состояние живёт в БД → переживает рестарт и делится между воркерами;
+#   * смена лимитов не сбрасывает состояние (кламп зарядов в SQL, CFG-01);
+#   * ошибка БД/нет runtime-db → fail-open (лимитер не роняет генерацию).
+IMAGE_FREQ_SCOPE = "image_freq"
+IMAGE_FREQ_ENABLED_KEY = "limits.image_freq_limit_enabled"
+IMAGE_FREQ_BURST_KEY = "limits.image_freq_limit_burst"
+IMAGE_FREQ_COOLDOWN_KEY = "limits.image_freq_limit_cooldown_seconds"
+IMAGE_FREQ_MODE_KEY = "limits.image_freq_limit_mode"
+IMAGE_FREQ_MODE_PER_USER = "per_user"
+IMAGE_FREQ_MODE_PER_CHAT = "per_chat"
+
+_IMAGE_FREQ_SNAPSHOT_SQL = (
+    "SELECT burst_left, last_ts FROM throttle_state "
+    "WHERE scope = ? AND chat_id = ? AND user_id = ?"
+)
+
+
+@dataclasses.dataclass(frozen=True)
+class ImageFreqLimits:
+    """Effective-конфиг частотного лимита (CFG-02B §02B.1/§02B.3)."""
+
+    enabled: bool
+    burst: int
+    cooldown: float
+    mode: str                 # per_user | per_chat
+    source: str               # chat | global | default (источник тумблера)
+
+
+@dataclasses.dataclass(frozen=True)
+class ImageFreqSnapshot:
+    """Read-only снимок серии: сколько зарядов осталось и сколько ждать."""
+
+    charges_left: int
+    remaining_seconds: float  # > 0 → пауза активна (генерация подождёт)
+
+
+def normalize_image_freq_limits(burst, cooldown, mode
+                                ) -> tuple[int, float, str]:
+    """CFG-02B (§02B.2.1/§02B.2.2): единицы/границы новых ключей.
+
+    * `burst` — ЦЕЛОЕ ≥ 1 («сколько генераций подряд»); мусор/≤0 → 1
+      (вечного лока из-за нуля не возникает);
+    * `cooldown` — СЕКУНДЫ ≥ 0; отрицательные/нечисловые/NaN → 0
+      (0 = пауза не ограничивает);
+    * `mode` — `per_user` | `per_chat`; любое иное значение → `per_user`
+      (заводской выбор §02B.2.3, «Общий на весь чат» не подставляется молча).
+    """
+    burst_n, cooldown_n = normalize_direct_chat_limits(burst, cooldown)
+    return burst_n, cooldown_n, _normalize_image_freq_mode(mode)
+
+
+def _normalize_image_freq_mode(mode) -> str:
+    value = str(mode or "").strip().lower()
+    if value == IMAGE_FREQ_MODE_PER_CHAT:
+        return IMAGE_FREQ_MODE_PER_CHAT
+    return IMAGE_FREQ_MODE_PER_USER
+
+
+def image_freq_bucket_user(mode: str, user_id: int | None) -> int:
+    """Ключ счётчика `user_id` в throttle_state (CFG-02B §02B.3).
+
+    `per_user` + известный участник → его id; `per_chat` → 0 (общий запас
+    чата); `per_user` без участника (неизвестный requester) → 0 — общий
+    запас чата, а НЕ новый «личный» счётчик (обхода нет §02B.4)."""
+    if mode == IMAGE_FREQ_MODE_PER_USER and user_id is not None:
+        try:
+            return int(user_id)
+        except (TypeError, ValueError):
+            return 0
+    return 0
+
+
+async def resolve_image_freq_limits(chat_id: int | None) -> ImageFreqLimits:
+    """CFG-02B (§02B.1/§02B.3): effective-конфиг частотного лимита.
+
+    Порядок — существующий резолвер per-chat слоя (`worker_settings`):
+    override чата → глобальный слой ConfigCache (hot-reload) → заводской
+    дефолт. `source` — источник ТУМБЛЕРА (chat|global|default) для витрины
+    «Лимиты генерации» (§02B.8). Fail-open: ошибка резолва → заводские
+    значения (OFF) + WARNING — лимитер не роняет генерацию."""
+    try:
+        from services.worker_settings import resolve_setting_with_source
+        enabled, enabled_src = await resolve_setting_with_source(
+            IMAGE_FREQ_ENABLED_KEY, chat_id=chat_id,
+            default=bool(getattr(settings, "IMAGE_FREQ_LIMIT_ENABLED", False)))
+        burst, _ = await resolve_setting_with_source(
+            IMAGE_FREQ_BURST_KEY, chat_id=chat_id,
+            default=int(getattr(settings, "IMAGE_FREQ_LIMIT_BURST", 3)))
+        cooldown, _ = await resolve_setting_with_source(
+            IMAGE_FREQ_COOLDOWN_KEY, chat_id=chat_id,
+            default=float(getattr(settings,
+                                  "IMAGE_FREQ_LIMIT_COOLDOWN_SECONDS", 300.0)))
+        mode, _ = await resolve_setting_with_source(
+            IMAGE_FREQ_MODE_KEY, chat_id=chat_id,
+            default=str(getattr(settings, "IMAGE_FREQ_LIMIT_MODE",
+                                IMAGE_FREQ_MODE_PER_USER)))
+    except Exception:
+        logger.warning(
+            "image freq: resolve failed — factory defaults (OFF) | chat=%s",
+            chat_id, exc_info=True)
+        enabled = bool(getattr(settings, "IMAGE_FREQ_LIMIT_ENABLED", False))
+        burst = int(getattr(settings, "IMAGE_FREQ_LIMIT_BURST", 3))
+        cooldown = float(getattr(settings,
+                                 "IMAGE_FREQ_LIMIT_COOLDOWN_SECONDS", 300.0))
+        mode = str(getattr(settings, "IMAGE_FREQ_LIMIT_MODE",
+                           IMAGE_FREQ_MODE_PER_USER))
+        enabled_src = "default"
+    burst, cooldown, mode = normalize_image_freq_limits(burst, cooldown, mode)
+    return ImageFreqLimits(enabled=bool(enabled), burst=burst,
+                           cooldown=cooldown, mode=mode,
+                           source=str(enabled_src or "default"))
+
+
+def image_freq_db():
+    """Runtime SQLite (`DatabaseService`) для `throttle_state` — тот же
+    инстанс, что у Direct Chat: проводка `bot.py on_startup`
+    (`set_lore_components(db=db)`), чтение через существующий публичный
+    геттер `lore_runtime.get_lore_db()` (прецедент web-api). None → caller
+    обязан fail-open (WARNING), лимитер не роняет генерацию."""
+    try:
+        from services import lore_runtime
+        return lore_runtime.get_lore_db()
+    except Exception:      # pragma: no cover - защитная ветка
+        return None
+
+
+async def image_freq_snapshot(chat_id: int, user_id: int | None, *,
+                              limits: ImageFreqLimits | None = None
+                              ) -> ImageFreqSnapshot:
+    """Read-only снимок серии для честного отказа/витрины (§02B.6/§02B.8):
+    остаток зарядов и активная пауза. Состояние НЕ меняется; fail-open →
+    «полный запас, паузы нет» (лимитер не блокирует при недоступной БД)."""
+    limits = limits or await resolve_image_freq_limits(chat_id)
+    db = image_freq_db()
+    if db is None:
+        return ImageFreqSnapshot(charges_left=limits.burst,
+                                 remaining_seconds=0.0)
+    bucket = image_freq_bucket_user(limits.mode, user_id)
+    try:
+        cursor = await db.db.execute(_IMAGE_FREQ_SNAPSHOT_SQL,
+                                     (IMAGE_FREQ_SCOPE, int(chat_id), bucket))
+        row = await cursor.fetchone()
+    except Exception:
+        logger.warning("image freq: snapshot failed — fail-open | chat=%s",
+                       chat_id, exc_info=True)
+        return ImageFreqSnapshot(charges_left=limits.burst,
+                                 remaining_seconds=0.0)
+    if row is None:
+        return ImageFreqSnapshot(charges_left=limits.burst,
+                                 remaining_seconds=0.0)
+    left = int(row["burst_left"] or 0)
+    if left > 0:
+        return ImageFreqSnapshot(charges_left=left, remaining_seconds=0.0)
+    remaining = max(0.0, limits.cooldown - (time.time() - float(row["last_ts"])))
+    return ImageFreqSnapshot(charges_left=0, remaining_seconds=remaining)
+
+
+async def image_freq_allow(chat_id: int, user_id: int | None, *,
+                           limits: ImageFreqLimits | None = None
+                           ) -> tuple[bool, float]:
+    """Атомарное списание заряда серии ПЕРЕД платной попыткой (§02B.4).
+
+    Возвращает `(allowed, remaining_seconds)`: True — заряд списан (0.0);
+    False — отказ, `remaining_seconds` = остаток паузы. Дебаунс/параллель
+    закрыты одним UPSERT (тот же механизм, что у Direct Chat). Fail-open:
+    нет runtime-db / ошибка БД → (True, 0.0) + WARNING."""
+    limits = limits or await resolve_image_freq_limits(chat_id)
+    db = image_freq_db()
+    if db is None:
+        logger.warning("image freq: runtime db отсутствует — fail-open "
+                       "(без ограничения) | chat=%s", chat_id)
+        return True, 0.0
+    bucket = image_freq_bucket_user(limits.mode, user_id)
+    throttle = PersistentThrottle(limits.burst, limits.cooldown,
+                                  IMAGE_FREQ_SCOPE, db)
+    remaining = await throttle.allow(int(chat_id), bucket)
+    return (remaining <= 0.0), max(0.0, float(remaining))

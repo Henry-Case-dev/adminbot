@@ -3553,7 +3553,7 @@
                      </div>
                      <div class="flex-1 h-px bg-white/10"></div>
                    </div>
-                   <div v-else class="card p-4" style="min-width:0;"
+                   <div v-else-if="!imageFreqSettingsHidden(item)" class="card p-4" style="min-width:0;"
                         :class="{ 'is-save-failed': stickyFieldFailed(item.key) }">
                     <!-- Раунд 10 (F-7 T-855/T-868): роль-пикер (gear, global
                          admin) + бейджи «чат»/«скрыт» + сброс на глобальное -->
@@ -3720,6 +3720,38 @@
                            class="text-[10px] text-amber-300 mt-1"
                            data-image-quota-input-error>{{ imageQuotaInputError }}</div>
                     </template>
+                    <!-- CFG-02B (§02B.2.2): «Время ожидания» — секунды
+                         каталога + человеческий формат (300 → «5 мин»). -->
+                    <template v-else-if="item.key === 'limits.image_freq_limit_cooldown_seconds'">
+                      <div class="text-sm font-semibold">{{ item.title }}</div>
+                      <div class="text-xs text-gray-500 font-mono truncate mb-1">{{ item.key }}</div>
+                      <div class="text-xs text-gray-400 mb-2">{{ item.description }}</div>
+                      <div class="flex items-center gap-2">
+                        <input class="field" type="number" min="0" step="1"
+                               v-model="item.value"
+                               :disabled="!canEditConfig(item.key)"
+                               data-image-freq-cooldown-input
+                               @change="saveConfigItem(item)">
+                        <span class="text-xs text-gray-500">секунд
+                          (≈ {{ imageFreqCooldownLabel(item) }})</span>
+                      </div>
+                    </template>
+                    <!-- CFG-02B (§02B.2.1): «Сколько генераций подряд» —
+                         положительное целое (резолвер нормализует мусор в 1;
+                         витрина не обещает нулевой серии). -->
+                    <template v-else-if="item.key === 'limits.image_freq_limit_burst'">
+                      <div class="text-sm font-semibold">{{ item.title }}</div>
+                      <div class="text-xs text-gray-500 font-mono truncate mb-1">{{ item.key }}</div>
+                      <div class="text-xs text-gray-400 mb-2">{{ item.description }}</div>
+                      <div class="flex items-center gap-2">
+                        <input class="field" type="number" min="1" step="1"
+                               v-model="item.value"
+                               :disabled="!canEditConfig(item.key)"
+                               data-image-freq-burst-input
+                               @change="saveConfigItem(item)">
+                        <span class="text-xs text-gray-500">генераций подряд</span>
+                      </div>
+                    </template>
                     <template v-else>
                       <div class="text-sm font-semibold">{{ item.title }}</div>
                       <div class="text-xs text-gray-500 font-mono truncate mb-1">{{ item.key }}</div>
@@ -3811,6 +3843,60 @@
                     каждая новая генерация списывается отдельно; повторная
                     обработка того же запроса и повторная доставка картинки
                     квоту не списывают.
+                  </div>
+                </div>
+                <!-- CFG-02B (§02B.8): ФАКТЫ «Лимита частоты генерации» —
+                     из аддитивного блока `freq` существующего
+                     GET /api/workers/budget (активность/режим/источник/
+                     остаток/следующая доступность). Read-only: единственная
+                     запись настроек — каталоговые поля выше (второго
+                     источника истины нет). Обложки Summary в этот контур
+                     не входят (CFG-02C разделяет учёт явно). -->
+                <div v-if="grp.id === 'limits_images' && imageFreqFacts().freq"
+                     class="mt-4 pt-3 border-t border-white/10"
+                     data-image-freq-facts>
+                  <div class="text-xs text-gray-400 mb-2">
+                    Короткий лимит частоты: не более
+                    <b>{{ imageFreqFacts().freq.burst }}</b> генераций подряд,
+                    пауза <b>{{ imageFreqCooldownLabel(imageFreqFacts().cooldownItem) }}</b>.
+                    Единицы: подряд — генерации, пауза — секунды.
+                  </div>
+                  <div class="grid gap-2 md:grid-cols-2">
+                    <div class="card p-3" data-image-freq-active-card>
+                      <div class="text-xs text-gray-400">Активность ограничения</div>
+                      <div class="text-sm font-bold" data-image-freq-active>
+                        {{ imageFreqActiveLabel() }}
+                      </div>
+                      <div class="text-xs text-gray-400">
+                        Считать лимит:
+                        <b data-image-freq-mode>{{ imageFreqScopeLabel() }}</b>
+                      </div>
+                      <div class="text-xs text-gray-400">
+                        Источник наследования:
+                        <span data-image-freq-source>{{ imageSourceLabel(imageFreqFacts().freq.source) }}</span>
+                      </div>
+                    </div>
+                    <div class="card p-3" data-image-freq-state-card>
+                      <div class="text-xs text-gray-400">Остаток серии:
+                      </div>
+                      <div class="text-sm font-bold" data-image-freq-remaining>
+                        {{ imageFreqRemainingText() }}
+                      </div>
+                      <div class="text-xs text-gray-400">
+                        Следующая доступность:
+                        <span data-image-freq-next>{{ imageFreqNextLabel() }}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div v-if="imageFreqNote()" class="text-xs text-amber-300 mt-2"
+                       data-image-freq-note>
+                    {{ imageFreqNote() }}
+                  </div>
+                  <div class="text-xs text-gray-500 mt-2" data-image-freq-hint>
+                    Отказ приходит ДО платной генерации: при исчерпании серии
+                    бот называет фактический остаток паузы и свежий остаток на
+                    каждую новую попытку. Суточная квота выше действует
+                    независимо; выключение лимита немедленно снимает паузу.
                   </div>
                 </div>
                 <!-- F-11 (Q3/4.2): «Расширенные настройки» — нативный

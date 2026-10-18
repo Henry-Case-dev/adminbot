@@ -163,7 +163,8 @@ async def workers_budget_get(
     local admin/moderator-грант — global + свои чаты. Не-админ без
     грантов → 403 (фикс R2)."""
     cache = get_cache(request)
-    summary = await worker_budget.get_day_summary(cache.pg)
+    summary = await worker_budget.get_day_summary(
+        cache.pg, viewer_user_id=int(user.id))
     ctx = await roles_srv.access_for(user.id, cache=cache)
     if not ctx.is_global_admin:
         grant_ids = await _admin_grant_chat_ids(cache, user.id)

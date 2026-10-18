@@ -2956,12 +2956,14 @@ class ToolRouter:
         else:
             # A5 (ADR-1026-17 D3): source="tool" — idem-дискриминатор
             # входа (резерв/журнал); генератор и контракт прежние.
+            # CFG-02B (§02B.3): участник — тот же вход, что у A3-ветки.
             request = None
             result = await image_generation.generate_and_send(
                 ctx.bot, ctx.chat_id, prompt,
                 reply_to_message_id=ctx.reply_to_message_id,
                 correlation_id=getattr(ctx, "correlation_id", None),
-                source="tool")
+                source="tool",
+                user_id=getattr(ctx, "user_id", None))
         # MCA-11 (ADR-1028-13 D3/D4): out-of-band сигнал медиа-пути —
         # `delivery_unknown` при неясной Telegram-доставке (без слепого
         # повтора, A21) и usage-детализация (цена провайдера не заявляется
@@ -3015,6 +3017,18 @@ class ToolRouter:
             _note = image_generation.image_quota_reset_note(ctx.chat_id)
             if _note:
                 _msg = f"{_msg} {_note}"
+        # CFG-02B (§02B.6/§02B.7): отказ короткой паузы — фактический остаток
+        # («снова можно через …»); при исчерпании обоих лимитов — обе строки
+        # (тот же helper, что у direct-пути; второго текста нет).
+        try:
+            _freq_note = await image_generation.image_denial_details(
+                result, ctx.chat_id, user_id=getattr(ctx, "user_id", None),
+                # дневной сброс выше уже назван для reason='budget' — не дублим
+                daily_already_shown=(str(result.reason or "") == "budget"))
+        except Exception:      # pragma: no cover - диагностика не рвёт цикл
+            _freq_note = ""
+        if _freq_note:
+            _msg = f"{_msg} {_freq_note}"
         return json.dumps(
             {"status": "error", "reason": result.reason,
              "message": _msg, "message_id": _block_id},

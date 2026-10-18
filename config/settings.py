@@ -3059,6 +3059,22 @@ class Settings:
     # `>0`=cap (ADR-1019-8 D2). Shared-квота `WORKER_DAILY_IMAGE_CALLS_GLOBAL`
     # остаётся env-only — НЕ смешивается с этим «дефолтом» (§30).
     IMAGE_DAILY_LIMIT: int = _env_int("IMAGE_DAILY_LIMIT", 60)
+    # ── CFG-02B (§02B.1/§02B.2/§02B.3, ADR-1031-1): частотный лимит
+    # генераций изображений (burst + пауза) — 4 каталожных поля группы
+    # `limits_images` (вкладка mod_images), per-chat через существующее
+    # наследование. Заводской `IMAGE_FREQ_LIMIT_ENABLED=False` (§02B.1):
+    # при OFF ограничение не запрещает и не замедляет генерации, суточная
+    # квота действует независимо; сохранённые burst/пауза/режим применяются
+    # ТОЛЬКО при ON. Режим счёта (§02B.3): `per_user` (индивидуальный счётчик
+    # `(chat_id, user_id)`, заводской выбор) | `per_chat` (один запас на чат).
+    IMAGE_FREQ_LIMIT_ENABLED: bool = _env_bool(
+        "IMAGE_FREQ_LIMIT_ENABLED", False)
+    IMAGE_FREQ_LIMIT_BURST: int = _env_int_min(
+        "IMAGE_FREQ_LIMIT_BURST", 3, 1)
+    IMAGE_FREQ_LIMIT_COOLDOWN_SECONDS: float = _env_float_min(
+        "IMAGE_FREQ_LIMIT_COOLDOWN_SECONDS", 300.0, 0.0)
+    IMAGE_FREQ_LIMIT_MODE: str = _env_str(
+        "IMAGE_FREQ_LIMIT_MODE", "per_user")
 
     # ── Раунд 10.43 (MCA-19, ADR-1028-19 D5/D13): «Распознавание
     # изображений» — 9 каталоговых полей (groups flags_module_vision /

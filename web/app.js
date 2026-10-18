@@ -1319,6 +1319,40 @@
         + 'того же запроса и повторная доставка квоту не списывают. '
         + 'По умолчанию 60.'),
     },
+    // CFG-02B (§02B.1/§02B.2/§02B.8): «Лимит частоты генерации» —
+    // человеческие подписи, единицы и точная политика списания. Заводской
+    // режим — ВЫКЛЮЧЕНО; настройки серии применяются только при ON.
+    'limits.image_freq_limit_enabled': {
+      title: 'Лимит частоты генерации',
+      description: ('Заводской режим — лимит не действует: генерации '
+        + 'не запрещаются и не замедляются, суточная квота работает '
+        + 'независимо. Когда лимит активен, добавляется короткая серия: '
+        + 'сколько генераций подряд разрешено и сколько ждать до следующей '
+        + 'серии. Настройки серии хранятся и при неактивном лимите, '
+        + 'но применяются только с активным.'),
+    },
+    'limits.image_freq_limit_burst': {
+      title: 'Сколько генераций подряд',
+      description: ('Положительное целое: сколько генераций подряд разрешено '
+        + 'до паузы. Один заряд списывается перед каждой платной попыткой '
+        + '(одна генерация — один заряд), поэтому при значении 2 третья '
+        + 'подряд попытка уже ждёт паузу. По умолчанию 3.'),
+    },
+    'limits.image_freq_limit_cooldown_seconds': {
+      title: 'Время ожидания, секунд',
+      description: ('Пауза в секундах до новой серии (300 секунд — 5 минут). '
+        + 'Полное восстановление серии — через это время после последней '
+        + 'допущенной генерации; отсчёт идёт заново с каждой допущенной '
+        + 'попыткой. 0 — пауза не ограничивает. По умолчанию 300.'),
+    },
+    'limits.image_freq_limit_mode': {
+      title: 'Считать лимит',
+      description: ('Один из двух взаимоисключающих режимов: «Для каждого '
+        + 'пользователя» — индивидуальный счётчик на участника (исчерпание '
+        + 'одного не блокирует других), «Общий на весь чат» — один запас '
+        + 'серии на весь чат. При выключенном лимите частоты режим '
+        + 'не действует. Заводской выбор — «Для каждого пользователя».'),
+    },
   };
   // B01.4: виджет профиля частоты (ключ каталога — str; select добавляет
   // витрина). Значения — канон резолвера initiative_observer.
@@ -1373,6 +1407,21 @@
   // канон сентинелов `services/budget_limits.py`.
   var IMAGE_QUOTA_KEY = 'limits.image_daily_limit';
   var IMAGE_QUOTA_MIN = -1;
+
+  // ═══ CFG-02B (§02B.1/§02B.2/§02B.8): «Лимит частоты генерации» ═══════════
+  // Четыре ключа СУЩЕСТВУЮЩЕЙ группы limits_images: тумблер (заводской OFF)
+  // + серия (burst), пауза (секунды) и режим счёта (один select из двух
+  // взаимоисключающих вариантов). Зависимые настройки видны только при ON.
+  var IMAGE_FREQ_ENABLED_KEY = 'limits.image_freq_limit_enabled';
+  var IMAGE_FREQ_BURST_KEY = 'limits.image_freq_limit_burst';
+  var IMAGE_FREQ_COOLDOWN_KEY = 'limits.image_freq_limit_cooldown_seconds';
+  var IMAGE_FREQ_MODE_KEY = 'limits.image_freq_limit_mode';
+  var IMAGE_FREQ_DEPENDENT_KEYS = [IMAGE_FREQ_BURST_KEY,
+    IMAGE_FREQ_COOLDOWN_KEY, IMAGE_FREQ_MODE_KEY];
+  var IMAGE_FREQ_MODE_LABELS = {
+    per_user: 'Для каждого пользователя',
+    per_chat: 'Общий на весь чат',
+  };
 
   // Значение квоты допустимо для записи: целое ≥ −1. Мусор/дробное/меньше −1
   // и ПУСТОЙ ввод (''/пробелы/null) — отказ на клиенте: `Number('') === 0`,
@@ -7639,6 +7688,144 @@
         }
         return { tone: 'muted', text: 'Режим применения квоты не подтверждён '
           + '— диагностика недоступна.' };
+      },
+      // ═══ CFG-02B (§02B.2/§02B.8): «Лимит частоты генерации» ═══════════════
+      // Поиск элемента каталога по ключу (единый источник — фактический
+      // configItems выбранной области; второй копии значений нет).
+      imageFreqItem: function (key) {
+        var items = this.configItems || [];
+        for (var i = 0; i < items.length; i++) {
+          if (items[i] && items[i].key === key) return items[i];
+        }
+        return null;
+      },
+      // CFG-02B (§02B.2/§02B.8): собранные ФАКТЫ «Лимита частоты генерации»:
+      // (1) эффективное значение тумблера и его настройки из каталога
+      // (фактическая область — chat override → global → заводской);
+      // (2) аддитивный блок `freq` существующего GET /api/workers/budget
+      // (активность/режим/источник/остаток/следующая доступность).
+      // Второго счётчика/настройки НЕ создаётся. Метод (не computed): вызов
+      // из шаблона/других методов — единая форма, ошибок «не функция» нет.
+      imageFreqFacts: function () {
+        var usage = this.imageUsage || null;
+        var chat = usage && usage.chat ? usage.chat : null;
+        var freq = (chat && chat.freq) ? chat.freq : null;
+        var enabledItem = this.imageFreqItem(IMAGE_FREQ_ENABLED_KEY);
+        var burstItem = this.imageFreqItem(IMAGE_FREQ_BURST_KEY);
+        var cooldownItem = this.imageFreqItem(IMAGE_FREQ_COOLDOWN_KEY);
+        var modeItem = this.imageFreqItem(IMAGE_FREQ_MODE_KEY);
+        return {
+          freq: freq,
+          enabledItem: enabledItem,
+          enabled: !!(enabledItem && enabledItem.value),
+          burst: burstItem ? Number(burstItem.value) : null,
+          cooldown: cooldownItem ? Number(cooldownItem.value) : null,
+          // Элемент паузы — для человеческого формата в строке-сводке
+          // («пауза 10 мин 20 сек»); null при незагруженном каталоге.
+          cooldownItem: cooldownItem,
+          mode: modeItem ? String(modeItem.value || '') : '',
+          timezone: (chat && chat.timezone) || '',
+        };
+      },
+      // §02B.2: при выключенном тумблере настройки серии скрыты (компактно),
+      // при включении — показываются; сам тумблер и факты видны всегда.
+      imageFreqSettingsHidden: function (item) {
+        if (!item || IMAGE_FREQ_DEPENDENT_KEYS.indexOf(item.key) < 0) {
+          return false;
+        }
+        var t = this.imageFreqItem(IMAGE_FREQ_ENABLED_KEY);
+        return !(t && t.value);
+      },
+      // §02B.8: честная активность — «включено, но не действует» отличается
+      // от действующего ограничения и от заводского OFF.
+      imageFreqActiveLabel: function () {
+        var f = this.imageFreqFacts();
+        var api = f.freq;
+        var enabled = api ? !!api.enabled : f.enabled;
+        var active = api ? !!api.active : null;
+        if (!enabled) return 'Выключено (заводской режим)';
+        var why = api ? String(api.active_reason || '') : '';
+        if (active === false) {
+          if (why === 'master_off') {
+            return 'Включено, но не действует: мастер-рубильник бюджетов '
+              + 'выключен';
+          }
+          if (why === 'no_db') {
+            return 'Включено, но не действует: состояние счётчика '
+              + 'недоступно';
+          }
+          return 'Включено, но не действует (факт работы не подтверждён)';
+        }
+        if (active === true) return 'Включено и действует';
+        return 'Включено (факт работы ещё не подтверждён)';
+      },
+      imageFreqScopeLabel: function () {
+        var f = this.imageFreqFacts();
+        var mode = (f.freq && f.freq.mode) || f.mode || '';
+        return IMAGE_FREQ_MODE_LABELS[mode] || 'значение не загружено';
+      },
+      // §02B.8: остаток показывается по ФАКТИЧЕСКОМУ режиму счёта: per-user —
+      // личный счётчик запросившего (где это доступно), per-chat — весь чат.
+      imageFreqBucketInfo: function () {
+        var f = this.imageFreqFacts();
+        if (!f.freq) return null;
+        if (f.freq.mode === 'per_user' && f.freq.per_user) {
+          return f.freq.per_user;
+        }
+        return f.freq.per_chat || f.freq.per_user || null;
+      },
+      imageFreqRemainingText: function () {
+        var f = this.imageFreqFacts();
+        var bucket = this.imageFreqBucketInfo();
+        if (!f.freq || !bucket) return '—';
+        return bucket.charges_left + ' из ' + f.freq.burst;
+      },
+      imageFreqNextLabel: function () {
+        var f = this.imageFreqFacts();
+        var bucket = this.imageFreqBucketInfo();
+        if (!bucket || !bucket.next_available_at) return 'сейчас доступно';
+        return this.imageResetLabel(bucket.next_available_at, f.timezone);
+      },
+      // §02B.2.2: «понятный формат» паузы: секунды → «5 мин» / «45 сек».
+      imageFreqCooldownLabel: function (item) {
+        var raw = item ? item.value : null;
+        var n = Number(raw);
+        if (raw == null || String(raw).trim() === '' || !isFinite(n)
+            || n < 0) {
+          return '—';
+        }
+        if (n === 0) return 'без паузы';
+        if (n < 60) return n + ' сек';
+        var m = Math.floor(n / 60);
+        var s = n % 60;
+        return s ? (m + ' мин ' + s + ' сек') : (m + ' мин');
+      },
+      // §02B.8: честные оговорки (неактивность/недоступное состояние) —
+      // витрина не заявляет действующее ограничение при OFF.
+      imageFreqNote: function () {
+        var f = this.imageFreqFacts();
+        var api = f.freq;
+        if (!api) {
+          return 'Состояние лимита не загружено — фактическое применение '
+            + 'не подтверждено.';
+        }
+        if (!api.enabled) {
+          return 'Частотный лимит выключен: генерации не ограничиваются '
+            + '(суточная квота выше продолжает действовать).';
+        }
+        if (!api.active) {
+          var why = String(api.active_reason || '');
+          if (why === 'master_off') {
+            return 'Мастер-рубильник бюджетов выключен: частотный лимит '
+              + 'не ограничивает генерацию (состояние серии сохраняется).';
+          }
+          if (why === 'no_db') {
+            return 'Состояние счётчика недоступно: лимит не ограничивает '
+              + 'генерацию (fail-open).';
+          }
+          return 'Фактическое применение лимита не подтверждено.';
+        }
+        return '';
       },
       // CFG-02A (§02A.3): единственный write-path — существующий
       // saveConfigItem (POST /api/config, X-Chat-Id для области чата).
