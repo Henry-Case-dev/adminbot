@@ -1,0 +1,271 @@
+{
+  "probe": "acceptance-25890",
+  "lane": "ACCEPTANCE-90",
+  "prod": "https://admin-bot.duckdns.org",
+  "target_version": "2.58.90",
+  "target_commit": "3b02366e",
+  "t0_utc": "2026-10-18T13:34:23Z",
+  "chats": {
+    "work": -1002661910336,
+    "pet": -1004482340693
+  },
+  "steps": [
+    {
+      "id": "F1_inspector_readable",
+      "ok": true,
+      "detail": {
+        "status": 200,
+        "last_run_present": false,
+        "sent_versions": null,
+        "sent_system_chars": null,
+        "core": {
+          "level": "full",
+          "reason": "owner_setting",
+          "source": "global",
+          "scope_label": "Global Custom",
+          "revision": "act:040581a3b4b0",
+          "active_revision": "act:040581a3b4b0",
+          "chars": 2835,
+          "document_revision": 5,
+          "factory_revisions": {
+            "full": "fac:040581a3b4b0(soul02-author-full-v1)",
+            "compact": "fac:ff28f0720a23(soul02-compact-v1)"
+          }
+        },
+        "preview_versions": {
+          "core": "r5.040581a3b4b0",
+          "core_detail": "full:owner_setting",
+          "style_policy": "c8.fe503bd7f9d1",
+          "identity": "",
+          "self_model": "",
+          "lessons": "",
+          "samples_library": "",
+          "response_plan": "",
+          "channel": "speech_plain/plain/text/3c4e0608968f",
+          "composer": "w2"
+        },
+        "preview_tokens": 1162,
+        "gates": {
+          "unified_composer_enabled": true,
+          "character_core_enabled": true,
+          "speech_style_policy_enabled": true,
+          "humor_library_enabled": true,
+          "humor_feedback_enabled": true,
+          "experience_lessons_enabled": true,
+          "smart_verbalizer_modes_enabled": true,
+          "response_plan_enabled": true,
+          "persona_enabled": true,
+          "character_layers_enabled": true
+        }
+      }
+    },
+    {
+      "id": "F2_payload_reflects_write_no_restart",
+      "ok": true,
+      "detail": {
+        "put_status": 200,
+        "core_level_after": "compact",
+        "preview_versions_before": {
+          "core": "r5.040581a3b4b0",
+          "core_detail": "full:owner_setting",
+          "style_policy": "c8.fe503bd7f9d1",
+          "identity": "",
+          "self_model": "",
+          "lessons": "",
+          "samples_library": "",
+          "response_plan": "",
+          "channel": "speech_plain/plain/text/3c4e0608968f",
+          "composer": "w2"
+        },
+        "preview_versions_after": {
+          "core": "r6.ff28f0720a23",
+          "core_detail": "compact:owner_setting",
+          "style_policy": "c8.fe503bd7f9d1",
+          "identity": "",
+          "self_model": "",
+          "lessons": "",
+          "samples_library": "",
+          "response_plan": "",
+          "channel": "speech_plain/plain/text/3c4e0608968f",
+          "composer": "w2"
+        },
+        "preview_tokens_before": 1162,
+        "preview_tokens_after": 936,
+        "preview_layers": [
+          "channel_contract",
+          "channel_contract",
+          "core",
+          "identity",
+          "self_model_traits",
+          "context_lessons",
+          "response_plan",
+          "expression",
+          "humor_craft",
+          "few_shot",
+          "style_policy_hint",
+          "channel_output"
+        ]
+      }
+    },
+    {
+      "id": "F3_payload_back_to_baseline",
+      "ok": true,
+      "detail": {
+        "reset_status": 200,
+        "core_level": "full",
+        "preview_versions": {
+          "core": "r5.040581a3b4b0",
+          "core_detail": "full:owner_setting",
+          "style_policy": "c8.fe503bd7f9d1",
+          "identity": "",
+          "self_model": "",
+          "lessons": "",
+          "samples_library": "",
+          "response_plan": "",
+          "channel": "speech_plain/plain/text/3c4e0608968f",
+          "composer": "w2"
+        },
+        "sent_versions": null,
+        "last_run_present": false
+      }
+    },
+    {
+      "id": "F4_state_restored_after_payload_probe",
+      "ok": true,
+      "detail": {
+        "diff_significant": {},
+        "diff_provenance_only": {}
+      }
+    }
+  ],
+  "failures": [],
+  "mode": "payload",
+  "started_utc": "2026-10-18T14:20:51Z",
+  "prod_health": {
+    "status": "ok",
+    "version": "2.58.90"
+  },
+  "baseline": {
+    "core_global": {
+      "inheritance": "global",
+      "scope": "global",
+      "level": "full",
+      "source": "global",
+      "reason": "owner_setting",
+      "full_chars": 2835,
+      "compact_chars": 1934
+    },
+    "core_work": {
+      "inheritance": "global",
+      "scope": "chat",
+      "level": "full",
+      "source": "global",
+      "reason": "owner_setting",
+      "full_chars": 2835,
+      "compact_chars": 1934
+    },
+    "core_pet": {
+      "inheritance": "global",
+      "scope": "chat",
+      "level": "full",
+      "source": "global",
+      "reason": "owner_setting",
+      "full_chars": 2835,
+      "compact_chars": 1934
+    },
+    "expr_global": {
+      "inheritance": "factory_default",
+      "global_present": false,
+      "chat_present": false,
+      "values": {
+        "wit": "inherit",
+        "sharpness": "inherit",
+        "profanity": "inherit",
+        "verbosity": "inherit"
+      },
+      "enabled": true,
+      "rendered_chars": 0
+    },
+    "expr_work": {
+      "inheritance": "factory_default",
+      "global_present": false,
+      "chat_present": false,
+      "values": {
+        "wit": "inherit",
+        "sharpness": "inherit",
+        "profanity": "inherit",
+        "verbosity": "inherit"
+      },
+      "enabled": true,
+      "rendered_chars": 0
+    },
+    "expr_pet": {
+      "inheritance": "factory_default",
+      "global_present": false,
+      "chat_present": false,
+      "values": {
+        "wit": "inherit",
+        "sharpness": "inherit",
+        "profanity": "inherit",
+        "verbosity": "inherit"
+      },
+      "enabled": true,
+      "rendered_chars": 0
+    },
+    "style_global": {
+      "revision": "g8.fe503bd7f9d1",
+      "source": "global",
+      "rules": [],
+      "soft": 0,
+      "inheritance": "global",
+      "global_revision": 8,
+      "chat_revision": 0
+    },
+    "style_work": {
+      "revision": "g8.fe503bd7f9d1",
+      "source": "global",
+      "rules": [],
+      "soft": 0,
+      "inheritance": "global",
+      "global_revision": 8,
+      "chat_revision": 0
+    },
+    "style_pet": {
+      "revision": "g8.fe503bd7f9d1",
+      "source": "global",
+      "rules": [],
+      "soft": 0,
+      "inheritance": "global",
+      "global_revision": 8,
+      "chat_revision": 0
+    },
+    "humor_global": {
+      "craft_enabled": true,
+      "craft_source": "global",
+      "craft_revision": 4,
+      "disabled": []
+    },
+    "humor_work": {
+      "craft_enabled": true,
+      "craft_source": "global",
+      "craft_revision": 4,
+      "disabled": []
+    },
+    "learning_work": {
+      "paused": false,
+      "available": true,
+      "enabled": true
+    },
+    "gates_work": {
+      "nostalgia": true,
+      "updated_at": "2026-10-18T14:03:30.794072+00:00",
+      "opt_in": false
+    },
+    "gates_pet": {
+      "nostalgia": true,
+      "updated_at": "2026-10-18T14:12:12.738740+00:00",
+      "opt_in": false
+    }
+  },
+  "finished_utc": "2026-10-18T14:21:27Z"
+}

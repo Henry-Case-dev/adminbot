@@ -113,7 +113,23 @@ legacy-подавления (не применяется), записи в пр�
   уровень не изменён.
 * Итоговый дифф после негативных проб: `{}`.
 
-## F. Живая загрузка прод-сборки в браузере
+## F. Payload-уровень: применяется ли значение в сборке без рестарта — ЗАКРЫТО
+
+Артефакт: `acceptance-payload-25890.json` (**4/4 PASS**), `/api/speech/inspector` (GET + POST).
+* До правки: `preview.versions = {core: r5.040581a3b4b0, core_detail: "full:owner_setting",
+  style_policy: c8.fe503bd7f9d1, composer: "w2", channel: "speech_plain/plain/text/3c4e0608968f"}`;
+  `core.chars=2835`.
+* После chat-scope правки Core (без рестарта процесса): тот же композер отдаёт
+  `core: r6.ff28f0720a23`, `core_detail: "compact:owner_setting"` — **активный payload реально
+  использует применённое значение**, правка была только в БД.
+* После снятия переопределения: манифест вернулся к `r5.040581a3b4b0` / `full:owner_setting`
+  (совпадает с baseline), итоговый дифф `{}`.
+* Честная граница: `last_run_present=false` — в памяти процесса нет снимка манифеста последнего
+  **реального** хода (после рестарта реального ответа ещё не было), поэтому «фактически отправлено
+  в LLM» этой пробой не утверждается. Ревизии реальной отправки видны в манифестах доставок
+  (`core_revision`/`style_policy_revision`) и снимаются в фазе-2, если после T0 состоится отправка.
+
+## G. Живая загрузка прод-сборки в браузере
 
 `live-web/` (Playwright против прода, 14:16–14:17Z): страница `…/web/` открывается, приложение
 исполняется (хуки Telegram WebApp, хаб «Статус/Ещё», стеклянный фон), **0 ошибок консоли**,
@@ -128,9 +144,12 @@ legacy-подавления (не применяется), записи в пр�
 ```
 .venv\Scripts\python.exe plans/features/p0-save-init-ux/evidence/release-25890/acceptance/probe_acceptance_25890.py readonly
 .venv\Scripts\python.exe plans/features/p0-save-init-ux/evidence/release-25890/acceptance/probe_acceptance_25890.py full
-.venv\Scripts\python.exe plans/features/p0-save-init-ux/evidence/release-25890/acceptance/probe_acceptance_25890.py recheck
+`.venv\Scripts\python.exe plans/features/p0-save-init-ux/evidence/release-25890/acceptance/probe_acceptance_25890.py recheck
+.venv\Scripts\python.exe plans/features/p0-save-init-ux/evidence/release-25890/acceptance/probe_acceptance_25890.py edges
+.venv\Scripts\python.exe plans/features/p0-save-init-ux/evidence/release-25890/acceptance/probe_acceptance_25890.py payload
 .venv\Scripts\python.exe plans/features/p0-save-init-ux/evidence/release-25890/acceptance/probe_live_bc_25890.py read
 .venv\Scripts\python.exe plans/features/p0-save-init-ux/evidence/release-25890/acceptance/probe_live_bc_25890.py enable-gate
+.venv\Scripts\python.exe plans/features/p0-save-init-ux/evidence/release-25890/acceptance/probe_logs_ring_25890.py
 ```
 
 Отложенная журнальная фаза (ровно один SSH-коннект, read-only; креды — из локального
@@ -149,7 +168,7 @@ legacy-подавления (не применяется), записи в пр�
 | `acceptance-25890-run1-full-cycle.json` | `6a995d53e1bf6063` | прогон-1 (исторический; провенанс-дельта humor.craft) |
 | `acceptance-bc-25890-read.json` | `8cc9914dd915cf9a` | B/C: гейты, funnels, vitality, nostalgia_log, cognition |
 | `acceptance-bc-25890-enable-gate.json` | `e419e6aa1f0c5e1f` | включение PET-гейта `nostalgia` |
-| `probe_acceptance_25890.py` | `ac095b0b0f96b965` | пробник A (readonly/full/recheck/edges) |
+| `probe_acceptance_25890.py` | `4f3a73b80ab7897f` | пробник A (readonly/full/recheck/edges/payload) |
 | `probe_live_bc_25890.py` | `0f8f15b838cd5a3a` | пробник B/C (read/enable-gate) |
 | `probe_journal_25890.sh` | `998f9677c8f4fe3d` | журнальная фаза (bash, read-only) |
 | `run_journal_ssh_25890.py` | `88ad20630008f325` | раннер журнальной фазы (один коннект) |
@@ -158,6 +177,7 @@ legacy-подавления (не применяется), записи в пр�
 | `logs-ring-25890.json` | `824f88728d2144b9` | `/api/status/logs` ring-буфер: `ERROR=0`, `CRITICAL=0` |
 | `probe_logs_ring_25890.py` | `714efb6c0e5c3962` | пробник ring-буфера логов |
 | `acceptance-edges-25890.json` | `ada8b2bc4f68b99c` | E: негативные ветки (409 `document_invalid`, 422) без записи |
+| `acceptance-payload-25890.json` | `d3278c13a5adf4ed` | F: payload-уровень (Inspector: preview-манифест композера) |
 | `live-web/live_web_390.png` | `7fd5978f3e3db53a` | живая загрузка прод-сборки в браузере (390px) |
 | `live-web/console.txt` | `a69ebdf06a6de56b` | консоль браузера: 0 errors, 5 вендорных warnings |
 | `live-web/page_snapshot.yml` | `97f17be32215afd5` | a11y-снимок «нет Telegram-контекста» |

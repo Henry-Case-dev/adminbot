@@ -702,6 +702,60 @@ def edges(before: dict) -> None:
           "inheritance": c1.get("inheritance")})
 
 
+def payload(before: dict) -> None:
+    """Payload-уровень (P0A-PERSIST-PAYLOADS): применяется ли значение в сборке
+    БЕЗ рестарта — на живом проде, тем же композером, что и рантайм.
+
+    Смотрим `preview` (детерминированная сборка текущей конфигурации: manifest
+    с `versions` и слоями) и `sent` (снимок манифеста последнего РЕАЛЬНОГО хода,
+    если он есть в памяти процесса). Правка — обратимая (chat Core level).
+    """
+    insp0 = req("GET", "/api/speech/inspector", chat=WORK)
+    j0 = insp0.get("json") or {}
+    step("F1_inspector_readable", insp0.get("status") == 200,
+         {"status": insp0.get("status"),
+          "last_run_present": j0.get("last_run_present"),
+          "sent_versions": ((j0.get("sent") or {}).get("versions")),
+          "sent_system_chars": ((j0.get("sent") or {}).get("system_chars")),
+          "core": j0.get("core"),
+          "preview_versions": ((j0.get("preview") or {}).get("versions")),
+          "preview_tokens": ((j0.get("preview") or {}).get("tokens_total")),
+          "gates": j0.get("gates")})
+    orig = before["core_work"].get("level")
+    target = "compact" if orig == "full" else "full"
+    put = req("POST", "/api/speech/core/meta", chat=WORK,
+              body={"detail_level": target, "scope": "chat"})
+    insp1 = req("GET", "/api/speech/inspector", chat=WORK)
+    j1 = insp1.get("json") or {}
+    pv1 = (j1.get("preview") or {})
+    core1 = j1.get("core") or {}
+    step("F2_payload_reflects_write_no_restart",
+         put.get("status") == 200 and core1.get("level") == target
+         and pv1.get("versions") != (j0.get("preview") or {}).get("versions"),
+         {"put_status": put.get("status"),
+          "core_level_after": core1.get("level"),
+          "preview_versions_before": (j0.get("preview") or {}).get("versions"),
+          "preview_versions_after": pv1.get("versions"),
+          "preview_tokens_before": (j0.get("preview") or {}).get("tokens_total"),
+          "preview_tokens_after": pv1.get("tokens_total"),
+          "preview_layers": [str(x.get("layer")) for x in
+                             (pv1.get("layers") or [])][:12]})
+    res = req("POST", "/api/speech/block/core.personality/reset", chat=WORK,
+              body={"mode": "chat"})
+    insp2 = req("GET", "/api/speech/inspector", chat=WORK)
+    j2 = insp2.get("json") or {}
+    core2 = j2.get("core") or {}
+    step("F3_payload_back_to_baseline",
+         res.get("status") == 200 and core2.get("level") == orig
+         and (j2.get("preview") or {}).get("versions")
+         == (j0.get("preview") or {}).get("versions"),
+         {"reset_status": res.get("status"),
+          "core_level": core2.get("level"),
+          "preview_versions": (j2.get("preview") or {}).get("versions"),
+          "sent_versions": ((j2.get("sent") or {}).get("versions")),
+          "last_run_present": j2.get("last_run_present")})
+
+
 def main() -> int:
     mode = sys.argv[1] if len(sys.argv) > 1 else "readonly"
     REPORT["mode"] = mode
@@ -709,6 +763,22 @@ def main() -> int:
     health = req("GET", "/healthz")
     REPORT["prod_health"] = health.get("json") or health
     print("[env] %s" % json.dumps(REPORT["prod_health"], ensure_ascii=False))
+    if mode == "payload":
+        before = snapshot()
+        REPORT["baseline"] = before
+        payload(before)
+        after = snapshot()
+        hard, benign = split_diff(diff(before, after))
+        step("F4_state_restored_after_payload_probe", not hard,
+             {"diff_significant": hard, "diff_provenance_only": benign})
+        REPORT["finished_utc"] = time.strftime("%Y-%m-%dT%H:%M:%SZ",
+                                               time.gmtime())
+        with open(os.path.join(os.path.dirname(__file__),
+                               "acceptance-payload-25890.json"),
+                  "w", encoding="utf-8") as fh:
+            json.dump(REPORT, fh, ensure_ascii=False, indent=2)
+        print("[done] failures=%d" % len(REPORT["failures"]))
+        return 1 if REPORT["failures"] else 0
     if mode == "edges":
         before = snapshot()
         REPORT["baseline"] = before
