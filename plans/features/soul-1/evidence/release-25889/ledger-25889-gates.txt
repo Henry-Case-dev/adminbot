@@ -1,0 +1,26 @@
+﻿LEDGER-25889 gate log (verbatim py -3 <OPENCODE_CONFIG>/tools/requirements_gate.py), HEAD=d3db58ad
+repo=C:\Code\Python\adminbot; date=2026-10-18
+
+### 1) cfg plan: py -3 C:\Users\main\.config\opencode\tools\requirements_gate.py check --stage plan --map plans/features/cfg/requirements-map.json
+stage=plan inventory=246 manual=41 scoped=0 errors=0
+EXIT=0
+
+### 2) cfg review: py -3 ... check --stage review --slice CFG-02A --candidate 83ecd202659c2e1a30b46f8548b0809e892b77a9 --map plans/features/cfg/requirements-map.json
+stage=review inventory=246 manual=41 scoped=9 errors=0
+EXIT=0
+
+### 3) soul-1 amendment plan: py -3 ... check --stage plan --map plans/features/soul-1/requirements-map-amendment.json
+stage=plan inventory=66 manual=28 scoped=0 errors=0
+EXIT=0
+
+### Strict-evidence artifact audit (all evidence items with artifact_path, both maps)
+verify_artifact() over every artifact_path in cfg/requirements-map.json + soul-1/requirements-map-amendment.json: issues=0 (все пути существуют, все provided sha256 совпали).
+Исправлено попутно: 3 устаревших пина sha256 на plans/features/cfg/review-cfg-02a.md (файл дополнялся R3/R4 после пина) -> единый актуальный 660d6691a0a57411151b11d8911e055c8e6cfc1fc2257c55b2a71538125017ca.
+
+### Ledger delta (до -> после)
+cfg map: deployed_commit c37b8577 -> d59fab94 (candidate 83ecd202 не менялся; dual-line).
+cfg map статусы: VERIFIED 14 -> 16; READY_FOR_LIVE 8 -> 6; PENDING 265 без изменений.
+cfg slice CFG-02A: закрыто прод-эвиденсом CFG-02A.1 (видимость и фактическое значение: c1/c2/f1=60 source=''/f2 DM=60) и CFG-02A.2 (реквизиты витрины: f1/f2/f3 + hashes 25/25); остались READY_FOR_LIVE: CFG-02A.3/4/5 + CFG-02.AC1 (postdeploy-агентский остаток, live_note обновлён).
+soul-1 requirements-map-amendment.json: статусы без изменений (PENDING 43 / VERIFIED 43 / READY_FOR_LIVE 8); к SOUL-AMD.6.3 добавлена 4-я evidence-запись (candidate=720be161, type=production, artifact=evidence/release-25889/post-prod-bytes-entry-e2e.json).
+soul amendment deployed_commit НЕ менялся (eafbe2e7).
+release-2.58.89-report.md: «(5 файлов)» -> «(6 файлов: image_generation, tool_router, worker_budget, app.js, index.html, app.css)» (по soul-byte-equal.txt: SOUL_FILES_WITH_DIFF, 6 штук).
