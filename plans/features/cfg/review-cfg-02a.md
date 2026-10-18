@@ -158,3 +158,33 @@ N3: `candidate_commit` + evidence на 9 строк (CFG-02.D, 02A.1–7, CFG-02
 ## Итог
 
 Биндинг как операция выполнен качественно: дифф локален ровно на 9 строках, форматирование/CRLF/round-trip стабильны, 40/40 evidence-записей валидны, RAW-логи честны, гейты 0 ошибок. **Единственный блокер — семантика статуса `CFG-02A.6`** (VERIFIED при невыполненной клаузе про обложки Summary); правка — одна строка карты, решает PM/связующий лейн.
+
+---
+
+# R4 — RECHECK-R4: **R3 закрыт; биндинг CFG-02A подтверждён целиком**
+
+| Поле | Значение |
+|---|---|
+| Коммит | `e7447c044f044ad43a88a5ea17c5b286211912cb` (`docs(cfg): scope CFG-02A.6 acceptance to user paths (covers → CFG-02C)`, 1 файл, +2/−2) |
+
+## 1. Дифф — ровно 2 поля строки CFG-02A.6
+
+* Строгий compare ревизий `e7447c04^ → e7447c04`: изменённых строк — **ровно одна** (`CFG-02A.6`); в ней различаются **только `acceptance` и `reason`**; `items` 1 removed/1 added (та же строка), `additional_requirements` 0/0 → прочие 286 строк не тронуты.
+* `acceptance` сужен до пользовательской половины (клаузы об обложках больше нет — проверка: `'обложк' in acceptance` = `False`): «Все пути пользовательской генерации (прямой триггер, семантический generate_image, повторная обработка, другие команды) учтены реальным chat_id: квота видима, управляема и реально влияет; повтор не списывает дважды; прежний учёт не сломан».
+* `reason` — честная note: «Половина „обложки Summary не расходуют пользовательскую квоту" — owning-задача CFG-02C (ADD-0.2; её строки PENDING). Замер: `summary_generator.py:3390` → `_consume_budget('chat:<id>', image_calls)` на том же ключе `limits.image_daily_limit`.»
+* **Не тронуты:** `status` (VERIFIED), `evidence` (3 записи, побайтно те же — включая note про CFG-02C), `live_required=False`, `live_when=preprod`, `source_excerpt`/`source_text_sha256` (полный исходный текст L76 сохранён) — сверено.
+* Стабильность карты: 4 983 строки CRLF, 0 bare-LF, round-trip (indent=2, CRLF) **байт-в-байт**.
+* Обоснованность нового VERIFIED: acceptance теперь покрыт поведением слайса — direct-путь (`direct_chat_service` → `maybe_handle_keyword`) и семантический (`tool_router._generate_image`), повтор → `already` без второго списания, provider/delivery-политика; других пользовательских entrypoint'ов создания изображений не нашёл (остальные вызовы генерации — summary-owned: `summary_generator`, `cover_style_preview` c `chat_id=None`, `web/api/summary_test`, `media_execution` — адаптер обложек).
+
+## 2. CFG-02C — клауза в своих строках, дублей нет
+
+Спот: `CFG-02C.1` («Пользовательские лимиты (daily + частотный) не учитывают обложки Summary и наоборот…», PENDING), `CFG-02C.B` (блокирующий критерий, PENDING), `ADD-1.T2` (PENDING), `CFG-02C.D` (PENDING), `CFG-02.AC8` (PENDING) — обязательство сохранено там; в `CFG-02A.6` его больше нет → дублирования нет (ADD-0.2 соблюдён).
+
+## 3. Гейты (мой прогон, verbatim)
+
+* plan → `stage=plan inventory=246 manual=41 scoped=0 errors=0` **EXIT 0**;
+* review `--slice CFG-02A --candidate 83ecd202…` → `stage=review inventory=246 manual=41 scoped=9 errors=0` **EXIT 0**.
+
+## Итог
+
+R3-блокер закрыт корректно и минимально (2 поля одной строки); подсчёт, гейты и стабильность карты — без изменений. **Биндинг CFG-02A подтверждён целиком**; открытая клауза про обложки остаётся за CFG-02C (PENDING) и закрывается там.
