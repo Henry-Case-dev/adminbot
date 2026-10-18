@@ -100,14 +100,31 @@
       "source_text_sha256": "3e56664391617fbabd8e65991f508da160a8fd45d5ab6ec198b3efef040f2e53",
       "source_excerpt": "Проверить/восстановить реально работающую ностальгию. Подозреваемые блокеры `services/nostalgia_worker.py`: проверка `me",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто лейном NOSTALGIA-FIX + независимым ревью (18.10.2026, Approved): классификация блокеров с evidence — #3 (45-мин тишина резала живую беседу) ПОДТВЕРЖДЁН прод-логом (28 тиков `silence_too_short` за 30 дн, 26 738 кандидатов, `sent`=2 за историю); #1 (job не регистрировался при OFF-старте) ПОДТВЕРЖДЁН (механизм, латентный) и закрыт (always-register); #2 (заводской default False) ПОДТВЕРЖДЁН — включение hot PG; #4/#5 НЕ ПОДТВЕРЖДЕНЫ как блокеры (209 `budget_skip` — per-chat gate второго чата; `initiative_*` в проде не запускался). Подтверждённые устранены (A/B-разделение). VERIFIED: код+тесты+pre-deploy диагностика; живая наблюдаемость — в P0B-NOST-DIAG/SCEN-A (READY_FOR_LIVE).",
       "req_id": "P0B-NOST-RESTORE",
       "slice": "P0B-NOST",
       "acceptance": "Ностальгия проверена и восстановлена: каждый подозреваемый блокер (регистрация job по memory.nostalgia_enabled при OFF-старте; заводской NOSTALGIA_ENABLED=False; требование длительной тишины; cooldowns/quiet hours/лимиты/пороги/budget-гейты; возможный SILENT после делегирования) классифицирован (подтверждён/опровергнут) с evidence; подтверждённые устранены.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "ae9af5161033ee485e0c002471f0191d9d6b4e41",
+          "ref": "plans/features/soul-1/review-nostalgia-fix.md (4a4d3849) §1 + plans/features/p0-save-init-ux/evidence/nostalgia/README.md §1",
+          "observation": "Прод-диагностика (read-only, 18.10.2026): каждый тик по чату -1002661910336 за 30 дн = `silence_too_short` (28 строк); при 2 026 184 сообщениях и 26 738 кандидатах «год назад» ни один не достигнут; `nostalgia_log`: sent=2, budget_skip=209 (per-chat gate второго чата, не budget); `NOSTALGIA_ENABLED` в .env нет (включение hot PG). Основной блокер — 45-мин тишина для контекстного сценария.",
+          "artifact_path": "plans/features/p0-save-init-ux/evidence/nostalgia/prod-readonly-2026-10-18.txt",
+          "artifact_sha256": "f72f051c6d090a599c18e2381a7d71d743e7c978d0071c1158ecdbc4141cb547",
+          "type": "production"
+        },
+        {
+          "candidate_commit": "ae9af5161033ee485e0c002471f0191d9d6b4e41",
+          "ref": "plans/features/soul-1/review-nostalgia-fix.md §1/§5 + plans/features/p0-save-init-ux/evidence/nostalgia/red-baseline-2c916f35.txt + green-lane-only-2c916f35.txt",
+          "observation": "Блокеры #1 (start() возвращался при OFF — job не регистрировался; закрыт always-register) и #2 (default False; hot-включение без рестарта) классифицированы; #4/#5 не подтверждены как блокеры. RED 9f/1p на базе 2c916f35 → GREEN: lane-only 334 passed, ключевая тройка 43 passed, комбинированный набор 370 passed.",
+          "artifact_path": "plans/features/p0-save-init-ux/evidence/nostalgia/green-lane-only-2c916f35.txt",
+          "artifact_sha256": "d72c0b548af95774430893fbb73ad56e9c82b8162f990b9ae031851d6edd1e4c",
+          "type": "test"
+        }
+      ],
       "alias_of": [
         "soul-1-amd:SOUL-AMD.2.6"
       ],
@@ -119,14 +136,24 @@
       "source_text_sha256": "c763add4bf1f5fc0b32402492ab0d69929e7abc3119070cf7b7dd6a72ca55593",
       "source_excerpt": "Снять production-диагностику: effective gates, наличие/исполнение job, тики, причины отказов, найденные воспоминания, ре",
       "disposition": "required",
-      "reason": "",
+      "reason": "Pre-deploy часть закрыта: production-диагностика выполнена (read-only 18.10.2026) — effective gates, регистрация/исполнение job, тики, причины отказов, кандидаты, отправки (артефакт ниже). Post-deploy часть (артефакт после деплоя: journal `scenario=A`, воронка, `nostalgia_log`, `mca_events nostalgia_run`, per-chat gate второго чата) — READY_FOR_LIVE.",
       "req_id": "P0B-NOST-DIAG",
       "slice": "P0B-NOST",
       "acceptance": "Production-диагностика: effective gates, наличие/исполнение job, тики, причины отказов, найденные воспоминания, решения LLM, отправки; подтверждённые блокеры устранены — артефакт после деплоя.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "ae9af5161033ee485e0c002471f0191d9d6b4e41",
+          "ref": "plans/features/soul-1/review-nostalgia-fix.md (4a4d3849) §1/§7 + plans/features/p0-save-init-ux/evidence/nostalgia/prod-readonly-2026-10-18.txt",
+          "observation": "Pre-deploy диагностика: effective gates (memory.nostalgia_enabled=true hot; per-chat gate второго чата -1004482340693), job/тики (почасовые, silence=45min), причины отказов (28× silence_too_short), кандидаты (26 738), отправки (sent=2 за историю). Post-deploy артефакт (journal scenario=A, nostalgia_log, mca_events nostalgia_run, per-chat gate) — живой остаток, выполняется штатным post-deploy чеком.",
+          "artifact_path": "plans/features/p0-save-init-ux/evidence/nostalgia/prod-readonly-2026-10-18.txt",
+          "artifact_sha256": "f72f051c6d090a599c18e2381a7d71d743e7c978d0071c1158ecdbc4141cb547",
+          "type": "production"
+        }
+      ],
+      "live_note": "postdeploy (DevOps/Orchestrator), не owner-гейт: journal `[nostalgia] scenario=A (живая беседа) | chat=-1002661910336` (тик ≤60 мин + jitter после рестарта); следующая строка воронки (sent kind=year_back|golden либо честная причина); новая строка `nostalgia_log` по чату; `mca_events nostalgia_run` start+success; per-chat `gates[nostalgia]=true` для `-1004482340693` (конфиг при релизе) + тот же прогон воронки; read-only, fail2ban-дисциплина.",
       "alias_of": [
         "soul-1-amd:SOUL-AMD.2.6"
       ]
@@ -137,14 +164,24 @@
       "source_text_sha256": "051647c34fca24e4d9058477527bcf4b3480a662579dff50378cdbe7abab10be",
       "source_excerpt": "**Сценарий A — контекстное воспоминание в активной беседе** (без требования 45 минут тишины).",
       "disposition": "required",
-      "reason": "",
+      "reason": "Код-контракт закрыт (ревью 18.10.2026): A/B-разделение по свежести последнего юзерского сообщения; для A тишина и quiet hours НЕ применяются, общие анти-навязчивости (cooldown 12ч/лимит 3/Q14/порог 0.45/budget) сохранены; user-блок «В чате сейчас живая беседа…»; контролируемые воронки (sent/year_back, A+quiet hours, no_candidates/unchanged) зелёные. Живая часть: journal `scenario=A` в проде — READY_FOR_LIVE.",
       "req_id": "P0B-NOST-SCEN-A",
       "slice": "P0B-NOST",
       "acceptance": "Сценарий A подтверждён на реальном поведении: контекстное воспоминание в активной беседе без требования 45 минут тишины.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "ae9af5161033ee485e0c002471f0191d9d6b4e41",
+          "ref": "plans/features/soul-1/review-nostalgia-fix.md (4a4d3849) §2/§5 (прогон 43 passed; AB-файл — 8 контрактов) + plans/features/p0-save-init-ux/evidence/nostalgia/README.md §4",
+          "observation": "Код-контракт A: свежее последнее юзерское сообщение → сценарий A минует тишину и quiet hours (A-отправка и A+quiet hours 23:00 зелёные; контроль B в тот же час — skip); общие анти-навязчивости сохранены; user-блок «В чате сейчас живая беседа. Вот память:»; воронки sent/year_back и no_candidates/unchanged подтверждены тестами; RED-состав (9 failed/1 passed) воспроизведён ревьюером.",
+          "artifact_path": "tests/test_p0_followup_nostalgia_ab.py",
+          "artifact_sha256": "92c304ae50d88456364edfd22cc656532dd9aeecde0462bbb3ae06dabae909e3",
+          "type": "test"
+        }
+      ],
+      "live_note": "postdeploy (DevOps/Orchestrator), не owner-гейт: строка `[nostalgia] scenario=A (живая беседа) | chat=-1002661910336` в journal (тик ≤60 мин + jitter после рестарта) и следующая строка воронки (sent kind=year_back|golden либо честная причина); read-only, fail2ban-дисциплина.",
       "alias_of": [
         "soul-1-amd:SOUL-AMD.2.6"
       ]
@@ -155,14 +192,24 @@
       "source_text_sha256": "0a786946e241e702a8286b81c3c2ff22020505f46dbc171ec3354ccf0b0b242a",
       "source_excerpt": "**Сценарий B — автономное воспоминание после затишья** (паузы/защита от навязчивости — здесь уместны).",
       "disposition": "required",
-      "reason": "",
+      "reason": "Код-контракт закрыт (ревью 18.10.2026): для B (последнее юзерское сообщение старше окна тишины) сохранены прежние гейты — тишина, quiet hours, cooldown 12 ч, лимит 3/сутки, Q14, порог 0.45, budget; контрольный тест `test_scenario_b_quiet_hours_still_skip` зелёный уже на RED (единственный pass) и на кандидате; OFF-паритет байт-в-байт. Живая часть: фактическое срабатывание B (или честная причина) в пост-деплой воронке — READY_FOR_LIVE.",
       "req_id": "P0B-NOST-SCEN-B",
       "slice": "P0B-NOST",
       "acceptance": "Сценарий B подтверждён на реальном поведении: автономное воспоминание после затишья с паузами/защитой от навязчивости.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "ae9af5161033ee485e0c002471f0191d9d6b4e41",
+          "ref": "plans/features/soul-1/review-nostalgia-fix.md (4a4d3849) §1/§2/§3 + tests/test_p0_followup_nostalgia_ab.py (контроль B)",
+          "observation": "Код-контракт B: последнее юзерское сообщение старше окна тишины → прежние гейты (тишина/quiet hours/cooldown/лимит/Q14/порог) действуют; контрольный тест quiet chat + quiet hours → skip зелёный на RED и на кандидате (единственный RED-pass — прежний контракт B не сломан); OFF-путь байт-в-байт (`bytes_equal_legacy_canon: True`).",
+          "artifact_path": "tests/test_p0_followup_nostalgia_ab.py",
+          "artifact_sha256": "92c304ae50d88456364edfd22cc656532dd9aeecde0462bbb3ae06dabae909e3",
+          "type": "test"
+        }
+      ],
+      "live_note": "postdeploy (DevOps/Orchestrator), не owner-гейт: реальное срабатывание сценария B (или честная причина в воронке/`nostalgia_log`) после затишья; подтверждение сохранности quiet hours/пауз в живом поведении; read-only, fail2ban-дисциплина.",
       "alias_of": [
         "soul-1-amd:SOUL-AMD.2.6"
       ]
@@ -173,14 +220,23 @@
       "source_text_sha256": "57d0840744a65b701b0a7c77c560d610ee1c8950658711fc9b0e83875108dd04",
       "source_excerpt": "Оба — общие механизмы памяти/уместности/Core/дедупа/отправки. Никакого второго контура генерации/личности. Устранить leg",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто (ревью 18.10.2026, Approved): единый контур подтверждён артефактом ON/OFF и тестами — ON-промпт = genre-рамка + SOUL-1 Core canon + UNCHANGED, без legacy-персоны («токсично-тёплый»/«робот-архивариус» убраны, диффом; артефакт воспроизведён ревьюером); OFF-путь байт-в-байт прежний (`bytes_equal_legacy_canon: True`, base↔candidate sha `7631bbcc…`); делегирование в общий Decision без второго send-path. VERIFIED (pre-deploy).",
       "req_id": "P0B-NOST-ONE-CONTOUR",
       "slice": "P0B-NOST",
       "acceptance": "Общие механизмы памяти/уместности/Core/дедупа/отправки; второго контура генерации/личности нет; legacy-речевые каноны в активных промптах Nostalgia, конкурирующие с SOUL-1, устранены (grep-артефакт).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "ae9af5161033ee485e0c002471f0191d9d6b4e41",
+          "ref": "plans/features/soul-1/review-nostalgia-fix.md (4a4d3849) §3/§4 + plans/features/p0-save-init-ux/evidence/nostalgia/system-prompt-on-vs-off.txt + tests/test_soul1_w4_authorial_genre.py (кейс core_canon)",
+          "observation": "Артефакт ON/OFF: ON-промпт (3009 симв.) — genre-рамка + NOSTALGIA_CORE_CANON + UNCHANGED, legacy-маркеров нет; OFF-system == legacy_canon байт-в-байт; user-блок OFF идентичен базе. Единственный контур: тот же `_delegate_initiative` → общий Decision/Writer; второй контур генерации/личности отсутствует; W4-контракты (OFF-паритет) не изменены и зелёные.",
+          "artifact_path": "plans/features/p0-save-init-ux/evidence/nostalgia/system-prompt-on-vs-off.txt",
+          "artifact_sha256": "ae88951ef39ae9b987c3f506733119a82eec499a8fce46f81f209cbe9980c932",
+          "type": "test"
+        }
+      ],
       "alias_of": [
         "soul-1-amd:SOUL-AMD.2.13",
         "soul-1-amd:SOUL-AMD.8.1",
@@ -194,14 +250,23 @@
       "source_text_sha256": "1daae847da44e6f63573e28b8e8d105d597a9f51a24316f4b6c4c2184bb0f3b7",
       "source_excerpt": "Initiative: актуальный разговор/новые поводы/ответы. Nostalgia: осмысленное возвращение к прошлому. Различимые источники",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто (ревью 18.10.2026, Approved): различимые источники кандидатов закреплены тест-спаем — `source=nostalgia`, `trigger_kind=nostalgia_due`, `prepared_text_ref=nostalgia:*`; путь `_delegate_initiative` → единый `handle_initiative`; ошибка делегирования — честный error без legacy-фолбэка; второго send-path/двойных отправок/конкурирующих писателей нет; `nostalgia_log meta.path=initiative`. VERIFIED (pre-deploy); живое различение — в пост-деплой воронке (P0B-NOST-DIAG).",
       "req_id": "P0B-SEPARATION",
       "slice": "P0B-NOST",
       "acceptance": "Разделение: Initiative — актуальный разговор/новые поводы/ответы; Nostalgia — осмысленное возвращение к прошлому; различимые источники кандидатов для единого Decision/Writer/SendRecheck; без двойных отправок/конкурирующих писателей/повторов повода; история для понимания не путается с ответом на завершившийся разговор.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "ae9af5161033ee485e0c002471f0191d9d6b4e41",
+          "ref": "plans/features/soul-1/review-nostalgia-fix.md (4a4d3849) §4/§7 + tests/test_p0_followup_nostalgia_ab.py (тест-спай делегирования)",
+          "observation": "Разделение подтверждено: спай на `handle_initiative` фиксирует `source=nostalgia`, `trigger_kind=nostalgia_due`, `prepared_text_ref=nostalgia:<fact|kind>`, готовый текст и `meta.path=initiative` в `nostalgia_log`; ошибка делегирования — честный `error` без legacy-фолбэка; поводы Initiative/Nostalgia различимы в едином Decision; второго send-path и двойных отправок нет.",
+          "artifact_path": "tests/test_p0_followup_nostalgia_ab.py",
+          "artifact_sha256": "92c304ae50d88456364edfd22cc656532dd9aeecde0462bbb3ae06dabae909e3",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "M-B-43",
