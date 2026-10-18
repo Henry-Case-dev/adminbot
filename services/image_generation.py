@@ -290,6 +290,25 @@ def image_quota_reset_note(chat_id: int | None) -> str:
         return ""
 
 
+def image_shared_budget_note() -> str:
+    """CFG-02C (§02C.4, carry-over §65): честная строка о сбросе SHARED
+    (технического) бюджета генераций — общий защитный потолок всех чатов.
+
+    Источник и TZ — shared (`WORKER_BUDGET_TZ`), а НЕ календарный день чата:
+    отказ по этому контуру не маскируется под пользовательскую суточную
+    квоту. Fail-open: ошибка резолва → ``''`` (без выдуманного времени)."""
+    try:
+        from services import worker_budget as _wb
+        nxt = _wb.image_next_reset(None)
+        tz_name = str(_wb.image_timezone(None) or "")
+        stamp = nxt.strftime("%d.%m.%Y %H:%M")
+        return ("Технический бюджет генераций (общий для всех чатов) "
+                "исчерпан: обновится "
+                + (f"{stamp} ({tz_name})." if tz_name else f"{stamp}."))
+    except Exception:      # pragma: no cover - диагностика не рвёт отказ
+        return ""
+
+
 # ── CFG-02B (§02B.3–§02B.7, ADR-1031-1): частотный лимит генераций ─────────
 # Единый контур для ВСЕХ пользовательских путей (ключевик/direct-пре-гейт,
 # L1/Tool Router, повторный вызов): проверка живёт в `generate_and_send`
@@ -298,6 +317,25 @@ def image_quota_reset_note(chat_id: int | None) -> str:
 # cover-пipeline/summary_generator напрямую) НЕ проходит этот лимитер
 # (§02B.5) — полная двусторонняя изоляция учёта — CFG-02C.
 FREQ_REASON = "freq_limit"
+
+# ── CFG-02C (§02C.2, слайс CFG-02C): явный тип потребления изображения ─────
+# Тип едет ЯВНЫМ параметром от call-site (не из текста промпта/имени
+# инструмента): `generate_image_verbose(consumption_type=..., cover_stage=...)`
+# → `_cover_charge` → `worker_budget.reserve_image` → журнал
+# `image_reservation.source='summary_cover:<stage>'`. Пользовательские пути
+# (`generate_and_send`) остаются `user_image` (source direct|tool).
+CONSUMPTION_USER = "user_image"
+CONSUMPTION_COVER = "summary_cover"
+COVER_STAGE_BASE = "base"
+COVER_STAGE_STYLED_EDIT = "styled_edit"
+COVER_STAGE_RETRY_RECOVERY = "retry_recovery"
+COVER_STAGE_FALLBACK = "fallback"
+COVER_STAGES: tuple[str, ...] = (COVER_STAGE_BASE, COVER_STAGE_STYLED_EDIT,
+                                 COVER_STAGE_RETRY_RECOVERY,
+                                 COVER_STAGE_FALLBACK)
+#: Отказ обложке/пользователю по shared (техническому) потолку — истинная
+#: причина (не схлопывается в `budget`; carry-over review-cfg-02a §65).
+SHARED_BUDGET_REASON = "shared_budget"
 
 
 @dataclasses.dataclass(frozen=True)
@@ -426,13 +464,20 @@ async def image_denial_details(result, chat_id: int | None, *,
         lines.append(freq_line)
     if not daily_already_shown:
         status = ""
+        detail = ""
         try:
             from services import capability_registry as _caps
-            status, _detail = await _caps.image_quota_state(chat_id)
+            status, detail = await _caps.image_quota_state(chat_id)
         except Exception:      # pragma: no cover - диагностика fail-open
             status = ""
         if status == "quota_exhausted":
-            note = image_quota_reset_note(chat_id)
+            # CFG-02C (§02C.4/§65): источник отказа называется истинно —
+            # shared (технический) потолок → shared-строка/TZ; суточная
+            # пользовательская квота → строка/TZ чата.
+            if detail == "image_shared_limit":
+                note = image_shared_budget_note()
+            else:
+                note = image_quota_reset_note(chat_id)
             if note:
                 lines.append(note)
         elif status == "disabled":
@@ -1064,7 +1109,10 @@ async def _consume_budget(chat_id: int | None) -> bool:
     Оба контура реально применяются (прецедент `dream_worker._consume`): сначала
     глобальный дневной потолок (`WORKER_DAILY_IMAGE_CALLS_GLOBAL`), затем
     per-chat (`WORKER_DAILY_IMAGE_CALLS_PER_CHAT`). При исчерпании global
-    per-chat не тратится. PG down → fail-open True."""
+    per-chat не тратится. PG down → fail-open True.
+
+    CFG-02C: это контур ПОЛЬЗОВАТЕЛЬСКИХ генераций (`user_image`); обложки
+    Summary списываются отдельно (`_cover_charge`, только shared)."""
     try:
         from services import worker_budget
         ok = await worker_budget.consume(
@@ -1078,6 +1126,85 @@ async def _consume_budget(chat_id: int | None) -> bool:
     except Exception:
         logger.warning("[image] budget consume failed — fail-open")
         return True
+
+
+async def _consume_cover_shared_budget() -> bool:
+    """Legacy-контур обложки (kill-switch/master OFF/fail-open): ТОЛЬКО shared
+    (технический) потолок — per-chat пользовательская квота не трогается
+    ни в одном режиме (CFG-02C §02C.1)."""
+    try:
+        from services import worker_budget
+        return await worker_budget.consume(
+            None, scope="global", metric=worker_budget.METRIC_IMAGE_CALLS,
+            amount=1)
+    except Exception:
+        logger.warning("[image] cover budget consume failed — fail-open")
+        return True
+
+
+async def _cover_charge(chat_id: int | None, *, stage: str,
+                        correlation_id: str | None
+                        ) -> tuple[str, str, str]:
+    """CFG-02C (§02C.2/§02C.6): списание бюджета ОБЛОЖКИ Summary.
+
+    Возвращает ``(action, journal_key, reason)``: ``('journal', key, 'ok')`` —
+    типизированный резерв в журнале (commit/release обязательны);
+    ``('none', '', 'ok')`` — журнал недоступен/не применяется (kill-switch
+    OFF, master OFF, PG fail-open) — паритет legacy-fail-open, списания нет;
+    ``('deny', '', reason)`` — честный отказ ДО платного вызова
+    (shared-потолок → ``shared_budget``). Тип/стадия едут в журнал
+    (`source='summary_cover:<stage>'`), НЕ выводятся из промпта."""
+    stage_now = str(stage or COVER_STAGE_BASE)
+    if stage_now not in COVER_STAGES:
+        stage_now = COVER_STAGE_BASE
+    source = f"summary_cover:{stage_now}"
+    mode, _mode_reason = await image_reserve_mode(chat_id)
+    if mode != "reserve":
+        ok = await _consume_cover_shared_budget()
+        return ("none", "", "ok") if ok else ("deny", "",
+                                              SHARED_BUDGET_REASON)
+    try:
+        from services import worker_budget
+        key = (f"cover:{chat_id if chat_id is not None else 'none'}:"
+               f"{correlation_id or 'nocorr'}:{stage_now}:{uuid.uuid4().hex[:12]}")
+        result = await worker_budget.reserve_image(
+            None, chat_id=chat_id, idem_key=key, source=source,
+            consumption_type=worker_budget.CONSUMPTION_COVER)
+    except Exception:
+        logger.warning("[image] cover reserve failed — fail-open | chat=%s",
+                       chat_id)
+        return "none", "", "ok"
+    if result.reason == "failopen" or not result.status:
+        # PG/таблица/транзакция недоступны или master выключился в гонке —
+        # журнала нет: fail-open паритет legacy (без списания и без строки).
+        return "none", "", "ok"
+    if not result.ok:
+        reason = (SHARED_BUDGET_REASON if result.reason == "limit_global"
+                  else "budget")
+        logger.info("[image] cover reserve denied | chat=%s | stage=%s | "
+                    "reason=%s", chat_id, stage_now, result.reason)
+        return "deny", "", reason
+    return "journal", key, "ok"
+
+
+async def _cover_settle(key: str, *, ok: bool, reason: str) -> None:
+    """CFG-02C: терминал резерва обложки — commit (успех) / release (сбой).
+
+    Best-effort (fail-open): ошибка PG не роняет публикацию Summary. Release
+    возвращает shared-квоту и НЕ трогает per-chat контур (журнал типизирован).
+    """
+    if not key:
+        return
+    try:
+        from services import worker_budget
+        if ok:
+            await worker_budget.commit_image(None, key)
+        else:
+            await worker_budget.release_image(
+                None, key, error_code=str(reason or "cover_failed")[:64])
+    except Exception:
+        logger.warning("[image] cover settle failed — fail-open | key=%s",
+                       key[-24:])
 
 
 async def _generate_post(base_url: str, model: str, prompt: str, key: str,
@@ -1512,9 +1639,21 @@ def _write_temp_image(content: bytes) -> str | None:
 async def generate_image_verbose(prompt: str, *, chat_id: int | None = None,
                                  correlation_id: str | None = None,
                                  shorter_prompt=None,
-                                 attempt_log: list | None = None
+                                 attempt_log: list | None = None,
+                                 consumption_type: str = CONSUMPTION_USER,
+                                 cover_stage: str = COVER_STAGE_BASE
                                  ) -> tuple[str | None, str]:
     """Как ``generate_image``, но возвращает ``(путь|None, reason)``.
+
+    CFG-02C (§02C.1/§02C.2): ``consumption_type`` — ЯВНЫЙ тип потребления от
+    call-site. `user_image` (по умолчанию) — прежний контур (списание
+    пользовательского бюджета). `summary_cover` — контур обложек Summary:
+    резерв ТОЛЬКО shared (технического) потолка, типизированная строка журнала
+    (`summary_cover:<stage>`), commit при успехе / release при терминальном
+    сбое; per-chat пользовательская суточная квота и частотный лимитер не
+    затрагиваются (и не блокируют обложку). ``cover_stage`` ∈
+    {base, styled_edit, retry_recovery, fallback} — стадия контура обложек
+    (неизвестная → `base`).
 
     F12/ADR-1024-4 D4: причина отказа видна вызывающему — обложка саммари
     пишет её в F2-лог вместо безликого «image unavailable». Fail-open.
@@ -1546,8 +1685,33 @@ async def generate_image_verbose(prompt: str, *, chat_id: int | None = None,
     prompt = str(prompt or "").strip()
     if not prompt:
         return None, "empty_prompt"
-    if not await _consume_budget(chat_id):
-        return None, "budget"
+    if str(consumption_type or CONSUMPTION_USER) != CONSUMPTION_COVER:
+        if not await _consume_budget(chat_id):
+            return None, "budget"
+        return await _generate_image_verbose_inner(
+            prompt, chat_id=chat_id, correlation_id=correlation_id,
+            shorter_prompt=shorter_prompt, attempt_log=attempt_log)
+    # ── Контур обложек Summary (CFG-02C): типизированный резерв/жизненный
+    # цикл, только shared-потолок; user-квота и freq не затрагиваются.
+    action, cover_key, reason = await _cover_charge(
+        chat_id, stage=cover_stage, correlation_id=correlation_id)
+    if action == "deny":
+        return None, reason
+    path, reason = await _generate_image_verbose_inner(
+        prompt, chat_id=chat_id, correlation_id=correlation_id,
+        shorter_prompt=shorter_prompt, attempt_log=attempt_log)
+    await _cover_settle(cover_key, ok=bool(path), reason=reason)
+    return path, reason
+
+
+async def _generate_image_verbose_inner(prompt: str, *, chat_id: int | None,
+                                        correlation_id: str | None,
+                                        shorter_prompt=None,
+                                        attempt_log: list | None = None
+                                        ) -> tuple[str | None, str]:
+    """Тело ``generate_image_verbose`` БЕЗ списания бюджета: вызывающий уже
+    владеет резервом (cover-контур) или legacy-списанием (user-контур) —
+    «бюджет списывается ОДИН раз» сохраняется и для обложек."""
     attempts = _image_max_attempts()
     provider = provider_label()
     # T-4197: adaptive total deadline политики (или legacy 180 c, OFF).
@@ -1822,8 +1986,12 @@ async def _reserve_or_consume(chat_id: int | None, *, source: str,
             return "already_ok", idem_key, "already"
         # Replay прежнего отказа: released → journaled error_code,
         # denied → limit-отказ (прежний исход, без нового списания).
+        # CFG-02C (§02C.4/§65): journaled `limit_global` остаётся честным
+        # shared-отказом, а не схлопывается в «пользовательскую квоту».
         prior = result.error_code or (
             "budget" if result.status == "denied" else "generation_failed")
+        if prior == "limit_global":
+            prior = SHARED_BUDGET_REASON
         logger.info("[image] reserve replay denied | chat=%s | source=%s | "
                     "status=%s", chat_id, source, result.status)
         return "deny", idem_key, prior
@@ -1831,7 +1999,11 @@ async def _reserve_or_consume(chat_id: int | None, *, source: str,
         logger.info("[image] reserve denied | chat=%s | source=%s | "
                     "reason=%s | status=%s", chat_id, source, result.reason,
                     result.status)
-        return "deny", idem_key, "budget"
+        # CFG-02C: истинный источник отказа едет дальше как есть
+        # (`limit_global` → shared_budget; `limit_chat` → budget).
+        deny_reason = (SHARED_BUDGET_REASON if result.reason == "limit_global"
+                       else "budget")
+        return "deny", idem_key, deny_reason
     return "reserve", idem_key, "ok"
 
 
@@ -1844,6 +2016,9 @@ _IMAGE_REASON_TO_CODE = {
     "empty_prompt": "validation_failed",
     "too_large": "too_many_bytes",
     "budget": "financial_limit_reached",
+    # CFG-02C (§02C.4): shared (технический) потолок — тоже финансовый/
+    # capacity-класс, но с отдельной честной причиной (не «квота чата»).
+    "shared_budget": "financial_limit_reached",
     # CFG-02B (§02B.4): отказ частотной паузы — существующий честный код
     # словаря §17.2 (`cooldown`), не «финансовый» и не «провайдер упал».
     "freq_limit": "cooldown",
@@ -2178,15 +2353,20 @@ def _image_error_block(result, *, chat_id: int | None,
     параметр: прямой вызов без него сохраняет поведение CFG-02A/CFG-01."""
     from services import capability_registry as _caps
     _record_image_outcome(result, chat_id=chat_id)
-    text, block_id, _source = _caps.failure_message_for_reason(
-        str(getattr(result, "reason", "") or ""))
-    code = _caps.failure_code_for_reason(str(getattr(result, "reason", "") or ""))
+    reason_now = str(getattr(result, "reason", "") or "")
+    text, block_id, _source = _caps.failure_message_for_reason(reason_now)
+    code = _caps.failure_code_for_reason(reason_now)
     # CFG-02A (§02A.5): при исчерпании СУТОЧНОЙ квоты — честное фактическое
     # время следующего сброса (календарный день чата в его TZ; не cooldown).
+    # CFG-02C (§02C.4/§65): при отказе по SHARED-потолку называется
+    # технический бюджет и его TZ — пользовательская квота не подставляется.
     # Редактируемая речевая форма остаётся управляемым текстом реестра
     # (`message.image_failure.quota_exhausted`); строка сброса — факт кода.
-    reset_note = (image_quota_reset_note(chat_id)
-                  if code == "quota_exhausted" else "")
+    if reason_now == SHARED_BUDGET_REASON:
+        reset_note = image_shared_budget_note()
+    else:
+        reset_note = (image_quota_reset_note(chat_id)
+                      if code == "quota_exhausted" else "")
     try:
         _caps.emit_capability_event(
             _caps.CapabilityState(

@@ -1,0 +1,16 @@
+CFG-02C candidate fingerprint (sha256_12, рабочее дерево, без коммита; база IMPL f7a14994, master на сдаче e90e9c7b)
+
+33e7b0eb8779  services/worker_budget.py
+ac028768eb86  services/image_generation.py
+360c663ee8c5  services/capability_registry.py
+c29cd6ee3038  services/summary_generator.py
+394c2b10c7f7  services/cover_style_preview.py
+681bac561fb9  web/api/summary_test.py
+44642c5a2b3e  web/app.js
+94289f4e0932  web/index.html
+c76b62e8a29d  tests/test_cfg02c_image_isolation.py
+931061929a55  tests/test_image_daily_limit_round1026.py
+daa53423cff9  tests/test_hotfix5_summary_cover_window_round1025.py
+813c02f98949  tests/test_asap7_cover_preview.py
+63895a4c659b  tests/test_extra_cover_style_runtime.py
+641267a1e601  tools/ui_cfg02c_image_isolation_e2e.py

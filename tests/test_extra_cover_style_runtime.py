@@ -35,11 +35,13 @@ class _Recorder:
         styled.write_bytes(b"STYLED")
 
         async def _gen(prompt, *, chat_id=None, correlation_id=None,
-                       shorter_prompt=None, attempt_log=None):
+                       shorter_prompt=None, attempt_log=None, **kwargs):
             # ASAP 7 (F7, 2.58.73): generate_image_verbose получил
             # shorter_prompt/attempt_log (content-loss fix) — стаб зеркалит
             # сигнатуру (image_generation.py:1303), иначе TypeError до
             # самого вызова → COVER_GENERATION_FAILED.
+            # CFG-02C (§02C.2): + consumption_type/cover_stage (явный тип
+            # контура обложек) — стаб по-прежнему зеркалит вызов.
             rec.image_calls += 1
             return (str(base), "ok") if base_ok else (None, "no_key")
 
@@ -154,7 +156,8 @@ async def test_degraded_rich_failure_falls_back_to_plain(monkeypatch, tmp_path):
     rec = _Recorder()
     plain_chunks = []
 
-    async def _gen2(prompt, *, chat_id=None, correlation_id=None):
+    async def _gen2(prompt, *, chat_id=None, correlation_id=None, **kwargs):
+        # CFG-02C: зеркалит актуальную сигнатуру (consumption_type/cover_stage).
         return (None, "no_key")
 
     async def _rich2(bot, chat_id, text, *, media=None, cover_id=None,

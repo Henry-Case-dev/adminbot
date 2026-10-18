@@ -235,7 +235,9 @@ def _cover_env(monkeypatch, tmp_path, db, *, gen_style: str = STYLE_TEXT,
                             "resolve_generate_prompt_limit_async", _gen_limit)
 
     async def fake_generate(prompt, chat_id=None, correlation_id=None,
-                            shorter_prompt=None, attempt_log=None):
+                            shorter_prompt=None, attempt_log=None, **kwargs):
+        # CFG-02C (§02C.2): зеркалит актуальную сигнатуру контура обложек
+        # (consumption_type/cover_stage едут явным параметром от call-site).
         calls.append({"prompt": prompt, "chat_id": chat_id,
                       "correlation_id": correlation_id})
         if attempt_log is not None:
@@ -335,7 +337,10 @@ class TestSummaryTestCoverProductionCompiler:
             calls: list = []
 
             async def fake_generate(prompt, chat_id=None, correlation_id=None,
-                                    shorter_prompt=None, attempt_log=None):
+                                    shorter_prompt=None, attempt_log=None,
+                                    **kwargs):
+                # CFG-02C (§02C.2): зеркалит актуальную сигнатуру контура
+                # обложек (consumption_type/cover_stage — явный параметр).
                 calls.append(prompt)
                 # эмуляция внутренней семантики generate_image_verbose:
                 # 400 too-long на попытке 1 → ровно один shorter-retry.

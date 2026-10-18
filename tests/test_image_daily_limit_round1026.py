@@ -87,7 +87,8 @@ class _Conn:
             (key,) = args
             r = self.s["res"].get(key)
             return ({"status": r["status"], "day": r["day"],
-                     "chat_id": r["chat_id"], "created_at": r["created_at"]}
+                     "chat_id": r["chat_id"], "created_at": r["created_at"],
+                     "source": r.get("source", "direct")}
                     if r else None)
         if sql is wb.RESERVATION_RELEASE_SQL:
             key, error = args
@@ -121,15 +122,47 @@ class _Conn:
             return {"used": used} if used is not None else None
         if sql is wb.RESERVATION_DAY_SQL:
             chat_id, day = args
-            groups: dict[str, dict] = {}
+            return self._day_groups(chat_id, day, cover=False)
+        if sql is wb.RESERVATION_COVER_DAY_SQL:
+            chat_id, day = args
+            return self._day_groups(chat_id, day, cover=True)
+        if sql is wb.RESERVATION_SHARED_COVER_SQL:
+            tz_name, day = args
+            from zoneinfo import ZoneInfo as _ZI
+            try:
+                zone = _ZI(str(tz_name))
+            except Exception:                      # pragma: no cover
+                zone = datetime.timezone.utc
+            n = 0
             for r in self.s["res"].values():
-                if r["chat_id"] == chat_id and r["day"] == day:
-                    g = groups.setdefault(r["status"], {"n": 0, "df": 0})
-                    g["n"] += 1
-                    g["df"] += 1 if r["delivery_failed"] else 0
-            return [{"status": k, "n": v["n"], "df": v["df"]}
-                    for k, v in groups.items()]
+                if not str(r.get("source", "")).startswith("summary_cover"):
+                    continue
+                if r["status"] not in ("committed", "reserved"):
+                    continue
+                created = r.get("created_at")
+                if created is None:                # pragma: no cover
+                    continue
+                if (created if created.tzinfo else
+                        created.replace(tzinfo=datetime.timezone.utc)
+                        ).astimezone(zone).date() == day:
+                    n += 1
+            return {"n": n}
         raise AssertionError("unexpected fetchrow: %s" % sql)
+
+    def _day_groups(self, chat_id, day, *, cover: bool):
+        """Агрегат журнала дня/чата: user-строки (cover=False) или
+        `summary_cover:*` (cover=True) — как в реальном SQL CFG-02C."""
+        groups: dict[str, dict] = {}
+        for r in self.s["res"].values():
+            is_cover = str(r.get("source", "")).startswith("summary_cover")
+            if is_cover != cover:
+                continue
+            if r["chat_id"] == chat_id and r["day"] == day:
+                g = groups.setdefault(r["status"], {"n": 0, "df": 0})
+                g["n"] += 1
+                g["df"] += 1 if r["delivery_failed"] else 0
+        return [{"status": k, "n": v["n"], "df": v["df"]}
+                for k, v in groups.items()]
 
     async def fetch(self, sql, *args):
         await asyncio.sleep(0)

@@ -814,6 +814,10 @@ _FAILURE_CODE_BY_REASON: dict[str, str] = {
     "delivery_unknown": "delivery_failed",
     "budget": "quota_exhausted",
     "financial_limit_reached": "quota_exhausted",
+    # CFG-02C (§02C.4, carry-over §65): отказ по SHARED (техническому) потолку
+    # — тот же класс шаблона «квота», но с честной причиной в диагностике и
+    # shared-строкой сброса (TZ `WORKER_BUDGET_TZ`), не «квота чата».
+    "shared_budget": "quota_exhausted",
     # CFG-02B (§02B.6): отказ короткой паузы частотного лимита — отдельный
     # редактируемый текст (`message.image_failure.freq_limited`), НЕ «квота»
     # и НЕ «провайдер прилёг» (истина: слишком часто просят).

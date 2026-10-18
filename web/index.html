@@ -3798,6 +3798,16 @@
                 <div v-if="grp.id === 'limits_images' && imageQuotaFacts"
                      class="mt-4 pt-3 border-t border-white/10"
                      data-image-quota-facts>
+                  <!-- CFG-02C (§02C.5): секция ясно обозначает, ЧЕЙ это
+                       счётчик: пользовательские изображения; обложки Summary
+                       учтены отдельно и сюда не входят. -->
+                  <div class="text-xs text-gray-400 mb-2"
+                       data-image-quota-scope-label>
+                    <b>Пользовательские изображения</b>: настройка, расход и
+                    остаток ниже относятся только к картинкам, которые просят
+                    люди в общении. <b>Обложки сводок здесь не учитываются</b> —
+                    у них собственный отдельный учёт.
+                  </div>
                   <div class="text-xs text-gray-400 mb-2">
                     Единицы: <b>генерации в сутки</b> (одна генерация — одна
                     картинка). Значение: <b>0</b> — генерация запрещена,
@@ -3855,6 +3865,18 @@
                       <div class="text-xs text-gray-400">
                         Следующий сброс:
                         {{ imageResetLabel(imageQuotaFacts.shared.next_reset_at, imageQuotaFacts.shared.timezone) }}
+                      </div>
+                      <!-- CFG-02C (§02C.4/§02C.5): разбивка агрегата по
+                           источникам — сколько из общего расхода дали
+                           обложки сводок (один счётчик не выдаётся за
+                           другой; пользовательский счётчик их не включает). -->
+                      <div v-if="imageQuotaFacts.shared.cover_used != null"
+                           class="text-xs text-gray-400"
+                           data-image-quota-shared-breakdown>
+                        В том числе обложки сводок:
+                        {{ imageQuotaFacts.shared.cover_used }} — отдельный
+                        учёт, счётчик пользовательских изображений их не
+                        включает.
                       </div>
                     </div>
                   </div>

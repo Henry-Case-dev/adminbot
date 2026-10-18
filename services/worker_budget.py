@@ -33,6 +33,28 @@ METRIC_TOKENS = "llm_tokens"
 # обложка саммари не конкурировала за общий дневной лимит LLM чата; новых
 # каталоговых ключей нет (Δ каталога = 0).
 METRIC_IMAGE_CALLS = "image_calls"
+# ── CFG-02C (§02C.2, слайс CFG-02C): явный тип потребления изображения ─────
+# Тип едет ОТ call-site (параметр `consumption_type`), НЕ выводится из текста
+# промпта/имени инструмента. Носитель в журнале `image_reservation` —
+# существующая колонка `source` (enum-пространство `summary_cover:<stage>`;
+# Δ DDL = 0 — прецедент A5/D6 «журнал, не второй счётчик»):
+#   * `user_image`      — пользовательские генерации (source direct|tool);
+#   * `summary_cover`   — обложки Summary: base | styled_edit | retry_recovery
+#                         | fallback (потребляющие стадии журналируются;
+#                         styled/recovery image-бюджет не тратят — сохранено).
+CONSUMPTION_USER = "user_image"
+CONSUMPTION_COVER = "summary_cover"
+COVER_SOURCE_PREFIX = "summary_cover:"
+
+
+def journal_consumption_type(source) -> str:
+    """Тип потребления строки журнала по `source` (единый маппер, без второй
+    копии правил). Исторические строки (`direct`/`tool`) — пользовательские:
+    обложки в журнал не писались, перезаписи истории нет (forward-only)."""
+    if str(source or "").startswith(COVER_SOURCE_PREFIX):
+        return CONSUMPTION_COVER
+    return CONSUMPTION_USER
+
 
 LIMIT_CALLS_GLOBAL = "limits.worker_daily_llm_calls_global"
 LIMIT_TOKENS_GLOBAL = "limits.worker_daily_llm_tokens_global"
@@ -116,8 +138,10 @@ RESERVATION_SELECT_SQL = (
 )
 # A5 (D7): release читает journaled-день/chat/created_at — точный откат того же
 # дня, что и резерв (защита от смены суток между reserve и release).
+# CFG-02C: + source — cover-строки НЕ откатывают per-chat контур (он их не
+# инкрементировал; иначе release «одолжил» бы пользовательскую квоту).
 RESERVATION_RELEASE_SELECT_SQL = (
-    "SELECT status, day, chat_id, created_at FROM image_reservation "
+    "SELECT status, day, chat_id, created_at, source FROM image_reservation "
     "WHERE reservation_key = $1"
 )
 RESERVATION_STATUS_SQL = (
@@ -145,11 +169,33 @@ RESERVATION_PURGE_SQL = (
     "DELETE FROM image_reservation WHERE day < $1"
 )
 # Агрегаты §28 (SC-A5-07) ИЗ ЖУРНАЛА — не второй счётчик: статусы дня чата.
+# CFG-02C (§02C.1/.5): пользовательская витрина считает ТОЛЬКО `user_image` —
+# строки обложек (`summary_cover:*`) не выдаются за пользовательский расход
+# (обратная сторона — `RESERVATION_COVER_DAY_SQL`).
 RESERVATION_DAY_SQL = (
     "SELECT status, COUNT(*) AS n, "
     "COALESCE(SUM(CASE WHEN delivery_failed THEN 1 ELSE 0 END), 0) AS df "
     "FROM image_reservation WHERE chat_id = $1 AND day = $2 "
+    "AND source NOT LIKE 'summary_cover%' "
     "GROUP BY status"
+)
+# CFG-02C: отдельный агрегат обложек того же дня/чата (разбивка по источникам).
+RESERVATION_COVER_DAY_SQL = (
+    "SELECT status, COUNT(*) AS n, "
+    "COALESCE(SUM(CASE WHEN delivery_failed THEN 1 ELSE 0 END), 0) AS df "
+    "FROM image_reservation WHERE chat_id = $1 AND day = $2 "
+    "AND source LIKE 'summary_cover%' "
+    "GROUP BY status"
+)
+# CFG-02C (§02C.4): расход обложек в SHARED-дне (`WORKER_BUDGET_TZ`) — день
+# физического потолка берётся из created_at (journaled `day` — день чата, у
+# чатов другой TZ он не совпадает). Считаются committed/reserved — ровно то,
+# что держит счётчик (release возвращает, denied не списывает).
+RESERVATION_SHARED_COVER_SQL = (
+    "SELECT COUNT(*) AS n FROM image_reservation "
+    "WHERE source LIKE 'summary_cover%' "
+    "AND status IN ('committed', 'reserved') "
+    "AND (created_at AT TIME ZONE $1)::date = $2"
 )
 SELECT_ROW_SQL = (
     "SELECT day, scope, metric, used FROM worker_budget "
@@ -423,6 +469,24 @@ async def get_usage(pg=None, scope: str | None = None,
     return out
 
 
+async def _shared_cover_used(pg) -> int | None:
+    """CFG-02C (§02C.4): расход обложек в SHARED-дне (`WORKER_BUDGET_TZ`).
+
+    Источник — типизированный журнал (не второй счётчик): сколько из
+    `global.image_calls.used` дали обложки Summary. Fail-open: None (витрина
+    не выдумывает разбивку)."""
+    pool = await _pool(pg)
+    if pool is None:
+        return None
+    try:
+        async with pool.acquire() as conn:
+            row = await conn.fetchrow(RESERVATION_SHARED_COVER_SQL, DAY_TZ,
+                                      today())
+        return int(row["n"]) if row is not None else 0
+    except Exception:
+        return None
+
+
 async def get_day_summary(pg=None, *,
                           viewer_user_id: int | None = None) -> dict:
     """Для GET /api/workers/budget и F-12: {day, timezone, global, chats,
@@ -472,12 +536,16 @@ async def get_day_summary(pg=None, *,
                    # A5 (spec §6.3, D5/R16): аддитивные day/timezone/
                    # next_reset_at/source для image_calls (shared-бюджет —
                    # WORKER_BUDGET_TZ; source='env' — env-only, D4).
+                   # CFG-02C (§02C.4/.5): + cover_used — разбивка по типам
+                   # операций (сколько из used дали обложки; user = used −
+                   # cover_used), один счётчик не выдаётся за другой.
                    "image_calls": {
                        **await _pair(METRIC_IMAGE_CALLS),
                        "day": str(today()),
                        "timezone": DAY_TZ,
                        "next_reset_at": image_next_reset(None).isoformat(),
                        "source": "env",
+                       "cover_used": await _shared_cover_used(pg),
                    }},
         "chats": chat_entries,
         "priorities": list(_priority_order()),
@@ -602,7 +670,9 @@ async def _maybe_purge_reservations(pool) -> None:
 
 
 async def reserve_image(pg, *, chat_id: int | None, idem_key: str, source: str,
-                        message_id=None) -> ImageReserveResult:
+                        message_id=None,
+                        consumption_type: str = CONSUMPTION_USER
+                        ) -> ImageReserveResult:
     """Атомарный резерв одной генерации изображения (ADR-1026-17 D2/D3).
 
     ОДНА транзакция PG: (i) INSERT idem-строки журнала (PK reservation_key);
@@ -616,7 +686,15 @@ async def reserve_image(pg, *, chat_id: int | None, idem_key: str, source: str,
     счётчик НЕ источник истины). Replay {возможно} уже существующего ключа
     возвращает прежний исход и НЕ списывает квоту повторно (SC-A5-02).
     Fail-open: нет pool/ошибка PG → ok=True reason='failopen' + честный
-    WARNING с дедупом (паритет baseline, транзакция исключает частичный расход)."""
+    WARNING с дедупом (паритет baseline, транзакция исключает частичный расход).
+
+    CFG-02C (§02C.1/§02C.2): ``consumption_type`` — явный тип от call-site.
+    Для ``summary_cover`` (обложки Summary) резервируется ТОЛЬКО shared
+    (технический) контур: per-chat `image_calls` — пользовательская суточная
+    квота (`limits.image_daily_limit`), обложки её не расходуют и НЕ
+    блокируются ею (даже при `0`). Тип виден в журнале (`source`
+    `summary_cover:<stage>`; маппер `journal_consumption_type`)."""
+    is_cover = str(consumption_type or CONSUMPTION_USER) == CONSUMPTION_COVER
     if not idem_key:
         idem_key = f"{chat_id}:{message_id}:{source}"
     pool = await _pool(pg)
@@ -680,7 +758,10 @@ async def reserve_image(pg, *, chat_id: int | None, idem_key: str, source: str,
                     return ImageReserveResult(ok=False,
                                               reason="limit_global",
                                               status="denied")
-                if chat_id is None:
+                if chat_id is None or is_cover:
+                    # CFG-02C: cover-контур журналируется типизированно, но
+                    # per-chat пользовательскую квоту не расходует (chat_id
+                    # остаётся в строке журнала для диагностики/разбивки).
                     return ImageReserveResult(ok=True, reason="ok",
                                               status="reserved")
                 chat_limit = await _metric_limit(
@@ -782,6 +863,8 @@ async def release_image(pg, idem_key: str,
                 journaled_day = info["day"]
                 j_chat = info["chat_id"]
                 created = info["created_at"]
+                row_source = str(info["source"] or "") \
+                    if "source" in info.keys() else ""
                 # shared-день = день резерва в WORKER_BUDGET_TZ (D5).
                 try:
                     shared_day = (created if created.tzinfo else
@@ -792,6 +875,10 @@ async def release_image(pg, idem_key: str,
                     shared_day = today()
                 await conn.execute(RESERVE_RELEASE_SQL, shared_day, "global",
                                    METRIC_IMAGE_CALLS)
+                # CFG-02C: cover-строка per-chat контур НЕ инкрементировала —
+                # откат не должен «одолжить» пользовательскую квоту.
+                if journal_consumption_type(row_source) == CONSUMPTION_COVER:
+                    return
                 effective_chat = int(j_chat) if j_chat is not None \
                     else (int(chat_id) if chat_id is not None else None)
                 if effective_chat is not None:
@@ -939,6 +1026,11 @@ async def image_usage_summary(pg, chat_id, *,
         "shared_limit": await _metric_limit("global", METRIC_IMAGE_CALLS),
         "requests": 0, "success": 0, "errors": 0, "denied": 0,
         "delivery_failed": 0,
+        # CFG-02C (§02C.4/.5): отдельный агрегат обложек Summary того же
+        # дня/чата — разбивка по источникам (пользовательские счётчики выше
+        # обложек не включают).
+        "cover": {"requests": 0, "success": 0, "errors": 0, "denied": 0,
+                  "delivery_failed": 0},
         # §28 «фактические расходы, если доступны» — N/A (D6): провайдер
         # не отдаёт стоимость генерации.
         "expenses": "N/A",
@@ -951,6 +1043,8 @@ async def image_usage_summary(pg, chat_id, *,
         try:
             async with pool.acquire() as conn:
                 rows = await conn.fetch(RESERVATION_DAY_SQL, chat_id, day)
+                cover_rows = await conn.fetch(RESERVATION_COVER_DAY_SQL,
+                                              chat_id, day)
                 grow = await conn.fetchrow(SELECT_ROW_SQL, today(), "global",
                                            METRIC_IMAGE_CALLS)
             for r in rows or []:
@@ -967,6 +1061,18 @@ async def image_usage_summary(pg, chat_id, *,
                 # раздельные под-счётчики (D6).
                 summary["requests"] += n
                 summary["delivery_failed"] += int(r["df"] or 0)
+            # CFG-02C: обложки — отдельная разбивка (не в счётчиках выше).
+            for r in cover_rows or []:
+                st = str(r["status"])
+                n = int(r["n"])
+                if st == "committed":
+                    summary["cover"]["success"] += n
+                elif st == "released":
+                    summary["cover"]["errors"] += n
+                elif st == "denied":
+                    summary["cover"]["denied"] += n
+                summary["cover"]["requests"] += n
+                summary["cover"]["delivery_failed"] += int(r["df"] or 0)
             if grow is not None:
                 summary["shared_used"] = int(grow["used"])
         except Exception:

@@ -513,7 +513,11 @@ async def _generate_base(*, brief: str, correlation_id: str | None
     from services import image_generation
     try:
         path, reason = await image_generation.generate_image_verbose(
-            brief, chat_id=None, correlation_id=correlation_id)
+            brief, chat_id=None, correlation_id=correlation_id,
+            # CFG-02C (§02C.2): preview Base (Test Style) — стадия `base`
+            # контура Summary (без чата: только shared-потолок).
+            consumption_type=image_generation.CONSUMPTION_COVER,
+            cover_stage=image_generation.COVER_STAGE_BASE)
         return path, str(reason or "")
     except Exception:
         logger.warning("[cover_preview] base generation failed", exc_info=True)

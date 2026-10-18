@@ -1,0 +1,28 @@
+CFG-02C — RED→GREEN (лейн CFG-02C-BUILD, без коммита)
+
+База кандидата: f7a14994 (на момент IMPL); master в момент сдачи: e90e9c7b
+(релиз-бампы 2c28e2a1/e90e9c7b чужого поезда 2.58.92; мои файлы ими не
+затронуты — diff по services/web/tests чист).
+
+RED (до IMPL, база f7a14994): 17 failed / 2 passed
+  — отсутствовала таксономия типа (ig.CONSUMPTION_*/COVER_STAGE_*,
+    wb.journal_consumption_type), типизированного журнала обложек,
+    честного reason `shared_budget` и витринных маркеров §02C.5;
+  — 2 passed: styled edit / recovery (сохранение контура — они и не должны
+    меняться; эти два теста — regression-страховка «не сломать»).
+
+GREEN (после IMPL):
+  tests/test_cfg02c_image_isolation.py .................. 19 passed
+  (полный набор — см. blast-radius.txt)
+
+Пины, перенацеленные на фактическую точку списания обложек (CFG-02C):
+  * tests/test_hotfix5_summary_cover_window_round1025.py::
+    test_budget_short_circuits_without_http — патч `ig._consume_budget`
+    заменён на `ig._cover_charge` (deny по shared-бюджету): контур обложек
+    больше не списывает пользовательский бюджет; контракт «отказ ДО платного
+    вызова» сохранён и проверяется в новой точке.
+  * tests/test_asap7_cover_preview.py (2 стаба) и
+    tests/test_extra_cover_style_runtime.py (2 стаба) — стабы зеркалят
+    сигнатуру `generate_image_verbose` (+**kwargs: consumption_type/
+    cover_stage). Механическая правка пин-контракта вызова; поведение тестов
+    не изменено.

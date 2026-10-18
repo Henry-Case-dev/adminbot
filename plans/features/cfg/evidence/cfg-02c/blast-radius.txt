@@ -1,0 +1,81 @@
+CFG-02C — бласт-радиус (лейн CFG-02C-BUILD; база IMPL f7a14994; сдача на
+master e90e9c7b, мои файлы диффом чисты)
+
+Ф0 — sanity очереди на текущем дереве (до IMPL):
+  tests/test_cfg02b_image_freq_limits.py tests/test_cfg02a_image_quota_ui.py
+  tests/test_image_daily_limit_round1026.py
+  tests/test_hotfix5_summary_cover_window_round1025.py .......... 97 passed
+
+Ф4 — GREEN:
+  tests/test_cfg02c_image_isolation.py ......................... 19 passed
+  tests/test_cfg02b_image_freq_limits.py tests/test_cfg02a_image_quota_ui.py
+  tests/test_image_daily_limit_round1026.py
+  tests/test_hotfix5_summary_cover_window_round1025.py
+  tests/test_summary_cover_model_compat_round1024.py .......... 116 passed
+  tests/test_cover_style_wave_b_asap4.py tests/test_asap7_cover_fix.py
+  tests/test_summary_cover_round1023.py
+  tests/test_asap8_v6_c03a_style_recovery.py
+  tests/test_extra_cover_style_jobs.py tests/test_extra_cover_style_pipeline.py
+  tests/test_soul1_capability_fallbacks.py
+  tests/test_soul1_capability_registry.py ..................... 263 passed
+  tests/test_unified_image_request_round1026.py tests/test_tool_router.py
+  tests/test_direct_chat.py tests/test_direct_chat_concurrency.py
+  tests/test_persistent_throttling.py tests/test_budget_settings_round1019.py
+  ............................................................. 308 passed
+  tests/test_summary_generator.py tests/test_asap7_cover_preview.py
+  tests/test_asap42_step2c2_miniapp_seeds.py
+  tests/test_asap42_step3_style_integration.py
+  tests/test_asap43_cover_style_surgical.py
+  tests/test_asap44_cover_final_closure.py
+  tests/test_extra_cover_style_registry.py .................... 176 passed
+  tests/test_extra_cover_style_runtime.py tests/test_summary_deploy_round1026.py
+  tests/test_mca17_summary_instrumentation.py
+  tests/test_summary_cover_round1023.py ....................... 110 passed
+  tests/test_webapp_gates_api.py tests/test_pg_db.py
+  tests/test_budget_guardrails_round1024.py
+  tests/test_budget_data_repair_round1024.py
+  tests/test_mca17c_invariants_round1047.py
+  tests/test_frontend_tab_mapping.py tests/test_image_generation_round1023.py
+  tests/test_decision_making_round1026.py ..................... 286 passed
+  tests/test_summary_test_run.py .............................. 22 passed
+  tests/test_round1025_f8_registry.py --check ................. exit=0
+    (Δ каталога = 0: 579 REGISTRY / 120 GROUPS не сдвинуты)
+  JS-sweep: node tests/js/*.js ................................ 88/88 OK
+  UI e2e: tools/ui_cfg02c_image_isolation_e2e.py .............. RESULT: PASS
+    (desktop 1440 + mobile 390: подпись/пояснение/разбивка, no-overflow,
+     console_errors=[]; скриншоты — evidence/cfg-02c/ui/*.png)
+  Browser Use (реальный Chrome, rendered): desktop + mobile 390 —
+    label/пояснение/разбивка видимы, разметка не перекрыта,
+    scrollWidth == clientWidth == 390.
+
+  Полный прогон tests/ (все 14k+):
+    `.venv\Scripts\python.exe -m pytest tests/ -q -p no:cacheprovider`
+    → 9 failed, 14466 passed, 1 warning in 726.18s (0:12:06)
+
+    Атрибуция всех 9 падений (ни одно не относится к диффу CFG-02C):
+      * tests/test_t5150_startup_migrations_round1046.py — 5 failed
+        (SQLite lock-тайминги; воспроизведены на чистом worktree HEAD);
+      * tests/test_asap7_direct_settings.py::
+        test_migration_v35_idempotent_twice + test_backup_guard_fires_before
+        _pending_step — 2 failed (воспроизведены на чистом worktree HEAD);
+      * tests/test_mca01_tx_task_supervisor_round1027.py::
+        test_write_points_go_through_single_writer — 1 failed (воспроизведён
+        на чистом worktree HEAD);
+      * tests/test_mca09_intents_block_e_round1040.py::
+        test_candidate_ready_defers_intent_backoff — 1 failed ТОЛЬКО в общем
+        прогоне (order-dependent flake); в изоляции и в main-дереве
+        (с диффом), и на чистом worktree — 15 passed / 65 passed.
+    Итог 14466/9 совпадает с зафиксированным baseline этого окружения
+    (release-25892: «14447/9: 8 pre-existing + worktree-env») — новых
+    падений от CFG-02C нет.
+
+  Известные pre-existing падения (НЕ от слайса, воспроизведены на чистом
+  worktree HEAD без моих изменений): см. атрибуцию полного прогона выше.
+
+Скоуп-примечание: пин-стабы контракта вызова
+`generate_image_verbose` в `tests/test_asap7_cover_preview.py` и
+`tests/test_extra_cover_style_runtime.py` формально вне списка write_scope
+графа, но являются прямыми пинами файлов слайса
+(`web/api/summary_test.py`, `services/summary_generator.py`); правка
+механическая (+**kwargs) и требуется требованием 02C.2 (явный параметр
+типа от call-site). Прочие стабы уже имели **kwargs.

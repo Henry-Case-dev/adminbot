@@ -183,12 +183,22 @@ class TestCoverRetryWindow:
 
     @pytest.mark.asyncio
     async def test_budget_short_circuits_without_http(self, monkeypatch):
-        """reason=budget → сразу plain, без сетевых попыток."""
+        """reason=budget → сразу plain, без сетевых попыток.
+
+        CFG-02C (§02C.1/§02C.2): контур обложек списывает ТОЛЬКО shared
+        (технический) бюджет через типизированный `_cover_charge` — отказ
+        этого контура по-прежнему останавливает генерацию ДО платного вызова
+        (пин перенацелен на фактическую точку списания; `_consume_budget`
+        больше не является точкой обложек)."""
         rec = _Rec()
         _patch_rich(monkeypatch, rec)
         # EXTRA (T-4145/§95): parity-режим — degraded OFF.
         monkeypatch.setattr("services.cover_style_jobs.rich_degraded_enabled", lambda: False)
-        monkeypatch.setattr(ig, "_consume_budget", AsyncMock(return_value=False))
+
+        async def _deny(chat_id, *, stage, correlation_id):
+            return "deny", "", ig.SHARED_BUDGET_REASON
+
+        monkeypatch.setattr(ig, "_cover_charge", _deny)
         calls = {"n": 0}
 
         async def fake_generate(prompt, **kw):

@@ -367,6 +367,8 @@ async def summary_test_cover(
         from services import cover_style_jobs as _csj
         from services import web_runtime
         from services.image_generation import (
+            CONSUMPTION_COVER,
+            COVER_STAGE_BASE,
             generate_image_verbose,
             provider_label,
             resolve_generate_prompt_limit_async,
@@ -483,7 +485,11 @@ async def summary_test_cover(
                 image_prompt, chat_id=entry.chat_id,
                 correlation_id=entry.test_id,
                 shorter_prompt=_shorter_base_prompt,
-                attempt_log=base_attempts)
+                attempt_log=base_attempts,
+                # CFG-02C (§02C.2): test-run обложки — тот же типизированный
+                # контур Summary (shared-only; user-квота не расходуется).
+                consumption_type=CONSUMPTION_COVER,
+                cover_stage=COVER_STAGE_BASE)
             await _remember_base_manifest(
                 ok=bool(tmp_path),
                 reason=("ok" if tmp_path else str(img_reason or "")))

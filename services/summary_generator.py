@@ -104,6 +104,8 @@ from services.cover_prompt_assembly import (  # noqa: F401  (shim re-export)
     summary_context_text,
 )
 from services.image_generation import (
+    CONSUMPTION_COVER,
+    COVER_STAGE_BASE,
     generate_image_verbose,
     provider_label,
     reason_class,
@@ -3391,7 +3393,12 @@ class SummaryGenerator:
                     image_prompt, chat_id=chat_id,
                     correlation_id=correlation_id,
                     shorter_prompt=_shorter_base_prompt,
-                    attempt_log=base_attempts)
+                    attempt_log=base_attempts,
+                    # CFG-02C (§02C.2): тип/стадия контура обложек — ЯВНО от
+                    # call-site (резерв только shared-потолка, типизированный
+                    # журнал; user-квота/freq не затрагиваются).
+                    consumption_type=CONSUMPTION_COVER,
+                    cover_stage=COVER_STAGE_BASE)
                 await _remember_base_manifest(
                     ok=bool(tmp_path),
                     reason=("ok" if tmp_path else str(img_reason or "")))
