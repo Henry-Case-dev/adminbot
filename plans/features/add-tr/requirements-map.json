@@ -2,7 +2,7 @@
   "schema": "openworkflow-coverage-v1",
   "source_path": "C:\\Code\\Python\\adminbot\\plans\\features\\add-tr\\source-add-tr-2026-10-19.md",
   "source_sha256": "08cd6b4a0417bde243a3829102a825fc426306b9c50239267cf0de13e59c4324",
-  "candidate_commit": "",
+  "candidate_commit": "948c20041a9c23d620670a3a1a2a56800aff981b",
   "deployed_commit": "",
   "strict_evidence": false,
   "slice_graph_path": "slice-graph.json",
@@ -33,14 +33,23 @@
       "source_text_sha256": "77a024bb655948d67feb8c24e509bc3db524b41cab0a1bbaf5f3cfd1f94682ff",
       "source_excerpt": "**Наблюдение владельца по скриншотам:** на телефоне карточки «Характер», «Выражение», «Юмор», «Стиль письма», «Примеры», «Попробовать», «Обу",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто: симптомы воспроизведены на актуальном MiniApp (before-run ревью: 205 FAIL с точным разбором — узкие колонки/перекрытие title badge); после фикса — 0/21. VERIFIED (`d97d7cac`).",
       "req_id": "M-ADTR-GRID-SYMPTOM",
       "slice": "ADTR-GRID",
       "acceptance": "Симптомы воспроизведены и зафиксированы на актуальном MiniApp: карточки «Характер», «Выражение», «Юмор», «Стиль письма», «Примеры», «Попробовать», «Обучение», «Все инструкции», «Effective Prompt Inspector», «Возможности бота» и другие — узкие колонки, разрывы описаний по 2–5 букв, перекрытие заголовков с badge («заводское», «включено», «готово», «открыть»), пустующая ширина экрана; квалифицировано как функциональная регрессия после переработки UX, не новая дизайнерская просьба.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "948c20041a9c23d620670a3a1a2a56800aff981b",
+          "ref": "plans/features/add-tr/review-grid-fix.md (751295f7, Approved) §1/§5 + plans/features/add-tr/evidence/grid-fix/before/e2e_before.json",
+          "observation": "Симптомы зафиксированы before-прогоном (детерминированный разбор), after/candidate — 0 проблем.",
+          "artifact_path": "plans/features/add-tr/evidence/grid-fix/before/e2e_before.json",
+          "artifact_sha256": "f01de2a406f834f48b19dca81c330de9bd323544ec95d5a623890a6086bacf24",
+          "type": "ui"
+        }
+      ],
       "note": "Предв. TR-RECON: REGRESSION — наблюдение владельца по скриншотам; честно отметить, что P0A-UX-COMPACT (2.58.90) был VERIFIED по своей зоне до этой поломки."
     },
     {
@@ -49,14 +58,23 @@
       "source_text_sha256": "d011cc348e14fadc0e1e38b3f66932853bb903ed91c8329daa2a00e6cf9cdd3e",
       "source_excerpt": "**Исправить именно первопричину компоновки:** проверить CSS Grid/Flex и breakpoint'ы, `min-width: 0`, `minmax(0,1fr)`, `overflow-wrap`, конт",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто: первопричина устранена — снят viewport-пин, контейнерные колонки (220px), `overflow-wrap:anywhere` (не break-all), badge `flex:none`; blob sha12 6c9231663725/5371e11d3e52/9fe27866a373 (review §2–§4). VERIFIED.",
       "req_id": "M-ADTR-GRID-ROOTCAUSE",
       "slice": "ADTR-GRID",
       "acceptance": "Исправлена именно первопричина компоновки: проверены CSS Grid/Flex и breakpoint'ы, min-width: 0, minmax(0,1fr), overflow-wrap, контейнерные размеры, ограничения min-content, width/max-width, вложенные grid, position, наследование общих классов, реальная ширина внутри Telegram WebView и влияние fullscreen/safe-area; фикс не сведён к принудительному word-break: break-all или точечным width: xxxpx под один скриншот (диагностика и дифф приложены).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "948c20041a9c23d620670a3a1a2a56800aff981b",
+          "ref": "plans/features/add-tr/review-grid-fix.md (751295f7, Approved) §2–§4 + plans/features/add-tr/evidence/grid-fix/grid-fix.md",
+          "observation": "Корневая причина компоновки подтверждена и исправлена в `.speech-*`; стекло/полигон не тронуты.",
+          "artifact_path": "plans/features/add-tr/evidence/grid-fix/grid-fix.md",
+          "artifact_sha256": "1bf8189e0be61ffa08fda3fb67f60baae44229a0bbb3af64b288572ce0dd4ac5",
+          "type": "static"
+        }
+      ]
     },
     {
       "source_id": "M-ADTR-GRID-LAYOUT",
@@ -64,14 +82,23 @@
       "source_text_sha256": "46da04ba7ce1b388072ebacdf7fd9d4729d03043bb50b815f28f3b88da03ce30",
       "source_excerpt": "На узком viewport карточки должны становиться **одной полноценной колонкой**; в две — только если содержимое, заголовок, статус и touch-элем",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто: 320–430 — одна полноценная колонка; 520 — две; badge∩title=0 (box+ink); длинные слова переносятся без деградации; stress font2x/longwords; полный after-прогон 0/21; W6 0/16; js 87/0; pytest 67. VERIFIED.",
       "req_id": "M-ADTR-GRID-LAYOUT",
       "slice": "ADTR-GRID",
       "acceptance": "На узком viewport карточки — одна полноценная колонка; в две — только если содержимое, заголовок, статус и touch-элементы действительно помещаются; badge не закрывает заголовок; длинные слова нормально переносятся/обрезаются без деградации смыслового текста; карточка без огромной пустоты; полная функциональность ссылок и переходов сохранена (before/after-доказательства).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "948c20041a9c23d620670a3a1a2a56800aff981b",
+          "ref": "plans/features/add-tr/review-grid-fix.md (751295f7, Approved) §3/§5 + plans/features/add-tr/evidence/grid-fix/after/e2e_after.json",
+          "observation": "DOMRect-контракт: колонки/badge/touch — 0 нарушений; after-прогон чистый.",
+          "artifact_path": "plans/features/add-tr/evidence/grid-fix/after/e2e_after.json",
+          "artifact_sha256": "a3e6fbe38ef6a486d9dff11f68ed3295b0251417bac4af29814abb6fd004fa5f",
+          "type": "ui"
+        }
+      ]
     },
     {
       "source_id": "M-ADTR-GRID-CHECKS",
@@ -79,14 +106,24 @@
       "source_text_sha256": "3b2ada6cd3ee567d6ba69fdff3058fccbc1f1c2637c5c7f82b1d763d471afff2",
       "source_excerpt": "Проверки: Android Telegram Portrait и Landscape (если реальный клиент недоступен — `PENDING_OWNER_E2E`), browser DOM/визуальные снимки на 32",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто (browser-часть): проверки на 320/360/390/430, font 20/24, узкие Desktop, длинные названия/стресс — выполнены, after 0/21; Android Telegram на реальном клиенте — честный `PENDING_OWNER_E2E` (device; PET — не блокер, owner-optional). VERIFIED.",
       "req_id": "M-ADTR-GRID-CHECKS",
       "slice": "ADTR-GRID",
       "acceptance": "Выполнены проверки: Android Telegram Portrait и Landscape (если реальный клиент недоступен — честный PENDING_OWNER_E2E), browser DOM/визуальные снимки на 320/360/390/430 CSS px, узкие окна Desktop, масштабирование/крупный шрифт, длинные названия/переводы; проверены размеры и пересечения реальных DOMRect, читабельность текста и кликабельность, а не только отсутствие overflow; полигональный фон, другие карточки MiniApp и Liquid Glass не изменены без конкретной исправленной CSS-причины.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "948c20041a9c23d620670a3a1a2a56800aff981b",
+          "ref": "plans/features/add-tr/review-grid-fix.md (751295f7, Approved) §5/§6 + plans/features/add-tr/evidence/grid-fix/after/browseruse_store_320.png",
+          "observation": "Browser DOM/визуальные снимки и стресс-кейсы выполнены; устройство — honest residual.",
+          "artifact_path": "plans/features/add-tr/evidence/grid-fix/after/browseruse_store_320.png",
+          "artifact_sha256": "5a67cb8719fd6d2a553a79e557a1bd64f022cae7519e027a3201a73badfae528",
+          "type": "ui"
+        }
+      ],
+      "note": "`PENDING_OWNER_E2E`: Android Telegram Portrait/Landscape на реальном клиенте — честный остаток (device; PET — не блокер, owner-optional; device-чек-листы не воссоздаются как гейт); browser-часть (320/360/390/430, font 20/24, узкие desktop, desktop, стресс-кейсы) выполнена и зафиксирована.",
       "alias_of": [
         "cfg:CFG-04D.2"
       ]
@@ -97,14 +134,24 @@
       "source_text_sha256": "8b7dedd3ac77e546b594e3359c863ae6f6ceb87eb81ea4ef7359bce3a8cbb681",
       "source_excerpt": "Входной маршрутизатор должен интерпретировать одно Telegram-событие целиком: `message.text`, `caption`, `entities/caption_entities`, тип и с",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто (review `e4ddc4ec`, Approved): одно Telegram-событие интерпретируется целиком — `_message_user_text`/`_message_entities` (text↔caption, entities↔caption_entities без смешения), вложения/media_group/reply/forward/refs; caption не становится отдельной репликой; RED/GREEN 4/4, 44 теста. VERIFIED (`5bc0243c`).",
       "req_id": "M-ADTR-ENTRY-EVENT",
       "slice": "ADTR-ENTRY",
       "acceptance": "Одно Telegram-событие интерпретируется целиком: message.text, caption, entities/caption_entities, тип и ссылки на вложения, media_group_id, reply_to_message, forward_origin, ссылка на оригинал/цель, выбранный чат и пользователь; caption не превращается в отдельную независимую реплику; MessageRef/file references не теряются между этапами; для media group учтён caption первого/другого элемента, несколько изображений и устранена неоднозначность; photo и image-document обрабатываются по текущей единой политике; не любой документ считается картинкой.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "948c20041a9c23d620670a3a1a2a56800aff981b",
+          "ref": "plans/features/add-tr/review-entry-fix.md (e4ddc4ec, Approved) §1/§2 + plans/features/add-tr/evidence/entry-fix/matrix.md",
+          "observation": "Единое потребление события: подпись/entities/медиа/refs не теряются между этапами.",
+          "artifact_path": "plans/features/add-tr/evidence/entry-fix/matrix.md",
+          "artifact_sha256": "d06bf9661b7a6f41c05b40b00234c3a396ebab23c334f9868973642e802ebbb7",
+          "type": "test"
+        }
+      ],
+      "live_note": "postdeploy (DevOps/Orchestrator), не owner-гейт: §ADD-TR.5 строки 1–4 — реальный Direct в Telegram (photo+caption→ответ; reply-сценарии; запрос без цели→штатное уточнение; «нарисуй» в подписи→картинка).",
       "alias_of": [
         "soul-1:SOUL-EXEC.6"
       ]
@@ -115,14 +162,24 @@
       "source_text_sha256": "556c4eaa190f747f1f49562b4d405f506844d4f2f4b3eba662d0a312ad18cf14",
       "source_excerpt": "**Явные старые триггеры оставить рабочими и приоритетными:** `бот ...`, `@username`, reply боту, специальные команды и канонические «фактчек",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто: явные триггеры (`бот …`, `@username`, reply, «фактчек/чекап/нарисуй» — в т.ч. в подписях) работают и приоритетны; свободная семантика — только при достоверном обращении; порядок 0g→0i→0h, master-флаг/caption/forward кейсы зелёные (44 теста). VERIFIED.",
       "req_id": "M-ADTR-ENTRY-TRIGGERS",
       "slice": "ADTR-ENTRY",
       "acceptance": "Явные старые триггеры (`бот ...`, `@username`, reply боту, специальные команды, канонические «фактчек», «чекап», «нарисуй», в том числе в допустимых подписях к медиа) работают и приоритетны; семантическое исполнение свободной просьбы допускается только в контексте достоверного обращения к боту (упоминание, reply, продолжение адресованного диалога, явно распознанный вызов); произвольное «сделай картинку» между людьми в группе не перехватывается; cooldown/ACL/модульные переключатели не сломаны; чужие разговоры не перехватываются только из-за прикреплённого фото; Fast-Track и LLM Tool Calling не дублируются.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "948c20041a9c23d620670a3a1a2a56800aff981b",
+          "ref": "plans/features/add-tr/review-entry-fix.md (e4ddc4ec, Approved) §2/§4 + plans/features/add-tr/evidence/entry-fix/green-core.txt",
+          "observation": "Триггеры/приоритеты не сломаны: канонический «чекап» консьюмится раньше Direct, forward без обращения не перехвачен.",
+          "artifact_path": "plans/features/add-tr/evidence/entry-fix/green-core.txt",
+          "artifact_sha256": "7c9caa50081da9a62d4baf33883df836d028c3b4231cea65c0bc6ce05a18304c",
+          "type": "test"
+        }
+      ],
+      "live_note": "postdeploy (DevOps/Orchestrator), не owner-гейт: §ADD-TR.5 строки 1–4 — реальный Direct в Telegram (photo+caption→ответ; reply-сценарии; запрос без цели→штатное уточнение; «нарисуй» в подписи→картинка).",
       "note": "Предв.: канонические триггеры — кандидат REUSE_VERIFIED; дельта (семантика в контексте достоверного обращения) — GAP; уточнит TR-RECON."
     },
     {
@@ -131,14 +188,24 @@
       "source_text_sha256": "6d7a4230221dd9fd649c4d78af3d7dbe052f0a76cbd636145765a754fa5aead6",
       "source_excerpt": "**Свободная речь должна срабатывать по смыслу, а не только по точному глаголу:** «бот, надо нарисовать ...», «бот, можешь изобразить ...», «",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто (код-контракт): доставка события/подписи до семантических контуров подтверждена (L1 §5.10 / vision intent); свободная семантика исполняется существующими контурами; живой остаток консервативно зафиксирован (live_note). VERIFIED (`5bc0243c`).",
       "req_id": "M-ADTR-ENTRY-SEMANTIC",
       "slice": "ADTR-ENTRY",
       "acceptance": "Свободная речь срабатывает по смыслу, а не только по точному глаголу: «бот, надо нарисовать …», «бот, можешь изобразить …», «сделай мне картинку …», «посмотри, что на фото», «можешь прочитать скрин?», «правда ли это?», «проверь заявление выше», «как у тебя дела по логам?», «проверь состояние сервера»; запрос на исполнение отличается от пересказа, отрицания, цитаты, гипотетического обсуждения и запроса объяснить, как работает функция.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "948c20041a9c23d620670a3a1a2a56800aff981b",
+          "ref": "plans/features/add-tr/review-entry-fix.md (e4ddc4ec, Approved) §2/§5 + plans/features/add-tr/evidence/entry-fix/LANE_COMMANDS.md",
+          "observation": "Свободные формулировки доходят до семантических контуров; отдельного семантического контроллера не создано.",
+          "artifact_path": "plans/features/add-tr/evidence/entry-fix/LANE_COMMANDS.md",
+          "artifact_sha256": "1a1bcffd849b71c1a9b5423df7a770b99d5c6c02af1389a817868f6c35ad6996",
+          "type": "test"
+        }
+      ],
+      "live_note": "postdeploy (DevOps/Orchestrator), не owner-гейт: §ADD-TR.5 строки 1–4 — реальный Direct в Telegram (photo+caption→ответ; reply-сценарии; запрос без цели→штатное уточнение; «нарисуй» в подписи→картинка).",
       "note": "Предв.: маршрутизация свободной речи — GAP/PENDING; частичный прецедент семантики — SOUL-AMD.5.2 (image intent, VERIFIED); уточнит TR-RECON."
     },
     {
@@ -147,14 +214,24 @@
       "source_text_sha256": "8d5877f4b04fce95f373357cfe3c574e3cddb80da08f1a086609e8197597baba",
       "source_excerpt": "Поддержать минимум три способа ссылки на изображение: **(A)** photo + caption в одном сообщении; **(B)** текстовый reply на сообщение с phot",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто: A/B/C — own caption; reply→ref из `reply_to_message` (reply на ботовский image→картинка); (C) bounded-резолв `_resolve_earlier_image_markers` (окно 1800 c, ≤24, однозначность, fail-open); риск-интерпретация принята ревью §3. VERIFIED.",
       "req_id": "M-ADTR-ENTRY-REFS",
       "slice": "ADTR-ENTRY",
       "acceptance": "Поддержаны три способа ссылки на изображение: (A) photo + caption в одном сообщении; (B) текстовый reply на сообщение с photo/document-image; (C) явная ссылка на ранее присланную в текущем чате картинку при однозначной разрешимости; при отсутствии однозначной цели — короткий естественный уточняющий вопрос, не выдуманное распознавание; при reply на свой уже отправленный ботом image результат используется реальная целевая картинка, а не текст предыдущего ответа.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "948c20041a9c23d620670a3a1a2a56800aff981b",
+          "ref": "plans/features/add-tr/review-entry-fix.md (e4ddc4ec, Approved) §3 + plans/features/add-tr/evidence/entry-fix/red-behavior.txt",
+          "observation": "Три способа ссылки на изображение; при неоднозначности — уточнение, не выдуманное распознавание.",
+          "artifact_path": "plans/features/add-tr/evidence/entry-fix/red-behavior.txt",
+          "artifact_sha256": "bf83a25f235247aa72a6a0ede15814863da64664d9f576fb967e0a1bcb6f72a0",
+          "type": "test"
+        }
+      ],
+      "live_note": "postdeploy (DevOps/Orchestrator), не owner-гейт: §ADD-TR.5 строки 1–4 — реальный Direct в Telegram (photo+caption→ответ; reply-сценарии; запрос без цели→штатное уточнение; «нарисуй» в подписи→картинка)."
     },
     {
       "source_id": "M-ADTR-ENTRY-HANDLER",
@@ -162,14 +239,24 @@
       "source_text_sha256": "0d57fc9691c7f319783780eb7c67355297980c97ed94fc38919aa95d9b7bab8c",
       "source_excerpt": "Проверить `handlers/direct_chat.py` (там текущая проверка использует `message.text`, а не `caption`), порядок aiogram-роутеров, корректность",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто: `direct_chat.py` использует caption; UNHANDLED-пропагация и порядок роутеров сохранены; caption_entities, ToolContext и цельный медиа-контекст передаются; «caption bot» не создан (44 теста; ревью §2/§4). VERIFIED.",
       "req_id": "M-ADTR-ENTRY-HANDLER",
       "slice": "ADTR-ENTRY",
       "acceptance": "Проверены и (при необходимости) исправлены: handlers/direct_chat.py (текущая проверка использует message.text, а не caption), порядок aiogram-роутеров, корректность UNHANDLED, обработка caption_entities, сборка ToolContext и передача цельного media context в прямой ответ; отдельный «caption bot» для обхода общей логики не создан (подтверждено кодом и тестами).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "948c20041a9c23d620670a3a1a2a56800aff981b",
+          "ref": "plans/features/add-tr/review-entry-fix.md (e4ddc4ec, Approved) §2/§4 + plans/features/add-tr/evidence/entry-fix/green-direct-cluster.txt",
+          "observation": "Хендлер/сервис: подпись доходит до Direct-ответа; прочие типы без обращения — прежний UNHANDLED.",
+          "artifact_path": "plans/features/add-tr/evidence/entry-fix/green-direct-cluster.txt",
+          "artifact_sha256": "a3c9cdd67f58748a657a9afef2c17dcde97e0e2b5f29409f3b55a8fe4214eb0e",
+          "type": "test"
+        }
+      ],
+      "live_note": "postdeploy (DevOps/Orchestrator), не owner-гейт: §ADD-TR.5 строки 1–4 — реальный Direct в Telegram (photo+caption→ответ; reply-сценарии; запрос без цели→штатное уточнение; «нарисуй» в подписи→картинка)."
     },
     {
       "source_id": "M-ADTR-TOOLS-E2E",
@@ -177,14 +264,24 @@
       "source_text_sha256": "8cc391b64eaece6f3eaf701359ff6d518265b3f4e157be4d3d2c979e1f1857d3",
       "source_excerpt": "В опубликованном коде уже существуют `ToolRouter.dispatch` с `recognize_image`, `fact_check`, `generate_image`, `get_bot_health` и их tool s",
       "disposition": "required",
-      "reason": "",
+      "reason": "Код-половина закрыта: свободный ген-вход (`detect_action_intent` actionable→существующий image workflow; `gen_calls==1`, `l1_planner==1`); живая часть — postdeploy. READY_FOR_LIVE (`21eb3d3e`).",
       "req_id": "M-ADTR-TOOLS-E2E",
       "slice": "ADTR-TOOLS",
       "acceptance": "Проверены эффективный список инструментов, доступность исполнителей и успешная сквозная работа в конкретном чате: active_tools → выбранный intent/план → фактический tool_call → обработчик → статус/данные → Writer → отправка; успех в моках, наличие инструмента в реестре и зелёные тесты не выдаются за работу в живом Telegram-чате.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "948c20041a9c23d620670a3a1a2a56800aff981b",
+          "ref": "plans/features/add-tr/review-tools-minifix.md (f0865166, Approved) §3 + plans/features/add-tr/evidence/tools-minifix/green-minifix.txt",
+          "observation": "GEN free-form доказывает единую генерацию на намерение через существующий контур.",
+          "artifact_path": "plans/features/add-tr/evidence/tools-minifix/green-minifix.txt",
+          "artifact_sha256": "89987bbfcd219e4cc189c970dd67bfdac58098de73ebb07a1f8341e8d65170d0",
+          "type": "test"
+        }
+      ],
+      "live_note": "postdeploy (DevOps/Orchestrator), не owner-гейт: сквозной сценарий в реальном Telegram — tool calls в живом чате.",
       "alias_of": [
         "soul-1-amd:SOUL-AMD.5.16"
       ],
@@ -196,14 +293,24 @@
       "source_text_sha256": "6519751ea4f5a884a6d74695a7dc8e40c3532f91b2d4a42f0782718e490f4899",
       "source_excerpt": "Важное различие: *tool зарегистрирован*, *tool показан LLM*, *модель вызвала tool*, *tool успешно вернул данные* и *пользователь получил кор",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто (отчёт/диагностика): пять независимых фактов различаются — зарегистрирован/показан LLM/модель вызвала/вернул данные/корректный ответ пользователю; ни один отчёт не смешивает состояния. F1/F2/F4 подтверждены кодом/тестами; F3/F5 — живой остаток (live_note). VERIFIED.",
       "req_id": "M-ADTR-TOOLS-FIVEFACTS",
       "slice": "ADTR-TOOLS",
       "acceptance": "Пять независимых фактов различаются в отчёте и диагностике: tool зарегистрирован / tool показан LLM / модель вызвала tool / tool успешно вернул данные / пользователь получил корректный ответ; ни один отчёт не смешивает эти состояния («зарегистрирован» ≠ «исполняется», success в моке ≠ корректный ответ пользователю).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "948c20041a9c23d620670a3a1a2a56800aff981b",
+          "ref": "plans/features/add-tr/review-tools-minifix.md (f0865166, Approved) §4 + plans/features/add-tr/evidence/tools-minifix/checkup-five-facts.md",
+          "observation": "Различение пяти состояний в отчёте/диагностике; тесты на границы.",
+          "artifact_path": "plans/features/add-tr/evidence/tools-minifix/checkup-five-facts.md",
+          "artifact_sha256": "24070952a325f7b94ed21b118dac0c11f04d015be79b34ffda13d1170b3878ba",
+          "type": "static"
+        }
+      ],
+      "live_note": "F1/F2/F4 — подтверждены кодом/тестами; F3/F5 (реальный вызов модели / корректный ответ пользователю) — postdeploy (DevOps/Orchestrator), не owner-гейт."
     },
     {
       "source_id": "M-ADTR-POSTGEN-DEFECT",
@@ -211,14 +318,23 @@
       "source_text_sha256": "86a9711063f7a3c17f8e3eb911d48b5790bf990416334f0fe7ed8c46b1e3274f",
       "source_excerpt": "**Дефект:** бот после фактической генерации и отправки картинки может уверенно описывать изображение так, будто видел готовый bitmap, хотя р",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто: визуальное описание привязано к фактическому анализу готового bitmap (адаптер bytes-only → MCA-19; промпт недоступен по конструкции); тест «промпт кот → распознан рыжий пёс». VERIFIED (`948c2004`).",
       "req_id": "M-ADTR-POSTGEN-DEFECT",
       "slice": "ADTR-POSTGEN",
       "acceptance": "Визуально специфическое описание результата привязано к фактическому анализу готового изображения, а не к факту, что генератор вернул успех: бот не описывает bitmap, которого не анализировал; единый протокол покрывает стадии failure/off/on/pending/mismatch (L56–L61 снапшота).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "948c20041a9c23d620670a3a1a2a56800aff981b",
+          "ref": "plans/features/add-tr/review-postgen.md (0e5fbb05, Approved) §1/§5 + plans/features/add-tr/evidence/postgen/design-note.md",
+          "observation": "Описание — по реально увиденному; без «готово» из факта успеха генератора.",
+          "artifact_path": "plans/features/add-tr/evidence/postgen/design-note.md",
+          "artifact_sha256": "8b1c8ac5895ff465407244ec3a90e6e17e72d4fabc4ab935caa1357208418e54",
+          "type": "static"
+        }
+      ],
       "note": "Предв.: GAP — дефект выдуманного описания после успешной генерации; фикс — ADD-TR.4."
     },
     {
@@ -242,14 +358,23 @@
       "source_text_sha256": "45d935f12e5f9d8bbae6562b080b5e8b97872f3c9bcbf4f10d0ec4a855fe0d08",
       "source_excerpt": "Не вводить отдельный image-captioning provider или конкурентный Vision pipeline, если подходит существующий сервис; если исходящий файл пока",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто: отдельного captioning-провайдера/конкурентного pipeline нет — тот же `mca_vision` (validate→analyze); малый доверенный входной адаптер `postgen_vision` (bytes-only). VERIFIED.",
       "req_id": "M-ADTR-POSTGEN-REUSE",
       "slice": "ADTR-POSTGEN",
       "acceptance": "Отдельный image-captioning provider или конкурентный Vision pipeline не введён: переиспользован существующий сервис/анализатор; если исходящий файл не поддержан в MCA-19 — добавлен небольшой доверенный входной адаптер к тому же анализатору; при OFF Vision отключается только возможность увидеть реальные пиксели, а не смысловое понимание запросов.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "948c20041a9c23d620670a3a1a2a56800aff981b",
+          "ref": "plans/features/add-tr/review-postgen.md (0e5fbb05, Approved) §1/§9 + plans/features/add-tr/evidence/postgen/design-note.md",
+          "observation": "Второй Vision-pipeline не создан; единый анализатор.",
+          "artifact_path": "plans/features/add-tr/evidence/postgen/design-note.md",
+          "artifact_sha256": "8b1c8ac5895ff465407244ec3a90e6e17e72d4fabc4ab935caa1357208418e54",
+          "type": "static"
+        }
+      ]
     },
     {
       "source_id": "M-ADTR-VERIFY-PROTOCOL",
@@ -264,7 +389,8 @@
       "live_required": true,
       "live_when": "postdeploy",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "note": "ADTR-VERIFY исполняется в ACCEPTANCE-91 (реальные tool calls + Telegram), затем закрытие; 13 сценариев/протокол/эвиденс/native/report/DoD/RF здесь не закрываются."
     },
     {
       "source_id": "M-CTX-SCENARIO-TABLE",
@@ -637,14 +763,23 @@
       "source_text_sha256": "a404a96bb600416d38baeb9ab448882eeef8116ee47872bf419d18b966803e1a",
       "source_excerpt": "- **SOUL-1 §5 / Capability Awareness & Tool Grounding** уже требует семантического понимания запросов на рисование, проверку реальных возможностей и отсутствие выдуманных действий. Здесь нужны доказательство сквозного прохождения, работа с ",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто по коду: семантическое понимание/проверка возможностей/запрет выдуманных действий переиспользуют SOUL-1 §5 Capability Awareness; новый Capability Registry не создан (границы REUSE). VERIFIED.",
       "req_id": "ADTR-TOOLS-REUSE-SOUL5",
       "slice": "ADTR-TOOLS",
       "acceptance": "Граница зафиксирована: семантическое понимание запросов, проверка реальных возможностей и запрет выдуманных действий переиспользуют SOUL-1 §5 Capability Awareness & Tool Grounding; новый Capability Registry не создаётся; дельта ADD-TR (доказательство сквозного прохождения, работа с вложениями, проверка всех инструментов) исполняется в ADTR-TOOLS/ADTR-ENTRY поверх существующего реестра.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "948c20041a9c23d620670a3a1a2a56800aff981b",
+          "ref": "plans/features/add-tr/review-tools-minifix.md (f0865166, Approved) §1 + plans/features/add-tr/evidence/tools-minifix/README.md",
+          "observation": "REUSE-граница: тот же реестр/резолвер; дельта — health-возможность.",
+          "artifact_path": "plans/features/add-tr/evidence/tools-minifix/README.md",
+          "artifact_sha256": "feff55e61d14f3d475044b2cf98827315907b127b50250555958e0d2fe4dc98e",
+          "type": "static"
+        }
+      ],
       "alias_of": [
         "soul-1-amd:SOUL-AMD.5.1",
         "soul-1-amd:SOUL-AMD.5.11",
@@ -658,14 +793,23 @@
       "source_text_sha256": "e440ff4307a19e625c91860a9706bede831fe8eca32a51c3c30109096605e92b",
       "source_excerpt": "- **SOUL-1 Prompt Registry / Speech Style / CFG-07** остаются единственным источником пользовательского голоса и постобработки. Не создавать новые хардкодные реплики, конкурирующую личность или Writer.",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто: голос — Personality Core/Registry; data-only блок без хардкод-реплик; OFF-инструкция «содержимое не подтверждено»; второй голос не введён. VERIFIED.",
       "req_id": "ADTR-POSTGEN-VOICE",
       "slice": "ADTR-POSTGEN",
       "acceptance": "Prompt Registry / Speech Style / CFG-07 остаются единственным источником пользовательского голоса и постобработки: пост-генерационные подтверждения (ADD-TR.4) и другие реплики ADD-TR не вводят новых хардкодных формулировок, конкурирующей личности или отдельного Writer — всё идёт через действующий Personality Core.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "948c20041a9c23d620670a3a1a2a56800aff981b",
+          "ref": "plans/features/add-tr/review-postgen.md (0e5fbb05, Approved) §2 + plans/features/add-tr/evidence/postgen/green.txt",
+          "observation": "VOICE: единый источник пользовательского голоса; пост-блоки data-only.",
+          "artifact_path": "plans/features/add-tr/evidence/postgen/green.txt",
+          "artifact_sha256": "08f5bff7cc9d1195bd5dad95fe01a3c56572468fc92065a64d82d67822da5ca6",
+          "type": "test"
+        }
+      ],
       "alias_of": [
         "soul-1:SOUL-16.0",
         "cfg:CFG-07A.F",
@@ -679,14 +823,23 @@
       "source_text_sha256": "a006de8cba1fd953110e7c4cf1d407456eb38e51459832a88c30ebf9843652d3",
       "source_excerpt": "- **CFG-06 / B07 / MCA-20** уже определяют единый Factcheck с временной проверкой, контекстом, доказательствами и инструментом `fact_check`. Здесь дополнительно требуется надёжный вызов из свободной речи и правильное определение цели.",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто по коду: единый Factcheck (CFG-06/B07/MCA-20) переиспользован — третий путь не создан; добавляется надёжный вызов из свободной речи (review §4a). VERIFIED.",
       "req_id": "ADTR-TOOLS-REUSE-FC",
       "slice": "ADTR-TOOLS",
       "acceptance": "Единый Factcheck (CFG-06/B07/MCA-20) переиспользован: временная проверка, контекст, доказательства и инструмент fact_check — один контур; добавляется лишь надёжный вызов из свободной речи с правильным определением цели; третий Temporal/Factcheck путь не создаётся.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "948c20041a9c23d620670a3a1a2a56800aff981b",
+          "ref": "plans/features/add-tr/review-tools-minifix.md (f0865166, Approved) §4(a) + plans/features/add-tr/evidence/tools-minifix/audit-inventory.md",
+          "observation": "Граница FC зафиксирована; target/период — существующим контуром.",
+          "artifact_path": "plans/features/add-tr/evidence/tools-minifix/audit-inventory.md",
+          "artifact_sha256": "363897171fa8ebf7f90f6ca9287e97a6108bc07787e9bf94d7dd131cf078d2cb",
+          "type": "static"
+        }
+      ],
       "alias_of": [
         "cfg:CFG-06.B-HIJ",
         "cfg:CFG-06.B",
@@ -700,14 +853,23 @@
       "source_text_sha256": "b11294fda65562956346b994433a901e09c2c10b83923d5a5a52072ec4930c86",
       "source_excerpt": "- **Vision/MCA-19 + предыдущий P0 Vision hotfix** отвечают за подключение любой совместимой модели, универсальную диагностику провайдера, очередь/анализ изображений и доступность `recognize_image`. Здесь не создавать второй Vision pipeline:",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто по коду: Vision переиспользует действующий MCA-19 (+P0 Vision hotfix); второй Vision pipeline не создан; входы/цель — существующими контурами (review §4a). VERIFIED.",
       "req_id": "ADTR-TOOLS-REUSE-VISION",
       "slice": "ADTR-TOOLS",
       "acceptance": "Vision переиспользует действующий контур MCA-19 и предыдущий P0 Vision hotfix: второй Vision pipeline не создаётся; исправляются входы, выбор цели, доступность recognize_image в Direct и возвращение результата (см. ADTR-TOOLS-VISION, ADTR-ENTRY-*).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "948c20041a9c23d620670a3a1a2a56800aff981b",
+          "ref": "plans/features/add-tr/review-tools-minifix.md (f0865166, Approved) §4(a) + plans/features/add-tr/evidence/tools-minifix/announce-vocabulary.txt",
+          "observation": "Граница Vision-REUSE зафиксирована (единый анализатор/ref).",
+          "artifact_path": "plans/features/add-tr/evidence/tools-minifix/announce-vocabulary.txt",
+          "artifact_sha256": "10a75c7603c45dd41bca2a018ddc4f47c89e15f64afa7e13ebd1f6c271863877",
+          "type": "static"
+        }
+      ],
       "alias_of": [
         "mca-19:CA-19-1",
         "p0-vision-universal:P0V-PIPE-CONTEXT"
@@ -720,14 +882,23 @@
       "source_text_sha256": "2c8c742e025b5e5f25116ce6ee118edd389eeba3dd885830b34f73355757d40c",
       "source_excerpt": "- **ASAP image generation / SOUL-1 §5 / CFG-02** уже определяют единый `generate_image`, image pre-gate, квоты и дедупликацию. Здесь устранить свободно-языковые пропуски и негрунтованные пост-описания изображения.",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто: единый generate_image/pre-gate/квоты/дедуп; исходящий файл не регистрируется активом/durable (`intake/job==0`); уже-отправленное не форсирует повтор. VERIFIED.",
       "req_id": "ADTR-POSTGEN-REUSE-GEN",
       "slice": "ADTR-POSTGEN",
       "acceptance": "Единый generate_image / image pre-gate / квоты / дедупликация (ASAP image generation, SOUL-1 §5, CFG-02) переиспользованы без второго image pipeline; дельта: свободно-языковые пропуски (ADTR-TOOLS-GENIMG) и негрунтованные пост-описания (ADTR-POSTGEN-*) устраняются в существующих компонентах.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "948c20041a9c23d620670a3a1a2a56800aff981b",
+          "ref": "plans/features/add-tr/review-postgen.md (0e5fbb05, Approved) §6/§9 + plans/features/add-tr/evidence/postgen/probe-e2e.txt",
+          "observation": "REUSE-GEN: единый image-контур; дублей/двойных списаний не создаётся.",
+          "artifact_path": "plans/features/add-tr/evidence/postgen/probe-e2e.txt",
+          "artifact_sha256": "adda6a73c1018fe37032ae84077ab063fc0358cfda60a3b0f153e94ee1943c88",
+          "type": "test"
+        }
+      ],
       "alias_of": [
         "soul-1-amd:SOUL-AMD.5.16",
         "soul-1-amd:SOUL-AMD.5.17",
@@ -741,14 +912,23 @@
       "source_text_sha256": "44d4ad959bdac8c22692a1b52b3ca77978777154cf0c0ff9845a788d14c8b0c9",
       "source_excerpt": "- **SOUL-1 / CFG-03 / CFG-04 / U01/U05** уже содержат проверку настроек и мобильного UI. Здесь зафиксирована **новая воспроизводимая регрессия** в карточках «Речь и характер» с узкими колонками и пересечением badge/заголовков.",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто: границы — SOUL-1/CFG-03/CFG-04/U01/U05 заново не перепроверяются; устранена именно новая регрессия сетки карточек; дифф — только `.speech-*` + 2 файла, полный рендер не переделан (review §7). VERIFIED.",
       "req_id": "ADTR-GRID-REUSE",
       "slice": "ADTR-GRID",
       "acceptance": "Граница зафиксирована: проверки настроек (SOUL-1/CFG-03) и мобильный UI (CFG-04/U01/U05) заново не перепроверяются целиком; ADTR-GRID устраняет именно новую воспроизводимую регрессию сетки карточек «Речь и характер» — с before/after-доказательством восстановления читаемости, а не переработкой UX.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "948c20041a9c23d620670a3a1a2a56800aff981b",
+          "ref": "plans/features/add-tr/review-grid-fix.md (751295f7, Approved) §7 + plans/features/add-tr/evidence/grid-fix/grid-fix.md",
+          "observation": "Граница REUSE зафиксирована; другие проверки не дублировались.",
+          "artifact_path": "plans/features/add-tr/evidence/grid-fix/grid-fix.md",
+          "artifact_sha256": "1bf8189e0be61ffa08fda3fb67f60baae44229a0bbb3af64b288572ce0dd4ac5",
+          "type": "static"
+        }
+      ],
       "alias_of": [
         "p0-save-init-ux:P0A-UX-COMPACT",
         "cfg:CFG-04C.1"
@@ -873,14 +1053,24 @@
       "source_text_sha256": "c9399fdd4b909b2e15cf024994a3358452b34320f5921ac71cdee89e1e51c511",
       "source_excerpt": "3. **Генерация (`generate_image`)**: сохранить быстрый `нарисуй` и аналогичные команды, добавить свободные формулировки; один `ImageRequest` и один send на ход, действующие бюджеты/квоты/идемпотентность. «Бот, надо нарисовать» не должен слу",
       "disposition": "required",
-      "reason": "",
+      "reason": "Код-половина: вход/одна генерация на намерение через существующий контур, действующие бюджеты/квоты/идемпотентность не дублируются (review §1/§3); живое списание — postdeploy. READY_FOR_LIVE.",
       "req_id": "ADTR-TOOLS-GENIMG",
       "slice": "ADTR-TOOLS",
       "acceptance": "Генерация (generate_image): быстрый `нарисуй` и аналогичные команды сохранены, свободные формулировки добавлены; один ImageRequest и один send на ход; действующие бюджеты/квоты/идемпотентность; «бот, надо нарисовать» не получает только текстовый ответ, если пользователь реально поручил создать картинку; «я сам нарисую», «как нарисовать?», цитаты без поручения генерацию не запускают.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "948c20041a9c23d620670a3a1a2a56800aff981b",
+          "ref": "plans/features/add-tr/review-tools-minifix.md (f0865166, Approved) §1/§3 + plans/features/add-tr/evidence/tools-minifix/green-minifix.txt",
+          "observation": "GENIMG: вход подтверждён тестом; один ImageRequest/send на ход.",
+          "artifact_path": "plans/features/add-tr/evidence/tools-minifix/green-minifix.txt",
+          "artifact_sha256": "89987bbfcd219e4cc189c970dd67bfdac58098de73ebb07a1f8341e8d65170d0",
+          "type": "test"
+        }
+      ],
+      "live_note": "postdeploy (DevOps/Orchestrator), не owner-гейт: живое списание budget/quota при реальной генерации.",
       "note": "Предв.: семантика поручений — REUSE_VERIFIED (SOUL-AMD.5.2–5.9); дельта — свободно-языковые пропуски и «один ImageRequest/один send» подтвердить; квоты CFG-02A (VERIFIED), частотный лимит CFG-02B (PENDING)."
     },
     {
@@ -889,14 +1079,24 @@
       "source_text_sha256": "4d4ecfbae20e5f033f685f45f41c50758d520a23b027dad80025e8528b20c954",
       "source_excerpt": "4. **Чекап (`get_bot_health`)**: оставить старый `чекап`/канонические триггеры. Свободное «бот, как состояние сервера?», «глянь последние ошибки», «проверь логи» — через существующий инструмент реального health/logs, с RBAC/редакцией секрет",
       "disposition": "required",
-      "reason": "",
+      "reason": "Код-часть закрыта: capability-цепочка (`CAPABILITY_TOOLS['health']`, деривация `health_N→get_bot_health`, реестр-инвариант), границы OFF→`checkup_module_disabled`, честные ошибки; 15/15 тестов; живая часть — postdeploy. READY_FOR_LIVE (`21eb3d3e`, review §1/§2).",
       "req_id": "ADTR-TOOLS-CHECKUP",
       "slice": "ADTR-TOOLS",
       "acceptance": "Чекап (get_bot_health): старый «чекап»/канонические триггеры сохранены; свободное «бот, как состояние сервера?», «глянь последние ошибки», «проверь логи» идёт через существующий инструмент реального health/logs с RBAC/редакцией секретов и честной доступностью/неудачей; выдуманное «всё нормально» без данных не выдаётся.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "948c20041a9c23d620670a3a1a2a56800aff981b",
+          "ref": "plans/features/add-tr/review-tools-minifix.md (f0865166, Approved) §1/§2 + plans/features/add-tr/evidence/tools-minifix/checkup-five-facts.md",
+          "observation": "Доступность чекапа из свободной речи: анонс `health`, resolve→get_bot_health, L2 Writer получает реальные данные.",
+          "artifact_path": "plans/features/add-tr/evidence/tools-minifix/checkup-five-facts.md",
+          "artifact_sha256": "24070952a325f7b94ed21b118dac0c11f04d015be79b34ffda13d1170b3878ba",
+          "type": "test"
+        }
+      ],
+      "live_note": "postdeploy (DevOps/Orchestrator), не owner-гейт: реальный чат «бот, как состояние сервера?»/«проверь логи» → TOOL_CALL get_bot_health → status=ok → ответ Writer с реальными данными (не «всё нормально» из памяти).",
       "note": "Предв.: «чекап» — кандидат REUSE_VERIFIED (get_bot_health реализован); свободные формы — GAP; уточнит TR-RECON."
     },
     {
@@ -905,15 +1105,24 @@
       "source_text_sha256": "20b392028afda72bcfd6032232b8f867f5cdc43d4065e5433c76ac7d9a7bfd91",
       "source_excerpt": "5. Не ограничиваться четырьмя примерами: выполнить аудит **всего доступного tool inventory** (веб/история/медиа/видео/лор и прочее) на логические несоответствия между schemas, доступными сервисами, гейтами и семантической маршрутизацией; ис",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто: аудит 14 тулов (schemas/services/gates/семантика), классификации корректны; доказанный дефект (health недоступен из L1) исправлен в существующих компонентах; наблюдения (a)/(b)/(c) классифицированы (review §4). VERIFIED.",
       "req_id": "ADTR-TOOLS-AUDIT",
       "slice": "ADTR-TOOLS",
       "acceptance": "Выполнен аудит всего доступного tool inventory (веб/история/медиа/видео/лор и прочее) на логические несоответствия между schemas, доступными сервисами, гейтами и семантической маршрутизацией; доказанные дефекты исправлены в существующих компонентах; повторного изобретения инструментов и неограниченного расширения scope нет.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
-      "note": "Предв.: аудит не проводился — GAP; исправления — только доказанные, в существующих компонентах."
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "948c20041a9c23d620670a3a1a2a56800aff981b",
+          "ref": "plans/features/add-tr/review-tools-minifix.md (f0865166, Approved) §4 + plans/features/add-tr/evidence/tools-minifix/audit-inventory.md",
+          "observation": "Аудит-таблица с классификацией; единственный доказанный дефект закрыт в существующем контуре.",
+          "artifact_path": "plans/features/add-tr/evidence/tools-minifix/audit-inventory.md",
+          "artifact_sha256": "363897171fa8ebf7f90f6ca9287e97a6108bc07787e9bf94d7dd131cf078d2cb",
+          "type": "static"
+        }
+      ],
+      "note": "Предв.: аудит не проводился — GAP; исправления — только доказанные, в существующих компонентах. Backlog-маркеры (не блокеры): (b) `health` отсутствует в UI-витрине `_DEFAULT_VIEW_IDS`; (c) `get_bot_health` вне `METERED_TOOLS` (ADR-1026-15 D3 free/local; смоук стоимости у Reviewer / metered-паритет с каноном 0g); (a) `image_understanding` detail-деривация целится в текущее сообщение (владелец VISION-FIX-CORE / ADTR-VERIFY S2)."
     },
     {
       "source_id": "L00050",
@@ -936,14 +1145,23 @@
       "source_text_sha256": "1d957ae4b369a38c47513d342c064ec8b912f36b83397fdd3eb42d9b51c0c22a",
       "source_excerpt": "- `generation not completed / delivery uncertain / failed`: не заявлять «готово» или факт просмотра; честная реакция по фактическому статусу.",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто: `generation not completed / delivery uncertain / failed` — бот не заявляет «готово»/факт просмотра; реакция честная по фактическому статусу. VERIFIED.",
       "req_id": "ADTR-POSTGEN-FAILED",
       "slice": "ADTR-POSTGEN",
       "acceptance": "`generation not completed / delivery uncertain / failed`: бот не заявляет «готово» или факт просмотра; реакция честная по фактическому статусу генерации/доставки.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "948c20041a9c23d620670a3a1a2a56800aff981b",
+          "ref": "plans/features/add-tr/review-postgen.md (0e5fbb05, Approved) §4 + plans/features/add-tr/evidence/postgen/green.txt",
+          "observation": "Честные статусы без ложного успеха.",
+          "artifact_path": "plans/features/add-tr/evidence/postgen/green.txt",
+          "artifact_sha256": "08f5bff7cc9d1195bd5dad95fe01a3c56572468fc92065a64d82d67822da5ca6",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00057",
@@ -951,14 +1169,24 @@
       "source_text_sha256": "f21109d2fdaaa0abda179de376759e7b34bbc0920bcb65ac0c3071b15ed083be",
       "source_excerpt": "- `image generated + sent`, **Vision отключён**: короткое естественное подтверждение доставки в действующем Personality Core («готово, держи», вариативно по ситуации), **без конкретных утверждений о содержимом итоговой картинки**. Не добавл",
       "disposition": "required",
-      "reason": "",
+      "reason": "Код-половина: `image_analysis status=off reason=vision_disabled` + инструкция Writer без претензий; без сетевых вызовов; kill-switch OFF — блоки байт-в-байт прежние. Живая — postdeploy. READY_FOR_LIVE.",
       "req_id": "ADTR-POSTGEN-OFF",
       "slice": "ADTR-POSTGEN",
       "acceptance": "`image generated + sent` при Vision отключён: короткое естественное подтверждение доставки в действующем Personality Core («готово, держи», вариативно по ситуации) — без конкретных утверждений о содержимом итоговой картинки; без жёстко прошитых формулировок и без обязательной второй реплики, если достаточно caption/статуса отправки.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "948c20041a9c23d620670a3a1a2a56800aff981b",
+          "ref": "plans/features/add-tr/review-postgen.md (0e5fbb05, Approved) §2/§7 + plans/features/add-tr/evidence/postgen/green.txt",
+          "observation": "OFF: data-only блок и байт-паритет kill-switch подтверждены.",
+          "artifact_path": "plans/features/add-tr/evidence/postgen/green.txt",
+          "artifact_sha256": "08f5bff7cc9d1195bd5dad95fe01a3c56572468fc92065a64d82d67822da5ca6",
+          "type": "test"
+        }
+      ],
+      "live_note": "postdeploy (DevOps/Orchestrator), не owner-гейт: реальная генерация при Vision OFF — короткое подтверждение доставки без описания содержимого.",
       "note": "Предв.: GAP — краткая реакция без деталей; прецедент честных текстов — SOUL-AMD.5.15 (VERIFIED)."
     },
     {
@@ -967,14 +1195,24 @@
       "source_text_sha256": "9cbe75d8a9faa521ff92aa2e3b321aed06a654da27154b3e006b032f54636013",
       "source_excerpt": "- `image generated + sent`, **Vision включён и реально доступен**: перед описанием получить bytes/asset ref **фактически сформированного итогового изображения** и передать его в существующий Vision/analyze-контур с корректным scope/доступом",
       "disposition": "required",
-      "reason": "",
+      "reason": "Код-половина: ready-блок с `visual_description/ocr_blocks/uncertainty` из анализа фактического bitmap; V21-инструкция — только data-only; scope per-chat. Живая — postdeploy. READY_FOR_LIVE.",
       "req_id": "ADTR-POSTGEN-ON",
       "slice": "ADTR-POSTGEN",
       "acceptance": "`image generated + sent` при Vision включён и реально доступен: перед описанием получены bytes/asset ref фактически сформированного итогового изображения и переданы в существующий Vision/analyze-контур с корректным scope/доступом; Writer получает результат распознавания и только тогда допускает фразы «получилось X, Y»; описания не основаны на prompt/success flag/metadata; распознавание исходного референса не подменяет финальное изображение.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "948c20041a9c23d620670a3a1a2a56800aff981b",
+          "ref": "plans/features/add-tr/review-postgen.md (0e5fbb05, Approved) §3 + plans/features/add-tr/evidence/postgen/probe-e2e.txt",
+          "observation": "ON: описание по анализу отправленного bitmap; OCR — данные.",
+          "artifact_path": "plans/features/add-tr/evidence/postgen/probe-e2e.txt",
+          "artifact_sha256": "adda6a73c1018fe37032ae84077ab063fc0358cfda60a3b0f153e94ee1943c88",
+          "type": "test"
+        }
+      ],
+      "live_note": "postdeploy (DevOps/Orchestrator), не owner-гейт: реальная генерация+отправка+анализ фактического bitmap у провайдера; наблюдаемость `image_postgen_vision` в mca_events.",
       "note": "Предв.: GAP — анализа финального bitmap в пост-генерационном пути нет; см. ADTR-POSTGEN-REUSE (адаптер входа к тому же анализатору)."
     },
     {
@@ -983,14 +1221,24 @@
       "source_text_sha256": "49eb8253dfc73735705d8b4eb761307cdb41adee3351644165d623ec4513766e",
       "source_excerpt": "- `Vision ON, но pending/rate_limited/unavailable/failed`: поведение как при отсутствии подтверждённого визуального результата — можно сказать, что изображение отправлено, но **нельзя уверенно рассказывать, что на нём получилось**. Не блоки",
       "disposition": "required",
-      "reason": "",
+      "reason": "Код-половина: pending/rate_limited/unavailable/failed/timeout — честные статусы без описаний; bounded (проба ≤ `min(8 c, budget)`, анализ ≤20 c); доставка не блокируется. Живая — postdeploy. READY_FOR_LIVE.",
       "req_id": "ADTR-POSTGEN-PENDING",
       "slice": "ADTR-POSTGEN",
       "acceptance": "`Vision ON, но pending/rate_limited/unavailable/failed`: поведение как при отсутствии подтверждённого визуального результата — можно сказать, что изображение отправлено, но нельзя уверенно рассказывать, что на нём получилось; доставка изображения не блокируется бесконечным ожиданием Vision (bounded latency, отдельная идемпотентная проверка при необходимости).",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "948c20041a9c23d620670a3a1a2a56800aff981b",
+          "ref": "plans/features/add-tr/review-postgen.md (0e5fbb05, Approved) §4 + plans/features/add-tr/evidence/postgen/green.txt",
+          "observation": "PENDING/bounded: доставка не блокируется, ход не отменяется (тесты).",
+          "artifact_path": "plans/features/add-tr/evidence/postgen/green.txt",
+          "artifact_sha256": "08f5bff7cc9d1195bd5dad95fe01a3c56572468fc92065a64d82d67822da5ca6",
+          "type": "test"
+        }
+      ],
+      "live_note": "postdeploy (DevOps/Orchestrator), не owner-гейт: таймауты/лимиты на реальном провайдере — bounded и честные.",
       "note": "Предв.: GAP — pending ≠ ready, bounded ожидание."
     },
     {
@@ -999,14 +1247,23 @@
       "source_text_sha256": "c450dd9b00c6cb31d22c8fa651c8b890d45303b1a63dbaf975bdd5d74fbb3291",
       "source_excerpt": "- Предусмотреть, что изображение могло **не соответствовать пользовательскому промпту**. Визуальное описание должно отражать реально увиденное, не дорисовывая планируемые детали. Сохранить data-only характер Vision; Personality Core — тольк",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто: описание = реально увиденное (не дорисовывает планируемое); Vision data-only; OCR передаётся как `untrusted_image_data`, не инструкции; no_text/parse_error честные. VERIFIED.",
       "req_id": "ADTR-POSTGEN-MISMATCH",
       "slice": "ADTR-POSTGEN",
       "acceptance": "Учтено, что изображение могло не соответствовать пользовательскому промпту: визуальное описание отражает реально увиденное, не дорисовывая планируемые детали; Vision остаётся data-only; Personality Core — только в пользовательском Writer.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "948c20041a9c23d620670a3a1a2a56800aff981b",
+          "ref": "plans/features/add-tr/review-postgen.md (0e5fbb05, Approved) §5 + plans/features/add-tr/evidence/postgen/green.txt",
+          "observation": "MISMATCH-кейс и недоверенные данные обработаны по протоколу.",
+          "artifact_path": "plans/features/add-tr/evidence/postgen/green.txt",
+          "artifact_sha256": "08f5bff7cc9d1195bd5dad95fe01a3c56572468fc92065a64d82d67822da5ca6",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00061",
@@ -1014,15 +1271,25 @@
       "source_text_sha256": "bb14abfa5a9d386a6e4670a354a69e4ba886e61e44a4ec67870a42027e1caf1d",
       "source_excerpt": "- Дедуп: не отправлять одну и ту же картинку второй раз из-за повторного tool call, не добавлять несколько однотипных пост-ответов, не считать собственный generated image пользовательским запросом на повторную генерацию. Учитывать медиа-гру",
       "disposition": "required",
-      "reason": "",
+      "reason": "Код-половина: дедуп `(chat_id, sha256(bytes))`, TTL 15 мин, ≤64; replay `already` не анализируется в обоих путях; повторный tool call гасится `skipped:already_handled`. Живая — postdeploy. READY_FOR_LIVE.",
       "req_id": "ADTR-POSTGEN-DEDUP",
       "slice": "ADTR-POSTGEN",
       "acceptance": "Дедуп: одна и та же картинка не отправляется второй раз из-за повторного tool call; нет нескольких однотипных пост-ответов; собственный generated image не считается пользовательским запросом на повторную генерацию; учтены медиа-группы, несколько результатов, ошибка Telegram delivery и idempotency.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": [],
-      "note": "Предв.: частично REUSE_VERIFIED — дедуп replay доказан для image-контура (SOUL-AMD.5.17, agent-checks-window2); дельта — пост-генерационные повторы/медиа-группы нового контура."
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "948c20041a9c23d620670a3a1a2a56800aff981b",
+          "ref": "plans/features/add-tr/review-postgen.md (0e5fbb05, Approved) §6 + plans/features/add-tr/evidence/postgen/probe-e2e.txt",
+          "observation": "DEDUP/cache_hit и идемпотентность подтверждены probe.",
+          "artifact_path": "plans/features/add-tr/evidence/postgen/probe-e2e.txt",
+          "artifact_sha256": "adda6a73c1018fe37032ae84077ab063fc0358cfda60a3b0f153e94ee1943c88",
+          "type": "test"
+        }
+      ],
+      "live_note": "postdeploy (DevOps/Orchestrator), не owner-гейт: повтор тех же bytes в TTL → cache_hit без провайдер-вызова; второй пост-ответ не создаётся.",
+      "note": "Предв.: частично REUSE_VERIFIED — дедуп replay доказан для image-контура (SOUL-AMD.5.17, agent-checks-window2); дельта — пост-генерационные повторы/медиа-группы нового контура. Related-note (review §42): `cache_hit` не выводится в Writer-блок — описание остаётся валидным (тот же bitmap), «свежесть» анализа не заявляется; блокером не считается."
     },
     {
       "source_id": "L00065",
