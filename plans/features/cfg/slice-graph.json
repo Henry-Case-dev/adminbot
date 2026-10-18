@@ -93,6 +93,8 @@
         "web/index.html",
         "web/api/summary_test.py",
         "tests/test_cfg02c_image_isolation.py",
+        "tests/test_asap7_cover_preview.py",
+        "tests/test_extra_cover_style_runtime.py",
         "tests/test_cover_style_wave_b_asap4.py",
         "tests/test_cfg02b_image_freq_limits.py",
         "tests/test_hotfix5_summary_cover_window_round1025.py",
@@ -101,7 +103,7 @@
         "tools/ui_cfg02c_*",
         "plans/features/cfg/evidence/cfg-02c/**"
       ],
-      "notes": "Расширение write_scope 19.10.2026 по prep-cfg-02c §2.3 (перед запуском Builder): добавлены call-sites фактического смешения (summary_generator, summary_test, cover_style_preview), учёт/DDL/аналитика (worker_budget, pg_db, usage_events), UI §02C.5 (web/app.js, web/index.html), новый tests/test_cfg02c_image_isolation.py, tools/ui_cfg02c_* и пины/регрессии (test_cfg02b_image_freq_limits, test_hotfix5_summary_cover_window_round1025, test_image_daily_limit_round1026, test_cfg02a_image_quota_ui). 02C НЕ входит в релиз-поезд 2.58.91 — стартует следующим поездом (CFG-02B в master, но не в проде). Один писатель на services/image_generation.py — параллельные лейны на этом файле не запускать. UI-часть §02C.5 — только после коммита VISION-UI (web/* сейчас dirty). Алиасы не дублировать: CFG-02A.6, CFG-02B.5 (test_summary_cover_path_is_not_charged), SOUL-AMD.5 — уже покрыты (prep-cfg-02c §6). Δ каталога ожидаемо 0; services/capability_registry.py — read-only, если честная диагностика не потребует правок (решение в дизайне Ф1).",
+      "notes": "Расширение write_scope 19.10.2026 по prep-cfg-02c §2.3 (перед запуском Builder): добавлены call-sites фактического смешения (summary_generator, summary_test, cover_style_preview), учёт/DDL/аналитика (worker_budget, pg_db, usage_events), UI §02C.5 (web/app.js, web/index.html), новый tests/test_cfg02c_image_isolation.py, tools/ui_cfg02c_* и пины/регрессии (test_cfg02b_image_freq_limits, test_hotfix5_summary_cover_window_round1025, test_image_daily_limit_round1026, test_cfg02a_image_quota_ui). 02C НЕ входит в релиз-поезд 2.58.91 — стартует следующим поездом (CFG-02B в master, но не в проде). Один писатель на services/image_generation.py — параллельные лейны на этом файле не запускать. UI-часть §02C.5 — только после коммита VISION-UI (web/* сейчас dirty). Алиасы не дублировать: CFG-02A.6, CFG-02B.5 (test_summary_cover_path_is_not_charged), SOUL-AMD.5 — уже покрыты (prep-cfg-02c §6). Δ каталога ожидаемо 0; services/capability_registry.py — read-only, если честная диагностика не потребует правок (решение в дизайне Ф1). Scope-амендмент 19.10.2026 (review `77e7dd5a` §6): добавлены 2 механических стаба-зеркала сигнатуры (`tests/test_asap7_cover_preview.py`, `tests/test_extra_cover_style_runtime.py`); `services/capability_registry.py` санкционирован граф-условием (read-only) и README §1.4.",
       "acceptance": "Двусторонняя изоляция user_image/summary_cover доказана отрицательными и интеграционными тестами; shared-capacity показан честно."
     },
     {
