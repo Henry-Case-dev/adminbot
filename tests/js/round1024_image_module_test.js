@@ -92,7 +92,9 @@ assert.strictEqual(card.title, 'Генерация изображений', 'F5:
 // tma-menu-freeze: ровно +1 санкционированная карточка (12→13).
 assert.strictEqual(data.modules.length, 15, 'карточек модулей — 14');
 
-// 2) Вкладка mod_images: ровно одна группа flags_module_images.
+// 2) Вкладка mod_images: группы модуля — flags_module_images (F5) и
+// limits_images (CFG-02A §02A.1: суточная квота изображений видима в модуле;
+// ровно один источник истины — та же каталожная группа, что в TAB_RULES).
 const tabs = data.tabs.filter((t) => t.id === 'mod_images');
 assert.strictEqual(tabs.length, 1, 'вкладка mod_images должна быть ровно одна');
 const tab = tabs[0];
@@ -103,10 +105,15 @@ const groups = [];
 (tab.sources || []).forEach((src) => {
   (src.groups || []).forEach((g) => groups.push(g));
 });
-assert.deepStrictEqual(groups, ['flags_module_images'],
-  'F5: вкладка mod_images покрывает ровно flags_module_images');
+assert.deepStrictEqual(groups, ['flags_module_images', 'limits_images'],
+  'F5+CFG-02A: вкладка mod_images покрывает ровно '
+  + 'flags_module_images + limits_images');
+assert.strictEqual(groups.indexOf('limits_images'), 1,
+  'CFG-02A: limits_images объявлена в источниках вкладки (иначе настройка '
+  + 'не рендерится нигде)');
 
-// 3) Один дом: группа изображений НЕ в llm_providers и НЕ в mod_direct.
+// 3) Один дом: группа изображений НЕ в llm_providers и НЕ в mod_direct,
+//    группа суточной квоты — НЕ дублируется в других вкладках (CFG-02A).
 ['llm_providers', 'mod_direct'].forEach((tid) => {
   const t = data.tabs.filter((x) => x.id === tid)[0];
   const gs = [];
@@ -115,6 +122,16 @@ assert.deepStrictEqual(groups, ['flags_module_images'],
   });
   assert.strictEqual(gs.indexOf('flags_module_images'), -1,
     'F5: flags_module_images не должен дублироваться в ' + tid);
+  assert.strictEqual(gs.indexOf('limits_images'), -1,
+    'CFG-02A: limits_images не дублируется в ' + tid);
+});
+data.tabs.filter((t) => t.id !== 'mod_images').forEach((t) => {
+  const gs = [];
+  (t.sources || []).forEach((src) => {
+    (src.groups || []).forEach((g) => gs.push(g));
+  });
+  assert.strictEqual(gs.indexOf('limits_images'), -1,
+    'CFG-02A: один дом — limits_images живёт только на mod_images (' + t.id + ')');
 });
 
 // 4) Всего вкладок 28 (ASAP 7 F3: +mod_initiative), без дублей.

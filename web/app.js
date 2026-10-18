@@ -219,10 +219,15 @@
     // F5 (10.24, ADR-1024-9 D1): отдельный пункт «Генерация изображений» —
     // группа flags_module_images перенесена из mod_direct (провайдер
     // models_images/keys_images остаётся в llm_providers, «один дом»).
+    // CFG-02A (§02A.1, корневая причина UI-дефекта): зеркало TAB_RULES —
+    // группа limits_images теперь ОБЪЯВЛЕНА в источниках вкладки; без неё
+    // суточная квота не рендерилась нигде (вкладка «Лимиты» скрывалась как
+    // пустая, и настройка была недоступна владельцу).
     { id: 'mod_images', icon: 'grid_view', label: 'Генерация изображений',
       type: 'config', menu: 'modules',
       sources: [
         { category: 'flags', groups: ['flags_module_images'] },
+        { category: 'limits', groups: ['limits_images'] },
       ] },
     // MCA-19 (10.43, ADR-1028-19 D16): вкладка модуля «Распознавание
     // изображений» — главный тумблер владельца + лимиты; подключение
@@ -1301,6 +1306,19 @@
         + 'требует отдельного подтверждения в самом запросе. Аварийный env: '
         + 'INITIATIVE_DIAGNOSTICS_PUBLISH_ENABLED.'),
     },
+    // CFG-02A (§02A.2/§02A.3): суточная квота изображений — человеческая
+    // подпись, единицы и точная политика списания. Только витрина
+    // (Δ каталога = 0): ключ/сентинелы/резолвер не меняются; переименование
+    // самого каталога — предмет аудита CFG-03 (прецедент R1 CFG-01).
+    'limits.image_daily_limit': {
+      title: 'Изображений в сутки',
+      description: ('Единицы: генераций в сутки (одна генерация — одна '
+        + 'картинка). 0 — генерация запрещена; −1 — безлимит; '
+        + 'положительное число — сколько генераций в сутки разрешено чату. '
+        + 'Списание — за каждую выполненную генерацию; повторная обработка '
+        + 'того же запроса и повторная доставка квоту не списывают. '
+        + 'По умолчанию 60.'),
+    },
   };
   // B01.4: виджет профиля частоты (ключ каталога — str; select добавляет
   // витрина). Значения — канон резолвера initiative_observer.
@@ -1317,6 +1335,15 @@
       description: ('Как фактчек относится ко времени утверждений: режим '
         + 'по умолчанию, сроки свежести вердиктов и включён ли '
         + 'дополнительный инструмент проверки дат.'),
+    },
+    // CFG-02A (§02A.1): имя секции в модуле «Генерация изображений» —
+    // «Лимиты генерации» (витрина; каталоговая группа limits_images не
+    // переименовывается — Δ каталога = 0, прецедент B07).
+    limits_images: {
+      title: 'Лимиты генерации',
+      description: ('Дневная квота генерации изображений по запросу людей: '
+        + 'глобальное значение — по умолчанию для чатов, у отдельного чата '
+        + 'может быть своё. 0 — генерация запрещена, −1 — безлимит.'),
     },
   };
   // Ключи-тумблеры рендерятся ТОЛЬКО в <summary> owner-блоков; мастер
@@ -1338,6 +1365,23 @@
     });
     return m;
   })();
+
+  // ═══ CFG-02A (§02A.2/§02A.3): «Лимиты генерации» — суточная квота ═══════
+  // Один ключ-источник истины (каталог `limits.image_daily_limit`); UI только
+  // выводит фактическое значение области и запрещает невалидный ввод.
+  // Допустимые значения: 0 (запрет), −1 (безлимит), положительное (квота) —
+  // канон сентинелов `services/budget_limits.py`.
+  var IMAGE_QUOTA_KEY = 'limits.image_daily_limit';
+  var IMAGE_QUOTA_MIN = -1;
+
+  // Значение квоты допустимо для записи: целое ≥ −1. Мусор/дробное/меньше −1
+  // — отказ на клиенте (сервер дополнительно проверяет тип: 422).
+  function imageQuotaValueValid(raw) {
+    var n = Number(raw);
+    if (!isFinite(n)) return false;
+    if (Math.floor(n) !== n) return false;
+    return n >= IMAGE_QUOTA_MIN;
+  }
 
   // UI-полировка TMA (fix-раунд ревью): blob-аватары через прокси.
   // Прямой <img :src="'/api/avatar/...'"> НЕ работает: картинку грузит
@@ -2077,6 +2121,11 @@
         gatesBusy: false,
         budgetInfo: null,        // GET /api/workers/budget
         budgetBusy: false,
+        // CFG-02A (§02A.2/§02A.3): «Лимиты генерации» — ошибка ввода квоты
+        // (клиентский запрет невалидных значений) + момент загрузки фактов
+        // (ленивый догруз на странице модуля, окно 30 c).
+        imageQuotaInputError: '',
+        _imageQuotaAt: 0,
         budgetsUnlimitedBusy: false,   // F3: тумблер «Безлимит по чату»
         // ASAP-3 (ADR-1028-2 D17, §34): диагностика последнего ON-прогона
         // Direct Context Composer по чату (process-local, R17: числа/коды).
@@ -5615,6 +5664,41 @@
         if (!chat && !shared) return null;
         return { chat: chat, shared: shared };
       },
+      // CFG-02A (§02A.1/§02A.2/§02A.4): собранные ФАКТЫ «Лимитов генерации»
+      // для секции модуля «Генерация изображений» → «Основные настройки».
+      // Источники — только существующие поверхности: (1) каталоговый элемент
+      // `limits.image_daily_limit` (фактическое значение выбранной области:
+      // chat override → global → заводской + источник); (2) аддитивные поля
+      // GET /api/workers/budget (§27: расход/остаток/TZ/сброс/режим резерва).
+      // Второй настройки/второго счётчика НЕ создаётся.
+      imageQuotaFacts: function () {
+        var it = null;
+        var items = this.configItems || [];
+        for (var i = 0; i < items.length; i++) {
+          if (items[i] && items[i].key === IMAGE_QUOTA_KEY) { it = items[i]; }
+        }
+        var usage = this.imageUsage || null;
+        var chat = usage && usage.chat ? usage.chat : null;
+        var shared = usage && usage.shared ? usage.shared : null;
+        var value = (it && it.value != null) ? Number(it.value) : null;
+        var state = 'unknown';
+        if (value != null && isFinite(value)) {
+          state = (value === 0) ? 'forbidden'
+            : (value < 0 ? 'unlimited' : 'cap');
+        }
+        // Источник фактического значения: у области чата — честный источник
+        // из API журнала (chat/global/default); без выбранного чата — по
+        // элементу конфига (override нет → глобальный/заводской).
+        var source = '';
+        if (chat && chat.source) {
+          source = String(chat.source);
+        } else if (it) {
+          source = (it.global_value != null && it.global_value !== '')
+            ? 'global' : 'default';
+        }
+        return { item: it, value: value, state: state, source: source,
+                 chat: chat, shared: shared };
+      },
     },
 
     // F6 (T-1461, §3.2): изменение селектора уровня сразу перезагружает лог —
@@ -5696,6 +5780,10 @@
         // MCA-19 (T-5103/T-5116): вкладка «Модели» vision-модуля — живая
         // effective-линия (fail-open: 403/RBAC → линии нет).
         if (tab === 'models') this.maybeLoadVisionState();
+        // CFG-02A (§02A.2): «Основные настройки» модуля «Генерация
+        // изображений» — факты суточной квоты из существующего
+        // /api/workers/budget (fail-open, окно 30 c).
+        if (tab === 'settings') this.maybeLoadImageQuota();
       },
       // B05.3: пока открыт cover-editor — блокируем скролл app позади
       // оверлея (no behind-overlay scroll); guard сбрасывается вместе.
@@ -7412,18 +7500,118 @@
         return Math.min(1, (pair.used || 0) / pair.limit);
       },
       // A5 (T-3603/D9, §27): человекочитаемый источник лимита изображений.
+      // CFG-02A (§02A.2): три источника владельца — чат / глобально /
+      // заводской (`factory`/`default` = заводское значение).
       imageSourceLabel: function (src) {
         if (src === 'chat') return 'Локальный (чат)';
         if (src === 'global') return 'Глобальный (по умолчанию)';
         if (src === 'env') return 'Общий бюджет (env)';
+        if (src === 'factory' || src === 'default') return 'Заводской';
         return 'Значение по умолчанию';
       },
       // A5 (T-3603): «точное время следующего сброса» (ISO → дата+время).
-      imageResetLabel: function (iso) {
+      // CFG-02A (§02A.2): приводится В TZ ДНЯ КВОТЫ (не в TZ браузера) —
+      // иначе «08:00» у другого часового пояса вводило бы в заблуждение.
+      imageResetLabel: function (iso, tz) {
         if (!iso) return '—';
         var d = new Date(iso);
         if (isNaN(d.getTime())) return String(iso);
+        if (tz) {
+          try {
+            return new Intl.DateTimeFormat('ru-RU', {
+              timeZone: tz, year: 'numeric', month: '2-digit',
+              day: '2-digit', hour: '2-digit', minute: '2-digit',
+            }).format(d);
+          } catch (e) { /* неизвестная TZ → локальное время браузера */ }
+        }
         return d.toLocaleString();
+      },
+      // CFG-02A (§02A.2): фактическое значение квоты простыми словами
+      // (канон сентинелов budget_limits: 0 = запрет, <0 = безлимит, >0 = cap).
+      imageQuotaStateLabel: function (facts) {
+        if (!facts || facts.value == null) return 'значение не загружено';
+        if (facts.state === 'forbidden') return 'запрещено (0)';
+        if (facts.state === 'unlimited') return 'безлимит (' + facts.value + ')';
+        if (facts.state === 'cap') return facts.value + ' генераций/сутки';
+        return 'значение не распознано';
+      },
+      // CFG-02A (§02A.2): остаток дня — вычисляется из тех же used/limit
+      // журнала (второго счётчика нет).
+      imageQuotaRemainingText: function (chat) {
+        if (!chat || chat.limit == null) return '—';
+        var limit = Number(chat.limit);
+        var used = Number(chat.used || 0);
+        if (!isFinite(limit)) return '—';
+        if (limit < 0) return 'безлимит (∞)';
+        if (limit === 0) return '0 (генерация запрещена)';
+        var left = limit - used;
+        return (left > 0 ? left : 0) + ' из ' + limit;
+      },
+      // CFG-02A (§02A.4): честный режим применения квоты — «лимит применён»
+      // не заявляется, когда фактический путь другой (kill-switch/master).
+      imageQuotaModeNotice: function (chat) {
+        if (!chat) return null;
+        var path = String(chat.reserve_path || '');
+        var reason = String(chat.reserve_reason || '');
+        if (path === 'reserve') {
+          return { tone: 'ok', text: 'Резерв квоты активен: списание '
+            + 'атомарное, повторная обработка того же запроса квоту не '
+            + 'списывает.' };
+        }
+        if (path === 'legacy' && reason === 'kill_switch_off') {
+          return { tone: 'warn', text: 'Служебный переключатель '
+            + 'IMAGE_DAILY_LIMIT_ENABLED выключен: квота работает через '
+            + 'legacy-счётчик — без атомарного резерва и без защиты от '
+            + 'повторного списания при повторе того же запроса.' };
+        }
+        if (path === 'legacy' && reason === 'budgets_off') {
+          return { tone: 'warn', text: 'Мастер-рубильник бюджетов выключен '
+            + 'в этой области: лимит НЕ ограничивает генерацию (расход '
+            + 'учитывается).' };
+        }
+        if (path === 'legacy') {
+          return { tone: 'warn', text: 'Ограничение применяется '
+            + 'legacy-путём (' + reason + ').' };
+        }
+        return { tone: 'muted', text: 'Режим применения квоты не подтверждён '
+          + '— диагностика недоступна.' };
+      },
+      // CFG-02A (§02A.3): единственный write-path — существующий
+      // saveConfigItem (POST /api/config, X-Chat-Id для области чата).
+      // Невалидный ввод (не целое / меньше −1) НЕ отправляется: показываем
+      // честную причину; сервер дополнительно отклоняет не-int (422).
+      // Значение без изменений НЕ сохраняется (иначе пересинхронизация поля
+      // при смене области создавала бы per-chat override «на ровном месте»).
+      saveImageDailyLimit: async function (item, raw) {
+        if (!item) return false;
+        if (!imageQuotaValueValid(raw)) {
+          this.imageQuotaInputError = 'Допустимо целое число: −1 или больше '
+            + '(0 — запрет, −1 — безлимит, больше — квота).';
+          return false;
+        }
+        this.imageQuotaInputError = '';
+        var value = Number(raw);
+        if (Number(item.value) === value) return true;   // no-op: 0 POST
+        item.value = value;
+        return await this.saveConfigItem(item);
+      },
+      // CFG-02A (§02A.2): факты квоты на странице модуля «Генерация
+      // изображений» («Основные настройки»). Ленивый догруз существующего
+      // GET /api/workers/budget (прецедент maybeLoadVisionState): RBAC/ошибка
+      // → факты не показываются (fail-open), сама настройка остаётся
+      // управляемой через каталог. Окно 30 c — как у vision-состояния.
+      maybeLoadImageQuota: function () {
+        var ws = this.workspace;
+        if (!ws || !ws.module || ws.module.id !== 'mod_images') return;
+        if (this.budgetBusy) return;
+        if (this.budgetInfo && this._imageQuotaAt
+            && (Date.now() - this._imageQuotaAt) < 30000) {
+          return;
+        }
+        var self = this;
+        return this.loadBudgetInfo().then(function () {
+          self._imageQuotaAt = Date.now();
+        });
       },
       // F3 (10.19, ADR-1019-8 D6): человекочитаемый текст метрики —
       // «Безлимит (∞)» / «Запрещено» / «used / limit».
@@ -12636,6 +12824,12 @@
         // на workspace-вкладке «Модели» (id-маппинг, прецедент Hybrid:
         // groupedForTab несёт категорию источника, у keys-слота это keys).
         if (grp.id === 'models_direct_l1') return 'models';
+        // CFG-02A (§02A.1): «Лимиты генерации» живут в «Основные настройки»
+        // модуля «Генерация изображений» (требование владельца — без поиска
+        // по другим разделам). id-маппинг важнее категории (прецедент Hybrid).
+        if (m && m.id === 'mod_images' && grp.id === 'limits_images') {
+          return 'settings';
+        }
         if (grp.category === 'models') return 'models';
         if (grp.category === 'limits') return 'limits';
         return 'settings';

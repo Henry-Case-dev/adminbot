@@ -3358,41 +3358,11 @@
                   </div>
                 </div>
               </template>
-              <!-- A5 (T-3603/D9, §27): врезка «Лимиты» модуля «Генерация
-                   изображений» — дневной лимит, фактический расход,
-                   источник, время сброса и TZ; read-only строка общего
-                   бюджета всех чатов (env-only, не дублирует настройку). -->
-              <div v-if="workspaceModule && workspaceModule.id === 'mod_images'
-                        && workspaceTab === 'limits' && imageUsage"
-                   class="col-span-full grid gap-3 md:grid-cols-2"
-                   data-image-limits>
-                <div v-if="imageUsage.chat" class="card p-4" data-image-limit-chat>
-                  <div class="text-sm font-bold mb-1">Дневной лимит изображений</div>
-                  <div class="text-xs text-gray-400 mb-1">Использовано сегодня:</div>
-                  <div class="text-lg font-bold" data-image-used>
-                    {{ imageUsage.chat.used }} / {{ imageUsage.chat.limit }}
-                  </div>
-                  <div class="progress mb-2"><div
-                    :style="{ width: (budgetRatio(imageUsage.chat) * 100) + '%' }"></div></div>
-                  <div class="text-xs text-gray-400">Источник: {{ imageSourceLabel(imageUsage.chat.source) }}</div>
-                  <div class="text-xs text-gray-400">Временная зона: {{ imageUsage.chat.timezone || '—' }}</div>
-                  <div class="text-xs text-gray-400">Следующий сброс: {{ imageResetLabel(imageUsage.chat.next_reset_at) }}</div>
-                  <div v-if="imageUsage.chat.requests != null" class="text-xs text-gray-500 mt-1">
-                    Запросов: {{ imageUsage.chat.requests }} · успешных: {{ imageUsage.chat.success }} · ошибок: {{ imageUsage.chat.errors }}
-                  </div>
-                </div>
-                <div v-if="imageUsage.shared" class="card p-4" data-image-limit-shared>
-                  <div class="text-sm font-bold mb-1">Общий бюджет всех чатов</div>
-                  <div class="text-xs text-gray-400 mb-1">read-only, env-only (отдельно от лимита чата)</div>
-                  <div class="text-lg font-bold" data-image-shared-used>
-                    {{ imageUsage.shared.used }} / {{ imageUsage.shared.limit }}
-                  </div>
-                  <div class="progress mb-2"><div
-                    :style="{ width: (budgetRatio(imageUsage.shared) * 100) + '%' }"></div></div>
-                  <div class="text-xs text-gray-400">Временная зона: {{ imageUsage.shared.timezone || '—' }}</div>
-                  <div class="text-xs text-gray-400">Следующий сброс: {{ imageResetLabel(imageUsage.shared.next_reset_at) }}</div>
-                </div>
-              </div>
+              <!-- CFG-02A (§02A.1): врезка «Лимиты генерации» переехала в
+                   «Основные настройки» модуля (секция каталога limits_images,
+                   см. data-image-quota-facts ниже) — отдельной read-only
+                   вкладки «Лимиты» у модуля больше нет (одно место фактов,
+                   одно место настройки). -->
               <!-- ═══ ASAP-3 (round 1028, ADR-1028-2 D17, §34/§35): DIRECT
                    CONTEXT + DIRECT ADDRESSING — bespoke-карточки вкладки
                    «Ответы в чате» (mod_direct), в существующей IA (без новых
@@ -3719,6 +3689,22 @@
                         <span class="text-xs text-gray-500">%</span>
                       </div>
                     </template>
+                    <template v-else-if="item.key === 'limits.image_daily_limit'">
+                      <div class="text-sm font-semibold">{{ item.title }}</div>
+                      <div class="text-xs text-gray-500 font-mono truncate mb-1">{{ item.key }}</div>
+                      <div class="text-xs text-gray-400 mb-2">{{ item.description }}</div>
+                      <div class="flex items-center gap-2">
+                        <input class="field" type="number" min="-1" step="1"
+                               :value="item.value"
+                               :disabled="!canEditConfig(item.key)"
+                               data-image-quota-input
+                               @change="saveImageDailyLimit(item, $event.target.value)">
+                        <span class="text-xs text-gray-500">генераций/сутки</span>
+                      </div>
+                      <div v-if="imageQuotaInputError"
+                           class="text-[10px] text-amber-300 mt-1"
+                           data-image-quota-input-error>{{ imageQuotaInputError }}</div>
+                    </template>
                     <template v-else>
                       <div class="text-sm font-semibold">{{ item.title }}</div>
                       <div class="text-xs text-gray-500 font-mono truncate mb-1">{{ item.key }}</div>
@@ -3727,6 +3713,90 @@
                     </template>
                   </div>
                   </template>
+                </div>
+                <!-- CFG-02A (§02A.1/§02A.2/§02A.4): факты «Лимитов генерации» —
+                     из существующего GET /api/workers/budget (аддитивные поля
+                     image_usage §27): фактическое значение выбранной области,
+                     источник, расход/остаток, TZ, ближайший сброс, честный
+                     режим применения (reserve/legacy) и общий env-бюджет.
+                     Read-only: единственная запись значения — каталоговое
+                     поле выше (второго источника истины нет). -->
+                <div v-if="grp.id === 'limits_images' && imageQuotaFacts"
+                     class="mt-4 pt-3 border-t border-white/10"
+                     data-image-quota-facts>
+                  <div class="text-xs text-gray-400 mb-2">
+                    Единицы: <b>генерации в сутки</b> (одна генерация — одна
+                    картинка). Значение: <b>0</b> — генерация запрещена,
+                    <b>−1</b> — безлимит, положительное число — квота.
+                  </div>
+                  <div class="grid gap-2 md:grid-cols-2">
+                    <div class="card p-3" data-image-quota-current>
+                      <div class="text-xs text-gray-400">Фактическое значение
+                        для выбранной области:</div>
+                      <div class="text-lg font-bold" data-image-quota-value>
+                        {{ imageQuotaStateLabel(imageQuotaFacts) }}
+                      </div>
+                      <div class="text-xs text-gray-400">
+                        Источник: {{ imageSourceLabel(imageQuotaFacts.source) }}
+                        <span v-if="!isChatContext()" data-image-quota-scope>
+                          · область «Весь бот»: расход и остаток относятся к
+                          выбранному чату
+                        </span>
+                      </div>
+                      <template v-if="imageQuotaFacts.chat">
+                        <div class="text-xs text-gray-400 mt-1">
+                          Расход сегодня:
+                          <b data-image-quota-used>{{ imageQuotaFacts.chat.used }}</b>
+                          · Остаток:
+                          <b data-image-quota-remaining>{{ imageQuotaRemainingText(imageQuotaFacts.chat) }}</b>
+                        </div>
+                        <div class="text-xs text-gray-400">
+                          Часовой пояс:
+                          <span data-image-quota-tz>{{ imageQuotaFacts.chat.timezone || '—' }}</span>
+                        </div>
+                        <div class="text-xs text-gray-400">
+                          Ближайший сброс квоты:
+                          <span data-image-quota-reset>{{ imageResetLabel(imageQuotaFacts.chat.next_reset_at, imageQuotaFacts.chat.timezone) }}</span>
+                        </div>
+                        <div v-if="imageQuotaFacts.chat.requests != null"
+                             class="text-xs text-gray-500 mt-1">
+                          Запросов: {{ imageQuotaFacts.chat.requests }} · успешных: {{ imageQuotaFacts.chat.success }} · ошибок: {{ imageQuotaFacts.chat.errors }}
+                        </div>
+                      </template>
+                    </div>
+                    <div v-if="imageQuotaFacts.shared" class="card p-3"
+                         data-image-quota-shared>
+                      <div class="text-xs text-gray-400">Общий технический
+                        бюджет всех чатов (env-only, read-only)</div>
+                      <div class="text-sm font-bold" data-image-quota-shared-value>
+                        {{ imageQuotaFacts.shared.used }} / {{ imageQuotaFacts.shared.limit }}
+                      </div>
+                      <div class="text-xs text-gray-400">
+                        Отдельно от лимита чата: проверяется для любой
+                        генерации и не входит в настройку «Изображений в сутки».
+                      </div>
+                      <div class="text-xs text-gray-400">
+                        Часовой пояс: {{ imageQuotaFacts.shared.timezone || '—' }}
+                      </div>
+                      <div class="text-xs text-gray-400">
+                        Следующий сброс:
+                        {{ imageResetLabel(imageQuotaFacts.shared.next_reset_at, imageQuotaFacts.shared.timezone) }}
+                      </div>
+                    </div>
+                  </div>
+                  <div v-if="imageQuotaModeNotice(imageQuotaFacts.chat)"
+                       class="text-xs mt-2"
+                       :class="imageQuotaModeNotice(imageQuotaFacts.chat).tone === 'ok' ? 'text-gray-400' : (imageQuotaModeNotice(imageQuotaFacts.chat).tone === 'warn' ? 'text-amber-300' : 'text-gray-500')"
+                       data-image-quota-mode>
+                    {{ imageQuotaModeNotice(imageQuotaFacts.chat).text }}
+                  </div>
+                  <div class="text-xs text-gray-500 mt-2" data-image-quota-hint>
+                    Списание: одна выполненная генерация = одно списание
+                    (один запрос — одна картинка). Если попросить ещё картинок,
+                    каждая новая генерация списывается отдельно; повторная
+                    обработка того же запроса и повторная доставка картинки
+                    квоту не списывают.
+                  </div>
                 </div>
                 <!-- F-11 (Q3/4.2): «Расширенные настройки» — нативный
                      аккордеон (closed по умолчанию; localStorage).
@@ -3823,6 +3893,21 @@
                                  @change="saveKostikProbability(item, $event.target.value)">
                           <span class="text-xs text-gray-500">%</span>
                         </div>
+                      </div>
+                      <!-- CFG-02A (§02A.3): «Изображений в сутки» — целое ≥ −1
+                           (тот же write-path, что у базового рендера). -->
+                      <div v-else-if="item.key === 'limits.image_daily_limit'" class="mt-2">
+                        <div class="flex items-center gap-2">
+                          <input class="field" type="number" min="-1" step="1"
+                                 :value="item.value"
+                                 :disabled="!canEditConfig(item.key)"
+                                 data-image-quota-input
+                                 @change="saveImageDailyLimit(item, $event.target.value)">
+                          <span class="text-xs text-gray-500">генераций/сутки</span>
+                        </div>
+                        <div v-if="imageQuotaInputError"
+                             class="text-[10px] text-amber-300 mt-1"
+                             data-image-quota-input-error>{{ imageQuotaInputError }}</div>
                       </div>
                       <div v-else>
                         <input class="field" :type="inputType(item)" v-model="item.value">
@@ -7371,7 +7456,7 @@
                         aria-label="Назад к списку разделов"
                         @click="speechBack()">← Назад</button>
                 <div class="speech-title">
-                  <span class="msr" aria-hidden="true">{{ iconGlyph('record_voice_over') }}</span>
+                  <span class="msr" aria-hidden="true">{{ iconGlyph('edit_note') }}</span>
                   Речь и характер
                 </div>
                 <span class="badge badge-info">{{ speechScopeBadge }}</span>
@@ -9915,7 +10000,7 @@
             <div class="card p-4 col-span-full speech-entry" style="max-width: 760px;">
               <div class="flex items-center gap-2 flex-wrap">
                 <div class="text-sm font-bold">
-                  <span class="msr" aria-hidden="true">{{ iconGlyph('record_voice_over') }}</span>
+                  <span class="msr" aria-hidden="true">{{ iconGlyph('edit_note') }}</span>
                   Речь и характер
                 </div>
                 <span class="badge badge-info">{{ speechScopeBadge }}</span>

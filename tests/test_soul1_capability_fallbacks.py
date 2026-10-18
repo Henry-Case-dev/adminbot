@@ -278,7 +278,15 @@ async def test_tool_path_message_uses_template_by_code(monkeypatch, reason,
                                                           _ctx()))
     assert payload["status"] == "error" and payload["reason"] == reason
     text, block_id, _src = caps.failure_text(expected)
-    assert payload["message"] == text
+    if expected == "quota_exhausted":
+        # CFG-02A (§02A.5): отказ по СУТОЧНОЙ квоте дополняется фактическим
+        # временем следующего сброса (календарный день чата в его TZ);
+        # управляемая речевая форма реестра остаётся префиксом — контракт
+        # SOUL-1 «текст выбирается по реальному коду отказа» сохранён.
+        assert payload["message"].startswith(text + " ")
+        assert "Суточная квота обновится" in payload["message"]
+    else:
+        assert payload["message"] == text
     assert payload["message_id"] == block_id
     assert LEGACY not in payload["message"]
 

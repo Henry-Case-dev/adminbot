@@ -1,0 +1,115 @@
+# CFG-02A: RED -> GREEN (raw pytest summaries + UI E2E)
+
+## RED (базовый коммит 2bc13f44c548, worktree `…/OpenCodeScratch/adminbot-ccef72c25768/cfg02a-red`)
+Файлы кандидата НЕ применялись; перенесены только НОВЫЕ/ОБНОВЛЁННЫЕ тесты.
+
+  $ py -3 -m pytest tests/test_cfg02a_image_quota_ui.py -q
+FAILED TestCfg02aCatalogAndUiContract::test_vitrina_labels_and_units
+FAILED TestCfg02aCatalogAndUiContract::test_js_mirror_declares_limits_group
+FAILED TestCfg02aCatalogAndUiContract::test_limits_group_renders_on_settings_tab
+FAILED TestCfg02aCatalogAndUiContract::test_ui_marks_facts_and_guard
+FAILED TestCfg02aCatalogAndUiContract::test_ui_hint_is_factual
+FAILED TestCfg02aCatalogAndUiContract::test_client_guard_blocks_invalid_value
+FAILED TestCfg02aEffectiveImpact::test_minus_one_is_unlimited_and_still_accounted
+FAILED TestCfg02aEffectiveImpact::test_reserve_mode_is_honest
+FAILED TestCfg02aRefusalHonesty::test_refusal_text_carries_honest_reset_time
+FAILED TestCfg02aRefusalHonesty::test_reset_note_is_fail_open
+10 failed, 17 passed, 2 warnings in 2.68s
+
+  $ py -3 -m pytest tests/test_soul1_capability_fallbacks.py -q
+FAILED tests/test_soul1_capability_fallbacks.py::test_tool_path_message_uses_template_by_code[budget-quota_exhausted]
+1 failed, 40 passed, 2 warnings in 3.18s
+  (RED-причина: base не добавляет факт «Суточная квота обновится …» к отказу по квоте)
+
+  Состав RED (дефект CFG-02.D + отсутствующие контракты CFG-02A.1–02A.5):
+  * каталог/витрина: нет секции «Лимиты генерации», подписи «Изображений в сутки»,
+    единиц/политики списания, зеркала `limits_images` и маппинга на «Основные настройки»,
+    разметки фактов (`data-image-quota-*`), клиентского guard/no-op;
+  * учёт: при `−1` (безлимит) per-chat счётчик в reserve-пути не инкрементировался
+    (shared-контур инкрементировал) → «расход 0» в UI;
+  * честность: нет `reserve_path`/`reserve_reason` в диагностике §27 (`image_reserve_mode`);
+  * отказ: нет фактической строки времени сброса (`image_quota_reset_note`) в direct/tool.
+
+## CANDIDATE (blob sha12 ключевых файлов; база 2bc13f44c548)
+
+  web/app.js                        92f60ed1e28b
+  web/index.html                    312a2ed00691
+  services/image_generation.py      c560e15d118a
+  services/worker_budget.py         7cdf9ea20b0f
+  services/tool_router.py           8ec679eb43e3
+  tests/test_cfg02a_image_quota_ui.py   2734311de0ab
+  tests/test_soul1_capability_fallbacks.py 26e8128069d5
+  tests/js/round1024_image_module_test.js b9f43e8dbe7e
+  tools/ui_cfg02a_image_quota_e2e.py     d3dbdcc67fd5
+  evidence/cfg-02a/README.md             914d00412dde
+  (база: 2bc13f44c548; карта/каталог/роуты НЕ тронуты — Δ каталога = 0)
+
+## GREEN
+
+  $ py -3 -m pytest tests/test_cfg02a_image_quota_ui.py -q
+27 passed, 2 warnings in 2.59s
+
+  $ py -3 -m pytest <23 файла: image/param/webapp/frontend/soul1/summary/budget/tool_router/
+                  hotfix5/unified/mca/matrix/settings-persistence> -q
+583 passed, 3 warnings in 13.11s      (изолированный worktree КАНДИДАТА 3b04a914)
+
+  $ py -3 -m pytest tests/test_cfg02a_image_quota_ui.py tests/test_soul1_capability_fallbacks.py \
+                  tests/test_image_daily_limit_round1026.py tests/test_round1025_f8_registry.py \
+                  tests/test_param_catalog.py tests/test_frontend_tab_mapping.py -q
+183 passed, 2 warnings in 7.20s       (изолированный worktree КАНДИДАТА 3b04a914)
+
+  $ py -3 -m pytest tests/test_soul1_capability_fallbacks.py tests/test_image_daily_limit_round1026.py -q
+67 passed  (10.26 reserve/журнал/идемпотентность — без регрессий)
+
+## ПОЛНЫЙ ПРОГОН (весь tests/, blast-radius)
+
+  $ py -3 -m pytest tests -q            # рабочий tree (кандидат + чужие hunks лейна speech)
+13 failed, 14199 passed, 1 skipped, 5 warnings in 672.17s (0:11:12)
+
+  Классификация 13 красных:
+   * 12 — ПРЕДСУЩЕСТВУЮЩИЕ (воспроизведены на базовом коммите 2bc13f44 без правок CFG-02A):
+     tests/test_asap7_direct_settings.py (2, миграции v35) — известны с CFG-01;
+     tests/test_t5150_startup_migrations_round1046.py (5, миграции v32..v34);
+     tests/test_outgoing_guard_round1022.py (2, rich/markdown send);
+     tests/test_summary_asap2_failsoft_round1027.py (1, l1 dead → l2 + cover fallback);
+     tests/test_summary_publish_integration_round1026.py (1, on_l1_not_usable → l2);
+     tests/test_mca01_tx_task_supervisor_round1027.py (1, single-writer).
+     Проверка на базе: те же 5 файлов → «10 failed, 135 passed» (тот же состав).
+   * 1 — ВЫЗВАН CFG-02A и ЗАКРЫТ в этом же коммите:
+     tests/test_webapp_js_unit.py::test_js_unit_round1024_image_module (F5-пин состава
+     вкладки mod_images ожидал ровно flags_module_images). Пин обновлён (R6) и усилен
+     негативами; после правки: node tests/js/round1024_image_module_test.js → IMAGE-MODULE-OK;
+     py -3 -m pytest tests/test_webapp_js_unit.py -q → 38 passed.
+
+## UI E2E (детерминированный Playwright; стабы /api/*, R17: id/числа)
+
+  $ .venv\Scripts\python.exe tools\ui_cfg02a_image_quota_e2e.py
+RESULT: PASS   (console_errors = [])
+  settings_section_visible=true | section_title='Лимиты генерации'
+  tabs=[overview,settings,models,testing] (вкладка «Лимиты» больше не нужна — одно место)
+  facts_value='60 генераций/сутки' | used=3 | remaining='57 из 60'
+  tz='Asia/Yekaterinburg' | reset='19.10.2026, 00:00' | shared='12 / 200'
+  input={value:'60', min:'-1', step:'1'}
+  save_post={key:limits.image_daily_limit, value:2, chat:false}  (POST /api/config, глобально)
+  facts_value_after_save='2 генераций/сутки'
+  invalid_posts_count=0 | error='Допустимо целое число: −1 или больше …'
+  legacy_mode_notice='Служебный переключатель IMAGE_DAILY_LIMIT_ENABLED выключен …' (amber)
+  budgets_off_notice='Мастер-рубильник бюджетов выключен … НЕ ограничивает генерацию …'
+  chat_scope_value='1 генераций/сутки' | source='Локальный (чат)' | chat_save_post={value:3, chat:true}
+  mobile_section_visible=true | mobile_no_overflow=true
+  скриншоты: plans/features/cfg/evidence/cfg-02a/ui/01..05*.png
+
+## Живой визуальный контроль (Browser Use, реальный рендер; сервер `--serve`)
+
+  DOM-факты (реальный браузер, узкий вьюпорт 390×844):
+    section=true, title='Лимиты генерации'
+    value='60 генераций/сутки', used='57', remaining='3 из 60'
+    tz='Asia/Yekaterinburg', reset='19.10.2026, 00:00'
+    mode='Резерв квоты активен …'  →  при kill-switch OFF:
+    mode='Служебный переключатель IMAGE_DAILY_LIMIT_ENABLED выключен …'
+         (класс `text-xs mt-2 text-amber-300`)
+    shared='12 / 200', overflow=false, ложных бейджей «скрыт» нет
+    невалидный ввод −7: error='Допустимо целое число: −1 или больше …' (amber), POST нет
+  скриншоты реального рендера:
+    ui/browseruse-390-settings-section.png       (секция + факты, штатный режим)
+    ui/browseruse-390-legacy-section.png         (честный режим: warning)

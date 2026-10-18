@@ -693,7 +693,15 @@ async def reserve_image(pg, *, chat_id: int | None, idem_key: str, source: str,
                     return ImageReserveResult(ok=False,
                                               reason="limit_chat",
                                               status="denied")
-                if not budget_limits.is_unlimited(chat_limit):
+                if budget_limits.is_unlimited(chat_limit):
+                    # CFG-02A (§02A.2/§02A.3): безлимит НЕ отменяет учёт —
+                    # паритет shared-контура выше и legacy `consume`
+                    # (UPSERT пишет расход без cap). Иначе UI §27 при −1
+                    # показывал бы «расход 0» при реальных генерациях.
+                    await conn.fetchrow(UPSERT_SQL, chat_day,
+                                        f"chat:{int(chat_id)}",
+                                        METRIC_IMAGE_CALLS, 1)
+                else:
                     crow = await conn.fetchrow(
                         RESERVE_INCREMENT_SQL, chat_day,
                         f"chat:{int(chat_id)}", METRIC_IMAGE_CALLS,
@@ -835,6 +843,16 @@ async def image_usage_summary(pg, chat_id) -> dict:
         except Exception:
             used = 0
     meta = await _image_meta_safe(chat_id)
+    # CFG-02A (§02A.4): честный ФАКТИЧЕСКИЙ путь применения суточной квоты
+    # (reserve/legacy + причина). Источник — тот же резолвер гейтов, что у
+    # `image_generation._reserve_or_consume` (второй копии правил нет);
+    # нужен UI §27/диагностике, чтобы не показывать «лимит применён», когда
+    # фактическое ограничение идёт legacy-путём или master-рубильником OFF.
+    try:
+        from services import image_generation as _ig
+        reserve_path, reserve_reason = await _ig.image_reserve_mode(int(chat_id))
+    except Exception:      # pragma: no cover - диагностика fail-open
+        reserve_path, reserve_reason = "unknown", "unknown"
     summary = {
         "day": str(day),
         "timezone": image_timezone(chat_id),
@@ -843,6 +861,8 @@ async def image_usage_summary(pg, chat_id) -> dict:
                                      METRIC_IMAGE_CALLS),
         "source": meta.get("source", "default"),
         "next_reset_at": image_next_reset(chat_id).isoformat(),
+        "reserve_path": str(reserve_path),
+        "reserve_reason": str(reserve_reason),
         "shared_used": None,
         "shared_limit": await _metric_limit("global", METRIC_IMAGE_CALLS),
         "requests": 0, "success": 0, "errors": 0, "denied": 0,
