@@ -67,3 +67,51 @@
 ## Итог
 
 Ядро слайса (витрина, управление, реальный эффект, честный отказ, учёт при `−1`) подтверждено независимо и закрыто сильными поведенческими тестами; это полноценный фикс дефекта CFG-02.D. **Блокер один: пустой ввод сохраняется как `0` (живой POST) — требуется правка guard + кейс в тестах (мини-речек см. §0).** Отдельно до биндинга: нить N1 (2 глиф-хунка речи), N2 (18→19 в README), статусные семантики 6 live-строк (N3).
+
+---
+
+# R2 — RECHECK-CFG-02A-B1: **B1 закрыт; блокеров нет; слайс готов к биндингу**
+
+| Поле | Значение |
+|---|---|
+| Кандидат-фикс | `83ecd202659c2e1a30b46f8548b0809e892b77a9` (`fix(cfg): CFG-02A - reject empty image quota input (B1) + e2e case`, 6 файлов, +67/−12); база — `669debfa` + docs двух ревью-лейнов |
+| Проверено | мой пробник (живой прогон), состав/ша сy, наборы, e2e, скриншот |
+
+## 1. Пробник — B1 закрыт (живой прогон на кандидате)
+
+Мой `probe_empty_input.py` (stub-сервер лейна + мой Playwright, GLOBAL, поле `60` → очистка + `change`):
+
+```
+POSTs after EMPTY change: []          ← было: POST limits.image_daily_limit = 0
+error elem present: True              ← честная подсказка «Допустимо целое число…»
+input DOM value now: 60               ← поле возвращается к факту
+page errors: []
+```
+
+Тайминг-пробник (тот же сценарий, замеры 100/300/800/1500 мс): значение восстановлено уже к 100 мс, ошибка видна, **0 POST**. Фикс `imageQuotaValueValid` (`raw == null || String(raw).trim() === ''` → `false`) закрывает ровно тот механизм, что я показывал: `Number('') === 0` больше не проходит; `'0'`, `' 2 '`, `-1` остаются валидными.
+
+## 2. Состав фикс-коммита — 6 файлов, только B1
+
+* `web/app.js` — **единственный хунк** (guard + комментарий); grep по всему коммиту: маркеров речи (`edit_note`/`record_voice_over`/`speech`) — **0**.
+* `tests/test_cfg02a_image_quota_ui.py` +6 — статассерт наличия проверки пустого ввода (regex по JS; поведенческая часть — в e2e C2).
+* `tools/ui_cfg02a_image_quota_e2e.py` +24 — фаза C2 (пустой ввод) и включение кейса в PASS-гейт (`empty_posts_count==0` + текст ошибки).
+* `plans/features/cfg/evidence/cfg-02a/README.md` — N2 (18→19 файлов, список скринов).
+* `plans/features/cfg/evidence/cfg-02a/red-green.txt` — §B1 + обновлённые blob sha12.
+* `plans/features/cfg/evidence/cfg-02a/ui/06-empty-input.png` — новый скрин (1440×1237).
+
+**N1 (нить изоляции) — не тронута и учтена:** `web/index.html` в коммите отсутствует (blob `312a2ed00691` не менялся), глиф-строки живы в HEAD (`edit_note`=3, `record_voice_over`=0); решение зафиксировано отдельным ревью речи (`bf6208f5`: «2 glyph lines already in HEAD 669debfa, no dup on pathspec commit»).
+
+**Blob sha12 сверены с новым `red-green.txt` — 8/8 OK** (git-object id): app.js `3bb1e574a01c`, index.html `312a2ed00691`, cfg02a-тест `3844e8a39f05`, e2e-инструмент `cc0a84c77da0`, README `ac8d810deb44`, image_generation `c560e15d118a`, worker_budget `7cdf9ea20b0f`, tool_router `8ec679eb43e3`.
+
+## 3. Наборы (мой прогон)
+
+* `tests/test_cfg02a_image_quota_ui.py` → **27 passed**;
+* `tests/test_webapp_js_unit.py` → **38 passed**; `node tests/js/round1024_image_module_test.js` → **IMAGE-MODULE-OK**;
+* `tools/ui_cfg02a_image_quota_e2e.py` → **RESULT: PASS**, `console_errors=[]`, `empty_posts_count=0`, `empty_error_visible='Допустимо целое число: −1 или больше …'`, `invalid_posts_count=0`, `mobile_no_overflow=true`; committed-скрины после моего прогона не изменились (git clean — детерминизм).
+* Скриншот `06-empty-input.png` просмотрел: поле показывает фактическое значение (`2`), под ним — честная подсказка об ошибке, POST нет.
+
+**Наблюдение (не блокер):** в моём повторном прогоне e2e записанное `empty_input_value` было `''` (замер на 800-й мс, до ре-синка DOM), тогда как скриншот того же прогона и мои пробники показывают восстановленное фактическое значение (`2`/`60`), а тайминг-пробник — восстановление уже к 100 мс. Это транзиент ре-синка без ассертов; на поведение и закрытие B1 не влияет.
+
+## 4. Остаток до биндинга (без изменений, рутина)
+
+N3: `candidate_commit` + evidence на 9 строк (CFG-02.D, 02A.1–7, CFG-02.AC1); 6 live-строк `preprod` → либо preprod-live до review, либо `postdeploy`+`live_note`+RFL (прецедент CFG-01). Нит N4 (shared-env отказ получает строку сброса по TZ чата) — кандидат на уточнение в 02B/02C, не блокер.
