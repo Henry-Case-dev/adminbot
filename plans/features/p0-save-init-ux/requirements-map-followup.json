@@ -26,7 +26,7 @@
           "ref": "plans/features/p0-save-init-ux/source-p0-followup-2026-10-18.md §0 (п.1–3) + plans/current_task.md (P0 FOLLOW-UP, стр. ~1236) + plans/workflow_state.md (журнал лейнов)",
           "observation": "Дополнение встроено в конец очереди current_task; выполняемые задачи не прерваны/не отменены — фазовые лейны и леджеры завершались атомарно, P0 шёл поверх текущей работы.",
           "artifact_path": "plans/current_task.md",
-          "artifact_sha256": "23d640b7b4ec361bdd5362a092b8cb263ff049dd2ca84767174fc5ffbc74f1ef",
+          "artifact_sha256": "3d238e1e6850c16ca33d770a162d16060692e0bf0752faef539a076d179ee803",
           "type": "static"
         }
       ],
@@ -65,14 +65,23 @@
       "source_text_sha256": "2bd1966e66c09a4fb19cbf1234b194723c358a80e0c477c3a2fe89898d20a673",
       "source_excerpt": "**Запрещено использовать последовательный обход всей исторической базы как основной способ обнаружения возможностей.**",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто: последовательный обход всей базы запрещён как основной путь — bootstrap/scan от `cursor`, anchor-механика (`scan_anchored`); тест `test_stale_cursor_is_anchored_to_live_conversation` (1200 строк архива → observed<300); gap-check §1(1) covered; живое: `scan_anchored=1`. VERIFIED (`620ce2b0`).",
       "req_id": "P0B-INIT-NOARCHIVE",
       "slice": "P0B-INIT-ARCH",
       "acceptance": "Последовательный обход всей исторической базы запрещён как основной способ обнаружения возможностей: код/ревью/тест показывают основной путь через хвост и новые сообщения; большой чат не сканируется целиком.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "620ce2b02072c0a59987661a25e56c3e37688a7f",
+          "ref": "plans/features/p0-save-init-ux/evidence/init-arch-gap.md §1(1) + plans/features/soul-1/review-init-arch-fix.md (aee8e95c, Approved)",
+          "observation": "Основной путь — хвост и новые сообщения: большой чат не сканируется целиком (anchor от живого конца; durable `scan_anchored`).",
+          "artifact_path": "plans/features/p0-save-init-ux/evidence/init-arch-gap.md",
+          "artifact_sha256": "e349a90c72c1cf11782aeb6c7a2200f4a1ab71d138921c3596ccef053cf695df",
+          "type": "static"
+        }
+      ],
       "alias_of": [
         "soul-1:SOUL-18.2"
       ],
@@ -84,14 +93,23 @@
       "source_text_sha256": "06d5daee828b42d1937f423f32826b535829bbcafd3127d3af859490e7e23506",
       "source_excerpt": "Семантика: о чём разговор; кто с кем; развитие темы; реальный повод; кому отвечать (reply/общий чат); не устарел ли пово",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто: оценка по содержанию (не по таймеру); SILENT/REACT — на уровне решений; единый `handle_initiative` (decide/react/silent `delivery_not_text`); `created_at` повода + SendRecheck; b01/w5-тесты; живое: честные reason-коды (`default`, `l1_unavailable`). VERIFIED (`620ce2b0`).",
       "req_id": "P0B-INIT-DECISION",
       "slice": "P0B-INIT-ARCH",
       "acceptance": "Семантика решения: о чём разговор, кто с кем, развитие темы, реальный повод, кому отвечать (reply/общий чат), не устарел ли повод; SAY/REACT/SILENT — по содержанию и личности, не по таймеру (evals/тесты).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "620ce2b02072c0a59987661a25e56c3e37688a7f",
+          "ref": "plans/features/p0-save-init-ux/evidence/init-arch-gap.md §1(10) + plans/features/soul-1/review-init-arch-fix.md (aee8e95c, Approved)",
+          "observation": "SAY/REACT/SILENT по содержанию и личности: о чём разговор/кому отвечать/не устарел ли повод — evals/тесты + живые решения.",
+          "artifact_path": "plans/features/p0-save-init-ux/evidence/init-arch-gap.md",
+          "artifact_sha256": "e349a90c72c1cf11782aeb6c7a2200f4a1ab71d138921c3596ccef053cf695df",
+          "type": "static"
+        }
+      ]
     },
     {
       "source_id": "M-B-29B",
@@ -99,14 +117,31 @@
       "source_text_sha256": "06d5daee828b42d1937f423f32826b535829bbcafd3127d3af859490e7e23506",
       "source_excerpt": "Семантика: о чём разговор; кто с кем; развитие темы; реальный повод; кому отвечать (reply/общий чат); не устарел ли пово",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто: механика критерия — anchor+watermark (lag→0), scan без LLM, eval bounded; живое (прод 2.58.90): `cursor_lag=0`, `live_24h=716`, `scan_anchored=1` + 16 сканов success после T0, 1 opportunity + decision 15:20:45Z — инициатива реагирует на сегодняшнюю переписку, не ожидая обработки миллиона записей. VERIFIED.",
       "req_id": "P0B-INIT-CRITERION",
       "slice": "P0B-INIT-ARCH",
       "acceptance": "Чат с миллионом сообщений: инициатива реагирует на сегодняшнюю переписку, не ожидая обработки миллиона записей — подтверждено реальной воронкой после деплоя.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "620ce2b02072c0a59987661a25e56c3e37688a7f",
+          "ref": "plans/features/p0-save-init-ux/evidence/init-arch-gap.md §1(11) + plans/features/soul-1/review-init-arch-fix.md (aee8e95c, Approved)",
+          "observation": "Критерий покрыт механикой: старт от живого хвоста, watermark догоняет, большой чат не сканируется целиком.",
+          "artifact_path": "plans/features/p0-save-init-ux/evidence/init-arch-gap.md",
+          "artifact_sha256": "e349a90c72c1cf11782aeb6c7a2200f4a1ab71d138921c3596ccef053cf695df",
+          "type": "static"
+        },
+        {
+          "candidate_commit": "3b02366e63022eb4c760892aa1bcb4f26516e789",
+          "ref": "plans/features/p0-save-init-ux/evidence/release-25890/acceptance/journal-25890.json + plans/features/p0-save-init-ux/evidence/release-25890/acceptance/acceptance-bc-25890-read.json (C1)",
+          "observation": "Прод: `scan_anchored_events_since_t0=1` (13:40:06Z) + 16 сканов success + 1 opportunity; `passes=865`, `cursor_lag=2→0`; чат с ~2.2 млн сообщений наблюдается с живого хвоста.",
+          "artifact_path": "plans/features/p0-save-init-ux/evidence/release-25890/acceptance/journal-25890.json",
+          "artifact_sha256": "70f9ffa43e8226a0959bf24b1245194a9a8efc5c9f44c85d88568f02d6120692",
+          "type": "production"
+        }
+      ],
       "alias_of": [
         "soul-1:SOUL-18.7"
       ],
@@ -365,7 +400,7 @@
           "ref": "plans/workflow_state.md (независимая работа: CFG-02B/Vision идут) + plans/features/p0-vision-universal/requirements-map.json (Vision-линия активна)",
           "observation": "Техническая завершённость/ожидание живого наблюдения не фризит workflow: независимая работа (CFG-02B/Vision) продолжается, живые остатки зафиксированы явно.",
           "artifact_path": "plans/features/p0-vision-universal/requirements-map.json",
-          "artifact_sha256": "67e709c4b3fbb15106f05ed7548d6c828c46e4e99e65c3f9621398a00169db32",
+          "artifact_sha256": "af4e58955052103445f8c38aecfbcad60da39d3ca4485d058d7e38b0d064d932",
           "type": "static"
         }
       ],
@@ -396,14 +431,23 @@
       "source_text_sha256": "88e6d5cf44accd64af0a2e8d7f721b37726cb9f3d18fba9dba97d936a2053dce",
       "source_excerpt": "**Итоговое правило:** оба P0-хотфикса обязательны и выполняются с высоким приоритетом в ближайших безопасных окнах; они ",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто по аттесту Оркестратора (процессная строка; техническими проверками не закрывается): «Оркестратор аттестует: реестр 8 задач сохранён полностью (`progress_scope.json`); `current_task.md` агентами не изменялся (только чтение; хэш `3D238E1E`; дельта ADD-TR — аддитивная); ни одна ранее зарегистрированная задача не удалена/не отменена/не помечена выполненной без подтверждения; SCEN-B/GOAL/LIVE-SCENARIOS — честно открытые естественные наблюдения.» VERIFIED.",
       "req_id": "P0B-FINAL-RULE",
       "slice": "P0B-ACCEPT",
       "acceptance": "Оба P0-хотфикса обязательны и выполняются с высоким приоритетом в ближайших безопасных окнах; план дополнен; ни одна ранее зарегистрированная задача не потеряна/не отменена/не помечена выполненной без подтверждения.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "3b02366e63022eb4c760892aa1bcb4f26516e789",
+          "ref": "аттест Оркестратора (19.10.2026) + plans/features/p0-save-init-ux/source-p0-followup-2026-10-18.md §5 (итоговое правило); progress_scope.json — в ref",
+          "observation": "Оба P0-хотфикса выполнены с высоким приоритетом в безопасных окнах (2.58.90); план дополнен (аддендум в конце current_task.md); реестр задач сохранён (8 задач), потерянных/отменённых без подтверждения нет.",
+          "artifact_path": "plans/features/p0-save-init-ux/source-p0-followup-2026-10-18.md",
+          "artifact_sha256": "1e00b4afadb0d2861a8fb72b8439e921d540d0225a6c6ea2df1b292a8b8628d4",
+          "type": "static"
+        }
+      ],
       "alias_of": [
         "cfg:ADD-2.Q"
       ]
@@ -528,7 +572,7 @@
           "ref": "plans/current_task.md (append в конец; сравнение — git-история) + plans/progress_scope.json (7/7)",
           "observation": "Прежние пункты current_task не правились/не удалялись: дополнение вставлено в конец; статусы сохранены; реестр прогресса подтверждает отсутствие потерянных задач (7/7).",
           "artifact_path": "plans/current_task.md",
-          "artifact_sha256": "23d640b7b4ec361bdd5362a092b8cb263ff049dd2ca84767174fc5ffbc74f1ef",
+          "artifact_sha256": "3d238e1e6850c16ca33d770a162d16060692e0bf0752faef539a076d179ee803",
           "type": "static"
         }
       ],
@@ -712,14 +756,31 @@
       "source_text_sha256": "50eab19efd2735dfd42f5fd80e267959240be3871d5e386e15ba4f5e085cf9ca",
       "source_excerpt": "1. Первый запуск — от актуального хвоста с ограниченным контекстом недавнего обсуждения (не с rowid=0).",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто: `SCAN_FRESH_LOOKBACK_SECONDS=6ч` / `SCAN_FRESH_MIN_ROWS=200`, `_fresh_anchor_id`; тесты anchor + `test_live_cursor_is_not_rewound`; живое: `cursor_lag=2` на реконе → `cursor_lag=0` при `scan_anchored=1`. VERIFIED (`620ce2b0`).",
       "req_id": "P0B-INIT-TAIL",
       "slice": "P0B-INIT-ARCH",
       "acceptance": "Первый запуск — от актуального хвоста с ограниченным контекстом недавнего обсуждения (не rowid=0); тест на базе с большой историей подтверждает старт без прохода архива.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "620ce2b02072c0a59987661a25e56c3e37688a7f",
+          "ref": "plans/features/p0-save-init-ux/evidence/init-arch-gap.md §1(2) + plans/features/soul-1/review-init-arch-fix.md (aee8e95c, Approved)",
+          "observation": "Старт от актуального хвоста (6 ч/≥200 строк), перенос только вперёд, архив не проходится.",
+          "artifact_path": "plans/features/p0-save-init-ux/evidence/init-arch-gap.md",
+          "artifact_sha256": "e349a90c72c1cf11782aeb6c7a2200f4a1ab71d138921c3596ccef053cf695df",
+          "type": "static"
+        },
+        {
+          "candidate_commit": "3b02366e63022eb4c760892aa1bcb4f26516e789",
+          "ref": "plans/features/p0-save-init-ux/evidence/release-25890/acceptance/acceptance-bc-25890-read.json (C1) + plans/features/p0-save-init-ux/evidence/release-25890/acceptance/journal-25890.json",
+          "observation": "Прод 2.58.90: `cursor_lag_messages=0` (13:55Z) при durable `scan_anchored=1` и 16 сканах success после T0.",
+          "artifact_path": "plans/features/p0-save-init-ux/evidence/release-25890/acceptance/journal-25890.json",
+          "artifact_sha256": "70f9ffa43e8226a0959bf24b1245194a9a8efc5c9f44c85d88568f02d6120692",
+          "type": "production"
+        }
+      ],
       "alias_of": [
         "soul-1:SOUL-18.3"
       ],
@@ -731,14 +792,23 @@
       "source_text_sha256": "3c12c9489aa4739c9d6b5f3feae6caed4ee402c5f2ab311188657629c8437dec",
       "source_excerpt": "2. После отсутствия — новые сообщения с последнего наблюдения; при накоплении — актуальное окно + смысловое сжатие пропущенного (не последовательная семантическая оценка тысяч окон).",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто: при `skipped ≥50` — один LLM-дайджест `<Skipped_Chat_Digest>` (probe ≤1000, выборка ≤200, кап 800 симв, fail-open → оценка по окну); тесты: 1000 пропущенных → ровно 2 стрима, малый разрыв (30) → без дайджеста, падение дайджеста → fail-open; watermark догоняет. VERIFIED (`620ce2b0`; review §3).",
       "req_id": "P0B-INIT-CATCHUP",
       "slice": "P0B-INIT-ARCH",
       "acceptance": "Обрабатываются новые сообщения с последнего наблюдения; при накоплении — актуальное окно + смысловое сжатие пропущенного, без последовательной семантической оценки тысяч окон.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "620ce2b02072c0a59987661a25e56c3e37688a7f",
+          "ref": "plans/features/soul-1/review-init-arch-fix.md (aee8e95c, Approved) §3 + plans/features/p0-save-init-ux/evidence/init-arch-fix/design-decisions.md",
+          "observation": "Bounded смысловое сжатие пропущенного: ≤1 дайджест-стрим на оценку; учёт `eval_day_count`/budget — 1 за оценку (зафиксировано дизайн-решением).",
+          "artifact_path": "plans/features/p0-save-init-ux/evidence/init-arch-fix/design-decisions.md",
+          "artifact_sha256": "034a30aa5ac0dc0a6f5024ae9dd167b5ccbab21c6f67e1a943eddcb8aadf4100",
+          "type": "static"
+        }
+      ]
     },
     {
       "source_id": "L00023",
@@ -746,14 +816,23 @@
       "source_text_sha256": "cf1dca1387101383cb7f026351d7b6a9bfcc418d89f4bcad37d165b9d7c64357",
       "source_excerpt": "3. Адаптивный объём контекста: 10 / 50–200+ сообщений по ситуации (не жёсткие 14 без расширения).",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто: жёсткой `EVAL_WINDOW_MESSAGES=14` нет (git grep пуст); `resolve_window_messages(backlog)=max(10, min(backlog,200))`; боевой путь и dry-run «Проверить инициативу» — один резолвер; тесты 10/60/200 на 10/60/300, RED по [60]/[300] воспроизведён. VERIFIED (`620ce2b0`; review §2).",
       "req_id": "P0B-INIT-CONTEXT",
       "slice": "P0B-INIT-ARCH",
       "acceptance": "Адаптивный объём контекста: 10 / 50–200+ сообщений по ситуации; жёсткие 14 без расширения исключены (тест на разных объёмах).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "620ce2b02072c0a59987661a25e56c3e37688a7f",
+          "ref": "plans/features/soul-1/review-init-arch-fix.md (aee8e95c, Approved) §2 + tests/test_p0_init_arch_fix_observer.py",
+          "observation": "Адаптивное окно 10…200: 0→10, 14→14, 300→200, 5000→200; кап объёма ≤200×300 симв; ≤4 вызовов/проход.",
+          "artifact_path": "tests/test_p0_init_arch_fix_observer.py",
+          "artifact_sha256": "c6bc32cc27af9f2ec80a80ce5e9e636d48c9dc598b876e80d76174b331e08b59",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00024",
@@ -761,14 +840,23 @@
       "source_text_sha256": "bfbb24dae769a1869f9204ed53245fa419e6071a1ca3ccb92e9cd4f419aacf23",
       "source_excerpt": "4. Сохранять темы, участников, адресатов, reply-связи, актуальные поводы.",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто: промпт окна `- [msg:ID] [user:ID] автор: текст (ответ на msg:N)`; `addressee_user_id`/`rationale` в строке повода (бой и dry-run; garbage-safe, кап 200; паритет при отсутствии полей). Тест reply-цепочки: обе метки в промпте, `writer.rows[0]` с адресатом/rationale, `sent==1`. VERIFIED (`620ce2b0`; review §4).",
       "req_id": "P0B-INIT-SIGNALS",
       "slice": "P0B-INIT-ARCH",
       "acceptance": "Сохраняются темы, участники, адресаты, reply-связи и актуальные поводы; trace показывает эти поля в контексте кандидата.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "620ce2b02072c0a59987661a25e56c3e37688a7f",
+          "ref": "plans/features/soul-1/review-init-arch-fix.md (aee8e95c, Approved) §4 + plans/features/p0-save-init-ux/evidence/init-arch-fix/green-postfix.txt",
+          "observation": "Reply-связи, адресаты и актуальные поводы доезжают до строки повода Writer/L1 (бой и dry-run); ничего не теряется.",
+          "artifact_path": "plans/features/p0-save-init-ux/evidence/init-arch-fix/green-postfix.txt",
+          "artifact_sha256": "77f6ca920f929cb2d876932540bb4e3a44bc2e28083edec207162ea94aedc3e3",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00025",
@@ -776,14 +864,23 @@
       "source_text_sha256": "3b32a18a91098f817d16e0d637400400fd2b35d8b99cf7b58d10f59085a7f19e",
       "source_excerpt": "5. Маленькие/новые чаты — не требуют большой истории.",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто: `required_messages_for_chat = min(need, max(floor=4, depth))` в боевом пути и в `chat_block_state`; тесты 6/12/20 на заводском `normal` → полноценная цепочка `sent=1`, 3 реплики → floor 4 (RED-свидетель «8 == 4»), панель 4/8; анти-навязчивости сохранены (review §5: качество не ослаблено сверх ТЗ). VERIFIED.",
       "req_id": "P0B-INIT-SMALL",
       "slice": "P0B-INIT-ARCH",
       "acceptance": "Маленькие/новые чаты не требуют большой истории: инициатива работает на 5–20 сообщениях (сценарий 2).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "620ce2b02072c0a59987661a25e56c3e37688a7f",
+          "ref": "plans/features/soul-1/review-init-arch-fix.md (aee8e95c, Approved) §5 + tests/test_p0_init_arch_fix_observer.py",
+          "observation": "Малые/новые чаты (5–20 сообщений) — инициатива работает; устоявшиеся — паритет профиля (норма 8).",
+          "artifact_path": "tests/test_p0_init_arch_fix_observer.py",
+          "artifact_sha256": "c6bc32cc27af9f2ec80a80ce5e9e636d48c9dc598b876e80d76174b331e08b59",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00026",
@@ -791,14 +888,23 @@
       "source_text_sha256": "b4bd5dc1222cb0c98cab2d72ff4a2d3c0c7f705e829cf6090d832819d0e520a3",
       "source_excerpt": "6. Отличать импорт/backfill от новых сообщений (не реагировать на многолетние события).",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто (review `aee8e95c`, Approved): все 11 SQL-чтений `smart_messages` несут `import_key IS NULL` (`LIVE_ONLY_SQL`); RED воспроизведён (импорт наблюдался: observed=200), GREEN: 300 импортированных → observed=0/evals=0/llm=0, живые 6 реплик → 1 вызов; архив цел (306 строк). VERIFIED (`620ce2b0`).",
       "req_id": "P0B-INIT-BACKFILL",
       "slice": "P0B-INIT-ARCH",
       "acceptance": "Импорт/backfill отличается от новых сообщений: многолетние события не порождают реакций (тест на массовом импорте).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "620ce2b02072c0a59987661a25e56c3e37688a7f",
+          "ref": "plans/features/soul-1/review-init-arch-fix.md (aee8e95c, Approved) §1 + plans/features/p0-save-init-ux/evidence/init-arch-fix/green-postfix.txt",
+          "observation": "Импорт-only фильтр: многолетние события не порождают реакций; RED-лог лейна (`red-prefix.txt`) снят на 16-тестовой версии (F1 ревью) — RED 12f/5p на финальном файле воспроизведён ревьюером (review §1/§7), красный лог к строкам не привязан.",
+          "artifact_path": "plans/features/p0-save-init-ux/evidence/init-arch-fix/green-postfix.txt",
+          "artifact_sha256": "77f6ca920f929cb2d876932540bb4e3a44bc2e28083edec207162ea94aedc3e3",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00027",
@@ -806,14 +912,23 @@
       "source_text_sha256": "4dfa519a0dc8d8c277983251f096e21313d8efa2ada856f4b8efcd3a7d54ffe6",
       "source_excerpt": "7. Durable-состояние и дедупликация; рестарты/деплои не начинают архив сначала.",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто: durable-payload/чекпоинты (`enqueue`/`_load_payload`/`_inherit_state`/`_checkpoint`), дедуп `recent_hashes`+TTL; тесты reboot/дедупа; живое: passes=865, `context_dedup=4` (acceptance C3). VERIFIED (`620ce2b0`).",
       "req_id": "P0B-INIT-DURABLE",
       "slice": "P0B-INIT-ARCH",
       "acceptance": "Durable-состояние и дедупликация: рестарты/деплои не начинают архив заново и не порождают повторных отправок (тест рестарта).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "620ce2b02072c0a59987661a25e56c3e37688a7f",
+          "ref": "plans/features/p0-save-init-ux/evidence/init-arch-gap.md §1(8) + plans/features/soul-1/review-init-arch-fix.md (aee8e95c, Approved)",
+          "observation": "Рестарты/деплои не начинают архив заново и не порождают повторных отправок (B01-тесты зелёные).",
+          "artifact_path": "plans/features/p0-save-init-ux/evidence/init-arch-gap.md",
+          "artifact_sha256": "e349a90c72c1cf11782aeb6c7a2200f4a1ab71d138921c3596ccef053cf695df",
+          "type": "static"
+        }
+      ]
     },
     {
       "source_id": "L00028",
@@ -821,14 +936,23 @@
       "source_text_sha256": "e3e2450658a1d569a8665a6be1dc70639426d9d10054409cdca2cac22cf6654f",
       "source_excerpt": "8. Не отбрасывать весь контекст из-за обращения к боту; Direct не подавляет автономию бесконечно.",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто: per-reply классификация, антифлуд 300 c после любого вывода, cooldown только по `initiative_reply`; тесты mixed-window/only-bot-addresses/direct-does-not-block/anti-flood/pending-direct; map A `P0A-INIT-DIRECT`/`P0A-INIT-COOLDOWN` = VERIFIED; живое: `min_gap=9`, `direct_address_seen=1`. VERIFIED (`620ce2b0`).",
       "req_id": "P0B-INIT-DIRECT",
       "slice": "P0B-INIT-ARCH",
       "acceptance": "Весь контекст не отбрасывается из-за обращения к боту; Direct не подавляет автономию бесконечно (тест окна с прямым обращением).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "620ce2b02072c0a59987661a25e56c3e37688a7f",
+          "ref": "plans/features/p0-save-init-ux/evidence/init-arch-gap.md §1(9) + plans/features/soul-1/review-init-arch-fix.md (aee8e95c, Approved)",
+          "observation": "Контекст не отбрасывается из-за обращения к боту; обычный Direct не подавляет автономию бесконечно (швы перепрогнаны: 135 passed).",
+          "artifact_path": "plans/features/p0-save-init-ux/evidence/init-arch-gap.md",
+          "artifact_sha256": "e349a90c72c1cf11782aeb6c7a2200f4a1ab71d138921c3596ccef053cf695df",
+          "type": "static"
+        }
+      ],
       "alias_of": [
         "p0-hotfix:P0A-INIT-DIRECT",
         "p0-hotfix:P0A-INIT-COOLDOWN"
