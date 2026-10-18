@@ -127,10 +127,53 @@ override `true`) нажатие «Проверить подключение» в
 | `P0V-PROBE-CACHE` (+`P0V-PIPE-FALLBACK`) | код → **V** (429-окно/терминал/re-arm/UNIQUE-фикс; RED IntegrityError снят) |
 | Повторная приёмка | «SKIPS=0» + per-chat state (включая пробу) — postdeploy-проверка агентом (PET) |
 
-## Вердикт
+## Вердикт раунда 1 (сохранено как история)
 
 **Needs Fixes** — единственный блокер NF-1 (контекст-независимый `state` в
 `POST /api/vision/test` перетирает per-chat линию/факты после пробы; мини-фикс в
 одном месте + 1 тест). Остальное (RCA, энтри/sweep'ы, 6/6 GREEN и
 воспроизведённый RED с прод-симптомом и IntegrityError, 429/re-arm/UNIQUE,
 re-pins, пред-существующие списки) — подтверждено; F2/F3 — косметика/опция.
+
+## Аддендум NF-1 — recheck (кандидат поверх `e3fa4e97`) — **закрыт**
+
+Кандидат: `web/api/routes.py` `d54cc29695c7`, `tests/test_p0_vision_fix_core.py`
+`458d31d3d4fb`, re-pins `tests/test_round1025_f8_registry.py` `b29e03417cf2` /
+`tests/test_mca23_planned_vs_actual.py` `0f7a932e9038`; `services/mca_vision.py`
+без изменений (`f8cb004c6c84`), `web/app.js` не тронут (`b14ef48ab16a`) —
+сверено мной повторно.
+
+* Хелпер `_vision_chat_scope(cache, user, chat_id, x_chat_id)` — та же резолюция,
+  что была в GET (явный `chat_id` → `X-Chat-Id` → `can_access_chat` для
+  chat-scope ctx; нет контекста/чужой чат → глобальный слой, без утечки).
+  POST и GET используют его оба; RBAC, R17-маска и словарь ответа пробы не
+  изменены; новых endpoint'ов нет.
+* Тест `test_route_vision_test_state_per_chat_context`: три ветки — без заголовка
+  → `requested=false/vision_disabled`; `X-Chat-Id` включённого чата → `ok=true`
+  + `state.requested=true` (не `vision_disabled`), секрет не раскрыт; чужой чат
+  → глобальный слой.
+* UI-правка не нужна: `api()` уже шлёт `X-Chat-Id` активного чата, серверный
+  `state` пробы теперь контекстно-корректен (устаревшего глобального значения в
+  ответе больше нет).
+* Re-pin = полный sha256 текущего routes.py (`d54cc29695c7…` — совпал), в
+  комментарии причина NF-1 и Δ routes=0 (f8-реестр зелёный).
+* Мои прогоны: GREEN `-k "fix2 or per_chat_context"` **7/7** (exit 0), полный
+  vision-core **54/54**, профильный свод (19 файлов, супернабор) **373/0**,
+  UI e2e **7/7**.
+* RED-NF1 воспроизведён мной изолированно: worktree `e3fa4e97` + откат ТОЛЬКО
+  POST-строки (`chat_id=scope_chat`; счёт вхождений 1 против 2 в дереве) →
+  POST-тест failed `assert False is True`, GET-тест в том же прогоне passed
+  (1 failed, 1 passed).
+* Наблюдение (не дефект): мусорный `X-Chat-Id` теперь даёт 422 и на пробе —
+  общая конвенция `_chat_id_or_none` (как у 12 других эндпоинтов); UI шлёт
+  только валидные значения.
+* F2 раунда 1 устранён (hashes-док теперь «6 failed»); F3 закрыт по факту —
+  ветка «чужой чат» покрыта общим хелпером в тесте пробы.
+
+## Вердикт (текущий)
+
+**Approved.** NF-1 закрыт на кандидате (routes `d54cc29695c7` / tests
+`458d31d3d4fb` / re-pins `b29e03417cf2`, `0f7a932e9038`; `mca_vision`
+`f8cb004c6c84` без изменений). Леджер — как в раунде 1: код → **V**; живое
+«SKIPS=0» и per-chat state (включая пробу) — повторная приёмка агентом
+(PET, postdeploy).
