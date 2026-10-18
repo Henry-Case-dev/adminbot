@@ -52,3 +52,39 @@
 ## Итог
 
 Код и поведение CFG-01 подтверждены независимо (RED/GREEN, инверсия клампа, семантика §01.4/§01.5, событие и лог §01.6, единственный барьер §01.7, регрессии чистые). Блокеров в реализации нет. Обязательные шаги до биндинга/гейта: исправить формулировку side-fix (N1) и закрыть пункты N2 (кандидат-привязка, 13 строк включая `.D`/`ADD-1.T1`, статусная семантика 4 live-строк).
+
+---
+
+# R2 — RECHECK-BIND CFG-01: **N1 закрыт; биндинг подтверждён; готов к релизному лейну**
+
+| Поле | Значение |
+|---|---|
+| Коммит | `912c79b893afef4cd5df45fa91788ace0616ab6a` (evidence README 22+/10−; карта добавлена в трекинг) |
+| Проверено | README-формулировки/ссылки; карта (13 строк CFG-01); гейты verbatim |
+
+## 1. README — N1 закрыт, ссылки реальные
+
+- §6: старая формулировка удалена; теперь — **кламп накопленного остатка** («10 доступно, 5 израсходовано, лимит 2»: база допускала ещё **+5**, кандидат — **ровно 2**; `MIN(COALESCE(burst_left,0), ?)` в SET и WHERE одного UPSERT; in-memory `min(state[0], _limit)`); refill-ветка прямо помечена как **не менявшаяся** (окно = limit на базе и кандидате).
+- Grep: строка `limit-1` встречается **один раз** — только внутри дисклеймера («формулировка «limit‑1 → limit» к этому изменению не относится»); утверждения «подставляла limit-1 вместо limit» больше нет.
+- §3: добавлены proof-строки `CFG-01.D` и `ADD-1.T1`; выборочная сверка: `test_global_hot_reload_without_restart` и `test_per_chat_override_isolated_and_inherit_restored` существуют в `tests/test_direct_chat.py`; `red-green.txt` и `review-cfg-01.md` существуют (мой вердикт `b5ec2339` — предок биндинга; файл tracked). Числа не подменены: RED на базе 7 failed, GREEN 204/7 — совпадают с моими прогонами (REV-CFG-01 §2).
+
+## 2. Карта — 13 строк CFG-01 привязаны, чужие 274 не тронуты
+
+- top: `candidate_commit=0282fe4b…`, `deployed_commit` пуст, strict+graph на месте; rows 287 = 246 items + 41 additional.
+- CFG-01: **13/13 required**, у каждой candidate-bound evidence (все с `candidate_commit=0282fe4b…`); статусы: **9 VERIFIED** (01.1–01.5, 01.7, AC3, .D, ADD-1.T1) + **4 READY_FOR_LIVE** (01.6, AC1, AC2, AC4) — не VERIFIED.
+- Live-строки: `live_required=True, live_when=postdeploy` + `live_note` (процесс CFG: owner/live не блокируют очередь, сценарий README §5, закрытие на postdeploy).
+- Артефакты: 7 различных, **все существуют**; sha256 зафиксирован и **совпал** для 6 артефактов (README 13 записей, red-green 6, `test_direct_chat.py` 11, `test_direct_chat_concurrency.py` 3, `test_persistent_throttling.py` 10, `test_settings_worker_sync_round1018.py` 1) — спот велик, включены все требуемые.
+- Прочие 274 строки: **все PENDING, без evidence** — биндинг не задел остальные слайсы.
+
+## 3. Гейты (мой прогон, verbatim)
+
+- `--stage plan` → `stage=plan inventory=246 manual=41 scoped=0 errors=0` **EXIT 0**;
+- `--stage review --slice CFG-01 --candidate 0282fe4b1eac02c3339586c3abab3952d6c7eae8 --repo .` → `stage=review inventory=246 manual=41 scoped=13 errors=0` **EXIT 0**.
+
+## Нит (не блокирует)
+
+`N-R2-1`: две evidence-записи со ссылкой на `plans/features/cfg/review-cfg-01.md` — без `artifact_sha256` (у остальных шести артефактов sha есть и совпадает; гейт проходит, sha «recommended»). Рекомендация учётному лейну: добавить sha для единообразия строгой сверки.
+
+## Готовность к релизу
+
+Биндинг CFG-01 подтверждён; код/карта/эвиденс согласованы. Релизному лейну: изолированный релиз кандидата `0282fe4b…` → после деплоя `deployed_commit := <SHA>`; 4 RFL-строки закрываются по сценарию README §5 с production-typed evidence; затем `--stage release --candidate 0282fe4b… --deployed-commit <SHA>`.
