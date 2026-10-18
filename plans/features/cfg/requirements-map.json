@@ -3,7 +3,7 @@
   "source_path": "C:\\Code\\Python\\adminbot\\plans\\features\\cfg\\source-cfg-addendum.md",
   "source_sha256": "2ed43009e1533eca218be419409870ebbe85f82d85262ff2335dfa2ce36e6b10",
   "candidate_commit": "0282fe4b1eac02c3339586c3abab3952d6c7eae8",
-  "deployed_commit": "",
+  "deployed_commit": "c37b85779cc41ad716304024ebeea86ad4081071",
   "strict_evidence": true,
   "slice_graph_path": "slice-graph.json",
   "additional_requirements": [
