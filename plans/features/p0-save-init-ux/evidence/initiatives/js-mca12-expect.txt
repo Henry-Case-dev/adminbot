@@ -1,0 +1,68 @@
+P0A-INIT / INIT-JS-FIX — обновление устаревшего JS-ожидания (только tests/js)
+Дата фиксации: 2026-10-18. Lane: INIT-JS-FIX. Коммита нет (рабочее дерево).
+HEAD: a5ab57e086a0c96a59aa98dc23ee0b2da5819111
+
+Контекст
+-------
+INIT-FIX (fix f0bd29e2, review Approved dea9e45b) сознательно разделил два
+состояния инициативы: «чат не выбран» (state=no_chat) и «нет доступа к
+выбранному чату» (state=restricted). py-тесты обновлены в том же коммите
+(test_asap7_module_registry.py:276-283, test_mca09_intents_block_e_round1040.py:378-385
+— server-side state), а JS-ожидание в round1046 осталось старым → тест
+подсвечивал несуществующий дефект продукта.
+
+Продуктовый контракт (не трогался): web/app.js:8712-8717
+  restricted: 'нет доступа к выбранному чату'
+  no_chat:    'чат не выбран'
+
+Grep-инвентарь старых текстов («нет разрешённого чата» и вариации)
+------------------------------------------------------------------
+* tests/** — единственное устаревшее место: tests/js/round1046_mca12_stories_ui_test.js:192.
+* tests/test_asap7_module_registry.py:276-283 — уже под новый контракт (no_chat/restricted), правок не требует.
+* tests/test_mca09_intents_block_e_round1040.py:378-385 — уже под новый контракт, правок не требует.
+* Прочие совпадения — вне тестов: plans/** (source/requirements/evidence) и
+  OPENCODE_WORKFLOW_SCRATCH/** (scratch; не продуктовые тесты, не трогал).
+
+Правка (единственный файл)
+--------------------------
+tests/js/round1046_mca12_stories_ui_test.js (sha256-12=620cf218f8d6)
+
+1) стр. 12-13 (header-комментарий блока проверок):
+   ДО:    intentsStateLabel: disabled/not_run/restricted
+   ПОСЛЕ: intentsStateLabel: disabled/not_run/no_chat/restricted
+
+2) стр. 192 → стр. 194-197 (§16.3, точные strictEqual; проверка не ослаблена):
+   ДО:  assert.strictEqual(vm.intentsStateLabel('restricted'), 'нет разрешённого чата');
+   ПОСЛЕ:
+     // P0A-INIT / REV-INIT-FIX dea9e45b: старый контракт (дефектный) — один и
+     // тот же текст «нет разрешённого чата» на два разных состояния («чат не
+     // выбран» и «нет доступа к выбранному чату»). Новый контракт — раздельные
+     // правдивые тексты: оба состояния проверяются точными строками.
+     assert.strictEqual(vm.intentsStateLabel('no_chat'), 'чат не выбран');
+     assert.strictEqual(vm.intentsStateLabel('restricted'), 'нет доступа к выбранному чату');
+
+Окружение прогонов
+------------------
+worktree C:\Code\Python\adminbot; web/app.js sha256-12=5a4aea378124 (= коммит f0bd29e2, не менялся);
+node (Windows) из PATH; py -3 (Python 3.12).
+
+Прогоны
+-------
+1) RED до правки: py -3 -m pytest tests/test_mca12_stories_round1046.py -q
+   → 1 failed, 21 passed (test_js_ui_suite: expected 'нет разрешённого чата',
+     got 'нет доступа к выбранному чату' — устаревшее ожидание теста).
+2) node --check tests/js/round1046_mca12_stories_ui_test.js → rc=0.
+3) node tests/js/round1046_mca12_stories_ui_test.js → MCA12-STORIES-UI-OK, rc=0.
+4) node tests/js/soul1_w5_initiative_panel_test.js → SOUL1-W5-PANEL-OK, rc=0.
+5) node tests/js/asap8_v63_w3_status_logs_test.js → W3-STATUS-UNIT-OK, rc=0
+   (сосед, использующий restricted-состояние в воронке).
+6) GREEN после правки: py -3 -m pytest tests/test_mca12_stories_round1046.py -q
+   → 22 passed.
+7) Класс-широкий sweep: прямой node-прогон всех tests/js/*_test.js
+   → PASS=87 FAIL=0 (после INIT-FIX в JS-сюите больше нет устаревших ожиданий).
+
+Границы
+-------
+web/app.js и продукт не трогались; прод не трогался; коммита нет.
+Не тронуто (другие рабочие дорожки): tests/test_soul1_w5_initiative_vitality.py
+(изменён до старта этой линии), services/initiative_*.py.

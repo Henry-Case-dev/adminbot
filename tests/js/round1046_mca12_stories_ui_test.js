@@ -10,7 +10,7 @@
  *   3) loadStoriesFeed: курсор в URL, чтение events/cursor, stale — честный
  *      fail-open (без выдуманных нулей), K1 OFF (enabled:false) → блок скрыт;
  *   4) честные состояния §16.3 (intentsStateLabel: disabled/not_run/
- *      restricted) и настройки-рендер (default/effective/источник; без
+ *      no_chat/restricted) и настройки-рендер (default/effective/источник; без
  *      configItems — честное «—»/«не загружено»);
  *   5) витрины T-5169: adjacent-линии честно null без данных (без выдумки);
  *   6) структура index.html: едиственная вставка data-stories на «Статусе»,
@@ -189,7 +189,12 @@ v1.api = async function (p) {
   // ── 4) §16.3: честные состояния + настройки ──────────────────────────────
   assert.strictEqual(vm.intentsStateLabel('disabled'), 'выключено');
   assert.strictEqual(vm.intentsStateLabel('not_run'), 'не запускалось');
-  assert.strictEqual(vm.intentsStateLabel('restricted'), 'нет разрешённого чата');
+  // P0A-INIT / REV-INIT-FIX dea9e45b: старый контракт (дефектный) — один и
+  // тот же текст «нет разрешённого чата» на два разных состояния («чат не
+  // выбран» и «нет доступа к выбранному чату»). Новый контракт — раздельные
+  // правдивые тексты: оба состояния проверяются точными строками.
+  assert.strictEqual(vm.intentsStateLabel('no_chat'), 'чат не выбран');
+  assert.strictEqual(vm.intentsStateLabel('restricted'), 'нет доступа к выбранному чату');
   assert.strictEqual(vm.intentsStateLabel('ok'), 'данные');
   v1.configItems = [];
   const meta = vm.storiesSettingsMeta();
