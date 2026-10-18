@@ -1,0 +1,29 @@
+# Здоровье прод-бота в окне пробы (journalctl -u admin_bot, sudo, read-only)
+# Источник: probe-run-2-raw.txt, блок POST: journal (полный вывод там).
+# Проверено: ERROR=0, CRITICAL=0, Traceback=0, [tma-auth] valid=True=21 (наши API-вызовы),
+# healthz: {status: ok, version: 2.58.88}.
+=== POST: journal РѕРєРЅР° (read-only, sudo) ===
+sudo -S journalctl -u admin_bot --since '30 min ago' --no-pager | grep -c ' ERROR ' ; echo ---ERR_END; journalctl -u admin_bot --since '30 min ago' --no-pager | grep -c ' CRITICAL ' ; echo ---CRIT_END; journalctl -u admin_bot --since '30 min ago' --no-pager | grep -c 'Traceback' ; echo ---TB_END; journalctl -u admin_bot --since '30 min ago' -o short-iso --no-pager | grep -c '\[tma-auth\].*valid=True' ; echo ---TMA_END; curl -s http://127.0.0.1:8000/healthz ; echo "###RC=$?###"
+
+[?2004l
+[sudo] password for nik: 
+
+0
+
+---ERR_END
+
+0
+
+---CRIT_END
+
+0
+
+---TB_END
+
+21
+
+---TMA_END
+
+{"status":"ok","version":"2.58.88"}###RC=0###
+
+[?2004hnik@racknerd-f4e3456:/var/www/admin_bot$ 

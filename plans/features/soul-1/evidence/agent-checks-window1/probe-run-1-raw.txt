@@ -1,0 +1,142 @@
+[runner] probe uploaded: /tmp/agent_checks_w1_probe.py (45164 bytes)
+=== CTX: clock/head/healthz ===
+date -u '+%Y-%m-%d %H:%M:%S UTC'; cd /var/www/admin_bot && echo HEAD=$(git rev-parse HEAD) && echo TRACKED_MOD=$(git status --porcelain | grep -vc '^??' || true) && echo APP=$(grep -m1 '^APP_VERSION' config/settings.py) && curl -s http://127.0.0.1:8000/healthz; echo "###RC=$?###"
+[?2004l2026-10-18 05:37:11 UTC
+HEAD=c37b85779cc41ad716304024ebeea86ad4081071
+
+=== PROBE RUN (venv, PYTHONIOENCODING=utf-8) ===
+TRACKED_MOD=0
+APP=APP_VERSION = "2.58.88" # asap8-v6 финал (14.10.2026): D01 dossier guard + D02 supergroup migration + D03/D04 Direct credentials/execution-modes/evidence + D05 Experience detector + D06 chat isolation + D07 overrides map + D08 Random toggle + D09 dream/graphrag + D10 temporal dates + D11 registry + D12/D13 UI truthful + D14 help; wave2 (F2+F6+F9): Style preservation + prompt truth UX + module truth + Stories humanize + embeddings quota-groups; wave2 (F2+F6+F9): Summary Test=production (build_summary_execution_input, map-v1 repair) + Initiative v2 (producers->L2 Writer->SendRecheck->send, freshness, funnel) + YouTube 407 permanent + proxy health; далее описание F1: Summary L2 validator reliability — repair-first детерминированный ремонт валидаторных дефектов абзацев (services/summary_l2_repair.py NEW: detect_paragraph_defects/repair_document/repair_projection — split по границе предложения с наследованием evidence refs и пересчётом emphasis штатным канонизатором, удаление только пустого/пустого-после-cleanup; invented evidence/quote_attribution/структурный JSON — fail-closed как раньше), РОВНО ОДИН LLM-correction attempt с machine reason (happy=1 вызов, max=2), гранулярная reason-модель (reason = код, reason_group = старый umbrella для совместимости аналитики), telemetry SUMMARY_L2_STAGE/L2_ERROR с reason_code/paragraph_index/chars/l2_calls/correction_used/repair_actions (R17: без текста абзацев), durable-статус attempted_invalid («выполнено, отвергнуто валидатором» — отличие от not_run/transport-failed сквозно event→durable→analytics→UI), anchor-путь: проброс якорей через repair_projection (split-части наследуют якоря исходного абзаца, drop исключает свои, рассинхрон длин → fail-closed internal_error без публикации — фикс REV-F1), coverage Inspector — 4 раздельные оси Source ingested / L1 semantic / L2 accepted / Final (единый скаляр и карточка «Неполное саммари» из headline удалены, Legacy-overwrite влияет только на Final). Review REV-F1 Approved после речека anchor-механизма (probe RED→GREEN). Тесты: test_asap8_f1_summary_l2_repair 39 + anchors_wiring/writer/wave_d/l2_review 179, полный summary-sweep 1665 passed. Откат: cold git revert; soft: repair отключается через существующие SUMMARY_L2_* env, reason_group сохраняет старые коды для алертов. Prior 2.58.74 (asap7-wave3).
+{"status":"ok","version":"2.58.88"}###RC=0###
+[?2004hnik@racknerd-f4e3456:/var/www/admin_bot$ cd /var/www/admin_bot && PYTHONIOENCODING=utf-8 /var/www/admin_bot/venv/bin/python /tmp/agent_checks_w1_probe.py 2>&1; echo "###RC=$?###"
+[?2004l
+=== POST: journal по синтетическому чату (окно с прогона) ===
+sudo -S journalctl -u admin_bot --since '20 min ago' -o short-iso --no-pager | sed 's/\x1b\[[0-9;]*m//g' | grep -E '\[image\].*chat=-1009900000201|\[direct\].*chat=-1009900000201' | tail -40; echo COUNT_IMAGE=$(journalctl -u admin_bot --since '20 min ago' --no-pager | grep -c '\[image\].*chat=-1009900000201' || true); echo ERRW=$(journalctl -u admin_bot --since '20 min ago' --no-pager | grep -c ' ERROR ' || true); echo CRITW=$(journalctl -u admin_bot --since '20 min ago' --no-pager | grep -c ' CRITICAL ' || true) ; echo "###RC=$?###"
+AC1 BOOT INFO | version=? db=local_database.db pg_available=True
+AC1 P0_TIME INFO | now_utc=2026-10-18 05:37:15
+AC1 P0_SHA INFO | services/direct_chat_service.py 7a613dc9b406
+AC1 P0_SHA INFO | services/chat_params.py f480530b6c12
+AC1 P0_SHA INFO | services/persistent_throttling.py 1a222e926aeb
+AC1 P0_SHA INFO | services/mca_events.py 147a4539a2e0
+AC1 P0_SHA INFO | services/style_policy.py f5eff9607d15
+AC1 P0_SHA INFO | services/response_extent.py 24628ba37455
+AC1 P0_SHA INFO | services/direct_capabilities.py 74e59e8c14f0
+AC1 P0_SHA INFO | services/image_generation.py d5e49dd68d17
+AC1 P0_SHA INFO | services/capability_registry.py 6f650a2c9771
+AC1 P0_SHA INFO | services/worker_budget.py aca285df6357
+AC1 P0_SHA INFO | services/chat_prompts.py 0b0ad23784c8
+AC1 P0_SHA INFO | web/api/speech.py a69a67536ebe
+AC1 P0_GLOBAL_LIMITS INFO | burst=10 cooldown=300.0 silence_enabled=True after=5
+AC1 P0_PROFILES INFO | total=3
+AC1 P0_SYNTH_PRE INFO | profile_exists=False
+AC1 P0_SYNTH_THROTTLE INFO | rows=0
+AC1 P0_CAP INFO | image_generation status=ready reason= available=True detail=image_limit_ok
+AC1 P0_CAP INFO | web_search status=ready reason= available=True detail=search_keys_present
+AC1 P0_CAP INFO | fact_check status=ready reason= available=True detail=announced
+AC1 P0_CAP INFO | video_summary status=not_configured reason=media_source_unconfigured available=False detail=cobalt_absent
+AC1 P0_STYLE_PG INFO | present=True value_len=352
+AC1 P0_STYLE_API INFO | status=200 global_present=None global_revision=None rules=None soft=None inheritance=None
+AC1 P0_BUDGET INFO | [{"day": "2026-10-18", "scope": "global", "metric": "image_calls", "used": "2"}, {"day": "2026-10-18", "scope": "chat:-1002661910336", "metric": "image_calls", "used": "2"}, {"day": "2026-10-17", "scope": "global", "metric": "image_calls", "used": "5"}, {"day": "2026-10-17", "scope": "chat:-1002661910336", "metric": "image_calls", "used": "5"}, {"day": "2026-10-16", "scope": "global", "metric": "image_calls", "used": "46"}, {"day": "2026-10-16", "scope": "chat:-1002661910336", "metric": "image_calls", "used": "46"}]
+AC1 SVC INFO | DirectChatService готов (llm=None — платные стадии невозможны)
+AC1 A1_profile_ensure OK | created_or_exists=True
+AC1 A2_config_override OK | status=200 updated=['limits.chat_burst_limit', 'limits.chat_cooldown_seconds'] updated_at=2026-10-18T05:37:32.212383+00:00
+AC1 A3_resolve_effective OK | burst=1 cooldown=180.0 source='chat'
+AC1 A4_prime_charge OK | allow_first=0.0
+[direct] unexpected | chat=-1009900000201
+Traceback (most recent call last):
+  File "/var/www/admin_bot/services/direct_chat_service.py", line 2208, in _handle_turn
+    user_blocks = await self._build_user_content(
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/var/www/admin_bot/services/direct_chat_service.py", line 4980, in _build_user_content
+    window = await self.memory.get_window_messages(chat_id)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'NoneType' object has no attribute 'get_window_messages'
+AC1 A5_refusal_sent OK | sends=1 elapsed=0.0s reply_to=990000701
+AC1 A6_phrase_text OK | phrase='внутренняя ошибка базы, иди нахуй'
+AC1 A7_phrase_contract FAIL | no_false_refusal=True shape_ok=False phrase_tail='' db_remaining=180.0s delta=-1.0s
+AC1 A7_remaining INFO | formatted_phrase_tail='' db_based='3 мин'
+AC1 A8_no_llm_call OK | llm=None; отказ до платных стадий (иначе был бы AttributeError)
+AC1 A9_flush INFO | events_flushed=1
+AC1 A10_viewer_event FAIL | viewer_status=200 events=0 matched=0 restricted=None
+AC1 A11_event_payload FAIL | direct_chat_throttle не найден во вьюере
+AC1 A12_cleanup FAIL | profile_rows=0 throttle_rows=1
+AC1 A13_events_kept INFO | durable mca_events по SYNTH_CHAT сохранены как evidence (chat_id=-1009900000201)
+AC1 B1_form INFO | {"extent": "one_word", "text": "Да!!!", "status": "pass", "reason": "", "words": 1, "out_text": "Да!!!", "changed": false}
+AC1 B1_form INFO | {"extent": "one_word", "text": "OK!!!", "status": "pass", "reason": "", "words": 1, "out_text": "OK!!!", "changed": false}
+AC1 B1_form INFO | {"extent": "one_word", "text": "по-хорошему", "status": "pass", "reason": "", "words": 1, "out_text": "по-хорошему", "changed": false}
+AC1 B1_form INFO | {"extent": "one_word", "text": "Да, конечно, всё сделаю", "status": "failed", "reason": "one_word_multiple_words", "words": 4, "out_text": "Да, конечно, всё сделаю", "changed": false}
+AC1 B1_form INFO | {"extent": "one_word", "text": "Готово 🔥", "status": "repaired", "reason": "one_word_extra_tail_removed", "words": 1, "out_text": "Готово", "changed": true}
+AC1 B1_form INFO | {"extent": "one_word", "text": "да", "status": "pass", "reason": "", "words": 1, "out_text": "да", "changed": false}
+AC1 B1_form INFO | {"extent": "micro", "text": "Да!!!", "status": "pass", "reason": "", "words": 1, "out_text": "Да!!!", "changed": false}
+AC1 B1_form INFO | {"extent": "micro", "text": "ок, будет сделано сегодня", "status": "pass", "reason": "", "words": 4, "out_text": "ок, будет сделано сегодня", "changed": false}
+AC1 B1_form INFO | {"extent": "micro", "text": "раз два три четыре пять шесть семь восемь девять десять одиннадцать двенадцать", "status": "pass", "reason": "micro_soft_exceeded", "words": 12, "out_text": "раз два три четыре пять шесть семь восемь девять десять одиннадцать двенадцать", "changed": false}
+AC1 B1_form INFO | {"extent": "auto", "text": "любой текст", "status": "not_applicable", "reason": "extent_auto", "words": 0, "out_text": "любой текст", "changed": false}
+AC1 B1_form_matrix OK | проверено 9 кейсов one_word/micro через прод-валидатор
+AC1 B2_try INFO | {"text": "Да!!!", "status": 200, "layers_current": ["channel_contract", "channel_contract", "core"], "extent_values": ["one_word", "micro", "compact", "normal", "detailed", "longform", "exhaustive"], "response_plan_enabled": true, "style_pass_status": null, "style_pass_reason": null, "protected_count": 0, "delivery": false}
+AC1 B2_try INFO | {"text": "OK!!!", "status": 200, "layers_current": ["channel_contract", "channel_contract", "core"], "extent_values": ["one_word", "micro", "compact", "normal", "detailed", "longform", "exhaustive"], "response_plan_enabled": true, "style_pass_status": null, "style_pass_reason": null, "protected_count": 0, "delivery": false}
+AC1 B2_try INFO | {"text": "по-хорошему", "status": 200, "layers_current": ["channel_contract", "channel_contract", "core"], "extent_values": ["one_word", "micro", "compact", "normal", "detailed", "longform", "exhaustive"], "response_plan_enabled": true, "style_pass_status": null, "style_pass_reason": null, "protected_count": 0, "delivery": false}
+AC1 B2_try INFO | {"text": "Да, конечно, всё сделаю", "status": 200, "layers_current": ["channel_contract", "channel_contract", "core"], "extent_values": ["one_word", "micro", "compact", "normal", "detailed", "longform", "exhaustive"], "response_plan_enabled": true, "style_pass_status": null, "style_pass_reason": null, "protected_count": 0, "delivery": false}
+AC1 B2_try_composer OK | 4 текста через POST /api/speech/try (0 LLM)
+AC1 C1_style_state INFO | api_status=200 global_present=None prev_is_dict=True
+AC1 C2_try_before INFO | versions.style_policy='c2.75bada4c52c3'
+AC1 C3_style_write OK | status=200 applied=True scope=global revision=3 rules=0 soft=1
+AC1 C4_try_after_new_rev FAIL | before='c2.75bada4c52c3' after='c3.5bc205ee3e86' expected_prefix='g3'
+AC1 C5_restore OK | status=200 applied=True revision=4 (содержимое = до пробы)
+AC1 C6_final_state OK | final_versions.style_policy='c4.6cf9b02a9e23' soft=0 (ожидалось 0) probe_soft_present=False
+AC1 D1_intent INFO | {"text": "Бот, нарисуй мем про кота", "intent": "create_image", "confidence": "high", "actionable": true, "reason": "create_image_command", "is_keyword_regex": true}
+AC1 D1_intent INFO | {"text": "Сделай мем", "intent": "create_image", "confidence": "high", "actionable": true, "reason": "create_image_command", "is_keyword_regex": false}
+AC1 D1_intent INFO | {"text": "сделай мем с текстом", "intent": "create_image", "confidence": "high", "actionable": true, "reason": "create_image_command", "is_keyword_regex": false}
+AC1 D1_intent INFO | {"text": "Бот, нарисуй мем, но не рисуй", "intent": "", "confidence": "none", "actionable": false, "reason": "create_image_negated", "is_keyword_regex": true}
+AC1 D1_intent INFO | {"text": "придумай концепт мема, рисовать не надо", "intent": "", "confidence": "none", "actionable": false, "reason": "create_image_conceive_only", "is_keyword_regex": false}
+AC1 D1_intent INFO | {"text": "давай обсудим мемы", "intent": "", "confidence": "none", "actionable": false, "reason": "no_action_intent", "is_keyword_regex": false}
+AC1 D1_intent INFO | {"text": "я сам нарисую мем", "intent": "", "confidence": "none", "actionable": false, "reason": "create_image_self_action", "is_keyword_regex": false}
+AC1 D1_intent INFO | {"text": "Петя сказал: нарисуй мем", "intent": "", "confidence": "none", "actionable": false, "reason": "create_image_reported", "is_keyword_regex": false}
+AC1 D1_intent INFO | {"text": "мемориальный комплекс", "intent": "", "confidence": "none", "actionable": false, "reason": "no_action_intent", "is_keyword_regex": false}
+AC1 D1_intent INFO | {"text": "сделай это", "intent": "create_image", "confidence": "ambiguous", "actionable": false, "reason": "create_verb_without_object", "is_keyword_regex": false}
+AC1 D2_veto_create_image_negated OK | text='Бот, нарисуй мем, но не рисуй' actionable=False generated_calls=0 block_empty=True
+AC1 D2_veto_create_image_conceive_only OK | text='придумай концепт мема, рисовать не надо' actionable=False generated_calls=0 block_empty=True
+AC1 CFG_FALLBACK INFO | прямая запись не удалась: ChatParamsConflict
+AC1 D3_module_on INFO | status=409 updated=None
+AC1 D3_capability INFO | status=ready reason= detail=image_limit_ok
+AC1 D4_one_generation OK | actionable=True provider_calls=1 block='<image_result status="ok" delivery="sent">\nИзображение уже сгенерировано и отправлено в чат. Повторно инструмент generate_image не вызывай.\n\n</image_result>'
+AC1 D4_photos INFO | send_photo_calls=1 bytes=1604304
+AC1 D5_replay_no_second OK | provider_calls=0 block='<image_result status="ok" delivery="already">\nПо этому запросу изображение уже обрабатывалось: повторная генерация и повторная отправка не выполняются.\n\n</image'
+AC1 D6_journal INFO | [{"reservation_key": "-1009900000201:990000701:direct", "chat_id": "-1009900000201", "source": "direct", "message_id": "990000701", "day": "2026-10-18", "status": "committed", "error_code": "", "delivery_failed": "False"}]
+AC1 D6_journal_committed OK | rows=1
+AC1 CFG_FALLBACK INFO | прямая запись не удалась: ChatParamsConflict
+AC1 D7_module_off INFO | status=409 updated=None
+AC1 D7_capability INFO | status=ready reason= detail=image_limit_ok
+AC1 D7_off_refusal FAIL | handled=False provider_calls=0 refusal=''
+AC1 D7_status_message INFO | template=message.image_failure.unknown
+AC1 CFG_RESET INFO | override reset failed: ChatParamsConflict
+AC1 D8_override_clean OK | overrides_after={}
+AC1 D9_provider_calls_total INFO | всего вызовов провайдера за фазу=1
+AC1 E1_search OK | elapsed=2.5s len=4039 head='Результаты поиска по запросу «Москва»:\nМосква — Википедия\nМосква́ (МФА: [mɐˈ "Знак ударения (символ МФА)")s̪kvä] произно'
+mca_event=safe_fetch | ts=1792301939 | event_name=safe_fetch | outcome=failed | level=ERROR | component=safe_fetch | duration_ms=1044 | stage=stream | reason_code=too_many_bytes | error_json={"type": "SafeFetchError", "code": "too_many_bytes", "stage": "stream", "retryable": false}
+mca_event=safe_fetch | ts=1792301942 | event_name=safe_fetch | outcome=failed | level=ERROR | component=safe_fetch | entity_id=www.ekodar.ru | duration_ms=4004 | stage=stream | reason_code=safe_fetch_timeout | error_json={"type": "SafeFetchError", "code": "safe_fetch_timeout", "stage": "stream", "retryable": true}
+[prompt_registry] persisted speech value withheld | key=prompts.factcheck_verbalizer_system_prompt | block=factcheck.base.verbalizer | reason=provenance_missing | stored_sha=5fbf61cea310 | stored_chars=1712
+AC1 E2_factcheck OK | elapsed=23.6s status=ready reason=None keys=['as_of', 'assessment_mode', 'cache_hit', 'claim', 'date_source', 'evaluated_period', 'factual_verdict', 'original_published_at', 'reason', 'repost_received_at', 'run_id', 'status']
+AC1 E2_factcheck_payload INFO | {"status": "ready", "reason": null, "claim": "Вода закипает при 100 °C на уровне моря.", "factual_verdict": "supported", "temporal_status": "old_but_valid", "evaluated_period": "{'from': None, 'to': None, 'precision': 'unknown'}", "assessment_mode": "contextual", "as_of": 1792301936, "date_source": "unknown", "original_published_at": null, "repost_received_at": null, "uncertainty": "{'summary': 'Даты публикации источников неизвестны (date_parse_failed / unknown); утверждение является фундаментальным ф", "run_id": "tfr-38ab2b7fa98b44cb", "cache_hit": false, "verdict": "Вода закипает при 100 °C на уровне моря - да, это подтверждается. Точка кипения при нормальном атмосферном давлении, 760"}
+AC1 E3_video_state INFO | status=not_configured reason=media_source_unconfigured detail=cobalt_absent
+AC1 E3_video_deferred OK | видео-cценарий отложен: multi-stage (download/STT/LLM), без дешёвого честного пути; зафиксировано состояние capability
+AC1 F1_try_long OK | status=200 profile=editorial_report protected=4 kinds=['code', 'version_literal'] layers=['channel_contract', 'channel_contract']
+AC1 F2_style_pass_protected OK | rules_enabled=3 url=True quote=True code=True version=True statuses={"status": null, "reason": null, "changed": null, "conflicts": ["quotation_marks.hard.no_graphic"], "exempted": 0}
+AC1 F2_style_out_len INFO | in=568 out=566 changed=True
+AC1 FINAL_THROTTLE_LEFTOVER INFO | 0
+AC1 FINAL_PROFILE_LEFTOVER INFO | 0
+AC1 SUMMARY ok=23/29
+AC1 RC=3
+###RC=3###
+[?2004hnik@racknerd-f4e3456:/var/www/admin_bot$ sudo -S journalctl -u admin_bot --since '20 min ago' -o short-iso --no-pager | sed 's/\x1b\[[0-9;]*m//g' | grep -E '\[image\].*chat=-1009900000201|\[direct\].*chat=-1009900000201' | tail -40; echo COUNT_IMAGE=$(journalctl -u admin_bot --since '20 min ago' --no-pager | grep -c '\[image\].*chat=-1009900000201' || true); echo ERRW=$(journalctl -u admin_bot --since '20 min ago' --no-pager | grep -c ' ERROR ' || true); echo CRITW=$(journalctl -u admin_bot --since '20 min ago' --no-pager | grep -c ' CRITICAL ' || true) ; echo "###RC=$?###"
+[?2004l
+=== POST: сервис/юзер-версии (read-only) ===
+[sudo] password for nik: 
+***
+Sorry, try again.
+[sudo] password for nik: 
+COUNT_IMAGE=0
+ERRW=0
+CRITW=0
+###RC=0###
+[?2004hnik@racknerd-f4e3456:/var/www/admin_bot$ 
+[runner] probe window start(UTC)≈2026-10-18 05:37:11

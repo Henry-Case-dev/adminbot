@@ -1,0 +1,128 @@
+[runner] uploaded: probe=47946 state=4202 bytes
+=== PRE: процессы/состояние ===
+date -u '+%Y-%m-%d %H:%M:%S UTC'; echo PROBE_PROCS=$(ps -ef | grep -c '[a]gent_checks_w1_probe'); echo OLD_OUT_BYTES=$([ -f /tmp/ac1_probe.out ] && wc -c < /tmp/ac1_probe.out || echo 0); echo "###RC=$?###"
+[?2004l2026-10-18 05:45:31 UTC
+PROBE_PROCS=0
+OLD_OUT_BYTES=0
+###RC=0###
+[?2004hnik@racknerd-f4e3456:~$ 
+cd /var/www/admin_bot && PYTHONIOENCODING=utf-8 /var/www/admin_bot/venv/bin/python /tmp/ac1_state.py; echo "###RC=$?###"
+[?2004lSTATE profile_rows=0
+STATE style.policy present=True revision=4 rules=0 soft=0
+STATE style history=[{"revision": 3, "updated_at": "2026-10-18T05:37:32Z", "updated_by": 5885953495, "rules_sha256_12": "4f53cda18c2b"}, {"revision": 2, "updated_at": "2026-10-17T23:00:23Z", "updated_by": 5885953495, "rules_sha256_12": "4f53cda18c2b"}, {"revision": 1, "updated_at": "2026-10-17T23:00:23Z", "updated_by": 5885953495, "rules_sha256_12": "4f53cda18c2b"}]
+STATE image_reservation rows=1
+STATE reservation {"reservation_key": "-1009900000201:990000701:direct", "status": "committed", "error_code": "", "delivery_failed": "False", "day": "2026-10-18"}
+STATE throttle_rows=0 []
+STATE mca_events_for_synth=0
+STATE factcheck_runs_for_synth=1 [{"run_id": "tfr-38ab2b7fa98b44cb", "factual_verdict": "supported", "temporal_status": "old_but_valid"}]
+STATE limits burst=10 cooldown=300.0
+STATE done
+###RC=0###
+[?2004hnik@racknerd-f4e3456:/var/www/admin_bot$ 
+=== PROBE (nohup, фазы A,D, skip_image_gen=1) ===
+cd /var/www/admin_bot && rm -f /tmp/ac1_probe.out && nohup env AC1_PHASES=A,D AC1_SKIP_IMAGE_GEN=1 PYTHONIOENCODING=utf-8 /var/www/admin_bot/venv/bin/python /tmp/agent_checks_w1_probe.py > /tmp/ac1_probe.out 2>&1 & echo STARTED_PID=$!; echo "###RC=$?###"
+[?2004l[1] 3337011
+STARTED_PID=3337011
+###RC=0###
+[?2004hnik@racknerd-f4e3456:/var/www/admin_bot$ 
+[runner] probe finished=False (poll iterations=48)
+=== PROBE OUTPUT ===
+cat /tmp/ac1_probe.out; echo "###RC=$?###"
+[?2004lnohup: ignoring input
+AC1 BOOT INFO | version=? db=local_database.db pg_available=True
+AC1 P0_TIME INFO | now_utc=2026-10-18 05:45:39
+AC1 P0_SHA INFO | services/direct_chat_service.py 7a613dc9b406
+AC1 P0_SHA INFO | services/chat_params.py f480530b6c12
+AC1 P0_SHA INFO | services/persistent_throttling.py 1a222e926aeb
+AC1 P0_SHA INFO | services/mca_events.py 147a4539a2e0
+AC1 P0_SHA INFO | services/style_policy.py f5eff9607d15
+AC1 P0_SHA INFO | services/response_extent.py 24628ba37455
+AC1 P0_SHA INFO | services/direct_capabilities.py 74e59e8c14f0
+AC1 P0_SHA INFO | services/image_generation.py d5e49dd68d17
+AC1 P0_SHA INFO | services/capability_registry.py 6f650a2c9771
+AC1 P0_SHA INFO | services/worker_budget.py aca285df6357
+AC1 P0_SHA INFO | services/chat_prompts.py 0b0ad23784c8
+AC1 P0_SHA INFO | web/api/speech.py a69a67536ebe
+AC1 P0_GLOBAL_LIMITS INFO | burst=10 cooldown=300.0 silence_enabled=True after=5
+AC1 P0_PROFILES INFO | total=3
+AC1 P0_SYNTH_PRE INFO | profile_exists=False
+AC1 P0_SYNTH_THROTTLE INFO | rows=0
+AC1 P0_CAP INFO | image_generation status=ready reason= available=True detail=image_limit_ok
+AC1 P0_CAP INFO | web_search status=ready reason= available=True detail=search_keys_present
+AC1 P0_CAP INFO | fact_check status=ready reason= available=True detail=announced
+AC1 P0_CAP INFO | video_summary status=not_configured reason=media_source_unconfigured available=False detail=cobalt_absent
+AC1 P0_STYLE_PG INFO | present=True value_len=545
+AC1 P0_STYLE_API INFO | status=200 global_present=None global_revision=None rules=None soft=None inheritance=None
+AC1 P0_BUDGET INFO | [{"day": "2026-10-18", "scope": "global", "metric": "image_calls", "used": "3"}, {"day": "2026-10-18", "scope": "chat:-1009900000201", "metric": "image_calls", "used": "1"}, {"day": "2026-10-18", "scope": "chat:-1002661910336", "metric": "image_calls", "used": "2"}, {"day": "2026-10-17", "scope": "global", "metric": "image_calls", "used": "5"}, {"day": "2026-10-17", "scope": "chat:-1002661910336", "metric": "image_calls", "used": "5"}, {"day": "2026-10-16", "scope": "global", "metric": "image_calls", "used": "46"}]
+AC1 SVC INFO | DirectChatService готов (llm=None — платные стадии невозможны)
+AC1 PHASES INFO | выбраны фазы: A,D
+AC1 A1_profile_ensure OK | created_or_exists=True
+AC1 A2_config_override OK | status=200 updated=['limits.chat_burst_limit', 'limits.chat_cooldown_seconds'] updated_at=2026-10-18T05:45:53.904429+00:00
+AC1 A3_resolve_effective OK | burst=1 cooldown=180.0 source='chat'
+AC1 A4_prime_charge OK | allow_first=0.0 (после throttle_refresh до effective-лимита)
+[direct] cooldown | chat=-1009900000201 user=Probe remaining=180s | burst_limit=1 cooldown=180.0 source=chat
+mca_event=direct_chat_throttle | ts=1792302353 | event_name=direct_chat_throttle | outcome=skipped | level=WARN | component=direct_chat | stage=cooldown | reason_code=rate_limit | chat_id=-1009900000201 | usage_json={"remaining_seconds": 180.0, "burst_limit": 1, "cooldown_seconds": 180.0, "source": "chat"}
+AC1 A5_refusal_sent OK | sends=1 elapsed=0.0s reply_to=990000701 error_phrase=False
+AC1 A6_phrase_text OK | phrase='рот оффни на 3 мин, я не нанимался с тобой болтать без остановки'
+AC1 A7_phrase_contract OK | no_false_refusal=True shape_ok=True phrase_tail='3 мин' db_remaining=180.0s delta=0.0s
+AC1 A7_remaining INFO | formatted_phrase_tail='3 мин' db_based='3 мин'
+AC1 A8_no_llm_call OK | llm=None; отказ до платных стадий (иначе был бы AttributeError)
+AC1 A9_flush INFO | events_flushed=1
+AC1 A10_viewer_event OK | viewer_status=200 events=1 matched=1 restricted=None
+AC1 A11_event_payload OK | stage=cooldown reason=rate_limit usage_json={"remaining_seconds": 180.0, "burst_limit": 1, "cooldown_seconds": 180.0, "source": "chat"}
+AC1 A12_cleanup OK | profile_rows=0 throttle_rows=0
+AC1 A13_events_kept INFO | durable mca_events по SYNTH_CHAT сохранены как evidence (chat_id=-1009900000201)
+AC1 D1_intent INFO | {"text": "Бот, нарисуй мем про кота", "intent": "create_image", "confidence": "high", "actionable": true, "reason": "create_image_command", "is_keyword_regex": true}
+AC1 D1_intent INFO | {"text": "Сделай мем", "intent": "create_image", "confidence": "high", "actionable": true, "reason": "create_image_command", "is_keyword_regex": false}
+AC1 D1_intent INFO | {"text": "сделай мем с текстом", "intent": "create_image", "confidence": "high", "actionable": true, "reason": "create_image_command", "is_keyword_regex": false}
+AC1 D1_intent INFO | {"text": "Бот, нарисуй мем, но не рисуй", "intent": "", "confidence": "none", "actionable": false, "reason": "create_image_negated", "is_keyword_regex": true}
+AC1 D1_intent INFO | {"text": "придумай концепт мема, рисовать не надо", "intent": "", "confidence": "none", "actionable": false, "reason": "create_image_conceive_only", "is_keyword_regex": false}
+AC1 D1_intent INFO | {"text": "давай обсудим мемы", "intent": "", "confidence": "none", "actionable": false, "reason": "no_action_intent", "is_keyword_regex": false}
+AC1 D1_intent INFO | {"text": "я сам нарисую мем", "intent": "", "confidence": "none", "actionable": false, "reason": "create_image_self_action", "is_keyword_regex": false}
+AC1 D1_intent INFO | {"text": "Петя сказал: нарисуй мем", "intent": "", "confidence": "none", "actionable": false, "reason": "create_image_reported", "is_keyword_regex": false}
+AC1 D1_intent INFO | {"text": "мемориальный комплекс", "intent": "", "confidence": "none", "actionable": false, "reason": "no_action_intent", "is_keyword_regex": false}
+AC1 D1_intent INFO | {"text": "сделай это", "intent": "create_image", "confidence": "ambiguous", "actionable": false, "reason": "create_verb_without_object", "is_keyword_regex": false}
+AC1 D2_veto_create_image_negated OK | text='Бот, нарисуй мем, но не рисуй' actionable=False generated_calls=0 block_empty=True
+AC1 D2_veto_create_image_conceive_only OK | text='придумай концепт мема, рисовать не надо' actionable=False generated_calls=0 block_empty=True
+AC1 D3_capability INFO | status=ready reason= detail=image_limit_ok
+AC1 D6_journal INFO | [{"reservation_key": "-1009900000201:990000701:direct", "chat_id": "-1009900000201", "source": "direct", "message_id": "990000701", "day": "2026-10-18", "status": "committed", "error_code": "", "delivery_failed": "False"}]
+AC1 D7_module_off INFO | status=200 updated=['flags.image_generation_module_enabled']
+AC1 D7_capability INFO | status=disabled reason=module_disabled detail=image_module_off
+AC1 D7_off_refusal OK | handled=True provider_calls=0 =status_message=True in_factory=True refusal='Рисовать я сейчас не могу: генерацию картинок в этом чате выключили. Так что мем останется в воображении - оно, к счастью, безлимитное.'
+AC1 D7_status_message INFO | template=message.image_failure.disabled
+AC1 D8_override_clean OK | overrides_after={}
+AC1 D9_provider_calls_total INFO | всего вызовов провайдера за фазу=0
+AC1 FINAL_THROTTLE_LEFTOVER INFO | 0
+AC1 FINAL_PROFILE_LEFTOVER INFO | 0
+AC1 SUMMARY ok=15/15
+AC1 RC=0
+###RC=0###
+[?2004hnik@racknerd-f4e3456:/var/www/admin_bot$ 
+=== POST: состояние после прогона ===
+cd /var/www/admin_bot && PYTHONIOENCODING=utf-8 /var/www/admin_bot/venv/bin/python /tmp/ac1_state.py; echo "###RC=$?###"
+[?2004lSTATE profile_rows=0
+STATE style.policy present=True revision=4 rules=0 soft=0
+STATE style history=[{"revision": 3, "updated_at": "2026-10-18T05:37:32Z", "updated_by": 5885953495, "rules_sha256_12": "4f53cda18c2b"}, {"revision": 2, "updated_at": "2026-10-17T23:00:23Z", "updated_by": 5885953495, "rules_sha256_12": "4f53cda18c2b"}, {"revision": 1, "updated_at": "2026-10-17T23:00:23Z", "updated_by": 5885953495, "rules_sha256_12": "4f53cda18c2b"}]
+STATE image_reservation rows=1
+STATE reservation {"reservation_key": "-1009900000201:990000701:direct", "status": "committed", "error_code": "", "delivery_failed": "False", "day": "2026-10-18"}
+STATE throttle_rows=0 []
+STATE mca_events_for_synth=1
+STATE event {"ts": "1792302353", "level": "WARN", "event_name": "direct_chat_throttle", "outcome": "skipped", "component": "direct_chat", "stage": "cooldown", "reason_code": "rate_limit", "chat_id": "-1009900000201", "usage_json": "{\"remaining_seconds\": 180.0, \"burst_limit\": 1, \"cooldown_seconds\": 180.0, \"source\": \"chat\"}"}
+STATE factcheck_runs_for_synth=1 [{"run_id": "tfr-38ab2b7fa98b44cb", "factual_verdict": "supported", "temporal_status": "old_but_valid"}]
+STATE limits burst=10 cooldown=300.0
+STATE done
+###RC=0###
+[?2004hnik@racknerd-f4e3456:/var/www/admin_bot$ 
+=== POST: journal окна (read-only, sudo) ===
+sudo -S journalctl -u admin_bot --since '30 min ago' --no-pager | grep -c ' ERROR ' ; echo ---ERR_END; journalctl -u admin_bot --since '30 min ago' --no-pager | grep -c ' CRITICAL ' ; echo ---CRIT_END; journalctl -u admin_bot --since '30 min ago' --no-pager | grep -c 'Traceback' ; echo ---TB_END; journalctl -u admin_bot --since '30 min ago' -o short-iso --no-pager | grep -c '\[tma-auth\].*valid=True' ; echo ---TMA_END; curl -s http://127.0.0.1:8000/healthz ; echo "###RC=$?###"
+[?2004l[sudo] password for nik: 
+0
+---ERR_END
+0
+---CRIT_END
+0
+---TB_END
+21
+---TMA_END
+{"status":"ok","version":"2.58.88"}###RC=0###
+[?2004hnik@racknerd-f4e3456:/var/www/admin_bot$ 

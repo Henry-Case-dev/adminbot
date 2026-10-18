@@ -1,0 +1,17 @@
+hash-bind: прод-дерево (2.58.88, HEAD c37b8577) vs релизный коммит c37b8577
+источник прод-хешей: AC1 P0_SHA INFO (прогон 1/2, /tmp/agent_checks_w1_probe.py)
+services/direct_chat_service.py  release=7a613dc9b406  prod=7a613dc9b406  MATCH
+services/chat_params.py  release=f480530b6c12  prod=f480530b6c12  MATCH
+services/persistent_throttling.py  release=1a222e926aeb  prod=1a222e926aeb  MATCH
+services/mca_events.py  release=147a4539a2e0  prod=147a4539a2e0  MATCH
+services/style_policy.py  release=f5eff9607d15  prod=f5eff9607d15  MATCH
+services/response_extent.py  release=24628ba37455  prod=24628ba37455  MATCH
+services/direct_capabilities.py  release=74e59e8c14f0  prod=74e59e8c14f0  MATCH
+services/image_generation.py  release=d5e49dd68d17  prod=d5e49dd68d17  MATCH
+services/capability_registry.py  release=6f650a2c9771  prod=6f650a2c9771  MATCH
+services/worker_budget.py  release=aca285df6357  prod=aca285df6357  MATCH
+services/chat_prompts.py  release=0b0ad23784c8  prod=0b0ad23784c8  MATCH
+web/api/speech.py  release=a69a67536ebe  prod=a69a67536ebe  MATCH
+
+RESULT: 12/12 MATCH — доказательства пробы относятся к развёрнутому кандидату c37b8577 (2.58.88)
+Прод-факты сессии: HEAD=c37b85779cc41ad716304024ebeea86ad4081071, TRACKED_MOD=0, healthz 2.58.88 (прогон 2, CTX/POST-блоки)

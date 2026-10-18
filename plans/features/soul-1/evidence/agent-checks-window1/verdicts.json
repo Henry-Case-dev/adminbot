@@ -1,0 +1,81 @@
+[
+  {
+    "line": "OQ-12 / CFG-01.6 + AC1/AC2/AC4 (живая половина)",
+    "verdict": "Готово к VERIFIED (леджеру)",
+    "facts": [
+      "per-chat override через POST /api/config (X-Chat-Id): burst=1, cooldown=180; resolve source='chat'",
+      "фраза отказа: 'рот оффни на 3 мин, я не нанимался с тобой болтать без остановки' (шаблон R50-7)",
+      "остаток совпал с состоянием слота: '3 мин' == 180.0s (delta=0.0s); без «технически не могу»",
+      "вьюер: GET /api/status/logs?component=direct_chat&chat_id=… → events=1 matched=1; usage_json.source='chat'",
+      "очистка: profile_rows=0, throttle_rows=0; глобальные лимиты не изменены (10/300 → 10/300)"
+    ],
+    "artifact": "plans/features/soul-1/evidence/agent-checks-window1/probe-run-2-raw.txt",
+    "run_tags": ["A2_config_override", "A3_resolve_effective", "A6_phrase_text", "A7_phrase_contract", "A10_viewer_event", "A11_event_payload", "A12_cleanup"]
+  },
+  {
+    "line": "OQ-9(a) forms one_word/micro/edge (SOUL-05.2/05.3/05.5)",
+    "verdict": "Готово к VERIFIED (леджеру); живой чат — необязательная владельческая наблюдаемость",
+    "facts": [
+      "9 кейсов прод-валидатора check_extent: pass/failed/repaired с честными reason, без обрезки содержательного текста",
+      "«Да!!!»/«OK!!!/по-хорошему» → one_word pass (без изменений); «Готово 🔥» → repaired (снят emoji-хвост)",
+      "try-композер на 4 входах: layers channel_contract×2+core, extent.values 7 значений, delivery=false, 0 LLM"
+    ],
+    "artifact": "plans/features/soul-1/evidence/agent-checks-window1/probe-run-1-raw.txt",
+    "run_tags": ["B1_form_matrix", "B2_try_composer"]
+  },
+  {
+    "line": "OQ-9(b) Style scope=global → ревизия видна следующей try (SOUL-AMD.8.3 часть)",
+    "verdict": "Готово к VERIFIED (леджеру) с документированным нюансом ревизии",
+    "facts": [
+      "write: applied=true revision=2→3; try до/после: c2.75bada4c52c3 → c3.5bc205ee3e86",
+      "возврат: содержимое как было (rules=0/soft=0), soft=0, проба-инструкция удалена; revision=4 (history 3/4)",
+      "проба-правка была выключенной (enabled=false) — нулевое влияние на голос"
+    ],
+    "artifact": "plans/features/soul-1/evidence/agent-checks-window1/probe-run-1-raw.txt",
+    "run_tags": ["C3_style_write", "C4_try_after_new_rev", "C5_restore", "C6_final_state"]
+  },
+  {
+    "line": "OQ-9(c) «не рисуй» не генерирует; один платный вызов на намерение (SOUL-AMD.5.17 + 5.9/5.10)",
+    "verdict": "Готово к VERIFIED (леджеру)",
+    "facts": [
+      "10 фраз классификатора: явное поручение actionable=True; отрицание/придумать/цитата/сам/обсуждение — не поручение",
+      "veto: regex-дверь открыта (is_keyword=true), но генераций 0 (block empty, provider_calls=0)",
+      "реальная генерация: provider_calls=1, delivery='sent', journal committed, квота chat=1/global+1",
+      "повтор того же хода: delivery='already', provider_calls=0"
+    ],
+    "artifact": "plans/features/soul-1/evidence/agent-checks-window1/probe-run-1-raw.txt",
+    "run_tags": ["D1_intent", "D2_veto_*", "D4_one_generation", "D5_replay_no_second", "D6_journal_committed"]
+  },
+  {
+    "line": "OQ-9(d) правдивые отказы инструмента (per-chat OFF, голос Core)",
+    "verdict": "Готово к VERIFIED (леджеру)",
+    "facts": [
+      "flags.image_generation_module_enabled=false для синтетики → status=disabled, reason=module_disabled",
+      "текст ровно из управляемого шаблона message.image_failure.disabled, без «я вообще не умею»",
+      "provider_calls=0; override снят (overrides_after={})"
+    ],
+    "artifact": "plans/features/soul-1/evidence/agent-checks-window1/probe-run-2-raw.txt",
+    "run_tags": ["D7_off_refusal", "D7_status_message", "D8_override_clean"]
+  },
+  {
+    "line": "OQ-9(e) поиск и фактчек — по одному минимальному сценарию",
+    "verdict": "Готово к VERIFIED (леджеру) для поиска и фактчека; видео — остаток",
+    "facts": [
+      "execute_web_search: реальные результаты, 2.5s, 4039 символов",
+      "fact_check: status=ready, factual_verdict=supported, temporal_status=old_but_valid, durable tfr-38ab2b7fa98b44cb",
+      "video_summary: not_configured (media_source_unconfigured/cobalt_absent) — сценарий отложен честно"
+    ],
+    "artifact": "plans/features/soul-1/evidence/agent-checks-window1/probe-run-1-raw.txt",
+    "run_tags": ["E1_search", "E2_factcheck", "E3_video_deferred"]
+  },
+  {
+    "line": "OQ-9(f) длинный редакционный текст: ссылки/цитаты целы (SOUL-AMD.1.7, try-проба)",
+    "verdict": "Готово к VERIFIED (леджеру); реальная публикация — необязательная владельческая наблюдаемость",
+    "facts": [
+      "try(editorial_report) 568 знаков: protected_count=4, канал собран, отправки нет",
+      "style-pass с 3 ЖЁСТКИМИ пресетами: URL/цитата/код/версия сохранены; honest conflicts вместо ложного pass; изменена только завершающая точка"
+    ],
+    "artifact": "plans/features/soul-1/evidence/agent-checks-window1/probe-run-1-raw.txt",
+    "run_tags": ["F1_try_long", "F2_style_pass_protected"]
+  }
+]
