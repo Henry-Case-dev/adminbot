@@ -1,0 +1,8 @@
+[recon rc=0, 5.0s]
+RECON_OK
+racknerd-f4e3456
+2026-10-18T07:36:33Z
+HEAD=c37b8577
+BRANCH=release/cfg1-2.58.88
+HZ={"status":"ok","version":"2.58.88"}
+

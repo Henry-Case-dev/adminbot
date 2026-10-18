@@ -1,0 +1,5 @@
+CMD: ['py', '-3', 'tools/gen_param_registry_round1025.py', '--check']
+RC: 0
+DURATION: 0.2s
+
+CHECK OK: реестр 575 == REGISTRY, карта полна, R17-чисто, TSV/map идемпотентны.

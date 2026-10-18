@@ -1,0 +1,30 @@
+SHA256_12 of release-tree files (branch tip) + probe refs
+prod=c37b85779cc41ad716304024ebeea86ad4081071 port=119b1f7d8e88bc4e697b74b8ddf1e8cebebd66d4 cfg-cand=83ecd202659c2e1a30b46f8548b0809e892b77a9 speech-cand=720be161
+
+services/image_generation.py                               head=db1d60cd4b54 prod=d5e49dd68d17 cfgcand=db1d60cd4b54 spech=db1d60cd4b54
+services/tool_router.py                                    head=70840e163e17 prod=676a9df7a8a1 cfgcand=70840e163e17 spech=70840e163e17
+services/worker_budget.py                                  head=e18dab826da1 prod=aca285df6357 cfgcand=e18dab826da1 spech=e18dab826da1
+tests/js/round1024_image_module_test.js                    head=ba0f886dbcdd prod=426e5154a6c2 cfgcand=ba0f886dbcdd spech=ba0f886dbcdd
+tests/test_cfg02a_image_quota_ui.py                        head=2e80397e2562 prod=- cfgcand=2e80397e2562 spech=2e80397e2562
+tests/test_soul1_capability_fallbacks.py                   head=cf7f08090b57 prod=12c1a8452975 cfgcand=cf7f08090b57 spech=cf7f08090b57
+tests/test_speech_mobile_entry_contract.py                 head=3e444435d9e7 prod=- cfgcand=- spech=3e444435d9e7
+tests/ui_speech_mobile_entry_e2e.py                        head=eccf7509c0a7 prod=- cfgcand=- spech=eccf7509c0a7
+tools/ui_cfg02a_image_quota_e2e.py                         head=2f8a6e463957 prod=- cfgcand=2f8a6e463957 spech=2f8a6e463957
+web/app.js                                                 head=2757a25d663d prod=5a810c0f4443 cfgcand=2cb8b0b4f65e spech=2757a25d663d
+web/index.html                                             head=f79f9ad58457 prod=0971d49d5337 cfgcand=5578239e932f spech=f79f9ad58457
+web/static/app.css                                         head=d6b848cdecd0 prod=d700df753d6d cfgcand=d700df753d6d spech=d6b848cdecd0
+config/settings.py                                         head=a6a2d1a8408b prod=2cf07823cb2a cfgcand=e2b06872b2c8 spech=e2b06872b2c8
+README.md                                                  head=b260b48ee2a9 prod=f92887e22495 cfgcand=8afad87b9f42 spech=8afad87b9f42
+plans/docs/param-registry-round1025.meta.md                head=eda111614331 prod=248b35708a88 cfgcand=e278784559eb spech=e278784559eb
+web/static/fullscreen-policy.js                            head=96db06425079 prod=96db06425079 cfgcand=96db06425079 spech=96db06425079
+web/static/glass-refraction.js                             head=6a09d962d59d prod=6a09d962d59d cfgcand=6a09d962d59d spech=6a09d962d59d
+web/api/speech.py                                          head=a69a67536ebe prod=a69a67536ebe cfgcand=a69a67536ebe spech=a69a67536ebe
+web/api/initiative_vitality.py                             head=4dd2510532bd prod=4dd2510532bd cfgcand=4dd2510532bd spech=4dd2510532bd
+services/prompt_registry.py                                head=a606bcafc1be prod=a606bcafc1be cfgcand=a606bcafc1be spech=a606bcafc1be
+services/prompt_composer.py                                head=fd8a2a70d5d7 prod=fd8a2a70d5d7 cfgcand=fd8a2a70d5d7 spech=fd8a2a70d5d7
+services/smartmodule_phrases.py                            head=04ed64429e88 prod=04ed64429e88 cfgcand=04ed64429e88 spech=04ed64429e88
+services/style_policy.py                                   head=f5eff9607d15 prod=f5eff9607d15 cfgcand=f5eff9607d15 spech=f5eff9607d15
+handlers/direct_chat.py                                    head=c42cbd40a16c prod=c42cbd40a16c cfgcand=c42cbd40a16c spech=c42cbd40a16c
+services/persistent_throttling.py                          head=1a222e926aeb prod=1a222e926aeb cfgcand=1a222e926aeb spech=1a222e926aeb
+services/chat_params.py                                    head=f480530b6c12 prod=f480530b6c12 cfgcand=f480530b6c12 spech=f480530b6c12
+services/direct_chat_service.py                            head=7a613dc9b406 prod=7a613dc9b406 cfgcand=7a613dc9b406 spech=7a613dc9b406

@@ -1,0 +1,65 @@
+CMD: ['py', '-3', 'C:\\Users\\main\\.config\\opencode\\OpenCodeScratch\\adminbot-ccef72c25768\\release-25889\\frozen_check_25889.py']
+RC: 0
+DURATION: 1.6s
+
+=== 1. changed files in code trees (web/handlers/tools/services/config) == only payload + settings bump ===
+changed: ['config/settings.py', 'services/image_generation.py', 'services/tool_router.py', 'services/worker_budget.py', 'tools/ui_cfg02a_image_quota_e2e.py', 'web/app.js', 'web/index.html', 'web/static/app.css']
+=== 2. services/param_catalog.py + CFG-01 runtime byte-equal ===
+services/param_catalog.py                  BYTE-EQUAL
+services/persistent_throttling.py          BYTE-EQUAL
+services/chat_params.py                    BYTE-EQUAL
+services/direct_chat_service.py            BYTE-EQUAL
+handlers/direct_chat.py                    BYTE-EQUAL
+=== 3. frozen assets ===
+web/static/vendor/lg-lens-map.png                  base=b4cb97adb8fc head=b4cb97adb8fc work=b4cb97adb8fc -> SAME
+web/static/vendor/liquidglass.core.0.5.3.min.js    base=77e8a873fb77 head=77e8a873fb77 work=77e8a873fb77 -> SAME
+=== 4. polygon blobs in index.html ===
+base=['3122756e'] head=['3122756e'] -> SAME
+=== 5. glass anchors in app.css (counts head >= base) ===
+#lg-lens       base=11 head=11 OK
+--lg-refract   base=0 head=0 OK
+data-glass     base=54 head=54 OK
+=== 6. CRLF non-increase (touched text files) ===
+web/index.html                     base=0 head=0 work=0 -> OK
+web/app.js                         base=0 head=0 work=0 -> OK
+web/static/app.css                 base=6 head=6 work=6 -> OK
+services/image_generation.py       base=0 head=0 work=0 -> OK
+services/worker_budget.py          base=0 head=0 work=0 -> OK
+services/tool_router.py            base=0 head=0 work=0 -> OK
+=== 7. WG markers preserved (head >= base) ===
+web/app.js             data-refract-layer     base=6 head=6 OK
+web/app.js             __GlassRefraction      base=8 head=8 OK
+web/app.js             __GlassProbe           base=9 head=9 OK
+web/app.js             glass-refraction.js    base=2 head=2 OK
+web/index.html         glass-refraction.js    base=1 head=1 OK
+web/index.html         fullscreen-policy.js   base=2 head=2 OK
+web/static/app.css     data-refract-layer     base=4 head=4 OK
+web/static/app.css     --lg-refract           base=0 head=0 OK
+=== 8. CFG-02A markers present (head == candidate counts) ===
+services/image_generation.py     image_reserve_mode         cand=2 head=2 OK
+services/image_generation.py     image_quota_reset_note     cand=2 head=2 OK
+services/worker_budget.py        reserve_path               cand=4 head=4 OK
+services/worker_budget.py        image_usage_summary        cand=2 head=2 OK
+services/worker_budget.py        reserve_image              cand=1 head=1 OK
+services/tool_router.py          image_quota_reset_note     cand=1 head=1 OK
+web/app.js                       imageQuotaFacts            cand=1 head=1 OK
+web/app.js                       saveImageDailyLimit        cand=1 head=1 OK
+web/app.js                       maybeLoadImageQuota        cand=2 head=2 OK
+web/app.js                       imageQuotaValueValid       cand=2 head=2 OK
+web/app.js                       limits_images              cand=5 head=5 OK
+web/app.js                       Лимиты генерации           cand=5 head=5 OK
+web/index.html                   data-image-quota-facts     cand=2 head=2 OK
+web/index.html                   Лимиты генерации           cand=1 head=1 OK
+web/index.html                   Изображений в сутки        cand=2 head=2 OK
+=== 9. speech markers present (head == candidate counts) ===
+web/app.js           hubSpeechEntry           cand=1 head=1 OK
+web/app.js           #/ai/speech              cand=7 head=7 OK
+web/index.html       data-speech-hub-entry    cand=1 head=1 OK
+web/index.html       speech-hub-entry         cand=7 head=7 OK
+web/index.html       Речь и характер          cand=6 head=6 OK
+web/static/app.css   .speech-hub-entry        cand=7 head=7 OK
+web/app.js           edit_note                cand=1 head=1 OK
+record_voice_over count (expect 0, glyph replaced): 0
+=== 10. image quota key untouched in catalog (no new key) ===
+param_catalog.py literal occurrences: 1
+RESULT: OK

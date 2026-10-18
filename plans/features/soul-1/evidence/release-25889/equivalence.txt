@@ -1,0 +1,27 @@
+RUNTIME-BYTE EQUIVALENCE (ported payload == reviewed candidates)
+
+### git diff 83ecd202 HEAD -- <7 CFG-02A payload files> (expect empty)
+(empty)
+
+### git diff 720be161 HEAD -- <5 speech payload files> (expect empty)
+(empty)
+
+### git diff c37b8577 HEAD -- tests/test_webapp_js_unit.py (expect empty: checkout no-op, file already prod-identical)
+(empty)
+
+### git diff 2bc13f44 c37b8577 -- <all port paths> (expect empty: prod == CFG-02A/speech base for every ported path)
+(empty)
+
+CFG_PAYLOAD_BYTE_EQUAL_TO_CANDIDATE=True
+SPEECH_PAYLOAD_BYTE_EQUAL_TO_CANDIDATE=True
+PORT_BASE_EQUALS_PROD=True
+
+### git diff c37b8577 HEAD -- web handlers config services (expect only payload + settings.py bump)
+config/settings.py           |   2 +-
+ services/image_generation.py |  61 ++++++++++--
+ services/tool_router.py      |   6 ++
+ services/worker_budget.py    |  22 ++++-
+ web/app.js                   | 216 ++++++++++++++++++++++++++++++++++++++++++-
+ web/index.html               | 174 ++++++++++++++++++++++++++--------
+ web/static/app.css           |  34 +++++++
+ 7 files changed, 466 insertions(+), 49 deletions(-)

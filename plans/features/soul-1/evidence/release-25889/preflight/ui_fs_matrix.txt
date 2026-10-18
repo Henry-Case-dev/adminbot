@@ -1,0 +1,20 @@
+CMD: ['C:\\Code\\Python\\adminbot\\.venv\\Scripts\\python.exe', 'tools/ui_asap8_w2_fullscreen_e2e.py']
+RC: 0
+DURATION: 40.5s
+
+[matrix] config stub: items=573 groups=120
+[matrix] chat-вариант config: override items=115
+[w2-fs] server on 8800
+[w2-fs] S1_android_inline        PASS (25 checks)
+[w2-fs] S2_windowed_inline       PASS (21 checks)
+[w2-fs] S3_tdesktop_visible      PASS (6 checks)
+[w2-fs] S4_no_telegram           PASS (3 checks)
+[w2-fs] S5_ack_flows             PASS (13 checks)
+[w2-fs] S6S7_launch_fullscreen   PASS (7 checks)
+[w2-fs] S8_widths                PASS (18 checks)
+[w2-fs] S9_state_preservation    PASS (20 checks)
+[w2-fs] S10_logo_freed_space     PASS (9 checks)
+[w2-fs] S11_long_title_scope     PASS (11 checks)
+[w2-fs] S12_admin_geom_diag      PASS (30 checks)
+[w2-fs] S13_non_admin_no_diag    PASS (3 checks)
+[w2-fs] итог: 12/12 PASS, артефакты: C:\Users\main\.config\opencode\OpenCodeScratch\adminbot-ccef72c25768\release-25889\wt\plans\features\soul-1\evidence\release-25889\preflight\fs-e2e

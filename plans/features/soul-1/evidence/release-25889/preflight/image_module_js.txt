@@ -1,0 +1,5 @@
+CMD: ['node', 'tests/js/round1024_image_module_test.js']
+RC: 0
+DURATION: 0.0s
+
+IMAGE-MODULE-OK
