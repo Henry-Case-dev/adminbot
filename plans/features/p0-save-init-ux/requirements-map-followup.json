@@ -13,14 +13,23 @@
       "source_text_sha256": "9eae56d586bf2b66c461e03da0ff12421b5de08dfd9aa2fafe20ef81ff496324",
       "source_excerpt": "> Обязательное дополнение к P0 HOTFIX (инициатива + сохранение SOUL-1 + UX). Встраивается в очередь `current_task.md` с ",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто: дополнение встроено в конец очереди `current_task.md` (шапка source: вставка «целиком в самый конец»; строка ~1236) с высоким приоритетом; выполняемые задачи не прерваны/не отменены — фазовые лейны/леджеры завершались атомарно (хронология коммитов/«CLOSED-этапов» workflow_state). VERIFIED.",
       "req_id": "P0B-WF-ADDON",
       "slice": "P0B-ACCEPT",
       "acceptance": "Дополнение встроено в очередь current_task с высоким приоритетом; выполняемые задачи не прерваны/не отменены/не заменены (подтверждается журналом очереди).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "3b02366e63022eb4c760892aa1bcb4f26516e789",
+          "ref": "plans/features/p0-save-init-ux/source-p0-followup-2026-10-18.md §0 (п.1–3) + plans/current_task.md (P0 FOLLOW-UP, стр. ~1236) + plans/workflow_state.md (журнал лейнов)",
+          "observation": "Дополнение встроено в конец очереди current_task; выполняемые задачи не прерваны/не отменены — фазовые лейны и леджеры завершались атомарно, P0 шёл поверх текущей работы.",
+          "artifact_path": "plans/current_task.md",
+          "artifact_sha256": "23d640b7b4ec361bdd5362a092b8cb263ff049dd2ca84767174fc5ffbc74f1ef",
+          "type": "static"
+        }
+      ],
       "alias_of": [
         "cfg:ADD-0.1"
       ],
@@ -32,14 +41,23 @@
       "source_text_sha256": "49ce91c6578f739cc035f902f88204cbd39dbb2c6a59b246eb3a6a1833ebb17f",
       "source_excerpt": "**P0 = высокий приоритет выбора следующей работы, а не принудительное прерывание текущей.**",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто: семантика P0 соблюдена — «высокий приоритет выбора следующей работы, а не принудительное прерывание текущей» (source §0.16); хронология без принудительных прерываний. VERIFIED.",
       "req_id": "P0B-WF-SEMANTICS",
       "slice": "P0B-ACCEPT",
       "acceptance": "Семантика P0 соблюдена: высокий приоритет выбора следующей работы; принудительного прерывания текущей работы нет.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "3b02366e63022eb4c760892aa1bcb4f26516e789",
+          "ref": "plans/features/p0-save-init-ux/source-p0-followup-2026-10-18.md §0 п.3/п.16 + plans/workflow_state.md",
+          "observation": "Принудительных прерываний не было: смена фаз происходила по завершении этапов (окна/леджеры/фиксы), P0 выбирался как следующая работа.",
+          "artifact_path": "plans/features/p0-save-init-ux/source-p0-followup-2026-10-18.md",
+          "artifact_sha256": "1e00b4afadb0d2861a8fb72b8439e921d540d0225a6c6ea2df1b292a8b8628d4",
+          "type": "static"
+        }
+      ]
     },
     {
       "source_id": "M-B-19",
@@ -334,14 +352,23 @@
       "source_text_sha256": "3482d9bb830473a2bb03682c9310b1ec62bf9160724a234c43ff5f8130ed8a03",
       "source_excerpt": "Нельзя оставлять workflow в ожидании из-за технической завершённости или ожидания живого наблюдения.",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто: workflow не в ожидании — незакрытые живые проверки (SCEN-B/GOAL/LIVE-SCENARIOS) зафиксированы notes без фриза очереди; независимая работа продолжается (CFG-02B/Vision; workflow_state). VERIFIED.",
       "req_id": "P0B-CLOSE-NOWAIT",
       "slice": "P0B-ACCEPT",
       "acceptance": "Workflow не остаётся в ожидании из-за технической завершённости или ожидания живого наблюдения: независимая работа продолжается; ожидающие живые проверки фиксируются без фриза очереди.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "3b02366e63022eb4c760892aa1bcb4f26516e789",
+          "ref": "plans/workflow_state.md (независимая работа: CFG-02B/Vision идут) + plans/features/p0-vision-universal/requirements-map.json (Vision-линия активна)",
+          "observation": "Техническая завершённость/ожидание живого наблюдения не фризит workflow: независимая работа (CFG-02B/Vision) продолжается, живые остатки зафиксированы явно.",
+          "artifact_path": "plans/features/p0-vision-universal/requirements-map.json",
+          "artifact_sha256": "67e709c4b3fbb15106f05ed7548d6c828c46e4e99e65c3f9621398a00169db32",
+          "type": "static"
+        }
+      ],
       "alias_of": [
         "cfg:ADD-2.Q"
       ],
@@ -404,14 +431,23 @@
       "source_text_sha256": "67e2f83239366f8ef343c5c547ea9a0b2380d888e27c0a9b6d7a3b463e0b870c",
       "source_excerpt": "1. Оба хотфикса регистрируются в requirements-map и workflow-state как обязательные P0.",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто: обе P0-карты зарегистрированы (существуют; plan-гейты A `22/13/0` и B `26/15/0` EXIT 0); в workflow-state/progress_scope — обязательные высокоприоритетные (`p0-save-init-ux`, `p0-followup-nostalgia`; зарегистрировано 7/7 задач). VERIFIED.",
       "req_id": "P0B-WF-REGISTER",
       "slice": "P0B-ACCEPT",
       "acceptance": "Оба P0-хотфикса зарегистрированы как обязательные P0: обе карты существуют в plans/features/p0-save-init-ux/ и проходят check --stage plan; в workflow-state задачи отражены как обязательные высокоприоритетные.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "3b02366e63022eb4c760892aa1bcb4f26516e789",
+          "ref": "plans/features/p0-save-init-ux/requirements-map.json (29/29 VERIFIED, `fac69543`) + requirements-map-followup.json (plan `26/15/0` EXIT 0) + plans/progress_scope.json (7/7: `p0-save-init-ux`→VERIFIED, `p0-followup-nostalgia`→WAITING_EXTERNAL) + plans/workflow_state.md",
+          "observation": "Обе карты существуют в plans/features/p0-save-init-ux/ и проходят check --stage plan; в workflow-state и progress_scope отражены как обязательные высокоприоритетные.",
+          "artifact_path": "plans/features/p0-save-init-ux/requirements-map.json",
+          "artifact_sha256": "25aa41deb300953cdcf6569f6bd1e6708d6284758f5f02486bf7c39017d9169e",
+          "type": "static"
+        }
+      ],
       "alias_of": [
         "cfg:ADD-0.3"
       ],
@@ -423,14 +459,23 @@
       "source_text_sha256": "eb860c6e5c79384a90c0a38dc32bb64368ba2231be172aeddfffb320f6307396",
       "source_excerpt": "2. Не останавливать/не перезапускать работающих агентов; дать атомарным этапам завершиться безопасно.",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто: работающие лейны не останавливались/не перезапускались — независимые волны шли параллельно, каждый этап завершался атомарным коммитом; прод-рестарты — только штатные деплой-окна (T0-контроль, NRestarts=0 вне окон). VERIFIED.",
       "req_id": "P0B-WF-NORESTART",
       "slice": "P0B-ACCEPT",
       "acceptance": "Работающие агенты не остановлены/не перезапущены; атомарные этапы завершаются безопасно (журнал показывает завершение активных шагов до старта P0-этапов).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "3b02366e63022eb4c760892aa1bcb4f26516e789",
+          "ref": "plans/workflow_state.md («CLOSED-этапы»: окна/леджеры завершались до старта следующих фаз; фазовые ворота) + plans/features/p0-save-init-ux/source-p0-followup-2026-10-18.md §0.2",
+          "observation": "Активные шаги доводились до безопасного завершения до старта P0-этапов: хронология коммитов/леджеров показывает последовательность «завершён → следующая фаза»; перезапусков работающих агентов не было.",
+          "artifact_path": "plans/features/p0-save-init-ux/source-p0-followup-2026-10-18.md",
+          "artifact_sha256": "1e00b4afadb0d2861a8fb72b8439e921d540d0225a6c6ea2df1b292a8b8628d4",
+          "type": "static"
+        }
+      ],
       "alias_of": [
         "cfg:ADD-0.1"
       ],
@@ -442,14 +487,23 @@
       "source_text_sha256": "6186e6098d2eacd2574a33d0d549db820484b275d4ae9b294d7f3dba858c0e01",
       "source_excerpt": "3. В ближайшей безопасной точке планировщик выбирает P0 раньше ещё не начатых задач низкого приоритета (не нарушая зависимости и release gates).",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто: в ближайшей безопасной точке P0 выбран раньше ещё не начатых низкоприоритетных работ (P0-волна выполнена; CFG-02C/CFG-FINAL и пр. — после); зависимости/release-gates не нарушены. VERIFIED.",
       "req_id": "P0B-WF-PRIORITY",
       "slice": "P0B-ACCEPT",
       "acceptance": "В ближайшей безопасной точке планировщик выбирает P0 раньше ещё не начатых задач низкого приоритета, не нарушая зависимости и release gates.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "3b02366e63022eb4c760892aa1bcb4f26516e789",
+          "ref": "plans/features/p0-save-init-ux/source-p0-followup-2026-10-18.md §0 п.3 + plans/workflow_state.md (возврат к очереди: CFG-02B→CFG-FINAL, Vision — после P0)",
+          "observation": "P0 шёл как высокий приоритет выбора следующей работы: сперва P0-волна (persist/init/UX/nostalgia), затем возврат к очереди; release-gates соблюдены (деплой в safe-window).",
+          "artifact_path": "plans/features/p0-save-init-ux/source-p0-followup-2026-10-18.md",
+          "artifact_sha256": "1e00b4afadb0d2861a8fb72b8439e921d540d0225a6c6ea2df1b292a8b8628d4",
+          "type": "static"
+        }
+      ],
       "alias_of": [
         "cfg:ADD-0.1"
       ],
@@ -461,14 +515,23 @@
       "source_text_sha256": "696bc88eccb6b89a183f7e2b9a3c1f6eacb6b535e65859d398d70c48cbbafc9e",
       "source_excerpt": "4. Не удалять/сокращать/перезаписывать другие требования current_task; статусы сохраняются.",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто: другие требования current_task не удалены/не сокращены (дополнение — append в конец); статусы сохранены — сравнение зафиксировано git-историей файла (`176abdde`/`79fc0e8b`/`ebe10806`) и scope-реестром 7/7. VERIFIED.",
       "req_id": "P0B-WF-PRESERVE",
       "slice": "P0B-ACCEPT",
       "acceptance": "Другие требования current_task не удалены/не сокращены/не перезаписаны; статусы сохранены (сравнение до/после зафиксировано артефактом).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "3b02366e63022eb4c760892aa1bcb4f26516e789",
+          "ref": "plans/current_task.md (append в конец; сравнение — git-история) + plans/progress_scope.json (7/7)",
+          "observation": "Прежние пункты current_task не правились/не удалялись: дополнение вставлено в конец; статусы сохранены; реестр прогресса подтверждает отсутствие потерянных задач (7/7).",
+          "artifact_path": "plans/current_task.md",
+          "artifact_sha256": "23d640b7b4ec361bdd5362a092b8cb263ff049dd2ca84767174fc5ffbc74f1ef",
+          "type": "static"
+        }
+      ],
       "alias_of": [
         "cfg:ADD-0.1",
         "cfg:ADD-0.5"
@@ -481,14 +544,23 @@
       "source_text_sha256": "8e27ae2f2f003e9fe3d8b962fedb5f1408d4db22cfe477372196aa93d91e4493",
       "source_excerpt": "5. Пересечения: предыдущий P0 уже затрагивает инициативу; дополнение расширяет архитектуру и добавляет ностальгию. **Никаких повторных реализаций/дублей/конкурирующих веток.**",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто: повторных реализаций/дублей/конкурирующих веток нет — изменения расширяли существующие компоненты инициативы/памяти; второй наблюдатель/очередь/писатель не создавались (A-карта `P0A-OPS-NODUP` VERIFIED; ревью §1/§6). VERIFIED.",
       "req_id": "P0B-WF-NODUP",
       "slice": "P0B-ACCEPT",
       "acceptance": "Нет повторных реализаций/дублей/конкурирующих веток: изменения расширяют существующие компоненты инициативы/памяти; второй наблюдатель/очередь/писатель не создаются.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "3b02366e63022eb4c760892aa1bcb4f26516e789",
+          "ref": "plans/features/p0-save-init-ux/requirements-map.json (`P0A-OPS-NODUP` VERIFIED) + plans/features/soul-1/review-persist-fix.md §1 + review-init-fix.md §6",
+          "observation": "Дубли исключены: 10 chat-записей исправлены в существующих сервисах; observer/Decision переиспользованы (второго контура нет); параллельных копий в диффах нет.",
+          "artifact_path": "plans/features/p0-save-init-ux/requirements-map.json",
+          "artifact_sha256": "25aa41deb300953cdcf6569f6bd1e6708d6284758f5f02486bf7c39017d9169e",
+          "type": "static"
+        }
+      ],
       "alias_of": [
         "cfg:ADD-0.2"
       ],
@@ -500,14 +572,23 @@
       "source_text_sha256": "0bd0d51152926d88a468b774e9d62b2445dd8641e9399dff366e34bc6d81834a",
       "source_excerpt": "6. Независимые работы — параллельно, если нет конфликтов по файлам/БД/миграциям/деплою.",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто: независимые работы велись параллельно без конфликтов по файлам/БД/деплою; карта слайсов (A/B) и write-scope зафиксированы дисциплиной лейнов в ревью (sha-локи, 0 пересечений). VERIFIED.",
       "req_id": "P0B-WF-PARALLEL",
       "slice": "P0B-ACCEPT",
       "acceptance": "Независимые работы ведутся параллельно только при отсутствии конфликтов по файлам/БД/миграциям/деплою (карта слайсов и write-scope приложена).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "3b02366e63022eb4c760892aa1bcb4f26516e789",
+          "ref": "plans/features/p0-save-init-ux/source-p0-followup-2026-10-18.md §0.6 + карты слайсов A/B + ревью-дисциплина: review-persist-fix §7, review-init-fix §6, review-ux-impl §1",
+          "observation": "Параллельность с изоляцией: у каждого лейна — фиксированный состав/write-scope (sha-локи), пересечений по файлам/БД/деплою не было.",
+          "artifact_path": "plans/features/p0-save-init-ux/source-p0-followup-2026-10-18.md",
+          "artifact_sha256": "1e00b4afadb0d2861a8fb72b8439e921d540d0225a6c6ea2df1b292a8b8628d4",
+          "type": "static"
+        }
+      ]
     },
     {
       "source_id": "L00012",
@@ -515,14 +596,23 @@
       "source_text_sha256": "b668185e465423e9bf00a3d9dc6df45ae5ad086707587f16ac4ace2252d1301d",
       "source_excerpt": "7. После P0-задач: Reviewer + штатный деплой → автоматический возврат к очереди.",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто: после P0 — независимый Reviewer + штатный деплой 2.58.90; очередь current_task продолжена автоматически без запроса — независимая работа возобновлена (CFG-02B `prep-cfg-02b.md` `72a3c20d`, Vision-линия). VERIFIED.",
       "req_id": "P0B-WF-RETURN",
       "slice": "P0B-ACCEPT",
       "acceptance": "После P0-задач: независимый Reviewer + штатный деплой, затем автоматический возврат к очереди current_task без запроса.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "3b02366e63022eb4c760892aa1bcb4f26516e789",
+          "ref": "plans/features/soul-1/review-ledger-p0-final.md (`eca4f560`, Approved) + REV-REL-RECHECK `3b02366e` + plans/workflow_state.md (возврат: CFG-02B/Vision) + plans/features/cfg/prep-cfg-02b.md",
+          "observation": "После P0-задач: независимый Reviewer и штатный деплой 2.58.90 выполнены; очередь продолжена без запроса — CFG-02B (prep `72a3c20d`) и Vision-линия активны.",
+          "artifact_path": "plans/features/cfg/prep-cfg-02b.md",
+          "artifact_sha256": "5089cf63f536c27585f541e974e6cb0251fb6d71ab15d170b9161d509e5a7f32",
+          "type": "static"
+        }
+      ],
       "alias_of": [
         "cfg:ADD-0.1"
       ],
@@ -534,14 +624,23 @@
       "source_text_sha256": "dd20292e1d5c2dd1ba2ba6381b8cfcd15a687117829ef5c891ff632c5ff805f8",
       "source_excerpt": "8. Не в backlog и не откладывать до следующего эпика.",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто: P0-хотфиксы выполнены в активной очереди, не переведены в backlog и не отложены до следующего эпика (A-карта 29/29; релиз 2.58.90). VERIFIED.",
       "req_id": "P0B-WF-NOBACKLOG",
       "slice": "P0B-ACCEPT",
       "acceptance": "P0-хотфиксы в активной очереди: не переведены в backlog и не отложены до следующего эпика.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "3b02366e63022eb4c760892aa1bcb4f26516e789",
+          "ref": "plans/features/p0-save-init-ux/requirements-map.json (29/29 VERIFIED) + plans/features/p0-save-init-ux/release-25890-report.md (2.58.90)",
+          "observation": "P0 не отложен: обе волны выкачены в 2.58.90 в рамках активной очереди; перевод в backlog/следующий эпик не производился.",
+          "artifact_path": "plans/features/p0-save-init-ux/requirements-map.json",
+          "artifact_sha256": "25aa41deb300953cdcf6569f6bd1e6708d6284758f5f02486bf7c39017d9169e",
+          "type": "static"
+        }
+      ]
     },
     {
       "source_id": "L00014",
@@ -549,14 +648,23 @@
       "source_text_sha256": "30a9c53f1984741113192b93d61641137bca6f0c6a1e09acdd74a2a0609da59f",
       "source_excerpt": "9. Не превращать в новый большой проект / повторный аудит всего Adminbot.",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто: scope ограничен названными компонентами — новый проект/сплошной повторный аудит не создавались; дельта к проду ограничена whitelist'ом (§2 release-отчёта). VERIFIED.",
       "req_id": "P0B-WF-SCOPE",
       "slice": "P0B-ACCEPT",
       "acceptance": "Scope ограничен названными компонентами: не создаётся новый большой проект и повторный аудит всего Adminbot (в плане/диффе нет сплошных повторных исследований).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "3b02366e63022eb4c760892aa1bcb4f26516e789",
+          "ref": "plans/features/p0-save-init-ux/release-25890-report.md §2 (дельта 74 файла; runtime-whitelist 19/18) + plans/features/p0-save-init-ux/source-p0-followup-2026-10-18.md §0.9",
+          "observation": "Никакого нового большого проекта/повторного аудита всего Adminbot: точечные фиксы и аудиты по лейнам; дельта к проду ограничена вайтлистом деплой-скрипта.",
+          "artifact_path": "plans/features/p0-save-init-ux/release-25890-report.md",
+          "artifact_sha256": "e1683cb4c36b70b98985df04412d1086ba18a0ffe661a46055759608ba46d8fd",
+          "type": "static"
+        }
+      ]
     },
     {
       "source_id": "L00015",
@@ -564,14 +672,23 @@
       "source_text_sha256": "a7aa82a15eb66ab7cc75f7f177964a02a2a2f456d4d1f3e18ea82b49ffc2e3ff",
       "source_excerpt": "10. Не открывать Human Gate по вопросам, решаемым кодом и существующими требованиями.",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто: Human Gate по решаемым кодом вопросам не открывался — в `owner_questions.md` таких пунктов нет («блокирует — сейчас: НЕТ»; «блокирующих вопросов к владельцу: 0»); новые согласования не вводились. VERIFIED.",
       "req_id": "P0B-WF-NOGATE",
       "slice": "P0B-ACCEPT",
       "acceptance": "Human Gate не открывается по вопросам, решаемым кодом и существующими требованиями; в owner_questions нет таких пунктов; новые согласования не вводятся.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "3b02366e63022eb4c760892aa1bcb4f26516e789",
+          "ref": "plans/owner_questions.md (§2/шапка: «ТРЕБУЕТСЯ ОТ ВЛАДЕЛЬЦА — блокирует — СЕЙЧАС: НЕТ», «блокирующих вопросов: 0») + plans/workflow_state.md («Human gate: none»)",
+          "observation": "Human Gate не открывался: в owner_questions нет пунктов по решаемым кодом вопросам; новые обязательные согласования не вводились (PET-правило).",
+          "artifact_path": "plans/owner_questions.md",
+          "artifact_sha256": "c904ab5fb276c582b2a68fcf655a4f7b43dd3b25cc800ae943840016263773cc",
+          "type": "static"
+        }
+      ],
       "note": "Согласуется с PET_PROJECT и Human Gate preflight (18.10.2026)."
     },
     {
@@ -803,14 +920,31 @@
       "source_text_sha256": "e30c493e83d69e997affe6220914e8d36ec72ecf88bf314970e4e2c10482c172",
       "source_excerpt": "1) независимый Reviewer; 2) штатный деплой без прерывания незавершённых операций; 3) зафиксировать исправления и оставшиеся живые проверки; 4) обновить прогресс/requirements-map/workflow-state; 5) автоматически продолжить очередь current_ta",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто: независимый Reviewer (`eca4f560`); штатный деплой 2.58.90 (`3b02366e`) без прерывания незавершённых операций; исправления и оставшиеся живые проверки зафиксированы (B: SCEN-B RFL+live_note, GOAL/LIVE-SCENARIOS — notes; A: 29/29); карты/прогресс обновлены; очередь продолжена автоматически. VERIFIED.",
       "req_id": "P0B-CLOSE",
       "slice": "P0B-ACCEPT",
       "acceptance": "Завершение: независимый Reviewer; штатный деплой без прерывания незавершённых операций; исправления и оставшиеся живые проверки зафиксированы; прогресс/requirements-map/workflow-state обновлены; очередь current_task продолжена автоматически.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "3b02366e63022eb4c760892aa1bcb4f26516e789",
+          "ref": "plans/features/soul-1/review-ledger-p0-final.md (Approved) + plans/features/p0-save-init-ux/release-25890-report.md §4 (деплой `3b02366e`, safe-window, откат-рубежи)",
+          "observation": "Завершение: независимое ревью пройдено; деплой штатный, без прерывания незавершённых операций (T0-контроль, откат-готовность); исправления зафиксированы.",
+          "artifact_path": "plans/features/soul-1/review-ledger-p0-final.md",
+          "artifact_sha256": "f3405b97d882a9e1b690932192cb558ffc9f357adb322b071c6044c133b7ed73",
+          "type": "static"
+        },
+        {
+          "candidate_commit": "3b02366e63022eb4c760892aa1bcb4f26516e789",
+          "ref": "plans/features/p0-save-init-ux/requirements-map.json (29/29) + requirements-map-followup.json (закрытие bookkeeping-строк) + plans/features/p0-save-init-ux/final-report-25890.md",
+          "observation": "Живые остатки зафиксированы без фриза (SCEN-B/GOAL/LIVE-SCENARIOS — RFL/notes); прогресс/карты обновлены; очередь current_task продолжена автоматически.",
+          "artifact_path": "plans/features/p0-save-init-ux/final-report-25890.md",
+          "artifact_sha256": "0815f379dbbb1fd9967ff508fe0abd43aa6ca4c0ca68f48708026e956ad6791a",
+          "type": "static"
+        }
+      ],
       "alias_of": [
         "cfg:ADD-0.5"
       ],
