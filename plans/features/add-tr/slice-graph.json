@@ -1,0 +1,80 @@
+{
+  "schema": "openworkflow-slices-v1",
+  "feature": "add-tr",
+  "source": "plans/features/add-tr/source-add-tr-2026-10-19.md",
+  "notes": "write_scope намеренно минимален: полные области заполняет TR-RECON до старта Builder; POSTGEN и VERIFY — задокументированные последовательные соединения (intentional serial joins).",
+  "slices": [
+    {
+      "id": "ADTR-REG",
+      "depends_on": [],
+      "write_scope": [],
+      "acceptance": "Сверка master-vs-prod и учёт: каждый сценарий ADD-TR имеет один из статусов REUSE_VERIFIED/GAP/REGRESSION/PENDING_OWNER_E2E/BLOCKED, выполненные привязаны к evidence; очередь/приоритеты и продолжение current_task зафиксированы.",
+      "outcome": "Rеконсиляция статусов и очередь: ни одно требование не потеряно, повторов нет; master сверен с production revision.",
+      "requirements_ref": "ADTR-REG-AUDIT/QUEUE/MASTER, M-ADTR-REG-DELTA, M-ADTR-REG-CONTINUE",
+      "live_evidence": "нет (реконсиляция/документы)",
+      "risk": "R0",
+      "next_role": "TR-RECON",
+      "join_note": "Пишет только учётные артефакты; параллелен любым workstream'ам."
+    },
+    {
+      "id": "ADTR-GRID",
+      "depends_on": [],
+      "write_scope": [],
+      "acceptance": "Регрессия сетки «Речь и характер» закрыта: одна колонка на узком viewport, читаемые заголовки без пересечений badge, before/after DOMRect/визуальные доказательства на 320/360/390/430; полигон/glass/другие карточки не тронуты без CSS-причины.",
+      "outcome": "Карточки «Речь и характер» снова читаемы и кликабельны на Android-ширинах; регрессия после P0A-UX-COMPACT устранена на первопричину.",
+      "requirements_ref": "ADTR-GRID-REUSE, M-ADTR-GRID-SYMPTOM/ROOTCAUSE/LAYOUT/CHECKS, ADTR-VERIFY-S13 (проверка)",
+      "live_evidence": "live_required postdeploy: проверка на устройстве/честный PENDING_OWNER_E2E; авто-browser обязательны",
+      "risk": "R1",
+      "next_role": "Builder",
+      "join_note": "Кандидатная полоса CSS/web; запускать параллельно с ENTRY/TOOLS только при подтверждённых ответственным recon непересекающихся write scopes."
+    },
+    {
+      "id": "ADTR-ENTRY",
+      "depends_on": [],
+      "write_scope": ["handlers/direct_chat.py"],
+      "acceptance": "Direct-вход обрабатывает цельное событие (text/caption/entities/вложения/media_group/reply/forward), caption не становится отдельной репликой, MessageRef не теряются; старые триггеры приоритетны; чужие разговоры не перехватываются.",
+      "outcome": "Единый вход Direct: текст, подпись, вложение, reply и свободная формулировка маршрутизируются одним контуром.",
+      "requirements_ref": "M-ADTR-ENTRY-EVENT/TRIGGERS/SEMANTIC/REFS/HANDLER",
+      "live_evidence": "финальные проверки — сценарии ADTR-VERIFY-S1…S4, S11, S12, S3",
+      "risk": "R2",
+      "next_role": "Builder",
+      "join_note": "handlers/direct_chat.py назван в источнике; остальные области уточняет TR-RECON."
+    },
+    {
+      "id": "ADTR-TOOLS",
+      "depends_on": [],
+      "write_scope": [],
+      "acceptance": "Vision/Factcheck/Image Generation/Checkup фактически исполняются в допустимом runtime (advertised→вызван→вернул→доставлен), а не только записаны в schema; пять независимых фактов не смешиваются; аудит всего tool inventory выполнен, доказанные дефекты исправлены в существующих компонентах.",
+      "outcome": "Сквозные tool-вызовы из Direct реально работают и доходят до пользователя; дельта к SOUL-1 §5/MCA-19/CFG-06/CFG-02 без повторных реализаций.",
+      "requirements_ref": "ADTR-TOOLS-REUSE-SOUL5/REUSE-FC/REUSE-VISION, ADTR-TOOLS-VISION/FACTCHECK/GENIMG/CHECKUP/AUDIT, M-ADTR-TOOLS-E2E/FIVEFACTS",
+      "live_evidence": "live_required postdeploy: реальные tool invocations и Telegram delivery в конкретном чате",
+      "risk": "R2",
+      "next_role": "Builder",
+      "join_note": "Кандидатная сервисная полоса (tool_router/tool_schemas/mca_vision); пересечения с ENTRY/POSTGEN финализирует TR-RECON."
+    },
+    {
+      "id": "ADTR-POSTGEN",
+      "depends_on": ["ADTR-TOOLS"],
+      "write_scope": [],
+      "acceptance": "Пост-генерационный ответ честен по стадиям: failed/off/on/pending/mismatch/dedup; при Vision ON описание привязано к анализу фактического bitmap; при OFF — краткое подтверждение без деталей; без второго image/vision pipeline.",
+      "outcome": "После генерации бот не выдумывает содержимое картинки; описание возможно только по реально проанализированному финальному изображению.",
+      "requirements_ref": "ADTR-POSTGEN-VOICE/REUSE-GEN/FAILED/OFF/ON/PENDING/MISMATCH/DEDUP, M-ADTR-POSTGEN-DEFECT/REUSE",
+      "live_evidence": "live_required postdeploy: реальная генерация+отправка+анализ (сценарии S8–S10)",
+      "risk": "R2",
+      "next_role": "Builder",
+      "join_note": "Intentional serial join: протокол потребляет стабилизированный generation/delivery путь из ADTR-TOOLS (вероятное пересечение по services/tool_router.py); не запускать параллельно с TOOLS без явного разделения scopes."
+    },
+    {
+      "id": "ADTR-VERIFY",
+      "depends_on": ["ADTR-REG", "ADTR-GRID", "ADTR-ENTRY", "ADTR-TOOLS", "ADTR-POSTGEN"],
+      "write_scope": [],
+      "acceptance": "13 сценариев ADD-TR.5 + edge-cases выполнены с протоколом стадий и конечным Telegram-результатом; evidence привязан к требованиям; DoD 1–5 и короткий человеческий отчёт после релиза закрыты.",
+      "outcome": "Системные доказательства выполнения: сценарии, DoD, отчёт; ни одно требование не закрыто одним «тесты зелёные».",
+      "requirements_ref": "M-ADTR-VERIFY-PROTOCOL/S1…S13/EDGE/EVIDENCE/NATIVE/REPORT, ADTR-VERIFY-DOD1…DOD5",
+      "live_evidence": "live_required postdeploy: конечный Telegram-результат на сценарий; нативный клиент или честный PENDING_OWNER_E2E",
+      "risk": "R1",
+      "next_role": "Reviewer",
+      "join_note": "Финальный join всех полос; исполняется после закрытия зависимостей."
+    }
+  ]
+}
