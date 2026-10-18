@@ -1142,18 +1142,18 @@
       "source_text_sha256": "8922cb611634ebbcb7897b45240fddab1b1287ca55ba544a2d91f290e1eecf63",
       "source_excerpt": "6. При ограничении бот возвращает информативный ответ с фактическим оставшимся временем до следующего разрешённого обращения, без ложного утверждения о технической неспособности. Показать время разблокировки и источник лимита в админке.",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто окном agent-checks-1 (18.10.2026, прод 2.58.88 `c37b8577`; CFG-01 payload перенесён byte-identical — `e25163b7`): реальный `DirectChatService._handle_turn` вернул отказную фразу «рот оффни на 3 мин, я не нанимался с тобой болтать без остановки» с фактическим остатком (хвост «3 мин» == расчёт по состоянию слота, `delta=0.0s`), без «технически не могу»; админский вьюер `GET /api/status/logs?component=direct_chat` → `events=1 matched=1`, `usage_json.source=\"chat\"`. VERIFIED: агентская проверка 18.10; остаточная владельческая наблюдаемость в MiniApp-логгере — необязательна.",
       "req_id": "CFG-01.6",
       "slice": "CFG-01",
       "acceptance": "При ограничении бот отвечает с фактическим остатком времени (без ложного «технически не могу»); время разблокировки и источник лимита видны в админке.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "0282fe4b1eac02c3339586c3abab3952d6c7eae8",
           "ref": "plans/features/cfg/evidence/cfg-01/README.md §3 (CFG-01.6) / §5 п.3",
-          "observation": "Локально: отказ содержит фактический остаток и источник; живой сценарий (MiniApp/админский просмотрщик логов с событием direct_chat_throttle) — §5, стадия postdeploy. процесс CFG (ADD-0.1; plan §процесс.4): owner/live-проверки не блокируют очередь; сценарий — README §5; закрытие — на postdeploy",
+          "observation": "Локально: отказ содержит фактический остаток и источник; живой сценарий закрыт окном agent-checks-1 (18.10.2026) — реальная отказная фраза и событие вьюера (production-эвиденс ниже); остаточная владельческая наблюдаемость необязательна.",
           "artifact_path": "plans/features/cfg/evidence/cfg-01/README.md",
           "artifact_sha256": "428f83b23b4b459a8c2cdd3f53abce12cff981a0805e4ac114d0d838fcf57809"
         },
@@ -1170,9 +1170,17 @@
           "observation": "Raw pytest summaries: base 43f86ef2 `-k Cfg01` -> 7 failed + ImportError 'normalize_direct_chat_limits'; candidate -> 7 passed (167 deselected) and 204 passed for the three CFG-01 test files; 2 pre-existing v35 failures reproduced on base.",
           "artifact_path": "plans/features/cfg/evidence/cfg-01/red-green.txt",
           "artifact_sha256": "3906b84cac021c3497b1412e30186763b9f7a4d712a507d2f722c5193edae51b"
+        },
+        {
+          "candidate_commit": "0282fe4b1eac02c3339586c3abab3952d6c7eae8",
+          "ref": "plans/features/soul-1/evidence/agent-checks-window1/README.md §1 + probe-run-2-raw.txt (A6_phrase_text, A7_phrase_contract, A10_viewer_event, A11_event_payload) + plans/features/soul-1/review-agent-checks-window1.md §1/§8",
+          "observation": "Живой прод 2.58.88 (payload CFG-01 перенесён byte-identical, e25163b7): реальный `_handle_turn` → отказная фраза «рот оффни на 3 мин, …» с фактическим остатком (delta=0.0s к слоту), без «технически не могу»; вьюер: events=1 matched=1, usage_json.source=\"chat\"; отказ до платных стадий (0 провайдерских вызовов).",
+          "artifact_path": "plans/features/soul-1/evidence/agent-checks-window1/probe-run-2-raw.txt",
+          "artifact_sha256": "6c873f9c867b2adf855bd3747df17107bf9a299f3d4a00b83070371bad1e7c86",
+          "type": "production"
         }
       ],
-      "live_note": "процесс CFG (ADD-0.1; plan §процесс.4): owner/live-проверки не блокируют очередь; сценарий — README §5; закрытие — на postdeploy"
+      "live_note": "закрыто окном agent-checks-1 (18.10.2026, прод 2.58.88): реальный отказ с фактическим остатком и источником наблюдался на живом процессе (фраза + событие вьюера `matched=1`); остаточная владельческая наблюдаемость — необязательна."
     },
     {
       "source_id": "L00054",
@@ -1239,7 +1247,7 @@
       "source_text_sha256": "3b8aed4a960ac46980157294215e7c2b523487aa7790e4b647c332aba0f60412",
       "source_excerpt": "- Изменить глобальный burst с 10 на 2 в MiniApp: третий последовательный запрос ограничен по фактической логике; изменить обратно без рестарта и проверить новое поведение.",
       "disposition": "required",
-      "reason": "",
+      "reason": "Остаток после окна agent-checks-1 (18.10.2026, прод 2.58.88): буквальный сценарий «глобальный burst 10→2 → 3-й запрос ограничен → возврат без рестарта» на живом времени не исполнялся — эквивалентный hot-путь подтверждён на chat-scope (burst=1/cooldown=180: второй запрос ограничен, «3 мин» — см. CFG-01.6/AC4); глобальные 10/300 в окне не менялись. Закрытие: короткий агентский прогон с мгновенным возвратом ЛИБО явное принятие эквивалентности (леджер/PM).",
       "req_id": "CFG-01.AC1",
       "slice": "CFG-01",
       "acceptance": "Глобальный burst 10→2: третий последовательный запрос реально ограничен; возврат значения без рестарта снова меняет поведение.",
@@ -1276,7 +1284,7 @@
           "artifact_sha256": "3906b84cac021c3497b1412e30186763b9f7a4d712a507d2f722c5193edae51b"
         }
       ],
-      "live_note": "процесс CFG (ADD-0.1; plan §процесс.4): owner/live-проверки не блокируют очередь; сценарий — README §5; закрытие — на postdeploy"
+      "live_note": "окно agent-checks-1 (18.10.2026): остаток — буквальный global-сценарий 10→2 с возвратом; эквивалентный hot-путь подтверждён на chat-scope. Строка READY_FOR_LIVE (остаток не блокирует очередь — процесс CFG, ADD-0.1)."
     },
     {
       "source_id": "L00059",
@@ -1284,7 +1292,7 @@
       "source_text_sha256": "2e2ffe898c2a76e307e0b766cff5370f7bbfad8600aded8587098c3f825300e1",
       "source_excerpt": "- Установить другой burst и cooldown одному чату: другой чат продолжает работать по global.",
       "disposition": "required",
-      "reason": "",
+      "reason": "Остаток после окна agent-checks-1 (18.10.2026, прод 2.58.88): живой резолв «второго чата по global» не наблюдался; утечки override нет (глобальные 10/300 до/после; `source=\"chat\"` только у синтетики; профиль/overrides сняты). Закрытие: один resolves-чек второго чата ЛИБО явное принятие.",
       "req_id": "CFG-01.AC2",
       "slice": "CFG-01",
       "acceptance": "Chat override с другим burst/cooldown: второй чат продолжает работать по global-значению.",
@@ -1314,7 +1322,7 @@
           "artifact_sha256": "9f3f96afff27905f6f7201edce613cb381c6d1456fb0a308931573f86ff9d409"
         }
       ],
-      "live_note": "процесс CFG (ADD-0.1; plan §процесс.4): owner/live-проверки не блокируют очередь; сценарий — README §5; закрытие — на postdeploy"
+      "live_note": "окно agent-checks-1 (18.10.2026): остаток — живой резолв второго чата по global (утечки override нет). Строка READY_FOR_LIVE (остаток не блокирует очередь — процесс CFG, ADD-0.1)."
     },
     {
       "source_id": "L00060",
@@ -1366,18 +1374,18 @@
       "source_text_sha256": "0bfed1cf4f05305358f17f78c4c32a8d812269d713c7c45eae82c94af762a4f2",
       "source_excerpt": "- Проверить, что отказ генерируется до дорогостоящего LLM/tool вызова, а остаток времени корректен, не отрицателен и предсказуем.",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто окном agent-checks-1 (18.10.2026, прод 2.58.88 `c37b8577`): отказ генерируется до дорогого LLM/tool вызова (сервис собран с `llm=None`, отправка за 0.0s, 0 провайдерских вызовов); остаток фактический и неотрицательный («3 мин» == 180.0s, `delta=0.0s` к состоянию слота), предсказуемый; событие `direct_chat_throttle` с `remaining_seconds=180.0/burst_limit=1/cooldown_seconds=180.0/source=\"chat\"` видно вьюеру (matched=1). VERIFIED: агентская проверка 18.10.",
       "req_id": "CFG-01.AC4",
       "slice": "CFG-01",
       "acceptance": "Отказ генерируется до дорогого LLM/tool вызова; остаток времени корректен, не отрицателен и предсказуем.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "0282fe4b1eac02c3339586c3abab3952d6c7eae8",
           "ref": "plans/features/cfg/evidence/cfg-01/README.md §3 (CFG-01.AC4) / §5 п.4",
-          "observation": "Локально: отказ генерируется до LLM/tool (llm.call_count не растёт), остаток > 0 и ≤ паузы, событие с remaining_seconds. Живой прогон по usage-логам — §5 (postdeploy). процесс CFG (ADD-0.1; plan §процесс.4): owner/live-проверки не блокируют очередь; сценарий — README §5; закрытие — на postdeploy",
+          "observation": "Локально: отказ генерируется до LLM/tool (llm.call_count не растёт), остаток > 0 и ≤ паузы, событие с remaining_seconds; живой прогон закрыт окном agent-checks-1 (18.10.2026) — см. production-эвиденс ниже.",
           "artifact_path": "plans/features/cfg/evidence/cfg-01/README.md",
           "artifact_sha256": "428f83b23b4b459a8c2cdd3f53abce12cff981a0805e4ac114d0d838fcf57809"
         },
@@ -1394,9 +1402,17 @@
           "observation": "остаток отказа ≤ паузы (denied <= 300.0) и > 0 — предсказуемость остатка после смены лимита.",
           "artifact_path": "tests/test_persistent_throttling.py",
           "artifact_sha256": "9f3f96afff27905f6f7201edce613cb381c6d1456fb0a308931573f86ff9d409"
+        },
+        {
+          "candidate_commit": "0282fe4b1eac02c3339586c3abab3952d6c7eae8",
+          "ref": "plans/features/soul-1/evidence/agent-checks-window1/README.md §1 + probe-run-2-raw.txt (A5–A8, A10/A11) + plans/features/soul-1/review-agent-checks-window1.md §1/§8",
+          "observation": "Живой прод 2.58.88: отказ до платных стадий (llm=None, 0 провайдерских вызовов); остаток фактический/неотрицательный — «3 мин» == 180.0s, delta=0.0s; событие direct_chat_throttle с remaining_seconds=180.0, source=\"chat\" (matched=1).",
+          "artifact_path": "plans/features/soul-1/evidence/agent-checks-window1/probe-run-2-raw.txt",
+          "artifact_sha256": "6c873f9c867b2adf855bd3747df17107bf9a299f3d4a00b83070371bad1e7c86",
+          "type": "production"
         }
       ],
-      "live_note": "процесс CFG (ADD-0.1; plan §процесс.4): owner/live-проверки не блокируют очередь; сценарий — README §5; закрытие — на postdeploy"
+      "live_note": "закрыто окном agent-checks-1 (18.10.2026, прод 2.58.88): отказ до LLM/tool, фактический остаток (delta=0.0s), событие с remaining_seconds во вьюере (matched=1); остаточная владельческая наблюдаемость — необязательна."
     },
     {
       "source_id": "L00063",

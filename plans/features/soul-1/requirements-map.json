@@ -934,13 +934,13 @@
       "source_text_sha256": "2e8ff6d67d493661cf6cfa562700b962a88e4a5a4a7e4d37f06113a3cb70bac0",
       "source_excerpt": "**Обязательный фикс:** сейчас `services/direct_l1.py` знает `one_word`, но преобразует его в `micro` для `ResponsePlan`; это теряет строгий контракт. Исправить end-to-end: выбранное `one_word` или прямое «ответь одним словом» проходит весь ",
       "disposition": "required",
-      "reason": "Движок/мок-часть подтверждены на кандидате 4c8405e7 (review-w3 §4 ledger + recheck F3; evidence/w3/style-payload-demo.txt §2: L1Plan extent=one_word без схлопывания, payload «Да» = 1 лексическое слово, честный failed без обрезки); живая половина (реальный прогон/отправка в рабочий Telegram-чат) требует включённого контура — канарейка/postdeploy; классификация по образцу SOUL-AMD.8.3 / SOUL-17.4 / SOUL-10.P5 / SOUL-11.4. Релиз 2.58.86 (постдеплой 18.10, прод `eafbe2e7`): gates 10/10 ON, в т.ч. `smart_verbalizer_modes_enabled`; try-проба на живом процессе отдаёт собранный payload с Core (`layers_current=[channel_contract, channel_contract, core]`). Остаётся живое: реальный ответ в чате (ровно один лексический токен / 2–8 слов без служебных хвостов) — owner-сценарий, чек-лист `postdeploy-observations.md`, окно 24–48 ч. Классификация READY_FOR_LIVE после релиза 2.58.86: агентская часть релизного прогона подтверждена (evidence ниже), остаток — owner-сценарии из `postdeploy-observations.md` (чек-лист; строки НЕ закрываются до живого подтверждения).",
+      "reason": "Движок/мок-часть подтверждены на кандидате 4c8405e7 (review-w3 §4 ledger + recheck F3; evidence/w3/style-payload-demo.txt §2: L1Plan extent=one_word без схлопывания, payload «Да» = 1 лексическое слово, честный failed без обрезки). Агентская проверка 18.10 (окно agent-checks-1, прод 2.58.88 `c37b8577`): прод-валидатор `check_extent` — 9 форм-кейсов; `Да!!!`/`OK!!!`/`по-хорошему`/`да` → one_word pass без изменений; `Готово 🔥` → repaired (снят emoji-хвост); `Да, конечно, всё сделаю` → честный failed `one_word_multiple_words` без обрезки; try-композер — Core в слоях, 7 extent-значений, 0 LLM. VERIFIED: агентская проверка 18.10; остаточная наблюдаемость в живом чате (владелец видит ответ ровно в одно слово) — необязательна.",
       "req_id": "SOUL-05.2",
       "slice": "W3",
       "acceptance": "Выбранный one_word или прямое требование ответить одним словом проходит весь маршрут до финального Writer и даёт ровно одно лексическое слово без второго слова, пояснения, emoji-хвоста и служебных меток, если задача допускает такой ответ",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "4c8405e783ac005ac0044974c5fbd7e518d12e2a",
@@ -959,10 +959,18 @@
         {
           "candidate_commit": "6094a2cfa1660d1b949dcfe5ec085bc08f080de4",
           "ref": "postdeploy-observations.md — классификация 29 READY_FOR_LIVE (агентская часть / owner-сценарии)",
-          "observation": "Owner-чек-лист строки зафиксирован; ничего не объявлено VERIFIED релизным прогоном.",
+          "observation": "Справочный постдеплой-чек-лист строки; по переклассификации 18.10 остаточная наблюдаемость в живом чате необязательна — агентская часть подтверждена окном agent-checks-1 (см. production-эвиденс строки).",
           "artifact_path": "plans/features/soul-1/evidence/release-soul-25886/postdeploy-observations.md",
           "artifact_sha256": "482cbe9868df3d9336c2895cf18a82192926ee2d7e3a17d0cbcd6ee3b0bb78d8",
           "type": "static"
+        },
+        {
+          "candidate_commit": "c37b85779cc41ad716304024ebeea86ad4081071",
+          "ref": "plans/features/soul-1/evidence/agent-checks-window1/README.md §2 + probe-run-1-raw.txt (B1_form_matrix: 9 кейсов реального check_extent; B2_try_composer) + plans/features/soul-1/review-agent-checks-window1.md §2/§8",
+          "observation": "Прод 2.58.88: one_word — «Да!!!»/«OK!!!»/«по-хорошему»/«да» pass без изменений; «Готово 🔥» → repaired (снят emoji-хвост); «Да, конечно, всё сделаю» → honest failed без обрезки содержательного текста; try-композер отдаёт payload с Core (0 LLM).",
+          "artifact_path": "plans/features/soul-1/evidence/agent-checks-window1/probe-run-1-raw.txt",
+          "artifact_sha256": "20d09df19ad9d7bc9fbacdf9e4f7b1ed287e895d8656e33a90054dfa7c6cfb49",
+          "type": "production"
         }
       ]
     },
@@ -972,13 +980,13 @@
       "source_text_sha256": "2e8ff6d67d493661cf6cfa562700b962a88e4a5a4a7e4d37f06113a3cb70bac0",
       "source_excerpt": "**Обязательный фикс:** сейчас `services/direct_l1.py` знает `one_word`, но преобразует его в `micro` для `ResponsePlan`; это теряет строгий контракт. Исправить end-to-end: выбранное `one_word` или прямое «ответь одним словом» проходит весь ",
       "disposition": "required",
-      "reason": "Движок/мок-часть подтверждены на кандидате 4c8405e7 (review-w3 §4: «one_word значением, micro без cap», tests/test_soul1_extent_one_word.py — 25 тестов); живая половина (реальный прогон/отправка) требует включённого контура — канарейка/postdeploy; классификация по образцу SOUL-AMD.8.3 / SOUL-17.4 / SOUL-10.P5 / SOUL-11.4. Релиз 2.58.86 (постдеплой 18.10, прод `eafbe2e7`): gates 10/10 ON, в т.ч. `smart_verbalizer_modes_enabled`; try-проба на живом процессе отдаёт собранный payload с Core (`layers_current=[channel_contract, channel_contract, core]`). Остаётся живое: реальный ответ в чате (ровно один лексический токен / 2–8 слов без служебных хвостов) — owner-сценарий, чек-лист `postdeploy-observations.md`, окно 24–48 ч. Классификация READY_FOR_LIVE после релиза 2.58.86: агентская часть релизного прогона подтверждена (evidence ниже), остаток — owner-сценарии из `postdeploy-observations.md` (чек-лист; строки НЕ закрываются до живого подтверждения).",
+      "reason": "Движок/мок-часть подтверждены на кандидате 4c8405e7 (review-w3 §4: «one_word значением, micro без cap», tests/test_soul1_extent_one_word.py — 25 тестов). Агентская проверка 18.10 (окно agent-checks-1, прод 2.58.88 `c37b8577`): micro — `Да!!!` pass; `ок, будет сделано сегодня` pass; 12 слов → pass с `micro_soft_exceeded` (жёсткого лимита нет, micro остаётся отдельным extent); типы one_word/micro не схлопываются. VERIFIED: агентская проверка 18.10; остаточная наблюдаемость в живом чате — необязательна.",
       "req_id": "SOUL-05.3",
       "slice": "W3",
       "acceptance": "one_word и micro остаются двумя разными действующими extent со своими схемами, тестами и UI; micro по-прежнему означает очень кратко, обычно 2-8 слов и не более одной короткой фразы, но не жёстко ровно одно слово",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "4c8405e783ac005ac0044974c5fbd7e518d12e2a",
@@ -997,10 +1005,18 @@
         {
           "candidate_commit": "6094a2cfa1660d1b949dcfe5ec085bc08f080de4",
           "ref": "postdeploy-observations.md — классификация 29 READY_FOR_LIVE (агентская часть / owner-сценарии)",
-          "observation": "Owner-чек-лист строки зафиксирован; ничего не объявлено VERIFIED релизным прогоном.",
+          "observation": "Справочный постдеплой-чек-лист строки; по переклассификации 18.10 остаточная наблюдаемость в живом чате необязательна — агентская часть подтверждена окном agent-checks-1 (см. production-эвиденс строки).",
           "artifact_path": "plans/features/soul-1/evidence/release-soul-25886/postdeploy-observations.md",
           "artifact_sha256": "482cbe9868df3d9336c2895cf18a82192926ee2d7e3a17d0cbcd6ee3b0bb78d8",
           "type": "static"
+        },
+        {
+          "candidate_commit": "c37b85779cc41ad716304024ebeea86ad4081071",
+          "ref": "plans/features/soul-1/evidence/agent-checks-window1/README.md §2 + probe-run-1-raw.txt (B1_form_matrix: micro-кейсы) + plans/features/soul-1/review-agent-checks-window1.md §2/§8",
+          "observation": "Прод 2.58.88: micro на 3 кейсах — pass/pass и 12 слов с честным soft-exceeded `micro_soft_exceeded`; micro остаётся «очень кратко, обычно 2–8 слов» без жёсткого cap, отдельно от one_word.",
+          "artifact_path": "plans/features/soul-1/evidence/agent-checks-window1/probe-run-1-raw.txt",
+          "artifact_sha256": "20d09df19ad9d7bc9fbacdf9e4f7b1ed287e895d8656e33a90054dfa7c6cfb49",
+          "type": "production"
         }
       ]
     },
@@ -1038,13 +1054,13 @@
       "source_text_sha256": "6b75c2bed29f16a7370702a0d5b7b459ecac8b1bc272cb584f7e7b518b6ad272",
       "source_excerpt": "В `one_word` финальный валидатор проверяет одно слово с учётом русского/латиницы/составных слов/восклицаний; при нарушении — минимальная локальная коррекция или один bounded repair, а не дорогое полное повторное исследование/инструменты. В ",
       "disposition": "required",
-      "reason": "Движок/мок-часть подтверждены на кандидате 4c8405e7 (review-w3 §4, «VERIFIED (с остатком)»: кириллица/латиница/составные/«Да!!!» — pass; 2+ слова — честный failed без обрезки, mismatch на payload; bounded repair на Direct-пути сознательно не подключён); живая половина (реальный прогон/отправка) требует включённого контура — канарейка/postdeploy; классификация по образцу SOUL-AMD.8.3 / SOUL-17.4 / SOUL-10.P5 / SOUL-11.4. Релиз 2.58.86 (постдеплой 18.10, прод `eafbe2e7`): gates 10/10 ON, в т.ч. `smart_verbalizer_modes_enabled`; try-проба на живом процессе отдаёт собранный payload с Core (`layers_current=[channel_contract, channel_contract, core]`). Остаётся живое: реальный ответ в чате (ровно один лексический токен / 2–8 слов без служебных хвостов) — owner-сценарий, чек-лист `postdeploy-observations.md`, окно 24–48 ч. Классификация READY_FOR_LIVE после релиза 2.58.86: агентская часть релизного прогона подтверждена (evidence ниже), остаток — owner-сценарии из `postdeploy-observations.md` (чек-лист; строки НЕ закрываются до живого подтверждения).",
+      "reason": "Движок/мок-часть подтверждены на кандидате 4c8405e7 (review-w3 §4, «VERIFIED (с остатком)»: кириллица/латиница/составные/«Да!!!» — pass; 2+ слова — честный failed без обрезки; bounded repair на Direct-пути сознательно не подключён). Агентская проверка 18.10 (окно agent-checks-1, прод 2.58.88 `c37b8577`): `по-хорошему`/`OK!!!`/`Да!!!` pass (составные/латиница/восклицания); при нарушении — минимальная локальная коррекция (`one_word_extra_tail_removed`), обрезки содержательного текста нет. VERIFIED: агентская проверка 18.10; остаточная наблюдаемость в живом чате — необязательна.",
       "req_id": "SOUL-05.5",
       "slice": "W3",
       "acceptance": "Финальный валидатор one_word проверяет одно слово с учётом русских, латинских и составных слов и восклицаний и при нарушении выполняет минимальную локальную коррекцию либо один bounded repair без дорогого полного повтора исследования; micro не имеет ограничения в одно слово; сложный код, URL, дословная цитата и обязательный структурированный вывод не портятся, конфликт формы разрешается по явной иерархии",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "4c8405e783ac005ac0044974c5fbd7e518d12e2a",
@@ -1063,10 +1079,18 @@
         {
           "candidate_commit": "6094a2cfa1660d1b949dcfe5ec085bc08f080de4",
           "ref": "postdeploy-observations.md — классификация 29 READY_FOR_LIVE (агентская часть / owner-сценарии)",
-          "observation": "Owner-чек-лист строки зафиксирован; ничего не объявлено VERIFIED релизным прогоном.",
+          "observation": "Справочный постдеплой-чек-лист строки; по переклассификации 18.10 остаточная наблюдаемость в живом чате необязательна — агентская часть подтверждена окном agent-checks-1 (см. production-эвиденс строки).",
           "artifact_path": "plans/features/soul-1/evidence/release-soul-25886/postdeploy-observations.md",
           "artifact_sha256": "482cbe9868df3d9336c2895cf18a82192926ee2d7e3a17d0cbcd6ee3b0bb78d8",
           "type": "static"
+        },
+        {
+          "candidate_commit": "c37b85779cc41ad716304024ebeea86ad4081071",
+          "ref": "plans/features/soul-1/evidence/agent-checks-window1/README.md §2 + probe-run-1-raw.txt (B1_form_matrix: составные/латиница/восклицания, repaired-кейс) + plans/features/soul-1/review-agent-checks-window1.md §2/§8",
+          "observation": "Прод 2.58.88: одно слово с учётом восклицаний/составных/латиницы — pass; нарушение → минимальная локальная коррекция (снят emoji-хвост), содержательный текст не обрезается.",
+          "artifact_path": "plans/features/soul-1/evidence/agent-checks-window1/probe-run-1-raw.txt",
+          "artifact_sha256": "20d09df19ad9d7bc9fbacdf9e4f7b1ed287e895d8656e33a90054dfa7c6cfb49",
+          "type": "production"
         }
       ]
     },

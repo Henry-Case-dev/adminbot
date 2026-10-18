@@ -125,13 +125,13 @@
       "source_text_sha256": "56da994c1784aa71e56d9529a2f9d55fc2052c878992c49e36feff24da879047",
       "source_excerpt": "5. `one_word` и `micro` — **два разных режима**, не маппить один в другой: `one_word` = ровно одно слово, `micro` = короткая реплика из нескольких слов. Проверять соблюдение без дорогостоящей полной регенерации; ограничения не должны ломать",
       "disposition": "required",
-      "reason": "Движок/мок-часть подтверждены на кандидате 4c8405e7 (review-w3 ledger: «SOUL-AMD.1.6/1.7 — VERIFIED (engine)»; recheck F1: ссылки/код/точные цитаты целы; cost-measurement: 0 доп. LLM-вызовов); живая половина (реальный прогон/отправка) требует включённого контура — канарейка/postdeploy; классификация по образцу SOUL-AMD.8.3 / SOUL-17.4 / SOUL-10.P5 / SOUL-11.4. Релиз 2.58.86: композер/Core ON (`try`: core в слоях, source=global, `core_detail=full:owner_setting`); реальная длинная редакционная публикация (режимы/ссылки/цитаты целы) — owner-сценарий. Классификация READY_FOR_LIVE после релиза 2.58.86: агентская часть релизного прогона подтверждена (evidence ниже), остаток — owner-сценарии из `postdeploy-observations.md` (чек-лист; строки НЕ закрываются до живого подтверждения).",
+      "reason": "Движок/мок-часть подтверждены на кандидате 4c8405e7 (review-w3 ledger: «SOUL-AMD.1.6/1.7 — VERIFIED (engine)»; recheck F1: ссылки/код/точные цитаты целы; cost-measurement: 0 доп. LLM-вызовов). Агентская проверка 18.10 (окно agent-checks-1, прод 2.58.88 `c37b8577`): try(editorial_report) 568 знаков — `protected_count=4` (kind `code`/`version_literal`); style-pass теми же жёсткими правилами (3 ЖЁСТКИХ пресета, без записи в PG): URL, цитата, код и версия сохранены; честный `conflicts=[\"quotation_marks.hard.no_graphic\"]` вместо ложного pass; изменена только завершающая точка (568→566). VERIFIED: агентская проверка 18.10; реальная длинная редакционная публикация — необязательная наблюдаемость.",
       "req_id": "SOUL-AMD.1.7",
       "slice": "W3",
       "acceptance": "Соблюдение режимов проверяется без дорогостоящей полной регенерации; ограничения не ломают ссылки, код и точные цитаты",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "4c8405e783ac005ac0044974c5fbd7e518d12e2a",
@@ -150,10 +150,18 @@
         {
           "candidate_commit": "6094a2cfa1660d1b949dcfe5ec085bc08f080de4",
           "ref": "postdeploy-observations.md — классификация 29 READY_FOR_LIVE (агентская часть / owner-сценарии)",
-          "observation": "Owner-чек-лист строки зафиксирован; ничего не объявлено VERIFIED релизным прогоном.",
+          "observation": "Справочный постдеплой-чек-лист строки; по переклассификации 18.10 остаточная наблюдаемость необязательна — агентская часть подтверждена окном agent-checks-1 (см. production-эвиденс строки).",
           "artifact_path": "plans/features/soul-1/evidence/release-soul-25886/postdeploy-observations.md",
           "artifact_sha256": "482cbe9868df3d9336c2895cf18a82192926ee2d7e3a17d0cbcd6ee3b0bb78d8",
           "type": "static"
+        },
+        {
+          "candidate_commit": "c37b85779cc41ad716304024ebeea86ad4081071",
+          "ref": "plans/features/soul-1/evidence/agent-checks-window1/README.md §6 + probe-run-1-raw.txt (F1_try_long, F2_style_pass_protected) + plans/features/soul-1/review-agent-checks-window1.md §6/§8",
+          "observation": "Прод 2.58.88: try(editorial_report) — protected_count=4, канал собран, отправки нет; style-pass с 3 жёсткими пресетами — ссылка/цитата/код/версия целы, honest conflict, единственное изменение — завершающая точка.",
+          "artifact_path": "plans/features/soul-1/evidence/agent-checks-window1/probe-run-1-raw.txt",
+          "artifact_sha256": "20d09df19ad9d7bc9fbacdf9e4f7b1ed287e895d8656e33a90054dfa7c6cfb49",
+          "type": "production"
         }
       ]
     },
@@ -1895,7 +1903,7 @@
       "source_text_sha256": "6a49f696bb3584b88c3c043ea61d073a0fa7f0d260104eb45f23791ffc32f83d",
       "source_excerpt": "- Редактирование Core и Speech Style Policy через MiniApp действительно меняет следующую генерацию во всех соответствующих путях. `one_word` и `micro` остаются различны. Fallback не возвращает старого персонажа.",
       "disposition": "required",
-      "reason": "ИСТОРИЯ (2.58.86): живая генерация не проверялась; оговорка «до канарейки (флаг ON — решение владельца)» УСТАРЕЛА — PET: канареек нет, оси ON во всех подключённых чатах (правило владельца 18.10.2026). Запись — единым путём (доказано), фактическое изменение следующей генерации во всех путях — post-canary. deferred → 2.58.87 (await-fix `68cd05b2`): глобальное сохранение `style.policy` в 2.58.86 — молчаливый no-op (`services/style_policy.py:2275` без `await`, ревью REV-REL-SOUL §5; подтверждено прод-фактом `style.policy` отсутствует / `global_present=false`). Чат-часть сохраняется штатно. ОБНОВЛЕНО 2.58.87 (REV-REL-25887 §6а, прод `82e110d6`): дефект 2.58.86 закрыт живым доказательством — `style.policy` отсутствовал (`global_present=false`) → save1 `applied rev=1` → PG-строка (23:00:23.089508) → `GET`: `source=global`, `revision=g1.0483be84f90e`, `global_present=true`, `inheritance=global` → save2 `rev=2` (ревизии растут); журнал `[style_policy] document saved … revision=1|2`; `RuntimeWarning`/«never awaited» = 0 (срез «since T0» после сохранений); gates 10/10 ON (evidence ниже: `evidence/release-25887/**`, `release-2.58.87-report.md`). Оговорка о полноте: сохранён пустой фабрично-равный документ — доказывает сломанный механизм (персистентность + await), но НЕ поведенческую клаузу. ПОМЕТКА ЛЕДЖЕРА: VERIFIED — только после шага «реальное правило владельца + наблюдение применения» (агент: save реального правила + try-hint в сборке; финально — живой ответ владельца). Строка остаётся READY_FOR_LIVE; остаток owner-сценариев — `postdeploy-observations.md` (чек-лист).",
+      "reason": "ИСТОРИЯ (2.58.86): живая генерация не проверялась; оговорка «до канарейки (флаг ON — решение владельца)» УСТАРЕЛА — PET: канареек нет, оси ON во всех подключённых чатах (правило владельца 18.10.2026). Запись — единым путём (доказано), фактическое изменение следующей генерации во всех путях — post-canary. deferred → 2.58.87 (await-fix `68cd05b2`): глобальное сохранение `style.policy` в 2.58.86 — молчаливый no-op (`services/style_policy.py:2275` без `await`, ревью REV-REL-SOUL §5; подтверждено прод-фактом `style.policy` отсутствует / `global_present=false`). Чат-часть сохраняется штатно. ОБНОВЛЕНО 2.58.87 (REV-REL-25887 §6а, прод `82e110d6`): дефект 2.58.86 закрыт живым доказательством — `style.policy` отсутствовал (`global_present=false`) → save1 `applied rev=1` → PG-строка (23:00:23.089508) → `GET`: `source=global`, `revision=g1.0483be84f90e`, `global_present=true`, `inheritance=global` → save2 `rev=2` (ревизии растут); журнал `[style_policy] document saved … revision=1|2`; `RuntimeWarning`/«never awaited» = 0 (срез «since T0» после сохранений); gates 10/10 ON (evidence ниже: `evidence/release-25887/**`, `release-2.58.87-report.md`). Оговорка о полноте: сохранён пустой фабрично-равный документ — доказывает сломанный механизм (персистентность + await), но НЕ поведенческую клаузу. ПОМЕТКА ЛЕДЖЕРА: VERIFIED — только после шага «реальное включённое правило владельца + наблюдение применения в генерации». ОБНОВЛЕНО (окно agent-checks-1, 18.10.2026, прод 2.58.88 `c37b8577`): пункт «видит новую ревизию» подтверждён живой пробой — apply revision=3, следующая try видит `versions.style_policy c2.75bada4c52c3 → c3.5bc205ee3e86`; восстановление содержимого → revision=4 (`evidence/agent-checks-window1/README.md` §3). НЕ закрыто (остаток): эффект включённого правила на текст генерации и «во всех путях» (проба сознательно enabled=false); fallback-клауза — вне окна. Строка остаётся READY_FOR_LIVE.",
       "req_id": "SOUL-AMD.8.3",
       "slice": "W6",
       "acceptance": "Редактирование Core и Speech Style Policy через MiniApp действительно меняет следующую генерацию во всех соответствующих путях; `one_word` и `micro` остаются различны; fallback не возвращает старого персонажа",
@@ -2203,7 +2211,7 @@
       "source_text_sha256": "bc5d46cad7234e84d17e2ba9fabc0e9e70213fe9bf9b535b70cd7a15ea931865",
       "source_excerpt": "- Проверить те же принципы как минимум для поиска/фактчека/видео по одному реальному сценарию, а не только для image tool.",
       "disposition": "required",
-      "reason": "Мок-часть подтверждена на кандидате c8cf77a5 (review-w10 ledger 8.11 (mock): поиск/фактчек/видео — недоступное не обещается, <capability_notice> + trace; recheck — 8.6–8.11 READY_FOR_LIVE); живая половина (реальный прогон/отправка/провайдер) требует включённого контура — канарейка/postdeploy; классификация по образцу SOUL-AMD.8.3 / SOUL-17.4 / SOUL-10.P5 / SOUL-11.4. Релиз 2.58.86: оси `humor_craft_enabled` / `humor_feedback_enabled` ON, журнал 0 ERROR/CRITICAL, `user_version=36`. Живые сценарии (один платный вызов на намерение, честные тексты отказов, поиск/фактчек/видео) — owner-сценарий. Классификация READY_FOR_LIVE после релиза 2.58.86: агентская часть релизного прогона подтверждена (evidence ниже), остаток — owner-сценарии из `postdeploy-observations.md` (чек-лист; строки НЕ закрываются до живого подтверждения).",
+      "reason": "Мок-часть подтверждена на кандидате c8cf77a5 (review-w10 ledger 8.11 (mock): поиск/фактчек/видео — недоступное не обещается, <capability_notice> + trace; recheck — 8.6–8.11 READY_FOR_LIVE). Релиз 2.58.86: оси `humor_craft_enabled` / `humor_feedback_enabled` ON, журнал 0 ERROR/CRITICAL, `user_version=36`. ОБНОВЛЕНО (окно agent-checks-1, 18.10.2026, прод 2.58.88 `c37b8577`): поиск и фактчек подтверждены живыми прогонами — `execute_web_search` 2.5 c / 4039 знаков реальных результатов; `fact_check` status=ready, `factual_verdict=supported`, `temporal_status=old_but_valid`, durable `tfr-38ab2b7fa98b44cb` (`evidence/agent-checks-window1/README.md` §5). НЕ закрыто (остаток): видео — `not_configured` (`media_source_unconfigured`/`cobalt_absent`), реальный сценарий невыполним без медиа-источника — принятый остаток. Строка остаётся READY_FOR_LIVE.",
       "req_id": "SOUL-AMD.8.11",
       "slice": "W10",
       "acceptance": "Те же принципы проверены минимум для поиска, фактчека и видео по одному реальному сценарию каждому, а не только для image tool",
