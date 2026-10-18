@@ -1,0 +1,36 @@
+LOCAL-PRE-RUN окна agent-checks-w2 (тот же код репо HEAD=94d9b93f; прод=2.58.89/d59fab94)
+Локально проверено ДО прод-прогона (детерминированная часть):
+
+1) Компиляция артефактов окна: agent_checks_w2_probe.py / w2_state.py / run_w2.py — OK.
+
+2) services.style_policy.preset_rules('no_trailing_period')[0]['id'] == 'trailing_period.hard.strip' (правило, которое включает фаза S).
+
+3) services.capability_registry.failure_text('delivery_failed')[0] начинается с:
+   'Картинка сгенерировалась, но в чат не доехала - споткнулся н...'  (шаблон для send-fail проверки L3).
+
+4) detect_action_intent (реальный прод-код, тот же файл):
+   - 'сделай это' -> create_image / ambiguous / create_verb_without_object / actionable=False (фаза J: уточнение)
+   - 'Бот, нарисуй минимальный мем: кот спит на клавиатуре' -> create_image / high / create_image_command / actionable=True (фаза L1)
+   - 'Бот, нарисуй минимальный мем: кактус в шляпе' -> create_image / high / create_image_command / actionable=True (фаза L3)
+   - 'Бот, нарисуй мем про кота' -> create_image / high / actionable=True (фаза I/K)
+
+5) is_image_keyword на обеих фразах фазы L = True (regex-дверь открыта; семантический intent подтверждает).
+
+6) Самопроверка парсера остатка фразы R50-7 (_parse_phrase_remaining):
+   'рот оффни на 3 мин, я не нанимался' -> 180; 'отдохни 90 сек' -> 90;
+   'на 4 мин 30 сек подожди' -> 270; 'нет времени' -> None. Все совпали.
+
+7) Анализ кода (пути, задействованные пробой):
+   - _handle_turn: между строкой 2130 и image-гейтом (2265) нет обращений к self.memory/self.llm
+     (первые использования llm — 2982+), поэтому прод-ходы I6/J1/K1/K2 не доходят до платных стадий;
+   - PersistentThrottle.allow: 0.0 = допуск (заряд списан), >0 = остаток кулдауна (фазы G/H);
+   - maybe_handle_keyword -> run_image_request -> generate_and_send: единая точка доставки;
+     send_failed -> блок <image_result status="error" reason="delivery_failed"> без «sent»;
+   - _image_pre_gate_block: боевой вход _handle_turn (строка 2282), гейтится реальным
+     resolve_module_enabled + семантическим intent; используется в фазах L1/L2/L3;
+   - config API: POST /api/config без X-Chat-Id = глобальный путь (cache.set_many, hot-reload
+     без рестарта; bot.py держит uvicorn+aiogram в ОДНОМ процессе с общим ConfigCache);
+     с X-Chat-Id = per-chat overrides;
+   - bot.py:238 Bot(token=settings.API_TOKEN) — реальный бот для фаз recon/L.
+
+Никаких прод-изменений этот файл не фиксирует — только локальные проверки.

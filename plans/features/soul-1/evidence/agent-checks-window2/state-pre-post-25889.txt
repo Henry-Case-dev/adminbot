@@ -1,0 +1,76 @@
+STATE-PRE/POST окна agent-checks-window2 (прод 2.58.89/d59fab94)
+Полные сессии — в probe-run1-raw.txt и probe-run2-closing-raw.txt.
+
+[сессия#2/ALL PRE-STATE]
+STATE profile_rows_-1009900000201=0
+STATE profile_rows_-1009900000202=0
+STATE style.policy present=True revision=4 rules=0 soft=0
+STATE image_reservation_rows_-1009900000201=1
+STATE reservation {"reservation_key": "-1009900000201:990000701:direct", "status": "committed", "error_code": "", "delivery_failed": "False", "day": "2026-10-18"}
+STATE budget [{"day": "2026-10-18", "scope": "global", "metric": "image_calls", "used": "4"}, {"day": "2026-10-18", "scope": "chat:-1009900000201", "metric": "image_calls", "used": "1"}, {"day": "2026-10-18", "scope": "chat:-1002661910336", "metric": "image_calls", "used": "3"}, {"day": "2026-10-17", "scope": "global", "metric": "image_calls", "used": "5"}, {"day": "2026-10-17", "scope": "chat:-1002661910336", "metric": "image_calls", "used": "5"}, {"day": "2026-10-16", "scope": "global", "metric": "image_calls", "used": "46"}, {"day": "2026-10-16", "scope": "chat:-1002661910336", "metric": "image_calls", "used": "46"}, {"day": "2026-10-15", "scope": "global", "metric": "image_calls", "used": "10"}]
+STATE throttle_rows=0 []
+STATE mca_events_for_A=1
+STATE event {"ts": "1792302353", "level": "WARN", "event_name": "direct_chat_throttle", "outcome": "skipped", "component": "direct_chat", "stage": "cooldown", "reason_code": "rate_limit", "chat_id": "-1009900000201", "usage_json": "{\"remaining_seconds\": 180.0, \"burst_limit\": 1, \"cooldown_seconds\": 180.0, \"source\": \"chat\"}"}
+STATE limits burst=10 cooldown=300.0 image_daily=60
+STATE done
+
+[сессия#2/ALL POST-STATE]
+STATE profile_rows_-1009900000201=0
+STATE profile_rows_-1009900000202=0
+STATE style.policy present=True revision=6 rules=0 soft=0
+STATE image_reservation_rows_-1009900000201=3
+STATE reservation {"reservation_key": "-1009900000201:990000808:direct", "status": "committed", "error_code": "", "delivery_failed": "True", "day": "2026-10-18"}
+STATE reservation {"reservation_key": "-1009900000201:990000807:direct", "status": "committed", "error_code": "", "delivery_failed": "True", "day": "2026-10-18"}
+STATE reservation {"reservation_key": "-1009900000201:990000701:direct", "status": "committed", "error_code": "", "delivery_failed": "False", "day": "2026-10-18"}
+STATE budget [{"day": "2026-10-18", "scope": "global", "metric": "image_calls", "used": "6"}, {"day": "2026-10-18", "scope": "chat:-1009900000201", "metric": "image_calls", "used": "3"}, {"day": "2026-10-18", "scope": "chat:-1002661910336", "metric": "image_calls", "used": "3"}, {"day": "2026-10-17", "scope": "global", "metric": "image_calls", "used": "5"}, {"day": "2026-10-17", "scope": "chat:-1002661910336", "metric": "image_calls", "used": "5"}, {"day": "2026-10-16", "scope": "global", "metric": "image_calls", "used": "46"}, {"day": "2026-10-16", "scope": "chat:-1002661910336", "metric": "image_calls", "used": "46"}, {"day": "2026-10-15", "scope": "global", "metric": "image_calls", "used": "10"}]
+STATE throttle_rows=0 []
+STATE mca_events_for_A=2
+STATE event {"ts": "1792312752", "level": "WARN", "event_name": "direct_chat_throttle", "outcome": "skipped", "component": "direct_chat", "stage": "cooldown", "reason_code": "rate_limit", "chat_id": "-1009900000201", "usage_json": "{\"remaining_seconds\": 300.0, \"burst_limit\": 2, \"cooldown_seconds\": 300.0, \"source\": \"global\"}"}
+STATE event {"ts": "1792302353", "level": "WARN", "event_name": "direct_chat_throttle", "outcome": "skipped", "component": "direct_chat", "stage": "cooldown", "reason_code": "rate_limit", "chat_id": "-1009900000201", "usage_json": "{\"remaining_seconds\": 180.0, \"burst_limit\": 1, \"cooldown_seconds\": 180.0, \"source\": \"chat\"}"}
+STATE limits burst=10 cooldown=300.0 image_daily=60
+STATE done
+
+[сессия#3/S,I,J,L,K PRE-STATE]
+STATE profile_rows_-1009900000201=0
+STATE profile_rows_-1009900000202=0
+STATE style.policy present=True revision=6 rules=0 soft=0
+STATE image_reservation_rows_-1009900000201=3
+STATE reservation {"reservation_key": "-1009900000201:990000808:direct", "status": "committed", "error_code": "", "delivery_failed": "True", "day": "2026-10-18"}
+STATE reservation {"reservation_key": "-1009900000201:990000807:direct", "status": "committed", "error_code": "", "delivery_failed": "True", "day": "2026-10-18"}
+STATE reservation {"reservation_key": "-1009900000201:990000701:direct", "status": "committed", "error_code": "", "delivery_failed": "False", "day": "2026-10-18"}
+STATE budget [{"day": "2026-10-18", "scope": "global", "metric": "image_calls", "used": "6"}, {"day": "2026-10-18", "scope": "chat:-1009900000201", "metric": "image_calls", "used": "3"}, {"day": "2026-10-18", "scope": "chat:-1002661910336", "metric": "image_calls", "used": "3"}, {"day": "2026-10-17", "scope": "global", "metric": "image_calls", "used": "5"}, {"day": "2026-10-17", "scope": "chat:-1002661910336", "metric": "image_calls", "used": "5"}, {"day": "2026-10-16", "scope": "global", "metric": "image_calls", "used": "46"}, {"day": "2026-10-16", "scope": "chat:-1002661910336", "metric": "image_calls", "used": "46"}, {"day": "2026-10-15", "scope": "global", "metric": "image_calls", "used": "10"}]
+STATE throttle_rows=0 []
+STATE mca_events_for_A=2
+STATE event {"ts": "1792312752", "level": "WARN", "event_name": "direct_chat_throttle", "outcome": "skipped", "component": "direct_chat", "stage": "cooldown", "reason_code": "rate_limit", "chat_id": "-1009900000201", "usage_json": "{\"remaining_seconds\": 300.0, \"burst_limit\": 2, \"cooldown_seconds\": 300.0, \"source\": \"global\"}"}
+STATE event {"ts": "1792302353", "level": "WARN", "event_name": "direct_chat_throttle", "outcome": "skipped", "component": "direct_chat", "stage": "cooldown", "reason_code": "rate_limit", "chat_id": "-1009900000201", "usage_json": "{\"remaining_seconds\": 180.0, \"burst_limit\": 1, \"cooldown_seconds\": 180.0, \"source\": \"chat\"}"}
+STATE limits burst=10 cooldown=300.0 image_daily=60
+STATE done
+
+[сессия#3/S,I,J,L,K POST-STATE]
+STATE profile_rows_-1009900000201=0
+STATE profile_rows_-1009900000202=0
+STATE style.policy present=True revision=8 rules=0 soft=0
+STATE image_reservation_rows_-1009900000201=4
+STATE reservation {"reservation_key": "-1009900000201:990000811:direct", "status": "committed", "error_code": "", "delivery_failed": "False", "day": "2026-10-18"}
+STATE reservation {"reservation_key": "-1009900000201:990000808:direct", "status": "committed", "error_code": "", "delivery_failed": "True", "day": "2026-10-18"}
+STATE reservation {"reservation_key": "-1009900000201:990000807:direct", "status": "committed", "error_code": "", "delivery_failed": "True", "day": "2026-10-18"}
+STATE reservation {"reservation_key": "-1009900000201:990000701:direct", "status": "committed", "error_code": "", "delivery_failed": "False", "day": "2026-10-18"}
+STATE budget [{"day": "2026-10-18", "scope": "global", "metric": "image_calls", "used": "7"}, {"day": "2026-10-18", "scope": "chat:-1009900000201", "metric": "image_calls", "used": "4"}, {"day": "2026-10-18", "scope": "chat:-1002661910336", "metric": "image_calls", "used": "3"}, {"day": "2026-10-17", "scope": "global", "metric": "image_calls", "used": "5"}, {"day": "2026-10-17", "scope": "chat:-1002661910336", "metric": "image_calls", "used": "5"}, {"day": "2026-10-16", "scope": "global", "metric": "image_calls", "used": "46"}, {"day": "2026-10-16", "scope": "chat:-1002661910336", "metric": "image_calls", "used": "46"}, {"day": "2026-10-15", "scope": "global", "metric": "image_calls", "used": "10"}]
+STATE throttle_rows=0 []
+STATE mca_events_for_A=2
+STATE event {"ts": "1792312752", "level": "WARN", "event_name": "direct_chat_throttle", "outcome": "skipped", "component": "direct_chat", "stage": "cooldown", "reason_code": "rate_limit", "chat_id": "-1009900000201", "usage_json": "{\"remaining_seconds\": 300.0, \"burst_limit\": 2, \"cooldown_seconds\": 300.0, \"source\": \"global\"}"}
+STATE event {"ts": "1792302353", "level": "WARN", "event_name": "direct_chat_throttle", "outcome": "skipped", "component": "direct_chat", "stage": "cooldown", "reason_code": "rate_limit", "chat_id": "-1009900000201", "usage_json": "{\"remaining_seconds\": 180.0, \"burst_limit\": 1, \"cooldown_seconds\": 180.0, \"source\": \"chat\"}"}
+STATE limits burst=10 cooldown=300.0 image_daily=60
+STATE done
+
+Ключевое:
+  - профили синтетики A/B после обоих прогонов: 0 строк; throttle_state: 0 строк;
+  - глобальные лимиты после окна: burst=10, cooldown=300.0 (как до окна);
+  - style.policy: revision 4 -> 8, rules=0, soft=0 (содержимое восстановлено);
+  - image_reservation обязательные строки оставлены как evidence:
+      990000701 committed delivery_failed=False (окно-1);
+      990000807 committed delivery_failed=True  (харнесс-дефект редиректа reply-таргета);
+      990000808 committed delivery_failed=True  (боевой send-fail: chat not found);
+      990000811 committed delivery_failed=False (боевая доставка в Telegram, сообщение удалено);
+  - расход картинок 2026-10-18: global 4 -> 7, chat:-1009900000201 1 -> 4 (+3 оплаченных генерации окна-2);
+  - durable mca_events по synth: direct_chat_throttle source=global burst_limit=2 (evidence AC1, вьюер).

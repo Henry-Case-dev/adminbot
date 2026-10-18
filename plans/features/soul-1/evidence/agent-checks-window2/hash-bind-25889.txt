@@ -1,0 +1,31 @@
+HASH-BIND окна agent-checks-window2 (прод 2.58.89)
+
+Прод HEAD = d59fab944bcb3eb0f5d3fa69101d8488da1c155b (обе сессии).
+Трекнутые правки прод-дерева: git diff --stat/--name-only ПУСТЫ (0).
+git status --porcelain = 13 записей — ВСЕ untracked (старые .bak, pre_migration_backup/, test_subs.ru.json3, tools/_s41_precheck.py);
+к коду 2.58.89 не относятся (см. recon-git-binding.txt).
+healthz обеих сессий: {"status":"ok","version":"2.58.89"}.
+
+sha256(12) файлов прод-дерева == блобам релизного коммита d59fab94 (13/13 в обеих сессиях):
+  services/direct_chat_service.py = 7a613dc9b406
+  services/persistent_throttling.py = 1a222e926aeb
+  services/chat_params.py = f480530b6c12
+  services/capability_registry.py = 6f650a2c9771
+  services/image_generation.py = db1d60cd4b54
+  services/style_policy.py = f5eff9607d15
+  services/worker_budget.py = e18dab826da1
+  services/direct_capabilities.py = 74e59e8c14f0
+  services/chat_prompts.py = 0b0ad23784c8
+  services/prompt_composer.py = fd8a2a70d5d7
+  web/api/speech.py = a69a67536ebe
+  web/api/routes.py = 989779c65128
+  config/settings.py = a6a2d1a8408b
+
+sha256 полного файла пробы (P0_PROBE_SHA, читает сам файл на проде):
+  сессия #2 (фазы ALL):    702abd20a981b6e1845ce88e0eb7c2625ba72222d9bb6bed5ddbdb69701fbd66
+  сессия #3 (S,I,J,L,K):   f9d94b6ac6288ef58f756da82c64682a8513e7063199b98f3a830e41e857a82f
+  sha256(scripts/agent_checks_w2_probe.py) локально = f9d94b6ac6288ef58f756da82c64682a8513e7063199b98f3a830e41e857a82f
+
+Вывод: проба исполнялась venv-питоном /var/www/admin_bot в самом прод-дереве,
+все задействованные файлы байт-идентичны развёрнутому кандидату; прод-процесс
+не перезапускался (MainPID=3359708, NRestarts=0 до/после обоих прогонов).

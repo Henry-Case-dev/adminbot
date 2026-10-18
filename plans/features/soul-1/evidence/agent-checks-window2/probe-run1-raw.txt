@@ -1,0 +1,560 @@
+﻿[runner] uploaded: probe=63784 state=4509 bytes; phases=ALL
+=== PRE: ╨▓╤А╨╡╨╝╤П/╨┐╤А╨╛╤Ж╨╡╤Б╤Б╤Л/╨▒╨╕╨╜╨┤╨╕╨╜╨│ ===
+date -u '+%Y-%m-%d %H:%M:%S UTC'; echo PROBE_PROCS=$(ps -ef | grep -c '[a]gent_checks_w2_probe'); echo STALE_STATE_PROCS=$(ps -ef | grep -c '[w]2_state'); pkill -f '[w]2_state.py' >/dev/null 2>&1; echo PKILL_RC=$?; echo OLD_OUT_BYTES=$([ -f /tmp/w2_probe.out ] && wc -c < /tmp/w2_probe.out || echo 0); cd /var/www/admin_bot && echo HEAD=$(git rev-parse HEAD) && echo TRACKED_MOD=$(git status --porcelain | wc -l) && systemctl show admin_bot -p MainPID -p NRestarts -p ActiveEnterTimestamp --no-pager; curl -s http://127.0.0.1:8000/healthz; echo "###RC=$?###"
+
+[?2004l
+2026-10-18 08:38:49 UTC
+
+PROBE_PROCS=0
+
+STALE_STATE_PROCS=0
+
+PKILL_RC=1
+
+OLD_OUT_BYTES=0
+
+HEAD=d59fab944bcb3eb0f5d3fa69101d8488da1c155b
+
+TRACKED_MOD=13
+
+MainPID=3359708
+
+NRestarts=0
+
+ActiveEnterTimestamp=Sun 2026-10-18 07:37:17 UTC
+
+{"status":"ok","version":"2.58.89"}###RC=0###
+
+[?2004hnik@racknerd-f4e3456:/var/www/admin_bot$ 
+=== PRE-STATE ===
+cd /var/www/admin_bot && PYTHONIOENCODING=utf-8 timeout 100 /var/www/admin_bot/venv/bin/python /tmp/w2_state.py; echo "###RC=$?###"
+
+[?2004l
+STATE profile_rows_-1009900000201=0
+
+STATE profile_rows_-1009900000202=0
+
+STATE style.policy present=True revision=4 rules=0 soft=0
+
+STATE image_reservation_rows_-1009900000201=1
+
+STATE reservation {"reservation_key": "-1009900000201:990000701:direct", "status": "committed", "error_code": "", "delivery_failed": "False", "day": "2026-10-18"}
+
+STATE budget [{"day": "2026-10-18", "scope": "global", "metric": "image_calls", "used": "4"}, {"day": "2026-10-18", "scope": "chat:-1009900000201", "metric": "image_calls", "used": "1"}, {"day": "2026-10-18", "scope": "chat:-1002661910336", "metric": "image_calls", "used": "3"}, {"day": "2026-10-17", "scope": "global", "metric": "image_calls", "used": "5"}, {"day": "2026-10-17", "scope": "chat:-1002661910336", "metric": "image_calls", "used": "5"}, {"day": "2026-10-16", "scope": "global", "metric": "image_calls", "used": "46"}, {"day": "2026-10-16", "scope": "chat:-1002661910336", "metric": "image_calls", "used": "46"}, {"day": "2026-10-15", "scope": "global", "metric": "image_calls", "used": "10"}]
+
+STATE throttle_rows=0 []
+
+STATE mca_events_for_A=1
+
+STATE event {"ts": "1792302353", "level": "WARN", "event_name": "direct_chat_throttle", "outcome": "skipped", "component": "direct_chat", "stage": "cooldown", "reason_code": "rate_limit", "chat_id": "-1009900000201", "usage_json": "{\"remaining_seconds\": 180.0, \"burst_limit\": 1, \"cooldown_seconds\": 180.0, \"source\": \"chat\"}"}
+
+STATE limits burst=10 cooldown=300.0 image_daily=60
+
+STATE done
+
+###RC=0###
+
+[?2004hnik@racknerd-f4e3456:/var/www/admin_bot$ 
+=== PROBE (nohup, phases=ALL) ===
+cd /var/www/admin_bot && rm -f /tmp/w2_probe.out && nohup env W2_PHASES= PYTHONIOENCODING=utf-8 /var/www/admin_bot/venv/bin/python /tmp/agent_checks_w2_probe.py > /tmp/w2_probe.out 2>&1 & echo STARTED_PID=$!; echo "###RC=$?###"
+
+[?2004l
+[1] 3372431
+
+STARTED_PID=3372431
+
+###RC=0###
+
+[?2004hnik@racknerd-f4e3456:/var/www/admin_bot$ 
+[runner] probe finished=True (poll iterations=15)
+=== PROBE OUTPUT ===
+cat /tmp/w2_probe.out; echo "###RC=$?###"
+
+[?2004l
+nohup: ignoring input
+
+INFO services.pg_db: [pg_db] asyncpg pool created (json/jsonb codecs)
+
+INFO services.pg_db: [pg_db] DDL ok (╤В╨░╨▒╨╗╨╕╤Ж╤Л + ╨╕╨╜╨┤╨╡╨║╤Б╤Л)
+
+INFO services.pg_db: [pg_db] roles seeded: ['admin', 'moderator', 'user', 'local_admin']
+
+INFO services.pg_db: [pg_db] admins seeded: [5885953495, 1313107079, 134812796]
+
+INFO services.pg_db: [pg_db] starter bot_settings seeded: 471 (ON CONFLICT DO NOTHING)
+
+INFO services.config_cache: [config_cache] initialized: settings=522 roles=4 admins=3
+
+W2 BOOT INFO | version=? pg_available=True
+
+W2 P0_TIME INFO | now_utc=2026-10-18 08:38:55
+
+W2 P0_PROBE_SHA INFO | 702abd20a981b6e1845ce88e0eb7c2625ba72222d9bb6bed5ddbdb69701fbd66
+
+W2 P0_SHA INFO | services/direct_chat_service.py 7a613dc9b406
+
+W2 P0_SHA INFO | services/persistent_throttling.py 1a222e926aeb
+
+W2 P0_SHA INFO | services/chat_params.py f480530b6c12
+
+W2 P0_SHA INFO | services/capability_registry.py 6f650a2c9771
+
+W2 P0_SHA INFO | services/image_generation.py db1d60cd4b54
+
+W2 P0_SHA INFO | services/style_policy.py f5eff9607d15
+
+W2 P0_SHA INFO | services/worker_budget.py e18dab826da1
+
+W2 P0_SHA INFO | services/direct_capabilities.py 74e59e8c14f0
+
+W2 P0_SHA INFO | services/chat_prompts.py 0b0ad23784c8
+
+W2 P0_SHA INFO | services/prompt_composer.py fd8a2a70d5d7
+
+W2 P0_SHA INFO | web/api/speech.py a69a67536ebe
+
+W2 P0_SHA INFO | web/api/routes.py 989779c65128
+
+W2 P0_SHA INFO | config/settings.py a6a2d1a8408b
+
+INFO httpx: HTTP Request: GET http://127.0.0.1:8000/healthz "HTTP/1.1 200 OK"
+
+W2 P0_HEALTHZ INFO | status=200 body={"status":"ok","version":"2.58.89"}
+
+W2 P0_GLOBAL_LIMITS INFO | burst=10 cooldown=300.0 silence_enabled=True after=5
+
+W2 P0_PROFILES INFO | total=3
+
+W2 P0_SYNTH INFO | chat=-1009900000201 profile_exists=False
+
+W2 P0_SYNTH INFO | chat=-1009900000202 profile_exists=False
+
+W2 P0_THROTTLE INFO | []
+
+W2 P0_STYLE_PG INFO | present=True revision=4 rules=0 soft=0
+
+W2 P0_BUDGET INFO | [{"day": "2026-10-18", "scope": "global", "used": "4"}, {"day": "2026-10-18", "scope": "chat:-1009900000201", "used": "1"}, {"day": "2026-10-18", "scope": "chat:-1002661910336", "used": "3"}, {"day": "2026-10-17", "scope": "global", "used": "5"}, {"day": "2026-10-17", "scope": "chat:-1002661910336", "used": "5"}, {"day": "2026-10-16", "scope": "global", "used": "46"}, {"day": "2026-10-16", "scope": "chat:-1002661910336", "used": "46"}, {"day": "2026-10-15", "scope": "global", "used": "10"}]
+
+W2 P0_CAP INFO | image_generation status=ready reason= detail=image_limit_ok
+
+W2 P0_CAP INFO | video_summary status=not_configured reason=media_source_unconfigured detail=cobalt_absent
+
+W2 P0_BOT INFO | get_me username=PERMsoc_bot id=8802473181
+
+W2 P0_REACH INFO | chat=-1009900000201 reachable=False error=TelegramBadRequest
+
+W2 P0_REACH INFO | chat=-1009900000202 reachable=False error=TelegramBadRequest
+
+W2 P0_REACH INFO | chat=5885953495 reachable=True type=private title='None'
+
+W2 P0_REACH INFO | chat=-1002661910336 reachable=True type=supergroup title='PERMsoc: ╨║╤Г╨║╤П╤А╨╕╨║'
+
+W2 P0_REACH INFO | chat=-1004482340693 reachable=True type=supergroup title='╨Э╨╡╨╕╤Б╤В╨╛╨▓╨╛ ╤Б╤Г╨┐╨╡╤А ╨║╤А╤Г╤В╤Л╨╡ ╨║╤А╨╕╤Н╨╣╤В╨╛╤А╤Л ╨│╨╕╨┐╨╡╤А╨│╨╛╨▓'
+
+W2 P0_SEND_TARGET INFO | target=5885953495 (None = ╨▒╨╡╨╖ ╤А╨╡╨┤╨╕╤А╨╡╨║╤В╨░)
+
+W2 SVC INFO | DirectChatService ╨│╨╛╤В╨╛╨▓ (llm=None тАФ ╨┐╨╗╨░╤В╨╜╤Л╨╡ LLM-╤Б╤В╨░╨┤╨╕╨╕ ╨╜╨╡╨▓╨╛╨╖╨╝╨╛╨╢╨╜╤Л)
+
+W2 G0_global_before OK | status=200 burst=10 cooldown=300.0
+
+W2 G1_global_write_2 OK | status=200 updated=['limits.chat_burst_limit']
+
+INFO services.config_cache: [config_cache] reloaded: settings=522 roles=4 admins=3
+
+W2 G2_resolve_after_write OK | api_value=2 resolve=(burst=2 cooldown=300.0 source='global')
+
+W2 G3_two_charges OK | allow1=0.0 burst_left=1 allow2=0.0 burst_left=0
+
+WARNING services.direct_chat_service: [direct] cooldown | chat=-1009900000201 user=Probe remaining=300s | burst_limit=2 cooldown=300.0 source=global
+
+WARNING services.mca_events: mca_event=direct_chat_throttle | ts=1792312752 | event_name=direct_chat_throttle | outcome=skipped | level=WARN | component=direct_chat | stage=cooldown | reason_code=rate_limit | chat_id=-1009900000201 | usage_json={"remaining_seconds": 300.0, "burst_limit": 2, "cooldown_seconds": 300.0, "source": "global"}
+
+W2 G4_third_restricted OK | sends=1 elapsed=0.0s reply_to=990000801 error_phrase=False phrase='╨┤╨░╨╣ ╨┐╨╡╤А╨╡╨┤╨╛╤Е╨╜╤Г╤В╤М ╨╛╤В ╤В╨▓╨╛╨╡╨╣ ╨┤╤Г╤Е╨╛╤В╤Л, ╨▓╨╡╤А╨╜╤Г╤Б╤М ╤З╨╡╤А╨╡╨╖ 5 ╨╝╨╕╨╜'
+
+W2 G5_phrase_contract OK | shape_ok=True phrase_tail=300s db_remaining=300.0s delta=0.0
+
+W2 G5_slot INFO | burst_left=0 last_ts=1792312752.6636066 cooldown=300.0 source=global
+
+W2 G5_phrase_pool INFO | ╨╕╨╖ ╨┐╤Г╨╗╨░ R50-7 (4 ╤И╨░╨▒╨╗╨╛╨╜╨╛╨▓), '╤В╨╡╤Е╨╜╨╕╤З╨╡╤Б╨║╨╕ ╨╜╨╡ ╨╝╨╛╨│╤Г'=False
+
+W2 G6_flush INFO | events_flushed=1
+
+W2 G6_viewer_event OK | viewer_status=200 events=2 matched=2
+
+W2 G7_event_payload OK | stage=cooldown reason=rate_limit usage_json={"remaining_seconds": 300.0, "burst_limit": 2, "cooldown_seconds": 300.0, "source": "global"}
+
+INFO services.config_cache: [config_cache] reloaded: settings=522 roles=4 admins=3
+
+W2 G8_restore_resolve OK | status=200 updated=['limits.chat_burst_limit'] resolve=(burst=10 cooldown=300.0 source='global')
+
+W2 G9_behavior_restored OK | allow1=0.0 allow2=0.0 allow3=0.0 (╤В╤А╨╡╤В╨╕╨╣ ╤Б╨╜╨╛╨▓╨░ ╨┤╨╛╨┐╤Г╤Й╨╡╨╜ тАФ ╨┐╨╛╨▓╨╡╨┤╨╡╨╜╨╕╨╡ ╨▓╨╡╤А╨╜╤Г╨╗╨╛╤Б╤М)
+
+W2 G10_global_after OK | burst=10 cooldown=300.0
+
+W2 H0_chatB_baseline OK | status=200 value=10 chat_source=''
+
+W2 H1_override_A OK | status=200 updated=['limits.chat_burst_limit', 'limits.chat_cooldown_seconds']
+
+INFO services.capability_registry: [capability] cache invalidated | cap=image_generation | chat=-1009900000201 | n=1 | reason=probe-w2
+
+W2 H2_resolve_A OK | resolve=(burst=2 cooldown=180.0 source='chat')
+
+W2 H3_resolve_B_no_leak OK | resolve=(burst=10 cooldown=300.0 source='global') ╨┐╤А╨╕ ╨░╨║╤В╨╕╨▓╨╜╨╛╨╝ override A
+
+W2 H4_behavior_A_limited OK | allow1=0.0 allow2=0.0 allow3=179.9988660812378 (>0 тАФ ╨╛╨│╤А╨░╨╜╨╕╤З╨╡╨╜)
+
+W2 H5_behavior_B_global OK | allow1=0.0 allow2=0.0 allow3=0.0 (╤В╤А╨╡╤В╨╕╨╣ ╨┤╨╛╨┐╤Г╤Й╨╡╨╜ ╨┐╨╛ global)
+
+W2 H6_restore OK | overrides_after={} resolve=(burst=10 cooldown=300.0 source='global')
+
+W2 H7_chatB_untouched OK | chatB_profile_rows=0 (╨┐╤А╨╛╤Д╨╕╨╗╤М ╨╜╨╡ ╤Б╨╛╨╖╨┤╨░╨▓╨░╨╗╤Б╤П)
+
+W2 S0_baseline_state OK | api_status=200 global_present=None revision=None rules=None soft=None
+
+W2 S1_try_before OK | changed=None status=None reason=None text_same=True versions='c4.6cf9b02a9e23'
+
+W2 S2_rule_write OK | status=200 applied=True revision=5 rules=1 rule_id=trailing_period.hard.strip
+
+W2 S3_effect_next_try FAIL | changed=None before='╨н╤В╨╛ ╨░╨│╨╡╨╜╤В╤Б╨║╨░╤П ╨┐╤А╨╛╨▓╨╡╤А╨║╨░: ╨╖╨░╨▓╨╡╤А╤И╨░╤О╤Й╨░╤П ╤В╨╛╤З╨║╨░ ╨┤╨╛╨╗╨╢╨╜╨░ ╨╕╤Б╤З╨╡╨╖╨╜╤Г╤В╤М.' after='╨н╤В╨╛ ╨░╨│╨╡╨╜╤В╤Б╨║╨░╤П ╨┐╤А╨╛╨▓╨╡╤А╨║╨░: ╨╖╨░╨▓╨╡╤А╤И╨░╤О╤Й╨░╤П ╤В╨╛╤З╨║╨░ ╨┤╨╛╨╗╨╢╨╜╨░ ╨╕╤Б╤З╨╡╨╖╨╜╤Г╤В╤М' expected='╨н╤В╨╛ ╨░╨│╨╡╨╜╤В╤Б╨║╨░╤П ╨┐╤А╨╛╨▓╨╡╤А╨║╨░: ╨╖╨░╨▓╨╡╤А╤И╨░╤О╤Й╨░╤П ╤В╨╛╤З╨║╨░ ╨┤╨╛╨╗╨╢╨╜╨░ ╨╕╤Б╤З╨╡╨╖╨╜╤Г╤В╤М'
+
+W2 S4_revision_bump OK | before='c4.6cf9b02a9e23' after='c5.63d12c1b6065' (╨╛╨╢╨╕╨┤╨░╨╗╤Б╤П ╨┐╤А╨╡╤Д╨╕╨║╤Б c5/g5)
+
+W2 S5_restore OK | status=200 applied=True revision=6
+
+INFO services.config_cache: [config_cache] reloaded: settings=522 roles=4 admins=3
+
+W2 S6_final_state OK | rules=0 soft=0 probe_rule_present=False (╨╛╨╢╨╕╨┤╨░╨╗╨╛╤Б╤М 0/0)
+
+W2 S7_try_after_restore OK | changed=None status=None reason=None
+
+W2 S8_invalid_not_silent OK | validate_issues=1 contains_kind=True bogus_dropped=True issues=["rule_kind_unknown:no_such_kind"]
+
+WARNING services.prompt_composer: [composer] style policy (W3) ╨╜╨╡╨┤╨╛╤Б╤В╤Г╨┐╨╜╨░ тАФ fallback
+
+Traceback (most recent call last):
+
+  File "/var/www/admin_bot/services/prompt_composer.py", line 755, in resolve_style_policy_ref
+
+    ref = await _sp.resolve_style_policy_ref(chat_id)
+
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+  File "/tmp/agent_checks_w2_probe.py", line 856, in _boom
+
+    raise RuntimeError("probe: W3 unavailable")
+
+RuntimeError: probe: W3 unavailable
+
+W2 S9_composer_fallback OK | fallback_hint='' expected_from_real_doc='' source='global' skip='style_policy_absent'
+
+W2 I0_before_on OK | status=ready detail=image_limit_ok
+
+W2 I1_override_off OK | status=200 updated=['flags.image_generation_module_enabled']
+
+INFO services.capability_registry: [capability] cache invalidated | cap=image_generation | chat=-1009900000201 | n=1 | reason=probe-w2
+
+W2 I2_capability_disabled OK | status=disabled reason=module_disabled detail=image_module_off
+
+W2 I3_showcase OK | status=200 image_generation={"status": "disabled", "reason_code": "module_disabled", "detail": "image_module_off"} summary={"disabled": 1, "ready": 10, "not_configured": 1, "unsupported": 1}
+
+W2 I4_overview_summary OK | status=200 capability_summary={"disabled": 1, "ready": 10, "not_configured": 1, "unsupported": 1}
+
+INFO services.mca_events: mca_event=capability_check | ts=1792312753 | event_name=capability_check | outcome=failed | level=INFO | component=capability_registry | status=disabled | entity_id=image_generation | chat_id=-1009900000201 | trace_id=probe-agent-checks-w2-l1 | reason_code=financial_limit_disabled
+
+INFO services.agentic_events: event=L1_CAPABILITY_REJECTED | capability=image_generation | reason=module_disabled | chat_id=-1009900000201 | run_id=probe-agent-checks-w2-l1 | ts=1792312753.5
+
+INFO services.direct_chat_service: [direct] capability blockers | chat=-1009900000201 | cap=image_generation | blockers=capability_disabled | status=disabled
+
+W2 I5_L1_notice OK | denied=['image_generation'] fired=False block='<capability_notice status="disabled" capability="image_generation">\n╨Ш╨╜╤Б╤В╤А╤Г╨╝╨╡╨╜╤В image_generation ╤Б╨╡╨╣╤З╨░╤Б ╨╜╨╡╨┤╨╛╤Б╤В╤Г╨┐╨╡╨╜: ╨╝╨╛╨┤╤Г╨╗╤М ╨▓╤Л╨║╨╗╤О╤З╨╡╨╜ ╨▓ ╤Н╤В╨╛╨╝ ╤З╨░╤В╨╡ (╨┐╤А╨╕╤З╨╕╨╜╨░: module_disabled).\n╨Э╨╡ ╨╛╨▒╨╡╤Й╨░╨╣ ╨▓╤Л╨┐╨╛╨╗╨╜╨╕╤В╤М ╤Н╤В╨╛ ╨┤╨╡╨╣╤Б╤В'
+
+INFO services.direct_chat_service: [direct] triggered | chat=-1009900000201 user=Probe
+
+INFO services.mca_events: mca_event=mca07_answer_cache | ts=1792312753 | event_name=mca07_answer_cache | outcome=skipped | level=INFO | component=retrieval_context | stage=answer_cache | reason_code=answer_cache_disabled
+
+ERROR services.direct_chat_service: [direct] unexpected | chat=-1009900000201
+
+Traceback (most recent call last):
+
+  File "/var/www/admin_bot/services/direct_chat_service.py", line 2208, in _handle_turn
+
+    user_blocks = await self._build_user_content(
+
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+  File "/var/www/admin_bot/services/direct_chat_service.py", line 4980, in _build_user_content
+
+    window = await self.memory.get_window_messages(chat_id)
+
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+AttributeError: 'NoneType' object has no attribute 'get_window_messages'
+
+W2 I6_off_refusal_full_turn FAIL | refusal='╨▓╨╜╤Г╤В╤А╨╡╨╜╨╜╤П╤П ╨╛╤И╨╕╨▒╨║╨░ ╨▒╨░╨╖╤Л, ╨╕╨┤╨╕ ╨╜╨░╤Е╤Г╨╣' ==status_message=False provider_delta=0
+
+INFO services.capability_registry: [capability] cache invalidated | cap=image_generation | chat=-1009900000201 | n=1 | reason=probe-w2
+
+W2 I7_restored_ready FAIL | resolve_status=ready showcase_status=disabled overrides_cleared
+
+W2 J0_intent INFO | intent=create_image confidence=ambiguous reason=create_verb_without_object actionable=False
+
+INFO services.direct_chat_service: [direct] triggered | chat=-1009900000201 user=Probe
+
+ERROR services.direct_chat_service: [direct] unexpected | chat=-1009900000201
+
+Traceback (most recent call last):
+
+  File "/var/www/admin_bot/services/direct_chat_service.py", line 2208, in _handle_turn
+
+    user_blocks = await self._build_user_content(
+
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+  File "/var/www/admin_bot/services/direct_chat_service.py", line 4980, in _build_user_content
+
+    window = await self.memory.get_window_messages(chat_id)
+
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+AttributeError: 'NoneType' object has no attribute 'get_window_messages'
+
+W2 J1_clarify_full_turn FAIL | sends=1 text='╨╝╨╛╨╕ ╨╝╨╛╨╖╨│╨╕ ╤А╨░╤Б╨┐╨╗╨░╨▓╨╕╨╗╨╕╤Б╤М ╨╛╤В ╤В╨▓╨╛╨╡╨│╨╛ ╨▒╤А╨╡╨┤╨░' ==template=False provider_delta=0
+
+W2 L0_budget INFO | shared=200 used_shared=4 | chat=60 used_chat=1 src=global
+
+W2 L1_intent INFO | intent=create_image confidence=high actionable=True
+
+INFO services.agentic_events: event=IMAGE_CONTEXT_RESOLVED | run_id=probe-agent-checks-w2-draw-l1 | chat_id=-1009900000201 | resolution=none | facts=0 | slice=0 | prompt_chars=39 | latency_ms=0 | ts=1792312753.603
+
+INFO services.agentic_events: event=IMAGE_GENERATION_START | run_id=probe-agent-checks-w2-draw-l1 | chat_id=-1009900000201 | source=direct | prompt_chars=39 | ts=1792312753.604
+
+INFO services.image_generation: [image] generated | mode=post | model=qwen-image-3-pro | bytes=1632525 | latency_ms=75749
+
+WARNING services.image_generation: [image] send failed | chat=-1009900000201 | error=TelegramBadRequest
+
+INFO services.mca_events: mca_event=image_generate | ts=1792312830 | event_name=image_generate | outcome=failed | level=INFO | component=image_generation | reason_code=delivery_unknown | chat_id=-1009900000201 | duration_ms=76708
+
+INFO services.agentic_events: event=IMAGE_GENERATION_FAILED | run_id=probe-agent-checks-w2-draw-l1 | chat_id=-1009900000201 | source=direct | reason_class=error | ts=1792312830.313
+
+INFO services.capability_registry: [capability] cache invalidated | cap=image_generation | chat=-1009900000201 | n=1 | reason=outcome
+
+INFO services.mca_events: mca_event=capability_check | ts=1792312830 | event_name=capability_check | outcome=failed | level=INFO | component=capability_registry | status=delivery_failed | entity_id=image_generation | chat_id=-1009900000201
+
+INFO services.mca_events: mca_event=capability_message | ts=1792312830 | event_name=capability_message | outcome=failed | level=INFO | component=capability_registry | entity_id=message.image_failure.delivery_failed | status=delivery_failed | chat_id=-1009900000201
+
+W2 L1_real_delivery FAIL | provider_calls=1 send={"chat_requested": -1009900000201, "target": 5885953495, "bytes": 1632525, "ok": false, "error": "TelegramBadRequest", "error_text": "Telegram server says - Bad Request: message to be replied not found"} block='<image_result status="error" reason="delivery_failed">\n╨Ъ╨░╤А╤В╨╕╨╜╨║╨░ ╤Б╨│╨╡╨╜╨╡╤А╨╕╤А╨╛╨▓╨░╨╗╨░╤Б╤М, ╨╜╨╛ ╨▓ ╤З╨░╤В ╨╜╨╡ ╨┤╨╛╨╡╤Е╨░╨╗╨░ - ╤Б╨┐╨╛╤В╨║╨╜╤Г╨╗╤Б╤П ╨╜╨░ ╨╛╤В╨┐╤А╨░╨▓╨║╨╡. ╨Т╤В╨╛╤А╨╛╨╣ ╤А╨░╨╖ ╨┐╨╗'
+
+W2 L1_redirect INFO | redirect_to=5885953495 (╤Б╨╕╨╜╤В╨╡╤В╨╕╨║╨░ ╨┤╨╛╤Б╤В╨╕╨╢╨╕╨╝╨░=False)
+
+INFO services.agentic_events: event=IMAGE_CONTEXT_RESOLVED | run_id=probe-agent-checks-w2-draw-l1 | chat_id=-1009900000201 | resolution=none | facts=0 | slice=0 | prompt_chars=39 | latency_ms=0 | ts=1792312830.317
+
+INFO services.agentic_events: event=IMAGE_GENERATION_START | run_id=probe-agent-checks-w2-draw-l1 | chat_id=-1009900000201 | source=direct | prompt_chars=39 | ts=1792312830.317
+
+INFO services.image_generation: [image] reserve replay | chat=-1009900000201 | source=direct | status=already:committed
+
+INFO services.mca_events: mca_event=image_generate | ts=1792312830 | event_name=image_generate | outcome=skipped | level=INFO | component=image_generation | reason_code=action_idempotent_replay | chat_id=-1009900000201
+
+INFO services.agentic_events: event=IMAGE_GENERATION_COMPLETE | run_id=probe-agent-checks-w2-draw-l1 | chat_id=-1009900000201 | source=direct | duration_ms=8 | ts=1792312830.325
+
+W2 L2_replay_no_dup OK | provider_calls=0 new_sends=0 block='<image_result status="ok" delivery="already">\n╨Я╨╛ ╤Н╤В╨╛╨╝╤Г ╨╖╨░╨┐╤А╨╛╤Б╤Г ╨╕╨╖╨╛╨▒╤А╨░╨╢╨╡╨╜╨╕╨╡ ╤Г╨╢╨╡ ╨╛╨▒╤А╨░╨▒╨░╤В╤Л╨▓╨░╨╗╨╛╤Б╤М: ╨┐╨╛╨▓╤В╨╛╤А╨╜╨░╤П ╨│╨╡╨╜╨╡╤А╨░╤Ж╨╕╤П ╨╕ ╨┐╨╛╨▓╤В╨╛╤А╨╜╨░╤П ╨╛╤В╨┐╤А╨░╨▓╨║╨░ ╨╜╨╡ ╨▓'
+
+INFO services.agentic_events: event=IMAGE_CONTEXT_RESOLVED | run_id=probe-agent-checks-w2-draw-l3 | chat_id=-1009900000201 | resolution=none | facts=0 | slice=0 | prompt_chars=31 | latency_ms=0 | ts=1792312830.327
+
+INFO services.agentic_events: event=IMAGE_GENERATION_START | run_id=probe-agent-checks-w2-draw-l3 | chat_id=-1009900000201 | source=direct | prompt_chars=31 | ts=1792312830.327
+
+INFO services.image_generation: [image] generated | mode=post | model=qwen-image-3-pro | bytes=541242 | latency_ms=56592
+
+WARNING services.image_generation: [image] send failed | chat=-1009900000201 | error=TelegramBadRequest
+
+INFO services.mca_events: mca_event=image_generate | ts=1792312887 | event_name=image_generate | outcome=failed | level=INFO | component=image_generation | reason_code=delivery_unknown | chat_id=-1009900000201 | duration_ms=57355
+
+INFO services.agentic_events: event=IMAGE_GENERATION_FAILED | run_id=probe-agent-checks-w2-draw-l3 | chat_id=-1009900000201 | source=direct | reason_class=error | ts=1792312887.683
+
+INFO services.mca_events: mca_event=capability_check | ts=1792312887 | event_name=capability_check | outcome=failed | level=INFO | component=capability_registry | status=delivery_failed | entity_id=image_generation | chat_id=-1009900000201
+
+INFO services.mca_events: mca_event=capability_message | ts=1792312887 | event_name=capability_message | outcome=failed | level=INFO | component=capability_registry | entity_id=message.image_failure.delivery_failed | status=delivery_failed | chat_id=-1009900000201
+
+W2 L3_send_fail_real OK | provider_calls=1 send={"ok": false, "error": "TelegramBadRequest", "error_text": "Telegram server says - Bad Request: chat not found"} block='<image_result status="error" reason="delivery_failed">\n╨Ъ╨░╤А╤В╨╕╨╜╨║╨░ ╤Б╨│╨╡╨╜╨╡╤А╨╕╤А╨╛╨▓╨░╨╗╨░╤Б╤М, ╨╜╨╛ ╨▓ ╤З╨░╤В ╨╜╨╡ ╨┤╨╛╨╡╤Е╨░╨╗╨░ - ╤Б╨┐╨╛╤В╨║╨╜╤Г╨╗╤Б╤П ╨╜╨░ ╨╛╤В╨┐╤А╨░╨▓╨║╨╡. ╨Т╤В╨╛╤А╨╛╨╣ ╤А╨░╨╖ ╨┐╨╗╨░╤В╨╕╤В╤М ╨╖╨░ ╤В╨╛ ╨╢╨╡ ╤Б╨░╨╝╨╛╨╡ ╨╜╨╡ ╨▒╤Г╨┤╤Г: ╨╖╨░╨┐╤А╨╛╤Б╨╕ ╨╖╨░╨╜╨╛╨▓╨╛.\n╨Э╨╕╤З╨╡╨│╨╛ ╨╜╨╡ ╨╛╤В╨┐╤А'
+
+W2 L4_journal INFO | [{"reservation_key": "-1009900000201:990000808:direct", "chat_id": "-1009900000201", "source": "direct", "message_id": "990000808", "day": "2026-10-18", "status": "committed", "error_code": "", "delivery_failed": "True"}, {"reservation_key": "-1009900000201:990000807:direct", "chat_id": "-1009900000201", "source": "direct", "message_id": "990000807", "day": "2026-10-18", "status": "committed", "error_code": "", "delivery_failed": "True"}, {"reservation_key": "-1009900000201:990000701:direct", "chat_id": "-1009900000201", "source": "direct", "message_id": "990000701", "day": "2026-10-18", "status": "committed", "error_code": "", "delivery_failed": "False"}]
+
+W2 L4_journal_states OK | committed_ok=True committed_delivery_failed=True rows=3
+
+W2 K1_no_key_state OK | status=not_configured reason=image_provider_unconfigured detail=key_absent
+
+INFO services.direct_chat_service: [direct] triggered | chat=-1009900000201 user=Probe
+
+ERROR services.direct_chat_service: [direct] unexpected | chat=-1009900000201
+
+Traceback (most recent call last):
+
+  File "/var/www/admin_bot/services/direct_chat_service.py", line 2208, in _handle_turn
+
+    user_blocks = await self._build_user_content(
+
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+  File "/var/www/admin_bot/services/direct_chat_service.py", line 4980, in _build_user_content
+
+    window = await self.memory.get_window_messages(chat_id)
+
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+AttributeError: 'NoneType' object has no attribute 'get_window_messages'
+
+W2 K1_no_key_refusal FAIL | refusal='╨╝╨╛╨╕ ╨╝╨╛╨╖╨│╨╕ ╤А╨░╤Б╨┐╨╗╨░╨▓╨╕╨╗╨╕╤Б╤М ╨╛╤В ╤В╨▓╨╛╨╡╨│╨╛ ╨▒╤А╨╡╨┤╨░' ==status_message=False provider_delta=0
+
+INFO services.capability_registry: [capability] cache invalidated | cap=image_generation | chat=-1009900000201 | n=1 | reason=probe-w2
+
+W2 K1_reverted INFO | status=ready ╨┐╨╛╤Б╨╗╨╡ ╤Б╨╜╤П╤В╨╕╤П per-chat override ╨║╨╗╤О╤З╨░ (╨│╨╗╨╛╨▒╨░╨╗╤М╨╜╤Л╨╣ ╨║╨╗╤О╤З ╨╜╨╡ ╨╕╨╖╨╝╨╡╨╜╤П╨╗╤Б╤П)
+
+W2 K2_set INFO | used=3 limit_override=3 status=200 updated=['limits.image_daily_limit']
+
+INFO services.capability_registry: [capability] cache invalidated | cap=image_generation | chat=-1009900000201 | n=1 | reason=probe-w2
+
+W2 K2_quota_state OK | status=quota_exhausted reason=financial_limit_reached detail=image_daily_limit used=3 limit=3
+
+INFO services.direct_chat_service: [direct] triggered | chat=-1009900000201 user=Probe
+
+ERROR services.direct_chat_service: [direct] unexpected | chat=-1009900000201
+
+Traceback (most recent call last):
+
+  File "/var/www/admin_bot/services/direct_chat_service.py", line 2208, in _handle_turn
+
+    user_blocks = await self._build_user_content(
+
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+  File "/var/www/admin_bot/services/direct_chat_service.py", line 4980, in _build_user_content
+
+    window = await self.memory.get_window_messages(chat_id)
+
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+AttributeError: 'NoneType' object has no attribute 'get_window_messages'
+
+W2 K2_quota_refusal FAIL | refusal='╤П ╨┐╨╛╨┤╨░╨▓╨╕╨╗╤Б╤П ╤В╨╛╨║╨╡╨╜╨░╨╝╨╕, ╨┐╨╛╨┐╤А╨╛╨▒╤Г╨╣ ╨┐╨╛╨╖╨╢╨╡' ==status_message=False provider_delta=0
+
+INFO services.capability_registry: [capability] cache invalidated | cap=image_generation | chat=-1009900000201 | n=1 | reason=probe-w2
+
+W2 K2_restored OK | status=ready detail=image_limit_ok
+
+W2 M1_video_state OK | status=not_configured reason=media_source_unconfigured detail=cobalt_absent (╨╛╤Б╤В╨░╤В╨╛╨║ ╨┐╨╛╨┤╤В╨▓╨╡╤А╨╢╨┤╤С╨╜; ╤Б╤Ж╨╡╨╜╨░╤А╨╕╨╣ ╨▒╨╡╨╖ ╨╝╨╡╨┤╨╕╨░-╨╕╤Б╤В╨╛╤З╨╜╨╕╨║╨░ ╨╜╨╡╨▓╤Л╨┐╨╛╨╗╨╜╨╕╨╝)
+
+W2 FINAL_THROTTLE_LEFTOVER INFO | 0
+
+W2 FINAL_PROFILE_LEFTOVER INFO | 0
+
+W2 FINAL_PROFILE_B_LEFTOVER INFO | 0
+
+W2 FINAL_GLOBAL_LIMITS INFO | [{"value": "10"}, {"value": "300.0"}]
+
+W2 FINAL_STYLE INFO | revision=6 rules=0 soft=0
+
+W2 SUMMARY ok=41/48
+
+INFO services.pg_db: [pg_db] pool closed
+
+W2 RC=3
+
+###RC=0###
+
+[?2004hnik@racknerd-f4e3456:/var/www/admin_bot$ 
+=== POST-STATE ===
+cd /var/www/admin_bot && PYTHONIOENCODING=utf-8 timeout 100 /var/www/admin_bot/venv/bin/python /tmp/w2_state.py; echo "###RC=$?###"
+
+[?2004l
+STATE profile_rows_-1009900000201=0
+
+STATE profile_rows_-1009900000202=0
+
+STATE style.policy present=True revision=6 rules=0 soft=0
+
+STATE image_reservation_rows_-1009900000201=3
+
+STATE reservation {"reservation_key": "-1009900000201:990000808:direct", "status": "committed", "error_code": "", "delivery_failed": "True", "day": "2026-10-18"}
+
+STATE reservation {"reservation_key": "-1009900000201:990000807:direct", "status": "committed", "error_code": "", "delivery_failed": "True", "day": "2026-10-18"}
+
+STATE reservation {"reservation_key": "-1009900000201:990000701:direct", "status": "committed", "error_code": "", "delivery_failed": "False", "day": "2026-10-18"}
+
+STATE budget [{"day": "2026-10-18", "scope": "global", "metric": "image_calls", "used": "6"}, {"day": "2026-10-18", "scope": "chat:-1009900000201", "metric": "image_calls", "used": "3"}, {"day": "2026-10-18", "scope": "chat:-1002661910336", "metric": "image_calls", "used": "3"}, {"day": "2026-10-17", "scope": "global", "metric": "image_calls", "used": "5"}, {"day": "2026-10-17", "scope": "chat:-1002661910336", "metric": "image_calls", "used": "5"}, {"day": "2026-10-16", "scope": "global", "metric": "image_calls", "used": "46"}, {"day": "2026-10-16", "scope": "chat:-1002661910336", "metric": "image_calls", "used": "46"}, {"day": "2026-10-15", "scope": "global", "metric": "image_calls", "used": "10"}]
+
+STATE throttle_rows=0 []
+
+STATE mca_events_for_A=2
+
+STATE event {"ts": "1792312752", "level": "WARN", "event_name": "direct_chat_throttle", "outcome": "skipped", "component": "direct_chat", "stage": "cooldown", "reason_code": "rate_limit", "chat_id": "-1009900000201", "usage_json": "{\"remaining_seconds\": 300.0, \"burst_limit\": 2, \"cooldown_seconds\": 300.0, \"source\": \"global\"}"}
+
+STATE event {"ts": "1792302353", "level": "WARN", "event_name": "direct_chat_throttle", "outcome": "skipped", "component": "direct_chat", "stage": "cooldown", "reason_code": "rate_limit", "chat_id": "-1009900000201", "usage_json": "{\"remaining_seconds\": 180.0, \"burst_limit\": 1, \"cooldown_seconds\": 180.0, \"source\": \"chat\"}"}
+
+STATE limits burst=10 cooldown=300.0 image_daily=60
+
+STATE done
+
+###RC=0###
+
+[?2004hnik@racknerd-f4e3456:/var/www/admin_bot$ 
+=== POST: journal ╨╛╨║╨╜╨░ (read-only, sudo) ===
+sudo -S journalctl -u admin_bot --since '45 min ago' --no-pager | grep -c ' ERROR ' ; echo ---ERR_END; journalctl -u admin_bot --since '45 min ago' --no-pager | grep -c ' CRITICAL ' ; echo ---CRIT_END; journalctl -u admin_bot --since '45 min ago' --no-pager | grep -c 'Traceback' ; echo ---TB_END; journalctl -u admin_bot --since '45 min ago' -o short-iso --no-pager | grep -c '\[tma-auth\].*valid=True' ; echo ---TMA_END; journalctl -u admin_bot --since '45 min ago' -o short-iso --no-pager | grep -E '-1009900000201|-1009900000202|\[image\]|direct_chat_throttle|capability' | tail -n 60 ; echo ---SNIPPET_END; journalctl -u admin_bot -n 3 --no-pager ; echo ---TAIL_END ; echo "###RC=$?###"
+
+[?2004l
+[sudo] password for nik: 
+
+0
+
+---ERR_END
+
+0
+
+---CRIT_END
+
+2
+
+---TB_END
+
+216
+
+---TMA_END
+
+grep: invalid option -- '|'
+
+Usage: grep [OPTION]... PATTERNS [FILE]...
+
+Try 'grep --help' for more information.
+
+---SNIPPET_END
+
+Oct 18 08:41:35 racknerd-f4e3456 python[3359708]: 2026-10-18 08:41:35,785 - services.mca_events - INFO - mca_event=PIPELINE_START | ts=1792312895 | event_name=PIPELINE_START | outcome=start | level=INFO | component=random.uses | stage=queued | pipeline_run_id=run_d338ef5ab594418fb295a6a38073be1f | pipeline_type=random.uses | pipeline_version=1 | span_id=sp_92509a5cfcd745b1b4b44298e3e35b46 | status=queued
+
+Oct 18 08:41:35 racknerd-f4e3456 python[3359708]: 2026-10-18 08:41:35,846 - services.mca_events - INFO - mca_event=random_uses_background | ts=1792312895 | event_name=random_uses_background | outcome=skipped | level=INFO | component=random | reason_code=exploration_not_used | stage=direction | pipeline_run_id=run_d338ef5ab594418fb295a6a38073be1f | entity_ids={"package_run_id": "dream:1792312895", "pipeline_run_id": "run_d338ef5ab594418fb295a6a38073be1f", "available": ["archive_sample", "association_pair", "belief_review"], "unavailable": [], "probability": 0.05}
+
+Oct 18 08:41:35 racknerd-f4e3456 python[3359708]: 2026-10-18 08:41:35,857 - apscheduler.executors.default - INFO - Job "DreamWorker._tick (trigger: interval[1:04:00], next run at: 2026-10-18 14:45:35 +05)" executed successfully
+
+---TAIL_END
+
+###RC=0###
+
+[?2004hnik@racknerd-f4e3456:/var/www/admin_bot$ 
+=== POST: systemctl/healthz after ===
+systemctl show admin_bot -p MainPID -p NRestarts -p ActiveEnterTimestamp --no-pager; curl -s http://127.0.0.1:8000/healthz; echo "###RC=$?###"
+
+[?2004l
+MainPID=3359708
+
+NRestarts=0
+
+ActiveEnterTimestamp=Sun 2026-10-18 07:37:17 UTC
+
+{"status":"ok","version":"2.58.89"}###RC=0###
+
+[?2004hnik@racknerd-f4e3456:/var/www/admin_bot$ 
+=== CLEANUP /tmp ===
+rm -f /tmp/agent_checks_w2_probe.py /tmp/w2_state.py /tmp/w2_probe.out; echo CLEANED=1; echo "###RC=$?###"
+
+[?2004l
+CLEANED=1
+
+###RC=0###
+
+[?2004hnik@racknerd-f4e3456:/var/www/admin_bot$ 

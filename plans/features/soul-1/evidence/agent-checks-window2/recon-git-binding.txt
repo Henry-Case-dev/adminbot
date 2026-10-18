@@ -1,0 +1,24 @@
+=== prod git status (read-only) ===
+cd /var/www/admin_bot && git rev-parse HEAD && git status --porcelain=v1 && echo ---DIFFSTAT--- && git diff --stat | tail -n 20 && echo ---DIFF_NAMES--- && git diff --name-only; echo "###RC=$?###"
+[?2004ld59fab944bcb3eb0f5d3fa69101d8488da1c155b
+?? info_text.md.bak.epic44
+?? info_text.md.bak.epic55
+?? info_text.md.bak.epic56
+?? info_text.md.bak.epic57
+?? info_text.md.bak.epic58
+?? info_text.md.bak.epic59
+?? info_text.md.bak.epic71
+?? info_text.md.bak.epic83
+?? info_text.md.pre1015.drift.bak
+?? pre_migration_20261001_161834.db-journal
+?? pre_migration_backup/
+?? test_subs.ru.json3
+?? tools/_s41_precheck.py
+---DIFFSTAT---
+---DIFF_NAMES---
+[?1h=[K[?1l>###RC=0###
+[?2004hnik@racknerd-f4e3456:/var/www/admin_bot$ 
+=== healthz ===
+curl -s http://127.0.0.1:8000/healthz; echo "###RC=$?###"
+[?2004l{"status":"ok","version":"2.58.89"}###RC=0###
+[?2004hnik@racknerd-f4e3456:/var/www/admin_bot$ 

@@ -1,0 +1,183 @@
+[
+  {
+    "line": "CFG-01.AC1 (глобальный burst 10->2 -> 3-й запрос ограничен -> возврат без рестарта)",
+    "verdict": "Готово к VERIFIED (леджеру)",
+    "facts": [
+      "POST /api/config без X-Chat-Id (штатный MiniApp-путь): 10->2 -> 200; resolve (burst=2 cooldown=300.0 source='global')",
+      "два обращения израсходовали заряд (allow=0.0, слот burst_left 2->1->0)",
+      "3-й запрос полным _handle_turn -> фраза R50-7 'дай передохнуть от твоей духоты, вернусь через 5 мин' (хвост 300s == слот, delta=0.0s; 'технически не могу' нет; платных стадий нет)",
+      "вьюер: GET /api/status/logs -> direct_chat_throttle, usage_json {remaining_seconds:300.0, burst_limit:2, cooldown_seconds:300.0, source:'global'}",
+      "возврат 10 -> resolve (10,300,'global'); 3-й allow снова допущен (поведение вернулось); NRestarts=0 (без рестарта, MainPID тот же)"
+    ],
+    "artifact": "plans/features/soul-1/evidence/agent-checks-window2/probe-run1-raw.txt",
+    "run_tags": [
+      "G0_global_before",
+      "G1_global_write_2",
+      "G2_resolve_after_write",
+      "G3_two_charges",
+      "G4_third_restricted",
+      "G5_phrase_contract",
+      "G6_viewer_event",
+      "G7_event_payload",
+      "G8_restore_resolve",
+      "G9_behavior_restored",
+      "G10_global_after"
+    ]
+  },
+  {
+    "line": "CFG-01.AC2 (override одному чату; другой чат — по global)",
+    "verdict": "Готово к VERIFIED (леджеру)",
+    "facts": [
+      "чат-A: POST /api/config X-Chat-Id -> burst=2/cooldown=180; resolve (2,180.0,'chat')",
+      "чат-B (без override) при активном override A: resolve (10,300.0,'global') — утечки нет",
+      "поведение: A — третий allow ограничен (179.99s); B — третий допущен",
+      "restore: overrides_A={}, resolve A (10,300,'global'); профиля B не создавалось"
+    ],
+    "artifact": "plans/features/soul-1/evidence/agent-checks-window2/probe-run1-raw.txt",
+    "run_tags": [
+      "H0_chatB_baseline",
+      "H1_override_A",
+      "H2_resolve_A",
+      "H3_resolve_B_no_leak",
+      "H4_behavior_A_limited",
+      "H5_behavior_B_global",
+      "H6_restore",
+      "H7_chatB_untouched"
+    ]
+  },
+  {
+    "line": "SOUL-AMD.8.3 (Style Policy: включённое правило меняет следующую сборку; мгновенный откат; fallback)",
+    "verdict": "Готово к VERIFIED (леджеру) для Style-половины; Core-половина и полный LLM-fallback — остаток с причиной",
+    "facts": [
+      "включён пресет trailing_period.hard.strip: applied=true, revision 6->7, rules 0->1",
+      "следующая try: style_text_masked = текст БЕЗ завершающей точки (…исчезнуть.); ревизия c6.84cad658cf40 -> c7.e1a301d5414e",
+      "откат исходным документом: revision=8, rules=0/soft=0, пробы нет; try снова не меняет текст",
+      "невалидное правило: явный issue rule_kind_unknown + отброшено (не 'протекает', не молчит)",
+      "композер при недоступном W3-модуле: fallback-ref только из реального документа (hint=''), без скрытого персонажа"
+    ],
+    "artifact": "plans/features/soul-1/evidence/agent-checks-window2/probe-run2-closing-raw.txt",
+    "run_tags": [
+      "S0_baseline_state",
+      "S1_try_before",
+      "S2_rule_write",
+      "S3_effect_next_try",
+      "S4_revision_bump",
+      "S5_restore",
+      "S6_final_state",
+      "S7_try_after_restore",
+      "S8_invalid_not_silent",
+      "S9_composer_fallback"
+    ]
+  },
+  {
+    "line": "SOUL-AMD.8.10 (модуль/per-chat override отражаются в L1 и UI)",
+    "verdict": "Готово к VERIFIED (леджеру); смена провайдера не форсировалась",
+    "facts": [
+      "per-chat OFF через штатный API -> capability disabled/module_disabled",
+      "витрина: GET /api/speech/capabilities и /speech/overview -> image_generation disabled/module_disabled (summary.disabled=1)",
+      "L1: _l1_capability_consistency -> <capability_notice status=\"disabled\">, denied=('image_generation',), генерации нет",
+      "отказ: реальный _image_capability_gate -> текст == шаблон message.image_failure.disabled, 0 платных",
+      "возврат: DELETE /api/config/chat/flags... -> 200; витрина ready после TTL реестра (60 c)"
+    ],
+    "artifact": "plans/features/soul-1/evidence/agent-checks-window2/probe-run2-closing-raw.txt",
+    "run_tags": [
+      "I0_before_on",
+      "I1_override_off",
+      "I2_capability_disabled",
+      "I3_showcase",
+      "I4_overview_summary",
+      "I5_L1_notice",
+      "I6_off_refusal_gate",
+      "I7_override_delete",
+      "I8_restored_ready"
+    ]
+  },
+  {
+    "line": "SOUL-AMD.8.7 (неоднозначное поручение -> одно уместное уточнение)",
+    "verdict": "Готово к VERIFIED (леджеру)",
+    "facts": [
+      "'сделай это' -> create_image/ambiguous/create_verb_without_object",
+      "реальный гейт: ровно 1 сообщение == шаблон реестра 'Уточни: картинку изобразить или текстом обойтись?', 0 платных вызовов"
+    ],
+    "artifact": "plans/features/soul-1/evidence/agent-checks-window2/probe-run2-closing-raw.txt",
+    "run_tags": [
+      "J0_intent",
+      "J1_clarify_gate"
+    ]
+  },
+  {
+    "line": "SOUL-AMD.8.8 (правдивые отказы: OFF / нет ключа / квота)",
+    "verdict": "Готово (3 условия живые, тексты разные/правдивые); 'провайдер временно не отвечает' — мок-остаток",
+    "facts": [
+      "OFF: disabled/module_disabled -> 'Рисовать я сейчас не могу…' (шаблон message.image_failure.disabled)",
+      "нет ключа: not_configured/detail=key_absent -> 'Картинку бы изобразил, но генератор не подключён…'; per-chat override ключа, глобальный ключ не тронут",
+      "квота: quota_exhausted/financial_limit_reached (used=4 >= limit=4, реальная бухгалтерия) -> 'На сегодня картинки закончились…'",
+      "во всех: handled=True, 0 вызовов провайдера, без 'я вообще не умею'"
+    ],
+    "artifact": "plans/features/soul-1/evidence/agent-checks-window2/probe-run2-closing-raw.txt",
+    "run_tags": [
+      "I6_off_refusal_gate",
+      "K1_no_key_state",
+      "K1_no_key_refusal",
+      "K2_quota_state",
+      "K2_quota_refusal",
+      "K2_restored"
+    ]
+  },
+  {
+    "line": "SOUL-AMD.5.17 + AMD.8.6 (реальная доставка; один платный вызов на намерение; повтор без дубля)",
+    "verdict": "Готово к VERIFIED (леджеру)",
+    "facts": [
+      "реальный вход _image_pre_gate_block -> ровно 1 вызов провайдера, блок delivery=\"sent\"",
+      "реальная отправка в Telegram: ok=true, message_id=195, bytes=1545484; сообщение удалено сразу после проверки",
+      "[image] sent ... delivery_failed=False; резерв 990000811 committed, delivery_failed=False",
+      "повтор того же хода: delivery=\"already\", 0 вызовов, 0 отправок",
+      "цель положительной доставки: ЛС владельца (синтетический чат недостижим для бота — getChat: TelegramBadRequest) — вынужденная адаптация брифа, настройки не менялись"
+    ],
+    "artifact": "plans/features/soul-1/evidence/agent-checks-window2/probe-run2-closing-raw.txt",
+    "run_tags": [
+      "L1_real_delivery",
+      "L1_delete",
+      "L2_replay_no_dup",
+      "L4_journal_states"
+    ]
+  },
+  {
+    "line": "SOUL-AMD.8.9 (успешная генерация + ошибка Telegram-send)",
+    "verdict": "Готово к VERIFIED (леджеру) — реальная ошибка Telegram",
+    "facts": [
+      "send в недостижимый чат -> TelegramBadRequest: chat not found (реальный клиент, не мок)",
+      "блок status=\"error\" reason=\"delivery_failed\" + 'Ничего не отправлено'; 'sent' не заявляется",
+      "резерв 990000808 committed, delivery_failed=True; без авто-повтора платной генерации"
+    ],
+    "artifact": "plans/features/soul-1/evidence/agent-checks-window2/probe-run1-raw.txt",
+    "run_tags": [
+      "L3_send_fail_real"
+    ]
+  },
+  {
+    "line": "SOUL-AMD.8.11 (видео — невоспроизводимо без медиа-источника)",
+    "verdict": "Остаток подтверждён (не закрывается по этому evidence)",
+    "facts": [
+      "capability video_summary = not_configured / media_source_unconfigured / cobalt_absent (оба прогона)"
+    ],
+    "artifact": "plans/features/soul-1/evidence/agent-checks-window2/probe-run2-closing-raw.txt",
+    "run_tags": [
+      "P0_CAP",
+      "M1_video_state"
+    ]
+  },
+  {
+    "line": "INCIDENTAL (вне лейна): per-chat сохранение Стиля/Выражения через MiniApp падает (PgUnavailable; set_chat_params без pg)",
+    "verdict": "Находка для отдельного разбора (НЕ этого лейна; pre-existing)",
+    "facts": [
+      "журнал бота 08:02:21 и 08:09:49 (ДО прогонов окна): [style_policy] document save failed / [speech] expression chat write failed -> ChatLorePgUnavailable (пул отсутствует)",
+      "код: web/api/speech.py:2184 (_write_expression) и services/style_policy.py:2272 (set_root без pg)",
+      "может задевать формулировку AMD.8.3 'во всех соответствующих путях' (per-chat доля)"
+    ],
+    "artifact": "plans/features/soul-1/evidence/agent-checks-window2/recon-journal-tracebacks.txt",
+    "run_tags": [
+      "recon_traceback_classification"
+    ]
+  }
+]

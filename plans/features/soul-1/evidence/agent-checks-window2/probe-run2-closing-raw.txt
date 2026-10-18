@@ -1,0 +1,442 @@
+﻿[runner] uploaded: probe=65951 state=4509 bytes; phases=S,I,J,L,K
+=== PRE: ╨▓╤А╨╡╨╝╤П/╨┐╤А╨╛╤Ж╨╡╤Б╤Б╤Л/╨▒╨╕╨╜╨┤╨╕╨╜╨│ ===
+date -u '+%Y-%m-%d %H:%M:%S UTC'; echo PROBE_PROCS=$(ps -ef | grep -c '[a]gent_checks_w2_probe'); echo STALE_STATE_PROCS=$(ps -ef | grep -c '[w]2_state'); pkill -f '[w]2_state.py' >/dev/null 2>&1; echo PKILL_RC=$?; echo OLD_OUT_BYTES=$([ -f /tmp/w2_probe.out ] && wc -c < /tmp/w2_probe.out || echo 0); cd /var/www/admin_bot && echo HEAD=$(git rev-parse HEAD) && echo TRACKED_MOD=$(git status --porcelain | wc -l) && systemctl show admin_bot -p MainPID -p NRestarts -p ActiveEnterTimestamp --no-pager; curl -s http://127.0.0.1:8000/healthz; echo "###RC=$?###"
+
+[?2004l
+2026-10-18 08:48:57 UTC
+
+PROBE_PROCS=0
+
+STALE_STATE_PROCS=0
+
+PKILL_RC=1
+
+OLD_OUT_BYTES=0
+
+HEAD=d59fab944bcb3eb0f5d3fa69101d8488da1c155b
+
+TRACKED_MOD=13
+
+MainPID=3359708
+
+NRestarts=0
+
+ActiveEnterTimestamp=Sun 2026-10-18 07:37:17 UTC
+
+{"status":"ok","version":"2.58.89"}###RC=0###
+
+[?2004hnik@racknerd-f4e3456:/var/www/admin_bot$ 
+=== PRE-STATE ===
+cd /var/www/admin_bot && PYTHONIOENCODING=utf-8 timeout 100 /var/www/admin_bot/venv/bin/python /tmp/w2_state.py; echo "###RC=$?###"
+
+[?2004l
+STATE profile_rows_-1009900000201=0
+
+STATE profile_rows_-1009900000202=0
+
+STATE style.policy present=True revision=6 rules=0 soft=0
+
+STATE image_reservation_rows_-1009900000201=3
+
+STATE reservation {"reservation_key": "-1009900000201:990000808:direct", "status": "committed", "error_code": "", "delivery_failed": "True", "day": "2026-10-18"}
+
+STATE reservation {"reservation_key": "-1009900000201:990000807:direct", "status": "committed", "error_code": "", "delivery_failed": "True", "day": "2026-10-18"}
+
+STATE reservation {"reservation_key": "-1009900000201:990000701:direct", "status": "committed", "error_code": "", "delivery_failed": "False", "day": "2026-10-18"}
+
+STATE budget [{"day": "2026-10-18", "scope": "global", "metric": "image_calls", "used": "6"}, {"day": "2026-10-18", "scope": "chat:-1009900000201", "metric": "image_calls", "used": "3"}, {"day": "2026-10-18", "scope": "chat:-1002661910336", "metric": "image_calls", "used": "3"}, {"day": "2026-10-17", "scope": "global", "metric": "image_calls", "used": "5"}, {"day": "2026-10-17", "scope": "chat:-1002661910336", "metric": "image_calls", "used": "5"}, {"day": "2026-10-16", "scope": "global", "metric": "image_calls", "used": "46"}, {"day": "2026-10-16", "scope": "chat:-1002661910336", "metric": "image_calls", "used": "46"}, {"day": "2026-10-15", "scope": "global", "metric": "image_calls", "used": "10"}]
+
+STATE throttle_rows=0 []
+
+STATE mca_events_for_A=2
+
+STATE event {"ts": "1792312752", "level": "WARN", "event_name": "direct_chat_throttle", "outcome": "skipped", "component": "direct_chat", "stage": "cooldown", "reason_code": "rate_limit", "chat_id": "-1009900000201", "usage_json": "{\"remaining_seconds\": 300.0, \"burst_limit\": 2, \"cooldown_seconds\": 300.0, \"source\": \"global\"}"}
+
+STATE event {"ts": "1792302353", "level": "WARN", "event_name": "direct_chat_throttle", "outcome": "skipped", "component": "direct_chat", "stage": "cooldown", "reason_code": "rate_limit", "chat_id": "-1009900000201", "usage_json": "{\"remaining_seconds\": 180.0, \"burst_limit\": 1, \"cooldown_seconds\": 180.0, \"source\": \"chat\"}"}
+
+STATE limits burst=10 cooldown=300.0 image_daily=60
+
+STATE done
+
+###RC=0###
+
+[?2004hnik@racknerd-f4e3456:/var/www/admin_bot$ 
+=== PROBE (nohup, phases=S,I,J,L,K, skip_l3=1) ===
+cd /var/www/admin_bot && rm -f /tmp/w2_probe.out && nohup env W2_PHASES=S,I,J,L,K W2_SKIP_L3=1 PYTHONIOENCODING=utf-8 /var/www/admin_bot/venv/bin/python /tmp/agent_checks_w2_probe.py > /tmp/w2_probe.out 2>&1 & echo STARTED_PID=$!; echo "###RC=$?###"
+
+[?2004l
+[1] 3374729
+
+STARTED_PID=3374729
+
+###RC=0###
+
+[?2004hnik@racknerd-f4e3456:/var/www/admin_bot$ 
+[runner] probe finished=True (poll iterations=16)
+=== PROBE OUTPUT ===
+cat /tmp/w2_probe.out; echo "###RC=$?###"
+
+[?2004l
+nohup: ignoring input
+
+INFO services.pg_db: [pg_db] asyncpg pool created (json/jsonb codecs)
+
+INFO services.pg_db: [pg_db] DDL ok (╤В╨░╨▒╨╗╨╕╤Ж╤Л + ╨╕╨╜╨┤╨╡╨║╤Б╤Л)
+
+INFO services.pg_db: [pg_db] roles seeded: ['admin', 'moderator', 'user', 'local_admin']
+
+INFO services.pg_db: [pg_db] admins seeded: [5885953495, 1313107079, 134812796]
+
+INFO services.pg_db: [pg_db] starter bot_settings seeded: 471 (ON CONFLICT DO NOTHING)
+
+INFO services.config_cache: [config_cache] initialized: settings=522 roles=4 admins=3
+
+W2 BOOT INFO | version=? pg_available=True
+
+W2 P0_TIME INFO | now_utc=2026-10-18 08:49:03
+
+W2 P0_PROBE_SHA INFO | f9d94b6ac6288ef58f756da82c64682a8513e7063199b98f3a830e41e857a82f
+
+W2 P0_SHA INFO | services/direct_chat_service.py 7a613dc9b406
+
+W2 P0_SHA INFO | services/persistent_throttling.py 1a222e926aeb
+
+W2 P0_SHA INFO | services/chat_params.py f480530b6c12
+
+W2 P0_SHA INFO | services/capability_registry.py 6f650a2c9771
+
+W2 P0_SHA INFO | services/image_generation.py db1d60cd4b54
+
+W2 P0_SHA INFO | services/style_policy.py f5eff9607d15
+
+W2 P0_SHA INFO | services/worker_budget.py e18dab826da1
+
+W2 P0_SHA INFO | services/direct_capabilities.py 74e59e8c14f0
+
+W2 P0_SHA INFO | services/chat_prompts.py 0b0ad23784c8
+
+W2 P0_SHA INFO | services/prompt_composer.py fd8a2a70d5d7
+
+W2 P0_SHA INFO | web/api/speech.py a69a67536ebe
+
+W2 P0_SHA INFO | web/api/routes.py 989779c65128
+
+W2 P0_SHA INFO | config/settings.py a6a2d1a8408b
+
+INFO httpx: HTTP Request: GET http://127.0.0.1:8000/healthz "HTTP/1.1 200 OK"
+
+W2 P0_HEALTHZ INFO | status=200 body={"status":"ok","version":"2.58.89"}
+
+W2 P0_GLOBAL_LIMITS INFO | burst=10 cooldown=300.0 silence_enabled=True after=5
+
+W2 P0_PROFILES INFO | total=3
+
+W2 P0_SYNTH INFO | chat=-1009900000201 profile_exists=False
+
+W2 P0_SYNTH INFO | chat=-1009900000202 profile_exists=False
+
+W2 P0_THROTTLE INFO | []
+
+W2 P0_STYLE_PG INFO | present=True revision=6 rules=0 soft=0
+
+W2 P0_BUDGET INFO | [{"day": "2026-10-18", "scope": "global", "used": "6"}, {"day": "2026-10-18", "scope": "chat:-1009900000201", "used": "3"}, {"day": "2026-10-18", "scope": "chat:-1002661910336", "used": "3"}, {"day": "2026-10-17", "scope": "global", "used": "5"}, {"day": "2026-10-17", "scope": "chat:-1002661910336", "used": "5"}, {"day": "2026-10-16", "scope": "global", "used": "46"}, {"day": "2026-10-16", "scope": "chat:-1002661910336", "used": "46"}, {"day": "2026-10-15", "scope": "global", "used": "10"}]
+
+W2 P0_CAP INFO | image_generation status=ready reason= detail=image_limit_ok
+
+W2 P0_CAP INFO | video_summary status=not_configured reason=media_source_unconfigured detail=cobalt_absent
+
+W2 P0_BOT INFO | get_me username=PERMsoc_bot id=8802473181
+
+W2 P0_REACH INFO | chat=-1009900000201 reachable=False error=TelegramBadRequest
+
+W2 P0_REACH INFO | chat=-1009900000202 reachable=False error=TelegramBadRequest
+
+W2 P0_REACH INFO | chat=5885953495 reachable=True type=private title='None'
+
+W2 P0_REACH INFO | chat=-1002661910336 reachable=True type=supergroup title='PERMsoc: ╨║╤Г╨║╤П╤А╨╕╨║'
+
+W2 P0_REACH INFO | chat=-1004482340693 reachable=True type=supergroup title='╨Э╨╡╨╕╤Б╤В╨╛╨▓╨╛ ╤Б╤Г╨┐╨╡╤А ╨║╤А╤Г╤В╤Л╨╡ ╨║╤А╨╕╤Н╨╣╤В╨╛╤А╤Л ╨│╨╕╨┐╨╡╤А╨│╨╛╨▓'
+
+W2 P0_SEND_TARGET INFO | target=5885953495 (None = ╨▒╨╡╨╖ ╤А╨╡╨┤╨╕╤А╨╡╨║╤В╨░)
+
+W2 SVC INFO | DirectChatService ╨│╨╛╤В╨╛╨▓ (llm=None тАФ ╨┐╨╗╨░╤В╨╜╤Л╨╡ LLM-╤Б╤В╨░╨┤╨╕╨╕ ╨╜╨╡╨▓╨╛╨╖╨╝╨╛╨╢╨╜╤Л)
+
+W2 PHASES INFO | ╨▓╤Л╨▒╤А╨░╨╜╤Л ╤Д╨░╨╖╤Л: S,I,J,L,K
+
+W2 S0_baseline_state OK | api_status=200 global_present=None revision=None rules=None soft=None
+
+W2 S1_try_before OK | text_same=True repaired=0 applied=True versions='c6.84cad658cf40'
+
+W2 S2_rule_write OK | status=200 applied=True revision=7 rules=1 rule_id=trailing_period.hard.strip
+
+W2 S3_effect_next_try OK | before='╨н╤В╨╛ ╨░╨│╨╡╨╜╤В╤Б╨║╨░╤П ╨┐╤А╨╛╨▓╨╡╤А╨║╨░: ╨╖╨░╨▓╨╡╤А╤И╨░╤О╤Й╨░╤П ╤В╨╛╤З╨║╨░ ╨┤╨╛╨╗╨╢╨╜╨░ ╨╕╤Б╤З╨╡╨╖╨╜╤Г╤В╤М.' after='╨н╤В╨╛ ╨░╨│╨╡╨╜╤В╤Б╨║╨░╤П ╨┐╤А╨╛╨▓╨╡╤А╨║╨░: ╨╖╨░╨▓╨╡╤А╤И╨░╤О╤Й╨░╤П ╤В╨╛╤З╨║╨░ ╨┤╨╛╨╗╨╢╨╜╨░ ╨╕╤Б╤З╨╡╨╖╨╜╤Г╤В╤М' expected='╨н╤В╨╛ ╨░╨│╨╡╨╜╤В╤Б╨║╨░╤П ╨┐╤А╨╛╨▓╨╡╤А╨║╨░: ╨╖╨░╨▓╨╡╤А╤И╨░╤О╤Й╨░╤П ╤В╨╛╤З╨║╨░ ╨┤╨╛╨╗╨╢╨╜╨░ ╨╕╤Б╤З╨╡╨╖╨╜╤Г╤В╤М' repaired=1 text_sha12='21138b499459' applied=True
+
+W2 S4_revision_bump OK | before='c6.84cad658cf40' after='c7.e1a301d5414e' (╨╛╨╢╨╕╨┤╨░╨╗╤Б╤П ╨┐╤А╨╡╤Д╨╕╨║╤Б c7/g7)
+
+W2 S5_restore OK | status=200 applied=True revision=8
+
+INFO services.config_cache: [config_cache] reloaded: settings=522 roles=4 admins=3
+
+W2 S6_final_state OK | rules=0 soft=0 probe_rule_present=False (╨╛╨╢╨╕╨┤╨░╨╗╨╛╤Б╤М 0/0)
+
+W2 S7_try_after_restore OK | text_same=True repaired=0 applied=True
+
+W2 S8_invalid_not_silent OK | validate_issues=1 contains_kind=True bogus_dropped=True issues=["rule_kind_unknown:no_such_kind"]
+
+WARNING services.prompt_composer: [composer] style policy (W3) ╨╜╨╡╨┤╨╛╤Б╤В╤Г╨┐╨╜╨░ тАФ fallback
+
+Traceback (most recent call last):
+
+  File "/var/www/admin_bot/services/prompt_composer.py", line 755, in resolve_style_policy_ref
+
+    ref = await _sp.resolve_style_policy_ref(chat_id)
+
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+  File "/tmp/agent_checks_w2_probe.py", line 868, in _boom
+
+    raise RuntimeError("probe: W3 unavailable")
+
+RuntimeError: probe: W3 unavailable
+
+W2 S9_composer_fallback OK | fallback_hint='' expected_from_real_doc='' source='global' skip='style_policy_absent'
+
+W2 I0_before_on OK | status=ready detail=image_limit_ok
+
+W2 I1_override_off OK | status=200 updated=['flags.image_generation_module_enabled']
+
+INFO services.capability_registry: [capability] cache invalidated | cap=image_generation | chat=-1009900000201 | n=1 | reason=probe-w2
+
+W2 I2_capability_disabled OK | status=disabled reason=module_disabled detail=image_module_off
+
+W2 I3_showcase OK | status=200 image_generation={"status": "disabled", "reason_code": "module_disabled", "detail": "image_module_off"} summary={"disabled": 1, "ready": 10, "not_configured": 1, "unsupported": 1}
+
+W2 I4_overview_summary OK | status=200 capability_summary={"disabled": 1, "ready": 10, "not_configured": 1, "unsupported": 1}
+
+INFO services.mca_events: mca_event=capability_check | ts=1792313361 | event_name=capability_check | outcome=failed | level=INFO | component=capability_registry | status=disabled | entity_id=image_generation | chat_id=-1009900000201 | trace_id=probe-agent-checks-w2-l1 | reason_code=financial_limit_disabled
+
+INFO services.agentic_events: event=L1_CAPABILITY_REJECTED | capability=image_generation | reason=module_disabled | chat_id=-1009900000201 | run_id=probe-agent-checks-w2-l1 | ts=1792313361.809
+
+INFO services.direct_chat_service: [direct] capability blockers | chat=-1009900000201 | cap=image_generation | blockers=capability_disabled | status=disabled
+
+W2 I5_L1_notice OK | denied=['image_generation'] fired=False block='<capability_notice status="disabled" capability="image_generation">\n╨Ш╨╜╤Б╤В╤А╤Г╨╝╨╡╨╜╤В image_generation ╤Б╨╡╨╣╤З╨░╤Б ╨╜╨╡╨┤╨╛╤Б╤В╤Г╨┐╨╡╨╜: ╨╝╨╛╨┤╤Г╨╗╤М ╨▓╤Л╨║╨╗╤О╤З╨╡╨╜ ╨▓ ╤Н╤В╨╛╨╝ ╤З╨░╤В╨╡ (╨┐╤А╨╕╤З╨╕╨╜╨░: module_disabled).\n╨Э╨╡ ╨╛╨▒╨╡╤Й╨░╨╣ ╨▓╤Л╨┐╨╛╨╗╨╜╨╕╤В╤М ╤Н╤В╨╛ ╨┤╨╡╨╣╤Б╤В'
+
+INFO services.direct_chat_service: [direct] capability not ready | chat=-1009900000201 | cap=image_generation | status=disabled | reason=module_disabled | template=message.image_failure.disabled
+
+INFO services.mca_events: mca_event=capability_check | ts=1792313361 | event_name=capability_check | outcome=failed | level=INFO | component=capability_registry | status=disabled | entity_id=image_generation | chat_id=-1009900000201 | reason_code=financial_limit_disabled
+
+INFO services.mca_events: mca_event=capability_message | ts=1792313361 | event_name=capability_message | outcome=failed | level=INFO | component=capability_registry | entity_id=message.image_failure.disabled | status=disabled | chat_id=-1009900000201
+
+W2 I6_off_refusal_gate OK | handled=True refusal='╨а╨╕╤Б╨╛╨▓╨░╤В╤М ╤П ╤Б╨╡╨╣╤З╨░╤Б ╨╜╨╡ ╨╝╨╛╨│╤Г: ╨│╨╡╨╜╨╡╤А╨░╤Ж╨╕╤О ╨║╨░╤А╤В╨╕╨╜╨╛╨║ ╨▓ ╤Н╤В╨╛╨╝ ╤З╨░╤В╨╡ ╨▓╤Л╨║╨╗╤О╤З╨╕╨╗╨╕. ╨в╨░╨║ ╤З╤В╨╛ ╨╝╨╡╨╝ ╨╛╤Б╤В╨░╨╜╨╡╤В╤Б╤П ╨▓ ╨▓╨╛╨╛╨▒╤А╨░╨╢╨╡╨╜╨╕╨╕ - ╨╛╨╜╨╛, ╨║ ╤Б╤З╨░╤Б╤В╤М╤О, ╨▒╨╡╨╖╨╗╨╕╨╝╨╕╤В╨╜╨╛╨╡.' ==status_message=True provider_delta=0
+
+W2 I7_override_delete OK | status=200 body={"reset": "flags.image_generation_module_enabled", "chat_id": -1009900000201}
+
+INFO services.capability_registry: [capability] cache invalidated | cap=image_generation | chat=-1009900000201 | n=1 | reason=probe-w2
+
+W2 I7_probe_resolve INFO | status=ready (╨╜╨╡╨╝╨╡╨┤╨╗╨╡╨╜╨╜╨╛ ╨┐╨╛╤Б╨╗╨╡ ╤Б╨╜╤П╤В╨╕╤П override)
+
+W2 I8_restored_ready OK | probe_resolve=ready showcase_status=ready (╨┐╨╛╤Б╨╗╨╡ TTL 65s)
+
+W2 J0_intent INFO | intent=create_image confidence=ambiguous reason=create_verb_without_object actionable=False
+
+INFO services.direct_chat_service: [direct] capability clarify | chat=-1009900000201 | reason=create_verb_without_object | template=message.image_request.clarify
+
+INFO services.mca_events: mca_event=capability_check | ts=1792313427 | event_name=capability_check | outcome=skipped | level=INFO | component=capability_registry | status=unknown | entity_id=image_generation | chat_id=-1009900000201
+
+INFO services.mca_events: mca_event=capability_message | ts=1792313427 | event_name=capability_message | outcome=skipped | level=INFO | component=capability_registry | entity_id=message.image_request.clarify | status=unknown | chat_id=-1009900000201
+
+W2 J1_clarify_gate OK | handled=True sends=1 text='╨г╤В╨╛╤З╨╜╨╕: ╨║╨░╤А╤В╨╕╨╜╨║╤Г ╨╕╨╖╨╛╨▒╤А╨░╨╖╨╕╤В╤М ╨╕╨╗╨╕ ╤В╨╡╨║╤Б╤В╨╛╨╝ ╨╛╨▒╨╛╨╣╤В╨╕╤Б╤М?' ==template=True provider_delta=0
+
+W2 L0_budget INFO | shared=200 used_shared=6 | chat=60 used_chat=3 src=global
+
+W2 L1_intent INFO | intent=create_image confidence=high actionable=True
+
+INFO services.agentic_events: event=IMAGE_CONTEXT_RESOLVED | run_id=probe-agent-checks-w2-draw-l1 | chat_id=-1009900000201 | resolution=none | facts=0 | slice=0 | prompt_chars=39 | latency_ms=0 | ts=1792313427.019
+
+INFO services.agentic_events: event=IMAGE_GENERATION_START | run_id=probe-agent-checks-w2-draw-l1 | chat_id=-1009900000201 | source=direct | prompt_chars=39 | ts=1792313427.02
+
+INFO services.image_generation: [image] generated | mode=post | model=qwen-image-3-pro | bytes=1545484 | latency_ms=70420
+
+INFO services.image_generation: [image] sent | chat=-1009900000201 | bytes=1545484 | delivery_failed=False
+
+INFO services.mca_events: mca_event=image_generate | ts=1792313498 | event_name=image_generate | outcome=success | level=INFO | component=image_generation | chat_id=-1009900000201 | duration_ms=71691
+
+INFO services.agentic_events: event=IMAGE_GENERATION_COMPLETE | run_id=probe-agent-checks-w2-draw-l1 | chat_id=-1009900000201 | source=direct | duration_ms=71691 | ts=1792313498.712
+
+INFO services.capability_registry: [capability] cache invalidated | cap=image_generation | chat=-1009900000201 | n=1 | reason=outcome
+
+W2 L1_real_delivery OK | provider_calls=1 send={"chat_requested": -1009900000201, "target": 5885953495, "bytes": 1545484, "redirected": true, "ok": true, "message_id": 195} block='<image_result status="ok" delivery="sent">\n╨Ш╨╖╨╛╨▒╤А╨░╨╢╨╡╨╜╨╕╨╡ ╤Г╨╢╨╡ ╤Б╨│╨╡╨╜╨╡╤А╨╕╤А╨╛╨▓╨░╨╜╨╛ ╨╕ ╨╛╤В╨┐╤А╨░╨▓╨╗╨╡╨╜╨╛ ╨▓ ╤З╨░╤В. ╨Я╨╛╨▓╤В╨╛╤А╨╜╨╛ ╨╕╨╜╤Б╤В╤А╤Г╨╝╨╡╨╜╤В generate_image ╨╜╨╡ ╨▓╤Л╨╖╤Л╨▓╨░╨╣.\n'
+
+W2 L1_redirect INFO | redirect_to=5885953495 (╤Б╨╕╨╜╤В╨╡╤В╨╕╨║╨░ ╨┤╨╛╤Б╤В╨╕╨╢╨╕╨╝╨░=False)
+
+W2 L1_delete INFO | ╤В╨╡╤Б╤В╨╛╨▓╨╛╨╡ ╤Б╨╛╨╛╨▒╤Й╨╡╨╜╨╕╨╡ ╤Г╨┤╨░╨╗╨╡╨╜╨╛ ╨╕╨╖ 5885953495 (mid=195)
+
+INFO services.agentic_events: event=IMAGE_CONTEXT_RESOLVED | run_id=probe-agent-checks-w2-draw-l1 | chat_id=-1009900000201 | resolution=none | facts=0 | slice=0 | prompt_chars=39 | latency_ms=0 | ts=1792313498.886
+
+INFO services.agentic_events: event=IMAGE_GENERATION_START | run_id=probe-agent-checks-w2-draw-l1 | chat_id=-1009900000201 | source=direct | prompt_chars=39 | ts=1792313498.887
+
+INFO services.image_generation: [image] reserve replay | chat=-1009900000201 | source=direct | status=already:committed
+
+INFO services.mca_events: mca_event=image_generate | ts=1792313498 | event_name=image_generate | outcome=skipped | level=INFO | component=image_generation | reason_code=action_idempotent_replay | chat_id=-1009900000201
+
+INFO services.agentic_events: event=IMAGE_GENERATION_COMPLETE | run_id=probe-agent-checks-w2-draw-l1 | chat_id=-1009900000201 | source=direct | duration_ms=6 | ts=1792313498.894
+
+W2 L2_replay_no_dup OK | provider_calls=0 new_sends=0 block='<image_result status="ok" delivery="already">\n╨Я╨╛ ╤Н╤В╨╛╨╝╤Г ╨╖╨░╨┐╤А╨╛╤Б╤Г ╨╕╨╖╨╛╨▒╤А╨░╨╢╨╡╨╜╨╕╨╡ ╤Г╨╢╨╡ ╨╛╨▒╤А╨░╨▒╨░╤В╤Л╨▓╨░╨╗╨╛╤Б╤М: ╨┐╨╛╨▓╤В╨╛╤А╨╜╨░╤П ╨│╨╡╨╜╨╡╤А╨░╤Ж╨╕╤П ╨╕ ╨┐╨╛╨▓╤В╨╛╤А╨╜╨░╤П ╨╛╤В╨┐╤А╨░╨▓╨║╨░ ╨╜╨╡ ╨▓'
+
+W2 L3_skip INFO | W2_SKIP_L3=1: send-fail ╤Г╨╢╨╡ ╨┐╨╛╨┤╤В╨▓╨╡╤А╨╢╨┤╤С╨╜ ╨▓ ╨┐╤А╨╛╨│╨╛╨╜╨╡ тДЦ1 (eveidence run-1: 'chat not found') тАФ ╨┐╤А╨╛╨┐╤Г╤Б╨║
+
+W2 L4_journal INFO | [{"reservation_key": "-1009900000201:990000811:direct", "chat_id": "-1009900000201", "source": "direct", "message_id": "990000811", "day": "2026-10-18", "status": "committed", "error_code": "", "delivery_failed": "False"}, {"reservation_key": "-1009900000201:990000808:direct", "chat_id": "-1009900000201", "source": "direct", "message_id": "990000808", "day": "2026-10-18", "status": "committed", "error_code": "", "delivery_failed": "True"}, {"reservation_key": "-1009900000201:990000807:direct", "chat_id": "-1009900000201", "source": "direct", "message_id": "990000807", "day": "2026-10-18", "status": "committed", "error_code": "", "delivery_failed": "True"}, {"reservation_key": "-1009900000201:990000701:direct", "chat_id": "-1009900000201", "source": "direct", "message_id": "990000701", "day": "2026-10-18", "status": "committed", "error_code": "", "delivery_failed": "False"}]
+
+W2 L4_journal_states OK | committed_ok=True committed_delivery_failed=True rows=4
+
+W2 K1_no_key_state OK | status=not_configured reason=image_provider_unconfigured detail=key_absent
+
+INFO services.direct_chat_service: [direct] capability not ready | chat=-1009900000201 | cap=image_generation | status=not_configured | reason=image_provider_unconfigured | template=message.image_failure.not_configured
+
+INFO services.mca_events: mca_event=capability_check | ts=1792313498 | event_name=capability_check | outcome=failed | level=INFO | component=capability_registry | status=not_configured | entity_id=image_generation | chat_id=-1009900000201 | reason_code=provider_unconfigured
+
+INFO services.mca_events: mca_event=capability_message | ts=1792313498 | event_name=capability_message | outcome=failed | level=INFO | component=capability_registry | entity_id=message.image_failure.not_configured | status=not_configured | chat_id=-1009900000201
+
+W2 K1_no_key_refusal OK | handled=True refusal='╨Ъ╨░╤А╤В╨╕╨╜╨║╤Г ╨▒╤Л ╨╕╨╖╨╛╨▒╤А╨░╨╖╨╕╨╗, ╨╜╨╛ ╨│╨╡╨╜╨╡╤А╨░╤В╨╛╤А ╨╜╨╡ ╨┐╨╛╨┤╨║╨╗╤О╤З╤С╨╜ - ╨┤╨╛╤Б╤В╤Г╨┐╨░ ╨║ ╨┐╤А╨╛╨▓╨░╨╣╨┤╨╡╤А╤Г ╨╜╨╡╤В. ╨н╤В╨╛ ╨▓╨╛╨┐╤А╨╛╤Б ╨║ ╤Е╨╛╨╖╤П╨╕╨╜╤Г ╨▒╨╛╤В╨░, ╨╜╨╡ ╨║ ╨╝╨╛╨╡╨╣ ╤Д╨░╨╜╤В╨░╨╖╨╕╨╕.' ==status_message=True provider_delta=0
+
+INFO services.capability_registry: [capability] cache invalidated | cap=image_generation | chat=-1009900000201 | n=1 | reason=probe-w2
+
+W2 K1_reverted INFO | status=ready ╨┐╨╛╤Б╨╗╨╡ ╤Б╨╜╤П╤В╨╕╤П per-chat override ╨║╨╗╤О╤З╨░ (╨│╨╗╨╛╨▒╨░╨╗╤М╨╜╤Л╨╣ ╨║╨╗╤О╤З ╨╜╨╡ ╨╕╨╖╨╝╨╡╨╜╤П╨╗╤Б╤П)
+
+W2 K2_set INFO | used=4 limit_override=4 status=200 updated=['limits.image_daily_limit']
+
+INFO services.capability_registry: [capability] cache invalidated | cap=image_generation | chat=-1009900000201 | n=1 | reason=probe-w2
+
+W2 K2_quota_state OK | status=quota_exhausted reason=financial_limit_reached detail=image_daily_limit used=4 limit=4
+
+INFO services.direct_chat_service: [direct] capability not ready | chat=-1009900000201 | cap=image_generation | status=quota_exhausted | reason=financial_limit_reached | template=message.image_failure.quota_exhausted
+
+INFO services.mca_events: mca_event=capability_check | ts=1792313499 | event_name=capability_check | outcome=failed | level=INFO | component=capability_registry | status=quota_exhausted | entity_id=image_generation | chat_id=-1009900000201 | reason_code=financial_limit_reached
+
+INFO services.mca_events: mca_event=capability_message | ts=1792313499 | event_name=capability_message | outcome=failed | level=INFO | component=capability_registry | entity_id=message.image_failure.quota_exhausted | status=quota_exhausted | chat_id=-1009900000201
+
+W2 K2_quota_refusal OK | handled=True refusal='╨Э╨░ ╤Б╨╡╨│╨╛╨┤╨╜╤П ╨║╨░╤А╤В╨╕╨╜╨║╨╕ ╨╖╨░╨║╨╛╨╜╤З╨╕╨╗╨╕╤Б╤М: ╤Б╤Г╤В╨╛╤З╨╜╤Л╨╣ ╨╗╨╕╨╝╨╕╤В ╨▓╤Л╨▒╤А╨░╨╜. ╨Э╨╡ ╨╢╨░╨┤╨╜╨╛╤Б╤В╤М, ╨░ ╨║╨▓╨╛╤В╨░ - ╨╛╨▒╨╜╤Г╨╗╨╕╤В╤Б╤П ╤Б ╨╜╨╛╨▓╤Л╨╝ ╨┤╨╜╤С╨╝, ╤В╨╛╨│╨┤╨░ ╨╜╨░╤А╨╕╤Б╤Г╨╡╨╝.' ==status_message=True provider_delta=0
+
+INFO services.capability_registry: [capability] cache invalidated | cap=image_generation | chat=-1009900000201 | n=1 | reason=probe-w2
+
+W2 K2_restored OK | status=ready detail=image_limit_ok
+
+W2 FINAL_THROTTLE_LEFTOVER INFO | 0
+
+W2 FINAL_PROFILE_LEFTOVER INFO | 0
+
+W2 FINAL_PROFILE_B_LEFTOVER INFO | 0
+
+W2 FINAL_GLOBAL_LIMITS INFO | [{"value": "10"}, {"value": "300.0"}]
+
+W2 FINAL_STYLE INFO | revision=8 rules=0 soft=0
+
+W2 SUMMARY ok=28/28
+
+INFO services.pg_db: [pg_db] pool closed
+
+W2 RC=0
+
+###RC=0###
+
+[?2004hnik@racknerd-f4e3456:/var/www/admin_bot$ 
+=== POST-STATE ===
+cd /var/www/admin_bot && PYTHONIOENCODING=utf-8 timeout 100 /var/www/admin_bot/venv/bin/python /tmp/w2_state.py; echo "###RC=$?###"
+
+[?2004l
+STATE profile_rows_-1009900000201=0
+
+STATE profile_rows_-1009900000202=0
+
+STATE style.policy present=True revision=8 rules=0 soft=0
+
+STATE image_reservation_rows_-1009900000201=4
+
+STATE reservation {"reservation_key": "-1009900000201:990000811:direct", "status": "committed", "error_code": "", "delivery_failed": "False", "day": "2026-10-18"}
+
+STATE reservation {"reservation_key": "-1009900000201:990000808:direct", "status": "committed", "error_code": "", "delivery_failed": "True", "day": "2026-10-18"}
+
+STATE reservation {"reservation_key": "-1009900000201:990000807:direct", "status": "committed", "error_code": "", "delivery_failed": "True", "day": "2026-10-18"}
+
+STATE reservation {"reservation_key": "-1009900000201:990000701:direct", "status": "committed", "error_code": "", "delivery_failed": "False", "day": "2026-10-18"}
+
+STATE budget [{"day": "2026-10-18", "scope": "global", "metric": "image_calls", "used": "7"}, {"day": "2026-10-18", "scope": "chat:-1009900000201", "metric": "image_calls", "used": "4"}, {"day": "2026-10-18", "scope": "chat:-1002661910336", "metric": "image_calls", "used": "3"}, {"day": "2026-10-17", "scope": "global", "metric": "image_calls", "used": "5"}, {"day": "2026-10-17", "scope": "chat:-1002661910336", "metric": "image_calls", "used": "5"}, {"day": "2026-10-16", "scope": "global", "metric": "image_calls", "used": "46"}, {"day": "2026-10-16", "scope": "chat:-1002661910336", "metric": "image_calls", "used": "46"}, {"day": "2026-10-15", "scope": "global", "metric": "image_calls", "used": "10"}]
+
+STATE throttle_rows=0 []
+
+STATE mca_events_for_A=2
+
+STATE event {"ts": "1792312752", "level": "WARN", "event_name": "direct_chat_throttle", "outcome": "skipped", "component": "direct_chat", "stage": "cooldown", "reason_code": "rate_limit", "chat_id": "-1009900000201", "usage_json": "{\"remaining_seconds\": 300.0, \"burst_limit\": 2, \"cooldown_seconds\": 300.0, \"source\": \"global\"}"}
+
+STATE event {"ts": "1792302353", "level": "WARN", "event_name": "direct_chat_throttle", "outcome": "skipped", "component": "direct_chat", "stage": "cooldown", "reason_code": "rate_limit", "chat_id": "-1009900000201", "usage_json": "{\"remaining_seconds\": 180.0, \"burst_limit\": 1, \"cooldown_seconds\": 180.0, \"source\": \"chat\"}"}
+
+STATE limits burst=10 cooldown=300.0 image_daily=60
+
+STATE done
+
+###RC=0###
+
+[?2004hnik@racknerd-f4e3456:/var/www/admin_bot$ 
+=== POST: journal ╨╛╨║╨╜╨░ (read-only, sudo) ===
+sudo -S journalctl -u admin_bot --since '45 min ago' --no-pager | grep -c ' ERROR ' ; echo ---ERR_END; journalctl -u admin_bot --since '45 min ago' --no-pager | grep -c ' CRITICAL ' ; echo ---CRIT_END; journalctl -u admin_bot --since '45 min ago' --no-pager | grep -c 'Traceback' ; echo ---TB_END; journalctl -u admin_bot --since '45 min ago' -o short-iso --no-pager | grep -c '\[tma-auth\].*valid=True' ; echo ---TMA_END; journalctl -u admin_bot --since '45 min ago' -o short-iso --no-pager | grep -E '-1009900000201|-1009900000202|\[image\]|direct_chat_throttle|capability' | tail -n 60 ; echo ---SNIPPET_END; journalctl -u admin_bot -n 3 --no-pager ; echo ---TAIL_END ; echo "###RC=$?###"
+
+[?2004l
+[sudo] password for nik: 
+
+0
+
+---ERR_END
+
+0
+
+---CRIT_END
+
+1
+
+---TB_END
+
+150
+
+---TMA_END
+
+grep: invalid option -- '|'
+
+Usage: grep [OPTION]... PATTERNS [FILE]...
+
+Try 'grep --help' for more information.
+
+---SNIPPET_END
+
+Oct 18 08:51:50 racknerd-f4e3456 python[3359708]: 2026-10-18 08:51:50,249 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-18 13:51:55 +05)" executed successfully
+
+Oct 18 08:51:55 racknerd-f4e3456 python[3359708]: 2026-10-18 08:51:55,242 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-18 13:52:00 +05)" (scheduled at 2026-10-18 13:51:55.239999+05:00)
+
+Oct 18 08:51:55 racknerd-f4e3456 python[3359708]: 2026-10-18 08:51:55,247 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-18 13:52:00 +05)" executed successfully
+
+---TAIL_END
+
+###RC=0###
+
+[?2004hnik@racknerd-f4e3456:/var/www/admin_bot$ 
+=== POST: systemctl/healthz after ===
+systemctl show admin_bot -p MainPID -p NRestarts -p ActiveEnterTimestamp --no-pager; curl -s http://127.0.0.1:8000/healthz; echo "###RC=$?###"
+
+[?2004l
+MainPID=3359708
+
+NRestarts=0
+
+ActiveEnterTimestamp=Sun 2026-10-18 07:37:17 UTC
+
+{"status":"ok","version":"2.58.89"}###RC=0###
+
+[?2004hnik@racknerd-f4e3456:/var/www/admin_bot$ 
+=== CLEANUP /tmp ===
+rm -f /tmp/agent_checks_w2_probe.py /tmp/w2_state.py /tmp/w2_probe.out; echo CLEANED=1; echo "###RC=$?###"
+
+[?2004l
+CLEANED=1
+
+###RC=0###
+
+[?2004hnik@racknerd-f4e3456:/var/www/admin_bot$ 

@@ -1,0 +1,61 @@
+=== journal: все Traceback за 80 минут (sudo, read-only) ===
+sudo -S journalctl -u admin_bot --since '80 min ago' -o short-iso --no-pager | grep -n -B4 -A10 'Traceback' | tail -n 140 ; echo ---TB_CTX_END ; echo "###RC=$?###"
+[?2004l[sudo] password for nik: 
+1530-2026-10-18T08:02:20+00:00 racknerd-f4e3456 python[3359708]: 2026-10-18 08:02:20,241 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-18 13:02:25 +05)" (scheduled at 2026-10-18 13:02:20.239999+05:00)
+1531-2026-10-18T08:02:20+00:00 racknerd-f4e3456 python[3359708]: 2026-10-18 08:02:20,246 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-18 13:02:25 +05)" executed successfully
+1532-2026-10-18T08:02:21+00:00 racknerd-f4e3456 python[3359708]: 2026-10-18 08:02:21,843 - web.api.deps - INFO - [tma-auth] src=header user=5885953495 role=admin perm=wildcard valid=True age=212.8s init_data_len=623
+1533-2026-10-18T08:02:21+00:00 racknerd-f4e3456 python[3359708]: 2026-10-18 08:02:21,864 - services.style_policy - WARNING - [style_policy] document save failed
+1534:2026-10-18T08:02:21+00:00 racknerd-f4e3456 python[3359708]: Traceback (most recent call last):
+1535-2026-10-18T08:02:21+00:00 racknerd-f4e3456 python[3359708]:   File "/var/www/admin_bot/services/style_policy.py", line 2272, in save_policy_document
+1536-2026-10-18T08:02:21+00:00 racknerd-f4e3456 python[3359708]:     await set_root(int(chat_id), patch)
+1537-2026-10-18T08:02:21+00:00 racknerd-f4e3456 python[3359708]:   File "/var/www/admin_bot/services/chat_params.py", line 424, in set_chat_params
+1538-2026-10-18T08:02:21+00:00 racknerd-f4e3456 python[3359708]:     raise _PgUnavailable("PostgreSQL недоступен (пул отсутствует)")
+1539-2026-10-18T08:02:21+00:00 racknerd-f4e3456 python[3359708]: services.chat_lore_store.ChatLorePgUnavailable: PostgreSQL недоступен (пул отсутствует)
+1540-2026-10-18T08:02:25+00:00 racknerd-f4e3456 python[3359708]: 2026-10-18 08:02:25,242 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-18 13:02:30 +05)" (scheduled at 2026-10-18 13:02:25.239999+05:00)
+1541-2026-10-18T08:02:25+00:00 racknerd-f4e3456 python[3359708]: 2026-10-18 08:02:25,249 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-18 13:02:30 +05)" executed successfully
+1542-2026-10-18T08:02:30+00:00 racknerd-f4e3456 python[3359708]: 2026-10-18 08:02:30,242 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-18 13:02:35 +05)" (scheduled at 2026-10-18 13:02:30.239999+05:00)
+1543-2026-10-18T08:02:30+00:00 racknerd-f4e3456 python[3359708]: 2026-10-18 08:02:30,256 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-18 13:02:35 +05)" executed successfully
+1544-2026-10-18T08:02:35+00:00 racknerd-f4e3456 python[3359708]: 2026-10-18 08:02:35,109 - apscheduler.executors.default - INFO - Running job "MemoryMaintenanceService._tick_intent_heartbeat (trigger: interval[0:05:00], next run at: 2026-10-18 13:07:35 +05)" (scheduled at 2026-10-18 13:02:35.107978+05:00)
+--
+1827-2026-10-18T08:09:45+00:00 racknerd-f4e3456 python[3359708]: 2026-10-18 08:09:45,241 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-18 13:09:50 +05)" (scheduled at 2026-10-18 13:09:45.239999+05:00)
+1828-2026-10-18T08:09:45+00:00 racknerd-f4e3456 python[3359708]: 2026-10-18 08:09:45,244 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-18 13:09:50 +05)" executed successfully
+1829-2026-10-18T08:09:49+00:00 racknerd-f4e3456 python[3359708]: 2026-10-18 08:09:49,262 - web.api.deps - INFO - [tma-auth] src=header user=5885953495 role=admin perm=wildcard valid=True age=67.3s init_data_len=623
+1830-2026-10-18T08:09:49+00:00 racknerd-f4e3456 python[3359708]: 2026-10-18 08:09:49,273 - web.api.speech - WARNING - [speech] expression chat write failed
+1831:2026-10-18T08:09:49+00:00 racknerd-f4e3456 python[3359708]: Traceback (most recent call last):
+1832-2026-10-18T08:09:49+00:00 racknerd-f4e3456 python[3359708]:   File "/var/www/admin_bot/web/api/speech.py", line 2184, in _write_expression
+1833-2026-10-18T08:09:49+00:00 racknerd-f4e3456 python[3359708]:     await chat_params.set_chat_params(int(chat_id),
+1834-2026-10-18T08:09:49+00:00 racknerd-f4e3456 python[3359708]:   File "/var/www/admin_bot/services/chat_params.py", line 424, in set_chat_params
+1835-2026-10-18T08:09:49+00:00 racknerd-f4e3456 python[3359708]:     raise _PgUnavailable("PostgreSQL недоступен (пул отсутствует)")
+1836-2026-10-18T08:09:49+00:00 racknerd-f4e3456 python[3359708]: services.chat_lore_store.ChatLorePgUnavailable: PostgreSQL недоступен (пул отсутствует)
+1837-2026-10-18T08:09:49+00:00 racknerd-f4e3456 python[3359708]: 2026-10-18 08:09:49,749 - services.mca_events - INFO - mca_event=WATCHDOG_SWEEP | ts=1792310989 | event_name=WATCHDOG_SWEEP | outcome=success | level=INFO | component=watchdog | stage=sweep
+1838-2026-10-18T08:09:50+00:00 racknerd-f4e3456 python[3359708]: 2026-10-18 08:09:50,241 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-18 13:09:55 +05)" (scheduled at 2026-10-18 13:09:50.239999+05:00)
+1839-2026-10-18T08:09:50+00:00 racknerd-f4e3456 python[3359708]: 2026-10-18 08:09:50,245 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-18 13:09:55 +05)" executed successfully
+1840-2026-10-18T08:09:55+00:00 racknerd-f4e3456 python[3359708]: 2026-10-18 08:09:55,241 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-18 13:10:00 +05)" (scheduled at 2026-10-18 13:09:55.239999+05:00)
+1841-2026-10-18T08:09:55+00:00 racknerd-f4e3456 python[3359708]: 2026-10-18 08:09:55,245 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-18 13:10:00 +05)" executed successfully
+---TB_CTX_END
+###RC=0###
+[?2004hnik@racknerd-f4e3456:~$ 
+=== journal: наши маркеры (fixed grep --) ===
+sudo -S journalctl -u admin_bot --since '80 min ago' -o short-iso --no-pager | grep -E -- '-1009900000201|-1009900000202|\[image\]|direct_chat_throttle|capability_notice|config updated' | tail -n 80 ; echo ---SNIP_END; journalctl -u admin_bot --since '80 min ago' --no-pager | grep -c ' ERROR ' ; echo ---ERR_END; journalctl -u admin_bot --since '80 min ago' --no-pager | grep -c ' CRITICAL ' ; echo ---CRIT_END ; echo "###RC=$?###"
+[?2004l2026-10-18T08:39:12+00:00 racknerd-f4e3456 python[3359708]: 2026-10-18 08:39:12,504 - web.api.routes - INFO - [api] config updated | key=limits.chat_burst_limit | by=5885953495
+2026-10-18T08:39:12+00:00 racknerd-f4e3456 python[3359708]: 2026-10-18 08:39:12,719 - web.api.routes - INFO - [api] config updated | key=limits.chat_burst_limit | by=5885953495
+2026-10-18T08:39:13+00:00 racknerd-f4e3456 python[3359708]: 2026-10-18 08:39:13,068 - web.api.routes - INFO - [api] config chat updated | chat=-1009900000201 | keys=2 | by=5885953495 | revalidated=False
+2026-10-18T08:39:13+00:00 racknerd-f4e3456 python[3359708]: 2026-10-18 08:39:13,420 - web.api.routes - INFO - [api] config chat updated | chat=-1009900000201 | keys=1 | by=5885953495 | revalidated=False
+2026-10-18T08:41:27+00:00 racknerd-f4e3456 python[3359708]: 2026-10-18 08:41:27,767 - web.api.routes - INFO - [api] config chat updated | chat=-1009900000201 | keys=1 | by=5885953495 | revalidated=False
+2026-10-18T08:49:21+00:00 racknerd-f4e3456 python[3359708]: 2026-10-18 08:49:21,740 - web.api.routes - INFO - [api] config chat updated | chat=-1009900000201 | keys=1 | by=5885953495 | revalidated=False
+2026-10-18T08:49:21+00:00 racknerd-f4e3456 python[3359708]: 2026-10-18 08:49:21,863 - web.api.routes - INFO - [api] chat param reset | chat=-1009900000201 | key=flags.image_generation_module_enabled | by=5885953495
+2026-10-18T08:51:39+00:00 racknerd-f4e3456 python[3359708]: 2026-10-18 08:51:39,023 - web.api.routes - INFO - [api] config chat updated | chat=-1009900000201 | keys=1 | by=5885953495 | revalidated=False
+---SNIP_END
+0
+---ERR_END
+0
+---CRIT_END
+###RC=0###
+[?2004hnik@racknerd-f4e3456:~$ 
+=== systemctl/healthz (after recon) ===
+sudo -S systemctl show admin_bot -p MainPID -p NRestarts --no-pager; curl -s http://127.0.0.1:8000/healthz ; echo ---HZ_END ; echo "###RC=$?###"
+[?2004lMainPID=3359708
+NRestarts=0
+{"status":"ok","version":"2.58.89"}---HZ_END
+###RC=0###
+[?2004hnik@racknerd-f4e3456:~$ 
