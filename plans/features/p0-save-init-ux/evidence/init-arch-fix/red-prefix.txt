@@ -1,0 +1,370 @@
+# RED (pre-fix) — финальный 17-тестовый tests/test_p0_init_arch_fix_observer.py
+# Код: pre-fix ревизия (services/initiative_observer.py sha256^16 eef7feec36aca94f,
+# services/initiative_diagnostics.py sha256^16 0391fc582f602398).
+# Прогон в чистом worktree от HEAD 473b4a2a (правки лейна не были закоммичены);
+# worktree удалён после прогона. Результат: 12 failed / 5 passed.
+# Свидетели RED по пунктам: BACKFILL (импорт не наблюдается; live-readers),
+# CONTEXT (резолвер 10/200; окна 60 и 300), CATCHUP (дайджест; fail-open),
+# SIGNALS (reply-разметка/адресат/rationale; паритет строки),
+# SMALL (new-chat[6]; floor 4; block_state «8 vs 4»).
+# 5 прошедших — осознанные паритет-контроли (см. SUMMARY.md).
+
+FFF.FFF.FFFF...FF                                                        [100%]
+================================== FAILURES ===================================
+_______________ test_imported_history_is_invisible_for_observer _______________
+
+tmp_path = WindowsPath('C:/Users/main/.config/opencode/OpenCodeScratch/adminbot-ccef72c25768/tmp/pytest-of-main/pytest-1625/test_imported_history_is_invis0')
+
+    @pytest.mark.asyncio
+    async def test_imported_history_is_invisible_for_observer(tmp_path):
+        """RED до фикса: импортированные годы назад реплики наблюдались как
+        «новые» (новые id, старые ts) — провоцировали реакции на древние события."""
+        db = await _db(tmp_path, "ia_import.db")
+        _caches({CHAT: _limits()})
+        bot, writer = _FakeBot(), _FakeWriter()
+        llm = _FakeLLM([_verdict(goal="древнее событие")])
+        try:
+            for i in range(300):
+                await _msg(db, text="старый импорт %d" % i,
+                           ts=IMPORT_EPOCH + i, import_key="k:imp:%d" % i)
+            assert await obs.observe_tick(db, bot=bot, writer_service=writer,
+                                          llm=llm) == "completed"
+            payload = await _payload(db)
+            counters = payload["counters"]
+            # Импорт не наблюдался: ни строк, ни накопления, ни LLM, ни поводов.
+>           assert counters["observed"] == 0, counters
+E           AssertionError: {'passes': 1, 'observed': 200, 'eligible': 200, 'scan_skipped': 0, ...}
+E           assert 200 == 0
+
+tests\test_p0_init_arch_fix_observer.py:231: AssertionError
+------------------------------ Captured log call ------------------------------
+WARNING  services.worker_budget:worker_budget.py:1012 [worker_budget] PG down — fail-open consume=True | scope=global metric=llm_calls
+WARNING  services.mca_events:mca_events.py:610 mca_event=random_fallback | ts=1792342335 | event_name=random_fallback | outcome=silent | level=WARN | component=random | reason_code=random_fallback | stage=fallback | entity_ids={"blocker": "provider_unconfigured", "deferred": false}
+___________________ test_live_readers_ignore_imported_rows ____________________
+
+tmp_path = WindowsPath('C:/Users/main/.config/opencode/OpenCodeScratch/adminbot-ccef72c25768/tmp/pytest-of-main/pytest-1625/test_live_readers_ignore_impor0')
+
+    @pytest.mark.asyncio
+    async def test_live_readers_ignore_imported_rows(tmp_path):
+        """Платформенная конвенция «живое = import_key IS NULL»: темп, живые
+        сообщения за окно и отставание курсора не раздуваются импортом."""
+        db = await _db(tmp_path, "ia_readers.db")
+        now = int(time.time())
+        try:
+            for i in range(5):
+                await _msg(db, text="импорт-свежий %d" % i, ts=now - 100 + i,
+                           import_key="k:recent:%d" % i)
+            live_max = 0
+            for i in range(3):
+                live_max = await _msg(db, text="живое %d" % i, ts=now - 50 + i)
+            live = await obs.live_messages(db, CHAT, now=now)
+>           assert live == 3
+E           assert 8 == 3
+
+tests\test_p0_init_arch_fix_observer.py:272: AssertionError
+___________ test_adaptive_window_resolver_has_base_and_explicit_cap ___________
+
+    def test_adaptive_window_resolver_has_base_and_explicit_cap():
+>       assert obs.EVAL_WINDOW_BASE_MESSAGES == 10
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'services.initiative_observer' has no attribute 'EVAL_WINDOW_BASE_MESSAGES'. Did you mean: 'EVAL_WINDOW_MESSAGES'?
+
+tests\test_p0_init_arch_fix_observer.py:284: AttributeError
+________________ test_eval_window_is_adaptive_by_volume[60-60] ________________
+
+tmp_path = WindowsPath('C:/Users/main/.config/opencode/OpenCodeScratch/adminbot-ccef72c25768/tmp/pytest-of-main/pytest-1625/test_eval_window_is_adaptive_b1')
+size = 60, expected = 60
+
+    @pytest.mark.parametrize("size,expected", [(10, 10), (60, 60), (300, 200)])
+    @pytest.mark.asyncio
+    async def test_eval_window_is_adaptive_by_volume(tmp_path, size, expected):
+        """RED до фикса: окно всегда 14, объёмное обсуждение обрезалось."""
+        db = await _db(tmp_path, "ia_window_%d.db" % size)
+        _caches({CHAT: _limits()})
+        llm = _FakeLLM()
+        base = int(time.time()) - 3600
+        try:
+            for i in range(size):
+                await _msg(db, text="поток беседы %d" % i, ts=base + i)
+            assert await obs.observe_tick(db, bot=_FakeBot(),
+                                          writer_service=_FakeWriter(),
+                                          llm=llm) == "completed"
+            assert llm.calls == 1
+            lines = _window_lines(llm.prompts[-1][1]["content"])
+>           assert len(lines) == expected, (size, len(lines))
+E           AssertionError: (60, 14)
+E           assert 14 == 60
+E            +  where 14 = len(['- [user:42] u: поток беседы 46', '- [user:42] u: поток беседы 47', '- [user:42] u: поток беседы 48', '- [user:42] u: поток беседы 49', '- [user:42] u: поток беседы 50', '- [user:42] u: поток беседы 51', ...])
+
+tests\test_p0_init_arch_fix_observer.py:308: AssertionError
+------------------------------ Captured log call ------------------------------
+WARNING  services.mca_events:mca_events.py:610 mca_event=initiative_observer_diagnostic | ts=1792342335 | event_name=initiative_observer_diagnostic | outcome=failed | level=WARN | component=initiative | stage=diagnose:no_opportunities_24h
+_______________ test_eval_window_is_adaptive_by_volume[300-200] _______________
+
+tmp_path = WindowsPath('C:/Users/main/.config/opencode/OpenCodeScratch/adminbot-ccef72c25768/tmp/pytest-of-main/pytest-1625/test_eval_window_is_adaptive_b2')
+size = 300, expected = 200
+
+    @pytest.mark.parametrize("size,expected", [(10, 10), (60, 60), (300, 200)])
+    @pytest.mark.asyncio
+    async def test_eval_window_is_adaptive_by_volume(tmp_path, size, expected):
+        """RED до фикса: окно всегда 14, объёмное обсуждение обрезалось."""
+        db = await _db(tmp_path, "ia_window_%d.db" % size)
+        _caches({CHAT: _limits()})
+        llm = _FakeLLM()
+        base = int(time.time()) - 3600
+        try:
+            for i in range(size):
+                await _msg(db, text="поток беседы %d" % i, ts=base + i)
+            assert await obs.observe_tick(db, bot=_FakeBot(),
+                                          writer_service=_FakeWriter(),
+                                          llm=llm) == "completed"
+            assert llm.calls == 1
+            lines = _window_lines(llm.prompts[-1][1]["content"])
+>           assert len(lines) == expected, (size, len(lines))
+E           AssertionError: (300, 14)
+E           assert 14 == 200
+E            +  where 14 = len(['- [user:42] u: поток беседы 286', '- [user:42] u: поток беседы 287', '- [user:42] u: поток беседы 288', '- [user:42] u: поток беседы 289', '- [user:42] u: поток беседы 290', '- [user:42] u: поток беседы 291', ...])
+
+tests\test_p0_init_arch_fix_observer.py:308: AssertionError
+------------------------------ Captured log call ------------------------------
+WARNING  services.mca_events:mca_events.py:610 mca_event=initiative_observer_diagnostic | ts=1792342335 | event_name=initiative_observer_diagnostic | outcome=failed | level=WARN | component=initiative | stage=diagnose:no_opportunities_24h
+_______ test_large_watermark_gap_is_digested_not_sequentially_evaluated _______
+
+tmp_path = WindowsPath('C:/Users/main/.config/opencode/OpenCodeScratch/adminbot-ccef72c25768/tmp/pytest-of-main/pytest-1625/test_large_watermark_gap_is_di0')
+
+    @pytest.mark.asyncio
+    async def test_large_watermark_gap_is_digested_not_sequentially_evaluated(
+            tmp_path):
+        """RED до фикса: при разрыве watermark «середина» пропускалась молча —
+        оценка шла только по актуальному окну без смыслового сжатия."""
+        db = await _db(tmp_path, "ia_digest.db")
+        _caches({CHAT: _limits()})
+        bot, writer = _FakeBot(), _FakeWriter()
+        now = int(time.time())
+        try:
+            # Первое наблюдение: watermark двигается вперёд (база для разрыва).
+            for i in range(10):
+                await _msg(db, text="первое окно %d" % i, ts=now - 3000 + i)
+            assert await obs.observe_tick(db, bot=bot, writer_service=writer,
+                                          llm=_FakeLLM()) == "completed"
+            entry = _entry(await _payload(db))
+            assert int(entry.get("last_eval_msg_id") or 0) > 0
+            # Пропущено 1000 реплик (условно «сотни/тысячи сообщений»).
+            for i in range(1000):
+                if i == 5:
+                    text = "РАННЯЯ-ЧАСТЬ-РАЗРЫВА-ЗА-КАПОМ"
+                elif i == 796:
+                    text = "МАРКЕР-СЕРЕДИНЫ интервала"
+                else:
+                    text = "лавина сообщений #%d" % i
+                await _msg(db, text=text, ts=now - 1000 + i)
+            llm = _FakeLLM([
+                "участники обсуждали лавину сообщений и планы",   # дайджест
+                _verdict(goal="лавина сообщений"),                # оценка
+            ])
+            assert await obs.observe_tick(db, bot=bot, writer_service=writer,
+                                          llm=llm) == "completed"
+            # РОВНО два стрима: один дешёвый дайджест + одна оценка окна —
+            # тысячи пропущенных реплик НЕ оцениваются последовательно.
+>           assert llm.calls == 2, llm.calls
+E           AssertionError: 1
+E           assert 1 == 2
+E            +  where 1 = <tests.test_p0_init_arch_fix_observer._FakeLLM object at 0x000001910A345D60>.calls
+
+tests\test_p0_init_arch_fix_observer.py:351: AssertionError
+------------------------------ Captured log call ------------------------------
+WARNING  services.mca_events:mca_events.py:610 mca_event=initiative_observer_diagnostic | ts=1792342336 | event_name=initiative_observer_diagnostic | outcome=failed | level=WARN | component=initiative | stage=diagnose:no_opportunities_24h
+______________ test_digest_failure_is_fail_open_to_actual_window ______________
+
+tmp_path = WindowsPath('C:/Users/main/.config/opencode/OpenCodeScratch/adminbot-ccef72c25768/tmp/pytest-of-main/pytest-1625/test_digest_failure_is_fail_op0')
+
+    @pytest.mark.asyncio
+    async def test_digest_failure_is_fail_open_to_actual_window(tmp_path):
+        """Недоступность LLM на дайджесте → оценка идёт по актуальному окну."""
+        db = await _db(tmp_path, "ia_digest_fail.db")
+        _caches({CHAT: _limits()})
+        bot, writer = _FakeBot(), _FakeWriter()
+        now = int(time.time())
+        try:
+            for i in range(10):
+                await _msg(db, text="первое окно %d" % i, ts=now - 3000 + i)
+            assert await obs.observe_tick(db, bot=bot, writer_service=writer,
+                                          llm=_FakeLLM()) == "completed"
+            for i in range(1000):
+                await _msg(db, text="лавина сообщений #%d" % i,
+                           ts=now - 1000 + i)
+            llm = _FailFirstLLM([_verdict(goal="лавина")])
+            assert await obs.observe_tick(db, bot=bot, writer_service=writer,
+                                          llm=llm) == "completed"
+>           assert llm.calls == 2, llm.calls
+E           AssertionError: 1
+E           assert 1 == 2
+E            +  where 1 = <tests.test_p0_init_arch_fix_observer._FailFirstLLM object at 0x0000019113D841A0>.calls
+
+tests\test_p0_init_arch_fix_observer.py:416: AssertionError
+------------------------------ Captured log call ------------------------------
+WARNING  services.initiative_observer:initiative_observer.py:1302 [b01] opportunity eval failed | chat=-2026
+Traceback (most recent call last):
+  File "C:\Users\main\AppData\Local\Temp\opencode\init-arch-red\services\initiative_observer.py", line 1294, in _evaluate_window
+    raw = await asyncio.wait_for(
+          ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\asyncio\tasks.py", line 510, in wait_for
+    return await fut
+           ^^^^^^^^^
+  File "C:\Users\main\AppData\Local\Temp\opencode\init-arch-red\tests\test_p0_init_arch_fix_observer.py", line 128, in generate
+    raise RuntimeError("digest llm down")
+RuntimeError: digest llm down
+WARNING  services.mca_events:mca_events.py:610 mca_event=initiative_observer_diagnostic | ts=1792342336 | event_name=initiative_observer_diagnostic | outcome=failed | level=WARN | component=initiative | stage=diagnose:no_opportunities_24h
+___________ test_reply_links_and_addressee_reach_prompt_and_context ___________
+
+tmp_path = WindowsPath('C:/Users/main/.config/opencode/OpenCodeScratch/adminbot-ccef72c25768/tmp/pytest-of-main/pytest-1625/test_reply_links_and_addressee0')
+
+    @pytest.mark.asyncio
+    async def test_reply_links_and_addressee_reach_prompt_and_context(tmp_path):
+        """RED до фикса: `reply_to_id` не доходил до промпта, `addressee_user_id`
+        и `rationale` вердикта выбрасывались молча."""
+        db = await _db(tmp_path, "ia_signals.db")
+        _caches({CHAT: _limits()})
+        bot, writer = _FakeBot(), _FakeWriter()
+        now = int(time.time())
+        try:
+            a = await _msg(db, user_id=42, text="обсуждаем маршрут поездки",
+                           ts=now - 300)
+            b = await _msg(db, user_id=7, text="а какой бюджет",
+                           ts=now - 290, reply_to_id=a)
+            await _msg(db, user_id=42, text="давай в горы всё-таки",
+                       ts=now - 280, reply_to_id=b)
+            await _msg(db, user_id=7, text="я тоже за горы", ts=now - 270)
+            await _msg(db, user_id=42, text="тогда решаем сегодня", ts=now - 260)
+            await _msg(db, user_id=7, text="предлагаю июнь", ts=now - 250)
+            llm = _FakeLLM([_verdict(
+                goal="выбрать маршрут поездки", addressee_user_id=42,
+                rationale="участники обсуждают маршрут и бюджет")])
+            assert await obs.observe_tick(db, bot=bot, writer_service=writer,
+                                          llm=llm) == "completed"
+            prompt = llm.prompts[-1][1]["content"]
+            # Reply-связи размечены: id реплики и ссылка «ответ на».
+>           assert "[msg:%d]" % a in prompt
+E           AssertionError: assert ('[msg:%d]' % 1) in '<Fresh_Chat_Window>\n- [user:42] u: обсуждаем маршрут поездки\n- [user:7] u: а какой бюджет\n- [user:42] u: давай в г...n- [user:7] u: я тоже за горы\n- [user:42] u: тогда решаем сегодня\n- [user:7] u: предлагаю июнь\n</Fresh_Chat_Window>'
+
+tests\test_p0_init_arch_fix_observer.py:452: AssertionError
+------------------------------ Captured log call ------------------------------
+WARNING  services.mca_events:mca_events.py:610 mca_event=random_fallback | ts=1792342336 | event_name=random_fallback | outcome=silent | level=WARN | component=random | reason_code=random_fallback | stage=fallback | entity_ids={"blocker": "provider_unconfigured", "deferred": false}
+WARNING  services.mca_events:mca_events.py:610 mca_event=style_policy | ts=1792342336 | event_name=style_policy | outcome=success | level=WARN | component=style_policy | stage=initiative_pre_send | chat_id=-2026 | duration_ms=0.178 | usage_json={"context": "initiative", "applied": true, "skip_reason": "style_policy_absent", "policy_revision": "", "policy_source": "default", "styled": true, "denied": false, "counts": {"pass": 0, "repaired": 0, "exempted": 0, "conflict": 0, "failed": 0, "denied": 0, "not_applicable": 0}, "conflicts": [], "failed": [], "exempted": 0, "repaired": 0, "extent": {"extent": "", "status": "not_applicable", "words": 0, "reason": "extent_auto"}, "repetition": [{"kind": "whole_message", "severity": "critical", "words": 2}], "payload": false, "payload_status": "", "elapsed_ms": 0.178, "repair_used": 0, "text_chars": 19, "text_sha12": "ba2e4800d7f2", "notes": []}
+_______________ test_opportunity_row_parity_without_new_signals _______________
+
+    def test_opportunity_row_parity_without_new_signals():
+        """Без адресата/обоснования строка-контекст не меняется (паритет)."""
+        row = obs.build_opportunity_row(
+            CHAT, kind="topic_interest", goal="цель", fallback="development",
+            rows=[])
+        assert "addressee_user_id" not in row
+        assert "rationale" not in row
+>       row2 = obs.build_opportunity_row(
+            CHAT, kind="topic_interest", goal="цель", fallback="development",
+            rows=[], addressee_user_id=42, rationale="обоснование")
+E       TypeError: build_opportunity_row() got an unexpected keyword argument 'addressee_user_id'
+
+tests\test_p0_init_arch_fix_observer.py:473: TypeError
+_______ test_new_small_chat_normal_profile_reaches_full_opportunity[6] ________
+
+tmp_path = WindowsPath('C:/Users/main/.config/opencode/OpenCodeScratch/adminbot-ccef72c25768/tmp/pytest-of-main/pytest-1625/test_new_small_chat_normal_pro0')
+size = 6
+
+    @pytest.mark.parametrize("size", [6, 12, 20])
+    @pytest.mark.asyncio
+    async def test_new_small_chat_normal_profile_reaches_full_opportunity(
+            tmp_path, size):
+        """RED до фикса (size=6): «5–7 сообщений → ждать порога 8» не давало
+        новому чату ни одного шанса, хотя повод уже полноценный."""
+        db = await _db(tmp_path, "ia_small_%d.db" % size)
+        # Заводской профиль: только он и задан — остальное дефолты каталога.
+        _caches({CHAT: {"initiative.frequency_profile": "normal"}})
+        bot, writer = _FakeBot(), _FakeWriter()
+        now = int(time.time())
+        try:
+            for i in range(size):
+                await _msg(db, text="первый разговор в новом чате %d" % i,
+                           ts=now - 300 + i)
+            llm = _FakeLLM([_verdict(goal="новый чат начал обсуждать планы")])
+            assert await obs.observe_tick(db, bot=bot, writer_service=writer,
+                                          llm=llm) == "completed"
+            payload = await _payload(db)
+            counters = payload["counters"]
+>           assert counters["evals"] == 1, counters["eval_skips"]
+E           AssertionError: {'not_enough_messages': 1}
+E           assert 0 == 1
+
+tests\test_p0_init_arch_fix_observer.py:502: AssertionError
+______________ test_required_messages_never_below_quality_floor _______________
+
+tmp_path = WindowsPath('C:/Users/main/.config/opencode/OpenCodeScratch/adminbot-ccef72c25768/tmp/pytest-of-main/pytest-1625/test_required_messages_never_b0')
+
+    @pytest.mark.asyncio
+    async def test_required_messages_never_below_quality_floor(tmp_path):
+        """Чат из 3 реплик не оценивается: floor 4 сохраняет качество оценки."""
+        db = await _db(tmp_path, "ia_floor.db")
+        _caches({CHAT: {"initiative.frequency_profile": "normal"}})
+        now = int(time.time())
+        try:
+            for i in range(3):
+                await _msg(db, text="совсем новый чат %d" % i, ts=now - 120 + i)
+            llm = _FakeLLM()
+            assert await obs.observe_tick(db, bot=_FakeBot(),
+                                          writer_service=_FakeWriter(),
+                                          llm=llm) == "completed"
+            payload = await _payload(db)
+            assert payload["counters"]["eval_skips"].get(
+                "not_enough_messages", 0) >= 1
+            assert llm.calls == 0
+>           need = await obs.required_messages_for_chat(db, CHAT, 8)
+                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           AttributeError: module 'services.initiative_observer' has no attribute 'required_messages_for_chat'
+
+tests\test_p0_init_arch_fix_observer.py:557: AttributeError
+______________ test_block_state_pending_gate_uses_same_threshold ______________
+
+tmp_path = WindowsPath('C:/Users/main/.config/opencode/OpenCodeScratch/adminbot-ccef72c25768/tmp/pytest-of-main/pytest-1625/test_block_state_pending_gate_0')
+
+    @pytest.mark.asyncio
+    async def test_block_state_pending_gate_uses_same_threshold(tmp_path):
+        """Панель «что мешает» показывает ТОТ ЖЕ порог, что боевой путь."""
+        db = await _db(tmp_path, "ia_gate.db")
+        _caches({CHAT: {"initiative.frequency_profile": "normal"}})
+        now = int(time.time())
+        try:
+            for i in range(3):
+                await _msg(db, text="маленький чат %d" % i, ts=now - 120 + i)
+            gates = await obs.chat_block_state(db, CHAT)
+            pending = [i for i in gates["items"] if i["gate"] == "pending"]
+>           assert pending and pending[0]["limit"] == obs.MIN_EVAL_MESSAGES_FLOOR
+E           AssertionError: assert ([{'gate': 'pending', 'status': 'block', 'reason_code': 'not_enough_messages', 'label': 'Накоплено сообщений: 0 из 8', ...}] and 8 == 4)
+E            +  where 4 = obs.MIN_EVAL_MESSAGES_FLOOR
+
+tests\test_p0_init_arch_fix_observer.py:574: AssertionError
+============================== warnings summary ===============================
+..\..\..\Python\pythoncore-3.12-64\Lib\site-packages\_pytest\config\__init__.py:1464
+  C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\_pytest\config\__init__.py:1464: PytestConfigWarning: Unknown config option: timeout
+  
+    self._warn_or_fail_if_strict(f"Unknown config option: {key}\n")
+
+..\..\..\Python\pythoncore-3.12-64\Lib\site-packages\_pytest\config\__init__.py:1464
+  C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\_pytest\config\__init__.py:1464: PytestConfigWarning: Unknown config option: timeout_method
+  
+    self._warn_or_fail_if_strict(f"Unknown config option: {key}\n")
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_p0_init_arch_fix_observer.py::test_imported_history_is_invisible_for_observer
+FAILED tests/test_p0_init_arch_fix_observer.py::test_live_readers_ignore_imported_rows
+FAILED tests/test_p0_init_arch_fix_observer.py::test_adaptive_window_resolver_has_base_and_explicit_cap
+FAILED tests/test_p0_init_arch_fix_observer.py::test_eval_window_is_adaptive_by_volume[60-60]
+FAILED tests/test_p0_init_arch_fix_observer.py::test_eval_window_is_adaptive_by_volume[300-200]
+FAILED tests/test_p0_init_arch_fix_observer.py::test_large_watermark_gap_is_digested_not_sequentially_evaluated
+FAILED tests/test_p0_init_arch_fix_observer.py::test_digest_failure_is_fail_open_to_actual_window
+FAILED tests/test_p0_init_arch_fix_observer.py::test_reply_links_and_addressee_reach_prompt_and_context
+FAILED tests/test_p0_init_arch_fix_observer.py::test_opportunity_row_parity_without_new_signals
+FAILED tests/test_p0_init_arch_fix_observer.py::test_new_small_chat_normal_profile_reaches_full_opportunity[6]
+FAILED tests/test_p0_init_arch_fix_observer.py::test_required_messages_never_below_quality_floor
+FAILED tests/test_p0_init_arch_fix_observer.py::test_block_state_pending_gate_uses_same_threshold
+12 failed, 5 passed, 2 warnings in 7.69s

@@ -864,6 +864,13 @@ async def run_check(db, *, chat_id: int, hours: int = 24,
         # ── 2) окно наблюдения (durable, без LLM) ────────────────────────
         runner = obs.InitiativeObserverRunner(db, bot=bot, llm=llm,
                                              writer_service=writer_service)
+        # INIT-ARCH-FIX (ТЗ §1.3): dry-run показывает окно ТОГО ЖЕ резолвера,
+        # что боевой путь (база 10 → рост по накоплению → кап 200).
+        try:
+            window_limit = await runner._window_messages(  # noqa: SLF001
+                int(chat_id), 0)
+        except Exception:
+            window_limit = obs.EVAL_WINDOW_BASE_MESSAGES
         try:
             rows = await runner._window_rows(int(chat_id), 0)  # noqa: SLF001
         except Exception:
@@ -872,7 +879,7 @@ async def run_check(db, *, chat_id: int, hours: int = 24,
             "window", "ok" if rows else "skipped",
             "" if rows else "not_enough_messages",
             "Свежих реплик в окне: %d" % len(rows), value=len(rows),
-            limit=int(obs.EVAL_WINDOW_MESSAGES)))
+            limit=int(window_limit)))
         if not rows:
             out["duration_ms"] = max(0, _now() - started) * 1000
             return out
@@ -957,7 +964,9 @@ async def run_check(db, *, chat_id: int, hours: int = 24,
                 int(chat_id), kind=intent_kind,
                 goal=str(verdict.get("goal") or ""),
                 fallback=str(verdict.get("kind") or "development"),
-                rows=rows, now=started)
+                rows=rows, now=started,
+                addressee_user_id=verdict.get("addressee_user_id"),
+                rationale=verdict.get("rationale"))
             result = await dcs.handle_initiative(
                 bot=(mock_bot if use_mock else bot), chat_id=int(chat_id),
                 situation=situation, candidates=[candidate], db=db,
