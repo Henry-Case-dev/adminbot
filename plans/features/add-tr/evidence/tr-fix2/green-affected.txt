@@ -1,0 +1,197 @@
+........................................................................ [  1%]
+........................................................................ [  3%]
+........................................................................ [  5%]
+................FF...................................................... [  7%]
+........................................................................ [  8%]
+........................................................................ [ 10%]
+........................................................................ [ 12%]
+........................................................................ [ 14%]
+........................................................................ [ 15%]
+........................................................................ [ 17%]
+........................................................................ [ 19%]
+........................................................................ [ 21%]
+........................................................................ [ 23%]
+........................................................................ [ 24%]
+........................................................................ [ 26%]
+........................................................................ [ 28%]
+........................................................................ [ 30%]
+........................................................................ [ 31%]
+........................................................................ [ 33%]
+........................................................................ [ 35%]
+........................................................................ [ 37%]
+........................................................................ [ 39%]
+........................................................................ [ 40%]
+........................................................................ [ 42%]
+........................................................................ [ 44%]
+........................................................................ [ 46%]
+........................................................................ [ 47%]
+........................................................................ [ 49%]
+........................................................................ [ 51%]
+........................................................................ [ 53%]
+........................................................................ [ 54%]
+........................................................................ [ 56%]
+........................................................................ [ 58%]
+........................................................................ [ 60%]
+........................................................................ [ 62%]
+........................................................................ [ 63%]
+........................................................................ [ 65%]
+........................................................................ [ 67%]
+........................................................................ [ 69%]
+........................................................................ [ 70%]
+........................................................................ [ 72%]
+........................................................................ [ 74%]
+........................................................................ [ 76%]
+........................................................................ [ 78%]
+........................................................................ [ 79%]
+........................................................................ [ 81%]
+........................................................................ [ 83%]
+........................................................................ [ 85%]
+........................................................................ [ 86%]
+........................................................................ [ 88%]
+........................................................................ [ 90%]
+........................................................................ [ 92%]
+........................................................................ [ 93%]
+........................................................................ [ 95%]
+........................................................................ [ 97%]
+........................................................................ [ 99%]
+.............................                                            [100%]
+WARNING: closed 50 leaked aiosqlite connection(s)
+
+================================== FAILURES ===================================
+_____________________ test_migration_v35_idempotent_twice _____________________
+
+tmp_path = WindowsPath('C:/Users/main/.config/opencode/OpenCodeScratch/adminbot-ccef72c25768/tmp/pytest-of-main/pytest-1727/test_migration_v35_idempotent_0')
+
+    def test_migration_v35_idempotent_twice(tmp_path):
+        from services.database import DatabaseService
+        db_path = tmp_path / "f2_v35.db"
+    
+        async def _run():
+            d1 = DatabaseService(str(db_path))
+            await d1.initialize()
+            cur = await d1.db.execute("PRAGMA user_version")
+            row = await cur.fetchone()
+            assert int(row[0]) == 35
+            cur = await d1.db.execute(
+                "SELECT COUNT(*) FROM schema_migrations WHERE version=35")
+            assert (await cur.fetchone())[0] == 1
+            await d1.close()
+            # Прогон дважды (тот же файл БД) — no-op без дублей/ошибок.
+            d2 = DatabaseService(str(db_path))
+            await d2.initialize()
+            cur = await d2.db.execute("PRAGMA user_version")
+            row = await cur.fetchone()
+            assert int(row[0]) == 35
+            cur = await d2.db.execute(
+                "SELECT COUNT(*) FROM schema_migrations WHERE version=35")
+            assert (await cur.fetchone())[0] == 1
+            await d2.close()
+    
+>       asyncio.run(_run())
+
+tests\test_asap7_direct_settings.py:144: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\asyncio\runners.py:194: in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\asyncio\runners.py:118: in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\asyncio\base_events.py:664: in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    async def _run():
+        d1 = DatabaseService(str(db_path))
+        await d1.initialize()
+        cur = await d1.db.execute("PRAGMA user_version")
+        row = await cur.fetchone()
+>       assert int(row[0]) == 35
+E       assert 36 == 35
+E        +  where 36 = int(36)
+
+tests\test_asap7_direct_settings.py:128: AssertionError
+_________________ test_backup_guard_fires_before_pending_step _________________
+
+tmp_path = WindowsPath('C:/Users/main/.config/opencode/OpenCodeScratch/adminbot-ccef72c25768/tmp/pytest-of-main/pytest-1727/test_backup_guard_fires_before0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001DF155F8CE0>
+
+    def test_backup_guard_fires_before_pending_step(tmp_path, monkeypatch):
+        """Backup-guard fail-closed pre-DDL: current>0 + pending v35 →
+        services.memory_backup.migration_backup вызван ДО применения шага."""
+        from services import database as db_mod
+        from services.database import DatabaseService
+        db_path = tmp_path / "f2_guard.db"
+    
+        calls = []
+    
+        async def fake_backup(svc, target_version=None):
+            calls.append(target_version)
+            # Честный read-back-семантический маркер: guard не падает.
+            return "backup-ok"
+    
+        monkeypatch.setattr(
+            "services.memory_backup.migration_backup", fake_backup)
+    
+        async def _run():
+            d = DatabaseService(str(db_path))
+            await d.initialize()
+            await d.close()
+            # Откат версии до v34 при сохранении книги → v35 снова pending.
+            import aiosqlite
+            db = await aiosqlite.connect(str(db_path))
+            try:
+                await db.execute("PRAGMA user_version = 34")
+                await db.execute("DELETE FROM schema_migrations WHERE version=35")
+                await db.commit()
+            finally:
+                await db.close()
+            d2 = DatabaseService(str(db_path))
+            await d2.initialize()
+            cur = await d2.db.execute("PRAGMA user_version")
+            row = await cur.fetchone()
+            assert int(row[0]) == 35
+            await d2.close()
+    
+>       asyncio.run(_run())
+
+tests\test_asap7_direct_settings.py:184: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\asyncio\runners.py:194: in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\asyncio\runners.py:118: in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\asyncio\base_events.py:664: in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    async def _run():
+        d = DatabaseService(str(db_path))
+        await d.initialize()
+        await d.close()
+        # Откат версии до v34 при сохранении книги → v35 снова pending.
+        import aiosqlite
+        db = await aiosqlite.connect(str(db_path))
+        try:
+            await db.execute("PRAGMA user_version = 34")
+            await db.execute("DELETE FROM schema_migrations WHERE version=35")
+            await db.commit()
+        finally:
+            await db.close()
+        d2 = DatabaseService(str(db_path))
+        await d2.initialize()
+        cur = await d2.db.execute("PRAGMA user_version")
+        row = await cur.fetchone()
+>       assert int(row[0]) == 35
+E       assert 36 == 35
+E        +  where 36 = int(36)
+
+tests\test_asap7_direct_settings.py:181: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_asap7_direct_settings.py::test_migration_v35_idempotent_twice
+FAILED tests/test_asap7_direct_settings.py::test_backup_guard_fires_before_pending_step
+2 failed, 4059 passed in 173.87s (0:02:53)

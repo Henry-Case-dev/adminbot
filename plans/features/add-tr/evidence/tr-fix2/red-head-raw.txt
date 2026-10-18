@@ -1,0 +1,384 @@
+FFFFFFFF                                                                 [100%]
+================================== FAILURES ===================================
+_________ TestReplyPhotoTarget.test_live_sequence_harness_message_id __________
+
+self = <tests.test_tr_fix2_reply_ref.TestReplyPhotoTarget object at 0x00000227C7FBED50>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000227C7FBBBF0>
+
+    @pytest.mark.asyncio
+    async def test_live_sequence_harness_message_id(self, monkeypatch):
+        """Точная живая последовательность: фото → ответ бота → reply к фото
+        (id текущего сообщения = id ответа бота, как у харнесса 2.58.91)."""
+        router = _recognize_router()
+        svc, _llm, bot, msg, user, _gen, _ann = _drive(
+            monkeypatch, "бот, прочитай надпись",
+            l1=_plan_json(capabilities_needed=["image_understanding"]),
+            router=router)
+        photo = _photo_message(PHOTO_ID)
+        _neutralize_media(msg)
+        msg.message_id = BOT_REPLY_ID
+        msg.reply_to_message = photo
+        await _run(svc, bot, msg, user)
+        calls = _recognize_calls(router)
+        assert len(calls) == 1, router.dispatched
+>       assert calls[0]["arguments"]["target"]["message_id"] == PHOTO_ID, (
+            "цель reply-хода — медиа replied-сообщения, не текущее")
+E       AssertionError: цель reply-хода — медиа replied-сообщения, не текущее
+E       assert 999 == 700
+
+tests\test_tr_fix2_reply_ref.py:129: AssertionError
+------------------------------ Captured log call ------------------------------
+WARNING  services.persistent_throttling:persistent_throttling.py:98 persistent throttle: write_transaction отсутствует — сырой путь (тестовый двойник?) | op=silence_reset
+WARNING  services.persistent_throttling:persistent_throttling.py:308 persistent throttle: silence streak reset failed — in-memory fallback | scope=direct_silence
+Traceback (most recent call last):
+  File "C:\Users\main\.config\opencode\OpenCodeScratch\adminbot-ccef72c25768\tmp\opencode\trfix2-red3\services\persistent_throttling.py", line 304, in reset
+    await _db_write(self._db, _body, op_name="silence_reset",
+  File "C:\Users\main\.config\opencode\OpenCodeScratch\adminbot-ccef72c25768\tmp\opencode\trfix2-red3\services\persistent_throttling.py", line 102, in _db_write
+    result = await op(db.db)
+                      ^^^^^
+AttributeError: 'FakeDB' object has no attribute 'db'
+WARNING  services.mca_episodes:mca_episodes.py:557 [mca05] repository read failed
+Traceback (most recent call last):
+  File "C:\Users\main\.config\opencode\OpenCodeScratch\adminbot-ccef72c25768\tmp\opencode\trfix2-red3\services\mca_episodes.py", line 552, in _fetch_all
+    cursor = await self._db.db.execute(sql, params)
+                   ^^^^^^^^^^^
+AttributeError: 'FakeDB' object has no attribute 'db'
+WARNING  services.mca_events:mca_events.py:610 mca_event=tool_call | ts=1792360654 | event_name=tool_call | outcome=skipped | level=WARN | component=tools | stage=execute | status=denied | chat_id=-1001234567890 | trace_id=2b4b8ed0d0f246928b19b575bd36fe10 | duration_ms=0 | attempt=1 | entity_ids={"tool": "recognize_image", "args_fingerprint": "beda40c927e6018c"} | reason_code=vision_rate_limited
+WARNING  services.direct_chat_service:direct_chat_service.py:3385 [direct] tool-loop degraded | chat=-1001234567890 | reason=partial | rounds_used=1
+WARNING  services.bot_output_ledger:bot_output_ledger.py:139 [mca22] ledger record failed | chat=-1001234567890
+Traceback (most recent call last):
+  File "C:\Users\main\.config\opencode\OpenCodeScratch\adminbot-ccef72c25768\tmp\opencode\trfix2-red3\services\bot_output_ledger.py", line 107, in record_delivered_output
+    output_id = await target_db.record_bot_output(
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'FakeDB' object has no attribute 'record_bot_output'
+WARNING  services.direct_chat_service:direct_chat_service.py:6892 direct: fact batch bound failed — reassign skipped | chat=-1001234567890
+Traceback (most recent call last):
+  File "C:\Users\main\.config\opencode\OpenCodeScratch\adminbot-ccef72c25768\tmp\opencode\trfix2-red3\services\direct_chat_service.py", line 6885, in _memorize_direct_reply
+    cursor = await self.db.db.execute(
+                   ^^^^^^^^^^
+AttributeError: 'FakeDB' object has no attribute 'db'
+__________ TestReplyPhotoTarget.test_live_sequence_fresh_message_id ___________
+
+self = <tests.test_tr_fix2_reply_ref.TestReplyPhotoTarget object at 0x00000227C7FBCC20>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000227C7FBA2D0>
+
+    @pytest.mark.asyncio
+    async def test_live_sequence_fresh_message_id(self, monkeypatch):
+        """Та же последовательность с «живым» id нового сообщения: цель —
+        всё равно фото replied-сообщения (продукт, а не харнесс)."""
+        router = _recognize_router()
+        svc, _llm, bot, msg, user, _gen, _ann = _drive(
+            monkeypatch, "бот, прочитай надпись",
+            l1=_plan_json(capabilities_needed=["image_understanding"]),
+            router=router)
+        photo = _photo_message(PHOTO_ID)
+        _neutralize_media(msg)
+        msg.message_id = FRESH_ID
+        msg.reply_to_message = photo
+        await _run(svc, bot, msg, user)
+        calls = _recognize_calls(router)
+        assert len(calls) == 1, router.dispatched
+>       assert calls[0]["arguments"]["target"]["message_id"] == PHOTO_ID
+E       assert 1000 == 700
+
+tests\test_tr_fix2_reply_ref.py:148: AssertionError
+------------------------------ Captured log call ------------------------------
+WARNING  services.persistent_throttling:persistent_throttling.py:98 persistent throttle: write_transaction отсутствует — сырой путь (тестовый двойник?) | op=silence_reset
+WARNING  services.persistent_throttling:persistent_throttling.py:308 persistent throttle: silence streak reset failed — in-memory fallback | scope=direct_silence
+Traceback (most recent call last):
+  File "C:\Users\main\.config\opencode\OpenCodeScratch\adminbot-ccef72c25768\tmp\opencode\trfix2-red3\services\persistent_throttling.py", line 304, in reset
+    await _db_write(self._db, _body, op_name="silence_reset",
+  File "C:\Users\main\.config\opencode\OpenCodeScratch\adminbot-ccef72c25768\tmp\opencode\trfix2-red3\services\persistent_throttling.py", line 102, in _db_write
+    result = await op(db.db)
+                      ^^^^^
+AttributeError: 'FakeDB' object has no attribute 'db'
+WARNING  services.mca_episodes:mca_episodes.py:557 [mca05] repository read failed
+Traceback (most recent call last):
+  File "C:\Users\main\.config\opencode\OpenCodeScratch\adminbot-ccef72c25768\tmp\opencode\trfix2-red3\services\mca_episodes.py", line 552, in _fetch_all
+    cursor = await self._db.db.execute(sql, params)
+                   ^^^^^^^^^^^
+AttributeError: 'FakeDB' object has no attribute 'db'
+WARNING  services.mca_events:mca_events.py:610 mca_event=tool_call | ts=1792360654 | event_name=tool_call | outcome=skipped | level=WARN | component=tools | stage=execute | status=denied | chat_id=-1001234567890 | trace_id=e1aa17ec50d34aacac854fe30245f4a9 | duration_ms=0 | attempt=1 | entity_ids={"tool": "recognize_image", "args_fingerprint": "96af668b612e0a76"} | reason_code=vision_rate_limited
+WARNING  services.direct_chat_service:direct_chat_service.py:3385 [direct] tool-loop degraded | chat=-1001234567890 | reason=partial | rounds_used=1
+WARNING  services.mca_events:mca_events.py:610 mca_event=style_policy | ts=1792360654 | event_name=style_policy | outcome=success | level=WARN | component=style_policy | stage=direct_pre_send | chat_id=-1001234567890 | duration_ms=0.114 | usage_json={"context": "regular", "applied": true, "skip_reason": "style_policy_absent", "policy_revision": "", "policy_source": "default", "styled": true, "denied": false, "counts": {"pass": 0, "repaired": 0, "exempted": 0, "conflict": 0, "failed": 0, "denied": 0, "not_applicable": 0}, "conflicts": [], "failed": [], "exempted": 0, "repaired": 0, "extent": {"extent": "", "status": "not_applicable", "words": 0, "reason": "extent_auto"}, "repetition": [{"kind": "whole_message", "severity": "critical", "words": 2}], "payload": false, "payload_status": "", "elapsed_ms": 0.114, "repair_used": 0, "text_chars": 13, "text_sha12": "8d905ba7cb39", "notes": []}
+WARNING  services.bot_output_ledger:bot_output_ledger.py:139 [mca22] ledger record failed | chat=-1001234567890
+Traceback (most recent call last):
+  File "C:\Users\main\.config\opencode\OpenCodeScratch\adminbot-ccef72c25768\tmp\opencode\trfix2-red3\services\bot_output_ledger.py", line 107, in record_delivered_output
+    output_id = await target_db.record_bot_output(
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'FakeDB' object has no attribute 'record_bot_output'
+WARNING  services.direct_chat_service:direct_chat_service.py:6892 direct: fact batch bound failed — reassign skipped | chat=-1001234567890
+Traceback (most recent call last):
+  File "C:\Users\main\.config\opencode\OpenCodeScratch\adminbot-ccef72c25768\tmp\opencode\trfix2-red3\services\direct_chat_service.py", line 6885, in _memorize_direct_reply
+    cursor = await self.db.db.execute(
+                   ^^^^^^^^^^
+AttributeError: 'FakeDB' object has no attribute 'db'
+_ TestReplyPhotoTarget.test_two_turn_live_sequence_own_photo_then_reply_other _
+
+self = <tests.test_tr_fix2_reply_ref.TestReplyPhotoTarget object at 0x00000227C7FBADB0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000227C72B15B0>
+
+    @pytest.mark.asyncio
+    async def test_two_turn_live_sequence_own_photo_then_reply_other(
+            self, monkeypatch):
+        """Полная живая последовательность 2.58.91 двумя ходами (через 0h
+        handler): (1) своё фото+подпись → цель = своё сообщение; (2) reply
+        на ДРУГОЕ фото → цель = это фото (не «последнее медиа» и не текущее
+        сообщение)."""
+        router = _recognize_router()
+        svc, _llm, bot, msg1, user, _gen, _ann = _drive(
+            monkeypatch, "бот, что на картинке?",
+            l1=_plan_json(capabilities_needed=["image_understanding"]),
+            router=router)
+        _wire_handler(svc)
+        # ход 1: своё фото + подпись (own-media)
+        msg1.text = None
+        msg1.message_id = OTHER_PHOTO_ID
+        msg1.reply_to_message = None
+        _neutralize_media(msg1, photo=[MagicMock()],
+                          caption="бот, что на картинке?")
+        await dc_mod.direct_chat_handler(msg1, bot=bot)
+        # ход 2: текстовый reply на ДРУГОЕ фото (id ответа бота — как в живом
+        # прогоне, где харнесс переиспользовал id последнего ответа бота)
+        photo2 = _photo_message(PHOTO_ID)
+        msg2 = _text_message(BOT_REPLY_ID, "бот, прочитай надпись",
+                             reply_to=photo2)
+        await dc_mod.direct_chat_handler(msg2, bot=bot)
+        calls = _recognize_calls(router)
+>       assert [c["arguments"]["target"]["message_id"] for c in calls] == [
+            OTHER_PHOTO_ID, PHOTO_ID], router.dispatched
+E       AssertionError: [{'tool': 'recognize_image', 'arguments': {'target': {'chat_id': -1001234567890, 'message_id': 640}}}, {'tool': 'recognize_image', 'arguments': {'target': {'chat_id': -1001234567890, 'message_id': 999}}}]
+E       assert [640, 999] == [640, 700]
+E         
+E         At index 1 diff: 999 != 700
+E         Use -v to get more diff
+
+tests\test_tr_fix2_reply_ref.py:177: AssertionError
+------------------------------ Captured log call ------------------------------
+WARNING  services.persistent_throttling:persistent_throttling.py:98 persistent throttle: write_transaction отсутствует — сырой путь (тестовый двойник?) | op=silence_reset
+WARNING  services.persistent_throttling:persistent_throttling.py:308 persistent throttle: silence streak reset failed — in-memory fallback | scope=direct_silence
+Traceback (most recent call last):
+  File "C:\Users\main\.config\opencode\OpenCodeScratch\adminbot-ccef72c25768\tmp\opencode\trfix2-red3\services\persistent_throttling.py", line 304, in reset
+    await _db_write(self._db, _body, op_name="silence_reset",
+  File "C:\Users\main\.config\opencode\OpenCodeScratch\adminbot-ccef72c25768\tmp\opencode\trfix2-red3\services\persistent_throttling.py", line 102, in _db_write
+    result = await op(db.db)
+                      ^^^^^
+AttributeError: 'FakeDB' object has no attribute 'db'
+WARNING  services.mca_episodes:mca_episodes.py:557 [mca05] repository read failed
+Traceback (most recent call last):
+  File "C:\Users\main\.config\opencode\OpenCodeScratch\adminbot-ccef72c25768\tmp\opencode\trfix2-red3\services\mca_episodes.py", line 552, in _fetch_all
+    cursor = await self._db.db.execute(sql, params)
+                   ^^^^^^^^^^^
+AttributeError: 'FakeDB' object has no attribute 'db'
+WARNING  services.mca_events:mca_events.py:610 mca_event=tool_call | ts=1792360654 | event_name=tool_call | outcome=skipped | level=WARN | component=tools | stage=execute | status=denied | chat_id=-1001234567890 | trace_id=97bcec94af3e4fef817158f1a6597447 | duration_ms=0 | attempt=1 | entity_ids={"tool": "recognize_image", "args_fingerprint": "454c48650e45a668"} | reason_code=vision_rate_limited
+WARNING  services.direct_chat_service:direct_chat_service.py:3385 [direct] tool-loop degraded | chat=-1001234567890 | reason=partial | rounds_used=1
+WARNING  services.mca_events:mca_events.py:610 mca_event=style_policy | ts=1792360654 | event_name=style_policy | outcome=success | level=WARN | component=style_policy | stage=direct_pre_send | chat_id=-1001234567890 | duration_ms=0.096 | usage_json={"context": "regular", "applied": true, "skip_reason": "style_policy_absent", "policy_revision": "", "policy_source": "default", "styled": true, "denied": false, "counts": {"pass": 0, "repaired": 0, "exempted": 0, "conflict": 0, "failed": 0, "denied": 0, "not_applicable": 0}, "conflicts": [], "failed": [], "exempted": 0, "repaired": 0, "extent": {"extent": "", "status": "not_applicable", "words": 0, "reason": "extent_auto"}, "repetition": [{"kind": "whole_message", "severity": "critical", "words": 2}, {"kind": "whole_message", "severity": "critical", "words": 2}], "payload": false, "payload_status": "", "elapsed_ms": 0.096, "repair_used": 0, "text_chars": 13, "text_sha12": "8d905ba7cb39", "notes": []}
+WARNING  services.bot_output_ledger:bot_output_ledger.py:139 [mca22] ledger record failed | chat=-1001234567890
+Traceback (most recent call last):
+  File "C:\Users\main\.config\opencode\OpenCodeScratch\adminbot-ccef72c25768\tmp\opencode\trfix2-red3\services\bot_output_ledger.py", line 107, in record_delivered_output
+    output_id = await target_db.record_bot_output(
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'FakeDB' object has no attribute 'record_bot_output'
+WARNING  services.persistent_throttling:persistent_throttling.py:98 persistent throttle: write_transaction отсутствует — сырой путь (тестовый двойник?) | op=silence_reset
+WARNING  services.persistent_throttling:persistent_throttling.py:308 persistent throttle: silence streak reset failed — in-memory fallback | scope=direct_silence
+Traceback (most recent call last):
+  File "C:\Users\main\.config\opencode\OpenCodeScratch\adminbot-ccef72c25768\tmp\opencode\trfix2-red3\services\persistent_throttling.py", line 304, in reset
+    await _db_write(self._db, _body, op_name="silence_reset",
+  File "C:\Users\main\.config\opencode\OpenCodeScratch\adminbot-ccef72c25768\tmp\opencode\trfix2-red3\services\persistent_throttling.py", line 102, in _db_write
+    result = await op(db.db)
+                      ^^^^^
+AttributeError: 'FakeDB' object has no attribute 'db'
+WARNING  services.mca_episodes:mca_episodes.py:557 [mca05] repository read failed
+Traceback (most recent call last):
+  File "C:\Users\main\.config\opencode\OpenCodeScratch\adminbot-ccef72c25768\tmp\opencode\trfix2-red3\services\mca_episodes.py", line 552, in _fetch_all
+    cursor = await self._db.db.execute(sql, params)
+                   ^^^^^^^^^^^
+AttributeError: 'FakeDB' object has no attribute 'db'
+WARNING  services.direct_chat_service:direct_chat_service.py:6892 direct: fact batch bound failed — reassign skipped | chat=-1001234567890
+Traceback (most recent call last):
+  File "C:\Users\main\.config\opencode\OpenCodeScratch\adminbot-ccef72c25768\tmp\opencode\trfix2-red3\services\direct_chat_service.py", line 6885, in _memorize_direct_reply
+    cursor = await self.db.db.execute(
+                   ^^^^^^^^^^
+AttributeError: 'FakeDB' object has no attribute 'db'
+WARNING  services.mca_events:mca_events.py:610 mca_event=tool_call | ts=1792360654 | event_name=tool_call | outcome=skipped | level=WARN | component=tools | stage=execute | status=denied | chat_id=-1001234567890 | trace_id=cc1d9ef93e684501986aa4c30bcc4ea9 | duration_ms=0 | attempt=1 | entity_ids={"tool": "recognize_image", "args_fingerprint": "beda40c927e6018c"} | reason_code=vision_rate_limited
+WARNING  services.direct_chat_service:direct_chat_service.py:3385 [direct] tool-loop degraded | chat=-1001234567890 | reason=partial | rounds_used=1
+WARNING  services.mca_events:mca_events.py:610 mca_event=style_policy | ts=1792360654 | event_name=style_policy | outcome=success | level=WARN | component=style_policy | stage=direct_pre_send | chat_id=-1001234567890 | duration_ms=0.083 | usage_json={"context": "regular", "applied": true, "skip_reason": "style_policy_absent", "policy_revision": "", "policy_source": "default", "styled": true, "denied": false, "counts": {"pass": 0, "repaired": 0, "exempted": 0, "conflict": 0, "failed": 0, "denied": 0, "not_applicable": 0}, "conflicts": [], "failed": [], "exempted": 0, "repaired": 0, "extent": {"extent": "", "status": "not_applicable", "words": 0, "reason": "extent_auto"}, "repetition": [{"kind": "whole_message", "severity": "critical", "words": 2}, {"kind": "whole_message", "severity": "critical", "words": 2}, {"kind": "whole_message", "severity": "critical", "words": 2}], "payload": false, "payload_status": "", "elapsed_ms": 0.083, "repair_used": 0, "text_chars": 13, "text_sha12": "8d905ba7cb39", "notes": []}
+WARNING  services.bot_output_ledger:bot_output_ledger.py:139 [mca22] ledger record failed | chat=-1001234567890
+Traceback (most recent call last):
+  File "C:\Users\main\.config\opencode\OpenCodeScratch\adminbot-ccef72c25768\tmp\opencode\trfix2-red3\services\bot_output_ledger.py", line 107, in record_delivered_output
+    output_id = await target_db.record_bot_output(
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'FakeDB' object has no attribute 'record_bot_output'
+WARNING  services.direct_chat_service:direct_chat_service.py:6892 direct: fact batch bound failed — reassign skipped | chat=-1001234567890
+Traceback (most recent call last):
+  File "C:\Users\main\.config\opencode\OpenCodeScratch\adminbot-ccef72c25768\tmp\opencode\trfix2-red3\services\direct_chat_service.py", line 6885, in _memorize_direct_reply
+    cursor = await self.db.db.execute(
+                   ^^^^^^^^^^
+AttributeError: 'FakeDB' object has no attribute 'db'
+_ TestReplyFactcheckClaim.test_meta_question_claim_from_replied_message_ready _
+
+self = <tests.test_tr_fix2_reply_ref.TestReplyFactcheckClaim object at 0x00000227C7FB8AD0>
+tmp_path = WindowsPath('C:/Users/main/.config/opencode/OpenCodeScratch/adminbot-ccef72c25768/tmp/pytest-of-main/pytest-1725/test_meta_question_claim_from_0')
+
+    @pytest.mark.asyncio
+    async def test_meta_question_claim_from_replied_message_ready(
+            self, tmp_path):
+        """Живой кейс CFG-06 (регистрированная цель, fidelity проду):
+        reply «бот, это правда?» → claim = текст replied-сообщения,
+        target = replied-сообщение → ready (а не rejected)."""
+        from services.database import DatabaseService
+        db = DatabaseService(str(tmp_path / "trfix2.db"))
+        await db.initialize()
+        try:
+            await db.save_smart_message(
+                USER_ID, CHAT_ID, CLAIM, None, int(time.time()), "text",
+                "Acceptance", message_id=PHOTO_ID, origin_type="user")
+            router = ToolRouter(ToolDeps(FakeAggregator(), MagicMock(),
+                                         db=db, llm=None))
+>           ctx = ToolContext(
+                CHAT_ID, META_Q, reply_to_message_id=FRESH_ID,
+                reply_source_message_id=PHOTO_ID, reply_source_text=CLAIM)
+E               TypeError: ToolContext.__init__() got an unexpected keyword argument 'reply_source_message_id'
+
+tests\test_tr_fix2_reply_ref.py:200: TypeError
+__ TestReplyFactcheckClaim.test_full_handle_reply_meta_question_envelope_ref __
+
+self = <tests.test_tr_fix2_reply_ref.TestReplyFactcheckClaim object at 0x00000227C7FB83E0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000227C921DDC0>
+
+    @pytest.mark.asyncio
+    async def test_full_handle_reply_meta_question_envelope_ref(
+            self, monkeypatch):
+        """Сквозь реальный Direct-ход (L1 → simple_tools → единый пайплайн
+        фактчека): дет. шаг и envelope несут claim/target replied-сообщения."""
+        captured = {}
+    
+        async def _capture(db, ref, **kwargs):
+            captured["ref"] = ref
+            return None, "captured"
+    
+        monkeypatch.setattr(tf, "build_envelope", _capture)
+        inner = ToolRouter(ToolDeps(FakeAggregator(), MagicMock(),
+                                    db=None, llm=None))
+    
+        class _Rec:
+            def __init__(self, inner_router):
+                self.inner = inner_router
+                self.calls = []
+    
+            async def dispatch(self, name, arguments, ctx):
+                self.calls.append({"tool": name,
+                                   "arguments": dict(arguments or {})})
+                return await self.inner.dispatch(name, arguments, ctx)
+    
+        router = _Rec(inner)
+        svc, _llm, bot, msg, user, _gen, _ann = _drive(
+            monkeypatch, META_Q,
+            l1=_plan_json(capabilities_needed=["fact_check"]),
+            router=router)
+        replied = _text_message(PHOTO_ID, CLAIM, user_id=USER_ID)
+        _neutralize_media(msg)
+        msg.message_id = FRESH_ID
+        msg.reply_to_message = replied
+        await _run(svc, bot, msg, user)
+        fc = [c for c in router.calls if c["tool"] == "fact_check"]
+        assert len(fc) == 1, router.calls
+        # (a) дет. шаг уже несёт claim/target replied-сообщения
+>       assert fc[0]["arguments"]["claim"] == CLAIM, fc[0]
+E       AssertionError: {'tool': 'fact_check', 'arguments': {'claim': 'бот, это правда?', 'target': {'chat_id': -1001234567890, 'message_id': 1000}}}
+E       assert 'бот, это правда?' == 'Вода закипае... уровне моря.'
+E         
+E         - Вода закипает при 100 °C на уровне моря.
+E         + бот, это правда?
+
+tests\test_tr_fix2_reply_ref.py:253: AssertionError
+------------------------------ Captured log call ------------------------------
+WARNING  services.persistent_throttling:persistent_throttling.py:98 persistent throttle: write_transaction отсутствует — сырой путь (тестовый двойник?) | op=silence_reset
+WARNING  services.persistent_throttling:persistent_throttling.py:308 persistent throttle: silence streak reset failed — in-memory fallback | scope=direct_silence
+Traceback (most recent call last):
+  File "C:\Users\main\.config\opencode\OpenCodeScratch\adminbot-ccef72c25768\tmp\opencode\trfix2-red3\services\persistent_throttling.py", line 304, in reset
+    await _db_write(self._db, _body, op_name="silence_reset",
+  File "C:\Users\main\.config\opencode\OpenCodeScratch\adminbot-ccef72c25768\tmp\opencode\trfix2-red3\services\persistent_throttling.py", line 102, in _db_write
+    result = await op(db.db)
+                      ^^^^^
+AttributeError: 'FakeDB' object has no attribute 'db'
+WARNING  services.mca_episodes:mca_episodes.py:557 [mca05] repository read failed
+Traceback (most recent call last):
+  File "C:\Users\main\.config\opencode\OpenCodeScratch\adminbot-ccef72c25768\tmp\opencode\trfix2-red3\services\mca_episodes.py", line 552, in _fetch_all
+    cursor = await self._db.db.execute(sql, params)
+                   ^^^^^^^^^^^
+AttributeError: 'FakeDB' object has no attribute 'db'
+WARNING  services.mca_events:mca_events.py:610 mca_event=factcheck_temporal | ts=1792360654 | event_name=factcheck_temporal | outcome=failed | level=WARN | component=factcheck.temporal | stage=target_resolve | chat_id=-1001234567890 | pipeline_type=temporal.factcheck | pipeline_version=tf1
+WARNING  services.mca_events:mca_events.py:610 mca_event=style_policy | ts=1792360654 | event_name=style_policy | outcome=success | level=WARN | component=style_policy | stage=direct_pre_send | chat_id=-1001234567890 | duration_ms=0.113 | usage_json={"context": "regular", "applied": true, "skip_reason": "style_policy_absent", "policy_revision": "", "policy_source": "default", "styled": true, "denied": false, "counts": {"pass": 0, "repaired": 0, "exempted": 0, "conflict": 0, "failed": 0, "denied": 0, "not_applicable": 0}, "conflicts": [], "failed": [], "exempted": 0, "repaired": 0, "extent": {"extent": "", "status": "not_applicable", "words": 0, "reason": "extent_auto"}, "repetition": [{"kind": "whole_message", "severity": "critical", "words": 2}, {"kind": "whole_message", "severity": "critical", "words": 2}, {"kind": "whole_message", "severity": "critical", "words": 2}, {"kind": "whole_message", "severity": "critical", "words": 2}], "payload": false, "payload_status": "", "elapsed_ms": 0.113, "repair_used": 0, "text_chars": 13, "text_sha12": "8d905ba7cb39", "notes": []}
+WARNING  services.bot_output_ledger:bot_output_ledger.py:139 [mca22] ledger record failed | chat=-1001234567890
+Traceback (most recent call last):
+  File "C:\Users\main\.config\opencode\OpenCodeScratch\adminbot-ccef72c25768\tmp\opencode\trfix2-red3\services\bot_output_ledger.py", line 107, in record_delivered_output
+    output_id = await target_db.record_bot_output(
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'FakeDB' object has no attribute 'record_bot_output'
+WARNING  services.direct_chat_service:direct_chat_service.py:6892 direct: fact batch bound failed — reassign skipped | chat=-1001234567890
+Traceback (most recent call last):
+  File "C:\Users\main\.config\opencode\OpenCodeScratch\adminbot-ccef72c25768\tmp\opencode\trfix2-red3\services\direct_chat_service.py", line 6885, in _memorize_direct_reply
+    cursor = await self.db.db.execute(
+                   ^^^^^^^^^^
+AttributeError: 'FakeDB' object has no attribute 'db'
+______ TestReplyFactcheckClaim.test_referential_claim_detector_boundary _______
+
+self = <tests.test_tr_fix2_reply_ref.TestReplyFactcheckClaim object at 0x00000227C7FBB230>
+
+    def test_referential_claim_detector_boundary(self):
+        """Референтные формы («это правда?», «проверь его слова», «не врёт?»)
+        — да; «как работает фактчек?» и собственный claim («правда ли, что
+        вода закипает при 100 °C…») — нет."""
+>       assert tf.is_referential_claim(META_Q) is True
+               ^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'services.temporal_factcheck' has no attribute 'is_referential_claim'
+
+tests\test_tr_fix2_reply_ref.py:265: AttributeError
+_ TestReplyFactcheckClaim.test_derive_factcheck_step_no_substitution_for_feature_question _
+
+self = <tests.test_tr_fix2_reply_ref.TestReplyFactcheckClaim object at 0x00000227C7FBB8F0>
+
+    def test_derive_factcheck_step_no_substitution_for_feature_question(self):
+        """«Как работает фактчек?» при reply-контексте: claim НЕ подменяется
+        текстом reply (не референтный вопрос), цель — текущее сообщение."""
+        from services import direct_execution as dx
+        from services import direct_l1 as l1
+        plan = l1.normalize_l1_plan({"action": "reply", "confidence": 0.9,
+                                     "capabilities_needed": ["fact_check"]})
+>       ctx = ToolContext(CHAT_ID, "бот, как работает фактчек?",
+                          reply_to_message_id=FRESH_ID,
+                          reply_source_message_id=PHOTO_ID,
+                          reply_source_text=CLAIM)
+E       TypeError: ToolContext.__init__() got an unexpected keyword argument 'reply_source_message_id'
+
+tests\test_tr_fix2_reply_ref.py:282: TypeError
+______ TestReplyFactcheckClaim.test_derive_image_step_uses_media_target _______
+
+self = <tests.test_tr_fix2_reply_ref.TestReplyFactcheckClaim object at 0x00000227C7FBF0B0>
+
+    def test_derive_image_step_uses_media_target(self):
+        """Дет. шаг image_understanding целится в разрешённую медиа-цель
+        хода; без неё — паритет прежнего поведения (текущее сообщение)."""
+        from services import direct_execution as dx
+        from services import direct_l1 as l1
+        plan = l1.normalize_l1_plan({"action": "reply", "confidence": 0.9,
+                                     "capabilities_needed":
+                                         ["image_understanding"]})
+>       ctx = ToolContext(CHAT_ID, "бот, прочитай надпись",
+                          reply_to_message_id=FRESH_ID,
+                          reply_source_message_id=PHOTO_ID,
+                          media_target_message_id=PHOTO_ID)
+E       TypeError: ToolContext.__init__() got an unexpected keyword argument 'reply_source_message_id'
+
+tests\test_tr_fix2_reply_ref.py:302: TypeError
+=========================== short test summary info ===========================
+FAILED tests/test_tr_fix2_reply_ref.py::TestReplyPhotoTarget::test_live_sequence_harness_message_id
+FAILED tests/test_tr_fix2_reply_ref.py::TestReplyPhotoTarget::test_live_sequence_fresh_message_id
+FAILED tests/test_tr_fix2_reply_ref.py::TestReplyPhotoTarget::test_two_turn_live_sequence_own_photo_then_reply_other
+FAILED tests/test_tr_fix2_reply_ref.py::TestReplyFactcheckClaim::test_meta_question_claim_from_replied_message_ready
+FAILED tests/test_tr_fix2_reply_ref.py::TestReplyFactcheckClaim::test_full_handle_reply_meta_question_envelope_ref
+FAILED tests/test_tr_fix2_reply_ref.py::TestReplyFactcheckClaim::test_referential_claim_detector_boundary
+FAILED tests/test_tr_fix2_reply_ref.py::TestReplyFactcheckClaim::test_derive_factcheck_step_no_substitution_for_feature_question
+FAILED tests/test_tr_fix2_reply_ref.py::TestReplyFactcheckClaim::test_derive_image_step_uses_media_target
+8 failed in 5.85s

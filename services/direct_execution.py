@@ -305,7 +305,11 @@ def derive_simple_steps(plan, *, query: str, reply_text: str = "",
                               "failure_policy": "optional"})
                 continue
             if cap == "image_understanding":
-                target_id = getattr(ctx, "reply_to_message_id", None)
+                # TR-FIX2 (live 2.58.91, finding 3): цель — разрешённая
+                # медиа-цель хода (своё медиа → текущее, reply-медиа →
+                # replied-сообщение), а не слепо текущее сообщение-вопрос.
+                target_id = (getattr(ctx, "media_target_message_id", None)
+                             or getattr(ctx, "reply_to_message_id", None))
                 chat_id = getattr(ctx, "chat_id", None)
                 if target_id is None or chat_id is None:
                     limitations.append(
@@ -319,12 +323,28 @@ def derive_simple_steps(plan, *, query: str, reply_text: str = "",
                     "depends_on": [], "failure_policy": "optional"})
                 continue
             if cap == "fact_check":
-                if not q:
+                # TR-FIX2 (live 2.58.91, finding 5, CFG-06): референтный
+                # вопрос («бот, это правда?») — claim и цель берутся из
+                # replied-сообщения (единый пайплайн `fact_check`, без
+                # второго пути); собственный claim вопроса не подменяется.
+                claim_text = q
+                target_id = getattr(ctx, "reply_to_message_id", None)
+                _reply_claim = str(
+                    getattr(ctx, "reply_source_text", "") or "").strip()
+                reply_src_id = getattr(ctx, "reply_source_message_id", None)
+                if _reply_claim and reply_src_id is not None:
+                    try:
+                        from services import temporal_factcheck as _tf
+                        if _tf.is_referential_claim(q):
+                            claim_text = _reply_claim
+                            target_id = reply_src_id
+                    except Exception:      # pragma: no cover - защитная ветка
+                        pass
+                if not claim_text:
                     limitations.append(f"{cap}: пустое утверждение")
                     continue
                 index += 1
-                args: dict = {"claim": q[:300]}
-                target_id = getattr(ctx, "reply_to_message_id", None)
+                args: dict = {"claim": claim_text[:300]}
                 chat_id = getattr(ctx, "chat_id", None)
                 if target_id is not None and chat_id is not None:
                     args["target"] = {"chat_id": int(chat_id),

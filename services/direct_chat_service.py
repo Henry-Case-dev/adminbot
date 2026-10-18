@@ -2988,8 +2988,22 @@ class DirectChatService:
             if _reply_message is not None:
                 _reply_text = (getattr(_reply_message, "text", None)
                                or getattr(_reply_message, "caption", None) or "")
+            # TR-FIX2 (live 2.58.91, findings 3/5): цель медиа-инструментов —
+            # медиа ТЕКУЩЕГО сообщения (A), иначе медиа replied-сообщения (B,
+            # тот же приоритет, что у канонических маркеров
+            # `_render_current_question`); `reply_source_*` — источник
+            # reply-фактчека. Паритет прежнего поведения: нет reply →
+            # текущее сообщение.
+            _own_media = message_media_type(message)
+            _media_target_id = getattr(message, "message_id", None)
+            if not _own_media and _reply_message is not None:
+                _media_target_id = getattr(_reply_message, "message_id", None)
             tool_ctx = ToolContext(chat_id, query, bot=bot,
                                    reply_to_message_id=message.message_id,
+                                   reply_source_message_id=getattr(
+                                       _reply_message, "message_id", None),
+                                   reply_source_text=_reply_text,
+                                   media_target_message_id=_media_target_id,
                                    user_id=user_id,
                                    correlation_id=correlation_id,
                                    resolved_url=resolve_context_url(

@@ -585,6 +585,8 @@ class ToolContext:
 
     def __init__(self, chat_id: int, query: str, *, bot=None,
                  reply_to_message_id=None, user_id=None,
+                 reply_source_message_id=None, reply_source_text="",
+                 media_target_message_id=None,
                  lore_verbatim_instruction: bool = True,
                  correlation_id: str | None = None,
                  native_media=None,
@@ -594,6 +596,15 @@ class ToolContext:
         self.query = str(query or "")
         self.bot = bot
         self.reply_to_message_id = reply_to_message_id
+        # TR-FIX2 (live 2.58.91, findings 3/5): ``reply_to_message_id`` —
+        # сообщение-ТРИГГЕР хода (на него бот отвечает); ``reply_source_*`` —
+        # сообщение, на которое ответил ПОЛЬЗОВАТЕЛЬ (``reply_to_message``):
+        # источник медиа (recognize_image) и claim'а reply-фактчека.
+        # ``media_target_message_id`` — разрешённая медиа-цель хода
+        # (своё медиа → текущее, иначе reply-медиа → replied-сообщение).
+        self.reply_source_message_id = reply_source_message_id
+        self.reply_source_text = str(reply_source_text or "")
+        self.media_target_message_id = media_target_message_id
         self.user_id = user_id
         # F7 (ADR-1023-7 D4): сквозной id ответа — прокидывается в
         # инструменты, которые пишут телеметрию (generate_image → step='image').
@@ -2310,7 +2321,8 @@ class ToolRouter:
                 {"status": "missing", "reason": "vision_missing_source",
                  "out_of_scope": True},
                 ensure_ascii=False)
-        reply_id = target_msg or ctx.reply_to_message_id
+        reply_id = (target_msg or getattr(ctx, "media_target_message_id", None)
+                    or ctx.reply_to_message_id)
         selector = str(args.get("asset_selector") or "").strip() or None
         question = str(args.get("question") or "").strip()[:200]
         try:
@@ -2365,6 +2377,18 @@ class ToolRouter:
                                 "reason": "temporal_envelope_rejected",
                                 "note": "invalid mode"},
                                ensure_ascii=False)
+        # CFG-06 (live 2.58.91, finding 5): референтный вопрос («бот, это
+        # правда?» / «проверь его слова» / «не врёт?») — claim берётся из
+        # replied-сообщения (тот же кейс, что канонический reply-фактчек 0g,
+        # ``handlers.factcheck``: цель reply'я и есть проверяемый текст).
+        # Собственный claim и нереферентные вопросы («как работает фактчек?»)
+        # не подменяются. Единый пайплайн: тот же envelope-путь ниже.
+        reply_text = str(getattr(ctx, "reply_source_text", "") or "").strip()
+        reply_src_id = getattr(ctx, "reply_source_message_id", None)
+        claim_from_reply = bool(reply_text and reply_src_id is not None
+                                and tf.is_referential_claim(claim))
+        if claim_from_reply:
+            claim = reply_text[:300]      # bounded — как в дет. деривации
         target = args.get("target") if isinstance(args.get("target"),
                                                   dict) else {}
         try:
@@ -2379,6 +2403,11 @@ class ToolRouter:
                  "reason": "temporal_envelope_rejected",
                  "out_of_scope": True},
                 ensure_ascii=False)
+        if claim_from_reply and (target_msg is None
+                                 or target_msg == ctx.reply_to_message_id):
+            # Источник claim'а — replied-сообщение, а не триггер хода:
+            # даты/происхождение envelope берутся из него (D2/D5).
+            target_msg = int(reply_src_id)
         db = self.deps.db
         ref = tf.InputRef(
             kind="tool", chat_id=int(ctx.chat_id) if ctx.chat_id else None,

@@ -1,0 +1,38 @@
+================================== FAILURES ===================================
+        assert len(calls) == 1, router.dispatched
+>       assert calls[0]["arguments"]["target"]["message_id"] == PHOTO_ID, (
+E       AssertionError: цель reply-хода — медиа replied-сообщения, не текущее
+E       assert 999 == 700
+        assert len(calls) == 1, router.dispatched
+>       assert calls[0]["arguments"]["target"]["message_id"] == PHOTO_ID
+E       assert 1000 == 700
+>       assert [c["arguments"]["target"]["message_id"] for c in calls] == [
+E       AssertionError: [{'tool': 'recognize_image', 'arguments': {'target': {'chat_id': -1001234567890, 'message_id': 640}}}, {'tool': 'recognize_image', 'arguments': {'target': {'chat_id': -1001234567890, 'message_id': 999}}}]
+E       assert [640, 999] == [640, 700]
+E
+E         At index 1 diff: 999 != 700
+E         Use -v to get more diff
+E               TypeError: ToolContext.__init__() got an unexpected keyword argument 'reply_source_message_id'
+tests\test_tr_fix2_reply_ref.py:200: TypeError
+        assert len(fc) == 1, router.calls
+>       assert fc[0]["arguments"]["claim"] == CLAIM, fc[0]
+E       AssertionError: {'tool': 'fact_check', 'arguments': {'claim': 'бот, это правда?', 'target': {'chat_id': -1001234567890, 'message_id': 1000}}}
+E       assert 'бот, это правда?' == 'Вода закипае... уровне моря.'
+E
+E         - Вода закипает при 100 °C на уровне моря.
+E         + бот, это правда?
+>       assert tf.is_referential_claim(META_Q) is True
+E       AttributeError: module 'services.temporal_factcheck' has no attribute 'is_referential_claim'
+E       TypeError: ToolContext.__init__() got an unexpected keyword argument 'reply_source_message_id'
+tests\test_tr_fix2_reply_ref.py:282: TypeError
+E       TypeError: ToolContext.__init__() got an unexpected keyword argument 'reply_source_message_id'
+tests\test_tr_fix2_reply_ref.py:302: TypeError
+=========================== short test summary info ===========================
+FAILED tests/test_tr_fix2_reply_ref.py::TestReplyPhotoTarget::test_live_sequence_harness_message_id
+FAILED tests/test_tr_fix2_reply_ref.py::TestReplyPhotoTarget::test_live_sequence_fresh_message_id
+FAILED tests/test_tr_fix2_reply_ref.py::TestReplyPhotoTarget::test_two_turn_live_sequence_own_photo_then_reply_other
+FAILED tests/test_tr_fix2_reply_ref.py::TestReplyFactcheckClaim::test_meta_question_claim_from_replied_message_ready
+FAILED tests/test_tr_fix2_reply_ref.py::TestReplyFactcheckClaim::test_full_handle_reply_meta_question_envelope_ref
+FAILED tests/test_tr_fix2_reply_ref.py::TestReplyFactcheckClaim::test_referential_claim_detector_boundary
+FAILED tests/test_tr_fix2_reply_ref.py::TestReplyFactcheckClaim::test_derive_factcheck_step_no_substitution_for_feature_question
+FAILED tests/test_tr_fix2_reply_ref.py::TestReplyFactcheckClaim::test_derive_image_step_uses_media_target

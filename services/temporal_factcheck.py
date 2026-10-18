@@ -91,6 +91,41 @@ _KNOWABLE_REQUEST_RE = re.compile(
     r"(мог\s+ли|знал\s+ли|было\s+ли\s+известно|можно\s+ли\s+было\s+знать|"
     r"что\s+(автор|он)\s+(знал|мог\s+знать))", re.IGNORECASE)
 
+# CFG-06 (live 2.58.91, finding 5): «бот, это правда?» / «проверь его слова» /
+# «не врёт?» — вопрос О replied-сообщении, а не собственный claim. Только
+# такие референтные формы разрешают взять claim из replied-сообщения (единый
+# пайплайн: дет. шаг и tool-вызов); собственный claim внутри вопроса
+# («правда ли, что …») подстановкой НЕ затирается.
+_REFERENTIAL_CLAIM_RE = re.compile(
+    r"(?:это\s+)?(?:правда|фейк|ложь|врань[её]|выдумк\w*|байк\w*)"
+    r"|не\s+вр[её]т|вр[её]т\s+ли"
+    r"|(?:точно|серь[её]зно)\s+(?:так|правда)"
+    r"|проверь\s+(?:его|её|их|это|слова|пост|сообщени\w*|сказанн\w*|"
+    r"тезис|утверждени\w*)",
+    re.IGNORECASE)
+_REFERENTIAL_CLAIM_MAX_CHARS = 80
+
+
+def is_referential_claim(
+        text: str, *,
+        max_chars: int = _REFERENTIAL_CLAIM_MAX_CHARS) -> bool:
+    """Референтный вопрос о replied-сообщении (без собственного содержания)?
+
+    ``True`` → claim можно взять из replied-сообщения (D3-паритет с
+    ``handlers.factcheck``: цель reply'я и есть проверяемый текст). Слишком
+    длинный текст или наличие собственного «что»-придаточного («правда ли,
+    что вода закипает при 100 °C») → ``False``: claim остаётся как есть,
+    никакой подмены. Никогда не бросает."""
+    try:
+        t = str(text or "").strip().lower()
+        if not t or len(t) > int(max_chars):
+            return False
+        if re.search(r"\bчто\b", t):
+            return False
+        return bool(_REFERENTIAL_CLAIM_RE.search(t))
+    except Exception:      # pragma: no cover - защитная ветка
+        return False
+
 # Детерминированное извлечение заявленных дат (extracted_claimed, D5).
 _YEAR_RE = re.compile(r"\b(19\d{2}|20\d{2})\b")
 _DATE_POINT_RE = re.compile(
