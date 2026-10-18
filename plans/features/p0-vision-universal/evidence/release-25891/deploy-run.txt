@@ -1,0 +1,192 @@
+### A_pre_state (rc=0, 2.8s)
+NOW_UTC=2026-10-18T20:11:35Z
+OLD_HEAD=3b02366e63022eb4c760892aa1bcb4f26516e789
+OLD_BRANCH=master
+HZ_BEFORE={"status":"ok","version":"2.58.90"}
+TRACKED_MOD=0
+UNTRACKED=13
+SERVICE=active
+MAINPID=3430462
+ENV_AXES=5
+PROD_RUNTIME_DRIFT=0
+INDEX_LOCK=absent
+### B1_fetch (rc=0, 3.4s)
+FETCH1_RC=0
+ * branch              master     -> FETCH_HEAD
+   3b02366e..f2a6248a  master     -> origin/master
+### B3_remote_ref (rc=0, 1.0s)
+f2a6248ae30d8e0b1878785bb6d1477f65e21c78
+BUMP_IS_ANCESTOR=1
+### C_checkout (rc=0, 1.6s)
+CO_RC=0
+Reset branch 'master'
+branch 'master' set up to track 'origin/master'.
+Your branch is up to date with 'origin/master'.
+NEW_HEAD=f2a6248ae30d8e0b1878785bb6d1477f65e21c78
+TRACKED_MOD_AFTER=0
+DELTA_TOTAL=330
+DELTA_RUNTIME:config/settings.py handlers/direct_chat.py services/capability_registry.py services/chat_prompts.py services/cover_style_jobs.py services/direct_capabilities.py services/direct_chat_service.py services/direct_execution.py services/image_generation.py services/initiative_diagnostics.py services/initiative_observer.py services/mca_vision.py services/param_catalog.py services/persistent_throttling.py services/postgen_vision.py services/prompt_registry.py services/tool_router.py services/tool_schemas.py services/worker_budget.py web/api/gates.py web/api/routes.py web/app.js web/index.html web/static/app.css
+DELTA_RUNTIME expected (24 whitelist-файлов): config/settings.py handlers/direct_chat.py services/capability_registry.py services/chat_prompts.py services/cover_style_jobs.py services/direct_capabilities.py services/direct_chat_service.py services/direct_execution.py services/image_generation.py services/initiative_diagnostics.py services/initiative_observer.py services/mca_vision.py services/param_catalog.py services/persistent_throttling.py services/postgen_vision.py services/prompt_registry.py services/tool_router.py services/tool_schemas.py services/worker_budget.py web/api/gates.py web/api/routes.py web/app.js web/index.html web/static/app.css
+### D1_hashes (rc=0, 1.0s)
+f36cea15a897 README.md
+9feccf2575d7 config/settings.py
+8e48c18a58d2 handlers/direct_chat.py
+280d49b31371 plans/docs/param-registry-round1025.meta.md
+f560b21793e1 services/capability_registry.py
+632567f3ce91 services/chat_prompts.py
+b732f298f5db services/cover_style_jobs.py
+bbdaddc6901a services/direct_capabilities.py
+8248426e5b9c services/direct_chat_service.py
+8785f554f4a0 services/direct_execution.py
+e84009f90932 services/image_generation.py
+3d7d0d6a31d3 services/initiative_diagnostics.py
+210c7516ed53 services/initiative_observer.py
+493c1651f749 services/mca_vision.py
+ad109003b936 services/param_catalog.py
+078086d25f32 services/persistent_throttling.py
+3237319b8b7f services/postgen_vision.py
+fd8a2a70d5d7 services/prompt_composer.py
+9f6d4d064a7b services/prompt_registry.py
+e23bced2fdb8 services/telegram_send.py
+bdea19386748 services/tool_router.py
+f5e066cba3f7 services/tool_schemas.py
+b8f8fdf73f9b services/worker_budget.py
+a90148779231 web/api/gates.py
+21f72a8ebb4e web/api/routes.py
+b14ef48ab16a web/app.js
+7b54e48105ae web/index.html
+6d3ae1112d50 web/static/app.css
+96db06425079 web/static/fullscreen-policy.js
+HASH-CHECK: 29/29 artifacts == expected sha256_12
+### D2_markers (rc=0, 1.2s)
+APP_VER=APP_VERSION = "2.58.91"
+VISION_URL=4
+VISION_VIS=2
+VISION_PROBE=5
+VISION_CLAIM=5
+ENTRY_CAPTION=4
+TOOLS_HEALTH=6
+POSTGEN_MODULE=1
+POSTGEN_FLAG=3
+CFG02B_FLAG=3
+CFG02B_BUCKET=3
+GRID_SPEECH=5
+UI_VISION_LINE=2
+UI_VISION_FACTS=2
+UI_PROV_CONTAINER=1
+PINS_REISSUED=2
+INIT_WINDOW=7
+CFG02A_RESERVE_MODE=3
+CFG01_RESOLVER=2
+SP_HUB_ENTRY=1
+META_HEAD_LINE - **HEAD (short):** `88593e9a`
+### F1_sudo_probe (rc=0, 1.0s)
+SUDO_NOPASS=0
+### F2_restart (rc=0, 12.5s)
+RESTART_T0=2026-10-18 20:11:46
+RESTART_RC=0
+(uploaded probes: /tmp/rel91_final.sh)
+### F3_health (rc=0, 23.9s)
+HEALTH={"status":"ok","version":"2.58.91"}
+HEALTH OK (2.58.91)
+### F4_journal (rc=0, 1.4s)
+0
+[stderr] [sudo] password for nik:
+### G_served (rc=0, 1.2s)
+SERVED_APP_JS=b14ef48ab16a
+DISK_APP_JS=b14ef48ab16a
+SERVED_EQ_APP_JS=SAME
+SERVED_APP_CSS=6d3ae1112d50
+DISK_APP_CSS=6d3ae1112d50
+SERVED_EQ_APP_CSS=SAME
+PAGE_VER=15
+SUBST_CSS=2
+PAGE_VER_EXPECT=15
+SUBST_CSS_EXPECT=2
+### J_final (rc=0, 2.9s)
+=== NOW ===
+2026-10-18T20:12:27Z
+=== NODE ===
+HEAD=f2a6248ae30d8e0b1878785bb6d1477f65e21c78
+BRANCH=master
+TRACKED_MOD=0
+=== HEALTH ===
+{"status":"ok","version":"2.58.91"}
+MainPID=3508490 NRestarts=0 ExecMainStartTimestamp=Sun 2026-10-18 20:11:57 UTC ExecMainStatus=0 ActiveState=active SubState=running 
+=== ENV AXES (.env) ===
+UNIFIED_COMPOSER_ENABLED=1
+HUMOR_CRAFT_ENABLED=1
+HUMOR_LIBRARY_ENABLED=1
+HUMOR_FEEDBACK_ENABLED=1
+INITIATIVE_DIAGNOSTICS_PUBLISH_ENABLED=1
+=== P0V / ADD-TR / CFG-02B MARKERS (deployed bytes) ===
+VISION_URL=4
+VISION_VIS=2
+VISION_PROBE=5
+VISION_CLAIM=5
+VISION_KEY_ISOLATION=6
+ENTRY_CAPTION=4
+TOOLS_HEALTH=6
+POSTGEN_MODULE=1
+POSTGEN_FLAG=3
+CFG02B_FLAG=3
+CFG02B_BUCKET=3
+CFG02B_VIEW=11
+GRID_SPEECH=5
+UI_VISION_LINE=2
+UI_VISION_FACTS=2
+UI_PROV_CONTAINER=1
+PINS_REISSUED=2
+INIT_WINDOW=7
+INIT_SKIPPED=1
+=== REGRESSION MARKERS (не должны исчезнуть) ===
+CFG_RESOLVER=2
+CFG02A_RESERVE_MODE=3
+CFG02A_UI_FACTS=2
+CFG02A_QA_VALID=2
+SP_HUB_ENTRY=1
+SP_ROUTE=7
+FULLSCREEN_POLICY=29
+SOUL_W6_TOOLS=1
+=== PAYLOAD SHA12 (disk) ===
+web/app.js b14ef48ab16a
+web/index.html 7b54e48105ae
+web/static/app.css 6d3ae1112d50
+services/mca_vision.py 493c1651f749
+services/postgen_vision.py 3237319b8b7f
+services/image_generation.py e84009f90932
+services/initiative_observer.py 210c7516ed53
+config/settings.py 9feccf2575d7
+README.md f36cea15a897
+=== SERVED SHA12 (HTTP) vs DISK (SERVED_EQ_*=SAME/DIFF) ===
+SERVED_APP_JS=b14ef48ab16a
+SERVED_EQ_APP_JS=SAME
+SERVED_APP_CSS=6d3ae1112d50
+SERVED_EQ_APP_CSS=SAME
+=== PAGE (expect PAGE_VER=15 / SUBST_CSS=2) ===
+PAGE_VER=15
+SUBST_CSS=2
+PAGE_VER_EXPECT=15
+SUBST_CSS_EXPECT=2
+=== VISION STATE API (read-only, no secrets) ===
+{"detail":"missing init data"}
+=== MIGRATION LINES (since T0) ===
+Oct 18 20:12:17 racknerd-f4e3456 python[3508490]: 2026-10-18 20:12:17,955 - services.database - INFO - [database] migrations: start | current user_version=36 | pending=[]
+Oct 18 20:12:17 racknerd-f4e3456 python[3508490]: 2026-10-18 20:12:17,959 - services.database - INFO - [database] migrations: complete | user_version=36 | total 0.0s
+=== SQLITE USER_VERSION ===
+USER_VERSION (36,)
+=== JOURNAL COUNTS (since T0) ===
+ERR=0
+RUNTIMEWARN=0
+GRACEFUL=2
+POLLER=1
+VISION_PROBE_FAIL=0
+VISION_EVENTS=0
+=== SMOKE ROUTES (HTTPS) ===
+ROUTE /healthz 200
+ROUTE /web/ 200
+ROUTE /static/app.css 200
+=== HTTPS ===
+HTTPS_HZ={"status":"ok","version":"2.58.91"}
+=== DONE ===
+[stderr] [sudo] password for nik:

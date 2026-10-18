@@ -1,0 +1,42 @@
+### S0_now (rc=0, 2.1s)
+NOW_UTC=2026-10-18T20:14:52Z
+### S1_node (rc=0, 1.2s)
+HEAD=f2a6248ae30d8e0b1878785bb6d1477f65e21c78
+BRANCH=master
+DRIFT_TO_ORIGIN=0
+TRACKED_MOD=0
+### S2_service (rc=0, 1.0s)
+MainPID=3508490 NRestarts=0 ExecMainStartTimestamp=Sun 2026-10-18 20:11:57 UTC ExecMainStatus=0 ActiveState=active SubState=running
+### S3_healthz (rc=0, 1.0s)
+{"status":"ok","version":"2.58.91"}
+### S4_codes (rc=0, 1.1s)
+CODE_WEB=200
+CODE_CSS=200
+CODE_VSTATE=401
+VSTATE_BODY={"detail":"missing init data"}
+### S5_journal_counts (rc=0, 1.2s)
+ERR_CRIT_TRACEBACK=0
+[stderr] [sudo] password for nik:
+### S6_journal_402 (rc=0, 1.1s)
+COUNT_402=0
+[stderr] [sudo] password for nik:
+### S7_journal_v (rc=0, 1.1s)
+VISION_LINES=70
+[stderr] [sudo] password for nik:
+### S8_journal_raw (rc=0, 1.1s)
+RAW_ERR_EXCERPT_END
+[stderr] [sudo] password for nik:
+### S9_journal_tail (rc=0, 1.1s)
+Oct 18 20:14:38 racknerd-f4e3456 python[3508490]: 2026-10-18 20:14:38,962 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-19 01:14:43 +05)" (scheduled at 2026-10-19 01:14:38.960579+05:00)
+Oct 18 20:14:38 racknerd-f4e3456 python[3508490]: 2026-10-18 20:14:38,968 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-19 01:14:43 +05)" executed successfully
+Oct 18 20:14:43 racknerd-f4e3456 python[3508490]: 2026-10-18 20:14:43,962 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-19 01:14:48 +05)" (scheduled at 2026-10-19 01:14:43.960579+05:00)
+Oct 18 20:14:43 racknerd-f4e3456 python[3508490]: 2026-10-18 20:14:43,966 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-19 01:14:48 +05)" executed successfully
+Oct 18 20:14:48 racknerd-f4e3456 python[3508490]: 2026-10-18 20:14:48,961 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-19 01:14:53 +05)" (scheduled at 2026-10-19 01:14:48.960579+05:00)
+Oct 18 20:14:48 racknerd-f4e3456 python[3508490]: 2026-10-18 20:14:48,967 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-19 01:14:53 +05)" executed successfully
+Oct 18 20:14:53 racknerd-f4e3456 python[3508490]: 2026-10-18 20:14:53,962 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-19 01:14:58 +05)" (scheduled at 2026-10-19 01:14:53.960579+05:00)
+Oct 18 20:14:53 racknerd-f4e3456 python[3508490]: 2026-10-18 20:14:53,969 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-19 01:14:58 +05)" executed successfully
+Oct 18 20:14:56 racknerd-f4e3456 python[3508490]: 2026-10-18 20:14:56,995 - web.api.deps - INFO - [tma-auth] src=none valid=False reason='missing init data' age=? init_data_len=0 path=/api/vision/state
+Oct 18 20:14:57 racknerd-f4e3456 python[3508490]: 2026-10-18 20:14:57,018 - web.api.deps - INFO - [tma-auth] src=none valid=False reason='missing init data' age=? init_data_len=0 path=/api/vision/state
+Oct 18 20:14:58 racknerd-f4e3456 python[3508490]: 2026-10-18 20:14:58,963 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-19 01:15:03 +05)" (scheduled at 2026-10-19 01:14:58.960579+05:00)
+Oct 18 20:14:58 racknerd-f4e3456 python[3508490]: 2026-10-18 20:14:58,967 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-19 01:15:03 +05)" executed successfully
+[stderr] [sudo] password for nik:
