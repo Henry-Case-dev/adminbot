@@ -271,6 +271,19 @@ _NOSTALGIA_BUDGET_RATIO = 0.02
 # (отрицание/ID/дата переносятся, а не теряются).
 _PROTECTED_SPAN_RESERVE_BUDGET = 48
 
+# ADD-TR.2 (ADTR-ENTRY, 19.10.2026, M-ADTR-ENTRY-REFS способ C): контекстный
+# резолв «явной ссылки» на ранее присланное в чате изображение. Кандидаты —
+# канонический реестр MCA-19 `mca_media_assets` (второй реестр/vision-пайплайн
+# не создаётся). Bounded-окно + требование однозначности: ровно ОДНО
+# изображение-сообщение в окне → маркер того же диалекта, что own/reply
+# (`[медиа: {kind} tg:{id}]`); несколько → цель неоднозначна → маркера НЕТ
+# (никакого «угаданного» распознавания; уточнение — штатный путь L1/Writer).
+_EARLIER_IMAGE_WINDOW_SECONDS = 1800
+_EARLIER_IMAGE_SCAN_LIMIT = 24
+# Поддерживаемые kind'ы = резолвимые `mca_vision.SUPPORTED_ASSET_KINDS`
+# (photo/document/sticker); animation — честный unsupported-кандидат MCA-19.
+_IMAGE_REF_KINDS = frozenset({"photo", "document", "sticker"})
+
 # ASAP 7 (F2-FOLLOWUP, §1.10): durable plan_meta на usage-строках L1 Planner.
 # Primary main-путь пишет usage через llm.generate (без plan_meta), dedicated-
 # слот — manual record ДО парсинга плана; один fail-open UPDATE по
@@ -602,6 +615,20 @@ def _forward_source_of(message) -> str:
     except Exception:
         logger.debug("[direct] forward source extract failed — skipped")
         return ""
+
+
+def _message_user_text(message) -> str:
+    """ADD-TR.2 (ADTR-ENTRY): единый пользовательский текст события —
+    ``text``, при его отсутствии ``caption`` (подпись к медиа). Тот же
+    контракт, что у ``handlers.direct_chat._effective_text``: подпись не
+    теряется до семантических путей и не становится отдельной репликой.
+    Не-str (тест-двойники) → ""."""
+    text = getattr(message, "text", None)
+    if text is None:
+        text = getattr(message, "caption", None)
+    if not isinstance(text, str):
+        return ""
+    return text.strip()
 
 
 def _nostalgia_markers(text: str) -> bool:
@@ -1985,7 +2012,7 @@ class DirectChatService:
         finally:
             _turn_text_replied.reset(_turn_token)
             try:
-                query = (message.text or "").strip()
+                query = _message_user_text(message)
                 if chat_id not in replied:
                     await _f6_maybe_create_unanswered_question(
                         self.db, chat_id, query,
@@ -2010,7 +2037,10 @@ class DirectChatService:
         chat_id = message.chat.id
         user_id = user.id if user is not None else 0
         target_name = self._resolve_name(user)
-        query = (message.text or "").strip()
+        # ADD-TR.2 (ADTR-ENTRY): текст хода = text ИЛИ caption подписи —
+        # единое событие доходит до семантических путей (L1/интенты/пре-гейты)
+        # без потери подписи и без отдельной «caption-реплики».
+        query = _message_user_text(message)
         # F7 (ADR-1023-7 D4): ОДИН сквозной id на ответ пользователя —
         # связывает Stage-1 → tool-раунды → Stage-2 в дерево дашборда.
         correlation_id = usage_events.new_correlation_id()
@@ -2205,11 +2235,19 @@ class DirectChatService:
                     logger.debug("[mca08_style] ingest/resolve failed",
                                  exc_info=True)
                     style_directives = ""
+            # ADD-TR.2 (ADTR-ENTRY, M-ADTR-ENTRY-REFS способ C): явная ссылка
+            # на ранее присланное в чате изображение — bounded-резолв по
+            # каноническому реестру MCA-19; неоднозначность → () (уточнение —
+            # штатный путь L1/Writer, без «угаданной» цели). Один резолв на
+            # ход — общий для context-сборки и L1-контекста.
+            _extra_media_markers = await self._resolve_earlier_image_markers(
+                chat_id, message)
             user_blocks = await self._build_user_content(
                 chat_id, message, target_name,
                 target_user_id=(user_id or None),
                 out_excluded=_excluded_blocks, out_fallback=_fallback_meta,
-                style_directives=style_directives)
+                style_directives=style_directives,
+                extra_media_markers=_extra_media_markers)
             # MCA-15 (T-4920, ADR-1028-12 D6; K3): intent-различение
             # `social_banter`/`historical_evidence`/`chat_statistics`/`mixed`
             # по контексту и reply (не только по словам «никогда»/«бот»).
@@ -2660,7 +2698,8 @@ class DirectChatService:
                             lore_enabled=bool(lore_enabled),
                             image_enabled=bool(image_enabled),
                             force_required=bool(_force_required),
-                            reply_bot=bool(_reply_bot))
+                            reply_bot=bool(_reply_bot),
+                            extra_media_markers=_extra_media_markers)
                     except NoApiKeyForChat as exc:
                         # D03 (§18C.1): permission-политика (forbidden/
                         # budget) блокирует и dedicated L1 — тот же
@@ -3869,7 +3908,8 @@ class DirectChatService:
                               target_name: str, user_id: int | None,
                               character_block: str, lore_enabled: bool,
                               image_enabled: bool, force_required: bool,
-                              reply_bot: bool) -> tuple:
+                              reply_bot: bool,
+                              extra_media_markers: tuple = ()) -> tuple:
         """§1.1/§1.5/§1.6 + v6 D03: pre-tool L1 Planner — 1 LLM call →
         L1Plan.
 
@@ -3946,7 +3986,8 @@ class DirectChatService:
                     run_id=correlation_id))
         context_text = _l1.build_l1_context(
             query=query,
-            current_question=self._render_current_question(message),
+            current_question=self._render_current_question(
+                message, extra_markers=extra_media_markers),
             reply_block=self._l1_reply_block(message),
             window=window, speaker=target_name,
             addressee=(getattr(bundle, "addressee", None) or "чат"),
@@ -4960,7 +5001,8 @@ class DirectChatService:
                                   target_user_id: int | None = None,
                                   out_excluded: list | None = None,
                                   out_fallback: dict | None = None,
-                                  style_directives: str = ""
+                                  style_directives: str = "",
+                                  extra_media_markers: tuple = ()
                                   ) -> list[str]:
         """Порядок сборки user-контента (Раунд 8, B2/T-791, spec §3.B2) —
         «важное к концу» (FR-22/п.24): map → branch → rag → global → thread →
@@ -5071,12 +5113,14 @@ class DirectChatService:
         # Epic 60 (65.9, T-477): настроение — user-блок, промпт R50-4 не тронут.
         # T-619: флаг и слова настроения — горячие точки (фолбек settings).
         if hot.get("flags.chat_mood_enabled", settings.CHAT_MOOD_ENABLED):
-            mood = self._build_mood_block((message.text or ""))
+            mood = self._build_mood_block(_message_user_text(message))
             if mood:
                 blocks.append(("mood", mood))
         # Раунд 8 (D1/T-798): <Current_Question> — текущее сообщение после
         # среза префикса «бот/@ник»; кап по символам; пусто → без блока.
-        current = self._render_current_question(message)
+        # ADD-TR.2: текст — text/caption (см. _render_current_question).
+        current = self._render_current_question(
+            message, extra_markers=extra_media_markers)
         if current:
             blocks.append(("current", current))
         # Epic 60 (65.4, T-472): стилевые якоря — у конца (форма, не содержание).
@@ -5134,7 +5178,7 @@ class DirectChatService:
         if budgets_enabled and mca_gates.adaptive_context_budget_enabled():
             _speech_est = _ce.render_speech_block(
                 self._build_speech_understanding(
-                    message, (message.text or "").strip()))
+                    message, _message_user_text(message)))
             # MCA-08 (D5, T-4904): style-блок — в ту же оценку тем же методом
             # (K3 OFF → "" и прежние числа).
             _extras = tuple(b for b in (_speech_est, style_directives) if b)
@@ -5362,7 +5406,7 @@ class DirectChatService:
         PHYSICAL_OVERFLOW + счётчики §46 + diagnostics-снапшот (miniapp §34).
         Ошибки аллокации → fail-open: legacy `_apply_context_budget` на
         собранных кандидатах."""
-        query = (message.text or "").strip()
+        query = _message_user_text(message)
         try:
             episode_block, episode_stats = await self._build_old_episodes(
                 chat_id, query, global_parts["tail_rows"], suffix_map)
@@ -6238,7 +6282,7 @@ class DirectChatService:
             logger.debug("direct: context config invariant check failed",
                          exc_info=True)
 
-    def _render_current_question(self, message) -> str:
+    def _render_current_question(self, message, extra_markers=()) -> str:
         """Раунд 8 (D1/T-798, spec §3.D1): блок <Current_Question> — текст
         текущего сообщения после среза обращения «бот(@ник):»; cap
         limits.chat_current_question_max_chars (default 800); НЕ режется
@@ -6248,8 +6292,15 @@ class DirectChatService:
         нативного медиа самого сообщения и ``reply_to_message`` (``tg:<id>``).
         При пустом тексте с медиа блок не пуст; при непустом — текст усекается
         до резерва под суффикс, маркер гарантированно выживает. Флаг OFF или
-        отсутствие медиа → ровно прежний ``stripped[:cap]`` (байт-в-байт)."""
-        stripped = _strip_direct_prefix(message.text or "")
+        отсутствие медиа → ровно прежний ``stripped[:cap]`` (байт-в-байт).
+
+        ADD-TR.2 (ADTR-ENTRY, 19.10.2026): текст = text ИЛИ caption подписи
+        (``_message_user_text``) — подпись photo/document-image доходит до
+        семантических путей тем же блоком; ``extra_markers`` — доверенные
+        маркеры способа (C) (резолв ранее присланного изображения,
+        `_resolve_earlier_image_markers`), тот же диалект, что own/reply.
+        Пустые extra_markers → байт-в-байт прежний результат."""
+        stripped = _strip_direct_prefix(_message_user_text(message))
         markers: list[str] = []
         if media_context_enabled():
             own = message_media_type(message)
@@ -6262,6 +6313,10 @@ class DirectChatService:
                 markers.append(
                     media_marker(
                         reply_type, f"tg:{getattr(reply, 'message_id', '')}"))
+            for extra in extra_markers or ():
+                extra_text = str(extra or "")
+                if extra_text:
+                    markers.append(extra_text)
         if not stripped and not markers:
             return ""
         cap = int(hot.get("limits.chat_current_question_max_chars",
@@ -6279,6 +6334,79 @@ class DirectChatService:
         return (f"<Current_Question>\n"
                 f"{escape_xml_text(body)}\n"
                 f"</Current_Question>")
+
+    async def _resolve_earlier_image_markers(self, chat_id: int,
+                                             message) -> tuple:
+        """ADD-TR.2 (ADTR-ENTRY, M-ADTR-ENTRY-REFS способ C, 19.10.2026):
+        «явная ссылка на ранее присланное в чате изображение, однозначно
+        разрешимая».
+
+        Срабатывает ТОЛЬКО когда событие само не несёт цель: нет медиа в
+        сообщении, нет reply-цели (способы A/B уже дают MessageRef через
+        свои маркеры) и в тексте/подписи есть явное обращение к изображению
+        (`mca_vision.vision_intent` — канонический список). Кандидаты —
+        канонический реестр MCA-19 ``mca_media_assets`` текущего чата
+        (bounded-окно ``_EARLIER_IMAGE_WINDOW_SECONDS``, запись гейтится
+        env-мастером vision; второго реестра/скана нет). Однозначность:
+        ровно ОДНО изображение-сообщение в окне (kind ∈
+        ``_IMAGE_REF_KINDS``, старее текущего) → маркер того же диалекта,
+        что own/reply; пусто/несколько/ошибка → ``()`` — цель НЕ выдумываем
+        (уточнение — штатный clarify-путь L1/Writer). Fail-open, никогда
+        не бросает."""
+        try:
+            if not media_context_enabled():
+                return ()                      # kill-switch маркеров — паритет
+            if message_media_type(message) is not None:
+                return ()                      # (A): цель — само сообщение
+            if getattr(message, "reply_to_message", None) is not None:
+                return ()                      # (B): цель уже сужена reply'ем
+            query = _message_user_text(message)
+            if not query:
+                return ()
+            from services import mca_vision
+            if not mca_vision.vision_intent(query):
+                return ()
+            db = getattr(self, "db", None)
+            if db is None or getattr(db, "db", None) is None:
+                return ()
+            current_id = getattr(message, "message_id", None)
+            try:
+                current_id = (int(current_id)
+                              if current_id is not None else None)
+            except (TypeError, ValueError):
+                current_id = None
+            cutoff = int(time.time()) - _EARLIER_IMAGE_WINDOW_SECONDS
+            cursor = await db.db.execute(
+                "SELECT tg_message_id, asset_kind FROM mca_media_assets "
+                "WHERE chat_id=? AND created_at>=? "
+                "ORDER BY tg_message_id DESC LIMIT ?",
+                (int(chat_id), cutoff, _EARLIER_IMAGE_SCAN_LIMIT))
+            rows = await cursor.fetchall()
+            seen: dict[int, str] = {}
+            for row in rows:
+                try:
+                    tg_id = int(row["tg_message_id"] or 0)
+                    kind = str(row["asset_kind"] or "")
+                except (TypeError, ValueError, KeyError, IndexError):
+                    continue
+                if tg_id <= 0 or kind not in _IMAGE_REF_KINDS:
+                    continue
+                if current_id is not None and tg_id >= current_id:
+                    continue        # текущее/будущее — не «ранее присланное»
+                seen.setdefault(tg_id, kind)
+            if len(seen) != 1:
+                return ()           # пусто или неоднозначно — без «угаданной» цели
+            tg_id, kind = next(iter(seen.items()))
+            logger.info(
+                "[adtr-entry] earlier-image target resolved | chat=%s | "
+                "kind=%s tg=%s", chat_id, kind, tg_id)
+            return (media_marker(kind, f"tg:{tg_id}"),)
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger.debug("[adtr] earlier-image resolve failed — skipped",
+                         exc_info=True)
+            return ()
 
     @staticmethod
     def _is_reply_trigger(message) -> bool:

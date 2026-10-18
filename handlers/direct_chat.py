@@ -22,6 +22,15 @@ Epic 60 (Section 65.2/65.5, T-470/T-473): edited_message бота → обнов
 bot_replies (правки людей НЕ переотвечаем); команды /clear /persona /tone
 /forget — Command-хендлеры ВЫШЕ catch-all (aiogram внутри роутера идёт по
 порядку регистрации; прочие «/»-команды по-прежнему UNHANDLED вниз).
+
+ADD-TR.2 (19.10.2026, M-ADTR-ENTRY-EVENT/TRIGGERS): единый вход — текст
+события = ``message.text``, при его отсутствии ``caption`` подписи к медиа;
+упоминания — ``entities`` текста ИЛИ ``caption_entities`` подписи. Подпись
+НЕ становится отдельной репликой (тот же роутер, тот же сервисный ход):
+«бот …» / @username / reply боту активируют Direct и в подписи. «Голое»
+photo/image-document реплаем на бота (без подписи) — тоже осознанное
+обращение; прочие медиа без подписи (голос/видео/стикер…) пропагируют в
+свои пути (0i и ниже) как раньше. Отдельного «caption bot» нет.
 """
 import logging
 import random
@@ -144,15 +153,64 @@ def setup_direct_chat(service: DirectChatService | None, bot_id: int | None,
     _bot_username = (bot_username or "").lower()
 
 
+def _effective_text(message: types.Message) -> str:
+    """ADD-TR.2 (ADTR-ENTRY): единый текст Telegram-события.
+
+    ``message.text``, при его отсутствии — ``message.caption`` подписи к
+    медиа (photo/document_image/…). Оба поля — один пользовательский текст
+    одного события; подпись не становится отдельной репликой и не теряется
+    до семантических путей. Не-str/none → "" (защита от тест-двойников)."""
+    text = getattr(message, "text", None)
+    if text is None:
+        text = getattr(message, "caption", None)
+    if not isinstance(text, str):
+        return ""
+    return text.strip()
+
+
+def _has_image_attachment(message: types.Message) -> bool:
+    """ADD-TR.2: photo или image-document (единая политика MCA-19
+    `mca_vision.extract_image_assets`: документ — только ``mime_type``
+    ``image/*``). Не любой документ считается картинкой. Для реальных
+    aiogram-типов: ``photo`` — непустой список; прочее → False."""
+    photo = getattr(message, "photo", None)
+    if isinstance(photo, (list, tuple)) and len(photo) > 0:
+        return True
+    document = getattr(message, "document", None)
+    mime = str(getattr(document, "mime_type", "") or "")
+    return bool(document is not None and mime.startswith("image/"))
+
+
+def _message_entities(message: types.Message) -> tuple[str, tuple]:
+    """ADD-TR.2: пара (текст, entities) БЕЗ смешения источников.
+
+    Для текста — (text, entities); для подписи — (caption,
+    caption_entities). Смещения entity валидны только относительно своей
+    строки, поэтому пары не миксуются. Если ни text, ни caption нет —
+    сохраняется прежний путь (entities текста; в реальных Telegram-объектах
+    их там не бывает — совместимость с тест-двойниками)."""
+    def _as_entities(value):
+        return value if isinstance(value, (list, tuple)) else ()
+
+    raw = getattr(message, "text", None)
+    if isinstance(raw, str):
+        return raw, _as_entities(getattr(message, "entities", None))
+    caption = getattr(message, "caption", None)
+    if isinstance(caption, str):
+        return caption, _as_entities(getattr(message, "caption_entities", None))
+    return "", _as_entities(getattr(message, "entities", None))
+
+
 def _has_bot_mention(message: types.Message) -> bool:
     """Триггер 2: entities mention/text_mention (основной путь, D202).
 
     aiogram 3.x MessageEntity НЕ несёт username (поле отсутствует — REVISE S1):
     юзернейм извлекается из текста через entity.extract_from(text)
     (срез [offset:offset+length]), срезается '@' и приводится к нижнему
-    регистру. text_mention несёт user (entity.user.id == bot.id)."""
-    text = message.text or ""
-    for entity in (getattr(message, "entities", None) or ()):
+    регистру. text_mention несёт user (entity.user.id == bot.id).
+    ADD-TR.2: для подписи — caption/caption_entities (см. _message_entities)."""
+    text, entities = _message_entities(message)
+    for entity in entities:
         etype = getattr(entity, "type", None)
         if etype == "mention":
             raw = entity.extract_from(text)
@@ -189,7 +247,7 @@ def _is_direct_trigger(message: types.Message) -> bool:
             return True
     if _has_bot_mention(message):
         return True
-    text = message.text or ""
+    text = _effective_text(message)
     if _bot_username and re.search(rf"(?i)@{re.escape(_bot_username)}\b", text):
         return True
     # Раунд 10.15 (F6, T-1598): триггер = непустое Имя персоны. Имя задано →
@@ -496,9 +554,16 @@ async def direct_chat_handler(message: types.Message, bot: Bot = None) -> None:
     user = message.from_user
     if user is None or user.id == _bot_id:
         return UNHANDLED                       # само-сообщения бота
-    text = (message.text or "").strip()
-    if not text or text.startswith("/"):
+    # ADD-TR.2 (ADTR-ENTRY): текст события = text ИЛИ caption подписи.
+    text = _effective_text(message)
+    if text.startswith("/"):
         return UNHANDLED                       # команды не перехватываются
+    if not text and not _has_image_attachment(message):
+        # Пустая подпись без картинки — прежнее поведение (голос/видео/
+        # стикер и т.п. уходят в 0i и ниже). «Голое» photo/image-document
+        # доходит до триггер-гейта: сработать может только осознанное
+        # обращение (reply боту) — keyword/mention без текста невозможны.
+        return UNHANDLED
     if not _is_direct_trigger(message):
         return UNHANDLED                       # не триггер → пропагация живёт
     # Раунд 10.15 (F6, T-1598, ADR-1015-1): «Префикс + канонический триггер» —

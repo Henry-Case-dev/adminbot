@@ -820,7 +820,7 @@ def _budget_svc(*, capture=None, real_budget=False, estimate=None):
         def _render_thread(self, chain, suffix_map, limit):
             return ""
 
-        def _render_current_question(self, message):
+        def _render_current_question(self, message, extra_markers=()):
             return "<Current_Question>почему?</Current_Question>"
 
         def _build_mood_block(self, text):

@@ -458,7 +458,7 @@ class _StubDirectChat:
             def _render_thread(self, chain, suffix_map, limit):
                 return ""
 
-            def _render_current_question(self, message):
+            def _render_current_question(self, message, extra_markers=()):
                 return ""
 
             def _build_mood_block(self, text):
