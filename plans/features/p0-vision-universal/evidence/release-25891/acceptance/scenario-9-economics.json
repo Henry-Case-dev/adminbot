@@ -1,0 +1,225 @@
+{
+  "start_epoch": 1792355914,
+  "head": "f2a6248ae30d8e0b1878785bb6d1477f65e21c78",
+  "tracked_mod": 0,
+  "budget": [
+    {
+      "day": "<date>",
+      "scope": "global",
+      "metric": "image_calls",
+      "used": 4
+    },
+    {
+      "day": "<date>",
+      "scope": "chat:-1002661910336",
+      "metric": "image_calls",
+      "used": 4
+    },
+    {
+      "day": "<date>",
+      "scope": "global",
+      "metric": "image_calls",
+      "used": 16
+    },
+    {
+      "day": "<date>",
+      "scope": "chat:-1009900000201",
+      "metric": "image_calls",
+      "used": 4
+    },
+    {
+      "day": "<date>",
+      "scope": "chat:-1002661910336",
+      "metric": "image_calls",
+      "used": 12
+    },
+    {
+      "day": "<date>",
+      "scope": "global",
+      "metric": "image_calls",
+      "used": 5
+    },
+    {
+      "day": "<date>",
+      "scope": "chat:-1002661910336",
+      "metric": "image_calls",
+      "used": 5
+    },
+    {
+      "day": "<date>",
+      "scope": "global",
+      "metric": "image_calls",
+      "used": 46
+    },
+    {
+      "day": "<date>",
+      "scope": "chat:-1002661910336",
+      "metric": "image_calls",
+      "used": 46
+    },
+    {
+      "day": "<date>",
+      "scope": "global",
+      "metric": "image_calls",
+      "used": 10
+    },
+    {
+      "day": "<date>",
+      "scope": "chat:-1004482340693",
+      "metric": "image_calls",
+      "used": 5
+    },
+    {
+      "day": "<date>",
+      "scope": "chat:-1002661910336",
+      "metric": "image_calls",
+      "used": 5
+    }
+  ],
+  "usage": [
+    {
+      "step": "single",
+      "n": 27,
+      "cost": "<Decimal>",
+      "tokens": "<Decimal>"
+    },
+    {
+      "step": "l2_writer",
+      "n": 9,
+      "cost": "<Decimal>",
+      "tokens": "<Decimal>"
+    },
+    {
+      "step": "l1_planner",
+      "n": 7,
+      "cost": "<Decimal>",
+      "tokens": "<Decimal>"
+    },
+    {
+      "step": "image",
+      "n": 2,
+      "cost": "<Decimal>",
+      "tokens": "<Decimal>"
+    }
+  ],
+  "pg_error": "InterfaceError",
+  "events": [
+    {
+      "event_name": "WATCHDOG_SWEEP",
+      "outcome": "success",
+      "reason_code": null,
+      "chat_id": null,
+      "n": 9,
+      "last": 1792356405
+    },
+    {
+      "event_name": "ingestion_live",
+      "outcome": "success",
+      "reason_code": null,
+      "chat_id": -1002661910336,
+      "n": 2,
+      "last": 1792356303
+    },
+    {
+      "event_name": "mca07_retrieval",
+      "outcome": "skipped",
+      "reason_code": "embedding_generation_changed",
+      "chat_id": null,
+      "n": 2,
+      "last": 1792356139
+    },
+    {
+      "event_name": "initiative_observer_scan",
+      "outcome": "success",
+      "reason_code": null,
+      "chat_id": null,
+      "n": 1,
+      "last": 1792356147
+    },
+    {
+      "event_name": "lore_compile",
+      "outcome": "skipped",
+      "reason_code": "disabled",
+      "chat_id": -1004482340693,
+      "n": 1,
+      "last": 1792356198
+    },
+    {
+      "event_name": "lore_compile",
+      "outcome": "skipped",
+      "reason_code": "intent_not_due",
+      "chat_id": -1002661910336,
+      "n": 1,
+      "last": 1792356198
+    },
+    {
+      "event_name": "vision_capability_probe",
+      "outcome": "failed",
+      "reason_code": "vision_rate_limited",
+      "chat_id": null,
+      "n": 1,
+      "last": 1792356209
+    },
+    {
+      "event_name": "vision_media",
+      "outcome": "skipped",
+      "reason_code": "vision_rate_limited",
+      "chat_id": -1002661910336,
+      "n": 1,
+      "last": 1792356209
+    }
+  ],
+  "jobs": [
+    {
+      "job_id": "dba7ef81f29748b69aa4ce50202f4db9",
+      "kind": "initiative.observe",
+      "status": "running",
+      "reason_code": null,
+      "attempt": 1,
+      "created_at": 1792356438
+    },
+    {
+      "job_id": "57af56cea2954d168f534e54bc6bf4df",
+      "kind": "vision.media",
+      "status": "failed",
+      "reason_code": "vision_rate_limited",
+      "attempt": 1,
+      "created_at": 1792356208
+    },
+    {
+      "job_id": "3c04a37f742347ae8dff5b1be38b3ca4",
+      "kind": "initiative.observe",
+      "status": "completed",
+      "reason_code": null,
+      "attempt": 1,
+      "created_at": 1792356138
+    }
+  ],
+  "user_version": {
+    "user_version": 36
+  },
+  "mca_errors": [
+    {
+      "n": 0
+    }
+  ],
+  "budget_summary": {
+    "baseline_2026-10-19": {
+      "global": 1,
+      "chat": 1
+    },
+    "after_2026-10-19": {
+      "global": 4,
+      "chat": 4
+    },
+    "delta": 3,
+    "limits": {
+      "global": 200,
+      "chat": 60
+    },
+    "reservations_committed": 2,
+    "reservations_errors": 0
+  },
+  "cost_note": "The harness serialized Decimal cost/tokens as placeholders; counts and budget deltas are authoritative. Most LLM rows have price_known=false; no fabricated dollar figure.",
+  "journal_note": "Full journal since T0: ERR=0, CRIT=0, Traceback=0, 402=0; SKIPS=36 (VisionMediaWorker._tick max running instances); VISION_RL=17; LOCKED=5; mca_errors=0; user_version=36. See journal-post.txt."
+}

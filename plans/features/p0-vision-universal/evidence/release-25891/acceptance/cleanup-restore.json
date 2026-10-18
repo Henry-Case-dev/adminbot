@@ -1,0 +1,39 @@
+{
+  "after": {
+    "enabled": false,
+    "reason": "switch_off",
+    "limits": "ImageFreqLimits(enabled=False, burst=3, cooldown=300.0, mode='per_user', source='global')"
+  },
+  "budget_api": {
+    "status": 200,
+    "freq": null
+  },
+  "overrides_keys": [
+    "flags.budgets_enabled",
+    "flags.chat_silent_ack_enabled",
+    "flags.deep_sleep_enabled",
+    "flags.irony_filter_enabled",
+    "flags.relations_tone_enabled",
+    "flags.summary_filter_enabled",
+    "flags.vision_enabled",
+    "humor.feedback",
+    "limits.chat_burst_limit",
+    "limits.chat_context_budget_tokens",
+    "limits.chat_global_context_max_tokens",
+    "limits.chat_global_key_budget_requests",
+    "limits.chat_global_key_budget_tokens",
+    "limits.chat_level2_max_chars",
+    "limits.chat_thread_max_depth",
+    "limits.chat_thread_max_tokens",
+    "limits.import_history_retention_days",
+    "limits.summary_aliases",
+    "limits.worker_daily_llm_calls_per_chat",
+    "limits.worker_daily_llm_tokens_per_chat",
+    "limits.youtube_transcript_proxy_domain",
+    "prompts.summary_cover_style",
+    "prompts.summary_cover_style_id",
+    "prompts.summary_system_prompt",
+    "prompts.verbilizer_default_mode"
+  ],
+  "budgets_enabled": false
+}

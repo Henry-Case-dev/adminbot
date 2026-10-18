@@ -1,0 +1,77 @@
+{
+  "scenario": "1-health-retry",
+  "turns": [
+    {
+      "phrase": "бот, как состояние сервера?",
+      "label": "health-retry",
+      "status": "ok",
+      "error": "",
+      "handled": true,
+      "correlation_id": "0a6d660ebab542a286c259d237cf3d67",
+      "plan_meta": null,
+      "usage": [
+        {
+          "correlation_id": "0a6d660ebab542a286c259d237cf3d67",
+          "step": "single",
+          "tool_name": "",
+          "input_tokens": 2358,
+          "output_tokens": 772,
+          "cost_usd": "<Decimal>",
+          "price_known": false,
+          "plan_meta": null,
+          "ts": "2026-10-18 20:51:10.578740+00:00"
+        }
+      ],
+      "logs": [
+        "[direct] triggered | chat=-1002661910336 user=Acceptance",
+        "event=DECISION_START | run_id=d05b199bab09488fbd13897e0735d523 | chat_id=-1002661910336 | message_id=1165627 | ts=1792356652.315",
+        "event=DIRECT_TRIGGER | chat_id=-1002661910336 | message_id=1165627 | trigger_type=force_keyword | force_reply_required=True | reply_to_bot=True | is_private=False | addressed=True | ts=1792356652.315",
+        "event=DECISION_COMPLETE | run_id=d05b199bab09488fbd13897e0735d523 | chat_id=-1002661910336 | message_id=1165627 | action=reply | reason=force_direct | trigger_type=force_keyword | force_reply_required=True | message_class=question | duration_ms=1 | ts=1792356652.316",
+        "event=L1_PLAN | run_id=d05b199bab09488fbd13897e0735d523 | chat_id=-1002661910336 | message_id=1165627 | action=reply | response_act=answer | extent=compact | tone=neutral | bucket=high | capabilities=health | inherited=True | fallback= | latency_ms=2230 | input_chars=1092 | confidence=0.9 | source=main | ts=1792356654.638",
+        "event=TOOL_CALL_START | run_id=d05b199bab09488fbd13897e0735d523 | chat_id=-1002661910336 | tool=get_bot_health | round=1 | ts=1792356654.656",
+        "event=TOOL_CALL_COMPLETE | run_id=d05b199bab09488fbd13897e0735d523 | chat_id=-1002661910336 | tool=get_bot_health | round=1 | status=ok | out_chars=2283 | ts=1792356670.582",
+        "[direct-exec] simple chain done | chat=-1002661910336 | steps=1 | ok=1 | limitations=0 | metered=0"
+      ],
+      "tool_calls": [
+        {
+          "tool": "get_bot_health",
+          "args": {},
+          "started": 1792356654.655876,
+          "ok": true,
+          "elapsed_ms": 15925,
+          "result_head": "ну пиздец, betterstack решил взять выходной, и нам пришлось руками лезть в эту локальную файловую свалку. облачный мониторинг сдох раньше, чем прод, поздравляю.\n\nпо логам: критичных ексепшенов и 500-х нет, но это не значит, что всё заебись. тут классический набор \"система держится на честном слове\". Первое и самое жирное - база в лок. database is locked на enqueue тасков, четыре попытки и всё мимо. это значит, что какая-то тварь (скорее всего твой же воркер) так долго держит транзакцию на sqlite, что все остальные стоят в очереди и курят. при 1.4 гигах базы это не баг, это образ жизни. wal раздулся до 4.4 метров, что намекает на то, что чекпоинты страдают херней.\n\nдальше веселее. планировщик дрочит VisionMediaWorker каждые 5 секунд, но сам же и пропускает запуски - maximum number of runnin",
+          "result_len": 2283
+        }
+      ],
+      "image_blocks": [],
+      "postgen": [],
+      "sends": [
+        {
+          "kind": "message",
+          "chat_id": -1002661910336,
+          "message_id": 1165629,
+          "text_head": "По справке сервер живой, но с бодуна. База в локе - sqlite держит транзакцию так, что остальные стоят в очереди и курят. Воркер VisionMediaWorker не успевает за свои 5 секунд и сам себе пропускает запуски. Зрение упирается в рейт-лимит на г",
+          "text_len": 465,
+          "reply_to": 1165627
+        }
+      ],
+      "answer_head": "По справке сервер живой, но с бодуна. База в локе - sqlite держит транзакцию так, что остальные стоят в очереди и курят. Воркер VisionMediaWorker не успевает за свои 5 секунд и сам себе пропускает запуски. Зрение упирается в рейт-лимит на г",
+      "bot_reply": [],
+      "elapsed_s": 29.72
+    }
+  ],
+  "anchor_mid": 1165627,
+  "tool_called": true,
+  "plan_caps": [],
+  "tool_result": {
+    "tool": "get_bot_health",
+    "args": {},
+    "started": 1792356654.655876,
+    "ok": true,
+    "elapsed_ms": 15925,
+    "result_head": "ну пиздец, betterstack решил взять выходной, и нам пришлось руками лезть в эту локальную файловую свалку. облачный мониторинг сдох раньше, чем прод, поздравляю.\n\nпо логам: критичных ексепшенов и 500-х нет, но это не значит, что всё заебись. тут классический набор \"система держится на честном слове\". Первое и самое жирное - база в лок. database is locked на enqueue тасков, четыре попытки и всё мимо. это значит, что какая-то тварь (скорее всего твой же воркер) так долго держит транзакцию на sqlite, что все остальные стоят в очереди и курят. при 1.4 гигах базы это не баг, это образ жизни. wal раздулся до 4.4 метров, что намекает на то, что чекпоинты страдают херней.\n\nдальше веселее. планировщик дрочит VisionMediaWorker каждые 5 секунд, но сам же и пропускает запуски - maximum number of runnin",
+    "result_len": 2283
+  },
+  "ok": true,
+  "harness_note": "Warm retry with a fresh real bot anchor. Positive chain: L1_PLAN capabilities=health -> TOOL_CALL get_bot_health -> COMPLETE ok -> Telegram delivery."
+}

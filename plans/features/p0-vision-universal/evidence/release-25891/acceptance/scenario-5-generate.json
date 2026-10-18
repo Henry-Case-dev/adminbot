@@ -1,0 +1,56 @@
+{
+  "scenario": "5-generate",
+  "note": "The main harness scenario failed at the final JSON serialization after all calls; it did not save scenario-5/6/7. These files are reconstructed from summary.json + scenario-7-cfg02b-capture.json + the production image ledger. No product code was changed.",
+  "module_enabled": true,
+  "generations": [
+    {
+      "phase": "gen1",
+      "query": "бот, нарисуй безобидный рисунок: жёлтый резиновый утёнок на белом фоне",
+      "provider_calls": 1,
+      "result": "provider_unavailable",
+      "text_mid": 1165619,
+      "photo_mid": null,
+      "answer_head": "Генератор картинок сдох по дороге к утёнку..."
+    },
+    {
+      "phase": "gen2",
+      "query": "бот, нарисуй безобидный рисунок: синий бумажный кораблик на белом фоне",
+      "provider_calls": 1,
+      "result": "success",
+      "photo_mid": 1165620,
+      "photo_sha12": "b881ef402022",
+      "photo_bytes": 699302,
+      "text_mid": 1165621,
+      "reservation": "-1002661910336:1165619:direct committed",
+      "answer_head": "Генератор картинок уже отправил что-то в чат..."
+    },
+    {
+      "phase": "gen3",
+      "query": "бот, нарисуй безобидный рисунок: зелёное яблоко на белом фоне",
+      "provider_calls": 1,
+      "result": "success",
+      "photo_mid": 1165622,
+      "photo_sha12": "660adb012449",
+      "photo_bytes": 558659,
+      "text_mid": 1165623,
+      "reservation": "-1002661910336:1165621:direct committed",
+      "answer_head": "Картинка ушла в чат, но что там вышло..."
+    }
+  ],
+  "replay": {
+    "provider_calls": 0,
+    "new_sends": 0,
+    "note": "Same message id/text replay after gen1; no new send between 1165619 and 1165620 and no extra provider call in the summary sequence. The smart-cache update dedup prevented a duplicate image."
+  },
+  "total_provider_calls": 3,
+  "images_deleted": [
+    1165620,
+    1165622
+  ],
+  "event_counts": {
+    "image_generate_success": 2,
+    "image_generate_failed_provider_unavailable": 1,
+    "image_generate_skipped_cooldown": 1
+  },
+  "cost_note": "3 provider attempts (1 failed, 2 success); image_calls 1->4 (global/chat), limits 200/60. Provider cost is price_known=false; no fabricated dollar figure."
+}

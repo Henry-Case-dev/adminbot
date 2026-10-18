@@ -1,0 +1,30 @@
+{
+  "scenario": "8-ui",
+  "web_status": 200,
+  "html_len": 786279,
+  "version_in_html": 15,
+  "page_ver_expected": 15,
+  "static_appjs_status": 404,
+  "note": "/static/app.js is not the app path; the page uses vendor scripts and an inline app. The deploy evidence SERVED_EQ_APP_JS=SAME and PAGE_VER=15/SUBST_CSS=2 stand. mod_vision marker count in HTML=0 because the section is rendered by the inline app; candidate UI e2e covers it.",
+  "scripts": [
+    "/static/vendor/telegram-web-app.js",
+    "/static/vendor/vue.global.prod.min.js",
+    "/static/vendor/dompurify-3.4.15.min.js",
+    "/static/vendor/chart.umd.min.js",
+    "/static/vendor/ogl.1.0.11.min.js?v=2.58.91",
+    "/static/vendor/liquidglass.core.0.5.3.min.js?v=2.58.91"
+  ],
+  "ui_markers": {
+    "mod_vision_in_html": 0,
+    "freq_label_in_html": 1
+  },
+  "browsers": {
+    "chromium": false,
+    "chromium_browser": false,
+    "google_chrome": false,
+    "playwright": false,
+    "node": false
+  },
+  "browser_visual": "NOT_PERFORMED — no server-side browser; local Browser Use cannot inject TMA initData without the bot token. Boundary noted; served bytes + candidate UI e2e are the evidence.",
+  "candidate_ui_e2e": "plans/features/p0-vision-universal/evidence/ui/p0v-ui-evidence.md"
+}

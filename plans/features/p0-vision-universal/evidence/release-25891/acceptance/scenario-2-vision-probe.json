@@ -1,0 +1,56 @@
+{
+  "scenario": "2-vision-probe",
+  "now_utc": "2026-10-18 20:29:17",
+  "http_status": 200,
+  "latency_ms": 328,
+  "ok": false,
+  "capability": "rate_limited",
+  "image_input": null,
+  "reason": "vision_rate_limited",
+  "detail": "http_429",
+  "visible_reason": "Превышен лимит запросов провайдера",
+  "provider": "openrouter.ai",
+  "api_type": "openai_compatible",
+  "source": "dedicated",
+  "model": "google/gemma-4-31b-it:free",
+  "state": {
+    "requested": false,
+    "effective_enabled": false,
+    "reason": "vision_disabled",
+    "visible_reason": "Распознавание изображений выключено владельцем",
+    "source": "dedicated",
+    "model": "google/gemma-4-31b-it:free",
+    "base_url": "https://openrouter.ai/api/v1",
+    "api_type": "openai_compatible",
+    "provider": "openrouter.ai",
+    "capability": "disabled",
+    "detail": "",
+    "config_revision": "e83b6eeec940007d",
+    "checked_at": null,
+    "stages": [
+      "ingest",
+      "download",
+      "decode",
+      "vision",
+      "validate",
+      "store",
+      "project",
+      "reindex",
+      "consumers"
+    ],
+    "process": "vision.media",
+    "process_version": "1",
+    "queue": {
+      "queued": 0,
+      "running": 0
+    },
+    "last": null
+  },
+  "per_chat_runtime": {
+    "requested": true,
+    "effective": false,
+    "capability": "pending",
+    "reason": "capability_check_pending"
+  },
+  "note": "Real POST /api/vision/test through the deployed web app (admin TMA initData, loopback). The provider returned HTTP 429. The earlier 422 was a missing JSON body in the probe call, not a product failure. The /api/vision/state route uses the global requested flag; the work chat has a per-chat override=True, so the card/API show 'disabled' while the chat runtime is requested=True. See README finding UI-1."
+}

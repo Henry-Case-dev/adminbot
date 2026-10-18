@@ -1,0 +1,149 @@
+{
+  "scenario": "4-factcheck-registered",
+  "turns": [
+    {
+      "phrase": "бот, проверь факт: вода закипает при 100 °C на уровне моря.",
+      "label": "fact-registered",
+      "status": "ok",
+      "error": "",
+      "handled": true,
+      "correlation_id": "fa1f44b7dd2445cfa286915fe9e45469",
+      "plan_meta": null,
+      "usage": [
+        {
+          "correlation_id": "fa1f44b7dd2445cfa286915fe9e45469",
+          "step": "temporal_verdict",
+          "tool_name": "",
+          "input_tokens": 1523,
+          "output_tokens": 275,
+          "cost_usd": "<Decimal>",
+          "price_known": false,
+          "plan_meta": null,
+          "ts": "2026-10-18 21:05:47.300431+00:00"
+        },
+        {
+          "correlation_id": "fa1f44b7dd2445cfa286915fe9e45469",
+          "step": "temporal_validator",
+          "tool_name": "",
+          "input_tokens": 1379,
+          "output_tokens": 96,
+          "cost_usd": "<Decimal>",
+          "price_known": false,
+          "plan_meta": null,
+          "ts": "2026-10-18 21:05:50.181278+00:00"
+        },
+        {
+          "correlation_id": "fa1f44b7dd2445cfa286915fe9e45469",
+          "step": "temporal_verbalize",
+          "tool_name": "",
+          "input_tokens": 1009,
+          "output_tokens": 414,
+          "cost_usd": "<Decimal>",
+          "price_known": false,
+          "plan_meta": null,
+          "ts": "2026-10-18 21:05:57.732509+00:00"
+        },
+        {
+          "correlation_id": "fa1f44b7dd2445cfa286915fe9e45469",
+          "step": "temporal_verbalize",
+          "tool_name": "",
+          "input_tokens": 1040,
+          "output_tokens": 187,
+          "cost_usd": "<Decimal>",
+          "price_known": false,
+          "plan_meta": null,
+          "ts": "2026-10-18 21:06:00.193004+00:00"
+        }
+      ],
+      "logs": [
+        "[direct] triggered | chat=-1002661910336 user=Acceptance",
+        "event=DECISION_START | run_id=9f13fc59cf384d0ca6e3fe1ac7954288 | chat_id=-1002661910336 | message_id=1165657 | ts=1792357534.154",
+        "event=DIRECT_TRIGGER | chat_id=-1002661910336 | message_id=1165657 | trigger_type=force_keyword | force_reply_required=True | reply_to_bot=True | is_private=False | addressed=True | ts=1792357534.154",
+        "event=DECISION_COMPLETE | run_id=9f13fc59cf384d0ca6e3fe1ac7954288 | chat_id=-1002661910336 | message_id=1165657 | action=reply | reason=force_direct | trigger_type=force_keyword | force_reply_required=True | message_class=explicit_request | duration_ms=2 | ts=1792357534.157",
+        "event=L1_PLAN | run_id=9f13fc59cf384d0ca6e3fe1ac7954288 | chat_id=-1002661910336 | message_id=1165657 | action=reply | response_act=explanation | extent=compact | tone=neutral | bucket=high | capabilities=fact_check,web_search | inherited=True | fallback= | latency_ms=2397 | input_chars=1178 | confidence=0.96 | source=main | ts=1792357536.619",
+        "event=TOOL_CALL_START | run_id=9f13fc59cf384d0ca6e3fe1ac7954288 | chat_id=-1002661910336 | tool=fact_check | round=1 | ts=1792357536.64",
+        "event=TOOL_CALL_START | run_id=9f13fc59cf384d0ca6e3fe1ac7954288 | chat_id=-1002661910336 | tool=execute_web_search | round=1 | ts=1792357536.659",
+        "event=TOOL_CALL_COMPLETE | run_id=9f13fc59cf384d0ca6e3fe1ac7954288 | chat_id=-1002661910336 | tool=execute_web_search | round=1 | status=ok | out_chars=4092 | ts=1792357538.153",
+        "event=TOOL_CALL_COMPLETE | run_id=9f13fc59cf384d0ca6e3fe1ac7954288 | chat_id=-1002661910336 | tool=fact_check | round=1 | status=ok | out_chars=2334 | ts=1792357560.215",
+        "[direct-exec] simple chain done | chat=-1002661910336 | steps=2 | ok=2 | limitations=0 | metered=2"
+      ],
+      "tool_calls": [
+        {
+          "tool": "execute_web_search",
+          "args": {
+            "query": "бот, проверь факт: вода закипает при 100 °C на уровне моря."
+          },
+          "started": 1792357536.658942,
+          "ok": true,
+          "elapsed_ms": 1493,
+          "result_head": "Результаты поиска по запросу «бот, проверь факт: вода закипает при 100 °C на уровне моря.»:\nКипение воды - всё, что Вам даже не хотелось об этом знать\nПри нормальном атмосферном давлении (760 мм рт. ст.) и на уровне моря вода кипит при температуре 100°C. Это значение настолько фундаментально, что именно оно было выбрано в качестве одной из опорных точек при создании шкалы Цельсия.\n\n## Молекулярный механизм кипения [...] Бурное кипение (100°C): очень активное выделение пара, значительные колебания уровня жидкости. При продолжении нагрева объем жидкости начинает заметно уменьшаться из-за испарения. [...] Самым значимым фактором, определяющим температуру кипения воды, является атмосферное давление. Существует прямая зависимость: чем выше давление, тем выше температура кипения.\n\nВ горных район",
+          "result_len": 4092
+        },
+        {
+          "tool": "fact_check",
+          "args": {
+            "target": {
+              "chat_id": -1002661910336,
+              "message_id": 1165657
+            },
+            "claim": "бот, проверь факт: вода закипает при 100 °C на уровне моря."
+          },
+          "started": 1792357536.6404667,
+          "ok": true,
+          "elapsed_ms": 23574,
+          "result_head": "{\"status\": \"ready\", \"factual_verdict\": \"supported\", \"temporal_status\": \"old_but_valid\", \"assessment_mode\": \"contextual\", \"cache_hit\": false}",
+          "result_len": 2334,
+          "status": "ready",
+          "reason": null,
+          "visible_reason": null,
+          "analysis_revision": null,
+          "cache_hit": false,
+          "visual_description_len": 0,
+          "ocr_blocks": 0
+        }
+      ],
+      "image_blocks": [],
+      "postgen": [],
+      "sends": [
+        {
+          "kind": "message",
+          "chat_id": -1002661910336,
+          "message_id": 1165658,
+          "text_head": "Подтверждено. На уровне моря при нормальном давлении около 760 мм ртутного столба вода и правда закипает при 100 градусах - это одна из опорных точек шкалы Цельсия, так что факт не из тех, что пересматривают по понедельникам  Оговорка про у",
+          "text_len": 441,
+          "reply_to": 1165657
+        }
+      ],
+      "answer_head": "Подтверждено. На уровне моря при нормальном давлении около 760 мм ртутного столба вода и правда закипает при 100 градусах - это одна из опорных точек шкалы Цельсия, так что факт не из тех, что пересматривают по понедельникам  Оговорка про у",
+      "bot_reply": [],
+      "elapsed_s": 34.91
+    }
+  ],
+  "smart_message_row": 2351832,
+  "tool_called": true,
+  "plan_caps": [],
+  "tool_result": {
+    "tool": "fact_check",
+    "args": {
+      "target": {
+        "chat_id": -1002661910336,
+        "message_id": 1165657
+      },
+      "claim": "бот, проверь факт: вода закипает при 100 °C на уровне моря."
+    },
+    "started": 1792357536.6404667,
+    "ok": true,
+    "elapsed_ms": 23574,
+    "result_head": "{\"status\": \"ready\", \"factual_verdict\": \"supported\", \"temporal_status\": \"old_but_valid\", \"assessment_mode\": \"contextual\", \"cache_hit\": false}",
+    "result_len": 2334,
+    "status": "ready",
+    "reason": null,
+    "visible_reason": null,
+    "analysis_revision": null,
+    "cache_hit": false,
+    "visual_description_len": 0,
+    "ocr_blocks": 0
+  },
+  "ok": true,
+  "harness_note": "Explicit claim + smart_messages row for the trigger (what the production observer does for a real user message). Positive chain: L1 capabilities=fact_check,web_search -> fact_check + execute_web_search -> ready/supported/old_but_valid -> Telegram delivery."
+}

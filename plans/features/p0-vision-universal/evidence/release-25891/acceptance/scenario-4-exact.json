@@ -1,0 +1,101 @@
+{
+  "scenario": "4-factcheck",
+  "turns": [
+    {
+      "phrase": "бот, это правда?",
+      "label": "fact-exact",
+      "status": "ok",
+      "error": "",
+      "handled": true,
+      "correlation_id": "4d708bcaf6de41ccb4cb8927c2706371",
+      "plan_meta": null,
+      "usage": [
+        {
+          "correlation_id": "4d708bcaf6de41ccb4cb8927c2706371",
+          "step": "single",
+          "tool_name": "",
+          "input_tokens": 130,
+          "output_tokens": 35,
+          "cost_usd": "<Decimal>",
+          "price_known": false,
+          "plan_meta": null,
+          "ts": "2026-10-18 20:43:19.745517+00:00"
+        }
+      ],
+      "logs": [
+        "[direct] triggered | chat=-1002661910336 user=Acceptance",
+        "event=DECISION_START | run_id=c6f9f8bdbdf449ba8b84af5d9fb0103c | chat_id=-1002661910336 | message_id=1165615 | ts=1792356204.794",
+        "event=DIRECT_TRIGGER | chat_id=-1002661910336 | message_id=1165615 | trigger_type=force_keyword | force_reply_required=True | reply_to_bot=True | is_private=False | addressed=True | ts=1792356204.795",
+        "event=DECISION_COMPLETE | run_id=c6f9f8bdbdf449ba8b84af5d9fb0103c | chat_id=-1002661910336 | message_id=1165615 | action=reply | reason=force_direct | trigger_type=force_keyword | force_reply_required=True | message_class=question | duration_ms=1 | ts=1792356204.795",
+        "event=L1_PLAN | run_id=c6f9f8bdbdf449ba8b84af5d9fb0103c | chat_id=-1002661910336 | message_id=1165615 | action=reply | response_act=answer | extent=compact | tone=neutral | bucket=high | capabilities=fact_check | inherited=True | fallback= | latency_ms=7114 | input_chars=1100 | confidence=0.95 | source=main | ts=1792356211.974",
+        "event=TOOL_CALL_START | run_id=c6f9f8bdbdf449ba8b84af5d9fb0103c | chat_id=-1002661910336 | tool=fact_check | round=1 | ts=1792356211.988",
+        "event=TOOL_CALL_COMPLETE | run_id=c6f9f8bdbdf449ba8b84af5d9fb0103c | chat_id=-1002661910336 | tool=fact_check | round=1 | status=ok | out_chars=65 | ts=1792356212.027",
+        "[direct-exec] simple chain done | chat=-1002661910336 | steps=1 | ok=1 | limitations=0 | metered=1"
+      ],
+      "tool_calls": [
+        {
+          "tool": "fact_check",
+          "args": {
+            "target": {
+              "chat_id": -1002661910336,
+              "message_id": 1165615
+            },
+            "claim": "бот, это правда?"
+          },
+          "started": 1792356211.9885864,
+          "ok": true,
+          "elapsed_ms": 38,
+          "result_head": "{\"status\": \"unavailable\", \"reason\": \"temporal_envelope_rejected\"}",
+          "result_len": 65,
+          "status": "unavailable",
+          "reason": "temporal_envelope_rejected",
+          "visible_reason": null,
+          "analysis_revision": null,
+          "cache_hit": null,
+          "visual_description_len": 0,
+          "ocr_blocks": 0
+        }
+      ],
+      "image_blocks": [],
+      "postgen": [],
+      "sends": [
+        {
+          "kind": "message",
+          "chat_id": -1002661910336,
+          "message_id": 1165617,
+          "text_head": "Проверка не сработала - по времени не пролезло, так что подтвердить или опровергнуть не могу. Если это про то, что Nameless Creature с чем-то согласился, то в памяти только сам факт согласия без деталей, а на нём далеко не уедешь",
+          "text_len": 229,
+          "reply_to": 1165615
+        }
+      ],
+      "answer_head": "Проверка не сработала - по времени не пролезло, так что подтвердить или опровергнуть не могу. Если это про то, что Nameless Creature с чем-то согласился, то в памяти только сам факт согласия без деталей, а на нём далеко не уедешь",
+      "bot_reply": [],
+      "elapsed_s": 18.59
+    }
+  ],
+  "tool_called": true,
+  "tool_result": {
+    "tool": "fact_check",
+    "args": {
+      "target": {
+        "chat_id": -1002661910336,
+        "message_id": 1165615
+      },
+      "claim": "бот, это правда?"
+    },
+    "started": 1792356211.9885864,
+    "ok": true,
+    "elapsed_ms": 38,
+    "result_head": "{\"status\": \"unavailable\", \"reason\": \"temporal_envelope_rejected\"}",
+    "result_len": 65,
+    "status": "unavailable",
+    "reason": "temporal_envelope_rejected",
+    "visible_reason": null,
+    "analysis_revision": null,
+    "cache_hit": null,
+    "visual_description_len": 0,
+    "ocr_blocks": 0
+  },
+  "ok": true,
+  "harness_note": "Exact free-form reply 'бот, это правда?'. The planner selected fact_check; the deterministic step passed the question as the claim and the target (synthetic trigger) was not registered in smart_messages, so the envelope rejected it (temporal_envelope_rejected). Honest answer delivered."
+}

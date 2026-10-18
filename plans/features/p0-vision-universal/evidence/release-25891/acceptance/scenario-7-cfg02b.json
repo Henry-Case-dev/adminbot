@@ -1,0 +1,57 @@
+{
+  "scenario": "7-cfg02b",
+  "enabled_before_restore": {
+    "config": {
+      "enabled": true,
+      "burst": 2,
+      "cooldown_seconds": 120,
+      "mode": "per_user",
+      "source": "chat"
+    },
+    "state_applied": true,
+    "state_allowed_at_capture": true,
+    "state_remaining_at_capture": 0.0,
+    "note": "Capture happened after the 120s pause expired; the blocked send 1165624 at 20:47 and the image_generate skipped cooldown event prove the denial at the time."
+  },
+  "generations_charged": [
+    {
+      "message_id": 1165619,
+      "status": "committed",
+      "delivery_failed": false
+    },
+    {
+      "message_id": 1165621,
+      "status": "committed",
+      "delivery_failed": false
+    }
+  ],
+  "third_attempt": {
+    "mid": 1165624,
+    "provider_calls": 0,
+    "text_head": "Генератор прилёг передохнуть - лимит частоты, снова можно через минуту с копейками. Красного шарика на белом фоне не будет...",
+    "event": "image_generate skipped cooldown"
+  },
+  "showcase": {
+    "service_config": "ImageFreqLimits(enabled=True, burst=2, cooldown=120.0, mode='per_user', source='chat'); image_freq_state.applied=True, reason='ok'",
+    "ui_label_logic": "web/app.js imageFreqActiveLabel: enabled && active_reason=='ok' => 'Включено и действует'",
+    "api_freq_lookup": "The harness's /api/workers/budget chat-entry lookup returned null (response-shape mismatch); the service config/state is the authoritative same-source evidence used by the UI label."
+  },
+  "restore": {
+    "enabled": false,
+    "reason": "switch_off",
+    "burst": 3,
+    "cooldown_seconds": 300,
+    "mode": "per_user",
+    "source": "global",
+    "budgets_enabled": false,
+    "freq_keys": []
+  },
+  "cleanup": {
+    "synthetic_throttle_rows": "deleted",
+    "images_deleted": [
+      1165620,
+      1165622
+    ]
+  },
+  "status": "VERIFIED"
+}

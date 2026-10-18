@@ -1,0 +1,43 @@
+HEAD=f2a6248ae30d8e0b1878785bb6d1477f65e21c78 BRANCH=master TRACKED=13
+R BOOT | version=? pg=True vec_db=local_database.db
+R PG | flags.vision_enabled = False
+R PG | flags.image_generation_module_enabled = True
+R PG | flags.direct_chat_botword_enabled = True
+R PG | flags.persona_enabled = True
+R PG | flags.checkup_enabled = True
+R PG | flags.throttle_persistent_enabled = True
+R PG | limits.image_freq_limit_enabled = False
+R PG | limits.image_freq_limit_burst = 3
+R PG | limits.image_freq_limit_cooldown_seconds = 300
+R PG | limits.image_freq_limit_mode = 'per_user'
+R PG | models.vision_api_base_url = 'https://openrouter.ai/api/v1'
+R PG | models.vision_api_type = 'openai_compatible'
+R PG | models.vision_model = 'google/gemma-4-31b-it:free'
+R PG | keys.vision_api_key = 'present(len=73,last4=e0ba)'
+R PG | keys.llm_api_key = 'present(len=44,last4=349c)'
+R PG | flags.direct_l1_enabled = <no row>
+R BOT | id=8802473181 username=PERMsoc_bot
+R CHAT_PARAM | flags.vision_enabled = True
+R CHAT_PARAM | flags.image_generation_module_enabled = True
+R CHAT_PARAM | limits.image_freq_limit_enabled = False
+R CHAT_PARAM | limits.image_freq_limit_burst = 3
+R CHAT_PARAM | limits.image_freq_limit_cooldown_seconds = 300
+R CHAT_PARAM | limits.image_freq_limit_mode = 'per_user'
+R VISION_STATE | {"requested": true, "effective": false, "capability": "pending", "reason": "capability_check_pending", "visible_reason": "Проверка подключения модели распознавания", "provider": "openrouter.ai", "model": "google/gemma-4-31b-it:free", "api_type": "openai_compatible", "source": "dedicated"}
+R POSTGEN | enabled=True budget_s=20.0
+R TOOLS | count=14 names=compile_lore_story,dig_into_lore,download_media,execute_web_search,fact_check,fetch_article,generate_image,get_bot_health,get_recent_history,get_user_context,query_chat_memory,recognize_image,summarize_video,transcribe_video
+R CAPS | available=chat_history,chat_memory,fact_check,fetch_url,health,historical_search,image_generation,image_understanding,media_download,statistics,transcription,user_memory,video_summary,web_search
+R BUDGET | [{"day": "2026-10-19", "scope": "global", "metric": "image_calls", "used": "1"}, {"day": "2026-10-19", "scope": "chat:-1002661910336", "metric": "image_calls", "used": "1"}, {"day": "2026-10-18", "scope": "global", "metric": "image_calls", "used": "16"}, {"day": "2026-10-18", "scope": "chat:-1009900000201", "metric": "image_calls", "used": "4"}, {"day": "2026-10-18", "scope": "chat:-1002661910336", "metric": "image_calls", "used": "12"}, {"day": "2026-10-17", "scope": "global", "metric": "image_calls", "used": "5"}, {"day": "2026-10-17", "scope": "chat:-1002661910336", "metric": "image_calls", "used": "5"}, {"day": "2026-10-16", "scope": "global", "metric": "image_calls", "used": "46"}, {"day": "2026-10-16", "scope": "chat:-1002661910336", "metric": "image_calls", "used": "46"}, {"day": "2026-10-15", "scope": "global", "metric": "image_calls", "used": "10"}, {"day": "2026-10-15", "scope": "chat:-1004482340693", "metric": "image_calls", "used": "5"}, {"day": "2026-10-15", "scope": "chat:-1002661910336", "metric": "image_calls", "used": "5"}]
+R JOB | {"job_id": "47ff3642417b400fbf4b30bb38cf6cf0", "kind": "vision.media", "status": "failed", "reason_code": "vision_rate_limited", "attempt": "1", "created_at": "1792355173"}
+R JOB | {"job_id": "3c44a64c554246689d613af06f0c6363", "kind": "vision.media", "status": "failed", "reason_code": "vision_rate_limited", "attempt": "1", "created_at": "1792355149"}
+R JOB | {"job_id": "fa45675bdb7042f5abc0a1eefb4b5fac", "kind": "vision.media", "status": "failed", "reason_code": "vision_unavailable", "attempt": "1", "created_at": "1792353462"}
+R JOB | {"job_id": "dc33ae2e5a28495fad0e0c7e2c01fe10", "kind": "vision.media", "status": "failed", "reason_code": "vision_unavailable", "attempt": "1", "created_at": "1792353239"}
+R JOB | {"job_id": "95c5abab1efd484299dd987756658eff", "kind": "vision.media", "status": "failed", "reason_code": "vision_unavailable", "attempt": "1", "created_at": "1792352221"}
+R JOB | {"job_id": "a2a5cb7ffd1f4749baf6c408db4929ab", "kind": "vision.media", "status": "failed", "reason_code": "vision_unavailable", "attempt": "1", "created_at": "1792352065"}
+R JOB | {"job_id": "e44e5c628a734efe98f0c762bc2a5a83", "kind": "vision.media", "status": "failed", "reason_code": "vision_unavailable", "attempt": "1", "created_at": "1792350585"}
+R JOB | {"job_id": "8cfa370855024249b3bd676635be3ce8", "kind": "vision.media", "status": "failed", "reason_code": "vision_unavailable", "attempt": "1", "created_at": "1792350118"}
+R EVENT | {"event_name": "vision_media", "outcome": "skipped", "n": "85", "last": "1792355173"}
+R EVENT | {"event_name": "vision_capability_probe", "outcome": "failed", "n": "5", "last": "1792355154"}
+R ASSETS_COUNT | 3043
+R PREFLIGHT | memory_vec=True lore_cache=True router=True svc=True
+R PREFLIGHT | runtime bound; l1=True response_plan=True

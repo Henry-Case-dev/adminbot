@@ -1,0 +1,125 @@
+{
+  "scenario": "1-health",
+  "turns": [
+    {
+      "phrase": "бот, как состояние сервера?",
+      "label": "health-1",
+      "status": "ok",
+      "error": "",
+      "handled": true,
+      "correlation_id": "fac60653bca241d8ab7f0c3e2aaf555b",
+      "plan_meta": null,
+      "usage": [
+        {
+          "correlation_id": "fac60653bca241d8ab7f0c3e2aaf555b",
+          "step": "single",
+          "tool_name": "",
+          "input_tokens": 559,
+          "output_tokens": 334,
+          "cost_usd": "<Decimal>",
+          "price_known": false,
+          "plan_meta": null,
+          "ts": "2026-10-18 20:39:50.542383+00:00"
+        }
+      ],
+      "logs": [
+        "[direct] triggered | chat=-1002661910336 user=Acceptance",
+        "event=DECISION_START | run_id=d619a0dd4e6a4917a5b1b99d1642a923 | chat_id=-1002661910336 | message_id=1165608 | ts=1792355993.849",
+        "event=DIRECT_TRIGGER | chat_id=-1002661910336 | message_id=1165608 | trigger_type=force_keyword | force_reply_required=True | reply_to_bot=True | is_private=False | addressed=True | ts=1792355993.85",
+        "event=DECISION_COMPLETE | run_id=d619a0dd4e6a4917a5b1b99d1642a923 | chat_id=-1002661910336 | message_id=1165608 | action=reply | reason=force_direct | trigger_type=force_keyword | force_reply_required=True | message_class=question | duration_ms=5 | ts=1792355993.854",
+        "event=L1_PLAN | run_id=d619a0dd4e6a4917a5b1b99d1642a923 | chat_id=-1002661910336 | message_id=1165608 | action=reply | response_act=other | extent=auto | tone=inherit | bucket=low | inherited=True | fallback=deterministic | latency_ms=15047 | input_chars=1095 | confidence=0.0 | source=main | ts=1792356009.021"
+      ],
+      "tool_calls": [],
+      "image_blocks": [],
+      "postgen": [],
+      "sends": [
+        {
+          "kind": "message",
+          "chat_id": -1002661910336,
+          "message_id": 1165609,
+          "text_head": "По справке ничего про состояние сервера нет",
+          "text_len": 43,
+          "reply_to": 1165608
+        }
+      ],
+      "answer_head": "По справке ничего про состояние сервера нет",
+      "bot_reply": [],
+      "elapsed_s": 97.48
+    },
+    {
+      "phrase": "бот, проверь последние ошибки",
+      "label": "health-2",
+      "status": "ok",
+      "error": "",
+      "handled": true,
+      "correlation_id": "54b61693f59949deba46dccc79e99791",
+      "plan_meta": null,
+      "usage": [
+        {
+          "correlation_id": "54b61693f59949deba46dccc79e99791",
+          "step": "single",
+          "tool_name": "",
+          "input_tokens": 137,
+          "output_tokens": 157,
+          "cost_usd": "<Decimal>",
+          "price_known": false,
+          "plan_meta": null,
+          "ts": "2026-10-18 20:41:48.781434+00:00"
+        }
+      ],
+      "logs": [
+        "[direct] triggered | chat=-1002661910336 user=Acceptance",
+        "event=DECISION_START | run_id=ea5ee8a276e043bf813911edc970316a | chat_id=-1002661910336 | message_id=1165609 | ts=1792356055.324",
+        "event=DIRECT_TRIGGER | chat_id=-1002661910336 | message_id=1165609 | trigger_type=force_keyword | force_reply_required=True | reply_to_bot=True | is_private=False | addressed=True | ts=1792356055.324",
+        "event=DECISION_COMPLETE | run_id=ea5ee8a276e043bf813911edc970316a | chat_id=-1002661910336 | message_id=1165609 | action=reply | reason=force_direct | trigger_type=force_keyword | force_reply_required=True | message_class=other | duration_ms=1 | ts=1792356055.325",
+        "event=L1_PLAN | run_id=ea5ee8a276e043bf813911edc970316a | chat_id=-1002661910336 | message_id=1165609 | action=reply | response_act=other | extent=auto | tone=inherit | bucket=low | inherited=True | fallback=deterministic | latency_ms=15017 | input_chars=1101 | confidence=0.0 | source=main | ts=1792356070.374"
+      ],
+      "tool_calls": [],
+      "image_blocks": [],
+      "postgen": [],
+      "sends": [
+        {
+          "kind": "message",
+          "chat_id": -1002661910336,
+          "message_id": 1165610,
+          "text_head": "В справке ни строчки про ошибки - ни серверных, ни клиентских, ни твоих личных в попытках что-то проверить. Так что искать нечего, разве что ты имел в виду что-то конкретное",
+          "text_len": 173,
+          "reply_to": 1165609
+        }
+      ],
+      "answer_head": "В справке ни строчки про ошибки - ни серверных, ни клиентских, ни твоих личных в попытках что-то проверить. Так что искать нечего, разве что ты имел в виду что-то конкретное",
+      "bot_reply": [],
+      "elapsed_s": 108.26
+    }
+  ],
+  "tool_proof": {
+    "tool": "get_bot_health",
+    "result_head": "Итак, блять. Облачный мониторинг решил взять выходной, api betterstack лежит, и пришлось руками ковырять локальные логи как алкаш в поисках заначки под диваном. ну ок, посмотрим что там у тебя творится.\n\nСразу плохая новость: у тебя тут не просто ворнинги, тут уже назревает пиздец. Начну с самого больного - база данных. В 20:40, 20:41 и дальше понеслось \"database is locked\", \"lock exhausted\", четыре попытки и все мимо. модуль task_jobs_enqueue пытается запихнуть задачу в очередь и не может, потому что кто-то держит лок и не отдает. это классика жанра на sqlite, когда несколько воркеров начинают одновременно долбиться в один файл. sqlite этого не любит, он вообще однопоточная неженка. так что очередь задач у тебя периодически просто встает колом и джобы не записываются. если это прод, то ты",
+    "result_len": 2519
+  },
+  "ok": true,
+  "planner_selected_health": false,
+  "canon": {
+    "rc_is_none": true,
+    "sends": [
+      {
+        "kind": "message",
+        "chat_id": -1002661910336,
+        "message_id": 1165611,
+        "text_head": "беттерстак обосрался, лезу ковырять локальные логи...",
+        "text_len": 53,
+        "reply_to": 1165610
+      },
+      {
+        "kind": "message",
+        "chat_id": -1002661910336,
+        "message_id": 1165612,
+        "text_head": "блять, ну классика. betterstack лег, пришлось лезть в локальные логи, как в 2010. облачный мониторинг сдох раньше чем то что он мониторит. иронично, да.  по делу. критичных ошибок нет, ни одного ексепшена, ни одного 500. но ворнингов насран",
+        "text_len": 2279,
+        "reply_to": 1165610
+      }
+    ],
+    "answer_head": "блять, ну классика. betterstack лег, пришлось лезть в локальные логи, как в 2010. облачный мониторинг сдох раньше чем то что он мониторит. иронично, да.  по делу. критичных ошибок нет, ни одного ексепшена, ни одного 500. но ворнингов насран"
+  },
+  "harness_note": "Main controlled harness. The 'handled' field was inverted in the first run (handler returned None=consumed); logs and Telegram sends prove execution. Cold-start: L1 planner timed out (15.0s) and fell back deterministically; no health capability, no tool. Warm retry below succeeded."
+}

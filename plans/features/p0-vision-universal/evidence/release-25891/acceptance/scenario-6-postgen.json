@@ -1,0 +1,32 @@
+{
+  "scenario": "6-postgen",
+  "provider": "openrouter.ai",
+  "model": "google/gemma-4-31b-it:free",
+  "outcomes": [
+    {
+      "status": "rate_limited",
+      "reason": "vision_rate_limited",
+      "visible_reason": "Превышен лимит запросов провайдера",
+      "has_content": false,
+      "description_len": 0,
+      "ocr_blocks": 0
+    },
+    {
+      "status": "rate_limited",
+      "reason": "vision_rate_limited",
+      "visible_reason": "Превышен лимит запросов провайдера",
+      "has_content": false,
+      "description_len": 0,
+      "ocr_blocks": 0
+    }
+  ],
+  "events": {
+    "image_postgen_vision_failed_rate_limited": 2
+  },
+  "answers": {
+    "gen2": "Генератор картинок уже отправил что-то в чат, но что там вышло - распознавание прилегло отдохнуть, так что подтвердить синий кораблик не могу...",
+    "gen3": "Картинка ушла в чат, но что там вышло - распознавание прилегло, так что подтвердить зелёное яблоко не могу..."
+  },
+  "positive_description_verified": false,
+  "note": "The postgen analyzer was invoked on the final bitmap for both successful generations; the provider returned 429. The Writer gave an honest no-confirmation status and did not invent a visual description. The positive 'description from final bitmap' branch is BLOCKED by the provider."
+}

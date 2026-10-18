@@ -1,0 +1,10 @@
+{
+  "requested": true,
+  "effective": false,
+  "capability": "pending",
+  "reason": "capability_check_pending",
+  "visible_reason": "Проверка подключения модели распознавания",
+  "provider": "openrouter.ai",
+  "model": "google/gemma-4-31b-it:free",
+  "source": "dedicated"
+}

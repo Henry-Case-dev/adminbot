@@ -1,0 +1,16 @@
+{
+  "GIT": "HEAD=f2a6248ae30d8e0b1878785bb6d1477f65e21c78 TRACKED_MOD=0",
+  "HEALTHZ": "{\"status\":\"ok\",\"version\":\"2.58.91\"}",
+  "UI_WEB": "status=200 html_len=786279 scripts=['/static/vendor/telegram-web-app.js', '/static/vendor/vue.global.prod.min.js', '/static/vendor/dompurify-3.4.15.min.js', '/static/vendor/chart.umd.min.js', '/static/vendor/ogl.1.0.11.min.js?v=2.58.91', '/static/vendor/liquidglass.core.0.5.3.min.js?v=2.58.91']",
+  "UI_MARKERS": "version=15 mod_vision=0 freq=1",
+  "UI_SCRIPT": "/static/vendor/chart.umd.min.js status=200 len=208522",
+  "UI_HASH": "/static/vendor/chart.umd.min.js served=48444a82d4ed repo_appjs=b14ef48ab16a same=False",
+  "OVERRIDES": "budgets=False freq_keys=[] vision=True",
+  "FREQ": "ERR AttributeError: module 'services.worker_budget' has no attribute 'get_chat_summary'",
+  "ASSET_RESOLVE": "target=1165607 status=ok assets=1",
+  "VISION_STATE": "requested=True effective=False capability=pending reason=capability_check_pending",
+  "USER_VERSION": "36",
+  "MCA_ERRORS_3H": "0",
+  "BUDGET_NOW": "[{\"day\": \"2026-10-19\", \"scope\": \"global\", \"metric\": \"image_calls\", \"used\": \"4\", \"limit\": \"200\"}, {\"day\": \"2026-10-19\", \"scope\": \"chat:-1002661910336\", \"metric\": \"image_calls\", \"used\": \"4\", \"limit\": \"60\"}]",
+  "RESERVATIONS": "[{\"reservation_key\": \"-1002661910336:1165619:direct\", \"status\": \"committed\", \"error_code\": \"\", \"delivery_failed\": \"False\", \"created_at\": \"2026-10-18 20:45:15.715826+00:00\"}, {\"reservation_key\": \"-1002661910336:1165621:direct\", \"status\": \"committed\", \"error_code\": \"\", \"delivery_failed\": \"False\", \"created_at\": \"2026-10-18 20:46:18.139719+00:00\"}]"
+}
