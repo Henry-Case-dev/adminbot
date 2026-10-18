@@ -1845,6 +1845,20 @@ class Settings:
     # env-only, дней; opportunistic-purge ≤1/сутки/процесс (ADR-1026-17 D3).
     IMAGE_RESERVATION_RETENTION_DAYS: ClassVar[int] = _env_int(
         "IMAGE_RESERVATION_RETENTION_DAYS", 30)
+    # ── ADD-TR.4 (ADTR-POSTGEN, 19.10.2026): env-only киль-свитч и бюджет
+    # пост-генерационного Vision-анализа ФАКТИЧЕСКОГО отправленного файла
+    # (`services/postgen_vision.py`). Δ каталога = 0 (ClassVar — не
+    # dataclass-поля, в param_catalog НЕ входят).
+    #   IMAGE_POSTGEN_VISION_ENABLED — OFF → контур не выполняется вовсе:
+    #   блок `<image_result>`/JSON `generate_image` байт-в-байт прежние
+    #   (откат без остаточных полей/вызовов).
+    #   IMAGE_POSTGEN_VISION_TIMEOUT_SECONDS — bounded-бюджет ожидания
+    #   (проба capability + вызов анализатора): исчерпание → честный
+    #   `pending`, доставка и ответ не блокируются.
+    IMAGE_POSTGEN_VISION_ENABLED: ClassVar[bool] = _env_bool(
+        "IMAGE_POSTGEN_VISION_ENABLED", True)
+    IMAGE_POSTGEN_VISION_TIMEOUT_SECONDS: ClassVar[float] = _env_float_min(
+        "IMAGE_POSTGEN_VISION_TIMEOUT_SECONDS", 20.0, 0.05)
     WORKER_PRIORITY_ORDER: str = os.getenv(
         "WORKER_PRIORITY_ORDER", "nostalgia,lore,dream")
     WORKER_BUDGET_JITTER_MINUTES: int = _env_int(

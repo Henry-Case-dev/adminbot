@@ -2093,10 +2093,17 @@ async def maybe_handle_keyword(ctx, query: str, *, aliases=None, db=None,
                     "повторная генерация и повторная отправка не выполняются.\n"
                     f"{suffix}\n"
                     "</image_result>")
+        # ADD-TR.4 (ADTR-POSTGEN, M-ADTR-POSTGEN-DEFECT): визуально
+        # специфическое описание допустимо ТОЛЬКО по анализу фактически
+        # отправленного bitmap; при OFF/unavailable/pending — честный статус
+        # без выдуманного содержимого. Bounded/fail-open: анализ не блокирует
+        # чат и не роняет ход.
+        postgen_part = await _postgen_analysis_part(ctx, result)
         return ('<image_result status="ok" delivery="sent">\n'
                 "Изображение уже сгенерировано и отправлено в чат. "
                 "Повторно инструмент generate_image не вызывай.\n"
                 f"{suffix}\n"
+                f"{postgen_part}"
                 "</image_result>")
     # SOUL-1 W10 (SOUL-AMD.5.15): текст пользователю — управляемый Factory
     # Default по РЕАЛЬНОМУ коду отказа (реестр `message.image_failure.*`), а не
@@ -2137,6 +2144,26 @@ def _record_image_outcome(result, *, chat_id: int | None) -> None:
                                  ok=bool(result.ok), code=reason)
     except Exception:      # pragma: no cover - телеметрия не рвёт чат
         pass
+
+
+async def _postgen_analysis_part(ctx, result) -> str:
+    """ADD-TR.4 (ADTR-POSTGEN): data-only подблок анализа ФАКТИЧЕСКОГО
+    отправленного bitmap для инъекции в контекст Writer-а.
+
+    Вызывается только после подтверждённой отправки (`result.ok`, не replay).
+    Никогда не бросает: контур OFF/ошибка → ``""`` (прежнее поведение блока)."""
+    try:
+        from services import postgen_vision
+        outcome = await postgen_vision.analyze_generated_image(
+            getattr(result, "content", None) or b"",
+            chat_id=getattr(ctx, "chat_id", None) or 0,
+            correlation_id=getattr(ctx, "correlation_id", None))
+        return postgen_vision.render_direct_block(outcome)
+    except Exception:      # pragma: no cover - fail-open не рвёт чат
+        logger.warning("[image] postgen analysis skipped — fail-open | "
+                       "chat=%s", getattr(ctx, "chat_id", None),
+                       exc_info=True)
+        return ""
 
 
 def _image_error_block(result, *, chat_id: int | None,

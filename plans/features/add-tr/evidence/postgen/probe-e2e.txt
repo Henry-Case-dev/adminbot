@@ -1,0 +1,18 @@
+[worker_budget] PG down — fail-open reserve=True | scope=chat:-1009 metric=image_calls
+[image] send failed | chat=-1009 | error=RuntimeError
+=== DIRECT BLOCK (усечён) ===
+<image_result status="ok" delivery="sent">
+Изображение уже сгенерировано и отправлено в чат. Повторно инструмент generate_image не вызывай.
+
+<image_analysis status="ready" source="final_bitmap">
+{"status": "ready", "source": "final_bitmap", "visual_description": "рыжий пёс на белом фоне", "ocr_blocks": [{"text": "ПРИВЕТ", "channel": "untrusted_image_data"}], "uncertainty": []}
+</image_analysis>
+=== TOOL PAYLOAD KEYS === ['image_analysis', 'message', 'status']
+=== DEDUP === analyze calls = 2 | cache-hit
+=== KILL-SWITCH OFF BLOCK ===
+'<image_result status="ok" delivery="sent">\nИзображение уже сгенерировано и отправлено в чат. Повторно инструмент generate_image не вызывай.\n\n</image_result>'
+=== SEND_FAIL BLOCK (усечён) ===
+<image_result status="error" reason="delivery_failed">
+Картинка сгенерировалась, но в чат не доехала - споткнулся на отправке. Второй раз платить за то же самое не буду: запроси заново.
+Ничего не отправлено; повторно инструмент generate_image не вызывай.
+PROBE OK

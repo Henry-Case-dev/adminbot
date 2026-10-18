@@ -2995,6 +2995,25 @@ class ToolRouter:
             note = _image_memory_note(request)
             if note:
                 payload["note"] = note
+            # ADD-TR.4 (ADTR-POSTGEN, M-ADTR-POSTGEN-DEFECT): Writer получает
+            # data-only распознавание ФАКТИЧЕСКИ отправленного bitmap — только
+            # по нему допустимы фразы «получилось X, Y»; при OFF/unavailable/
+            # pending — честный статус без описания. Replay («already») не
+            # анализируется: новой отправки не было. Bounded/fail-open.
+            if str(getattr(result, "reason", "") or "") != "already":
+                try:
+                    from services import postgen_vision
+                    outcome = await postgen_vision.analyze_generated_image(
+                        getattr(result, "content", None) or b"",
+                        chat_id=ctx.chat_id,
+                        correlation_id=getattr(ctx, "correlation_id", None))
+                    analysis = postgen_vision.tool_payload(outcome)
+                    if analysis is not None:
+                        payload["image_analysis"] = analysis
+                except Exception:      # pragma: no cover - fail-open
+                    logger.warning("[tools] postgen analysis skipped — "
+                                   "fail-open | chat=%s", ctx.chat_id,
+                                   exc_info=True)
             return json.dumps(payload, ensure_ascii=False)
         logger.info("[tools] generate_image failed | chat=%s | reason=%s",
                     ctx.chat_id, result.reason)
