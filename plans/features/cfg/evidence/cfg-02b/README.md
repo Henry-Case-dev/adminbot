@@ -1,6 +1,18 @@
 # CFG-02B — «Лимит частоты генерации» (burst + пауза): design + evidence
 
-**Лейн:** CFG-02B-BUILD (Builder; БЕЗ коммита — на ревью; SSH/прод не трогались).
+**Лейн:** CFG-02B-BUILD (Builder; SSH/прод не трогались).
+**Коммит контента:** `7e5edd75` — в него попали 85 файлов этой дельты
+(список сверен пофайлово: `git show --name-only 7e5edd75` == мой список,
+`missing=0`) + `plans/features/cfg/slice-graph.json` (write_scope CFG-02B
+обновил PM). Сообщение коммита — «docs(cfg): slice-graph write_scope for
+CFG-02B (actual delta)»: мой проиндексированный набор подхватил соседний
+процесс PM во время подготовки коммита (девиация процесса, не контента).
+**Отложено (uncommitted, по указанию — смешанные с чужим лейном):**
+`tests/fixtures/round1025/f8_baseline.json` (мои counts/sha/note + vision
+routes-sha/note) и `tests/test_round1025_f8_registry.py` (мои counts +
+`PARAM_CATALOG_SHA256_FOLLOWUP` + NOTE; vision `ROUTES_SHA256_F11` re-pin +
+CRLF-перелицовка). Коммитить их — после приземления vision-лейна (проще
+всего: перепрогнать `tools/_cfg02b_reissue_f8.py` и закоммитить пару вместе).
 **Дата:** 19.10.2026 · база HEAD `cb74531e` (на момент сборки; позже чужие docs-коммиты
 подняли HEAD до `0ef8201b` — файлы дельты CFG-02B не пересекаются) · прод 2.58.89 ·
 релиз-кандидат P0 2.58.90.
