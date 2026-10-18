@@ -74,7 +74,7 @@
           "ref": "acceptance/README.md §C + plans/features/p0-save-init-ux/evidence/release-25890/acceptance/acceptance-bc-25890-read.json + plans/features/p0-save-init-ux/evidence/release-25890/acceptance/journal-25890-phase1.json",
           "observation": "Пост-деплой диагностика C (прод 2.58.90): эффективные гейты/воронка/vitality/панель ok; durable `scan_anchored=1`; `job completed` 13:55:05Z; журнал фазы-1 (read-only): 7 scan-событий, одна `stage='anchored'`.",
           "artifact_path": "plans/features/p0-save-init-ux/evidence/release-25890/acceptance/acceptance-bc-25890-read.json",
-          "artifact_sha256": "8cc9914dd915cf9a17e01a9344ca4e27a93c0524e61d753c8511ea7778409cd5",
+          "artifact_sha256": "9fbafd2f4daf18f224290d46fe658bc14f7fe58a3ae71bcc8d7676a6d6cc5195",
           "type": "production"
         },
         {
@@ -118,9 +118,9 @@
         {
           "candidate_commit": "3b02366e63022eb4c760892aa1bcb4f26516e789",
           "ref": "acceptance/README.md §C + plans/features/p0-save-init-ux/evidence/release-25890/acceptance/acceptance-bc-25890-read.json + plans/features/p0-save-init-ux/review-release-25890.md (REV-REL-RECHECK)",
-          "observation": "C (прод 2.58.90): `/api/memory/intel-funnels` — durable `scan_anchored=1` (маркер есть только в 2.58.90); пост-деплойный прогон наблюдателя `job.status=completed` (13:55:05Z), `heartbeat_ok=true`; панель `activity.state=ok` «Инициатива доставляется»; 24ч-воронка: scan=282/decided=4/writer_generated=2/sent=2 (все доставки — до T0); причины окна — честные коды (eval_not_due/not_enough_messages/min_gap/direct_address_seen).",
+          "observation": "C (прод 2.58.90): `/api/memory/intel-funnels` — durable `scan_anchored=1` (маркер есть только в 2.58.90); пост-деплойный прогон наблюдателя `job.status=completed` (13:55:05Z), `heartbeat_ok=true`; панель `activity.state=ok` «Инициатива доставляется»; 24ч-воронка: scan=280/decided=4/writer_generated=2/sent=2 (все доставки — до T0); причины окна — честные коды (eval_not_due/not_enough_messages/min_gap/direct_address_seen).",
           "artifact_path": "plans/features/p0-save-init-ux/evidence/release-25890/acceptance/acceptance-bc-25890-read.json",
-          "artifact_sha256": "8cc9914dd915cf9a17e01a9344ca4e27a93c0524e61d753c8511ea7778409cd5",
+          "artifact_sha256": "9fbafd2f4daf18f224290d46fe658bc14f7fe58a3ae71bcc8d7676a6d6cc5195",
           "type": "production"
         },
         {
@@ -167,6 +167,14 @@
           "artifact_path": "plans/features/p0-save-init-ux/evidence/persist-fix/green-final-pytest.txt",
           "artifact_sha256": "4dafe475af88ea792f063233d5cce34fe961e9dd573e2e3fcd09bc55ff1abf3c",
           "type": "test"
+        },
+        {
+          "candidate_commit": "3b02366e63022eb4c760892aa1bcb4f26516e789",
+          "ref": "plans/features/p0-save-init-ux/evidence/release-25890/acceptance/acceptance-25890.json (17/17) + release-25890-report.md §1",
+          "observation": "Три симптома через общий путь на проде: Style (A4 — rev++/живая try), Expression (A3), Core (A1/A2 — read-after-write); финальный дифф `{}`.",
+          "artifact_path": "plans/features/p0-save-init-ux/evidence/release-25890/acceptance/acceptance-25890.json",
+          "artifact_sha256": "3fce71931522ad2874f2a000d8621d17d7aa34b806e1076b8c9643a492fccd67",
+          "type": "production"
         }
       ],
       "alias_of": [
@@ -180,13 +188,13 @@
       "source_text_sha256": "96bea04b908d6b3d674f4c7fab243bf5ce1bb1200ac522799352a493163cc13b",
       "source_excerpt": "Цепочка: UI → payload → API → валидация → concurrency/revision → PostgreSQL → повторное чтение → effective config → runt",
       "disposition": "required",
-      "reason": "Код-половина закрыта: все типы настроек проверены интеграционным файлом на реальном стеке (real HTTP TestClient + speech_router + TMA-auth + реальные chat_params/ConfigCache; виновный вызов `set_chat_params` не подменяется); ошибки чтения/записи — честные ветки. Runtime-половина — живой цикл на реальной БД. READY_FOR_LIVE.",
+      "reason": "Код-половина закрыта: все типы настроек проверены интеграционным файлом на реальном стеке (real HTTP TestClient + speech_router + TMA-auth + реальные chat_params/ConfigCache; виновный вызов `set_chat_params` не подменяется); ошибки чтения/записи — честные ветки. Runtime-половина — живой цикл на реальной БД. ЗАКРЫТО приёмкой A/F (прод 2.58.90 `3b02366e`): real-DB цикл по всем секциям (A1–A5) + active payload без рестарта (F, честная граница `last_run_present=false`); финальный дифф `{}` (recheck только-GET). VERIFIED.",
       "req_id": "P0A-PERSIST-SECTIONS",
       "slice": "P0A-PERSIST",
       "acceptance": "Проверены все типы настроек с результатом по каждому: Core (полная/компактная, версии, дифф, сохранение, наследование, откат); Expression (мат, развёрнутость, global/per-chat); Speech Style Policy (строгие правила, привычки, шаблоны, scope, приоритеты); остальные редактируемые параметры SOUL-1 и жанровые компоненты; общие обработчики сохранения MiniApp и их потребители инвентаризованы.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "29a9517334df495a1dfd2a4bc9fecfd7341887bc",
@@ -195,9 +203,17 @@
           "artifact_path": "tests/test_p0_persistfix_speech_chat_scope.py",
           "artifact_sha256": "e9481e55a92b9e1842c90b44e44dbfe0082f6d1dd594b9778f0a43b22b4a2999",
           "type": "test"
+        },
+        {
+          "candidate_commit": "3b02366e63022eb4c760892aa1bcb4f26516e789",
+          "ref": "acceptance/README.md §A/§F + plans/features/p0-save-init-ux/evidence/release-25890/acceptance/acceptance-25890.json (17/17) + plans/features/p0-save-init-ux/evidence/release-25890/acceptance/acceptance-payload-25890.json (4/4)",
+          "observation": "Прод 2.58.90: real-DB цикл по типам настроек (Core global/chat full/compact+reset, Expression, Style rev++/живая try, humor/learning, examples, inherited-reset — A1–A5) и payload-уровень: применённое значение доходит до сборки без рестарта (F, r5→r6→r5); дифф после возврата `{}`.",
+          "artifact_path": "plans/features/p0-save-init-ux/evidence/release-25890/acceptance/acceptance-25890.json",
+          "artifact_sha256": "3fce71931522ad2874f2a000d8621d17d7aa34b806e1076b8c9643a492fccd67",
+          "type": "production"
         }
       ],
-      "live_note": "реальный цикл на production PostgreSQL — postdeploy (DevOps/Orchestrator), не owner-гейт.",
+      "live_note": "закрыто приёмкой A/F (прод 2.58.90): цикл по всем секциям на реальной PostgreSQL + active payload без рестарта (`diff_significant={}`).",
       "alias_of": [
         "soul-1:SOUL-02.7",
         "soul-1:SOUL-16.1.4"
@@ -210,13 +226,13 @@
       "source_text_sha256": "11fc9766fa9665f1007bd4cfe2970a570a263abe1acfc52fea9d79007aa9a72e",
       "source_excerpt": "Классификация: невалидная структура; несовпадение front/back схем; revision/ETag; ложный optimistic conflict; права; тра",
       "disposition": "required",
-      "reason": "Код-половина закрыта: валидация не подавлена (фатальные issues → 409 `document_invalid` с человеческим текстом, документ не записан), искусственного 200 нет (неприменённая запись → 503; вместо `write_error` — человеческие тексты), успех = read-after-write из хранилища (тесты на реальном стеке), конфликт 409 без потери данных. «Применение в runtime» — live. READY_FOR_LIVE.",
+      "reason": "Код-половина закрыта: валидация не подавлена (фатальные issues → 409 `document_invalid` с человеческим текстом, документ не записан), искусственного 200 нет (неприменённая запись → 503; вместо `write_error` — человеческие тексты), успех = read-after-write из хранилища (тесты на реальном стеке), конфликт 409 без потери данных. «Применение в runtime» — live. «Применение в runtime» и чтение подтверждены приёмкой A/F (прод 2.58.90): read-after-write, честные 409/422 без записи, конфликт без потери текста, дифф `{}`. VERIFIED.",
       "req_id": "P0A-PERSIST-TRUTH",
       "slice": "P0A-PERSIST",
       "acceptance": "Валидация не подавлена, версионирование не отключено, искусственный 200 отсутствует; успех = read-after-write из постоянного хранилища + применение в runtime; при конфликте несохранённый текст сохранён и предложено безопасное разрешение.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "29a9517334df495a1dfd2a4bc9fecfd7341887bc",
@@ -225,9 +241,17 @@
           "artifact_path": "tests/test_p0_persistfix_speech_chat_scope.py",
           "artifact_sha256": "e9481e55a92b9e1842c90b44e44dbfe0082f6d1dd594b9778f0a43b22b4a2999",
           "type": "test"
+        },
+        {
+          "candidate_commit": "3b02366e63022eb4c760892aa1bcb4f26516e789",
+          "ref": "plans/features/p0-save-init-ux/evidence/release-25890/acceptance/acceptance-edges-25890.json (E) + acceptance/README.md §A (A7)/§E + plans/features/p0-save-init-ux/evidence/release-25890/acceptance/acceptance-25890.json",
+          "observation": "Прод 2.58.90: валидация не подавлена (409 `document_invalid`, 422 — оба без записи), конфликт 409 без потери текста (A7), успех = read-after-write (A1–A5); «применение в runtime» — F (active payload без рестарта); финальный дифф `{}`.",
+          "artifact_path": "plans/features/p0-save-init-ux/evidence/release-25890/acceptance/acceptance-edges-25890.json",
+          "artifact_sha256": "ada8b2bc4f68b99c6f87e8a325e90fbdcc1b54d9a3014fd5b2c4fe5b6b5c3203",
+          "type": "production"
         }
       ],
-      "live_note": "реальный цикл на production PostgreSQL — postdeploy (DevOps/Orchestrator), не owner-гейт.",
+      "live_note": "закрыто приёмкой A/E (прод 2.58.90): read-after-write, честные 409/422/503; `diff_significant={}`.",
       "alias_of": [
         "cfg:CFG-03.F"
       ],
@@ -340,14 +364,32 @@
       "source_text_sha256": "ec357f06ca3fc05de4bcdf4270b9d827721edd0fab10425d4f514caaef65ef04",
       "source_excerpt": "**UX:** Android Portrait/Landscape, Telegram Desktop, узкие viewport; реальное взаимодействие (длинный Core, Expression,",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто: авто-эвиденс полностью — Playwright e2e (структура/компакт/dirty/save/честные ошибки/изоляция; failures=0, POST=21), W6 функциональный чек-лист (failures=0), скриншоты 320–1440, Browser Use live-снимки, прод-загрузка сборки (0 ошибок консоли; served==disk). Device-проверка (Android/Windows/WebView) отменена владельцем (PET 18.10, `AGENTS.md` §5 — отменённые device-чек-листы не воссоздаются) — waiver, НЕ «не проверено». VERIFIED.",
       "req_id": "P0A-ACCEPT-UX",
       "slice": "P0A-ACCEPT",
       "acceptance": "UX-приёмка на Android Portrait/Landscape, Telegram Desktop и узких viewport с реальным взаимодействием (длинный Core, Expression, добавление/удаление Style Policy, сохранение, переключение чатов, открытая клавиатура, ошибки API); Browser Use/Playwright подтверждают функциональность, не только скриншоты.",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "01e1cc8d6ad479edf907e103f9594f1e55285657",
+          "ref": "review-ux-impl.md (57ff8c85) §3–§6 + plans/features/p0-save-init-ux/evidence/ux-impl/e2e-report.json + w6-after/ui-report.json + shots/**",
+          "observation": "Авто-эвиденс: e2e 6 вьюпортов (overflow==0, failures=0, POST=21; dirty/save/409-503/изоляция), W6-чек-лист (failures=0), скриншоты 320/360/390/412/landscape/desktop; функциональность подтверждена не только скриншотами.",
+          "artifact_path": "plans/features/p0-save-init-ux/evidence/ux-impl/e2e-report.json",
+          "artifact_sha256": "9e5e671a7724cb6488282b8ef6c5c3a10868d2a91f3ec8997d3c98b8b52fcb14",
+          "type": "ui"
+        },
+        {
+          "candidate_commit": "3b02366e63022eb4c760892aa1bcb4f26516e789",
+          "ref": "acceptance/README.md §G + plans/features/p0-save-init-ux/evidence/release-25890/acceptance/live-web/** + plans/features/p0-save-init-ux/evidence/release-25890/final-verification.txt (SERVED_EQ_*) + review-release-25890.md NF-2",
+          "observation": "Прод 2.58.90: сборка загружена в браузере — приложение исполняется, 0 ошибок консоли (вне Telegram — честное сообщение); отданные app.js/app.css байт-в-байт == диску (SERVED_EQ=SAME; PAGE_VER=15/SUBST_CSS=2).",
+          "artifact_path": "plans/features/p0-save-init-ux/evidence/release-25890/final-verification.txt",
+          "artifact_sha256": "611093c9c86686beb33c36a31721072a2c8c96aa455b96d9b804e0e590fd5da9",
+          "type": "production"
+        }
+      ],
+      "live_note": "закрыто авто-эвиденсом (e2e/W6/Browser Use/прод-загрузка); device-проверка отменена владельцем (PET 18.10, AGENTS §5) — waiver, не «не проверено».",
       "alias_of": [
         "cfg:CFG-04D.2",
         "cfg:CFG-04D.4"
@@ -360,14 +402,32 @@
       "source_text_sha256": "0b8faab48a2e03da61d554b19d4f80db081da9967ffd4108cffa49e39e96f3ef",
       "source_excerpt": "**Initiative:** подтвердить исправление реальных блокеров, актуальность наблюдаемого контекста, способность цепочки дойт",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто приёмкой C (прод 2.58.90 `3b02366e`): исправление реальных блокеров подтверждено живьём — `scan_anchored=1` (passes=858), job `completed`, 24ч-воронка (scan=280/decided=4/writer_generated=2/sent=2), панель `activity.state=ok` «Инициатива доставляется»; актуальность контекста — честные reason_codes/стадии (`new_message`); принудительных бессмысленных публикаций нет (после T0 новых отправок не было — не требовалось). VERIFIED.",
       "req_id": "P0A-ACCEPT-INITIATIVE",
       "slice": "P0A-ACCEPT",
       "acceptance": "Подтверждены: исправление реальных блокеров, актуальность наблюдаемого контекста, способность цепочки дойти до отправки; без принудительной бессмысленной публикации.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "3b02366e63022eb4c760892aa1bcb4f26516e789",
+          "ref": "plans/features/p0-save-init-ux/evidence/release-25890/acceptance/acceptance-bc-25890-read.json (C1–C3) + acceptance/README.md §C",
+          "observation": "C1: `scan_anchored=1`, passes=858, job completed; C2: 24ч-события (scan=280/opportunity=6/decided=4/writer_generated=2/sent=2); C3: решения с reason_code/label (`default` — «решение молчать по умолчанию»), панель `activity.state=ok`.",
+          "artifact_path": "plans/features/p0-save-init-ux/evidence/release-25890/acceptance/acceptance-bc-25890-read.json",
+          "artifact_sha256": "9fbafd2f4daf18f224290d46fe658bc14f7fe58a3ae71bcc8d7676a6d6cc5195",
+          "type": "production"
+        },
+        {
+          "candidate_commit": "3b02366e63022eb4c760892aa1bcb4f26516e789",
+          "ref": "plans/features/p0-save-init-ux/evidence/release-25890/acceptance/journal-25890.json/.txt (phase-2)",
+          "observation": "После T0: 16×`initiative_observer_scan` + 1×`initiative_opportunity` + 1×`nostalgia_run` (все success); `error_warn_events_since_t0=[]`; ERR=29 журнала — provider-402 nano-gpt «Insufficient balance» (+1 traceback того же LLM-пути) — не дефекты 2.58.90.",
+          "artifact_path": "plans/features/p0-save-init-ux/evidence/release-25890/acceptance/journal-25890.json",
+          "artifact_sha256": "70f9ffa43e8226a0959bf24b1245194a9a8efc5c9f44c85d88568f02d6120692",
+          "type": "production"
+        }
+      ],
+      "live_note": "закрыто приёмкой C (прод 2.58.90): панель ok/воронка/`scan_anchored=1`; новых отправок после T0 не было — не требовалось (честный факт).",
       "alias_of": [
         "soul-1:SOUL-18.7"
       ],
@@ -434,6 +494,14 @@
           "artifact_path": "tests/test_p0_initfix_initiative_observer.py",
           "artifact_sha256": "6da2fcc4ee79e8b28edfd7eef15147f7ca4bd2626834b8bac9c6ce1bb06d04b9",
           "type": "test"
+        },
+        {
+          "candidate_commit": "3b02366e63022eb4c760892aa1bcb4f26516e789",
+          "ref": "plans/features/p0-save-init-ux/evidence/release-25890/acceptance/journal-25890.json/.txt (phase-2) + acceptance-bc-25890-read.json C1",
+          "observation": "Прод 2.58.90: durable `scan_anchored=1` (C1, passes=858) + событие `stage='anchored'` 13:40:06Z; после T0 — 16 сканов наблюдателя (все success); курсор подтянут к живому хвосту, архив не перечитывается.",
+          "artifact_path": "plans/features/p0-save-init-ux/evidence/release-25890/acceptance/journal-25890.json",
+          "artifact_sha256": "70f9ffa43e8226a0959bf24b1245194a9a8efc5c9f44c85d88568f02d6120692",
+          "type": "production"
         }
       ],
       "live_note": "postdeploy (DevOps/Orchestrator), не owner-гейт: `scan_anchored≥1`/`stage=anchored` в событиях, снижение cursor lag; read-only.",
@@ -464,6 +532,14 @@
           "artifact_path": "tests/test_p0_initfix_initiative_observer.py",
           "artifact_sha256": "6da2fcc4ee79e8b28edfd7eef15147f7ca4bd2626834b8bac9c6ce1bb06d04b9",
           "type": "test"
+        },
+        {
+          "candidate_commit": "3b02366e63022eb4c760892aa1bcb4f26516e789",
+          "ref": "plans/features/p0-save-init-ux/evidence/release-25890/acceptance/journal-25890.json + acceptance-bc-25890-read.json C1/C2",
+          "observation": "Прод 2.58.90: новый наблюдатель работает боевым кодом линии (16 сканов после T0, opportunity=1, decided=4 за 24ч); per-reply классификация — в продеплоенном коде; кейсы смешанного окна — тесты записи выше.",
+          "artifact_path": "plans/features/p0-save-init-ux/evidence/release-25890/acceptance/journal-25890.json",
+          "artifact_sha256": "70f9ffa43e8226a0959bf24b1245194a9a8efc5c9f44c85d88568f02d6120692",
+          "type": "production"
         }
       ],
       "alias_of": [
@@ -492,6 +568,14 @@
           "artifact_path": "tests/test_p0_initfix_initiative_observer.py",
           "artifact_sha256": "6da2fcc4ee79e8b28edfd7eef15147f7ca4bd2626834b8bac9c6ce1bb06d04b9",
           "type": "test"
+        },
+        {
+          "candidate_commit": "3b02366e63022eb4c760892aa1bcb4f26516e789",
+          "ref": "plans/features/p0-save-init-ux/evidence/release-25890/acceptance/acceptance-bc-25890-read.json C3 + journal-25890.json",
+          "observation": "Прод: причины окна по назначению — eval_not_due=192/not_enough_messages=88/`min_gap=8` (cooldown только по инициативным выводам); anti-flood/cooldown-разделение — боевой код линии.",
+          "artifact_path": "plans/features/p0-save-init-ux/evidence/release-25890/acceptance/acceptance-bc-25890-read.json",
+          "artifact_sha256": "9fbafd2f4daf18f224290d46fe658bc14f7fe58a3ae71bcc8d7676a6d6cc5195",
+          "type": "production"
         }
       ],
       "live_note": "postdeploy (DevOps/Orchestrator), не owner-гейт: в живом ритме пропуски `min_gap` от Direct-реплаев исчезают (воронка/`chat_block_state`); read-only.",
@@ -529,6 +613,14 @@
           "artifact_path": "tests/test_p0_initfix_initiative_observer.py",
           "artifact_sha256": "6da2fcc4ee79e8b28edfd7eef15147f7ca4bd2626834b8bac9c6ce1bb06d04b9",
           "type": "test"
+        },
+        {
+          "candidate_commit": "3b02366e63022eb4c760892aa1bcb4f26516e789",
+          "ref": "plans/features/p0-save-init-ux/evidence/release-25890/acceptance/acceptance-bc-25890-read.json (C3 panel, B2/B3) + acceptance/README.md §C",
+          "observation": "Прод 2.58.90: панель `activity.state=ok` «Инициатива доставляется»; cognition обоих чатов `active/scenario=active` (B2); PET-гейт включён (B3, 14:12:12Z); данные `/api/status` отдаются (не restricted).",
+          "artifact_path": "plans/features/p0-save-init-ux/evidence/release-25890/acceptance/acceptance-bc-25890-read.json",
+          "artifact_sha256": "9fbafd2f4daf18f224290d46fe658bc14f7fe58a3ae71bcc8d7676a6d6cc5195",
+          "type": "production"
         }
       ],
       "live_note": "postdeploy (DevOps/Orchestrator), не owner-гейт: на проде `/api/status` для выбранного чата отдаёт данные (не `restricted`); global-вид — честный «чат не выбран»; воронка видна; read-only.",
@@ -581,6 +673,14 @@
           "artifact_path": "plans/features/p0-save-init-ux/evidence/audit-2026-10-18/probe_persistence_audit.json",
           "artifact_sha256": "c27d225ef3c8d04b6865b551347b751914d411257bb7697a5900937d873edd91",
           "type": "test"
+        },
+        {
+          "candidate_commit": "3b02366e63022eb4c760892aa1bcb4f26516e789",
+          "ref": "plans/features/p0-save-init-ux/evidence/release-25890/acceptance/acceptance-payload-25890.json (F) + plans/features/p0-save-init-ux/evidence/release-25890/acceptance/acceptance-25890.json (A)",
+          "observation": "Прод-подтверждение звеньев цепочки: read-after-write по всем секциям (A1–A5) и «runtime LLM payload использует применённое значение без рестарта» (F: r5→r6→r5; честная граница `last_run_present=false`).",
+          "artifact_path": "plans/features/p0-save-init-ux/evidence/release-25890/acceptance/acceptance-payload-25890.json",
+          "artifact_sha256": "d3278c13a5adf4ed20fb48bc463f74e9ec106d98dbdcf34dafb1ef84a7022753",
+          "type": "production"
         }
       ],
       "alias_of": [
@@ -617,6 +717,14 @@
           "artifact_path": "plans/features/p0-save-init-ux/evidence/persist-fix/report.md",
           "artifact_sha256": "efccabb18d90ac016eb6a2cc1c9fa8c54d173232dccf04bd4a2c7b998180cd92",
           "type": "test"
+        },
+        {
+          "candidate_commit": "3b02366e63022eb4c760892aa1bcb4f26516e789",
+          "ref": "plans/features/p0-save-init-ux/evidence/release-25890/acceptance/acceptance-edges-25890.json (E) + plans/features/p0-save-init-ux/evidence/release-25890/acceptance/acceptance-25890.json (A7)",
+          "observation": "Прод-поведение исправленных первопричин: честные 409 `document_invalid`/422 без записи (E); конфликт 409 без потери (A7); `write_error` не диагноз — человеческие тексты.",
+          "artifact_path": "plans/features/p0-save-init-ux/evidence/release-25890/acceptance/acceptance-edges-25890.json",
+          "artifact_sha256": "ada8b2bc4f68b99c6f87e8a325e90fbdcc1b54d9a3014fd5b2c4fe5b6b5c3203",
+          "type": "production"
         }
       ],
       "alias_of": [
@@ -705,6 +813,14 @@
           "artifact_path": "plans/features/p0-save-init-ux/evidence/ux-impl/e2e-report.json",
           "artifact_sha256": "9e5e671a7724cb6488282b8ef6c5c3a10868d2a91f3ec8997d3c98b8b52fcb14",
           "type": "ui"
+        },
+        {
+          "candidate_commit": "3b02366e63022eb4c760892aa1bcb4f26516e789",
+          "ref": "plans/features/p0-save-init-ux/evidence/release-25890/final-verification.txt (SERVED_EQ_*) + review-release-25890.md NF-2 + acceptance/README.md §G",
+          "observation": "Прод 2.58.90: UX-бандл отдан байт-в-байт (SERVED_EQ_APP_JS/APP_CSS=SAME; PAGE_VER=15/SUBST_CSS=2); жив. загрузка сборки — 0 ошибок консоли (§G); device-проверка — waiver (PET/AGENTS §5).",
+          "artifact_path": "plans/features/p0-save-init-ux/evidence/release-25890/final-verification.txt",
+          "artifact_sha256": "611093c9c86686beb33c36a31721072a2c8c96aa455b96d9b804e0e590fd5da9",
+          "type": "production"
         }
       ],
       "alias_of": [
@@ -734,6 +850,14 @@
           "artifact_path": "plans/features/p0-save-init-ux/evidence/ux-impl/report.md",
           "artifact_sha256": "fb97fcece7b7b4154dd14bb494f2467e44890126f67610d45a5a583aa594efdd",
           "type": "test"
+        },
+        {
+          "candidate_commit": "3b02366e63022eb4c760892aa1bcb4f26516e789",
+          "ref": "plans/features/p0-save-init-ux/evidence/release-25890/final-verification.txt (SERVED_EQ_*) + review-release-25890.md NF-2 + acceptance/README.md §G",
+          "observation": "Прод 2.58.90: UX-бандл отдан байт-в-байт (SERVED_EQ_APP_JS/APP_CSS=SAME; PAGE_VER=15/SUBST_CSS=2); жив. загрузка сборки — 0 ошибок консоли (§G); device-проверка — waiver (PET/AGENTS §5).",
+          "artifact_path": "plans/features/p0-save-init-ux/evidence/release-25890/final-verification.txt",
+          "artifact_sha256": "611093c9c86686beb33c36a31721072a2c8c96aa455b96d9b804e0e590fd5da9",
+          "type": "production"
         }
       ],
       "alias_of": [
@@ -763,6 +887,14 @@
           "artifact_path": "plans/features/p0-save-init-ux/evidence/ux-impl/shots/core_320.png",
           "artifact_sha256": "ebbbff9510c86a5471319196ff2ff3931507f4a4851bb80ad78317fcc2616c03",
           "type": "ui"
+        },
+        {
+          "candidate_commit": "3b02366e63022eb4c760892aa1bcb4f26516e789",
+          "ref": "plans/features/p0-save-init-ux/evidence/release-25890/final-verification.txt (SERVED_EQ_*) + review-release-25890.md NF-2 + acceptance/README.md §G",
+          "observation": "Прод 2.58.90: UX-бандл отдан байт-в-байт (SERVED_EQ_APP_JS/APP_CSS=SAME; PAGE_VER=15/SUBST_CSS=2); жив. загрузка сборки — 0 ошибок консоли (§G); device-проверка — waiver (PET/AGENTS §5).",
+          "artifact_path": "plans/features/p0-save-init-ux/evidence/release-25890/final-verification.txt",
+          "artifact_sha256": "611093c9c86686beb33c36a31721072a2c8c96aa455b96d9b804e0e590fd5da9",
+          "type": "production"
         }
       ],
       "alias_of": [
@@ -793,6 +925,14 @@
           "artifact_path": "plans/features/p0-save-init-ux/evidence/ux-impl/shots/dirty_390.png",
           "artifact_sha256": "e72229e9d5acd0df6f692345dfc14e42e07a6377206280471fb6ba9b13d7476b",
           "type": "ui"
+        },
+        {
+          "candidate_commit": "3b02366e63022eb4c760892aa1bcb4f26516e789",
+          "ref": "plans/features/p0-save-init-ux/evidence/release-25890/final-verification.txt (SERVED_EQ_*) + review-release-25890.md NF-2 + acceptance/README.md §G",
+          "observation": "Прод 2.58.90: UX-бандл отдан байт-в-байт (SERVED_EQ_APP_JS/APP_CSS=SAME; PAGE_VER=15/SUBST_CSS=2); жив. загрузка сборки — 0 ошибок консоли (§G); device-проверка — waiver (PET/AGENTS §5).",
+          "artifact_path": "plans/features/p0-save-init-ux/evidence/release-25890/final-verification.txt",
+          "artifact_sha256": "611093c9c86686beb33c36a31721072a2c8c96aa455b96d9b804e0e590fd5da9",
+          "type": "production"
         }
       ],
       "alias_of": [
@@ -822,6 +962,14 @@
           "artifact_path": "plans/features/p0-save-init-ux/evidence/ux-impl/shots/chat_switch_390.png",
           "artifact_sha256": "d26a348e6528fa98046501f9e7875feb07c99ba57b0dd915fbdddae90e593f91",
           "type": "ui"
+        },
+        {
+          "candidate_commit": "3b02366e63022eb4c760892aa1bcb4f26516e789",
+          "ref": "plans/features/p0-save-init-ux/evidence/release-25890/final-verification.txt (SERVED_EQ_*) + review-release-25890.md NF-2 + acceptance/README.md §G",
+          "observation": "Прод 2.58.90: UX-бандл отдан байт-в-байт (SERVED_EQ_APP_JS/APP_CSS=SAME; PAGE_VER=15/SUBST_CSS=2); жив. загрузка сборки — 0 ошибок консоли (§G); device-проверка — waiver (PET/AGENTS §5).",
+          "artifact_path": "plans/features/p0-save-init-ux/evidence/release-25890/final-verification.txt",
+          "artifact_sha256": "611093c9c86686beb33c36a31721072a2c8c96aa455b96d9b804e0e590fd5da9",
+          "type": "production"
         }
       ],
       "alias_of": [
@@ -850,6 +998,14 @@
           "artifact_path": "plans/features/p0-save-init-ux/evidence/ux-impl/w6-after/ui-report.json",
           "artifact_sha256": "fcc6e2373b688f78081f029a0f0e0889b1d38f8e6260e3eceb245b3f79bc3a2f",
           "type": "test"
+        },
+        {
+          "candidate_commit": "3b02366e63022eb4c760892aa1bcb4f26516e789",
+          "ref": "plans/features/p0-save-init-ux/evidence/release-25890/final-verification.txt (SERVED_EQ_*) + review-release-25890.md NF-2 + acceptance/README.md §G",
+          "observation": "Прод 2.58.90: UX-бандл отдан байт-в-байт (SERVED_EQ_APP_JS/APP_CSS=SAME; PAGE_VER=15/SUBST_CSS=2); жив. загрузка сборки — 0 ошибок консоли (§G); device-проверка — waiver (PET/AGENTS §5).",
+          "artifact_path": "plans/features/p0-save-init-ux/evidence/release-25890/final-verification.txt",
+          "artifact_sha256": "611093c9c86686beb33c36a31721072a2c8c96aa455b96d9b804e0e590fd5da9",
+          "type": "production"
         }
       ],
       "alias_of": [
