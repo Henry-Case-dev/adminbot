@@ -103,6 +103,25 @@ reason=provenance_missing` (13:52:27 и 14:03:21) — это следствие 
 (превью резолвит базу L2 Writer): сохранённое значение удерживается штатным механизмом
 legacy-подавления (не применяется), записи в прод нет. Severity: низкая, область: speech/registry.
 
+## E. Негативные ветки (без записи) — ЗАКРЫТО
+
+Артефакт: `acceptance-edges-25890.json` (**3/3 PASS**).
+* `POST /api/speech/style` (chat) с правилом неизвестного вида → **409**
+  `документ не прошёл проверку: rule_kind_unknown:no_such_kind`; состояние чата не изменилось
+  (`chat_revision=0`, `inheritance=global`) — валидация не подавлена, правило не потеряно молча.
+* `POST /api/speech/core/meta` с `detail_level="bogus"` → **422** «неизвестный detail_level»;
+  уровень не изменён.
+* Итоговый дифф после негативных проб: `{}`.
+
+## F. Живая загрузка прод-сборки в браузере
+
+`live-web/` (Playwright против прода, 14:16–14:17Z): страница `…/web/` открывается, приложение
+исполняется (хуки Telegram WebApp, хаб «Статус/Ещё», стеклянный фон), **0 ошибок консоли**,
+5 предупреждений — только вендорный `telegram-web-app.js`; вне Telegram — честное сообщение
+«миниапп открыт без Telegram-контекста». Полный UI-цикл сохранения в браузере не выполнялся
+(нет initData) — функциональный цикл закрыт HTTPS-приёмкой A; визуальная вёрстка — зона Reviewer.
+
+
 
 ## Как воспроизвести (без SSH)
 
@@ -130,7 +149,7 @@ legacy-подавления (не применяется), записи в пр�
 | `acceptance-25890-run1-full-cycle.json` | `6a995d53e1bf6063` | прогон-1 (исторический; провенанс-дельта humor.craft) |
 | `acceptance-bc-25890-read.json` | `8cc9914dd915cf9a` | B/C: гейты, funnels, vitality, nostalgia_log, cognition |
 | `acceptance-bc-25890-enable-gate.json` | `e419e6aa1f0c5e1f` | включение PET-гейта `nostalgia` |
-| `probe_acceptance_25890.py` | `d16ff573ea5e4657` | пробник A (readonly/full/recheck) |
+| `probe_acceptance_25890.py` | `ac095b0b0f96b965` | пробник A (readonly/full/recheck/edges) |
 | `probe_live_bc_25890.py` | `0f8f15b838cd5a3a` | пробник B/C (read/enable-gate) |
 | `probe_journal_25890.sh` | `998f9677c8f4fe3d` | журнальная фаза (bash, read-only) |
 | `run_journal_ssh_25890.py` | `88ad20630008f325` | раннер журнальной фазы (один коннект) |
@@ -138,6 +157,10 @@ legacy-подавления (не применяется), записи в пр�
 | `journal-25890-phase1.json` | `df58c11ccddd9a60` | фаза-1: SQLite-payload (`stage='anchored'` 13:40:06Z и др.) |
 | `logs-ring-25890.json` | `824f88728d2144b9` | `/api/status/logs` ring-буфер: `ERROR=0`, `CRITICAL=0` |
 | `probe_logs_ring_25890.py` | `714efb6c0e5c3962` | пробник ring-буфера логов |
+| `acceptance-edges-25890.json` | `ada8b2bc4f68b99c` | E: негативные ветки (409 `document_invalid`, 422) без записи |
+| `live-web/live_web_390.png` | `7fd5978f3e3db53a` | живая загрузка прод-сборки в браузере (390px) |
+| `live-web/console.txt` | `a69ebdf06a6de56b` | консоль браузера: 0 errors, 5 вендорных warnings |
+| `live-web/page_snapshot.yml` | `97f17be32215afd5` | a11y-снимок «нет Telegram-контекста» |
 
 ## Остатки (не закрыто в этом лейне)
 

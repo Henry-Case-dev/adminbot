@@ -667,6 +667,41 @@ def a8_final(before: dict) -> None:
     REPORT["final_diff_provenance_only"] = benign
 
 
+def edges(before: dict) -> None:
+    """Негативные ветки БЕЗ записи: невалидный документ и невалидное поле.
+
+    Обе проверки должны быть отвергнуты честно (409/422) и НЕ менять состояние
+    прода — это доказательство «валидация не подавлена» на живом стенде.
+    """
+    st0 = view_style(WORK)
+    put = req("POST", "/api/speech/style", chat=WORK,
+              body={"document": {"rules": [{"id": "acc90.bogus",
+                                            "kind": "no_such_kind",
+                                            "strictness": "hard"}],
+                                 "soft_instructions": []},
+                    "scope": "chat", "reason": "acceptance-25890 invalid probe"})
+    j = put.get("json") or {}
+    detail = j.get("detail") if isinstance(j, dict) else None
+    st1 = view_style(WORK)
+    step("E1_style_invalid_document_409",
+         put.get("status") == 409 and st1 == st0,
+         {"post_status": put.get("status"), "detail": detail,
+          "state_unchanged": st1 == st0,
+          "chat_revision": st1.get("chat_revision"),
+          "inheritance": st1.get("inheritance")})
+    meta = req("POST", "/api/speech/core/meta", chat=WORK,
+               body={"detail_level": "bogus", "scope": "chat"})
+    mj = meta.get("json") or {}
+    c1 = view_core(WORK)
+    step("E2_core_invalid_level_422",
+         meta.get("status") == 422
+         and c1.get("level") == before["core_work"].get("level"),
+         {"post_status": meta.get("status"),
+          "detail": (mj.get("detail") if isinstance(mj, dict) else None),
+          "level": c1.get("level"),
+          "inheritance": c1.get("inheritance")})
+
+
 def main() -> int:
     mode = sys.argv[1] if len(sys.argv) > 1 else "readonly"
     REPORT["mode"] = mode
@@ -674,6 +709,23 @@ def main() -> int:
     health = req("GET", "/healthz")
     REPORT["prod_health"] = health.get("json") or health
     print("[env] %s" % json.dumps(REPORT["prod_health"], ensure_ascii=False))
+    if mode == "edges":
+        before = snapshot()
+        REPORT["baseline"] = before
+        edges(before)
+        after = snapshot()
+        hard, benign = split_diff(diff(before, after))
+        step("E3_state_restored_after_edges", not hard,
+             {"diff_significant": hard, "diff_provenance_only": benign,
+              "health": health.get("json")})
+        REPORT["finished_utc"] = time.strftime("%Y-%m-%dT%H:%M:%SZ",
+                                               time.gmtime())
+        with open(os.path.join(os.path.dirname(__file__),
+                               "acceptance-edges-25890.json"),
+                  "w", encoding="utf-8") as fh:
+            json.dump(REPORT, fh, ensure_ascii=False, indent=2)
+        print("[done] failures=%d" % len(REPORT["failures"]))
+        return 1 if REPORT["failures"] else 0
     if mode == "recheck":
         # verification-only: сверка ТЕКУЩЕГО состояния с baseline прогона-1
         base = os.path.join(os.path.dirname(__file__), "acceptance-25890.json")

@@ -1,0 +1,13 @@
+[    2387ms] [LOG] [Telegram.WebView] > postEvent web_app_set_header_color {color_key: bg_color} @ https://admin-bot.duckdns.org/static/vendor/telegram-web-app.js:134
+[    2387ms] [LOG] [Telegram.WebView] > postEvent web_app_set_bottom_bar_color {color: #ffffff} @ https://admin-bot.duckdns.org/static/vendor/telegram-web-app.js:134
+[    2388ms] [LOG] [Telegram.WebView] > postEvent web_app_request_theme  @ https://admin-bot.duckdns.org/static/vendor/telegram-web-app.js:134
+[    2388ms] [LOG] [Telegram.WebView] > postEvent web_app_request_viewport  @ https://admin-bot.duckdns.org/static/vendor/telegram-web-app.js:134
+[    2388ms] [LOG] [Telegram.WebView] > postEvent web_app_request_safe_area  @ https://admin-bot.duckdns.org/static/vendor/telegram-web-app.js:134
+[    2388ms] [LOG] [Telegram.WebView] > postEvent web_app_request_content_safe_area  @ https://admin-bot.duckdns.org/static/vendor/telegram-web-app.js:134
+[    3500ms] [WARNING] [Telegram.WebApp] BackButton is not supported in version 6.0 @ https://admin-bot.duckdns.org/static/vendor/telegram-web-app.js:988
+[    3511ms] [LOG] [Telegram.WebView] > postEvent web_app_ready  @ https://admin-bot.duckdns.org/static/vendor/telegram-web-app.js:134
+[    3511ms] [LOG] [Telegram.WebView] > postEvent web_app_expand  @ https://admin-bot.duckdns.org/static/vendor/telegram-web-app.js:134
+[    3512ms] [WARNING] [Telegram.WebApp] Header color is not supported in version 6.0 @ https://admin-bot.duckdns.org/static/vendor/telegram-web-app.js:768
+[    3512ms] [WARNING] [Telegram.WebApp] Background color is not supported in version 6.0 @ https://admin-bot.duckdns.org/static/vendor/telegram-web-app.js:824
+[    3512ms] [WARNING] [Telegram.WebApp] Bottom bar color is not supported in version 6.0 @ https://admin-bot.duckdns.org/static/vendor/telegram-web-app.js:862
+[    3512ms] [WARNING] [Telegram.WebApp] BackButton is not supported in version 6.0 @ https://admin-bot.duckdns.org/static/vendor/telegram-web-app.js:988

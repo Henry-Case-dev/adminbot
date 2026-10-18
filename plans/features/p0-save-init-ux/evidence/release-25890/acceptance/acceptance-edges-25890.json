@@ -1,0 +1,177 @@
+{
+  "probe": "acceptance-25890",
+  "lane": "ACCEPTANCE-90",
+  "prod": "https://admin-bot.duckdns.org",
+  "target_version": "2.58.90",
+  "target_commit": "3b02366e",
+  "t0_utc": "2026-10-18T13:34:23Z",
+  "chats": {
+    "work": -1002661910336,
+    "pet": -1004482340693
+  },
+  "steps": [
+    {
+      "id": "E1_style_invalid_document_409",
+      "ok": true,
+      "detail": {
+        "post_status": 409,
+        "detail": "документ не прошёл проверку: rule_kind_unknown:no_such_kind",
+        "state_unchanged": true,
+        "chat_revision": 0,
+        "inheritance": "global"
+      }
+    },
+    {
+      "id": "E2_core_invalid_level_422",
+      "ok": true,
+      "detail": {
+        "post_status": 422,
+        "detail": "неизвестный detail_level",
+        "level": "full",
+        "inheritance": "global"
+      }
+    },
+    {
+      "id": "E3_state_restored_after_edges",
+      "ok": true,
+      "detail": {
+        "diff_significant": {},
+        "diff_provenance_only": {},
+        "health": {
+          "status": "ok",
+          "version": "2.58.90"
+        }
+      }
+    }
+  ],
+  "failures": [],
+  "mode": "edges",
+  "started_utc": "2026-10-18T14:15:52Z",
+  "prod_health": {
+    "status": "ok",
+    "version": "2.58.90"
+  },
+  "baseline": {
+    "core_global": {
+      "inheritance": "global",
+      "scope": "global",
+      "level": "full",
+      "source": "global",
+      "reason": "owner_setting",
+      "full_chars": 2835,
+      "compact_chars": 1934
+    },
+    "core_work": {
+      "inheritance": "global",
+      "scope": "chat",
+      "level": "full",
+      "source": "global",
+      "reason": "owner_setting",
+      "full_chars": 2835,
+      "compact_chars": 1934
+    },
+    "core_pet": {
+      "inheritance": "global",
+      "scope": "chat",
+      "level": "full",
+      "source": "global",
+      "reason": "owner_setting",
+      "full_chars": 2835,
+      "compact_chars": 1934
+    },
+    "expr_global": {
+      "inheritance": "factory_default",
+      "global_present": false,
+      "chat_present": false,
+      "values": {
+        "wit": "inherit",
+        "sharpness": "inherit",
+        "profanity": "inherit",
+        "verbosity": "inherit"
+      },
+      "enabled": true,
+      "rendered_chars": 0
+    },
+    "expr_work": {
+      "inheritance": "factory_default",
+      "global_present": false,
+      "chat_present": false,
+      "values": {
+        "wit": "inherit",
+        "sharpness": "inherit",
+        "profanity": "inherit",
+        "verbosity": "inherit"
+      },
+      "enabled": true,
+      "rendered_chars": 0
+    },
+    "expr_pet": {
+      "inheritance": "factory_default",
+      "global_present": false,
+      "chat_present": false,
+      "values": {
+        "wit": "inherit",
+        "sharpness": "inherit",
+        "profanity": "inherit",
+        "verbosity": "inherit"
+      },
+      "enabled": true,
+      "rendered_chars": 0
+    },
+    "style_global": {
+      "revision": "g8.fe503bd7f9d1",
+      "source": "global",
+      "rules": [],
+      "soft": 0,
+      "inheritance": "global",
+      "global_revision": 8,
+      "chat_revision": 0
+    },
+    "style_work": {
+      "revision": "g8.fe503bd7f9d1",
+      "source": "global",
+      "rules": [],
+      "soft": 0,
+      "inheritance": "global",
+      "global_revision": 8,
+      "chat_revision": 0
+    },
+    "style_pet": {
+      "revision": "g8.fe503bd7f9d1",
+      "source": "global",
+      "rules": [],
+      "soft": 0,
+      "inheritance": "global",
+      "global_revision": 8,
+      "chat_revision": 0
+    },
+    "humor_global": {
+      "craft_enabled": true,
+      "craft_source": "global",
+      "craft_revision": 4,
+      "disabled": []
+    },
+    "humor_work": {
+      "craft_enabled": true,
+      "craft_source": "global",
+      "craft_revision": 4,
+      "disabled": []
+    },
+    "learning_work": {
+      "paused": false,
+      "available": true,
+      "enabled": true
+    },
+    "gates_work": {
+      "nostalgia": true,
+      "updated_at": "2026-10-18T14:03:30.794072+00:00",
+      "opt_in": false
+    },
+    "gates_pet": {
+      "nostalgia": true,
+      "updated_at": "2026-10-18T14:12:12.738740+00:00",
+      "opt_in": false
+    }
+  },
+  "finished_utc": "2026-10-18T14:16:27Z"
+}
