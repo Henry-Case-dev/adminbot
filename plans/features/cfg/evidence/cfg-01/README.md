@@ -53,7 +53,7 @@
 (команды `/clear`, `/persona`, `/tone`, `/forget`, `/style`, `edited_message`) троттлером не затрагивались
 и не затронуты. Параллельность и два «воркера» на одной БД проверены тестами (см. §4).
 
-## 3. Покрытие строк карты (план статуса; биндинг — после ревью)
+## 3. Покрытие строк карты (план статуса; биндинг выполнен по кандидату `0282fe4b`)
 
 | Строка | Статус-план | Доказательство |
 |---|---|---|
@@ -62,15 +62,19 @@
 | CFG-01.3 | `TESTED` | независимость GLOBAL/CHAT, невлияние на другие чаты, reset-to-inherited: `test_per_chat_override_isolated_and_inherit_restored`, `test_resolve_global_then_chat_then_inherit` |
 | CFG-01.4 | `TESTED` (UI-текст — см. риск R1) | `test_normalize_bounds`, докстроки `normalize_direct_chat_limits`/`PersistentThrottle` |
 | CFG-01.5 | `TESTED` | `chat_id/user_id`-изоляция (существующие + `test_isolation_per_chat_and_user`), параллель и 2 воркера: `test_parallel_burst_same_chat_obeys_limit_in_memory`, `test_parallel_burst_two_workers_shared_persistent_state`; рестарт: `test_persistent_limits_survive_restart_with_new_values`, `test_bucket_survives_restart` |
-| CFG-01.6 | `READY_FOR_LIVE` (preprod) | локально: `test_refusal_reports_factual_remaining_and_source` (фактический остаток «4 мин 30 сек», `source=chat/global`, событие `direct_chat_throttle`). Живая проверка: см. §5 |
+| CFG-01.6 | `READY_FOR_LIVE` (postdeploy) | локально: `test_refusal_reports_factual_remaining_and_source` (фактический остаток «4 мин 30 сек», `source=chat/global`, событие `direct_chat_throttle`). Живая проверка: см. §5 |
 | CFG-01.7 | `TESTED` | троттлер — первый барьер в единственном входе; параллельные/альтернативные попытки не превышают лимит; административные команды и независимые лимиты не изменены (регрессионные наборы §4) |
-| CFG-01.AC1 | `READY_FOR_LIVE` (preprod) | локально RED→GREEN: `test_global_hot_reload_without_restart` (10→2: ровно 2 обращения, третье ограничено; возврат 10 меняет поведение) |
-| CFG-01.AC2 | `READY_FOR_LIVE` (preprod) | локально: `test_per_chat_override_isolated_and_inherit_restored` |
+| CFG-01.D | `TESTED` (дефект) | дефект «правка `limits.chat_burst_limit` в MiniApp не меняет фактическую частоту ответов без рестарта»: RED на базе `43f86ef2` (`-k Cfg01` → 7 failed) → GREEN на кандидате `0282fe4b` (`-k Cfg01` → 7 passed, три файла → 204 passed) — `red-green.txt`; end-to-end: `test_global_hot_reload_without_restart` (10→2: ровно 2 обращения, третье — отказ до LLM; возврат 10 без рестарта меняет поведение); поведенческая инверсия (старый «бонус» +5 → ровно 2) независимо воспроизведена на «модуль базы vs кандидат» — `review-cfg-01.md` §2/§4 |
+| ADD-1.T1 | `TESTED` (алиас) | CFG-01 — новая самостоятельная работа, не переигрывание SOUL-1: состав диффа кандидата — ровно 8 файлов (`services/{persistent_throttling,chat_params,direct_chat_service}.py`, `tests/test_direct_chat.py`, `tests/test_direct_chat_concurrency.py`, `tests/test_persistent_throttling.py`, `evidence/cfg-01/{README.md,red-green.txt}`, +1057/−32), второй резолвер/второй троттлер не созданы — `get_chat_param_sourced` переиспользует порядок существующего `get_chat_param` (override → hot → settings); `param_catalog.py`/`web/*` не тронуты — `review-cfg-01.md` §1 |
+| CFG-01.AC1 | `READY_FOR_LIVE` (postdeploy) | локально RED→GREEN: `test_global_hot_reload_without_restart` (10→2: ровно 2 обращения, третье ограничено; возврат 10 меняет поведение) |
+| CFG-01.AC2 | `READY_FOR_LIVE` (postdeploy) | локально: `test_per_chat_override_isolated_and_inherit_restored` |
 | CFG-01.AC3 | `TESTED` | редактирование на активном кулдауне, reset-to-inherited, restart, TTL/NOTIFY, два пользователя в чате, один пользователь в двух чатах, параллель — тесты §4 |
-| CFG-01.AC4 | `READY_FOR_LIVE` (preprod) | локально: отказ до LLM/tool (`llm.call_count` не растёт), остаток > 0 и ≤ паузы, событие с `remaining_seconds` |
+| CFG-01.AC4 | `READY_FOR_LIVE` (postdeploy) | локально: отказ до LLM/tool (`llm.call_count` не растёт), остаток > 0 и ≤ паузы, событие с `remaining_seconds` |
 
-Live-строки (01.6, AC1/2/4) локально закрыты только поведенчески; на проде/preprod их подтверждает живой
-сценарий §5 — они помечены `READY_FOR_LIVE`, не `VERIFIED`.
+Live-строки (01.6, AC1/2/4) локально закрыты только поведенчески и не блокируют очередь (ADD-0.1; plan
+§процесс.4); их подтверждает живой сценарий §5 — статус остаётся `READY_FOR_LIVE` (не `VERIFIED`), закрытие
+на postdeploy. После биндинга по кандидату `0282fe4b` строки `CFG-01.1–01.7`, `CFG-01.AC3`, `CFG-01.D`,
+`ADD-1.T1` в карте — `VERIFIED`.
 
 ## 4. Прогоны (команды и результаты)
 
@@ -124,9 +128,17 @@ py -3 -m pytest <57 файлов: direct_chat*/persistent_throttling/hot_config/
 * **R3 (кламп при уменьшении лимита).** Уменьшение лимита немедленно обрезает накопленные заряды; это
   документированная политика и условие AC1. Увеличение лимита не выдаёт «бонусные» заряды до конца окна —
   поведение осознанное и покрыто тестами.
-* **Побочная находка (исправлена в этом же слайсе).** В `_UPSERT_CONSUME_SQL` ветка refill подставляла
-  `limit-1` вместо `limit`, то есть после полного восстановления терялся один заряд окна; дефект пойман
-  новым тестом `test_refresh_limit_increase_no_bonus_in_window` и исправлен (окно = ровно `limit`).
+* **Побочная находка (исправлена в этом же слайсе).** Исправлено **отсутствие клампа накопленного остатка**
+  к effective-лимиту: на базовом коде сценарий «10 доступно, 5 израсходовано, лимит стал 2» допускал ещё 5
+  обращений (старый запас работал как бонус) — кандидат допускает ровно 2 (`MIN(COALESCE(burst_left,0), ?)`
+  в SET и WHERE **одного** UPSERT; `min(state[0], _limit)` в in-memory). Ветка refill
+  (`CASE WHEN last_ts + cooldown <= now THEN ? - 1`, где `?` = `self._limit`) **не менялась**: окно после
+  полного восстановления равно `limit` и на базе, и на кандидате — заряд не терялся, формулировка
+  «`limit-1` → `limit`» к этому изменению не относится. Кламп закреплён тестом
+  `test_refresh_hot_reload_clamps_persistent_bucket` (5 из 10 → `refresh(2)` → ровно 2, третье — отказ);
+  инвариант «окно = ровно `limit`» — `test_refresh_limit_increase_no_bonus_in_window`. Поведенческая
+  инверсия дополнительно воспроизведена сравнением «модуль базы vs кандидат» на одной БД
+  (`review-cfg-01.md` §2/§4).
 * **Pre-existing (не относится к CFG-01).** 2 RED в `tests/test_asap7_direct_settings.py` (миграции v35) —
   воспроизведены на базовом коммите без правок CFG-01; см. §4.
 
