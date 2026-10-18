@@ -1,0 +1,164 @@
+FFFFFFFFFF...                                                            [100%]
+================================== FAILURES ===================================
+________________ test_health_capability_maps_to_existing_tool _________________
+
+    def test_health_capability_maps_to_existing_tool():
+        """╨Э╨╡ ╨┐╨╡╤А╨╡╤Б╨╛╨╖╨┤╨░╨╜╨╕╨╡: capability тЖТ ╤Г╨╢╨╡ ╤Б╤Г╤Й╨╡╤Б╤В╨▓╤Г╤О╤Й╨╕╨╣ ╨║╨░╨╜╨╛╨╜-╨╕╨╜╤Б╤В╤А╤Г╨╝╨╡╨╜╤В."""
+>       assert dc.CAPABILITY_TOOLS["health"] == ("get_bot_health",)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'health'
+
+tests\test_addtr_tools_minifix.py:71: KeyError
+______________________ test_health_resolves_in_l1_subset ______________________
+
+    def test_health_resolves_in_l1_subset():
+        resolved, rejected = dc.resolve_capabilities(
+            ["health"], {"get_bot_health", "execute_web_search"})
+>       assert resolved == ["get_bot_health"]
+E       AssertionError: assert [] == ['get_bot_health']
+E         
+E         Right contains one more item: 'get_bot_health'
+E         Use -v to get more diff
+
+tests\test_addtr_tools_minifix.py:79: AssertionError
+___________________ test_health_announced_in_l1_vocabulary ____________________
+
+    def test_health_announced_in_l1_vocabulary():
+        """L1-╨┐╨╗╨░╨╜╨╕╤А╨╛╨▓╤Й╨╕╨║ ╨▓╨╕╨┤╨╕╤В capability ╨▓ ┬л╨Ф╨Ю╨б╨в╨г╨Я╨Э╨л╨Х ╨Т╨Ю╨Ч╨Ь╨Ю╨Ц╨Э╨Ю╨б╨в╨Ш┬╗ тАФ ╨╕╨╜╨░╤З╨╡
+        ╤Б╨▓╨╛╨▒╨╛╨┤╨╜╨░╤П ╤Д╨╛╤А╨╝╨░ ╤Д╨╕╨╖╨╕╤З╨╡╤Б╨║╨╕ ╨╜╨╡ ╨╝╨╛╨╢╨╡╤В ╨┤╨╛╨╣╤В╨╕ ╨┤╨╛ ╨╕╨╜╤Б╤В╤А╤Г╨╝╨╡╨╜╤В╨░."""
+        names = {t["function"]["name"] for t in active_tools(True, False)}
+>       assert "health" in dc.available_capabilities(names)
+E       AssertionError: assert 'health' in ['web_search', 'fetch_url', 'chat_history', 'chat_memory', 'user_memory', 'historical_search', ...]
+E        +  where ['web_search', 'fetch_url', 'chat_history', 'chat_memory', 'user_memory', 'historical_search', ...] = <function available_capabilities at 0x000002447D21A020>({'compile_lore_story', 'dig_into_lore', 'download_media', 'execute_web_search', 'fact_check', 'fetch_article', ...})
+E        +    where <function available_capabilities at 0x000002447D21A020> = dc.available_capabilities
+
+tests\test_addtr_tools_minifix.py:87: AssertionError
+_________________ test_health_honest_rejection_when_inactive __________________
+
+    def test_health_honest_rejection_when_inactive():
+        """╨Ш╨╖╨▓╨╡╤Б╤В╨╜╨░╤П capability ╨▒╨╡╨╖ ╨░╨║╤В╨╕╨▓╨╜╨╛╨│╨╛ ╤В╤Г╨╗╨░ тАФ ╨╜╨░╨▒╨╗╤О╨┤╨░╨╡╨╝╤Л╨╣ ╨╛╤В╨║╨░╨╖, ╨╜╨╡ ╤В╨╕╤И╨╕╨╜╨░."""
+        resolved, rejected = dc.resolve_capabilities(["health"], set())
+        assert resolved == []
+>       assert rejected == [("health", dc.REASON_NOT_ACTIVE)]
+E       AssertionError: assert [('health', '..._capability')] == [('health', '..._not_active')]
+E         
+E         At index 0 diff: ('health', 'unknown_capability') != ('health', 'tool_not_active')
+E         Use -v to get more diff
+
+tests\test_addtr_tools_minifix.py:94: AssertionError
+_____________________ test_registry_knows_health_as_ready _____________________
+
+    @pytest.mark.asyncio
+    async def test_registry_knows_health_as_ready():
+        hot.set_config_cache(_Cfg({"flags.checkup_enabled": True}))
+        state = await caps.resolve("health", CHAT, use_cache=False)
+>       assert state.status == caps.STATUS_READY
+E       AssertionError: assert 'unknown' == 'ready'
+E         
+E         - ready
+E         + unknown
+
+tests\test_addtr_tools_minifix.py:104: AssertionError
+____________________ test_registry_health_off_never_silent ____________________
+
+    @pytest.mark.asyncio
+    async def test_registry_health_off_never_silent():
+        """╨Ь╨╛╨┤╤Г╨╗╤М ╨▓╤Л╨║╨╗╤О╤З╨╡╨╜ тЖТ registry ╨╛╨▒╤П╨╖╨░╨╜ ╤Б╨║╨░╨╖╨░╤В╤М ┬л╨╜╨╡╨┤╨╛╤Б╤В╤Г╨┐╨╜╨╛┬╗ (Writer ╨╜╨╡
+        ╨╛╨▒╨╡╤Й╨░╨╡╤В ╨╕ ╨╜╨╡ ╨▓╤Л╨┤╤Г╨╝╤Л╨▓╨░╨╡╤В), ╨░ ╨╜╨╡ ╨╝╨╛╨╗╤З╨░╤В╤М/╨┐╤А╨╕╤В╨▓╨╛╤А╤П╤В╤М╤Б╤П ╨│╨╛╤В╨╛╨▓╤Л╨╝."""
+        hot.set_config_cache(_Cfg({"flags.checkup_enabled": False}))
+        state = await caps.resolve("health", CHAT, use_cache=False)
+>       assert state.status == caps.STATUS_DISABLED
+E       AssertionError: assert 'unknown' == 'disabled'
+E         
+E         - disabled
+E         + unknown
+
+tests\test_addtr_tools_minifix.py:117: AssertionError
+__________________ test_health_derived_as_deterministic_step __________________
+
+    def test_health_derived_as_deterministic_step():
+        plan = _plan(capabilities_needed=["health"])
+        assert plan.execution_mode == "simple_tools"
+        steps, limitations = dx.derive_simple_steps(
+            plan, query=QUERY_FREE, ctx=None, announced={"get_bot_health"})
+>       assert [s["tool"] for s in steps] == ["get_bot_health"]
+E       AssertionError: assert [] == ['get_bot_health']
+E         
+E         Right contains one more item: 'get_bot_health'
+E         Use -v to get more diff
+
+tests\test_addtr_tools_minifix.py:131: AssertionError
+__________ test_health_simple_tools_dispatch_returns_data_for_writer __________
+
+    @pytest.mark.asyncio
+    async def test_health_simple_tools_dispatch_returns_data_for_writer():
+        """╨Ф╨░╨╜╨╜╤Л╨╡ ╤А╨╡╨░╨╗╤М╨╜╨╛╨│╨╛ ╨╕╤Б╨┐╨╛╨╗╨╜╨╡╨╜╨╕╤П (╨╜╨╡ ╤Д╨░╨║╤В ╨▓╤Л╨╖╨╛╨▓╨░) ╨┤╨╛╨╡╨╖╨╢╨░╤О╤В ╨┤╨╛ tool_context,
+        ╨║╨╛╤В╨╛╤А╤Л╨╣ ╨┐╨╛╨╗╤Г╤З╨░╨╡╤В Writer."""
+        plan = _plan(capabilities_needed=["health"])
+        router = _Router(outputs={"get_bot_health": HEALTH_REPORT})
+        result = await dx.run_simple_tools(
+            plan=plan, router=router, ctx=None, query=QUERY_FREE,
+            chat_id=CHAT, correlation_id="t-ok", announced={"get_bot_health"})
+>       assert result is not None
+E       assert None is not None
+
+tests\test_addtr_tools_minifix.py:145: AssertionError
+________________ test_health_failure_is_visible_not_fabricated ________________
+
+    @pytest.mark.asyncio
+    async def test_health_failure_is_visible_not_fabricated():
+        """╨б╨▒╨╛╨╣ ╨╕╨╜╤Б╤В╤А╤Г╨╝╨╡╨╜╤В╨░ ╤З╨╡╤Б╤В╨╜╨╛ ╨▓╨╕╨┤╨╡╨╜ ╨▓ evidence/╨║╨╛╨╜╤В╨╡╨║╤Б╤В╨╡ Writer'╨░:
+        ╨╜╨╕╨║╨░╨║╨╛╨│╨╛ ┬л╨▓╤Б╤С ╨╜╨╛╤А╨╝╨░╨╗╤М╨╜╨╛┬╗ ╨╕╨╖ ╨┐╤Г╤Б╤В╨╛╤В╤Л."""
+        plan = _plan(capabilities_needed=["health"])
+        router = _Router(fail=("get_bot_health",))
+        result = await dx.run_simple_tools(
+            plan=plan, router=router, ctx=None, query=QUERY_FREE,
+            chat_id=CHAT, correlation_id="t-fail", announced={"get_bot_health"})
+>       assert result is not None
+E       assert None is not None
+
+tests\test_addtr_tools_minifix.py:161: AssertionError
+___________________ test_l1_seam_announce_then_execute_once ___________________
+
+    @pytest.mark.asyncio
+    async def test_l1_seam_announce_then_execute_once():
+        """Seam ╤А╨╡╨░╨╗╤М╨╜╨╛╨│╨╛ ╤Б╨╡╤А╨▓╨╕╤Б╨░: L1-╨┐╨╛╨┤╤Б╨╡╤В ╨░╨╜╨╛╨╜╤Б╨╕╤А╤Г╨╡╤В ╨в╨Ю╨Ы╨м╨Ъ╨Ю get_bot_health,
+        tool-╤Д╨░╨╖╨░ (simple_tools) ╨▓╤Л╨╖╤Л╨▓╨░╨╡╤В ╨╡╨│╨╛ ╤А╨╛╨▓╨╜╨╛ ╨╛╨┤╨╕╨╜ ╤А╨░╨╖ ╨╕ ╨╛╤В╨┤╨░╤С╤В ╨┤╨░╨╜╨╜╤Л╨╡."""
+        import services.direct_chat_service as dcs
+        svc = object.__new__(dcs.DirectChatService)
+        router = _Router(outputs={"get_bot_health": HEALTH_REPORT})
+        svc.tool_router = router
+        plan = _plan(capabilities_needed=["health"])
+        schemas, rejected = await svc._l1_tool_subset(
+            CHAT, "run-tools-1", True, False, plan)
+>       assert [t["function"]["name"] for t in schemas] == ["get_bot_health"]
+E       AssertionError: assert [] == ['get_bot_health']
+E         
+E         Right contains one more item: 'get_bot_health'
+E         Use -v to get more diff
+
+tests\test_addtr_tools_minifix.py:180: AssertionError
+============================== warnings summary ===============================
+..\..\..\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\_pytest\config\__init__.py:1464
+  C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\_pytest\config\__init__.py:1464: PytestConfigWarning: Unknown config option: timeout
+  
+    self._warn_or_fail_if_strict(f"Unknown config option: {key}\n")
+
+..\..\..\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\_pytest\config\__init__.py:1464
+  C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\_pytest\config\__init__.py:1464: PytestConfigWarning: Unknown config option: timeout_method
+  
+    self._warn_or_fail_if_strict(f"Unknown config option: {key}\n")
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_addtr_tools_minifix.py::test_health_capability_maps_to_existing_tool
+FAILED tests/test_addtr_tools_minifix.py::test_health_resolves_in_l1_subset
+FAILED tests/test_addtr_tools_minifix.py::test_health_announced_in_l1_vocabulary
+FAILED tests/test_addtr_tools_minifix.py::test_health_honest_rejection_when_inactive
+FAILED tests/test_addtr_tools_minifix.py::test_registry_knows_health_as_ready
+FAILED tests/test_addtr_tools_minifix.py::test_registry_health_off_never_silent
+FAILED tests/test_addtr_tools_minifix.py::test_health_derived_as_deterministic_step
+FAILED tests/test_addtr_tools_minifix.py::test_health_simple_tools_dispatch_returns_data_for_writer
+FAILED tests/test_addtr_tools_minifix.py::test_health_failure_is_visible_not_fabricated
+FAILED tests/test_addtr_tools_minifix.py::test_l1_seam_announce_then_execute_once
+10 failed, 3 passed, 2 warnings in 3.42s

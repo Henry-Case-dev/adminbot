@@ -1,0 +1,4 @@
+announced capabilities (lore=on, image=off):
+web_search, fetch_url, chat_history, chat_memory, user_memory, historical_search, fact_check, image_understanding, media_download, transcription, video_summary, health, statistics
+health in vocabulary: True
+resolve(health) -> ['get_bot_health'] rejected= []

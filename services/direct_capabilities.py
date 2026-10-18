@@ -38,6 +38,12 @@ CAPABILITY_TOOLS: dict[str, tuple[str, ...]] = {
     "transcription": ("transcribe_video",),
     "video_summary": ("summarize_video",),
     "image_generation": ("generate_image",),
+    # ADD-TR.3 п.4 (слайс ADTR-TOOLS, 19.10.2026): health/checkup — реальный
+    # инструмент get_bot_health (тот же путь, что канонический «чекап» 0g;
+    # имя capability «health» уже принято в response_extent.CAPABILITY_TOOLS).
+    # Без этой строки L1-планировщик не видел capability и свободное «бот,
+    # как состояние сервера?» до инструмента не доходило (resolved = ∅).
+    "health": ("get_bot_health",),
     # §1.4: тулa нет — дет. пре-блок MCA-15; честная пометка L2 (не error).
     "statistics": (),
 }

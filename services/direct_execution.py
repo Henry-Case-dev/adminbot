@@ -292,6 +292,18 @@ def derive_simple_steps(plan, *, query: str, reply_text: str = "",
                               "arguments": {}, "depends_on": [],
                               "failure_policy": "optional"})
                 continue
+            if cap == "health":
+                # ADD-TR.3 п.4 (ADTR-TOOLS): чекап — read-only/free-local
+                # (не в METERED_TOOLS, ADR-1026-15 D3), тот же инструмент,
+                # что у канонического «чекапа» 0g. Без дет. шага L1-план
+                # «health» не исполнялся (limitation) и Writer отвечал без
+                # данных — выдуманное «всё нормально» запрещено.
+                index += 1
+                steps.append({"step_id": f"health_{index}",
+                              "tool": "get_bot_health",
+                              "arguments": {}, "depends_on": [],
+                              "failure_policy": "optional"})
+                continue
             if cap == "image_understanding":
                 target_id = getattr(ctx, "reply_to_message_id", None)
                 chat_id = getattr(ctx, "chat_id", None)

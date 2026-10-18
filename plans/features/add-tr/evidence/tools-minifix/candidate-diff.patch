@@ -1,0 +1,115 @@
+diff --git a/services/capability_registry.py b/services/capability_registry.py
+index f571d28b..3f2b17eb 100644
+--- a/services/capability_registry.py
++++ b/services/capability_registry.py
+@@ -79,11 +79,16 @@ _ENV_BY_SEARCH_KEY = {"keys.tavily_api_key": "TAVILY_API_KEY",
+                       "keys.exa_api_key": "EXA_API_KEY"}
+ FACTCHECK_KEY = "flags.factcheck_enabled"
+ LORE_KEY = "flags.lore_compiler_enabled"
++#: ADD-TR.3 ╨┐.4 (╤Б╨╗╨░╨╣╤Б ADTR-TOOLS, 19.10.2026): ╨│╨╡╨╣╤В ╨╝╨╛╨┤╤Г╨╗╤П ╤З╨╡╨║╨░╨┐╨░ тАФ ╤В╨╛╤В ╨╢╨╡
++#: ╨║╨╗╤О╤З, ╤З╤В╨╛ ╤Г ╤А╨╛╤Г╤В╨╡╤А╨░ 0g (`handlers/checkup.py`) ╨╕ ╤Г ╨╕╤Б╨┐╨╛╨╗╨╜╨╕╤В╨╡╨╗╤П
++#: (`tool_router._get_bot_health`); capability ┬лhealth┬╗ ╨╛╤В╤А╨░╨╢╨░╨╡╤В ╨╡╨│╨╛ ╤З╨╡╤Б╤В╨╜╨╛.
++CHECKUP_KEY = "flags.checkup_enabled"
+ #: ╨Ъ╨╗╤О╤З╨╕-╨│╨╡╨╣╤В╤Л, ╨╖╨╜╨░╤З╨╡╨╜╨╕╤П ╨║╨╛╤В╨╛╤А╤Л╤Е ╨▓╤Е╨╛╨┤╤П╤В ╨▓ ╨╕╨┤╨╡╨╜╤В╨╕╤З╨╜╨╛╤Б╤В╤М ╨║╨╛╨╜╤Д╨╕╨│╤Г╤А╨░╤Ж╨╕╨╕
+ #: (review-w10 F4): ╨┐╤А╨░╨▓╨║╨░ ╤З╨╡╤А╨╡╨╖ POST /api/config ╨╝╤Г╤В╨╕╤А╤Г╨╡╤В ConfigCache ╨╜╨░
+ #: ╨╝╨╡╤Б╤В╨╡, ╨┐╨╛╤Н╤В╨╛╨╝╤Г ╨╛╨┤╨╜╨╛╨╣ ╨╕╨┤╨╡╨╜╤В╨╕╤З╨╜╨╛╤Б╤В╨╕ ╨╛╨▒╤К╨╡╨║╤В╨░ ╨╜╨╡╨┤╨╛╤Б╤В╨░╤В╨╛╤З╨╜╨╛.
+ _TOKEN_KEYS: tuple[str, ...] = (
+     IMAGE_MODULE_KEY, IMAGE_KEY, IMAGE_MODEL_KEY, FACTCHECK_KEY, LORE_KEY,
++    CHECKUP_KEY,
+ ) + SEARCH_KEYS
+ 
+ 
+@@ -563,6 +568,44 @@ async def _build_fact_check(chat_id: int | None, now: float | None = None
+                                last_result_code=last_code, detail="announced")
+ 
+ 
++async def _build_health(chat_id: int | None, now: float | None = None
++                        ) -> CapabilityState:
++    """health (ADD-TR.3 ╨┐.4, ╤Б╨╗╨░╨╣╤Б ADTR-TOOLS): ╤Б╨╛╤Б╤В╨╛╤П╨╜╨╕╨╡ ╤З╨╡╨║╨░╨┐╨░.
++
++    ╨в╨╡ ╨╢╨╡ ╨│╨╡╨╣╤В╤Л, ╤З╤В╨╛ ╤Г ╨а╨Х╨Р╨Ы╨м╨Э╨Ю╨У╨Ю ╨╕╤Б╨┐╨╛╨╗╨╜╨╡╨╜╨╕╤П (``tool_router._get_bot_health``
++    ╨╕ ╤А╨╛╤Г╤В╨╡╤А╨░ 0g): ╨╝╨╛╨┤╤Г╨╗╤М ``flags.checkup_enabled`` (hot, ╨│╨╗╨╛╨▒╨░╨╗╤М╨╜╤Л╨╣ тАФ ╨║╨░╨║ ╨▓
++    ╨╛╨▒╤А╨░╨▒╨╛╤В╤З╨╕╨║╨╡; per-chat ╤Б╨╗╨╛╤П ╤Г ╤З╨╡╨║╨░╨┐╨░ ╨╜╨╡╤В) + ╤Д╨░╨║╤В ╨░╨╜╨╛╨╜╤Б╨░ ╨╕╨╜╤Б╤В╤А╤Г╨╝╨╡╨╜╤В╨░.
++    ╨Т╤Л╨║╨╗╤О╤З╨╡╨╜╨╜╤Л╨╣ ╨╝╨╛╨┤╤Г╨╗╤М тЖТ ``disabled`` ╤Б ╨╜╨░╨▒╨╗╤О╨┤╨░╨╡╨╝╤Л╨╝
++    ``checkup_module_disabled`` (Writer ╨╜╨╡ ╨╛╨▒╨╡╤Й╨░╨╡╤В ╨╜╨╡╨┤╨╛╤Б╤В╤Г╨┐╨╜╨╛╨╡)."""
++    canonical = _canonical_tool_names()
++    declared = "get_bot_health" in canonical
++    base = CapabilityState(
++        capability_id="health",
++        title="╨з╨╡╨║╨░╨┐ ╤Б╨╛╤Б╤В╨╛╤П╨╜╨╕╤П",
++        actions=("get_bot_health",),
++        executor="services.tool_router",
++        tool_name="get_bot_health" if declared else "",
++        inputs=(),
++        gates=(CHECKUP_KEY,),
++        declared=declared, checked_at=_now_iso(), source="runtime")
++    if not declared:
++        return dataclasses.replace(base, status=STATUS_UNSUPPORTED,
++                                   reason_code="tool_absent")
++    if not bool(_hot_get(CHECKUP_KEY, getattr(_settings(), "CHECKUP_ENABLED",
++                                              True))):
++        return dataclasses.replace(
++            base, status=STATUS_DISABLED,
++            reason_code="checkup_module_disabled",
++            detail="checkup_module_off")
++    if "get_bot_health" not in _tool_names():
++        return dataclasses.replace(
++            base, status=STATUS_DISABLED,
++            reason_code="checkup_module_disabled",
++            detail="tool_not_announced")
++    return dataclasses.replace(base, status=STATUS_READY, tryable=True,
++                               detail="announced")
++
++
+ async def _build_video_summary(chat_id: int | None, now: float | None = None
+                                ) -> CapabilityState:
+     """video_summary тАФ ╨╕╨╜╤Б╤В╤А╤Г╨╝╨╡╨╜╤В + ╨╜╨░╤Б╤В╤А╨╛╨╡╨╜╨╜╤Л╨╣ ╨╕╤Б╤В╨╛╤З╨╜╨╕╨║ ╨╝╨╡╨┤╨╕╨░ (cobalt)."""
+@@ -653,6 +696,8 @@ async def resolve(capability_id: str, chat_id: int | None = None, *,
+             state = await _build_web_search(chat_id, now)
+         elif cap == "fact_check":
+             state = await _build_fact_check(chat_id, now)
++        elif cap == "health":
++            state = await _build_health(chat_id, now)
+         elif cap == "video_summary":
+             state = await _build_video_summary(chat_id, now)
+         elif cap == "chat_memory":
+diff --git a/services/direct_capabilities.py b/services/direct_capabilities.py
+index 3e3eda9b..929bfa50 100644
+--- a/services/direct_capabilities.py
++++ b/services/direct_capabilities.py
+@@ -38,6 +38,12 @@ CAPABILITY_TOOLS: dict[str, tuple[str, ...]] = {
+     "transcription": ("transcribe_video",),
+     "video_summary": ("summarize_video",),
+     "image_generation": ("generate_image",),
++    # ADD-TR.3 ╨┐.4 (╤Б╨╗╨░╨╣╤Б ADTR-TOOLS, 19.10.2026): health/checkup тАФ ╤А╨╡╨░╨╗╤М╨╜╤Л╨╣
++    # ╨╕╨╜╤Б╤В╤А╤Г╨╝╨╡╨╜╤В get_bot_health (╤В╨╛╤В ╨╢╨╡ ╨┐╤Г╤В╤М, ╤З╤В╨╛ ╨║╨░╨╜╨╛╨╜╨╕╤З╨╡╤Б╨║╨╕╨╣ ┬л╤З╨╡╨║╨░╨┐┬╗ 0g;
++    # ╨╕╨╝╤П capability ┬лhealth┬╗ ╤Г╨╢╨╡ ╨┐╤А╨╕╨╜╤П╤В╨╛ ╨▓ response_extent.CAPABILITY_TOOLS).
++    # ╨С╨╡╨╖ ╤Н╤В╨╛╨╣ ╤Б╤В╤А╨╛╨║╨╕ L1-╨┐╨╗╨░╨╜╨╕╤А╨╛╨▓╤Й╨╕╨║ ╨╜╨╡ ╨▓╨╕╨┤╨╡╨╗ capability ╨╕ ╤Б╨▓╨╛╨▒╨╛╨┤╨╜╨╛╨╡ ┬л╨▒╨╛╤В,
++    # ╨║╨░╨║ ╤Б╨╛╤Б╤В╨╛╤П╨╜╨╕╨╡ ╤Б╨╡╤А╨▓╨╡╤А╨░?┬╗ ╨┤╨╛ ╨╕╨╜╤Б╤В╤А╤Г╨╝╨╡╨╜╤В╨░ ╨╜╨╡ ╨┤╨╛╤Е╨╛╨┤╨╕╨╗╨╛ (resolved = тИЕ).
++    "health": ("get_bot_health",),
+     # ┬з1.4: ╤В╤Г╨╗a ╨╜╨╡╤В тАФ ╨┤╨╡╤В. ╨┐╤А╨╡-╨▒╨╗╨╛╨║ MCA-15; ╤З╨╡╤Б╤В╨╜╨░╤П ╨┐╨╛╨╝╨╡╤В╨║╨░ L2 (╨╜╨╡ error).
+     "statistics": (),
+ }
+diff --git a/services/direct_execution.py b/services/direct_execution.py
+index f0ada770..032e7034 100644
+--- a/services/direct_execution.py
++++ b/services/direct_execution.py
+@@ -292,6 +292,18 @@ def derive_simple_steps(plan, *, query: str, reply_text: str = "",
+                               "arguments": {}, "depends_on": [],
+                               "failure_policy": "optional"})
+                 continue
++            if cap == "health":
++                # ADD-TR.3 ╨┐.4 (ADTR-TOOLS): ╤З╨╡╨║╨░╨┐ тАФ read-only/free-local
++                # (╨╜╨╡ ╨▓ METERED_TOOLS, ADR-1026-15 D3), ╤В╨╛╤В ╨╢╨╡ ╨╕╨╜╤Б╤В╤А╤Г╨╝╨╡╨╜╤В,
++                # ╤З╤В╨╛ ╤Г ╨║╨░╨╜╨╛╨╜╨╕╤З╨╡╤Б╨║╨╛╨│╨╛ ┬л╤З╨╡╨║╨░╨┐╨░┬╗ 0g. ╨С╨╡╨╖ ╨┤╨╡╤В. ╤И╨░╨│╨░ L1-╨┐╨╗╨░╨╜
++                # ┬лhealth┬╗ ╨╜╨╡ ╨╕╤Б╨┐╨╛╨╗╨╜╤П╨╗╤Б╤П (limitation) ╨╕ Writer ╨╛╤В╨▓╨╡╤З╨░╨╗ ╨▒╨╡╨╖
++                # ╨┤╨░╨╜╨╜╤Л╤Е тАФ ╨▓╤Л╨┤╤Г╨╝╨░╨╜╨╜╨╛╨╡ ┬л╨▓╤Б╤С ╨╜╨╛╤А╨╝╨░╨╗╤М╨╜╨╛┬╗ ╨╖╨░╨┐╤А╨╡╤Й╨╡╨╜╨╛.
++                index += 1
++                steps.append({"step_id": f"health_{index}",
++                              "tool": "get_bot_health",
++                              "arguments": {}, "depends_on": [],
++                              "failure_policy": "optional"})
++                continue
+             if cap == "image_understanding":
+                 target_id = getattr(ctx, "reply_to_message_id", None)
+                 chat_id = getattr(ctx, "chat_id", None)

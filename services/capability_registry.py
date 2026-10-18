@@ -79,11 +79,16 @@ _ENV_BY_SEARCH_KEY = {"keys.tavily_api_key": "TAVILY_API_KEY",
                       "keys.exa_api_key": "EXA_API_KEY"}
 FACTCHECK_KEY = "flags.factcheck_enabled"
 LORE_KEY = "flags.lore_compiler_enabled"
+#: ADD-TR.3 п.4 (слайс ADTR-TOOLS, 19.10.2026): гейт модуля чекапа — тот же
+#: ключ, что у роутера 0g (`handlers/checkup.py`) и у исполнителя
+#: (`tool_router._get_bot_health`); capability «health» отражает его честно.
+CHECKUP_KEY = "flags.checkup_enabled"
 #: Ключи-гейты, значения которых входят в идентичность конфигурации
 #: (review-w10 F4): правка через POST /api/config мутирует ConfigCache на
 #: месте, поэтому одной идентичности объекта недостаточно.
 _TOKEN_KEYS: tuple[str, ...] = (
     IMAGE_MODULE_KEY, IMAGE_KEY, IMAGE_MODEL_KEY, FACTCHECK_KEY, LORE_KEY,
+    CHECKUP_KEY,
 ) + SEARCH_KEYS
 
 
@@ -563,6 +568,44 @@ async def _build_fact_check(chat_id: int | None, now: float | None = None
                                last_result_code=last_code, detail="announced")
 
 
+async def _build_health(chat_id: int | None, now: float | None = None
+                        ) -> CapabilityState:
+    """health (ADD-TR.3 п.4, слайс ADTR-TOOLS): состояние чекапа.
+
+    Те же гейты, что у РЕАЛЬНОГО исполнения (``tool_router._get_bot_health``
+    и роутера 0g): модуль ``flags.checkup_enabled`` (hot, глобальный — как в
+    обработчике; per-chat слоя у чекапа нет) + факт анонса инструмента.
+    Выключенный модуль → ``disabled`` с наблюдаемым
+    ``checkup_module_disabled`` (Writer не обещает недоступное)."""
+    canonical = _canonical_tool_names()
+    declared = "get_bot_health" in canonical
+    base = CapabilityState(
+        capability_id="health",
+        title="Чекап состояния",
+        actions=("get_bot_health",),
+        executor="services.tool_router",
+        tool_name="get_bot_health" if declared else "",
+        inputs=(),
+        gates=(CHECKUP_KEY,),
+        declared=declared, checked_at=_now_iso(), source="runtime")
+    if not declared:
+        return dataclasses.replace(base, status=STATUS_UNSUPPORTED,
+                                   reason_code="tool_absent")
+    if not bool(_hot_get(CHECKUP_KEY, getattr(_settings(), "CHECKUP_ENABLED",
+                                              True))):
+        return dataclasses.replace(
+            base, status=STATUS_DISABLED,
+            reason_code="checkup_module_disabled",
+            detail="checkup_module_off")
+    if "get_bot_health" not in _tool_names():
+        return dataclasses.replace(
+            base, status=STATUS_DISABLED,
+            reason_code="checkup_module_disabled",
+            detail="tool_not_announced")
+    return dataclasses.replace(base, status=STATUS_READY, tryable=True,
+                               detail="announced")
+
+
 async def _build_video_summary(chat_id: int | None, now: float | None = None
                                ) -> CapabilityState:
     """video_summary — инструмент + настроенный источник медиа (cobalt)."""
@@ -653,6 +696,8 @@ async def resolve(capability_id: str, chat_id: int | None = None, *,
             state = await _build_web_search(chat_id, now)
         elif cap == "fact_check":
             state = await _build_fact_check(chat_id, now)
+        elif cap == "health":
+            state = await _build_health(chat_id, now)
         elif cap == "video_summary":
             state = await _build_video_summary(chat_id, now)
         elif cap == "chat_memory":
