@@ -1,0 +1,72 @@
+=== NOW ===
+2026-10-18T13:35:01Z
+=== NODE ===
+HEAD=3b02366e63022eb4c760892aa1bcb4f26516e789
+BRANCH=master
+TRACKED_MOD=0
+=== HEALTH ===
+{"status":"ok","version":"2.58.90"}
+MainPID=3430462 NRestarts=0 ExecMainStartTimestamp=Sun 2026-10-18 13:34:35 UTC ExecMainStatus=0 ActiveState=active SubState=running 
+=== ENV AXES (.env) ===
+UNIFIED_COMPOSER_ENABLED=1
+HUMOR_CRAFT_ENABLED=1
+HUMOR_LIBRARY_ENABLED=1
+HUMOR_FEEDBACK_ENABLED=1
+INITIATIVE_DIAGNOSTICS_PUBLISH_ENABLED=1
+=== P0 MARKERS (deployed bytes) ===
+INIT_FRESH=3
+INIT_ANCHORED=3
+INIT_OPP=1
+NOST_SCEN_A=1
+NOST_REGISTERED=1
+PERSIST_DOCPG=11
+PERSIST_409=13
+PERSIST_CACHE_PG=1
+UX_CORECOMPACT=10
+UX_GROUPS=1
+UX_SAVEBAR=3
+=== REGRESSION MARKERS (не должны исчезнуть) ===
+CFG_RESOLVER=2
+CFG02A_RESERVE_MODE=2
+CFG02A_UI_FACTS=2
+CFG02A_QA_VALID=2
+SP_HUB_ENTRY=1
+SP_ROUTE=7
+SOUL_W6_TOOLS=1
+=== PAYLOAD SHA12 (disk) ===
+web/app.js 51fec46b0a68
+web/index.html c9fab0472bb5
+web/static/app.css 8e62b74d8934
+web/api/speech.py 7e359935916d
+services/initiative_observer.py eef7feec36ac
+services/nostalgia_worker.py da8c9b79e9cf
+services/config_cache.py 9182765351f8
+config/settings.py d008122f5a53
+README.md cb507eb6560f
+=== SERVED SHA12 (HTTP) vs DISK (SERVED_EQ_*=SAME/DIFF) ===
+SERVED_APP_JS=51fec46b0a68
+SERVED_EQ_APP_JS=SAME
+SERVED_APP_CSS=8e62b74d8934
+SERVED_EQ_APP_CSS=SAME
+=== PAGE (expect PAGE_VER=15 / SUBST_CSS=2) ===
+PAGE_VER=15
+SUBST_CSS=2
+PAGE_VER_EXPECT=15
+SUBST_CSS_EXPECT=2
+=== MIGRATION LINES (since T0) ===
+Oct 18 13:34:53 racknerd-f4e3456 python[3430462]: 2026-10-18 13:34:53,792 - services.database - INFO - [database] migrations: start | current user_version=36 | pending=[]
+Oct 18 13:34:53 racknerd-f4e3456 python[3430462]: 2026-10-18 13:34:53,808 - services.database - INFO - [database] migrations: complete | user_version=36 | total 0.0s
+=== SQLITE USER_VERSION ===
+USER_VERSION (36,)
+=== JOURNAL COUNTS (since T0) ===
+ERR=0
+RUNTIMEWARN=0
+GRACEFUL=2
+POLLER=1
+=== SMOKE ROUTES (HTTPS) ===
+ROUTE /healthz 200
+ROUTE /web/ 200
+ROUTE /static/app.css 200
+=== HTTPS ===
+HTTPS_HZ={"status":"ok","version":"2.58.90"}
+=== DONE ===
