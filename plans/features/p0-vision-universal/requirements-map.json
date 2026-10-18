@@ -2,7 +2,7 @@
   "schema": "openworkflow-coverage-v1",
   "source_path": "C:\\Code\\Python\\adminbot\\plans\\features\\p0-vision-universal\\source-p0-vision-2026-10-19.md",
   "source_sha256": "8a841f54200b479873f7c38d89c5462c2764953a51a930d9dba24505e2230c90",
-  "candidate_commit": "",
+  "candidate_commit": "76b156e06c4e6132bc14f79e3571d52ebf71fbb6",
   "deployed_commit": "",
   "strict_evidence": false,
   "slice_graph_path": "",
@@ -33,14 +33,24 @@
       "source_text_sha256": "8a357dafefb33b1c0c818f26684e03d6eb2c0ee04892ccb1df6414fe4552b7b6",
       "source_excerpt": "После настройки `google/gemma-4-31b-it:free` через OpenRouter проверка возвращает `vision_unavailable`. В Analytics повторяются `vision_capability_probe failed`, а `VisionMediaWorker` иногда пропускает тики из-за занятого экземпляра.",
       "disposition": "required",
-      "reason": "",
+      "reason": "Код-половина закрыта: (1) ложный vision_unavailable при OpenRouter/Gemma устранён (классификация 400≠no_vision, доступность≠модальность); (2) повторяющиеся `vision_capability_probe failed` заменены конкретной причиной (visible_reason); (3) VisionMediaWorker не пропускает тики (claim+background; recon 487 пропусков) (review §4/§7). Живая половина — прод. READY_FOR_LIVE.",
       "req_id": "P0V-SYMPTOMS",
       "slice": "P0V-ACCEPT",
       "acceptance": "Три наблюдаемых симптома закрыты с evidence: (1) OpenRouter/Gemma-совместимая конфигурация не даёт ложный vision_unavailable; (2) повторяющиеся vision_capability_probe failed заменены конкретной причиной либо исчезли; (3) VisionMediaWorker не пропускает тики из-за занятого экземпляра (перекрытие не теряет очередь).",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "76b156e06c4e6132bc14f79e3571d52ebf71fbb6",
+          "ref": "plans/features/p0-vision-universal/review-vision-core.md (1c4e6675, Approved) §4/§7 (Леджер-решения: SYMPTOMS) + plans/features/p0-vision-universal/evidence/fix-core/mock-matrix-2026-10-19.md",
+          "observation": "Классы отказов и матрица 400/no_vision; worker claim-CAS — три симптома закрыты на уровне кода/тестов.",
+          "artifact_path": "plans/features/p0-vision-universal/evidence/fix-core/mock-matrix-2026-10-19.md",
+          "artifact_sha256": "d4ff4e0c7c71793b76d26e58a43bed04377c0be724891426be44a932796e2ac2",
+          "type": "test"
+        }
+      ],
+      "live_note": "postdeploy (DevOps/Orchestrator), не owner-гейт: (1) реальная OpenRouter/Gemma-конфигурация без ложного vision_unavailable; (2) probe failed → конкретные причины; (3) тики worker без пропусков — тумблер/override, первая джоба сама пробует, реальный analyze."
     },
     {
       "source_id": "M-P0V-03",
@@ -48,14 +58,23 @@
       "source_text_sha256": "99674b1aa6ca68a0f48bf7f2c67f8bc87f9d4204db136a49579fdc4461532d5e",
       "source_excerpt": "**Принципиальное требование: это НЕ исправление исключительно для OpenRouter или Gemma. OpenRouter используется только как воспроизводимый пример. Vision должен корректно работать с любым совместимым провайдером и любой моделью, поддерживаю",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто: нет allow-list моделей/провайдеров и спецветвлений под OpenRouter/Gemma/URL/форматы — универсальность через реальное определение возможностей и конфигурацию; дельта фикса — существующие сервисы без новых контуров (review; sha12 кандидата). VERIFIED.",
       "req_id": "P0V-UNIV-NOHARDCODE",
       "slice": "P0V-ARCH",
       "acceptance": "Универсальность без хардкода: нет allow-list моделей/провайдеров и спецветвлений под OpenRouter/Gemma/URL/форматы; работоспособность обеспечивается реальным определением возможностей и конфигурацией; проверка против хардкода (grep/тесты) приложена.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "76b156e06c4e6132bc14f79e3571d52ebf71fbb6",
+          "ref": "plans/features/p0-vision-universal/review-vision-core.md (1c4e6675, Approved) (итог/§8) + plans/features/p0-vision-universal/evidence/fix-core/candidate-fingerprint.txt",
+          "observation": "Дельта кандидата: только `services/mca_vision.py`, `services/cover_style_jobs.py`, `web/api/routes.py` (+12/−3) и тесты — без новых подсистем/хардкода.",
+          "artifact_path": "plans/features/p0-vision-universal/evidence/fix-core/candidate-fingerprint.txt",
+          "artifact_sha256": "cc647feebc96c3fbc436e467a22dd5e9eae6dac8881168e8c250da009ba3ce61",
+          "type": "static"
+        }
+      ]
     },
     {
       "source_id": "M-P0V-04",
@@ -63,14 +82,23 @@
       "source_text_sha256": "451ab5a89a8187b1e13bde84dddcba2a311d15aad243097a7f322be660bc7761",
       "source_excerpt": "**Capability detection — по реальному ответу API, а не по списку известных моделей/провайдеров.**",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто: capability detection по реальному ответу API (+повторная проверка), не по спискам моделей/провайдеров; новая/неизвестная модель корректно классифицируется пробой (тест на модель вне былых списков) (review §1–§5). VERIFIED.",
       "req_id": "P0V-PROBE-REAL",
       "slice": "P0V-PROBE",
       "acceptance": "Capability detection строится по реальному ответу API (плюс повторная проверка), а не по списку известных моделей/провайдеров; новая/неизвестная модель корректно классифицируется пробой; тест на модель вне былых списков.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "76b156e06c4e6132bc14f79e3571d52ebf71fbb6",
+          "ref": "plans/features/p0-vision-universal/review-vision-core.md (1c4e6675, Approved) §1–§5 + plans/features/p0-vision-universal/evidence/fix-core/green-2026-10-19.txt",
+          "observation": "Реальный ответ первичен: ok только при 2xx+choices; неизвестная модель проходит ту же цепочку (таймаут→transient, etc.).",
+          "artifact_path": "plans/features/p0-vision-universal/evidence/fix-core/green-2026-10-19.txt",
+          "artifact_sha256": "2d339c24c3bb4acbe68cd2f513e54788b05dcf10783f46313b1d3740090e7c41",
+          "type": "test"
+        }
+      ],
       "alias_of": [
         "soul-1-amd:SOUL-AMD.5.11",
         "soul-1-amd:SOUL-AMD.5.13"
@@ -83,14 +111,24 @@
       "source_text_sha256": "4ed22c298d96bba67fabf0184b35b41fed2c3eb275814ef2dc85bb7a61fd38bf",
       "source_excerpt": "Настройки → сохранение → разрешение маршрута → capability probe → постановка задания → VisionMediaWorker → запрос провайдеру → структурированный результат → сохранение → использование в контексте бота.",
       "disposition": "required",
-      "reason": "",
+      "reason": "Код-половина закрыта: сквозная цепочка прослеживается (настройки→route→probe→job→worker→провайдер→результат→контекст), стадии наблюдаемы событиями/полями (review §6–§9). Живая половина — журнал/прогресс на проде. READY_FOR_LIVE.",
       "req_id": "P0V-PIPE-E2E",
       "slice": "P0V-PIPE",
       "acceptance": "Сквозная цепочка прослеживается end-to-end: настройки → сохранение → разрешение маршрута → capability probe → постановка задания → VisionMediaWorker → запрос провайдеру → структурированный результат → сохранение → использование в контексте бота; каждая стадия наблюдаема (события/артефакты), обрывов нет.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "76b156e06c4e6132bc14f79e3571d52ebf71fbb6",
+          "ref": "plans/features/p0-vision-universal/review-vision-core.md (1c4e6675, Approved) §6–§9 + plans/features/p0-vision-universal/evidence/fix-core/full-sweep-2026-10-19.txt",
+          "observation": "Цепочка покрыта тестами всех стадий (47+129+53 зелёных).",
+          "artifact_path": "plans/features/p0-vision-universal/evidence/fix-core/full-sweep-2026-10-19.txt",
+          "artifact_sha256": "07b5bc05f0cb6334610c28b1ac666255ce2d61e90c03f6748d19431724215910",
+          "type": "test"
+        }
+      ],
+      "live_note": "postdeploy (DevOps/Orchestrator), не owner-гейт: журнал без `skipped: maximum number of running instances`; прогресс очереди и реальный analyze видны на проде."
     },
     {
       "source_id": "M-P0V-06a",
@@ -98,14 +136,24 @@
       "source_text_sha256": "352b110ac848f4649eef6977aae95221ce526742066ecadf5d4d6402a0acd4f2",
       "source_excerpt": "Проверить: переключение провайдера без правок кода; основная/резервная модели по конфигурации; fallback не скрывает ошибки и не переключается на несовместимую модель; самовосстановление после временного сбоя; worker без дублей задач и без з",
       "disposition": "required",
-      "reason": "",
+      "reason": "Код-половина закрыта: модели (основная/резервная) разрешаются по конфигурации; fallback не скрывает ошибки и не берёт несовместимую модель; после временного сбоя — восстановление (следующая проба снова работает) (review §4/§5). Живая половина — прод. READY_FOR_LIVE.",
       "req_id": "P0V-PIPE-FALLBACK",
       "slice": "P0V-PIPE",
       "acceptance": "Модели (основная/резервная) разрешаются по конфигурации; fallback не скрывает ошибки и не переключается на несовместимую модель; после временного сбоя система восстанавливается сама (следующая проба/задание снова работают); подтверждено тестами и пост-деплой проверкой.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "76b156e06c4e6132bc14f79e3571d52ebf71fbb6",
+          "ref": "plans/features/p0-vision-universal/review-vision-core.md (1c4e6675, Approved) §4/§5 + plans/features/p0-vision-universal/evidence/fix-core/green-2026-10-19.txt",
+          "observation": "Восстановление после transient: успешная проба перезаписывает статус; fallback по конфигурации без маскировки ошибок.",
+          "artifact_path": "plans/features/p0-vision-universal/evidence/fix-core/green-2026-10-19.txt",
+          "artifact_sha256": "2d339c24c3bb4acbe68cd2f513e54788b05dcf10783f46313b1d3740090e7c41",
+          "type": "test"
+        }
+      ],
+      "live_note": "postdeploy (DevOps/Orchestrator), не owner-гейт: реальный временный сбой → самостоятельное восстановление (следующая проба/задание снова работают)."
     },
     {
       "source_id": "M-P0V-06b",
@@ -113,14 +161,24 @@
       "source_text_sha256": "352b110ac848f4649eef6977aae95221ce526742066ecadf5d4d6402a0acd4f2",
       "source_excerpt": "Проверить: переключение провайдера без правок кода; основная/резервная модели по конфигурации; fallback не скрывает ошибки и не переключается на несовместимую модель; самовосстановление после временного сбоя; worker без дублей задач и без з",
       "disposition": "required",
-      "reason": "",
+      "reason": "Код-половина закрыта: claim-CAS (mark_running только из queued) + фоновые потоки (`ANALYSIS_CONCURRENCY=2`, heartbeat, drain/shutdown bounded) — перекрытие тиков не теряет обработку, повторная постановка не создаёт дубль (review §7, D9; recon: 487 APScheduler-пропусков/36 ч). Живая половина — прод. READY_FOR_LIVE.",
       "req_id": "P0V-PIPE-WORKER",
       "slice": "P0V-PIPE",
       "acceptance": "VisionMediaWorker без дублей задач и без зависаний при долгих запросах: перекрытие тиков не теряет обработку (нет пропусков из-за занятого экземпляра), повторная постановка не создаёт дубль; подтверждено тестом и прод-наблюдением после выката.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "76b156e06c4e6132bc14f79e3571d52ebf71fbb6",
+          "ref": "plans/features/p0-vision-universal/review-vision-core.md (1c4e6675, Approved) §7 (D9) + plans/features/p0-vision-universal/evidence/fix-core/design-note-d9-and-flag-2026-10-19.md",
+          "observation": "Обоснование отказа от последовательной схемы (recon 487 пропусков); тесты: быстрый тик, нет дубля-потерь, слоты, heartbeat.",
+          "artifact_path": "plans/features/p0-vision-universal/evidence/fix-core/design-note-d9-and-flag-2026-10-19.md",
+          "artifact_sha256": "3a4dc901f7b1bbb48062f97eef5b4e18eee4c12154c26e11baa2196faf4f76c9",
+          "type": "static"
+        }
+      ],
+      "live_note": "postdeploy (DevOps/Orchestrator), не owner-гейт: прод-наблюдение прогресса очереди без пропусков из-за занятого экземпляра и без дублей."
     },
     {
       "source_id": "M-P0V-06c",
@@ -128,14 +186,24 @@
       "source_text_sha256": "352b110ac848f4649eef6977aae95221ce526742066ecadf5d4d6402a0acd4f2",
       "source_excerpt": "Проверить: переключение провайдера без правок кода; основная/резервная модели по конфигурации; fallback не скрывает ошибки и не переключается на несовместимую модель; самовосстановление после временного сбоя; worker без дублей задач и без з",
       "disposition": "required",
-      "reason": "",
+      "reason": "Код-половина закрыта: анализ доходит до контекста бота (структурированный результат → сохранение → использование), покрытие тестами и mca19 129 passed (review §6/§11). Живая половина — реальное распознавание на проде. READY_FOR_LIVE.",
       "req_id": "P0V-PIPE-CONTEXT",
       "slice": "P0V-PIPE",
       "acceptance": "Изображения реально распознаются и используются в контексте бота: анализ доходит до ответа/поведения (наблюдаемый результат), а не остаётся внутренней записью; подтверждено живой пробой после выката.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "76b156e06c4e6132bc14f79e3571d52ebf71fbb6",
+          "ref": "plans/features/p0-vision-universal/review-vision-core.md (1c4e6675, Approved) §6/§11 + plans/features/p0-vision-universal/evidence/fix-core/green-2026-10-19.txt",
+          "observation": "Результат анализа используется в контексте (тесты mca19); формат результата и его доставка в контекст стабильны.",
+          "artifact_path": "plans/features/p0-vision-universal/evidence/fix-core/green-2026-10-19.txt",
+          "artifact_sha256": "2d339c24c3bb4acbe68cd2f513e54788b05dcf10783f46313b1d3740090e7c41",
+          "type": "test"
+        }
+      ],
+      "live_note": "postdeploy (DevOps/Orchestrator), не owner-гейт: реальный analyze — изображение распознано и использовано в ответе/поведении (наблюдаемый результат)."
     },
     {
       "source_id": "M-P0V-07",
@@ -143,14 +211,23 @@
       "source_text_sha256": "f9b6e66f964aeb584daa37ce9624f131cae9b0df70ae99ac7115ff5e72b2c4fa",
       "source_excerpt": "Не ограничиваться кнопкой «Проверить подключение».",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто: обязательные проверки покрывают всю цепочку pipeline (route→probe→worker→провайдер→результат→контекст), а не только кнопку «Проверить подключение»; успех кнопки — одна из проб, без подмены сквозной приёмки (review §6–§9). VERIFIED.",
       "req_id": "P0V-PIPE-BEYOND",
       "slice": "P0V-PIPE",
       "acceptance": "Приёмка не ограничивается кнопкой «Проверить подключение»: обязательные проверки покрывают всю цепочку pipeline; успех кнопки — лишь одна из проб, без подмены сквозной приёмки.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "76b156e06c4e6132bc14f79e3571d52ebf71fbb6",
+          "ref": "plans/features/p0-vision-universal/review-vision-core.md (1c4e6675, Approved) §6–§9 + plans/features/p0-vision-universal/evidence/fix-core/full-sweep-2026-10-19.txt",
+          "observation": "Покрытие контура: 47 (fix-core) + 129 (mca19 A–G/rework/scene delivery) + 53 (routes-пины) зелёных; кнопка — лишь один маршрут.",
+          "artifact_path": "plans/features/p0-vision-universal/evidence/fix-core/full-sweep-2026-10-19.txt",
+          "artifact_sha256": "07b5bc05f0cb6334610c28b1ac666255ce2d61e90c03f6748d19431724215910",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "M-P0V-08",
@@ -192,14 +269,24 @@
       "source_text_sha256": "0b33d4f61494a659024c4f9a5b1e68753a61188fbdcf491fd7a0cb1aabef9fe9",
       "source_excerpt": "**Критерий завершения:** Vision работает через универсальный механизм, не зависит от OpenRouter/Gemma, корректно определяет возможности, обрабатывает ошибки, восстанавливается после временных сбоев и реально распознаёт изображения.",
       "disposition": "required",
-      "reason": "",
+      "reason": "Код-половина закрыта: универсальный механизм (без OpenRouter/Gemma-зависимости), корректное определение возможностей, обработка ошибок и восстановление — покрыты кодом/тестами (review, Approved; 47/129/53 + матрица). Живая половина — реальная проба. READY_FOR_LIVE.",
       "req_id": "P0V-DOD",
       "slice": "P0V-ACCEPT",
       "acceptance": "Критерий завершения выполнен: Vision работает через универсальный механизм, не зависит от OpenRouter/Gemma, корректно определяет возможности, обрабатывает ошибки, восстанавливается после временных сбоев и реально распознаёт изображения — подтверждено живой пробой.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "76b156e06c4e6132bc14f79e3571d52ebf71fbb6",
+          "ref": "plans/features/p0-vision-universal/review-vision-core.md (1c4e6675, Approved) (Леджер-решения: DOD) + plans/features/p0-vision-universal/evidence/fix-core/full-sweep-2026-10-19.txt",
+          "observation": "Компоненты критерия завершения подтверждены кодом и прогонами; живая проба — postdeploy.",
+          "artifact_path": "plans/features/p0-vision-universal/evidence/fix-core/full-sweep-2026-10-19.txt",
+          "artifact_sha256": "07b5bc05f0cb6334610c28b1ac666255ce2d61e90c03f6748d19431724215910",
+          "type": "test"
+        }
+      ],
+      "live_note": "postdeploy (DevOps/Orchestrator), не owner-гейт: живая проба — универсальный механизм на реальном провайдере + реальное распознавание изображений (тумблер/override; первая джоба сама пробует)."
     },
     {
       "source_id": "M-P0V-11",
@@ -243,14 +330,24 @@
       "source_text_sha256": "7da0110579eb072c4ba761731eb01d51f5951b4eabcf1490020fd0ff82bdbdd0",
       "source_excerpt": "- Любые OpenAI-compatible endpoints с изображениями.",
       "disposition": "required",
-      "reason": "",
+      "reason": "Код-половина закрыта: endpoint задаётся настройкой, смена не требует правок кода; контрактные тесты на 2+ формы (host, host/v1) зелёные (review §8). Живая половина — реальный провайдер. READY_FOR_LIVE.",
       "req_id": "P0V-ARCH-ENDPOINTS",
       "slice": "P0V-ARCH",
       "acceptance": "Vision-подключение работает через любой OpenAI-compatible endpoint с поддержкой изображений: endpoint задаётся настройкой, смена не требует правок кода; контрактные тесты на 2+ формы endpoint (host и host/v1); реальный провайдер подтверждён postdeploy-пробой (probe success, не vision_unavailable).",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "76b156e06c4e6132bc14f79e3571d52ebf71fbb6",
+          "ref": "plans/features/p0-vision-universal/review-vision-core.md (1c4e6675, Approved) §8 + plans/features/p0-vision-universal/evidence/fix-core/green-2026-10-19.txt",
+          "observation": "Endpoint-формы (host, host/v1) проходят корректную сборку и уходят в запрос как заданы.",
+          "artifact_path": "plans/features/p0-vision-universal/evidence/fix-core/green-2026-10-19.txt",
+          "artifact_sha256": "2d339c24c3bb4acbe68cd2f513e54788b05dcf10783f46313b1d3740090e7c41",
+          "type": "test"
+        }
+      ],
+      "live_note": "postdeploy (DevOps/Orchestrator), не owner-гейт: реальный провайдер — 2+ формы endpoint; тумблер модуля/override, первая джоба сама пробует (D8)."
     },
     {
       "source_id": "L00011",
@@ -258,14 +355,23 @@
       "source_text_sha256": "6cfed318ef1240eea565a321251bd025f64aa7af70fab5b2ac3669949b897580",
       "source_excerpt": "- Разные base URL, включая `/v1`, `/api/v1` и др. префиксы.",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто: base URL с /v1, /api/v1 и без префикса собирается корректно (единственный конструктор `normalize_base_url`/`chat_completions_url`); двойного /chat/completions нет, матрица форм пройдена (review §8). VERIFIED (`76b156e0`).",
       "req_id": "P0V-ARCH-BASEURL",
       "slice": "P0V-ARCH",
       "acceptance": "Base URL с префиксами /v1, /api/v1 и без них собирается в корректный URL: нет двойного /chat/completions и склейки путей; тест-матрица форм base URL проходит; пользовательский ввод нормализуется без ручных подсказок.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "76b156e06c4e6132bc14f79e3571d52ebf71fbb6",
+          "ref": "plans/features/p0-vision-universal/review-vision-core.md (1c4e6675, Approved) §8 (D13/D14) + plans/features/p0-vision-universal/evidence/fix-core/green-2026-10-19.txt",
+          "observation": "Матрица форм base URL (host, host/, /v1, /api/v1, полный путь) — корректная сборка, без двойного пути; тесты зелёные.",
+          "artifact_path": "plans/features/p0-vision-universal/evidence/fix-core/green-2026-10-19.txt",
+          "artifact_sha256": "2d339c24c3bb4acbe68cd2f513e54788b05dcf10783f46313b1d3740090e7c41",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00012",
@@ -273,14 +379,24 @@
       "source_text_sha256": "eda1306c8e3c0c3d9fb82472f0adc162d54ab20e5e05c58e979225add06af387",
       "source_excerpt": "- Смена моделей/провайдеров без изменений кода.",
       "disposition": "required",
-      "reason": "",
+      "reason": "Код-половина закрыта: смена Vision-модели/провайдера — через настройки (env-мастер AND hot/каталог-тумблер, per-chat override); действует без правок кода; дизайн-нота §10 совпадает с кодом (review §10). Живая половина — реальная смена на проде. READY_FOR_LIVE.",
       "req_id": "P0V-ARCH-SWITCH",
       "slice": "P0V-ARCH",
       "acceptance": "Смена Vision-модели/провайдера производится через настройки и действует без правок кода; следующие задания используют новую модель либо показан честный порядок применения; подтверждено тестом и live-пробой.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "76b156e06c4e6132bc14f79e3571d52ebf71fbb6",
+          "ref": "plans/features/p0-vision-universal/review-vision-core.md (1c4e6675, Approved) §10 + plans/features/p0-vision-universal/evidence/fix-core/design-note-d9-and-flag-2026-10-19.md",
+          "observation": "`resolve_requested`/`resolve_effective_state`: requested AND capability ok; неизвестное → capability_check_pending; тумблеры/override",
+          "artifact_path": "plans/features/p0-vision-universal/evidence/fix-core/design-note-d9-and-flag-2026-10-19.md",
+          "artifact_sha256": "3a4dc901f7b1bbb48062f97eef5b4e18eee4c12154c26e11baa2196faf4f76c9",
+          "type": "static"
+        }
+      ],
+      "live_note": "postdeploy (DevOps/Orchestrator), не owner-гейт: смена модели/провайдера через настройки (тумблер/override) действует на следующие задания без рестарта/кода; реальная смена подтверждается на проде.",
       "note": "Дубль-формулировка из prose-строки 30 («переключение провайдера без правок кода») учтена здесь — отдельной manual-строки нет."
     },
     {
@@ -289,14 +405,23 @@
       "source_text_sha256": "9d867ca9bb9d2d7e2a0315861b5c6effb93ae61e5a305fad503648b4ec63c0c7",
       "source_excerpt": "- Разделение конфигурации основной модели и выделенной Vision-модели.",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто: основная и выделенная Vision-модель конфигурируются раздельно (свои provider/model/endpoint/key); ключи строго по профилю (dedicated-endpoint без своего ключа → `''` → честный `vision_key_missing`, основной ключ не отправляется — тест по URL запроса) (review §2). VERIFIED.",
       "req_id": "P0V-ARCH-SPLIT",
       "slice": "P0V-ARCH",
       "acceptance": "Основная модель и выделенная Vision-модель конфигурируются раздельно (свои provider/model/endpoint/key); смена одной не меняет другую; при отсутствии Vision-модели действует явный каскад по конфигурации.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "76b156e06c4e6132bc14f79e3571d52ebf71fbb6",
+          "ref": "plans/features/p0-vision-universal/review-vision-core.md (1c4e6675, Approved) §2 (D2) + plans/features/p0-vision-universal/evidence/fix-core/green-2026-10-19.txt",
+          "observation": "Раздельные профили: dedicated без своего ключа не использует основной; зеркало `cover_style_jobs._default_scene_verifier` (api_type_supported→api_key_for→chat_completions_url).",
+          "artifact_path": "plans/features/p0-vision-universal/evidence/fix-core/green-2026-10-19.txt",
+          "artifact_sha256": "2d339c24c3bb4acbe68cd2f513e54788b05dcf10783f46313b1d3740090e7c41",
+          "type": "test"
+        }
+      ],
       "note": "Разделение конфигураций уже существует (mca-19: groups models_vision/keys_vision отдельно от основной модели); требование — сохранить при универсализации и подтвердить тестом."
     },
     {
@@ -305,14 +430,23 @@
       "source_text_sha256": "116d45921e00c68f0c6a58ceefac0153fc243a8f929290e1f2b490caa4280987",
       "source_excerpt": "- Пользовательские ключи и настройки.",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто: ключи/настройки Vision сохраняются штатным механизмом и не смешиваются с ключами других провайдеров; значения секретов в логи не попадают (R17, INFO без значения); маскирование по контракту (review §1/§2). VERIFIED.",
       "req_id": "P0V-ARCH-KEYS",
       "slice": "P0V-ARCH",
       "acceptance": "Пользовательские ключи и настройки Vision (ключ, endpoint, модель) сохраняются штатным механизмом, применяются к Vision-запросам и не смешиваются с ключами других провайдеров; секреты маскируются по существующему контракту.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "76b156e06c4e6132bc14f79e3571d52ebf71fbb6",
+          "ref": "plans/features/p0-vision-universal/review-vision-core.md (1c4e6675, Approved) §1/§2 (D1/D2, R17) + plans/features/p0-vision-universal/evidence/fix-core/green-2026-10-19.txt",
+          "observation": "Порядок резолва endpoint'а (канонический→legacy-алиас→env) без логирования значения; ключи строго по профилю; тесты канонизации и изоляции.",
+          "artifact_path": "plans/features/p0-vision-universal/evidence/fix-core/green-2026-10-19.txt",
+          "artifact_sha256": "2d339c24c3bb4acbe68cd2f513e54788b05dcf10783f46313b1d3740090e7c41",
+          "type": "test"
+        }
+      ],
       "note": "Хранение и маска ключа уже реализованы (mca-19, keys_vision: маска configured/last4); требование — сохранить и покрыть тестом."
     },
     {
@@ -321,14 +455,23 @@
       "source_text_sha256": "1a00c6bb2046bf6cfcfb29297e9b606b2b3bc1c9196ad30d8378c862acfe95d8",
       "source_excerpt": "- Для другого формата API — адаптер в рамках поддерживаемых типов; не отправлять несовместимый OpenAI payload; для неподдерживаемого протокола — конкретная причина.",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто: `SUPPORTED_API_TYPES=(\"openai_compatible\",)` — неподдерживаемый тип даёт конкретный `api_type_unsupported` без отправки payload (тест по отсутствию запроса); OpenAI-несовместимый payload не отправляется (review §8, D13). VERIFIED.",
       "req_id": "P0V-ARCH-ADAPTER",
       "slice": "P0V-ARCH",
       "acceptance": "Для не-OpenAI формата API используется адаптер в рамках поддерживаемых типов: OpenAI-несовместимый payload не отправляется; для неподдерживаемого протокола возвращается конкретная причина (код), а не общий vision_unavailable.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "76b156e06c4e6132bc14f79e3571d52ebf71fbb6",
+          "ref": "plans/features/p0-vision-universal/review-vision-core.md (1c4e6675, Approved) §8 (D13) + plans/features/p0-vision-universal/evidence/fix-core/green-2026-10-19.txt",
+          "observation": "Тип-гейт до запроса; для неподдерживаемого протокола — конкретный код причины, не общий vision_unavailable.",
+          "artifact_path": "plans/features/p0-vision-universal/evidence/fix-core/green-2026-10-19.txt",
+          "artifact_sha256": "2d339c24c3bb4acbe68cd2f513e54788b05dcf10783f46313b1d3740090e7c41",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00016",
@@ -336,14 +479,23 @@
       "source_text_sha256": "62a0adffd4d6eaeeef5e6fad6b7abe082271a323b45186788fe141053c81db71",
       "source_excerpt": "- Не допускать: двойного `/chat/completions`, неправильной сборки URL, смешивания ключей разных провайдеров.",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто: регрессионно исключены двойной /chat/completions, некорректная сборка URL и смешивание ключей разных провайдеров; проверка на матрице конфигураций (endpoint/модель/ключ) приложена (review §2/§8). VERIFIED.",
       "req_id": "P0V-ARCH-NOFAULT",
       "slice": "P0V-ARCH",
       "acceptance": "Регрессионно исключены: двойной /chat/completions, некорректная сборка URL и смешивание ключей разных провайдеров; проверка на матрице конфигураций (endpoint/модель/ключ) приложена.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "76b156e06c4e6132bc14f79e3571d52ebf71fbb6",
+          "ref": "plans/features/p0-vision-universal/review-vision-core.md (1c4e6675, Approved) §2/§8 + plans/features/p0-vision-universal/evidence/fix-core/green-2026-10-19.txt",
+          "observation": "Регресс-набор: URL-матрица, key-isolation, отсутствие двойных путей — всё зелёное.",
+          "artifact_path": "plans/features/p0-vision-universal/evidence/fix-core/green-2026-10-19.txt",
+          "artifact_sha256": "2d339c24c3bb4acbe68cd2f513e54788b05dcf10783f46313b1d3740090e7c41",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00018",
@@ -366,14 +518,23 @@
       "source_text_sha256": "6e3e6be0cf05263738d8054a31f00fa43efe0ca8714e531957ced935719cd29a",
       "source_excerpt": "1) Тестовый запрос с валидным изображением подходящего размера (не прозрачная PNG 1×1).",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто: `_build_probe_png` — детерминированный непрозрачный RGB PNG (color type 2, 512×512 и 640×512, ленивый кеш); прозрачная 1×1 больше не отправляется; payload-тест подтверждает большое изображение (review §3, D3). VERIFIED.",
       "req_id": "P0V-PROBE-IMG",
       "slice": "P0V-PROBE",
       "acceptance": "Capability-проба отправляет валидное изображение подходящего размера (не прозрачная PNG 1×1) и подтверждает распознавание по реальному ответу; тест исключает ложный вердикт на пустом/прозрачном изображении.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "76b156e06c4e6132bc14f79e3571d52ebf71fbb6",
+          "ref": "plans/features/p0-vision-universal/review-vision-core.md (1c4e6675, Approved) §3 (D3) + plans/features/p0-vision-universal/evidence/fix-core/green-2026-10-19.txt",
+          "observation": "Тесты валидности/размера/непрозрачности пробы + наличие большого изображения в payload; ложный вердикт на пустом/прозрачном исключён.",
+          "artifact_path": "plans/features/p0-vision-universal/evidence/fix-core/green-2026-10-19.txt",
+          "artifact_sha256": "2d339c24c3bb4acbe68cd2f513e54788b05dcf10783f46313b1d3740090e7c41",
+          "type": "test"
+        }
+      ],
       "note": "Проба существует с mca-19 (services/mca_vision.py); здесь — калибровка входного изображения и вердикта под универсальные провайдеры."
     },
     {
@@ -382,14 +543,23 @@
       "source_text_sha256": "abebb2e65c4f37cc08c35bbd75f018cea4ec9b94c2b203c74cff8eec7007c129",
       "source_excerpt": "2) Отдельно: доступность модели и поддержка мультимодального ввода.",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто: доступность модели и мультимодальность проверяются раздельно — «модель недоступна/не существует» ≠ «доступна, но изображения не принимает»; ok только при 2xx+choices; оба случая воспроизведены (review §4, D4/D5). VERIFIED.",
       "req_id": "P0V-PROBE-SPLIT",
       "slice": "P0V-PROBE",
       "acceptance": "Доступность модели и поддержка мультимодального ввода проверяются отдельно: отчёт различает «модель недоступна/не существует» и «модель доступна, но изображения не принимает»; оба случая воспроизведены тестами.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "76b156e06c4e6132bc14f79e3571d52ebf71fbb6",
+          "ref": "plans/features/p0-vision-universal/review-vision-core.md (1c4e6675, Approved) §4 (D4/D5) + plans/features/p0-vision-universal/evidence/fix-core/mock-matrix-2026-10-19.md",
+          "observation": "HTTP-матрица: 400 с валидным текстом → unavailable/image_rejected (НЕ no_vision); только явный модальный отказ → no_vision; model_not_found ≠ modality.",
+          "artifact_path": "plans/features/p0-vision-universal/evidence/fix-core/mock-matrix-2026-10-19.md",
+          "artifact_sha256": "d4ff4e0c7c71793b76d26e58a43bed04377c0be724891426be44a932796e2ac2",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00021",
@@ -397,14 +567,23 @@
       "source_text_sha256": "36209cc7d405346ac51b0e04b4fc7ce66a99c80d9000c6bd850abe26fbadd6c7",
       "source_excerpt": "3) Различать: конфигурацию, авторизацию, отсутствие модели, неподдерживаемую модальность, некорректное изображение, rate limit, таймауты, сбои провайдера.",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто: каждая причина отказа классифицируется отдельно (конфиг, авторизация, отсутствие модели, модальность, некорректное изображение, rate limit, таймаут, сбой провайдера) — с кодом/visible_reason; словарь reason-кодов (269) не расширялся, различия в detail (review §4). VERIFIED.",
       "req_id": "P0V-PROBE-CLASSIFY",
       "slice": "P0V-PROBE",
       "acceptance": "Каждая причина отказа классифицируется отдельно: конфигурация, авторизация, отсутствие модели, неподдерживаемая модальность, некорректное изображение, rate limit, таймаут, сбой провайдера — с наблюдаемым кодом и человекочитаемым текстом; тест на каждый класс.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "76b156e06c4e6132bc14f79e3571d52ebf71fbb6",
+          "ref": "plans/features/p0-vision-universal/review-vision-core.md (1c4e6675, Approved) §4 (D4/D5) + plans/features/p0-vision-universal/evidence/fix-core/mock-matrix-2026-10-19.md",
+          "observation": "Матрица классов отказа с наблюдаемым кодом и человекочитаемым текстом; тест на каждый класс.",
+          "artifact_path": "plans/features/p0-vision-universal/evidence/fix-core/mock-matrix-2026-10-19.md",
+          "artifact_sha256": "d4ff4e0c7c71793b76d26e58a43bed04377c0be724891426be44a932796e2ac2",
+          "type": "test"
+        }
+      ],
       "alias_of": [
         "soul-1-amd:SOUL-AMD.5.14"
       ],
@@ -416,14 +595,23 @@
       "source_text_sha256": "15db2d0a7c8b69d660b6fc87e5d28cbe8b96dcdc5c653aed25eb06d327bb84df",
       "source_excerpt": "4) HTTP 400 ≠ доказательство отсутствия Vision.",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто: HTTP 400 сам по себе не помечает Vision отсутствующим — диагноз по коду/телу и контексту запроса; 400 → конкретная причина, не постоянный vision_unavailable (review §4). VERIFIED.",
       "req_id": "P0V-PROBE-400",
       "slice": "P0V-PROBE",
       "acceptance": "HTTP 400 от провайдера сам по себе не помечает Vision отсутствующим: диагноз строится по коду/телу ответа и контексту запроса; тест: 400 → конкретная причина, не постоянный «vision_unavailable».",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "76b156e06c4e6132bc14f79e3571d52ebf71fbb6",
+          "ref": "plans/features/p0-vision-universal/review-vision-core.md (1c4e6675, Approved) §4 (D5) + plans/features/p0-vision-universal/evidence/fix-core/mock-matrix-2026-10-19.md",
+          "observation": "4xx-семантика: валидный 400 → unavailable/image_rejected; пустой 2xx (choices без content) → ok.",
+          "artifact_path": "plans/features/p0-vision-universal/evidence/fix-core/mock-matrix-2026-10-19.md",
+          "artifact_sha256": "d4ff4e0c7c71793b76d26e58a43bed04377c0be724891426be44a932796e2ac2",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00023",
@@ -431,14 +619,23 @@
       "source_text_sha256": "8268a1c5fc9bf37ea50cec0258b7ff7315148c4616255ec784d7a0e9049624d5",
       "source_excerpt": "5) Временную недоступность НЕ кешировать как постоянную несовместимость.",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто: transient (access_error/rate_limited/unavailable/pending) — TTL 90 с; permanent (ok/no_vision) — часы; успешная проба перезаписывает transient; статус временный, восстановление возвращает ready (review §5, D6). VERIFIED.",
       "req_id": "P0V-PROBE-CACHE",
       "slice": "P0V-PROBE",
       "acceptance": "Временная недоступность (429/5xx/таймаут) не фиксируется как постоянная несовместимость: статус временный, повторная проба после восстановления возвращает ready; тест «transient снимается успехом».",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "76b156e06c4e6132bc14f79e3571d52ebf71fbb6",
+          "ref": "plans/features/p0-vision-universal/review-vision-core.md (1c4e6675, Approved) §5 (D6) + plans/features/p0-vision-universal/evidence/fix-core/green-2026-10-19.txt",
+          "observation": "TTL/TTL-переходы, «transient снимается успехом», reset_capability_cache bounded (локи+кеш).",
+          "artifact_path": "plans/features/p0-vision-universal/evidence/fix-core/green-2026-10-19.txt",
+          "artifact_sha256": "2d339c24c3bb4acbe68cd2f513e54788b05dcf10783f46313b1d3740090e7c41",
+          "type": "test"
+        }
+      ],
       "alias_of": [
         "soul-1-amd:SOUL-AMD.5.12"
       ],
@@ -450,14 +647,23 @@
       "source_text_sha256": "e7396e756693ff9791645b062869a1c57ef58e1cd48bfc1f002338c964ff83af",
       "source_excerpt": "6) При смене модели/ключа/endpoint/типа API — инвалидация capabilities и повторная проверка.",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто: `_capability_key` включает config_revision = hash(ключ+endpoint+модель+тип) — смена любого компонента инвалидирует вердикт и запускает повторную проверку; revision-hash без ключевого материала; ротационные тесты пройдены (review §5, D7). VERIFIED.",
       "req_id": "P0V-PROBE-INVALID",
       "slice": "P0V-PROBE",
       "acceptance": "Смена модели/ключа/endpoint/типа API инвалидирует сохранённый вердикт capabilities и запускает повторную проверку; тест: после смены конфигурации следующий отчёт не показывает старый результат.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "76b156e06c4e6132bc14f79e3571d52ebf71fbb6",
+          "ref": "plans/features/p0-vision-universal/review-vision-core.md (1c4e6675, Approved) §5 (D7) + plans/features/p0-vision-universal/evidence/fix-core/green-2026-10-19.txt",
+          "observation": "Ротации (значение ключа/основной ключ/endpoint/тип) инвалидируют кеш; старый результат не показывается.",
+          "artifact_path": "plans/features/p0-vision-universal/evidence/fix-core/green-2026-10-19.txt",
+          "artifact_sha256": "2d339c24c3bb4acbe68cd2f513e54788b05dcf10783f46313b1d3740090e7c41",
+          "type": "test"
+        }
+      ],
       "alias_of": [
         "soul-1-amd:SOUL-AMD.5.12"
       ],
@@ -469,14 +675,23 @@
       "source_text_sha256": "1396794e63a9ee7d712fe8b92ef269bfcf84e414b1d4a45d1a098daf496408b1",
       "source_excerpt": "7) Диагностика без раскрытия ключей/чувствительных данных.",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто: диагностика и события пробы не содержат ключи/токены — значение endpoint'а в логи не попадает (R17, INFO без значения); `_on_task_done` — WARNING только класса ошибки; поля витрины добавлены без утечек (review §1/§9). VERIFIED.",
       "req_id": "P0V-PROBE-SECRETS",
       "slice": "P0V-PROBE",
       "acceptance": "Диагностика и события пробы не содержат ключи/токены/чувствительные данные (только маска/факт наличия); проверка логов и API-ответов на утечки приложена.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "76b156e06c4e6132bc14f79e3571d52ebf71fbb6",
+          "ref": "plans/features/p0-vision-universal/review-vision-core.md (1c4e6675, Approved) §1/§9 (R17) + plans/features/p0-vision-universal/evidence/fix-core/green-2026-10-19.txt",
+          "observation": "Тесты и код: логирование без значения ключа; API-ответы (routes) — аддитивные поля без секретов.",
+          "artifact_path": "plans/features/p0-vision-universal/evidence/fix-core/green-2026-10-19.txt",
+          "artifact_sha256": "2d339c24c3bb4acbe68cd2f513e54788b05dcf10783f46313b1d3740090e7c41",
+          "type": "test"
+        }
+      ],
       "alias_of": [
         "soul-1-amd:SOUL-AMD.5.15"
       ],
@@ -510,7 +725,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "note": "UI-срез D10–D12 не построен — отдельный срез (данные API уже отдаются); строки P0V-UI-* остаются PENDING до его исполнения."
     },
     {
       "source_id": "L00034",
@@ -617,7 +833,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "note": "NF-1: пины-фикстуры (`f8_baseline.json` + `test_round1025_f8_registry.py`) — uncommitted, закоммитить ПОСЛЕ приземления ENTRY/INIT-ARCH; `test_mca23_planned_vs_actual.py` уже в `76b156e0`; на HEAD `test_round1025_f8_registry` временно RED (перечень в review §NF) — осознанно, не маскируется. NF-2: после коммитов ENTRY/INIT-ARCH переутвердить `FACTORY_SET_SHA256_12` (4 чужих factory-теста красные из-за чужих uncommitted factory-текстов — к VISION-FIX-CORE не относится). NF-3: атрибуция `76b156e0` — 13 файлов (services/mca_vision.py `493c1651f749`, services/cover_style_jobs.py `b732f298f5db`, web/api/routes.py `21f72a8ebb4e` (+12/−3), tests/test_p0_vision_fix_core.py `1852e3240b9d`, правки mca19×2/mca23, 6 evidence fix-core/**)."
     }
   ]
 }
