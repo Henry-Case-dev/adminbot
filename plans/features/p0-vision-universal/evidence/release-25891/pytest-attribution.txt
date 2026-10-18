@@ -1,0 +1,46 @@
+REL-25891 — атрибуция падений полного pytest (кандидат 2.58.91 @ bump 8bc8e9b5)
+=================================================================================
+
+Прогон кандидата: `.venv\Scripts\python.exe -m pytest -q`
+14432 passed / 9 failed / 1 warning, 672.72s (0:11:12)  [pytest-full.txt]
+
+Сравнение с базой 2.58.90 (прогон 25890, 14240 passed / 9 failed):
+  14432 - 14240 = +192 passed (новые тесты линий 2.58.91).
+
+Список 9 падений кандидата:
+  * tests/test_asap5_paradigms_diagnostics.py::test_bootstrap_cooldown_bypass_then_cap
+  * tests/test_asap7_direct_settings.py::test_migration_v35_idempotent_twice
+  * tests/test_asap7_direct_settings.py::test_backup_guard_fires_before_pending_step
+  * tests/test_mca01_tx_task_supervisor_round1027.py::test_write_points_go_through_single_writer
+  * tests/test_t5150_startup_migrations_round1046.py::test_a_ddl_window_survives_lock_longer_than_base_5s
+  * tests/test_t5150_startup_migrations_round1046.py::test_b_step_retry_recovers_after_locked
+  * tests/test_t5150_startup_migrations_round1046.py::test_d_migration_chain_full_log_trail
+  * tests/test_t5150_startup_migrations_round1046.py::test_e_v32_db_applies_v33_once_with_guard
+  * tests/test_t5150_startup_migrations_round1046.py::test_e2_v33_db_applies_v34_once_with_guard
+
+Атрибуция:
+1. asap7_direct_settings ×2, mca01_tx_task_supervisor ×1, t5150 ×5 — те же
+   8 пре-существующих падений, что и в базовом прогоне 2.58.90
+   (plans/features/p0-save-init-ux/evidence/release-25890/pytest-full.txt);
+   их файлы и механизмы дельтой 3b02366e..8bc8e9b5 не тронуты.
+2. mca09-flake (test_handle_initiative_sent_single_transport_chunks, ~5-6%
+   вероятность; атрибутировался в 25890) в этом прогоне НЕ сработал — зелёный.
+3. test_asap5_paradigms_diagnostics::test_bootstrap_cooldown_bypass_then_cap —
+   ПРЕ-СУЩЕСТВУЮЩИЙ clock-window дефект теста (не дельта):
+   * механизм: deep_bootstrap_cap_ok считает попытки от local-midnight по
+     WORKER_BUDGET_TZ=Asia/Yekaterinburg (UTC+5); попытки в тесте пишутся
+     «now-3h», и при local-времени 00:00-03:00 они попадают в ПРЕДЫДУЩИЙ
+     local-день → count=0 → кап 6/сутки не срабатывает → gate=None → assert.
+   * воспроизведено байт-в-байт на ТОЧНОЙ прод-базе 3b02366e (2.58.90) в
+     worktree при том же часе: 1 failed (тот же assert, та же строка 104).
+   * контроль механизма: с WORKER_BUDGET_TZ=UTC тот же тест на 3b02366e —
+     1 passed. Тест/сервис дельтой не менялись (git diff = 0).
+   * в базовом прогоне 2.58.90 отсутствовал, т.к. он шёл вне окна 00:00-03:00
+     local (Yekaterinburg) — не «новое» падение, а то же пре-существующее
+     окно времени суток.
+
+Остаточные наблюдения:
+  * ни одно падение не связано с 24 runtime-файлами релиза (все они вне
+    дельты: mca_gates.py/dream_worker.py/test_asap5*/t5150/asap7/mca01).
+  * кластер линий 2.58.91 в полном прогоне: 14432 passed; фокусные наборы
+    168 passed (см. focused-pytest.txt), js 88/0, UX 0/21, P0V-UI 0/26.

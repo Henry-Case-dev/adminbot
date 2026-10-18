@@ -1,0 +1,62 @@
+PAYLOAD (24):
+    "config/settings.py": "9feccf2575d7",
+    "handlers/direct_chat.py": "8e48c18a58d2",
+    "services/capability_registry.py": "f560b21793e1",
+    "services/chat_prompts.py": "632567f3ce91",
+    "services/cover_style_jobs.py": "b732f298f5db",
+    "services/direct_capabilities.py": "bbdaddc6901a",
+    "services/direct_chat_service.py": "8248426e5b9c",
+    "services/direct_execution.py": "8785f554f4a0",
+    "services/image_generation.py": "e84009f90932",
+    "services/initiative_diagnostics.py": "3d7d0d6a31d3",
+    "services/initiative_observer.py": "210c7516ed53",
+    "services/mca_vision.py": "493c1651f749",
+    "services/param_catalog.py": "ad109003b936",
+    "services/persistent_throttling.py": "078086d25f32",
+    "services/postgen_vision.py": "3237319b8b7f",
+    "services/prompt_registry.py": "9f6d4d064a7b",
+    "services/tool_router.py": "bdea19386748",
+    "services/tool_schemas.py": "f5e066cba3f7",
+    "services/worker_budget.py": "b8f8fdf73f9b",
+    "web/api/gates.py": "a90148779231",
+    "web/api/routes.py": "21f72a8ebb4e",
+    "web/app.js": "b14ef48ab16a",
+    "web/index.html": "7b54e48105ae",
+    "web/static/app.css": "6d3ae1112d50",
+BUMP (2):
+    "README.md": "f36cea15a897",
+    "plans/docs/param-registry-round1025.meta.md": "280d49b31371",
+SANITY (4):
+    "services/telegram_send.py": "e23bced2fdb8",
+    "web/static/fullscreen-policy.js": "96db06425079",
+    "services/prompt_composer.py": "fd8a2a70d5d7",
+    "services/worker_budget.py": "b8f8fdf73f9b",
+RUNTIME DELTA vs 3b02366e (24):
+    config/settings.py
+    handlers/direct_chat.py
+    services/capability_registry.py
+    services/chat_prompts.py
+    services/cover_style_jobs.py
+    services/direct_capabilities.py
+    services/direct_chat_service.py
+    services/direct_execution.py
+    services/image_generation.py
+    services/initiative_diagnostics.py
+    services/initiative_observer.py
+    services/mca_vision.py
+    services/param_catalog.py
+    services/persistent_throttling.py
+    services/postgen_vision.py
+    services/prompt_registry.py
+    services/tool_router.py
+    services/tool_schemas.py
+    services/worker_budget.py
+    web/api/gates.py
+    web/api/routes.py
+    web/app.js
+    web/index.html
+    web/static/app.css
+WHITELIST_SET_EQUAL=True
+TOTAL_DELTA=316
+SANITY_DIFF='services/worker_budget.py'
+APP_VERSION=9feccf2575d7

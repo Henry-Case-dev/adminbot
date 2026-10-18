@@ -1,0 +1,70 @@
+REL-25891 2.58.91 frozen candidate fingerprint
+date_utc=2026-10-18 19:47:18
+prod_baseline=3b02366e63022eb4c760892aa1bcb4f26516e789 (2.58.90)
+bump_commit=8bc8e9b59b1d4557b1fa072a437b23ba6fcacae3 (2.58.91)
+payload_head=88593e9a (VISION-UI)
+branch release/fix-2.58.90=3b02366e63022eb4c760892aa1bcb4f26516e789
+
+RUNTIME DELTA vs prod (24, whitelist):
+  config/settings.py
+  handlers/direct_chat.py
+  services/capability_registry.py
+  services/chat_prompts.py
+  services/cover_style_jobs.py
+  services/direct_capabilities.py
+  services/direct_chat_service.py
+  services/direct_execution.py
+  services/image_generation.py
+  services/initiative_diagnostics.py
+  services/initiative_observer.py
+  services/mca_vision.py
+  services/param_catalog.py
+  services/persistent_throttling.py
+  services/postgen_vision.py
+  services/prompt_registry.py
+  services/tool_router.py
+  services/tool_schemas.py
+  services/worker_budget.py
+  web/api/gates.py
+  web/api/routes.py
+  web/app.js
+  web/index.html
+  web/static/app.css
+
+sha256_12 payload (24):
+  "config/settings.py": "9feccf2575d7",
+  "handlers/direct_chat.py": "8e48c18a58d2",
+  "services/capability_registry.py": "f560b21793e1",
+  "services/chat_prompts.py": "632567f3ce91",
+  "services/cover_style_jobs.py": "b732f298f5db",
+  "services/direct_capabilities.py": "bbdaddc6901a",
+  "services/direct_chat_service.py": "8248426e5b9c",
+  "services/direct_execution.py": "8785f554f4a0",
+  "services/image_generation.py": "e84009f90932",
+  "services/initiative_diagnostics.py": "3d7d0d6a31d3",
+  "services/initiative_observer.py": "210c7516ed53",
+  "services/mca_vision.py": "493c1651f749",
+  "services/param_catalog.py": "ad109003b936",
+  "services/persistent_throttling.py": "078086d25f32",
+  "services/postgen_vision.py": "3237319b8b7f",
+  "services/prompt_registry.py": "9f6d4d064a7b",
+  "services/tool_router.py": "bdea19386748",
+  "services/tool_schemas.py": "f5e066cba3f7",
+  "services/worker_budget.py": "b8f8fdf73f9b",
+  "web/api/gates.py": "a90148779231",
+  "web/api/routes.py": "21f72a8ebb4e",
+  "web/app.js": "b14ef48ab16a",
+  "web/index.html": "7b54e48105ae",
+  "web/static/app.css": "6d3ae1112d50",
+sha256_12 bump (2):
+  "README.md": "f36cea15a897",
+  "plans/docs/param-registry-round1025.meta.md": "280d49b31371",
+sha256_12 sanity (3, == prod 2.58.90 bytes):
+  "services/telegram_send.py": "e23bced2fdb8",
+  "web/static/fullscreen-policy.js": "96db06425079",
+  "services/prompt_composer.py": "fd8a2a70d5d7",
+
+TOTAL delta files (3b02366e..8bc8e9b5): 316
+delta outside plans/: 107
+bump files: 31 (settings + README + meta + 24 py + 4 js)
+sanity git-diff vs 3b02366e: ''

@@ -1,0 +1,5 @@
+[matrix] config stub: items=577 groups=120
+[matrix] chat-╨▓╨░╤А╨╕╨░╨╜╤В config: override items=116
+[p0a-ux-e2e] webroot = C:\Code\Python\adminbot\web
+
+== ╨Ш╨в╨Ю╨У: failures=0, POST=21
