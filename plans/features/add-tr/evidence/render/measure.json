@@ -1,0 +1,2831 @@
+{
+ "webroot": "C:\\Users\\main\\.config\\opencode\\OpenCodeScratch\\adminbot-ccef72c25768\\addtr_recon\\prod_web",
+ "viewports": {
+  "320": {
+   "vw": 320,
+   "vh": 640,
+   "hash": "#/ai/speech",
+   "colsRaw": "280px",
+   "cols": 1,
+   "overflow": 0,
+   "screenVisible": true,
+   "cards": [
+    {
+     "id": "core",
+     "card": {
+      "x": 20,
+      "y": 288,
+      "w": 280,
+      "h": 79
+     },
+     "body": {
+      "x": 57,
+      "y": 299,
+      "w": 154,
+      "h": 57
+     },
+     "title": {
+      "x": 57,
+      "y": 299,
+      "w": 154,
+      "h": 20
+     },
+     "sub": {
+      "x": 57,
+      "y": 321,
+      "w": 154,
+      "h": 17
+     },
+     "detail": {
+      "x": 57,
+      "y": 339,
+      "w": 154,
+      "h": 17
+     },
+     "badge": {
+      "x": 219,
+      "y": 299,
+      "w": 70,
+      "h": 22
+     },
+     "badgeText": "изменено",
+     "titleBadgeOverlap": null,
+     "bodyBadgeOverlap": null,
+     "titleOverflowPx": 0,
+     "badgeOverflowPx": 0,
+     "titleWhiteSpace": "normal",
+     "titleOverflowWrap": "normal"
+    },
+    {
+     "id": "expression",
+     "card": {
+      "x": 20,
+      "y": 405,
+      "w": 280,
+      "h": 79
+     },
+     "body": {
+      "x": 39,
+      "y": 416,
+      "w": 172,
+      "h": 57
+     },
+     "title": {
+      "x": 39,
+      "y": 416,
+      "w": 172,
+      "h": 20
+     },
+     "sub": {
+      "x": 39,
+      "y": 437,
+      "w": 172,
+      "h": 17
+     },
+     "detail": {
+      "x": 39,
+      "y": 456,
+      "w": 172,
+      "h": 17
+     },
+     "badge": {
+      "x": 219,
+      "y": 416,
+      "w": 70,
+      "h": 22
+     },
+     "badgeText": "изменено",
+     "titleBadgeOverlap": null,
+     "bodyBadgeOverlap": null,
+     "titleOverflowPx": 0,
+     "badgeOverflowPx": 0,
+     "titleWhiteSpace": "normal",
+     "titleOverflowWrap": "normal"
+    },
+    {
+     "id": "humor",
+     "card": {
+      "x": 20,
+      "y": 491,
+      "w": 280,
+      "h": 79
+     },
+     "body": {
+      "x": 39,
+      "y": 502,
+      "w": 171,
+      "h": 57
+     },
+     "title": {
+      "x": 39,
+      "y": 502,
+      "w": 171,
+      "h": 20
+     },
+     "sub": {
+      "x": 39,
+      "y": 524,
+      "w": 171,
+      "h": 17
+     },
+     "detail": {
+      "x": 39,
+      "y": 542,
+      "w": 171,
+      "h": 17
+     },
+     "badge": {
+      "x": 218,
+      "y": 502,
+      "w": 71,
+      "h": 22
+     },
+     "badgeText": "включено",
+     "titleBadgeOverlap": null,
+     "bodyBadgeOverlap": null,
+     "titleOverflowPx": 0,
+     "badgeOverflowPx": 0,
+     "titleWhiteSpace": "normal",
+     "titleOverflowWrap": "normal"
+    },
+    {
+     "id": "style",
+     "card": {
+      "x": 20,
+      "y": 608,
+      "w": 280,
+      "h": 79
+     },
+     "body": {
+      "x": 39,
+      "y": 619,
+      "w": 172,
+      "h": 57
+     },
+     "title": {
+      "x": 39,
+      "y": 619,
+      "w": 172,
+      "h": 20
+     },
+     "sub": {
+      "x": 39,
+      "y": 640,
+      "w": 172,
+      "h": 17
+     },
+     "detail": {
+      "x": 39,
+      "y": 659,
+      "w": 172,
+      "h": 17
+     },
+     "badge": {
+      "x": 219,
+      "y": 619,
+      "w": 70,
+      "h": 22
+     },
+     "badgeText": "изменено",
+     "titleBadgeOverlap": null,
+     "bodyBadgeOverlap": null,
+     "titleOverflowPx": 0,
+     "badgeOverflowPx": 0,
+     "titleWhiteSpace": "normal",
+     "titleOverflowWrap": "normal"
+    },
+    {
+     "id": "examples",
+     "card": {
+      "x": 20,
+      "y": 724,
+      "w": 280,
+      "h": 79
+     },
+     "body": {
+      "x": 39,
+      "y": 735,
+      "w": 171,
+      "h": 57
+     },
+     "title": {
+      "x": 39,
+      "y": 735,
+      "w": 171,
+      "h": 20
+     },
+     "sub": {
+      "x": 39,
+      "y": 757,
+      "w": 171,
+      "h": 17
+     },
+     "detail": {
+      "x": 39,
+      "y": 775,
+      "w": 171,
+      "h": 17
+     },
+     "badge": {
+      "x": 218,
+      "y": 735,
+      "w": 71,
+      "h": 22
+     },
+     "badgeText": "заводское",
+     "titleBadgeOverlap": null,
+     "bodyBadgeOverlap": null,
+     "titleOverflowPx": 0,
+     "badgeOverflowPx": 0,
+     "titleWhiteSpace": "normal",
+     "titleOverflowWrap": "normal"
+    },
+    {
+     "id": "try",
+     "card": {
+      "x": 20,
+      "y": 811,
+      "w": 280,
+      "h": 79
+     },
+     "body": {
+      "x": 39,
+      "y": 822,
+      "w": 190,
+      "h": 57
+     },
+     "title": {
+      "x": 39,
+      "y": 822,
+      "w": 190,
+      "h": 20
+     },
+     "sub": {
+      "x": 39,
+      "y": 843,
+      "w": 190,
+      "h": 17
+     },
+     "detail": {
+      "x": 39,
+      "y": 862,
+      "w": 190,
+      "h": 17
+     },
+     "badge": {
+      "x": 237,
+      "y": 822,
+      "w": 52,
+      "h": 22
+     },
+     "badgeText": "готово",
+     "titleBadgeOverlap": null,
+     "bodyBadgeOverlap": null,
+     "titleOverflowPx": 0,
+     "badgeOverflowPx": 0,
+     "titleWhiteSpace": "normal",
+     "titleOverflowWrap": "normal"
+    },
+    {
+     "id": "learning",
+     "card": {
+      "x": 20,
+      "y": 897,
+      "w": 280,
+      "h": 79
+     },
+     "body": {
+      "x": 39,
+      "y": 908,
+      "w": 190,
+      "h": 57
+     },
+     "title": {
+      "x": 39,
+      "y": 908,
+      "w": 190,
+      "h": 20
+     },
+     "sub": {
+      "x": 39,
+      "y": 930,
+      "w": 190,
+      "h": 17
+     },
+     "detail": {
+      "x": 39,
+      "y": 948,
+      "w": 190,
+      "h": 17
+     },
+     "badge": {
+      "x": 237,
+      "y": 908,
+      "w": 52,
+      "h": 22
+     },
+     "badgeText": "готово",
+     "titleBadgeOverlap": null,
+     "bodyBadgeOverlap": null,
+     "titleOverflowPx": 0,
+     "badgeOverflowPx": 0,
+     "titleWhiteSpace": "normal",
+     "titleOverflowWrap": "normal"
+    },
+    {
+     "id": "all",
+     "card": {
+      "x": 20,
+      "y": 984,
+      "w": 280,
+      "h": 62
+     },
+     "body": {
+      "x": 39,
+      "y": 995,
+      "w": 182,
+      "h": 40
+     },
+     "title": {
+      "x": 39,
+      "y": 995,
+      "w": 182,
+      "h": 20
+     },
+     "sub": {
+      "x": 39,
+      "y": 1016,
+      "w": 182,
+      "h": 17
+     },
+     "detail": {
+      "x": 39,
+      "y": 1035,
+      "w": 182,
+      "h": 0
+     },
+     "badge": {
+      "x": 229,
+      "y": 995,
+      "w": 60,
+      "h": 22
+     },
+     "badgeText": "открыть",
+     "titleBadgeOverlap": null,
+     "bodyBadgeOverlap": null,
+     "titleOverflowPx": 0,
+     "badgeOverflowPx": 0,
+     "titleWhiteSpace": "normal",
+     "titleOverflowWrap": "normal"
+    },
+    {
+     "id": "inspector",
+     "card": {
+      "x": 20,
+      "y": 1054,
+      "w": 280,
+      "h": 62
+     },
+     "body": {
+      "x": 39,
+      "y": 1065,
+      "w": 182,
+      "h": 40
+     },
+     "title": {
+      "x": 39,
+      "y": 1065,
+      "w": 182,
+      "h": 20
+     },
+     "sub": {
+      "x": 39,
+      "y": 1086,
+      "w": 182,
+      "h": 17
+     },
+     "detail": {
+      "x": 39,
+      "y": 1105,
+      "w": 182,
+      "h": 0
+     },
+     "badge": {
+      "x": 229,
+      "y": 1065,
+      "w": 60,
+      "h": 22
+     },
+     "badgeText": "открыть",
+     "titleBadgeOverlap": null,
+     "bodyBadgeOverlap": null,
+     "titleOverflowPx": 0,
+     "badgeOverflowPx": 0,
+     "titleWhiteSpace": "normal",
+     "titleOverflowWrap": "normal"
+    },
+    {
+     "id": "capabilities",
+     "card": {
+      "x": 20,
+      "y": 1124,
+      "w": 280,
+      "h": 62
+     },
+     "body": {
+      "x": 57,
+      "y": 1135,
+      "w": 164,
+      "h": 40
+     },
+     "title": {
+      "x": 57,
+      "y": 1135,
+      "w": 164,
+      "h": 20
+     },
+     "sub": {
+      "x": 57,
+      "y": 1156,
+      "w": 164,
+      "h": 17
+     },
+     "detail": {
+      "x": 57,
+      "y": 1175,
+      "w": 164,
+      "h": 0
+     },
+     "badge": {
+      "x": 229,
+      "y": 1135,
+      "w": 60,
+      "h": 22
+     },
+     "badgeText": "открыть",
+     "titleBadgeOverlap": null,
+     "bodyBadgeOverlap": null,
+     "titleOverflowPx": 0,
+     "badgeOverflowPx": 0,
+     "titleWhiteSpace": "normal",
+     "titleOverflowWrap": "normal"
+    }
+   ]
+  },
+  "360": {
+   "vw": 360,
+   "vh": 740,
+   "hash": "#/ai/speech",
+   "colsRaw": "156px 156px",
+   "cols": 2,
+   "overflow": 0,
+   "screenVisible": true,
+   "cards": [
+    {
+     "id": "core",
+     "card": {
+      "x": 20,
+      "y": 256,
+      "w": 156,
+      "h": 161
+     },
+     "body": {
+      "x": 57,
+      "y": 267,
+      "w": 30,
+      "h": 139
+     },
+     "title": {
+      "x": 57,
+      "y": 267,
+      "w": 30,
+      "h": 20
+     },
+     "sub": {
+      "x": 57,
+      "y": 289,
+      "w": 30,
+      "h": 83
+     },
+     "detail": {
+      "x": 57,
+      "y": 373,
+      "w": 30,
+      "h": 33
+     },
+     "badge": {
+      "x": 95,
+      "y": 267,
+      "w": 70,
+      "h": 22
+     },
+     "badgeText": "изменено",
+     "titleBadgeOverlap": null,
+     "bodyBadgeOverlap": null,
+     "titleOverflowPx": 29,
+     "badgeOverflowPx": 0,
+     "titleWhiteSpace": "normal",
+     "titleOverflowWrap": "normal"
+    },
+    {
+     "id": "expression",
+     "card": {
+      "x": 20,
+      "y": 455,
+      "w": 156,
+      "h": 112
+     },
+     "body": {
+      "x": 39,
+      "y": 466,
+      "w": 48,
+      "h": 90
+     },
+     "title": {
+      "x": 39,
+      "y": 466,
+      "w": 48,
+      "h": 20
+     },
+     "sub": {
+      "x": 39,
+      "y": 488,
+      "w": 48,
+      "h": 33
+     },
+     "detail": {
+      "x": 39,
+      "y": 523,
+      "w": 48,
+      "h": 33
+     },
+     "badge": {
+      "x": 95,
+      "y": 466,
+      "w": 70,
+      "h": 22
+     },
+     "badgeText": "изменено",
+     "titleBadgeOverlap": null,
+     "bodyBadgeOverlap": null,
+     "titleOverflowPx": 27,
+     "badgeOverflowPx": 0,
+     "titleWhiteSpace": "normal",
+     "titleOverflowWrap": "normal"
+    },
+    {
+     "id": "humor",
+     "card": {
+      "x": 184,
+      "y": 455,
+      "w": 156,
+      "h": 112
+     },
+     "body": {
+      "x": 203,
+      "y": 466,
+      "w": 47,
+      "h": 90
+     },
+     "title": {
+      "x": 203,
+      "y": 466,
+      "w": 47,
+      "h": 20
+     },
+     "sub": {
+      "x": 203,
+      "y": 488,
+      "w": 47,
+      "h": 33
+     },
+     "detail": {
+      "x": 203,
+      "y": 523,
+      "w": 47,
+      "h": 33
+     },
+     "badge": {
+      "x": 258,
+      "y": 466,
+      "w": 71,
+      "h": 22
+     },
+     "badgeText": "включено",
+     "titleBadgeOverlap": null,
+     "bodyBadgeOverlap": null,
+     "titleOverflowPx": 0,
+     "badgeOverflowPx": 0,
+     "titleWhiteSpace": "normal",
+     "titleOverflowWrap": "normal"
+    },
+    {
+     "id": "style",
+     "card": {
+      "x": 20,
+      "y": 605,
+      "w": 156,
+      "h": 131
+     },
+     "body": {
+      "x": 39,
+      "y": 616,
+      "w": 48,
+      "h": 109
+     },
+     "title": {
+      "x": 39,
+      "y": 616,
+      "w": 48,
+      "h": 39
+     },
+     "sub": {
+      "x": 39,
+      "y": 657,
+      "w": 48,
+      "h": 33
+     },
+     "detail": {
+      "x": 39,
+      "y": 692,
+      "w": 48,
+      "h": 33
+     },
+     "badge": {
+      "x": 95,
+      "y": 616,
+      "w": 70,
+      "h": 22
+     },
+     "badgeText": "изменено",
+     "titleBadgeOverlap": null,
+     "bodyBadgeOverlap": null,
+     "titleOverflowPx": 0,
+     "badgeOverflowPx": 0,
+     "titleWhiteSpace": "normal",
+     "titleOverflowWrap": "normal"
+    },
+    {
+     "id": "examples",
+     "card": {
+      "x": 20,
+      "y": 774,
+      "w": 156,
+      "h": 145
+     },
+     "body": {
+      "x": 39,
+      "y": 785,
+      "w": 47,
+      "h": 123
+     },
+     "title": {
+      "x": 39,
+      "y": 785,
+      "w": 47,
+      "h": 20
+     },
+     "sub": {
+      "x": 39,
+      "y": 806,
+      "w": 47,
+      "h": 66
+     },
+     "detail": {
+      "x": 39,
+      "y": 874,
+      "w": 47,
+      "h": 33
+     },
+     "badge": {
+      "x": 94,
+      "y": 785,
+      "w": 71,
+      "h": 22
+     },
+     "badgeText": "заводское",
+     "titleBadgeOverlap": null,
+     "bodyBadgeOverlap": null,
+     "titleOverflowPx": 15,
+     "badgeOverflowPx": 0,
+     "titleWhiteSpace": "normal",
+     "titleOverflowWrap": "normal"
+    },
+    {
+     "id": "try",
+     "card": {
+      "x": 184,
+      "y": 774,
+      "w": 156,
+      "h": 145
+     },
+     "body": {
+      "x": 203,
+      "y": 785,
+      "w": 66,
+      "h": 90
+     },
+     "title": {
+      "x": 203,
+      "y": 785,
+      "w": 66,
+      "h": 20
+     },
+     "sub": {
+      "x": 203,
+      "y": 806,
+      "w": 66,
+      "h": 33
+     },
+     "detail": {
+      "x": 203,
+      "y": 841,
+      "w": 66,
+      "h": 33
+     },
+     "badge": {
+      "x": 277,
+      "y": 785,
+      "w": 52,
+      "h": 22
+     },
+     "badgeText": "готово",
+     "titleBadgeOverlap": null,
+     "bodyBadgeOverlap": null,
+     "titleOverflowPx": 19,
+     "badgeOverflowPx": 0,
+     "titleWhiteSpace": "normal",
+     "titleOverflowWrap": "normal"
+    },
+    {
+     "id": "learning",
+     "card": {
+      "x": 20,
+      "y": 926,
+      "w": 156,
+      "h": 128
+     },
+     "body": {
+      "x": 39,
+      "y": 937,
+      "w": 66,
+      "h": 106
+     },
+     "title": {
+      "x": 39,
+      "y": 937,
+      "w": 66,
+      "h": 20
+     },
+     "sub": {
+      "x": 39,
+      "y": 959,
+      "w": 66,
+      "h": 50
+     },
+     "detail": {
+      "x": 39,
+      "y": 1010,
+      "w": 66,
+      "h": 33
+     },
+     "badge": {
+      "x": 113,
+      "y": 937,
+      "w": 52,
+      "h": 22
+     },
+     "badgeText": "готово",
+     "titleBadgeOverlap": null,
+     "bodyBadgeOverlap": null,
+     "titleOverflowPx": 0,
+     "badgeOverflowPx": 0,
+     "titleWhiteSpace": "normal",
+     "titleOverflowWrap": "normal"
+    },
+    {
+     "id": "all",
+     "card": {
+      "x": 184,
+      "y": 926,
+      "w": 156,
+      "h": 128
+     },
+     "body": {
+      "x": 203,
+      "y": 937,
+      "w": 58,
+      "h": 76
+     },
+     "title": {
+      "x": 203,
+      "y": 937,
+      "w": 58,
+      "h": 39
+     },
+     "sub": {
+      "x": 203,
+      "y": 978,
+      "w": 58,
+      "h": 33
+     },
+     "detail": {
+      "x": 203,
+      "y": 1013,
+      "w": 58,
+      "h": 0
+     },
+     "badge": {
+      "x": 269,
+      "y": 937,
+      "w": 60,
+      "h": 22
+     },
+     "badgeText": "открыть",
+     "titleBadgeOverlap": null,
+     "bodyBadgeOverlap": null,
+     "titleOverflowPx": 17,
+     "badgeOverflowPx": 0,
+     "titleWhiteSpace": "normal",
+     "titleOverflowWrap": "normal"
+    },
+    {
+     "id": "inspector",
+     "card": {
+      "x": 20,
+      "y": 1062,
+      "w": 156,
+      "h": 118
+     },
+     "body": {
+      "x": 39,
+      "y": 1073,
+      "w": 58,
+      "h": 96
+     },
+     "title": {
+      "x": 39,
+      "y": 1073,
+      "w": 58,
+      "h": 59
+     },
+     "sub": {
+      "x": 39,
+      "y": 1134,
+      "w": 58,
+      "h": 33
+     },
+     "detail": {
+      "x": 39,
+      "y": 1169,
+      "w": 58,
+      "h": 0
+     },
+     "badge": {
+      "x": 105,
+      "y": 1073,
+      "w": 60,
+      "h": 22
+     },
+     "badgeText": "открыть",
+     "titleBadgeOverlap": null,
+     "bodyBadgeOverlap": null,
+     "titleOverflowPx": 0,
+     "badgeOverflowPx": 0,
+     "titleWhiteSpace": "normal",
+     "titleOverflowWrap": "normal"
+    },
+    {
+     "id": "capabilities",
+     "card": {
+      "x": 184,
+      "y": 1062,
+      "w": 156,
+      "h": 118
+     },
+     "body": {
+      "x": 221,
+      "y": 1073,
+      "w": 40,
+      "h": 93
+     },
+     "title": {
+      "x": 221,
+      "y": 1073,
+      "w": 40,
+      "h": 39
+     },
+     "sub": {
+      "x": 221,
+      "y": 1114,
+      "w": 40,
+      "h": 50
+     },
+     "detail": {
+      "x": 221,
+      "y": 1166,
+      "w": 40,
+      "h": 0
+     },
+     "badge": {
+      "x": 269,
+      "y": 1073,
+      "w": 60,
+      "h": 22
+     },
+     "badgeText": "открыть",
+     "titleBadgeOverlap": null,
+     "bodyBadgeOverlap": null,
+     "titleOverflowPx": 48,
+     "badgeOverflowPx": 0,
+     "titleWhiteSpace": "normal",
+     "titleOverflowWrap": "normal"
+    }
+   ]
+  },
+  "390": {
+   "vw": 390,
+   "vh": 844,
+   "hash": "#/ai/speech",
+   "colsRaw": "171px 171px",
+   "cols": 2,
+   "overflow": 0,
+   "screenVisible": true,
+   "cards": [
+    {
+     "id": "core",
+     "card": {
+      "x": 20,
+      "y": 256,
+      "w": 171,
+      "h": 128
+     },
+     "body": {
+      "x": 57,
+      "y": 267,
+      "w": 45,
+      "h": 106
+     },
+     "title": {
+      "x": 57,
+      "y": 267,
+      "w": 45,
+      "h": 20
+     },
+     "sub": {
+      "x": 57,
+      "y": 289,
+      "w": 45,
+      "h": 50
+     },
+     "detail": {
+      "x": 57,
+      "y": 340,
+      "w": 45,
+      "h": 33
+     },
+     "badge": {
+      "x": 110,
+      "y": 267,
+      "w": 70,
+      "h": 22
+     },
+     "badgeText": "изменено",
+     "titleBadgeOverlap": null,
+     "bodyBadgeOverlap": null,
+     "titleOverflowPx": 14,
+     "badgeOverflowPx": 0,
+     "titleWhiteSpace": "normal",
+     "titleOverflowWrap": "normal"
+    },
+    {
+     "id": "expression",
+     "card": {
+      "x": 20,
+      "y": 422,
+      "w": 171,
+      "h": 112
+     },
+     "body": {
+      "x": 39,
+      "y": 433,
+      "w": 63,
+      "h": 90
+     },
+     "title": {
+      "x": 39,
+      "y": 433,
+      "w": 63,
+      "h": 20
+     },
+     "sub": {
+      "x": 39,
+      "y": 455,
+      "w": 63,
+      "h": 33
+     },
+     "detail": {
+      "x": 39,
+      "y": 490,
+      "w": 63,
+      "h": 33
+     },
+     "badge": {
+      "x": 110,
+      "y": 433,
+      "w": 70,
+      "h": 22
+     },
+     "badgeText": "изменено",
+     "titleBadgeOverlap": null,
+     "bodyBadgeOverlap": null,
+     "titleOverflowPx": 12,
+     "badgeOverflowPx": 0,
+     "titleWhiteSpace": "normal",
+     "titleOverflowWrap": "normal"
+    },
+    {
+     "id": "humor",
+     "card": {
+      "x": 199,
+      "y": 422,
+      "w": 171,
+      "h": 112
+     },
+     "body": {
+      "x": 218,
+      "y": 433,
+      "w": 62,
+      "h": 90
+     },
+     "title": {
+      "x": 218,
+      "y": 433,
+      "w": 62,
+      "h": 20
+     },
+     "sub": {
+      "x": 218,
+      "y": 455,
+      "w": 62,
+      "h": 33
+     },
+     "detail": {
+      "x": 218,
+      "y": 490,
+      "w": 62,
+      "h": 33
+     },
+     "badge": {
+      "x": 288,
+      "y": 433,
+      "w": 71,
+      "h": 22
+     },
+     "badgeText": "включено",
+     "titleBadgeOverlap": null,
+     "bodyBadgeOverlap": null,
+     "titleOverflowPx": 0,
+     "badgeOverflowPx": 0,
+     "titleWhiteSpace": "normal",
+     "titleOverflowWrap": "normal"
+    },
+    {
+     "id": "style",
+     "card": {
+      "x": 20,
+      "y": 572,
+      "w": 171,
+      "h": 131
+     },
+     "body": {
+      "x": 39,
+      "y": 583,
+      "w": 63,
+      "h": 109
+     },
+     "title": {
+      "x": 39,
+      "y": 583,
+      "w": 63,
+      "h": 39
+     },
+     "sub": {
+      "x": 39,
+      "y": 624,
+      "w": 63,
+      "h": 33
+     },
+     "detail": {
+      "x": 39,
+      "y": 659,
+      "w": 63,
+      "h": 33
+     },
+     "badge": {
+      "x": 110,
+      "y": 583,
+      "w": 70,
+      "h": 22
+     },
+     "badgeText": "изменено",
+     "titleBadgeOverlap": null,
+     "bodyBadgeOverlap": null,
+     "titleOverflowPx": 0,
+     "badgeOverflowPx": 0,
+     "titleWhiteSpace": "normal",
+     "titleOverflowWrap": "normal"
+    },
+    {
+     "id": "examples",
+     "card": {
+      "x": 20,
+      "y": 741,
+      "w": 171,
+      "h": 112
+     },
+     "body": {
+      "x": 39,
+      "y": 752,
+      "w": 62,
+      "h": 90
+     },
+     "title": {
+      "x": 39,
+      "y": 752,
+      "w": 62,
+      "h": 20
+     },
+     "sub": {
+      "x": 39,
+      "y": 773,
+      "w": 62,
+      "h": 33
+     },
+     "detail": {
+      "x": 39,
+      "y": 808,
+      "w": 62,
+      "h": 33
+     },
+     "badge": {
+      "x": 109,
+      "y": 752,
+      "w": 71,
+      "h": 22
+     },
+     "badgeText": "заводское",
+     "titleBadgeOverlap": null,
+     "bodyBadgeOverlap": null,
+     "titleOverflowPx": 0,
+     "badgeOverflowPx": 0,
+     "titleWhiteSpace": "normal",
+     "titleOverflowWrap": "normal"
+    },
+    {
+     "id": "try",
+     "card": {
+      "x": 199,
+      "y": 741,
+      "w": 171,
+      "h": 112
+     },
+     "body": {
+      "x": 218,
+      "y": 752,
+      "w": 81,
+      "h": 90
+     },
+     "title": {
+      "x": 218,
+      "y": 752,
+      "w": 81,
+      "h": 20
+     },
+     "sub": {
+      "x": 218,
+      "y": 773,
+      "w": 81,
+      "h": 33
+     },
+     "detail": {
+      "x": 218,
+      "y": 808,
+      "w": 81,
+      "h": 33
+     },
+     "badge": {
+      "x": 307,
+      "y": 752,
+      "w": 52,
+      "h": 22
+     },
+     "badgeText": "готово",
+     "titleBadgeOverlap": null,
+     "bodyBadgeOverlap": null,
+     "titleOverflowPx": 4,
+     "badgeOverflowPx": 0,
+     "titleWhiteSpace": "normal",
+     "titleOverflowWrap": "normal"
+    },
+    {
+     "id": "learning",
+     "card": {
+      "x": 20,
+      "y": 860,
+      "w": 171,
+      "h": 112
+     },
+     "body": {
+      "x": 39,
+      "y": 871,
+      "w": 81,
+      "h": 90
+     },
+     "title": {
+      "x": 39,
+      "y": 871,
+      "w": 81,
+      "h": 20
+     },
+     "sub": {
+      "x": 39,
+      "y": 893,
+      "w": 81,
+      "h": 33
+     },
+     "detail": {
+      "x": 39,
+      "y": 928,
+      "w": 81,
+      "h": 33
+     },
+     "badge": {
+      "x": 128,
+      "y": 871,
+      "w": 52,
+      "h": 22
+     },
+     "badgeText": "готово",
+     "titleBadgeOverlap": null,
+     "bodyBadgeOverlap": null,
+     "titleOverflowPx": 0,
+     "badgeOverflowPx": 0,
+     "titleWhiteSpace": "normal",
+     "titleOverflowWrap": "normal"
+    },
+    {
+     "id": "all",
+     "card": {
+      "x": 199,
+      "y": 860,
+      "w": 171,
+      "h": 112
+     },
+     "body": {
+      "x": 218,
+      "y": 871,
+      "w": 73,
+      "h": 76
+     },
+     "title": {
+      "x": 218,
+      "y": 871,
+      "w": 73,
+      "h": 39
+     },
+     "sub": {
+      "x": 218,
+      "y": 912,
+      "w": 73,
+      "h": 33
+     },
+     "detail": {
+      "x": 218,
+      "y": 947,
+      "w": 73,
+      "h": 0
+     },
+     "badge": {
+      "x": 299,
+      "y": 871,
+      "w": 60,
+      "h": 22
+     },
+     "badgeText": "открыть",
+     "titleBadgeOverlap": null,
+     "bodyBadgeOverlap": null,
+     "titleOverflowPx": 2,
+     "badgeOverflowPx": 0,
+     "titleWhiteSpace": "normal",
+     "titleOverflowWrap": "normal"
+    },
+    {
+     "id": "inspector",
+     "card": {
+      "x": 20,
+      "y": 980,
+      "w": 171,
+      "h": 118
+     },
+     "body": {
+      "x": 39,
+      "y": 991,
+      "w": 73,
+      "h": 96
+     },
+     "title": {
+      "x": 39,
+      "y": 991,
+      "w": 73,
+      "h": 59
+     },
+     "sub": {
+      "x": 39,
+      "y": 1051,
+      "w": 73,
+      "h": 33
+     },
+     "detail": {
+      "x": 39,
+      "y": 1086,
+      "w": 73,
+      "h": 0
+     },
+     "badge": {
+      "x": 120,
+      "y": 991,
+      "w": 60,
+      "h": 22
+     },
+     "badgeText": "открыть",
+     "titleBadgeOverlap": null,
+     "bodyBadgeOverlap": null,
+     "titleOverflowPx": 0,
+     "badgeOverflowPx": 0,
+     "titleWhiteSpace": "normal",
+     "titleOverflowWrap": "normal"
+    },
+    {
+     "id": "capabilities",
+     "card": {
+      "x": 199,
+      "y": 980,
+      "w": 171,
+      "h": 118
+     },
+     "body": {
+      "x": 236,
+      "y": 991,
+      "w": 55,
+      "h": 76
+     },
+     "title": {
+      "x": 236,
+      "y": 991,
+      "w": 55,
+      "h": 39
+     },
+     "sub": {
+      "x": 236,
+      "y": 1032,
+      "w": 55,
+      "h": 33
+     },
+     "detail": {
+      "x": 236,
+      "y": 1067,
+      "w": 55,
+      "h": 0
+     },
+     "badge": {
+      "x": 299,
+      "y": 991,
+      "w": 60,
+      "h": 22
+     },
+     "badgeText": "открыть",
+     "titleBadgeOverlap": null,
+     "bodyBadgeOverlap": null,
+     "titleOverflowPx": 33,
+     "badgeOverflowPx": 0,
+     "titleWhiteSpace": "normal",
+     "titleOverflowWrap": "normal"
+    }
+   ]
+  },
+  "430": {
+   "vw": 430,
+   "vh": 932,
+   "hash": "#/ai/speech",
+   "colsRaw": "191px 191px",
+   "cols": 2,
+   "overflow": 0,
+   "screenVisible": true,
+   "cards": [
+    {
+     "id": "core",
+     "card": {
+      "x": 20,
+      "y": 256,
+      "w": 191,
+      "h": 112
+     },
+     "body": {
+      "x": 57,
+      "y": 267,
+      "w": 65,
+      "h": 90
+     },
+     "title": {
+      "x": 57,
+      "y": 267,
+      "w": 65,
+      "h": 20
+     },
+     "sub": {
+      "x": 57,
+      "y": 289,
+      "w": 65,
+      "h": 33
+     },
+     "detail": {
+      "x": 57,
+      "y": 324,
+      "w": 65,
+      "h": 33
+     },
+     "badge": {
+      "x": 130,
+      "y": 267,
+      "w": 70,
+      "h": 22
+     },
+     "badgeText": "изменено",
+     "titleBadgeOverlap": null,
+     "bodyBadgeOverlap": null,
+     "titleOverflowPx": 0,
+     "badgeOverflowPx": 0,
+     "titleWhiteSpace": "normal",
+     "titleOverflowWrap": "normal"
+    },
+    {
+     "id": "expression",
+     "card": {
+      "x": 20,
+      "y": 406,
+      "w": 191,
+      "h": 112
+     },
+     "body": {
+      "x": 39,
+      "y": 417,
+      "w": 83,
+      "h": 90
+     },
+     "title": {
+      "x": 39,
+      "y": 417,
+      "w": 83,
+      "h": 20
+     },
+     "sub": {
+      "x": 39,
+      "y": 438,
+      "w": 83,
+      "h": 33
+     },
+     "detail": {
+      "x": 39,
+      "y": 473,
+      "w": 83,
+      "h": 33
+     },
+     "badge": {
+      "x": 130,
+      "y": 417,
+      "w": 70,
+      "h": 22
+     },
+     "badgeText": "изменено",
+     "titleBadgeOverlap": null,
+     "bodyBadgeOverlap": null,
+     "titleOverflowPx": 0,
+     "badgeOverflowPx": 0,
+     "titleWhiteSpace": "normal",
+     "titleOverflowWrap": "normal"
+    },
+    {
+     "id": "humor",
+     "card": {
+      "x": 219,
+      "y": 406,
+      "w": 191,
+      "h": 112
+     },
+     "body": {
+      "x": 238,
+      "y": 417,
+      "w": 82,
+      "h": 73
+     },
+     "title": {
+      "x": 238,
+      "y": 417,
+      "w": 82,
+      "h": 20
+     },
+     "sub": {
+      "x": 238,
+      "y": 438,
+      "w": 82,
+      "h": 17
+     },
+     "detail": {
+      "x": 238,
+      "y": 457,
+      "w": 82,
+      "h": 33
+     },
+     "badge": {
+      "x": 328,
+      "y": 417,
+      "w": 71,
+      "h": 22
+     },
+     "badgeText": "включено",
+     "titleBadgeOverlap": null,
+     "bodyBadgeOverlap": null,
+     "titleOverflowPx": 0,
+     "badgeOverflowPx": 0,
+     "titleWhiteSpace": "normal",
+     "titleOverflowWrap": "normal"
+    },
+    {
+     "id": "style",
+     "card": {
+      "x": 20,
+      "y": 555,
+      "w": 191,
+      "h": 115
+     },
+     "body": {
+      "x": 39,
+      "y": 566,
+      "w": 83,
+      "h": 93
+     },
+     "title": {
+      "x": 39,
+      "y": 566,
+      "w": 83,
+      "h": 39
+     },
+     "sub": {
+      "x": 39,
+      "y": 607,
+      "w": 83,
+      "h": 17
+     },
+     "detail": {
+      "x": 39,
+      "y": 626,
+      "w": 83,
+      "h": 33
+     },
+     "badge": {
+      "x": 130,
+      "y": 566,
+      "w": 70,
+      "h": 22
+     },
+     "badgeText": "изменено",
+     "titleBadgeOverlap": null,
+     "bodyBadgeOverlap": null,
+     "titleOverflowPx": 0,
+     "badgeOverflowPx": 0,
+     "titleWhiteSpace": "normal",
+     "titleOverflowWrap": "normal"
+    },
+    {
+     "id": "examples",
+     "card": {
+      "x": 20,
+      "y": 708,
+      "w": 191,
+      "h": 112
+     },
+     "body": {
+      "x": 39,
+      "y": 719,
+      "w": 82,
+      "h": 90
+     },
+     "title": {
+      "x": 39,
+      "y": 719,
+      "w": 82,
+      "h": 20
+     },
+     "sub": {
+      "x": 39,
+      "y": 740,
+      "w": 82,
+      "h": 33
+     },
+     "detail": {
+      "x": 39,
+      "y": 775,
+      "w": 82,
+      "h": 33
+     },
+     "badge": {
+      "x": 129,
+      "y": 719,
+      "w": 71,
+      "h": 22
+     },
+     "badgeText": "заводское",
+     "titleBadgeOverlap": null,
+     "bodyBadgeOverlap": null,
+     "titleOverflowPx": 0,
+     "badgeOverflowPx": 0,
+     "titleWhiteSpace": "normal",
+     "titleOverflowWrap": "normal"
+    },
+    {
+     "id": "try",
+     "card": {
+      "x": 219,
+      "y": 708,
+      "w": 191,
+      "h": 112
+     },
+     "body": {
+      "x": 238,
+      "y": 719,
+      "w": 101,
+      "h": 90
+     },
+     "title": {
+      "x": 238,
+      "y": 719,
+      "w": 101,
+      "h": 20
+     },
+     "sub": {
+      "x": 238,
+      "y": 740,
+      "w": 101,
+      "h": 33
+     },
+     "detail": {
+      "x": 238,
+      "y": 775,
+      "w": 101,
+      "h": 33
+     },
+     "badge": {
+      "x": 347,
+      "y": 719,
+      "w": 52,
+      "h": 22
+     },
+     "badgeText": "готово",
+     "titleBadgeOverlap": null,
+     "bodyBadgeOverlap": null,
+     "titleOverflowPx": 0,
+     "badgeOverflowPx": 0,
+     "titleWhiteSpace": "normal",
+     "titleOverflowWrap": "normal"
+    },
+    {
+     "id": "learning",
+     "card": {
+      "x": 20,
+      "y": 827,
+      "w": 191,
+      "h": 112
+     },
+     "body": {
+      "x": 39,
+      "y": 838,
+      "w": 101,
+      "h": 90
+     },
+     "title": {
+      "x": 39,
+      "y": 838,
+      "w": 101,
+      "h": 20
+     },
+     "sub": {
+      "x": 39,
+      "y": 860,
+      "w": 101,
+      "h": 33
+     },
+     "detail": {
+      "x": 39,
+      "y": 895,
+      "w": 101,
+      "h": 33
+     },
+     "badge": {
+      "x": 148,
+      "y": 838,
+      "w": 52,
+      "h": 22
+     },
+     "badgeText": "готово",
+     "titleBadgeOverlap": null,
+     "bodyBadgeOverlap": null,
+     "titleOverflowPx": 0,
+     "badgeOverflowPx": 0,
+     "titleWhiteSpace": "normal",
+     "titleOverflowWrap": "normal"
+    },
+    {
+     "id": "all",
+     "card": {
+      "x": 219,
+      "y": 827,
+      "w": 191,
+      "h": 112
+     },
+     "body": {
+      "x": 238,
+      "y": 838,
+      "w": 93,
+      "h": 76
+     },
+     "title": {
+      "x": 238,
+      "y": 838,
+      "w": 93,
+      "h": 39
+     },
+     "sub": {
+      "x": 238,
+      "y": 879,
+      "w": 93,
+      "h": 33
+     },
+     "detail": {
+      "x": 238,
+      "y": 914,
+      "w": 93,
+      "h": 0
+     },
+     "badge": {
+      "x": 339,
+      "y": 838,
+      "w": 60,
+      "h": 22
+     },
+     "badgeText": "открыть",
+     "titleBadgeOverlap": null,
+     "bodyBadgeOverlap": null,
+     "titleOverflowPx": 0,
+     "badgeOverflowPx": 0,
+     "titleWhiteSpace": "normal",
+     "titleOverflowWrap": "normal"
+    },
+    {
+     "id": "inspector",
+     "card": {
+      "x": 20,
+      "y": 947,
+      "w": 191,
+      "h": 118
+     },
+     "body": {
+      "x": 39,
+      "y": 958,
+      "w": 93,
+      "h": 96
+     },
+     "title": {
+      "x": 39,
+      "y": 958,
+      "w": 93,
+      "h": 59
+     },
+     "sub": {
+      "x": 39,
+      "y": 1018,
+      "w": 93,
+      "h": 33
+     },
+     "detail": {
+      "x": 39,
+      "y": 1053,
+      "w": 93,
+      "h": 0
+     },
+     "badge": {
+      "x": 140,
+      "y": 958,
+      "w": 60,
+      "h": 22
+     },
+     "badgeText": "открыть",
+     "titleBadgeOverlap": null,
+     "bodyBadgeOverlap": null,
+     "titleOverflowPx": 0,
+     "badgeOverflowPx": 0,
+     "titleWhiteSpace": "normal",
+     "titleOverflowWrap": "normal"
+    },
+    {
+     "id": "capabilities",
+     "card": {
+      "x": 219,
+      "y": 947,
+      "w": 191,
+      "h": 118
+     },
+     "body": {
+      "x": 256,
+      "y": 958,
+      "w": 75,
+      "h": 76
+     },
+     "title": {
+      "x": 256,
+      "y": 958,
+      "w": 75,
+      "h": 39
+     },
+     "sub": {
+      "x": 256,
+      "y": 999,
+      "w": 75,
+      "h": 33
+     },
+     "detail": {
+      "x": 256,
+      "y": 1034,
+      "w": 75,
+      "h": 0
+     },
+     "badge": {
+      "x": 339,
+      "y": 958,
+      "w": 60,
+      "h": 22
+     },
+     "badgeText": "открыть",
+     "titleBadgeOverlap": null,
+     "bodyBadgeOverlap": null,
+     "titleOverflowPx": 13,
+     "badgeOverflowPx": 0,
+     "titleWhiteSpace": "normal",
+     "titleOverflowWrap": "normal"
+    }
+   ]
+  },
+  "landscape": {
+   "vw": 844,
+   "vh": 390,
+   "hash": "#/ai/speech",
+   "colsRaw": "257.328px 257.328px 257.344px",
+   "cols": 3,
+   "overflow": 0,
+   "screenVisible": true,
+   "cards": [
+    {
+     "id": "core",
+     "card": {
+      "x": 28,
+      "y": 253,
+      "w": 257,
+      "h": 79
+     },
+     "body": {
+      "x": 65,
+      "y": 264,
+      "w": 132,
+      "h": 57
+     },
+     "title": {
+      "x": 65,
+      "y": 264,
+      "w": 132,
+      "h": 20
+     },
+     "sub": {
+      "x": 65,
+      "y": 286,
+      "w": 132,
+      "h": 17
+     },
+     "detail": {
+      "x": 65,
+      "y": 304,
+      "w": 132,
+      "h": 17
+     },
+     "badge": {
+      "x": 205,
+      "y": 264,
+      "w": 70,
+      "h": 22
+     },
+     "badgeText": "изменено",
+     "titleBadgeOverlap": null,
+     "bodyBadgeOverlap": null,
+     "titleOverflowPx": 0,
+     "badgeOverflowPx": 0,
+     "titleWhiteSpace": "normal",
+     "titleOverflowWrap": "normal"
+    },
+    {
+     "id": "expression",
+     "card": {
+      "x": 28,
+      "y": 370,
+      "w": 257,
+      "h": 79
+     },
+     "body": {
+      "x": 47,
+      "y": 381,
+      "w": 150,
+      "h": 57
+     },
+     "title": {
+      "x": 47,
+      "y": 381,
+      "w": 150,
+      "h": 20
+     },
+     "sub": {
+      "x": 47,
+      "y": 402,
+      "w": 150,
+      "h": 17
+     },
+     "detail": {
+      "x": 47,
+      "y": 421,
+      "w": 150,
+      "h": 17
+     },
+     "badge": {
+      "x": 205,
+      "y": 381,
+      "w": 70,
+      "h": 22
+     },
+     "badgeText": "изменено",
+     "titleBadgeOverlap": null,
+     "bodyBadgeOverlap": null,
+     "titleOverflowPx": 0,
+     "badgeOverflowPx": 0,
+     "titleWhiteSpace": "normal",
+     "titleOverflowWrap": "normal"
+    },
+    {
+     "id": "humor",
+     "card": {
+      "x": 293,
+      "y": 370,
+      "w": 257,
+      "h": 79
+     },
+     "body": {
+      "x": 312,
+      "y": 381,
+      "w": 148,
+      "h": 57
+     },
+     "title": {
+      "x": 312,
+      "y": 381,
+      "w": 148,
+      "h": 20
+     },
+     "sub": {
+      "x": 312,
+      "y": 402,
+      "w": 148,
+      "h": 17
+     },
+     "detail": {
+      "x": 312,
+      "y": 421,
+      "w": 148,
+      "h": 17
+     },
+     "badge": {
+      "x": 468,
+      "y": 381,
+      "w": 71,
+      "h": 22
+     },
+     "badgeText": "включено",
+     "titleBadgeOverlap": null,
+     "bodyBadgeOverlap": null,
+     "titleOverflowPx": 0,
+     "badgeOverflowPx": 0,
+     "titleWhiteSpace": "normal",
+     "titleOverflowWrap": "normal"
+    },
+    {
+     "id": "style",
+     "card": {
+      "x": 28,
+      "y": 486,
+      "w": 257,
+      "h": 79
+     },
+     "body": {
+      "x": 47,
+      "y": 497,
+      "w": 150,
+      "h": 57
+     },
+     "title": {
+      "x": 47,
+      "y": 497,
+      "w": 150,
+      "h": 20
+     },
+     "sub": {
+      "x": 47,
+      "y": 519,
+      "w": 150,
+      "h": 17
+     },
+     "detail": {
+      "x": 47,
+      "y": 537,
+      "w": 150,
+      "h": 17
+     },
+     "badge": {
+      "x": 205,
+      "y": 497,
+      "w": 70,
+      "h": 22
+     },
+     "badgeText": "изменено",
+     "titleBadgeOverlap": null,
+     "bodyBadgeOverlap": null,
+     "titleOverflowPx": 0,
+     "badgeOverflowPx": 0,
+     "titleWhiteSpace": "normal",
+     "titleOverflowWrap": "normal"
+    },
+    {
+     "id": "examples",
+     "card": {
+      "x": 28,
+      "y": 603,
+      "w": 257,
+      "h": 79
+     },
+     "body": {
+      "x": 47,
+      "y": 614,
+      "w": 148,
+      "h": 57
+     },
+     "title": {
+      "x": 47,
+      "y": 614,
+      "w": 148,
+      "h": 20
+     },
+     "sub": {
+      "x": 47,
+      "y": 635,
+      "w": 148,
+      "h": 17
+     },
+     "detail": {
+      "x": 47,
+      "y": 654,
+      "w": 148,
+      "h": 17
+     },
+     "badge": {
+      "x": 203,
+      "y": 614,
+      "w": 71,
+      "h": 22
+     },
+     "badgeText": "заводское",
+     "titleBadgeOverlap": null,
+     "bodyBadgeOverlap": null,
+     "titleOverflowPx": 0,
+     "badgeOverflowPx": 0,
+     "titleWhiteSpace": "normal",
+     "titleOverflowWrap": "normal"
+    },
+    {
+     "id": "try",
+     "card": {
+      "x": 293,
+      "y": 603,
+      "w": 257,
+      "h": 79
+     },
+     "body": {
+      "x": 312,
+      "y": 614,
+      "w": 167,
+      "h": 57
+     },
+     "title": {
+      "x": 312,
+      "y": 614,
+      "w": 167,
+      "h": 20
+     },
+     "sub": {
+      "x": 312,
+      "y": 635,
+      "w": 167,
+      "h": 17
+     },
+     "detail": {
+      "x": 312,
+      "y": 654,
+      "w": 167,
+      "h": 17
+     },
+     "badge": {
+      "x": 488,
+      "y": 614,
+      "w": 52,
+      "h": 22
+     },
+     "badgeText": "готово",
+     "titleBadgeOverlap": null,
+     "bodyBadgeOverlap": null,
+     "titleOverflowPx": 0,
+     "badgeOverflowPx": 0,
+     "titleWhiteSpace": "normal",
+     "titleOverflowWrap": "normal"
+    },
+    {
+     "id": "learning",
+     "card": {
+      "x": 559,
+      "y": 603,
+      "w": 257,
+      "h": 79
+     },
+     "body": {
+      "x": 578,
+      "y": 614,
+      "w": 167,
+      "h": 57
+     },
+     "title": {
+      "x": 578,
+      "y": 614,
+      "w": 167,
+      "h": 20
+     },
+     "sub": {
+      "x": 578,
+      "y": 635,
+      "w": 167,
+      "h": 17
+     },
+     "detail": {
+      "x": 578,
+      "y": 654,
+      "w": 167,
+      "h": 17
+     },
+     "badge": {
+      "x": 753,
+      "y": 614,
+      "w": 52,
+      "h": 22
+     },
+     "badgeText": "готово",
+     "titleBadgeOverlap": null,
+     "bodyBadgeOverlap": null,
+     "titleOverflowPx": 0,
+     "badgeOverflowPx": 0,
+     "titleWhiteSpace": "normal",
+     "titleOverflowWrap": "normal"
+    },
+    {
+     "id": "all",
+     "card": {
+      "x": 28,
+      "y": 689,
+      "w": 257,
+      "h": 82
+     },
+     "body": {
+      "x": 47,
+      "y": 700,
+      "w": 159,
+      "h": 40
+     },
+     "title": {
+      "x": 47,
+      "y": 700,
+      "w": 159,
+      "h": 20
+     },
+     "sub": {
+      "x": 47,
+      "y": 722,
+      "w": 159,
+      "h": 17
+     },
+     "detail": {
+      "x": 47,
+      "y": 740,
+      "w": 159,
+      "h": 0
+     },
+     "badge": {
+      "x": 214,
+      "y": 700,
+      "w": 60,
+      "h": 22
+     },
+     "badgeText": "открыть",
+     "titleBadgeOverlap": null,
+     "bodyBadgeOverlap": null,
+     "titleOverflowPx": 0,
+     "badgeOverflowPx": 0,
+     "titleWhiteSpace": "normal",
+     "titleOverflowWrap": "normal"
+    },
+    {
+     "id": "inspector",
+     "card": {
+      "x": 293,
+      "y": 689,
+      "w": 257,
+      "h": 82
+     },
+     "body": {
+      "x": 312,
+      "y": 700,
+      "w": 159,
+      "h": 60
+     },
+     "title": {
+      "x": 312,
+      "y": 700,
+      "w": 159,
+      "h": 39
+     },
+     "sub": {
+      "x": 312,
+      "y": 741,
+      "w": 159,
+      "h": 17
+     },
+     "detail": {
+      "x": 312,
+      "y": 760,
+      "w": 159,
+      "h": 0
+     },
+     "badge": {
+      "x": 479,
+      "y": 700,
+      "w": 60,
+      "h": 22
+     },
+     "badgeText": "открыть",
+     "titleBadgeOverlap": null,
+     "bodyBadgeOverlap": null,
+     "titleOverflowPx": 0,
+     "badgeOverflowPx": 0,
+     "titleWhiteSpace": "normal",
+     "titleOverflowWrap": "normal"
+    },
+    {
+     "id": "capabilities",
+     "card": {
+      "x": 559,
+      "y": 689,
+      "w": 257,
+      "h": 82
+     },
+     "body": {
+      "x": 596,
+      "y": 700,
+      "w": 141,
+      "h": 40
+     },
+     "title": {
+      "x": 596,
+      "y": 700,
+      "w": 141,
+      "h": 20
+     },
+     "sub": {
+      "x": 596,
+      "y": 722,
+      "w": 141,
+      "h": 17
+     },
+     "detail": {
+      "x": 596,
+      "y": 740,
+      "w": 141,
+      "h": 0
+     },
+     "badge": {
+      "x": 745,
+      "y": 700,
+      "w": 60,
+      "h": 22
+     },
+     "badgeText": "открыть",
+     "titleBadgeOverlap": null,
+     "bodyBadgeOverlap": null,
+     "titleOverflowPx": 0,
+     "badgeOverflowPx": 0,
+     "titleWhiteSpace": "normal",
+     "titleOverflowWrap": "normal"
+    }
+   ]
+  },
+  "768": {
+   "vw": 768,
+   "vh": 1024,
+   "hash": "#/ai/speech",
+   "colsRaw": "232px 232px 232px",
+   "cols": 3,
+   "overflow": 0,
+   "screenVisible": true,
+   "cards": [
+    {
+     "id": "core",
+     "card": {
+      "x": 28,
+      "y": 253,
+      "w": 232,
+      "h": 95
+     },
+     "body": {
+      "x": 65,
+      "y": 264,
+      "w": 106,
+      "h": 73
+     },
+     "title": {
+      "x": 65,
+      "y": 264,
+      "w": 106,
+      "h": 20
+     },
+     "sub": {
+      "x": 65,
+      "y": 286,
+      "w": 106,
+      "h": 33
+     },
+     "detail": {
+      "x": 65,
+      "y": 321,
+      "w": 106,
+      "h": 17
+     },
+     "badge": {
+      "x": 179,
+      "y": 264,
+      "w": 70,
+      "h": 22
+     },
+     "badgeText": "изменено",
+     "titleBadgeOverlap": null,
+     "bodyBadgeOverlap": null,
+     "titleOverflowPx": 0,
+     "badgeOverflowPx": 0,
+     "titleWhiteSpace": "normal",
+     "titleOverflowWrap": "normal"
+    },
+    {
+     "id": "expression",
+     "card": {
+      "x": 28,
+      "y": 386,
+      "w": 232,
+      "h": 79
+     },
+     "body": {
+      "x": 47,
+      "y": 397,
+      "w": 124,
+      "h": 57
+     },
+     "title": {
+      "x": 47,
+      "y": 397,
+      "w": 124,
+      "h": 20
+     },
+     "sub": {
+      "x": 47,
+      "y": 419,
+      "w": 124,
+      "h": 17
+     },
+     "detail": {
+      "x": 47,
+      "y": 437,
+      "w": 124,
+      "h": 17
+     },
+     "badge": {
+      "x": 179,
+      "y": 397,
+      "w": 70,
+      "h": 22
+     },
+     "badgeText": "изменено",
+     "titleBadgeOverlap": null,
+     "bodyBadgeOverlap": null,
+     "titleOverflowPx": 0,
+     "badgeOverflowPx": 0,
+     "titleWhiteSpace": "normal",
+     "titleOverflowWrap": "normal"
+    },
+    {
+     "id": "humor",
+     "card": {
+      "x": 268,
+      "y": 386,
+      "w": 232,
+      "h": 79
+     },
+     "body": {
+      "x": 287,
+      "y": 397,
+      "w": 123,
+      "h": 57
+     },
+     "title": {
+      "x": 287,
+      "y": 397,
+      "w": 123,
+      "h": 20
+     },
+     "sub": {
+      "x": 287,
+      "y": 419,
+      "w": 123,
+      "h": 17
+     },
+     "detail": {
+      "x": 287,
+      "y": 437,
+      "w": 123,
+      "h": 17
+     },
+     "badge": {
+      "x": 418,
+      "y": 397,
+      "w": 71,
+      "h": 22
+     },
+     "badgeText": "включено",
+     "titleBadgeOverlap": null,
+     "bodyBadgeOverlap": null,
+     "titleOverflowPx": 0,
+     "badgeOverflowPx": 0,
+     "titleWhiteSpace": "normal",
+     "titleOverflowWrap": "normal"
+    },
+    {
+     "id": "style",
+     "card": {
+      "x": 28,
+      "y": 503,
+      "w": 232,
+      "h": 79
+     },
+     "body": {
+      "x": 47,
+      "y": 514,
+      "w": 124,
+      "h": 57
+     },
+     "title": {
+      "x": 47,
+      "y": 514,
+      "w": 124,
+      "h": 20
+     },
+     "sub": {
+      "x": 47,
+      "y": 535,
+      "w": 124,
+      "h": 17
+     },
+     "detail": {
+      "x": 47,
+      "y": 554,
+      "w": 124,
+      "h": 17
+     },
+     "badge": {
+      "x": 179,
+      "y": 514,
+      "w": 70,
+      "h": 22
+     },
+     "badgeText": "изменено",
+     "titleBadgeOverlap": null,
+     "bodyBadgeOverlap": null,
+     "titleOverflowPx": 0,
+     "badgeOverflowPx": 0,
+     "titleWhiteSpace": "normal",
+     "titleOverflowWrap": "normal"
+    },
+    {
+     "id": "examples",
+     "card": {
+      "x": 28,
+      "y": 619,
+      "w": 232,
+      "h": 79
+     },
+     "body": {
+      "x": 47,
+      "y": 630,
+      "w": 123,
+      "h": 57
+     },
+     "title": {
+      "x": 47,
+      "y": 630,
+      "w": 123,
+      "h": 20
+     },
+     "sub": {
+      "x": 47,
+      "y": 652,
+      "w": 123,
+      "h": 17
+     },
+     "detail": {
+      "x": 47,
+      "y": 670,
+      "w": 123,
+      "h": 17
+     },
+     "badge": {
+      "x": 178,
+      "y": 630,
+      "w": 71,
+      "h": 22
+     },
+     "badgeText": "заводское",
+     "titleBadgeOverlap": null,
+     "bodyBadgeOverlap": null,
+     "titleOverflowPx": 0,
+     "badgeOverflowPx": 0,
+     "titleWhiteSpace": "normal",
+     "titleOverflowWrap": "normal"
+    },
+    {
+     "id": "try",
+     "card": {
+      "x": 268,
+      "y": 619,
+      "w": 232,
+      "h": 79
+     },
+     "body": {
+      "x": 287,
+      "y": 630,
+      "w": 142,
+      "h": 57
+     },
+     "title": {
+      "x": 287,
+      "y": 630,
+      "w": 142,
+      "h": 20
+     },
+     "sub": {
+      "x": 287,
+      "y": 652,
+      "w": 142,
+      "h": 17
+     },
+     "detail": {
+      "x": 287,
+      "y": 670,
+      "w": 142,
+      "h": 17
+     },
+     "badge": {
+      "x": 437,
+      "y": 630,
+      "w": 52,
+      "h": 22
+     },
+     "badgeText": "готово",
+     "titleBadgeOverlap": null,
+     "bodyBadgeOverlap": null,
+     "titleOverflowPx": 0,
+     "badgeOverflowPx": 0,
+     "titleWhiteSpace": "normal",
+     "titleOverflowWrap": "normal"
+    },
+    {
+     "id": "learning",
+     "card": {
+      "x": 508,
+      "y": 619,
+      "w": 232,
+      "h": 79
+     },
+     "body": {
+      "x": 527,
+      "y": 630,
+      "w": 142,
+      "h": 57
+     },
+     "title": {
+      "x": 527,
+      "y": 630,
+      "w": 142,
+      "h": 20
+     },
+     "sub": {
+      "x": 527,
+      "y": 652,
+      "w": 142,
+      "h": 17
+     },
+     "detail": {
+      "x": 527,
+      "y": 670,
+      "w": 142,
+      "h": 17
+     },
+     "badge": {
+      "x": 677,
+      "y": 630,
+      "w": 52,
+      "h": 22
+     },
+     "badgeText": "готово",
+     "titleBadgeOverlap": null,
+     "bodyBadgeOverlap": null,
+     "titleOverflowPx": 0,
+     "badgeOverflowPx": 0,
+     "titleWhiteSpace": "normal",
+     "titleOverflowWrap": "normal"
+    },
+    {
+     "id": "all",
+     "card": {
+      "x": 28,
+      "y": 706,
+      "w": 232,
+      "h": 82
+     },
+     "body": {
+      "x": 47,
+      "y": 717,
+      "w": 134,
+      "h": 40
+     },
+     "title": {
+      "x": 47,
+      "y": 717,
+      "w": 134,
+      "h": 20
+     },
+     "sub": {
+      "x": 47,
+      "y": 738,
+      "w": 134,
+      "h": 17
+     },
+     "detail": {
+      "x": 47,
+      "y": 757,
+      "w": 134,
+      "h": 0
+     },
+     "badge": {
+      "x": 189,
+      "y": 717,
+      "w": 60,
+      "h": 22
+     },
+     "badgeText": "открыть",
+     "titleBadgeOverlap": null,
+     "bodyBadgeOverlap": null,
+     "titleOverflowPx": 0,
+     "badgeOverflowPx": 0,
+     "titleWhiteSpace": "normal",
+     "titleOverflowWrap": "normal"
+    },
+    {
+     "id": "inspector",
+     "card": {
+      "x": 268,
+      "y": 706,
+      "w": 232,
+      "h": 82
+     },
+     "body": {
+      "x": 287,
+      "y": 717,
+      "w": 134,
+      "h": 60
+     },
+     "title": {
+      "x": 287,
+      "y": 717,
+      "w": 134,
+      "h": 39
+     },
+     "sub": {
+      "x": 287,
+      "y": 758,
+      "w": 134,
+      "h": 17
+     },
+     "detail": {
+      "x": 287,
+      "y": 776,
+      "w": 134,
+      "h": 0
+     },
+     "badge": {
+      "x": 429,
+      "y": 717,
+      "w": 60,
+      "h": 22
+     },
+     "badgeText": "открыть",
+     "titleBadgeOverlap": null,
+     "bodyBadgeOverlap": null,
+     "titleOverflowPx": 0,
+     "badgeOverflowPx": 0,
+     "titleWhiteSpace": "normal",
+     "titleOverflowWrap": "normal"
+    },
+    {
+     "id": "capabilities",
+     "card": {
+      "x": 508,
+      "y": 706,
+      "w": 232,
+      "h": 82
+     },
+     "body": {
+      "x": 545,
+      "y": 717,
+      "w": 116,
+      "h": 60
+     },
+     "title": {
+      "x": 545,
+      "y": 717,
+      "w": 116,
+      "h": 39
+     },
+     "sub": {
+      "x": 545,
+      "y": 758,
+      "w": 116,
+      "h": 17
+     },
+     "detail": {
+      "x": 545,
+      "y": 776,
+      "w": 116,
+      "h": 0
+     },
+     "badge": {
+      "x": 669,
+      "y": 717,
+      "w": 60,
+      "h": 22
+     },
+     "badgeText": "открыть",
+     "titleBadgeOverlap": null,
+     "bodyBadgeOverlap": null,
+     "titleOverflowPx": 0,
+     "badgeOverflowPx": 0,
+     "titleWhiteSpace": "normal",
+     "titleOverflowWrap": "normal"
+    }
+   ]
+  }
+ }
+}

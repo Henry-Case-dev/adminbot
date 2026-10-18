@@ -1,0 +1,284 @@
+﻿== git ==
+3b02366e63022eb4c760892aa1bcb4f26516e789 2026-10-19T01:30:51Z docs(p0): REV-REL-RECHECK — Approved (FIX-DEPLOY-90: NF-1a/b checked_out+restore to release/fix-2.58.89, confirm 3-condition, warning+summary; NF-2 PAGE_VER=15/SUBST_CSS=2 grep -cF; NF-3 tip 35789982; extra whitelist set-equality closes s2b; my sim rerun 22/22 FAILURES 0; bindings 2d47290eeeb0/c4e74d87e477; release-doc patch applied; no deploy, no push)
+13
+== интерпретатор ==
+PY_OK=/var/www/admin_bot/venv/bin/python
+== upload ==
+11319 /tmp/addtr_recon.py
+== RECON OUTPUT ==
+== mca_events: 7 дней по event/outcome (top 45) ==
+  ingestion_live outcome=success comp=ingestion count=16504 last=10-18 15:52:54Z
+  WATCHDOG_SWEEP outcome=success comp=watchdog count=10063 last=10-18 15:53:27Z
+  mca07_retrieval outcome=skipped comp=retrieval_context count=1177 last=10-18 15:34:55Z
+  initiative_observer_scan outcome=success comp=initiative count=865 last=10-18 15:50:02Z
+  self_model outcome=success comp=self_model count=862 last=10-18 15:45:09Z
+  lore_compile outcome=skipped comp=lore.compile count=611 last=10-18 15:46:54Z
+  message_revision outcome=success comp=None count=288 last=10-18 15:15:39Z
+  EMBED_API_DEFERRED outcome=skipped comp=embeddings count=220 last=10-18 14:33:05Z
+  FACTS_EXTRACT outcome=success comp=facts count=220 last=10-18 14:33:05Z
+  bot_output_recorded outcome=success comp=bot_output_ledger count=205 last=10-18 15:45:12Z
+  SUMMARY_WRITER_ACTIVITY outcome=start comp=summary count=197 last=10-18 13:09:21Z
+  SUMMARY_WRITER_ACTIVITY outcome=success comp=summary count=197 last=10-18 13:09:33Z
+  PIPELINE_START outcome=start comp=random.uses count=166 last=10-18 15:45:08Z
+  mca07_retrieval outcome=success comp=retrieval_context count=157 last=10-18 14:32:51Z
+  random_uses_background outcome=skipped comp=random count=155 last=10-18 15:40:54Z
+  nostalgia_run outcome=skipped comp=nostalgia.run count=154 last=10-18 12:57:35Z
+  DIRECT_FRESH_GENERATION outcome=success comp=response_freshness count=152 last=10-18 14:32:59Z
+  mca07_bundle outcome=success comp=retrieval_context count=152 last=10-18 14:32:59Z
+  mca07_reranker outcome=success comp=retrieval_context count=152 last=10-18 14:32:51Z
+  sleep_dream outcome=skipped comp=sleep.dream count=152 last=10-18 15:40:54Z
+  quote_resolver_step outcome=success comp=quote_resolver count=150 last=10-18 14:32:51Z
+  SUMMARY_L1_ACTIVITY outcome=start comp=summary count=88 last=10-18 13:07:48Z
+  SUMMARY_L1_ACTIVITY outcome=success comp=summary count=88 last=10-18 13:08:17Z
+  prompt_layers outcome=silent comp=prompt_composer count=85 last=10-18 15:45:09Z
+  SUMMARY_LLM_SUPERVISOR outcome=start comp=summary count=82 last=10-18 13:10:03Z
+  SUMMARY_LLM_SUPERVISOR outcome=success comp=summary count=82 last=10-18 13:10:31Z
+  self_model outcome=skipped comp=self_model count=67 last=10-18 01:30:08Z
+  FACTS_EXTRACT outcome=skipped comp=facts count=66 last=10-18 14:30:38Z
+  COVER_STYLE_RUNNING outcome=pending_external comp=cover count=63 last=10-18 13:14:04Z
+  SUMMARY_REVISION_RESULT outcome=success comp=summary count=57 last=10-18 13:09:21Z
+  factcheck_temporal outcome=success comp=factcheck.temporal count=54 last=10-16 10:02:43Z
+  image_generate outcome=success comp=image_generation count=54 last=10-18 09:46:51Z
+  SUMMARY_CAPACITY_RESOLVED outcome=success comp=summary count=44 last=10-18 13:07:26Z
+  SUMMARY_EXECUTION_MODE_SELECTED outcome=success comp=summary count=44 last=10-18 13:07:26Z
+  SUMMARY_RUN_START outcome=start comp=summary count=44 last=10-18 13:00:00Z
+  COVER_LIMIT_UNKNOWN outcome=start comp=cover count=43 last=10-18 13:10:32Z
+  COVER_PIPELINE_START outcome=start comp=cover count=43 last=10-18 13:10:31Z
+  COVER_STYLE_SELECTION outcome=start comp=cover count=43 last=10-18 13:10:31Z
+  MEDIA_JOB_SUCCEEDED outcome=success comp=media_execution count=43 last=10-18 13:12:01Z
+  SUMMARY_SOURCE_WINDOW outcome=success comp=summary count=43 last=10-18 13:07:26Z
+  SUMMARY_SOURCE_WINDOW_READY outcome=success comp=summary count=43 last=10-18 13:07:26Z
+  SUMMARY_TEXT_READY outcome=success comp=summary count=43 last=10-18 13:10:31Z
+  COVER_BASE_SUCCEEDED outcome=success comp=cover count=42 last=10-18 13:12:01Z
+  COVER_PIPELINE_DONE outcome=success comp=cover count=42 last=10-18 13:14:16Z
+  COVER_RICH_PUBLISH_SUCCEEDED outcome=success comp=cover count=42 last=10-18 13:14:16Z
+== mca_events: tool_call/tool_delivery/tool_accounting (последние 30) ==
+  10-18 14:31:00Z tool_call outcome=skipped status=denied reason=vision_unavailable tool=recognize_image comp=tools chat=-1002661910336 dur=0
+  10-16 08:26:35Z tool_call outcome=skipped status=denied reason=vision_disabled tool=recognize_image comp=tools chat=-1002661910336 dur=0
+  10-16 08:26:29Z tool_call outcome=failed status=error reason=None tool=download_media comp=tools chat=-1002661910336 dur=3
+  10-16 08:26:29Z tool_call outcome=skipped status=denied reason=vision_disabled tool=recognize_image comp=tools chat=-1002661910336 dur=1
+  10-16 08:25:44Z tool_call outcome=skipped status=denied reason=vision_disabled tool=recognize_image comp=tools chat=-1002661910336 dur=0
+  10-16 06:58:57Z tool_call outcome=skipped status=denied reason=vision_disabled tool=recognize_image comp=tools chat=-1002661910336 dur=0
+  10-16 06:22:10Z tool_call outcome=skipped status=denied reason=vision_disabled tool=recognize_image comp=tools chat=-1002661910336 dur=7
+  10-16 02:44:36Z tool_call outcome=skipped status=denied reason=vision_disabled tool=recognize_image comp=tools chat=-1002661910336 dur=6
+  10-15 12:29:41Z tool_call outcome=failed status=timeout reason=timeout tool=get_recent_history comp=tools chat=-1004482340693 dur=10003
+  10-10 05:52:54Z tool_call outcome=skipped status=denied reason=tool_step_limit tool=dig_into_lore comp=tools chat=-1002661910336 dur=0
+  10-09 16:41:36Z tool_call outcome=failed status=error reason=None tool=summarize_video comp=tools chat=-1002661910336 dur=27567
+  10-06 13:58:40Z tool_call outcome=failed status=error reason=None tool=summarize_video comp=tools chat=-1002661910336 dur=0
+== mca_events: capability_check / capability_message (последние 20) ==
+  ERROR no such column: entity_id
+== mca_events: vision/factcheck/temporal (7 дней) ==
+  FACTS_EXTRACT outcome=success reason=embed_deferred count=183 last=10-18 14:33:05Z
+  FACTS_EXTRACT outcome=skipped reason=no_new_contribution count=66 last=10-18 14:30:38Z
+  factcheck_temporal outcome=success reason=None count=54 last=10-16 10:02:43Z
+  FACTS_EXTRACT outcome=success reason=None count=37 last=10-16 19:59:32Z
+  vision_media outcome=skipped reason=vision_unavailable count=23 last=10-18 15:39:04Z
+  vision_media outcome=skipped reason=capability_check_pending count=14 last=10-18 14:12:14Z
+  vision_capability_probe outcome=failed reason=vision_unavailable count=4 last=10-18 14:13:25Z
+  FACTS_EXTRACT outcome=failed reason=model_unavailable count=1 last=10-14 19:08:08Z
+  factcheck_run outcome=success reason=None count=1 last=10-17 16:14:14Z
+  factcheck_temporal outcome=failed reason=temporal_envelope_rejected count=1 last=10-17 16:13:48Z
+== task_jobs: все kind, 7 дней ==
+  kind=initiative.observe status=completed reason=None count=867 last=10-18 15:50:02Z
+  kind=cover_base status=completed reason=None count=43 last=10-18 13:12:01Z
+  kind=media_job status=completed reason=succeeded count=42 last=10-18 13:12:01Z
+  kind=vision.media status=failed reason=vision_unavailable count=23 last=10-18 15:39:04Z
+  kind=cover_style status=completed reason=None count=12 last=10-18 13:14:14Z
+  kind=embedding_rebuild_lease status=finished reason=released count=12 last=10-18 00:05:50Z
+  kind=cover_style status=completed reason=prompt_limit count=11 last=10-15 13:14:14Z
+  kind=vision.backfill status=failed reason=capability_check_pending count=10 last=10-18 14:12:14Z
+  kind=experience.review status=completed reason=None count=7 last=10-18 08:07:41Z
+  kind=exploration.belief_review status=succeeded reason=exploration_stored_only count=4 last=10-16 07:27:28Z
+  kind=vision.media status=cancelled reason=queue_coalesced count=4 last=10-18 14:44:09Z
+  kind=vision.media status=failed reason=capability_check_pending count=4 last=10-18 14:11:34Z
+  kind=cover_style status=completed reason=bad_json count=3 last=10-17 19:13:26Z
+  kind=intent_heartbeat_liveness status=completed reason=None count=1 last=10-18 15:49:54Z
+  kind=media_job status=completed reason=timeout count=1 last=10-14 01:05:27Z
+  kind=media_job status=failed reason=unknown_after_disconnect count=1 last=10-12 19:13:03Z
+  kind=refill status=completed reason=None count=1 last=10-15 14:44:25Z
+== ENV (.env оси) ==
+  DIRECT_L1_ENABLED=<unset>
+  AGENTIC_EVENTS_ENABLED=<unset>
+  SUMMARY_ENABLED=<unset>
+  TEMPORAL_TOOL_ENABLED=<unset>
+  FACTCHECK_ENABLED=<unset>
+  CHECKUP_ENABLED=<unset>
+  IMAGE_GENERATION_ENABLED=<unset>
+  UNIFIED_IMAGE_REQUEST_ENABLED=<unset>
+  NATIVE_MEDIA_TOOLS_ENABLED=<unset>
+  MEDIA_TRANSCRIBE_TOOL_ENABLED=<unset>
+  ARTICLE_TOOL_ENABLED=<unset>
+  MEMORY_LOOKUP_ENABLED=<unset>
+  MCA_TOOL_RESULT_ENABLED=<unset>
+  MCA_TOOL_CHAIN_STAGES_ENABLED=<unset>
+  MCA_VISION_ENABLED=<unset>
+  MCA_VISION_TOOL_ENABLED=<unset>
+  MCA_VISION_AUTO_ENABLED=<unset>
+  MCA_VISION_BACKFILL_ENABLED=<unset>
+  MCA_TEMPORAL_FACTCHECK_ENABLED=<unset>
+  MCA_TEMPORAL_FACTCHECK_TOOL_ENABLED=<unset>
+== bot_settings (effective flags) ==
+  flags.direct_l1_enabled = <no row>
+  flags.direct_l1_fallback_enabled = <no row>
+  flags.vision_enabled = False
+  flags.factcheck_enabled = True
+  flags.checkup_enabled = True
+  flags.image_generation_module_enabled = True
+  flags.direct_chat_botword_enabled = True
+  flags.lore_compiler_enabled = True
+  flags.summary_enabled = True
+  flags.character_speech_enabled = True
+  temporal.tool_enabled = True
+  flags.humor_craft_enabled = True
+  flags.search_enabled = True
+  flags.webpage_enabled = True
+  flags.video_summary_enabled = True
+  flags.download_enabled = True
+== chat_profiles: relevant overrides ==
+  chat=5885953495 overrides={'flags.summary_enabled': False, 'flags.chat_running_summary_enabled': False}
+  chat=-1004482340693 overrides={'flags.vision_enabled': True, 'flags.budgets_enabled': False, 'flags.summary_enabled': False}
+  chat=-1002661910336 overrides={'flags.vision_enabled': True, 'flags.budgets_enabled': False, 'flags.deep_sleep_enabled': True, 'flags.irony_filter_enabled': True, 'flags.relations_tone_enabled': True, 'flags.summary_filter_enabled': False, 'flags.chat_silent_ack_enabled': True}
+== llm_usage_events: 7 дней по module/step/tool ==
+  llm/single tool= src=global count=694 last=10-18 15:45:05Z
+  summary/l2_writer tool= src=global count=197 last=10-18 13:09:33Z
+  direct_chat/l2_writer tool= src=global count=171 last=10-18 15:45:12Z
+  direct_chat/l1_planner tool= src=global count=155 last=10-18 15:45:09Z
+  image/image tool=generate_image src=image count=101 last=10-18 13:12:01Z
+  summary/l1_clusterizer tool= src=global count=88 last=10-18 13:08:17Z
+  summary/stage2 tool= src=global count=49 last=10-18 13:10:31Z
+  summary/stage1 tool= src=global count=31 last=10-18 13:10:03Z
+  factcheck/temporal_verbalize tool= src=global count=16 last=10-18 05:39:20Z
+  factcheck/temporal_validator tool= src=global count=10 last=10-18 05:39:11Z
+  factcheck/temporal_verdict tool= src=global count=10 last=10-18 05:39:08Z
+  initiative/opportunity_eval tool= src=global count=8 last=10-18 15:45:08Z
+  direct_chat/stage1 tool= src=global count=4 last=10-12 16:01:18Z
+  experience/semantic_extract tool= src=global count=3 last=10-18 08:07:40Z
+  factcheck/stage2 tool= src=global count=2 last=10-17 16:14:14Z
+  summary/single tool= src=global count=2 last=10-16 07:09:49Z
+  direct_chat/tool tool=get_recent_history src=global count=1 last=10-12 06:27:16Z
+  factcheck/stage1 tool= src=global count=1 last=10-17 16:13:57Z
+  direct_chat/tool tool=execute_web_search src=global count=1 last=10-12 16:01:40Z
+  direct_chat/tool tool=execute_web_search,execute_web_search src=global count=1 last=10-11 17:34:15Z
+== plan_meta последних L1-планов (capabilities/tools) ==
+  10-18 15:45:09Z {}
+  10-18 14:32:54Z {'action': 'reply', 'execution_mode': 'none', 'bucket': 'high', 'confidence': 0.9, 'source': 'main'}
+  10-18 14:31:58Z {'action': 'reply', 'execution_mode': 'none', 'bucket': 'high', 'confidence': 0.86, 'source': 'main'}
+  10-18 14:31:00Z {'action': 'reply', 'execution_mode': 'none', 'bucket': 'high', 'confidence': 0.92, 'source': 'main'}
+  10-18 14:31:00Z {'action': 'reply', 'execution_mode': 'simple_tools', 'capabilities': 'image_understanding', 'bucket': 'high', 'confidence': 0.93, 'source': 'main'}
+  10-18 14:30:33Z {'action': 'reply', 'execution_mode': 'none', 'bucket': 'medium', 'confidence': 0.72, 'source': 'main'}
+  10-18 12:57:40Z {}
+  10-18 09:47:39Z {'action': 'reply', 'execution_mode': 'none', 'bucket': 'medium', 'confidence': 0.6, 'source': 'main'}
+== worker_budget: image_calls ==
+  day=2026-10-18 scope=chat:-1002661910336 used=12
+  day=2026-10-18 scope=chat:-1009900000201 used=4
+  day=2026-10-18 scope=global used=16
+  day=2026-10-17 scope=chat:-1002661910336 used=5
+  day=2026-10-17 scope=global used=5
+  day=2026-10-16 scope=chat:-1002661910336 used=46
+  day=2026-10-16 scope=global used=46
+  day=2026-10-15 scope=chat:-1002661910336 used=5
+  day=2026-10-15 scope=chat:-1004482340693 used=5
+  day=2026-10-15 scope=global used=10
+  day=2026-10-14 scope=chat:-1002661910336 used=5
+  day=2026-10-14 scope=chat:-1004482340693 used=5
+
+== journal: retention ==
+Archived and active journals take up 202.0M in the file system.
+Oct 13 03:10:10 racknerd-f4e3456 python[1832025]: 2026-10-13 03:10:10,572 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-13 08:10:15 +05)" (scheduled at 2026-10-13 08:10:10.570230+05:00)
+
+== journal: TOOL_CALL по инструментам (вся доступная история) ==
+     20 tool=get_recent_history
+     14 tool=recognize_image
+     12 tool=execute_web_search
+      8 tool=query_chat_memory
+      6 tool=fact_check
+      4 tool=download_media
+      2 tool=summarize_video
+      2 tool=fetch_article
+
+== journal: наши 4 инструмента, последние строки (7д) ==
+Oct 14 06:13:34 racknerd-f4e3456 python[2103475]: 2026-10-14 06:13:34,033 - services.agentic_events - INFO - event=TOOL_CALL_START | run_id=c899a32017b448f8b0998fa89d4fcb21 | chat_id=-1004482340693 | tool=fact_check | round=1 | ts=1791958414.034
+Oct 14 06:13:55 racknerd-f4e3456 python[2103475]: 2026-10-14 06:13:55,354 - services.agentic_events - INFO - event=TOOL_CALL_COMPLETE | run_id=c899a32017b448f8b0998fa89d4fcb21 | chat_id=-1004482340693 | tool=fact_check | round=1 | status=ok | out_chars=2277 | ts=1791958435.354
+Oct 14 14:49:56 racknerd-f4e3456 python[2103475]: 2026-10-14 14:49:56,099 - services.agentic_events - INFO - event=TOOL_CALL_START | run_id=0972920247954f78a092ca25d94289de | chat_id=-1002661910336 | tool=fact_check | round=1 | ts=1791989396.099
+Oct 14 14:50:29 racknerd-f4e3456 python[2103475]: 2026-10-14 14:50:29,130 - services.agentic_events - INFO - event=TOOL_CALL_COMPLETE | run_id=0972920247954f78a092ca25d94289de | chat_id=-1002661910336 | tool=fact_check | round=1 | status=ok | out_chars=1912 | ts=1791989429.13
+Oct 16 02:44:36 racknerd-f4e3456 python[2594113]: 2026-10-16 02:44:36,232 - services.agentic_events - INFO - event=TOOL_CALL_START | run_id=d31617a95663415182746ce72ed56938 | chat_id=-1002661910336 | tool=recognize_image | round=1 | ts=1792118676.233
+Oct 16 02:44:36 racknerd-f4e3456 python[2594113]: 2026-10-16 02:44:36,249 - services.agentic_events - INFO - event=TOOL_CALL_FAILED | run_id=d31617a95663415182746ce72ed56938 | chat_id=-1002661910336 | tool=recognize_image | round=1 | status=denied | error_code=vision_disabled | ts=1792118676.25
+Oct 16 02:47:52 racknerd-f4e3456 python[2594113]: 2026-10-16 02:47:52,320 - services.agentic_events - INFO - event=TOOL_CALL_START | run_id=c5ecc1323cce4cc7a062237e9afe5947 | chat_id=-1002661910336 | tool=fact_check | round=1 | ts=1792118872.32
+Oct 16 02:48:05 racknerd-f4e3456 python[2594113]: 2026-10-16 02:48:05,216 - services.agentic_events - INFO - event=TOOL_CALL_COMPLETE | run_id=c5ecc1323cce4cc7a062237e9afe5947 | chat_id=-1002661910336 | tool=fact_check | round=1 | status=ok | out_chars=2218 | ts=1792118885.216
+Oct 16 06:22:10 racknerd-f4e3456 python[2594113]: 2026-10-16 06:22:10,300 - services.agentic_events - INFO - event=TOOL_CALL_START | run_id=da9a69d60f3142038454288f210305d0 | chat_id=-1002661910336 | tool=recognize_image | round=1 | ts=1792131730.3
+Oct 16 06:22:10 racknerd-f4e3456 python[2594113]: 2026-10-16 06:22:10,319 - services.agentic_events - INFO - event=TOOL_CALL_FAILED | run_id=da9a69d60f3142038454288f210305d0 | chat_id=-1002661910336 | tool=recognize_image | round=1 | status=denied | error_code=vision_disabled | ts=1792131730.319
+Oct 16 06:58:57 racknerd-f4e3456 python[2594113]: 2026-10-16 06:58:57,497 - services.agentic_events - INFO - event=TOOL_CALL_START | run_id=c90b2b0f2518433ca30a2d2fb37c1102 | chat_id=-1002661910336 | tool=recognize_image | round=1 | ts=1792133937.498
+Oct 16 06:58:57 racknerd-f4e3456 python[2594113]: 2026-10-16 06:58:57,500 - services.agentic_events - INFO - event=TOOL_CALL_FAILED | run_id=c90b2b0f2518433ca30a2d2fb37c1102 | chat_id=-1002661910336 | tool=recognize_image | round=1 | status=denied | error_code=vision_disabled | ts=1792133937.501
+Oct 16 08:25:44 racknerd-f4e3456 python[2594113]: 2026-10-16 08:25:44,683 - services.agentic_events - INFO - event=TOOL_CALL_START | run_id=91ca042172f04cc3808094e103f4c10d | chat_id=-1002661910336 | tool=recognize_image | round=1 | ts=1792139144.683
+Oct 16 08:25:44 racknerd-f4e3456 python[2594113]: 2026-10-16 08:25:44,686 - services.agentic_events - INFO - event=TOOL_CALL_FAILED | run_id=91ca042172f04cc3808094e103f4c10d | chat_id=-1002661910336 | tool=recognize_image | round=1 | status=denied | error_code=vision_disabled | ts=1792139144.686
+Oct 16 08:26:29 racknerd-f4e3456 python[2594113]: 2026-10-16 08:26:29,891 - services.agentic_events - INFO - event=TOOL_CALL_START | run_id=8ab75ad9d682402d9cb8cf74a0d924ff | chat_id=-1002661910336 | tool=recognize_image | round=1 | ts=1792139189.891
+Oct 16 08:26:29 racknerd-f4e3456 python[2594113]: 2026-10-16 08:26:29,899 - services.agentic_events - INFO - event=TOOL_CALL_FAILED | run_id=8ab75ad9d682402d9cb8cf74a0d924ff | chat_id=-1002661910336 | tool=recognize_image | round=1 | status=denied | error_code=vision_disabled | ts=1792139189.899
+Oct 16 08:26:35 racknerd-f4e3456 python[2594113]: 2026-10-16 08:26:35,452 - services.agentic_events - INFO - event=TOOL_CALL_START | run_id=99fbc20bda564a63abbcd1c31a464597 | chat_id=-1002661910336 | tool=recognize_image | round=1 | ts=1792139195.452
+Oct 16 08:26:35 racknerd-f4e3456 python[2594113]: 2026-10-16 08:26:35,454 - services.agentic_events - INFO - event=TOOL_CALL_FAILED | run_id=99fbc20bda564a63abbcd1c31a464597 | chat_id=-1002661910336 | tool=recognize_image | round=1 | status=denied | error_code=vision_disabled | ts=1792139195.455
+Oct 18 14:31:00 racknerd-f4e3456 python[3430462]: 2026-10-18 14:31:00,365 - services.agentic_events - INFO - event=TOOL_CALL_START | run_id=1b69b36ae52944a180daafa989550eff | chat_id=-1002661910336 | tool=recognize_image | round=1 | ts=1792333860.366
+Oct 18 14:31:00 racknerd-f4e3456 python[3430462]: 2026-10-18 14:31:00,368 - services.agentic_events - INFO - event=TOOL_CALL_FAILED | run_id=1b69b36ae52944a180daafa989550eff | chat_id=-1002661910336 | tool=recognize_image | round=1 | status=denied | error_code=vision_unavailable | ts=1792333860.369
+
+== journal: L1_CAPABILITY_REJECTED (7д) ==
+      3 capability=statistics | reason=no_tool
+      1 capability=summarization | reason=unknown_capability
+      1 capability=image_generation | reason=tool_not_active
+      1 capability=chat_memory | reason=low_confidence
+      1 capability=chat_history | reason=low_confidence
+
+== journal: TOOL_CALL_COMPLETE по tool (7д) ==
+      9 tool=get_recent_history
+      6 tool=execute_web_search
+      4 tool=query_chat_memory
+      3 tool=fact_check
+      1 tool=summarize_video
+      1 tool=fetch_article
+      1 tool=download_media
+
+== journal: [image] / image-события (7д, хвост 20) ==
+Oct 17 19:10:15 racknerd-f4e3456 python[3204968]: 2026-10-17 19:10:15,861 - services.image_generation - INFO - [image] generated | mode=post | model=qwen-image-3-pro | bytes=1844370 | latency_ms=76632
+Oct 18 01:12:15 racknerd-f4e3456 python[3275019]: 2026-10-18 01:12:15,192 - services.image_generation - INFO - [image] generated | mode=post | model=qwen-image-3-pro | bytes=1689335 | latency_ms=92950
+Oct 18 07:08:40 racknerd-f4e3456 python[3275019]: 2026-10-18 07:08:40,634 - services.image_generation - INFO - [image] generated | mode=post | model=qwen-image-3-pro | bytes=1556002 | latency_ms=85854
+Oct 18 09:14:44 racknerd-f4e3456 python[3359708]: 2026-10-18 09:14:44,942 - services.image_generation - INFO - [image] generated | mode=post | model=qwen-image-3-pro | bytes=1456697 | latency_ms=65885
+Oct 18 09:14:46 racknerd-f4e3456 python[3359708]: 2026-10-18 09:14:46,096 - services.image_generation - INFO - [image] sent | chat=-1002661910336 | bytes=1456697 | delivery_failed=False
+Oct 18 09:33:59 racknerd-f4e3456 python[3359708]: 2026-10-18 09:33:59,600 - services.image_generation - INFO - [image] generated | mode=post | model=qwen-image-3-pro | bytes=1451168 | latency_ms=83487
+Oct 18 09:34:00 racknerd-f4e3456 python[3359708]: 2026-10-18 09:34:00,646 - services.image_generation - INFO - [image] sent | chat=-1002661910336 | bytes=1451168 | delivery_failed=False
+Oct 18 09:35:15 racknerd-f4e3456 python[3359708]: 2026-10-18 09:35:15,869 - services.image_generation - INFO - [image] generated | mode=post | model=qwen-image-3-pro | bytes=1898434 | latency_ms=75289
+Oct 18 09:35:16 racknerd-f4e3456 python[3359708]: 2026-10-18 09:35:16,845 - services.image_generation - INFO - [image] sent | chat=-1002661910336 | bytes=1898434 | delivery_failed=False
+Oct 18 09:35:47 racknerd-f4e3456 python[3359708]: 2026-10-18 09:35:47,220 - services.image_generation - INFO - [image] generated | mode=post | model=qwen-image-3-pro | bytes=1540946 | latency_ms=80026
+Oct 18 09:35:48 racknerd-f4e3456 python[3359708]: 2026-10-18 09:35:48,196 - services.image_generation - INFO - [image] sent | chat=-1002661910336 | bytes=1540946 | delivery_failed=False
+Oct 18 09:37:17 racknerd-f4e3456 python[3359708]: 2026-10-18 09:37:17,578 - services.image_generation - INFO - [image] generated | mode=post | model=qwen-image-3-pro | bytes=1437686 | latency_ms=67400
+Oct 18 09:37:18 racknerd-f4e3456 python[3359708]: 2026-10-18 09:37:18,449 - services.image_generation - INFO - [image] sent | chat=-1002661910336 | bytes=1437686 | delivery_failed=False
+Oct 18 09:41:45 racknerd-f4e3456 python[3359708]: 2026-10-18 09:41:45,665 - services.image_generation - INFO - [image] generated | mode=post | model=qwen-image-3-pro | bytes=980759 | latency_ms=80321
+Oct 18 09:41:46 racknerd-f4e3456 python[3359708]: 2026-10-18 09:41:46,451 - services.image_generation - INFO - [image] sent | chat=-1002661910336 | bytes=980759 | delivery_failed=False
+Oct 18 09:46:37 racknerd-f4e3456 python[3359708]: 2026-10-18 09:46:37,637 - services.image_generation - INFO - [image] generated | mode=post | model=qwen-image-3-pro | bytes=1412992 | latency_ms=79971
+Oct 18 09:46:38 racknerd-f4e3456 python[3359708]: 2026-10-18 09:46:38,562 - services.image_generation - INFO - [image] sent | chat=-1002661910336 | bytes=1412992 | delivery_failed=False
+Oct 18 09:46:50 racknerd-f4e3456 python[3359708]: 2026-10-18 09:46:50,820 - services.image_generation - INFO - [image] generated | mode=post | model=qwen-image-3-pro | bytes=1589851 | latency_ms=91134
+Oct 18 09:46:51 racknerd-f4e3456 python[3359708]: 2026-10-18 09:46:51,858 - services.image_generation - INFO - [image] sent | chat=-1002661910336 | bytes=1589851 | delivery_failed=False
+Oct 18 13:12:01 racknerd-f4e3456 python[3359708]: 2026-10-18 13:12:01,334 - services.image_generation - INFO - [image] generated | mode=post | model=qwen-image-3-pro | bytes=1901809 | latency_ms=88708
+
+== journal: factcheck (7д, хвост 15) ==
+Oct 17 22:50:29 racknerd-f4e3456 python[3254462]: 2026-10-17 22:50:29,586 - __main__ - INFO - SmartModule SmartSearch (Epic 33) initialized (FactCheck — после сборки ToolRouter)
+Oct 17 23:00:23 racknerd-f4e3456 python[3254462]: 2026-10-17 23:00:23,204 - services.prompt_registry - WARNING - [prompt_registry] persisted speech value withheld | key=prompts.factcheck_system_prompt | block=factcheck.base.single | reason=provenance_missing | stored_sha=76c4beb11c63 | stored_chars=4666
+Oct 17 23:00:23 racknerd-f4e3456 python[3254462]: 2026-10-17 23:00:23,233 - services.prompt_registry - WARNING - [prompt_registry] persisted speech value withheld | key=prompts.factcheck_verbalizer_system_prompt | block=factcheck.base.verbalizer | reason=provenance_missing | stored_sha=5fbf61cea310 | stored_chars=1712
+Oct 18 00:30:06 racknerd-f4e3456 python[3275019]: 2026-10-18 00:30:06,304 - services.prompt_migrations - INFO - [prompt_migration] уже новый канон | key=prompts.factcheck_system_prompt
+Oct 18 00:30:06 racknerd-f4e3456 python[3275019]: 2026-10-18 00:30:06,308 - services.prompt_migrations - INFO - [prompt_migration] уже новый канон | key=prompts.factcheck_analyst_system_prompt
+Oct 18 00:30:06 racknerd-f4e3456 python[3275019]: 2026-10-18 00:30:06,327 - services.config_migrations - INFO - [factcheck_context_migration] legacy == дефолт — мигрировать нечего | key=limits.factcheck_context_messages
+Oct 18 00:30:06 racknerd-f4e3456 python[3275019]: 2026-10-18 00:30:06,593 - __main__ - INFO - SmartModule SmartSearch (Epic 33) initialized (FactCheck — после сборки ToolRouter)
+Oct 18 07:37:33 racknerd-f4e3456 python[3359708]: 2026-10-18 07:37:33,951 - services.prompt_migrations - INFO - [prompt_migration] уже новый канон | key=prompts.factcheck_system_prompt
+Oct 18 07:37:33 racknerd-f4e3456 python[3359708]: 2026-10-18 07:37:33,954 - services.prompt_migrations - INFO - [prompt_migration] уже новый канон | key=prompts.factcheck_analyst_system_prompt
+Oct 18 07:37:33 racknerd-f4e3456 python[3359708]: 2026-10-18 07:37:33,965 - services.config_migrations - INFO - [factcheck_context_migration] legacy == дефолт — мигрировать нечего | key=limits.factcheck_context_messages
+Oct 18 07:37:34 racknerd-f4e3456 python[3359708]: 2026-10-18 07:37:34,395 - __main__ - INFO - SmartModule SmartSearch (Epic 33) initialized (FactCheck — после сборки ToolRouter)
+Oct 18 13:34:53 racknerd-f4e3456 python[3430462]: 2026-10-18 13:34:53,718 - services.prompt_migrations - INFO - [prompt_migration] уже новый канон | key=prompts.factcheck_system_prompt
+Oct 18 13:34:53 racknerd-f4e3456 python[3430462]: 2026-10-18 13:34:53,722 - services.prompt_migrations - INFO - [prompt_migration] уже новый канон | key=prompts.factcheck_analyst_system_prompt
+Oct 18 13:34:53 racknerd-f4e3456 python[3430462]: 2026-10-18 13:34:53,739 - services.config_migrations - INFO - [factcheck_context_migration] legacy == дефолт — мигрировать нечего | key=limits.factcheck_context_messages
+Oct 18 13:34:53 racknerd-f4e3456 python[3430462]: 2026-10-18 13:34:53,994 - __main__ - INFO - SmartModule SmartSearch (Epic 33) initialized (FactCheck — после сборки ToolRouter)
+
+== journal: L1_PLAN эмиссии (7д, счётчики) ==
+145
+Oct 18 09:47:39 racknerd-f4e3456 python[3359708]: 2026-10-18 09:47:39,880 - services.agentic_events - INFO - event=L1_PLAN | run_id=f7d4d7c70d904975a4e333c9c112bc50 | chat_id=-1002661910336 | message_id=1164903 | action=reply | response_act=clarification | extent=compact | tone=warm | bucket=medium | inherited=True | fallback= | latency_ms=2484 | input_chars=1283 | confidence=0.6 | source=main | ts=1792316859.881
+Oct 18 14:30:33 racknerd-f4e3456 python[3430462]: 2026-10-18 14:30:33,840 - services.agentic_events - INFO - event=L1_PLAN | run_id=4bcc978b808644819e9c1b7dbe9740af | chat_id=-1002661910336 | message_id=1165241 | action=reply | response_act=support | extent=micro | tone=playful | bucket=medium | inherited=True | fallback= | latency_ms=2275 | input_chars=959 | confidence=0.72 | source=main | ts=1792333833.841
+Oct 18 14:31:00 racknerd-f4e3456 python[3430462]: 2026-10-18 14:31:00,337 - services.agentic_events - INFO - event=L1_PLAN | run_id=1b69b36ae52944a180daafa989550eff | chat_id=-1002661910336 | message_id=1165243 | action=reply | response_act=answer | extent=compact | tone=inherit | bucket=high | capabilities=image_understanding | inherited=True | fallback= | latency_ms=2429 | input_chars=1155 | confidence=0.93 | source=main | ts=1792333860.337
+Oct 18 14:31:00 racknerd-f4e3456 python[3430462]: 2026-10-18 14:31:00,596 - services.agentic_events - INFO - event=L1_PLAN | run_id=a34a4898e6294dce82616fef93fa63f6 | chat_id=-1002661910336 | message_id=1165244 | action=reply | response_act=hostile_rebuff | extent=micro | tone=serious | bucket=high | inherited=True | fallback= | latency_ms=2520 | input_chars=983 | confidence=0.92 | source=main | ts=1792333860.596
+Oct 18 14:31:58 racknerd-f4e3456 python[3430462]: 2026-10-18 14:31:58,667 - services.agentic_events - INFO - event=L1_PLAN | run_id=aa9bf059006941c08f8bf3b23c142645 | chat_id=-1002661910336 | message_id=1165247 | action=reply | response_act=hostile_rebuff | extent=micro | tone=ironic | bucket=high | inherited=True | fallback= | latency_ms=10907 | input_chars=1358 | confidence=0.86 | source=main | ts=1792333918.667
+Oct 18 14:32:54 racknerd-f4e3456 python[3430462]: 2026-10-18 14:32:54,050 - services.agentic_events - INFO - event=L1_PLAN | run_id=e0a61c326a9141e48f0d8d3ea7e2fabb | chat_id=-1002661910336 | message_id=1165249 | action=reply | response_act=creative | extent=compact | tone=warm | bucket=high | inherited=True | fallback= | latency_ms=2419 | input_chars=1019 | confidence=0.9 | source=main | ts=1792333974.051
+
