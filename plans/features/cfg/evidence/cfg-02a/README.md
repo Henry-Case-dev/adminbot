@@ -4,7 +4,7 @@
 `CFG-02A.1–02A.7`, `CFG-02.AC1`). Лейн: CFG-02A (writer).
 Источник: `plans/features/cfg/source-cfg-addendum.md`, раздел CFG-02A (L69–L77).
 Кандидат: коммит `feat(cfg): CFG-02A — daily image quota: visible, manageable, effective`
-(18 файлов) на базе `2bc13f44c548`; контент-стабильные blob sha12 — §7 / `red-green.txt`. Sha
+(19 файлов) на базе `2bc13f44c548`; контент-стабильные blob sha12 — §7 / `red-green.txt`. Sha
 самого коммита фиксируется в отчёте Builder при handoff (любая правка evidence меняет его).
 
 ## 1. Корневая причина UI-дефекта (воспроизведена на базовом коде)
@@ -61,7 +61,7 @@ GLOBAL. Единица списания — генерация (одна кар�
 |---|---|---|
 | CFG-02.D (UI-дефект) | `TESTED` | RED на базе `2bc13f44` (те же тесты: 10 failed) → GREEN на кандидате (27 passed); RED-причины: отсутствие витринных подписей, `limits_images` в зеркале/маппинге вкладки, фактов квоты, честного режима и времени сброса. E2E: секция видна на «Основных настройках», поле редактируется, невалидный ввод не уходит (`ux-e2e` §4). |
 | CFG-02A.1 | `TESTED` + `READY_FOR_LIVE` (preprod) | `test_vitrina_labels_and_units` (витринные подписи), `test_js_mirror_declares_limits_group`, `test_limits_group_renders_on_settings_tab`, `test_group_belongs_to_images_module_tab`, e2e `settings_section_visible`/`section_title`; живая проверка §5.1. |
-| CFG-02A.2 | `TESTED` + `READY_FOR_LIVE` (preprod) | `test_ui_marks_facts_and_guard`, `test_ui_hint_is_factual`, e2e `facts_*` (значение/единицы/источник/расход/остаток/TZ/сброс/подсказка), скриншоты `ui/browseruse-390-settings-section.png`, `ui/01-settings-global.png`; живая проверка §5.1. |
+| CFG-02A.2 | `TESTED` + `READY_FOR_LIVE` (preprod) | `test_ui_marks_facts_and_guard`, `test_ui_hint_is_factual`, e2e `facts_*` (значение/единицы/источник/расход/остаток/TZ/сброс/подсказка), скриншоты `ui/browseruse-390-settings-section.png`, `ui/01-settings-global.png`, `ui/06-empty-input.png` (B1: пустой ввод — 0 POST); живая проверка §5.1. |
 | CFG-02A.3 | `TESTED` + `READY_FOR_LIVE` (preprod) | `test_global_change_takes_effect_without_restart`, `test_small_positive_one_then_deny`, `test_zero_is_forbidden_and_does_not_consume`, `test_minus_one_is_unlimited_and_still_accounted`, `test_chat_override_isolated_and_reset_keeps_global`, `test_factory_default_when_keys_absent`, `test_invalid_type_in_override_falls_back_to_global`, `test_client_guard_blocks_invalid_value` (клиентский запрет + no-op guard), e2e `invalid_posts_count=0`, `chat_scope_*`; живая проверка §5.1/5.2. |
 | CFG-02A.4 | `TESTED` + `READY_FOR_LIVE` (preprod) | `test_global_change_takes_effect_without_restart` (10→2→5 без рестарта, третий отказ), `test_reserve_mode_is_honest` (reserve/legacy+budgets_off/kill_switch_off), `test_shared_env_limit_denies_even_with_chat_quota_left`, e2e `legacy_mode_notice`, `budgets_off_notice`, `facts_mode`; живая проверка §5.3. |
 | CFG-02A.5 | `TESTED` + `READY_FOR_LIVE` (preprod) | `test_deny_before_paid_call_with_reset_time` (0 генераций, журнал `denied/limit_chat`), `test_refusal_text_carries_honest_reset_time` (форма SOUL-1 + «Суточная квота обновится 19.10.2026 00:00 (TZ)», без cooldown-лексики), `test_reset_note_is_fail_open`; живая проверка §5.4. |
@@ -93,7 +93,7 @@ py -3 -m pytest tests/test_soul1_capability_fallbacks.py tests/test_round1025_f8
 
 # UI E2E (детерминированный, стабы API; без внешней сети)
 .venv\Scripts\python.exe tools\ui_cfg02a_image_quota_e2e.py
-  → RESULT: PASS (console_errors = 0; 5 скриншотов в ui/)
+  → RESULT: PASS (console_errors = 0; 6 скриншотов в ui/)
 ```
 
 Новые тесты помечены `TEST-LIFECYCLE: CONTRACT/REGRESSION owner=CFG-02A`.
@@ -169,5 +169,6 @@ py -3 -m pytest tests/test_soul1_capability_fallbacks.py tests/test_round1025_f8
 * тесты: `tests/test_cfg02a_image_quota_ui.py` (новый, 27),
   `tests/test_soul1_capability_fallbacks.py` (1 кейс строже), e2e
   `tools/ui_cfg02a_image_quota_e2e.py`.
-* fingerprint: 18 файлов кандидата, база `2bc13f44c548`; blob sha12 ключевых файлов — см.
-  `red-green.txt` §CANDIDATE (контент-стабильно; sha коммита — в отчёте Builder).
+* fingerprint: 19 файлов кандидата (`669debfa`: код + тесты + e2e-инструмент + evidence +
+  JS-пин; правки B1 — `fix(cfg): CFG-02A … (B1)`), база `2bc13f44c548`; blob sha12 ключевых
+  файлов — см. `red-green.txt` §CANDIDATE (контент-стабильно; sha коммита — в отчёте Builder).

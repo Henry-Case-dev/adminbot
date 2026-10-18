@@ -30,18 +30,18 @@ FAILED tests/test_soul1_capability_fallbacks.py::test_tool_path_message_uses_tem
   * честность: нет `reserve_path`/`reserve_reason` в диагностике §27 (`image_reserve_mode`);
   * отказ: нет фактической строки времени сброса (`image_quota_reset_note`) в direct/tool.
 
-## CANDIDATE (blob sha12 ключевых файлов; база 2bc13f44c548)
+## CANDIDATE (blob sha12 ключевых файлов; база 2bc13f44c548; учтена B1-правка)
 
-  web/app.js                        92f60ed1e28b
+  web/app.js                        3bb1e574a01c   (B1: пустой ввод отклонён)
   web/index.html                    312a2ed00691
   services/image_generation.py      c560e15d118a
   services/worker_budget.py         7cdf9ea20b0f
   services/tool_router.py           8ec679eb43e3
-  tests/test_cfg02a_image_quota_ui.py   2734311de0ab
+  tests/test_cfg02a_image_quota_ui.py   3844e8a39f05   (+ статический ассерт пустого ввода)
   tests/test_soul1_capability_fallbacks.py 26e8128069d5
   tests/js/round1024_image_module_test.js b9f43e8dbe7e
-  tools/ui_cfg02a_image_quota_e2e.py     d3dbdcc67fd5
-  evidence/cfg-02a/README.md             ba41d9ef6755
+  tools/ui_cfg02a_image_quota_e2e.py     cc0a84c77da0   (+ кейс C2: пустой ввод → 0 POST)
+  evidence/cfg-02a/README.md             ac8d810deb44   (18→19 файлов, нит N2)
   (база: 2bc13f44c548; карта/каталог/роуты НЕ тронуты — Δ каталога = 0)
 
 ## GREEN
@@ -81,6 +81,26 @@ FAILED tests/test_soul1_capability_fallbacks.py::test_tool_path_message_uses_tem
     node tests/js/round1024_image_module_test.js → IMAGE-MODULE-OK
     py -3 -m pytest tests/test_webapp_js_unit.py -q → 38 passed
 
+## B1 (ревью `10c15cf5`) — пустой ввод больше не сохраняется как `0`
+
+  Правка: `web/app.js::imageQuotaValueValid` — `raw == null || String(raw).trim() === ''`
+  → `false` (пустой/пробельный ввод невалиден; `Number('') === 0` больше не проходит).
+  Коммит `fix(cfg): CFG-02A — reject empty image quota input (B1) + e2e case`.
+
+  $ .venv\Scripts\python.exe tools\ui_cfg02a_image_quota_e2e.py      # новый кейс C2
+RESULT: PASS   (console_errors = [])
+  empty_posts_count=0 | empty_error_visible='Допустимо целое число: −1 или больше …'
+  empty_input_value='2'  (поле возвращается к фактическому значению, POST нет)
+
+  $ .venv\Scripts\python.exe <scratch>\review-cfg02a\probe_empty_input.py   # пробник ревьюера
+input visible: True | current item value: 60
+POSTs after EMPTY change: []
+error elem present: True | input DOM value now: 60 | page errors: []
+
+  Зелёные после правки: tests/test_cfg02a_image_quota_ui.py → 27 passed;
+  tests/test_webapp_js_unit.py → 38 passed; node tests/js/round1024_image_module_test.js
+  → IMAGE-MODULE-OK.
+
 ## UI E2E (детерминированный Playwright; стабы /api/*, R17: id/числа)
 
   $ .venv\Scripts\python.exe tools\ui_cfg02a_image_quota_e2e.py
@@ -97,7 +117,7 @@ RESULT: PASS   (console_errors = [])
   budgets_off_notice='Мастер-рубильник бюджетов выключен … НЕ ограничивает генерацию …'
   chat_scope_value='1 генераций/сутки' | source='Локальный (чат)' | chat_save_post={value:3, chat:true}
   mobile_section_visible=true | mobile_no_overflow=true
-  скриншоты: plans/features/cfg/evidence/cfg-02a/ui/01..05*.png
+  скриншоты: plans/features/cfg/evidence/cfg-02a/ui/01..05*.png + 06-empty-input.png (B1)
 
 ## Живой визуальный контроль (Browser Use, реальный рендер; сервер `--serve`)
 

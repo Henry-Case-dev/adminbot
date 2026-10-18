@@ -422,6 +422,27 @@ def main() -> int:
         page.screenshot(path=shot, full_page=True)
         result["screenshots"].append(shot)
 
+        # ── Фаза C2 (B1, ревью 10c15cf5): ПУСТОЙ ввод не отправляется ───────
+        # `Number('') === 0` — без явной проверки «очистить поле» молча
+        # сохраняло бы 0 («генерация запрещена»).
+        mark('C2-empty')
+        before = len(STATE["posts"])
+        page.fill("[data-image-quota-input]", "")
+        page.dispatch_event("[data-image-quota-input]", "change")
+        page.wait_for_timeout(800)
+        checks["empty_posts_count"] = len(STATE["posts"]) - before
+        checks["empty_error_visible"] = page.evaluate(
+            "(() => { const e = document.querySelector("
+            "'[data-image-quota-input-error]');"
+            " return e ? e.textContent.replace(/\\s+/g, ' ').trim() : ''; })()")
+        checks["empty_input_value"] = page.evaluate(
+            "(document.querySelector('[data-image-quota-input]')||{})"
+            ".value != null ? document.querySelector("
+            "'[data-image-quota-input]').value : ''")
+        shot = os.path.join(SHOTS, "06-empty-input.png")
+        page.screenshot(path=shot, full_page=True)
+        result["screenshots"].append(shot)
+
         # в”Ђв”Ђ Р¤Р°Р·Р° D: С‡РµСЃС‚РЅС‹Р№ СЂРµР¶РёРј (kill-switch OFF) в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
         mark('D-legacy')
         STATE["reserve_path"] = "legacy"
@@ -528,6 +549,9 @@ def main() -> int:
           and checks.get("invalid_posts_count") == 0
           and "Допустимо целое число" in str(
               checks.get("invalid_error_visible"))
+          and checks.get("empty_posts_count") == 0          # B1 (10c15cf5)
+          and "Допустимо целое число" in str(
+              checks.get("empty_error_visible"))
           and "IMAGE_DAILY_LIMIT_ENABLED" in str(
               checks.get("legacy_mode_notice"))
           and checks.get("legacy_notice_is_warn") is True

@@ -248,6 +248,12 @@ class TestCfg02aCatalogAndUiContract:
         blk = body.group(1)
         assert "imageQuotaValueValid(raw)" in blk
         assert "imageQuotaInputError" in blk
+        # Пустой/пробельный ввод — НЕВАЛИДЕН (B1 ревью `10c15cf5`):
+        # `Number('') === 0` иначе молча сохраняет 0 («генерация запрещена»).
+        fn = re.search(r"function imageQuotaValueValid\(raw\) \{(.*?)\n  \}",
+                       JS, re.S)
+        assert fn and "String(raw).trim() === ''" in fn.group(1)
+        assert "raw == null" in fn.group(1)
         # Невалидное значение НЕ уходит на сервер (return ДО saveConfigItem).
         assert blk.index("return false;") < blk.index("saveConfigItem(item)")
         # Значение без изменений не сохраняется: пересинхронизация поля при
