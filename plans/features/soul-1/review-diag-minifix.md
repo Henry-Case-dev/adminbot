@@ -1,6 +1,7 @@
 # REV-DIAG-MINIFIX — вердикт (мини-фикс диагностики инициативы, P0A-INIT)
 
 Независимое ревью. Read-only; этот коммит — только данный документ.
+**СТАТУС: Approved** — F1 закрыт правкой варианта B (recheck, см. Addendum; исходный Needs Fixes сохранён ниже как история).
 **Кандидат:** три uncommitted файла (общая поверхность `d45194d4`). Идентичность: blob12 == `39589fc532bc` / `4093e48d97cf` / `263918982bec`; sha256_12 == `c42a8ecbe48f` / `e774d5fda58f` / `9cc922472cd4` — совпало и в рабочем дереве, и в изолированном worktree (патч применён к `d45194d4`).
 HEAD на момент ревью: `7356db49` (чужой docs-коммит review-persist-fix; между ним и базой — ещё чужой `72fa3323`); `git diff d45194d4 7356db49` по нашим трём файлам пуст — кандидат не затронут переездом базы, воркер HEAD не двигал.
 
@@ -23,4 +24,13 @@ Recheck: добавьте мини-ассерт на пустой goal (напр
 Изменены только три файла кандидата; чужие незакоммиченные (config_cache, mca_humor_feedback, prompt_factory, style_policy, summary-тесты и др.) не тронуты; HEAD двигали только чужие docs-коммиты (72fa3323, 7356db49). Мой коммит — только этот вердикт.
 
 ## Вердикт
-**Needs Fixes** — единственный блокер F1 (goal-фолбэк ломает заявленную byte-идентичность извлечения в достижимом краевом случае). Правка микроскопическая (§1); после неё и мини-речека вердикт переводится в Approved без повторного полного прохода.
+**Needs Fixes** *(исторический статус первой проверки; снят после recheck F1 — см. Addendum)* — единственный блокер F1 (goal-фолбэк ломал заявленную byte-идентичность извлечения в достижимом краевом случае); правка микроскопическая (§1).
+
+
+## Addendum — REV-DIAG-RECHECK (2026-10-18): F1 закрыт → Approved
+Кандидат v2 (uncommitted поверх `a5ab57e0`): blob12 `a057c7311517` / `515f31293971` / `75f0f6cb3c03`; sha256_12 `eef7feec36ac` / `0391fc582f60` / `0272c086f285` — совпало с evidence и в моём изолированном worktree.
+- **Код варианта B (прочитан):** helper — `fallback: str | None`, `fallback_text = str(fallback or kind)`, `goal = canon_text(goal or fallback_text) or fallback_text`; наблюдатель зовёт `fallback=kind` (ОРИГИНАЛЬНЫЙ verdict-kind); dry-run — `fallback=str(verdict.get("kind") or "development")` (зеркально); микро-тест `test_check_dry_run_goal_fallback_uses_original_verdict_kind` пиннит `goal=="dispute"` при `kind=="open_dispute"`.
+- **Byte-identity воспроизведена моим probe:** новый helper (с маппингом наблюдателя) против inline-выражения `f0bd29e2` на 6 кейсах (dispute/development/humor/memory_recall с пустым goal; event с пробелами; dispute с goal) — полное совпадение строк, `BYTE-IDENTICAL: True` (пустой goal → «dispute»/«development», НЕ «open_dispute»).
+- **Прогоны** (изолированный worktree `a5ab57e0` + патч): vitality **18 passed**; F1-микро-тест 1 passed; b01 **13**; группа p0-initfix+w5-gates+mca09-blockE+f6 **65**; combined 78 — с известным пре-существующим флаки: в моих combined-прогонах 2/6 флаков (разные тесты, напр. `test_pending_direct_request_stops_observer_initiative`), на **чистой базе без патча** — 2/3 (тоже разные тесты, тот же `prng journal failed`, DB/aiosqlite-шум); все изолированные прогоны всплывавших тестов — **PASS**. К F1 не относится.
+- **Дисциплина:** кандидат = 3 файла + evidence; чужие незакоммиченные не тронуты; этот коммит — только addendum.
+- **ИТОГ: Approved** (F1 закрыт; новых находок нет).
