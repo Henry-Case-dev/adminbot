@@ -1,0 +1,51 @@
+# CFG-02B — RED → GREEN (контрактный набор)
+
+## RED (до реализации; полный лог — `red-baseline.txt`)
+
+```
+py -3 -m pytest tests/test_cfg02b_image_freq_limits.py -q -p no:randomly
+→ 34 failed, 1 passed in 6.40s
+```
+
+Характер падений: отсутствуют ключи/резолвер/гейт/факты — `Settings.IMAGE_FREQ_LIMIT_*`
+(AttributeError), `pc.get_by_pg_key('limits.image_freq_limit_*') is None`,
+`pt.resolve_image_freq_limits/image_freq_snapshot/allow` отсутствуют, `retry_after_seconds`
+нет у `GenerationResult`, `wb.image_usage_summary(viewer_user_id=…)` / `freq`-блок
+отсутствуют, витрина (`IMAGE_FREQ_*`, `data-image-freq-*`) не объявлена.
+Единственный зелёный на RED — `test_group_belongs_to_images_module_tab` (группа
+`limits_images` уже на вкладке mod_images, CFG-02A). Это доказывает: тесты падают именно
+на отсутствующей функциональности CFG-02B, а не на окружении.
+
+## GREEN (после реализации + кат. дельты)
+
+```
+py -3 -m pytest tests/test_cfg02b_image_freq_limits.py -q -p no:randomly
+→ 37 passed in 6.2s                     (green-contract.txt)
+py -3 -m pytest <20 файлов соседних контуров> -q
+→ 838 passed, 1 warning                 (blast-radius.txt)
+py -3 -m pytest <все re-pin файлы + новый тест> -q
+→ 1959 passed, 0 failed (свежий прогон 19.10.2026; ранее 3 падения на routes
+  byte-freeze сняты re-pin'ом соседнего лейна)
+py -3 tools/gen_param_registry_round1025.py --check
+→ CHECK OK: реестр 579 == REGISTRY, карта полна, R17-чисто, TSV/map идемпотентны
+py -3 tools/ui_cfg02b_image_freq_e2e.py
+→ RESULT: PASS (0 console errors; 6 скриншотов в ui/)
+node tests/js/*  (87 файлов)
+→ failed=0
+Browser Use (реальный Chromium, локальный стенд, --serve):
+→ DOM-факты: «Выключено (заводской режим)» / «Включено и действует», «Считать лимит:
+  Для каждого пользователя», «Остаток серии: 0 из 2 / 1 из 2», «Следующая доступность:
+  18.10.2026, 10:20», «пауза 10 мин 20 сек»; dependent-настройки скрыты при OFF=0,
+  показаны при ON=3; мобильные 390px — без горизонтального оверфлоу.
+  Скриншоты: ui/browseruse-desktop-active.png (+ аддитивно у harness известный таймаут
+  Page.captureScreenshot — кадры Playwright 06-mobile-chat.png покрывают 390px).
+```
+
+## Дополнение GREEN (2 теста после первого прогона)
+
+- `test_tool_path_message_carries_remaining_and_user` — tool-путь отдаёт модели
+  фактический остаток «через 10 мин … для тебя», участник доезжает до лимитера
+  (`user_id=…`, `source="tool"`);
+- `test_direct_pre_gate_message_carries_remaining` — прямой путь: бот-блок отказа
+  содержит «через 5 мин … для тебя», платного вызова нет (1 из 2 допущен).
+
