@@ -518,13 +518,13 @@
       "source_text_sha256": "76815aa728d8ca116d0686e5a27fc15d60511c3bab7118f10290bcc97d8da2dd",
       "source_excerpt": "Переиспользовать существующий `generate_image` и единый механизм доставки. В рамках одного пользовательского намерения не допускать дублирующей платной генерации из pre-gate, L1 и tool-loop; сохранять idempotency и trace. Если файл уже отпр",
       "disposition": "required",
-      "reason": "Мок/движок-часть подтверждена на кандидате c8cf77a5 (review-w10 ledger 5.17: переиспользован run_image_request/generate_and_send, дублей нет — мутация B; send_failed → last_result=delivery_failed, «отправил» не заявлено; replay → 0 gen/0 send; 1 commit на интент; recheck — без изменений); живая половина (реальный прогон/отправка/провайдер и фактическая ошибка доставки Telegram) требует включённого контура — канарейка/postdeploy; классификация по образцу SOUL-AMD.8.3 / SOUL-17.4 / SOUL-10.P5 / SOUL-11.4 (review-w10: «провайдер/Telegram замоканы»). Релиз 2.58.86: оси `humor_craft_enabled` / `humor_feedback_enabled` ON, журнал 0 ERROR/CRITICAL, `user_version=36`. Живые сценарии (один платный вызов на намерение, честные тексты отказов, поиск/фактчек/видео) — owner-сценарий. Классификация READY_FOR_LIVE после релиза 2.58.86: агентская часть релизного прогона подтверждена (evidence ниже), остаток — owner-сценарии из `postdeploy-observations.md` (чек-лист; строки НЕ закрываются до живого подтверждения).",
+      "reason": "Мок/движок-часть подтверждена на кандидате c8cf77a5 (review-w10 ledger 5.17: переиспользован run_image_request/generate_and_send, дублей нет — мутация B; send_failed → last_result=delivery_failed, «отправил» не заявлено; replay → 0 gen/0 send; 1 commit на интент; recheck — без изменений); живая половина (реальный прогон/отправка/провайдер и фактическая ошибка доставки Telegram) требует включённого контура — канарейка/postdeploy; классификация по образцу SOUL-AMD.8.3 / SOUL-17.4 / SOUL-10.P5 / SOUL-11.4 (review-w10: «провайдер/Telegram замоканы»). Релиз 2.58.86: оси `humor_craft_enabled` / `humor_feedback_enabled` ON, журнал 0 ERROR/CRITICAL, `user_version=36`. Живые сценарии (один платный вызов на намерение, честные тексты отказов, поиск/фактчек/видео) — owner-сценарий. Классификация READY_FOR_LIVE после релиза 2.58.86: агентская часть релизного прогона подтверждена (evidence ниже), остаток — owner-сценарии из `postdeploy-observations.md` (чек-лист; строки НЕ закрываются до живого подтверждения). ОБНОВЛЕНО (окно agent-checks-2, 18.10.2026, прод 2.58.89 `d59fab94`): живая доставка — реальный `_image_pre_gate_block` → ровно 1 платный вызов на намерение, реальная отправка Telegram (`ok=true, message_id=195, bytes=1545484`), блок `<image_result status=\"ok\" delivery=\"sent\">`; повтор → `delivery=\"already\"`, 0 вызовов/0 отправок; журнал резервов единый (`990000811 committed, delivery_failed=False`). VERIFIED: агентская проверка 18.10 (окно-2); остаточная владельческая наблюдаемость — необязательна.",
       "req_id": "SOUL-AMD.5.17",
       "slice": "W10",
       "acceptance": "Переиспользованы существующий generate_image и единый механизм доставки; в рамках одного намерения нет дублирующей платной генерации из pre-gate, L1 и tool-loop; сохранены idempotency и trace; если файл уже отправлен — Writer не обещает повторной отправки и не дублирует результат; генерация без успешного Telegram-send — ошибка доставки, не success",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "c8cf77a5065f4cbc0a77616da6bbd7e1154ba5c8",
@@ -547,6 +547,14 @@
           "artifact_path": "plans/features/soul-1/evidence/release-soul-25886/postdeploy-observations.md",
           "artifact_sha256": "482cbe9868df3d9336c2895cf18a82192926ee2d7e3a17d0cbcd6ee3b0bb78d8",
           "type": "static"
+        },
+        {
+          "candidate_commit": "d59fab944bcb3eb0f5d3fa69101d8488da1c155b",
+          "ref": "plans/features/soul-1/evidence/agent-checks-window2/README.md §7 + probe-run2-closing-raw.txt (L1_real_delivery, L1_delete, L2_replay_no_dup, L4_journal_states) + plans/features/soul-1/review-agent-checks-window2.md §5/§7",
+          "observation": "Живой прод 2.58.89: реальный _image_pre_gate_block → provider_calls=1 (одна платная генерация на намерение), отправка ok=true message_id=195 bytes=1545484, <image_result status=\"ok\" delivery=\"sent\">; повтор того же хода → delivery=\"already\", 0 вызовов/0 отправок; журнал резервов: 990000811 committed/delivery_failed=False (единый механизм доставки/квоты); сообщение удалено после проверки (L1_delete); отправка в ЛС владельца — вынужденная адаптация брифа (синтетический чат недостижим, getChat BadRequest).",
+          "artifact_path": "plans/features/soul-1/evidence/agent-checks-window2/probe-run2-closing-raw.txt",
+          "artifact_sha256": "e2682a46e953260878de8536bbc34f3e4ca97f3fb979b96214581eadbf8d54ee",
+          "type": "production"
         }
       ]
     },
@@ -1911,7 +1919,7 @@
       "source_text_sha256": "6a49f696bb3584b88c3c043ea61d073a0fa7f0d260104eb45f23791ffc32f83d",
       "source_excerpt": "- Редактирование Core и Speech Style Policy через MiniApp действительно меняет следующую генерацию во всех соответствующих путях. `one_word` и `micro` остаются различны. Fallback не возвращает старого персонажа.",
       "disposition": "required",
-      "reason": "ИСТОРИЯ (2.58.86): живая генерация не проверялась; оговорка «до канарейки (флаг ON — решение владельца)» УСТАРЕЛА — PET: канареек нет, оси ON во всех подключённых чатах (правило владельца 18.10.2026). Запись — единым путём (доказано), фактическое изменение следующей генерации во всех путях — post-canary. deferred → 2.58.87 (await-fix `68cd05b2`): глобальное сохранение `style.policy` в 2.58.86 — молчаливый no-op (`services/style_policy.py:2275` без `await`, ревью REV-REL-SOUL §5; подтверждено прод-фактом `style.policy` отсутствует / `global_present=false`). Чат-часть сохраняется штатно. ОБНОВЛЕНО 2.58.87 (REV-REL-25887 §6а, прод `82e110d6`): дефект 2.58.86 закрыт живым доказательством — `style.policy` отсутствовал (`global_present=false`) → save1 `applied rev=1` → PG-строка (23:00:23.089508) → `GET`: `source=global`, `revision=g1.0483be84f90e`, `global_present=true`, `inheritance=global` → save2 `rev=2` (ревизии растут); журнал `[style_policy] document saved … revision=1|2`; `RuntimeWarning`/«never awaited» = 0 (срез «since T0» после сохранений); gates 10/10 ON (evidence ниже: `evidence/release-25887/**`, `release-2.58.87-report.md`). Оговорка о полноте: сохранён пустой фабрично-равный документ — доказывает сломанный механизм (персистентность + await), но НЕ поведенческую клаузу. ПОМЕТКА ЛЕДЖЕРА: VERIFIED — только после шага «реальное включённое правило владельца + наблюдение применения в генерации». ОБНОВЛЕНО (окно agent-checks-1, 18.10.2026, прод 2.58.88 `c37b8577`): пункт «видит новую ревизию» подтверждён живой пробой — apply revision=3, следующая try видит `versions.style_policy c2.75bada4c52c3 → c3.5bc205ee3e86`; восстановление содержимого → revision=4 (`evidence/agent-checks-window1/README.md` §3). НЕ закрыто (остаток): эффект включённого правила на текст генерации и «во всех путях» (проба сознательно enabled=false); fallback-клауза — вне окна. Строка остаётся READY_FOR_LIVE.",
+      "reason": "ИСТОРИЯ (2.58.86): живая генерация не проверялась; оговорка «до канарейки (флаг ON — решение владельца)» УСТАРЕЛА — PET: канареек нет, оси ON во всех подключённых чатах (правило владельца 18.10.2026). Запись — единым путём (доказано), фактическое изменение следующей генерации во всех путях — post-canary. deferred → 2.58.87 (await-fix `68cd05b2`): глобальное сохранение `style.policy` в 2.58.86 — молчаливый no-op (`services/style_policy.py:2275` без `await`, ревью REV-REL-SOUL §5; подтверждено прод-фактом `style.policy` отсутствует / `global_present=false`). Чат-часть сохраняется штатно. ОБНОВЛЕНО 2.58.87 (REV-REL-25887 §6а, прод `82e110d6`): дефект 2.58.86 закрыт живым доказательством — `style.policy` отсутствовал (`global_present=false`) → save1 `applied rev=1` → PG-строка (23:00:23.089508) → `GET`: `source=global`, `revision=g1.0483be84f90e`, `global_present=true`, `inheritance=global` → save2 `rev=2` (ревизии растут); журнал `[style_policy] document saved … revision=1|2`; `RuntimeWarning`/«never awaited» = 0 (срез «since T0» после сохранений); gates 10/10 ON (evidence ниже: `evidence/release-25887/**`, `release-2.58.87-report.md`). Оговорка о полноте: сохранён пустой фабрично-равный документ — доказывает сломанный механизм (персистентность + await), но НЕ поведенческую клаузу. ПОМЕТКА ЛЕДЖЕРА: VERIFIED — только после шага «реальное включённое правило владельца + наблюдение применения в генерации». ОБНОВЛЕНО (окно agent-checks-1, 18.10.2026, прод 2.58.88 `c37b8577`): пункт «видит новую ревизию» подтверждён живой пробой — apply revision=3, следующая try видит `versions.style_policy c2.75bada4c52c3 → c3.5bc205ee3e86`; восстановление содержимого → revision=4 (`evidence/agent-checks-window1/README.md` §3). НЕ закрыто (остаток): эффект включённого правила на текст генерации и «во всех путях» (проба сознательно enabled=false); fallback-клауза — вне окна. Строка остаётся READY_FOR_LIVE. ОБНОВЛЕНО (окно agent-checks-2, 18.10.2026, прод 2.58.89 `d59fab94`): Style-половина подтверждена живой пробой — включённый пресет trailing_period.hard.strip (rev 6→7, rules=1) → следующая try отдаёт текст без завершающей точки (repaired=1; ревизия c6.84cad658cf40→c7.e1a301d5414e); мгновенный откат (rev=8, rules=0/soft=0), try снова не меняет; невалидное правило → явный issue rule_kind_unknown:no_such_kind (не молчит); fallback-композер (W3 недоступен) строит ref только из реального документа (скрытого персонажа нет); production-эвиденс строки ниже. НЕ закрыто (не владельческий остаток): «во всех соответствующих путях» блокирован реальным дефектом chat-scope save — Style/Expression через MiniApp: set_root/set_chat_params без pg → ChatLorePgUnavailable (журнал 08:02:21/08:09:49; код web/api/speech.py:2184, services/style_policy.py:2272); зарегистрирован в plans/features/p0-save-init-ux/** (слайс P0A-PERSIST: P0A-PERSIST-CENTRAL/SECTIONS/TRUTH; регистрация 2c916f35) — код-фикс P0-лейна, не владельческий гейт; Core-половина и полный LLM-fallback требуют реальных генераций.",
       "req_id": "SOUL-AMD.8.3",
       "slice": "W6",
       "acceptance": "Редактирование Core и Speech Style Policy через MiniApp действительно меняет следующую генерацию во всех соответствующих путях; `one_word` и `micro` остаются различны; fallback не возвращает старого персонажа",
@@ -1967,6 +1975,14 @@
           "observation": "GET /healthz → 200 {\"status\":\"ok\",\"version\":\"2.58.87\"}; GET /web/static/app.css → 200, sha256_12 d700df753d6d (== кандидату), маркеры `oversight-dd-open`×2, `overflow: visible !important`×1.",
           "artifact_path": "plans/features/soul-1/review-release-25887.md",
           "artifact_sha256": "fd77bcfdac2b3cf292aac37d56e224f94d0d416a1c2f98d29c7e6d560e9b6e51",
+          "type": "production"
+        },
+        {
+          "candidate_commit": "d59fab944bcb3eb0f5d3fa69101d8488da1c155b",
+          "ref": "plans/features/soul-1/evidence/agent-checks-window2/README.md §3 + probe-run2-closing-raw.txt (S0–S9) + plans/features/soul-1/review-agent-checks-window2.md §3/§7 + cross-ref: plans/features/p0-save-init-ux/requirements-map.json (slice P0A-PERSIST)",
+          "observation": "Прод 2.58.89, Style-половина: включённое правило trailing_period.hard.strip (rev 6→7, rules=1) → следующая try отдаёт текст без завершающей точки (repaired=1; c6.84cad658cf40→c7.e1a301d5414e); мгновенный откат → rev=8, rules=0/soft=0, try снова не меняет; невалидное правило → явный issue rule_kind_unknown:no_such_kind; fallback-композер без W3 — ref только из реального документа. НЕ закрывает строку: остаток «во всех путях» — реальный дефект chat-scope save (P0A-PERSIST, plans/features/p0-save-init-ux/**, журнал 08:02:21/08:09:49); Core-половина/LLM-fallback — реальные генерации; статус оставлен READY_FOR_LIVE (рекомендация ревью).",
+          "artifact_path": "plans/features/soul-1/evidence/agent-checks-window2/probe-run2-closing-raw.txt",
+          "artifact_sha256": "e2682a46e953260878de8536bbc34f3e4ca97f3fb979b96214581eadbf8d54ee",
           "type": "production"
         }
       ]
@@ -2029,13 +2045,13 @@
       "source_text_sha256": "d7d2535f77c289117bbc6c3aedebdc2dc26c036ea0a0deff88f57d1c37ec5853",
       "source_excerpt": "- «Бот, нарисуй», «бот, надо сделать мем», «нужна инфографика», «нарисуй это как комикс» → распознано намерение, доступный инструмент вызывается **ровно один раз**, подтверждается результат и доставка.",
       "disposition": "required",
-      "reason": "Мок-часть подтверждена на кандидате c8cf77a5 (review-w10 ledger: 8.6 — намерение распознано, ровно 1 вызов, delivery=\"sent\" в L2-контенте; recheck — 12 проломов → 0); живая половина (реальный прогон/отправка/провайдер) требует включённого контура — канарейка/postdeploy; классификация по образцу SOUL-AMD.8.3 / SOUL-17.4 / SOUL-10.P5 / SOUL-11.4. Релиз 2.58.86: оси `humor_craft_enabled` / `humor_feedback_enabled` ON, журнал 0 ERROR/CRITICAL, `user_version=36`. Живые сценарии (один платный вызов на намерение, честные тексты отказов, поиск/фактчек/видео) — owner-сценарий. Классификация READY_FOR_LIVE после релиза 2.58.86: агентская часть релизного прогона подтверждена (evidence ниже), остаток — owner-сценарии из `postdeploy-observations.md` (чек-лист; строки НЕ закрываются до живого подтверждения).",
+      "reason": "Мок-часть подтверждена на кандидате c8cf77a5 (review-w10 ledger: 8.6 — намерение распознано, ровно 1 вызов, delivery=\"sent\" в L2-контенте; recheck — 12 проломов → 0); живая половина (реальный прогон/отправка/провайдер) требует включённого контура — канарейка/postdeploy; классификация по образцу SOUL-AMD.8.3 / SOUL-17.4 / SOUL-10.P5 / SOUL-11.4. Релиз 2.58.86: оси `humor_craft_enabled` / `humor_feedback_enabled` ON, журнал 0 ERROR/CRITICAL, `user_version=36`. Живые сценарии (один платный вызов на намерение, честные тексты отказов, поиск/фактчек/видео) — owner-сценарий. Классификация READY_FOR_LIVE после релиза 2.58.86: агентская часть релизного прогона подтверждена (evidence ниже), остаток — owner-сценарии из `postdeploy-observations.md` (чек-лист; строки НЕ закрываются до живого подтверждения). ОБНОВЛЕНО (окно agent-checks-2, 18.10.2026, прод 2.58.89 `d59fab94`): намерение «Бот, нарисуй…» распознано (intent=create_image, confidence=high), ровно 1 платный вызов провайдера, реальная отправка Telegram (`ok=true, message_id=195, bytes=1545484`), блок `<image_result status=\"ok\" delivery=\"sent\">`; повтор → `delivery=\"already\"`, 0 вызовов/0 отправок. VERIFIED: агентская проверка 18.10 (окно-2); остаточная владельческая наблюдаемость — необязательна.",
       "req_id": "SOUL-AMD.8.6",
       "slice": "W10",
       "acceptance": "«Бот, нарисуй», «бот, надо сделать мем», «нужна инфографика», «нарисуй это как комикс» → распознано намерение, доступный инструмент вызывается ровно один раз, подтверждены результат и доставка (живой прогон, не мок)",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "c8cf77a5065f4cbc0a77616da6bbd7e1154ba5c8",
@@ -2058,6 +2074,14 @@
           "artifact_path": "plans/features/soul-1/evidence/release-soul-25886/postdeploy-observations.md",
           "artifact_sha256": "482cbe9868df3d9336c2895cf18a82192926ee2d7e3a17d0cbcd6ee3b0bb78d8",
           "type": "static"
+        },
+        {
+          "candidate_commit": "d59fab944bcb3eb0f5d3fa69101d8488da1c155b",
+          "ref": "plans/features/soul-1/evidence/agent-checks-window2/README.md §7 + probe-run2-closing-raw.txt (L1_intent, L1_real_delivery, L2_replay_no_dup) + plans/features/soul-1/review-agent-checks-window2.md §5/§7",
+          "observation": "Живой прод 2.58.89: «Бот, нарисуй…» → intent=create_image confidence=high actionable=True; ровно 1 вызов провайдера; реальная доставка ok=true message_id=195 bytes=1545484, <image_result status=\"ok\" delivery=\"sent\">; повтор → delivery=\"already\", 0 вызовов/0 отправок (идемпотентность). Отправка в ЛС владельца — вынужденная адаптация брифа (синтетический чат недостижим).",
+          "artifact_path": "plans/features/soul-1/evidence/agent-checks-window2/probe-run2-closing-raw.txt",
+          "artifact_sha256": "e2682a46e953260878de8536bbc34f3e4ca97f3fb979b96214581eadbf8d54ee",
+          "type": "production"
         }
       ]
     },
@@ -2067,13 +2091,13 @@
       "source_text_sha256": "8b7ea3c273a1550ea8eb0f2d934a1033df17c7e8a4d88946c0b72d2d70088448",
       "source_excerpt": "- «Придумай текст/концепцию мема, не рисуй» → генерация **не вызывается**. Неоднозначное поручение → одно уместное уточнение.",
       "disposition": "required",
-      "reason": "Мок-часть подтверждена на кандидате c8cf77a5 (review-w10 ledger 8.7: «придумай концепт мема, рисовать не надо» → 0 генераций; «Бот, сделай это» → ровно 1 вопрос message.image_request.clarify, 0 LLM); живая половина (реальный прогон/отправка/провайдер) требует включённого контура — канарейка/postdeploy; классификация по образцу SOUL-AMD.8.3 / SOUL-17.4 / SOUL-10.P5 / SOUL-11.4. Релиз 2.58.86: оси `humor_craft_enabled` / `humor_feedback_enabled` ON, журнал 0 ERROR/CRITICAL, `user_version=36`. Живые сценарии (один платный вызов на намерение, честные тексты отказов, поиск/фактчек/видео) — owner-сценарий. Классификация READY_FOR_LIVE после релиза 2.58.86: агентская часть релизного прогона подтверждена (evidence ниже), остаток — owner-сценарии из `postdeploy-observations.md` (чек-лист; строки НЕ закрываются до живого подтверждения).",
+      "reason": "Мок-часть подтверждена на кандидате c8cf77a5 (review-w10 ledger 8.7: «придумай концепт мема, рисовать не надо» → 0 генераций; «Бот, сделай это» → ровно 1 вопрос message.image_request.clarify, 0 LLM); живая половина (реальный прогон/отправка/провайдер) требует включённого контура — канарейка/postdeploy; классификация по образцу SOUL-AMD.8.3 / SOUL-17.4 / SOUL-10.P5 / SOUL-11.4. Релиз 2.58.86: оси `humor_craft_enabled` / `humor_feedback_enabled` ON, журнал 0 ERROR/CRITICAL, `user_version=36`. Живые сценарии (один платный вызов на намерение, честные тексты отказов, поиск/фактчек/видео) — owner-сценарий. Классификация READY_FOR_LIVE после релиза 2.58.86: агентская часть релизного прогона подтверждена (evidence ниже), остаток — owner-сценарии из `postdeploy-observations.md` (чек-лист; строки НЕ закрываются до живого подтверждения). ОБНОВЛЕНО (окно agent-checks-2, 18.10.2026, прод 2.58.89 `d59fab94`): «сделай это» → `ambiguous/create_verb_without_object`; реальный гейт → ровно 1 сообщение, текст == шаблон реестра «Уточни: картинку изобразить или текстом обойтись?», 0 платных вызовов. VERIFIED: агентская проверка 18.10 (окно-2).",
       "req_id": "SOUL-AMD.8.7",
       "slice": "W10",
       "acceptance": "«Придумай текст/концепцию мема, не рисуй» → генерация не вызывается; неоднозначное поручение → одно уместное уточнение",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "c8cf77a5065f4cbc0a77616da6bbd7e1154ba5c8",
@@ -2096,6 +2120,14 @@
           "artifact_path": "plans/features/soul-1/evidence/release-soul-25886/postdeploy-observations.md",
           "artifact_sha256": "482cbe9868df3d9336c2895cf18a82192926ee2d7e3a17d0cbcd6ee3b0bb78d8",
           "type": "static"
+        },
+        {
+          "candidate_commit": "d59fab944bcb3eb0f5d3fa69101d8488da1c155b",
+          "ref": "plans/features/soul-1/evidence/agent-checks-window2/README.md §5 + probe-run2-closing-raw.txt (J0_intent, J1_clarify_gate) + plans/features/soul-1/review-agent-checks-window2.md §4/§7",
+          "observation": "Живой прод 2.58.89: «сделай это» → классификатор ambiguous/create_verb_without_object; реальный гейт → ровно 1 сообщение, текст РОВНО из шаблона реестра «Уточни: картинку изобразить или текстом обойтись?», 0 платных вызовов.",
+          "artifact_path": "plans/features/soul-1/evidence/agent-checks-window2/probe-run2-closing-raw.txt",
+          "artifact_sha256": "e2682a46e953260878de8536bbc34f3e4ca97f3fb979b96214581eadbf8d54ee",
+          "type": "production"
         }
       ]
     },
@@ -2105,13 +2137,13 @@
       "source_text_sha256": "eab6d8a24b2fbaac08f1d55fe1543df5d36e1c5a5abf039f7c60d522f3e92849",
       "source_excerpt": "- `image_generation` OFF, нет API-ключа, провайдер временно не отвечает, квота исчерпана → разные, правдивые объяснения в голосе бота, без «я вообще не умею рисовать».",
       "disposition": "required",
-      "reason": "Мок-часть подтверждена на кандидате c8cf77a5 (review-w10 ledger 8.8: 4 кейса → 4 текста message.image_failure.{disabled,not_configured,temporarily_unavailable,quota_exhausted}, 0 генераций/LLM); живая половина (реальный прогон/отправка/провайдер) требует включённого контура — канарейка/postdeploy; классификация по образцу SOUL-AMD.8.3 / SOUL-17.4 / SOUL-10.P5 / SOUL-11.4. Релиз 2.58.86: оси `humor_craft_enabled` / `humor_feedback_enabled` ON, журнал 0 ERROR/CRITICAL, `user_version=36`. Живые сценарии (один платный вызов на намерение, честные тексты отказов, поиск/фактчек/видео) — owner-сценарий. Классификация READY_FOR_LIVE после релиза 2.58.86: агентская часть релизного прогона подтверждена (evidence ниже), остаток — owner-сценарии из `postdeploy-observations.md` (чек-лист; строки НЕ закрываются до живого подтверждения).",
+      "reason": "Мок-часть подтверждена на кандидате c8cf77a5 (review-w10 ledger 8.8: 4 кейса → 4 текста message.image_failure.{disabled,not_configured,temporarily_unavailable,quota_exhausted}, 0 генераций/LLM); живая половина (реальный прогон/отправка/провайдер) требует включённого контура — канарейка/postdeploy; классификация по образцу SOUL-AMD.8.3 / SOUL-17.4 / SOUL-10.P5 / SOUL-11.4. Релиз 2.58.86: оси `humor_craft_enabled` / `humor_feedback_enabled` ON, журнал 0 ERROR/CRITICAL, `user_version=36`. Живые сценарии (один платный вызов на намерение, честные тексты отказов, поиск/фактчек/видео) — owner-сценарий. Классификация READY_FOR_LIVE после релиза 2.58.86: агентская часть релизного прогона подтверждена (evidence ниже), остаток — owner-сценарии из `postdeploy-observations.md` (чек-лист; строки НЕ закрываются до живого подтверждения). ОБНОВЛЕНО (окно agent-checks-2, 18.10.2026, прод 2.58.89 `d59fab94`): три живых условия — OFF (`disabled/module_disabled`), нет ключа (`not_configured/key_absent`; per-chat override ключа, глобальный ключ не тронут), квота (`quota_exhausted/financial_limit_reached`, used=4≥limit=4) — handled=True, 0 вызовов провайдера, тексты РАЗНЫЕ/правдивые == шаблонам реестра, «я вообще не умею» нет. VERIFIED для 3 условий: агентская проверка 18.10 (окно-2); остаток-примечание: «провайдер временно не отвечает» — мок окна-1 (реальный транзиентный сбой не форсировался).",
       "req_id": "SOUL-AMD.8.8",
       "slice": "W10",
       "acceptance": "`image_generation` OFF, нет API-ключа, провайдер временно не отвечает, квота исчерпана → разные правдивые объяснения в голосе бота, без «я вообще не умею рисовать»",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "c8cf77a5065f4cbc0a77616da6bbd7e1154ba5c8",
@@ -2134,6 +2166,14 @@
           "artifact_path": "plans/features/soul-1/evidence/release-soul-25886/postdeploy-observations.md",
           "artifact_sha256": "482cbe9868df3d9336c2895cf18a82192926ee2d7e3a17d0cbcd6ee3b0bb78d8",
           "type": "static"
+        },
+        {
+          "candidate_commit": "d59fab944bcb3eb0f5d3fa69101d8488da1c155b",
+          "ref": "plans/features/soul-1/evidence/agent-checks-window2/README.md §6 + probe-run2-closing-raw.txt (I6_off_refusal_gate, K1_no_key_state/K1_no_key_refusal, K2_quota_state/K2_quota_refusal) + plans/features/soul-1/review-agent-checks-window2.md §4/§7",
+          "observation": "Живой прод 2.58.89, три условия: per-chat OFF → тексты == шаблон message.image_failure.disabled; нет ключа → not_configured/detail=key_absent (per-chat override ключа симулировал отсутствие, глобальный ключ не менялся, override снят); квота → quota_exhausted/financial_limit_reached (used=4≥limit=4, реальная бухгалтерия). Все: handled=True, 0 вызовов провайдера, тексты разные/правдивые, «я вообще не умею» отсутствует. Остаток: «провайдер временно не отвечает» — мок-покрытие окна-1.",
+          "artifact_path": "plans/features/soul-1/evidence/agent-checks-window2/probe-run2-closing-raw.txt",
+          "artifact_sha256": "e2682a46e953260878de8536bbc34f3e4ca97f3fb979b96214581eadbf8d54ee",
+          "type": "production"
         }
       ]
     },
@@ -2143,13 +2183,13 @@
       "source_text_sha256": "41084d782a47768e0b6d170c1c9fe0e577057731ded8196b77bc48c29c40d2ba",
       "source_excerpt": "- Успешная генерация + ошибка Telegram-send → нельзя сообщить «отправил». Переисполнение, retry и совпадение pre-gate/tool-loop не порождают дубль или двойное списание.",
       "disposition": "required",
-      "reason": "Релиз 2.58.86: оси `humor_craft_enabled` / `humor_feedback_enabled` ON, журнал 0 ERROR/CRITICAL, `user_version=36`. Живые сценарии (один платный вызов на намерение, честные тексты отказов, поиск/фактчек/видео) — owner-сценарий. Классификация READY_FOR_LIVE после релиза 2.58.86: агентская часть релизного прогона подтверждена (evidence ниже), остаток — owner-сценарии из `postdeploy-observations.md` (чек-лист; строки НЕ закрываются до живого подтверждения).",
+      "reason": "Релиз 2.58.86: оси `humor_craft_enabled` / `humor_feedback_enabled` ON, журнал 0 ERROR/CRITICAL, `user_version=36`. Живые сценарии (один платный вызов на намерение, честные тексты отказов, поиск/фактчек/видео) — owner-сценарий. Классификация READY_FOR_LIVE после релиза 2.58.86: агентская часть релизного прогона подтверждена (evidence ниже), остаток — owner-сценарии из `postdeploy-observations.md` (чек-лист; строки НЕ закрываются до живого подтверждения). ОБНОВЛЕНО (окно agent-checks-2, 18.10.2026, прод 2.58.89 `d59fab94`): реальный send-fail (`TelegramBadRequest: chat not found`) → блок `<image_result status=\"error\" reason=\"delivery_failed\">` + «Ничего не отправлено», «sent» не заявляется; авто-повтора нет; резерв `990000808 committed, delivery_failed=True`; 1 платная генерация. VERIFIED: агентская проверка 18.10 (окно-2).",
       "req_id": "SOUL-AMD.8.9",
       "slice": "W10",
       "acceptance": "Успешная генерация + ошибка Telegram-send → нельзя сообщить «отправил»; переисполнение, retry и совпадение pre-gate/tool-loop не порождают дубль или двойное списание",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "c8cf77a5065f4cbc0a77616da6bbd7e1154ba5c8",
@@ -2172,6 +2212,14 @@
           "artifact_path": "plans/features/soul-1/evidence/release-soul-25886/postdeploy-observations.md",
           "artifact_sha256": "482cbe9868df3d9336c2895cf18a82192926ee2d7e3a17d0cbcd6ee3b0bb78d8",
           "type": "static"
+        },
+        {
+          "candidate_commit": "d59fab944bcb3eb0f5d3fa69101d8488da1c155b",
+          "ref": "plans/features/soul-1/evidence/agent-checks-window2/README.md §8 + probe-run1-raw.txt (L3_send_fail_real) + plans/features/soul-1/review-agent-checks-window2.md §5/§7",
+          "observation": "Живой прод 2.58.89: реальный send в недостижимый чат → TelegramBadRequest: chat not found; блок <image_result status=\"error\" reason=\"delivery_failed\"> + «Ничего не отправлено»; «sent» не заявляется; авто-повтора нет (1 платная генерация); резерв 990000808 committed, delivery_failed=True.",
+          "artifact_path": "plans/features/soul-1/evidence/agent-checks-window2/probe-run1-raw.txt",
+          "artifact_sha256": "06cc4a07d5ae7fbfea5a0b2c42d2ff36c872c55d2f4deb7c4782da69754448ba",
+          "type": "production"
         }
       ]
     },
@@ -2181,13 +2229,13 @@
       "source_text_sha256": "ae8461f71f609984488e86eb7184fb99e44ec65947ff52ab88fb8665cee56b35",
       "source_excerpt": "- Включение/выключение модуля, per-chat override или смена провайдера отражаются в L1 capabilities и UI; бот не утверждает способность, которую нельзя использовать в данном scope.",
       "disposition": "required",
-      "reason": "Мок-часть подтверждена на кандидате c8cf77a5 (review-w10 ledger 8.10: статусы следуют за модулем/override/провайдером; capability_view — runtime-данные; recheck F4 — инвалидация без ожидания TTL); живая половина (реальный прогон/отправка/провайдер) требует включённого контура — канарейка/postdeploy; классификация по образцу SOUL-AMD.8.3 / SOUL-17.4 / SOUL-10.P5 / SOUL-11.4. Релиз 2.58.86 (агентская часть подтверждена): capability-витрина отвечает на живом процессе, gates ON, 0 ERROR; живой прогон/смена провайдера — owner-сценарий. Классификация READY_FOR_LIVE после релиза 2.58.86: агентская часть релизного прогона подтверждена (evidence ниже), остаток — owner-сценарии из `postdeploy-observations.md` (чек-лист; строки НЕ закрываются до живого подтверждения).",
+      "reason": "Мок-часть подтверждена на кандидате c8cf77a5 (review-w10 ledger 8.10: статусы следуют за модулем/override/провайдером; capability_view — runtime-данные; recheck F4 — инвалидация без ожидания TTL); живая половина (реальный прогон/отправка/провайдер) требует включённого контура — канарейка/postdeploy; классификация по образцу SOUL-AMD.8.3 / SOUL-17.4 / SOUL-10.P5 / SOUL-11.4. Релиз 2.58.86 (агентская часть подтверждена): capability-витрина отвечает на живом процессе, gates ON, 0 ERROR; живой прогон/смена провайдера — owner-сценарий. Классификация READY_FOR_LIVE после релиза 2.58.86: агентская часть релизного прогона подтверждена (evidence ниже), остаток — owner-сценарии из `postdeploy-observations.md` (чек-лист; строки НЕ закрываются до живого подтверждения). ОБНОВЛЕНО (окно agent-checks-2, 18.10.2026, прод 2.58.89 `d59fab94`): per-chat OFF → capability `disabled/module_disabled`; витрина `/speech/capabilities` и `/speech/overview` совпадают; L1 `_l1_capability_consistency` → `<capability_notice status=\"disabled\" capability=\"image_generation\">`, `denied=('image_generation',)`, без генерации; отказ == шаблон `message.image_failure.disabled`, 0 платных; возврат (`DELETE`) → 200, витрина снова `ready` после TTL. VERIFIED: агентская проверка 18.10 (окно-2). Остаток-примечание: смена провайдера живьём не форсировалась — мок-покрытие окна-1 (как в окне-1).",
       "req_id": "SOUL-AMD.8.10",
       "slice": "W10",
       "acceptance": "Включение/выключение модуля, per-chat override или смена провайдера отражаются в L1 capabilities и UI; бот не утверждает способность, которую нельзя использовать в данном scope",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "c8cf77a5065f4cbc0a77616da6bbd7e1154ba5c8",
@@ -2210,6 +2258,14 @@
           "artifact_path": "plans/features/soul-1/evidence/release-soul-25886/postdeploy-observations.md",
           "artifact_sha256": "482cbe9868df3d9336c2895cf18a82192926ee2d7e3a17d0cbcd6ee3b0bb78d8",
           "type": "static"
+        },
+        {
+          "candidate_commit": "d59fab944bcb3eb0f5d3fa69101d8488da1c155b",
+          "ref": "plans/features/soul-1/evidence/agent-checks-window2/README.md §4 + probe-run2-closing-raw.txt (I1–I8) + plans/features/soul-1/review-agent-checks-window2.md §4/§7",
+          "observation": "Живой прод 2.58.89: per-chat OFF через API → capability disabled/module_disabled; витрина /speech/capabilities и /speech/overview согласованы (summary.disabled=1); реальный _l1_capability_consistency → блок <capability_notice status=\"disabled\" capability=\"image_generation\">, denied=('image_generation',), генерации нет; отказ == шаблон message.image_failure.disabled, 0 платных; возврат штатным DELETE → витрина ready после TTL (~65 c). Остаток-примечание: смена провайдера живьём не форсировалась — мок-покрытие окна-1.",
+          "artifact_path": "plans/features/soul-1/evidence/agent-checks-window2/probe-run2-closing-raw.txt",
+          "artifact_sha256": "e2682a46e953260878de8536bbc34f3e4ca97f3fb979b96214581eadbf8d54ee",
+          "type": "production"
         }
       ]
     },
@@ -2219,7 +2275,7 @@
       "source_text_sha256": "bc5d46cad7234e84d17e2ba9fabc0e9e70213fe9bf9b535b70cd7a15ea931865",
       "source_excerpt": "- Проверить те же принципы как минимум для поиска/фактчека/видео по одному реальному сценарию, а не только для image tool.",
       "disposition": "required",
-      "reason": "Мок-часть подтверждена на кандидате c8cf77a5 (review-w10 ledger 8.11 (mock): поиск/фактчек/видео — недоступное не обещается, <capability_notice> + trace; recheck — 8.6–8.11 READY_FOR_LIVE). Релиз 2.58.86: оси `humor_craft_enabled` / `humor_feedback_enabled` ON, журнал 0 ERROR/CRITICAL, `user_version=36`. ОБНОВЛЕНО (окно agent-checks-1, 18.10.2026, прод 2.58.88 `c37b8577`): поиск и фактчек подтверждены живыми прогонами — `execute_web_search` 2.5 c / 4039 знаков реальных результатов; `fact_check` status=ready, `factual_verdict=supported`, `temporal_status=old_but_valid`, durable `tfr-38ab2b7fa98b44cb` (`evidence/agent-checks-window1/README.md` §5). НЕ закрыто (остаток): видео — `not_configured` (`media_source_unconfigured`/`cobalt_absent`), реальный сценарий невыполним без медиа-источника — принятый остаток. Строка остаётся READY_FOR_LIVE.",
+      "reason": "Мок-часть подтверждена на кандидате c8cf77a5 (review-w10 ledger 8.11 (mock): поиск/фактчек/видео — недоступное не обещается, <capability_notice> + trace; recheck — 8.6–8.11 READY_FOR_LIVE). Релиз 2.58.86: оси `humor_craft_enabled` / `humor_feedback_enabled` ON, журнал 0 ERROR/CRITICAL, `user_version=36`. ОБНОВЛЕНО (окно agent-checks-1, 18.10.2026, прод 2.58.88 `c37b8577`): поиск и фактчек подтверждены живыми прогонами — `execute_web_search` 2.5 c / 4039 знаков реальных результатов; `fact_check` status=ready, `factual_verdict=supported`, `temporal_status=old_but_valid`, durable `tfr-38ab2b7fa98b44cb` (`evidence/agent-checks-window1/README.md` §5). НЕ закрыто (остаток): видео — `not_configured` (`media_source_unconfigured`/`cobalt_absent`), реальный сценарий невыполним без медиа-источника — принятый остаток. Строка остаётся READY_FOR_LIVE. ОБНОВЛЕНО (окно agent-checks-2, 18.10.2026, прод 2.58.89 `d59fab94`): остаток подтверждён — `video_summary = not_configured/media_source_unconfigured/cobalt_absent` в обоих прогонах; сценарий без медиа-источника невыполним (невоспроизводимо); поиск/фактчек закрыты окном-1; живой сценарий видео — необязательная наблюдаемость.",
       "req_id": "SOUL-AMD.8.11",
       "slice": "W10",
       "acceptance": "Те же принципы проверены минимум для поиска, фактчека и видео по одному реальному сценарию каждому, а не только для image tool",

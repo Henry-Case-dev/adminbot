@@ -1285,18 +1285,18 @@
       "source_text_sha256": "3b8aed4a960ac46980157294215e7c2b523487aa7790e4b647c332aba0f60412",
       "source_excerpt": "- Изменить глобальный burst с 10 на 2 в MiniApp: третий последовательный запрос ограничен по фактической логике; изменить обратно без рестарта и проверить новое поведение.",
       "disposition": "required",
-      "reason": "Остаток после окна agent-checks-1 (18.10.2026, прод 2.58.88): буквальный сценарий «глобальный burst 10→2 → 3-й запрос ограничен → возврат без рестарта» на живом времени не исполнялся — эквивалентный hot-путь подтверждён на chat-scope (burst=1/cooldown=180: второй запрос ограничен, «3 мин» — см. CFG-01.6/AC4); глобальные 10/300 в окне не менялись. Закрытие: короткий агентский прогон с мгновенным возвратом ЛИБО явное принятие эквивалентности (леджер/PM).",
+      "reason": "Закрыто окном agent-checks-2 (18.10.2026, прод 2.58.89 `d59fab94`; служебные файлы CFG-01 кандидата `0282fe4b` byte-identical до `d59fab94`): буквальный сценарий исполнен на живом времени — штатный `POST /api/config` (без X-Chat-Id) 10→2 (`updated=['limits.chat_burst_limit']`) → resolve `(2, 300.0, 'global')` → два allow израсходовали заряд → третий реальный `_handle_turn` ограничен (фраза, `elapsed=0.0s`, без платных стадий) → хвост `300s` == слоту (`delta=0.0s`) → возврат 10 без рестарта (`NRestarts=0`) снова меняет поведение. VERIFIED: агентская проверка 18.10 (окно-2); остаточная владельческая наблюдаемость — необязательна.",
       "req_id": "CFG-01.AC1",
       "slice": "CFG-01",
       "acceptance": "Глобальный burst 10→2: третий последовательный запрос реально ограничен; возврат значения без рестарта снова меняет поведение.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "0282fe4b1eac02c3339586c3abab3952d6c7eae8",
           "ref": "plans/features/cfg/evidence/cfg-01/README.md §3 (CFG-01.AC1) / §5 п.1",
-          "observation": "Локально RED→GREEN: global burst 10→2 — ровно 2 обращения, третье ограничено; возврат 10 без рестарта снова меняет поведение. Живой прогон в MiniApp — §5 (postdeploy). процесс CFG (ADD-0.1; plan §процесс.4): owner/live-проверки не блокируют очередь; сценарий — README §5; закрытие — на postdeploy",
+          "observation": "Локально RED→GREEN: global burst 10→2 — ровно 2 обращения, третье ограничено; возврат 10 без рестарта снова меняет поведение. Живой сценарий закрыт окном agent-checks-2 (18.10.2026) — см. production-эвиденс ниже; остаточная владельческая наблюдаемость необязательна.",
           "artifact_path": "plans/features/cfg/evidence/cfg-01/README.md",
           "artifact_sha256": "428f83b23b4b459a8c2cdd3f53abce12cff981a0805e4ac114d0d838fcf57809"
         },
@@ -1320,9 +1320,17 @@
           "observation": "Raw pytest summaries: base 43f86ef2 `-k Cfg01` -> 7 failed + ImportError 'normalize_direct_chat_limits'; candidate -> 7 passed (167 deselected) and 204 passed for the three CFG-01 test files; 2 pre-existing v35 failures reproduced on base.",
           "artifact_path": "plans/features/cfg/evidence/cfg-01/red-green.txt",
           "artifact_sha256": "3906b84cac021c3497b1412e30186763b9f7a4d712a507d2f722c5193edae51b"
+        },
+        {
+          "candidate_commit": "0282fe4b1eac02c3339586c3abab3952d6c7eae8",
+          "ref": "plans/features/soul-1/evidence/agent-checks-window2/README.md §1 + probe-run1-raw.txt (G0–G10) + plans/features/soul-1/review-agent-checks-window2.md §1/§7",
+          "observation": "Живой прод 2.58.89 (`d59fab94`, NRestarts=0): штатный POST /api/config без X-Chat-Id 10→2 (updated=['limits.chat_burst_limit']); resolve (2, 300.0, 'global'); два allow израсходовали заряд (0.0/0.0, слот 2→1→0); третий — полный _handle_turn → фраза «дай передохнуть от твоей духоты, вернусь через 5 мин», elapsed=0.0s, без платных стадий; хвост 300s == слоту (delta=0.0s), «технически не могу» нет; вьюер matched=2, payload {remaining_seconds:300.0, burst_limit:2, cooldown_seconds:300.0, source:'global'}; возврат 10 без рестарта — 3-й снова допущен.",
+          "artifact_path": "plans/features/soul-1/evidence/agent-checks-window2/probe-run1-raw.txt",
+          "artifact_sha256": "06cc4a07d5ae7fbfea5a0b2c42d2ff36c872c55d2f4deb7c4782da69754448ba",
+          "type": "production"
         }
       ],
-      "live_note": "окно agent-checks-1 (18.10.2026): остаток — буквальный global-сценарий 10→2 с возвратом; эквивалентный hot-путь подтверждён на chat-scope. Строка READY_FOR_LIVE (остаток не блокирует очередь — процесс CFG, ADD-0.1)."
+      "live_note": "закрыто окном agent-checks-2 (18.10.2026, прод 2.58.89): буквальный global-сценарий 10→2 → 3-й ограничен → возврат без рестарта исполнен на живом процессе; остаточная владельческая наблюдаемость — необязательна."
     },
     {
       "source_id": "L00059",
@@ -1330,18 +1338,18 @@
       "source_text_sha256": "2e2ffe898c2a76e307e0b766cff5370f7bbfad8600aded8587098c3f825300e1",
       "source_excerpt": "- Установить другой burst и cooldown одному чату: другой чат продолжает работать по global.",
       "disposition": "required",
-      "reason": "Остаток после окна agent-checks-1 (18.10.2026, прод 2.58.88): живой резолв «второго чата по global» не наблюдался; утечки override нет (глобальные 10/300 до/после; `source=\"chat\"` только у синтетики; профиль/overrides сняты). Закрытие: один resolves-чек второго чата ЛИБО явное принятие.",
+      "reason": "Закрыто окном agent-checks-2 (18.10.2026, прод 2.58.89 `d59fab94`; служебные файлы CFG-01 byte-identical до `d59fab94`): чат-A с override `(2, 180, 'chat')` — третий ограничен (остаток 179.99s); чат-B при активном override A — `(10, 300.0, 'global')`, утечки нет, третий допущен; restore: `overrides_A={}`, резолв A снова global; профиль B не создавался (0 строк). VERIFIED: агентская проверка 18.10 (окно-2); остаточная владельческая наблюдаемость — необязательна.",
       "req_id": "CFG-01.AC2",
       "slice": "CFG-01",
       "acceptance": "Chat override с другим burst/cooldown: второй чат продолжает работать по global-значению.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "0282fe4b1eac02c3339586c3abab3952d6c7eae8",
           "ref": "plans/features/cfg/evidence/cfg-01/README.md §3 (CFG-01.AC2) / §5 п.2",
-          "observation": "Локально: чат с override (другой burst/cooldown) ограничен по своим значениям, второй чат продолжает работать по global; reset возвращает наследование. Живой прогон — §5 (postdeploy). процесс CFG (ADD-0.1; plan §процесс.4): owner/live-проверки не блокируют очередь; сценарий — README §5; закрытие — на postdeploy",
+          "observation": "Локально: чат с override (другой burst/cooldown) ограничен по своим значениям, второй чат продолжает работать по global; reset возвращает наследование. Живой сценарий закрыт окном agent-checks-2 (18.10.2026) — см. production-эвиденс ниже; остаточная владельческая наблюдаемость необязательна.",
           "artifact_path": "plans/features/cfg/evidence/cfg-01/README.md",
           "artifact_sha256": "428f83b23b4b459a8c2cdd3f53abce12cff981a0805e4ac114d0d838fcf57809"
         },
@@ -1358,9 +1366,17 @@
           "observation": "резолвер возвращает chat-значение при override и global после его снятия.",
           "artifact_path": "tests/test_persistent_throttling.py",
           "artifact_sha256": "9f3f96afff27905f6f7201edce613cb381c6d1456fb0a308931573f86ff9d409"
+        },
+        {
+          "candidate_commit": "0282fe4b1eac02c3339586c3abab3952d6c7eae8",
+          "ref": "plans/features/soul-1/evidence/agent-checks-window2/README.md §2 + probe-run1-raw.txt (H0–H7) + plans/features/soul-1/review-agent-checks-window2.md §2/§7",
+          "observation": "Живой прод 2.58.89: override чата-A штатным API (burst=2/cooldown=180) → resolve (2, 180.0, 'chat'); чат-B при активном override A — resolve (10, 300.0, 'global'), утечки нет; поведение A: третий ограничен (остаток 179.99s), B: третий допущен по global; restore: overrides_A={}, резолв A снова global; профиль B не создавался (0 строк).",
+          "artifact_path": "plans/features/soul-1/evidence/agent-checks-window2/probe-run1-raw.txt",
+          "artifact_sha256": "06cc4a07d5ae7fbfea5a0b2c42d2ff36c872c55d2f4deb7c4782da69754448ba",
+          "type": "production"
         }
       ],
-      "live_note": "окно agent-checks-1 (18.10.2026): остаток — живой резолв второго чата по global (утечки override нет). Строка READY_FOR_LIVE (остаток не блокирует очередь — процесс CFG, ADD-0.1)."
+      "live_note": "закрыто окном agent-checks-2 (18.10.2026, прод 2.58.89): override одного чата изолирован, второй чат продолжает работать по global; restore возвращает наследование; остаточная владельческая наблюдаемость — необязательна."
     },
     {
       "source_id": "L00060",
