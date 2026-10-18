@@ -734,14 +734,24 @@
       "source_text_sha256": "b3e7ed4672ea42362e6ec05aae4dfcebe1e9e905156d55eff93e3f1ea340a145",
       "source_excerpt": "- Вместо `vision_unavailable` — понятная причина («Неверный ключ», «Превышен лимит», «Модель не принимает изображения», «Провайдер временно недоступен»).",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто: D11 — серверный `visible_reason` в тосте/inline + локальный fallback (10 классов + auth); сырые reason/detail не печатаются (e2e по 10 классам; на базе коды текли — 2 FAIL/класс). VERIFIED.",
       "req_id": "P0V-UI-REASONS",
       "slice": "P0V-UI",
       "acceptance": "Вместо общего vision_unavailable показывается конкретная понятная причина (неверный ключ; превышен лимит; модель не принимает изображения; провайдер временно недоступен); UI-артефакт подтверждает формулировки на прод-байтах.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "88593e9aabc1c66fb50364256f6db040439bde81",
+          "ref": "plans/features/p0-vision-universal/review-vision-ui.md (0df4a4a8, Approved) §2 + plans/features/p0-vision-universal/evidence/ui/p0v-ui-evidence.md",
+          "observation": "Человеческие причины без внутренних кодов; fallback-классы покрыты тестами.",
+          "artifact_path": "plans/features/p0-vision-universal/evidence/ui/p0v-ui-evidence.md",
+          "artifact_sha256": "db6df624b8f5db36fd1eeef09b2bc9f66de36accb9db9219d69a77602f726abc",
+          "type": "ui"
+        }
+      ],
+      "live_note": "postdeploy-agent-check (DevOps/Orchestrator), не owner-гейт: живой Android WebView + системный шрифт 20/24px — линия/причины/факты/overflow без регрессий (review 0df4a4a8).",
       "alias_of": [
         "soul-1-amd:SOUL-AMD.5.14"
       ],
@@ -753,14 +763,24 @@
       "source_text_sha256": "b007d60a3719d4228128e7a0817759f3d78d4de90b0995285671fe4e5f6e5a75",
       "source_excerpt": "- Убрать артефакт `function () { [native code] }`.",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто (review `0df4a4a8`): D10 — `visionStateLine` в computed (значение всегда строка; `''` без state/403 — линия скрыта `v-if`); e2e `nativeText=false` 26/26, на базе `[native code]` в каждом llm/mod-кейсе; CSS/regex-маскировки нет. VERIFIED (`88593e9a`).",
       "req_id": "P0V-UI-NATIVE",
       "slice": "P0V-UI",
       "acceptance": "Артефакт `function () { [native code] }` не отображается ни в одном состоянии интерфейса Vision; исправлен на уровне источника значения (без CSS/regex-маскировки); проверка отданной страницы приложена.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "88593e9aabc1c66fb50364256f6db040439bde81",
+          "ref": "plans/features/p0-vision-universal/review-vision-ui.md (0df4a4a8, Approved) §1 + plans/features/p0-vision-universal/evidence/ui/e2e_after.json",
+          "observation": "Артефакт `[native code]` устранён на источнике; computed-контракт зафиксирован JS-тестом.",
+          "artifact_path": "plans/features/p0-vision-universal/evidence/ui/e2e_after.json",
+          "artifact_sha256": "152b0e1c4723a355976fb8e3bdcee70d1daf3d1223b749f471969dce2930ccdf",
+          "type": "ui"
+        }
+      ],
+      "live_note": "postdeploy-agent-check (DevOps/Orchestrator), не owner-гейт: живой Android WebView + системный шрифт 20/24px — линия/причины/факты/overflow без регрессий (review 0df4a4a8).",
       "alias_of": [
         "p0-save-init-ux:P0A-UX-TECHJUNK"
       ],
@@ -772,14 +792,24 @@
       "source_text_sha256": "e8bc0a2155a3a4c4c0326696cb7673211c671c8fa404f97b10b20be39a97b999",
       "source_excerpt": "- Исправить горизонтальное переполнение формы и неудобную компоновку Android.",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто: §4 — первопричина min-content-пола устранена (трек `minmax(0,1fr)`, `min-width:0` цепочка, container-query); замеры 376→320 / 449→360; 0 issues на 320/360/390/430 + font20/24 и ландшафте; стекло/полигон не тронуты. VERIFIED.",
       "req_id": "P0V-UI-OVERFLOW",
       "slice": "P0V-UI",
       "acceptance": "Форма Vision без горизонтального переполнения на узких viewport (320–430) и в ландшафте; элементы не съезжают/не перекрываются, все действия достижимы; Playwright-матрица viewport + постдеплой-скриншоты (полигон/стекло не сломаны).",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "88593e9aabc1c66fb50364256f6db040439bde81",
+          "ref": "plans/features/p0-vision-universal/review-vision-ui.md (0df4a4a8, Approved) §4 + plans/features/p0-vision-universal/evidence/ui/browseruse/mobile_390x844_font20_vision.png",
+          "observation": "DOMRect-замеры и Browser Use: переполнения нет даже при системном шрифте 20px.",
+          "artifact_path": "plans/features/p0-vision-universal/evidence/ui/browseruse/mobile_390x844_font20_vision.png",
+          "artifact_sha256": "687d3077429b8a9baf6f367980b528beeaee34018ce7624bb2846cb5dc50c191",
+          "type": "ui"
+        }
+      ],
+      "live_note": "postdeploy-agent-check (DevOps/Orchestrator), не owner-гейт: живой Android WebView + системный шрифт 20/24px — линия/причины/факты/overflow без регрессий (review 0df4a4a8).",
       "alias_of": [
         "p0-save-init-ux:P0A-UX-COMPACT",
         "cfg:CFG-04C.1"
@@ -792,14 +822,24 @@
       "source_text_sha256": "6e55b131fe74c5f5b7e36f525227d3d4169e0eebdd5330902942ece85ba89b73",
       "source_excerpt": "- Отображать фактического провайдера, модель, тип подключения и результат проверки.",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто: D12 — факты фактического подключения (провайдер/модель/«OpenAI-совместимый»/результат+время/техдеталь) в двух местах; refresh после probe/save (кэш 30 с); silent403 fail-open. VERIFIED.",
       "req_id": "P0V-UI-DISPLAY",
       "slice": "P0V-UI",
       "acceptance": "Интерфейс показывает фактического провайдера, модель, тип подключения и результат проверки Vision (актуальные после смены настроек), не обобщённые значения; UI-артефакт приложен.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "88593e9aabc1c66fb50364256f6db040439bde81",
+          "ref": "plans/features/p0-vision-universal/review-vision-ui.md (0df4a4a8, Approved) §3 + plans/features/p0-vision-universal/evidence/ui/p0v-ui-evidence.md",
+          "observation": "Факты подключения в секции Vision и карточке модуля; актуализация после пробы/сохранения.",
+          "artifact_path": "plans/features/p0-vision-universal/evidence/ui/p0v-ui-evidence.md",
+          "artifact_sha256": "db6df624b8f5db36fd1eeef09b2bc9f66de36accb9db9219d69a77602f726abc",
+          "type": "ui"
+        }
+      ],
+      "live_note": "postdeploy-agent-check (DevOps/Orchestrator), не owner-гейт: живой Android WebView + системный шрифт 20/24px — линия/причины/факты/overflow без регрессий (review 0df4a4a8)."
     },
     {
       "source_id": "L00038",
@@ -807,14 +847,24 @@
       "source_text_sha256": "66ce214837dd1d7f917ef78ec00ae21d4bc2ce5aff0d2a9303bb037913ae5cf1",
       "source_excerpt": "- Не раскрывать секреты и полные значения ключей.",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто: секретов в DOM нет (сентинел, `secretInputs=[]`, маска `••••••••9f3c`); утечек в UI/логах нет (review §2/§6). VERIFIED.",
       "req_id": "P0V-UI-SECRETS",
       "slice": "P0V-UI",
       "acceptance": "Секреты и полные значения ключей не отображаются в интерфейсе/диагностике Vision (только маска/факт наличия); подтверждено UI-артефактом и проверкой отданных данных.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "88593e9aabc1c66fb50364256f6db040439bde81",
+          "ref": "plans/features/p0-vision-universal/review-vision-ui.md (0df4a4a8, Approved) §2/§6 + plans/features/p0-vision-universal/evidence/ui/p0v-ui-evidence.md",
+          "observation": "Ключ показывается только маской; значение в DOM отсутствует во всех кейсах.",
+          "artifact_path": "plans/features/p0-vision-universal/evidence/ui/p0v-ui-evidence.md",
+          "artifact_sha256": "db6df624b8f5db36fd1eeef09b2bc9f66de36accb9db9219d69a77602f726abc",
+          "type": "ui"
+        }
+      ],
+      "live_note": "postdeploy-agent-check (DevOps/Orchestrator), не owner-гейт: живой Android WebView + системный шрифт 20/24px — линия/причины/факты/overflow без регрессий (review 0df4a4a8).",
       "alias_of": [
         "soul-1-amd:SOUL-AMD.5.15"
       ],
