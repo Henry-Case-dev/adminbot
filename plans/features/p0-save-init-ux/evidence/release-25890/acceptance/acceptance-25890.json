@@ -1,0 +1,504 @@
+{
+  "probe": "acceptance-25890",
+  "lane": "ACCEPTANCE-90",
+  "prod": "https://admin-bot.duckdns.org",
+  "target_version": "2.58.90",
+  "target_commit": "3b02366e",
+  "t0_utc": "2026-10-18T13:34:23Z",
+  "chats": {
+    "work": -1002661910336,
+    "pet": -1004482340693
+  },
+  "steps": [
+    {
+      "id": "A1_core_global_write",
+      "ok": true,
+      "detail": {
+        "put_status": 200,
+        "applied": true,
+        "revision": 4,
+        "level_before": "full",
+        "level_after": "compact",
+        "selection_source": "global"
+      }
+    },
+    {
+      "id": "A1_core_global_restore",
+      "ok": true,
+      "detail": {
+        "put_status": 200,
+        "applied": true,
+        "revision": 5,
+        "level": "full",
+        "source": "global"
+      }
+    },
+    {
+      "id": "A2_core_chat_write",
+      "ok": true,
+      "detail": {
+        "put_status": 200,
+        "applied": true,
+        "had_override_before": false,
+        "level_before": "full",
+        "level_after": "compact",
+        "inheritance": "chat",
+        "revision": 6
+      }
+    },
+    {
+      "id": "A6a_isolation_core_pet",
+      "ok": true,
+      "detail": {
+        "pet_level": "full",
+        "pet_expected": "full",
+        "pet_inheritance": "global"
+      }
+    },
+    {
+      "id": "A2_core_chat_restore_inherit",
+      "ok": true,
+      "detail": {
+        "post_status": 200,
+        "ok": true,
+        "result": {
+          "applied": true,
+          "block_id": "core.personality",
+          "pg_key": "character.core",
+          "factory_value_written": false,
+          "global_value_written": false,
+          "inherits": {
+            "source": "global",
+            "sha256_12": "040581a3b4b0",
+            "differs_from_factory": false
+          }
+        },
+        "level": "full",
+        "inheritance": "global"
+      }
+    },
+    {
+      "id": "A3_expression_chat_write",
+      "ok": true,
+      "detail": {
+        "post_status": 200,
+        "applied": true,
+        "revision": 1,
+        "changed": {
+          "wit": "high"
+        },
+        "values_after": {
+          "wit": "high",
+          "sharpness": "inherit",
+          "profanity": "inherit",
+          "verbosity": "inherit"
+        },
+        "inheritance": "chat",
+        "rendered_chars": 243
+      }
+    },
+    {
+      "id": "A6b_isolation_expr_pet",
+      "ok": true,
+      "detail": {
+        "pet_values": {
+          "wit": "inherit",
+          "sharpness": "inherit",
+          "profanity": "inherit",
+          "verbosity": "inherit"
+        },
+        "pet_expected": {
+          "wit": "inherit",
+          "sharpness": "inherit",
+          "profanity": "inherit",
+          "verbosity": "inherit"
+        },
+        "pet_chat_present": false
+      }
+    },
+    {
+      "id": "A3_expression_chat_restore",
+      "ok": true,
+      "detail": {
+        "post_status": 200,
+        "ok": true,
+        "result": null,
+        "values": {
+          "wit": "inherit",
+          "sharpness": "inherit",
+          "profanity": "inherit",
+          "verbosity": "inherit"
+        },
+        "inheritance": "factory_default"
+      }
+    },
+    {
+      "id": "A4_style_chat_write",
+      "ok": true,
+      "detail": {
+        "post_status": 200,
+        "applied": true,
+        "chat_revision_before": 0,
+        "chat_revision_after": 1,
+        "revision_after": "g8.fe503bd7f9d1|c1.28f8d723ec64",
+        "source": "chat",
+        "rules_after": [
+          "trailing_period.hard.strip"
+        ],
+        "rules_before": []
+      }
+    },
+    {
+      "id": "A4_style_effective_try",
+      "ok": true,
+      "detail": {
+        "post_status": 200,
+        "repaired": 1,
+        "applied": true,
+        "style_text_masked": "Проверка стиля пробой",
+        "expected": "Проверка стиля пробой",
+        "style_policy_version": "c1.28f8d723ec64"
+      }
+    },
+    {
+      "id": "A4_style_chat_restore",
+      "ok": true,
+      "detail": {
+        "post_status": 200,
+        "ok": true,
+        "result": {
+          "applied": true,
+          "chat_id": -1002661910336,
+          "inherits": "global"
+        },
+        "rules_final": [],
+        "inheritance": "global",
+        "chat_revision": 0
+      }
+    },
+    {
+      "id": "A5_humor_write",
+      "ok": true,
+      "detail": {
+        "post_status": 200,
+        "ok": true,
+        "enabled_before": true,
+        "enabled_after": false,
+        "revision": 3,
+        "source": "global"
+      }
+    },
+    {
+      "id": "A5_humor_restore",
+      "ok": true,
+      "detail": {
+        "post_status": 200,
+        "ok": true,
+        "enabled": true,
+        "revision": 4
+      }
+    },
+    {
+      "id": "A5_learning_write",
+      "ok": true,
+      "detail": {
+        "action": "pause",
+        "post_status": 200,
+        "paused_before": false,
+        "paused_after": true
+      }
+    },
+    {
+      "id": "A5_learning_restore",
+      "ok": true,
+      "detail": {
+        "action": "resume",
+        "post_status": 200,
+        "paused": false,
+        "expected": false
+      }
+    },
+    {
+      "id": "A7_conflict_409",
+      "ok": true,
+      "detail": {
+        "post_status": 409,
+        "detail": "документ изменён другим путём — обновите экран; ваш текст не потерян",
+        "chat_updated_at_current": "2026-10-18T14:03:30.794072+00:00",
+        "sent_expected_updated_at": "2000-01-01T00:00:00Z",
+        "state_unchanged": true,
+        "rules_same": true,
+        "chat_revision": 0,
+        "inheritance": "global"
+      }
+    },
+    {
+      "id": "A8_final_state_restored",
+      "ok": true,
+      "detail": {
+        "diff_significant": {},
+        "diff_provenance_only": {},
+        "health": {
+          "status": "ok",
+          "version": "2.58.90"
+        },
+        "note": "revision/updated_at намеренно не сравниваются (растут от любой обратимой правки); provenance-only дельта humor.craft объяснена в отчёте"
+      }
+    }
+  ],
+  "failures": [],
+  "mode": "full",
+  "started_utc": "2026-10-18T14:02:47Z",
+  "prod_health": {
+    "status": "ok",
+    "version": "2.58.90"
+  },
+  "baseline": {
+    "core_global": {
+      "inheritance": "global",
+      "scope": "global",
+      "level": "full",
+      "source": "global",
+      "reason": "owner_setting",
+      "full_chars": 2835,
+      "compact_chars": 1934
+    },
+    "core_work": {
+      "inheritance": "global",
+      "scope": "chat",
+      "level": "full",
+      "source": "global",
+      "reason": "owner_setting",
+      "full_chars": 2835,
+      "compact_chars": 1934
+    },
+    "core_pet": {
+      "inheritance": "global",
+      "scope": "chat",
+      "level": "full",
+      "source": "global",
+      "reason": "owner_setting",
+      "full_chars": 2835,
+      "compact_chars": 1934
+    },
+    "expr_global": {
+      "inheritance": "factory_default",
+      "global_present": false,
+      "chat_present": false,
+      "values": {
+        "wit": "inherit",
+        "sharpness": "inherit",
+        "profanity": "inherit",
+        "verbosity": "inherit"
+      },
+      "enabled": true,
+      "rendered_chars": 0
+    },
+    "expr_work": {
+      "inheritance": "factory_default",
+      "global_present": false,
+      "chat_present": false,
+      "values": {
+        "wit": "inherit",
+        "sharpness": "inherit",
+        "profanity": "inherit",
+        "verbosity": "inherit"
+      },
+      "enabled": true,
+      "rendered_chars": 0
+    },
+    "expr_pet": {
+      "inheritance": "factory_default",
+      "global_present": false,
+      "chat_present": false,
+      "values": {
+        "wit": "inherit",
+        "sharpness": "inherit",
+        "profanity": "inherit",
+        "verbosity": "inherit"
+      },
+      "enabled": true,
+      "rendered_chars": 0
+    },
+    "style_global": {
+      "revision": "g8.fe503bd7f9d1",
+      "source": "global",
+      "rules": [],
+      "soft": 0,
+      "inheritance": "global",
+      "global_revision": 8,
+      "chat_revision": 0
+    },
+    "style_work": {
+      "revision": "g8.fe503bd7f9d1",
+      "source": "global",
+      "rules": [],
+      "soft": 0,
+      "inheritance": "global",
+      "global_revision": 8,
+      "chat_revision": 0
+    },
+    "style_pet": {
+      "revision": "g8.fe503bd7f9d1",
+      "source": "global",
+      "rules": [],
+      "soft": 0,
+      "inheritance": "global",
+      "global_revision": 8,
+      "chat_revision": 0
+    },
+    "humor_global": {
+      "craft_enabled": true,
+      "craft_source": "global",
+      "craft_revision": 2,
+      "disabled": []
+    },
+    "humor_work": {
+      "craft_enabled": true,
+      "craft_source": "global",
+      "craft_revision": 2,
+      "disabled": []
+    },
+    "learning_work": {
+      "paused": false,
+      "available": true,
+      "enabled": true
+    },
+    "gates_work": {
+      "nostalgia": true,
+      "updated_at": "2026-10-18T14:01:44.839644+00:00",
+      "opt_in": false
+    },
+    "gates_pet": {
+      "nostalgia": true,
+      "updated_at": "2026-10-18T13:59:13.135888+00:00",
+      "opt_in": false
+    }
+  },
+  "final_snapshot": {
+    "core_global": {
+      "inheritance": "global",
+      "scope": "global",
+      "level": "full",
+      "source": "global",
+      "reason": "owner_setting",
+      "full_chars": 2835,
+      "compact_chars": 1934
+    },
+    "core_work": {
+      "inheritance": "global",
+      "scope": "chat",
+      "level": "full",
+      "source": "global",
+      "reason": "owner_setting",
+      "full_chars": 2835,
+      "compact_chars": 1934
+    },
+    "core_pet": {
+      "inheritance": "global",
+      "scope": "chat",
+      "level": "full",
+      "source": "global",
+      "reason": "owner_setting",
+      "full_chars": 2835,
+      "compact_chars": 1934
+    },
+    "expr_global": {
+      "inheritance": "factory_default",
+      "global_present": false,
+      "chat_present": false,
+      "values": {
+        "wit": "inherit",
+        "sharpness": "inherit",
+        "profanity": "inherit",
+        "verbosity": "inherit"
+      },
+      "enabled": true,
+      "rendered_chars": 0
+    },
+    "expr_work": {
+      "inheritance": "factory_default",
+      "global_present": false,
+      "chat_present": false,
+      "values": {
+        "wit": "inherit",
+        "sharpness": "inherit",
+        "profanity": "inherit",
+        "verbosity": "inherit"
+      },
+      "enabled": true,
+      "rendered_chars": 0
+    },
+    "expr_pet": {
+      "inheritance": "factory_default",
+      "global_present": false,
+      "chat_present": false,
+      "values": {
+        "wit": "inherit",
+        "sharpness": "inherit",
+        "profanity": "inherit",
+        "verbosity": "inherit"
+      },
+      "enabled": true,
+      "rendered_chars": 0
+    },
+    "style_global": {
+      "revision": "g8.fe503bd7f9d1",
+      "source": "global",
+      "rules": [],
+      "soft": 0,
+      "inheritance": "global",
+      "global_revision": 8,
+      "chat_revision": 0
+    },
+    "style_work": {
+      "revision": "g8.fe503bd7f9d1",
+      "source": "global",
+      "rules": [],
+      "soft": 0,
+      "inheritance": "global",
+      "global_revision": 8,
+      "chat_revision": 0
+    },
+    "style_pet": {
+      "revision": "g8.fe503bd7f9d1",
+      "source": "global",
+      "rules": [],
+      "soft": 0,
+      "inheritance": "global",
+      "global_revision": 8,
+      "chat_revision": 0
+    },
+    "humor_global": {
+      "craft_enabled": true,
+      "craft_source": "global",
+      "craft_revision": 4,
+      "disabled": []
+    },
+    "humor_work": {
+      "craft_enabled": true,
+      "craft_source": "global",
+      "craft_revision": 4,
+      "disabled": []
+    },
+    "learning_work": {
+      "paused": false,
+      "available": true,
+      "enabled": true
+    },
+    "gates_work": {
+      "nostalgia": true,
+      "updated_at": "2026-10-18T14:03:30.794072+00:00",
+      "opt_in": false
+    },
+    "gates_pet": {
+      "nostalgia": true,
+      "updated_at": "2026-10-18T13:59:13.135888+00:00",
+      "opt_in": false
+    }
+  },
+  "final_diff": {},
+  "final_diff_significant": {},
+  "final_diff_provenance_only": {},
+  "finished_utc": "2026-10-18T14:03:58Z"
+}

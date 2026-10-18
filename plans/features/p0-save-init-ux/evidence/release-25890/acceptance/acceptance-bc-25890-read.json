@@ -1,0 +1,2075 @@
+{
+  "probe": "acceptance-bc-25890",
+  "lane": "ACCEPTANCE-90",
+  "t0_utc": "2026-10-18T13:34:23Z",
+  "chats": {
+    "work": -1002661910336,
+    "pet": -1004482340693
+  },
+  "steps": [
+    {
+      "id": "C1_initiative_job_scan_anchored",
+      "ok": true,
+      "detail": {
+        "scan_anchored": 1,
+        "passes": 844,
+        "observed": 147001,
+        "opportunities": 4,
+        "evals": 6,
+        "cursor": null,
+        "job_status": "completed",
+        "job_finished_at": 1792331705,
+        "liveness": {
+          "ts": 1792331705,
+          "status": "completed",
+          "observed": 0,
+          "opportunities": 0
+        }
+      }
+    },
+    {
+      "id": "C2_initiative_scan_events",
+      "ok": true,
+      "detail": {
+        "events_24h": {
+          "initiative_observer_scan": 282,
+          "initiative_opportunity": 5,
+          "initiative_decided": 4,
+          "initiative_writer_generated": 2,
+          "initiative_writer_unavailable": 0,
+          "initiative_recheck_passed": 0,
+          "initiative_sent": 2,
+          "initiative_observer_diagnostic": 1
+        }
+      }
+    },
+    {
+      "id": "C3_initiative_decisions_reason_codes",
+      "ok": true,
+      "detail": {
+        "decisions": [
+          {
+            "ts": 1792328263,
+            "action": "reply",
+            "outcome": "success",
+            "reason_code": "default",
+            "reason_label": "решение молчать по умолчанию (уместность не подтверждена)",
+            "intent_id": "",
+            "stage": "new_message"
+          },
+          {
+            "ts": 1792314766,
+            "action": "reply",
+            "outcome": "success",
+            "reason_code": "default",
+            "reason_label": "решение молчать по умолчанию (уместность не подтверждена)",
+            "intent_id": "",
+            "stage": "new_message"
+          },
+          {
+            "ts": 1792297812,
+            "action": "reply",
+            "outcome": "silent",
+            "reason_code": "default",
+            "reason_label": "решение молчать по умолчанию (уместность не подтверждена)",
+            "intent_id": "",
+            "stage": "new_message"
+          },
+          {
+            "ts": 1792276535,
+            "action": "reply",
+            "outcome": "silent",
+            "reason_code": "default",
+            "reason_label": "решение молчать по умолчанию (уместность не подтверждена)",
+            "intent_id": "",
+            "stage": "new_message"
+          }
+        ],
+        "refusals": [],
+        "decision_stages": [
+          "new_message"
+        ],
+        "reason_codes": [
+          "default"
+        ],
+        "activity": {
+          "state": "ok",
+          "level": "ok",
+          "title": "Инициатива доставляется",
+          "warning": "",
+          "recommendation": "",
+          "reasons": [
+            {
+              "reason_code": "eval_not_due",
+              "label": "интервал между проверками ещё не прошёл",
+              "count": 197
+            },
+            {
+              "reason_code": "not_enough_messages",
+              "label": "в чате пока мало новых сообщений",
+              "count": 72
+            },
+            {
+              "reason_code": "min_gap",
+              "label": "пауза после последней инициативы бота",
+              "count": 7
+            },
+            {
+              "reason_code": "default",
+              "label": "решение молчать по умолчанию (уместность не подтверждена)",
+              "count": 2
+            },
+            {
+              "reason_code": "direct_address_seen",
+              "label": "в окне было обращение к боту",
+              "count": 1
+            }
+          ],
+          "live_messages": 756,
+          "thresholds": {
+            "live_messages_busy": 2000,
+            "silent_streak": 3
+          },
+          "health": {
+            "heartbeat_ok": true,
+            "last_tick_ts": 1792331705,
+            "last_tick_status": "completed",
+            "jobs_processed": 280,
+            "note": "heartbeat≠outcome: тики и прогоны не являются отправкой"
+          },
+          "counters": {
+            "scans": 280,
+            "observed": 48525,
+            "opportunities": 4,
+            "delivered": 2,
+            "silent": 0
+          },
+          "silent_streak": 0
+        },
+        "gates": {
+          "blocked_now": true,
+          "blocked_count": 2,
+          "warn_count": 0,
+          "items": [
+            {
+              "gate": "master",
+              "status": "pass",
+              "reason_code": "",
+              "label": "Наблюдатель инициативы включён",
+              "value": null,
+              "limit": null,
+              "unit": "none"
+            },
+            {
+              "gate": "chat_kind",
+              "status": "pass",
+              "reason_code": "",
+              "label": "Групповой чат",
+              "value": null,
+              "limit": null,
+              "unit": "none"
+            },
+            {
+              "gate": "chat_scope",
+              "status": "pass",
+              "reason_code": "",
+              "label": "Инициатива разрешена в этом чате",
+              "value": null,
+              "limit": null,
+              "unit": "none"
+            },
+            {
+              "gate": "live_context",
+              "status": "pass",
+              "reason_code": "",
+              "label": "Живых сообщений за 24ч: 756",
+              "value": 756,
+              "limit": 1,
+              "unit": "count"
+            },
+            {
+              "gate": "pending",
+              "status": "pass",
+              "reason_code": "",
+              "label": "Накоплено сообщений: 126 из 8",
+              "value": 126,
+              "limit": 8,
+              "unit": "count"
+            },
+            {
+              "gate": "eval_interval",
+              "status": "block",
+              "reason_code": "eval_not_due",
+              "label": "С прошлой проверки: 881 с (интервал 2700 с)",
+              "value": 881,
+              "limit": 2700,
+              "unit": "s"
+            },
+            {
+              "gate": "anti_flood",
+              "status": "pass",
+              "reason_code": "",
+              "label": "С последнего вывода бота: 2731 с (анти-флуд 300 с)",
+              "value": 2731,
+              "limit": 300,
+              "unit": "s"
+            },
+            {
+              "gate": "min_gap",
+              "status": "block",
+              "reason_code": "min_gap",
+              "label": "С последней инициативы бота: 3724 с (пауза 7200 с)",
+              "value": 3724,
+              "limit": 7200,
+              "unit": "s"
+            },
+            {
+              "gate": "day_cap",
+              "status": "pass",
+              "reason_code": "",
+              "label": "Отправлено инициатив в окне: 2 из 6",
+              "value": 2,
+              "limit": 6,
+              "unit": "count"
+            },
+            {
+              "gate": "context_dedup",
+              "status": "pass",
+              "reason_code": "",
+              "label": "Свежих окон в дедуп-кольце: 4",
+              "value": 4,
+              "limit": 16,
+              "unit": "count"
+            },
+            {
+              "gate": "eval_budget",
+              "status": "pass",
+              "reason_code": "",
+              "label": "Оценок израсходовано сегодня: 4 из 12",
+              "value": 4,
+              "limit": 12,
+              "unit": "count"
+            },
+            {
+              "gate": "llm",
+              "status": "pass",
+              "reason_code": "",
+              "label": "Оценщик доступен",
+              "value": null,
+              "limit": null,
+              "unit": "none"
+            },
+            {
+              "gate": "writer",
+              "status": "pass",
+              "reason_code": "",
+              "label": "Писатель доступен",
+              "value": null,
+              "limit": null,
+              "unit": "none"
+            },
+            {
+              "gate": "subscription",
+              "status": "n/a",
+              "reason_code": "",
+              "label": "Права бота на отправку проверяются при отправке",
+              "value": null,
+              "limit": null,
+              "unit": "none"
+            }
+          ],
+          "state": {
+            "pending": 126,
+            "last_eval_age_seconds": 881,
+            "sent_in_window": 2,
+            "eval_used_today": 4,
+            "last_bot_output_age_seconds": 2731,
+            "last_initiative_output_age_seconds": 3724,
+            "cursor_lag_messages": 7,
+            "live_messages_24h": 756
+          },
+          "effective": {
+            "profile": "normal",
+            "min_gap_seconds": 7200,
+            "max_replies_per_day": 6,
+            "eval_min_interval_seconds": 2700,
+            "eval_min_messages": 8,
+            "eval_llm_budget_per_day": 12,
+            "max_replies_per_topic": 1,
+            "day_window_seconds": 86400
+          },
+          "soft_targets": {
+            "replies_per_day": 0,
+            "observation_interval_seconds": 0,
+            "active": false,
+            "bounds": "мягкая цель влияет только на паузу между инициативами и на частоту проверок окна; дневной лимит, дедуп контекста и тем, бюджет оценок, recheck и право промолчать не отключаются",
+            "floors": {
+              "observation_interval_seconds": 600,
+              "eval_min_messages": 4,
+              "min_gap_seconds": 1800
+            }
+          },
+          "easing": {
+            "observation": false,
+            "min_gap": false
+          },
+          "day_goal": {}
+        },
+        "scope": {
+          "master": true,
+          "chat_enabled": true
+        },
+        "sends": 2
+      }
+    },
+    {
+      "id": "B1_nostalgia_log_rows",
+      "ok": true,
+      "detail": {
+        "work_rows": 2,
+        "work_head": [
+          {
+            "id": 2,
+            "chat_id": -1002661910336,
+            "ts": 1789787010,
+            "kind": "year_back",
+            "fact_id": null,
+            "status": "sent",
+            "meta": {
+              "reason": "sent",
+              "candidate": "year_back",
+              "candidate_text": "[Troy Kawasaki 2025-09-19]: ебатт он ему прыщ на пузе нарисовал"
+            }
+          },
+          {
+            "id": 1,
+            "chat_id": -1002661910336,
+            "ts": 1789269398,
+            "kind": "year_back",
+            "fact_id": null,
+            "status": "sent",
+            "meta": {
+              "reason": "sent",
+              "candidate": "year_back",
+              "candidate_text": "[Гипербореец 2025-09-13]: @Alan_Z Леха, ты же угораешь по всякой хуйне типо видимокарт? Ес пойти и щас купить пеку в такой связке, 32 гб оперативной памяти, процессор Intel Core i5-14600KF, и карта GeForce RTX 5060 Ti VENTUS 3X OC 8 ГБ норм пойдет? Мат.плата там и остальное уже опционально"
+            }
+          }
+        ],
+        "pet_rows": 10,
+        "pet_head": [
+          {
+            "id": 216,
+            "chat_id": -1004482340693,
+            "ts": 1792328255,
+            "kind": "none",
+            "fact_id": null,
+            "status": "budget_skip",
+            "meta": {
+              "reason": "gate_nostalgia"
+            }
+          },
+          {
+            "id": 215,
+            "chat_id": -1004482340693,
+            "ts": 1792324415,
+            "kind": "none",
+            "fact_id": null,
+            "status": "budget_skip",
+            "meta": {
+              "reason": "gate_nostalgia"
+            }
+          }
+        ],
+        "status": 200
+      }
+    },
+    {
+      "id": "B2_nostalgia_scenario_state",
+      "ok": true,
+      "detail": {
+        "work": {
+          "nostalgia": {
+            "mode": "silence",
+            "silence_left_min": 45,
+            "silence_min_total": 45,
+            "cooldown_left_h": 0,
+            "cooldown_h_total": 12,
+            "active": true,
+            "scenario": "active"
+          },
+          "enabled": null
+        },
+        "pet": {
+          "nostalgia": {
+            "mode": "silence",
+            "silence_left_min": 29,
+            "silence_min_total": 45,
+            "cooldown_left_h": 0,
+            "cooldown_h_total": 12,
+            "active": true,
+            "scenario": "active"
+          },
+          "enabled": null
+        },
+        "work_enabled": null,
+        "pet_enabled": null
+      }
+    },
+    {
+      "id": "B3_pet_gate_state",
+      "ok": true,
+      "detail": {
+        "pet_nostalgia": true,
+        "pet_updated_at": "2026-10-18T13:59:13.135888+00:00",
+        "work_nostalgia": true
+      }
+    }
+  ],
+  "mode": "read",
+  "now_utc": "2026-10-18T13:59:44Z",
+  "prod_health": {
+    "status": "ok",
+    "version": "2.58.90"
+  },
+  "funnels_global": {
+    "status": 200,
+    "json": {
+      "available": true,
+      "now_ts": 1792331985,
+      "chat_scoped_events": false,
+      "initiative": {
+        "available": true,
+        "job": {
+          "status": "completed",
+          "reason_code": null,
+          "created_at": 1792331694,
+          "updated_at": 1792331705,
+          "finished_at": 1792331705,
+          "counters": {
+            "passes": 844,
+            "observed": 147001,
+            "eligible": 147001,
+            "scan_skipped": 21599,
+            "evals": 6,
+            "opportunities": 4,
+            "silent_decisions": 2,
+            "intents_created": 0,
+            "sent": 2,
+            "react_decisions": 0,
+            "writer_unavailable": 0,
+            "eval_unavailable": 0,
+            "errors": 0,
+            "scan_anchored": 1,
+            "eval_skips": {
+              "min_gap": 8,
+              "eval_not_due": 760,
+              "not_enough_messages": 72,
+              "direct_address_seen": 1,
+              "no_opportunity": 1,
+              "semantic_eval_unavailable": 1
+            }
+          }
+        },
+        "liveness": {
+          "ts": 1792331705,
+          "status": "completed",
+          "observed": 0,
+          "opportunities": 0
+        },
+        "events": {
+          "24h": {
+            "initiative_observer_scan": 282,
+            "initiative_opportunity": 5,
+            "initiative_decided": 4,
+            "initiative_writer_generated": 2,
+            "initiative_writer_unavailable": 0,
+            "initiative_recheck_passed": 0,
+            "initiative_sent": 2,
+            "initiative_observer_diagnostic": 1
+          },
+          "7d": {
+            "initiative_observer_scan": 844,
+            "initiative_opportunity": 5,
+            "initiative_decided": 4,
+            "initiative_writer_generated": 2,
+            "initiative_writer_unavailable": 0,
+            "initiative_recheck_passed": 0,
+            "initiative_sent": 2,
+            "initiative_observer_diagnostic": 3
+          }
+        }
+      },
+      "experience": {
+        "available": true,
+        "job": {
+          "status": "completed",
+          "reason_code": null,
+          "created_at": 1792310855,
+          "updated_at": 1792310861,
+          "finished_at": 1792310861,
+          "counters": {
+            "captured_feedback": 0,
+            "captured_events": 0,
+            "proposed": 0,
+            "skipped_existing": 2,
+            "validated": 0,
+            "activated": 0,
+            "suspended": 0,
+            "outcomes_linked": 0,
+            "utility_updates": 0,
+            "stale_marked": 0,
+            "pruned_episodes": 0,
+            "pruned_feedback": 0,
+            "pruned_applications": 0,
+            "errors": 0,
+            "batches": 1,
+            "detector_scanned": 100,
+            "detector_detected": 0,
+            "detector_skipped": 100,
+            "capture_write_failures": 0,
+            "resumed_validated": 0,
+            "resumed_activated": 0,
+            "resume_rejected": 0,
+            "outcomes_unmatchable": 0,
+            "preference_superseded_signals": 0,
+            "semantic_scanned": 500,
+            "semantic_selected": 9,
+            "semantic_extracted": 2,
+            "semantic_candidates": 0,
+            "semantic_rejected": 0,
+            "semantic_duplicates": 2,
+            "semantic_llm_unavailable": 0,
+            "semantic_reject_reasons": {},
+            "humor_sends_scanned": 0,
+            "humor_signals": 0,
+            "humor_unknown": 0,
+            "humor_windows_closed": 0,
+            "humor_lessons_applied": 0,
+            "humor_hypotheses": 0,
+            "humor_skipped_disabled": 0,
+            "humor_evaluator_unavailable": 0,
+            "humor_write_failures": 0
+          },
+          "semantic_watermark": 500,
+          "semantic_pending": 491
+        },
+        "semantic_lag": {
+          "watermark": 500,
+          "max_message_id": 2351223,
+          "pending": 491
+        },
+        "last_application": null,
+        "events": {
+          "24h": {
+            "semantic_extract": 1,
+            "detector_signal": 0,
+            "applied": 0,
+            "retrieved": 0
+          },
+          "7d": {
+            "semantic_extract": 3,
+            "detector_signal": 3,
+            "applied": 0,
+            "retrieved": 0
+          }
+        }
+      }
+    }
+  },
+  "funnels_work": {
+    "status": 200,
+    "json": {
+      "available": true,
+      "now_ts": 1792331985,
+      "chat_scoped_events": false,
+      "initiative": {
+        "available": true,
+        "job": {
+          "status": "completed",
+          "reason_code": null,
+          "created_at": 1792331694,
+          "updated_at": 1792331705,
+          "finished_at": 1792331705,
+          "counters": {
+            "passes": 844,
+            "observed": 147001,
+            "eligible": 147001,
+            "scan_skipped": 21599,
+            "evals": 6,
+            "opportunities": 4,
+            "silent_decisions": 2,
+            "intents_created": 0,
+            "sent": 2,
+            "react_decisions": 0,
+            "writer_unavailable": 0,
+            "eval_unavailable": 0,
+            "errors": 0,
+            "scan_anchored": 1,
+            "eval_skips": {
+              "min_gap": 8,
+              "eval_not_due": 760,
+              "not_enough_messages": 72,
+              "direct_address_seen": 1,
+              "no_opportunity": 1,
+              "semantic_eval_unavailable": 1
+            }
+          }
+        },
+        "liveness": {
+          "ts": 1792331705,
+          "status": "completed",
+          "observed": 0,
+          "opportunities": 0
+        },
+        "events": {
+          "24h": {
+            "initiative_observer_scan": 282,
+            "initiative_opportunity": 5,
+            "initiative_decided": 4,
+            "initiative_writer_generated": 2,
+            "initiative_writer_unavailable": 0,
+            "initiative_recheck_passed": 0,
+            "initiative_sent": 2,
+            "initiative_observer_diagnostic": 1
+          },
+          "7d": {
+            "initiative_observer_scan": 844,
+            "initiative_opportunity": 5,
+            "initiative_decided": 4,
+            "initiative_writer_generated": 2,
+            "initiative_writer_unavailable": 0,
+            "initiative_recheck_passed": 0,
+            "initiative_sent": 2,
+            "initiative_observer_diagnostic": 3
+          }
+        }
+      },
+      "experience": {
+        "available": true,
+        "job": {
+          "status": "completed",
+          "reason_code": null,
+          "created_at": 1792310855,
+          "updated_at": 1792310861,
+          "finished_at": 1792310861,
+          "counters": {
+            "captured_feedback": 0,
+            "captured_events": 0,
+            "proposed": 0,
+            "skipped_existing": 2,
+            "validated": 0,
+            "activated": 0,
+            "suspended": 0,
+            "outcomes_linked": 0,
+            "utility_updates": 0,
+            "stale_marked": 0,
+            "pruned_episodes": 0,
+            "pruned_feedback": 0,
+            "pruned_applications": 0,
+            "errors": 0,
+            "batches": 1,
+            "detector_scanned": 100,
+            "detector_detected": 0,
+            "detector_skipped": 100,
+            "capture_write_failures": 0,
+            "resumed_validated": 0,
+            "resumed_activated": 0,
+            "resume_rejected": 0,
+            "outcomes_unmatchable": 0,
+            "preference_superseded_signals": 0,
+            "semantic_scanned": 500,
+            "semantic_selected": 9,
+            "semantic_extracted": 2,
+            "semantic_candidates": 0,
+            "semantic_rejected": 0,
+            "semantic_duplicates": 2,
+            "semantic_llm_unavailable": 0,
+            "semantic_reject_reasons": {},
+            "humor_sends_scanned": 0,
+            "humor_signals": 0,
+            "humor_unknown": 0,
+            "humor_windows_closed": 0,
+            "humor_lessons_applied": 0,
+            "humor_hypotheses": 0,
+            "humor_skipped_disabled": 0,
+            "humor_evaluator_unavailable": 0,
+            "humor_write_failures": 0
+          },
+          "semantic_watermark": 500,
+          "semantic_pending": 491
+        },
+        "semantic_lag": {
+          "watermark": 500,
+          "max_message_id": 2351223,
+          "pending": 491
+        },
+        "last_application": null,
+        "events": {
+          "24h": {
+            "semantic_extract": 1,
+            "detector_signal": 0,
+            "applied": 0,
+            "retrieved": 0
+          },
+          "7d": {
+            "semantic_extract": 3,
+            "detector_signal": 3,
+            "applied": 0,
+            "retrieved": 0
+          }
+        }
+      }
+    }
+  },
+  "vitality_work": {
+    "status": 200,
+    "json": {
+      "available": true,
+      "now_ts": 1792331987,
+      "hours": 24,
+      "chat_id": -1002661910336,
+      "chat_scoped": true,
+      "scope": {
+        "master": true,
+        "chat_enabled": true
+      },
+      "windows": {
+        "24h": {
+          "hours": 24,
+          "coverage": "full",
+          "coverage_note": "история прогонов наблюдателя дотягивается до начала окна",
+          "scans": 280,
+          "scan_events": 0,
+          "observed": 48525,
+          "eligible": 48525,
+          "evals": 6,
+          "opportunities": 4,
+          "opportunities_by_kind": {
+            "humor": 1,
+            "dispute": 1,
+            "useful_info": 1,
+            "development": 1
+          },
+          "decisions": {
+            "say": 0,
+            "react": 0,
+            "silent": 0,
+            "cancelled": 0,
+            "other": 4
+          },
+          "silence_by_reason": [
+            {
+              "reason_code": "default",
+              "label": "решение молчать по умолчанию (уместность не подтверждена)",
+              "count": 2
+            }
+          ],
+          "intents_created": 0,
+          "writer_generated": 2,
+          "writer_unavailable": 0,
+          "send_attempts": 0,
+          "delivered": 2,
+          "delivered_ledger": 2,
+          "delivered_events": 2,
+          "delivered_counters": 2,
+          "refusals": 0,
+          "duplicates": 0,
+          "eval_skips": {
+            "min_gap": 7,
+            "eval_not_due": 197,
+            "not_enough_messages": 72,
+            "direct_address_seen": 1,
+            "no_opportunity": 1,
+            "semantic_eval_unavailable": 1
+          },
+          "errors": 0,
+          "diagnostics": 0,
+          "latency_seconds": {
+            "p50": null,
+            "max": null,
+            "samples": 0
+          },
+          "last": {
+            "scan_ts": 0,
+            "opportunity_ts": 1792328259,
+            "decision_ts": 1792328263,
+            "delivered_ts": 1792328263,
+            "send_attempt_ts": 0
+          },
+          "decisions_recent": [
+            {
+              "ts": 1792328263,
+              "action": "reply",
+              "outcome": "success",
+              "reason_code": "default",
+              "reason_label": "решение молчать по умолчанию (уместность не подтверждена)",
+              "intent_id": "",
+              "stage": "new_message"
+            },
+            {
+              "ts": 1792314766,
+              "action": "reply",
+              "outcome": "success",
+              "reason_code": "default",
+              "reason_label": "решение молчать по умолчанию (уместность не подтверждена)",
+              "intent_id": "",
+              "stage": "new_message"
+            },
+            {
+              "ts": 1792297812,
+              "action": "reply",
+              "outcome": "silent",
+              "reason_code": "default",
+              "reason_label": "решение молчать по умолчанию (уместность не подтверждена)",
+              "intent_id": "",
+              "stage": "new_message"
+            },
+            {
+              "ts": 1792276535,
+              "action": "reply",
+              "outcome": "silent",
+              "reason_code": "default",
+              "reason_label": "решение молчать по умолчанию (уместность не подтверждена)",
+              "intent_id": "",
+              "stage": "new_message"
+            }
+          ],
+          "refusals_recent": [],
+          "sends": [
+            {
+              "ts": 1792328263,
+              "message_id": 1165152,
+              "correlation_id": "5d4a9fd1db07436b",
+              "chars": 59,
+              "output_kind": "initiative_reply",
+              "delivery_status": "delivered",
+              "core_revision": "r1.040581a3b4b0",
+              "style_policy_revision": "g8.fe503bd7f9d1",
+              "identity_revision": "749629b618170b66",
+              "manifest_id": "65a048e41af1f0ec",
+              "composer": "on",
+              "ledger_output_id": 443
+            },
+            {
+              "ts": 1792314766,
+              "message_id": 1164703,
+              "correlation_id": "8d744167326d4720",
+              "chars": 186,
+              "output_kind": "initiative_reply",
+              "delivery_status": "delivered",
+              "core_revision": "r1.040581a3b4b0",
+              "style_policy_revision": "g8.fe503bd7f9d1",
+              "identity_revision": "749629b618170b66",
+              "manifest_id": "2085440d6913135c",
+              "composer": "on",
+              "ledger_output_id": 431
+            }
+          ]
+        }
+      },
+      "window": {
+        "hours": 24,
+        "coverage": "full",
+        "coverage_note": "история прогонов наблюдателя дотягивается до начала окна",
+        "scans": 280,
+        "scan_events": 0,
+        "observed": 48525,
+        "eligible": 48525,
+        "evals": 6,
+        "opportunities": 4,
+        "opportunities_by_kind": {
+          "humor": 1,
+          "dispute": 1,
+          "useful_info": 1,
+          "development": 1
+        },
+        "decisions": {
+          "say": 0,
+          "react": 0,
+          "silent": 0,
+          "cancelled": 0,
+          "other": 4
+        },
+        "silence_by_reason": [
+          {
+            "reason_code": "default",
+            "label": "решение молчать по умолчанию (уместность не подтверждена)",
+            "count": 2
+          }
+        ],
+        "intents_created": 0,
+        "writer_generated": 2,
+        "writer_unavailable": 0,
+        "send_attempts": 0,
+        "delivered": 2,
+        "delivered_ledger": 2,
+        "delivered_events": 2,
+        "delivered_counters": 2,
+        "refusals": 0,
+        "duplicates": 0,
+        "eval_skips": {
+          "min_gap": 7,
+          "eval_not_due": 197,
+          "not_enough_messages": 72,
+          "direct_address_seen": 1,
+          "no_opportunity": 1,
+          "semantic_eval_unavailable": 1
+        },
+        "errors": 0,
+        "diagnostics": 0,
+        "latency_seconds": {
+          "p50": null,
+          "max": null,
+          "samples": 0
+        },
+        "last": {
+          "scan_ts": 0,
+          "opportunity_ts": 1792328259,
+          "decision_ts": 1792328263,
+          "delivered_ts": 1792328263,
+          "send_attempt_ts": 0
+        },
+        "decisions_recent": [
+          {
+            "ts": 1792328263,
+            "action": "reply",
+            "outcome": "success",
+            "reason_code": "default",
+            "reason_label": "решение молчать по умолчанию (уместность не подтверждена)",
+            "intent_id": "",
+            "stage": "new_message"
+          },
+          {
+            "ts": 1792314766,
+            "action": "reply",
+            "outcome": "success",
+            "reason_code": "default",
+            "reason_label": "решение молчать по умолчанию (уместность не подтверждена)",
+            "intent_id": "",
+            "stage": "new_message"
+          },
+          {
+            "ts": 1792297812,
+            "action": "reply",
+            "outcome": "silent",
+            "reason_code": "default",
+            "reason_label": "решение молчать по умолчанию (уместность не подтверждена)",
+            "intent_id": "",
+            "stage": "new_message"
+          },
+          {
+            "ts": 1792276535,
+            "action": "reply",
+            "outcome": "silent",
+            "reason_code": "default",
+            "reason_label": "решение молчать по умолчанию (уместность не подтверждена)",
+            "intent_id": "",
+            "stage": "new_message"
+          }
+        ],
+        "refusals_recent": [],
+        "sends": [
+          {
+            "ts": 1792328263,
+            "message_id": 1165152,
+            "correlation_id": "5d4a9fd1db07436b",
+            "chars": 59,
+            "output_kind": "initiative_reply",
+            "delivery_status": "delivered",
+            "core_revision": "r1.040581a3b4b0",
+            "style_policy_revision": "g8.fe503bd7f9d1",
+            "identity_revision": "749629b618170b66",
+            "manifest_id": "65a048e41af1f0ec",
+            "composer": "on",
+            "ledger_output_id": 443
+          },
+          {
+            "ts": 1792314766,
+            "message_id": 1164703,
+            "correlation_id": "8d744167326d4720",
+            "chars": 186,
+            "output_kind": "initiative_reply",
+            "delivery_status": "delivered",
+            "core_revision": "r1.040581a3b4b0",
+            "style_policy_revision": "g8.fe503bd7f9d1",
+            "identity_revision": "749629b618170b66",
+            "manifest_id": "2085440d6913135c",
+            "composer": "on",
+            "ledger_output_id": 431
+          }
+        ]
+      },
+      "activity": {
+        "state": "ok",
+        "level": "ok",
+        "title": "Инициатива доставляется",
+        "warning": "",
+        "recommendation": "",
+        "reasons": [
+          {
+            "reason_code": "eval_not_due",
+            "label": "интервал между проверками ещё не прошёл",
+            "count": 197
+          },
+          {
+            "reason_code": "not_enough_messages",
+            "label": "в чате пока мало новых сообщений",
+            "count": 72
+          },
+          {
+            "reason_code": "min_gap",
+            "label": "пауза после последней инициативы бота",
+            "count": 7
+          },
+          {
+            "reason_code": "default",
+            "label": "решение молчать по умолчанию (уместность не подтверждена)",
+            "count": 2
+          },
+          {
+            "reason_code": "direct_address_seen",
+            "label": "в окне было обращение к боту",
+            "count": 1
+          }
+        ],
+        "live_messages": 756,
+        "thresholds": {
+          "live_messages_busy": 2000,
+          "silent_streak": 3
+        },
+        "health": {
+          "heartbeat_ok": true,
+          "last_tick_ts": 1792331705,
+          "last_tick_status": "completed",
+          "jobs_processed": 280,
+          "note": "heartbeat≠outcome: тики и прогоны не являются отправкой"
+        },
+        "counters": {
+          "scans": 280,
+          "observed": 48525,
+          "opportunities": 4,
+          "delivered": 2,
+          "silent": 0
+        },
+        "silent_streak": 0
+      },
+      "gates": {
+        "blocked_now": true,
+        "blocked_count": 2,
+        "warn_count": 0,
+        "items": [
+          {
+            "gate": "master",
+            "status": "pass",
+            "reason_code": "",
+            "label": "Наблюдатель инициативы включён",
+            "value": null,
+            "limit": null,
+            "unit": "none"
+          },
+          {
+            "gate": "chat_kind",
+            "status": "pass",
+            "reason_code": "",
+            "label": "Групповой чат",
+            "value": null,
+            "limit": null,
+            "unit": "none"
+          },
+          {
+            "gate": "chat_scope",
+            "status": "pass",
+            "reason_code": "",
+            "label": "Инициатива разрешена в этом чате",
+            "value": null,
+            "limit": null,
+            "unit": "none"
+          },
+          {
+            "gate": "live_context",
+            "status": "pass",
+            "reason_code": "",
+            "label": "Живых сообщений за 24ч: 756",
+            "value": 756,
+            "limit": 1,
+            "unit": "count"
+          },
+          {
+            "gate": "pending",
+            "status": "pass",
+            "reason_code": "",
+            "label": "Накоплено сообщений: 126 из 8",
+            "value": 126,
+            "limit": 8,
+            "unit": "count"
+          },
+          {
+            "gate": "eval_interval",
+            "status": "block",
+            "reason_code": "eval_not_due",
+            "label": "С прошлой проверки: 881 с (интервал 2700 с)",
+            "value": 881,
+            "limit": 2700,
+            "unit": "s"
+          },
+          {
+            "gate": "anti_flood",
+            "status": "pass",
+            "reason_code": "",
+            "label": "С последнего вывода бота: 2731 с (анти-флуд 300 с)",
+            "value": 2731,
+            "limit": 300,
+            "unit": "s"
+          },
+          {
+            "gate": "min_gap",
+            "status": "block",
+            "reason_code": "min_gap",
+            "label": "С последней инициативы бота: 3724 с (пауза 7200 с)",
+            "value": 3724,
+            "limit": 7200,
+            "unit": "s"
+          },
+          {
+            "gate": "day_cap",
+            "status": "pass",
+            "reason_code": "",
+            "label": "Отправлено инициатив в окне: 2 из 6",
+            "value": 2,
+            "limit": 6,
+            "unit": "count"
+          },
+          {
+            "gate": "context_dedup",
+            "status": "pass",
+            "reason_code": "",
+            "label": "Свежих окон в дедуп-кольце: 4",
+            "value": 4,
+            "limit": 16,
+            "unit": "count"
+          },
+          {
+            "gate": "eval_budget",
+            "status": "pass",
+            "reason_code": "",
+            "label": "Оценок израсходовано сегодня: 4 из 12",
+            "value": 4,
+            "limit": 12,
+            "unit": "count"
+          },
+          {
+            "gate": "llm",
+            "status": "pass",
+            "reason_code": "",
+            "label": "Оценщик доступен",
+            "value": null,
+            "limit": null,
+            "unit": "none"
+          },
+          {
+            "gate": "writer",
+            "status": "pass",
+            "reason_code": "",
+            "label": "Писатель доступен",
+            "value": null,
+            "limit": null,
+            "unit": "none"
+          },
+          {
+            "gate": "subscription",
+            "status": "n/a",
+            "reason_code": "",
+            "label": "Права бота на отправку проверяются при отправке",
+            "value": null,
+            "limit": null,
+            "unit": "none"
+          }
+        ],
+        "state": {
+          "pending": 126,
+          "last_eval_age_seconds": 881,
+          "sent_in_window": 2,
+          "eval_used_today": 4,
+          "last_bot_output_age_seconds": 2731,
+          "last_initiative_output_age_seconds": 3724,
+          "cursor_lag_messages": 7,
+          "live_messages_24h": 756
+        },
+        "effective": {
+          "profile": "normal",
+          "min_gap_seconds": 7200,
+          "max_replies_per_day": 6,
+          "eval_min_interval_seconds": 2700,
+          "eval_min_messages": 8,
+          "eval_llm_budget_per_day": 12,
+          "max_replies_per_topic": 1,
+          "day_window_seconds": 86400
+        },
+        "soft_targets": {
+          "replies_per_day": 0,
+          "observation_interval_seconds": 0,
+          "active": false,
+          "bounds": "мягкая цель влияет только на паузу между инициативами и на частоту проверок окна; дневной лимит, дедуп контекста и тем, бюджет оценок, recheck и право промолчать не отключаются",
+          "floors": {
+            "observation_interval_seconds": 600,
+            "eval_min_messages": 4,
+            "min_gap_seconds": 1800
+          }
+        },
+        "easing": {
+          "observation": false,
+          "min_gap": false
+        },
+        "day_goal": {}
+      },
+      "decisions": [
+        {
+          "ts": 1792328263,
+          "action": "reply",
+          "outcome": "success",
+          "reason_code": "default",
+          "reason_label": "решение молчать по умолчанию (уместность не подтверждена)",
+          "intent_id": "",
+          "stage": "new_message"
+        },
+        {
+          "ts": 1792314766,
+          "action": "reply",
+          "outcome": "success",
+          "reason_code": "default",
+          "reason_label": "решение молчать по умолчанию (уместность не подтверждена)",
+          "intent_id": "",
+          "stage": "new_message"
+        },
+        {
+          "ts": 1792297812,
+          "action": "reply",
+          "outcome": "silent",
+          "reason_code": "default",
+          "reason_label": "решение молчать по умолчанию (уместность не подтверждена)",
+          "intent_id": "",
+          "stage": "new_message"
+        },
+        {
+          "ts": 1792276535,
+          "action": "reply",
+          "outcome": "silent",
+          "reason_code": "default",
+          "reason_label": "решение молчать по умолчанию (уместность не подтверждена)",
+          "intent_id": "",
+          "stage": "new_message"
+        }
+      ],
+      "refusals": [],
+      "sends": [
+        {
+          "ts": 1792328263,
+          "message_id": 1165152,
+          "correlation_id": "5d4a9fd1db07436b",
+          "chars": 59,
+          "output_kind": "initiative_reply",
+          "delivery_status": "delivered",
+          "core_revision": "r1.040581a3b4b0",
+          "style_policy_revision": "g8.fe503bd7f9d1",
+          "identity_revision": "749629b618170b66",
+          "manifest_id": "65a048e41af1f0ec",
+          "composer": "on",
+          "ledger_output_id": 443
+        },
+        {
+          "ts": 1792314766,
+          "message_id": 1164703,
+          "correlation_id": "8d744167326d4720",
+          "chars": 186,
+          "output_kind": "initiative_reply",
+          "delivery_status": "delivered",
+          "core_revision": "r1.040581a3b4b0",
+          "style_policy_revision": "g8.fe503bd7f9d1",
+          "identity_revision": "749629b618170b66",
+          "manifest_id": "2085440d6913135c",
+          "composer": "on",
+          "ledger_output_id": 431
+        }
+      ],
+      "funnel": {
+        "available": true,
+        "job": {
+          "status": "completed",
+          "reason_code": null,
+          "created_at": 1792331694,
+          "updated_at": 1792331705,
+          "finished_at": 1792331705,
+          "counters": {
+            "passes": 844,
+            "observed": 147001,
+            "eligible": 147001,
+            "scan_skipped": 21599,
+            "evals": 6,
+            "opportunities": 4,
+            "silent_decisions": 2,
+            "intents_created": 0,
+            "sent": 2,
+            "react_decisions": 0,
+            "writer_unavailable": 0,
+            "eval_unavailable": 0,
+            "errors": 0,
+            "scan_anchored": 1,
+            "eval_skips": {
+              "min_gap": 8,
+              "eval_not_due": 760,
+              "not_enough_messages": 72,
+              "direct_address_seen": 1,
+              "no_opportunity": 1,
+              "semantic_eval_unavailable": 1
+            }
+          }
+        },
+        "liveness": {
+          "ts": 1792331705,
+          "status": "completed",
+          "observed": 0,
+          "opportunities": 0
+        },
+        "events": {
+          "24h": {
+            "initiative_observer_scan": 0,
+            "initiative_opportunity": 5,
+            "initiative_decided": 4,
+            "initiative_writer_generated": 2,
+            "initiative_writer_unavailable": 0,
+            "initiative_recheck_passed": 0,
+            "initiative_sent": 2,
+            "initiative_observer_diagnostic": 0
+          },
+          "7d": {
+            "initiative_observer_scan": 0,
+            "initiative_opportunity": 5,
+            "initiative_decided": 4,
+            "initiative_writer_generated": 2,
+            "initiative_writer_unavailable": 0,
+            "initiative_recheck_passed": 0,
+            "initiative_sent": 2,
+            "initiative_observer_diagnostic": 0
+          }
+        },
+        "chat_id": -1002661910336
+      },
+      "engine": {
+        "writer": "direct_l2",
+        "llm_available": true,
+        "writer_available": true
+      }
+    }
+  },
+  "vitality_pet": {
+    "status": 200,
+    "json": {
+      "available": true,
+      "now_ts": 1792331989,
+      "hours": 24,
+      "chat_id": -1004482340693,
+      "chat_scoped": true,
+      "scope": {
+        "master": true,
+        "chat_enabled": true
+      },
+      "windows": {
+        "24h": {
+          "hours": 24,
+          "coverage": "full",
+          "coverage_note": "история прогонов наблюдателя дотягивается до начала окна",
+          "scans": 280,
+          "scan_events": 0,
+          "observed": 48525,
+          "eligible": 48525,
+          "evals": 6,
+          "opportunities": 4,
+          "opportunities_by_kind": {},
+          "decisions": {
+            "say": 0,
+            "react": 0,
+            "silent": 0,
+            "cancelled": 0,
+            "other": 0
+          },
+          "silence_by_reason": [],
+          "intents_created": 0,
+          "writer_generated": 0,
+          "writer_unavailable": 0,
+          "send_attempts": 0,
+          "delivered": 2,
+          "delivered_ledger": 0,
+          "delivered_events": 0,
+          "delivered_counters": 2,
+          "refusals": 0,
+          "duplicates": 0,
+          "eval_skips": {
+            "min_gap": 7,
+            "eval_not_due": 197,
+            "not_enough_messages": 72,
+            "direct_address_seen": 1,
+            "no_opportunity": 1,
+            "semantic_eval_unavailable": 1
+          },
+          "errors": 0,
+          "diagnostics": 0,
+          "latency_seconds": {
+            "p50": null,
+            "max": null,
+            "samples": 0
+          },
+          "last": {
+            "scan_ts": 0,
+            "opportunity_ts": 0,
+            "decision_ts": 0,
+            "delivered_ts": 0,
+            "send_attempt_ts": 0
+          },
+          "decisions_recent": [],
+          "refusals_recent": [],
+          "sends": []
+        }
+      },
+      "window": {
+        "hours": 24,
+        "coverage": "full",
+        "coverage_note": "история прогонов наблюдателя дотягивается до начала окна",
+        "scans": 280,
+        "scan_events": 0,
+        "observed": 48525,
+        "eligible": 48525,
+        "evals": 6,
+        "opportunities": 4,
+        "opportunities_by_kind": {},
+        "decisions": {
+          "say": 0,
+          "react": 0,
+          "silent": 0,
+          "cancelled": 0,
+          "other": 0
+        },
+        "silence_by_reason": [],
+        "intents_created": 0,
+        "writer_generated": 0,
+        "writer_unavailable": 0,
+        "send_attempts": 0,
+        "delivered": 2,
+        "delivered_ledger": 0,
+        "delivered_events": 0,
+        "delivered_counters": 2,
+        "refusals": 0,
+        "duplicates": 0,
+        "eval_skips": {
+          "min_gap": 7,
+          "eval_not_due": 197,
+          "not_enough_messages": 72,
+          "direct_address_seen": 1,
+          "no_opportunity": 1,
+          "semantic_eval_unavailable": 1
+        },
+        "errors": 0,
+        "diagnostics": 0,
+        "latency_seconds": {
+          "p50": null,
+          "max": null,
+          "samples": 0
+        },
+        "last": {
+          "scan_ts": 0,
+          "opportunity_ts": 0,
+          "decision_ts": 0,
+          "delivered_ts": 0,
+          "send_attempt_ts": 0
+        },
+        "decisions_recent": [],
+        "refusals_recent": [],
+        "sends": []
+      },
+      "activity": {
+        "state": "ok",
+        "level": "ok",
+        "title": "Инициатива доставляется",
+        "warning": "",
+        "recommendation": "",
+        "reasons": [
+          {
+            "reason_code": "eval_not_due",
+            "label": "интервал между проверками ещё не прошёл",
+            "count": 197
+          },
+          {
+            "reason_code": "not_enough_messages",
+            "label": "в чате пока мало новых сообщений",
+            "count": 72
+          },
+          {
+            "reason_code": "min_gap",
+            "label": "пауза после последней инициативы бота",
+            "count": 7
+          },
+          {
+            "reason_code": "direct_address_seen",
+            "label": "в окне было обращение к боту",
+            "count": 1
+          },
+          {
+            "reason_code": "no_opportunity",
+            "label": "повода для инициативы не нашлось",
+            "count": 1
+          }
+        ],
+        "live_messages": 108,
+        "thresholds": {
+          "live_messages_busy": 2000,
+          "silent_streak": 3
+        },
+        "health": {
+          "heartbeat_ok": true,
+          "last_tick_ts": 1792331705,
+          "last_tick_status": "completed",
+          "jobs_processed": 280,
+          "note": "heartbeat≠outcome: тики и прогоны не являются отправкой"
+        },
+        "counters": {
+          "scans": 280,
+          "observed": 48525,
+          "opportunities": 4,
+          "delivered": 2,
+          "silent": 0
+        },
+        "silent_streak": 0
+      },
+      "gates": {
+        "blocked_now": true,
+        "blocked_count": 2,
+        "warn_count": 0,
+        "items": [
+          {
+            "gate": "master",
+            "status": "pass",
+            "reason_code": "",
+            "label": "Наблюдатель инициативы включён",
+            "value": null,
+            "limit": null,
+            "unit": "none"
+          },
+          {
+            "gate": "chat_kind",
+            "status": "pass",
+            "reason_code": "",
+            "label": "Групповой чат",
+            "value": null,
+            "limit": null,
+            "unit": "none"
+          },
+          {
+            "gate": "chat_scope",
+            "status": "pass",
+            "reason_code": "",
+            "label": "Инициатива разрешена в этом чате",
+            "value": null,
+            "limit": null,
+            "unit": "none"
+          },
+          {
+            "gate": "live_context",
+            "status": "pass",
+            "reason_code": "",
+            "label": "Живых сообщений за 24ч: 108",
+            "value": 108,
+            "limit": 1,
+            "unit": "count"
+          },
+          {
+            "gate": "pending",
+            "status": "block",
+            "reason_code": "not_enough_messages",
+            "label": "Накоплено сообщений: 0 из 8",
+            "value": 0,
+            "limit": 8,
+            "unit": "count"
+          },
+          {
+            "gate": "eval_interval",
+            "status": "block",
+            "reason_code": "eval_not_due",
+            "label": "С прошлой проверки: 584 с (интервал 2700 с)",
+            "value": 584,
+            "limit": 2700,
+            "unit": "s"
+          },
+          {
+            "gate": "anti_flood",
+            "status": "pass",
+            "reason_code": "",
+            "label": "С последнего вывода бота: 184033 с (анти-флуд 300 с)",
+            "value": 184033,
+            "limit": 300,
+            "unit": "s"
+          },
+          {
+            "gate": "min_gap",
+            "status": "pass",
+            "reason_code": "",
+            "label": "Инициатив бот ещё не отправлял",
+            "value": null,
+            "limit": 7200,
+            "unit": "s"
+          },
+          {
+            "gate": "day_cap",
+            "status": "pass",
+            "reason_code": "",
+            "label": "Отправлено инициатив в окне: 0 из 6",
+            "value": 0,
+            "limit": 6,
+            "unit": "count"
+          },
+          {
+            "gate": "context_dedup",
+            "status": "pass",
+            "reason_code": "",
+            "label": "Свежих окон в дедуп-кольце: 1",
+            "value": 1,
+            "limit": 16,
+            "unit": "count"
+          },
+          {
+            "gate": "eval_budget",
+            "status": "pass",
+            "reason_code": "",
+            "label": "Оценок израсходовано сегодня: 1 из 12",
+            "value": 1,
+            "limit": 12,
+            "unit": "count"
+          },
+          {
+            "gate": "llm",
+            "status": "pass",
+            "reason_code": "",
+            "label": "Оценщик доступен",
+            "value": null,
+            "limit": null,
+            "unit": "none"
+          },
+          {
+            "gate": "writer",
+            "status": "pass",
+            "reason_code": "",
+            "label": "Писатель доступен",
+            "value": null,
+            "limit": null,
+            "unit": "none"
+          },
+          {
+            "gate": "subscription",
+            "status": "n/a",
+            "reason_code": "",
+            "label": "Права бота на отправку проверяются при отправке",
+            "value": null,
+            "limit": null,
+            "unit": "none"
+          }
+        ],
+        "state": {
+          "pending": 0,
+          "last_eval_age_seconds": 584,
+          "sent_in_window": 0,
+          "eval_used_today": 1,
+          "last_bot_output_age_seconds": 184033,
+          "last_initiative_output_age_seconds": null,
+          "cursor_lag_messages": 15,
+          "live_messages_24h": 108
+        },
+        "effective": {
+          "profile": "normal",
+          "min_gap_seconds": 7200,
+          "max_replies_per_day": 6,
+          "eval_min_interval_seconds": 2700,
+          "eval_min_messages": 8,
+          "eval_llm_budget_per_day": 12,
+          "max_replies_per_topic": 1,
+          "day_window_seconds": 86400
+        },
+        "soft_targets": {
+          "replies_per_day": 0,
+          "observation_interval_seconds": 0,
+          "active": false,
+          "bounds": "мягкая цель влияет только на паузу между инициативами и на частоту проверок окна; дневной лимит, дедуп контекста и тем, бюджет оценок, recheck и право промолчать не отключаются",
+          "floors": {
+            "observation_interval_seconds": 600,
+            "eval_min_messages": 4,
+            "min_gap_seconds": 1800
+          }
+        },
+        "easing": {
+          "observation": false,
+          "min_gap": false
+        },
+        "day_goal": {}
+      },
+      "decisions": [],
+      "refusals": [],
+      "sends": [],
+      "funnel": {
+        "available": true,
+        "job": {
+          "status": "completed",
+          "reason_code": null,
+          "created_at": 1792331694,
+          "updated_at": 1792331705,
+          "finished_at": 1792331705,
+          "counters": {
+            "passes": 844,
+            "observed": 147001,
+            "eligible": 147001,
+            "scan_skipped": 21599,
+            "evals": 6,
+            "opportunities": 4,
+            "silent_decisions": 2,
+            "intents_created": 0,
+            "sent": 2,
+            "react_decisions": 0,
+            "writer_unavailable": 0,
+            "eval_unavailable": 0,
+            "errors": 0,
+            "scan_anchored": 1,
+            "eval_skips": {
+              "min_gap": 8,
+              "eval_not_due": 760,
+              "not_enough_messages": 72,
+              "direct_address_seen": 1,
+              "no_opportunity": 1,
+              "semantic_eval_unavailable": 1
+            }
+          }
+        },
+        "liveness": {
+          "ts": 1792331705,
+          "status": "completed",
+          "observed": 0,
+          "opportunities": 0
+        },
+        "events": {
+          "24h": {
+            "initiative_observer_scan": 0,
+            "initiative_opportunity": 0,
+            "initiative_decided": 0,
+            "initiative_writer_generated": 0,
+            "initiative_writer_unavailable": 0,
+            "initiative_recheck_passed": 0,
+            "initiative_sent": 0,
+            "initiative_observer_diagnostic": 0
+          },
+          "7d": {
+            "initiative_observer_scan": 0,
+            "initiative_opportunity": 0,
+            "initiative_decided": 0,
+            "initiative_writer_generated": 0,
+            "initiative_writer_unavailable": 0,
+            "initiative_recheck_passed": 0,
+            "initiative_sent": 0,
+            "initiative_observer_diagnostic": 0
+          }
+        },
+        "chat_id": -1004482340693
+      },
+      "engine": {
+        "writer": "direct_l2",
+        "llm_available": true,
+        "writer_available": true
+      }
+    }
+  },
+  "nostalgia_log_work": {
+    "status": 200,
+    "json": [
+      {
+        "id": 2,
+        "chat_id": -1002661910336,
+        "ts": 1789787010,
+        "kind": "year_back",
+        "fact_id": null,
+        "status": "sent",
+        "meta": {
+          "reason": "sent",
+          "candidate": "year_back",
+          "candidate_text": "[Troy Kawasaki 2025-09-19]: ебатт он ему прыщ на пузе нарисовал"
+        }
+      },
+      {
+        "id": 1,
+        "chat_id": -1002661910336,
+        "ts": 1789269398,
+        "kind": "year_back",
+        "fact_id": null,
+        "status": "sent",
+        "meta": {
+          "reason": "sent",
+          "candidate": "year_back",
+          "candidate_text": "[Гипербореец 2025-09-13]: @Alan_Z Леха, ты же угораешь по всякой хуйне типо видимокарт? Ес пойти и щас купить пеку в такой связке, 32 гб оперативной памяти, процессор Intel Core i5-14600KF, и карта GeForce RTX 5060 Ti VENTUS 3X OC 8 ГБ норм пойдет? Мат.плата там и остальное уже опционально"
+        }
+      }
+    ]
+  },
+  "nostalgia_log_pet": {
+    "status": 200,
+    "json": [
+      {
+        "id": 216,
+        "chat_id": -1004482340693,
+        "ts": 1792328255,
+        "kind": "none",
+        "fact_id": null,
+        "status": "budget_skip",
+        "meta": {
+          "reason": "gate_nostalgia"
+        }
+      },
+      {
+        "id": 215,
+        "chat_id": -1004482340693,
+        "ts": 1792324415,
+        "kind": "none",
+        "fact_id": null,
+        "status": "budget_skip",
+        "meta": {
+          "reason": "gate_nostalgia"
+        }
+      },
+      {
+        "id": 214,
+        "chat_id": -1004482340693,
+        "ts": 1792320575,
+        "kind": "none",
+        "fact_id": null,
+        "status": "budget_skip",
+        "meta": {
+          "reason": "gate_nostalgia"
+        }
+      },
+      {
+        "id": 213,
+        "chat_id": -1004482340693,
+        "ts": 1792316735,
+        "kind": "none",
+        "fact_id": null,
+        "status": "budget_skip",
+        "meta": {
+          "reason": "gate_nostalgia"
+        }
+      },
+      {
+        "id": 212,
+        "chat_id": -1004482340693,
+        "ts": 1792312895,
+        "kind": "none",
+        "fact_id": null,
+        "status": "budget_skip",
+        "meta": {
+          "reason": "gate_nostalgia"
+        }
+      },
+      {
+        "id": 211,
+        "chat_id": -1004482340693,
+        "ts": 1792308607,
+        "kind": "none",
+        "fact_id": null,
+        "status": "budget_skip",
+        "meta": {
+          "reason": "gate_nostalgia"
+        }
+      },
+      {
+        "id": 210,
+        "chat_id": -1004482340693,
+        "ts": 1792305007,
+        "kind": "none",
+        "fact_id": null,
+        "status": "budget_skip",
+        "meta": {
+          "reason": "gate_nostalgia"
+        }
+      },
+      {
+        "id": 209,
+        "chat_id": -1004482340693,
+        "ts": 1792301407,
+        "kind": "none",
+        "fact_id": null,
+        "status": "budget_skip",
+        "meta": {
+          "reason": "gate_nostalgia"
+        }
+      },
+      {
+        "id": 208,
+        "chat_id": -1004482340693,
+        "ts": 1792297807,
+        "kind": "none",
+        "fact_id": null,
+        "status": "budget_skip",
+        "meta": {
+          "reason": "gate_nostalgia"
+        }
+      },
+      {
+        "id": 207,
+        "chat_id": -1004482340693,
+        "ts": 1792294207,
+        "kind": "none",
+        "fact_id": null,
+        "status": "budget_skip",
+        "meta": {
+          "reason": "gate_nostalgia"
+        }
+      }
+    ]
+  },
+  "cognition_work": {
+    "status": 200,
+    "json": {
+      "dream": {
+        "running": false,
+        "enabled": true,
+        "effective": true,
+        "active": false,
+        "active_until": null,
+        "manual": false,
+        "last_run_at": 1792281269,
+        "next_wake_at": 1792364400,
+        "state": "sleep",
+        "budget": {
+          "distilled_today": 9,
+          "distilled_limit": 60,
+          "tokens_today": 8564,
+          "tokens_limit": 300000
+        }
+      },
+      "deep_sleep": {
+        "running": false,
+        "enabled": true,
+        "active": false,
+        "active_until": null,
+        "manual": false,
+        "last_run_at": 1791594942,
+        "next_run_at": 1792364400
+      },
+      "lore": {
+        "last_inject_at": null
+      },
+      "nostalgia": {
+        "mode": "silence",
+        "silence_left_min": 45,
+        "silence_min_total": 45,
+        "cooldown_left_h": 0,
+        "cooldown_h_total": 12,
+        "active": true,
+        "scenario": "active"
+      },
+      "source": {
+        "dream": "global",
+        "deep_sleep": "chat"
+      },
+      "generated_at": 1792331992
+    }
+  },
+  "cognition_pet": {
+    "status": 200,
+    "json": {
+      "dream": {
+        "running": false,
+        "enabled": true,
+        "effective": false,
+        "active": false,
+        "active_until": null,
+        "manual": false,
+        "last_run_at": 1792281269,
+        "next_wake_at": 1792364400,
+        "state": "sleep",
+        "budget": {
+          "distilled_today": 9,
+          "distilled_limit": 60,
+          "tokens_today": 8564,
+          "tokens_limit": 300000
+        }
+      },
+      "deep_sleep": {
+        "running": false,
+        "enabled": false,
+        "active": false,
+        "active_until": null,
+        "manual": false,
+        "last_run_at": 1791594942,
+        "next_run_at": 1792364400
+      },
+      "lore": {
+        "last_inject_at": null
+      },
+      "nostalgia": {
+        "mode": "silence",
+        "silence_left_min": 29,
+        "silence_min_total": 45,
+        "cooldown_left_h": 0,
+        "cooldown_h_total": 12,
+        "active": true,
+        "scenario": "active"
+      },
+      "source": {
+        "dream": "global",
+        "deep_sleep": "global"
+      },
+      "generated_at": 1792331993
+    }
+  },
+  "gates_work": {
+    "status": 200,
+    "json": {
+      "chat_id": -1002661910336,
+      "opt_in": false,
+      "gates": {
+        "dream": true,
+        "lore_auto": true,
+        "nostalgia": true,
+        "permsoc": true,
+        "permsoc_reactions": true,
+        "permsoc_schedule": true
+      },
+      "who_can_toggle": {
+        "dream": "global",
+        "lore_auto": "global",
+        "nostalgia": "global",
+        "permsoc": "global",
+        "permsoc_reactions": "global",
+        "permsoc_schedule": "global"
+      },
+      "updated_at": "2026-10-18T13:52:50.317222+00:00"
+    }
+  },
+  "gates_pet": {
+    "status": 200,
+    "json": {
+      "chat_id": -1004482340693,
+      "opt_in": false,
+      "gates": {
+        "dream": false,
+        "lore_auto": false,
+        "nostalgia": true,
+        "permsoc": false,
+        "permsoc_reactions": true,
+        "permsoc_schedule": true
+      },
+      "who_can_toggle": {
+        "dream": "global",
+        "lore_auto": "global",
+        "nostalgia": "global",
+        "permsoc": "global",
+        "permsoc_reactions": "global",
+        "permsoc_schedule": "global"
+      },
+      "updated_at": "2026-10-18T13:59:13.135888+00:00"
+    }
+  },
+  "finished_utc": "2026-10-18T13:59:55Z"
+}

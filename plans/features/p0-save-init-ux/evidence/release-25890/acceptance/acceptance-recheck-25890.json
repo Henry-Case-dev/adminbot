@@ -1,0 +1,279 @@
+{
+  "probe": "acceptance-25890",
+  "lane": "ACCEPTANCE-90",
+  "prod": "https://admin-bot.duckdns.org",
+  "target_version": "2.58.90",
+  "target_commit": "3b02366e",
+  "t0_utc": "2026-10-18T13:34:23Z",
+  "chats": {
+    "work": -1002661910336,
+    "pet": -1004482340693
+  },
+  "steps": [
+    {
+      "id": "RECHECK_state_equals_full_cycle_baseline",
+      "ok": true,
+      "detail": {
+        "diff_significant": {},
+        "diff_provenance_only": {},
+        "note": "только GET; сверка с baseline артефакта полного цикла"
+      }
+    }
+  ],
+  "failures": [],
+  "mode": "recheck",
+  "started_utc": "2026-10-18T14:04:38Z",
+  "prod_health": {
+    "status": "ok",
+    "version": "2.58.90"
+  },
+  "baseline_source": "acceptance-25890.json (полный цикл, mode=full)",
+  "baseline": {
+    "core_global": {
+      "inheritance": "global",
+      "scope": "global",
+      "level": "full",
+      "source": "global",
+      "reason": "owner_setting",
+      "full_chars": 2835,
+      "compact_chars": 1934
+    },
+    "core_work": {
+      "inheritance": "global",
+      "scope": "chat",
+      "level": "full",
+      "source": "global",
+      "reason": "owner_setting",
+      "full_chars": 2835,
+      "compact_chars": 1934
+    },
+    "core_pet": {
+      "inheritance": "global",
+      "scope": "chat",
+      "level": "full",
+      "source": "global",
+      "reason": "owner_setting",
+      "full_chars": 2835,
+      "compact_chars": 1934
+    },
+    "expr_global": {
+      "inheritance": "factory_default",
+      "global_present": false,
+      "chat_present": false,
+      "values": {
+        "wit": "inherit",
+        "sharpness": "inherit",
+        "profanity": "inherit",
+        "verbosity": "inherit"
+      },
+      "enabled": true,
+      "rendered_chars": 0
+    },
+    "expr_work": {
+      "inheritance": "factory_default",
+      "global_present": false,
+      "chat_present": false,
+      "values": {
+        "wit": "inherit",
+        "sharpness": "inherit",
+        "profanity": "inherit",
+        "verbosity": "inherit"
+      },
+      "enabled": true,
+      "rendered_chars": 0
+    },
+    "expr_pet": {
+      "inheritance": "factory_default",
+      "global_present": false,
+      "chat_present": false,
+      "values": {
+        "wit": "inherit",
+        "sharpness": "inherit",
+        "profanity": "inherit",
+        "verbosity": "inherit"
+      },
+      "enabled": true,
+      "rendered_chars": 0
+    },
+    "style_global": {
+      "revision": "g8.fe503bd7f9d1",
+      "source": "global",
+      "rules": [],
+      "soft": 0,
+      "inheritance": "global",
+      "global_revision": 8,
+      "chat_revision": 0
+    },
+    "style_work": {
+      "revision": "g8.fe503bd7f9d1",
+      "source": "global",
+      "rules": [],
+      "soft": 0,
+      "inheritance": "global",
+      "global_revision": 8,
+      "chat_revision": 0
+    },
+    "style_pet": {
+      "revision": "g8.fe503bd7f9d1",
+      "source": "global",
+      "rules": [],
+      "soft": 0,
+      "inheritance": "global",
+      "global_revision": 8,
+      "chat_revision": 0
+    },
+    "humor_global": {
+      "craft_enabled": true,
+      "craft_source": "global",
+      "craft_revision": 2,
+      "disabled": []
+    },
+    "humor_work": {
+      "craft_enabled": true,
+      "craft_source": "global",
+      "craft_revision": 2,
+      "disabled": []
+    },
+    "learning_work": {
+      "paused": false,
+      "available": true,
+      "enabled": true
+    },
+    "gates_work": {
+      "nostalgia": true,
+      "updated_at": "2026-10-18T14:01:44.839644+00:00",
+      "opt_in": false
+    },
+    "gates_pet": {
+      "nostalgia": true,
+      "updated_at": "2026-10-18T13:59:13.135888+00:00",
+      "opt_in": false
+    }
+  },
+  "recheck_snapshot": {
+    "core_global": {
+      "inheritance": "global",
+      "scope": "global",
+      "level": "full",
+      "source": "global",
+      "reason": "owner_setting",
+      "full_chars": 2835,
+      "compact_chars": 1934
+    },
+    "core_work": {
+      "inheritance": "global",
+      "scope": "chat",
+      "level": "full",
+      "source": "global",
+      "reason": "owner_setting",
+      "full_chars": 2835,
+      "compact_chars": 1934
+    },
+    "core_pet": {
+      "inheritance": "global",
+      "scope": "chat",
+      "level": "full",
+      "source": "global",
+      "reason": "owner_setting",
+      "full_chars": 2835,
+      "compact_chars": 1934
+    },
+    "expr_global": {
+      "inheritance": "factory_default",
+      "global_present": false,
+      "chat_present": false,
+      "values": {
+        "wit": "inherit",
+        "sharpness": "inherit",
+        "profanity": "inherit",
+        "verbosity": "inherit"
+      },
+      "enabled": true,
+      "rendered_chars": 0
+    },
+    "expr_work": {
+      "inheritance": "factory_default",
+      "global_present": false,
+      "chat_present": false,
+      "values": {
+        "wit": "inherit",
+        "sharpness": "inherit",
+        "profanity": "inherit",
+        "verbosity": "inherit"
+      },
+      "enabled": true,
+      "rendered_chars": 0
+    },
+    "expr_pet": {
+      "inheritance": "factory_default",
+      "global_present": false,
+      "chat_present": false,
+      "values": {
+        "wit": "inherit",
+        "sharpness": "inherit",
+        "profanity": "inherit",
+        "verbosity": "inherit"
+      },
+      "enabled": true,
+      "rendered_chars": 0
+    },
+    "style_global": {
+      "revision": "g8.fe503bd7f9d1",
+      "source": "global",
+      "rules": [],
+      "soft": 0,
+      "inheritance": "global",
+      "global_revision": 8,
+      "chat_revision": 0
+    },
+    "style_work": {
+      "revision": "g8.fe503bd7f9d1",
+      "source": "global",
+      "rules": [],
+      "soft": 0,
+      "inheritance": "global",
+      "global_revision": 8,
+      "chat_revision": 0
+    },
+    "style_pet": {
+      "revision": "g8.fe503bd7f9d1",
+      "source": "global",
+      "rules": [],
+      "soft": 0,
+      "inheritance": "global",
+      "global_revision": 8,
+      "chat_revision": 0
+    },
+    "humor_global": {
+      "craft_enabled": true,
+      "craft_source": "global",
+      "craft_revision": 4,
+      "disabled": []
+    },
+    "humor_work": {
+      "craft_enabled": true,
+      "craft_source": "global",
+      "craft_revision": 4,
+      "disabled": []
+    },
+    "learning_work": {
+      "paused": false,
+      "available": true,
+      "enabled": true
+    },
+    "gates_work": {
+      "nostalgia": true,
+      "updated_at": "2026-10-18T14:03:30.794072+00:00",
+      "opt_in": false
+    },
+    "gates_pet": {
+      "nostalgia": true,
+      "updated_at": "2026-10-18T13:59:13.135888+00:00",
+      "opt_in": false
+    }
+  },
+  "recheck_diff": {},
+  "recheck_diff_significant": {},
+  "recheck_diff_provenance_only": {},
+  "finished_utc": "2026-10-18T14:04:54Z"
+}

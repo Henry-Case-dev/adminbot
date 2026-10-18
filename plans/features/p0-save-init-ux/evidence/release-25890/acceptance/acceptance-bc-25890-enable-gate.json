@@ -1,0 +1,32 @@
+{
+  "probe": "acceptance-bc-25890",
+  "lane": "ACCEPTANCE-90",
+  "t0_utc": "2026-10-18T13:34:23Z",
+  "chats": {
+    "work": -1002661910336,
+    "pet": -1004482340693
+  },
+  "steps": [
+    {
+      "id": "G1_pet_gate_already_on",
+      "ok": true,
+      "detail": {
+        "nostalgia": true
+      }
+    },
+    {
+      "id": "G2_work_gate_untouched",
+      "ok": true,
+      "detail": {
+        "work_nostalgia": true
+      }
+    }
+  ],
+  "mode": "enable-gate",
+  "now_utc": "2026-10-18T13:59:40Z",
+  "prod_health": {
+    "status": "ok",
+    "version": "2.58.90"
+  },
+  "finished_utc": "2026-10-18T13:59:44Z"
+}
