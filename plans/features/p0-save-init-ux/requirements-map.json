@@ -74,13 +74,13 @@
       "source_text_sha256": "f5e284eaf5063d62d488ecd594b9d844ad4c2741866b1432173655479ae13226",
       "source_excerpt": "Снять реальную read-only диагностику production: effective gates, heartbeat, observer ticks, cursor lag, pending, evals,",
       "disposition": "required",
-      "reason": "Закрыто кодом+тестами: цепочка до отправки доказана на реальном pipeline-проводе с fake-Writer (тот же duck-typed контракт из 2 методов, что у реального DirectChatService — прод-тик `memory_maintenance.py:443` передаёт именно его) и fake-ботом (не Telegram): `sent==1`, событие `initiative_sent`, ledger `output_kind='initiative_reply'`; `test_pending_direct_request_stops_observer_initiative` — pending-direct отменяет отправку (`direct_pending`). Публикаций в рабочий чат не выполнялось. VERIFIED (code contract); реальное прод-эхо — postdeploy.",
+      "reason": "Закрыто кодом+тестами: цепочка до отправки доказана на реальном pipeline-проводе с fake-Writer (тот же duck-typed контракт из 2 методов, что у реального DirectChatService — прод-тик `memory_maintenance.py:443` передаёт именно его) и fake-ботом (не Telegram): `sent==1`, событие `initiative_sent`, ledger `output_kind='initiative_reply'`; `test_pending_direct_request_stops_observer_initiative` — pending-direct отменяет отправку (`direct_pending`). Публикаций в рабочий чат не выполнялось. Статус READY_FOR_LIVE: код-контракт доказан, засчитывание завершённым — только после реального прод-эха воронки (postdeploy).",
       "req_id": "P0A-INIT-PROOF",
       "slice": "P0A-INIT",
       "acceptance": "Доказано на реальном pipeline: автономный контур обрабатывает актуальный чат и способен пройти всю цепочку до отправки; зафиксирована воронка до стадии отправки/причины; принудительной бессмысленной публикации нет.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "VERIFIED",
+      "status": "READY_FOR_LIVE",
       "evidence": [
         {
           "candidate_commit": "f0bd29e2777eb78c6d7cabe18eb5ba03111beca6",
