@@ -115,3 +115,46 @@ page errors: []
 ## 4. Остаток до биндинга (без изменений, рутина)
 
 N3: `candidate_commit` + evidence на 9 строк (CFG-02.D, 02A.1–7, CFG-02.AC1); 6 live-строк `preprod` → либо preprod-live до review, либо `postdeploy`+`live_note`+RFL (прецедент CFG-01). Нит N4 (shared-env отказ получает строку сброса по TZ чата) — кандидат на уточнение в 02B/02C, не блокер.
+
+---
+
+# R3 — VERIFY-BIND-CFG-02A: **Needs Fixes** (1 блокер: `CFG-02A.6` = VERIFIED при невыполненной клаузе про обложки; всё остальное в биндинге чисто)
+
+| Поле | Значение |
+|---|---|
+| Коммит биндинга | `ecc1f0ae005d80f982fba6c23b8724f1245ed819` (`docs(cfg): bind CFG-02A to candidate 83ecd202 (B1)`, 3 файла, +500/−25) |
+| Кандидат | `83ecd202659c2e1a30b46f8548b0809e892b77a9` — реальный объект `commit` |
+
+## 1. Состав, дифф, стабильность — чисто
+
+* 3 файла: `evidence/cfg-02a/b1-probe-empty-input.txt` (+11), `evidence/cfg-02a/e2e-log.json` (+154), `requirements-map.json` (+360/−25); все пути под `plans/features/cfg/**`.
+* Дифф карты — **ровно 9 изменённых строк**: CFG-02.D и CFG-02A.1–02A.7 (8 в `items`) + CFG-02.AC1 (1 в `additional_requirements`); на уровне наборов `added/removed = 0` (только замены тех же строк) → **278 из 287 строк не тронуты**.
+* JSON/CRLF стабильны: `loads` + `dumps(ensure_ascii=False, indent=2)` c CRLF-конверсией воспроизводит файл **байт-в-байт** и для новой, и для старой ревизии; все 4 983 строки — CRLF, смешанных окончаний нет; worktree == биндинг-коммит. `deployed_commit` не менялся (`c37b8577…`).
+* `candidate_commit=83ecd202…` (top-level). Примечание: записи CFG-01 сохранили свой `0282fe4b` (роллинг-конвенция карты) — перезапуск `--stage review --slice CFG-01` теперь даст candidate-mismatch; это ожидаемо, не дефект этого биндинга.
+
+## 2. Evidence — 40 записей, 0 проблемных
+
+40 записей на 9 строках (02A.1: 4 · 02A.2: 4 · 02A.3: 8 · 02A.4: 4 · 02A.5: 4 · 02A.6: 3 · 02A.7: 4 · AC1: 4 · 02.D: 5). **Все**: `candidate_commit=83ecd202…`, `artifact_path` существует, `artifact_sha256` совпал, `ref`+`observation` непустые → спот перекрыт полностью.
+
+* `e2e-log.json` (10 909 B, CRLF, парсится): RAW-лог — `console_errors=[]`, `empty_posts_count=0`, `invalid_posts_count=0`, `mobile_no_overflow=true`, `settings_section_visible=true`, `save_posts_count=1`, `facts_value_after_save='2 генераций/сутки'`; 6 скриншотов, 8 posts. Оговорка: `empty_input_value` в RAW = `''` (замер до ре-синка DOM; воспроизвёл и я) — «поле → факту» подтверждено скрином `06` и обоими моими пробниками (восстановление ≤100 мс), ассертов на это поле нет.
+* `b1-probe-empty-input.txt` — provenance-заголовок честен (RAW-вывод живого пробника ревьюера, `probe_empty_input.py`, R2, кандидат 83ecd202; конверсия UTF-16→UTF-8 заявлена); содержимое: `POSTs after EMPTY change: []`, `error elem present: True`, `input DOM value now: 60`, `page errors: []`.
+* `review-cfg-02a.md` (R1+R2) связан в 02A.3/02A.7/02.D; `ui/01..06` — все шесть привязаны и sha-совпадают.
+
+## 3. Статусы — **блокер по CFG-02A.6**
+
+* 6 live-строк (02A.1–5, AC1): `live_required=true`, `live_when=postdeploy`, `live_note` с конкретным сценарием §5.x, статус **READY_FOR_LIVE** (не VERIFIED) ✓.
+* `CFG-02.D` VERIFIED — заслуженно (дефект воспроизведён на базе, фикс+E2E, B1 закрыт) ✓. `CFG-02A.7` VERIFIED — заслуженно (27 тестов песочницы; живые проверки acceptance не требует) ✓.
+* **`CFG-02A.6` = VERIFIED — не заслужено как написано.** Приёмка строки (source L76, `source_excerpt` совпадает): «Все пользовательские пути … учтены; **обложки Summary не расходуют пользовательскую квоту ни при каких настройках**; прежний учёт не сломан». Клауза про обложки сегодня **не выполняется**:
+  `summary_generator.py:3390` → `generate_image_verbose(chat_id=chat_id)` → `_consume_budget(chat_id)` → `worker_budget.consume(scope='chat:<id>', metric=image_calls)`; `_metric_limit` для `image_calls`/chat резолвит **тот же каталожный ключ `limits.image_daily_limit`** → обложки и расходуют пользовательскую квоту, и блокируются ею при `0`. Это признаёт и сам лейн (README §6 R2: «открытая часть … owning-задача CFG-02C»), и CFG-02C-строки (CFG-02C.1/D/B/AC8, ADD-1.T2) стоят PENDING. Итог: строка с непокрытой половиной отмечена VERIFIED — ложное завершение в леджере (гейт этого не видит: метаданные валидны).
+* Прочие 278 строк не тронуты ✓.
+
+**Минимальная коррекция (карту правит не ревьюер):** либо сузить `acceptance` CFG-02A.6 до половины «пользовательские пути» (клауза про обложки уже принадлежит CFG-02C-строкам — ADD-0.2 «не дублируется»), либо вернуть строке не-VERIFIED-статус с явной записью открытой части. После правки — повторный `check --stage review --slice CFG-02A --candidate 83ecd202…` (ожидание 9/0).
+
+## 4. Гейты (мой прогон, verbatim)
+
+* plan → `stage=plan inventory=246 manual=41 scoped=0 errors=0` **EXIT 0**;
+* review `--slice CFG-02A --candidate 83ecd202…` → `stage=review inventory=246 manual=41 scoped=9 errors=0` **EXIT 0**.
+
+## Итог
+
+Биндинг как операция выполнен качественно: дифф локален ровно на 9 строках, форматирование/CRLF/round-trip стабильны, 40/40 evidence-записей валидны, RAW-логи честны, гейты 0 ошибок. **Единственный блокер — семантика статуса `CFG-02A.6`** (VERIFIED при невыполненной клаузе про обложки Summary); правка — одна строка карты, решает PM/связующий лейн.
