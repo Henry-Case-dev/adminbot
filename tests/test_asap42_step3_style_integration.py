@@ -60,6 +60,12 @@ def _run(coro):
 # ── temp-SQLite asyncpg-compatible pool (только нужный SQL-поднабор) ─────────
 
 _SCHEMA = """
+CREATE TABLE IF NOT EXISTS bot_settings (
+    key             TEXT PRIMARY KEY,
+    value           TEXT,
+    category        TEXT,
+    updated_at      TEXT DEFAULT CURRENT_TIMESTAMP
+);
 CREATE TABLE IF NOT EXISTS cover_style_profiles (
     profile_id      TEXT PRIMARY KEY,
     name            TEXT NOT NULL,

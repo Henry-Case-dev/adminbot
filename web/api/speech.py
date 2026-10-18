@@ -31,6 +31,7 @@ import json
 import logging
 import re
 import time
+from collections.abc import Mapping
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
@@ -248,6 +249,65 @@ def _mask_text(text: Any) -> str:
 
 
 # ═══════════════════════════════════════════════════════════════════════════
+# P0 PERSIST-FIX (source-p0-hotfix-2026-10-18 §2, аудит §3): честный chat-путь
+# ═══════════════════════════════════════════════════════════════════════════
+
+#: Человеческая причина инфраструктурного сбоя записи (source §2.2: код
+#: `write_error` в UI — не диагноз; 5xx = инфраструктура, 4xx = валидация).
+WRITE_UNAVAILABLE_DETAIL = ("не удалось сохранить: постоянное хранилище "
+                            "недоступно, попробуйте позже")
+RESET_UNAVAILABLE_DETAIL = ("не удалось сбросить переопределение: постоянное "
+                            "хранилище недоступно, попробуйте позже")
+
+#: Человеческие причины сбоев управления обучением юмора (SOUL-08.11).
+_LEARNING_ERROR_DETAILS = {
+    "write_error": "не удалось сохранить: постоянное хранилище недоступно",
+    "humor_feedback_disabled": ("контур обучения юмора выключен (ось "
+                                "HUMOR_FEEDBACK_ENABLED)"),
+    "lesson_contour_unavailable": "контур уроков опыта недоступен",
+    "unknown_action": "неизвестное действие",
+    "error": "операция с уроком не удалась — данные не изменены",
+}
+
+
+def _learning_error_detail(reason: str) -> str:
+    return _LEARNING_ERROR_DETAILS.get(str(reason), str(reason) or "не выполнено")
+
+
+def _doc_pg(cache):
+    """PG-хендл для chat-записей — как в рабочих разделах MiniApp
+    (`pg=cache.pg`, прецедент web/api/routes.py:706/:1013).
+
+    None — честный случай «пула реально нет»: запись останется невыполненной
+    с явной ошибкой (не тихий in-memory успех)."""
+    return getattr(cache, "pg", None) if cache is not None else None
+
+
+def _as_doc(raw) -> dict | None:
+    """JSON-документ слоя: dict или JSON-строка (jsonb без зарегистрированного
+    кодека). Прецедент ``style_policy._as_document`` (аудит §7, латентный C1):
+    `_expression_document`/`_core_payload` принимали только dict."""
+    if isinstance(raw, Mapping):
+        return dict(raw)
+    if isinstance(raw, (str, bytes, bytearray)):
+        try:
+            parsed = json.loads(raw.decode("utf-8")
+                                if isinstance(raw, (bytes, bytearray)) else raw)
+        except Exception:
+            return None
+        return dict(parsed) if isinstance(parsed, Mapping) else None
+    return None
+
+
+def _chat_write_detail(exc: Exception) -> str:
+    """Человеческая причина сбоя chat-записи (без кода `write_error`)."""
+    if type(exc).__name__ == "ChatParamsConflict":
+        return ("не удалось сохранить: профиль чата не найден или изменён — "
+                "обновите экран и повторите")
+    return WRITE_UNAVAILABLE_DETAIL
+
+
+# ═══════════════════════════════════════════════════════════════════════════
 # Доступ (существующие права; новых прав/чекбоксов не вводим)
 # ═══════════════════════════════════════════════════════════════════════════
 
@@ -403,7 +463,7 @@ async def _write_document(cache, chat_id: int | None, key: str, values: dict,
         if cache is None:
             return {"applied": False, "reason": "config_cache_unavailable"}
         try:
-            current = cache.get(key, None)
+            current = _as_doc(cache.get(key, None))
         except Exception:
             current = None
         doc = dict(current) if isinstance(current, dict) else {}
@@ -430,9 +490,12 @@ async def _write_document(cache, chat_id: int | None, key: str, values: dict,
             return {"applied": False, "reason": "write_error"}
         return {"applied": True, "revision": doc["revision"]}
     try:
-        root = await chat_params.get_all_chat_params(int(chat_id))
+        pg = _doc_pg(cache)
+        root = await (chat_params.get_all_chat_params(int(chat_id), pg=pg)
+                      if pg is not None
+                      else chat_params.get_all_chat_params(int(chat_id)))
         overrides = dict((root or {}).get("overrides") or {})
-        current = overrides.get(key)
+        current = _as_doc(overrides.get(key))
         doc = dict(current) if isinstance(current, dict) else {}
         doc = {**{k: v for k, v in doc.items()
                   if k not in ("history", "revision", "updated_at")}, **values}
@@ -441,7 +504,7 @@ async def _write_document(cache, chat_id: int | None, key: str, values: dict,
         doc["updated_by"] = actor
         overrides[key] = doc
         await chat_params.set_chat_params(int(chat_id),
-                                         {"overrides": overrides})
+                                         {"overrides": overrides}, pg=pg)
         return {"applied": True, "revision": doc["revision"],
                 "chat_id": int(chat_id)}
     except Exception:
@@ -659,11 +722,11 @@ def _read_global_doc(cache, key: str):
 
 async def _expression_document(cache, chat_id: int | None) -> dict:
     """Документ «Выражение» для scope: {document, source, inheritance}."""
-    global_doc = _read_global_doc(cache, EXPRESSION_DOC_KEY)
+    global_doc = _as_doc(_read_global_doc(cache, EXPRESSION_DOC_KEY))
     chat_doc = None
     if chat_id is not None:
         overrides = await _chat_overrides(chat_id)
-        chat_doc = overrides.get(EXPRESSION_DOC_KEY)
+        chat_doc = _as_doc(overrides.get(EXPRESSION_DOC_KEY))
     doc = chat_doc if isinstance(chat_doc, dict) else (
         global_doc if isinstance(global_doc, dict) else None)
     return {
@@ -865,10 +928,10 @@ async def _core_payload(cache, user: WebAppUser, ctx, chat_id: int | None
     pg_doc = None
     if cache is not None:
         try:
-            pg_doc = cache.get(pr.CORE_DOC_KEY, None)
+            pg_doc = _as_doc(cache.get(pr.CORE_DOC_KEY, None))
         except Exception:
             pg_doc = None
-    chat_doc = overrides.get(pr.CORE_DOC_KEY)
+    chat_doc = _as_doc(overrides.get(pr.CORE_DOC_KEY))
     active_doc = chat_doc if isinstance(chat_doc, dict) else (
         pg_doc if isinstance(pg_doc, dict) else None)
     source = ("chat" if isinstance(chat_doc, dict)
@@ -1803,15 +1866,19 @@ async def post_block(
         result = await pf.write_speech_value(
             block_id, body.text, cache=cache, actor=user.id,
             reason=body.reason or "owner_edit", chat_id=scope[0],
+            pg=_doc_pg(cache) if scope[0] is not None else None,
             expected_updated_at=body.expected_updated_at)
     except Exception as exc:
         name = type(exc).__name__
         if name == "FactoryConflict":
             raise HTTPException(status_code=409,
                                 detail="значение изменено другим путём") from exc
+        if name == "ChatParamsConflict":
+            raise HTTPException(status_code=409,
+                                detail=_chat_write_detail(exc)) from exc
         logger.warning("[speech] write failed", exc_info=True)
         raise HTTPException(status_code=503,
-                            detail="запись недоступна") from exc
+                            detail=WRITE_UNAVAILABLE_DETAIL) from exc
     if not result.get("applied") and result.get("reason") not in (
             "already_that_value",):
         raise HTTPException(status_code=409, detail=str(
@@ -1871,7 +1938,26 @@ async def post_block_reset(
         if not _can_edit_speech(cache, user, ctx, pg_key=spec.pg_key,
                                 chat_id=chat_id):
             raise HTTPException(status_code=403, detail="нет права")
-        result = await pf.reset_chat_override(int(chat_id), block_id)
+        try:
+            result = await pf.reset_chat_override(int(chat_id), block_id,
+                                                  pg=_doc_pg(cache))
+        except Exception as exc:
+            if type(exc).__name__ == "FactoryConflict":
+                raise HTTPException(
+                    status_code=409,
+                    detail="значение изменено другим путём") from exc
+            if type(exc).__name__ == "ChatParamsConflict":
+                raise HTTPException(status_code=409,
+                                    detail=_chat_write_detail(exc)) from exc
+            logger.warning("[speech] chat reset failed", exc_info=True)
+            raise HTTPException(status_code=503,
+                                detail=RESET_UNAVAILABLE_DETAIL) from exc
+        if not result.get("applied") and result.get("reason") not in (
+                "no_chat_override",):
+            logger.warning("[speech] chat reset not applied | reason=%s",
+                           result.get("reason"))
+            raise HTTPException(status_code=503,
+                                detail=RESET_UNAVAILABLE_DETAIL)
         return {"ok": bool(result.get("applied")), "mode": "chat",
                 "result": result, "inherits": "global"}
     if not _can_edit_speech(cache, user, ctx, pg_key=spec.pg_key, chat_id=None):
@@ -1918,11 +2004,28 @@ async def post_block_rollback(
     if target is None or not str(target.get("text") or ""):
         raise HTTPException(status_code=404,
                             detail="ревизия не найдена в истории")
-    result = await pf.write_speech_value(
-        block_id, str(target.get("text") or ""), cache=cache, actor=user.id,
-        reason=body.reason or ("rollback:" + str(body.sha256_12)[:12]),
-        chat_id=scope_id)
-    return {"ok": bool(result.get("applied")), "result": result,
+    try:
+        result = await pf.write_speech_value(
+            block_id, str(target.get("text") or ""), cache=cache, actor=user.id,
+            reason=body.reason or ("rollback:" + str(body.sha256_12)[:12]),
+            chat_id=scope_id,
+            pg=_doc_pg(cache) if scope_id is not None else None)
+    except Exception as exc:
+        if type(exc).__name__ == "FactoryConflict":
+            raise HTTPException(
+                status_code=409,
+                detail="значение изменено другим путём") from exc
+        if type(exc).__name__ == "ChatParamsConflict":
+            raise HTTPException(status_code=409,
+                                detail=_chat_write_detail(exc)) from exc
+        logger.warning("[speech] rollback failed", exc_info=True)
+        raise HTTPException(status_code=503,
+                            detail=WRITE_UNAVAILABLE_DETAIL) from exc
+    if not result.get("applied") and result.get("reason") not in (
+            "already_that_value",):
+        raise HTTPException(status_code=409, detail=str(
+            result.get("reason") or "не применено"))
+    return {"ok": True, "result": result,
             "rolled_back_to": str(body.sha256_12),
             "effective": _effective_after_write(cache, chat_id, block_id)}
 
@@ -1957,7 +2060,13 @@ async def post_core_meta(
             pr.CORE_DETAIL_LEVELS):
         raise HTTPException(status_code=422, detail="неизвестный detail_level")
     result = await _write_core_meta(cache, scope_id, body, actor=user.id)
-    return {"ok": bool(result.get("applied")), "result": result}
+    if not result.get("applied"):
+        logger.warning("[speech] core meta not applied | scope=%s | reason=%s",
+                       "chat" if scope_id is not None else "global",
+                       result.get("reason"))
+        raise HTTPException(status_code=503,
+                            detail=WRITE_UNAVAILABLE_DETAIL)
+    return {"ok": True, "result": result}
 
 
 async def _write_core_meta(cache, chat_id: int | None, body: CoreMeta,
@@ -1973,7 +2082,7 @@ async def _write_core_meta(cache, chat_id: int | None, body: CoreMeta,
         if cache is None:
             return {"applied": False, "reason": "config_cache_unavailable"}
         try:
-            current = cache.get(pr.CORE_DOC_KEY, None)
+            current = _as_doc(cache.get(pr.CORE_DOC_KEY, None))
         except Exception:
             current = None
         doc = dict(current) if isinstance(current, dict) else {}
@@ -1995,16 +2104,19 @@ async def _write_core_meta(cache, chat_id: int | None, body: CoreMeta,
             return {"applied": False, "reason": "write_error"}
         return {"applied": True, "scope": "global", "revision": doc["revision"]}
     try:
-        root = await chat_params.get_all_chat_params(int(chat_id))
+        pg = _doc_pg(cache)
+        root = await (chat_params.get_all_chat_params(int(chat_id), pg=pg)
+                      if pg is not None
+                      else chat_params.get_all_chat_params(int(chat_id)))
         overrides = dict((root or {}).get("overrides") or {})
-        current = overrides.get(pr.CORE_DOC_KEY)
+        current = _as_doc(overrides.get(pr.CORE_DOC_KEY))
         doc = dict(current) if isinstance(current, dict) else {}
         if not doc:
             # Наследование: базой для локальной правки служит глобальный Core.
             global_doc = None
             if cache is not None:
                 try:
-                    global_doc = cache.get(pr.CORE_DOC_KEY, None)
+                    global_doc = _as_doc(cache.get(pr.CORE_DOC_KEY, None))
                 except Exception:
                     global_doc = None
             doc = dict(global_doc) if isinstance(global_doc, dict) else {}
@@ -2018,7 +2130,7 @@ async def _write_core_meta(cache, chat_id: int | None, body: CoreMeta,
         doc["updated_by"] = actor
         overrides[pr.CORE_DOC_KEY] = doc
         await chat_params.set_chat_params(int(chat_id),
-                                          {"overrides": overrides})
+                                          {"overrides": overrides}, pg=pg)
         return {"applied": True, "scope": "chat", "chat_id": int(chat_id),
                 "revision": doc["revision"]}
     except Exception:
@@ -2059,10 +2171,27 @@ async def post_style(
     result = await sp.save_policy_document(
         body.document, chat_id=scope_id, cache=cache, actor=user.id,
         reason=body.reason or "owner_edit",
-        expected_updated_at=body.expected_updated_at)
+        expected_updated_at=body.expected_updated_at, pg=_doc_pg(cache))
     if not result.get("applied"):
-        raise HTTPException(status_code=409, detail=str(
-            result.get("reason") or "не применено"))
+        reason = str(result.get("reason") or "не применено")
+        if reason == "document_invalid":
+            # P0 PERSIST-FIX: явная валидационная ошибка вместо тихой потери
+            # правила (unknown kind/не-объект) при applied:true.
+            issues = [str(i) for i in (result.get("blocking_issues")
+                                       or result.get("issues") or [])]
+            detail = "документ не прошёл проверку"
+            if issues:
+                detail += ": " + "; ".join(issues[:4])
+            raise HTTPException(status_code=409, detail=detail)
+        if reason == "conflict":
+            # Чужой optimistic-токен: документ не записан, текст не потерян.
+            raise HTTPException(
+                status_code=409,
+                detail=("документ изменён другим путём — обновите экран; "
+                        "ваш текст не потерян"))
+        logger.warning("[speech] style save not applied | reason=%s", reason)
+        raise HTTPException(status_code=503,
+                            detail=WRITE_UNAVAILABLE_DETAIL)
     return {"ok": True, "result": result,
             "view": await _style_payload(cache, chat_id)}
 
@@ -2080,7 +2209,14 @@ async def post_style_reset_chat(
     if not _can_edit_speech(cache, user, ctx, pg_key="", chat_id=chat_id):
         raise HTTPException(status_code=403, detail="нет права")
     from services import style_policy as sp
-    result = await sp.reset_chat_policy(int(chat_id))
+    result = await sp.reset_chat_policy(int(chat_id), pg=_doc_pg(cache))
+    if not result.get("applied") and result.get("reason") != "no_chat_override":
+        # P0 PERSIST-FIX: сбой сброса — явная ошибка, а не ложное
+        # «переопределения для чата не было».
+        logger.warning("[speech] style chat reset not applied | error=%s",
+                       result.get("error") or result.get("reason"))
+        raise HTTPException(status_code=503,
+                            detail=RESET_UNAVAILABLE_DETAIL)
     return {"ok": bool(result.get("applied")), "result": result,
             "view": await _style_payload(cache, chat_id)}
 
@@ -2131,8 +2267,12 @@ async def post_expression(
         raise HTTPException(status_code=403, detail="нет права на выражение")
     result = await _write_expression(cache, scope_id, body.values)
     if not result.get("applied"):
-        raise HTTPException(status_code=409, detail=str(
-            result.get("reason") or "не применено"))
+        # P0 PERSIST-FIX: отказ записи «Выражения» — инфраструктурный
+        # (write_error/config_cache_unavailable): честные 5xx, не 409 с кодом.
+        logger.warning("[speech] expression write not applied | reason=%s",
+                       result.get("reason"))
+        raise HTTPException(status_code=503,
+                            detail=WRITE_UNAVAILABLE_DETAIL)
     return {"ok": True, "result": result,
             "view": await _expression_payload(cache, chat_id)}
 
@@ -2146,7 +2286,7 @@ async def _write_expression(cache, chat_id: int | None, values: dict) -> dict:
         if cache is None:
             return {"applied": False, "reason": "config_cache_unavailable"}
         try:
-            current = cache.get(EXPRESSION_DOC_KEY, None)
+            current = _as_doc(cache.get(EXPRESSION_DOC_KEY, None))
         except Exception:
             current = None
         doc = dict(current) if isinstance(current, dict) else {}
@@ -2171,9 +2311,12 @@ async def _write_expression(cache, chat_id: int | None, values: dict) -> dict:
             return {"applied": False, "reason": "write_error"}
         return {"applied": True, "scope": "global", "revision": doc["revision"]}
     try:
-        root = await chat_params.get_all_chat_params(int(chat_id))
+        pg = _doc_pg(cache)
+        root = await (chat_params.get_all_chat_params(int(chat_id), pg=pg)
+                      if pg is not None
+                      else chat_params.get_all_chat_params(int(chat_id)))
         overrides = dict((root or {}).get("overrides") or {})
-        current = overrides.get(EXPRESSION_DOC_KEY)
+        current = _as_doc(overrides.get(EXPRESSION_DOC_KEY))
         doc = dict(current) if isinstance(current, dict) else {}
         doc = {**{k: v for k, v in doc.items()
                   if k not in ("history", "revision", "updated_at")},
@@ -2182,7 +2325,7 @@ async def _write_expression(cache, chat_id: int | None, values: dict) -> dict:
         doc["updated_at"] = now
         overrides[EXPRESSION_DOC_KEY] = doc
         await chat_params.set_chat_params(int(chat_id),
-                                          {"overrides": overrides})
+                                          {"overrides": overrides}, pg=pg)
         return {"applied": True, "scope": "chat", "chat_id": int(chat_id),
                 "revision": doc["revision"]}
     except Exception:
@@ -2203,19 +2346,22 @@ async def post_expression_reset_chat(
     if not _can_edit_speech(cache, user, ctx, pg_key="", chat_id=chat_id):
         raise HTTPException(status_code=403, detail="нет права")
     from services import chat_params
+    pg = _doc_pg(cache)
     try:
-        root = await chat_params.get_all_chat_params(int(chat_id))
+        root = await (chat_params.get_all_chat_params(int(chat_id), pg=pg)
+                      if pg is not None
+                      else chat_params.get_all_chat_params(int(chat_id)))
         overrides = dict((root or {}).get("overrides") or {})
         if EXPRESSION_DOC_KEY not in overrides:
             return {"ok": False, "reason": "no_chat_override",
                     "view": await _expression_payload(cache, chat_id)}
         overrides.pop(EXPRESSION_DOC_KEY, None)
         await chat_params.set_chat_params(int(chat_id),
-                                          {"overrides": overrides})
+                                          {"overrides": overrides}, pg=pg)
     except Exception:
         logger.warning("[speech] expression reset failed", exc_info=True)
         raise HTTPException(status_code=503,
-                            detail="локальная запись недоступна")
+                            detail=RESET_UNAVAILABLE_DETAIL)
     return {"ok": True, "inherits": "global",
             "view": await _expression_payload(cache, chat_id)}
 
@@ -2329,7 +2475,7 @@ async def post_humor_craft(
                                   values, actor=user.id)
     if not result.get("applied"):
         raise HTTPException(status_code=503,
-                            detail="локальная запись недоступна")
+                            detail=WRITE_UNAVAILABLE_DETAIL)
     return {"ok": True, "scope": scope_label, **result,
             "craft": await _humor_craft_payload(cache, chat_id)}
 
@@ -2549,7 +2695,7 @@ async def _guard_sample_chat_scope(sample_id: int, chat_id: int | None) -> dict:
     return current
 
 
-@speech_router.post("/speech/examples/{sample_id}")
+@speech_router.post("/speech/examples/{sample_id:int}")
 async def post_example_update(
     request: Request,
     user: Annotated[WebAppUser, Depends(get_tma_user)],
@@ -2688,7 +2834,7 @@ async def post_examples_policy(
         actor=user.id)
     if not result.get("applied"):
         raise HTTPException(status_code=503,
-                            detail="локальная запись недоступна")
+                            detail=WRITE_UNAVAILABLE_DETAIL)
     policy, source = await samples_lib.resolve_policy(chat_id)
     return {"ok": True, "scope": scope_label, "policy": policy,
             "policy_source": source}
@@ -2797,10 +2943,11 @@ async def post_learning_humor(
                             detail="нет права на управление обучением")
     from services import lore_runtime
     db = lore_runtime.get_lore_db()
+    pg = _doc_pg(cache)
     action = str(body.action or "")
     if action in ("pause", "resume"):
         result = await humor_feedback.set_paused(db, int(chat_id),
-                                                 action == "pause")
+                                                 action == "pause", pg=pg)
     elif action in ("approve", "reject"):
         if not body.lesson_id:
             raise HTTPException(status_code=422, detail="нужен lesson_id")
@@ -2808,12 +2955,19 @@ async def post_learning_humor(
             db, int(chat_id), str(body.lesson_id), version=body.version,
             action=action)
     elif action == "reset":
-        result = await humor_feedback.reset_learning(db, int(chat_id))
+        result = await humor_feedback.reset_learning(db, int(chat_id), pg=pg)
     else:
         raise HTTPException(status_code=422, detail="неизвестное действие")
     if not result.get("ok"):
-        raise HTTPException(status_code=409,
-                            detail=str(result.get("reason") or "не выполнено"))
+        reason = str(result.get("reason") or "не выполнено")
+        logger.warning("[speech] learning action not applied | action=%s | "
+                       "reason=%s | error=%s", action, reason,
+                       result.get("error"))
+        # P0 PERSIST-FIX: реальная причина наружу человеческим языком;
+        # инфраструктурный сбой — 503, а не 409 с кодом в лицо владельцу.
+        status = 503 if reason == "write_error" else 409
+        raise HTTPException(status_code=status,
+                            detail=_learning_error_detail(reason))
     view = await _learning_payload(chat_id)
     view["humor_feedback"]["can_manage"] = True
     return {"ok": True, "action": action, "result": result, "learning": view}

@@ -626,9 +626,15 @@ def validate_document(raw: Any) -> tuple[dict, tuple[str, ...]]:
     raw_soft = doc.get("soft_instructions")
     if isinstance(raw_soft, (list, tuple)):
         for index, item in enumerate(raw_soft[:SOFT_INSTRUCTIONS_MAX]):
+            if not isinstance(item, Mapping):
+                # P0 PERSIST-FIX: диагностируем отброс (было молча).
+                issues.append("soft_not_object")
+                continue
             entry = normalize_soft(item, index=index)
-            if entry is not None:
-                soft.append(entry)
+            if entry is None:
+                issues.append("soft_text_absent")
+                continue
+            soft.append(entry)
         if len(raw_soft) > SOFT_INSTRUCTIONS_MAX:
             issues.append("soft_truncated")
     elif raw_soft is not None:
@@ -657,6 +663,29 @@ def validate_document(raw: Any) -> tuple[dict, tuple[str, ...]]:
         "reason": str(doc.get("reason") or ""),
     }
     return normalized, tuple(issues)
+
+
+#: P0 PERSIST-FIX (аудит §8.5, source §2.2 «не подавлять валидацию»):
+#: диагностика, при которой документ НЕ сохраняется. Раньше правило с
+#: неизвестным ``kind``/не-объект отбрасывалось валидацией молча, а API
+#: отвечал ``applied: true`` — владелец видел «Правила сохранены» без правила.
+#: Теперь сохранение возвращает ``document_invalid`` + issues, и правило не
+#: теряется незаметно (ввод остаётся у владельца).
+_FATAL_DOCUMENT_ISSUES = (
+    "document_unreadable", "rules_not_list", "rule_not_object",
+    "soft_not_list", "soft_not_object",
+)
+
+
+def fatal_document_issues(issues) -> tuple[str, ...]:
+    """Подмножество диагностики ``validate_document``, запрещающее запись."""
+    out: list[str] = []
+    for issue in issues or ():
+        text = str(issue)
+        if text in _FATAL_DOCUMENT_ISSUES \
+                or text.startswith("rule_kind_unknown:"):
+            out.append(text)
+    return tuple(out)
 
 
 def build_document(*, rules: Iterable[Any] = (), soft: Iterable[Any] = (),
@@ -2223,12 +2252,18 @@ async def save_policy_document(document: Mapping[str, Any], *,
 
     Ревизия инкрементируется, предыдущая редакция уходит в bounded ``history``
     (SOUL-16.1.4: revision/created_at/updated_at/history). Никакого второго
-    config service (SOUL-15.1). Никогда не бросает."""
+    config service (SOUL-15.1). Никогда не бросает.
+
+    P0 PERSIST-FIX: документ с фатальной диагностикой (неизвестный ``kind``,
+    не-объект правила и т.п.) НЕ сохраняется — ``document_invalid`` + issues
+    (``blocking_issues``), а не «applied: true» с тихо выброшенным правилом."""
     try:
         normalized, issues = validate_document(document)
-        if not normalized:
+        blocking = fatal_document_issues(issues)
+        if not normalized or blocking:
             return {"applied": False, "reason": "document_invalid",
-                    "issues": list(issues)}
+                    "issues": list(issues),
+                    "blocking_issues": list(blocking)}
         previous_doc: dict = {}
         if chat_id is not None:
             from services import chat_params
@@ -2286,7 +2321,17 @@ async def save_policy_document(document: Mapping[str, Any], *,
                 "soft_instructions": len(
                     normalized.get("soft_instructions") or []),
                 "issues": list(issues)}
-    except Exception:
+    except Exception as exc:
+        if type(exc).__name__ == "ChatParamsConflict":
+            # P0 PERSIST-FIX: чужой optimistic-токен — это конфликт (409),
+            # а не «ошибка сохранения»/инфраструктура: документ не записан,
+            # ввод владельца остаётся в UI.
+            logger.info("[style_policy] document save conflict | chat=%s | "
+                        "current_updated_at=%s", chat_id,
+                        getattr(exc, "current_updated_at", None))
+            return {"applied": False, "reason": "conflict",
+                    "current_updated_at": getattr(
+                        exc, "current_updated_at", None)}
         logger.warning("[style_policy] document save failed", exc_info=True)
         return {"applied": False, "reason": "save_error"}
 
@@ -2320,9 +2365,12 @@ async def reset_chat_policy(chat_id: int, *, pg=None, get_root=None,
             await set_root(int(chat_id), patch)
         return {"applied": True, "chat_id": int(chat_id),
                 "inherits": "global"}
-    except Exception:
+    except Exception as exc:
         logger.warning("[style_policy] chat reset failed", exc_info=True)
-        return {"applied": False, "reason": "reset_error"}
+        # P0 PERSIST-FIX: реальный класс исключения наружу (API различает
+        # «переопределения не было» и настоящий сбой записи).
+        return {"applied": False, "reason": "reset_error",
+                "error": type(exc).__name__}
 
 
 def style_policy_view(global_doc: Any = None, chat_doc: Any = None, *,

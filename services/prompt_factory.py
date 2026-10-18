@@ -600,7 +600,10 @@ async def reset_chat_override(chat_id: int, block_id: str, *, pg=None,
     get_root = get_root or chat_params.get_all_chat_params
     set_root = set_root or (lambda chat, patch, **kw: chat_params.set_chat_params(
         chat, patch, **kw))
-    root = await get_root(chat_id) or {}
+    # P0 PERSIST-FIX: RMW-консистентность — при явном пуле читаем напрямую из
+    # PG (кэш-слой может быть устаревшим до TTL), иначе прежний путь.
+    root = await (get_root(chat_id, pg=pg) if pg is not None
+                  else get_root(chat_id)) or {}
     overrides = dict(root.get("overrides") or {})
     if spec.pg_key not in overrides:
         return {"applied": False, "reason": "no_chat_override",

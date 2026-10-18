@@ -418,24 +418,30 @@ async def test_lessons_never_rewrite_core(db, monkeypatch):
 
 @pytest.mark.asyncio
 async def test_owner_controls_pause_and_reset_keep_data(db, monkeypatch):
+    import sqlite3
+    import sys
+    from pathlib import Path
+
     from services import chat_params, hot_config
 
-    class _Chat:
-        def __init__(self):
-            self.values = {}
-
-        async def get_chat_params(self, chat_id):
-            return {"overrides": dict(self.values.get(int(chat_id), {}))}
-
-        async def get_chat_params_full(self, chat_id):
-            return await self.get_chat_params(chat_id), None
-
-        async def set_chat_params(self, chat_id, payload):  # pragma: no cover
-            self.values.setdefault(int(chat_id), {}).update(
-                (payload or {}).get("overrides") or {})
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from test_p0_persistfix_speech_chat_scope import (  # noqa: E402
+        SqlitePg,
+        create_schema,
+        seed_profile,
+        stored_overrides,
+    )
 
     await _enable_catalog(monkeypatch, hot_config)
-    chat_params.set_chat_params_cache(_Chat())
+    # P0 PERSIST-FIX: раньше запись документа глушилась (pg не передан),
+    # а reset_learning отвечал ok:true — тест проходил поверх дефекта.
+    # Теперь тот же путь исполняется на temp-SQLite (реальный chat_params).
+    raw = sqlite3.connect(":memory:", isolation_level=None,
+                          check_same_thread=False)
+    create_schema(raw)
+    seed_profile(raw, -100)
+    pg = SqlitePg(raw)
+    chat_params.set_chat_params_cache(chat_params.ChatParamsCache(pg))
     try:
         hypothesis = hf.evaluate_observations([
             _obs(signal="stop_request", authority_is_owner=True,
@@ -444,8 +450,9 @@ async def test_owner_controls_pause_and_reset_keep_data(db, monkeypatch):
         applied = await hf.apply_hypothesis(db, hypothesis,
                                             episode_ids=hypothesis.evidence)
         assert applied["applied"] is True
-        reset = await hf.reset_learning(db, -100)
+        reset = await hf.reset_learning(db, -100, pg=pg)
         assert reset["ok"] is True and reset["suspended"] >= 1
+        assert stored_overrides(raw, -100)["humor.feedback"]["reset_at"]
         assert await hf.strategy_weight(db, -100, "deadpan") == 1.0
         telemetry = await hf.telemetry(db, chat_id=-100)
         assert telemetry["available"] is True
@@ -453,6 +460,7 @@ async def test_owner_controls_pause_and_reset_keep_data(db, monkeypatch):
     finally:
         hot_config.set_config_cache(None)
         chat_params.set_chat_params_cache(None)
+        raw.close()
 
 
 @pytest.mark.asyncio

@@ -69,6 +69,40 @@ def _token(monkeypatch):
                         types.SimpleNamespace(API_TOKEN=TEST_TOKEN))
 
 
+class _RecordingConn:
+    """Двойник PG-коннекта: запись реально исполняется (журнал SQL)."""
+
+    def __init__(self):
+        self.rows: list[tuple[str, tuple]] = []
+
+    async def execute(self, sql, *args):
+        self.rows.append((str(sql), tuple(args)))
+        return "OK"
+
+
+class _RecordingPool:
+    """P0 PERSIST-FIX: честный двойник пула для cache.set (PG-first).
+
+    Раньше при `_pg_available=False` cache.set молча писал только в память —
+    этот тест проходил поверх тихого успеха. Теперь запись исполняется через
+    пул (журнал), память не расходится с «хранилищем»."""
+
+    def __init__(self):
+        self.conn = _RecordingConn()
+
+    def acquire(self):
+        conn = self.conn
+
+        class _CM:
+            async def __aenter__(self):
+                return conn
+
+            async def __aexit__(self, *exc):
+                return False
+
+        return _CM()
+
+
 def _client(pg=None):
     cache = ConfigCache.__new__(ConfigCache)
     cache._settings = {}
@@ -79,9 +113,10 @@ def _client(pg=None):
     cache._permissions = {n: Permissions.from_dict(r["permissions"])
                           for n, r in cache._roles.items()}
     cache._admins = {ADMIN_ID: "admin"}
-    cache._pg_available = False
+    cache._pg_available = True
     cache._initialized = True
-    cache._pg = pg if pg is not None else types.SimpleNamespace(pool=object())
+    cache._pg = pg if pg is not None else types.SimpleNamespace(
+        pool=_RecordingPool())
     app = FastAPI()
     app.state.cache = cache
     app.include_router(cover_styles_router, prefix="/api")

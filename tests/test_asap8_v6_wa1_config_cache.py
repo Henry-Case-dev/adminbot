@@ -127,8 +127,12 @@ async def test_d08_synthetic_items_are_default_source():
 
 @pytest.mark.asyncio
 async def test_d08_write_makes_item_persistent():
-    """После записи строка (память/БД) выигрывает: persistent, не синтетика."""
-    cache = await _cache_degraded()
+    """После записи строка (память/БД) выигрывает: persistent, не синтетика.
+
+    P0 PERSIST-FIX: запись без пула теперь явная ConfigCacheUnavailableError,
+    поэтому тест даёт пул (прежде проверял тихий in-memory успех при PG down).
+    """
+    cache = await _cache_with_rows([])
     assert cache.get_all()["memory.random_enabled"] is True
     await cache.set("memory.random_enabled", False, "memory")
     snap = cache.get_all()

@@ -16,6 +16,8 @@ SOUL-10.0–10.5, SOUL-16.5.0).
 """
 import json
 import re
+import sqlite3
+import sys
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -28,6 +30,14 @@ CSS = (ROOT / "web" / "static" / "app.css").read_text(encoding="utf-8")
 APP_PY = (ROOT / "web" / "app.py").read_text(encoding="utf-8")
 SPEECH_PY = (ROOT / "web" / "api" / "speech.py").read_text(encoding="utf-8")
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from test_p0_persistfix_speech_chat_scope import (  # noqa: E402
+    SqlitePg,
+    create_schema,
+    seed_profile,
+)
+
+from services import chat_params  # noqa: E402
 from services import prompt_factory as pf  # noqa: E402
 from services import prompt_registry as pr  # noqa: E402
 from web.api import speech as S  # noqa: E402
@@ -44,11 +54,16 @@ class _AwaitResult:
 
 
 class _Cache:
-    """Минимальный двойник ConfigCache (get/set/get_updated_at) для round-trip."""
+    """Двойник ГЛОБАЛЬНОГО ConfigCache (get/set/get_updated_at) для round-trip.
 
-    def __init__(self):
+    P0 PERSIST-FIX: chat-слой больше НЕ подменяется — фикстура ниже поднимает
+    реальные `services.chat_params` поверх temp-SQLite (asyncpg-shim), поэтому
+    вызов записи без пула здесь падает так же, как в проде."""
+
+    def __init__(self, pg=None):
         self.data = {}
         self.updated = {}
+        self.pg = pg if pg is not None else SimpleNamespace(pool=None)
 
     def get(self, key, default=None):
         return self.data.get(key, default)
@@ -68,25 +83,22 @@ class _Cache:
 
 @pytest.fixture()
 def api_env(monkeypatch):
-    """Изолированный скоуп: фейковый cache + in-memory chat_params."""
-    cache = _Cache()
-    chat_store: dict = {}
+    """Изолированный скоуп: двойник глобального кэша + РЕАЛЬНЫЙ chat-слой.
 
-    async def get_root(chat_id, pg=None):
-        store = chat_store.get(int(chat_id)) or {}
-        return {"overrides": dict(store.get("overrides") or {})}
-
-    async def set_root(chat_id, patch, **kwargs):
-        # Контракт chat_params.set_chat_params: namespace ЗАМЕНЯЕТСЯ целиком
-        # (services/chat_params.py:447-450) — иначе «сброс переопределения»
-        # (pop ключа) не был бы наблюдаем.
-        store = chat_store.setdefault(int(chat_id), {})
-        for ns in ("overrides", "gates", "keys", "perm_overrides", "meta"):
-            if ns in patch and isinstance(patch[ns], dict):
-                store[ns] = dict(patch[ns])
-
-    monkeypatch.setattr("services.chat_params.get_all_chat_params", get_root)
-    monkeypatch.setattr("services.chat_params.set_chat_params", set_root)
+    P0 PERSIST-FIX (аудит §4 «причина, по которой это не поймали»): раньше
+    фикстура подменяла сам виновный вызов (monkeypatch set_chat_params
+    in-memory), поэтому путь с реальной сигнатурой (`pg` обязателен) не
+    исполнялся ни в одном тесте. Теперь исполняется реальный код на
+    temp-SQLite (конвенция репо — test_asap8_v6_wa3); процесс-глобал
+    ChatParamsCache подключён, как в bot.py.
+    """
+    db = sqlite3.connect(":memory:", isolation_level=None,
+                         check_same_thread=False)
+    create_schema(db)
+    seed_profile(db, -100500)          # реальная запись требует профиль чата
+    pg = SqlitePg(db)
+    cache = _Cache(pg=pg)
+    chat_params.set_chat_params_cache(chat_params.ChatParamsCache(pg))
 
     ctx = SimpleNamespace(is_global_admin=True, effective_permissions=None)
     user = SimpleNamespace(id=4242)
@@ -96,8 +108,12 @@ def api_env(monkeypatch):
         return cache, chat_id, ctx
 
     monkeypatch.setattr(S, "_access", access)
-    return SimpleNamespace(cache=cache, chat=chat_store, user=user,
-                          ctx=ctx, chat_id=-100500)
+    try:
+        yield SimpleNamespace(cache=cache, chat=db, user=user,
+                              ctx=ctx, chat_id=-100500)
+    finally:
+        chat_params.set_chat_params_cache(None)
+        db.close()
 
 
 # ── Навигация и состав экрана (SOUL-AMD.6.1/6.3, SOUL-10.0) ─────────────────
@@ -249,7 +265,10 @@ def test_write_path_is_guarded_at_runtime_not_only_statically(api_env, monkeypat
                     before = before if isinstance(before, dict) else {}
                     after = value if isinstance(value, dict) else {}
                     for field in ("full_text", "compact_text"):
-                        if after.get(field) != before.get(field):
+                        # P0 PERSIST-FIX: «нет поля» и пустая строка — одно и
+                        # то же отсутствие текста (мета-правка добавляет
+                        # пустой дефолт, но текст не подменяет).
+                        if (after.get(field) or "") != (before.get(field) or ""):
                             raise AssertionError(
                                 "текст Core записан из %s мимо реестра" % caller)
 

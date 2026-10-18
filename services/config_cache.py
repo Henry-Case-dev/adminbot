@@ -679,27 +679,27 @@ class ConfigCache:
     # ── запись ─────────────────────────────────────────────────────────────
 
     async def set(self, key: str, value, category: str) -> None:
-        """Апсерт bot_settings: PG + in-memory (asyncio.Lock).
+        """Апсерт bot_settings: СПЕРВА PG, затем in-memory (asyncio.Lock).
         ХОТФИКС: значение нормализуется по типу каталога — единообразие
-        при hot-reload (API уже типизирует, но не доверяем форме)."""
+        при hot-reload (API уже типизирует, но не доверяем форме).
+
+        P0 PERSIST-FIX (аудит B4/B5): порядок «PG → память» (как в set_many)
+        — сбой или отсутствиепула НЕ оставляют в памяти значение, которого
+        нет в постоянном хранилище: успех = read-after-write, «сохранённое»
+        не может быть мнимым. Нет пула → ConfigCacheUnavailableError
+        (явная ошибка вместо тихого in-memory успеха)."""
         value = normalize_value(key, value)
         async with self._lock:
+            pool = self._pg.pool
+            if pool is None:
+                raise ConfigCacheUnavailableError(
+                    "PostgreSQL недоступен (пул отсутствует): '%s' не "
+                    "сохранён" % key)
+            async with pool.acquire() as conn:
+                await conn.execute(_UPSERT_SETTING_SQL, key,
+                                   json.dumps(value), category)
             self._settings[key] = value
             self._settings_updated_at.pop(key, None)   # in-memory → null
-            if not self._pg_available or self._pg.pool is None:
-                logger.debug("[config_cache] set in-memory only (PG down): %s", key)
-                return
-            async with self._pg.pool.acquire() as conn:
-                await conn.execute(
-                    """
-                    INSERT INTO bot_settings (key, value, category)
-                    VALUES ($1, $2, $3)
-                    ON CONFLICT (key) DO UPDATE
-                    SET value = EXCLUDED.value, category = EXCLUDED.category,
-                        updated_at = now()
-                    """,
-                    key, json.dumps(value), category,
-                )
         logger.info("[config_cache] set | key=%s | category=%s", key, category)
 
     async def upsert(self, key: str, value, category: str) -> None:

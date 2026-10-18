@@ -1,7 +1,12 @@
 """Epic 85 (T-613) — тесты services/config_cache.py (84.4).
 
 DoD: get/set/upsert/reload/permissions; PG недоступен → init завершается с
-WARNING и бот жив (R6, pg_available=False, set работает in-memory). Пул — мок.
+WARNING и бот жив (R6, pg_available=False; чтения — settings-дефолты). Пул — мок.
+
+P0 PERSIST-FIX (аудит persistence-audit.md B4/B5, source §2.2 «нельзя ставить
+искусственный 200»): запись `set` — PG-first, а при отсутствии пула/сбое
+записи поднимает явную ошибку и НЕ меняет память (успех = read-after-write из
+постоянного хранилища, а не тихий in-memory).
 """
 import asyncio
 import json
@@ -211,7 +216,8 @@ class TestSetUpsertReload:
 
 
 class TestPgDownDegradation:
-    """R6: PG недоступен → init с WARNING, бот жив, set — in-memory."""
+    """R6: PG недоступен → init с WARNING, бот жив (чтения — дефолты);
+    запись без постоянного хранилища — явная ошибка (P0 PERSIST-FIX)."""
 
     @pytest.mark.asyncio
     async def test_init_with_pg_down_does_not_raise(self, caplog):
@@ -223,14 +229,36 @@ class TestPgDownDegradation:
         assert "PG недоступен" in caplog.text
 
     @pytest.mark.asyncio
-    async def test_set_memory_only_when_pg_down(self, caplog):
+    async def test_set_without_pool_raises_and_keeps_memory(self):
+        """P0 PERSIST-FIX (аудит B4): пул снят → явная ошибка, НЕ тихий
+        in-memory успех; памяти не касаемся — «сохранено» не показывается."""
+        from services.config_cache import ConfigCacheUnavailableError
+
         cache = ConfigCache(pg=_FakePg(fail_connect=True),
                             retry_attempts=1, retry_delay=0)
         await cache.init()
-        with caplog.at_level(logging.DEBUG):
+        with pytest.raises(ConfigCacheUnavailableError):
             await cache.set("limits.x", 5, "limits")
-        assert cache.get("limits.x") == 5
-        assert "in-memory only" in caplog.text
+        assert cache.get("limits.x") is None
+
+    @pytest.mark.asyncio
+    async def test_set_pg_write_failure_leaves_memory_unchanged(self):
+        """P0 PERSIST-FIX (аудит B5): сбой PG-записи → память не расходится
+        с хранилищем (PG-first): effective не покажет «сохранённое», которого
+        нет в БД."""
+        class _BoomConn(_FakeConn):
+            async def execute(self, sql, *args):
+                if "bot_settings" in sql and args and \
+                        args[0] == "limits.search_max_symbols":
+                    raise RuntimeError("pg write failed")
+                return await super().execute(sql, *args)
+
+        conn = _BoomConn(*_rows())
+        cache = ConfigCache(pg=_FakePg(pool=_FakePool(conn)))
+        await cache.init()
+        with pytest.raises(RuntimeError):
+            await cache.set("limits.search_max_symbols", 9000, "limits")
+        assert cache.get("limits.search_max_symbols") == 8000
 
     @pytest.mark.asyncio
     async def test_reload_noop_when_pg_down(self, caplog):

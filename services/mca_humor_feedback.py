@@ -861,23 +861,31 @@ async def sample_penalties(db, chat_id: int) -> dict:
 # ═══════════════════════════════════════════════════════════════════════════
 
 
-async def set_paused(db, chat_id: int, paused: bool) -> dict:
-    """Пауза сбора сигналов для чата (данные не удаляются)."""
+async def set_paused(db, chat_id: int, paused: bool, *, pg=None) -> dict:
+    """Пауза сбора сигналов для чата (данные не удаляются).
+
+    P0 PERSIST-FIX: `pg` — пул/хендл PG для chat-записи (как в MiniApp-путях,
+    `pg=cache.pg`). Без него реальный `set_chat_params` считает PG недоступным
+    и API отдавал ложный 409 `write_error`."""
     if not gate_on():
         return {"ok": False, "reason": "humor_feedback_disabled"}
     try:
         from services import chat_params
-        root = await chat_params.get_all_chat_params(int(chat_id))
+        root = await (chat_params.get_all_chat_params(int(chat_id), pg=pg)
+                      if pg is not None
+                      else chat_params.get_all_chat_params(int(chat_id)))
         overrides = dict((root or {}).get("overrides") or {})
         doc = dict(overrides.get("humor.feedback") or {})
         doc["paused"] = bool(paused)
         doc["updated_at"] = _now()
         overrides["humor.feedback"] = doc
-        await chat_params.set_chat_params(int(chat_id), {"overrides": overrides})
+        await chat_params.set_chat_params(int(chat_id),
+                                          {"overrides": overrides}, pg=pg)
         return {"ok": True, "paused": bool(paused)}
-    except Exception:
+    except Exception as exc:
         logger.warning("[humor-feedback] pause write failed", exc_info=True)
-        return {"ok": False, "reason": "write_error"}
+        return {"ok": False, "reason": "write_error",
+                "error": type(exc).__name__}
 
 
 async def is_paused(db, chat_id: int) -> bool:
@@ -917,12 +925,15 @@ async def lesson_action(db, chat_id: int, lesson_id: str, *,
         return {"ok": False, "reason": "error"}
 
 
-async def reset_learning(db, chat_id: int) -> dict:
+async def reset_learning(db, chat_id: int, *, pg=None) -> dict:
     """Сброс обучения юмора в чате: предпочтения выключаются, данные целы.
 
     Базовые данные Experience (эпизоды/feedback/уроки) НЕ удаляются: уроки
     приостанавливаются, а документ-предпочтение помечается сброшенным.
-    """
+
+    P0 PERSIST-FIX: сбой записи документа предпочтения больше не глотается —
+    `ok:false` с реальной причиной (раньше API отвечал успехом, хотя сброс
+    не был записан; аудит §3.4 — ложный успех «Обучения»)."""
     if not gate_on():
         return {"ok": False, "reason": "humor_feedback_disabled"}
     suspended = 0
@@ -941,15 +952,20 @@ async def reset_learning(db, chat_id: int) -> dict:
         logger.warning("[humor-feedback] reset suspend failed", exc_info=True)
     try:
         from services import chat_params
-        root = await chat_params.get_all_chat_params(int(chat_id))
+        root = await (chat_params.get_all_chat_params(int(chat_id), pg=pg)
+                      if pg is not None
+                      else chat_params.get_all_chat_params(int(chat_id)))
         overrides = dict((root or {}).get("overrides") or {})
         doc = dict(overrides.get("humor.feedback") or {})
         doc["reset_at"] = _now()
         doc["pending_hypotheses"] = []
         overrides["humor.feedback"] = doc
-        await chat_params.set_chat_params(int(chat_id), {"overrides": overrides})
-    except Exception:
+        await chat_params.set_chat_params(int(chat_id),
+                                          {"overrides": overrides}, pg=pg)
+    except Exception as exc:
         logger.warning("[humor-feedback] reset doc write failed", exc_info=True)
+        return {"ok": False, "reason": "write_error",
+                "error": type(exc).__name__, "suspended": suspended}
     _emit("humor_learning_reset", outcome="success", chat_id=int(chat_id),
           reason_code="owner_reset_learning", suspended=suspended)
     return {"ok": True, "suspended": suspended,

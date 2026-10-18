@@ -679,13 +679,14 @@ def test_e2e_worker_registry_status_gets_save_reload(
 def _wire_hot_image_slot(client, *, base_url: str, model: str):
     """Hot-конфиг клиента (как TestPromptLimitOverride 4.3): global image slot.
 
-    PG-write выключен (`_pg_available=False`) — bot_settings пишется в
-    in-memory ветке (та же, что в 4.3 §7.2 persistence-тестах)."""
+    P0 PERSIST-FIX: cache.set теперь PG-first — «PG-write выключен» больше не
+    даёт тихий in-memory успех, поэтому шов пишет в реальную temp-SQLite
+    (bot_settings в _SCHEMA), а не в память."""
     from services import hot_config
     cache = client.app.state.cache
     cache._lock = asyncio.Lock()
     cache._settings_updated_at = {}
-    cache._pg_available = False
+    cache._pg_available = True
     cache._settings["models.image_base_url"] = base_url
     cache._settings["models.image_model"] = model
     hot_config.set_config_cache(cache)

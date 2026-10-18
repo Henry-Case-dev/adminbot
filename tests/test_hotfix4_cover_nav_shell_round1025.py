@@ -198,9 +198,17 @@ class TestCoverStyleApplied:
 
     @pytest.mark.asyncio
     async def test_round_trip_save_reread(self):
-        """T-2509: load→edit→save→re-read даёт настроенный стиль (не дефолт)."""
-        cache = ConfigCache()
+        """T-2509: load→edit→save→re-read даёт настроенный стиль (не дефолт).
+
+        P0 PERSIST-FIX: запись без постоянного хранилища — явная ошибка
+        (тихий in-memory успех закрыт, аудит B4), поэтому кэш PG-backed —
+        как в sibling-тесте `test_pg_backed_save_reload_reread_compose`.
+        """
+        pool = _FakePool()
+        cache = ConfigCache(pg=types.SimpleNamespace(pool=pool))
+        cache._pg_available = True
         await cache.set(_STYLE_KEY, _CUSTOM_STYLE, "prompts")
+        assert pool.store[_STYLE_KEY]["category"] == "prompts"
         assert cache.get(_STYLE_KEY) == _CUSTOM_STYLE
         hot.set_config_cache(cache)
         try:
