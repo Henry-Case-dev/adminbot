@@ -1,0 +1,538 @@
+{
+  "base": "https://admin-bot.duckdns.org",
+  "uid": 5885953495,
+  "checks": {
+    "healthz": {
+      "status": 200,
+      "json": {
+        "status": "ok",
+        "version": "2.58.89"
+      }
+    },
+    "me": {
+      "status": 200,
+      "json": {
+        "telegram_id": 5885953495,
+        "username": null,
+        "first_name": "Audit",
+        "last_name": null,
+        "photo_url": null,
+        "role_name": "admin",
+        "permissions": {
+          "wildcard": true
+        },
+        "is_custom": false,
+        "is_global_admin": true,
+        "ui_flags": {
+          "TOKEN_FLOW_NODEFLOW_ENABLED": true,
+          "IMAGE_MODULE_CARD_ENABLED": true,
+          "PROMPTS_UI_V2_ENABLED": true,
+          "BYOK_IMAGE_KEY_ENABLED": true,
+          "DOSSIER_LIVE_FEED_ENABLED": true,
+          "ALIASES_KEYSVALUE_RENDER_ENABLED": true,
+          "IA_V2_ENABLED": true,
+          "UI_GLASS_TIER_OVERRIDE": "auto",
+          "UI_HEARTBEAT_CANVAS_ENABLED": true,
+          "UI_HEADER_COMPACT_V2": true,
+          "UI_LENS_MAX_NODES": 3,
+          "UI_SHELL_GLASS_V2": true,
+          "UI_HEARTBEAT_PREMIUM": true,
+          "UI_SHELL_LAYOUT_V2": true,
+          "UI_SHELL_V3": true,
+          "UI_AURORA_BG_ENABLED": true,
+          "UI_SHELL_FLEX_V3": true,
+          "UI_SHELL_GRAPHITE_V3": true,
+          "UI_LIQUID_GLASS_LIB": false,
+          "UI_AURORA_FLOW_V2": true,
+          "UI_POLYGON_BG_ENABLED": true,
+          "PERMSOC_BLOCK_GATES_ENABLED": true,
+          "UI_STATUS_GRID_V2": true,
+          "UI_BUDGETS_SPLIT_ENABLED": true,
+          "ANALYTICS_CONTEXT_BUDGETS_ENABLED": true
+        }
+      }
+    },
+    "expression_global": {
+      "status": 200,
+      "json": {
+        "doc_key": "character.expression",
+        "scope": "global",
+        "chat_id": null,
+        "document": {
+          "enabled": true,
+          "wit": "inherit",
+          "sharpness": "inherit",
+          "profanity": "inherit",
+          "verbosity": "inherit",
+          "note": ""
+        },
+        "present": false,
+        "global_present": false,
+        "chat_present": false,
+        "inheritance": "factory_default",
+        "controls": [
+          {
+            "id": "wit",
+            "label": "Остроумие",
+            "question": "Насколько охотно искать шутку и неожиданное сравнение",
+            "options": [
+              {
+                "value": "inherit",
+                "label": "Как настроено (по умолчанию)"
+              },
+              {
+                "value": "low",
+                "label": "Реже обычного"
+              },
+              {
+                "value": "normal",
+                "label": "Обычно"
+              },
+              {
+                "value": "high",
+                "label": "Чаще искать повод"
+              }
+            ],
+            "effect": ""
+          },
+          {
+            "id": "sharpness",
+            "label": "Резкость",
+            "question": "Насколько жёстко можно спорить и подкалывать",
+            "options": [
+              {
+                "value": "inherit",
+                "label": "Как настроено (по умолчанию)"
+              },
+              {
+                "value": "soft",
+                "label": "Мягче обычного"
+              },
+              {
+                "value": "normal",
+                "label": "Обычно"
+              },
+              {
+                "value": "sharp",
+                "label": "Жёстче обычного"
+              }
+            ],
+            "effect": ""
+          },
+          {
+            "id": "profanity",
+            "label": "Мат",
+            "question": "Разрешён ли мат в ответах бота",
+            "options": [
+              {
+                "value": "inherit",
+                "label": "Как настроено (по умолчанию)"
+              },
+              {
+                "value": "off",
+                "label": "Без мата"
+              },
+              {
+                "value": "allowed",
+                "label": "Как в характере (естественный)"
+              }
+            ],
+            "effect": ""
+          },
+          {
+            "id": "verbosity",
+            "label": "Развёрнутость",
+            "question": "Обычная длина ответа, когда пользователь не задал формат",
+            "options": [
+              {
+                "value": "inherit",
+                "label": "Как настроено (по умолчанию)"
+              },
+              {
+                "value": "short",
+                "label": "Короче обычного"
+              },
+              {
+                "value": "normal",
+                "label": "Обычно"
+              },
+              {
+                "value": "long",
+                "label": "Подробнее обычного"
+              }
+            ],
+            "effect": ""
+          }
+        ],
+        "values": {
+          "wit": "inherit",
+          "sharpness": "inherit",
+          "profanity": "inherit",
+          "verbosity": "inherit"
+        },
+        "allows": {
+          "wit": [
+            "inherit",
+            "low",
+            "normal",
+            "high"
+          ],
+          "sharpness": [
+            "inherit",
+            "soft",
+            "normal",
+            "sharp"
+          ],
+          "profanity": [
+            "inherit",
+            "off",
+            "allowed"
+          ],
+          "verbosity": [
+            "inherit",
+            "short",
+            "normal",
+            "long"
+          ]
+        },
+        "note": "",
+        "notes": "Важно: уместность выбирает L1 (тема, адресат, контекст чата), а явная просьба пользователя всегда важнее этих настроек. Настройки меняют привычку, а не гарантируют частоту.",
+        "rendered_text": "",
+        "rendered_chars": 0,
+        "runtime_wired": false,
+        "runtime_note": "Слой «Выражение» рендерится композером; на боевом пути Direct значения станут действующими после подключения слоя (в манифесте причина `expression_absent`, пока владелец слоя не передан).",
+        "gates": {
+          "unified_composer_enabled": true,
+          "character_core_enabled": true,
+          "speech_style_policy_enabled": true,
+          "humor_library_enabled": true,
+          "humor_feedback_enabled": true,
+          "experience_lessons_enabled": true,
+          "smart_verbalizer_modes_enabled": true,
+          "response_plan_enabled": true,
+          "persona_enabled": true,
+          "character_layers_enabled": true
+        },
+        "can_edit": true
+      }
+    },
+    "expression_chat": {
+      "status": 200,
+      "json": {
+        "doc_key": "character.expression",
+        "scope": "chat",
+        "chat_id": -1001234567890,
+        "document": {
+          "enabled": true,
+          "wit": "inherit",
+          "sharpness": "inherit",
+          "profanity": "inherit",
+          "verbosity": "inherit",
+          "note": ""
+        },
+        "present": false,
+        "global_present": false,
+        "chat_present": false,
+        "inheritance": "factory_default",
+        "controls": [
+          {
+            "id": "wit",
+            "label": "Остроумие",
+            "question": "Насколько охотно искать шутку и неожиданное сравнение",
+            "options": [
+              {
+                "value": "inherit",
+                "label": "Как настроено (по умолчанию)"
+              },
+              {
+                "value": "low",
+                "label": "Реже обычного"
+              },
+              {
+                "value": "normal",
+                "label": "Обычно"
+              },
+              {
+                "value": "high",
+                "label": "Чаще искать повод"
+              }
+            ],
+            "effect": ""
+          },
+          {
+            "id": "sharpness",
+            "label": "Резкость",
+            "question": "Насколько жёстко можно спорить и подкалывать",
+            "options": [
+              {
+                "value": "inherit",
+                "label": "Как настроено (по умолчанию)"
+              },
+              {
+                "value": "soft",
+                "label": "Мягче обычного"
+              },
+              {
+                "value": "normal",
+                "label": "Обычно"
+              },
+              {
+                "value": "sharp",
+                "label": "Жёстче обычного"
+              }
+            ],
+            "effect": ""
+          },
+          {
+            "id": "profanity",
+            "label": "Мат",
+            "question": "Разрешён ли мат в ответах бота",
+            "options": [
+              {
+                "value": "inherit",
+                "label": "Как настроено (по умолчанию)"
+              },
+              {
+                "value": "off",
+                "label": "Без мата"
+              },
+              {
+                "value": "allowed",
+                "label": "Как в характере (естественный)"
+              }
+            ],
+            "effect": ""
+          },
+          {
+            "id": "verbosity",
+            "label": "Развёрнутость",
+            "question": "Обычная длина ответа, когда пользователь не задал формат",
+            "options": [
+              {
+                "value": "inherit",
+                "label": "Как настроено (по умолчанию)"
+              },
+              {
+                "value": "short",
+                "label": "Короче обычного"
+              },
+              {
+                "value": "normal",
+                "label": "Обычно"
+              },
+              {
+                "value": "long",
+                "label": "Подробнее обычного"
+              }
+            ],
+            "effect": ""
+          }
+        ],
+        "values": {
+          "wit": "inherit",
+          "sharpness": "inherit",
+          "profanity": "inherit",
+          "verbosity": "inherit"
+        },
+        "allows": {
+          "wit": [
+            "inherit",
+            "low",
+            "normal",
+            "high"
+          ],
+          "sharpness": [
+            "inherit",
+            "soft",
+            "normal",
+            "sharp"
+          ],
+          "profanity": [
+            "inherit",
+            "off",
+            "allowed"
+          ],
+          "verbosity": [
+            "inherit",
+            "short",
+            "normal",
+            "long"
+          ]
+        },
+        "note": "",
+        "notes": "Важно: уместность выбирает L1 (тема, адресат, контекст чата), а явная просьба пользователя всегда важнее этих настроек. Настройки меняют привычку, а не гарантируют частоту.",
+        "rendered_text": "",
+        "rendered_chars": 0,
+        "runtime_wired": false,
+        "runtime_note": "Слой «Выражение» рендерится композером; на боевом пути Direct значения станут действующими после подключения слоя (в манифесте причина `expression_absent`, пока владелец слоя не передан).",
+        "gates": {
+          "unified_composer_enabled": true,
+          "character_core_enabled": true,
+          "speech_style_policy_enabled": true,
+          "humor_library_enabled": true,
+          "humor_feedback_enabled": true,
+          "experience_lessons_enabled": true,
+          "smart_verbalizer_modes_enabled": true,
+          "response_plan_enabled": true,
+          "persona_enabled": true,
+          "character_layers_enabled": true
+        },
+        "can_edit": true
+      }
+    }
+  },
+  "expression_global_view": {
+    "present": false,
+    "inheritance": "factory_default",
+    "global_present": false,
+    "chat_present": false,
+    "values": {
+      "wit": "inherit",
+      "sharpness": "inherit",
+      "profanity": "inherit",
+      "verbosity": "inherit"
+    },
+    "note": "",
+    "rendered_text": "",
+    "document": {
+      "enabled": true,
+      "wit": "inherit",
+      "sharpness": "inherit",
+      "profanity": "inherit",
+      "verbosity": "inherit",
+      "note": ""
+    },
+    "can_edit": true,
+    "scope": "global"
+  },
+  "style_global_view": {
+    "source": "global",
+    "revision": "g4.6cf9b02a9e23",
+    "rules": 0,
+    "soft": 0,
+    "document": {
+      "global_present": true,
+      "chat_present": false,
+      "global_issues": [],
+      "chat_issues": [],
+      "global_revision": 4,
+      "chat_revision": 0,
+      "inheritance": "global"
+    },
+    "can_edit": true,
+    "rules_ids": []
+  },
+  "core_global_view": {
+    "inheritance": "global",
+    "global_present": true,
+    "document": {
+      "revision": 1,
+      "enabled": true,
+      "detail_level": "full",
+      "origin": "owner_edit",
+      "updated_at": "2026-10-17T21:55:18+00:00",
+      "present": true
+    },
+    "selection": {
+      "doc_key": "character.core",
+      "present": true,
+      "level": "full",
+      "reason": "owner_setting",
+      "requested_level": "full",
+      "source": "global",
+      "origin": "owner_edit",
+      "document_revision": "1",
+      "active_revision": "r1.040581a3b4b0",
+      "active_field": "full_text",
+      "active_from_owner": true,
+      "budget_tokens": 1200,
+      "full": {
+        "chars": 2835,
+        "words": 360,
+        "tokens": 709,
+        "sha256_12": "040581a3b4b0",
+        "origin": "owner"
+      },
+      "compact": {
+        "chars": 1934,
+        "words": 249,
+        "tokens": 484,
+        "sha256_12": "ff28f0720a23",
+        "origin": "factory"
+      },
+      "factory_revisions": {
+        "full": "fac:040581a3b4b0(soul02-author-full-v1)",
+        "compact": "fac:ff28f0720a23(soul02-compact-v1)"
+      },
+      "source_provenance": {
+        "path": "plans/features/soul-1/source-current-task.md",
+        "chapter": "§3 SOUL-02 — Единый Personality Core как собственность владельца",
+        "heading": "### Речь, юмор и мышление",
+        "line_start": 43,
+        "line_end": 53,
+        "req_ids": [
+          "SOUL-02.1",
+          "SOUL-02.2",
+          "SOUL-02.3",
+          "SOUL-02.4",
+          "SOUL-02.5",
+          "SOUL-02.6"
+        ],
+        "map": "plans/features/soul-1/requirements-map.json",
+        "amendment": "SOUL-AMD.1.1",
+        "factory_rev_label": "soul02-author-full-v1"
+      },
+      "edit_blocks": {
+        "full": "core.personality",
+        "compact": "core.personality.compact"
+      }
+    },
+    "editions": {
+      "full": {
+        "source": "global",
+        "revision": "act:040581a3b4b0",
+        "chars": 2835,
+        "withheld": false,
+        "differs_from_factory": false
+      },
+      "compact": {
+        "source": "global",
+        "revision": "act:ff28f0720a23",
+        "chars": 1934,
+        "withheld": false,
+        "differs_from_factory": false
+      }
+    },
+    "history_rows": 0,
+    "can_edit": true
+  },
+  "overview_global_view": {
+    "scope": "global",
+    "chat_id": null,
+    "cards": []
+  },
+  "access_chats": [
+    {
+      "chat_id": -1004482340693,
+      "title": "Неистово супер крутые криэйторы гиперговна",
+      "photo_file_id": "AQADAgADtBxrG67jSEoACAMAA6vYLyAW____ePVVGbxZiI09BA",
+      "is_active": true,
+      "access": "global_admin"
+    },
+    {
+      "chat_id": -1002661910336,
+      "title": "PERMsoc: кукярик",
+      "photo_file_id": "AQADAgAD2SJrG0lD8EkACAMAA8BosYwW____IqXc45ghO6I9BA",
+      "is_active": true,
+      "access": "global_admin"
+    },
+    {
+      "chat_id": 5885953495,
+      "title": "Личные сообщения",
+      "photo_file_id": null,
+      "is_active": true,
+      "access": "dm",
+      "is_dm": true
+    }
+  ]
+}

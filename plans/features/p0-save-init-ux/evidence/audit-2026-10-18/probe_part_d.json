@@ -1,0 +1,147 @@
+{
+  "gate_humor_feedback": true,
+  "D1_chat_scope_with_overrides_status_quo": {
+    "POST /speech/style": {
+      "status": 409,
+      "detail": "save_error",
+      "ok": null,
+      "reason": null
+    },
+    "POST /speech/expression": {
+      "status": 409,
+      "detail": "write_error",
+      "ok": null,
+      "reason": null
+    },
+    "POST /speech/core/meta": {
+      "status": 200,
+      "detail": null,
+      "ok": false,
+      "reason": "write_error"
+    },
+    "POST /speech/block/core.personality": {
+      "status": 503,
+      "detail": "запись недоступна",
+      "ok": null,
+      "reason": null
+    },
+    "POST /speech/style/reset-chat": {
+      "status": 200,
+      "detail": null,
+      "ok": false,
+      "reason": "reset_error"
+    },
+    "POST /speech/expression/reset-chat": {
+      "status": 503,
+      "detail": "локальная запись недоступна",
+      "ok": null,
+      "reason": null
+    },
+    "POST /speech/block/core.personality/reset(mode=chat)": {
+      "exception": "ChatLorePgUnavailable",
+      "message": "PostgreSQL недоступен (пул отсутствует)"
+    },
+    "POST /speech/humor/craft": {
+      "status": 503,
+      "detail": "локальная запись недоступна",
+      "ok": null,
+      "reason": null
+    },
+    "POST /speech/learning/humor(pause)": {
+      "status": 409,
+      "detail": "write_error",
+      "ok": null,
+      "reason": null
+    }
+  },
+  "D2_chat_scope_with_minimal_fix": {
+    "POST /speech/style": {
+      "status": 200,
+      "detail": null,
+      "ok": true,
+      "reason": null
+    },
+    "POST /speech/expression": {
+      "status": 200,
+      "detail": null,
+      "ok": true,
+      "reason": null
+    },
+    "POST /speech/core/meta": {
+      "status": 200,
+      "detail": null,
+      "ok": true,
+      "reason": null
+    },
+    "POST /speech/block/core.personality": {
+      "status": 200,
+      "detail": null,
+      "ok": true,
+      "reason": null
+    },
+    "POST /speech/style/reset-chat": {
+      "status": 200,
+      "detail": null,
+      "ok": true,
+      "reason": null
+    },
+    "POST /speech/expression/reset-chat": {
+      "status": 200,
+      "detail": null,
+      "ok": true,
+      "reason": null
+    },
+    "POST /speech/block/core.personality/reset(mode=chat)": {
+      "status": 200,
+      "detail": null,
+      "ok": true,
+      "reason": null
+    },
+    "POST /speech/humor/craft": {
+      "status": 200,
+      "detail": null,
+      "ok": true,
+      "reason": null
+    },
+    "POST /speech/learning/humor(pause)": {
+      "status": 200,
+      "detail": null,
+      "ok": true,
+      "reason": null
+    }
+  },
+  "D3_read_after_write_with_fix": {
+    "style_save": {
+      "applied": true,
+      "scope": "chat",
+      "revision": 1,
+      "rules": 0,
+      "soft_instructions": 1,
+      "issues": [
+        "rule_kind_unknown:hard_profanity_off"
+      ]
+    },
+    "expression_save": {
+      "applied": true,
+      "scope": "chat",
+      "chat_id": -1002661910336,
+      "revision": 1
+    },
+    "core_meta_save": {
+      "applied": true,
+      "scope": "chat",
+      "chat_id": -1002661910336,
+      "revision": 1
+    },
+    "stored_style_rules": 0,
+    "stored_expression_wit": "high",
+    "stored_core_level": "compact",
+    "reread_expression_view": {
+      "wit": "high",
+      "sharpness": "inherit",
+      "profanity": "off",
+      "verbosity": "short"
+    },
+    "reread_style_revision": "c1.0df591160583"
+  }
+}

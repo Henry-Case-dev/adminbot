@@ -1,0 +1,143 @@
+{
+  "-1004482340693": {
+    "expression": {
+      "present": false,
+      "inheritance": "factory_default",
+      "chat_present": false,
+      "global_present": false,
+      "values": {
+        "wit": "inherit",
+        "sharpness": "inherit",
+        "profanity": "inherit",
+        "verbosity": "inherit"
+      },
+      "note": "",
+      "rendered_text": ""
+    },
+    "style": {
+      "source": "global",
+      "revision": "g4.6cf9b02a9e23",
+      "rules": 0,
+      "soft": 0,
+      "document": {
+        "global_present": true,
+        "chat_present": false,
+        "global_issues": [],
+        "chat_issues": [],
+        "global_revision": 4,
+        "chat_revision": 0,
+        "inheritance": "global"
+      }
+    },
+    "core": {
+      "inheritance": "global",
+      "document": {
+        "revision": 1,
+        "enabled": true,
+        "detail_level": "full",
+        "origin": "owner_edit",
+        "updated_at": "2026-10-17T21:55:18+00:00",
+        "present": true
+      },
+      "selection_source": "global",
+      "selection_level": "full",
+      "selection_reason": "owner_setting",
+      "full_chars": 2835,
+      "compact_chars": 1934
+    }
+  },
+  "-1002661910336": {
+    "expression": {
+      "present": false,
+      "inheritance": "factory_default",
+      "chat_present": false,
+      "global_present": false,
+      "values": {
+        "wit": "inherit",
+        "sharpness": "inherit",
+        "profanity": "inherit",
+        "verbosity": "inherit"
+      },
+      "note": "",
+      "rendered_text": ""
+    },
+    "style": {
+      "source": "global",
+      "revision": "g4.6cf9b02a9e23",
+      "rules": 0,
+      "soft": 0,
+      "document": {
+        "global_present": true,
+        "chat_present": false,
+        "global_issues": [],
+        "chat_issues": [],
+        "global_revision": 4,
+        "chat_revision": 0,
+        "inheritance": "global"
+      }
+    },
+    "core": {
+      "inheritance": "global",
+      "document": {
+        "revision": 1,
+        "enabled": true,
+        "detail_level": "full",
+        "origin": "owner_edit",
+        "updated_at": "2026-10-17T21:55:18+00:00",
+        "present": true
+      },
+      "selection_source": "global",
+      "selection_level": "full",
+      "selection_reason": "owner_setting",
+      "full_chars": 2835,
+      "compact_chars": 1934
+    }
+  },
+  "5885953495": {
+    "expression": {
+      "present": false,
+      "inheritance": "factory_default",
+      "chat_present": false,
+      "global_present": false,
+      "values": {
+        "wit": "inherit",
+        "sharpness": "inherit",
+        "profanity": "inherit",
+        "verbosity": "inherit"
+      },
+      "note": "",
+      "rendered_text": ""
+    },
+    "style": {
+      "source": "global",
+      "revision": "g4.6cf9b02a9e23",
+      "rules": 0,
+      "soft": 0,
+      "document": {
+        "global_present": true,
+        "chat_present": false,
+        "global_issues": [],
+        "chat_issues": [],
+        "global_revision": 4,
+        "chat_revision": 0,
+        "inheritance": "global"
+      }
+    },
+    "core": {
+      "inheritance": "global",
+      "document": {
+        "revision": 1,
+        "enabled": true,
+        "detail_level": "full",
+        "origin": "owner_edit",
+        "updated_at": "2026-10-17T21:55:18+00:00",
+        "present": true
+      },
+      "selection_source": "global",
+      "selection_level": "full",
+      "selection_reason": "owner_setting",
+      "full_chars": 2835,
+      "compact_chars": 1934
+    }
+  }
+}

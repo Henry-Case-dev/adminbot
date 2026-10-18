@@ -1,0 +1,267 @@
+{
+  "root": "C:\\Code\\Python\\adminbot",
+  "sections": [
+    {
+      "name": "A1 chat_params.set_chat_params(pg=None)",
+      "raised": "ChatLorePgUnavailable",
+      "message": "PostgreSQL недоступен (пул отсутствует)",
+      "module": "services.chat_lore_store"
+    },
+    {
+      "name": "A2 save_policy_document(chat_id)",
+      "result": {
+        "applied": false,
+        "reason": "save_error"
+      },
+      "internal_trace": [
+        "WARNING services.style_policy: [style_policy] document save failed"
+      ],
+      "logged_delta": "DEBUG asyncio: Using proactor: IocpProactor\nWARNING services.style_policy: [style_policy] document save failed\nTraceback (most recent call last):\n  File \"C:\\Code\\Python\\adminbot\\services\\style_policy.py\", line 2272, in save_policy_document\n    await set_root(int(chat_id), patch)\n  File \"C:\\Code\\Python\\adminbot\\services\\chat_params.py\", line 424, in set_chat_params\n    raise _PgUnavailable(\"PostgreSQL недоступен (пул отсутствует)\")\nservices.chat_lore_store.ChatLorePgUnavailable: PostgreSQL недоступен (пул отсутствует)\n"
+    },
+    {
+      "name": "A2b save_policy_document(global)",
+      "result": {
+        "applied": true,
+        "scope": "global",
+        "revision": 1,
+        "rules": 0,
+        "soft_instructions": 1,
+        "issues": [
+          "rule_kind_unknown:quotes"
+        ]
+      }
+    },
+    {
+      "name": "A3 _write_expression(chat_id)",
+      "result": {
+        "applied": false,
+        "reason": "write_error"
+      },
+      "internal_trace": [
+        "WARNING web.api.speech: [speech] expression chat write failed"
+      ]
+    },
+    {
+      "name": "A4 prompt_factory.write_speech_value(chat_id)",
+      "raised": "ChatLorePgUnavailable",
+      "message": "PostgreSQL недоступен (пул отсутствует)",
+      "trace_tail": [
+        "           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^",
+        "  File \"C:\\Code\\Python\\adminbot\\services\\prompt_factory.py\", line 562, in _write_chat_speech_value",
+        "    await set_root(chat_id, patch)",
+        "  File \"C:\\Code\\Python\\adminbot\\services\\chat_params.py\", line 424, in set_chat_params",
+        "    raise _PgUnavailable(\"PostgreSQL недоступен (пул отсутствует)\")",
+        "services.chat_lore_store.ChatLorePgUnavailable: PostgreSQL недоступен (пул отсутствует)"
+      ]
+    },
+    {
+      "name": "A5 _write_core_meta(chat_id)",
+      "result": {
+        "applied": false,
+        "reason": "write_error"
+      },
+      "internal_trace": [
+        "WARNING web.api.speech: [speech] core meta chat write failed"
+      ]
+    },
+    {
+      "name": "A6 reset_chat_override(chat_id, pg=None)",
+      "result": {
+        "applied": false,
+        "reason": "no_chat_override",
+        "block_id": "core.personality",
+        "pg_key": "character.core",
+        "inherits": {
+          "source": "Factory",
+          "sha256_12": "040581a3b4b0",
+          "differs_from_factory": false
+        }
+      }
+    },
+    {
+      "name": "B1 POST /api/speech/expression (X-Chat-Id)",
+      "http": {
+        "status": 409,
+        "detail": "write_error",
+        "body_keys": [
+          "detail"
+        ]
+      },
+      "ui_toast": "Не сохранено: write_error"
+    },
+    {
+      "name": "B2 POST /api/speech/style (X-Chat-Id)",
+      "http": {
+        "status": 409,
+        "detail": "save_error",
+        "body_keys": [
+          "detail"
+        ]
+      },
+      "ui_toast": "Документ не прошёл проверку или конфликт версии"
+    },
+    {
+      "name": "B3 smoke: остальные chat-scope сохранения SOUL-1",
+      "core_meta_full": {
+        "status": 200,
+        "detail": null,
+        "body_keys": [
+          "ok",
+          "result"
+        ]
+      },
+      "core_meta_enabled": {
+        "status": 200,
+        "detail": null,
+        "body_keys": [
+          "ok",
+          "result"
+        ]
+      },
+      "core_block_full": {
+        "status": 503,
+        "detail": "запись недоступна",
+        "body_keys": [
+          "detail"
+        ]
+      },
+      "style_reset_chat": {
+        "status": 200,
+        "detail": null,
+        "body_keys": [
+          "ok",
+          "result",
+          "view"
+        ]
+      },
+      "expression_reset_chat": {
+        "status": 200,
+        "detail": null,
+        "body_keys": [
+          "ok",
+          "reason",
+          "view"
+        ]
+      },
+      "block_reset_chat": {
+        "status": 200,
+        "detail": null,
+        "body_keys": [
+          "inherits",
+          "mode",
+          "ok",
+          "result"
+        ]
+      },
+      "block_rollback_chat": {
+        "status": 404,
+        "detail": "ревизия не найдена в истории",
+        "body_keys": [
+          "detail"
+        ]
+      }
+    },
+    {
+      "name": "B4 global scope при недоступной записи в PG (следствие 1: тихий 200)",
+      "style": {
+        "status": 200,
+        "detail": null,
+        "body_keys": [
+          "ok",
+          "result",
+          "view"
+        ]
+      },
+      "expression": {
+        "status": 200,
+        "detail": null,
+        "body_keys": [
+          "ok",
+          "result",
+          "view"
+        ]
+      },
+      "cache_value_present_after_failed_persist": true
+    },
+    {
+      "name": "B5 глобальный путь при ошибке записи в PG (следствие 2: расхождение)",
+      "post": {
+        "status": 409,
+        "detail": "write_error",
+        "body_keys": [
+          "detail"
+        ]
+      },
+      "ui_toast": "Не сохранено: write_error",
+      "cache_in_memory_value": {
+        "enabled": true,
+        "wit": "low",
+        "sharpness": "inherit",
+        "profanity": "inherit",
+        "verbosity": "inherit",
+        "note": "PG-сбой",
+        "revision": 1,
+        "history": [],
+        "updated_at": "2026-10-18T08:33:12Z"
+      },
+      "reread_values": [
+        200,
+        "None"
+      ]
+    },
+    {
+      "name": "C1 чтение документов после загрузки кэша из PG (jsonb→str)",
+      "types_in_cache": {
+        "character.expression": "str",
+        "style.policy": "str",
+        "character.core": "str"
+      },
+      "expression_document": {
+        "document": null,
+        "global_present": false,
+        "chat_present": false,
+        "inheritance": "factory_default"
+      },
+      "expression_payload_present": false,
+      "expression_values_view": {
+        "wit": "inherit",
+        "sharpness": "inherit",
+        "profanity": "inherit",
+        "verbosity": "inherit"
+      },
+      "expression_rendered_chars": 0,
+      "style_source": "global",
+      "style_rules_on_screen": 0,
+      "style_document_flags": {
+        "global_present": true,
+        "chat_present": false,
+        "global_issues": [
+          "rule_kind_unknown:quotes"
+        ],
+        "chat_issues": [],
+        "global_revision": 2,
+        "chat_revision": 0,
+        "inheritance": "global"
+      },
+      "core_inheritance": "factory_default",
+      "core_source_full": "global",
+      "core_full_chars": 2835
+    }
+  ],
+  "logs": {
+    "speech_write_errors": [
+      "WARNING web.api.speech: [speech] expression chat write failed",
+      "WARNING web.api.speech: [speech] core meta chat write failed",
+      "WARNING web.api.speech: [speech] expression chat write failed",
+      "WARNING web.api.speech: [speech] core meta chat write failed",
+      "WARNING web.api.speech: [speech] core meta chat write failed",
+      "WARNING web.api.speech: [speech] write failed",
+      "WARNING web.api.speech: [speech] expression write failed"
+    ],
+    "style_policy_save_errors": [
+      "WARNING services.style_policy: [style_policy] document save failed",
+      "WARNING services.style_policy: [style_policy] document save failed"
+    ],
+    "chat_params_locks": []
+  }
+}

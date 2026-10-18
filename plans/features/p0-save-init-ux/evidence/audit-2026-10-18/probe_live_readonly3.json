@@ -1,0 +1,70 @@
+{
+  "overview_chat": {
+    "status": 200,
+    "scope": "chat",
+    "chat_id": -1002661910336,
+    "scope_source_ui": "speechScopeChoice -> 'chat' при scope==='chat' (app.js:18887)"
+  },
+  "config_chat": {
+    "status": 200,
+    "updated_at": "2026-10-18T02:00:11.019169+00:00",
+    "keys_visible": 555,
+    "chat_overridden_keys_sample": [],
+    "chat_overridden_count": 0,
+    "raw_keys": [
+      "chat_id",
+      "ctx",
+      "groups",
+      "items",
+      "modules",
+      "updated_at"
+    ]
+  },
+  "core_block_global": {
+    "source": "global",
+    "revision": "act:040581a3b4b0",
+    "differs_from_factory": false,
+    "chars": 2835,
+    "history_len": 0,
+    "history": [],
+    "can_edit": true,
+    "keys": [
+      "block_id",
+      "can_edit",
+      "chat_value_present",
+      "composition_point",
+      "consumers",
+      "document",
+      "editable",
+      "effective",
+      "enabled_axis",
+      "enabled_by",
+      "enabled_value",
+      "factory_chars",
+      "factory_plan",
+      "factory_revision",
+      "factory_text",
+      "family",
+      "global_value_present",
+      "history",
+      "history_text_available",
+      "legacy_persona",
+      "owner_lane",
+      "pg_doc_field",
+      "pg_key",
+      "preview_diff",
+      "production_kind",
+      "provenance_required",
+      "purpose",
+      "scope",
+      "speech",
+      "stored_text",
+      "ui"
+    ]
+  },
+  "core_block_chat": {
+    "source": "global",
+    "chat_override_present": false,
+    "global_present": false
+  }
+}
