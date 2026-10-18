@@ -100,7 +100,7 @@ ARTIFACTS = [ROOT / p for p in FIXTURE["artifacts"]]
 # осознанно (L-F11S-1, прецедент 2.58.57; routes-инвентарь f8_baseline
 # не менялся).
 ROUTES_SHA256_F11 = (
-    "989779c651282791b95b5f4d82d5c42afd63eb3954d105ca6d06d5895a4c677b")
+    "21f72a8ebb4ebdb41f6d098770fa8f7e1d52210492f5f6754717426a758d1340")
 # ASAP 8 F9 (L-F11S-1 re-pin, REV-F9 Approved): аддитивные
 # GET /api/youtube/proxy/health + POST /api/youtube/proxy/test,
 # оба global-admin fail-closed; инвентарь — f8_baseline.json (41→43).
@@ -120,8 +120,20 @@ PG_DB_SHA256_B07 = (
 # изменён ТОЛЬКО description ключа `memory.nostalgia_enabled` (hot-включение
 # тика без рестарта; описание UI перестало утверждать «тик не
 # регистрируется»). Исторический fixture `f8_baseline.json` НЕ меняется.
+# P0 p0-vision-universal (19.10.2026, сервисный контур VISION-FIX-CORE,
+# санкция requirements-map слайсы P0V-ARCH/PROBE/PIPE): аддитивные поля
+# ответа POST /api/vision/test — `visible_reason` (понятная причина,
+# D11) + фактические `provider`/`api_type`/`source` (D12); проба больше
+# не отправляет прозрачную PNG 1×1 (рекон D3-D5). Новых маршрутов нет
+# (Δ routes = 0). Хэш переутверждён осознанно (L-F11S-1).
+# CFG-02B (19.10.2026, санкция requirements-map слайс CFG-02B,
+# ADR-1031-1): Δ каталога +4 ParamSpec группы limits_images
+# (limits.image_freq_limit_*) — Settings 454→458, REGISTRY 575→579,
+# delta 164→168; GROUPS/TAB-маппинги/routes не менялись.
+# Хэш переутверждён осознанно (L-F11S-1); исторический fixture
+# f8_baseline.json обновлён этим же инструментом.
 PARAM_CATALOG_SHA256_FOLLOWUP = (
-    "0fc58b110fcc32f77ae38cd4b0e2520b78dce54828f3e783038c11151ad08da2")
+    "ad109003b936f4b2243ee4b2ceb52753dacb93b7f319a29995ce9ed9036bc5a6")
 
 
 def _sha256(path: Path) -> str:
@@ -231,7 +243,7 @@ class TestFrozenInvariants:
         # SOUL-1 mobile-prompts (2026-10-16): +1 PG-only промпт-ключ
         # prompts.direct_l1_planner_system_prompt → 572/120/118/23
         # (группа/вкладка/Settings/secret/hidden без изменений).
-        assert len(pc.REGISTRY) == FIXTURE["counts"]["REGISTRY"] == 575
+        assert len(pc.REGISTRY) == FIXTURE["counts"]["REGISTRY"] == 579
         assert len(pc.GROUPS) == FIXTURE["counts"]["GROUPS"] == 120
         assert len(pc._TAB_BY_GROUP) == FIXTURE["counts"]["TAB_BY_GROUP"] == 118
         assert len(pc.TAB_RULES) == FIXTURE["counts"]["TAB_RULES"] == 23
@@ -284,7 +296,7 @@ class TestRegistry:
         # фактом на момент reissue (560).
         # v6.3 B01 (W1-CHAT-INTEL): +10 (INITIATIVE_*) → 571.
         # SOUL-1 mobile-prompts (2026-10-16): +1 (L1 Planner) → 572.
-        assert len(rows) == 575
+        assert len(rows) == 579
         assert [r["internal_key"] for r in rows] == sorted(_registry_keys())
         assert all(v != "" for r in rows for v in r.values())
         assert len(rows[0]) == len(gen.TSV_COLUMNS) == 23
@@ -302,7 +314,7 @@ class TestRegistry:
         # SOUL-1 mobile-prompts (2026-10-16): +1 → дельта 161.
         delta = _registry_keys() - _inventory_keys()
         # ASAP 7 F2 (§1.10): дельта 127→149 (+9 F2; F4 in-flight — фактом).
-        assert len(delta) == FIXTURE["counts"]["delta"] == 164
+        assert len(delta) == FIXTURE["counts"]["delta"] == 168
         new_rows = {r["internal_key"] for r in _read_registry_rows()
                     if r["status"] == "new"}
         assert new_rows == delta
@@ -354,7 +366,7 @@ class TestRegistry:
         # ASAP 7 F2: reissue под 560/149 (+9 F2; F4 in-flight — фактом).
         # v6.3 B01 (W1-CHAT-INTEL): reissue под 571/160 (+10 INITIATIVE_*).
         # SOUL-1 mobile-prompts (2026-10-16): reissue под 572/161.
-        assert "575" in meta and "411" in meta and "164" in meta
+        assert "579" in meta and "411" in meta and "168" in meta
         from config.settings import APP_VERSION
         assert APP_VERSION in meta
 
@@ -372,7 +384,7 @@ class TestScreenMap:
         # MCA-10b (ADR-1028-17 D16): санкционированная Δ +6 → 510.
         # v6.3 B01 (W1-CHAT-INTEL): санкционированная Δ +10 → 571.
         # SOUL-1 mobile-prompts (2026-10-16): санкционированная Δ +1 → 572.
-        assert len(keys) == 575
+        assert len(keys) == 579
 
     def test_no_empty_new_screen(self):
         text = (ROOT / "plans/docs/screen-map-round1025.md").read_text(encoding="utf-8")
