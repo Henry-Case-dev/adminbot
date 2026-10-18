@@ -1,0 +1,36 @@
+REL-25890 — атрибуция "нового" падения в полном pytest
+test_mca09_intents_block_e_round1040.py::test_handle_initiative_sent_single_transport_chunks
+(полный прогон: 14240 passed / 9 failed, 628.7s; см. pytest-full.txt)
+
+Итог: пре-существующий вероятностный флейк ~5-6%; к P0-линиям 2.58.90 не относится.
+
+Механизм (зонд probe_flake.py — 100 итераций сценария теста в процессе):
+  * HEAD (01e1cc8d + bump 2.58.90): fails=6/100 (6.0%). Все FAIL:
+    decision.intent_id=None, attempts=0, row_status=pending
+    (4x status=sent chunks=3; 2x status=silent — тогда тест падает уже на assert sent).
+  * База 8c88bbda (последний pre-P0 коммит; отдельный worktree base-8c88bbda):
+    fails=5/100 (5.0%) — ТОТ ЖЕ механизм (decision.intent_id=None).
+  Сырые логи зонда (HEAD/base) — в scratch release-25890/logs/probe-flake-*.txt.
+
+Причина: вероятностный draw mca-10b "conversation variant" (explore-ветка в
+handle_initiative): при срабатывании draw primary-кандидат (durable intent)
+заменяется form-кандидатом БЕЗ intent_id; mark_attempt тогда не вызывается
+(`if decision.intent_id and db is not None` — false) → attempts остаётся 0 →
+ассерт `attempts==1 and status=="deferred"` падает. Это продуктовое поведение
+mca-10b (ADR-1028-17 D3), не дефект P0; тест не пинит draw (не детерминирован).
+
+Тест и его ассерты P0-коммитами не менялись: в f0bd29e2 правка этого файла —
+только no_chat-хунк в test_intent_status_snapshot (см. git show f0bd29e2).
+Тот же класс транзиентности ранее зафиксирован в P0-ностальгии
+(evidence/nostalgia/README.md §3: транзиентное падение другого теста ЭТОГО ЖЕ
+файла; «standalone и повторный комбинированный прогон — зелёные»).
+
+Рекомендация (follow-up, вне scope этого лейна): детерминированный пин
+exploration в этом тесте (monkeypatch `exploration_allowed`/draw) — тогда полные
+прогоны перестанут ловить этот флейк. В приёмочном повторном полном прогоне
+падение может появиться с вероятностью ~6% — это ожидаемо, не блокер релиза.
+
+Контроль: историческое падение `test_mca12_stories_round1046::test_js_ui_suite`
+(было в базовых 9) в этом прогоне ЗЕЛЁНОЕ — закрыто коммитом 3e044c8a (js-fix
+P0A-INIT). Остальные 8 падений — те же пре-существующие
+(asap7_direct_settings x2, mca01_tx x1, t5150 x5).

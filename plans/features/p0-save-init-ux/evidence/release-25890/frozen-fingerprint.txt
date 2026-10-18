@@ -1,0 +1,27 @@
+REL-25890 frozen candidate fingerprint
+HEAD=f2cd3a71fb63f74b322a4cdaf46c639f76b1607d
+APP_VERSION=2.58.90 (config/settings.py)
+F8-meta HEAD=01e1cc8d
+js-sweep=87/0
+
+51fec46b0a68  web/app.js
+c9fab0472bb5  web/index.html
+8e62b74d8934  web/static/app.css
+7e359935916d  web/api/speech.py
+72bc14f246ba  web/api/memory_agi.py
+9182765351f8  services/config_cache.py
+a3776df97ab2  services/direct_chat_service.py
+0391fc582f60  services/initiative_diagnostics.py
+eef7feec36ac  services/initiative_observer.py
+1708a1425605  services/mca_authorial_speech.py
+cec467bee1c9  services/mca_humor_feedback.py
+b3c62581662a  services/mca_intents.py
+26b8e73ece03  services/nostalgia_prompts.py
+da8c9b79e9cf  services/nostalgia_worker.py
+0fc58b110fcc  services/param_catalog.py
+4c6996a2912e  services/prompt_factory.py
+c5952bbb30cb  services/status_service.py
+bed012693fd0  services/style_policy.py
+d008122f5a53  config/settings.py
+cb507eb6560f  README.md
+455d5d237a8f  plans/docs/param-registry-round1025.meta.md
