@@ -47,7 +47,11 @@ ROUTES_SHA256_F11 = (
     # параллельной зоне) — комбинированный хэш рабочего дерева.
     # P0 p0-vision-universal (19.10.2026): аддитивные поля ответа
     # POST /api/vision/test (visible_reason/provider/api_type) — Δ routes=0.
-    "21f72a8ebb4ebdb41f6d098770fa8f7e1d52210492f5f6754717426a758d1340")
+    # P0-Vision FIX2 (V-FIX2, 19.10.2026): аддитивный контекст чата у
+    # GET /api/vision/state и POST /api/vision/test (chat_id/X-Chat-Id; без них
+    # — прежний глобальный слой) — Δ routes=0, RBAC/маскировка не менялись.
+    # NF-1 ревью e3fa4e97: проба отдаёт тот же контекстно-корректный `state`.
+    "d54cc29695c702e79b3410007bf3f08490d045a2e99679c16495a129736fb9e2")
 
 
 @pytest.fixture(autouse=True)

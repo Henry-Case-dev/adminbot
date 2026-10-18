@@ -1573,6 +1573,13 @@ PRIORITY_BACKFILL = "backfill"
 # Стартовый профиль (D20 `:1721`; НЕ денежный лимит): 2 vision одновременно.
 ANALYSIS_CONCURRENCY = 2
 VISION_TICK_SECONDS = 5                   # heartbeat-стиль mca-09 (тик ≤ 5с)
+# FIX2 (live 2.58.91, P0V-PIPE-WORKER): планировщик-энтри тика не делает
+# БД-работы (SKIPS=36 «maximum number of running instances reached» — инстанс
+# жил 10–25 с, ожидая лок SQLite с `busy_timeout` 5 с + bounded-retry).
+# Фоновые sweep'ы: claim (быстрый путь) и уборка (recover/expire) — отдельными
+# задачами, каждая фаза bounded, уборка реже тика (write-нагрузка).
+VISION_MAINTENANCE_SECONDS = 30.0         # каденс уборки (recover/expire)
+VISION_SWEEP_STAGE_TIMEOUT_SECONDS = 30.0  # bounded-фаза фонового sweep
 ALBUM_GRACE_SECONDS = 6                   # bounded ожидание siblings альбома
 ALBUM_MAX_GRACE_EXTENSIONS = 4            # ≤ ~30с ожидания, дальше — обработка
 RETRY_BASE_SECONDS = 30                   # backoff/jitter (D20)
@@ -1855,6 +1862,33 @@ _STATUS_BY_REASON = {
 }
 
 
+async def _next_granule_revision(db, asset_id: str, scope: str,
+                                 route: VisionRoute) -> int:
+    """FIX2: свободный `revision` гранулы анализа (retry/re-arm).
+
+    `finish_media_analysis` завершает строку CAS-бампом
+    `revision = revision+1`, поэтому ПОВТОР той же гранулы (bounded-retry после
+    429/unavailable, re-arm архивной джобы) вставлял `revision=1` и падал на
+    UNIQUE-грануле уже при завершении: результат терялся, джоба оставалась
+    `running`, актив не распознавался (в приёмке 2.58.91 429 длился дольше
+    бюджета джобы — любой повтор после снятия лимита упирался в это).
+    Возвращаем `max+1` (нет строк → 1 — прежнее поведение первой попытки);
+    ошибка чтения → 1 (fail-safe, прежнее поведение)."""
+    try:
+        cur = await db.db.execute(
+            "SELECT MAX(revision) AS r FROM mca_media_analyses WHERE "
+            "asset_id=? AND access_scope=? AND analysis_schema_version=? AND "
+            "analyzer_config_revision IS ? AND quality_profile=?",
+            (asset_id, scope, ANALYSIS_SCHEMA_VERSION, route.config_revision,
+             QUALITY_PROFILE_DEFAULT))
+        row = await cur.fetchone()
+        current = int((row["r"] if row is not None else 0) or 0)
+        return max(1, current + 1)
+    except Exception:
+        logger.debug("[vision] granule revision read failed", exc_info=True)
+        return 1
+
+
 async def process_asset_job(job: dict, *, db=None, bot=None,
                             transport=None) -> None:
     """Выполнить durable-джобу анализа актива (D18/D19/D20).
@@ -2042,6 +2076,7 @@ async def process_asset_job(job: dict, *, db=None, bot=None,
 
     # Singleflight-гранула (D2/D19): вторая джоба того же актива получает
     # СУЩЕСТВУЮЩУЮ строку (CA-19-9); reuse готовых статусов.
+    # FIX2: `revision` — свободный в грануле (см. `_next_granule_revision`).
     route = resolve_route(chat_id)
     analysis_id = await db.record_media_analysis({
         "asset_id": asset_id, "access_scope": scope,
@@ -2052,6 +2087,7 @@ async def process_asset_job(job: dict, *, db=None, bot=None,
         "prompt_version": PROMPT_VERSION,
         "quality_profile": QUALITY_PROFILE_DEFAULT,
         "status": "running", "config_revision": route.config_revision,
+        "revision": await _next_granule_revision(db, asset_id, scope, route),
     })
     row = await db.get_media_analysis(analysis_id) or {}
     row_status = str(row.get("status") or "")
@@ -2146,6 +2182,32 @@ def _reason_by_status(status: str) -> str:
             "failed": "vision_failed"}.get(str(status or ""), "vision_failed")
 
 
+# FIX2 (live 2.58.91): провайдерский лимит (429) — ВРЕМЕННЫЙ. Обычный бюджет
+# `JOB_MAX_ATTEMPTS` (≈4 мин с backoff 30/60/120 с) заканчивался внутри
+# 40-минутного 429-окна провайдера, и актив оставался неразобранным
+# (в приёмке: postgen/recognition — 429). Пока джоба моложе этого окна, для
+# `vision_rate_limited` повтор разрешён сверх бюджета попыток (частота всё
+# равно ограничена `_backoff` ≤ RETRY_MAX_SECONDS + jitter); за окном —
+# честный терминальный исход (дальше актив подхватывает backfill-путь).
+RATE_LIMIT_RETRY_WINDOW_SECONDS = 3600
+
+
+def _retry_allowed(job: dict, reason: str, attempt: int) -> bool:
+    """Разрешён ли bounded-повтор джобы (D20 + FIX2/429)."""
+    if attempt + 1 < JOB_MAX_ATTEMPTS:
+        return True
+    if reason != "vision_rate_limited":
+        return False
+    try:
+        created = int(job.get("created_at") or 0)
+    except (TypeError, ValueError):
+        return False
+    if created <= 0:          # неизвестный возраст → прежний бюджет попыток
+        return False
+    age = int(time.time()) - created
+    return 0 <= age < RATE_LIMIT_RETRY_WINDOW_SECONDS
+
+
 async def _finish_analysis_or_job(db, analysis_id: int, row_revision: int,
                                   job: dict, finish_job, reason: str,
                                   status: str, *, chat_id: int,
@@ -2164,7 +2226,7 @@ async def _finish_analysis_or_job(db, analysis_id: int, row_revision: int,
     retryable = reason in ("vision_unavailable", "vision_rate_limited")
     if retryable:
         attempt = int(job.get("attempt") or 0)
-        if attempt + 1 < JOB_MAX_ATTEMPTS:
+        if _retry_allowed(job, reason, attempt):
             store = _job_store()
             if store is not None and job.get("job_id"):
                 try:
@@ -2230,7 +2292,20 @@ class VisionMediaWorker:
     instances reached»; перекрытие тиков не теряет очередь и не дублирует
     обработку (claim — атомарный UPDATE только из `queued`). На время
     обработки живой heartbeat (recover_stale не считает живую джобу
-    потерянной)."""
+    потерянной).
+
+    FIX2 (live 2.58.91, P0V-PIPE-WORKER): D9 закрывал только долгие
+    vision-вызовы. Живой журнал дал SKIPS=36 `maximum number of running
+    instances reached (1)` (20:17–21:07) с сериями по 2–5 подряд идущих
+    тиков ⇒ инстанс тика жил 10–25 с на САМИХ БД-фазах: `recover_stale`
+    (write-транзакция с bounded-retry) / `_expire_deferred` (до 50 `finish`
+    по одному) / чтение `active()` на единственном соединении ждут лок
+    SQLite (`busy_timeout` = 5 с ≈ интервал тика; в те же окна в журнале
+    `database is locked`). Поэтому тик больше НЕ делает БД-работу: энтри
+    `_tick` только запускает фоновые single-flight sweep'ы — claim (быстрый,
+    читающий путь) и уборку (recover/expire, реже тика, каждая фаза bounded),
+    так что медленная уборка не задерживает claim и не занимает слот
+    планировщика."""
 
     def __init__(self, db, bot, *, max_per_tick: int = 6,
                  transport=None) -> None:
@@ -2240,9 +2315,12 @@ class VisionMediaWorker:
         self._max_per_tick = max(1, int(max_per_tick))
         self._store = None
         self._sem = None
-        self._tick_lock = asyncio.Lock()
         self._scheduler = None
         self._tasks: set[asyncio.Task] = set()
+        self._sweeps: set[asyncio.Task] = set()
+        self._claim_task: asyncio.Task | None = None
+        self._maint_task: asyncio.Task | None = None
+        self._maint_at = 0.0
         self._backfill_task: asyncio.Task | None = None
         self._heartbeat_seconds = 30.0
         self._tz_name = str(hot.get("limits.summary_timezone",
@@ -2257,6 +2335,10 @@ class VisionMediaWorker:
         self._store = TaskJobStore(self._db)
         self._sem = asyncio.Semaphore(ANALYSIS_CONCURRENCY)
         self._tasks = set()
+        self._sweeps = set()
+        self._claim_task = None
+        self._maint_task = None
+        self._maint_at = 0.0
         self._backfill_task = None
         self._scheduler = AsyncIOScheduler(timezone=self._tz_name)
         self._scheduler.add_job(self._tick, "interval",
@@ -2269,11 +2351,17 @@ class VisionMediaWorker:
         logger.info("[vision] media worker started | tick=%ss",
                     VISION_TICK_SECONDS)
 
+    def _background(self) -> list[asyncio.Task]:
+        """Живые фоновые задачи: обработки/backfill + sweep'ы тика."""
+        pending = [t for t in list(self._tasks) if not t.done()]
+        pending += [t for t in list(self._sweeps) if not t.done()]
+        return pending
+
     async def drain(self, *, timeout: float = 30.0) -> None:
         """Дождаться фоновых задач тика (bounded; тесты/shutdown)."""
         deadline = time.monotonic() + max(0.0, float(timeout))
         while True:
-            pending = [t for t in list(self._tasks) if not t.done()]
+            pending = self._background()
             if not pending:
                 return
             remaining = deadline - time.monotonic()
@@ -2296,7 +2384,7 @@ class VisionMediaWorker:
             await self.drain(timeout=5.0)
         except Exception:
             logger.debug("[vision] drain on shutdown failed", exc_info=True)
-        for task in list(self._tasks):
+        for task in list(self._tasks) + list(self._sweeps):
             if not task.done():
                 task.cancel()
         if _RUNTIME.get("worker") is self:
@@ -2304,16 +2392,37 @@ class VisionMediaWorker:
 
     # ── тик ──
     async def _tick(self) -> None:
-        if self._tick_lock.locked():
-            # Не skip-instances планировщика: тик короткий, а лок — только
-            # страховка от наложения БД-фаз (D9-наблюдаемость).
-            logger.debug("[vision] tick skipped: previous tick still running")
+        """Планировщик-энтри (FIX2): НИКОГДА не пропускается.
+
+        До первого `await` здесь нет БД-работы вообще: только запуск фоновых
+        sweep'ов (`create_task`). Инстанс APScheduler завершается в следующей
+        итерации event-loop (микросекунды), поэтому `max_instances=1` не может
+        выбросить следующий тик — ни из-за долгого vision-вызова (D9), ни
+        из-за занятой/залоченной БД (FIX2). Очередь не теряется: claim —
+        атомарный CAS, уборка — отдельная задача."""
+        self._request_claim()
+        self._request_maintenance()
+
+    def _request_claim(self) -> None:
+        """Фоновый claim-sweep (single-flight): перекрытие тиков не плодит
+        параллельные выборки — очередь всё равно обслуживается один раз."""
+        task = self._claim_task
+        if task is not None and not task.done():
+            logger.debug("[vision] claim sweep ещё идёт — новый не нужен")
             return
-        async with self._tick_lock:
-            try:
-                await self._tick_body()
-            except Exception:
-                logger.warning("[vision] tick failed", exc_info=True)
+        self._claim_task = self._spawn_sweep(self._claim_sweep())
+
+    def _request_maintenance(self) -> None:
+        """Уборка (recover_stale/expire) — отдельная задача с каденсом
+        `VISION_MAINTENANCE_SECONDS`: уборка не в критическом пути claim."""
+        task = self._maint_task
+        if task is not None and not task.done():
+            return
+        if time.monotonic() - float(self._maint_at or 0.0) \
+                < VISION_MAINTENANCE_SECONDS:
+            return
+        self._maint_at = time.monotonic()
+        self._maint_task = self._spawn_sweep(self._maintenance_sweep())
 
     def _ensure_sem(self) -> asyncio.Semaphore:
         """Семафор конкуренции (2): создаётся и при прямом вызове _tick_body
@@ -2328,36 +2437,100 @@ class VisionMediaWorker:
         task.add_done_callback(self._on_task_done)
         return task
 
+    def _spawn_sweep(self, coro) -> asyncio.Task:
+        """Фоновый sweep тика: НЕ занимает слоты `_inflight` (это не обработка
+        актива), но живёт в общем lifecycle — drain/shutdown его дожидаются."""
+        task = asyncio.create_task(coro)
+        self._sweeps.add(task)
+        task.add_done_callback(self._on_sweep_done)
+        return task
+
     def _on_task_done(self, task: asyncio.Task) -> None:
         """D9-наблюдаемость: сбой фоновой обработки виден в логе (не тихий
         «Task exception was never retrieved»). R17: только класс ошибки —
         repr исключения может содержать endpoint."""
         self._tasks.discard(task)
+        self._log_task_failure(task, "[vision] background vision task failed")
+
+    def _on_sweep_done(self, task: asyncio.Task) -> None:
+        self._sweeps.discard(task)
+        self._log_task_failure(task, "[vision] background sweep failed")
+
+    @staticmethod
+    def _log_task_failure(task: asyncio.Task, prefix: str) -> None:
         if task.cancelled():
             return
         exc = task.exception()
         if exc is not None:
-            logger.warning("[vision] background vision task failed | class=%s",
-                           type(exc).__name__)
+            logger.warning("%s | class=%s", prefix, type(exc).__name__)
 
     def _inflight(self) -> int:
         return sum(1 for t in list(self._tasks) if not t.done())
 
     async def _tick_body(self) -> None:
-        """Короткий тик (D9): recover/expire/claim → фон; без ожидания
-        долгих vision-вызовов."""
+        """Инлайн-прогон фаз тика (тесты/диагностика): recover → expire →
+        claim → backfill. Прод-путь (`_tick`) те же фазы отдаёт фоновыми
+        sweep'ами, чтобы планировщик-энтри был мгновенным."""
         if self._store is None:
             return
-        # 1) рестарт-восстановление: потерянные владельцы → interrupted.
         try:
             await self._store.recover_stale(stale_after_seconds=120)
         except Exception:
             logger.debug("[vision] recover_stale failed", exc_info=True)
-        # 2) deferred-TTL: queued старше TTL → честный skipped (D20).
         await self._expire_deferred()
-        # 3) pull: manual > auto > backfill (D20); bounded; breaker.
-        if breaker_open():
+        await self._claim_once()
+
+    async def _claim_sweep(self) -> None:
+        """Claim-фаза фоновой задачей (bounded): перекрытие тиков не теряет
+        очередь и не дублирует обработку — claim атомарный (CAS `mark_running`
+        только из `queued`)."""
+        started = time.monotonic()
+        try:
+            await asyncio.wait_for(
+                self._claim_once(),
+                timeout=VISION_SWEEP_STAGE_TIMEOUT_SECONDS)
+        except asyncio.TimeoutError:
+            logger.warning("[vision] claim sweep timeout | %ss",
+                           VISION_SWEEP_STAGE_TIMEOUT_SECONDS)
+        except Exception:
+            logger.warning("[vision] claim sweep failed", exc_info=True)
+        dur = time.monotonic() - started
+        if dur >= float(VISION_TICK_SECONDS):
+            # FIX2-наблюдаемость: занятая БД больше НЕ пропускает тик, но
+            # длительность фазы видна в журнале (что именно тормозит).
+            logger.warning("[vision] claim sweep slow | dur=%.2fs", dur)
+
+    async def _maintenance_sweep(self) -> None:
+        """Уборка (recover_stale + expire) отдельной фоновой задачей: её
+        медленная/залоченная БД-фаза не задерживает claim-путь. Фаза bounded;
+        таймаут/сбой фазы не отменяет остальные (следующий каденс повторит)."""
+        if self._store is None:
             return
+        started = time.monotonic()
+        for stage, factory in (("recover_stale", self._recover_stale),
+                               ("expire_deferred", self._expire_deferred)):
+            try:
+                await asyncio.wait_for(
+                    factory(), timeout=VISION_SWEEP_STAGE_TIMEOUT_SECONDS)
+            except asyncio.TimeoutError:
+                logger.warning("[vision] maintenance stage timeout | stage=%s",
+                               stage)
+            except Exception:
+                logger.debug("[vision] maintenance stage failed | stage=%s",
+                             stage, exc_info=True)
+        dur = time.monotonic() - started
+        if dur >= float(VISION_TICK_SECONDS):
+            logger.debug("[vision] maintenance sweep slow | dur=%.2fs", dur)
+
+    async def _recover_stale(self) -> None:
+        """Рестарт-восстановление: потерянные владельцы → interrupted."""
+        await self._store.recover_stale(stale_after_seconds=120)
+
+    async def _claim_once(self) -> int:
+        """Bounded pull: manual > auto > backfill (D20); claim фоновыми
+        задачами; backfill (K3) — только когда live-очередь пуста."""
+        if self._store is None or breaker_open():
+            return 0
         claimed: list = []
         slots = ANALYSIS_CONCURRENCY - self._inflight()
         if slots > 0:
@@ -2370,12 +2543,12 @@ class VisionMediaWorker:
             claimed = live[:min(self._max_per_tick, slots)]
             for job in claimed:
                 self._spawn(self._run_one(job))
-        # 4) backfill (K3) — только когда live-очередь пуста (ниже live).
         backfill_busy = (self._backfill_task is not None
                          and not self._backfill_task.done())
         if not claimed and not backfill_busy and self._inflight() == 0 \
                 and mca_gates.vision_backfill_enabled():
             self._backfill_task = self._spawn(self._run_backfill())
+        return len(claimed)
 
     async def _run_backfill(self) -> None:
         try:
@@ -2468,6 +2641,54 @@ def _priority_sort_key(job: dict) -> tuple:
 BACKFILL_JOB_KEY = "vision:backfill:sweep"
 BACKFILL_BATCH = 10                    # техкап sweep'а (bounded)
 BACKFILL_MIN_AGE_SECONDS = 3600        # только НЕ-live активы (старее 1ч)
+# FIX2 (live 2.58.91): детерминированный job_id архивной джобы (`vision:bf:*`)
+# делал терминальный исход ПОСТОЯННЫМ — `mark_running` берёт только `queued`,
+# и актив навсегда оставался неразобранным (в приёмке: 429 провайдера).
+# Теперь transient-неудача (`vision_rate_limited`/`vision_unavailable`/
+# `worker_lost`) переставляется в `queued` по cooldown; постоянные причины
+# (`vision_missing_source`, `vision_unreadable`, …) не переставляются.
+BACKFILL_REARM_COOLDOWN_SECONDS = 900
+_BACKFILL_REARM_REASONS = frozenset({"vision_rate_limited",
+                                     "vision_unavailable", "worker_lost"})
+
+
+async def _backfill_job_ready(store, job_id: str) -> bool:
+    """Можно ли запускать архивную джобу с детерминированным id (FIX2)?
+
+    True — строки нет (новая), либо она `queued` и её retry-долг истёк
+    (`next_retry_at` — тот же контракт, что у live-тика), либо терминальная
+    transient-неудача старше cooldown (re-arm через `requeue`).
+    False — активная строка без права на запуск или терминальный исход по
+    постоянной причине (повтор не поможет: идемпотентный пропуск, D14)."""
+    row = await store.get(job_id)
+    if row is None:
+        return True
+    status = str(row.get("status") or "")
+    now = int(time.time())
+    if status in ("queued", "running"):
+        try:
+            nxt = int(row.get("next_retry_at") or 0)
+        except (TypeError, ValueError):
+            nxt = 0
+        return nxt <= now
+    if status not in ("failed", "interrupted", "cancelled"):
+        return False
+    if str(row.get("reason_code") or "") not in _BACKFILL_REARM_REASONS:
+        return False
+    try:
+        finished = int(row.get("finished_at") or row.get("updated_at") or 0)
+    except (TypeError, ValueError):
+        finished = 0
+    if finished <= 0:
+        return False
+    if now - finished < BACKFILL_REARM_COOLDOWN_SECONDS:
+        return False
+    try:
+        return bool(await store.requeue(job_id))
+    except Exception:
+        logger.warning("[vision] backfill re-arm failed | %s",
+                       job_id, exc_info=True)
+        return False
 
 
 async def backfill_sweep(db, bot, *, store=None, batch: int = BACKFILL_BATCH,
@@ -2505,6 +2726,14 @@ async def backfill_sweep(db, bot, *, store=None, batch: int = BACKFILL_BATCH,
         if not await resolve_requested(chat_id):
             continue          # включение НЕ запускает разбор архива (D17)
         job_id = f"vision:bf:{asset_id}"
+        # FIX2: детерминированный id — сначала проверяем, можно ли запускать
+        # (активная строка / retry-долг / re-arm transient-неудачи).
+        try:
+            if not await _backfill_job_ready(store, job_id):
+                continue
+        except Exception:
+            logger.debug("[vision] backfill job state read failed",
+                         exc_info=True)
         payload = _vision_payload(
             asset_id=asset_id, chat_id=chat_id,
             tg_message_id=int(asset.get("tg_message_id") or 0),
@@ -2766,12 +2995,18 @@ def vision_stages() -> tuple[str, ...]:
             "project", "reindex", "consumers")
 
 
-async def runtime_snapshot(db=None) -> dict:
+async def runtime_snapshot(db=None, chat_id: int | None = None) -> dict:
     """Компакт «Аналитики»/витрины (D15/T-5116): requested/effective с
     человеческой причиной, очередь (durable), последний анализ, стадии.
     R17: без bytes/base64/OCR-текстов; сетевых вызовов НЕТ (effective —
-    из кеша capabilities; неизвестное → capability_check_pending)."""
-    state = await resolve_effective_state()
+    из кеша capabilities; неизвестное → capability_check_pending).
+
+    FIX2 (live 2.58.91): `chat_id` — контекст ЧАТА (per-chat override
+    `flags.vision_enabled`), иначе глобальный слой. Без параметра состояние
+    считалось глобальным и в чате с включённым per-chat override отдавало
+    `requested=false/vision_disabled` — то же состояние, что и у рантайма
+    (`resolve_effective_state(chat)`), теперь берётся тем же путём."""
+    state = await resolve_effective_state(chat_id)
     db = db or _db()
     snapshot: dict = {
         "requested": bool(state.requested),

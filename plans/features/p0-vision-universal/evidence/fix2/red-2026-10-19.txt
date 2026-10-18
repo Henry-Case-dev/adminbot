@@ -1,0 +1,100 @@
+FFFFFF                                                                   [100%]
+================================== FAILURES ===================================
+E   asyncio.exceptions.CancelledError
+
+The above exception was the direct cause of the following exception:
+E   TimeoutError
+C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\asyncio\timeouts.py:111: TimeoutError
+E   AssertionError: ['Execution of job "test_fix2_tick_never_skipped_with_slow_db_stage.<locals>.counting_tick (trigger: interval[0:00:00....rval[0:00:00.200000], next run at: 2026-10-19 02:52:47 +05)" skipped: maximum number of running instances reached (1)']
+    assert not ['Execution of job "test_fix2_tick_never_skipped_with_slow_db_stage.<locals>.counting_tick (trigger: interval[0:00:00....rval[0:00:00.200000], next run at: 2026-10-19 02:52:47 +05)" skipped: maximum number of running instances reached (1)']
+------------------------------ Captured log call ------------------------------
+WARNING  apscheduler.scheduler:base.py:1199 Execution of job "test_fix2_tick_never_skipped_with_slow_db_stage.<locals>.counting_tick (trigger: interval[0:00:00.200000], next run at: 2026-10-19 02:52:46 +05)" skipped: maximum number of running instances reached (1)
+WARNING  apscheduler.scheduler:base.py:1199 Execution of job "test_fix2_tick_never_skipped_with_slow_db_stage.<locals>.counting_tick (trigger: interval[0:00:00.200000], next run at: 2026-10-19 02:52:46 +05)" skipped: maximum number of running instances reached (1)
+WARNING  apscheduler.scheduler:base.py:1199 Execution of job "test_fix2_tick_never_skipped_with_slow_db_stage.<locals>.counting_tick (trigger: interval[0:00:00.200000], next run at: 2026-10-19 02:52:46 +05)" skipped: maximum number of running instances reached (1)
+WARNING  apscheduler.scheduler:base.py:1199 Execution of job "test_fix2_tick_never_skipped_with_slow_db_stage.<locals>.counting_tick (trigger: interval[0:00:00.200000], next run at: 2026-10-19 02:52:46 +05)" skipped: maximum number of running instances reached (1)
+ERROR    apscheduler.executors.default:base.py:195 Job "test_fix2_tick_never_skipped_with_slow_db_stage.<locals>.counting_tick (trigger: interval[0:00:00.200000], next run at: 2026-10-19 02:52:47 +05)" raised an exception
+Traceback (most recent call last):
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\apscheduler\executors\base.py", line 181, in run_coroutine_job
+    retval = await job.func(*job.args, **job.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Code\Python\adminbot\tests\test_p0_vision_fix_core.py", line 1225, in counting_tick
+    await real_tick()
+  File "C:\Code\Python\adminbot\services\mca_vision.py", line 2314, in _tick
+    await self._tick_body()
+  File "C:\Code\Python\adminbot\services\mca_vision.py", line 2357, in _tick_body
+    await self._expire_deferred()
+  File "C:\Code\Python\adminbot\services\mca_vision.py", line 2429, in _expire_deferred
+    cur = await self._db.db.execute(
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\aiosqlite\core.py", line 223, in execute
+    cursor = await self._execute(self._conn.execute, sql, parameters)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\aiosqlite\core.py", line 160, in _execute
+    return await future
+           ^^^^^^^^^^^^
+asyncio.exceptions.CancelledError
+C:\Code\Python\adminbot\tests\test_p0_vision_fix_core.py:1233: AssertionError: ['Execution of job "test_fix2_tick_never_skipped_with_slow_db_stage.<locals>.counting_tick (trigger: interval[0:00:00....rval[0:00:00.200000], next run at: 2026-10-19 02:52:47 +05)" skipped: maximum number of running instances reached (1)']
+E   assert False is True
+C:\Code\Python\adminbot\tests\test_p0_vision_fix_core.py:1271: assert False is True
+E   AssertionError: assert 'failed' == 'queued'
+      
+      - queued
+      + failed
+------------------------------ Captured log call ------------------------------
+WARNING  services.mca_events:mca_events.py:610 mca_event=vision_media | ts=1792360367 | event_name=vision_media | outcome=failed | level=WARN | component=vision.media | stage=vision | reason_code=vision_rate_limited | chat_id=-1005550001 | operation_id=3b5434c0200f5c40bafc4a2d1aa140d8
+C:\Code\Python\adminbot\tests\test_p0_vision_fix_core.py:1296: AssertionError: assert 'failed' == 'queued'
+E   sqlite3.IntegrityError: UNIQUE constraint failed: mca_media_analyses.asset_id, mca_media_analyses.access_scope, mca_media_analyses.analysis_schema_version, mca_media_analyses.analyzer_config_revision, mca_media_analyses.quality_profile, mca_media_analyses.revision
+C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\aiosqlite\core.py:63: sqlite3.IntegrityError: UNIQUE constraint failed: mca_media_analyses.asset_id, mca_media_analyses.access_scope, mca_media_analyses.analysis_schema_version, mca_media_analyses.analyzer_config_revision, mca_media_analyses.quality_profile, mca_media_analyses.revision
+E   assert 1 == 0
+------------------------------ Captured log call ------------------------------
+WARNING  services.mca_vision:mca_vision.py:2163 [vision] analysis finish failed
+Traceback (most recent call last):
+  File "C:\Code\Python\adminbot\services\mca_vision.py", line 2159, in _finish_analysis_or_job
+    await db.finish_media_analysis(
+  File "C:\Code\Python\adminbot\services\database.py", line 4382, in finish_media_analysis
+    changed = int(await self.write_transaction(
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Code\Python\adminbot\services\database.py", line 2488, in write_transaction
+    return await self._write_transaction_owned(op, op_name,
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Code\Python\adminbot\services\database.py", line 2573, in _write_transaction_owned
+    result = await op(self.db)
+             ^^^^^^^^^^^^^^^^^
+  File "C:\Code\Python\adminbot\services\database.py", line 4370, in _body
+    cur = await conn.execute(
+          ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\aiosqlite\core.py", line 223, in execute
+    cursor = await self._execute(self._conn.execute, sql, parameters)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\aiosqlite\core.py", line 160, in _execute
+    return await future
+           ^^^^^^^^^^^^
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\aiosqlite\core.py", line 63, in _connection_worker_thread
+    result = function()
+             ^^^^^^^^^^
+sqlite3.IntegrityError: UNIQUE constraint failed: mca_media_analyses.asset_id, mca_media_analyses.access_scope, mca_media_analyses.analysis_schema_version, mca_media_analyses.analyzer_config_revision, mca_media_analyses.quality_profile, mca_media_analyses.revision
+C:\Code\Python\adminbot\tests\test_p0_vision_fix_core.py:1382: assert 1 == 0
+============================== warnings summary ===============================
+..\..\..\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\_pytest\config\__init__.py:1464
+  C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\_pytest\config\__init__.py:1464: PytestConfigWarning: Unknown config option: timeout
+  
+    self._warn_or_fail_if_strict(f"Unknown config option: {key}\n")
+
+..\..\..\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\_pytest\config\__init__.py:1464
+  C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\_pytest\config\__init__.py:1464: PytestConfigWarning: Unknown config option: timeout_method
+  
+    self._warn_or_fail_if_strict(f"Unknown config option: {key}\n")
+
+..\..\..\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\fastapi\testclient.py:1
+  C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\fastapi\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_p0_vision_fix_core.py::test_fix2_tick_entry_returns_immediately_while_db_busy
+FAILED tests/test_p0_vision_fix_core.py::test_fix2_tick_never_skipped_with_slow_db_stage
+FAILED tests/test_p0_vision_fix_core.py::test_route_vision_state_per_chat_context
+FAILED tests/test_p0_vision_fix_core.py::test_fix2_rate_limited_retries_within_window_then_terminal
+FAILED tests/test_p0_vision_fix_core.py::test_fix2_rate_limited_live_retry_succeeds_after_limit
+FAILED tests/test_p0_vision_fix_core.py::test_fix2_backfill_rearms_transient_terminal_job
+6 failed, 47 deselected, 3 warnings in 5.86s

@@ -2245,17 +2245,51 @@ def _prune_vision_test_last(now: float) -> None:
         _VISION_TEST_LAST.pop(k, None)
 
 
+async def _vision_chat_scope(cache: ConfigCache, user: WebAppUser,
+                             chat_id: int | None,
+                             x_chat_id: str | None) -> int | None:
+    """Контекст ЧАТА для `/api/vision/*` (FIX2 + NF-1).
+
+    Источник — явный `chat_id` (query) или `X-Chat-Id` (header, его ставит
+    `web/api()` при активном чате). Нет контекста → None (глобальный слой,
+    прежнее поведение). Чужой чат (нет доступа по `can_access_chat` для
+    chat-scope ctx) → тоже None: per-chat настройки чужого чата наружу не
+    отдаются (прецедент `/api/status`)."""
+    scope_chat = chat_id if chat_id is not None \
+        else _chat_id_or_none(x_chat_id)
+    if scope_chat is None:
+        return None
+    try:
+        from services import roles as roles_srv
+        scoped = await roles_srv.access_for(user.id, scope_chat, cache=cache)
+        if scoped is not None and access_srv.can_access_chat(scoped,
+                                                             scope_chat):
+            return scope_chat
+    except Exception:
+        logger.debug("[api] vision chat scope resolve failed | chat=%s",
+                     scope_chat, exc_info=True)
+    return None
+
+
 @api_router.post("/vision/test")
 async def post_vision_test(
     request: Request,
     payload: VisionTestRequest,
     user: Annotated[WebAppUser, Depends(get_tma_user)],
+    chat_id: int | None = Query(default=None),
+    x_chat_id: Annotated[str | None, Header()] = None,
 ):
     """Проверка подключения модели распознавания (D4/T-5103).
 
     403 — нет прав; 429 — повтор чаще 10 секунд. Ответ всегда 200:
     ``ok`` + capability/image_input/reason (доказанные по пробе, НЕ по имени
-    модели) + живая effective-линия (``state``) после проверки."""
+    модели) + живая effective-линия (``state``) после проверки.
+
+    NF-1 (ревью `e3fa4e97`): `state` — контекстно-корректный (та же резолюция
+    скоупа, что у `GET /api/vision/state`), иначе UI перетирал им per-chat
+    линию после пробы: глобально OFF + per-chat ON → кнопка «Проверить
+    подключение» возвращала `vision_disabled` на ~30 с. Без контекста и для
+    чужого чата — прежний глобальный слой."""
     cache: ConfigCache = get_cache(request)
     ctx = await _ctx_global_admin(cache, user)
     if not (ctx.is_global_admin or can_view_key_value(
@@ -2269,9 +2303,11 @@ async def post_vision_test(
         raise HTTPException(status_code=429,
                             detail="повтор теста чаще 10 секунд")
     _VISION_TEST_LAST[user.id] = now
+    scope_chat = await _vision_chat_scope(cache, user, chat_id, x_chat_id)
     from services import lore_runtime, mca_vision
     verdict = await mca_vision.probe_connection()
-    state = await mca_vision.runtime_snapshot(lore_runtime.get_lore_db())
+    state = await mca_vision.runtime_snapshot(lore_runtime.get_lore_db(),
+                                              chat_id=scope_chat)
     return {
         "ok": bool(verdict.capability == "ok" and verdict.image_input),
         "capability": verdict.capability,
@@ -2296,20 +2332,32 @@ async def post_vision_test(
 async def get_vision_state(
     request: Request,
     user: Annotated[WebAppUser, Depends(get_tma_user)],
+    chat_id: int | None = Query(default=None),
+    x_chat_id: Annotated[str | None, Header()] = None,
 ):
     """Живая effective-линия карточки «Распознавание изображений» + компакт
     «Аналитики» (D15/T-5116): requested/effective с человеческой причиной,
     очередь (durable task_jobs), последний анализ, стадии `vision.media` v1.
     БЕЗ сетевых вызовов (effective — из кеша capabilities). RBAC — как у
-    /api/vision/test. R17: без bytes/base64/OCR-текстов."""
+    /api/vision/test. R17: без bytes/base64/OCR-текстов.
+
+    FIX2 (live 2.58.91): контекст ЧАТА — `X-Chat-Id` (его ставит `web/api()`
+    при активном чате) или явный `chat_id`; без них — глобальный слой, как
+    было. Раньше состояние всегда считалось глобальным и в чате с включённым
+    per-chat override (`flags.vision_enabled`) отдавало
+    `requested=false/vision_disabled`, хотя рантайм в этом чате работает
+    (`resolve_effective_state(chat)`). Чужой чат (нет доступа) → глобальный
+    слой, без утечки per-chat настроек (прецедент `/api/status`)."""
     cache: ConfigCache = get_cache(request)
     ctx = await _ctx_global_admin(cache, user)
     if not (ctx.is_global_admin or can_view_key_value(
             cache, user.id, "keys.vision_api_key")):
         raise HTTPException(status_code=403,
                             detail="нет прав на управление ключом vision")
+    scope_chat = await _vision_chat_scope(cache, user, chat_id, x_chat_id)
     from services import lore_runtime, mca_vision
-    return await mca_vision.runtime_snapshot(lore_runtime.get_lore_db())
+    return await mca_vision.runtime_snapshot(lore_runtime.get_lore_db(),
+                                             chat_id=scope_chat)
 
 
 # ── MCA-20 (ADR-1028-20 D11/D13/T-5116-прецедент): Temporal Factcheck —

@@ -100,7 +100,18 @@ ARTIFACTS = [ROOT / p for p in FIXTURE["artifacts"]]
 # осознанно (L-F11S-1, прецедент 2.58.57; routes-инвентарь f8_baseline
 # не менялся).
 ROUTES_SHA256_F11 = (
-    "21f72a8ebb4ebdb41f6d098770fa8f7e1d52210492f5f6754717426a758d1340")
+    "d54cc29695c702e79b3410007bf3f08490d045a2e99679c16495a129736fb9e2")
+# P0-Vision FIX2 (V-FIX2, 19.10.2026, L-F11S-1 re-pin, приёмка 2.58.91):
+# аддитивный контекст чата у СУЩЕСТВУЮЩИХ `GET /api/vision/state` и
+# `POST /api/vision/test` — опциональные `chat_id` (query) / `X-Chat-Id`
+# (header, его уже ставит `web/api()` при активном чате). Без них поведение
+# прежнее (глобальный слой); новых endpoint'ов нет, routes-инвентарь не
+# менялся (Δ=0), RBAC и маскировка секретов не менялись. Причина: state
+# отдавал глобальный `vision_disabled`, игнорируя per-chat override
+# `flags.vision_enabled`, хотя рантайм в этом чате работает
+# (`resolve_effective_state(chat)`). NF-1 ревью e3fa4e97: та же резолюция
+# скоупа (общий хелпер `_vision_chat_scope`) применена и к пробе — иначе UI
+# перетирал per-chat линию `state`-ом пробы после «Проверить подключение».
 # ASAP 8 F9 (L-F11S-1 re-pin, REV-F9 Approved): аддитивные
 # GET /api/youtube/proxy/health + POST /api/youtube/proxy/test,
 # оба global-admin fail-closed; инвентарь — f8_baseline.json (41→43).

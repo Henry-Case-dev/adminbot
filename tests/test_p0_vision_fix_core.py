@@ -1138,3 +1138,346 @@ def test_visible_reason_texts_cover_all_classes():
     for (cap, reason, detail), expected in cases.items():
         text = mca_vision.capability_visible_reason(cap, reason, detail)
         assert expected.lower() in text.lower(), (cap, reason, detail, text)
+
+
+# ═════════ FIX2 (live 2.58.91): планировщик-энтри, state per-chat, 429 ══════
+# Живая приёмка 2.58.91 дала три дефекта: (1) SKIPS=36 `VisionMediaWorker._tick
+# … maximum number of running instances reached (1)` — тик сам ждал медленную
+# БД-фазу (busy_timeout 5 с ≈ интервал тика); (2) `GET /api/vision/state`
+# игнорировал per-chat override (глобальный `vision_disabled`);
+# (3) 429 провайдера оставлял актив/джобу терминально неразобранными.
+# TEST-LIFECYCLE: REGRESSION owner=P0V-PIPE-WORKER/FIX2 (тик без пропусков);
+# TEST-LIFECYCLE: REGRESSION owner=P0V-PIPE-E2E/FIX2 (state per-chat);
+# TEST-LIFECYCLE: REGRESSION owner=P0V-PROBE-CACHE/FIX2 (429 не залипает).
+
+async def _slow_db_stage(seconds: float, calls: dict | None = None):
+    """Двойник медленной БД-фазы (занятая SQLite-транзакция/лок)."""
+    async def _stage(*args, **kwargs):
+        if calls is not None:
+            calls["n"] = int(calls.get("n") or 0) + 1
+        await asyncio.sleep(seconds)
+        return []
+    return _stage
+
+
+@pytest.mark.asyncio
+async def test_fix2_tick_entry_returns_immediately_while_db_busy(tmp_path,
+                                                                 monkeypatch):
+    """REGRESSION (P0V-PIPE-WORKER): планировщик-энтри не выполняет БД-работу
+    — вызов `_tick` возвращается мгновенно даже когда recover/claim-фазы
+    заблокированы (искусственно медленный шаг). RED: тик ждал фазы
+    последовательно и перекрывал интервал 5 с."""
+    from services.task_supervisor import TaskJobStore
+    db = await _fresh_db(tmp_path)
+    worker = None
+    try:
+        mca_vision.bind_runtime(db)
+        _cap_ok()
+        await _enqueue_asset(db, 701)
+        slow = await _slow_db_stage(5.0)
+        monkeypatch.setattr(TaskJobStore, "recover_stale", slow)
+
+        async def slow_active(self):
+            await asyncio.sleep(5.0)
+            return []
+        monkeypatch.setattr(TaskJobStore, "active", slow_active)
+
+        worker = mca_vision.VisionMediaWorker(
+            db, _FakeBot({"fid_1": make_png()}), transport=Transport())
+        worker._store = await _store(db)
+        started = time.monotonic()
+        await asyncio.wait_for(worker._tick(), timeout=1.0)
+        elapsed = time.monotonic() - started
+        assert elapsed < 0.5, elapsed      # интервал тика — 5 с
+    finally:
+        if worker is not None:
+            await worker.shutdown()
+        await db.close()
+
+
+@pytest.mark.asyncio
+async def test_fix2_tick_never_skipped_with_slow_db_stage(
+        tmp_path, monkeypatch, caplog):
+    """REGRESSION (P0V-PIPE-WORKER, live SKIPS=36): медленная БД-фаза больше
+    не даёт APScheduler `maximum number of running instances reached`, а
+    очередь при этом не стоит (claim идёт отдельным фоновым sweep'ом)."""
+    import logging
+    from services.task_supervisor import TaskJobStore
+    db = await _fresh_db(tmp_path)
+    worker = None
+    try:
+        mca_vision.bind_runtime(db)
+        _cap_ok()
+        assets = await _enqueue_asset(db, 711)
+        monkeypatch.setattr(mca_vision, "VISION_TICK_SECONDS", 0.2)
+        slow_calls: dict = {}
+        monkeypatch.setattr(TaskJobStore, "recover_stale",
+                            await _slow_db_stage(1.0, slow_calls))
+
+        worker = mca_vision.VisionMediaWorker(
+            db, _FakeBot({"fid_1": make_png()}),
+            transport=Transport(default=(200, ASYNC_ANALYSIS_BODY)))
+        ticks = {"n": 0}
+        real_tick = worker._tick
+
+        async def counting_tick():
+            ticks["n"] += 1
+            await real_tick()
+        worker._tick = counting_tick
+        worker.start()
+        with caplog.at_level(logging.WARNING):
+            await asyncio.sleep(1.2)
+            skips = [r.getMessage() for r in caplog.records
+                     if "maximum number of running instances"
+                     in r.getMessage()]
+            assert not skips, skips                # ни одного пропуска
+            assert ticks["n"] >= 3, ticks          # планировщик реально тикал
+            assert slow_calls.get("n")             # медленная фаза шла (фоном)
+            await worker.drain(timeout=5.0)
+        assert not await _active_vision(db)        # очередь не стоит из-за неё
+        ready = await db.get_ready_analysis(
+            assets[0], mca_vision.access_scope_for(CHAT))
+        assert ready is not None and ready["status"] == "ready"
+    finally:
+        if worker is not None:
+            await worker.drain(timeout=5.0)
+            await worker.shutdown()
+        await db.close()
+
+
+def test_route_vision_state_per_chat_context(route_client, monkeypatch):
+    """REGRESSION (P0V-PIPE-E2E): `GET /api/vision/state` учитывает per-chat
+    override (X-Chat-Id) и остаётся глобальным без него; маскировка секретов
+    не ломается; чужой чат (нет доступа) → глобальный слой (F3 ревью)."""
+    from services import access as access_srv
+    from services import chat_params
+    monkeypatch.setattr(hot, "_cache", route_client.cache)
+    patched_hot(monkeypatch, {"flags.vision_enabled": False})
+    foreign = -1009999999
+
+    async def _override(chat_id, key, default=None):
+        return True if str(chat_id) in (str(CHAT), str(foreign)) else default
+
+    monkeypatch.setattr(chat_params, "get_chat_param", _override)
+    real_can = access_srv.can_access_chat
+    monkeypatch.setattr(
+        access_srv, "can_access_chat",
+        lambda ctx, chat=None: False if chat == foreign
+        else real_can(ctx, chat))
+
+    global_resp = route_client.get("/api/vision/state", headers=_hdr())
+    assert global_resp.status_code == 200, global_resp.text
+    global_body = global_resp.json()
+    assert global_body["requested"] is False          # глобальный слой
+    assert global_body["reason"] == "vision_disabled"
+
+    chat_resp = route_client.get("/api/vision/state",
+                                 headers={**_hdr(), "X-Chat-Id": str(CHAT)})
+    assert chat_resp.status_code == 200, chat_resp.text
+    chat_body = chat_resp.json()
+    assert chat_body["requested"] is True             # per-chat override
+    assert chat_body["reason"] != "vision_disabled"
+    assert "vision-secret-9876" not in chat_resp.text  # R17: без секретов
+
+    # Чужой чат (даже с включённым override) → глобальный слой, не per-chat.
+    foreign_resp = route_client.get(
+        "/api/vision/state", headers={**_hdr(), "X-Chat-Id": str(foreign)})
+    assert foreign_resp.status_code == 200, foreign_resp.text
+    foreign_body = foreign_resp.json()
+    assert foreign_body["requested"] is False
+    assert foreign_body["reason"] == "vision_disabled"
+
+
+def test_route_vision_test_state_per_chat_context(route_client, monkeypatch):
+    """REGRESSION (NF-1, ревью e3fa4e97 / P0V-PIPE-E2E):
+    `POST /api/vision/test` отдаёт КОНТЕКСТНО-корректный `state` — с X-Chat-Id
+    per-chat (global OFF + chat ON ≠ `vision_disabled`), без контекста —
+    прежний глобальный слой, чужой чат — тоже глобальный (без утечки
+    per-chat настроек)."""
+    from services import access as access_srv
+    from services import chat_params
+    from web.api import routes as routes_mod
+    monkeypatch.setattr(hot, "_cache", route_client.cache)
+    patched_hot(monkeypatch, {"flags.vision_enabled": False})
+    foreign = -1009999999
+
+    async def _override(chat_id, key, default=None):
+        return True if str(chat_id) in (str(CHAT), str(foreign)) else default
+
+    monkeypatch.setattr(chat_params, "get_chat_param", _override)
+    real_can = access_srv.can_access_chat
+    monkeypatch.setattr(
+        access_srv, "can_access_chat",
+        lambda ctx, chat=None: False if chat == foreign
+        else real_can(ctx, chat))
+
+    async def fake_probe(route=None, *, transport=None):
+        return mca_vision.CapabilityVerdict("ok", "", True, time.monotonic(),
+                                            "")
+
+    monkeypatch.setattr(mca_vision, "probe_connection", fake_probe)
+
+    # Без контекста чата — глобальный слой (прежнее поведение пробы).
+    glob = route_client.post("/api/vision/test", headers=_hdr(), json={})
+    assert glob.status_code == 200, glob.text
+    assert glob.json()["state"]["requested"] is False
+    assert glob.json()["state"]["reason"] == "vision_disabled"
+
+    routes_mod.reset_vision_test_rate_limit()
+    # Контекст чата: per-chat override учтён в `state` ответа пробы.
+    chat = route_client.post("/api/vision/test",
+                             headers={**_hdr(), "X-Chat-Id": str(CHAT)},
+                             json={})
+    assert chat.status_code == 200, chat.text
+    chat_body = chat.json()
+    assert chat_body["ok"] is True                    # проба прошла (мок ok)
+    assert chat_body["state"]["requested"] is True    # НЕ глобальный OFF
+    assert chat_body["state"]["reason"] != "vision_disabled"
+    assert "vision-secret-9876" not in chat.text      # R17: без секретов
+
+    routes_mod.reset_vision_test_rate_limit()
+    # Чужой чат → глобальный слой (per-chat настройки не раскрываются).
+    foreign_resp = route_client.post(
+        "/api/vision/test", headers={**_hdr(), "X-Chat-Id": str(foreign)},
+        json={})
+    assert foreign_resp.status_code == 200, foreign_resp.text
+    assert foreign_resp.json()["state"]["requested"] is False
+    assert foreign_resp.json()["state"]["reason"] == "vision_disabled"
+
+
+@pytest.mark.asyncio
+async def test_fix2_rate_limited_retries_within_window_then_terminal(tmp_path):
+    """REGRESSION (P0V-PROBE-CACHE): 429 — временный провайдерский лимит:
+    свежая джоба получает bounded-повтор сверх JOB_MAX_ATTEMPTS, старая
+    (за окном) завершается честным терминальным failed."""
+    db = await _fresh_db(tmp_path)
+    try:
+        mca_vision.bind_runtime(db)
+        _cap_ok()
+        assets = await _enqueue_asset(db, 721)
+        store = await _store(db)
+        job = await _claimed_job(db, (await _active_vision(db, "queued"))[0]
+                                 ["job_id"])
+        job["attempt"] = mca_vision.JOB_MAX_ATTEMPTS      # попытки исчерпаны
+        job["created_at"] = int(time.time())              # свежий актив
+        t = Transport(script=[(429, _err("rate limited", "429")),
+                              (429, _err("rate limited", "429"))])
+        await mca_vision.process_asset_job(
+            job, db=db, bot=_FakeBot({"fid_1": make_png()}), transport=t)
+        row = await store.get(job["job_id"])
+        assert row["status"] == "queued"                  # НЕ терминал
+        assert row["reason_code"] == "vision_rate_limited"
+        assert int(row["next_retry_at"] or 0) > int(time.time())
+
+        # Джоба за окном ретраев → честный терминальный исход (без залипания
+        # «вечно queued»).
+        aged = await _claimed_job(db, job["job_id"])
+        aged["attempt"] = mca_vision.JOB_MAX_ATTEMPTS
+        aged["created_at"] = int(time.time()) \
+            - mca_vision.RATE_LIMIT_RETRY_WINDOW_SECONDS - 60
+        await mca_vision.process_asset_job(
+            aged, db=db, bot=_FakeBot({"fid_1": make_png()}), transport=t)
+        row = await store.get(job["job_id"])
+        assert row["status"] == "failed"
+        assert row["reason_code"] == "vision_rate_limited"
+        assert await db.get_ready_analysis(
+            assets[0], mca_vision.access_scope_for(CHAT)) is None
+    finally:
+        await db.close()
+
+
+@pytest.mark.asyncio
+async def test_fix2_rate_limited_live_retry_succeeds_after_limit(tmp_path):
+    """REGRESSION (P0V-PIPE-E2E): после снятия 429 ПОВТОР живой джобы реально
+    распознаёт актив (гранула анализа получает свободный `revision`; иначе
+    повтор падал на UNIQUE-грануле и актив не разбирался)."""
+    db = await _fresh_db(tmp_path)
+    try:
+        mca_vision.bind_runtime(db)
+        _cap_ok()
+        assets = await _enqueue_asset(db, 741)
+        store = await _store(db)
+        bot = _FakeBot({"fid_1": make_png()})
+        jid = (await _active_vision(db, "queued"))[0]["job_id"]
+        job = await _claimed_job(db, jid)
+        # попытка 1: провайдерский лимит (429) → bounded-retry, не терминал
+        await mca_vision.process_asset_job(
+            job, db=db, bot=bot,
+            transport=Transport(default=(429, _err("rate limited", "429"))))
+        row = await store.get(jid)
+        assert row["status"] == "queued"
+        assert row["reason_code"] == "vision_rate_limited"
+        # лимит снят: повтор (та же гранула) доходит до результата
+        retry = await _claimed_job(db, jid)
+        await mca_vision.process_asset_job(
+            retry, db=db, bot=bot,
+            transport=Transport(default=(200, ASYNC_ANALYSIS_BODY)))
+        assert (await store.get(jid))["status"] == "completed"
+        ready = await db.get_ready_analysis(
+            assets[0], mca_vision.access_scope_for(CHAT))
+        assert ready is not None and ready["status"] == "ready"
+    finally:
+        await db.close()
+
+
+@pytest.mark.asyncio
+async def test_fix2_backfill_rearms_transient_terminal_job(tmp_path,
+                                                           monkeypatch):
+    """REGRESSION (P0V-PROBE-CACHE): 429 на архивном пути не «залипает»:
+    retry-долг (`next_retry_at`) уважается, терминальная transient-неудача
+    переставляется по cooldown, и после снятия лимита актив распознаётся."""
+    db = await _fresh_db(tmp_path)
+    try:
+        mca_vision.bind_runtime(db)
+        _cap_ok()
+        msg = _photo_message(tg_id=731)
+        assets = await mca_vision.register_intake_assets(db, msg)
+        asset_id = assets[0]
+        await db.db.execute(
+            "UPDATE mca_media_assets SET created_at=? WHERE asset_id=?",
+            (int(time.time()) - 7200, asset_id))
+        await db.db.commit()
+        store = await _store(db)
+        bot = _FakeBot({"fid_1": make_png()})
+        bad = Transport(default=(429, _err("rate limited", "429")))
+        first = await mca_vision.backfill_sweep(db, bot, store=store,
+                                                transport=bad)
+        assert first["processed"] == 1
+        jid = f"vision:bf:{asset_id}"
+        row = await store.get(jid)
+        assert row["status"] == "queued"          # bounded-retry, не терминал
+        assert row["reason_code"] == "vision_rate_limited"
+        assert int(row["next_retry_at"] or 0) > int(time.time())
+        # Retry-долг уважается: сразу повторный sweep НЕ берёт джобу.
+        second = await mca_vision.backfill_sweep(db, bot, store=store,
+                                                 transport=bad)
+        assert second["processed"] == 0
+        # Бюджет попыток исчерпан → терминальная transient-неудача (как в
+        # живой приёмке: 429 длился дольше бюджета джобы).
+        await store.finish(jid, status="failed",
+                           reason_code="vision_rate_limited")
+        assert (await store.get(jid))["status"] == "failed"
+        # Cooldown: свежая терминальная неудача НЕ переставляется (нет шторма).
+        third = await mca_vision.backfill_sweep(db, bot, store=store,
+                                                transport=bad)
+        assert third["processed"] == 0
+        assert (await store.get(jid))["status"] == "failed"
+        # Cooldown прошёл, лимит снят → актив разобран (не «залип» навсегда).
+        await db.db.execute(
+            "UPDATE task_jobs SET finished_at=? WHERE job_id=?",
+            (int(time.time())
+             - mca_vision.BACKFILL_REARM_COOLDOWN_SECONDS - 60, jid))
+        await db.db.commit()
+        good = Transport(default=(200, ASYNC_ANALYSIS_BODY))
+        fourth = await mca_vision.backfill_sweep(db, bot, store=store,
+                                                 transport=good)
+        assert fourth["processed"] == 1
+        ready = await db.get_ready_analysis(
+            asset_id, mca_vision.access_scope_for(CHAT))
+        assert ready is not None and ready["status"] == "ready"
+        # Идемпотентность: готовый актив больше не кандидат.
+        fifth = await mca_vision.backfill_sweep(db, bot, store=store,
+                                                transport=good)
+        assert fifth["processed"] == 0
+    finally:
+        await db.close()
