@@ -1,0 +1,30 @@
+# P0-Vision VISION-FIX-CORE — фингерпринт кандидата (рабочее дерево, без коммита)
+
+Дата: 2026-10-19. База на момент работы: `4ecd2595`; к концу сессии другие лейны
+закоммитились, и кандидат — это рабочее дерево поверх **HEAD `dea5f84a`**
+(та же рабочая копия; мои файлы от смены HEAD не менялись, sha256 сверены).
+Перечисленные ниже хэши — только файлы этого лейна.
+
+| Файл | sha256 | sha256[:12] |
+|---|---|---|
+| services/mca_vision.py | 493c1651f749ee80b71c675b22522c73fe56a0d357f8a08ee01c3a71752ab758 | 493c1651f749 |
+| services/cover_style_jobs.py | b732f298f5dbb2357f3ca68c34fa9e733dff6f74406f234b97f5525c6354a4ef | b732f298f5db |
+| web/api/routes.py | 21f72a8ebb4ebdb41f6d098770fa8f7e1d52210492f5f6754717426a758d1340 | 21f72a8ebb4e |
+| tests/test_p0_vision_fix_core.py | 1852e3240b9d212481d1daea2a50ecedecb11413c7b87ab7a19d69ca30bb83be | 1852e3240b9d |
+| tests/test_mca19_block_b_round1043.py (обновлённые ожидания D4/D11) | см. git diff | — |
+| tests/test_mca19_block_c_round1043.py (drain в тик-тесте D9) | см. git diff | — |
+| tests/test_round1025_f8_registry.py | см. git diff (LF-концы сохранены) | — |
+| tests/test_mca23_planned_vs_actual.py | см. git diff (LF-концы сохранены) | — |
+| tests/fixtures/round1025/f8_baseline.json | см. git diff | — |
+
+`ROUTES_SHA256_F11 = 21f72a8ebb4ebdb41f6d098770fa8f7e1d52210492f5f6754717426a758d1340`
+(осознанный re-pin L-F11S-1: аддитивные поля ответа `/api/vision/test`, Δ routes = 0).
+
+**Важно про два пин-файла** (`tests/test_round1025_f8_registry.py`,
+`tests/fixtures/round1025/f8_baseline.json`): их diff поверх HEAD — СМЕШАННЫЙ и не
+целиком мой. Кроме моего re-pin (routes-хэш + пояснение) в них лежит отложенная
+часть CFG-02B (REGISTRY 575→579, delta 164→168, sha `param_catalog.py`, их текст
+`superseded_by`) — лейн CFG-02B сознательно отложил этот «смешанный» пакет
+(их коммит `7db919df`: «deferred mixed vision pins listed»). Я эту чужую часть
+не трогал; на консистентность проверено тестами (53 passed).
+

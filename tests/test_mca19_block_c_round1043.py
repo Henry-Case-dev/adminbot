@@ -480,6 +480,9 @@ async def test_worker_tick_processes_and_prioritizes_manual(tmp_path,
     worker._store = _store(db)
     worker._sem = asyncio.Semaphore(2)
     await worker._tick_body()
+    # P0/D9: тик CLAIM'ит джобу и обрабатывает её фоном — результат ждём
+    # через drain() (тик больше не блокируется долгим vision-вызовом).
+    await worker.drain()
     assert len(calls) == 1
     store = worker._store
     active = await store.active()

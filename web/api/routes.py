@@ -2221,9 +2221,11 @@ async def post_random_test(
 # ── MCA-19 (round 10.43, ADR-1028-19 D4/D15, T-5103/T-5116): /api/vision/* ──
 # POST /api/vision/test — «Проверить подключение» (прецедент /api/random/test:
 # backend-only, RBAC global admin ИЛИ право на keys.vision_api_key; R17:
-# ключ/endpoint не эхо и не логируются; проба — нейтральное 1×1 PNG, НЕ текст
-# пользователя). GET /api/vision/state — живая effective-линия карточки +
-# компакт «Аналитики» (стадии/очередь/последний анализ; без сетевых вызовов).
+# ключ/endpoint не эхо и не логируются; проба — сгенерированное бэкендом
+# валидное изображение 512×512+, НЕ текст пользователя; P0: `visible_reason`
+# + фактический провайдер/модель/тип подключения). GET /api/vision/state —
+# живая effective-линия карточки + компакт «Аналитики» (стадии/очередь/
+# последний анализ; без сетевых вызовов).
 _VISION_TEST_MIN_INTERVAL = 10.0
 _VISION_TEST_LAST_TTL = 3600.0
 _VISION_TEST_LAST: dict[int, float] = {}
@@ -2279,6 +2281,13 @@ async def post_vision_test(
         "model": state.get("model") or "",
         "reason": verdict.reason,
         "detail": (verdict.detail or ""),   # класс ошибки, без тела/ключа
+        # P0 (recon D11/D12): понятная причина + фактический
+        # провайдер/модель/тип — витрина UI-фазы (код остаётся в reason).
+        "visible_reason": mca_vision.capability_visible_reason(
+            verdict.capability, verdict.reason, verdict.detail),
+        "provider": state.get("provider") or "",
+        "api_type": state.get("api_type") or "",
+        "source": state.get("source") or "",
         "state": state,
     }
 

@@ -45,7 +45,9 @@ ROUTES_SHA256_F11 = (
     # ASAP 8 v6 W-C-DIRECT re-pin (D03/D04, 14.10.2026): аддитивное поле `l1`
     # в GET /api/direct/context-diagnostics (+ D07 overrides-map в той же
     # параллельной зоне) — комбинированный хэш рабочего дерева.
-    "989779c651282791b95b5f4d82d5c42afd63eb3954d105ca6d06d5895a4c677b")
+    # P0 p0-vision-universal (19.10.2026): аддитивные поля ответа
+    # POST /api/vision/test (visible_reason/provider/api_type) — Δ routes=0.
+    "21f72a8ebb4ebdb41f6d098770fa8f7e1d52210492f5f6754717426a758d1340")
 
 
 @pytest.fixture(autouse=True)

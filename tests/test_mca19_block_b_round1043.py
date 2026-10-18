@@ -177,13 +177,13 @@ async def test_effective_main_no_vision_vs_dedicated_no_vision():
 async def test_access_errors_are_not_no_vision():
     """SC-R2a/A74 (mitigation TH-7): 401/403/429/таймаут фиксируются как
     ошибка доступа/временная недоступность — БЕЗ ложного
-    `main_model_no_vision`."""
+    `main_model_no_vision`; P0 (D11): видимая причина конкретна по классу."""
     import time
     route = mca_vision.resolve_route()
-    for capability, expected_reason in (
-            ("access_error", "vision_unavailable"),
-            ("rate_limited", "vision_rate_limited"),
-            ("unavailable", "vision_unavailable")):
+    for capability, expected_reason, keyword in (
+            ("access_error", "vision_unavailable", "ключ"),
+            ("rate_limited", "vision_rate_limited", "лимит"),
+            ("unavailable", "vision_unavailable", "недоступен")):
         mca_vision.reset_capability_cache()
         mca_vision.store_capability(route, mca_vision.CapabilityVerdict(
             capability, expected_reason, None, time.monotonic()))
@@ -191,8 +191,7 @@ async def test_access_errors_are_not_no_vision():
         assert state.reason == expected_reason, capability
         assert state.reason != "main_model_no_vision"
         assert state.effective_enabled is False
-        assert "временно недоступно" in state.visible_reason.lower() or \
-            "лимит" in state.visible_reason.lower()
+        assert keyword in state.visible_reason.lower(), capability
 
 
 @pytest.mark.asyncio
@@ -220,16 +219,15 @@ async def test_probe_success_means_image_input():
 
 
 @pytest.mark.asyncio
-async def test_probe_400_with_text_ok_is_no_vision():
-    """Проба: image 400 + текст OK → доказанное `no_vision` (не по имени
-    модели); для основного маршрута — `main_model_no_vision`."""
-    calls = {"n": 0}
-
+async def test_probe_modality_refusal_is_no_vision():
+    """Проба (P0-ревизия D4): модальный отказ провайдера на изображение —
+    доказанное `no_vision` (не по имени модели); для основного маршрута —
+    `main_model_no_vision`. HTTP 400 БЕЗ явного модального отказа больше НЕ
+    трактуется как отсутствие vision (см. tests/test_p0_vision_fix_core.py)."""
     async def t(url, *, payload, headers, timeout):
-        calls["n"] += 1
-        if calls["n"] == 1:
-            return 400, {}
-        return 200, {"choices": [{"message": {"content": "pong"}}]}
+        return 400, {"error": {
+            "message": "This model does not support image input",
+            "code": "invalid_request"}}
 
     verdict = await mca_vision.probe_connection(transport=t)
     assert verdict.capability == "no_vision"

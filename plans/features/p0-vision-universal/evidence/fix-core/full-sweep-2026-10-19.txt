@@ -1,0 +1,45 @@
+# P0-Vision VISION-FIX-CORE — full-repo sweep, 2026-10-19 (финальный кандидат)
+
+Команда: `py -3 -m pytest tests -q --no-header -p no:cacheprovider --tb=no -rf`
+Условие чистоты: **других pytest-процессов в системе не было** (проверено по
+командным строкам процессов; предыдущие прогоны, шедшие одновременно с
+pytest-прогоном лейна CFG-02B, дали 55 «падений», из которых 42–43 оказались
+артефактом конкуренции — в изоляции эти файлы зелёные).
+
+## Результат (кандидат = HEAD `dea5f84a` + файлы этого лейна)
+
+**17 failed, 14332 passed, 1 skipped** (12:29).
+
+## Атрибуция всех 17 падений (ни одно не относится к VISION-FIX-CORE)
+
+| # | Тест(ы) | Причина | Владелец |
+|---|---|---|---|
+| 1 | `test_soul1_core_registry_api.py` ×2, `test_soul1_registry_completeness.py` ×1, `test_soul1_w4_humor_craft.py` ×1 | factory-fingerprint drift: `FACTORY_SET_SHA256_12` = `5a3d211b36be`, вычисленный = `5bca81487001`. **Проверено экспериментом**: с временно отведёнными к HEAD файлами `services/mca_vision.py`/`cover_style_jobs.py`/`routes.py` (git stash pathspec) те же 4 теста падают так же → не мой лейн; источник — незакоммиченные правки factory-текстов активного лейна (`handlers/direct_chat.py`, `services/direct_chat_service.py`, `services/initiative_*` в статусе M) без бампа константы | чужой лейн (uncommitted) |
+| 2 | `test_webapp_tma_fixes_ui.py::test_logs_block_layout_mono` ×1 | `break-all` встречается в **комментарии** `web/static/app.css:4347` (файл изменён другим лейном: +30/−10, uncommitted); тест проверяет подстроку по всему HTML+CSS | чужой лейн (uncommitted web/static/app.css) |
+| 3 | `test_asap7_direct_settings.py` ×2, `test_t5150_startup_migrations_round1046.py` ×5 | «assert 36 == 35» / `pending=[33,34,35]`: в `services/database.py` существует миграция v36, пины ждут 35. `services/database.py` **идентичен HEAD** (`git diff --quiet HEAD` → 0) → дрейф на уровне HEAD | pre-existing (HEAD) |
+| 4 | `test_mca01_tx_task_supervisor_round1027.py::test_write_points_go_through_single_writer` ×1 | census `.commit()`: `database.py` = 201 при allow-map 198 (проверено и на HEAD-байтах: 201) | pre-existing (HEAD) |
+| 5 | `test_outgoing_guard_round1022.py` ×2 | `ImportError: cannot import name 'InputRichMessageMedia' from 'aiogram.types'` — версия aiogram в окружении | pre-existing (env) |
+| 6 | `test_summary_asap2_failsoft_round1027.py` ×1, `test_summary_publish_integration_round1026.py` ×1 | «Expected mock to have been awaited once. Awaited 0 times.» — совпадает с известными пре-существующими из релизных заметок | pre-existing |
+
+## Контроль конкуренции (для честности)
+
+- Прогон A (в фоне, стартовал до последних трёх правок кандидата, шёл
+  одновременно с прогоном B): **13 failed / 14317 passed / 1 skipped**;
+  в наборе — те же pre-existing (asap7_direct ×2, mca01 ×1, t5150 ×5,
+  outgoing_guard ×2, summary ×2) + известный флейк
+  `test_mca09_intents_block_e::test_candidate_ready_defers_intent_backoff`.
+- Прогон B (финальный кандидат, шёл одновременно с pytest лейна CFG-02B):
+  55 failed / 14293 passed; после изолированного перепрогона файлов
+  `test_asap8_v63_b01_initiative_observer.py`, `test_p0_init_arch_fix_observer.py`,
+  `test_p0_initfix_initiative_observer.py`, `test_soul1_w5_initiative_vitality.py`,
+  `test_soul1_w5_observer_gates.py` — **все зелёные** (следствие общей
+  tempdir-спули mca_events/лимитов диска при двух pytest-процессах).
+- Прогон C (этот, чистый): 17 failed — набор = pre-existing/чужие из таблицы.
+
+## Срезающие проверки этого лейна на финальном кандидате
+
+- `tests/test_p0_vision_fix_core.py` — 47 passed (RED было 32F/14P/2E).
+- mca19 блоки A–G + rework R1 + scene delivery — 129 passed.
+- routes-пины (`test_round1025_f8_registry.py`, `test_mca23_planned_vs_actual.py`) — 53 passed.
+- cover-style/image-capabilities/supervisor/perimeter — 413 passed + 1 pre-existing (см. таблицу, п.4).
+- Ни один из 17 падений чистого sweep не относится к модулям этого лейна.

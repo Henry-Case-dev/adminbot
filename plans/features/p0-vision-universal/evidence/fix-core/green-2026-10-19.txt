@@ -1,0 +1,35 @@
+﻿P0-Vision VISION-FIX-CORE — GREEN, 2026-10-19 (Windows local)
+SUT: services/mca_vision.py, services/cover_style_jobs.py, web/api/routes.py
+Все внешние вызовы — контрактные моки transport (реальной сети нет).
+
+[1] py -3 -m pytest tests/test_p0_vision_fix_core.py -q
+
+47 passed, 3 warnings in 6.83s
+
+
+[2] mca19 suite A-G + rework R1 + scene delivery (регресс-окружение)
+
+129 passed, 2 warnings in 10.92s
+
+
+[3] routes-пины (re-pin L-F11S-1): f8_registry + mca23
+
+53 passed, 3 warnings in 4.42s
+
+
+[4] cover-style/image-capabilities/supervisor/perimeter (смежные границы)
+
+FAILED tests/test_mca01_tx_task_supervisor_round1027.py::test_write_points_go_through_single_writer
+1 failed, 413 passed, 3 warnings in 45.09s
+
+
+Примечание: FAILED test_mca01...write_points_go_through_single_writer — pre-existing (database.py 201 commit-calls и на HEAD; allow-map 198); вне правок VISION-FIX-CORE, зафиксировано как incidental.
+
+
+[5] Финал кандидата (после нормализации LF в 2 пин-файлах, без правок продуктового кода)
+    tests/test_p0_vision_fix_core.py -> 47 passed
+    mca19 A-G + rework R1 + scene delivery -> 129 passed
+    routes-пины (f8_registry + mca23) -> 53 passed
+    Полный свип (чистый, без чужих pytest): 17 failed / 14332 passed / 1 skipped -
+    все 17 внешние (pre-existing HEAD / env / чужие uncommitted); детали и
+    эксперимент по атрибуции: full-sweep-2026-10-19.txt

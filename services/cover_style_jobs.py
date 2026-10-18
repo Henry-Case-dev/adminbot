@@ -1884,30 +1884,31 @@ def _data_url_b64(path: str) -> tuple[str | None, str]:
 async def _default_scene_verifier(base_path: str, styled_path: str
                                   ) -> tuple[str, str]:
     """Один bounded compare-вызов через действующий image-анализ маршрут
-    (mca_vision.resolve_route). Любая ошибка → честный ``unknown``."""
+    (mca_vision.resolve_route). Любая ошибка → честный ``unknown``.
+
+    P0 (recon D2/D14): ключ берётся ТОЛЬКО общим резолвером
+    `mca_vision.api_key_for` (ключ по профилю endpoint'а — основной ключ не
+    уходит на чужой endpoint), URL собирается `mca_vision.chat_completions_url`
+    (без двойного `/chat/completions`), неподдерживаемый тип API не
+    отправляется."""
     try:
         from services import mca_vision
         route = mca_vision.resolve_route()
     except Exception:
         return "unknown", "route_unavailable"
+    if not mca_vision.api_type_supported(route):
+        return "unknown", "api_type_unsupported"
+    key = mca_vision.api_key_for(route)
+    if not key:
+        return "unknown", "key_missing"
     base_b64, base_mime = _data_url_b64(base_path)
     styled_b64, styled_mime = _data_url_b64(styled_path)
     if not base_b64 or not styled_b64:
         return "unknown", "image_unreadable"
     payload = _scene_verify_payload(base_b64, styled_b64)
     payload["model"] = route.model
-    endpoint = str(route.base_url or "").rstrip("/") + "/chat/completions"
-    key = ""
-    try:
-        from services import hot_config as hot
-        key = str(hot.get("keys.vision_api_key", "") or "") if \
-            route.source == "dedicated" else ""
-        if not key:
-            key = str(hot.get("keys.llm_api_key",
-                              getattr(settings, "LLM_API_KEY", "")) or "")
-    except Exception:
-        key = str(getattr(settings, "LLM_API_KEY", "") or "")
-    headers = {"Authorization": "Bearer %s" % key} if key else {}
+    endpoint = mca_vision.chat_completions_url(route.base_url)
+    headers = {"Authorization": "Bearer %s" % key}
     try:
         import httpx
         async with httpx.AsyncClient(timeout=_SCENE_VERIFY_TIMEOUT) as client:

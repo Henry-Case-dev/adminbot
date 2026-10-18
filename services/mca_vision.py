@@ -29,6 +29,39 @@ requested/effective-состояние, обязательная последо�
 профиля с endpoint другого НЕ смешивается (D4 — отдельный endpoint без
 отдельного ключа = незавершённая настройка, честная «проверка подключения»,
 НЕ молчаливый fallback на основной ключ).
+
+Ревизия P0 (`p0-vision-universal`, 19.10.2026, recon D1–D14 — универсальная
+совместимость с любыми OpenAI-совместимыми провайдерами):
+  * D1: endpoint распознавания читается из КАНОНИЧЕСКОГО ключа каталога
+    `models.vision_api_base_url` (его пишут каталог и UI); legacy-имя
+    `models.vision_base_url` поддерживается ТОЛЬКО как алиас совместимости
+    (приоритет — всегда у канонического ключа, см. `_vision_base_url`);
+  * D2 (`api_key_for`): ключ — строго по профилю endpoint'а. Отдельный
+    endpoint без своего ключа НЕ получает основной ключ: честная
+    конфигурационная ошибка (`vision_key_missing`), не запрос с чужим
+    ключом; зеркало — `services/cover_style_jobs.py` (scene verify);
+  * D3: проба отправляет ВАЛИДНОЕ непрозрачное изображение 512×512+
+    (генерируется в коде детерминированно, без внешних файлов);
+  * D4/D5: причины различаются классами (конфигурация/авторизация/нет
+    модели/модальность/некорректное изображение/rate limit/таймаут/сбой
+    провайдера); HTTP 400 сам по себе НЕ доказывает отсутствие vision —
+    только явный модальный отказ провайдера; «модель доступна» и «принимает
+    изображения» — раздельные ступени пробы;
+  * D6: временные сбои кешируются КОРОТКИМ TTL (минуты), постоянная
+    несовместимость (no_vision/ok) — длинным; успешная проба снимает
+    transient;
+  * D7: смена ЗНАЧЕНИЯ ключа/endpoint/модели/типа API меняет
+    `config_revision` (в отпечаток входит hash значения ключа, без значения)
+    → старый вердикт не действует; при неизвестной/устаревшей capability
+    задание запускает пробу АВТОМАТИЧЕСКИ (D8, singleflight), а не только
+    кнопка «Проверить подключение»;
+  * D9: тик воркера только claim'ит джобы и запускает их фоном (bounded
+    семафор), поэтому долгие вызовы не занимают тик (нет skip instances);
+    heartbeat живой на время обработки;
+  * D13/D14: `api_type` не декоративен (поддерживается `openai_compatible`;
+    иной тип → конкретный отказ без отправки несовместимого payload); сборка
+    chat-URL — единая (`chat_completions_url`), двойной `/chat/completions`
+    невозможен.
 """
 from __future__ import annotations
 
@@ -38,8 +71,10 @@ import dataclasses
 import hashlib
 import json
 import logging
+import os
 import struct
 import time
+import zlib
 
 import httpx
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -77,11 +112,18 @@ MAIN_BASE_URL_KEY = "models.llm_base_url"
 MAIN_MODEL_KEY = "models.llm_model_name"
 MAIN_KEY_CONFIGURED = "keys.llm_api_key"
 
-VISION_BASE_URL_KEY = "models.vision_base_url"
+VISION_BASE_URL_KEY = "models.vision_api_base_url"      # канонический ключ
+VISION_BASE_URL_LEGACY_KEY = "models.vision_base_url"   # legacy-алиас (D1)
 VISION_MODEL_KEY = "models.vision_model"
 VISION_API_TYPE_KEY = "models.vision_api_type"
 VISION_KEY_KEY = "keys.vision_api_key"
 MODULE_ENABLED_KEY = "flags.vision_enabled"
+
+# D13: api_type — не декоративен. Поддерживаемые типы (задел адаптера):
+# сейчас ровно OpenAI-совместимый chat/completions; для иного типа payload
+# НЕ отправляется — конкретная причина (`api_type_unsupported`).
+SUPPORTED_API_TYPES = ("openai_compatible",)
+DEFAULT_API_TYPE = "openai_compatible"
 
 
 class VisionError(Exception):
@@ -151,12 +193,55 @@ def _hot_str(key: str, fallback: str) -> str:
     return str(value or "").strip()
 
 
+def _vision_base_url() -> str:
+    """D1: адрес Vision-подключения из КОНФИГУРАЦИИ.
+
+    Приоритет (явно, для совместимости):
+      1. канонический ключ `models.vision_api_base_url` — его пишут каталог
+         (`services/param_catalog.py:VISION_API_BASE_URL`) и UI;
+      2. legacy-имя `models.vision_base_url` — только алиас совместимости
+         (историческое имя; если оно где-то сохранено, оно уважается, но
+         значение канонического ключа его перекрывает);
+      3. Settings-дефолт `VISION_API_BASE_URL` (env, «пусто»).
+    Значение ключа в логи не попадает (R17)."""
+    for key in (VISION_BASE_URL_KEY, VISION_BASE_URL_LEGACY_KEY):
+        try:
+            value = str(hot.get(key, "") or "").strip()
+        except Exception:
+            value = ""
+        if value:
+            if key == VISION_BASE_URL_LEGACY_KEY:
+                logger.info(
+                    "[vision] endpoint взят из legacy-ключа %s — "
+                    "переключитесь на %s", key, VISION_BASE_URL_KEY)
+            return value
+    try:
+        return str(settings.VISION_API_BASE_URL or "").strip()
+    except Exception:
+        return ""
+
+
 def _main_route() -> tuple[str, str, bool]:
     """Основная ДИАЛОГОВАЯ модель через действующий резолв (hot → Settings)."""
     base_url = _hot_str(MAIN_BASE_URL_KEY, settings.LLM_BASE_URL)
     model = _hot_str(MAIN_MODEL_KEY, settings.LLM_MODEL_NAME)
     key = _hot_str(MAIN_KEY_CONFIGURED, settings.LLM_API_KEY)
     return base_url, model, bool(key)
+
+
+def _vision_endpoint_is_dedicated(vision_base: str, main_base: str) -> bool:
+    """True — Vision-профиль использует ОТДЕЛЬНЫЙ endpoint (не основной)."""
+    return bool(vision_base) and vision_base != main_base
+
+
+def _key_fingerprint(key_value: str) -> str:
+    """D7: отпечаток ЗНАЧЕНИЯ ключа (без значения) для config_revision.
+
+    R17: наружу уходит только короткий sha256-префикс; полное значение ключа
+    не логируется и не отдаётся."""
+    if not key_value:
+        return "no-key"
+    return hashlib.sha256(key_value.encode("utf-8")).hexdigest()[:12]
 
 
 def resolve_route(chat_id: int | None = None) -> VisionRoute:
@@ -170,49 +255,137 @@ def resolve_route(chat_id: int | None = None) -> VisionRoute:
        подключение (тот же профиль).
     2. Иначе — эффективная основная диалоговая модель (REUSE models_main;
        НЕ background/embedding/image-generation/запасная).
+
+    D1: адрес — `_vision_base_url()` (канонический ключ каталога).
+    D7: config_revision включает hash значения ключа (без значения) — смена
+    ключа/адреса/модели/типа меняет отпечаток и снимает старый вердикт.
     """
-    main_base, main_model, main_key_present = _main_route()
-    vision_base = _hot_str(VISION_BASE_URL_KEY, settings.VISION_API_BASE_URL)
+    main_base, main_model, _main_key_present = _main_route()
+    main_key = _hot_str(MAIN_KEY_CONFIGURED, settings.LLM_API_KEY)
+    vision_base = _vision_base_url()
     vision_model = _hot_str(VISION_MODEL_KEY, settings.VISION_MODEL)
     vision_key = _hot_str(VISION_KEY_KEY, settings.VISION_API_KEY)
 
-    if vision_base and vision_base != main_base:
+    if _vision_endpoint_is_dedicated(vision_base, main_base):
         # Отдельный endpoint: dedicated ВСЕГДА (D4: ключ одного профиля с
         # endpoint другого НЕ смешивается — отдельный endpoint без ключа
         # остаётся dedicated БЕЗ ключа → honest «проверка подключения»/
         # ошибка доступа, а НЕ молчаливый fallback на основной маршрут).
         dedicated_ok = True
         base_url = vision_base
-        key_present = bool(vision_key)
+        key_value = vision_key          # ключ ТОЛЬКО своего профиля (D2)
     else:
         # Отдельная модель на инфраструктуре основного профиля (или пусто).
         dedicated_ok = bool(vision_model) or bool(vision_base)
         base_url = main_base
-        key_present = main_key_present or bool(vision_key)
+        # Тот же endpoint = тот же профиль: основной ключ; явно заданный
+        # Vision-ключ — только как резерв при отсутствии основного.
+        key_value = main_key or vision_key
     if dedicated_ok:
         source = "dedicated"
         model = vision_model or main_model
         api_type = _hot_str(VISION_API_TYPE_KEY, settings.VISION_API_TYPE) \
-            or "openai_compatible"
+            or DEFAULT_API_TYPE
     else:
         source = "main_model"
         model = main_model
-        api_type = "openai_compatible"
-    # R17: в config_revision — только presence-флаг ключа, НЕ значение.
+        key_value = main_key
+        api_type = DEFAULT_API_TYPE
+    # R17: в config_revision — только hash значения ключа (D7), не значение.
     revision = hashlib.sha256(
-        f"{source}|{base_url}|{model}|{api_type}|{int(key_present)}"
+        f"{source}|{base_url}|{model}|{api_type}|{_key_fingerprint(key_value)}"
         .encode("utf-8")).hexdigest()[:16]
     return VisionRoute(source=source, base_url=base_url, model=model,
-                       api_type=api_type, api_key_present=key_present,
+                       api_type=api_type,
+                       api_key_present=bool(key_value),
                        config_revision=revision)
 
 
-def _api_key_for(route: VisionRoute) -> str:
+def api_key_for(route: VisionRoute) -> str:
+    """Ключ СТРОГО по профилю endpoint'а (D2/D4) — единственный резолвер.
+
+    * отдельный endpoint (dedicated и base_url ≠ основной): ТОЛЬКО ключ
+      Vision-профиля; своего ключа нет → '' (вызывающий обязан показать
+      честную конфигурационную ошибку `vision_key_missing`, а не отправить
+      основной ключ на чужой endpoint);
+    * маршрут на инфраструктуре основного профиля (`main_model` или отдельная
+      модель на основном endpoint): основной ключ; если он не задан, но
+      явно задан Vision-ключ — тот же профиль (тот же endpoint) допускает
+      его использование;
+    * `main_model` без ключа → '' (маршрут не сконфигурирован).
+    """
+    vision_base = _vision_base_url()
+    main_base, _main_model, _main_present = _main_route()
+    if route.source == "dedicated" and \
+            _vision_endpoint_is_dedicated(vision_base, main_base):
+        return _hot_str(VISION_KEY_KEY, settings.VISION_API_KEY)
+    main_key = _hot_str(MAIN_KEY_CONFIGURED, settings.LLM_API_KEY)
+    if main_key:
+        return main_key
     if route.source == "dedicated":
-        vision_key = _hot_str(VISION_KEY_KEY, settings.VISION_API_KEY)
-        if vision_key:
-            return vision_key
-    return _hot_str(MAIN_KEY_CONFIGURED, settings.LLM_API_KEY)
+        return _hot_str(VISION_KEY_KEY, settings.VISION_API_KEY)
+    return ""
+
+
+# Историческое имя (внутренние вызовы/совместимость) — тот же резолвер.
+_api_key_for = api_key_for
+
+
+def normalize_base_url(base_url: str) -> str:
+    """D14: единая нормализация base URL (user input → базовый префикс).
+
+    Убирает пробелы/хвостовые слэши и уже добавленный полный путь
+    `/chat/completions` (host, host/, host/v1, host/api/v1, полный путь —
+    все формы дают один и тот же chat-URL; ручные подсказки не нужны)."""
+    value = str(base_url or "").strip().rstrip("/")
+    suffix = "/chat/completions"
+    if value.lower().endswith(suffix):
+        value = value[:-len(suffix)].rstrip("/")
+    return value
+
+
+def chat_completions_url(base_url: str) -> str:
+    """D14: единственная сборка chat-URL — двойной `/chat/completions`
+    невозможен (полный путь в конфиге не удваивается)."""
+    base = normalize_base_url(base_url)
+    return f"{base}{'/chat/completions'}" if base else ""
+
+
+def provider_host(base_url: str) -> str:
+    """Фактический хост endpoint'а (для витрины D12; без пути/секретов)."""
+    try:
+        from urllib.parse import urlparse
+        return str(urlparse(str(base_url or "")).netloc or "")
+    except Exception:
+        return ""
+
+
+def normalized_api_type(route: VisionRoute) -> str:
+    return str(getattr(route, "api_type", "") or DEFAULT_API_TYPE).strip() \
+        .lower() or DEFAULT_API_TYPE
+
+
+def api_type_supported(route: VisionRoute) -> bool:
+    """D13: тип подключения в явном списке поддерживаемых."""
+    return normalized_api_type(route) in SUPPORTED_API_TYPES
+
+
+def route_config_problem(route: VisionRoute) -> str:
+    """Локальная (без сети) проверка конфигурации маршрута → класс проблемы.
+
+    Классы (D5 «конфигурация» различима): '' | not_configured |
+    api_type_unsupported | vision_key_missing."""
+    if not route.base_url or not route.model:
+        return "not_configured"
+    if not api_type_supported(route):
+        return "api_type_unsupported"
+    if not api_key_for(route):
+        main_base, _m, _p = _main_route()
+        if route.source == "dedicated" and \
+                _vision_endpoint_is_dedicated(_vision_base_url(), main_base):
+            return "vision_key_missing"
+        return "not_configured"
+    return ""
 
 
 # ── Кеш capabilities (D6): ключ provider/endpoint/model/config_revision,
@@ -229,15 +402,42 @@ class CapabilityVerdict:
 
 
 _CAPABILITY_CACHE: dict[str, tuple[CapabilityVerdict, float]] = {}
+_CAPABILITY_CACHE_MAX = 64          # bounded-память (prune старейших)
+
+# D6: transient-классы (временные сбои) кешируются КОРОТКИМ TTL (минуты),
+# постоянные вердикты (ok/no_vision) — длинным `MCA_VISION_CAPABILITY_TTL_HOURS`.
+_TRANSIENT_CAPABILITIES = frozenset({"access_error", "rate_limited",
+                                     "unavailable", "pending"})
+_TRANSIENT_TTL_ENV = "MCA_VISION_TRANSIENT_TTL_SECONDS"
+_TRANSIENT_TTL_DEFAULT = 90.0
 
 
 def reset_capability_cache() -> None:
     """Сброс in-process кеша capabilities (тесты/админ-действие)."""
     _CAPABILITY_CACHE.clear()
+    _PROBE_LOCKS.clear()
 
 
 def _capability_ttl() -> float:
     return float(mca_gates.vision_capability_ttl_hours()) * 3600.0
+
+
+def _transient_ttl() -> float:
+    """TTL временного сбоя (D6): env `MCA_VISION_TRANSIENT_TTL_SECONDS`
+    (default 90 с); временный сбой НЕ фиксируется как постоянная
+    несовместимость."""
+    try:
+        raw = os.getenv(_TRANSIENT_TTL_ENV, "")
+        value = float(raw) if str(raw).strip() else _TRANSIENT_TTL_DEFAULT
+    except (TypeError, ValueError):
+        value = _TRANSIENT_TTL_DEFAULT
+    return max(1.0, value)
+
+
+def _capability_ttl_for(verdict: CapabilityVerdict) -> float:
+    if verdict.capability in _TRANSIENT_CAPABILITIES:
+        return _transient_ttl()
+    return _capability_ttl()
 
 
 def _capability_key(route: VisionRoute) -> str:
@@ -256,10 +456,73 @@ def cached_capability(route: VisionRoute
 def store_capability(route: VisionRoute, verdict: CapabilityVerdict) -> None:
     _CAPABILITY_CACHE[_capability_key(route)] = (
         verdict, verdict.checked_at)
+    if len(_CAPABILITY_CACHE) > _CAPABILITY_CACHE_MAX:
+        oldest = sorted(_CAPABILITY_CACHE.items(),
+                        key=lambda kv: float(kv[1][1] or 0.0))
+        for key, _ in oldest[:len(_CAPABILITY_CACHE) - _CAPABILITY_CACHE_MAX]:
+            _CAPABILITY_CACHE.pop(key, None)
 
 
-def _capability_expired(checked_at: float) -> bool:
-    return (time.monotonic() - checked_at) > _capability_ttl()
+def _capability_expired(verdict: CapabilityVerdict, checked_at: float) -> bool:
+    """D6: TTL зависит от класса вердикта — transient (минуты) vs
+    постоянный (часы)."""
+    return (time.monotonic() - float(checked_at or 0.0)) \
+        > _capability_ttl_for(verdict)
+
+
+def capability_visible_reason(capability: str, reason: str = "",
+                              detail: str = "") -> str:
+    """D5/D11: человекочитаемая причина ОДНИМ источником (кнопка теста,
+    effective-линия, витрина) — без внутренних кодов в UI-тексте.
+
+    Словарь reason-кодов НЕ расширяется (269): различия классов передаются
+    `detail` (R17-safe класс ошибки), а текст — здесь."""
+    cap = str(capability or "")
+    det = str(detail or "").lower()
+    code = str(reason or "")
+    if cap == "ok":
+        return "Распознавание работает"
+    if cap in ("", "pending"):
+        return "Проверка подключения модели распознавания"
+    if cap == "disabled":
+        return "Распознавание изображений выключено"
+    if cap == "no_vision":
+        if code == "main_model_no_vision":
+            return ("Основная модель не поддерживает изображения "
+                    "(выберите модель с поддержкой изображений)")
+        return "Модель не принимает изображения"
+    if cap == "access_error":
+        return "Неверный ключ: провайдер отклонил авторизацию"
+    if cap == "rate_limited":
+        return "Превышен лимит запросов провайдера"
+    if cap == "unavailable" and code == "vision_rate_limited":
+        return "Превышен лимит запросов провайдера"
+    # cap == "unavailable": конфигурация/провайдер — по классу detail.
+    if det.startswith("api_type_unsupported"):
+        return "Тип подключения не поддерживается (доступен OpenAI-совместимый)"
+    if det.startswith("vision_key_missing"):
+        return "Для отдельного адреса укажите отдельный ключ распознавания"
+    if det.startswith("not_configured"):
+        return "Не настроены адрес или модель распознавания"
+    if det.startswith("timeout"):
+        return "Провайдер не ответил вовремя (таймаут)"
+    if det.startswith("transport"):
+        return "Нет соединения с сервером распознавания"
+    if det.startswith("model_not_found"):
+        return "Модель не найдена на этом адресе (проверьте имя модели)"
+    if det.startswith("image_modality"):
+        return "Модель не принимает изображения"
+    if det.startswith("image_rejected") or det.startswith("image_http"):
+        return "Модель доступна, но изображение не принято"
+    if det.startswith("empty_completion"):
+        return "Провайдер вернул пустой ответ"
+    if det.startswith("bad_request"):
+        return "Провайдер отклонил запрос (проверьте модель и формат)"
+    if det.startswith("http_5"):
+        return "Провайдер временно недоступен (ошибка сервера)"
+    if det.startswith("http_404"):
+        return "Адрес или модель не найдены (404)"
+    return "Провайдер временно недоступен (повторите позже)"
 
 
 @dataclasses.dataclass(frozen=True)
@@ -277,6 +540,9 @@ class EffectiveVisionState:
     capability: str
     config_revision: str
     checked_at: float | None = None
+    detail: str = ""       # R17-safe класс последней пробы (D12)
+    api_type: str = ""     # фактический тип подключения (D12/D13)
+    provider: str = ""     # хост фактического endpoint'а (D12, без пути)
 
 
 async def resolve_effective_state(chat_id: int | None = None
@@ -291,7 +557,9 @@ async def resolve_effective_state(chat_id: int | None = None
     """
     route = resolve_route(chat_id)
     base = dict(source=route.source, model=route.model,
-                base_url=route.base_url, config_revision=route.config_revision)
+                base_url=route.base_url, config_revision=route.config_revision,
+                api_type=route.api_type,
+                provider=provider_host(route.base_url))
 
     if not mca_gates.vision_enabled():
         return EffectiveVisionState(
@@ -310,12 +578,15 @@ async def resolve_effective_state(chat_id: int | None = None
     cached = cached_capability(route)
     if cached is not None:
         verdict, checked_at = cached
-        if not _capability_expired(checked_at):
+        if not _capability_expired(verdict, checked_at):
+            v_reason = capability_visible_reason(
+                verdict.capability, verdict.reason, verdict.detail)
             if verdict.capability == "ok" and verdict.image_input:
                 return EffectiveVisionState(
                     requested=True, effective_enabled=True,
-                    reason=verdict.reason, visible_reason="Распознавание работает",
-                    capability="ok", checked_at=checked_at, **base)
+                    reason=verdict.reason, visible_reason=v_reason,
+                    capability="ok", checked_at=checked_at,
+                    detail=verdict.detail, **base)
             if verdict.capability == "no_vision":
                 if route.source == "main_model":
                     return EffectiveVisionState(
@@ -323,26 +594,28 @@ async def resolve_effective_state(chat_id: int | None = None
                         reason="main_model_no_vision",
                         visible_reason=("Распознавание отключено: основная "
                                         "модель не поддерживает изображения"),
-                        capability="no_vision", checked_at=checked_at, **base)
+                        capability="no_vision", checked_at=checked_at,
+                        detail=verdict.detail, **base)
                 return EffectiveVisionState(
                     requested=True, effective_enabled=False,
                     reason="vision_unsupported",
-                    visible_reason="Нет совместимой модели распознавания",
-                    capability="no_vision", checked_at=checked_at, **base)
+                    visible_reason=v_reason,
+                    capability="no_vision", checked_at=checked_at,
+                    detail=verdict.detail, **base)
             if verdict.capability == "rate_limited":
                 return EffectiveVisionState(
                     requested=True, effective_enabled=False,
                     reason="vision_rate_limited",
-                    visible_reason="Временно недоступно: лимит провайдера",
-                    capability="rate_limited", checked_at=checked_at, **base)
+                    visible_reason=v_reason,
+                    capability="rate_limited", checked_at=checked_at,
+                    detail=verdict.detail, **base)
             if verdict.capability in ("access_error", "unavailable"):
                 return EffectiveVisionState(
                     requested=True, effective_enabled=False,
                     reason="vision_unavailable",
-                    visible_reason="Временно недоступно (ошибка доступа/"
-                                   "недоступность провайдера)",
+                    visible_reason=v_reason,
                     capability=verdict.capability, checked_at=checked_at,
-                    **base)
+                    detail=verdict.detail, **base)
         # Просроченный/неуспешный вердикт → пере-проверка (pending).
     return EffectiveVisionState(
         requested=True, effective_enabled=False,
@@ -356,13 +629,71 @@ async def resolve_effective_state(chat_id: int | None = None
 # (НЕ по названию модели). Таймаут/401/403/429 ≠ отсутствие vision.
 # ════════════════════════════════════════════════════════════════════════════
 
-# Нейтральное тестовое изображение: 1×1 PNG (прозрачный) — тех-вызов, без
-# персональных данных; token-бюджет ограничен max_tokens=16.
+# ── Тестовое изображение пробы (D3): валидное, непрозрачное, 512+ px,
+# детерминированное, без внешних файлов. Прозрачная PNG 1×1 (прежний
+# `_NEUTRAL_PNG`) отвергалась провайдерами как «too small / invalid image» —
+# это давало ложные отказы пробы. Историческая константа оставлена только
+# для сравнения в тестах (в пробу НЕ отправляется).
+
 _NEUTRAL_PNG = base64.b64decode(
     "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhf"
     "DwAChwGA60e6kgAAAABJRU5ErkJggg==")
 
+# Основное изображение (512×512) и повторное (640×480, другой узор) —
+# первое отвергнуто как «некорректное» → честная повторная попытка другим
+# валидным изображением (D4), а не вердикт по одному ответу.
+_PROBE_IMAGE_SPECS = (
+    (512, 512, (16, 40, 90), (245, 245, 240), (200, 40, 40)),
+    (640, 512, (12, 12, 12), (230, 230, 235), (30, 120, 60)),
+)
+_PROBE_IMAGES: tuple[bytes, ...] | None = None
+
 _PROBE_TIMEOUT_SECONDS = 20.0
+_PROBE_TEXT_TIMEOUT_SECONDS = 10.0
+
+
+def _build_probe_png(width: int, height: int, background, panel,
+                     accent) -> bytes:
+    """Детерминированный НЕПРОЗРАЧНЫЙ PNG (RGB, color type 2) без внешних
+    файлов: фон + центральный прямоугольник + угловая метка (проверяемое
+    содержимое; byte-identical между вызовами)."""
+    def chunk(tag: bytes, data: bytes) -> bytes:
+        return (struct.pack(">I", len(data)) + tag + data
+                + struct.pack(">I", zlib.crc32(tag + data) & 0xFFFFFFFF))
+
+    stride = width * 3 + 1
+    rows = bytearray()
+    panel_x0, panel_x1 = width // 4, width - width // 4
+    px0, px1 = panel_x0 * 3, panel_x1 * 3
+    panel_y0, panel_y1 = height // 4, height - height // 4
+    bg = bytes(background)
+    pn = bytes(panel)
+    for y in range(height):
+        if panel_y0 <= y < panel_y1:
+            rows.extend(b"\x00" + bg * panel_x0 + pn * (panel_x1 - panel_x0)
+                        + bg * (width - panel_x1))
+        else:
+            rows.extend(b"\x00" + bg * width)
+    mark_x1 = min(width, 64)
+    mark_y1 = min(height, 64)
+    ac = bytes(accent)
+    for y in range(8, mark_y1):
+        start = y * stride + 1 + 8 * 3
+        rows[start:start + (mark_x1 - 8) * 3] = ac * (mark_x1 - 8)
+    ihdr = struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0)
+    return (b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", ihdr)
+            + chunk(b"IDAT", zlib.compress(bytes(rows), 6))
+            + chunk(b"IEND", b""))
+
+
+def probe_images() -> tuple[bytes, ...]:
+    """Тестовые изображения пробы (ленивая детерминированная генерация)."""
+    global _PROBE_IMAGES
+    if _PROBE_IMAGES is None:
+        _PROBE_IMAGES = tuple(
+            _build_probe_png(w, h, bg, panel, accent)
+            for w, h, bg, panel, accent in _PROBE_IMAGE_SPECS)
+    return _PROBE_IMAGES
 
 
 def _data_url(data: bytes, mime: str) -> str:
@@ -382,125 +713,332 @@ async def _default_transport(url: str, *, payload: dict, headers: dict,
         return response.status_code, body
 
 
-def _classify_probe(status: int, body: dict,
-                    image_stage: bool) -> CapabilityVerdict:
-    """Честная классификация (SC-R2a): 401/403/429/таймаут НЕ пишутся как
-    `main_model_no_vision` — это ошибка доступа/временная недоступность."""
-    now = time.monotonic()
-    if 200 <= status < 300:
-        # Rework R1 (M-1, review T-5124): success-вердикт без противоречивого
-        # reason-кода. Прежний «vision_unsupported» при ok всплывал как
-        # reason=/api/vision/state при РАБОТАЮЩЕМ vision и в событии
-        # vision_capability_probe (outcome=success + код «не поддерживается»).
-        # '' — «причины нет» (в событиях reason_code → None, в snapshot —
-        # нейтральное отсутствие); словарь 269 не расширяется.
-        return CapabilityVerdict("ok", "", True, now)
-    if status in (401, 403):
-        return CapabilityVerdict("access_error", "vision_unavailable",
-                                 None, now, f"http_{status}")
-    if status == 429:
-        return CapabilityVerdict("rate_limited", "vision_rate_limited",
-                                 None, now, "http_429")
-    if status in (400, 404, 422):
-        # 400/422 на image-пробе: либо модель без vision, либо вход не принят.
-        if image_stage:
-            return CapabilityVerdict("pending", "capability_check_pending",
-                                     False, now, f"http_{status}")
-        return CapabilityVerdict("unavailable", "vision_unavailable",
-                                 None, now, f"http_{status}")
-    return CapabilityVerdict("unavailable", "vision_unavailable",
-                             None, now, f"http_{status}")
+# ── D4/D5: разбор семантики ответа провайдера (R17-safe) ────────────────────
+# Паттерны описывают СЕМАНТИКУ ошибки (не провайдеров/моделей — без
+# allow-list): явный модальный отказ, отсутствие модели, отклонение
+# изображения.
+
+_MODALITY_MENTION_TOKENS = (
+    "image", "vision", "multimodal", "multi-modal", "image_url",
+    "image url", "modalities",
+)
+_MODALITY_NEGATION_TOKENS = (
+    "not support", "unsupported", "doesn't support", "does not support",
+    "not accepted", "not allowed", "can not", "cannot", "can't",
+    "only text", "text only", "text-only", "must be text", "expected text",
+    "no endpoints", "invalid content type", "unsupported content type",
+    "not implemented", "does not accept", "not available for this model",
+)
+_MODEL_MISSING_HINTS = (
+    "model_not_found", "model not found", "no such model", "does not exist",
+    "unknown model", "invalid model", "not a valid model",
+    "unsupported model", "model_not_available", "no endpoints found for",
+)
+_IMAGE_REJECTION_HINTS = (
+    "too small", "invalid image", "failed to decode", "could not decode",
+    "cannot decode", "image decode", "corrupt", "unsupported image format",
+    "invalid base64", "could not process image", "image dimensions",
+    "malformed image", "unsupported image", "invalid_image", "image too large",
+    "could not open image", "unable to process image",
+)
 
 
-async def probe_connection(route: VisionRoute | None = None, *,
-                           transport=None) -> CapabilityVerdict:
-    """«Проверить подключение» (D4/T-5103): доступность + поддержка image
-    input + причина ошибки. Двухступенчатая проба:
-      1) нейтральное изображение (image_url data-URL) + короткий вопрос;
-      2) при 400/404/422 — контрольный ТЕКСТОВЫЙ запрос той же модели:
-         текст OK + image 4xx → честное `no_vision` (доказано, не по имени);
-         текст не OK → `unavailable` (модель/endpoint недоступны).
-    Результат кешируется по (endpoint, model, config_revision)."""
-    route = route or resolve_route()
-    if not route.base_url or not route.model:
-        verdict = CapabilityVerdict("unavailable", "vision_unavailable", None,
-                                    time.monotonic(), "not_configured")
-        store_capability(route, verdict)
-        return verdict
+def _probe_error_text(body) -> str:
+    """R17-safe текст ошибки провайдера (message+code, санитизирован)."""
+    info: dict = {}
+    try:
+        from services.image_capabilities import extract_provider_error
+        info = extract_provider_error(body if isinstance(body, dict) else {})
+    except Exception:
+        info = {}
+    parts = [str(info.get("message") or ""),
+             str(info.get("reason_code") or "")]
+    if not info:
+        raw = body.get("error") if isinstance(body, dict) else None
+        if isinstance(raw, str):
+            parts.append(raw)
+        elif isinstance(raw, dict):
+            parts.append(str(raw.get("message") or raw.get("code") or ""))
+    return " ".join(" ".join(p.lower().split()) for p in parts if p).strip()
 
-    transport = transport or _default_transport
-    url = route.base_url.rstrip("/") + "/chat/completions"
-    headers = {"Authorization": f"Bearer {_api_key_for(route)}"} \
-        if _api_key_for(route) else {}
-    image_payload = {
+
+def _looks_like_modality_refusal(text: str) -> bool:
+    """Явный модальный отказ провайдера («модель не принимает изображения»)."""
+    t = str(text or "")
+    if not t or not any(k in t for k in _MODALITY_MENTION_TOKENS):
+        return False
+    return any(k in t for k in _MODALITY_NEGATION_TOKENS)
+
+
+def _looks_like_model_missing(text: str) -> bool:
+    t = str(text or "")
+    return any(k in t for k in _MODEL_MISSING_HINTS)
+
+
+def _looks_like_image_rejection(text: str) -> bool:
+    t = str(text or "")
+    return any(k in t for k in _IMAGE_REJECTION_HINTS)
+
+
+def _no_vision_reason(route: VisionRoute) -> str:
+    return ("main_model_no_vision" if route.source == "main_model"
+            else "vision_unsupported")
+
+
+def _image_probe_payload(route: VisionRoute, image: bytes) -> dict:
+    return {
         "model": route.model,
         "messages": [{
             "role": "user",
             "content": [
                 {"type": "text", "text": "Что изображено? Ответь одним словом."},
                 {"type": "image_url",
-                 "image_url": {"url": _data_url(_NEUTRAL_PNG, "image/png")}},
+                 "image_url": {"url": _data_url(image, "image/png")}},
             ],
         }],
         "max_tokens": 16,
     }
-    try:
-        status, _body = await transport(url, payload=image_payload,
-                                        headers=headers,
-                                        timeout=_PROBE_TIMEOUT_SECONDS)
-    except (httpx.TimeoutException, TimeoutError):
-        verdict = CapabilityVerdict("unavailable", "vision_unavailable", None,
-                                    time.monotonic(), "timeout")
-        store_capability(route, verdict)
-        _emit_probe(verdict, route)
-        return verdict
-    except httpx.HTTPError:
-        verdict = CapabilityVerdict("unavailable", "vision_unavailable", None,
-                                    time.monotonic(), "transport_error")
-        store_capability(route, verdict)
-        _emit_probe(verdict, route)
-        return verdict
 
+
+def _text_probe_payload(route: VisionRoute) -> dict:
+    """Контрольная текстовая ступень: «модель доступна?» (без изображения)."""
+    return {
+        "model": route.model,
+        "messages": [{"role": "user", "content": "ping"}],
+        "max_tokens": 8,
+    }
+
+
+def _classify_probe(status: int, body: dict,
+                    image_stage: bool) -> CapabilityVerdict:
+    """Честная классификация HTTP-ответа пробы (D4/D5, SC-R2a):
+    401/403/429/таймаут НЕ пишутся как `main_model_no_vision`; HTTP 400 сам
+    по себе НЕ доказывает отсутствие vision — только явный модальный отказ
+    провайдера (`image_modality_unsupported`)."""
+    now = time.monotonic()
+    text = _probe_error_text(body)
     if 200 <= status < 300:
-        verdict = _classify_probe(status, {}, image_stage=True)
+        return CapabilityVerdict("ok", "", True, now, "")
+    if status in (401, 403):
+        return CapabilityVerdict("access_error", "vision_unavailable",
+                                 None, now, f"http_{status}")
+    if status == 429:
+        return CapabilityVerdict("rate_limited", "vision_rate_limited",
+                                 None, now, "http_429")
+    if _looks_like_modality_refusal(text):
+        return CapabilityVerdict("no_vision", "vision_unsupported", False,
+                                 now, f"image_modality_unsupported/http_{status}")
+    if _looks_like_model_missing(text):
+        return CapabilityVerdict("unavailable", "vision_unavailable", None,
+                                 now, f"model_not_found/http_{status}")
+    if 500 <= status < 600:
+        return CapabilityVerdict("unavailable", "vision_unavailable", None,
+                                 now, f"http_{status}")
+    detail = (f"image_rejected/http_{status}" if image_stage
+              else f"http_{status}")
+    return CapabilityVerdict("unavailable", "vision_unavailable", None, now,
+                             detail)
+
+
+def _classify_success(body, route: VisionRoute) -> CapabilityVerdict:
+    """2xx-ступень: доказательство — shape-valid ответ (choices) без
+    error-объекта. Пустой ответ (нет choices) — честный `empty_completion`
+    (transient), НЕ «работает»."""
+    now = time.monotonic()
+    payload = body if isinstance(body, dict) else {}
+    if payload.get("error"):
+        text = _probe_error_text(payload)
+        if _looks_like_modality_refusal(text):
+            return CapabilityVerdict(
+                "no_vision", _no_vision_reason(route), False, now,
+                "image_modality_unsupported/http_200")
+        if _looks_like_model_missing(text):
+            return CapabilityVerdict("unavailable", "vision_unavailable",
+                                     None, now, "model_not_found/http_200")
+        return CapabilityVerdict("unavailable", "vision_unavailable", None,
+                                 now, "provider_error/http_200")
+    choices = payload.get("choices")
+    if isinstance(choices, list) and choices:
+        return CapabilityVerdict("ok", "", True, now, "")
+    return CapabilityVerdict("unavailable", "vision_unavailable", None, now,
+                             "empty_completion/http_200")
+
+
+async def probe_connection(route: VisionRoute | None = None, *,
+                           transport=None) -> CapabilityVerdict:
+    """«Проверить подключение» (D4/T-5103, ревизия P0 D3–D5): доступность
+    модели и поддержка image input — РАЗДЕЛЬНЫЕ ступени по реальному ответу:
+
+      0) конфигурация (без сети): адрес/модель/ключ/тип API (D2/D13);
+      1) image-ступень: валидное изображение 512×512+ (D3);
+         * явный модальный отказ → `no_vision` (доказано, не по имени);
+         * «некорректное изображение» → повторная попытка ДРУГИМ валидным
+           изображением (D4);
+         * прочие 4xx → контрольная ТЕКСТОВАЯ ступень: текст OK + image 4xx
+           → «изображение не принято» (НЕ no_vision); текст не OK → класс по
+           его статусу/семантике (нет модели/авторизация/таймаут/5xx);
+      2) таймаут/транспорт/5xx → transient (короткий TTL, D6).
+    Результат кешируется по (endpoint, model, config_revision): временные
+    сбои — коротким TTL, постоянные вердикты — длинным (D6)."""
+    route = route or resolve_route()
+    transport = transport or _default_transport
+
+    def _finish(verdict: CapabilityVerdict) -> CapabilityVerdict:
         store_capability(route, verdict)
         _emit_probe(verdict, route)
         return verdict
 
-    verdict_img = _classify_probe(status, {}, image_stage=True)
-    if verdict_img.capability == "pending":
-        # Контрольная текстовая проба — отделить «нет vision» от «недоступен».
-        text_payload = {
-            "model": route.model,
-            "messages": [{"role": "user", "content": "ping"}],
-            "max_tokens": 8,
-        }
+    def _transient(detail: str) -> CapabilityVerdict:
+        return CapabilityVerdict("unavailable", "vision_unavailable", None,
+                                 time.monotonic(), detail)
+
+    # 0) Конфигурация (D2/D13): чужой ключ/неподдерживаемый тип не уходят.
+    problem = route_config_problem(route)
+    if problem:
+        return _finish(_transient(problem))
+
+    url = chat_completions_url(route.base_url)
+    key = api_key_for(route)
+    headers = {"Authorization": f"Bearer {key}"} if key else {}
+    images = probe_images()
+
+    async def _call(payload: dict, timeout: float):
+        """(status, body, error_kind): ok | timeout | transport."""
         try:
-            t_status, _ = await transport(url, payload=text_payload,
-                                          headers=headers, timeout=10.0)
-        except Exception:
-            t_status = 0
-        if 200 <= t_status < 300:
-            verdict = CapabilityVerdict(
-                "no_vision",
-                "main_model_no_vision" if route.source == "main_model"
-                else "vision_unsupported",
-                False, time.monotonic(), f"image_http_{status}_text_ok")
-        else:
-            verdict = CapabilityVerdict("unavailable", "vision_unavailable",
-                                        None, time.monotonic(),
-                                        f"http_{status}/{t_status}")
-        store_capability(route, verdict)
-        _emit_probe(verdict, route)
-        return verdict
+            status, body = await transport(url, payload=payload,
+                                           headers=headers, timeout=timeout)
+            return int(status), (body if isinstance(body, dict) else {}), "ok"
+        except (httpx.TimeoutException, TimeoutError):
+            return 0, {}, "timeout"
+        except httpx.HTTPError:
+            return 0, {}, "transport"
+        except Exception as exc:
+            # R17: только класс ошибки — сообщение httpx может содержать URL.
+            logger.debug("[vision] probe transport failed | class=%s",
+                         type(exc).__name__)
+            return 0, {}, "transport"
 
-    store_capability(route, verdict_img)
-    _emit_probe(verdict_img, route)
-    return verdict_img
+    # 1) image-ступень — основное изображение.
+    status, body, err = await _call(
+        _image_probe_payload(route, images[0]), _PROBE_TIMEOUT_SECONDS)
+    if err == "timeout":
+        return _finish(_transient("timeout"))
+    if err == "transport":
+        return _finish(_transient("transport_error"))
+    if 200 <= status < 300:
+        return _finish(_classify_success(body, route))
+    verdict_img = _classify_probe(status, body, image_stage=True)
+    if verdict_img.capability in ("access_error", "rate_limited"):
+        return _finish(verdict_img)
+    if verdict_img.capability == "no_vision":
+        return _finish(dataclasses.replace(
+            verdict_img, reason=_no_vision_reason(route)))
+    if status >= 500 or verdict_img.detail.startswith("model_not_found"):
+        return _finish(verdict_img)
+    text = _probe_error_text(body)
+
+    # 1a) Похоже на некорректное изображение → второе валидное изображение.
+    if _looks_like_image_rejection(text):
+        status2, body2, err2 = await _call(
+            _image_probe_payload(route, images[1]), _PROBE_TIMEOUT_SECONDS)
+        if err2 == "timeout":
+            return _finish(_transient("timeout"))
+        if err2 == "transport":
+            return _finish(_transient("transport_error"))
+        if 200 <= status2 < 300:
+            return _finish(_classify_success(body2, route))
+        verdict2 = _classify_probe(status2, body2, image_stage=True)
+        if verdict2.capability in ("access_error", "rate_limited"):
+            return _finish(verdict2)
+        if verdict2.capability == "no_vision":
+            return _finish(dataclasses.replace(
+                verdict2, reason=_no_vision_reason(route)))
+        return _finish(_transient(f"image_rejected/http_{status2}"))
+
+    # 1b) Контрольная ТЕКСТОВАЯ ступень — «модель доступна?» (D4/D5).
+    # 400 сам по себе НЕ доказывает отсутствие vision: текст OK + image 4xx
+    # даёт честное «изображение не принято» (transient), не no_vision.
+    t_status, t_body, t_err = await _call(
+        _text_probe_payload(route), _PROBE_TEXT_TIMEOUT_SECONDS)
+    if t_err == "timeout":
+        return _finish(_transient("timeout"))
+    if t_err == "transport":
+        return _finish(_transient("transport_error"))
+    if 200 <= t_status < 300:
+        return _finish(_transient(f"image_rejected/http_{status}_text_ok"))
+    verdict_text = _classify_probe(t_status, t_body, image_stage=False)
+    if verdict_text.capability in ("access_error", "rate_limited"):
+        return _finish(verdict_text)
+    if verdict_text.detail.startswith("model_not_found"):
+        return _finish(verdict_text)
+    if t_status >= 500:
+        return _finish(verdict_text)
+    # Оба этапа отклонили запрос: конфигурация/формат (не модальность).
+    return _finish(_transient(f"http_{status}/http_{t_status}"))
+
+
+# ── D8: автоматическая bounded-проба (singleflight) ─────────────────────────
+
+_PROBE_LOCKS: dict[str, asyncio.Lock] = {}
+_PROBE_LOCKS_MAX = 64
+
+
+async def _job_heartbeat_loop(store, job_id: str, fencing_token,
+                              interval: float = 30.0) -> None:
+    """D9: живой heartbeat на время обработки — `recover_stale` не пометит
+    ещё работающую джобу потерянной при долгом вызове (пол интервала 1 с:
+    не спамим БД). Отменяется владельцем задачи обработки."""
+    while True:
+        await asyncio.sleep(max(1.0, float(interval)))
+        try:
+            await store.heartbeat(job_id, fencing_token=fencing_token)
+        except Exception:
+            logger.debug("[vision] heartbeat failed | %s", job_id,
+                         exc_info=True)
+
+
+def _probe_lock(key: str) -> asyncio.Lock:
+    lock = _PROBE_LOCKS.get(key)
+    if lock is None:
+        if len(_PROBE_LOCKS) >= _PROBE_LOCKS_MAX:
+            for k in [k for k, l in _PROBE_LOCKS.items()
+                      if not l.locked()]:
+                _PROBE_LOCKS.pop(k, None)
+                if len(_PROBE_LOCKS) < _PROBE_LOCKS_MAX:
+                    break
+        lock = asyncio.Lock()
+        _PROBE_LOCKS[key] = lock
+    return lock
+
+
+async def ensure_capability(route: VisionRoute | None = None, *,
+                            transport=None) -> CapabilityVerdict:
+    """D8: проба АВТОМАТИЧЕСКИ, когда capability неизвестна/устарела
+    (постановка задания или tool-путь), а не только кнопкой теста.
+
+    Singleflight: параллельные задания на одну конфигурацию выполняют ОДНУ
+    пробу (остальные получают её результат из кеша); свежий кеш-вердикт
+    уважается. Проба занимает секунды и стоит пару малых токенов; частота
+    ограничена TTL-кешем (transient — короткий TTL, D6)."""
+    route = route or resolve_route()
+    cached = cached_capability(route)
+    if cached is not None:
+        verdict, checked_at = cached
+        if not _capability_expired(verdict, checked_at):
+            return verdict
+    lock = _probe_lock(_capability_key(route))
+    async with lock:
+        cached = cached_capability(route)
+        if cached is not None:
+            verdict, checked_at = cached
+            if not _capability_expired(verdict, checked_at):
+                return verdict
+        return await probe_connection(route, transport=transport)
 
 
 def _emit_probe(verdict: CapabilityVerdict, route: VisionRoute) -> None:
-    """R17-safe событие: только коды/стадии, без endpoint/ключа/тела."""
+    """R17-safe событие: только коды/стадии/класс ошибки, без endpoint/ключа/
+    тела (error_json — класс причины `capability`/`detail`, D5/D11)."""
     try:
         mca_events.emit_mca_event(
             "vision_capability_probe",
@@ -511,6 +1049,8 @@ def _emit_probe(verdict: CapabilityVerdict, route: VisionRoute) -> None:
             stage=route.source,
             component="vision.media",
             model=route.model,
+            error_json={"capability": verdict.capability,
+                        "detail": str(verdict.detail or "")[:80]},
         )
     except Exception:      # pragma: no cover - события не роняют пробу
         logger.debug("[vision] probe event failed", exc_info=True)
@@ -896,10 +1436,13 @@ async def analyze_image_bytes(image: DownloadedImage, *, chat_id: int,
     `usage_events.record(module='vision', step='media')`; cache hit — без
     события (вызывающий путь кеша эту функцию не вызывает)."""
     route = route or resolve_route(chat_id)
-    key = _api_key_for(route)
-    if not route.base_url or not route.model or not key:
-        raise VisionError("vision_unavailable", "vision route not configured")
-    url = route.base_url.rstrip("/") + "/chat/completions"
+    # D2/D13: честная конфигурационная ошибка вместо запроса с чужим ключом
+    # или несовместимым payload.
+    problem = route_config_problem(route)
+    if problem:
+        raise VisionError("vision_unavailable", problem)
+    key = api_key_for(route)
+    url = chat_completions_url(route.base_url)
     payload = {
         "model": route.model,
         "messages": [
@@ -1394,7 +1937,19 @@ async def process_asset_job(job: dict, *, db=None, bot=None,
     # Effective-гейт (D5/D17): OFF/ошибка → честный терминальный исход
     # джобы (без success-кеша, без analysis-строки); возобновление —
     # отслеживаемый backfill/manual (не самопроизвольные реплики).
+    # D8: неизвестная/устаревшая capability НЕ обрекает задание на
+    # `capability_check_pending` — проба запускается автоматически
+    # (singleflight; кеш/TTL уважаются).
     state = await resolve_effective_state(chat_id)
+    if not state.effective_enabled \
+            and state.reason == "capability_check_pending":
+        try:
+            await ensure_capability(resolve_route(chat_id),
+                                    transport=transport)
+        except Exception:
+            logger.warning("[vision] auto probe failed | chat=%s",
+                           chat_id, exc_info=True)
+        state = await resolve_effective_state(chat_id)
     if not state.effective_enabled:
         await _finish("failed", state.reason)
         pipeline_stage_event("ingest", "skipped", reason_code=state.reason,
@@ -1666,7 +2221,16 @@ class VisionMediaWorker:
     """ЕДИНЫЙ планировщик vision (D20, heartbeat-стиль mca-09): обслуживает
     auto/manual/tool/backfill из durable `task_jobs`; тик ≤ VISION_TICK_SECONDS;
     bounded pull + concurrency(2); retry/backoff; deferred-TTL → skipped;
-    recover_stale после рестарта; backfill НИЖЕ live (K3)."""
+    recover_stale после рестарта; backfill НИЖЕ live (K3).
+
+    D9 (recon): тик только CLAIM'ит джобы (`mark_running`) и запускает
+    обработку фоновыми задачами под семафором `ANALYSIS_CONCURRENCY` — тик
+    мгновенный, долгий vision-вызов (до ~60 с на джобу) не занимает слот
+    планировщика, поэтому APScheduler не пишет «maximum number of running
+    instances reached»; перекрытие тиков не теряет очередь и не дублирует
+    обработку (claim — атомарный UPDATE только из `queued`). На время
+    обработки живой heartbeat (recover_stale не считает живую джобу
+    потерянной)."""
 
     def __init__(self, db, bot, *, max_per_tick: int = 6,
                  transport=None) -> None:
@@ -1678,6 +2242,9 @@ class VisionMediaWorker:
         self._sem = None
         self._tick_lock = asyncio.Lock()
         self._scheduler = None
+        self._tasks: set[asyncio.Task] = set()
+        self._backfill_task: asyncio.Task | None = None
+        self._heartbeat_seconds = 30.0
         self._tz_name = str(hot.get("limits.summary_timezone",
                                     settings.SUMMARY_TIMEZONE) or "UTC")
 
@@ -1689,6 +2256,8 @@ class VisionMediaWorker:
         from services.task_supervisor import TaskJobStore
         self._store = TaskJobStore(self._db)
         self._sem = asyncio.Semaphore(ANALYSIS_CONCURRENCY)
+        self._tasks = set()
+        self._backfill_task = None
         self._scheduler = AsyncIOScheduler(timezone=self._tz_name)
         self._scheduler.add_job(self._tick, "interval",
                                 seconds=VISION_TICK_SECONDS,
@@ -1700,6 +2269,20 @@ class VisionMediaWorker:
         logger.info("[vision] media worker started | tick=%ss",
                     VISION_TICK_SECONDS)
 
+    async def drain(self, *, timeout: float = 30.0) -> None:
+        """Дождаться фоновых задач тика (bounded; тесты/shutdown)."""
+        deadline = time.monotonic() + max(0.0, float(timeout))
+        while True:
+            pending = [t for t in list(self._tasks) if not t.done()]
+            if not pending:
+                return
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                logger.warning("[vision] drain timeout | inflight=%s",
+                               len(pending))
+                return
+            await asyncio.wait(pending, timeout=remaining)
+
     async def shutdown(self) -> None:
         sched = self._scheduler
         self._scheduler = None
@@ -1709,12 +2292,22 @@ class VisionMediaWorker:
             except Exception:
                 logger.warning("[vision] scheduler shutdown failed",
                                exc_info=True)
+        try:
+            await self.drain(timeout=5.0)
+        except Exception:
+            logger.debug("[vision] drain on shutdown failed", exc_info=True)
+        for task in list(self._tasks):
+            if not task.done():
+                task.cancel()
         if _RUNTIME.get("worker") is self:
             _RUNTIME["worker"] = None
 
     # ── тик ──
     async def _tick(self) -> None:
         if self._tick_lock.locked():
+            # Не skip-instances планировщика: тик короткий, а лок — только
+            # страховка от наложения БД-фаз (D9-наблюдаемость).
+            logger.debug("[vision] tick skipped: previous tick still running")
             return
         async with self._tick_lock:
             try:
@@ -1722,7 +2315,37 @@ class VisionMediaWorker:
             except Exception:
                 logger.warning("[vision] tick failed", exc_info=True)
 
+    def _ensure_sem(self) -> asyncio.Semaphore:
+        """Семафор конкуренции (2): создаётся и при прямом вызове _tick_body
+        без start() (тесты/диагностика)."""
+        if self._sem is None:
+            self._sem = asyncio.Semaphore(ANALYSIS_CONCURRENCY)
+        return self._sem
+
+    def _spawn(self, coro) -> asyncio.Task:
+        task = asyncio.create_task(coro)
+        self._tasks.add(task)
+        task.add_done_callback(self._on_task_done)
+        return task
+
+    def _on_task_done(self, task: asyncio.Task) -> None:
+        """D9-наблюдаемость: сбой фоновой обработки виден в логе (не тихий
+        «Task exception was never retrieved»). R17: только класс ошибки —
+        repr исключения может содержать endpoint."""
+        self._tasks.discard(task)
+        if task.cancelled():
+            return
+        exc = task.exception()
+        if exc is not None:
+            logger.warning("[vision] background vision task failed | class=%s",
+                           type(exc).__name__)
+
+    def _inflight(self) -> int:
+        return sum(1 for t in list(self._tasks) if not t.done())
+
     async def _tick_body(self) -> None:
+        """Короткий тик (D9): recover/expire/claim → фон; без ожидания
+        долгих vision-вызовов."""
         if self._store is None:
             return
         # 1) рестарт-восстановление: потерянные владельцы → interrupted.
@@ -1735,23 +2358,32 @@ class VisionMediaWorker:
         # 3) pull: manual > auto > backfill (D20); bounded; breaker.
         if breaker_open():
             return
-        jobs = await self._store.active()
-        live = [j for j in jobs
-                if j.get("kind") == VISION_JOB_KIND
-                and j.get("status") == "queued"
-                and self._due(j)]
-        live.sort(key=_priority_sort_key)
-        batch = live[:self._max_per_tick]
-        for job in batch:
-            await self._run_one(job)
+        claimed: list = []
+        slots = ANALYSIS_CONCURRENCY - self._inflight()
+        if slots > 0:
+            jobs = await self._store.active()
+            live = [j for j in jobs
+                    if j.get("kind") == VISION_JOB_KIND
+                    and j.get("status") == "queued"
+                    and self._due(j)]
+            live.sort(key=_priority_sort_key)
+            claimed = live[:min(self._max_per_tick, slots)]
+            for job in claimed:
+                self._spawn(self._run_one(job))
         # 4) backfill (K3) — только когда live-очередь пуста (ниже live).
-        if not batch and mca_gates.vision_backfill_enabled():
-            try:
+        backfill_busy = (self._backfill_task is not None
+                         and not self._backfill_task.done())
+        if not claimed and not backfill_busy and self._inflight() == 0 \
+                and mca_gates.vision_backfill_enabled():
+            self._backfill_task = self._spawn(self._run_backfill())
+
+    async def _run_backfill(self) -> None:
+        try:
+            async with self._ensure_sem():
                 await backfill_sweep(self._db, self._bot, store=self._store,
                                      transport=self._transport)
-            except Exception:
-                logger.warning("[vision] backfill sweep failed",
-                               exc_info=True)
+        except Exception:
+            logger.warning("[vision] backfill sweep failed", exc_info=True)
 
     @staticmethod
     def _due(job: dict) -> bool:
@@ -1764,7 +2396,6 @@ class VisionMediaWorker:
             return True
 
     async def _run_one(self, job: dict) -> None:
-        from services.task_supervisor import JOB_RUNNING
         try:
             if not await self._store.mark_running(
                     job["job_id"],
@@ -1777,9 +2408,19 @@ class VisionMediaWorker:
         fresh = await self._store.get(job["job_id"]) or job
         fresh["attempt"] = int(fresh.get("attempt") or
                                (int(job.get("attempt") or 0) + 1))
-        async with self._sem:
-            await process_asset_job(fresh, db=self._db, bot=self._bot,
-                                    transport=self._transport)
+        heartbeat = asyncio.create_task(_job_heartbeat_loop(
+            self._store, job["job_id"], fresh.get("fencing_token"),
+            self._heartbeat_seconds))
+        try:
+            async with self._ensure_sem():
+                await process_asset_job(fresh, db=self._db, bot=self._bot,
+                                        transport=self._transport)
+        finally:
+            heartbeat.cancel()
+            try:
+                await heartbeat
+            except (asyncio.CancelledError, Exception):
+                pass
 
     async def _expire_deferred(self) -> None:
         ttl_h = mca_gates.vision_deferred_ttl_hours()
@@ -1892,7 +2533,19 @@ async def backfill_sweep(db, bot, *, store=None, batch: int = BACKFILL_BATCH,
             continue
         job_row = await store.get(jid) or {"job_id": jid, "payload": payload,
                                            "attempt": 1}
-        await process_asset_job(job_row, db=db, bot=bot, transport=transport)
+        # D9: heartbeat архивной джобы на время обработки (долгая загрузка/
+        # вызов не должны выглядеть «потерянным владельцем» для recover_stale).
+        hb = asyncio.create_task(_job_heartbeat_loop(
+            store, jid, job_row.get("fencing_token"), 30.0))
+        try:
+            await process_asset_job(job_row, db=db, bot=bot,
+                                    transport=transport)
+        finally:
+            hb.cancel()
+            try:
+                await hb
+            except (asyncio.CancelledError, Exception):
+                pass
         processed += 1
     return {"processed": processed, "missing_source": missing}
 
@@ -2127,7 +2780,11 @@ async def runtime_snapshot(db=None) -> dict:
         "visible_reason": state.visible_reason,
         "source": state.source,
         "model": state.model,
+        "base_url": state.base_url,             # D12: фактический адрес
+        "api_type": state.api_type,             # D12/D13: тип подключения
+        "provider": state.provider,             # D12: хост без пути/секретов
         "capability": state.capability,
+        "detail": state.detail,                 # D12: класс последней пробы
         "config_revision": state.config_revision,
         "checked_at": state.checked_at,
         "stages": list(vision_stages()),
@@ -2310,6 +2967,17 @@ async def recognize_target(db, *, chat_id: int, reply_tg_id=None,
     if not mca_gates.vision_enabled():
         return {"status": "disabled", "reason": "vision_disabled"}
     state = await resolve_effective_state(chat_id)
+    if not state.effective_enabled \
+            and state.reason == "capability_check_pending":
+        # D8: неизвестная/устаревшая capability — проба автоматически
+        # (singleflight, кеш/TTL уважаются), а не вечный pending.
+        try:
+            await ensure_capability(resolve_route(chat_id),
+                                    transport=transport)
+        except Exception:
+            logger.warning("[vision] tool auto probe failed | chat=%s",
+                           chat_id, exc_info=True)
+        state = await resolve_effective_state(chat_id)
     if not state.effective_enabled:
         if state.reason == "capability_check_pending":
             # «Проверка подключения» ещё не доказала image input: честный
