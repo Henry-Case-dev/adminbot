@@ -4305,7 +4305,17 @@ html.cover-editor-open { overflow: hidden; }
 }
 .speech-screen .btn-accent { color: #081018; }
 
-/* Витрина: карточки-кнопки (§2/§4-C1: 4 группы; 2 колонки 360–599px) */
+/* Витрина: карточки-кнопки (§2/§4-C1: 4 группы). ADD-TR.1 (19.10.2026):
+   число колонок решает КОНТЕЙНЕР (auto-fill + минимум содержимого), а не
+   viewport. Порог 220px = минимум содержимого карточки: padding 10+10 +
+   иконка 18 + 2×gap 8 + badge ≤72 + читаемое тело ≥84 («Попробовать»/
+   «Возможности» при 13px/700 — самое длинное неразрывное слово) ≈ 210.
+   Прежнее правило «ровно 2 колонки на 360–599px» давало на телефоне
+   карточку 156px и тело 30–66px: заголовок уходил под badge (≈20px
+   у «Характер», до 40px у «Возможности бота»), подписи рвались по
+   2–5 букв (регрессия ADD-TR.1, evidence/render и evidence/grid-fix).
+   Поэтому на узком экране колонка ОДНА и во всю ширину, а две
+   появляются только когда каждая ≥220px. */
 .speech-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(220px, 100%), 1fr)); gap: 8px; }
 .speech-group-title {
   grid-column: 1 / -1;
@@ -4316,7 +4326,9 @@ html.cover-editor-open { overflow: hidden; }
   margin-top: 4px;
 }
 .speech-group-note { grid-column: 1 / -1; }
-.speech-grid-tight { grid-template-columns: repeat(auto-fill, minmax(min(200px, 100%), 1fr)); }
+/* Плотный вариант той же витрины: минимум колонки тот же (220px), иначе
+   при подключении класса вернулась бы та же теснота, что в ADD-TR.1. */
+.speech-grid-tight { grid-template-columns: repeat(auto-fill, minmax(min(220px, 100%), 1fr)); }
 .speech-card {
   display: flex;
   align-items: flex-start;
@@ -4332,7 +4344,13 @@ html.cover-editor-open { overflow: hidden; }
 .speech-card[disabled] { cursor: default; opacity: .7; }
 .speech-card-icon { font-size: 18px; line-height: 1; flex: none; }
 .speech-card-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1 1 auto; }
-.speech-card-title { font-size: 13px; font-weight: 700; }
+/* ADD-TR.1: заголовок переносится, а не вылезает из своего бокса в зону
+   badge (overflow-wrap:anywhere — без word-break:break-all: рвём слово
+   только когда оно реально не влезает). */
+.speech-card-title { font-size: 13px; font-weight: 700; min-width: 0; overflow-wrap: anywhere; }
+/* badge — несжимаемый элемент строки карточки: ужимается тело
+   (.speech-card-body, min-width:0), статус остаётся целиком читаемым. */
+.speech-card > .badge { flex: none; }
 .speech-card-sub { font-size: 11px; color: var(--text-2, #A9B4C4); overflow-wrap: anywhere; }
 .speech-card-detail {
   font-size: 11px;
@@ -4485,16 +4503,19 @@ html.cover-editor-open { overflow: hidden; }
 
 @media (max-width: 599px) {
   .speech-screen { padding: 12px; }
-  .speech-grid, .speech-grid-tight { grid-template-columns: minmax(0, 1fr); }
   .speech-editor { min-height: 110px; max-height: 42vh; }
   .speech-pre, .speech-scrollable { max-height: 34vh; }
 }
-/* §4-C1 (P0A-UX): на 360–599px — ровно 2 колонки (4 группы видны без
-   длинной простыни); 320px остаётся одноколоночным. Базовые правила —
-   НИЖЕ медиа-запросов (иначе display:none перекрыл бы мобильные правила). */
-@media (min-width: 360px) and (max-width: 599px) {
-  .speech-grid, .speech-grid-tight { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-}
+/* ADD-TR.1 (19.10.2026, регрессия §4-C1): здесь было
+   @media (min-width:360px) and (max-width:599px) { .speech-grid,
+   .speech-grid-tight { repeat(2, minmax(0,1fr)) } } — «ровно 2 колонки по
+   viewport». На 360px карточка сжималась до 156px, .speech-card-body до
+   30–66px, ink заголовка «Характер» перекрывал badge на 21px, подписи
+   рвались по 2–5 букв (замеры: evidence/render/measure.json; до/после —
+   evidence/grid-fix). Правило удалено: сетка витрины снова управляется
+   контейнером (.speech-grid, порог 220px), узкий экран = одна колонка
+   во всю ширину. Тач-цели, разворот редактора и compaction-правила ниже
+   не затронуты. */
 /* §4-C1/§4-C2 (P0A-UX): компактная шапка и подблоки вместо «матрёшки»;
    группа=подпись, действие=кнопка, техдетали=details. Тач-цели не трогаем.
    Базовые правила идут ДО медиа-запросов ниже (иначе display:none перекрыл

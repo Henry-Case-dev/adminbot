@@ -7,9 +7,14 @@
 
 Сценарии (UX-план §9, строки P0A-UX-COMPACT/-HIER/-SAVE/-SCOPE):
 
-  1. Витрина §2/§4-C1: 4 группы (Характер / Манера речи / Правила письма /
-     Дополнительно); 10 карточек; 320px — 1 колонка, 360–412px — ровно 2;
-     landscape и desktop — без горизонтального скролла; тач-цели ≥44px.
+  1. Витрина §2/§4-C1 + ADD-TR.1: 4 группы (Характер / Манера речи / Правила
+     письма / Дополнительно); 10 карточек; число колонок решает КОНТЕЙНЕР
+     (минимум содержимого 220px), а не viewport: 320–430px — ОДНА
+     полноширинная колонка, две и более — только там, где карточка реально
+     ≥220px; landscape и desktop — без горизонтального скролла; тач-цели
+     ≥44px; DOMRect-контракт: badge не перекрывает заголовок (бокс и ink),
+     тело карточки ≥ самого длинного неразрывного слова, центр карточки
+     кликабелен, крупный шрифт и длинные слова не ломают карточку.
   2. §5.5/§4-C6: редактор Core — dirty-рамка, sticky «Не сохранено», разворот
      на мобиле (ввод не теряется), сохранение → POST + «Сохранено ✓».
   3. §5.2 (19/20/21): 409-валидация — человеческий текст как есть и без
@@ -27,6 +32,10 @@
 TEST-LIFECYCLE: CONTRACT owner=P0A-UX-COMPACT/-HIER/-SAVE (§2/§4/§5);
 REGRESSION owner=P0A-UX-SCOPE (§6.4: изоляция чатов — данные и черновики
 чужого чата не переносятся).
+ADD-TR.1 (19.10.2026): контракт витрины ПЕРЕСМОТРЕН. Прежняя строка «360–412px —
+ровно 2 колонки» закрепляла регрессию владельца (карточка 156px, тело 30–66px,
+badge перекрывал заголовок на 21px) — закрепляем новый контракт вместо старого,
+см. `plans/features/add-tr/recon.md` §5 и evidence/grid-fix.
 """
 import argparse
 import json
@@ -52,6 +61,16 @@ PORT = 8861
 BASE = "http://127.0.0.1:%d" % PORT
 CHAT_A = -100500
 CHAT_B = -100600
+
+# ADD-TR.1 — минимумы компоновки витрины (обоснование в `web/static/app.css`,
+# правило `.speech-grid`): 218px = CSS-порог колонки 220px минус округление;
+# 84px = самое длинное неразрывное слово заголовка («Попробовать»/
+# «Возможности», 13px/700) с запасом — тело ниже этого рвёт слова по буквам.
+GRID_MIN_CARD_PX = 218
+GRID_MIN_BODY_PX = 84
+# «Пустота» внизу карточки, которую ещё можно объяснить растяжкой строки
+# сетки (одна-две строки подписи), но не схлопнутым содержимым.
+GRID_MAX_VOID_PX = 40
 
 SDK_STUB = """
 try { sessionStorage.setItem('adminbot.initData',
@@ -543,6 +562,71 @@ PROBE = r"""
           w: Math.round(r.width), aria: el.getAttribute('aria-label') });
       });
   }
+  // ADD-TR.1: DOMRect-контракт витрины (геометрия, не только «нет overflow»).
+  // Пересечение заголовка и badge считается и по боксу, и по чернилам
+  // (Range.getClientRects) — именно ink уходил под badge в регрессии.
+  const inter = (a, b) => {
+    if (!a || !b) return 0;
+    const w = Math.min(a.right, b.right) - Math.max(a.left, b.left);
+    const h = Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top);
+    return (w > 0 && h > 0) ? Math.round(w) : 0;
+  };
+  const inkBox = (el) => {
+    if (!el) return null;
+    const r = document.createRange();
+    r.selectNodeContents(el);
+    const rects = Array.from(r.getClientRects());
+    if (!rects.length) return null;
+    return {
+      left: Math.min.apply(null, rects.map((x) => x.left)),
+      right: Math.max.apply(null, rects.map((x) => x.right)),
+      top: Math.min.apply(null, rects.map((x) => x.top)),
+      bottom: Math.max.apply(null, rects.map((x) => x.bottom)),
+    };
+  };
+  const rects = grid
+    ? Array.from(grid.querySelectorAll('[data-speech-card]')).map((el) => {
+        const card = el.getBoundingClientRect();
+        const body = el.querySelector('.speech-card-body');
+        const title = el.querySelector('.speech-card-title');
+        const badge = el.querySelector('span.badge');
+        const icon = el.querySelector('.speech-card-icon');
+        const tr = title ? title.getBoundingClientRect() : null;
+        const br = badge ? badge.getBoundingClientRect() : null;
+        const ink = inkBox(title);
+        const contentBottom = Math.max.apply(null,
+          [body, badge, icon].filter(Boolean)
+            .map((x) => x.getBoundingClientRect().bottom)
+            .concat([card.top]));
+        // Кликабельность: центр карточки должен принадлежать самой карточке
+        // (badge/заголовок не съедают цель). Замер только по целиком видимым
+        // карточкам — elementFromPoint вне вьюпорта возвращает null.
+        const inView = card.top >= 0 && card.bottom <= window.innerHeight
+          && card.height > 0;
+        let hitCenter = null;
+        if (inView) {
+          const hit = document.elementFromPoint((card.left + card.right) / 2,
+                                                (card.top + card.bottom) / 2);
+          hitCenter = !!hit && hit.closest('[data-speech-card]') === el;
+        }
+        return {
+          id: el.getAttribute('data-speech-card'),
+          cardW: Math.round(card.width),
+          cardH: Math.round(card.height),
+          bodyW: body ? Math.round(body.getBoundingClientRect().width) : null,
+          bodyH: body ? Math.round(body.getBoundingClientRect().height) : null,
+          titleH: tr ? Math.round(tr.height) : null,
+          badgeW: br ? Math.round(br.width) : null,
+          badgeText: badge ? strip(badge.textContent) : '',
+          boxOverlap: inter(tr, br),
+          inkOverlap: inter(ink, br),
+          inkOutsideCard: ink ? Math.round(ink.right - card.right) : null,
+          titleOverflowPx: title ? (title.scrollWidth - title.clientWidth) : null,
+          voidPx: Math.round(card.bottom - contentBottom),
+          hitCenter,
+        };
+      })
+    : [];
   return {
     hash: location.hash,
     overflow: document.documentElement.scrollWidth - window.innerWidth,
@@ -551,10 +635,13 @@ PROBE = r"""
     cards: Array.from(document.querySelectorAll('[data-speech-card]'))
       .map((x) => x.getAttribute('data-speech-card')),
     cols,
+    colsRaw: grid ? getComputedStyle(grid).gridTemplateColumns : '',
+    gridW: grid ? Math.round(grid.getBoundingClientRect().width) : null,
     minTap: minTap === null ? null : Math.round(minTap),
     small: small.slice(0, 6),
     screenVisible: !!root && root.offsetParent !== null,
     sectionOpen: !!document.querySelector('.speech-section'),
+    rects,
   };
 })()
 """
@@ -580,15 +667,155 @@ def check_layout(page, label, width, exp_cols):
     if sorted(data["cards"]) != sorted([s[0] for s in SECTIONS]
                                        + [a[0] for a in ADVANCED]):
         fail(label, "состав карточек витрины изменился: %s" % data["cards"])
-    if exp_cols == "one" and data["cols"] > 1:
-        fail(label, "ожидалась 1 колонка, получено %d" % data["cols"])
+    # ADD-TR.1: контракт колонок — «узкий экран = одна полноширинная колонка,
+    # две и более только там, где карточка реально ≥ минимума содержимого».
+    if exp_cols == "one" and data["cols"] != 1:
+        fail(label, "ожидалась 1 колонка, получено %d (%s)"
+             % (data["cols"], data["colsRaw"]))
     if exp_cols == "two" and data["cols"] != 2:
-        fail(label, "ожидалось ровно 2 колонки, получено %d" % data["cols"])
+        fail(label, "ожидалось ровно 2 колонки, получено %d (%s)"
+             % (data["cols"], data["colsRaw"]))
     if exp_cols == "auto" and data["cols"] < 2:
-        fail(label, "ожидалось ≥2 колонок, получено %d" % data["cols"])
+        fail(label, "ожидалось ≥2 колонок, получено %d (%s)"
+             % (data["cols"], data["colsRaw"]))
     if data["minTap"] is not None and data["minTap"] < 44:
         fail(label, "тач-цель < 44px: %s" % data["small"])
+    check_grid_rects(label, data, exp_cols)
     return data
+
+
+def check_grid_rects(label, data, exp_cols):
+    """ADD-TR.1: геометрия карточек по DOMRect, а не только «нет overflow».
+
+    Регрессия (§4-C1) была невидима для старой проверки: переполнения не было,
+    но карточка 156px давала тело 30–66px и badge поверх заголовка (≈20px ink).
+    Поэтому здесь проверяется сам контракт: ширина карточки/тела, нулевое
+    пересечение заголовка и badge (бокс И чернила), отсутствие «пустот».
+    """
+    rects = data.get("rects") or []
+    if len(rects) != len(SECTIONS) + len(ADVANCED):
+        fail(label, "DOMRect-замеров карточек: %d из %d"
+             % (len(rects), len(SECTIONS) + len(ADVANCED)))
+        return
+    for c in rects:
+        if c["boxOverlap"]:
+            fail(label, "«%s»: badge перекрывает бокс заголовка на %dpx"
+                 % (c["id"], c["boxOverlap"]))
+        if c["inkOverlap"]:
+            fail(label, "«%s»: ink заголовка заходит под badge на %dpx"
+                 % (c["id"], c["inkOverlap"]))
+        if (c["titleOverflowPx"] or 0) > 0:
+            fail(label, "«%s»: заголовок вылезает из своего бокса на %dpx"
+                 % (c["id"], c["titleOverflowPx"]))
+        if (c["inkOutsideCard"] or 0) > 0:
+            fail(label, "«%s»: ink заголовка выходит за карточку на %dpx"
+                 % (c["id"], c["inkOutsideCard"]))
+        if c["cardW"] < GRID_MIN_CARD_PX:
+            fail(label, "«%s»: карточка %dpx < минимума содержимого %dpx"
+                 % (c["id"], c["cardW"], GRID_MIN_CARD_PX))
+        if (c["bodyW"] or 0) < GRID_MIN_BODY_PX:
+            fail(label, "«%s»: тело карточки %s < %dpx (переносы по буквам)"
+                 % (c["id"], c["bodyW"], GRID_MIN_BODY_PX))
+        if c["voidPx"] > GRID_MAX_VOID_PX:
+            fail(label, "«%s»: пустота внизу карточки %dpx"
+                 % (c["id"], c["voidPx"]))
+        if c["hitCenter"] is False:
+            fail(label, "«%s»: центр карточки не кликабелен (перекрыт)"
+                 % c["id"])
+    if exp_cols == "one":
+        for c in rects:
+            if abs(c["cardW"] - (data.get("gridW") or 0)) > 1:
+                fail(label, "«%s»: одиночная колонка не полноширинная: "
+                     "карточка %dpx, контейнер %spx"
+                     % (c["id"], c["cardW"], data.get("gridW")))
+    notes.append({"label": label + "/grid", "cols": data["cols"],
+                  "colsRaw": data["colsRaw"], "gridW": data.get("gridW"),
+                  "minCardW": min(c["cardW"] for c in rects),
+                  "minBodyW": min(c["bodyW"] or 0 for c in rects),
+                  "maxVoidPx": max(c["voidPx"] for c in rects),
+                  "overlapMax": max(c["inkOverlap"] for c in rects),
+                  "badges": sorted(set(c["badgeText"] for c in rects))})
+
+
+# ADD-TR.1 / M-ADTR-GRID-CHECKS: длинные неразрывные слова (переводы, имена) —
+# заголовок и подпись без пробелов длиннее любой реальной строки витрины.
+STRESS_TITLE = "Persönlichkeitskernbestimmung"
+STRESS_SUB = "НеразрывноеСловоДляПроверкиПереносов"
+
+
+def check_stress_rects(label, data):
+    """Под нагрузкой (крупный шрифт / длинные слова) контракт держится:
+    badge не пересекает заголовок, ink не выходит за карточку, страница не
+    получает горизонтальный скролл. Ширинные пороги здесь не проверяются —
+    при крупном шрифте они меняют смысл."""
+    if data["overflow"] > 1:
+        fail(label, "горизонтальный overflow под нагрузкой: %d px"
+             % data["overflow"])
+    rects = data.get("rects") or []
+    if not rects:
+        fail(label, "нет карточек для стресс-замера")
+    for c in rects:
+        if c["boxOverlap"]:
+            fail(label, "«%s»: badge перекрывает бокс заголовка на %dpx"
+                 % (c["id"], c["boxOverlap"]))
+        if c["inkOverlap"]:
+            fail(label, "«%s»: ink заголовка заходит под badge на %dpx"
+                 % (c["id"], c["inkOverlap"]))
+        if (c["inkOutsideCard"] or 0) > 0:
+            fail(label, "«%s»: ink заголовка выходит за карточку на %dpx"
+                 % (c["id"], c["inkOutsideCard"]))
+        if (c["titleOverflowPx"] or 0) > 0:
+            fail(label, "«%s»: заголовок вылезает из бокса на %dpx"
+                 % (c["id"], c["titleOverflowPx"]))
+    notes.append({"label": label + "/stress", "overflow": data["overflow"],
+                  "titleH": max(c["titleH"] or 0 for c in rects),
+                  "overlapMax": max(c["inkOverlap"] for c in rects),
+                  "escapedMax": max((c["inkOutsideCard"] or 0) for c in rects)})
+
+
+def run_grid_stress(browser, width, height, label, shots):
+    """M-ADTR-GRID-CHECKS: крупный шрифт (≈2× системный) и длинные слова."""
+    ctx, page = new_page(browser, width, height, shots)
+    try:
+        open_speech(page)
+        # A. Крупный шрифт: 13px→26px заголовок, 11px→22px подписи.
+        page.add_style_tag(content=(
+            ".speech-card-title { font-size: 26px !important; }"
+            ".speech-card-sub, .speech-card-detail { font-size: 22px !important; }"))
+        page.wait_for_timeout(250)
+        eff = page.evaluate(
+            "(() => parseFloat(getComputedStyle(document.querySelector"
+            "('.speech-card-title')).fontSize) || 0)()")
+        if eff < 24:
+            fail(label, "стресс-шрифт не применился (%s px)" % eff)
+        check_stress_rects(label + "/font2x", page.evaluate(PROBE))
+        snap(page, shots, "stress_font2x_%s" % label)
+        # B. Длинные неразрывные слова в самых тесных карточках (в регрессии
+        # именно «core»/«capabilities»/«inspector» давали +20…+40px ink).
+        page.evaluate(
+            "(() => { const long = %s; const sub = %s;"
+            " [%s].forEach((id) => {"
+            "   const c = document.querySelector('[data-speech-card=' + id + ']');"
+            "   if (!c) return;"
+            "   c.querySelector('.speech-card-title').textContent = long;"
+            "   c.querySelector('.speech-card-sub').textContent = sub;"
+            " }); })()"
+            % (json.dumps(STRESS_TITLE, ensure_ascii=False),
+               json.dumps(STRESS_SUB, ensure_ascii=False),
+               ", ".join("'%s'" % i for i in ("core", "capabilities",
+                                              "inspector"))))
+        page.wait_for_timeout(250)
+        data = page.evaluate(PROBE)
+        injected = page.evaluate(
+            "(() => (document.querySelector"
+            "('[data-speech-card=capabilities] .speech-card-title')"
+            ".textContent) === %s)()" % json.dumps(STRESS_TITLE, ensure_ascii=False))
+        if injected is not True:
+            fail(label, "длинное слово не подставлено — проверка пустая")
+        check_stress_rects(label + "/longwords", data)
+        snap(page, shots, "stress_longwords_%s" % label)
+    finally:
+        ctx.close()
 
 
 def open_speech(page):
@@ -1129,12 +1356,21 @@ def main() -> int:
     with sync_playwright() as p:
         browser = p.chromium.launch()
         with browser:
+            # ADD-TR.1: на телефонных ширинах (включая 430px) — ОДНА
+            # полноширинная колонка; 520px — граница, где контейнер впервые
+            # вмещает две колонки по 220px; ≥600px — авто-сетка (≥2).
             run_layout(browser, 320, 640, "320", "one", args.shots)
-            run_layout(browser, 360, 740, "360", "two", args.shots)
-            run_layout(browser, 390, 844, "390", "two", args.shots)
-            run_layout(browser, 412, 915, "412", "two", args.shots)
+            run_layout(browser, 360, 740, "360", "one", args.shots)
+            run_layout(browser, 390, 844, "390", "one", args.shots)
+            run_layout(browser, 412, 915, "412", "one", args.shots)
+            run_layout(browser, 430, 932, "430", "one", args.shots)
+            run_layout(browser, 520, 900, "520", "two", args.shots)
             run_layout(browser, 844, 390, "landscape", "auto", args.shots)
+            run_layout(browser, 768, 1024, "narrow-desktop", "auto", args.shots)
             run_layout(browser, 1280, 900, "desktop", "auto", args.shots)
+            # M-ADTR-GRID-CHECKS: крупный шрифт и длинные неразрывные слова.
+            run_grid_stress(browser, 320, 640, "320", args.shots)
+            run_grid_stress(browser, 360, 740, "360", args.shots)
             run_save_flows(browser, args.shots)
             run_scope_and_chat_isolation(browser, args.shots)
             run_core_extras(browser, args.shots)
