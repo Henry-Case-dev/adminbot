@@ -41,7 +41,7 @@ FAILED tests/test_soul1_capability_fallbacks.py::test_tool_path_message_uses_tem
   tests/test_soul1_capability_fallbacks.py 26e8128069d5
   tests/js/round1024_image_module_test.js b9f43e8dbe7e
   tools/ui_cfg02a_image_quota_e2e.py     d3dbdcc67fd5
-  evidence/cfg-02a/README.md             914d00412dde
+  evidence/cfg-02a/README.md             ba41d9ef6755
   (база: 2bc13f44c548; карта/каталог/роуты НЕ тронуты — Δ каталога = 0)
 
 ## GREEN
@@ -63,23 +63,23 @@ FAILED tests/test_soul1_capability_fallbacks.py::test_tool_path_message_uses_tem
 
 ## ПОЛНЫЙ ПРОГОН (весь tests/, blast-radius)
 
-  $ py -3 -m pytest tests -q            # рабочий tree (кандидат + чужие hunks лейна speech)
+  $ py -3 -m pytest tests -q            # (1) рабочий tree кандидата + чужие hunks лейна speech
 13 failed, 14199 passed, 1 skipped, 5 warnings in 672.17s (0:11:12)
 
-  Классификация 13 красных:
-   * 12 — ПРЕДСУЩЕСТВУЮЩИЕ (воспроизведены на базовом коммите 2bc13f44 без правок CFG-02A):
-     tests/test_asap7_direct_settings.py (2, миграции v35) — известны с CFG-01;
-     tests/test_t5150_startup_migrations_round1046.py (5, миграции v32..v34);
-     tests/test_outgoing_guard_round1022.py (2, rich/markdown send);
-     tests/test_summary_asap2_failsoft_round1027.py (1, l1 dead → l2 + cover fallback);
-     tests/test_summary_publish_integration_round1026.py (1, on_l1_not_usable → l2);
-     tests/test_mca01_tx_task_supervisor_round1027.py (1, single-writer).
-     Проверка на базе: те же 5 файлов → «10 failed, 135 passed» (тот же состав).
-   * 1 — ВЫЗВАН CFG-02A и ЗАКРЫТ в этом же коммите:
-     tests/test_webapp_js_unit.py::test_js_unit_round1024_image_module (F5-пин состава
-     вкладки mod_images ожидал ровно flags_module_images). Пин обновлён (R6) и усилен
-     негативами; после правки: node tests/js/round1024_image_module_test.js → IMAGE-MODULE-OK;
-     py -3 -m pytest tests/test_webapp_js_unit.py -q → 38 passed.
+  $ py -3 -m pytest tests -q            # (2) ИЗОЛИРОВАННЫЙ worktree КАНДИДАТА (669debfa, чисто)
+13 failed, 14193 passed, 1 skipped, 5 warnings in 727.39s (0:12:07)
+
+  Состав красных прогона (2): 12 — те же предсуществующие, что и в (1)
+  (asap7_direct_settings ×2, t5150_startup_migrations ×5, outgoing_guard ×2,
+   summary_asap2_failsoft ×1, summary_publish_integration ×1,
+   mca01_tx_task_supervisor ×1), плюс 1 артефакт worktree-окружения:
+  tests/test_history_cli.py::TestCliFts::test_scope_is_required — в том же
+  worktree-окружении падает и на БАЗЕ 2bc13f44 (1 failed, 11 passed), а в основном
+  рабочем каталоге проходит (12 passed) → к CFG-02A не относится.
+  Красных ПО ВИНЕ CFG-02A в обоих полных прогонах НЕТ (единственный такой —
+  F5-пин tests/js/round1024_image_module_test.js — закрыт, см. R6):
+    node tests/js/round1024_image_module_test.js → IMAGE-MODULE-OK
+    py -3 -m pytest tests/test_webapp_js_unit.py -q → 38 passed
 
 ## UI E2E (детерминированный Playwright; стабы /api/*, R17: id/числа)
 
