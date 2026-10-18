@@ -1,0 +1,558 @@
+{
+ "webroot": "C:\\Code\\Python\\adminbot\\web",
+ "failures": [],
+ "notes": [
+  {
+   "label": "320",
+   "probe": {
+    "hash": "#/ai/speech",
+    "overflow": 0,
+    "groups": [
+     "1. Характер",
+     "2. Манера речи",
+     "3. Правила письма",
+     "4. Дополнительно"
+    ],
+    "cards": [
+     "core",
+     "expression",
+     "humor",
+     "style",
+     "examples",
+     "try",
+     "learning",
+     "all",
+     "inspector",
+     "capabilities"
+    ],
+    "cols": 1,
+    "minTap": 44,
+    "small": [],
+    "screenVisible": true,
+    "sectionOpen": false
+   }
+  },
+  {
+   "label": "320/core",
+   "probe": {
+    "hash": "#/ai/speech",
+    "overflow": 0,
+    "groups": [],
+    "cards": [],
+    "cols": 0,
+    "minTap": 44,
+    "small": [],
+    "screenVisible": true,
+    "sectionOpen": true
+   }
+  },
+  {
+   "label": "320/menu",
+   "items": [
+    "Показать diff с заводским",
+    "Обновить",
+    "Вернуть заводской"
+   ]
+  },
+  {
+   "label": "360",
+   "probe": {
+    "hash": "#/ai/speech",
+    "overflow": 0,
+    "groups": [
+     "1. Характер",
+     "2. Манера речи",
+     "3. Правила письма",
+     "4. Дополнительно"
+    ],
+    "cards": [
+     "core",
+     "expression",
+     "humor",
+     "style",
+     "examples",
+     "try",
+     "learning",
+     "all",
+     "inspector",
+     "capabilities"
+    ],
+    "cols": 2,
+    "minTap": 44,
+    "small": [],
+    "screenVisible": true,
+    "sectionOpen": false
+   }
+  },
+  {
+   "label": "360/core",
+   "probe": {
+    "hash": "#/ai/speech",
+    "overflow": 0,
+    "groups": [],
+    "cards": [],
+    "cols": 0,
+    "minTap": 44,
+    "small": [],
+    "screenVisible": true,
+    "sectionOpen": true
+   }
+  },
+  {
+   "label": "360/menu",
+   "items": [
+    "Показать diff с заводским",
+    "Обновить",
+    "Вернуть заводской"
+   ]
+  },
+  {
+   "label": "390",
+   "probe": {
+    "hash": "#/ai/speech",
+    "overflow": 0,
+    "groups": [
+     "1. Характер",
+     "2. Манера речи",
+     "3. Правила письма",
+     "4. Дополнительно"
+    ],
+    "cards": [
+     "core",
+     "expression",
+     "humor",
+     "style",
+     "examples",
+     "try",
+     "learning",
+     "all",
+     "inspector",
+     "capabilities"
+    ],
+    "cols": 2,
+    "minTap": 44,
+    "small": [],
+    "screenVisible": true,
+    "sectionOpen": false
+   }
+  },
+  {
+   "label": "390/core",
+   "probe": {
+    "hash": "#/ai/speech",
+    "overflow": 0,
+    "groups": [],
+    "cards": [],
+    "cols": 0,
+    "minTap": 44,
+    "small": [],
+    "screenVisible": true,
+    "sectionOpen": true
+   }
+  },
+  {
+   "label": "390/menu",
+   "items": [
+    "Показать diff с заводским",
+    "Обновить",
+    "Вернуть заводской"
+   ]
+  },
+  {
+   "label": "412",
+   "probe": {
+    "hash": "#/ai/speech",
+    "overflow": 0,
+    "groups": [
+     "1. Характер",
+     "2. Манера речи",
+     "3. Правила письма",
+     "4. Дополнительно"
+    ],
+    "cards": [
+     "core",
+     "expression",
+     "humor",
+     "style",
+     "examples",
+     "try",
+     "learning",
+     "all",
+     "inspector",
+     "capabilities"
+    ],
+    "cols": 2,
+    "minTap": 44,
+    "small": [],
+    "screenVisible": true,
+    "sectionOpen": false
+   }
+  },
+  {
+   "label": "412/core",
+   "probe": {
+    "hash": "#/ai/speech",
+    "overflow": 0,
+    "groups": [],
+    "cards": [],
+    "cols": 0,
+    "minTap": 44,
+    "small": [],
+    "screenVisible": true,
+    "sectionOpen": true
+   }
+  },
+  {
+   "label": "412/menu",
+   "items": [
+    "Показать diff с заводским",
+    "Обновить",
+    "Вернуть заводской"
+   ]
+  },
+  {
+   "label": "landscape",
+   "probe": {
+    "hash": "#/ai/speech",
+    "overflow": 0,
+    "groups": [
+     "1. Характер",
+     "2. Манера речи",
+     "3. Правила письма",
+     "4. Дополнительно"
+    ],
+    "cards": [
+     "core",
+     "expression",
+     "humor",
+     "style",
+     "examples",
+     "try",
+     "learning",
+     "all",
+     "inspector",
+     "capabilities"
+    ],
+    "cols": 3,
+    "minTap": 44,
+    "small": [],
+    "screenVisible": true,
+    "sectionOpen": false
+   }
+  },
+  {
+   "label": "landscape/core",
+   "probe": {
+    "hash": "#/ai/speech",
+    "overflow": 0,
+    "groups": [],
+    "cards": [],
+    "cols": 0,
+    "minTap": 44,
+    "small": [],
+    "screenVisible": true,
+    "sectionOpen": true
+   }
+  },
+  {
+   "label": "landscape/menu",
+   "items": [
+    "Показать diff с заводским",
+    "Обновить",
+    "Вернуть заводской"
+   ]
+  },
+  {
+   "label": "desktop",
+   "probe": {
+    "hash": "#/ai/speech",
+    "overflow": 0,
+    "groups": [
+     "1. Характер",
+     "2. Манера речи",
+     "3. Правила письма",
+     "4. Дополнительно"
+    ],
+    "cards": [
+     "core",
+     "expression",
+     "humor",
+     "style",
+     "examples",
+     "try",
+     "learning",
+     "all",
+     "inspector",
+     "capabilities"
+    ],
+    "cols": 4,
+    "minTap": 44,
+    "small": [],
+    "screenVisible": true,
+    "sectionOpen": false
+   }
+  },
+  {
+   "label": "desktop/core",
+   "probe": {
+    "hash": "#/ai/speech",
+    "overflow": 0,
+    "groups": [],
+    "cards": [],
+    "cols": 0,
+    "minTap": 44,
+    "small": [],
+    "screenVisible": true,
+    "sectionOpen": true
+   }
+  },
+  {
+   "label": "desktop/menu",
+   "items": [
+    "Показать diff с заводским",
+    "Обновить",
+    "Вернуть заводской"
+   ]
+  }
+ ],
+ "post_calls": [
+  {
+   "path": "block/core.personality.compact",
+   "chat": "-100500",
+   "method": "POST",
+   "body": {
+    "text": "КОНТЕНТ ЧАТА A — де\nПроверка P0A-UX.ржим тон.",
+    "scope": "chat",
+    "reason": "owner_edit:core.compact"
+   }
+  },
+  {
+   "path": "block/core.personality.compact",
+   "chat": "-100500",
+   "method": "POST",
+   "body": {
+    "text": "КОНТЕНТ ЧАТА A — де ещё разржим тон.",
+    "scope": "chat",
+    "reason": "owner_edit:core.compact"
+   }
+  },
+  {
+   "path": "block/core.personality.compact",
+   "chat": "-100500",
+   "method": "POST",
+   "body": {
+    "text": "КОНТЕНТ ЧАТА A — де ещё разржим тон.",
+    "scope": "chat",
+    "reason": "owner_edit:core.compact"
+   }
+  },
+  {
+   "path": "block/core.personality.compact",
+   "chat": "-100500",
+   "method": "POST",
+   "body": {
+    "text": "КОНТЕНТ ЧАТА A — де xржим тон.",
+    "scope": "chat",
+    "reason": "owner_edit:core.compact"
+   }
+  },
+  {
+   "path": "style",
+   "chat": "-100500",
+   "method": "POST",
+   "body": {
+    "document": {
+     "rules": [
+      {
+       "id": "trailing_period.hard.strip",
+       "kind": "trailing_period",
+       "strictness": "hard",
+       "scope": "global",
+       "enabled": false,
+       "params": {
+        "ellipsis": "keep"
+       },
+       "reason": "владелец просил"
+      }
+     ],
+     "soft_instructions": []
+    },
+    "scope": "chat",
+    "reason": "owner_edit:style_policy"
+   }
+  },
+  {
+   "path": "style",
+   "chat": "-100500",
+   "method": "POST",
+   "body": {
+    "document": {
+     "rules": [
+      {
+       "id": "trailing_period.hard.strip",
+       "kind": "trailing_period",
+       "strictness": "hard",
+       "scope": "global",
+       "enabled": false,
+       "params": {
+        "ellipsis": "keep"
+       },
+       "reason": "владелец просил"
+      }
+     ],
+     "soft_instructions": []
+    },
+    "scope": "chat",
+    "reason": "owner_edit:style_policy"
+   }
+  },
+  {
+   "path": "core/meta",
+   "chat": "-100500",
+   "method": "POST",
+   "body": {
+    "detail_level": "full",
+    "scope": "chat"
+   }
+  },
+  {
+   "path": "core/meta",
+   "chat": "-100500",
+   "method": "POST",
+   "body": {
+    "enabled": false,
+    "scope": "chat"
+   }
+  },
+  {
+   "path": "block/core.personality/rollback",
+   "chat": "-100500",
+   "method": "POST",
+   "body": {
+    "sha256_12": "aaaaaaaaaaaa",
+    "scope": "chat",
+    "reason": "rollback:aaaaaaaaaaaa"
+   }
+  },
+  {
+   "path": "humor/craft",
+   "chat": "-100500",
+   "method": "POST",
+   "body": {
+    "enabled": false,
+    "scope": "chat"
+   }
+  },
+  {
+   "path": "humor/craft",
+   "chat": "-100500",
+   "method": "POST",
+   "body": {
+    "disabled_techniques": [
+     "deadpan"
+    ],
+    "scope": "chat"
+   }
+  },
+  {
+   "path": "humor/technique/test",
+   "chat": "-100500",
+   "method": "POST",
+   "body": {
+    "technique": "deadpan",
+    "profile": "speech_plain"
+   }
+  },
+  {
+   "path": "learning/humor",
+   "chat": "-100500",
+   "method": "POST",
+   "body": {
+    "action": "pause"
+   }
+  },
+  {
+   "path": "memory/lessons/action",
+   "chat": "-100500",
+   "body": {
+    "lesson_id": "L1",
+    "version": 2,
+    "action": "suspend"
+   }
+  },
+  {
+   "path": "examples",
+   "chat": "-100500",
+   "method": "POST",
+   "body": {
+    "input_text": "вход из e2e",
+    "reply_text": "ответ из e2e",
+    "technique": "other",
+    "context_note": "",
+    "tags": [],
+    "rudeness_level": 0,
+    "source_kind": "owner_manual",
+    "scope": "global",
+    "library_version": "",
+    "status": "active",
+    "expected_revision": null
+   }
+  },
+  {
+   "path": "examples/11/approve",
+   "chat": "-100500",
+   "method": "POST",
+   "body": {}
+  },
+  {
+   "path": "examples/11/archive",
+   "chat": "-100500",
+   "method": "POST",
+   "body": {}
+  },
+  {
+   "path": "examples/11",
+   "chat": "-100500",
+   "method": "DELETE",
+   "body": {}
+  },
+  {
+   "path": "examples/seed",
+   "chat": "-100500",
+   "method": "POST",
+   "body": {}
+  },
+  {
+   "path": "examples/why",
+   "chat": "-100500",
+   "method": "POST",
+   "body": {
+    "message": "привет",
+    "technique": "",
+    "extent": ""
+   }
+  },
+  {
+   "path": "examples/policy",
+   "chat": "-100500",
+   "method": "POST",
+   "body": {
+    "enabled": true,
+    "ab_enabled": true,
+    "max_items": 2,
+    "max_tokens": 300,
+    "diversity_min_distance": 0.3,
+    "recency_penalty": 0.2,
+    "ab_versions": [
+     "A",
+     "B"
+    ],
+    "scope": "chat"
+   }
+  }
+ ],
+ "dialogs": [
+  "Есть несохранённые изменения (0) для «Чат A». Переключить область и потерять их?",
+  "Удалить пример №11 без возможности вернуть?"
+ ]
+}

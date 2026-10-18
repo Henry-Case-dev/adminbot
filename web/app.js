@@ -2785,7 +2785,12 @@
         speechInspector: null,
         speechLoaded: {},             // section id → true
         speechDrafts: { core: { full: '', compact: '' } },
-        speechDirty: { core: false, style: false, expression: false },
+        // P0A-UX §5.3/§4-C6: dirty — ПО РЕДАКЦИИ Core (coreFull/coreCompact):
+        // бейдж «черновик» и «Сохранить» относятся к открытой редакции,
+        // вторая редакция своё состояние не теряет (осознанная смена формы
+        // литерала: контракт-тест W6 обновлён в этом же срезе).
+        speechDirty: { coreFull: false, coreCompact: false, style: false,
+                       expression: false },
         speechCoreEdition: 'compact',
         speechStyleDraft: null,       // {rules:[], soft_instructions:[]}
         speechSoftDraft: '',
@@ -2811,7 +2816,18 @@
         speechSampleWhy: null,
         speechLearningBusy: false,
         speechDiffOpen: false,
-        speechScopeChoice: 'global',
+        // P0A-UX §6.3: цель сохранения — ОТДЕЛЬНОЕ состояние на раздел
+        // (общий v-model молча менял цель сохранения во всех разделах);
+        // speechScopeTouched — разделы, где владелец выбрал цель сам.
+        speechScope: { core: 'global', style: 'global', expression: 'global',
+                       humor: 'global', examples: 'global', all: 'global' },
+        speechScopeTouched: {},
+        // P0A-UX §4-C4/§4-C6/§5.5: ⋯-меню раздела, полноэкранный редактор,
+        // «Сохранено ✓ HH:MM» и «Повторить сохранение» (503).
+        speechMenu: '',
+        speechEditorFull: false,
+        speechSaved: {},
+        speechRetry: null,
         speechFactoryPending: null,
         // toasts
         toasts: [],
@@ -6391,6 +6407,22 @@
             return true;
           }
         }
+        // P0A-UX §6.4.2: черновики «Речи и характера» — тоже несохранённые
+        // правки (иначе смена чата молча теряла ввод и показывала чужой чат);
+        // dirty выставляется только реальным вводом (чистое состояние молчит).
+        var sd = this.speechDirty || {};
+        if (sd.coreFull || sd.coreCompact || sd.style || sd.expression) {
+          return true;
+        }
+        // Открытая форма примера с введённым текстом — тоже потеря при смене.
+        if (this.speechSampleDraft) {
+          var samp = this.speechSampleDraft;
+          if (String(samp.input_text || '').trim()
+              || String(samp.reply_text || '').trim()
+              || String(samp.context_note || '').trim()) {
+            return true;
+          }
+        }
         // dossierDraft инициализируется серверным manual_traits → baseline.
         // Сравниваем и пустую строку (очистка поля ≠ отсутствие правки).
         if (this.dossierData
@@ -6489,6 +6521,17 @@
         this.personaLoading = false;
         if (this.activeTab === 'persona' && this.canViewTab('persona')) {
           this.loadPersona();
+        }
+        // P0A-UX §6.4: «Речь и характер» — данные/черновики другого чата не
+        // переносятся (иначе возможен просмотр/сохранение в чужой чат);
+        // при открытом экране раздел перечитывается для нового чата.
+        // Защитно: стабы без speech-метода (юнит-тесты) не падают.
+        if (typeof this.resetSpeechState === 'function') {
+          this.resetSpeechState();
+          if (this.activeTab === 'speech'
+              && typeof this.reloadSpeech === 'function') {
+            this.reloadSpeech(true);
+          }
         }
         this.loadConfig();
         this.loadKeyStatus();
@@ -18805,9 +18848,339 @@
           factory_default: 'заводское значение',
         }[inheritance] || '—';
       },
-      speechScopeLabel: function (payload) {
-        if (!payload) return '—';
-        return payload.scope === 'chat' ? 'чат: ' + payload.chat_id : 'глобально';
+      // P0A-UX §6.2: «где задано / откуда effective» — одной человеческой
+      // строкой в шапке раздела; сырые коды остаются только в деталях.
+      speechSourceText: function (inheritance) {
+        var base = this.speechInheritanceLabel(inheritance);
+        if (base === '—') return 'Источник: —';
+        if (inheritance === 'chat' && this.activeChatTitle) {
+          return 'Источник: ' + base + ' «' + this.activeChatTitle + '»';
+        }
+        return 'Источник: ' + base;
+      },
+      speechScopeNow: function (payload) {
+        return 'сейчас: ' + (payload && payload.scope === 'chat'
+          ? 'этот чат' : 'глобально');
+      },
+      // Метка области правила/привычки человеческими словами (TJ-5/TJ-6).
+      speechScopeNowLabel: function (scope) {
+        return {
+          global: 'все чаты', chat: 'этот чат', initiative: 'инициатива',
+          editorial: 'публикации', code_or_structured: 'код/структуры',
+        }[String(scope)] || String(scope || '—');
+      },
+      // P0A-UX §2/§4-C1: карточка витрины — из серверного payload
+      // (sections/advanced), без второй копии контента в шаблоне.
+      speechCardById: function (id) {
+        var lists = [
+          (this.speechOverview && this.speechOverview.sections) || [],
+          (this.speechOverview && this.speechOverview.advanced) || []];
+        for (var i = 0; i < lists.length; i++) {
+          for (var j = 0; j < lists[i].length; j++) {
+            if (lists[i][j] && lists[i][j].id === id) return lists[i][j];
+          }
+        }
+        return null;
+      },
+      // P0A-UX §2: 4 группы витрины (порядок внутри — по важности);
+      // «Дополнительно» — техника/диагностика/восстановление.
+      speechShowcaseGroups: function () {
+        var ov = this.speechOverview || {};
+        var cards = {};
+        var i;
+        var sections = ov.sections || [];
+        for (i = 0; i < sections.length; i++) cards[sections[i].id] = sections[i];
+        var advanced = ov.advanced || [];
+        for (i = 0; i < advanced.length; i++) {
+          cards[advanced[i].id] = Object.assign({}, advanced[i], { advanced: true });
+        }
+        var pick = function (ids) {
+          var out = [];
+          for (var k = 0; k < ids.length; k++) {
+            if (cards[ids[k]]) out.push(cards[ids[k]]);
+          }
+          return out;
+        };
+        return [
+          { id: 'character', title: '1. Характер', cards: pick(['core']) },
+          { id: 'voice', title: '2. Манера речи',
+            cards: pick(['expression', 'humor']) },
+          { id: 'writing', title: '3. Правила письма', cards: pick(['style']) },
+          { id: 'extra', title: '4. Дополнительно',
+            cards: pick(['examples', 'try', 'learning', 'all', 'inspector',
+                         'capabilities']) },
+        ];
+      },
+      // P0A-UX §6.3: цель сохранения — на раздел; «только этот чат» без
+      // выбранного чата не предлагается (устраняет 422-запросы из UI).
+      speechScopeFor: function (section) {
+        return (this.speechScope && this.speechScope[section]) || 'global';
+      },
+      setSpeechScope: function (section, value) {
+        var sc = Object.assign({}, this.speechScope || {});
+        sc[section] = value === 'chat' ? 'chat' : 'global';
+        this.speechScope = sc;
+        var touched = Object.assign({}, this.speechScopeTouched || {});
+        touched[section] = true;
+        this.speechScopeTouched = touched;
+      },
+      speechScopeDefault: function () {
+        return this.activeChatId == null ? 'global' : 'chat';
+      },
+      speechScopeHint: function (section, inheritance) {
+        // Открытие раздела: если у чата есть переопределение — показываем
+        // chat как источник; молча НЕ переключаем после явного выбора.
+        if ((this.speechScopeTouched || {})[section]) return;
+        if (inheritance === 'chat' && this.activeChatId != null) {
+          var sc = Object.assign({}, this.speechScope || {});
+          sc[section] = 'chat';
+          this.speechScope = sc;
+        }
+      },
+      speechScopeToText: function (section) {
+        if (this.speechScopeFor(section) !== 'chat') return 'для всех чатов';
+        return 'для этого чата' + (this.activeChatTitle
+          ? (' «' + this.activeChatTitle + '»') : '');
+      },
+      // P0A-UX §3 (TJ-1): причина выбора редакции — человеческой фразой
+      // (коды owner_setting/rN в основном UI не показываются).
+      speechEditionReasonText: function (selection, level) {
+        var reason = String((selection && selection.reason) || '');
+        if (reason === 'full_text_missing') {
+          return 'Действует: компактная редакция — полной редакции нет';
+        }
+        if (reason === 'compact_text_missing') {
+          return 'Действует: полная редакция — компактной редакции нет';
+        }
+        if (reason === 'context_budget') {
+          return 'Действует: компактная редакция — полная не помещается в лимит';
+        }
+        var human = {
+          owner_setting: 'выбрана вами',
+          factory_default: 'заводская настройка',
+          document_default: 'по умолчанию документа',
+        }[reason] || 'по настройке';
+        return 'Действует: ' + (level === 'full' ? 'полная' : 'компактная')
+          + ' редакция — ' + human;
+      },
+      // P0A-UX §3 (TJ-20): история версий — человеческими строками;
+      // kind/scope/sha доступны в раскрытии строки.
+      speechHistKind: function (kind) {
+        return {
+          owner_edit: 'Ваша правка', factory_reset: 'Возврат заводского',
+          rollback: 'Откат', factory: 'Заводская',
+        }[String(kind)] || String(kind || '—');
+      },
+      speechHistScope: function (scope) {
+        return { global: 'все чаты', chat: 'этот чат' }[String(scope)]
+          || String(scope || '—');
+      },
+      // P0A-UX §3 (TJ-7/TJ-16): словарь причин пропуска прохода формы —
+      // один на «Стиль письма» и «Попробовать»; неизвестное не скрываем.
+      speechSkipReasonText: function (reason) {
+        var r = String(reason || '');
+        if (!r) return 'нет';
+        return {
+          style_policy_disabled: 'стиль выключен настройкой',
+          machine_stage: 'машинный формат — правила не применяются',
+          read_error: 'не удалось прочитать настройку',
+          style_policy_unavailable: 'настройка временно недоступна',
+          style_policy_absent: 'правил нет',
+          pass_error: 'не удалось применить правила',
+        }[r] || r;
+      },
+      // P0A-UX §3 (TJ-8): «библиотека пока недоступна» вместо кода.
+      speechLibraryReasonText: function (reason) {
+        var r = String(reason || '');
+        return {
+          read_error: 'Библиотека пока недоступна',
+          unavailable: 'Библиотека пока недоступна',
+          db_unavailable: 'Локальная база библиотеки недоступна',
+          schema_absent: 'Схема библиотеки ещё не создана',
+        }[r] || r;
+      },
+      // P0A-UX §3 (TJ-15): причины исключения примеров — человеческими
+      // подписями; код остаётся в title/деталях.
+      speechSampleExcludedLabel: function (reason) {
+        return {
+          scope_mismatch: 'другой чат',
+          disabled_technique: 'приём выключен',
+          archived: 'в архиве',
+          not_approved: 'не эталон',
+          diversity: 'слишком похож на уже выбранный',
+          token_budget: 'не помещается в лимит',
+        }[String(reason)] || String(reason || '—');
+      },
+      // P0A-UX §3 (TJ-9): «по версиям: A — N, B — M» человеческой строкой.
+      speechByVersionText: function (byVersion) {
+        var bv = byVersion || {};
+        var parts = [];
+        for (var k in bv) {
+          if (!Object.prototype.hasOwnProperty.call(bv, k)) continue;
+          parts.push(k + ' — ' + bv[k]);
+        }
+        return 'по версиям: ' + (parts.length ? parts.join(', ') : 'пока пусто');
+      },
+      // P0A-UX §3 (TJ-17): причины недоступности данных обучения.
+      speechFeedbackReasonText: function (reason) {
+        var r = String(reason || '');
+        return {
+          db_unavailable: 'локальная база недоступна',
+          schema_absent: 'схема обучения ещё не создана',
+          read_error: 'не удалось прочитать данные',
+          humor_feedback_disabled: 'сбор реакций выключен настройкой',
+        }[r] || r;
+      },
+      speechSignalLabel: function (key) {
+        return {
+          praise: 'похвала', laugh: 'смех', dislike: 'не зашло',
+          unknown: 'без реакции',
+        }[String(key)] || String(key || '—');
+      },
+      // P0A-UX §5.3/§4-C6: dirty по редакциям + честный текст «где черновик».
+      speechCoreDirtyCurrent: function () {
+        var d = this.speechDirty || {};
+        return this.speechCoreEdition === 'full' ? !!d.coreFull : !!d.coreCompact;
+      },
+      speechCoreDirtyText: function () {
+        var d = this.speechDirty || {};
+        var parts = [];
+        if (d.coreFull) parts.push('полная');
+        if (d.coreCompact) parts.push('компактная');
+        if (!parts.length) return '';
+        return 'черновик не сохранён — ' + parts.join(' и ') + ' редакция';
+      },
+      speechDirtyCount: function () {
+        var d = this.speechDirty || {};
+        var n = 0;
+        if (d.coreFull) n += 1;
+        if (d.coreCompact) n += 1;
+        if (d.style) n += 1;
+        if (d.expression) n += 1;
+        return n;
+      },
+      // P0A-UX §5.5: «Сохранено ✓ HH:MM» — 10 с или до следующего ввода.
+      markSpeechSaved: function (section) {
+        var now = new Date();
+        var stamp = ('0' + now.getHours()).slice(-2) + ':'
+          + ('0' + now.getMinutes()).slice(-2);
+        var saved = Object.assign({}, this.speechSaved || {});
+        saved[section] = stamp;
+        this.speechSaved = saved;
+        var self = this;
+        setTimeout(function () {
+          if ((self.speechSaved || {})[section] === stamp) {
+            var next = Object.assign({}, self.speechSaved || {});
+            delete next[section];
+            self.speechSaved = next;
+          }
+        }, 10000);
+      },
+      clearSpeechSaved: function (section) {
+        if (!(this.speechSaved || {})[section]) return;
+        var next = Object.assign({}, this.speechSaved || {});
+        delete next[section];
+        this.speechSaved = next;
+      },
+      speechSavedText: function (section) {
+        var stamp = (this.speechSaved || {})[section];
+        return stamp ? ('Сохранено ✓ ' + stamp) : '';
+      },
+      // P0A-UX §5.2 (503): ввод не теряем — черновик остаётся, доступен
+      // повтор того же самого сохранения.
+      speechCanRetry: function (section) {
+        return !!(this.speechRetry && this.speechRetry.section === section);
+      },
+      retrySpeechSave: function () {
+        var pending = this.speechRetry;
+        if (!pending || typeof pending.fn !== 'function') return;
+        pending.fn();
+      },
+      // P0A-UX §4-C4: ⋯-меню действий раздела (паттерн .more-menu-*).
+      openSpeechMenu: function (section) {
+        this.speechMenu = section;
+        var self = this;
+        if (this.$nextTick) {
+          this.$nextTick(function () {
+            var el = document.querySelector('.speech-menu-root');
+            if (el && el.focus) { try { el.focus(); } catch (e) { /* no-op */ } }
+          });
+        }
+      },
+      closeSpeechMenu: function () { this.speechMenu = ''; },
+      // P0A-UX §4-C6: автовысота от 3 строк, максимум 40vh; пересчёт только
+      // на реальный ввод/загрузку — каретка и скролл не дёргаются (R7).
+      _growSpeechEditorEl: function (el) {
+        if (!el) return;
+        var max = Math.max(160, Math.round((window.innerHeight || 800) * 0.4));
+        el.style.height = 'auto';
+        el.style.height = Math.min(max, Math.max(el.scrollHeight, 84)) + 'px';
+      },
+      autoGrowEditor: function (ev) {
+        var el = ev && ev.target ? ev.target : null;
+        if (!el || el.tagName !== 'TEXTAREA') return;
+        this._growSpeechEditorEl(el);
+      },
+      growSpeechEditors: function () {
+        var nodes = document.querySelectorAll('.speech-editor[data-autogrow]');
+        for (var i = 0; i < nodes.length; i++) {
+          this._growSpeechEditorEl(nodes[i]);
+        }
+      },
+      openSpeechEditorFull: function () { this.speechEditorFull = true; },
+      closeSpeechEditorFull: function () { this.speechEditorFull = false; },
+      // P0A-UX §5.2 (TJ-21): технические коды НИКОГДА не показываются как
+      // текст ошибки — только человеческая причина; иначе — detail сервера.
+      speechErrText: function (e) {
+        var raw = (e && e.message != null) ? e.message : e;
+        var msg = (raw == null) ? '' : String(raw);
+        var known = {
+          write_error: 'не удалось сохранить: постоянное хранилище недоступно, попробуйте позже',
+          save_error: 'не удалось сохранить: хранилище временно недоступно, попробуйте позже',
+          document_invalid: 'документ не прошёл проверку — исправьте и сохраните снова',
+          config_cache_unavailable: 'настройки временно недоступны — попробуйте позже',
+          storage_unavailable: 'не удалось сохранить: постоянное хранилище недоступно, попробуйте позже',
+        };
+        var key = msg.trim();
+        if (Object.prototype.hasOwnProperty.call(known, key)) return known[key];
+        if (key) return msg;
+        if (e && e.status === 503) {
+          return 'не удалось сохранить: постоянное хранилище недоступно, попробуйте позже';
+        }
+        return 'HTTP ' + ((e && e.status) || '?');
+      },
+      // P0A-UX §5.2: коды/статусы → человеческое поведение; черновик и форма
+      // остаются; 503 предлагает повтор; 409-конфликт — «обновите данные».
+      speechSaveFail: function (e, section, retryFn) {
+        if (!e || e.status === 401) return;
+        if (e.status === 403) {
+          this.toast('Нет права на правку этого раздела речи', 'err');
+          return;
+        }
+        var msg = this.speechErrText(e);
+        if (e.status === 409) {
+          if (msg.indexOf('документ не прошёл проверку') >= 0) {
+            this.toast(msg + ' — исправьте и сохраните снова', 'warn');
+            return;
+          }
+          if (msg.indexOf('изменено другим путём') >= 0
+              || msg.indexOf('профиль чата не найден') >= 0) {
+            this.toast(msg + ' — обновите данные и повторите', 'warn');
+            return;
+          }
+          this.toast(msg, 'warn');
+          return;
+        }
+        if (e.status === 422) {
+          this.toast('Выберите чат в селекторе области', 'warn');
+          return;
+        }
+        if (e.status === 503) {
+          this.toast(msg, 'err');
+          if (retryFn) this.speechRetry = { section: section, fn: retryFn };
+          return;
+        }
+        this.toast(msg, 'err');
       },
       speechStateLabel: function (state) {
         return {
@@ -18844,7 +19217,10 @@
         var drafts = this.speechDrafts.core || {};
         drafts[this.speechCoreEdition] = value;
         this.speechDrafts.core = drafts;
-        this.speechDirty.core = true;
+        // P0A-UX §5.3: dirty — только у РЕДАКТИРУЕМОЙ редакции.
+        if (this.speechCoreEdition === 'full') this.speechDirty.coreFull = true;
+        else this.speechDirty.coreCompact = true;
+        this.clearSpeechSaved('core');
       },
       speechCoreEditionChars: function () {
         return (this.speechCoreDraft() || '').length;
@@ -18884,10 +19260,21 @@
         try {
           var data = await this.api('/api/speech/overview');
           this.speechOverview = data || null;
-          if (data && data.scope === 'chat') this.speechScopeChoice = 'chat';
+          // P0A-UX §6.3: дефолт цели сохранения — по текущей области; уже
+          // сделанный владельцем выбор раздела не перезаписываем.
+          if (data) {
+            var dflt = data.scope === 'chat' ? 'chat' : 'global';
+            var touched = this.speechScopeTouched || {};
+            var sc = Object.assign({}, this.speechScope);
+            ['core', 'style', 'expression', 'humor', 'examples',
+             'all'].forEach(function (k) {
+              if (!touched[k]) sc[k] = dflt;
+            });
+            this.speechScope = sc;
+          }
         } catch (e) {
           if (e.status !== 401) {
-            this.speechError = this.loreErrText(e);
+            this.speechError = this.speechErrText(e);
           }
         } finally {
           this.speechLoading = false;
@@ -18905,21 +19292,28 @@
         }
       },
       loadSpeechSection: async function (id, force) {
+        var self = this;
         this.speechSectionLoading = true;
         try {
           if (id === 'core') {
             var core = await this.api('/api/speech/core');
             this.speechCore = core;
             var levels = (core && core.editions) || {};
-            if (!this.speechDirty.core) {
-              this.speechDrafts.core = {
-                full: (levels.full && levels.full.text) || '',
-                compact: (levels.compact && levels.compact.text) || '',
-              };
+            // P0A-UX §5.3/§5.4: серверный снапшот заполняет редакцию, только
+            // если у НЕЁ нет несохранённого черновика (вторая редакция своё
+            // состояние не теряет).
+            var drafts = Object.assign({}, this.speechDrafts.core || {});
+            if (!this.speechDirty.coreFull) {
+              drafts.full = (levels.full && levels.full.text) || '';
             }
+            if (!this.speechDirty.coreCompact) {
+              drafts.compact = (levels.compact && levels.compact.text) || '';
+            }
+            this.speechDrafts = { core: drafts };
             if (core && core.selection && core.selection.level) {
               this.speechCoreEdition = core.selection.level;
             }
+            this.speechScopeHint('core', core && core.inheritance);
           } else if (id === 'style') {
             var style = await this.api('/api/speech/style');
             this.speechStyle = style;
@@ -18934,6 +19328,8 @@
                   (style && style.soft_instructions) || [])),
               };
             }
+            this.speechScopeHint('style',
+              style && style.document && style.document.inheritance);
           } else if (id === 'expression') {
             var expr = await this.api('/api/speech/expression');
             this.speechExpression = expr;
@@ -18941,10 +19337,17 @@
               this.speechExpressionDraft = Object.assign({},
                 (expr && expr.values) || {}, { note: (expr && expr.note) || '' });
             }
+            this.speechScopeHint('expression', expr && expr.inheritance);
           } else if (id === 'humor') {
             this.speechHumor = await this.api('/api/speech/humor');
+            this.speechScopeHint('humor',
+              this.speechHumor && this.speechHumor.scope === 'chat'
+                ? 'chat' : '');
           } else if (id === 'examples') {
             this.speechExamples = await this.api('/api/speech/examples');
+            this.speechScopeHint('examples',
+              this.speechExamples && this.speechExamples.scope === 'chat'
+                ? 'chat' : '');
           } else if (id === 'try') {
             this.speechLoaded[id] = true;
           } else if (id === 'learning') {
@@ -18962,65 +19365,132 @@
           if (force) this.speechLoaded[id] = true;
         } catch (e) {
           if (e.status !== 401) {
-            this.toast('Раздел недоступен: ' + this.loreErrText(e), 'err');
+            this.toast('Раздел недоступен: ' + this.speechErrText(e), 'err');
           }
         } finally {
           this.speechSectionLoading = false;
+          if (this.$nextTick) {
+            this.$nextTick(function () { self.growSpeechEditors(); });
+          }
         }
+      },
+      // P0A-UX §6.4: «Речь и характер» — при смене чата данные и черновики
+      // НЕ переезжают (иначе возможен просмотр/сохранение данных чужого
+      // чата). Вызывается из setActiveChat ПОСЛЕ подтверждения guard'а.
+      resetSpeechState: function () {
+        this.speechSection = '';
+        this.speechLoaded = {};
+        this.speechCore = null;
+        this.speechStyle = null;
+        this.speechExpression = null;
+        this.speechHumor = null;
+        this.speechExamples = null;
+        this.speechLearning = null;
+        this.speechBlocks = null;
+        this.speechCapabilities = null;
+        this.speechInspector = null;
+        this.speechError = '';
+        this.speechDrafts = { core: { full: '', compact: '' } };
+        this.speechDirty = { coreFull: false, coreCompact: false,
+                             style: false, expression: false };
+        this.speechStyleDraft = null;
+        this.speechSoftDraft = '';
+        this.speechStylePreview = null;
+        this.speechExpressionDraft = {};
+        this.speechBlockDetail = null;
+        this.speechBlockDraft = '';
+        this.speechBlockDiff = false;
+        this.speechSampleDraft = null;
+        this.speechSampleEditing = null;
+        this.speechSampleWhy = null;
+        this.speechHumorProbe = null;
+        this.speechTryResult = null;
+        this.speechFactoryPending = null;
+        this.speechDiffOpen = false;
+        this.speechMenu = '';
+        this.speechEditorFull = false;
+        this.speechRetry = null;
+        this.speechSaved = {};
+        this.closeSpeechMenu();
+        // §6.4.1: цель сохранения — дефолт НОВОГО чата.
+        var dflt = this.speechScopeDefault();
+        this.speechScope = { core: dflt, style: dflt, expression: dflt,
+                             humor: dflt, examples: dflt, all: dflt };
+        this.speechScopeTouched = {};
       },
       saveSpeechCore: async function () {
         var blockId = this.blockIdFor(this.speechCoreEdition);
         if (!blockId || this.speechBusy) return;
+        var self = this;
+        var edition = this.speechCoreEdition;
         this.speechBusy = true;
         try {
-          await this.api('/api/speech/block/' + blockId, {
+          var res = await this.api('/api/speech/block/' + blockId, {
             method: 'POST',
             body: JSON.stringify({
               text: this.speechCoreDraft(),
-              scope: this.speechScopeChoice,
-              reason: 'owner_edit:core.' + this.speechCoreEdition,
+              scope: this.speechScopeFor('core'),
+              reason: 'owner_edit:core.' + edition,
             }),
           });
-          this.speechDirty.core = false;
-          this.toast('Сохранено: характер (' + (this.speechCoreEdition === 'full'
-            ? 'полная редакция' : 'компактная редакция') + ')', 'ok');
+          // §5.2: успех — только реальная запись (applied=true).
+          if (res && res.result && res.result.applied === false) {
+            this.toast('Не применено: сервер отклонил запись — обновите данные', 'warn');
+            return;
+          }
+          // §5.3: dirty гаснет ТОЛЬКО у сохранённой редакции.
+          if (edition === 'full') this.speechDirty.coreFull = false;
+          else this.speechDirty.coreCompact = false;
+          this.speechRetry = null;
+          this.toast('Сохранено ' + this.speechScopeToText('core') + ': характер ('
+            + (edition === 'full' ? 'полная редакция' : 'компактная редакция')
+            + ')', 'ok');
+          this.markSpeechSaved('core');
           await this.loadSpeechSection('core', true);
         } catch (e) {
-          if (e.status === 403) this.toast('Нет права на правку характера', 'err');
-          else if (e.status === 409) this.toast('Конфликт версии — обновите данные', 'warn');
-          else if (e.status !== 401) this.toast('Не сохранено: ' + this.loreErrText(e), 'err');
+          this.speechSaveFail(e, 'core', function () { self.saveSpeechCore(); });
         } finally {
           this.speechBusy = false;
         }
       },
       saveSpeechCoreLevel: async function (level) {
         if (this.speechBusy) return;
+        var self = this;
         this.speechBusy = true;
         try {
           await this.api('/api/speech/core/meta', {
             method: 'POST',
-            body: JSON.stringify({ detail_level: level, scope: this.speechScopeChoice }),
+            body: JSON.stringify({ detail_level: level,
+                                   scope: this.speechScopeFor('core') }),
           });
+          this.speechRetry = null;
           this.toast('Действующая редакция: ' + (level === 'full' ? 'полная' : 'компактная'), 'ok');
           await this.loadSpeechSection('core', true);
         } catch (e) {
-          if (e.status !== 401) this.toast('Не сохранено: ' + this.loreErrText(e), 'err');
+          this.speechSaveFail(e, 'core', function () {
+            self.saveSpeechCoreLevel(level);
+          });
         } finally {
           this.speechBusy = false;
         }
       },
       saveSpeechCoreEnabled: async function (enabled) {
         if (this.speechBusy) return;
+        var self = this;
         this.speechBusy = true;
         try {
           await this.api('/api/speech/core/meta', {
             method: 'POST',
-            body: JSON.stringify({ enabled: !!enabled, scope: this.speechScopeChoice }),
+            body: JSON.stringify({ enabled: !!enabled,
+                                   scope: this.speechScopeFor('core') }),
           });
+          this.speechRetry = null;
           this.toast(enabled ? 'Core включён' : 'Core выключен', 'ok');
           await this.loadSpeechSection('core', true);
         } catch (e) {
-          if (e.status !== 401) this.toast('Не сохранено: ' + this.loreErrText(e), 'err');
+          this.speechSaveFail(e, 'core', function () {
+            self.saveSpeechCoreEnabled(enabled);
+          });
         } finally {
           this.speechBusy = false;
         }
@@ -19049,10 +19519,12 @@
         return (typeof value === 'number' && isFinite(value))
           ? String(value) : '—';
       },
-      speechFactoryPlan: async function (blockId) {
+      speechFactoryPlan: async function (blockId, section) {
         // Двухшаговое подтверждение без диалогов браузера: первый клик —
         // предпросмотр diff, второй (та же кнопка) — применение.
         if (!blockId || this.speechBusy) return;
+        var self = this;
+        var sec = section || 'core';
         if (this.speechFactoryPending && this.speechFactoryPending.blockId === blockId) {
           this.speechBusy = true;
           try {
@@ -19064,7 +19536,9 @@
             this.toast('Заводской вариант возвращён (новая ревизия, предыдущая — в истории)', 'ok');
             await this.reloadSpeech();
           } catch (e) {
-            if (e.status !== 401) this.toast('Сброс не выполнен: ' + this.loreErrText(e), 'err');
+            this.speechSaveFail(e, sec, function () {
+              self.speechFactoryPlan(blockId, sec);
+            });
           } finally {
             this.speechBusy = false;
           }
@@ -19081,42 +19555,51 @@
             + (planRow.changed ? '. Повторный клик — подтверждение' : ''),
             planRow.changed ? 'warn' : 'ok');
         } catch (e) {
-          if (e.status !== 401) this.toast('Не удалось показать diff: ' + this.loreErrText(e), 'err');
+          this.speechSaveFail(e, 'core');
         }
       },
-      resetSpeechChat: async function (blockId) {
+      resetSpeechChat: async function (blockId, section) {
         if (!blockId || this.speechBusy) return;
+        var self = this;
+        var sec = section || 'core';
         this.speechBusy = true;
         try {
           var res = await this.api('/api/speech/block/' + blockId + '/reset', {
             method: 'POST',
             body: JSON.stringify({ mode: 'chat' }),
           });
-          this.toast(res && res.ok ? 'Переопределение чата снято — наследуется глобальное'
-            : 'Переопределения чата не было', res && res.ok ? 'ok' : 'warn');
+          // P0A-UX §6.1 (дословно): человеческая формулировка вместо «сброса».
+          this.toast(res && res.ok ? 'Теперь наследуются глобальные настройки'
+            : 'У этого чата переопределения не было', res && res.ok ? 'ok' : 'warn');
           await this.reloadSpeech();
         } catch (e) {
-          if (e.status !== 401) this.toast('Не сброшено: ' + this.loreErrText(e), 'err');
+          this.speechSaveFail(e, sec, function () {
+            self.resetSpeechChat(blockId, sec);
+          });
         } finally {
           this.speechBusy = false;
         }
       },
-      rollbackSpeechBlock: async function (blockId, row) {
+      rollbackSpeechBlock: async function (blockId, row, section) {
         if (!blockId || !row || this.speechBusy) return;
+        var self = this;
+        var sec = section || 'all';
         this.speechBusy = true;
         try {
           await this.api('/api/speech/block/' + blockId + '/rollback', {
             method: 'POST',
             body: JSON.stringify({
               sha256_12: row.sha256_12,
-              scope: this.speechScopeChoice,
+              scope: this.speechScopeFor(sec),
               reason: 'rollback:' + String(row.sha256_12 || '').slice(0, 12),
             }),
           });
           this.toast('Откат выполнен: ревизия ' + row.sha256_12, 'ok');
           await this.reloadSpeech();
         } catch (e) {
-          if (e.status !== 401) this.toast('Откат не выполнен: ' + this.loreErrText(e), 'err');
+          this.speechSaveFail(e, sec, function () {
+            self.rollbackSpeechBlock(blockId, row, sec);
+          });
         } finally {
           this.speechBusy = false;
         }
@@ -19129,7 +19612,20 @@
         }
         return rule.kind;
       },
-      speechRuleParams: function (rule) {
+      // P0A-UX §3 (TJ-5): в основном UI — человеческое «Действие» из
+      // каталога kind; сырые id/params — только в «Технических параметрах».
+      speechRuleEffect: function (rule) {
+        var kinds = (this.speechStyle && this.speechStyle.rule_kinds) || [];
+        for (var i = 0; i < kinds.length; i++) {
+          if (kinds[i].kind === rule.kind) {
+            var k = kinds[i];
+            return (rule.strictness === 'hard' ? k.hard_effect : k.soft_effect)
+              || k.purpose || '';
+          }
+        }
+        return '';
+      },
+      speechRuleTech: function (rule) {
         var params = rule.params || {};
         var parts = [];
         for (var k in params) {
@@ -19137,8 +19633,7 @@
           var v = params[k];
           parts.push(k + '=' + (Array.isArray(v) ? v.join('') : String(v)));
         }
-        return (rule.reason ? ('«' + rule.reason + '» · ') : '')
-          + 'id ' + rule.id + (parts.length ? (' · ' + parts.join(' · ')) : '');
+        return 'id ' + rule.id + (parts.length ? (' · ' + parts.join(' · ')) : '');
       },
       ensureStyleDraft: function () {
         if (!this.speechStyleDraft) {
@@ -19225,11 +19720,12 @@
         draft.soft_instructions.push({
           id: 'soft.' + Date.now().toString(36) + '.'
             + draft.soft_instructions.length,
-          text: text, scope: this.speechScopeChoice === 'chat' ? 'chat' : 'global',
+          text: text, scope: this.speechScopeFor('style') === 'chat' ? 'chat' : 'global',
           enabled: true,
         });
         this.speechSoftDraft = '';
         this.speechDirty.style = true;
+        this.clearSpeechSaved('style');
       },
       removeSoftInstruction: function (index) {
         var draft = this.ensureStyleDraft();
@@ -19249,13 +19745,14 @@
       },
       saveSpeechStyle: async function () {
         if (this.speechBusy) return;
+        var self = this;
         this.speechBusy = true;
         try {
           var res = await this.api('/api/speech/style', {
             method: 'POST',
             body: JSON.stringify({
               document: this.speechStyleDocument(),
-              scope: this.speechScopeChoice,
+              scope: this.speechScopeFor('style'),
               reason: 'owner_edit:style_policy',
             }),
           });
@@ -19266,27 +19763,33 @@
               && this.speechStyle.soft_instructions) || [])),
           };
           this.speechDirty.style = false;
-          this.toast('Правила сохранены (новая ревизия политики)', 'ok');
+          this.speechRetry = null;
+          this.toast('Сохранено ' + this.speechScopeToText('style')
+            + ': правила письма', 'ok');
+          this.markSpeechSaved('style');
         } catch (e) {
-          if (e.status === 403) this.toast('Нет права на стиль письма', 'err');
-          else if (e.status === 409) this.toast('Документ не прошёл проверку или конфликт версии', 'warn');
-          else if (e.status !== 401) this.toast('Не сохранено: ' + this.loreErrText(e), 'err');
+          // §5.2: 409-валидация — текст сервера как есть, без «конфликта
+          // версии»; черновик и форма остаются; 503 — «Повторить».
+          this.speechSaveFail(e, 'style', function () {
+            self.saveSpeechStyle();
+          });
         } finally {
           this.speechBusy = false;
         }
       },
       resetStyleChat: async function () {
         if (this.speechBusy) return;
+        var self = this;
         this.speechBusy = true;
         try {
           var res = await this.api('/api/speech/style/reset-chat', {
             method: 'POST', body: JSON.stringify({}),
           });
           this.speechStyle = (res && res.view) || this.speechStyle;
-          this.toast(res && res.ok ? 'Стиль письма снова наследует глобальный'
-            : 'Переопределения для чата не было', res && res.ok ? 'ok' : 'warn');
+          this.toast(res && res.ok ? 'Теперь наследуются глобальные настройки'
+            : 'У этого чата переопределения не было', res && res.ok ? 'ok' : 'warn');
         } catch (e) {
-          if (e.status !== 401) this.toast('Не сброшено: ' + this.loreErrText(e), 'err');
+          this.speechSaveFail(e, 'style', function () { self.resetStyleChat(); });
         } finally {
           this.speechBusy = false;
         }
@@ -19300,7 +19803,9 @@
             body: JSON.stringify({ document: this.speechStyleDocument() }),
           });
         } catch (e) {
-          if (e.status !== 401) this.toast('Предпросмотр недоступен: ' + this.loreErrText(e), 'err');
+          if (e.status !== 401) {
+            this.toast('Предпросмотр недоступен: ' + this.speechErrText(e), 'err');
+          }
         } finally {
           this.speechBusy = false;
         }
@@ -19311,12 +19816,14 @@
         draft[key] = value;
         this.speechExpressionDraft = draft;
         this.speechDirty.expression = true;
+        this.clearSpeechSaved('expression');
       },
       setExpressionNote: function (value) {
         var draft = this.speechExpressionDraft || {};
         draft.note = value;
         this.speechExpressionDraft = draft;
         this.speechDirty.expression = true;
+        this.clearSpeechSaved('expression');
       },
       speechExpressionPreview: function () {
         var draft = this.speechExpressionDraft || {};
@@ -19339,6 +19846,7 @@
       },
       saveSpeechExpression: async function () {
         if (this.speechBusy) return;
+        var self = this;
         this.speechBusy = true;
         try {
           var draft = this.speechExpressionDraft || {};
@@ -19352,20 +19860,26 @@
                 verbosity: draft.verbosity || 'inherit',
                 note: draft.note || '',
               },
-              scope: this.speechScopeChoice,
+              scope: this.speechScopeFor('expression'),
             }),
           });
           this.speechExpression = (res && res.view) || this.speechExpression;
           this.speechDirty.expression = false;
-          this.toast('Настройки выражения сохранены', 'ok');
+          this.speechRetry = null;
+          this.toast('Сохранено ' + this.speechScopeToText('expression')
+            + ': манера речи', 'ok');
+          this.markSpeechSaved('expression');
         } catch (e) {
-          if (e.status !== 401) this.toast('Не сохранено: ' + this.loreErrText(e), 'err');
+          this.speechSaveFail(e, 'expression', function () {
+            self.saveSpeechExpression();
+          });
         } finally {
           this.speechBusy = false;
         }
       },
       resetExpressionChat: async function () {
         if (this.speechBusy) return;
+        var self = this;
         this.speechBusy = true;
         try {
           var res = await this.api('/api/speech/expression/reset-chat', {
@@ -19376,10 +19890,12 @@
             (this.speechExpression && this.speechExpression.values) || {},
             { note: (this.speechExpression && this.speechExpression.note) || '' });
           this.speechDirty.expression = false;
-          this.toast(res && res.ok ? 'Выражение снова наследует глобальное'
-            : 'Переопределения для чата не было', res && res.ok ? 'ok' : 'warn');
+          this.toast(res && res.ok ? 'Теперь наследуются глобальные настройки'
+            : 'У этого чата переопределения не было', res && res.ok ? 'ok' : 'warn');
         } catch (e) {
-          if (e.status !== 401) this.toast('Не сброшено: ' + this.loreErrText(e), 'err');
+          this.speechSaveFail(e, 'expression', function () {
+            self.resetExpressionChat();
+          });
         } finally {
           this.speechBusy = false;
         }
@@ -19406,17 +19922,20 @@
       },
       saveSpeechHumorCraft: async function (enabled) {
         if (this.speechHumorCraftBusy || !this.speechHumor || !this.speechHumor.can_edit) return;
+        var self = this;
         this.speechHumorCraftBusy = true;
         try {
           await this.api('/api/speech/humor/craft', {
             method: 'POST',
-            body: JSON.stringify({ enabled: !!enabled, scope: this.speechScopeChoice }),
+            body: JSON.stringify({ enabled: !!enabled,
+                                   scope: this.speechScopeFor('humor') }),
           });
           this.toast(enabled ? 'Ремесло юмора включено' : 'Ремесло юмора выключено', 'ok');
           await this.loadSpeechSection('humor', true);
         } catch (e) {
-          if (e.status === 403) this.toast('Нет права на правку речи', 'err');
-          else if (e.status !== 401) this.toast('Не сохранено: ' + this.loreErrText(e), 'err');
+          this.speechSaveFail(e, 'humor', function () {
+            self.saveSpeechHumorCraft(enabled);
+          });
         } finally {
           this.speechHumorCraftBusy = false;
         }
@@ -19432,17 +19951,20 @@
         var idx = disabled.indexOf(t.id);
         if (idx >= 0) disabled.splice(idx, 1);
         else disabled.push(t.id);
+        var self = this;
         this.speechHumorCraftBusy = true;
         try {
           await this.api('/api/speech/humor/craft', {
             method: 'POST',
             body: JSON.stringify({ disabled_techniques: disabled,
-                                   scope: this.speechScopeChoice }),
+                                   scope: this.speechScopeFor('humor') }),
           });
           this.toast(idx >= 0 ? 'Приём снова доступен' : 'Приём выключен', 'ok');
           await this.loadSpeechSection('humor', true);
         } catch (e) {
-          if (e.status !== 401) this.toast('Не сохранено: ' + this.loreErrText(e), 'err');
+          this.speechSaveFail(e, 'humor', function () {
+            self.toggleSpeechTechnique(t);
+          });
         } finally {
           this.speechHumorCraftBusy = false;
         }
@@ -19459,7 +19981,9 @@
             + ' токенов слоя, модель не вызывалась', 'ok');
         } catch (e) {
           this.speechHumorProbe = null;
-          if (e.status !== 401) this.toast('Не удалось проверить приём: ' + this.loreErrText(e), 'err');
+          if (e.status !== 401) {
+            this.toast('Не удалось проверить приём: ' + this.speechErrText(e), 'err');
+          }
         } finally {
           this.speechHumorCraftBusy = false;
         }
@@ -19524,6 +20048,7 @@
           this.toast('Нужны вход и ответ примера', 'warn');
           return;
         }
+        var self = this;
         this.speechBusy = true;
         try {
           var body = Object.assign({}, draft);
@@ -19539,15 +20064,14 @@
           this.cancelSpeechSample();
           await this.loadSpeechSection('examples', true);
         } catch (e) {
-          if (e.status === 403) this.toast('Нет права на правку примеров', 'err');
-          else if (e.status === 409) this.toast('Пример изменили в другом окне — обновите данные', 'warn');
-          else if (e.status !== 401) this.toast('Не сохранено: ' + this.loreErrText(e), 'err');
+          this.speechSaveFail(e, 'examples', function () { self.saveSpeechSample(); });
         } finally {
           this.speechBusy = false;
         }
       },
       approveSpeechSample: async function (row, approved) {
         if (this.speechBusy || !row) return;
+        var self = this;
         this.speechBusy = true;
         try {
           await this.api('/api/speech/examples/' + row.id + '/approve?approved='
@@ -19555,14 +20079,16 @@
           this.toast(approved ? 'Пример помечен эталоном' : 'Метка эталона снята', 'ok');
           await this.loadSpeechSection('examples', true);
         } catch (e) {
-          if (e.status === 403) this.toast('Нет права на правку примеров', 'err');
-          else if (e.status !== 401) this.toast('Не применено: ' + this.loreErrText(e), 'err');
+          this.speechSaveFail(e, 'examples', function () {
+            self.approveSpeechSample(row, approved);
+          });
         } finally {
           this.speechBusy = false;
         }
       },
       archiveSpeechSample: async function (row, archived) {
         if (this.speechBusy || !row) return;
+        var self = this;
         this.speechBusy = true;
         try {
           await this.api('/api/speech/examples/' + row.id + '/archive?archived='
@@ -19570,8 +20096,9 @@
           this.toast(archived ? 'Пример в архиве (данные сохранены)' : 'Пример возвращён', 'ok');
           await this.loadSpeechSection('examples', true);
         } catch (e) {
-          if (e.status === 403) this.toast('Нет права на правку примеров', 'err');
-          else if (e.status !== 401) this.toast('Не применено: ' + this.loreErrText(e), 'err');
+          this.speechSaveFail(e, 'examples', function () {
+            self.archiveSpeechSample(row, archived);
+          });
         } finally {
           this.speechBusy = false;
         }
@@ -19580,20 +20107,23 @@
         if (this.speechBusy || !row) return;
         if (typeof window !== 'undefined' && window.confirm
             && !window.confirm('Удалить пример №' + row.id + ' без возможности вернуть?')) return;
+        var self = this;
         this.speechBusy = true;
         try {
           await this.api('/api/speech/examples/' + row.id, { method: 'DELETE' });
           this.toast('Пример удалён', 'ok');
           await this.loadSpeechSection('examples', true);
         } catch (e) {
-          if (e.status === 403) this.toast('Нет права на правку примеров', 'err');
-          else if (e.status !== 401) this.toast('Не удалено: ' + this.loreErrText(e), 'err');
+          this.speechSaveFail(e, 'examples', function () {
+            self.deleteSpeechSample(row);
+          });
         } finally {
           this.speechBusy = false;
         }
       },
       seedSpeechSamples: async function () {
         if (this.speechBusy) return;
+        var self = this;
         this.speechBusy = true;
         try {
           var res = await this.api('/api/speech/examples/seed', {
@@ -19603,8 +20133,9 @@
             + ', уже было ' + ((res && res.skipped) || 0), 'ok');
           await this.loadSpeechSection('examples', true);
         } catch (e) {
-          if (e.status === 403) this.toast('Нет права на правку примеров', 'err');
-          else if (e.status !== 401) this.toast('Не добавлено: ' + this.loreErrText(e), 'err');
+          this.speechSaveFail(e, 'examples', function () {
+            self.seedSpeechSamples();
+          });
         } finally {
           this.speechBusy = false;
         }
@@ -19619,7 +20150,9 @@
           });
         } catch (e) {
           this.speechSampleWhy = null;
-          if (e.status !== 401) this.toast('Не удалось показать отбор: ' + this.loreErrText(e), 'err');
+          if (e.status !== 401) {
+            this.toast('Не удалось показать отбор: ' + this.speechErrText(e), 'err');
+          }
         } finally {
           this.speechBusy = false;
         }
@@ -19627,18 +20160,20 @@
       saveSpeechLibraryPolicy: async function () {
         var policy = (this.speechExamples && this.speechExamples.policy) || null;
         if (this.speechBusy || !policy) return;
+        var self = this;
         this.speechBusy = true;
         try {
           await this.api('/api/speech/examples/policy', {
             method: 'POST',
             body: JSON.stringify(Object.assign({}, policy,
-                                               { scope: this.speechScopeChoice })),
+                                               { scope: this.speechScopeFor('examples') })),
           });
           this.toast('Политика отбора сохранена', 'ok');
           await this.loadSpeechSection('examples', true);
         } catch (e) {
-          if (e.status === 403) this.toast('Нет права на правку примеров', 'err');
-          else if (e.status !== 401) this.toast('Не сохранено: ' + this.loreErrText(e), 'err');
+          this.speechSaveFail(e, 'examples', function () {
+            self.saveSpeechLibraryPolicy();
+          });
         } finally {
           this.speechBusy = false;
         }
@@ -19666,8 +20201,10 @@
           }[action] || 'Готово', 'ok');
         } catch (e) {
           if (e.status === 403) this.toast('Нет права на управление обучением', 'err');
-          else if (e.status === 422) this.toast('Нужен выбранный чат', 'warn');
-          else if (e.status !== 401) this.toast('Не применено: ' + this.loreErrText(e), 'err');
+          else if (e.status === 422) this.toast('Выберите чат в селекторе области', 'warn');
+          else if (e.status !== 401) {
+            this.toast('Не применено: ' + this.speechErrText(e), 'err');
+          }
         } finally {
           this.speechLearningBusy = false;
         }
@@ -19715,7 +20252,9 @@
           }
         } catch (e) {
           if (e.status === 403) this.toast('Нет доступа к тестовой лаборатории', 'err');
-          else if (e.status !== 401) this.toast('Тест не выполнен: ' + this.loreErrText(e), 'err');
+          else if (e.status !== 401) {
+            this.toast('Тест не выполнен: ' + this.speechErrText(e), 'err');
+          }
         } finally {
           this.speechBusy = false;
         }
@@ -19745,7 +20284,9 @@
           await this.loadSpeechSection('learning', true);
         } catch (e) {
           if (e.status === 403) this.toast('Нужны права памяти (global admin)', 'err');
-          else if (e.status !== 401) this.toast('Действие не выполнено: ' + this.loreErrText(e), 'err');
+          else if (e.status !== 401) {
+            this.toast('Действие не выполнено: ' + this.speechErrText(e), 'err');
+          }
         } finally {
           this.speechBusy = false;
         }
@@ -19763,6 +20304,7 @@
         });
       },
       openSpeechBlock: async function (blockId) {
+        var self = this;
         this.speechSectionLoading = true;
         try {
           var detail = await this.api('/api/speech/block/' + encodeURIComponent(blockId));
@@ -19770,33 +20312,39 @@
           this.speechBlockDraft = (detail && detail.effective && detail.effective.text) || '';
           this.speechBlockDiff = false;
         } catch (e) {
-          if (e.status !== 401) this.toast('Блок недоступен: ' + this.loreErrText(e), 'err');
+          if (e.status !== 401) {
+            this.toast('Блок недоступен: ' + this.speechErrText(e), 'err');
+          }
         } finally {
           this.speechSectionLoading = false;
+          if (this.$nextTick) {
+            this.$nextTick(function () { self.growSpeechEditors(); });
+          }
         }
       },
       saveSpeechBlock: async function () {
         var detail = this.speechBlockDetail;
         if (!detail || this.speechBusy) return;
+        var self = this;
         this.speechBusy = true;
         try {
           await this.api('/api/speech/block/' + encodeURIComponent(detail.block_id), {
             method: 'POST',
             body: JSON.stringify({
               text: this.speechBlockDraft,
-              scope: this.speechScopeChoice,
+              scope: this.speechScopeFor('all'),
               reason: 'owner_edit:' + detail.block_id,
             }),
           });
+          this.speechRetry = null;
           this.toast('Блок сохранён: ' + detail.block_id, 'ok');
+          this.markSpeechSaved('all');
           await this.openSpeechBlock(detail.block_id);
           if (this.speechBlocks) {
             this.speechBlocks = await this.api('/api/speech/blocks');
           }
         } catch (e) {
-          if (e.status === 403) this.toast('Нет права на этот блок', 'err');
-          else if (e.status === 409) this.toast('Значение не применено: ' + this.loreErrText(e), 'warn');
-          else if (e.status !== 401) this.toast('Не сохранено: ' + this.loreErrText(e), 'err');
+          this.speechSaveFail(e, 'all', function () { self.saveSpeechBlock(); });
         } finally {
           this.speechBusy = false;
         }
@@ -19826,6 +20374,28 @@
         if (cap && cap.checked_at) parts.push('проверено: ' + cap.checked_at);
         if (cap && cap.tool) parts.push('инструмент: ' + cap.tool);
         return parts.join(' · ');
+      },
+      // P0A-UX §3 (TJ-19): диагностический раздел остаётся, но голый код
+      // подписан человеческим текстом (код — в title).
+      speechCapabilityReasonText: function (code, reason) {
+        var c = String(code || '');
+        var known = {
+          tool_absent: 'инструмент недоступен',
+          module_disabled: 'модуль выключен',
+          image_provider_unconfigured: 'провайдер картинок не настроен',
+          provider_unavailable: 'провайдер временно недоступен',
+          financial_limit_disabled: 'финансовый лимит выключен',
+          financial_limit_reached: 'финансовый лимит исчерпан',
+          search_provider_unconfigured: 'поисковый провайдер не настроен',
+          factcheck_module_disabled: 'модуль фактчека выключен',
+          media_source_unconfigured: 'источник медиа не настроен',
+          no_tool: 'инструмент не выбран',
+          unknown_capability: 'возможность не найдена в реестре',
+          resolve_error: 'ошибка проверки состояния',
+          available_action_not_chosen: 'доступное действие не выбрано',
+        };
+        if (known[c]) return known[c];
+        return String(reason || c || '—');
       },
       speechInspectorVersionLine: function (versions) {
         if (!versions) return '—';
@@ -20712,12 +21282,23 @@
       },
       nostalgiaLabel: function () {
         var n = (this.cognition && this.cognition.nostalgia) || {};
+        // P0A-UX §10: после P0-followup «тишина» — это сценарий A (живая
+        // беседа: контекстное воспоминание без ожидания 45 минут), а не
+        // отсчёт до «вброса». Приоритет: cooldown → active → ready.
+        if (n.mode === 'cooldown') {
+          return 'Кулдаун: ещё ' + (n.cooldown_left_h || 0) + ' ч';
+        }
+        if (n.active === true) {
+          return 'Живая беседа: вспомнит по контексту';
+        }
+        if (typeof n.active === 'boolean') {
+          return 'Затишье: готово вспомнить прошлое';
+        }
+        // Legacy-payload без новых полей (старый сервер/фикстуры) — прежний
+        // текст, включая «Тишина: N/M мин».
         if (n.mode === 'silence') {
           return 'Тишина: ' + (n.silence_left_min || 0) + '/' +
             (n.silence_min_total || 0) + ' мин';
-        }
-        if (n.mode === 'cooldown') {
-          return 'Кулдаун: ещё ' + (n.cooldown_left_h || 0) + ' ч';
         }
         return 'Готова к вбросу';
       },

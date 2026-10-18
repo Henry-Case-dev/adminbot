@@ -1677,12 +1677,29 @@ assert.strictEqual(methods._scopeGuard.call({ scopeEpoch: 8 }, 7), false);
       'F5: токены → k');
     assert.strictEqual(methods.fmtTokens.call({}, 500), '500',
       'F5: токены < 1000');
+    // P0A-UX §10 (TEST-LIFECYCLE: REGRESSION owner=P0B-NOST/§2): «тишина» —
+    // это сценарий A (живая беседа); legacy-payload без `active` сохраняет
+    // прежний текст, поэтому старые ассерты остаются в силе.
     const sil = methods.nostalgiaLabel.call({ cognition: { nostalgia: {
       mode: 'silence', silence_left_min: 25, silence_min_total: 45 } } });
-    assert.strictEqual(sil, 'Тишина: 25/45 мин', 'F5: таймер тишины');
+    assert.strictEqual(sil, 'Тишина: 25/45 мин',
+      'F5: legacy-payload (без active) — прежний таймер тишины');
     const cd = methods.nostalgiaLabel.call({ cognition: { nostalgia: {
       mode: 'cooldown', cooldown_left_h: 8 } } });
     assert.strictEqual(cd, 'Кулдаун: ещё 8 ч', 'F5: кулдаун');
+    const live = methods.nostalgiaLabel.call({ cognition: { nostalgia: {
+      mode: 'silence', active: true, scenario: 'active',
+      silence_left_min: 25, silence_min_total: 45 } } });
+    assert.strictEqual(live, 'Живая беседа: вспомнит по контексту',
+      'P0A-UX §10: active=true → сценарий A, не отсчёт «вброса»');
+    const idle = methods.nostalgiaLabel.call({ cognition: { nostalgia: {
+      mode: 'ready', active: false, scenario: 'idle' } } });
+    assert.strictEqual(idle, 'Затишье: готово вспомнить прошлое',
+      'P0A-UX §10: active=false → затишье (сценарий B)');
+    const cdLive = methods.nostalgiaLabel.call({ cognition: { nostalgia: {
+      mode: 'cooldown', cooldown_left_h: 3, active: true } } });
+    assert.strictEqual(cdLive, 'Кулдаун: ещё 3 ч',
+      'P0A-UX §10: кулдаун приоритетнее сценария A');
 
     // Destroy инстанса vis до повторного рендера (R10.11-5).
     let destroyed = 0;
@@ -2345,6 +2362,46 @@ assert.strictEqual(methods._scopeGuard.call({ scopeEpoch: 8 }, 7), false);
     assert.strictEqual(notAdmin.cognitionTimer, null,
       'F2: не global admin → polling не запускается');
   }
+
+  // ── P0A-UX §5.2/§6.3/§5.3 (lane UX-IMPL) — контракты сохранения ──────
+  // TJ-21: технический код НИКОГДА не показывается как текст ошибки.
+  for (const code of ['write_error', 'save_error', 'document_invalid',
+                      'config_cache_unavailable']) {
+    const human = methods.speechErrText.call({}, { status: 503, message: code });
+    assert.ok(human && human.indexOf(code) < 0,
+      'P0A-UX: код ' + code + ' не должен попадать в текст ошибки: ' + human);
+  }
+  assert.strictEqual(
+    methods.speechErrText.call({}, { status: 409,
+      message: 'документ не прошёл проверку: unknown kind' }),
+    'документ не прошёл проверку: unknown kind',
+    'P0A-UX §5.2: человеческий detail сервера показывается как есть');
+  assert.strictEqual(methods.speechErrText.call({}, { status: 404,
+    message: '' }), 'HTTP 404',
+    'P0A-UX §5.2: пустой detail → статус, а не выдуманный текст');
+
+  // §5.3: dirty — ПО РЕДАКЦИИ Core (бейдж не переезжает на вторую).
+  const dCtx = { speechDrafts: { core: { full: '', compact: '' } },
+                 speechCoreEdition: 'compact',
+                 speechDirty: { coreFull: false, coreCompact: false },
+                 clearSpeechSaved: function () {} };
+  methods.setSpeechCoreDraft.call(dCtx, 'правка');
+  assert.strictEqual(dCtx.speechDirty.coreCompact, true,
+    'P0A-UX §5.3: правка компактной редакции → dirty только у неё');
+  assert.strictEqual(dCtx.speechDirty.coreFull, false,
+    'P0A-UX §5.3: полная редакция остаётся чистой');
+
+  // §6.3: цель сохранения — отдельное состояние НА РАЗДЕЛ.
+  const scCtx = { speechScope: { core: 'global', style: 'global',
+                                 expression: 'global' },
+                  speechScopeTouched: {} };
+  methods.setSpeechScope.call(scCtx, 'core', 'chat');
+  assert.strictEqual(scCtx.speechScope.core, 'chat',
+    'P0A-UX §6.3: выбранная цель применяется к разделу');
+  assert.strictEqual(scCtx.speechScope.style, 'global',
+    'P0A-UX §6.3: смена цели в «Характере» не трогает другие разделы');
+  assert.strictEqual(scCtx.speechScopeTouched.core, true,
+    'P0A-UX §6.3: явный выбор владельца зафиксирован (не перезапишется)');
 
   console.log('JS-UNIT-OK');
 })().catch((e) => {

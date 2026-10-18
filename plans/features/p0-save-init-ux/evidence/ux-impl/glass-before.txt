@@ -1,0 +1,65 @@
+﻿[matrix] config stub: items=573 groups=120
+[matrix] chat-╨▓╨░╤А╨╕╨░╨╜╤В config: override items=115
+[verify] status-hero@1440 a=a b=b lens={"edge_max": 0.0, "edge_med": 0.0, "edge_n": 4, "center_max": 0.0, "center_med": 0.0, "center_n": 24} ab={"edge_max": 0.0, "edge_med": 0.0, "edge_n": 4, "center_max": 0.0, "center_med": 0.0, "center_n": 24} pat=0.695
+[verify] status-hero@390 a=a b=b lens={"edge_max": 0.0, "edge_med": 0.0, "edge_n": 4, "center_max": 0.0, "center_med": 0.0, "center_n": 19} ab={"edge_max": 0.0, "edge_med": 0.0, "edge_n": 4, "center_max": 0.0, "center_med": 0.0, "center_n": 19} pat=0.918
+[verify] status-card@1440 a=a b=b lens={"edge_max": 0.0, "edge_med": 0.0, "edge_n": 4, "center_max": 0.0, "center_med": 0.0, "center_n": 24} ab={"edge_max": 0.0, "edge_med": 0.0, "edge_n": 4, "center_max": 0.0, "center_med": 0.0, "center_n": 24} pat=0.695
+[verify] status-card@390 a=a b=b lens={"edge_max": 0.0, "edge_med": 0.0, "edge_n": 4, "center_max": 0.0, "center_med": 0.0, "center_n": 19} ab={"edge_max": 0.0, "edge_med": 0.0, "edge_n": 4, "center_max": 0.0, "center_med": 0.0, "center_n": 19} pat=0.918
+[verify] status-bigcard@1440 a=a b=b lens={"edge_max": 0.0, "edge_med": 0.0, "edge_n": 4, "center_max": 0.0, "center_med": 0.0, "center_n": 60} ab={"edge_max": 1.0, "edge_med": 0.0, "edge_n": 4, "center_max": 0.0, "center_med": 0.0, "center_n": 60} pat=0.633
+[verify] status-bigcard@390 a=a b=b lens={"edge_max": 0.0, "edge_med": 0.0, "edge_n": 4, "center_max": 0.0, "center_med": 0.0, "center_n": 19} ab={"edge_max": 0.0, "edge_med": 0.0, "edge_n": 4, "center_max": 0.0, "center_med": 0.0, "center_n": 19} pat=0.994
+[verify] modules-card@1440 a=a b=b lens={"edge_max": 0.0, "edge_med": 0.0, "edge_n": 3, "center_max": 0.0, "center_med": 0.0, "center_n": 17} ab={"edge_max": 0.0, "edge_med": 0.0, "edge_n": 3, "center_max": 0.0, "center_med": 0.0, "center_n": 17} pat=0.863
+[verify] modules-card@390 a=a b=b lens={"edge_max": 0.0, "edge_med": 0.0, "edge_n": 4, "center_max": 0.0, "center_med": 0.0, "center_n": 19} ab={"edge_max": 0.0, "edge_med": 0.0, "edge_n": 4, "center_max": 0.0, "center_med": 0.0, "center_n": 19} pat=0.994
+[verify] analytics-card@1440 a=a b=b lens={"edge_max": 0.0, "edge_med": 0.0, "edge_n": 4, "center_max": 0.0, "center_med": 0.0, "center_n": 60} ab={"edge_max": 1.0, "edge_med": 0.0, "edge_n": 4, "center_max": 0.0, "center_med": 0.0, "center_n": 60} pat=0.624
+[verify] analytics-card@390 a=a b=b lens={"edge_max": 0.0, "edge_med": 0.0, "edge_n": 4, "center_max": 0.0, "center_med": 0.0, "center_n": 19} ab={"edge_max": 0.0, "edge_med": 0.0, "edge_n": 4, "center_max": 0.0, "center_med": 0.0, "center_n": 19} pat=0.994
+[verify] settings-card@1440 a=a b=b lens={"edge_max": 0.0, "edge_med": 0.0, "edge_n": 3, "center_max": 0.0, "center_med": 0.0, "center_n": 19} ab={"edge_max": 1.0, "edge_med": 0.0, "edge_n": 3, "center_max": 0.0, "center_med": 0.0, "center_n": 19} pat=0.614
+[verify] settings-card@390 a=a b=b lens={"edge_max": 0.0, "edge_med": 0.0, "edge_n": 4, "center_max": 0.0, "center_med": 0.0, "center_n": 19} ab={"edge_max": 0.0, "edge_med": 0.0, "edge_n": 4, "center_max": 0.0, "center_med": 0.0, "center_n": 19} pat=0.994
+[verify] sidebar@1440 a=a b=b lens={"edge_max": 2.0, "edge_med": 0.0, "edge_n": 4, "center_max": 0.0, "center_med": 0.0, "center_n": 11} ab={"edge_max": 0.0, "edge_med": 0.0, "edge_n": 0, "center_max": 0.0, "center_med": 0.0, "center_n": 11} pat=0.471
+[verify] header@1440 a=a b=b lens={"edge_max": 0.0, "edge_med": 0.0, "edge_n": 4, "center_max": 0.0, "center_med": 0.0, "center_n": 61} ab={"edge_max": 5.0, "edge_med": 2.0, "edge_n": 3, "center_max": 1.0, "center_med": 0.0, "center_n": 61} pat=0.903
+[verify] header@390 a=a b=b lens={"edge_max": 0.0, "edge_med": 0.0, "edge_n": 4, "center_max": 0.0, "center_med": 0.0, "center_n": 19} ab={"edge_max": 11.0, "edge_med": 3.5, "edge_n": 4, "center_max": 2.0, "center_med": 1.0, "center_n": 19} pat=1.107
+[verify] modal-card@1440 a=a b=b lens={"edge_max": 22.0, "edge_med": 0.5, "edge_n": 4, "center_max": 0.0, "center_med": 0.0, "center_n": 34} ab={"edge_max": 22.0, "edge_med": 10.5, "edge_n": 4, "center_max": 0.0, "center_med": 0.0, "center_n": 34} pat=0.191
+[verify] modal-card@390 a=a b=b lens={"edge_max": 0.0, "edge_med": 0.0, "edge_n": 3, "center_max": 0.0, "center_med": 0.0, "center_n": 18} ab={"edge_max": 0.0, "edge_med": 0.0, "edge_n": 2, "center_max": 0.0, "center_med": 0.0, "center_n": 18} pat=0.323
+[verify] 33 pass / 45 fail -> C:\Code\Python\adminbot\plans\features\soul-1\evidence\glass-tiera\verify.json
+   FAIL: status-hero@1440:lens_edge_refraction
+   FAIL: status-hero@1440:lens_edge_consistent
+   FAIL: status-hero@1440:ab_edge_refraction
+   FAIL: status-hero@390:lens_edge_refraction
+   FAIL: status-hero@390:lens_edge_consistent
+   FAIL: status-hero@390:ab_edge_refraction
+   FAIL: status-card@1440:lens_edge_refraction
+   FAIL: status-card@1440:lens_edge_consistent
+   FAIL: status-card@1440:ab_edge_refraction
+   FAIL: status-card@390:lens_edge_refraction
+   FAIL: status-card@390:lens_edge_consistent
+   FAIL: status-card@390:ab_edge_refraction
+   FAIL: status-bigcard@1440:lens_edge_refraction
+   FAIL: status-bigcard@1440:lens_edge_consistent
+   FAIL: status-bigcard@1440:ab_edge_refraction
+   FAIL: status-bigcard@390:lens_edge_refraction
+   FAIL: status-bigcard@390:lens_edge_consistent
+   FAIL: status-bigcard@390:ab_edge_refraction
+   FAIL: modules-card@1440:lens_edge_refraction
+   FAIL: modules-card@1440:lens_edge_consistent
+   FAIL: modules-card@1440:ab_edge_refraction
+   FAIL: modules-card@390:lens_edge_refraction
+   FAIL: modules-card@390:lens_edge_consistent
+   FAIL: modules-card@390:ab_edge_refraction
+   FAIL: analytics-card@1440:lens_edge_refraction
+   FAIL: analytics-card@1440:lens_edge_consistent
+   FAIL: analytics-card@1440:ab_edge_refraction
+   FAIL: analytics-card@390:lens_edge_refraction
+   FAIL: analytics-card@390:lens_edge_consistent
+   FAIL: analytics-card@390:ab_edge_refraction
+   FAIL: settings-card@1440:lens_edge_refraction
+   FAIL: settings-card@1440:lens_edge_consistent
+   FAIL: settings-card@1440:ab_edge_refraction
+   FAIL: settings-card@390:lens_edge_refraction
+   FAIL: settings-card@390:lens_edge_consistent
+   FAIL: settings-card@390:ab_edge_refraction
+   FAIL: sidebar@1440:lens_edge_refraction
+   FAIL: sidebar@1440:lens_edge_consistent
+   FAIL: header@1440:lens_edge_refraction
+   FAIL: header@1440:lens_edge_consistent
+   FAIL: header@390:lens_edge_refraction
+   FAIL: header@390:lens_edge_consistent
+   FAIL: modal-card@1440:lens_edge_consistent
+   FAIL: modal-card@390:lens_edge_refraction
+   FAIL: modal-card@390:lens_edge_consistent

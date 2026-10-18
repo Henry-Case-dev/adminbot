@@ -368,6 +368,19 @@ def toast_texts(page):
         ".map((t) => t.textContent.replace(/\\s+/g,' ').trim()).filter((s) => s))()")
 
 
+def open_section_menu(page, section):
+    """P0A-UX §4-C4: второстепенные действия раздела — в ⋯-меню."""
+    page.click("[data-speech-menu='%s']" % section)
+    page.wait_for_selector(".speech-menu-panel", state="visible")
+    page.wait_for_timeout(150)
+
+
+def click_menu_item(page, text):
+    page.locator(".speech-menu-panel .more-menu-item",
+                 has_text=text).first.click()
+    page.wait_for_timeout(200)
+
+
 def unchecked_rule_count(page):
     return page.evaluate(
         "(() => Array.from(document.querySelectorAll('.speech-rule input[type=checkbox]'))"
@@ -381,9 +394,15 @@ def run_viewport(browser, viewport, shots, deep):
         open_screen(page, viewport)
         probe = check_viewport(page, viewport)
         width_cols = probe["gridCols"]
-        if width <= 599 and width_cols > 1:
+        # P0A-UX §4-C1 (осознанное изменение контракта витрины): 320px —
+        # 1 колонка; 360–599px — ровно 2 (4 группы видны без простыни);
+        # ≥600px — авто-сетка (≥2 колонок).
+        if width < 360 and width_cols > 1:
             fail(viewport, "витрина в %d колонки при ширине %d"
                  % (width_cols, width))
+        if 360 <= width <= 599 and width_cols != 2:
+            fail(viewport, "витрина не в 2 колонки при ширине %d (%d колонки)"
+                 % (width, width_cols))
         if width >= 600 and width_cols < 2:
             note = "витрина в 1 колонку при ширине %d (плотность, не ошибка)" % width
             notes.append({"label": viewport, "note": note})
@@ -487,12 +506,15 @@ def run_interactions(browser, viewport, shots):
                  % posted[-3:])
         if shots:
             snap(page, "core_saved_%s" % viewport)
-        # diff и заводской предпросмотр (два клика: план → подтверждение).
-        # Форма ответа — РЕАЛЬНАЯ (FIXTURE["factory_reset_plan"]), поэтому
-        # «undefined» в диалоге = провал (review-w6 F3).
-        page.click(".speech-section .btn-ghost:text('Показать diff с заводским')")
+        # diff и заводской предпросмотр (P0A-UX §4-C4: кнопки — в ⋯-меню;
+        # два клика: план → подтверждение). Форма ответа — РЕАЛЬНАЯ
+        # (FIXTURE["factory_reset_plan"]), поэтому «undefined» = провал
+        # (review-w6 F3).
+        open_section_menu(page, "core")
+        click_menu_item(page, "Показать diff с заводским")
         page.wait_for_selector("[data-speech-diff]", state="visible")
-        page.click(".speech-section .btn-ghost:text('Вернуть заводской')")
+        open_section_menu(page, "core")
+        click_menu_item(page, "Вернуть заводской")
         page.wait_for_timeout(600)
         plan_row = (FIXTURE.get("factory_reset_plan") or {}).get("plan") or {}
         plan_expected = "было %s → станет %s зн." % (
@@ -509,7 +531,8 @@ def run_interactions(browser, viewport, shots):
         if shots:
             snap(page, "factory_plan_%s" % viewport)
         # второй клик по той же кнопке = подтверждение (apply=true)
-        page.click(".speech-section .btn-ghost:text('Вернуть заводской')")
+        open_section_menu(page, "core")
+        click_menu_item(page, "Вернуть заводской")
         page.wait_for_timeout(900)
         if not any(p.endswith("/reset") for p in posted):
             fail(viewport, "подтверждение заводского сброса не ушло в API (%s)"
@@ -570,9 +593,15 @@ def run_interactions(browser, viewport, shots):
         if ("%d правил" % after_add) not in page.inner_text(
                 ".speech-section .speech-row"):
             fail(viewport, "F2: счётчик правил не следует за черновиком")
-        if "trailing_period.hard.strip" not in page.inner_text(
-                ".speech-section .speech-table"):
-            fail(viewport, "F2: добавленное правило не видно в списке")
+        # P0A-UX §3 (TJ-5): человеческий заголовок виден сразу, сырой id —
+        # в свёрнутых «Технических параметрах правила» (раскрываем).
+        added_rule = page.locator(".speech-rule").last
+        if "Точка в конце сообщения" not in added_rule.inner_text():
+            fail(viewport, "TJ-5: у правила нет человеческого заголовка")
+        added_rule.locator("details summary").first.click()
+        page.wait_for_timeout(200)
+        if "trailing_period.hard.strip" not in added_rule.inner_text():
+            fail(viewport, "TJ-5: сырой id правила недоступен даже в деталях")
         if shots:
             snap(page, "style_added_%s" % viewport)
 
@@ -624,7 +653,8 @@ def run_interactions(browser, viewport, shots):
                       "rules": [rules_after, after_add, after_remove],
                       "soft": [soft_before, soft_before + 1, soft_before]})
 
-        page.click(".speech-section .btn-ghost:text('Предпросмотр на примерах')")
+        open_section_menu(page, "style")
+        click_menu_item(page, "Предпросмотр на примерах")
         page.wait_for_selector("[data-speech-style-preview]", state="visible")
         rows = page.locator("[data-speech-style-preview] .speech-preview-row").count()
         if rows < 3:

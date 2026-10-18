@@ -165,22 +165,81 @@ def test_long_lines_scroll_inside_components_and_oauth_targets():
 
 
 def test_drafts_never_lost_by_refresh_or_navigation():
-    """Черновик владельца важнее серверного снапшота (SOUL-10.P3)."""
-    assert ("speechDirty: { core: false, style: false, expression: false }"
+    """Черновик владельца важнее серверного снапшота (SOUL-10.P3).
+
+    P0A-UX §5.3/§4-C6 (R3): dirty — ПО РЕДАКЦИИ Core (``coreFull``/
+    ``coreCompact``): бейдж «черновик» и «Сохранить» относятся к открытой
+    редакции, вторая редакция своё состояние не теряет. Осознанная смена
+    контракта (CONTRACT owner=P0A-UX-SAVE) — прежний единый ``core``-флаг
+    запрещён, иначе «Сохранить» обнулял бы чужое состояние.
+    """
+    assert ("speechDirty: { coreFull: false, coreCompact: false, style: false,"
             in APP_JS)
-    assert "if (!this.speechDirty.core)" in APP_JS
+    assert ("expression: false }" in APP_JS)
+    assert "if (!this.speechDirty.coreFull)" in APP_JS
+    assert "if (!this.speechDirty.coreCompact)" in APP_JS
     assert "if (!this.speechDirty.style)" in APP_JS
     assert "if (!this.speechDirty.expression)" in APP_JS
     for marker in ("this.speechDirty.style = true;",
                    "this.speechDirty.expression = true;",
-                   "this.speechDirty.core = true;",
+                   "this.speechDirty.coreFull = true;",
+                   "this.speechDirty.coreCompact = true;",
                    "this.speechDirty.style = false;",
                    "this.speechDirty.expression = false;",
-                   "this.speechDirty.core = false;"):
+                   "this.speechDirty.coreFull = false;",
+                   "this.speechDirty.coreCompact = false;"):
         assert marker in APP_JS, marker
+    # Единый core-флаг не должен вернуться ни в одном виде.
+    assert "speechDirty.core = true;" not in APP_JS
+    assert "speechDirty.core = false;" not in APP_JS
+    assert "if (!this.speechDirty.core)" not in APP_JS
     # «Назад» лишь переключает раздел — черновики живут в состоянии экрана.
     assert "speechBack: function () {" in APP_JS
     assert "this.speechSection = '';" in APP_JS
+
+
+def test_p0a_ux_hierarchy_scope_and_save_anchors():
+    """P0A-UX §2/§4/§5/§6 (EXTRA к контракту W6, §9.2): новые анкеры
+    среза — группы витрины, ⋯-меню, sticky-save, per-section scope.
+
+    Это дополнение, а не замена W6-контракта: все ``data-speech-*``-анкеры
+    выше остаются в силе.
+    """
+    # §2: 4 группы витрины; карточки рендерятся из серверного payload.
+    assert "data-speech-groups" in INDEX
+    assert "speechShowcaseGroups()" in INDEX
+    for group in ("'1. Характер'", "'2. Манера речи'", "'3. Правила письма'",
+                  "'4. Дополнительно'"):
+        assert group in APP_JS, group
+    # «Для разработчика»-блок в витрине убран (TJ-4) — данные в «Все инструкции».
+    assert "Для разработчика" not in INDEX
+    assert "speech-adv-note" not in INDEX
+    assert "data-speech-registry" in INDEX
+    # §4-C4/C6/C7: ⋯-меню, sticky-save, разворот редактора на мобиле.
+    assert "data-speech-menu" in INDEX
+    assert "speech-menu-root" in INDEX and "more-menu-item" in INDEX
+    assert "data-speech-savebar" in INDEX
+    assert "speech-expand-btn" in INDEX
+    assert "data-autogrow" in INDEX
+    # §6.2/§6.3: «источник» строкой и цель сохранения — на раздел.
+    assert "data-speech-source" in INDEX
+    assert ":value=\"speechScopeFor('core')\"" in INDEX
+    assert "v-model=\"speechScopeChoice\"" not in INDEX
+
+    # §5.2: человеческие формулировки вместо технических кодов в UI.
+    assert "speechErrText" in APP_JS and "speechSaveFail" in APP_JS
+    assert "Показать diff с заводским" in INDEX  # осталось в ⋯-меню
+    assert "Наследовать глобальные настройки" in INDEX
+    assert "Сбросить в inherited" not in INDEX
+    assert "Сбросить для чата" not in INDEX
+    # §5.3/§5.4: dirty виден в шапке экрана и в разделах; «Сохранено ✓».
+    assert "data-speech-dirty-count" in INDEX
+    assert "speechSavedText('core')" in INDEX
+    assert "Повторить сохранение" in INDEX
+    # §10: лейбл ностальгии — сценарий A/B, legacy-ветка сохранена.
+    assert "Живая беседа: вспомнит по контексту" in APP_JS
+    assert "Затишье: готово вспомнить прошлое" in APP_JS
+    assert "Тишина: " in APP_JS  # legacy-ветка (payload без `active`)
 
 
 def test_router_is_mounted_with_single_prefix():

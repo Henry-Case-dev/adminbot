@@ -1713,9 +1713,9 @@ async def get_overview(
     # существующие уроки опыта + реакции на шутки по своей оси).
     examples_card = await _examples_card()
     learning_card = _learning_card(gates)
+    core_level = str((core.get("selection") or {}).get("level"))
     core_edition = (core.get("editions") or {}).get(
-        "full" if str((core.get("selection") or {}).get("level")) == "full"
-        else "compact", {})
+        "full" if core_level == "full" else "compact", {})
     return {
         "scope": "chat" if chat_id is not None else "global",
         "chat_id": chat_id,
@@ -1727,8 +1727,8 @@ async def get_overview(
              "state": ("withheld" if core_edition.get("withheld")
                        else "custom" if core_edition.get("differs_from_factory")
                        else "factory"),
-             "detail": ("действует %s · %s зн." % (
-                 core_edition.get("revision") or "—",
+             "detail": ("Действует %s редакция · %s зн." % (
+                 "полная" if core_level == "full" else "компактная",
                  core_edition.get("chars") or 0)),
              "ready": True},
             {"id": "style", "icon": "format_quote", "title": "Стиль письма",
@@ -1736,10 +1736,18 @@ async def get_overview(
              "state": ("custom" if (style.get("rules") or
                                     style.get("soft_instructions"))
                        else "factory"),
-             "detail": "%d правил · %s" % (
+             # TJ-3 (P0A-UX §3.2): карточка витрины — человеческой строкой;
+             # сырое `inheritance` (chat/global/factory_default) в основном
+             # UI не показывается (доступно в детали раздела).
+             "detail": (("Правил: %d · %s" % (
                  len(style.get("rules") or []),
-                 (style.get("document") or {}).get("inheritance")
-                 or "factory_default"),
+                 {"chat": "переопределено для чата",
+                  "global": "задано глобально",
+                  "factory_default": "заводское значение"}.get(
+                      (style.get("document") or {}).get("inheritance"),
+                      "по настройке")))
+                 if (style.get("rules") or style.get("soft_instructions"))
+                 else "Правил пока нет — форма текста как обычно"),
              "ready": True},
             {"id": "expression", "icon": "tune", "title": "Выражение",
              "subtitle": "Остроумие, резкость, мат, развёрнутость",

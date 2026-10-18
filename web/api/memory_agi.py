@@ -742,12 +742,32 @@ async def deep_sleep_status(
 
 # ── GET /api/memory/cognition/status (F5/T-1449, spec §3.2) ─────────────────
 
+def _scenario_active(last_user_ts: int | None, now: float,
+                     silence_sec: int) -> bool:
+    """Сценарий A (живая беседа): последнее юзерское сообщение свежее окна
+    тишины — контекстное воспоминание возможно без ожидания 45 минут.
+
+    Та же формула, что у воркера (``services/nostalgia_worker.py``:
+    ``active = last_ts + silence_sec > now``) — payload не заводит второго
+    правила (P0A-UX §10).
+    """
+    if last_user_ts is None:
+        return False
+    return last_user_ts + int(silence_sec) > now
+
+
 def _nostalgia_state(last_user_ts: int | None, sent_ts: int | None,
                      now: float, silence_min: int,
                      cooldown_h: int) -> dict:
     """Режим ностальгии для виджета (spec §3.2/§7): silence (тишина ещё не
     выдержана) | cooldown (после отправки) | ready (можно слать).
-    leftover-минуты/часы — ceil, не отрицательные."""
+    leftover-минуты/часы — ceil, не отрицательные.
+
+    P0A-UX §10: ``active``/``scenario`` — тот же сценарий A/B, что у воркера;
+    прежние поля не меняются (совместимость с F5-тестами).
+    """
+    active = _scenario_active(last_user_ts, now, int(silence_min) * 60)
+    scenario = "active" if active else "idle"
     if last_user_ts is not None and silence_min > 0:
         ready_at = last_user_ts + silence_min * 60
         if now < ready_at:
@@ -755,7 +775,8 @@ def _nostalgia_state(last_user_ts: int | None, sent_ts: int | None,
             return {"mode": "silence", "silence_left_min": max(0, left),
                     "silence_min_total": int(silence_min),
                     "cooldown_left_h": 0,
-                    "cooldown_h_total": int(cooldown_h)}
+                    "cooldown_h_total": int(cooldown_h),
+                    "active": active, "scenario": scenario}
     if sent_ts is not None and cooldown_h > 0:
         ready_at = sent_ts + cooldown_h * 3600
         if now < ready_at:
@@ -763,10 +784,12 @@ def _nostalgia_state(last_user_ts: int | None, sent_ts: int | None,
             return {"mode": "cooldown", "silence_left_min": 0,
                     "silence_min_total": int(silence_min),
                     "cooldown_left_h": max(0, left),
-                    "cooldown_h_total": int(cooldown_h)}
+                    "cooldown_h_total": int(cooldown_h),
+                    "active": active, "scenario": scenario}
     return {"mode": "ready", "silence_left_min": 0,
             "silence_min_total": int(silence_min),
-            "cooldown_left_h": 0, "cooldown_h_total": int(cooldown_h)}
+            "cooldown_left_h": 0, "cooldown_h_total": int(cooldown_h),
+            "active": active, "scenario": scenario}
 
 
 @memory_router.get("/memory/cognition/status")

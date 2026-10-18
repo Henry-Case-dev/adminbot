@@ -192,6 +192,41 @@ class TestCognitionStatus:
                                 now, 45, 12)
         assert r["mode"] == "ready"
 
+    def test_nostalgia_scenario_flag_matches_worker_formula(self):
+        """P0A-UX §10: `active`/`scenario` в payload — та же формула сценария
+        A/B, что у воркера (свежее окна тишины сообщение = живая беседа).
+
+        Legacy-поля не меняются (совместимость с F5): проверяются оба контура
+        и то, что «человеческий» скаляр `active` — булев, а не leftover-минуты.
+        """
+        from web.api import memory_agi as ma
+        now = 2_000_000.0
+        silence_min = 45
+        # (a) сообщение 10 минут назад → сценарий A (живая беседа)
+        s = ma._nostalgia_state(now - 600, None, now, silence_min, 12)
+        assert s["mode"] == "silence"
+        assert s["active"] is True and s["scenario"] == "active"
+        # (b) сообщение 2 часа назад → затишье (сценарий B), можно вспоминать
+        r = ma._nostalgia_state(now - 7200, None, now, silence_min, 12)
+        assert r["mode"] == "ready"
+        assert r["active"] is False and r["scenario"] == "idle"
+        # (c) после отправки (last_sent 2ч назад) действует кулдаун: режим
+        #     cooldown; `active` отражает сценарий A по последнему юзерскому
+        #     сообщению (здесь сообщение давно → затишье).
+        c = ma._nostalgia_state(now - 7200, int(now) - 7200, now,
+                                silence_min, 12)
+        assert c["mode"] == "cooldown"
+        assert c["active"] is False and c["scenario"] == "idle"
+        # (d) нет истории — не active; формула воркера для того же входа
+        no_hist = ma._nostalgia_state(None, None, now, silence_min, 12)
+        assert no_hist["active"] is False and no_hist["scenario"] == "idle"
+        # Зеркальный чистый хелпер — тот же результат, что у прямого сравнения
+        # (один источник формулы: services/nostalgia_worker.py: active = last +
+        # silence_sec > now).
+        assert ma._scenario_active(now - 600, now, silence_min * 60) is True
+        assert ma._scenario_active(now - 7200, now, silence_min * 60) is False
+        assert ma._scenario_active(None, now, silence_min * 60) is False
+
     def test_next_hour_and_day_start(self):
         from web.api import memory_agi as ma
         tz = "UTC"

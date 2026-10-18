@@ -4305,15 +4305,24 @@ html.cover-editor-open { overflow: hidden; }
 }
 .speech-screen .btn-accent { color: #081018; }
 
-/* Витрина: карточки-кнопки; 1 колонка на телефоне */
-.speech-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(260px, 100%), 1fr)); gap: 12px; }
+/* Витрина: карточки-кнопки (§2/§4-C1: 4 группы; 2 колонки 360–599px) */
+.speech-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(220px, 100%), 1fr)); gap: 8px; }
+.speech-group-title {
+  grid-column: 1 / -1;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: var(--text-3, #7C8798);
+  margin-top: 4px;
+}
+.speech-group-note { grid-column: 1 / -1; }
 .speech-grid-tight { grid-template-columns: repeat(auto-fill, minmax(min(200px, 100%), 1fr)); }
 .speech-card {
   display: flex;
   align-items: flex-start;
-  gap: 10px;
-  padding: 12px;
-  min-height: 88px;
+  gap: 8px;
+  padding: 10px;
+  min-height: 64px;
   text-align: left;
   cursor: pointer;
   color: inherit;
@@ -4321,11 +4330,19 @@ html.cover-editor-open { overflow: hidden; }
 }
 .speech-card-tight { min-height: 64px; }
 .speech-card[disabled] { cursor: default; opacity: .7; }
-.speech-card-icon { font-size: 20px; line-height: 1; flex: none; }
+.speech-card-icon { font-size: 18px; line-height: 1; flex: none; }
 .speech-card-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1 1 auto; }
 .speech-card-title { font-size: 13px; font-weight: 700; }
 .speech-card-sub { font-size: 11px; color: var(--text-2, #A9B4C4); overflow-wrap: anywhere; }
-.speech-card-detail { font-size: 11px; color: var(--text-3, #7C8798); overflow-wrap: anywhere; }
+.speech-card-detail {
+  font-size: 11px;
+  color: var(--text-3, #7C8798);
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
 .speech-adv-title {
   grid-column: 1 / -1;
   font-size: 11px;
@@ -4347,9 +4364,9 @@ html.cover-editor-open { overflow: hidden; }
 .speech-section > *,
 .speech-pad > *,
 .speech-table > * { min-width: 0; }
-.speech-pad { padding: 12px; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.speech-pad { padding: 12px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
 .speech-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-width: 0; }
-.speech-note { line-height: 1.4; }
+.speech-note { font-size: 12px; line-height: 1.35; }
 .speech-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .speech-actions .btn-accent,
 .speech-actions .btn-ghost { min-height: 44px; padding-left: 12px; padding-right: 12px; }
@@ -4365,11 +4382,12 @@ html.cover-editor-open { overflow: hidden; }
 }
 
 /* Редактор (tier C): непрозрачная подложка — выбор/каретка и черновик живут
-   независимо от перерисовок и поллинга других разделов. */
+   независимо от перерисовок и поллинга других разделов. §4-C6: автовысота
+   от 3 строк (JS autoGrowEditor), максимум 40vh, resize выключен. */
 .speech-editor {
-  min-height: 180px;
-  max-height: 46vh;
-  resize: vertical;
+  min-height: 96px;
+  max-height: 40vh;
+  resize: none;
   overflow: auto;
   background: var(--editor-bg, rgba(9, 14, 25, .96));
   border: 1px solid rgba(148, 163, 184, .28);
@@ -4468,8 +4486,84 @@ html.cover-editor-open { overflow: hidden; }
 @media (max-width: 599px) {
   .speech-screen { padding: 12px; }
   .speech-grid, .speech-grid-tight { grid-template-columns: minmax(0, 1fr); }
-  .speech-editor { min-height: 160px; max-height: 52vh; }
+  .speech-editor { min-height: 110px; max-height: 42vh; }
   .speech-pre, .speech-scrollable { max-height: 34vh; }
+}
+/* §4-C1 (P0A-UX): на 360–599px — ровно 2 колонки (4 группы видны без
+   длинной простыни); 320px остаётся одноколоночным. Базовые правила —
+   НИЖЕ медиа-запросов (иначе display:none перекрыл бы мобильные правила). */
+@media (min-width: 360px) and (max-width: 599px) {
+  .speech-grid, .speech-grid-tight { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+/* §4-C1/§4-C2 (P0A-UX): компактная шапка и подблоки вместо «матрёшки»;
+   группа=подпись, действие=кнопка, техдетали=details. Тач-цели не трогаем.
+   Базовые правила идут ДО медиа-запросов ниже (иначе display:none перекрыл
+   бы мобильные/landscape-правила при равной специфичности). */
+.speech-refresh { display: inline-flex; align-items: center; gap: 6px; }
+.speech-subblock {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  border-left: 2px solid rgba(148, 163, 184, .18);
+  padding-left: 10px;
+  border-radius: 0;
+}
+.speech-editor-tools { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.speech-expand-btn { display: none; }
+/* C4: кнопка ⋯ — самостоятельная цель 44×44 (§4). */
+.speech-menu-btn { min-width: 44px; justify-content: center; }
+.speech-saved { color: #34d399; }
+.speech-screen { padding-bottom: calc(12px + max(env(safe-area-inset-bottom), var(--tg-safe-area-inset-bottom, 0px)) + var(--kb-offset, 0px)); }
+.speech-savebar { justify-content: flex-end; }
+.speech-fullscreen {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  padding-top: calc(12px + env(safe-area-inset-top, 0px));
+  padding-bottom: calc(12px + max(env(safe-area-inset-bottom),
+    var(--tg-safe-area-inset-bottom, 0px)) + var(--kb-offset, 0px));
+  background: rgba(9, 14, 25, .98);
+  overflow: auto;
+}
+.speech-fullscreen .speech-editor { flex: 1 1 auto; max-height: none; }
+/* ⋯-меню раздела: локальный popover по паттерну .more-menu-* (§4-C4):
+   z-index 55 (ниже тостов 60), закрытие — backdrop/Esc/пункт. */
+.speech-menu-root { position: fixed; inset: 0; z-index: 55; outline: none; }
+.speech-menu-backdrop { position: absolute; inset: 0; background: rgba(0, 0, 0, .45); }
+.speech-menu-panel {
+  position: absolute;
+  left: max(8px, env(safe-area-inset-left, 0px));
+  right: max(8px, env(safe-area-inset-right, 0px));
+  top: calc(var(--header-h, 96px) + env(safe-area-inset-top, 0px) + 4px);
+  max-height: calc(100dvh - var(--header-h, 96px)
+    - env(safe-area-inset-top, 0px)
+    - max(env(safe-area-inset-bottom, 0px), 12px) - 8px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: .4rem;
+  background-color: var(--surface-1, #11151c);
+  border: var(--card-border, 1px solid rgba(255, 255, 255, .12));
+  box-shadow: var(--shadow-xl);
+  border-radius: 14px;
+}
+@media (max-width: 599px) {
+  .speech-tabs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+  .speech-tab { width: 100%; padding: 0 8px; }
+  .speech-refresh-label { display: none; }
+  .speech-expand-btn { display: inline-flex; }
+}
+/* §4-C2: имя активного чата дублирует верхний селектор области — на узком
+   экране не показываем. */
+@media (max-width: 480px) {
+  .speech-head-chat { display: none; }
 }
 @media (min-width: 1024px) {
   .speech-split { grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); }
@@ -4478,6 +4572,7 @@ html.cover-editor-open { overflow: hidden; }
 @media (max-height: 480px) and (orientation: landscape) {
   .speech-editor { min-height: 120px; max-height: 40vh; }
   .speech-pre, .speech-scrollable { max-height: 30vh; }
+  .speech-expand-btn { display: inline-flex; }
 }
 /* ═══ /SOUL-1 W6 ═══ */
 
