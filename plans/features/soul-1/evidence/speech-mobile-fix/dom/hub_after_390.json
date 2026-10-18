@@ -1,0 +1,15 @@
+{
+ "hash": "#/ai",
+ "entryPresent": true,
+ "entryOuterHTML": "<button type=\"button\" class=\"speech-hub-entry\" data-speech-hub-entry=\"\"><span class=\"msr speech-hub-entry__icon\" aria-hidden=\"true\"></span><span class=\"speech-hub-entry__body\"><span class=\"speech-hub-entry__title\">Речь и характер</span><span class=\"speech-hub-entry__sub\">Характер (Core), стиль письма, выражение, юмор, примеры и обучение — редакторы и сохранение</span></span><span class=\"speech-hub-entry__cta\">Открыть →</span></button>",
+ "gridFirstChildTag": "BUTTON.speech-hub-entry",
+ "gridFirstChildHTML": "<button type=\"button\" class=\"speech-hub-entry\" data-speech-hub-entry=\"\"><span class=\"msr speech-hub-entry__icon\" aria-hidden=\"true\"></span><span class=\"speech-hub-entry__body\"><span class=\"speech-hub-entry__title\">Речь и характер</span><span class=\"speech-hub-entry__sub\">Характер (Core), стиль письма, выражение, юмор, примеры и обучение — редакторы и сохранение</span></span><span class=\"speech-hub-entry__cta\">Открыть →</span></button>",
+ "hubCards": [
+  "Библиотека промптов",
+  "Модели и подключения",
+  "Личность и стиль",
+  "Имена и алиасы",
+  "Умный кэш"
+ ],
+ "hubCardCount": 5
+}

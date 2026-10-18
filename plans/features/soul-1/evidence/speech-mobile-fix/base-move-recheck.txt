@@ -1,0 +1,37 @@
+FIX-SPEECH-MOBILE — пере-проверка кандидата на сдвинувшейся базе (перед фиксацией коммитом)
+Дата: 2026-10-18 (локально +12:00). Лейн: PKG-SPEECH (только фиксация; код фикса не менялся).
+
+Зачем: ревью `plans/features/soul-1/review-speech-mobile.md` (коммит bf6208f5) зафиксировало
+sha256 кандидата на базе `10c15cf5`. До фиксации коммита база сдвинулась: `83ecd202`
+(CFG-02A B1: отказ от пустого ввода квоты) изменил `web/app.js` вне хунка речи.
+Проверяем: хунк речи байт-в-байт тот же + фикс работает на новой базе.
+
+Базы/коммиты:
+  база ревью 10c15cf5 (10c15cf52c5c6a09ef4bf051a643fdf662b06cb3)
+  ревью-коммит bf6208f5 (bf6208f52986f70e9852f2fde7d3b0117ddb52f5)
+  83ecd202 (83ecd202659c2e1a30b46f8548b0809e892b77a9) — CFG-02A, +5/−1 в web/app.js (строки ~1375, IMAGE_QUOTA)
+  база фиксации e5bbb91d (e5bbb91df90a46ebb0f446ae1de071d5ae56a5a6)
+  669debfa — 2 глиф-строки уже в HEAD (дублей при фиксации нет)
+
+1) Идентичность хунка речи (реконструкция reviewed-blob):
+  10c15cf5:web/app.js + те же 16 добавленных строк => sha256
+  4078B1997AA2210F023DD5423375CF64D71FC3A08D5DE4460CB04B54B992A522 == запись ревью => MATCH=True
+  (доказательство: текущий `git diff -- web/app.js` = ровно +16/−0; реконструкция даёт sha ревью)
+
+2) sha256 рабочего дерева при фиксации (после сдвига базы):
+  web/app.js        2757A25D663DFE7EF6642D7E394D2BB38403BB9C9495EE7A52494DE29F7467E7
+    (отличается от 4078B199… ТОЛЬКО на байты CFG-02A 83ecd202 из HEAD; хунк речи идентичен — см. п.1)
+  web/index.html    F79F9AD5845782C4833F63F102ABD371D1FB48C6F660C65A3E587CABAC825125  == запись ревью
+  web/static/app.css D6B848CDECD0A162B786CD76D3CC99C6EB66397A699A635C69918987AC0D779D == запись ревью
+  tests/ui_speech_mobile_entry_e2e.py         ECCF7509C0A781093A767805BAAC8CD108F40641E674957E261A28CFC1D090DA
+  tests/test_speech_mobile_entry_contract.py  3E444435D9E7D2AF38521CE47BB8AE3583E8A8B2AC1B72DAD3323F5B557DF323
+  git diff --numstat (кандидат vs база e5bbb91d): web/app.js +16 −0; web/index.html +15 −0; web/static/app.css +34 −0
+
+3) Прогоны на сдвинувшейся базе (2026-10-18, ~18:56 +12:00):
+  .venv/Scripts/python.exe -m pytest tests/test_speech_mobile_entry_contract.py -q  ->  6 passed in 2.85s
+  .venv/Scripts/python.exe tests/ui_speech_mobile_entry_e2e.py --json <scratch>    ->  ИТОГ: failures=0
+    webroot = <repo>/web; вьюпорты 320 / 390 / 1280; probes=11; notes=[] (пусто)
+    машинный отчёт: OPENCODE_WORKFLOW_SCRATCH/pkg-speech/base-move/entry-e2e.json (scratch, не в репозитории)
+
+Вывод: fix-speech-mobile зафиксирован коммитом на базе e5bbb91d без изменения содержания
+одобренного кандидата; сдвиг базы (CFG-02A) хунк речи не затрагивает.

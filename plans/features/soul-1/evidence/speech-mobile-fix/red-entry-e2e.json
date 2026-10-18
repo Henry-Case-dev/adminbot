@@ -1,0 +1,138 @@
+{
+ "webroot": "C:\\Code\\Python\\adminbot\\OPENCODE_WORKFLOW_SCRATCH\\speech-mobile\\web-master",
+ "failures": [
+  "320: НЕТ явного входа [data-speech-hub-entry] на хабе «ИИ»",
+  "390: НЕТ явного входа [data-speech-hub-entry] на хабе «ИИ»",
+  "1280: НЕТ явного входа [data-speech-hub-entry] на хабе «ИИ»"
+ ],
+ "notes": [],
+ "probes": [
+  {
+   "label": "320/more",
+   "probe": {
+    "hash": "#/",
+    "topnav": [
+     "Статус",
+     "Аналитика",
+     "Модули",
+     "Ещё"
+    ],
+    "hubCards": [
+     "Аналитика"
+    ],
+    "hubEntryPresent": false,
+    "hubEntryVisible": false,
+    "hubEntryText": null,
+    "hubEntryRect": null,
+    "personaEntryVisible": false,
+    "screenVisible": false,
+    "screenTitle": "",
+    "sectionCards": 0,
+    "overflow": 0
+   }
+  },
+  {
+   "label": "320/hub",
+   "probe": {
+    "hash": "#/ai",
+    "topnav": [
+     "Статус",
+     "Аналитика",
+     "Модули",
+     "Ещё • ИИ"
+    ],
+    "hubCards": [
+     "Библиотека промптов",
+     "Модели и подключения",
+     "Личность и стиль",
+     "Имена и алиасы",
+     "Умный кэш"
+    ],
+    "hubEntryPresent": false,
+    "hubEntryVisible": false,
+    "hubEntryText": null,
+    "hubEntryRect": null,
+    "personaEntryVisible": false,
+    "screenVisible": false,
+    "screenTitle": "",
+    "sectionCards": 0,
+    "overflow": 0
+   }
+  },
+  {
+   "label": "390/more",
+   "probe": {
+    "hash": "#/",
+    "topnav": [
+     "Статус",
+     "Аналитика",
+     "Модули",
+     "Ещё"
+    ],
+    "hubCards": [
+     "Аналитика"
+    ],
+    "hubEntryPresent": false,
+    "hubEntryVisible": false,
+    "hubEntryText": null,
+    "hubEntryRect": null,
+    "personaEntryVisible": false,
+    "screenVisible": false,
+    "screenTitle": "",
+    "sectionCards": 0,
+    "overflow": 0
+   }
+  },
+  {
+   "label": "390/hub",
+   "probe": {
+    "hash": "#/ai",
+    "topnav": [
+     "Статус",
+     "Аналитика",
+     "Модули",
+     "Ещё • ИИ"
+    ],
+    "hubCards": [
+     "Библиотека промптов",
+     "Модели и подключения",
+     "Личность и стиль",
+     "Имена и алиасы",
+     "Умный кэш"
+    ],
+    "hubEntryPresent": false,
+    "hubEntryVisible": false,
+    "hubEntryText": null,
+    "hubEntryRect": null,
+    "personaEntryVisible": false,
+    "screenVisible": false,
+    "screenTitle": "",
+    "sectionCards": 0,
+    "overflow": 0
+   }
+  },
+  {
+   "label": "1280/hub",
+   "probe": {
+    "hash": "#/ai",
+    "topnav": [],
+    "hubCards": [
+     "Библиотека промптов",
+     "Модели и подключения",
+     "Личность и стиль",
+     "Имена и алиасы",
+     "Умный кэш"
+    ],
+    "hubEntryPresent": false,
+    "hubEntryVisible": false,
+    "hubEntryText": null,
+    "hubEntryRect": null,
+    "personaEntryVisible": false,
+    "screenVisible": false,
+    "screenTitle": "",
+    "sectionCards": 0,
+    "overflow": 0
+   }
+  }
+ ]
+}

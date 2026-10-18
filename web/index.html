@@ -452,6 +452,21 @@
               <div class="hub-sub">{{ hubCards.subtitle }}</div>
             </div>
             <div class="hub-grid">
+              <!-- ═══ FIX-SPEECH-MOBILE (18.10, директива владельца §6.3):
+                   явная строка-вход «Речь и характер» на хабе «ИИ» —
+                   владелец на мобильном не находил раздел (дверь была только
+                   внутри «Личность и стиль»). Маршрут прежний (#/ai/speech);
+                   карточки/страницы хаба и навигация не меняются. ═══ -->
+              <button v-if="hubSpeechEntry" type="button"
+                      class="speech-hub-entry" data-speech-hub-entry
+                      @click="navigateTo('#/ai/speech')">
+                <span class="msr speech-hub-entry__icon" aria-hidden="true">{{ iconGlyph('edit_note') }}</span>
+                <span class="speech-hub-entry__body">
+                  <span class="speech-hub-entry__title">Речь и характер</span>
+                  <span class="speech-hub-entry__sub">Характер (Core), стиль письма, выражение, юмор, примеры и обучение — редакторы и сохранение</span>
+                </span>
+                <span class="speech-hub-entry__cta">Открыть →</span>
+              </button>
               <button v-for="c in hubCards.cards"
                       :key="c.route + (c.section || '')"
                       class="hub-card" @click="openHubCard(c)">

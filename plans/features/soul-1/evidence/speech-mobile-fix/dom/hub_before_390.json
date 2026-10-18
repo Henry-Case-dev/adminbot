@@ -1,0 +1,15 @@
+{
+ "hash": "#/ai",
+ "entryPresent": false,
+ "entryOuterHTML": null,
+ "gridFirstChildTag": "BUTTON.hub-card",
+ "gridFirstChildHTML": "<button class=\"hub-card\" data-glass-tier=\"a\" data-glass-reason=\"refract-layer\" data-refract-layer=\"on\" data-lg-refract=\"1\" style=\"overflow: clip; isolation: isolate; position: relative;\"><span class=\"msr\" aria-hidden=\"true\"></span><span class=\"min-w-0\"><span class=\"hub-card-title block truncate\">Библиотека промптов <!----><!----></span><span class=\"hub-card-sub block\">Все системные промпты модулей</span></span><canvas class=\"lg-refract\" data-lg-refract=\"1\" aria-hidden=\"true\" tabindex=\"-1\" width=\"374\" height=\"79\" style=\"position: absolute; left: 0px; top: 0px; z-index: -1; pointer-events: none; border-radius: 12px; backdrop-filter: none; filter: blur(5px) saturate(140%) url(&quot;#lg-refract-lens-3&quot;); mask-image: linear-gradient(to right, rgb(255, 255, 255) 0px, rgb(255, 255, 255) 20px, transparent 66px), linear-gradient(to left, rgb(255, 255, 255) 0px, rgb(255, 255, 255) 20px, tran",
+ "hubCards": [
+  "Библиотека промптов",
+  "Модели и подключения",
+  "Личность и стиль",
+  "Имена и алиасы",
+  "Умный кэш"
+ ],
+ "hubCardCount": 5
+}
