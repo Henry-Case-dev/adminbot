@@ -25,9 +25,24 @@ Fail-open (63.1, прецедент SmartCache): ошибки БД → WARNING +
 ровно старые in-memory инстансы (`make_cooldown`); helper'ы
 `cooldown_remaining`/`cooldown_touch` принимают и sync-, и async-трекеры
 (обратная совместимость in-memory fallback-режима в хендлерах).
+
+CFG-01 (§01.2/§01.4/§01.5) — effective-лимиты Direct Chat и судьба состояния:
+
+* `resolve_direct_chat_limits(chat_id)` — per-chat override → глобальное
+  значение ConfigCache → settings-дефолт (+ источник `chat|global|factory`),
+  переиспользуется существующий резолвер `chat_params` (spec §4.5);
+* `throttle_refresh(...)` — применить их перед проверкой (hot-reload без
+  рестарта в пределах гарантированного времени: global — немедленно,
+  override — NOTIFY-инвалидация, не позднее TTL 120 с);
+* перезапуск: persistent-режим (прод-дефолт) СОХРАНЯЕТ состояние слота
+  (`throttle_state`, стена `time.time`), in-memory fallback-режим
+  (`THROTTLE_PERSISTENT_ENABLED=false` — аварийный) сбрасывает его вместе с
+  процессом и виден только своему инстансу; несколько процессов в
+  persistent-режиме делят один слот (проверено тестами).
 """
 import asyncio
 import logging
+import math
 import time
 
 from config.settings import settings
@@ -42,14 +57,23 @@ logger = logging.getLogger(__name__)
 # допущенного обращения), иначе списать 1 заряд; WHERE отсекает отказ
 # (нет строки в RETURNING). last_ts = now на КАЖДОМ допуске (R50-7:
 # «полное восстановление после последнего допущенного обращения»).
+# CFG-01 (§01.2): ёмкость берётся из EFFECTIVE-лимита текущего запроса и
+# накопленный остаток обрезается до неё (`MIN` — скалярная функция SQLite,
+# `COALESCE` — слот после cooldown-стиля с burst_left IS NULL трактуется как
+# исчерпанный): уменьшение лимита не даёт «бонусных» обращений из старого
+# запаса, увеличение не выдаёт заряды до штатного полного восстановления;
+# состояние (last_ts) не сбрасывается. Всё — в ОДНОМ UPSERT, поэтому кламп
+# работает и для нескольких процессов/воркеров сразу (состояние в БД, не в
+# инстансе).
 _UPSERT_CONSUME_SQL = (
     "INSERT INTO throttle_state (scope, chat_id, user_id, burst_left, last_ts) "
     "VALUES (?, ?, ?, ?, ?) "
     "ON CONFLICT(scope, chat_id, user_id) DO UPDATE SET "
     "burst_left = CASE WHEN throttle_state.last_ts + ? <= ? THEN ? - 1 "
-    "ELSE throttle_state.burst_left - 1 END, "
+    "ELSE MIN(COALESCE(throttle_state.burst_left, 0), ?) - 1 END, "
     "last_ts = excluded.last_ts "
-    "WHERE throttle_state.last_ts + ? <= ? OR throttle_state.burst_left > 0 "
+    "WHERE throttle_state.last_ts + ? <= ? "
+    "OR MIN(COALESCE(throttle_state.burst_left, 0), ?) > 0 "
     "RETURNING burst_left"
 )
 
@@ -135,14 +159,26 @@ class PersistentThrottle:
     """Token Bucket (R50-7) в throttle_state: per (chat_id, user_id),
     полное восстановление зарядов через cooldown_seconds после ПОСЛЕДНЕГО
     допущенного обращения. Семантики DirectChatThrottle.allow сохранены.
-    refill+consume — один атомарный UPSERT (RETURNING). Fail-open → 0.0."""
+    refill+consume — один атомарный UPSERT (RETURNING). Fail-open → 0.0.
+
+    CFG-01: лимиты (`burst_limit`/`cooldown_seconds`) — не константа
+    инстанса, а EFFECTIVE-значение вызывающего хода: `refresh()` применяет
+    per-chat override → global → factory ДО проверки (hot-reload без
+    рестарта). Состояние живёт в БД, поэтому перезапуск процесса его
+    сохраняет, а несколько процессов видят один и тот же слот."""
 
     def __init__(self, burst_limit: int, cooldown_seconds: float,
                  scope: str, db) -> None:
-        self._limit = burst_limit
-        self._cooldown = cooldown_seconds
+        self._limit, self._cooldown = normalize_direct_chat_limits(
+            burst_limit, cooldown_seconds)
         self._scope = scope
         self._db = db
+
+    def refresh(self, burst_limit: int, cooldown_seconds: float) -> None:
+        """CFG-01 (§01.2): новые лимиты на СЛЕДУЮЩУЮ проверку (состояние не
+        сбрасывается, остаток зарядов обрезается в SQL до нового лимита)."""
+        self._limit, self._cooldown = normalize_direct_chat_limits(
+            burst_limit, cooldown_seconds)
 
     async def allow(self, chat_id: int, user_id: int) -> float:
         """0.0 = допустимо (заряд списан); >0 = остаток кулдауна, сек.
@@ -153,9 +189,14 @@ class PersistentThrottle:
         async def _body(conn):
             cursor = await conn.execute(
                 _UPSERT_CONSUME_SQL,
-                (self._scope, chat_id, user_id, self._limit - 1, now,
-                 self._cooldown, now, self._limit,
-                 self._cooldown, now),
+                (
+                    self._scope, chat_id, user_id, self._limit - 1, now,
+                    # refill: полное восстановление → limit минус списанный заряд
+                    self._cooldown, now, self._limit,
+                    # кламп накопленного остатка до текущего лимита
+                    self._limit,
+                    self._cooldown, now, self._limit,
+                ),
             )
             return await cursor.fetchone()
 
@@ -267,6 +308,86 @@ class SilenceStreak:
                     "persistent throttle: silence streak reset failed — "
                     "in-memory fallback | scope=%s", self._SCOPE, exc_info=True)
         self._mem.pop((chat_id, user_id), None)
+
+
+# ── CFG-01: effective-лимиты Direct Chat (hot-reload + per-chat + источник) ──
+# Ключи каталога (param_catalog, категория limits_chat → per_chat=True).
+CHAT_BURST_LIMIT_KEY = "limits.chat_burst_limit"
+CHAT_COOLDOWN_SECONDS_KEY = "limits.chat_cooldown_seconds"
+
+
+def normalize_direct_chat_limits(burst_limit, cooldown_seconds):
+    """CFG-01 (§01.4): единицы/границы лимитов Direct Chat.
+
+    * `burst_limit` — ЦЕЛОЕ число обращений подряд до паузы, ≥ 1. Значения
+      ≤ 0 (0/-1/мусор, если такое попало в слой настроек) нормализуются в 1
+      («одно обращение до паузы») — вечного лока из-за нуля не возникает;
+    * `cooldown_seconds` — пауза в СЕКУНДАХ, ≥ 0. `0` = окно не ограничивает
+      (каждый запрос получает полное восстановление зарядов), отрицательные/
+      нечисловые/NaN → 0.
+
+    Возвращает `(burst_limit: int, cooldown_seconds: float)`."""
+    try:
+        limit = int(burst_limit)
+    except (TypeError, ValueError):
+        limit = 1
+    try:
+        cooldown = float(cooldown_seconds)
+    except (TypeError, ValueError):
+        cooldown = 0.0
+    if not math.isfinite(cooldown):
+        cooldown = 0.0
+    return max(1, limit), max(0.0, cooldown)
+
+
+async def resolve_direct_chat_limits(chat_id: int):
+    """CFG-01 (§01.1/§01.2/§01.3): эффективные лимиты Direct Chat для чата.
+
+    Порядок — существующий резолвер per-chat слоя (`chat_params`,
+    spec §4.5): override своего скоупа → глобальное значение ConfigCache
+    (hot-reload без рестарта, 84.4) → settings-дефолт. Гарантированное время
+    обновления: глобальное значение — немедленно (POST /api/config обновляет
+    кэш), per-chat override — немедленно (NOTIFY `chat_params_updated`
+    инвалидирует кэш) и не позднее TTL кэша chat_params (120 с) при потере
+    NOTIFY.
+
+    Возвращает `(burst_limit, cooldown_seconds, source)`, где `source` —
+    `'chat'` | `'global'` | `'factory'` (при разных источниках двух ключей —
+    `'<limit>/<cooldown>'`). Fail-open: ошибка резолва → settings-дефолты
+    (`'factory'`) — троттлинг не роняет ход."""
+    try:
+        from services import chat_params as _chat_params
+        limit, lsrc = await _chat_params.get_chat_param_sourced(
+            chat_id, CHAT_BURST_LIMIT_KEY, settings.CHAT_BURST_LIMIT)
+        cooldown, csrc = await _chat_params.get_chat_param_sourced(
+            chat_id, CHAT_COOLDOWN_SECONDS_KEY, settings.CHAT_COOLDOWN_SECONDS)
+    except Exception:
+        logger.warning(
+            "direct chat limits: resolve failed — settings defaults | chat=%s",
+            chat_id, exc_info=True)
+        limit, lsrc = settings.CHAT_BURST_LIMIT, "factory"
+        cooldown, csrc = settings.CHAT_COOLDOWN_SECONDS, "factory"
+    limit, cooldown = normalize_direct_chat_limits(limit, cooldown)
+    source = lsrc if lsrc == csrc else f"{lsrc}/{csrc}"
+    return limit, cooldown, source
+
+
+def throttle_refresh(throttle, burst_limit: int,
+                     cooldown_seconds: float) -> None:
+    """CFG-01 (§01.2): применить effective-лимиты ПЕРЕД проверкой — прецедент
+    `cooldown_refresh` (T-619/84.4), но и для ёмкости bucket'а.
+
+    Политика состояния (документирована и покрыта тестами): смена лимита НЕ
+    сбрасывает состояние слота — `last_ts` продолжает течь, накопленные заряды
+    обрезаются до нового `burst_limit` (`min`/`LEAST`), поэтому уменьшение
+    лимита не даёт «бонусных» обращений из старого запаса, а увеличение не
+    выдаёт заряды до обычного полного восстановления. Инъектированные
+    троттлеры без `refresh` (DI-двойники в тестах/внешние реализации) не
+    ломаются."""
+    refresh = getattr(throttle, "refresh", None)
+    if refresh is None:
+        return
+    refresh(burst_limit, cooldown_seconds)
 
 
 def make_cooldown(scope: str, cooldown_seconds: float, db):

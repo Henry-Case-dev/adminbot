@@ -141,7 +141,13 @@ from services.media_marker import (
     media_context_enabled, media_marker, message_media_type)
 from services import native_media as native_media_module
 from services.payload_builder import build_messages
-from services.persistent_throttling import SilenceStreak
+from services.persistent_throttling import (
+    SilenceStreak,
+    cooldown_refresh,
+    resolve_direct_chat_limits,
+    throttle_refresh,
+)
+from services import persistent_throttling as _limits
 from services.smartmodule_concurrency import get_smartmodule_concurrency_pool
 from services.smartmodule_phrases import (
     CHAT_COOLDOWN_PHRASES,
@@ -1606,6 +1612,30 @@ def _verify_style_payload(payload: str, style_outcome, chat_id: int, *,
                        "chat=%s", chat_id, exc_info=True)
 
 
+def _emit_throttle_refusal_event(*, chat_id: int, remaining: float, limit: int,
+                                 cooldown: float, source: str,
+                                 stage: str) -> None:
+    """CFG-01 (§01.6): durable-событие отказа Direct Chat throttle.
+
+    Админ видит ФАКТИЧЕСКИЙ остаток (сек до разблокировки), размер лимита,
+    паузу и источник (`chat`/`global`/`factory`) — без них невозможно понять,
+    какой слой настроек реально ограничил чат. R17-safe: числа + enum-коды,
+    без текста сообщения. Fail-open (эмиссия никогда не бросает)."""
+    try:
+        _mca_events.emit_mca_event(
+            "direct_chat_throttle", outcome="skipped",
+            level=_mca_events.LEVEL_WARN, component="direct_chat",
+            stage=stage, reason_code="rate_limit", chat_id=int(chat_id),
+            usage_json={
+                "remaining_seconds": round(max(0.0, float(remaining)), 1),
+                "burst_limit": int(limit),
+                "cooldown_seconds": float(cooldown),
+                "source": str(source),
+            })
+    except Exception:      # pragma: no cover — телеметрия не роняет ход
+        logger.warning("[direct] throttle event failed — skipped", exc_info=True)
+
+
 def _log_decision_short_circuit(*, chat_id: int, action: str, reason_code: str,
                                 target_id: int | None,
                                 reaction: str | None = None) -> None:
@@ -1619,15 +1649,26 @@ def _log_decision_short_circuit(*, chat_id: int, action: str, reason_code: str,
 
 class DirectChatThrottle:
     """Token Bucket (R50-7): per (chat_id, user_id). In-memory; рестарт сбрасывает
-    (принято, прецедент CooldownTracker smartmodule_throttling.py). Полное
+    (принято, прецедент CooldownTracker smartmodule_throttling.py; в проде
+    используется persistent-вариант, см. `PersistentThrottle`). Полное
     восстановление зарядов через CHAT_COOLDOWN_SECONDS после ПОСЛЕДНЕГО
     допущенного обращения. Однопоточный event loop — asyncio.Lock НЕ нужен
-    (прецедент CooldownTracker)."""
+    (прецедент CooldownTracker).
+
+    CFG-01: ёмкость/пауза — EFFECTIVE-значения (per-chat override → global →
+    factory), применяются `refresh()` ДО проверки; накопленный остаток
+    зарядов обрезается до нового лимита (`min`), `last_ts` не сбрасывается."""
 
     def __init__(self, burst_limit: int, cooldown_seconds: float) -> None:
-        self._limit = burst_limit
-        self._cooldown = cooldown_seconds
+        self._limit, self._cooldown = _limits.normalize_direct_chat_limits(
+            burst_limit, cooldown_seconds)
         self._state: dict[tuple[int, int], tuple[int, float]] = {}   # (chat_id, user_id) -> (burst_left, last_ts)
+
+    def refresh(self, burst_limit: int, cooldown_seconds: float) -> None:
+        """CFG-01 (§01.2): новые лимиты на следующую проверку (без сброса
+        состояния): `_limit`/`_cooldown` из effective-резолва."""
+        self._limit, self._cooldown = _limits.normalize_direct_chat_limits(
+            burst_limit, cooldown_seconds)
 
     def allow(self, chat_id: int, user_id: int) -> float:
         """0.0 = допустимо (заряд списан); >0 = остаток кулдауна, сек (фраза R50-7)."""
@@ -1636,7 +1677,7 @@ class DirectChatThrottle:
         if state is None or now - state[1] >= self._cooldown:
             burst = self._limit                       # полное восстановление
         else:
-            burst = state[0]
+            burst = min(state[0], self._limit)        # CFG-01: кламп к новому лимиту
         if burst <= 0:
             return max(1.0, self._cooldown - (now - state[1]))   # ceil-по-остатку
         self._state[(chat_id, user_id)] = (burst - 1, now)
@@ -1973,6 +2014,14 @@ class DirectChatService:
         # F7 (ADR-1023-7 D4): ОДИН сквозной id на ответ пользователя —
         # связывает Stage-1 → tool-раунды → Stage-2 в дерево дашборда.
         correlation_id = usage_events.new_correlation_id()
+        # CFG-01 (§01.1–§01.7): ЕДИНСТВЕННЫЙ вход пользовательских обращений —
+        # сначала effective-лимиты (per-chat override → global → factory,
+        # hot-reload без рестарта), затем проверка token bucket. Ни LLM, ни
+        # tool-раунды, ни fallback-ветки выше этой точки не вызываются —
+        # обойти ограничитель альтернативным маршрутом внутри Direct нельзя.
+        limit, cooldown, limit_source = await resolve_direct_chat_limits(chat_id)
+        throttle_refresh(self.throttle, limit, cooldown)
+        cooldown_refresh(self.silence_streak, cooldown)
         remaining = self.throttle.allow(chat_id, user_id)
         if asyncio.iscoroutine(remaining):
             remaining = await remaining   # persistent-троттлинг (63.1)
@@ -1987,13 +2036,25 @@ class DirectChatService:
                     logger.warning(
                         "[direct] silent after %d cooldowns | chat=%s user=%s",
                         streak, chat_id, target_name)
+                    _emit_throttle_refusal_event(
+                        chat_id=chat_id, remaining=float(remaining),
+                        limit=limit, cooldown=cooldown, source=limit_source,
+                        stage="silence")
                     return
             phrase = random.choice(CHAT_COOLDOWN_PHRASES).replace(
                 "{remaining_time}", format_remaining_time(remaining))
             await _reply(bot, chat_id, phrase, message.message_id)
             self._mark_turn_text_replied(chat_id)     # F6: текст в ходе есть
-            logger.warning("[direct] cooldown | chat=%s user=%s remaining=%.0fs",
-                           chat_id, target_name, remaining)
+            # §01.6: фактический остаток + источник лимита — в лог и в
+            # админскую телеметрию (Inspector/oversight по mca_events);
+            # «время разблокировки» = now + remaining.
+            logger.warning(
+                "[direct] cooldown | chat=%s user=%s remaining=%.0fs | "
+                "burst_limit=%s cooldown=%s source=%s",
+                chat_id, target_name, remaining, limit, cooldown, limit_source)
+            _emit_throttle_refusal_event(
+                chat_id=chat_id, remaining=float(remaining), limit=limit,
+                cooldown=cooldown, source=limit_source, stage="cooldown")
             return
         # Epic 60 (65.3): успешный допуск сбрасывает стачку.
         if hot.get("flags.chat_silence_enabled", settings.CHAT_SILENCE_ENABLED):

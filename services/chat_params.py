@@ -583,6 +583,86 @@ async def get_chat_param_defaulted(chat_id: int, key: str,
         return fallback
 
 
+# ═══ CFG-01 (§01.1/§01.3/§01.6): effective-резолв СО ИСТОЧНИКОМ ══════════════
+
+# Сентинел «слоя нет» (ключ отсутствует / кэш не инициализирован). Отличается
+# от `None` (валидного отсутствия значения) и от валидного значения любого типа.
+_MISSING = object()
+
+
+def _global_layer(key: str) -> tuple[str, object]:
+    """(источник, значение) глобального слоя для ключа.
+
+    `global` — ключ реально есть в ConfigCache (POST /api/config обновляет
+    кэш → hot-reload, 84.4); `factory` — ключа нет (settings-дефолт по
+    контракту hot.get, R1) либо кэш не инициализирован (ранний старт/тесты).
+    Чтение — через hot.get с сентинелом-дефолтом, чтобы уважать единую
+    sync-точку чтения (в т.ч. подмену в тестах)."""
+    from services import hot_config as hot
+    try:
+        value = hot.get(key, _MISSING)
+    except Exception:
+        logger.warning("[chat_params] global layer read failed | key=%s", key,
+                       exc_info=True)
+        return "factory", None
+    if value is _MISSING or value is None:
+        return "factory", None
+    return "global", value
+
+
+def _override_layer(root: dict, key: str) -> object:
+    """Значение override своего скоупа с кастом по каталогу.
+
+    `_MISSING` — override нет ИЛИ значение мусорное (тот же критерий
+    валидности, что у `_resolve_from_root`: тип по каталогу + math.isfinite
+    для float). Валидный override → его значение (источник `chat`)."""
+    overrides = root.get("overrides") or {}
+    if key not in overrides:
+        return _MISSING
+    try:
+        value = normalize_value(key, overrides[key])
+    except Exception:
+        return _MISSING
+    spec = get_by_pg_key(key)
+    if spec is not None:
+        if not _cast_type_ok(spec.type, value):
+            return _MISSING
+        if (spec.type == "float" and isinstance(value, float)
+                and not math.isfinite(value)):
+            return _MISSING
+    return value
+
+
+async def get_chat_param_sourced(chat_id: int, key: str,
+                                 default=None) -> tuple[object, str]:
+    """CFG-01 (§01.1/§01.6): (значение, источник) — `chat` (override своего
+    скоупа) | `global` (ConfigCache) | `factory` (settings-дефолт).
+
+    Резолв-порядок идентичен `get_chat_param` (spec §4.5: override → hot.get →
+    default), но возвращается ещё и источник — он нужен runtime-потребителям,
+    которые обязаны показать «откуда лимит» администратору (Direct Chat
+    throttle). Fail-open: недоступный chat-слой → global/factory; ошибка
+    резолва → default + фактический источник."""
+    cache = _chat_params_cache
+    root: dict = {}
+    if cache is not None:
+        try:
+            root = await cache.get_chat_params(chat_id)
+        except Exception:
+            root = {}
+    source, value = _global_layer(key)
+    base = default
+    if source == "global":
+        try:
+            base = normalize_value(key, value)
+        except Exception:
+            base = value
+    override = _override_layer(root, key)
+    if override is not _MISSING:
+        return override, "chat"
+    return base, source
+
+
 def _cast_type_ok(spec_type: str, value) -> bool:
     """Проверка результата normalize_value по типу каталога (мусор → False)."""
     if spec_type == "bool":
