@@ -1,0 +1,48 @@
+ISOLATION / DELTA CLASSIFICATION - release/cfg1-2.58.88 (CFG-01)
+base (prod) = 82e110d67120b86373fb23a81c8612ec5143a589 (release/fix-2.58.87, APP_VERSION 2.58.87, axes ON)
+branch tip  = c37b85779cc41ad716304024ebeea86ad4081071
+delta files = 37 (expected 37 = 6 payload + 31 bump)
+
+bump-2.58.88     31
+cfg-01-payload   6
+
+UNCLASSIFIED = 0
+
+full list (family | +/- | path):
+  bump-2.58.88     +1      -1      README.md
+  bump-2.58.88     +1      -1      config/settings.py
+  bump-2.58.88     +2      -2      plans/docs/param-registry-round1025.meta.md
+  cfg-01-payload   +80     -0      services/chat_params.py
+  cfg-01-payload   +69     -8      services/direct_chat_service.py
+  cfg-01-payload   +129    -8      services/persistent_throttling.py
+  bump-2.58.88     +1      -1      tests/js/round1025_hotfix10_glass_geometry_bg_test.js
+  bump-2.58.88     +1      -1      tests/js/round1025_hotfix7_shell_glass_heartbeat_test.js
+  bump-2.58.88     +1      -1      tests/js/round1025_hotfix8_shell_aurora_test.js
+  bump-2.58.88     +1      -1      tests/js/round1025_hotfix9_shell_flex_glass_aurora_test.js
+  bump-2.58.88     +1      -1      tests/test_decision_making_round1026.py
+  cfg-01-payload   +303    -13     tests/test_direct_chat.py
+  cfg-01-payload   +112    -3      tests/test_direct_chat_concurrency.py
+  bump-2.58.88     +1      -1      tests/test_image_context_memory_round1026.py
+  bump-2.58.88     +1      -1      tests/test_mca17c_invariants_round1047.py
+  cfg-01-payload   +181    -0      tests/test_persistent_throttling.py
+  bump-2.58.88     +1      -1      tests/test_round1025_f8_registry.py
+  bump-2.58.88     +1      -1      tests/test_scope_selector_round1025.py
+  bump-2.58.88     +1      -1      tests/test_summary_deploy_round1026.py
+  bump-2.58.88     +1      -1      tests/test_summary_fact_package.py
+  bump-2.58.88     +1      -1      tests/test_summary_logging_runid.py
+  bump-2.58.88     +1      -1      tests/test_summary_publish_integration_round1026.py
+  bump-2.58.88     +1      -1      tests/test_summary_test_run.py
+  bump-2.58.88     +1      -1      tests/test_telegram_reactions_round1026.py
+  bump-2.58.88     +1      -1      tests/test_tool_coordinator_round1026.py
+  bump-2.58.88     +1      -1      tests/test_unified_image_request_round1026.py
+  bump-2.58.88     +1      -1      tests/test_webapp_design_tokens_round1025.py
+  bump-2.58.88     +1      -1      tests/test_webapp_f11_round1025.py
+  bump-2.58.88     +1      -1      tests/test_webapp_f6_round1025.py
+  bump-2.58.88     +1      -1      tests/test_webapp_f7_round1025.py
+  bump-2.58.88     +1      -1      tests/test_webapp_f9_round1025.py
+  bump-2.58.88     +1      -1      tests/test_webapp_hotfix10_round1025.py
+  bump-2.58.88     +1      -1      tests/test_webapp_hotfix6_round1025.py
+  bump-2.58.88     +1      -1      tests/test_webapp_hotfix7_round1025.py
+  bump-2.58.88     +1      -1      tests/test_webapp_hotfix8_round1025.py
+  bump-2.58.88     +1      -1      tests/test_webapp_hotfix9_round1025.py
+  bump-2.58.88     +2      -2      tests/test_webapp_round1026_polygon.py

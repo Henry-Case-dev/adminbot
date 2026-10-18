@@ -1,0 +1,157 @@
+### A_pre_state (rc=0, 1.5s)
+NOW_UTC=2026-10-18T00:29:20Z
+OLD_HEAD=82e110d67120b86373fb23a81c8612ec5143a589
+OLD_BRANCH=release/fix-2.58.87
+HZ_BEFORE={"status":"ok","version":"2.58.87"}
+TRACKED_MOD=0
+UNTRACKED=13
+SERVICE=active
+MAINPID=3254462
+ENV_AXES=5
+INDEX_LOCK=absent
+### B1_fetch (rc=0, 1.7s)
+FETCH1_RC=0
+ * branch              release/cfg1-2.58.88 -> FETCH_HEAD
+ * [new branch]        release/cfg1-2.58.88 -> origin/release/cfg1-2.58.88
+### B3_remote_ref (rc=0, 1.0s)
+c37b85779cc41ad716304024ebeea86ad4081071
+### C_checkout (rc=0, 1.2s)
+CO_RC=0
+Switched to a new branch 'release/cfg1-2.58.88'
+branch 'release/cfg1-2.58.88' set up to track 'origin/release/cfg1-2.58.88'.
+NEW_HEAD=c37b85779cc41ad716304024ebeea86ad4081071
+TRACKED_MOD_AFTER=0
+DELTA_FILES=37
+### D1_hashes (rc=0, 1.0s)
+f92887e22495 README.md
+2cf07823cb2a config/settings.py
+c42cbd40a16c handlers/direct_chat.py
+248b35708a88 plans/docs/param-registry-round1025.meta.md
+f480530b6c12 services/chat_params.py
+7a613dc9b406 services/direct_chat_service.py
+1a222e926aeb services/persistent_throttling.py
+fd8a2a70d5d7 services/prompt_composer.py
+a606bcafc1be services/prompt_registry.py
+04ed64429e88 services/smartmodule_phrases.py
+0a9d87735e8d tests/test_direct_chat.py
+b1e1e3b1cff9 tests/test_direct_chat_concurrency.py
+9f3f96afff27 tests/test_persistent_throttling.py
+4dd2510532bd web/api/initiative_vitality.py
+a69a67536ebe web/api/speech.py
+5a810c0f4443 web/app.js
+0971d49d5337 web/index.html
+d700df753d6d web/static/app.css
+96db06425079 web/static/fullscreen-policy.js
+6a09d962d59d web/static/glass-refraction.js
+HASH-CHECK: 20/20 artifacts == expected sha256_12
+### D2_markers (rc=0, 1.0s)
+APP_VER=APP_VERSION = "2.58.88"
+CFG_RESOLVER=2
+CFG_SOURCED=1
+CFG_EVENT=1
+CSS_SHA12=d700df753d6d
+META_HEAD=
+### F1_sudo_probe (rc=0, 1.0s)
+SUDO_NOPASS=0
+### F2_restart (rc=0, 17.7s)
+RESTART_T0=2026-10-18 00:29:28
+RESTART_RC=0
+(uploaded probes: /tmp/cfg01_post.py, /tmp/cfg88_f3.sh, /tmp/cfg88_final.sh)
+### F3_migration_wait (rc=0, 21.8s)
+F3_T0=2026-10-18 00:29:28
+F3_NEW_MAINPID=3275019
+F3_ITER=3
+Oct 18 00:30:06 racknerd-f4e3456 python[3275019]: 2026-10-18 00:30:06,380 - services.database - INFO - [database] migrations: start | current user_version=36 | pending=[]
+Oct 18 00:30:06 racknerd-f4e3456 python[3275019]: 2026-10-18 00:30:06,384 - services.database - INFO - [database] migrations: complete | user_version=36 | total 0.0s
+F3_COMPLETE_LINES=1
+[stderr] [sudo] password for nik:
+### F4_health (rc=0, 1.6s)
+HEALTH={"status":"ok","version":"2.58.88"}
+HEALTH OK (2.58.88)
+### F5_journal (rc=0, 1.3s)
+0
+[stderr] [sudo] password for nik:
+### G_post (rc=0, 24.5s)
+CFG01 A1_healthz                   True | status=200 body={"status":"ok","version":"2.58.88"}
+CFG01 admin_role=admin id_present=True init_len=156
+CFG01 B1_global_burst              True | value=10 updated_at=2026-10-16T09:01:03.926856+00:00 per_chat=True
+CFG01 B2_global_cooldown           True | value=300.0
+CFG01 B3_pg_settings_rows          True | [{"key": "limits.chat_burst_limit", "value": "10"}, {"key": "limits.chat_cooldown_seconds", "value": "300.0"}]
+CFG01 profiles total=3 dm=['58***95'] other=2 overrides_on_limits={"-1***36": {"limits.chat_burst_limit": 10}}
+CFG01 B4_dm_effective_burst        True | chat=58***95 value=10 source='' global=10
+CFG01 B5_dm_effective_cooldown     True | chat=58***95 value=300.0 source=''
+CFG01 B6_other_chat_effective      True | chat=-1***93 value=10 source=''
+CFG01 A2_soul_gates_10of10         True | total=10 on=10 off=[]
+CFG01 C1_global_set2               True | status=200 applied=["limits.chat_burst_limit"]
+CFG01 C2_hot_readback_no_restart   True | global value now=2 (was 10) updated_at=None
+CFG01 C3_dm_resolves_global2       True | dm value=2 source=''
+CFG01 C4_global_restored           True | status=200 restore_to=10
+CFG01 C5_restore_readback          True | global value now=10 (window=0.3s)
+CFG01 D1_chat_override_set         True | chat=58***95 burst=2 status=200 body={"updated":["limits.chat_burst_limit"],"chat_id":5885953495,"revalidated":false,"updated_at":"2026-10-18T00:30:17.459199
+CFG01 D2_override_visible          True | dm value=2 source='chat' global_value=10
+CFG01 D3_other_chat_unchanged      True | chat=-1***93 value=10 source=''
+CFG01 D4_override_reset            True | burst_reset=200 cooldown_reset=200
+CFG01 D5_inheritance_restored      True | dm value=10 source='' (global=10)
+CFG01 E1_clamp_10to2_after5        True | 5/10 consumed -> allow#6=0.0 allow#7=0.0 allow#8(deny)=300s (deny>0 and <=300: True)
+CFG01 E2_isolation_other_user      True | same chat, other user: remaining=0.0
+CFG01 E3_cooldown0_window_open     True | cooldown=0 -> 5/5 allowed: [0.0, 0.0, 0.0, 0.0, 0.0]
+CFG01 E4_refill_window_eq_limit    True | allow=0.0 deny=2.0s refilled_allow=0.0 (deny<=cooldown: True)
+CFG01 E5_increase_no_bonus         True | limit->1 allow=0.0; limit->10 next=299.9957597255707 (no bonus charges)
+CFG01 E6_cleanup                   True | leftover synthetic rows=0
+CFG01 F0_gates                     True | event_contract=True telemetry_store=True
+CFG01 F1_flush                     True | events flushed=1
+CFG01 F2_durable_row               True | row={"ts": 1792283437, "level": "WARN", "event_name": "direct_chat_throttle", "outcome": "skipped", "component": "direct_chat", "stage": "cooldown", "reason_code": "rate_limit", "chat_id": 990002, "usage_json": "{\"remaining_seconds\": 270.0, \"burst_limit\": 2, \"cooldown_seconds\": 300.0, \"source\": 
+CFG01 F3_viewer_events             True | viewer_events=1 matched=1 restricted=None
+CFG01 SUMMARY ok=28/28
+CFG01 done
+[stderr] mca_event=direct_chat_throttle | ts=1792283437 | event_name=direct_chat_throttle | outcome=skipped | level=WARN | component=direct_chat | stage=cooldown | reason_code=rate_limit | chat_id=990002 | usage_json={"remaining_seconds": 270.0, "burst_limit": 2, "cooldown_seconds": 300.0, "source": "global"}
+### J_final (rc=0, 3.4s)
+=== NOW ===
+2026-10-18T00:30:40Z
+=== NODE ===
+HEAD=c37b85779cc41ad716304024ebeea86ad4081071
+BRANCH=release/cfg1-2.58.88
+TRACKED_MOD=0
+=== HEALTH ===
+{"status":"ok","version":"2.58.88"}
+MainPID=3275019 NRestarts=0 ExecMainStartTimestamp=Sun 2026-10-18 00:29:45 UTC ExecMainStatus=0 ActiveState=active SubState=running 
+=== ENV AXES (.env) ===
+UNIFIED_COMPOSER_ENABLED=1
+HUMOR_CRAFT_ENABLED=1
+HUMOR_LIBRARY_ENABLED=1
+HUMOR_FEEDBACK_ENABLED=1
+INITIATIVE_DIAGNOSTICS_PUBLISH_ENABLED=1
+=== CFG-01 MARKERS (deployed bytes) ===
+CFG_RESOLVER=2
+CFG_NORMALIZE=4
+CFG_SOURCED=1
+CFG_EVENT=1
+CFG_THROTTLE_REFRESH=2
+=== PAYLOAD SHA12 ===
+services/persistent_throttling.py 1a222e926aeb
+services/chat_params.py f480530b6c12
+services/direct_chat_service.py 7a613dc9b406
+config/settings.py 2cf07823cb2a
+=== APP.CSS (served bytes, must stay SOUL) ===
+CSS_SHA12=d700df753d6d
+CSS_HTTP_SHA12=d700df753d6d
+=== PAGE ===
+PAGE_VER=15
+=== MIGRATION LINES (since T0) ===
+Oct 18 00:30:06 racknerd-f4e3456 python[3275019]: 2026-10-18 00:30:06,380 - services.database - INFO - [database] migrations: start | current user_version=36 | pending=[]
+Oct 18 00:30:06 racknerd-f4e3456 python[3275019]: 2026-10-18 00:30:06,384 - services.database - INFO - [database] migrations: complete | user_version=36 | total 0.0s
+=== SQLITE USER_VERSION ===
+USER_VERSION (36,)
+=== JOURNAL COUNTS (since T0) ===
+ERR=0
+RUNTIMEWARN=0
+GRACEFUL=2
+POLLER=1
+CFG_EVENTS=0
+DIRECT_LINES=0
+=== HTTPS ===
+HTTPS_HZ={"status":"ok","version":"2.58.88"}
+HTTPS_WEB=200
+=== DONE ===
+[stderr] [sudo] password for nik:
+saved -> ev/deploy-run.txt

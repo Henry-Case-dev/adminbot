@@ -1,0 +1,14 @@
+### graceful_probe (rc=0)
+=== shutdown/bye markers 00:29:00-00:31:30 (from/until) ===
+15:2026-10-18T00:29:29+00:00 racknerd-f4e3456 python[3254462]: 2026-10-18 00:29:29,039 - services.summary_scheduler - INFO - [shutdown] summary: stopped accepting new work | phase=stopping (scheduler down, new runs refused)
+18:2026-10-18T00:29:29+00:00 racknerd-f4e3456 python[3254462]: 2026-10-18 00:29:29,355 - __main__ - INFO - [shutdown] polling stop | graceful=True | elapsed_ms=313
+22:2026-10-18T00:29:29+00:00 racknerd-f4e3456 python[3254462]: 2026-10-18 00:29:29,451 - __main__ - INFO - [shutdown] summary drain done | in_flight=0 | cancelled=0 | finalized=0 | left=0 | elapsed_ms=9
+43:2026-10-18T00:29:29+00:00 racknerd-f4e3456 python[3254462]: 2026-10-18 00:29:29,703 - __main__ - INFO - [shutdown] runtime sqlite closed
+45:2026-10-18T00:29:34+00:00 racknerd-f4e3456 python[3254462]: 2026-10-18 00:29:34,909 - __main__ - INFO - [shutdown] bye | elapsed_ms=5885
+46:2026-10-18T00:29:34+00:00 racknerd-f4e3456 python[3254462]: 2026-10-18 00:29:34,911 - __main__ - INFO - [betterstack] shutdown flush
+122:2026-10-18T00:30:06+00:00 racknerd-f4e3456 python[3275019]: 2026-10-18 00:30:06,585 - __main__ - INFO - [shutdown] startup recovery: нетерминальных Summary-ранов без живого владельца нет
+216:2026-10-18T00:30:10+00:00 racknerd-f4e3456 python[3275019]: 2026-10-18 00:30:10,918 - __main__ - INFO - [shutdown] signal handlers installed | signals=(2, 15)
+=== runtime sqlite closed (escaped dot) ===
+1
+=== GPROBE DONE ===
+[stderr] [sudo] password for nik:

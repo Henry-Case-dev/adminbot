@@ -1,0 +1,8 @@
+[recon rc=0, 4.5s]
+RECON_OK
+racknerd-f4e3456
+2026-10-18T00:29:13Z
+HEAD=82e110d6
+BRANCH=release/fix-2.58.87
+HZ={"status":"ok","version":"2.58.87"}
+

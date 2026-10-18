@@ -1,0 +1,32 @@
+CFG01 A1_healthz                   True | status=200 body={"status":"ok","version":"2.58.88"}
+CFG01 admin_role=admin id_present=True init_len=156
+CFG01 B1_global_burst              True | value=10 updated_at=2026-10-16T09:01:03.926856+00:00 per_chat=True
+CFG01 B2_global_cooldown           True | value=300.0
+CFG01 B3_pg_settings_rows          True | [{"key": "limits.chat_burst_limit", "value": "10"}, {"key": "limits.chat_cooldown_seconds", "value": "300.0"}]
+CFG01 profiles total=3 dm=['58***95'] other=2 overrides_on_limits={"-1***36": {"limits.chat_burst_limit": 10}}
+CFG01 B4_dm_effective_burst        True | chat=58***95 value=10 source='' global=10
+CFG01 B5_dm_effective_cooldown     True | chat=58***95 value=300.0 source=''
+CFG01 B6_other_chat_effective      True | chat=-1***93 value=10 source=''
+CFG01 A2_soul_gates_10of10         True | total=10 on=10 off=[]
+CFG01 C1_global_set2               True | status=200 applied=["limits.chat_burst_limit"]
+CFG01 C2_hot_readback_no_restart   True | global value now=2 (was 10) updated_at=None
+CFG01 C3_dm_resolves_global2       True | dm value=2 source=''
+CFG01 C4_global_restored           True | status=200 restore_to=10
+CFG01 C5_restore_readback          True | global value now=10 (window=0.3s)
+CFG01 D1_chat_override_set         True | chat=58***95 burst=2 status=200 body={"updated":["limits.chat_burst_limit"],"chat_id":5885953495,"revalidated":false,"updated_at":"2026-10-18T00:30:17.459199
+CFG01 D2_override_visible          True | dm value=2 source='chat' global_value=10
+CFG01 D3_other_chat_unchanged      True | chat=-1***93 value=10 source=''
+CFG01 D4_override_reset            True | burst_reset=200 cooldown_reset=200
+CFG01 D5_inheritance_restored      True | dm value=10 source='' (global=10)
+CFG01 E1_clamp_10to2_after5        True | 5/10 consumed -> allow#6=0.0 allow#7=0.0 allow#8(deny)=300s (deny>0 and <=300: True)
+CFG01 E2_isolation_other_user      True | same chat, other user: remaining=0.0
+CFG01 E3_cooldown0_window_open     True | cooldown=0 -> 5/5 allowed: [0.0, 0.0, 0.0, 0.0, 0.0]
+CFG01 E4_refill_window_eq_limit    True | allow=0.0 deny=2.0s refilled_allow=0.0 (deny<=cooldown: True)
+CFG01 E5_increase_no_bonus         True | limit->1 allow=0.0; limit->10 next=299.9957597255707 (no bonus charges)
+CFG01 E6_cleanup                   True | leftover synthetic rows=0
+CFG01 F0_gates                     True | event_contract=True telemetry_store=True
+CFG01 F1_flush                     True | events flushed=1
+CFG01 F2_durable_row               True | row={"ts": 1792283437, "level": "WARN", "event_name": "direct_chat_throttle", "outcome": "skipped", "component": "direct_chat", "stage": "cooldown", "reason_code": "rate_limit", "chat_id": 990002, "usage_json": "{\"remaining_seconds\": 270.0, \"burst_limit\": 2, \"cooldown_seconds\": 300.0, \"source\": 
+CFG01 F3_viewer_events             True | viewer_events=1 matched=1 restricted=None
+CFG01 SUMMARY ok=28/28
+CFG01 done

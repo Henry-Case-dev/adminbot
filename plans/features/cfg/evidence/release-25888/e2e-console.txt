@@ -1,0 +1,4 @@
+[ui_refraction] rc=0 13.5s :: [OK] C_optical_pattern_displacement (4 проверок) | [OK] B_desktop_1440 (10 проверок) | [OK] D_no_window_geometry_hacks (2 проверок) | WG-REFRACT-E2E-OK
+[ui_shell] rc=0 30.4s ::  "console_errors": [] | } | measurements: {"m320": {"vw": 320, "vh": 700, "scrollWidth": 320, "headerH": 116.2, "navH": 47.2, "navScrollW": 288, "navClientW": 288, "shellMode": "app-shell shell-mobile ia-v2 shell-flex-v3 shell-glass-v2 shell-v3", "moreLabel": "Ещё", "links": [{"t": "Статус", "x": 16, "right": 85.6, "y": 59, "bottom": 103, "w": 70, "h": 44}, {"t": "Аналитика", "x": 88.8, "right": 1
+[ui_fs_matrix] rc=0 39.4s :: [w2-fs] S11_long_title_scope     PASS (11 checks) | [w2-fs] S12_admin_geom_diag      PASS (30 checks) | [w2-fs] S13_non_admin_no_diag    PASS (3 checks) | [w2-fs] итог: 12/12 PASS, артефакты: C:\Users\main\.config\opencode\OpenCodeScratch\adminbot-ccef72c25768\cfg1-release-25888\ev\fs-e2e
+E2E-DONE

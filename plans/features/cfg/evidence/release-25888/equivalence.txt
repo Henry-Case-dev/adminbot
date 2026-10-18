@@ -1,0 +1,26 @@
+RUNTIME-BYTE EQUIVALENCE (deployed payload == reviewed candidate)
+
+### git diff 0282fe4b HEAD -- <6 payload files> (expect empty)
+(empty)
+
+PAYLOAD_BYTE_EQUAL_TO_CANDIDATE=True
+
+### git diff 82e110d6 HEAD -- web handlers config (expect only settings.py bump)
+config/settings.py | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+### git diff 82e110d6 HEAD -- services (expect only the 3 CFG-01 service files)
+services/chat_params.py           |  80 ++++++++++++++++++++++
+ services/direct_chat_service.py   |  77 ++++++++++++++++++---
+ services/persistent_throttling.py | 137 +++++++++++++++++++++++++++++++++++---
+ 3 files changed, 278 insertions(+), 16 deletions(-)
+
+### git diff d4fc3680 HEAD -- plans/features/cfg (informational: the release branch carries no CFG map/plan files; they live on master)
+plans/features/cfg/evidence/cfg-01/README.md     |  157 -
+ plans/features/cfg/evidence/cfg-01/red-green.txt |   38 -
+ plans/features/cfg/plan.md                       |   48 -
+ plans/features/cfg/requirements-map.json         | 4657 ----------------------
+ plans/features/cfg/review-cfg-01.md              |   90 -
+ plans/features/cfg/slice-graph.json              |  186 -
+ plans/features/cfg/source-cfg-addendum.md        |  398 --
+ 7 files changed, 5574 deletions(-)

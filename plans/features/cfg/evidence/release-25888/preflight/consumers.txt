@@ -1,0 +1,24 @@
+CMD: ['py', '-3', '-m', 'pytest', 'tests/test_hot_config.py', 'tests/test_config_cache.py', 'tests/test_direct_chat_lore_inject.py', 'tests/test_direct_chat_relations_inject.py', 'tests/test_direct_two_call_round1022.py', 'tests/test_soul1_w6_speech_ui.py', 'tests/test_soul1_w5_observer_gates.py', 'tests/test_mca08_style_form.py', '-q', '--no-header']
+RC: 0
+DURATION: 11.1s
+
+........................................................................ [ 35%]
+........................................................................ [ 71%]
+..........................................................               [100%]
+============================== warnings summary ===============================
+..\..\..\..\..\..\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\_pytest\config\__init__.py:1464
+  C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\_pytest\config\__init__.py:1464: PytestConfigWarning: Unknown config option: timeout
+  
+    self._warn_or_fail_if_strict(f"Unknown config option: {key}\n")
+
+..\..\..\..\..\..\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\_pytest\config\__init__.py:1464
+  C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\_pytest\config\__init__.py:1464: PytestConfigWarning: Unknown config option: timeout_method
+  
+    self._warn_or_fail_if_strict(f"Unknown config option: {key}\n")
+
+tests/test_soul1_w6_speech_ui.py::test_endpoints_are_actually_mounted_behind_auth
+  C:\Users\main\.config\opencode\OpenCodeScratch\adminbot-ccef72c25768\cfg1-release-25888\wt\tests\test_soul1_w6_speech_ui.py:177: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+202 passed, 3 warnings in 10.03s

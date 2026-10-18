@@ -1,0 +1,32 @@
+### recon_final (rc=0)
+=== NOW ===
+2026-10-18T04:41:26Z
+=== GIT ===
+HEAD=c37b85779cc41ad716304024ebeea86ad4081071
+BRANCH=release/cfg1-2.58.88
+TRACKED_MOD=0
+UNTRACKED=13
+=== HEALTH ===
+HZ={"status":"ok","version":"2.58.88"}
+MainPID=3275019 NRestarts=0 ExecMainStartTimestamp=Sun 2026-10-18 00:29:45 UTC ExecMainStatus=0 ActiveState=active SubState=running 
+=== JOURNAL SINCE 2026-10-18 00:29:25 ===
+TOTAL=7980
+ERR=1
+RUNTIMEWARN=0
+GRACEFUL=1
+POLLER=1
+THROTTLE_EVENTS=0
+--- graceful/poller lines ---
+Oct 18 00:29:29 racknerd-f4e3456 python[3254462]: 2026-10-18 00:29:29,703 - __main__ - INFO - [shutdown] runtime sqlite closed
+Oct 18 00:30:10 racknerd-f4e3456 python[3275019]: 2026-10-18 00:30:10,967 - aiogram.dispatcher - INFO - Run polling for bot @PERMsoc_bot id=8802473181 - 'Базовичок'
+--- last 6 lines ---
+Oct 18 04:41:17 racknerd-f4e3456 python[3275019]: 2026-10-18 04:41:17,315 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-18 09:41:22 +05)" (scheduled at 2026-10-18 09:41:17.314377+05:00)
+Oct 18 04:41:17 racknerd-f4e3456 python[3275019]: 2026-10-18 04:41:17,321 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-18 09:41:22 +05)" executed successfully
+Oct 18 04:41:22 racknerd-f4e3456 python[3275019]: 2026-10-18 04:41:22,316 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-18 09:41:27 +05)" (scheduled at 2026-10-18 09:41:22.314377+05:00)
+Oct 18 04:41:22 racknerd-f4e3456 python[3275019]: 2026-10-18 04:41:22,322 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-18 09:41:27 +05)" executed successfully
+Oct 18 04:41:27 racknerd-f4e3456 python[3275019]: 2026-10-18 04:41:27,319 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-18 09:41:32 +05)" (scheduled at 2026-10-18 09:41:27.314377+05:00)
+Oct 18 04:41:27 racknerd-f4e3456 python[3275019]: 2026-10-18 04:41:27,393 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-18 09:41:32 +05)" executed successfully
+=== HTTPS via nginx (loopback) ===
+HTTPS_HZ={"status":"ok","version":"2.58.88"}
+=== RECON DONE ===
+[stderr] [sudo] password for nik:

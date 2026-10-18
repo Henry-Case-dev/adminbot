@@ -1,0 +1,15 @@
+[cfg01_files] rc=0 17.5s ::  | -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html | 204 passed, 2 warnings in 16.64s
+[cfg01_k] rc=0 4.1s ::  | -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html | 7 passed, 167 deselected, 2 warnings in 3.33s
+[style_policy] rc=0 3.6s ::  | -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html | 61 passed, 2 warnings in 2.84s
+soul1 test files: 30
+[soul1_set] rc=0 17.4s ::  | -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html | 600 passed, 3 warnings in 16.32s
+[parity] rc=0 3.4s ::  | -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html | 13 passed, 2 warnings in 2.62s
+[registry] rc=0 0.2s :: CHECK OK: реестр 575 == REGISTRY, карта полна, R17-чисто, TSV/map идемпотентны.
+[frozen] rc=0 1.1s :: === 8. single anti-bypass entry unchanged === | handlers/direct_chat.py byte-equal: OK | RESULT: OK
+[consumers] rc=0 11.1s ::  | -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html | 202 passed, 3 warnings in 10.03s
+[notify] rc=0 6.5s ::  | -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html | 31 passed, 2 warnings in 5.42s
+[node-guards] ok=87 red=0 total=87
+[ui_refraction] rc=1 0.2s :: [matrix] config stub: items=573 groups=120 | [matrix] chat-вариант config: override items=115
+[ui_shell] rc=1 0.2s :: [matrix] config stub: items=573 groups=120 | [matrix] chat-вариант config: override items=115
+[ui_fs_matrix] rc=1 0.1s :: [matrix] config stub: items=573 groups=120 | [matrix] chat-вариант config: override items=115
+PREFLIGHT-DONE

@@ -1,0 +1,24 @@
+SHA256_12 of release-tree files (branch tip) + probe refs
+prod=82e110d67120b86373fb23a81c8612ec5143a589 cand=0282fe4b1eac02c3339586c3abab3952d6c7eae8 master=d4fc3680b952aeb6fbda650e2c2cf93b655900b3
+
+services/chat_params.py                                    head=f480530b6c12 prod=9159003f0ed3 cand=f480530b6c12
+services/direct_chat_service.py                            head=7a613dc9b406 prod=ab214abbdecd cand=7a613dc9b406
+services/persistent_throttling.py                          head=1a222e926aeb prod=f614694d0842 cand=1a222e926aeb
+tests/test_direct_chat.py                                  head=0a9d87735e8d prod=e8ba40e88d96 cand=0a9d87735e8d
+tests/test_direct_chat_concurrency.py                      head=b1e1e3b1cff9 prod=e80a400467f4 cand=b1e1e3b1cff9
+tests/test_persistent_throttling.py                        head=9f3f96afff27 prod=df7397802877 cand=9f3f96afff27
+config/settings.py                                         head=2cf07823cb2a prod=b3969d7e261f cand=fb4ea79205ff
+README.md                                                  head=f92887e22495 prod=f39248ad01a1 cand=ba5f9ac3225b
+plans/docs/param-registry-round1025.meta.md                head=248b35708a88 prod=5585499fbcaf cand=6e393ffa7c05
+web/static/app.css                                         head=d700df753d6d prod=d700df753d6d cand=d700df753d6d
+web/static/fullscreen-policy.js                            head=96db06425079 prod=96db06425079 cand=96db06425079
+web/static/glass-refraction.js                             head=6a09d962d59d prod=6a09d962d59d cand=6a09d962d59d
+web/index.html                                             head=0971d49d5337 prod=0971d49d5337 cand=0971d49d5337
+web/app.js                                                 head=5a810c0f4443 prod=5a810c0f4443 cand=5a810c0f4443
+web/api/speech.py                                          head=a69a67536ebe prod=a69a67536ebe cand=a69a67536ebe
+web/api/initiative_vitality.py                             head=4dd2510532bd prod=4dd2510532bd cand=4dd2510532bd
+services/prompt_registry.py                                head=a606bcafc1be prod=a606bcafc1be cand=a606bcafc1be
+services/prompt_composer.py                                head=fd8a2a70d5d7 prod=fd8a2a70d5d7 cand=fd8a2a70d5d7
+services/smartmodule_phrases.py                            head=04ed64429e88 prod=04ed64429e88 cand=04ed64429e88
+services/style_policy.py                                   head=f5eff9607d15 prod=f5eff9607d15 cand=f5eff9607d15
+handlers/direct_chat.py                                    head=c42cbd40a16c prod=c42cbd40a16c cand=c42cbd40a16c

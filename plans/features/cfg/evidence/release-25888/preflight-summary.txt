@@ -1,0 +1,77 @@
+PREFLIGHT SUMMARY - release/cfg1-2.58.88 (CFG-01), worktree = branch tip c37b8577
+toolchain: py -3 (3.12.0) for pytest/registry/frozen; repo .venv (playwright 1.62.0) for the e2e trio; node v24.16.0 for tests/js
+
+== cfg01_files (expected 204 passed) ==
+CMD: ['py', '-3', '-m', 'pytest', 'tests/test_direct_chat.py', 'tests/test_direct_chat_concurrency.py', 'tests/test_persistent_throttling.py', '-q', '--no-header']
+RC: 0
+204 passed, 2 warnings in 16.64s
+
+== cfg01_k (expected 7 passed, 167 deselected) ==
+CMD: ['py', '-3', '-m', 'pytest', 'tests/test_direct_chat.py', 'tests/test_direct_chat_concurrency.py', '-q', '--no-header', '-k', 'Cfg01']
+RC: 0
+7 passed, 167 deselected, 2 warnings in 3.33s
+
+== style_policy (expected 61 passed) ==
+CMD: ['py', '-3', '-m', 'pytest', 'tests/test_soul1_style_policy.py', '-q', '--no-header']
+RC: 0
+61 passed, 2 warnings in 2.84s
+
+== soul1_set (expected 600 passed) ==
+CMD: ['py', '-3', '-m', 'pytest', 'tests/test_soul1_amd26_authorial_wiring.py', 'tests/test_soul1_capability_fallbacks.py', 'tests/test_soul1_capability_intent.py', 'tests/test_soul1_capability_registry.py', 'tests/test_soul1_composer_layers.py', 'tests/test_soul1_composer_parity_off.py', 'tests/test_soul1_core_composer_integration.py', 'tests/test_soul1_core_doc_text.py', 'tests/test_soul1_core_registry_api.py', 'tests/test_soul1_core_version_propagation.py', 'tests/test_soul1_direct_prompt_reads.py', 'tests/test_soul1_extent_one_word.py', 'tests/test_soul1_factory_defaults.py', 'tests/test_soul1_flags_composition.py', 'tests/test_soul1_legacy_custom_preserved.py', 'tests/test_soul1_machine_profile_no_core.py', 'tests/test_soul1_registry_completeness.py', 'tests/test_soul1_registry_legacy_removal.py', 'tests/test_soul1_style_payload.py', 'tests/test_soul1_style_policy.py', 'tests/test_soul1_style_repetition.py', 'tests/test_soul1_w4_authorial_genre.py', 'tests/test_soul1_w4_examples_scope.py', 'tests/test_soul1_w4_humor_craft.py', 'tests/test_soul1_w4_humor_feedback.py', 'tests/test_soul1_w4_sample_library.py', 'tests/test_soul1_w5_initiative_vitality.py', 'tests/test_soul1_w5_observer_gates.py', 'tests/test_soul1_w6_speech_ui.py', 'tests/test_soul1_w7_embedding_primary_slot.py', '-q', '--no-header']
+RC: 0
+600 passed, 3 warnings in 16.32s
+
+== parity (expected 13 passed) ==
+CMD: ['py', '-3', '-m', 'pytest', 'tests/test_soul1_composer_parity_off.py', '-q', '--no-header']
+RC: 0
+13 passed, 2 warnings in 2.62s
+
+== registry (expected 575) ==
+CMD: ['py', '-3', 'tools/gen_param_registry_round1025.py', '--check']
+RC: 0
+CHECK OK: реестр 575 == REGISTRY, карта полна, R17-чисто, TSV/map идемпотентны.
+
+== frozen (expected RESULT: OK) ==
+services/direct_chat_service.py    throttle_refresh               cand=2 head=2 OK
+services/direct_chat_service.py    cooldown_refresh               cand=2 head=2 OK
+handlers/direct_chat.py byte-equal: OK
+RESULT: OK
+
+== consumers (expected 202 passed) ==
+CMD: ['py', '-3', '-m', 'pytest', 'tests/test_hot_config.py', 'tests/test_config_cache.py', 'tests/test_direct_chat_lore_inject.py', 'tests/test_direct_chat_relations_inject.py', 'tests/test_direct_two_call_round1022.py', 'tests/test_soul1_w6_speech_ui.py', 'tests/test_soul1_w5_observer_gates.py', 'tests/test_mca08_style_form.py', '-q', '--no-header']
+RC: 0
+202 passed, 3 warnings in 10.03s
+
+== notify (expected 31 passed) ==
+CMD: ['py', '-3', '-m', 'pytest', 'tests/test_settings_worker_sync_round1018.py', '-q', '--no-header']
+RC: 0
+31 passed, 2 warnings in 5.42s
+
+== node-guards (expected 87/87) ==
+OK        tests/js/routing_test.js                                   | [adminbot] DOMPurify недоступен — текст без HTML
+OK        tests/js/soul1_w5_initiative_panel_test.js                 | SOUL1-W5-PANEL-OK
+OK        tests/js/vue_mount_test.js                                 | VUE-MOUNT-OK
+SUMMARY: ok=87 red=0 total=87
+
+== ui_refraction (expected 37/37 (21+4+10+2 checks, WG-REFRACT-E2E-OK)) ==
+[OK] C_optical_pattern_displacement (4 проверок)
+[OK] B_desktop_1440 (10 проверок)
+[OK] D_no_window_geometry_hacks (2 проверок)
+WG-REFRACT-E2E-OK
+
+== ui_shell (expected W2-SHELL-E2E-OK, console_errors []) ==
+CMD: C:\Code\Python\adminbot\.venv\Scripts\python.exe tools/ui_asap8_w2_shell_e2e.py
+RC: 0
+W2-SHELL-E2E-OK
+
+== ui_fs_matrix (expected 12/12 PASS) ==
+[w2-fs] S11_long_title_scope     PASS (11 checks)
+[w2-fs] S12_admin_geom_diag      PASS (30 checks)
+[w2-fs] S13_non_admin_no_diag    PASS (3 checks)
+[w2-fs] итог: 12/12 PASS, артефакты: C:\Users\main\.config\opencode\OpenCodeScratch\adminbot-ccef72c25768\cfg1-release-25888\ev\fs-e2e
+
+NOTE (honest): the first e2e attempt used the global py -3 interpreter and failed
+with ModuleNotFoundError: playwright (rc=1, 0.2s) - raw logs kept in ev/ui_*.txt
+(first run). The trio was re-run with the repo venv python (.venv, playwright
+1.62.0) and passed; the results above are that re-run. Raw logs: ev/ (scratch),
+attached summary lines only.

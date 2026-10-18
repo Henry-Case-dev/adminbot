@@ -1,0 +1,47 @@
+=== NOW ===
+2026-10-18T00:30:40Z
+=== NODE ===
+HEAD=c37b85779cc41ad716304024ebeea86ad4081071
+BRANCH=release/cfg1-2.58.88
+TRACKED_MOD=0
+=== HEALTH ===
+{"status":"ok","version":"2.58.88"}
+MainPID=3275019 NRestarts=0 ExecMainStartTimestamp=Sun 2026-10-18 00:29:45 UTC ExecMainStatus=0 ActiveState=active SubState=running 
+=== ENV AXES (.env) ===
+UNIFIED_COMPOSER_ENABLED=1
+HUMOR_CRAFT_ENABLED=1
+HUMOR_LIBRARY_ENABLED=1
+HUMOR_FEEDBACK_ENABLED=1
+INITIATIVE_DIAGNOSTICS_PUBLISH_ENABLED=1
+=== CFG-01 MARKERS (deployed bytes) ===
+CFG_RESOLVER=2
+CFG_NORMALIZE=4
+CFG_SOURCED=1
+CFG_EVENT=1
+CFG_THROTTLE_REFRESH=2
+=== PAYLOAD SHA12 ===
+services/persistent_throttling.py 1a222e926aeb
+services/chat_params.py f480530b6c12
+services/direct_chat_service.py 7a613dc9b406
+config/settings.py 2cf07823cb2a
+=== APP.CSS (served bytes, must stay SOUL) ===
+CSS_SHA12=d700df753d6d
+CSS_HTTP_SHA12=d700df753d6d
+=== PAGE ===
+PAGE_VER=15
+=== MIGRATION LINES (since T0) ===
+Oct 18 00:30:06 racknerd-f4e3456 python[3275019]: 2026-10-18 00:30:06,380 - services.database - INFO - [database] migrations: start | current user_version=36 | pending=[]
+Oct 18 00:30:06 racknerd-f4e3456 python[3275019]: 2026-10-18 00:30:06,384 - services.database - INFO - [database] migrations: complete | user_version=36 | total 0.0s
+=== SQLITE USER_VERSION ===
+USER_VERSION (36,)
+=== JOURNAL COUNTS (since T0) ===
+ERR=0
+RUNTIMEWARN=0
+GRACEFUL=2
+POLLER=1
+CFG_EVENTS=0
+DIRECT_LINES=0
+=== HTTPS ===
+HTTPS_HZ={"status":"ok","version":"2.58.88"}
+HTTPS_WEB=200
+=== DONE ===
