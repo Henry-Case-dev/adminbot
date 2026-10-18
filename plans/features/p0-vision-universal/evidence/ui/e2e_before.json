@@ -1,0 +1,2258 @@
+{
+ "webroot": "C:\\Code\\Python\\adminbot\\OPENCODE_WORKFLOW_SCRATCH\\vision-ui\\work_before\\web",
+ "failures": [
+  "llm-320x640: в DOM есть артефакт `[native code]` (D10/P0V-UI-NATIVE)",
+  "llm-320x640: нет блока фактов [data-vision-facts] (D12)",
+  "llm-360x740: в DOM есть артефакт `[native code]` (D10/P0V-UI-NATIVE)",
+  "llm-360x740: нет блока фактов [data-vision-facts] (D12)",
+  "llm-390x844: в DOM есть артефакт `[native code]` (D10/P0V-UI-NATIVE)",
+  "llm-390x844: нет блока фактов [data-vision-facts] (D12)",
+  "llm-430x932: в DOM есть артефакт `[native code]` (D10/P0V-UI-NATIVE)",
+  "llm-430x932: нет блока фактов [data-vision-facts] (D12)",
+  "llm-640x360-land: в DOM есть артефакт `[native code]` (D10/P0V-UI-NATIVE)",
+  "llm-640x360-land: нет блока фактов [data-vision-facts] (D12)",
+  "llm-844x390-land: в DOM есть артефакт `[native code]` (D10/P0V-UI-NATIVE)",
+  "llm-844x390-land: нет блока фактов [data-vision-facts] (D12)",
+  "llm-no-state: в DOM есть артефакт `[native code]` (D10/P0V-UI-NATIVE)",
+  "llm-no-state: линия показана без state: 'function () { [native code] }'",
+  "mod-320x640: нет блока фактов [data-vision-facts] (D12)",
+  "mod-360x740: нет блока фактов [data-vision-facts] (D12)",
+  "mod-390x844: нет блока фактов [data-vision-facts] (D12)",
+  "mod-640x360-land: нет блока фактов [data-vision-facts] (D12)",
+  "llm-320x640-font20: main.scroll-area scrollWidth 376 > clientWidth 320",
+  "llm-320x640-font20: строки формы: row#0 right 355; row#1 right 355; row#2 right 355; row#3 right 355",
+  "llm-320x640-font20: действия вне viewport: Адрес сервера (пусто — основной) right 355; Тип API (openai_compatible) right 355; Модель (пусто — основная) right 355;  right 355; Заменить right 324",
+  "llm-320x640-font20: в DOM есть артефакт `[native code]` (D10/P0V-UI-NATIVE)",
+  "llm-320x640-font20: нет блока фактов [data-vision-facts] (D12)",
+  "llm-360x740-font24: main.scroll-area scrollWidth 449 > clientWidth 360",
+  "llm-360x740-font24: строки формы: row#0 right 424; row#1 right 424; row#2 right 424; row#3 right 424",
+  "llm-360x740-font24: действия вне viewport: Адрес сервера (пусто — основной) right 424; Тип API (openai_compatible) right 424; Модель (пусто — основная) right 424;  right 424; Заменить right 388; Удалить right 376",
+  "llm-360x740-font24: в DOM есть артефакт `[native code]` (D10/P0V-UI-NATIVE)",
+  "llm-360x740-font24: нет блока фактов [data-vision-facts] (D12)",
+  "llm-390x844-font20: в DOM есть артефакт `[native code]` (D10/P0V-UI-NATIVE)",
+  "llm-390x844-font20: нет блока фактов [data-vision-facts] (D12)",
+  "probe-auth: в DOM есть артефакт `[native code]` (D10/P0V-UI-NATIVE)",
+  "probe-auth: факты после пробы: '' (нет 'Неверный ключ: провайдер отклонил авторизацию')",
+  "probe-rate: в DOM есть артефакт `[native code]` (D10/P0V-UI-NATIVE)",
+  "probe-rate: факты после пробы: '' (нет 'Превышен лимит запросов провайдера')",
+  "probe-modality: в DOM есть артефакт `[native code]` (D10/P0V-UI-NATIVE)",
+  "probe-modality: факты после пробы: '' (нет 'Модель не принимает изображения')",
+  "probe-timeout: в DOM есть артефакт `[native code]` (D10/P0V-UI-NATIVE)",
+  "probe-timeout: факты после пробы: '' (нет 'Провайдер не ответил вовремя (таймаут)')",
+  "probe-server5xx: в DOM есть артефакт `[native code]` (D10/P0V-UI-NATIVE)",
+  "probe-server5xx: факты после пробы: '' (нет 'Провайдер временно недоступен (ошибка сервера)')",
+  "probe-empty: в DOM есть артефакт `[native code]` (D10/P0V-UI-NATIVE)",
+  "probe-empty: факты после пробы: '' (нет 'Провайдер вернул пустой ответ')",
+  "probe-config: в DOM есть артефакт `[native code]` (D10/P0V-UI-NATIVE)",
+  "probe-config: факты после пробы: '' (нет 'Тип подключения не поддерживается (доступен OpenAI-совместимый)')",
+  "probe-model-missing: в DOM есть артефакт `[native code]` (D10/P0V-UI-NATIVE)",
+  "probe-model-missing: факты после пробы: '' (нет 'Модель не найдена на этом адресе (проверьте имя модели)')",
+  "probe-bad-image: в DOM есть артефакт `[native code]` (D10/P0V-UI-NATIVE)",
+  "probe-bad-image: факты после пробы: '' (нет 'Модель доступна, но изображение не принято')",
+  "probe-fallback-auth: в DOM есть артефакт `[native code]` (D10/P0V-UI-NATIVE)",
+  "probe-fallback-auth: человеческой причины 'Неверный ключ: провайдер отклонил авторизацию' нет в ['vision_unavailable', 'Ошибка подключения: vision_unavailable']",
+  "probe-fallback-auth: внутренний код 'vision_unavailable' виден в тексте 'vision_unavailable'",
+  "probe-fallback-auth: внутренний код 'vision_unavailable' виден в тексте 'Ошибка подключения: vision_unavailable'",
+  "probe-ok: в DOM есть артефакт `[native code]` (D10/P0V-UI-NATIVE)"
+ ],
+ "notes": [
+  "probe-ok: линия после успеха: 'function () { [native code] }'"
+ ],
+ "cases": {
+  "llm-320x640": {
+   "innerWidth": 320,
+   "docScrollWidth": 320,
+   "mainScrollWidth": 320,
+   "mainClientWidth": 320,
+   "overflow": false,
+   "mainOverflow": false,
+   "nativeText": true,
+   "block": {
+    "x": 8,
+    "right": 312,
+    "top": 7458,
+    "bottom": 7988,
+    "w": 304,
+    "h": 529
+   },
+   "layout": "row",
+   "rows": 4,
+   "rowIssues": [],
+   "controls": [
+    {
+     "t": "Адрес сервера (пусто — основной)",
+     "w": 118,
+     "h": 40,
+     "right": 295
+    },
+    {
+     "t": "Тип API (openai_compatible)",
+     "w": 118,
+     "h": 40,
+     "right": 295
+    },
+    {
+     "t": "Модель (пусто — основная)",
+     "w": 118,
+     "h": 40,
+     "right": 295
+    },
+    {
+     "t": "Новый ключ (заменить)…",
+     "w": 55,
+     "h": 40,
+     "right": 232
+    },
+    {
+     "t": "",
+     "w": 55,
+     "h": 48,
+     "right": 295
+    },
+    {
+     "t": "Заменить",
+     "w": 83,
+     "h": 34,
+     "right": 260
+    },
+    {
+     "t": "Удалить",
+     "w": 75,
+     "h": 34,
+     "right": 252
+    },
+    {
+     "t": "Сохранить",
+     "w": 89,
+     "h": 34,
+     "right": 114
+    },
+    {
+     "t": "Проверить подключение",
+     "w": 176,
+     "h": 34,
+     "right": 201
+    }
+   ],
+   "controlIssues": [],
+   "effLine": "function () { [native code] }",
+   "factsPresent": false,
+   "facts": {},
+   "statusText": null,
+   "toastTexts": [],
+   "hasRawSecret": false,
+   "secretInputs": [
+    ""
+   ],
+   "bodyTextSample": "A Audit Chat ЧАТ ▾  Статус  Аналитика  Модули  Ещё • ИИ Модели и подключения Адреса, модели и ключи провайдеров, сгруппированные по назначению. Технические параметры — ниже, в «Расширенных настройках». ГЕНЕРАЦИЯ ТЕКСТА Прямые ответы Основная модель Прямые ответы Название модели Адрес сервера Модель Ключ ••••••••0000  Заменить Удалить Сохранить Проверить Запасная модель Прямые ответы (фолбэк) ",
+   "consoleErrors": [],
+   "case": "llm-320x640"
+  },
+  "llm-360x740": {
+   "innerWidth": 360,
+   "docScrollWidth": 360,
+   "mainScrollWidth": 360,
+   "mainClientWidth": 360,
+   "overflow": false,
+   "mainOverflow": false,
+   "nativeText": true,
+   "block": {
+    "x": 8,
+    "right": 352,
+    "top": 7146,
+    "bottom": 7633,
+    "w": 344,
+    "h": 488
+   },
+   "layout": "row",
+   "rows": 4,
+   "rowIssues": [],
+   "controls": [
+    {
+     "t": "Адрес сервера (пусто — основной)",
+     "w": 158,
+     "h": 40,
+     "right": 335
+    },
+    {
+     "t": "Тип API (openai_compatible)",
+     "w": 158,
+     "h": 40,
+     "right": 335
+    },
+    {
+     "t": "Модель (пусто — основная)",
+     "w": 158,
+     "h": 40,
+     "right": 335
+    },
+    {
+     "t": "Новый ключ (заменить)…",
+     "w": 95,
+     "h": 40,
+     "right": 272
+    },
+    {
+     "t": "",
+     "w": 55,
+     "h": 48,
+     "right": 335
+    },
+    {
+     "t": "Заменить",
+     "w": 83,
+     "h": 34,
+     "right": 260
+    },
+    {
+     "t": "Удалить",
+     "w": 75,
+     "h": 34,
+     "right": 252
+    },
+    {
+     "t": "Сохранить",
+     "w": 89,
+     "h": 34,
+     "right": 114
+    },
+    {
+     "t": "Проверить подключение",
+     "w": 176,
+     "h": 34,
+     "right": 298
+    }
+   ],
+   "controlIssues": [],
+   "effLine": "function () { [native code] }",
+   "factsPresent": false,
+   "facts": {},
+   "statusText": null,
+   "toastTexts": [],
+   "hasRawSecret": false,
+   "secretInputs": [
+    ""
+   ],
+   "bodyTextSample": "A Audit Chat ЧАТ ▾  Статус  Аналитика  Модули  Ещё • ИИ Модели и подключения Адреса, модели и ключи провайдеров, сгруппированные по назначению. Технические параметры — ниже, в «Расширенных настройках». ГЕНЕРАЦИЯ ТЕКСТА Прямые ответы Основная модель Прямые ответы Название модели Адрес сервера Модель Ключ ••••••••0000  Заменить Удалить Сохранить Проверить Запасная модель Прямые ответы (фолбэк) ",
+   "consoleErrors": [],
+   "case": "llm-360x740"
+  },
+  "llm-390x844": {
+   "innerWidth": 390,
+   "docScrollWidth": 390,
+   "mainScrollWidth": 390,
+   "mainClientWidth": 390,
+   "overflow": false,
+   "mainOverflow": false,
+   "nativeText": true,
+   "block": {
+    "x": 8,
+    "right": 382,
+    "top": 6472,
+    "bottom": 6901,
+    "w": 374,
+    "h": 430
+   },
+   "layout": "row",
+   "rows": 4,
+   "rowIssues": [],
+   "controls": [
+    {
+     "t": "Адрес сервера (пусто — основной)",
+     "w": 188,
+     "h": 40,
+     "right": 365
+    },
+    {
+     "t": "Тип API (openai_compatible)",
+     "w": 188,
+     "h": 40,
+     "right": 365
+    },
+    {
+     "t": "Модель (пусто — основная)",
+     "w": 188,
+     "h": 40,
+     "right": 365
+    },
+    {
+     "t": "Новый ключ (заменить)…",
+     "w": 125,
+     "h": 40,
+     "right": 302
+    },
+    {
+     "t": "",
+     "w": 55,
+     "h": 48,
+     "right": 365
+    },
+    {
+     "t": "Заменить",
+     "w": 83,
+     "h": 34,
+     "right": 260
+    },
+    {
+     "t": "Удалить",
+     "w": 75,
+     "h": 34,
+     "right": 342
+    },
+    {
+     "t": "Сохранить",
+     "w": 89,
+     "h": 34,
+     "right": 114
+    },
+    {
+     "t": "Проверить подключение",
+     "w": 176,
+     "h": 34,
+     "right": 298
+    }
+   ],
+   "controlIssues": [],
+   "effLine": "function () { [native code] }",
+   "factsPresent": false,
+   "facts": {},
+   "statusText": null,
+   "toastTexts": [],
+   "hasRawSecret": false,
+   "secretInputs": [
+    ""
+   ],
+   "bodyTextSample": "A Audit Chat ЧАТ ▾  Статус  Аналитика  Модули  Ещё • ИИ Модели и подключения Адреса, модели и ключи провайдеров, сгруппированные по назначению. Технические параметры — ниже, в «Расширенных настройках». ГЕНЕРАЦИЯ ТЕКСТА Прямые ответы Основная модель Прямые ответы Название модели Адрес сервера Модель Ключ ••••••••0000  Заменить Удалить Сохранить Проверить Запасная модель Прямые ответы (фолбэк) ",
+   "consoleErrors": [],
+   "case": "llm-390x844"
+  },
+  "llm-430x932": {
+   "innerWidth": 430,
+   "docScrollWidth": 430,
+   "mainScrollWidth": 430,
+   "mainClientWidth": 430,
+   "overflow": false,
+   "mainOverflow": false,
+   "nativeText": true,
+   "block": {
+    "x": 8,
+    "right": 422,
+    "top": 6350,
+    "bottom": 6779,
+    "w": 414,
+    "h": 430
+   },
+   "layout": "row",
+   "rows": 4,
+   "rowIssues": [],
+   "controls": [
+    {
+     "t": "Адрес сервера (пусто — основной)",
+     "w": 228,
+     "h": 40,
+     "right": 405
+    },
+    {
+     "t": "Тип API (openai_compatible)",
+     "w": 228,
+     "h": 40,
+     "right": 405
+    },
+    {
+     "t": "Модель (пусто — основная)",
+     "w": 228,
+     "h": 40,
+     "right": 405
+    },
+    {
+     "t": "Новый ключ (заменить)…",
+     "w": 165,
+     "h": 40,
+     "right": 342
+    },
+    {
+     "t": "",
+     "w": 55,
+     "h": 48,
+     "right": 405
+    },
+    {
+     "t": "Заменить",
+     "w": 83,
+     "h": 34,
+     "right": 260
+    },
+    {
+     "t": "Удалить",
+     "w": 75,
+     "h": 34,
+     "right": 342
+    },
+    {
+     "t": "Сохранить",
+     "w": 89,
+     "h": 34,
+     "right": 114
+    },
+    {
+     "t": "Проверить подключение",
+     "w": 176,
+     "h": 34,
+     "right": 298
+    }
+   ],
+   "controlIssues": [],
+   "effLine": "function () { [native code] }",
+   "factsPresent": false,
+   "facts": {},
+   "statusText": null,
+   "toastTexts": [],
+   "hasRawSecret": false,
+   "secretInputs": [
+    ""
+   ],
+   "bodyTextSample": "A Audit Chat ЧАТ ▾  Статус  Аналитика  Модули  Ещё • ИИ Модели и подключения Адреса, модели и ключи провайдеров, сгруппированные по назначению. Технические параметры — ниже, в «Расширенных настройках». ГЕНЕРАЦИЯ ТЕКСТА Прямые ответы Основная модель Прямые ответы Название модели Адрес сервера Модель Ключ ••••••••0000  Заменить Удалить Сохранить Проверить Запасная модель Прямые ответы (фолбэк) ",
+   "consoleErrors": [],
+   "case": "llm-430x932"
+  },
+  "llm-640x360-land": {
+   "innerWidth": 640,
+   "docScrollWidth": 640,
+   "mainScrollWidth": 640,
+   "mainClientWidth": 640,
+   "overflow": false,
+   "mainOverflow": false,
+   "nativeText": true,
+   "block": {
+    "x": 8,
+    "right": 632,
+    "top": 6005,
+    "bottom": 6435,
+    "w": 624,
+    "h": 430
+   },
+   "layout": "row",
+   "rows": 4,
+   "rowIssues": [],
+   "controls": [
+    {
+     "t": "Адрес сервера (пусто — основной)",
+     "w": 438,
+     "h": 40,
+     "right": 615
+    },
+    {
+     "t": "Тип API (openai_compatible)",
+     "w": 438,
+     "h": 40,
+     "right": 615
+    },
+    {
+     "t": "Модель (пусто — основная)",
+     "w": 438,
+     "h": 40,
+     "right": 615
+    },
+    {
+     "t": "Новый ключ (заменить)…",
+     "w": 375,
+     "h": 40,
+     "right": 552
+    },
+    {
+     "t": "",
+     "w": 55,
+     "h": 48,
+     "right": 615
+    },
+    {
+     "t": "Заменить",
+     "w": 83,
+     "h": 34,
+     "right": 260
+    },
+    {
+     "t": "Удалить",
+     "w": 75,
+     "h": 34,
+     "right": 342
+    },
+    {
+     "t": "Сохранить",
+     "w": 89,
+     "h": 34,
+     "right": 114
+    },
+    {
+     "t": "Проверить подключение",
+     "w": 176,
+     "h": 34,
+     "right": 298
+    }
+   ],
+   "controlIssues": [],
+   "effLine": "function () { [native code] }",
+   "factsPresent": false,
+   "facts": {},
+   "statusText": null,
+   "toastTexts": [],
+   "hasRawSecret": false,
+   "secretInputs": [
+    ""
+   ],
+   "bodyTextSample": "A Audit Chat ЧАТ ▾  Статус  Аналитика  Модули  Ещё • ИИ Модели и подключения Адреса, модели и ключи провайдеров, сгруппированные по назначению. Технические параметры — ниже, в «Расширенных настройках». ГЕНЕРАЦИЯ ТЕКСТА Прямые ответы Основная модель Прямые ответы Название модели Адрес сервера Модель Ключ ••••••••0000  Заменить Удалить Сохранить Проверить Запасная модель Прямые ответы (фолбэк) ",
+   "consoleErrors": [],
+   "case": "llm-640x360-land"
+  },
+  "llm-844x390-land": {
+   "innerWidth": 844,
+   "docScrollWidth": 844,
+   "mainScrollWidth": 844,
+   "mainClientWidth": 844,
+   "overflow": false,
+   "mainOverflow": false,
+   "nativeText": true,
+   "block": {
+    "x": 16,
+    "right": 414,
+    "top": 5935,
+    "bottom": 6365,
+    "w": 398,
+    "h": 430
+   },
+   "layout": "row",
+   "rows": 4,
+   "rowIssues": [],
+   "controls": [
+    {
+     "t": "Адрес сервера (пусто — основной)",
+     "w": 212,
+     "h": 40,
+     "right": 397
+    },
+    {
+     "t": "Тип API (openai_compatible)",
+     "w": 212,
+     "h": 40,
+     "right": 397
+    },
+    {
+     "t": "Модель (пусто — основная)",
+     "w": 212,
+     "h": 40,
+     "right": 397
+    },
+    {
+     "t": "Новый ключ (заменить)…",
+     "w": 149,
+     "h": 40,
+     "right": 334
+    },
+    {
+     "t": "",
+     "w": 55,
+     "h": 48,
+     "right": 397
+    },
+    {
+     "t": "Заменить",
+     "w": 83,
+     "h": 34,
+     "right": 268
+    },
+    {
+     "t": "Удалить",
+     "w": 75,
+     "h": 34,
+     "right": 350
+    },
+    {
+     "t": "Сохранить",
+     "w": 89,
+     "h": 34,
+     "right": 122
+    },
+    {
+     "t": "Проверить подключение",
+     "w": 176,
+     "h": 34,
+     "right": 306
+    }
+   ],
+   "controlIssues": [],
+   "effLine": "function () { [native code] }",
+   "factsPresent": false,
+   "facts": {},
+   "statusText": null,
+   "toastTexts": [],
+   "hasRawSecret": false,
+   "secretInputs": [
+    ""
+   ],
+   "bodyTextSample": " Статус / ИИ / Модели и подключения LLM Провайдеры A Audit Chat ЧАТ ▾ ID Audit global_admin Модели и подключения Адреса, модели и ключи провайдеров, сгруппированные по назначению. Технические параметры — ниже, в «Расширенных настройках». ГЕНЕРАЦИЯ ТЕКСТА Прямые ответы Основная модель Прямые ответы Название модели Адрес сервера Модель Ключ ••••••••0000  Заменить Удалить Сохранить Проверить Запасн",
+   "consoleErrors": [],
+   "case": "llm-844x390-land"
+  },
+  "llm-no-state": {
+   "innerWidth": 360,
+   "docScrollWidth": 360,
+   "mainScrollWidth": 360,
+   "mainClientWidth": 360,
+   "overflow": false,
+   "mainOverflow": false,
+   "nativeText": true,
+   "block": {
+    "x": 8,
+    "right": 352,
+    "top": 7146,
+    "bottom": 7633,
+    "w": 344,
+    "h": 488
+   },
+   "layout": "row",
+   "rows": 4,
+   "rowIssues": [],
+   "controls": [
+    {
+     "t": "Адрес сервера (пусто — основной)",
+     "w": 158,
+     "h": 40,
+     "right": 335
+    },
+    {
+     "t": "Тип API (openai_compatible)",
+     "w": 158,
+     "h": 40,
+     "right": 335
+    },
+    {
+     "t": "Модель (пусто — основная)",
+     "w": 158,
+     "h": 40,
+     "right": 335
+    },
+    {
+     "t": "Новый ключ (заменить)…",
+     "w": 95,
+     "h": 40,
+     "right": 272
+    },
+    {
+     "t": "",
+     "w": 55,
+     "h": 48,
+     "right": 335
+    },
+    {
+     "t": "Заменить",
+     "w": 83,
+     "h": 34,
+     "right": 260
+    },
+    {
+     "t": "Удалить",
+     "w": 75,
+     "h": 34,
+     "right": 252
+    },
+    {
+     "t": "Сохранить",
+     "w": 89,
+     "h": 34,
+     "right": 114
+    },
+    {
+     "t": "Проверить подключение",
+     "w": 176,
+     "h": 34,
+     "right": 298
+    }
+   ],
+   "controlIssues": [],
+   "effLine": "function () { [native code] }",
+   "factsPresent": false,
+   "facts": {},
+   "statusText": null,
+   "toastTexts": [],
+   "hasRawSecret": false,
+   "secretInputs": [
+    ""
+   ],
+   "bodyTextSample": "A Audit Chat ЧАТ ▾  Статус  Аналитика  Модули  Ещё • ИИ Модели и подключения Адреса, модели и ключи провайдеров, сгруппированные по назначению. Технические параметры — ниже, в «Расширенных настройках». ГЕНЕРАЦИЯ ТЕКСТА Прямые ответы Основная модель Прямые ответы Название модели Адрес сервера Модель Ключ ••••••••0000  Заменить Удалить Сохранить Проверить Запасная модель Прямые ответы (фолбэк) ",
+   "consoleErrors": [],
+   "case": "llm-no-state"
+  },
+  "mod-320x640": {
+   "innerWidth": 320,
+   "docScrollWidth": 320,
+   "mainScrollWidth": 320,
+   "mainClientWidth": 320,
+   "overflow": false,
+   "mainOverflow": false,
+   "nativeText": false,
+   "block": {
+    "x": 8,
+    "right": 312,
+    "top": 427,
+    "bottom": 709,
+    "w": 304,
+    "h": 282
+   },
+   "layout": null,
+   "rows": 0,
+   "rowIssues": [],
+   "controls": [
+    {
+     "t": "Проверить",
+     "w": 94,
+     "h": 44,
+     "right": 119
+    },
+    {
+     "t": "Настроить",
+     "w": 88,
+     "h": 44,
+     "right": 215
+    }
+   ],
+   "controlIssues": [],
+   "effLine": null,
+   "factsPresent": false,
+   "facts": {},
+   "statusText": null,
+   "toastTexts": [],
+   "hasRawSecret": false,
+   "secretInputs": [],
+   "bodyTextSample": "A Audit Chat ЧАТ ▾  Статус  Аналитика  Модули  Ещё  Распознавание изображений Читает текст и описание картинок Выключен Источник: глобальная настройка Обзор Основные настройки Модели Лимиты Технические подключения Распознавание изображений Не проверено Название: Распознавание изображений Назначение: Распознавание изображений Основная модель: google/gemma-4-31b-it:free Резервная модель: — Стат",
+   "consoleErrors": [],
+   "case": "mod-320x640"
+  },
+  "mod-360x740": {
+   "innerWidth": 360,
+   "docScrollWidth": 360,
+   "mainScrollWidth": 360,
+   "mainClientWidth": 360,
+   "overflow": false,
+   "mainOverflow": false,
+   "nativeText": false,
+   "block": {
+    "x": 8,
+    "right": 352,
+    "top": 427,
+    "bottom": 709,
+    "w": 344,
+    "h": 282
+   },
+   "layout": null,
+   "rows": 0,
+   "rowIssues": [],
+   "controls": [
+    {
+     "t": "Проверить",
+     "w": 94,
+     "h": 44,
+     "right": 119
+    },
+    {
+     "t": "Настроить",
+     "w": 88,
+     "h": 44,
+     "right": 215
+    }
+   ],
+   "controlIssues": [],
+   "effLine": null,
+   "factsPresent": false,
+   "facts": {},
+   "statusText": null,
+   "toastTexts": [],
+   "hasRawSecret": false,
+   "secretInputs": [],
+   "bodyTextSample": "A Audit Chat ЧАТ ▾  Статус  Аналитика  Модули  Ещё  Распознавание изображений Читает текст и описание картинок Выключен Источник: глобальная настройка Обзор Основные настройки Модели Лимиты Технические подключения Распознавание изображений Не проверено Название: Распознавание изображений Назначение: Распознавание изображений Основная модель: google/gemma-4-31b-it:free Резервная модель: — Стат",
+   "consoleErrors": [],
+   "case": "mod-360x740"
+  },
+  "mod-390x844": {
+   "innerWidth": 390,
+   "docScrollWidth": 390,
+   "mainScrollWidth": 390,
+   "mainClientWidth": 390,
+   "overflow": false,
+   "mainOverflow": false,
+   "nativeText": false,
+   "block": {
+    "x": 8,
+    "right": 382,
+    "top": 427,
+    "bottom": 675,
+    "w": 374,
+    "h": 248
+   },
+   "layout": null,
+   "rows": 0,
+   "rowIssues": [],
+   "controls": [
+    {
+     "t": "Проверить",
+     "w": 94,
+     "h": 44,
+     "right": 119
+    },
+    {
+     "t": "Настроить",
+     "w": 88,
+     "h": 44,
+     "right": 215
+    }
+   ],
+   "controlIssues": [],
+   "effLine": null,
+   "factsPresent": false,
+   "facts": {},
+   "statusText": null,
+   "toastTexts": [],
+   "hasRawSecret": false,
+   "secretInputs": [],
+   "bodyTextSample": "A Audit Chat ЧАТ ▾  Статус  Аналитика  Модули  Ещё  Распознавание изображений Читает текст и описание картинок Выключен Источник: глобальная настройка Обзор Основные настройки Модели Лимиты Технические подключения Распознавание изображений Не проверено Название: Распознавание изображений Назначение: Распознавание изображений Основная модель: google/gemma-4-31b-it:free Резервная модель: — Стат",
+   "consoleErrors": [],
+   "case": "mod-390x844"
+  },
+  "mod-640x360-land": {
+   "innerWidth": 640,
+   "docScrollWidth": 640,
+   "mainScrollWidth": 640,
+   "mainClientWidth": 640,
+   "overflow": false,
+   "mainOverflow": false,
+   "nativeText": false,
+   "block": {
+    "x": 8,
+    "right": 632,
+    "top": 314,
+    "bottom": 562,
+    "w": 624,
+    "h": 248
+   },
+   "layout": null,
+   "rows": 0,
+   "rowIssues": [],
+   "controls": [
+    {
+     "t": "Проверить",
+     "w": 94,
+     "h": 44,
+     "right": 119
+    },
+    {
+     "t": "Настроить",
+     "w": 88,
+     "h": 44,
+     "right": 215
+    }
+   ],
+   "controlIssues": [],
+   "effLine": null,
+   "factsPresent": false,
+   "facts": {},
+   "statusText": null,
+   "toastTexts": [],
+   "hasRawSecret": false,
+   "secretInputs": [],
+   "bodyTextSample": "A Audit Chat ЧАТ ▾  Статус  Аналитика  Модули  Ещё  Распознавание изображений Читает текст и описание картинок Выключен Источник: глобальная настройка Обзор Основные настройки Модели Лимиты Технические подключения Распознавание изображений Не проверено Название: Распознавание изображений Назначение: Распознавание изображений Основная модель: google/gemma-4-31b-it:free Резервная модель: — Стат",
+   "consoleErrors": [],
+   "case": "mod-640x360-land"
+  },
+  "mod-settings-360x740": {
+   "innerWidth": 360,
+   "docScrollWidth": 360,
+   "mainScrollWidth": 360,
+   "mainClientWidth": 360,
+   "overflow": false,
+   "mainOverflow": false,
+   "nativeText": false,
+   "block": {
+    "x": 8,
+    "right": 352,
+    "top": 419,
+    "bottom": 1090,
+    "w": 344,
+    "h": 671
+   },
+   "layout": "row",
+   "rows": 4,
+   "rowIssues": [],
+   "controls": [
+    {
+     "t": "Проверить",
+     "w": 94,
+     "h": 44,
+     "right": 119
+    },
+    {
+     "t": "Скрыть настройки",
+     "w": 132,
+     "h": 44,
+     "right": 259
+    },
+    {
+     "t": "Адрес сервера (пусто — основной)",
+     "w": 158,
+     "h": 40,
+     "right": 335
+    },
+    {
+     "t": "Тип API (openai_compatible)",
+     "w": 158,
+     "h": 40,
+     "right": 335
+    },
+    {
+     "t": "Модель (пусто — основная)",
+     "w": 158,
+     "h": 40,
+     "right": 335
+    },
+    {
+     "t": "Новый ключ (заменить)…",
+     "w": 95,
+     "h": 40,
+     "right": 272
+    },
+    {
+     "t": "",
+     "w": 55,
+     "h": 48,
+     "right": 335
+    },
+    {
+     "t": "Заменить",
+     "w": 83,
+     "h": 44,
+     "right": 260
+    },
+    {
+     "t": "Удалить",
+     "w": 75,
+     "h": 44,
+     "right": 252
+    },
+    {
+     "t": "Сохранить",
+     "w": 89,
+     "h": 44,
+     "right": 114
+    },
+    {
+     "t": "Проверить",
+     "w": 94,
+     "h": 44,
+     "right": 216
+    }
+   ],
+   "controlIssues": [],
+   "effLine": null,
+   "factsPresent": false,
+   "facts": {},
+   "statusText": null,
+   "toastTexts": [],
+   "hasRawSecret": false,
+   "secretInputs": [
+    ""
+   ],
+   "bodyTextSample": "A Audit Chat ЧАТ ▾  Статус  Аналитика  Модули  Ещё  Распознавание изображений Читает текст и описание картинок Выключен Источник: глобальная настройка Обзор Основные настройки Модели Лимиты Технические подключения Распознавание изображений Не проверено Название: Распознавание изображений Назначение: Распознавание изображений Основная модель: google/gemma-4-31b-it:free Резервная модель: — Стат",
+   "consoleErrors": [],
+   "case": "mod-settings-360x740"
+  },
+  "llm-320x640-font20": {
+   "innerWidth": 320,
+   "docScrollWidth": 320,
+   "mainScrollWidth": 376,
+   "mainClientWidth": 320,
+   "overflow": false,
+   "mainOverflow": true,
+   "nativeText": true,
+   "block": {
+    "x": 10,
+    "right": 376,
+    "top": 9010,
+    "bottom": 9663,
+    "w": 366,
+    "h": 654
+   },
+   "layout": "row",
+   "rows": 4,
+   "rowIssues": [
+    "row#0 right 355",
+    "row#1 right 355",
+    "row#2 right 355",
+    "row#3 right 355"
+   ],
+   "controls": [
+    {
+     "t": "Адрес сервера (пусто — основной)",
+     "w": 134,
+     "h": 49,
+     "right": 355
+    },
+    {
+     "t": "Тип API (openai_compatible)",
+     "w": 134,
+     "h": 49,
+     "right": 355
+    },
+    {
+     "t": "Модель (пусто — основная)",
+     "w": 134,
+     "h": 49,
+     "right": 355
+    },
+    {
+     "t": "Новый ключ (заменить)…",
+     "w": 62,
+     "h": 49,
+     "right": 283
+    },
+    {
+     "t": "",
+     "w": 62,
+     "h": 53,
+     "right": 355
+    },
+    {
+     "t": "Заменить",
+     "w": 103,
+     "h": 42,
+     "right": 324
+    },
+    {
+     "t": "Удалить",
+     "w": 93,
+     "h": 42,
+     "right": 314
+    },
+    {
+     "t": "Сохранить",
+     "w": 111,
+     "h": 42,
+     "right": 142
+    },
+    {
+     "t": "Проверить подключение",
+     "w": 220,
+     "h": 42,
+     "right": 251
+    }
+   ],
+   "controlIssues": [
+    "Адрес сервера (пусто — основной) right 355",
+    "Тип API (openai_compatible) right 355",
+    "Модель (пусто — основная) right 355",
+    " right 355",
+    "Заменить right 324"
+   ],
+   "effLine": "function () { [native code] }",
+   "factsPresent": false,
+   "facts": {},
+   "statusText": null,
+   "toastTexts": [],
+   "hasRawSecret": false,
+   "secretInputs": [
+    ""
+   ],
+   "bodyTextSample": "A Audit Chat ЧАТ ▾  Статус  Аналитика  Модули  Ещё • ИИ Модели и подключения Адреса, модели и ключи провайдеров, сгруппированные по назначению. Технические параметры — ниже, в «Расширенных настройках». ГЕНЕРАЦИЯ ТЕКСТА Прямые ответы Основная модель Прямые ответы Название модели Адрес сервера Модель Ключ ••••••••0000  Заменить Удалить Сохранить Проверить Запасная модель Прямые ответы (фолбэк) ",
+   "consoleErrors": [],
+   "case": "llm-320x640-font20"
+  },
+  "llm-360x740-font24": {
+   "innerWidth": 360,
+   "docScrollWidth": 360,
+   "mainScrollWidth": 449,
+   "mainClientWidth": 360,
+   "overflow": false,
+   "mainOverflow": true,
+   "nativeText": true,
+   "block": {
+    "x": 12,
+    "right": 449,
+    "top": 10611,
+    "bottom": 11392,
+    "w": 437,
+    "h": 781
+   },
+   "layout": "row",
+   "rows": 4,
+   "rowIssues": [
+    "row#0 right 424",
+    "row#1 right 424",
+    "row#2 right 424",
+    "row#3 right 424"
+   ],
+   "controls": [
+    {
+     "t": "Адрес сервера (пусто — основной)",
+     "w": 159,
+     "h": 58,
+     "right": 424
+    },
+    {
+     "t": "Тип API (openai_compatible)",
+     "w": 159,
+     "h": 58,
+     "right": 424
+    },
+    {
+     "t": "Модель (пусто — основная)",
+     "w": 159,
+     "h": 58,
+     "right": 424
+    },
+    {
+     "t": "Новый ключ (заменить)…",
+     "w": 78,
+     "h": 58,
+     "right": 343
+    },
+    {
+     "t": "",
+     "w": 69,
+     "h": 62,
+     "right": 424
+    },
+    {
+     "t": "Заменить",
+     "w": 123,
+     "h": 50,
+     "right": 388
+    },
+    {
+     "t": "Удалить",
+     "w": 111,
+     "h": 50,
+     "right": 376
+    },
+    {
+     "t": "Сохранить",
+     "w": 132,
+     "h": 50,
+     "right": 169
+    },
+    {
+     "t": "Проверить подключение",
+     "w": 264,
+     "h": 50,
+     "right": 301
+    }
+   ],
+   "controlIssues": [
+    "Адрес сервера (пусто — основной) right 424",
+    "Тип API (openai_compatible) right 424",
+    "Модель (пусто — основная) right 424",
+    " right 424",
+    "Заменить right 388",
+    "Удалить right 376"
+   ],
+   "effLine": "function () { [native code] }",
+   "factsPresent": false,
+   "facts": {},
+   "statusText": null,
+   "toastTexts": [],
+   "hasRawSecret": false,
+   "secretInputs": [
+    ""
+   ],
+   "bodyTextSample": "A Audit Chat ЧАТ ▾  Статус  Аналитика  Модули  Ещё • ИИ Модели и подключения Адреса, модели и ключи провайдеров, сгруппированные по назначению. Технические параметры — ниже, в «Расширенных настройках». ГЕНЕРАЦИЯ ТЕКСТА Прямые ответы Основная модель Прямые ответы Название модели Адрес сервера Модель Ключ ••••••••0000  Заменить Удалить Сохранить Проверить Запасная модель Прямые ответы (фолбэк) ",
+   "consoleErrors": [],
+   "case": "llm-360x740-font24"
+  },
+  "llm-390x844-font20": {
+   "innerWidth": 390,
+   "docScrollWidth": 390,
+   "mainScrollWidth": 390,
+   "mainClientWidth": 390,
+   "overflow": false,
+   "mainOverflow": false,
+   "nativeText": true,
+   "block": {
+    "x": 10,
+    "right": 380,
+    "top": 8905,
+    "bottom": 9558,
+    "w": 370,
+    "h": 654
+   },
+   "layout": "row",
+   "rows": 4,
+   "rowIssues": [],
+   "controls": [
+    {
+     "t": "Адрес сервера (пусто — основной)",
+     "w": 138,
+     "h": 49,
+     "right": 359
+    },
+    {
+     "t": "Тип API (openai_compatible)",
+     "w": 138,
+     "h": 49,
+     "right": 359
+    },
+    {
+     "t": "Модель (пусто — основная)",
+     "w": 138,
+     "h": 49,
+     "right": 359
+    },
+    {
+     "t": "Новый ключ (заменить)…",
+     "w": 66,
+     "h": 49,
+     "right": 287
+    },
+    {
+     "t": "",
+     "w": 62,
+     "h": 53,
+     "right": 359
+    },
+    {
+     "t": "Заменить",
+     "w": 103,
+     "h": 42,
+     "right": 324
+    },
+    {
+     "t": "Удалить",
+     "w": 93,
+     "h": 42,
+     "right": 314
+    },
+    {
+     "t": "Сохранить",
+     "w": 111,
+     "h": 42,
+     "right": 142
+    },
+    {
+     "t": "Проверить подключение",
+     "w": 220,
+     "h": 42,
+     "right": 251
+    }
+   ],
+   "controlIssues": [],
+   "effLine": "function () { [native code] }",
+   "factsPresent": false,
+   "facts": {},
+   "statusText": null,
+   "toastTexts": [],
+   "hasRawSecret": false,
+   "secretInputs": [
+    ""
+   ],
+   "bodyTextSample": "A Audit Chat ЧАТ ▾  Статус  Аналитика  Модули  Ещё • ИИ Модели и подключения Адреса, модели и ключи провайдеров, сгруппированные по назначению. Технические параметры — ниже, в «Расширенных настройках». ГЕНЕРАЦИЯ ТЕКСТА Прямые ответы Основная модель Прямые ответы Название модели Адрес сервера Модель Ключ ••••••••0000  Заменить Удалить Сохранить Проверить Запасная модель Прямые ответы (фолбэк) ",
+   "consoleErrors": [],
+   "case": "llm-390x844-font20"
+  },
+  "probe-auth": {
+   "innerWidth": 360,
+   "docScrollWidth": 360,
+   "mainScrollWidth": 360,
+   "mainClientWidth": 360,
+   "overflow": false,
+   "mainOverflow": false,
+   "nativeText": true,
+   "block": {
+    "x": 8,
+    "right": 352,
+    "top": 26,
+    "bottom": 537,
+    "w": 344,
+    "h": 512
+   },
+   "layout": "row",
+   "rows": 4,
+   "rowIssues": [],
+   "controls": [
+    {
+     "t": "Адрес сервера (пусто — основной)",
+     "w": 158,
+     "h": 40,
+     "right": 335
+    },
+    {
+     "t": "Тип API (openai_compatible)",
+     "w": 158,
+     "h": 40,
+     "right": 335
+    },
+    {
+     "t": "Модель (пусто — основная)",
+     "w": 158,
+     "h": 40,
+     "right": 335
+    },
+    {
+     "t": "Новый ключ (заменить)…",
+     "w": 95,
+     "h": 40,
+     "right": 272
+    },
+    {
+     "t": "",
+     "w": 55,
+     "h": 48,
+     "right": 335
+    },
+    {
+     "t": "Заменить",
+     "w": 83,
+     "h": 34,
+     "right": 260
+    },
+    {
+     "t": "Удалить",
+     "w": 75,
+     "h": 34,
+     "right": 252
+    },
+    {
+     "t": "Сохранить",
+     "w": 89,
+     "h": 34,
+     "right": 114
+    },
+    {
+     "t": "Проверить подключение",
+     "w": 176,
+     "h": 34,
+     "right": 298
+    }
+   ],
+   "controlIssues": [],
+   "effLine": "function () { [native code] }",
+   "factsPresent": false,
+   "facts": {},
+   "statusText": "Неверный ключ: провайдер отклонил авторизацию",
+   "toastTexts": [
+    "Ошибка подключения: Неверный ключ: провайдер отклонил авторизацию"
+   ],
+   "hasRawSecret": false,
+   "secretInputs": [
+    ""
+   ],
+   "bodyTextSample": "A Audit Chat ЧАТ ▾  Статус  Аналитика  Модули  Ещё • ИИ Модели и подключения Адреса, модели и ключи провайдеров, сгруппированные по назначению. Технические параметры — ниже, в «Расширенных настройках». ГЕНЕРАЦИЯ ТЕКСТА Прямые ответы Основная модель Прямые ответы Название модели Адрес сервера Модель Ключ ••••••••0000  Заменить Удалить Сохранить Проверить Запасная модель Прямые ответы (фолбэк) ",
+   "consoleErrors": [],
+   "case": "probe-auth"
+  },
+  "probe-rate": {
+   "innerWidth": 360,
+   "docScrollWidth": 360,
+   "mainScrollWidth": 360,
+   "mainClientWidth": 360,
+   "overflow": false,
+   "mainOverflow": false,
+   "nativeText": true,
+   "block": {
+    "x": 8,
+    "right": 352,
+    "top": 26,
+    "bottom": 537,
+    "w": 344,
+    "h": 512
+   },
+   "layout": "row",
+   "rows": 4,
+   "rowIssues": [],
+   "controls": [
+    {
+     "t": "Адрес сервера (пусто — основной)",
+     "w": 158,
+     "h": 40,
+     "right": 335
+    },
+    {
+     "t": "Тип API (openai_compatible)",
+     "w": 158,
+     "h": 40,
+     "right": 335
+    },
+    {
+     "t": "Модель (пусто — основная)",
+     "w": 158,
+     "h": 40,
+     "right": 335
+    },
+    {
+     "t": "Новый ключ (заменить)…",
+     "w": 95,
+     "h": 40,
+     "right": 272
+    },
+    {
+     "t": "",
+     "w": 55,
+     "h": 48,
+     "right": 335
+    },
+    {
+     "t": "Заменить",
+     "w": 83,
+     "h": 34,
+     "right": 260
+    },
+    {
+     "t": "Удалить",
+     "w": 75,
+     "h": 34,
+     "right": 252
+    },
+    {
+     "t": "Сохранить",
+     "w": 89,
+     "h": 34,
+     "right": 114
+    },
+    {
+     "t": "Проверить подключение",
+     "w": 176,
+     "h": 34,
+     "right": 298
+    }
+   ],
+   "controlIssues": [],
+   "effLine": "function () { [native code] }",
+   "factsPresent": false,
+   "facts": {},
+   "statusText": "Превышен лимит запросов провайдера",
+   "toastTexts": [
+    "Ошибка подключения: Превышен лимит запросов провайдера"
+   ],
+   "hasRawSecret": false,
+   "secretInputs": [
+    ""
+   ],
+   "bodyTextSample": "A Audit Chat ЧАТ ▾  Статус  Аналитика  Модули  Ещё • ИИ Модели и подключения Адреса, модели и ключи провайдеров, сгруппированные по назначению. Технические параметры — ниже, в «Расширенных настройках». ГЕНЕРАЦИЯ ТЕКСТА Прямые ответы Основная модель Прямые ответы Название модели Адрес сервера Модель Ключ ••••••••0000  Заменить Удалить Сохранить Проверить Запасная модель Прямые ответы (фолбэк) ",
+   "consoleErrors": [],
+   "case": "probe-rate"
+  },
+  "probe-modality": {
+   "innerWidth": 360,
+   "docScrollWidth": 360,
+   "mainScrollWidth": 360,
+   "mainClientWidth": 360,
+   "overflow": false,
+   "mainOverflow": false,
+   "nativeText": true,
+   "block": {
+    "x": 8,
+    "right": 352,
+    "top": 26,
+    "bottom": 537,
+    "w": 344,
+    "h": 512
+   },
+   "layout": "row",
+   "rows": 4,
+   "rowIssues": [],
+   "controls": [
+    {
+     "t": "Адрес сервера (пусто — основной)",
+     "w": 158,
+     "h": 40,
+     "right": 335
+    },
+    {
+     "t": "Тип API (openai_compatible)",
+     "w": 158,
+     "h": 40,
+     "right": 335
+    },
+    {
+     "t": "Модель (пусто — основная)",
+     "w": 158,
+     "h": 40,
+     "right": 335
+    },
+    {
+     "t": "Новый ключ (заменить)…",
+     "w": 95,
+     "h": 40,
+     "right": 272
+    },
+    {
+     "t": "",
+     "w": 55,
+     "h": 48,
+     "right": 335
+    },
+    {
+     "t": "Заменить",
+     "w": 83,
+     "h": 34,
+     "right": 260
+    },
+    {
+     "t": "Удалить",
+     "w": 75,
+     "h": 34,
+     "right": 252
+    },
+    {
+     "t": "Сохранить",
+     "w": 89,
+     "h": 34,
+     "right": 114
+    },
+    {
+     "t": "Проверить подключение",
+     "w": 176,
+     "h": 34,
+     "right": 298
+    }
+   ],
+   "controlIssues": [],
+   "effLine": "function () { [native code] }",
+   "factsPresent": false,
+   "facts": {},
+   "statusText": "Модель не принимает изображения",
+   "toastTexts": [
+    "Ошибка подключения: Модель не принимает изображения"
+   ],
+   "hasRawSecret": false,
+   "secretInputs": [
+    ""
+   ],
+   "bodyTextSample": "A Audit Chat ЧАТ ▾  Статус  Аналитика  Модули  Ещё • ИИ Модели и подключения Адреса, модели и ключи провайдеров, сгруппированные по назначению. Технические параметры — ниже, в «Расширенных настройках». ГЕНЕРАЦИЯ ТЕКСТА Прямые ответы Основная модель Прямые ответы Название модели Адрес сервера Модель Ключ ••••••••0000  Заменить Удалить Сохранить Проверить Запасная модель Прямые ответы (фолбэк) ",
+   "consoleErrors": [],
+   "case": "probe-modality"
+  },
+  "probe-timeout": {
+   "innerWidth": 360,
+   "docScrollWidth": 360,
+   "mainScrollWidth": 360,
+   "mainClientWidth": 360,
+   "overflow": false,
+   "mainOverflow": false,
+   "nativeText": true,
+   "block": {
+    "x": 8,
+    "right": 352,
+    "top": 26,
+    "bottom": 537,
+    "w": 344,
+    "h": 512
+   },
+   "layout": "row",
+   "rows": 4,
+   "rowIssues": [],
+   "controls": [
+    {
+     "t": "Адрес сервера (пусто — основной)",
+     "w": 158,
+     "h": 40,
+     "right": 335
+    },
+    {
+     "t": "Тип API (openai_compatible)",
+     "w": 158,
+     "h": 40,
+     "right": 335
+    },
+    {
+     "t": "Модель (пусто — основная)",
+     "w": 158,
+     "h": 40,
+     "right": 335
+    },
+    {
+     "t": "Новый ключ (заменить)…",
+     "w": 95,
+     "h": 40,
+     "right": 272
+    },
+    {
+     "t": "",
+     "w": 55,
+     "h": 48,
+     "right": 335
+    },
+    {
+     "t": "Заменить",
+     "w": 83,
+     "h": 34,
+     "right": 260
+    },
+    {
+     "t": "Удалить",
+     "w": 75,
+     "h": 34,
+     "right": 252
+    },
+    {
+     "t": "Сохранить",
+     "w": 89,
+     "h": 34,
+     "right": 114
+    },
+    {
+     "t": "Проверить подключение",
+     "w": 176,
+     "h": 34,
+     "right": 298
+    }
+   ],
+   "controlIssues": [],
+   "effLine": "function () { [native code] }",
+   "factsPresent": false,
+   "facts": {},
+   "statusText": "Провайдер не ответил вовремя (таймаут)",
+   "toastTexts": [
+    "Ошибка подключения: Провайдер не ответил вовремя (таймаут)"
+   ],
+   "hasRawSecret": false,
+   "secretInputs": [
+    ""
+   ],
+   "bodyTextSample": "A Audit Chat ЧАТ ▾  Статус  Аналитика  Модули  Ещё • ИИ Модели и подключения Адреса, модели и ключи провайдеров, сгруппированные по назначению. Технические параметры — ниже, в «Расширенных настройках». ГЕНЕРАЦИЯ ТЕКСТА Прямые ответы Основная модель Прямые ответы Название модели Адрес сервера Модель Ключ ••••••••0000  Заменить Удалить Сохранить Проверить Запасная модель Прямые ответы (фолбэк) ",
+   "consoleErrors": [],
+   "case": "probe-timeout"
+  },
+  "probe-server5xx": {
+   "innerWidth": 360,
+   "docScrollWidth": 360,
+   "mainScrollWidth": 360,
+   "mainClientWidth": 360,
+   "overflow": false,
+   "mainOverflow": false,
+   "nativeText": true,
+   "block": {
+    "x": 8,
+    "right": 352,
+    "top": 26,
+    "bottom": 537,
+    "w": 344,
+    "h": 512
+   },
+   "layout": "row",
+   "rows": 4,
+   "rowIssues": [],
+   "controls": [
+    {
+     "t": "Адрес сервера (пусто — основной)",
+     "w": 158,
+     "h": 40,
+     "right": 335
+    },
+    {
+     "t": "Тип API (openai_compatible)",
+     "w": 158,
+     "h": 40,
+     "right": 335
+    },
+    {
+     "t": "Модель (пусто — основная)",
+     "w": 158,
+     "h": 40,
+     "right": 335
+    },
+    {
+     "t": "Новый ключ (заменить)…",
+     "w": 95,
+     "h": 40,
+     "right": 272
+    },
+    {
+     "t": "",
+     "w": 55,
+     "h": 48,
+     "right": 335
+    },
+    {
+     "t": "Заменить",
+     "w": 83,
+     "h": 34,
+     "right": 260
+    },
+    {
+     "t": "Удалить",
+     "w": 75,
+     "h": 34,
+     "right": 252
+    },
+    {
+     "t": "Сохранить",
+     "w": 89,
+     "h": 34,
+     "right": 114
+    },
+    {
+     "t": "Проверить подключение",
+     "w": 176,
+     "h": 34,
+     "right": 298
+    }
+   ],
+   "controlIssues": [],
+   "effLine": "function () { [native code] }",
+   "factsPresent": false,
+   "facts": {},
+   "statusText": "Провайдер временно недоступен (ошибка сервера)",
+   "toastTexts": [
+    "Ошибка подключения: Провайдер временно недоступен (ошибка сервера)"
+   ],
+   "hasRawSecret": false,
+   "secretInputs": [
+    ""
+   ],
+   "bodyTextSample": "A Audit Chat ЧАТ ▾  Статус  Аналитика  Модули  Ещё • ИИ Модели и подключения Адреса, модели и ключи провайдеров, сгруппированные по назначению. Технические параметры — ниже, в «Расширенных настройках». ГЕНЕРАЦИЯ ТЕКСТА Прямые ответы Основная модель Прямые ответы Название модели Адрес сервера Модель Ключ ••••••••0000  Заменить Удалить Сохранить Проверить Запасная модель Прямые ответы (фолбэк) ",
+   "consoleErrors": [],
+   "case": "probe-server5xx"
+  },
+  "probe-empty": {
+   "innerWidth": 360,
+   "docScrollWidth": 360,
+   "mainScrollWidth": 360,
+   "mainClientWidth": 360,
+   "overflow": false,
+   "mainOverflow": false,
+   "nativeText": true,
+   "block": {
+    "x": 8,
+    "right": 352,
+    "top": 26,
+    "bottom": 537,
+    "w": 344,
+    "h": 512
+   },
+   "layout": "row",
+   "rows": 4,
+   "rowIssues": [],
+   "controls": [
+    {
+     "t": "Адрес сервера (пусто — основной)",
+     "w": 158,
+     "h": 40,
+     "right": 335
+    },
+    {
+     "t": "Тип API (openai_compatible)",
+     "w": 158,
+     "h": 40,
+     "right": 335
+    },
+    {
+     "t": "Модель (пусто — основная)",
+     "w": 158,
+     "h": 40,
+     "right": 335
+    },
+    {
+     "t": "Новый ключ (заменить)…",
+     "w": 95,
+     "h": 40,
+     "right": 272
+    },
+    {
+     "t": "",
+     "w": 55,
+     "h": 48,
+     "right": 335
+    },
+    {
+     "t": "Заменить",
+     "w": 83,
+     "h": 34,
+     "right": 260
+    },
+    {
+     "t": "Удалить",
+     "w": 75,
+     "h": 34,
+     "right": 252
+    },
+    {
+     "t": "Сохранить",
+     "w": 89,
+     "h": 34,
+     "right": 114
+    },
+    {
+     "t": "Проверить подключение",
+     "w": 176,
+     "h": 34,
+     "right": 298
+    }
+   ],
+   "controlIssues": [],
+   "effLine": "function () { [native code] }",
+   "factsPresent": false,
+   "facts": {},
+   "statusText": "Провайдер вернул пустой ответ",
+   "toastTexts": [
+    "Ошибка подключения: Провайдер вернул пустой ответ"
+   ],
+   "hasRawSecret": false,
+   "secretInputs": [
+    ""
+   ],
+   "bodyTextSample": "A Audit Chat ЧАТ ▾  Статус  Аналитика  Модули  Ещё • ИИ Модели и подключения Адреса, модели и ключи провайдеров, сгруппированные по назначению. Технические параметры — ниже, в «Расширенных настройках». ГЕНЕРАЦИЯ ТЕКСТА Прямые ответы Основная модель Прямые ответы Название модели Адрес сервера Модель Ключ ••••••••0000  Заменить Удалить Сохранить Проверить Запасная модель Прямые ответы (фолбэк) ",
+   "consoleErrors": [],
+   "case": "probe-empty"
+  },
+  "probe-config": {
+   "innerWidth": 360,
+   "docScrollWidth": 360,
+   "mainScrollWidth": 360,
+   "mainClientWidth": 360,
+   "overflow": false,
+   "mainOverflow": false,
+   "nativeText": true,
+   "block": {
+    "x": 8,
+    "right": 352,
+    "top": 26,
+    "bottom": 553,
+    "w": 344,
+    "h": 528
+   },
+   "layout": "row",
+   "rows": 4,
+   "rowIssues": [],
+   "controls": [
+    {
+     "t": "Адрес сервера (пусто — основной)",
+     "w": 158,
+     "h": 40,
+     "right": 335
+    },
+    {
+     "t": "Тип API (openai_compatible)",
+     "w": 158,
+     "h": 40,
+     "right": 335
+    },
+    {
+     "t": "Модель (пусто — основная)",
+     "w": 158,
+     "h": 40,
+     "right": 335
+    },
+    {
+     "t": "Новый ключ (заменить)…",
+     "w": 95,
+     "h": 40,
+     "right": 272
+    },
+    {
+     "t": "",
+     "w": 55,
+     "h": 48,
+     "right": 335
+    },
+    {
+     "t": "Заменить",
+     "w": 83,
+     "h": 34,
+     "right": 260
+    },
+    {
+     "t": "Удалить",
+     "w": 75,
+     "h": 34,
+     "right": 252
+    },
+    {
+     "t": "Сохранить",
+     "w": 89,
+     "h": 34,
+     "right": 114
+    },
+    {
+     "t": "Проверить подключение",
+     "w": 176,
+     "h": 34,
+     "right": 298
+    }
+   ],
+   "controlIssues": [],
+   "effLine": "function () { [native code] }",
+   "factsPresent": false,
+   "facts": {},
+   "statusText": "Тип подключения не поддерживается (доступен OpenAI-совместимый)",
+   "toastTexts": [
+    "Ошибка подключения: Тип подключения не поддерживается (доступен OpenAI-совместимый)"
+   ],
+   "hasRawSecret": false,
+   "secretInputs": [
+    ""
+   ],
+   "bodyTextSample": "A Audit Chat ЧАТ ▾  Статус  Аналитика  Модули  Ещё • ИИ Модели и подключения Адреса, модели и ключи провайдеров, сгруппированные по назначению. Технические параметры — ниже, в «Расширенных настройках». ГЕНЕРАЦИЯ ТЕКСТА Прямые ответы Основная модель Прямые ответы Название модели Адрес сервера Модель Ключ ••••••••0000  Заменить Удалить Сохранить Проверить Запасная модель Прямые ответы (фолбэк) ",
+   "consoleErrors": [],
+   "case": "probe-config"
+  },
+  "probe-model-missing": {
+   "innerWidth": 360,
+   "docScrollWidth": 360,
+   "mainScrollWidth": 360,
+   "mainClientWidth": 360,
+   "overflow": false,
+   "mainOverflow": false,
+   "nativeText": true,
+   "block": {
+    "x": 8,
+    "right": 352,
+    "top": 26,
+    "bottom": 553,
+    "w": 344,
+    "h": 528
+   },
+   "layout": "row",
+   "rows": 4,
+   "rowIssues": [],
+   "controls": [
+    {
+     "t": "Адрес сервера (пусто — основной)",
+     "w": 158,
+     "h": 40,
+     "right": 335
+    },
+    {
+     "t": "Тип API (openai_compatible)",
+     "w": 158,
+     "h": 40,
+     "right": 335
+    },
+    {
+     "t": "Модель (пусто — основная)",
+     "w": 158,
+     "h": 40,
+     "right": 335
+    },
+    {
+     "t": "Новый ключ (заменить)…",
+     "w": 95,
+     "h": 40,
+     "right": 272
+    },
+    {
+     "t": "",
+     "w": 55,
+     "h": 48,
+     "right": 335
+    },
+    {
+     "t": "Заменить",
+     "w": 83,
+     "h": 34,
+     "right": 260
+    },
+    {
+     "t": "Удалить",
+     "w": 75,
+     "h": 34,
+     "right": 252
+    },
+    {
+     "t": "Сохранить",
+     "w": 89,
+     "h": 34,
+     "right": 114
+    },
+    {
+     "t": "Проверить подключение",
+     "w": 176,
+     "h": 34,
+     "right": 298
+    }
+   ],
+   "controlIssues": [],
+   "effLine": "function () { [native code] }",
+   "factsPresent": false,
+   "facts": {},
+   "statusText": "Модель не найдена на этом адресе (проверьте имя модели)",
+   "toastTexts": [
+    "Ошибка подключения: Модель не найдена на этом адресе (проверьте имя модели)"
+   ],
+   "hasRawSecret": false,
+   "secretInputs": [
+    ""
+   ],
+   "bodyTextSample": "A Audit Chat ЧАТ ▾  Статус  Аналитика  Модули  Ещё • ИИ Модели и подключения Адреса, модели и ключи провайдеров, сгруппированные по назначению. Технические параметры — ниже, в «Расширенных настройках». ГЕНЕРАЦИЯ ТЕКСТА Прямые ответы Основная модель Прямые ответы Название модели Адрес сервера Модель Ключ ••••••••0000  Заменить Удалить Сохранить Проверить Запасная модель Прямые ответы (фолбэк) ",
+   "consoleErrors": [],
+   "case": "probe-model-missing"
+  },
+  "probe-bad-image": {
+   "innerWidth": 360,
+   "docScrollWidth": 360,
+   "mainScrollWidth": 360,
+   "mainClientWidth": 360,
+   "overflow": false,
+   "mainOverflow": false,
+   "nativeText": true,
+   "block": {
+    "x": 8,
+    "right": 352,
+    "top": 26,
+    "bottom": 537,
+    "w": 344,
+    "h": 512
+   },
+   "layout": "row",
+   "rows": 4,
+   "rowIssues": [],
+   "controls": [
+    {
+     "t": "Адрес сервера (пусто — основной)",
+     "w": 158,
+     "h": 40,
+     "right": 335
+    },
+    {
+     "t": "Тип API (openai_compatible)",
+     "w": 158,
+     "h": 40,
+     "right": 335
+    },
+    {
+     "t": "Модель (пусто — основная)",
+     "w": 158,
+     "h": 40,
+     "right": 335
+    },
+    {
+     "t": "Новый ключ (заменить)…",
+     "w": 95,
+     "h": 40,
+     "right": 272
+    },
+    {
+     "t": "",
+     "w": 55,
+     "h": 48,
+     "right": 335
+    },
+    {
+     "t": "Заменить",
+     "w": 83,
+     "h": 34,
+     "right": 260
+    },
+    {
+     "t": "Удалить",
+     "w": 75,
+     "h": 34,
+     "right": 252
+    },
+    {
+     "t": "Сохранить",
+     "w": 89,
+     "h": 34,
+     "right": 114
+    },
+    {
+     "t": "Проверить подключение",
+     "w": 176,
+     "h": 34,
+     "right": 298
+    }
+   ],
+   "controlIssues": [],
+   "effLine": "function () { [native code] }",
+   "factsPresent": false,
+   "facts": {},
+   "statusText": "Модель доступна, но изображение не принято",
+   "toastTexts": [
+    "Ошибка подключения: Модель доступна, но изображение не принято"
+   ],
+   "hasRawSecret": false,
+   "secretInputs": [
+    ""
+   ],
+   "bodyTextSample": "A Audit Chat ЧАТ ▾  Статус  Аналитика  Модули  Ещё • ИИ Модели и подключения Адреса, модели и ключи провайдеров, сгруппированные по назначению. Технические параметры — ниже, в «Расширенных настройках». ГЕНЕРАЦИЯ ТЕКСТА Прямые ответы Основная модель Прямые ответы Название модели Адрес сервера Модель Ключ ••••••••0000  Заменить Удалить Сохранить Проверить Запасная модель Прямые ответы (фолбэк) ",
+   "consoleErrors": [],
+   "case": "probe-bad-image"
+  },
+  "probe-fallback-auth": {
+   "innerWidth": 360,
+   "docScrollWidth": 360,
+   "mainScrollWidth": 360,
+   "mainClientWidth": 360,
+   "overflow": false,
+   "mainOverflow": false,
+   "nativeText": true,
+   "block": {
+    "x": 8,
+    "right": 352,
+    "top": 26,
+    "bottom": 537,
+    "w": 344,
+    "h": 512
+   },
+   "layout": "row",
+   "rows": 4,
+   "rowIssues": [],
+   "controls": [
+    {
+     "t": "Адрес сервера (пусто — основной)",
+     "w": 158,
+     "h": 40,
+     "right": 335
+    },
+    {
+     "t": "Тип API (openai_compatible)",
+     "w": 158,
+     "h": 40,
+     "right": 335
+    },
+    {
+     "t": "Модель (пусто — основная)",
+     "w": 158,
+     "h": 40,
+     "right": 335
+    },
+    {
+     "t": "Новый ключ (заменить)…",
+     "w": 95,
+     "h": 40,
+     "right": 272
+    },
+    {
+     "t": "",
+     "w": 55,
+     "h": 48,
+     "right": 335
+    },
+    {
+     "t": "Заменить",
+     "w": 83,
+     "h": 34,
+     "right": 260
+    },
+    {
+     "t": "Удалить",
+     "w": 75,
+     "h": 34,
+     "right": 252
+    },
+    {
+     "t": "Сохранить",
+     "w": 89,
+     "h": 34,
+     "right": 114
+    },
+    {
+     "t": "Проверить подключение",
+     "w": 176,
+     "h": 34,
+     "right": 298
+    }
+   ],
+   "controlIssues": [],
+   "effLine": "function () { [native code] }",
+   "factsPresent": false,
+   "facts": {},
+   "statusText": "vision_unavailable",
+   "toastTexts": [
+    "Ошибка подключения: vision_unavailable"
+   ],
+   "hasRawSecret": false,
+   "secretInputs": [
+    ""
+   ],
+   "bodyTextSample": "A Audit Chat ЧАТ ▾  Статус  Аналитика  Модули  Ещё • ИИ Модели и подключения Адреса, модели и ключи провайдеров, сгруппированные по назначению. Технические параметры — ниже, в «Расширенных настройках». ГЕНЕРАЦИЯ ТЕКСТА Прямые ответы Основная модель Прямые ответы Название модели Адрес сервера Модель Ключ ••••••••0000  Заменить Удалить Сохранить Проверить Запасная модель Прямые ответы (фолбэк) ",
+   "consoleErrors": [],
+   "case": "probe-fallback-auth"
+  },
+  "probe-ok": {
+   "innerWidth": 360,
+   "docScrollWidth": 360,
+   "mainScrollWidth": 360,
+   "mainClientWidth": 360,
+   "overflow": false,
+   "mainOverflow": false,
+   "nativeText": true,
+   "block": {
+    "x": 8,
+    "right": 352,
+    "top": 26,
+    "bottom": 553,
+    "w": 344,
+    "h": 528
+   },
+   "layout": "row",
+   "rows": 4,
+   "rowIssues": [],
+   "controls": [
+    {
+     "t": "Адрес сервера (пусто — основной)",
+     "w": 158,
+     "h": 40,
+     "right": 335
+    },
+    {
+     "t": "Тип API (openai_compatible)",
+     "w": 158,
+     "h": 40,
+     "right": 335
+    },
+    {
+     "t": "Модель (пусто — основная)",
+     "w": 158,
+     "h": 40,
+     "right": 335
+    },
+    {
+     "t": "Новый ключ (заменить)…",
+     "w": 95,
+     "h": 40,
+     "right": 272
+    },
+    {
+     "t": "",
+     "w": 55,
+     "h": 48,
+     "right": 335
+    },
+    {
+     "t": "Заменить",
+     "w": 83,
+     "h": 34,
+     "right": 260
+    },
+    {
+     "t": "Удалить",
+     "w": 75,
+     "h": 34,
+     "right": 252
+    },
+    {
+     "t": "Сохранить",
+     "w": 89,
+     "h": 34,
+     "right": 114
+    },
+    {
+     "t": "Проверить подключение",
+     "w": 176,
+     "h": 34,
+     "right": 298
+    }
+   ],
+   "controlIssues": [],
+   "effLine": "function () { [native code] }",
+   "factsPresent": false,
+   "facts": {},
+   "statusText": "OK · google/gemma-4-31b-it:free · изображение поддерживается",
+   "toastTexts": [
+    "Подключение OK: OK · google/gemma-4-31b-it:free · изображение поддерживается"
+   ],
+   "hasRawSecret": false,
+   "secretInputs": [
+    ""
+   ],
+   "bodyTextSample": "A Audit Chat ЧАТ ▾  Статус  Аналитика  Модули  Ещё • ИИ Модели и подключения Адреса, модели и ключи провайдеров, сгруппированные по назначению. Технические параметры — ниже, в «Расширенных настройках». ГЕНЕРАЦИЯ ТЕКСТА Прямые ответы Основная модель Прямые ответы Название модели Адрес сервера Модель Ключ ••••••••0000  Заменить Удалить Сохранить Проверить Запасная модель Прямые ответы (фолбэк) ",
+   "consoleErrors": [],
+   "case": "probe-ok"
+  }
+ }
+}

@@ -3462,6 +3462,53 @@
           };
         });
       },
+      // ── P0 Vision (D10/P0V-UI-NATIVE): живая линия состояния — COMPUTED, а
+      // НЕ method. Шаблон печатал `{{ visionStateLine }}` как значение метода →
+      // `function () { [native code] }` (обратный случай `stickyFieldFailed`:
+      // тот ошибочно жил в computed и вызывался как функция). `''` = state не
+      // загружен/403 → линия честно скрыта (fail-open, поведение прежнее).
+      visionStateLine: function () {
+        var s = this.visionState;
+        if (!s) return '';
+        var head = s.effective_enabled
+          ? 'Распознавание работает'
+          : ('Не активно: ' + (s.visible_reason
+                               || 'проверка подключения не выполнялась'));
+        if (s.queue && (s.queue.queued || s.queue.running)) {
+          head += ' · очередь ' + (s.queue.running || 0) + '/'
+                  + ((s.queue.running || 0) + (s.queue.queued || 0));
+        }
+        return head;
+      },
+      // D12/P0V-UI-DISPLAY: факты ФАКТИЧЕСКОГО подключения из
+      // `GET /api/vision/state` (`runtime_snapshot`): провайдер (хост base_url
+      // без пути/ключа), модель, тип подключения, результат последней проверки
+      // (+ R17-безопасный класс `detail`). Секретов нет — state их не отдаёт.
+      visionStateFacts: function () {
+        var s = this.visionState;
+        if (!s) return [];
+        var out = [];
+        out.push({ key: 'provider', label: 'Провайдер',
+                   value: s.provider || '—' });
+        out.push({ key: 'model', label: 'Модель', value: s.model || '—' });
+        out.push({ key: 'api_type', label: 'Тип подключения',
+                   value: this.visionApiTypeLabel(s.api_type) });
+        var result = s.visible_reason
+          || (s.effective_enabled ? 'Распознавание работает'
+                                  : 'Проверка подключения не выполнялась');
+        var when = _tsStatusLabel(s.checked_at, '');
+        if (when) result += ' · ' + when;
+        out.push({ key: 'result', label: 'Результат проверки',
+                   value: result });
+        if (s.detail) {
+          // R17-safe класс последней пробы (например http_404) — НЕ тело
+          // ответа и не ключ; подпись «Техническая деталь» отделяет его от
+          // человеческой причины (D11: код не подменяет причину).
+          out.push({ key: 'detail', label: 'Техническая деталь',
+                     value: String(s.detail) });
+        }
+        return out;
+      },
       // §46: вкладка «Тестирование» — РЕАЛЬНЫЙ контент (T-2700): тестируемые
       // подключения модуля (подблоки разворачиваются), reuse `testBlock` без
       // записи. Пусто → вкладка не рендерится (`workspaceTabHasContent`).
@@ -6166,6 +6213,10 @@
         // адресует КОНКРЕТНЫЙ чат из popover, а не активную область).
         var explicitChatId = (options.chatId == null) ? null : String(options.chatId);
         delete init.chatId;
+        // P0 Vision (D12): фоновая загрузка state — 403 без тоста
+        // («Доступ запрещён» только для явных действий пользователя).
+        var silent403 = options.silent403 === true;
+        delete init.silent403;
         init.headers = Object.assign({}, options.headers || {});
         if (!init.headers['Content-Type'] && init.body) {
           init.headers['Content-Type'] = 'application/json';
@@ -6195,7 +6246,7 @@
         try { data = await resp.json(); } catch (e) { data = null; }
         if (!resp.ok) {
           var detail = (data && data.detail) ? data.detail : ('HTTP ' + resp.status);
-          if (resp.status === 403) {
+          if (resp.status === 403 && !silent403) {
             this.toast('Доступ запрещён: ' + detail, 'err');
           }
           throw new ApiError(resp.status, detail);
@@ -12787,8 +12838,12 @@
       // capabilities (не «проверка подключения», а честное состояние).
       maybeLoadVisionState: function () {
         var ws = this.workspace;
-        if (!ws || !ws.module || ws.module.id !== 'mod_vision'
-            || ws.tab !== 'models') {
+        var inVisionModels = !!(ws && ws.module && ws.module.id === 'mod_vision'
+                                && ws.tab === 'models');
+        // P0 (D12/P0V-UI-DISPLAY): секция Vision вкладки «LLM Провайдеры»
+        // показывает те же факты (провайдер/модель/тип/результат) из того же
+        // GET /api/vision/state — грузим и там (fail-open, кэш 30 с).
+        if (!inVisionModels && this.activeTab !== 'llm_providers') {
           return;
         }
         if (this.visionState && this._visionStateAt
@@ -12796,7 +12851,11 @@
           return;
         }
         var self = this;
-        this.api('/api/vision/state')
+        // `silent403`: серверный гейт state строже видимости вкладки
+        // (can_view_key_value(keys.vision_api_key)); без права — просто нет
+        // линии/фактов, БЕЗ тоста «Доступ запрещён» на фоновой загрузке
+        // (fail-open-контракт MCA-19 сохранён).
+        this.api('/api/vision/state', { silent403: true })
           .then(function (s) {
             self.visionState = s || null;
             self._visionStateAt = Date.now();
@@ -12806,17 +12865,103 @@
             self._visionStateAt = Date.now();
           });
       },
-      visionStateLine: function () {
-        var s = this.visionState;
-        if (!s) return '';
-        var head = (s.effective_enabled ? 'Работает' : 'Не активно');
-        if (s.visible_reason) head += ': ' + s.visible_reason;
-        if (s.model) head += ' · ' + s.model;
-        if (s.queue && (s.queue.queued || s.queue.running)) {
-          head += ' · очередь ' + (s.queue.running || 0) + '/'
-                  + ((s.queue.running || 0) + (s.queue.queued || 0));
+      // P0 Vision (D11/P0V-UI-REASONS): человеческая причина вместо
+      // внутреннего кода. Источник истины — `visible_reason` сервера
+      // (`services/mca_vision.capability_visible_reason` — единый словарь для
+      // кнопки/линии/витрины). Локальный маппинг ниже — только страховка для
+      // неполного/старого ответа: наружу НЕ печатается ни `reason`, ни
+      // `detail` (коды остаются в диагностике/фактах); неизвестное → честная
+      // общая фраза.
+      visionVisibleReason: function (probe) {
+        var p = probe || {};
+        if (p.visible_reason) return String(p.visible_reason);
+        var cap = String(p.capability || '');
+        var reason = String(p.reason || '');
+        var det = String(p.detail || '').toLowerCase();
+        if (cap === 'ok') return 'Распознавание работает';
+        if (cap === 'disabled') return 'Распознавание изображений выключено';
+        if (cap === '' || cap === 'pending') {
+          return 'Проверка подключения ещё не выполнялась';
         }
-        return head;
+        if (cap === 'no_vision') {
+          return reason === 'main_model_no_vision'
+            ? 'Основная модель не поддерживает изображения '
+              + '(выберите модель с поддержкой изображений)'
+            : 'Модель не принимает изображения';
+        }
+        if (cap === 'access_error') {
+          return 'Неверный ключ: провайдер отклонил авторизацию';
+        }
+        if (cap === 'rate_limited' || reason === 'vision_rate_limited') {
+          return 'Превышен лимит запросов провайдера';
+        }
+        // cap === 'unavailable': класс различим по R17-безопасному detail.
+        if (det.indexOf('api_type_unsupported') === 0) {
+          return 'Тип подключения не поддерживается '
+                 + '(доступен OpenAI-совместимый)';
+        }
+        if (det.indexOf('vision_key_missing') === 0) {
+          return 'Для отдельного адреса укажите отдельный ключ распознавания';
+        }
+        if (det.indexOf('not_configured') === 0) {
+          return 'Не настроены адрес или модель распознавания';
+        }
+        if (det.indexOf('timeout') === 0) {
+          return 'Провайдер не ответил вовремя (таймаут)';
+        }
+        if (det.indexOf('transport') === 0) {
+          return 'Нет соединения с сервером распознавания';
+        }
+        if (det.indexOf('model_not_found') === 0) {
+          return 'Модель не найдена на этом адресе (проверьте имя модели)';
+        }
+        if (det.indexOf('image_modality') === 0) {
+          return 'Модель не принимает изображения';
+        }
+        if (det.indexOf('image_rejected') === 0
+            || det.indexOf('image_http') === 0) {
+          return 'Модель доступна, но изображение не принято';
+        }
+        if (det.indexOf('empty_completion') === 0) {
+          return 'Провайдер вернул пустой ответ';
+        }
+        if (det.indexOf('bad_request') === 0) {
+          return 'Провайдер отклонил запрос (проверьте модель и формат)';
+        }
+        if (det.indexOf('http_5') === 0) {
+          return 'Провайдер временно недоступен (ошибка сервера)';
+        }
+        if (det.indexOf('http_404') === 0) {
+          return 'Адрес или модель не найдены (404)';
+        }
+        if (det.indexOf('http_429') === 0) {
+          return 'Превышен лимит запросов провайдера';
+        }
+        if (det.indexOf('http_401') === 0 || det.indexOf('http_403') === 0) {
+          return 'Неверный ключ: провайдер отклонил авторизацию';
+        }
+        return 'Не удалось проверить подключение — провайдер временно '
+               + 'недоступен или настройки неверны';
+      },
+      // D11: единый текст результата пробы Vision (тост и inline-статус) —
+      // успех остаётся прежней сводкой, ошибка — человеческая причина.
+      visionProbeResult: function (probe) {
+        var p = probe || {};
+        if (p.ok) {
+          var parts = ['OK'];
+          if (p.model) parts.push(String(p.model));
+          if (p.image_input) parts.push('изображение поддерживается');
+          return { ok: true, text: parts.join(' · ') };
+        }
+        return { ok: false, text: this.visionVisibleReason(p) };
+      },
+      // D12/D13: тип подключения — человеческая подпись; словарь типов НЕ
+      // расширяется (сервер: SUPPORTED_API_TYPES=openai_compatible),
+      // неизвестное значение показываем как есть (это конфиг, не секрет).
+      visionApiTypeLabel: function (apiType) {
+        var v = String(apiType || '');
+        if (v === 'openai_compatible') return 'OpenAI-совместимый';
+        return v || '—';
       },
       // ── MCA-20 (T-5143, ADR-1028-20 D14): «Временной фактчек» в
       // «Аналитике». Fail-open: 403/ошибка → temporalRuns=null (блок
@@ -14624,20 +14769,21 @@
             // MCA-19 (T-5103/T-5116): проверка модели распознавания —
             // бэкенд шлёт нейтральное изображение (НЕ текст из формы) и
             // возвращает capability + живую effective-линию (state).
+            // P0 (D11/P0V-UI-REASONS): тост/статус — человеческий текст
+            // (`visible_reason`), внутренние коды reason/detail наружу не
+            // печатаются; state из ответа — сразу в линию/факты (D12).
             var vprobe = await this.api(b.probeEndpoint, {
               method: 'POST', body: JSON.stringify({ prompt: '' }),
             });
-            var vok = !!(vprobe && vprobe.ok);
-            var vinfo = vok
-              ? ('OK · ' + (vprobe.model || '')
-                 + (vprobe.image_input ? ' · изображение поддерживается' : ''))
-              : ((vprobe && (vprobe.visible_reason || vprobe.reason))
-                 || (vprobe && vprobe.detail) || 'ошибка');
-            if (vprobe && vprobe.state) self.visionState = vprobe.state;
-            this.blockResults[b.id] = { ok: vok, text: vinfo };
-            this.toast(vok ? ('Подключение OK: ' + vinfo)
-                           : ('Ошибка подключения: ' + vinfo),
-                        vok ? 'ok' : 'err');
+            var vres = this.visionProbeResult(vprobe);
+            if (vprobe && vprobe.state) {
+              self.visionState = vprobe.state;
+              self._visionStateAt = Date.now();
+            }
+            this.blockResults[b.id] = { ok: vres.ok, text: vres.text };
+            this.toast(vres.ok ? ('Подключение OK: ' + vres.text)
+                               : ('Ошибка подключения: ' + vres.text),
+                       vres.ok ? 'ok' : 'err');
             return;
           }
           if (b.probeEndpoint) {
@@ -14835,6 +14981,16 @@
           } else {
             this.toast('Сохранено: ' + b.title, 'ok');
             await this._preserveScroll(this.loadConfig);
+          }
+          // P0 Vision (D12/P0V-UI-DISPLAY): после сохранения настроек Vision
+          // факты секции (провайдер/модель/тип/результат) перечитываются —
+          // показанное соответствует сохранённой конфигурации, а не прежнему
+          // 30-секундному кэшу состояния.
+          if (b.id === 'vision') {
+            this._visionStateAt = 0;
+            if (typeof this.maybeLoadVisionState === 'function') {
+              this.maybeLoadVisionState();
+            }
           }
         } catch (e) {
           if (e.status === 409 && e.message && e.message.code === 'conflict') {
@@ -15046,6 +15202,10 @@
             && !this.ytProxyHealth && !this.ytProxyHealthBusy) {
           this.loadYoutubeProxyHealth();
         }
+        // P0 Vision (D12/P0V-UI-DISPLAY): «LLM Провайдеры» — факты
+        // фактического подключения Vision (GET /api/vision/state, fail-open,
+        // кэш 30 с; RBAC-403 → секция без фактов, поведение прежнее).
+        if (id === 'llm_providers') this.maybeLoadVisionState();
         // 3.5.1 (UX): скролл контента в начало при переключении вкладки.
         // HOTFIX9 D2 (T-2804, ADR-1025-17): в TMA/mobile/fullscreen скроллится
         // не document, а `main.scroll-area` (flex-колонка) — сбрасываем оба,

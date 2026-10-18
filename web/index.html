@@ -1786,6 +1786,17 @@
                     <div class="conn-fact" data-conn-field="status">
                       <span class="conn-fact-label">Статус:</span> {{ c.status.text }}
                     </div>
+                    <!-- P0 Vision (D12/P0V-UI-DISPLAY): те же факты
+                         фактического подключения (GET /api/vision/state) в
+                         карточке модуля «Распознавание изображений» — без
+                         секретов; появляются после загрузки state. -->
+                    <div v-if="c.id === 'vision' && visionStateFacts.length"
+                         data-vision-facts>
+                      <div class="conn-fact" v-for="vf in visionStateFacts"
+                           :key="'vfact-' + vf.key" :data-vision-fact="vf.key">
+                        <span class="conn-fact-label">{{ vf.label }}:</span><span class="conn-fact-value">{{ vf.value }}</span>
+                      </div>
+                    </div>
                   </div>
                   <div v-if="c.note" class="text-xs text-gray-500 mt-2">{{ c.note }}</div>
                   <div class="flex items-center gap-2 flex-wrap mt-3">
@@ -2123,11 +2134,27 @@
                   </header>
                   <div v-if="b.note" class="text-xs text-gray-500 mb-2">{{ b.note }}</div>
                   <!-- MCA-19 (T-5103/T-5116): живая effective-линия карточки
-                       «Распознавание изображений» (requested ≠ effective). -->
+                       «Распознавание изображений» (requested ≠ effective).
+                       P0 Vision (D10/P0V-UI-NATIVE): `visionStateLine` —
+                       computed-строка (метод печатался как
+                       `function () { [native code] }`); '' (нет state/403) →
+                       линия скрыта честно, без техмусора. -->
                   <div v-if="b.id === 'vision' && visionStateLine"
                        class="text-xs mb-2"
                        :class="visionState && visionState.effective_enabled ? 'text-green-400' : 'text-yellow-400'"
                        data-vision-effective-line>{{ visionStateLine }}</div>
+                  <!-- P0 Vision (D12/P0V-UI-DISPLAY): факты ФАКТИЧЕСКОГО
+                       подключения из GET /api/vision/state — провайдер,
+                       модель, тип подключения, результат проверки
+                       (+R17-safe `detail`); секретов нет. -->
+                  <div v-if="b.id === 'vision' && visionStateFacts.length"
+                       class="conn-facts text-xs text-gray-400 mb-2"
+                       data-vision-facts>
+                    <div class="conn-fact" v-for="vf in visionStateFacts"
+                         :key="'vfact-' + vf.key" :data-vision-fact="vf.key">
+                      <span class="conn-fact-label">{{ vf.label }}:</span><span class="conn-fact-value">{{ vf.value }}</span>
+                    </div>
+                  </div>
                   <!-- 2.3: подблоки (эмбеддинги) — у каждого свой набор полей
                        и своя кнопка «Проверить» (testBlock(sb)). -->
                   <template v-if="b.subBlocks">

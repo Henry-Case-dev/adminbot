@@ -93,6 +93,24 @@ def _last_rule_for(selector: str, top_level_only: bool = True):
     return found[-1]
 
 
+def _effective_decls(selector: str) -> dict:
+    """ЭФФЕКТИВНЫЕ декларации селектора на верхнем уровне: все правила по
+    порядку, позднее перекрывает раннее (каскад равной специфичности).
+
+    P0 Vision (§4/P0V-UI-OVERFLOW, D10–D12): `.prov-grid` получил второе
+    верхнеуровневое правило (контейнерный трек `minmax(min(320px,100%),1fr)` —
+    форма не переполняется при контейнере <320px), поэтому проверка «последнее
+    правило = вся прозрачность» стала бы ложной: прозрачность задаёт общее
+    правило тройки, которое продолжает применяться. Резолвим каскад, а не
+    подстроку; набор требований НЕ ослаблен."""
+    merged = {}
+    for ctx, sel, body in RULES:
+        if ctx == "" and sel == selector:
+            merged.update(_parse_decls(body))
+    assert merged, f"нет CSS-правил для селектора {selector!r}"
+    return merged
+
+
 def _tokens() -> dict:
     """Значения CSS-переменных из :root."""
     ctx, body, decls = _last_rule_for(":root")
@@ -273,8 +291,10 @@ class TestLiquidGlass:
 
     def test_grid_containers_are_transparent(self):
         for sel in (".module-list", ".hub-grid", ".prov-grid"):
-            _, body, _ = _last_rule_for(sel)
-            decls = _parse_decls(body)
+            # P0 Vision (§4/D10–D12): эффективный каскад — у `.prov-grid` два
+            # верхнеуровневых правила (трек по контейнеру), прозрачность даёт
+            # общее правило тройки; требования прежние.
+            decls = _effective_decls(sel)
             assert "transparent" in _bg_decls(decls), (sel, decls)
             assert decls.get("border") in ("0", "none"), (sel, decls)
             assert decls.get("backdrop-filter") in ("none", "transparent"), \
@@ -327,13 +347,36 @@ class TestLiquidGlass:
 # ═══════════════════════════ Дефект 2: Grid ═══════════════════════════════
 class TestGrid:
     def test_grid_triple(self):
-        for sel in (".prov-grid", ".module-list", ".hub-grid"):
+        """P0 Vision (§4/P0V-UI-OVERFLOW, D10–D12): контракт тройки сохранён
+        (`display: grid`, `gap: 1rem`, трек `minmax(320px, 1fr)`), но у
+        `.prov-grid` есть ОСОЗНАННОЕ второе правило с контейнерным треком
+        `minmax(min(320px, 100%), 1fr)`: при контейнере <320px (телефон с
+        крупным системным шрифтом Android) прежний жёсткий пол 320px раздувал
+        трек за viewport — форма переполнялась по горизонтали. Для
+        `.module-list`/`.hub-grid` эффективный трек прежний."""
+        for sel in (".module-list", ".hub-grid"):
             _, body, _ = _last_rule_for(sel)
             decls = _parse_decls(body)
             assert decls.get("display") == "grid", (sel, decls)
             assert decls.get("grid-template-columns") == \
                 "repeat(auto-fit, minmax(320px, 1fr))", (sel, decls)
             assert decls.get("gap") == "1rem", (sel, decls)
+        # Тройка: общее правило с прежними декларациями остаётся источником
+        # раскладки для .prov-grid (эффективный каскад).
+        shared = [decls for ctx, sel, body in RULES
+                  if ctx == "" and sel == ".prov-grid"
+                  and _parse_decls(body).get("display") == "grid"]
+        assert shared, "нет общего правила тройки для .prov-grid"
+        decls = shared[-1]
+        assert decls.get("grid-template-columns") == \
+            "repeat(auto-fit, minmax(320px, 1fr))", decls
+        assert decls.get("gap") == "1rem", decls
+        prov = _effective_decls(".prov-grid")
+        assert prov.get("display") == "grid", prov
+        assert prov.get("grid-template-columns") == \
+            "repeat(auto-fit, minmax(min(320px, 100%), 1fr))", prov
+        assert prov.get("gap") == "1rem", prov
+        assert prov.get("container-name") == "prov-grid", prov
 
     def test_llm_providers_branch_uses_prov_grid(self):
         start = INDEX.index("activeTab === 'llm_providers'")

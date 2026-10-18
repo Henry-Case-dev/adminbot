@@ -574,6 +574,46 @@
     /* Раунд 10.6 (A4): блоки провайдеров */
     .prov-block { border: var(--card-border); border-radius: var(--radius-lg); }
     .prov-test-btn:disabled { opacity: .5; cursor: not-allowed; }
+    /* ═══ P0 Vision (§4 / P0V-UI-OVERFLOW): контракт раскладки форм
+       провайдеров — первопричина, не симптом. ═══
+       Раньше `.prov-row/.prov-label/.prov-head` жили ТОЛЬКО на Tailwind-
+       утилитах (хрупкость: пересборка tailwind без w-36/min-w-0 молча ломает
+       подписи). Здесь — устойчивый минимум, чтобы сетка/строка ужимались, а
+       не выпихивали документ:
+       * grid-элементы могут сжиматься ниже своего min-content (`min-width:0`);
+       * `.prov-row` не создаёт min-content-пола, подпись переносится
+         (`overflow-wrap:anywhere` — перенос по словам, БЕЗ разрыва слов
+         по буквам);
+       * поле ввода — `min-width:0` (нативный <input> имеет intrinsic width
+         по size-атрибуту и иначе раздувает строку);
+       * заголовок карточки переносится, статус-badge не распирает header. */
+    .prov-grid > * { min-width: 0; }
+    .prov-row { min-width: 0; }
+    .prov-row > .prov-label { overflow-wrap: anywhere; }
+    .prov-row .field,
+    .prov-row .secret-field__input { min-width: 0; }
+    .prov-head { flex-wrap: wrap; min-width: 0; }
+    .prov-head .badge { flex: 0 0 auto; }
+    /* Узкий контейнер формы (телефоны 320–430 + крупный системный шрифт
+       Android, который масштабирует rem-подписи `w-36` до 180–216px):
+       подпись — НАД полем (стек), иначе на 320px ключу остаётся 55px.
+       Порог — ширина КОНТЕЙНЕРА (container-type задан на `.prov-grid`),
+       viewport ни при чём: в ландшафте при 844px контейнер может быть 398px.
+       Скоуп — только `.prov-grid` (имя контейнера): другие секции, где
+       `.prov-row` используется вне формы провайдеров, не затрагиваются. */
+    @container prov-grid (max-width: 479px) {
+      .prov-row {
+        flex-direction: column;
+        align-items: stretch;
+        gap: .25rem;
+      }
+      .prov-row > .prov-label {
+        width: auto;
+        max-width: 100%;
+        padding-top: 0;
+      }
+      .prov-row > .flex-1 { width: 100%; }
+    }
     /* 10.11 (2.1): карточки центрируются и ограничены по ширине
        (fullscreen не растягивает на всю ширину; mobile — 1 колонка). */
     .hub-head {
@@ -1740,6 +1780,18 @@
     @media (max-width: 479px) {
       .prov-grid, .module-list, .hub-grid { grid-template-columns: 1fr; }
     }
+    /* P0 Vision (P0V-UI-OVERFLOW): трек форм провайдеров — по ширине
+       КОНТЕЙНЕРА, не viewport. `minmax(320px,1fr)` держал жёсткий пол 320px:
+       если контейнер уже 320px (телефон с крупным системным шрифтом Android,
+       узкая рабочая колонка в ландшафте), трек шире контейнера → форма
+       обрезается/уезжает по горизонтали. `min(320px,100%)` = прежний пол
+       320px на широком контейнере и полный отказ от него на узком (одна
+       колонка во всю ширину). Правило тройки и мобильный блок выше не
+       меняются (другие секции — прежние). */
+    .prov-grid {
+      grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr));
+      container-name: prov-grid;
+    }
     .modal-backdrop {
       background: rgba(0, 0, 0, 0.5);
       /* HOTFIX-TIERA (SOUL-1, владелец): скрим модалки БОЛЬШЕ НЕ размывает
@@ -2616,8 +2668,16 @@
         padding-left: .5rem; padding-right: .5rem;
       }
       .app-shell.ia-v2 .hub-grid,
-      .app-shell.ia-v2 .module-list,
-      .app-shell.ia-v2 .prov-grid { grid-template-columns: 1fr; }
+      .app-shell.ia-v2 .module-list { grid-template-columns: 1fr; }
+      /* P0 Vision (P0V-UI-OVERFLOW): формы провайдеров — без min-content
+         пола. `1fr` = `minmax(auto,1fr)`: min-content строки (rem-подпись
+         `w-36` + intrinsic <input>) раздувал трек за контейнер при крупном
+         системном шрифте Android — тот же класс дефекта, что у
+         `main.scroll-area` выше, поэтому то же структурное лечение
+         `minmax(0,1fr)`. Остальные grid'ы — прежние. */
+      .app-shell.ia-v2 .prov-grid {
+        grid-template-columns: minmax(0, 1fr);
+      }
       .app-shell.ia-v2 .modal-card { max-width: 100%; }
     }
 
@@ -2861,8 +2921,16 @@
        значения моделей переносятся, тач-цели ≥44×44 на mobile. */
     .conn-card { min-width: 0; }
     .conn-facts { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-    .conn-fact { display: flex; gap: 6px; min-width: 0; overflow-wrap: anywhere; }
+    /* flex-wrap: длинное значение уходит на свою строку, короткие факты
+       остаются в одну строку (P0 Vision D12: причина проверки — длинный
+       текст даже на телефоне). */
+    .conn-fact { display: flex; flex-wrap: wrap; gap: 6px; min-width: 0; overflow-wrap: anywhere; }
     .conn-fact-label { flex: 0 0 auto; color: var(--text-3, #8A94A6); }
+    /* P0 Vision (D12): значение факта — отдельный flex-item с min-width:0:
+       длинный текст причины переносится с левого края своей колонки, а не
+       сжимается анонимным flex-item'ом. База 14em: если после подписи
+       остаётся уже — значение уходит на свою строку (узкий Android). */
+    .conn-fact-value { flex: 1 1 14em; min-width: 0; }
     .conn-settings { border-top: 1px solid rgba(255, 255, 255, .08); }
     @media (max-width: 767px) {
       [data-conn-test],
@@ -4345,7 +4413,7 @@ html.cover-editor-open { overflow: hidden; }
 .speech-card-icon { font-size: 18px; line-height: 1; flex: none; }
 .speech-card-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1 1 auto; }
 /* ADD-TR.1: заголовок переносится, а не вылезает из своего бокса в зону
-   badge (overflow-wrap:anywhere — без word-break:break-all: рвём слово
+   badge (overflow-wrap:anywhere — без разрыва слов по буквам: рвём слово
    только когда оно реально не влезает). */
 .speech-card-title { font-size: 13px; font-weight: 700; min-width: 0; overflow-wrap: anywhere; }
 /* badge — несжимаемый элемент строки карточки: ужимается тело
