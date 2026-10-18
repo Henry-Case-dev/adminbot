@@ -1,0 +1,174 @@
+{
+  "t0_epoch": 1792330463,
+  "initiative_events_total_since_t0": 18,
+  "events_by_name": {
+    "initiative_observer_scan": 16,
+    "initiative_opportunity": 1,
+    "nostalgia_run": 1
+  },
+  "scan_anchored_events_since_t0": 1,
+  "error_warn_events_since_t0": [],
+  "recent_rows": [
+    {
+      "ts": 1792335601,
+      "event_name": "initiative_observer_scan",
+      "outcome": "success",
+      "stage": "observed",
+      "reason_code": null,
+      "chat_id": null
+    },
+    {
+      "ts": 1792335002,
+      "event_name": "initiative_observer_scan",
+      "outcome": "success",
+      "stage": "observed",
+      "reason_code": null,
+      "chat_id": null
+    },
+    {
+      "ts": 1792334702,
+      "event_name": "initiative_observer_scan",
+      "outcome": "success",
+      "stage": "observed",
+      "reason_code": null,
+      "chat_id": null
+    },
+    {
+      "ts": 1792334406,
+      "event_name": "nostalgia_run",
+      "outcome": "success",
+      "stage": null,
+      "reason_code": null,
+      "chat_id": null
+    },
+    {
+      "ts": 1792334129,
+      "event_name": "initiative_observer_scan",
+      "outcome": "success",
+      "stage": "observed",
+      "reason_code": null,
+      "chat_id": null
+    },
+    {
+      "ts": 1792333806,
+      "event_name": "initiative_observer_scan",
+      "outcome": "success",
+      "stage": "observed",
+      "reason_code": null,
+      "chat_id": null
+    },
+    {
+      "ts": 1792333506,
+      "event_name": "initiative_observer_scan",
+      "outcome": "success",
+      "stage": "observed",
+      "reason_code": null,
+      "chat_id": null
+    },
+    {
+      "ts": 1792333212,
+      "event_name": "initiative_observer_scan",
+      "outcome": "success",
+      "stage": "observed",
+      "reason_code": null,
+      "chat_id": null
+    },
+    {
+      "ts": 1792332912,
+      "event_name": "initiative_observer_scan",
+      "outcome": "success",
+      "stage": "observed",
+      "reason_code": null,
+      "chat_id": null
+    },
+    {
+      "ts": 1792332605,
+      "event_name": "initiative_observer_scan",
+      "outcome": "success",
+      "stage": "observed",
+      "reason_code": null,
+      "chat_id": null
+    },
+    {
+      "ts": 1792332306,
+      "event_name": "initiative_observer_scan",
+      "outcome": "success",
+      "stage": "observed",
+      "reason_code": null,
+      "chat_id": null
+    },
+    {
+      "ts": 1792332004,
+      "event_name": "initiative_observer_scan",
+      "outcome": "success",
+      "stage": "observed",
+      "reason_code": null,
+      "chat_id": null
+    },
+    {
+      "ts": 1792331704,
+      "event_name": "initiative_observer_scan",
+      "outcome": "success",
+      "stage": "observed",
+      "reason_code": null,
+      "chat_id": null
+    },
+    {
+      "ts": 1792331405,
+      "event_name": "initiative_observer_scan",
+      "outcome": "success",
+      "stage": "observed",
+      "reason_code": null,
+      "chat_id": null
+    },
+    {
+      "ts": 1792331104,
+      "event_name": "initiative_observer_scan",
+      "outcome": "success",
+      "stage": "observed",
+      "reason_code": null,
+      "chat_id": null
+    },
+    {
+      "ts": 1792330806,
+      "event_name": "initiative_observer_scan",
+      "outcome": "success",
+      "stage": "observed",
+      "reason_code": null,
+      "chat_id": null
+    },
+    {
+      "ts": 1792330806,
+      "event_name": "initiative_observer_scan",
+      "outcome": "success",
+      "stage": "anchored",
+      "reason_code": null,
+      "chat_id": null
+    }
+  ],
+  "nostalgia_log_since_t0": [
+    {
+      "id": 218,
+      "ts": 1792334394,
+      "chat_id": -1002661910336,
+      "kind": "year_back",
+      "status": "skipped",
+      "meta": {
+        "reason": "unchanged",
+        "llm_skipped": true,
+        "candidate_text": "[40 chars]"
+      }
+    },
+    {
+      "id": 217,
+      "ts": 1792334394,
+      "chat_id": -1004482340693,
+      "kind": "none",
+      "status": "skipped",
+      "meta": {
+        "reason": "no_candidates"
+      }
+    }
+  ],
+  "nostalgia_log_count_since_t0": 2
+}

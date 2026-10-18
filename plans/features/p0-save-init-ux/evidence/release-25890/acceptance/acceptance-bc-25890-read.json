@@ -12,15 +12,15 @@
       "ok": true,
       "detail": {
         "scan_anchored": 1,
-        "passes": 844,
-        "observed": 147001,
+        "passes": 858,
+        "observed": 147053,
         "opportunities": 4,
-        "evals": 6,
+        "evals": 7,
         "cursor": null,
         "job_status": "completed",
-        "job_finished_at": 1792331705,
+        "job_finished_at": 1792335901,
         "liveness": {
-          "ts": 1792331705,
+          "ts": 1792335901,
           "status": "completed",
           "observed": 0,
           "opportunities": 0
@@ -32,14 +32,14 @@
       "ok": true,
       "detail": {
         "events_24h": {
-          "initiative_observer_scan": 282,
-          "initiative_opportunity": 5,
+          "initiative_observer_scan": 280,
+          "initiative_opportunity": 6,
           "initiative_decided": 4,
           "initiative_writer_generated": 2,
           "initiative_writer_unavailable": 0,
           "initiative_recheck_passed": 0,
           "initiative_sent": 2,
-          "initiative_observer_diagnostic": 1
+          "initiative_observer_diagnostic": 0
         }
       }
     },
@@ -102,17 +102,17 @@
             {
               "reason_code": "eval_not_due",
               "label": "интервал между проверками ещё не прошёл",
-              "count": 197
+              "count": 192
             },
             {
               "reason_code": "not_enough_messages",
               "label": "в чате пока мало новых сообщений",
-              "count": 72
+              "count": 88
             },
             {
               "reason_code": "min_gap",
               "label": "пауза после последней инициативы бота",
-              "count": 7
+              "count": 8
             },
             {
               "reason_code": "default",
@@ -120,26 +120,26 @@
               "count": 2
             },
             {
-              "reason_code": "direct_address_seen",
-              "label": "в окне было обращение к боту",
-              "count": 1
+              "reason_code": "no_opportunity",
+              "label": "повода для инициативы не нашлось",
+              "count": 2
             }
           ],
-          "live_messages": 756,
+          "live_messages": 778,
           "thresholds": {
             "live_messages_busy": 2000,
             "silent_streak": 3
           },
           "health": {
             "heartbeat_ok": true,
-            "last_tick_ts": 1792331705,
+            "last_tick_ts": 1792335901,
             "last_tick_status": "completed",
-            "jobs_processed": 280,
+            "jobs_processed": 281,
             "note": "heartbeat≠outcome: тики и прогоны не являются отправкой"
           },
           "counters": {
-            "scans": 280,
-            "observed": 48525,
+            "scans": 281,
+            "observed": 46239,
             "opportunities": 4,
             "delivered": 2,
             "silent": 0
@@ -148,7 +148,7 @@
         },
         "gates": {
           "blocked_now": true,
-          "blocked_count": 2,
+          "blocked_count": 1,
           "warn_count": 0,
           "items": [
             {
@@ -182,8 +182,8 @@
               "gate": "live_context",
               "status": "pass",
               "reason_code": "",
-              "label": "Живых сообщений за 24ч: 756",
-              "value": 756,
+              "label": "Живых сообщений за 24ч: 778",
+              "value": 778,
               "limit": 1,
               "unit": "count"
             },
@@ -191,8 +191,8 @@
               "gate": "pending",
               "status": "pass",
               "reason_code": "",
-              "label": "Накоплено сообщений: 126 из 8",
-              "value": 126,
+              "label": "Накоплено сообщений: 9 из 8",
+              "value": 9,
               "limit": 8,
               "unit": "count"
             },
@@ -200,8 +200,8 @@
               "gate": "eval_interval",
               "status": "block",
               "reason_code": "eval_not_due",
-              "label": "С прошлой проверки: 881 с (интервал 2700 с)",
-              "value": 881,
+              "label": "С прошлой проверки: 2102 с (интервал 2700 с)",
+              "value": 2102,
               "limit": 2700,
               "unit": "s"
             },
@@ -209,17 +209,17 @@
               "gate": "anti_flood",
               "status": "pass",
               "reason_code": "",
-              "label": "С последнего вывода бота: 2731 с (анти-флуд 300 с)",
-              "value": 2731,
+              "label": "С последнего вывода бота: 1933 с (анти-флуд 300 с)",
+              "value": 1933,
               "limit": 300,
               "unit": "s"
             },
             {
               "gate": "min_gap",
-              "status": "block",
-              "reason_code": "min_gap",
-              "label": "С последней инициативы бота: 3724 с (пауза 7200 с)",
-              "value": 3724,
+              "status": "pass",
+              "reason_code": "",
+              "label": "С последней инициативы бота: 7649 с (пауза 7200 с)",
+              "value": 7649,
               "limit": 7200,
               "unit": "s"
             },
@@ -279,14 +279,14 @@
             }
           ],
           "state": {
-            "pending": 126,
-            "last_eval_age_seconds": 881,
+            "pending": 9,
+            "last_eval_age_seconds": 2102,
             "sent_in_window": 2,
             "eval_used_today": 4,
-            "last_bot_output_age_seconds": 2731,
-            "last_initiative_output_age_seconds": 3724,
-            "cursor_lag_messages": 7,
-            "live_messages_24h": 756
+            "last_bot_output_age_seconds": 1933,
+            "last_initiative_output_age_seconds": 7649,
+            "cursor_lag_messages": 0,
+            "live_messages_24h": 778
           },
           "effective": {
             "profile": "normal",
@@ -326,8 +326,21 @@
       "id": "B1_nostalgia_log_rows",
       "ok": true,
       "detail": {
-        "work_rows": 2,
+        "work_rows": 3,
         "work_head": [
+          {
+            "id": 218,
+            "chat_id": -1002661910336,
+            "ts": 1792334394,
+            "kind": "year_back",
+            "fact_id": null,
+            "status": "skipped",
+            "meta": {
+              "reason": "unchanged",
+              "llm_skipped": true,
+              "candidate_text": "[Nikita 2025-10-18]: Кидайте счет, фотку"
+            }
+          },
           {
             "id": 2,
             "chat_id": -1002661910336,
@@ -358,20 +371,20 @@
         "pet_rows": 10,
         "pet_head": [
           {
-            "id": 216,
+            "id": 217,
             "chat_id": -1004482340693,
-            "ts": 1792328255,
+            "ts": 1792334394,
             "kind": "none",
             "fact_id": null,
-            "status": "budget_skip",
+            "status": "skipped",
             "meta": {
-              "reason": "gate_nostalgia"
+              "reason": "no_candidates"
             }
           },
           {
-            "id": 215,
+            "id": 216,
             "chat_id": -1004482340693,
-            "ts": 1792324415,
+            "ts": 1792328255,
             "kind": "none",
             "fact_id": null,
             "status": "budget_skip",
@@ -402,7 +415,7 @@
         "pet": {
           "nostalgia": {
             "mode": "silence",
-            "silence_left_min": 29,
+            "silence_left_min": 37,
             "silence_min_total": 45,
             "cooldown_left_h": 0,
             "cooldown_h_total": 12,
@@ -420,13 +433,13 @@
       "ok": true,
       "detail": {
         "pet_nostalgia": true,
-        "pet_updated_at": "2026-10-18T13:59:13.135888+00:00",
+        "pet_updated_at": "2026-10-18T14:12:12.738740+00:00",
         "work_nostalgia": true
       }
     }
   ],
   "mode": "read",
-  "now_utc": "2026-10-18T13:59:44Z",
+  "now_utc": "2026-10-18T15:05:08Z",
   "prod_health": {
     "status": "ok",
     "version": "2.58.90"
@@ -435,22 +448,22 @@
     "status": 200,
     "json": {
       "available": true,
-      "now_ts": 1792331985,
+      "now_ts": 1792335910,
       "chat_scoped_events": false,
       "initiative": {
         "available": true,
         "job": {
           "status": "completed",
           "reason_code": null,
-          "created_at": 1792331694,
-          "updated_at": 1792331705,
-          "finished_at": 1792331705,
+          "created_at": 1792335894,
+          "updated_at": 1792335901,
+          "finished_at": 1792335901,
           "counters": {
-            "passes": 844,
-            "observed": 147001,
-            "eligible": 147001,
-            "scan_skipped": 21599,
-            "evals": 6,
+            "passes": 858,
+            "observed": 147053,
+            "eligible": 147053,
+            "scan_skipped": 21621,
+            "evals": 7,
             "opportunities": 4,
             "silent_decisions": 2,
             "intents_created": 0,
@@ -461,35 +474,35 @@
             "errors": 0,
             "scan_anchored": 1,
             "eval_skips": {
-              "min_gap": 8,
-              "eval_not_due": 760,
-              "not_enough_messages": 72,
+              "min_gap": 9,
+              "eval_not_due": 768,
+              "not_enough_messages": 88,
               "direct_address_seen": 1,
-              "no_opportunity": 1,
+              "no_opportunity": 2,
               "semantic_eval_unavailable": 1
             }
           }
         },
         "liveness": {
-          "ts": 1792331705,
+          "ts": 1792335901,
           "status": "completed",
           "observed": 0,
           "opportunities": 0
         },
         "events": {
           "24h": {
-            "initiative_observer_scan": 282,
-            "initiative_opportunity": 5,
+            "initiative_observer_scan": 280,
+            "initiative_opportunity": 6,
             "initiative_decided": 4,
             "initiative_writer_generated": 2,
             "initiative_writer_unavailable": 0,
             "initiative_recheck_passed": 0,
             "initiative_sent": 2,
-            "initiative_observer_diagnostic": 1
+            "initiative_observer_diagnostic": 0
           },
           "7d": {
-            "initiative_observer_scan": 844,
-            "initiative_opportunity": 5,
+            "initiative_observer_scan": 855,
+            "initiative_opportunity": 6,
             "initiative_decided": 4,
             "initiative_writer_generated": 2,
             "initiative_writer_unavailable": 0,
@@ -555,7 +568,7 @@
         },
         "semantic_lag": {
           "watermark": 500,
-          "max_message_id": 2351223,
+          "max_message_id": 2351291,
           "pending": 491
         },
         "last_application": null,
@@ -580,22 +593,22 @@
     "status": 200,
     "json": {
       "available": true,
-      "now_ts": 1792331985,
+      "now_ts": 1792335910,
       "chat_scoped_events": false,
       "initiative": {
         "available": true,
         "job": {
           "status": "completed",
           "reason_code": null,
-          "created_at": 1792331694,
-          "updated_at": 1792331705,
-          "finished_at": 1792331705,
+          "created_at": 1792335894,
+          "updated_at": 1792335901,
+          "finished_at": 1792335901,
           "counters": {
-            "passes": 844,
-            "observed": 147001,
-            "eligible": 147001,
-            "scan_skipped": 21599,
-            "evals": 6,
+            "passes": 858,
+            "observed": 147053,
+            "eligible": 147053,
+            "scan_skipped": 21621,
+            "evals": 7,
             "opportunities": 4,
             "silent_decisions": 2,
             "intents_created": 0,
@@ -606,35 +619,35 @@
             "errors": 0,
             "scan_anchored": 1,
             "eval_skips": {
-              "min_gap": 8,
-              "eval_not_due": 760,
-              "not_enough_messages": 72,
+              "min_gap": 9,
+              "eval_not_due": 768,
+              "not_enough_messages": 88,
               "direct_address_seen": 1,
-              "no_opportunity": 1,
+              "no_opportunity": 2,
               "semantic_eval_unavailable": 1
             }
           }
         },
         "liveness": {
-          "ts": 1792331705,
+          "ts": 1792335901,
           "status": "completed",
           "observed": 0,
           "opportunities": 0
         },
         "events": {
           "24h": {
-            "initiative_observer_scan": 282,
-            "initiative_opportunity": 5,
+            "initiative_observer_scan": 280,
+            "initiative_opportunity": 6,
             "initiative_decided": 4,
             "initiative_writer_generated": 2,
             "initiative_writer_unavailable": 0,
             "initiative_recheck_passed": 0,
             "initiative_sent": 2,
-            "initiative_observer_diagnostic": 1
+            "initiative_observer_diagnostic": 0
           },
           "7d": {
-            "initiative_observer_scan": 844,
-            "initiative_opportunity": 5,
+            "initiative_observer_scan": 855,
+            "initiative_opportunity": 6,
             "initiative_decided": 4,
             "initiative_writer_generated": 2,
             "initiative_writer_unavailable": 0,
@@ -700,7 +713,7 @@
         },
         "semantic_lag": {
           "watermark": 500,
-          "max_message_id": 2351223,
+          "max_message_id": 2351291,
           "pending": 491
         },
         "last_application": null,
@@ -725,7 +738,7 @@
     "status": 200,
     "json": {
       "available": true,
-      "now_ts": 1792331987,
+      "now_ts": 1792335912,
       "hours": 24,
       "chat_id": -1002661910336,
       "chat_scoped": true,
@@ -738,11 +751,11 @@
           "hours": 24,
           "coverage": "full",
           "coverage_note": "история прогонов наблюдателя дотягивается до начала окна",
-          "scans": 280,
+          "scans": 281,
           "scan_events": 0,
-          "observed": 48525,
-          "eligible": 48525,
-          "evals": 6,
+          "observed": 46239,
+          "eligible": 46239,
+          "evals": 7,
           "opportunities": 4,
           "opportunities_by_kind": {
             "humor": 1,
@@ -775,11 +788,11 @@
           "refusals": 0,
           "duplicates": 0,
           "eval_skips": {
-            "min_gap": 7,
-            "eval_not_due": 197,
-            "not_enough_messages": 72,
+            "min_gap": 8,
+            "eval_not_due": 192,
+            "not_enough_messages": 88,
             "direct_address_seen": 1,
-            "no_opportunity": 1,
+            "no_opportunity": 2,
             "semantic_eval_unavailable": 1
           },
           "errors": 0,
@@ -871,11 +884,11 @@
         "hours": 24,
         "coverage": "full",
         "coverage_note": "история прогонов наблюдателя дотягивается до начала окна",
-        "scans": 280,
+        "scans": 281,
         "scan_events": 0,
-        "observed": 48525,
-        "eligible": 48525,
-        "evals": 6,
+        "observed": 46239,
+        "eligible": 46239,
+        "evals": 7,
         "opportunities": 4,
         "opportunities_by_kind": {
           "humor": 1,
@@ -908,11 +921,11 @@
         "refusals": 0,
         "duplicates": 0,
         "eval_skips": {
-          "min_gap": 7,
-          "eval_not_due": 197,
-          "not_enough_messages": 72,
+          "min_gap": 8,
+          "eval_not_due": 192,
+          "not_enough_messages": 88,
           "direct_address_seen": 1,
-          "no_opportunity": 1,
+          "no_opportunity": 2,
           "semantic_eval_unavailable": 1
         },
         "errors": 0,
@@ -1009,17 +1022,17 @@
           {
             "reason_code": "eval_not_due",
             "label": "интервал между проверками ещё не прошёл",
-            "count": 197
+            "count": 192
           },
           {
             "reason_code": "not_enough_messages",
             "label": "в чате пока мало новых сообщений",
-            "count": 72
+            "count": 88
           },
           {
             "reason_code": "min_gap",
             "label": "пауза после последней инициативы бота",
-            "count": 7
+            "count": 8
           },
           {
             "reason_code": "default",
@@ -1027,26 +1040,26 @@
             "count": 2
           },
           {
-            "reason_code": "direct_address_seen",
-            "label": "в окне было обращение к боту",
-            "count": 1
+            "reason_code": "no_opportunity",
+            "label": "повода для инициативы не нашлось",
+            "count": 2
           }
         ],
-        "live_messages": 756,
+        "live_messages": 778,
         "thresholds": {
           "live_messages_busy": 2000,
           "silent_streak": 3
         },
         "health": {
           "heartbeat_ok": true,
-          "last_tick_ts": 1792331705,
+          "last_tick_ts": 1792335901,
           "last_tick_status": "completed",
-          "jobs_processed": 280,
+          "jobs_processed": 281,
           "note": "heartbeat≠outcome: тики и прогоны не являются отправкой"
         },
         "counters": {
-          "scans": 280,
-          "observed": 48525,
+          "scans": 281,
+          "observed": 46239,
           "opportunities": 4,
           "delivered": 2,
           "silent": 0
@@ -1055,7 +1068,7 @@
       },
       "gates": {
         "blocked_now": true,
-        "blocked_count": 2,
+        "blocked_count": 1,
         "warn_count": 0,
         "items": [
           {
@@ -1089,8 +1102,8 @@
             "gate": "live_context",
             "status": "pass",
             "reason_code": "",
-            "label": "Живых сообщений за 24ч: 756",
-            "value": 756,
+            "label": "Живых сообщений за 24ч: 778",
+            "value": 778,
             "limit": 1,
             "unit": "count"
           },
@@ -1098,8 +1111,8 @@
             "gate": "pending",
             "status": "pass",
             "reason_code": "",
-            "label": "Накоплено сообщений: 126 из 8",
-            "value": 126,
+            "label": "Накоплено сообщений: 9 из 8",
+            "value": 9,
             "limit": 8,
             "unit": "count"
           },
@@ -1107,8 +1120,8 @@
             "gate": "eval_interval",
             "status": "block",
             "reason_code": "eval_not_due",
-            "label": "С прошлой проверки: 881 с (интервал 2700 с)",
-            "value": 881,
+            "label": "С прошлой проверки: 2102 с (интервал 2700 с)",
+            "value": 2102,
             "limit": 2700,
             "unit": "s"
           },
@@ -1116,17 +1129,17 @@
             "gate": "anti_flood",
             "status": "pass",
             "reason_code": "",
-            "label": "С последнего вывода бота: 2731 с (анти-флуд 300 с)",
-            "value": 2731,
+            "label": "С последнего вывода бота: 1933 с (анти-флуд 300 с)",
+            "value": 1933,
             "limit": 300,
             "unit": "s"
           },
           {
             "gate": "min_gap",
-            "status": "block",
-            "reason_code": "min_gap",
-            "label": "С последней инициативы бота: 3724 с (пауза 7200 с)",
-            "value": 3724,
+            "status": "pass",
+            "reason_code": "",
+            "label": "С последней инициативы бота: 7649 с (пауза 7200 с)",
+            "value": 7649,
             "limit": 7200,
             "unit": "s"
           },
@@ -1186,14 +1199,14 @@
           }
         ],
         "state": {
-          "pending": 126,
-          "last_eval_age_seconds": 881,
+          "pending": 9,
+          "last_eval_age_seconds": 2102,
           "sent_in_window": 2,
           "eval_used_today": 4,
-          "last_bot_output_age_seconds": 2731,
-          "last_initiative_output_age_seconds": 3724,
-          "cursor_lag_messages": 7,
-          "live_messages_24h": 756
+          "last_bot_output_age_seconds": 1933,
+          "last_initiative_output_age_seconds": 7649,
+          "cursor_lag_messages": 0,
+          "live_messages_24h": 778
         },
         "effective": {
           "profile": "normal",
@@ -1296,15 +1309,15 @@
         "job": {
           "status": "completed",
           "reason_code": null,
-          "created_at": 1792331694,
-          "updated_at": 1792331705,
-          "finished_at": 1792331705,
+          "created_at": 1792335894,
+          "updated_at": 1792335901,
+          "finished_at": 1792335901,
           "counters": {
-            "passes": 844,
-            "observed": 147001,
-            "eligible": 147001,
-            "scan_skipped": 21599,
-            "evals": 6,
+            "passes": 858,
+            "observed": 147053,
+            "eligible": 147053,
+            "scan_skipped": 21621,
+            "evals": 7,
             "opportunities": 4,
             "silent_decisions": 2,
             "intents_created": 0,
@@ -1315,17 +1328,17 @@
             "errors": 0,
             "scan_anchored": 1,
             "eval_skips": {
-              "min_gap": 8,
-              "eval_not_due": 760,
-              "not_enough_messages": 72,
+              "min_gap": 9,
+              "eval_not_due": 768,
+              "not_enough_messages": 88,
               "direct_address_seen": 1,
-              "no_opportunity": 1,
+              "no_opportunity": 2,
               "semantic_eval_unavailable": 1
             }
           }
         },
         "liveness": {
-          "ts": 1792331705,
+          "ts": 1792335901,
           "status": "completed",
           "observed": 0,
           "opportunities": 0
@@ -1365,7 +1378,7 @@
     "status": 200,
     "json": {
       "available": true,
-      "now_ts": 1792331989,
+      "now_ts": 1792335913,
       "hours": 24,
       "chat_id": -1004482340693,
       "chat_scoped": true,
@@ -1378,11 +1391,11 @@
           "hours": 24,
           "coverage": "full",
           "coverage_note": "история прогонов наблюдателя дотягивается до начала окна",
-          "scans": 280,
+          "scans": 281,
           "scan_events": 0,
-          "observed": 48525,
-          "eligible": 48525,
-          "evals": 6,
+          "observed": 46239,
+          "eligible": 46239,
+          "evals": 7,
           "opportunities": 4,
           "opportunities_by_kind": {},
           "decisions": {
@@ -1404,11 +1417,11 @@
           "refusals": 0,
           "duplicates": 0,
           "eval_skips": {
-            "min_gap": 7,
-            "eval_not_due": 197,
-            "not_enough_messages": 72,
+            "min_gap": 8,
+            "eval_not_due": 192,
+            "not_enough_messages": 88,
             "direct_address_seen": 1,
-            "no_opportunity": 1,
+            "no_opportunity": 2,
             "semantic_eval_unavailable": 1
           },
           "errors": 0,
@@ -1420,7 +1433,7 @@
           },
           "last": {
             "scan_ts": 0,
-            "opportunity_ts": 0,
+            "opportunity_ts": 1792335005,
             "decision_ts": 0,
             "delivered_ts": 0,
             "send_attempt_ts": 0
@@ -1434,11 +1447,11 @@
         "hours": 24,
         "coverage": "full",
         "coverage_note": "история прогонов наблюдателя дотягивается до начала окна",
-        "scans": 280,
+        "scans": 281,
         "scan_events": 0,
-        "observed": 48525,
-        "eligible": 48525,
-        "evals": 6,
+        "observed": 46239,
+        "eligible": 46239,
+        "evals": 7,
         "opportunities": 4,
         "opportunities_by_kind": {},
         "decisions": {
@@ -1460,11 +1473,11 @@
         "refusals": 0,
         "duplicates": 0,
         "eval_skips": {
-          "min_gap": 7,
-          "eval_not_due": 197,
-          "not_enough_messages": 72,
+          "min_gap": 8,
+          "eval_not_due": 192,
+          "not_enough_messages": 88,
           "direct_address_seen": 1,
-          "no_opportunity": 1,
+          "no_opportunity": 2,
           "semantic_eval_unavailable": 1
         },
         "errors": 0,
@@ -1476,7 +1489,7 @@
         },
         "last": {
           "scan_ts": 0,
-          "opportunity_ts": 0,
+          "opportunity_ts": 1792335005,
           "decision_ts": 0,
           "delivered_ts": 0,
           "send_attempt_ts": 0
@@ -1495,44 +1508,44 @@
           {
             "reason_code": "eval_not_due",
             "label": "интервал между проверками ещё не прошёл",
-            "count": 197
+            "count": 192
           },
           {
             "reason_code": "not_enough_messages",
             "label": "в чате пока мало новых сообщений",
-            "count": 72
+            "count": 88
           },
           {
             "reason_code": "min_gap",
             "label": "пауза после последней инициативы бота",
-            "count": 7
+            "count": 8
+          },
+          {
+            "reason_code": "no_opportunity",
+            "label": "повода для инициативы не нашлось",
+            "count": 2
           },
           {
             "reason_code": "direct_address_seen",
             "label": "в окне было обращение к боту",
             "count": 1
-          },
-          {
-            "reason_code": "no_opportunity",
-            "label": "повода для инициативы не нашлось",
-            "count": 1
           }
         ],
-        "live_messages": 108,
+        "live_messages": 83,
         "thresholds": {
           "live_messages_busy": 2000,
           "silent_streak": 3
         },
         "health": {
           "heartbeat_ok": true,
-          "last_tick_ts": 1792331705,
+          "last_tick_ts": 1792335901,
           "last_tick_status": "completed",
-          "jobs_processed": 280,
+          "jobs_processed": 281,
           "note": "heartbeat≠outcome: тики и прогоны не являются отправкой"
         },
         "counters": {
-          "scans": 280,
-          "observed": 48525,
+          "scans": 281,
+          "observed": 46239,
           "opportunities": 4,
           "delivered": 2,
           "silent": 0
@@ -1575,8 +1588,8 @@
             "gate": "live_context",
             "status": "pass",
             "reason_code": "",
-            "label": "Живых сообщений за 24ч: 108",
-            "value": 108,
+            "label": "Живых сообщений за 24ч: 83",
+            "value": 83,
             "limit": 1,
             "unit": "count"
           },
@@ -1584,8 +1597,8 @@
             "gate": "pending",
             "status": "block",
             "reason_code": "not_enough_messages",
-            "label": "Накоплено сообщений: 0 из 8",
-            "value": 0,
+            "label": "Накоплено сообщений: 2 из 8",
+            "value": 2,
             "limit": 8,
             "unit": "count"
           },
@@ -1593,8 +1606,8 @@
             "gate": "eval_interval",
             "status": "block",
             "reason_code": "eval_not_due",
-            "label": "С прошлой проверки: 584 с (интервал 2700 с)",
-            "value": 584,
+            "label": "С прошлой проверки: 911 с (интервал 2700 с)",
+            "value": 911,
             "limit": 2700,
             "unit": "s"
           },
@@ -1602,8 +1615,8 @@
             "gate": "anti_flood",
             "status": "pass",
             "reason_code": "",
-            "label": "С последнего вывода бота: 184033 с (анти-флуд 300 с)",
-            "value": 184033,
+            "label": "С последнего вывода бота: 187957 с (анти-флуд 300 с)",
+            "value": 187957,
             "limit": 300,
             "unit": "s"
           },
@@ -1629,8 +1642,8 @@
             "gate": "context_dedup",
             "status": "pass",
             "reason_code": "",
-            "label": "Свежих окон в дедуп-кольце: 1",
-            "value": 1,
+            "label": "Свежих окон в дедуп-кольце: 2",
+            "value": 2,
             "limit": 16,
             "unit": "count"
           },
@@ -1638,8 +1651,8 @@
             "gate": "eval_budget",
             "status": "pass",
             "reason_code": "",
-            "label": "Оценок израсходовано сегодня: 1 из 12",
-            "value": 1,
+            "label": "Оценок израсходовано сегодня: 2 из 12",
+            "value": 2,
             "limit": 12,
             "unit": "count"
           },
@@ -1672,14 +1685,14 @@
           }
         ],
         "state": {
-          "pending": 0,
-          "last_eval_age_seconds": 584,
+          "pending": 2,
+          "last_eval_age_seconds": 911,
           "sent_in_window": 0,
-          "eval_used_today": 1,
-          "last_bot_output_age_seconds": 184033,
+          "eval_used_today": 2,
+          "last_bot_output_age_seconds": 187957,
           "last_initiative_output_age_seconds": null,
-          "cursor_lag_messages": 15,
-          "live_messages_24h": 108
+          "cursor_lag_messages": 2,
+          "live_messages_24h": 83
         },
         "effective": {
           "profile": "normal",
@@ -1716,15 +1729,15 @@
         "job": {
           "status": "completed",
           "reason_code": null,
-          "created_at": 1792331694,
-          "updated_at": 1792331705,
-          "finished_at": 1792331705,
+          "created_at": 1792335894,
+          "updated_at": 1792335901,
+          "finished_at": 1792335901,
           "counters": {
-            "passes": 844,
-            "observed": 147001,
-            "eligible": 147001,
-            "scan_skipped": 21599,
-            "evals": 6,
+            "passes": 858,
+            "observed": 147053,
+            "eligible": 147053,
+            "scan_skipped": 21621,
+            "evals": 7,
             "opportunities": 4,
             "silent_decisions": 2,
             "intents_created": 0,
@@ -1735,17 +1748,17 @@
             "errors": 0,
             "scan_anchored": 1,
             "eval_skips": {
-              "min_gap": 8,
-              "eval_not_due": 760,
-              "not_enough_messages": 72,
+              "min_gap": 9,
+              "eval_not_due": 768,
+              "not_enough_messages": 88,
               "direct_address_seen": 1,
-              "no_opportunity": 1,
+              "no_opportunity": 2,
               "semantic_eval_unavailable": 1
             }
           }
         },
         "liveness": {
-          "ts": 1792331705,
+          "ts": 1792335901,
           "status": "completed",
           "observed": 0,
           "opportunities": 0
@@ -1753,7 +1766,7 @@
         "events": {
           "24h": {
             "initiative_observer_scan": 0,
-            "initiative_opportunity": 0,
+            "initiative_opportunity": 1,
             "initiative_decided": 0,
             "initiative_writer_generated": 0,
             "initiative_writer_unavailable": 0,
@@ -1763,7 +1776,7 @@
           },
           "7d": {
             "initiative_observer_scan": 0,
-            "initiative_opportunity": 0,
+            "initiative_opportunity": 1,
             "initiative_decided": 0,
             "initiative_writer_generated": 0,
             "initiative_writer_unavailable": 0,
@@ -1784,6 +1797,19 @@
   "nostalgia_log_work": {
     "status": 200,
     "json": [
+      {
+        "id": 218,
+        "chat_id": -1002661910336,
+        "ts": 1792334394,
+        "kind": "year_back",
+        "fact_id": null,
+        "status": "skipped",
+        "meta": {
+          "reason": "unchanged",
+          "llm_skipped": true,
+          "candidate_text": "[Nikita 2025-10-18]: Кидайте счет, фотку"
+        }
+      },
       {
         "id": 2,
         "chat_id": -1002661910336,
@@ -1815,6 +1841,17 @@
   "nostalgia_log_pet": {
     "status": 200,
     "json": [
+      {
+        "id": 217,
+        "chat_id": -1004482340693,
+        "ts": 1792334394,
+        "kind": "none",
+        "fact_id": null,
+        "status": "skipped",
+        "meta": {
+          "reason": "no_candidates"
+        }
+      },
       {
         "id": 216,
         "chat_id": -1004482340693,
@@ -1913,17 +1950,6 @@
         "meta": {
           "reason": "gate_nostalgia"
         }
-      },
-      {
-        "id": 207,
-        "chat_id": -1004482340693,
-        "ts": 1792294207,
-        "kind": "none",
-        "fact_id": null,
-        "status": "budget_skip",
-        "meta": {
-          "reason": "gate_nostalgia"
-        }
       }
     ]
   },
@@ -1957,7 +1983,7 @@
         "next_run_at": 1792364400
       },
       "lore": {
-        "last_inject_at": null
+        "last_inject_at": 1792333971
       },
       "nostalgia": {
         "mode": "silence",
@@ -1972,7 +1998,7 @@
         "dream": "global",
         "deep_sleep": "chat"
       },
-      "generated_at": 1792331992
+      "generated_at": 1792335916
     }
   },
   "cognition_pet": {
@@ -2005,11 +2031,11 @@
         "next_run_at": 1792364400
       },
       "lore": {
-        "last_inject_at": null
+        "last_inject_at": 1792333971
       },
       "nostalgia": {
         "mode": "silence",
-        "silence_left_min": 29,
+        "silence_left_min": 37,
         "silence_min_total": 45,
         "cooldown_left_h": 0,
         "cooldown_h_total": 12,
@@ -2020,7 +2046,7 @@
         "dream": "global",
         "deep_sleep": "global"
       },
-      "generated_at": 1792331993
+      "generated_at": 1792335917
     }
   },
   "gates_work": {
@@ -2044,7 +2070,7 @@
         "permsoc_reactions": "global",
         "permsoc_schedule": "global"
       },
-      "updated_at": "2026-10-18T13:52:50.317222+00:00"
+      "updated_at": "2026-10-18T14:21:10.810865+00:00"
     }
   },
   "gates_pet": {
@@ -2068,8 +2094,8 @@
         "permsoc_reactions": "global",
         "permsoc_schedule": "global"
       },
-      "updated_at": "2026-10-18T13:59:13.135888+00:00"
+      "updated_at": "2026-10-18T14:12:12.738740+00:00"
     }
   },
-  "finished_utc": "2026-10-18T13:59:55Z"
+  "finished_utc": "2026-10-18T15:05:20Z"
 }
