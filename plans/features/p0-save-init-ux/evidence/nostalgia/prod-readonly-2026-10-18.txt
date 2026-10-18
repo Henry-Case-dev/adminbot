@@ -1,0 +1,151 @@
+﻿PROBE-START 2026-10-18_08:33:49Z
+== head/version ==
+d59fab94 chore(release-fix-25889): bump 2.58.88 -> 2.58.89 (settings + README + 
+== service ==
+active
+== env flags (values only for flag keys; no secrets printed) ==
+DB_PATH=local_database.db
+GRAPH_RAG_ENABLED=True
+== journalctl: NostalgiaWorker start lines (30d) ==
+Oct 18 06:30:07 racknerd-f4e3456 python[3275019]: 2026-10-18 06:30:07,290 - apscheduler.executors.default - INFO - Running job "NostalgiaWorker._tick (trigger: interval[1:00:00], next run at: 2026-10-18 12:30:07 +05)" (scheduled at 2026-10-18 11:30:07.199366+05:00)
+Oct 18 06:30:08 racknerd-f4e3456 python[3275019]: 2026-10-18 06:30:08,389 - apscheduler.executors.default - INFO - Job "NostalgiaWorker._tick (trigger: interval[1:00:00], next run at: 2026-10-18 12:30:07 +05)" executed successfully
+Oct 18 07:30:07 racknerd-f4e3456 python[3275019]: 2026-10-18 07:30:07,230 - apscheduler.executors.default - INFO - Running job "NostalgiaWorker._tick (trigger: interval[1:00:00], next run at: 2026-10-18 13:30:07 +05)" (scheduled at 2026-10-18 12:30:07.199366+05:00)
+Oct 18 07:30:08 racknerd-f4e3456 python[3275019]: 2026-10-18 07:30:08,400 - apscheduler.executors.default - INFO - Job "NostalgiaWorker._tick (trigger: interval[1:00:00], next run at: 2026-10-18 13:30:07 +05)" executed successfully
+Oct 18 07:37:01 racknerd-f4e3456 python[3275019]: 2026-10-18 07:37:01,986 - services.nostalgia_worker - INFO - NostalgiaWorker stopped
+Oct 18 07:37:35 racknerd-f4e3456 python[3359708]: 2026-10-18 07:37:35,129 - apscheduler.scheduler - INFO - Added job "NostalgiaWorker._tick" to job store "default"
+Oct 18 07:37:35 racknerd-f4e3456 python[3359708]: 2026-10-18 07:37:35,130 - services.nostalgia_worker - INFO - NostalgiaWorker started (tick=60min, silence=45min, max_per_day=3, aggressiveness=0.3)
+Oct 18 07:37:35 racknerd-f4e3456 python[3359708]: 2026-10-18 07:37:35,130 - __main__ - INFO - NostalgiaWorker (╤А╨░╤Г╨╜╨┤ 9) initialized
+== journalctl: [nostalgia] lines (30d) ==
+Oct 17 08:52:38 racknerd-f4e3456 python[2916763]: 2026-10-17 08:52:38,093 - services.nostalgia_worker - WARNING - [nostalgia] WARNING skip: gate nostalgia | chat=-1004482340693
+Oct 17 08:52:38 racknerd-f4e3456 python[2916763]: 2026-10-17 08:52:38,096 - services.nostalgia_worker - INFO - [nostalgia] skip | chat=-1002661910336 | reason=silence_too_short
+Oct 17 09:55:38 racknerd-f4e3456 python[2916763]: 2026-10-17 09:55:38,101 - services.nostalgia_worker - WARNING - [nostalgia] WARNING skip: gate nostalgia | chat=-1004482340693
+Oct 17 09:55:38 racknerd-f4e3456 python[2916763]: 2026-10-17 09:55:38,104 - services.nostalgia_worker - INFO - [nostalgia] skip | chat=-1002661910336 | reason=silence_too_short
+Oct 17 10:58:38 racknerd-f4e3456 python[2916763]: 2026-10-17 10:58:38,095 - services.nostalgia_worker - WARNING - [nostalgia] WARNING skip: gate nostalgia | chat=-1004482340693
+Oct 17 10:58:38 racknerd-f4e3456 python[2916763]: 2026-10-17 10:58:38,099 - services.nostalgia_worker - INFO - [nostalgia] skip | chat=-1002661910336 | reason=silence_too_short
+Oct 17 12:01:38 racknerd-f4e3456 python[2916763]: 2026-10-17 12:01:38,086 - services.nostalgia_worker - WARNING - [nostalgia] WARNING skip: gate nostalgia | chat=-1004482340693
+Oct 17 12:01:38 racknerd-f4e3456 python[2916763]: 2026-10-17 12:01:38,089 - services.nostalgia_worker - INFO - [nostalgia] skip | chat=-1002661910336 | reason=silence_too_short
+Oct 17 13:04:38 racknerd-f4e3456 python[2916763]: 2026-10-17 13:04:38,099 - services.nostalgia_worker - WARNING - [nostalgia] WARNING skip: gate nostalgia | chat=-1004482340693
+Oct 17 13:04:45 racknerd-f4e3456 python[2916763]: 2026-10-17 13:04:45,921 - services.nostalgia_worker - INFO - [nostalgia] skip | chat=-1002661910336 | reason=silence_too_short
+Oct 17 14:07:38 racknerd-f4e3456 python[2916763]: 2026-10-17 14:07:38,091 - services.nostalgia_worker - WARNING - [nostalgia] WARNING skip: gate nostalgia | chat=-1004482340693
+Oct 17 14:07:38 racknerd-f4e3456 python[2916763]: 2026-10-17 14:07:38,095 - services.nostalgia_worker - INFO - [nostalgia] skip | chat=-1002661910336 | reason=silence_too_short
+Oct 17 15:10:38 racknerd-f4e3456 python[2916763]: 2026-10-17 15:10:38,336 - services.nostalgia_worker - WARNING - [nostalgia] WARNING skip: gate nostalgia | chat=-1004482340693
+Oct 17 15:10:38 racknerd-f4e3456 python[2916763]: 2026-10-17 15:10:38,619 - services.nostalgia_worker - INFO - [nostalgia] skip | chat=-1002661910336 | reason=silence_too_short
+Oct 17 16:13:38 racknerd-f4e3456 python[2916763]: 2026-10-17 16:13:38,094 - services.nostalgia_worker - WARNING - [nostalgia] WARNING skip: gate nostalgia | chat=-1004482340693
+Oct 17 16:13:38 racknerd-f4e3456 python[2916763]: 2026-10-17 16:13:38,099 - services.nostalgia_worker - INFO - [nostalgia] skip | chat=-1002661910336 | reason=silence_too_short
+Oct 17 17:16:38 racknerd-f4e3456 python[2916763]: 2026-10-17 17:16:38,096 - services.nostalgia_worker - WARNING - [nostalgia] WARNING skip: gate nostalgia | chat=-1004482340693
+Oct 17 17:16:38 racknerd-f4e3456 python[2916763]: 2026-10-17 17:16:38,102 - services.nostalgia_worker - INFO - [nostalgia] skip | chat=-1002661910336 | reason=silence_too_short
+Oct 17 18:19:38 racknerd-f4e3456 python[2916763]: 2026-10-17 18:19:38,096 - services.nostalgia_worker - WARNING - [nostalgia] WARNING skip: gate nostalgia | chat=-1004482340693
+Oct 17 18:19:38 racknerd-f4e3456 python[2916763]: 2026-10-17 18:19:38,099 - services.nostalgia_worker - INFO - [nostalgia] skip | chat=-1002661910336 | reason=silence_too_short
+Oct 17 19:48:06 racknerd-f4e3456 python[3204968]: 2026-10-17 19:48:06,211 - services.nostalgia_worker - WARNING - [nostalgia] WARNING skip: gate nostalgia | chat=-1004482340693
+Oct 17 19:48:06 racknerd-f4e3456 python[3204968]: 2026-10-17 19:48:06,217 - services.nostalgia_worker - INFO - [nostalgia] skip | chat=-1002661910336 | reason=silence_too_short
+Oct 17 20:50:06 racknerd-f4e3456 python[3204968]: 2026-10-17 20:50:06,208 - services.nostalgia_worker - WARNING - [nostalgia] WARNING skip: gate nostalgia | chat=-1004482340693
+Oct 17 20:50:06 racknerd-f4e3456 python[3204968]: 2026-10-17 20:50:06,211 - services.nostalgia_worker - INFO - [nostalgia] skip | chat=-1002661910336 | reason=silence_too_short
+Oct 17 23:52:29 racknerd-f4e3456 python[3254462]: 2026-10-17 23:52:29,846 - services.nostalgia_worker - WARNING - [nostalgia] WARNING skip: gate nostalgia | chat=-1004482340693
+Oct 17 23:52:29 racknerd-f4e3456 python[3254462]: 2026-10-17 23:52:29,857 - services.nostalgia_worker - INFO - [nostalgia] skip | chat=-1002661910336 | reason=silence_too_short
+Oct 18 01:30:08 racknerd-f4e3456 python[3275019]: 2026-10-18 01:30:08,037 - services.nostalgia_worker - WARNING - [nostalgia] WARNING skip: gate nostalgia | chat=-1004482340693
+Oct 18 01:30:08 racknerd-f4e3456 python[3275019]: 2026-10-18 01:30:08,348 - services.nostalgia_worker - INFO - [nostalgia] skip | chat=-1002661910336 | reason=silence_too_short
+Oct 18 02:30:08 racknerd-f4e3456 python[3275019]: 2026-10-18 02:30:08,011 - services.nostalgia_worker - WARNING - [nostalgia] WARNING skip: gate nostalgia | chat=-1004482340693
+Oct 18 02:30:08 racknerd-f4e3456 python[3275019]: 2026-10-18 02:30:08,214 - services.nostalgia_worker - INFO - [nostalgia] skip | chat=-1002661910336 | reason=silence_too_short
+Oct 18 03:30:07 racknerd-f4e3456 python[3275019]: 2026-10-18 03:30:07,779 - services.nostalgia_worker - WARNING - [nostalgia] WARNING skip: gate nostalgia | chat=-1004482340693
+Oct 18 03:30:07 racknerd-f4e3456 python[3275019]: 2026-10-18 03:30:07,982 - services.nostalgia_worker - INFO - [nostalgia] skip | chat=-1002661910336 | reason=silence_too_short
+Oct 18 04:30:07 racknerd-f4e3456 python[3275019]: 2026-10-18 04:30:07,594 - services.nostalgia_worker - WARNING - [nostalgia] WARNING skip: gate nostalgia | chat=-1004482340693
+Oct 18 04:30:07 racknerd-f4e3456 python[3275019]: 2026-10-18 04:30:07,655 - services.nostalgia_worker - INFO - [nostalgia] skip | chat=-1002661910336 | reason=silence_too_short
+Oct 18 05:30:08 racknerd-f4e3456 python[3275019]: 2026-10-18 05:30:08,042 - services.nostalgia_worker - WARNING - [nostalgia] WARNING skip: gate nostalgia | chat=-1004482340693
+Oct 18 05:30:08 racknerd-f4e3456 python[3275019]: 2026-10-18 05:30:08,456 - services.nostalgia_worker - INFO - [nostalgia] skip | chat=-1002661910336 | reason=silence_too_short
+Oct 18 06:30:07 racknerd-f4e3456 python[3275019]: 2026-10-18 06:30:07,626 - services.nostalgia_worker - WARNING - [nostalgia] WARNING skip: gate nostalgia | chat=-1004482340693
+Oct 18 06:30:08 racknerd-f4e3456 python[3275019]: 2026-10-18 06:30:08,382 - services.nostalgia_worker - INFO - [nostalgia] skip | chat=-1002661910336 | reason=silence_too_short
+Oct 18 07:30:08 racknerd-f4e3456 python[3275019]: 2026-10-18 07:30:08,129 - services.nostalgia_worker - WARNING - [nostalgia] WARNING skip: gate nostalgia | chat=-1004482340693
+Oct 18 07:30:08 racknerd-f4e3456 python[3275019]: 2026-10-18 07:30:08,398 - services.nostalgia_worker - INFO - [nostalgia] skip | chat=-1002661910336 | reason=silence_too_short
+== sqlite: nostalgia_log / smart_messages / mca_events ==
+db_path local_database.db
+user_version 36
+smart_messages_total 2028420
+nostalgia_by_status [('budget_skip', 209), ('sent', 2)]
+nostalgia_last12:
+   (211, '2026-10-18 07:30:07', -1004482340693, 'none', 'budget_skip', '{"reason": "gate_nostalgia"}')
+   (210, '2026-10-18 06:30:07', -1004482340693, 'none', 'budget_skip', '{"reason": "gate_nostalgia"}')
+   (209, '2026-10-18 05:30:07', -1004482340693, 'none', 'budget_skip', '{"reason": "gate_nostalgia"}')
+   (208, '2026-10-18 04:30:07', -1004482340693, 'none', 'budget_skip', '{"reason": "gate_nostalgia"}')
+   (207, '2026-10-18 03:30:07', -1004482340693, 'none', 'budget_skip', '{"reason": "gate_nostalgia"}')
+   (206, '2026-10-18 02:30:07', -1004482340693, 'none', 'budget_skip', '{"reason": "gate_nostalgia"}')
+   (205, '2026-10-18 01:30:07', -1004482340693, 'none', 'budget_skip', '{"reason": "gate_nostalgia"}')
+   (204, '2026-10-17 23:52:29', -1004482340693, 'none', 'budget_skip', '{"reason": "gate_nostalgia"}')
+   (203, '2026-10-17 20:50:06', -1004482340693, 'none', 'budget_skip', '{"reason": "gate_nostalgia"}')
+   (202, '2026-10-17 19:48:06', -1004482340693, 'none', 'budget_skip', '{"reason": "gate_nostalgia"}')
+   (201, '2026-10-17 18:19:38', -1004482340693, 'none', 'budget_skip', '{"reason": "gate_nostalgia"}')
+   (200, '2026-10-17 17:16:38', -1004482340693, 'none', 'budget_skip', '{"reason": "gate_nostalgia"}')
+year_back_candidates_now 26738
+year_back_candidates_per_chat:
+   (-1002661910336, 26738)
+last_user_msg_per_chat (top6):
+   (-1002661910336, 2026184, '2026-10-18 08:30:15')
+   (-1004482340693, 2029, '2026-10-18 08:06:10')
+   (5885953495, 191, '2026-10-06 15:49:50')
+   (1313107079, 7, '2026-09-06 09:37:33')
+   (42115912, 4, '2026-09-01 09:27:08')
+   (134812796, 2, '2026-09-23 16:06:19')
+mca_events_total 66945
+mca_events_nostalgia_last20:
+   ('2026-10-18 07:30:08', 'nostalgia_run', 'skipped', 'no_relevant_memory', 1166)
+   ('2026-10-18 06:30:08', 'nostalgia_run', 'skipped', 'no_relevant_memory', 1094)
+   ('2026-10-18 05:30:08', 'nostalgia_run', 'skipped', 'no_relevant_memory', 1218)
+   ('2026-10-18 04:30:07', 'nostalgia_run', 'skipped', 'no_relevant_memory', 434)
+   ('2026-10-18 03:30:07', 'nostalgia_run', 'skipped', 'no_relevant_memory', 756)
+   ('2026-10-18 02:30:08', 'nostalgia_run', 'skipped', 'no_relevant_memory', 971)
+   ('2026-10-18 01:30:08', 'nostalgia_run', 'skipped', 'no_relevant_memory', 1102)
+   ('2026-10-17 23:52:29', 'nostalgia_run', 'skipped', 'no_relevant_memory', 31)
+   ('2026-10-17 20:50:06', 'nostalgia_run', 'skipped', 'no_relevant_memory', 18)
+   ('2026-10-17 19:48:06', 'nostalgia_run', 'skipped', 'no_relevant_memory', 23)
+   ('2026-10-17 18:19:38', 'nostalgia_run', 'skipped', 'no_relevant_memory', 18)
+   ('2026-10-17 17:16:38', 'nostalgia_run', 'skipped', 'no_relevant_memory', 21)
+   ('2026-10-17 16:13:38', 'nostalgia_run', 'skipped', 'no_relevant_memory', 18)
+   ('2026-10-17 15:10:38', 'nostalgia_run', 'skipped', 'no_relevant_memory', 533)
+   ('2026-10-17 14:07:38', 'nostalgia_run', 'skipped', 'no_relevant_memory', 15)
+   ('2026-10-17 13:04:45', 'nostalgia_run', 'skipped', 'no_relevant_memory', 7837)
+   ('2026-10-17 12:01:38', 'nostalgia_run', 'skipped', 'no_relevant_memory', 9)
+   ('2026-10-17 10:58:38', 'nostalgia_run', 'skipped', 'no_relevant_memory', 18)
+   ('2026-10-17 09:55:38', 'nostalgia_run', 'skipped', 'no_relevant_memory', 24)
+   ('2026-10-17 08:52:38', 'nostalgia_run', 'skipped', 'no_relevant_memory', 14)
+== pg: bot_settings/flags/overrides/budget ==
+setting memory.nostalgia_enabled = true
+setting memory.nostalgia_layer_a_enabled = true
+setting flags.initiative_enabled = true
+setting flags.intent_decision_enabled = true
+setting flags.send_recheck_enabled = true
+setting memory.dream_enabled = true
+setting flags.graph_rag_enabled = true
+setting flags.summary_enabled = true
+  ng-key memory.nostalgia_quiet_end_hour = 8
+  ng-key memory.nostalgia_cooldown_hours = 12
+  ng-key memory.nostalgia_pause_hours = 24
+  ng-key memory.nostalgia_unanswered_max = 2
+  ng-key memory.nostalgia_max_per_day = 3
+  ng-key memory.nostalgia_golden_min_days = 60
+  ng-key memory.nostalgia_golden_min_importance = 5
+  ng-key memory.nostalgia_layer_a_max_hints = 1
+  ng-key memory.nostalgia_hint_max_chars = 300
+  ng-key memory.nostalgia_year_back_days_window = 2
+  ng-key memory.nostalgia_aggressiveness = 0.3
+  ng-key memory.nostalgia_max_send_chars = 400
+  ng-key memory.nostalgia_tick_minutes = 60
+  ng-key memory.nostalgia_min_silence_minutes = 45
+  ng-key memory.nostalgia_quiet_start_hour = 23
+  ng-key memory.nostalgia_layer_a_enabled = true
+  ng-key memory.nostalgia_enabled = true
+chat_profiles 3
+  chat -1004482340693 nostalgia_override False gates_opt_in False
+  chat -1002661910336 nostalgia_override False gates_opt_in True
+  chat 5885953495 nostalgia_override True gates_opt_in False
+  budget 2026-10-18 chat:-1002661910336 llm_tokens 16641
+  budget 2026-10-18 chat:-1002661910336 llm_calls 17
+  budget 2026-10-18 chat:-1002661910336 image_calls 3
+  budget 2026-10-18 chat:-1009900000201 image_calls 1
+  budget 2026-10-18 global llm_tokens 16641
+  budget 2026-10-18 global llm_calls 17
+  budget 2026-10-18 global image_calls 4
+  budget 2026-10-17 chat:-1002661910336 llm_tokens 13797
+  budget 2026-10-17 chat:-1002661910336 llm_calls 5
+  budget 2026-10-17 chat:-1002661910336 image_calls 5
+  budget 2026-10-17 global llm_tokens 13797
+  budget 2026-10-17 global llm_calls 5
+PROBE-END 2026-10-18_08:34:46Z

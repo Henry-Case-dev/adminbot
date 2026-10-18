@@ -1,21 +1,32 @@
 """Раунд 9 (AGI Memory, spec §3.5, T-827/E2) — NostalgiaWorker: ностальгия
-слой B (проактивные «кстати...» в тихих группах).
+слой B (проактивные «кстати...»).
+
+P0-followup (§2, снапшот владельца 18.10.2026) — разделение сценариев:
+  * A — контекстное воспоминание в АКТИВНОЙ беседе: последнее юзерское
+    сообщение свежее окна silence (память идёт по текущей теме / «ровно год
+    назад»); гейт 45-мин тишины и quiet hours НЕ применяются (беседа идёт);
+  * B — автономное после затишья: тишина/quiet hours/паузы действуют.
+Оба — тот же воркер, кандидаты, порог, budget, единый Decision/Writer/
+SendRecheck (делегирование при K1+K3), анти-навязчивость (cooldown,
+дневной лимит, Q14-стоп) — общая для A и B.
 
 Фоновый SQLite-воркер по каркасу dream_worker (AsyncIOScheduler +
 IntervalTrigger(minutes=limits.nostalgia_tick_minutes=60, timezone=…) +
 max_instances=1 + coalesce), БЕЗ PG-lock. Джоб `nostalgia_tick`
-регистрируется ТОЛЬКО при hot memory.nostalgia_enabled (default false,
-Q12). Запуск в bot.py on_startup ПОСЛЕ DreamWorker (fail-open); ручной
-run_once(chat_id) — для будущего F2-API (D-8: test-эндпоинт НЕ в v1).
+регистрируется ВСЕГДА (hot-включение memory.nostalgia_enabled работает без
+рестарта бота); при OFF тик — дешёвый no-op (событие skipped/disabled), а
+ручные run_once режет kill-switch-флаг. Запуск в bot.py on_startup ПОСЛЕ
+DreamWorker (fail-open); ручной run_once(chat_id) — для будущего F2-API
+(D-8: test-эндпоинт НЕ в v1).
 
 Тик (spec §3.5.3/§3.5.4; чаты — ТОЛЬКО активные PG-профили
 ChatLoreStore.list_active_chat_ids, Q13; PG down/пусто → no-op WARNING):
 дешёвые гейты чата (skip = WARNING без строк в nostalgia_log):
   1. флаг ON (тик), chat_id < 0, is_active-профиль;
-  2. тишина: последнее юзерское сообщение старше nostalgia_min_silence_minutes;
-     истории нет вовсе → no_history;
-  3. quiet hours: local-час (timezone summary_timezone) >= start ИЛИ < end
-     (пересечение полуночи);
+  2. сценарий A/B по тишине: последнее юзерское сообщение свежее окна →
+     A (без гейтов 3 и «тишины»); истории нет вовсе → no_history;
+  3. quiet hours (только B): local-час (timezone summary_timezone) >= start
+     ИЛИ < end (пересечение полуночи);
   4. cooldown: прошло ≥ nostalgia_cooldown_hours с последнего sent;
   5. дневной лимит: status='sent' за local-сутки < nostalgia_max_per_day;
   6. Q14 (анти-спам): среди последних sent чата за окно
@@ -53,6 +64,7 @@ from zoneinfo import ZoneInfo
 from config.settings import settings
 from services import hot_config as hot
 from services.nostalgia_prompts import (
+    NOSTALGIA_CORE_CANON,
     NOSTALGIA_PROMPT,
     _MEMES_LIMIT,
     build_nostalgia_user,
@@ -201,13 +213,12 @@ class NostalgiaWorker:
     # ── планировщик ───────────────────────────────────────────────
 
     def start(self) -> None:
-        """Регистрирует джоб nostalgia_tick ТОЛЬКО при
-        memory.nostalgia_enabled (default false). Повторный start —
-        идемпотентен (replace_existing)."""
-        if not self._flag("enabled", settings.NOSTALGIA_ENABLED):
-            logger.info("NostalgiaWorker disabled (memory.nostalgia_enabled "
-                        "off)")
-            return
+        """Регистрирует джоб nostalgia_tick ВСЕГДА (P0-followup §2,
+        18.10.2026): рубильник проверяется на КАЖДОМ тике и на каждом чате,
+        поэтому hot-включение memory.nostalgia_enabled начинает работать без
+        рестарта бота. OFF → тик — дешёвый no-op (honest skipped/disabled).
+        Повторный start идемпотентен (replace_existing)."""
+        enabled_now = self._flag("enabled", settings.NOSTALGIA_ENABLED)
         # Раунд 10 (F-10 §5.2): jitter тика (случайный сдвиг ≤ интервал/3);
         # 0 — если jitter явно не задан (тесты/конфиг без ключа).
         base_minutes = int(self._limit("tick_minutes",
@@ -230,14 +241,17 @@ class NostalgiaWorker:
         if not self._scheduler.running:
             self._scheduler.start()
         logger.info(
-            "NostalgiaWorker started (tick=%smin, silence=%smin, "
-            "max_per_day=%s, aggressiveness=%s)",
+            "NostalgiaWorker %s (tick=%smin, silence=%smin, "
+            "max_per_day=%s, aggressiveness=%s, flag=%s)",
+            "started" if enabled_now
+            else "registered (флаг off — ждёт hot-включения)",
             self._limit("tick_minutes", settings.NOSTALGIA_TICK_MINUTES),
             self._limit("min_silence_minutes",
                         settings.NOSTALGIA_MIN_SILENCE_MINUTES),
             self._limit("max_per_day", settings.NOSTALGIA_MAX_PER_DAY),
             self._key("aggressiveness",
-                      settings.NOSTALGIA_AGGRESSIVENESS))
+                      settings.NOSTALGIA_AGGRESSIVENESS),
+            "on" if enabled_now else "off")
 
     async def stop(self) -> None:
         try:
@@ -263,10 +277,11 @@ class NostalgiaWorker:
                     "[nostalgia] tick failed — fail-open", exc_info=True)
 
     async def run_once(self, chat_id: int | None = None) -> dict:
-        """Ручной запуск «сейчас» (будущий F2-API): флаг
-        memory.nostalgia_enabled НЕ требуется (прецедент dream run_once),
-        но все гейты чата соблюдаются (тишина/quiet hours/cooldown/лимиты/
-        Q14 — анти-спам ручным запуском не обходится). Идущий прогон →
+        """Ручной запуск «сейчас» (будущий F2-API). Kill-switch-флаг
+        memory.nostalgia_enabled применяется и здесь (ФИКС R5/F-10 §6 —
+        докс-строка «без флага» устарела), все гейты чата соблюдаются
+        (сценарии A/B по тишине, quiet hours в B, cooldown/лимиты/Q14 —
+        анти-спам ручным запуском не обходится). Идущий прогон →
         {"status": "already_running"}."""
         if self._run_lock.locked():
             return {"status": "already_running"}
@@ -311,6 +326,13 @@ class NostalgiaWorker:
         now = _now_ts()
         stats = {"chats": 0, "candidates": 0, "sent": 0, "skipped": 0,
                  "errors": 0}
+        if not self._flag("enabled", settings.NOSTALGIA_ENABLED):
+            # P0-followup §2: джоб зарегистрирован всегда, поэтому OFF —
+            # дешёвый no-op тика (событие skipped/disabled от `_run`);
+            # hot-включение активирует без рестарта бота.
+            logger.info("[nostalgia] tick: memory.nostalgia_enabled off — "
+                        "no-op (hot-включение активирует без рестарта)")
+            return stats
         if only_chat is not None:
             chats: list = [int(only_chat)]
         elif self.store is None:
@@ -380,6 +402,10 @@ class NostalgiaWorker:
                     "[nostalgia] gate check failed — fail-open | "
                     "chat=%s", chat_id, exc_info=True)
             # гейт 2: тишина (юзерские сообщения; истории нет → no_history).
+            # P0-followup §2: тишина классифицирует сценарий, а не режет A —
+            # свежее окна тишины сообщение = живая беседа (сценарий A:
+            # контекстное воспоминание без требования 45 минут тишины);
+            # старше → затишье (сценарий B: автономное воспоминание).
             last_ts = await self.db.get_last_user_message_ts(chat_id,
                                                              self.bot_id)
             if last_ts is None:
@@ -389,13 +415,16 @@ class NostalgiaWorker:
             silence_min = int(self._limit(
                 "min_silence_minutes",
                 settings.NOSTALGIA_MIN_SILENCE_MINUTES) or 0) * 60
-            if last_ts + silence_min > now:
+            active = last_ts + silence_min > now
+            if active:
                 logger.info(
-                    "[nostalgia] skip | chat=%s | reason=silence_too_short",
-                    chat_id)
-                return out
-            # гейт 3: quiet hours (пересечение полуночи, spec п.3).
-            if self._quiet_hours(now):
+                    "[nostalgia] scenario=A (живая беседа) | chat=%s | "
+                    "silence=%smin → гейты тишины/quiet hours не применяются",
+                    chat_id, (now - last_ts) // 60)
+            # гейт 3: quiet hours — только сценарий B (автономное после
+            # затишья; в живой беседе чат не спит и сообщение никого не
+            # разбудит).
+            if not active and self._quiet_hours(now):
                 logger.info(
                     "[nostalgia] skip | chat=%s | reason=quiet_hours", chat_id)
                 return out
@@ -424,7 +453,7 @@ class NostalgiaWorker:
                     chat_id)
                 return out
             # ── дорогие шаги: кандидаты → порог → LLM → отправка ─────
-            await self._candidate_llm_send(chat_id, now, out)
+            await self._candidate_llm_send(chat_id, now, out, active=active)
         except Exception:
             logger.warning(
                 "[nostalgia] chat tick failed — WARNING, тик жив | "
@@ -477,10 +506,13 @@ class NostalgiaWorker:
     # ── кандидаты → порог → LLM → отправка ─────────────────────────
 
     async def _candidate_llm_send(self, chat_id: int, now: int,
-                                  out: dict) -> None:
+                                  out: dict, *,
+                                  active: bool = False) -> None:
         """Дорогой шаг тика (§3.5.2–3.5.4): кандидат, порог агрессивности,
         1 облачный LLM-вызов, отправка. Все исходы — строка в nostalgia_log
-        (status sent/skipped/error). Никогда не бросает (fail-open)."""
+        (status sent/skipped/error). Никогда не бросает (fail-open).
+        `active` (P0-followup §2) — сценарий A (живая беседа): пробрасывается
+        в user-блок LLM, чтобы преамбула не утверждала «в чате давно тихо»."""
         candidate = await self._pick_candidate(chat_id, now)
         if candidate is None:
             await self._log(chat_id, now, _KIND_NONE, None, _STATUS_SKIPPED,
@@ -513,7 +545,7 @@ class NostalgiaWorker:
                 "[nostalgia] WARNING skip: budget nostalgia | chat=%s",
                 chat_id)
             return
-        raw = await self._llm_once(candidate, chat_id)
+        raw = await self._llm_once(candidate, chat_id, active=active)
         if raw is None:
             await self._log(chat_id, now, candidate["kind"],
                             candidate.get("fact_id"), _STATUS_ERROR,
@@ -741,13 +773,15 @@ class NostalgiaWorker:
                                    temperature=temperature)
         return await self.llm.generate(messages, temperature=temperature)
 
-    async def _llm_once(self, candidate: dict, chat_id: int) -> str | None:
+    async def _llm_once(self, candidate: dict, chat_id: int, *,
+                        active: bool = False) -> str | None:
         """1 облачный LLM-вызов (NFR-1: только LLMClient-путь бота;
         локальная LLM запрещена — лимит владельца). Инжект round 10.15
         (spec §4): в user-блок добавляются Лор чата (manual → auto из
         профиля store) и локальные мемы (db.list_chat_memes); сбор — fail-open
         (ошибка источника → секция опускается). Возвращает текст ответа или
-        None (ошибка/llm отсутствует — fail-open)."""
+        None (ошибка/llm отсутствует — fail-open). `active` (P0-followup §2):
+        сценарий A → преамбула «живая беседа» вместо «давно тихо»."""
         if self.llm is None:
             logger.warning("[nostalgia] llm отсутствует — нечего вызвать")
             return None
@@ -774,19 +808,22 @@ class NostalgiaWorker:
         user_text = build_nostalgia_user(
             candidate.get("year_lines") or [],
             candidate.get("golden_lines") or [],
-            lore=lore_text, memes=memes)
+            lore=lore_text, memes=memes, active=active)
         if not user_text:
             return None
         # SOUL-AMD.2.6 (W4): воспоминание — авторский текст бота. Композер ON
         # → Core + жанровая рамка «Ностальгия» (SOUL-02/AMD.2.1); OFF →
-        # прежний канон байт-в-байт (паритет W2). Функциональный контракт
-        # служебного слова отказа сохраняется в любом режиме.
+        # прежний канон байт-в-байт (паритет W2). P0-followup §2: на ON-пути
+        # база — NOSTALGIA_CORE_CANON (без тонально-личных утверждений,
+        # конкурирующих с Core); функциональный контракт UNCHANGED остаётся
+        # (служебное слово отказа сохраняется в любом режиме).
         try:
             from services import mca_authorial_speech as _authorial
             system_text, _manifest = await _authorial.authorial_system(
                 chat_id=int(chat_id), writer="nostalgia_writer",
                 genre="nostalgia",
-                legacy_canon=NOSTALGIA_PROMPT.format(max_words=_MAX_WORDS))
+                legacy_canon=NOSTALGIA_PROMPT.format(max_words=_MAX_WORDS),
+                core_canon=NOSTALGIA_CORE_CANON.format(max_words=_MAX_WORDS))
         except Exception:
             logger.warning("[nostalgia] authorial system build failed — "
                            "прежний канон | chat_id=%s", chat_id,

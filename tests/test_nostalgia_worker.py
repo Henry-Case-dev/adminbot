@@ -5,7 +5,8 @@ cooldown/дневной лимит/Q14-стоп после 2 неотвечен�
 назад» по диапазону timestamp; «золотые» по последней теме), порог
 агрессивности (0.3 + aggr*0.5), 1 LLM-вызов и отправка (мок бота),
 исходы лога sent/skipped/error (+unchanged/empty не тратят дневной лимит),
-регистрация джоба только при флаге (run_once работает без флага),
+регистрация джоба всегда — hot-включение флага работает без рестарта
+(P0-followup §2: при OFF тик — no-op, run_once режется kill-switch),
 PG down/store отсутствует → no-op. LLM/бот замоканы; часы/окна — подменой
 nw._now_ts/_local_hour.
 """
@@ -182,11 +183,12 @@ class TestGates:
         assert await _log_rows(db) == []
 
     @pytest.mark.asyncio
-    async def test_flag_off_job_not_registered_and_run_once_skipped(
+    async def test_flag_off_job_registered_and_run_once_skipped(
             self, db, monkeypatch):
-        """ФИКС R5 (F-10 §6): флаг/гейт off → джоб не регистрируется И
-        ручной run_once теперь скипается (kill-switch стопит ручные
-        запуски; carve-out удалён)."""
+        """P0-followup (§2, 18.10.2026): джоб регистрируется ВСЕГДА —
+        hot-включение memory.nostalgia_enabled работает без рестарта; при
+        OFF тик — дешёвый no-op, а ручной run_once по-прежнему скипается
+        (ФИКС R5/F-10 §6: kill-switch стопит и ручные запуски)."""
         _patch_time(monkeypatch)
         _hot_cache(monkeypatch, {"memory.nostalgia_enabled": False})
         await _add_user_msg(db, "давно молчим", ts=NOW - 3 * 3600)
@@ -195,22 +197,34 @@ class TestGates:
         llm = _FakeLLM("кстати, вася, помню как ты тогда выступал")
         w = _worker(db, llm, monkeypatch=monkeypatch)
         w.start()
-        assert w._scheduler.get_jobs() == []
-        assert w._scheduler.running is False
-        result = await w.run_once(CHAT_ID)
-        assert result["sent"] == 0                  # gate nostalgia → skip
-        assert llm.calls == []
-        rows = await _log_rows(db)
-        assert not any(r["status"] == "sent" for r in rows)
+        try:
+            assert [j.id for j in w._scheduler.get_jobs()] == \
+                [w.JOB_NOSTALGIA_ID]
+            stats = await w._run(manual=False)      # OFF → no-op, без работы
+            assert stats == {"chats": 0, "candidates": 0, "sent": 0,
+                             "skipped": 0, "errors": 0}
+            assert await _log_rows(db) == []
+            result = await w.run_once(CHAT_ID)
+            assert result["sent"] == 0              # gate nostalgia → skip
+            assert llm.calls == []
+            rows = await _log_rows(db)
+            assert not any(r["status"] == "sent" for r in rows)
+        finally:
+            await w.stop()
 
     @pytest.mark.asyncio
-    async def test_silence_too_short_skip(self, db, monkeypatch):
+    async def test_active_short_silence_not_skip(self, db, monkeypatch):
+        """P0-followup §2 (18.10.2026): короткая тишина = живая беседа
+        (сценарий A) — скипа «silence_too_short» больше нет; воронка идёт
+        дальше (здесь кандидатов нет → честная строка no_candidates)."""
         _patch_time(monkeypatch)
         await _add_user_msg(db, "только что писали", ts=NOW - 60 * 10)
         w = _worker(db, monkeypatch=monkeypatch)
         out = await w._process_chat(CHAT_ID, NOW, manual=True)
         assert out["sent"] == 0 and out["errors"] == 0
-        assert await _log_rows(db) == []    # дешёвый скип — без строк
+        rows = await _log_rows(db)
+        assert len(rows) == 1 and rows[0]["status"] == "skipped"
+        assert json.loads(rows[0]["meta"])["reason"] == "no_candidates"
 
     @pytest.mark.asyncio
     async def test_no_history_skip(self, db, monkeypatch):

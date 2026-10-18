@@ -94,13 +94,20 @@ def genre_base_prompt(genre: str, legacy_canon: str) -> str:
 
 
 async def authorial_system(*, chat_id: int, writer: str, genre: str,
-                           legacy_canon: str, channel: str = "plain",
+                           legacy_canon: str, core_canon: str | None = None,
+                           channel: str = "plain",
                            html_safe: bool = False) -> tuple[str, object]:
     """System-строка авторского текста: композер ON → Core + жанр, OFF → канон.
 
     Возврат ``(system_text, manifest|None)``. Никогда не бросает: сбой сборки
     → прежний канон (честная деградация, беседа не блокируется).
-    """
+
+    ``core_canon`` (P0-followup §2, 18.10.2026): функциональная база для
+    режима с Core — задаётся вызывающим, когда legacy-канон содержит
+    тонально-личностные утверждения, конкурирующие с Core (SOUL-1). При
+    ``None`` (по умолчанию) ON-путь сохраняет прежнее поведение
+    (``genre_base_prompt`` с legacy-каноном); OFF-путь всегда отдаёт
+    `legacy_canon` байт-в-байт (паритет W2)."""
     if not str(genre_rules(genre)).strip():
         return str(legacy_canon or ""), None
     try:
@@ -108,11 +115,13 @@ async def authorial_system(*, chat_id: int, writer: str, genre: str,
         if not pc.composer_enabled_now(gates):
             return str(legacy_canon or ""), None
         snapshot = await pc.turn_snapshot(int(chat_id), None)
+        base_canon = (core_canon if str(core_canon or "").strip()
+                      else legacy_canon)
         plan = pc.PromptPlan(
             profile=pc.PROFILE_SPEECH_PLAIN, writer=str(writer),
             chat_id=int(chat_id), channel=str(channel),
             html_safe=bool(html_safe),
-            base_prompt=genre_base_prompt(genre, legacy_canon),
+            base_prompt=genre_base_prompt(genre, base_canon),
             base_source="default",
             include_mode_block=False,
             core=snapshot.core,

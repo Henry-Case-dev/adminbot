@@ -116,6 +116,13 @@ ROUTES_SHA256_F11 = (
 PG_DB_SHA256_B07 = (
     "44f58924f4732d5b2c7f81245127d20c91448462cfb5042d4f86269c9fc8e35e")
 
+# P0-followup / NOSTALGIA-FIX (18.10.2026, L-F11S-1): re-pin каталога —
+# изменён ТОЛЬКО description ключа `memory.nostalgia_enabled` (hot-включение
+# тика без рестарта; описание UI перестало утверждать «тик не
+# регистрируется»). Исторический fixture `f8_baseline.json` НЕ меняется.
+PARAM_CATALOG_SHA256_FOLLOWUP = (
+    "0fc58b110fcc32f77ae38cd4b0e2520b78dce54828f3e783038c11151ad08da2")
+
 
 def _sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
@@ -163,9 +170,17 @@ class TestFrozenInvariants:
     # `services/prompt_registry.py`). Δ каталога = 0 (новых ParamSpec/GROUPS
     # нет), `tools/gen_param_registry_round1025.py --check` → OK
     # (572/120/118/23, дельта 161 без изменений).
+    # P0-followup / NOSTALGIA-FIX re-pin (18.10.2026, L-F11S-1): изменён
+    # ТОЛЬКО текст описания ключа `memory.nostalgia_enabled` — тик теперь
+    # регистрируется всегда (hot-включение без рестарта), прежняя строка
+    # «тик не регистрируется» перестала быть правдой. Δ каталога = 0
+    # (ключи/группы/widget'ы не менялись); `--check` → OK (575 строк,
+    # TSV/meta переэмитированы тем же инструментом).
     def test_param_catalog_unchanged(self):
         assert _sha256(ROOT / "services/param_catalog.py") == \
-            FIXTURE["sha256"]["services/param_catalog.py"]
+            PARAM_CATALOG_SHA256_FOLLOWUP, (
+                "services/param_catalog.py изменился вне санкционированной "
+                "дельты — переутвердите hash осознанно (L-F11S-1)")
 
     def test_ddl_source_unchanged(self):
         # B07.2 re-pin (L-F11S-1): byte-freeze pg_db.py переутверждён

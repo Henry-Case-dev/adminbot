@@ -110,6 +110,36 @@ async def test_composer_on_adds_core_and_genre_rules(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_composer_on_core_canon_replaces_legacy_persona(monkeypatch):
+    """P0-followup (§2, 18.10.2026): при заданном `core_canon` legacy-канон
+    (тональная персона «токсично-тёплый участник») НЕ рендерится — голос у
+    Core и жанровой рамки; функциональный контракт (UNCHANGED) остаётся."""
+    from services import chat_params, hot_config
+    monkeypatch.setenv("UNIFIED_COMPOSER_ENABLED", "1")
+    hot_config.set_config_cache(_Hot({
+        "flags.unified_composer_enabled": True,
+        "character.core": {"revision": 2, "enabled": True,
+                           "full_text": CORE, "compact_text": CORE}}))
+    chat_params.set_chat_params_cache(_Chat())
+    pc.reset_state()
+    try:
+        system, manifest = await au.authorial_system(
+            chat_id=-100, writer="nostalgia_writer", genre="nostalgia",
+            legacy_canon=NOSTALGIA_PROMPT.format(max_words=60),
+            core_canon="Вбрось факт 1-2 фразами. Отказ ровно: UNCHANGED")
+        assert manifest is not None
+        assert CORE in system
+        assert au.genre_rules("nostalgia") in system
+        assert "Вбрось факт 1-2 фразами. Отказ ровно: UNCHANGED" in system
+        assert "токсично-тёплый" not in system        # legacy-персона ушла
+        assert NOSTALGIA_PROMPT.format(max_words=60) not in system
+    finally:
+        hot_config.set_config_cache(None)
+        chat_params.set_chat_params_cache(None)
+        pc.reset_state()
+
+
+@pytest.mark.asyncio
 async def test_unknown_genre_keeps_legacy_path():
     system, manifest = await au.authorial_system(
         chat_id=-100, writer="x", genre="unknown_genre",

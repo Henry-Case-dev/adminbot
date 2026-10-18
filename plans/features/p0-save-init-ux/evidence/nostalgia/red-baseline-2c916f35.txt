@@ -1,0 +1,308 @@
+﻿FFF.FFFFFF                                                               [100%]
+================================== FAILURES ===================================
+_____ TestHotEnable.test_job_registered_at_off_start_and_hot_enable_works _____
+
+self = <tests.test_p0_followup_nostalgia_ab.TestHotEnable object at 0x00000236A16D3320>
+db = <services.database.DatabaseService object at 0x00000236A7EF06B0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000236A16E1610>
+
+    @pytest.mark.asyncio
+    async def test_job_registered_at_off_start_and_hot_enable_works(
+            self, db, monkeypatch):
+        """OFF ╨╜╨░ ╤Б╤В╨░╤А╤В╨╡ тЖТ ╨┤╨╢╨╛╨▒ ╨▓╤Б╤С ╤А╨░╨▓╨╜╨╛ ╨╡╤Б╤В╤М; hot-╨▓╨║╨╗╤О╤З╨╡╨╜╨╕╨╡ ╨▒╨╡╨╖ ╤А╨╡╤Б╤В╨░╤А╤В╨░."""
+        _patch_time(monkeypatch)
+        _legacy_send(monkeypatch)
+        h = _MutableHot({"memory.nostalgia_enabled": False})
+        monkeypatch.setattr(hot, "_cache", h)
+        await _add_user_msg(db, "╨╢╨╕╨▓╨░╤П ╨▒╨╡╤Б╨╡╨┤╨░ ╨┐╤А╤П╨╝╨╛ ╤Б╨╡╨╣╤З╨░╤Б", ts=NOW - 300)
+        await _add_user_msg(db, "╨│╨╛╨┤ ╨╜╨░╨╖╨░╨┤ ╨╡╨╖╨┤╨╕╨╗╨╕ ╨▓ ╤Б╨╛╤З╨╕",
+                            ts=NOW - 365 * 86400 + 2000)
+        bot, llm = _FakeBot(), _FakeLLM("╨║╤Б╤В╨░╤В╨╕, ╨┐╨╛╨╝╨╜╤О ╤Б╨╛╤З╨╕")
+        w = _worker(db, llm, monkeypatch=monkeypatch, bot=bot,
+                    store=_FakeStore(chats=[CHAT_ID]))
+        w.start()
+        try:
+            ids = [j.id for j in w._scheduler.get_jobs()]
+>           assert ids == [w.JOB_NOSTALGIA_ID]      # ╤А╨╡╨│╨╕╤Б╤В╤А╨░╤Ж╨╕╤П ╨╜╨╡ ╨╖╨░╨▓╨╕╤Б╨╕╤В
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           AssertionError: assert [] == ['nostalgia_tick']
+E             
+E             Right contains one more item: 'nostalgia_tick'
+E             Use -v to get more diff
+
+tests\test_p0_followup_nostalgia_ab.py:162: AssertionError
+____________ TestScenarioA.test_active_chat_sends_without_silence _____________
+
+self = <tests.test_p0_followup_nostalgia_ab.TestScenarioA object at 0x00000236A16D31A0>
+db = <services.database.DatabaseService object at 0x00000236A8022DE0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000236A7AAF0B0>
+
+    @pytest.mark.asyncio
+    async def test_active_chat_sends_without_silence(self, db, monkeypatch):
+        _patch_time(monkeypatch)
+        _legacy_send(monkeypatch)
+        await _add_user_msg(db, "╤Б╨╡╨╣╤З╨░╤Б ╨╛╨▒╤Б╤Г╨╢╨┤╨░╨╡╨╝ ╨╛╤В╨┐╤Г╤Б╨║", ts=NOW - 300)
+        await _add_user_msg(db, "╨│╨╛╨┤ ╨╜╨░╨╖╨░╨┤ ╨╡╨╖╨┤╨╕╨╗╨╕ ╨▓ ╤Б╨╛╤З╨╕",
+                            ts=NOW - 365 * 86400 + 3000)
+        bot, llm = _FakeBot(), _FakeLLM("╨║╤Б╤В╨░╤В╨╕, ╨┐╨╛╨╝╨╜╤О ╤Б╨╛╤З╨╕")
+        w = _worker(db, llm, monkeypatch=monkeypatch, bot=bot)
+        out = await w._process_chat(CHAT_ID, NOW, manual=False)
+>       assert out["candidates"] == 1 and out["sent"] == 1
+E       assert (0 == 1)
+
+tests\test_p0_followup_nostalgia_ab.py:189: AssertionError
+_____________ TestScenarioA.test_active_chat_ignores_quiet_hours ______________
+
+self = <tests.test_p0_followup_nostalgia_ab.TestScenarioA object at 0x00000236A16D2F30>
+db = <services.database.DatabaseService object at 0x00000236A802BB90>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000236A802BA40>
+
+    @pytest.mark.asyncio
+    async def test_active_chat_ignores_quiet_hours(self, db, monkeypatch):
+        _patch_time(monkeypatch, hour=23)          # quiet_start=23
+        _legacy_send(monkeypatch)
+        await _add_user_msg(db, "╨╜╨╛╤З╤М╤О ╤В╨╛╨╢╨╡ ╨▒╨╛╨╗╤В╨░╨╡╨╝", ts=NOW - 300)
+        await _add_user_msg(db, "╨│╨╛╨┤ ╨╜╨░╨╖╨░╨┤ ╨▒╤Л╨╗ ╤Б╨┐╨╛╤А",
+                            ts=NOW - 365 * 86400 + 1000)
+        bot = _FakeBot()
+        w = _worker(db, _FakeLLM("╨║╤Б╤В╨░╤В╨╕, ╨┐╨╛╨╝╨╜╤О ╤Б╨┐╨╛╤А"),
+                    monkeypatch=monkeypatch, bot=bot)
+        out = await w._process_chat(CHAT_ID, NOW, manual=False)
+>       assert out["sent"] == 1
+E       assert 0 == 1
+
+tests\test_p0_followup_nostalgia_ab.py:208: AssertionError
+_____________ TestScenarioA.test_active_chat_no_candidates_reason _____________
+
+self = <tests.test_p0_followup_nostalgia_ab.TestScenarioA object at 0x00000236A16D17F0>
+db = <services.database.DatabaseService object at 0x00000236A802F260>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000236A8021C40>
+
+    @pytest.mark.asyncio
+    async def test_active_chat_no_candidates_reason(self, db, monkeypatch):
+        """╨Ю╤В╨║╨░╨╖ ╨▓╨╛╤А╨╛╨╜╨║╨╕: ╨║╨░╨╜╨┤╨╕╨┤╨░╤В╨╛╨▓ ╨╜╨╡╤В тЖТ ╤Б╤В╤А╨╛╨║╨░ skipped/no_candidates."""
+        _patch_time(monkeypatch)
+        _legacy_send(monkeypatch)
+        await _add_user_msg(db, "╨┐╤А╨╛╤Б╤В╨╛ ╨▒╨╛╨╗╤В╨░╨╡╨╝", ts=NOW - 300)
+        w = _worker(db, monkeypatch=monkeypatch)
+        out = await w._process_chat(CHAT_ID, NOW, manual=False)
+        assert out["candidates"] == 0 and out["sent"] == 0
+        rows = await _log_rows(db)
+>       assert len(rows) == 1 and rows[0]["status"] == "skipped"
+E       assert (0 == 1)
+E        +  where 0 = len([])
+
+tests\test_p0_followup_nostalgia_ab.py:235: AssertionError
+_____________ TestScenarioA.test_active_chat_llm_unchanged_reason _____________
+
+self = <tests.test_p0_followup_nostalgia_ab.TestScenarioA object at 0x00000236A16D9880>
+db = <services.database.DatabaseService object at 0x00000236A8028DA0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000236A80227B0>
+
+    @pytest.mark.asyncio
+    async def test_active_chat_llm_unchanged_reason(self, db, monkeypatch):
+        """╨Ю╤В╨║╨░╨╖ ╨▓╨╛╤А╨╛╨╜╨║╨╕: LLM UNCHANGED тЖТ skipped/unchanged, ╨▒╨╡╨╖ ╨╛╤В╨┐╤А╨░╨▓╨║╨╕."""
+        _patch_time(monkeypatch)
+        _legacy_send(monkeypatch)
+        await _add_user_msg(db, "╨╜╤Л╨╜╨╡╤И╨╜╤П╤П ╤В╨╡╨╝╨░", ts=NOW - 300)
+        await _add_user_msg(db, "╨│╨╛╨┤ ╨╜╨░╨╖╨░╨┤ ╤В╨╡╨║╤Б╤В ╨┐╤А╨╛ ╨┐╨╛╨╡╨╖╨┤╨║╤Г",
+                            ts=NOW - 365 * 86400 + 3000)
+        bot = _FakeBot()
+        w = _worker(db, _FakeLLM("UNCHANGED"), monkeypatch=monkeypatch, bot=bot)
+        out = await w._process_chat(CHAT_ID, NOW, manual=False)
+        assert out["sent"] == 0 and bot.calls == []
+        rows = await _log_rows(db)
+>       assert len(rows) == 1 and rows[0]["status"] == "skipped"
+E       assert (0 == 1)
+E        +  where 0 = len([])
+
+tests\test_p0_followup_nostalgia_ab.py:251: AssertionError
+_ TestPromptCoreCoexistence.test_composer_on_system_has_core_without_legacy_persona _
+
+self = <tests.test_p0_followup_nostalgia_ab.TestPromptCoreCoexistence object at 0x00000236A16D9F10>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000236A1F7D6A0>
+
+    @pytest.mark.asyncio
+    async def test_composer_on_system_has_core_without_legacy_persona(
+            self, monkeypatch):
+        from services import chat_params, prompt_composer as pc
+        from services import mca_authorial_speech as au
+    
+        core = "╨в╨л тАФ ╨е╨Р╨а╨Р╨Ъ╨в╨Х╨а ╨Т╨Ы╨Р╨Ф╨Х╨Ы╨м╨ж╨Р."
+    
+        class _Hot:
+            def __init__(self, values=None):
+                self.values = dict(values or {})
+    
+            def get(self, key, default=None):
+                return self.values.get(key, default)
+    
+            def set(self, key, value):
+                return None
+    
+            def set_many(self, items):
+                return None
+    
+        class _Chat:
+            async def get_chat_params(self, chat_id):
+                return {"overrides": {}}
+    
+            async def get_chat_params_full(self, chat_id):
+                return await self.get_chat_params(chat_id), None
+    
+        class _Store:
+            async def get_profile(self, chat_id):
+                class _P:
+                    manual_lore = ""
+                    auto_lore = ""
+                return _P()
+    
+        class _Db:
+            async def list_chat_memes(self, chat_id, ts, limit=10):
+                return []
+    
+        monkeypatch.setenv("UNIFIED_COMPOSER_ENABLED", "1")
+        monkeypatch.setattr(hot, "_cache", _Hot({
+            "memory.nostalgia_enabled": True,
+            "flags.unified_composer_enabled": True,
+            "character.core": {"revision": 3, "enabled": True,
+                               "full_text": core, "compact_text": core}}))
+        chat_params.set_chat_params_cache(_Chat())
+        pc.reset_state()
+        llm = _FakeLLM("╨║╤Б╤В╨░╤В╨╕, ╨┐╨╛╨╝╨╜╤О")
+        worker = nw.NostalgiaWorker(_Db(), store=_Store(), llm=llm)
+        try:
+            await worker._llm_once(
+                {"text": "╤Д╨░╨║╤В", "kind": "year_back",
+                 "year_lines": ["[╨Ъ╤В╨╛-╤В╨╛ 2025]: ╤И╤Г╤В╨║╨░"], "golden_lines": []},
+                -100)
+            system = llm.calls[0][0][0]["content"]
+            assert core in system
+            assert au.genre_rules("nostalgia") in system
+            assert "UNCHANGED" in system
+>           assert "╤В╨╛╨║╤Б╨╕╤З╨╜╨╛-╤В╤С╨┐╨╗╤Л╨╣" not in system    # legacy-╨┐╨╡╤А╤Б╨╛╨╜╨░ ╨╜╨╡ ╤А╨╡╨╜╨┤╨╡╤А╨╕╤В╤Б╤П
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           AssertionError: assert '╤В╨╛╨║╤Б╨╕╤З╨╜╨╛-╤В╤С╨┐╨╗╤Л╨╣' not in '<Genre_Nost...╨а ╨Т╨Ы╨Р╨Ф╨Х╨Ы╨м╨ж╨Р.'
+E             
+E             '╤В╨╛╨║╤Б╨╕╤З╨╜╨╛-╤В╤С╨┐╨╗╤Л╨╣' is contained here:
+E             ?           ^^^^^^^^^^^^^^^
+E                - ╤В╨╛╤В ╨╢╨╡ ╤В╨╛╨║╤Б╨╕╤З╨╜╨╛-╤В╤С╨┐╨╗╤Л╨╣ ╤Г╤З╨░╤Б╤В╨╜╨╕╨║ ╤З╨░╤В╨░. ╨Т ╤З╨░╤В╨╡ ╨┤╨░╨▓╨╜╨╛ ╤В╨╕╤Е╨╛. ╨в╨╡╨▒╨╡ ╨┤╨░╤О╤В ╨║╤Г╤Б╨╛╨║ ╨┐╨░╨╝╤П╤В╨╕ ╤З╨░╤В╨░: ╤Б╨╛╨▒╤Л╤В╨╕╤П ╨┐╤А╨╕╨╝╨╡╤А╨╜╨╛ ╨│╨╛╨┤ ╨╜╨░╨╖╨░╨┤ ╨▓ ╤Н╤В╨╛╤В ╨┤╨╡╨╜╤М, ╤Б╤В╨░╤А╤Л╨╡ ╤Д╨░╨║╤В╤Л ╨┐╨╛ ╨┐╨╛╤Б╨╗╨╡╨┤╨╜╨╡╨╣ ╤В╨╡╨╝╨╡, ╨░ ╤В╨░╨║╨╢╨╡ ╨╗╨╛╤А ╤З╨░╤В╨░ ╨╕ ╤Б╨┐╨╕╤Б╨╛╨║ ╨╝╨╡╤Б╤В╨╜╤Л╤Е ╨╝╨╡╨╝╨╛╨▓. ╨Т╨▒╤А╨╛╤Б╤М ╤Н╤В╨╛╤В ╤Б╤В╨░╤А╤Л╨╣ ╤Д╨░╨║╤В ╤В╨░╨║, ╨║╨░╨║ ╨▒╤Г╨┤╤В╨╛ ╤В╤Л ╨┤╨░╨▓╨╜╨╕╨╣ ╤Г╤З╨░╤Б╤В╨╜╨╕╨║ ╨▒╨╡╤Б╨╡╨┤╤Л, ╨║╨╛╤В╨╛╤А╨╛╨│╨╛ ╨▓╨╜╨╡╨╖╨░╨┐╨╜╨╛ ╨┐╤А╨╛╨▒╨╕╨╗╨╛ ╨╜╨░ ╨▓╨╛╤Б╨┐╨╛╨╝╨╕╨╜╨░╨╜╨╕╤П: ╤Б ╨╕╤А╨╛╨╜╨╕╨╡╨╣ ╨╕ ╤Б╨╗╨╡╨╜╨│╨╛╨╝ ╨╕╨╖ ╨╗╨╛╤А╨░, ╨┐╨╛-╤Б╨▓╨╛╨╣╤Б╨║╨╕, ╨▒╤Г╨┤╤В╨╛ ╨▓╤Б╨┐╨╛╨╝╨╜╨╕╨╗ ╨▓╤Б╨╗╤Г╤Е. ╨Э╨╡ ╨┐╨╕╤И╨╕ ╨║╨░╨║ ╤А╨╛╨▒╨╛╤В-╨░╤А╤Е╨╕╨▓╨░╤А╨╕╤Г╤Б. ╨Х╤Б╨╗╨╕ ╨▓╤Б╨┐╨╛╨╝╨╜╨╕╤В╤М ╤Г╨╝╨╡╤Б╤В╨╜╨╛ ╨╕ ╨┐╨╛ ╨┤╨╡╨╗╤Г - ╨╜╨░╨┐╨╕╤И╨╕ 1-2 ╨║╨╛╤А╨╛╤В╨║╨╕╨╡ ╤Д╤А╨░╨╖╤Л ┬л╨║╤Б╤В╨░╤В╨╕...┬╗ ╨▓ ╤Б╨▓╨╛╤С╨╝ ╤Б╤В╨╕╨╗╨╡: ╨╗╨╡╨╜╨╕╨▓╨░╤П ╨┐╨╡╤З╨░╤В╤М, ╨▒╨╡╨╖ ╨╝╨░╤А╨║╨┤╨░╤Г╨╜╨░,...
+E             
+E             ...Full output truncated (7 lines hidden), use '-vv' to show
+
+tests\test_p0_followup_nostalgia_ab.py:316: AssertionError
+_ TestSingleDecisionDelegation.test_active_chat_delegates_with_distinguishable_source _
+
+self = <tests.test_p0_followup_nostalgia_ab.TestSingleDecisionDelegation object at 0x00000236A16DA4E0>
+db = <services.database.DatabaseService object at 0x00000236A822D0A0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000236A8022AB0>
+
+    @pytest.mark.asyncio
+    async def test_active_chat_delegates_with_distinguishable_source(
+            self, db, monkeypatch):
+        """╨б╤Ж╨╡╨╜╨░╤А╨╕╨╣ A: ╨║╨░╨╜╨┤╨╕╨┤╨░╤В ╤Г╤Е╨╛╨┤╨╕╤В ╨▓ ╨╡╨┤╨╕╨╜╤Л╨╣ Decision ╤А╨░╨╖╨╗╨╕╤З╨╕╨╝╤Л╨╝
+        ╨╕╤Б╤В╨╛╤З╨╜╨╕╨║╨╛╨╝ (nostalgia/nostalgia_due), ╨╛╤В╨┐╤А╨░╨▓╨║╨░ ╨╗╨╛╨│╨╕╤А╤Г╨╡╤В╤Б╤П sent."""
+        _patch_time(monkeypatch)
+        monkeypatch.setattr(nw, "_intent_delegation_enabled", lambda: True)
+        captured: dict = {}
+    
+        async def _spy(*, bot, chat_id, situation, candidates,
+                       prepared_text=None, db=None, correlation_id=None,
+                       writer_service=None):
+            captured["chat_id"] = chat_id
+            captured["source"] = candidates[0].source
+            captured["trigger"] = situation.trigger_kind
+            captured["text"] = prepared_text
+            captured["ref"] = candidates[0].prepared_text_ref
+            return {"status": "sent", "delivery_kind": "text"}
+    
+        from services import direct_chat_service as dcs
+        monkeypatch.setattr(dcs, "handle_initiative", _spy)
+        await _add_user_msg(db, "╨╢╨╕╨▓╨░╤П ╨▒╨╡╤Б╨╡╨┤╨░", ts=NOW - 300)
+        await _add_user_msg(db, "╨│╨╛╨┤ ╨╜╨░╨╖╨░╨┤ ╨▒╤Л╨╗ ╨║╨╛╨╜╤Ж╨╡╤А╤В",
+                            ts=NOW - 365 * 86400 + 4000)
+        w = _worker(db, _FakeLLM("╨║╤Б╤В╨░╤В╨╕, ╨┐╨╛╨╝╨╜╤О ╨║╨╛╨╜╤Ж╨╡╤А╤В"),
+                    monkeypatch=monkeypatch)
+        out = await w._process_chat(CHAT_ID, NOW, manual=False)
+>       assert out["sent"] == 1
+E       assert 0 == 1
+
+tests\test_p0_followup_nostalgia_ab.py:351: AssertionError
+_________ TestGates.test_flag_off_job_registered_and_run_once_skipped _________
+
+self = <tests.test_nostalgia_worker.TestGates object at 0x00000236A16BEF60>
+db = <services.database.DatabaseService object at 0x00000236A822FD70>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000236AA02ACF0>
+
+    @pytest.mark.asyncio
+    async def test_flag_off_job_registered_and_run_once_skipped(
+            self, db, monkeypatch):
+        """P0-followup (┬з2, 18.10.2026): ╨┤╨╢╨╛╨▒ ╤А╨╡╨│╨╕╤Б╤В╤А╨╕╤А╤Г╨╡╤В╤Б╤П ╨Т╨б╨Х╨У╨Ф╨Р тАФ
+        hot-╨▓╨║╨╗╤О╤З╨╡╨╜╨╕╨╡ memory.nostalgia_enabled ╤А╨░╨▒╨╛╤В╨░╨╡╤В ╨▒╨╡╨╖ ╤А╨╡╤Б╤В╨░╤А╤В╨░; ╨┐╤А╨╕
+        OFF ╤В╨╕╨║ тАФ ╨┤╨╡╤И╤С╨▓╤Л╨╣ no-op, ╨░ ╤А╤Г╤З╨╜╨╛╨╣ run_once ╨┐╨╛-╨┐╤А╨╡╨╢╨╜╨╡╨╝╤Г ╤Б╨║╨╕╨┐╨░╨╡╤В╤Б╤П
+        (╨д╨Ш╨Ъ╨б R5/F-10 ┬з6: kill-switch ╤Б╤В╨╛╨┐╨╕╤В ╨╕ ╤А╤Г╤З╨╜╤Л╨╡ ╨╖╨░╨┐╤Г╤Б╨║╨╕)."""
+        _patch_time(monkeypatch)
+        _hot_cache(monkeypatch, {"memory.nostalgia_enabled": False})
+        await _add_user_msg(db, "╨┤╨░╨▓╨╜╨╛ ╨╝╨╛╨╗╤З╨╕╨╝", ts=NOW - 3 * 3600)
+        await _add_user_msg(db, "╨│╨╛╨┤ ╨╜╨░╨╖╨░╨┤ ╨▒╤Л╨╗╨╛ ╨▓╨╡╤Б╨╡╨╗╨╛",
+                            ts=NOW - 365 * 86400 + 3000)
+        llm = _FakeLLM("╨║╤Б╤В╨░╤В╨╕, ╨▓╨░╤Б╤П, ╨┐╨╛╨╝╨╜╤О ╨║╨░╨║ ╤В╤Л ╤В╨╛╨│╨┤╨░ ╨▓╤Л╤Б╤В╤Г╨┐╨░╨╗")
+        w = _worker(db, llm, monkeypatch=monkeypatch)
+        w.start()
+        try:
+>           assert [j.id for j in w._scheduler.get_jobs()] == \
+                [w.JOB_NOSTALGIA_ID]
+E               AssertionError: assert [] == ['nostalgia_tick']
+E                 
+E                 Right contains one more item: 'nostalgia_tick'
+E                 Use -v to get more diff
+
+tests\test_nostalgia_worker.py:201: AssertionError
+_____________ test_composer_on_core_canon_replaces_legacy_persona _____________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000236A822E1E0>
+
+    @pytest.mark.asyncio
+    async def test_composer_on_core_canon_replaces_legacy_persona(monkeypatch):
+        """P0-followup (┬з2, 18.10.2026): ╨┐╤А╨╕ ╨╖╨░╨┤╨░╨╜╨╜╨╛╨╝ `core_canon` legacy-╨║╨░╨╜╨╛╨╜
+        (╤В╨╛╨╜╨░╨╗╤М╨╜╨░╤П ╨┐╨╡╤А╤Б╨╛╨╜╨░ ┬л╤В╨╛╨║╤Б╨╕╤З╨╜╨╛-╤В╤С╨┐╨╗╤Л╨╣ ╤Г╤З╨░╤Б╤В╨╜╨╕╨║┬╗) ╨Э╨Х ╤А╨╡╨╜╨┤╨╡╤А╨╕╤В╤Б╤П тАФ ╨│╨╛╨╗╨╛╤Б ╤Г
+        Core ╨╕ ╨╢╨░╨╜╤А╨╛╨▓╨╛╨╣ ╤А╨░╨╝╨║╨╕; ╤Д╤Г╨╜╨║╤Ж╨╕╨╛╨╜╨░╨╗╤М╨╜╤Л╨╣ ╨║╨╛╨╜╤В╤А╨░╨║╤В (UNCHANGED) ╨╛╤Б╤В╨░╤С╤В╤Б╤П."""
+        from services import chat_params, hot_config
+        monkeypatch.setenv("UNIFIED_COMPOSER_ENABLED", "1")
+        hot_config.set_config_cache(_Hot({
+            "flags.unified_composer_enabled": True,
+            "character.core": {"revision": 2, "enabled": True,
+                               "full_text": CORE, "compact_text": CORE}}))
+        chat_params.set_chat_params_cache(_Chat())
+        pc.reset_state()
+        try:
+>           system, manifest = await au.authorial_system(
+                chat_id=-100, writer="nostalgia_writer", genre="nostalgia",
+                legacy_canon=NOSTALGIA_PROMPT.format(max_words=60),
+                core_canon="╨Т╨▒╤А╨╛╤Б╤М ╤Д╨░╨║╤В 1-2 ╤Д╤А╨░╨╖╨░╨╝╨╕. ╨Ю╤В╨║╨░╨╖ ╤А╨╛╨▓╨╜╨╛: UNCHANGED")
+E               TypeError: authorial_system() got an unexpected keyword argument 'core_canon'
+
+tests\test_soul1_w4_authorial_genre.py:126: TypeError
+============================== warnings summary ===============================
+..\..\..\..\..\..\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\_pytest\config\__init__.py:1464
+  C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\_pytest\config\__init__.py:1464: PytestConfigWarning: Unknown config option: timeout
+  
+    self._warn_or_fail_if_strict(f"Unknown config option: {key}\n")
+
+..\..\..\..\..\..\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\_pytest\config\__init__.py:1464
+  C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\_pytest\config\__init__.py:1464: PytestConfigWarning: Unknown config option: timeout_method
+  
+    self._warn_or_fail_if_strict(f"Unknown config option: {key}\n")
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_p0_followup_nostalgia_ab.py::TestHotEnable::test_job_registered_at_off_start_and_hot_enable_works
+FAILED tests/test_p0_followup_nostalgia_ab.py::TestScenarioA::test_active_chat_sends_without_silence
+FAILED tests/test_p0_followup_nostalgia_ab.py::TestScenarioA::test_active_chat_ignores_quiet_hours
+FAILED tests/test_p0_followup_nostalgia_ab.py::TestScenarioA::test_active_chat_no_candidates_reason
+FAILED tests/test_p0_followup_nostalgia_ab.py::TestScenarioA::test_active_chat_llm_unchanged_reason
+FAILED tests/test_p0_followup_nostalgia_ab.py::TestPromptCoreCoexistence::test_composer_on_system_has_core_without_legacy_persona
+FAILED tests/test_p0_followup_nostalgia_ab.py::TestSingleDecisionDelegation::test_active_chat_delegates_with_distinguishable_source
+FAILED tests/test_nostalgia_worker.py::TestGates::test_flag_off_job_registered_and_run_once_skipped
+FAILED tests/test_soul1_w4_authorial_genre.py::test_composer_on_core_canon_replaces_legacy_persona
+9 failed, 1 passed, 2 warnings in 4.76s
