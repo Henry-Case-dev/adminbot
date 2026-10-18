@@ -2,7 +2,7 @@
   "schema": "openworkflow-coverage-v1",
   "source_path": "C:\\Code\\Python\\adminbot\\plans\\features\\cfg\\source-cfg-addendum.md",
   "source_sha256": "2ed43009e1533eca218be419409870ebbe85f82d85262ff2335dfa2ce36e6b10",
-  "candidate_commit": "0282fe4b1eac02c3339586c3abab3952d6c7eae8",
+  "candidate_commit": "83ecd202659c2e1a30b46f8548b0809e892b77a9",
   "deployed_commit": "c37b85779cc41ad716304024ebeea86ad4081071",
   "strict_evidence": true,
   "slice_graph_path": "slice-graph.json",
@@ -235,8 +235,46 @@
       "acceptance": "UI-дефект CFG-02: суточный лимит не обнаруживается в карточке модуля и его настройках; наличие ключа в param_catalog.py не считается доказательством — настройка должна быть видимой, понятной и реально управлять генерацией.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "83ecd202659c2e1a30b46f8548b0809e892b77a9",
+          "ref": "plans/features/cfg/evidence/cfg-02a/README.md §1 + §3 (CFG-02.D)",
+          "observation": "UI-дефект воспроизведён на базе 2bc13f44 (группа limits_images не отражена в витрине → вкладка «Лимиты» скрыта, требуемого места на «Основных настройках» не было) и закрыт: зеркало TAB_RULES + маппинг limits_images → settings + секция «Лимиты генерации»; второго места фактов нет.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-02a/README.md",
+          "artifact_sha256": "3d1fa45d0c6808cb314229b1e4970ac3f90e2ca5db30d02bf08c0ff57a74991e"
+        },
+        {
+          "candidate_commit": "83ecd202659c2e1a30b46f8548b0809e892b77a9",
+          "ref": "plans/features/cfg/evidence/cfg-02a/red-green.txt §RED/§GREEN",
+          "observation": "RAW: база 2bc13f44 → 10 failed/17 passed (состав дефекта), кандидат → 27 passed.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-02a/red-green.txt",
+          "artifact_sha256": "c7fa17eedcfe470dc1dd8948a7a48aec2d6ebda0f8e73ad6d0f79306e3b1fb6f"
+        },
+        {
+          "candidate_commit": "83ecd202659c2e1a30b46f8548b0809e892b77a9",
+          "ref": "plans/features/cfg/evidence/cfg-02a/ui/01-settings-global.png",
+          "observation": "Рендер 1440: секция «Лимиты генерации» и «Изображений в сутки» видны на «Основных настройках» модуля.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-02a/ui/01-settings-global.png",
+          "artifact_sha256": "a4316817a9feff63d99b75352304bfb1a798551e39b5301e8363f8e8c73ed1fe",
+          "type": "ui"
+        },
+        {
+          "candidate_commit": "83ecd202659c2e1a30b46f8548b0809e892b77a9",
+          "ref": "plans/features/cfg/evidence/cfg-02a/e2e-log.json",
+          "observation": "RAW-лог e2e (реран R2 18.10.2026): settings_section_visible=true, no_limits_tab_for_module=true, console_errors=[].",
+          "artifact_path": "plans/features/cfg/evidence/cfg-02a/e2e-log.json",
+          "artifact_sha256": "ea32118b309a6b4f61035e4032b024953d389122d6f6340d2a5bd1d870b4f48f",
+          "type": "ui"
+        },
+        {
+          "candidate_commit": "83ecd202659c2e1a30b46f8548b0809e892b77a9",
+          "ref": "plans/features/cfg/review-cfg-02a.md §0–§2 (R1+R2)",
+          "observation": "Независимо: R1 подтвердил корневую причину и состав (19 файлов, чужих нет) и нашёл B1 (пустой ввод молча сохранялся как 0); R2 закрыл B1 на 83ecd202 живым пробником и e2e.",
+          "artifact_path": "plans/features/cfg/review-cfg-02a.md",
+          "artifact_sha256": "bb6fd7e383a00d3c026119532759840f21ee7eb524526f5b7932cb3f664e6455"
+        }
+      ]
     },
     {
       "source_id": "M00013",
@@ -1455,9 +1493,41 @@
       "slice": "CFG-02A",
       "acceptance": "limits.image_daily_limit выведен в «Генерация изображений»→«Основные настройки»→«Лимиты генерации» и показывает фактическое GLOBAL/CHAT-значение без обходного поиска; второго источника истины нет.",
       "live_required": true,
-      "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "live_when": "postdeploy",
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "83ecd202659c2e1a30b46f8548b0809e892b77a9",
+          "ref": "plans/features/cfg/evidence/cfg-02a/README.md §3 (CFG-02A.1)",
+          "observation": "limits.image_daily_limit выведен в модуль «Генерация изображений» → «Основные настройки» → секция «Лимиты генерации»; один источник истины (старая врезка на вкладке удалена), факты — существующие поверхности configItems + GET /api/workers/budget.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-02a/README.md",
+          "artifact_sha256": "3d1fa45d0c6808cb314229b1e4970ac3f90e2ca5db30d02bf08c0ff57a74991e"
+        },
+        {
+          "candidate_commit": "83ecd202659c2e1a30b46f8548b0809e892b77a9",
+          "ref": "plans/features/cfg/evidence/cfg-02a/ui/01-settings-global.png",
+          "observation": "Рендер: секция и поле на «Основных настройках», без обходных разделов/поиска.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-02a/ui/01-settings-global.png",
+          "artifact_sha256": "a4316817a9feff63d99b75352304bfb1a798551e39b5301e8363f8e8c73ed1fe",
+          "type": "ui"
+        },
+        {
+          "candidate_commit": "83ecd202659c2e1a30b46f8548b0809e892b77a9",
+          "ref": "plans/features/cfg/evidence/cfg-02a/e2e-log.json",
+          "observation": "RAW-лог: section_title='Лимиты генерации', settings_section_visible=true, facts_value='60 генераций/сутки'.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-02a/e2e-log.json",
+          "artifact_sha256": "ea32118b309a6b4f61035e4032b024953d389122d6f6340d2a5bd1d870b4f48f",
+          "type": "ui"
+        },
+        {
+          "candidate_commit": "83ecd202659c2e1a30b46f8548b0809e892b77a9",
+          "ref": "tests/test_cfg02a_image_quota_ui.py (TestCfg02aCatalogAndUiContract)",
+          "observation": "test_vitrina_labels_and_units, test_js_mirror_declares_limits_group, test_limits_group_renders_on_settings_tab, test_group_belongs_to_images_module_tab — витринные подписи, зеркало и маппинг вкладки.",
+          "artifact_path": "tests/test_cfg02a_image_quota_ui.py",
+          "artifact_sha256": "2e80397e2562448c6e1781b796b2f862881df415300f3e797edd930493d821cd"
+        }
+      ],
+      "live_note": "preprod-проверка §5.1 (видимость и фактическое значение на мобильном/десктопе) — на postdeploy. Процесс CFG (ADD-0.1; plan §процесс.4): owner/live-проверки не блокируют очередь; закрытие — postdeploy."
     },
     {
       "source_id": "L00072",
@@ -1470,9 +1540,42 @@
       "slice": "CFG-02A",
       "acceptance": "Название, единицы, источник (чат/глобально/заводской), расход, остаток, таймзона и ближайший сброс отображаются корректно; подсказка про списание при нескольких картинках точна.",
       "live_required": true,
-      "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "live_when": "postdeploy",
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "83ecd202659c2e1a30b46f8548b0809e892b77a9",
+          "ref": "plans/features/cfg/evidence/cfg-02a/README.md §3 (CFG-02A.2)",
+          "observation": "Название «Изображений в сутки», единицы «генераций/сутки» (по факту списания), источник (чат/глобально/заводской), расход, остаток, TZ, ближайший сброс и подсказка о списании — отображаются; TZ дня квоты, не браузера.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-02a/README.md",
+          "artifact_sha256": "3d1fa45d0c6808cb314229b1e4970ac3f90e2ca5db30d02bf08c0ff57a74991e"
+        },
+        {
+          "candidate_commit": "83ecd202659c2e1a30b46f8548b0809e892b77a9",
+          "ref": "plans/features/cfg/evidence/cfg-02a/e2e-log.json",
+          "observation": "facts_value='60 генераций/сутки', used=3, remaining='57 из 60', tz='Asia/Yekaterinburg', reset='19.10.2026, 00:00', facts_hint про списание (несколько картинок/повторная доставка).",
+          "artifact_path": "plans/features/cfg/evidence/cfg-02a/e2e-log.json",
+          "artifact_sha256": "ea32118b309a6b4f61035e4032b024953d389122d6f6340d2a5bd1d870b4f48f",
+          "type": "ui"
+        },
+        {
+          "candidate_commit": "83ecd202659c2e1a30b46f8548b0809e892b77a9",
+          "ref": "plans/features/cfg/evidence/cfg-02a/ui/01-settings-global.png",
+          "observation": "Скрин 1440: подписи, единицы и блок фактов читаемы, переполнения нет.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-02a/ui/01-settings-global.png",
+          "artifact_sha256": "a4316817a9feff63d99b75352304bfb1a798551e39b5301e8363f8e8c73ed1fe",
+          "type": "ui"
+        },
+        {
+          "candidate_commit": "83ecd202659c2e1a30b46f8548b0809e892b77a9",
+          "ref": "plans/features/cfg/evidence/cfg-02a/ui/06-empty-input.png",
+          "observation": "B1-скрин: пустой ввод → подсказка об ошибке, POST нет, поле возвращается к фактическому значению.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-02a/ui/06-empty-input.png",
+          "artifact_sha256": "dd066cbce42069d6f6d3993f31d32199210f1fd087ccb85190e9b0b5d175e0ff",
+          "type": "ui"
+        }
+      ],
+      "live_note": "preprod-проверка §5.1 (название/единицы/источник/расход/остаток/TZ/сброс) — на postdeploy. Процесс CFG (ADD-0.1; plan §процесс.4): owner/live-проверки не блокируют очередь; закрытие — postdeploy."
     },
     {
       "source_id": "L00073",
@@ -1485,9 +1588,71 @@
       "slice": "CFG-02A",
       "acceptance": "GLOBAL — дефолт для чатов, per-chat override независим, сброс возвращает наследование не меняя GLOBAL; семантика 0=запрет/-1=безлимит отображена по факту; невалидные значения отклоняются.",
       "live_required": true,
-      "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "live_when": "postdeploy",
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "83ecd202659c2e1a30b46f8548b0809e892b77a9",
+          "ref": "plans/features/cfg/evidence/cfg-02a/README.md §3 (CFG-02A.3)",
+          "observation": "GLOBAL — дефолт для чатов, CHAT override независим, сброс возвращает наследование не меняя GLOBAL; семантика 0/-1/>0 по факту реализации; клиентский guard отклоняет нецелые, < -1 и пустой ввод (0 POST), no-op guard.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-02a/README.md",
+          "artifact_sha256": "3d1fa45d0c6808cb314229b1e4970ac3f90e2ca5db30d02bf08c0ff57a74991e"
+        },
+        {
+          "candidate_commit": "83ecd202659c2e1a30b46f8548b0809e892b77a9",
+          "ref": "plans/features/cfg/evidence/cfg-02a/e2e-log.json",
+          "observation": "save_post={limits.image_daily_limit:2, global}; invalid_posts_count=0; empty_posts_count=0; chat_scope: value='1 генераций/сутки', source='Локальный (чат)', chat_save_post={3, chat:true}, сброс → наследование.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-02a/e2e-log.json",
+          "artifact_sha256": "ea32118b309a6b4f61035e4032b024953d389122d6f6340d2a5bd1d870b4f48f",
+          "type": "ui"
+        },
+        {
+          "candidate_commit": "83ecd202659c2e1a30b46f8548b0809e892b77a9",
+          "ref": "plans/features/cfg/evidence/cfg-02a/ui/02-invalid-input.png",
+          "observation": "Невалидный ввод (−7): ошибка «Допустимо целое число…», POST нет.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-02a/ui/02-invalid-input.png",
+          "artifact_sha256": "bedeff22a0467ddcba9e0e70d2b94f0d2eb6d866e2624a14363903d2cc076de7",
+          "type": "ui"
+        },
+        {
+          "candidate_commit": "83ecd202659c2e1a30b46f8548b0809e892b77a9",
+          "ref": "plans/features/cfg/evidence/cfg-02a/ui/04-chat-scope.png",
+          "observation": "Чат-область: поле показывает override '1 генераций/сутки', источник «Локальный (чат)», доступен возврат к глобальному.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-02a/ui/04-chat-scope.png",
+          "artifact_sha256": "f5356afb2e2b0989634c7a24f453c4f870e1dd6c0442a30de99cd185b3b814d4",
+          "type": "ui"
+        },
+        {
+          "candidate_commit": "83ecd202659c2e1a30b46f8548b0809e892b77a9",
+          "ref": "plans/features/cfg/evidence/cfg-02a/ui/06-empty-input.png",
+          "observation": "B1: пустой ввод отклонён (0 POST), честная подсказка видна.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-02a/ui/06-empty-input.png",
+          "artifact_sha256": "dd066cbce42069d6f6d3993f31d32199210f1fd087ccb85190e9b0b5d175e0ff",
+          "type": "ui"
+        },
+        {
+          "candidate_commit": "83ecd202659c2e1a30b46f8548b0809e892b77a9",
+          "ref": "plans/features/cfg/evidence/cfg-02a/b1-probe-empty-input.txt",
+          "observation": "RAW-вывод живого пробника R2: POSTs after EMPTY change: [], error elem present: True, input DOM value now: 60, page errors: [].",
+          "artifact_path": "plans/features/cfg/evidence/cfg-02a/b1-probe-empty-input.txt",
+          "artifact_sha256": "2dfebb63d7255c6d800879e852265562a2e006b6286f85f1b7d33dc3f06163f0"
+        },
+        {
+          "candidate_commit": "83ecd202659c2e1a30b46f8548b0809e892b77a9",
+          "ref": "tests/test_cfg02a_image_quota_ui.py",
+          "observation": "test_zero_is_forbidden_and_does_not_consume, test_minus_one_is_unlimited_and_still_accounted, test_chat_override_isolated_and_reset_keeps_global, test_factory_default_when_keys_absent, test_invalid_type_in_override_falls_back_to_global, test_client_guard_blocks_invalid_value (вкл. статассерт пустого ввода).",
+          "artifact_path": "tests/test_cfg02a_image_quota_ui.py",
+          "artifact_sha256": "2e80397e2562448c6e1781b796b2f862881df415300f3e797edd930493d821cd"
+        },
+        {
+          "candidate_commit": "83ecd202659c2e1a30b46f8548b0809e892b77a9",
+          "ref": "plans/features/cfg/review-cfg-02a.md §0 + §R2",
+          "observation": "R1 показал живую дыру ''→POST 0 (B1); R2 подтвердил закрытие на 83ecd202: POSTs=[], честная подсказка, значение восстановлено (тайминг 100 мс).",
+          "artifact_path": "plans/features/cfg/review-cfg-02a.md",
+          "artifact_sha256": "bb6fd7e383a00d3c026119532759840f21ee7eb524526f5b7932cb3f664e6455"
+        }
+      ],
+      "live_note": "preprod-проверка §5.1/5.2 (управляемость, override, возврат к глобальному, невалидный/пустой ввод) — на postdeploy. Процесс CFG (ADD-0.1; plan §процесс.4): owner/live-проверки не блокируют очередь; закрытие — postdeploy."
     },
     {
       "source_id": "L00074",
@@ -1500,9 +1665,41 @@
       "slice": "CFG-02A",
       "acceptance": "Изменение в UI без рестарта меняет worker_budget/reserve_image и разрешение/отказ реальной генерации; env/kill-switch/legacy-переопределения честно видны в интерфейсе и диагностике.",
       "live_required": true,
-      "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "live_when": "postdeploy",
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "83ecd202659c2e1a30b46f8548b0809e892b77a9",
+          "ref": "plans/features/cfg/evidence/cfg-02a/README.md §3 (CFG-02A.4)",
+          "observation": "Изменение в UI без рестарта меняет reserve_image и разрешение/отказ (10→2, третий отказ); честный режим reserve/legacy/budgets_off/kill-switch виден в UI и диагностике (§27 reserve_path/reserve_reason); shared env-лимит отказывает при остатке квоты.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-02a/README.md",
+          "artifact_sha256": "3d1fa45d0c6808cb314229b1e4970ac3f90e2ca5db30d02bf08c0ff57a74991e"
+        },
+        {
+          "candidate_commit": "83ecd202659c2e1a30b46f8548b0809e892b77a9",
+          "ref": "plans/features/cfg/evidence/cfg-02a/e2e-log.json",
+          "observation": "legacy_mode_notice (amber), budgets_off_notice («НЕ ограничивает генерацию»), facts_mode — честные режимы в UI; сохранение без рестарта (save_post → facts_value_after_save).",
+          "artifact_path": "plans/features/cfg/evidence/cfg-02a/e2e-log.json",
+          "artifact_sha256": "ea32118b309a6b4f61035e4032b024953d389122d6f6340d2a5bd1d870b4f48f",
+          "type": "ui"
+        },
+        {
+          "candidate_commit": "83ecd202659c2e1a30b46f8548b0809e892b77a9",
+          "ref": "plans/features/cfg/evidence/cfg-02a/ui/03-legacy-mode.png",
+          "observation": "Скрин честного режима: warning при выключенном служебном переключателе IMAGE_DAILY_LIMIT_ENABLED.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-02a/ui/03-legacy-mode.png",
+          "artifact_sha256": "24347c743e5e842adb74b8e8af540c5ad8399ff480bd9eb435056bb4523d17d5",
+          "type": "ui"
+        },
+        {
+          "candidate_commit": "83ecd202659c2e1a30b46f8548b0809e892b77a9",
+          "ref": "tests/test_cfg02a_image_quota_ui.py (TestCfg02aEffectiveImpact)",
+          "observation": "test_global_change_takes_effect_without_restart, test_reserve_mode_is_honest, test_shared_env_limit_denies_even_with_chat_quota_left.",
+          "artifact_path": "tests/test_cfg02a_image_quota_ui.py",
+          "artifact_sha256": "2e80397e2562448c6e1781b796b2f862881df415300f3e797edd930493d821cd"
+        }
+      ],
+      "live_note": "preprod-проверка §5.3 (реальное влияние без рестарта и честность режима reserve/legacy/budgets-off) — на postdeploy. Процесс CFG (ADD-0.1; plan §процесс.4): owner/live-проверки не блокируют очередь; закрытие — postdeploy."
     },
     {
       "source_id": "L00075",
@@ -1515,9 +1712,39 @@
       "slice": "CFG-02A",
       "acceptance": "При достижении квоты отказ происходит до платного вызова с честным временем сброса по timezone и корректной речевой формой; дневной сброс не путается с коротким cooldown.",
       "live_required": true,
-      "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "live_when": "postdeploy",
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "83ecd202659c2e1a30b46f8548b0809e892b77a9",
+          "ref": "plans/features/cfg/evidence/cfg-02a/README.md §3 (CFG-02A.5)",
+          "observation": "Отказ по суточной квоте — до платного вызова (журнал denied/limit_chat, 0 провайдерских обращений); речевая форма SOUL-1 + фактическая строка «Суточная квота обновится DD.MM.YYYY HH:MM (TZ)», без cooldown-лексики; helper fail-open.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-02a/README.md",
+          "artifact_sha256": "3d1fa45d0c6808cb314229b1e4970ac3f90e2ca5db30d02bf08c0ff57a74991e"
+        },
+        {
+          "candidate_commit": "83ecd202659c2e1a30b46f8548b0809e892b77a9",
+          "ref": "tests/test_cfg02a_image_quota_ui.py (TestCfg02aRefusalHonesty)",
+          "observation": "test_deny_before_paid_call_with_reset_time, test_refusal_text_carries_honest_reset_time, test_reset_note_is_fail_open.",
+          "artifact_path": "tests/test_cfg02a_image_quota_ui.py",
+          "artifact_sha256": "2e80397e2562448c6e1781b796b2f862881df415300f3e797edd930493d821cd"
+        },
+        {
+          "candidate_commit": "83ecd202659c2e1a30b46f8548b0809e892b77a9",
+          "ref": "tests/test_soul1_capability_fallbacks.py",
+          "observation": "кейс [budget-quota_exhausted] строже: управляемая форма-префикс + фактическая строка сброса (обновление под 02A.5/L75).",
+          "artifact_path": "tests/test_soul1_capability_fallbacks.py",
+          "artifact_sha256": "cf7f08090b57f2a0d94a02059466d902115d328cd85e7f8fc0867497c9ac4bc8"
+        },
+        {
+          "candidate_commit": "83ecd202659c2e1a30b46f8548b0809e892b77a9",
+          "ref": "plans/features/cfg/evidence/cfg-02a/red-green.txt §GREEN",
+          "observation": "RAW: 67 passed (soul1-capabilities + image_daily_limit), 183 passed (6 файлов).",
+          "artifact_path": "plans/features/cfg/evidence/cfg-02a/red-green.txt",
+          "artifact_sha256": "c7fa17eedcfe470dc1dd8948a7a48aec2d6ebda0f8e73ad6d0f79306e3b1fb6f"
+        }
+      ],
+      "live_note": "preprod-проверка §5.4 (отказ с фактическим временем сброса, без платного вызова) — на postdeploy. Процесс CFG (ADD-0.1; plan §процесс.4): owner/live-проверки не блокируют очередь; закрытие — postdeploy."
     },
     {
       "source_id": "L00076",
@@ -1531,8 +1758,30 @@
       "acceptance": "Все пользовательские пути генерации (триггер, семантический generate_image, повторная обработка, другие команды) учтены; обложки Summary не расходуют пользовательскую квоту ни при каких настройках; прежний учёт не сломан.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "83ecd202659c2e1a30b46f8548b0809e892b77a9",
+          "ref": "plans/features/cfg/evidence/cfg-02a/README.md §3 (CFG-02A.6) + §6 R2",
+          "observation": "Пользовательские пути (direct/семантический tool/повтор) учтены реальным chat_id; повтор → already, без второго списания; provider error возвращает квоту, delivery error сохраняет списание. Изоляция обложек Summary — owning-граница CFG-02C (замер R2: summary_generator тратит тот же per-chat счётчик): в этом слайсе не дублируется.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-02a/README.md",
+          "artifact_sha256": "3d1fa45d0c6808cb314229b1e4970ac3f90e2ca5db30d02bf08c0ff57a74991e"
+        },
+        {
+          "candidate_commit": "83ecd202659c2e1a30b46f8548b0809e892b77a9",
+          "ref": "tests/test_cfg02a_image_quota_ui.py",
+          "observation": "test_direct_and_tool_paths_use_chat_quota, test_provider_error_returns_quota_and_delivery_keeps_charge.",
+          "artifact_path": "tests/test_cfg02a_image_quota_ui.py",
+          "artifact_sha256": "2e80397e2562448c6e1781b796b2f862881df415300f3e797edd930493d821cd"
+        },
+        {
+          "candidate_commit": "83ecd202659c2e1a30b46f8548b0809e892b77a9",
+          "ref": "plans/features/cfg/evidence/cfg-02a/red-green.txt §GREEN",
+          "observation": "RAW: 27 passed; регрессии image_daily_limit без изменений.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-02a/red-green.txt",
+          "artifact_sha256": "c7fa17eedcfe470dc1dd8948a7a48aec2d6ebda0f8e73ad6d0f79306e3b1fb6f"
+        }
+      ]
     },
     {
       "source_id": "L00077",
@@ -1546,8 +1795,37 @@
       "acceptance": "Покрыты тесты GLOBAL/CHAT/возврат/0/-1/малое число/второй чат/рестарт/смена суток и timezone/параллельность/provider и Telegram-ошибки/shared-global/factory reset — в песочнице с ограниченными live-canary.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "83ecd202659c2e1a30b46f8548b0809e892b77a9",
+          "ref": "plans/features/cfg/evidence/cfg-02a/README.md §3 (CFG-02A.7) + §4",
+          "observation": "27 тестов песочницы: GLOBAL/CHAT/возврат/0/−1/1/второй чат/рестарт/смена суток+TZ (Pacific/Kiritimati)/параллель/provider/Telegram delivery/shared/factory; PG-стаб in-memory, без внешних расходов.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-02a/README.md",
+          "artifact_sha256": "3d1fa45d0c6808cb314229b1e4970ac3f90e2ca5db30d02bf08c0ff57a74991e"
+        },
+        {
+          "candidate_commit": "83ecd202659c2e1a30b46f8548b0809e892b77a9",
+          "ref": "plans/features/cfg/evidence/cfg-02a/red-green.txt §GREEN/§ПОЛНЫЙ ПРОГОН",
+          "observation": "RAW: 27 passed; 183 passed (6 файлов); 583/608 (бласт-радиус); полный прогон — красных по вине CFG-02A нет (12 предсуществующих + worktree-артефакт).",
+          "artifact_path": "plans/features/cfg/evidence/cfg-02a/red-green.txt",
+          "artifact_sha256": "c7fa17eedcfe470dc1dd8948a7a48aec2d6ebda0f8e73ad6d0f79306e3b1fb6f"
+        },
+        {
+          "candidate_commit": "83ecd202659c2e1a30b46f8548b0809e892b77a9",
+          "ref": "plans/features/cfg/review-cfg-02a.md §2–§3",
+          "observation": "Независимые прогоны ревьюера: 27 passed, 183 passed, node IMAGE-MODULE-OK, 800 passed (24 файла).",
+          "artifact_path": "plans/features/cfg/review-cfg-02a.md",
+          "artifact_sha256": "bb6fd7e383a00d3c026119532759840f21ee7eb524526f5b7932cb3f664e6455"
+        },
+        {
+          "candidate_commit": "83ecd202659c2e1a30b46f8548b0809e892b77a9",
+          "ref": "tests/test_cfg02a_image_quota_ui.py",
+          "observation": "файл 27 тестов (песочница; тестовые маркеры TEST-LIFECYCLE: CONTRACT/REGRESSION owner=CFG-02A).",
+          "artifact_path": "tests/test_cfg02a_image_quota_ui.py",
+          "artifact_sha256": "2e80397e2562448c6e1781b796b2f862881df415300f3e797edd930493d821cd"
+        }
+      ]
     },
     {
       "source_id": "L00079",
@@ -1875,9 +2153,41 @@
       "slice": "CFG-02A",
       "acceptance": "На мобильном и десктопе модуль показывает суточную квоту, она редактируется и реально меняет разрешение/отказ; значение переживает перезагрузку и рестарт.",
       "live_required": true,
-      "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "live_when": "postdeploy",
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "83ecd202659c2e1a30b46f8548b0809e892b77a9",
+          "ref": "plans/features/cfg/evidence/cfg-02a/README.md §3 (CFG-02.AC1) + §5 п.5",
+          "observation": "Локально: изменение значения реально меняет разрешение/отказ без рестарта; значение и счётчик дня переживают перезагрузку/рестарт; mobile 390 — видимость без переполнения.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-02a/README.md",
+          "artifact_sha256": "3d1fa45d0c6808cb314229b1e4970ac3f90e2ca5db30d02bf08c0ff57a74991e"
+        },
+        {
+          "candidate_commit": "83ecd202659c2e1a30b46f8548b0809e892b77a9",
+          "ref": "plans/features/cfg/evidence/cfg-02a/e2e-log.json",
+          "observation": "facts_value_after_save='2 генераций/сутки'; save_posts_count=1; mobile_section_visible=true, mobile_no_overflow=true.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-02a/e2e-log.json",
+          "artifact_sha256": "ea32118b309a6b4f61035e4032b024953d389122d6f6340d2a5bd1d870b4f48f",
+          "type": "ui"
+        },
+        {
+          "candidate_commit": "83ecd202659c2e1a30b46f8548b0809e892b77a9",
+          "ref": "plans/features/cfg/evidence/cfg-02a/ui/05-mobile-chat.png",
+          "observation": "Мобильный 390×844: секция и факты без переполнения.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-02a/ui/05-mobile-chat.png",
+          "artifact_sha256": "4e028a413156490581b6825d1603db972a88bb8efc7b51549d43d8654aa861d0",
+          "type": "ui"
+        },
+        {
+          "candidate_commit": "83ecd202659c2e1a30b46f8548b0809e892b77a9",
+          "ref": "tests/test_cfg02a_image_quota_ui.py",
+          "observation": "test_restart_keeps_used_and_limit — значение/счётчик дня переживают перезагрузку и рестарт.",
+          "artifact_path": "tests/test_cfg02a_image_quota_ui.py",
+          "artifact_sha256": "2e80397e2562448c6e1781b796b2f862881df415300f3e797edd930493d821cd"
+        }
+      ],
+      "live_note": "preprod-проверка §5.1/5.5 (мобильный и десктоп: видимость/правка/сохранение, переживание перезагрузки и рестарта) — на postdeploy. Процесс CFG (ADD-0.1; plan §процесс.4): owner/live-проверки не блокируют очередь; закрытие — postdeploy."
     },
     {
       "source_id": "L00110",

@@ -1,0 +1,11 @@
+# CFG-02A/B1 — RAW-вывод живого пробника ревьюера (probe_empty_input.py; R2-recheck 18.10.2026, кандидат 83ecd202)
+# Пробник: stub-сервер --serve, GLOBAL, поле «60» → очистка + change; ниже — вывод как захвачено (UTF-16 PS-редирект → UTF-8).
+# Примечание: в баннерной строке [matrix] слово «вариант» искажено кодировкой редиректа; значимые строки пробника — ASCII без искажений.
+[matrix] config stub: items=573 groups=120
+[matrix] chat-╨▓╨░╤А╨╕╨░╨╜╤В config: override items=115
+input visible: True
+current item value: 60
+POSTs after EMPTY change: []
+error elem present: True
+input DOM value now: 60
+page errors: []

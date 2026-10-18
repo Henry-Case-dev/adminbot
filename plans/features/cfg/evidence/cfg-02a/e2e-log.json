@@ -1,0 +1,154 @@
+{
+  "console_errors": [],
+  "checks": {
+    "settings_section_visible": true,
+    "section_title": "Лимиты генерации",
+    "facts_visible": true,
+    "facts_value": "60 генераций/сутки",
+    "facts_input_present": {
+      "value": "60",
+      "min": "-1",
+      "step": "1"
+    },
+    "facts_hint": "Списание: одна выполненная генерация = одно списание (один запрос — одна картинка). Если попросить ещё картинок, каждая новая генерация списывается отдельно; повторная обработка того же запроса и повторная доставка картинки квоту не списывают.",
+    "facts_mode": "Резерв квоты активен: списание атомарное, повторная обработка того же запроса квоту не списывает.",
+    "facts_tz": "Asia/Yekaterinburg",
+    "facts_reset": "19.10.2026, 00:00",
+    "no_limits_tab_for_module": true,
+    "save_post": {
+      "key": "limits.image_daily_limit",
+      "value": 2,
+      "chat": false,
+      "phase": ""
+    },
+    "save_posts_count": 1,
+    "facts_value_after_save": "2 генераций/сутки",
+    "invalid_posts_count": 0,
+    "invalid_error_visible": "Допустимо целое число: −1 или больше (0 — запрет, −1 — безлимит, больше — квота).",
+    "empty_posts_count": 0,
+    "empty_error_visible": "Допустимо целое число: −1 или больше (0 — запрет, −1 — безлимит, больше — квота).",
+    "empty_input_value": "",
+    "legacy_mode_notice": "Служебный переключатель IMAGE_DAILY_LIMIT_ENABLED выключен: квота работает через legacy-счётчик — без атомарного резерва и без защиты от повторного списания при повторе того же запроса.",
+    "legacy_notice_is_warn": true,
+    "remaining_after_used": "0 из 2",
+    "budgets_off_notice": "Мастер-рубильник бюджетов выключен в этой области: лимит НЕ ограничивает генерацию (расход учитывается).",
+    "chat_scope_source": "Единицы: генерации в сутки (одна генерация — одна картинка). Значение: 0 — генерация запрещена, −1 — безлимит, положительное число — квота. Фактическое значение для выбранной области:1 генераций/сутки Источник: Локальный (чат) Расход сегодня: 1 · Остаток: 0 из 1 Часовой пояс: Asia/Yekaterinburg Ближайший сброс квоты: 19.10.2026, 00:00 Запросов: 4 · успешных: 3 · ошибок: 1Общий технический бюджет всех чатов (env-only, read-only)12 / 200 Отдельно от лимита чата: проверяется для любой генерации и не входит в настройку «Изображений в сутки». Часовой пояс: Asia/Yekaterinburg Следующий сброс: 19.10.2026, 00:00Резерв квоты активен: списание атомарное, повторная обработка того же запроса квоту не списывает. Списание: одна выполненная генерация = одно списание (один запрос — одна картинка). Если попросить ещё картинок, каждая новая генерация списывается отдельно; повторная обработка того же запроса и повторная доставка картинки квоту не списывают.",
+    "chat_scope_value": "1 генераций/сутки",
+    "chat_scope_override_applied": "1",
+    "chat_scope_source_is_chat": true,
+    "chat_save_post": {
+      "key": "limits.image_daily_limit",
+      "value": 3,
+      "chat": true,
+      "phase": ""
+    },
+    "reset_button_present": true,
+    "mobile_section_visible": true,
+    "mobile_no_overflow": true
+  },
+  "screenshots": [
+    "C:\\Code\\Python\\adminbot\\plans\\features\\cfg\\evidence\\cfg-02a\\ui\\01-settings-global.png",
+    "C:\\Code\\Python\\adminbot\\plans\\features\\cfg\\evidence\\cfg-02a\\ui\\02-invalid-input.png",
+    "C:\\Code\\Python\\adminbot\\plans\\features\\cfg\\evidence\\cfg-02a\\ui\\06-empty-input.png",
+    "C:\\Code\\Python\\adminbot\\plans\\features\\cfg\\evidence\\cfg-02a\\ui\\03-legacy-mode.png",
+    "C:\\Code\\Python\\adminbot\\plans\\features\\cfg\\evidence\\cfg-02a\\ui\\04-chat-scope.png",
+    "C:\\Code\\Python\\adminbot\\plans\\features\\cfg\\evidence\\cfg-02a\\ui\\05-mobile-chat.png"
+  ],
+  "posts": [
+    {
+      "mark": "A-global"
+    },
+    {
+      "mark": "B-save"
+    },
+    {
+      "key": "limits.image_daily_limit",
+      "value": 2,
+      "chat": false,
+      "phase": ""
+    },
+    {
+      "mark": "C-invalid"
+    },
+    {
+      "mark": "C2-empty"
+    },
+    {
+      "mark": "D-legacy"
+    },
+    {
+      "mark": "E-chat"
+    },
+    {
+      "key": "limits.image_daily_limit",
+      "value": 3,
+      "chat": true,
+      "phase": ""
+    }
+  ],
+  "traces": [
+    {
+      "fn": "saveImageDailyLimit",
+      "key": "limits.image_daily_limit",
+      "value": 60,
+      "scope": "global",
+      "stack": "    at vm.<computed> (eval at evaluate (:311:30), <anonymous>:1:531) <-     at onChange (eval at aY (http://127.0.0.1:8841/static/vendor/vue.global.prod.min.js:14:318), <anonymous>:9791:96) <-     at tD (http://127.0.0.1:8841/static/vendor/vue.global.prod.min.js:5:21611) <-     at tV (http://127.0.0.1:8841/static/vendor/vue.global.prod.min.js:5:21679) <-     at HTMLInputElement.l (http://127.0.0.1:8841/static/vendor/vue.global.prod.min.js:7:43834)"
+    },
+    {
+      "fn": "saveConfigItem",
+      "key": "limits.image_daily_limit",
+      "value": 2,
+      "scope": "global",
+      "stack": "    at vm.<computed> (eval at evaluate (:311:30), <anonymous>:1:531) <-     at Proxy.saveImageDailyLimit (http://127.0.0.1:8841/web/app.js?v=__APP_VERSION__:7616:27) <-     at vm.<computed> (eval at evaluate (:311:30), <anonymous>:1:641) <-     at onChange (eval at aY (http://127.0.0.1:8841/static/vendor/vue.global.prod.min.js:14:318), <anonymous>:9791:96) <-     at tD (http://127.0.0.1:8841/static/vendor/vue.global.prod.min.js:5:21611)"
+    },
+    {
+      "fn": "persistItems",
+      "key": "",
+      "value": null,
+      "scope": "global",
+      "stack": "    at vm.<computed> (eval at evaluate (:311:30), <anonymous>:1:531) <-     at Proxy.saveConfigItem (http://127.0.0.1:8841/web/app.js?v=__APP_VERSION__:16533:32) <-     at vm.<computed> (eval at evaluate (:311:30), <anonymous>:1:641) <-     at Proxy.saveImageDailyLimit (http://127.0.0.1:8841/web/app.js?v=__APP_VERSION__:7616:27) <-     at vm.<computed> (eval at evaluate (:311:30), <anonymous>:1:641)"
+    },
+    {
+      "fn": "saveImageDailyLimit",
+      "key": "limits.image_daily_limit",
+      "value": 2,
+      "scope": "global",
+      "stack": "    at vm.<computed> (eval at evaluate (:311:30), <anonymous>:1:531) <-     at onChange (eval at aY (http://127.0.0.1:8841/static/vendor/vue.global.prod.min.js:14:318), <anonymous>:9791:96) <-     at tD (http://127.0.0.1:8841/static/vendor/vue.global.prod.min.js:5:21611) <-     at tV (http://127.0.0.1:8841/static/vendor/vue.global.prod.min.js:5:21679) <-     at HTMLInputElement.l (http://127.0.0.1:8841/static/vendor/vue.global.prod.min.js:7:43834)"
+    },
+    {
+      "fn": "saveImageDailyLimit",
+      "key": "limits.image_daily_limit",
+      "value": 2,
+      "scope": "global",
+      "stack": "    at vm.<computed> (eval at evaluate (:311:30), <anonymous>:1:531) <-     at onChange (eval at aY (http://127.0.0.1:8841/static/vendor/vue.global.prod.min.js:14:318), <anonymous>:9791:96) <-     at tD (http://127.0.0.1:8841/static/vendor/vue.global.prod.min.js:5:21611) <-     at tV (http://127.0.0.1:8841/static/vendor/vue.global.prod.min.js:5:21679) <-     at HTMLInputElement.l (http://127.0.0.1:8841/static/vendor/vue.global.prod.min.js:7:43834)"
+    },
+    {
+      "fn": "saveImageDailyLimit",
+      "key": "limits.image_daily_limit",
+      "value": 2,
+      "scope": "chat",
+      "stack": "    at vm.<computed> (eval at evaluate (:311:30), <anonymous>:1:531) <-     at onChange (eval at aY (http://127.0.0.1:8841/static/vendor/vue.global.prod.min.js:14:318), <anonymous>:9791:96) <-     at tD (http://127.0.0.1:8841/static/vendor/vue.global.prod.min.js:5:21611) <-     at tV (http://127.0.0.1:8841/static/vendor/vue.global.prod.min.js:5:21679) <-     at HTMLInputElement.l (http://127.0.0.1:8841/static/vendor/vue.global.prod.min.js:7:43834)"
+    },
+    {
+      "fn": "saveImageDailyLimit",
+      "key": "limits.image_daily_limit",
+      "value": 1,
+      "scope": "chat",
+      "stack": "    at vm.<computed> (eval at evaluate (:311:30), <anonymous>:1:531) <-     at onChange (eval at aY (http://127.0.0.1:8841/static/vendor/vue.global.prod.min.js:14:318), <anonymous>:9791:96) <-     at tD (http://127.0.0.1:8841/static/vendor/vue.global.prod.min.js:5:21611) <-     at tV (http://127.0.0.1:8841/static/vendor/vue.global.prod.min.js:5:21679) <-     at HTMLInputElement.l (http://127.0.0.1:8841/static/vendor/vue.global.prod.min.js:7:43834)"
+    },
+    {
+      "fn": "saveConfigItem",
+      "key": "limits.image_daily_limit",
+      "value": 3,
+      "scope": "chat",
+      "stack": "    at vm.<computed> (eval at evaluate (:311:30), <anonymous>:1:531) <-     at Proxy.saveImageDailyLimit (http://127.0.0.1:8841/web/app.js?v=__APP_VERSION__:7616:27) <-     at vm.<computed> (eval at evaluate (:311:30), <anonymous>:1:641) <-     at onChange (eval at aY (http://127.0.0.1:8841/static/vendor/vue.global.prod.min.js:14:318), <anonymous>:9791:96) <-     at tD (http://127.0.0.1:8841/static/vendor/vue.global.prod.min.js:5:21611)"
+    },
+    {
+      "fn": "persistItems",
+      "key": "",
+      "value": null,
+      "scope": "chat",
+      "stack": "    at vm.<computed> (eval at evaluate (:311:30), <anonymous>:1:531) <-     at Proxy.saveConfigItem (http://127.0.0.1:8841/web/app.js?v=__APP_VERSION__:16533:32) <-     at vm.<computed> (eval at evaluate (:311:30), <anonymous>:1:641) <-     at Proxy.saveImageDailyLimit (http://127.0.0.1:8841/web/app.js?v=__APP_VERSION__:7616:27) <-     at vm.<computed> (eval at evaluate (:311:30), <anonymous>:1:641)"
+    }
+  ]
+}
