@@ -439,14 +439,47 @@
       "source_text_sha256": "4903e5adfd921a7289804ab00066faded12443daeeebf0a6b9c2dd432e504c59",
       "source_excerpt": "**Критерий завершения:** настройки SOUL-1 действительно сохраняются и применяются; интерфейс «Речь и характер» удобен на",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто: критерий завершения выполнен — настройки SOUL-1 сохраняются и применяются (приёмка A/F), «Речь и характер» удобна на мобильном без потери функциональности (UX-волна + авто-эвиденс; device-проверка — waiver PET/AGENTS §5), автономная инициатива не заблокирована (приёмка C); по каждой части — привязанное доказательство; все обязательные строки карты VERIFIED (context-строки не в счёт); отчёт выпущен/доставлен; прод 2.58.90 @ `3b02366e`; release-гейт карты — errors=0 (`final-gate-25890.txt`). VERIFIED.",
       "req_id": "P0A-DONE",
       "slice": "P0A-ACCEPT",
       "acceptance": "Критерий завершения выполнен: настройки SOUL-1 действительно сохраняются и применяются; «Речь и характер» удобен на мобильном без потери функциональности; автономная инициатива не заблокирована найденными дефектами; по каждой части — привязанное доказательство.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "3b02366e63022eb4c760892aa1bcb4f26516e789",
+          "ref": "plans/features/p0-save-init-ux/final-report-25890.md (коммит `c8b97c1a`)",
+          "observation": "Финальный отчёт выпущен/доставлен (19.10.2026, ~03:31 local); критерий завершения зафиксирован: все обязательные строки карты VERIFIED, прод-версия подтверждена.",
+          "artifact_path": "plans/features/p0-save-init-ux/final-report-25890.md",
+          "artifact_sha256": "0815f379dbbb1fd9967ff508fe0abd43aa6ca4c0ca68f48708026e956ad6791a",
+          "type": "static"
+        },
+        {
+          "candidate_commit": "3b02366e63022eb4c760892aa1bcb4f26516e789",
+          "ref": "plans/features/p0-save-init-ux/evidence/release-25890/acceptance/acceptance-25890.json (17/17) + acceptance-bc-25890-read.json + acceptance-payload-25890.json + acceptance-edges-25890.json",
+          "observation": "Прод 2.58.90 @ `3b02366e`: real-DB цикл сохранения 17/17 (A), инициатива (C), payload (F), негативные ветки (E) — компоненты критерия завершения подтверждены.",
+          "artifact_path": "plans/features/p0-save-init-ux/evidence/release-25890/acceptance/acceptance-25890.json",
+          "artifact_sha256": "3fce71931522ad2874f2a000d8621d17d7aa34b806e1076b8c9643a492fccd67",
+          "type": "production"
+        },
+        {
+          "candidate_commit": "3b02366e63022eb4c760892aa1bcb4f26516e789",
+          "ref": "plans/features/p0-save-init-ux/evidence/release-25890/final-verification.txt (прод `3b02366e`)",
+          "observation": "Deploy-эвиденс: HEAD=3b02366e, healthz 2.58.90, NRestarts=0, маркеры INIT_FRESH=3/INIT_ANCHORED=3, SERVED_EQ=SAME.",
+          "artifact_path": "plans/features/p0-save-init-ux/evidence/release-25890/final-verification.txt",
+          "artifact_sha256": "611093c9c86686beb33c36a31721072a2c8c96aa455b96d9b804e0e590fd5da9",
+          "type": "production"
+        },
+        {
+          "candidate_commit": "3b02366e63022eb4c760892aa1bcb4f26516e789",
+          "ref": "plans/features/p0-save-init-ux/evidence/release-25890/acceptance/final-gate-25890.txt (verbatim-дамп финального release-гейта)",
+          "observation": "Финальные гейты карты: plan — `22/13/0` EXIT 0; release — `scoped=29 errors=0` EXIT 0 (прод/кандидат `3b02366e`).",
+          "artifact_path": "plans/features/p0-save-init-ux/evidence/release-25890/acceptance/final-gate-25890.txt",
+          "artifact_sha256": "7c40662a33843683ff68c9827dbb3df6e8e912c17cd24371fa54721002130255",
+          "type": "static"
+        }
+      ]
     }
   ],
   "items": [
@@ -1126,14 +1159,31 @@
       "source_text_sha256": "68d939ce1a88036a7a44ffc48643257d0644a83693bfe51c2b2943035801ea95",
       "source_excerpt": "- Отчёт человеческим языком: почему не работало сохранение, какие разделы затронуты, что исправлено централизованно, как переработан UX, что в инициативе, какие проверки пройдены, версия в production. Затем автопродолжение current_task.",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто: финальный человеческий отчёт выпущен (`final-report-25890.md`, коммит `c8b97c1a`) и доставлен владельцу в чат (19.10.2026, ~03:31 local; зафиксировано в шапке отчёта). Отчёт содержит: почему не работало сохранение, затронутые разделы, что исправлено централизованно, как переработан UX, состояние инициативы/ностальгии, пройденные проверки и прод-версию (2.58.90 @ `3b02366e`); автопродолжение очереди — release-гейт зелёный (`final-gate-25890.txt`). VERIFIED.",
       "req_id": "P0A-OPS-REPORT",
       "slice": "P0A-ACCEPT",
       "acceptance": "Отчёт человеческим языком: почему не работало сохранение, какие разделы затронуты, что исправлено централизованно, как переработан UX, что по инициативе, какие проверки пройдены, версия в production; затем автоматическое продолжение current_task.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "3b02366e63022eb4c760892aa1bcb4f26516e789",
+          "ref": "plans/features/p0-save-init-ux/final-report-25890.md (коммит `c8b97c1a`)",
+          "observation": "Финальный человеческий отчёт выпущен и доставлен владельцу в чат (19.10.2026, ~03:31 local; шапка: «Delivered in root chat»); в отчёте — причины дефекта сохранения, затронутые разделы, централизованный фикс, переработка UX, состояние инициативы, пройденные проверки, прод 2.58.90 @ `3b02366e`.",
+          "artifact_path": "plans/features/p0-save-init-ux/final-report-25890.md",
+          "artifact_sha256": "0815f379dbbb1fd9967ff508fe0abd43aa6ca4c0ca68f48708026e956ad6791a",
+          "type": "static"
+        },
+        {
+          "candidate_commit": "3b02366e63022eb4c760892aa1bcb4f26516e789",
+          "ref": "plans/features/p0-save-init-ux/evidence/release-25890/acceptance/final-gate-25890.txt (verbatim-дамп финального release-гейта)",
+          "observation": "Финальные гейты карты: plan — `22/13/0` EXIT 0; release — `scoped=29 errors=0` EXIT 0 (прод/кандидат `3b02366e`).",
+          "artifact_path": "plans/features/p0-save-init-ux/evidence/release-25890/acceptance/final-gate-25890.txt",
+          "artifact_sha256": "7c40662a33843683ff68c9827dbb3df6e8e912c17cd24371fa54721002130255",
+          "type": "static"
+        }
+      ]
     }
   ]
 }

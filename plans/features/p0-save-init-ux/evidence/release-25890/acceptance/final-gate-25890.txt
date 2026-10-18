@@ -1,0 +1,12 @@
+=== P0 FINAL GATES - 2.58.90 (2026-10-19) ===
+map: plans/features/p0-save-init-ux/requirements-map.json
+candidate=deployed=3b02366e63022eb4c760892aa1bcb4f26516e789
+(все обязательные строки VERIFIED; context-строки не в счёте)
+
+$ py -3 C:\Users\main\.config\opencode\tools\requirements_gate.py check --stage plan --map plans/features/p0-save-init-ux/requirements-map.json
+stage=plan inventory=22 manual=13 scoped=0 errors=0
+EXIT=0
+
+$ py -3 C:\Users\main\.config\opencode\tools\requirements_gate.py check --stage release --candidate 3b02366e63022eb4c760892aa1bcb4f26516e789 --deployed-commit 3b02366e63022eb4c760892aa1bcb4f26516e789 --map plans/features/p0-save-init-ux/requirements-map.json
+stage=release inventory=22 manual=13 scoped=29 errors=0
+EXIT=0
