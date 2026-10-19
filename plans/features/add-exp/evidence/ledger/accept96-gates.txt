@@ -1,0 +1,89 @@
+LEDGER-ACCEPT-96 — ADD-EXP gate logs (2.58.96)
+Generated: 2026-10-20 04:20 +12:00 (system local)
+Map: plans/features/add-exp/requirements-map.json
+Candidate/deployed: 95d11472b9e533b554554918e3efa6b42125260b (2.58.96; review-accept-96 Needs Fixes: behavioral criterion FAILED)
+Tool: C:/Users/main/.config/opencode/tools/requirements_gate.py
+
+## 1. plan
+cmd: check --stage plan --repo . --map plans/features/add-exp/requirements-map.json
+rc=0
+stage=plan inventory=20 manual=17 scoped=0 errors=0
+
+## 2. release (as requested; release checks ALL slices)
+cmd: check --stage release --candidate 95d11472b9e533b554554918e3efa6b42125260b --deployed-commit 95d11472b9e533b554554918e3efa6b42125260b --repo . --map plans/features/add-exp/requirements-map.json
+rc=1
+FAIL: EXP-UI.OFF: no evidence bound to reviewed candidate
+FAIL: EXP-UI.OCC: no evidence bound to reviewed candidate
+FAIL: EXP-UI.FREQ: no evidence bound to reviewed candidate
+FAIL: EXP-RUNTIME.READSAVE: no evidence bound to reviewed candidate
+FAIL: EXP-RUNTIME.PRIORITY: no evidence bound to reviewed candidate
+FAIL: EXP-RUNTIME.DIAG: no evidence bound to reviewed candidate
+FAIL: EXP-DIAG-PROD: no evidence bound to reviewed candidate
+FAIL: EXP-DIAG-PAYLOAD: no evidence bound to reviewed candidate
+FAIL: ADD-1.E1: no evidence bound to reviewed candidate
+FAIL: ADD-1.E2: no evidence bound to reviewed candidate
+FAIL: ADD-1.E3: no evidence bound to reviewed candidate
+FAIL: ADD-1.E4: no evidence bound to reviewed candidate
+FAIL: ADD-1.E5: no evidence bound to reviewed candidate
+FAIL: ADD-1.E6: no evidence bound to reviewed candidate
+FAIL: ADD-1.E7: no evidence bound to reviewed candidate
+FAIL: EXP-UI.MODES: no evidence bound to reviewed candidate
+FAIL: EXP-UI.INHERIT: no evidence bound to reviewed candidate
+FAIL: EXP-UI.MIGRATION: no evidence bound to reviewed candidate
+FAIL: EXP-INSTR.POSITIVE: no evidence bound to reviewed candidate
+FAIL: EXP-INSTR.NOPOST: no evidence bound to reviewed candidate
+FAIL: EXP-REG.QUEUE: no evidence bound to reviewed candidate
+FAIL: EXP-ACCEPT.CRITERION: mandatory not ['VERIFIED'] (got FAILED)
+stage=release inventory=20 manual=17 scoped=29 errors=22
+### Error accounting (computed from the map, same rules; gate prints first 50 only)
+- required rows: 29; VERIFIED 28; FAILED 1 (EXP-ACCEPT.CRITERION); no READY_FOR_LIVE.
+- 22 gate errors = 21 historical VERIFIED rows still bound only to candidate 4a09e29a (`no evidence bound to reviewed candidate`) + 1 expected status error `EXP-ACCEPT.CRITERION: mandatory not ['VERIFIED'] (got FAILED)`.
+- There are no live-type errors: all 21 historical rows have `live_required=false`; the live rows in the map are either acceptance-touched (95d-bound production evidence) or CRITERION (FAILED).
+- The eight acceptance-touched rows carry 95d-bound evidence. WIRING/PAYLOAD/ROUTES/LIVE-SET/CRITERION have production-typed evidence; PREVIEW has production; REVIEW/FEWSHOT are non-live rows.
+
+## 3. review EXP-RUNTIME
+cmd: check --stage review --slice EXP-RUNTIME --candidate 95d11472b9e533b554554918e3efa6b42125260b --repo . --map plans/features/add-exp/requirements-map.json
+rc=1
+FAIL: EXP-RUNTIME.READSAVE: no evidence bound to reviewed candidate
+FAIL: EXP-RUNTIME.PRIORITY: no evidence bound to reviewed candidate
+FAIL: EXP-RUNTIME.DIAG: no evidence bound to reviewed candidate
+FAIL: EXP-DIAG-PROD: no evidence bound to reviewed candidate
+FAIL: EXP-DIAG-PAYLOAD: no evidence bound to reviewed candidate
+FAIL: ADD-1.E1: no evidence bound to reviewed candidate
+FAIL: ADD-1.E2: no evidence bound to reviewed candidate
+FAIL: ADD-1.E4: no evidence bound to reviewed candidate
+FAIL: ADD-1.E6: no evidence bound to reviewed candidate
+stage=review inventory=20 manual=17 scoped=11 errors=9
+
+## 4. review EXP-ACCEPT
+cmd: check --stage review --slice EXP-ACCEPT --candidate 95d11472b9e533b554554918e3efa6b42125260b --repo . --map plans/features/add-exp/requirements-map.json
+rc=1
+FAIL: EXP-REG.QUEUE: no evidence bound to reviewed candidate
+FAIL: EXP-ACCEPT.CRITERION: mandatory not ['READY_FOR_LIVE', 'VERIFIED'] (got FAILED)
+stage=review inventory=20 manual=17 scoped=6 errors=2
+
+## 5. review EXP-INSTR
+cmd: check --stage review --slice EXP-INSTR --candidate 95d11472b9e533b554554918e3efa6b42125260b --repo . --map plans/features/add-exp/requirements-map.json
+rc=1
+FAIL: ADD-1.E7: no evidence bound to reviewed candidate
+FAIL: EXP-INSTR.POSITIVE: no evidence bound to reviewed candidate
+FAIL: EXP-INSTR.NOPOST: no evidence bound to reviewed candidate
+stage=review inventory=20 manual=17 scoped=4 errors=3
+
+## 6. review EXP-UI
+cmd: check --stage review --slice EXP-UI --candidate 95d11472b9e533b554554918e3efa6b42125260b --repo . --map plans/features/add-exp/requirements-map.json
+rc=1
+FAIL: EXP-UI.OFF: no evidence bound to reviewed candidate
+FAIL: EXP-UI.OCC: no evidence bound to reviewed candidate
+FAIL: EXP-UI.FREQ: no evidence bound to reviewed candidate
+FAIL: ADD-1.E3: no evidence bound to reviewed candidate
+FAIL: ADD-1.E5: no evidence bound to reviewed candidate
+FAIL: EXP-UI.MODES: no evidence bound to reviewed candidate
+FAIL: EXP-UI.INHERIT: no evidence bound to reviewed candidate
+FAIL: EXP-UI.MIGRATION: no evidence bound to reviewed candidate
+stage=review inventory=20 manual=17 scoped=8 errors=8
+
+## Verdict of the ledger run
+Release rc=1 is expected and required: EXP-ACCEPT.CRITERION is honestly FAILED (source §4 behavioral criterion
+not met). The remaining rc=1 reasons are historical rows still bound to the build candidate 4a09e29a, not new
+failures of the acceptance-touched rows. Do not mark the parent DONE and do not publish the map as release-green.

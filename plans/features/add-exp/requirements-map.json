@@ -2,8 +2,8 @@
   "schema": "openworkflow-coverage-v1",
   "source_path": "C:\\Code\\Python\\adminbot\\plans\\features\\add-exp\\source-add-exp-2026-10-19.md",
   "source_sha256": "2a7d0c0297dc56591396372d86c4176d3b64924e2e75194e45fd33c2052f7d9f",
-  "candidate_commit": "4a09e29a62488b204acea7f821b81fa31dd91e0e",
-  "deployed_commit": "",
+  "candidate_commit": "95d11472b9e533b554554918e3efa6b42125260b",
+  "deployed_commit": "95d11472b9e533b554554918e3efa6b42125260b",
   "strict_evidence": false,
   "slice_graph_path": "",
   "additional_requirements": [
@@ -372,8 +372,25 @@
           "observation": "В живом DOM: техника «Регистр речи (мат: без / эпизодически / часто)» в фильтре и карточках без сырого кода; счётчики подборок не склеены; HUMOR_TECHNIQUES не расширен.",
           "artifact_path": "plans/features/add-exp/evidence/build/README.md",
           "artifact_sha256": "90572043b7ae5098d3d9b21a06955bafab2b9095891fb5f2c39709fbbb2fa881"
+        },
+        {
+          "candidate_commit": "95d11472b9e533b554554918e3efa6b42125260b",
+          "ref": "ACCEPTANCE-96 §1 (FEWSHOT) + acceptance/p1-seed.json",
+          "observation": "seed run1: 18 seeded / 12 expression, run2 skipped 18/12; rows: expression_register owner_approved=0, n=12; черновики без одобрения не попадают в ответы.",
+          "artifact_path": "plans/features/add-exp/evidence/release-25896/acceptance/p1-seed.json",
+          "artifact_sha256": "a628968c7f9c2c0a96053549f1261ab82e74424eac5c8212af06be1c10bbd3f0",
+          "type": "test"
+        },
+        {
+          "candidate_commit": "95d11472b9e533b554554918e3efa6b42125260b",
+          "ref": "ACCEPTANCE-96 §1 (FEWSHOT runtime) + acceptance/summary.json",
+          "observation": "checks.not_owner_approved: composes_with_not_owner_approved=54, examples_marker_in_composed_systems=0, examples_marker_in_wire=0; runtime честно не берёт черновики.",
+          "artifact_path": "plans/features/add-exp/evidence/release-25896/acceptance/summary.json",
+          "artifact_sha256": "afeec2fdd6b98b1032105702e5873cf232c942bc61d5508a9f21c8872c6a6b7f",
+          "type": "test"
         }
-      ]
+      ],
+      "note": "ACCEPTANCE-96: на проде 12 драфтов expression_register, owner_approved=0; повторный seed skipped; <Expression_Examples> в composed/wire = 0, 54 trace not_owner_approved — в runtime не идут. Опциональный owner-вход 4+4 (behavior-diag) — не Human Gate, не блокирует F1; строка остаётся VERIFIED."
     },
     {
       "source_id": "MAN-EXP-INSTR.NOPOST",
@@ -429,13 +446,13 @@
       "source_text_sha256": "1322f90e55401bf1c463635580cf05b445420ec77392f3c467a790ee8bce50d9",
       "source_excerpt": "**Критерий завершения:** «Мат: часто» действительно меняет типичные ответы бота, «эпизодически» даёт редкий, но наблюдаемый мат, «без мата» запрещает его в собственных высказываниях; все режимы реальн",
       "disposition": "required",
-      "reason": "",
+      "reason": "FAILED at acceptance-96: источник §4 требует реального изменения речи. Live: off 0/5 — PASS; occasional 0/7 (с добором 0/7) при требовании >0 — FAIL; frequent 0/7 (0/9 с follow-up) при требовании ≥50%, ≥2× occasional, ≥3 контекста — FAIL; model_ignored_instruction N=9. Wire-слой доставлен, но поведенческий критерий не достигнут. Follow-up F1 (операционный триггер/текст) и F4 (disjoint-пробы + полная матрица) запланированы; parent не DONE.",
       "req_id": "EXP-ACCEPT.CRITERION",
       "slice": "EXP-ACCEPT",
       "acceptance": "«Часто» действительно меняет типичные ответы бота, «эпизодически» даёт редкий, но наблюдаемый мат, «без мата» запрещает мат в собственных высказываниях; все режимы реально доходят до production LLM, а не только существуют в форме и предпросмотре.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "FAILED",
       "evidence": [
         {
           "candidate_commit": "4a09e29a62488b204acea7f821b81fa31dd91e0e",
@@ -444,9 +461,34 @@
           "observation": "Критерий завершения («часто» меняет типичные ответы, «эпизодически» — редкий наблюдаемый мат, «без мата» запрещает; все режимы доходят до production LLM) проверяется только на живых ответах прода — Ф6 postdeploy. Код-половина (инструкции/подключение/UI/тесты) закрыта.",
           "artifact_path": "plans/features/add-exp/evidence/build/README.md",
           "artifact_sha256": "90572043b7ae5098d3d9b21a06955bafab2b9095891fb5f2c39709fbbb2fa881"
+        },
+        {
+          "candidate_commit": "95d11472b9e533b554554918e3efa6b42125260b",
+          "ref": "ACCEPTANCE-96 §1 (CRITERION) + acceptance/summary.json",
+          "observation": "off: 0/5 conversational with mat, verdict PASS; occasional: 0/7, share=0.0, verdict FAIL; frequent: 0/7, share=0.0, verdict FAIL; source §4 (>0; ≥50%, ≥2×, ≥3 contexts) не достигнут.",
+          "artifact_path": "plans/features/add-exp/evidence/release-25896/acceptance/summary.json",
+          "artifact_sha256": "afeec2fdd6b98b1032105702e5873cf232c942bc61d5508a9f21c8872c6a6b7f",
+          "type": "production"
+        },
+        {
+          "candidate_commit": "95d11472b9e533b554554918e3efa6b42125260b",
+          "ref": "ACCEPTANCE-96 §1 (CRITERION, follow-up) + acceptance/followup/summary.json",
+          "observation": "frequent diag: probes=9, mat_roots=0, marker_present_l2=true, class=model_ignored_instruction; follow-up 0/9; event emitted=true.",
+          "artifact_path": "plans/features/add-exp/evidence/release-25896/acceptance/followup/summary.json",
+          "artifact_sha256": "d50a6758334e0e6820321ec965320fbd38c2d368d73f7af212b1bf83a9f4554a",
+          "type": "production"
+        },
+        {
+          "candidate_commit": "95d11472b9e533b554554918e3efa6b42125260b",
+          "ref": "ACCEPTANCE-96 §2 (verify) + acceptance/runs/verify.out",
+          "observation": "VERIFY PASS на committed-эвиденсе: те же 0/5, 0/7, 0/7; isolation PASS (B 0/2); quote preserved; 28 ключей before==after.",
+          "artifact_path": "plans/features/add-exp/evidence/release-25896/acceptance/runs/verify.out",
+          "artifact_sha256": "1428948b13df00be506f2257eaa8398789112a2283b51b171a145a687cb0075e",
+          "type": "production"
         }
       ],
-      "live_note": "Ф6 postdeploy: критерий завершения §4 на живых ответах прода; закрытие строки — после production-эвиденса; release-гейт не ранее."
+      "live_note": "FAILED at acceptance-96 (2.58.96): off PASS, occasional/frequent 0 мата; F1/F4 recheck обязателен, после него эвиденс приёмки недействителен и матрицу нужно прогнать заново.",
+      "note": "behavioral criterion FAILED at acceptance-96; source §4 not met. Follow-up F1/F4 planned; не закрывать по факту доставки слоя. F2 (few-shot owner approval) — опциональный вход, не Human Gate."
     }
   ],
   "items": [
@@ -612,13 +654,13 @@
       "source_text_sha256": "ab56d832e4842612364400ee2adfa176032a640cc8fefc710b999858845d56d9",
       "source_excerpt": "2. Проверить, что Expression реально подключён в **Direct Chat и Initiative**; отдельно проверить другие речевые Writer-маршруты, где политика уместна, и честно определить жанровые исключения (например, Factcheck/Summary). В `prompt_compose",
       "disposition": "required",
-      "reason": "",
+      "reason": "ЗАКРЫТО live (ACCEPTANCE-96, 2.58.96 @ 95d11472): 27 ходов, 28 L2-вызовов (у frequent-07 два l2); wire_with_marker=28, wire_with_mode_line=28, wire_expected_text_present=28; 54/81 composes с рендеренным слоем, 27 skip — только profile:machine_stage; Direct/tool_phase + Initiative/authorial подтверждены follow-up; живого рестарта не было.",
       "req_id": "EXP-RUNTIME.WIRING",
       "slice": "EXP-RUNTIME",
       "acceptance": "Expression реально подключён в Direct Chat и Initiative; в prompt_composer и манифесте LAYER_EXPRESSION появляется с нужной ревизией и без expression_absent при активной настройке; жанровые исключения (Factcheck/Summary и др.) определены честно; budget_excluded и приоритет компактной инструкции мата проверены без поломки обязательных системных ограничений.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "4a09e29a62488b204acea7f821b81fa31dd91e0e",
@@ -635,9 +677,26 @@
           "observation": "Строка оставлена READY_FOR_LIVE: реальный payload/ответ прода на трёх режимах не проверены — это Ф6 postdeploy (после деплоя).",
           "artifact_path": "plans/features/add-exp/review-add-exp.md",
           "artifact_sha256": "a369957653b32565407ec38a6134d2f8f7aab15e2bd5ee9f7887601bd9ac403b"
+        },
+        {
+          "candidate_commit": "95d11472b9e533b554554918e3efa6b42125260b",
+          "ref": "ACCEPTANCE-96 §1 (WIRING) + acceptance/summary.json",
+          "observation": "27/27 L2-ходов с маркером; wire_with_marker=28, wire_with_mode_line=28, wire_expected_text_present=28; composes_total=81, expression_layer_rendered=54, 27 skip=profile:machine_stage; runtime_wired=true.",
+          "artifact_path": "plans/features/add-exp/evidence/release-25896/acceptance/summary.json",
+          "artifact_sha256": "afeec2fdd6b98b1032105702e5873cf232c942bc61d5508a9f21c8872c6a6b7f",
+          "type": "production"
+        },
+        {
+          "candidate_commit": "95d11472b9e533b554554918e3efa6b42125260b",
+          "ref": "ACCEPTANCE-96 §1 (WIRING, follow-up) + acceptance/followup/routes.json",
+          "observation": "Direct l2_writer: 7139 chars, has_marker=true, mode_line=frequent, expected_text_present=true; Initiative generate_initiative_reply и authorial nostalgia writer также с маркером/строкой режима; live-check HTTP 200, expression_marker=true.",
+          "artifact_path": "plans/features/add-exp/evidence/release-25896/acceptance/followup/routes.json",
+          "artifact_sha256": "c8ced974def7349aa56a617fb0bc07199551a160502572a337476cf9712d26b0",
+          "type": "production"
         }
       ],
-      "live_note": "Ф6 postdeploy: реальный complete LLM payload и ответ прода на трёх режимах (Direct/Initiative/жанры), wire-маркер слоя; строка закрывается production-typed evidence после деплоя."
+      "live_note": "Закрыто live ACCEPTANCE-96 (2.58.96): Direct/tool_phase/Initiative/authorial; маркер/строка/точный текст в wire; 27 skip — machine_stage. Жанровые исключения — по контракту.",
+      "note": "ACCEPTANCE-96: live-подтверждено в Direct/Initiative/authorial; жанровые исключения — factcheck/tech по контракту. budget_excluded/expression_absent при активной настройке не наблюдались."
     },
     {
       "source_id": "L00037",
@@ -669,13 +728,13 @@
       "source_text_sha256": "bf95af337c6ce657e084fc4c41b4978ad11d3790644113f6677f7cec252bddc8",
       "source_excerpt": "4. Проверить реальный complete LLM payload и результирующий ответ, в том числе не подавляет ли profanity внешний postprocessor, жанровой Writer, стиль/модель или дополнительный режим. Не считать сохранённое значение, рендер-предпросмотр или",
       "disposition": "required",
-      "reason": "",
+      "reason": "ЗАКРЫТО live (ACCEPTANCE-96): complete L2 system sample 7070 симв. содержит <Expression_Settings> и строку frequent; raw == доставленный текст (postprocess не менял); прямая просьба в frequent дала мат, fallback/ошибок LLM 0 — провайдер/постпроцессор не подавляют.",
       "req_id": "EXP-RUNTIME.PAYLOAD",
       "slice": "EXP-RUNTIME",
       "acceptance": "Реальный complete LLM payload и результирующий ответ проверены: profanity не подавляется внешним постпроцессором, жанровым Writer, стилем/моделью или дополнительным режимом; сохранённое значение, рендер-предпросмотр и тестовый мок не приняты как доказательство живого исполнения.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "4a09e29a62488b204acea7f821b81fa31dd91e0e",
@@ -684,9 +743,18 @@
           "observation": "Код-половина: диагностика payload/постпроцесса реализована (t7; live-check — тот же L2-путь, bounded); сохранённое значение/preview как доказательство не принимаются. Реальный payload прода и результирующий ответ на трёх режимах — Ф6 postdeploy.",
           "artifact_path": "plans/features/add-exp/review-add-exp.md",
           "artifact_sha256": "a369957653b32565407ec38a6134d2f8f7aab15e2bd5ee9f7887601bd9ac403b"
+        },
+        {
+          "candidate_commit": "95d11472b9e533b554554918e3efa6b42125260b",
+          "ref": "ACCEPTANCE-96 §1 (PAYLOAD) + acceptance/followup/summary.json",
+          "observation": "full_l2_system_sample: 7070 chars, system_sha12 c484a481868a, содержит <Expression_Settings> и строку frequent; raw == delivery (postprocess_changed отсутствует); прямая просьба в frequent дала мат; fallback/ошибок LLM 0.",
+          "artifact_path": "plans/features/add-exp/evidence/release-25896/acceptance/followup/summary.json",
+          "artifact_sha256": "d50a6758334e0e6820321ec965320fbd38c2d368d73f7af212b1bf83a9f4554a",
+          "type": "production"
         }
       ],
-      "live_note": "Ф6 postdeploy: проверка реального complete LLM payload и ответа прода (profanity не подавляется постпроцессором/жанровым Writer/стилем/моделью); набор 20–30 проб; строка закрывается production-typed evidence."
+      "live_note": "Закрыто live ACCEPTANCE-96 (2.58.96): complete sample 7070 chars с <Expression_Settings>/frequent; raw==delivery; постпроцессор/провайдер мат не подавляют.",
+      "note": "ACCEPTANCE-96: full_l2_system_sample (7070 chars) зафиксирован; profanity не подавляется постпроцессором/жанровым Writer/стилем/моделью. Граница: это live-факт deployed code path, не per-turn журнал MainPID."
     },
     {
       "source_id": "L00039",
@@ -733,13 +801,13 @@
       "source_text_sha256": "2c472cc8a9f04af1428110daa58a8a5e5ebe7dd26980ccc37c5ab758b6e4bcb1",
       "source_excerpt": "- Три режима должны реально различаться на **одинаковом наборе** разговорных ситуаций: дружеский стёб, спор, бытовая реплика, короткий ответ, обычная шутка, нейтральная техническая задача, фактчек. Минимум 20–30 контролируемых примеров с ва",
       "disposition": "required",
-      "reason": "",
+      "reason": "ЗАКРЫТО (набор выполнен, ACCEPTANCE-96): 27 ходов основной волны (7 контекстов × 3 режима + 3 повтора + 2 жанровые) + 7 follow-up; все ответы сохранены; L1-распределение micro 16/compact 10/auto 1. Оговорка: 7-я occasional-проба — точный дубль everyday, не новая вариация. Поведенческое различие режимов НЕ заявлено — оно провалено в EXP-ACCEPT.CRITERION.",
       "req_id": "EXP-ACCEPT.LIVE-SET",
       "slice": "EXP-ACCEPT",
       "acceptance": "Три режима реально различаются на одинаковом наборе разговорных ситуаций (дружеский стёб, спор, бытовая реплика, короткий ответ, шутка, нейтральная техническая задача, фактчек): минимум 20–30 контролируемых примеров с вариацией формулировок и источников; частота измерена по допустимым разговорным репликам, отдельно учтены нулевые/матерные ответы, распределение по контекстам и повторяемость; frequent статистически заметно чаще occasional; off исключает мат из собственного текста; без сотен платных LLM-вызовов.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "4a09e29a62488b204acea7f821b81fa31dd91e0e",
@@ -748,9 +816,34 @@
           "observation": "Набор 20–30 контролируемых проб на одинаковых ситуациях, измерение частоты (frequent заметно чаще occasional; off исключает мат), без сотен платных вызовов — не выполнен: прод не хранит тексты ответов (Ф0 §3), harness Ф6 обязан сам сохранять их. Строка — READY_FOR_LIVE до Ф6.",
           "artifact_path": "plans/features/add-exp/evidence/f0/README.md",
           "artifact_sha256": "b8bfce773adbc54bc23c68fdad9b11518fd6d75f7dffc89eb9441ee9f80b09b5"
+        },
+        {
+          "candidate_commit": "95d11472b9e533b554554918e3efa6b42125260b",
+          "ref": "ACCEPTANCE-96 §1 (LIVE-SET) + acceptance/summary.json",
+          "observation": "turns_used=27: 7 контекстов × 3 режима + 3 повтора + 2 жанровые; L1 distribution micro 16/compact 10/auto 1; off 0/5 PASS, occasional 0/7 FAIL, frequent 0/7 FAIL (критерий — отдельная строка).",
+          "artifact_path": "plans/features/add-exp/evidence/release-25896/acceptance/summary.json",
+          "artifact_sha256": "afeec2fdd6b98b1032105702e5873cf232c942bc61d5508a9f21c8872c6a6b7f",
+          "type": "production"
+        },
+        {
+          "candidate_commit": "95d11472b9e533b554554918e3efa6b42125260b",
+          "ref": "ACCEPTANCE-96 §1 (LIVE-SET, follow-up) + acceptance/followup/summary.json",
+          "observation": "turns_used=7 follow-up; 7-я occasional-проба — точный дубль occasional-04-everyday; frequent N=9 с follow-up; все ответы сохранены.",
+          "artifact_path": "plans/features/add-exp/evidence/release-25896/acceptance/followup/summary.json",
+          "artifact_sha256": "d50a6758334e0e6820321ec965320fbd38c2d368d73f7af212b1bf83a9f4554a",
+          "type": "production"
+        },
+        {
+          "candidate_commit": "95d11472b9e533b554554918e3efa6b42125260b",
+          "ref": "ACCEPTANCE-96 §0 (checksums) + acceptance/checksums.json",
+          "observation": "checksums.json: 53/53 файла эвиденса совпали по sha256/bytes (независимый прогон REV-ACCEPT-96).",
+          "artifact_path": "plans/features/add-exp/evidence/release-25896/acceptance/checksums.json",
+          "artifact_sha256": "d361a2bf5ab5e2b23598e1a7c56f0ec356494db31a147cc507d8bbf133ae9711",
+          "type": "static"
         }
       ],
-      "live_note": "Ф6 postdeploy: живой набор 20–30 проб (дружеский стёб/спор/быт/короткий ответ/шутка/тех. задача/фактчек), вариация формулировок и источников, распределение по контекстам, повторяемость; закрытие — production-typed evidence."
+      "live_note": "Закрыто ACCEPTANCE-96 как факт выполнения набора 27+7; поведенческое различие режимов не заявлено — EXP-ACCEPT.CRITERION FAILED.",
+      "note": "ACCEPTANCE-96: набор 27+7 выполнен; 7-я occasional-проба — дубль `occasional-04-everyday`; строка закрывает факт выполнения набора, не поведенческий критерий (CRITERION FAILED)."
     },
     {
       "source_id": "L00044",
@@ -758,13 +851,13 @@
       "source_text_sha256": "90fb9534f3770fbcbd2366feecb8fcf93be41f07ac5d52635db1b9a3e99fcea3",
       "source_excerpt": "- Проверить Direct, Initiative и подходящие жанровые маршруты; per-chat override, GLOBAL, переключение без рестарта, повторное чтение после сохранения, preview vs production trace. Убедиться, что активный чат с `frequent` не влияет на друго",
       "disposition": "required",
-      "reason": "",
+      "reason": "ЗАКРЫТО live (ACCEPTANCE-96 follow-up): A=frequent и B=off одновременно; wire-строки A 2/2 frequent, B 2/2 off; B 0/2 мата; per-chat override/GLOBAL, reread через прод-API, preview==resolve, переключение без рестарта; основная волна дала isolation=PARTIAL (дефект порядка harness), follow-up перепроверил — PASS.",
       "req_id": "EXP-ACCEPT.ROUTES",
       "slice": "EXP-ACCEPT",
       "acceptance": "Проверены Direct, Initiative и подходящие жанровые маршруты; per-chat override, GLOBAL, переключение без рестарта, повторное чтение после сохранения, preview vs production trace; активный чат с frequent не влияет на другой чат с off.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "4a09e29a62488b204acea7f821b81fa31dd91e0e",
@@ -773,9 +866,26 @@
           "observation": "Проверка Direct/Initiative/жанровых маршрутов, per-chat override/GLOBAL, переключение без рестарта, reread после сохранения, preview vs production trace, изоляция frequent/off-чатов — не выполнена (postdeploy). Строка — READY_FOR_LIVE до Ф6.",
           "artifact_path": "plans/features/add-exp/review-add-exp.md",
           "artifact_sha256": "a369957653b32565407ec38a6134d2f8f7aab15e2bd5ee9f7887601bd9ac403b"
+        },
+        {
+          "candidate_commit": "95d11472b9e533b554554918e3efa6b42125260b",
+          "ref": "ACCEPTANCE-96 §1 (ROUTES, follow-up isolation) + acceptance/followup/isolation.json",
+          "observation": "A=frequent, B=off одновременно; a_wire_mode_lines=['frequent','frequent'], b_wire_mode_lines=['off','off'], маркеры 2/2 у каждого; B own mat 0/2; verdict=PASS.",
+          "artifact_path": "plans/features/add-exp/evidence/release-25896/acceptance/followup/isolation.json",
+          "artifact_sha256": "f2627d03e88340155eb1283b1ca0783b7d00833b7305c293b58bda284cba5a39",
+          "type": "production"
+        },
+        {
+          "candidate_commit": "95d11472b9e533b554554918e3efa6b42125260b",
+          "ref": "ACCEPTANCE-96 §1 (ROUTES) + acceptance/routes.json",
+          "observation": "resolved preview для off/occasional/frequent с text_sha12/revision 9de5c885b622 / 537816072dab / 6763c903ffc2; preview_eq_resolve=true (per wave); reread через прод-API подтверждён.",
+          "artifact_path": "plans/features/add-exp/evidence/release-25896/acceptance/routes.json",
+          "artifact_sha256": "4647674798de8779b8adbca1710f5e2eddf231370cd08c4dbb22d29315a99303",
+          "type": "production"
         }
       ],
-      "live_note": "Ф6 postdeploy: Direct/Initiative/жанры; per-chat override и GLOBAL; переключение без рестарта; reread после сохранения; preview vs production trace; активный frequent-чат не влияет на off-чат."
+      "live_note": "Закрыто live ACCEPTANCE-96 (2.58.96, follow-up): A=frequent/B=off одновременно; wire-строки 2/2 у каждого, B 0/2 мата; preview==resolve; reread; без рестарта. Main isolation=PARTIAL раскрыт.",
+      "note": "ACCEPTANCE-96: изоляция A/B подтверждена follow-up (main isolation=PARTIAL раскрыт в README §10.4); preview==resolve, reread, MainPID/NRestarts без рестарта."
     },
     {
       "source_id": "L00045",
@@ -783,7 +893,7 @@
       "source_text_sha256": "2d067035f9fa890e933b9184df86951a5721cfe76b1c24c61d1366ccbd7eab10",
       "source_excerpt": "- В админке показывать простые человекочитаемые описания режимов и реальное effective значение. Предпросмотр должен не просто собирать текст инструкции, а **позволять проверить речевой результат** тем же путём/моделью или чётко помечать, ес",
       "disposition": "required",
-      "reason": "",
+      "reason": "ЗАКРЫТО live (ACCEPTANCE-96): preview_eq_resolve=true для off/occasional/frequent; text_sha12 совпадает с ревизией слоя (9de5c885b622 / 537816072dab / 6763c903ffc2); expected_text_present=true в каждом L2-wire; runtime_wired=true.",
       "req_id": "EXP-ACCEPT.PREVIEW",
       "slice": "EXP-ACCEPT",
       "acceptance": "В админке показаны простые человекочитаемые описания режимов и реальное effective-значение; предпросмотр позволяет проверить речевой результат тем же путём/моделью или чётко помечен как симуляция; успех сохранения фиксируется только после подтверждённого runtime-применения.",
@@ -798,8 +908,25 @@
           "observation": "В админке человекочитаемые описания режимов и реальное effective-значение; предпросмотр — через тот же builder; «Проверить вживую» (rate-limit 30с, одна проба в полёте, без доставки); runtime_wired=true + честный runtime_note; сырых кодов в payload нет.",
           "artifact_path": "plans/features/add-exp/evidence/build/ui-e2e.json",
           "artifact_sha256": "87d3a9952b44dc14d37a7cd66467acc2c8f93ef002dbc12aa2005f63b2a66bb0"
+        },
+        {
+          "candidate_commit": "95d11472b9e533b554554918e3efa6b42125260b",
+          "ref": "ACCEPTANCE-96 §1 (PREVIEW) + acceptance/summary.json",
+          "observation": "preview_eq_resolve=true; preview_eq_resolve_per_wave={off:true, occasional:true, frequent:true}; runtime_wired=true; маркер/expected text присутствуют в wire.",
+          "artifact_path": "plans/features/add-exp/evidence/release-25896/acceptance/summary.json",
+          "artifact_sha256": "afeec2fdd6b98b1032105702e5873cf232c942bc61d5508a9f21c8872c6a6b7f",
+          "type": "production"
+        },
+        {
+          "candidate_commit": "95d11472b9e533b554554918e3efa6b42125260b",
+          "ref": "ACCEPTANCE-96 §1 (PREVIEW) + acceptance/routes.json",
+          "observation": "resolved preview text_sha12/revision по режимам: off 9de5c885b622, occasional 537816072dab, frequent 6763c903ffc2; preview собран тем же builder-путём.",
+          "artifact_path": "plans/features/add-exp/evidence/release-25896/acceptance/routes.json",
+          "artifact_sha256": "4647674798de8779b8adbca1710f5e2eddf231370cd08c4dbb22d29315a99303",
+          "type": "production"
         }
-      ]
+      ],
+      "note": "ACCEPTANCE-96: preview собран тем же путём/моделью, не симуляция; effective state и человекочитаемые описания подтверждены."
     },
     {
       "source_id": "L00046",
@@ -807,7 +934,7 @@
       "source_text_sha256": "572766d0a1333df5ad129651d9f3c3dcc2c388f8483b7b9669b54db0447bcfc5",
       "source_excerpt": "- Reviewer проверяет отсутствие поломки личности, других правил речи, фактологичности, цитат, Telegram-разметки и регрессий предыдущих требований. Отчёт: было/стало, где блокировалось правило, что исправлено, тестовые результаты, версия pro",
       "disposition": "required",
-      "reason": "",
+      "reason": "ЗАКРЫТО (ACCEPTANCE-96): независимый Reviewer проверил личность, другие правила речи, фактологичность, цитаты, Telegram-разметку и регрессии; отчёт содержит было/стало, где блокировалось правило, тесты, версию прода и что требует owner E2E. Вердикт Needs Fixes относится к EXP-ACCEPT.CRITERION (поведенческий критерий), не к отсутствию ревью.",
       "req_id": "EXP-ACCEPT.REVIEW",
       "slice": "EXP-ACCEPT",
       "acceptance": "Reviewer проверяет отсутствие поломки личности, других правил речи, фактологичности, цитат, Telegram-разметки и регрессий предыдущих требований; отчёт «было/стало», где блокировалось правило, что исправлено, тестовые результаты, версия prod и что требует owner E2E.",
@@ -822,8 +949,17 @@
           "observation": "Независимое ревью проведено: BLOCK-1 найден и закрыт; отчёт содержит «было/стало», где блокировалось правило, тестовые результаты (focused 642, UI e2e 0/22, JS 105/0), версию прода (2.58.94) и что требует Ф6.",
           "artifact_path": "plans/features/add-exp/review-add-exp.md",
           "artifact_sha256": "a369957653b32565407ec38a6134d2f8f7aab15e2bd5ee9f7887601bd9ac403b"
+        },
+        {
+          "candidate_commit": "95d11472b9e533b554554918e3efa6b42125260b",
+          "ref": "ACCEPTANCE-96 §0–§6 + review-accept-96.md",
+          "observation": "Независимый разбор эвиденса: wire 28/28, payload sample 7070, критерий 0/5 vs 0/7 vs 0/7, cleanup 45 residual 0, restore 28 ключей; вердикт Needs Fixes (behavioral criterion FAILED).",
+          "artifact_path": "plans/features/add-exp/review-accept-96.md",
+          "artifact_sha256": "64d8e995f876cb69d38abce0bb2a5b3f037f4b29777d4986afa8a00a15f749fe",
+          "type": "static"
         }
-      ]
+      ],
+      "note": "ACCEPTANCE-96: независимое ревью проведено (`review-accept-96.md`, Needs Fixes по критерию §4); REVIEW-строка закрывает факт ревью, не отменяет FAILED критерия."
     },
     {
       "source_id": "L00052",
