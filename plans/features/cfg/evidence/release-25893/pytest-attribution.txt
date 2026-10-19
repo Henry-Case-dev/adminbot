@@ -1,0 +1,49 @@
+REL-25893 - атрибуция полного pytest (кандидат 74160a5d, изолированный
+worktree OPENCODE_WORKFLOW_SCRATCH\release-25893\wt; pytest -q -p no:cacheprovider)
+
+Прогон 1 (параллельно с фокусными наборами): 10 failed / 14465 passed (787.81s)
+    raw: pytest-full-parallel.txt, команда: pytest-parallel-command.txt
+Прогон 2 (чистый, без внешней нагрузки):     10 failed / 14465 passed (713.93s)
+    raw: pytest-full.txt, команда: pytest-clean-command.txt
+
+Ожидаемый baseline окружения: 9 pre-existing (5 t5150 + 2 asap7 + 1 mca01 +
+1 history_cli worktree-env) - совпадает с релизом 2.58.92 (14447/9) и
+blast-радиусом CFG-02C (14466/9 в главном дереве; 14466 = 14447 + 19 новых
+тестов CFG-02C).
+
+9 постоянных (оба прогона):
+  * tests/test_asap7_direct_settings.py x2 (test_migration_v35_idempotent_twice,
+    test_backup_guard_fires_before_pending_step) - ожидания цепочки миграций
+    отстали от схемы; файлы не в дельте; воспроизводились на чистом HEAD.
+  * tests/test_mca01_tx_task_supervisor_round1027.py::
+    test_write_points_go_through_single_writer - write-точки database.py 201 vs
+    allow-map 198; файлы не в дельте.
+  * tests/test_t5150_startup_migrations_round1046.py x5 - SQLite lock-тайминги
+    (миграционные retry: `database is locked` -> retry 1/3..2/3).
+  * tests/test_history_cli.py::TestCliFts::test_scope_is_required -
+    environment-артефакт ЧИСТОГО worktree (нет untracked-каталога
+    migrate_history/); воспроизведён в 2.58.92 и на прод-базе; в главном
+    дереве зелёный.
+
+10-е падение - environment-флейк random_source под SQLite-lock
+(в каждом прогоне РАЗНЫЙ тест; оба в изоляции зелёные):
+  * Прогон 1: tests/test_nostalgia_worker.py::TestCandidatesAndThreshold::
+    test_golden_candidate_sent -> в изоляции tests/test_nostalgia_worker.py
+    26 passed (nostalgia-iso.txt).
+  * Прогон 2: tests/test_soul1_w5_initiative_vitality.py::
+    test_check_dry_run_reaches_mock_send_without_publishing -> в изоляции
+    tests/test_soul1_w5_initiative_vitality.py 18 passed (soul1w5-iso.txt).
+Общий механизм (оба раза): `database is locked` -> `connection unrecoverable
+| op=random_state` -> `ValueError: no active connection` в
+services/mca_random_source.py (`reserve read failed` / `write_state failed`) ->
+random-source fallback -> ассерт «отправлено/attempted» падает.
+
+Доказательство независимости от дельты: `git diff 1d367e4c..74160a5d --
+services` = ТОЛЬКО 5 payload-файлов CFG-02C (capability_registry.py,
+cover_style_preview.py, image_generation.py, summary_generator.py,
+worker_budget.py); services/mca_random_source.py, services/database.py,
+services/nostalgia_worker.py, services/initiative_diagnostics.py,
+services/initiative_observer.py - байт-в-байт как в проде 2.58.92.
+Прецедент известного флейка того же теста: plans/features/soul-1/
+w4-humor-feedback-report.md:302 (3867/2 -> повтор 3869/0; изоляция 26 passed).
+Новых падений от CFG-02C нет.

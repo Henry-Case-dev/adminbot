@@ -1,0 +1,20 @@
+[matrix] config stub: items=577 groups=120
+[matrix] chat-вариант config: override items=116
+{
+  "console_errors": [],
+  "checks": {
+    "section_visible": true,
+    "facts_visible": true,
+    "scope_label": "Пользовательские изображения: настройка, расход и остаток ниже относятся только к картинкам, которые просят люди в общении. Обложки сводок здесь не учитываются — у них собственный отдельный учёт.",
+    "shared_breakdown": "В том числе обложки сводок: 4 — отдельный учёт, счётчик пользовательских изображений их не включает.",
+    "shared_value": "12 / 200",
+    "chat_used": "3",
+    "chat_remaining": "57 из 60",
+    "group_description": "Пользовательские изображения: дневная квота генерации изображений по запросу людей. Глобальное значение — по умолчанию для чатов, у отдельного чата может быть своё. 0 — генерация запрещена, −1 — безлимит. Обложки сводок здесь не учитываются — у них собственный отдельный учёт.",
+    "mobile_section_visible": true,
+    "mobile_label_visible": true,
+    "mobile_breakdown_visible": true,
+    "mobile_no_overflow": true
+  }
+}
+RESULT: PASS

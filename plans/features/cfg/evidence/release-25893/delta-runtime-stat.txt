@@ -1,0 +1,10 @@
+﻿ config/settings.py              |   2 +-
+ services/capability_registry.py |   4 +
+ services/cover_style_preview.py |   6 +-
+ services/image_generation.py    | 204 +++++++++++++++++++++++++++++++++++++---
+ services/summary_generator.py   |   9 +-
+ services/worker_budget.py       | 114 +++++++++++++++++++++-
+ web/api/summary_test.py         |   8 +-
+ web/app.js                      |  10 +-
+ web/index.html                  |  22 +++++
+ 9 files changed, 356 insertions(+), 23 deletions(-)

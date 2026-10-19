@@ -1,0 +1,987 @@
+........................................................................ [  0%]
+........................................................................ [  0%]
+........................................................................ [  1%]
+........................................................................ [  1%]
+........................................................................ [  2%]
+........................................................................ [  2%]
+........................................................................ [  3%]
+........................................................................ [  3%]
+........................................................................ [  4%]
+........................................................................ [  4%]
+..........................FF............................................ [  5%]
+........................................................................ [  5%]
+........................................................................ [  6%]
+........................................................................ [  6%]
+........................................................................ [  7%]
+........................................................................ [  7%]
+........................................................................ [  8%]
+........................................................................ [  8%]
+........................................................................ [  9%]
+........................................................................ [  9%]
+........................................................................ [ 10%]
+........................................................................ [ 10%]
+........................................................................ [ 11%]
+........................................................................ [ 11%]
+........................................................................ [ 12%]
+........................................................................ [ 12%]
+........................................................................ [ 13%]
+........................................................................ [ 13%]
+........................................................................ [ 14%]
+........................................................................ [ 14%]
+........................................................................ [ 15%]
+........................................................................ [ 15%]
+........................................................................ [ 16%]
+........................................................................ [ 16%]
+........................................................................ [ 17%]
+........................................................................ [ 17%]
+........................................................................ [ 18%]
+........................................................................ [ 18%]
+........................................................................ [ 19%]
+........................................................................ [ 19%]
+........................................................................ [ 20%]
+........................................................................ [ 20%]
+........................................................................ [ 21%]
+........................................................................ [ 21%]
+........................................................................ [ 22%]
+........................................................................ [ 22%]
+........................................................................ [ 23%]
+........................................................................ [ 23%]
+........................................................................ [ 24%]
+........................................................................ [ 24%]
+........................................................................ [ 25%]
+........................................................................ [ 25%]
+........................................................................ [ 26%]
+........................................................................ [ 26%]
+........................................................................ [ 27%]
+........................................................................ [ 27%]
+........................................................................ [ 28%]
+........................................................................ [ 28%]
+........................................................................ [ 29%]
+........................................................................ [ 29%]
+........................................................................ [ 30%]
+........................................................................ [ 30%]
+........................................................................ [ 31%]
+........................................................................ [ 31%]
+........................................................................ [ 32%]
+........................................................................ [ 32%]
+........................................................................ [ 33%]
+.......................................................F................ [ 33%]
+........................................................................ [ 34%]
+........................................................................ [ 34%]
+........................................................................ [ 35%]
+........................................................................ [ 35%]
+........................................................................ [ 36%]
+........................................................................ [ 36%]
+........................................................................ [ 37%]
+........................................................................ [ 37%]
+........................................................................ [ 38%]
+........................................................................ [ 38%]
+........................................................................ [ 39%]
+.............................................................F.......... [ 39%]
+........................................................................ [ 40%]
+........................................................................ [ 40%]
+........................................................................ [ 41%]
+........................................................................ [ 41%]
+........................................................................ [ 42%]
+........................................................................ [ 42%]
+........................................................................ [ 43%]
+........................................................................ [ 43%]
+........................................................................ [ 44%]
+........................................................................ [ 44%]
+........................................................................ [ 45%]
+........................................................................ [ 45%]
+........................................................................ [ 46%]
+........................................................................ [ 46%]
+........................................................................ [ 47%]
+........................................................................ [ 47%]
+........................................................................ [ 48%]
+........................................................................ [ 48%]
+........................................................................ [ 49%]
+........................................................................ [ 49%]
+........................................................................ [ 50%]
+........................................................................ [ 50%]
+........................................................................ [ 51%]
+........................................................................ [ 51%]
+........................................................................ [ 52%]
+........................................................................ [ 52%]
+........................................................................ [ 53%]
+........................................................................ [ 53%]
+........................................................................ [ 54%]
+........................................................................ [ 54%]
+........................................................................ [ 55%]
+........................................................................ [ 55%]
+........................................................................ [ 56%]
+........................................................................ [ 56%]
+........................................................................ [ 57%]
+........................................................................ [ 57%]
+........................................................................ [ 58%]
+........................................................................ [ 58%]
+........................................................................ [ 59%]
+........................................................................ [ 59%]
+........................................................................ [ 60%]
+........................................................................ [ 60%]
+........................................................................ [ 61%]
+........................................................................ [ 61%]
+........................................................................ [ 62%]
+........................................................................ [ 62%]
+........................................................................ [ 63%]
+........................................................................ [ 63%]
+........................................................................ [ 64%]
+........................................................................ [ 64%]
+........................................................................ [ 65%]
+........................................................................ [ 65%]
+........................................................................ [ 66%]
+........................................................................ [ 66%]
+........................................................................ [ 67%]
+........................................................................ [ 67%]
+........................................................................ [ 68%]
+........................................................................ [ 68%]
+........................................................................ [ 69%]
+........................................................................ [ 69%]
+........................................................................ [ 70%]
+........................................................................ [ 70%]
+........................................................................ [ 71%]
+........................................................................ [ 71%]
+......F................................................................. [ 72%]
+........................................................................ [ 72%]
+........................................................................ [ 73%]
+........................................................................ [ 73%]
+........................................................................ [ 74%]
+........................................................................ [ 74%]
+........................................................................ [ 75%]
+........................................................................ [ 75%]
+........................................................................ [ 76%]
+........................................................................ [ 76%]
+........................................................................ [ 77%]
+........................................................................ [ 77%]
+........................................................................ [ 78%]
+........................................................................ [ 78%]
+........................................................................ [ 79%]
+........................................................................ [ 79%]
+........................................................................ [ 80%]
+........................................................................ [ 80%]
+........................................................................ [ 81%]
+........................................................................ [ 81%]
+........................................................................ [ 82%]
+..............................................FF.FFF.................... [ 82%]
+........................................................................ [ 83%]
+........................................................................ [ 83%]
+........................................................................ [ 84%]
+........................................................................ [ 84%]
+........................................................................ [ 85%]
+........................................................................ [ 85%]
+........................................................................ [ 86%]
+........................................................................ [ 86%]
+........................................................................ [ 87%]
+........................................................................ [ 87%]
+........................................................................ [ 88%]
+........................................................................ [ 88%]
+........................................................................ [ 89%]
+........................................................................ [ 89%]
+........................................................................ [ 90%]
+........................................................................ [ 90%]
+........................................................................ [ 91%]
+........................................................................ [ 91%]
+........................................................................ [ 92%]
+........................................................................ [ 92%]
+........................................................................ [ 93%]
+........................................................................ [ 93%]
+........................................................................ [ 94%]
+........................................................................ [ 94%]
+........................................................................ [ 95%]
+........................................................................ [ 95%]
+........................................................................ [ 96%]
+........................................................................ [ 96%]
+........................................................................ [ 96%]
+........................................................................ [ 97%]
+........................................................................ [ 97%]
+........................................................................ [ 98%]
+........................................................................ [ 98%]
+........................................................................ [ 99%]
+........................................................................ [ 99%]
+...                                                                      [100%]
+WARNING: closed 71 leaked aiosqlite connection(s)
+
+================================== FAILURES ===================================
+_____________________ test_migration_v35_idempotent_twice _____________________
+
+tmp_path = WindowsPath('C:/Users/main/.config/opencode/OpenCodeScratch/adminbot-ccef72c25768/tmp/pytest-of-main/pytest-1815/test_migration_v35_idempotent_0')
+
+    def test_migration_v35_idempotent_twice(tmp_path):
+        from services.database import DatabaseService
+        db_path = tmp_path / "f2_v35.db"
+    
+        async def _run():
+            d1 = DatabaseService(str(db_path))
+            await d1.initialize()
+            cur = await d1.db.execute("PRAGMA user_version")
+            row = await cur.fetchone()
+            assert int(row[0]) == 35
+            cur = await d1.db.execute(
+                "SELECT COUNT(*) FROM schema_migrations WHERE version=35")
+            assert (await cur.fetchone())[0] == 1
+            await d1.close()
+            # Прогон дважды (тот же файл БД) — no-op без дублей/ошибок.
+            d2 = DatabaseService(str(db_path))
+            await d2.initialize()
+            cur = await d2.db.execute("PRAGMA user_version")
+            row = await cur.fetchone()
+            assert int(row[0]) == 35
+            cur = await d2.db.execute(
+                "SELECT COUNT(*) FROM schema_migrations WHERE version=35")
+            assert (await cur.fetchone())[0] == 1
+            await d2.close()
+    
+>       asyncio.run(_run())
+
+tests\test_asap7_direct_settings.py:144: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\asyncio\runners.py:194: in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\asyncio\runners.py:118: in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\asyncio\base_events.py:664: in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    async def _run():
+        d1 = DatabaseService(str(db_path))
+        await d1.initialize()
+        cur = await d1.db.execute("PRAGMA user_version")
+        row = await cur.fetchone()
+>       assert int(row[0]) == 35
+E       assert 36 == 35
+E        +  where 36 = int(36)
+
+tests\test_asap7_direct_settings.py:128: AssertionError
+_________________ test_backup_guard_fires_before_pending_step _________________
+
+tmp_path = WindowsPath('C:/Users/main/.config/opencode/OpenCodeScratch/adminbot-ccef72c25768/tmp/pytest-of-main/pytest-1815/test_backup_guard_fires_before0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000002072DF9E8A0>
+
+    def test_backup_guard_fires_before_pending_step(tmp_path, monkeypatch):
+        """Backup-guard fail-closed pre-DDL: current>0 + pending v35 →
+        services.memory_backup.migration_backup вызван ДО применения шага."""
+        from services import database as db_mod
+        from services.database import DatabaseService
+        db_path = tmp_path / "f2_guard.db"
+    
+        calls = []
+    
+        async def fake_backup(svc, target_version=None):
+            calls.append(target_version)
+            # Честный read-back-семантический маркер: guard не падает.
+            return "backup-ok"
+    
+        monkeypatch.setattr(
+            "services.memory_backup.migration_backup", fake_backup)
+    
+        async def _run():
+            d = DatabaseService(str(db_path))
+            await d.initialize()
+            await d.close()
+            # Откат версии до v34 при сохранении книги → v35 снова pending.
+            import aiosqlite
+            db = await aiosqlite.connect(str(db_path))
+            try:
+                await db.execute("PRAGMA user_version = 34")
+                await db.execute("DELETE FROM schema_migrations WHERE version=35")
+                await db.commit()
+            finally:
+                await db.close()
+            d2 = DatabaseService(str(db_path))
+            await d2.initialize()
+            cur = await d2.db.execute("PRAGMA user_version")
+            row = await cur.fetchone()
+            assert int(row[0]) == 35
+            await d2.close()
+    
+>       asyncio.run(_run())
+
+tests\test_asap7_direct_settings.py:184: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\asyncio\runners.py:194: in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\asyncio\runners.py:118: in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\asyncio\base_events.py:664: in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    async def _run():
+        d = DatabaseService(str(db_path))
+        await d.initialize()
+        await d.close()
+        # Откат версии до v34 при сохранении книги → v35 снова pending.
+        import aiosqlite
+        db = await aiosqlite.connect(str(db_path))
+        try:
+            await db.execute("PRAGMA user_version = 34")
+            await db.execute("DELETE FROM schema_migrations WHERE version=35")
+            await db.commit()
+        finally:
+            await db.close()
+        d2 = DatabaseService(str(db_path))
+        await d2.initialize()
+        cur = await d2.db.execute("PRAGMA user_version")
+        row = await cur.fetchone()
+>       assert int(row[0]) == 35
+E       assert 36 == 35
+E        +  where 36 = int(36)
+
+tests\test_asap7_direct_settings.py:181: AssertionError
+______________________ TestCliFts.test_scope_is_required ______________________
+
+self = <tests.test_history_cli.TestCliFts object at 0x00000207090A8FB0>
+
+    def test_scope_is_required(self):
+        proc = _run("import_history", "--mode", "fts")
+        assert proc.returncode != 0
+>       assert "охват" in (proc.stderr + proc.stdout)
+E       AssertionError: assert 'охват' in ('папка migrate_history не найдена — положите JSON-экспорты сюда (запуск из корня проекта)\n' + '')
+E        +  where 'папка migrate_history не найдена — положите JSON-экспорты сюда (запуск из корня проекта)\n' = CompletedProcess(args=['C:\\Code\\Python\\adminbot\\.venv\\Scripts\\python.exe', 'C:\\Users\\main\\.config\\opencode\\...code=1, stdout='', stderr='папка migrate_history не найдена — положите JSON-экспорты сюда (запуск из корня проекта)\n').stderr
+E        +  and   '' = CompletedProcess(args=['C:\\Code\\Python\\adminbot\\.venv\\Scripts\\python.exe', 'C:\\Users\\main\\.config\\opencode\\...code=1, stdout='', stderr='папка migrate_history не найдена — положите JSON-экспорты сюда (запуск из корня проекта)\n').stdout
+
+tests\test_history_cli.py:91: AssertionError
+_________________ test_write_points_go_through_single_writer __________________
+
+    def test_write_points_go_through_single_writer():
+        """B-MCA01-1/SC-05: аудит ВСЕХ write-точек `services/` (реестр/allowlist).
+    
+        * `database.py` — прямой `*.commit()` допустим ТОЛЬКО внутри
+          `@_serialized_write`-метода, `write_transaction`-машинерии или
+          санкционированного DDL-этапа `initialize()`/`_migrate_*` (L-MCA14-3,
+          до старта сервинга); новых прямых commit вне механизма быть не должно.
+        * остальные модули — только в allowlist и под `serialized()` (единый
+          single-writer) либо с явным маркером санкционированного fallback
+          (`mca01-write-fallback`); собственные соединения (`smart_cache.py`) —
+          санкционированное исключение (отдельная БД, не общая connection).
+        """
+        import ast
+        from pathlib import Path
+    
+        # allowlist: файл → число прямых commit (все — эквивалент single-writer).
+        # database.py: 49 в `@_serialized_write`-методах + 60 в санкционированной
+        # DDL/initialize/write_transaction-машинерии (реестр — evidence-rework.md;
+        # +7 — санкционированные commit шага v16 `mca-03`/backfill, L-MCA14-3;
+        # +7 — санкционированные commit шага v17 `mca-04a`/backfill, L-MCA14-3;
+        # +6 — санкционированные commit шага v18 `mca-07` (миграция identity/
+        # поколений + `ensure_embedding_generation` под serialized(), L-MCA14-3).
+        # +7 — санкционированные commit шага v19 `mca-17a` (observability_core:
+        # run/incident-таблицы + их индексы + 2×ALTER-колонки `task_jobs`/
+        # `mca_events` + PRAGMA, L-MCA14-3; раннер до старта писателей).
+        # +8 — санкционированные commit шага v20 `mca-04b` (dossier_staging:
+        # 2 таблицы + их индексы + ALTER `graph_facts.dossier_generation_id` +
+        # индекс + PRAGMA — все в `_migrate_dossier_staging_v20`, L-MCA14-3;
+        # раннер до старта писателей) + 1 в `activate_embedding_generation`
+        # (N-MCA07-1) под `async with self.serialized()` (single-writer).
+        allow = {
+            # +3 v22 mca-22 (ADR-1028-6, bot_outputs_ledger: таблица/индексы/
+            # PRAGMA в `_migrate_bot_outputs_v22`, L-MCA14-3)
+            # +3 v23 asap-4 (ADR-1028-7 D1, embedding control plane:
+            # embedding_quota_state + ALTER реестра + PRAGMA в
+            # `_migrate_embedding_control_plane_v23`, L-MCA14-3)
+            # +2 v24 asap-4.1 (T-4603, summary_source_windows: CREATE TABLE +
+            # PRAGMA в `_migrate_summary_source_window_v24`, L-MCA14-3;
+            # runtime-save/purge идут через `write_transaction`, без прямых)
+            # +6 v24 asap-4.1 (T-4616, волна 5: summary_runs + summary_run_stages
+            # — CREATE TABLE/индексы/PRAGMA в `_migrate_summary_runs_v24`/
+            # `_migrate_summary_run_stages_v24`, L-MCA14-3; runtime run/stage/
+            # publication-записи идут через `write_transaction`, без прямых)
+            # +4 v25 mca-06 (ADR-1028-9 D5, durable отчёт сна: 2×ALTER-колонки
+            # `mca_pipeline_runs` + CREATE INDEX `idx_mca_pipeline_runs_chat` +
+            # PRAGMA в `_migrate_dream_runs_v25`, L-MCA14-3; раннер до старта
+            # писателей)
+            # +3 v26 mca-08 (ADR-1028-11 D3/санкция §9.1, scoped-просьбы:
+            # CREATE TABLE `mca_style_requests` + 2×CREATE INDEX + PRAGMA в
+            # `_migrate_style_requests_v26`, L-MCA14-3; раннер до старта
+            # писателей; runtime CRUD идёт через `write_transaction`)
+            # +3 v27 mca-10a (ADR-1028-14 D2/санкция §13.1, RandomSource:
+            # 4×CREATE TABLE + 3×CREATE INDEX + PRAGMA в
+            # `_migrate_random_source_v27`, L-MCA14-3; раннер до старта писателей;
+            # runtime batches/draws/quota/state идут через `write_transaction`)
+            # +3 v28 mca-16 (ADR-1028-15 D8/санкция §12.1, банк опыта:
+            # 4×CREATE TABLE + 9×CREATE INDEX + PRAGMA в
+            # `_migrate_experience_v28`, L-MCA14-3; раннер до старта писателей;
+            # runtime episodes/feedback/lessons/applications идут через
+            # `write_transaction` — см. `services/mca_experience.py`)
+            # +3 v29 mca-09 (ADR-1028-16 D8/санкция §11.1, intents-инициатива:
+            # CREATE TABLE `mca_intents` + 4×CREATE INDEX (UNIQUE `dedup_key`)
+            # + PRAGMA в `_migrate_intents_v29` (T-5020), L-MCA14-3; раннер до
+            # старта писателей; runtime intents идут через `write_transaction` —
+            # см. `services/mca_intents.py`)
+            # +5 v30 mca-10b (ADR-1028-17 D15/санкция §13.1, random uses:
+            # ALTER `mca_episodes` (+2 колонки, +1 индекс) + 3×CREATE TABLE +
+            # 4×CREATE INDEX + PRAGMA в `_migrate_random_uses_v30`
+            # (T-5051…T-5056), L-MCA14-3; раннер до старта писателей; runtime
+            # применений идёт через `write_transaction` — см.
+            # `services/mca_exploration.py`)
+            # +6 v31 mca-18 (ADR-1028-18 D1/D4/D5, санкция spec §8.1): SelfModel
+            # runtime-записи через `write_transaction` (mca-01): self_rebind,
+            # typed_fact_save, adoption_link, trait_observation, rule_upsert,
+            # rule_transition, rule_reinforce (миграция v31 — L-MCA14-3, раннер
+            # до старта писателей; T-5075…T-5078/5079…5082).
+            # +4 v32 mca-19 (ADR-1028-19 D2/D3/D13, санкция spec §8.1): Vision —
+            # ALTER smart_messages Origin-колонок + CREATE TABLE
+            # mca_media_assets/mca_media_analyses + индексы + PRAGMA user_version
+            # в `_migrate_media_vision_v32` (L-MCA14-3; раннер до старта
+            # писателей; runtime asset/analysis-записи — через `write_transaction`
+            # (прецедент L-MCA14-3; раннер до старта
+            # писателей; runtime asset/analysis-записи — через `write_transaction`
+            # в services/mca_vision.py).
+            # +3 v33 mca-20 (ADR-1028-20 D3/D13/D16, санкция spec §7.1): Temporal
+            # Factcheck — миграция `_migrate_factcheck_temporal_v33` (CREATE ×2 +
+            # PRAGMA user_version; раннер) + runtime run/evidence-записи через
+            # `write_transaction` (`record_factcheck_run`/`record_factcheck_
+            # evidence`); чтение виджета — read-only.
+            # +2 asap5 B3 (ADR-1028-25, T-5256/T-5257, санкция census-sweep
+            # D-1 / T-5270): `set_embedding_generation_status` — D12/13E
+            # валидированный transition-хелпер поколений (fail-open, OPT-IN для
+            # migration-машины; одиночный UPDATE + commit, rollback в сайте нет).
+            # +5 asap6 §8 (v34, L-MCA14-3): `_migrate_embedding_generation_ns_v34`
+            # (ALTER×2 + UPDATE namespace-default + индексы + PRAGMA user_version;
+            # раннер до старта писателей) + `supersede_building_generations`/
+            # `promote_embedding_generation` (§8.4/§8.5 — одиночные commit внутри
+            # `serialized()`; promotion — атомарный указатель реестра, физический
+            # swap — callback `data_swap` в той же транзакции).
+            # +2 asap7 F2 (v35, architecture §1.10, L-MCA14-3):
+            # `_migrate_llm_usage_plan_meta_v35` — nullable plan_meta JSONB в
+            # llm_usage_events (PG-only DDL, SQLite no-op) + PRAGMA user_version;
+            # миграционная машина, раннер до старта писателей.
+            "database.py": 198,
+            "dossier_rebuild_jobs.py": 1,   # внутри `async with db.serialized()`
+            # ASAP-3.2 (ADR-1028-5 D1/D2, T-4191): shadow-rebuild — 3 прямых
+            # commit внутри `async with memory.db.serialized()` (идемпотентный
+            # CREATE/DROP shadow vec0-таблиц + батч-вставки; активация/статусы —
+            # через `write_transaction` mca-01).
+            "graphrag_rebuild.py": 3,
+            # ASAP 8 v6.3 B09 (W1-MEMORY-MIG): идемпотентный перенос памяти
+            # supergroup (backup-DDL + backup-вставки + UPDATE chat_id, 0 DELETE)
+            # через общий `db.db` (single-writer канал), lifecycle-hook
+            # on_chat_migrated, fail-open; того же класса обслуживающие записи,
+            # что graphrag_rebuild/dossier_rebuild.
+            "chat_migration.py": 4,
+            "memory_maintenance.py": 1,     # внутри `async with self.db.serialized()`
+            "persistent_throttling.py": 1,  # fallback-двойник без write_transaction
+            "smart_cache.py": 3,            # ОТДЕЛЬНОЕ соединение (F17), не общая
+            "summary_memory.py": 13,        # 12 в serialized() + 1 fallback-двойник
+            # +1 asap5 B3 (ADR-1028-25, T-5257, санкция census-sweep D-1 /
+            # T-5270): `embedding_canary_check` — canary-эталоны в
+            # `embedding_cache` (INSERT..ON CONFLICT + commit, fail-open; это
+            # canary-хранилище, не пользовательские векторы; после смены identity
+            # ключи другие — смешивания нет).
+            "embedding_control_plane.py": 1,
+        }
+        # database.py: санкционированные точки (DDL/инициализация до сервинга,
+        # машинерия write_transaction). Остальное обязано быть `@_serialized_write`.
+        db_sanctioned = {
+            "initialize", "initialize_existing", "_run_migrations",
+            "_ensure_migration_book", "_write_transaction_baseline",
+            "_write_transaction_owned", "_commit_locked",
+        }
+        separate_connection = {"smart_cache.py"}
+        # T-5270/census-sweep D-1: санкционированные прямые commit asap5 B3
+        # (ADR-1028-25) — API миграционной машины embedding-поколений:
+        # fail-open, одиночные execute+commit (rollback в сайтах нет), в
+        # рантайме вызываются future-resume воркером (тик 900с); рост числа
+        # сайтов по-прежнему ловится сверкой `found == allow`.
+        sanctioned_b3 = {
+            ("database.py", "set_embedding_generation_status"),
+            ("embedding_control_plane.py", "embedding_canary_check"),
+        }
+    
+        def _decorators(node) -> list[str]:
+            return [ast.unparse(d) for d in node.decorator_list]
+    
+        def _walk_up(call):
+            """Ancestors до ближайшей функции + флаг `serialized()`-контекста."""
+            node = call
+            in_serialized = False
+            while id(node) in parents:
+                node = parents[id(node)]
+                if isinstance(node, (ast.With, ast.AsyncWith)):
+                    ctx = [ast.unparse(item.context_expr)
+                           for item in node.items]
+                    if any("serialized()" in c for c in ctx):
+                        in_serialized = True
+                    continue
+                if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    return node, in_serialized
+            return None, in_serialized
+    
+        found: dict[str, int] = {}
+        unguarded: list[str] = []
+        root = Path(__file__).resolve().parent.parent / "services"
+        for path in sorted(root.glob("*.py")):
+            src = path.read_text(encoding="utf-8")
+            lines = src.splitlines()
+            tree = ast.parse(src)
+            parents: dict[int, object] = {}
+            for node in ast.walk(tree):
+                for child in ast.iter_child_nodes(node):
+                    parents[id(child)] = node
+            commits = [n for n in ast.walk(tree)
+                       if isinstance(n, ast.Call)
+                       and isinstance(n.func, ast.Attribute)
+                       and n.func.attr == "commit"]
+            for call in commits:
+                lineno = call.lineno
+                found[path.name] = found.get(path.name, 0) + 1
+                func, in_serialized = _walk_up(call)
+                if (path.name, func.name if func else None) in sanctioned_b3:
+                    continue    # санкция census-sweep D-1 / T-5270 (см. выше)
+                if path.name == "database.py":
+                    guarded = in_serialized or (
+                        func is not None
+                        and (any("_serialized_write" in d
+                                 for d in _decorators(func))
+                             or func.name in db_sanctioned
+                             or func.name.startswith("_migrate_")))
+                    if not guarded:
+                        unguarded.append(f"database.py:{lineno}")
+                    continue
+                if "mca01-write-fallback" in lines[lineno - 1]:
+                    continue
+                if path.name in separate_connection:
+                    continue    # санкционированное исключение (отдельное соединение)
+                guarded = in_serialized or (
+                    func is not None
+                    and any("_serialized_write" in d for d in _decorators(func)))
+                if not guarded:
+                    unguarded.append(f"{path.name}:{lineno}")
+>       assert found == allow, f"write-точки изменились (нужен аудит): {found}"
+E       AssertionError: write-точки изменились (нужен аудит): {'chat_migration.py': 4, 'database.py': 201, 'dossier_rebuild_jobs.py': 1, 'embedding_control_plane.py': 1, 'graphrag_rebuild.py': 3, 'memory_maintenance.py': 1, 'persistent_throttling.py': 1, 'smart_cache.py': 3, 'summary_memory.py': 13}
+E       assert {'chat_migrat...e.py': 1, ...} == {'database.py...n.py': 4, ...}
+E         
+E         Omitting 8 identical items, use -vv to show
+E         Differing items:
+E         {'database.py': 201} != {'database.py': 198}
+E         Use -v to get more diff
+
+tests\test_mca01_tx_task_supervisor_round1027.py:1061: AssertionError
+___________ test_check_dry_run_reaches_mock_send_without_publishing ___________
+
+tmp_path = WindowsPath('C:/Users/main/.config/opencode/OpenCodeScratch/adminbot-ccef72c25768/tmp/pytest-of-main/pytest-1815/test_check_dry_run_reaches_moc0')
+
+    @pytest.mark.asyncio
+    async def test_check_dry_run_reaches_mock_send_without_publishing(tmp_path):
+        db = await _db(tmp_path, "w5_check.db")
+        _caches({CHAT: {"initiative.frequency_profile": "active",
+                        "initiative.eval_min_messages": 4,
+                        "initiative.eval_min_interval_seconds": 0,
+                        "initiative.min_gap_seconds": 0,
+                        "initiative.eval_llm_budget_per_day": 10}})
+        writer = _FakeWriter()
+        try:
+            for i in range(6):
+                await _msg(db, text="живой повод для проверки %d" % i, ts_ago=300 - i)
+            result = await diag.run_check(db, chat_id=CHAT, writer_service=writer,
+                                          llm=_FakeLLM())
+            assert result["available"] is True
+            assert result["published"] is False
+            assert result["publish_mode"] == "mock"
+            assert result["verdict"]["kind"] == "humor"
+>           assert result["mock_send"]["attempted"] is True
+E           assert False is True
+
+tests\test_soul1_w5_initiative_vitality.py:481: AssertionError
+------------------------------ Captured log call ------------------------------
+WARNING  services.mca_random_source:mca_random_source.py:1445 [random_source] reserve read failed
+Traceback (most recent call last):
+  File "C:\Users\main\.config\opencode\OpenCodeScratch\adminbot-ccef72c25768\release-25893\wt\services\mca_random_source.py", line 1443, in _reserve_remaining
+    return await self._store.reserve_remaining()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\main\.config\opencode\OpenCodeScratch\adminbot-ccef72c25768\release-25893\wt\services\mca_random_source.py", line 645, in reserve_remaining
+    cursor = await self._db.db.execute(
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\aiosqlite\core.py", line 223, in execute
+    cursor = await self._execute(self._conn.execute, sql, parameters)
+                                 ^^^^^^^^^^
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\aiosqlite\core.py", line 137, in _conn
+    raise ValueError("no active connection")
+ValueError: no active connection
+WARNING  services.database:database.py:2630 database: rollback failed | event=database_rollback_failed | op=random_state | phase=recover-degraded
+ERROR    services.database:database.py:2568 database: connection unrecoverable | event=database_connection_unrecoverable | op=random_state
+WARNING  services.database:database.py:2630 database: rollback failed | event=database_rollback_failed | op=random_state | phase=op-error
+ERROR    services.database:database.py:2585 database: rollback failed — connection marked unrecoverable | event=database_connection_unrecoverable | op=random_state
+Traceback (most recent call last):
+  File "C:\Users\main\.config\opencode\OpenCodeScratch\adminbot-ccef72c25768\release-25893\wt\services\database.py", line 2573, in _write_transaction_owned
+    result = await op(self.db)
+             ^^^^^^^^^^^^^^^^^
+  File "C:\Users\main\.config\opencode\OpenCodeScratch\adminbot-ccef72c25768\release-25893\wt\services\mca_random_source.py", line 927, in _body
+    cursor = await conn.execute(
+             ^^^^^^^^^^^^^^^^^^^
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\aiosqlite\core.py", line 223, in execute
+    cursor = await self._execute(self._conn.execute, sql, parameters)
+                                 ^^^^^^^^^^
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\aiosqlite\core.py", line 137, in _conn
+    raise ValueError("no active connection")
+ValueError: no active connection
+WARNING  services.mca_random_source:mca_random_source.py:1708 [random_source] fallback state write failed
+Traceback (most recent call last):
+  File "C:\Users\main\.config\opencode\OpenCodeScratch\adminbot-ccef72c25768\release-25893\wt\services\mca_random_source.py", line 1705, in _mark_fallback
+    await self._store.write_state(last_fallback_reason=str(reason)[:160],
+  File "C:\Users\main\.config\opencode\OpenCodeScratch\adminbot-ccef72c25768\release-25893\wt\services\mca_random_source.py", line 940, in write_state
+    await self._db.write_transaction(_body, op_name="random_state")
+  File "C:\Users\main\.config\opencode\OpenCodeScratch\adminbot-ccef72c25768\release-25893\wt\services\database.py", line 2488, in write_transaction
+    return await self._write_transaction_owned(op, op_name,
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\main\.config\opencode\OpenCodeScratch\adminbot-ccef72c25768\release-25893\wt\services\database.py", line 2573, in _write_transaction_owned
+    result = await op(self.db)
+             ^^^^^^^^^^^^^^^^^
+  File "C:\Users\main\.config\opencode\OpenCodeScratch\adminbot-ccef72c25768\release-25893\wt\services\mca_random_source.py", line 927, in _body
+    cursor = await conn.execute(
+             ^^^^^^^^^^^^^^^^^^^
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\aiosqlite\core.py", line 223, in execute
+    cursor = await self._execute(self._conn.execute, sql, parameters)
+                                 ^^^^^^^^^^
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\aiosqlite\core.py", line 137, in _conn
+    raise ValueError("no active connection")
+ValueError: no active connection
+WARNING  services.database:database.py:2630 database: rollback failed | event=database_rollback_failed | op=random_draw_journal | phase=recover-degraded
+ERROR    services.database:database.py:2568 database: connection unrecoverable | event=database_connection_unrecoverable | op=random_draw_journal
+WARNING  services.database:database.py:2630 database: rollback failed | event=database_rollback_failed | op=random_draw_journal | phase=op-error
+ERROR    services.database:database.py:2585 database: rollback failed — connection marked unrecoverable | event=database_connection_unrecoverable | op=random_draw_journal
+Traceback (most recent call last):
+  File "C:\Users\main\.config\opencode\OpenCodeScratch\adminbot-ccef72c25768\release-25893\wt\services\database.py", line 2573, in _write_transaction_owned
+    result = await op(self.db)
+             ^^^^^^^^^^^^^^^^^
+  File "C:\Users\main\.config\opencode\OpenCodeScratch\adminbot-ccef72c25768\release-25893\wt\services\mca_random_source.py", line 766, in _body
+    cursor = await conn.execute(
+             ^^^^^^^^^^^^^^^^^^^
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\aiosqlite\core.py", line 223, in execute
+    cursor = await self._execute(self._conn.execute, sql, parameters)
+                                 ^^^^^^^^^^
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\aiosqlite\core.py", line 137, in _conn
+    raise ValueError("no active connection")
+ValueError: no active connection
+WARNING  services.mca_random_source:mca_random_source.py:1696 [random_source] prng journal failed
+Traceback (most recent call last):
+  File "C:\Users\main\.config\opencode\OpenCodeScratch\adminbot-ccef72c25768\release-25893\wt\services\mca_random_source.py", line 1694, in _journal_prng
+    await self._store.journal_draw(record)
+  File "C:\Users\main\.config\opencode\OpenCodeScratch\adminbot-ccef72c25768\release-25893\wt\services\mca_random_source.py", line 771, in journal_draw
+    return bool(await self._db.write_transaction(
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\main\.config\opencode\OpenCodeScratch\adminbot-ccef72c25768\release-25893\wt\services\database.py", line 2488, in write_transaction
+    return await self._write_transaction_owned(op, op_name,
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\main\.config\opencode\OpenCodeScratch\adminbot-ccef72c25768\release-25893\wt\services\database.py", line 2573, in _write_transaction_owned
+    result = await op(self.db)
+             ^^^^^^^^^^^^^^^^^
+  File "C:\Users\main\.config\opencode\OpenCodeScratch\adminbot-ccef72c25768\release-25893\wt\services\mca_random_source.py", line 766, in _body
+    cursor = await conn.execute(
+             ^^^^^^^^^^^^^^^^^^^
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\aiosqlite\core.py", line 223, in execute
+    cursor = await self._execute(self._conn.execute, sql, parameters)
+                                 ^^^^^^^^^^
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\aiosqlite\core.py", line 137, in _conn
+    raise ValueError("no active connection")
+ValueError: no active connection
+WARNING  services.mca_random_source:mca_random_source.py:1445 [random_source] reserve read failed
+Traceback (most recent call last):
+  File "C:\Users\main\.config\opencode\OpenCodeScratch\adminbot-ccef72c25768\release-25893\wt\services\mca_random_source.py", line 1443, in _reserve_remaining
+    return await self._store.reserve_remaining()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\main\.config\opencode\OpenCodeScratch\adminbot-ccef72c25768\release-25893\wt\services\mca_random_source.py", line 645, in reserve_remaining
+    cursor = await self._db.db.execute(
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\aiosqlite\core.py", line 223, in execute
+    cursor = await self._execute(self._conn.execute, sql, parameters)
+                                 ^^^^^^^^^^
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\aiosqlite\core.py", line 137, in _conn
+    raise ValueError("no active connection")
+ValueError: no active connection
+WARNING  services.database:database.py:2630 database: rollback failed | event=database_rollback_failed | op=random_state | phase=recover-degraded
+ERROR    services.database:database.py:2568 database: connection unrecoverable | event=database_connection_unrecoverable | op=random_state
+WARNING  services.database:database.py:2630 database: rollback failed | event=database_rollback_failed | op=random_state | phase=op-error
+ERROR    services.database:database.py:2585 database: rollback failed — connection marked unrecoverable | event=database_connection_unrecoverable | op=random_state
+Traceback (most recent call last):
+  File "C:\Users\main\.config\opencode\OpenCodeScratch\adminbot-ccef72c25768\release-25893\wt\services\database.py", line 2573, in _write_transaction_owned
+    result = await op(self.db)
+             ^^^^^^^^^^^^^^^^^
+  File "C:\Users\main\.config\opencode\OpenCodeScratch\adminbot-ccef72c25768\release-25893\wt\services\mca_random_source.py", line 927, in _body
+    cursor = await conn.execute(
+             ^^^^^^^^^^^^^^^^^^^
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\aiosqlite\core.py", line 223, in execute
+    cursor = await self._execute(self._conn.execute, sql, parameters)
+                                 ^^^^^^^^^^
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\aiosqlite\core.py", line 137, in _conn
+    raise ValueError("no active connection")
+ValueError: no active connection
+WARNING  services.mca_random_source:mca_random_source.py:1708 [random_source] fallback state write failed
+Traceback (most recent call last):
+  File "C:\Users\main\.config\opencode\OpenCodeScratch\adminbot-ccef72c25768\release-25893\wt\services\mca_random_source.py", line 1705, in _mark_fallback
+    await self._store.write_state(last_fallback_reason=str(reason)[:160],
+  File "C:\Users\main\.config\opencode\OpenCodeScratch\adminbot-ccef72c25768\release-25893\wt\services\mca_random_source.py", line 940, in write_state
+    await self._db.write_transaction(_body, op_name="random_state")
+  File "C:\Users\main\.config\opencode\OpenCodeScratch\adminbot-ccef72c25768\release-25893\wt\services\database.py", line 2488, in write_transaction
+    return await self._write_transaction_owned(op, op_name,
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\main\.config\opencode\OpenCodeScratch\adminbot-ccef72c25768\release-25893\wt\services\database.py", line 2573, in _write_transaction_owned
+    result = await op(self.db)
+             ^^^^^^^^^^^^^^^^^
+  File "C:\Users\main\.config\opencode\OpenCodeScratch\adminbot-ccef72c25768\release-25893\wt\services\mca_random_source.py", line 927, in _body
+    cursor = await conn.execute(
+             ^^^^^^^^^^^^^^^^^^^
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\aiosqlite\core.py", line 223, in execute
+    cursor = await self._execute(self._conn.execute, sql, parameters)
+                                 ^^^^^^^^^^
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\aiosqlite\core.py", line 137, in _conn
+    raise ValueError("no active connection")
+ValueError: no active connection
+WARNING  services.database:database.py:2630 database: rollback failed | event=database_rollback_failed | op=random_draw_journal | phase=recover-degraded
+ERROR    services.database:database.py:2568 database: connection unrecoverable | event=database_connection_unrecoverable | op=random_draw_journal
+WARNING  services.database:database.py:2630 database: rollback failed | event=database_rollback_failed | op=random_draw_journal | phase=op-error
+ERROR    services.database:database.py:2585 database: rollback failed — connection marked unrecoverable | event=database_connection_unrecoverable | op=random_draw_journal
+Traceback (most recent call last):
+  File "C:\Users\main\.config\opencode\OpenCodeScratch\adminbot-ccef72c25768\release-25893\wt\services\database.py", line 2573, in _write_transaction_owned
+    result = await op(self.db)
+             ^^^^^^^^^^^^^^^^^
+  File "C:\Users\main\.config\opencode\OpenCodeScratch\adminbot-ccef72c25768\release-25893\wt\services\mca_random_source.py", line 766, in _body
+    cursor = await conn.execute(
+             ^^^^^^^^^^^^^^^^^^^
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\aiosqlite\core.py", line 223, in execute
+    cursor = await self._execute(self._conn.execute, sql, parameters)
+                                 ^^^^^^^^^^
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\aiosqlite\core.py", line 137, in _conn
+    raise ValueError("no active connection")
+ValueError: no active connection
+WARNING  services.mca_random_source:mca_random_source.py:1696 [random_source] prng journal failed
+Traceback (most recent call last):
+  File "C:\Users\main\.config\opencode\OpenCodeScratch\adminbot-ccef72c25768\release-25893\wt\services\mca_random_source.py", line 1694, in _journal_prng
+    await self._store.journal_draw(record)
+  File "C:\Users\main\.config\opencode\OpenCodeScratch\adminbot-ccef72c25768\release-25893\wt\services\mca_random_source.py", line 771, in journal_draw
+    return bool(await self._db.write_transaction(
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\main\.config\opencode\OpenCodeScratch\adminbot-ccef72c25768\release-25893\wt\services\database.py", line 2488, in write_transaction
+    return await self._write_transaction_owned(op, op_name,
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\main\.config\opencode\OpenCodeScratch\adminbot-ccef72c25768\release-25893\wt\services\database.py", line 2573, in _write_transaction_owned
+    result = await op(self.db)
+             ^^^^^^^^^^^^^^^^^
+  File "C:\Users\main\.config\opencode\OpenCodeScratch\adminbot-ccef72c25768\release-25893\wt\services\mca_random_source.py", line 766, in _body
+    cursor = await conn.execute(
+             ^^^^^^^^^^^^^^^^^^^
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\aiosqlite\core.py", line 223, in execute
+    cursor = await self._execute(self._conn.execute, sql, parameters)
+                                 ^^^^^^^^^^
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\aiosqlite\core.py", line 137, in _conn
+    raise ValueError("no active connection")
+ValueError: no active connection
+_____________ test_a_ddl_window_survives_lock_longer_than_base_5s _____________
+
+tmp_path = WindowsPath('C:/Users/main/.config/opencode/OpenCodeScratch/adminbot-ccef72c25768/tmp/pytest-of-main/pytest-1815/test_a_ddl_window_survives_loc0')
+fast_guard = None
+
+    @pytest.mark.asyncio
+    async def test_a_ddl_window_survives_lock_longer_than_base_5s(
+            tmp_path, fast_guard):
+        """busy_timeout 30с: конкурент держит лок 6с (> старых 5с) — старт
+        не падает, вся pending-цепочка применяется (окно DDL поглощает ожидание
+        без retry). NOTE (P2-D v34): хвост цепочки …v33→v34. ASAP 7 (F2):
+        хвост расширен v35 (llm_usage_plan_meta_v35, SQLite no-op), итог
+        user_version = 35."""
+        path = tmp_path / "t5150_window.db"
+        _make_v32_db(path)
+        svc = DatabaseService(str(path))
+        await _open_prelude(svc)
+        try:
+            await _run_with_competitor(svc, hold=6.0)
+            cur = await svc.db.execute("PRAGMA user_version")
+>           assert (await cur.fetchone())[0] == 35
+E           assert 36 == 35
+
+tests\test_t5150_startup_migrations_round1046.py:155: AssertionError
+___________________ test_b_step_retry_recovers_after_locked ___________________
+
+tmp_path = WindowsPath('C:/Users/main/.config/opencode/OpenCodeScratch/adminbot-ccef72c25768/tmp/pytest-of-main/pytest-1815/test_b_step_retry_recovers_aft0')
+fast_guard = None
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000002078A785E80>
+caplog = <_pytest.logging.LogCaptureFixture object at 0x0000020788D4C0B0>
+
+    @pytest.mark.asyncio
+    async def test_b_step_retry_recovers_after_locked(tmp_path, fast_guard,
+                                                      monkeypatch, caplog):
+        """bounded retry: короткое окно 0.8с + лок 2.2с → первый DDL падает
+        `database is locked`, шаг перезапускается (идемпотентен) и доходит.
+        NOTE (P2-D v34): цепочка …v33→v34. ASAP 7 (F2): хвост +v35, итог
+        user_version = 35."""
+        monkeypatch.setattr(dbmod, "_MIGRATION_BUSY_TIMEOUT_MS", 800)
+        monkeypatch.setattr(dbmod, "_MIGRATION_LOCK_RETRIES", 3)
+        monkeypatch.setattr(dbmod, "_MIGRATION_LOCK_BACKOFF_S", 0.05)
+        path = tmp_path / "t5150_retry.db"
+        _make_v32_db(path)
+        svc = DatabaseService(str(path))
+        await _open_prelude(svc)
+        try:
+            with caplog.at_level(logging.INFO, logger="services.database"):
+                await _run_with_competitor(svc, hold=2.2)
+            cur = await svc.db.execute("PRAGMA user_version")
+>           assert (await cur.fetchone())[0] == 35
+E           assert 36 == 35
+
+tests\test_t5150_startup_migrations_round1046.py:178: AssertionError
+------------------------------ Captured log call ------------------------------
+INFO     services.database:database.py:2860 [database] migrations: start | current user_version=32 | pending=[33, 34, 35, 36]
+INFO     services.database:database.py:2869 [database] migration backup-guard: start | target_version=32 (VACUUM INTO + read-back копии; на прод-объёме может занимать минуты)
+INFO     services.database:database.py:2873 [database] migration backup-guard: done in 0.0s
+WARNING  services.database:database.py:2913 [database] migration v33: retry 1/3 after `database is locked` | factcheck_temporal
+WARNING  services.database:database.py:2913 [database] migration v33: retry 2/3 after `database is locked` | factcheck_temporal
+INFO     services.database:database.py:3949 [database] migration v33: mca_factcheck_runs
+INFO     services.database:database.py:3949 [database] migration v33: mca_factcheck_evidence
+INFO     services.database:database.py:2934 [database] migration v33 applied in 2.2s | factcheck_temporal
+INFO     services.database:database.py:3983 [database] migration v34: +namespace
+INFO     services.database:database.py:3988 [database] migration v34: +config_revision
+INFO     services.database:database.py:2934 [database] migration v34 applied in 0.0s | embedding_generation_namespace_v34
+INFO     services.database:database.py:4035 [database] migration v35: llm_usage_events PG-only — SQLite no-op (DDL применяет PgDatabase.init)
+INFO     services.database:database.py:2934 [database] migration v35 applied in 0.0s | llm_usage_plan_meta_v35
+INFO     services.database:database.py:4059 [database] migration v36: humor_samples
+INFO     services.database:database.py:2934 [database] migration v36 applied in 0.0s | humor_samples_v36
+INFO     services.database:database.py:2946 [database] migrations: complete | user_version=36 | total 2.2s
+____________________ test_d_migration_chain_full_log_trail ____________________
+
+tmp_path = WindowsPath('C:/Users/main/.config/opencode/OpenCodeScratch/adminbot-ccef72c25768/tmp/pytest-of-main/pytest-1815/test_d_migration_chain_full_lo0')
+caplog = <_pytest.logging.LogCaptureFixture object at 0x0000020788D4F5F0>
+
+    @pytest.mark.asyncio
+    async def test_d_migration_chain_full_log_trail(tmp_path, caplog):
+        """guard→DDL→book: каждая фаза оставляет INFO-точку ДО/ПОСЛЕ с
+        длительностью — замирание между фазами видно по стартовому логу."""
+        path = tmp_path / "t5150_trail.db"
+        _make_v32_db(path)
+        svc = DatabaseService(str(path))
+        with caplog.at_level(logging.INFO, logger="services.database"):
+            await svc.initialize()
+        try:
+            text = caplog.text
+            assert "migrations: start" in text
+            assert "current user_version=32" in text
+            # NOTE (P2-D v34): pending-цепочка расширена хвостом v34.
+            # ASAP 7 (F2): +v35 (llm_usage_plan_meta_v35).
+>           assert "pending=[33, 34, 35]" in text
+E           AssertionError: assert 'pending=[33, 34, 35]' in 'INFO     services.database:database.py:2860 [database] migrations: start | current user_version=32 | pending=[33, 34,...ples_v36\nINFO     services.database:database.py:2946 [database] migrations: complete | user_version=36 | total 0.0s\n'
+
+tests\test_t5150_startup_migrations_round1046.py:219: AssertionError
+------------------------------ Captured log call ------------------------------
+INFO     services.database:database.py:2860 [database] migrations: start | current user_version=32 | pending=[33, 34, 35, 36]
+INFO     services.database:database.py:2869 [database] migration backup-guard: start | target_version=32 (VACUUM INTO + read-back копии; на прод-объёме может занимать минуты)
+INFO     services.database:database.py:2873 [database] migration backup-guard: done in 0.0s
+INFO     services.database:database.py:3949 [database] migration v33: mca_factcheck_runs
+INFO     services.database:database.py:3949 [database] migration v33: mca_factcheck_evidence
+INFO     services.database:database.py:2934 [database] migration v33 applied in 0.0s | factcheck_temporal
+INFO     services.database:database.py:3983 [database] migration v34: +namespace
+INFO     services.database:database.py:3988 [database] migration v34: +config_revision
+INFO     services.database:database.py:2934 [database] migration v34 applied in 0.0s | embedding_generation_namespace_v34
+INFO     services.database:database.py:4035 [database] migration v35: llm_usage_events PG-only — SQLite no-op (DDL применяет PgDatabase.init)
+INFO     services.database:database.py:2934 [database] migration v35 applied in 0.0s | llm_usage_plan_meta_v35
+INFO     services.database:database.py:4059 [database] migration v36: humor_samples
+INFO     services.database:database.py:2934 [database] migration v36 applied in 0.0s | humor_samples_v36
+INFO     services.database:database.py:2946 [database] migrations: complete | user_version=36 | total 0.0s
+__________________ test_e_v32_db_applies_v33_once_with_guard __________________
+
+tmp_path = WindowsPath('C:/Users/main/.config/opencode/OpenCodeScratch/adminbot-ccef72c25768/tmp/pytest-of-main/pytest-1815/test_e_v32_db_applies_v33_once0')
+caplog = <_pytest.logging.LogCaptureFixture object at 0x0000020788D4E210>
+
+    @pytest.mark.asyncio
+    async def test_e_v32_db_applies_v33_once_with_guard(tmp_path, caplog):
+        """Прод-сценарий retry: БД на v32 (книги нет) → guard + v33+v34+v35 одним
+        проходом; таблицы/индексы на месте; повторный initialize — no-op (ровно
+        одна строка v33/v34/v35 в книге, user_version не скачет).
+        NOTE (P2-D v34): ожидания хвоста обновлены на …v33→v34.
+        ASAP 7 (F2): хвост +v35 (llm_usage_plan_meta_v35, SQLite no-op)."""
+        path = tmp_path / "t5150_prodretry.db"
+        _make_v32_db(path)
+        svc = DatabaseService(str(path))
+        with caplog.at_level(logging.INFO, logger="services.database"):
+            await svc.initialize()
+        try:
+            cur = await svc.db.execute("PRAGMA user_version")
+>           assert (await cur.fetchone())[0] == 35
+E           assert 36 == 35
+
+tests\test_t5150_startup_migrations_round1046.py:246: AssertionError
+------------------------------ Captured log call ------------------------------
+INFO     services.database:database.py:2860 [database] migrations: start | current user_version=32 | pending=[33, 34, 35, 36]
+INFO     services.database:database.py:2869 [database] migration backup-guard: start | target_version=32 (VACUUM INTO + read-back копии; на прод-объёме может занимать минуты)
+INFO     services.database:database.py:2873 [database] migration backup-guard: done in 0.0s
+INFO     services.database:database.py:3949 [database] migration v33: mca_factcheck_runs
+INFO     services.database:database.py:3949 [database] migration v33: mca_factcheck_evidence
+INFO     services.database:database.py:2934 [database] migration v33 applied in 0.0s | factcheck_temporal
+INFO     services.database:database.py:3983 [database] migration v34: +namespace
+INFO     services.database:database.py:3988 [database] migration v34: +config_revision
+INFO     services.database:database.py:2934 [database] migration v34 applied in 0.0s | embedding_generation_namespace_v34
+INFO     services.database:database.py:4035 [database] migration v35: llm_usage_events PG-only — SQLite no-op (DDL применяет PgDatabase.init)
+INFO     services.database:database.py:2934 [database] migration v35 applied in 0.0s | llm_usage_plan_meta_v35
+INFO     services.database:database.py:4059 [database] migration v36: humor_samples
+INFO     services.database:database.py:2934 [database] migration v36 applied in 0.0s | humor_samples_v36
+INFO     services.database:database.py:2946 [database] migrations: complete | user_version=36 | total 0.0s
+_________________ test_e2_v33_db_applies_v34_once_with_guard __________________
+
+tmp_path = WindowsPath('C:/Users/main/.config/opencode/OpenCodeScratch/adminbot-ccef72c25768/tmp/pytest-of-main/pytest-1815/test_e2_v33_db_applies_v34_onc0')
+caplog = <_pytest.logging.LogCaptureFixture object at 0x000002078A81E1B0>
+
+    @pytest.mark.asyncio
+    async def test_e2_v33_db_applies_v34_once_with_guard(tmp_path, caplog):
+        """v33 → v34 (P2-D, ASAP 6 §8): guard + ровно один шаг v34;
+        до-v34 таблица поколений получает namespace ('default' у легаси-строк)
+        и config_revision; per-index ACTIVE-индекс заменён на NS-вариант;
+        повторный initialize — no-op. ASAP 7 (F2): из v33 применяется вся
+        pending-цепочка …→v35, итог user_version = 35 (шаг v34 при этом ровно
+        один, v35 — SQLite no-op)."""
+        path = tmp_path / "t5150_prodretry_v34.db"
+        await _make_v33_db(path)
+        # легаси-строка ДО v34: namespace ещё нет → после ALTER DEFAULT 'default'
+        conn = sqlite3.connect(str(path))
+        try:
+            conn.execute(
+                "INSERT INTO mca_embedding_index_generations (index_name, "
+                "generation, fingerprint, status, created_at) "
+                "VALUES ('smart_archive', 1, 'fp-legacy', 'active', 1)")
+            conn.commit()
+        finally:
+            conn.close()
+        svc = DatabaseService(str(path))
+        with caplog.at_level(logging.INFO, logger="services.database"):
+            await svc.initialize()
+        try:
+            cur = await svc.db.execute("PRAGMA user_version")
+>           assert (await cur.fetchone())[0] == 35
+E           assert 36 == 35
+
+tests\test_t5150_startup_migrations_round1046.py:335: AssertionError
+------------------------------ Captured log call ------------------------------
+INFO     services.database:database.py:2860 [database] migrations: start | current user_version=33 | pending=[34, 35, 36]
+INFO     services.database:database.py:2869 [database] migration backup-guard: start | target_version=33 (VACUUM INTO + read-back копии; на прод-объёме может занимать минуты)
+INFO     services.database:database.py:2873 [database] migration backup-guard: done in 0.0s
+INFO     services.database:database.py:3983 [database] migration v34: +namespace
+INFO     services.database:database.py:3988 [database] migration v34: +config_revision
+INFO     services.database:database.py:2934 [database] migration v34 applied in 0.0s | embedding_generation_namespace_v34
+INFO     services.database:database.py:4035 [database] migration v35: llm_usage_events PG-only — SQLite no-op (DDL применяет PgDatabase.init)
+INFO     services.database:database.py:2934 [database] migration v35 applied in 0.0s | llm_usage_plan_meta_v35
+INFO     services.database:database.py:4059 [database] migration v36: humor_samples
+INFO     services.database:database.py:2934 [database] migration v36 applied in 0.0s | humor_samples_v36
+INFO     services.database:database.py:2946 [database] migrations: complete | user_version=36 | total 0.0s
+============================== warnings summary ===============================
+..\..\..\..\..\..\..\..\Code\Python\adminbot\.venv\Lib\site-packages\fastapi\testclient.py:1
+  C:\Code\Python\adminbot\.venv\Lib\site-packages\fastapi\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_asap7_direct_settings.py::test_migration_v35_idempotent_twice
+FAILED tests/test_asap7_direct_settings.py::test_backup_guard_fires_before_pending_step
+FAILED tests/test_history_cli.py::TestCliFts::test_scope_is_required - Assert...
+FAILED tests/test_mca01_tx_task_supervisor_round1027.py::test_write_points_go_through_single_writer
+FAILED tests/test_soul1_w5_initiative_vitality.py::test_check_dry_run_reaches_mock_send_without_publishing
+FAILED tests/test_t5150_startup_migrations_round1046.py::test_a_ddl_window_survives_lock_longer_than_base_5s
+FAILED tests/test_t5150_startup_migrations_round1046.py::test_b_step_retry_recovers_after_locked
+FAILED tests/test_t5150_startup_migrations_round1046.py::test_d_migration_chain_full_log_trail
+FAILED tests/test_t5150_startup_migrations_round1046.py::test_e_v32_db_applies_v33_once_with_guard
+FAILED tests/test_t5150_startup_migrations_round1046.py::test_e2_v33_db_applies_v34_once_with_guard
+10 failed, 14465 passed, 1 warning in 713.93s (0:11:53)

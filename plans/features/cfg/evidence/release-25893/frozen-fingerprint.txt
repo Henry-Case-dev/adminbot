@@ -1,0 +1,18 @@
+﻿# REL-25893 frozen fingerprint - candidate 74160a5d (bump 2.58.93)
+# base prod: 1d367e4c (2.58.92); worktree: OPENCODE_WORKFLOW_SCRATCH\release-25893\wt
+# sha256_12 == deploy_25893.py::EXPECT12 (14 artifacts)
+
+9ad1fab152bb  9ad1fab152bb9c654ea8c62b5dd49f767d0b895fd6e14662fe7d889ba24f39df  config/settings.py
+360c663ee8c5  360c663ee8c57cf25903c998a23ee3d4db6e0d361d2a93b9d9566e96aeced14d  services/capability_registry.py
+394c2b10c7f7  394c2b10c7f7945b36f979a3ba9a1cea377a5865a091a9aed1085ee5e960b292  services/cover_style_preview.py
+ac028768eb86  ac028768eb86c6645a303c9a196c35675340d652df4044a0f7130a0ea9fd6e70  services/image_generation.py
+c29cd6ee3038  c29cd6ee303839255e943611cd35fb10757d3ac5da0746b121f987bd69ddc818  services/summary_generator.py
+33e7b0eb8779  33e7b0eb8779a8ccb82ee2d98bd2700ecbc3f1923d15f3e62230d5efe1d72676  services/worker_budget.py
+681bac561fb9  681bac561fb92f92d74bb13df7cc5022926402db196acc2d78f0d2ef4b242c7e  web/api/summary_test.py
+44642c5a2b3e  44642c5a2b3e45da5ec5b955503cb8e777d7613d93328cfe65878768f5dade2c  web/app.js
+94289f4e0932  94289f4e093231587cb4df1b076f4e22b1c459c71dc266d29a9e020e26374ba3  web/index.html
+d815bf34e953  d815bf34e95301126dd3c015a089596f8cb85dfeb676e674b29641ded0b96fa2  README.md
+b1514eaac537  b1514eaac5370b7b866a30da6aff30c14bf92ecc796a1985d2c3319f5e417534  plans/docs/param-registry-round1025.meta.md
+e23bced2fdb8  e23bced2fdb84d6735c6b68e9ce7a2bd21d7bd1e43ad2d74946e649d851b896f  services/telegram_send.py
+96db06425079  96db064250793f02356890adff33dda090ec637c4ae9f26b232f60bbce867ded  web/static/fullscreen-policy.js
+fd8a2a70d5d7  fd8a2a70d5d7cd0b95698a0a930b2b0fe329deb2d9ce5bdeed93fb5777d30c3a  services/prompt_composer.py

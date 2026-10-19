@@ -1,0 +1,14 @@
+﻿CWD: C:\Users\main\.config\opencode\OpenCodeScratch\adminbot-ccef72c25768\release-25893\wt
+HEAD: 74160a5d9b893378a93e722e76424ee0d3f74906
+COMMAND: "C:\Code\Python\adminbot\.venv\Scripts\python.exe" -m pytest tests/ -q -p no:cacheprovider
+NOTE: прогон шёл ПАРАЛЛЕЛЬНО с фокусными наборами (contention) — 10-е падение
+      test_nostalgia_worker::test_golden_candidate_sent атрибутировано нагрузкой
+      (в изоляции 26 passed; см. nostalgia-iso.txt). Основной evidence — чистый
+      прогон s13b (pytest-full.txt).
+START_LOCAL: 2026-10-19 17:50:15 (+12:00) = 2026-10-19T05:50:15Z
+END_LOCAL:   2026-10-19 18:03:26 (+12:00) = 2026-10-19T06:03:26Z
+EXIT: 1 (pytest: есть падения)
+--- tail ---
+FAILED tests/test_t5150_startup_migrations_round1046.py::test_e_v32_db_applies_v33_once_with_guard
+FAILED tests/test_t5150_startup_migrations_round1046.py::test_e2_v33_db_applies_v34_once_with_guard
+10 failed, 14465 passed, 1 warning in 787.81s (0:13:07)

@@ -1,0 +1,27 @@
+REL-25893 — фокусные/бласт-наборы CFG-02C на кандидате 74160a5d
+worktree: OPENCODE_WORKFLOW_SCRATCH\release-25893\wt (detached @ 74160a5d)
+интерпретатор: C:\Code\Python\adminbot\.venv\Scripts\python.exe; pytest -q -p no:cacheprovider
+
+S1  tests/test_cfg02c_image_isolation.py
+      -> 19 passed in 4.82s
+S2  набор A: cfg02c(19) + cfg02b_image_freq_limits + cfg02a_image_quota_ui + image_daily_limit_round1026 + hotfix5_summary_cover_window_round1025 + summary_cover_model_compat_round1024
+      -> 135 passed in 9.64s
+S3  набор B: unified_image_request_round1026 + tool_router + direct_chat + direct_chat_concurrency + persistent_throttling + budget_settings_round1019
+      -> 308 passed in 20.92s
+S4  набор C: webapp_gates_api + pg_db + budget_guardrails_round1024 + budget_data_repair_round1024 + mca17c_invariants_round1047 + frontend_tab_mapping + image_generation_round1023 + decision_making_round1026
+      -> 286 passed, 1 warning in 11.64s
+S5  набор D: cover_style_wave_b_asap4 + asap7_cover_fix + summary_cover_round1023 + asap8_v6_c03a_style_recovery + extra_cover_style_jobs + extra_cover_style_pipeline + soul1_capability_fallbacks + soul1_capability_registry
+      -> 263 passed in 6.60s
+S6  набор E: summary_generator + asap7_cover_preview + asap42_step2c2_miniapp_seeds + asap42_step3_style_integration + asap43_cover_style_surgical + asap44_cover_final_closure + extra_cover_style_registry
+      -> 176 passed, 1 warning in 13.59s
+S7  набор F (blast-110, состав чуть уже — ср. review-cfg-02c §5): extra_cover_style_runtime + summary_deploy_round1026 + mca17_summary_instrumentation + summary_cover_round1023
+      -> 90 passed in 10.47s
+S8  набор G: summary_test_run
+      -> 22 passed in 3.19s
+S9  F8-пара (py): round1025_f8_registry
+      -> 29 passed in 3.40s
+S10  F8-пара (каталог): tools/gen_param_registry_round1025.py --check
+      -> CHECK OK: реестр 579 == REGISTRY, карта полна, R17-чисто, TSV/map идемпотентны.
+
+S11 JS-sweep: node tests/js/*_test.js — 88 файлов / 0 падений (s11-js-sweep.txt)
+S12 UI e2e: tools/ui_cfg02c_image_isolation_e2e.py — RESULT: PASS (s12-ui-e2e.txt)

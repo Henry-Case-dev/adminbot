@@ -1,0 +1,207 @@
+﻿=== app_methods_dup_keys_guard_test.js rc=0
+METHODS-DUP-KEYS-OK blocks=6 keys=1020 duplicate-problems=0 behavioral=ok
+  WARN: ╨╝╤С╤А╤В╨▓╤Л╨╣ ╨┤╤Г╨▒╨╗╤М (╤В╨╡╨╗╨░ ╨╕╨┤╨╡╨╜╤В╨╕╤З╨╜╤Л, ╨╕╨╖╨▓╨╡╤Б╤В╨╡╨╜ ╨▓ HEAD): `_prefersReducedMotion` ├Ч2 @ 22502, 22521
+=== asap31_oversight_render_test.js rc=0
+ASAP31-OVERSIGHT-RENDER-OK
+=== asap41_zone_g_inspector_test.js rc=0
+ZONE-G-INSPECTOR-OK
+=== asap42_step2c2_layout_test.js rc=0
+ASAP42-STEP2C2-LAYOUT-OK
+=== asap43_cover_style_surgical_test.js rc=0
+ASAP43-COVER-STYLE-SURGICAL-OK
+=== asap44_cover_final_closure_test.js rc=0
+asap44 cover final closure JS: OK
+=== asap5_cover_manifest_test.js rc=0
+ASAP5-COVER-MANIFEST-OK
+=== asap5_decision_trace_test.js rc=0
+ASAP5-DECISION-TRACE-OK
+=== asap6_embedding_profiles_ui_test.js rc=0
+EMBEDDING-PROFILES-UI-OK
+=== asap6_wave2_ux_tabs_test.js rc=0
+WAVE2-UX-TABS-OK
+=== asap7_f2_direct_ui_test.js rc=0
+ASAP7-F2-DIRECT-UI-OK
+=== asap7_f7_cover_compile_test.js rc=0
+ASAP7-F7-COVER-COMPILE-OK
+=== asap7_f8_cover_prompts_test.js rc=0
+ASAP7-F8-COVER-PROMPTS-OK
+=== asap8_d1213_save_contract_test.js rc=0
+ASAP8-D1213-SAVE-CONTRACT-OK
+=== asap8_f9_youtube_proxy_health_test.js rc=0
+F9-PROXY-UI-OK
+=== asap8_v6_d05_experience_ui_test.js rc=0
+D05-EXPERIENCE-UI-OK
+=== asap8_v6_d07_override_stack_test.js rc=0
+D07-OVERRIDE-STACK-OK
+=== asap8_v6_p1_d09_panels_test.js rc=0
+P1-D09-PANELS-UNIT-OK
+=== asap8_v6_wa2_dossier_guard_test.js rc=0
+DOSSIER-GUARD-UNIT-OK
+=== asap8_v63_w3_analytics_test.js rc=0
+W3-ANALYTICS-UNIT-OK: 93 checks passed
+=== asap8_v63_w3_modules_ui_test.js rc=0
+W3-MODULES-UI-OK
+=== asap8_v63_w3_status_logs_test.js rc=0
+W3-STATUS-UNIT-OK
+=== asap8_w2_fullscreen_policy_test.js rc=0
+1. decideOffer-╨╝╨░╤В╤А╨╕╤Ж╨░ OK (tdesktop тАФ ╨╛╨▒╤Л╤З╨╜╤Л╨╣ ╨║╨╗╨╕╨╡╨╜╤В)
+2.1 requestтЖТackтЖТexit OK
+2.2 no-inversion ╨▒╨╡╨╖ SDK-boolean OK
+2.3 UNSUPPORTED OK
+2.4 ALREADY_FULLSCREEN OK
+2.5 Launch Mode=Fullscreen OK
+2.6 tdesktop: ╤А╨░╨▒╨╛╤З╨╕╨╣ ╨┐╨╡╤А╨╡╨║╨╗╤О╤З╨░╤В╨╡╨╗╤М ╨▒╨╡╨╖ ╨░╨▓╤В╨╛-╨▓╤Л╤Е╨╛╨┤╨░ OK
+2.7 pending-guard OK
+2.8 ack-╤В╨░╨╣╨╝╨░╤Г╤В OK
+2.9 rotation ╨▒╨╡╨╖ ╨║╨╛╨╜╤Д╨╗╨╕╨║╤В╨╛╨▓ OK
+2.10 stand-alone ╨▒╤А╨░╤Г╨╖╨╡╤А OK
+2.11 subscribe OK
+3. ╤Б╤В╤А╤Г╨║╤В╤Г╤А╨╜╤Л╨╡ ╨┐╤А╨╛╨▓╨╡╤А╨║╨╕ OK
+4.1 explain() ╨▒╨╡╨╖ ┬л╨│╨╛╨╗╤Л╤Е┬╗ ╨║╨╛╨┤╨╛╨▓ ╨╕ ╨▒╨╡╨╖ ╨▓╤Л╨┤╤Г╨╝╨░╨╜╨╜╤Л╤Е ╨┐╤А╨╕╤З╨╕╨╜ OK
+4.2 diagnostics() тАФ ╤Д╨░╨║╤В╤Л, launch params (F1), ╨▒╨╡╨╖ ╤Б╨╡╨║╤А╨╡╤В╨╛╨▓ OK
+4.3 clickResult/╨╜╨╡╨│╨░╤В╨╕╨▓╤Л (UNSUPPORTED/ALREADY/tdesktop/pending) OK
+4.4 trace/warnings (init, DOUBLE_INIT, ACK_TIMEOUT) OK
+4.5 UI-╨╖╨░╨│╨╗╤Г╤И╨╡╨║ ╨╜╨╡╤В, dev-API ╤Б╨╛╤Е╤А╨░╨╜╤С╨╜ OK
+4.6 admin-╨┤╨╕╨░╨│╨╜╨╛╤Б╤В╨╕╨║╨░ ╨│╨╡╨╛╨╝╨╡╤В╤А╨╕╨╕ (┬з8) OK
+dev-API ╨┐╨╛╨╗╨╕╤В╨╕╨║╨╕ (╨╛╨▒╤К╤П╤Б╨╜╨╡╨╜╨╕╨╡ + ╨┤╨╕╨░╨│╨╜╨╛╤Б╤В╨╕╨║╨░) OK
+FS-POLICY-OK
+=== asap8_w2_shell_mobile_nav_test.js rc=0
+W2-SHELL-UNIT-OK
+=== glass_probe_test.js rc=0
+JS-UNIT-OK glass-probe
+=== glass_refraction_test.js rc=0
+JS-UNIT-OK glass-refraction
+=== mca23_response_pipeline_test.js rc=0
+MCA23-RESPONSE-PIPELINE-OK
+=== p0_stories_no_chat_render_test.js rc=0
+P0-STORIES-NO-CHAT-RENDER-OK
+=== p0_vision_ui_test.js rc=0
+P0V-UI-OK
+=== round1020_ui_rework_test.js rc=0
+JS-UNIT-OK
+=== round1020_ui_test.js rc=0
+JS-UNIT-OK
+=== round1021_ui_audit_test.js rc=0
+JS-UNIT-OK
+=== round1022_aliases_test.js rc=0
+ALIASES-UNIT-OK
+=== round1022_dossier_rebuild_test.js rc=0
+DOSSIER-REBUILD-UNIT-OK
+=== round1022_help_test.js rc=0
+round1022 help-ui JS gate: OK
+=== round1023_verbilizer_tabs_test.js rc=0
+VERBILIZER-UNIT-OK
+=== round1024_aliases_render_test.js rc=0
+ALIASES-RENDER-OK
+=== round1024_budget_toggle_test.js rc=0
+BUDGET-TOGGLE-OK
+=== round1024_dossier_feed_test.js rc=0
+DOSSIER-FEED-OK
+=== round1024_image_key_test.js rc=0
+IMAGE-KEY-OK
+=== round1024_image_module_test.js rc=0
+IMAGE-MODULE-OK
+=== round1024_nodeflow_test.js rc=0
+NODEFLOW-UNIT-OK
+=== round1024_prompts_ui_test.js rc=0
+PROMPTS-UI-UNIT-OK
+=== round1024_providers_fullscreen_test.js rc=0
+PROVIDERS-FS-OK
+=== round1025_cliche_ui_test.js rc=0
+ROUND1025-CLICHE-UI-OK
+=== round1025_design_tokens_test.js rc=0
+JS-UNIT-OK
+=== round1025_f11_log_counts_test.js rc=0
+F11-LOG-COUNTS-OK
+=== round1025_f11_status_grid_test.js rc=0
+F11-STATUS-GRID-OK
+F11-HEARTBEAT-OK
+=== round1025_f4_catalog_ui_test.js rc=0
+MODULE-CATALOG-OK
+=== round1025_f4_module_store_test.js rc=0
+MODULE-STORE-OK
+=== round1025_f5_models_test.js rc=0
+MODELS-GROUPS-OK
+=== round1025_f5_prompts_single_source_test.js rc=0
+PROMPTS-SINGLE-SOURCE-OK
+=== round1025_f5_workspace_route_test.js rc=0
+MODULE-WORKSPACE-OK
+=== round1025_f6_analytics_memory_test.js rc=0
+F6-ANALYTICS-MEMORY-OK
+=== round1025_f6_execution_graph_test.js rc=0
+F6-EXECGRAPH-OK
+=== round1025_f7_permsoc_local_test.js rc=0
+F7-PERMSOC-LOCAL-UNIT-OK
+=== round1025_f9_savebar_visual_test.js rc=0
+F9-SAVEBAR-OK
+=== round1025_f9_secret_field_test.js rc=0
+F9-SECRET-OK
+=== round1025_hotfix10_glass_geometry_bg_test.js rc=0
+HOTFIX10-GLASS-GEOMETRY-BG-OK
+=== round1025_hotfix3_cliche_report_test.js rc=0
+ROUND1025-HOTFIX3-CLICHE-REPORT-OK
+=== round1025_hotfix4_shell_test.js rc=0
+JS-UNIT-OK round1025_hotfix4_shell_test
+=== round1025_hotfix6_lens_heartbeat_shell_test.js rc=0
+HOTFIX6-LENS-HEARTBEAT-SHELL-OK
+=== round1025_hotfix7_shell_glass_heartbeat_test.js rc=0
+HOTFIX7-SHELL-GLASS-HEARTBEAT-OK
+=== round1025_hotfix8_shell_aurora_test.js rc=0
+HOTFIX8-SHELL-AURORA-OK
+=== round1025_hotfix9_shell_flex_glass_aurora_test.js rc=0
+HOTFIX9-SHELL-FLEX-GLASS-AURORA-OK
+=== round1025_ia_routing_test.js rc=0
+JS-UNIT-OK round1025_ia_routing_test
+=== round1025_save_state_test.js rc=0
+ROUND1025-SAVE-STATE-OK
+=== round1025_scope_selector_test.js rc=0
+SCOPE-SELECTOR-OK
+=== round1025_shell_breakpoints_test.js rc=0
+JS-UNIT-OK round1025_shell_breakpoints_test
+=== round1026_polygon_background_test.js rc=0
+POLYGON-LUMINESCENCE-OK
+=== round1026_s6_publish_test.js rc=0
+S6-PUBLISH-OK
+=== round1026_s7_log_summary_filter_test.js rc=0
+S7-LOG-SUMMARY-OK
+=== round1026_s8_execution_graph_test.js rc=0
+S8-EXECGRAPH-OK
+=== round1026_s9_testing_test.js rc=0
+SUMMARY-TESTING-UI-OK
+=== round1027_asap2_summary_sections_test.js rc=0
+ASAP2-SUMMARY-SECTIONS-OK
+=== round1027_mca17a_observability_ui_test.js rc=0
+MCA17A-OBSERVABILITY-UI-OK
+=== round1028_anu_taxonomy_p0_test.js rc=0
+ANU-TAXONOMY-OK
+=== round1028_asap3_direct_context_test.js rc=0
+ASAP3-DIRECT-CONTEXT-OK
+=== round1029_extra_cover_styles_test.js rc=0
+EXTRA-COVER-STYLES-UI-OK
+=== round1030_pipeline_inspector_test.js rc=0
+PIPELINE-INSPECTOR-STATIC-OK
+PIPELINE-INSPECTOR-OK
+=== round1037_random_source_test.js rc=0
+MCA10A-RANDOM-OK
+=== round1039_experience_lessons_test.js rc=0
+MCA16-EXP-OK
+=== round1044_temporal_factcheck_ui_test.js rc=0
+MCA20-TEMPORAL-UI-OK
+=== round1046_mca12_stories_ui_test.js rc=0
+MCA12-STORIES-UI-OK
+=== round1047_mca17c_ui_test.js rc=0
+MCA17C-UI-OK
+=== routing_test.js rc=0
+node.exe : [adminbot] DOMPurify ╨╜╨╡╨┤╨╛╤Б╤В╤Г╨┐╨╡╨╜ тАФ ╤В╨╡╨║╤Б╤В ╨▒╨╡╨╖ HTML
+C:\Users\main\.config\opencode\OpenCodeScratch\adminbot-ccef72c25768\release-25893\run_focused_25893.ps1:52 знак:10
++   $out = & node $f.FullName 2>&1
++          ~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ([adminbot] DOMP...Б╤В ╨▒╨╡╨╖ HTML:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+JS-UNIT-OK
+=== soul1_w5_initiative_panel_test.js rc=0
+SOUL1-W5-PANEL-OK
+=== vue_mount_test.js rc=0
+VUE-MOUNT-OK
+JS-SWEEP: files=88 failed=0

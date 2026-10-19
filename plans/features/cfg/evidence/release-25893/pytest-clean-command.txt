@@ -1,0 +1,13 @@
+﻿CWD: C:\Users\main\.config\opencode\OpenCodeScratch\adminbot-ccef72c25768\release-25893\wt
+HEAD: 74160a5d9b893378a93e722e76424ee0d3f74906
+COMMAND: "C:\Code\Python\adminbot\.venv\Scripts\python.exe" -m pytest tests/ -q -p no:cacheprovider
+START_UTC: 2026-10-19T06:06:08Z
+END_UTC: 2026-10-19T06:18:08Z
+EXIT: 1
+--- tail ---
+FAILED tests/test_t5150_startup_migrations_round1046.py::test_a_ddl_window_survives_lock_longer_than_base_5s
+FAILED tests/test_t5150_startup_migrations_round1046.py::test_b_step_retry_recovers_after_locked
+FAILED tests/test_t5150_startup_migrations_round1046.py::test_d_migration_chain_full_log_trail
+FAILED tests/test_t5150_startup_migrations_round1046.py::test_e_v32_db_applies_v33_once_with_guard
+FAILED tests/test_t5150_startup_migrations_round1046.py::test_e2_v33_db_applies_v34_once_with_guard
+10 failed, 14465 passed, 1 warning in 713.93s (0:11:53)

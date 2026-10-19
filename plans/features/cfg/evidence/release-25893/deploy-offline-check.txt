@@ -1,0 +1,11 @@
+﻿BUMP_COMMIT = 74160a5d9b893378a93e722e76424ee0d3f74906
+PROD_REF    = 1d367e4c561b5d1bc224c4c5ee64261945ed83bd
+whitelist   = 9
+EXPECT12    = 14
+hash errors: none
+runtime delta == whitelist: True
+delta count: 9
+delta: ['config/settings.py', 'services/capability_registry.py', 'services/cover_style_preview.py', 'services/image_generation.py', 'services/summary_generator.py', 'services/worker_budget.py', 'web/api/summary_test.py', 'web/app.js', 'web/index.html']
+BUMP == HEAD: True (HEAD 74160a5d9b89)
+upload rel93_final.sh exists: True
+PAGE_VER_EXPECT 15 SUBST_CSS 2 EXPECT_VER 2.58.93 ROLLBACK release/cfg1-2.58.88 2.58.88 PROD_BRANCH release/fix-2.58.92
