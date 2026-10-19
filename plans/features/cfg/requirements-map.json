@@ -112,7 +112,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "note": "Алиасы переиспользуются (сторона-владелец VERIFIED, повторный прогон не нужен): B06-часть — ASAP8 v6.3 B06.1–B06.3 (`plans/features/asap8-v6-3-live-correction/requirements-map.json`; Playwright 42/42, REV-W3 Approved); SOUL-часть — SOUL-1 Prompt Registry/Style Policy/Factory Defaults (`plans/features/soul-1/**`; §5 18/18 V). Строка остаётся PENDING: покрытие шире — трасса в манифесте по всем 579 записям (prep-cfg-03 §2, reuse-map)."
     },
     {
       "source_id": "M00006",
@@ -371,7 +372,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "note": "Алиас P0-стороны: P0A-PERSIST-TRUTH (`plans/features/p0-save-init-ux/requirements-map.json`) — VERIFIED (прод 2.58.90 `3b02366e`: успех = read-after-write A1–A5, честные 409/422 без записи E, конфликт без потери текста A7, дифф `{}`; review-persist-fix §2/§5/§6). Строка остаётся PENDING: покрытие шире — сквозная инвентаризация всех 579 настроек и потребителей + манифест; P0-эвиденс при биндинге переиспользуется, не перепрогоняется (prep-cfg-03 §2)."
     },
     {
       "source_id": "M00017",
@@ -2766,7 +2768,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "note": "Алиас P0-стороны: P0A-PERSIST-CAUSE (`plans/features/p0-save-init-ux/requirements-map.json`) — VERIFIED (первопричины сохранения классифицированы: B4/B5 `assert 9000 == 8000`, unknown kind → 409, `write_error` не диагноз; review-persist-fix §2/§5/§9 + acceptance-edges-25890 E). Строка остаётся PENDING: матрица 13 классов по всем 579 записям + под-отчёт «перекрытий»; P0-эвиденс переиспользуется (prep-cfg-03 §2)."
     },
     {
       "source_id": "L00129",
@@ -2781,7 +2784,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "note": "Алиас P0-стороны: P0A-ACCEPT-PERSIST (`plans/features/p0-save-init-ux/requirements-map.json`) — VERIFIED (прод 2.58.90: real-DB цикл по каждому типу настроек, 17/17 + recheck `diff={}`; acceptance-25890.json). Строка остаётся PENDING: распространение на остальные параметры/эндпоинты + недостающие края (отмена/сеть/factory reset/снятие override); P0-эвиденс переиспользуется (prep-cfg-03 §2)."
     },
     {
       "source_id": "L00130",
@@ -2871,7 +2875,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "note": "Алиас-принцип: P0V-TEST-MOCKS (`plans/features/p0-vision-universal/requirements-map.json`; там PENDING) — принцип «моки не заменяют живые проверки» зафиксирован. Строка остаётся PENDING: собственный набор устойчивых тестов CFG-03 (контракт каталога, API/DB roundtrips, consumer tests, рестарт, многопроцессность, выбранные E2E на реальной MiniApp) с честным разделением mock/live (prep-cfg-03 §2)."
     },
     {
       "source_id": "L00136",
@@ -2901,7 +2906,8 @@
       "live_required": true,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "note": "Алиас P0-стороны: P0A-ACCEPT-PERSIST-EDGE (`plans/features/p0-save-init-ux/requirements-map.json`) — VERIFIED (409 `document_invalid`/422/конфликт без потери текста; acceptance-edges-25890.json 3/3). Строка остаётся PENDING: отрицательный тест на каждый редактируемый параметр (классами + выбранные live), а не только речевые настройки; P0-эвиденс переиспользуется (prep-cfg-03 §2)."
     },
     {
       "source_id": "L00138",
@@ -2976,7 +2982,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "note": "Алиасы P0-стороны: P0A-PERSIST-AUDIT + P0A-PERSIST-CENTRAL (`plans/features/p0-save-init-ux/requirements-map.json`) — VERIFIED (формат «причина/пути/правка/тест/evidence/статус»: persistence-audit.md §3.1–3.5/B4/B5/§8.5–8.6; централизованный фикс pg×10 + ConfigCache PG-first — review-persist-fix §1/§4/§9). Строка остаётся PENDING: применение формата к сбоям самого CFG-03 (реестр failures.md); P0-эвиденс переиспользуется (prep-cfg-03 §2)."
     },
     {
       "source_id": "L00145",
