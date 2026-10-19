@@ -1,0 +1,15 @@
+ADD-EXP F0 evidence checksums (sha256) — 2026-10-19 10:15:22 UTC
+
+README.md                                                       13375  b8bfce773adbc54bc23c68fdad9b11518fd6d75f7dffc89eb9441ee9f80b09b5
+cleanup-register.json                                            1659  1a854fe74020eb16ab2c2971ebe1638d0c91eb75da555e9f5dbadcbc51c54892
+cleanup-spec.json                                                 218  c20b8c08c0000a5be572d2b54d702aeb703d22921ad5cd9f8c50c37c08adb021
+f0-live.json                                                    93647  2b54aecd1437557c233d5c9c99e0ad1b5fee0983f881021c51813ad02319c057
+harness/f0_clean.py                                              9436  1d767c040ddb0298e4894296a04d66268cfcf4d64acc8f113c4f7d671cd9dfe9
+harness/f0_live.py                                              16157  e388f7149e0917e840a691c21dc14e8c00738c1bbbbd388bb07273c6f93b8c4d
+harness/f0_probe.py                                             10479  99b3ce160eb465a4c9e6e296eb622a04fc27ed3ac0c6251c79d73c5d7845cd5f
+harness/f0_probe2.py                                             7355  5f529e5ff0759758fe19995720a1abade8c80901837e54dec5e7125882b04aa6
+journal-f0-excerpt.txt                                          44970  0cb63d791d77869bb810fe7e797aafa9938533961f8db3380ba018e7e8bbf2fc
+live-harness-stdout.txt                                           671  ae58375fb35f96a25211aa18aa0fabe78eceb014d763c08a1859cb78b6b5464b
+probe-after.json                                                62256  98839e45db3aa332ef90c01860886a1b515bd08d6e0bea3d07acc82170a366a4
+probe-replies.json                                              41553  7ac5ff3b5aad48c710cf9093678e8bc3b4eb4de442e193b2fca06b894b8d38b5
+harness/f0_base.py (= p0-vision accept94_base.py)               51624  959277114c89789aefaca6d3bd130fff0a26066eb9396cab43a0832fa295b7a6

@@ -1,0 +1,76 @@
+{
+ "generated_utc": "2026-10-19 10:00:28",
+ "chat_id": -1002661910336,
+ "method": "Telegram Bot API deleteMessage via the deployed bot (local session); safety gate vs real user messages; synthetic smart_messages/bot_replies/throttle rows removed",
+ "delete_mids": [
+  1166228
+ ],
+ "deleted": [
+  {
+   "mid": 1166228,
+   "bot_reply_head": "Нормально, понедельник как понедельник - а у тебя?",
+   "status": "deleted"
+  }
+ ],
+ "diagnostics_inventory": {
+  "smart_messages_window": [
+   {
+    "mid": 1166223,
+    "user_id": 350803143,
+    "author_name": "Костя",
+    "head": "😖"
+   },
+   {
+    "mid": 1166224,
+    "user_id": 8636935052,
+    "author_name": "Гоша",
+    "head": null
+   },
+   {
+    "mid": 1166225,
+    "user_id": 5885953495,
+    "author_name": "Никита",
+    "head": "🍑"
+   },
+   {
+    "mid": 1166226,
+    "user_id": 5885953495,
+    "author_name": "Никита",
+    "head": null
+   },
+   {
+    "mid": 1166227,
+    "user_id": 8636935052,
+    "author_name": "Гоша",
+    "head": null
+   }
+  ],
+  "bot_replies_window": [
+   {
+    "mid": 1166228,
+    "head": "Нормально, понедельник как понедельник - а у тебя?",
+    "last_used_at": 1792404003.334666
+   }
+  ]
+ },
+ "verification": {
+  "delete_attempts": 1,
+  "deleted_now": 1,
+  "already_deleted": 0,
+  "failed": [],
+  "residual_smart_rows_for_deleted": [],
+  "residual_bot_replies_for_deleted": [],
+  "synthetic_rows_removed": [],
+  "bot_replies_removed": [
+   {
+    "mid": 1166228,
+    "rowid": 1
+   }
+  ],
+  "throttle_rows_removed": 1,
+  "window": {
+   "lo": 1166223,
+   "hi": 990940206
+  }
+ }
+}

@@ -1,0 +1,10 @@
+F0LIVE NOW_UTC | 2026-10-19 09:59:37
+ACC94 BOT INFO | session=local_bot_api (download_enabled=1)
+ACC94 BOOT | version=? vec=True bot=8802473181 pg=True
+F0LIVE BOOT | ok; bot_id=8802473181
+F0LIVE TURN | status=ok corr=708f73c41eb64c67b1143184b21a9ab6 elapsed=11.32s answer_len=50
+F0LIVE CLEANUP_SPEC | {"delete_mids": [1166228], "smart_rows": [990940201], "window": {"lo": 1166223, "hi": 990940206}, "turn_text": "бот, как настроение?", "corr": "708f73c41eb64c67b1143184b21a9ab6"}
+F0LIVE PAYLOAD | llm_calls=4 wire=4 l2_calls=1
+F0LIVE MARKERS | {"Expression_Settings": 0, "Мат и грубость": 1, "profanity": 0}
+F0LIVE EXPR_TRACE | []
+F0LIVE RC=0
