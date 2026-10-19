@@ -2,9 +2,9 @@
 
 - **Кандидат:** рабочее дерево поверх `35b8b455` (release-25895, pins-only; ADD-EXP-файлы byte-equal базе `b20fe4f7`). sha256_12 всех 15 файлов пересчитаны ревьюером и **совпали** с заявленными.
 - **Дата:** 20.10.2026. Прод/деплой не трогались; только чтение + локальные прогоны. RELEASE-PKG-95 (worktree `release-25895/wt`) не смешивался.
-- **Вердикт: Needs Fixes** — 1 блокер (EXP-INSTR.FEWSHOT: сиды few-shot недостижимы в production); остальные пункты пройдены независимыми прогонами/осмотром.
+- **Вердикт:** раунд 1 (20.10, `981e9902`) — Needs Fixes (1 блокер: EXP-INSTR.FEWSHOT); **RECHECK REV-ADD-EXP-RECHECK — Approved**: BLOCK-1 закрыт, см. раздел «RECHECK» ниже.
 
-## Связка кандидата (sha256_12, пересчитано ревьюером)
+## Связка кандидата раунда 1 (sha256_12, пересчитано ревьюером; актуальные sha BLOCK-1-дельты — в разделе RECHECK)
 
 | Файл | sha12 |
 |---|---|
@@ -25,6 +25,31 @@
 | .gitignore | +1 узкое исключение `!plans/features/add-exp/evidence/build/` |
 
 Дисциплина дельты: 15 заявленных файлов + `plans/features/add-exp/evidence/build/**`. Vision (`b20fe4f7`) и CFG-файлы (`param_catalog`, TSV/meta, f8) не тронуты. Прочие modified-файлы дерева (`plans/workflow_state.md`, `plans/progress_scope.json`, asap8/архив) — чужие лейны, в вердикт-коммит не входят. `.gitignore`-исключение проверено: каталог evidence не ignored, чужие `build/` (fonts) остаются ignored.
+
+
+## RECHECK REV-ADD-EXP-RECHECK (20.10.2026) — BLOCK-1 закрыт: **Approved**
+
+- **Кандидат:** рабочее дерево поверх `981e9902`. BLOCK-1-дельта — **ровно 8 файлов**, sha256_12 пересчитаны и совпали: `mca_expression.py 2b0d09888243`, `mca_sample_library.py a7f81b4f62c0`, `prompt_composer.py 721773eada65`, `web/api/speech.py 85741bcacdbf`, `web/app.js 1d68fede513e`, `web/index.html b80dad12a482`, `tests/test_add_exp_expression.py 49227ae3a9c7`, `tests/ui_p0a_ux_speech_compact_e2e.py 039821b199d4`.
+- **Не менялись (сверено по sha12):** `mca_gates.py 1f6c28841d8a`, `direct_chat_service.py 0faaa6034f71`, `mca_authorial_speech.py 55e8fd72ccff`, `test_soul1_w6_speech_ui.py a83f72cd13dc`, `test_p0_persistfix_speech_chat_scope.py 323af71b4f96`, `test_soul1_flags_composition.py 94d9467b9a4f`.
+- **Дисциплина:** в code/test-деревьях изменены только 15 файлов кандидата (+ `evidence/build/**`); vision (`b20fe4f7`), CFG-файлы и release-25895 не задеты; вердикт-коммит — `--only`.
+
+### Проверено своими зондами (независимо от лейна)
+
+1. **Сид-путь (HTTP через прод-эндпоинт, temp-DB).** Собственный зонд на реальном `TestClient` + `POST /api/speech/examples/seed`: первый прогон `seeded=18`, `expression_seeded=12`, `expression_skipped=0`, примечание содержит `not_owner_approved`; 12 строк `technique='expression_register'`, `owner_approved=0`, `scope='global'`, `source_kind='bot_suggested'`, теги `mode:off/occasional/frequent`; повтор → `seeded=0`/`expression_seeded=0`, `skipped=18`/`expression_skipped=12`, всего 30 строк (без дублей).
+2. **`not_owner_approved`.** До одобрения: `resolve_expression_examples_ex` → `((), "not_owner_approved")`; `build_expression_examples_refs` → `SampleRef(enabled=False, skip_reason="not_owner_approved")`; манифест — `skip_reason=not_owner_approved`, `rendered=False`, `<Expression_Examples` в систему НЕ попадает. После HTTP-одобрения одной `off`-карточки (`POST /speech/examples/{id}/approve`): блок `<Expression_Examples mode="off">` рендерится и попадает в систему; `occasional`/`frequent` — по-прежнему `not_owner_approved`; обёртка `resolve_expression_examples` совместима (возвращает строки).
+3. **UI.** В живом DOM (Browser Use, независимый стаб-API): фильтр «Приём» и перечень техник содержат человеческую метку «Регистр речи (мат: без / эпизодически / часто)»; счётчики не склеены («черновиков заведено: 3 из 18 · регистр речи: 0 из 12», меню «Заводская подборка (18 + 12 регистра речи)», тост называет обе подборки); `HUMOR_TECHNIQUES` НЕ расширен (прежние 6 id); humor-сид 18/18, повтор — no-op.
+4. **Регресс.** RED-4 воспроизведён мной в изолированном worktree (`981e9902` + pre-fix snapshot 6 файлов — их sha совпали с раундом 1 + остальные незакоммиченные файлы кандидата + новые тесты): **4 failed / 27 passed** — падают ровно 4 новых теста BLOCK-1 (seed-эндпоинт, `not_owner_approved`→блок, техника в payload, UI-метка). Focused (мой набор из 26 файлов) — **642 passed**; UI e2e (мой прогон) — **failures=0, POST=22**; JS-свип — **105 файлов, 0 ошибок**.
+
+### Findings
+
+- **Блокирующих нет.**
+- Ниты (nonblocking): **R1** — событие `prompt_layers` для `not_owner_approved` идёт как `silent/source_missing`; при желании добавить причину в `_OFF_REASONS` (skipped/disabled) для честной формы события. **R2** — README относит `shots/examples_block1_390.png` к e2e, но текущий e2e снимает `examples_menu_390.png` (скрин подлинный: моё независимое снятие того же состояния отличается на 37 байт) — уточнить формулировку. **N1–N4** раунда 1 — остаются backlog.
+
+### Леджер-заметки (обновление после закрытия BLOCK-1)
+
+- **24 строки → `VERIFIED`** (23 из раунда 1 + `EXP-INSTR.FEWSHOT`), **5 → `READY_FOR_LIVE`**: `EXP-RUNTIME.WIRING`, `EXP-RUNTIME.PAYLOAD`, `EXP-ACCEPT.LIVE-SET`, `EXP-ACCEPT.ROUTES`, `EXP-ACCEPT.CRITERION` (Ф6: 20–30 проб §7.2, изоляция `frequent`/`off`-чатов, переключение без рестарта, reread, preview vs production trace).
+- **Биндинг (следующий шаг):** проставить `candidate_commit` (фактический sha фикс-коммита) и статусы V/RFL, затем перезапустить `--stage review` до **EXIT 0** (сейчас review-стадия ожидаемо EXIT 1: candidate пуст, строки PENDING; plan-стадия EXIT 0).
+- Проекция реестрового `CFG-07B.profanity_use` — отдельный слот; ADD-EXP второй параметр не создаёт.
 
 ## Проверено ревьюером (свои прогоны/осмотры)
 
@@ -60,7 +85,7 @@
 - **N3.** `postprocess_changed` со `stage="style_policy"` может фактически отражать numeric-guard (проверка идёт после него) — `detail` неточен, класс честен.
 - **N4.** В chat-scope предпросмотр показывает «слой пуст», пока выше строка «Действует: …» — соответствует дизайну §5.2 (предпросмотр = слой scope), но стоит держать в уме при UX-волне.
 
-## Леджер-заметки (после закрытия BLOCK-1; карта read-only — правки отдельным шагом)
+## Леджер-заметки раунда 1 (историч.; актуальное обновление — в разделе RECHECK)
 
 - `EXP-UI.MODES/OFF/OCC/FREQ/INHERIT/MIGRATION` → **V**
 - `EXP-INSTR.POSITIVE/NOPOST` → **V**; `EXP-INSTR.FEWSHOT` → **V после закрытия BLOCK-1**
