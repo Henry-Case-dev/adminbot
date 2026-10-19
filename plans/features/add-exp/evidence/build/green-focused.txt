@@ -1,0 +1,46 @@
+# ADD-EXP GREEN (focused, final state; BLOCK-1 fix included)
+HEAD=981e9902 + uncommitted ADD-EXP working tree
+
+sha256_12 2b0d09888243 services/mca_expression.py
+sha256_12 1f6c28841d8a services/mca_gates.py
+sha256_12 721773eada65 services/prompt_composer.py
+sha256_12 a7f81b4f62c0 services/mca_sample_library.py
+sha256_12 0faaa6034f71 services/direct_chat_service.py
+sha256_12 55e8fd72ccff services/mca_authorial_speech.py
+sha256_12 85741bcacdbf web/api/speech.py
+sha256_12 1d68fede513e web/app.js
+sha256_12 b80dad12a482 web/index.html
+sha256_12 49227ae3a9c7 tests/test_add_exp_expression.py
+sha256_12 a83f72cd13dc tests/test_soul1_w6_speech_ui.py
+sha256_12 323af71b4f96 tests/test_p0_persistfix_speech_chat_scope.py
+sha256_12 94d9467b9a4f tests/test_soul1_flags_composition.py
+sha256_12 039821b199d4 tests/ui_p0a_ux_speech_compact_e2e.py
+
+cmd: py -3 -m pytest <26 files> -q --no-header
+
+........................................................................ [ 11%]
+........................................................................ [ 22%]
+........................................................................ [ 33%]
+........................................................................ [ 44%]
+........................................................................ [ 56%]
+........................................................................ [ 67%]
+........................................................................ [ 78%]
+........................................................................ [ 89%]
+..................................................................       [100%]
+============================== warnings summary ===============================
+..\..\..\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\_pytest\config\__init__.py:1464
+  C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\_pytest\config\__init__.py:1464: PytestConfigWarning: Unknown config option: timeout
+  
+    self._warn_or_fail_if_strict(f"Unknown config option: {key}\n")
+
+..\..\..\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\_pytest\config\__init__.py:1464
+  C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\_pytest\config\__init__.py:1464: PytestConfigWarning: Unknown config option: timeout_method
+  
+    self._warn_or_fail_if_strict(f"Unknown config option: {key}\n")
+
+..\..\..\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\fastapi\testclient.py:1
+  C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\fastapi\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+642 passed, 3 warnings in 28.59s

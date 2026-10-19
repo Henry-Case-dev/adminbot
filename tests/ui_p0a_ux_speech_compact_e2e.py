@@ -131,6 +131,18 @@ EXAMPLE_ROW = {
     "tags": ["тест"], "revision": 1, "context_note": "",
 }
 
+#: ADD-EXP (BLOCK-1): карточка набора регистра речи — владелец видит
+#: человеческую метку техники (сырой код `expression_register` не показываем).
+EXPRESSION_EXAMPLE_ROW = {
+    "id": 12, "technique": "expression_register",
+    "input_text": "Ну ты и выдал", "reply_text": "Выдал, признаю.",
+    "owner_approved": False, "status": "active",
+    "source_kind": "bot_suggested", "scope": "global",
+    "rudeness_level": 0, "library_version": "expr-starter-1",
+    "uses_count": 0, "tags": ["mode:off", "expression"], "revision": 1,
+    "context_note": "дружеский стёб",
+}
+
 LESSON_ROW = {
     "lesson_id": "L1", "version": 2, "type": "humor_pref",
     "applied": True, "status": "active", "applications_count": 3,
@@ -221,23 +233,73 @@ def _style(chat_key):
 
 
 def _expression(chat_key):
-    options = [{"value": "inherit", "label": "как настроено"},
-               {"value": "high", "label": "чаще"},
+    """ADD-EXP §5.1.6: payload с явным effective и инструкциями слоя.
+
+    В глобальном scope наследование не предлагается (эффективное значение
+    разрешено явно); в chat scope «Как в глобальных настройках» остаётся.
+    """
+    plain_inherit = {"value": "inherit",
+                     "label": "Как настроено (по умолчанию)"}
+    prof_inherit = {"value": "inherit",
+                    "label": "Как в глобальных настройках (наследование)"}
+    prof_options = [prof_inherit,
+                    {"value": "off", "label": "Без мата"},
+                    {"value": "occasional", "label": "Эпизодически"},
+                    {"value": "frequent", "label": "Часто"}]
+    if chat_key == "global":
+        prof_options = prof_options[1:]
+    values = {"wit": "inherit", "sharpness": "inherit",
+              "profanity": "inherit", "verbosity": "inherit"}
+    if chat_key == "global":
+        values["profanity"] = "occasional"
+    options = [plain_inherit, {"value": "high", "label": "чаще"},
                {"value": "off", "label": "выключено"}]
     return {
         "scope": "global" if chat_key == "global" else "chat",
         "chat_id": None if chat_key == "global" else int(chat_key),
         "inheritance": "chat" if chat_key != "global" else "global",
-        "notes": "Мягкая настройка подачи.", "runtime_wired": True,
-        "runtime_note": "", "can_edit": STATE["can_edit"],
-        "values": {"wit": "inherit", "sharpness": "inherit",
-                   "profanity": "inherit", "verbosity": "inherit"},
+        "notes": "Настройки задают интенсивность и форму собственной речи; "
+                 "уместность и жанр решают, где она проявляется.",
+        "runtime_wired": True,
+        "runtime_note": "Слой «Выражение» подключён к боевым речевым путям "
+                        "(Direct/Initiative); значение действует со "
+                        "следующего ответа.",
+        "can_edit": STATE["can_edit"],
+        "values": values,
         "note": "",
-        "controls": [{"id": "wit", "label": "Остроумие", "question": "сколько?",
-                      "effect": "мягко", "options": options},
-                     {"id": "sharpness", "label": "Резкость", "question": "?"},
-                     {"id": "profanity", "label": "Мат", "question": "?"},
-                     {"id": "verbosity", "label": "Развёрнутость", "question": "?"}],
+        "effective": {
+            "wit": {"value": "inherit", "source": "factory_default"},
+            "sharpness": {"value": "inherit", "source": "factory_default"},
+            "profanity": {"value": "occasional",
+                          "source": "factory_default", "migrated": False},
+            "verbosity": {"value": "inherit", "source": "factory_default"},
+        },
+        "migration": {},
+        "controls": [
+            {"id": "wit", "label": "Остроумие", "question": "сколько?",
+             "effect": "мягко", "instruction": {"high": "чаще искать повод"},
+             "options": options, "effective": "inherit",
+             "effective_source": "factory_default"},
+            {"id": "sharpness", "label": "Резкость", "question": "?",
+             "options": options, "effective": "inherit",
+             "effective_source": "factory_default"},
+            {"id": "profanity", "label": "Мат",
+             "question": "Как часто мат звучит в собственных ответах бота",
+             "effect": "Мат изредка, но по-настоящему.",
+             "instruction": {
+                 "off": "в собственных формулировках не используй обсценную "
+                        "лексику — это ограничение формы, а не характера",
+                 "occasional": "обсценная разговорная лексика появляется в "
+                               "собственных живых репликах изредка, но реально",
+                 "frequent": "обсценная разговорная лексика — узнаваемая "
+                             "регулярная часть твоего повседневного голоса",
+             },
+             "options": prof_options, "effective": "occasional",
+             "effective_source": "factory_default"},
+            {"id": "verbosity", "label": "Развёрнутость", "question": "?",
+             "options": options, "effective": "inherit",
+             "effective_source": "factory_default"},
+        ],
     }
 
 
@@ -260,7 +322,8 @@ def _humor(chat_key):
 
 def _examples(chat_key):
     available = STATE["examples_available"]
-    items = [dict(EXAMPLE_ROW)] if available else []
+    items = ([dict(EXAMPLE_ROW), dict(EXPRESSION_EXAMPLE_ROW)]
+             if available else [])
     return {
         "scope": "global" if chat_key == "global" else "chat",
         "available": available,
@@ -270,11 +333,14 @@ def _examples(chat_key):
         "note": "библиотека примеров",
         "reason": None if available else "read_error",
         "techniques": [{"id": "deadpan", "title": "Дедпан"},
+                       {"id": "expression_register",
+                        "title": "Регистр речи (мат: без / эпизодически / часто)"},
                        {"id": "other", "title": "прочие"}],
         "items": items,
         "telemetry": {"approved": 0, "proposed": len(items),
                       "by_version": {"A": len(items)}},
-        "starter": {"expected": 5, "seeded": 0},
+        "starter": {"expected": 18, "seeded": 3,
+                    "expression_expected": 12, "expression_seeded": 0},
         "ab": {"pinned": "A"},
         "policy": {"enabled": True, "ab_enabled": True, "max_items": 2,
                    "max_tokens": 300, "diversity_min_distance": 0.3,
@@ -448,7 +514,9 @@ def make_api_handler():
                 if name.startswith("examples"):
                     route.fulfill(status=200, content_type="application/json",
                                   body=json.dumps({"ok": True, "seeded": 5,
-                                                   "skipped": 0}))
+                                                   "skipped": 0,
+                                                   "expression_seeded": 0,
+                                                   "expression_skipped": 12}))
                     return
                 if name == "style":
                     route.fulfill(
@@ -463,6 +531,20 @@ def make_api_handler():
                         body=json.dumps({"ok": True,
                                          "view": payload_for("expression",
                                                              chat_key)}))
+                    return
+                if name == "expression/live-check":
+                    route.fulfill(
+                        status=200, content_type="application/json",
+                        body=json.dumps({
+                            "ok": True, "mode": "occasional",
+                            "reply": "Классика, бля. Перезагрузи роутер.",
+                            "reply_chars": 34, "profanity_roots": 1,
+                            "diag_class": "", "expression_marker": True,
+                            "response_mode": "warm", "elapsed_ms": 812,
+                            "delivery": {"telegram_send": False},
+                            "note": "Один реальный L2-вызов тем же боевым "
+                                    "путём, без доставки в Telegram."},
+                            ensure_ascii=False))
                     return
                 route.fulfill(status=200, content_type="application/json",
                               body=json.dumps({"ok": True}))
@@ -1231,6 +1313,35 @@ def run_examples_crud(browser, shots):
         page.click("[data-speech-card='examples']")
         page.wait_for_selector("[data-speech-samples]", state="visible")
         page.wait_for_timeout(400)
+        # ADD-EXP (BLOCK-1): владелец видит набор регистра речи человеческой
+        # меткой (сырой код техники в карточке не показывается), счётчики
+        # подборок не склеены.
+        expr_header = page.evaluate(
+            "(() => { const rows = Array.from(document.querySelectorAll"
+            "('[data-speech-samples] .speech-rule'));"
+            " const row = rows.find((r) => (r.textContent || '')"
+            ".indexOf('Выдал, признаю') >= 0);"
+            " if (!row) return null;"
+            " const h = row.querySelector('.speech-rule-head .text-sm.font-semibold');"
+            " return h ? h.textContent.replace(/\\s+/g, ' ').trim() : null; })()")
+        if not expr_header or "Регистр речи" not in expr_header:
+            fail(label, "карточка регистра речи без человеческой метки: %s"
+                 % expr_header)
+        elif "expression_register" in expr_header:
+            fail(label, "в карточке показан сырой код техники: %s"
+                 % expr_header)
+        section_text = " ".join(page.inner_text(".speech-section").split())
+        if "регистр речи: 0 из 12" not in section_text:
+            fail(label, "счётчик набора регистра речи не показан: %s"
+                 % section_text[-160:])
+        page.click("[data-speech-menu='examples']")
+        page.wait_for_selector(".speech-menu-panel", state="visible")
+        menu_text = " ".join(page.inner_text(".speech-menu-panel").split())
+        if "12 регистра речи" not in menu_text:
+            fail(label, "меню подборки без счётчика регистра речи: %s"
+                 % menu_text)
+        page.click(".speech-menu-backdrop", position={"x": 5, "y": 5})
+        page.wait_for_timeout(200)
         page.click("[data-speech-menu='sample-11']")
         page.wait_for_selector(".speech-menu-panel", state="visible")
         items = page.evaluate(
@@ -1284,6 +1395,14 @@ def run_examples_crud(browser, shots):
         page.wait_for_timeout(700)
         if len(POSTS) != before + 1 or POSTS[-1]["path"] != "examples/seed":
             fail(label, "заводская подборка не ушла в API: %s" % (POSTS[before:]))
+        # BLOCK-1: тост честно называет обе подборки (регистр речи — отдельно).
+        toasts = page.evaluate(
+            "(() => Array.from(document.querySelectorAll('.toast, [class*=toast]'))"
+            ".map((t) => t.textContent.replace(/\\s+/g,' ').trim()))()")
+        if not any("регистр речи: добавлено 0, уже было 12" in t
+                   for t in toasts):
+            fail(label, "тост сида не называет набор регистра речи: %s"
+                 % toasts)
         page.fill("input[aria-label='Сообщение для отбора']", "привет")
         before = len(POSTS)
         page.locator(".speech-section button", has_text="Показать отбор").first.click()
@@ -1302,6 +1421,73 @@ def run_examples_crud(browser, shots):
         snap(page, shots, "examples_policy_390")
     finally:
         STATE["examples_available"] = False
+        ctx.close()
+
+
+def run_expression_flow(browser, shots):
+    """ADD-EXP §5.2: метки/инструкции/effective из payload, «Проверить вживую»."""
+    label = "expression-390"
+    ctx, page = new_page(browser, 390, 844, shots, chat=CHAT_A)
+    try:
+        open_speech(page)
+        page.click("[data-speech-card='expression']")
+        page.wait_for_selector("[data-speech-effective]", state="visible")
+        page.wait_for_timeout(400)
+        section_text = page.inner_text(".speech-section")
+        for banned in ("allowed", "Как в характере (естественный)"):
+            if banned in section_text:
+                fail(label, "сырой код/старая метка в разделе: %s" % banned)
+        effective = page.inner_text("[data-speech-effective]")
+        if "Действует:" not in effective or "заводское" not in effective:
+            fail(label, "строка effective без источника: %s" % effective)
+        control_eff = page.locator("[data-speech-control-effective]").first
+        if control_eff.count():
+            if "Действует:" not in control_eff.inner_text():
+                fail(label, "у контрола нет строки effective")
+        opts = page.evaluate(
+            "(() => Array.from(document.querySelectorAll('.speech-section "
+            "select')).map((s) => [s.getAttribute('aria-label'), "
+            "Array.from(s.options).map((o) => o.textContent.trim())]))()")
+        prof_options = next((o for (a, o) in opts if a == "Мат"), [])
+        for want in ("Как в глобальных настройках (наследование)",
+                     "Без мата", "Эпизодически", "Часто"):
+            if not any(want in x for x in prof_options):
+                fail(label, "в опциях мата нет «%s»: %s" % (want, prof_options))
+        other_options = next((o for (a, o) in opts if a == "Остроумие"), [])
+        if any("наследование" in x for x in other_options):
+            fail(label, "у прочих контролов подпись наследования от мата: %s"
+                 % other_options)
+        # предпросмотр строится из инструкций payload (без сырых кодов)
+        page.select_option(".speech-section select[aria-label='Мат']",
+                           "frequent")
+        page.wait_for_timeout(250)
+        preview = page.inner_text("[data-speech-expression-preview]")
+        if "- Мат:" not in preview or "регулярная часть твоего повседневного" \
+                not in preview:
+            fail(label, "предпросмотр не из инструкций payload: %s"
+                 % preview[:140])
+        if "frequent" in preview:
+            fail(label, "предпросмотр показывает сырой код режима")
+        # «Проверить вживую»: один POST, результат виден, доставки нет
+        before = len(POSTS)
+        page.click("[data-speech-live-run]")
+        page.wait_for_timeout(900)
+        if len(POSTS) != before + 1 \
+                or POSTS[-1]["path"] != "expression/live-check":
+            fail(label, "проба не ушла в API: %s" % (POSTS[before:]))
+        if not page.locator("[data-speech-live-result]").count():
+            fail(label, "результат пробы не показан владельцу")
+        result_text = page.inner_text("[data-speech-live-result]")
+        if "бля" not in result_text:
+            fail(label, "текст пробы не показан: %s" % result_text[:90])
+        # ADD-TR.1-контракт держится и в новом блоке (вход пробы ≥44px).
+        data = page.evaluate(PROBE)
+        if data["overflow"] > 1:
+            fail(label, "overflow в разделе «Выражение»: %d" % data["overflow"])
+        if data["minTap"] is not None and data["minTap"] < 44:
+            fail(label, "тач-цель < 44px в «Выражении»: %s" % data["small"])
+        snap(page, shots, "expression_390")
+    finally:
         ctx.close()
 
 
@@ -1376,6 +1562,7 @@ def main() -> int:
             run_core_extras(browser, args.shots)
             run_humor_and_learning(browser, args.shots)
             run_examples_crud(browser, args.shots)
+            run_expression_flow(browser, args.shots)
             run_readonly(browser)
 
     report = {"webroot": os.path.abspath(args.webroot),

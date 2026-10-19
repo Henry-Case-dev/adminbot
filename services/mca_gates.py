@@ -2421,6 +2421,18 @@ def humor_candidate_eval_enabled() -> bool:
                     "flags.humor_candidate_eval_enabled")
 
 
+def expression_examples_enabled() -> bool:
+    """`EXPRESSION_EXAMPLES_ENABLED` (env-only kill-switch, default **ON**).
+
+    ADD-EXP §3.3: своя ось few-shot набора регистра речи — НЕ гейтится осью
+    юмора `humor_library_enabled`. Каталогового тумблера нет (Δ каталога = 0):
+    ось аварийная, резолв per-call, никогда не бросает; OFF → набор примеров
+    не впрыскивается (`expression_examples_disabled` в манифесте), слой
+    инструкции «Выражения» жив.
+    """
+    return _env_flag("EXPRESSION_EXAMPLES_ENABLED", True)
+
+
 # ── SOUL-1 (W5) — оси инициативы: диагностика и мягкие цели ──────────────────
 # Тот же контракт, что у W2-осей: env-половина (emergency) AND каталоговый
 # тумблер (product, hot/per-chat), резолв per-call, никогда не бросает,

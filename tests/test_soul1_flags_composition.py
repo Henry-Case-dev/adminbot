@@ -132,7 +132,10 @@ def test_style_policy_axis_off_keeps_core():
 
 def test_humor_library_axis_off_removes_few_shot_only():
     manifest = pc.compose_prompt(plan(humor_library_enabled=False))
-    samples = by_layer(manifest, "few_shot")
+    # ADD-EXP §3.3: слой few_shot несёт два блока (набор регистра речи —
+    # owner core, и humor-примеры) — проверяем именно humor-блок.
+    samples = [t for t in manifest.layers
+               if t.layer == "few_shot" and t.block_id == "few_shot"][0]
     assert samples.rendered is False and samples.skip_reason == "samples_disabled"
     assert by_layer(manifest, "core").rendered is True
     assert SAMPLES not in manifest.system

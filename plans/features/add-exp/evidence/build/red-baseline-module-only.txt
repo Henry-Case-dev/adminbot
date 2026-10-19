@@ -1,0 +1,406 @@
+F...FF.FFF..FF.FFFFFFF.FFFF                                              [100%]
+================================== FAILURES ===================================
+_____________ test_modes_are_closed_set_and_allowed_is_read_alias _____________
+
+    def test_modes_are_closed_set_and_allowed_is_read_alias():
+        assert ex.EXPRESSION_MODES == ("inherit", "off", "occasional", "frequent")
+        assert ex.normalize_mode("allowed") == "occasional"
+        assert ex.normalize_mode("ALLOWED") == "occasional"
+        assert ex.normalize_mode("bogus") == "inherit"
+        # «естественный» — НЕ четвёртая степень частоты (нет такого значения)
+        assert ex.normalize_mode("natural") == "inherit"
+        doc = ex.normalize_expression({"profanity": "allowed", "wit": "???"})
+        assert doc["profanity"] == "occasional" and doc["wit"] == "inherit"
+        # единственный владелец значений/текста: UI-таблица не держит копию
+>       assert S.EXPRESSION_VALUES["profanity"] == ex.EXPRESSION_MODES
+E       AssertionError: assert ('inherit', 'off', 'allowed') == ('inherit', '...', 'frequent')
+E         
+E         At index 2 diff: 'allowed' != 'occasional'
+E         Right contains one more item: 'frequent'
+E         Use -v to get more diff
+
+tests\test_add_exp_expression.py:123: AssertionError
+___________ test_direct_l2_wiring_expression_present_with_revision ____________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000019E47152B70>
+
+    @pytest.mark.asyncio
+    async def test_direct_l2_wiring_expression_present_with_revision(monkeypatch):
+        from services import hot_config as hot
+        from services import chat_params
+        from services.direct_chat_service import DirectChatService
+        monkeypatch.setenv("UNIFIED_COMPOSER_ENABLED", "1")
+        hot.set_config_cache(_FakeHot({
+            "flags.unified_composer_enabled": True,
+            ex.EXPRESSION_DOC_KEY: {"profanity": "frequent", "revision": 3}}))
+        chat_params.set_chat_params_cache(None)
+        try:
+            system, manifest = await DirectChatService._compose_speech_system(
+                None, chat_id=777, writer="l2_writer", run_id="run-add-exp",
+                base_prompt="КАНАЛ: факты.", base_key="prompts.x",
+                base_default="КАНАЛ: факты.", base_source="default",
+                gates=pc.GateState(unified_composer_enabled=True))
+        finally:
+            hot.set_config_cache(None)
+        trace = [t for t in manifest.layers if t.layer == "expression"][0]
+>       assert trace.rendered is True and trace.skip_reason == ""
+E       AssertionError: assert (False is True)
+E        +  where False = LayerTrace(layer='expression', block_id='expression', owner='core', source='global', revision='', chars=0, tokens=0, rendered=False, skip_reason='expression_absent', conflict='', detail='').rendered
+
+tests\test_add_exp_expression.py:232: AssertionError
+_________________ test_authorial_system_gets_expression_layer _________________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000019E49076330>
+
+    @pytest.mark.asyncio
+    async def test_authorial_system_gets_expression_layer(monkeypatch):
+        from services import hot_config as hot
+        from services import chat_params
+        from services import mca_authorial_speech as authorial
+        monkeypatch.setenv("UNIFIED_COMPOSER_ENABLED", "1")
+        hot.set_config_cache(_FakeHot({
+            "flags.unified_composer_enabled": True,
+            ex.EXPRESSION_DOC_KEY: {"profanity": "occasional"}}))
+        chat_params.set_chat_params_cache(None)
+        try:
+            system, manifest = await authorial.authorial_system(
+                chat_id=777, writer="nostalgia_writer", genre="nostalgia",
+                legacy_canon="КАНОН_ЖАНРА")
+        finally:
+            hot.set_config_cache(None)
+        assert manifest is not None
+>       assert HEADER in system and OCC_LINE in system
+E       AssertionError: assert ('<Expression_Settings>\nНастройки выражения владельца: интенсивность и форма собственной речи; характер этим не меняет...вные цитаты и структурированные сводки (фактчек, ошибки API, тех. отчёты) не переписываются, мат в них не форсируется:' in '<Genre_Nostalgia>\nВоспоминание звучит твоим живым голосом, а не архивной справкой: по-свойски, с иронией и местным с...реплика и молчание тоже часть характера. Не выдумывай ради шутки реальные события, сведения о людях и статистику чата.')
+
+tests\test_add_exp_expression.py:256: AssertionError
+__________________ test_expression_budget_excluded_is_honest __________________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000019E490C5820>
+
+    def test_expression_budget_excluded_is_honest(monkeypatch):
+        monkeypatch.setenv("COMPOSER_LAYER_BUDGET_TOKENS", "40")
+        manifest = pc.compose_prompt(_expression_plan(
+>           expression=pc.ExpressionSettings(
+                text=HEADER + "\n" + FREQ_LINE + "\n</Expression_Settings>",
+                revision="e1", mode="frequent")))
+E       TypeError: ExpressionSettings.__init__() got an unexpected keyword argument 'mode'
+
+tests\test_add_exp_expression.py:273: TypeError
+_____________ test_core_and_canon_byte_parity_with_expression_off _____________
+
+    def test_core_and_canon_byte_parity_with_expression_off():
+        core_text = ("Мат и грубость. Мат - естественная часть речи, разговорная "
+                     "норма. Используй его свободно, если он делает фразу "
+                     "выразительнее.")
+        canon = "Разрешен мат и сленг."
+        manifest = pc.compose_prompt(_expression_plan(
+            base_prompt=canon,
+            core=pc.CoreRef(text=core_text, revision="r5"),
+>           expression=pc.ExpressionSettings(
+                text=ex.render_expression_text(
+                    ex.resolve_effective({"profanity": "off"}, None)),
+                revision="e1", mode="off")))
+E       TypeError: ExpressionSettings.__init__() got an unexpected keyword argument 'mode'
+
+tests\test_add_exp_expression.py:291: TypeError
+________ test_factcheck_machine_plan_has_no_expression_and_no_examples ________
+
+    def test_factcheck_machine_plan_has_no_expression_and_no_examples():
+        examples = ex.render_expression_examples_block("frequent", [{
+            "context_note": "быт", "input_text": "x", "reply_text": "y"}])
+        manifest = pc.compose_prompt(pc.PromptPlan(
+            profile="machine_json", writer="factcheck_extract", chat_id=7,
+            base_prompt="БАЗА",
+>           expression=pc.ExpressionSettings(text=HEADER + "\n" + FREQ_LINE
+                                            + "\n</Expression_Settings>",
+                                            mode="frequent"),
+            expression_examples=(pc.SampleRef(
+                block_id="expression_examples", text=examples),),
+            gates=pc.GateState(unified_composer_enabled=True)))
+E       TypeError: ExpressionSettings.__init__() got an unexpected keyword argument 'mode'
+
+tests\test_add_exp_expression.py:309: TypeError
+____________ test_composer_excluded_diag_fires_for_expression_skip ____________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000019E490C2DE0>
+
+    def test_composer_excluded_diag_fires_for_expression_skip(monkeypatch):
+        calls: list[dict] = []
+    
+        def _capture(name, **fields):
+            calls.append({"name": name, **fields})
+            return {"event_name": name}
+    
+        monkeypatch.setattr(mca_events, "emit_mca_event", _capture)
+        ex.reset_diag_dedup()
+        pc.reset_state()
+        manifest = pc.compose_prompt(pc.PromptPlan(
+            profile="speech_plain", writer="l2_writer", chat_id=55,
+            base_prompt="БАЗА_КАНАЛА",
+            expression=pc.ExpressionSettings(enabled=False,
+                                             skip_reason="expression_disabled"),
+            gates=pc.GateState(unified_composer_enabled=True)))
+        pc.emit_layer_events_once(manifest)
+        diag = [c for c in calls if str(c.get("status", "")).startswith(
+            "expression_diag:composer_excluded")]
+>       assert diag, calls
+E       AssertionError: [{'name': 'prompt_layers', 'outcome': 'silent', 'level': 'INFO', 'component': 'prompt_composer', ...}, {'name': 'promp...ser', ...}, {'name': 'prompt_layers', 'outcome': 'skipped', 'level': 'INFO', 'component': 'prompt_composer', ...}, ...]
+E       assert []
+
+tests\test_add_exp_expression.py:390: AssertionError
+________ test_fallback_adapter_marker_loss_reports_policy_not_injected ________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000019E490C7B30>
+
+    def test_fallback_adapter_marker_loss_reports_policy_not_injected(monkeypatch):
+        calls: list[dict] = []
+        monkeypatch.setattr(mca_events, "emit_mca_event",
+                            lambda name, **f: calls.append({"name": name, **f})
+                            or {"event_name": name})
+        ex.reset_diag_dedup()
+        from services import direct_chat_service as dcs
+    
+        def adapter(payload):
+            return {"messages": [{"role": "system", "content": "без маркера"},
+                                 {"role": "user", "content": "x"}]}
+    
+>       wrapped = dcs._expression_marker_checked_adapter(adapter, chat_id=5,
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                                                         mode="frequent")
+E       AttributeError: module 'services.direct_chat_service' has no attribute '_expression_marker_checked_adapter'
+
+tests\test_add_exp_expression.py:408: AttributeError
+___________ test_l2_write_answer_wires_expression_and_reports_diag ____________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000019E490C7C50>
+
+    @pytest.mark.asyncio
+    async def test_l2_write_answer_wires_expression_and_reports_diag(
+            monkeypatch):
+        from services import hot_config as hot
+        from services import chat_params
+        from services import direct_chat_service as dcs
+        monkeypatch.setenv("UNIFIED_COMPOSER_ENABLED", "1")
+        hot.set_config_cache(_FakeHot({
+            "flags.unified_composer_enabled": True,
+            ex.EXPRESSION_DOC_KEY: {"profanity": "frequent"}}))
+        chat_params.set_chat_params_cache(None)
+        monkeypatch.setattr(dcs.anticliche_cache, "get_rules", lambda: None)
+        captured: dict = {}
+    
+        async def fake_verbalize(generate, messages, **kwargs):
+            captured["messages"] = messages
+            reply = await generate(messages)
+            return reply, {"attempts": 1, "retries": 0, "hits": [],
+                           "fallback": False}
+    
+        monkeypatch.setattr(dcs, "verbalize_validated", fake_verbalize)
+    
+        class _FakeLLM:
+            async def generate(self, messages, **kwargs):
+                return "Ага, выдал. Хуёво выдал, зато никто не уснул."
+    
+        calls: list[dict] = []
+        monkeypatch.setattr(mca_events, "emit_mca_event",
+                            lambda name, **f: calls.append({"name": name, **f})
+                            or {"event_name": name})
+        ex.reset_diag_dedup()
+        service = dcs.DirectChatService.__new__(dcs.DirectChatService)
+        service.llm = _FakeLLM()
+        diag_out: dict = {}
+        try:
+>           result = await service._l2_write_answer(
+                55, "ну ты и выдал", temperature=0.7, correlation_id="cid-exp-1",
+                diag_out=diag_out)
+E               TypeError: DirectChatService._l2_write_answer() got an unexpected keyword argument 'diag_out'
+
+tests\test_add_exp_expression.py:471: TypeError
+____________ test_global_payload_explicit_effective_and_no_inherit ____________
+
+api_env = namespace(cache=<test_soul1_w6_speech_ui._Cache object at 0x0000019E490D3D70>, chat=<sqlite3.Connection object at 0x00...9E4AC15C60>, user=namespace(id=4242), ctx=namespace(is_global_admin=True, effective_permissions=None), chat_id=-100500)
+
+    def test_global_payload_explicit_effective_and_no_inherit(api_env):
+        env = api_env
+        view = _run(S.get_expression(None, env.user, None))
+>       assert view["runtime_wired"] is True and view["runtime_note"]
+E       assert (False is True)
+
+tests\test_add_exp_expression.py:500: AssertionError
+______________ test_chat_scope_inherit_label_isolation_and_reset ______________
+
+api_env = namespace(cache=<test_soul1_w6_speech_ui._Cache object at 0x0000019E490D35F0>, chat=<sqlite3.Connection object at 0x00...9E4AC14E50>, user=namespace(id=4242), ctx=namespace(is_global_admin=True, effective_permissions=None), chat_id=-100500)
+
+    def test_chat_scope_inherit_label_isolation_and_reset(api_env):
+        env = api_env
+        _run(S.post_expression(None, env.user, S.ExpressionWrite(
+            values={"profanity": "frequent"}, scope="chat"), str(env.chat_id)))
+        view_a = _run(S.get_expression(None, env.user, str(env.chat_id)))
+        assert view_a["inheritance"] == "chat"
+>       assert view_a["values"]["profanity"] == "frequent"
+E       AssertionError: assert 'inherit' == 'frequent'
+E         
+E         - frequent
+E         + inherit
+
+tests\test_add_exp_expression.py:527: AssertionError
+___________ test_allowed_alias_write_is_canonical_and_keeps_history ___________
+
+api_env = namespace(cache=<test_soul1_w6_speech_ui._Cache object at 0x0000019E490D0980>, chat=<sqlite3.Connection object at 0x00...9E4AC173D0>, user=namespace(id=4242), ctx=namespace(is_global_admin=True, effective_permissions=None), chat_id=-100500)
+
+    def test_allowed_alias_write_is_canonical_and_keeps_history(api_env):
+        env = api_env
+        env.cache.data[S.EXPRESSION_DOC_KEY] = {
+            "profanity": "allowed", "wit": "high", "note": "прежнее",
+            "revision": 1, "history": [], "updated_at": "2026-10-18T14:37:25Z"}
+        view = _run(S.get_expression(None, env.user, None))
+>       assert view["migration"] == {"profanity": {"from": "allowed",
+               ^^^^^^^^^^^^^^^^^
+                                                   "to": "occasional"}}
+E       KeyError: 'migration'
+
+tests\test_add_exp_expression.py:554: KeyError
+____________________ test_live_check_endpoint_honest_paths ____________________
+
+api_env = namespace(cache=<test_soul1_w6_speech_ui._Cache object at 0x0000019E490D76E0>, chat=<sqlite3.Connection object at 0x00...9E4AC17790>, user=namespace(id=4242), ctx=namespace(is_global_admin=True, effective_permissions=None), chat_id=-100500)
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000019E490D2690>
+
+    def test_live_check_endpoint_honest_paths(api_env, monkeypatch):
+        env = api_env
+>       monkeypatch.setattr(S, "_direct_service", lambda: None)
+E       AttributeError: <module 'web.api.speech' from 'C:\\Users\\main\\.config\\opencode\\OpenCodeScratch\\adminbot-ccef72c25768\\add-exp-build\\red-baseline\\web\\api\\speech.py'> has no attribute '_direct_service'
+
+tests\test_add_exp_expression.py:578: AttributeError
+________________ test_live_check_class_reports_missing_marker _________________
+
+api_env = namespace(cache=<test_soul1_w6_speech_ui._Cache object at 0x0000019E490D7DA0>, chat=<sqlite3.Connection object at 0x00...9E4A41C040>, user=namespace(id=4242), ctx=namespace(is_global_admin=True, effective_permissions=None), chat_id=-100500)
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000019E490D0A70>
+
+    def test_live_check_class_reports_missing_marker(api_env, monkeypatch):
+        env = api_env
+    
+        class _FakeService:
+            async def _l2_write_answer(self, chat_id, query, **kwargs):
+                diag = kwargs.get("diag_out")
+                if isinstance(diag, dict):
+                    diag.update({"expression_marker": False,
+                                 "expression_mode": "frequent",
+                                 "expression_rendered": True,
+                                 "provider_error": False})
+                return "Ну и всё.", "warm"
+    
+>       monkeypatch.setattr(S, "_direct_service", lambda: _FakeService())
+E       AttributeError: <module 'web.api.speech' from 'C:\\Users\\main\\.config\\opencode\\OpenCodeScratch\\adminbot-ccef72c25768\\add-exp-build\\red-baseline\\web\\api\\speech.py'> has no attribute '_direct_service'
+
+tests\test_add_exp_expression.py:642: AttributeError
+____________________ test_ui_renders_payload_not_raw_codes ____________________
+
+    def test_ui_renders_payload_not_raw_codes():
+        app_js = (ROOT / "web" / "app.js").read_text(encoding="utf-8")
+        index = (ROOT / "web" / "index.html").read_text(encoding="utf-8")
+>       assert "data-speech-effective" in index
+E       assert 'data-speech-effective' in '<!DOCTYPE html>\n<html lang="ru">\n<head>\n  <meta charset="utf-8">\n  <!-- hotfix4 (T-2516, ADR-1025-8 D2): viewport...afe-inline\'/nonce/hash. -->\n  <script src="/static/telegram-init.js?v=__APP_VERSION__"></script>\n</body>\n</html>\n'
+
+tests\test_add_exp_expression.py:662: AssertionError
+_______________ test_expression_seed_composition_is_draft_only ________________
+
+    def test_expression_seed_composition_is_draft_only():
+>       assert len(sl.EXPRESSION_STARTER_SAMPLES) == 12
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'services.mca_sample_library' has no attribute 'EXPRESSION_STARTER_SAMPLES'
+
+tests\test_add_exp_expression.py:705: AttributeError
+_____________ test_expression_examples_seed_select_and_isolation ______________
+
+db = <services.database.DatabaseService object at 0x0000019E490D4200>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000019E490D65D0>
+
+    @pytest.mark.asyncio
+    async def test_expression_examples_seed_select_and_isolation(db, monkeypatch):
+        monkeypatch.delenv("EXPRESSION_EXAMPLES_ENABLED", raising=False)
+>       first = await sl.seed_expression_samples(db)
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'services.mca_sample_library' has no attribute 'seed_expression_samples'
+
+tests\test_add_exp_expression.py:732: AttributeError
+_______________ test_humor_path_never_takes_expression_register _______________
+
+    def test_humor_path_never_takes_expression_register():
+        row = {
+            "id": 1, "input_text": "вход", "reply_text": "ответ",
+            "technique": "expression_register", "context_note": "",
+            "language": "ru", "tags": ["mode:off"], "rudeness_level": 0,
+            "source_kind": "owner_manual", "scope": "global", "chat_id": None,
+            "owner_approved": 1, "status": "active", "library_version": "v1",
+            "revision": 1, "uses_count": 0, "last_used_at": None,
+            "sensitivity_flags": [],
+        }
+        selection = sl.select_samples([row], chat_id=7, technique="deadpan",
+                                      policy=None)
+>       assert selection.samples == ()
+E       AssertionError: assert ({'id': 1, 'i...ister', ...},) == ()
+E         
+E         Left contains one more item: {'id': 1, 'input_text': 'вход', 'reply_text': 'ответ', 'technique': 'expression_register', ...}
+E         Use -v to get more diff
+
+tests\test_add_exp_expression.py:771: AssertionError
+_________ test_composer_expression_examples_before_humor_and_budgeted _________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000019E490D7140>
+
+    def test_composer_expression_examples_before_humor_and_budgeted(monkeypatch):
+        expr_block = ex.render_expression_examples_block("occasional", [{
+            "context_note": "спор", "input_text": "не работает",
+            "reply_text": "у меня крутится"}])
+        humor_block = "<Examples>\nВход: a\nОтвет: б\n</Examples>"
+        plan = _expression_plan(
+>           expression=pc.ExpressionSettings(
+                text=HEADER + "\n" + OCC_LINE + "\n</Expression_Settings>",
+                revision="e1", mode="occasional"),
+            expression_examples=(pc.SampleRef(
+                block_id="expression_examples", text=expr_block,
+                revision="ex1", source="global",
+                technique="expression_register"),),
+            samples=(pc.SampleRef(text=humor_block, library_version="v1",
+                                  revision="v1"),),
+            gates=pc.GateState(unified_composer_enabled=True,
+                               humor_library_enabled=True))
+E       TypeError: ExpressionSettings.__init__() got an unexpected keyword argument 'mode'
+
+tests\test_add_exp_expression.py:786: TypeError
+============================== warnings summary ===============================
+..\..\..\..\..\..\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\_pytest\config\__init__.py:1464
+  C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\_pytest\config\__init__.py:1464: PytestConfigWarning: Unknown config option: timeout
+  
+    self._warn_or_fail_if_strict(f"Unknown config option: {key}\n")
+
+..\..\..\..\..\..\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\_pytest\config\__init__.py:1464
+  C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\_pytest\config\__init__.py:1464: PytestConfigWarning: Unknown config option: timeout_method
+  
+    self._warn_or_fail_if_strict(f"Unknown config option: {key}\n")
+
+..\..\..\..\..\..\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\fastapi\testclient.py:1
+  C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\fastapi\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_add_exp_expression.py::test_modes_are_closed_set_and_allowed_is_read_alias
+FAILED tests/test_add_exp_expression.py::test_direct_l2_wiring_expression_present_with_revision
+FAILED tests/test_add_exp_expression.py::test_authorial_system_gets_expression_layer
+FAILED tests/test_add_exp_expression.py::test_expression_budget_excluded_is_honest
+FAILED tests/test_add_exp_expression.py::test_core_and_canon_byte_parity_with_expression_off
+FAILED tests/test_add_exp_expression.py::test_factcheck_machine_plan_has_no_expression_and_no_examples
+FAILED tests/test_add_exp_expression.py::test_composer_excluded_diag_fires_for_expression_skip
+FAILED tests/test_add_exp_expression.py::test_fallback_adapter_marker_loss_reports_policy_not_injected
+FAILED tests/test_add_exp_expression.py::test_l2_write_answer_wires_expression_and_reports_diag
+FAILED tests/test_add_exp_expression.py::test_global_payload_explicit_effective_and_no_inherit
+FAILED tests/test_add_exp_expression.py::test_chat_scope_inherit_label_isolation_and_reset
+FAILED tests/test_add_exp_expression.py::test_allowed_alias_write_is_canonical_and_keeps_history
+FAILED tests/test_add_exp_expression.py::test_live_check_endpoint_honest_paths
+FAILED tests/test_add_exp_expression.py::test_live_check_class_reports_missing_marker
+FAILED tests/test_add_exp_expression.py::test_ui_renders_payload_not_raw_codes
+FAILED tests/test_add_exp_expression.py::test_expression_seed_composition_is_draft_only
+FAILED tests/test_add_exp_expression.py::test_expression_examples_seed_select_and_isolation
+FAILED tests/test_add_exp_expression.py::test_humor_path_never_takes_expression_register
+FAILED tests/test_add_exp_expression.py::test_composer_expression_examples_before_humor_and_budgeted
+19 failed, 8 passed, 3 warnings in 5.02s

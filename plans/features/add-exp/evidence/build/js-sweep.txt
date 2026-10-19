@@ -1,0 +1,4 @@
+node --check sweep: web/**/*.js + tests/js/**/*.js
+files=105
+
+bad=0

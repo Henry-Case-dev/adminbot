@@ -519,9 +519,18 @@ def test_expression_values_render_layer_text_and_reset(api_env, monkeypatch):
     env = api_env
     monkeypatch.setattr(pf, "_default_cache", lambda: env.cache)
     base = _run(S.get_expression(None, env.user, None))
-    assert base["rendered_text"] == ""
+    # ADD-EXP (§1.5/§5.1.6): глобальный scope разрешает эффективный режим
+    # явно — заводской occasional вместо пустого «как в характере».
+    assert base["effective"]["profanity"]["value"] == "occasional"
+    assert base["effective"]["profanity"]["source"] == "factory_default"
+    assert base["rendered_text"].startswith("<Expression_Settings>")
     assert {c["id"] for c in base["controls"]} == {"wit", "sharpness",
                                                   "profanity", "verbosity"}
+    prof = next(c for c in base["controls"] if c["id"] == "profanity")
+    assert [o["value"] for o in prof["options"]] == [
+        "off", "occasional", "frequent"], \
+        "в глобальном scope наследования нет"
+    assert all("естественный" not in o["label"] for o in prof["options"])
 
     saved = _run(S.post_expression(None, env.user, S.ExpressionWrite(
         values={"wit": "high", "profanity": "off"}), None))
@@ -529,9 +538,12 @@ def test_expression_values_render_layer_text_and_reset(api_env, monkeypatch):
     view = _run(S.get_expression(None, env.user, None))
     assert "Остроумие" in view["rendered_text"]
     assert view["rendered_text"].startswith("<Expression_Settings>")
-    assert "часто" not in view["rendered_text"].lower().replace(
-        "чаще искать повод", ""), "никаких обещаний частоты"
-    assert view["runtime_wired"] is False and view["runtime_note"]
+    assert "- Мат: в собственных формулировках не используй обсценную " \
+           "лексику" in view["rendered_text"]
+    assert "мат разрешён" not in view["rendered_text"].lower()
+    assert "мат допустим" not in view["rendered_text"].lower()
+    # ADD-EXP (wiring-слайс): слой подключён к боевым речевым путям
+    assert view["runtime_wired"] is True and view["runtime_note"]
 
     # Чат-скоуп пишет только chat-слой; сброс возвращает inherited.
     _run(S.post_expression(None, env.user, S.ExpressionWrite(

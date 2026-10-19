@@ -8092,8 +8092,20 @@
                     <div class="text-xs text-gray-500" data-speech-source>
                       {{ speechSourceText(speechExpression.inheritance) }}
                     </div>
+                    <div class="text-xs text-gray-500" data-speech-effective>
+                      {{ speechEffectiveText() }}
+                    </div>
                     <div class="text-xs text-gray-500 speech-note">{{ speechExpression.notes }}</div>
+                    <div v-if="speechExpression.migration && speechExpression.migration.profanity"
+                         class="text-xs text-gray-500 speech-note" data-speech-migration>
+                      «Мат: как в характере» перенесено в «Эпизодически» —
+                      при следующем сохранении значение запишется явно.
+                    </div>
                     <div v-if="speechExpression.runtime_wired === false" class="speech-warn">
+                      {{ speechExpression.runtime_note }}
+                    </div>
+                    <div v-else class="text-xs text-gray-500 speech-note"
+                         data-speech-runtime-note>
                       {{ speechExpression.runtime_note }}
                     </div>
                     <div class="speech-split">
@@ -8108,6 +8120,10 @@
                             </option>
                           </select>
                           <span class="text-xs text-gray-500">{{ c.effect }}</span>
+                          <span v-if="speechControlEffectiveText(c)"
+                                class="text-xs text-gray-400 block" data-speech-control-effective>
+                            {{ speechControlEffectiveText(c) }}
+                          </span>
                         </label>
                         <label class="block">
                           <span class="text-xs text-gray-400">Пожелание своими словами (необязательно)</span>
@@ -8120,9 +8136,43 @@
                         <div class="text-xs text-gray-400 mb-1">Что уйдёт в сборку характера</div>
                         <pre class="speech-pre" data-speech-expression-preview>{{ speechExpressionPreview() }}</pre>
                         <div class="text-xs text-gray-500 mt-1">
-                          Слой «Выражение» — мягкая настройка привычки; частоту и уместность выбирает L1.
+                          Предпросмотр — детерминированный текст инструкции, не
+                          речевой результат; для проверки голоса — «Проверить
+                          вживую».
                         </div>
                       </div>
+                    </div>
+                    <div class="speech-note" data-speech-live-check>
+                      <div class="text-xs text-gray-400 mb-1">
+                        Проверить вживую — один реальный ответ тем же боевым
+                        путём (в Telegram ничего не отправляется)
+                      </div>
+                      <div class="speech-actions">
+                        <input class="field w-full" type="text"
+                               style="min-height: 44px;"
+                               maxlength="500" aria-label="Текст пробы"
+                               placeholder="Например: ну ты и выдал вчера"
+                               :value="speechLiveCheckText"
+                               @input="speechLiveCheckText = $event.target.value">
+                        <button type="button" class="btn-ghost text-sm"
+                                data-speech-live-run
+                                :disabled="speechLiveCheckBusy || speechBusy || !speechExpression.can_edit"
+                                @click="runExpressionLiveCheck()">
+                          {{ speechLiveCheckBusy ? 'Проверка…' : 'Проверить вживую' }}
+                        </button>
+                      </div>
+                      <template v-if="speechLiveCheckResult">
+                        <div v-if="speechLiveCheckResult.ok" class="text-xs text-gray-500 mt-1"
+                             data-speech-live-result>
+                          <div>Режим: {{ speechLiveCheckResult.mode }}; корней мата: {{ speechLiveCheckResult.profanity_roots }}; маркер слоя в payload: {{ speechLiveCheckResult.expression_marker ? 'есть' : 'нет' }}; {{ speechLiveCheckResult.elapsed_ms }} мс</div>
+                          <pre class="speech-pre" data-speech-live-reply>{{ speechLiveCheckResult.reply }}</pre>
+                          <div>{{ liveCheckDiagText() }}</div>
+                          <div class="text-xs text-gray-400">{{ speechLiveCheckResult.note }}</div>
+                        </div>
+                        <div v-else class="speech-warn" data-speech-live-fail>
+                          Проба не выполнена: {{ speechLiveCheckResult.detail || speechLiveCheckResult.reason }}
+                        </div>
+                      </template>
                     </div>
                     <div class="speech-actions">
                       <button type="button" class="btn-accent text-sm"
@@ -8323,7 +8373,7 @@
                                 :disabled="speechBusy || !speechExamples.can_edit"
                                 @click="closeSpeechMenu(); seedSpeechSamples()">
                           <span class="msr" aria-hidden="true">{{ iconGlyph('auto_stories') }}</span>
-                          <span class="more-menu-label">Заводская подборка ({{ (speechExamples.starter || {}).expected || 0 }})</span>
+                          <span class="more-menu-label">Заводская подборка ({{ (speechExamples.starter || {}).expected || 0 }}<template v-if="(speechExamples.starter || {}).expression_expected"> + {{ speechExamples.starter.expression_expected }} регистра речи</template>)</span>
                         </button>
                         <button type="button" class="more-menu-item" role="menuitem"
                                 @click="closeSpeechMenu(); loadSpeechSection('examples', true)">
@@ -8334,7 +8384,10 @@
                     </div>
                     <span class="text-xs text-gray-500">
                       черновиков заведено: {{ (speechExamples.starter || {}).seeded || 0 }}
-                      из {{ (speechExamples.starter || {}).expected || 0 }}
+                      из {{ (speechExamples.starter || {}).expected || 0 }}<template
+                        v-if="(speechExamples.starter || {}).expression_expected"> ·
+                        регистр речи: {{ speechExamples.starter.expression_seeded || 0 }}
+                        из {{ speechExamples.starter.expression_expected }}</template>
                     </span>
 
                     <div v-if="speechSampleDraft" class="speech-subblock" data-speech-sample-editor>
@@ -8403,7 +8456,7 @@
                     <div class="speech-table" data-speech-samples>
                       <div v-for="row in filteredSamples()" :key="'sm-' + row.id" class="speech-rule">
                         <div class="speech-rule-head">
-                          <span class="text-sm font-semibold">№{{ row.id }} · {{ row.technique }}</span>
+                          <span class="text-sm font-semibold">№{{ row.id }} · {{ sampleTechniqueTitle(row.technique) }}</span>
                           <span class="badge" :class="row.owner_approved ? 'badge-info' : 'badge-warn'">
                             {{ sampleApprovalLabel(row) }}
                           </span>

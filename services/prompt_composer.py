@@ -96,6 +96,10 @@ SKIP_REASONS = frozenset({
     "verbilizer_modes_disabled",
     # expression / humor / few-shot / style policy
     "expression_absent", "expression_disabled",
+    "expression_examples_absent", "expression_examples_disabled",
+    # ADD-EXP (BLOCK-1): строки режима есть, но владелец их не утверждал —
+    # в runtime не идут, причина видна в манифесте/событии.
+    "not_owner_approved",
     "humor_no_strategy", "humor_disabled",
     "samples_absent", "samples_disabled",
     "style_policy_absent", "style_policy_disabled", "style_policy_unavailable",
@@ -166,7 +170,8 @@ _PROFILE_REASON = {
 _OFF_REASONS = frozenset({
     "core_disabled", "persona_disabled", "character_layers_disabled",
     "style_policy_disabled", "samples_disabled", "humor_disabled",
-    "expression_disabled", "response_plan_disabled",
+    "expression_disabled", "expression_examples_disabled",
+    "response_plan_disabled",
     "verbilizer_modes_disabled", "style_scope_disabled",
     "character_speech_disabled",
 })
@@ -308,7 +313,13 @@ class StylePolicyRef:
 
 @dataclass(frozen=True)
 class ExpressionSettings:
-    """Owner-контролы эмоциональной температуры/резкости (soft)."""
+    """Owner-контролы интенсивности/формы собственной речи (soft).
+
+    ADD-EXP: ``mode`` — канонический effective-режим ``profanity``
+    (``inherit``/``off``/``occasional``/``frequent``; код, не текст) для
+    диагностики/трасс; текст слоя рендерит единственный владелец
+    ``services.mca_expression`` (preview == бой).
+    """
 
     text: str = ""
     revision: str = ""
@@ -316,6 +327,7 @@ class ExpressionSettings:
     label: str = ""
     enabled: bool = True
     skip_reason: str = ""
+    mode: str = ""
 
 
 @dataclass(frozen=True)
@@ -371,6 +383,10 @@ class GateState:
     #: W4 (SOUL-06.7): ось ремесла юмора. OFF → слой приёмов не рендерится
     #: (`humor_disabled`), Core/Identity/Style/Samples не затронуты.
     humor_craft_enabled: bool = False
+    #: ADD-EXP §3.3: своя env-ось few-shot набора регистра речи (kill-switch,
+    #: default ON). OFF → блок `expression_examples` не рендерится
+    #: (`expression_examples_disabled`); слой инструкции «Выражения» жив.
+    expression_examples_enabled: bool = True
     # ── существующие оси (композер их уважает, не переопределяет) ──────────
     persona_enabled: bool = True
     character_layers_enabled: bool = True
@@ -400,6 +416,10 @@ class PromptPlan:
     self_model: SelfModelRef | None = None
     response_plan: PlanRef | None = None
     expression: ExpressionSettings | None = None
+    #: ADD-EXP §3.2/§3.3: few-shot набор регистра речи (owner `core`, слой
+    #: `few_shot`, ДО humor-примеров). Пусто → честная причина
+    #: `expression_examples_absent` в манифесте.
+    expression_examples: tuple[SampleRef, ...] = ()
     humor: HumorStrategy | None = None
     lessons: tuple[LessonRef, ...] = ()
     samples: tuple[SampleRef, ...] = ()
@@ -484,6 +504,7 @@ def gates_from_config() -> GateState:
             humor_library_enabled=mca_gates.humor_library_enabled(),
             humor_feedback_enabled=mca_gates.humor_feedback_enabled(),
             humor_craft_enabled=mca_gates.humor_craft_enabled(),
+            expression_examples_enabled=mca_gates.expression_examples_enabled(),
             persona_enabled=bool(hot.get("flags.persona_enabled",
                                         getattr(settings, "PERSONA_ENABLED",
                                                 True))),
@@ -673,6 +694,47 @@ async def resolve_core_ref(chat_id: int) -> CoreRef:
     except Exception:
         logger.warning("[composer] core doc malformed", exc_info=True)
         return CoreRef(source=source, skip_reason="core_read_error")
+
+
+async def resolve_expression_settings(chat_id: int) -> ExpressionSettings:
+    """Снимок слоя «Выражение» на ход (ADD-EXP §1.6/§1.2). Никогда не бросает.
+
+    Читает документ ``character.expression`` (chat override → global) теми же
+    источниками, что остальной рантайм (``chat_params``/``hot_config``), и
+    строит ``ExpressionSettings`` ЕДИНЫМ builder-ом
+    ``services.mca_expression.build_expression_settings`` — preview и бой
+    рендерят один и тот же текст (EXP-ACCEPT.PREVIEW).
+
+    Per-control merge chat→global→factory: частичный chat-документ больше не
+    «затирает» контролы из global. Если конфигурационный слой недоступен
+    (PG down) — честный ``expression_absent`` без выдуманной конфигурации
+    (тот же инвариант, что у ``resolve_core_ref``).
+    """
+    from services import mca_expression as _expr
+
+    try:
+        from services import hot_config as hot
+        raw_global = hot.get(_expr.EXPRESSION_DOC_KEY, None)
+        layer_available = hot.get_config_cache() is not None
+    except Exception:          # pragma: no cover — защитная ветка
+        raw_global, layer_available = None, False
+    raw_chat = None
+    try:
+        raw_chat = await _chat_override(chat_id, _expr.EXPRESSION_DOC_KEY)
+    except Exception:          # pragma: no cover — защитная ветка
+        raw_chat = None
+    if (not isinstance(raw_global, Mapping)
+            and not isinstance(raw_chat, Mapping) and not layer_available):
+        # PG down: конфигурацию не выдумываем (честная причина видна в
+        # манифесте/событии, а не «слой молча отсутствует»).
+        return ExpressionSettings(source="default",
+                                  skip_reason="expression_absent")
+    try:
+        return _expr.build_expression_settings(raw_chat, raw_global)
+    except Exception:
+        logger.warning("[composer] expression doc unreadable", exc_info=True)
+        return ExpressionSettings(source="default",
+                                  skip_reason="expression_absent")
 
 
 def core_detail_label(core_ref: CoreRef | None) -> str:
@@ -1356,6 +1418,40 @@ def _compose(plan: PromptPlan) -> PromptManifest:
                 rendered=True))
 
     # ── 9. few_shot ─────────────────────────────────────────────────────────
+    # ADD-EXP §3.2/§3.3: набор регистра речи идёт ДО humor-примеров, своим
+    # блоком (owner `core`) и со своими честными причинами пропуска.
+    expr_examples = tuple(getattr(plan, "expression_examples", ()) or ())
+    if not speech:
+        traces.append(_trace(LAYER_FEW_SHOT, block_id="expression_examples",
+                             owner="core", skip_reason=profile_reason))
+    elif not gates.expression_examples_enabled:
+        traces.append(_trace(LAYER_FEW_SHOT, block_id="expression_examples",
+                             owner="core",
+                             skip_reason="expression_examples_disabled"))
+    elif not expr_examples:
+        traces.append(_trace(LAYER_FEW_SHOT, block_id="expression_examples",
+                             owner="core",
+                             skip_reason="expression_examples_absent"))
+    else:
+        for block in expr_examples:
+            reason = _block_reason(block, "expression_examples_absent")
+            if not reason and not gates.expression_examples_enabled:
+                reason = "expression_examples_disabled"
+            cost = estimate_tokens(block.text)
+            if not reason and budget is not None and consumed + cost > budget:
+                reason = "budget_excluded"
+            rendered = not reason
+            if rendered:
+                consumed += cost
+                _append(parts, block.text)
+            traces.append(_trace(
+                LAYER_FEW_SHOT,
+                block_id=block.block_id or "expression_examples",
+                text=block.text if rendered else "", owner="core",
+                source=str(block.source or "global"),
+                revision=str(block.revision or
+                             (_sha12_safe(block.text) if rendered else "")),
+                rendered=rendered, skip_reason=reason))
     if not speech:
         traces.append(_trace(LAYER_FEW_SHOT, block_id="few_shot",
                              owner="library", skip_reason=profile_reason))
@@ -1514,6 +1610,11 @@ def _versions(plan: PromptPlan, profile: str, base_text: str, core_text: str,
     sample_rev = ",".join(
         str(s.revision or s.library_version or sha12(s.text))
         for s in samples) if samples else ""
+    expr_trace = next((t for t in traces
+                       if t.layer == LAYER_EXPRESSION and t.rendered), None)
+    expr_examples_trace = next(
+        (t for t in traces if t.block_id == "expression_examples"
+         and t.rendered), None)
     identity = plan.identity
     core = plan.core
     return {
@@ -1535,6 +1636,13 @@ def _versions(plan: PromptPlan, profile: str, base_text: str, core_text: str,
                           else (sha12(plan_ref.text)
                                 if plan_ref is not None and plan_ref.text
                                 else "")),
+        # ADD-EXP: ревизия слоя «Выражение» (рендер) и набора примеров —
+        # «present с ревизией» без expression_absent при активном режиме.
+        "expression": (str(expr_trace.revision) if expr_trace is not None
+                       else ""),
+        "expression_examples": (
+            str(expr_examples_trace.revision)
+            if expr_examples_trace is not None else ""),
         "channel": f"{profile}/{plan.channel}/"
                    f"{'html' if plan.html_safe else 'text'}/{sha12(base_text)}",
         "composer": "w2",
@@ -1773,6 +1881,19 @@ def emit_layer_events(manifest: PromptManifest, *,
             event = None
         if event is not None:
             emitted.append(event)
+        # ADD-EXP §6: класс `composer_excluded` — режим «Выражения» разрешён,
+        # но слой не рендерен/вытеснен. Отдельная точка диагностики (свой
+        # дедуп в `mca_expression`), событие prompt_layers не заменяет.
+        if trace.layer == LAYER_EXPRESSION and reason in (
+                "expression_absent", "expression_disabled",
+                "budget_excluded"):
+            try:
+                from services import mca_expression as _expr
+                _expr.emit_expression_diag(
+                    "composer_excluded", chat_id=target_chat,
+                    stage="compose", detail=reason)
+            except Exception:      # pragma: no cover — fail-open
+                pass
     return emitted
 
 

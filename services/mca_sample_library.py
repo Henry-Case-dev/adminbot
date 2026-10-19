@@ -43,6 +43,9 @@ SAMPLE_SCOPES: tuple[str, ...] = ("global", "chat")
 SAMPLE_TECHNIQUES: tuple[str, ...] = (
     "absurd_escalation", "literalism", "deadpan", "bureaucratic_logic",
     "unexpected_analogy", "other",
+    # ADD-EXP §3.3: набор регистра речи (off/occasional/frequent) — своя
+    # техника, жёстко изолированная от humor-пути отбора.
+    "expression_register",
 )
 MAX_RUDENESS = 3
 
@@ -314,6 +317,80 @@ STARTER_SAMPLES: tuple[dict, ...] = (
                     "играть хотя бы раз в квартал. Проверка явится "
                     "вместе с уборкой",
          context_note="Покупка как импорт с обязательствами."),
+)
+
+# ═══════════════════════════════════════════════════════════════════════════
+# ADD-EXP §3.1/§3.3 — заводской набор регистра речи (12 черновиков)
+# 3 режима × 4 бытовые темы; тег режима — в `tags`, тема — в `context_note`.
+# `owner_approved=False` (черновики: в runtime не идут, `not_owner_approved`);
+# `source_kind='bot_suggested'`, `scope='global'` — как у humor-сидов.
+# ═══════════════════════════════════════════════════════════════════════════
+
+EXPRESSION_STARTER_LIBRARY_VERSION = "expr-starter-1"
+
+#: Тег режима для отбора (`tags` строки библиотеки).
+EXPRESSION_MODE_TAGS: dict[str, str] = {
+    "off": "mode:off", "occasional": "mode:occasional",
+    "frequent": "mode:frequent",
+}
+
+_EXPRESSION_THEMES: tuple[str, ...] = (
+    "дружеский стёб", "спор", "короткий ответ", "быт",
+)
+
+
+def _expression_seed(mode: str, theme: str, user_line: str,
+                     reply: str) -> dict:
+    slug = {"дружеский стёб": "banter", "спор": "spor",
+            "короткий ответ": "short", "быт": "byt"}[theme]
+    return dict(
+        seed_key=f"expr-{mode}-{slug}", technique="expression_register",
+        tags=[EXPRESSION_MODE_TAGS[mode], "expression"],
+        input_text=user_line, reply_text=reply,
+        context_note=theme)
+
+
+EXPRESSION_STARTER_SAMPLES: tuple[dict, ...] = (
+    # off
+    _expression_seed("off", "дружеский стёб",
+                     "Ну ты и выдал вчера с этим докладом",
+                     "Выдал, признаю. Зато никто не уснул."),
+    _expression_seed("off", "спор",
+                     "Твой вариант вообще не работает",
+                     "Он не работает у того, кто ставит его криво. "
+                     "У меня крутится, и стабильно."),
+    _expression_seed("off", "короткий ответ",
+                     "Пойдёшь завтра?", "Пойду."),
+    _expression_seed("off", "быт",
+                     "Интернет опять отвалился",
+                     "Классика. Перезагрузи роутер, обычно помогает."),
+    # occasional
+    _expression_seed("occasional", "дружеский стёб",
+                     "Ну ты и выдал вчера с этим докладом",
+                     "Выдал, признаю. Зато никто не уснул, бля."),
+    _expression_seed("occasional", "спор",
+                     "Твой вариант вообще не работает",
+                     "Он не работает у того, кто ставит его криво. "
+                     "У меня крутится, пиздец как стабильно."),
+    _expression_seed("occasional", "короткий ответ",
+                     "Пойдёшь завтра?", "Пойду, хули."),
+    _expression_seed("occasional", "быт",
+                     "Интернет опять отвалился",
+                     "Классика, бля. Перезагрузи роутер, обычно помогает."),
+    # frequent
+    _expression_seed("frequent", "дружеский стёб",
+                     "Ну ты и выдал вчера с этим докладом",
+                     "Ага, выдал. Хуёво выдал, зато никто не уснул."),
+    _expression_seed("frequent", "спор",
+                     "Твой вариант вообще не работает",
+                     "Он не работает у того, кто ставит его криво, вот и "
+                     "весь хуй. У меня крутится, пиздец как стабильно."),
+    _expression_seed("frequent", "короткий ответ",
+                     "Пойдёшь завтра?", "Пойду, хули. Куда я денусь."),
+    _expression_seed("frequent", "быт",
+                     "Интернет опять отвалился",
+                     "Охуенная классика. Перезагрузи роутер, помогает "
+                     "через раз, но хоть что-то."),
 )
 
 
@@ -774,6 +851,126 @@ async def seed_starter_samples(db=None, *, force: bool = False) -> dict:
     return {"seeded": seeded, "skipped": skipped, "reason": ""}
 
 
+async def seed_expression_samples(db=None, *, force: bool = False) -> dict:
+    """ADD-EXP §3.3: идемпотентный сид набора регистра речи (черновики).
+
+    Существующий механизм сидов (`seed_key`, повтор — no-op, правки владельца
+    не перетираются); `owner_approved=False` — в runtime до одобрения владельца
+    примеры НЕ идут (`not_owner_approved` — честная причина, не дефект).
+    """
+    db = db if db is not None else get_db()
+    if not _db_ready(db):
+        return {"seeded": 0, "skipped": 0, "reason": "db_unavailable"}
+    seeded = skipped = 0
+    for sample in EXPRESSION_STARTER_SAMPLES:
+        seed_key = str(sample.get("seed_key") or "")
+        if not seed_key:
+            continue
+        try:
+            cursor = await db.db.execute(
+                "SELECT id FROM humor_samples WHERE seed_key = ?",
+                (seed_key,))
+            row = await cursor.fetchone()
+        except Exception:
+            logger.warning("[humor-samples] expr seed lookup failed",
+                           exc_info=True)
+            return {"seeded": seeded, "skipped": skipped,
+                    "reason": "read_error"}
+        if row is not None and not force:
+            skipped += 1
+            continue
+        fields = {**sample, "scope": "global", "source_kind": "bot_suggested",
+                  "library_version": EXPRESSION_STARTER_LIBRARY_VERSION,
+                  "owner_approved": False}
+        if row is not None:
+            view, reason = await update_sample(
+                db, int(row["id"]), fields=fields, actor="expression_seed")
+        else:
+            view, reason = await create_sample(db, fields=fields,
+                                               actor="expression_seed")
+        if view is None:
+            logger.warning("[humor-samples] expr seed write failed | key=%s | "
+                           "reason=%s", seed_key, reason)
+            continue
+        seeded += 1
+    return {"seeded": seeded, "skipped": skipped, "reason": ""}
+
+
+async def resolve_expression_examples(chat_id: int, mode: str, *,
+                                      db=None) -> tuple[dict, ...]:
+    """ADD-EXP §3.3: строки набора СВОЕГО режима (≤4), только эталоны.
+
+    Тонкая обёртка над `resolve_expression_examples_ex` (совместимый контракт:
+    только строки). Условия отбора: ``technique='expression_register'`` + тег
+    режима + ``owner_approved=1`` + ``status='active'``; scope — global или
+    свой чат (изоляция чатов). Ось `expression_examples_enabled` — env
+    kill-switch: OFF → пусто. Никогда не бросает.
+    """
+    rows, _reason = await resolve_expression_examples_ex(chat_id, mode, db=db)
+    return rows
+
+
+async def resolve_expression_examples_ex(chat_id: int, mode: str, *,
+                                         db=None
+                                         ) -> tuple[tuple[dict, ...], str]:
+    """`(строки, честная причина)` — BLOCK-1: «нет одобренных» ≠ «нет строк».
+
+    Причины: ``""`` (набор собран) | ``expression_examples_disabled`` (ось OFF) |
+    ``expression_examples_absent`` (строк режима нет вовсе / хранилище
+    недоступно) | ``not_owner_approved`` (строки режима есть, но ни одна не
+    утверждена владельцем — в runtime не идут, §3.3). Никогда не бросает.
+    """
+    from services import mca_gates
+    mode = str(mode or "")
+    if mode not in EXPRESSION_MODE_TAGS:
+        return (), "expression_examples_absent"
+    if not mca_gates.expression_examples_enabled():
+        return (), "expression_examples_disabled"
+    db = db if db is not None else get_db()
+    if not _db_ready(db):
+        return (), "expression_examples_absent"
+    if not await table_ready(db):
+        return (), "expression_examples_absent"
+    try:
+        rows = await list_samples(db, chat_id=int(chat_id or 0),
+                                  technique="expression_register",
+                                  status="active")
+    except Exception:
+        logger.warning("[humor-samples] expr resolve failed", exc_info=True)
+        return (), "expression_examples_absent"
+    tag = EXPRESSION_MODE_TAGS[mode]
+    out: list[dict] = []
+    drafts_in_mode = 0
+    for view in rows:
+        tags = [str(t).strip().lower() for t in parse_tags(view.get("tags"))]
+        if tag not in tags:
+            continue                       # только набор effective-режима
+        scope = str(view.get("scope") or "global")
+        row_chat = view.get("chat_id")
+        if scope == "chat" and (row_chat is None
+                                or int(row_chat) != int(chat_id or 0)):
+            continue
+        if not bool(view.get("owner_approved")):
+            drafts_in_mode += 1            # черновик владельца: не эталон
+            continue
+        if _flags(view.get("sensitivity_flags")):
+            continue
+        if scan_sensitivity(view.get("input_text"), view.get("reply_text")):
+            continue
+        out.append(dict(view))
+        if len(out) >= 4:
+            break
+    if out:
+        return tuple(out), ""
+    if drafts_in_mode:
+        # BLOCK-1: примеры ЕСТЬ, но не одобрены — честная причина (не «absent»).
+        return (), "not_owner_approved"
+    return (), "expression_examples_absent"
+
+
+
+
+
 # ═══════════════════════════════════════════════════════════════════════════
 # Политика отбора `humor.selection`
 # ═══════════════════════════════════════════════════════════════════════════
@@ -928,6 +1125,12 @@ def select_samples(rows: Sequence[Mapping[str, Any]], *,
     excluded: list[dict] = []
     for row in rows:
         rid = int(row.get("id") or 0)
+        if str(row.get("technique") or "") == "expression_register":
+            # ADD-EXP §3.3: жёсткая изоляция осей — humor-путь НИКОГДА не
+            # берёт набор регистра речи (у него своя функция отбора
+            # `resolve_expression_examples`).
+            excluded.append({"id": rid, "reason": "expression_register"})
+            continue
         if str(row.get("status") or "active") != "active":
             excluded.append({"id": rid, "reason": "archived"})
             continue
@@ -1166,6 +1369,9 @@ async def telemetry(db=None, *, chat_id: int | None = None) -> dict:
         "available": _db_ready(db), "total": 0, "approved": 0, "proposed": 0,
         "archived": 0, "chat_scoped": 0, "by_technique": {},
         "by_version": {}, "uses_total": 0, "starter_seeded": 0,
+        # ADD-EXP (BLOCK-1): заводской набор регистра речи считается отдельно —
+        # владелец видит «сколько заведено» по каждой подборке, без склейки.
+        "expression_starter_seeded": 0,
         "ab": {"enabled": False, "versions": []},
     }
     if not _db_ready(db):
@@ -1195,7 +1401,11 @@ async def telemetry(db=None, *, chat_id: int | None = None) -> dict:
         if str(row.get("scope")) == "chat":
             out["chat_scoped"] += 1
         if str(row.get("seed_key") or ""):
-            out["starter_seeded"] += 1
+            if str(row.get("library_version") or "") == \
+                    EXPRESSION_STARTER_LIBRARY_VERSION:
+                out["expression_starter_seeded"] += 1
+            else:
+                out["starter_seeded"] += 1
         out["uses_total"] += int(row.get("uses_count") or 0)
     policy, source = await resolve_policy(chat_id)
     out["policy_source"] = source

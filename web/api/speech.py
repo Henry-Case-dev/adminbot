@@ -40,6 +40,7 @@ from pydantic import BaseModel, Field
 from aiogram.utils.web_app import WebAppUser
 
 from services import prompt_registry as pr
+from services import mca_expression as expression
 from services import mca_humor_craft as humor_craft
 from services import mca_humor_feedback as humor_feedback
 from services import mca_sample_library as samples_lib
@@ -62,7 +63,9 @@ speech_router = APIRouter()
 #: добавляется в каталог: каталог — витрина параметров (Δ каталога = 0,
 #: прецедент W3 ``evidence/w3/catalog-delta-decision.txt``), а единственным
 #: путём правки речи остаётся реестр/документы сущностей.
-EXPRESSION_DOC_KEY = "character.expression"
+#: ADD-EXP: логика — единственный владелец ``services.mca_expression``
+#: (значения/нормализация/резолв/рендер); здесь — UI-контракт и ре-экспорт.
+EXPRESSION_DOC_KEY = expression.EXPRESSION_DOC_KEY
 EXPRESSION_DOC_CATEGORY = "content"
 EXPRESSION_REVISION_MAX = 12
 
@@ -75,6 +78,9 @@ BASE_BLOCK_PG_KEY = "prompts.direct_chat_verbalizer_system_prompt"
 
 #: Закрытый набор человеческих контролов (SOUL-10.3: «ограниченная настройка
 #: привычек, а не числовые promise-индикаторы»). Никаких частот/процентов.
+#: ADD-EXP §1.1/§2.2/§5.1.2: у `profanity` — явные режимы фактического
+#: речевого поведения; `instruction` — канонические строки слоя
+#: (единственный владелец текста — ``services.mca_expression``).
 EXPRESSION_CONTROLS: tuple[dict, ...] = (
     {
         "id": "wit",
@@ -114,16 +120,24 @@ EXPRESSION_CONTROLS: tuple[dict, ...] = (
     {
         "id": "profanity",
         "label": "Мат",
-        "question": "Разрешён ли мат в ответах бота",
+        "question": "Как часто мат звучит в собственных ответах бота",
         "options": [
-            {"value": "inherit", "label": "Как настроено (по умолчанию)"},
+            {"value": "inherit",
+             "label": "Как в глобальных настройках (наследование)"},
             {"value": "off", "label": "Без мата"},
-            {"value": "allowed", "label": "Как в характере (естественный)"},
+            {"value": "occasional", "label": "Эпизодически"},
+            {"value": "frequent", "label": "Часто"},
         ],
         "effect": {
-            "off": "Мат не используется ни в ответах, ни в цитатах-пересказах.",
-            "allowed": "Мат допустим как естественная часть речи, а не как "
-                       "обязательный элемент каждого ответа.",
+            "off": "Свои формулировки — без обсценной лексики. Цитаты и "
+                   "чужой текст передаются как есть.",
+            "occasional": "Мат изредка, но по-настоящему: эмоция, ирония, "
+                          "раздражение, характерная интонация. Большинство "
+                          "обычных реплик — без мата.",
+            "frequent": "Мат — узнаваемая регулярная часть повседневного "
+                        "голоса: короткие и развёрнутые живые реплики, не в "
+                        "каждом предложении, без повтора одних и тех же "
+                        "слов.",
         },
     },
     {
@@ -145,17 +159,21 @@ EXPRESSION_CONTROLS: tuple[dict, ...] = (
     },
 )
 
-EXPRESSION_VALUES: dict[str, tuple[str, ...]] = {
-    "wit": ("inherit", "low", "normal", "high"),
-    "sharpness": ("inherit", "soft", "normal", "sharp"),
-    "profanity": ("inherit", "off", "allowed"),
-    "verbosity": ("inherit", "short", "normal", "long"),
-}
+#: ADD-EXP §2.1/§5.1.2: строки слоя (`- <label>: <instruction>`) — из
+#: единственного владельца текста; дрейф ловится тестом.
+for _control in EXPRESSION_CONTROLS:
+    _control["instruction"] = dict(
+        expression.CONTROL_INSTRUCTIONS.get(_control["id"]) or {})
 
+EXPRESSION_VALUES: dict[str, tuple[str, ...]] = dict(
+    expression.EXPRESSION_CONTROL_VALUES)
+
+#: ADD-EXP §2.2: честные примечания раздела (интенсивность, а не «мягкая
+#: привычка»; проверка результата — «Проверить вживую»).
 EXPRESSION_NOTES: str = (
-    "Важно: уместность выбирает L1 (тема, адресат, контекст чата), а явная "
-    "просьба пользователя всегда важнее этих настроек. Настройки меняют "
-    "привычку, а не гарантируют частоту."
+    "Настройки задают интенсивность и форму собственной речи; уместность и "
+    "жанр решают, где она проявляется. Просьба «без мата» уважается всегда. "
+    "Реальную частоту можно проверить в «Проверить вживую»."
 )
 
 #: Заводские примеры для before/after «Стиля письма» (SOUL-16.2.1/2.2 + 16.3.x).
@@ -198,6 +216,22 @@ HUMOR_TECHNIQUES: tuple[dict, ...] = (
     {"id": "other", "title": "Другое", "description": "Прочие приёмы библиотеки."},
 )
 
+#: ADD-EXP (BLOCK-1) §3.3: набор регистра речи — СВОЯ техника библиотеки
+#: (не юмор). В перечне раздела «Примеры» она нужна владельцу, чтобы видеть,
+#: фильтровать и утверждать эти карточки существующим механизмом; ось юмора
+#: (`HUMOR_TECHNIQUES`, humor-фильтр/приём) НЕ расширяется.
+EXPRESSION_REGISTER_TECHNIQUE: dict = {
+    "id": "expression_register",
+    "title": "Регистр речи (мат: без / эпизодически / часто)",
+    "description": "Короткие разговорные примеры одного режима мата — "
+                   "заводские черновики; в runtime идут только утверждённые "
+                   "владельцем.",
+}
+
+#: Перечень техник для раздела «Примеры»: приёмы юмора + регистр речи.
+SAMPLE_TECHNIQUES_UI: tuple[dict, ...] = (
+    HUMOR_TECHNIQUES + (EXPRESSION_REGISTER_TECHNIQUE,))
+
 #: Поля сущности Sample Library (design-source-of-truth §2.3) — контракт W4.
 #: Раздел «Примеры» рендерит карточки ровно по этой схеме; пока W4 не поставлен
 #: (нет таблицы/CRUD), данные не выдумываются: API честно отдаёт
@@ -206,7 +240,7 @@ SAMPLE_ENTITY_FIELDS: tuple[dict, ...] = (
     {"id": "input_text", "label": "Вход", "type": "text", "required": True},
     {"id": "reply_text", "label": "Ответ бота", "type": "text", "required": True},
     {"id": "technique", "label": "Приём", "type": "enum",
-     "values": [t["id"] for t in HUMOR_TECHNIQUES]},
+     "values": [t["id"] for t in SAMPLE_TECHNIQUES_UI]},
     {"id": "context_note", "label": "Контекст", "type": "text"},
     {"id": "language", "label": "Язык", "type": "text", "default": "ru"},
     {"id": "tags", "label": "Теги", "type": "tags"},
@@ -669,6 +703,8 @@ def _gate_state() -> dict:
                 mca_gates.speech_style_policy_enabled()),
             "humor_library_enabled": bool(mca_gates.humor_library_enabled()),
             "humor_feedback_enabled": bool(mca_gates.humor_feedback_enabled()),
+            "expression_examples_enabled": bool(
+                mca_gates.expression_examples_enabled()),
             "experience_lessons_enabled": bool(
                 mca_gates.experience_lessons_enabled()),
         }
@@ -721,7 +757,13 @@ def _read_global_doc(cache, key: str):
 
 
 async def _expression_document(cache, chat_id: int | None) -> dict:
-    """Документ «Выражение» для scope: {document, source, inheritance}."""
+    """Документы «Выражения» для scope + per-control effective (§1.2).
+
+    Возврат: ``{document, global_present, chat_present, inheritance,
+    effective, migration, global_document, chat_document}``. ``document`` —
+    слой scope (chat override или global) для формы; ``effective`` — merge
+    chat→global→factory по каждому контролу.
+    """
     global_doc = _as_doc(_read_global_doc(cache, EXPRESSION_DOC_KEY))
     chat_doc = None
     if chat_id is not None:
@@ -731,6 +773,9 @@ async def _expression_document(cache, chat_id: int | None) -> dict:
         global_doc if isinstance(global_doc, dict) else None)
     return {
         "document": dict(doc) if isinstance(doc, dict) else None,
+        "global_document": dict(global_doc) if isinstance(global_doc, dict)
+        else None,
+        "chat_document": dict(chat_doc) if isinstance(chat_doc, dict) else None,
         "global_present": isinstance(global_doc, dict),
         "chat_present": isinstance(chat_doc, dict),
         "inheritance": ("chat" if isinstance(chat_doc, dict)
@@ -740,82 +785,100 @@ async def _expression_document(cache, chat_id: int | None) -> dict:
 
 
 def _normalize_expression(raw: Any) -> dict:
-    """Валидация документа «Выражение» (закрытые наборы, ничего лишнего)."""
-    doc = raw if isinstance(raw, dict) else {}
-    out: dict[str, Any] = {"enabled": bool(doc.get("enabled", True))}
-    for key, allowed in EXPRESSION_VALUES.items():
-        value = str(doc.get(key) or "inherit").strip().lower()
-        out[key] = value if value in allowed else "inherit"
-    note = str(doc.get("note") or "")
-    out["note"] = note[:2000]
-    return out
+    """Валидация документа «Выражение» (единственный владелец — §1.6).
 
-
-def render_expression_text(doc: Any) -> str:
-    """Рендер слоя `expression` из owner-контролов (детерминированно, 0 LLM).
-
-    Текст — это то, что композер положит слоем 7 (`prompt_composer`
-    ``ExpressionSettings.text``): мягкие указания без обещаний частоты и без
-    «числовых индикаторов» (SOUL-10.3).
+    Публичное имя сохраняется: ``allowed`` читается как ``occasional``
+    (read-alias §1.3), неизвестное → ``inherit``.
     """
-    normalized = _normalize_expression(doc)
-    if not normalized.get("enabled", True):
-        return ""
-    lines: list[str] = []
-    for control in EXPRESSION_CONTROLS:
-        value = str(normalized.get(control["id"]) or "inherit")
-        if value == "inherit":
-            continue
-        effect = (control.get("effect") or {}).get(value)
-        if not effect:
-            continue
-        lines.append(f"- {control['label']}: {effect}")
-    note = str(normalized.get("note") or "").strip()
-    if note:
-        lines.append(f"- Пожелание владельца: {note}")
-    if not lines:
-        return ""
-    head = ("<Expression_Settings>\nНастройки выражения владельца (мягкие, "
-            "уместность выбирает L1; явная просьба пользователя важнее):")
-    return head + "\n" + "\n".join(lines) + "\n</Expression_Settings>"
+    return expression.normalize_expression(raw)
+
+
+def render_expression_text(source: Any) -> str:
+    """Рендер слоя `expression` (единственная реализация — §1.6).
+
+    Принимает effective-резолв (§1.2) или сырой документ; preview и боевые
+    сборки рендерят ОДИН текст (EXP-ACCEPT.PREVIEW).
+    """
+    return expression.render_expression_text(source)
 
 
 async def _expression_payload(cache, chat_id: int | None) -> dict:
+    """Payload раздела «Выражение» (§5.1.6).
+
+    ``effective`` — per-control merge chat→global→factory со источником;
+    ``migration`` — read-alias ``allowed``→``occasional`` до первого
+    сохранения; в global scope наследование не предлагается (эффективное
+    значение разрешено явно), в chat scope форма показывает слой чата.
+    """
     layers = await _expression_document(cache, chat_id)
     doc = layers["document"]
     normalized = _normalize_expression(doc)
-    text = render_expression_text(doc)
+    global_doc = layers["global_document"]
+    chat_doc = layers["chat_document"]
+    effective = expression.resolve_effective(chat_doc, global_doc)
+    migration = expression.expression_migration(chat_doc, global_doc)
+    text = expression.render_expression_text(effective)
+    scope = "chat" if chat_id is not None else "global"
+
+    def _option_values(control: dict) -> list[dict]:
+        options = list(control.get("options") or ())
+        item = effective["controls"].get(control["id"]) or {}
+        current = str(item.get("value") or "inherit")
+        if scope == "global" and current != "inherit":
+            # §5.1.6: в глобальном scope наследования нет — эффективное
+            # значение разрешается явно. Если явного значения нет вовсе
+            # (контролы без заводского дефолта), опция «как настроено»
+            # остаётся честным описанием текущего состояния.
+            options = [o for o in options
+                       if str(o.get("value")) != "inherit"]
+        return options
+
+    def _form_values() -> dict:
+        if scope == "global":
+            # Явное эффективное значение: владелец не остаётся с
+            # непроверяемым «как в характере».
+            return {key: str((effective["controls"].get(key) or {}).get(
+                "value") or "inherit") for key in EXPRESSION_VALUES}
+        # chat scope: слой чата; нет документа → наследование.
+        return {key: normalized.get(key) for key in EXPRESSION_VALUES}
+
+    controls_out: list[dict] = []
+    for control in EXPRESSION_CONTROLS:
+        item = effective["controls"].get(control["id"]) or {}
+        controls_out.append({
+            **{k: v for k, v in control.items() if k != "effect"},
+            "options": _option_values(control),
+            "effect": (control.get("effect") or {}).get(
+                str(item.get("value") or "inherit"), ""),
+            "effective": str(item.get("value") or "inherit"),
+            "effective_source": str(item.get("source") or "factory_default"),
+        })
     return {
         "doc_key": EXPRESSION_DOC_KEY,
-        "scope": "chat" if chat_id is not None else "global",
+        "scope": scope,
         "chat_id": chat_id,
         "document": normalized,
         "present": isinstance(doc, dict),
         "global_present": layers["global_present"],
         "chat_present": layers["chat_present"],
         "inheritance": layers["inheritance"],
-        "controls": [
-            {**{k: v for k, v in control.items() if k != "effect"},
-             "effect": (control.get("effect") or {}).get(
-                 str(normalized.get(control["id"]) or "inherit"), "")}
-            for control in EXPRESSION_CONTROLS
-        ],
-        "values": {key: normalized.get(key) for key in EXPRESSION_VALUES},
+        "controls": controls_out,
+        "values": _form_values(),
         "allows": {key: list(values)
                    for key, values in EXPRESSION_VALUES.items()},
+        "effective": effective["controls"],
+        "migration": migration,
         "note": normalized.get("note") or "",
         "notes": EXPRESSION_NOTES,
         "rendered_text": text,
         "rendered_chars": len(text),
-        # Честная диагностика: слой читается композером, но на боевом пути
-        # Direct/Initiative владелец `ExpressionSettings` — слайс подключения
-        # слоя (см. отчёт слайса): значения действуют в сборке композера
-        # (Inspector/«Попробовать»), вне них — не подменяем поведение молча.
-        "runtime_wired": False,
-        "runtime_note": ("Слой «Выражение» рендерится композером; на боевом "
-                         "пути Direct значения станут действующими после "
-                         "подключения слоя (в манифесте причина "
-                         "`expression_absent`, пока владелец слоя не передан)."),
+        # ADD-EXP (wiring-слайс): слой подключён к боевым речевым путям
+        # (Direct/Initiative/жанровые авторские тексты) — значение действует
+        # со следующего ответа. Честная диагностика сохраняется.
+        "runtime_wired": True,
+        "runtime_note": ("Слой «Выражение» подключён к боевым речевым путям "
+                         "(Direct/Initiative); значение действует со "
+                         "следующего ответа."),
         "gates": _gate_state(),
     }
 
@@ -1429,13 +1492,19 @@ async def _preview_manifest(cache, chat_id: int | None, *, text: str,
     policy = sp.effective_policy_sync(None, style_doc, context="regular")
     hint = policy.hint or ""
 
-    expression_doc = overrides.get(EXPRESSION_DOC_KEY)
-    if not isinstance(expression_doc, dict):
-        raw_expr = _read_global_doc(cache, EXPRESSION_DOC_KEY)
-        expression_doc = raw_expr if isinstance(raw_expr, dict) else None
+    # ADD-EXP §1.6/§5.1.7: слой «Выражение» собирается ТЕМ ЖЕ builder-ом, что
+    # бой (per-control merge chat→global→factory) — предпросмотр не врёт.
+    expression_chat = overrides.get(EXPRESSION_DOC_KEY)
+    expression_global = _read_global_doc(cache, EXPRESSION_DOC_KEY)
     if isinstance(candidate.get("expression_document"), dict):
-        expression_doc = candidate["expression_document"]
-    expression_text = render_expression_text(expression_doc)
+        # Кандидат формы — «что если» документ того слоя, куда сохраняем.
+        if chat_id is not None:
+            expression_chat = candidate["expression_document"]
+        else:
+            expression_global = candidate["expression_document"]
+    expression_settings = expression.build_expression_settings(
+        expression_chat if isinstance(expression_chat, dict) else None,
+        expression_global if isinstance(expression_global, dict) else None)
 
     gates = composer.gates_from_config()
     try:
@@ -1455,11 +1524,7 @@ async def _preview_manifest(cache, chat_id: int | None, *, text: str,
             source=policy.source or "default",
             rule_count=len(policy.rules or ()),
             skip_reason=policy.skip_reason or ""),
-        expression=composer.ExpressionSettings(
-            text=expression_text,
-            revision=composer.sha12(expression_text) if expression_text else "",
-            source=("chat" if chat_id is not None else "global"),
-            enabled=bool(expression_text)),
+        expression=expression_settings,
     )
     manifest = composer.compose_prompt(plan)
     layers = composer.render_effective_layers(manifest)["layers"]
@@ -1475,11 +1540,12 @@ async def _preview_manifest(cache, chat_id: int | None, *, text: str,
         "conflicts": [c.conflict_id for c in manifest.conflicts],
         "system_masked": _mask_text(manifest.system),
         "system_chars": len(manifest.system or ""),
-        "preview_note": ("Предпросмотр собирает слои, доступные вне хода "
-                         "(канал, характер, выражение, стиль письма). Слои, "
-                         "которые приносит сам ход (identity/plan/lessons/"
-                         "few-shot библиотеки W4), помечены реальной причиной "
-                         "пропуска — это не «сломанный характер»."),
+        "preview_note": ("Предпросмотр — детерминированный текст инструкции, "
+                         "не речевой результат; для проверки голоса — "
+                         "«Проверить вживую». Слои, которые приносит сам ход "
+                         "(identity/plan/lessons/few-shot библиотеки W4), "
+                         "помечены реальной причиной пропуска — это не "
+                         "«сломанный характер»."),
     }
 
 
@@ -2374,6 +2440,135 @@ async def post_expression_reset_chat(
             "view": await _expression_payload(cache, chat_id)}
 
 
+# ── ADD-EXP §5.1.8: «Проверить вживую» — контролируемая проба голоса ────────
+
+#: Минимальный интервал между пробами (rate-limit, bounded; без очередей).
+LIVE_CHECK_MIN_INTERVAL_SECONDS = 30.0
+_live_check_state: dict = {"ts": 0.0, "busy": False}
+
+
+def _direct_service():
+    """Singleton DirectChatService (DI bot.py → handlers.direct_chat).
+
+    ``None`` → Direct-модуль не поднят в этом процессе: проба честно
+    недоступна (ничего не выдумываем и не зовём модель мимо боевого пути).
+    """
+    try:
+        from handlers import direct_chat as _dc
+        return getattr(_dc, "_service", None)
+    except Exception:
+        return None
+
+
+class ExpressionLiveCheck(BaseModel):
+    """Текст пробы для реального L2-вызова тем же путём (без доставки)."""
+
+    message: str = Field(default="", max_length=500)
+
+
+@speech_router.post("/speech/expression/live-check")
+async def post_expression_live_check(
+    request: Request,
+    user: Annotated[WebAppUser, Depends(get_tma_user)],
+    body: ExpressionLiveCheck,
+    x_chat_id: Annotated[str | None, Header()] = None,
+):
+    """Один реальный L2-вызов (writer ``speech_ui_live_check``) + класс §6.
+
+    Честный способ проверить речевой результат тем же путём/моделью:
+    доставки в Telegram нет, второго «пробного» промпта нет — тот же боевой
+    L2-канал. Rate-limit + ровно одна проба в полёте.
+    """
+    cache, chat_id, ctx = await _access(request, user, x_chat_id)
+    if chat_id is None:
+        raise HTTPException(status_code=422, detail="нужен X-Chat-Id")
+    if not _can_edit_speech(cache, user, ctx, pg_key="", chat_id=chat_id):
+        raise HTTPException(status_code=403, detail="нет права на проверку")
+    message = str(body.message or "").strip()
+    if not message:
+        raise HTTPException(status_code=422, detail="нужен текст пробы")
+    now = time.time()
+    if _live_check_state.get("busy") or (
+            now - float(_live_check_state.get("ts") or 0.0)
+            < LIVE_CHECK_MIN_INTERVAL_SECONDS):
+        raise HTTPException(
+            status_code=429,
+            detail="Проба уже выполняется или была меньше "
+                   f"{int(LIVE_CHECK_MIN_INTERVAL_SECONDS)} с назад — "
+                   "подождите немного")
+    service = _direct_service()
+    if service is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Боевой Direct-путь в этом процессе недоступен — проба "
+                   "не выполнена (модель мимо боевого пути не вызываем)")
+    try:
+        from services import prompt_composer as composer
+        settings_ref = await composer.resolve_expression_settings(chat_id)
+        mode = str(settings_ref.mode or "")
+    except Exception:
+        mode = ""
+    correlation_id = None
+    try:
+        from services import usage_events as _ue
+        correlation_id = _ue.new_correlation_id()
+    except Exception:
+        correlation_id = None
+    try:
+        from config.settings import settings as _settings
+        temperature = _settings.tone_temperature(None)
+    except Exception:
+        temperature = 0.7
+    diag_out: dict = {}
+    started = time.perf_counter()
+    _live_check_state["busy"] = True
+    try:
+        result = await service._l2_write_answer(
+            chat_id, message, temperature=temperature,
+            correlation_id=correlation_id, writer="speech_ui_live_check",
+            diag_out=diag_out)
+    except Exception:
+        logger.warning("[speech] expression live-check failed", exc_info=True)
+        expression.emit_expression_diag(
+            "provider_limitation", chat_id=chat_id,
+            stage="speech_ui_live_check", detail="exception", mode=mode)
+        raise HTTPException(status_code=502,
+                            detail="Проба не выполнена: вызов не прошёл "
+                                   "(класс provider_limitation)")
+    finally:
+        _live_check_state["busy"] = False
+        _live_check_state["ts"] = time.time()
+    elapsed_ms = int((time.perf_counter() - started) * 1000)
+    if not result:
+        return {"ok": False, "reason": "empty_answer", "mode": mode,
+                "elapsed_ms": elapsed_ms, "diag_class": "",
+                "note": ("Пустой ответ пробы: вызов не дал текста "
+                         "(ничего не выдумываем).")}
+    text, response_mode = str(result[0] or ""), str(result[1] or "")
+    marker = bool(diag_out.get("expression_marker"))
+    diag_class = expression.classify_expression_response(
+        text, mode, genre="speech_ui_live_check", probes=1,
+        marker_present=marker,
+        provider_error=bool(diag_out.get("provider_error")))
+    return {
+        "ok": True,
+        "mode": mode or "unknown",
+        "reply": text,
+        "reply_chars": len(text),
+        "profanity_roots": expression.count_profanity(text),
+        "diag_class": diag_class,
+        "expression_marker": marker,
+        "response_mode": response_mode,
+        "elapsed_ms": elapsed_ms,
+        "delivery": {"telegram_send": False},
+        "note": ("Один реальный L2-вызов тем же боевым путём "
+                 "(writer=speech_ui_live_check), без доставки в Telegram. "
+                 "Одиночная проба не приговор: класс "
+                 "`model_ignored_instruction` подтверждается набором Ф6 "
+                 "(N≥5 подряд)."),
+    }
+
+
 @speech_router.get("/speech/humor")
 async def get_humor(
     request: Request,
@@ -2598,7 +2793,7 @@ async def get_examples(
                  "владелец добавляет, правит, архивирует и утверждает "
                  "эталоны. В runtime уходят только утверждённые."),
         "entity_fields": [dict(f) for f in SAMPLE_ENTITY_FIELDS],
-        "techniques": [dict(t) for t in HUMOR_TECHNIQUES],
+        "techniques": [dict(t) for t in SAMPLE_TECHNIQUES_UI],
         "filters": {"technique": technique, "status": status},
         "items": items,
         "count": len(items),
@@ -2606,6 +2801,12 @@ async def get_examples(
             "version": samples_lib.STARTER_LIBRARY_VERSION,
             "expected": len(samples_lib.STARTER_SAMPLES),
             "seeded": int(counts.get("starter_seeded") or 0),
+            # ADD-EXP (BLOCK-1): заводской набор регистра речи — отдельная
+            # подборка (сиды живут в той же таблице, счётчики не склеиваются).
+            "expression_version": samples_lib.EXPRESSION_STARTER_LIBRARY_VERSION,
+            "expression_expected": len(samples_lib.EXPRESSION_STARTER_SAMPLES),
+            "expression_seeded": int(
+                counts.get("expression_starter_seeded") or 0),
         },
         "telemetry": counts,
         "policy": policy,
@@ -2801,17 +3002,32 @@ async def post_examples_seed(
     user: Annotated[WebAppUser, Depends(get_tma_user)],
     x_chat_id: Annotated[str | None, Header()] = None,
 ):
-    """Поставить заводскую подборку черновиков (идемпотентно; без «одобрения»)."""
+    """Поставить заводские подборки черновиков (идемпотентно; без «одобрения»).
+
+    ADD-EXP (BLOCK-1): сидятся ДВЕ подборки — приёмы юмора (W4) и набор
+    регистра речи (12 черновиков «без мата / эпизодически / часто»), иначе
+    владелец не мог бы увидеть и утвердить их существующим механизмом, а слой
+    примеров в runtime оставался бы пустым. Черновики (`owner_approved=0`) —
+    в runtime не идут (`not_owner_approved`), пока владелец не утвердит.
+    """
     cache, chat_id, ctx = await _access(request, user, x_chat_id)
     if not _library_can_edit(cache, user, ctx, chat_id=chat_id):
         raise HTTPException(status_code=403,
                             detail="нет права на правку примеров")
-    result = await samples_lib.seed_starter_samples(samples_lib.get_db())
+    db = samples_lib.get_db()
+    result = await samples_lib.seed_starter_samples(db)
     if result.get("reason") == "db_unavailable":
         raise HTTPException(status_code=503, detail="база недоступна")
+    expression_result = await samples_lib.seed_expression_samples(db)
+    if expression_result.get("reason") == "db_unavailable":
+        raise HTTPException(status_code=503, detail="база недоступна")
     return {"ok": True, **result,
+            "expression_seeded": int(expression_result.get("seeded") or 0),
+            "expression_skipped": int(expression_result.get("skipped") or 0),
             "note": ("Черновики заведены БЕЗ владельческого одобрения: "
-                     "эталонами их не считает ни runtime, ни статистика.")}
+                     "эталонами их не считает ни runtime, ни статистика. "
+                     "Набор регистра речи (12 карточек) до утверждения не "
+                     "попадает в ответы — причина `not_owner_approved`.")}
 
 
 @speech_router.post("/speech/examples/policy")

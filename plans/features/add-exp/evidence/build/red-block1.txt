@@ -1,0 +1,83 @@
+FFFF                                                                     [100%]
+================================== FAILURES ===================================
+__________ test_seed_endpoint_creates_expression_drafts_idempotently __________
+
+api_env = namespace(cache=<test_soul1_w6_speech_ui._Cache object at 0x0000018B8109E180>, chat=<sqlite3.Connection object at 0x00...8B81D156C0>, user=namespace(id=4242), ctx=namespace(is_global_admin=True, effective_permissions=None), chat_id=-100500)
+seed_db = <services.database.DatabaseService object at 0x0000018BFF5F98B0>
+
+    def test_seed_endpoint_creates_expression_drafts_idempotently(api_env,
+                                                                  seed_db):
+        """BLOCK-1: прод-эндпоинт сида заводит И набор регистра речи."""
+        env = api_env
+        first = _run(S.post_examples_seed(None, env.user, str(env.chat_id)))
+        assert first["ok"] is True
+        assert first["seeded"] == len(sl.STARTER_SAMPLES) == 18
+>       assert first["expression_seeded"] == \
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^
+            len(sl.EXPRESSION_STARTER_SAMPLES) == 12
+E       KeyError: 'expression_seeded'
+
+tests\test_add_exp_expression.py:863: KeyError
+__________ test_not_owner_approved_then_block_renders_after_approval __________
+
+api_env = namespace(cache=<test_soul1_w6_speech_ui._Cache object at 0x0000018B8109E7B0>, chat=<sqlite3.Connection object at 0x00...8B81D15300>, user=namespace(id=4242), ctx=namespace(is_global_admin=True, effective_permissions=None), chat_id=-100500)
+seed_db = <services.database.DatabaseService object at 0x0000018B8109FC50>
+
+    def test_not_owner_approved_then_block_renders_after_approval(api_env,
+                                                                  seed_db):
+        """BLOCK-1: «нет одобренных» ≠ «нет строк»; одобрение включает блок."""
+        env = api_env
+        _run(S.post_examples_seed(None, env.user, str(env.chat_id)))
+>       rows, reason = _run(sl.resolve_expression_examples_ex(777, "off",
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                                                              db=seed_db))
+E       AttributeError: module 'services.mca_sample_library' has no attribute 'resolve_expression_examples_ex'. Did you mean: 'resolve_expression_examples'?
+
+tests\test_add_exp_expression.py:889: AttributeError
+_________ test_examples_payload_exposes_expression_register_technique _________
+
+api_env = namespace(cache=<test_soul1_w6_speech_ui._Cache object at 0x0000018B8109FB00>, chat=<sqlite3.Connection object at 0x00...8B81D15D50>, user=namespace(id=4242), ctx=namespace(is_global_admin=True, effective_permissions=None), chat_id=-100500)
+seed_db = <services.database.DatabaseService object at 0x0000018B810A2CC0>
+
+    def test_examples_payload_exposes_expression_register_technique(api_env,
+                                                                    seed_db):
+        """BLOCK-1: техника видна владельцу в разделе «Примеры» (человеческая метка)."""
+        env = api_env
+        _run(S.post_examples_seed(None, env.user, str(env.chat_id)))
+        view = _run(S.get_examples(None, env.user, None))
+        techniques = {t["id"]: t for t in view["techniques"]}
+>       assert "expression_register" in techniques
+E       AssertionError: assert 'expression_register' in {'absurd_escalation': {'id': 'absurd_escalation', 'title': 'Абсурдная эскалация', 'description': 'Принять предпосылку ...e': 'Бюрократический/экономический перенос', 'description': 'Трактовать быт как процесс с регламентом и сметой.'}, ...}
+
+tests\test_add_exp_expression.py:927: AssertionError
+____________ test_ui_shows_expression_register_label_not_raw_code _____________
+
+    def test_ui_shows_expression_register_label_not_raw_code():
+        app_js = (ROOT / "web" / "app.js").read_text(encoding="utf-8")
+        index = (ROOT / "web" / "index.html").read_text(encoding="utf-8")
+>       assert "sampleTechniqueTitle" in app_js
+E       assert 'sampleTechniqueTitle' in "\ufeff/* Epic 85 (84.7, T-620/T-621/T-632/T-639/T-640/T-644) — фронтенд TMA-админки.\n * Vue 3 Options API (global bu...(status, message) {\n    this.status = status;\n    this.message = message;\n    this.name = 'ApiError';\n  }\n})();\n"
+
+tests\test_add_exp_expression.py:959: AssertionError
+============================== warnings summary ===============================
+..\..\..\..\..\..\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\_pytest\config\__init__.py:1464
+  C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\_pytest\config\__init__.py:1464: PytestConfigWarning: Unknown config option: timeout
+  
+    self._warn_or_fail_if_strict(f"Unknown config option: {key}\n")
+
+..\..\..\..\..\..\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\_pytest\config\__init__.py:1464
+  C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\_pytest\config\__init__.py:1464: PytestConfigWarning: Unknown config option: timeout_method
+  
+    self._warn_or_fail_if_strict(f"Unknown config option: {key}\n")
+
+..\..\..\..\..\..\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\fastapi\testclient.py:1
+  C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\fastapi\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_add_exp_expression.py::test_seed_endpoint_creates_expression_drafts_idempotently
+FAILED tests/test_add_exp_expression.py::test_not_owner_approved_then_block_renders_after_approval
+FAILED tests/test_add_exp_expression.py::test_examples_payload_exposes_expression_register_technique
+FAILED tests/test_add_exp_expression.py::test_ui_shows_expression_register_label_not_raw_code
+4 failed, 3 warnings in 5.70s

@@ -492,10 +492,33 @@ def test_expression_chat_write_readback_and_reset(env):
     assert again.json()["reason"] == "no_chat_override"
 
 
+def test_expression_allowed_alias_written_canonically(env):
+    """ADD-EXP §1.3: read-alias `allowed` → `occasional` (без второго storage).
+
+    Существующий путь записи сохраняет КАНОНИЧЕСКОЕ значение; read-after-write
+    подтверждает это, а не имитирует успех.
+    """
+    resp = env.client.post("/api/speech/expression", headers=_headers(CHAT_A),
+                           json={"values": {"profanity": "allowed"},
+                                 "scope": "chat"})
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["result"]["applied"] is True
+    doc = stored_overrides(env.db, CHAT_A)[EXPRESSION_KEY]
+    assert doc["profanity"] == "occasional", \
+        "alias не должен попадать в storage как есть"
+    view = env.client.get("/api/speech/expression",
+                          headers=_headers(CHAT_A)).json()
+    assert view["values"]["profanity"] == "occasional"
+    assert view["effective"]["profanity"] == {"value": "occasional",
+                                              "source": "chat",
+                                              "migrated": False}
+    assert view["migration"] == {}, \
+        "после канонического сохранения баннер миграции не нужен"
+
+
 # ═══════════════════════════════════════════════════════════════════════════
 # Style Policy: правила/привычки, unknown kind, сброс «в inherited»
 # ═══════════════════════════════════════════════════════════════════════════
-
 _STYLE_RULE = {"id": "trailing_period.hard.strip", "kind": "trailing_period",
                "strictness": "hard", "scope": "global", "enabled": True,
                "params": {"ellipsis": "strip"}, "reason": "P0 persist-test"}

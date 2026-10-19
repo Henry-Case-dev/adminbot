@@ -117,6 +117,17 @@ async def authorial_system(*, chat_id: int, writer: str, genre: str,
         snapshot = await pc.turn_snapshot(int(chat_id), None)
         base_canon = (core_canon if str(core_canon or "").strip()
                       else legacy_canon)
+        # ADD-EXP (wiring): жанровые авторские тексты получают слой
+        # «Выражение» тем же builder-ом (§4.1: голос живой, мат по режиму
+        # допустим; жанровое исключение действует только в сторону
+        # «не форсировать»).
+        expression_ref = None
+        try:
+            expression_ref = await pc.resolve_expression_settings(int(chat_id))
+        except Exception:
+            logger.warning("[authorial] expression resolve failed — слой "
+                           "пропущен | writer=%s | genre=%s", writer, genre)
+            expression_ref = None
         plan = pc.PromptPlan(
             profile=pc.PROFILE_SPEECH_PLAIN, writer=str(writer),
             chat_id=int(chat_id), channel=str(channel),
@@ -126,8 +137,23 @@ async def authorial_system(*, chat_id: int, writer: str, genre: str,
             include_mode_block=False,
             core=snapshot.core,
             style_policy=snapshot.style_policy,
+            expression=expression_ref,
             gates=gates)
         manifest = pc.compose_prompt(plan)
+        # §6: слой рендерен, но маркера нет в финальном system → честный
+        # класс, а не тихое отсутствие политики.
+        try:
+            rendered = any(t.layer == pc.LAYER_EXPRESSION and t.rendered
+                           for t in (manifest.layers or ()))
+            if rendered and "<Expression_Settings>" not in str(
+                    manifest.system or ""):
+                from services import mca_expression as _expr
+                _expr.emit_expression_diag(
+                    "policy_not_injected", chat_id=int(chat_id),
+                    stage="authorial_system", detail="marker_absent",
+                    mode=str(getattr(expression_ref, "mode", "") or ""))
+        except Exception:      # pragma: no cover — диагностика fail-open
+            pass
         return manifest.system, manifest
     except Exception:
         logger.warning("[authorial] composer build failed — прежний канон "

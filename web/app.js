@@ -2849,6 +2849,11 @@
         speechSoftDraft: '',
         speechStylePreview: null,
         speechExpressionDraft: {},
+        // ADD-EXP §5.2: «Проверить вживую» — контролируемая проба голоса
+        // (1 реальный L2-вызов без доставки).
+        speechLiveCheckText: '',
+        speechLiveCheckResult: null,
+        speechLiveCheckBusy: false,
         speechTryDraft: { text: '', profile: 'speech_plain', generate: false,
                           useDrafts: true },
         speechTryResult: null,
@@ -20162,6 +20167,43 @@
         }
       },
       // ── Выражение ───────────────────────────────────────────────────────
+      // ADD-EXP §5.2: метка эффективного значения — из payload (без сырых
+      // кодов); источник — человеческими словами.
+      speechEffectiveLabel: function (control, value) {
+        var opts = (control && control.options) || [];
+        for (var i = 0; i < opts.length; i++) {
+          if (opts[i].value === value) return opts[i].label;
+        }
+        var map = {
+          off: 'Без мата', occasional: 'Эпизодически', frequent: 'Часто',
+          inherit: 'Как настроено (по умолчанию)',
+        };
+        return map[value] || value;
+      },
+      speechEffectiveSourceLabel: function (source) {
+        return { chat: 'этот чат', global: 'все чаты',
+                 factory_default: 'заводское' }[source] || 'заводское';
+      },
+      speechEffectiveText: function () {
+        var eff = (this.speechExpression && this.speechExpression.effective)
+          || {};
+        var prof = eff.profanity;
+        if (!prof) return '';
+        var controls = (this.speechExpression && this.speechExpression.controls)
+          || [];
+        var ctrl = null;
+        for (var i = 0; i < controls.length; i++) {
+          if (controls[i].id === 'profanity') { ctrl = controls[i]; break; }
+        }
+        return 'Действует: ' + this.speechEffectiveLabel(ctrl, prof.value)
+          + ' — источник: ' + this.speechEffectiveSourceLabel(prof.source);
+      },
+      speechControlEffectiveText: function (c) {
+        if (!c || !c.effective) return '';
+        return 'Действует: ' + this.speechEffectiveLabel(c, c.effective)
+          + ' — источник: '
+          + this.speechEffectiveSourceLabel(c.effective_source);
+      },
       setExpressionValue: function (key, value) {
         var draft = this.speechExpressionDraft || {};
         draft[key] = value;
@@ -20177,23 +20219,80 @@
         this.clearSpeechSaved('expression');
       },
       speechExpressionPreview: function () {
+        // ADD-EXP §5.2 п.1: рендер из payload (метки/инструкции), без сырых
+        // кодов; текст совпадает с тем, что соберёт боевой путь (§1.6).
         var draft = this.speechExpressionDraft || {};
-        var titles = {
-          wit: 'Остроумие', sharpness: 'Резкость', profanity: 'Мат',
-          verbosity: 'Развёрнутость',
-        };
+        var controls = (this.speechExpression
+          && this.speechExpression.controls) || [];
         var lines = [];
-        for (var k in titles) {
-          if (!Object.prototype.hasOwnProperty.call(titles, k)) continue;
-          var value = draft[k] || 'inherit';
+        for (var i = 0; i < controls.length; i++) {
+          var c = controls[i];
+          var value = draft[c.id] || 'inherit';
           if (value === 'inherit') continue;
-          lines.push('- ' + titles[k] + ': ' + value);
+          var instr = (c.instruction || {})[value];
+          if (!instr) continue;
+          lines.push('- ' + c.label + ': ' + instr);
         }
         if ((draft.note || '').trim()) {
           lines.push('- Пожелание владельца: ' + draft.note.trim());
         }
         if (!lines.length) return '(все контролы «как настроено» — слой выражения пуст)';
         return '<Expression_Settings>\n' + lines.join('\n') + '\n</Expression_Settings>';
+      },
+      runExpressionLiveCheck: async function () {
+        if (this.speechBusy || this.speechLiveCheckBusy) return;
+        var self = this;
+        var text = (this.speechLiveCheckText || '').trim()
+          || 'бот, как настроение?';
+        this.speechLiveCheckBusy = true;
+        this.speechLiveCheckResult = null;
+        try {
+          var res = await this.api('/api/speech/expression/live-check', {
+            method: 'POST',
+            body: JSON.stringify({ message: text }),
+          });
+          this.speechLiveCheckResult = res || { ok: false,
+            reason: 'empty_response' };
+          if (this.speechLiveCheckResult.ok) {
+            this.toast('Проба выполнена: реальный L2-вызов, в Telegram '
+              + 'ничего не отправлено', 'ok');
+          } else {
+            this.toast('Проба не выполнена: '
+              + (this.speechLiveCheckResult.reason || 'unknown'), 'warn');
+          }
+        } catch (e) {
+          this.speechLiveCheckResult = {
+            ok: false,
+            reason: (e && e.status === 429) ? 'rate_limited' : 'failed',
+            detail: this.speechErrText(e),
+          };
+          if (e.status !== 401) {
+            this.toast('Проба не выполнена: ' + this.speechErrText(e),
+                       e.status === 429 ? 'warn' : 'err');
+          }
+        } finally {
+          this.speechLiveCheckBusy = false;
+        }
+      },
+      liveCheckDiagText: function () {
+        var res = this.speechLiveCheckResult || {};
+        var map = {
+          policy_not_injected: 'слой не доехал до payload (policy_not_injected)',
+          composer_excluded: 'слой исключён композером (composer_excluded)',
+          model_ignored_instruction: 'инструкция не сработала '
+            + '(model_ignored_instruction)',
+          postprocess_changed: 'постобработка изменила текст '
+            + '(postprocess_changed)',
+          provider_limitation: 'ограничение провайдера '
+            + '(provider_limitation)',
+          unknown: 'класс не определён (unknown)',
+        };
+        if (!res.diag_class) {
+          return res.ok ? 'Класс не присвоен: явных промахов в одной пробе нет.'
+            : '';
+        }
+        return 'Диагностический класс: '
+          + (map[res.diag_class] || res.diag_class);
       },
       saveSpeechExpression: async function () {
         if (this.speechBusy) return;
@@ -20215,6 +20314,12 @@
             }),
           });
           this.speechExpression = (res && res.view) || this.speechExpression;
+          // ADD-EXP §5.2 п.3: после сохранения форма и effective берутся из
+          // view (в глобальном scope values = явное эффективное значение).
+          this.speechExpressionDraft = Object.assign({},
+            (this.speechExpression && this.speechExpression.values) || {},
+            { note: (this.speechExpression && this.speechExpression.note)
+              || '' });
           this.speechDirty.expression = false;
           this.speechRetry = null;
           this.toast('Сохранено ' + this.speechScopeToText('expression')
@@ -20363,6 +20468,16 @@
       sampleApprovalLabel: function (row) {
         return (row && row.owner_approved) ? 'эталон' : 'черновик';
       },
+      // ADD-EXP (BLOCK-1): человеческая метка техники из payload (без сырых
+      // кодов в карточке); неизвестная техника остаётся как есть — честно.
+      sampleTechniqueTitle: function (id) {
+        var list = (this.speechExamples && this.speechExamples.techniques)
+          || [];
+        for (var i = 0; i < list.length; i++) {
+          if (list[i].id === id) return list[i].title;
+        }
+        return String(id || '—');
+      },
       startSpeechSampleNew: function () {
         this.speechSampleEditing = null;
         this.speechSampleDraft = {
@@ -20480,8 +20595,14 @@
           var res = await this.api('/api/speech/examples/seed', {
             method: 'POST', body: '{}',
           });
+          var extra = '';
+          if (res && (res.expression_seeded || res.expression_skipped)) {
+            extra = '; регистр речи: добавлено '
+              + (res.expression_seeded || 0) + ', уже было '
+              + (res.expression_skipped || 0);
+          }
           this.toast('Черновики: добавлено ' + ((res && res.seeded) || 0)
-            + ', уже было ' + ((res && res.skipped) || 0), 'ok');
+            + ', уже было ' + ((res && res.skipped) || 0) + extra, 'ok');
           await this.loadSpeechSection('examples', true);
         } catch (e) {
           this.speechSaveFail(e, 'examples', function () {

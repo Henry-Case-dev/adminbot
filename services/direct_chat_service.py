@@ -78,8 +78,10 @@ import json
 import logging
 import random
 import re
+import threading
 import time
 import uuid
+from collections import OrderedDict
 from dataclasses import dataclass
 
 from aiogram.exceptions import TelegramBadRequest
@@ -1604,15 +1606,120 @@ def _delivered_payload(payload: str) -> str:
         return str(payload or "")
 
 
+# ── ADD-EXP §6: диагностика слоя «Выражение» на боевом пути ─────────────────
+#: Маркер слоя в финальном system (проверка «политика доехала»).
+EXPRESSION_MARKER = "<Expression_Settings>"
+#: Bounded LRU raw-флагов хода (только флаги/счётчики; R17).
+_EXPRESSION_RAW_MAX = 64
+_expression_raw_lock = threading.Lock()
+_expression_raw: "OrderedDict[tuple, dict]" = OrderedDict()
+
+
+def _expression_diag(cls: str, *, chat_id: int, stage: str, detail: str = "",
+                     mode: str = "") -> None:
+    """Fail-open эмиссия класса §6 (единый владелец — mca_expression)."""
+    try:
+        from services import mca_expression as _expr
+        _expr.emit_expression_diag(cls, chat_id=chat_id, stage=stage,
+                                   detail=detail, mode=mode)
+    except Exception:      # pragma: no cover — диагностика не рвёт ход
+        pass
+
+
+def _expression_record_raw(*, chat_id: int, correlation_id: str | None,
+                           text: str, mode: str, rendered: bool) -> None:
+    """Запомнить raw-флаги ответа L2 (сравнение с доставленным — §6)."""
+    if not correlation_id:
+        return
+    try:
+        from services import mca_expression as _expr
+        profanity = _expr.count_profanity(text) > 0
+    except Exception:      # pragma: no cover
+        profanity = False
+    key = (int(chat_id or 0), str(correlation_id))
+    with _expression_raw_lock:
+        _expression_raw[key] = {"profanity": bool(profanity),
+                                "mode": str(mode or ""),
+                                "rendered": bool(rendered),
+                                "ts": time.time()}
+        while len(_expression_raw) > _EXPRESSION_RAW_MAX:
+            _expression_raw.popitem(last=False)
+
+
+def _expression_postprocess_check(chat_id: int, correlation_id: str | None,
+                                  delivered: str, *, stage: str) -> None:
+    """Сравнить raw-флаги хода с доставляемым текстом (§6 `postprocess_changed`).
+
+    Класс только когда raw содержал мат, режим ≠ off, а доставленный текст —
+    нет. Режим ``off`` ничего не доказывает (мат не ожидался).
+    """
+    if not correlation_id:
+        return
+    key = (int(chat_id or 0), str(correlation_id))
+    with _expression_raw_lock:
+        rec = _expression_raw.get(key)
+    if not rec or not rec.get("profanity"):
+        return
+    if str(rec.get("mode") or "") == "off":
+        return
+    try:
+        from services import mca_expression as _expr
+        if _expr.count_profanity(delivered) > 0:
+            return
+    except Exception:      # pragma: no cover
+        return
+    _expression_diag("postprocess_changed", chat_id=chat_id, stage=stage,
+                     detail=stage, mode=str(rec.get("mode") or ""))
+
+
+def _expression_marker_checked_adapter(adapter, *, chat_id: int, mode: str):
+    """Обернуть L2 fallback-адаптер проверкой маркера (policy_not_injected)."""
+    def _inner(payload):
+        out = adapter(payload)
+        try:
+            messages = (out or {}).get("messages") or []
+            text = "\n".join(str((m or {}).get("content") or "")
+                             for m in messages)
+            if text and EXPRESSION_MARKER not in text:
+                _expression_diag("policy_not_injected", chat_id=chat_id,
+                                 stage="l2_fallback_repack",
+                                 detail="marker_absent", mode=mode)
+        except Exception:      # pragma: no cover — адаптер не рвём
+            pass
+        return out
+    return _inner
+
+
+def _llm_fallbacks_total() -> int:
+    """Счётчик fallback-переключений LLM-клиента (0 при недоступности)."""
+    try:
+        from services import llm_client as _llm
+        return int((_llm.llm_stats() or {}).get("fallbacks") or 0)
+    except Exception:      # pragma: no cover
+        return 0
+
+
 def _verify_style_payload(payload: str, style_outcome, chat_id: int, *,
-                          stage: str) -> None:
+                          stage: str, correlation_id: str | None = None) -> None:
     """SOUL-1 (W3, SOUL-16.3.4): проверить ФАКТИЧЕСКИ доставляемый payload.
 
     Порядок: проход формы (до сериализации) → сериализация/escape ветки
     доставки → egress-guard (``sanitize_outgoing``) → проверка БЕЗ правок
     именно доставляемых байтов → отправка. Если hard-правило формы нарушено на
     payload, это видно в событии и в логе — «styled=true» при провале не
-    объявляется. Ошибка проверки не роняет доставку (fail-open)."""
+    объявляется. Ошибка проверки не роняет доставку (fail-open).
+
+    ADD-EXP §6: здесь же сравниваются raw-флаги хода с ФАКТИЧЕСКИ
+    доставляемым payload (вкл. egress ``sanitize_outgoing``) — класс
+    ``postprocess_changed``; проверка выполняется и без style-прохода.
+    """
+    if correlation_id is not None:
+        try:
+            _expression_postprocess_check(
+                chat_id, correlation_id, _delivered_payload(payload),
+                stage="egress_guard")
+        except Exception:      # pragma: no cover — проверка не рвёт доставку
+            pass
     if style_outcome is None or not getattr(style_outcome, "applied", False):
         return
     policy = getattr(style_outcome, "policy", None)
@@ -3700,6 +3807,10 @@ class DirectChatService:
                         len(_style_outcome.conflicts),
                         len(_style_outcome.failed))
                 answer = _style_outcome.text
+            # ── ADD-EXP §6: форма/проход не должен незаметно «съесть» мат —
+            # сравнение raw-флагов L2 с текстом после style-pass.
+            _expression_postprocess_check(
+                chat_id, correlation_id, answer, stage="style_policy")
             # ── MCA-23 (W3, §Delivery Router): RichMessage — опциональная
             # ветка для явных report/deep-research планов. Любой сбой
             # (aiogram<3.30 / capability / TelegramBadRequest) → прежний
@@ -3723,7 +3834,8 @@ class DirectChatService:
                 deep_research=(response_mode == "deep_research"),
                 rich=_rich_wanted,
                 document=response_document,
-                style_outcome=_style_outcome)
+                style_outcome=_style_outcome,
+                correlation_id=correlation_id)
             if sent_id is not None:
                 answer_text = answer
                 self._mark_turn_text_replied(chat_id)  # F6: ответ доставлен
@@ -4370,6 +4482,28 @@ class DirectChatService:
                 logger.warning("direct: sample library resolve failed "
                                "(слой пропущен)", exc_info=True)
                 sample_refs = ()
+        # ── ADD-EXP (wiring): слой «Выражение» подключён к боевой сборке —
+        # тот же builder, что у preview (§1.6); режим действует со
+        # следующего ответа (hot reload, без рестарта).
+        expression_ref = None
+        try:
+            expression_ref = await _pcomp.resolve_expression_settings(chat_id)
+        except Exception:
+            logger.warning("direct: expression resolve failed "
+                           "(слой пропущен)", exc_info=True)
+            expression_ref = None
+        expression_examples: tuple = ()
+        if expression_ref is not None and str(
+                getattr(expression_ref, "mode", "") or "") in (
+                "off", "occasional", "frequent"):
+            try:
+                from services import mca_expression as _expr
+                expression_examples = await _expr.build_expression_examples_refs(
+                    chat_id, str(expression_ref.mode))
+            except Exception:
+                logger.warning("direct: expression examples resolve failed "
+                               "(слой пропущен)", exc_info=True)
+                expression_examples = ()
         plan = _pcomp.PromptPlan(
             profile=profile, writer=writer, chat_id=chat_id, channel=channel,
             html_safe=html_safe, run_id=run_id, base_prompt=base_prompt,
@@ -4381,6 +4515,8 @@ class DirectChatService:
                 source=identity_source, skipped=identity_skipped),
             response_plan=_pcomp.plan_ref_from_response_plan(
                 response_plan, extent_block),
+            expression=expression_ref,
+            expression_examples=expression_examples,
             humor=humor_ref,
             samples=sample_refs,
             style_policy=snapshot.style_policy,
@@ -4409,7 +4545,8 @@ class DirectChatService:
                                speech_block: str = "",
                                writer: str = "l2_writer",
                                fallback_budget_tokens: int | None = None,
-                               max_tokens=None) -> tuple[str, str] | None:
+                               max_tokens=None, diag_out: dict | None = None
+                               ) -> tuple[str, str] | None:
         """ASAP 7 (F1, §1.2) + v6 D04 (§18C.4): L2 WRITER —
         Вербализатор-канал на ВСЕХ Direct-путях. Тот же prompt-канал/
         ``verbalize_validated``/канальные правила, что у легаси Stage-2
@@ -4424,6 +4561,11 @@ class DirectChatService:
 
         SOUL-1 (W2): при ON блоки speech/lessons — слои композера (system),
         в user-часть они не дублируются (один владелец блока на payload).
+
+        ADD-EXP: ``diag_out`` (необязательный словарь) получает R17-safe
+        факты слоя «Выражение» этого вызова (маркер/режим/провайдер) для
+        «Проверить вживую»; точки диагностики §6 (``policy_not_injected``,
+        ``provider_limitation``, ``postprocess_changed``) эмитятся здесь же.
         """
         modes_on = getattr(settings, "SMART_VERBALIZER_MODES_ENABLED", True)
         response_mode = _l1.plan_response_mode(response_plan)
@@ -4514,6 +4656,35 @@ class DirectChatService:
             {"role": "user",
              "content": "\n\n".join(parts) or str(query or "")},
         ]
+        # ── ADD-EXP §6: «политика доехала?» — слой рендерен (манифест),
+        # маркер есть в ФИНАЛЬНОМ system (после scrub); нет маркера →
+        # честный класс `policy_not_injected`, а не молчание.
+        _expr_mode = ""
+        _expr_rendered = False
+        if _c_on:
+            try:
+                _expr_settings = await _pcomp.resolve_expression_settings(
+                    chat_id)
+                _expr_mode = str(getattr(_expr_settings, "mode", "") or "")
+            except Exception:      # pragma: no cover — fail-open
+                _expr_mode = ""
+            try:
+                _expr_rendered = any(
+                    t.layer == "expression" and t.rendered
+                    for t in (_c_manifest.layers if _c_manifest is not None
+                              else ()))
+            except Exception:      # pragma: no cover
+                _expr_rendered = False
+        _expr_marker = EXPRESSION_MARKER in str(verbalizer_system or "")
+        if _expr_rendered and not _expr_marker:
+            _expression_diag("policy_not_injected", chat_id=chat_id,
+                             stage="l2_writer", detail="marker_absent",
+                             mode=_expr_mode)
+        if diag_out is not None:
+            diag_out.update({"expression_marker": bool(_expr_marker),
+                             "expression_mode": _expr_mode,
+                             "expression_rendered": bool(_expr_rendered),
+                             "provider_error": False})
         # ── v6 D04 (§18C.4): L2 fallback-репак под РЕАЛЬНОЕ окно
         # fallback-модели (plan/memory/lessons/character/evidence;
         # защищённые блоки: current request, mandatory tool evidence,
@@ -4528,14 +4699,38 @@ class DirectChatService:
                 fallback_budget_tokens=int(fallback_budget_tokens),
                 on_capacity_reason=lambda reason: _l1.record_l1_diagnostics(
                     chat_id, l2_capacity_reason=str(reason)))
+        if _l2_fb_adapter is not None and _expr_rendered:
+            # §6: fallback-репак тоже обязан сохранить маркер — иначе класс.
+            _l2_fb_adapter = _expression_marker_checked_adapter(
+                _l2_fb_adapter, chat_id=chat_id, mode=_expr_mode)
 
         async def _generate(messages):
-            return await self.llm.generate(
-                messages, temperature=temperature, chat_id=chat_id,
-                module="direct_chat", step="l2_writer",
-                correlation_id=correlation_id,
-                fallback_payload_adapter=_l2_fb_adapter,
-                max_output_tokens=max_tokens)
+            _fallbacks_before = _llm_fallbacks_total()
+            try:
+                reply = await self.llm.generate(
+                    messages, temperature=temperature, chat_id=chat_id,
+                    module="direct_chat", step="l2_writer",
+                    correlation_id=correlation_id,
+                    fallback_payload_adapter=_l2_fb_adapter,
+                    max_output_tokens=max_tokens)
+            except Exception:
+                # §6 `provider_limitation`: вызов со слоем упал — не
+                # маскируем как «исправлено» (существующие fallback-события
+                # клиента сохраняются).
+                if _expr_rendered:
+                    _expression_diag("provider_limitation", chat_id=chat_id,
+                                     stage="l2_writer", detail="exception",
+                                     mode=_expr_mode)
+                    if diag_out is not None:
+                        diag_out["provider_error"] = True
+                raise
+            if _expr_rendered and _llm_fallbacks_total() > _fallbacks_before:
+                _expression_diag("provider_limitation", chat_id=chat_id,
+                                 stage="l2_writer", detail="fallback_model",
+                                 mode=_expr_mode)
+                if diag_out is not None:
+                    diag_out["provider_error"] = True
+            return reply
 
         enabled_rules = (channel_enabled_rules("plain", response_mode)
                          if modes_on else None)
@@ -4553,6 +4748,11 @@ class DirectChatService:
             len(stats.get("hits") or []), bool(stats.get("fallback")))
         if not text.strip():
             return None
+        # §6 `postprocess_changed`: raw-флаги хода — только флаги/числа
+        # (bounded LRU по correlation_id), сравнение — на style-pass/egress.
+        _expression_record_raw(chat_id=chat_id, correlation_id=correlation_id,
+                               text=text, mode=_expr_mode,
+                               rendered=_expr_rendered)
         return text, response_mode
 
     # ── System 2 direct (F5, раунд 10.22, ADR-1022-5) — legacy-ветка ────
@@ -4796,7 +4996,8 @@ class DirectChatService:
                                   deep_research: bool = False,
                                   rich: bool = False,
                                   document=None,
-                                  style_outcome=None):
+                                  style_outcome=None,
+                                  correlation_id: str | None = None):
         """Доставка ответа DirectChat (раунд 10.20, T-1892, О5/ADR-1020-6 п.3).
 
         Обычный путь — байт-в-байт `parse_mode=None`. Под-путь safe-HTML
@@ -4834,7 +5035,8 @@ class DirectChatService:
             try:
                 _rich_payload = strip_lore_html(doc.rich_text())
                 _verify_style_payload(_rich_payload, style_outcome, chat_id,
-                                      stage="direct_rich")
+                                      stage="direct_rich",
+                                      correlation_id=correlation_id)
                 sent = await _tg_send.send_rich_message(bot, chat_id,
                                                         _rich_payload)
                 sent_id = getattr(sent, "message_id", None)
@@ -4849,13 +5051,15 @@ class DirectChatService:
                     "error=%s", chat_id, type(exc).__name__)
         if not (lore or deep_research):
             _verify_style_payload(text, style_outcome, chat_id,
-                                  stage="direct_plain")
+                                  stage="direct_plain",
+                                  correlation_id=correlation_id)
             return await send_chunked_reply(bot, chat_id, text, reply_to)
         escaped = escape_lore_html(text)
         if len(escaped) <= _LORE_HTML_MAX_SINGLE_CHARS:
             try:
                 _verify_style_payload(escaped, style_outcome, chat_id,
-                                      stage="direct_safe_html")
+                                      stage="direct_safe_html",
+                                      correlation_id=correlation_id)
                 return await send_chunked_reply(
                     bot, chat_id, escaped, reply_to, parse_mode="HTML")
             except TelegramBadRequest as exc:
@@ -4867,7 +5071,8 @@ class DirectChatService:
                     "chat=%s | chars=%d", chat_id, len(escaped))
         _plain_payload = strip_lore_html(text)
         _verify_style_payload(_plain_payload, style_outcome, chat_id,
-                              stage="direct_plain_long")
+                              stage="direct_plain_long",
+                              correlation_id=correlation_id)
         return await send_chunked_reply(bot, chat_id, _plain_payload,
                                         reply_to)
 
