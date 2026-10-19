@@ -1,0 +1,115 @@
+=== NOW ===
+2026-10-19T06:41:52Z
+=== NODE ===
+HEAD=b4d30cab364e920d453d2d6a2afe2f95e1c24834
+BRANCH=master
+TRACKED_MOD=0
+=== HEALTH ===
+{"status":"ok","version":"2.58.93"}
+MainPID=3635488 NRestarts=0 ExecMainStartTimestamp=Mon 2026-10-19 06:41:22 UTC ExecMainStatus=0 ActiveState=active SubState=running 
+=== ENV AXES (.env) ===
+UNIFIED_COMPOSER_ENABLED=1
+HUMOR_CRAFT_ENABLED=1
+HUMOR_LIBRARY_ENABLED=1
+HUMOR_FEEDBACK_ENABLED=1
+INITIATIVE_DIAGNOSTICS_PUBLISH_ENABLED=1
+=== CFG-02C MARKERS (deployed bytes; ожидание в скобках) ===
+CFG02C_CONSUMPTION=3
+CFG02C_COVER_CHARGE=4
+CFG02C_SHARED_REASON=6
+CFG02C_JOURNAL_TYPE=3
+CFG02C_COVER_USED=4
+CFG02C_COVER_DAY_SQL=3
+CFG02C_QUOTA_CLASS=1
+CFG02C_BASE_STAGE_SG=2
+CFG02C_BASE_STAGE_PREVIEW=1
+CFG02C_BASE_STAGE_TEST=2
+CFG02C_UI_SCOPE_LABEL=1
+CFG02C_UI_BREAKDOWN=1
+CFG02C_UI_COVER_TPL=2
+CFG02C_UI_LABEL_JS=1
+CFG02C_UI_LABEL_HTML=1
+=== 2.58.92 REGRESSION MARKERS (не должны исчезнуть) ===
+TRFIX_MEDIA_TARGET_ROUTER=4
+TRFIX_MEDIA_TARGET_EXEC=1
+TRFIX_MEDIA_TARGET_DCS=1
+TRFIX_REPLY_SRC_ROUTER=3
+TRFIX_REPLY_SRC_DCS=1
+TRFIX_REFCLAIM_TF=1
+TRFIX_REFCLAIM_ROUTER=1
+VFIX_SCOPE=3
+VFIX_CLAIM_ONCE=3
+VFIX_MAINT=3
+VFIX_429WINDOW=2
+VFIX_GRANULE=3
+VFIX_REARM=2
+=== REGRESSION MARKERS (линия 2.58.91 — не должны исчезнуть) ===
+VISION_URL=4
+VISION_VIS=2
+VISION_PROBE=5
+VISION_CLAIM=7
+ENTRY_CAPTION=4
+TOOLS_HEALTH=6
+POSTGEN_MODULE=1
+CFG02B_FLAG=3
+CFG02A_RESERVE_MODE=4
+GRID_SPEECH=5
+UI_VISION_LINE=2
+UI_VISION_FACTS=2
+PINS_REISSUED=2
+CFG_RESOLVER=2
+SP_HUB_ENTRY=1
+FULLSCREEN_POLICY=29
+=== PAYLOAD SHA12 (disk; ожидание == EXPECT12 кандидата) ===
+config/settings.py 9ad1fab152bb
+services/capability_registry.py 360c663ee8c5
+services/cover_style_preview.py 394c2b10c7f7
+services/image_generation.py ac028768eb86
+services/summary_generator.py c29cd6ee3038
+services/worker_budget.py 33e7b0eb8779
+web/api/summary_test.py 681bac561fb9
+web/app.js 44642c5a2b3e
+web/index.html 94289f4e0932
+README.md d815bf34e953
+=== SERVED SHA12 (HTTP) vs DISK (SERVED_EQ_*=SAME/DIFF) ===
+SERVED_APP_JS=44642c5a2b3e
+SERVED_EQ_APP_JS=SAME
+SERVED_APP_CSS=6d3ae1112d50
+SERVED_EQ_APP_CSS=SAME
+SCOPE_LABEL_SERVED=1
+=== PAGE (expect PAGE_VER=15 / SUBST_CSS=2) ===
+PAGE_VER=15
+SUBST_CSS=2
+PAGE_VER_EXPECT=15
+SUBST_CSS_EXPECT=2
+=== VISION STATE API (read-only, no secrets) ===
+{"detail":"missing init data"}
+=== WORKERS BUDGET (read-only; витрина CFG-02C: user-only used + cover-разбивка) ===
+{"detail":"missing init data"}
+=== WORKER TICK (since T0): SKIPS обязаны быть 0 (линия 2.58.92) ===
+SKIPS=0
+CLAIM_SLOW=0
+MAINT_TIMEOUT=0
+VISION_TICK=1
+=== CFG-02C JOURNAL EVIDENCE (since T0): типизированный учёт обложек ===
+COVER_JOURNAL=0
+SHARED_BUDGET_DENY=0
+=== MIGRATION LINES (since T0) ===
+Oct 19 06:41:42 racknerd-f4e3456 python[3635488]: 2026-10-19 06:41:42,257 - services.database - INFO - [database] migrations: start | current user_version=36 | pending=[]
+Oct 19 06:41:42 racknerd-f4e3456 python[3635488]: 2026-10-19 06:41:42,259 - services.database - INFO - [database] migrations: complete | user_version=36 | total 0.0s
+=== SQLITE USER_VERSION ===
+USER_VERSION (36,)
+=== JOURNAL COUNTS (since T0) ===
+ERR=0
+RUNTIMEWARN=0
+GRACEFUL=2
+POLLER=1
+VISION_PROBE_FAIL=0
+VISION_EVENTS=0
+=== SMOKE ROUTES (HTTPS) ===
+ROUTE /healthz 200
+ROUTE /web/ 200
+ROUTE /static/app.css 200
+=== HTTPS ===
+HTTPS_HZ={"status":"ok","version":"2.58.93"}
+=== DONE ===
