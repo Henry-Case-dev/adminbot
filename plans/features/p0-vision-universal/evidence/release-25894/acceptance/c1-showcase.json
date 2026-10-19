@@ -1,0 +1,46 @@
+{
+  "phase": "C1-showcase",
+  "served": {
+    "web_status": 200,
+    "appjs_status": 200,
+    "appcss_status": 200,
+    "appjs_sha12": "44642c5a2b3e",
+    "repo_appjs_sha12": "44642c5a2b3e",
+    "served_eq_appjs": true,
+    "label_in_served_appjs": 1,
+    "label_in_repo_appjs": 1,
+    "label_in_served_html": 1,
+    "scope_label_html": 1,
+    "breakdown_html": 1,
+    "cover_tpl_html": 2
+  },
+  "budget_api": {
+    "http": 200,
+    "global_image_calls": {
+      "used": 17,
+      "limit": 200,
+      "day": "2026-10-19",
+      "timezone": "Asia/Yekaterinburg",
+      "next_reset_at": "2026-10-20T00:00:00+05:00",
+      "source": "env",
+      "cover_used": 1
+    },
+    "chat_image_calls": {
+      "used": 14,
+      "limit": 20,
+      "source": "chat",
+      "day": "2026-10-19",
+      "timezone": "Asia/Yekaterinburg",
+      "next_reset_at": "2026-10-20T00:00:00+05:00"
+    },
+    "chat_cover_breakdown": {
+      "requests": 1,
+      "success": 1,
+      "errors": 0,
+      "denied": 0,
+      "delivery_failed": 0
+    },
+    "chat_reserve_path": "reserve"
+  },
+  "ok": true
+}

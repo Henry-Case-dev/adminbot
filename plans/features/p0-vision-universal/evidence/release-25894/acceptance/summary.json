@@ -1,0 +1,136 @@
+{
+  "start_epoch": 1792400925,
+  "t0_epoch": 1792397900,
+  "now_utc": "2026-10-19 09:15:40",
+  "head": "9072347b986b91f05d580a11c1aae6646b250e29",
+  "b1_positive": true,
+  "b1_outcome": "ready",
+  "b1_asset": {
+    "asset_id": "69cbefd42e166aa6d68a819bb2f60da7",
+    "tg_message_id": 1166163,
+    "byte_size": 131641,
+    "mime": "image/jpeg"
+  },
+  "b2_ok": true,
+  "b2_postgen_ok": false,
+  "b2_provider_calls": 1,
+  "g0_mode": "temp_raised",
+  "c1_ok": true,
+  "c2_ok": false,
+  "c2_checks": {
+    "cover_row_committed": false,
+    "chat_used_unchanged": true,
+    "shared_plus_one": false,
+    "cover_used_plus_one": false,
+    "freq_charges_untouched": true
+  },
+  "c3_ok": true,
+  "c3_checks": {
+    "denied_no_provider_calls": true,
+    "denied_no_new_rows": true,
+    "denied_cover_untouched": true,
+    "generated_provider_calls_one": true,
+    "user_row_typed": true,
+    "chat_plus_one": true,
+    "cover_aggregate_unchanged": true
+  },
+  "c4_ok": true,
+  "econ_final": {
+    "global_used": 18,
+    "global_limit": 200,
+    "global_cover_used": 1,
+    "chat_used": 15,
+    "chat_limit": 5,
+    "chat_limit_source": "global",
+    "chat_reserve_path": "legacy",
+    "chat_reserve_reason": "budgets_off",
+    "cover_requests": 1,
+    "cover_success": 1
+  },
+  "cleanup_mids": [
+    1166064,
+    1166066,
+    1166165,
+    1166167,
+    1166168,
+    1166169,
+    1166170,
+    1166177,
+    1166178
+  ],
+  "sends": [
+    {
+      "kind": "message",
+      "chat_id": -1002661910336,
+      "message_id": 1166165,
+      "text_head": "🧪 Приёмка 2.58.94 · распознавание фото (контроль).",
+      "text_len": 50,
+      "reply_to": null
+    },
+    {
+      "kind": "message",
+      "chat_id": -1002661910336,
+      "message_id": 1166167,
+      "text_head": "На фото пёс сидит на земле у деревянной будки, а из тёмного лаза на тебя смотрит свинья. Будка, кирпичная стена, окно с синей рамой, листья под ногами - полный набор деревенской идиллии, только роли распределены нестандартно: собака на улиц",
+      "text_len": 256,
+      "reply_to": 1166165
+    },
+    {
+      "kind": "message",
+      "chat_id": -1002661910336,
+      "message_id": 1166168,
+      "text_head": "🧪 Приёмка 2.58.94 · генерация + пост-генерация (контроль).",
+      "text_len": 58,
+      "reply_to": null
+    },
+    {
+      "kind": "photo",
+      "chat_id": -1002661910336,
+      "message_id": 1166169,
+      "bytes": 939495,
+      "sha12": "3ad9a2a644b7",
+      "reply_to": 1166168
+    },
+    {
+      "kind": "message",
+      "chat_id": -1002661910336,
+      "message_id": 1166170,
+      "text_head": "Картинка с жёлтым лимоном на белом фоне уже улетела в чат. Скромно, по-спартански, без лишних деталей - как раз то, что просили",
+      "text_len": 127,
+      "reply_to": 1166168
+    },
+    {
+      "kind": "message",
+      "chat_id": -1002661910336,
+      "message_id": 1166177,
+      "text_head": "Рисовать я сейчас не могу: генерацию картинок в этом чате выключили. Так что мем останется в воображении - оно, к счастью, безлимитное.",
+      "text_len": 135,
+      "reply_to": null
+    },
+    {
+      "kind": "message",
+      "chat_id": -1002661910336,
+      "message_id": 1166178,
+      "text_head": "Кот-астронавт на Луне - идея хорошая, только вот незадача: картинка сгенерилась, но до чата не доехала, споткнулась где-то на полпути к орбите. Так что вторая попытка за мой счёт не пройдёт - запрашивай заново, и тогда добрый кот наконец вы",
+      "text_len": 256,
+      "reply_to": null
+    }
+  ],
+  "tool_calls": [
+    "recognize_image"
+  ],
+  "provider_calls": 2,
+  "postgen": [
+    {
+      "status": "failed",
+      "reason": "vision_failed",
+      "visible_reason": "",
+      "has_content": false,
+      "description_len": 0,
+      "ocr_blocks": 0,
+      "cache_hit": false,
+      "desc_head": "",
+      "bytes": 939495
+    }
+  ]
+}

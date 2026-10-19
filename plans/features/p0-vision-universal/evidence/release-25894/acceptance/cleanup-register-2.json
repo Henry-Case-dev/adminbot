@@ -1,0 +1,46 @@
+{
+ "phase": "cleanup-completion",
+ "mids": [
+  1166064,
+  1166066,
+  1166165,
+  1166167,
+  1166168,
+  1166169,
+  1166170,
+  1166177,
+  1166178
+ ],
+ "generated_utc": "2026-10-19 09:26:10",
+ "removed_smart_rows": [],
+ "removed_bot_replies": [
+  {
+   "mid": 1166167,
+   "rowid": 9
+  },
+  {
+   "mid": 1166170,
+   "rowid": 10
+  },
+  {
+   "mid": 1166178,
+   "rowid": 11
+  }
+ ],
+ "db_errors": [],
+ "residual_smart_rows": [],
+ "residual_synth_smart_rows": [],
+ "residual_bot_replies": [],
+ "mca_error_events_since_wave": [
+  {
+   "ts": 1792401284,
+   "event_name": "INCIDENT",
+   "outcome": "success",
+   "reason_code": "incident_opened",
+   "level": "ERROR",
+   "component": "incidents",
+   "ej": null
+  }
+ ],
+ "ok": true
+}

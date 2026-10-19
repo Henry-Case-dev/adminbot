@@ -1,0 +1,42 @@
+{
+  "phase": "G0-generation-readiness",
+  "cap_state_before": {
+    "status": "quota_exhausted",
+    "reason_code": "financial_limit_reached",
+    "detail": "image_daily_limit",
+    "tryable": false,
+    "last_result": "unknown",
+    "last_result_code": ""
+  },
+  "reserve_mode_before": {
+    "mode": "legacy",
+    "reason": "budgets_off"
+  },
+  "cfg_write": {
+    "http": 200,
+    "body": {
+      "updated": [
+        "flags.budgets_enabled",
+        "limits.image_daily_limit",
+        "limits.image_freq_limit_enabled"
+      ],
+      "chat_id": -1002661910336,
+      "revalidated": false,
+      "updated_at": "2026-10-19T09:09:53.558861+00:00"
+    }
+  },
+  "cap_state_after": {
+    "status": "ready",
+    "reason_code": "",
+    "detail": "image_limit_ok",
+    "tryable": true,
+    "last_result": "unknown",
+    "last_result_code": ""
+  },
+  "reserve_mode_after": {
+    "mode": "reserve",
+    "reason": "ok"
+  },
+  "mode": "temp_raised",
+  "ok": true
+}

@@ -1,0 +1,144 @@
+{
+  "phase": "C4-restore",
+  "restore": "ok",
+  "reserve_mode_after": {
+    "mode": "legacy",
+    "reason": "budgets_off"
+  },
+  "freq_state_after": {
+    "applied": false,
+    "allowed": true,
+    "remaining_seconds": 0.0,
+    "reason": "switch_off",
+    "limits": "ImageFreqLimits(enabled=False, burst=3, cooldown=300.0, mode='per_user', source='global')"
+  },
+  "cap_state_after": {
+    "status": "quota_exhausted",
+    "reason_code": "financial_limit_reached",
+    "detail": "image_daily_limit",
+    "tryable": false,
+    "last_result": "delivery_failed",
+    "last_result_code": "send_failed"
+  },
+  "config_after": {
+    "http": 200,
+    "items": [
+      {
+        "key": "flags.budgets_enabled",
+        "value": false,
+        "global_value": true,
+        "chat_source": "chat",
+        "per_chat": true,
+        "type": "bool"
+      },
+      {
+        "key": "limits.image_freq_limit_cooldown_seconds",
+        "value": 300,
+        "global_value": 300,
+        "chat_source": "",
+        "per_chat": true,
+        "type": "int"
+      },
+      {
+        "key": "limits.image_daily_limit",
+        "value": 5,
+        "global_value": 5,
+        "chat_source": "",
+        "per_chat": true,
+        "type": "int"
+      },
+      {
+        "key": "limits.image_freq_limit_enabled",
+        "value": false,
+        "global_value": false,
+        "chat_source": "",
+        "per_chat": true,
+        "type": "bool"
+      },
+      {
+        "key": "limits.image_freq_limit_burst",
+        "value": 3,
+        "global_value": 3,
+        "chat_source": "",
+        "per_chat": true,
+        "type": "int"
+      },
+      {
+        "key": "limits.image_freq_limit_mode",
+        "value": "per_user",
+        "global_value": "per_user",
+        "chat_source": "",
+        "per_chat": true,
+        "type": "str"
+      }
+    ]
+  },
+  "config_entry_p0": {
+    "http": 200,
+    "items": [
+      {
+        "key": "flags.budgets_enabled",
+        "value": false,
+        "global_value": true,
+        "chat_source": "chat",
+        "per_chat": true,
+        "type": "bool"
+      },
+      {
+        "key": "limits.image_freq_limit_cooldown_seconds",
+        "value": 300,
+        "global_value": 300,
+        "chat_source": "",
+        "per_chat": true,
+        "type": "int"
+      },
+      {
+        "key": "limits.image_daily_limit",
+        "value": 5,
+        "global_value": 5,
+        "chat_source": "",
+        "per_chat": true,
+        "type": "int"
+      },
+      {
+        "key": "limits.image_freq_limit_enabled",
+        "value": false,
+        "global_value": false,
+        "chat_source": "",
+        "per_chat": true,
+        "type": "bool"
+      },
+      {
+        "key": "limits.image_freq_limit_burst",
+        "value": 3,
+        "global_value": 3,
+        "chat_source": "",
+        "per_chat": true,
+        "type": "int"
+      },
+      {
+        "key": "limits.image_freq_limit_mode",
+        "value": "per_user",
+        "global_value": "per_user",
+        "chat_source": "",
+        "per_chat": true,
+        "type": "str"
+      }
+    ]
+  },
+  "matches": true,
+  "cap_state_match": true,
+  "budget_after_restore": {
+    "global_used": 18,
+    "global_limit": 200,
+    "global_cover_used": 1,
+    "chat_used": 15,
+    "chat_limit": 5,
+    "chat_limit_source": "global",
+    "chat_reserve_path": "legacy",
+    "chat_reserve_reason": "budgets_off",
+    "cover_requests": 1,
+    "cover_success": 1
+  },
+  "ok": true
+}

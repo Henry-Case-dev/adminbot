@@ -1,0 +1,273 @@
+{
+  "phase": "C5-cover-fix",
+  "now_utc": "2026-10-19 09:24:39",
+  "original_overrides_touched": {
+    "flags.budgets_enabled": false
+  },
+  "config_before": {
+    "http": 200,
+    "items": [
+      {
+        "key": "flags.budgets_enabled",
+        "value": false,
+        "global_value": true,
+        "chat_source": "chat",
+        "per_chat": true,
+        "type": "bool"
+      },
+      {
+        "key": "limits.image_freq_limit_cooldown_seconds",
+        "value": 300,
+        "global_value": 300,
+        "chat_source": "",
+        "per_chat": true,
+        "type": "int"
+      },
+      {
+        "key": "limits.image_daily_limit",
+        "value": 5,
+        "global_value": 5,
+        "chat_source": "",
+        "per_chat": true,
+        "type": "int"
+      },
+      {
+        "key": "limits.image_freq_limit_enabled",
+        "value": false,
+        "global_value": false,
+        "chat_source": "",
+        "per_chat": true,
+        "type": "bool"
+      },
+      {
+        "key": "limits.image_freq_limit_burst",
+        "value": 3,
+        "global_value": 3,
+        "chat_source": "",
+        "per_chat": true,
+        "type": "int"
+      },
+      {
+        "key": "limits.image_freq_limit_mode",
+        "value": "per_user",
+        "global_value": "per_user",
+        "chat_source": "",
+        "per_chat": true,
+        "type": "str"
+      }
+    ]
+  },
+  "budget_before": {
+    "tag": "before",
+    "http": 200,
+    "global_used": 18,
+    "global_limit": 200,
+    "global_cover_used": 1,
+    "chat_used": 15,
+    "chat_limit": 5,
+    "chat_limit_source": "global",
+    "chat_reserve_path": "legacy",
+    "chat_reserve_reason": "budgets_off",
+    "cover_requests": 1,
+    "cover_success": 1
+  },
+  "reserve_mode_before": {
+    "mode": "legacy",
+    "reason": "budgets_off"
+  },
+  "throttle_before": [
+    {
+      "scope": "image_freq",
+      "chat_id": -1002661910336,
+      "user_id": 990002001,
+      "burst_left": 1,
+      "last_ts": 1792401275.749612
+    }
+  ],
+  "cfg_premise": {
+    "http": 200,
+    "body": {
+      "updated": [
+        "flags.budgets_enabled",
+        "limits.image_daily_limit",
+        "limits.image_freq_limit_enabled"
+      ],
+      "chat_id": -1002661910336,
+      "revalidated": false,
+      "updated_at": "2026-10-19T09:24:40.802258+00:00"
+    }
+  },
+  "reserve_mode_premise": {
+    "mode": "reserve",
+    "reason": "ok"
+  },
+  "cap_state_premise": {
+    "status": "disabled",
+    "reason_code": "financial_limit_disabled",
+    "detail": "image_limit_zero"
+  },
+  "cover_existing": {
+    "test_id": "c9ac3c575def409dbde2287e9f91160c",
+    "http": 200,
+    "body": {
+      "cover_status": "generated",
+      "preview_url": "/api/summary/test/c9ac3c575def409dbde2287e9f91160c/cover-image"
+    }
+  },
+  "cover_test_id": "c9ac3c575def409dbde2287e9f91160c",
+  "cover_image": {
+    "http": 200,
+    "bytes": 1739973,
+    "sha12": "1c4b3d46034a"
+  },
+  "cover_ok": true,
+  "journal_since_start": [
+    {
+      "reservation_key": "1313107079:196:direct",
+      "chat_id": 1313107079,
+      "source": "direct",
+      "status": "committed",
+      "error_code": "",
+      "delivery_failed": false,
+      "day": "<date>",
+      "created_at": "<datetime>",
+      "updated_at": "<datetime>"
+    },
+    {
+      "reservation_key": "-1002661910336:1166168:direct",
+      "chat_id": -1002661910336,
+      "source": "direct",
+      "status": "committed",
+      "error_code": "",
+      "delivery_failed": false,
+      "day": "<date>",
+      "created_at": "<datetime>",
+      "updated_at": "<datetime>"
+    },
+    {
+      "reservation_key": "-1002661910336:990940102:direct",
+      "chat_id": -1002661910336,
+      "source": "direct",
+      "status": "committed",
+      "error_code": "",
+      "delivery_failed": true,
+      "day": "<date>",
+      "created_at": "<datetime>",
+      "updated_at": "<datetime>"
+    },
+    {
+      "reservation_key": "cover:-1002661910336:c9ac3c575def409dbde2287e9f91160c:base:2dd5bdafc001",
+      "chat_id": -1002661910336,
+      "source": "summary_cover:base",
+      "status": "committed",
+      "error_code": "",
+      "delivery_failed": false,
+      "day": "<date>",
+      "created_at": "<datetime>",
+      "updated_at": "<datetime>"
+    }
+  ],
+  "cover_rows": [
+    {
+      "reservation_key": "cover:-1002661910336:c9ac3c575def409dbde2287e9f91160c:base:2dd5bdafc001",
+      "chat_id": -1002661910336,
+      "source": "summary_cover:base",
+      "status": "committed",
+      "error_code": "",
+      "delivery_failed": false,
+      "day": "<date>",
+      "created_at": "<datetime>",
+      "updated_at": "<datetime>"
+    }
+  ],
+  "budget_after": {
+    "tag": "after",
+    "http": 200,
+    "global_used": 19,
+    "global_limit": 200,
+    "global_cover_used": 2,
+    "chat_used": 15,
+    "chat_limit": 0,
+    "chat_limit_source": "chat",
+    "chat_reserve_path": "reserve",
+    "chat_reserve_reason": "ok",
+    "cover_requests": 2,
+    "cover_success": 2
+  },
+  "throttle_after": [
+    {
+      "scope": "image_freq",
+      "chat_id": -1002661910336,
+      "user_id": 990002001,
+      "burst_left": 1,
+      "last_ts": 1792401275.749612
+    }
+  ],
+  "checks": {
+    "cover_row_committed": true,
+    "chat_used_unchanged": true,
+    "shared_plus_one": true,
+    "cover_used_plus_one": true,
+    "freq_charges_untouched": true
+  },
+  "restore": "ok",
+  "reserve_mode_after_restore": {
+    "mode": "legacy",
+    "reason": "budgets_off"
+  },
+  "config_after": {
+    "http": 200,
+    "items": [
+      {
+        "key": "flags.budgets_enabled",
+        "value": false,
+        "global_value": true,
+        "chat_source": "chat",
+        "per_chat": true,
+        "type": "bool"
+      },
+      {
+        "key": "limits.image_freq_limit_cooldown_seconds",
+        "value": 300,
+        "global_value": 300,
+        "chat_source": "",
+        "per_chat": true,
+        "type": "int"
+      },
+      {
+        "key": "limits.image_daily_limit",
+        "value": 5,
+        "global_value": 5,
+        "chat_source": "",
+        "per_chat": true,
+        "type": "int"
+      },
+      {
+        "key": "limits.image_freq_limit_enabled",
+        "value": false,
+        "global_value": false,
+        "chat_source": "",
+        "per_chat": true,
+        "type": "bool"
+      },
+      {
+        "key": "limits.image_freq_limit_burst",
+        "value": 3,
+        "global_value": 3,
+        "chat_source": "",
+        "per_chat": true,
+        "type": "int"
+      },
+      {
+        "key": "limits.image_freq_limit_mode",
+        "value": "per_user",
+        "global_value": "per_user",
+        "chat_source": "",
+        "per_chat": true,
+        "type": "str"
+      }
+    ]
+  },
+  "config_matches": true,
+  "ok": true
+}

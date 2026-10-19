@@ -1,0 +1,404 @@
+{
+  "phase": "P0-pre-state",
+  "now_utc": "2026-10-19 09:09:12",
+  "t0_epoch": 1792397900,
+  "head": "9072347b986b91f05d580a11c1aae6646b250e29",
+  "branch": "master",
+  "tracked_mod": 0,
+  "vision_state_chat": {
+    "requested": true,
+    "effective": false,
+    "capability": "pending",
+    "reason": "capability_check_pending",
+    "visible_reason": "Проверка подключения модели распознавания",
+    "provider": "openrouter.ai",
+    "model": "nvidia/nemotron-3.5-super-vl:free",
+    "source": "dedicated"
+  },
+  "vision_state_global": {
+    "requested": false,
+    "effective": false,
+    "reason": "vision_disabled"
+  },
+  "reserve_mode_entry": {
+    "mode": "legacy",
+    "reason": "budgets_off"
+  },
+  "cap_state_entry": {
+    "status": "quota_exhausted",
+    "reason_code": "financial_limit_reached",
+    "detail": "image_daily_limit",
+    "tryable": false,
+    "last_result": "unknown",
+    "last_result_code": ""
+  },
+  "freq_state_entry": {
+    "applied": false,
+    "allowed": true,
+    "remaining_seconds": 0.0,
+    "reason": "switch_off",
+    "limits": "ImageFreqLimits(enabled=False, burst=3, cooldown=300.0, mode='per_user', source='global')"
+  },
+  "budget_entry": {
+    "tag": "entry",
+    "http": 200,
+    "global": {
+      "calls": {
+        "used": 25,
+        "limit": 200
+      },
+      "tokens": {
+        "used": 15289,
+        "limit": 500000
+      },
+      "image_calls": {
+        "used": 16,
+        "limit": 200,
+        "day": "2026-10-19",
+        "timezone": "Asia/Yekaterinburg",
+        "next_reset_at": "2026-10-20T00:00:00+05:00",
+        "source": "env",
+        "cover_used": 1
+      }
+    },
+    "chat": {
+      "scope": "chat:-1002661910336",
+      "calls": {
+        "used": 24,
+        "limit": -1
+      },
+      "tokens": {
+        "used": 15289,
+        "limit": -1
+      },
+      "image_calls": {
+        "used": 13,
+        "limit": 5,
+        "source": "global",
+        "day": "2026-10-19",
+        "timezone": "Asia/Yekaterinburg",
+        "next_reset_at": "2026-10-20T00:00:00+05:00"
+      },
+      "image_usage": {
+        "day": "2026-10-19",
+        "timezone": "Asia/Yekaterinburg",
+        "used": 13,
+        "limit": 5,
+        "source": "global",
+        "next_reset_at": "2026-10-20T00:00:00+05:00",
+        "reserve_path": "legacy",
+        "reserve_reason": "budgets_off",
+        "shared_used": 16,
+        "shared_limit": 200,
+        "requests": 2,
+        "success": 2,
+        "errors": 0,
+        "denied": 0,
+        "delivery_failed": 0,
+        "cover": {
+          "requests": 1,
+          "success": 1,
+          "errors": 0,
+          "denied": 0,
+          "delivery_failed": 0
+        },
+        "expenses": "N/A",
+        "freq": {
+          "enabled": false,
+          "active": false,
+          "active_reason": "switch_off",
+          "mode": "per_user",
+          "burst": 3,
+          "cooldown_seconds": 300.0,
+          "source": "global",
+          "per_chat": {
+            "charges_left": 3,
+            "remaining_seconds": 0.0,
+            "next_available_at": null
+          },
+          "per_user": {
+            "charges_left": 3,
+            "remaining_seconds": 0.0,
+            "next_available_at": null,
+            "user_id": 5885953495
+          }
+        }
+      }
+    },
+    "day": "2026-10-19",
+    "timezone": "Asia/Yekaterinburg"
+  },
+  "budget_entry_numbers": {
+    "global_used": 16,
+    "global_limit": 200,
+    "global_cover_used": 1,
+    "chat_used": 13,
+    "chat_limit": 5,
+    "chat_limit_source": "global",
+    "chat_reserve_path": "legacy",
+    "chat_reserve_reason": "budgets_off",
+    "cover_requests": 1,
+    "cover_success": 1
+  },
+  "config_entry": {
+    "http": 200,
+    "items": [
+      {
+        "key": "flags.budgets_enabled",
+        "value": false,
+        "global_value": true,
+        "chat_source": "chat",
+        "per_chat": true,
+        "type": "bool"
+      },
+      {
+        "key": "limits.image_freq_limit_cooldown_seconds",
+        "value": 300,
+        "global_value": 300,
+        "chat_source": "",
+        "per_chat": true,
+        "type": "int"
+      },
+      {
+        "key": "limits.image_daily_limit",
+        "value": 5,
+        "global_value": 5,
+        "chat_source": "",
+        "per_chat": true,
+        "type": "int"
+      },
+      {
+        "key": "limits.image_freq_limit_enabled",
+        "value": false,
+        "global_value": false,
+        "chat_source": "",
+        "per_chat": true,
+        "type": "bool"
+      },
+      {
+        "key": "limits.image_freq_limit_burst",
+        "value": 3,
+        "global_value": 3,
+        "chat_source": "",
+        "per_chat": true,
+        "type": "int"
+      },
+      {
+        "key": "limits.image_freq_limit_mode",
+        "value": "per_user",
+        "global_value": "per_user",
+        "chat_source": "",
+        "per_chat": true,
+        "type": "str"
+      }
+    ]
+  },
+  "original_overrides_keys": [
+    "flags.budgets_enabled",
+    "flags.chat_silent_ack_enabled",
+    "flags.deep_sleep_enabled",
+    "flags.irony_filter_enabled",
+    "flags.relations_tone_enabled",
+    "flags.summary_filter_enabled",
+    "flags.vision_enabled",
+    "humor.feedback",
+    "limits.chat_burst_limit",
+    "limits.chat_context_budget_tokens",
+    "limits.chat_global_context_max_tokens",
+    "limits.chat_global_key_budget_requests",
+    "limits.chat_global_key_budget_tokens",
+    "limits.chat_level2_max_chars",
+    "limits.chat_thread_max_depth",
+    "limits.chat_thread_max_tokens",
+    "limits.import_history_retention_days",
+    "limits.summary_aliases",
+    "limits.worker_daily_llm_calls_per_chat",
+    "limits.worker_daily_llm_tokens_per_chat",
+    "limits.youtube_transcript_proxy_domain",
+    "prompts.summary_cover_style",
+    "prompts.summary_cover_style_id",
+    "prompts.summary_system_prompt",
+    "prompts.verbilizer_default_mode"
+  ],
+  "original_overrides_touched": {
+    "flags.budgets_enabled": false
+  },
+  "pg_worker_budget": [
+    {
+      "day": "<date>",
+      "scope": "chat:-1002661910336",
+      "metric": "image_calls",
+      "used": 13
+    },
+    {
+      "day": "<date>",
+      "scope": "chat:1313107079",
+      "metric": "image_calls",
+      "used": 1
+    },
+    {
+      "day": "<date>",
+      "scope": "global",
+      "metric": "image_calls",
+      "used": 16
+    },
+    {
+      "day": "<date>",
+      "scope": "chat:-1002661910336",
+      "metric": "image_calls",
+      "used": 12
+    },
+    {
+      "day": "<date>",
+      "scope": "chat:-1009900000201",
+      "metric": "image_calls",
+      "used": 4
+    },
+    {
+      "day": "<date>",
+      "scope": "global",
+      "metric": "image_calls",
+      "used": 16
+    },
+    {
+      "day": "<date>",
+      "scope": "chat:-1002661910336",
+      "metric": "image_calls",
+      "used": 5
+    },
+    {
+      "day": "<date>",
+      "scope": "global",
+      "metric": "image_calls",
+      "used": 5
+    },
+    {
+      "day": "<date>",
+      "scope": "chat:-1002661910336",
+      "metric": "image_calls",
+      "used": 46
+    },
+    {
+      "day": "<date>",
+      "scope": "global",
+      "metric": "image_calls",
+      "used": 46
+    },
+    {
+      "day": "<date>",
+      "scope": "chat:-1002661910336",
+      "metric": "image_calls",
+      "used": 5
+    },
+    {
+      "day": "<date>",
+      "scope": "chat:-1004482340693",
+      "metric": "image_calls",
+      "used": 5
+    }
+  ],
+  "pg_reservations_since_start": [],
+  "pg_reservations_since_t0": [
+    {
+      "reservation_key": "1313107079:196:direct",
+      "chat_id": 1313107079,
+      "source": "direct",
+      "status": "committed",
+      "error_code": "",
+      "delivery_failed": false,
+      "day": "<date>",
+      "created_at": "<datetime>",
+      "updated_at": "<datetime>"
+    }
+  ],
+  "sqlite_user_version": {
+    "user_version": 36
+  },
+  "analyses_total_entry": 4,
+  "analyses_by_status_entry": [
+    {
+      "status": "failed",
+      "n": 3
+    },
+    {
+      "status": "ready",
+      "n": 1
+    }
+  ],
+  "assets_total_entry": {
+    "n": 3341
+  },
+  "sqlite_throttle_image_freq": [],
+  "vision_jobs_recent": [
+    {
+      "job_id": "44455202c5ca4235aacf01ac1fbb7012",
+      "kind": "vision.media",
+      "status": "queued",
+      "reason_code": null,
+      "attempt": 0,
+      "created_at": 1792400967,
+      "updated_at": 1792400967
+    },
+    {
+      "job_id": "21b5744b84b64311ac44e05f0bdd1245",
+      "kind": "vision.media",
+      "status": "failed",
+      "reason_code": "vision_unreadable",
+      "attempt": 1,
+      "created_at": 1792400911,
+      "updated_at": 1792400911
+    },
+    {
+      "job_id": "c8120bfdea6841b38323870bbe686d26",
+      "kind": "vision.media",
+      "status": "completed",
+      "reason_code": null,
+      "attempt": 1,
+      "created_at": 1792400724,
+      "updated_at": 1792400740
+    },
+    {
+      "job_id": "17823256f6494010b6482221fb138b00",
+      "kind": "vision.media",
+      "status": "failed",
+      "reason_code": "vision_unreadable",
+      "attempt": 1,
+      "created_at": 1792400329,
+      "updated_at": 1792400332
+    },
+    {
+      "job_id": "9a7ff6d62a75460a9365d305013d244d",
+      "kind": "vision.media",
+      "status": "completed",
+      "reason_code": null,
+      "attempt": 1,
+      "created_at": 1792400316,
+      "updated_at": 1792400328
+    },
+    {
+      "job_id": "36cec7b27dba4e9bb1c53b445f2f0752",
+      "kind": "vision.media",
+      "status": "failed",
+      "reason_code": "vision_unreadable",
+      "attempt": 1,
+      "created_at": 1792399991,
+      "updated_at": 1792399992
+    }
+  ],
+  "mca_image_events_since_t0": [
+    {
+      "event_name": "image_generate",
+      "outcome": "success",
+      "reason_code": null,
+      "n": 1,
+      "last": 1792398533
+    },
+    {
+      "event_name": "image_postgen_vision",
+      "outcome": "skipped",
+      "reason_code": "vision_disabled",
+      "n": 1,
+      "last": 1792398533
+    }
+  ]
+}

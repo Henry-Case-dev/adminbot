@@ -1,0 +1,763 @@
+=== NOW ===
+2026-10-19T09:24:16Z
+T0_ARG=[2026-10-19 08:18:20]
+=== SERVICE ===
+MainPID=3657672 NRestarts=0 ExecMainStartTimestamp=Mon 2026-10-19 08:18:33 UTC ExecMainStatus=0 ActiveState=active SubState=running 
+USER=root
+{"status":"ok","version":"2.58.94"}
+{"status":"ok","version":"2.58.94"}
+=== WORKER TICK (SKIPS must be 0) ===
+SKIPS=0
+CLAIM_SLOW=25
+CLAIM_TIMEOUT=3
+MAINT_TIMEOUT=2
+VISION_TICK=29
+=== ERR/CRIT/TB/402 since T0 ===
+ERR=2
+E402=0
+RUNTIMEWARN=0
+DB_LOCKED=4
+VISION_PROBE_FAIL=0
+=== raw ERROR/CRITICAL/Traceback sample (first 12) ===
+Oct 19 09:14:12 racknerd-f4e3456 python[3657672]: Traceback (most recent call last):
+Oct 19 09:14:44 racknerd-f4e3456 python[3657672]: 2026-10-19 09:14:44,730 - services.mca_events - ERROR - mca_event=INCIDENT | ts=1792401284 | event_name=INCIDENT | outcome=success | level=ERROR | component=incidents | stage=takeover | reason_code=incident_opened | entity_ids=["inc_c16332769f7648179ffeb44f57bf3ab3"] | pipeline_type=vision.media
+=== raw 402 sample (first 12) ===
+=== VISION-DL-FIX journal evidence (since T0) ===
+LOCAL_BOT_API_MARKER=1
+LOCAL_BOT_API_WARN=0
+VISION_DL_STAGE=6
+VISION_EVENTS=54
+--- [vision] lines (tail 20) ---
+Oct 19 09:12:06 racknerd-f4e3456 python[3657672]: 2026-10-19 09:12:06,885 - services.mca_events - INFO - mca_event=vision_media | ts=1792401126 | event_name=vision_media | outcome=success | level=INFO | component=vision.media | stage=project | chat_id=-1002661910336 | operation_id=bc2edaf70d3cbf054ee729f91b802002
+Oct 19 09:12:06 racknerd-f4e3456 python[3657672]: 2026-10-19 09:12:06,886 - services.mca_events - INFO - mca_event=vision_media | ts=1792401126 | event_name=vision_media | outcome=skipped | level=INFO | component=vision.media | stage=reindex | chat_id=-1002661910336 | operation_id=bc2edaf70d3cbf054ee729f91b802002
+Oct 19 09:12:06 racknerd-f4e3456 python[3657672]: 2026-10-19 09:12:06,888 - services.mca_events - INFO - mca_event=vision_media | ts=1792401126 | event_name=vision_media | outcome=success | level=INFO | component=vision.media | stage=consumers | chat_id=-1002661910336 | operation_id=bc2edaf70d3cbf054ee729f91b802002
+Oct 19 09:12:14 racknerd-f4e3456 python[3657672]: 2026-10-19 09:12:14,834 - services.mca_events - INFO - mca_event=vision_media | ts=1792401134 | event_name=vision_media | outcome=success | level=INFO | component=vision.media | stage=store | chat_id=-1002661910336 | operation_id=c8339870f2b54b2435deb467935d8604
+Oct 19 09:12:14 racknerd-f4e3456 python[3657672]: 2026-10-19 09:12:14,836 - services.mca_events - INFO - mca_event=vision_media | ts=1792401134 | event_name=vision_media | outcome=success | level=INFO | component=vision.media | stage=project | chat_id=-1002661910336 | operation_id=c8339870f2b54b2435deb467935d8604
+Oct 19 09:12:14 racknerd-f4e3456 python[3657672]: 2026-10-19 09:12:14,837 - services.mca_events - INFO - mca_event=vision_media | ts=1792401134 | event_name=vision_media | outcome=skipped | level=INFO | component=vision.media | stage=reindex | chat_id=-1002661910336 | operation_id=c8339870f2b54b2435deb467935d8604
+Oct 19 09:12:14 racknerd-f4e3456 python[3657672]: 2026-10-19 09:12:14,839 - services.mca_events - INFO - mca_event=vision_media | ts=1792401134 | event_name=vision_media | outcome=success | level=INFO | component=vision.media | stage=consumers | chat_id=-1002661910336 | operation_id=c8339870f2b54b2435deb467935d8604
+Oct 19 09:12:42 racknerd-f4e3456 python[3657672]: 2026-10-19 09:12:42,083 - services.mca_events - INFO - mca_event=vision_media | ts=1792401162 | event_name=vision_media | outcome=success | level=INFO | component=vision.media | stage=validate | chat_id=-1002661910336 | operation_id=a32e03310af2c39fcd6a44d57972ca26
+Oct 19 09:14:07 racknerd-f4e3456 python[3657672]: 2026-10-19 09:14:07,874 - services.mca_vision - WARNING - [vision] background vision task failed | class=OperationalError
+Oct 19 09:14:34 racknerd-f4e3456 python[3657672]: 2026-10-19 09:14:34,638 - services.mca_vision - WARNING - [vision] claim sweep slow | dur=12.70s
+Oct 19 09:14:44 racknerd-f4e3456 python[3657672]: 2026-10-19 09:14:44,427 - services.mca_vision - WARNING - [vision] claim sweep slow | dur=7.51s
+Oct 19 09:14:44 racknerd-f4e3456 python[3657672]: 2026-10-19 09:14:44,730 - services.mca_events - ERROR - mca_event=INCIDENT | ts=1792401284 | event_name=INCIDENT | outcome=success | level=ERROR | component=incidents | stage=takeover | reason_code=incident_opened | entity_ids=["inc_c16332769f7648179ffeb44f57bf3ab3"] | pipeline_type=vision.media
+Oct 19 09:17:46 racknerd-f4e3456 python[3657672]: 2026-10-19 09:17:46,949 - services.mca_events - WARNING - mca_event=vision_media | ts=1792401466 | event_name=vision_media | outcome=failed | level=WARN | component=vision.media | stage=download | reason_code=vision_unreadable | chat_id=-1002661910336 | operation_id=043e6ffe5c0202ea96817ba0a3c134b6
+Oct 19 09:19:00 racknerd-f4e3456 python[3657672]: 2026-10-19 09:19:00,211 - services.mca_vision - WARNING - [vision] claim sweep slow | dur=8.31s
+Oct 19 09:19:09 racknerd-f4e3456 python[3657672]: 2026-10-19 09:19:09,105 - services.mca_vision - WARNING - [vision] claim sweep slow | dur=7.18s
+Oct 19 09:20:21 racknerd-f4e3456 python[3657672]: 2026-10-19 09:20:21,914 - services.mca_vision - WARNING - [vision] claim sweep timeout | 30.0s
+Oct 19 09:20:21 racknerd-f4e3456 python[3657672]: 2026-10-19 09:20:21,915 - services.mca_vision - WARNING - [vision] claim sweep slow | dur=30.00s
+Oct 19 09:20:32 racknerd-f4e3456 python[3657672]: 2026-10-19 09:20:32,244 - services.mca_vision - WARNING - [vision] maintenance stage timeout | stage=recover_stale
+Oct 19 09:20:56 racknerd-f4e3456 python[3657672]: 2026-10-19 09:20:56,527 - services.mca_vision - WARNING - [vision] claim sweep slow | dur=19.62s
+Oct 19 09:24:05 racknerd-f4e3456 python[3657672]: 2026-10-19 09:24:05,828 - services.mca_vision - WARNING - [vision] claim sweep slow | dur=13.92s
+=== CFG-02C cover journal / image lines since T0 ===
+COVER_JOURNAL=0
+SHARED_BUDGET_DENY=0
+SUMMARY_TEST_START=1
+SUMMARY_TEST_COVER_OK=0
+SUMMARY_TEST_COVER_FAILED=0
+--- [image] lines (tail 25) ---
+Oct 19 08:28:51 racknerd-f4e3456 python[3657672]: 2026-10-19 08:28:51,884 - services.image_generation - INFO - [image] generated | mode=post | model=qwen-image-3-pro | bytes=1326651 | latency_ms=79591
+Oct 19 08:28:53 racknerd-f4e3456 python[3657672]: 2026-10-19 08:28:53,118 - services.image_generation - INFO - [image] sent | chat=1313107079 | bytes=1326651 | delivery_failed=False
+--- SUMMARY_TEST lines (tail 12) ---
+Oct 19 09:11:25 racknerd-f4e3456 python[3657672]: 2026-10-19 09:11:25,726 - web.api.summary_test - INFO - SUMMARY_TEST_START | run_id=c9ac3c575def409dbde2287e9f91160c | chat_id=-1002661910336 | hours=6 | user=5885953495
+--- config updated lines (tail 10) ---
+Oct 19 09:09:53 racknerd-f4e3456 python[3657672]: 2026-10-19 09:09:53,716 - web.api.routes - INFO - [api] config chat updated | chat=-1002661910336 | keys=3 | by=5885953495 | revalidated=False
+Oct 19 09:11:23 racknerd-f4e3456 python[3657672]: 2026-10-19 09:11:23,607 - web.api.routes - INFO - [api] config chat updated | chat=-1002661910336 | keys=3 | by=5885953495 | revalidated=False
+Oct 19 09:13:52 racknerd-f4e3456 python[3657672]: 2026-10-19 09:13:52,926 - web.api.routes - INFO - [api] config chat updated | chat=-1002661910336 | keys=1 | by=5885953495 | revalidated=False
+=== MIGRATIONS since T0 ===
+Oct 19 08:18:50 racknerd-f4e3456 python[3657672]: 2026-10-19 08:18:50,890 - services.config_migrations - INFO - CONFIG_MIGRATION_CUSTOM_PRESERVED | domain=context_migration | key=limits.chat_context_budget_tokens | action=preserved_owner_custom
+Oct 19 08:18:50 racknerd-f4e3456 python[3657672]: 2026-10-19 08:18:50,890 - services.config_migrations - INFO - [factcheck_context_migration] legacy == дефолт — мигрировать нечего | key=limits.factcheck_context_messages
+Oct 19 08:18:50 racknerd-f4e3456 python[3657672]: 2026-10-19 08:18:50,891 - services.config_migrations - INFO - CONFIG_MIGRATION_CUSTOM_PRESERVED | domain=image_migration | key=models.image_base_url | action=preserved_owner_custom
+Oct 19 08:18:50 racknerd-f4e3456 python[3657672]: 2026-10-19 08:18:50,891 - services.config_migrations - INFO - CONFIG_MIGRATION_CUSTOM_PRESERVED | domain=image_migration | key=models.image_model | action=preserved_owner_custom
+Oct 19 08:18:50 racknerd-f4e3456 python[3657672]: 2026-10-19 08:18:50,892 - services.config_migrations - INFO - [image_migration] уже дефолт | key=models.image_get_mode
+Oct 19 08:18:50 racknerd-f4e3456 python[3657672]: 2026-10-19 08:18:50,892 - services.config_migrations - INFO - [deep_sleep_migration] skip: выключено (ветка A аудита)
+Oct 19 08:18:50 racknerd-f4e3456 python[3657672]: 2026-10-19 08:18:50,928 - services.database - INFO - [database] migrations: start | current user_version=36 | pending=[]
+Oct 19 08:18:50 racknerd-f4e3456 python[3657672]: 2026-10-19 08:18:50,932 - services.database - INFO - [database] migrations: complete | user_version=36 | total 0.0s
+=== SQLITE READ-ONLY PROBE ===
+{
+ "user_version": 36,
+ "jobs_since_t0": [
+  {
+   "job_id": "4d88ab96b88c4ae3ba01668d06dcded8",
+   "kind": "vision.media",
+   "status": "failed",
+   "reason_code": "vision_unavailable",
+   "attempt": 1,
+   "created_at": 1792398123,
+   "updated_at": 1792398126
+  },
+  {
+   "job_id": "d6d4b4c028b542d2a4350b25bfa3fa6e",
+   "kind": "initiative.observe",
+   "status": "completed",
+   "reason_code": null,
+   "attempt": 1,
+   "created_at": 1792398231,
+   "updated_at": 1792398263
+  },
+  {
+   "job_id": "6bf255ee4fda4b7d9fd020bf95a1abff",
+   "kind": "vision.media",
+   "status": "failed",
+   "reason_code": "vision_unreadable",
+   "attempt": 1,
+   "created_at": 1792398450,
+   "updated_at": 1792398453
+  },
+  {
+   "job_id": "f2ed397d5db1430ab7d0648443f288b8",
+   "kind": "vision.media",
+   "status": "failed",
+   "reason_code": "vision_unreadable",
+   "attempt": 1,
+   "created_at": 1792398513,
+   "updated_at": 1792398516
+  },
+  {
+   "job_id": "ba10512d4cda4658a1b7458d5f6d1840",
+   "kind": "initiative.observe",
+   "status": "completed",
+   "reason_code": null,
+   "attempt": 1,
+   "created_at": 1792398531,
+   "updated_at": 1792398551
+  },
+  {
+   "job_id": "6a1b4713e10d42069333ec70fbc032b4",
+   "kind": "initiative.observe",
+   "status": "completed",
+   "reason_code": null,
+   "attempt": 1,
+   "created_at": 1792398831,
+   "updated_at": 1792398852
+  },
+  {
+   "job_id": "e9b4004177ce46aca0acdbb87d1753af",
+   "kind": "vision.media",
+   "status": "completed",
+   "reason_code": null,
+   "attempt": 1,
+   "created_at": 1792399051,
+   "updated_at": 1792399070
+  },
+  {
+   "job_id": "7503b310a7994d92aa8e8c95a6ba127a",
+   "kind": "initiative.observe",
+   "status": "completed",
+   "reason_code": null,
+   "attempt": 1,
+   "created_at": 1792399131,
+   "updated_at": 1792399146
+  },
+  {
+   "job_id": "745b5e31a5914566aef9cf9ca915f6b4",
+   "kind": "initiative.observe",
+   "status": "completed",
+   "reason_code": null,
+   "attempt": 1,
+   "created_at": 1792399431,
+   "updated_at": 1792399448
+  },
+  {
+   "job_id": "65e85e80cdda42c9915ce4f051dedf4d",
+   "kind": "vision.media",
+   "status": "completed",
+   "reason_code": null,
+   "attempt": 1,
+   "created_at": 1792399605,
+   "updated_at": 1792399646
+  },
+  {
+   "job_id": "d37a8da922a34672ae2c065e224d5fe0",
+   "kind": "initiative.observe",
+   "status": "completed",
+   "reason_code": null,
+   "attempt": 1,
+   "created_at": 1792399731,
+   "updated_at": 1792399748
+  },
+  {
+   "job_id": "36cec7b27dba4e9bb1c53b445f2f0752",
+   "kind": "vision.media",
+   "status": "failed",
+   "reason_code": "vision_unreadable",
+   "attempt": 1,
+   "created_at": 1792399991,
+   "updated_at": 1792399992
+  },
+  {
+   "job_id": "ef2fda553c074f7a8d5f99b3399ac097",
+   "kind": "initiative.observe",
+   "status": "completed",
+   "reason_code": null,
+   "attempt": 1,
+   "created_at": 1792400031,
+   "updated_at": 1792400048
+  },
+  {
+   "job_id": "9a7ff6d62a75460a9365d305013d244d",
+   "kind": "vision.media",
+   "status": "completed",
+   "reason_code": null,
+   "attempt": 1,
+   "created_at": 1792400316,
+   "updated_at": 1792400328
+  },
+  {
+   "job_id": "17823256f6494010b6482221fb138b00",
+   "kind": "vision.media",
+   "status": "failed",
+   "reason_code": "vision_unreadable",
+   "attempt": 1,
+   "created_at": 1792400329,
+   "updated_at": 1792400332
+  },
+  {
+   "job_id": "018d032bb6b5456caeb6cc2d33333bb0",
+   "kind": "initiative.observe",
+   "status": "completed",
+   "reason_code": null,
+   "attempt": 1,
+   "created_at": 1792400331,
+   "updated_at": 1792400348
+  },
+  {
+   "job_id": "ec93b0f77f0242e89049174cc2bd9deb",
+   "kind": "initiative.observe",
+   "status": "completed",
+   "reason_code": null,
+   "attempt": 1,
+   "created_at": 1792400631,
+   "updated_at": 1792400649
+  },
+  {
+   "job_id": "c8120bfdea6841b38323870bbe686d26",
+   "kind": "vision.media",
+   "status": "completed",
+   "reason_code": null,
+   "attempt": 1,
+   "created_at": 1792400724,
+   "updated_at": 1792400740
+  },
+  {
+   "job_id": "21b5744b84b64311ac44e05f0bdd1245",
+   "kind": "vision.media",
+   "status": "failed",
+   "reason_code": "vision_unreadable",
+   "attempt": 1,
+   "created_at": 1792400911,
+   "updated_at": 1792400911
+  },
+  {
+   "job_id": "f365b5309757436da8da9427d0f21e9e",
+   "kind": "initiative.observe",
+   "status": "completed",
+   "reason_code": null,
+   "attempt": 1,
+   "created_at": 1792400931,
+   "updated_at": 1792400967
+  },
+  {
+   "job_id": "44455202c5ca4235aacf01ac1fbb7012",
+   "kind": "vision.media",
+   "status": "completed",
+   "reason_code": null,
+   "attempt": 1,
+   "created_at": 1792400967,
+   "updated_at": 1792400987
+  },
+  {
+   "job_id": "f86068426c014635a584902f4821026b",
+   "kind": "vision.media",
+   "status": "completed",
+   "reason_code": null,
+   "attempt": 1,
+   "created_at": 1792401095,
+   "updated_at": 1792401134
+  },
+  {
+   "job_id": "1c8646af91c64f4386ec46dbbc6c5d01",
+   "kind": "vision.media",
+   "status": "completed",
+   "reason_code": null,
+   "attempt": 1,
+   "created_at": 1792401109,
+   "updated_at": 1792401126
+  },
+  {
+   "job_id": "e75c45b78eca47a4aa6d57e9f2aad0cb",
+   "kind": "vision.media",
+   "status": "interrupted",
+   "reason_code": "worker_lost",
+   "attempt": 1,
+   "created_at": 1792401161,
+   "updated_at": 1792401284
+  },
+  {
+   "job_id": "1ef9784025b843cc9cca8a5753dc6f15",
+   "kind": "initiative.observe",
+   "status": "completed",
+   "reason_code": null,
+   "attempt": 1,
+   "created_at": 1792401232,
+   "updated_at": 1792401284
+  },
+  {
+   "job_id": "3c56a667b9eb4ab697d1481549e67c03",
+   "kind": "vision.media",
+   "status": "failed",
+   "reason_code": "vision_unreadable",
+   "attempt": 1,
+   "created_at": 1792401462,
+   "updated_at": 1792401466
+  },
+  {
+   "job_id": "b79c9847286d4110b4d07961edf91ebb",
+   "kind": "initiative.observe",
+   "status": "completed",
+   "reason_code": null,
+   "attempt": 1,
+   "created_at": 1792401531,
+   "updated_at": 1792401551
+  },
+  {
+   "job_id": "586b4d55e19841068bca94b83622b7b3",
+   "kind": "initiative.observe",
+   "status": "completed",
+   "reason_code": null,
+   "attempt": 1,
+   "created_at": 1792401831,
+   "updated_at": 1792401845
+  }
+ ],
+ "vision_jobs_since_t0": [
+  {
+   "job_id": "4d88ab96b88c4ae3ba01668d06dcded8",
+   "status": "failed",
+   "reason_code": "vision_unavailable",
+   "attempt": 1,
+   "max_attempts": 4,
+   "created_at": 1792398123,
+   "updated_at": 1792398126
+  },
+  {
+   "job_id": "6bf255ee4fda4b7d9fd020bf95a1abff",
+   "status": "failed",
+   "reason_code": "vision_unreadable",
+   "attempt": 1,
+   "max_attempts": 4,
+   "created_at": 1792398450,
+   "updated_at": 1792398453
+  },
+  {
+   "job_id": "f2ed397d5db1430ab7d0648443f288b8",
+   "status": "failed",
+   "reason_code": "vision_unreadable",
+   "attempt": 1,
+   "max_attempts": 4,
+   "created_at": 1792398513,
+   "updated_at": 1792398516
+  },
+  {
+   "job_id": "e9b4004177ce46aca0acdbb87d1753af",
+   "status": "completed",
+   "reason_code": null,
+   "attempt": 1,
+   "max_attempts": 4,
+   "created_at": 1792399051,
+   "updated_at": 1792399070
+  },
+  {
+   "job_id": "65e85e80cdda42c9915ce4f051dedf4d",
+   "status": "completed",
+   "reason_code": null,
+   "attempt": 1,
+   "max_attempts": 4,
+   "created_at": 1792399605,
+   "updated_at": 1792399646
+  },
+  {
+   "job_id": "36cec7b27dba4e9bb1c53b445f2f0752",
+   "status": "failed",
+   "reason_code": "vision_unreadable",
+   "attempt": 1,
+   "max_attempts": 4,
+   "created_at": 1792399991,
+   "updated_at": 1792399992
+  },
+  {
+   "job_id": "9a7ff6d62a75460a9365d305013d244d",
+   "status": "completed",
+   "reason_code": null,
+   "attempt": 1,
+   "max_attempts": 4,
+   "created_at": 1792400316,
+   "updated_at": 1792400328
+  },
+  {
+   "job_id": "17823256f6494010b6482221fb138b00",
+   "status": "failed",
+   "reason_code": "vision_unreadable",
+   "attempt": 1,
+   "max_attempts": 4,
+   "created_at": 1792400329,
+   "updated_at": 1792400332
+  },
+  {
+   "job_id": "c8120bfdea6841b38323870bbe686d26",
+   "status": "completed",
+   "reason_code": null,
+   "attempt": 1,
+   "max_attempts": 4,
+   "created_at": 1792400724,
+   "updated_at": 1792400740
+  },
+  {
+   "job_id": "21b5744b84b64311ac44e05f0bdd1245",
+   "status": "failed",
+   "reason_code": "vision_unreadable",
+   "attempt": 1,
+   "max_attempts": 4,
+   "created_at": 1792400911,
+   "updated_at": 1792400911
+  },
+  {
+   "job_id": "44455202c5ca4235aacf01ac1fbb7012",
+   "status": "completed",
+   "reason_code": null,
+   "attempt": 1,
+   "max_attempts": 4,
+   "created_at": 1792400967,
+   "updated_at": 1792400987
+  },
+  {
+   "job_id": "f86068426c014635a584902f4821026b",
+   "status": "completed",
+   "reason_code": null,
+   "attempt": 1,
+   "max_attempts": 4,
+   "created_at": 1792401095,
+   "updated_at": 1792401134
+  },
+  {
+   "job_id": "1c8646af91c64f4386ec46dbbc6c5d01",
+   "status": "completed",
+   "reason_code": null,
+   "attempt": 1,
+   "max_attempts": 4,
+   "created_at": 1792401109,
+   "updated_at": 1792401126
+  },
+  {
+   "job_id": "e75c45b78eca47a4aa6d57e9f2aad0cb",
+   "status": "interrupted",
+   "reason_code": "worker_lost",
+   "attempt": 1,
+   "max_attempts": 4,
+   "created_at": 1792401161,
+   "updated_at": 1792401284
+  },
+  {
+   "job_id": "3c56a667b9eb4ab697d1481549e67c03",
+   "status": "failed",
+   "reason_code": "vision_unreadable",
+   "attempt": 1,
+   "max_attempts": 4,
+   "created_at": 1792401462,
+   "updated_at": 1792401466
+  }
+ ],
+ "events_since_t0": [
+  {
+   "event_name": "ingestion_live",
+   "outcome": "success",
+   "reason_code": null,
+   "n": 97,
+   "last": 1792401462
+  },
+  {
+   "event_name": "WATCHDOG_SWEEP",
+   "outcome": "success",
+   "reason_code": null,
+   "n": 65,
+   "last": 1792401776
+  },
+  {
+   "event_name": "prompt_layers",
+   "outcome": "silent",
+   "reason_code": "disabled",
+   "n": 30,
+   "last": 1792400981
+  },
+  {
+   "event_name": "vision_media",
+   "outcome": "success",
+   "reason_code": null,
+   "n": 30,
+   "last": 1792401162
+  },
+  {
+   "event_name": "prompt_layers",
+   "outcome": "silent",
+   "reason_code": "source_missing",
+   "n": 24,
+   "last": 1792400983
+  },
+  {
+   "event_name": "self_model",
+   "outcome": "success",
+   "reason_code": null,
+   "n": 24,
+   "last": 1792401585
+  },
+  {
+   "event_name": "mca07_retrieval",
+   "outcome": "skipped",
+   "reason_code": "embedding_generation_changed",
+   "n": 13,
+   "last": 1792401258
+  },
+  {
+   "event_name": "initiative_observer_scan",
+   "outcome": "success",
+   "reason_code": null,
+   "n": 12,
+   "last": 1792401540
+  },
+  {
+   "event_name": "vision_media",
+   "outcome": "skipped",
+   "reason_code": null,
+   "n": 7,
+   "last": 1792401134
+  },
+  {
+   "event_name": "message_revision",
+   "outcome": "success",
+   "reason_code": "source_revision_changed",
+   "n": 6,
+   "last": 1792400735
+  },
+  {
+   "event_name": "vision_media",
+   "outcome": "failed",
+   "reason_code": "vision_unreadable",
+   "n": 6,
+   "last": 1792401466
+  },
+  {
+   "event_name": "bot_output_recorded",
+   "outcome": "success",
+   "reason_code": "bot_output_recorded",
+   "n": 5,
+   "last": 1792401335
+  },
+  {
+   "event_name": "mca07_retrieval",
+   "outcome": "success",
+   "reason_code": null,
+   "n": 5,
+   "last": 1792401265
+  },
+  {
+   "event_name": "DIRECT_FRESH_GENERATION",
+   "outcome": "success",
+   "reason_code": "direct_fresh_generation",
+   "n": 4,
+   "last": 1792401335
+  },
+  {
+   "event_name": "experience_recorded",
+   "outcome": "success",
+   "reason_code": "experience_recorded",
+   "n": 4,
+   "last": 1792401335
+  },
+  {
+   "event_name": "humor_send_captured",
+   "outcome": "success",
+   "reason_code": null,
+   "n": 4,
+   "last": 1792401335
+  },
+  {
+   "event_name": "mca07_bundle",
+   "outcome": "success",
+   "reason_code": null,
+   "n": 4,
+   "last": 1792401335
+  },
+  {
+   "event_name": "mca07_reranker",
+   "outcome": "success",
+   "reason_code": null,
+   "n": 4,
+   "last": 1792401260
+  },
+  {
+   "event_name": "quote_resolver_step",
+   "outcome": "success",
+   "reason_code": "quote_unresolved",
+   "n": 4,
+   "last": 1792401330
+  },
+  {
+   "event_name": "EMBED_API_DEFERRED",
+   "outcome": "skipped",
+   "reason_code": "embed_deferred",
+   "n": 3,
+   "last": 1792401086
+  },
+  {
+   "event_name": "FACTS_EXTRACT",
+   "outcome": "success",
+   "reason_code": "embed_deferred",
+   "n": 3,
+   "last": 1792401086
+  },
+  {
+   "event_name": "PIPELINE_START",
+   "outcome": "start",
+   "reason_code": null,
+   "n": 2,
+   "last": 1792401656
+  },
+  {
+   "event_name": "SUMMARY_L1_ACTIVITY",
+   "outcome": "start",
+   "reason_code": null,
+   "n": 2,
+   "last": 1792401105
+  },
+  {
+   "event_name": "SUMMARY_L1_ACTIVITY",
+   "outcome": "success",
+   "reason_code": null,
+   "n": 2,
+   "last": 1792401147
+  },
+  {
+   "event_name": "SUMMARY_WRITER_ACTIVITY",
+   "outcome": "start",
+   "reason_code": null,
+   "n": 2,
+   "last": 1792401152
+  },
+  {
+   "event_name": "SUMMARY_WRITER_ACTIVITY",
+   "outcome": "success",
+   "reason_code": null,
+   "n": 2,
+   "last": 1792401172
+  },
+  {
+   "event_name": "capability_message",
+   "outcome": "failed",
+   "reason_code": null,
+   "n": 2,
+   "last": 1792401330
+  },
+  {
+   "event_name": "image_generate",
+   "outcome": "success",
+   "reason_code": null,
+   "n": 2,
+   "last": 1792401072
+  },
+  {
+   "event_name": "mca07_answer_cache",
+   "outcome": "skipped",
+   "reason_code": "answer_cache_disabled",
+   "n": 2,
+   "last": 1792400969
+  },
+  {
+   "event_name": "vision_capability_probe",
+   "outcome": "success",
+   "reason_code": null,
+   "n": 2,
+   "last": 1792400987
+  }
+ ],
+ "mca_errors_since_t0": [
+  {
+   "n": 1
+  }
+ ],
+ "analyses_total": {
+  "n": 8
+ },
+ "analyses_by_status": [
+  {
+   "status": "failed",
+   "n": 5
+  },
+  {
+   "status": "ready",
+   "n": 2
+  },
+  {
+   "status": "running",
+   "n": 1
+  }
+ ],
+ "analyses_recent": [
+  {
+   "id": 8,
+   "asset_id": "a32e03310af2c39fcd6a44d57972ca26",
+   "status": "running",
+   "revision": 1,
+   "analyzer_model": "nvidia/nemotron-3.5-super-vl:free",
+   "desc_head": null,
+   "completed_at": null
+  },
+  {
+   "id": 7,
+   "asset_id": "bc2edaf70d3cbf054ee729f91b802002",
+   "status": "failed",
+   "revision": 2,
+   "analyzer_model": "nvidia/nemotron-3.5-super-vl:free",
+   "desc_head": null,
+   "completed_at": 1792401126
+  },
+  {
+   "id": 6,
+   "asset_id": "c8339870f2b54b2435deb467935d8604",
+   "status": "failed",
+   "revision": 2,
+   "analyzer_model": "nvidia/nemotron-3.5-super-vl:free",
+   "desc_head": null,
+   "completed_at": 1792401134
+  },
+  {
+   "id": 5,
+   "asset_id": "69cbefd42e166aa6d68a819bb2f60da7",
+   "status": "ready",
+   "revision": 2,
+   "analyzer_model": "nvidia/nemotron-3.5-super-vl:free",
+   "desc_head": "A dog with white, tan, and black fur sits in the lower left foreground looking toward the camera. Behind the dog is a small wooden doghouse with a triangular roof, situated against a red brick wall. I",
+   "completed_at": 1792400986
+  },
+  {
+   "id": 4,
+   "asset_id": "2e3b065da9826eab496c87caa4c042e2",
+   "status": "failed",
+   "revision": 2,
+   "analyzer_model": "nvidia/nemotron-3.5-super-vl:free",
+   "desc_head": null,
+   "completed_at": 1792400740
+  }
+ ],
+ "assets_total": {
+  "n": 3345
+ },
+ "throttle_image_freq": [
+  {
+   "scope": "image_freq",
+   "chat_id": -1002661910336,
+   "user_id": 990002001,
+   "burst_left": 1,
+   "last_ts": 1792401275.749612
+  }
+ ]
+}
+=== DONE ===

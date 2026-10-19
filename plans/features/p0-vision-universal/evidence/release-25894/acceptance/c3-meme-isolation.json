@@ -1,0 +1,290 @@
+{
+  "phase": "C3-meme-isolation",
+  "state_before_denied": {
+    "status": "disabled",
+    "reason_code": "financial_limit_disabled",
+    "detail": "image_limit_zero",
+    "tryable": false,
+    "last_result": "success",
+    "last_result_code": ""
+  },
+  "budget_before_denied": {
+    "global_used": 17,
+    "global_limit": 200,
+    "global_cover_used": 1,
+    "chat_used": 14,
+    "chat_limit": 0,
+    "chat_limit_source": "chat",
+    "chat_reserve_path": "reserve",
+    "chat_reserve_reason": "ok",
+    "cover_requests": 1,
+    "cover_success": 1
+  },
+  "journal_before_denied_n": 1,
+  "cover_rows_before_denied": [],
+  "attempt_denied": {
+    "provider_calls": 0,
+    "turn": {
+      "label": "meme-denied",
+      "status": "ok",
+      "error": "",
+      "handled": true,
+      "correlation_id": "7f3739bff4bf4f95b3a4b597d97a71fc",
+      "plan_meta": null,
+      "usage": [
+        {
+          "correlation_id": "7f3739bff4bf4f95b3a4b597d97a71fc",
+          "step": "single",
+          "tool_name": "",
+          "input_tokens": 571,
+          "output_tokens": 10,
+          "cost_usd": "<Decimal>",
+          "price_known": false,
+          "plan_meta": null,
+          "ts": "2026-10-19 09:13:05.424209+00:00"
+        }
+      ],
+      "logs": [
+        "[direct] triggered | chat=-1002661910336 user=Acceptance",
+        "event=AUTO_CONTEXT_BUDGET | slot=direct.primary | context_window=1000000 | mandatory_tokens=5645 | output_reserve=100000 | safety_reserve=116655 | effective_input_budget=777700 | policy_mode=unlimited | model=deepseek/deepseek-v4.1-flash | source=provider_catalog | ts=1792401208.007",
+        "event=AUTO_CONTEXT_BUDGET | slot=direct.fallback | context_window=131072 | mandatory_tokens=5645 | output_reserve=13107 | safety_reserve=14651 | effective_input_budget=97669 | policy_mode=unlimited | model=deepseek-flash | source=verified_registry | ts=1792401208.007",
+        "event=CONTEXT_CAPACITY | model=deepseek/deepseek-v4.1-flash | window=1000000 | window_source=provider_catalog | external_tokens=5645 | output_reserve=100000 | available_context=777700 | budget=777700 | policy_mode=unlimited | summary_revision=1788699601:500 | summary_watermark=1788699601 | summary_lag_messages=275 | summary_age=3701607 | estimation_method=tiktoken | ts=1792401208.034",
+        "[direct] capability not ready | chat=-1002661910336 | cap=image_generation | status=disabled | reason=financial_limit_disabled | template=message.image_failure.disabled"
+      ],
+      "tool_calls": [],
+      "image_blocks": [],
+      "postgen": [],
+      "sends": [
+        {
+          "kind": "message",
+          "chat_id": -1002661910336,
+          "message_id": 1166177,
+          "text_head": "Рисовать я сейчас не могу: генерацию картинок в этом чате выключили. Так что мем останется в воображении - оно, к счастью, безлимитное.",
+          "text_len": 135,
+          "reply_to": null
+        }
+      ],
+      "answer_head": "Рисовать я сейчас не могу: генерацию картинок в этом чате выключили. Так что мем останется в воображении - оно, к счастью, безлимитное.",
+      "bot_reply": [],
+      "elapsed_s": 26.58
+    }
+  },
+  "journal_after_denied": [
+    {
+      "reservation_key": "-1002661910336:1166168:direct",
+      "chat_id": -1002661910336,
+      "source": "direct",
+      "status": "committed",
+      "error_code": "",
+      "delivery_failed": false,
+      "day": "<date>",
+      "created_at": "<datetime>",
+      "updated_at": "<datetime>"
+    }
+  ],
+  "cover_rows_after_denied": [],
+  "budget_after_denied": {
+    "global_used": 17,
+    "global_limit": 200,
+    "global_cover_used": 1,
+    "chat_used": 14,
+    "chat_limit": 0,
+    "chat_limit_source": "chat",
+    "chat_reserve_path": "reserve",
+    "chat_reserve_reason": "ok",
+    "cover_requests": 1,
+    "cover_success": 1
+  },
+  "cfg_raise": {
+    "http": 200,
+    "body": {
+      "updated": [
+        "limits.image_daily_limit"
+      ],
+      "chat_id": -1002661910336,
+      "revalidated": false,
+      "updated_at": "2026-10-19T09:13:52.906533+00:00"
+    }
+  },
+  "state_before_generated": {
+    "status": "ready",
+    "reason_code": "",
+    "detail": "image_limit_ok",
+    "tryable": true,
+    "last_result": "unknown",
+    "last_result_code": ""
+  },
+  "reserve_mode_before_generated": {
+    "mode": "reserve",
+    "reason": "ok"
+  },
+  "budget_before_generated": {
+    "global_used": 17,
+    "global_limit": 200,
+    "global_cover_used": 1,
+    "chat_used": 14,
+    "chat_limit": 20,
+    "chat_limit_source": "chat",
+    "chat_reserve_path": "reserve",
+    "chat_reserve_reason": "ok",
+    "cover_requests": 1,
+    "cover_success": 1
+  },
+  "throttle_before_generated": [
+    {
+      "scope": "image_freq",
+      "chat_id": -1002661910336,
+      "user_id": 990002001,
+      "burst_left": 2,
+      "last_ts": 1792401016.7854002
+    }
+  ],
+  "attempt_generated": {
+    "provider_calls": 1,
+    "turn": {
+      "label": "meme-generated",
+      "status": "ok",
+      "error": "",
+      "handled": true,
+      "correlation_id": "19ab123760e7476ba6b255b467bf7e95",
+      "plan_meta": null,
+      "usage": [
+        {
+          "correlation_id": "19ab123760e7476ba6b255b467bf7e95",
+          "step": "single",
+          "tool_name": "",
+          "input_tokens": 574,
+          "output_tokens": 10,
+          "cost_usd": "<Decimal>",
+          "price_known": false,
+          "plan_meta": null,
+          "ts": "2026-10-19 09:14:19.992990+00:00"
+        }
+      ],
+      "logs": [
+        "[direct] triggered | chat=-1002661910336 user=Acceptance",
+        "event=AUTO_CONTEXT_BUDGET | slot=direct.primary | context_window=1000000 | mandatory_tokens=5645 | output_reserve=100000 | safety_reserve=116655 | effective_input_budget=777700 | policy_mode=unlimited | model=deepseek/deepseek-v4.1-flash | source=provider_catalog | ts=1792401275.556",
+        "event=AUTO_CONTEXT_BUDGET | slot=direct.fallback | context_window=131072 | mandatory_tokens=5645 | output_reserve=13107 | safety_reserve=14651 | effective_input_budget=97669 | policy_mode=unlimited | model=deepseek-flash | source=verified_registry | ts=1792401275.558",
+        "event=CONTEXT_CAPACITY | model=deepseek/deepseek-v4.1-flash | window=1000000 | window_source=provider_catalog | external_tokens=5645 | output_reserve=100000 | available_context=777700 | budget=777700 | policy_mode=unlimited | summary_revision=1788699601:500 | summary_watermark=1788699601 | summary_lag_messages=274 | summary_age=3701674 | estimation_method=tiktoken | ts=1792401275.621",
+        "event=IMAGE_CONTEXT_RESOLVED | run_id=c60697c7e00f4628b070d885774e4e58 | chat_id=-1002661910336 | resolution=none | facts=0 | slice=0 | prompt_chars=33 | latency_ms=0 | ts=1792401275.707",
+        "event=IMAGE_GENERATION_START | run_id=c60697c7e00f4628b070d885774e4e58 | chat_id=-1002661910336 | source=direct | prompt_chars=33 | ts=1792401275.708",
+        "[image] generated | mode=post | model=qwen-image-3-pro | bytes=1586323 | latency_ms=54163",
+        "[image] send failed | chat=-1002661910336 | error=TelegramBadRequest",
+        "event=IMAGE_GENERATION_FAILED | run_id=c60697c7e00f4628b070d885774e4e58 | chat_id=-1002661910336 | source=direct | reason_class=error | ts=1792401330.303",
+        "event=DECISION_START | run_id=c60697c7e00f4628b070d885774e4e58 | chat_id=-1002661910336 | message_id=990940102 | ts=1792401330.316",
+        "event=DIRECT_TRIGGER | chat_id=-1002661910336 | message_id=990940102 | trigger_type=force_keyword | force_reply_required=True | reply_to_bot=False | is_private=False | addressed=True | ts=1792401330.316",
+        "event=DECISION_COMPLETE | run_id=c60697c7e00f4628b070d885774e4e58 | chat_id=-1002661910336 | message_id=990940102 | action=reply | reason=force_direct | trigger_type=force_keyword | force_reply_required=True | message_class=explicit_request | duration_ms=10 | ts=1792401330.327",
+        "event=L1_PLAN | run_id=c60697c7e00f4628b070d885774e4e58 | chat_id=-1002661910336 | message_id=990940102 | action=reply | response_act=creative | extent=compact | tone=warm | bucket=high | inherited=True | fallback= | latency_ms=1860 | input_chars=1011 | confidence=0.75 | source=main | ts=1792401332.309"
+      ],
+      "tool_calls": [],
+      "image_blocks": [
+        {
+          "query": "бот, нарисуй мем: добрый кот-астронавт на Луне",
+          "block": "<image_result status=\"error\" reason=\"delivery_failed\">\nКартинка сгенерировалась, но в чат не доехала - споткнулся на отправке. Второй раз платить за то же самое не буду: запроси заново.\nНичего не отправлено; повторно инструмент generate_image не вызывай.\n</image_result>"
+        }
+      ],
+      "postgen": [],
+      "sends": [
+        {
+          "kind": "message",
+          "chat_id": -1002661910336,
+          "message_id": 1166178,
+          "text_head": "Кот-астронавт на Луне - идея хорошая, только вот незадача: картинка сгенерилась, но до чата не доехала, споткнулась где-то на полпути к орбите. Так что вторая попытка за мой счёт не пройдёт - запрашивай заново, и тогда добрый кот наконец вы",
+          "text_len": 256,
+          "reply_to": null
+        }
+      ],
+      "answer_head": "Кот-астронавт на Луне - идея хорошая, только вот незадача: картинка сгенерилась, но до чата не доехала, споткнулась где-то на полпути к орбите. Так что вторая попытка за мой счёт не пройдёт - запрашивай заново, и тогда добрый кот наконец вы",
+      "bot_reply": [],
+      "elapsed_s": 77.57
+    }
+  },
+  "postgen_meme": [],
+  "journal_after_meme": [
+    {
+      "reservation_key": "-1002661910336:1166168:direct",
+      "chat_id": -1002661910336,
+      "source": "direct",
+      "status": "committed",
+      "error_code": "",
+      "delivery_failed": false,
+      "day": "<date>",
+      "created_at": "<datetime>",
+      "updated_at": "<datetime>"
+    },
+    {
+      "reservation_key": "-1002661910336:990940102:direct",
+      "chat_id": -1002661910336,
+      "source": "direct",
+      "status": "committed",
+      "error_code": "",
+      "delivery_failed": true,
+      "day": "<date>",
+      "created_at": "<datetime>",
+      "updated_at": "<datetime>"
+    }
+  ],
+  "user_rows_after_meme": [
+    {
+      "reservation_key": "-1002661910336:1166168:direct",
+      "chat_id": -1002661910336,
+      "source": "direct",
+      "status": "committed",
+      "error_code": "",
+      "delivery_failed": false,
+      "day": "<date>",
+      "created_at": "<datetime>",
+      "updated_at": "<datetime>"
+    },
+    {
+      "reservation_key": "-1002661910336:990940102:direct",
+      "chat_id": -1002661910336,
+      "source": "direct",
+      "status": "committed",
+      "error_code": "",
+      "delivery_failed": true,
+      "day": "<date>",
+      "created_at": "<datetime>",
+      "updated_at": "<datetime>"
+    }
+  ],
+  "cover_rows_after_meme": [],
+  "budget_after_meme": {
+    "global_used": 18,
+    "global_limit": 200,
+    "global_cover_used": 1,
+    "chat_used": 15,
+    "chat_limit": 20,
+    "chat_limit_source": "chat",
+    "chat_reserve_path": "reserve",
+    "chat_reserve_reason": "ok",
+    "cover_requests": 1,
+    "cover_success": 1
+  },
+  "freq_state_after_meme": {
+    "applied": true,
+    "allowed": true,
+    "remaining_seconds": 0.0,
+    "reason": "ok",
+    "limits": "ImageFreqLimits(enabled=True, burst=3, cooldown=300.0, mode='per_user', source='chat')"
+  },
+  "throttle_after_meme": [
+    {
+      "scope": "image_freq",
+      "chat_id": -1002661910336,
+      "user_id": 990002001,
+      "burst_left": 1,
+      "last_ts": 1792401275.749612
+    }
+  ],
+  "checks": {
+    "denied_no_provider_calls": true,
+    "denied_no_new_rows": true,
+    "denied_cover_untouched": true,
+    "generated_provider_calls_one": true,
+    "user_row_typed": true,
+    "chat_plus_one": true,
+    "cover_aggregate_unchanged": true
+  },
+  "ok": true
+}

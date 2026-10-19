@@ -1,0 +1,1065 @@
+{
+ "generated_utc": "2026-10-19 09:16:31",
+ "chat_id": -1002661910336,
+ "method": "Telegram Bot API deleteMessage via the deployed bot (prod-faithful local session); single foreground run; safety gate vs real user messages; synthetic smart_messages/bot_replies rows of test mids removed",
+ "delete_mids": [
+  1166064,
+  1166066,
+  1166165,
+  1166167,
+  1166168,
+  1166169,
+  1166170,
+  1166177,
+  1166178
+ ],
+ "deleted": [
+  {
+   "mid": 1166064,
+   "reply_to": null,
+   "status": "deleted"
+  },
+  {
+   "mid": 1166066,
+   "reply_to": null,
+   "status": "deleted"
+  },
+  {
+   "mid": 1166165,
+   "reply_to": null,
+   "status": "deleted"
+  },
+  {
+   "mid": 1166167,
+   "bot_reply_head": "На фото пёс сидит на земле у деревянной будки, а из тёмного лаза на те",
+   "reply_to": 1166165,
+   "status": "deleted"
+  },
+  {
+   "mid": 1166168,
+   "reply_to": null,
+   "status": "deleted"
+  },
+  {
+   "mid": 1166169,
+   "reply_to": null,
+   "status": "deleted"
+  },
+  {
+   "mid": 1166170,
+   "bot_reply_head": "Картинка с жёлтым лимоном на белом фоне уже улетела в чат. Скромно, по",
+   "reply_to": 1166168,
+   "status": "deleted"
+  },
+  {
+   "mid": 1166177,
+   "reply_to": null,
+   "status": "deleted"
+  },
+  {
+   "mid": 1166178,
+   "bot_reply_head": "Кот-астронавт на Луне - идея хорошая, только вот незадача: картинка сг",
+   "reply_to": 990940102,
+   "status": "deleted"
+  }
+ ],
+ "diagnostics_inventory": {
+  "smart_messages_window": [
+   {
+    "mid": 1166061,
+    "user_id": 5295679861,
+    "author_name": "Книжный Хан",
+    "media_type": "text",
+    "reply_to_id": 1165995,
+    "ts": 1792397039,
+    "head": "Лол"
+   },
+   {
+    "mid": 1166062,
+    "user_id": 350803143,
+    "author_name": "Костя",
+    "media_type": "video",
+    "reply_to_id": null,
+    "ts": 1792397043,
+    "head": "Диана?"
+   },
+   {
+    "mid": 1166063,
+    "user_id": 1878452291,
+    "author_name": "Диана",
+    "media_type": "text",
+    "reply_to_id": null,
+    "ts": 1792397076,
+    "head": "что, почему"
+   },
+   {
+    "mid": 1166065,
+    "user_id": 1313107079,
+    "author_name": "Вася",
+    "media_type": "text",
+    "reply_to_id": 1166062,
+    "ts": 1792397106,
+    "head": "Нравится смотреть как маленькие котики трясут попками? Ох Костик...."
+   },
+   {
+    "mid": 1166067,
+    "user_id": 1313107079,
+    "author_name": "Вася",
+    "media_type": "text",
+    "reply_to_id": null,
+    "ts": 1792397115,
+    "head": "Рисовать я сейчас не могу: генерацию картинок в этом чате выключили. Так что мем останется"
+   },
+   {
+    "mid": 1166068,
+    "user_id": 350803143,
+    "author_name": "Костя",
+    "media_type": "text",
+    "reply_to_id": 1166063,
+    "ts": 1792397162,
+    "head": "Это ты когда купила подешевле и продала подороже"
+   },
+   {
+    "mid": 1166069,
+    "user_id": 1878452291,
+    "author_name": "Диана",
+    "media_type": "text",
+    "reply_to_id": 1166068,
+    "ts": 1792397236,
+    "head": "ага, я в минус так то хонду слила"
+   },
+   {
+    "mid": 1166070,
+    "user_id": 5885953495,
+    "author_name": "Никита",
+    "media_type": "text",
+    "reply_to_id": 1166042,
+    "ts": 1792397246,
+    "head": "отъебись от него, шутник блять, там девопс агент тестит модули, отправляет в чат сообщения"
+   },
+   {
+    "mid": 1166071,
+    "user_id": 972412990,
+    "author_name": "Леха Крейсер",
+    "media_type": "video",
+    "reply_to_id": null,
+    "ts": 1792397247,
+    "head": null
+   },
+   {
+    "mid": 1166072,
+    "user_id": 972412990,
+    "author_name": "Леха Крейсер",
+    "media_type": "video",
+    "reply_to_id": null,
+    "ts": 1792397247,
+    "head": null
+   },
+   {
+    "mid": 1166073,
+    "user_id": 972412990,
+    "author_name": "Леха Крейсер",
+    "media_type": "text",
+    "reply_to_id": null,
+    "ts": 1792397267,
+    "head": "меня тут заебывал уже 2 недели чел с впном что скорость низакая"
+   },
+   {
+    "mid": 1166074,
+    "user_id": 972412990,
+    "author_name": "Леха Крейсер",
+    "media_type": "text",
+    "reply_to_id": null,
+    "ts": 1792397300,
+    "head": "в усмердь заебал что даже хотел его нахуй послеть и деньги вернуть что моей еврейской нату"
+   },
+   {
+    "mid": 1166075,
+    "user_id": 972412990,
+    "author_name": "Леха Крейсер",
+    "media_type": "text",
+    "reply_to_id": null,
+    "ts": 1792397312,
+    "head": "оказалось ему ртк скорость снизил на тарифе"
+   },
+   {
+    "mid": 1166076,
+    "user_id": 350803143,
+    "author_name": "Костя",
+    "media_type": "sticker",
+    "reply_to_id": null,
+    "ts": 1792397586,
+    "head": null
+   },
+   {
+    "mid": 1166078,
+    "user_id": 1276415576,
+    "author_name": "Никита Философ",
+    "media_type": "photo",
+    "reply_to_id": null,
+    "ts": 1792397751,
+    "head": null
+   },
+   {
+    "mid": 1166079,
+    "user_id": 5885953495,
+    "author_name": "Никита",
+    "media_type": "text",
+    "reply_to_id": 1166078,
+    "ts": 1792397869,
+    "head": "Славик"
+   },
+   {
+    "mid": 1166080,
+    "user_id": 5295679861,
+    "author_name": "Книжный Хан",
+    "media_type": "sticker",
+    "reply_to_id": null,
+    "ts": 1792398123,
+    "head": null
+   },
+   {
+    "mid": 1166081,
+    "user_id": 8636935052,
+    "author_name": "Гоша",
+    "media_type": "sticker",
+    "reply_to_id": 1165747,
+    "ts": 1792398400,
+    "head": null
+   },
+   {
+    "mid": 1166082,
+    "user_id": 350803143,
+    "author_name": "Костя",
+    "media_type": "sticker",
+    "reply_to_id": null,
+    "ts": 1792398513,
+    "head": null
+   },
+   {
+    "mid": 1166083,
+    "user_id": 350803143,
+    "author_name": "Костя",
+    "media_type": "video",
+    "reply_to_id": null,
+    "ts": 1792398592,
+    "head": null
+   },
+   {
+    "mid": 1166084,
+    "user_id": 8636935052,
+    "author_name": "Гоша",
+    "media_type": "text",
+    "reply_to_id": 1165952,
+    "ts": 1792398939,
+    "head": "Экипаж подложки Курск"
+   },
+   {
+    "mid": 1166085,
+    "user_id": 350803143,
+    "author_name": "Костя",
+    "media_type": "video",
+    "reply_to_id": null,
+    "ts": 1792399065,
+    "head": "Выехал похулиганить по Перми"
+   },
+   {
+    "mid": 1166086,
+    "user_id": 8896895667,
+    "author_name": "Aleksey",
+    "media_type": "text",
+    "reply_to_id": null,
+    "ts": 1792399113,
+    "head": "Если че я не сдох!"
+   },
+   {
+    "mid": 1166087,
+    "user_id": 134812796,
+    "author_name": "Ринтаро",
+    "media_type": "text",
+    "reply_to_id": 1166073,
+    "ts": 1792399238,
+    "head": "@MusicReception вон кст у нас в конфе владелец ВПН сервиса. Государству не отстёгивает и н"
+   },
+   {
+    "mid": 1166088,
+    "user_id": 350803143,
+    "author_name": "Костя",
+    "media_type": "video",
+    "reply_to_id": null,
+    "ts": 1792399304,
+    "head": null
+   },
+   {
+    "mid": 1166089,
+    "user_id": 134812796,
+    "author_name": "Ринтаро",
+    "media_type": "text",
+    "reply_to_id": 1166088,
+    "ts": 1792399328,
+    "head": "Костик, ей даже 16 лет на вид нет"
+   },
+   {
+    "mid": 1166090,
+    "user_id": 350803143,
+    "author_name": "Костя",
+    "media_type": "text",
+    "reply_to_id": 1166089,
+    "ts": 1792399382,
+    "head": "ей 18🫤🫤🫤🫤"
+   },
+   {
+    "mid": 1166091,
+    "user_id": 350803143,
+    "author_name": "Костя",
+    "media_type": "video",
+    "reply_to_id": null,
+    "ts": 1792399457,
+    "head": "Вкусняшка"
+   },
+   {
+    "mid": 1166092,
+    "user_id": 134812796,
+    "author_name": "Ринтаро",
+    "media_type": "video",
+    "reply_to_id": null,
+    "ts": 1792399482,
+    "head": null
+   },
+   {
+    "mid": 1166093,
+    "user_id": 134812796,
+    "author_name": "Ринтаро",
+    "media_type": "photo",
+    "reply_to_id": null,
+    "ts": 1792399605,
+    "head": null
+   },
+   {
+    "mid": 1166094,
+    "user_id": 8636935052,
+    "author_name": "Гоша",
+    "media_type": "text",
+    "reply_to_id": 1165890,
+    "ts": 1792399619,
+    "head": "Нужно учить детей посылать нахуй"
+   },
+   {
+    "mid": 1166095,
+    "user_id": 8636935052,
+    "author_name": "Гоша",
+    "media_type": "text",
+    "reply_to_id": null,
+    "ts": 1792399687,
+    "head": "У нас в школе чел обоссался потому что не отпустили"
+   },
+   {
+    "mid": 1166096,
+    "user_id": 8636935052,
+    "author_name": "Гоша",
+    "media_type": "text",
+    "reply_to_id": null,
+    "ts": 1792399697,
+    "head": "Вот как такое возможно"
+   },
+   {
+    "mid": 1166097,
+    "user_id": 350803143,
+    "author_name": "Костя",
+    "media_type": "text",
+    "reply_to_id": 1166092,
+    "ts": 1792399762,
+    "head": "ну нормалды, ещё контейнер тайп бит и через гуся шибануть"
+   },
+   {
+    "mid": 1166098,
+    "user_id": 350803143,
+    "author_name": "Костя",
+    "media_type": "video",
+    "reply_to_id": null,
+    "ts": 1792399808,
+    "head": null
+   },
+   {
+    "mid": 1166099,
+    "user_id": 972412990,
+    "author_name": "Леха Крейсер",
+    "media_type": "text",
+    "reply_to_id": 1166087,
+    "ts": 1792399945,
+    "head": "ээээ"
+   },
+   {
+    "mid": 1166100,
+    "user_id": 350803143,
+    "author_name": "Костя",
+    "media_type": "video",
+    "reply_to_id": null,
+    "ts": 1792399963,
+    "head": "@dark_snek ты?"
+   },
+   {
+    "mid": 1166101,
+    "user_id": 1878452291,
+    "author_name": "Диана",
+    "media_type": "animation",
+    "reply_to_id": null,
+    "ts": 1792399991,
+    "head": null
+   },
+   {
+    "mid": 1166102,
+    "user_id": 972412990,
+    "author_name": "Леха Крейсер",
+    "media_type": "text",
+    "reply_to_id": null,
+    "ts": 1792400008,
+    "head": "не хочу на бутылку("
+   },
+   {
+    "mid": 1166103,
+    "user_id": 972412990,
+    "author_name": "Леха Крейсер",
+    "media_type": "text",
+    "reply_to_id": null,
+    "ts": 1792400013,
+    "head": "ринтара ты чего"
+   },
+   {
+    "mid": 1166104,
+    "user_id": 350803143,
+    "author_name": "Костя",
+    "media_type": "video",
+    "reply_to_id": null,
+    "ts": 1792400020,
+    "head": "Это Ринтаро чисто показушник типа уличный (нет)"
+   },
+   {
+    "mid": 1166105,
+    "user_id": 134812796,
+    "author_name": "Ринтаро",
+    "media_type": "text",
+    "reply_to_id": 1166099,
+    "ts": 1792400025,
+    "head": "Чо эээ, тебя ФСБ всё-таки взяли за жопу или ты откаты государству делаешь"
+   },
+   {
+    "mid": 1166106,
+    "user_id": 972412990,
+    "author_name": "Леха Крейсер",
+    "media_type": "text",
+    "reply_to_id": 1166105,
+    "ts": 1792400040,
+    "head": "нахуй никому не нужен"
+   },
+   {
+    "mid": 1166107,
+    "user_id": 972412990,
+    "author_name": "Леха Крейсер",
+    "media_type": "text",
+    "reply_to_id": null,
+    "ts": 1792400066,
+    "head": "ребята усе чинно мирно смотрят ютубчик на теликах и постят в инсту"
+   },
+   {
+    "mid": 1166108,
+    "user_id": 972412990,
+    "author_name": "Леха Крейсер",
+    "media_type": "text",
+    "reply_to_id": null,
+    "ts": 1792400073,
+    "head": "никакого криминала"
+   },
+   {
+    "mid": 1166109,
+    "user_id": 5929079345,
+    "author_name": "Кировский",
+    "media_type": "text",
+    "reply_to_id": 1166090,
+    "ts": 1792400083,
+    "head": "Расскажи почему тебя в пдф записали"
+   },
+   {
+    "mid": 1166110,
+    "user_id": 5929079345,
+    "author_name": "Кировский",
+    "media_type": "text",
+    "reply_to_id": null,
+    "ts": 1792400087,
+    "head": "На чем ты спалился"
+   },
+   {
+    "mid": 1166111,
+    "user_id": 972412990,
+    "author_name": "Леха Крейсер",
+    "media_type": "text",
+    "reply_to_id": null,
+    "ts": 1792400094,
+    "head": "тип вся клиентура домашние супчики хорошие"
+   },
+   {
+    "mid": 1166112,
+    "user_id": 134812796,
+    "author_name": "Ринтаро",
+    "media_type": "text",
+    "reply_to_id": 1166102,
+    "ts": 1792400096,
+    "head": "Да вон Александр этот пару дней назад яро вкидывал типа все впна сервисы или откатывают го"
+   },
+   {
+    "mid": 1166113,
+    "user_id": 134812796,
+    "author_name": "Ринтаро",
+    "media_type": "text",
+    "reply_to_id": null,
+    "ts": 1792400104,
+    "head": "Что бред ёбаный"
+   },
+   {
+    "mid": 1166114,
+    "user_id": 972412990,
+    "author_name": "Леха Крейсер",
+    "media_type": "text",
+    "reply_to_id": null,
+    "ts": 1792400107,
+    "head": "ну и порнуху глядят не без этого"
+   },
+   {
+    "mid": 1166115,
+    "user_id": 972412990,
+    "author_name": "Леха Крейсер",
+    "media_type": "text",
+    "reply_to_id": 1166112,
+    "ts": 1792400117,
+    "head": "не нихуя"
+   },
+   {
+    "mid": 1166116,
+    "user_id": 972412990,
+    "author_name": "Леха Крейсер",
+    "media_type": "text",
+    "reply_to_id": null,
+    "ts": 1792400131,
+    "head": "супер крупные мб на 100к человек"
+   },
+   {
+    "mid": 1166117,
+    "user_id": 972412990,
+    "author_name": "Леха Крейсер",
+    "media_type": "text",
+    "reply_to_id": null,
+    "ts": 1792400146,
+    "head": "но там скорее все по междусобойчикам"
+   },
+   {
+    "mid": 1166118,
+    "user_id": 972412990,
+    "author_name": "Леха Крейсер",
+    "media_type": "text",
+    "reply_to_id": null,
+    "ts": 1792400151,
+    "head": "т.е. прямо не платят"
+   },
+   {
+    "mid": 1166119,
+    "user_id": 972412990,
+    "author_name": "Леха Крейсер",
+    "media_type": "text",
+    "reply_to_id": null,
+    "ts": 1792400173,
+    "head": "т.е. те кто вк держат поднимают например"
+   },
+   {
+    "mid": 1166120,
+    "user_id": 972412990,
+    "author_name": "Леха Крейсер",
+    "media_type": "text",
+    "reply_to_id": null,
+    "ts": 1792400222,
+    "head": "их же прям овердрхуя мелких крупных средних"
+   },
+   {
+    "mid": 1166121,
+    "user_id": 350803143,
+    "author_name": "Костя",
+    "media_type": "text",
+    "reply_to_id": 1166109,
+    "ts": 1792400248,
+    "head": "Скидывал ролики с педофками с двачей ну и таким вот образом Василиус решил меня затролить "
+   },
+   {
+    "mid": 1166123,
+    "user_id": 350803143,
+    "author_name": "Костя",
+    "media_type": "video",
+    "reply_to_id": null,
+    "ts": 1792400280,
+    "head": null
+   },
+   {
+    "mid": 1166124,
+    "user_id": 972412990,
+    "author_name": "Леха Крейсер",
+    "media_type": "text",
+    "reply_to_id": null,
+    "ts": 1792400287,
+    "head": "у меня так шапито на выезде больше заеба чем профита"
+   },
+   {
+    "mid": 1166125,
+    "user_id": 134812796,
+    "author_name": "Ринтаро",
+    "media_type": "text",
+    "reply_to_id": 1166111,
+    "ts": 1792400306,
+    "head": "Парсишь их траффик, го выйдешь на какого-то крупного блоггера, снифанём его траффик и угон"
+   },
+   {
+    "mid": 1166126,
+    "user_id": 5929079345,
+    "author_name": "Кировский",
+    "media_type": "photo",
+    "reply_to_id": 1166121,
+    "ts": 1792400316,
+    "head": "А зачем ты такое делал ?"
+   },
+   {
+    "mid": 1166127,
+    "user_id": 972412990,
+    "author_name": "Леха Крейсер",
+    "media_type": "text",
+    "reply_to_id": 1166125,
+    "ts": 1792400324,
+    "head": "вот таких и бутылят кста"
+   },
+   {
+    "mid": 1166128,
+    "user_id": 972412990,
+    "author_name": "Леха Крейсер",
+    "media_type": "sticker",
+    "reply_to_id": null,
+    "ts": 1792400329,
+    "head": null
+   },
+   {
+    "mid": 1166129,
+    "user_id": 350803143,
+    "author_name": "Костя",
+    "media_type": "text",
+    "reply_to_id": 1166126,
+    "ts": 1792400356,
+    "head": "та прост на самом деле, без какого либо УМЫСЛА"
+   },
+   {
+    "mid": 1166130,
+    "user_id": 284628202,
+    "author_name": "Даня",
+    "media_type": "text",
+    "reply_to_id": 1166089,
+    "ts": 1792400367,
+    "head": "У нее лицо 25 летней тетки"
+   },
+   {
+    "mid": 1166131,
+    "user_id": 350803143,
+    "author_name": "Костя",
+    "media_type": "video",
+    "reply_to_id": null,
+    "ts": 1792400369,
+    "head": null
+   },
+   {
+    "mid": 1166132,
+    "user_id": 350803143,
+    "author_name": "Костя",
+    "media_type": "text",
+    "reply_to_id": 1166130,
+    "ts": 1792400382,
+    "head": "Да не, ей все 30 даже 30+"
+   },
+   {
+    "mid": 1166133,
+    "user_id": 134812796,
+    "author_name": "Ринтаро",
+    "media_type": "text",
+    "reply_to_id": 1166130,
+    "ts": 1792400430,
+    "head": "Я не смотрел даже, так чисто на предикте коментнул"
+   },
+   {
+    "mid": 1166134,
+    "user_id": 350803143,
+    "author_name": "Костя",
+    "media_type": "video",
+    "reply_to_id": null,
+    "ts": 1792400441,
+    "head": null
+   },
+   {
+    "mid": 1166136,
+    "user_id": 284628202,
+    "author_name": "Даня",
+    "media_type": "text",
+    "reply_to_id": 1166133,
+    "ts": 1792400465,
+    "head": "Мде"
+   },
+   {
+    "mid": 1166137,
+    "user_id": 350803143,
+    "author_name": "Костя",
+    "media_type": "video",
+    "reply_to_id": null,
+    "ts": 1792400512,
+    "head": "сука кто нахуй"
+   },
+   {
+    "mid": 1166138,
+    "user_id": 134812796,
+    "author_name": "Ринтаро",
+    "media_type": "text",
+    "reply_to_id": 1166136,
+    "ts": 1792400518,
+    "head": "Не Смотрю видосы с танцующими и липсинкающими женщинами, там ноль полезной информации и но"
+   },
+   {
+    "mid": 1166139,
+    "user_id": 284628202,
+    "author_name": "Даня",
+    "media_type": "text",
+    "reply_to_id": null,
+    "ts": 1792400554,
+    "head": "Ты скуф прост"
+   },
+   {
+    "mid": 1166140,
+    "user_id": 1878452291,
+    "author_name": "Диана",
+    "media_type": "text",
+    "reply_to_id": 1166134,
+    "ts": 1792400559,
+    "head": "блящзпавхыщ потаскумбрия"
+   },
+   {
+    "mid": 1166141,
+    "user_id": 284628202,
+    "author_name": "Даня",
+    "media_type": "text",
+    "reply_to_id": null,
+    "ts": 1792400569,
+    "head": "А там красивая девочка передает свою энергетику"
+   },
+   {
+    "mid": 1166142,
+    "user_id": 284628202,
+    "author_name": "Даня",
+    "media_type": "text",
+    "reply_to_id": null,
+    "ts": 1792400590,
+    "head": "Вы видели чтобы милфы так дурачились?"
+   },
+   {
+    "mid": 1166143,
+    "user_id": 284628202,
+    "author_name": "Даня",
+    "media_type": "text",
+    "reply_to_id": null,
+    "ts": 1792400604,
+    "head": "У них уже все оптимизировано"
+   },
+   {
+    "mid": 1166144,
+    "user_id": 284628202,
+    "author_name": "Даня",
+    "media_type": "text",
+    "reply_to_id": null,
+    "ts": 1792400614,
+    "head": "Нет лишних эмоций лишней энергии"
+   },
+   {
+    "mid": 1166145,
+    "user_id": 284628202,
+    "author_name": "Даня",
+    "media_type": "text",
+    "reply_to_id": null,
+    "ts": 1792400625,
+    "head": "А эти еще танцуют и показывают себя"
+   },
+   {
+    "mid": 1166146,
+    "user_id": 5885953495,
+    "author_name": "Никита",
+    "media_type": "text",
+    "reply_to_id": null,
+    "ts": 1792400625,
+    "head": "как же он байтит"
+   },
+   {
+    "mid": 1166147,
+    "user_id": 284628202,
+    "author_name": "Даня",
+    "media_type": "text",
+    "reply_to_id": null,
+    "ts": 1792400643,
+    "head": "В чем я не прав?"
+   },
+   {
+    "mid": 1166148,
+    "user_id": 198575800,
+    "author_name": "Александр Темников",
+    "media_type": "text",
+    "reply_to_id": 1166087,
+    "ts": 1792400658,
+    "head": "Какая то плохая шутка"
+   },
+   {
+    "mid": 1166149,
+    "user_id": 198575800,
+    "author_name": "Александр Темников",
+    "media_type": "text",
+    "reply_to_id": null,
+    "ts": 1792400670,
+    "head": "Тебя мама в детстве била что-ли?"
+   },
+   {
+    "mid": 1166150,
+    "user_id": 350803143,
+    "author_name": "Костя",
+    "media_type": "text",
+    "reply_to_id": 1166140,
+    "ts": 1792400678,
+    "head": "ты такое же да слушаешь на весь район с пердящим басиком?"
+   },
+   {
+    "mid": 1166151,
+    "user_id": 1276415576,
+    "author_name": "Никита Философ",
+    "media_type": "text",
+    "reply_to_id": 1166131,
+    "ts": 1792400694,
+    "head": "хочу так же четко прогонять"
+   },
+   {
+    "mid": 1166152,
+    "user_id": 350803143,
+    "author_name": "Костя",
+    "media_type": "video",
+    "reply_to_id": null,
+    "ts": 1792400709,
+    "head": "Снимал тут раньше комнату за 15к"
+   },
+   {
+    "mid": 1166153,
+    "user_id": 134812796,
+    "author_name": "Ринтаро",
+    "media_type": "text",
+    "reply_to_id": 1166149,
+    "ts": 1792400711,
+    "head": "Меня вся семья пиздила за плохое поведение и плохие оценки, поэтому вырос умным"
+   },
+   {
+    "mid": 1166154,
+    "user_id": 134812796,
+    "author_name": "Ринтаро",
+    "media_type": "photo",
+    "reply_to_id": 1166139,
+    "ts": 1792400724,
+    "head": "Вот я"
+   },
+   {
+    "mid": 1166155,
+    "user_id": 284628202,
+    "author_name": "Даня",
+    "media_type": "text",
+    "reply_to_id": null,
+    "ts": 1792400737,
+    "head": "Печально конечно"
+   },
+   {
+    "mid": 1166156,
+    "user_id": 350803143,
+    "author_name": "Костя",
+    "media_type": "video",
+    "reply_to_id": null,
+    "ts": 1792400762,
+    "head": null
+   },
+   {
+    "mid": 1166157,
+    "user_id": 1878452291,
+    "author_name": "Диана",
+    "media_type": "text",
+    "reply_to_id": 1166150,
+    "ts": 1792400840,
+    "head": "костик, я продала машину"
+   },
+   {
+    "mid": 1166158,
+    "user_id": 1878452291,
+    "author_name": "Диана",
+    "media_type": "text",
+    "reply_to_id": null,
+    "ts": 1792400903,
+    "head": "и я больше не слушаю россиянскую музыку"
+   },
+   {
+    "mid": 1166159,
+    "user_id": 1878452291,
+    "author_name": "Диана",
+    "media_type": "text",
+    "reply_to_id": null,
+    "ts": 1792400909,
+    "head": "омэриканская как то поприятнее уху"
+   },
+   {
+    "mid": 1166160,
+    "user_id": 1878452291,
+    "author_name": "Диана",
+    "media_type": "animation",
+    "reply_to_id": null,
+    "ts": 1792400911,
+    "head": null
+   },
+   {
+    "mid": 1166161,
+    "user_id": 263719784,
+    "author_name": "Глеб",
+    "media_type": "text",
+    "reply_to_id": null,
+    "ts": 1792400935,
+    "head": "Такая соба хуйнячка"
+   },
+   {
+    "mid": 1166162,
+    "user_id": 350803143,
+    "author_name": "Костя",
+    "media_type": "video",
+    "reply_to_id": null,
+    "ts": 1792400940,
+    "head": null
+   },
+   {
+    "mid": 1166163,
+    "user_id": 263719784,
+    "author_name": "Глеб",
+    "media_type": "photo",
+    "reply_to_id": null,
+    "ts": 1792400949,
+    "head": "@SolusRex"
+   },
+   {
+    "mid": 1166164,
+    "user_id": 350803143,
+    "author_name": "Костя",
+    "media_type": "text",
+    "reply_to_id": 1166162,
+    "ts": 1792400952,
+    "head": "Когда Вася перепил на сходке"
+   },
+   {
+    "mid": 1166166,
+    "user_id": 263719784,
+    "author_name": "Глеб",
+    "media_type": "text",
+    "reply_to_id": 1162344,
+    "ts": 1792400972,
+    "head": "Костик?"
+   },
+   {
+    "mid": 1166171,
+    "user_id": 602028847,
+    "author_name": "Ярик",
+    "media_type": "photo",
+    "reply_to_id": null,
+    "ts": 1792401095,
+    "head": null
+   },
+   {
+    "mid": 1166172,
+    "user_id": 972412990,
+    "author_name": "Леха Крейсер",
+    "media_type": "text",
+    "reply_to_id": null,
+    "ts": 1792401102,
+    "head": "приемка нарисуй сочный лимон"
+   },
+   {
+    "mid": 1166173,
+    "user_id": 602028847,
+    "author_name": "Ярик",
+    "media_type": "photo",
+    "reply_to_id": null,
+    "ts": 1792401109,
+    "head": null
+   },
+   {
+    "mid": 1166174,
+    "user_id": 350803143,
+    "author_name": "Костя",
+    "media_type": "text",
+    "reply_to_id": null,
+    "ts": 1792401136,
+    "head": "😬"
+   },
+   {
+    "mid": 1166175,
+    "user_id": 428646797,
+    "author_name": "Даша",
+    "media_type": "video",
+    "reply_to_id": null,
+    "ts": 1792401153,
+    "head": "⚡️Робот-пылесос Xiaomi спалил квартиру в соседнем Татарстане.\n\nПылесос находился на станци"
+   },
+   {
+    "mid": 1166176,
+    "user_id": 5929079345,
+    "author_name": "Кировский",
+    "media_type": "photo",
+    "reply_to_id": null,
+    "ts": 1792401161,
+    "head": null
+   }
+  ],
+  "bot_replies_window": [
+   {
+    "mid": 1166167,
+    "head": "На фото пёс сидит на земле у деревянной будки, а из тёмного лаза на тебя смотрит свинья. Б",
+    "last_used_at": 1792400992.6154842
+   },
+   {
+    "mid": 1166170,
+    "head": "Картинка с жёлтым лимоном на белом фоне уже улетела в чат. Скромно, по-спартански, без лиш",
+    "last_used_at": 1792401082.310819
+   },
+   {
+    "mid": 1166178,
+    "head": "Кот-астронавт на Луне - идея хорошая, только вот незадача: картинка сгенерилась, но до чат",
+    "last_used_at": 1792401335.1319706
+   }
+  ]
+ },
+ "verification": {
+  "delete_attempts": 9,
+  "deleted_now": 9,
+  "already_deleted": 0,
+  "failed": [],
+  "residual_smart_rows_for_deleted": [],
+  "residual_bot_replies_for_deleted": [
+   {
+    "mid": 1166167
+   },
+   {
+    "mid": 1166170
+   },
+   {
+    "mid": 1166178
+   }
+  ],
+  "synthetic_rows_removed": [],
+  "bot_replies_removed": [],
+  "window": {
+   "lo": 1166061,
+   "hi": 1166181
+  }
+ }
+}

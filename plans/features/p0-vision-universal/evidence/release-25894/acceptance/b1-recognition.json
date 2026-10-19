@@ -1,0 +1,198 @@
+{
+  "scenario": "B1-positive-recognition",
+  "t0_epoch": 1792397900,
+  "start_epoch": 1792400969,
+  "vision_state": {
+    "requested": true,
+    "effective": false,
+    "capability": "pending",
+    "reason": "capability_check_pending",
+    "visible_reason": "Проверка подключения модели распознавания",
+    "model": "nvidia/nemotron-3.5-super-vl:free"
+  },
+  "analyses_total_before": 4,
+  "download_checks": [
+    {
+      "mid": 1166163,
+      "asset_id": "69cbefd42e166aa6d68a819bb2f60da7",
+      "byte_size": 131641,
+      "mime": "image/jpeg",
+      "download": "ok",
+      "bytes": 131641,
+      "width": 800,
+      "height": 600
+    }
+  ],
+  "asset": {
+    "asset_id": "69cbefd42e166aa6d68a819bb2f60da7",
+    "tg_message_id": 1166163,
+    "byte_size": 131641,
+    "mime": "image/jpeg"
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "announce_mid": 1166165,
+      "tool": {
+        "tool": "recognize_image",
+        "args": {
+          "target": {
+            "chat_id": -1002661910336,
+            "message_id": 1166163
+          }
+        },
+        "started": 1792400984.003444,
+        "ok": true,
+        "elapsed_ms": 5112,
+        "result_head": "{\"status\": \"ready\", \"analysis_revision\": 2, \"cache_hit\": false, \"asset_id\": \"69cbefd42e166aa6d68a819bb2f60da7\", \"message_key\": \"-1002661910336:1166163\"}",
+        "result_len": 720,
+        "status": "ready",
+        "reason": null,
+        "visible_reason": null,
+        "analysis_revision": 2,
+        "cache_hit": false,
+        "visual_description_len": 388,
+        "visual_description_head": "A dog with white, tan, and black fur sits in the lower left foreground looking toward the camera. Behind the dog is a small wooden doghouse with a triangular roof, situated against a red brick wall. Inside the dark opening of the doghouse, a pig is visible looking out. Above the doghouse, a window w",
+        "ocr_blocks": 0
+      },
+      "status": "ready",
+      "turn": {
+        "label": "b-vision-1",
+        "status": "ok",
+        "error": "",
+        "handled": true,
+        "correlation_id": "94fbd9ab2d5441f2b382e5651c99f3cf",
+        "plan_meta": null,
+        "usage": [
+          {
+            "correlation_id": "94fbd9ab2d5441f2b382e5651c99f3cf",
+            "step": "single",
+            "tool_name": "",
+            "input_tokens": 617,
+            "output_tokens": 10,
+            "cost_usd": "<Decimal>",
+            "price_known": false,
+            "plan_meta": null,
+            "ts": "2026-10-19 09:09:31.628407+00:00"
+          }
+        ],
+        "logs": [
+          "[direct] triggered | chat=-1002661910336 user=Acceptance",
+          "event=AUTO_CONTEXT_BUDGET | slot=direct.primary | context_window=1000000 | mandatory_tokens=6633 | output_reserve=100000 | safety_reserve=116527 | effective_input_budget=776840 | policy_mode=unlimited | model=deepseek/deepseek-v4.1-flash | source=provider_catalog | ts=1792400981.803",
+          "event=AUTO_CONTEXT_BUDGET | slot=direct.fallback | context_window=131072 | mandatory_tokens=6633 | output_reserve=13107 | safety_reserve=14522 | effective_input_budget=96810 | policy_mode=unlimited | model=deepseek-flash | source=verified_registry | ts=1792400981.803",
+          "event=CONTEXT_CAPACITY | model=deepseek/deepseek-v4.1-flash | window=1000000 | window_source=provider_catalog | external_tokens=6633 | output_reserve=100000 | available_context=776840 | budget=776840 | policy_mode=unlimited | summary_revision=1788699601:500 | summary_watermark=1788699601 | summary_lag_messages=271 | summary_age=3701380 | estimation_method=tiktoken | ts=1792400981.821",
+          "event=DECISION_START | run_id=f0fe8cbd9fa44b85ba40a245257a6831 | chat_id=-1002661910336 | message_id=1166165 | ts=1792400981.838",
+          "event=DIRECT_TRIGGER | chat_id=-1002661910336 | message_id=1166165 | trigger_type=force_keyword | force_reply_required=True | reply_to_bot=False | is_private=False | addressed=True | ts=1792400981.838",
+          "event=DECISION_COMPLETE | run_id=f0fe8cbd9fa44b85ba40a245257a6831 | chat_id=-1002661910336 | message_id=1166165 | action=reply | reason=force_direct | trigger_type=force_keyword | force_reply_required=True | message_class=question | duration_ms=2 | ts=1792400981.841",
+          "event=L1_PLAN | run_id=f0fe8cbd9fa44b85ba40a245257a6831 | chat_id=-1002661910336 | message_id=1166165 | action=reply | response_act=answer | extent=compact | tone=neutral | bucket=high | capabilities=image_understanding | inherited=True | fallback= | latency_ms=2053 | input_chars=1060 | confidence=0.9 | source=main | ts=1792400983.969",
+          "event=TOOL_CALL_START | run_id=f0fe8cbd9fa44b85ba40a245257a6831 | chat_id=-1002661910336 | tool=recognize_image | round=1 | ts=1792400984.003",
+          "event=TOOL_CALL_COMPLETE | run_id=f0fe8cbd9fa44b85ba40a245257a6831 | chat_id=-1002661910336 | tool=recognize_image | round=1 | status=ok | out_chars=720 | ts=1792400989.117",
+          "[direct-exec] simple chain done | chat=-1002661910336 | steps=1 | ok=1 | limitations=0 | metered=1"
+        ],
+        "tool_calls": [
+          {
+            "tool": "recognize_image",
+            "args": {
+              "target": {
+                "chat_id": -1002661910336,
+                "message_id": 1166163
+              }
+            },
+            "started": 1792400984.003444,
+            "ok": true,
+            "elapsed_ms": 5112,
+            "result_head": "{\"status\": \"ready\", \"analysis_revision\": 2, \"cache_hit\": false, \"asset_id\": \"69cbefd42e166aa6d68a819bb2f60da7\", \"message_key\": \"-1002661910336:1166163\"}",
+            "result_len": 720,
+            "status": "ready",
+            "reason": null,
+            "visible_reason": null,
+            "analysis_revision": 2,
+            "cache_hit": false,
+            "visual_description_len": 388,
+            "visual_description_head": "A dog with white, tan, and black fur sits in the lower left foreground looking toward the camera. Behind the dog is a small wooden doghouse with a triangular roof, situated against a red brick wall. Inside the dark opening of the doghouse, a pig is visible looking out. Above the doghouse, a window w",
+            "ocr_blocks": 0
+          }
+        ],
+        "image_blocks": [],
+        "postgen": [],
+        "sends": [
+          {
+            "kind": "message",
+            "chat_id": -1002661910336,
+            "message_id": 1166167,
+            "text_head": "На фото пёс сидит на земле у деревянной будки, а из тёмного лаза на тебя смотрит свинья. Будка, кирпичная стена, окно с синей рамой, листья под ногами - полный набор деревенской идиллии, только роли распределены нестандартно: собака на улиц",
+            "text_len": 256,
+            "reply_to": 1166165
+          }
+        ],
+        "answer_head": "На фото пёс сидит на земле у деревянной будки, а из тёмного лаза на тебя смотрит свинья. Будка, кирпичная стена, окно с синей рамой, листья под ногами - полный набор деревенской идиллии, только роли распределены нестандартно: собака на улиц",
+        "bot_reply": [],
+        "elapsed_s": 23.24
+      }
+    }
+  ],
+  "outcome": "ready",
+  "analysis_final": {
+    "id": 5,
+    "asset_id": "69cbefd42e166aa6d68a819bb2f60da7",
+    "status": "ready",
+    "revision": 2,
+    "analyzer_model": "nvidia/nemotron-3.5-super-vl:free",
+    "error_reason": null,
+    "visual_description": "A dog with white, tan, and black fur sits in the lower left foreground looking toward the camera. Behind the dog is a small wooden doghouse with a triangular roof, situated against a red brick wall. Inside the dark opening of the doghouse, a pig is visible looking out. Above the doghouse, a window with a blue frame is set into the brick wall. The ground is dirt covered with dry leaves.",
+    "completed_at": 1792400986
+  },
+  "analyses_total_after": 5,
+  "job_final": null,
+  "stage_events": {
+    "by_asset": [],
+    "all_recent": []
+  },
+  "five_facts": {
+    "1_target": {
+      "asset_id": "69cbefd42e166aa6d68a819bb2f60da7",
+      "asset_mid": 1166163,
+      "tool_target": {
+        "chat_id": -1002661910336,
+        "message_id": 1166163
+      }
+    },
+    "2_chain": {
+      "download_check": {
+        "mid": 1166163,
+        "asset_id": "69cbefd42e166aa6d68a819bb2f60da7",
+        "byte_size": 131641,
+        "mime": "image/jpeg",
+        "download": "ok",
+        "bytes": 131641,
+        "width": 800,
+        "height": 600
+      },
+      "job": null,
+      "stages_by_asset": []
+    },
+    "3_analysis": {
+      "status": "ready",
+      "revision": 2,
+      "analyzer_model": "nvidia/nemotron-3.5-super-vl:free",
+      "desc_len": 388,
+      "desc_head": "A dog with white, tan, and black fur sits in the lower left foreground looking toward the camera. Behind the dog is a small wooden doghouse with a triangular roof, situated against a red brick wall. Inside the dark opening of the doghouse, a pig is visible looking out. Above the doghouse, a window w"
+    },
+    "4_delivery": {
+      "tool_status": "ready",
+      "tool_desc_len": 388,
+      "tool_desc_head": "A dog with white, tan, and black fur sits in the lower left foreground looking toward the camera. Behind the dog is a small wooden doghouse with a triangular roof, situated against a red brick wall. Inside the dark opening of the doghouse, a pig is visible looking out. Above the doghouse, a window w",
+      "answer_head": "На фото пёс сидит на земле у деревянной будки, а из тёмного лаза на тебя смотрит свинья. Будка, кирпичная стена, окно с синей рамой, листья под ногами - полный набор деревенской идиллии, только роли распределены нестандартно: собака на улиц",
+      "desc_in_answer_overlap": 0.0,
+      "delivery_mids": [
+        1166167
+      ]
+    },
+    "5_counters": {
+      "analyses_total_before": 4,
+      "analyses_total_after": 5
+    }
+  },
+  "ok": true,
+  "positive_recognition": true
+}

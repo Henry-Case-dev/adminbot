@@ -1,0 +1,145 @@
+{
+  "phase": "C2-cover-isolation",
+  "cfg_zero": {
+    "http": 200,
+    "body": {
+      "updated": [
+        "flags.budgets_enabled",
+        "limits.image_daily_limit",
+        "limits.image_freq_limit_enabled"
+      ],
+      "chat_id": -1002661910336,
+      "revalidated": false,
+      "updated_at": "2026-10-19T09:11:23.584781+00:00"
+    }
+  },
+  "reserve_mode": {
+    "mode": "reserve",
+    "reason": "ok"
+  },
+  "cap_state": {
+    "status": "disabled",
+    "reason_code": "financial_limit_disabled",
+    "detail": "image_limit_zero",
+    "tryable": false,
+    "last_result": "success",
+    "last_result_code": ""
+  },
+  "budget_before": {
+    "global_used": 17,
+    "global_limit": 200,
+    "global_cover_used": 1,
+    "chat_used": 14,
+    "chat_limit": 0,
+    "chat_limit_source": "chat",
+    "chat_reserve_path": "reserve",
+    "chat_reserve_reason": "ok",
+    "cover_requests": 1,
+    "cover_success": 1
+  },
+  "freq_state_before": {
+    "applied": true,
+    "allowed": true,
+    "remaining_seconds": 0.0,
+    "reason": "ok",
+    "limits": "ImageFreqLimits(enabled=True, burst=3, cooldown=300.0, mode='per_user', source='chat')"
+  },
+  "throttle_before": [
+    {
+      "scope": "image_freq",
+      "chat_id": -1002661910336,
+      "user_id": 990002001,
+      "burst_left": 2,
+      "last_ts": 1792401016.7854002
+    }
+  ],
+  "run_start_1": {
+    "http": 202,
+    "body": {
+      "status": "running",
+      "test_id": "c9ac3c575def409dbde2287e9f91160c",
+      "chat_id": null,
+      "window": null,
+      "cover": null,
+      "error": null
+    }
+  },
+  "run_result_1": {
+    "status": "ok",
+    "test_id": "c9ac3c575def409dbde2287e9f91160c",
+    "chat_id": -1002661910336,
+    "window": {
+      "hours": 6,
+      "from_ts": 1792379485,
+      "to_ts": 1792401085,
+      "messages": 338
+    },
+    "cover": {
+      "status": "not_generated",
+      "error": null
+    },
+    "error": null
+  },
+  "run_start_2": {
+    "http": 429,
+    "body": {
+      "status": null,
+      "test_id": null,
+      "chat_id": null,
+      "window": null,
+      "cover": null,
+      "error": null
+    }
+  },
+  "cover_ok": false,
+  "journal_after_cover": [
+    {
+      "reservation_key": "-1002661910336:1166168:direct",
+      "chat_id": -1002661910336,
+      "source": "direct",
+      "status": "committed",
+      "error_code": "",
+      "delivery_failed": false,
+      "day": "<date>",
+      "created_at": "<datetime>",
+      "updated_at": "<datetime>"
+    }
+  ],
+  "cover_rows": [],
+  "budget_after": {
+    "global_used": 17,
+    "global_limit": 200,
+    "global_cover_used": 1,
+    "chat_used": 14,
+    "chat_limit": 0,
+    "chat_limit_source": "chat",
+    "chat_reserve_path": "reserve",
+    "chat_reserve_reason": "ok",
+    "cover_requests": 1,
+    "cover_success": 1
+  },
+  "freq_state_after": {
+    "applied": true,
+    "allowed": true,
+    "remaining_seconds": 0.0,
+    "reason": "ok",
+    "limits": "ImageFreqLimits(enabled=True, burst=3, cooldown=300.0, mode='per_user', source='chat')"
+  },
+  "throttle_after": [
+    {
+      "scope": "image_freq",
+      "chat_id": -1002661910336,
+      "user_id": 990002001,
+      "burst_left": 2,
+      "last_ts": 1792401016.7854002
+    }
+  ],
+  "checks": {
+    "cover_row_committed": false,
+    "chat_used_unchanged": true,
+    "shared_plus_one": false,
+    "cover_used_plus_one": false,
+    "freq_charges_untouched": true
+  },
+  "ok": false
+}
