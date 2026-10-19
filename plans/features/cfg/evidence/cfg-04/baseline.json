@@ -1,0 +1,2557 @@
+{
+  "mode": "before",
+  "port": 8847,
+  "viewports": {
+    "320x640": {
+      "size": [
+        320,
+        640
+      ],
+      "dpr": 2,
+      "safe_bottom": 56,
+      "keyboard_model": "visualViewport emulation (--kb-offset)",
+      "config_clean": {
+        "ctaCount": 0,
+        "panelVisible": false,
+        "chip": null,
+        "gridColumns": 1,
+        "overflowDoc": 0
+      },
+      "config_dirty": {
+        "vw": 320,
+        "vh": 640,
+        "overflowDoc": 0,
+        "overflowMain": 0,
+        "gridColumns": 1,
+        "cardWidths": [
+          304,
+          304,
+          304,
+          304,
+          270,
+          270
+        ],
+        "panel": {
+          "x": 8,
+          "y": 468,
+          "w": 304,
+          "h": 100,
+          "right": 312,
+          "bottom": 568
+        },
+        "panelVisible": true,
+        "panelPadBottom": 7.2,
+        "panelBottomCss": "0px",
+        "btnSave": {
+          "x": 18.6,
+          "y": 522.2,
+          "w": 178,
+          "h": 37.6,
+          "right": 196.6,
+          "bottom": 559.8
+        },
+        "btnCancel": {
+          "x": 222,
+          "y": 476.2,
+          "w": 79.4,
+          "h": 38,
+          "right": 301.4,
+          "bottom": 514.2
+        },
+        "cta": [
+          {
+            "text": "1\n·\nСохранить",
+            "rect": {
+              "x": 16,
+              "y": 15.6,
+              "w": 98.3,
+              "h": 32,
+              "right": 114.3,
+              "bottom": 47.6
+            },
+            "inPanel": false,
+            "title": "Сохранить изменения (1)"
+          },
+          {
+            "text": "Сохранить изменения",
+            "rect": {
+              "x": 18.6,
+              "y": 522.2,
+              "w": 178,
+              "h": 37.6,
+              "right": 196.6,
+              "bottom": 559.8
+            },
+            "inPanel": true,
+            "title": ""
+          }
+        ],
+        "ctaCount": 2,
+        "chip": {
+          "tag": "BUTTON",
+          "text": "1\n·\nСохранить",
+          "role": "",
+          "rect": {
+            "x": 16,
+            "y": 15.6,
+            "w": 98.3,
+            "h": 32,
+            "right": 114.3,
+            "bottom": 47.6
+          }
+        },
+        "firstField": {
+          "x": 21,
+          "y": -2030.8,
+          "w": 278,
+          "h": 39.6,
+          "right": 299,
+          "bottom": -1991.2
+        },
+        "lastField": {
+          "x": 42,
+          "y": 17975.9,
+          "w": 236,
+          "h": 40,
+          "right": 278,
+          "bottom": 18015.9
+        },
+        "fieldCount": 68,
+        "scrollTop": 2176,
+        "activeKey": null,
+        "hash": "#/memory/rag",
+        "dirtyCount": 1,
+        "glass": {
+          "bgStrong": "rgba(21, 27, 42, 0.85)",
+          "blur": "blur(16px)",
+          "aurora": true,
+          "panelBg": "rgba(21, 27, 42, 0.85)",
+          "panelBackdrop": "blur(16px)"
+        },
+        "dirtyAction": {
+          "ok": true,
+          "key": null,
+          "tag": "INPUT",
+          "type": "number",
+          "before": "1",
+          "after": "2"
+        }
+      },
+      "last_field": {
+        "ok": true,
+        "key": null,
+        "field": {
+          "top": 399.9,
+          "bottom": 439.9,
+          "h": 40
+        },
+        "panelTop": 468,
+        "overlap": -28.2,
+        "caretVisible": true,
+        "activeKey": null
+      },
+      "config_keyboard": {
+        "kb": 280,
+        "panel": {
+          "x": 8,
+          "y": 468,
+          "w": 304,
+          "h": 100,
+          "right": 312,
+          "bottom": 568
+        },
+        "saveBtn": null,
+        "cancelBtn": null,
+        "vh": 640
+      },
+      "tech_key": {
+        "found": false
+      },
+      "module_open": {
+        "opened": true
+      },
+      "module_dirty": {
+        "vw": 320,
+        "vh": 640,
+        "modalOpen": true,
+        "overflowDoc": 0,
+        "panel": {
+          "x": 37,
+          "y": 409,
+          "w": 154.6,
+          "h": 170,
+          "right": 191.6,
+          "bottom": 579
+        },
+        "footer": {
+          "x": 37,
+          "y": 408,
+          "w": 246,
+          "h": 171,
+          "right": 283,
+          "bottom": 579
+        },
+        "panelVisible": true,
+        "saveBtn": {
+          "x": 37,
+          "y": 514.2,
+          "w": 154.6,
+          "h": 57.6,
+          "right": 191.6,
+          "bottom": 571.8
+        },
+        "cancelBtn": {
+          "x": 37,
+          "y": 468.2,
+          "w": 79.4,
+          "h": 38,
+          "right": 116.4,
+          "bottom": 506.2
+        },
+        "cta": [
+          {
+            "text": "1\n·\nСохранить",
+            "rect": {
+              "x": 16,
+              "y": 15.6,
+              "w": 98.3,
+              "h": 32,
+              "right": 114.3,
+              "bottom": 47.6
+            },
+            "inPanel": false
+          },
+          {
+            "text": "Сохранить изменения",
+            "rect": {
+              "x": 37,
+              "y": 514.2,
+              "w": 154.6,
+              "h": 57.6,
+              "right": 191.6,
+              "bottom": 571.8
+            },
+            "inPanel": true
+          }
+        ],
+        "ctaCount": 2,
+        "chip": {
+          "tag": "BUTTON",
+          "text": "1\n·\nСохранить"
+        },
+        "toggle": null,
+        "lastField": {
+          "top": 318.3,
+          "bottom": 357.9
+        },
+        "lastAboveFooter": -50.2,
+        "bodyScrollTop": 10746,
+        "bodyScrollHeight": 11029,
+        "hash": "#/modules",
+        "dirtyAction": {
+          "ok": true,
+          "key": null,
+          "tag": "INPUT",
+          "before": "1",
+          "after": ""
+        }
+      },
+      "toggle": {
+        "found": true,
+        "w": 44,
+        "h": 24,
+        "marked": false
+      },
+      "module_after_scroll": {
+        "vw": 320,
+        "vh": 640,
+        "modalOpen": true,
+        "overflowDoc": 0,
+        "panel": {
+          "x": 37,
+          "y": 409,
+          "w": 154.6,
+          "h": 170,
+          "right": 191.6,
+          "bottom": 579
+        },
+        "footer": {
+          "x": 37,
+          "y": 408,
+          "w": 246,
+          "h": 171,
+          "right": 283,
+          "bottom": 579
+        },
+        "panelVisible": true,
+        "saveBtn": {
+          "x": 37,
+          "y": 514.2,
+          "w": 154.6,
+          "h": 57.6,
+          "right": 191.6,
+          "bottom": 571.8
+        },
+        "cancelBtn": {
+          "x": 37,
+          "y": 468.2,
+          "w": 79.4,
+          "h": 38,
+          "right": 116.4,
+          "bottom": 506.2
+        },
+        "cta": [
+          {
+            "text": "1\n·\nСохранить",
+            "rect": {
+              "x": 16,
+              "y": 15.6,
+              "w": 98.3,
+              "h": 32,
+              "right": 114.3,
+              "bottom": 47.6
+            },
+            "inPanel": false
+          },
+          {
+            "text": "Сохранить изменения",
+            "rect": {
+              "x": 37,
+              "y": 514.2,
+              "w": 154.6,
+              "h": 57.6,
+              "right": 191.6,
+              "bottom": 571.8
+            },
+            "inPanel": true
+          }
+        ],
+        "ctaCount": 2,
+        "chip": {
+          "tag": "BUTTON",
+          "text": "1\n·\nСохранить"
+        },
+        "toggle": null,
+        "lastField": {
+          "top": 318.3,
+          "bottom": 357.9
+        },
+        "lastAboveFooter": -50.2,
+        "bodyScrollTop": 10746,
+        "bodyScrollHeight": 11029,
+        "hash": "#/modules"
+      },
+      "glass": {
+        "bgStrong": "rgba(21, 27, 42, 0.85)",
+        "blur": "blur(16px)",
+        "aurora": true,
+        "bodyBefore": "none"
+      }
+    },
+    "360x740": {
+      "size": [
+        360,
+        740
+      ],
+      "dpr": 3,
+      "safe_bottom": 56,
+      "keyboard_model": "visualViewport emulation (--kb-offset)",
+      "config_clean": {
+        "ctaCount": 0,
+        "panelVisible": false,
+        "chip": null,
+        "gridColumns": 1,
+        "overflowDoc": 0
+      },
+      "config_dirty": {
+        "vw": 360,
+        "vh": 740,
+        "overflowDoc": 0,
+        "overflowMain": 0,
+        "gridColumns": 1,
+        "cardWidths": [
+          344,
+          344,
+          344,
+          344,
+          310,
+          310
+        ],
+        "panel": {
+          "x": 8,
+          "y": 568,
+          "w": 344,
+          "h": 100,
+          "right": 352,
+          "bottom": 668
+        },
+        "panelVisible": true,
+        "panelPadBottom": 7.2,
+        "panelBottomCss": "0px",
+        "btnSave": {
+          "x": 18.6,
+          "y": 622.2,
+          "w": 178,
+          "h": 37.6,
+          "right": 196.6,
+          "bottom": 659.8
+        },
+        "btnCancel": {
+          "x": 262,
+          "y": 576.2,
+          "w": 79.4,
+          "h": 38,
+          "right": 341.4,
+          "bottom": 614.2
+        },
+        "cta": [
+          {
+            "text": "1\n·\nСохранить",
+            "rect": {
+              "x": 16,
+              "y": 15.6,
+              "w": 98.3,
+              "h": 32,
+              "right": 114.3,
+              "bottom": 47.6
+            },
+            "inPanel": false,
+            "title": "Сохранить изменения (1)"
+          },
+          {
+            "text": "Сохранить изменения",
+            "rect": {
+              "x": 18.6,
+              "y": 622.2,
+              "w": 178,
+              "h": 37.6,
+              "right": 196.6,
+              "bottom": 659.8
+            },
+            "inPanel": true,
+            "title": ""
+          }
+        ],
+        "ctaCount": 2,
+        "chip": {
+          "tag": "BUTTON",
+          "text": "1\n·\nСохранить",
+          "role": "",
+          "rect": {
+            "x": 16,
+            "y": 15.6,
+            "w": 98.3,
+            "h": 32,
+            "right": 114.3,
+            "bottom": 47.6
+          }
+        },
+        "firstField": {
+          "x": 21,
+          "y": -1846.8,
+          "w": 318,
+          "h": 39.6,
+          "right": 339,
+          "bottom": -1807.2
+        },
+        "lastField": {
+          "x": 42,
+          "y": 17385.1,
+          "w": 276,
+          "h": 40,
+          "right": 318,
+          "bottom": 17425.1
+        },
+        "fieldCount": 68,
+        "scrollTop": 1992,
+        "activeKey": null,
+        "hash": "#/memory/rag",
+        "dirtyCount": 1,
+        "glass": {
+          "bgStrong": "rgba(21, 27, 42, 0.85)",
+          "blur": "blur(16px)",
+          "aurora": true,
+          "panelBg": "rgba(21, 27, 42, 0.85)",
+          "panelBackdrop": "blur(16px)"
+        },
+        "dirtyAction": {
+          "ok": true,
+          "key": null,
+          "tag": "INPUT",
+          "type": "number",
+          "before": "1",
+          "after": "2"
+        }
+      },
+      "last_field": {
+        "ok": true,
+        "key": null,
+        "field": {
+          "top": 500.1,
+          "bottom": 540.1,
+          "h": 40
+        },
+        "panelTop": 568,
+        "overlap": -28,
+        "caretVisible": true,
+        "activeKey": null
+      },
+      "config_keyboard": {
+        "kb": 280,
+        "panel": {
+          "x": 8,
+          "y": 568,
+          "w": 344,
+          "h": 100,
+          "right": 352,
+          "bottom": 668
+        },
+        "saveBtn": null,
+        "cancelBtn": null,
+        "vh": 740
+      },
+      "tech_key": {
+        "found": false
+      },
+      "module_open": {
+        "opened": true
+      },
+      "module_dirty": {
+        "vw": 360,
+        "vh": 740,
+        "modalOpen": true,
+        "overflowDoc": 0,
+        "panel": {
+          "x": 37,
+          "y": 555,
+          "w": 194.6,
+          "h": 124,
+          "right": 231.6,
+          "bottom": 679
+        },
+        "footer": {
+          "x": 37,
+          "y": 554,
+          "w": 286,
+          "h": 125,
+          "right": 323,
+          "bottom": 679
+        },
+        "panelVisible": true,
+        "saveBtn": {
+          "x": 37,
+          "y": 634.2,
+          "w": 178,
+          "h": 37.6,
+          "right": 215,
+          "bottom": 671.8
+        },
+        "cancelBtn": {
+          "x": 37,
+          "y": 588.2,
+          "w": 79.4,
+          "h": 38,
+          "right": 116.4,
+          "bottom": 626.2
+        },
+        "cta": [
+          {
+            "text": "1\n·\nСохранить",
+            "rect": {
+              "x": 16,
+              "y": 15.6,
+              "w": 98.3,
+              "h": 32,
+              "right": 114.3,
+              "bottom": 47.6
+            },
+            "inPanel": false
+          },
+          {
+            "text": "Сохранить изменения",
+            "rect": {
+              "x": 37,
+              "y": 634.2,
+              "w": 178,
+              "h": 37.6,
+              "right": 215,
+              "bottom": 671.8
+            },
+            "inPanel": true
+          }
+        ],
+        "ctaCount": 2,
+        "chip": {
+          "tag": "BUTTON",
+          "text": "1\n·\nСохранить"
+        },
+        "toggle": null,
+        "lastField": {
+          "top": 464.3,
+          "bottom": 503.9
+        },
+        "lastAboveFooter": -50.2,
+        "bodyScrollTop": 9720,
+        "bodyScrollHeight": 10149,
+        "hash": "#/modules",
+        "dirtyAction": {
+          "ok": true,
+          "key": null,
+          "tag": "INPUT",
+          "before": "1",
+          "after": ""
+        }
+      },
+      "toggle": {
+        "found": true,
+        "w": 44,
+        "h": 24,
+        "marked": false
+      },
+      "module_after_scroll": {
+        "vw": 360,
+        "vh": 740,
+        "modalOpen": true,
+        "overflowDoc": 0,
+        "panel": {
+          "x": 37,
+          "y": 555,
+          "w": 194.6,
+          "h": 124,
+          "right": 231.6,
+          "bottom": 679
+        },
+        "footer": {
+          "x": 37,
+          "y": 554,
+          "w": 286,
+          "h": 125,
+          "right": 323,
+          "bottom": 679
+        },
+        "panelVisible": true,
+        "saveBtn": {
+          "x": 37,
+          "y": 634.2,
+          "w": 178,
+          "h": 37.6,
+          "right": 215,
+          "bottom": 671.8
+        },
+        "cancelBtn": {
+          "x": 37,
+          "y": 588.2,
+          "w": 79.4,
+          "h": 38,
+          "right": 116.4,
+          "bottom": 626.2
+        },
+        "cta": [
+          {
+            "text": "1\n·\nСохранить",
+            "rect": {
+              "x": 16,
+              "y": 15.6,
+              "w": 98.3,
+              "h": 32,
+              "right": 114.3,
+              "bottom": 47.6
+            },
+            "inPanel": false
+          },
+          {
+            "text": "Сохранить изменения",
+            "rect": {
+              "x": 37,
+              "y": 634.2,
+              "w": 178,
+              "h": 37.6,
+              "right": 215,
+              "bottom": 671.8
+            },
+            "inPanel": true
+          }
+        ],
+        "ctaCount": 2,
+        "chip": {
+          "tag": "BUTTON",
+          "text": "1\n·\nСохранить"
+        },
+        "toggle": null,
+        "lastField": {
+          "top": 464.3,
+          "bottom": 503.9
+        },
+        "lastAboveFooter": -50.2,
+        "bodyScrollTop": 9720,
+        "bodyScrollHeight": 10149,
+        "hash": "#/modules"
+      },
+      "glass": {
+        "bgStrong": "rgba(21, 27, 42, 0.85)",
+        "blur": "blur(16px)",
+        "aurora": true,
+        "bodyBefore": "none"
+      }
+    },
+    "390x844": {
+      "size": [
+        390,
+        844
+      ],
+      "dpr": 3,
+      "safe_bottom": 56,
+      "keyboard_model": "visualViewport emulation (--kb-offset)",
+      "config_clean": {
+        "ctaCount": 0,
+        "panelVisible": false,
+        "chip": null,
+        "gridColumns": 1,
+        "overflowDoc": 0
+      },
+      "config_dirty": {
+        "vw": 390,
+        "vh": 844,
+        "overflowDoc": 0,
+        "overflowMain": 0,
+        "gridColumns": 1,
+        "cardWidths": [
+          374,
+          374,
+          374,
+          374,
+          340,
+          340
+        ],
+        "panel": {
+          "x": 8,
+          "y": 672,
+          "w": 374,
+          "h": 100,
+          "right": 382,
+          "bottom": 772
+        },
+        "panelVisible": true,
+        "panelPadBottom": 7.2,
+        "panelBottomCss": "0px",
+        "btnSave": {
+          "x": 18.6,
+          "y": 726.2,
+          "w": 178,
+          "h": 37.6,
+          "right": 196.6,
+          "bottom": 763.8
+        },
+        "btnCancel": {
+          "x": 292,
+          "y": 680.2,
+          "w": 79.4,
+          "h": 38,
+          "right": 371.4,
+          "bottom": 718.2
+        },
+        "cta": [
+          {
+            "text": "1\n·\nСохранить",
+            "rect": {
+              "x": 16,
+              "y": 15.6,
+              "w": 98.3,
+              "h": 32,
+              "right": 114.3,
+              "bottom": 47.6
+            },
+            "inPanel": false,
+            "title": "Сохранить изменения (1)"
+          },
+          {
+            "text": "Сохранить изменения",
+            "rect": {
+              "x": 18.6,
+              "y": 726.2,
+              "w": 178,
+              "h": 37.6,
+              "right": 196.6,
+              "bottom": 763.8
+            },
+            "inPanel": true,
+            "title": ""
+          }
+        ],
+        "ctaCount": 2,
+        "chip": {
+          "tag": "BUTTON",
+          "text": "1\n·\nСохранить",
+          "role": "",
+          "rect": {
+            "x": 16,
+            "y": 15.6,
+            "w": 98.3,
+            "h": 32,
+            "right": 114.3,
+            "bottom": 47.6
+          }
+        },
+        "firstField": {
+          "x": 21,
+          "y": -1774.8,
+          "w": 348,
+          "h": 39.6,
+          "right": 369,
+          "bottom": -1735.2
+        },
+        "lastField": {
+          "x": 42,
+          "y": 17221.1,
+          "w": 306,
+          "h": 40,
+          "right": 348,
+          "bottom": 17261.1
+        },
+        "fieldCount": 68,
+        "scrollTop": 1920,
+        "activeKey": null,
+        "hash": "#/memory/rag",
+        "dirtyCount": 1,
+        "glass": {
+          "bgStrong": "rgba(21, 27, 42, 0.85)",
+          "blur": "blur(16px)",
+          "aurora": true,
+          "panelBg": "rgba(21, 27, 42, 0.85)",
+          "panelBackdrop": "blur(16px)"
+        },
+        "dirtyAction": {
+          "ok": true,
+          "key": null,
+          "tag": "INPUT",
+          "type": "number",
+          "before": "1",
+          "after": "2"
+        }
+      },
+      "last_field": {
+        "ok": true,
+        "key": null,
+        "field": {
+          "top": 604.1,
+          "bottom": 644.1,
+          "h": 40
+        },
+        "panelTop": 672,
+        "overlap": -28,
+        "caretVisible": true,
+        "activeKey": null
+      },
+      "config_keyboard": {
+        "kb": 280,
+        "panel": {
+          "x": 8,
+          "y": 672,
+          "w": 374,
+          "h": 100,
+          "right": 382,
+          "bottom": 772
+        },
+        "saveBtn": null,
+        "cancelBtn": null,
+        "vh": 844
+      },
+      "tech_key": {
+        "found": false
+      },
+      "orientation": {
+        "before": {
+          "value": "7",
+          "dirty": true,
+          "scroll": 220,
+          "mainScrollable": true,
+          "hash": "#/memory/rag",
+          "key": "limits.dig_year_back_window_days",
+          "index": 14
+        },
+        "after": {
+          "value": "7",
+          "scroll": 0,
+          "mainScrollable": false,
+          "docScrollTop": 0,
+          "hash": "#/memory/rag",
+          "active": "INPUT",
+          "dirty": 1,
+          "value_ok": true,
+          "hash_ok": true,
+          "dirty_ok": true,
+          "scroll_ok": false,
+          "active_ok": true
+        }
+      },
+      "module_open": {
+        "opened": true
+      },
+      "module_dirty": {
+        "vw": 390,
+        "vh": 844,
+        "modalOpen": true,
+        "overflowDoc": 0,
+        "panel": {
+          "x": 37,
+          "y": 637,
+          "w": 224.6,
+          "h": 124,
+          "right": 261.6,
+          "bottom": 761
+        },
+        "footer": {
+          "x": 37,
+          "y": 636,
+          "w": 316,
+          "h": 125,
+          "right": 353,
+          "bottom": 761
+        },
+        "panelVisible": true,
+        "saveBtn": {
+          "x": 37,
+          "y": 716.2,
+          "w": 178,
+          "h": 37.6,
+          "right": 215,
+          "bottom": 753.8
+        },
+        "cancelBtn": {
+          "x": 37,
+          "y": 670.2,
+          "w": 79.4,
+          "h": 38,
+          "right": 116.4,
+          "bottom": 708.2
+        },
+        "cta": [
+          {
+            "text": "1\n·\nСохранить",
+            "rect": {
+              "x": 16,
+              "y": 15.6,
+              "w": 98.3,
+              "h": 32,
+              "right": 114.3,
+              "bottom": 47.6
+            },
+            "inPanel": false
+          },
+          {
+            "text": "Сохранить изменения",
+            "rect": {
+              "x": 37,
+              "y": 716.2,
+              "w": 178,
+              "h": 37.6,
+              "right": 215,
+              "bottom": 753.8
+            },
+            "inPanel": true
+          }
+        ],
+        "ctaCount": 2,
+        "chip": {
+          "tag": "BUTTON",
+          "text": "1\n·\nСохранить"
+        },
+        "toggle": null,
+        "lastField": {
+          "top": 546.3,
+          "bottom": 585.9
+        },
+        "lastAboveFooter": -50.2,
+        "bodyScrollTop": 9258,
+        "bodyScrollHeight": 9747,
+        "hash": "#/modules",
+        "dirtyAction": {
+          "ok": true,
+          "key": null,
+          "tag": "INPUT",
+          "before": "1",
+          "after": ""
+        }
+      },
+      "toggle": {
+        "found": true,
+        "w": 44,
+        "h": 24,
+        "marked": false
+      },
+      "module_after_scroll": {
+        "vw": 390,
+        "vh": 844,
+        "modalOpen": true,
+        "overflowDoc": 0,
+        "panel": {
+          "x": 37,
+          "y": 637,
+          "w": 224.6,
+          "h": 124,
+          "right": 261.6,
+          "bottom": 761
+        },
+        "footer": {
+          "x": 37,
+          "y": 636,
+          "w": 316,
+          "h": 125,
+          "right": 353,
+          "bottom": 761
+        },
+        "panelVisible": true,
+        "saveBtn": {
+          "x": 37,
+          "y": 716.2,
+          "w": 178,
+          "h": 37.6,
+          "right": 215,
+          "bottom": 753.8
+        },
+        "cancelBtn": {
+          "x": 37,
+          "y": 670.2,
+          "w": 79.4,
+          "h": 38,
+          "right": 116.4,
+          "bottom": 708.2
+        },
+        "cta": [
+          {
+            "text": "1\n·\nСохранить",
+            "rect": {
+              "x": 16,
+              "y": 15.6,
+              "w": 98.3,
+              "h": 32,
+              "right": 114.3,
+              "bottom": 47.6
+            },
+            "inPanel": false
+          },
+          {
+            "text": "Сохранить изменения",
+            "rect": {
+              "x": 37,
+              "y": 716.2,
+              "w": 178,
+              "h": 37.6,
+              "right": 215,
+              "bottom": 753.8
+            },
+            "inPanel": true
+          }
+        ],
+        "ctaCount": 2,
+        "chip": {
+          "tag": "BUTTON",
+          "text": "1\n·\nСохранить"
+        },
+        "toggle": null,
+        "lastField": {
+          "top": 546.3,
+          "bottom": 585.9
+        },
+        "lastAboveFooter": -50.2,
+        "bodyScrollTop": 9258,
+        "bodyScrollHeight": 9747,
+        "hash": "#/modules"
+      },
+      "glass": {
+        "bgStrong": "rgba(21, 27, 42, 0.85)",
+        "blur": "blur(16px)",
+        "aurora": true,
+        "bodyBefore": "none"
+      }
+    },
+    "430x932": {
+      "size": [
+        430,
+        932
+      ],
+      "dpr": 3,
+      "safe_bottom": 56,
+      "keyboard_model": "visualViewport emulation (--kb-offset)",
+      "config_clean": {
+        "ctaCount": 0,
+        "panelVisible": false,
+        "chip": null,
+        "gridColumns": 1,
+        "overflowDoc": 0
+      },
+      "config_dirty": {
+        "vw": 430,
+        "vh": 932,
+        "overflowDoc": 0,
+        "overflowMain": 0,
+        "gridColumns": 1,
+        "cardWidths": [
+          414,
+          414,
+          414,
+          414,
+          380,
+          380
+        ],
+        "panel": {
+          "x": 8,
+          "y": 760,
+          "w": 414,
+          "h": 100,
+          "right": 422,
+          "bottom": 860
+        },
+        "panelVisible": true,
+        "panelPadBottom": 7.2,
+        "panelBottomCss": "0px",
+        "btnSave": {
+          "x": 18.6,
+          "y": 814.2,
+          "w": 178,
+          "h": 37.6,
+          "right": 196.6,
+          "bottom": 851.8
+        },
+        "btnCancel": {
+          "x": 332,
+          "y": 768.2,
+          "w": 79.4,
+          "h": 38,
+          "right": 411.4,
+          "bottom": 806.2
+        },
+        "cta": [
+          {
+            "text": "1\n·\nСохранить",
+            "rect": {
+              "x": 16,
+              "y": 15.6,
+              "w": 98.3,
+              "h": 32,
+              "right": 114.3,
+              "bottom": 47.6
+            },
+            "inPanel": false,
+            "title": "Сохранить изменения (1)"
+          },
+          {
+            "text": "Сохранить изменения",
+            "rect": {
+              "x": 18.6,
+              "y": 814.2,
+              "w": 178,
+              "h": 37.6,
+              "right": 196.6,
+              "bottom": 851.8
+            },
+            "inPanel": true,
+            "title": ""
+          }
+        ],
+        "ctaCount": 2,
+        "chip": {
+          "tag": "BUTTON",
+          "text": "1\n·\nСохранить",
+          "role": "",
+          "rect": {
+            "x": 16,
+            "y": 15.6,
+            "w": 98.3,
+            "h": 32,
+            "right": 114.3,
+            "bottom": 47.6
+          }
+        },
+        "firstField": {
+          "x": 21,
+          "y": -1714.8,
+          "w": 388,
+          "h": 39.6,
+          "right": 409,
+          "bottom": -1675.2
+        },
+        "lastField": {
+          "x": 42,
+          "y": 17065.1,
+          "w": 346,
+          "h": 40,
+          "right": 388,
+          "bottom": 17105.1
+        },
+        "fieldCount": 68,
+        "scrollTop": 1860,
+        "activeKey": null,
+        "hash": "#/memory/rag",
+        "dirtyCount": 1,
+        "glass": {
+          "bgStrong": "rgba(21, 27, 42, 0.85)",
+          "blur": "blur(16px)",
+          "aurora": true,
+          "panelBg": "rgba(21, 27, 42, 0.85)",
+          "panelBackdrop": "blur(16px)"
+        },
+        "dirtyAction": {
+          "ok": true,
+          "key": null,
+          "tag": "INPUT",
+          "type": "number",
+          "before": "1",
+          "after": "2"
+        }
+      },
+      "last_field": {
+        "ok": true,
+        "key": null,
+        "field": {
+          "top": 692.1,
+          "bottom": 732.1,
+          "h": 40
+        },
+        "panelTop": 760,
+        "overlap": -28,
+        "caretVisible": true,
+        "activeKey": null
+      },
+      "config_keyboard": {
+        "kb": 280,
+        "panel": {
+          "x": 8,
+          "y": 760,
+          "w": 414,
+          "h": 100,
+          "right": 422,
+          "bottom": 860
+        },
+        "saveBtn": null,
+        "cancelBtn": null,
+        "vh": 932
+      },
+      "tech_key": {
+        "found": false
+      },
+      "module_open": {
+        "opened": true
+      },
+      "module_dirty": {
+        "vw": 430,
+        "vh": 932,
+        "modalOpen": true,
+        "overflowDoc": 0,
+        "panel": {
+          "x": 37,
+          "y": 707,
+          "w": 264.6,
+          "h": 98,
+          "right": 301.6,
+          "bottom": 805
+        },
+        "footer": {
+          "x": 37,
+          "y": 706,
+          "w": 356,
+          "h": 99,
+          "right": 393,
+          "bottom": 805
+        },
+        "panelVisible": true,
+        "saveBtn": {
+          "x": 37,
+          "y": 760.2,
+          "w": 178,
+          "h": 37.6,
+          "right": 215,
+          "bottom": 797.8
+        },
+        "cancelBtn": {
+          "x": 222.2,
+          "y": 714.2,
+          "w": 79.4,
+          "h": 38,
+          "right": 301.6,
+          "bottom": 752.2
+        },
+        "cta": [
+          {
+            "text": "1\n·\nСохранить",
+            "rect": {
+              "x": 16,
+              "y": 15.6,
+              "w": 98.3,
+              "h": 32,
+              "right": 114.3,
+              "bottom": 47.6
+            },
+            "inPanel": false
+          },
+          {
+            "text": "Сохранить изменения",
+            "rect": {
+              "x": 37,
+              "y": 760.2,
+              "w": 178,
+              "h": 37.6,
+              "right": 215,
+              "bottom": 797.8
+            },
+            "inPanel": true
+          }
+        ],
+        "ctaCount": 2,
+        "chip": {
+          "tag": "BUTTON",
+          "text": "1\n·\nСохранить"
+        },
+        "toggle": null,
+        "lastField": {
+          "top": 616.3,
+          "bottom": 655.9
+        },
+        "lastAboveFooter": -50.2,
+        "bodyScrollTop": 8696,
+        "bodyScrollHeight": 9211,
+        "hash": "#/modules",
+        "dirtyAction": {
+          "ok": true,
+          "key": null,
+          "tag": "INPUT",
+          "before": "1",
+          "after": ""
+        }
+      },
+      "toggle": {
+        "found": true,
+        "w": 44,
+        "h": 24,
+        "marked": false
+      },
+      "module_after_scroll": {
+        "vw": 430,
+        "vh": 932,
+        "modalOpen": true,
+        "overflowDoc": 0,
+        "panel": {
+          "x": 37,
+          "y": 707,
+          "w": 264.6,
+          "h": 98,
+          "right": 301.6,
+          "bottom": 805
+        },
+        "footer": {
+          "x": 37,
+          "y": 706,
+          "w": 356,
+          "h": 99,
+          "right": 393,
+          "bottom": 805
+        },
+        "panelVisible": true,
+        "saveBtn": {
+          "x": 37,
+          "y": 760.2,
+          "w": 178,
+          "h": 37.6,
+          "right": 215,
+          "bottom": 797.8
+        },
+        "cancelBtn": {
+          "x": 222.2,
+          "y": 714.2,
+          "w": 79.4,
+          "h": 38,
+          "right": 301.6,
+          "bottom": 752.2
+        },
+        "cta": [
+          {
+            "text": "1\n·\nСохранить",
+            "rect": {
+              "x": 16,
+              "y": 15.6,
+              "w": 98.3,
+              "h": 32,
+              "right": 114.3,
+              "bottom": 47.6
+            },
+            "inPanel": false
+          },
+          {
+            "text": "Сохранить изменения",
+            "rect": {
+              "x": 37,
+              "y": 760.2,
+              "w": 178,
+              "h": 37.6,
+              "right": 215,
+              "bottom": 797.8
+            },
+            "inPanel": true
+          }
+        ],
+        "ctaCount": 2,
+        "chip": {
+          "tag": "BUTTON",
+          "text": "1\n·\nСохранить"
+        },
+        "toggle": null,
+        "lastField": {
+          "top": 616.3,
+          "bottom": 655.9
+        },
+        "lastAboveFooter": -50.2,
+        "bodyScrollTop": 8696,
+        "bodyScrollHeight": 9211,
+        "hash": "#/modules"
+      },
+      "glass": {
+        "bgStrong": "rgba(21, 27, 42, 0.85)",
+        "blur": "blur(16px)",
+        "aurora": true,
+        "bodyBefore": "none"
+      }
+    },
+    "667x375": {
+      "size": [
+        667,
+        375
+      ],
+      "dpr": 2,
+      "safe_bottom": 24,
+      "keyboard_model": "visualViewport emulation (--kb-offset)",
+      "config_clean": {
+        "ctaCount": 0,
+        "panelVisible": false,
+        "chip": null,
+        "gridColumns": 1,
+        "overflowDoc": 0
+      },
+      "config_dirty": {
+        "vw": 667,
+        "vh": 375,
+        "overflowDoc": 0,
+        "overflowMain": 0,
+        "gridColumns": 1,
+        "cardWidths": [
+          651,
+          651,
+          651,
+          651,
+          617,
+          617
+        ],
+        "panel": {
+          "x": 201.7,
+          "y": 280.6,
+          "w": 457.3,
+          "h": 54.4,
+          "right": 659,
+          "bottom": 335
+        },
+        "panelVisible": true,
+        "panelPadBottom": 7.2,
+        "panelBottomCss": "0px",
+        "btnSave": {
+          "x": 470.4,
+          "y": 289,
+          "w": 178,
+          "h": 37.6,
+          "right": 648.4,
+          "bottom": 326.6
+        },
+        "btnCancel": {
+          "x": 382.9,
+          "y": 288.8,
+          "w": 79.4,
+          "h": 38,
+          "right": 462.4,
+          "bottom": 326.8
+        },
+        "cta": [
+          {
+            "text": "1\n·\nСохранить",
+            "rect": {
+              "x": 16,
+              "y": 8.4,
+              "w": 98.3,
+              "h": 32,
+              "right": 114.3,
+              "bottom": 40.4
+            },
+            "inPanel": false,
+            "title": "Сохранить изменения (1)"
+          },
+          {
+            "text": "Сохранить изменения",
+            "rect": {
+              "x": 470.4,
+              "y": 289,
+              "w": 178,
+              "h": 37.6,
+              "right": 648.4,
+              "bottom": 326.6
+            },
+            "inPanel": true,
+            "title": ""
+          }
+        ],
+        "ctaCount": 2,
+        "chip": {
+          "tag": "BUTTON",
+          "text": "1\n·\nСохранить",
+          "role": "",
+          "rect": {
+            "x": 16,
+            "y": 8.4,
+            "w": 98.3,
+            "h": 32,
+            "right": 114.3,
+            "bottom": 40.4
+          }
+        },
+        "firstField": {
+          "x": 21,
+          "y": -1631.4,
+          "w": 625,
+          "h": 39.6,
+          "right": 646,
+          "bottom": -1591.8
+        },
+        "lastField": {
+          "x": 42,
+          "y": 15889.7,
+          "w": 583,
+          "h": 40,
+          "right": 625,
+          "bottom": 15929.7
+        },
+        "fieldCount": 68,
+        "scrollTop": 1747,
+        "activeKey": null,
+        "hash": "#/memory/rag",
+        "dirtyCount": 1,
+        "glass": {
+          "bgStrong": "rgba(21, 27, 42, 0.85)",
+          "blur": "blur(16px)",
+          "aurora": true,
+          "panelBg": "rgba(21, 27, 42, 0.85)",
+          "panelBackdrop": "blur(16px)"
+        },
+        "dirtyAction": {
+          "ok": true,
+          "key": null,
+          "tag": "INPUT",
+          "type": "number",
+          "before": "1",
+          "after": "2"
+        }
+      },
+      "last_field": {
+        "ok": true,
+        "key": null,
+        "field": {
+          "top": 166.7,
+          "bottom": 206.7,
+          "h": 40
+        },
+        "panelTop": 280.6,
+        "overlap": -73.9,
+        "caretVisible": true,
+        "activeKey": null
+      },
+      "config_keyboard": {
+        "kb": 188,
+        "panel": {
+          "x": 201.7,
+          "y": 280.6,
+          "w": 457.3,
+          "h": 54.4,
+          "right": 659,
+          "bottom": 335
+        },
+        "saveBtn": null,
+        "cancelBtn": null,
+        "vh": 375
+      },
+      "tech_key": {
+        "found": false
+      },
+      "module_open": {
+        "opened": true
+      },
+      "module_dirty": {
+        "vw": 667,
+        "vh": 375,
+        "modalOpen": true,
+        "overflowDoc": 0,
+        "panel": {
+          "x": 102.5,
+          "y": 277.6,
+          "w": 436.1,
+          "h": 52.4,
+          "right": 538.6,
+          "bottom": 330
+        },
+        "footer": {
+          "x": 37,
+          "y": 276.6,
+          "w": 593,
+          "h": 53.4,
+          "right": 630,
+          "bottom": 330
+        },
+        "panelVisible": true,
+        "saveBtn": {
+          "x": 360.6,
+          "y": 285,
+          "w": 178,
+          "h": 37.6,
+          "right": 538.6,
+          "bottom": 322.6
+        },
+        "cancelBtn": {
+          "x": 273.1,
+          "y": 284.8,
+          "w": 79.4,
+          "h": 38,
+          "right": 352.6,
+          "bottom": 322.8
+        },
+        "cta": [
+          {
+            "text": "1\n·\nСохранить",
+            "rect": {
+              "x": 16,
+              "y": 8.4,
+              "w": 98.3,
+              "h": 32,
+              "right": 114.3,
+              "bottom": 40.4
+            },
+            "inPanel": false
+          },
+          {
+            "text": "Сохранить изменения",
+            "rect": {
+              "x": 360.6,
+              "y": 285,
+              "w": 178,
+              "h": 37.6,
+              "right": 538.6,
+              "bottom": 322.6
+            },
+            "inPanel": true
+          }
+        ],
+        "ctaCount": 2,
+        "chip": {
+          "tag": "BUTTON",
+          "text": "1\n·\nСохранить"
+        },
+        "toggle": null,
+        "lastField": {
+          "top": 187.3,
+          "bottom": 226.9
+        },
+        "lastAboveFooter": -49.8,
+        "bodyScrollTop": 8041,
+        "bodyScrollHeight": 8209,
+        "hash": "#/modules",
+        "dirtyAction": {
+          "ok": true,
+          "key": null,
+          "tag": "INPUT",
+          "before": "1",
+          "after": ""
+        }
+      },
+      "toggle": {
+        "found": true,
+        "w": 44,
+        "h": 24,
+        "marked": false
+      },
+      "module_after_scroll": {
+        "vw": 667,
+        "vh": 375,
+        "modalOpen": true,
+        "overflowDoc": 0,
+        "panel": {
+          "x": 102.5,
+          "y": 277.6,
+          "w": 436.1,
+          "h": 52.4,
+          "right": 538.6,
+          "bottom": 330
+        },
+        "footer": {
+          "x": 37,
+          "y": 276.6,
+          "w": 593,
+          "h": 53.4,
+          "right": 630,
+          "bottom": 330
+        },
+        "panelVisible": true,
+        "saveBtn": {
+          "x": 360.6,
+          "y": 285,
+          "w": 178,
+          "h": 37.6,
+          "right": 538.6,
+          "bottom": 322.6
+        },
+        "cancelBtn": {
+          "x": 273.1,
+          "y": 284.8,
+          "w": 79.4,
+          "h": 38,
+          "right": 352.6,
+          "bottom": 322.8
+        },
+        "cta": [
+          {
+            "text": "1\n·\nСохранить",
+            "rect": {
+              "x": 16,
+              "y": 8.4,
+              "w": 98.3,
+              "h": 32,
+              "right": 114.3,
+              "bottom": 40.4
+            },
+            "inPanel": false
+          },
+          {
+            "text": "Сохранить изменения",
+            "rect": {
+              "x": 360.6,
+              "y": 285,
+              "w": 178,
+              "h": 37.6,
+              "right": 538.6,
+              "bottom": 322.6
+            },
+            "inPanel": true
+          }
+        ],
+        "ctaCount": 2,
+        "chip": {
+          "tag": "BUTTON",
+          "text": "1\n·\nСохранить"
+        },
+        "toggle": null,
+        "lastField": {
+          "top": 187.3,
+          "bottom": 226.9
+        },
+        "lastAboveFooter": -49.8,
+        "bodyScrollTop": 8041,
+        "bodyScrollHeight": 8209,
+        "hash": "#/modules"
+      },
+      "glass": {
+        "bgStrong": "rgba(21, 27, 42, 0.85)",
+        "blur": "blur(16px)",
+        "aurora": true,
+        "bodyBefore": "none"
+      }
+    },
+    "844x390": {
+      "size": [
+        844,
+        390
+      ],
+      "dpr": 3,
+      "safe_bottom": 24,
+      "keyboard_model": "visualViewport emulation (--kb-offset)",
+      "config_clean": {
+        "ctaCount": 0,
+        "panelVisible": false,
+        "chip": null,
+        "gridColumns": 2,
+        "overflowDoc": 0
+      },
+      "config_dirty": {
+        "vw": 844,
+        "vh": 390,
+        "overflowDoc": 0,
+        "overflowMain": 0,
+        "gridColumns": 2,
+        "cardWidths": [
+          812,
+          812,
+          812,
+          812,
+          383,
+          383
+        ],
+        "panel": {
+          "x": 370.7,
+          "y": 335.6,
+          "w": 457.3,
+          "h": 54.4,
+          "right": 828,
+          "bottom": 390
+        },
+        "panelVisible": true,
+        "panelPadBottom": 7.2,
+        "panelBottomCss": "0px",
+        "btnSave": {
+          "x": 639.4,
+          "y": 344,
+          "w": 178,
+          "h": 37.6,
+          "right": 817.4,
+          "bottom": 381.6
+        },
+        "btnCancel": {
+          "x": 551.9,
+          "y": 343.8,
+          "w": 79.4,
+          "h": 38,
+          "right": 631.4,
+          "bottom": 381.8
+        },
+        "cta": [
+          {
+            "text": "1\n·\nСохранить",
+            "rect": {
+              "x": 679.3,
+              "y": 17.6,
+              "w": 98.3,
+              "h": 32,
+              "right": 777.6,
+              "bottom": 49.6
+            },
+            "inPanel": false,
+            "title": "Сохранить изменения (1)"
+          },
+          {
+            "text": "Сохранить изменения",
+            "rect": {
+              "x": 639.4,
+              "y": 344,
+              "w": 178,
+              "h": 37.6,
+              "right": 817.4,
+              "bottom": 381.6
+            },
+            "inPanel": true,
+            "title": ""
+          }
+        ],
+        "ctaCount": 2,
+        "chip": {
+          "tag": "BUTTON",
+          "text": "1\n·\nСохранить",
+          "role": "",
+          "rect": {
+            "x": 679.3,
+            "y": 17.6,
+            "w": 98.3,
+            "h": 32,
+            "right": 777.6,
+            "bottom": 49.6
+          }
+        },
+        "firstField": {
+          "x": 29,
+          "y": -1193.6,
+          "w": 786,
+          "h": 39.6,
+          "right": 815,
+          "bottom": -1154
+        },
+        "lastField": {
+          "x": 445,
+          "y": 8940,
+          "w": 349,
+          "h": 40,
+          "right": 794,
+          "bottom": 8980
+        },
+        "fieldCount": 68,
+        "scrollTop": 0,
+        "activeKey": null,
+        "hash": "#/memory/rag",
+        "dirtyCount": 1,
+        "glass": {
+          "bgStrong": "rgba(21, 27, 42, 0.85)",
+          "blur": "blur(16px)",
+          "aurora": true,
+          "panelBg": "rgba(21, 27, 42, 0.85)",
+          "panelBackdrop": "blur(16px)"
+        },
+        "dirtyAction": {
+          "ok": true,
+          "key": null,
+          "tag": "INPUT",
+          "type": "number",
+          "before": "1",
+          "after": "2"
+        }
+      },
+      "last_field": {
+        "ok": true,
+        "key": null,
+        "field": {
+          "top": 278,
+          "bottom": 318,
+          "h": 40
+        },
+        "panelTop": 335.6,
+        "overlap": -17.6,
+        "caretVisible": true,
+        "activeKey": null
+      },
+      "config_keyboard": {
+        "kb": 195,
+        "panel": {
+          "x": 370.7,
+          "y": 335.6,
+          "w": 457.3,
+          "h": 54.4,
+          "right": 828,
+          "bottom": 390
+        },
+        "saveBtn": null,
+        "cancelBtn": null,
+        "vh": 390
+      },
+      "tech_key": {
+        "found": false
+      },
+      "module_open": {
+        "opened": true
+      },
+      "module_dirty": {
+        "vw": 844,
+        "vh": 390,
+        "modalOpen": true,
+        "overflowDoc": 0,
+        "panel": {
+          "x": 209.5,
+          "y": 292.6,
+          "w": 436.1,
+          "h": 52.4,
+          "right": 645.6,
+          "bottom": 345
+        },
+        "footer": {
+          "x": 107,
+          "y": 291.6,
+          "w": 630,
+          "h": 53.4,
+          "right": 737,
+          "bottom": 345
+        },
+        "panelVisible": true,
+        "saveBtn": {
+          "x": 467.6,
+          "y": 300,
+          "w": 178,
+          "h": 37.6,
+          "right": 645.6,
+          "bottom": 337.6
+        },
+        "cancelBtn": {
+          "x": 380.1,
+          "y": 299.8,
+          "w": 79.4,
+          "h": 38,
+          "right": 459.6,
+          "bottom": 337.8
+        },
+        "cta": [
+          {
+            "text": "1\n·\nСохранить",
+            "rect": {
+              "x": 679.3,
+              "y": 17.6,
+              "w": 98.3,
+              "h": 32,
+              "right": 777.6,
+              "bottom": 49.6
+            },
+            "inPanel": false
+          },
+          {
+            "text": "Сохранить изменения",
+            "rect": {
+              "x": 467.6,
+              "y": 300,
+              "w": 178,
+              "h": 37.6,
+              "right": 645.6,
+              "bottom": 337.6
+            },
+            "inPanel": true
+          }
+        ],
+        "ctaCount": 2,
+        "chip": {
+          "tag": "BUTTON",
+          "text": "1\n·\nСохранить"
+        },
+        "toggle": null,
+        "lastField": {
+          "top": 202.1,
+          "bottom": 241.7
+        },
+        "lastAboveFooter": -50,
+        "bodyScrollTop": 5670,
+        "bodyScrollHeight": 5853,
+        "hash": "#/modules",
+        "dirtyAction": {
+          "ok": true,
+          "key": null,
+          "tag": "INPUT",
+          "before": "1",
+          "after": ""
+        }
+      },
+      "toggle": {
+        "found": true,
+        "w": 44,
+        "h": 24,
+        "marked": false
+      },
+      "module_after_scroll": {
+        "vw": 844,
+        "vh": 390,
+        "modalOpen": true,
+        "overflowDoc": 0,
+        "panel": {
+          "x": 209.5,
+          "y": 292.6,
+          "w": 436.1,
+          "h": 52.4,
+          "right": 645.6,
+          "bottom": 345
+        },
+        "footer": {
+          "x": 107,
+          "y": 291.6,
+          "w": 630,
+          "h": 53.4,
+          "right": 737,
+          "bottom": 345
+        },
+        "panelVisible": true,
+        "saveBtn": {
+          "x": 467.6,
+          "y": 300,
+          "w": 178,
+          "h": 37.6,
+          "right": 645.6,
+          "bottom": 337.6
+        },
+        "cancelBtn": {
+          "x": 380.1,
+          "y": 299.8,
+          "w": 79.4,
+          "h": 38,
+          "right": 459.6,
+          "bottom": 337.8
+        },
+        "cta": [
+          {
+            "text": "1\n·\nСохранить",
+            "rect": {
+              "x": 679.3,
+              "y": 17.6,
+              "w": 98.3,
+              "h": 32,
+              "right": 777.6,
+              "bottom": 49.6
+            },
+            "inPanel": false
+          },
+          {
+            "text": "Сохранить изменения",
+            "rect": {
+              "x": 467.6,
+              "y": 300,
+              "w": 178,
+              "h": 37.6,
+              "right": 645.6,
+              "bottom": 337.6
+            },
+            "inPanel": true
+          }
+        ],
+        "ctaCount": 2,
+        "chip": {
+          "tag": "BUTTON",
+          "text": "1\n·\nСохранить"
+        },
+        "toggle": null,
+        "lastField": {
+          "top": 202.1,
+          "bottom": 241.7
+        },
+        "lastAboveFooter": -50,
+        "bodyScrollTop": 5670,
+        "bodyScrollHeight": 5853,
+        "hash": "#/modules"
+      },
+      "glass": {
+        "bgStrong": "rgba(21, 27, 42, 0.85)",
+        "blur": "blur(16px)",
+        "aurora": true,
+        "bodyBefore": "none"
+      }
+    },
+    "915x412": {
+      "size": [
+        915,
+        412
+      ],
+      "dpr": 3,
+      "safe_bottom": 24,
+      "keyboard_model": "visualViewport emulation (--kb-offset)",
+      "config_clean": {
+        "ctaCount": 0,
+        "panelVisible": false,
+        "chip": null,
+        "gridColumns": 2,
+        "overflowDoc": 0
+      },
+      "config_dirty": {
+        "vw": 915,
+        "vh": 412,
+        "overflowDoc": 0,
+        "overflowMain": 0,
+        "gridColumns": 2,
+        "cardWidths": [
+          883,
+          883,
+          883,
+          883,
+          418.5,
+          418.5
+        ],
+        "panel": {
+          "x": 441.7,
+          "y": 357.6,
+          "w": 457.3,
+          "h": 54.4,
+          "right": 899,
+          "bottom": 412
+        },
+        "panelVisible": true,
+        "panelPadBottom": 7.2,
+        "panelBottomCss": "0px",
+        "btnSave": {
+          "x": 710.4,
+          "y": 366,
+          "w": 178,
+          "h": 37.6,
+          "right": 888.4,
+          "bottom": 403.6
+        },
+        "btnCancel": {
+          "x": 622.9,
+          "y": 365.8,
+          "w": 79.4,
+          "h": 38,
+          "right": 702.4,
+          "bottom": 403.8
+        },
+        "cta": [
+          {
+            "text": "1\n·\nСохранить",
+            "rect": {
+              "x": 750.3,
+              "y": 17.6,
+              "w": 98.3,
+              "h": 32,
+              "right": 848.6,
+              "bottom": 49.6
+            },
+            "inPanel": false,
+            "title": "Сохранить изменения (1)"
+          },
+          {
+            "text": "Сохранить изменения",
+            "rect": {
+              "x": 710.4,
+              "y": 366,
+              "w": 178,
+              "h": 37.6,
+              "right": 888.4,
+              "bottom": 403.6
+            },
+            "inPanel": true,
+            "title": ""
+          }
+        ],
+        "ctaCount": 2,
+        "chip": {
+          "tag": "BUTTON",
+          "text": "1\n·\nСохранить",
+          "role": "",
+          "rect": {
+            "x": 750.3,
+            "y": 17.6,
+            "w": 98.3,
+            "h": 32,
+            "right": 848.6,
+            "bottom": 49.6
+          }
+        },
+        "firstField": {
+          "x": 29,
+          "y": -1166.6,
+          "w": 857,
+          "h": 39.6,
+          "right": 886,
+          "bottom": -1127
+        },
+        "lastField": {
+          "x": 480.5,
+          "y": 8795,
+          "w": 384.5,
+          "h": 40,
+          "right": 865,
+          "bottom": 8835
+        },
+        "fieldCount": 68,
+        "scrollTop": 0,
+        "activeKey": null,
+        "hash": "#/memory/rag",
+        "dirtyCount": 1,
+        "glass": {
+          "bgStrong": "rgba(21, 27, 42, 0.85)",
+          "blur": "blur(16px)",
+          "aurora": true,
+          "panelBg": "rgba(21, 27, 42, 0.85)",
+          "panelBackdrop": "blur(16px)"
+        },
+        "dirtyAction": {
+          "ok": true,
+          "key": null,
+          "tag": "INPUT",
+          "type": "number",
+          "before": "1",
+          "after": "2"
+        }
+      },
+      "last_field": {
+        "ok": true,
+        "key": null,
+        "field": {
+          "top": 300,
+          "bottom": 340,
+          "h": 40
+        },
+        "panelTop": 357.6,
+        "overlap": -17.6,
+        "caretVisible": true,
+        "activeKey": null
+      },
+      "config_keyboard": {
+        "kb": 206,
+        "panel": {
+          "x": 441.7,
+          "y": 357.6,
+          "w": 457.3,
+          "h": 54.4,
+          "right": 899,
+          "bottom": 412
+        },
+        "saveBtn": null,
+        "cancelBtn": null,
+        "vh": 412
+      },
+      "tech_key": {
+        "found": false
+      },
+      "module_open": {
+        "opened": true
+      },
+      "module_dirty": {
+        "vw": 915,
+        "vh": 412,
+        "modalOpen": true,
+        "overflowDoc": 0,
+        "panel": {
+          "x": 245,
+          "y": 314.6,
+          "w": 436.1,
+          "h": 52.4,
+          "right": 681.1,
+          "bottom": 367
+        },
+        "footer": {
+          "x": 142.5,
+          "y": 313.6,
+          "w": 630,
+          "h": 53.4,
+          "right": 772.5,
+          "bottom": 367
+        },
+        "panelVisible": true,
+        "saveBtn": {
+          "x": 503.1,
+          "y": 322,
+          "w": 178,
+          "h": 37.6,
+          "right": 681.1,
+          "bottom": 359.6
+        },
+        "cancelBtn": {
+          "x": 415.6,
+          "y": 321.8,
+          "w": 79.4,
+          "h": 38,
+          "right": 495.1,
+          "bottom": 359.8
+        },
+        "cta": [
+          {
+            "text": "1\n·\nСохранить",
+            "rect": {
+              "x": 750.3,
+              "y": 17.6,
+              "w": 98.3,
+              "h": 32,
+              "right": 848.6,
+              "bottom": 49.6
+            },
+            "inPanel": false
+          },
+          {
+            "text": "Сохранить изменения",
+            "rect": {
+              "x": 503.1,
+              "y": 322,
+              "w": 178,
+              "h": 37.6,
+              "right": 681.1,
+              "bottom": 359.6
+            },
+            "inPanel": true
+          }
+        ],
+        "ctaCount": 2,
+        "chip": {
+          "tag": "BUTTON",
+          "text": "1\n·\nСохранить"
+        },
+        "toggle": null,
+        "lastField": {
+          "top": 224.1,
+          "bottom": 263.7
+        },
+        "lastAboveFooter": -50,
+        "bodyScrollTop": 5648,
+        "bodyScrollHeight": 5853,
+        "hash": "#/modules",
+        "dirtyAction": {
+          "ok": true,
+          "key": null,
+          "tag": "INPUT",
+          "before": "1",
+          "after": ""
+        }
+      },
+      "toggle": {
+        "found": true,
+        "w": 44,
+        "h": 24,
+        "marked": false
+      },
+      "module_after_scroll": {
+        "vw": 915,
+        "vh": 412,
+        "modalOpen": true,
+        "overflowDoc": 0,
+        "panel": {
+          "x": 245,
+          "y": 314.6,
+          "w": 436.1,
+          "h": 52.4,
+          "right": 681.1,
+          "bottom": 367
+        },
+        "footer": {
+          "x": 142.5,
+          "y": 313.6,
+          "w": 630,
+          "h": 53.4,
+          "right": 772.5,
+          "bottom": 367
+        },
+        "panelVisible": true,
+        "saveBtn": {
+          "x": 503.1,
+          "y": 322,
+          "w": 178,
+          "h": 37.6,
+          "right": 681.1,
+          "bottom": 359.6
+        },
+        "cancelBtn": {
+          "x": 415.6,
+          "y": 321.8,
+          "w": 79.4,
+          "h": 38,
+          "right": 495.1,
+          "bottom": 359.8
+        },
+        "cta": [
+          {
+            "text": "1\n·\nСохранить",
+            "rect": {
+              "x": 750.3,
+              "y": 17.6,
+              "w": 98.3,
+              "h": 32,
+              "right": 848.6,
+              "bottom": 49.6
+            },
+            "inPanel": false
+          },
+          {
+            "text": "Сохранить изменения",
+            "rect": {
+              "x": 503.1,
+              "y": 322,
+              "w": 178,
+              "h": 37.6,
+              "right": 681.1,
+              "bottom": 359.6
+            },
+            "inPanel": true
+          }
+        ],
+        "ctaCount": 2,
+        "chip": {
+          "tag": "BUTTON",
+          "text": "1\n·\nСохранить"
+        },
+        "toggle": null,
+        "lastField": {
+          "top": 224.1,
+          "bottom": 263.7
+        },
+        "lastAboveFooter": -50,
+        "bodyScrollTop": 5648,
+        "bodyScrollHeight": 5853,
+        "hash": "#/modules"
+      },
+      "glass": {
+        "bgStrong": "rgba(21, 27, 42, 0.85)",
+        "blur": "blur(16px)",
+        "aurora": true,
+        "bodyBefore": "none"
+      }
+    }
+  },
+  "console_errors": [],
+  "screenshots": [
+    "C:\\Users\\main\\.config\\opencode\\OpenCodeScratch\\adminbot-ccef72c25768\\adminbot-cfg04-base\\plans\\features\\cfg\\evidence\\cfg-04\\ui\\before\\320x640-config-dirty.png",
+    "C:\\Users\\main\\.config\\opencode\\OpenCodeScratch\\adminbot-ccef72c25768\\adminbot-cfg04-base\\plans\\features\\cfg\\evidence\\cfg-04\\ui\\before\\320x640-module-dirty.png",
+    "C:\\Users\\main\\.config\\opencode\\OpenCodeScratch\\adminbot-ccef72c25768\\adminbot-cfg04-base\\plans\\features\\cfg\\evidence\\cfg-04\\ui\\before\\360x740-config-dirty.png",
+    "C:\\Users\\main\\.config\\opencode\\OpenCodeScratch\\adminbot-ccef72c25768\\adminbot-cfg04-base\\plans\\features\\cfg\\evidence\\cfg-04\\ui\\before\\360x740-module-dirty.png",
+    "C:\\Users\\main\\.config\\opencode\\OpenCodeScratch\\adminbot-ccef72c25768\\adminbot-cfg04-base\\plans\\features\\cfg\\evidence\\cfg-04\\ui\\before\\390x844-config-dirty.png",
+    "C:\\Users\\main\\.config\\opencode\\OpenCodeScratch\\adminbot-ccef72c25768\\adminbot-cfg04-base\\plans\\features\\cfg\\evidence\\cfg-04\\ui\\before\\390x844-module-dirty.png",
+    "C:\\Users\\main\\.config\\opencode\\OpenCodeScratch\\adminbot-ccef72c25768\\adminbot-cfg04-base\\plans\\features\\cfg\\evidence\\cfg-04\\ui\\before\\430x932-config-dirty.png",
+    "C:\\Users\\main\\.config\\opencode\\OpenCodeScratch\\adminbot-ccef72c25768\\adminbot-cfg04-base\\plans\\features\\cfg\\evidence\\cfg-04\\ui\\before\\430x932-module-dirty.png",
+    "C:\\Users\\main\\.config\\opencode\\OpenCodeScratch\\adminbot-ccef72c25768\\adminbot-cfg04-base\\plans\\features\\cfg\\evidence\\cfg-04\\ui\\before\\667x375-config-dirty.png",
+    "C:\\Users\\main\\.config\\opencode\\OpenCodeScratch\\adminbot-ccef72c25768\\adminbot-cfg04-base\\plans\\features\\cfg\\evidence\\cfg-04\\ui\\before\\667x375-module-dirty.png",
+    "C:\\Users\\main\\.config\\opencode\\OpenCodeScratch\\adminbot-ccef72c25768\\adminbot-cfg04-base\\plans\\features\\cfg\\evidence\\cfg-04\\ui\\before\\844x390-config-dirty.png",
+    "C:\\Users\\main\\.config\\opencode\\OpenCodeScratch\\adminbot-ccef72c25768\\adminbot-cfg04-base\\plans\\features\\cfg\\evidence\\cfg-04\\ui\\before\\844x390-module-dirty.png",
+    "C:\\Users\\main\\.config\\opencode\\OpenCodeScratch\\adminbot-ccef72c25768\\adminbot-cfg04-base\\plans\\features\\cfg\\evidence\\cfg-04\\ui\\before\\915x412-config-dirty.png",
+    "C:\\Users\\main\\.config\\opencode\\OpenCodeScratch\\adminbot-ccef72c25768\\adminbot-cfg04-base\\plans\\features\\cfg\\evidence\\cfg-04\\ui\\before\\915x412-module-dirty.png"
+  ],
+  "failures": [
+    "320x640 config: видимых save-CTA = 2 (ожидался ровно 1: панель)",
+    "320x640 config: safe-area панели 7.2 px (ожидалось ~63.2 = base+56)",
+    "320x640 config: touch-зона «Сохранить» 37.6 px < 44",
+    "320x640 config: touch-зона «Отмена» 38.0 px < 44",
+    "320x640 kb: видимых save-CTA = 2 (ожидался ровно 1: панель)",
+    "320x640 kb: safe-area панели 7.2 px (ожидалось ~63.2 = base+56)",
+    "320x640 kb: touch-зона «Сохранить» 37.6 px < 44",
+    "320x640 kb: touch-зона «Отмена» 38.0 px < 44",
+    "320x640 kb: клавиатура 280 px — панель не поднялась (bottom 568.0 > 360.0)",
+    "320x640: технический ключ limits.dig_year_back_window_days без раскрытия (C.3)",
+    "320x640 module: save-CTA в модалке = 2 (ожидался 1)",
+    "320x640: touch-зона переключателя 44.0×24.0 < 44×44",
+    "360x740 config: видимых save-CTA = 2 (ожидался ровно 1: панель)",
+    "360x740 config: safe-area панели 7.2 px (ожидалось ~63.2 = base+56)",
+    "360x740 config: touch-зона «Сохранить» 37.6 px < 44",
+    "360x740 config: touch-зона «Отмена» 38.0 px < 44",
+    "360x740 kb: видимых save-CTA = 2 (ожидался ровно 1: панель)",
+    "360x740 kb: safe-area панели 7.2 px (ожидалось ~63.2 = base+56)",
+    "360x740 kb: touch-зона «Сохранить» 37.6 px < 44",
+    "360x740 kb: touch-зона «Отмена» 38.0 px < 44",
+    "360x740 kb: клавиатура 280 px — панель не поднялась (bottom 668.0 > 460.0)",
+    "360x740: технический ключ limits.dig_year_back_window_days без раскрытия (C.3)",
+    "360x740 module: save-CTA в модалке = 2 (ожидался 1)",
+    "360x740: touch-зона переключателя 44.0×24.0 < 44×44",
+    "390x844 config: видимых save-CTA = 2 (ожидался ровно 1: панель)",
+    "390x844 config: safe-area панели 7.2 px (ожидалось ~63.2 = base+56)",
+    "390x844 config: touch-зона «Сохранить» 37.6 px < 44",
+    "390x844 config: touch-зона «Отмена» 38.0 px < 44",
+    "390x844 kb: видимых save-CTA = 2 (ожидался ровно 1: панель)",
+    "390x844 kb: safe-area панели 7.2 px (ожидалось ~63.2 = base+56)",
+    "390x844 kb: touch-зона «Сохранить» 37.6 px < 44",
+    "390x844 kb: touch-зона «Отмена» 38.0 px < 44",
+    "390x844 kb: клавиатура 280 px — панель не поднялась (bottom 772.0 > 564.0)",
+    "390x844: технический ключ limits.dig_year_back_window_days без раскрытия (C.3)",
+    "390x844: поворот потерял scroll (220 → 0)",
+    "390x844 module: save-CTA в модалке = 2 (ожидался 1)",
+    "390x844: touch-зона переключателя 44.0×24.0 < 44×44",
+    "430x932 config: видимых save-CTA = 2 (ожидался ровно 1: панель)",
+    "430x932 config: safe-area панели 7.2 px (ожидалось ~63.2 = base+56)",
+    "430x932 config: touch-зона «Сохранить» 37.6 px < 44",
+    "430x932 config: touch-зона «Отмена» 38.0 px < 44",
+    "430x932 kb: видимых save-CTA = 2 (ожидался ровно 1: панель)",
+    "430x932 kb: safe-area панели 7.2 px (ожидалось ~63.2 = base+56)",
+    "430x932 kb: touch-зона «Сохранить» 37.6 px < 44",
+    "430x932 kb: touch-зона «Отмена» 38.0 px < 44",
+    "430x932 kb: клавиатура 280 px — панель не поднялась (bottom 860.0 > 652.0)",
+    "430x932: технический ключ limits.dig_year_back_window_days без раскрытия (C.3)",
+    "430x932 module: save-CTA в модалке = 2 (ожидался 1)",
+    "430x932: touch-зона переключателя 44.0×24.0 < 44×44",
+    "667x375 config: видимых save-CTA = 2 (ожидался ровно 1: панель)",
+    "667x375 config: safe-area панели 7.2 px (ожидалось ~31.2 = base+56)",
+    "667x375 config: touch-зона «Сохранить» 37.6 px < 44",
+    "667x375 config: touch-зона «Отмена» 38.0 px < 44",
+    "667x375 kb: видимых save-CTA = 2 (ожидался ровно 1: панель)",
+    "667x375 kb: safe-area панели 7.2 px (ожидалось ~31.2 = base+56)",
+    "667x375 kb: touch-зона «Сохранить» 37.6 px < 44",
+    "667x375 kb: touch-зона «Отмена» 38.0 px < 44",
+    "667x375 kb: клавиатура 188 px — панель не поднялась (bottom 335.0 > 187.0)",
+    "667x375: технический ключ limits.dig_year_back_window_days без раскрытия (C.3)",
+    "667x375 module: save-CTA в модалке = 2 (ожидался 1)",
+    "667x375: touch-зона переключателя 44.0×24.0 < 44×44",
+    "844x390 config: видимых save-CTA = 2 (ожидался ровно 1: панель)",
+    "844x390 config: safe-area панели 7.2 px (ожидалось ~31.2 = base+56)",
+    "844x390 config: touch-зона «Сохранить» 37.6 px < 44",
+    "844x390 config: touch-зона «Отмена» 38.0 px < 44",
+    "844x390 kb: видимых save-CTA = 2 (ожидался ровно 1: панель)",
+    "844x390 kb: safe-area панели 7.2 px (ожидалось ~31.2 = base+56)",
+    "844x390 kb: touch-зона «Сохранить» 37.6 px < 44",
+    "844x390 kb: touch-зона «Отмена» 38.0 px < 44",
+    "844x390 kb: клавиатура 195 px — панель не поднялась (bottom 390.0 > 195.0)",
+    "844x390: технический ключ limits.dig_year_back_window_days без раскрытия (C.3)",
+    "844x390 module: save-CTA в модалке = 2 (ожидался 1)",
+    "844x390: touch-зона переключателя 44.0×24.0 < 44×44",
+    "915x412 config: видимых save-CTA = 2 (ожидался ровно 1: панель)",
+    "915x412 config: safe-area панели 7.2 px (ожидалось ~31.2 = base+56)",
+    "915x412 config: touch-зона «Сохранить» 37.6 px < 44",
+    "915x412 config: touch-зона «Отмена» 38.0 px < 44",
+    "915x412 kb: видимых save-CTA = 2 (ожидался ровно 1: панель)",
+    "915x412 kb: safe-area панели 7.2 px (ожидалось ~31.2 = base+56)",
+    "915x412 kb: touch-зона «Сохранить» 37.6 px < 44",
+    "915x412 kb: touch-зона «Отмена» 38.0 px < 44",
+    "915x412 kb: клавиатура 206 px — панель не поднялась (bottom 412.0 > 206.0)",
+    "915x412: технический ключ limits.dig_year_back_window_days без раскрытия (C.3)",
+    "915x412 module: save-CTA в модалке = 2 (ожидался 1)",
+    "915x412: touch-зона переключателя 44.0×24.0 < 44×44"
+  ]
+}

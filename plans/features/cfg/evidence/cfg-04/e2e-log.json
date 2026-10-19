@@ -1,0 +1,240 @@
+{
+  "tool": "tools/ui_cfg04_forms_e2e.py",
+  "tool_sha256": "ed66da5b307ca590922ab1404e9fab6b9dba5869a8c9680f0cbd8867923c2aff",
+  "before": {
+    "source": "master 7a3c1f92 (отдельный worktree)",
+    "file": "baseline.json",
+    "sha256": "16d13aedd825222e3d97271799278ae84fab32752675d1ba4bf991841f8cf182",
+    "viewports": 7,
+    "failures": 85,
+    "console_errors": 0,
+    "screenshots": [
+      "320x640-config-dirty.png",
+      "320x640-module-dirty.png",
+      "360x740-config-dirty.png",
+      "360x740-module-dirty.png",
+      "390x844-config-dirty.png",
+      "390x844-module-dirty.png",
+      "430x932-config-dirty.png",
+      "430x932-module-dirty.png",
+      "667x375-config-dirty.png",
+      "667x375-module-dirty.png",
+      "844x390-config-dirty.png",
+      "844x390-module-dirty.png",
+      "915x412-config-dirty.png",
+      "915x412-module-dirty.png"
+    ]
+  },
+  "after": {
+    "source": "кандидат (рабочее дерево)",
+    "file": "after.json",
+    "sha256": "9c5097e6985f6f8791173d374712ff6311e56ce4d24ed5bfb91954d7566f0f47",
+    "viewports": 7,
+    "failures": 0,
+    "console_errors": 0,
+    "screenshots": [
+      "320x640-config-dirty.png",
+      "320x640-module-dirty.png",
+      "360x740-config-dirty.png",
+      "360x740-module-dirty.png",
+      "390x844-config-dirty.png",
+      "390x844-module-dirty.png",
+      "430x932-config-dirty.png",
+      "430x932-module-dirty.png",
+      "667x375-config-dirty.png",
+      "667x375-module-dirty.png",
+      "844x390-config-dirty.png",
+      "844x390-module-dirty.png",
+      "915x412-config-dirty.png",
+      "915x412-module-dirty.png"
+    ]
+  },
+  "matrix": [
+    {
+      "viewport": "320x640",
+      "dpr": 2,
+      "safe_bottom": 56,
+      "config_cta": 1,
+      "panel_h": 168.4,
+      "panel_pad_bottom": 63.2,
+      "keyboard_kb": 280,
+      "panel_bottom_kb": 288,
+      "last_field_overlap": -161.9,
+      "tech_key": true,
+      "tech_key_copy_ok": true,
+      "module_cta": 1,
+      "toggle": {
+        "found": true,
+        "w": 44,
+        "h": 44,
+        "marked": true
+      },
+      "grid_columns": 1
+    },
+    {
+      "viewport": "360x740",
+      "dpr": 3,
+      "safe_bottom": 56,
+      "config_cta": 1,
+      "panel_h": 168.4,
+      "panel_pad_bottom": 63.2,
+      "keyboard_kb": 280,
+      "panel_bottom_kb": 388,
+      "last_field_overlap": -161.6,
+      "tech_key": true,
+      "tech_key_copy_ok": true,
+      "module_cta": 1,
+      "toggle": {
+        "found": true,
+        "w": 44,
+        "h": 44,
+        "marked": true
+      },
+      "grid_columns": 1
+    },
+    {
+      "viewport": "390x844",
+      "dpr": 3,
+      "safe_bottom": 56,
+      "config_cta": 1,
+      "panel_h": 116.4,
+      "panel_pad_bottom": 63.2,
+      "keyboard_kb": 280,
+      "panel_bottom_kb": 492,
+      "last_field_overlap": -109.6,
+      "tech_key": true,
+      "tech_key_copy_ok": true,
+      "module_cta": 1,
+      "toggle": {
+        "found": true,
+        "w": 44,
+        "h": 44,
+        "marked": true
+      },
+      "grid_columns": 1
+    },
+    {
+      "viewport": "430x932",
+      "dpr": 3,
+      "safe_bottom": 56,
+      "config_cta": 1,
+      "panel_h": 116.4,
+      "panel_pad_bottom": 63.2,
+      "keyboard_kb": 280,
+      "panel_bottom_kb": 580,
+      "last_field_overlap": -109.6,
+      "tech_key": true,
+      "tech_key_copy_ok": true,
+      "module_cta": 1,
+      "toggle": {
+        "found": true,
+        "w": 44,
+        "h": 44,
+        "marked": true
+      },
+      "grid_columns": 1
+    },
+    {
+      "viewport": "667x375",
+      "dpr": 2,
+      "safe_bottom": 24,
+      "config_cta": 1,
+      "panel_h": 84.4,
+      "panel_pad_bottom": 31.2,
+      "keyboard_kb": 188,
+      "panel_bottom_kb": 147,
+      "last_field_overlap": -78,
+      "tech_key": true,
+      "tech_key_copy_ok": true,
+      "module_cta": 1,
+      "toggle": {
+        "found": true,
+        "w": 44,
+        "h": 44,
+        "marked": true
+      },
+      "grid_columns": 1
+    },
+    {
+      "viewport": "844x390",
+      "dpr": 3,
+      "safe_bottom": 24,
+      "config_cta": 1,
+      "panel_h": 84.4,
+      "panel_pad_bottom": 31.2,
+      "keyboard_kb": 195,
+      "panel_bottom_kb": 195,
+      "last_field_overlap": -4.3,
+      "tech_key": true,
+      "tech_key_copy_ok": true,
+      "module_cta": 1,
+      "toggle": {
+        "found": true,
+        "w": 44,
+        "h": 44,
+        "marked": true
+      },
+      "grid_columns": 2
+    },
+    {
+      "viewport": "915x412",
+      "dpr": 3,
+      "safe_bottom": 24,
+      "config_cta": 1,
+      "panel_h": 84.4,
+      "panel_pad_bottom": 31.2,
+      "keyboard_kb": 206,
+      "panel_bottom_kb": 206,
+      "last_field_overlap": -4.3,
+      "tech_key": true,
+      "tech_key_copy_ok": true,
+      "module_cta": 1,
+      "toggle": {
+        "found": true,
+        "w": 44,
+        "h": 44,
+        "marked": true
+      },
+      "grid_columns": 2
+    }
+  ],
+  "orientation": {
+    "before": {
+      "value": "7",
+      "dirty": true,
+      "scroll": 220,
+      "mainScrollable": true,
+      "hash": "#/memory/rag",
+      "key": "limits.dig_year_back_window_days",
+      "index": 14
+    },
+    "after": {
+      "value": "7",
+      "scroll": 220,
+      "mainScrollable": false,
+      "docScrollTop": 220,
+      "hash": "#/memory/rag",
+      "active": "limits.dig_year_back_window_days",
+      "dirty": 1,
+      "value_ok": true,
+      "hash_ok": true,
+      "dirty_ok": true,
+      "scroll_ok": true,
+      "active_ok": true
+    }
+  },
+  "honest_limits": [
+    "TMA-стаб и /api-стабы, не реальный Telegram WebView",
+    "клавиатура эмулирована через --kb-offset (visualViewport-формула)",
+    "Telegram chrome синтетический: 56 px портрет / 24 px ландшафт",
+    "поворот эмулирован set_viewport_size / Emulation.setDeviceMetricsOverride",
+    "D.4 (живой клиент) — PENDING_OWNER_E2E, см. manual-checks.md"
+  ],
+  "candidate_files": {
+    "web/app.js": "885094459700",
+    "web/index.html": "528f358a6589",
+    "web/static/app.css": "6b5ca0cc1d47",
+    "tests/test_cfg04_forms_contract.py": "7cf6681c255e",
+    "tests/js/cfg04_forms_contract_test.js": "b2cd731dcc35"
+  }
+}

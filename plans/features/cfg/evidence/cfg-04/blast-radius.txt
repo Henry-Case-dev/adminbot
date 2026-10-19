@@ -1,0 +1,49 @@
+CFG-04 blast radius (кандидат; база master 7a3c1f92)
+
+1) Профильные pytest (пины контрактов формы/save/шапки/shell):
+   py -3 -m pytest tests/test_cfg04_forms_contract.py tests/test_webapp_ui_rework_round1020.py \
+     tests/test_webapp_f9_round1025.py tests/test_webapp_hotfix9_round1025.py \
+     tests/test_webapp_hotfix10_round1025.py tests/test_webapp_tma_fixes_ui.py \
+     tests/test_webapp_js_unit.py tests/test_soul1_w6_speech_ui.py -q
+   -> 202 passed
+
+2) Все webapp/ui/speech/soul1-тесты (широкий профиль):
+   py -3 -m pytest tests/ -q -k "webapp or ui or speech or soul1"
+   -> 2688 passed, 0 failed
+   ИСКЛЮЧЕНИЕ (среда, не код): tests/test_p0_vision_ui_e2e.py — 7 ERROR,
+   потому что тест запускает СИСТЕМНЫЙ python, где нет playwright
+   ("ModuleNotFoundError: No module named 'playwright'").
+   При запуске .venv-интерпретатором: 7 passed (и в рабочем дереве, и на master-worktree).
+   Это существующая конфигурация окружения, к CFG-04 не относится.
+
+3) JS-свип (все tests/js): py -3 -m pytest tests/test_webapp_js_unit.py -q -> 38 passed
+   (включает asap8_d1213, round1021_ui_audit, round1025_f9_savebar_visual, round1025_save_state)
+
+4) UI e2e CFG-04 (Playwright, 7 viewport x 2 сценария):
+   before=85 failures / after=0 failures, console errors 0/0
+
+5) Регрессия общего SaveBar в Speech (read-only тест, не менялся):
+   .venv\Scripts\python.exe tests\ui_p0a_ux_speech_compact_e2e.py
+   -> failures=0, POST=22
+
+6) Широкая матрица shell/glass (tools/ui_round1025_matrix.py, 178 проверок):
+   master-worktree: 178 failures; кандидат: 178 failures — ровно те же строки
+   (diff по множествам: main-only=0, base-only=0).
+   Значит правки не добавили ни одного нового падения и не «спрятали» старое.
+   Эти 178 — исторические/устаревшие проверки (например «нет bottom-nav (<768)»:
+   нижняя навигация удалена ещё в D13 §18I.14; «тач-цель селектора 40px»;
+   permsoc-проверки), не относятся к CFG-04.
+
+7) Пере-пины (осознанные, с ссылкой на источник):
+   - tests/js/asap8_d1213_save_contract_test.js — роль чипа (L157): индикатор,
+     actionable=false, подпись «не сохранено»; защита черновика не тронута.
+   - tests/test_webapp_ui_rework_round1020.py — `bottom: var(--kb-offset, 0px)`
+     вместо жёсткого 0 (L158: клавиатура).
+   - tests/js/round1021_ui_audit_test.js — scroll-padding от токена
+     `--sticky-save-h` (L159: к нему добавлены клавиатура и 4 px); срез
+     компонента расширен из-за новых методов измерения высоты.
+   Ни одна проверка не ослаблена: старые утверждения сохранены, изменена только
+   формулировка изменившегося контракта.
+
+8) Не тронуто: services/param_catalog.py, services/*, web/api/*, DDL — нет
+   diff-строк; чужие evidence (add-exp) не редактировались.

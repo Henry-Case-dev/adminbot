@@ -114,24 +114,37 @@ const components = (global.__components) || {};
     'D13: .sticky-save — компактный pill (fit-content, справа)');
 }
 
-// ── D13.1: компактный Save-чип в шапке (dirty-only) ────────────────────────
+// ── D13.1: компактный счётчик в шапке (dirty-only) ─────────────────────────
+// CFG-04B.1 (source-cfg-addendum L157) переопределяет роль чипа: он остаётся
+// компактным ИНДИКАТОРОМ (не CTA), единственный основной сценарий сохранения —
+// панель <sticky-save>. Защита черновика (_dirtyLeaveGuard), «clean → бара
+// нет» и stickyFailed сохранены без изменений.
 {
   assert.ok(INDEX.indexOf('header-save-chip') >= 0,
-    'D13: чип Save в шапке присутствует в разметке');
+    'D13: индикатор Save в шапке присутствует в разметке');
   assert.ok(INDEX.indexOf('v-if="headerSaveChip.visible"') >= 0,
-    'D13: чип рендерится только при visible (dirty/saving/failed)');
+    'D13: индикатор рендерится только при visible (dirty/saving/failed)');
+  assert.ok(INDEX.indexOf('data-save-indicator') >= 0,
+    'CFG-04B.1: узел шапки помечен как индикатор');
+  const chipMarkup = INDEX.slice(INDEX.indexOf('data-save-indicator') - 400,
+    INDEX.indexOf('data-save-indicator') + 500);
+  assert.strictEqual(/@click/.test(chipMarkup), false,
+    'CFG-04B.1/L157: индикатор не является вторым сохранением');
   const chip = computed.headerSaveChip;
   assert.ok(chip, 'D13: computed headerSaveChip определён');
   assert.strictEqual(chip.call({ saveState: 'clean', stickyDirtyCount: 0,
-    stickyFailed: [] }).visible, false, 'D13: clean → чипа нет');
+    stickyFailed: [] }).visible, false, 'D13: clean → индикатора нет');
   const dirty = chip.call({ saveState: 'dirty', stickyDirtyCount: 3,
     stickyFailed: [] });
-  assert.strictEqual(dirty.visible, true, 'D13: dirty → чип есть');
-  assert.strictEqual(dirty.count, 3, 'D13: чип показывает dirty-count');
-  assert.strictEqual(dirty.label, 'Сохранить', 'D13: чип подписан «Сохранить»');
+  assert.strictEqual(dirty.visible, true, 'D13: dirty → индикатор есть');
+  assert.strictEqual(dirty.count, 3, 'D13: индикатор показывает dirty-count');
+  assert.strictEqual(dirty.actionable, false,
+    'CFG-04B.1/L157: dirty-индикатор не CTA');
+  assert.strictEqual(dirty.label, 'не сохранено',
+    'CFG-04B.1/L157: подпись индикатора не дублирует действие');
   const fail = chip.call({ saveState: 'error', stickyDirtyCount: 0,
     stickyFailed: ['A'] });
-  assert.strictEqual(fail.visible, true, 'D13: error → чип остаётся с причиной');
+  assert.strictEqual(fail.visible, true, 'D13: error → индикатор остаётся с причиной');
 }
 
 // ── D13.2: неудачное сохранение НЕ сдвигает baseline (draft жив) ───────────

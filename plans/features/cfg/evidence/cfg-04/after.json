@@ -1,0 +1,2492 @@
+{
+  "mode": "after",
+  "port": 8847,
+  "viewports": {
+    "320x640": {
+      "size": [
+        320,
+        640
+      ],
+      "dpr": 2,
+      "safe_bottom": 56,
+      "keyboard_model": "visualViewport emulation (--kb-offset)",
+      "config_clean": {
+        "ctaCount": 0,
+        "panelVisible": false,
+        "chip": null,
+        "gridColumns": 1,
+        "overflowDoc": 0
+      },
+      "config_dirty": {
+        "vw": 320,
+        "vh": 640,
+        "overflowDoc": 0,
+        "overflowMain": 0,
+        "gridColumns": 1,
+        "cardWidths": [
+          304,
+          304,
+          304,
+          304,
+          270,
+          270
+        ],
+        "panel": {
+          "x": 8,
+          "y": 399.6,
+          "w": 304,
+          "h": 168.4,
+          "right": 312,
+          "bottom": 568
+        },
+        "panelVisible": true,
+        "panelPadBottom": 63.2,
+        "panelBottomCss": "0px",
+        "btnSave": {
+          "x": 18.6,
+          "y": 459.8,
+          "w": 178,
+          "h": 44,
+          "right": 196.6,
+          "bottom": 503.8
+        },
+        "btnCancel": {
+          "x": 222,
+          "y": 407.8,
+          "w": 79.4,
+          "h": 44,
+          "right": 301.4,
+          "bottom": 451.8
+        },
+        "cta": [
+          {
+            "text": "Сохранить изменения",
+            "rect": {
+              "x": 18.6,
+              "y": 459.8,
+              "w": 178,
+              "h": 44,
+              "right": 196.6,
+              "bottom": 503.8
+            },
+            "inPanel": true,
+            "title": ""
+          }
+        ],
+        "ctaCount": 1,
+        "chip": {
+          "tag": "DIV",
+          "text": "1\n·\nне сохранено",
+          "role": "status",
+          "rect": {
+            "x": 16,
+            "y": 15.6,
+            "w": 115.2,
+            "h": 32,
+            "right": 131.2,
+            "bottom": 47.6
+          }
+        },
+        "firstField": {
+          "x": 21,
+          "y": -2084.8,
+          "w": 278,
+          "h": 39.6,
+          "right": 299,
+          "bottom": -2045.2
+        },
+        "lastField": {
+          "x": 42,
+          "y": 19311.8,
+          "w": 236,
+          "h": 40,
+          "right": 278,
+          "bottom": 19351.8
+        },
+        "fieldCount": 68,
+        "scrollTop": 2230,
+        "activeKey": "limits.dig_year_back_window_days",
+        "hash": "#/memory/rag",
+        "dirtyCount": 1,
+        "glass": {
+          "bgStrong": "rgba(21, 27, 42, 0.85)",
+          "blur": "blur(16px)",
+          "aurora": true,
+          "panelBg": "rgba(21, 27, 42, 0.85)",
+          "panelBackdrop": "blur(16px)"
+        },
+        "dirtyAction": {
+          "ok": true,
+          "key": "limits.dig_year_back_window_days",
+          "tag": "INPUT",
+          "type": "number",
+          "before": "1",
+          "after": "2"
+        }
+      },
+      "last_field": {
+        "ok": true,
+        "key": "memory.experience_review_cadence",
+        "field": {
+          "top": 197.8,
+          "bottom": 237.8,
+          "h": 40
+        },
+        "panelTop": 399.6,
+        "overlap": -161.9,
+        "caretVisible": true,
+        "activeKey": "memory.experience_review_cadence"
+      },
+      "config_keyboard": {
+        "kb": 280,
+        "panel": {
+          "x": 8,
+          "y": 119.6,
+          "w": 304,
+          "h": 168.4,
+          "right": 312,
+          "bottom": 288
+        },
+        "saveBtn": null,
+        "cancelBtn": null,
+        "vh": 640
+      },
+      "tech_key": {
+        "found": true,
+        "tag": "BUTTON",
+        "title": "limits.dig_year_back_window_days",
+        "text": "limits.dig_year_back_window_days",
+        "truncated": true,
+        "ariaExpanded": "false",
+        "rect": {
+          "w": 156,
+          "h": 24
+        },
+        "copy": true
+      },
+      "tech_key_open": {
+        "found": true,
+        "ariaExpanded": "true",
+        "truncated": false,
+        "fullText": "limits.dig_year_back_window_days",
+        "rect": {
+          "w": 156,
+          "h": 36
+        }
+      },
+      "tech_key_copy": {
+        "found": true,
+        "copy": true,
+        "clipboard": "limits.dig_year_back_window_days",
+        "copied": true
+      },
+      "module_open": {
+        "opened": true
+      },
+      "module_dirty": {
+        "vw": 320,
+        "vh": 640,
+        "modalOpen": true,
+        "overflowDoc": 0,
+        "panel": {
+          "x": 37,
+          "y": 429,
+          "w": 154.6,
+          "h": 150,
+          "right": 191.6,
+          "bottom": 579
+        },
+        "footer": {
+          "x": 37,
+          "y": 428,
+          "w": 246,
+          "h": 151,
+          "right": 283,
+          "bottom": 579
+        },
+        "panelVisible": true,
+        "saveBtn": {
+          "x": 37,
+          "y": 514.2,
+          "w": 154.6,
+          "h": 57.6,
+          "right": 191.6,
+          "bottom": 571.8
+        },
+        "cancelBtn": {
+          "x": 37,
+          "y": 462.2,
+          "w": 79.4,
+          "h": 44,
+          "right": 116.4,
+          "bottom": 506.2
+        },
+        "cta": [
+          {
+            "text": "Сохранить изменения",
+            "rect": {
+              "x": 37,
+              "y": 514.2,
+              "w": 154.6,
+              "h": 57.6,
+              "right": 191.6,
+              "bottom": 571.8
+            },
+            "inPanel": true
+          }
+        ],
+        "ctaCount": 1,
+        "chip": {
+          "tag": "DIV",
+          "text": "1\n·\nне сохранено"
+        },
+        "toggle": {
+          "x": 209,
+          "y": -10599,
+          "w": 44,
+          "h": 44,
+          "right": 253,
+          "bottom": -10555
+        },
+        "lastField": {
+          "top": 338.3,
+          "bottom": 377.9
+        },
+        "lastAboveFooter": -50.2,
+        "bodyScrollTop": 10810,
+        "bodyScrollHeight": 11113,
+        "hash": "#/modules",
+        "dirtyAction": {
+          "ok": true,
+          "key": "limits.chat_branch_context_hops",
+          "tag": "INPUT",
+          "before": "1",
+          "after": ""
+        }
+      },
+      "toggle": {
+        "found": true,
+        "w": 44,
+        "h": 44,
+        "marked": true
+      },
+      "module_after_scroll": {
+        "vw": 320,
+        "vh": 640,
+        "modalOpen": true,
+        "overflowDoc": 0,
+        "panel": {
+          "x": 37,
+          "y": 429,
+          "w": 154.6,
+          "h": 150,
+          "right": 191.6,
+          "bottom": 579
+        },
+        "footer": {
+          "x": 37,
+          "y": 428,
+          "w": 246,
+          "h": 151,
+          "right": 283,
+          "bottom": 579
+        },
+        "panelVisible": true,
+        "saveBtn": {
+          "x": 37,
+          "y": 514.2,
+          "w": 154.6,
+          "h": 57.6,
+          "right": 191.6,
+          "bottom": 571.8
+        },
+        "cancelBtn": {
+          "x": 37,
+          "y": 462.2,
+          "w": 79.4,
+          "h": 44,
+          "right": 116.4,
+          "bottom": 506.2
+        },
+        "cta": [
+          {
+            "text": "Сохранить изменения",
+            "rect": {
+              "x": 37,
+              "y": 514.2,
+              "w": 154.6,
+              "h": 57.6,
+              "right": 191.6,
+              "bottom": 571.8
+            },
+            "inPanel": true
+          }
+        ],
+        "ctaCount": 1,
+        "chip": {
+          "tag": "DIV",
+          "text": "1\n·\nне сохранено"
+        },
+        "toggle": {
+          "x": 209,
+          "y": -10599,
+          "w": 44,
+          "h": 44,
+          "right": 253,
+          "bottom": -10555
+        },
+        "lastField": {
+          "top": 338.3,
+          "bottom": 377.9
+        },
+        "lastAboveFooter": -50.2,
+        "bodyScrollTop": 10810,
+        "bodyScrollHeight": 11113,
+        "hash": "#/modules"
+      },
+      "glass": {
+        "bgStrong": "rgba(21, 27, 42, 0.85)",
+        "blur": "blur(16px)",
+        "aurora": true,
+        "bodyBefore": "none"
+      }
+    },
+    "360x740": {
+      "size": [
+        360,
+        740
+      ],
+      "dpr": 3,
+      "safe_bottom": 56,
+      "keyboard_model": "visualViewport emulation (--kb-offset)",
+      "config_clean": {
+        "ctaCount": 0,
+        "panelVisible": false,
+        "chip": null,
+        "gridColumns": 1,
+        "overflowDoc": 0
+      },
+      "config_dirty": {
+        "vw": 360,
+        "vh": 740,
+        "overflowDoc": 0,
+        "overflowMain": 0,
+        "gridColumns": 1,
+        "cardWidths": [
+          344,
+          344,
+          344,
+          344,
+          310,
+          310
+        ],
+        "panel": {
+          "x": 8,
+          "y": 499.6,
+          "w": 344,
+          "h": 168.4,
+          "right": 352,
+          "bottom": 668
+        },
+        "panelVisible": true,
+        "panelPadBottom": 63.2,
+        "panelBottomCss": "0px",
+        "btnSave": {
+          "x": 18.6,
+          "y": 559.8,
+          "w": 178,
+          "h": 44,
+          "right": 196.6,
+          "bottom": 603.8
+        },
+        "btnCancel": {
+          "x": 262,
+          "y": 507.8,
+          "w": 79.4,
+          "h": 44,
+          "right": 341.4,
+          "bottom": 551.8
+        },
+        "cta": [
+          {
+            "text": "Сохранить изменения",
+            "rect": {
+              "x": 18.6,
+              "y": 559.8,
+              "w": 178,
+              "h": 44,
+              "right": 196.6,
+              "bottom": 603.8
+            },
+            "inPanel": true,
+            "title": ""
+          }
+        ],
+        "ctaCount": 1,
+        "chip": {
+          "tag": "DIV",
+          "text": "1\n·\nне сохранено",
+          "role": "status",
+          "rect": {
+            "x": 16,
+            "y": 15.6,
+            "w": 115.2,
+            "h": 32,
+            "right": 131.2,
+            "bottom": 47.6
+          }
+        },
+        "firstField": {
+          "x": 21,
+          "y": -1899.8,
+          "w": 318,
+          "h": 39.6,
+          "right": 339,
+          "bottom": -1860.2
+        },
+        "lastField": {
+          "x": 42,
+          "y": 18722,
+          "w": 276,
+          "h": 40,
+          "right": 318,
+          "bottom": 18762
+        },
+        "fieldCount": 68,
+        "scrollTop": 2045,
+        "activeKey": "limits.dig_year_back_window_days",
+        "hash": "#/memory/rag",
+        "dirtyCount": 1,
+        "glass": {
+          "bgStrong": "rgba(21, 27, 42, 0.85)",
+          "blur": "blur(16px)",
+          "aurora": true,
+          "panelBg": "rgba(21, 27, 42, 0.85)",
+          "panelBackdrop": "blur(16px)"
+        },
+        "dirtyAction": {
+          "ok": true,
+          "key": "limits.dig_year_back_window_days",
+          "tag": "INPUT",
+          "type": "number",
+          "before": "1",
+          "after": "2"
+        }
+      },
+      "last_field": {
+        "ok": true,
+        "key": "memory.experience_review_cadence",
+        "field": {
+          "top": 298,
+          "bottom": 338,
+          "h": 40
+        },
+        "panelTop": 499.6,
+        "overlap": -161.6,
+        "caretVisible": true,
+        "activeKey": "memory.experience_review_cadence"
+      },
+      "config_keyboard": {
+        "kb": 280,
+        "panel": {
+          "x": 8,
+          "y": 219.6,
+          "w": 344,
+          "h": 168.4,
+          "right": 352,
+          "bottom": 388
+        },
+        "saveBtn": null,
+        "cancelBtn": null,
+        "vh": 740
+      },
+      "tech_key": {
+        "found": true,
+        "tag": "BUTTON",
+        "title": "limits.dig_year_back_window_days",
+        "text": "limits.dig_year_back_window_days",
+        "truncated": true,
+        "ariaExpanded": "false",
+        "rect": {
+          "w": 196,
+          "h": 24
+        },
+        "copy": true
+      },
+      "tech_key_open": {
+        "found": true,
+        "ariaExpanded": "true",
+        "truncated": false,
+        "fullText": "limits.dig_year_back_window_days",
+        "rect": {
+          "w": 196,
+          "h": 36
+        }
+      },
+      "tech_key_copy": {
+        "found": true,
+        "copy": true,
+        "clipboard": "limits.dig_year_back_window_days",
+        "copied": true
+      },
+      "module_open": {
+        "opened": true
+      },
+      "module_dirty": {
+        "vw": 360,
+        "vh": 740,
+        "modalOpen": true,
+        "overflowDoc": 0,
+        "panel": {
+          "x": 37,
+          "y": 568.6,
+          "w": 194.6,
+          "h": 110.4,
+          "right": 231.6,
+          "bottom": 679
+        },
+        "footer": {
+          "x": 37,
+          "y": 567.6,
+          "w": 286,
+          "h": 111.4,
+          "right": 323,
+          "bottom": 679
+        },
+        "panelVisible": true,
+        "saveBtn": {
+          "x": 37,
+          "y": 627.8,
+          "w": 178,
+          "h": 44,
+          "right": 215,
+          "bottom": 671.8
+        },
+        "cancelBtn": {
+          "x": 152.2,
+          "y": 575.8,
+          "w": 79.4,
+          "h": 44,
+          "right": 231.6,
+          "bottom": 619.8
+        },
+        "cta": [
+          {
+            "text": "Сохранить изменения",
+            "rect": {
+              "x": 37,
+              "y": 627.8,
+              "w": 178,
+              "h": 44,
+              "right": 215,
+              "bottom": 671.8
+            },
+            "inPanel": true
+          }
+        ],
+        "ctaCount": 1,
+        "chip": {
+          "tag": "DIV",
+          "text": "1\n·\nне сохранено"
+        },
+        "toggle": {
+          "x": 249,
+          "y": -9631,
+          "w": 44,
+          "h": 44,
+          "right": 293,
+          "bottom": -9587
+        },
+        "lastField": {
+          "top": 478.3,
+          "bottom": 517.9
+        },
+        "lastAboveFooter": -49.8,
+        "bodyScrollTop": 9842,
+        "bodyScrollHeight": 10285,
+        "hash": "#/modules",
+        "dirtyAction": {
+          "ok": true,
+          "key": "limits.chat_branch_context_hops",
+          "tag": "INPUT",
+          "before": "1",
+          "after": ""
+        }
+      },
+      "toggle": {
+        "found": true,
+        "w": 44,
+        "h": 44,
+        "marked": true
+      },
+      "module_after_scroll": {
+        "vw": 360,
+        "vh": 740,
+        "modalOpen": true,
+        "overflowDoc": 0,
+        "panel": {
+          "x": 37,
+          "y": 568.6,
+          "w": 194.6,
+          "h": 110.4,
+          "right": 231.6,
+          "bottom": 679
+        },
+        "footer": {
+          "x": 37,
+          "y": 567.6,
+          "w": 286,
+          "h": 111.4,
+          "right": 323,
+          "bottom": 679
+        },
+        "panelVisible": true,
+        "saveBtn": {
+          "x": 37,
+          "y": 627.8,
+          "w": 178,
+          "h": 44,
+          "right": 215,
+          "bottom": 671.8
+        },
+        "cancelBtn": {
+          "x": 152.2,
+          "y": 575.8,
+          "w": 79.4,
+          "h": 44,
+          "right": 231.6,
+          "bottom": 619.8
+        },
+        "cta": [
+          {
+            "text": "Сохранить изменения",
+            "rect": {
+              "x": 37,
+              "y": 627.8,
+              "w": 178,
+              "h": 44,
+              "right": 215,
+              "bottom": 671.8
+            },
+            "inPanel": true
+          }
+        ],
+        "ctaCount": 1,
+        "chip": {
+          "tag": "DIV",
+          "text": "1\n·\nне сохранено"
+        },
+        "toggle": {
+          "x": 249,
+          "y": -9631,
+          "w": 44,
+          "h": 44,
+          "right": 293,
+          "bottom": -9587
+        },
+        "lastField": {
+          "top": 478.3,
+          "bottom": 517.9
+        },
+        "lastAboveFooter": -49.8,
+        "bodyScrollTop": 9842,
+        "bodyScrollHeight": 10285,
+        "hash": "#/modules"
+      },
+      "glass": {
+        "bgStrong": "rgba(21, 27, 42, 0.85)",
+        "blur": "blur(16px)",
+        "aurora": true,
+        "bodyBefore": "none"
+      }
+    },
+    "390x844": {
+      "size": [
+        390,
+        844
+      ],
+      "dpr": 3,
+      "safe_bottom": 56,
+      "keyboard_model": "visualViewport emulation (--kb-offset)",
+      "config_clean": {
+        "ctaCount": 0,
+        "panelVisible": false,
+        "chip": null,
+        "gridColumns": 1,
+        "overflowDoc": 0
+      },
+      "config_dirty": {
+        "vw": 390,
+        "vh": 844,
+        "overflowDoc": 0,
+        "overflowMain": 0,
+        "gridColumns": 1,
+        "cardWidths": [
+          374,
+          374,
+          374,
+          374,
+          340,
+          340
+        ],
+        "panel": {
+          "x": 18.8,
+          "y": 655.6,
+          "w": 363.2,
+          "h": 116.4,
+          "right": 382,
+          "bottom": 772
+        },
+        "panelVisible": true,
+        "panelPadBottom": 63.2,
+        "panelBottomCss": "0px",
+        "btnSave": {
+          "x": 193.4,
+          "y": 663.8,
+          "w": 178,
+          "h": 44,
+          "right": 371.4,
+          "bottom": 707.8
+        },
+        "btnCancel": {
+          "x": 105.9,
+          "y": 663.8,
+          "w": 79.4,
+          "h": 44,
+          "right": 185.4,
+          "bottom": 707.8
+        },
+        "cta": [
+          {
+            "text": "Сохранить изменения",
+            "rect": {
+              "x": 193.4,
+              "y": 663.8,
+              "w": 178,
+              "h": 44,
+              "right": 371.4,
+              "bottom": 707.8
+            },
+            "inPanel": true,
+            "title": ""
+          }
+        ],
+        "ctaCount": 1,
+        "chip": {
+          "tag": "DIV",
+          "text": "1\n·\nне сохранено",
+          "role": "status",
+          "rect": {
+            "x": 16,
+            "y": 15.6,
+            "w": 115.2,
+            "h": 32,
+            "right": 131.2,
+            "bottom": 47.6
+          }
+        },
+        "firstField": {
+          "x": 21,
+          "y": -1827.8,
+          "w": 348,
+          "h": 39.6,
+          "right": 369,
+          "bottom": -1788.2
+        },
+        "lastField": {
+          "x": 42,
+          "y": 18558,
+          "w": 306,
+          "h": 40,
+          "right": 348,
+          "bottom": 18598
+        },
+        "fieldCount": 68,
+        "scrollTop": 1973,
+        "activeKey": "limits.dig_year_back_window_days",
+        "hash": "#/memory/rag",
+        "dirtyCount": 1,
+        "glass": {
+          "bgStrong": "rgba(21, 27, 42, 0.85)",
+          "blur": "blur(16px)",
+          "aurora": true,
+          "panelBg": "rgba(21, 27, 42, 0.85)",
+          "panelBackdrop": "blur(16px)"
+        },
+        "dirtyAction": {
+          "ok": true,
+          "key": "limits.dig_year_back_window_days",
+          "tag": "INPUT",
+          "type": "number",
+          "before": "1",
+          "after": "2"
+        }
+      },
+      "last_field": {
+        "ok": true,
+        "key": "memory.experience_review_cadence",
+        "field": {
+          "top": 506,
+          "bottom": 546,
+          "h": 40
+        },
+        "panelTop": 655.6,
+        "overlap": -109.6,
+        "caretVisible": true,
+        "activeKey": "memory.experience_review_cadence"
+      },
+      "config_keyboard": {
+        "kb": 280,
+        "panel": {
+          "x": 18.8,
+          "y": 375.6,
+          "w": 363.2,
+          "h": 116.4,
+          "right": 382,
+          "bottom": 492
+        },
+        "saveBtn": null,
+        "cancelBtn": null,
+        "vh": 844
+      },
+      "tech_key": {
+        "found": true,
+        "tag": "BUTTON",
+        "title": "limits.dig_year_back_window_days",
+        "text": "limits.dig_year_back_window_days",
+        "truncated": false,
+        "ariaExpanded": "false",
+        "rect": {
+          "w": 226,
+          "h": 24
+        },
+        "copy": true
+      },
+      "tech_key_open": {
+        "found": true,
+        "ariaExpanded": "true",
+        "truncated": false,
+        "fullText": "limits.dig_year_back_window_days",
+        "rect": {
+          "w": 226,
+          "h": 24
+        }
+      },
+      "tech_key_copy": {
+        "found": true,
+        "copy": true,
+        "clipboard": "limits.dig_year_back_window_days",
+        "copied": true
+      },
+      "orientation": {
+        "before": {
+          "value": "7",
+          "dirty": true,
+          "scroll": 220,
+          "mainScrollable": true,
+          "hash": "#/memory/rag",
+          "key": "limits.dig_year_back_window_days",
+          "index": 14
+        },
+        "after": {
+          "value": "7",
+          "scroll": 220,
+          "mainScrollable": false,
+          "docScrollTop": 220,
+          "hash": "#/memory/rag",
+          "active": "limits.dig_year_back_window_days",
+          "dirty": 1,
+          "value_ok": true,
+          "hash_ok": true,
+          "dirty_ok": true,
+          "scroll_ok": true,
+          "active_ok": true
+        }
+      },
+      "module_open": {
+        "opened": true
+      },
+      "module_dirty": {
+        "vw": 390,
+        "vh": 844,
+        "modalOpen": true,
+        "overflowDoc": 0,
+        "panel": {
+          "x": 37,
+          "y": 650.6,
+          "w": 224.6,
+          "h": 110.4,
+          "right": 261.6,
+          "bottom": 761
+        },
+        "footer": {
+          "x": 37,
+          "y": 649.6,
+          "w": 316,
+          "h": 111.4,
+          "right": 353,
+          "bottom": 761
+        },
+        "panelVisible": true,
+        "saveBtn": {
+          "x": 37,
+          "y": 709.8,
+          "w": 178,
+          "h": 44,
+          "right": 215,
+          "bottom": 753.8
+        },
+        "cancelBtn": {
+          "x": 182.2,
+          "y": 657.8,
+          "w": 79.4,
+          "h": 44,
+          "right": 261.6,
+          "bottom": 701.8
+        },
+        "cta": [
+          {
+            "text": "Сохранить изменения",
+            "rect": {
+              "x": 37,
+              "y": 709.8,
+              "w": 178,
+              "h": 44,
+              "right": 215,
+              "bottom": 753.8
+            },
+            "inPanel": true
+          }
+        ],
+        "ctaCount": 1,
+        "chip": {
+          "tag": "DIV",
+          "text": "1\n·\nне сохранено"
+        },
+        "toggle": {
+          "x": 279,
+          "y": -9167,
+          "w": 44,
+          "h": 44,
+          "right": 323,
+          "bottom": -9123
+        },
+        "lastField": {
+          "top": 560.3,
+          "bottom": 599.9
+        },
+        "lastAboveFooter": -49.8,
+        "bodyScrollTop": 9400,
+        "bodyScrollHeight": 9903,
+        "hash": "#/modules",
+        "dirtyAction": {
+          "ok": true,
+          "key": "limits.chat_branch_context_hops",
+          "tag": "INPUT",
+          "before": "1",
+          "after": ""
+        }
+      },
+      "toggle": {
+        "found": true,
+        "w": 44,
+        "h": 44,
+        "marked": true
+      },
+      "module_after_scroll": {
+        "vw": 390,
+        "vh": 844,
+        "modalOpen": true,
+        "overflowDoc": 0,
+        "panel": {
+          "x": 37,
+          "y": 650.6,
+          "w": 224.6,
+          "h": 110.4,
+          "right": 261.6,
+          "bottom": 761
+        },
+        "footer": {
+          "x": 37,
+          "y": 649.6,
+          "w": 316,
+          "h": 111.4,
+          "right": 353,
+          "bottom": 761
+        },
+        "panelVisible": true,
+        "saveBtn": {
+          "x": 37,
+          "y": 709.8,
+          "w": 178,
+          "h": 44,
+          "right": 215,
+          "bottom": 753.8
+        },
+        "cancelBtn": {
+          "x": 182.2,
+          "y": 657.8,
+          "w": 79.4,
+          "h": 44,
+          "right": 261.6,
+          "bottom": 701.8
+        },
+        "cta": [
+          {
+            "text": "Сохранить изменения",
+            "rect": {
+              "x": 37,
+              "y": 709.8,
+              "w": 178,
+              "h": 44,
+              "right": 215,
+              "bottom": 753.8
+            },
+            "inPanel": true
+          }
+        ],
+        "ctaCount": 1,
+        "chip": {
+          "tag": "DIV",
+          "text": "1\n·\nне сохранено"
+        },
+        "toggle": {
+          "x": 279,
+          "y": -9167,
+          "w": 44,
+          "h": 44,
+          "right": 323,
+          "bottom": -9123
+        },
+        "lastField": {
+          "top": 560.3,
+          "bottom": 599.9
+        },
+        "lastAboveFooter": -49.8,
+        "bodyScrollTop": 9400,
+        "bodyScrollHeight": 9903,
+        "hash": "#/modules"
+      },
+      "glass": {
+        "bgStrong": "rgba(21, 27, 42, 0.85)",
+        "blur": "blur(16px)",
+        "aurora": true,
+        "bodyBefore": "none"
+      }
+    },
+    "430x932": {
+      "size": [
+        430,
+        932
+      ],
+      "dpr": 3,
+      "safe_bottom": 56,
+      "keyboard_model": "visualViewport emulation (--kb-offset)",
+      "config_clean": {
+        "ctaCount": 0,
+        "panelVisible": false,
+        "chip": null,
+        "gridColumns": 1,
+        "overflowDoc": 0
+      },
+      "config_dirty": {
+        "vw": 430,
+        "vh": 932,
+        "overflowDoc": 0,
+        "overflowMain": 0,
+        "gridColumns": 1,
+        "cardWidths": [
+          414,
+          414,
+          414,
+          414,
+          380,
+          380
+        ],
+        "panel": {
+          "x": 58.8,
+          "y": 743.6,
+          "w": 363.2,
+          "h": 116.4,
+          "right": 422,
+          "bottom": 860
+        },
+        "panelVisible": true,
+        "panelPadBottom": 63.2,
+        "panelBottomCss": "0px",
+        "btnSave": {
+          "x": 233.4,
+          "y": 751.8,
+          "w": 178,
+          "h": 44,
+          "right": 411.4,
+          "bottom": 795.8
+        },
+        "btnCancel": {
+          "x": 145.9,
+          "y": 751.8,
+          "w": 79.4,
+          "h": 44,
+          "right": 225.4,
+          "bottom": 795.8
+        },
+        "cta": [
+          {
+            "text": "Сохранить изменения",
+            "rect": {
+              "x": 233.4,
+              "y": 751.8,
+              "w": 178,
+              "h": 44,
+              "right": 411.4,
+              "bottom": 795.8
+            },
+            "inPanel": true,
+            "title": ""
+          }
+        ],
+        "ctaCount": 1,
+        "chip": {
+          "tag": "DIV",
+          "text": "1\n·\nне сохранено",
+          "role": "status",
+          "rect": {
+            "x": 16,
+            "y": 15.6,
+            "w": 115.2,
+            "h": 32,
+            "right": 131.2,
+            "bottom": 47.6
+          }
+        },
+        "firstField": {
+          "x": 21,
+          "y": -1767.8,
+          "w": 388,
+          "h": 39.6,
+          "right": 409,
+          "bottom": -1728.2
+        },
+        "lastField": {
+          "x": 42,
+          "y": 18402,
+          "w": 346,
+          "h": 40,
+          "right": 388,
+          "bottom": 18442
+        },
+        "fieldCount": 68,
+        "scrollTop": 1913,
+        "activeKey": "limits.dig_year_back_window_days",
+        "hash": "#/memory/rag",
+        "dirtyCount": 1,
+        "glass": {
+          "bgStrong": "rgba(21, 27, 42, 0.85)",
+          "blur": "blur(16px)",
+          "aurora": true,
+          "panelBg": "rgba(21, 27, 42, 0.85)",
+          "panelBackdrop": "blur(16px)"
+        },
+        "dirtyAction": {
+          "ok": true,
+          "key": "limits.dig_year_back_window_days",
+          "tag": "INPUT",
+          "type": "number",
+          "before": "1",
+          "after": "2"
+        }
+      },
+      "last_field": {
+        "ok": true,
+        "key": "memory.experience_review_cadence",
+        "field": {
+          "top": 594,
+          "bottom": 634,
+          "h": 40
+        },
+        "panelTop": 743.6,
+        "overlap": -109.6,
+        "caretVisible": true,
+        "activeKey": "memory.experience_review_cadence"
+      },
+      "config_keyboard": {
+        "kb": 280,
+        "panel": {
+          "x": 58.8,
+          "y": 463.6,
+          "w": 363.2,
+          "h": 116.4,
+          "right": 422,
+          "bottom": 580
+        },
+        "saveBtn": null,
+        "cancelBtn": null,
+        "vh": 932
+      },
+      "tech_key": {
+        "found": true,
+        "tag": "BUTTON",
+        "title": "limits.dig_year_back_window_days",
+        "text": "limits.dig_year_back_window_days",
+        "truncated": false,
+        "ariaExpanded": "false",
+        "rect": {
+          "w": 266,
+          "h": 24
+        },
+        "copy": true
+      },
+      "tech_key_open": {
+        "found": true,
+        "ariaExpanded": "true",
+        "truncated": false,
+        "fullText": "limits.dig_year_back_window_days",
+        "rect": {
+          "w": 266,
+          "h": 24
+        }
+      },
+      "tech_key_copy": {
+        "found": true,
+        "copy": true,
+        "clipboard": "limits.dig_year_back_window_days",
+        "copied": true
+      },
+      "module_open": {
+        "opened": true
+      },
+      "module_dirty": {
+        "vw": 430,
+        "vh": 932,
+        "modalOpen": true,
+        "overflowDoc": 0,
+        "panel": {
+          "x": 37,
+          "y": 694.6,
+          "w": 264.6,
+          "h": 110.4,
+          "right": 301.6,
+          "bottom": 805
+        },
+        "footer": {
+          "x": 37,
+          "y": 693.6,
+          "w": 356,
+          "h": 111.4,
+          "right": 393,
+          "bottom": 805
+        },
+        "panelVisible": true,
+        "saveBtn": {
+          "x": 37,
+          "y": 753.8,
+          "w": 178,
+          "h": 44,
+          "right": 215,
+          "bottom": 797.8
+        },
+        "cancelBtn": {
+          "x": 222.2,
+          "y": 701.8,
+          "w": 79.4,
+          "h": 44,
+          "right": 301.6,
+          "bottom": 745.8
+        },
+        "cta": [
+          {
+            "text": "Сохранить изменения",
+            "rect": {
+              "x": 37,
+              "y": 753.8,
+              "w": 178,
+              "h": 44,
+              "right": 215,
+              "bottom": 797.8
+            },
+            "inPanel": true
+          }
+        ],
+        "ctaCount": 1,
+        "chip": {
+          "tag": "DIV",
+          "text": "1\n·\nне сохранено"
+        },
+        "toggle": {
+          "x": 319,
+          "y": -8671,
+          "w": 44,
+          "h": 44,
+          "right": 363,
+          "bottom": -8627
+        },
+        "lastField": {
+          "top": 604.3,
+          "bottom": 643.9
+        },
+        "lastAboveFooter": -49.8,
+        "bodyScrollTop": 8932,
+        "bodyScrollHeight": 9435,
+        "hash": "#/modules",
+        "dirtyAction": {
+          "ok": true,
+          "key": "limits.chat_branch_context_hops",
+          "tag": "INPUT",
+          "before": "1",
+          "after": ""
+        }
+      },
+      "toggle": {
+        "found": true,
+        "w": 44,
+        "h": 44,
+        "marked": true
+      },
+      "module_after_scroll": {
+        "vw": 430,
+        "vh": 932,
+        "modalOpen": true,
+        "overflowDoc": 0,
+        "panel": {
+          "x": 37,
+          "y": 694.6,
+          "w": 264.6,
+          "h": 110.4,
+          "right": 301.6,
+          "bottom": 805
+        },
+        "footer": {
+          "x": 37,
+          "y": 693.6,
+          "w": 356,
+          "h": 111.4,
+          "right": 393,
+          "bottom": 805
+        },
+        "panelVisible": true,
+        "saveBtn": {
+          "x": 37,
+          "y": 753.8,
+          "w": 178,
+          "h": 44,
+          "right": 215,
+          "bottom": 797.8
+        },
+        "cancelBtn": {
+          "x": 222.2,
+          "y": 701.8,
+          "w": 79.4,
+          "h": 44,
+          "right": 301.6,
+          "bottom": 745.8
+        },
+        "cta": [
+          {
+            "text": "Сохранить изменения",
+            "rect": {
+              "x": 37,
+              "y": 753.8,
+              "w": 178,
+              "h": 44,
+              "right": 215,
+              "bottom": 797.8
+            },
+            "inPanel": true
+          }
+        ],
+        "ctaCount": 1,
+        "chip": {
+          "tag": "DIV",
+          "text": "1\n·\nне сохранено"
+        },
+        "toggle": {
+          "x": 319,
+          "y": -8671,
+          "w": 44,
+          "h": 44,
+          "right": 363,
+          "bottom": -8627
+        },
+        "lastField": {
+          "top": 604.3,
+          "bottom": 643.9
+        },
+        "lastAboveFooter": -49.8,
+        "bodyScrollTop": 8932,
+        "bodyScrollHeight": 9435,
+        "hash": "#/modules"
+      },
+      "glass": {
+        "bgStrong": "rgba(21, 27, 42, 0.85)",
+        "blur": "blur(16px)",
+        "aurora": true,
+        "bodyBefore": "none"
+      }
+    },
+    "667x375": {
+      "size": [
+        667,
+        375
+      ],
+      "dpr": 2,
+      "safe_bottom": 24,
+      "keyboard_model": "visualViewport emulation (--kb-offset)",
+      "config_clean": {
+        "ctaCount": 0,
+        "panelVisible": false,
+        "chip": null,
+        "gridColumns": 1,
+        "overflowDoc": 0
+      },
+      "config_dirty": {
+        "vw": 667,
+        "vh": 375,
+        "overflowDoc": 0,
+        "overflowMain": 0,
+        "gridColumns": 1,
+        "cardWidths": [
+          651,
+          651,
+          651,
+          651,
+          617,
+          617
+        ],
+        "panel": {
+          "x": 295.8,
+          "y": 250.6,
+          "w": 363.2,
+          "h": 84.4,
+          "right": 659,
+          "bottom": 335
+        },
+        "panelVisible": true,
+        "panelPadBottom": 31.2,
+        "panelBottomCss": "0px",
+        "btnSave": {
+          "x": 470.4,
+          "y": 258.8,
+          "w": 178,
+          "h": 44,
+          "right": 648.4,
+          "bottom": 302.8
+        },
+        "btnCancel": {
+          "x": 382.9,
+          "y": 258.8,
+          "w": 79.4,
+          "h": 44,
+          "right": 462.4,
+          "bottom": 302.8
+        },
+        "cta": [
+          {
+            "text": "Сохранить изменения",
+            "rect": {
+              "x": 470.4,
+              "y": 258.8,
+              "w": 178,
+              "h": 44,
+              "right": 648.4,
+              "bottom": 302.8
+            },
+            "inPanel": true,
+            "title": ""
+          }
+        ],
+        "ctaCount": 1,
+        "chip": {
+          "tag": "DIV",
+          "text": "1\n·\nне сохранено",
+          "role": "status",
+          "rect": {
+            "x": 16,
+            "y": 8.4,
+            "w": 115.2,
+            "h": 32,
+            "right": 131.2,
+            "bottom": 40.4
+          }
+        },
+        "firstField": {
+          "x": 21,
+          "y": -1685.4,
+          "w": 625,
+          "h": 39.6,
+          "right": 646,
+          "bottom": -1645.8
+        },
+        "lastField": {
+          "x": 42,
+          "y": 17225.6,
+          "w": 583,
+          "h": 40,
+          "right": 625,
+          "bottom": 17265.6
+        },
+        "fieldCount": 68,
+        "scrollTop": 1801,
+        "activeKey": "limits.dig_year_back_window_days",
+        "hash": "#/memory/rag",
+        "dirtyCount": 1,
+        "glass": {
+          "bgStrong": "rgba(21, 27, 42, 0.85)",
+          "blur": "blur(16px)",
+          "aurora": true,
+          "panelBg": "rgba(21, 27, 42, 0.85)",
+          "panelBackdrop": "blur(16px)"
+        },
+        "dirtyAction": {
+          "ok": true,
+          "key": "limits.dig_year_back_window_days",
+          "tag": "INPUT",
+          "type": "number",
+          "before": "1",
+          "after": "2"
+        }
+      },
+      "last_field": {
+        "ok": true,
+        "key": "memory.experience_review_cadence",
+        "field": {
+          "top": 132.6,
+          "bottom": 172.6,
+          "h": 40
+        },
+        "panelTop": 250.6,
+        "overlap": -78,
+        "caretVisible": true,
+        "activeKey": "memory.experience_review_cadence"
+      },
+      "config_keyboard": {
+        "kb": 188,
+        "panel": {
+          "x": 295.8,
+          "y": 62.6,
+          "w": 363.2,
+          "h": 84.4,
+          "right": 659,
+          "bottom": 147
+        },
+        "saveBtn": null,
+        "cancelBtn": null,
+        "vh": 375
+      },
+      "tech_key": {
+        "found": true,
+        "tag": "BUTTON",
+        "title": "limits.dig_year_back_window_days",
+        "text": "limits.dig_year_back_window_days",
+        "truncated": false,
+        "ariaExpanded": "false",
+        "rect": {
+          "w": 503,
+          "h": 24
+        },
+        "copy": true
+      },
+      "tech_key_open": {
+        "found": true,
+        "ariaExpanded": "true",
+        "truncated": false,
+        "fullText": "limits.dig_year_back_window_days",
+        "rect": {
+          "w": 503,
+          "h": 24
+        }
+      },
+      "tech_key_copy": {
+        "found": true,
+        "copy": true,
+        "clipboard": "limits.dig_year_back_window_days",
+        "copied": true
+      },
+      "module_open": {
+        "opened": true
+      },
+      "module_dirty": {
+        "vw": 667,
+        "vh": 375,
+        "modalOpen": true,
+        "overflowDoc": 0,
+        "panel": {
+          "x": 196.6,
+          "y": 271.6,
+          "w": 342,
+          "h": 58.4,
+          "right": 538.6,
+          "bottom": 330
+        },
+        "footer": {
+          "x": 37,
+          "y": 270.6,
+          "w": 593,
+          "h": 59.4,
+          "right": 630,
+          "bottom": 330
+        },
+        "panelVisible": true,
+        "saveBtn": {
+          "x": 360.6,
+          "y": 278.8,
+          "w": 178,
+          "h": 44,
+          "right": 538.6,
+          "bottom": 322.8
+        },
+        "cancelBtn": {
+          "x": 273.1,
+          "y": 278.8,
+          "w": 79.4,
+          "h": 44,
+          "right": 352.6,
+          "bottom": 322.8
+        },
+        "cta": [
+          {
+            "text": "Сохранить изменения",
+            "rect": {
+              "x": 360.6,
+              "y": 278.8,
+              "w": 178,
+              "h": 44,
+              "right": 538.6,
+              "bottom": 322.8
+            },
+            "inPanel": true
+          }
+        ],
+        "ctaCount": 1,
+        "chip": {
+          "tag": "DIV",
+          "text": "1\n·\nне сохранено"
+        },
+        "toggle": {
+          "x": 556,
+          "y": -8188,
+          "w": 44,
+          "h": 44,
+          "right": 600,
+          "bottom": -8144
+        },
+        "lastField": {
+          "top": 181.3,
+          "bottom": 220.9
+        },
+        "lastAboveFooter": -49.8,
+        "bodyScrollTop": 8367,
+        "bodyScrollHeight": 8529,
+        "hash": "#/modules",
+        "dirtyAction": {
+          "ok": true,
+          "key": "limits.chat_branch_context_hops",
+          "tag": "INPUT",
+          "before": "1",
+          "after": ""
+        }
+      },
+      "toggle": {
+        "found": true,
+        "w": 44,
+        "h": 44,
+        "marked": true
+      },
+      "module_after_scroll": {
+        "vw": 667,
+        "vh": 375,
+        "modalOpen": true,
+        "overflowDoc": 0,
+        "panel": {
+          "x": 196.6,
+          "y": 271.6,
+          "w": 342,
+          "h": 58.4,
+          "right": 538.6,
+          "bottom": 330
+        },
+        "footer": {
+          "x": 37,
+          "y": 270.6,
+          "w": 593,
+          "h": 59.4,
+          "right": 630,
+          "bottom": 330
+        },
+        "panelVisible": true,
+        "saveBtn": {
+          "x": 360.6,
+          "y": 278.8,
+          "w": 178,
+          "h": 44,
+          "right": 538.6,
+          "bottom": 322.8
+        },
+        "cancelBtn": {
+          "x": 273.1,
+          "y": 278.8,
+          "w": 79.4,
+          "h": 44,
+          "right": 352.6,
+          "bottom": 322.8
+        },
+        "cta": [
+          {
+            "text": "Сохранить изменения",
+            "rect": {
+              "x": 360.6,
+              "y": 278.8,
+              "w": 178,
+              "h": 44,
+              "right": 538.6,
+              "bottom": 322.8
+            },
+            "inPanel": true
+          }
+        ],
+        "ctaCount": 1,
+        "chip": {
+          "tag": "DIV",
+          "text": "1\n·\nне сохранено"
+        },
+        "toggle": {
+          "x": 556,
+          "y": -8188,
+          "w": 44,
+          "h": 44,
+          "right": 600,
+          "bottom": -8144
+        },
+        "lastField": {
+          "top": 181.3,
+          "bottom": 220.9
+        },
+        "lastAboveFooter": -49.8,
+        "bodyScrollTop": 8367,
+        "bodyScrollHeight": 8529,
+        "hash": "#/modules"
+      },
+      "glass": {
+        "bgStrong": "rgba(21, 27, 42, 0.85)",
+        "blur": "blur(16px)",
+        "aurora": true,
+        "bodyBefore": "none"
+      }
+    },
+    "844x390": {
+      "size": [
+        844,
+        390
+      ],
+      "dpr": 3,
+      "safe_bottom": 24,
+      "keyboard_model": "visualViewport emulation (--kb-offset)",
+      "config_clean": {
+        "ctaCount": 0,
+        "panelVisible": false,
+        "chip": null,
+        "gridColumns": 2,
+        "overflowDoc": 0
+      },
+      "config_dirty": {
+        "vw": 844,
+        "vh": 390,
+        "overflowDoc": 0,
+        "overflowMain": 0,
+        "gridColumns": 2,
+        "cardWidths": [
+          812,
+          812,
+          812,
+          812,
+          383,
+          383
+        ],
+        "panel": {
+          "x": 464.8,
+          "y": 305.6,
+          "w": 363.2,
+          "h": 84.4,
+          "right": 828,
+          "bottom": 390
+        },
+        "panelVisible": true,
+        "panelPadBottom": 31.2,
+        "panelBottomCss": "0px",
+        "btnSave": {
+          "x": 639.4,
+          "y": 313.8,
+          "w": 178,
+          "h": 44,
+          "right": 817.4,
+          "bottom": 357.8
+        },
+        "btnCancel": {
+          "x": 551.9,
+          "y": 313.8,
+          "w": 79.4,
+          "h": 44,
+          "right": 631.4,
+          "bottom": 357.8
+        },
+        "cta": [
+          {
+            "text": "Сохранить изменения",
+            "rect": {
+              "x": 639.4,
+              "y": 313.8,
+              "w": 178,
+              "h": 44,
+              "right": 817.4,
+              "bottom": 357.8
+            },
+            "inPanel": true,
+            "title": ""
+          }
+        ],
+        "ctaCount": 1,
+        "chip": {
+          "tag": "DIV",
+          "text": "1\n·\nне сохранено",
+          "role": "status",
+          "rect": {
+            "x": 662.4,
+            "y": 17.6,
+            "w": 115.2,
+            "h": 32,
+            "right": 777.6,
+            "bottom": 49.6
+          }
+        },
+        "firstField": {
+          "x": 29,
+          "y": -1212.6,
+          "w": 786,
+          "h": 39.6,
+          "right": 815,
+          "bottom": -1173
+        },
+        "lastField": {
+          "x": 445,
+          "y": 9642.4,
+          "w": 349,
+          "h": 40,
+          "right": 794,
+          "bottom": 9682.4
+        },
+        "fieldCount": 68,
+        "scrollTop": 0,
+        "activeKey": "limits.dig_year_back_window_days",
+        "hash": "#/memory/rag",
+        "dirtyCount": 1,
+        "glass": {
+          "bgStrong": "rgba(21, 27, 42, 0.85)",
+          "blur": "blur(16px)",
+          "aurora": true,
+          "panelBg": "rgba(21, 27, 42, 0.85)",
+          "panelBackdrop": "blur(16px)"
+        },
+        "dirtyAction": {
+          "ok": true,
+          "key": "limits.dig_year_back_window_days",
+          "tag": "INPUT",
+          "type": "number",
+          "before": "1",
+          "after": "2"
+        }
+      },
+      "last_field": {
+        "ok": true,
+        "key": "memory.experience_review_cadence",
+        "field": {
+          "top": 261.4,
+          "bottom": 301.4,
+          "h": 40
+        },
+        "panelTop": 305.6,
+        "overlap": -4.3,
+        "caretVisible": true,
+        "activeKey": "memory.experience_review_cadence"
+      },
+      "config_keyboard": {
+        "kb": 195,
+        "panel": {
+          "x": 464.8,
+          "y": 110.6,
+          "w": 363.2,
+          "h": 84.4,
+          "right": 828,
+          "bottom": 195
+        },
+        "saveBtn": null,
+        "cancelBtn": null,
+        "vh": 390
+      },
+      "tech_key": {
+        "found": true,
+        "tag": "BUTTON",
+        "title": "limits.dig_year_back_window_days",
+        "text": "limits.dig_year_back_window_days",
+        "truncated": false,
+        "ariaExpanded": "false",
+        "rect": {
+          "w": 269,
+          "h": 24
+        },
+        "copy": true
+      },
+      "tech_key_open": {
+        "found": true,
+        "ariaExpanded": "true",
+        "truncated": false,
+        "fullText": "limits.dig_year_back_window_days",
+        "rect": {
+          "w": 269,
+          "h": 24
+        }
+      },
+      "tech_key_copy": {
+        "found": true,
+        "copy": true,
+        "clipboard": "limits.dig_year_back_window_days",
+        "copied": true
+      },
+      "module_open": {
+        "opened": true
+      },
+      "module_dirty": {
+        "vw": 844,
+        "vh": 390,
+        "modalOpen": true,
+        "overflowDoc": 0,
+        "panel": {
+          "x": 303.6,
+          "y": 286.6,
+          "w": 342,
+          "h": 58.4,
+          "right": 645.6,
+          "bottom": 345
+        },
+        "footer": {
+          "x": 107,
+          "y": 285.6,
+          "w": 630,
+          "h": 59.4,
+          "right": 737,
+          "bottom": 345
+        },
+        "panelVisible": true,
+        "saveBtn": {
+          "x": 467.6,
+          "y": 293.8,
+          "w": 178,
+          "h": 44,
+          "right": 645.6,
+          "bottom": 337.8
+        },
+        "cancelBtn": {
+          "x": 380.1,
+          "y": 293.8,
+          "w": 79.4,
+          "h": 44,
+          "right": 459.6,
+          "bottom": 337.8
+        },
+        "cta": [
+          {
+            "text": "Сохранить изменения",
+            "rect": {
+              "x": 467.6,
+              "y": 293.8,
+              "w": 178,
+              "h": 44,
+              "right": 645.6,
+              "bottom": 337.8
+            },
+            "inPanel": true
+          }
+        ],
+        "ctaCount": 1,
+        "chip": {
+          "tag": "DIV",
+          "text": "1\n·\nне сохранено"
+        },
+        "toggle": {
+          "x": 359,
+          "y": -5581,
+          "w": 44,
+          "h": 44,
+          "right": 403,
+          "bottom": -5537
+        },
+        "lastField": {
+          "top": 196.1,
+          "bottom": 235.7
+        },
+        "lastAboveFooter": -50,
+        "bodyScrollTop": 5760,
+        "bodyScrollHeight": 5937,
+        "hash": "#/modules",
+        "dirtyAction": {
+          "ok": true,
+          "key": "limits.chat_branch_context_hops",
+          "tag": "INPUT",
+          "before": "1",
+          "after": ""
+        }
+      },
+      "toggle": {
+        "found": true,
+        "w": 44,
+        "h": 44,
+        "marked": true
+      },
+      "module_after_scroll": {
+        "vw": 844,
+        "vh": 390,
+        "modalOpen": true,
+        "overflowDoc": 0,
+        "panel": {
+          "x": 303.6,
+          "y": 286.6,
+          "w": 342,
+          "h": 58.4,
+          "right": 645.6,
+          "bottom": 345
+        },
+        "footer": {
+          "x": 107,
+          "y": 285.6,
+          "w": 630,
+          "h": 59.4,
+          "right": 737,
+          "bottom": 345
+        },
+        "panelVisible": true,
+        "saveBtn": {
+          "x": 467.6,
+          "y": 293.8,
+          "w": 178,
+          "h": 44,
+          "right": 645.6,
+          "bottom": 337.8
+        },
+        "cancelBtn": {
+          "x": 380.1,
+          "y": 293.8,
+          "w": 79.4,
+          "h": 44,
+          "right": 459.6,
+          "bottom": 337.8
+        },
+        "cta": [
+          {
+            "text": "Сохранить изменения",
+            "rect": {
+              "x": 467.6,
+              "y": 293.8,
+              "w": 178,
+              "h": 44,
+              "right": 645.6,
+              "bottom": 337.8
+            },
+            "inPanel": true
+          }
+        ],
+        "ctaCount": 1,
+        "chip": {
+          "tag": "DIV",
+          "text": "1\n·\nне сохранено"
+        },
+        "toggle": {
+          "x": 359,
+          "y": -5581,
+          "w": 44,
+          "h": 44,
+          "right": 403,
+          "bottom": -5537
+        },
+        "lastField": {
+          "top": 196.1,
+          "bottom": 235.7
+        },
+        "lastAboveFooter": -50,
+        "bodyScrollTop": 5760,
+        "bodyScrollHeight": 5937,
+        "hash": "#/modules"
+      },
+      "glass": {
+        "bgStrong": "rgba(21, 27, 42, 0.85)",
+        "blur": "blur(16px)",
+        "aurora": true,
+        "bodyBefore": "none"
+      }
+    },
+    "915x412": {
+      "size": [
+        915,
+        412
+      ],
+      "dpr": 3,
+      "safe_bottom": 24,
+      "keyboard_model": "visualViewport emulation (--kb-offset)",
+      "config_clean": {
+        "ctaCount": 0,
+        "panelVisible": false,
+        "chip": null,
+        "gridColumns": 2,
+        "overflowDoc": 0
+      },
+      "config_dirty": {
+        "vw": 915,
+        "vh": 412,
+        "overflowDoc": 0,
+        "overflowMain": 0,
+        "gridColumns": 2,
+        "cardWidths": [
+          883,
+          883,
+          883,
+          883,
+          418.5,
+          418.5
+        ],
+        "panel": {
+          "x": 535.8,
+          "y": 327.6,
+          "w": 363.2,
+          "h": 84.4,
+          "right": 899,
+          "bottom": 412
+        },
+        "panelVisible": true,
+        "panelPadBottom": 31.2,
+        "panelBottomCss": "0px",
+        "btnSave": {
+          "x": 710.4,
+          "y": 335.8,
+          "w": 178,
+          "h": 44,
+          "right": 888.4,
+          "bottom": 379.8
+        },
+        "btnCancel": {
+          "x": 622.9,
+          "y": 335.8,
+          "w": 79.4,
+          "h": 44,
+          "right": 702.4,
+          "bottom": 379.8
+        },
+        "cta": [
+          {
+            "text": "Сохранить изменения",
+            "rect": {
+              "x": 710.4,
+              "y": 335.8,
+              "w": 178,
+              "h": 44,
+              "right": 888.4,
+              "bottom": 379.8
+            },
+            "inPanel": true,
+            "title": ""
+          }
+        ],
+        "ctaCount": 1,
+        "chip": {
+          "tag": "DIV",
+          "text": "1\n·\nне сохранено",
+          "role": "status",
+          "rect": {
+            "x": 733.4,
+            "y": 17.6,
+            "w": 115.2,
+            "h": 32,
+            "right": 848.6,
+            "bottom": 49.6
+          }
+        },
+        "firstField": {
+          "x": 29,
+          "y": -1185.6,
+          "w": 857,
+          "h": 39.6,
+          "right": 886,
+          "bottom": -1146
+        },
+        "lastField": {
+          "x": 480.5,
+          "y": 9497.4,
+          "w": 384.5,
+          "h": 40,
+          "right": 865,
+          "bottom": 9537.4
+        },
+        "fieldCount": 68,
+        "scrollTop": 0,
+        "activeKey": "limits.dig_year_back_window_days",
+        "hash": "#/memory/rag",
+        "dirtyCount": 1,
+        "glass": {
+          "bgStrong": "rgba(21, 27, 42, 0.85)",
+          "blur": "blur(16px)",
+          "aurora": true,
+          "panelBg": "rgba(21, 27, 42, 0.85)",
+          "panelBackdrop": "blur(16px)"
+        },
+        "dirtyAction": {
+          "ok": true,
+          "key": "limits.dig_year_back_window_days",
+          "tag": "INPUT",
+          "type": "number",
+          "before": "1",
+          "after": "2"
+        }
+      },
+      "last_field": {
+        "ok": true,
+        "key": "memory.experience_review_cadence",
+        "field": {
+          "top": 283.4,
+          "bottom": 323.4,
+          "h": 40
+        },
+        "panelTop": 327.6,
+        "overlap": -4.3,
+        "caretVisible": true,
+        "activeKey": "memory.experience_review_cadence"
+      },
+      "config_keyboard": {
+        "kb": 206,
+        "panel": {
+          "x": 535.8,
+          "y": 121.6,
+          "w": 363.2,
+          "h": 84.4,
+          "right": 899,
+          "bottom": 206
+        },
+        "saveBtn": null,
+        "cancelBtn": null,
+        "vh": 412
+      },
+      "tech_key": {
+        "found": true,
+        "tag": "BUTTON",
+        "title": "limits.dig_year_back_window_days",
+        "text": "limits.dig_year_back_window_days",
+        "truncated": false,
+        "ariaExpanded": "false",
+        "rect": {
+          "w": 304.5,
+          "h": 24
+        },
+        "copy": true
+      },
+      "tech_key_open": {
+        "found": true,
+        "ariaExpanded": "true",
+        "truncated": false,
+        "fullText": "limits.dig_year_back_window_days",
+        "rect": {
+          "w": 304.5,
+          "h": 24
+        }
+      },
+      "tech_key_copy": {
+        "found": true,
+        "copy": true,
+        "clipboard": "limits.dig_year_back_window_days",
+        "copied": true
+      },
+      "module_open": {
+        "opened": true
+      },
+      "module_dirty": {
+        "vw": 915,
+        "vh": 412,
+        "modalOpen": true,
+        "overflowDoc": 0,
+        "panel": {
+          "x": 339.1,
+          "y": 308.6,
+          "w": 342,
+          "h": 58.4,
+          "right": 681.1,
+          "bottom": 367
+        },
+        "footer": {
+          "x": 142.5,
+          "y": 307.6,
+          "w": 630,
+          "h": 59.4,
+          "right": 772.5,
+          "bottom": 367
+        },
+        "panelVisible": true,
+        "saveBtn": {
+          "x": 503.1,
+          "y": 315.8,
+          "w": 178,
+          "h": 44,
+          "right": 681.1,
+          "bottom": 359.8
+        },
+        "cancelBtn": {
+          "x": 415.6,
+          "y": 315.8,
+          "w": 79.4,
+          "h": 44,
+          "right": 495.1,
+          "bottom": 359.8
+        },
+        "cta": [
+          {
+            "text": "Сохранить изменения",
+            "rect": {
+              "x": 503.1,
+              "y": 315.8,
+              "w": 178,
+              "h": 44,
+              "right": 681.1,
+              "bottom": 359.8
+            },
+            "inPanel": true
+          }
+        ],
+        "ctaCount": 1,
+        "chip": {
+          "tag": "DIV",
+          "text": "1\n·\nне сохранено"
+        },
+        "toggle": {
+          "x": 394.5,
+          "y": -5559,
+          "w": 44,
+          "h": 44,
+          "right": 438.5,
+          "bottom": -5515
+        },
+        "lastField": {
+          "top": 218.1,
+          "bottom": 257.7
+        },
+        "lastAboveFooter": -50,
+        "bodyScrollTop": 5738,
+        "bodyScrollHeight": 5937,
+        "hash": "#/modules",
+        "dirtyAction": {
+          "ok": true,
+          "key": "limits.chat_branch_context_hops",
+          "tag": "INPUT",
+          "before": "1",
+          "after": ""
+        }
+      },
+      "toggle": {
+        "found": true,
+        "w": 44,
+        "h": 44,
+        "marked": true
+      },
+      "module_after_scroll": {
+        "vw": 915,
+        "vh": 412,
+        "modalOpen": true,
+        "overflowDoc": 0,
+        "panel": {
+          "x": 339.1,
+          "y": 308.6,
+          "w": 342,
+          "h": 58.4,
+          "right": 681.1,
+          "bottom": 367
+        },
+        "footer": {
+          "x": 142.5,
+          "y": 307.6,
+          "w": 630,
+          "h": 59.4,
+          "right": 772.5,
+          "bottom": 367
+        },
+        "panelVisible": true,
+        "saveBtn": {
+          "x": 503.1,
+          "y": 315.8,
+          "w": 178,
+          "h": 44,
+          "right": 681.1,
+          "bottom": 359.8
+        },
+        "cancelBtn": {
+          "x": 415.6,
+          "y": 315.8,
+          "w": 79.4,
+          "h": 44,
+          "right": 495.1,
+          "bottom": 359.8
+        },
+        "cta": [
+          {
+            "text": "Сохранить изменения",
+            "rect": {
+              "x": 503.1,
+              "y": 315.8,
+              "w": 178,
+              "h": 44,
+              "right": 681.1,
+              "bottom": 359.8
+            },
+            "inPanel": true
+          }
+        ],
+        "ctaCount": 1,
+        "chip": {
+          "tag": "DIV",
+          "text": "1\n·\nне сохранено"
+        },
+        "toggle": {
+          "x": 394.5,
+          "y": -5559,
+          "w": 44,
+          "h": 44,
+          "right": 438.5,
+          "bottom": -5515
+        },
+        "lastField": {
+          "top": 218.1,
+          "bottom": 257.7
+        },
+        "lastAboveFooter": -50,
+        "bodyScrollTop": 5738,
+        "bodyScrollHeight": 5937,
+        "hash": "#/modules"
+      },
+      "glass": {
+        "bgStrong": "rgba(21, 27, 42, 0.85)",
+        "blur": "blur(16px)",
+        "aurora": true,
+        "bodyBefore": "none"
+      }
+    }
+  },
+  "console_errors": [],
+  "screenshots": [
+    "C:\\Code\\Python\\adminbot\\plans\\features\\cfg\\evidence\\cfg-04\\ui\\after\\320x640-config-dirty.png",
+    "C:\\Code\\Python\\adminbot\\plans\\features\\cfg\\evidence\\cfg-04\\ui\\after\\320x640-module-dirty.png",
+    "C:\\Code\\Python\\adminbot\\plans\\features\\cfg\\evidence\\cfg-04\\ui\\after\\360x740-config-dirty.png",
+    "C:\\Code\\Python\\adminbot\\plans\\features\\cfg\\evidence\\cfg-04\\ui\\after\\360x740-module-dirty.png",
+    "C:\\Code\\Python\\adminbot\\plans\\features\\cfg\\evidence\\cfg-04\\ui\\after\\390x844-config-dirty.png",
+    "C:\\Code\\Python\\adminbot\\plans\\features\\cfg\\evidence\\cfg-04\\ui\\after\\390x844-module-dirty.png",
+    "C:\\Code\\Python\\adminbot\\plans\\features\\cfg\\evidence\\cfg-04\\ui\\after\\430x932-config-dirty.png",
+    "C:\\Code\\Python\\adminbot\\plans\\features\\cfg\\evidence\\cfg-04\\ui\\after\\430x932-module-dirty.png",
+    "C:\\Code\\Python\\adminbot\\plans\\features\\cfg\\evidence\\cfg-04\\ui\\after\\667x375-config-dirty.png",
+    "C:\\Code\\Python\\adminbot\\plans\\features\\cfg\\evidence\\cfg-04\\ui\\after\\667x375-module-dirty.png",
+    "C:\\Code\\Python\\adminbot\\plans\\features\\cfg\\evidence\\cfg-04\\ui\\after\\844x390-config-dirty.png",
+    "C:\\Code\\Python\\adminbot\\plans\\features\\cfg\\evidence\\cfg-04\\ui\\after\\844x390-module-dirty.png",
+    "C:\\Code\\Python\\adminbot\\plans\\features\\cfg\\evidence\\cfg-04\\ui\\after\\915x412-config-dirty.png",
+    "C:\\Code\\Python\\adminbot\\plans\\features\\cfg\\evidence\\cfg-04\\ui\\after\\915x412-module-dirty.png"
+  ],
+  "failures": []
+}

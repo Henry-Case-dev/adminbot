@@ -450,7 +450,11 @@ class TestStickySave:
         _, body, _ = _last_rule_for(".sticky-save")
         decls = _parse_decls(body)
         assert decls.get("position") == "sticky", decls
-        assert decls.get("bottom") == "0", decls
+        # CFG-04B.2 (source-cfg-addendum L158): клавиатура. `--kb-offset`
+        # (app.js `_syncKeyboardOffset`) поднимает панель над экранной
+        # клавиатурой; прежний жёсткий `bottom: 0` оставлял кнопки под ней.
+        # safe-area считается отдельно — ровно один раз в padding-bottom.
+        assert decls.get("bottom") == "var(--kb-offset, 0px)", decls
         assert "var(--glass-bg-strong)" in _bg_decls(decls), decls
         assert "safe-area-inset-bottom" in decls.get("padding-bottom", ""), decls
         # re-pin ASAP 8 v6 D13 (§18I.13): панель — компактный pill (не

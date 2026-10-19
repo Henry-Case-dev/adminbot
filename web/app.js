@@ -3087,10 +3087,12 @@
         });
         return order.map(function (d) { return { day: d, cells: byDay[d] }; });
       },
-      // D13 (§18I.13): состояние компактного Save-чипа в шапке. clean →
-      // visible=false (чипа нет); dirty → число изменённых полей; saving →
-      // «Сохранение…»; error/conflict → остаётся с причиной; success →
-      // чип исчезает (тост доставляет F0).
+      // D13 (§18I.13) + CFG-04B.1 (source L157): компактный счётчик в шапке —
+      // НЕ второе действие. Раньше чип был кликабельным Save и конкурировал с
+      // нижней панелью на мобильном экране; поздний источник L157 оставляет
+      // счётчик как индикатор, а единственный основной сценарий сохранения —
+      // панель <sticky-save>. clean → индикатора нет; saving → «сохранение…»;
+      // error/conflict → остаётся с причиной; success → исчезает (тост F0).
       headerSaveChip: function () {
         var s = this.saveState
           || ((this.stickyDirtyCount || 0) > 0 ? 'dirty' : 'clean');
@@ -3098,13 +3100,19 @@
         var failed = (this.stickyFailed || []).length > 0;
         var visible = count > 0 || s === 'saving' || s === 'error'
           || s === 'conflict' || failed;
-        var map = { dirty: 'Сохранить', saving: 'Сохранение…',
-                    error: 'Ошибка', conflict: 'Конфликт' };
+        var map = { dirty: 'не сохранено', saving: 'сохранение…',
+                    error: 'ошибка', conflict: 'конфликт' };
         return {
           visible: visible,
           count: count,
           state: s,
-          label: map[s] || (failed ? 'Ошибка' : 'Сохранить'),
+          // Индикатор: действие — только кнопка панели внизу (B.1).
+          actionable: false,
+          label: map[s] || (failed ? 'ошибка' : 'не сохранено'),
+          title: count
+            ? ('Несохранённых полей: ' + count
+               + ' — сохранение на панели внизу формы')
+            : 'Есть состояние сохранения — панель внизу формы',
         };
       },
       // Управляемая мобильная навигация (<768) или drawer (768–1199).
@@ -6009,7 +6017,7 @@
       // F2 (T-2540): + пересчёт уровня A стекла (min-сторона ≥240).
       _onResize = function () {
         if (_appVm) {
-          _appVm._syncShellMode();
+          _appVm._preserveOnViewportChange();
           _appVm.reconcileLiquidGlass();
           if (typeof _appVm._hbResize === 'function') _appVm._hbResize();
         }
@@ -6390,6 +6398,105 @@
         if (typeof el.scrollIntoView === 'function') {
           try { el.scrollIntoView({ block: 'nearest' }); } catch (e) { /* no-op */ }
         }
+      },
+
+      // CFG-04A.1 (source L153): смена ориентации/viewport во время
+      // редактирования НЕ теряет ввод, scope, dirty, прокрутку и маршрут.
+      // Значения/hash живут в Vue-состоянии; DOM-прокрутка и активное поле
+      // могут быть пересозданы при смене shell-ветки (mobile ↔ compact) —
+      // снимаем их ДО, возвращаем ПОСЛЕ best effort (без фейкового фокуса:
+      // фокус восстанавливается только в реально существующее поле).
+      _captureEditViewport: function () {
+        var out = { scrollTop: 0, docScroll: 0, key: null, start: null, end: null };
+        if (typeof document === 'undefined') return out;
+        var scroller = (typeof document.querySelector === 'function')
+          ? document.querySelector('.scroll-area') : null;
+        if (scroller && typeof scroller.scrollTop === 'number') {
+          out.scrollTop = scroller.scrollTop;
+        }
+        // Компактный/десктопный shell скроллит документ, mobile — .scroll-area.
+        var docEl = document.scrollingElement
+          || (document.documentElement ? document.documentElement : null);
+        if (docEl && typeof docEl.scrollTop === 'number') {
+          out.docScroll = docEl.scrollTop;
+        }
+        var active = document.activeElement;
+        if (active && typeof active.getAttribute === 'function') {
+          out.key = active.getAttribute('data-cfg-key');
+          if (typeof active.selectionStart === 'number') {
+            out.start = active.selectionStart;
+            out.end = active.selectionEnd;
+          }
+        }
+        return out;
+      },
+      _restoreEditViewport: function (snap) {
+        if (!snap || typeof document === 'undefined') return;
+        var apply = function () {
+          var scroller = (typeof document.querySelector === 'function')
+            ? document.querySelector('.scroll-area') : null;
+          var docEl = document.scrollingElement
+            || (document.documentElement ? document.documentElement : null);
+          // CFG-04A.1: mobile shell скроллит `.scroll-area`, compact/desktop —
+          // документ. При смене ориентации носитель меняется, поэтому позицию
+          // переносим в ТОТ контейнер, который сейчас реально скроллится.
+          var target = (snap.scrollTop || 0) > 0 ? snap.scrollTop : snap.docScroll;
+          var mainScrollable = !!(scroller
+            && typeof scroller.scrollHeight === 'number'
+            && typeof scroller.clientHeight === 'number'
+            && scroller.scrollHeight > scroller.clientHeight + 1);
+          if (mainScrollable && typeof scroller.scrollTop === 'number') {
+            if (Math.abs((scroller.scrollTop || 0) - target) > 1) {
+              scroller.scrollTop = target;
+            }
+          } else if (docEl && typeof docEl.scrollTop === 'number') {
+            if (Math.abs((docEl.scrollTop || 0) - target) > 1) {
+              docEl.scrollTop = target;
+            }
+          }
+          if (!snap.key || typeof document.querySelector !== 'function') return;
+          var active = document.activeElement;
+          if (active && typeof active.getAttribute === 'function'
+              && active.getAttribute('data-cfg-key') === snap.key) return;
+          var node = null;
+          try {
+            node = document.querySelector(
+              '[data-cfg-key="' + String(snap.key).replace(/"/g, '\\"') + '"]');
+          } catch (e) { node = null; }
+          if (!node || typeof node.focus !== 'function') return;
+          try {
+            node.focus({ preventScroll: true });
+          } catch (e2) {
+            try { node.focus(); } catch (e3) { /* no-op */ }
+          }
+          if (snap.start != null && typeof node.setSelectionRange === 'function') {
+            try { node.setSelectionRange(snap.start, snap.end); } catch (e4) { /* no-op */ }
+          }
+        };
+        if (this && typeof this.$nextTick === 'function') {
+          this.$nextTick(apply);
+        } else {
+          apply();
+        }
+        if (typeof window !== 'undefined'
+            && typeof window.requestAnimationFrame === 'function') {
+          window.requestAnimationFrame(apply);
+        }
+      },
+      _preserveEditViewport: function (mutator) {
+        var snap = this._captureEditViewport();
+        try {
+          if (typeof mutator === 'function') mutator();
+        } finally {
+          this._restoreEditViewport(snap);
+        }
+      },
+      // CFG-04A.1 (source L153): точка входа resize-обработчика — прокрутка и
+      // активное поле сохраняются вокруг переключения shell-ветки
+      // (mobile ↔ compact/desktop пересоздаёт scroll-контейнер).
+      _preserveOnViewportChange: function () {
+        var self = this;
+        this._preserveEditViewport(function () { self._syncShellMode(); });
       },
 
       toast: function (text, kind) {
@@ -23669,21 +23776,149 @@
     methods: {
       cancel: function () { this.root.cancelModalEdits(); },
       save: function () { this.root.saveModalEdits(); },
+      // CFG-04B.3 (source L159): высота панели — ФАКТИЧЕСКАЯ, не токен 4.5rem.
+      // На 320 px панель переносится и выше статического запаса, из-за чего
+      // последнее поле/каретка уезжали под неё. Пишем измеренную высоту в
+      // `--sticky-save-h`: `scroll-padding-bottom` и `scroll-margin-bottom`
+      // полей считаются от неё. clean (панелей нет) → запас 0.
+      // Берём МАКСИМУМ по всем видимым `.sticky-save` (config-вкладка + модалка
+      // модуля могут быть смонтированы одновременно): запас не занижается.
+      _syncPanelHeight: function () {
+        if (typeof document === 'undefined') return 0;
+        var h = 0;
+        if (typeof document.querySelectorAll === 'function') {
+          var nodes = document.querySelectorAll('.sticky-save');
+          for (var i = 0; i < nodes.length; i++) {
+            var n = nodes[i];
+            if (!n || n.nodeType !== 1
+                || typeof n.getBoundingClientRect !== 'function') continue;
+            var r = n.getBoundingClientRect();
+            if (r && r.height > h) h = r.height;
+          }
+        } else {
+          var el = this.$el;
+          if (this.visible && el && el.nodeType === 1
+              && typeof el.getBoundingClientRect === 'function') {
+            h = el.getBoundingClientRect().height || 0;
+          }
+        }
+        h = Math.ceil(h || 0);
+        this._panelHeight = h;
+        var de = document.documentElement;
+        if (de && de.style && typeof de.style.setProperty === 'function') {
+          de.style.setProperty('--sticky-save-h', h + 'px');
+        }
+        return h;
+      },
+      _watchPanel: function () {
+        if (typeof ResizeObserver === 'undefined') return;
+        var el = this.$el;
+        var live = !!(this.visible && el && el.nodeType === 1);
+        // Пересоздаём observer только когда сменился узел/видимость, а не на
+        // каждый keystroke (updated вызывается часто).
+        if (this._ro && this._roEl === el && this._roLive === live) return;
+        if (this._ro) { this._ro.disconnect(); this._ro = null; }
+        this._roEl = el;
+        this._roLive = live;
+        if (!live) return;
+        var self = this;
+        this._ro = new ResizeObserver(function () { self._syncPanelHeight(); });
+        this._ro.observe(el);
+      },
+    },
+    mounted: function () {
+      this._syncPanelHeight();
+      this._watchPanel();
+    },
+    updated: function () {
+      this._syncPanelHeight();
+      this._watchPanel();
+    },
+    beforeUnmount: function () {
+      if (this._ro) { this._ro.disconnect(); this._ro = null; }
     },
     template:
       '<div v-if="visible" class="sticky-save" role="group" aria-label="Сохранение изменений"'
-      + ' :data-save-state="saveState">'
+      + ' :data-save-state="saveState" data-save-panel>'
       + '<span class="sticky-save__count">'
       + '{{ dirtyCount ? ("Изменено: " + dirtyCount) : "Нет изменений" }}'
       + '</span>'
-      + '<span v-if="stateLabel" class="sticky-save__state">{{ stateLabel }}</span>'
+      // CFG-04B.1/B.2 (L157/L158): в dirty подпись «Есть изменения» дублирует
+      // счётчик и раздувает панель на 320 px — показываем её только для
+      // состояний, которые счётчик не передаёт (loading/saving/error/conflict).
+      + '<span v-if="stateLabel && saveState !== \'dirty\'" class="sticky-save__state">{{ stateLabel }}</span>'
       + '<span v-if="failed.length" class="sticky-save__failed">'
       + 'Не сохранено: {{ failed.join(", ") }}</span>'
-      + '<button class="btn-ghost text-sm" type="button"'
+      + '<button class="btn-ghost text-sm" type="button" data-save-action="cancel"'
       + ' :disabled="saving || !active" @click="cancel">Отмена</button>'
-      + '<button class="btn-accent text-sm" type="button"'
+      + '<button class="btn-accent text-sm" type="button" data-save-action="save"'
       + ' :disabled="saving || !active" @click="save">'
       + '{{ saving ? "Сохранение…" : label }}</button>'
+      + '</div>',
+  });
+
+  // ═══ CFG-04C.3 (source L167): полный технический ключ ═══════════════════
+  // В карточке ключ может сокращаться, но полное значение всегда доступно:
+  // title (hover/скринридер), раскрытие по клику/Enter (aria-expanded) и
+  // копирование в clipboard. Русское название/описание/значение остаются
+  // отдельными элементами карточки — компонент их не заменяет.
+  app.component('tech-key', {
+    name: 'tech-key',
+    props: {
+      value: { type: String, default: '' },
+    },
+    data: function () {
+      return { open: false, copied: false };
+    },
+    methods: {
+      toggle: function () { this.open = !this.open; },
+      copy: async function () {
+        var text = this.value == null ? '' : String(this.value);
+        var ok = false;
+        try {
+          if (typeof navigator !== 'undefined' && navigator.clipboard
+              && typeof navigator.clipboard.writeText === 'function') {
+            await navigator.clipboard.writeText(text);
+            ok = true;
+          }
+        } catch (e) { ok = false; }
+        if (!ok && typeof document !== 'undefined') {
+          // Фолбэк без Clipboard API (старый WebView): скрытая textarea.
+          try {
+            var ta = document.createElement('textarea');
+            ta.value = text;
+            ta.setAttribute('readonly', 'readonly');
+            ta.style.position = 'fixed';
+            ta.style.opacity = '0';
+            document.body.appendChild(ta);
+            ta.select();
+            ok = !!(document.execCommand && document.execCommand('copy'));
+            document.body.removeChild(ta);
+          } catch (e2) { ok = false; }
+        }
+        if (!ok) return false;
+        this.copied = true;
+        var self = this;
+        if (typeof setTimeout === 'function') {
+          setTimeout(function () { self.copied = false; }, 1500);
+        }
+        return true;
+      },
+    },
+    template:
+      '<div class="tech-key" :data-tech-key="value">'
+      + '<button type="button" class="tech-key__value font-mono"'
+      + ' :class="{ \'tech-key__value--open\': open }"'
+      + ' :title="value" :aria-expanded="open ? \'true\' : \'false\'"'
+      + ' :aria-label="\'Технический ключ \' + value + \' — показать полностью\'"'
+      + ' @click="toggle">{{ value }}</button>'
+      + '<button type="button" class="tech-key__copy"'
+      + ' :data-copied="copied ? \'1\' : \'0\'"'
+      + ' :title="copied ? \'Скопировано\' : \'Скопировать ключ\'"'
+      + ' :aria-label="\'Скопировать технический ключ \' + value"'
+      + ' @click="copy">'
+      + '<span class="tech-key__copy-label">{{ copied ? \'скопировано\' : \'копировать\' }}</span>'
+      + '</button>'
       + '</div>',
   });
 

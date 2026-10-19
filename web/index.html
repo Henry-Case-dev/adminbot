@@ -169,19 +169,21 @@
             </nav>
             <div class="text-sm font-semibold truncate">{{ currentTabLabel }}</div>
           </div>
-          <!-- D13 (§18I.13): компактный Save в ШАПКЕ — появляется ТОЛЬКО при
-              dirty/saving/failed (clean → чипа нет). Показывает число
-              изменённых полей; клик = сохранить; success → чип исчезает;
-              failure/conflict → остаётся с причиной. Не полный футер. -->
-          <button v-if="headerSaveChip.visible" type="button"
-                  class="header-save-chip btn-accent text-xs shrink-0"
-                  :data-save-state="headerSaveChip.state"
-                  :title="'Сохранить изменения (' + headerSaveChip.count + ')'"
-                  @click="saveModalEdits()">
+          <!-- D13 (§18I.13) + CFG-04B.1 (source L157): компактный СЧЁТЧИК
+              в шапке — появляется ТОЛЬКО при dirty/saving/failed (clean →
+              индикатора нет). Это НЕ кнопка: единственный основной сценарий
+              сохранения — панель <sticky-save> внизу формы; второй физический
+              доступ к тому же действию не показывается. role=status —
+              скринридер читает состояние без действия. -->
+          <div v-if="headerSaveChip.visible" class="header-save-chip text-xs shrink-0"
+               role="status" aria-live="polite"
+               data-save-indicator
+               :data-save-state="headerSaveChip.state"
+               :title="headerSaveChip.title">
             <span class="header-save-chip__count">{{ headerSaveChip.count }}</span>
             <span aria-hidden="true">·</span>
             <span>{{ headerSaveChip.label }}</span>
-          </button>
+          </div>
           <!-- W2-FULLSCREEN (REQ-U07-2/U07.2) + FS-HOTFIX 18.10: -->
           <!-- ЕДИНСТВЕННЫЙ узел ⛶. Слот (inline|hidden) решает -->
           <!-- fullscreen-policy.js (html.fs-hidden, data-fs-reason на <html>); -->
@@ -1985,7 +1987,7 @@
                           class="badge badge-info">{{ summaryPromptMeta(workspacePromptFocus.key).badge }}</span>
                   </div>
                   <div class="text-sm font-bold">{{ workspacePromptFocus.title }}</div>
-                  <div class="text-xs text-gray-500 font-mono truncate mb-1">{{ workspacePromptFocus.key }}</div>
+                  <tech-key :value="workspacePromptFocus.key" class="mb-1"></tech-key>
                   <div v-if="configSourceLabel(workspacePromptFocus)" class="text-[10px] text-gray-500 mb-1">
                     {{ configSourceLabel(workspacePromptFocus) }}
                   </div>
@@ -2527,9 +2529,9 @@
                               <div v-if="configItemNotice(item)"
                                    class="text-[10px] text-amber-300 mb-1">{{ configItemNotice(item) }}</div>
                               <div class="text-sm font-semibold">{{ item.title }}</div>
-                              <div class="text-xs text-gray-500 font-mono truncate mb-1">{{ item.key }}</div>
+                              <tech-key :value="item.key" class="mb-1"></tech-key>
                               <div class="text-xs text-gray-400 mb-2">{{ item.description }}</div>
-                              <textarea class="field scroll-thin" rows="6" v-model="item.value"></textarea>
+                              <textarea class="field scroll-thin" rows="6" :data-cfg-key="item.key" v-model="item.value"></textarea>
                               <!-- F4 (ASAP 8 §4.3, C7): server-compiled
                                    preview «Стиль обложки» — тот же POST
                                    /api/cover/preview-compile (mode
@@ -2657,9 +2659,9 @@
                                 <div v-if="configItemNotice(item)"
                                      class="text-[10px] text-amber-300 mb-1">{{ configItemNotice(item) }}</div>
                                 <div class="text-sm font-semibold">{{ item.title }}</div>
-                                <div class="text-xs text-gray-500 font-mono truncate mb-1">{{ item.key }}</div>
+                                <tech-key :value="item.key" class="mb-1"></tech-key>
                                 <div class="text-xs text-gray-400 mb-2">{{ item.description }}</div>
-                                <textarea class="field scroll-thin" rows="6" v-model="item.value"></textarea>
+                                <textarea class="field scroll-thin" rows="6" :data-cfg-key="item.key" v-model="item.value"></textarea>
                               </div>
                             </div>
                           </details>
@@ -3374,7 +3376,7 @@
                       Оля, Мимикрия, Лёха). «Общие реакции» и «Расписания» им не
                       управляются.
                     </span>
-                    <label class="relative inline-flex items-center cursor-pointer shrink-0">
+                    <label class="relative inline-flex items-center cursor-pointer shrink-0 param-toggle">
                       <input type="checkbox" class="sr-only peer"
                              :checked="permsocMasterOn()"
                              :disabled="!canToggleMaster()"
@@ -3611,10 +3613,10 @@
                       <div class="flex items-center justify-between gap-3">
                         <div class="min-w-0">
                           <div class="text-sm font-semibold">{{ item.title }}</div>
-                          <div class="text-xs text-gray-500 font-mono truncate">{{ item.key }}</div>
+                          <tech-key :value="item.key"></tech-key>
                         </div>
-                        <label class="relative inline-flex items-center cursor-pointer shrink-0">
-                          <input type="checkbox" class="sr-only peer" v-model="item.value"
+                        <label class="relative inline-flex items-center cursor-pointer shrink-0 param-toggle">
+                          <input type="checkbox" class="sr-only peer" :data-cfg-key="item.key" v-model="item.value"
                                  :disabled="!canEditConfig(item.key)"
                                  @change="saveConfigItem(item)">
                           <div class="w-11 h-6 rounded-full peer bg-white/10 peer-checked:bg-violet-600 transition-colors"></div>
@@ -3628,7 +3630,7 @@
                     </template>
                     <template v-else-if="item.widget === 'keyvalue'">
                       <div class="text-sm font-semibold">{{ item.title }}</div>
-                      <div class="text-xs text-gray-500 font-mono truncate mb-1">{{ item.key }}</div>
+                      <tech-key :value="item.key" class="mb-1"></tech-key>
                       <div class="text-xs text-gray-400 mb-2">{{ item.description }}</div>
                       <!-- F10 (ADR-1024-11 D2): :key с версией конфига —
                            reload гарантированно перемонтирует редактор. -->
@@ -3637,17 +3639,17 @@
                     </template>
                     <template v-else-if="item.widget === 'list'">
                       <div class="text-sm font-semibold">{{ item.title }}</div>
-                      <div class="text-xs text-gray-500 font-mono truncate mb-1">{{ item.key }}</div>
+                      <tech-key :value="item.key" class="mb-1"></tech-key>
                       <div class="text-xs text-gray-400 mb-2">{{ item.description }}</div>
                       <list-editor :item="item" :can-edit="canEditConfig(item.key)"
                                          v-bind="listEditorProps(item)"></list-editor>
                     </template>
                     <template v-else-if="item.type === 'json' || item.category === 'prompts' || item.category === 'content'">
                       <div class="text-sm font-semibold">{{ item.title }}</div>
-                      <div class="text-xs text-gray-500 font-mono truncate mb-1">{{ item.key }}</div>
+                      <tech-key :value="item.key" class="mb-1"></tech-key>
                       <div class="text-xs text-gray-400 mb-2">{{ item.description }}</div>
                       <textarea class="field scroll-thin" :rows="item.type === 'json' ? 4 : 6"
-                                v-model="item.value"></textarea>
+                                :data-cfg-key="item.key" v-model="item.value"></textarea>
                     </template>
                     <template v-else-if="item.secret">
                       <!-- P0 round1028 (таксономия секретов): ветка ТОЛЬКО по
@@ -3706,10 +3708,10 @@
                     </template>
                     <template v-else-if="item.widget === 'select'">
                       <div class="text-sm font-semibold">{{ item.title }}</div>
-                      <div class="text-xs text-gray-500 font-mono truncate mb-1">{{ item.key }}</div>
+                      <tech-key :value="item.key" class="mb-1"></tech-key>
                       <div class="text-xs text-gray-400 mb-2">{{ item.description }}</div>
                       <!-- Раунд 10.4 (B-10): выпадающий список — автосейв на change -->
-                      <select class="field" v-model="item.value"
+                      <select class="field" :data-cfg-key="item.key" v-model="item.value"
                               :disabled="!canEditConfig(item.key)"
                               @change="saveConfigItem(item)">
                         <option v-for="(o, i) in (item.select_options || [])" :key="o"
@@ -3721,10 +3723,11 @@
                          (конвертация на границе виджета). -->
                     <template v-else-if="item.key === 'limits.kostik_reply_probability'">
                       <div class="text-sm font-semibold">{{ item.title }}</div>
-                      <div class="text-xs text-gray-500 font-mono truncate mb-1">{{ item.key }}</div>
+                      <tech-key :value="item.key" class="mb-1"></tech-key>
                       <div class="text-xs text-gray-400 mb-2">{{ item.description }}</div>
                       <div class="flex items-center gap-2">
                         <input class="field" type="number" min="0" max="100" step="1"
+                               :data-cfg-key="item.key"
                                :value="permsocProbToPercent(item.value)"
                                :disabled="!canEditConfig(item.key)"
                                @change="saveKostikProbability(item, $event.target.value)">
@@ -3733,10 +3736,11 @@
                     </template>
                     <template v-else-if="item.key === 'limits.image_daily_limit'">
                       <div class="text-sm font-semibold">{{ item.title }}</div>
-                      <div class="text-xs text-gray-500 font-mono truncate mb-1">{{ item.key }}</div>
+                      <tech-key :value="item.key" class="mb-1"></tech-key>
                       <div class="text-xs text-gray-400 mb-2">{{ item.description }}</div>
                       <div class="flex items-center gap-2">
                         <input class="field" type="number" min="-1" step="1"
+                               :data-cfg-key="item.key"
                                :value="item.value"
                                :disabled="!canEditConfig(item.key)"
                                data-image-quota-input
@@ -3751,10 +3755,11 @@
                          каталога + человеческий формат (300 → «5 мин»). -->
                     <template v-else-if="item.key === 'limits.image_freq_limit_cooldown_seconds'">
                       <div class="text-sm font-semibold">{{ item.title }}</div>
-                      <div class="text-xs text-gray-500 font-mono truncate mb-1">{{ item.key }}</div>
+                      <tech-key :value="item.key" class="mb-1"></tech-key>
                       <div class="text-xs text-gray-400 mb-2">{{ item.description }}</div>
                       <div class="flex items-center gap-2">
                         <input class="field" type="number" min="0" step="1"
+                               :data-cfg-key="item.key"
                                v-model="item.value"
                                :disabled="!canEditConfig(item.key)"
                                data-image-freq-cooldown-input
@@ -3768,10 +3773,11 @@
                          витрина не обещает нулевой серии). -->
                     <template v-else-if="item.key === 'limits.image_freq_limit_burst'">
                       <div class="text-sm font-semibold">{{ item.title }}</div>
-                      <div class="text-xs text-gray-500 font-mono truncate mb-1">{{ item.key }}</div>
+                      <tech-key :value="item.key" class="mb-1"></tech-key>
                       <div class="text-xs text-gray-400 mb-2">{{ item.description }}</div>
                       <div class="flex items-center gap-2">
                         <input class="field" type="number" min="1" step="1"
+                               :data-cfg-key="item.key"
                                v-model="item.value"
                                :disabled="!canEditConfig(item.key)"
                                data-image-freq-burst-input
@@ -3781,9 +3787,9 @@
                     </template>
                     <template v-else>
                       <div class="text-sm font-semibold">{{ item.title }}</div>
-                      <div class="text-xs text-gray-500 font-mono truncate mb-1">{{ item.key }}</div>
+                      <tech-key :value="item.key" class="mb-1"></tech-key>
                       <div class="text-xs text-gray-400 mb-2">{{ item.description }}</div>
-                      <input class="field" :type="inputType(item)" v-model="item.value">
+                      <input class="field" :type="inputType(item)" :data-cfg-key="item.key" v-model="item.value">
                     </template>
                   </div>
                   </template>
@@ -3994,11 +4000,11 @@
                       <div v-if="configItemNotice(item)"
                            class="text-[10px] text-amber-300 mb-1">{{ configItemNotice(item) }}</div>
                       <div class="text-sm font-semibold">{{ item.title }}</div>
-                      <div class="text-xs text-gray-500 font-mono truncate mb-1">{{ item.key }}</div>
+                      <tech-key :value="item.key" class="mb-1"></tech-key>
                       <div class="text-xs text-gray-400 mb-2">{{ item.description }}</div>
                       <div v-if="item.type === 'bool'" class="flex items-center justify-end gap-3">
-                        <label class="relative inline-flex items-center cursor-pointer">
-                          <input type="checkbox" class="sr-only peer" v-model="item.value"
+                        <label class="relative inline-flex items-center cursor-pointer param-toggle">
+                          <input type="checkbox" class="sr-only peer" :data-cfg-key="item.key" v-model="item.value"
                                  :disabled="!canEditConfig(item.key)"
                                  @change="saveConfigItem(item)">
                           <div class="w-11 h-6 rounded-full peer bg-white/10 peer-checked:bg-violet-600 transition-colors"></div>
@@ -4007,7 +4013,7 @@
                       </div>
                       <div v-else-if="item.type === 'json' || item.category === 'prompts' || item.category === 'content'">
                         <textarea class="field scroll-thin" :rows="item.type === 'json' ? 4 : 6"
-                                  v-model="item.value"></textarea>
+                                  :data-cfg-key="item.key" v-model="item.value"></textarea>
                       </div>
                       <div v-else-if="item.secret">
                         <!-- F9 (ADR-1025-22 D4): единый компонент секрет-поля.
@@ -4026,7 +4032,7 @@
                       </div>
                       <div v-else-if="item.widget === 'select'" class="mt-2">
                         <!-- Раунд 10.4 (B-10): выпадающий список — автосейв -->
-                        <select class="field" v-model="item.value"
+                        <select class="field" :data-cfg-key="item.key" v-model="item.value"
                                 :disabled="!canEditConfig(item.key)"
                                 @change="saveConfigItem(item)">
                           <option v-for="(o, i) in (item.select_options || [])" :key="o"
@@ -4060,7 +4066,7 @@
                              data-image-quota-input-error>{{ imageQuotaInputError }}</div>
                       </div>
                       <div v-else>
-                        <input class="field" :type="inputType(item)" v-model="item.value">
+                        <input class="field" :type="inputType(item)" :data-cfg-key="item.key" v-model="item.value">
                       </div>
                     </div>
                   </div>
@@ -4271,8 +4277,8 @@
                           <template v-if="item.type === 'bool'">
                             <div class="flex items-center justify-between gap-3">
                               <div class="text-sm font-semibold min-w-0">{{ item.title }}</div>
-                              <label class="relative inline-flex items-center cursor-pointer shrink-0">
-                                <input type="checkbox" class="sr-only peer" v-model="item.value"
+                              <label class="relative inline-flex items-center cursor-pointer shrink-0 param-toggle">
+                                <input type="checkbox" class="sr-only peer" :data-cfg-key="item.key" v-model="item.value"
                                        :disabled="!canEditConfig(item.key)" @change="saveConfigItem(item)">
                                 <div class="w-11 h-6 rounded-full peer bg-white/10 peer-checked:bg-violet-600 transition-colors"></div>
                                 <div class="absolute left-0.5 w-5 h-5 rounded-full bg-white transition-transform peer-checked:translate-x-5"></div>
@@ -4281,7 +4287,7 @@
                           </template>
                           <template v-else-if="item.widget === 'select'">
                             <div class="text-sm font-semibold">{{ item.title }}</div>
-                            <select class="field mt-1" v-model="item.value" :disabled="!canEditConfig(item.key)"
+                            <select class="field mt-1" :data-cfg-key="item.key" v-model="item.value" :disabled="!canEditConfig(item.key)"
                                     @change="saveConfigItem(item)">
                               <option v-for="(o, i) in (item.select_options || [])" :key="o"
                                       :value="o">{{ (item.select_labels && item.select_labels[i]) || o }}</option>
@@ -4318,12 +4324,12 @@
                           <template v-else-if="item.type === 'json' || item.category === 'prompts' || item.category === 'content'">
                             <div class="text-sm font-semibold">{{ item.title }}</div>
                             <textarea class="field scroll-thin mt-1" :rows="item.type === 'json' ? 4 : 6"
-                                      v-model="item.value"></textarea>
+                                      :data-cfg-key="item.key" v-model="item.value"></textarea>
                           </template>
                           <template v-else>
                             <div class="text-sm font-semibold">{{ item.title }}</div>
                             <div class="text-xs text-gray-400 mb-1">{{ item.description }}</div>
-                            <input class="field mt-1" :type="inputType(item)" v-model="item.value">
+                            <input class="field mt-1" :type="inputType(item)" :data-cfg-key="item.key" v-model="item.value">
                           </template>
                         </div>
                       </div>
@@ -4335,8 +4341,8 @@
                             <template v-if="item.type === 'bool'">
                               <div class="flex items-center justify-between gap-3">
                                 <div class="text-sm font-semibold min-w-0">{{ item.title }}</div>
-                                <label class="relative inline-flex items-center cursor-pointer shrink-0">
-                                  <input type="checkbox" class="sr-only peer" v-model="item.value"
+                                <label class="relative inline-flex items-center cursor-pointer shrink-0 param-toggle">
+                                  <input type="checkbox" class="sr-only peer" :data-cfg-key="item.key" v-model="item.value"
                                          :disabled="!canEditConfig(item.key)" @change="saveConfigItem(item)">
                                   <div class="w-11 h-6 rounded-full peer bg-white/10 peer-checked:bg-violet-600 transition-colors"></div>
                                   <div class="absolute left-0.5 w-5 h-5 rounded-full bg-white transition-transform peer-checked:translate-x-5"></div>
@@ -4346,7 +4352,7 @@
                             <template v-else>
                               <div class="text-sm font-semibold">{{ item.title }}</div>
                               <div class="text-xs text-gray-400 mb-1">{{ item.description }}</div>
-                              <input class="field mt-1" :type="inputType(item)" v-model="item.value">
+                              <input class="field mt-1" :type="inputType(item)" :data-cfg-key="item.key" v-model="item.value">
                             </template>
                           </div>
                         </div>
@@ -7151,10 +7157,10 @@
                                 aria-label="Вернуть глобальное значение" @click="resetChatOverride(item)">↪ Глобальное</button>
                           </div>
                           <div class="text-sm font-semibold">{{ item.title }}</div>
-                          <div class="text-xs text-gray-500 font-mono truncate mb-1">{{ item.key }}</div>
+                          <tech-key :value="item.key" class="mb-1"></tech-key>
                           <div v-if="item.type === 'bool'" class="flex items-center justify-end gap-3">
-                            <label class="relative inline-flex items-center cursor-pointer">
-                              <input type="checkbox" class="sr-only peer" v-model="item.value"
+                            <label class="relative inline-flex items-center cursor-pointer param-toggle">
+                              <input type="checkbox" class="sr-only peer" :data-cfg-key="item.key" v-model="item.value"
                                      :disabled="!canEditConfig(item.key)"
                                      @change="saveConfigItem(item)">
                               <div class="w-11 h-6 rounded-full peer bg-white/10 peer-checked:bg-violet-600 transition-colors"></div>
@@ -7162,7 +7168,7 @@
                             </label>
                           </div>
                           <div v-else>
-                            <input class="field" :type="inputType(item)" v-model="item.value">
+                            <input class="field" :type="inputType(item)" :data-cfg-key="item.key" v-model="item.value">
                             <div class="mt-2 flex justify-end">
                               <button class="btn-accent text-sm" :disabled="!canEditConfig(item.key) || saving.has(item.key)"
                                       @click="saveConfigItem(item)">
@@ -7194,10 +7200,10 @@
                                 aria-label="Вернуть глобальное значение" @click="resetChatOverride(item)">↪ Глобальное</button>
                             </div>
                             <div class="text-sm font-semibold">{{ item.title }}</div>
-                            <div class="text-xs text-gray-500 font-mono truncate mb-1">{{ item.key }}</div>
+                            <tech-key :value="item.key" class="mb-1"></tech-key>
                             <div v-if="item.type === 'bool'" class="flex items-center justify-end gap-3">
-                              <label class="relative inline-flex items-center cursor-pointer">
-                                <input type="checkbox" class="sr-only peer" v-model="item.value"
+                              <label class="relative inline-flex items-center cursor-pointer param-toggle">
+                                <input type="checkbox" class="sr-only peer" :data-cfg-key="item.key" v-model="item.value"
                                        :disabled="!canEditConfig(item.key)"
                                        @change="saveConfigItem(item)">
                                 <div class="w-11 h-6 rounded-full peer bg-white/10 peer-checked:bg-violet-600 transition-colors"></div>
@@ -7205,7 +7211,7 @@
                               </label>
                             </div>
                             <div v-else>
-                              <input class="field" :type="inputType(item)" v-model="item.value">
+                              <input class="field" :type="inputType(item)" :data-cfg-key="item.key" v-model="item.value">
                               <div class="mt-2 flex justify-end">
                                 <button class="btn-accent text-sm" :disabled="!canEditConfig(item.key) || saving.has(item.key)"
                                         @click="saveConfigItem(item)">
@@ -7394,7 +7400,7 @@
                               Периодический прогон воркера по сообщениям чата
                             </div>
                           </div>
-                          <label class="relative inline-flex items-center cursor-pointer shrink-0">
+                          <label class="relative inline-flex items-center cursor-pointer shrink-0 param-toggle">
                             <input type="checkbox" class="sr-only peer"
                                    v-model="loreSettings.auto_enabled">
                             <div class="w-11 h-6 rounded-full peer bg-white/10
@@ -7524,10 +7530,10 @@
                                 aria-label="Вернуть глобальное значение" @click="resetChatOverride(item)">↪ Глобальное</button>
                           </div>
                           <div class="text-sm font-semibold">{{ item.title }}</div>
-                          <div class="text-xs text-gray-500 font-mono truncate mb-1">{{ item.key }}</div>
+                          <tech-key :value="item.key" class="mb-1"></tech-key>
                           <div v-if="item.type === 'bool'" class="flex items-center justify-end gap-3">
-                            <label class="relative inline-flex items-center cursor-pointer">
-                              <input type="checkbox" class="sr-only peer" v-model="item.value"
+                            <label class="relative inline-flex items-center cursor-pointer param-toggle">
+                              <input type="checkbox" class="sr-only peer" :data-cfg-key="item.key" v-model="item.value"
                                      :disabled="!canEditConfig(item.key)"
                                      @change="saveConfigItem(item)">
                               <div class="w-11 h-6 rounded-full peer bg-white/10 peer-checked:bg-violet-600 transition-colors"></div>
@@ -7535,7 +7541,7 @@
                             </label>
                           </div>
                           <div v-else>
-                            <input class="field" :type="inputType(item)" v-model="item.value">
+                            <input class="field" :type="inputType(item)" :data-cfg-key="item.key" v-model="item.value">
                             <div class="mt-2 flex justify-end">
                               <button class="btn-accent text-sm" :disabled="!canEditConfig(item.key) || saving.has(item.key)"
                                       @click="saveConfigItem(item)">
@@ -7564,10 +7570,10 @@
                                 aria-label="Вернуть глобальное значение" @click="resetChatOverride(item)">↪ Глобальное</button>
                             </div>
                             <div class="text-sm font-semibold">{{ item.title }}</div>
-                            <div class="text-xs text-gray-500 font-mono truncate mb-1">{{ item.key }}</div>
+                            <tech-key :value="item.key" class="mb-1"></tech-key>
                             <div v-if="item.type === 'bool'" class="flex items-center justify-end gap-3">
-                              <label class="relative inline-flex items-center cursor-pointer">
-                                <input type="checkbox" class="sr-only peer" v-model="item.value"
+                              <label class="relative inline-flex items-center cursor-pointer param-toggle">
+                                <input type="checkbox" class="sr-only peer" :data-cfg-key="item.key" v-model="item.value"
                                        :disabled="!canEditConfig(item.key)"
                                        @change="saveConfigItem(item)">
                                 <div class="w-11 h-6 rounded-full peer bg-white/10 peer-checked:bg-violet-600 transition-colors"></div>
@@ -7575,7 +7581,7 @@
                               </label>
                             </div>
                             <div v-else>
-                              <input class="field" :type="inputType(item)" v-model="item.value">
+                              <input class="field" :type="inputType(item)" :data-cfg-key="item.key" v-model="item.value">
                               <div class="mt-2 flex justify-end">
                                 <button class="btn-accent text-sm" :disabled="!canEditConfig(item.key) || saving.has(item.key)"
                                         @click="saveConfigItem(item)">
@@ -11396,6 +11402,7 @@
       </div>
       <div class="secret-field__row">
         <input ref="secretInput" class="field secret-field__input" autocomplete="off"
+               :data-cfg-key="techKey"
                :type="inputType" :value="draft" :placeholder="placeholder"
                :disabled="disabled"
                @input="onInput">

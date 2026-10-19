@@ -1,0 +1,62 @@
+CFG-04 RED → GREEN (кандидат не коммичен; базовый SHA master 7a3c1f92)
+
+=== Ф0: baseline-пины на базовом SHA (зелёные до правок) ===
+py -3 -m pytest tests/test_webapp_ui_rework_round1020.py tests/test_webapp_f9_round1025.py tests/test_webapp_hotfix9_round1025.py -q
+  68 passed
+node tests/js/asap8_d1213_save_contract_test.js  -> ASAP8-D1213-SAVE-CONTRACT-OK
+node tests/js/round1025_f9_savebar_visual_test.js -> F9-SAVEBAR-OK
+node tests/js/round1025_save_state_test.js       -> ROUND1025-SAVE-STATE-OK
+
+=== Ф2: RED (новый контракт на базовом SHA) ===
+py -3 -m pytest tests/test_cfg04_forms_contract.py -q
+  13 failed, 16 passed
+  FAILED TestOneSaveFlow::test_header_chip_is_not_a_save_action
+  FAILED TestOneSaveFlow::test_single_save_call_site_in_markup
+  FAILED TestOneSaveFlow::test_chip_computed_is_indicator
+  FAILED TestPanelSafeArea::test_sticky_save_safe_area_formula
+  FAILED TestPanelSafeArea::test_keyboard_moves_panel_geometry
+  FAILED TestLastField::test_panel_height_is_measured
+  FAILED TestLastField::test_scroll_padding_matches_panel_and_keyboard
+  FAILED TestLayoutAndTouch::test_primary_touch_targets
+  FAILED TestTechnicalKey::test_component_registered
+  FAILED TestTechnicalKey::test_keys_use_disclosure_component
+  FAILED TestTechnicalKey::test_disclosure_contract
+  FAILED TestOrientation::test_viewport_state_is_preserved
+  FAILED TestOrientation::test_fields_have_stable_keys
+  (остальные 16 — AIV-инварианты dirty/save/glass/навигации — зелёные уже на базе,
+   что подтверждает: правка не переписывает существующий движок)
+
+node tests/js/cfg04_forms_contract_test.js
+  AssertionError: B.1: dirty-индикатор не CTA (actual undefined, expected false)
+
+E2E на базовом SHA (master 7a3c1f92, отдельный worktree):
+  .venv\Scripts\python.exe tools\ui_cfg04_forms_e2e.py --baseline
+  [cfg04] mode=before viewports=7 failures=85 shots=7 console_errors=0
+  Ключевые падения (каждый viewport):
+    save-CTA = 2 (ожидался 1: панель)
+    safe-area панели 7.2 px (ожидалось base+56 / base+24)
+    клавиатура N px — панель не поднялась (bottom = viewport bottom)
+    технический ключ без раскрытия (C.3)
+    модуль: save-CTA = 2
+    touch-зона переключателя 44.0×24.0 < 44×44
+    touch-зона «Сохранить» 37.6 / «Отмена» 38.0 < 44
+    поворот: scroll 220 → 0
+
+=== Ф4: GREEN (кандидат) ===
+py -3 -m pytest tests/test_cfg04_forms_contract.py tests/test_webapp_ui_rework_round1020.py \
+  tests/test_webapp_f9_round1025.py tests/test_webapp_hotfix9_round1025.py \
+  tests/test_webapp_hotfix10_round1025.py tests/test_webapp_tma_fixes_ui.py \
+  tests/test_webapp_js_unit.py tests/test_soul1_w6_speech_ui.py -q
+  202 passed
+
+node tests/js/cfg04_forms_contract_test.js        -> CFG04-FORMS-OK
+node tests/js/asap8_d1213_save_contract_test.js   -> ASAP8-D1213-SAVE-CONTRACT-OK
+node tests/js/round1025_f9_savebar_visual_test.js -> F9-SAVEBAR-OK
+node tests/js/round1025_save_state_test.js        -> ROUND1025-SAVE-STATE-OK
+node tests/js/round1021_ui_audit_test.js          -> JS-UNIT-OK
+
+.venv\Scripts\python.exe tools\ui_cfg04_forms_e2e.py
+  [cfg04] mode=after viewports=7 failures=0 shots=7 console_errors=0
+
+.venv\Scripts\python.exe tests\ui_p0a_ux_speech_compact_e2e.py
+  == ИТОГ: failures=0, POST=22   (регрессия общего SaveBar в Speech)

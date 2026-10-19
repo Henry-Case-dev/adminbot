@@ -222,8 +222,11 @@ const CSS = fs.readFileSync(
 {
   const m = CSS.match(/\.scroll-area:has\(> \.sticky-save\)\s*\{([^}]*)\}/);
   assert.ok(m, 'sticky: правило .scroll-area:has(> .sticky-save)');
-  assert.ok(/scroll-padding-bottom:\s*var\(--sticky-save-h\)/.test(m[1]),
-    'sticky: сохранён scroll-padding-bottom');
+  // CFG-04B.3 (source L159): запас = ФАКТИЧЕСКАЯ высота панели
+  // (`--sticky-save-h`) + клавиатура + 4px подстраховки — тот же токен,
+  // просто уже не единственное слагаемое.
+  assert.ok(/scroll-padding-bottom:[^;]*var\(--sticky-save-h\)/.test(m[1]),
+    'sticky: сохранён scroll-padding-bottom от токена --sticky-save-h');
   const pb = m[1].match(/(?:^|[;\s])padding-bottom\s*:\s*([^;]+)/);
   assert.ok(!pb || /^0(px)?$/.test(pb[1].trim()),
     'sticky(M-1): padding-bottom контейнера = 0 (панель прижата к низу)');
@@ -235,7 +238,9 @@ const CSS = fs.readFileSync(
   assert.strictEqual((INDEX.match(/<sticky-save/g) || []).length >= 2, true,
     'sticky: панель есть во всех ветках сохранения (config/modules/access)');
   const compIdx = APP_JS.indexOf("app.component('sticky-save'");
-  const compSeg = APP_JS.slice(compIdx, compIdx + 4000);
+  // CFG-04B.3: компонент вырос (измерение высоты/ResizeObserver) — срез
+  // расширен, чтобы проверка «v-if=visible» оставалась по всему компоненту.
+  const compSeg = APP_JS.slice(compIdx, compIdx + 9000);
   assert.ok(compSeg.indexOf('v-if="visible"') >= 0,
     'D13: sticky-save рендерится только при dirty/saving/failed');
   const pill = CSS.match(/\.sticky-save\s*\{([^}]*)\}/);

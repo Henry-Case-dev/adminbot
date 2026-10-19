@@ -1883,7 +1883,12 @@
        full-width (fit-content, прижата вправо). */
     .sticky-save {
       position: sticky;
-      bottom: 0;
+      /* CFG-04B.2 (source L158): клавиатура. `--kb-offset` (app.js
+         `_syncKeyboardOffset`) — фактическая высота экранной клавиатуры в
+         layout-viewport; панель поднимается над ней, а не остаётся под
+         кнопками. safe-area НЕ складывается с клавиатурой дважды: она
+         считается один раз в padding-bottom ниже. */
+      bottom: var(--kb-offset, 0px);
       z-index: 5;
       display: flex;
       align-items: center;
@@ -1895,7 +1900,12 @@
       margin-left: auto;
       box-sizing: border-box;
       padding: .45rem .6rem;
-      padding-bottom: calc(.45rem + env(safe-area-inset-bottom, 0px));
+      /* CFG-04B.2 (L158) + §64 D3: Telegram Android сообщает нижнюю зону не
+         только через env(), но и через --tg-safe-area-inset-bottom /
+         --tg-content-safe-area-inset-bottom. Берём максимум РОВНО ОДИН раз. */
+      padding-bottom: calc(.45rem + max(env(safe-area-inset-bottom, 0px),
+        var(--tg-safe-area-inset-bottom, 0px),
+        var(--tg-content-safe-area-inset-bottom, 0px)));
       /* F9 (ADR-1025-22 D5): панель не уезжает под клавиатуру. */
       scroll-margin-bottom: var(--kb-offset, 0px);
       border: var(--glass-border);
@@ -1905,10 +1915,12 @@
       backdrop-filter: var(--glass-blur);
       box-shadow: var(--glass-shadow);
     }
+    /* CFG-04C.2 (source L166): touch-зоны основных действий панели ≥44 px. */
     .sticky-save .btn-accent,
     .sticky-save .btn-ghost {
       flex: 0 0 auto;
       max-width: 100%;
+      min-height: 44px;
       white-space: normal;
     }
     /* G5.1: панель лежит ВНУТРИ скроллера — это и есть sticky-носитель.
@@ -1936,10 +1948,14 @@
        единственный скроллер. HOTFIX9 D3 (T-2806/T-2807): высота — от единого
        `--app-usable-height` (600–700 px окна: последнее поле скроллится,
        footer целиком в экране). */
+    /* CFG-04C.4 (source L168): при открытой клавиатуре карточка ужимается на
+       её высоту, чтобы футер/кнопки оставались в видимой области (safe-area
+       здесь не вычитается — она учтена один раз в панели). */
     .modal-card {
       display: flex;
       flex-direction: column;
-      max-height: min(calc(var(--app-usable-height, 100vh) - 24px), 720px);
+      max-height: min(calc(var(--app-usable-height, 100vh) - 24px
+        - var(--kb-offset, 0px)), 720px);
       overflow: hidden;
       border-radius: var(--radius-lg);
     }
@@ -1949,7 +1965,11 @@
       min-height: 0;
       overflow-y: auto;
       overscroll-behavior: contain;
-      scroll-padding-bottom: var(--sticky-save-h);
+      /* CFG-04B.3 (L159): запас = ФАКТИЧЕСКАЯ высота панели (app.js пишет
+         `--sticky-save-h`) + клавиатура + 4px подстраховки от субпиксельного
+         округления; фикс. 4.5rem был меньше панели на 320 px, и последнее
+         поле уходило под неё. */
+      scroll-padding-bottom: calc(var(--sticky-save-h) + var(--kb-offset, 0px) + 4px);
     }
     .modal-footer { flex: 0 0 auto; margin-top: 0; }
     /* HOTFIX9 D3: отдельная нижняя область модалки (SaveBar) — не sticky,
@@ -1957,7 +1977,7 @@
     .modal-actions {
       flex: 0 0 auto;
       display: flex;
-      align-items: center;
+      align-items: flex-end;
       gap: .5rem;
       margin-top: .5rem;
       /* F9 (ADR-1025-22 D5): keyboard-offset (safe-area — в .sticky-save). */
@@ -1970,15 +1990,21 @@
        панель). */
     .scroll-area:has(> .sticky-save) {
       padding-bottom: 0;
-      scroll-padding-bottom: var(--sticky-save-h);
+      /* CFG-04B.3 (L159): запас под фактическую высоту панели + клавиатуру. */
+      scroll-padding-bottom: calc(var(--sticky-save-h) + var(--kb-offset, 0px) + 4px);
     }
     @supports not (selector(:has(*))) {
       /* Без :has() не сужаем content-box (M-1/L-3) — только scroll-padding. */
-      .scroll-area { scroll-padding-bottom: var(--sticky-save-h); }
+      .scroll-area {
+        scroll-padding-bottom: calc(var(--sticky-save-h) + var(--kb-offset, 0px) + 4px);
+      }
     }
 
-    /* D13 (§18I.13): компактный Save-чип в шапке — только при dirty/
-       saving/failed; показывает число изменённых полей; success → исчезает. */
+    /* D13 (§18I.13) + CFG-04B.1 (source L157): компактный СЧЁТЧИК в шапке —
+       только при dirty/saving/failed; показывает число изменённых полей;
+       success → исчезает. Это индикатор, а не кнопка: фон/бордер как у
+       btn-ghost (не accent), чтобы не конкурировать с единственной CTA
+       сохранения — панелью внизу формы. */
     .header-save-chip {
       display: inline-flex;
       align-items: center;
@@ -1987,6 +2013,9 @@
       border-radius: 999px;
       white-space: nowrap;
       min-height: 32px;
+      background: rgba(170, 182, 200, 0.10);
+      border: var(--card-border);
+      color: var(--text-2);
     }
     .header-save-chip__count {
       font-weight: 700;
@@ -1997,6 +2026,75 @@
       filter: saturate(1.4);
       outline: 1px solid #f87171;
     }
+
+    /* ═══ CFG-04C.2 (source L166): touch-зоны переключателей ═════════════
+       Визуальный трек остаётся 44×24; кликабельная область label в карточке
+       параметра — минимум 44×44 CSS px (палец, а не курсор). */
+    .card .param-toggle {
+      min-width: 44px;
+      min-height: 44px;
+      justify-content: flex-end;
+    }
+
+    /* ═══ CFG-04C.3 (source L167): полный технический ключ ═══════════════
+       В карточке ключ сокращается, но полное значение доступно: title,
+       раскрытие (--open, перенос строк) и копирование. Русское название,
+       описание и значение — отдельные элементы карточки. */
+    .tech-key {
+      display: flex;
+      align-items: center;
+      gap: .35rem;
+      min-width: 0;
+      max-width: 100%;
+      margin-top: .1rem;
+    }
+    .tech-key__value {
+      flex: 1 1 auto;
+      min-width: 0;
+      text-align: left;
+      background: transparent;
+      border: 0;
+      padding: 0;
+      color: var(--text-3);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: var(--tx-tiny);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      cursor: pointer;
+      min-height: 24px;
+      /* C.3: скрытая подсказка «ключ кликабелен» без изменения палитры. */
+      text-decoration: underline dotted;
+      text-decoration-color: rgba(170, 182, 200, 0.35);
+      text-underline-offset: 3px;
+    }
+    .tech-key__value--open {
+      white-space: normal;
+      overflow-wrap: anywhere;
+      overflow: visible;
+      text-overflow: clip;
+    }
+    .tech-key__copy {
+      flex: 0 0 auto;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 32px;
+      min-height: 32px;
+      padding: 0 .25rem;
+      border-radius: .5rem;
+      border: 1px solid transparent;
+      background: transparent;
+      color: var(--text-3);
+      cursor: pointer;
+    }
+    .tech-key__copy-label {
+      font-size: var(--tx-tiny);
+      line-height: 1;
+      white-space: nowrap;
+    }
+    .tech-key__copy:hover { color: var(--teal-500); border-color: var(--glass-border-color); }
+    .tech-key__copy[data-copied='1'] { color: var(--teal-500); }
 
     /* ═══ D12 (§18I.11/§18I.12-K): Unified Run Card + outcome funnel ═══ */
     .run-card {
@@ -2130,7 +2228,7 @@
     }
     .field,
     .secret-field__input {
-      scroll-margin-bottom: calc(var(--sticky-save-h) + var(--kb-offset, 0px));
+      scroll-margin-bottom: calc(var(--sticky-save-h) + var(--kb-offset, 0px) + 4px);
     }
 
     /* F9 (ADR-1025-22 D1/D4): единый вид секрет-поля (display-индикатор маски
