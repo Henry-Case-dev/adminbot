@@ -286,7 +286,7 @@
           "type": "test"
         }
       ],
-      "live_note": "ждёт естественного затишья (механизм подтверждён кодом+тестами+A-строки живые); не блокирует",
+      "live_note": "ждёт естественного затишья (механизм подтверждён кодом+тестами+A-строки живые); не блокирует 92C (19.10): в ночном окне затишья не было (все тики scenario=A) — остаётся ждать естественного затишья.",
       "alias_of": [
         "soul-1-amd:SOUL-AMD.2.6"
       ]
@@ -400,7 +400,7 @@
           "ref": "plans/workflow_state.md (независимая работа: CFG-02B/Vision идут) + plans/features/p0-vision-universal/requirements-map.json (Vision-линия активна)",
           "observation": "Техническая завершённость/ожидание живого наблюдения не фризит workflow: независимая работа (CFG-02B/Vision) продолжается, живые остатки зафиксированы явно.",
           "artifact_path": "plans/features/p0-vision-universal/requirements-map.json",
-          "artifact_sha256": "af4e58955052103445f8c38aecfbcad60da39d3ca4485d058d7e38b0d064d932",
+          "artifact_sha256": "edf9f70d0863608137035f24fe5cc58861a0342f8da0da419fa30eaf0bc9e21f",
           "type": "static"
         }
       ],
@@ -415,15 +415,32 @@
       "source_text_sha256": "304256b238253c3f7ac6e3d307e0d66dcb3786c62405efbbed5a55997fbbb302",
       "source_excerpt": "**Главный критерий:** бот способен самостоятельно участвовать в актуальной жизни чата и осмысленно вспоминать прошлое, а",
       "disposition": "required",
-      "reason": "",
+      "reason": "ЗАКРЫТО (92C, 19.10.2026): первое фактическое срабатывание-доставка ностальгии после T0 — 03:46:43Z (08:46 +05), scenario=A, `year_back`, `path=initiative` (`[mca09] initiative sent | trigger=nostalgia_due`), текст «[Корсар 2025-10-19]: Зашёл утренних мемов посмотреть а их нет», `nostalgia_log status=sent`, `nostalgia_run success` 23.3 c. Критерий «осмысленно вспоминать прошлое, а не бесконечно молчать из-за гейтов» выполнен живой доставкой. VERIFIED.",
       "req_id": "P0B-GOAL",
       "slice": "P0B-ACCEPT",
       "acceptance": "Главный критерий: бот способен самостоятельно участвовать в актуальной жизни чата и осмысленно вспоминать прошлое, а не бесконечно молчать из-за гейтов или перечитывать архив — подтверждено реальными воронками.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": [],
-      "note": "Phase-2 (прод 2.58.90, 18.10): гейты не молчат (живые `scenario=A` у обоих чатов — тишина/quiet hours не применяются; PET-гейт пройден), архив не перечитывается (anchored, `scan_anchored=1`), воронки реальны (scan/opportunity/decided/writer). Не наблюдалось: доставленное воспоминание после T0 (честные скипы UNCHANGED/no_candidates) — главный критерий не закрываю до фактического доставленного воспоминания в живом трафике."
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "1d367e4c561b5d1bc224c4c5ee64261945ed83bd",
+          "ref": "plans/features/p0-vision-universal/evidence/release-25892/acceptance/README.md (92C, «SCEN-B/ностальгия») + plans/features/p0-vision-universal/evidence/release-25892/acceptance/journal-since-t0-c.txt",
+          "observation": "Первая доставка после T0: scenario=A/year_back/path=initiative, `nostalgia_log sent`, `nostalgia_run success` 23.3 c; тихого сценария не было (все тики scenario=A).",
+          "artifact_path": "plans/features/p0-vision-universal/evidence/release-25892/acceptance/journal-since-t0-c.txt",
+          "artifact_sha256": "5e3f3bd6f499ab9c3163c324ebe11dbf4115cbd00ef3fa4bae0e11dfe0f2a8fa",
+          "type": "production"
+        },
+        {
+          "candidate_commit": "1d367e4c561b5d1bc224c4c5ee64261945ed83bd",
+          "ref": "plans/features/p0-vision-universal/evidence/release-25892/acceptance/README.md §92C + final-register-c.json",
+          "observation": "Сводный регистр 92C фиксирует доставку и residual=0 (уборка).",
+          "artifact_path": "plans/features/p0-vision-universal/evidence/release-25892/acceptance/README.md",
+          "artifact_sha256": "c0e269154897ebfb39c07e4dde926431f13432d6398707da72b7aebd592a347c",
+          "type": "static"
+        }
+      ],
+      "note": "Phase-2 (прод 2.58.90, 18.10): гейты не молчат (живые `scenario=A` у обоих чатов — тишина/quiet hours не применяются; PET-гейт пройден), архив не перечитывается (anchored, `scan_anchored=1`), воронки реальны (scan/opportunity/decided/writer). Не наблюдалось: доставленное воспоминание после T0 (честные скипы UNCHANGED/no_candidates) — главный критерий не закрываю до фактического доставленного воспоминания в живом трафике. ЗАКРЫТО (92C): доставленное воспоминание получено — 03:46:43Z, scenario=A, year_back, path=initiative, «[Корсар 2025-10-19]: Зашёл утренних мемов посмотреть а их нет», nostalgia_log sent, nostalgia_run success 23.3 c."
     },
     {
       "source_id": "M-B-49",
@@ -1021,7 +1038,7 @@
       "alias_of": [
         "soul-1:SOUL-18.7"
       ],
-      "note": "Live-приёмка инициативы уже заявлена в SOUL-18.7. Phase-2 подтвердило живыми: активные прямые обращения (`scenario=A`, silence 6–13 мин), контекстная Nostalgia (кандидат из живой беседы → LLM), «нет повода — SILENT» (`unchanged`/`no_candidates`), PET-гейт. Не наблюдались живьём: миллион сообщений+новая беседа, новый чат 5–20, бот недавно добавлен, пропущены сотни/тысячи, рестарт/импорт без повторных отправок — строка остаётся открытой."
+      "note": "Live-приёмка инициативы уже заявлена в SOUL-18.7. Phase-2 подтвердило живыми: активные прямые обращения (`scenario=A`, silence 6–13 мин), контекстная Nostalgia (кандидат из живой беседы → LLM), «нет повода — SILENT» (`unchanged`/`no_candidates`), PET-гейт. Не наблюдались живьём: миллион сообщений+новая беседа, новый чат 5–20, бот недавно добавлен, пропущены сотни/тысячи, рестарт/импорт без повторных отправок — строка остаётся открытой. 92C (19.10): ночного затишья не было (все тики scenario=A; второй чат 40 мин → no_candidates); первое доставленное воспоминание получено (см. P0B-GOAL); тихий сценарий B и часть сценариев 1–9 остаются открытыми."
     },
     {
       "source_id": "L00045",

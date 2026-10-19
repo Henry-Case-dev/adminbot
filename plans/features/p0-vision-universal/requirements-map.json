@@ -144,7 +144,7 @@
           "type": "test"
         }
       ],
-      "note": "positive-recognition/postgen добивка — RE-ACCEPTANCE-92B (положительное распознавание не состоялось: download-stage blocker, не код 2.58.92).",
+      "note": "positive-recognition/postgen добивка — RE-ACCEPTANCE-92B (положительное распознавание не состоялось: download-stage blocker, не код 2.58.92). Корневая причина download-стадий (92C): прод-бот создан с local Bot API (`is_local=True`), aiogram читает файл с локальной ФС `/var/lib/telegram-bot-api/...` (FileNotFoundError — маунта нет) — все vision-джобы падают на download (64 skipped + 32 failed за 6.6 ч; `mca_media_analyses` пуст); провайдер nemotron отдельно отдаёт 502/429 (внешние окна; 05:51:12Z — WAITING_EXTERNAL). Это деплой-финдинг (инфра), не дефект кода; фикс VISION-DL-FIX идёт; положительное распознавание — после него.",
       "live_note": "postdeploy (DevOps/Orchestrator), не owner-гейт: журнал без `skipped: maximum number of running instances`; прогресс очереди и реальный analyze видны на проде."
     },
     {
@@ -219,6 +219,7 @@
           "type": "production"
         }
       ],
+      "note": "Ночное окно 92C: SKIPS=0 за все ~6.6 ч (T0+); CLAIM_SLOW=22, CLAIM_TIMEOUT=1/MAINT_TIMEOUT=1 (WARNING-наблюдаемость, пропусков тика нет).",
       "live_note": "закрыто live (92 §1): SKIPS=0 за 39 мин (было 36); остаток-note: claim sweep slow=10 (WARNING, допустимо)."
     },
     {
@@ -244,7 +245,7 @@
           "type": "test"
         }
       ],
-      "note": "positive-recognition/postgen добивка — RE-ACCEPTANCE-92B (положительное распознавание не состоялось: download-stage blocker, не код 2.58.92).",
+      "note": "positive-recognition/postgen добивка — RE-ACCEPTANCE-92B (положительное распознавание не состоялось: download-stage blocker, не код 2.58.92). Корневая причина download-стадий (92C): прод-бот создан с local Bot API (`is_local=True`), aiogram читает файл с локальной ФС `/var/lib/telegram-bot-api/...` (FileNotFoundError — маунта нет) — все vision-джобы падают на download (64 skipped + 32 failed за 6.6 ч; `mca_media_analyses` пуст); провайдер nemotron отдельно отдаёт 502/429 (внешние окна; 05:51:12Z — WAITING_EXTERNAL). Это деплой-финдинг (инфра), не дефект кода; фикс VISION-DL-FIX идёт; положительное распознавание — после него.",
       "live_note": "postdeploy (DevOps/Orchestrator), не owner-гейт: реальный analyze — изображение распознано и использовано в ответе/поведении (наблюдаемый результат)."
     },
     {
@@ -328,7 +329,7 @@
           "type": "test"
         }
       ],
-      "note": "positive-recognition/postgen добивка — RE-ACCEPTANCE-92B (положительное распознавание не состоялось: download-stage blocker, не код 2.58.92).",
+      "note": "positive-recognition/postgen добивка — RE-ACCEPTANCE-92B (положительное распознавание не состоялось: download-stage blocker, не код 2.58.92). Корневая причина download-стадий (92C): прод-бот создан с local Bot API (`is_local=True`), aiogram читает файл с локальной ФС `/var/lib/telegram-bot-api/...` (FileNotFoundError — маунта нет) — все vision-джобы падают на download (64 skipped + 32 failed за 6.6 ч; `mca_media_analyses` пуст); провайдер nemotron отдельно отдаёт 502/429 (внешние окна; 05:51:12Z — WAITING_EXTERNAL). Это деплой-финдинг (инфра), не дефект кода; фикс VISION-DL-FIX идёт; положительное распознавание — после него.",
       "live_note": "postdeploy (DevOps/Orchestrator), не owner-гейт: живая проба — универсальный механизм на реальном провайдере + реальное распознавание изображений (тумблер/override; первая джоба сама пробует)."
     },
     {
