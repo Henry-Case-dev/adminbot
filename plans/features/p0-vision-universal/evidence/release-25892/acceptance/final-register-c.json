@@ -1,0 +1,185 @@
+{
+ "now_utc": "2026-10-19 06:01:18",
+ "window_lo": 1165600,
+ "marker_found": [],
+ "deleted": [],
+ "smart_rows_removed": [],
+ "scen_b": {
+  "log_since_t0": [
+   {
+    "ts": 1792381580,
+    "kind": "year_back",
+    "status": "sent",
+    "meta": "{\"reason\": \"sent\", \"candidate\": \"year_back\", \"candidate_text\": \"[Корсар 2025-10-19]: Зашёл утренних мемов посмотреть а их нет\", \"path\": \"initiative\"}"
+   }
+  ],
+  "log_since_0044": [
+   {
+    "ts": 1792381580,
+    "kind": "year_back",
+    "status": "sent",
+    "meta": "{\"reason\": \"sent\", \"candidate\": \"year_back\", \"candidate_text\": \"[Корсар 2025-10-19]: Зашёл утренних мемов посмотреть а их нет\", \"path\": \"initiative\"}"
+   }
+  ],
+  "events_since_0044": [
+   {
+    "ts": 1792389391,
+    "event_name": "nostalgia_run",
+    "outcome": "skipped",
+    "reason_code": "no_relevant_memory"
+   },
+   {
+    "ts": 1792385498,
+    "event_name": "nostalgia_run",
+    "outcome": "skipped",
+    "reason_code": "no_relevant_memory"
+   },
+   {
+    "ts": 1792381603,
+    "event_name": "nostalgia_run",
+    "outcome": "success",
+    "reason_code": null
+   },
+   {
+    "ts": 1792377680,
+    "event_name": "nostalgia_run",
+    "outcome": "skipped",
+    "reason_code": "no_relevant_memory"
+   },
+   {
+    "ts": 1792373780,
+    "event_name": "nostalgia_run",
+    "outcome": "skipped",
+    "reason_code": "no_relevant_memory"
+   }
+  ],
+  "log_any_chat_since_0044": [
+   {
+    "chat_id": -1004482340693,
+    "ts": 1792389380,
+    "kind": "none",
+    "status": "skipped",
+    "meta": "{\"reason\": \"no_candidates\"}"
+   },
+   {
+    "chat_id": -1004482340693,
+    "ts": 1792385480,
+    "kind": "none",
+    "status": "skipped",
+    "meta": "{\"reason\": \"no_candidates\"}"
+   },
+   {
+    "chat_id": -1004482340693,
+    "ts": 1792381580,
+    "kind": "none",
+    "status": "skipped",
+    "meta": "{\"reason\": \"no_candidates\"}"
+   },
+   {
+    "chat_id": -1002661910336,
+    "ts": 1792381580,
+    "kind": "year_back",
+    "status": "sent",
+    "meta": "{\"reason\": \"sent\", \"candidate\": \"year_back\", \"candidate_text\": \"[Корсар 2025-10-19]: Зашёл утренних мемов посмотреть а их нет\", \"path\": \"initiative\"}"
+   }
+  ]
+ },
+ "user_version": {
+  "user_version": 36
+ },
+ "mca_errors_since_t0": [
+  {
+   "n": 2
+  }
+ ],
+ "vision_fail_summary": [
+  {
+   "stage": "download",
+   "outcome": "skipped",
+   "reason_code": "vision_unavailable",
+   "n": 76,
+   "last": 1792389645
+  },
+  {
+   "stage": "download",
+   "outcome": "failed",
+   "reason_code": "vision_unavailable",
+   "n": 33,
+   "last": 1792389550
+  },
+  {
+   "stage": "dedicated",
+   "outcome": "success",
+   "reason_code": null,
+   "n": 6,
+   "last": 1792389332
+  },
+  {
+   "stage": "ingest",
+   "outcome": "skipped",
+   "reason_code": "vision_unavailable",
+   "n": 3,
+   "last": 1792389105
+  },
+  {
+   "stage": "ingest",
+   "outcome": "success",
+   "reason_code": null,
+   "n": 3,
+   "last": 1792388889
+  },
+  {
+   "stage": "dedicated",
+   "outcome": "failed",
+   "reason_code": "vision_unavailable",
+   "n": 2,
+   "last": 1792389074
+  },
+  {
+   "stage": "dedicated",
+   "outcome": "failed",
+   "reason_code": "vision_rate_limited",
+   "n": 1,
+   "last": 1792367621
+  }
+ ],
+ "budget": [
+  {
+   "day": "2026-10-19",
+   "scope": "chat:-1002661910336",
+   "metric": "image_calls",
+   "used": "13"
+  },
+  {
+   "day": "2026-10-19",
+   "scope": "global",
+   "metric": "image_calls",
+   "used": "13"
+  },
+  {
+   "day": "2026-10-18",
+   "scope": "chat:-1002661910336",
+   "metric": "image_calls",
+   "used": "12"
+  },
+  {
+   "day": "2026-10-18",
+   "scope": "chat:-1009900000201",
+   "metric": "image_calls",
+   "used": "4"
+  },
+  {
+   "day": "2026-10-18",
+   "scope": "global",
+   "metric": "image_calls",
+   "used": "16"
+  },
+  {
+   "day": "2026-10-17",
+   "scope": "chat:-1002661910336",
+   "metric": "image_calls",
+   "used": "5"
+  }
+ ],
+ "reservations_since_t0": 0
+}
