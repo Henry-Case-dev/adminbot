@@ -1,0 +1,43 @@
+CFG-05-Verify — diff-guard (20.10.2026, UTC+12, HEAD 19a235ea)
+
+Продуктовый дифф слайса: НОЛЬ. Ниже — команды и их фактический вывод.
+
+1) Объём CFG-04 (единственный источник изменений web/ между 2.58.96 и 2.58.97)
+$ git diff --stat 95d11472 99f5672c -- web/
+ web/app.js         | 259 +++++++++++++++++++++++++++++++++++++++++++---
+ web/index.html     | 131 +++++++++++++-------------
+ web/static/app.css | 118 +++++++++++++++++++++++++---
+ 3 files changed, 424 insertions(+), 84 deletions(-)
+
+2) После релиза CFG-04 в web/, tests/, tools/ ничего не менялось
+$ git diff --stat 99f5672c HEAD -- web/ tests/ tools/
+(пусто)
+
+3) Скан glass-ключей по всем добавленным/удалённым строкам 95d11472..99f5672c
+   (шаблон: glass|lens|refract|backdrop|lg-|polygon|aurora|--grad|filter:)
+ web/static/app.css: hunks=14 +108 -10 | совпадений +1 -0
+   2096: .tech-key__copy:hover { color: var(--teal-500); border-color: var(--glass-border-color); }
+ web/app.js:         hunks=11 +247 -12 | совпадений +0 -0
+ web/index.html:     hunks=51 +69 -62  | совпадений +0 -0
+=> линза #lg-lens, токены материала, полигональный фон, aurora-слой не правились.
+
+4) Блоб-равенство защищённых объектов (git rev-parse / git show)
+ #lg-lens блок: 6298 б, sha256 5367ec4566fc9e80ad08ccc1bf00f61f9b6b22168dd6e14ca50b87a64068d3db
+   одинаков на 99f5672c, 95d11472, HEAD, a5902b15; scale="32"
+ polygon-background.js: c2ad97d446f5e7c7b72fb46d9bb560ae3777d6c3 (99f5672c = 95d11472 = HEAD = a5902b15)
+ glass-refraction.js:   0c57cc25265e0a58cb195a28937ff752834ff375 (99f5672c = 95d11472 = HEAD)
+ glass-probe.js:        4eab69ac4aa0fcd2f4a3afee073b7114436e2e3a (99f5672c = 95d11472 = HEAD)
+ app.css L60-130:       5126 б, sha256 0918b6f972767fe0183c1098e182d153d58b0e80b95e2e08d87dc5e5f85d324e
+   одинаков на 99f5672c, 95d11472, HEAD, a5902b15
+
+5) Примечание про основной worktree (НЕ наш дифф)
+В основном дереве есть незакоммиченные правки другого лейна:
+ M tests/test_add_exp_expression.py, M tests/test_soul1_w6_speech_ui.py, M web/api/speech.py
+и старые untracked tools/_* файлы. Поэтому все прогоны CFG-05 выполнены в
+scratch-worktree на точном 99f5672c; эти строки к CFG-05 отношения не имеют
+и в evidence-коммит не входят.
+
+6) Правило слайса
+Единственные записи CFG-05 — plans/features/cfg/evidence/cfg-05/** (и, при необходимости,
+plans/features/cfg/prep-cfg-05.md). Появление правок web/**, tests/**, tests/js/**,
+tests/glass-teststand/**, tests/ui_soul1_* = нарушение слайса (CFG-05.2/ADD-1.T5).

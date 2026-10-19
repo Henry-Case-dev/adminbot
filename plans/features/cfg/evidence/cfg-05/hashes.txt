@@ -1,0 +1,21 @@
+﻿# sha256 evidence-файлов CFG-05 (без hashes.txt); вычислено до коммита, содержимое после коммита не меняется
+
+534cd8477a398c1debc2f94a512eb21fb00b7d4d4c802f43ecfdcad3921cf548  plans/features/cfg/evidence/cfg-05/deployed-sha.json
+964df9be47c350319b52d9e967bdad4d793995f0ab8a313294c355e319001fa9  plans/features/cfg/evidence/cfg-05/diff-guard.txt
+bae8412d96544048e4d01e99db5862f2ede33e1034c208e6c35e864661a9a54d  plans/features/cfg/evidence/cfg-05/failures.md
+cf0cb19591072b2fad1974844a65335c1206af9df4afc68e581815bc8b68fb21  plans/features/cfg/evidence/cfg-05/glass-invariant.json
+b89738bd937b51891f2a54899fb61b582afd061d8c69de4299406c923ff0525b  plans/features/cfg/evidence/cfg-05/ledger-recommendations.md
+5ada5a1f8082b85ccc1c30ccb2b792e53dd5e59098295ff51d435ee36a328977  plans/features/cfg/evidence/cfg-05/matrix-178-base.json
+5ada5a1f8082b85ccc1c30ccb2b792e53dd5e59098295ff51d435ee36a328977  plans/features/cfg/evidence/cfg-05/matrix-178-baseline.json
+5ada5a1f8082b85ccc1c30ccb2b792e53dd5e59098295ff51d435ee36a328977  plans/features/cfg/evidence/cfg-05/matrix-178-cand.json
+a35d055f7eb9e2734decd74c92a8bd67d3a1b9beaf9c84b5838686dbf0a07fdb  plans/features/cfg/evidence/cfg-05/owner-observation.md
+da664a9cfc58d2f14b83dbd9999cb32b13cc4e102537f3cf8512ec777600c59a  plans/features/cfg/evidence/cfg-05/pins.json
+b0e160f854156b49396be4866075118f03cc601793cf411000e30cec76e32bc7  plans/features/cfg/evidence/cfg-05/pins.txt
+3eee9be085ecae1f479f751ceed8a267aed8babe3c54c07ef2488137638c6817  plans/features/cfg/evidence/cfg-05/README.md
+07328e1abc61e97ee9d39d2648649c491dee94482216d4a3bd9da2b98f01a421  plans/features/cfg/evidence/cfg-05/reuse-map.md
+3152ee70f219ca4c502c7d759852ff74d48217a237994f74cd1c8ffc068cb3f7  plans/features/cfg/evidence/cfg-05/reviewer-summary.md
+afd696106b06bad97d835d4ed67f0bfe94ff1571134636c17ccf320a3c137da6  plans/features/cfg/evidence/cfg-05/ui/status-1440x900-cand97.png
+e8b3096981fc008c488e250d0d6111070ad74ff07daa4edc8ffe7bdaa1146c04  plans/features/cfg/evidence/cfg-05/ui/status-390x844-base96.png
+e8b3096981fc008c488e250d0d6111070ad74ff07daa4edc8ffe7bdaa1146c04  plans/features/cfg/evidence/cfg-05/ui/status-390x844-cand97.png
+ae5d53c98dbccb24d1c7cac00889abc5047770466de1ca4d09ca48308ba40a4d  plans/features/cfg/evidence/cfg-05/ui/status-hero-1440x900-cand97.png
+26262e3b1691dc917de445d77e3e27f68b95d456700ad04c98227dac537d0fd0  plans/features/cfg/evidence/cfg-05/ui/status-hero-390x844-cand97.png

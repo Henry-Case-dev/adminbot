@@ -1,0 +1,61 @@
+{
+  "schema": "cfg05-glass-invariant-v1",
+  "date": "2026-10-20T08:45:00+12:00",
+  "method": {
+    "probe": "scratch tool cfg05_probe.py (reuses tools/ui_round1025_matrix.py stub server; identical script on both trees)",
+    "env": "headless Chromium, viewport 390x844, ?bgseed=777, polygon paused, CSS animations disabled",
+    "trees": {
+      "base": "95d11472 (2.58.96)",
+      "candidate": "99f5672c (2.58.97 = deployed)"
+    },
+    "routes": 15,
+    "surfaces_per_tree": 205,
+    "cells_compared": 2050,
+    "fields": ["sig", "rect", "bg", "bf", "border", "filter", "tier", "downgraded", "refract", "nested"]
+  },
+  "result": {
+    "material_diffs": 0,
+    "geometry_diffs": 106,
+    "geometry_diffs_by_route": {
+      "ИИ-LLM-Провайдеры": 36,
+      "ИИ-Промпты": 31,
+      "ИИ-Отношения": 19,
+      "ИИ-Лор": 13,
+      "ИИ-Умный-кэш": 5,
+      "ИИ-Имена": 2
+    },
+    "tokens_equal": true,
+    "tokens": {
+      "--glass-blur": "blur(16px)",
+      "--glass-bg": "rgba(21, 27, 42, 0.5)",
+      "--glass-border-color": "rgba(170, 182, 200, 0.16)",
+      "--grad-speed": "75s",
+      "--grad-speed-slow": "105s"
+    },
+    "lens_dom": {"present_both": true, "fe_displacement_scale": "32", "outer_html_len_both": 6251},
+    "status_hero": {
+      "title": "Бот",
+      "rect_390x844": {"base": [8, 215, 374, 141], "candidate": [8, 215, 374, 141]},
+      "rect_1440x900": {"base": [232, 366, 487, 265], "candidate": [232, 366, 487, 265]},
+      "computed": {
+        "base": {"bg": "rgba(21, 27, 42, 0.5)", "bf": "blur(5px) saturate(1.4)", "border": "rgba(170, 182, 200, 0.16)", "filter": "none", "tier": "b", "refract": null},
+        "candidate": {"bg": "rgba(21, 27, 42, 0.5)", "bf": "blur(5px) saturate(1.4)", "border": "rgba(170, 182, 200, 0.16)", "filter": "none", "tier": "b", "refract": null}
+      }
+    }
+  },
+  "pixel_diff": [
+    {"pair": "status 95d11472 vs 99f5672c", "viewport": "390x844", "size": [780, 1688], "diff_pixels": 0, "max_channel_delta": 0},
+    {"pair": "status hero card", "viewport": "390x844", "size": [748, 284], "diff_pixels": 0, "max_channel_delta": 0},
+    {"pair": "status hero card", "viewport": "1440x900", "size": [488, 266], "diff_pixels": 0, "max_channel_delta": 0},
+    {"pair": "status 95d11472 vs 99f5672c", "viewport": "1440x900", "size": [1440, 2924], "diff_pixels": 69, "max_channel_delta": 164, "bbox": [525, 2116, 536, 2122], "explanation": "живая метка времени внизу: 08:48:48 vs 08:48:56 (кроп проверен); не стекло/фон"}
+  ],
+  "limitations": [
+    "Headless Chromium не проходит render-пробу __GlassProbe -> приложение честно в Tier B (frost/tint). Оптика (сдвиг у кромки) здесь не измеряется и не подменяется: это SOUL-17/U08/WG evidence.",
+    "PROD live frame без Telegram-сессии не снимался; локально отрендерены те же байты (hash-равенство в deployed-sha.json)."
+  ],
+  "artifacts": {
+    "probe_base": "scratch: out-base96/probe.json (205 surfaces)",
+    "probe_candidate": "scratch: out-cand97/probe.json (205 surfaces)",
+    "flat_shots": "ui/status-390x844-cand97.png, ui/status-390x844-base96.png, ui/status-hero-390x844-cand97.png, ui/status-1440x900-cand97.png"
+  }
+}

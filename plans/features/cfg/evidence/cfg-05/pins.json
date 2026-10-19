@@ -1,0 +1,20 @@
+{
+  "schema": "cfg05-pins-v1",
+  "test_lifecycle": "CONTRACT",
+  "run_at": "2026-10-20T08:41:00+12:00",
+  "tree": "scratch worktree @ 99f5672c5e1d27e957100395a13178fef929b035 (exact deployed commit)",
+  "python": ".venv/Scripts/python.exe",
+  "node": "v24.16.0",
+  "commands": [
+    {"cmd": "py -3 -m pytest tests/test_webapp_design_tokens_round1025.py tests/test_webapp_round1026_polygon.py tests/test_webapp_hotfix6_round1025.py tests/test_webapp_js_unit.py -q", "result": "131 passed, 0 failed", "duration_s": 7.69},
+    {"cmd": "node tests/js/glass_probe_test.js", "result": "JS-UNIT-OK glass-probe", "rc": 0},
+    {"cmd": "node tests/js/round1025_design_tokens_test.js", "result": "JS-UNIT-OK", "rc": 0},
+    {"cmd": "node tests/js/round1026_polygon_background_test.js", "result": "POLYGON-LUMINESCENCE-OK", "rc": 0},
+    {"cmd": "node tests/js/glass_refraction_test.js", "result": "JS-UNIT-OK glass-refraction", "rc": 0}
+  ],
+  "skipped": [],
+  "notes": [
+    "Tests were not edited; pins prove the protected token/polygon/probe layer on the deployed commit.",
+    "Browser-heavy TIERA harness (tests/ui_soul1_glass_tiera_e2e.py) not re-run: it writes into soul-1 evidence and re-measures refraction (forbidden for CFG-05, source L188); SOUL-17 evidence reused instead."
+  ]
+}

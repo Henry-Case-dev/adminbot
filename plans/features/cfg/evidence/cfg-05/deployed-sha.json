@@ -1,0 +1,120 @@
+{
+  "schema": "cfg05-deployed-sha-v1",
+  "captured_at": "2026-10-20T08:35:00+12:00",
+  "app_version": "2.58.97",
+  "deployed_commit": "99f5672c5e1d27e957100395a13178fef929b035",
+  "healthz": {
+    "url": "https://admin-bot.duckdns.org/healthz",
+    "http": 200,
+    "body": {"status": "ok", "version": "2.58.97"}
+  },
+  "git_blobs": {
+    "web/index.html": "f386ec2d71495f5ebfc3e642fcbf0897e1d47ba9",
+    "web/app.js": "fb58bee4a864a8620d3c9d9c863bec45d076183e",
+    "web/static/app.css": "829580f73236b26c9ed84aff47c8370358a08a13",
+    "web/static/polygon-background.js": "c2ad97d446f5e7c7b72fb46d9bb560ae3777d6c3",
+    "web/static/glass-refraction.js": "0c57cc25265e0a58cb195a28937ff752834ff375",
+    "web/static/glass-probe.js": "4eab69ac4aa0fcd2f4a3afee073b7114436e2e3a",
+    "web/static/aurora-flow.js": "f299930cc29ad40e1572b19b7a4aa94c68dbe602"
+  },
+  "lg_lens": {
+    "selector": "filter#lg-lens",
+    "bytes": 6298,
+    "sha256": "5367ec4566fc9e80ad08ccc1bf00f61f9b6b22168dd6e14ca50b87a64068d3db",
+    "scale": "32",
+    "fe_displacement_scale": "32",
+    "identical_at": ["99f5672c", "95d11472", "HEAD(19a235ea)", "a5902b15"],
+    "served_check": {
+      "url": "https://admin-bot.duckdns.org/web/",
+      "bytes": 6298,
+      "sha256": "5367ec4566fc9e80ad08ccc1bf00f61f9b6b22168dd6e14ca50b87a64068d3db",
+      "scale": "32"
+    }
+  },
+  "app_css_tokens_block": {
+    "range": "web/static/app.css L60-L130",
+    "bytes": 5126,
+    "sha256": "0918b6f972767fe0183c1098e182d153d58b0e80b95e2e08d87dc5e5f85d324e",
+    "identical_at": ["99f5672c", "95d11472", "HEAD(19a235ea)", "a5902b15"]
+  },
+  "repo_vs_served": [
+    {
+      "path": "web/static/polygon-background.js",
+      "repo_bytes": 44018,
+      "repo_sha256": "157874dfab7bb6d46b0112fc45ee0bcb125edf0b07138edceefc463c156569e4",
+      "served_url": "/static/polygon-background.js?v=2.58.97",
+      "served_http": 200,
+      "served_bytes": 44018,
+      "served_sha256_12": "157874dfab7b",
+      "equal": true
+    },
+    {
+      "path": "web/static/glass-refraction.js",
+      "repo_bytes": 31744,
+      "repo_sha256": "6a09d962d59dfc196f170a8da86b94ca8f4a0689efe8a96e3298b7362f95c130",
+      "served_url": "/static/glass-refraction.js?v=2.58.97",
+      "served_http": 200,
+      "served_bytes": 31744,
+      "served_sha256_12": "6a09d962d59d",
+      "equal": true
+    },
+    {
+      "path": "web/static/glass-probe.js",
+      "repo_bytes": 13445,
+      "repo_sha256": "b2e6a1f987c663812abe1b2a18e58265bba71bbaf147321cc605a524a4ea014b",
+      "served_url": "/static/glass-probe.js?v=2.58.97",
+      "served_http": 200,
+      "served_bytes": 13445,
+      "served_sha256_12": "b2e6a1f987c6",
+      "equal": true
+    },
+    {
+      "path": "web/app.js",
+      "repo_bytes": 1283831,
+      "repo_sha256": "8850944597009bef223b5c9369a493049a7cbc982931cc6955a7c9079fb7b8ad",
+      "served_url": "/web/app.js",
+      "served_http": 200,
+      "served_bytes": 1283831,
+      "served_sha256_12": "885094459700",
+      "equal": true,
+      "note": "index.html ссылается на /web/app.js; /static/app.js отдаёт 404 штатно"
+    },
+    {
+      "path": "web/static/app.css",
+      "repo_bytes": 234981,
+      "repo_sha256": "6b5ca0cc1d47dbe39200007d51c52cdc69703f45acec9e7407ac2b9a2b6c5a8a",
+      "served_url": "/static/app.css?v=2.58.97",
+      "served_http": 200,
+      "served_bytes": 234959,
+      "served_sha256_12": "9ed4c69995b9",
+      "equal": false,
+      "delta": "22 байта = 4 строки подстановки __APP_VERSION__ -> 2.58.97 (совпадает с plans/features/cfg/evidence/release-25897/acceptance/cfg04/served-delta.json: css diff_count=4)",
+      "raw_path_served": {
+        "url": "/web/static/app.css",
+        "http": 200,
+        "bytes": 234981,
+        "sha256_12": "6b5ca0cc1d47",
+        "equal": true
+      }
+    },
+    {
+      "path": "web/index.html",
+      "repo_bytes": 875952,
+      "repo_sha256": "528f358a6589ef5348ec29278dd0383b585a4a0f090abd4def14e67580edfd97",
+      "served_url": "/web/",
+      "served_http": 200,
+      "served_bytes": 875832,
+      "served_sha256_12": "1dda147e41d6",
+      "equal": false,
+      "delta": "120 байт = 30 подстановок __APP_VERSION__ -> 2.58.97 (release-evidence served-delta.json: html diff_count=30); блок #lg-lens при этом побайтово тот же",
+      "served_sha256": "1dda147e41d6f00a6e7e13318cd7fa8d38074cf6b46ea1e222630eff2c06c76b"
+    }
+  ],
+  "source_of_expected": [
+    "plans/features/soul-1/glass-tiera-hotfix.md",
+    "plans/features/soul-1/review-tiera-strengthened.md",
+    "plans/features/soul-1/evidence/glass-tiera/_strong_verify.json",
+    "plans/features/cfg/prep-cfg-05.md §3.1",
+    "plans/features/cfg/evidence/release-25897/acceptance/cfg04/bytes-identity.json"
+  ]
+}
