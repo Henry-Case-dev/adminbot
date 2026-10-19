@@ -1,0 +1,47 @@
+# CFG-03 — RED (база) → GREEN (кандидат): сырые прогоны pytest
+
+## RED — база `71c12bfe` (до правок каталога), новый контракт-тест
+
+Команда: `py -3 -m pytest tests/test_cfg03_param_audit.py -q`
+Итог: **3 failed, 13 passed**
+
+```
+FAILED tests/test_cfg03_param_audit.py::TestConsumerCoverage::test_dead_knobs_honest_descriptions
+FAILED tests/test_cfg03_param_audit.py::TestCatalogConsistency::test_settings_field_type_family
+FAILED tests/test_cfg03_param_audit.py::TestClassNegatives::test_normalize_value_type_classes
+3 failed, 13 passed, 2 warnings in 3.68s
+```
+
+Суть падений (полные трейсы — `red-baseline.txt`):
+1. 5 видимых «мёртвых ручек» без честного предупреждения в описании:
+   `limits.chat_budget_response_ratio`, `limits.chat_lock_max_entries`,
+   `limits.dig_year_back_window_days`,
+   `limits.youtube_transcript_proxy_locations`,
+   `limits.youtube_transcript_proxy_retries`;
+2. `limits.youtube_transcript_proxy_retries` (int vs str),
+   `limits.image_freq_limit_cooldown_seconds` (int vs float);
+3. `normalize_value('limits.image_freq_limit_cooldown_seconds', '300.5')`
+   → `'300.5'` (не float).
+
+## GREEN — кандидат (после IMPL)
+
+Команда: `py -3 -m pytest tests/test_cfg03_param_audit.py -q`
+Итог: **16 passed**
+
+```
+16 passed, 2 warnings in 3.55s
+```
+
+Набор препа + затронутые пины
+(`test_cfg03_param_audit` + `test_chat_params` + `test_param_catalog` +
+`test_round1025_f8_registry` + `test_ia_inventory_round1025` +
+`test_frontend_tab_mapping` + `test_budget_settings_round1019` +
+`test_cfg02b_image_freq_limits` + `test_cfg02c_image_isolation` +
+`test_hot_migration`):
+
+```
+256 passed, 2 warnings in 10.22s
+```
+
+Бласт-радиус (115 файлов, все импортирующие каталог) — `blast-radius.txt`:
+`3652 passed, 3 failed` (все 3 pre-existing, подтверждено на базовом worktree).

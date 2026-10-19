@@ -1,0 +1,294 @@
+{
+ "summary": {
+  "registry": 579,
+  "groups": 120,
+  "tab_by_group": 118,
+  "tab_rules": 23,
+  "ui_missing": 0,
+  "no_consumer": 7,
+  "inconsistencies": 3,
+  "orphan_groups": 0,
+  "dup_settings_fields": 0,
+  "dynamic_consumers": 13,
+  "diagnostic_only": 0,
+  "with_test_refs": 455,
+  "consumer_status_counts": {
+   "runtime": 552,
+   "none": 14,
+   "dynamic": 13
+  },
+  "classification_counts": {
+   "working": 565,
+   "runtime_not_consumed": 14
+  },
+  "ui_visibility_counts": {
+   "visible": 552,
+   "api-only": 25,
+   "hidden": 2
+  }
+ },
+ "ui_missing": [],
+ "orphan_groups": [],
+ "dup_settings_fields": {},
+ "inconsistencies": [
+  {
+   "key": "flags.chat_context_budgets_enabled",
+   "kind": "group_category_mismatch",
+   "group": "limits_chat_budgets",
+   "group_category": "limits",
+   "param_category": "flags"
+  },
+  {
+   "key": "limits.image_freq_limit_cooldown_seconds",
+   "kind": "default_type_mismatch",
+   "catalog_type": "int",
+   "settings_type": "float",
+   "settings_kind": "dataclass_field",
+   "settings_default": "300.0"
+  },
+  {
+   "key": "limits.youtube_transcript_proxy_retries",
+   "kind": "default_type_mismatch",
+   "catalog_type": "int",
+   "settings_type": "str",
+   "settings_kind": "dataclass_field",
+   "settings_default": "''"
+  }
+ ],
+ "no_consumer": [
+  {
+   "key": "limits.chat_budget_response_ratio",
+   "group": "limits_chat_budgets",
+   "tab": "mod_direct",
+   "title": "Доля бюджета: Response",
+   "description": "Доля контекста на сам ответ. Больше — место под ответ.",
+   "storage": "chat_profiles.chat_params.overrides"
+  },
+  {
+   "key": "limits.chat_lock_max_entries",
+   "group": "limits_chat",
+   "tab": "mod_direct",
+   "title": "Потолок словаря замков",
+   "description": "Технический: сколько чатов держать в памяти замков. Обычно не трогать.",
+   "storage": "chat_profiles.chat_params.overrides"
+  },
+  {
+   "key": "limits.dig_year_back_window_days",
+   "group": "limits_memory",
+   "tab": "memory_rag",
+   "title": "dig_into_lore: окно «N лет назад», дней",
+   "description": "Диапазон вокруг даты «N лет назад» в запросе без явного года (2 дня).",
+   "storage": "chat_profiles.chat_params.overrides"
+  },
+  {
+   "key": "limits.memory_backup_keep",
+   "group": "limits_memory",
+   "tab": "memory_rag",
+   "title": "Ротация бэкапов (файлов)",
+   "description": "НЕ действует: по политике владельца (UPD3 №5) хранится ровно 1 бэкап БД. Значение игнорируется (см. services/disk_retention.py).",
+   "storage": "chat_profiles.chat_params.overrides"
+  },
+  {
+   "key": "keys.random_quantum_provider",
+   "group": "keys_random",
+   "tab": "llm_providers",
+   "title": "Источник случайности: провайдер",
+   "description": "Информационное имя провайдера (ANU Quantum Numbers). Runtime принимает только ANU — чужой адрес отклоняется.",
+   "storage": "bot_settings"
+  },
+  {
+   "key": "limits.youtube_transcript_proxy_locations",
+   "group": "limits_youtube_proxy",
+   "tab": "mod_video_summary",
+   "title": "CSV-коды стран Webshare",
+   "description": "Коды стран для прокси (например, de,us) — трафик будет выходить оттуда. Пусто — без ограничений.",
+   "storage": "chat_profiles.chat_params.overrides"
+  },
+  {
+   "key": "limits.youtube_transcript_proxy_retries",
+   "group": "limits_youtube_proxy",
+   "tab": "mod_video_summary",
+   "title": "Повторы при блокировке (Webshare)",
+   "description": "Сколько раз повторять запрос субтитров, если прокси заблокировали. Больше — надёжнее, но медленнее.",
+   "storage": "chat_profiles.chat_params.overrides"
+  }
+ ],
+ "dynamic_consumers": [
+  {
+   "key": "limits.relations_acquaintance_min_days",
+   "hits": [
+    "services/user_relations.py:61 (f\"limits.{name}\" + 'relations_acquaintance_min_days')"
+   ]
+  },
+  {
+   "key": "limits.relations_acquaintance_min_msg",
+   "hits": [
+    "services/user_relations.py:61 (f\"limits.{name}\" + 'relations_acquaintance_min_msg')"
+   ]
+  },
+  {
+   "key": "limits.relations_api_max_users",
+   "hits": [
+    "services/user_relations.py:61 (f\"limits.{name}\" + 'relations_api_max_users')"
+   ]
+  },
+  {
+   "key": "limits.relations_decay_half_life_days",
+   "hits": [
+    "services/user_relations.py:61 (f\"limits.{name}\" + 'relations_decay_half_life_days')"
+   ]
+  },
+  {
+   "key": "limits.relations_downgrade_msg_30d",
+   "hits": [
+    "services/user_relations.py:61 (f\"limits.{name}\" + 'relations_downgrade_msg_30d')"
+   ]
+  },
+  {
+   "key": "limits.relations_hold_absent_days",
+   "hits": [
+    "services/user_relations.py:61 (f\"limits.{name}\" + 'relations_hold_absent_days')"
+   ]
+  },
+  {
+   "key": "limits.relations_recalc_ttl_minutes",
+   "hits": [
+    "services/user_relations.py:61 (f\"limits.{name}\" + 'relations_recalc_ttl_minutes')"
+   ]
+  },
+  {
+   "key": "limits.relations_regular_min_days",
+   "hits": [
+    "services/user_relations.py:61 (f\"limits.{name}\" + 'relations_regular_min_days')"
+   ]
+  },
+  {
+   "key": "limits.relations_regular_min_msg",
+   "hits": [
+    "services/user_relations.py:61 (f\"limits.{name}\" + 'relations_regular_min_msg')"
+   ]
+  },
+  {
+   "key": "limits.relations_scan_max_rows",
+   "hits": [
+    "services/user_relations.py:61 (f\"limits.{name}\" + 'relations_scan_max_rows')"
+   ]
+  },
+  {
+   "key": "limits.relations_stage_change_min_days",
+   "hits": [
+    "services/user_relations.py:61 (f\"limits.{name}\" + 'relations_stage_change_min_days')"
+   ]
+  },
+  {
+   "key": "limits.relations_veteran_min_days",
+   "hits": [
+    "services/user_relations.py:61 (f\"limits.{name}\" + 'relations_veteran_min_days')"
+   ]
+  },
+  {
+   "key": "limits.relations_veteran_min_msg",
+   "hits": [
+    "services/user_relations.py:61 (f\"limits.{name}\" + 'relations_veteran_min_msg')"
+   ]
+  }
+ ],
+ "diagnostic_only": [],
+ "env_only_ceilings": [
+  {
+   "env": "ADMINBOT_SKIP_DOTENV",
+   "file": "config/settings.py",
+   "line": 9
+  },
+  {
+   "env": "GEMINI_FALLBACK_API_KEY",
+   "file": "config/settings.py",
+   "line": 411
+  },
+  {
+   "env": "GEMINI_FALLBACK_API_KEY_2",
+   "file": "config/settings.py",
+   "line": 417
+  },
+  {
+   "env": "IMAGE_FALLBACK_MODEL",
+   "file": "config/settings.py",
+   "line": 839
+  },
+  {
+   "env": "YTDLP_POT_PROVIDER",
+   "file": "config/settings.py",
+   "line": 3342
+  },
+  {
+   "env": "TELEGRAM_LOCAL",
+   "file": "handlers/youtube.py",
+   "line": 171
+  },
+  {
+   "env": "CONTROL_MODE",
+   "file": "services/control_service.py",
+   "line": 55
+  },
+  {
+   "env": "COVER_STYLE_ASSETS_DIR",
+   "file": "services/cover_style_assets.py",
+   "line": 36
+  },
+  {
+   "env": "COVER_STYLE_RECOVERY_DIR",
+   "file": "services/cover_style_jobs.py",
+   "line": 318
+  },
+  {
+   "env": "COVER_STYLE_EDIT_HEADROOM_CHARS",
+   "file": "services/cover_style_jobs.py",
+   "line": 1423
+  },
+  {
+   "env": "COVER_STYLE_EDIT_SCENE_ANCHOR",
+   "file": "services/cover_style_jobs.py",
+   "line": 1447
+  },
+  {
+   "env": "COVER_STYLE_SCENE_VERIFY",
+   "file": "services/cover_style_jobs.py",
+   "line": 1829
+  },
+  {
+   "env": "COVER_STYLE_SCENE_VERIFY",
+   "file": "services/cover_style_jobs.py",
+   "line": 1840
+  },
+  {
+   "env": "COVER_STYLE_CAPABILITY_OVERRIDES",
+   "file": "services/image_capabilities.py",
+   "line": 425
+  },
+  {
+   "env": "COVER_STYLE_CAPABILITY_TTL_SECONDS",
+   "file": "services/image_capabilities.py",
+   "line": 562
+  },
+  {
+   "env": "MCA_TELEMETRY_SPOOL_PATH",
+   "file": "services/mca_events.py",
+   "line": 406
+  },
+  {
+   "env": "COMPOSER_LAYER_BUDGET_TOKENS",
+   "file": "services/mca_gates.py",
+   "line": 2476
+  },
+  {
+   "env": "TMA_AUTH_MAX_AGE",
+   "file": "web/api/deps.py",
+   "line": 36
+  },
+  {
+   "env": "DEBUG_TMA_TRACE",
+   "file": "web/api/deps.py",
+   "line": 154
+  }
+ ]
+}

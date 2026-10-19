@@ -143,8 +143,18 @@ PG_DB_SHA256_B07 = (
 # delta 164→168; GROUPS/TAB-маппинги/routes не менялись.
 # Хэш переутверждён осознанно (L-F11S-1); исторический fixture
 # f8_baseline.json обновлён этим же инструментом.
+# CFG-03 (19.10.2026, санкция requirements-map слайс CFG-03, Ф3): Δ каталога
+# = 0 (ключи/GROUPS/TAB-маппинги/widget'ы не менялись). Изменены ТОЛЬКО
+# тексты описаний 5 «мёртвых ручек» (честная витрина CFG-03.6:
+# limits.chat_budget_response_ratio / chat_lock_max_entries /
+# dig_year_back_window_days / youtube_transcript_proxy_locations /
+# youtube_transcript_proxy_retries — «рантайм значение не читает»). Типы
+# каталога НЕ менялись: int-пины CFG-02B (cooldown) и hot-migration
+# (retries) — вне write_scope CFG-03; расхождения типов документированы
+# в evidence/cfg-03/failures.md (R3, deferred). TSV/meta переэмитированы
+# генератором (--check OK, 579 строк). Хэш переутверждён осознанно (L-F11S-1).
 PARAM_CATALOG_SHA256_FOLLOWUP = (
-    "ad109003b936f4b2243ee4b2ceb52753dacb93b7f319a29995ce9ed9036bc5a6")
+    "4886ff036b0e52db17d1763a005b7004dbf385bd5f4ed69dc162dd3c6c0bb70f")
 
 
 def _sha256(path: Path) -> str:

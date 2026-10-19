@@ -1,0 +1,297 @@
+﻿== CFG-03 blast radius :: 19.10.2026 ==
+Набор: все tests/*.py, импортирующие services.param_catalog / param_registry (115 файлов)
++ tests/test_chat_params.py, tests/test_cfg02c_image_isolation.py,
+  tests/test_direct_chat.py, tests/test_persistent_throttling.py
+Итог: 3652 passed, 3 failed (ВСЕ pre-existing — подтверждено на базовом worktree 71c12bfe):
+  - test_asap7_direct_settings.py::test_migration_v35_idempotent_twice          (база: FAIL)
+  - test_asap7_direct_settings.py::test_backup_guard_fires_before_pending_step  (база: FAIL)
+  - test_summary_publish_integration_round1026.py::TestOnDelivery::test_on_l1_not_usable_level2_l2_publishes_article (база: FAIL)
+
+== JS sweep (tests/js, node) ==
+88 files, failed=0 (19.10.2026)
+
+== E2E (Playwright, реальные web/index.html+app.js, стабы /api из реального каталога) ==
+RESULT: PASS (console_errors=[], 4 скриншота; e2e-log.json)
+
+== Generator ==
+py -3 tools/gen_param_registry_round1025.py --check -> CHECK OK (579 строк, R17-чисто, идемпотентно)
+
+== RAW pytest ==........................................................................ [  1%]
+........................................................................ [  3%]
+........................................................................ [  5%]
+........................................................................ [  7%]
+...........................FF........................................... [  9%]
+........................................................................ [ 11%]
+........................................................................ [ 13%]
+........................................................................ [ 15%]
+........................................................................ [ 17%]
+........................................................................ [ 19%]
+........................................................................ [ 21%]
+........................................................................ [ 23%]
+........................................................................ [ 25%]
+........................................................................ [ 27%]
+........................................................................ [ 29%]
+........................................................................ [ 31%]
+........................................................................ [ 33%]
+........................................................................ [ 35%]
+........................................................................ [ 37%]
+........................................................................ [ 39%]
+........................................................................ [ 41%]
+........................................................................ [ 43%]
+........................................................................ [ 45%]
+........................................................................ [ 47%]
+........................................................................ [ 49%]
+........................................................................ [ 51%]
+........................................................................ [ 53%]
+........................................................................ [ 55%]
+........................................................................ [ 57%]
+........................................................................ [ 59%]
+........................................................................ [ 61%]
+........................................................................ [ 63%]
+........................................................................ [ 65%]
+........................................................................ [ 66%]
+........................................................................ [ 68%]
+........................................................................ [ 70%]
+....................................F................................... [ 72%]
+........................................................................ [ 74%]
+........................................................................ [ 76%]
+........................................................................ [ 78%]
+........................................................................ [ 80%]
+........................................................................ [ 82%]
+........................................................................ [ 84%]
+........................................................................ [ 86%]
+........................................................................ [ 88%]
+........................................................................ [ 90%]
+........................................................................ [ 92%]
+........................................................................ [ 94%]
+........................................................................ [ 96%]
+........................................................................ [ 98%]
+py : 
+строка:1 знак:437
++ ... t -Unique); py -3 -m pytest $all -q -p no:cacheprovider > plans\featu ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+WARNING: closed 23 leaked aiosqlite connection(s)
+.......................................................                  [100%]
+================================== FAILURES ===================================
+_____________________ test_migration_v35_idempotent_twice _____________________
+
+tmp_path = WindowsPath('C:/Users/main/.config/opencode/OpenCodeScratch/adminbot-ccef72c25768/tmp/pytest-of-main/pytest-1890/test_migration_v35_idempotent_0')
+
+    def test_migration_v35_idempotent_twice(tmp_path):
+        from services.database import DatabaseService
+        db_path = tmp_path / "f2_v35.db"
+    
+        async def _run():
+            d1 = DatabaseService(str(db_path))
+            await d1.initialize()
+            cur = await d1.db.execute("PRAGMA user_version")
+            row = await cur.fetchone()
+            assert int(row[0]) == 35
+            cur = await d1.db.execute(
+                "SELECT COUNT(*) FROM schema_migrations WHERE version=35")
+            assert (await cur.fetchone())[0] == 1
+            await d1.close()
+            # ╨Я╤А╨╛╨│╨╛╨╜ ╨┤╨▓╨░╨╢╨┤╤Л (╤В╨╛╤В ╨╢╨╡ ╤Д╨░╨╣╨╗ ╨С╨Ф) тАФ no-op ╨▒╨╡╨╖ ╨┤╤Г╨▒╨╗╨╡╨╣/╨╛╤И╨╕╨▒╨╛╨║.
+            d2 = DatabaseService(str(db_path))
+            await d2.initialize()
+            cur = await d2.db.execute("PRAGMA user_version")
+            row = await cur.fetchone()
+            assert int(row[0]) == 35
+            cur = await d2.db.execute(
+                "SELECT COUNT(*) FROM schema_migrations WHERE version=35")
+            assert (await cur.fetchone())[0] == 1
+            await d2.close()
+    
+>       asyncio.run(_run())
+
+tests\test_asap7_direct_settings.py:144: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\asyncio\runners.py:194: in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\asyncio\runners.py:118: in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\asyncio\base_events.py:664: in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    async def _run():
+        d1 = DatabaseService(str(db_path))
+        await d1.initialize()
+        cur = await d1.db.execute("PRAGMA user_version")
+        row = await cur.fetchone()
+>       assert int(row[0]) == 35
+E       assert 36 == 35
+E        +  where 36 = int(36)
+
+tests\test_asap7_direct_settings.py:128: AssertionError
+_________________ test_backup_guard_fires_before_pending_step _________________
+
+tmp_path = WindowsPath('C:/Users/main/.config/opencode/OpenCodeScratch/adminbot-ccef72c25768/tmp/pytest-of-main/pytest-1890/test_backup_guard_fires_before0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000019DE2671C10>
+
+    def test_backup_guard_fires_before_pending_step(tmp_path, monkeypatch):
+        """Backup-guard fail-closed pre-DDL: current>0 + pending v35 тЖТ
+        services.memory_backup.migration_backup ╨▓╤Л╨╖╨▓╨░╨╜ ╨Ф╨Ю ╨┐╤А╨╕╨╝╨╡╨╜╨╡╨╜╨╕╤П ╤И╨░╨│╨░."""
+        from services import database as db_mod
+        from services.database import DatabaseService
+        db_path = tmp_path / "f2_guard.db"
+    
+        calls = []
+    
+        async def fake_backup(svc, target_version=None):
+            calls.append(target_version)
+            # ╨з╨╡╤Б╤В╨╜╤Л╨╣ read-back-╤Б╨╡╨╝╨░╨╜╤В╨╕╤З╨╡╤Б╨║╨╕╨╣ ╨╝╨░╤А╨║╨╡╤А: guard ╨╜╨╡ ╨┐╨░╨┤╨░╨╡╤В.
+            return "backup-ok"
+    
+        monkeypatch.setattr(
+            "services.memory_backup.migration_backup", fake_backup)
+    
+        async def _run():
+            d = DatabaseService(str(db_path))
+            await d.initialize()
+            await d.close()
+            # ╨Ю╤В╨║╨░╤В ╨▓╨╡╤А╤Б╨╕╨╕ ╨┤╨╛ v34 ╨┐╤А╨╕ ╤Б╨╛╤Е╤А╨░╨╜╨╡╨╜╨╕╨╕ ╨║╨╜╨╕╨│╨╕ тЖТ v35 ╤Б╨╜╨╛╨▓╨░ pending.
+            import aiosqlite
+            db = await aiosqlite.connect(str(db_path))
+            try:
+                await db.execute("PRAGMA user_version = 34")
+                await db.execute("DELETE FROM schema_migrations WHERE version=35")
+                await db.commit()
+            finally:
+                await db.close()
+            d2 = DatabaseService(str(db_path))
+            await d2.initialize()
+            cur = await d2.db.execute("PRAGMA user_version")
+            row = await cur.fetchone()
+            assert int(row[0]) == 35
+            await d2.close()
+    
+>       asyncio.run(_run())
+
+tests\test_asap7_direct_settings.py:184: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\asyncio\runners.py:194: in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\asyncio\runners.py:118: in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\asyncio\base_events.py:664: in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    async def _run():
+        d = DatabaseService(str(db_path))
+        await d.initialize()
+        await d.close()
+        # ╨Ю╤В╨║╨░╤В ╨▓╨╡╤А╤Б╨╕╨╕ ╨┤╨╛ v34 ╨┐╤А╨╕ ╤Б╨╛╤Е╤А╨░╨╜╨╡╨╜╨╕╨╕ ╨║╨╜╨╕╨│╨╕ тЖТ v35 ╤Б╨╜╨╛╨▓╨░ pending.
+        import aiosqlite
+        db = await aiosqlite.connect(str(db_path))
+        try:
+            await db.execute("PRAGMA user_version = 34")
+            await db.execute("DELETE FROM schema_migrations WHERE version=35")
+            await db.commit()
+        finally:
+            await db.close()
+        d2 = DatabaseService(str(db_path))
+        await d2.initialize()
+        cur = await d2.db.execute("PRAGMA user_version")
+        row = await cur.fetchone()
+>       assert int(row[0]) == 35
+E       assert 36 == 35
+E        +  where 36 = int(36)
+
+tests\test_asap7_direct_settings.py:181: AssertionError
+______ TestOnDelivery.test_on_l1_not_usable_level2_l2_publishes_article _______
+
+self = <AsyncMock id='1777615005712'>
+
+    def assert_awaited_once(self):
+        """
+        Assert that the mock was awaited exactly once.
+        """
+        if not self.await_count == 1:
+            msg = (f"Expected {self._mock_name or 'mock'} to have been awaited once."
+                   f" Awaited {self.await_count} times.")
+>           raise AssertionError(msg)
+E           AssertionError: Expected mock to have been awaited once. Awaited 0 times.
+
+C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\unittest\mock.py:2296: AssertionError
+
+During handling of the above exception, another exception occurred:
+
+self = <tests.test_summary_publish_integration_round1026.TestOnDelivery object at 0x0000019DCD7CD8E0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000019DE1DD6600>
+caplog = <_pytest.logging.LogCaptureFixture object at 0x0000019DE14F7170>
+
+    @pytest.mark.asyncio
+    async def test_on_l1_not_usable_level2_l2_publishes_article(
+            self, monkeypatch, caplog):
+        """ASAP-2 ┬з8/LEVEL-2 (T-3952, AMEND ┬з106): L1 unusable ╨▒╨╛╨╗╤М╤И╨╡ ╨Э╨Х
+        ╤В╨╡╤А╨╝╨╕╨╜╨░╨╗╨╡╨╜: deterministic fallback-╨┐╨░╨║╨╡╤В тЖТ L2 ╨▓╤Л╨╖╤Л╨▓╨░╨╡╤В╤Б╤П ╨▓ ╨╗╤О╨▒╨╛╨╝
+        ╤Б╨╗╤Г╤З╨░╨╡ тЖТ ╤Б╤В╨░╤В╤М╤П ╨┐╤Г╨▒╨╗╨╕╨║╤Г╨╡╤В╤Б╤П (plain ╨▒╨╡╨╖ cover). `L2_SKIPPED
+        l1_not_usable тЖТ degraded тЖТ SUMMARY_GENERATION_FAILED` ╤Б╨╜╤П╤В."""
+        _fixed_rid(monkeypatch)
+        _patch_chat_limit(monkeypatch, {(CHAT, _HYBRID_FLAG): True})
+        from services.summary_l1_contract import invalid_result
+    
+        async def fake_run_l1(**kwargs):
+            return invalid_result("invalid_json")
+    
+        monkeypatch.setattr("services.summary_l1_clusterizer.run_l1",
+                            fake_run_l1)
+        llm = MagicMock()
+        llm.generate = AsyncMock(return_value=_L2_JSON)
+        gen = _gen(FakeMemory(rows=_rows()), llm)
+        gen._deliver_l2_rich = AsyncMock(return_value=True)
+        with caplog.at_level(logging.INFO):
+            await gen._run(CHAT, False)
+        assert llm.generate.await_count == 1          # L2 ╨╜╨░ fallback-╨┐╨░╨║╨╡╤В╨╡
+        # DoD-14 ╨╜╨░ ╨┤╨╡╨│╤А╨░╨┤╨╕╤А╨╛╨▓╨░╨╜╨╜╨╛╨╝ ╨┐╤Г╤В╨╕: ╨╛╨▒╨╗╨╛╨╢╨║╨░ LEVEL-2 тАФ ╨┤╨╡╤В╨╡╤А╨╝╨╕╨╜╨╕╤А╨╛╨▓╨░╨╜╨╜╨░╤П
+        # `_derive_fallback_cover_prompt` (0 LLM) тЖТ rich-╨┐╤Г╨▒╨╗╨╕╨║╨░╤Ж╨╕╤П.
+>       gen._deliver_l2_rich.assert_awaited_once()
+E       AssertionError: Expected mock to have been awaited once. Awaited 0 times.
+
+tests\test_summary_publish_integration_round1026.py:688: AssertionError
+------------------------------ Captured log call ------------------------------
+INFO     services.summary_run_log:summary_run_log.py:239 SUMMARY_START | run_id=RID-S6-0001 | chat_id=-1001 | mode=hybrid_l2 | manual=False | source_count=- | has_trigger=False
+INFO     services.summary_generator:summary_generator.py:868 SOURCE_WINDOW | run_id=RID-S6-0001 | chat_id=-1001 | messages=2
+INFO     services.summary_generator:summary_generator.py:1022 SUMMARY_SOURCE_WINDOW | run_id=RID-S6-0001 | chat_id=-1001 | messages=2 | durable=False
+WARNING  services.summary_fact_package:summary_fact_package.py:1174 L1_FALLBACK_PACKAGE | run_id=RID-S6-0001 | chat_id=-1001 | reason=invalid_json | fragments=2 | chronology=2
+INFO     services.summary_generator:summary_generator.py:2473 L2_PACKAGE_DEGRADED | run_id=RID-S6-0001 | chat_id=-1001 тАФ fallback package (╨╜╨╡ ╨┐╨╛╨╗╨╜╨╛╤Ж╨╡╨╜╨╜╤Л╨╣ semantic)
+INFO     services.summary_l2_writer:summary_l2_writer.py:1444 L2_START | run_id=RID-S6-0001 | chat_id=-1001 | paragraphs_hint=8 | response_mode=serious | target_chars=6500 | target_paragraphs=8 | prompt_key=prompts.summary_l2_writer_system_prompt | prompt_source=default | model=<MagicMock name='mock._chat_model' id='1777615011184'> | provider=- | dedicated=False
+INFO     services.summary_l2_writer:summary_l2_writer.py:1462 L2_COMPLETE | run_id=RID-S6-0001 | chat_id=-1001 | provider=- | model=<MagicMock name='mock._chat_model' id='1777615011184'> | tokens_in=294 | tokens_out=40 | chars=41 | paragraphs=1 | title_len=15 | quote_unverified=0 | ids_stripped=0 | quotes_total=0 | quotes_verified=0 | quotes_repaired=0 | quotes_removed=0 | emphasis_spans=1 | emphasis_dropped=0 | finale_present=0 | status=ok | invalid_reason=- | duration_ms=0
+INFO     services.summary_run_log:summary_run_log.py:311 FORMAT_START | run_id=RID-S6-0001 | chat_id=-1001 | channel=plain
+INFO     services.summary_run_log:summary_run_log.py:446 PUBLISH_TEXT_START | run_id=RID-S6-0001 | chat_id=-1001 | stage=publish | method=sendMessage | reason=plain
+INFO     services.summary_run_log:summary_run_log.py:333 FORMAT_COMPLETE | run_id=RID-S6-0001 | chat_id=-1001 | channel=plain | paragraphs=1 | rich_cut=0 | visible_paragraphs=1 | collapsed_paragraphs=0 | status=ok | duration_ms=0
+INFO     services.summary_run_log:summary_run_log.py:458 PUBLISH_TEXT_COMPLETE | run_id=RID-S6-0001 | chat_id=-1001 | stage=publish | method=sendMessage | message_id=- | reason=plain | duration_ms=1
+INFO     services.summary_run_log:summary_run_log.py:255 SUMMARY_COMPLETE | run_id=RID-S6-0001 | chat_id=-1001 | mode=hybrid_l2 | status=ok | duration_ms=4 | source_count=2 | threads=0 | paragraphs=1 | cover_status=unavailable | code=- | fallback=none | coverage=100.0 | publication_status=ok | health=ok | package_grade=degraded
+============================== warnings summary ===============================
+..\..\..\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\_pytest\config\__init__.py:1464
+  C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\_pytest\config\__init__.py:1464: PytestConfigWarning: Unknown config option: timeout
+  
+    self._warn_or_fail_if_strict(f"Unknown config option: {key}\n")
+
+..\..\..\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\_pytest\config\__init__.py:1464
+  C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\_pytest\config\__init__.py:1464: PytestConfigWarning: Unknown config option: timeout_method
+  
+    self._warn_or_fail_if_strict(f"Unknown config option: {key}\n")
+
+..\..\..\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\fastapi\testclient.py:1
+  C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\fastapi\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_asap7_direct_settings.py::test_migration_v35_idempotent_twice
+FAILED tests/test_asap7_direct_settings.py::test_backup_guard_fires_before_pending_step
+FAILED tests/test_summary_publish_integration_round1026.py::TestOnDelivery::test_on_l1_not_usable_level2_l2_publishes_article
+3 failed, 3652 passed, 3 warnings in 174.53s (0:02:54)
+
