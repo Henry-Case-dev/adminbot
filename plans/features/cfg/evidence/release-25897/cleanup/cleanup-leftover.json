@@ -1,0 +1,19 @@
+{
+ "mid": 1166975,
+ "chat": -1002661910336,
+ "matches": [
+  "wave-occasional.json:occasional-05-joke_short"
+ ],
+ "delete": "deleted",
+ "removed": {
+  "smart": 0,
+  "replies": 1,
+  "parents": 0
+ },
+ "residual": {
+  "smart": 0,
+  "replies": 0,
+  "parents": 0
+ },
+ "generated_utc": "2026-10-19 20:34:26"
+}

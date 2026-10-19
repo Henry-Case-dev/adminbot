@@ -1,0 +1,137 @@
+{
+ "count": 33,
+ "files": {
+  "cfg04/bytes-identity.json": {
+   "bytes": 1707,
+   "sha256": "cb27b4bce3abb0273e5c43c274267ab2d084c767c70943942ac809f12b291bdf"
+  },
+  "cfg04/deployed-probe.json": {
+   "bytes": 4417,
+   "sha256": "128865c912b51fbd7aca89d64d81b46986c785338c1af5f8832fc519fce24546"
+  },
+  "cfg04/dirty-guard.json": {
+   "bytes": 1885,
+   "sha256": "66dec6a7dfa393a87dfaca3fdc847aec8b4e6b25b1e2d7e32721dc61c85dfb6d"
+  },
+  "cfg04/live-after.json": {
+   "bytes": 63329,
+   "sha256": "b0e4da9a3327ececef1cb2e13254d172a6ca8c5162d075acfedec13e15b10245"
+  },
+  "cfg04/live-matrix-digest.json": {
+   "bytes": 4330,
+   "sha256": "964c01d0fe039a726865033009d40e9134fe01f23ffa7b570880e9339f5e689e"
+  },
+  "cfg04/served-delta.json": {
+   "bytes": 1753,
+   "sha256": "1e0c78f377fa3d7f48c025f29af8095699f2039d1f9675fe61d6274149fadd57"
+  },
+  "cfg04/served-markers.json": {
+   "bytes": 180,
+   "sha256": "a443dc0320ffc7e04001827c2e67483a42ad62eeab27f4d46670a0ea56f1e999"
+  },
+  "cfg04/shots/320x640-config-dirty.png": {
+   "bytes": 166973,
+   "sha256": "c876d1fefddc1f205733182d34f17abce2c7dbcb0b9bb211d4340993bcaa7aef"
+  },
+  "cfg04/shots/320x640-module-dirty.png": {
+   "bytes": 203768,
+   "sha256": "ff8aca2381c82fffdfb985c82e1c4fbf08b1c38a73700a10115e3838a9bffae4"
+  },
+  "cfg04/shots/360x740-config-dirty.png": {
+   "bytes": 312822,
+   "sha256": "625392cdf7306c51f4752c92ae2d36430887dca457c18c2f403336619235a589"
+  },
+  "cfg04/shots/360x740-module-dirty.png": {
+   "bytes": 415222,
+   "sha256": "372e13c4c2e89c9c26086b6b775261c5ff336067d50b47b9d025eeb4f5918121"
+  },
+  "cfg04/shots/390x844-config-dirty.png": {
+   "bytes": 351807,
+   "sha256": "4530b93d4882fea2d0d036bf33189fdaf9f963083afba8690ae50e8b89bfed56"
+  },
+  "cfg04/shots/390x844-module-dirty.png": {
+   "bytes": 483541,
+   "sha256": "517e9ef800bfcd108f98fa4e83c25863b535a90a923f995beeafc09b98165e79"
+  },
+  "cfg04/shots/430x932-config-dirty.png": {
+   "bytes": 393781,
+   "sha256": "4142a2bf5fcda806b82168ec945f1e39145c53d9f27d9a9f11d93fddf404fab6"
+  },
+  "cfg04/shots/430x932-module-dirty.png": {
+   "bytes": 497649,
+   "sha256": "d8b4ac543c7ffa1b9cefd37f8e5179b23e4275781a101bc3ae4d6d7b4f147d36"
+  },
+  "cfg04/shots/667x375-config-dirty.png": {
+   "bytes": 186423,
+   "sha256": "523fa0489ea7da33dcfcf358ed4b60de2c8d491f279915867ebe62791e0e9975"
+  },
+  "cfg04/shots/667x375-module-dirty.png": {
+   "bytes": 191498,
+   "sha256": "e1c5a51fcda2fc337f73ff5e429e256da98870a6adfe88bd25d3001848cc1564"
+  },
+  "cfg04/shots/844x390-config-dirty.png": {
+   "bytes": 405802,
+   "sha256": "c85a63874be5b3ef74663b13bcc7e3e7dcf8d6e36ac1995b9446cdb40343f612"
+  },
+  "cfg04/shots/844x390-module-dirty.png": {
+   "bytes": 429246,
+   "sha256": "f0faec4554c33a3350c341084723d0c8d3d5dbd40290858ba3345d57ac2cf30c"
+  },
+  "cfg04/shots/915x412-config-dirty.png": {
+   "bytes": 435192,
+   "sha256": "1724f421e83264f57829492d011d49be40b451fe8690552f0b6c26c55a22414a"
+  },
+  "cfg04/shots/915x412-module-dirty.png": {
+   "bytes": 468873,
+   "sha256": "402e0915e800faf68ad8ab010e927782b21414be28d0c6fdd70714c7e32ec9ad"
+  },
+  "cfg04/shots/browseruse/320x640_dirty_panel_safe56.png": {
+   "bytes": 123837,
+   "sha256": "41af769db544817b8d06e66356770654f94b40d69f9a2d904c4c5b3484123520"
+  },
+  "cfg04/shots/browseruse/390x844_dirty_panel_safe56.png": {
+   "bytes": 280361,
+   "sha256": "ebdb7b50c9bead24dfe99e89ba9b5223ac086c1e50aba9296785a0a636d29092"
+  },
+  "cfg04/shots/browseruse/844x390_dirty_panel_safe24.png": {
+   "bytes": 255488,
+   "sha256": "a4e5ee2016a32c66a33be629686246632a35230904af41d502d1f501cf7d1571"
+  },
+  "harness/build_mirror.py": {
+   "bytes": 2084,
+   "sha256": "6ae0424d76030329609efd0c6cf287cf30dab32f7cd278d3e4d992c80eb710c1"
+  },
+  "harness/bytes_identity.py": {
+   "bytes": 1524,
+   "sha256": "fa2f18b534447685676677c38b056f6c9a0469843674e1b653e0dff6b166e764"
+  },
+  "harness/deployed_probe.py": {
+   "bytes": 3432,
+   "sha256": "6942a71d66c31cf7fd52300747f26973b1cbbe80b714e79fe6b251943841cc85"
+  },
+  "harness/digest_cfg04b.py": {
+   "bytes": 2352,
+   "sha256": "91df34898d60ba87cc60550a76c38dfc13b8751d38589072ff807328d2c5248f"
+  },
+  "harness/dirty_guard_live.py": {
+   "bytes": 4935,
+   "sha256": "1357c0910313046c31d1e5c0a3249eff9340442e873c2142d8558ceb59778e0f"
+  },
+  "harness/served_delta.py": {
+   "bytes": 1370,
+   "sha256": "102cd618ccafe5a578b93070c7878ef16aa722f06e6b12cebe98fa041b2e15ac"
+  },
+  "harness/served_markers.py": {
+   "bytes": 947,
+   "sha256": "ba6204addffb37529957bfb7fe4492eb782cedac159479cc7d91600bba49a3b4"
+  },
+  "harness/ui_cfg04_live97.py": {
+   "bytes": 44172,
+   "sha256": "efde381d763ece1373ceaf5e25d66069d524c61d3bd98cab0c14b87997a81d3c"
+  },
+  "README.md": {
+   "bytes": 15332,
+   "sha256": "395d1c31a2d662802b8e0c571bb69dfe7b83fe2a732b17848325ec225d2733b3"
+  }
+ }
+}

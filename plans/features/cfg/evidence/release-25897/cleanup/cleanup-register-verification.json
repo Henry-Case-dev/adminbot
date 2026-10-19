@@ -1,0 +1,183 @@
+{
+ "generated_utc": "2026-10-19 20:21:58",
+ "method": "Telegram Bot API deleteMessage через развёрнутого бота (локальная сессия); safety-gate против реальных пользователей; синтетические строки удалены",
+ "delete_map": {
+  "-1002661910336": [
+   1167034,
+   1167035,
+   1167036,
+   1167037,
+   1167038,
+   1167039,
+   1167040,
+   1167041,
+   1167042,
+   1167043,
+   1167044,
+   1167045,
+   1167046,
+   1167047,
+   1167049,
+   1167052,
+   1167054,
+   1167055,
+   1167056
+  ],
+  "-1004482340693": [
+   2797,
+   2798,
+   2799,
+   2800
+  ]
+ },
+ "deleted": [
+  {
+   "chat_id": -1004482340693,
+   "mid": 2797,
+   "status": "already_deleted"
+  },
+  {
+   "chat_id": -1004482340693,
+   "mid": 2798,
+   "status": "already_deleted"
+  },
+  {
+   "chat_id": -1004482340693,
+   "mid": 2799,
+   "status": "already_deleted"
+  },
+  {
+   "chat_id": -1004482340693,
+   "mid": 2800,
+   "status": "already_deleted"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1167034,
+   "status": "already_deleted"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1167035,
+   "status": "already_deleted"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1167036,
+   "status": "already_deleted"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1167037,
+   "status": "already_deleted"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1167038,
+   "status": "already_deleted"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1167039,
+   "status": "already_deleted"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1167040,
+   "status": "already_deleted"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1167041,
+   "status": "already_deleted"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1167042,
+   "status": "already_deleted"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1167043,
+   "status": "already_deleted"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1167044,
+   "status": "already_deleted"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1167045,
+   "status": "already_deleted"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1167046,
+   "status": "already_deleted"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1167047,
+   "status": "already_deleted"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1167049,
+   "status": "already_deleted"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1167052,
+   "status": "already_deleted"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1167054,
+   "status": "already_deleted"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1167055,
+   "status": "already_deleted"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1167056,
+   "status": "already_deleted"
+  }
+ ],
+ "residual_95a": {},
+ "residual_95a_deleted": [],
+ "inventory": {
+  "-1002661910336": {
+   "smart": [],
+   "replies": [],
+   "blocked": []
+  },
+  "-1004482340693": {
+   "smart": [],
+   "replies": [],
+   "blocked": []
+  }
+ },
+ "synthetic_rows_removed": {
+  "smart": 0,
+  "bot_replies": 0,
+  "bot_reply_parents": 0,
+  "throttle": 0
+ },
+ "verification": {
+  "-1002661910336": {
+   "residual_smart": [],
+   "residual_replies": [],
+   "residual_parents": []
+  },
+  "-1004482340693": {
+   "residual_smart": [],
+   "residual_replies": [],
+   "residual_parents": []
+  }
+ },
+ "failed": []
+}

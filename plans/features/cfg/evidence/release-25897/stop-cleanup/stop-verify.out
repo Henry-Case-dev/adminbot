@@ -1,0 +1,22 @@
+### PRE rc=0
+PRE_UTC 2026-10-19T21:10:19Z
+HARNESS_NONE
+[upload] stop97_verify.py
+### VERIFY rc=0
+STOP97 CANDIDATES | pairs=425 register_hits=1070
+STOP97 BOT | id=8802473181 username=PERMsoc_bot
+STOP97 PROGRESS | 60/425 {'owned': 2, 'absent': 48, 'not_owned': 10, 'error': 0, 'retry': 0}
+STOP97 PROGRESS | 120/425 {'owned': 4, 'absent': 54, 'not_owned': 62, 'error': 0, 'retry': 0}
+STOP97 PROGRESS | 180/425 {'owned': 9, 'absent': 56, 'not_owned': 115, 'error': 0, 'retry': 0}
+STOP97 PROGRESS | 240/425 {'owned': 9, 'absent': 60, 'not_owned': 171, 'error': 0, 'retry': 0}
+STOP97 PROGRESS | 300/425 {'owned': 9, 'absent': 81, 'not_owned': 210, 'error': 0, 'retry': 0}
+STOP97 PROGRESS | 360/425 {'owned': 9, 'absent': 132, 'not_owned': 219, 'error': 0, 'retry': 0}
+STOP97 PROGRESS | 420/425 {'owned': 9, 'absent': 190, 'not_owned': 221, 'error': 0, 'retry': 0}
+STOP97 PROBE | {"owned": 9, "absent": 194, "not_owned": 222, "error": 0, "retry": 0}
+STOP97 DELETE | attempted=9 deleted=9
+STOP97 DBROWS | {"smart_synth": 0, "bot_replies": 0, "parents": 0, "throttle": 0}
+STOP97 POST | {"smart_synth": 0, "throttle_synth": 0, "checked_mids": 9, "residual_replies": [], "residual_parents": []}
+STOP97 CLEAN | True
+STOP97_RC=0
+[stderr] [sudo] password for nik:
+[download] stop-verify.json

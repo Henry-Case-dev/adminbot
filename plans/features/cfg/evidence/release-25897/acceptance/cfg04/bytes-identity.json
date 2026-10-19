@@ -1,0 +1,60 @@
+{
+  "repo": {
+    "web/static/app.css": {
+      "bytes": 234981,
+      "sha256_12": "6b5ca0cc1d47"
+    },
+    "web/app.js": {
+      "bytes": 1283831,
+      "sha256_12": "885094459700"
+    },
+    "web/index.html": {
+      "bytes": 875952,
+      "sha256_12": "528f358a6589"
+    }
+  },
+  "served": {
+    "/static/app.css": {
+      "http": 200,
+      "bytes": 234959,
+      "sha256_12": "9ed4c69995b9",
+      "first_line": "    /* ═══ Epic 85 (84.7) — CSS-канон ═══ */"
+    },
+    "/static/app.css?v=2.58.97": {
+      "http": 200,
+      "bytes": 234959,
+      "sha256_12": "9ed4c69995b9",
+      "first_line": "    /* ═══ Epic 85 (84.7) — CSS-канон ═══ */"
+    },
+    "/web/static/app.css": {
+      "http": 200,
+      "bytes": 234981,
+      "sha256_12": "6b5ca0cc1d47",
+      "first_line": "    /* ═══ Epic 85 (84.7) — CSS-канон ═══ */"
+    },
+    "/web/app.js": {
+      "http": 200,
+      "bytes": 1283831,
+      "sha256_12": "885094459700",
+      "first_line": "﻿/* Epic 85 (84.7, T-620/T-621/T-632/T-639/T-640/T-644) — фронтенд TMA-админки."
+    },
+    "/web/app.js?v=2.58.97": {
+      "http": 200,
+      "bytes": 1283831,
+      "sha256_12": "885094459700",
+      "first_line": "﻿/* Epic 85 (84.7, T-620/T-621/T-632/T-639/T-640/T-644) — фронтенд TMA-админки."
+    },
+    "/web/index.html": {
+      "http": 200,
+      "bytes": 875832,
+      "sha256_12": "1dda147e41d6",
+      "first_line": "<!DOCTYPE html>"
+    },
+    "/web/": {
+      "http": 200,
+      "bytes": 875832,
+      "sha256_12": "1dda147e41d6",
+      "first_line": "<!DOCTYPE html>"
+    }
+  }
+}

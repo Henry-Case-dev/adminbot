@@ -1,0 +1,3100 @@
+{
+ "generated_utc": "2026-10-19 21:10:13",
+ "dry_run": false,
+ "method": "Bot API editMessageReplyMarkup ownership probe -> deleteMessage -> re-probe; bot messages only; DB synthetic rows pruned for removed mids",
+ "plan_counts": {
+  "candidates": 221,
+  "by_chat": {
+   "-1004482340693": 23,
+   "-1002661910336": 198
+  },
+  "chain_members": 126,
+  "evidence_corr_outputs": 59,
+  "anchors": 28,
+  "media_in_window": 27,
+  "evidence_mid_extra": 48
+ },
+ "probe_summary": {
+  "owned": 13,
+  "absent": 181,
+  "not_owned": 27,
+  "error": 0
+ },
+ "owned": [
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166946,
+   "kinds": [
+    "bot_bot_chain"
+   ],
+   "plan_text": "Стоит, но не потому что ты виноват, а потому что неловкость сама не рассосётся - она как тот самый дюбель в стене, пока не выкрутишь, будет ",
+   "probe": "owned",
+   "text": null,
+   "date": null,
+   "reply_to": null
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166948,
+   "kinds": [
+    "bot_bot_chain"
+   ],
+   "plan_text": "Кот не смотрит победно, он смотрит как начальник, который только что перенёс дедлайн и наслаждается. Кружка была не твоя, а его - ты просто ",
+   "probe": "owned",
+   "text": null,
+   "date": null,
+   "reply_to": null
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166949,
+   "kinds": [
+    "bot_bot_chain"
+   ],
+   "plan_text": "Ноут греется как печка обычно по трём причинам, и все три решаются без похода в сервис Сначала глянь, что жрёт процессор: диспетчер задач, в",
+   "probe": "owned",
+   "text": null,
+   "date": null,
+   "reply_to": null
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166950,
+   "kinds": [
+    "bot_bot_chain"
+   ],
+   "plan_text": "Удалёнка лучше, и спорить тут особо не о чем. Офис - это место, где ты тратишь полтора часа жизни на дорогу, чтобы сидеть в наушниках и дела",
+   "probe": "owned",
+   "text": null,
+   "date": null,
+   "reply_to": null
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166952,
+   "kinds": [
+    "bot_bot_chain"
+   ],
+   "plan_text": "Про погоду в Москве на выходных в справке ни слова - только пересланная новость про оспу обезьян в Питере и снег в Перми. Так что если тебе ",
+   "probe": "owned",
+   "text": null,
+   "date": null,
+   "reply_to": null
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166954,
+   "kinds": [
+    "bot_bot_chain"
+   ],
+   "plan_text": "Ты про какой совет-то? Тут их пять подряд висит - сосед с перфоратором, пароль от вайфая, дедлайн, курица с рисом и ноут. Скажи, что именно ",
+   "probe": "owned",
+   "text": null,
+   "date": null,
+   "reply_to": null
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166955,
+   "kinds": [
+    "anchor_parent"
+   ],
+   "plan_text": "",
+   "probe": "owned",
+   "text": null,
+   "date": null,
+   "reply_to": null
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166956,
+   "kinds": [
+    "bot_bot_chain",
+    "window_orphan_reply"
+   ],
+   "plan_text": "Из техподдержки? С такой зарплатой в десять тыщ я бы скорее в цирке работал - по деньгам то же самое, но публика вежливее. Тариф я тебе увер",
+   "probe": "owned",
+   "text": null,
+   "date": null,
+   "reply_to": null
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166957,
+   "kinds": [
+    "bot_bot_chain"
+   ],
+   "plan_text": "Серьёзно, аж три абзаца накатал, будто это диссертация про пользу ходьбы. До обеда я сплю исключительно по расписанию, которое сам себе и со",
+   "probe": "owned",
+   "text": null,
+   "date": null,
+   "reply_to": null
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166958,
+   "kinds": [
+    "bot_bot_chain"
+   ],
+   "plan_text": "Ну и сиди в своём проде без кэша, только потом не удивляйся, когда база под нагрузкой начнёт отвечать быстрее, чем ты успеваешь сказать \"а я",
+   "probe": "owned",
+   "text": null,
+   "date": null,
+   "reply_to": null
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166959,
+   "kinds": [
+    "bot_bot_chain"
+   ],
+   "plan_text": "Второй день гудит - это она тебе уже не намекает, а открытым текстом заявление на увольнение пишет. Скорее всего подшипник помер, и пока он ",
+   "probe": "owned",
+   "text": null,
+   "date": null,
+   "reply_to": null
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166960,
+   "kinds": [
+    "bot_bot_chain"
+   ],
+   "plan_text": "Третий раз переписываешь один и тот же отчёт - это уже не работа, это реинкарнация. Каждая версия чуть лучше, но ты всё равно возвращаешься ",
+   "probe": "owned",
+   "text": null,
+   "date": null,
+   "reply_to": null
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166961,
+   "kinds": [
+    "bot_bot_chain"
+   ],
+   "plan_text": "Не спал, но это уже детали",
+   "probe": "owned",
+   "text": null,
+   "date": null,
+   "reply_to": null
+  }
+ ],
+ "probe_results": [
+  {
+   "chat_id": -1004482340693,
+   "mid": 2637,
+   "kinds": [
+    "media_in_window"
+   ],
+   "probe": "not_owned",
+   "plan_text": "photo image/jpeg",
+   "error": "Telegram server says - Bad Request: message can't be edited"
+  },
+  {
+   "chat_id": -1004482340693,
+   "mid": 2720,
+   "kinds": [
+    "anchor_parent",
+    "evidence_mid"
+   ],
+   "probe": "absent",
+   "plan_text": "deleted",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1004482340693,
+   "mid": 2721,
+   "kinds": [
+    "bot_bot_chain",
+    "evidence_corr",
+    "window_bot_output",
+    "window_orphan_reply"
+   ],
+   "probe": "absent",
+   "plan_text": "Вчера я был в ударе, да. Доклад получился такой, что самому страшно",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1004482340693,
+   "mid": 2722,
+   "kinds": [
+    "bot_bot_chain",
+    "evidence_corr",
+    "window_bot_output"
+   ],
+   "probe": "absent",
+   "plan_text": "В каком именно деле - сервак собирать или пиво с Лехи стрясать?",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1004482340693,
+   "mid": 2724,
+   "kinds": [
+    "media_in_window"
+   ],
+   "probe": "not_owned",
+   "plan_text": "photo image/jpeg",
+   "error": "Telegram server says - Bad Request: message can't be edited"
+  },
+  {
+   "chat_id": -1004482340693,
+   "mid": 2725,
+   "kinds": [
+    "media_in_window"
+   ],
+   "probe": "not_owned",
+   "plan_text": "photo image/jpeg",
+   "error": "Telegram server says - Bad Request: message can't be edited"
+  },
+  {
+   "chat_id": -1004482340693,
+   "mid": 2726,
+   "kinds": [
+    "media_in_window"
+   ],
+   "probe": "not_owned",
+   "plan_text": "photo image/jpeg",
+   "error": "Telegram server says - Bad Request: message can't be edited"
+  },
+  {
+   "chat_id": -1004482340693,
+   "mid": 2736,
+   "kinds": [
+    "anchor_parent",
+    "evidence_mid"
+   ],
+   "probe": "absent",
+   "plan_text": "deleted",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1004482340693,
+   "mid": 2737,
+   "kinds": [
+    "bot_bot_chain",
+    "evidence_corr",
+    "window_bot_output",
+    "window_orphan_reply"
+   ],
+   "probe": "absent",
+   "plan_text": "Вчера я вроде не докладывал, а под столом валялся после Лехиных расчётов по ддр3. Если это был тот доклад - ну, спасибо, старался не отстава",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1004482340693,
+   "mid": 2739,
+   "kinds": [
+    "bot_bot_chain",
+    "evidence_corr",
+    "window_bot_output"
+   ],
+   "probe": "absent",
+   "plan_text": "В деле, но только если Леха к завтрашнему дню довычислит свои протеины",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1004482340693,
+   "mid": 2745,
+   "kinds": [
+    "media_in_window"
+   ],
+   "probe": "not_owned",
+   "plan_text": "photo image/jpeg",
+   "error": "Telegram server says - Bad Request: message can't be edited"
+  },
+  {
+   "chat_id": -1004482340693,
+   "mid": 2789,
+   "kinds": [
+    "anchor_parent"
+   ],
+   "probe": "absent",
+   "plan_text": "",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1004482340693,
+   "mid": 2790,
+   "kinds": [
+    "anchor_parent"
+   ],
+   "probe": "absent",
+   "plan_text": "",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1004482340693,
+   "mid": 2791,
+   "kinds": [
+    "bot_bot_chain",
+    "window_bot_output",
+    "window_orphan_reply"
+   ],
+   "probe": "absent",
+   "plan_text": "По сломанному билду конкретно у вас в чате ничего не нашлось: история не подтянулась, в памяти только общие разговоры про билдеров и ревьюер",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1004482340693,
+   "mid": 2792,
+   "kinds": [
+    "bot_bot_chain",
+    "window_bot_output"
+   ],
+   "probe": "absent",
+   "plan_text": "Слушай, по встрече в субботу у меня ноль вводных - ни кто её собирает, ни зачем, ни что там вообще будет. Про билды в чате трепались, а до т",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1004482340693,
+   "mid": 2793,
+   "kinds": [
+    "bot_bot_chain",
+    "window_bot_output",
+    "window_orphan_reply"
+   ],
+   "probe": "absent",
+   "plan_text": "По сломанному билду конкретно у вас в чате ничего не нашлось - история не подтянулась, в памяти только общие разговоры про билдеров и ревьюе",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1004482340693,
+   "mid": 2794,
+   "kinds": [
+    "bot_bot_chain",
+    "window_bot_output"
+   ],
+   "probe": "absent",
+   "plan_text": "Петя, значит, устал и рефакторинг хуйня. Передаю слово в слово, как просили: \"ну и хуйня этот ваш рефакторинг, я устал\". Ничего не правил, н",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1004482340693,
+   "mid": 2795,
+   "kinds": [
+    "bot_bot_chain",
+    "window_bot_output"
+   ],
+   "probe": "absent",
+   "plan_text": "Слушай, про встречу в субботу у меня ноль вводных - ни кто её собирает, ни зачем, ни что там вообще будет. В чате про видюхи, токены и абуз ",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1004482340693,
+   "mid": 2796,
+   "kinds": [
+    "bot_bot_chain",
+    "window_bot_output"
+   ],
+   "probe": "absent",
+   "plan_text": "Петя просил передать дословно, держи как есть, ни запятой не тронул: \"ну и хуйня этот ваш рефакторинг, я устал\" А кто такой Петя и при чём т",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1004482340693,
+   "mid": 2797,
+   "kinds": [
+    "anchor_parent",
+    "evidence_mid"
+   ],
+   "probe": "absent",
+   "plan_text": "already_deleted",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1004482340693,
+   "mid": 2798,
+   "kinds": [
+    "bot_bot_chain",
+    "evidence_corr",
+    "window_bot_output",
+    "window_orphan_reply"
+   ],
+   "probe": "absent",
+   "plan_text": "По сломанному билду конкретно у вас в чате ничего не нашлось: история не подтянулась, в памяти только общие разговоры про билдеров и ревьюер",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1004482340693,
+   "mid": 2799,
+   "kinds": [
+    "bot_bot_chain",
+    "evidence_corr",
+    "window_bot_output"
+   ],
+   "probe": "absent",
+   "plan_text": "Слушай, по встрече в субботу у меня ноль вводных - ни кто её собирает, ни зачем, ни что там вообще будет. Про билды в чате трепались, а до т",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1004482340693,
+   "mid": 2800,
+   "kinds": [
+    "bot_bot_chain",
+    "evidence_corr",
+    "window_bot_output"
+   ],
+   "probe": "absent",
+   "plan_text": "Петя, значит, устал и рефакторинг хуйня. Передаю слово в слово, как просили: \"ну и хуйня этот ваш рефакторинг, я устал\". Ничего не правил, н",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1165606,
+   "kinds": [
+    "media_in_window"
+   ],
+   "probe": "not_owned",
+   "plan_text": "photo image/jpeg",
+   "error": "Telegram server says - Bad Request: message can't be edited"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1165607,
+   "kinds": [
+    "anchor_parent",
+    "media_in_window"
+   ],
+   "probe": "not_owned",
+   "plan_text": "photo image/jpeg",
+   "error": "Telegram server says - Bad Request: message can't be edited"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1165608,
+   "kinds": [
+    "anchor_parent",
+    "evidence_mid",
+    "evidence_mid_unassigned"
+   ],
+   "probe": "absent",
+   "plan_text": "deleted",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1165609,
+   "kinds": [
+    "bot_bot_chain",
+    "window_orphan_reply",
+    "evidence_mid_unassigned"
+   ],
+   "probe": "absent",
+   "plan_text": "По справке ничего про состояние сервера нет",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1165610,
+   "kinds": [
+    "bot_bot_chain",
+    "evidence_mid_unassigned"
+   ],
+   "probe": "absent",
+   "plan_text": "В справке ни строчки про ошибки - ни серверных, ни клиентских, ни твоих личных в попытках что-то проверить. Так что искать нечего, разве что",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1165611,
+   "kinds": [
+    "evidence_mid",
+    "evidence_mid_unassigned"
+   ],
+   "probe": "absent",
+   "plan_text": "deleted",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1165612,
+   "kinds": [
+    "evidence_mid",
+    "evidence_mid_unassigned"
+   ],
+   "probe": "absent",
+   "plan_text": "deleted",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1165613,
+   "kinds": [
+    "bot_bot_chain",
+    "evidence_corr",
+    "evidence_mid_unassigned"
+   ],
+   "probe": "absent",
+   "plan_text": "Картинку посмотреть не вышло - лимит на распознавание изображений у провайдера, так что что там у Никиты Философа за команда, я тебе не скаж",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1165614,
+   "kinds": [
+    "bot_bot_chain",
+    "evidence_mid_unassigned"
+   ],
+   "probe": "absent",
+   "plan_text": "Не могу - распознавание картинок у провайдера отвалилось, так что надпись на фото не прочитаю",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1165615,
+   "kinds": [
+    "anchor_parent",
+    "evidence_mid",
+    "evidence_mid_unassigned"
+   ],
+   "probe": "absent",
+   "plan_text": "deleted",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1165616,
+   "kinds": [
+    "media_in_window"
+   ],
+   "probe": "not_owned",
+   "plan_text": "animation image/webp",
+   "error": "Telegram server says - Bad Request: message can't be edited"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1165617,
+   "kinds": [
+    "bot_bot_chain",
+    "window_orphan_reply",
+    "evidence_mid_unassigned"
+   ],
+   "probe": "absent",
+   "plan_text": "Проверка не сработала - по времени не пролезло, так что подтвердить или опровергнуть не могу. Если это про то, что Nameless Creature с чем-т",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1165619,
+   "kinds": [
+    "bot_bot_chain",
+    "evidence_mid_unassigned"
+   ],
+   "probe": "absent",
+   "plan_text": "Генератор картинок сдох по дороге к утёнку, так что жёлтого резинового чуда на белом фоне не будет - ни тебе, ни мне. Утёнок, можно сказать,",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1165620,
+   "kinds": [
+    "evidence_mid",
+    "evidence_mid_unassigned"
+   ],
+   "probe": "absent",
+   "plan_text": "already_deleted",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1165621,
+   "kinds": [
+    "bot_bot_chain",
+    "evidence_mid_unassigned"
+   ],
+   "probe": "absent",
+   "plan_text": "Генератор картинок уже отправил что-то в чат, но что там вышло - распознавание прилегло отдохнуть, так что подтвердить синий кораблик не мог",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1165622,
+   "kinds": [
+    "evidence_mid",
+    "evidence_mid_unassigned"
+   ],
+   "probe": "absent",
+   "plan_text": "already_deleted",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1165623,
+   "kinds": [
+    "bot_bot_chain",
+    "evidence_mid_unassigned"
+   ],
+   "probe": "absent",
+   "plan_text": "Картинка ушла в чат, но что там вышло - распознавание прилегло, так что подтвердить зелёное яблоко не могу. Словесный портрет, если пригодит",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1165624,
+   "kinds": [
+    "bot_bot_chain",
+    "evidence_mid_unassigned"
+   ],
+   "probe": "absent",
+   "plan_text": "Генератор прилёг передохнуть - лимит частоты, снова можно через минуту с копейками. Красного шарика на белом фоне не будет, увы. Словесный п",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1165625,
+   "kinds": [
+    "media_in_window"
+   ],
+   "probe": "not_owned",
+   "plan_text": "photo image/jpeg",
+   "error": "Telegram server says - Bad Request: message can't be edited"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1165626,
+   "kinds": [
+    "media_in_window"
+   ],
+   "probe": "not_owned",
+   "plan_text": "photo image/jpeg",
+   "error": "Telegram server says - Bad Request: message can't be edited"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1165627,
+   "kinds": [
+    "anchor_parent",
+    "evidence_mid",
+    "evidence_mid_unassigned"
+   ],
+   "probe": "absent",
+   "plan_text": "deleted",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1165629,
+   "kinds": [
+    "bot_bot_chain",
+    "window_orphan_reply",
+    "evidence_mid_unassigned"
+   ],
+   "probe": "absent",
+   "plan_text": "По справке сервер живой, но с бодуна. База в локе - sqlite держит транзакцию так, что остальные стоят в очереди и курят. Воркер VisionMediaW",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1165630,
+   "kinds": [
+    "bot_bot_chain",
+    "evidence_mid_unassigned"
+   ],
+   "probe": "absent",
+   "plan_text": "Не подтвержу - проверка не пролезла по времени, а без неё только Википедия на память, а она в этой конфе не котируется",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1165655,
+   "kinds": [
+    "evidence_mid"
+   ],
+   "probe": "absent",
+   "plan_text": "deleted",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1165656,
+   "kinds": [
+    "evidence_mid_unassigned"
+   ],
+   "probe": "absent",
+   "plan_text": "вода закипает при 100 °C на уровне моря",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1165657,
+   "kinds": [
+    "evidence_mid"
+   ],
+   "probe": "absent",
+   "plan_text": "deleted",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1165658,
+   "kinds": [
+    "evidence_mid_unassigned"
+   ],
+   "probe": "absent",
+   "plan_text": "бот, проверь факт: вода закипает при 100 °C на уровне моря.",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1165721,
+   "kinds": [
+    "evidence_mid",
+    "evidence_mid_unassigned"
+   ],
+   "probe": "absent",
+   "plan_text": "deleted",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1165722,
+   "kinds": [
+    "evidence_mid_unassigned"
+   ],
+   "probe": "absent",
+   "plan_text": "бот, что тут?",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1165723,
+   "kinds": [
+    "evidence_mid",
+    "evidence_mid_unassigned"
+   ],
+   "probe": "absent",
+   "plan_text": "deleted",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1165724,
+   "kinds": [
+    "evidence_mid_unassigned"
+   ],
+   "probe": "absent",
+   "plan_text": "бот, что тут?",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1165725,
+   "kinds": [
+    "evidence_mid",
+    "evidence_mid_unassigned"
+   ],
+   "probe": "absent",
+   "plan_text": "deleted",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1165726,
+   "kinds": [
+    "evidence_mid",
+    "evidence_mid_unassigned"
+   ],
+   "probe": "absent",
+   "plan_text": "deleted",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1165727,
+   "kinds": [
+    "evidence_mid_unassigned"
+   ],
+   "probe": "absent",
+   "plan_text": "бот, это правда?",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1165728,
+   "kinds": [
+    "evidence_mid",
+    "evidence_mid_unassigned"
+   ],
+   "probe": "absent",
+   "plan_text": "deleted",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1165729,
+   "kinds": [
+    "evidence_mid_unassigned"
+   ],
+   "probe": "absent",
+   "plan_text": "бот, что тут?",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1165730,
+   "kinds": [
+    "evidence_mid",
+    "evidence_mid_unassigned"
+   ],
+   "probe": "absent",
+   "plan_text": "deleted",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1165731,
+   "kinds": [
+    "evidence_mid_unassigned"
+   ],
+   "probe": "absent",
+   "plan_text": "бот, что тут?",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1165732,
+   "kinds": [
+    "evidence_mid",
+    "evidence_mid_unassigned"
+   ],
+   "probe": "absent",
+   "plan_text": "deleted",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1165733,
+   "kinds": [
+    "evidence_mid",
+    "evidence_mid_unassigned"
+   ],
+   "probe": "absent",
+   "plan_text": "deleted",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1165734,
+   "kinds": [
+    "evidence_mid_unassigned"
+   ],
+   "probe": "absent",
+   "plan_text": "бот, нарисуй безобидный рисунок: жёлтый лимон на белом фоне",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166064,
+   "kinds": [
+    "evidence_mid",
+    "evidence_mid_unassigned"
+   ],
+   "probe": "absent",
+   "plan_text": "deleted",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166066,
+   "kinds": [
+    "evidence_mid",
+    "evidence_mid_unassigned"
+   ],
+   "probe": "absent",
+   "plan_text": "deleted",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166165,
+   "kinds": [
+    "evidence_mid",
+    "evidence_mid_unassigned"
+   ],
+   "probe": "absent",
+   "plan_text": "deleted",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166167,
+   "kinds": [
+    "evidence_mid_unassigned"
+   ],
+   "probe": "absent",
+   "plan_text": "9072347b986b91f05d580a11c1aae6646b250e29",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166168,
+   "kinds": [
+    "evidence_mid",
+    "evidence_mid_unassigned"
+   ],
+   "probe": "absent",
+   "plan_text": "deleted",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166169,
+   "kinds": [
+    "evidence_mid",
+    "evidence_mid_unassigned"
+   ],
+   "probe": "absent",
+   "plan_text": "deleted",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166170,
+   "kinds": [
+    "evidence_mid_unassigned"
+   ],
+   "probe": "absent",
+   "plan_text": "бот, надо нарисовать картинку: жёлтый лимон на белом фоне",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166177,
+   "kinds": [
+    "evidence_mid",
+    "evidence_mid_unassigned"
+   ],
+   "probe": "absent",
+   "plan_text": "deleted",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166178,
+   "kinds": [
+    "evidence_mid_unassigned"
+   ],
+   "probe": "absent",
+   "plan_text": "9072347b986b91f05d580a11c1aae6646b250e29",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166228,
+   "kinds": [
+    "evidence_corr"
+   ],
+   "probe": "absent",
+   "plan_text": "Нормально, понедельник как понедельник - а у тебя?",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166463,
+   "kinds": [
+    "anchor_parent",
+    "media_in_window",
+    "evidence_mid",
+    "evidence_mid_unassigned"
+   ],
+   "probe": "absent",
+   "plan_text": "document image/png",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166464,
+   "kinds": [
+    "bot_bot_chain",
+    "evidence_corr",
+    "window_orphan_reply",
+    "evidence_mid_unassigned"
+   ],
+   "probe": "absent",
+   "plan_text": "Глаза мне отключили, так что картинку я не вижу. Скинь текстом или жди, пока зрение вернут",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166465,
+   "kinds": [
+    "media_in_window"
+   ],
+   "probe": "not_owned",
+   "plan_text": "photo image/jpeg",
+   "error": "Telegram server says - Bad Request: message can't be edited"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166466,
+   "kinds": [
+    "media_in_window"
+   ],
+   "probe": "not_owned",
+   "plan_text": "photo image/jpeg",
+   "error": "Telegram server says - Bad Request: message can't be edited"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166467,
+   "kinds": [
+    "evidence_mid",
+    "evidence_mid_unassigned"
+   ],
+   "probe": "not_owned",
+   "plan_text": "not_bot",
+   "error": "Telegram server says - Bad Request: message can't be edited"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166468,
+   "kinds": [
+    "media_in_window"
+   ],
+   "probe": "not_owned",
+   "plan_text": "photo image/jpeg",
+   "error": "Telegram server says - Bad Request: message can't be edited"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166469,
+   "kinds": [
+    "evidence_mid",
+    "evidence_mid_unassigned"
+   ],
+   "probe": "absent",
+   "plan_text": "already_deleted",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166471,
+   "kinds": [
+    "bot_bot_chain",
+    "evidence_mid_unassigned"
+   ],
+   "probe": "absent",
+   "plan_text": "Апельсин отправил, но квота на картинки кончилась - так что глазеть на него будешь сам, мне сегодня даже зрение не выдали",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166478,
+   "kinds": [
+    "media_in_window"
+   ],
+   "probe": "not_owned",
+   "plan_text": "photo image/jpeg",
+   "error": "Telegram server says - Bad Request: message can't be edited"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166482,
+   "kinds": [
+    "media_in_window",
+    "evidence_mid",
+    "evidence_mid_unassigned"
+   ],
+   "probe": "absent",
+   "plan_text": "document image/png",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166483,
+   "kinds": [
+    "anchor_parent",
+    "evidence_mid",
+    "evidence_mid_unassigned"
+   ],
+   "probe": "absent",
+   "plan_text": "deleted",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166485,
+   "kinds": [
+    "evidence_corr",
+    "window_orphan_reply",
+    "evidence_mid_unassigned"
+   ],
+   "probe": "absent",
+   "plan_text": "Картинку распознать не успели - таймаут вышел, так что там за файл, я без понятия. Скинь ещё раз или опиши словами",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166486,
+   "kinds": [
+    "anchor_parent",
+    "evidence_mid",
+    "evidence_mid_unassigned"
+   ],
+   "probe": "absent",
+   "plan_text": "deleted",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166487,
+   "kinds": [
+    "bot_bot_chain",
+    "window_orphan_reply",
+    "evidence_mid_unassigned"
+   ],
+   "probe": "absent",
+   "plan_text": "Файл не открылся - ссылка битая, а распознавание не успело до дедлайна. Так что что там на картинке, я без понятия",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166489,
+   "kinds": [
+    "evidence_mid",
+    "evidence_mid_unassigned"
+   ],
+   "probe": "absent",
+   "plan_text": "deleted",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166491,
+   "kinds": [
+    "bot_bot_chain",
+    "evidence_mid_unassigned"
+   ],
+   "probe": "absent",
+   "plan_text": "Апельсин ушёл в чат, но квота на генерацию картинок на сегодня выжрана досуха - так что смотреть на него будешь ты, а я даже не в курсе, что",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166495,
+   "kinds": [
+    "evidence_mid",
+    "evidence_mid_unassigned"
+   ],
+   "probe": "absent",
+   "plan_text": "deleted",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166496,
+   "kinds": [
+    "media_in_window",
+    "evidence_mid",
+    "evidence_mid_unassigned"
+   ],
+   "probe": "absent",
+   "plan_text": "document image/png",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166497,
+   "kinds": [
+    "anchor_parent",
+    "evidence_mid",
+    "evidence_mid_unassigned"
+   ],
+   "probe": "absent",
+   "plan_text": "deleted",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166499,
+   "kinds": [
+    "evidence_corr",
+    "window_orphan_reply",
+    "evidence_mid_unassigned"
+   ],
+   "probe": "absent",
+   "plan_text": "Файл не скачался - ссылка битая, а распознавание не успело до дедлайна. Так что что там за документ, я без понятия. Скинь ещё раз или опиши ",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166500,
+   "kinds": [
+    "evidence_mid",
+    "evidence_mid_unassigned"
+   ],
+   "probe": "absent",
+   "plan_text": "deleted",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166501,
+   "kinds": [
+    "window_orphan_reply",
+    "evidence_mid_unassigned"
+   ],
+   "probe": "absent",
+   "plan_text": "Картинку не вытянул - ссылка битая, а распознавание ушло в таймаут и до сих пор висит в очереди. Так что что там за файл, понятия не имею",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166634,
+   "kinds": [
+    "anchor_parent",
+    "evidence_mid"
+   ],
+   "probe": "absent",
+   "plan_text": "deleted",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166635,
+   "kinds": [
+    "bot_bot_chain",
+    "evidence_corr",
+    "window_orphan_reply"
+   ],
+   "probe": "absent",
+   "plan_text": "Ну а ты думал, я по мелочи не размениваюсь",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166636,
+   "kinds": [
+    "bot_bot_chain",
+    "evidence_corr"
+   ],
+   "probe": "absent",
+   "plan_text": "Стоп, ты про какой именно вариант? Их вчера могло быть несколько, и какой из них у тебя на сервере не завёлся - без этого я буду гадать на к",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166637,
+   "kinds": [
+    "bot_bot_chain",
+    "evidence_corr"
+   ],
+   "probe": "absent",
+   "plan_text": "Куда именно?",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166639,
+   "kinds": [
+    "bot_bot_chain",
+    "evidence_corr"
+   ],
+   "probe": "absent",
+   "plan_text": "Роутер перезагрузил - это ты, считай, помолился. Иногда помогает, но чаще просто даёт железке повод подумать о своём. Смотри: если лампочки ",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166640,
+   "kinds": [
+    "bot_bot_chain",
+    "evidence_corr"
+   ],
+   "probe": "absent",
+   "plan_text": "Понедельник - это когда будильник звонит, а ты уже устал",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166641,
+   "kinds": [
+    "bot_bot_chain",
+    "evidence_corr"
+   ],
+   "probe": "absent",
+   "plan_text": "df -h",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166642,
+   "kinds": [
+    "bot_bot_chain",
+    "evidence_corr"
+   ],
+   "probe": "absent",
+   "plan_text": "Да, три - два качают кровь, третье фильтрует, у осьминога с этим лучше, чем у некоторых тут с сердцем",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166643,
+   "kinds": [
+    "media_in_window"
+   ],
+   "probe": "not_owned",
+   "plan_text": "photo image/jpeg",
+   "error": "Telegram server says - Bad Request: message can't be edited"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166645,
+   "kinds": [
+    "bot_bot_chain",
+    "evidence_corr"
+   ],
+   "probe": "absent",
+   "plan_text": "В справке такой цитаты Васи нет - я вижу только его реплики про бразильянку, запись в анимешники и что кто-то стал менее мерзким. Так что до",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166646,
+   "kinds": [
+    "anchor_parent",
+    "evidence_mid"
+   ],
+   "probe": "absent",
+   "plan_text": "deleted",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166647,
+   "kinds": [
+    "bot_bot_chain",
+    "evidence_corr",
+    "window_orphan_reply"
+   ],
+   "probe": "absent",
+   "plan_text": "А ты думал, я по мелочи не размениваюсь",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166648,
+   "kinds": [
+    "bot_bot_chain",
+    "evidence_corr"
+   ],
+   "probe": "absent",
+   "plan_text": "Какой именно вариант ты гонял? У меня их за полдня могло насобираться штук пять, и без конкретики я сейчас буду вскрывать наугад",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166649,
+   "kinds": [
+    "bot_bot_chain",
+    "evidence_corr"
+   ],
+   "probe": "absent",
+   "plan_text": "Куда именно?",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166650,
+   "kinds": [
+    "bot_bot_chain",
+    "evidence_corr"
+   ],
+   "probe": "absent",
+   "plan_text": "Сначала на морду роутера - горят ли лампочки как обычно. Потом с телефона по мобильному проверь: если там летает, а по вайфаю нет, значит ко",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166651,
+   "kinds": [
+    "bot_bot_chain",
+    "evidence_corr"
+   ],
+   "probe": "absent",
+   "plan_text": "Дедлайн - это когда срок уже вчера, а ты ещё выбираешь, каким именно вариантом всё сдать",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166652,
+   "kinds": [
+    "bot_bot_chain",
+    "evidence_corr"
+   ],
+   "probe": "absent",
+   "plan_text": "du -sh /путь/к/папке - покажет общий вес разом. Если надо разбивку по внутренностям, то du -h --max-depth=1 /путь, и уже оттуда копай в саму",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166653,
+   "kinds": [
+    "bot_bot_chain",
+    "evidence_corr"
+   ],
+   "probe": "absent",
+   "plan_text": "Да, три",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166654,
+   "kinds": [
+    "bot_bot_chain",
+    "evidence_corr"
+   ],
+   "probe": "absent",
+   "plan_text": "Не в курсе, я расписания сходок не веду - спроси у того, кто сауну мутит",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166655,
+   "kinds": [
+    "anchor_parent",
+    "evidence_mid"
+   ],
+   "probe": "absent",
+   "plan_text": "deleted",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166657,
+   "kinds": [
+    "bot_bot_chain",
+    "evidence_corr",
+    "window_orphan_reply"
+   ],
+   "probe": "absent",
+   "plan_text": "Ага, старался как мог",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166658,
+   "kinds": [
+    "bot_bot_chain",
+    "evidence_corr"
+   ],
+   "probe": "absent",
+   "plan_text": "Какой именно вариант?",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166659,
+   "kinds": [
+    "bot_bot_chain",
+    "evidence_corr"
+   ],
+   "probe": "absent",
+   "plan_text": "В деле, но ты так и не сказал, в каком именно - я жду конкретики, а не тумана",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166661,
+   "kinds": [
+    "bot_bot_chain",
+    "evidence_corr"
+   ],
+   "probe": "absent",
+   "plan_text": "Третий раз за вечер - это уже не сбой, а расписание. Роутер у тебя, похоже, работает по графику какого-то очень уставшего бюджетника",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166662,
+   "kinds": [
+    "bot_bot_chain",
+    "evidence_corr"
+   ],
+   "probe": "absent",
+   "plan_text": "Понедельник - это когда дедлайн уже вчера, а ты только выбираешь, каким именно вариантом всё сдать",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166663,
+   "kinds": [
+    "bot_bot_chain",
+    "evidence_corr"
+   ],
+   "probe": "absent",
+   "plan_text": "top -o %MEM, а если надо разово и красиво - ps aux --sort=-%mem | head",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166664,
+   "kinds": [
+    "bot_bot_chain",
+    "evidence_corr"
+   ],
+   "probe": "absent",
+   "plan_text": "Три. Два гоняют кровь через жабры, третье - по всему телу, и когда осьминог плывёт, главное у него вообще останавливается. Так что плавает о",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166667,
+   "kinds": [
+    "bot_bot_chain",
+    "evidence_corr"
+   ],
+   "probe": "absent",
+   "plan_text": "Ага, старался как мог",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166668,
+   "kinds": [
+    "bot_bot_chain",
+    "evidence_corr"
+   ],
+   "probe": "absent",
+   "plan_text": "Понедельник - это когда дедлайн был вчера, а ты только сегодня выбираешь, каким именно вариантом всё сдать",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166669,
+   "kinds": [
+    "bot_bot_chain",
+    "evidence_corr"
+   ],
+   "probe": "absent",
+   "plan_text": "admin-bot, версия 2.58.96. Диск забит на 68%, памяти 961 МБ, аптайм 5 дней. Ничего не горит, живёт",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166670,
+   "kinds": [
+    "anchor_parent",
+    "evidence_mid"
+   ],
+   "probe": "absent",
+   "plan_text": "not_bot",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166671,
+   "kinds": [
+    "evidence_mid"
+   ],
+   "probe": "not_owned",
+   "plan_text": "not_bot",
+   "error": "Telegram server says - Bad Request: message can't be edited"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166672,
+   "kinds": [
+    "evidence_mid"
+   ],
+   "probe": "not_owned",
+   "plan_text": "not_bot",
+   "error": "Telegram server says - Bad Request: message can't be edited"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166673,
+   "kinds": [
+    "evidence_corr",
+    "window_orphan_reply"
+   ],
+   "probe": "absent",
+   "plan_text": "Сначала на морду роутера - горят ли лампочки как обычно. Потом с телефона по мобильному проверь: если там летает, а по вайфаю нет, значит ко",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166678,
+   "kinds": [
+    "media_in_window"
+   ],
+   "probe": "not_owned",
+   "plan_text": "photo image/jpeg",
+   "error": "Telegram server says - Bad Request: message can't be edited"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166681,
+   "kinds": [
+    "media_in_window"
+   ],
+   "probe": "not_owned",
+   "plan_text": "photo image/jpeg",
+   "error": "Telegram server says - Bad Request: message can't be edited"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166691,
+   "kinds": [
+    "media_in_window"
+   ],
+   "probe": "not_owned",
+   "plan_text": "photo image/jpeg",
+   "error": "Telegram server says - Bad Request: message can't be edited"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166696,
+   "kinds": [
+    "media_in_window"
+   ],
+   "probe": "not_owned",
+   "plan_text": "photo image/jpeg",
+   "error": "Telegram server says - Bad Request: message can't be edited"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166715,
+   "kinds": [
+    "anchor_parent",
+    "evidence_mid"
+   ],
+   "probe": "absent",
+   "plan_text": "deleted",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166717,
+   "kinds": [
+    "bot_bot_chain",
+    "evidence_corr",
+    "window_orphan_reply"
+   ],
+   "probe": "absent",
+   "plan_text": "Спасибо, я старался",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166719,
+   "kinds": [
+    "bot_bot_chain",
+    "evidence_corr"
+   ],
+   "probe": "absent",
+   "plan_text": "В каком деле-то?",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166720,
+   "kinds": [
+    "bot_bot_chain"
+   ],
+   "probe": "absent",
+   "plan_text": "Понедельник - это пиздец, а не день",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166722,
+   "kinds": [
+    "anchor_parent",
+    "evidence_mid",
+    "evidence_mid_unassigned"
+   ],
+   "probe": "absent",
+   "plan_text": "deleted",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166725,
+   "kinds": [
+    "bot_bot_chain",
+    "evidence_corr",
+    "window_orphan_reply"
+   ],
+   "probe": "absent",
+   "plan_text": "да пошёл он нахуй со своими правками, я устал",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166728,
+   "kinds": [
+    "bot_bot_chain"
+   ],
+   "probe": "absent",
+   "plan_text": "Нет",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166741,
+   "kinds": [
+    "media_in_window"
+   ],
+   "probe": "not_owned",
+   "plan_text": "photo image/jpeg",
+   "error": "Telegram server says - Bad Request: message can't be edited"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166937,
+   "kinds": [
+    "media_in_window"
+   ],
+   "probe": "not_owned",
+   "plan_text": "photo image/jpeg",
+   "error": "Telegram server says - Bad Request: message can't be edited"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166938,
+   "kinds": [
+    "anchor_parent"
+   ],
+   "probe": "absent",
+   "plan_text": "",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166939,
+   "kinds": [
+    "bot_bot_chain",
+    "window_orphan_reply"
+   ],
+   "probe": "absent",
+   "plan_text": "В восемь утра в понедельник - это уже не сосед, а будильник с перфоратором. План такой: сначала вежливо, пока не поздно, постучать и сказать",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166940,
+   "kinds": [
+    "bot_bot_chain"
+   ],
+   "probe": "absent",
+   "plan_text": "На роутере сзади наклейка, там обычно и пароль, и имя сети. Не помогло - лезь в настройки роутера, адрес вида 192.168.0.1, логин с паролем ч",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166941,
+   "kinds": [
+    "bot_bot_chain"
+   ],
+   "probe": "absent",
+   "plan_text": "Половина не готова - это уже оптимистично, у большинства в такой момент не готово процентов семьдесят, просто они ещё не в курсе. Начальник ",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166942,
+   "kinds": [
+    "bot_bot_chain"
+   ],
+   "probe": "absent",
+   "plan_text": "Курица с рисом - это как дедлайн: вариантов дохрена, а времени нет Первый и самый ленивый - жареный рис с яйцом по-азиатски: сначала яйца на",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166946,
+   "kinds": [
+    "bot_bot_chain"
+   ],
+   "probe": "owned",
+   "plan_text": "Стоит, но не потому что ты виноват, а потому что неловкость сама не рассосётся - она как тот самый дюбель в стене, пока не выкрутишь, будет ",
+   "error": "Telegram server says - Bad Request: message is not modified: specified new message content and reply markup are exactly the same as a current content and reply markup of the message"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166948,
+   "kinds": [
+    "bot_bot_chain"
+   ],
+   "probe": "owned",
+   "plan_text": "Кот не смотрит победно, он смотрит как начальник, который только что перенёс дедлайн и наслаждается. Кружка была не твоя, а его - ты просто ",
+   "error": "Telegram server says - Bad Request: message is not modified: specified new message content and reply markup are exactly the same as a current content and reply markup of the message"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166949,
+   "kinds": [
+    "bot_bot_chain"
+   ],
+   "probe": "owned",
+   "plan_text": "Ноут греется как печка обычно по трём причинам, и все три решаются без похода в сервис Сначала глянь, что жрёт процессор: диспетчер задач, в",
+   "error": "Telegram server says - Bad Request: message is not modified: specified new message content and reply markup are exactly the same as a current content and reply markup of the message"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166950,
+   "kinds": [
+    "bot_bot_chain"
+   ],
+   "probe": "owned",
+   "plan_text": "Удалёнка лучше, и спорить тут особо не о чем. Офис - это место, где ты тратишь полтора часа жизни на дорогу, чтобы сидеть в наушниках и дела",
+   "error": "Telegram server says - Bad Request: message is not modified: specified new message content and reply markup are exactly the same as a current content and reply markup of the message"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166952,
+   "kinds": [
+    "bot_bot_chain"
+   ],
+   "probe": "owned",
+   "plan_text": "Про погоду в Москве на выходных в справке ни слова - только пересланная новость про оспу обезьян в Питере и снег в Перми. Так что если тебе ",
+   "error": "Telegram server says - Bad Request: message is not modified: specified new message content and reply markup are exactly the same as a current content and reply markup of the message"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166954,
+   "kinds": [
+    "bot_bot_chain"
+   ],
+   "probe": "owned",
+   "plan_text": "Ты про какой совет-то? Тут их пять подряд висит - сосед с перфоратором, пароль от вайфая, дедлайн, курица с рисом и ноут. Скажи, что именно ",
+   "error": "Telegram server says - Bad Request: message is not modified: specified new message content and reply markup are exactly the same as a current content and reply markup of the message"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166955,
+   "kinds": [
+    "anchor_parent"
+   ],
+   "probe": "owned",
+   "plan_text": "",
+   "error": "Telegram server says - Bad Request: message is not modified: specified new message content and reply markup are exactly the same as a current content and reply markup of the message"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166956,
+   "kinds": [
+    "bot_bot_chain",
+    "window_orphan_reply"
+   ],
+   "probe": "owned",
+   "plan_text": "Из техподдержки? С такой зарплатой в десять тыщ я бы скорее в цирке работал - по деньгам то же самое, но публика вежливее. Тариф я тебе увер",
+   "error": "Telegram server says - Bad Request: message is not modified: specified new message content and reply markup are exactly the same as a current content and reply markup of the message"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166957,
+   "kinds": [
+    "bot_bot_chain"
+   ],
+   "probe": "owned",
+   "plan_text": "Серьёзно, аж три абзаца накатал, будто это диссертация про пользу ходьбы. До обеда я сплю исключительно по расписанию, которое сам себе и со",
+   "error": "Telegram server says - Bad Request: message is not modified: specified new message content and reply markup are exactly the same as a current content and reply markup of the message"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166958,
+   "kinds": [
+    "bot_bot_chain"
+   ],
+   "probe": "owned",
+   "plan_text": "Ну и сиди в своём проде без кэша, только потом не удивляйся, когда база под нагрузкой начнёт отвечать быстрее, чем ты успеваешь сказать \"а я",
+   "error": "Telegram server says - Bad Request: message is not modified: specified new message content and reply markup are exactly the same as a current content and reply markup of the message"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166959,
+   "kinds": [
+    "bot_bot_chain"
+   ],
+   "probe": "owned",
+   "plan_text": "Второй день гудит - это она тебе уже не намекает, а открытым текстом заявление на увольнение пишет. Скорее всего подшипник помер, и пока он ",
+   "error": "Telegram server says - Bad Request: message is not modified: specified new message content and reply markup are exactly the same as a current content and reply markup of the message"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166960,
+   "kinds": [
+    "bot_bot_chain"
+   ],
+   "probe": "owned",
+   "plan_text": "Третий раз переписываешь один и тот же отчёт - это уже не работа, это реинкарнация. Каждая версия чуть лучше, но ты всё равно возвращаешься ",
+   "error": "Telegram server says - Bad Request: message is not modified: specified new message content and reply markup are exactly the same as a current content and reply markup of the message"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166961,
+   "kinds": [
+    "bot_bot_chain"
+   ],
+   "probe": "owned",
+   "plan_text": "Не спал, но это уже детали",
+   "error": "Telegram server says - Bad Request: message is not modified: specified new message content and reply markup are exactly the same as a current content and reply markup of the message"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166962,
+   "kinds": [
+    "media_in_window"
+   ],
+   "probe": "not_owned",
+   "plan_text": "photo image/jpeg",
+   "error": "Telegram server says - Bad Request: message can't be edited"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166964,
+   "kinds": [
+    "anchor_parent"
+   ],
+   "probe": "absent",
+   "plan_text": "",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166965,
+   "kinds": [
+    "anchor_parent"
+   ],
+   "probe": "absent",
+   "plan_text": "",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166967,
+   "kinds": [
+    "bot_bot_chain",
+    "window_orphan_reply"
+   ],
+   "probe": "absent",
+   "plan_text": "Два варианта, оба рабочие. Первый - вежливый: подойти и сказать, что слышно всё, договориться на после десяти. Второй - ответный перфоратор ",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166969,
+   "kinds": [
+    "bot_bot_chain",
+    "window_orphan_reply"
+   ],
+   "probe": "absent",
+   "plan_text": "Сначала не идти на войну с перфоратором в тапках. Соседи в восемь утра сверлят по одной простой причине - им плевать на твои биоритмы, у них",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166970,
+   "kinds": [
+    "bot_bot_chain"
+   ],
+   "probe": "absent",
+   "plan_text": "Пароль от вайфая обычно не надо вспоминать, его надо подсмотреть. Варианты такие: На роутере - переверни его, там на наклейке почти всегда н",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166971,
+   "kinds": [
+    "bot_bot_chain",
+    "evidence_mid_unassigned"
+   ],
+   "probe": "absent",
+   "plan_text": "Слушай, дедлайн сдвинули - это неприятно, но не смертельно. Половина работы не готова, значит вторая половина готова, и это уже что-то. Разд",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166972,
+   "kinds": [
+    "bot_bot_chain"
+   ],
+   "probe": "absent",
+   "plan_text": "Сначала глянь на сам роутер - на корпусе сзади или снизу обычно наклейка, там и пароль от вайфая, и логин с паролем от админки. Если наклейк",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166973,
+   "kinds": [
+    "bot_bot_chain",
+    "evidence_mid_unassigned"
+   ],
+   "probe": "absent",
+   "plan_text": "Курица с рисом - это как пустой холст: скучно, пока не начнёшь мазать. Раскладываю по шагам. Сначала решай, каким путём идёшь. Хочешь быстро",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166974,
+   "kinds": [
+    "bot_bot_chain"
+   ],
+   "probe": "absent",
+   "plan_text": "Половина готова - уже не ноль, это считай аванс. Разбей оставшееся по приоритету: сначала то, без чего начальник вообще не поймёт, о чём реч",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166975,
+   "kinds": [
+    "bot_bot_chain"
+   ],
+   "probe": "absent",
+   "plan_text": "Стоит, только коротко и без покаянной речи на три абзаца. Вчера ты перегнул, коллега это проглотил и теперь сидит с осадком - а осадок сам н",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166976,
+   "kinds": [
+    "bot_bot_chain"
+   ],
+   "probe": "absent",
+   "plan_text": "Курица с рисом - это тебе не рецепт, а конструктор. Хочешь по-азиатски: обжарь курицу кубиками на сильном огне, отвари рис заранее и остуди,",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166979,
+   "kinds": [
+    "bot_bot_chain",
+    "evidence_mid_unassigned"
+   ],
+   "probe": "absent",
+   "plan_text": "Кот не смотрит победно, он смотрит как начальник, который перенёс дедлайн и теперь ждёт, кто первый занервничает. Кружка была не твоя, ты ей",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166980,
+   "kinds": [
+    "bot_bot_chain"
+   ],
+   "probe": "absent",
+   "plan_text": "Стоит, только коротко и без покаянной речи на три абзаца. Вчера ты перегнул, коллега это проглотил и теперь сидит с осадком - а осадок сам н",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166981,
+   "kinds": [
+    "bot_bot_chain"
+   ],
+   "probe": "absent",
+   "plan_text": "Кот не победно смотрит, а как начальник, который перенёс дедлайн и ждёт, кто первый занервничает. Кружка была не твоя, ты ей просто временно",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166983,
+   "kinds": [
+    "bot_bot_chain",
+    "evidence_mid_unassigned"
+   ],
+   "probe": "absent",
+   "plan_text": "Ноут греется как печка обычно по трём причинам, и все три решаются без похода в сервис Сначала глянь, что жрёт процессор: диспетчер задач, в",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166984,
+   "kinds": [
+    "bot_bot_chain"
+   ],
+   "probe": "absent",
+   "plan_text": "Ноут греется как печка обычно по трём причинам, и все три решаются без похода в сервис Сначала глянь, что жрёт процессор: диспетчер задач, в",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166986,
+   "kinds": [
+    "bot_bot_chain",
+    "evidence_mid_unassigned"
+   ],
+   "probe": "absent",
+   "plan_text": "Удалёнка лучше, и это даже не спор, а констатация. Офис - это полтора часа жизни в одну сторону ради того, чтобы сидеть в тех же наушниках, ",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166987,
+   "kinds": [
+    "bot_bot_chain"
+   ],
+   "probe": "absent",
+   "plan_text": "Удалёнка, и я даже спорить особо не буду - потому что спорить тут не с чем. Офис это полтора часа в одну сторону, чтобы сидеть в тех же науш",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166989,
+   "kinds": [
+    "bot_bot_chain",
+    "evidence_mid_unassigned"
+   ],
+   "probe": "absent",
+   "plan_text": "Погода в Москве на выходных будет ровно такой, будто кто-то наверху не определился и решил выдать всё сразу. Суббота 24-го: утром +5, днём +",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166991,
+   "kinds": [
+    "bot_bot_chain"
+   ],
+   "probe": "absent",
+   "plan_text": "Суббота 24-го - плюс пять утром, плюс восемь днём, пасмурно и ветерок, ощущается как плюс два. В воскресенье 25-го утром небольшой дождь и п",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166992,
+   "kinds": [
+    "bot_bot_chain",
+    "evidence_mid_unassigned"
+   ],
+   "probe": "absent",
+   "plan_text": "Третий раз перечитываешь - значит, читаешь не то место. Забей на весь совет целиком, начни с одного пункта: открой диспетчер задач и глянь, ",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166993,
+   "kinds": [
+    "anchor_parent"
+   ],
+   "probe": "absent",
+   "plan_text": "",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166994,
+   "kinds": [
+    "bot_bot_chain"
+   ],
+   "probe": "absent",
+   "plan_text": "Ты перечитываешь не совет, а меню без цен - глаза разбегаются, руки не знают, что заказывать. Начни с одного: открой диспетчер задач и глянь",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166996,
+   "kinds": [
+    "anchor_parent"
+   ],
+   "probe": "absent",
+   "plan_text": "",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166997,
+   "kinds": [
+    "bot_bot_chain",
+    "window_orphan_reply"
+   ],
+   "probe": "absent",
+   "plan_text": "Из техподдержки я бы точно не протянул - там за десятку так уверенно только увольняются",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166998,
+   "kinds": [
+    "bot_bot_chain",
+    "window_orphan_reply"
+   ],
+   "probe": "absent",
+   "plan_text": "Из техподдержки я бы тебе ещё и списание за консультацию выкатил, рублей на триста",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166999,
+   "kinds": [
+    "bot_bot_chain"
+   ],
+   "probe": "absent",
+   "plan_text": "Серьёзно-серьёзно, сам удивился. А сплю да, до обеда - единственная оставшаяся независимость, отбирать не советую. Утренняя прогулка полезна",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1167002,
+   "kinds": [
+    "bot_bot_chain"
+   ],
+   "probe": "absent",
+   "plan_text": "Серьёзно-серьёзно, сам удивился. А сплю да, до обеда - единственная оставшаяся независимость, отбирать не советую. Утренняя прогулка полезна",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1167003,
+   "kinds": [
+    "bot_bot_chain"
+   ],
+   "probe": "absent",
+   "plan_text": "Слушай, тут спор ни о чём. Ты говоришь усложнит - а я и не спорю, что усложнит. Я говорю, что без него ты уже упёрся в потолок, просто пока ",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1167005,
+   "kinds": [
+    "bot_bot_chain"
+   ],
+   "probe": "absent",
+   "plan_text": "Гул на отжиме два дня подряд - это почти всегда подшипник, и сам он не пройдёт, будет только громче. Для начала проверь, ровно ли стоит маши",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1167006,
+   "kinds": [
+    "bot_bot_chain"
+   ],
+   "probe": "absent",
+   "plan_text": "Слушай, если у тебя в проде и так всё летает без кэша - не лезь. Кэш это как раз тот случай, когда хочешь ускорить, а получаешь второй источ",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1167007,
+   "kinds": [
+    "bot_bot_chain"
+   ],
+   "probe": "absent",
+   "plan_text": "Третий раз переписываешь один и тот же отчёт - это уже не работа, а сериал, где ты и сценарист, и актёр, и единственный зритель, который всё",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1167009,
+   "kinds": [
+    "bot_bot_chain"
+   ],
+   "probe": "absent",
+   "plan_text": "Гул на отжиме два дня подряд - это почти всегда подшипник, и сам он не пройдёт, только громче станет. Для начала проверь, ровно ли стоит маш",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1167010,
+   "kinds": [
+    "bot_bot_chain"
+   ],
+   "probe": "absent",
+   "plan_text": "Спал, но так, будто во сне решал твои задачи",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1167012,
+   "kinds": [
+    "media_in_window"
+   ],
+   "probe": "not_owned",
+   "plan_text": "photo image/jpeg",
+   "error": "Telegram server says - Bad Request: message can't be edited"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1167014,
+   "kinds": [
+    "bot_bot_chain"
+   ],
+   "probe": "absent",
+   "plan_text": "Прод 2.58.97, диск 71%, ОЗУ 940 МБ, аптайм 6 суток",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1167015,
+   "kinds": [
+    "bot_bot_chain"
+   ],
+   "probe": "absent",
+   "plan_text": "Третий раз тот же отчёт - это уже не работа, а литургия. Ты не переписываешь, ты его полируешь до состояния, когда уже сам не помнишь, что т",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1167016,
+   "kinds": [
+    "bot_bot_chain"
+   ],
+   "probe": "absent",
+   "plan_text": "Спал, но так, будто во сне решал твои задачи",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1167019,
+   "kinds": [
+    "bot_bot_chain"
+   ],
+   "probe": "absent",
+   "plan_text": "Прод 2.58.97, диск 71%, ОЗУ 940 МБ, аптайм 6 суток",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1167034,
+   "kinds": [
+    "anchor_parent",
+    "evidence_mid"
+   ],
+   "probe": "absent",
+   "plan_text": "already_deleted",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1167035,
+   "kinds": [
+    "bot_bot_chain",
+    "evidence_corr",
+    "window_orphan_reply"
+   ],
+   "probe": "absent",
+   "plan_text": "Восемь утра - это уже не сверление, а будильник с функцией напоминания, что ты снимаешь квартиру, а не покупаешь тишину. Два пути, выбирай п",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1167036,
+   "kinds": [
+    "bot_bot_chain",
+    "evidence_corr"
+   ],
+   "probe": "absent",
+   "plan_text": "Пароль от вайфая не вспоминают, его подсматривают. Переверни роутер - на наклейке снизу почти всегда имя сети и ключ, если ты его сам не мен",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1167037,
+   "kinds": [
+    "bot_bot_chain",
+    "evidence_corr"
+   ],
+   "probe": "absent",
+   "plan_text": "Половина не готова - ну так скажи ему об этом первым, пока он сам не узнал. Разбей остаток по приоритету: что критично для понимания, то и д",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1167038,
+   "kinds": [
+    "bot_bot_chain",
+    "evidence_corr"
+   ],
+   "probe": "absent",
+   "plan_text": "Курица с рисом - это тебе не перфоратор в семь утра, тут можно и по-человечески. Самый ленивый путь: обжарить куски грудки или бедра на силь",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1167039,
+   "kinds": [
+    "bot_bot_chain",
+    "evidence_corr"
+   ],
+   "probe": "absent",
+   "plan_text": "Стоит, только коротко и без покаянной речи на три абзаца. Вчера ты перегнул, коллега это проглотил и теперь сидит с осадком - а осадок сам н",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1167040,
+   "kinds": [
+    "bot_bot_chain",
+    "evidence_corr"
+   ],
+   "probe": "absent",
+   "plan_text": "Кот не смотрит победно, он смотрит как начальник, который перенёс дедлайн и теперь ждёт, кто первый занервничает. Кружка была не твоя, ты ей",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1167041,
+   "kinds": [
+    "bot_bot_chain",
+    "evidence_corr"
+   ],
+   "probe": "absent",
+   "plan_text": "Ноут греется как печка обычно по трём причинам, и все три решаются без похода в сервис Сначала глянь, что жрёт процессор: диспетчер задач, в",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1167042,
+   "kinds": [
+    "bot_bot_chain",
+    "evidence_corr"
+   ],
+   "probe": "absent",
+   "plan_text": "Удалёнка, и спорить тут не о чем, но раз просишь - давай разберу твою позицию, если ты вдруг за офис. Офис - это ты встаёшь в семь, чтобы к ",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1167043,
+   "kinds": [
+    "bot_bot_chain",
+    "evidence_corr"
+   ],
+   "probe": "absent",
+   "plan_text": "Суббота 24-го: утром +5, днём +8, облачно с прояснениями, к вечеру пасмурно, ветер слабый юго-восточный. Воскресенье 25-го: с утра небольшой",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1167044,
+   "kinds": [
+    "bot_bot_chain",
+    "evidence_corr"
+   ],
+   "probe": "absent",
+   "plan_text": "Начни с диспетчера задач, а не с разборки ноута - вкладка ЦП, сортировка по убыванию, ищи кто жрёт больше всех. Скорее всего там браузер или",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1167045,
+   "kinds": [
+    "anchor_parent",
+    "evidence_mid"
+   ],
+   "probe": "absent",
+   "plan_text": "already_deleted",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1167046,
+   "kinds": [
+    "bot_bot_chain",
+    "evidence_corr",
+    "window_orphan_reply"
+   ],
+   "probe": "absent",
+   "plan_text": "Из техподдержки я бы точно не протянул - там за десятку так уверенно только увольняются. А тариф тебе советовал не как сотрудник, а как соуч",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1167047,
+   "kinds": [
+    "bot_bot_chain",
+    "evidence_corr"
+   ],
+   "probe": "absent",
+   "plan_text": "Серьёзно-серьёзно, сам удивился. А сплю да, до обеда - единственная оставшаяся независимость, отбирать не советую. Утренняя прогулка полезна",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1167049,
+   "kinds": [
+    "bot_bot_chain",
+    "evidence_corr"
+   ],
+   "probe": "absent",
+   "plan_text": "Слушай, тут спор ни о чём. Ты говоришь усложнит - а я и не спорю, что усложнит. Я говорю, что без него ты уже упёрся в потолок, просто пока ",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1167052,
+   "kinds": [
+    "bot_bot_chain",
+    "evidence_corr"
+   ],
+   "probe": "absent",
+   "plan_text": "Гул на отжиме два дня подряд - это почти всегда подшипник, и сам он не пройдёт, будет только громче. Для начала проверь, ровно ли стоит маши",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1167054,
+   "kinds": [
+    "bot_bot_chain",
+    "evidence_corr"
+   ],
+   "probe": "absent",
+   "plan_text": "Третий заход на один и тот же отчёт - это уже не работа, а трилогия, где ты и автор, и режиссёр, и единственный зритель, который заранее зна",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1167055,
+   "kinds": [
+    "bot_bot_chain",
+    "evidence_corr"
+   ],
+   "probe": "absent",
+   "plan_text": "Спал, но так, будто во сне решал твои задачи",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1167056,
+   "kinds": [
+    "bot_bot_chain",
+    "evidence_corr"
+   ],
+   "probe": "absent",
+   "plan_text": "Прод 2.58.97, диск 71%, ОЗУ 940 МБ, аптайм 6 суток",
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1167057,
+   "kinds": [
+    "media_in_window"
+   ],
+   "probe": "not_owned",
+   "plan_text": "animation image/webp",
+   "error": "Telegram server says - Bad Request: message can't be edited"
+  }
+ ],
+ "not_owned": [
+  {
+   "chat_id": -1004482340693,
+   "mid": 2637,
+   "kinds": [
+    "media_in_window"
+   ],
+   "plan_text": "photo image/jpeg",
+   "probe": "not_owned",
+   "error": "Telegram server says - Bad Request: message can't be edited"
+  },
+  {
+   "chat_id": -1004482340693,
+   "mid": 2724,
+   "kinds": [
+    "media_in_window"
+   ],
+   "plan_text": "photo image/jpeg",
+   "probe": "not_owned",
+   "error": "Telegram server says - Bad Request: message can't be edited"
+  },
+  {
+   "chat_id": -1004482340693,
+   "mid": 2725,
+   "kinds": [
+    "media_in_window"
+   ],
+   "plan_text": "photo image/jpeg",
+   "probe": "not_owned",
+   "error": "Telegram server says - Bad Request: message can't be edited"
+  },
+  {
+   "chat_id": -1004482340693,
+   "mid": 2726,
+   "kinds": [
+    "media_in_window"
+   ],
+   "plan_text": "photo image/jpeg",
+   "probe": "not_owned",
+   "error": "Telegram server says - Bad Request: message can't be edited"
+  },
+  {
+   "chat_id": -1004482340693,
+   "mid": 2745,
+   "kinds": [
+    "media_in_window"
+   ],
+   "plan_text": "photo image/jpeg",
+   "probe": "not_owned",
+   "error": "Telegram server says - Bad Request: message can't be edited"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1165606,
+   "kinds": [
+    "media_in_window"
+   ],
+   "plan_text": "photo image/jpeg",
+   "probe": "not_owned",
+   "error": "Telegram server says - Bad Request: message can't be edited"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1165607,
+   "kinds": [
+    "anchor_parent",
+    "media_in_window"
+   ],
+   "plan_text": "photo image/jpeg",
+   "probe": "not_owned",
+   "error": "Telegram server says - Bad Request: message can't be edited"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1165616,
+   "kinds": [
+    "media_in_window"
+   ],
+   "plan_text": "animation image/webp",
+   "probe": "not_owned",
+   "error": "Telegram server says - Bad Request: message can't be edited"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1165625,
+   "kinds": [
+    "media_in_window"
+   ],
+   "plan_text": "photo image/jpeg",
+   "probe": "not_owned",
+   "error": "Telegram server says - Bad Request: message can't be edited"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1165626,
+   "kinds": [
+    "media_in_window"
+   ],
+   "plan_text": "photo image/jpeg",
+   "probe": "not_owned",
+   "error": "Telegram server says - Bad Request: message can't be edited"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166465,
+   "kinds": [
+    "media_in_window"
+   ],
+   "plan_text": "photo image/jpeg",
+   "probe": "not_owned",
+   "error": "Telegram server says - Bad Request: message can't be edited"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166466,
+   "kinds": [
+    "media_in_window"
+   ],
+   "plan_text": "photo image/jpeg",
+   "probe": "not_owned",
+   "error": "Telegram server says - Bad Request: message can't be edited"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166467,
+   "kinds": [
+    "evidence_mid",
+    "evidence_mid_unassigned"
+   ],
+   "plan_text": "not_bot",
+   "probe": "not_owned",
+   "error": "Telegram server says - Bad Request: message can't be edited"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166468,
+   "kinds": [
+    "media_in_window"
+   ],
+   "plan_text": "photo image/jpeg",
+   "probe": "not_owned",
+   "error": "Telegram server says - Bad Request: message can't be edited"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166478,
+   "kinds": [
+    "media_in_window"
+   ],
+   "plan_text": "photo image/jpeg",
+   "probe": "not_owned",
+   "error": "Telegram server says - Bad Request: message can't be edited"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166643,
+   "kinds": [
+    "media_in_window"
+   ],
+   "plan_text": "photo image/jpeg",
+   "probe": "not_owned",
+   "error": "Telegram server says - Bad Request: message can't be edited"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166671,
+   "kinds": [
+    "evidence_mid"
+   ],
+   "plan_text": "not_bot",
+   "probe": "not_owned",
+   "error": "Telegram server says - Bad Request: message can't be edited"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166672,
+   "kinds": [
+    "evidence_mid"
+   ],
+   "plan_text": "not_bot",
+   "probe": "not_owned",
+   "error": "Telegram server says - Bad Request: message can't be edited"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166678,
+   "kinds": [
+    "media_in_window"
+   ],
+   "plan_text": "photo image/jpeg",
+   "probe": "not_owned",
+   "error": "Telegram server says - Bad Request: message can't be edited"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166681,
+   "kinds": [
+    "media_in_window"
+   ],
+   "plan_text": "photo image/jpeg",
+   "probe": "not_owned",
+   "error": "Telegram server says - Bad Request: message can't be edited"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166691,
+   "kinds": [
+    "media_in_window"
+   ],
+   "plan_text": "photo image/jpeg",
+   "probe": "not_owned",
+   "error": "Telegram server says - Bad Request: message can't be edited"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166696,
+   "kinds": [
+    "media_in_window"
+   ],
+   "plan_text": "photo image/jpeg",
+   "probe": "not_owned",
+   "error": "Telegram server says - Bad Request: message can't be edited"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166741,
+   "kinds": [
+    "media_in_window"
+   ],
+   "plan_text": "photo image/jpeg",
+   "probe": "not_owned",
+   "error": "Telegram server says - Bad Request: message can't be edited"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166937,
+   "kinds": [
+    "media_in_window"
+   ],
+   "plan_text": "photo image/jpeg",
+   "probe": "not_owned",
+   "error": "Telegram server says - Bad Request: message can't be edited"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166962,
+   "kinds": [
+    "media_in_window"
+   ],
+   "plan_text": "photo image/jpeg",
+   "probe": "not_owned",
+   "error": "Telegram server says - Bad Request: message can't be edited"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1167012,
+   "kinds": [
+    "media_in_window"
+   ],
+   "plan_text": "photo image/jpeg",
+   "probe": "not_owned",
+   "error": "Telegram server says - Bad Request: message can't be edited"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1167057,
+   "kinds": [
+    "media_in_window"
+   ],
+   "plan_text": "animation image/webp",
+   "probe": "not_owned",
+   "error": "Telegram server says - Bad Request: message can't be edited"
+  }
+ ],
+ "deleted": [
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166946,
+   "kinds": [
+    "bot_bot_chain"
+   ],
+   "status": "deleted"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166948,
+   "kinds": [
+    "bot_bot_chain"
+   ],
+   "status": "deleted"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166949,
+   "kinds": [
+    "bot_bot_chain"
+   ],
+   "status": "deleted"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166950,
+   "kinds": [
+    "bot_bot_chain"
+   ],
+   "status": "deleted"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166952,
+   "kinds": [
+    "bot_bot_chain"
+   ],
+   "status": "deleted"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166954,
+   "kinds": [
+    "bot_bot_chain"
+   ],
+   "status": "deleted"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166955,
+   "kinds": [
+    "anchor_parent"
+   ],
+   "status": "deleted"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166956,
+   "kinds": [
+    "bot_bot_chain",
+    "window_orphan_reply"
+   ],
+   "status": "deleted"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166957,
+   "kinds": [
+    "bot_bot_chain"
+   ],
+   "status": "deleted"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166958,
+   "kinds": [
+    "bot_bot_chain"
+   ],
+   "status": "deleted"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166959,
+   "kinds": [
+    "bot_bot_chain"
+   ],
+   "status": "deleted"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166960,
+   "kinds": [
+    "bot_bot_chain"
+   ],
+   "status": "deleted"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166961,
+   "kinds": [
+    "bot_bot_chain"
+   ],
+   "status": "deleted"
+  }
+ ],
+ "reprobe": [
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166946,
+   "state": "absent",
+   "second_delete": null,
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166948,
+   "state": "absent",
+   "second_delete": null,
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166949,
+   "state": "absent",
+   "second_delete": null,
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166950,
+   "state": "absent",
+   "second_delete": null,
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166952,
+   "state": "absent",
+   "second_delete": null,
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166954,
+   "state": "absent",
+   "second_delete": null,
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166955,
+   "state": "absent",
+   "second_delete": null,
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166956,
+   "state": "absent",
+   "second_delete": null,
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166957,
+   "state": "absent",
+   "second_delete": null,
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166958,
+   "state": "absent",
+   "second_delete": null,
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166959,
+   "state": "absent",
+   "second_delete": null,
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166960,
+   "state": "absent",
+   "second_delete": null,
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166961,
+   "state": "absent",
+   "second_delete": null,
+   "error": "Telegram server says - Bad Request: message to edit not found"
+  }
+ ],
+ "residual_live": [],
+ "synthetic_rows_removed": {
+  "bot_replies": 12,
+  "bot_reply_parents": 11,
+  "throttle": 0
+ },
+ "post_state": {
+  "db": "/var/www/admin_bot/local_database.db",
+  "by_chat": {
+   "-1002661910336": {
+    "checked": 13,
+    "residual_smart": [],
+    "residual_replies": [],
+    "residual_parents": [],
+    "throttle_synth": []
+   },
+   "-1004482340693": {
+    "checked": 0,
+    "residual_smart": [],
+    "residual_replies": [],
+    "residual_parents": [],
+    "throttle_synth": []
+   }
+  }
+ },
+ "kept_reason": {
+  "-1004482340693/not_owned": [
+   2637,
+   2724,
+   2725,
+   2726,
+   2745
+  ],
+  "-1002661910336/not_owned": [
+   1165606,
+   1165607,
+   1165616,
+   1165625,
+   1165626,
+   1166465,
+   1166466,
+   1166467,
+   1166468,
+   1166478,
+   1166643,
+   1166671,
+   1166672,
+   1166678,
+   1166681,
+   1166691,
+   1166696,
+   1166741,
+   1166937,
+   1166962,
+   1167012,
+   1167057
+  ]
+ }
+}

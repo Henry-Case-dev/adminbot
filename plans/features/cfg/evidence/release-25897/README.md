@@ -44,3 +44,7 @@
 `deploy_25897.py`, `rel97_final.sh`, `check_deploy_25897.py` — sha256_12 в `frozen-fingerprint.txt`.
 Чек-лист приёмки — `../release-25897-report.md` §4.
 
+## Пост-деплойная приёмка (§4)
+
+- `deploy/` — выкат 2.58.97: recon/main/journal-probe/journal-tail, деплой-сводка.
+- `acceptance/README.md` — живая матрица CFG-04 (7 viewport × 7 проверок, прод-байты по HTTPS), dirty-guard, F4 (ADD-EXP) матрица и вердикт, базовые маркеры/журнал, уборка тестовых сообщений; артефакты и скриншоты — рядом (`acceptance/cfg04/**`, `acceptance/harness/**`).

@@ -1,0 +1,151 @@
+{
+  "now_utc": "2026-10-19 19:39:36",
+  "base": "https://admin-bot.duckdns.org",
+  "healthz": {
+    "http": 200,
+    "body": "{\"status\":\"ok\",\"version\":\"2.58.97\"}"
+  },
+  "web": {
+    "http": 200,
+    "bytes": 875832,
+    "sha256_12": "1dda147e41d6",
+    "content_type": "text/html; charset=utf-8"
+  },
+  "assets": {
+    "/static/app.css?v=2.58.97": {
+      "http": 200,
+      "bytes": 234959,
+      "sha256_12": "9ed4c69995b9",
+      "content_type": "text/css; charset=utf-8"
+    },
+    "/static/aurora-flow.js?v=2.58.97": {
+      "http": 200,
+      "bytes": 15639,
+      "sha256_12": "b0cbe96db419",
+      "content_type": "text/javascript; charset=utf-8"
+    },
+    "/static/execution_graph.js?v=2.58.97": {
+      "http": 200,
+      "bytes": 20307,
+      "sha256_12": "67067a7bd6d0",
+      "content_type": "text/javascript; charset=utf-8"
+    },
+    "/static/fullscreen-policy.js?v=2.58.97": {
+      "http": 200,
+      "bytes": 32473,
+      "sha256_12": "96db06425079",
+      "content_type": "text/javascript; charset=utf-8"
+    },
+    "/static/glass-probe.js?v=2.58.97": {
+      "http": 200,
+      "bytes": 13445,
+      "sha256_12": "b2e6a1f987c6",
+      "content_type": "text/javascript; charset=utf-8"
+    },
+    "/static/glass-refraction.js?v=2.58.97": {
+      "http": 200,
+      "bytes": 31744,
+      "sha256_12": "6a09d962d59d",
+      "content_type": "text/javascript; charset=utf-8"
+    },
+    "/static/glass.js?v=2.58.97": {
+      "http": 200,
+      "bytes": 8616,
+      "sha256_12": "3f95b9251b82",
+      "content_type": "text/javascript; charset=utf-8"
+    },
+    "/static/polygon-background.js?v=2.58.97": {
+      "http": 200,
+      "bytes": 44018,
+      "sha256_12": "157874dfab7b",
+      "content_type": "text/javascript; charset=utf-8"
+    },
+    "/static/telegram-init.js?v=2.58.97": {
+      "http": 200,
+      "bytes": 10127,
+      "sha256_12": "f387343e5c8c",
+      "content_type": "text/javascript; charset=utf-8"
+    },
+    "/static/vendor/chart.umd.min.js": {
+      "http": 200,
+      "bytes": 208522,
+      "sha256_12": "48444a82d4ed",
+      "content_type": "text/javascript; charset=utf-8"
+    },
+    "/static/vendor/delaunator.5.0.0.min.js?v=2.58.97": {
+      "http": 200,
+      "bytes": 8454,
+      "sha256_12": "7707d7fe7505",
+      "content_type": "text/javascript; charset=utf-8"
+    },
+    "/static/vendor/dompurify-3.4.15.min.js": {
+      "http": 200,
+      "bytes": 29369,
+      "sha256_12": "f263b05369e0",
+      "content_type": "text/javascript; charset=utf-8"
+    },
+    "/static/vendor/liquidglass.core.0.5.3.css?v=2.58.97": {
+      "http": 200,
+      "bytes": 3670,
+      "sha256_12": "e42dac700a9e",
+      "content_type": "text/css; charset=utf-8"
+    },
+    "/static/vendor/liquidglass.core.0.5.3.min.js?v=2.58.97": {
+      "http": 200,
+      "bytes": 77015,
+      "sha256_12": "77e8a873fb77",
+      "content_type": "text/javascript; charset=utf-8"
+    },
+    "/static/vendor/ogl.1.0.11.min.js?v=2.58.97": {
+      "http": 200,
+      "bytes": 133237,
+      "sha256_12": "e40e6275eb2a",
+      "content_type": "text/javascript; charset=utf-8"
+    },
+    "/static/vendor/tailwind.css?v=2.58.97": {
+      "http": 200,
+      "bytes": 13226,
+      "sha256_12": "ec5fd279871c",
+      "content_type": "text/css; charset=utf-8"
+    },
+    "/static/vendor/telegram-web-app.js": {
+      "http": 200,
+      "bytes": 116510,
+      "sha256_12": "3549138a7934",
+      "content_type": "text/javascript; charset=utf-8"
+    },
+    "/static/vendor/vue.global.prod.min.js": {
+      "http": 200,
+      "bytes": 167536,
+      "sha256_12": "aae6339a0e74",
+      "content_type": "text/javascript; charset=utf-8"
+    },
+    "/web/app.js?v=2.58.97": {
+      "http": 200,
+      "bytes": 1283831,
+      "sha256_12": "885094459700",
+      "content_type": "text/javascript; charset=utf-8"
+    }
+  },
+  "markers": {
+    "PAGE_VER": 0,
+    "SUBST_CSS": 0,
+    "STICKY_SAVE_SERVED": 15,
+    "CFG04_KB_OFFSET_CSS": 0,
+    "CFG04_SAFE_AREA": 0,
+    "CFG04_TECH_KEY": 39
+  },
+  "app_js_markers": {
+    "sticky-save": 22,
+    "stickyDirtyCount": 11,
+    "role\": \"status": 0,
+    "Expression_Settings": 2,
+    "--kb-offset": 2,
+    "tech-key": 8
+  },
+  "app_css_markers": {
+    "sticky-save": 25,
+    "--kb-offset": 14,
+    "safe-area-inset-bottom": 22
+  }
+}

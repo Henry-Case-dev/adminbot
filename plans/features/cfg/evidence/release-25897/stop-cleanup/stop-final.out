@@ -1,0 +1,24 @@
+### PRE rc=0
+PRE_UTC %Y-%m-%dT%H:%M:%SZ
+HARNESS_NONE
+[upload] stop97_final.py
+### FINAL rc=0
+STOP97F BOT | id=8802473181 username=PERMsoc_bot
+STOP97F PROGRESS | 60/253 {'owned': 0, 'absent': 53, 'not_owned': 7, 'error': 0}
+STOP97F PROGRESS | 120/253 {'owned': 0, 'absent': 100, 'not_owned': 20, 'error': 0}
+STOP97F PROGRESS | 180/253 {'owned': 0, 'absent': 151, 'not_owned': 29, 'error': 0}
+STOP97F PROGRESS | 240/253 {'owned': 0, 'absent': 209, 'not_owned': 31, 'error': 0}
+STOP97F TEST_PROBE | {"owned": 0, "absent": 221, "not_owned": 32, "error": 0}
+STOP97F DB | {"smart_synth": 0, "throttle_synth": 0, "bot_replies_synth_chat_a": 4, "bot_replies_synth_chat_b": 0}
+STOP97F RESIDUAL_CLEAN | True
+STOP97F_RC=0
+[stderr] [sudo] password for nik:
+[download] stop-final.json
+### POST rc=0
+POST_UTC 2026-10-19T21:18:03Z
+MainPID=3791730
+NRestarts=0
+ActiveState=active
+SubState=running
+{"status":"ok","version":"2.58.97"}
+HEAD=99f5672c

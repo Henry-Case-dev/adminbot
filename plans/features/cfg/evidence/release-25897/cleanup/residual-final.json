@@ -1,0 +1,169 @@
+{
+ "db": "/var/www/admin_bot/local_database.db",
+ "spec": {
+  "-1002661910336": {
+   "mids": 19,
+   "smart": [],
+   "replies": [],
+   "parents": []
+  },
+  "-1004482340693": {
+   "mids": 4,
+   "smart": [],
+   "replies": [],
+   "parents": []
+  }
+ },
+ "wider_bot_scan": {
+  "-1002661910336": [],
+  "-1004482340693": []
+ },
+ "synth_all_chats": [],
+ "historical": [
+  {
+   "path": "/tmp/accept91_cleanup_register.json",
+   "chats": 0,
+   "mids": 0,
+   "residual_smart": 0,
+   "residual_replies": 0,
+   "residual_parents": 0
+  },
+  {
+   "path": "/tmp/accept92/evidence/cleanup-register.json",
+   "chats": 0,
+   "mids": 0,
+   "residual_smart": 0,
+   "residual_replies": 0,
+   "residual_parents": 0
+  },
+  {
+   "path": "/tmp/accept92_cleanup_mids.json",
+   "chats": 0,
+   "mids": 0,
+   "residual_smart": 0,
+   "residual_replies": 0,
+   "residual_parents": 0
+  },
+  {
+   "path": "/tmp/accept92b/evidence/cleanup-register.json",
+   "chats": 0,
+   "mids": 0,
+   "residual_smart": 0,
+   "residual_replies": 0,
+   "residual_parents": 0
+  },
+  {
+   "path": "/tmp/accept92b_cleanup_mids.json",
+   "chats": 0,
+   "mids": 0,
+   "residual_smart": 0,
+   "residual_replies": 0,
+   "residual_parents": 0
+  },
+  {
+   "path": "/tmp/accept93_cleanup_mids.json",
+   "chats": 0,
+   "mids": 0,
+   "residual_smart": 0,
+   "residual_replies": 0,
+   "residual_parents": 0
+  },
+  {
+   "path": "/tmp/accept94/evidence/cleanup-register.json",
+   "chats": 0,
+   "mids": 0,
+   "residual_smart": 0,
+   "residual_replies": 0,
+   "residual_parents": 0
+  },
+  {
+   "path": "/tmp/accept94_cleanup_mids.json",
+   "chats": 0,
+   "mids": 0,
+   "residual_smart": 0,
+   "residual_replies": 0,
+   "residual_parents": 0
+  },
+  {
+   "path": "/tmp/accept95/evidence/cleanup-register.json",
+   "chats": 0,
+   "mids": 0,
+   "residual_smart": 0,
+   "residual_replies": 0,
+   "residual_parents": 0
+  },
+  {
+   "path": "/tmp/accept95_cleanup_mids.json",
+   "chats": 0,
+   "mids": 0,
+   "residual_smart": 0,
+   "residual_replies": 0,
+   "residual_parents": 0
+  },
+  {
+   "path": "/tmp/accept96/cleanup_spec.json",
+   "chats": 2,
+   "mids": 33,
+   "residual_smart": 0,
+   "residual_replies": 0,
+   "residual_parents": 0
+  },
+  {
+   "path": "/tmp/accept96/evidence/cleanup-register.json",
+   "chats": 2,
+   "mids": 33,
+   "residual_smart": 0,
+   "residual_replies": 0,
+   "residual_parents": 0
+  },
+  {
+   "path": "/tmp/accept96b/cleanup_spec.json",
+   "chats": 2,
+   "mids": 9,
+   "residual_smart": 0,
+   "residual_replies": 0,
+   "residual_parents": 0
+  },
+  {
+   "path": "/tmp/accept96b/evidence/cleanup-register.json",
+   "chats": 2,
+   "mids": 10,
+   "residual_smart": 0,
+   "residual_replies": 0,
+   "residual_parents": 0
+  },
+  {
+   "path": "/tmp/accept97/cleanup_spec.json",
+   "chats": 2,
+   "mids": 23,
+   "residual_smart": 0,
+   "residual_replies": 0,
+   "residual_parents": 0
+  },
+  {
+   "path": "/tmp/accept97/evidence/cleanup-register.json",
+   "chats": 2,
+   "mids": 23,
+   "residual_smart": 0,
+   "residual_replies": 0,
+   "residual_parents": 0
+  },
+  {
+   "path": "/tmp/addexp_f0/cleanup_spec.json",
+   "chats": 0,
+   "mids": 0,
+   "residual_smart": 0,
+   "residual_replies": 0,
+   "residual_parents": 0
+  },
+  {
+   "path": "/tmp/addexp_f0/evidence/cleanup-register.json",
+   "chats": 0,
+   "mids": 0,
+   "residual_smart": 0,
+   "residual_replies": 0,
+   "residual_parents": 0
+  }
+ ],
+ "throttle_synth": []
+}

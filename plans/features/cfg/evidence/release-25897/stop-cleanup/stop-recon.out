@@ -1,0 +1,124 @@
+### RECON rc=0 (one SSH login, 2026-10-19T21:05:35Z)
+RECON_UTC 2026-10-19T21:05:35Z
+--- PS_HARNESS ---
+PS_NONE
+--- SYSTEMD ---
+UNIT_NONE
+--- TIMERS ---
+TIMER_NONE
+--- CRON ---
+CRON_NONE
+--- TMP_REGISTERS ---
+drwxrwxr-x  3 nik  nik      4096 2026-10-18T20:38:34Z accept91
+-rw-rw-r--  1 nik  nik     16720 2026-10-18T21:25:10Z accept91_accept91_cleanfinal.py
+-rw-rw-r--  1 nik  nik      3661 2026-10-18T21:02:18Z accept91_accept91_factclean.py
+-rw-rw-r--  1 nik  nik      3188 2026-10-18T21:05:12Z accept91_accept91_factreg.py
+-rw-rw-r--  1 nik  nik     50032 2026-10-18T20:37:41Z accept91_accept91_live.py
+-rw-rw-r--  1 nik  nik      1566 2026-10-18T21:12:14Z accept91_accept91_smartclean.py
+-rw-rw-r--  1 nik  nik      3100 2026-10-18T20:29:15Z accept91_accept91_vprobe.py
+-rw-rw-r--  1 nik  nik       892 2026-10-18T20:39:59Z accept91_check_live.py
+-rw-rw-r--  1 nik  nik     16815 2026-10-18T21:25:30Z accept91_cleanup_register.json
+-rw-rw-r--  1 nik  nik     11031 2026-10-18T20:50:25Z accept91_followup.py
+-rw-rw-r--  1 nik  nik       478314 2026-10-18T21:08:25Z accept91_journal_full.txt
+-rw-rw-r--  1 nik  nik     75062 2026-10-18T20:47:51Z accept91_journal.txt
+-rw-rw-r--  1 nik  nik     50423 2026-10-18T20:50:24Z accept91_live.py
+-rw-rw-r--  1 nik  nik      8654 2026-10-18T21:08:14Z accept91_postcheck.py
+-rw-rw-r--  1 nik  nik     20113 2026-10-18T20:27:17Z accept91_recon.py
+drwxrwxr-x  3 nik  nik      4096 2026-10-18T23:53:22Z accept92
+drwxrwxr-x  3 nik  nik      4096 2026-10-19T00:15:24Z accept92b
+-rw-rw-r--  1 nik  nik     50423 2026-10-18T23:53:14Z accept92_base.py
+-rw-rw-r--  1 nik  nik     50423 2026-10-19T00:15:16Z accept92b_base.py
+-rw-rw-r--  1 nik  nik     15982 2026-10-19T00:22:15Z accept92b_clean.py
+-rw-rw-r--  1 nik  nik      184 2026-10-19T00:22:16Z accept92b_cleanup_mids.json
+-rw-rw-r--  1 nik  nik      2039 2026-10-19T00:15:19Z accept92b_dbcheck.py
+-rw-r--r--  1 root root   465654 2026-10-19T00:22:32Z accept92b_journal_full.txt
+-rw-rw-r--  1 nik  nik      2049 2026-10-19T00:15:18Z accept92b_journal.sh
+-rw-rw-r--  1 nik  nik      16026 2026-10-19T00:15:17Z accept92b_live.py
+drwxrwxr-x  3 nik  nik      4096 2026-10-19T05:47:23Z accept92c
+-rw-rw-r--  1 nik  nik     50423 2026-10-19T05:47:15Z accept92c_base.py
+-rw-rw-r--  1 nik  nik      7315 2026-10-19T05:55:40Z accept92c_check2.py
+-rw-rw-r--  1 nik  nik      2039 2026-10-19T05:47:19Z accept92c_dbcheck.py
+-rw-rw-r--  1 nik  nik     11755 2026-10-19T05:51:01Z accept92c_diag.py
+-rw-rw-r--  1 nik  nik      5007 2026-10-19T05:58:31Z accept92c_dl_test.py
+-rw-rw-r--  1 nik  nik      9916 2026-10-19T06:01:07Z accept92c_final.py
+-rw-r--r--  1 root root  3414407 2026-10-19T06:01:23Z accept92c_journal_full.txt
+-rw-rw-r--  1 nik  nik      2049 2026-10-19T05:47:17Z accept92c_journal.sh
+-rw-rw-r--  1 nik  nik     14125 2026-10-19T00:04:38Z accept92_clean2.py
+-rw-rw-r--  1 nik  nik       198 2026-10-19T00:04:39Z accept92_cleanup_mids.json
+-rw-rw-r--  1 nik  nik     17737 2026-10-19T05:47:16Z accept92c_live.py
+-rw-rw-r--  1 nik  nik      2039 2026-10-18T23:53:17Z accept92_dbcheck.py
+-rw-r--r--  1 root root    325789 2026-10-19T00:04:53Z accept92_journal_full.txt
+-rw-rw-r--  1 nik  nik       2041 2026-10-18T23:53:16Z accept92_journal.sh
+-rw-rw-r--  1 nik  nik      28912 2026-10-18T23:53:15Z accept92_live.py
+drwxrwxr-x  3 nik  nik      4096 2026-10-19T08:04:19Z accept93
+-rw-rw-r--  1 nik  nik     50423 2026-10-19T08:04:10Z accept93_base.py
+-rw-rw-r--  1 nik  nik       364 2026-10-19T08:05:21Z accept93_cleanup_mids.json
+-rw-rw-r--  1 nik  nik      1782 2026-10-19T08:04:13Z accept93_dbcheck.py
+-rw-rw-r--  1 nik  nik      2423 2026-10-19T08:04:12Z accept93_journal.sh
+-rw-rw-r--  1 nik  nik      32106 2026-10-19T08:04:10Z accept93_live.py
+-rw-rw-r--  1 nik  nik      9527 2026-10-19T08:04:14Z accept93_rel_final.sh
+drwxrwxr-x  3 nik  nik      4096 2026-10-19T09:08:45Z accept94
+-rw-rw-r--  1 nik  nik     51624 2026-10-19T09:08:36Z accept94_base.py
+-rw-rw-r--  1 nik  nik      6205 2026-10-19T09:24:14Z accept94b_clean.py
+-rw-rw-r--  1 nik  nik     14758 2026-10-19T09:24:13Z accept94b_cover.py
+-rw-rw-r--  1 nik  nik     10057 2026-10-19T09:08:38Z accept94_clean.py
+-r--r--r--  1 root root       409 2026-10-19T09:15:40Z accept94_cleanup_mids.json
+-rw-rw-r--  1 nik  nik      2753 2026-10-19T09:08:40Z accept94_dbcheck.py
+-rw-rw-r--  1 nik  nik      3040 2026-10-19T09:08:39Z accept94_journal.sh
+-rw-rw-r--  1 nik  nik     59585 2026-10-19T09:08:37Z accept94_live.py
+drwxrwxr-x  3 nik  nik      4096 2026-10-19T14:31:29Z accept95
+-rw-rw-r--  1 nik  nik     31035 2026-10-19T14:31:26Z accept95_base.py
+-rw-rw-r--  1 nik  nik      3179 2026-10-19T14:01:30Z accept95b_journal.sh
+-rw-rw-r--  1 nik  nik      40096 2026-10-19T14:01:29Z accept95b_live.py
+-rw-rw-r--  1 nik  nik     10040 2026-10-19T14:14:29Z accept95_clean.py
+-r--r--r--  1 root root       423 2026-10-19T14:18:08Z accept95_cleanup_mids.json
+-rw-rw-r--  1 nik  nik     16133 2026-10-19T14:14:31Z accept95c_live.py
+-rw-rw-r--  1 nik  nik      4780 2026-10-19T14:14:30Z accept95c_probe.py
+-rw-rw-r--  1 nik  nik      2147 2026-10-19T14:01:31Z accept95_dbcheck.py
+-rw-rw-r--  1 nik  nik      6883 2026-10-19T14:31:27Z accept95d_final.py
+-rw-rw-r--  1 nik  nik      3609 2026-10-19T13:47:03Z accept95_journal.sh
+-rw-rw-r--  1 nik  nik     48717 2026-10-19T13:47:01Z accept95_live.py
+drwxrwxr-x  3 nik  nik      4096 2026-10-19T15:36:51Z accept96
+drwxrwxr-x  3 nik  nik      4096 2026-10-19T15:55:23Z accept96b
+-rw-rw-r--  1 nik  nik     51755 2026-10-19T15:52:39Z accept96_base.py
+-rw-rw-r--  1 nik  nik     11914 2026-10-19T15:52:42Z accept96b_clean.py
+-rw-rw-r--  1 nik  nik      3175 2026-10-19T15:52:43Z accept96b_journal.sh
+-rw-rw-r--  1 nik  nik      27426 2026-10-19T15:52:40Z accept96b_live.py
+-rw-rw-r--  1 nik  nik     11905 2026-10-19T15:27:36Z accept96_clean.py
+drwxrwxr-x  3 nik  nik      4096 2026-10-19T16:01:18Z accept96d
+-rw-rw-r--  1 nik  nik      6311 2026-10-19T16:01:18Z accept96d_clean_quote.py
+drwxrwxr-x  3 nik  nik      4096 2026-10-19T16:10:34Z accept96e
+-rw-rw-r--  1 nik  nik      5996 2026-10-19T16:10:35Z accept96e_clean_hedge_anchor.py
+drwxrwxr-x  3 nik  nik      4096 2026-10-19T16:12:10Z accept96f
+-rw-rw-r--  1 nik  nik      4919 2026-10-19T16:12:10Z accept96f_clean_hedge_anchor2.py
+-rw-rw-r--  1 nik  nik      3169 2026-10-19T15:27:37Z accept96_journal.sh
+-rw-rw-r--  1 nik  nik     60238 2026-10-19T15:52:40Z accept96_live.py
+drwxrwxr-x  3 nik  nik      4096 2026-10-19T20:26:19Z accept97
+-rw-rw-r--  1 nik  nik     51766 2026-10-19T20:12:25Z accept97_base.py
+-rw-rw-r--  1 nik  nik     12021 2026-10-19T20:12:27Z accept97_clean.py
+-rw-rw-r--  1 nik  nik      5825 2026-10-19T20:34:09Z accept97_delete_leftover.py
+-rw-rw-r--  1 nik  nik      9549 2026-10-19T20:23:52Z accept97_final_clean.py
+-rw-rw-r--  1 nik  nik      5892 2026-10-19T20:24:59Z accept97_final_verify.py
+-rw-rw-r--  1 nik  nik      3400 2026-10-19T20:12:28Z accept97_journal.sh
+-rw-rw-r--  1 nik  nik      47272 2026-10-19T20:12:26Z accept97_live.py
+-rw-rw-r--  1 nik  nik      9580 2026-10-19T20:12:29Z accept97_prep.py
+-rw-rw-r--  1 nik  nik      6544 2026-10-19T20:26:07Z accept97_residual_clean.py
+-rw-rw-r--  1 nik  nik      7477 2026-10-19T20:12:30Z accept97_sweep.py
+drwxr-xr-x  3 root root     4096 2026-10-19T10:00:11Z addexp_f0
+-rw-rw-r--  1 nik  nik      4029 2026-10-19T20:25:49Z cleanup97_final_probe.py
+-rw-rw-r--  1 nik  nik      2746 2026-10-19T20:31:46Z cleanup97_inspect_kept.py
+-rw-rw-r--  1 nik  nik      7116 2026-10-19T20:38:46Z cleanup97_register_runner.json
+-rw-rw-r--  1 nik  nik      3262 2026-10-19T20:38:47Z cleanup97_register_verify.json
+drwxrwxr-x  2 nik  nik      4096 2026-10-19T21:04:34Z cleanup_all
+-rw-rw-r--  1 nik  nik       198 2026-10-19T00:03:54Z cleanup_mids.json
+--- SVC ---
+MainPID=3791730
+NRestarts=0
+ActiveState=active
+SubState=running
+HEAD=99f5672c
+{"status":"ok","version":"2.58.97"}
+
+Note: recon output was captured from the single SSH session at 21:05:35Z.
+No acceptance harness process, no transient systemd unit, no timer and no cron
+entry matched the harness signatures. The service PID 3791730 was unchanged.

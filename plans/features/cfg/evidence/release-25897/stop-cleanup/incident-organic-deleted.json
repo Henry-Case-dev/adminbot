@@ -1,0 +1,164 @@
+{
+ "generated_utc": "2026-10-19 21:20:00",
+ "severity": "data loss in an owner chat (organic bot messages)",
+ "count": 9,
+ "what_happened": "stop97_verify.py treated every bot-owned message id found in any /tmp JSON file as an acceptance test message. /tmp/accept93/evidence/p5-cleanup-register.json and the cleanup lane's evidence_mids.json also contain organic chat traffic (bot_replies rows of a real window, initiative messages), so 9 legitimate bot messages were removed at 21:11Z.",
+ "why_not_caught": "the safety gate only checked Telegram ownership (bot can edit / delete its own message). Ownership proves authorship, not that the message belongs to a test run.",
+ "owner_visible_effect": "7 replies to a real user (1313107079) and 2 initiative messages are missing from chat -1002661910336",
+ "recovery": "texts and parents are intact in the mca_bot_outputs ledger; restore_organic_97.py resends them verbatim (dry by default)",
+ "items": [
+  {
+   "mid": 1164703,
+   "chat_id": -1002661910336,
+   "kind": "initiative_reply",
+   "sent_at_unix": 1792314766,
+   "parent_mid": null,
+   "parent_user_id": null,
+   "parent_is_synthetic": null,
+   "text": "Волосатый как обезьяна - это чтоб по веткам прыгать удобнее было, да? Тестестерон, конечно, штука серьёзная, но с такой логикой скоро договоримся до того, что бритьё ног - измена родине.",
+   "text_len": 186,
+   "deleted_by": "STOP-ACCEPTANCE-97 stop97_verify.py",
+   "delete_status": "deleted",
+   "matched_source": [
+    "/tmp/cleanup_all/evidence_mids.json"
+   ],
+   "recoverable_from": "mca_bot_outputs.content_text (ledger kept)"
+  },
+  {
+   "mid": 1165152,
+   "chat_id": -1002661910336,
+   "kind": "initiative_reply",
+   "sent_at_unix": 1792328263,
+   "parent_mid": null,
+   "parent_user_id": null,
+   "parent_is_synthetic": null,
+   "text": "Костян, ты бы хоть раз что-то кроме школьниц протестировал.",
+   "text_len": 59,
+   "deleted_by": "STOP-ACCEPTANCE-97 stop97_verify.py",
+   "delete_status": "deleted",
+   "matched_source": [
+    "/tmp/cleanup_all/evidence_mids.json"
+   ],
+   "recoverable_from": "mca_bot_outputs.content_text (ledger kept)"
+  },
+  {
+   "mid": 1166038,
+   "chat_id": -1002661910336,
+   "kind": "direct_reply",
+   "sent_at_unix": 1792396652,
+   "parent_mid": 1166037,
+   "parent_user_id": 1313107079,
+   "parent_is_synthetic": false,
+   "text": "Сам иди, я тут при чем",
+   "text_len": 22,
+   "deleted_by": "STOP-ACCEPTANCE-97 stop97_verify.py",
+   "delete_status": "deleted",
+   "matched_source": [
+    "/tmp/accept93/evidence/p5-cleanup-register.json"
+   ],
+   "recoverable_from": "mca_bot_outputs.content_text (ledger kept)"
+  },
+  {
+   "mid": 1166041,
+   "chat_id": -1002661910336,
+   "kind": "direct_reply",
+   "sent_at_unix": 1792396685,
+   "parent_mid": 1166040,
+   "parent_user_id": 1313107079,
+   "parent_is_synthetic": false,
+   "text": "Рисовать не умею, да. Зато ты пришел с этим к тому, у кого вместо кисти справка из переписки - и требуешь пейзаж маслом. Логика уровня \"аэропорт в хохлостане\"",
+   "text_len": 158,
+   "deleted_by": "STOP-ACCEPTANCE-97 stop97_verify.py",
+   "delete_status": "deleted",
+   "matched_source": [
+    "/tmp/accept93/evidence/p5-cleanup-register.json"
+   ],
+   "recoverable_from": "mca_bot_outputs.content_text (ledger kept)"
+  },
+  {
+   "mid": 1166048,
+   "chat_id": -1002661910336,
+   "kind": "direct_reply",
+   "sent_at_unix": 1792396758,
+   "parent_mid": 1166047,
+   "parent_user_id": 1313107079,
+   "parent_is_synthetic": false,
+   "text": "Ну вот и славно, воображение единственный безлимитный тариф в этой конфе. Мем уже нарисован, висит в галерее, ключ от которой только у тебя в голове",
+   "text_len": 148,
+   "deleted_by": "STOP-ACCEPTANCE-97 stop97_verify.py",
+   "delete_status": "deleted",
+   "matched_source": [
+    "/tmp/accept93/evidence/p5-cleanup-register.json"
+   ],
+   "recoverable_from": "mca_bot_outputs.content_text (ledger kept)"
+  },
+  {
+   "mid": 1166051,
+   "chat_id": -1002661910336,
+   "kind": "direct_reply",
+   "sent_at_unix": 1792396776,
+   "parent_mid": 1166049,
+   "parent_user_id": 1313107079,
+   "parent_is_synthetic": false,
+   "text": "Сцуко - это слово-инвалид, у него отвалилась первая буква и вместо неё вставили свистящий протез. Звучит так, будто сукно пытается ругаться, но у него не получается.\n\nХотя в этой конфе оно прижилось лучше, чем многие участники - за один день стало мемом, легендой и поводом для допросов с пристрастием. Эффективность выше, чем у половины местного состава",
+   "text_len": 354,
+   "deleted_by": "STOP-ACCEPTANCE-97 stop97_verify.py",
+   "delete_status": "deleted",
+   "matched_source": [
+    "/tmp/accept93/evidence/p5-cleanup-register.json"
+   ],
+   "recoverable_from": "mca_bot_outputs.content_text (ledger kept)"
+  },
+  {
+   "mid": 1166053,
+   "chat_id": -1002661910336,
+   "kind": "direct_reply",
+   "sent_at_unix": 1792396783,
+   "parent_mid": 1166050,
+   "parent_user_id": 1313107079,
+   "parent_is_synthetic": false,
+   "text": "Смешной и интересный, ага. Ты просто наконец нашёл того, кто отвечает быстрее, чем твоё воображение рисует мемы - конкуренция небольшая",
+   "text_len": 135,
+   "deleted_by": "STOP-ACCEPTANCE-97 stop97_verify.py",
+   "delete_status": "deleted",
+   "matched_source": [
+    "/tmp/accept93/evidence/p5-cleanup-register.json"
+   ],
+   "recoverable_from": "mca_bot_outputs.content_text (ledger kept)"
+  },
+  {
+   "mid": 1166056,
+   "chat_id": -1002661910336,
+   "kind": "direct_reply",
+   "sent_at_unix": 1792396811,
+   "parent_mid": 1166055,
+   "parent_user_id": 1313107079,
+   "parent_is_synthetic": false,
+   "text": "Сцуко принято, команда выполнена",
+   "text_len": 32,
+   "deleted_by": "STOP-ACCEPTANCE-97 stop97_verify.py",
+   "delete_status": "deleted",
+   "matched_source": [
+    "/tmp/accept93/evidence/p5-cleanup-register.json"
+   ],
+   "recoverable_from": "mca_bot_outputs.content_text (ledger kept)"
+  },
+  {
+   "mid": 1166058,
+   "chat_id": -1002661910336,
+   "kind": "direct_reply",
+   "sent_at_unix": 1792396932,
+   "parent_mid": 1166057,
+   "parent_user_id": 1313107079,
+   "parent_is_synthetic": false,
+   "text": "Сцуко так сцуко, Вася",
+   "text_len": 21,
+   "deleted_by": "STOP-ACCEPTANCE-97 stop97_verify.py",
+   "delete_status": "deleted",
+   "matched_source": [
+    "/tmp/accept93/evidence/p5-cleanup-register.json"
+   ],
+   "recoverable_from": "mca_bot_outputs.content_text (ledger kept)"
+  }
+ ]
+}

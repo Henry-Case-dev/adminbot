@@ -2,8 +2,8 @@
   "schema": "openworkflow-coverage-v1",
   "source_path": "C:\\Code\\Python\\adminbot\\plans\\features\\cfg\\source-cfg-addendum.md",
   "source_sha256": "2ed43009e1533eca218be419409870ebbe85f82d85262ff2335dfa2ce36e6b10",
-  "candidate_commit": "113f3a629cab54f7fcc261349a7c9af3b90f56d7",
-  "deployed_commit": "113f3a629cab54f7fcc261349a7c9af3b90f56d7",
+  "candidate_commit": "90cfc471b7f1917360915aee3157ef12f9879dcd",
+  "deployed_commit": "99f5672c5e1d27e957100395a13178fef929b035",
   "strict_evidence": true,
   "slice_graph_path": "slice-graph.json",
   "additional_requirements": [
@@ -127,9 +127,28 @@
       "acceptance": "CFG-04 — только формы и save/dirty/keyboard/orientation; навигация, fullscreen, логотип и шапка не переделываются (владельцы U01/U02/U07/HOTFIX/SOUL-11).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "note": "CFG-04 F0 — alias/guard (L23): CFG-04 только формы/save/dirty/keyboard/orientation; навигация/fullscreen/логотип/шапка — U01/U02/U07/HOTFIX/SOUL-11, не переделывать. Закрытие на review по diff-scope + регрессиям.",
-      "evidence": []
+      "status": "VERIFIED",
+      "note": "CFG-04 F0 — alias/guard (L23): CFG-04 только формы/save/dirty/keyboard/orientation; навигация/fullscreen/логотип/шапка — U01/U02/U07/HOTFIX/SOUL-11, не переделывать. Закрытие на review по diff-scope + регрессиям. PM-леджер 20.10.2026: VERIFIED по review-cfg-04 (Approved) и candidate-evidence 2428768.",
+      "evidence": [
+        {
+          "candidate_commit": "2428768818f5c92ae2b471f7c33e1a37eb8399cd",
+          "deployed_commit": "99f5672c5e1d27e957100395a13178fef929b035",
+          "ref": "evidence/cfg-04/blast-radius.txt",
+          "observation": "Scope-guard: изменения только формы/save/dirty/keyboard/orientation; навигация, шапка, логотип, fullscreen отсутствуют в диффе.",
+          "type": "static",
+          "artifact_path": "plans/features/cfg/evidence/cfg-04/blast-radius.txt",
+          "artifact_sha256": "5c8d80062970d0c751b48ed16e61d3fd45e353088a3e0cd1fbafe2f594dac159"
+        },
+        {
+          "candidate_commit": "2428768818f5c92ae2b471f7c33e1a37eb8399cd",
+          "deployed_commit": "99f5672c5e1d27e957100395a13178fef929b035",
+          "ref": "review-cfg-04 §5",
+          "observation": "Δ каталога 0, DDL 0; services/, web/api/, param_catalog.py не тронуты; постороннего WIP в кандидате нет.",
+          "type": "static",
+          "artifact_path": "plans/features/cfg/review-cfg-04.md",
+          "artifact_sha256": "7c1426a1e481617b87e7ccea6e0c0a834580df7417138fc43081cbab9c07cf10"
+        }
+      ]
     },
     {
       "source_id": "M00007",
@@ -143,9 +162,28 @@
       "acceptance": "CFG-05 = OBSERVED_FIXED/REUSE_EXISTING: сверка с U08/SOUL evidence; без новых рендеров, CSS и повторного A/B, если не возникнет конкретный воспроизводимый дефект.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
-      "note": "CFG-05 prep 20.10.2026: dedup-guard. CFG-05 не создаёт второй реализации стекла: ноль правок web/** и glass-тестов; владельцы — SOUL-17 (TIERA-STRONG) и U08/WIN-GLASS; в evidence — ссылки на их артефакты и честные остатки (SOUL-17.4 READY_FOR_LIVE, residue U08-карты)."
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "90cfc471b7f1917360915aee3157ef12f9879dcd",
+          "deployed_commit": "99f5672c5e1d27e957100395a13178fef929b035",
+          "ref": "evidence/cfg-05/diff-guard.txt",
+          "observation": "Нулевой продуктовый дифф: web/** не правился, glass-тестов не добавлено; единственная glass-строка — существующий токен в hover CFG-04.",
+          "type": "static",
+          "artifact_path": "plans/features/cfg/evidence/cfg-05/diff-guard.txt",
+          "artifact_sha256": "964df9be47c350319b52d9e967bdad4d793995f0ab8a313294c355e319001fa9"
+        },
+        {
+          "candidate_commit": "90cfc471b7f1917360915aee3157ef12f9879dcd",
+          "deployed_commit": "99f5672c5e1d27e957100395a13178fef929b035",
+          "ref": "evidence/cfg-05/reuse-map.md",
+          "observation": "Второй реализации стекла нет: владельцы SOUL-17 (TIERA-STRONG) и U08/WG; CFG-05 только сверяет.",
+          "type": "static",
+          "artifact_path": "plans/features/cfg/evidence/cfg-05/reuse-map.md",
+          "artifact_sha256": "07328e1abc61e97ee9d39d2648649c491dee94482216d4a3bd9da2b98f01a421"
+        }
+      ],
+      "note": "CFG-05 prep 20.10.2026: dedup-guard. CFG-05 не создаёт второй реализации стекла: ноль правок web/** и glass-тестов; владельцы — SOUL-17 (TIERA-STRONG) и U08/WIN-GLASS; в evidence — ссылки на их артефакты и честные остатки (SOUL-17.4 READY_FOR_LIVE, residue U08-карты). PM-леджер 20.10.2026: VERIFIED — REUSED_EXISTING/OWNER_VISUAL_CONFIRMED, deployed 99f5672c, без нового кода и отдельного деплоя."
     },
     {
       "source_id": "M00008",
@@ -404,9 +442,37 @@
       "acceptance": "CFG-04 не повторяет mobile-navbar, fullscreen-кнопку, удаление логотипа и Telegram safe-area (владельцы U01/U07/HOTFIX); уточнение — только формы, две кнопки сохранения, dirty, клавиатура, последнее поле, поворот.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "note": "CFG-04 F0 — guard: не повторять mobile-navbar/«Статус/Аналитика/Модули/Ещё»/fullscreen/логотип/safe-area; владельцы U01/U07/HOTFIX. CFG-04 — только формы, две кнопки сохранения, dirty, клавиатура, последнее поле, поворот. Закрытие на review по diff-scope; новых UI-компонентов не создавать.",
-      "evidence": []
+      "status": "VERIFIED",
+      "note": "CFG-04 F0 — guard: не повторять mobile-navbar/«Статус/Аналитика/Модули/Ещё»/fullscreen/логотип/safe-area; владельцы U01/U07/HOTFIX. CFG-04 — только формы, две кнопки сохранения, dirty, клавиатура, последнее поле, поворот. Закрытие на review по diff-scope; новых UI-компонентов не создавать. PM-леджер 20.10.2026: VERIFIED по review-cfg-04 (Approved) и candidate-evidence 2428768.",
+      "evidence": [
+        {
+          "candidate_commit": "2428768818f5c92ae2b471f7c33e1a37eb8399cd",
+          "deployed_commit": "99f5672c5e1d27e957100395a13178fef929b035",
+          "ref": "tests/test_cfg04_forms_contract.py :: TestProtectedSurfaces::test_header_navigation_not_rebuilt",
+          "observation": "Навигация/шапка не перестроены; guard-строка подтверждена контрактом.",
+          "type": "test",
+          "artifact_path": "tests/test_cfg04_forms_contract.py",
+          "artifact_sha256": "7cf6681c255ebc69f5eaf6642c4d219b40002e7c5b3a55acadf887ca919bfbf7"
+        },
+        {
+          "candidate_commit": "2428768818f5c92ae2b471f7c33e1a37eb8399cd",
+          "deployed_commit": "99f5672c5e1d27e957100395a13178fef929b035",
+          "ref": "review-cfg-04 §5",
+          "observation": "В диффе glass — только существующий --glass-border-color в hover; mobile-navbar/fullscreen/логотип/Telegram safe-area не переделывались (владельцы U01/U07/HOTFIX).",
+          "type": "static",
+          "artifact_path": "plans/features/cfg/review-cfg-04.md",
+          "artifact_sha256": "7c1426a1e481617b87e7ccea6e0c0a834580df7417138fc43081cbab9c07cf10"
+        },
+        {
+          "candidate_commit": "2428768818f5c92ae2b471f7c33e1a37eb8399cd",
+          "deployed_commit": "99f5672c5e1d27e957100395a13178fef929b035",
+          "ref": "evidence/cfg-04/blast-radius.txt",
+          "observation": "Файловый состав не содержит navbar/fullscreen/logo-модулей — повторной работы нет.",
+          "type": "static",
+          "artifact_path": "plans/features/cfg/evidence/cfg-04/blast-radius.txt",
+          "artifact_sha256": "5c8d80062970d0c751b48ed16e61d3fd45e353088a3e0cd1fbafe2f594dac159"
+        }
+      ]
     },
     {
       "source_id": "M00019",
@@ -435,9 +501,37 @@
       "acceptance": "Единственная добавка к CFG-04A: смена ориентации/viewport во время редактирования не теряет ввод, выбранный chat/scope, активное поле, dirty-state, прокрутку и маршрут; неожиданного скачка наверх нет; селектор чата и native touch-zones — владельцы U01/HOTFIX.",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "note": "CFG-04 F0 — master PARTIAL/NEW: маршрут hash и Vue-состояние переживают resize, но явного orientation-контракта нет; активное поле/скролл/dirty нужно проверить сменой viewport при несохранённом вводе. Единственная добавка к 04A; селектор чата/touch-zones — U01/HOTFIX. Preprod live.",
-      "evidence": []
+      "status": "VERIFIED",
+      "note": "CFG-04 F0 — master PARTIAL/NEW: маршрут hash и Vue-состояние переживают resize, но явного orientation-контракта нет; активное поле/скролл/dirty нужно проверить сменой viewport при несохранённом вводе. Единственная добавка к 04A; селектор чата/touch-zones — U01/HOTFIX. Preprod live. PM-леджер 20.10.2026: VERIFIED по техническим live-проверкам релиза 2.58.97 (прод-байты, 7 viewport, failures=0); живой чат — owner-rule 20.10.",
+      "evidence": [
+        {
+          "candidate_commit": "2428768818f5c92ae2b471f7c33e1a37eb8399cd",
+          "deployed_commit": "99f5672c5e1d27e957100395a13178fef929b035",
+          "ref": "release-25897/acceptance/cfg04/live-matrix-digest.json :: orient",
+          "observation": "Поворот 390×844→844×390: value/dirty/hash/scroll(220→220)/active — 5/5; конфиг на resize не перезагружается.",
+          "type": "live",
+          "artifact_path": "plans/features/cfg/evidence/release-25897/acceptance/cfg04/live-matrix-digest.json",
+          "artifact_sha256": "964c01d0fe039a726865033009d40e9134fe01f23ffa7b570880e9339f5e689e"
+        },
+        {
+          "candidate_commit": "2428768818f5c92ae2b471f7c33e1a37eb8399cd",
+          "deployed_commit": "99f5672c5e1d27e957100395a13178fef929b035",
+          "ref": "evidence/cfg-04/after.json :: orientation",
+          "observation": "value '7', dirty 1, hash #/memory/rag, scroll 220→220, active limits.dig_year_back_window_days; data-cfg-key ×29.",
+          "type": "test",
+          "artifact_path": "plans/features/cfg/evidence/cfg-04/after.json",
+          "artifact_sha256": "9c5097e6985f6f8791173d374712ff6311e56ce4d24ed5bfb91954d7566f0f47"
+        },
+        {
+          "candidate_commit": "2428768818f5c92ae2b471f7c33e1a37eb8399cd",
+          "deployed_commit": "99f5672c5e1d27e957100395a13178fef929b035",
+          "ref": "review-cfg-04 §4",
+          "observation": "_captureEditViewport/_restoreEditViewport/_preserveOnViewportChange из _onResize; снимается фактический скроллер, активный key, выделение; фокус best effort без фейка.",
+          "type": "static",
+          "artifact_path": "plans/features/cfg/review-cfg-04.md",
+          "artifact_sha256": "7c1426a1e481617b87e7ccea6e0c0a834580df7417138fc43081cbab9c07cf10"
+        }
+      ]
     },
     {
       "source_id": "M00021",
@@ -451,9 +545,37 @@
       "acceptance": "Блокирующий критерий CFG-04: в мобильной MiniApp портрет/ландшафт нет перекрытий с нативными зонами, дублирующих конфликтующих действий сохранения и недоступных полей; форма редактируется и сохраняется после поворота; исходный дизайн и фон сохранены.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "note": "CFG-04 F0 — composite blocking criterion (L179): нет перекрытий с нативными зонами, дублирующих CTA, недоступных полей; форма редактируется/сохраняется после поворота; дизайн/фон сохранены. Закрывается только после B.1-B.3/C.1-C.5/D.4-D.5; не объявлять по частичным зелёным.",
-      "evidence": []
+      "status": "VERIFIED",
+      "note": "CFG-04 F0 — composite blocking criterion (L179): нет перекрытий с нативными зонами, дублирующих CTA, недоступных полей; форма редактируется/сохраняется после поворота; дизайн/фон сохранены. Закрывается только после B.1-B.3/C.1-C.5/D.4-D.5; не объявлять по частичным зелёным. PM-леджер 20.10.2026: VERIFIED по техническим live-проверкам релиза 2.58.97 (прод-байты, 7 viewport, failures=0); живой чат — owner-rule 20.10.",
+      "evidence": [
+        {
+          "candidate_commit": "2428768818f5c92ae2b471f7c33e1a37eb8399cd",
+          "deployed_commit": "99f5672c5e1d27e957100395a13178fef929b035",
+          "ref": "release-25897/acceptance/cfg04/live-matrix-digest.json",
+          "observation": "Композит: одна CTA (1 на всех 7 viewport), нет перекрытий (lastOverlap −4.3…−161.9), поля и кнопки доступны после поворота (5/5), overflow 0.",
+          "type": "live",
+          "artifact_path": "plans/features/cfg/evidence/release-25897/acceptance/cfg04/live-matrix-digest.json",
+          "artifact_sha256": "964c01d0fe039a726865033009d40e9134fe01f23ffa7b570880e9339f5e689e"
+        },
+        {
+          "candidate_commit": "2428768818f5c92ae2b471f7c33e1a37eb8399cd",
+          "deployed_commit": "99f5672c5e1d27e957100395a13178fef929b035",
+          "ref": "release-25897/acceptance/cfg04/dirty-guard.json",
+          "observation": "Сохранение/уход без потери данных: confirm, отказ сохраняет значение и панель, согласие уводит без панели.",
+          "type": "live",
+          "artifact_path": "plans/features/cfg/evidence/release-25897/acceptance/cfg04/dirty-guard.json",
+          "artifact_sha256": "66dec6a7dfa393a87dfaca3fdc847aec8b4e6b25b1e2d7e32721dc61c85dfb6d"
+        },
+        {
+          "candidate_commit": "2428768818f5c92ae2b471f7c33e1a37eb8399cd",
+          "deployed_commit": "99f5672c5e1d27e957100395a13178fef929b035",
+          "ref": "evidence/cfg-05/glass-invariant.json",
+          "observation": "Исходный дизайн и фон сохранены: 0 material diffs, «Статус» 0 px; D.4 остаётся owner-optional (PENDING_OWNER_E2E).",
+          "type": "live",
+          "artifact_path": "plans/features/cfg/evidence/cfg-05/glass-invariant.json",
+          "artifact_sha256": "cf0cb19591072b2fad1974844a65335c1206af9df4afc68e581815bc8b68fb21"
+        }
+      ]
     },
     {
       "source_id": "M00022",
@@ -482,9 +604,28 @@
       "acceptance": "CFG-05 = OBSERVED_FIXED/NO_NEW_IMPLEMENTATION: не запускать отдельную реализацию стекла; однократно сверить deployed SHA, U08/SOUL-17 и наблюдение владельца; закрыть как REUSED_EXISTING/OWNER_VISUAL_CONFIRMED без нового кода и отдельного деплоя.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": [],
-      "note": "CFG-05 prep 20.10.2026: решение OBSERVED_FIXED/NO_NEW_IMPLEMENTATION — регистрация, не разработка. Однократная сверка deployed SHA + U08/SOUL-17 + наблюдения владельца; отдельного деплоя стекла нет; вход — релиз CFG-04 (2.58.97)."
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "90cfc471b7f1917360915aee3157ef12f9879dcd",
+          "deployed_commit": "99f5672c5e1d27e957100395a13178fef929b035",
+          "ref": "evidence/cfg-05/deployed-sha.json",
+          "observation": "Отдельного деплоя стекла нет: deployed 99f5672c — релиз CFG-04; lens/tokens/background блобы идентичны предыдущему деплою.",
+          "type": "live",
+          "artifact_path": "plans/features/cfg/evidence/cfg-05/deployed-sha.json",
+          "artifact_sha256": "534cd8477a398c1debc2f94a512eb21fb00b7d4d4c802f43ecfdcad3921cf548"
+        },
+        {
+          "candidate_commit": "90cfc471b7f1917360915aee3157ef12f9879dcd",
+          "deployed_commit": "99f5672c5e1d27e957100395a13178fef929b035",
+          "ref": "evidence/cfg-05/owner-observation.md",
+          "observation": "Наблюдение владельца 18.10 принято как OWNER_VISUAL_CONFIRMED; повторного подтверждения не запрашиваем (PET).",
+          "type": "ui",
+          "artifact_path": "plans/features/cfg/evidence/cfg-05/owner-observation.md",
+          "artifact_sha256": "a35d055f7eb9e2734decd74c92a8bd67d3a1b9beaf9c84b5838686dbf0a07fdb"
+        }
+      ],
+      "note": "CFG-05 prep 20.10.2026: решение OBSERVED_FIXED/NO_NEW_IMPLEMENTATION — регистрация, не разработка. Однократная сверка deployed SHA + U08/SOUL-17 + наблюдения владельца; отдельного деплоя стекла нет; вход — релиз CFG-04 (2.58.97). PM-леджер 20.10.2026: VERIFIED — REUSED_EXISTING/OWNER_VISUAL_CONFIRMED, deployed 99f5672c, без нового кода и отдельного деплоя."
     },
     {
       "source_id": "M00024",
@@ -498,9 +639,37 @@
       "acceptance": "Критерий CFG-05: текущее наблюдаемое поведение соответствует запросу владельца; рефракция и полигональный фон сохранены при последующих UI-изменениях; новых обязательств по стеклу и блокировки очереди нет.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": [],
-      "note": "CFG-05 prep 20.10.2026: composite-критерий. Собирается из CFG-05.1 (deployed SHA + U08/SOUL-17 + наблюдение владельца) и CFG-05.3/ADD-1.C6 (неизменность glass и полигонального фона после CFG-04); по частичным зелёным не объявлять; новых обязательств по стеклу и блокировки очереди нет."
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "90cfc471b7f1917360915aee3157ef12f9879dcd",
+          "deployed_commit": "99f5672c5e1d27e957100395a13178fef929b035",
+          "ref": "evidence/cfg-05/glass-invariant.json",
+          "observation": "Композит .1+.3: поведение соответствует запросу владельца; рефракция/фон сохранены после CFG-04 (0 material diffs, 0 px на «Статус»); новых обязательств нет.",
+          "type": "live",
+          "artifact_path": "plans/features/cfg/evidence/cfg-05/glass-invariant.json",
+          "artifact_sha256": "cf0cb19591072b2fad1974844a65335c1206af9df4afc68e581815bc8b68fb21"
+        },
+        {
+          "candidate_commit": "90cfc471b7f1917360915aee3157ef12f9879dcd",
+          "deployed_commit": "99f5672c5e1d27e957100395a13178fef929b035",
+          "ref": "evidence/cfg-05/owner-observation.md",
+          "observation": "OWNER_VISUAL_CONFIRMED относится к тому же стеклу, что в 2.58.97; все браузеры/перф не заявляются.",
+          "type": "ui",
+          "artifact_path": "plans/features/cfg/evidence/cfg-05/owner-observation.md",
+          "artifact_sha256": "a35d055f7eb9e2734decd74c92a8bd67d3a1b9beaf9c84b5838686dbf0a07fdb"
+        },
+        {
+          "candidate_commit": "90cfc471b7f1917360915aee3157ef12f9879dcd",
+          "deployed_commit": "99f5672c5e1d27e957100395a13178fef929b035",
+          "ref": "evidence/cfg-05/README.md §2/§6",
+          "observation": "Итог REUSED_EXISTING/OWNER_VISUAL_CONFIRMED; ограничения (headless Tier B, прод-кадр без Telegram-сессии) названы честно.",
+          "type": "static",
+          "artifact_path": "plans/features/cfg/evidence/cfg-05/README.md",
+          "artifact_sha256": "3eee9be085ecae1f479f751ceed8a267aed8babe3c54c07ef2488137638c6817"
+        }
+      ],
+      "note": "CFG-05 prep 20.10.2026: composite-критерий. Собирается из CFG-05.1 (deployed SHA + U08/SOUL-17 + наблюдение владельца) и CFG-05.3/ADD-1.C6 (неизменность glass и полигонального фона после CFG-04); по частичным зелёным не объявлять; новых обязательств по стеклу и блокировки очереди нет. PM-леджер 20.10.2026: VERIFIED — REUSED_EXISTING/OWNER_VISUAL_CONFIRMED, deployed 99f5672c, без нового кода и отдельного деплоя."
     },
     {
       "source_id": "M00025",
@@ -951,9 +1120,37 @@
       "acceptance": "Новой fullscreen-задачи нет: поздний HOTFIX остаётся владельцем кнопки (без стеклянной подложки, при необходимости вписывается в существующую строку за счёт логотипа).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "note": "CFG-04 F0 20.10.2026: guard-строка (не новая работа). Fullscreen/safe-area владеет U07 + FS-HOTFIX 18.10 (`soul-1/fullscreen-hotfix-report.md`); CFG-04 не добавляет fullscreen-задачу и не трогает `.header-fs-btn`/нативные зоны. Закрытие — только на review по diff-scope + shell-регрессии (prep-cfg-04 §3/§7); новых требований нет.",
-      "evidence": []
+      "status": "VERIFIED",
+      "note": "CFG-04 F0 20.10.2026: guard-строка (не новая работа). Fullscreen/safe-area владеет U07 + FS-HOTFIX 18.10 (`soul-1/fullscreen-hotfix-report.md`); CFG-04 не добавляет fullscreen-задачу и не трогает `.header-fs-btn`/нативные зоны. Закрытие — только на review по diff-scope + shell-регрессии (prep-cfg-04 §3/§7); новых требований нет. PM-леджер 20.10.2026: VERIFIED по review-cfg-04 (Approved) и candidate-evidence 2428768.",
+      "evidence": [
+        {
+          "candidate_commit": "2428768818f5c92ae2b471f7c33e1a37eb8399cd",
+          "deployed_commit": "99f5672c5e1d27e957100395a13178fef929b035",
+          "ref": "tests/test_cfg04_forms_contract.py :: TestProtectedSurfaces (ADD-1.C5)",
+          "observation": "Контракт fullscreen-строки: кнопка fullscreen и навигация не перестраивались; профильный набор 29 passed, JS CFG04-FORMS-OK (review-cfg-04 §6).",
+          "type": "test",
+          "artifact_path": "tests/test_cfg04_forms_contract.py",
+          "artifact_sha256": "7cf6681c255ebc69f5eaf6642c4d219b40002e7c5b3a55acadf887ca919bfbf7"
+        },
+        {
+          "candidate_commit": "2428768818f5c92ae2b471f7c33e1a37eb8399cd",
+          "deployed_commit": "99f5672c5e1d27e957100395a13178fef929b035",
+          "ref": "review-cfg-04 §5 (не тронуто)",
+          "observation": "В диффе только зоны sticky-save/modal/chip/toggle/tech-key; навигация, fullscreen, логотип и glass-токены не менялись (TestProtectedSurfaces).",
+          "type": "static",
+          "artifact_path": "plans/features/cfg/review-cfg-04.md",
+          "artifact_sha256": "7c1426a1e481617b87e7ccea6e0c0a834580df7417138fc43081cbab9c07cf10"
+        },
+        {
+          "candidate_commit": "2428768818f5c92ae2b471f7c33e1a37eb8399cd",
+          "deployed_commit": "99f5672c5e1d27e957100395a13178fef929b035",
+          "ref": "evidence/cfg-04/blast-radius.txt",
+          "observation": "Состав кандидата: web/app.js, web/index.html, web/static/app.css, 2 теста, e2e-tool + evidence; fullscreen/nav/шапка отсутствуют.",
+          "type": "static",
+          "artifact_path": "plans/features/cfg/evidence/cfg-04/blast-radius.txt",
+          "artifact_sha256": "5c8d80062970d0c751b48ed16e61d3fd45e353088a3e0cd1fbafe2f594dac159"
+        }
+      ]
     },
     {
       "source_id": "L00035",
@@ -967,9 +1164,28 @@
       "acceptance": "Реализация, геометрия, цвета, анимация, плотность и размещение полигонального фона не изменяются; glass исправляется поверх него, а не вместо него.",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
-      "note": "CFG-05 prep 20.10.2026: verify-only. Полигональный фон — protected: web/static/polygon-background.js git blob c2ad97d446f5… идентичен на HEAD/95d11472/a5902b15/0ca661fe/95526863; геометрия/палитра/топология закреплены tests/test_webapp_round1026_polygon.py + tests/js/round1026_polygon_background_test.js. Закрытие — блоб-равенство на deployed-коммите релиза CFG-04 + зелёные пины; ноль правок фона."
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "90cfc471b7f1917360915aee3157ef12f9879dcd",
+          "deployed_commit": "99f5672c5e1d27e957100395a13178fef929b035",
+          "ref": "evidence/cfg-05/deployed-sha.json",
+          "observation": "polygon-background.js git blob c2ad97d446f5… идентичен на 99f5672c/95d11472/HEAD/a5902b15; served sha 157874dfab7b == repo (44018 B); геометрия/палитра фона не менялись.",
+          "type": "live",
+          "artifact_path": "plans/features/cfg/evidence/cfg-05/deployed-sha.json",
+          "artifact_sha256": "534cd8477a398c1debc2f94a512eb21fb00b7d4d4c802f43ecfdcad3921cf548"
+        },
+        {
+          "candidate_commit": "90cfc471b7f1917360915aee3157ef12f9879dcd",
+          "deployed_commit": "99f5672c5e1d27e957100395a13178fef929b035",
+          "ref": "evidence/cfg-05/pins.json",
+          "observation": "131 passed (design tokens round1025, polygon round1026, hotfix6, js-unit) + 4/4 node OK на worktree 99f5672c; POLYGON-LUMINESCENCE-OK.",
+          "type": "test",
+          "artifact_path": "plans/features/cfg/evidence/cfg-05/pins.json",
+          "artifact_sha256": "da664a9cfc58d2f14b83dbd9999cb32b13cc4e102537f3cf8512ec777600c59a"
+        }
+      ],
+      "note": "CFG-05 prep 20.10.2026: verify-only. Полигональный фон — protected: web/static/polygon-background.js git blob c2ad97d446f5… идентичен на HEAD/95d11472/a5902b15/0ca661fe/95526863; геометрия/палитра/топология закреплены tests/test_webapp_round1026_polygon.py + tests/js/round1026_polygon_background_test.js. Закрытие — блоб-равенство на deployed-коммите релиза CFG-04 + зелёные пины; ноль правок фона. PM-леджер 20.10.2026: VERIFIED — REUSED_EXISTING/OWNER_VISUAL_CONFIRMED, deployed 99f5672c, без нового кода и отдельного деплоя."
     },
     {
       "source_id": "L00036",
@@ -3183,9 +3399,37 @@
       "acceptance": "Один понятный основной сценарий сохранения: два физических доступа к одному действию не показываются одновременно в перегруженном мобильном viewport и имеют идентичную семантику/состояние/обратную связь; счётчик dirty может остаться компактным индикатором.",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "note": "CFG-04 F0 20.10.2026 — master BROKEN: одновременно видны CTA в шапке (`web/index.html:176-184`, `web/app.js:3094-3108`) и нижняя панель (`web/app.js:23635-23687`; `<sticky-save>` в config/modules: index 4109/4513). D13 (ASAP8 v6) раньше намеренно держал оба; поздний источник CFG-04 L157 переопределяет роль чипа: один основной сценарий, счётчик может остаться не-CTA. Закрывать только после preprod live (prep-cfg-04 §7).",
-      "evidence": []
+      "status": "VERIFIED",
+      "note": "CFG-04 F0 20.10.2026 — master BROKEN: одновременно видны CTA в шапке (`web/index.html:176-184`, `web/app.js:3094-3108`) и нижняя панель (`web/app.js:23635-23687`; `<sticky-save>` в config/modules: index 4109/4513). D13 (ASAP8 v6) раньше намеренно держал оба; поздний источник CFG-04 L157 переопределяет роль чипа: один основной сценарий, счётчик может остаться не-CTA. Закрывать только после preprod live (prep-cfg-04 §7). PM-леджер 20.10.2026: VERIFIED по техническим live-проверкам релиза 2.58.97 (прод-байты, 7 viewport, failures=0); живой чат — owner-rule 20.10.",
+      "evidence": [
+        {
+          "candidate_commit": "2428768818f5c92ae2b471f7c33e1a37eb8399cd",
+          "deployed_commit": "99f5672c5e1d27e957100395a13178fef929b035",
+          "ref": "release-25897/acceptance/cfg04/live-matrix-digest.json",
+          "observation": "Прод 2.58.97 по HTTPS /web/: во всех 7 viewport cta=1, chip_role=status, chip_text «1 · не сохранено», moduleCTA=1, dirty=1; failures=[], console_errors=[], 14 скриншотов.",
+          "type": "live",
+          "artifact_path": "plans/features/cfg/evidence/release-25897/acceptance/cfg04/live-matrix-digest.json",
+          "artifact_sha256": "964c01d0fe039a726865033009d40e9134fe01f23ffa7b570880e9339f5e689e"
+        },
+        {
+          "candidate_commit": "2428768818f5c92ae2b471f7c33e1a37eb8399cd",
+          "deployed_commit": "99f5672c5e1d27e957100395a13178fef929b035",
+          "ref": "release-25897/acceptance/cfg04/dirty-guard.json",
+          "observation": "dirty-guard на проде: native confirm с точным текстом; dismiss_stays=true, value_kept_after_dismiss=true, accept_leaves=true, PASS=true.",
+          "type": "live",
+          "artifact_path": "plans/features/cfg/evidence/release-25897/acceptance/cfg04/dirty-guard.json",
+          "artifact_sha256": "66dec6a7dfa393a87dfaca3fdc847aec8b4e6b25b1e2d7e32721dc61c85dfb6d"
+        },
+        {
+          "candidate_commit": "2428768818f5c92ae2b471f7c33e1a37eb8399cd",
+          "deployed_commit": "99f5672c5e1d27e957100395a13178fef929b035",
+          "ref": "review-cfg-04 §1",
+          "observation": "Чип шапки — DIV role=status без @click; единственная CTA — sticky-save («Сохранить изменения», 44 px).",
+          "type": "static",
+          "artifact_path": "plans/features/cfg/review-cfg-04.md",
+          "artifact_sha256": "7c1426a1e481617b87e7ccea6e0c0a834580df7417138fc43081cbab9c07cf10"
+        }
+      ]
     },
     {
       "source_id": "L00158",
@@ -3199,9 +3443,37 @@
       "acceptance": "Нижняя панель компактна, появляется при несохранённых изменениях, учитывает safe-area-inset-bottom, жесты Android и клавиатуру; «Сохранить»/«Отмена» полностью видимы и доступны касанием, включая альбомную ориентацию.",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "note": "CFG-04 F0 — master PARTIAL: панель dirty-only/компактна (`web/app.js:23635-23640`, CSS 1884-1907), но safe-area считается только `env()` (CSS 1898), без проектной формулы max(env, --tg-safe, --tg-content-safe) (ср. CSS 1035-1077/2549/2584); `--kb-offset` двигает только scroll-margin полей и padding модалки (CSS 1900/2133/2129; app.js 6373-6392), не геометрию панели. Landscape-шапка уже сжата FS-HOTFIX (CSS 3510-3519) — не переделывать, измерить суммарную высоту. Live preprod.",
-      "evidence": []
+      "status": "VERIFIED",
+      "note": "CFG-04 F0 — master PARTIAL: панель dirty-only/компактна (`web/app.js:23635-23640`, CSS 1884-1907), но safe-area считается только `env()` (CSS 1898), без проектной формулы max(env, --tg-safe, --tg-content-safe) (ср. CSS 1035-1077/2549/2584); `--kb-offset` двигает только scroll-margin полей и padding модалки (CSS 1900/2133/2129; app.js 6373-6392), не геометрию панели. Landscape-шапка уже сжата FS-HOTFIX (CSS 3510-3519) — не переделывать, измерить суммарную высоту. Live preprod. PM-леджер 20.10.2026: VERIFIED по техническим live-проверкам релиза 2.58.97 (прод-байты, 7 viewport, failures=0); живой чат — owner-rule 20.10.",
+      "evidence": [
+        {
+          "candidate_commit": "2428768818f5c92ae2b471f7c33e1a37eb8399cd",
+          "deployed_commit": "99f5672c5e1d27e957100395a13178fef929b035",
+          "ref": "release-25897/acceptance/cfg04/live-matrix-digest.json",
+          "observation": "padBottom=63.2 при safe=56 и 31.2 при safe=24 во всех 7 viewport; panel.bottom ≤ vh−kb при kb 280/188/195/206; после закрытия клавиатуры offset=0 (568/668/772/860/335/390/412) — стейла нет.",
+          "type": "live",
+          "artifact_path": "plans/features/cfg/evidence/release-25897/acceptance/cfg04/live-matrix-digest.json",
+          "artifact_sha256": "964c01d0fe039a726865033009d40e9134fe01f23ffa7b570880e9339f5e689e"
+        },
+        {
+          "candidate_commit": "2428768818f5c92ae2b471f7c33e1a37eb8399cd",
+          "deployed_commit": "99f5672c5e1d27e957100395a13178fef929b035",
+          "ref": "release-25897/acceptance/cfg04/shots/390x844-config-dirty.png",
+          "observation": "Рендер 390×844: панель с «Сохранить»/«Отмена» 44 px целиком над safe-area.",
+          "type": "ui",
+          "artifact_path": "plans/features/cfg/evidence/release-25897/acceptance/cfg04/shots/390x844-config-dirty.png",
+          "artifact_sha256": "4530b93d4882fea2d0d036bf33189fdaf9f963083afba8690ae50e8b89bfed56"
+        },
+        {
+          "candidate_commit": "2428768818f5c92ae2b471f7c33e1a37eb8399cd",
+          "deployed_commit": "99f5672c5e1d27e957100395a13178fef929b035",
+          "ref": "review-cfg-04 §2",
+          "observation": "safe-area учтена ровно один раз (count('env(')==1); .modal-actions не добавляет env; .modal-card вычитает только --kb-offset; _syncKeyboardOffset пересчитывает от visualViewport.",
+          "type": "static",
+          "artifact_path": "plans/features/cfg/review-cfg-04.md",
+          "artifact_sha256": "7c1426a1e481617b87e7ccea6e0c0a834580df7417138fc43081cbab9c07cf10"
+        }
+      ]
     },
     {
       "source_id": "L00159",
@@ -3215,9 +3487,37 @@
       "acceptance": "Панель/sticky-header не перекрывают последнее поле, каретку, раскрытый select/dropdown, подсказку валидации и клавиатуру; scroll padding/insets и фокус настроены; полная прокрутка без вращения телефона; ложных зазоров и повторной прокрутки нет.",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "note": "CFG-04 F0 — master PARTIAL: `--sticky-save-h` жёстко 4.5rem (CSS 102), scroll-padding фиксирован (CSS 1952/1971-1974), а панель переносится (`flex-wrap`, CSS 1891) и на 320 может быть выше токена → последнее поле/каретка под панелью. Фокус-докрутка есть (app.js 6390-6392). Проверить последнее поле, select/dropdown, валидацию, клавиатуру на матрице; live preprod.",
-      "evidence": []
+      "status": "VERIFIED",
+      "note": "CFG-04 F0 — master PARTIAL: `--sticky-save-h` жёстко 4.5rem (CSS 102), scroll-padding фиксирован (CSS 1952/1971-1974), а панель переносится (`flex-wrap`, CSS 1891) и на 320 может быть выше токена → последнее поле/каретка под панелью. Фокус-докрутка есть (app.js 6390-6392). Проверить последнее поле, select/dropdown, валидацию, клавиатуру на матрице; live preprod. PM-леджер 20.10.2026: VERIFIED по техническим live-проверкам релиза 2.58.97 (прод-байты, 7 viewport, failures=0); живой чат — owner-rule 20.10.",
+      "evidence": [
+        {
+          "candidate_commit": "2428768818f5c92ae2b471f7c33e1a37eb8399cd",
+          "deployed_commit": "99f5672c5e1d27e957100395a13178fef929b035",
+          "ref": "release-25897/acceptance/cfg04/live-matrix-digest.json",
+          "observation": "panelH 168.4 (320), 116.4 (390/430), 84.4 (ландшафт); lastOverlap −4.3…−161.9; caret=true; 68 полей; перенос панели на 320 без фиксированной высоты.",
+          "type": "live",
+          "artifact_path": "plans/features/cfg/evidence/release-25897/acceptance/cfg04/live-matrix-digest.json",
+          "artifact_sha256": "964c01d0fe039a726865033009d40e9134fe01f23ffa7b570880e9339f5e689e"
+        },
+        {
+          "candidate_commit": "2428768818f5c92ae2b471f7c33e1a37eb8399cd",
+          "deployed_commit": "99f5672c5e1d27e957100395a13178fef929b035",
+          "ref": "release-25897/acceptance/cfg04/shots/browseruse/320x640_dirty_panel_safe56.png",
+          "observation": "Browser Use-рендер прод-байтов 320×640 (safe 56): «Отмена» строка 1, «Сохранить изменения» строка 2 целиком 44 px; horizontal overflow 0.",
+          "type": "ui",
+          "artifact_path": "plans/features/cfg/evidence/release-25897/acceptance/cfg04/shots/browseruse/320x640_dirty_panel_safe56.png",
+          "artifact_sha256": "41af769db544817b8d06e66356770654f94b40d69f9a2d904c4c5b3484123520"
+        },
+        {
+          "candidate_commit": "2428768818f5c92ae2b471f7c33e1a37eb8399cd",
+          "deployed_commit": "99f5672c5e1d27e957100395a13178fef929b035",
+          "ref": "review-cfg-04 §3",
+          "observation": "--sticky-save-h = max фактической высоты видимых панелей; scroll-padding-bottom и .field scroll-margin = панель + kb + 4px; M-1 (padding-bottom:0) сохранён.",
+          "type": "static",
+          "artifact_path": "plans/features/cfg/review-cfg-04.md",
+          "artifact_sha256": "7c1426a1e481617b87e7ccea6e0c0a834580df7417138fc43081cbab9c07cf10"
+        }
+      ]
     },
     {
       "source_id": "L00160",
@@ -3231,9 +3531,37 @@
       "acceptance": "Dirty-state из фактических изменённых значений (возврат к исходному снимает индикатор); сохранение ждёт подтверждения API/persistence/effective-value, при ошибке данные сохраняются и причина показывается; отмена откатывает только текущую форму.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "note": "CFG-04 F0 — master AIV по механизму: dirty из фактических значений (app.js 5559-5570), сохранение ждёт ack и не двигает baseline при ошибке (10236-10294), отмена возвращает snapshot (10206-10217). Остаётся доказать: отмена только текущей формы, ошибка сохраняет ввод/причину, effective-value — переиспользовать P0A-PERSIST-TRUTH (не перепрогонять). Код-сторона, live не требуется.",
-      "evidence": []
+      "status": "VERIFIED",
+      "note": "CFG-04 F0 — master AIV по механизму: dirty из фактических значений (app.js 5559-5570), сохранение ждёт ack и не двигает baseline при ошибке (10236-10294), отмена возвращает snapshot (10206-10217). Остаётся доказать: отмена только текущей формы, ошибка сохраняет ввод/причину, effective-value — переиспользовать P0A-PERSIST-TRUTH (не перепрогонять). Код-сторона, live не требуется. PM-леджер 20.10.2026: VERIFIED по review-cfg-04 (Approved) и candidate-evidence 2428768.",
+      "evidence": [
+        {
+          "candidate_commit": "2428768818f5c92ae2b471f7c33e1a37eb8399cd",
+          "deployed_commit": "99f5672c5e1d27e957100395a13178fef929b035",
+          "ref": "tests/test_cfg04_forms_contract.py :: TestDirtySaveContract",
+          "observation": "Dirty считается из фактических значений; save ждёт ack и не двигает baseline при провале; cancel возвращает только текущую форму (29 passed).",
+          "type": "test",
+          "artifact_path": "tests/test_cfg04_forms_contract.py",
+          "artifact_sha256": "7cf6681c255ebc69f5eaf6642c4d219b40002e7c5b3a55acadf887ca919bfbf7"
+        },
+        {
+          "candidate_commit": "2428768818f5c92ae2b471f7c33e1a37eb8399cd",
+          "deployed_commit": "99f5672c5e1d27e957100395a13178fef929b035",
+          "ref": "evidence/cfg-04/red-green.txt",
+          "observation": "RED: 13 failed/16 passed + JS AssertionError; GREEN: test_cfg04_forms_contract.py 29 passed, JS CFG04-FORMS-OK.",
+          "type": "test",
+          "artifact_path": "plans/features/cfg/evidence/cfg-04/red-green.txt",
+          "artifact_sha256": "905c3f07a69061ff144955675d59446b2b73c1d6079abb3de102e03953acd063"
+        },
+        {
+          "candidate_commit": "2428768818f5c92ae2b471f7c33e1a37eb8399cd",
+          "deployed_commit": "99f5672c5e1d27e957100395a13178fef929b035",
+          "ref": "review-cfg-04 §1 (живой confirm)",
+          "observation": "Независимый Playwright: native confirm «Есть несохранённые изменения (1) для «Audit Chat»…»; отказ остаётся на #/memory/rag, согласие уводит на #/oversight; сохранение ждёт ack.",
+          "type": "static",
+          "artifact_path": "plans/features/cfg/review-cfg-04.md",
+          "artifact_sha256": "7c1426a1e481617b87e7ccea6e0c0a834580df7417138fc43081cbab9c07cf10"
+        }
+      ]
     },
     {
       "source_id": "L00161",
@@ -3247,9 +3575,28 @@
       "acceptance": "Одна логика для всех типов полей и областей; «Сохранить»/«Вернуть заводские»/«Сбросить override» различимы и не активируются случайно при повороте или закрытии меню.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "note": "CFG-04 F0 — master PARTIAL: единый dirty/save для non-secret + key-drafts, bool/select автосейв (index 3619/3714); «↪ Глобальное» = сброс override (index 3596-3599), заводской сброс есть в speech (7761/8953), в generic-конфиге отсутствует. Проверить различимость/случайную активацию при повороте; не добавлять новые операции без источника. Код-сторона.",
-      "evidence": []
+      "status": "VERIFIED",
+      "note": "CFG-04 F0 — master PARTIAL: единый dirty/save для non-secret + key-drafts, bool/select автосейв (index 3619/3714); «↪ Глобальное» = сброс override (index 3596-3599), заводской сброс есть в speech (7761/8953), в generic-конфиге отсутствует. Проверить различимость/случайную активацию при повороте; не добавлять новые операции без источника. Код-сторона. PM-леджер 20.10.2026: VERIFIED по review-cfg-04 (Approved) и candidate-evidence 2428768.",
+      "evidence": [
+        {
+          "candidate_commit": "2428768818f5c92ae2b471f7c33e1a37eb8399cd",
+          "deployed_commit": "99f5672c5e1d27e957100395a13178fef929b035",
+          "ref": "tests/test_cfg04_forms_contract.py :: test_single_save_engine / test_chat_override_reset_is_distinct",
+          "observation": "Единый путь dirty/save для text/number/select/bool/key; «↪ Глобальное» отличимо от «Сохранить» и заводского сброса.",
+          "type": "test",
+          "artifact_path": "tests/test_cfg04_forms_contract.py",
+          "artifact_sha256": "7cf6681c255ebc69f5eaf6642c4d219b40002e7c5b3a55acadf887ca919bfbf7"
+        },
+        {
+          "candidate_commit": "2428768818f5c92ae2b471f7c33e1a37eb8399cd",
+          "deployed_commit": "99f5672c5e1d27e957100395a13178fef929b035",
+          "ref": "evidence/cfg-04/e2e-log.json :: orientation",
+          "observation": "E2E-поворот: value/dirty/hash/scroll/active 5/5, кнопки при повороте не нажимаются случайно; 7 viewport, failures=0.",
+          "type": "test",
+          "artifact_path": "plans/features/cfg/evidence/cfg-04/e2e-log.json",
+          "artifact_sha256": "6279498681af923cad23dc0d3f7a96e72c18a6c177e114b8bed58d9b2a0a7f08"
+        }
+      ]
     },
     {
       "source_id": "L00163",
@@ -3278,9 +3625,28 @@
       "acceptance": "На ширине смартфона карточки в одну колонку без горизонтального скролла; две колонки в альбомной — только при полной читаемости, иначе одна.",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "note": "CFG-04 F0 — master AIV/PARTIAL: main inline auto-fill minmax(320px,1fr) (index 446), mobile 1 колонка ≤767 для ia-v2 (CSS 2664-2669); в landscape 667 возможны 2 колонки — допустимо только при читаемости. Проверить 320/360/390/430 + 667×375/844×390/915×412; live preprod.",
-      "evidence": []
+      "status": "VERIFIED",
+      "note": "CFG-04 F0 — master AIV/PARTIAL: main inline auto-fill minmax(320px,1fr) (index 446), mobile 1 колонка ≤767 для ia-v2 (CSS 2664-2669); в landscape 667 возможны 2 колонки — допустимо только при читаемости. Проверить 320/360/390/430 + 667×375/844×390/915×412; live preprod. PM-леджер 20.10.2026: VERIFIED по техническим live-проверкам релиза 2.58.97 (прод-байты, 7 viewport, failures=0); живой чат — owner-rule 20.10.",
+      "evidence": [
+        {
+          "candidate_commit": "2428768818f5c92ae2b471f7c33e1a37eb8399cd",
+          "deployed_commit": "99f5672c5e1d27e957100395a13178fef929b035",
+          "ref": "release-25897/acceptance/cfg04/live-matrix-digest.json",
+          "observation": "gridColumns=1 на 320/360/390/430/667, =2 на 844/915; overflowDoc=0 на всех 7 viewport.",
+          "type": "live",
+          "artifact_path": "plans/features/cfg/evidence/release-25897/acceptance/cfg04/live-matrix-digest.json",
+          "artifact_sha256": "964c01d0fe039a726865033009d40e9134fe01f23ffa7b570880e9339f5e689e"
+        },
+        {
+          "candidate_commit": "2428768818f5c92ae2b471f7c33e1a37eb8399cd",
+          "deployed_commit": "99f5672c5e1d27e957100395a13178fef929b035",
+          "ref": "evidence/cfg-04/matrix.md",
+          "observation": "Сетка 1/1 и 2/2, карточки читаемы; горизонтального скролла нет.",
+          "type": "static",
+          "artifact_path": "plans/features/cfg/evidence/cfg-04/matrix.md",
+          "artifact_sha256": "dfdd1a6d9bb1290159e5039f98b1111dd27f811716293336f129b30b4ece4b74"
+        }
+      ]
     },
     {
       "source_id": "L00166",
@@ -3294,9 +3660,28 @@
       "acceptance": "Контролы, числовые поля, единицы и источник GLOBAL/CHAT/унаследовано не съезжают и не накладываются; touch-область основных кнопок ориентировочно не меньше 44×44 CSS px.",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "note": "CFG-04 F0 — master AIV/PARTIAL: источник значения виден (app.js 9454-9466; index 3602-3606), но touch-цель тумблера 44×24 (label, index 3616-3620), единицы у generic-полей не выводятся (это carry-in CFG-03, не добавлять здесь). Проверить наложения/съезды контролов и 44×44; live preprod.",
-      "evidence": []
+      "status": "VERIFIED",
+      "note": "CFG-04 F0 — master AIV/PARTIAL: источник значения виден (app.js 9454-9466; index 3602-3606), но touch-цель тумблера 44×24 (label, index 3616-3620), единицы у generic-полей не выводятся (это carry-in CFG-03, не добавлять здесь). Проверить наложения/съезды контролов и 44×44; live preprod. PM-леджер 20.10.2026: VERIFIED по техническим live-проверкам релиза 2.58.97 (прод-байты, 7 viewport, failures=0); живой чат — owner-rule 20.10.",
+      "evidence": [
+        {
+          "candidate_commit": "2428768818f5c92ae2b471f7c33e1a37eb8399cd",
+          "deployed_commit": "99f5672c5e1d27e957100395a13178fef929b035",
+          "ref": "release-25897/acceptance/cfg04/live-matrix-digest.json",
+          "observation": "toggle 44×44, saveH=cancelH=44 на всех 7 viewport; overflowDoc=0 — контролы не накладываются.",
+          "type": "live",
+          "artifact_path": "plans/features/cfg/evidence/release-25897/acceptance/cfg04/live-matrix-digest.json",
+          "artifact_sha256": "964c01d0fe039a726865033009d40e9134fe01f23ffa7b570880e9339f5e689e"
+        },
+        {
+          "candidate_commit": "2428768818f5c92ae2b471f7c33e1a37eb8399cd",
+          "deployed_commit": "99f5672c5e1d27e957100395a13178fef929b035",
+          "ref": "review-cfg-04 §4",
+          "observation": "Toggle 44×24→44×44, «Сохранить»/«Отмена» 37.6/38→44 (e2e, все viewport); источник значения GLOBAL/CHAT/унаследовано виден.",
+          "type": "static",
+          "artifact_path": "plans/features/cfg/review-cfg-04.md",
+          "artifact_sha256": "7c1426a1e481617b87e7ccea6e0c0a834580df7417138fc43081cbab9c07cf10"
+        }
+      ]
     },
     {
       "source_id": "L00167",
@@ -3310,9 +3695,28 @@
       "acceptance": "Длинные технические ключи могут сокращаться в карточке, но полное значение доступно через раскрытие/копирование; русское название, назначение и значение разборчивы.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "note": "CFG-04 F0 — master BROKEN: технический ключ выводится `truncate` без title/копирования/раскрытия (index 3614, 3631, 3640, 3647, 3709, 3724, 3736, 3754, 3771, 3784). Нужен доступ к полному значению (раскрытие/копирование/техсведения) без изменения каталога. Код-сторона.",
-      "evidence": []
+      "status": "VERIFIED",
+      "note": "CFG-04 F0 — master BROKEN: технический ключ выводится `truncate` без title/копирования/раскрытия (index 3614, 3631, 3640, 3647, 3709, 3724, 3736, 3754, 3771, 3784). Нужен доступ к полному значению (раскрытие/копирование/техсведения) без изменения каталога. Код-сторона. PM-леджер 20.10.2026: VERIFIED по review-cfg-04 (Approved) и candidate-evidence 2428768.",
+      "evidence": [
+        {
+          "candidate_commit": "2428768818f5c92ae2b471f7c33e1a37eb8399cd",
+          "deployed_commit": "99f5672c5e1d27e957100395a13178fef929b035",
+          "ref": "release-25897/acceptance/cfg04/live-matrix-digest.json (7 viewport)",
+          "observation": "7/7 viewport: key=true, keyFull=true, copyEq=true; title = полный ключ, clipboard == ключ; на странице настроек памяти 85 <tech-key> (историческая «18» — 18 мест обрезки).",
+          "type": "live",
+          "artifact_path": "plans/features/cfg/evidence/release-25897/acceptance/cfg04/live-matrix-digest.json",
+          "artifact_sha256": "964c01d0fe039a726865033009d40e9134fe01f23ffa7b570880e9339f5e689e"
+        },
+        {
+          "candidate_commit": "2428768818f5c92ae2b471f7c33e1a37eb8399cd",
+          "deployed_commit": "99f5672c5e1d27e957100395a13178fef929b035",
+          "ref": "tests/test_cfg04_forms_contract.py :: TestTechnicalKey",
+          "observation": "Компонент tech-key: :title, aria-expanded, copy (Clipboard API + execCommand-фолбэк); русские title/description/value не заменены.",
+          "type": "test",
+          "artifact_path": "tests/test_cfg04_forms_contract.py",
+          "artifact_sha256": "7cf6681c255ebc69f5eaf6642c4d219b40002e7c5b3a55acadf887ca919bfbf7"
+        }
+      ]
     },
     {
       "source_id": "L00168",
@@ -3326,9 +3730,37 @@
       "acceptance": "При открытии клавиатуры, списка и модального редактора размеры формы сохраняются, все кнопки достижимы; числовая клавиатура и многострочные редакторы промптов проверены.",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "note": "CFG-04 F0 — master PARTIAL: kb-offset и scrollIntoView есть (app.js 6373-6392; CSS 2128-2133), modal max-height 720/usable-height (CSS 1939-1966) не вычитает kb-offset; numeric input (app.js 16636-16639), prompt textarea rows=6 (index 3649). Проверить клавиатуру/список/модалку на матрице; live preprod.",
-      "evidence": []
+      "status": "VERIFIED",
+      "note": "CFG-04 F0 — master PARTIAL: kb-offset и scrollIntoView есть (app.js 6373-6392; CSS 2128-2133), modal max-height 720/usable-height (CSS 1939-1966) не вычитает kb-offset; numeric input (app.js 16636-16639), prompt textarea rows=6 (index 3649). Проверить клавиатуру/список/модалку на матрице; live preprod. PM-леджер 20.10.2026: VERIFIED по техническим live-проверкам релиза 2.58.97 (прод-байты, 7 viewport, failures=0); живой чат — owner-rule 20.10.",
+      "evidence": [
+        {
+          "candidate_commit": "2428768818f5c92ae2b471f7c33e1a37eb8399cd",
+          "deployed_commit": "99f5672c5e1d27e957100395a13178fef929b035",
+          "ref": "release-25897/acceptance/cfg04/live-matrix-digest.json",
+          "observation": "При kb 280/188/195/206 panel.bottom = 288/388/492/580/147/195/206 ≤ vh−kb: панель и кнопки выше клавиатуры, caret=true.",
+          "type": "live",
+          "artifact_path": "plans/features/cfg/evidence/release-25897/acceptance/cfg04/live-matrix-digest.json",
+          "artifact_sha256": "964c01d0fe039a726865033009d40e9134fe01f23ffa7b570880e9339f5e689e"
+        },
+        {
+          "candidate_commit": "2428768818f5c92ae2b471f7c33e1a37eb8399cd",
+          "deployed_commit": "99f5672c5e1d27e957100395a13178fef929b035",
+          "ref": "release-25897/acceptance/cfg04/live-after.json",
+          "observation": "Сырые пробы kb_open/kb_closed на 7 viewport (panel top/bottom, fieldCount=68, caret) — форма не ломается при клавиатуре.",
+          "type": "live",
+          "artifact_path": "plans/features/cfg/evidence/release-25897/acceptance/cfg04/live-after.json",
+          "artifact_sha256": "b0e4da9a3327ececef1cb2e13254d172a6ca8c5162d075acfedec13e15b10245"
+        },
+        {
+          "candidate_commit": "2428768818f5c92ae2b471f7c33e1a37eb8399cd",
+          "deployed_commit": "99f5672c5e1d27e957100395a13178fef929b035",
+          "ref": "release-25897/acceptance/README.md §2.3",
+          "observation": "После закрытия клавиатуры панель возвращается в нижнюю полосу (568/668/772/860/335/390/412 при vh 640/740/844/932/375/390/412).",
+          "type": "static",
+          "artifact_path": "plans/features/cfg/evidence/release-25897/acceptance/README.md",
+          "artifact_sha256": "395d1c31a2d662802b8e0c571bb69dfe7b83fe2a732b17848325ec225d2733b3"
+        }
+      ]
     },
     {
       "source_id": "L00169",
@@ -3342,9 +3774,37 @@
       "acceptance": "Полигональный фон, визуальный характер, стеклянные панели, палитра и композиция не изменены; точечные CSS/layout-правки улучшают читаемость, сохраняя glass, а не превращая карточки в прозрачные слои.",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "note": "CFG-04 F0 — protected baseline: полигональный фон/glass не переделывать; правила/токены glass CSS 1748-1878. CFG-04 делает before/after и пиксельную инварианту фона; это вход для CFG-05.3/ADD-2.5, но не их закрытие. Live preprod.",
-      "evidence": []
+      "status": "VERIFIED",
+      "note": "CFG-04 F0 — protected baseline: полигональный фон/glass не переделывать; правила/токены glass CSS 1748-1878. CFG-04 делает before/after и пиксельную инварианту фона; это вход для CFG-05.3/ADD-2.5, но не их закрытие. Live preprod. PM-леджер 20.10.2026: VERIFIED по техническим live-проверкам релиза 2.58.97 (прод-байты, 7 viewport, failures=0); живой чат — owner-rule 20.10.",
+      "evidence": [
+        {
+          "candidate_commit": "2428768818f5c92ae2b471f7c33e1a37eb8399cd",
+          "deployed_commit": "99f5672c5e1d27e957100395a13178fef929b035",
+          "ref": "evidence/cfg-05/glass-invariant.json",
+          "observation": "2050 ячеек на 15 маршрутах (base 95d11472 ↔ deployed 99f5672c): material_diffs=0, tokens_equal=true; 106 geometry-дельт — только конфиг-экраны CFG-04, «Статус» без дельт.",
+          "type": "live",
+          "artifact_path": "plans/features/cfg/evidence/cfg-05/glass-invariant.json",
+          "artifact_sha256": "cf0cb19591072b2fad1974844a65335c1206af9df4afc68e581815bc8b68fb21"
+        },
+        {
+          "candidate_commit": "2428768818f5c92ae2b471f7c33e1a37eb8399cd",
+          "deployed_commit": "99f5672c5e1d27e957100395a13178fef929b035",
+          "ref": "release-25897/acceptance/cfg04/live-matrix-digest.json",
+          "observation": "Прод-рендер: panelBackdrop=blur(16px) сохранён; палитра/композиция не менялись (14 before/after скриншотов).",
+          "type": "live",
+          "artifact_path": "plans/features/cfg/evidence/release-25897/acceptance/cfg04/live-matrix-digest.json",
+          "artifact_sha256": "964c01d0fe039a726865033009d40e9134fe01f23ffa7b570880e9339f5e689e"
+        },
+        {
+          "candidate_commit": "2428768818f5c92ae2b471f7c33e1a37eb8399cd",
+          "deployed_commit": "99f5672c5e1d27e957100395a13178fef929b035",
+          "ref": "release-25897/acceptance/cfg04/bytes-identity.json",
+          "observation": "Прод app.js 885094459700 и app.css 6b5ca0cc1d47 байт-в-байт репозиторию; отличия только серверная подстановка версии.",
+          "type": "production",
+          "artifact_path": "plans/features/cfg/evidence/release-25897/acceptance/cfg04/bytes-identity.json",
+          "artifact_sha256": "cb27b4bce3abb0273e5c43c274267ab2d084c767c70943942ac809f12b291bdf"
+        }
+      ]
     },
     {
       "source_id": "L00171",
@@ -3373,9 +3833,37 @@
       "acceptance": "Дефекты воспроизведены на актуальном MiniApp, причины найдены в layout/CSS/responsive/safe-area/sticky-логике; скриншот browser responsive mode не считается полноценным подтверждением внутри Telegram WebView.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "note": "CFG-04 F0 — NEW/OPEN: воспроизвести на deployed 2.58.96; причины искать в layout/CSS/responsive/safe-area/sticky (якоря prep-cfg-04 §3). TMA-стаб/живой браузер — да; реальный Telegram WebView — D.4, не подменять скриншотом responsive mode. Postdeploy.",
-      "evidence": []
+      "status": "VERIFIED",
+      "note": "CFG-04 F0 — NEW/OPEN: воспроизвести на deployed 2.58.96; причины искать в layout/CSS/responsive/safe-area/sticky (якоря prep-cfg-04 §3). TMA-стаб/живой браузер — да; реальный Telegram WebView — D.4, не подменять скриншотом responsive mode. Postdeploy. PM-леджер 20.10.2026: VERIFIED по техническим live-проверкам релиза 2.58.97 (прод-байты, 7 viewport, failures=0); живой чат — owner-rule 20.10.",
+      "evidence": [
+        {
+          "candidate_commit": "2428768818f5c92ae2b471f7c33e1a37eb8399cd",
+          "deployed_commit": "99f5672c5e1d27e957100395a13178fef929b035",
+          "ref": "evidence/cfg-04/baseline.json (master 7a3c1f92)",
+          "observation": "Дефект воспроизведён на актуальном MiniApp: 7 viewport, 85 падений (две save-CTA, голые ключи, перекрытия панели).",
+          "type": "test",
+          "artifact_path": "plans/features/cfg/evidence/cfg-04/baseline.json",
+          "artifact_sha256": "16d13aedd825222e3d97271799278ae84fab32752675d1ba4bf991841f8cf182"
+        },
+        {
+          "candidate_commit": "2428768818f5c92ae2b471f7c33e1a37eb8399cd",
+          "deployed_commit": "99f5672c5e1d27e957100395a13178fef929b035",
+          "ref": "evidence/cfg-04/failures.md",
+          "observation": "Причина по каждому падению: layout/CSS/responsive/safe-area/sticky/tech-key; скриншот browser responsive mode не выдаётся за Telegram WebView.",
+          "type": "static",
+          "artifact_path": "plans/features/cfg/evidence/cfg-04/failures.md",
+          "artifact_sha256": "2fb4586d27f90802da7f2ce0e9252a3fcee98ff6c01aafa379c475f9d3c1c87f"
+        },
+        {
+          "candidate_commit": "2428768818f5c92ae2b471f7c33e1a37eb8399cd",
+          "deployed_commit": "99f5672c5e1d27e957100395a13178fef929b035",
+          "ref": "release-25897/acceptance/cfg04/deployed-probe.json",
+          "observation": "Прод-проба: healthz 2.58.97, отданные ассеты и маркеры деплоя совпадают — состояние проверено на актуальном проде.",
+          "type": "production",
+          "artifact_path": "plans/features/cfg/evidence/release-25897/acceptance/cfg04/deployed-probe.json",
+          "artifact_sha256": "128865c912b51fbd7aca89d64d81b46986c785338c1af5f8832fc519fce24546"
+        }
+      ]
     },
     {
       "source_id": "L00174",
@@ -3389,9 +3877,28 @@
       "acceptance": "Автопроверки на 320/360/390/430 CSS px, ландшафтных 667×375/844×390/915×412 малой высоты и при смене ориентации с учётом DPR и Telegram chrome.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "note": "CFG-04 F0 — NEW: отдельной матрицы форм нет; есть прецедент `tests/ui_p0a_ux_speech_compact_e2e.py` (320/360/390/412/430/844×390) — переиспользовать каркас, не поверхность. Нужны 320/360/390/430 portrait и 667×375/844×390/915×412 landscape, DPR/TG chrome. Код-сторона (Playwright).",
-      "evidence": []
+      "status": "VERIFIED",
+      "note": "CFG-04 F0 — NEW: отдельной матрицы форм нет; есть прецедент `tests/ui_p0a_ux_speech_compact_e2e.py` (320/360/390/412/430/844×390) — переиспользовать каркас, не поверхность. Нужны 320/360/390/430 portrait и 667×375/844×390/915×412 landscape, DPR/TG chrome. Код-сторона (Playwright). PM-леджер 20.10.2026: VERIFIED по review-cfg-04 (Approved) и candidate-evidence 2428768.",
+      "evidence": [
+        {
+          "candidate_commit": "2428768818f5c92ae2b471f7c33e1a37eb8399cd",
+          "deployed_commit": "99f5672c5e1d27e957100395a13178fef929b035",
+          "ref": "evidence/cfg-04/e2e-log.json",
+          "observation": "e2e: 7 viewport 320/360/390/430/667×375/844×390/915×412, DPR 2/3; after failures=0, console_errors=0, 14 скриншотов.",
+          "type": "test",
+          "artifact_path": "plans/features/cfg/evidence/cfg-04/e2e-log.json",
+          "artifact_sha256": "6279498681af923cad23dc0d3f7a96e72c18a6c177e114b8bed58d9b2a0a7f08"
+        },
+        {
+          "candidate_commit": "2428768818f5c92ae2b471f7c33e1a37eb8399cd",
+          "deployed_commit": "99f5672c5e1d27e957100395a13178fef929b035",
+          "ref": "evidence/cfg-04/matrix.md",
+          "observation": "Матрица before/after: CTA 2→1, pad 7.2→63.2/31.2, panel h 100→168.4 (320), overlap −28.2→−161.9, tech-key False→True.",
+          "type": "static",
+          "artifact_path": "plans/features/cfg/evidence/cfg-04/matrix.md",
+          "artifact_sha256": "dfdd1a6d9bb1290159e5039f98b1111dd27f811716293336f129b30b4ece4b74"
+        }
+      ]
     },
     {
       "source_id": "L00175",
@@ -3405,9 +3912,37 @@
       "acceptance": "Before/after на каждый режим: пересечения bounding boxes критических контролов, горизонтальный overflow, видимость первого/последнего поля, размеры sticky-элементов, кликабельность «Сохранить»/«Отмена»; состояния dirty/clean/ошибка/клавиатура/список/длинные названия.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "note": "CFG-04 F0 — NEW: before/after на каждый режим: bounding boxes критических контролов, overflow, первое/последнее поле, высоты sticky, кликабельность; состояния dirty/clean/error/keyboard/list/long chat/key. Артефакты — evidence/cfg-04. Код-сторона.",
-      "evidence": []
+      "status": "VERIFIED",
+      "note": "CFG-04 F0 — NEW: before/after на каждый режим: bounding boxes критических контролов, overflow, первое/последнее поле, высоты sticky, кликабельность; состояния dirty/clean/error/keyboard/list/long chat/key. Артефакты — evidence/cfg-04. Код-сторона. PM-леджер 20.10.2026: VERIFIED по review-cfg-04 (Approved) и candidate-evidence 2428768.",
+      "evidence": [
+        {
+          "candidate_commit": "2428768818f5c92ae2b471f7c33e1a37eb8399cd",
+          "deployed_commit": "99f5672c5e1d27e957100395a13178fef929b035",
+          "ref": "evidence/cfg-04/baseline.json (master 7a3c1f92)",
+          "observation": "Полные bbox/overflow/высоты/кликабельность на master: 7 viewport, 85 падений — исходное состояние зафиксировано.",
+          "type": "test",
+          "artifact_path": "plans/features/cfg/evidence/cfg-04/baseline.json",
+          "artifact_sha256": "16d13aedd825222e3d97271799278ae84fab32752675d1ba4bf991841f8cf182"
+        },
+        {
+          "candidate_commit": "2428768818f5c92ae2b471f7c33e1a37eb8399cd",
+          "deployed_commit": "99f5672c5e1d27e957100395a13178fef929b035",
+          "ref": "evidence/cfg-04/after.json (кандидат)",
+          "observation": "Те же поля на кандидате: 0 падений; ориентация 5/5 (value/dirty/hash/scroll 220/active).",
+          "type": "test",
+          "artifact_path": "plans/features/cfg/evidence/cfg-04/after.json",
+          "artifact_sha256": "9c5097e6985f6f8791173d374712ff6311e56ce4d24ed5bfb91954d7566f0f47"
+        },
+        {
+          "candidate_commit": "2428768818f5c92ae2b471f7c33e1a37eb8399cd",
+          "deployed_commit": "99f5672c5e1d27e957100395a13178fef929b035",
+          "ref": "evidence/cfg-04/matrix.md",
+          "observation": "Before/after по каждому режиму: пересечения bbox, overflow, первое/последнее поле, высоты sticky, кликабельность.",
+          "type": "static",
+          "artifact_path": "plans/features/cfg/evidence/cfg-04/matrix.md",
+          "artifact_sha256": "dfdd1a6d9bb1290159e5039f98b1111dd27f811716293336f129b30b4ece4b74"
+        }
+      ]
     },
     {
       "source_id": "L00176",
@@ -3421,9 +3956,28 @@
       "acceptance": "Живые приёмки в Telegram Android portrait+landscape с переключением ориентации при несохранённых изменениях и проверка Telegram Desktop; при недоступности живого клиента — честный PENDING_OWNER_E2E вместо фиктивного PASS.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "note": "CFG-04 F0 — postdeploy live Telegram Android portrait+landscape + Desktop. PET (AGENTS.md, 18.10): обязательные device-чек-листы владельца отменены; live client — agent best effort/optional owner feedback, не blocking gate. Если реального клиента нет — честный PENDING_OWNER_E2E, не фиктивный PASS. Остальные строки не блокировать.",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "note": "CFG-04 F0 — postdeploy live Telegram Android portrait+landscape + Desktop. PET (AGENTS.md, 18.10): обязательные device-чек-листы владельца отменены; live client — agent best effort/optional owner feedback, не blocking gate. Если реального клиента нет — честный PENDING_OWNER_E2E, не фиктивный PASS. Остальные строки не блокировать. PM-леджер 20.10.2026: PENDING_OWNER_E2E (owner-optional, PET) — статус карты READY_FOR_LIVE отражает только live-ожидание; автоматические проверки выполнены, реального Telegram-клиента в лейне нет.",
+      "evidence": [
+        {
+          "candidate_commit": "2428768818f5c92ae2b471f7c33e1a37eb8399cd",
+          "deployed_commit": "99f5672c5e1d27e957100395a13178fef929b035",
+          "ref": "release-25897/acceptance/cfg04/live-matrix-digest.json",
+          "observation": "Автоматические проверки прод-байтов зелёные (7 viewport + Browser Use-рендер), но это не реальный Telegram WebView: D.4 остаётся PENDING_OWNER_E2E.",
+          "type": "live",
+          "artifact_path": "plans/features/cfg/evidence/release-25897/acceptance/cfg04/live-matrix-digest.json",
+          "artifact_sha256": "964c01d0fe039a726865033009d40e9134fe01f23ffa7b570880e9339f5e689e"
+        },
+        {
+          "candidate_commit": "2428768818f5c92ae2b471f7c33e1a37eb8399cd",
+          "deployed_commit": "99f5672c5e1d27e957100395a13178fef929b035",
+          "ref": "release-25897/acceptance/README.md §2/§D.4",
+          "observation": "Честный PENDING_OWNER_E2E: реального Telegram Android/Desktop в лейне нет; PET — необязательная обратная связь, не блокер.",
+          "type": "static",
+          "artifact_path": "plans/features/cfg/evidence/release-25897/acceptance/README.md",
+          "artifact_sha256": "395d1c31a2d662802b8e0c571bb69dfe7b83fe2a732b17848325ec225d2733b3"
+        }
+      ]
     },
     {
       "source_id": "L00177",
@@ -3437,9 +3991,37 @@
       "acceptance": "Полный сценарий «Модули»→«Ответы в чате»→изменение limits.chat_burst_limit→поворот телефона→сохранение→реальное новое значение и действие, затем chat override и возврат к GLOBAL; связан с CFG-01 и CFG-03.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "note": "CFG-04 F0 — postdeploy полный сценарий «Модули»→«Ответы в чате»→`limits.chat_burst_limit`→поворот→сохранение→реальное значение/действие→override→GLOBAL. CFG-01 (VERIFIED) и CFG-03 (аудит) переиспользуются: не перепроверять троттлинг заново, проверять значение+действие. Безопасная фикстура + восстановление.",
-      "evidence": []
+      "status": "VERIFIED",
+      "note": "CFG-04 F0 — postdeploy полный сценарий «Модули»→«Ответы в чате»→`limits.chat_burst_limit`→поворот→сохранение→реальное значение/действие→override→GLOBAL. CFG-01 (VERIFIED) и CFG-03 (аудит) переиспользуются: не перепроверять троттлинг заново, проверять значение+действие. Безопасная фикстура + восстановление. PM-леджер 20.10.2026: техническая часть D.5 закрыта на прод-байтах (поворот 5/5, save-ack стаб); живое действие в чате — owner-rule 20.10. N1: modal-body.scrollTop уходит к сфокусированному полю (120→1272) — наблюдать живьём, не блокер. N2: e2e-фолбэк дёртил limits.chat_branch_context_hops (ключа chat_burst_limit в модалке нет) — в postdeploy целиться в реальный путь/ключ.",
+      "evidence": [
+        {
+          "candidate_commit": "2428768818f5c92ae2b471f7c33e1a37eb8399cd",
+          "deployed_commit": "99f5672c5e1d27e957100395a13178fef929b035",
+          "ref": "release-25897/acceptance/cfg04/live-matrix-digest.json :: 390×844 orient",
+          "observation": "Прод-байты: поворот 390↔844 — value_ok/dirty_ok/hash_ok/scroll_ok (220→220)/active_ok = 5/5; save-ack через стаб; N1: modal-body.scrollTop 120→1272 (note, не блокер).",
+          "type": "live",
+          "artifact_path": "plans/features/cfg/evidence/release-25897/acceptance/cfg04/live-matrix-digest.json",
+          "artifact_sha256": "964c01d0fe039a726865033009d40e9134fe01f23ffa7b570880e9339f5e689e"
+        },
+        {
+          "candidate_commit": "2428768818f5c92ae2b471f7c33e1a37eb8399cd",
+          "deployed_commit": "99f5672c5e1d27e957100395a13178fef929b035",
+          "ref": "evidence/cfg-04/after.json :: orientation",
+          "observation": "Save-путь с ack и сохранение контекста на кандидате (TMA/API стабы): value '7', dirty 1, hash #/memory/rag, scroll 220, active key.",
+          "type": "test",
+          "artifact_path": "plans/features/cfg/evidence/cfg-04/after.json",
+          "artifact_sha256": "9c5097e6985f6f8791173d374712ff6311e56ce4d24ed5bfb91954d7566f0f47"
+        },
+        {
+          "candidate_commit": "2428768818f5c92ae2b471f7c33e1a37eb8399cd",
+          "deployed_commit": "99f5672c5e1d27e957100395a13178fef929b035",
+          "ref": "release-25897/acceptance/README.md §2.6/§D.4",
+          "observation": "Техническая часть D.5 на проде зелёная; реальное действие в чате (частота) агентом не воспроизводилось — owner-rule 20.10 (живой чат за владельцем); N2: e2e-фолбэк дёртил limits.chat_branch_context_hops, не chat_burst_limit.",
+          "type": "static",
+          "artifact_path": "plans/features/cfg/evidence/release-25897/acceptance/README.md",
+          "artifact_sha256": "395d1c31a2d662802b8e0c571bb69dfe7b83fe2a732b17848325ec225d2733b3"
+        }
+      ]
     },
     {
       "source_id": "L00181",
@@ -3468,9 +4050,37 @@
       "acceptance": "Deployed SHA, результаты U08/SOUL-17 и новое наблюдение сверены однократно; при завершённой работе — статус REUSED_EXISTING/OWNER_VISUAL_CONFIRMED со ссылкой на evidence и закрытие без нового кода и отдельного деплоя.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": [],
-      "note": "CFG-05 prep 20.10.2026: verify-only, без нового кода/деплоя. Вход: deployed commit релиза CFG-04 (ожидается 2.58.97) + SOUL-17/U08 evidence (soul-1/evidence/glass-tiera/_strong_*, review-tiera.md, review-tiera-strengthened.md, w2-reports/W2-GLASS.md, w2-evidence-glass/ui-acceptance.md) + WIN-GLASS review-wg.md (Approved; живой WebView PENDING_OWNER_E2E) + наблюдение владельца 18.10.2026 (source L183; скриншот в чате, в repo не хранится). Якоря: блок #lg-lens 6298 б sha256 5367ec4566fc9e80…, scale=32, идентичен на HEAD/a5902b15/95d11472/915aa3c7/0ca661fe. Итог: REUSED_EXISTING/OWNER_VISUAL_CONFIRMED со ссылкой на evidence, без отдельного деплоя."
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "90cfc471b7f1917360915aee3157ef12f9879dcd",
+          "deployed_commit": "99f5672c5e1d27e957100395a13178fef929b035",
+          "ref": "evidence/cfg-05/deployed-sha.json",
+          "observation": "healthz HTTPS 200 {\"status\":\"ok\",\"version\":\"2.58.97\"}, deployed 99f5672c; #lg-lens 6298 B sha256 5367ec45… scale=32 идентичен на 99f5672c/95d11472/HEAD/a5902b15; served /web/ lens байт-в-байт.",
+          "type": "live",
+          "artifact_path": "plans/features/cfg/evidence/cfg-05/deployed-sha.json",
+          "artifact_sha256": "534cd8477a398c1debc2f94a512eb21fb00b7d4d4c802f43ecfdcad3921cf548"
+        },
+        {
+          "candidate_commit": "90cfc471b7f1917360915aee3157ef12f9879dcd",
+          "deployed_commit": "99f5672c5e1d27e957100395a13178fef929b035",
+          "ref": "evidence/cfg-05/reuse-map.md",
+          "observation": "U08/SOUL-17/WG переиспользованы; SOUL-17.4 остаётся READY_FOR_LIVE, живые пункты WG — PENDING_OWNER_E2E; за VERIFIED не выданы.",
+          "type": "static",
+          "artifact_path": "plans/features/cfg/evidence/cfg-05/reuse-map.md",
+          "artifact_sha256": "07328e1abc61e97ee9d39d2648649c491dee94482216d4a3bd9da2b98f01a421"
+        },
+        {
+          "candidate_commit": "90cfc471b7f1917360915aee3157ef12f9879dcd",
+          "deployed_commit": "99f5672c5e1d27e957100395a13178fef929b035",
+          "ref": "evidence/cfg-05/owner-observation.md",
+          "observation": "Наблюдение владельца 18.10 (L183, усиленное искажение на карточке «Бот») зафиксировано; скриншот в repo отсутствует, платформа не названа.",
+          "type": "ui",
+          "artifact_path": "plans/features/cfg/evidence/cfg-05/owner-observation.md",
+          "artifact_sha256": "a35d055f7eb9e2734decd74c92a8bd67d3a1b9beaf9c84b5838686dbf0a07fdb"
+        }
+      ],
+      "note": "CFG-05 prep 20.10.2026: verify-only, без нового кода/деплоя. Вход: deployed commit релиза CFG-04 (ожидается 2.58.97) + SOUL-17/U08 evidence (soul-1/evidence/glass-tiera/_strong_*, review-tiera.md, review-tiera-strengthened.md, w2-reports/W2-GLASS.md, w2-evidence-glass/ui-acceptance.md) + WIN-GLASS review-wg.md (Approved; живой WebView PENDING_OWNER_E2E) + наблюдение владельца 18.10.2026 (source L183; скриншот в чате, в repo не хранится). Якоря: блок #lg-lens 6298 б sha256 5367ec4566fc9e80…, scale=32, идентичен на HEAD/a5902b15/95d11472/915aa3c7/0ca661fe. Итог: REUSED_EXISTING/OWNER_VISUAL_CONFIRMED со ссылкой на evidence, без отдельного деплоя. PM-леджер 20.10.2026: VERIFIED — REUSED_EXISTING/OWNER_VISUAL_CONFIRMED, deployed 99f5672c, без нового кода и отдельного деплоя."
     },
     {
       "source_id": "L00188",
@@ -3484,9 +4094,28 @@
       "acceptance": "Повторное исследование SVG-фильтров, Glass Test Stand, оптического рендерера, массовых A/B, tier-тестов и CSS-улучшений ради CFG-05 не запускалось.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
-      "note": "CFG-05 prep 20.10.2026: негативное обязательство. Доказывается diff-guard: ноль правок web/**, tests/js/**, tests/glass-teststand/**, tests/ui_soul1_*; в evidence/cfg-05/reuse-map.md перечислены переиспользованные артефакты и явно указано, что новых рендеров, стенда, массовых A/B и tier-тестов не запускалось."
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "90cfc471b7f1917360915aee3157ef12f9879dcd",
+          "deployed_commit": "99f5672c5e1d27e957100395a13178fef929b035",
+          "ref": "evidence/cfg-05/diff-guard.txt",
+          "observation": "git diff --stat 99f5672c HEAD -- web/ tests/ tools/ пусто; скан glass-ключей 95d11472..99f5672c: +1 строка (существующий --glass-border-color), app.js/index 0.",
+          "type": "static",
+          "artifact_path": "plans/features/cfg/evidence/cfg-05/diff-guard.txt",
+          "artifact_sha256": "964df9be47c350319b52d9e967bdad4d793995f0ab8a313294c355e319001fa9"
+        },
+        {
+          "candidate_commit": "90cfc471b7f1917360915aee3157ef12f9879dcd",
+          "deployed_commit": "99f5672c5e1d27e957100395a13178fef929b035",
+          "ref": "evidence/cfg-05/README.md §8",
+          "observation": "Новых рендеров/стенда/оптического рендерера/A-B/tier/CSS не запускалось; TIERA-harness не перепрогонялся (запрещён L188).",
+          "type": "static",
+          "artifact_path": "plans/features/cfg/evidence/cfg-05/README.md",
+          "artifact_sha256": "3eee9be085ecae1f479f751ceed8a267aed8babe3c54c07ef2488137638c6817"
+        }
+      ],
+      "note": "CFG-05 prep 20.10.2026: негативное обязательство. Доказывается diff-guard: ноль правок web/**, tests/js/**, tests/glass-teststand/**, tests/ui_soul1_*; в evidence/cfg-05/reuse-map.md перечислены переиспользованные артефакты и явно указано, что новых рендеров, стенда, массовых A/B и tier-тестов не запускалось. PM-леджер 20.10.2026: VERIFIED — REUSED_EXISTING/OWNER_VISUAL_CONFIRMED, deployed 99f5672c, без нового кода и отдельного деплоя."
     },
     {
       "source_id": "L00189",
@@ -3500,9 +4129,37 @@
       "acceptance": "Полигональный фон, палитра, стеклянные карточки, прозрачность, размытие, блики и компоновка не изменены; регрессионная проверка UI-работ подтверждает прежний glass.",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
-      "note": "CFG-05 prep 20.10.2026: protected + verify. Токены app.css L60–130 побайтово равны HEAD vs SOUL-кандидат; линза #lg-lens неизменна; легитимные дельты после SOUL — WG-носитель .lg-refract/data-refract-layer и поздний FS-HOTFIX (fullscreen без стеклянной подложки). Визуальная инварианта — из CFG-04 before/after фона/glass (prep-cfg-04 §5.1/R6); при их отсутствии — собственный замороженный прогон. Найденная регрессия возвращается в CFG-04, не чинится здесь."
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "90cfc471b7f1917360915aee3157ef12f9879dcd",
+          "deployed_commit": "99f5672c5e1d27e957100395a13178fef929b035",
+          "ref": "evidence/cfg-05/glass-invariant.json",
+          "observation": "2050 ячеек/15 маршрутов base 95d11472 ↔ deployed 99f5672c: material_diffs=0, tokens_equal; «Статус» 390×844 PNG побайтово, hero 0 px @390/1440; 106 rect-дельт — только конфиг-экраны CFG-04.",
+          "type": "live",
+          "artifact_path": "plans/features/cfg/evidence/cfg-05/glass-invariant.json",
+          "artifact_sha256": "cf0cb19591072b2fad1974844a65335c1206af9df4afc68e581815bc8b68fb21"
+        },
+        {
+          "candidate_commit": "90cfc471b7f1917360915aee3157ef12f9879dcd",
+          "deployed_commit": "99f5672c5e1d27e957100395a13178fef929b035",
+          "ref": "evidence/cfg-05/matrix-178-cand.json",
+          "observation": "178/178, base-only=0, cand-only=0 — тот же набор замечаний, что на базе.",
+          "type": "test",
+          "artifact_path": "plans/features/cfg/evidence/cfg-05/matrix-178-cand.json",
+          "artifact_sha256": "5ada5a1f8082b85ccc1c30ccb2b792e53dd5e59098295ff51d435ee36a328977"
+        },
+        {
+          "candidate_commit": "90cfc471b7f1917360915aee3157ef12f9879dcd",
+          "deployed_commit": "99f5672c5e1d27e957100395a13178fef929b035",
+          "ref": "evidence/cfg-05/ui/status-hero-390x844-cand97.png",
+          "observation": "Карточка «Бот» 390×844: 0 отличающихся пикселей от base.",
+          "type": "ui",
+          "artifact_path": "plans/features/cfg/evidence/cfg-05/ui/status-hero-390x844-cand97.png",
+          "artifact_sha256": "26262e3b1691dc917de445d77e3e27f68b95d456700ad04c98227dac537d0fd0"
+        }
+      ],
+      "note": "CFG-05 prep 20.10.2026: protected + verify. Токены app.css L60–130 побайтово равны HEAD vs SOUL-кандидат; линза #lg-lens неизменна; легитимные дельты после SOUL — WG-носитель .lg-refract/data-refract-layer и поздний FS-HOTFIX (fullscreen без стеклянной подложки). Визуальная инварианта — из CFG-04 before/after фона/glass (prep-cfg-04 §5.1/R6); при их отсутствии — собственный замороженный прогон. Найденная регрессия возвращается в CFG-04, не чинится здесь. PM-леджер 20.10.2026: VERIFIED — REUSED_EXISTING/OWNER_VISUAL_CONFIRMED, deployed 99f5672c, без нового кода и отдельного деплоя."
     },
     {
       "source_id": "L00190",
@@ -3516,9 +4173,19 @@
       "acceptance": "Новая конкретная воспроизводимая регрессия фиксируется отдельно с доказательствами и исправляется точечно в рамках существующей задачи; гипотетический дефект не держит CFG-05 открытым и не задерживает очередь.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
-      "note": "CFG-05 prep 20.10.2026: процедурная строка. Правило: конкретная воспроизводимая регрессия → отдельная запись в evidence/cfg-05/failures.md (шаги/кадры/причина) + точечный фикс в существующей задаче-владельце (CFG-04/U08/SOUL-17/WG); гипотетический дефект не держит CFG-05 открытым и не задерживает очередь (source L190)."
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "90cfc471b7f1917360915aee3157ef12f9879dcd",
+          "deployed_commit": "99f5672c5e1d27e957100395a13178fef929b035",
+          "ref": "evidence/cfg-05/failures.md",
+          "observation": "Новых конкретных воспроизводимых регрессий нет; 69 px @1440 — метка времени, 106 rect-дельт — геометрия CFG-04; правило триажа L190 зафиксировано.",
+          "type": "static",
+          "artifact_path": "plans/features/cfg/evidence/cfg-05/failures.md",
+          "artifact_sha256": "bae8412d96544048e4d01e99db5862f2ede33e1034c208e6c35e864661a9a54d"
+        }
+      ],
+      "note": "CFG-05 prep 20.10.2026: процедурная строка. Правило: конкретная воспроизводимая регрессия → отдельная запись в evidence/cfg-05/failures.md (шаги/кадры/причина) + точечный фикс в существующей задаче-владельце (CFG-04/U08/SOUL-17/WG); гипотетический дефект не держит CFG-05 открытым и не задерживает очередь (source L190). PM-леджер 20.10.2026: VERIFIED — REUSED_EXISTING/OWNER_VISUAL_CONFIRMED, deployed 99f5672c, без нового кода и отдельного деплоя."
     },
     {
       "source_id": "L00195",

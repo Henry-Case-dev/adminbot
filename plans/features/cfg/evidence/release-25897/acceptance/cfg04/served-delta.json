@@ -1,0 +1,32 @@
+{
+  "css": {
+    "repo_lines": 4798,
+    "served_lines": 4798,
+    "diff_count": 4,
+    "diff_sample": [
+      "-       10.8 (R10.8-5): `?v=__APP_VERSION__` cache-bust — .woff2 отдаётся с",
+      "+       10.8 (R10.8-5): `?v=2.58.97` cache-bust — .woff2 отдаётся с",
+      "-      src: url('/static/fonts/material-symbols-rounded.woff2?v=__APP_VERSION__') format('woff2-variations');",
+      "+      src: url('/static/fonts/material-symbols-rounded.woff2?v=2.58.97') format('woff2-variations');"
+    ]
+  },
+  "html": {
+    "repo_lines": 11632,
+    "served_lines": 11632,
+    "diff_count": 30,
+    "diff_sample": [
+      "-  <link rel=\"stylesheet\" href=\"/static/vendor/tailwind.css?v=__APP_VERSION__\">",
+      "+  <link rel=\"stylesheet\" href=\"/static/vendor/tailwind.css?v=2.58.97\">",
+      "-  <link rel=\"stylesheet\" href=\"/static/app.css?v=__APP_VERSION__\">",
+      "+  <link rel=\"stylesheet\" href=\"/static/app.css?v=2.58.97\">",
+      "-  <link rel=\"stylesheet\" href=\"/static/vendor/liquidglass.core.0.5.3.css?v=__APP_VERSION__\">",
+      "+  <link rel=\"stylesheet\" href=\"/static/vendor/liquidglass.core.0.5.3.css?v=2.58.97\">",
+      "-  <script src=\"/static/vendor/ogl.1.0.11.min.js?v=__APP_VERSION__\"></script>",
+      "-  <script src=\"/static/vendor/liquidglass.core.0.5.3.min.js?v=__APP_VERSION__\"></script>",
+      "+  <script src=\"/static/vendor/ogl.1.0.11.min.js?v=2.58.97\"></script>",
+      "+  <script src=\"/static/vendor/liquidglass.core.0.5.3.min.js?v=2.58.97\"></script>",
+      "-  <script src=\"/static/vendor/delaunator.5.0.0.min.js?v=__APP_VERSION__\"></script>",
+      "-  <script src=\"/static/aurora-flow.js?v=__APP_VERSION__\"></script>"
+    ]
+  }
+}

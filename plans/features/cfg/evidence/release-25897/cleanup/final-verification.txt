@@ -1,0 +1,28 @@
+CLEANUP-97-NOW final verification (observed on prod)
+====================================================
+observed_utc: 2026-10-19 20:25:58
+candidate/HEAD: 99f5672c5e1d27e957100395a13178fef929b035
+TRACKED_MOD=0
+
+service:
+  MainPID=3791730
+  NRestarts=0
+  ActiveState=active
+  SubState=running
+  ExecMainStatus=0
+
+health:
+  http://127.0.0.1:8000/healthz -> {"status":"ok","version":"2.58.97"}
+  https://admin-bot.duckdns.org/healthz -> {"status":"ok","version":"2.58.97"}
+
+leftover deletion (20:34:26 UTC):
+  mid=1166975 chat=-1002661910336
+  match=wave-occasional.json:occasional-05-joke_short (exact text, len=395)
+  parent=None
+  delete=deleted
+  removed: smart=0 replies=1 parents=0
+  residual: smart=0 replies=0 parents=0
+
+note: the 23 wave messages were deleted by the ACCEPTANCE-97 runner at
+20:19:39Z; this lane's 20:21:58 cleanup observed already_deleted and did
+not delete them itself. See cleanup-register-runner.json.

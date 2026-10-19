@@ -1,0 +1,39 @@
+### PRE (rc=0)
+2026-10-19 21:12:35 UTC
+HARNESS_NONE
+CLEAN_ALL_NONE
+[upload] sweep_prod.py
+SWEEP NOW_UTC | 2026-10-19 21:12:49
+SWEEP RESULT | owned=21 organic_kept=7 residual=14 absent=169 not_owned=157 errors=0
+SWEEP ORGANIC | {"chat_id": -1002661910336, "mid": 1166674, "why": "reply to real user 134812796", "text": "Обиделся, что ли? Сам с собой я базарю ровно так же, как ты сам с собой ругаешься - громко"}
+SWEEP ORGANIC | {"chat_id": -1002661910336, "mid": 1166730, "why": "initiative", "text": "Кстати, год назад ровно в этот день Артём обещал, что нейросети вернут 2007, где блейзер л"}
+SWEEP ORGANIC | {"chat_id": -1002661910336, "mid": 1166947, "why": "reply to real user 134812796", "text": "Ты хочешь, чтоб я подтвердил, что я - та самая хуйня из твоего сообщения? Тогда да, это я"}
+SWEEP ORGANIC | {"chat_id": -1002661910336, "mid": 1166966, "why": "reply to real user 155169707", "text": "Сам с собой? Это ты сейчас с ботом разговариваешь и у него же спрашиваешь, чем он занят"}
+SWEEP ORGANIC | {"chat_id": -1002661910336, "mid": 1166982, "why": "reply to real user 155169707", "text": "Уже нарисовал - наковальня на пятьдесят кило прилетела в арбуз, и это, видимо, и есть твоя"}
+SWEEP ORGANIC | {"chat_id": -1002661910336, "mid": 1166988, "why": "reply to real user 134812796", "text": "Удалять нечего, я тут не насрал ни разу. А сэппуку - это тебе к Глебу, у него нож для рыбы"}
+SWEEP ORGANIC | {"chat_id": -1004482340693, "mid": 2715, "why": "initiative", "text": "Классика: покупаешь видюхи не чтобы играть, а чтобы экономить. Чем больше кредитка, тем вы"}
+SWEEP RESIDUAL | {"chat_id": -1002661910336, "mid": 1166472, "why": "bot-owned, not in registry"}
+SWEEP RESIDUAL | {"chat_id": -1002661910336, "mid": 1166492, "why": "bot-owned, not in registry"}
+SWEEP RESIDUAL | {"chat_id": -1002661910336, "mid": 1166494, "why": "bot-owned, not in registry"}
+SWEEP RESIDUAL | {"chat_id": -1002661910336, "mid": 1166631, "why": "bot-owned, not in registry"}
+SWEEP RESIDUAL | {"chat_id": -1002661910336, "mid": 1166644, "why": "bot-owned, not in registry"}
+SWEEP RESIDUAL | {"chat_id": -1002661910336, "mid": 1166666, "why": "bot-owned, not in registry"}
+SWEEP RESIDUAL | {"chat_id": -1002661910336, "mid": 1166710, "why": "bot-owned, not in registry"}
+SWEEP RESIDUAL | {"chat_id": -1002661910336, "mid": 1166712, "why": "bot-owned, not in registry"}
+SWEEP RESIDUAL | {"chat_id": -1002661910336, "mid": 1166723, "why": "bot-owned, not in registry"}
+SWEEP RESIDUAL | {"chat_id": -1002661910336, "mid": 1166727, "why": "bot-owned, not in registry"}
+SWEEP RESIDUAL | {"chat_id": -1002661910336, "mid": 1166732, "why": "bot-owned, not in registry"}
+SWEEP RESIDUAL | {"chat_id": -1002661910336, "mid": 1166978, "why": "bot-owned, not in registry"}
+SWEEP RESIDUAL | {"chat_id": -1002661910336, "mid": 1167018, "why": "bot-owned, not in registry"}
+SWEEP RESIDUAL | {"chat_id": -1004482340693, "mid": 2802, "why": "bot-owned, not in registry"}
+SWEEP_RC=3
+[stderr] [sudo] password for nik:
+[download] sweep.json
+### FINAL (rc=0)
+MainPID=3791730
+NRestarts=0
+ActiveState=active
+SubState=running
+{"status":"ok","version":"2.58.97"}
+HEAD=99f5672c5e1d27e957100395a13178fef929b035
+2026-10-19 21:13:35 UTC

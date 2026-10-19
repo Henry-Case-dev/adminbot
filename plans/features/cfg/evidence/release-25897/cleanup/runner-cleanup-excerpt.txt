@@ -1,0 +1,8 @@
+﻿-rw-r--r--  1 root root    540 Oct 19 20:09 cleanup_spec.json
+### CLEANUP_SPEC (rc=0) SPEC_OK
+### CLEANUP (rc=0)
+ACC97CLEAN NOW_UTC | 2026-10-19 20:19:39
+ACC97CLEAN SPEC | A=-1002661910336 B=-1004482340693 deleteA=19 deleteB=4 residual=None
+ACC97CLEAN BOT | id=8802473181 username=PERMsoc_bot
+ACC97CLEAN VERIFY | {"deleted": 23, "already": 0, "failed": [], "removed": {"smart": 0, "bot_replies": 20, "bot_reply_parents": 20, "throttle": 2}}
+ACC97CLEAN DONE | residual_rows=0 residual_replies=0 failed=0

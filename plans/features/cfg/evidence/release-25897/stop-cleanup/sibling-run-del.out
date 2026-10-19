@@ -1,0 +1,37 @@
+### PRE (rc=0)
+2026-10-19 21:09:30 UTC
+HARNESS_NONE
+CLEAN_ALL_NONE
+[upload] delete_prod.py
+[upload] delete_plan.json
+### CLEANUP (rc=0) mode=del
+CLEANALL NOW_UTC | 2026-10-19 21:09:44
+CLEANALL PLAN | items=221 dry=False windows={'candidates': 221, 'by_chat': {'-1004482340693': 23, '-1002661910336': 198}, 'chain_members': 126, 'evidence_corr_outputs': 59, 'anchors': 28, 'media_in_window': 27, 'evidence_mid_extra': 48}
+CLEANALL BOT | id=8802473181 username=PERMsoc_bot
+CLEANALL PROGRESS | 25/221 owned=0
+CLEANALL PROGRESS | 50/221 owned=0
+CLEANALL PROGRESS | 75/221 owned=0
+CLEANALL PROGRESS | 100/221 owned=0
+CLEANALL PROGRESS | 125/221 owned=0
+CLEANALL PROGRESS | 150/221 owned=2
+CLEANALL PROGRESS | 175/221 owned=13
+CLEANALL PROGRESS | 200/221 owned=13
+CLEANALL PROBE | owned=13 absent=181 not_owned=27 error=0
+CLEANALL DELETE | attempted=13 deleted=13
+CLEANALL DBROWS | {"bot_replies": 12, "bot_reply_parents": 11, "throttle": 0}
+CLEANALL VERIFY | {"owned": 13, "deleted": 13, "absent_on_delete": 0, "delete_errors": [], "residual_live": 0, "db_rows_removed": {"bot_replies": 12, "bot_reply_parents": 11, "throttle": 0}}
+CLEANALL POST | chat=-1002661910336 residual_smart=0 residual_replies=0 residual_parents=0 throttle=0
+CLEANALL POST | chat=-1004482340693 residual_smart=0 residual_replies=0 residual_parents=0 throttle=0
+CLEANALL DONE | clean=True
+[stderr] [sudo] password for nik:
+[download] cleanup-register.json
+[download] reprobe.json
+[download] post-state.json
+### FINAL (rc=0)
+MainPID=3791730
+NRestarts=0
+ActiveState=active
+SubState=running
+{"status":"ok","version":"2.58.97"}
+HEAD=99f5672c5e1d27e957100395a13178fef929b035
+2026-10-19 21:10:20 UTC
