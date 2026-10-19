@@ -1,0 +1,14 @@
+REL-25895 runtime-дельта 9072347b..35b8b455 (pathspec config services web handlers bot.py)
+config/settings.py          |  32 ++-
+ services/image_normalize.py | 670 ++++++++++++++++++++++++++++++++++++++++++++
+ services/mca_vision.py      | 316 ++++++++++++++++++++-
+ services/param_catalog.py   |  15 +-
+ services/postgen_vision.py  |  57 ++--
+ 5 files changed, 1052 insertions(+), 38 deletions(-)
+
+runtime-файлы (5):
+  config/settings.py
+  services/image_normalize.py
+  services/mca_vision.py
+  services/param_catalog.py
+  services/postgen_vision.py

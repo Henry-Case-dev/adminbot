@@ -1,0 +1,22 @@
+REL-25895 frozen-fingerprint: кандидат bump-коммит 35b8b455 (2.58.95);
+worktree: C:\Users\main\.config\opencode\OpenCodeScratch\adminbot-ccef72c25768\release-25895\wt (detached @ 35b8b455); база: 9072347b (прод 2.58.94)
+
+EXPECT12 (deploy_25895.py) — sha256_12 + полный sha256:
+  services/image_normalize.py                    b4f9f7a95d6d  b4f9f7a95d6d02f4f3333d2f3644de0f73449e3805216fdf9b88187cff0f3442  # POSTGEN-DIAG (новый) + VISION-ADAPT
+  services/mca_vision.py                         a768eac7387b  a768eac7387b598d88fdbed152d0cda6b205d295b4649987ff0fe86136819836  # POSTGEN-DIAG + VISION-ADAPT
+  services/postgen_vision.py                     232e65a4af41  232e65a4af415fe32620ebb425079c3a73896650f16a84091b21ba1d9fcbc02b  # POSTGEN-DIAG retry
+  services/param_catalog.py                      4886ff036b0e  4886ff036b0e52db17d1763a005b7004dbf385bd5f4ed69dc162dd3c6c0bb70f  # CFG-03 (== f8 re-pin)
+  config/settings.py                             1e534c6c15c3  1e534c6c15c3b5eccd5a61ae758629377e1af87eb280725afdc30ce6af24e170  # bump + VISION-ADAPT env
+  README.md                                      28cdd3dfbd8d  28cdd3dfbd8dd823f2e4bda4144ffdc153853a189ea60782bac0b9bf3c29b230  # bump
+  plans/docs/param-registry-round1025.meta.md    889a98e3c961  889a98e3c961b9715a9adb0e51f50c6e30f3c65775a47c47424b1e2a7e64234d  # bump (HEAD=b20fe4f7)
+  web/static/fullscreen-policy.js                96db06425079  96db064250793f02356890adff33dda090ec637c4ae9f26b232f60bbce867ded  # sanity (байт-в-байт 2.58.94)
+  services/telegram_send.py                      e23bced2fdb8  e23bced2fdb84d6735c6b68e9ce7a2bd21d7bd1e43ad2d74946e649d851b896f  # sanity (байт-в-байт 2.58.94)
+
+deploy_25895.py    sha256_12 03d52c843908  sha256 03d52c843908bb61ac2f137432b794967bb963e4d58dc3ef51798f7b085d4a65
+rel95_final.sh     sha256_12 b912792903f4  sha256 b912792903f4cdedaadb201d611807c0d884f306f5eee02c74d768e92a951db5
+check_deploy_25895.py sha256_12 3e6883288482  sha256 3e68832884828d5db97c7813afebaf67943eca46b38b1bfe5e5a10944926b7ba
+
+bump-коммит: 35b8b455d0dc2552f06de82ddd5a127fac0a5d9f
+родитель (код-кандидат): b20fe4f76331c7dd7525bdc4f0c3282645c34c79
+прод-база: 9072347b986b91f05d580a11c1aae6646b250e29
+F8-meta HEAD-штамп: b20fe4f7 (последний код-коммит поезда)

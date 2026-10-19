@@ -1,0 +1,45 @@
+﻿REL-25895 - focused/blast runs on candidate (worktree, detached @ 35b8b455d0dc2552f06de82ddd5a127fac0a5d9f)
+worktree: C:\Users\main\.config\opencode\OpenCodeScratch\adminbot-ccef72c25768\release-25895\wt
+interpreter: C:\Code\Python\adminbot\.venv\Scripts\python.exe ; pytest -q -p no:cacheprovider
+started: 2026-10-19T12:13:31Z
+
+s1-vision-adapt  VISION-ADAPT contract (py -3 canonical = 43 passed; .venv: PIL missing -> 5p/38skip)
+      -> 5 passed, 38 skipped in 3.12s (rc=0)
+
+S1b  py -3 (global, PIL present): tests/test_vision_adapt.py
+      -> 43 passed, 2 warnings in 6.22s (rc=0)
+
+s2-postgen-diag  POSTGEN-DIAG contract (.venv: PIL missing -> 26p/1skip; py -3 canonical = 27)
+      -> 26 passed, 1 skipped in 3.23s (rc=0)
+
+S2b  py -3 (global, PIL present): tests/test_postgen_diag.py
+      -> 27 passed, 3 warnings in 2.77s (rc=0)
+
+s3-postgen-cluster  postgen cluster 20 files (review spot 18 files = 418 + new adapt/postgen files)
+      -> 447 passed, 39 skipped, 1 warning in 40.45s (rc=0)
+
+s4-cfg03  CFG-03 audit contract (expect 16 passed)
+      -> 16 passed in 4.56s (rc=0)
+
+s5-cfg03-cluster  cfg03 cluster 10 files (cfg03 + settings consumers + cfg02a/b/c + f8; expect ~285)
+      -> 453 passed in 23.72s (rc=0)
+
+s6-f8-pins  F8 pins/meta after bump (expect 29 passed)
+      -> 29 passed in 3.43s (rc=0)
+
+S6b  tools/gen_param_registry_round1025.py --check
+      -> CHECK OK: СЂРµРµСЃС‚СЂ 579 == REGISTRY, РєР°СЂС‚Р° РїРѕР»РЅР°, R17-С‡РёСЃС‚Рѕ, TSV/map РёРґРµРјРїРѕС‚РµРЅС‚РЅС‹. (rc=0)
+
+s7-speech-ui  speech/UI sets (7 files)
+      -> 100 passed, 1 warning in 75.10s (0:01:15) (rc=0)
+
+s8-t5150  t5150 (expect pre-existing 5 failed)
+      -> 5 failed, 2 passed in 14.37s (rc=1)
+
+S9  JS-sweep: node tests/js/*_test.js
+      -> JS-SWEEP: files=88 failed=0
+
+S10  tools/ui_cfg03_descriptions_e2e.py (Playwright e2e)
+      -> RESULT: PASS (rc=0)
+
+finished: 2026-10-19T12:16:57Z

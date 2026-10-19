@@ -1,0 +1,12 @@
+REL-25895 ΔDDL-check: кандидат 35b8b455 vs прод-база 9072347b
+
+DDL/schema-периметр (strict): services/database.py, scripts/, services/chat_migration.py, services/config_migrations.py, services/prompt_migrations.py
+Изменения в периметре 9072347b..35b8b455: НЕТ (0 файлов)
+
+Всего файлов в дельте: 146 (plans 107 + non-plans 39); services/database.py, migrations-модули и scripts/ не входят.
+
+schema-версия (services/database.py, без изменений в дельте):
+  35b8b455:services/database.py:4064:            f"PRAGMA user_version = {_SCHEMA_VERSION_HUMOR_SAMPLES}")
+  база 9072347b: 9072347b:services/database.py:4064:            f"PRAGMA user_version = {_SCHEMA_VERSION_HUMOR_SAMPLES}")
+
+Вывод: ΔDDL = 0 (кандидат не трогает DDL/миграции; user_version на проде остаётся 36).

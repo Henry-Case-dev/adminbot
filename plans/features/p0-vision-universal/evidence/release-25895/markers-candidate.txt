@@ -1,0 +1,22 @@
+REL-25895 markers-candidate: значения на кандидате 35b8b455 (worktree).
+Формат: файл | маркер | ожидание | линия
+
+services/param_catalog.py                  Не влияет: значение сохраняется в конфиге        5 == 5   OK  # CFG-03 честные описания
+plans/docs/param-registry-round1025.tsv    (строк, включая header)                        580 == 580 OK  # CFG-03 реестр 579
+tools/cfg03_param_inventory.py             (файл существует)                                1 == 1   OK  # CFG-03 инструмент
+tests/test_cfg03_param_audit.py            (файл существует)                                1 == 1   OK  # CFG-03 контракт
+services/image_normalize.py                def plan_vision                                  1 == 1   OK  # VISION-ADAPT
+services/image_normalize.py                def optimize_to_fit                              2 == 2   OK  # VISION-ADAPT
+services/image_normalize.py                def normalize_jpeg_bytes                         2 == 2   OK  # POSTGEN-DIAG
+services/image_normalize.py                def codec_available                              1 == 1   OK  # POSTGEN-DIAG (Pillow/ffmpeg)
+services/mca_vision.py                     vision_adapt                                     1 == 1   OK  # VISION-ADAPT событие
+services/mca_vision.py                     [vision] adapt                                   1 == 1   OK  # VISION-ADAPT журнал
+services/mca_vision.py                     _ADAPT_RETRYABLE_STATUSES                        2 == 2   OK  # VISION-ADAPT bounded retry
+services/mca_vision.py                     def validate_or_normalize                        1 == 1   OK  # POSTGEN-DIAG
+services/mca_vision.py                     POSTGEN-DIAG                                     5 == 5   OK  # POSTGEN-DIAG sniff/validate
+services/postgen_vision.py                 POSTGEN-DIAG                                     2 == 2   OK  # POSTGEN-DIAG retry
+config/settings.py                         MCA_VISION_REQUEST_MAX_BYTES                     2 == 2   OK  # VISION-ADAPT env
+config/settings.py                         MCA_VISION_PREP_MAX_PIXELS                       2 == 2   OK  # VISION-ADAPT env
+config/settings.py                         MCA_VISION_NORMALIZE_ENABLED                     2 == 2   OK  # POSTGEN-DIAG env
+tests/test_vision_adapt.py                 (файл существует)                                1 == 1   OK  # VISION-ADAPT контракт (43)
+tests/test_postgen_diag.py                 (файл существует)                                1 == 1   OK  # POSTGEN-DIAG контракт (27)

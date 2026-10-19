@@ -1,0 +1,5 @@
+REL-25895: .venv-прогоны новых PIL-зависимых файлов (skip = нет PIL в .venv)
+s1-vision-adapt (.venv): 5 passed, 38 skipped in 3.12s
+s2-postgen-diag (.venv): 26 passed, 1 skipped in 3.23s
+Канонический интерпретатор py -3 (PIL есть): adapt 43 passed, postgen 27 passed
+(см. focused-s1-vision-adapt.txt / focused-s2-postgen-diag.txt).

@@ -1,0 +1,15 @@
+﻿CWD: C:\Users\main\.config\opencode\OpenCodeScratch\adminbot-ccef72c25768\release-25895\wt
+HEAD: 35b8b455d0dc2552f06de82ddd5a127fac0a5d9f
+COMMAND: "C:\Code\Python\adminbot\.venv\Scripts\python.exe" -m pytest tests/ -q -p no:cacheprovider
+START_UTC: 2026-10-19T11:59:49Z
+END_UTC: 2026-10-19T12:12:12Z
+EXIT: 1
+--- tail ---
+FAILED tests/test_history_cli.py::TestCliFts::test_scope_is_required - Assert...
+FAILED tests/test_mca01_tx_task_supervisor_round1027.py::test_write_points_go_through_single_writer
+FAILED tests/test_t5150_startup_migrations_round1046.py::test_a_ddl_window_survives_lock_longer_than_base_5s
+FAILED tests/test_t5150_startup_migrations_round1046.py::test_b_step_retry_recovers_after_locked
+FAILED tests/test_t5150_startup_migrations_round1046.py::test_d_migration_chain_full_log_trail
+FAILED tests/test_t5150_startup_migrations_round1046.py::test_e_v32_db_applies_v33_once_with_guard
+FAILED tests/test_t5150_startup_migrations_round1046.py::test_e2_v33_db_applies_v34_once_with_guard
+9 failed, 14520 passed, 39 skipped, 1 warning in 737.70s (0:12:17)

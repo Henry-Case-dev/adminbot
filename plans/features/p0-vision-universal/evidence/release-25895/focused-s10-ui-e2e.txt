@@ -1,0 +1,46 @@
+[matrix] config stub: items=577 groups=120
+[matrix] chat-вариант config: override items=116
+{
+  "console_errors": [],
+  "checks": {
+    "memory_limits.dig_year_back_window_days": {
+      "group": true,
+      "card": true,
+      "text": "скрыт  Источник: глобальная настройка dig_into_lore: окно «N лет назад», дней limits.dig_year_back_window_days Диапазон вокруг даты «N лет назад» в запросе без явного года (2 дня). Не влияет: значение сохраняется в конфиге, но рантайм его не читает."
+    },
+    "memory_limits.memory_backup_keep": {
+      "group": true,
+      "card": true,
+      "text": "скрыт  Источник: глобальная настройка Ротация бэкапов (файлов) limits.memory_backup_keep НЕ действует: по политике владельца (UPD3 №5) хранится ровно 1 бэкап БД. Значение игнорируется (см. services/disk_retention.py)."
+    },
+    "direct_limits.chat_lock_max_entries": {
+      "modal": true,
+      "card": true,
+      "text": "Потолок словаря замков Технический: сколько чатов держать в памяти замков. Обычно не трогать. Не влияет: значение сохраняется в конфиге, но рантайм его не читает."
+    },
+    "direct_limits.chat_budget_response_ratio": {
+      "modal": true,
+      "card": true,
+      "text": "Доля бюджета: Response Доля контекста на сам ответ. Больше — место под ответ. Не влияет: значение сохраняется в конфиге, но рантайм его не читает."
+    },
+    "video_limits.youtube_transcript_proxy_locations": {
+      "modal": true,
+      "card": true,
+      "text": "CSV-коды стран Webshare Коды стран для прокси (например, de,us) — трафик будет выходить оттуда. Пусто — без ограничений. Не влияет: значение сохраняется в конфиге, но рантайм его не читает (фильтр по странам не применяется)."
+    },
+    "video_limits.youtube_transcript_proxy_retries": {
+      "modal": true,
+      "card": true,
+      "text": "Повторы при блокировке (Webshare) Сколько раз повторять запрос субтитров, если прокси заблокировали (пусто — дефолт библиотеки). Не влияет: значение сохраняется в конфиге, но рантайм его не читает (ретраи каскада заданы кодом)."
+    },
+    "video_content_media_group": {
+      "modal": true,
+      "group": true,
+      "share": true,
+      "public": true
+    },
+    "mobile_content_media_visible": true,
+    "mobile_no_overflow": true
+  }
+}
+RESULT: PASS

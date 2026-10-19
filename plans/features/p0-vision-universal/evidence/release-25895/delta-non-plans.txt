@@ -1,0 +1,45 @@
+REL-25895 delta: 9072347b (прод 2.58.94) .. 35b8b455 (bump 2.58.95)
+HEAD(bump)=35b8b455d0dc2552f06de82ddd5a127fac0a5d9f  parent=b20fe4f76331c7dd7525bdc4f0c3282645c34c79
+
+TOTAL files: 146 = plans 107 + non-plans 39
+
+--- non-plans (39) ---
+  README.md
+  config/settings.py
+  services/image_normalize.py
+  services/mca_vision.py
+  services/param_catalog.py
+  services/postgen_vision.py
+  tests/js/round1025_hotfix10_glass_geometry_bg_test.js
+  tests/js/round1025_hotfix7_shell_glass_heartbeat_test.js
+  tests/js/round1025_hotfix8_shell_aurora_test.js
+  tests/js/round1025_hotfix9_shell_flex_glass_aurora_test.js
+  tests/test_cfg03_param_audit.py
+  tests/test_decision_making_round1026.py
+  tests/test_image_context_memory_round1026.py
+  tests/test_mca17c_invariants_round1047.py
+  tests/test_postgen_diag.py
+  tests/test_round1025_f8_registry.py
+  tests/test_scope_selector_round1025.py
+  tests/test_summary_deploy_round1026.py
+  tests/test_summary_fact_package.py
+  tests/test_summary_logging_runid.py
+  tests/test_summary_publish_integration_round1026.py
+  tests/test_summary_test_run.py
+  tests/test_telegram_reactions_round1026.py
+  tests/test_tool_coordinator_round1026.py
+  tests/test_unified_image_request_round1026.py
+  tests/test_vision_adapt.py
+  tests/test_webapp_design_tokens_round1025.py
+  tests/test_webapp_f11_round1025.py
+  tests/test_webapp_f6_round1025.py
+  tests/test_webapp_f7_round1025.py
+  tests/test_webapp_f9_round1025.py
+  tests/test_webapp_hotfix10_round1025.py
+  tests/test_webapp_hotfix6_round1025.py
+  tests/test_webapp_hotfix7_round1025.py
+  tests/test_webapp_hotfix8_round1025.py
+  tests/test_webapp_hotfix9_round1025.py
+  tests/test_webapp_round1026_polygon.py
+  tools/cfg03_param_inventory.py
+  tools/ui_cfg03_descriptions_e2e.py

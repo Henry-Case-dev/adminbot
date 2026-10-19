@@ -1,0 +1,46 @@
+REL-25895 pytest-attribution (кандидат 35b8b455, изолированный worktree, чистый прогон)
+
+COMMAND: .venv\Scripts\python.exe -m pytest tests/ -q -p no:cacheprovider
+RESULT:  9 failed, 14520 passed, 39 skipped, 1 warning in 737.70s (0:12:17)
+TIME:    737.70s
+
+FAILED (9) — ПОЛНОЕ совпадение множества с прогоном кандидата 2.58.94
+(release-25894/pytest-full.txt: 9 failed, 14473 passed, 1 warning in 741.60s (0:12:21)):
+  - tests/test_asap7_direct_settings.py::test_migration_v35_idempotent_twice
+  - tests/test_asap7_direct_settings.py::test_backup_guard_fires_before_pending_step
+  - tests/test_history_cli.py::TestCliFts::test_scope_is_required
+  - tests/test_mca01_tx_task_supervisor_round1027.py::test_write_points_go_through_single_writer
+  - tests/test_t5150_startup_migrations_round1046.py::test_a_ddl_window_survives_lock_longer_than_base_5s
+  - tests/test_t5150_startup_migrations_round1046.py::test_b_step_retry_recovers_after_locked
+  - tests/test_t5150_startup_migrations_round1046.py::test_d_migration_chain_full_log_trail
+  - tests/test_t5150_startup_migrations_round1046.py::test_e_v32_db_applies_v33_once_with_guard
+  - tests/test_t5150_startup_migrations_round1046.py::test_e2_v33_db_applies_v34_once_with_guard
+
+Атрибуция (пре-сущ. классы, ни один не связан с дельтой поезда):
+  * tests/test_t5150_startup_migrations_round1046.py ×5 — устаревший ожидаемый
+    список миграций (воспроизводится на базе без фикса; файл дельтой не тронут);
+  * tests/test_asap7_direct_settings.py ×2 — миграции v35 (пре-сущ., тот же
+    список в прогоне 2.58.94);
+  * tests/test_mca01_tx_task_supervisor_round1027.py ×1 — пре-сущ. (тот же в 2.58.94);
+  * tests/test_history_cli.py::TestCliFts::test_scope_is_required ×1 —
+    environment-артефакт чистого worktree (тот же в 2.58.94);
+  * env-флейк random_source-класса в ЭТОМ прогоне не сработал (0 из 9).
+
+SKIPPED (39) — только НОВЫЕ файлы поезда, причина PIL в .venv:
+  * tests/test_vision_adapt.py: 38 skip 'could not import PIL.Image' (No module named 'PIL')
+  * tests/test_postgen_diag.py: 1 skip 'could not import PIL.Image'
+  Канонический интерпретатор py -3 (PIL есть): adapt 43 passed, postgen 27 passed.
+
+Баланс с прогоном 2.58.94 (14473 passed / 9 failed / 0 skipped):
+  14473 + 86 новых тестов (adapt 43 + postgen 27 + cfg03 16) = 14559
+  observed: 14520 passed + 39 skipped = 14559  ==  совпадает ровно
+  (в .venv 47 новых прошли, 39 ушли в skip из-за отсутствия PIL).
+
+ПРЯМОЕ доказательство пре-сущ. (база = прод 9072347b, отдельный worktree
+release-25895\wt-base @ 9072347b, тот же интерпретатор):
+  tests/test_asap7_direct_settings.py + tests/test_history_cli.py +
+  tests/test_mca01_tx_task_supervisor_round1027.py +
+  tests/test_t5150_startup_migrations_round1046.py
+  -> 9 failed, 63 passed (27.53s) — ровно те же 9 ID, что и на кандидате
+  (см. focused-base-pre-existing.txt). На кандидате дельтой эти файлы не
+  тронуты (см. delta-non-plans.txt).
