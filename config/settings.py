@@ -1655,6 +1655,17 @@ class Settings:
         "MCA_VISION_BACKFILL_ENABLED", True)
     MCA_VISION_TOOL_ENABLED: ClassVar[bool] = _env_bool(
         "MCA_VISION_TOOL_ENABLED", True)
+    # POSTGEN-DIAG (19.10.2026): env-only рубильник и потолок bounded
+    # декод-фоллбэка/нормализации изображения (`services/image_normalize.py`):
+    # реальные форматы, которые сниффер не знает (TIFF и т.п.), и слишком
+    # большой payload пост-генерации нормализуются в bounded JPEG.
+    #   OFF → прежнее поведение (сниффер + честный отказ; без фоллбэка
+    #   и без retry нормализованным payload).
+    #   MAX_DIMENSION — потолок большей стороны (апскейла нет).
+    MCA_VISION_NORMALIZE_ENABLED: ClassVar[bool] = _env_bool(
+        "MCA_VISION_NORMALIZE_ENABLED", True)
+    MCA_VISION_NORMALIZE_MAX_DIMENSION: ClassVar[int] = _env_int_min(
+        "MCA_VISION_NORMALIZE_MAX_DIMENSION", 1024, 64)
     # Env-only аварийные потолки (не каталог; ADR D13): клампят владельческие
     # значения каталога limits_vision (spec §8.4). MAX_BYTES/MAX_PIXELS —
     # decompression-bomb protection (TH-4); DOWNLOAD_CONCURRENCY — лимит

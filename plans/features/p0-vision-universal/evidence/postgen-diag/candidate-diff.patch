@@ -1,0 +1,365 @@
+﻿diff --git a/config/settings.py b/config/settings.py
+index 17c68ff8..34e3778e 100644
+--- a/config/settings.py
++++ b/config/settings.py
+@@ -1655,6 +1655,17 @@ class Settings:
+         "MCA_VISION_BACKFILL_ENABLED", True)
+     MCA_VISION_TOOL_ENABLED: ClassVar[bool] = _env_bool(
+         "MCA_VISION_TOOL_ENABLED", True)
++    # POSTGEN-DIAG (19.10.2026): env-only ╤А╤Г╨▒╨╕╨╗╤М╨╜╨╕╨║ ╨╕ ╨┐╨╛╤В╨╛╨╗╨╛╨║ bounded
++    # ╨┤╨╡╨║╨╛╨┤-╤Д╨╛╨╗╨╗╨▒╤Н╨║╨░/╨╜╨╛╤А╨╝╨░╨╗╨╕╨╖╨░╤Ж╨╕╨╕ ╨╕╨╖╨╛╨▒╤А╨░╨╢╨╡╨╜╨╕╤П (`services/image_normalize.py`):
++    # ╤А╨╡╨░╨╗╤М╨╜╤Л╨╡ ╤Д╨╛╤А╨╝╨░╤В╤Л, ╨║╨╛╤В╨╛╤А╤Л╨╡ ╤Б╨╜╨╕╤Д╤Д╨╡╤А ╨╜╨╡ ╨╖╨╜╨░╨╡╤В (TIFF ╨╕ ╤В.╨┐.), ╨╕ ╤Б╨╗╨╕╤И╨║╨╛╨╝
++    # ╨▒╨╛╨╗╤М╤И╨╛╨╣ payload ╨┐╨╛╤Б╤В-╨│╨╡╨╜╨╡╤А╨░╤Ж╨╕╨╕ ╨╜╨╛╤А╨╝╨░╨╗╨╕╨╖╤Г╤О╤В╤Б╤П ╨▓ bounded JPEG.
++    #   OFF тЖТ ╨┐╤А╨╡╨╢╨╜╨╡╨╡ ╨┐╨╛╨▓╨╡╨┤╨╡╨╜╨╕╨╡ (╤Б╨╜╨╕╤Д╤Д╨╡╤А + ╤З╨╡╤Б╤В╨╜╤Л╨╣ ╨╛╤В╨║╨░╨╖; ╨▒╨╡╨╖ ╤Д╨╛╨╗╨╗╨▒╤Н╨║╨░
++    #   ╨╕ ╨▒╨╡╨╖ retry ╨╜╨╛╤А╨╝╨░╨╗╨╕╨╖╨╛╨▓╨░╨╜╨╜╤Л╨╝ payload).
++    #   MAX_DIMENSION тАФ ╨┐╨╛╤В╨╛╨╗╨╛╨║ ╨▒╨╛╨╗╤М╤И╨╡╨╣ ╤Б╤В╨╛╤А╨╛╨╜╤Л (╨░╨┐╤Б╨║╨╡╨╣╨╗╨░ ╨╜╨╡╤В).
++    MCA_VISION_NORMALIZE_ENABLED: ClassVar[bool] = _env_bool(
++        "MCA_VISION_NORMALIZE_ENABLED", True)
++    MCA_VISION_NORMALIZE_MAX_DIMENSION: ClassVar[int] = _env_int_min(
++        "MCA_VISION_NORMALIZE_MAX_DIMENSION", 1024, 64)
+     # Env-only ╨░╨▓╨░╤А╨╕╨╣╨╜╤Л╨╡ ╨┐╨╛╤В╨╛╨╗╨║╨╕ (╨╜╨╡ ╨║╨░╤В╨░╨╗╨╛╨│; ADR D13): ╨║╨╗╨░╨╝╨┐╤П╤В ╨▓╨╗╨░╨┤╨╡╨╗╤М╤З╨╡╤Б╨║╨╕╨╡
+     # ╨╖╨╜╨░╤З╨╡╨╜╨╕╤П ╨║╨░╤В╨░╨╗╨╛╨│╨░ limits_vision (spec ┬з8.4). MAX_BYTES/MAX_PIXELS тАФ
+     # decompression-bomb protection (TH-4); DOWNLOAD_CONCURRENCY тАФ ╨╗╨╕╨╝╨╕╤В
+diff --git a/services/mca_vision.py b/services/mca_vision.py
+index ba344c29..f01a1b1f 100644
+--- a/services/mca_vision.py
++++ b/services/mca_vision.py
+@@ -1102,6 +1102,12 @@ def sniff_image(data: bytes) -> tuple[str, int, int] | None:
+                 offset += 1
+                 continue
+             marker = data[offset + 1]
++            if marker == 0xFF:
++                # POSTGEN-DIAG: ╨╗╨╡╨│╨░╨╗╤М╨╜╤Л╨╡ fill-╨▒╨░╨╣╤В╤Л 0xFF ╨╝╨╡╨╢╨┤╤Г ╨╝╨░╤А╨║╨╡╤А╨░╨╝╨╕
++                # (JPEG spec); ╤А╨░╨╜╤М╤И╨╡ ╨┤╨╡╤Б╨╕╨╜╤Е╤А╨╛╨╜╨╕╨╖╨╕╤А╨╛╨▓╨░╨╗╨╕ ╤Б╨║╨░╨╜ тЖТ ╨╗╨╛╨╢╨╜╤Л╨╣
++                # `vision_unreadable` ╨╜╨░ ╤А╨╡╨░╨╗╤М╨╜╤Л╤Е ╤Д╨╛╤В╨╛.
++                offset += 1
++                continue
+             if marker in (0xD8, 0x01) or 0xD0 <= marker <= 0xD7:
+                 offset += 2
+                 continue
+@@ -1166,6 +1172,40 @@ def validate_image_bytes(data: bytes, *, declared_mime: str = "") \
+                            width=width, height=height, byte_size=len(data))
+ 
+ 
++async def validate_or_normalize(data: bytes, *, declared_mime: str = "") \
++        -> DownloadedImage:
++    """POSTGEN-DIAG: ╨▓╨░╨╗╨╕╨┤╨░╤В╨╛╤А тЖТ bounded ╨┤╨╡╨║╨╛╨┤-╤Д╨╛╨╗╨╗╨▒╤Н╨║ ╨┐╤А╨╕ `unreadable`.
++
++    ╨б╨╜╨░╤З╨░╨╗╨░ тАФ ╤Б╤Г╤Й╨╡╤Б╤В╨▓╤Г╤О╤Й╨╕╨╣ ╤Б╨╕╨╜╤Е╤А╨╛╨╜╨╜╤Л╨╣ `validate_image_bytes` (╨▒╨░╨╣╤В-╨▓-╨▒╨░╨╣╤В
++    ╨┐╨░╤А╨╕╤В╨╡╤В ╨┤╨╗╤П ╨▓╨░╨╗╨╕╨┤╨╜╤Л╤Е ╨▓╤Е╨╛╨┤╨╛╨▓). ╨в╨╛╨╗╤М╨║╨╛ ╨┐╤А╨╕ `vision_unreadable` тАФ ╨Ю╨Ф╨Ш╨Э
++    bounded ╤Д╨╛╨╗╨╗╨▒╤Н╨║: ╨╜╨╛╤А╨╝╨░╨╗╨╕╨╖╨░╤Ж╨╕╤П ╨▓ JPEG (`services/image_normalize`, ╨║╨╛╨┤╨╡╨║ тАФ
++    Pillow/ffmpeg ╨╕╨╖ ╨╛╨║╤А╤Г╨╢╨╡╨╜╨╕╤П), ╨╖╨░╤В╨╡╨╝ ╨┐╨╛╨▓╤В╨╛╤А╨╜╨░╤П ╨▓╨░╨╗╨╕╨┤╨░╤Ж╨╕╤П ╤А╨╡╨╖╤Г╨╗╤М╤В╨░╤В╨░.
++
++    ╨з╨╡╤Б╤В╨╜╨╛╤Б╤В╤М: ╤А╤Г╨▒╨╕╨╗╤М╨╜╨╕╨║ OFF / ╨╜╨╡╤В ╨║╨╛╨┤╨╡╨║╨░ / ╨╜╨╡ ╨┤╨╡╨║╨╛╨┤╨╕╤А╤Г╨╡╤В╤Б╤П тЖТ ╨╕╤Б╤Е╨╛╨┤╨╜╤Л╨╣
++    VisionError ╤Б ╨╕╤Б╤Е╨╛╨┤╨╜╤Л╨╝ `detail` (╨┐╨╛╨▓╨╡╨┤╨╡╨╜╨╕╨╡ ╨┐╤А╨╡╨╢╨╜╨╡╨╡); ╨┐╤А╨╛╨▓╨░╨╣╨┤╨╡╤А ╨┐╨╛╨╗╤Г╤З╨░╨╡╤В
++    ╨╜╨╛╤А╨╝╨░╨╗╨╕╨╖╨╛╨▓╨░╨╜╨╜╤Л╨╣ JPEG, ╨╜╨╛ ╤Н╤В╨╛ ╤В╨╛╤В ╨╢╨╡ ╨║╨░╨┤╤А (╤А╨╡╤Б╨░╨╣╨╖/╨┐╨╡╤А╨╡╨║╨╛╨┤╨╕╤А╨╛╨▓╨║╨░), ╨░ ╨╜╨╡
++    ╨▓╤В╨╛╤А╨╛╨╣ pipeline (╨░╨╜╨░╨╗╨╕╨╖╨░╤В╨╛╤А тАФ ╤В╨╛╤В ╨╢╨╡ `analyze_image_bytes`)."""
++    try:
++        return validate_image_bytes(data, declared_mime=declared_mime)
++    except VisionError as exc:
++        if exc.reason != "vision_unreadable":
++            raise
++        from services import image_normalize
++        normalized = await image_normalize.normalize_jpeg_bytes_async(data)
++        if not normalized:
++            raise
++        try:
++            img = validate_image_bytes(
++                normalized, declared_mime=declared_mime or "image/jpeg")
++        except VisionError:
++            raise exc
++        logger.info("[vision] unreadable rescued via normalization | "
++                    "in=%d | out=%d | detail=%s", len(data), len(normalized),
++                    exc.detail)
++        return dataclasses.replace(
++            img, declared_mime=declared_mime or img.declared_mime)
++
++
+ async def download_telegram_file(bot, file_id: str, *,
+                                  semaphore: asyncio.Semaphore | None = None
+                                  ) -> DownloadedImage:
+@@ -1182,7 +1222,7 @@ async def download_telegram_file(bot, file_id: str, *,
+         buffer = _io.BytesIO()
+         await bot.download(tg_file, destination=buffer)
+         data = buffer.getvalue()
+-    return validate_image_bytes(data)
++    return await validate_or_normalize(data)
+ 
+ 
+ async def fetch_external_image(url: str, *, fetcher=None) -> DownloadedImage:
+@@ -1197,9 +1237,9 @@ async def fetch_external_image(url: str, *, fetcher=None) -> DownloadedImage:
+         fetcher = SafeFetcher()
+     response = await fetcher.fetch(
+         url, profile="image", max_bytes=mca_gates.vision_max_bytes())
+-    return validate_image_bytes(bytes(response.body),
+-                                declared_mime=str(
+-                                    response.headers.get("content-type", "")))
++    return await validate_or_normalize(
++        bytes(response.body),
++        declared_mime=str(response.headers.get("content-type", "")))
+ 
+ 
+ # тХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХР
+@@ -1472,7 +1512,21 @@ async def analyze_image_bytes(image: DownloadedImage, *, chat_id: int,
+     if status in (401, 403):
+         raise VisionError("vision_unavailable", f"http_{status}")
+     if not (200 <= status < 300):
+-        raise VisionError("vision_failed", f"http_{status}")
++        # POSTGEN-DIAG: ╨┐╤А╨╛╨▓╨░╨╣╨┤╨╡╤А-╨╛╤И╨╕╨▒╨║╨░ ╨Э╨Х ╨╝╨░╤Б╨║╨╕╤А╤Г╨╡╤В╤Б╤П тАФ R17-safe ╨║╨╗╨░╤Б╤Б
++        # ╨╛╤В╨▓╨╡╤В╨░ (`http_<status>` + ╤Б╨╡╨╝╨░╨╜╤В╨╕╨║╨░ ╨╕╨╖ ╤В╨╡╨╗╨░) ╤Г╤Е╨╛╨┤╨╕╤В ╨▓ detail:
++        # ╨┐╨╛ ╨╜╨╡╨╝╤Г ╨┐╤А╨╕╨╜╨╕╨╝╨░╨╡╤В╤Б╤П ╤А╨╡╤И╨╡╨╜╨╕╨╡ ╨╛ bounded retry (image-class ╨╛╤В╨║╨░╨╖)
++        # ╨╕ ╨▓╨╕╨┤╨╡╨╜ ╨╜╨░╤Б╤В╨╛╤П╤Й╨╕╨╣ ╨║╨╗╨░╤Б╤Б ╨▓ ╨╗╨╛╨│╨░╤Е/╤Б╨╛╨▒╤Л╤В╨╕╤П╤Е (╨┐╤А╨╛╨┤-╤Д╨░╨║╤В ACCEPTANCE-94:
++        # ╨▓ ╤Б╨╛╨▒╤Л╤В╨╕╨╕ ╨╛╤Б╤В╨░╨▓╨░╨╗╤Б╤П ╤В╨╛╨╗╤М╨║╨╛ reason_code=vision_failed).
++        detail = f"http_{status}"
++        text = _probe_error_text(body)
++        if text:
++            if _looks_like_image_rejection(text):
++                detail += "/image_rejected"
++            elif _looks_like_modality_refusal(text):
++                detail += "/modality_refused"
++            elif _looks_like_model_missing(text):
++                detail += "/model_missing"
++        raise VisionError("vision_failed", detail)
+     usage = (body or {}).get("usage") or {}
+     try:
+         from services import usage_events
+@@ -2029,10 +2083,13 @@ async def process_asset_job(job: dict, *, db=None, bot=None,
+     try:
+         image = await download_telegram_file(bot, file_id)
+     except VisionError as exc:
++        # POSTGEN-DIAG: ╨║╨╗╨░╤Б╤Б ╨┐╤А╨╕╤З╨╕╨╜╤Л (`detail`) ╨┤╨╛╨╡╨╖╨╢╨░╨╡╤В ╨┤╨╛ stage-╤Б╨╛╨▒╤Л╤В╨╕╤П тАФ
++        # ╨┐╤А╨╛╨┤-╤Д╨░╨║╤В ┬л6 unreadable ╨▒╨╡╨╖ ╨║╨╗╨░╤Б╤Б╨░┬╗ ╨▒╨╛╨╗╤М╤И╨╡ ╨╜╨╡ ╨┐╨╛╨▓╤В╨╛╤А╨╕╤В╤Б╤П.
+         await _finish_analysis_or_job(
+             db, None, 0, job, _finish, exc.reason,
+             _STATUS_BY_REASON.get(exc.reason, "failed"),
+-            chat_id=chat_id, asset_id=asset_id, stage="download")
++            chat_id=chat_id, asset_id=asset_id, stage="download",
++            detail=str(getattr(exc, "detail", "") or ""))
+         _note_breaker(exc.reason in ("vision_unavailable",
+                                      "vision_rate_limited"))
+         return
+@@ -2211,11 +2268,17 @@ def _retry_allowed(job: dict, reason: str, attempt: int) -> bool:
+ async def _finish_analysis_or_job(db, analysis_id: int, row_revision: int,
+                                   job: dict, finish_job, reason: str,
+                                   status: str, *, chat_id: int,
+-                                  asset_id: str, stage: str = "vision"
++                                  asset_id: str, stage: str = "vision",
++                                  detail: str = ""
+                                   ) -> None:
+     """╨з╨╡╤Б╤В╨╜╨░╤П ╤Д╨╕╨║╤Б╨░╤Ж╨╕╤П ╨╜╨╡╤Г╤Б╨┐╨╡╤Е╨░: CAS-finish analysis-╤Б╤В╤А╨╛╨║╨╕ (╨╡╤Б╨╗╨╕ ╨╜╨░╤И╨░) +
+     ╤В╨╡╤А╨╝╨╕╨╜╨░╨╗╤М╨╜╤Л╨╣ ╨╕╤Б╤Е╨╛╨┤ ╨┤╨╢╨╛╨▒╤Л ╤Б reason ╨╕╨╖ ╤Д╨╕╨╜╨░╨╗╤М╨╜╨╛╨│╨╛ ╤Б╨╗╨╛╨▓╨░╤А╤П (269).
+-    Retryable-╨┐╤А╨╕╤З╨╕╨╜╤Л тЖТ bounded backoff-retry (next_retry_at), ╨╜╨╡ ╤В╨╡╤А╨╝╨╕╨╜╨░╨╗."""
++    Retryable-╨┐╤А╨╕╤З╨╕╨╜╤Л тЖТ bounded backoff-retry (next_retry_at), ╨╜╨╡ ╤В╨╡╤А╨╝╨╕╨╜╨░╨╗.
++
++    POSTGEN-DIAG: ``detail`` тАФ R17-safe ╨║╨╗╨░╤Б╤Б ╨┐╤А╨╕╤З╨╕╨╜╤Л (VisionError.detail:
++    `empty image`/`not a supported raster image`/`unsupported format тАж`/
++    `image exceeds тАж`) ╤Г╤Е╨╛╨┤╨╕╤В ╨▓ stage-╤Б╨╛╨▒╤Л╤В╨╕╤П (`error_json`), ╤З╤В╨╛╨▒╤Л ╨╛╤В╨║╨░╨╖╤Л
++    ╨╜╨╡ ╨▒╤Л╨╗╨╕ ┬л╨▒╨╡╨╖ ╨║╨╗╨░╤Б╤Б╨░┬╗ (╨┐╤А╨╛╨┤-╤Д╨░╨║╤В VISION_DL_STAGE=6)."""
+     try:
+         if analysis_id:
+             await db.finish_media_analysis(
+@@ -2223,6 +2286,7 @@ async def _finish_analysis_or_job(db, analysis_id: int, row_revision: int,
+                 error_reason=reason)
+     except Exception:
+         logger.warning("[vision] analysis finish failed", exc_info=True)
++    error_json = {"detail": detail} if detail else None
+     retryable = reason in ("vision_unavailable", "vision_rate_limited")
+     if retryable:
+         attempt = int(job.get("attempt") or 0)
+@@ -2237,14 +2301,16 @@ async def _finish_analysis_or_job(db, analysis_id: int, row_revision: int,
+                     pipeline_stage_event(stage, "skipped",
+                                          reason_code=reason,
+                                          chat_id=chat_id,
+-                                         operation_id=asset_id)
++                                         operation_id=asset_id,
++                                         error_json=error_json)
+                     return
+                 except Exception:
+                     logger.warning("[vision] retry schedule failed",
+                                    exc_info=True)
+     await finish_job("failed", reason)
+     pipeline_stage_event(stage, "failed", reason_code=reason,
+-                         chat_id=chat_id, operation_id=asset_id)
++                         chat_id=chat_id, operation_id=asset_id,
++                         error_json=error_json)
+     notify_analysis_ready(asset_id)
+ 
+ 
+diff --git a/services/postgen_vision.py b/services/postgen_vision.py
+index 7530f2f5..15f569ff 100644
+--- a/services/postgen_vision.py
++++ b/services/postgen_vision.py
+@@ -111,9 +111,14 @@ class PostgenVisionOutcome:
+ 
+     ``ready`` тАФ ╤А╨╡╨░╨╗╤М╨╜╨╛ ╤А╨░╤Б╨┐╨╛╨╖╨╜╨░╨╜╨╜╤Л╨╣ ╤Д╨╕╨╜╨░╨╗╤М╨╜╤Л╨╣ bitmap; ╨╛╤Б╤В╨░╨╗╤М╨╜╤Л╨╡ ╤Б╤В╨░╤В╤Г╤Б╤Л
+     ╨╛╨╖╨╜╨░╤З╨░╤О╤В ┬л╨┐╨╛╨┤╤В╨▓╨╡╤А╨╢╨┤╤С╨╜╨╜╨╛╨│╨╛ ╨▓╨╕╨╖╤Г╨░╨╗╤М╨╜╨╛╨│╨╛ ╤А╨╡╨╖╤Г╨╗╤М╤В╨░╤В╨░ ╨╜╨╡╤В┬╗ ╨╕ ╨╜╨╡ ╨┤╨░╤О╤В ╨┐╤А╨░╨▓╨░
+-    ╨╛╨┐╨╕╤Б╤Л╨▓╨░╤В╤М ╤Б╨╛╨┤╨╡╤А╨╢╨╕╨╝╨╛╨╡ ╨║╨░╤А╤В╨╕╨╜╨║╨╕."""
++    ╨╛╨┐╨╕╤Б╤Л╨▓╨░╤В╤М ╤Б╨╛╨┤╨╡╤А╨╢╨╕╨╝╨╛╨╡ ╨║╨░╤А╤В╨╕╨╜╨║╨╕.
++
++    POSTGEN-DIAG: ``detail`` тАФ R17-safe ╨║╨╗╨░╤Б╤Б ╨┐╤А╨╕╤З╨╕╨╜╤Л (VisionError.detail:
++    `http_400/image_rejected`, `timeout`, `RuntimeError`, тАж): ╨┐╤А╨╛╨▓╨░╨╣╨┤╨╡╤А-╨╛╤И╨╕╨▒╨║╨╕
++    ╨▒╨╛╨╗╤М╤И╨╡ ╨╜╨╡ ╨╝╨░╤Б╨║╨╕╤А╤Г╤О╤В╤Б╤П ╨▓ ╨╛╨┤╨╕╨╜ `vision_failed` ╨▒╨╡╨╖ ╨║╨╗╨░╤Б╤Б╨░."""
+     status: str
+     reason: str = ""
++    detail: str = ""
+     visible_reason: str = ""
+     visual_description: str = ""
+     ocr_blocks: tuple = ()
+@@ -154,7 +159,7 @@ def _store(key: tuple[int, str], outcome: PostgenVisionOutcome) -> None:
+ 
+ 
+ def _emit(outcome: PostgenVisionOutcome, *, chat_id: int | None) -> None:
+-    """R17-safe ╨╜╨░╨▒╨╗╤О╨┤╨░╨╡╨╝╨╛╤Б╤В╤М: ╤В╨╛╨╗╤М╨║╨╛ ╤Б╤В╨░╤В╤Г╤Б/╨║╨╛╨┤; ╨▒╨╡╨╖ bytes/OCR/╨╛╨┐╨╕╤Б╨░╨╜╨╕╨╣."""
++    """R17-safe ╨╜╨░╨▒╨╗╤О╨┤╨░╨╡╨╝╨╛╤Б╤В╤М: ╤В╨╛╨╗╤М╨║╨╛ ╤Б╤В╨░╤В╤Г╤Б/╨║╨╛╨┤/╨║╨╗╨░╤Б╤Б; ╨▒╨╡╨╖ bytes/OCR."""
+     try:
+         from services.mca_events import emit_mca_event
+         if outcome.status in (STATUS_READY, STATUS_NO_TEXT):
+@@ -169,7 +174,8 @@ def _emit(outcome: PostgenVisionOutcome, *, chat_id: int | None) -> None:
+             "image_postgen_vision", outcome=event_outcome, level=level,
+             component="image_generation",
+             reason_code=outcome.reason or None,
+-            chat_id=chat_id)
++            chat_id=chat_id,
++            error_json={"detail": outcome.detail} if outcome.detail else None)
+     except Exception:      # pragma: no cover - ╤В╨╡╨╗╨╡╨╝╨╡╤В╤А╨╕╤П ╨╜╨╡ ╤А╨▓╤С╤В ╤Е╨╛╨┤
+         pass
+ 
+@@ -245,24 +251,86 @@ async def analyze_generated_image(data: bytes, *, chat_id: int,
+             transport=transport)
+     except asyncio.CancelledError:
+         raise
+-    except Exception:
+-        logger.warning("[postgen] vision analysis failed | chat=%s",
+-                       chat_id, exc_info=True)
+-        outcome = PostgenVisionOutcome(STATUS_FAILED, reason="vision_failed")
++    except Exception as exc:
++        logger.warning("[vision] postgen analysis failed | chat=%s | "
++                       "class=%s", chat_id, type(exc).__name__,
++                       exc_info=True)
++        outcome = PostgenVisionOutcome(STATUS_FAILED, reason="vision_failed",
++                                       detail=type(exc).__name__)
+     _store(key, outcome)
+     _emit(outcome, chat_id=chat_id)
+-    logger.info("[postgen] vision | chat=%s | status=%s | reason=%s | "
+-                "bytes=%d | ms=%d", chat_id, outcome.status,
+-                outcome.reason or "-", len(data),
++    logger.info("[vision] postgen | chat=%s | status=%s | reason=%s | "
++                "detail=%s | bytes=%d | ms=%d", chat_id, outcome.status,
++                outcome.reason or "-", outcome.detail or "-", len(data),
+                 int((time.monotonic() - started) * 1000))
+     return outcome
+ 
+ 
++#: ╨Ъ╨╗╨░╤Б╤Б╤Л ╨┐╤А╨╛╨▓╨░╨╣╨┤╨╡╤А-╨╛╤В╨║╨░╨╖╨╛╨▓, ╨┐╤А╨╕ ╨║╨╛╤В╨╛╤А╤Л╤Е ╨╕╨╝╨╡╨╡╤В ╤Б╨╝╤Л╤Б╨╗ ╨Ю╨Ф╨Ш╨Э bounded retry ╤Б
++#: ╨╜╨╛╤А╨╝╨░╨╗╨╕╨╖╨╛╨▓╨░╨╜╨╜╤Л╨╝ (╨╝╨╡╨╜╤М╤И╨╕╨╝/╤Б╨╛╨▓╨╝╨╡╤Б╤В╨╕╨╝╤Л╨╝) JPEG: image-class 4xx.
++_RETRY_STATUS_PREFIXES = ("http_400", "http_413", "http_415", "http_422")
++#: ╨Ь╨╕╨╜╨╕╨╝╨░╨╗╤М╨╜╤Л╨╣ ╨╛╤Б╤В╨░╤В╨╛╨║ ╨▒╤О╨┤╨╢╨╡╤В╨░, ╨┐╤А╨╕ ╨║╨╛╤В╨╛╤А╨╛╨╝ retry ╨╡╤Й╤С ╨╛╤Б╨╝╤Л╤Б╨╗╨╡╨╜ (╤Б╨╡╨║╤Г╨╜╨┤╤Л).
++_RETRY_MIN_SECONDS = 3.0
++
++
++def _remaining(deadline: float) -> float:
++    return deadline - time.monotonic()
++
++
++def _is_image_class_rejection(exc) -> bool:
++    """Image-class ╨╛╤В╨║╨░╨╖ ╨┐╤А╨╛╨▓╨░╨╣╨┤╨╡╤А╨░ (400/413/415/422 ╨╕╨╗╨╕ ╤П╨▓╨╜╨░╤П ╤Б╨╡╨╝╨░╨╜╤В╨╕╨║╨░
++    ┬лimage rejected┬╗) тАФ ╨║╨░╨╜╨┤╨╕╨┤╨░╤В ╨╜╨░ retry ╨╜╨╛╤А╨╝╨░╨╗╨╕╨╖╨╛╨▓╨░╨╜╨╜╤Л╨╝ payload."""
++    detail = str(getattr(exc, "detail", "") or "")
++    if "/image_rejected" in detail:
++        return True
++    return any(detail.startswith(prefix) for prefix in _RETRY_STATUS_PREFIXES)
++
++
++async def _attempt(image, *, chat_id: int, transport, correlation_id,
++                   timeout: float):
++    """╨Ю╨┤╨╕╨╜ bounded ╨▓╤Л╨╖╨╛╨▓ ╨░╨╜╨░╨╗╨╕╨╖╨░╤В╨╛╤А╨░ (╨╛╨▒╤Й╨╕╨╣ ╨▒╤О╨┤╨╢╨╡╤В ╨║╨╛╨╜╤В╤Г╤А╨░)."""
++    from services import mca_vision
++    return await asyncio.wait_for(
++        mca_vision.analyze_image_bytes(
++            image, chat_id=int(chat_id), transport=transport,
++            correlation_id=correlation_id),
++        timeout=max(0.05, float(timeout)))
++
++
++async def _normalized_retry_image(exc, image, deadline: float):
++    """Image ╨д╨Р╨Ъ╨в╨Ш╨з╨Х╨б╨Ъ╨Ш ╨╛╤В╨┐╤А╨░╨▓╨╗╨╡╨╜╨╜╨╛╨│╨╛ ╨╕╨╖╨╛╨▒╤А╨░╨╢╨╡╨╜╨╕╤П, ╨╡╤Б╨╗╨╕ retry ╨╛╤Б╨╝╤Л╤Б╨╗╨╡╨╜.
++
++    None тАФ ╨╜╨╡ image-class ╨╛╤В╨║╨░╨╖ / ╤А╤Г╨▒╨╕╨╗╤М╨╜╨╕╨║ OFF / ╨╜╨╡╤В ╨║╨╛╨┤╨╡╨║╨░ / ╨╜╨╛╤А╨╝╨░╨╗╨╕╨╖╨░╤Ж╨╕╤П
++    ╨╜╨╡ ╤Г╨╝╨╡╨╜╤М╤И╨╕╨╗╨░ payload / ╨╜╨╡ ╤Е╨▓╨░╤В╨░╨╡╤В ╨╛╤Б╤В╨░╤В╨║╨░ ╨▒╤О╨┤╨╢╨╡╤В╨░. Retry ╨Э╨Х ╨╝╨░╤Б╨║╨╕╤А╤Г╨╡╤В
++    ╨╛╤И╨╕╨▒╨║╤Г: ╤Д╨╕╨╜╨░╨╗╤М╨╜╤Л╨╣ ╨╛╤В╨║╨░╨╖ ╨┐╨╛-╨┐╤А╨╡╨╢╨╜╨╡╨╝╤Г ╨╜╨╡╤Б╤С╤В detail ╨┐╨╛╤Б╨╗╨╡╨┤╨╜╨╡╨╣ ╨┐╨╛╨┐╤Л╤В╨║╨╕."""
++    if not _is_image_class_rejection(exc):
++        return None
++    if _remaining(deadline) < _RETRY_MIN_SECONDS:
++        return None
++    from services import image_normalize, mca_vision
++    normalized = await image_normalize.normalize_jpeg_bytes_async(image.data)
++    if not normalized or len(normalized) >= len(image.data):
++        return None
++    try:
++        retry_image = mca_vision.validate_image_bytes(normalized)
++    except mca_vision.VisionError:
++        return None
++    logger.info("[vision] postgen retry with normalized payload | in=%d | "
++                "out=%d | detail=%s", len(image.data), len(normalized),
++                str(getattr(exc, "detail", "") or ""))
++    return retry_image
++
++
+ async def _analyze_uncached(data: bytes, *, chat_id: int,
+                             correlation_id: str | None,
+                             transport=None) -> PostgenVisionOutcome:
+     """╨Т╨╜╤Г╤В╤А╨╡╨╜╨╜╨╕╨╣ ╨┐╤Г╤В╤М ╨▒╨╡╨╖ ╨┤╨╡╨┤╤Г╨┐-╨║╨╡╤И╨░: effective-╨│╨╡╨╣╤В тЖТ ╨░╨┤╨░╨┐╤В╨╡╤А ╨▓╤Е╨╛╨┤╨░ тЖТ
+-    ╨Х╨Ф╨Ш╨Э╨л╨Щ ╨░╨╜╨░╨╗╨╕╨╖╨░╤В╨╛╤А MCA-19. ╨Т╤Б╨╡ ╨╛╤В╨║╨░╨╖╤Л тЖТ ╤З╨╡╤Б╤В╨╜╤Л╨╡ ╤Б╤В╨░╤В╤Г╤Б╤Л."""
++    ╨Х╨Ф╨Ш╨Э╨л╨Щ ╨░╨╜╨░╨╗╨╕╨╖╨░╤В╨╛╤А MCA-19. ╨Т╤Б╨╡ ╨╛╤В╨║╨░╨╖╤Л тЖТ ╤З╨╡╤Б╤В╨╜╤Л╨╡ ╤Б╤В╨░╤В╤Г╤Б╤Л ╤Б detail.
++
++    POSTGEN-DIAG: (1) ╨▓╤Е╨╛╨┤ ╨┐╤А╨╛╤Е╨╛╨┤╨╕╤В `validate_or_normalize` (╨┤╨╡╨║╨╛╨┤-╤Д╨╛╨╗╨╗╨▒╤Н╨║
++    ╨┤╨╗╤П ╤Д╨╛╤А╨╝╨░╤В╨╛╨▓, ╨║╨╛╤В╨╛╤А╤Л╨╡ ╤Б╨╜╨╕╤Д╤Д╨╡╤А ╨╜╨╡ ╨╖╨╜╨░╨╡╤В); (2) image-class ╨╛╤В╨║╨░╨╖ ╨┐╤А╨╛╨▓╨░╨╣╨┤╨╡╤А╨░
++    (400/413/415/422) тАФ ╨а╨Ю╨Т╨Э╨Ю ╨╛╨┤╨╕╨╜ retry ╤Б ╨╜╨╛╤А╨╝╨░╨╗╨╕╨╖╨╛╨▓╨░╨╜╨╜╤Л╨╝ ╨╝╨╡╨╜╤М╤И╨╕╨╝ JPEG ╨▓
++    ╨╛╤Б╤В╨░╤В╨║╨╡ ╨▒╤О╨┤╨╢╨╡╤В╨░; (3) detail ╨┐╤А╨╛╨▓╨░╨╣╨┤╨╡╤А╨░/╨╕╤Б╨║╨╗╤О╤З╨╡╨╜╨╕╤П ╤Б╨╛╤Е╤А╨░╨╜╤П╨╡╤В╤Б╤П."""
+     from services import mca_vision
+     try:
+         state = await mca_vision.resolve_effective_state(chat_id)
+@@ -279,23 +347,33 @@ async def _analyze_uncached(data: bytes, *, chat_id: int,
+                     timeout=min(_PROBE_BUDGET_SECONDS,
+                                 analysis_budget_seconds()))
+             except Exception:
+-                logger.warning("[postgen] capability auto probe failed | "
+-                               "chat=%s", chat_id, exc_info=True)
++                logger.warning("[vision] postgen capability auto probe "
++                               "failed | chat=%s", chat_id, exc_info=True)
+             state = await mca_vision.resolve_effective_state(chat_id)
+         if not state.effective_enabled:
+             return _outcome_from_state(state)
+-        # ╨в╨╛╤В ╨╢╨╡ ╨▓╨░╨╗╨╕╨┤╨░╤В╨╛╤А ╨╗╨╕╨╝╨╕╤В╨╛╨▓/╤Б╨╜╨╕╤Д╤Д╨╡╤А, ╤З╤В╨╛ ╤Г ╨▓╤Е╨╛╨┤╤П╤Й╨╕╤Е ╨░╨║╤В╨╕╨▓╨╛╨▓ MCA-19.
+-        image = mca_vision.validate_image_bytes(data)
+-        analysis = await asyncio.wait_for(
+-            mca_vision.analyze_image_bytes(
+-                image, chat_id=int(chat_id), transport=transport,
+-                correlation_id=correlation_id),
+-            timeout=analysis_budget_seconds())
++        deadline = time.monotonic() + analysis_budget_seconds()
++        # ╨в╨╛╤В ╨╢╨╡ ╨▓╨░╨╗╨╕╨┤╨░╤В╨╛╤А/╨┤╨╡╨║╨╛╨┤-╤Д╨╛╨╗╨╗╨▒╤Н╨║, ╤З╤В╨╛ ╤Г ╨▓╤Е╨╛╨┤╤П╤Й╨╕╤Е ╨░╨║╤В╨╕╨▓╨╛╨▓ MCA-19.
++        image = await mca_vision.validate_or_normalize(data)
++        try:
++            analysis = await _attempt(
++                image, chat_id=chat_id, transport=transport,
++                correlation_id=correlation_id,
++                timeout=_remaining(deadline))
++        except mca_vision.VisionError as exc:
++            retry_image = await _normalized_retry_image(exc, image, deadline)
++            if retry_image is None:
++                raise
++            analysis = await _attempt(
++                retry_image, chat_id=chat_id, transport=transport,
++                correlation_id=correlation_id,
++                timeout=_remaining(deadline))
+         return _outcome_from_analysis(analysis)
+     except mca_vision.VisionError as exc:
+         reason = str(getattr(exc, "reason", "") or "vision_failed")
+         return PostgenVisionOutcome(
+-            _REASON_TO_STATUS.get(reason, STATUS_FAILED), reason=reason)
++            _REASON_TO_STATUS.get(reason, STATUS_FAILED), reason=reason,
++            detail=str(getattr(exc, "detail", "") or ""))
+     except (asyncio.TimeoutError, TimeoutError):
+         # Bounded latency: ╨╜╨╡ ╨╢╨┤╤С╨╝ ╨┐╤А╨╛╨▓╨░╨╣╨┤╨╡╤А╨░ ╨┤╨╛╨╗╤М╤И╨╡ ╨▒╤О╨┤╨╢╨╡╤В╨░ тАФ ╤З╨╡╤Б╤В╨╜╤Л╨╣
+         # pending (┬л╨┐╨╛╤Б╨╝╨╛╤В╤А╤О┬╗ тЙа ┬л╨┐╨╛╤Б╨╝╨╛╤В╤А╨╡╨╗┬╗); ╨┤╨╛╤Б╤В╨░╨▓╨║╨░ ╨╜╨╡ ╨▒╨╗╨╛╨║╨╕╤А╤Г╨╡╤В╤Б╤П.

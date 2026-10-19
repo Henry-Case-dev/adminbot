@@ -1,0 +1,5 @@
+E2E-1 TIFF→fallback: ready
+  calls: 1 payload: 927
+E2E-2 400→retry→ready: True | calls: 2 | payloads: [361091, 927]
+E2E-3 500: <image_analysis status="failed" reason="vision_failed"/> | calls: 1
+E2E OK

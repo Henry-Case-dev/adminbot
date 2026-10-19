@@ -1102,6 +1102,12 @@ def sniff_image(data: bytes) -> tuple[str, int, int] | None:
                 offset += 1
                 continue
             marker = data[offset + 1]
+            if marker == 0xFF:
+                # POSTGEN-DIAG: легальные fill-байты 0xFF между маркерами
+                # (JPEG spec); раньше десинхронизировали скан → ложный
+                # `vision_unreadable` на реальных фото.
+                offset += 1
+                continue
             if marker in (0xD8, 0x01) or 0xD0 <= marker <= 0xD7:
                 offset += 2
                 continue
@@ -1166,6 +1172,40 @@ def validate_image_bytes(data: bytes, *, declared_mime: str = "") \
                            width=width, height=height, byte_size=len(data))
 
 
+async def validate_or_normalize(data: bytes, *, declared_mime: str = "") \
+        -> DownloadedImage:
+    """POSTGEN-DIAG: валидатор → bounded декод-фоллбэк при `unreadable`.
+
+    Сначала — существующий синхронный `validate_image_bytes` (байт-в-байт
+    паритет для валидных входов). Только при `vision_unreadable` — ОДИН
+    bounded фоллбэк: нормализация в JPEG (`services/image_normalize`, кодек —
+    Pillow/ffmpeg из окружения), затем повторная валидация результата.
+
+    Честность: рубильник OFF / нет кодека / не декодируется → исходный
+    VisionError с исходным `detail` (поведение прежнее); провайдер получает
+    нормализованный JPEG, но это тот же кадр (ресайз/перекодировка), а не
+    второй pipeline (анализатор — тот же `analyze_image_bytes`)."""
+    try:
+        return validate_image_bytes(data, declared_mime=declared_mime)
+    except VisionError as exc:
+        if exc.reason != "vision_unreadable":
+            raise
+        from services import image_normalize
+        normalized = await image_normalize.normalize_jpeg_bytes_async(data)
+        if not normalized:
+            raise
+        try:
+            img = validate_image_bytes(
+                normalized, declared_mime=declared_mime or "image/jpeg")
+        except VisionError:
+            raise exc
+        logger.info("[vision] unreadable rescued via normalization | "
+                    "in=%d | out=%d | detail=%s", len(data), len(normalized),
+                    exc.detail)
+        return dataclasses.replace(
+            img, declared_mime=declared_mime or img.declared_mime)
+
+
 async def download_telegram_file(bot, file_id: str, *,
                                  semaphore: asyncio.Semaphore | None = None
                                  ) -> DownloadedImage:
@@ -1182,7 +1222,7 @@ async def download_telegram_file(bot, file_id: str, *,
         buffer = _io.BytesIO()
         await bot.download(tg_file, destination=buffer)
         data = buffer.getvalue()
-    return validate_image_bytes(data)
+    return await validate_or_normalize(data)
 
 
 async def fetch_external_image(url: str, *, fetcher=None) -> DownloadedImage:
@@ -1197,9 +1237,9 @@ async def fetch_external_image(url: str, *, fetcher=None) -> DownloadedImage:
         fetcher = SafeFetcher()
     response = await fetcher.fetch(
         url, profile="image", max_bytes=mca_gates.vision_max_bytes())
-    return validate_image_bytes(bytes(response.body),
-                                declared_mime=str(
-                                    response.headers.get("content-type", "")))
+    return await validate_or_normalize(
+        bytes(response.body),
+        declared_mime=str(response.headers.get("content-type", "")))
 
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -1472,7 +1512,21 @@ async def analyze_image_bytes(image: DownloadedImage, *, chat_id: int,
     if status in (401, 403):
         raise VisionError("vision_unavailable", f"http_{status}")
     if not (200 <= status < 300):
-        raise VisionError("vision_failed", f"http_{status}")
+        # POSTGEN-DIAG: провайдер-ошибка НЕ маскируется — R17-safe класс
+        # ответа (`http_<status>` + семантика из тела) уходит в detail:
+        # по нему принимается решение о bounded retry (image-class отказ)
+        # и виден настоящий класс в логах/событиях (прод-факт ACCEPTANCE-94:
+        # в событии оставался только reason_code=vision_failed).
+        detail = f"http_{status}"
+        text = _probe_error_text(body)
+        if text:
+            if _looks_like_image_rejection(text):
+                detail += "/image_rejected"
+            elif _looks_like_modality_refusal(text):
+                detail += "/modality_refused"
+            elif _looks_like_model_missing(text):
+                detail += "/model_missing"
+        raise VisionError("vision_failed", detail)
     usage = (body or {}).get("usage") or {}
     try:
         from services import usage_events
@@ -2029,10 +2083,13 @@ async def process_asset_job(job: dict, *, db=None, bot=None,
     try:
         image = await download_telegram_file(bot, file_id)
     except VisionError as exc:
+        # POSTGEN-DIAG: класс причины (`detail`) доезжает до stage-события —
+        # прод-факт «6 unreadable без класса» больше не повторится.
         await _finish_analysis_or_job(
             db, None, 0, job, _finish, exc.reason,
             _STATUS_BY_REASON.get(exc.reason, "failed"),
-            chat_id=chat_id, asset_id=asset_id, stage="download")
+            chat_id=chat_id, asset_id=asset_id, stage="download",
+            detail=str(getattr(exc, "detail", "") or ""))
         _note_breaker(exc.reason in ("vision_unavailable",
                                      "vision_rate_limited"))
         return
@@ -2211,11 +2268,17 @@ def _retry_allowed(job: dict, reason: str, attempt: int) -> bool:
 async def _finish_analysis_or_job(db, analysis_id: int, row_revision: int,
                                   job: dict, finish_job, reason: str,
                                   status: str, *, chat_id: int,
-                                  asset_id: str, stage: str = "vision"
+                                  asset_id: str, stage: str = "vision",
+                                  detail: str = ""
                                   ) -> None:
     """Честная фиксация неуспеха: CAS-finish analysis-строки (если наша) +
     терминальный исход джобы с reason из финального словаря (269).
-    Retryable-причины → bounded backoff-retry (next_retry_at), не терминал."""
+    Retryable-причины → bounded backoff-retry (next_retry_at), не терминал.
+
+    POSTGEN-DIAG: ``detail`` — R17-safe класс причины (VisionError.detail:
+    `empty image`/`not a supported raster image`/`unsupported format …`/
+    `image exceeds …`) уходит в stage-события (`error_json`), чтобы отказы
+    не были «без класса» (прод-факт VISION_DL_STAGE=6)."""
     try:
         if analysis_id:
             await db.finish_media_analysis(
@@ -2223,6 +2286,7 @@ async def _finish_analysis_or_job(db, analysis_id: int, row_revision: int,
                 error_reason=reason)
     except Exception:
         logger.warning("[vision] analysis finish failed", exc_info=True)
+    error_json = {"detail": detail} if detail else None
     retryable = reason in ("vision_unavailable", "vision_rate_limited")
     if retryable:
         attempt = int(job.get("attempt") or 0)
@@ -2237,14 +2301,16 @@ async def _finish_analysis_or_job(db, analysis_id: int, row_revision: int,
                     pipeline_stage_event(stage, "skipped",
                                          reason_code=reason,
                                          chat_id=chat_id,
-                                         operation_id=asset_id)
+                                         operation_id=asset_id,
+                                         error_json=error_json)
                     return
                 except Exception:
                     logger.warning("[vision] retry schedule failed",
                                    exc_info=True)
     await finish_job("failed", reason)
     pipeline_stage_event(stage, "failed", reason_code=reason,
-                         chat_id=chat_id, operation_id=asset_id)
+                         chat_id=chat_id, operation_id=asset_id,
+                         error_json=error_json)
     notify_analysis_ready(asset_id)
 
 

@@ -1,0 +1,474 @@
+﻿FFFFFFFFFFFFFFFFFFFFFFFFF                                                [100%]
+================================== FAILURES ===================================
+_______________ TestSniffFalseNegative.test_plain_jpeg_readable _______________
+
+self = <tests.test_postgen_diag.TestSniffFalseNegative object at 0x00000251E2D0EDE0>
+
+    def test_plain_jpeg_readable(self):
+        sniffed = mca_vision.sniff_image(JPEG_FILLBYTE)
+>       assert sniffed is not None
+E       assert None is not None
+
+tests\test_postgen_diag.py:149: AssertionError
+_____________ TestSniffFalseNegative.test_fillbyte_jpeg_readable ______________
+
+self = <tests.test_postgen_diag.TestSniffFalseNegative object at 0x00000251E30138C0>
+
+    def test_fillbyte_jpeg_readable(self):
+        """0xFF-fill ╨┐╨╡╤А╨╡╨┤ SOF (╨╗╨╡╨│╨░╨╗╤М╨╜╨╛, Pillow ╨┤╨╡╨║╨╛╨┤╨╕╤А╤Г╨╡╤В) тАФ ╨╜╨╡ unreadable."""
+        sniffed = mca_vision.sniff_image(JPEG_FILLBYTE)
+>       assert sniffed is not None, "fill-╨▒╨░╨╣╤В JPEG ╨╛╤В╨▓╨╡╤А╨│╨╜╤Г╤В ╤Б╨╜╨╕╤Д╤Д╨╡╤А╨╛╨╝"
+E       AssertionError: fill-╨▒╨░╨╣╤В JPEG ╨╛╤В╨▓╨╡╤А╨│╨╜╤Г╤В ╤Б╨╜╨╕╤Д╤Д╨╡╤А╨╛╨╝
+E       assert None is not None
+
+tests\test_postgen_diag.py:155: AssertionError
+__________ TestSniffFalseNegative.test_multiple_fill_bytes_readable ___________
+
+self = <tests.test_postgen_diag.TestSniffFalseNegative object at 0x00000251E3012090>
+
+    def test_multiple_fill_bytes_readable(self):
+        sof = JPEG_FILLBYTE.find(b"\xff\xc0")
+        data = JPEG_FILLBYTE[:sof] + b"\xff\xff\xff" + JPEG_FILLBYTE[sof:]
+>       assert mca_vision.sniff_image(data) == ("image/jpeg", 8, 8)
+E       AssertionError: assert None == ('image/jpeg', 8, 8)
+E        +  where None = <function sniff_image at 0x00000251E30807C0>(b'\xff\xd8\xff\xe0\x00\x10JFIF\x00\x01\x01\x00\x00\x01\x00\x01\x00\x00\xff\xdb\x00C\x00\x10\x0b\x0c\x0e\x0c\n\x10\x0e\...ea\xf2\xf3\xf4\xf5\xf6\xf7\xf8\xf9\xfa\xff\xda\x00\x0c\x03\x01\x00\x02\x11\x03\x11\x00?\x00\xd0\xa2\x8a+\xc48O\xff\xd9')
+E        +    where <function sniff_image at 0x00000251E30807C0> = mca_vision.sniff_image
+
+tests\test_postgen_diag.py:164: AssertionError
+__________ TestNormalizerContract.test_codec_detection_and_fail_open __________
+
+self = <tests.test_postgen_diag.TestNormalizerContract object at 0x00000251E3013C80>
+
+    def test_codec_detection_and_fail_open(self):
+>       from services import image_normalize as inorm
+E       ImportError: cannot import name 'image_normalize' from 'services' (C:\Code\Python\adminbot\services\__init__.py)
+
+tests\test_postgen_diag.py:172: ImportError
+______________ TestNormalizerContract.test_disabled_kill_switch _______________
+
+self = <tests.test_postgen_diag.TestNormalizerContract object at 0x00000251E3098170>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000251EABFF770>
+
+    def test_disabled_kill_switch(self, monkeypatch):
+>       from services import image_normalize as inorm
+E       ImportError: cannot import name 'image_normalize' from 'services' (C:\Code\Python\adminbot\services\__init__.py)
+
+tests\test_postgen_diag.py:178: ImportError
+_______ TestNormalizerContract.test_real_codec_downscales_and_reencodes _______
+
+self = <tests.test_postgen_diag.TestNormalizerContract object at 0x00000251E30985F0>
+
+    @pytest.mark.skipif(
+        __import__("shutil").which("ffmpeg") is None
+        and __import__("importlib").util.find_spec("PIL") is None,
+        reason="╨╜╨╡╤В ╨╗╨╛╨║╨░╨╗╤М╨╜╨╛╨│╨╛ ╨║╨╛╨┤╨╡╨║╨░ (Pillow/ffmpeg)")
+    def test_real_codec_downscales_and_reencodes(self):
+        """╨а╨╡╨░╨╗╤М╨╜╤Л╨╣ ╨║╨╛╨┤╨╡╨║: ╨▒╨╛╨╗╤М╤И╨░╤П ╨║╨░╤А╤В╨╕╨╜╨║╨░ тЖТ JPEG тЙд max_dimension ╨╕ ╨╝╨╡╨╜╤М╤И╨╡."""
+>       from services import image_normalize as inorm
+E       ImportError: cannot import name 'image_normalize' from 'services' (C:\Code\Python\adminbot\services\__init__.py)
+
+tests\test_postgen_diag.py:189: ImportError
+_____________ TestNormalizerContract.test_never_raises_on_garbage _____________
+
+self = <tests.test_postgen_diag.TestNormalizerContract object at 0x00000251E3098A40>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000251EABFD610>
+
+    def test_never_raises_on_garbage(self, monkeypatch):
+>       from services import image_normalize as inorm
+E       ImportError: cannot import name 'image_normalize' from 'services' (C:\Code\Python\adminbot\services\__init__.py)
+
+tests\test_postgen_diag.py:202: ImportError
+_____________ TestValidateOrNormalize.test_valid_image_untouched ______________
+
+self = <tests.test_postgen_diag.TestValidateOrNormalize object at 0x00000251E3013C50>
+
+    @pytest.mark.asyncio
+    async def test_valid_image_untouched(self):
+        """╨С╨░╨╣╤В-╨▓-╨▒╨░╨╣╤В: ╨╛╨▒╤Л╤З╨╜╤Л╨╣ ╨▓╨░╨╗╨╕╨┤╨╜╤Л╨╣ ╨▓╤Е╨╛╨┤ ╨╜╨╡ ╨╜╨╛╤А╨╝╨░╨╗╨╕╨╖╤Г╨╡╤В╤Б╤П (╨┐╨░╤А╨╕╤В╨╡╤В)."""
+>       img = await mca_vision.validate_or_normalize(PNG_1PX)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'services.mca_vision' has no attribute 'validate_or_normalize'
+
+tests\test_postgen_diag.py:214: AttributeError
+_________ TestValidateOrNormalize.test_tiff_rescued_via_normalization _________
+
+self = <tests.test_postgen_diag.TestValidateOrNormalize object at 0x00000251E30987A0>
+
+    @pytest.mark.asyncio
+    async def test_tiff_rescued_via_normalization(self):
+        """TIFF (Pillow/ffmpeg-╨┤╨╡╨║╨╛╨┤╨╕╤А╤Г╨╡╨╝╤Л╨╣) тЖТ ╨╜╨╛╤А╨╝╨░╨╗╨╕╨╖╨╛╨▓╨░╨╜╨╜╤Л╨╣ JPEG."""
+>       from services import image_normalize as inorm
+E       ImportError: cannot import name 'image_normalize' from 'services' (C:\Code\Python\adminbot\services\__init__.py)
+
+tests\test_postgen_diag.py:220: ImportError
+_________ TestValidateOrNormalize.test_no_codec_keeps_original_detail _________
+
+self = <tests.test_postgen_diag.TestValidateOrNormalize object at 0x00000251E3098C50>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000251EB952360>
+
+    @pytest.mark.asyncio
+    async def test_no_codec_keeps_original_detail(self, monkeypatch):
+>       from services import image_normalize as inorm
+E       ImportError: cannot import name 'image_normalize' from 'services' (C:\Code\Python\adminbot\services\__init__.py)
+
+tests\test_postgen_diag.py:230: ImportError
+_________ TestValidateOrNormalize.test_kill_switch_off_keeps_original _________
+
+self = <tests.test_postgen_diag.TestValidateOrNormalize object at 0x00000251E3099100>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000251EB952450>
+
+    @pytest.mark.asyncio
+    async def test_kill_switch_off_keeps_original(self, monkeypatch):
+        _set_env("MCA_VISION_NORMALIZE_ENABLED", False, monkeypatch)
+        with pytest.raises(VisionError) as ei:
+>           await mca_vision.validate_or_normalize(TIFF_BYTES)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           AttributeError: module 'services.mca_vision' has no attribute 'validate_or_normalize'
+
+tests\test_postgen_diag.py:241: AttributeError
+______ TestValidateOrNormalize.test_download_telegram_file_uses_fallback ______
+
+self = <tests.test_postgen_diag.TestValidateOrNormalize object at 0x00000251E3099640>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000251EB952210>
+
+    @pytest.mark.asyncio
+    async def test_download_telegram_file_uses_fallback(self, monkeypatch):
+>       from services import image_normalize as inorm
+E       ImportError: cannot import name 'image_normalize' from 'services' (C:\Code\Python\adminbot\services\__init__.py)
+
+tests\test_postgen_diag.py:246: ImportError
+_ TestProviderErrorDetail.test_analyze_error_detail_carries_status_and_class __
+
+self = <tests.test_postgen_diag.TestProviderErrorDetail object at 0x00000251E3099C40>
+
+    @pytest.mark.asyncio
+    async def test_analyze_error_detail_carries_status_and_class(self):
+        t = _Transport((400, {"error": {"message": "image too large",
+                                        "code": "invalid_request"}}))
+>       img = mca_vision.validate_image_bytes(JPEG_FILLBYTE)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\test_postgen_diag.py:272: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+data = b'\xff\xd8\xff\xe0\x00\x10JFIF\x00\x01\x01\x00\x00\x01\x00\x01\x00\x00\xff\xdb\x00C\x00\x10\x0b\x0c\x0e\x0c\n\x10\x0e\...ea\xf2\xf3\xf4\xf5\xf6\xf7\xf8\xf9\xfa\xff\xda\x00\x0c\x03\x01\x00\x02\x11\x03\x11\x00?\x00\xd0\xa2\x8a+\xc48O\xff\xd9'
+declared_mime = ''
+
+    def validate_image_bytes(data: bytes, *, declared_mime: str = "") \
+            -> DownloadedImage:
+        """╨Ы╨╕╨╝╨╕╤В╤Л ╨╖╨░╨│╤А╤Г╨╖╨║╨╕ (D7): max bytes тЖТ MIME ╨╕ ╤Д╨░╨║╤В╨╕╤З╨╡╤Б╨║╨╕╨╣ ╤Д╨╛╤А╨╝╨░╤В (╤Б╨╜╨╕╤Д╤Д╨╡╤А)
+        тЖТ ╨┐╨╛╤В╨╛╨╗╨╛╨║ ╨┐╨╕╨║╤Б╨╡╨╗╨╡╨╣. ╨Ю╤В╨║╨░╨╖ тАФ ╤З╨╡╤Б╤В╨╜╤Л╨╣ `vision_unreadable` (TH-4: ╨▒╨╕╤В╤Л╨╡/
+        ╨┐╨╛╨┤╨╝╨╡╨╜╤С╨╜╨╜╤Л╨╡ ╨┤╨░╨╜╨╜╤Л╨╡ ╨╜╨╡ ╤А╨╡╤В╤А╨░╤П╤В╤Б╤П ╨▒╨╡╤Б╨║╨╛╨╜╨╡╤З╨╜╨╛)."""
+        max_bytes = mca_gates.vision_max_bytes()
+        if len(data) > max_bytes:
+            raise VisionError("vision_unreadable",
+                              f"image exceeds {max_bytes} bytes")
+        if not data:
+            raise VisionError("vision_unreadable", "empty image")
+        sniffed = sniff_image(data)
+        if sniffed is None:
+>           raise VisionError("vision_unreadable", "not a supported raster image")
+E           services.mca_vision.VisionError: not a supported raster image
+
+services\mca_vision.py:1157: VisionError
+_ TestProviderErrorDetail.test_analyze_error_detail_plain_status_when_no_body _
+
+self = <tests.test_postgen_diag.TestProviderErrorDetail object at 0x00000251E309A1B0>
+
+    @pytest.mark.asyncio
+    async def test_analyze_error_detail_plain_status_when_no_body(self):
+        t = _Transport((404, {}))
+>       img = mca_vision.validate_image_bytes(JPEG_FILLBYTE)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\test_postgen_diag.py:283: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+data = b'\xff\xd8\xff\xe0\x00\x10JFIF\x00\x01\x01\x00\x00\x01\x00\x01\x00\x00\xff\xdb\x00C\x00\x10\x0b\x0c\x0e\x0c\n\x10\x0e\...ea\xf2\xf3\xf4\xf5\xf6\xf7\xf8\xf9\xfa\xff\xda\x00\x0c\x03\x01\x00\x02\x11\x03\x11\x00?\x00\xd0\xa2\x8a+\xc48O\xff\xd9'
+declared_mime = ''
+
+    def validate_image_bytes(data: bytes, *, declared_mime: str = "") \
+            -> DownloadedImage:
+        """╨Ы╨╕╨╝╨╕╤В╤Л ╨╖╨░╨│╤А╤Г╨╖╨║╨╕ (D7): max bytes тЖТ MIME ╨╕ ╤Д╨░╨║╤В╨╕╤З╨╡╤Б╨║╨╕╨╣ ╤Д╨╛╤А╨╝╨░╤В (╤Б╨╜╨╕╤Д╤Д╨╡╤А)
+        тЖТ ╨┐╨╛╤В╨╛╨╗╨╛╨║ ╨┐╨╕╨║╤Б╨╡╨╗╨╡╨╣. ╨Ю╤В╨║╨░╨╖ тАФ ╤З╨╡╤Б╤В╨╜╤Л╨╣ `vision_unreadable` (TH-4: ╨▒╨╕╤В╤Л╨╡/
+        ╨┐╨╛╨┤╨╝╨╡╨╜╤С╨╜╨╜╤Л╨╡ ╨┤╨░╨╜╨╜╤Л╨╡ ╨╜╨╡ ╤А╨╡╤В╤А╨░╤П╤В╤Б╤П ╨▒╨╡╤Б╨║╨╛╨╜╨╡╤З╨╜╨╛)."""
+        max_bytes = mca_gates.vision_max_bytes()
+        if len(data) > max_bytes:
+            raise VisionError("vision_unreadable",
+                              f"image exceeds {max_bytes} bytes")
+        if not data:
+            raise VisionError("vision_unreadable", "empty image")
+        sniffed = sniff_image(data)
+        if sniffed is None:
+>           raise VisionError("vision_unreadable", "not a supported raster image")
+E           services.mca_vision.VisionError: not a supported raster image
+
+services\mca_vision.py:1157: VisionError
+_____ TestProviderErrorDetail.test_postgen_outcome_detail_on_provider_400 _____
+
+self = <tests.test_postgen_diag.TestProviderErrorDetail object at 0x00000251E309A720>
+postgen_env = None
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000251EABFF770>
+
+    @pytest.mark.asyncio
+    async def test_postgen_outcome_detail_on_provider_400(self, postgen_env,
+                                                          monkeypatch):
+>       from services import image_normalize as inorm
+E       ImportError: cannot import name 'image_normalize' from 'services' (C:\Code\Python\adminbot\services\__init__.py)
+
+tests\test_postgen_diag.py:292: ImportError
+__ TestProviderErrorDetail.test_postgen_outcome_detail_on_generic_exception ___
+
+self = <tests.test_postgen_diag.TestProviderErrorDetail object at 0x00000251E309AC90>
+postgen_env = None
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000251EABFDDC0>
+
+    @pytest.mark.asyncio
+    async def test_postgen_outcome_detail_on_generic_exception(self,
+                                                               postgen_env,
+                                                               monkeypatch):
+        async def _boom(*a, **kw):
+            raise RuntimeError("boom")
+    
+        monkeypatch.setattr(mca_vision, "validate_image_bytes", _boom)
+        outcome = await pv.analyze_generated_image(
+            JPEG_FILLBYTE, chat_id=CHAT)
+>       assert outcome.status == pv.STATUS_FAILED
+E       AssertionError: assert 'unavailable' == 'failed'
+E         
+E         - failed
+E         + unavailable
+
+tests\test_postgen_diag.py:313: AssertionError
+------------------------------ Captured log call ------------------------------
+WARNING  services.mca_events:mca_events.py:610 mca_event=image_postgen_vision | ts=1792404294 | event_name=image_postgen_vision | outcome=failed | level=WARN | component=image_generation | reason_code=vision_unavailable | chat_id=-1009001
+__________ TestProviderErrorDetail.test_postgen_event_carries_detail __________
+
+self = <tests.test_postgen_diag.TestProviderErrorDetail object at 0x00000251E309B200>
+postgen_env = None
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000251EB950CE0>
+
+    @pytest.mark.asyncio
+    async def test_postgen_event_carries_detail(self, postgen_env,
+                                                monkeypatch):
+        captured: list[dict] = []
+    
+        def _emit(name, **fields):
+            captured.append({"name": name, **fields})
+    
+        monkeypatch.setattr(mca_vision, "resolve_effective_state", _state_ok)
+        from services import mca_events
+        monkeypatch.setattr(mca_events, "emit_mca_event", _emit)
+        t = _Transport((500, {}))
+        await pv.analyze_generated_image(JPEG_FILLBYTE, chat_id=CHAT,
+                                         transport=t)
+        post = [c for c in captured if c["name"] == "image_postgen_vision"]
+>       assert post and post[-1]["error_json"]["detail"].startswith("http_500")
+                        ^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'error_json'
+
+tests\test_postgen_diag.py:331: KeyError
+___ TestProviderErrorDetail.test_job_stage_event_carries_unreadable_detail ____
+
+self = <tests.test_postgen_diag.TestProviderErrorDetail object at 0x00000251E309B740>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000251EB950F50>
+
+    @pytest.mark.asyncio
+    async def test_job_stage_event_carries_unreadable_detail(self,
+                                                             monkeypatch):
+        captured: list[dict] = []
+    
+        def _emit(name, **fields):
+            captured.append({"name": name, **fields})
+    
+        from services import mca_events
+        monkeypatch.setattr(mca_events, "emit_mca_event", _emit)
+    
+        async def _finish(status, reason, result_ref=None):
+            return None
+    
+        class _Db:
+            async def finish_media_analysis(self, *a, **kw):
+                return None
+    
+>       await mca_vision._finish_analysis_or_job(
+            _Db(), 0, 0, {"job_id": None, "attempt": 0}, _finish,
+            "vision_unreadable", "unreadable", chat_id=CHAT,
+            asset_id="a1", stage="download",
+            detail="not a supported raster image")
+E       TypeError: _finish_analysis_or_job() got an unexpected keyword argument 'detail'
+
+tests\test_postgen_diag.py:351: TypeError
+____ TestRetryWithNormalizedPayload.test_retry_on_image_class_400_succeeds ____
+
+self = <tests.test_postgen_diag.TestRetryWithNormalizedPayload object at 0x00000251E309B8C0>
+postgen_env = None
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000251EB950C80>
+
+    @pytest.mark.asyncio
+    async def test_retry_on_image_class_400_succeeds(self, postgen_env,
+                                                     monkeypatch):
+        """400 (image-class) тЖТ ╨Ю╨Ф╨Ш╨Э retry ╤Б ╨╝╨╡╨╜╤М╤И╨╕╨╝ payload тЖТ ready."""
+>       from services import image_normalize as inorm
+E       ImportError: cannot import name 'image_normalize' from 'services' (C:\Code\Python\adminbot\services\__init__.py)
+
+tests\test_postgen_diag.py:373: ImportError
+_____________ TestRetryWithNormalizedPayload.test_no_retry_on_5xx _____________
+
+self = <tests.test_postgen_diag.TestRetryWithNormalizedPayload object at 0x00000251E309ACF0>
+postgen_env = None
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000251EB97A270>
+
+    @pytest.mark.asyncio
+    async def test_no_retry_on_5xx(self, postgen_env, monkeypatch):
+>       from services import image_normalize as inorm
+E       ImportError: cannot import name 'image_normalize' from 'services' (C:\Code\Python\adminbot\services\__init__.py)
+
+tests\test_postgen_diag.py:390: ImportError
+_____________ TestRetryWithNormalizedPayload.test_no_retry_on_429 _____________
+
+self = <tests.test_postgen_diag.TestRetryWithNormalizedPayload object at 0x00000251E3099EB0>
+postgen_env = None
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000251EB97A330>
+
+    @pytest.mark.asyncio
+    async def test_no_retry_on_429(self, postgen_env, monkeypatch):
+        t = _Transport((429, {}))
+        outcome = await pv.analyze_generated_image(PNG_1PX, chat_id=CHAT,
+                                                   transport=t)
+>       assert outcome.status == pv.STATUS_RATE_LIMITED
+E       AssertionError: assert 'unavailable' == 'rate_limited'
+E         
+E         - rate_limited
+E         + unavailable
+
+tests\test_postgen_diag.py:409: AssertionError
+------------------------------ Captured log call ------------------------------
+WARNING  services.mca_events:mca_events.py:610 mca_event=image_postgen_vision | ts=1792404294 | event_name=image_postgen_vision | outcome=failed | level=WARN | component=image_generation | reason_code=vision_unavailable | chat_id=-1009001
+____ TestRetryWithNormalizedPayload.test_retry_failure_keeps_honest_detail ____
+
+self = <tests.test_postgen_diag.TestRetryWithNormalizedPayload object at 0x00000251E30992E0>
+postgen_env = None
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000251EB97BCB0>
+
+    @pytest.mark.asyncio
+    async def test_retry_failure_keeps_honest_detail(self, postgen_env,
+                                                     monkeypatch):
+>       from services import image_normalize as inorm
+E       ImportError: cannot import name 'image_normalize' from 'services' (C:\Code\Python\adminbot\services\__init__.py)
+
+tests\test_postgen_diag.py:415: ImportError
+____ TestRetryWithNormalizedPayload.test_no_retry_when_no_remaining_budget ____
+
+self = <tests.test_postgen_diag.TestRetryWithNormalizedPayload object at 0x00000251E3098740>
+postgen_env = None
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000251EB951F40>
+
+    @pytest.mark.asyncio
+    async def test_no_retry_when_no_remaining_budget(self, postgen_env,
+                                                     monkeypatch):
+>       from services import image_normalize as inorm
+E       ImportError: cannot import name 'image_normalize' from 'services' (C:\Code\Python\adminbot\services\__init__.py)
+
+tests\test_postgen_diag.py:433: ImportError
+__ TestRetryWithNormalizedPayload.test_retry_skipped_when_normalize_disabled __
+
+self = <tests.test_postgen_diag.TestRetryWithNormalizedPayload object at 0x00000251E309BE30>
+postgen_env = None
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000251EB953830>
+
+    @pytest.mark.asyncio
+    async def test_retry_skipped_when_normalize_disabled(self, postgen_env,
+                                                         monkeypatch):
+        _set_env("MCA_VISION_NORMALIZE_ENABLED", False, monkeypatch)
+        t = _Transport((400, {"error": {"message": "image too large"}}))
+        outcome = await pv.analyze_generated_image(PNG_1PX + b"\x00" * 64,
+                                                   chat_id=CHAT, transport=t)
+>       assert outcome.status == pv.STATUS_FAILED
+E       AssertionError: assert 'unavailable' == 'failed'
+E         
+E         - failed
+E         + unavailable
+
+tests\test_postgen_diag.py:453: AssertionError
+------------------------------ Captured log call ------------------------------
+WARNING  services.mca_events:mca_events.py:610 mca_event=image_postgen_vision | ts=1792404294 | event_name=image_postgen_vision | outcome=failed | level=WARN | component=image_generation | reason_code=vision_unavailable | chat_id=-1009001
+_________ TestLogVisibility.test_postgen_log_prefix_is_vision_family __________
+
+self = <tests.test_postgen_diag.TestLogVisibility object at 0x00000251E30AC470>
+postgen_env = None
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000251EB9532C0>
+caplog = <_pytest.logging.LogCaptureFixture object at 0x00000251EABFFFE0>
+
+    @pytest.mark.asyncio
+    async def test_postgen_log_prefix_is_vision_family(self, postgen_env,
+                                                       monkeypatch, caplog):
+        """╨Я╤А╨╛╨┤-╤Н╨▓╨╕╨┤╨╡╨╜╤Б ╤Д╨╕╨╗╤М╤В╤А╤Г╨╡╤В ╨┐╨╛ ┬л[vision]┬╗: ╤Б╤В╤А╨╛╨║╨░ ╨┐╨╛╤Б╤В-╨│╨╡╨╜╨░ ╨┤╨╛╨╗╨╢╨╜╨░
+        ╨┐╨╛╨┐╨░╨┤╨░╤В╤М ╨▓ ╤Б╨╡╨╝╨╡╨╣╤Б╤В╨▓╨╛ (╨╕╨╜╨░╤З╨╡ ╨┤╨╕╨░╨│╨╜╨╛╤Б╤В╨╕╨║╨░ ╤В╨╡╤А╤П╨╡╤В╤Б╤П, ╨║╨░╨║ ╨▓ ACCEPTANCE-94)."""
+        import logging
+        t = _Transport((200, _ok_body()))
+        with caplog.at_level(logging.INFO, logger="services.postgen_vision"):
+            await pv.analyze_generated_image(JPEG_FILLBYTE, chat_id=CHAT,
+                                             transport=t)
+>       text = "\n".join(r.message % r.args if r.args else r.message
+                         for r in caplog.records)
+
+tests\test_postgen_diag.py:471: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+.0 = <list_iterator object at 0x00000251EABFEE60>
+
+>   text = "\n".join(r.message % r.args if r.args else r.message
+                     ^^^^^^^^^^^^^^^^^^
+                     for r in caplog.records)
+E   TypeError: not all arguments converted during string formatting
+
+tests\test_postgen_diag.py:471: TypeError
+------------------------------ Captured log call ------------------------------
+WARNING  services.mca_events:mca_events.py:610 mca_event=image_postgen_vision | ts=1792404294 | event_name=image_postgen_vision | outcome=failed | level=WARN | component=image_generation | reason_code=vision_unreadable | chat_id=-1009001
+INFO     services.postgen_vision:postgen_vision.py:254 [postgen] vision | chat=-1009001 | status=unreadable | reason=vision_unreadable | bytes=633 | ms=0
+============================== warnings summary ===============================
+..\..\..\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\_pytest\config\__init__.py:1464
+  C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\_pytest\config\__init__.py:1464: PytestConfigWarning: Unknown config option: timeout
+  
+    self._warn_or_fail_if_strict(f"Unknown config option: {key}\n")
+
+..\..\..\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\_pytest\config\__init__.py:1464
+  C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\_pytest\config\__init__.py:1464: PytestConfigWarning: Unknown config option: timeout_method
+  
+    self._warn_or_fail_if_strict(f"Unknown config option: {key}\n")
+
+tests/test_postgen_diag.py::TestProviderErrorDetail::test_postgen_outcome_detail_on_generic_exception
+  C:\Code\Python\adminbot\services\postgen_vision.py:243: RuntimeWarning: coroutine 'TestProviderErrorDetail.test_postgen_outcome_detail_on_generic_exception.<locals>._boom' was never awaited
+    outcome = await _analyze_uncached(
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_postgen_diag.py::TestSniffFalseNegative::test_plain_jpeg_readable
+FAILED tests/test_postgen_diag.py::TestSniffFalseNegative::test_fillbyte_jpeg_readable
+FAILED tests/test_postgen_diag.py::TestSniffFalseNegative::test_multiple_fill_bytes_readable
+FAILED tests/test_postgen_diag.py::TestNormalizerContract::test_codec_detection_and_fail_open
+FAILED tests/test_postgen_diag.py::TestNormalizerContract::test_disabled_kill_switch
+FAILED tests/test_postgen_diag.py::TestNormalizerContract::test_real_codec_downscales_and_reencodes
+FAILED tests/test_postgen_diag.py::TestNormalizerContract::test_never_raises_on_garbage
+FAILED tests/test_postgen_diag.py::TestValidateOrNormalize::test_valid_image_untouched
+FAILED tests/test_postgen_diag.py::TestValidateOrNormalize::test_tiff_rescued_via_normalization
+FAILED tests/test_postgen_diag.py::TestValidateOrNormalize::test_no_codec_keeps_original_detail
+FAILED tests/test_postgen_diag.py::TestValidateOrNormalize::test_kill_switch_off_keeps_original
+FAILED tests/test_postgen_diag.py::TestValidateOrNormalize::test_download_telegram_file_uses_fallback
+FAILED tests/test_postgen_diag.py::TestProviderErrorDetail::test_analyze_error_detail_carries_status_and_class
+FAILED tests/test_postgen_diag.py::TestProviderErrorDetail::test_analyze_error_detail_plain_status_when_no_body
+FAILED tests/test_postgen_diag.py::TestProviderErrorDetail::test_postgen_outcome_detail_on_provider_400
+FAILED tests/test_postgen_diag.py::TestProviderErrorDetail::test_postgen_outcome_detail_on_generic_exception
+FAILED tests/test_postgen_diag.py::TestProviderErrorDetail::test_postgen_event_carries_detail
+FAILED tests/test_postgen_diag.py::TestProviderErrorDetail::test_job_stage_event_carries_unreadable_detail
+FAILED tests/test_postgen_diag.py::TestRetryWithNormalizedPayload::test_retry_on_image_class_400_succeeds
+FAILED tests/test_postgen_diag.py::TestRetryWithNormalizedPayload::test_no_retry_on_5xx
+FAILED tests/test_postgen_diag.py::TestRetryWithNormalizedPayload::test_no_retry_on_429
+FAILED tests/test_postgen_diag.py::TestRetryWithNormalizedPayload::test_retry_failure_keeps_honest_detail
+FAILED tests/test_postgen_diag.py::TestRetryWithNormalizedPayload::test_no_retry_when_no_remaining_budget
+FAILED tests/test_postgen_diag.py::TestRetryWithNormalizedPayload::test_retry_skipped_when_normalize_disabled
+FAILED tests/test_postgen_diag.py::TestLogVisibility::test_postgen_log_prefix_is_vision_family
+25 failed, 3 warnings in 2.81s

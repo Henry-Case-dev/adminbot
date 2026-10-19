@@ -1,0 +1,203 @@
+{
+ "variants": [
+  {
+   "case": "jpeg_939k_1024",
+   "bytes": 908723,
+   "sniff": [
+    "image/jpeg",
+    1024,
+    1024
+   ],
+   "validate": "ok",
+   "mime": "image/jpeg",
+   "dims": [
+    1024,
+    1024
+   ],
+   "pillow": "JPEG 1024x1024"
+  },
+  {
+   "case": "jpeg_1_6m_1536",
+   "bytes": 2042378,
+   "sniff": [
+    "image/jpeg",
+    1536,
+    1536
+   ],
+   "validate": "ok",
+   "mime": "image/jpeg",
+   "dims": [
+    1536,
+    1536
+   ],
+   "pillow": "JPEG 1536x1536"
+  },
+  {
+   "case": "webp_800x600",
+   "bytes": 946,
+   "sniff": [
+    "image/webp",
+    800,
+    600
+   ],
+   "validate": "ok",
+   "mime": "image/webp",
+   "dims": [
+    800,
+    600
+   ],
+   "pillow": "WEBP 800x600"
+  },
+  {
+   "case": "tiff_800x600",
+   "bytes": 1440140,
+   "sniff": null,
+   "validate": "VisionError",
+   "reason": "vision_unreadable",
+   "detail": "not a supported raster image",
+   "pillow": "TIFF 800x600"
+  },
+  {
+   "case": "heic_magic",
+   "bytes": 88,
+   "sniff": null,
+   "validate": "VisionError",
+   "reason": "vision_unreadable",
+   "detail": "not a supported raster image",
+   "pillow": "FAIL UnidentifiedImageError"
+  },
+  {
+   "case": "jpeg_truncated_4k",
+   "bytes": 4096,
+   "sniff": [
+    "image/jpeg",
+    512,
+    512
+   ],
+   "validate": "ok",
+   "mime": "image/jpeg",
+   "dims": [
+    512,
+    512
+   ],
+   "pillow": "FAIL OSError"
+  },
+  {
+   "case": "jpeg_empty",
+   "bytes": 0,
+   "sniff": null,
+   "validate": "VisionError",
+   "reason": "vision_unreadable",
+   "detail": "empty image",
+   "pillow": "FAIL UnidentifiedImageError"
+  },
+  {
+   "case": "jpeg_fillbyte_before_sof",
+   "bytes": 228631,
+   "sniff": [
+    "image/jpeg",
+    512,
+    512
+   ],
+   "validate": "ok",
+   "mime": "image/jpeg",
+   "dims": [
+    512,
+    512
+   ],
+   "pillow": "JPEG 512x512"
+  }
+ ],
+ "analyze": [
+  {
+   "case": "200_ready",
+   "status": "ready",
+   "reason": "",
+   "detail": "",
+   "provider_calls": 1,
+   "payload_chars": 1212590,
+   "image_b64_chars": 1211655
+  },
+  {
+   "case": "400_bad_request",
+   "status": "failed",
+   "reason": "vision_failed",
+   "detail": "http_400/image_rejected",
+   "provider_calls": 2,
+   "payload_chars": 672838,
+   "image_b64_chars": 671903
+  },
+  {
+   "case": "413_payload",
+   "status": "failed",
+   "reason": "vision_failed",
+   "detail": "http_413",
+   "provider_calls": 2,
+   "payload_chars": 672838,
+   "image_b64_chars": 671903
+  },
+  {
+   "case": "422",
+   "status": "failed",
+   "reason": "vision_failed",
+   "detail": "http_422",
+   "provider_calls": 2,
+   "payload_chars": 672838,
+   "image_b64_chars": 671903
+  },
+  {
+   "case": "500",
+   "status": "failed",
+   "reason": "vision_failed",
+   "detail": "http_500",
+   "provider_calls": 1,
+   "payload_chars": 1212590,
+   "image_b64_chars": 1211655
+  },
+  {
+   "case": "502",
+   "status": "failed",
+   "reason": "vision_failed",
+   "detail": "http_502",
+   "provider_calls": 1,
+   "payload_chars": 1212590,
+   "image_b64_chars": 1211655
+  },
+  {
+   "case": "429",
+   "status": "rate_limited",
+   "reason": "vision_rate_limited",
+   "detail": "http_429",
+   "provider_calls": 1,
+   "payload_chars": 1212590,
+   "image_b64_chars": 1211655
+  },
+  {
+   "case": "401",
+   "status": "unavailable",
+   "reason": "vision_unavailable",
+   "detail": "http_401",
+   "provider_calls": 1,
+   "payload_chars": 1212590,
+   "image_b64_chars": 1211655
+  },
+  {
+   "case": "timeout_exc",
+   "status": "unavailable",
+   "reason": "vision_unavailable",
+   "detail": "timeout",
+   "provider_calls": 1,
+   "payload_chars": 1212590,
+   "image_b64_chars": 1211655
+  },
+  {
+   "case": "transport_exc",
+   "status": "unavailable",
+   "reason": "vision_unavailable",
+   "detail": "transport_error:ConnectError",
+   "provider_calls": 1,
+   "payload_chars": 1212590,
+   "image_b64_chars": 1211655
+  }
+ ]
+}

@@ -111,9 +111,14 @@ class PostgenVisionOutcome:
 
     ``ready`` — реально распознанный финальный bitmap; остальные статусы
     означают «подтверждённого визуального результата нет» и не дают права
-    описывать содержимое картинки."""
+    описывать содержимое картинки.
+
+    POSTGEN-DIAG: ``detail`` — R17-safe класс причины (VisionError.detail:
+    `http_400/image_rejected`, `timeout`, `RuntimeError`, …): провайдер-ошибки
+    больше не маскируются в один `vision_failed` без класса."""
     status: str
     reason: str = ""
+    detail: str = ""
     visible_reason: str = ""
     visual_description: str = ""
     ocr_blocks: tuple = ()
@@ -154,7 +159,7 @@ def _store(key: tuple[int, str], outcome: PostgenVisionOutcome) -> None:
 
 
 def _emit(outcome: PostgenVisionOutcome, *, chat_id: int | None) -> None:
-    """R17-safe наблюдаемость: только статус/код; без bytes/OCR/описаний."""
+    """R17-safe наблюдаемость: только статус/код/класс; без bytes/OCR."""
     try:
         from services.mca_events import emit_mca_event
         if outcome.status in (STATUS_READY, STATUS_NO_TEXT):
@@ -169,7 +174,8 @@ def _emit(outcome: PostgenVisionOutcome, *, chat_id: int | None) -> None:
             "image_postgen_vision", outcome=event_outcome, level=level,
             component="image_generation",
             reason_code=outcome.reason or None,
-            chat_id=chat_id)
+            chat_id=chat_id,
+            error_json={"detail": outcome.detail} if outcome.detail else None)
     except Exception:      # pragma: no cover - телеметрия не рвёт ход
         pass
 
@@ -245,24 +251,86 @@ async def analyze_generated_image(data: bytes, *, chat_id: int,
             transport=transport)
     except asyncio.CancelledError:
         raise
-    except Exception:
-        logger.warning("[postgen] vision analysis failed | chat=%s",
-                       chat_id, exc_info=True)
-        outcome = PostgenVisionOutcome(STATUS_FAILED, reason="vision_failed")
+    except Exception as exc:
+        logger.warning("[vision] postgen analysis failed | chat=%s | "
+                       "class=%s", chat_id, type(exc).__name__,
+                       exc_info=True)
+        outcome = PostgenVisionOutcome(STATUS_FAILED, reason="vision_failed",
+                                       detail=type(exc).__name__)
     _store(key, outcome)
     _emit(outcome, chat_id=chat_id)
-    logger.info("[postgen] vision | chat=%s | status=%s | reason=%s | "
-                "bytes=%d | ms=%d", chat_id, outcome.status,
-                outcome.reason or "-", len(data),
+    logger.info("[vision] postgen | chat=%s | status=%s | reason=%s | "
+                "detail=%s | bytes=%d | ms=%d", chat_id, outcome.status,
+                outcome.reason or "-", outcome.detail or "-", len(data),
                 int((time.monotonic() - started) * 1000))
     return outcome
+
+
+#: Классы провайдер-отказов, при которых имеет смысл ОДИН bounded retry с
+#: нормализованным (меньшим/совместимым) JPEG: image-class 4xx.
+_RETRY_STATUS_PREFIXES = ("http_400", "http_413", "http_415", "http_422")
+#: Минимальный остаток бюджета, при котором retry ещё осмыслен (секунды).
+_RETRY_MIN_SECONDS = 3.0
+
+
+def _remaining(deadline: float) -> float:
+    return deadline - time.monotonic()
+
+
+def _is_image_class_rejection(exc) -> bool:
+    """Image-class отказ провайдера (400/413/415/422 или явная семантика
+    «image rejected») — кандидат на retry нормализованным payload."""
+    detail = str(getattr(exc, "detail", "") or "")
+    if "/image_rejected" in detail:
+        return True
+    return any(detail.startswith(prefix) for prefix in _RETRY_STATUS_PREFIXES)
+
+
+async def _attempt(image, *, chat_id: int, transport, correlation_id,
+                   timeout: float):
+    """Один bounded вызов анализатора (общий бюджет контура)."""
+    from services import mca_vision
+    return await asyncio.wait_for(
+        mca_vision.analyze_image_bytes(
+            image, chat_id=int(chat_id), transport=transport,
+            correlation_id=correlation_id),
+        timeout=max(0.05, float(timeout)))
+
+
+async def _normalized_retry_image(exc, image, deadline: float):
+    """Image ФАКТИЧЕСКИ отправленного изображения, если retry осмыслен.
+
+    None — не image-class отказ / рубильник OFF / нет кодека / нормализация
+    не уменьшила payload / не хватает остатка бюджета. Retry НЕ маскирует
+    ошибку: финальный отказ по-прежнему несёт detail последней попытки."""
+    if not _is_image_class_rejection(exc):
+        return None
+    if _remaining(deadline) < _RETRY_MIN_SECONDS:
+        return None
+    from services import image_normalize, mca_vision
+    normalized = await image_normalize.normalize_jpeg_bytes_async(image.data)
+    if not normalized or len(normalized) >= len(image.data):
+        return None
+    try:
+        retry_image = mca_vision.validate_image_bytes(normalized)
+    except mca_vision.VisionError:
+        return None
+    logger.info("[vision] postgen retry with normalized payload | in=%d | "
+                "out=%d | detail=%s", len(image.data), len(normalized),
+                str(getattr(exc, "detail", "") or ""))
+    return retry_image
 
 
 async def _analyze_uncached(data: bytes, *, chat_id: int,
                             correlation_id: str | None,
                             transport=None) -> PostgenVisionOutcome:
     """Внутренний путь без дедуп-кеша: effective-гейт → адаптер входа →
-    ЕДИНЫЙ анализатор MCA-19. Все отказы → честные статусы."""
+    ЕДИНЫЙ анализатор MCA-19. Все отказы → честные статусы с detail.
+
+    POSTGEN-DIAG: (1) вход проходит `validate_or_normalize` (декод-фоллбэк
+    для форматов, которые сниффер не знает); (2) image-class отказ провайдера
+    (400/413/415/422) — РОВНО один retry с нормализованным меньшим JPEG в
+    остатке бюджета; (3) detail провайдера/исключения сохраняется."""
     from services import mca_vision
     try:
         state = await mca_vision.resolve_effective_state(chat_id)
@@ -279,23 +347,33 @@ async def _analyze_uncached(data: bytes, *, chat_id: int,
                     timeout=min(_PROBE_BUDGET_SECONDS,
                                 analysis_budget_seconds()))
             except Exception:
-                logger.warning("[postgen] capability auto probe failed | "
-                               "chat=%s", chat_id, exc_info=True)
+                logger.warning("[vision] postgen capability auto probe "
+                               "failed | chat=%s", chat_id, exc_info=True)
             state = await mca_vision.resolve_effective_state(chat_id)
         if not state.effective_enabled:
             return _outcome_from_state(state)
-        # Тот же валидатор лимитов/сниффер, что у входящих активов MCA-19.
-        image = mca_vision.validate_image_bytes(data)
-        analysis = await asyncio.wait_for(
-            mca_vision.analyze_image_bytes(
-                image, chat_id=int(chat_id), transport=transport,
-                correlation_id=correlation_id),
-            timeout=analysis_budget_seconds())
+        deadline = time.monotonic() + analysis_budget_seconds()
+        # Тот же валидатор/декод-фоллбэк, что у входящих активов MCA-19.
+        image = await mca_vision.validate_or_normalize(data)
+        try:
+            analysis = await _attempt(
+                image, chat_id=chat_id, transport=transport,
+                correlation_id=correlation_id,
+                timeout=_remaining(deadline))
+        except mca_vision.VisionError as exc:
+            retry_image = await _normalized_retry_image(exc, image, deadline)
+            if retry_image is None:
+                raise
+            analysis = await _attempt(
+                retry_image, chat_id=chat_id, transport=transport,
+                correlation_id=correlation_id,
+                timeout=_remaining(deadline))
         return _outcome_from_analysis(analysis)
     except mca_vision.VisionError as exc:
         reason = str(getattr(exc, "reason", "") or "vision_failed")
         return PostgenVisionOutcome(
-            _REASON_TO_STATUS.get(reason, STATUS_FAILED), reason=reason)
+            _REASON_TO_STATUS.get(reason, STATUS_FAILED), reason=reason,
+            detail=str(getattr(exc, "detail", "") or ""))
     except (asyncio.TimeoutError, TimeoutError):
         # Bounded latency: не ждём провайдера дольше бюджета — честный
         # pending («посмотрю» ≠ «посмотрел»); доставка не блокируется.
