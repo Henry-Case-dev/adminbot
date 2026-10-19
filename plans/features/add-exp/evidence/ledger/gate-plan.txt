@@ -1,0 +1,5 @@
+# ADD-EXP ledger gate log (verbatim py -3 requirements_gate.py)
+# repo=C:\Code\Python\adminbot; date=2026-10-20; candidate=4a09e29a62488b204acea7f821b81fa31dd91e0e
+# cmd: py -3 C:\Users\main\.config\opencode\tools\requirements_gate.py check --stage plan --map plans/features/add-exp/requirements-map.json
+stage=plan inventory=20 manual=17 scoped=0 errors=0
+EXIT=0

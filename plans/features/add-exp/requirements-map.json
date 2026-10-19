@@ -2,7 +2,7 @@
   "schema": "openworkflow-coverage-v1",
   "source_path": "C:\\Code\\Python\\adminbot\\plans\\features\\add-exp\\source-add-exp-2026-10-19.md",
   "source_sha256": "2a7d0c0297dc56591396372d86c4176d3b64924e2e75194e45fd33c2052f7d9f",
-  "candidate_commit": "",
+  "candidate_commit": "4a09e29a62488b204acea7f821b81fa31dd91e0e",
   "deployed_commit": "",
   "strict_evidence": false,
   "slice_graph_path": "",
@@ -19,8 +19,17 @@
       "acceptance": "На фактических последних ответах прода (read-only, после acceptance-94) проверено реальное наличие/отсутствие мата; вывод зафиксирован evidence-файлом, а не впечатлением; сообщение владельца о скриншоте учтено как наблюдение.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "4a09e29a62488b204acea7f821b81fa31dd91e0e",
+          "type": "static",
+          "ref": "plans/features/add-exp/evidence/f0/README.md §1–§3 (Ф0, прод 2.58.94, read-only)",
+          "observation": "На проде: global `character.expression` есть (revision=1, profanity=allowed), chat-override отсутствует, effective-источник global; живой ход — мата нет; ретроспективный подсчёт ответов невозможен (bot_replies TTL 1ч, на момент пробы 0 строк) — зафиксировано честно, измерение 20–30 проб остаётся Ф6.",
+          "artifact_path": "plans/features/add-exp/evidence/f0/README.md",
+          "artifact_sha256": "b8bfce773adbc54bc23c68fdad9b11518fd6d75f7dffc89eb9441ee9f80b09b5"
+        }
+      ]
     },
     {
       "source_id": "MAN-EXP-DIAG-PAYLOAD",
@@ -34,8 +43,17 @@
       "acceptance": "До любых изменений установлено, что фактически запущено в production (ревизии/флаги/effective gates), и проверен конечный LLM payload последнего ответа (слой expression: present/absent и причина); Inspector/Preview не использованы как доказательство исполнения.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "4a09e29a62488b204acea7f821b81fa31dd91e0e",
+          "type": "static",
+          "ref": "plans/features/add-exp/evidence/f0/README.md §2/§4 (payload-трейс + классификация §3.5)",
+          "observation": "Финальный LLM payload хода: `Expression_Settings` = 0 вхождений; `composer_excluded` — основная причина (манифест/события: expression:expression_absent, durable mca_events id 72922 + journald прод-процесса), `policy_not_injected` — следствие; Inspector/Preview как доказательство не использованы.",
+          "artifact_path": "plans/features/add-exp/evidence/f0/README.md",
+          "artifact_sha256": "b8bfce773adbc54bc23c68fdad9b11518fd6d75f7dffc89eb9441ee9f80b09b5"
+        }
+      ]
     },
     {
       "source_id": "MAN-ADD-1.E1",
@@ -49,8 +67,25 @@
       "acceptance": "Мат — единое управляемое effective-правило (владелец контракта CFG-07B, profanity_use): ADD-EXP расширяет его до off/occasional/frequent и требует runtime-подключение; второй параметр/второй Core не создаются, повторная реализация запрещена.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "4a09e29a62488b204acea7f821b81fa31dd91e0e",
+          "type": "static",
+          "ref": "review-add-exp.md §«Проверено ревьюером» п.9 (запреты §8)",
+          "observation": "Единственный документ `character.expression`; второго параметра/storage не создано; рендер единый (`mca_expression` — единственный владелец значений), второй Inspector/редактор отсутствует.",
+          "artifact_path": "plans/features/add-exp/review-add-exp.md",
+          "artifact_sha256": "a369957653b32565407ec38a6134d2f8f7aab15e2bd5ee9f7887601bd9ac403b"
+        },
+        {
+          "candidate_commit": "4a09e29a62488b204acea7f821b81fa31dd91e0e",
+          "type": "test",
+          "ref": "tests/test_add_exp_expression.py (t1) — 27 passed (ревьюер)",
+          "observation": "t1: значения нормализуются одним владельцем (closed-set, alias allowed→occasional); второй владелец значений не появился.",
+          "artifact_path": "tests/test_add_exp_expression.py",
+          "artifact_sha256": "49227ae3a9c7a375341135a811d767252841ade820f03fe3edc905e3677ffb87"
+        }
+      ]
     },
     {
       "source_id": "MAN-ADD-1.E2",
@@ -64,8 +99,17 @@
       "acceptance": "Пересечение с SOUL-1 §5/§5.1 (Capability Awareness & Tool Grounding) учтено: речевые режимы мата не создают новых capability/tool-путей и не пересобирают capability-контур (SOUL-AMD.5.x / W10).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "4a09e29a62488b204acea7f821b81fa31dd91e0e",
+          "type": "static",
+          "ref": "review-add-exp.md §«Проверено ревьюером» п.10 (capability/registry-кластер)",
+          "observation": "Capability/tool-контур не пересобран: capability/registry-кластер 302 passed (прогон ревьюера); новых capability/tool-путей нет (SOUL-AMD.5.x/W10 не задеты).",
+          "artifact_path": "plans/features/add-exp/review-add-exp.md",
+          "artifact_sha256": "a369957653b32565407ec38a6134d2f8f7aab15e2bd5ee9f7887601bd9ac403b"
+        }
+      ]
     },
     {
       "source_id": "MAN-ADD-1.E3",
@@ -79,8 +123,17 @@
       "acceptance": "UI-контракты SOUL-1 переиспользуются: SOUL-10.3 («Выражение»-контролы), SOUL-10.P3 (один Inspector), SOUL-AMD.6.6 (hot reload) — ADD-EXP дорабатывает существующий редактор (режимы/миграция/effective-источник), а не строит второй редактор или второй Inspector.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "4a09e29a62488b204acea7f821b81fa31dd91e0e",
+          "type": "ui",
+          "ref": "review-add-exp.md §«Проверено» п.11 + plans/features/add-exp/evidence/build/ui-e2e.json",
+          "observation": "Доработан существующий редактор «Выражение» (те же контролы SOUL-10.3, один Inspector); UI e2e failures=0, POST=22; Browser Use: опции мата ровно «Без мата/Эпизодически/Часто»; второй редактор не построен.",
+          "artifact_path": "plans/features/add-exp/evidence/build/ui-e2e.json",
+          "artifact_sha256": "87d3a9952b44dc14d37a7cd66467acc2c8f93ef002dbc12aa2005f63b2a66bb0"
+        }
+      ]
     },
     {
       "source_id": "MAN-ADD-1.E4",
@@ -94,8 +147,25 @@
       "acceptance": "Речевые контракты SOUL-1 расширяются на Expression: SOUL-04.2 (разделение ситуационных слоёв), SOUL-16.P1 (Core/Expression/Style Policy), SOUL-02.3/AMD.1.3 (мат в Core) и SOUL-AMD.8.3 («правка реально меняет следующую генерацию») — один Core; Expression задаёт интенсивность, а не личность.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "4a09e29a62488b204acea7f821b81fa31dd91e0e",
+          "type": "test",
+          "ref": "tests/test_add_exp_expression.py (t6) + review-add-exp.md §«Проверено» п.5 (authorial wiring)",
+          "observation": "Core/канон байт-в-байт при off (t6); Expression задаёт интенсивность, а не личность; authorial-путь передаёт expression с профильной причиной — один Core, второй личности нет.",
+          "artifact_path": "tests/test_add_exp_expression.py",
+          "artifact_sha256": "49227ae3a9c7a375341135a811d767252841ade820f03fe3edc905e3677ffb87"
+        },
+        {
+          "candidate_commit": "4a09e29a62488b204acea7f821b81fa31dd91e0e",
+          "type": "static",
+          "ref": "review-add-exp.md §«Проверено» п.5 (wiring Direct/authorial)",
+          "observation": "`_compose_speech_system` и `authorial_system` передают `expression=`; один Core сохранён, Expression — интенсивность.",
+          "artifact_path": "plans/features/add-exp/review-add-exp.md",
+          "artifact_sha256": "a369957653b32565407ec38a6134d2f8f7aab15e2bd5ee9f7887601bd9ac403b"
+        }
+      ]
     },
     {
       "source_id": "MAN-ADD-1.E5",
@@ -109,8 +179,17 @@
       "acceptance": "Волна P0A-UX («Речь и характер»: иерархия, компактность, save-логика, scope/inherited) не переоткрывается: новые режимы и effective-источник встраиваются в существующую волну без регрессии её требований.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "4a09e29a62488b204acea7f821b81fa31dd91e0e",
+          "type": "ui",
+          "ref": "plans/features/add-exp/evidence/build/ui-e2e.json + review-add-exp.md §«Проверено» п.11",
+          "observation": "Волна P0A-UX не переоткрыта: UI e2e (те же 9 вьюпортов + stress/save/scope) failures=0; сетка/компактность/save-логика прежние; новые режимы встроены в существующую волну.",
+          "artifact_path": "plans/features/add-exp/evidence/build/ui-e2e.json",
+          "artifact_sha256": "87d3a9952b44dc14d37a7cd66467acc2c8f93ef002dbc12aa2005f63b2a66bb0"
+        }
+      ]
     },
     {
       "source_id": "MAN-ADD-1.E6",
@@ -124,8 +203,17 @@
       "acceptance": "Исправленная персистентность P0A-PERSIST (PG-first ConfigCache, chat-scope записи, честные 409/503) переиспользуется: пункт 3.1 ADD-EXP верифицирует запись/read-after-write поверх существующих фиксов без повторной реализации.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "4a09e29a62488b204acea7f821b81fa31dd91e0e",
+          "type": "test",
+          "ref": "review-add-exp.md §«Проверено» п.10 (§5.4-кластер 49 passed) + evidence/build/green-focused.txt",
+          "observation": "P0A-PERSIST переиспользован: §5.4-кластер (w6+persistfix+flags) 49 passed; alias→canonical read-after-write подтверждён persist-тестом; повторной реализации персистентности нет.",
+          "artifact_path": "plans/features/add-exp/evidence/build/green-focused.txt",
+          "artifact_sha256": "649303a5e05fb1e126970cf1f21a658e786019eb7b08d0b75472bcf93b66dc7b"
+        }
+      ]
     },
     {
       "source_id": "MAN-ADD-1.E7",
@@ -139,8 +227,17 @@
       "acceptance": "Единый источник пользовательского голоса сохраняется (ADTR-POSTGEN-VOICE, CFG-07A.F, SOUL-16.0): few-shot и инструкции мата не вводят новых хардкодных реплик, второго Writer или конкурирующей личности.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "4a09e29a62488b204acea7f821b81fa31dd91e0e",
+          "type": "static",
+          "ref": "review-add-exp.md §«Проверено» п.7 + evidence/build/README.md (EXP-INSTR.FEWSHOT)",
+          "observation": "Few-shot — через Sample Library (библиотечный механизм, не хардкод реплик); второй Writer/конкурирующая личность не созданы; humor-путь жёстко исключает expression_register (ADTR-POSTGEN-VOICE не дублирован).",
+          "artifact_path": "plans/features/add-exp/evidence/build/README.md",
+          "artifact_sha256": "90572043b7ae5098d3d9b21a06955bafab2b9095891fb5f2c39709fbbb2fa881"
+        }
+      ]
     },
     {
       "source_id": "MAN-EXP-UI.MODES",
@@ -154,8 +251,25 @@
       "acceptance": "В редакторе неопределённое «Как в характере (естественный)» заменено явными значениями фактического речевого поведения (без мата / эпизодически / часто); подписи объясняют реальное поведение, а не абстрактное разрешение.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "4a09e29a62488b204acea7f821b81fa31dd91e0e",
+          "type": "test",
+          "ref": "tests/test_add_exp_expression.py t1/t4/t8 + review-add-exp.md §«Проверено» п.1–2,11",
+          "observation": "«Как в характере (естественный)» заменено явными режимами off/occasional/frequent; closed-set + alias allowed→occasional; тексты §2.2 байт-в-байт 14/14; в живом DOM опции ровно «Без мата/Эпизодически/Часто».",
+          "artifact_path": "tests/test_add_exp_expression.py",
+          "artifact_sha256": "49227ae3a9c7a375341135a811d767252841ade820f03fe3edc905e3677ffb87"
+        },
+        {
+          "candidate_commit": "4a09e29a62488b204acea7f821b81fa31dd91e0e",
+          "type": "ui",
+          "ref": "review-add-exp.md §«Проверено» п.11 (Browser Use, живой DOM)",
+          "observation": "global scope: «Действует: Эпизодически — источник: заводское»; опции мата без наследования; подписи объясняют фактическое поведение.",
+          "artifact_path": "plans/features/add-exp/review-add-exp.md",
+          "artifact_sha256": "a369957653b32565407ec38a6134d2f8f7aab15e2bd5ee9f7887601bd9ac403b"
+        }
+      ]
     },
     {
       "source_id": "MAN-EXP-UI.INHERIT",
@@ -169,8 +283,17 @@
       "acceptance": "inherit — только режим наследования global→chat, а не четвёртая степень частоты; в UI видно effective-значение и его источник (global/chat); в глобальном scope effective-режим разрешён явно и проверяем, без «как в характере».",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "4a09e29a62488b204acea7f821b81fa31dd91e0e",
+          "type": "test",
+          "ref": "tests/test_add_exp_expression.py t2/t8 + review-add-exp.md §«Проверено» п.3",
+          "observation": "inherit — только режим наследования global→chat (не 4-я степень частоты; код + t2); effective-значение и источник (chat/global/factory_default) видны; в global scope inherit не предлагается (Browser Use).",
+          "artifact_path": "tests/test_add_exp_expression.py",
+          "artifact_sha256": "49227ae3a9c7a375341135a811d767252841ade820f03fe3edc905e3677ffb87"
+        }
+      ]
     },
     {
       "source_id": "MAN-EXP-UI.MIGRATION",
@@ -184,8 +307,17 @@
       "acceptance": "Существующие allowed мигрированы в occasional (либо прозрачно совместимый alias с доказанной эквивалентностью) с сохранением разрешения мата; ни один чат не переведён в frequent без согласования; override, revision, история, factory reset и настройки Core не потеряны.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "4a09e29a62488b204acea7f821b81fa31dd91e0e",
+          "type": "test",
+          "ref": "tests/test_add_exp_expression.py t3 + persist-тест + review-add-exp.md §«Проверено» п.4",
+          "observation": "allowed→occasional читается как alias без фоновых записей; revision/history/note/override/factory reset/Core не потеряны (t3, persist-тест, w6); ни один чат не переведён в frequent.",
+          "artifact_path": "tests/test_add_exp_expression.py",
+          "artifact_sha256": "49227ae3a9c7a375341135a811d767252841ade820f03fe3edc905e3677ffb87"
+        }
+      ]
     },
     {
       "source_id": "MAN-EXP-INSTR.POSITIVE",
@@ -199,8 +331,17 @@
       "acceptance": "Для каждого режима сформированы однозначные позитивные стилевые инструкции в существующем Expression/Speech Style слое; для occasional/frequent «мат разрешён/естественно/при необходимости/необязателен» не является единственным правилом; frequent явно требует регулярную обсценную разговорную лексику; формулировки согласованы с реальным Personality Core.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "4a09e29a62488b204acea7f821b81fa31dd91e0e",
+          "type": "test",
+          "ref": "tests/test_add_exp_expression.py t4 + review-add-exp.md §«Проверено» п.1",
+          "observation": "Три разные позитивные инструкции по режимам: «разрешён/естественно/необязателен» не является единственным правилом; off упоминает цитаты; frequent требует регулярность в собственных живых ответах; сверено с Personality Core.",
+          "artifact_path": "tests/test_add_exp_expression.py",
+          "artifact_sha256": "49227ae3a9c7a375341135a811d767252841ade820f03fe3edc905e3677ffb87"
+        }
+      ]
     },
     {
       "source_id": "MAN-EXP-INSTR.FEWSHOT",
@@ -214,8 +355,25 @@
       "acceptance": "Добавлен небольшой редактируемый owner-approved набор коротких разговорных few-shot-примеров, различающих off/occasional/frequent на одинаковых темах, без метакомментариев о настройках; примеры используются по бюджетному контролю в целевых speech-путях и не дублируют существующую Sample Library; мат не превращается в персональную травлю; жанровые исключения (цитирование источников, структурированный фактчек, ошибки API, тех. сводки) соблюдены.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "4a09e29a62488b204acea7f821b81fa31dd91e0e",
+          "type": "test",
+          "ref": "review-add-exp.md RECHECK §«Проверено своими зондами» п.1–2 + evidence/build/red-block1.txt",
+          "observation": "BLOCK-1 закрыт: seed-эндпоинт сидит обе подборки (12 черновиков expression_register, owner_approved=0, повтор no-op, 30 строк без дублей); до одобрения — `not_owner_approved` (блок не рендерится), после HTTP-одобрения одной off-карточки `<Expression_Examples mode=\"off\">` попадает в систему; отбор ≤4 своего режима, humor-путь исключён; RED-4 (без фикса) 4 failed/27 passed → с фиксом зелёные (focused 642).",
+          "artifact_path": "plans/features/add-exp/evidence/build/red-block1.txt",
+          "artifact_sha256": "6963b6f30c6f17346166ae323c797eeb2e66287b02c2aea7943f8fc3c30cc3e4"
+        },
+        {
+          "candidate_commit": "4a09e29a62488b204acea7f821b81fa31dd91e0e",
+          "type": "ui",
+          "ref": "review-add-exp.md RECHECK п.3 (живой DOM) + evidence/build/README.md BLOCK-1",
+          "observation": "В живом DOM: техника «Регистр речи (мат: без / эпизодически / часто)» в фильтре и карточках без сырого кода; счётчики подборок не склеены; HUMOR_TECHNIQUES не расширен.",
+          "artifact_path": "plans/features/add-exp/evidence/build/README.md",
+          "artifact_sha256": "90572043b7ae5098d3d9b21a06955bafab2b9095891fb5f2c39709fbbb2fa881"
+        }
+      ]
     },
     {
       "source_id": "MAN-EXP-INSTR.NOPOST",
@@ -229,8 +387,17 @@
       "acceptance": "Постпроцессор, наугад вставляющий матерные слова в готовую фразу, не создан; морфология, факты, ссылки, код, цитаты и Telegram entities не ломаются; частота не достигается ценой фиктивных эмоций или изменения смысла.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "4a09e29a62488b204acea7f821b81fa31dd91e0e",
+          "type": "test",
+          "ref": "tests/test_add_exp_expression.py t9/t6 + review-add-exp.md §«Проверено» п.9",
+          "observation": "Постпроцессора вставки мата нет: RULE_KINDS без profanity, EXTRA_PATTERNS=(), egress не вырезает; style-pass сохраняет мат (t6); морфология/факты/ссылки/код/цитаты/Telegram entities не ломаются.",
+          "artifact_path": "tests/test_add_exp_expression.py",
+          "artifact_sha256": "49227ae3a9c7a375341135a811d767252841ade820f03fe3edc905e3677ffb87"
+        }
+      ]
     },
     {
       "source_id": "MAN-EXP-REG.QUEUE",
@@ -244,8 +411,17 @@
       "acceptance": "ADD-EXP зарегистрирован как дополнительная обязательная работа внутри SOUL-1/CFG-07/Speech UX; старт — в ближайшей безопасной точке без прерывания выполняемых операций; requirements-map не обнуляется; после Reviewer и штатного деплоя очередь продолжается автоматически.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "4a09e29a62488b204acea7f821b81fa31dd91e0e",
+          "type": "static",
+          "ref": "prep-add-exp.md §2 (порядок/очередь) + review-add-exp.md (цикл 981e9902→d0afd2cc)",
+          "observation": "ADD-EXP выполнен в очереди SOUL-1/CFG-07/Speech UX без прерывания выполняемых лейнов; requirements-map не обнулялся (29 required + 8 context сохранены); после ревью — штатный деплой-слот Ф6.",
+          "artifact_path": "plans/features/add-exp/prep-add-exp.md",
+          "artifact_sha256": "62e3a018faf70774709c35472a9530740382e61e2286be6f12127f033aafd37f"
+        }
+      ]
     },
     {
       "source_id": "MAN-EXP-ACCEPT.CRITERION",
@@ -259,8 +435,18 @@
       "acceptance": "«Часто» действительно меняет типичные ответы бота, «эпизодически» даёт редкий, но наблюдаемый мат, «без мата» запрещает мат в собственных высказываниях; все режимы реально доходят до production LLM, а не только существуют в форме и предпросмотре.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "4a09e29a62488b204acea7f821b81fa31dd91e0e",
+          "type": "static",
+          "ref": "review-add-exp.md (леджер-заметки RECHECK) + evidence/build/README.md §«Остаётся на живой путь»",
+          "observation": "Критерий завершения («часто» меняет типичные ответы, «эпизодически» — редкий наблюдаемый мат, «без мата» запрещает; все режимы доходят до production LLM) проверяется только на живых ответах прода — Ф6 postdeploy. Код-половина (инструкции/подключение/UI/тесты) закрыта.",
+          "artifact_path": "plans/features/add-exp/evidence/build/README.md",
+          "artifact_sha256": "90572043b7ae5098d3d9b21a06955bafab2b9095891fb5f2c39709fbbb2fa881"
+        }
+      ],
+      "live_note": "Ф6 postdeploy: критерий завершения §4 на живых ответах прода; закрытие строки — после production-эвиденса; release-гейт не ранее."
     }
   ],
   "items": [
@@ -306,8 +492,17 @@
       "acceptance": "Режим off: собственные ответы без обсценной лексики; фактологические цитаты и пользовательский текст не искажаются, если их нужно корректно передать.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "4a09e29a62488b204acea7f821b81fa31dd91e0e",
+          "type": "test",
+          "ref": "tests/test_add_exp_expression.py t4/t6 + review-add-exp.md §«Проверено» п.1",
+          "observation": "off: собственные ответы без обсценной лексики; фактологические цитаты и пользовательский текст не искажаются (off-текст прямо требует корректной передачи); канон байт-в-байт (t6).",
+          "artifact_path": "tests/test_add_exp_expression.py",
+          "artifact_sha256": "49227ae3a9c7a375341135a811d767252841ade820f03fe3edc905e3677ffb87"
+        }
+      ]
     },
     {
       "source_id": "L00018",
@@ -321,8 +516,17 @@
       "acceptance": "occasional — редкий, но реальный мат в обычной разговорной речи (эмоция, ирония, раздражение, характерная интонация); большинство обычных реплик без мата, но это не пассивное «можно когда-нибудь».",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "4a09e29a62488b204acea7f821b81fa31dd91e0e",
+          "type": "test",
+          "ref": "tests/test_add_exp_expression.py t4 + review-add-exp.md §«Проверено» п.1",
+          "observation": "occasional: редкий реальный мат (эмоция/ирония/раздражение/интонация), большинство обычных реплик без мата; формулировка — не пассивное «можно когда-нибудь».",
+          "artifact_path": "tests/test_add_exp_expression.py",
+          "artifact_sha256": "49227ae3a9c7a375341135a811d767252841ade820f03fe3edc905e3677ffb87"
+        }
+      ]
     },
     {
       "source_id": "L00019",
@@ -336,8 +540,17 @@
       "acceptance": "frequent — узнаваемая регулярная часть повседневного голоса в разнообразных уместных коротких и длинных репликах (не только оскорбление и не только прямая просьба «матерись»); не в каждом предложении, без спама одинаковыми словами.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "4a09e29a62488b204acea7f821b81fa31dd91e0e",
+          "type": "test",
+          "ref": "tests/test_add_exp_expression.py t4 + review-add-exp.md §«Проверено» п.1",
+          "observation": "frequent: регулярная узнаваемая часть повседневного голоса в разнообразных уместных репликах, не в каждом предложении и без спама одинаковыми словами.",
+          "artifact_path": "tests/test_add_exp_expression.py",
+          "artifact_sha256": "49227ae3a9c7a375341135a811d767252841ade820f03fe3edc905e3677ffb87"
+        }
+      ]
     },
     {
       "source_id": "L00025",
@@ -381,8 +594,17 @@
       "acceptance": "Чтение/сохранение полей speech.py, документ character.expression, render_expression_text(), per-chat inheritance, revision/conflict и hot reload проверены; обнаруженные дефекты записи/read-after-write исправлены без имитации успеха в UI.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "4a09e29a62488b204acea7f821b81fa31dd91e0e",
+          "type": "test",
+          "ref": "evidence/build/green-focused.txt (§5.4-кластер) + review-add-exp.md §«Проверено» п.4/10",
+          "observation": "Чтение/сохранение полей speech.py, документ character.expression, render_expression_text(), per-chat inheritance, revision/conflict и hot reload проверены; read-after-write подтверждён (persist-тесты + t3/t8); имитации успеха в UI нет.",
+          "artifact_path": "plans/features/add-exp/evidence/build/green-focused.txt",
+          "artifact_sha256": "649303a5e05fb1e126970cf1f21a658e786019eb7b08d0b75472bcf93b66dc7b"
+        }
+      ]
     },
     {
       "source_id": "L00036",
@@ -396,8 +618,26 @@
       "acceptance": "Expression реально подключён в Direct Chat и Initiative; в prompt_composer и манифесте LAYER_EXPRESSION появляется с нужной ревизией и без expression_absent при активной настройке; жанровые исключения (Factcheck/Summary и др.) определены честно; budget_excluded и приоритет компактной инструкции мата проверены без поломки обязательных системных ограничений.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "4a09e29a62488b204acea7f821b81fa31dd91e0e",
+          "type": "test",
+          "ref": "tests/test_add_exp_expression.py t5/t7 + review-add-exp.md §«Проверено» п.5",
+          "observation": "Код-половина: `_compose_speech_system` (tool_phase/L2/system2_stage2/initiative_writer) и `authorial_system` передают `expression=`; манифест LAYER_EXPRESSION с ревизией без expression_absent на активной настройке (t5/t7, прогон 27/27); budget_excluded честен. Живая половина — Ф6 postdeploy.",
+          "artifact_path": "tests/test_add_exp_expression.py",
+          "artifact_sha256": "49227ae3a9c7a375341135a811d767252841ade820f03fe3edc905e3677ffb87"
+        },
+        {
+          "candidate_commit": "4a09e29a62488b204acea7f821b81fa31dd91e0e",
+          "type": "static",
+          "ref": "review-add-exp.md (леджер-заметки RECHECK)",
+          "observation": "Строка оставлена READY_FOR_LIVE: реальный payload/ответ прода на трёх режимах не проверены — это Ф6 postdeploy (после деплоя).",
+          "artifact_path": "plans/features/add-exp/review-add-exp.md",
+          "artifact_sha256": "a369957653b32565407ec38a6134d2f8f7aab15e2bd5ee9f7887601bd9ac403b"
+        }
+      ],
+      "live_note": "Ф6 postdeploy: реальный complete LLM payload и ответ прода на трёх режимах (Direct/Initiative/жанры), wire-маркер слоя; строка закрывается production-typed evidence после деплоя."
     },
     {
       "source_id": "L00037",
@@ -411,8 +651,17 @@
       "acceptance": "Конкуренция исключена: frequent — требование интенсивности, а не новая личность; off — управляемое ограничение формы при сохранении характера; приоритет Core/Expression/Style/жанра/запроса явно определён и протестирован; legacy-промпты не возвращены в active runtime.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "4a09e29a62488b204acea7f821b81fa31dd91e0e",
+          "type": "test",
+          "ref": "tests/test_add_exp_expression.py t6 + review-add-exp.md §«Проверено» п.1",
+          "observation": "Конкуренция исключена: Core/канон байт-в-байт при off; frequent — интенсивность, не новая личность; factcheck-профиль без слоя/примеров; style ортогонален; legacy-промпты не в active runtime.",
+          "artifact_path": "tests/test_add_exp_expression.py",
+          "artifact_sha256": "49227ae3a9c7a375341135a811d767252841ade820f03fe3edc905e3677ffb87"
+        }
+      ]
     },
     {
       "source_id": "L00038",
@@ -426,8 +675,18 @@
       "acceptance": "Реальный complete LLM payload и результирующий ответ проверены: profanity не подавляется внешним постпроцессором, жанровым Writer, стилем/моделью или дополнительным режимом; сохранённое значение, рендер-предпросмотр и тестовый мок не приняты как доказательство живого исполнения.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "4a09e29a62488b204acea7f821b81fa31dd91e0e",
+          "type": "test",
+          "ref": "review-add-exp.md §«Проверено» п.8 (live-check endpoint) + §«Остаётся на живой путь»",
+          "observation": "Код-половина: диагностика payload/постпроцесса реализована (t7; live-check — тот же L2-путь, bounded); сохранённое значение/preview как доказательство не принимаются. Реальный payload прода и результирующий ответ на трёх режимах — Ф6 postdeploy.",
+          "artifact_path": "plans/features/add-exp/review-add-exp.md",
+          "artifact_sha256": "a369957653b32565407ec38a6134d2f8f7aab15e2bd5ee9f7887601bd9ac403b"
+        }
+      ],
+      "live_note": "Ф6 postdeploy: проверка реального complete LLM payload и ответа прода (profanity не подавляется постпроцессором/жанровым Writer/стилем/моделью); набор 20–30 проб; строка закрывается production-typed evidence."
     },
     {
       "source_id": "L00039",
@@ -441,8 +700,17 @@
       "acceptance": "Диагностика отделяет policy_not_injected / composer_excluded / model_ignored_instruction / postprocess_changed / provider_limitation / unknown; отказ или ограничение провайдера не маскируется как исправление.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "4a09e29a62488b204acea7f821b81fa31dd91e0e",
+          "type": "test",
+          "ref": "tests/test_add_exp_expression.py t7 + review-add-exp.md §«Проверено» п.6",
+          "observation": "Классы диагностики совпадают с дизайном §6 (composer_excluded/policy_not_injected/postprocess_changed/provider_limitation/model_ignored_instruction/unknown); дедуп 1×процесс; R17 — только коды/числа.",
+          "artifact_path": "tests/test_add_exp_expression.py",
+          "artifact_sha256": "49227ae3a9c7a375341135a811d767252841ade820f03fe3edc905e3677ffb87"
+        }
+      ]
     },
     {
       "source_id": "L00041",
@@ -471,8 +739,18 @@
       "acceptance": "Три режима реально различаются на одинаковом наборе разговорных ситуаций (дружеский стёб, спор, бытовая реплика, короткий ответ, шутка, нейтральная техническая задача, фактчек): минимум 20–30 контролируемых примеров с вариацией формулировок и источников; частота измерена по допустимым разговорным репликам, отдельно учтены нулевые/матерные ответы, распределение по контекстам и повторяемость; frequent статистически заметно чаще occasional; off исключает мат из собственного текста; без сотен платных LLM-вызовов.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "4a09e29a62488b204acea7f821b81fa31dd91e0e",
+          "type": "static",
+          "ref": "review-add-exp.md (леджер-заметки RECHECK) + evidence/f0/README.md §3",
+          "observation": "Набор 20–30 контролируемых проб на одинаковых ситуациях, измерение частоты (frequent заметно чаще occasional; off исключает мат), без сотен платных вызовов — не выполнен: прод не хранит тексты ответов (Ф0 §3), harness Ф6 обязан сам сохранять их. Строка — READY_FOR_LIVE до Ф6.",
+          "artifact_path": "plans/features/add-exp/evidence/f0/README.md",
+          "artifact_sha256": "b8bfce773adbc54bc23c68fdad9b11518fd6d75f7dffc89eb9441ee9f80b09b5"
+        }
+      ],
+      "live_note": "Ф6 postdeploy: живой набор 20–30 проб (дружеский стёб/спор/быт/короткий ответ/шутка/тех. задача/фактчек), вариация формулировок и источников, распределение по контекстам, повторяемость; закрытие — production-typed evidence."
     },
     {
       "source_id": "L00044",
@@ -486,8 +764,18 @@
       "acceptance": "Проверены Direct, Initiative и подходящие жанровые маршруты; per-chat override, GLOBAL, переключение без рестарта, повторное чтение после сохранения, preview vs production trace; активный чат с frequent не влияет на другой чат с off.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "4a09e29a62488b204acea7f821b81fa31dd91e0e",
+          "type": "static",
+          "ref": "review-add-exp.md (леджер-заметки RECHECK)",
+          "observation": "Проверка Direct/Initiative/жанровых маршрутов, per-chat override/GLOBAL, переключение без рестарта, reread после сохранения, preview vs production trace, изоляция frequent/off-чатов — не выполнена (postdeploy). Строка — READY_FOR_LIVE до Ф6.",
+          "artifact_path": "plans/features/add-exp/review-add-exp.md",
+          "artifact_sha256": "a369957653b32565407ec38a6134d2f8f7aab15e2bd5ee9f7887601bd9ac403b"
+        }
+      ],
+      "live_note": "Ф6 postdeploy: Direct/Initiative/жанры; per-chat override и GLOBAL; переключение без рестарта; reread после сохранения; preview vs production trace; активный frequent-чат не влияет на off-чат."
     },
     {
       "source_id": "L00045",
@@ -501,8 +789,17 @@
       "acceptance": "В админке показаны простые человекочитаемые описания режимов и реальное effective-значение; предпросмотр позволяет проверить речевой результат тем же путём/моделью или чётко помечен как симуляция; успех сохранения фиксируется только после подтверждённого runtime-применения.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "4a09e29a62488b204acea7f821b81fa31dd91e0e",
+          "type": "ui",
+          "ref": "review-add-exp.md §«Проверено» п.8/11 + evidence/build/ui-e2e.json",
+          "observation": "В админке человекочитаемые описания режимов и реальное effective-значение; предпросмотр — через тот же builder; «Проверить вживую» (rate-limit 30с, одна проба в полёте, без доставки); runtime_wired=true + честный runtime_note; сырых кодов в payload нет.",
+          "artifact_path": "plans/features/add-exp/evidence/build/ui-e2e.json",
+          "artifact_sha256": "87d3a9952b44dc14d37a7cd66467acc2c8f93ef002dbc12aa2005f63b2a66bb0"
+        }
+      ]
     },
     {
       "source_id": "L00046",
@@ -516,8 +813,17 @@
       "acceptance": "Reviewer проверяет отсутствие поломки личности, других правил речи, фактологичности, цитат, Telegram-разметки и регрессий предыдущих требований; отчёт «было/стало», где блокировалось правило, что исправлено, тестовые результаты, версия prod и что требует owner E2E.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "4a09e29a62488b204acea7f821b81fa31dd91e0e",
+          "type": "static",
+          "ref": "review-add-exp.md (раунд 1 `981e9902` Needs Fixes → RECHECK `d0afd2cc` Approved)",
+          "observation": "Независимое ревью проведено: BLOCK-1 найден и закрыт; отчёт содержит «было/стало», где блокировалось правило, тестовые результаты (focused 642, UI e2e 0/22, JS 105/0), версию прода (2.58.94) и что требует Ф6.",
+          "artifact_path": "plans/features/add-exp/review-add-exp.md",
+          "artifact_sha256": "a369957653b32565407ec38a6134d2f8f7aab15e2bd5ee9f7887601bd9ac403b"
+        }
+      ]
     },
     {
       "source_id": "L00052",
