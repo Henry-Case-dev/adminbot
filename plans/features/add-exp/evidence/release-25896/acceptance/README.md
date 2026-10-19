@@ -45,7 +45,7 @@ HTTPS) до/после; журнал волн: **ERR/CRITICAL/Traceback=0**, `SK
 | `off` — 0 мата в собственных формулировках | **0/5** разговорных (стёб, спор, короткий, быт, шутка); жанровая цитата: осн. волна — не передана и не искажена, follow-up — **дословна** (кавычки-делимитеры модель не воспроизвела → автодетектор отнёс мат цитаты к «собственным»; семантически own=0, весь ответ = цитата); `off` + прямая просьба «выругайся» → «Нет» (0) | **PASS** |
 | `occasional` — >0 и ≤40% разговорных | **0/6** (5 контекстов + повтор короткого; +1 доборная бытовая = 0/7) | **FAIL** (>0 не выполнено) |
 | `frequent` — ≥50% разговорных, ≥2× occasional, ≥3 контекста, не в каждом предложении, без повтора слова | **0/7** (5 контекстов + повторы стёба и шутки; follow-up +2 = 0/9); контекстов с матом — 0; «не в каждом предложении»/«повтор слова» — неприменимо (мата нет) | **FAIL** (критерий не выполнен) |
-| Изоляция `frequent`-чат vs `off`-чат | A=frequent (chat), B=off (chat) одновременно; B-L2-payload: `<Expression_Settings>` + строка **off** (2/2), A: строка **frequent** (2/2); B 0/2 мата, A 0/2 | **PASS** |
+| Изоляция `frequent`-чат vs `off`-чат | основная волна — **PARTIAL** (дефект порядка harness: добор occasional выполнялся после frequent-волны и оставил чат A в `occasional` на момент изоляции; A=occasional / B=off — не та конфигурация). Корректная проверка — **follow-up**: A=frequent (chat) и B=off (chat) одновременно; B-L2-payload: `<Expression_Settings>` + строка **off** (2/2), A: строка **frequent** (2/2); B 0/2 мата, A 0/2 | **PASS** (follow-up; main PARTIAL) |
 
 Следствие по источнику §4/критерию завершения: **«часто» не меняет типичные
 ответы бота, «эпизодически» не даёт наблюдаемого мата** на текущей живой
@@ -101,7 +101,7 @@ HTTPS) до/после; журнал волн: **ERR/CRITICAL/Traceback=0**, `SK
 | `policy_not_injected` | нет: маркер + строка режима + точный текст — в 28/28 wire-payload |
 | `postprocess_changed` | нет: raw L2 == доставленный текст; ни одного случая «raw с матом → доставка без мата» |
 | `provider_limitation` | нет: фоллбэков/ошибок провайдера не было; прямая просьба в `frequent` дала мат («Понедельник — это пиздец, а не день») — провайдер/модель мат выдают |
-| **`model_ignored_instruction`** | **да**: 9 подряд контролируемых разговорных `frequent`-проб (7 осн. + 2 follow-up) без мата при подтверждённой политике в payload; класс эмитирован (`mca_events.expression_diag`, ts 1792425292, chat −1002661910336, `source_missing`) |
+| **`model_ignored_instruction`** | **да**: 9 подряд контролируемых разговорных `frequent`-проб (7 осн. + 2 follow-up) без мата при подтверждённой политике в payload; класс эмитирован **follow-up harness-ом через прод-хелпер** `mca_expression.emit_expression_diag`; SQLite-проба `mca_events`: `ts=1792425292`, `outcome=failed`, `reason_code=source_missing`, `chat_id=-1002661910336`. Поэтому `EXPR_DIAG=0` в журнале сервиса — **не противоречие**: эмиссия сделана harness-процессом (durable-запись в общей SQLite), а не прод-сервисом |
 | `unknown` | не требуется — причина установлена payload-трейсом + прямой пробой |
 
 ## 6. «Проверить вживую» (штатный endpoint, 1 проба)
@@ -114,36 +114,42 @@ HTTPS) до/после; журнал волн: **ERR/CRITICAL/Traceback=0**, `SK
 
 ## 7. Точное восстановление временных настроек (до == после)
 
-- Чат A: до — `chat_present=false`, `inheritance=global`; после — то же
-  (`chat_present=false`, `inheritance=global`, HTTP 200).
-- Чат B: до/после — `inheritance=global`.
+- **Честная формулировка:** равенство «до == после» для **28 override-ключей**
+  A+B доказано от `p0b` (срез **после main-restore**, начало follow-up) до
+  финального restore follow-up; главный `p0` ключи **не снял**
+  (`a_overrides_before/after = failed:DataError` — запрос лейна, не состояние
+  прода). Т.е. это доказательство «состояние после main-restore == состояние
+  после follow-up restore», а не «== T0».
+- Чат A: в `p0b` — `chat_present=false`, `inheritance=global`; после restore —
+  то же (HTTP 200). Чат B: `inheritance=global` до/после.
 - PG: множество ключей overrides A+B **до == после** (28 ключей;
   `character.expression` отсутствует и до, и после; документы override = null).
-- Global-документ `character.expression` не изменён: `revision=1`,
-  `profanity=allowed` (→ occasional), `sharpness=sharp`, `updated_at=2026-10-18T14:37:25Z`
-  — идентично до/после.
+- **Изменённый ключ и global-документ доказаны отдельно:** `character.expression`
+  (global, `bot_settings`) — `revision=1`, `profanity=allowed`,
+  `sharpness=sharp`, `updated_at=2026-10-18T14:37:25Z` — идентично до/после
+  (`p0b.pg_global_expression` == `restore.pg_global_expression_after`); в
+  chat-overrides ключа нет ни до, ни после.
 - Никаких других настроек волны не писали; рестартов не было.
 
 ## 8. Уборка тестовых сообщений (правило владельца)
 
-- Основная волна: **31/31** удалено (A — 30 первым проходом; anchor добора
-  `occasional`, mid **1166670**, добит отдельным шагом после безопасной
-  идентификации `editMessageText`; кандидаты 1166671/1166672 — сообщения
-  пользователей, `message can't be edited`, не тронуты), 0 ошибок,
-  safety-gate против реальных пользователей соблюдён (0 блокировок).
-- Follow-up: **9/9** удалено (A — 6, B — 3).
+- **Основная волна — 33 удалено** (`cleanup-register.json`: A — 30, B — 3).
+- **Follow-up — 9 удалено** (`followup/cleanup-register.json`: A — 6, B — 3).
 - Пропущенный ответ на цитату-пробу (mid **1166725**) — удалён отдельным
   шагом (ACCEPTANCE-96d), residual 0.
-- **Остаток-долг «1 фото 95a» закрыт**: безопасная идентификация Bot API
-  `editMessageCaption` (бот может редактировать только свои сообщения):
-  mid **1166467** → `message can't be edited` (чужое, не тронуто);
-  mid **1166469** → ok (сообщение бота) → **удалено**. `followup/residual-95a.json`.
-- Итог: удалено **42** тестовых сообщения (31 основная волна + 9 follow-up +
-  1 пропущенный ответ на цитату + остаток 95a `1166469`; повторные проверки
-  дали `already_deleted`); синтетические строки: 36 `bot_replies` + 36
-  `bot_reply_parents` + 4 `throttle_state`; остаточных строк по нашим mid — 0
-  (`cleanup-register.json` обеих волн + `followup/cleanup-quote.json` +
-  `followup/cleanup-hedge-anchor2.json`).
+- Anchor добора `occasional` (mid **1166670**) — удалён отдельным шагом после
+  безопасной идентификации `editMessageText` (ACCEPTANCE-96f).
+- **Остаток-долг «1 фото 95a» закрыт**: идентификация Bot API
+  (бот правит/удаляет только свои сообщения): mid **1166467** →
+  `message can't be edited` (чужое, не тронуто); mid **1166469** → ok
+  (сообщение бота) → **удалено** (`followup/residual-95a.json`). В
+  follow-up-регистре `1166469` значится `already_deleted` — это **повторная
+  проверка после residual-шага**, не второе удаление.
+- **Итог: 45 новых удалений** (33 main + 9 follow-up + 1 `1166725` +
+  1 `1166670` + 1 `1166469`); синтетические строки: **36 `bot_replies` +
+  36 `bot_reply_parents` + 4 `throttle_state`**; остаточных строк по нашим
+  mid — **0**; safety-gate против реальных пользователей соблюдён
+  (0 блокировок; `1166467`/`1166671`/`1166672` — чужие, не тронуты).
 
 ## 9. Было / стало
 
@@ -175,16 +181,19 @@ HTTPS) до/после; журнал волн: **ERR/CRITICAL/Traceback=0**, `SK
    весь ответ — цитата, own=0).
 4. **Дефект harness основной волны (исправлен follow-up)**: добор occasional
    выполнялся после frequent-волны и оставил A в occasional на момент
-   изоляции/маршрутов/live-check; follow-up пере-провёл изоляцию, authorial,
-   initiative и «Проверить вживую» в frequent. Основная изоляция (A occasional
-   vs B off) этим перекрыта.
-5. **Бюджет LLM**: основная волна — 137 вызовов (27 ходов: 27 l1_planner +
-   29 l2_writer + 81 служебных machine-вызовов боевого пайплайна), выше
-   ориентира ~60; число пользовательских ходов — 27 (≤30). Follow-up ≈37.
-   Служебные вызовы — свойство прода, не дубли проб.
-6. **Журнал follow-up**: BOM в `accept96b_journal.sh` дал rc=127 на shebang;
-   счётчики и SQLite-проба сняты (данные валидны), отмечено честно. Основной
-   журнал — rc=0.
+   изоляции/маршрутов/live-check → основная изоляция = **PARTIAL** (A
+   occasional / B off — не та конфигурация); follow-up пере-провёл изоляцию,
+   authorial, initiative и «Проверить вживую» в frequent (**PASS**).
+5. **Бюджет LLM**: основная волна — **137** вызовов = **56 пробных** (27
+   `l1_planner` + 29 `l2_writer`) + **81 служебный** (machine-вызовы боевого
+   пайплайна: память/отношения/факты); probe-attributable — **≤~60** (в
+   ориентире), служебные — свойство прода, не дубли проб; пользовательских
+   ходов 27 (≤30). Follow-up ≈37. 7-я occasional-проба (добор) — **дубль
+   контекста `everyday`** (не новая ситуация; в числах учтена отдельно).
+6. **Журнал/верификация**: основной журнал — rc=0. Follow-up: BOM в
+   `accept96b_journal.sh` дал rc=127 на shebang, но счётчики и SQLite-проба
+   сняты и **валидны** (`accept96b-run.log`). `runs/verify.out` — **UTF-16**
+   (redirect PowerShell), содержит **VERIFY PASS** (как есть).
 7. **Few-shot драфты теперь лежат на проде** (12 expression + 18 humor
    starters, `owner_approved=0`) — владелец может одобрить их существующим
    механизмом; до одобрения runtime честно `not_owner_approved` (no-op).
@@ -208,6 +217,7 @@ HTTPS) до/после; журнал волн: **ERR/CRITICAL/Traceback=0**, `SK
   `_verify_evidence.py`.
 - Прогоны: `runs/main-live.out`, `runs/main-journal.txt`,
   `runs/followup-live.out`, `runs/followup-journal.txt`, логи раннеров,
-  `runs/verify.out` (независимая сверка: **VERIFY PASS**).
+  `runs/verify.out` (независимая сверка: **VERIFY PASS**; файл в UTF-16 —
+  redirect PowerShell, как есть).
 - Чек-суммы: `checksums.json`.
 
