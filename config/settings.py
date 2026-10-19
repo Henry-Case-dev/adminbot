@@ -1656,16 +1656,35 @@ class Settings:
     MCA_VISION_TOOL_ENABLED: ClassVar[bool] = _env_bool(
         "MCA_VISION_TOOL_ENABLED", True)
     # POSTGEN-DIAG (19.10.2026): env-only рубильник и потолок bounded
-    # декод-фоллбэка/нормализации изображения (`services/image_normalize.py`):
-    # реальные форматы, которые сниффер не знает (TIFF и т.п.), и слишком
-    # большой payload пост-генерации нормализуются в bounded JPEG.
-    #   OFF → прежнее поведение (сниффер + честный отказ; без фоллбэка
-    #   и без retry нормализованным payload).
-    #   MAX_DIMENSION — потолок большей стороны (апскейла нет).
+    # декод-фоллбэка/нормализации изображения (`services/image_normalize.py`).
+    #   OFF → прежнее поведение (сниффер + честный отказ; без фоллбэка).
+    #   MAX_DIMENSION — НЕОБЯЗАТЕЛЬНЫЙ потолок большей стороны
+    #   подготовленной копии; 0 = без потолка (КОРР №2: без жёсткого 1024).
     MCA_VISION_NORMALIZE_ENABLED: ClassVar[bool] = _env_bool(
         "MCA_VISION_NORMALIZE_ENABLED", True)
-    MCA_VISION_NORMALIZE_MAX_DIMENSION: ClassVar[int] = _env_int_min(
-        "MCA_VISION_NORMALIZE_MAX_DIMENSION", 1024, 64)
+    MCA_VISION_NORMALIZE_MAX_DIMENSION: ClassVar[int] = _env_int(
+        "MCA_VISION_NORMALIZE_MAX_DIMENSION", 0)
+    # ── VISION-ADAPT (19.10.2026, КОРР №2): единый поэтапный preprocessing ──
+    # Решение об оптимизации — ТОЛЬКО от MIME/размера/пикселей/фактического
+    # payload/лимитов/ответа API (никакой классификации контента и формы).
+    #   REQUEST_MAX_BYTES — бюджет СЫРЫХ байт одного запроса (base64 ≈ ×4/3);
+    #   0 = лимит НЕИЗВЕСТЕН → отправляем оригинал и адаптируемся по
+    #   фактическому ответу (retry ≤1 только на подтверждённый size/format);
+    #   PREP_MAX_PIXELS — мягкий потолок пикселей подготовленной копии;
+    #   ADAPT_BUDGET_SECONDS — общий bounded-бюджет адаптивного анализа.
+    # Фрагментация (`segment_plan`/`plan_segments`/`merge_segment_analyses`/
+    # `dedup_lines`) — НЕ-дефолтные утилиты (в обычном пути не вызываются);
+    # их параметры: SEGMENT_MAX / SEGMENT_OVERLAP_RATIO.
+    MCA_VISION_REQUEST_MAX_BYTES: ClassVar[int] = _env_int(
+        "MCA_VISION_REQUEST_MAX_BYTES", 700_000)
+    MCA_VISION_PREP_MAX_PIXELS: ClassVar[int] = _env_int_min(
+        "MCA_VISION_PREP_MAX_PIXELS", 4_000_000, 65_536)
+    MCA_VISION_SEGMENT_MAX: ClassVar[int] = _env_int_min(
+        "MCA_VISION_SEGMENT_MAX", 8, 1)
+    MCA_VISION_SEGMENT_OVERLAP_RATIO: ClassVar[float] = _env_float_min(
+        "MCA_VISION_SEGMENT_OVERLAP_RATIO", 0.12, 0.10)
+    MCA_VISION_ADAPT_BUDGET_SECONDS: ClassVar[float] = _env_float_min(
+        "MCA_VISION_ADAPT_BUDGET_SECONDS", 90.0, 5.0)
     # Env-only аварийные потолки (не каталог; ADR D13): клампят владельческие
     # значения каталога limits_vision (spec §8.4). MAX_BYTES/MAX_PIXELS —
     # decompression-bomb protection (TH-4); DOWNLOAD_CONCURRENCY — лимит

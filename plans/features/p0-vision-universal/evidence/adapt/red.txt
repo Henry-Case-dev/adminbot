@@ -1,0 +1,441 @@
+﻿FFFFFFFFFFFFFFFFFFF.F                                                    [100%]
+================================== FAILURES ===================================
+_________ TestPlanStrategy.test_original_when_fits_and_no_codec_touch _________
+
+self = <tests.test_vision_adapt.TestPlanStrategy object at 0x000001F073EBAC30>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001F073F25490>
+
+    def test_original_when_fits_and_no_codec_touch(self, monkeypatch):
+        """╨Т╨╗╨╡╨╖╨░╨╡╤В тЖТ original; ╨║╨╛╨┤╨╡╨║ ╨Э╨Х ╨▓╤Л╨╖╤Л╨▓╨░╨╡╤В╤Б╤П (╨╜╤Г╨╗╨╡╨▓╤Л╨╡ ╨┤╨╛╨┐. ╤И╨░╨│╨╕)."""
+        def _boom(*a, **kw):
+            raise AssertionError("╨║╨╛╨┤╨╡╨║ ╨╜╨╡ ╨┤╨╛╨╗╨╢╨╡╨╜ ╨▓╤Л╨╖╤Л╨▓╨░╤В╤М╤Б╤П ╨┤╨╗╤П fits-╨▓╤Е╨╛╨┤╨░")
+        monkeypatch.setattr(inorm, "normalize_jpeg_bytes", _boom)
+        data = _jpeg((800, 600), quality=70)
+>       plan = inorm.plan_vision(data, mime="image/jpeg", width=800, height=600)
+               ^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'services.image_normalize' has no attribute 'plan_vision'
+
+tests\test_vision_adapt.py:206: AttributeError
+______________ TestPlanStrategy.test_optimize_when_payload_over _______________
+
+self = <tests.test_vision_adapt.TestPlanStrategy object at 0x000001F073EBB500>
+
+    def test_optimize_when_payload_over(self):
+>       limits = inorm.vision_limits()
+                 ^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'services.image_normalize' has no attribute 'vision_limits'
+
+tests\test_vision_adapt.py:212: AttributeError
+_____________ TestPlanStrategy.test_segments_for_long_screenshot ______________
+
+self = <tests.test_vision_adapt.TestPlanStrategy object at 0x000001F073F245F0>
+
+    def test_segments_for_long_screenshot(self):
+        """╨Ф╨╗╨╕╨╜╨╜╤Л╨╣ ╨╕ ╤В╤П╨╢╤С╨╗╤Л╨╣ тЖТ segments (OCR-╨║╨╡╨╣╤Б), ╨Э╨Х downscale."""
+>       data, _lines, _colors = _long_screenshot()
+                                ^^^^^^^^^^^^^^^^^^
+
+tests\test_vision_adapt.py:220: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+n_lines = 24, width = 800, line_h = 120
+
+    def _long_screenshot(n_lines: int = 24, width: int = 800, line_h: int = 120):
+        """╨Ф╨╗╨╕╨╜╨╜╤Л╨╣ ╤Б╨║╤А╨╕╨╜╤И╨╛╤В: ╨┤╨╡╤В╨╡╤А╨╝╨╕╨╜╨╕╤А╨╛╨▓╨░╨╜╨╜╤Л╨╣ ╤И╤Г╨╝-╤Д╨╛╨╜ + ╨┐╨╛╨╗╨╛╤Б╤Л-┬л╤Б╤В╤А╨╛╨║╨╕┬╗.
+    
+        ╨Т╨╛╨╖╨▓╤А╨░╤В: (png_bytes, ground_truth_lines, colors). ╨Ъ╨░╨╢╨┤╨░╤П ╨┐╨╛╨╗╨╛╤Б╨░ тАФ ╤А╨╛╨▓╨╜╨╛
+        ╨╛╨┤╨╜╨░ ┬л╤Б╤В╤А╨╛╨║╨░ ╤В╨╡╨║╤Б╤В╨░┬╗ LINE-XXX ╨▓╤Л╤Б╨╛╤В╨╛╨╣ line_h//2.
+        """
+        key = (n_lines, width, line_h)
+        if key in _LONG_CACHE:
+            return _LONG_CACHE[key]
+        pil = _pil()
+        height = n_lines * line_h
+        rnd = random.Random(7)
+        img = pil.frombytes("L", (width, height),
+                            rnd.randbytes(width * height)).convert("RGB")
+>       draw = pil.ImageDraw.Draw(img)
+               ^^^^^^^^^^^^^
+E       AttributeError: module 'PIL.Image' has no attribute 'ImageDraw'
+
+tests\test_vision_adapt.py:104: AttributeError
+_________ TestPlanStrategy.test_segments_reuse_existing_plan_segments _________
+
+self = <tests.test_vision_adapt.TestPlanStrategy object at 0x000001F073F249E0>
+
+    def test_segments_reuse_existing_plan_segments(self):
+        """╨д╤А╨░╨│╨╝╨╡╨╜╤В╨░╤Ж╨╕╤П тАФ ╤Б╤Г╤Й╨╡╤Б╤В╨▓╤Г╤О╤Й╨░╤П `mca_vision.plan_segments`."""
+>       limits = inorm.vision_limits()
+                 ^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'services.image_normalize' has no attribute 'vision_limits'
+
+tests\test_vision_adapt.py:237: AttributeError
+___________ TestPlanStrategy.test_kill_switch_off_is_original_only ____________
+
+self = <tests.test_vision_adapt.TestPlanStrategy object at 0x000001F073F24E30>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001F07C919010>
+
+    def test_kill_switch_off_is_original_only(self, monkeypatch):
+        _set_env("MCA_VISION_NORMALIZE_ENABLED", False, monkeypatch)
+>       data, _lines, _colors = _long_screenshot()
+                                ^^^^^^^^^^^^^^^^^^
+
+tests\test_vision_adapt.py:247: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+n_lines = 24, width = 800, line_h = 120
+
+    def _long_screenshot(n_lines: int = 24, width: int = 800, line_h: int = 120):
+        """╨Ф╨╗╨╕╨╜╨╜╤Л╨╣ ╤Б╨║╤А╨╕╨╜╤И╨╛╤В: ╨┤╨╡╤В╨╡╤А╨╝╨╕╨╜╨╕╤А╨╛╨▓╨░╨╜╨╜╤Л╨╣ ╤И╤Г╨╝-╤Д╨╛╨╜ + ╨┐╨╛╨╗╨╛╤Б╤Л-┬л╤Б╤В╤А╨╛╨║╨╕┬╗.
+    
+        ╨Т╨╛╨╖╨▓╤А╨░╤В: (png_bytes, ground_truth_lines, colors). ╨Ъ╨░╨╢╨┤╨░╤П ╨┐╨╛╨╗╨╛╤Б╨░ тАФ ╤А╨╛╨▓╨╜╨╛
+        ╨╛╨┤╨╜╨░ ┬л╤Б╤В╤А╨╛╨║╨░ ╤В╨╡╨║╤Б╤В╨░┬╗ LINE-XXX ╨▓╤Л╤Б╨╛╤В╨╛╨╣ line_h//2.
+        """
+        key = (n_lines, width, line_h)
+        if key in _LONG_CACHE:
+            return _LONG_CACHE[key]
+        pil = _pil()
+        height = n_lines * line_h
+        rnd = random.Random(7)
+        img = pil.frombytes("L", (width, height),
+                            rnd.randbytes(width * height)).convert("RGB")
+>       draw = pil.ImageDraw.Draw(img)
+               ^^^^^^^^^^^^^
+E       AttributeError: module 'PIL.Image' has no attribute 'ImageDraw'
+
+tests\test_vision_adapt.py:104: AttributeError
+______________ TestPlanStrategy.test_small_image_never_upscaled _______________
+
+self = <tests.test_vision_adapt.TestPlanStrategy object at 0x000001F073F252B0>
+
+    def test_small_image_never_upscaled(self):
+        data = _jpeg((64, 48))
+>       limits = inorm.vision_limits()
+                 ^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'services.image_normalize' has no attribute 'vision_limits'
+
+tests\test_vision_adapt.py:255: AttributeError
+_____________ TestOptimizeToFit.test_encode_first_without_resize ______________
+
+self = <tests.test_vision_adapt.TestOptimizeToFit object at 0x000001F073F25370>
+
+    def test_encode_first_without_resize(self):
+        """╨б╨╜╨░╤З╨░╨╗╨░ ╨║╨╛╨┤╨╕╤А╨╛╨▓╨░╨╜╨╕╨╡ ╨▒╨╡╨╖ ╤Г╨╝╨╡╨╜╤М╤И╨╡╨╜╨╕╤П ╤А╨░╨╖╤А╨╡╤И╨╡╨╜╨╕╤П (╤А╨░╨╖╨╝╨╡╤А╤Л ╤В╨╡ ╨╢╨╡)."""
+>       limits = inorm.vision_limits()
+                 ^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'services.image_normalize' has no attribute 'vision_limits'
+
+tests\test_vision_adapt.py:268: AttributeError
+_____________ TestOptimizeToFit.test_downscales_when_pixels_over ______________
+
+self = <tests.test_vision_adapt.TestOptimizeToFit object at 0x000001F073F252E0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001F07C919490>
+
+    def test_downscales_when_pixels_over(self, monkeypatch):
+        _set_env("MCA_VISION_PREP_MAX_PIXELS", 250_000, monkeypatch)
+>       limits = inorm.vision_limits()
+                 ^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'services.image_normalize' has no attribute 'vision_limits'
+
+tests\test_vision_adapt.py:280: AttributeError
+_______________ TestOptimizeToFit.test_fail_open_without_codec ________________
+
+self = <tests.test_vision_adapt.TestOptimizeToFit object at 0x000001F073F24B90>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001F07C91B620>
+
+    def test_fail_open_without_codec(self, monkeypatch):
+        monkeypatch.setattr(inorm, "codec_available", lambda: "")
+>       assert inorm.optimize_to_fit(_jpeg(), limits=inorm.vision_limits()) \
+               ^^^^^^^^^^^^^^^^^^^^^
+            is None
+E       AttributeError: module 'services.image_normalize' has no attribute 'optimize_to_fit'
+
+tests\test_vision_adapt.py:290: AttributeError
+__________ TestAnalyzeAdaptive.test_original_single_call_byte_parity __________
+
+self = <tests.test_vision_adapt.TestAnalyzeAdaptive object at 0x000001F073F258B0>
+vision_env = None
+
+    @pytest.mark.asyncio
+    async def test_original_single_call_byte_parity(self, vision_env):
+        data = _jpeg((800, 600), quality=70)
+        img = validate_image_bytes(data)
+        t = OcrTransport([], [])
+>       out = await mca_vision.analyze_adaptive(img, chat_id=CHAT, transport=t)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'services.mca_vision' has no attribute 'analyze_adaptive'
+
+tests\test_vision_adapt.py:303: AttributeError
+__________ TestAnalyzeAdaptive.test_segments_merge_all_lines_no_loss __________
+
+self = <tests.test_vision_adapt.TestAnalyzeAdaptive object at 0x000001F073F25DF0>
+vision_env = None
+
+    @pytest.mark.asyncio
+    async def test_segments_merge_all_lines_no_loss(self, vision_env):
+        """╨У╨╗╨░╨▓╨╜╤Л╨╣ ╨║╨╛╨╜╤В╤А╨░╨║╤В: ╨▓╤Б╨╡ ╤Б╤В╤А╨╛╨║╨╕ ground truth ╨▓╨╛╤Б╤Б╤В╨░╨╜╨╛╨▓╨╗╨╡╨╜╤Л ╤А╨╛╨▓╨╜╨╛ ╤А╨░╨╖."""
+>       data, truth, colors = _long_screenshot()
+                              ^^^^^^^^^^^^^^^^^^
+
+tests\test_vision_adapt.py:311: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+n_lines = 24, width = 800, line_h = 120
+
+    def _long_screenshot(n_lines: int = 24, width: int = 800, line_h: int = 120):
+        """╨Ф╨╗╨╕╨╜╨╜╤Л╨╣ ╤Б╨║╤А╨╕╨╜╤И╨╛╤В: ╨┤╨╡╤В╨╡╤А╨╝╨╕╨╜╨╕╤А╨╛╨▓╨░╨╜╨╜╤Л╨╣ ╤И╤Г╨╝-╤Д╨╛╨╜ + ╨┐╨╛╨╗╨╛╤Б╤Л-┬л╤Б╤В╤А╨╛╨║╨╕┬╗.
+    
+        ╨Т╨╛╨╖╨▓╤А╨░╤В: (png_bytes, ground_truth_lines, colors). ╨Ъ╨░╨╢╨┤╨░╤П ╨┐╨╛╨╗╨╛╤Б╨░ тАФ ╤А╨╛╨▓╨╜╨╛
+        ╨╛╨┤╨╜╨░ ┬л╤Б╤В╤А╨╛╨║╨░ ╤В╨╡╨║╤Б╤В╨░┬╗ LINE-XXX ╨▓╤Л╤Б╨╛╤В╨╛╨╣ line_h//2.
+        """
+        key = (n_lines, width, line_h)
+        if key in _LONG_CACHE:
+            return _LONG_CACHE[key]
+        pil = _pil()
+        height = n_lines * line_h
+        rnd = random.Random(7)
+        img = pil.frombytes("L", (width, height),
+                            rnd.randbytes(width * height)).convert("RGB")
+>       draw = pil.ImageDraw.Draw(img)
+               ^^^^^^^^^^^^^
+E       AttributeError: module 'PIL.Image' has no attribute 'ImageDraw'
+
+tests\test_vision_adapt.py:104: AttributeError
+__________ TestAnalyzeAdaptive.test_negative_accepted_but_text_lost ___________
+
+self = <tests.test_vision_adapt.TestAnalyzeAdaptive object at 0x000001F073F26330>
+vision_env = None
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001F07C335E80>
+
+    @pytest.mark.asyncio
+    async def test_negative_accepted_but_text_lost(self, vision_env,
+                                                   monkeypatch):
+        """┬л200, ╨╜╨╛ ╤В╨╡╨║╤Б╤В ╨┐╨╛╤В╨╡╤А╤П╨╜┬╗ тЙа ╤Г╤Б╨┐╨╡╤Е: ╤Б╤В╤А╨╛╨║╨╕ ╨╜╨╡ ╨▓╤Л╨┤╤Г╨╝╤Л╨▓╨░╤О╤В╤Б╤П, ╨┐╨╛╨║╤А╤Л╤В╨╕╨╡
+        ╨╜╨╡╨┐╨╛╨╗╨╜╨╛╨╡ (downscale-╨┐╤Г╤В╤М ╨┤╨╡╨│╤А╨░╨┤╨╕╤А╤Г╨╡╤В ╨╝╨╡╨╗╨║╨╕╨╣ ╤В╨╡╨║╤Б╤В)."""
+        _set_env("MCA_VISION_SEGMENT_TRIGGER_RATIO", 100.0, monkeypatch)
+>       data, truth, colors = _long_screenshot()
+                              ^^^^^^^^^^^^^^^^^^
+
+tests\test_vision_adapt.py:327: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+n_lines = 24, width = 800, line_h = 120
+
+    def _long_screenshot(n_lines: int = 24, width: int = 800, line_h: int = 120):
+        """╨Ф╨╗╨╕╨╜╨╜╤Л╨╣ ╤Б╨║╤А╨╕╨╜╤И╨╛╤В: ╨┤╨╡╤В╨╡╤А╨╝╨╕╨╜╨╕╤А╨╛╨▓╨░╨╜╨╜╤Л╨╣ ╤И╤Г╨╝-╤Д╨╛╨╜ + ╨┐╨╛╨╗╨╛╤Б╤Л-┬л╤Б╤В╤А╨╛╨║╨╕┬╗.
+    
+        ╨Т╨╛╨╖╨▓╤А╨░╤В: (png_bytes, ground_truth_lines, colors). ╨Ъ╨░╨╢╨┤╨░╤П ╨┐╨╛╨╗╨╛╤Б╨░ тАФ ╤А╨╛╨▓╨╜╨╛
+        ╨╛╨┤╨╜╨░ ┬л╤Б╤В╤А╨╛╨║╨░ ╤В╨╡╨║╤Б╤В╨░┬╗ LINE-XXX ╨▓╤Л╤Б╨╛╤В╨╛╨╣ line_h//2.
+        """
+        key = (n_lines, width, line_h)
+        if key in _LONG_CACHE:
+            return _LONG_CACHE[key]
+        pil = _pil()
+        height = n_lines * line_h
+        rnd = random.Random(7)
+        img = pil.frombytes("L", (width, height),
+                            rnd.randbytes(width * height)).convert("RGB")
+>       draw = pil.ImageDraw.Draw(img)
+               ^^^^^^^^^^^^^
+E       AttributeError: module 'PIL.Image' has no attribute 'ImageDraw'
+
+tests\test_vision_adapt.py:104: AttributeError
+_____________ TestAnalyzeAdaptive.test_partial_coverage_is_marked _____________
+
+self = <tests.test_vision_adapt.TestAnalyzeAdaptive object at 0x000001F073F268A0>
+vision_env = None
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001F07C336570>
+
+    @pytest.mark.asyncio
+    async def test_partial_coverage_is_marked(self, vision_env, monkeypatch):
+        """╨Э╨╡ ╨▓╤Б╨╡ ╤Д╤А╨░╨│╨╝╨╡╨╜╤В╤Л ╨┐╨╛╨║╤А╤Л╤В╤Л (╨▒╤О╨┤╨╢╨╡╤В) тЖТ ╤З╨╡╤Б╤В╨╜╨░╤П ╨┐╨╛╨╝╨╡╤В╨║╨░, ╨╜╨╡ ┬л╤Г╤Б╨┐╨╡╤Е┬╗."""
+        _set_env("MCA_VISION_ADAPT_BUDGET_SECONDS", 5.0, monkeypatch)
+>       data, truth, colors = _long_screenshot()
+                              ^^^^^^^^^^^^^^^^^^
+
+tests\test_vision_adapt.py:340: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+n_lines = 24, width = 800, line_h = 120
+
+    def _long_screenshot(n_lines: int = 24, width: int = 800, line_h: int = 120):
+        """╨Ф╨╗╨╕╨╜╨╜╤Л╨╣ ╤Б╨║╤А╨╕╨╜╤И╨╛╤В: ╨┤╨╡╤В╨╡╤А╨╝╨╕╨╜╨╕╤А╨╛╨▓╨░╨╜╨╜╤Л╨╣ ╤И╤Г╨╝-╤Д╨╛╨╜ + ╨┐╨╛╨╗╨╛╤Б╤Л-┬л╤Б╤В╤А╨╛╨║╨╕┬╗.
+    
+        ╨Т╨╛╨╖╨▓╤А╨░╤В: (png_bytes, ground_truth_lines, colors). ╨Ъ╨░╨╢╨┤╨░╤П ╨┐╨╛╨╗╨╛╤Б╨░ тАФ ╤А╨╛╨▓╨╜╨╛
+        ╨╛╨┤╨╜╨░ ┬л╤Б╤В╤А╨╛╨║╨░ ╤В╨╡╨║╤Б╤В╨░┬╗ LINE-XXX ╨▓╤Л╤Б╨╛╤В╨╛╨╣ line_h//2.
+        """
+        key = (n_lines, width, line_h)
+        if key in _LONG_CACHE:
+            return _LONG_CACHE[key]
+        pil = _pil()
+        height = n_lines * line_h
+        rnd = random.Random(7)
+        img = pil.frombytes("L", (width, height),
+                            rnd.randbytes(width * height)).convert("RGB")
+>       draw = pil.ImageDraw.Draw(img)
+               ^^^^^^^^^^^^^
+E       AttributeError: module 'PIL.Image' has no attribute 'ImageDraw'
+
+tests\test_vision_adapt.py:104: AttributeError
+________ TestAdaptiveRetry.test_retry_on_size_class_with_smaller_copy _________
+
+self = <tests.test_vision_adapt.TestAdaptiveRetry object at 0x000001F073F26E10>
+vision_env = None
+
+    @pytest.mark.asyncio
+    async def test_retry_on_size_class_with_smaller_copy(self, vision_env):
+        data = _jpeg((1200, 900), quality=97)
+        img = validate_image_bytes(data)
+        t = OcrTransport([], [], fail_status=400, fail_first=1)
+>       out = await mca_vision.analyze_adaptive(img, chat_id=CHAT, transport=t)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'services.mca_vision' has no attribute 'analyze_adaptive'
+
+tests\test_vision_adapt.py:370: AttributeError
+________________ TestAdaptiveRetry.test_no_retry_on_500_or_429 ________________
+
+self = <tests.test_vision_adapt.TestAdaptiveRetry object at 0x000001F073F273B0>
+vision_env = None
+
+    @pytest.mark.asyncio
+    async def test_no_retry_on_500_or_429(self, vision_env):
+        for status, expect_reason in ((500, "vision_failed"),
+                                      (429, "vision_rate_limited")):
+            img = validate_image_bytes(_jpeg((800, 600)))
+            t = OcrTransport([], [], fail_status=status, fail_first=99)
+            with pytest.raises(VisionError) as ei:
+>               await mca_vision.analyze_adaptive(img, chat_id=CHAT,
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                                                  transport=t)
+E               AttributeError: module 'services.mca_vision' has no attribute 'analyze_adaptive'
+
+tests\test_vision_adapt.py:382: AttributeError
+__________________ TestAdaptiveRetry.test_no_identical_retry __________________
+
+self = <tests.test_vision_adapt.TestAdaptiveRetry object at 0x000001F073F27950>
+vision_env = None
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001F07C337D40>
+
+    @pytest.mark.asyncio
+    async def test_no_identical_retry(self, vision_env, monkeypatch):
+        """╨Ю╨┐╤В╨╕╨╝╨╕╨╖╨░╤В╨╛╤А ╨╜╨╡ ╨┤╨░╨╗ ╨╝╨╡╨╜╤М╤И╤Г╤О ╨║╨╛╨┐╨╕╤О тЖТ ╨┐╨╛╨▓╤В╨╛╤А╨░ ╨╜╨╡╤В (╨╜╨╡ ╨╕╨┤╨╡╨╜╤В╨╕╤З╨╜╤Л╨╣)."""
+        async def _same(data, *, max_dimension=None):
+            return data
+        monkeypatch.setattr(inorm, "normalize_jpeg_bytes_async", _same)
+        img = validate_image_bytes(_jpeg((800, 600), quality=70))
+        t = OcrTransport([], [], fail_status=400, fail_first=1)
+        with pytest.raises(VisionError):
+>           await mca_vision.analyze_adaptive(img, chat_id=CHAT, transport=t)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           AttributeError: module 'services.mca_vision' has no attribute 'analyze_adaptive'
+
+tests\test_vision_adapt.py:396: AttributeError
+___________ TestAdaptiveRetry.test_rejection_classes_from_response ____________
+
+self = <tests.test_vision_adapt.TestAdaptiveRetry object at 0x000001F073F27EC0>
+
+    def test_rejection_classes_from_response(self):
+>       assert inorm.classify_rejection("image too large") == "pixels"
+               ^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'services.image_normalize' has no attribute 'classify_rejection'
+
+tests\test_vision_adapt.py:400: AttributeError
+____________ TestAdaptiveRetry.test_detail_carries_rejection_class ____________
+
+self = <tests.test_vision_adapt.TestAdaptiveRetry object at 0x000001F073F983E0>
+vision_env = None
+
+    @pytest.mark.asyncio
+    async def test_detail_carries_rejection_class(self, vision_env):
+        t = OcrTransport([], [], fail_status=400, fail_first=99)
+        img = validate_image_bytes(_jpeg((800, 600)))
+        with pytest.raises(VisionError) as ei:
+>           await mca_vision.analyze_adaptive(img, chat_id=CHAT, transport=t)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           AttributeError: module 'services.mca_vision' has no attribute 'analyze_adaptive'
+
+tests\test_vision_adapt.py:412: AttributeError
+___________ TestFixtureMetrics.test_fixture_set_metrics_and_no_loss ___________
+
+self = <tests.test_vision_adapt.TestFixtureMetrics object at 0x000001F073F27B60>
+vision_env = None
+
+    @pytest.mark.asyncio
+    async def test_fixture_set_metrics_and_no_loss(self, vision_env):
+        """╨е╨░╤А╨╜╨╡╤Б╤Б: success rate / OCR recovery / ╨╖╨░╨┤╨╡╤А╨╢╨║╨░ / ╨┤╨╛╨┐. ╨╖╨░╨┐╤А╨╛╤Б╤Л.
+    
+        ┬л╨Я╤А╨╕╨╜╤П╤В╨╛, ╨╜╨╛ ╤В╨╡╨║╤Б╤В ╨┐╨╛╤В╨╡╤А╤П╨╜┬╗ = ╨╜╨╡╤Г╤Б╨┐╨╡╤Е: ╤Г╤Б╨┐╨╡╤Е ╨┤╨╗╤П ╤В╨╡╨║╤Б╤В╨╛╨▓╤Л╤Е ╤Д╨╕╨║╤Б╤В╤Г╤А =
+        ╨▓╤Б╨╡ ╤Б╤В╤А╨╛╨║╨╕ ground truth ╨▓╨╛╤Б╤Б╤В╨░╨╜╨╛╨▓╨╗╨╡╨╜╤Л."""
+        cases = []
+>       data, truth, colors = _long_screenshot()
+                              ^^^^^^^^^^^^^^^^^^
+
+tests\test_vision_adapt.py:428: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+n_lines = 24, width = 800, line_h = 120
+
+    def _long_screenshot(n_lines: int = 24, width: int = 800, line_h: int = 120):
+        """╨Ф╨╗╨╕╨╜╨╜╤Л╨╣ ╤Б╨║╤А╨╕╨╜╤И╨╛╤В: ╨┤╨╡╤В╨╡╤А╨╝╨╕╨╜╨╕╤А╨╛╨▓╨░╨╜╨╜╤Л╨╣ ╤И╤Г╨╝-╤Д╨╛╨╜ + ╨┐╨╛╨╗╨╛╤Б╤Л-┬л╤Б╤В╤А╨╛╨║╨╕┬╗.
+    
+        ╨Т╨╛╨╖╨▓╤А╨░╤В: (png_bytes, ground_truth_lines, colors). ╨Ъ╨░╨╢╨┤╨░╤П ╨┐╨╛╨╗╨╛╤Б╨░ тАФ ╤А╨╛╨▓╨╜╨╛
+        ╨╛╨┤╨╜╨░ ┬л╤Б╤В╤А╨╛╨║╨░ ╤В╨╡╨║╤Б╤В╨░┬╗ LINE-XXX ╨▓╤Л╤Б╨╛╤В╨╛╨╣ line_h//2.
+        """
+        key = (n_lines, width, line_h)
+        if key in _LONG_CACHE:
+            return _LONG_CACHE[key]
+        pil = _pil()
+        height = n_lines * line_h
+        rnd = random.Random(7)
+        img = pil.frombytes("L", (width, height),
+                            rnd.randbytes(width * height)).convert("RGB")
+>       draw = pil.ImageDraw.Draw(img)
+               ^^^^^^^^^^^^^
+E       AttributeError: module 'PIL.Image' has no attribute 'ImageDraw'
+
+tests\test_vision_adapt.py:104: AttributeError
+______________ TestDelegationParity.test_job_path_uses_adaptive _______________
+
+self = <tests.test_vision_adapt.TestDelegationParity object at 0x000001F073F26060>
+
+    def test_job_path_uses_adaptive(self):
+        """╨Ц╨╕╨▓╨╛╨╣ job-╨┐╤Г╤В╤М (╨▓╤Е╨╛╨┤╤П╤Й╨╕╨╡ ╤Д╨╛╤В╨╛/╨┤╨╛╨║╤Г╨╝╨╡╨╜╤В╤Л) ╨╕╨┤╤С╤В ╤З╨╡╤А╨╡╨╖ adaptive."""
+        src = Path(mca_vision.__file__).read_text(encoding="utf-8")
+>       assert "await analyze_adaptive(" in src
+E       assert 'await analyze_adaptive(' in '"""╨а╨░╤Г╨╜╨┤ 10.43 (`mca-19-image-understanding`, ADR-1028-19 D1/D4тАУD8/D13) тАФ\n╨Х╨Ф╨Ш╨Э╨л╨Щ ╤Б╨╡╤А╨▓╨╕╤Б ╨┐╨╛╨╜╨╕╨╝╨░╨╜╨╕╤П ╨╕╨╖╨╛╨▒╤А╨░╨╢╨╡╨╜╨╕╨╣ (auto/...   # ╤Б╨▓╤П╨╖╨║╨░ ╤Б job; LLM-╨╛╨┐╤А╨╛╤Б╨╛╨▓ ╨Э╨Х╨в (D23)\n        "message_key": f"{chat_id}:{asset.get(\'tg_message_id\')}",\n    }\n'
+
+tests\test_vision_adapt.py:505: AssertionError
+============================== warnings summary ===============================
+..\..\..\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\_pytest\config\__init__.py:1464
+  C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\_pytest\config\__init__.py:1464: PytestConfigWarning: Unknown config option: timeout
+  
+    self._warn_or_fail_if_strict(f"Unknown config option: {key}\n")
+
+..\..\..\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\_pytest\config\__init__.py:1464
+  C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\_pytest\config\__init__.py:1464: PytestConfigWarning: Unknown config option: timeout_method
+  
+    self._warn_or_fail_if_strict(f"Unknown config option: {key}\n")
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_vision_adapt.py::TestPlanStrategy::test_original_when_fits_and_no_codec_touch
+FAILED tests/test_vision_adapt.py::TestPlanStrategy::test_optimize_when_payload_over
+FAILED tests/test_vision_adapt.py::TestPlanStrategy::test_segments_for_long_screenshot
+FAILED tests/test_vision_adapt.py::TestPlanStrategy::test_segments_reuse_existing_plan_segments
+FAILED tests/test_vision_adapt.py::TestPlanStrategy::test_kill_switch_off_is_original_only
+FAILED tests/test_vision_adapt.py::TestPlanStrategy::test_small_image_never_upscaled
+FAILED tests/test_vision_adapt.py::TestOptimizeToFit::test_encode_first_without_resize
+FAILED tests/test_vision_adapt.py::TestOptimizeToFit::test_downscales_when_pixels_over
+FAILED tests/test_vision_adapt.py::TestOptimizeToFit::test_fail_open_without_codec
+FAILED tests/test_vision_adapt.py::TestAnalyzeAdaptive::test_original_single_call_byte_parity
+FAILED tests/test_vision_adapt.py::TestAnalyzeAdaptive::test_segments_merge_all_lines_no_loss
+FAILED tests/test_vision_adapt.py::TestAnalyzeAdaptive::test_negative_accepted_but_text_lost
+FAILED tests/test_vision_adapt.py::TestAnalyzeAdaptive::test_partial_coverage_is_marked
+FAILED tests/test_vision_adapt.py::TestAdaptiveRetry::test_retry_on_size_class_with_smaller_copy
+FAILED tests/test_vision_adapt.py::TestAdaptiveRetry::test_no_retry_on_500_or_429
+FAILED tests/test_vision_adapt.py::TestAdaptiveRetry::test_no_identical_retry
+FAILED tests/test_vision_adapt.py::TestAdaptiveRetry::test_rejection_classes_from_response
+FAILED tests/test_vision_adapt.py::TestAdaptiveRetry::test_detail_carries_rejection_class
+FAILED tests/test_vision_adapt.py::TestFixtureMetrics::test_fixture_set_metrics_and_no_loss
+FAILED tests/test_vision_adapt.py::TestDelegationParity::test_job_path_uses_adaptive
+20 failed, 1 passed, 2 warnings in 2.86s

@@ -1,0 +1,296 @@
+﻿................................FFFFFFFFF..                              [100%]
+================================== FAILURES ===================================
+_____________ TestProdBackendNoPillow.test_long_png_never_raises ______________
+
+self = <tests.test_vision_adapt.TestProdBackendNoPillow object at 0x0000026808AF5700>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000026810F2C650>
+
+    def test_long_png_never_raises(self, monkeypatch):
+        data, _lines, _colors = _long_screenshot()      # ╤Д╨╕╨║╤Б╤В╤Г╤А╨░ ╨┤╨╛ ╨▒╨╗╨╛╨║╨╕╤А╨╛╨▓╨║╨╕
+        self._block_pil(monkeypatch)
+        assert inorm.codec_available() == "ffmpeg"
+>       out = inorm.optimize_to_fit(data, limits=inorm.vision_limits())
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\test_vision_adapt.py:746: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+services\image_normalize.py:501: in optimize_to_fit
+    copy = _encode(data, target)
+           ^^^^^^^^^^^^^^^^^^^^^
+services\image_normalize.py:487: in _encode
+    return encode(data_, max_dimension=target) if prefer_png \
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+data = b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x03 \x00\x00\x0b@\x08\x02\x00\x00\x00o\t\xd0\x02\x00\x01\x00\x00IDATx\x9...x9c\xc4\xc4\xc4\xcc\xcc\xcc\xd0\xd0\xd0\xb8\xb88###)))<<\xbc\xff\x03GY\xf8r\x03#\xc0\xe4\x00\x00\x00\x00IEND\xaeB`\x82'
+max_dimension = None
+
+    def _encode_png(data: bytes, max_dimension: int | None) -> bytes | None:
+        """PNG-╨║╨╛╨┐╨╕╤П (╨┐╤А╨╛╨╖╤А╨░╤З╨╜╨╛╤Б╤В╤М ╤Б╨╛╤Е╤А╨░╨╜╤П╨╡╤В╤Б╤П; ╨▒╨╡╨╖ ╨┐╨╛╤В╨╡╤А╨╕ ╤Б╨╛╨▓╨╝╨╡╤Б╤В╨╕╨╝╨╛╤Б╤В╨╕)."""
+>       from PIL import Image, ImageOps
+E       ModuleNotFoundError: import of PIL halted; None in sys.modules
+
+services\image_normalize.py:436: ModuleNotFoundError
+___________ TestProdBackendNoPillow.test_opaque_png_still_optimized ___________
+
+self = <tests.test_vision_adapt.TestProdBackendNoPillow object at 0x0000026808ABC1A0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000026810F2C980>
+
+    def test_opaque_png_still_optimized(self, monkeypatch):
+        """╨Э╨╡╨┐╤А╨╛╨╖╤А╨░╤З╨╜╤Л╨╣ PNG ╨╜╨░ ffmpeg тАФ JPEG-╨┐╤Г╤В╤М (╨║╨╛╨┐╨╕╤П ╨╝╨╡╨╜╤М╤И╨╡)."""
+        data, _lines, _colors = _long_screenshot()
+        self._block_pil(monkeypatch)
+>       out = inorm.optimize_to_fit(data, limits=inorm.vision_limits())
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\test_vision_adapt.py:754: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+services\image_normalize.py:501: in optimize_to_fit
+    copy = _encode(data, target)
+           ^^^^^^^^^^^^^^^^^^^^^
+services\image_normalize.py:487: in _encode
+    return encode(data_, max_dimension=target) if prefer_png \
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+data = b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x03 \x00\x00\x0b@\x08\x02\x00\x00\x00o\t\xd0\x02\x00\x01\x00\x00IDATx\x9...x9c\xc4\xc4\xc4\xcc\xcc\xcc\xd0\xd0\xd0\xb8\xb88###)))<<\xbc\xff\x03GY\xf8r\x03#\xc0\xe4\x00\x00\x00\x00IEND\xaeB`\x82'
+max_dimension = None
+
+    def _encode_png(data: bytes, max_dimension: int | None) -> bytes | None:
+        """PNG-╨║╨╛╨┐╨╕╤П (╨┐╤А╨╛╨╖╤А╨░╤З╨╜╨╛╤Б╤В╤М ╤Б╨╛╤Е╤А╨░╨╜╤П╨╡╤В╤Б╤П; ╨▒╨╡╨╖ ╨┐╨╛╤В╨╡╤А╨╕ ╤Б╨╛╨▓╨╝╨╡╤Б╤В╨╕╨╝╨╛╤Б╤В╨╕)."""
+>       from PIL import Image, ImageOps
+E       ModuleNotFoundError: import of PIL halted; None in sys.modules
+
+services\image_normalize.py:436: ModuleNotFoundError
+_________ TestProdBackendNoPillow.test_transparent_png_not_flattened __________
+
+self = <tests.test_vision_adapt.TestProdBackendNoPillow object at 0x0000026808B99310>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000026810F2CCE0>
+
+    def test_transparent_png_not_flattened(self, monkeypatch):
+        data = _transparent_png()                       # ╤Д╨╕╨║╤Б╤В╤Г╤А╨░ ╨┤╨╛ ╨▒╨╗╨╛╨║╨╕╤А╨╛╨▓╨║╨╕
+        self._block_pil(monkeypatch)
+>       out = inorm.optimize_to_fit(data, limits=inorm.vision_limits())
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\test_vision_adapt.py:762: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+services\image_normalize.py:501: in optimize_to_fit
+    copy = _encode(data, target)
+           ^^^^^^^^^^^^^^^^^^^^^
+services\image_normalize.py:487: in _encode
+    return encode(data_, max_dimension=target) if prefer_png \
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+data = b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x03\x84\x00\x00\x02\xbc\x08\x06\x00\x00\x00\xb7\x10qO\x00\x00\x0f\x9bIDA...0\x80(A\x08\x00\x00\x10%\x08\x01\x00\x00\xa2\x04!\x00\x00\xc0h\xfa\x02=\xb4\t\xf1J"1\xba\x00\x00\x00\x00IEND\xaeB`\x82'
+max_dimension = None
+
+    def _encode_png(data: bytes, max_dimension: int | None) -> bytes | None:
+        """PNG-╨║╨╛╨┐╨╕╤П (╨┐╤А╨╛╨╖╤А╨░╤З╨╜╨╛╤Б╤В╤М ╤Б╨╛╤Е╤А╨░╨╜╤П╨╡╤В╤Б╤П; ╨▒╨╡╨╖ ╨┐╨╛╤В╨╡╤А╨╕ ╤Б╨╛╨▓╨╝╨╡╤Б╤В╨╕╨╝╨╛╤Б╤В╨╕)."""
+>       from PIL import Image, ImageOps
+E       ModuleNotFoundError: import of PIL halted; None in sys.modules
+
+services\image_normalize.py:436: ModuleNotFoundError
+___________ TestProdBackendNoPillow.test_animated_gif_not_flattened ___________
+
+self = <tests.test_vision_adapt.TestProdBackendNoPillow object at 0x0000026808B98C50>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000026810F2DCA0>
+
+    def test_animated_gif_not_flattened(self, monkeypatch):
+        data = _animated_gif()                          # ╤Д╨╕╨║╤Б╤В╤Г╤А╨░ ╨┤╨╛ ╨▒╨╗╨╛╨║╨╕╤А╨╛╨▓╨║╨╕
+        self._block_pil(monkeypatch)
+        out = inorm.optimize_to_fit(data, limits=inorm.vision_limits())
+>       assert out is None                              # ╨░╨╜╨╕╨╝╨░╤Ж╨╕╤О ╨╜╨╡ ┬л╤Б╨┐╨╗╤О╤Й╨╕╨▓╨░╨╡╨╝┬╗
+        ^^^^^^^^^^^^^^^^^^
+E       AssertionError: assert b'\xff\xd8\xff\xfe\x00\x10Lavc62.23.103\x00\xff\xdb\x00C\x00\x08\x08\x08\t\x08\t\x0b\x0b\x0b\x0b\x0b\x0b\r\x0c\r\r\r\r...0\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00?\xff\xd9' is None
+
+tests\test_vision_adapt.py:769: AssertionError
+___________ TestProdBackendNoPillow.test_analyze_adaptive_no_crash ____________
+
+self = <tests.test_vision_adapt.TestProdBackendNoPillow object at 0x0000026808B99EB0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000026810F2FB60>
+vision_env = None
+
+    @pytest.mark.asyncio
+    async def test_analyze_adaptive_no_crash(self, monkeypatch, vision_env):
+        data, truth, colors = _long_screenshot()
+        self._block_pil(monkeypatch)
+        img = validate_image_bytes(data)
+        t = OcrTransport(truth, colors)
+>       out = await mca_vision.analyze_adaptive(img, chat_id=CHAT, transport=t)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\test_vision_adapt.py:777: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+services\mca_vision.py:1692: in analyze_adaptive
+    optimized = await image_normalize.optimize_to_fit_async(
+services\image_normalize.py:528: in optimize_to_fit_async
+    return await asyncio.to_thread(optimize_to_fit, data, limits=limits,
+C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\asyncio\threads.py:25: in to_thread
+    return await loop.run_in_executor(None, func_call)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\concurrent\futures\thread.py:58: in run
+    result = self.fn(*self.args, **self.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+services\image_normalize.py:501: in optimize_to_fit
+    copy = _encode(data, target)
+           ^^^^^^^^^^^^^^^^^^^^^
+services\image_normalize.py:487: in _encode
+    return encode(data_, max_dimension=target) if prefer_png \
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+data = b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x03 \x00\x00\x0b@\x08\x02\x00\x00\x00o\t\xd0\x02\x00\x01\x00\x00IDATx\x9...x9c\xc4\xc4\xc4\xcc\xcc\xcc\xd0\xd0\xd0\xb8\xb88###)))<<\xbc\xff\x03GY\xf8r\x03#\xc0\xe4\x00\x00\x00\x00IEND\xaeB`\x82'
+max_dimension = None
+
+    def _encode_png(data: bytes, max_dimension: int | None) -> bytes | None:
+        """PNG-╨║╨╛╨┐╨╕╤П (╨┐╤А╨╛╨╖╤А╨░╤З╨╜╨╛╤Б╤В╤М ╤Б╨╛╤Е╤А╨░╨╜╤П╨╡╤В╤Б╤П; ╨▒╨╡╨╖ ╨┐╨╛╤В╨╡╤А╨╕ ╤Б╨╛╨▓╨╝╨╡╤Б╤В╨╕╨╝╨╛╤Б╤В╨╕)."""
+>       from PIL import Image, ImageOps
+E       ModuleNotFoundError: import of PIL halted; None in sys.modules
+
+services\image_normalize.py:436: ModuleNotFoundError
+------------------------------ Captured log call ------------------------------
+WARNING  services.mca_events:mca_events.py:610 mca_event=vision_adapt | ts=1792409977 | event_name=vision_adapt | outcome=failed | level=WARN | component=vision.media | stage=optimize | chat_id=-1009001 | error_json={"strategy": "optimize", "reason": "payload_over", "calls": 0, "error": "ModuleNotFoundError"}
+_________ TestProdBackendNoPillow.test_invariant_never_raises_battery _________
+
+self = <tests.test_vision_adapt.TestProdBackendNoPillow object at 0x0000026808B9A3F0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000026810F2F980>
+
+    def test_invariant_never_raises_battery(self, monkeypatch):
+        """╨Ъ╨╛╨╜╤В╤А╨░╨║╤В ┬л╨╜╨╕╨║╨╛╨│╨┤╨░ ╨╜╨╡ ╨▒╤А╨╛╤Б╨░╨╡╤В┬╗: ╨▒╨░╤В╨░╤А╨╡╤П ╨▓╤Е╨╛╨┤╨╛╨▓ ├Ч ╨╛╨▒╨░ ╨▒╤Н╨║╨╡╨╜╨┤╨░."""
+        fixtures = [_long_screenshot()[0], _transparent_png(), _animated_gif(),
+                    _tiff(), _fillbyte_jpeg(), b"", b"garbage" * 100,
+                    _jpeg((64, 48))]
+        for block in (False, True):
+            if block:
+                self._block_pil(monkeypatch)
+            else:
+                monkeypatch.undo()
+                inorm.reset_codec_cache()
+            for blob in fixtures:
+>               out = inorm.optimize_to_fit(blob, limits=inorm.vision_limits())
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\test_vision_adapt.py:793: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+services\image_normalize.py:501: in optimize_to_fit
+    copy = _encode(data, target)
+           ^^^^^^^^^^^^^^^^^^^^^
+services\image_normalize.py:487: in _encode
+    return encode(data_, max_dimension=target) if prefer_png \
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+data = b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x03 \x00\x00\x0b@\x08\x02\x00\x00\x00o\t\xd0\x02\x00\x01\x00\x00IDATx\x9...x9c\xc4\xc4\xc4\xcc\xcc\xcc\xd0\xd0\xd0\xb8\xb88###)))<<\xbc\xff\x03GY\xf8r\x03#\xc0\xe4\x00\x00\x00\x00IEND\xaeB`\x82'
+max_dimension = None
+
+    def _encode_png(data: bytes, max_dimension: int | None) -> bytes | None:
+        """PNG-╨║╨╛╨┐╨╕╤П (╨┐╤А╨╛╨╖╤А╨░╤З╨╜╨╛╤Б╤В╤М ╤Б╨╛╤Е╤А╨░╨╜╤П╨╡╤В╤Б╤П; ╨▒╨╡╨╖ ╨┐╨╛╤В╨╡╤А╨╕ ╤Б╨╛╨▓╨╝╨╡╤Б╤В╨╕╨╝╨╛╤Б╤В╨╕)."""
+>       from PIL import Image, ImageOps
+E       ModuleNotFoundError: import of PIL halted; None in sys.modules
+
+services\image_normalize.py:436: ModuleNotFoundError
+__ TestRetryClassGate.test_arbitrary_400_no_retry[unknown parameter: foo-1] ___
+
+self = <tests.test_vision_adapt.TestRetryClassGate object at 0x0000026808B9AAB0>
+vision_env = None, message = 'unknown parameter: foo', expect_calls = 1
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("message,expect_calls", [
+        ("unknown parameter: foo", 1),
+        ("model_not_found: no endpoints found", 1),
+        ("maximum context length is 4096 tokens", 1),
+    ])
+    async def test_arbitrary_400_no_retry(self, vision_env, message,
+                                          expect_calls):
+        img = validate_image_bytes(_jpeg((800, 600), quality=70))
+        t = OcrTransport([], [], fail_status=400, fail_first=99,
+                         fail_message=message)
+        with pytest.raises(VisionError):
+            await mca_vision.analyze_adaptive(img, chat_id=CHAT, transport=t)
+>       assert len(t.calls) == expect_calls
+E       AssertionError: assert 2 == 1
+E        +  where 2 = len([{'bytes': 8228, 'chars': 10995}, {'bytes': 1640, 'chars': 2211}])
+E        +    where [{'bytes': 8228, 'chars': 10995}, {'bytes': 1640, 'chars': 2211}] = <tests.test_vision_adapt.OcrTransport object at 0x0000026810EC0E60>.calls
+
+tests\test_vision_adapt.py:817: AssertionError
+------------------------------ Captured log call ------------------------------
+WARNING  services.mca_events:mca_events.py:610 mca_event=vision_adapt | ts=1792409978 | event_name=vision_adapt | outcome=failed | level=WARN | component=vision.media | stage=original | chat_id=-1009001 | error_json={"strategy": "original", "reason": "fits", "calls": 2, "error": "VisionError"}
+_ TestRetryClassGate.test_arbitrary_400_no_retry[model_not_found: no endpoints found-1] _
+
+self = <tests.test_vision_adapt.TestRetryClassGate object at 0x0000026808B9AD50>
+vision_env = None, message = 'model_not_found: no endpoints found'
+expect_calls = 1
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("message,expect_calls", [
+        ("unknown parameter: foo", 1),
+        ("model_not_found: no endpoints found", 1),
+        ("maximum context length is 4096 tokens", 1),
+    ])
+    async def test_arbitrary_400_no_retry(self, vision_env, message,
+                                          expect_calls):
+        img = validate_image_bytes(_jpeg((800, 600), quality=70))
+        t = OcrTransport([], [], fail_status=400, fail_first=99,
+                         fail_message=message)
+        with pytest.raises(VisionError):
+            await mca_vision.analyze_adaptive(img, chat_id=CHAT, transport=t)
+>       assert len(t.calls) == expect_calls
+E       AssertionError: assert 2 == 1
+E        +  where 2 = len([{'bytes': 8228, 'chars': 10995}, {'bytes': 1640, 'chars': 2211}])
+E        +    where [{'bytes': 8228, 'chars': 10995}, {'bytes': 1640, 'chars': 2211}] = <tests.test_vision_adapt.OcrTransport object at 0x0000026810EC1610>.calls
+
+tests\test_vision_adapt.py:817: AssertionError
+------------------------------ Captured log call ------------------------------
+WARNING  services.mca_events:mca_events.py:610 mca_event=vision_adapt | ts=1792409978 | event_name=vision_adapt | outcome=failed | level=WARN | component=vision.media | stage=original | chat_id=-1009001 | error_json={"strategy": "original", "reason": "fits", "calls": 2, "error": "VisionError"}
+_ TestRetryClassGate.test_arbitrary_400_no_retry[maximum context length is 4096 tokens-1] _
+
+self = <tests.test_vision_adapt.TestRetryClassGate object at 0x0000026808B9AE10>
+vision_env = None, message = 'maximum context length is 4096 tokens'
+expect_calls = 1
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("message,expect_calls", [
+        ("unknown parameter: foo", 1),
+        ("model_not_found: no endpoints found", 1),
+        ("maximum context length is 4096 tokens", 1),
+    ])
+    async def test_arbitrary_400_no_retry(self, vision_env, message,
+                                          expect_calls):
+        img = validate_image_bytes(_jpeg((800, 600), quality=70))
+        t = OcrTransport([], [], fail_status=400, fail_first=99,
+                         fail_message=message)
+        with pytest.raises(VisionError):
+            await mca_vision.analyze_adaptive(img, chat_id=CHAT, transport=t)
+>       assert len(t.calls) == expect_calls
+E       AssertionError: assert 2 == 1
+E        +  where 2 = len([{'bytes': 8228, 'chars': 10995}, {'bytes': 1640, 'chars': 2211}])
+E        +    where [{'bytes': 8228, 'chars': 10995}, {'bytes': 1640, 'chars': 2211}] = <tests.test_vision_adapt.OcrTransport object at 0x0000026810EC2120>.calls
+
+tests\test_vision_adapt.py:817: AssertionError
+------------------------------ Captured log call ------------------------------
+WARNING  services.mca_events:mca_events.py:610 mca_event=vision_adapt | ts=1792409978 | event_name=vision_adapt | outcome=failed | level=WARN | component=vision.media | stage=original | chat_id=-1009001 | error_json={"strategy": "original", "reason": "fits", "calls": 2, "error": "VisionError"}
+============================== warnings summary ===============================
+..\..\..\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\_pytest\config\__init__.py:1464
+  C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\_pytest\config\__init__.py:1464: PytestConfigWarning: Unknown config option: timeout
+  
+    self._warn_or_fail_if_strict(f"Unknown config option: {key}\n")
+
+..\..\..\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\_pytest\config\__init__.py:1464
+  C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\_pytest\config\__init__.py:1464: PytestConfigWarning: Unknown config option: timeout_method
+  
+    self._warn_or_fail_if_strict(f"Unknown config option: {key}\n")
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_vision_adapt.py::TestProdBackendNoPillow::test_long_png_never_raises
+FAILED tests/test_vision_adapt.py::TestProdBackendNoPillow::test_opaque_png_still_optimized
+FAILED tests/test_vision_adapt.py::TestProdBackendNoPillow::test_transparent_png_not_flattened
+FAILED tests/test_vision_adapt.py::TestProdBackendNoPillow::test_animated_gif_not_flattened
+FAILED tests/test_vision_adapt.py::TestProdBackendNoPillow::test_analyze_adaptive_no_crash
+FAILED tests/test_vision_adapt.py::TestProdBackendNoPillow::test_invariant_never_raises_battery
+FAILED tests/test_vision_adapt.py::TestRetryClassGate::test_arbitrary_400_no_retry[unknown parameter: foo-1]
+FAILED tests/test_vision_adapt.py::TestRetryClassGate::test_arbitrary_400_no_retry[model_not_found: no endpoints found-1]
+FAILED tests/test_vision_adapt.py::TestRetryClassGate::test_arbitrary_400_no_retry[maximum context length is 4096 tokens-1]
+9 failed, 34 passed, 2 warnings in 5.11s

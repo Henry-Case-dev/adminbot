@@ -1,0 +1,16 @@
+mca_event=vision_adapt | ts=1792410122 | event_name=vision_adapt | outcome=failed | level=WARN | component=vision.media | stage=original | chat_id=-1009 | error_json={"strategy": "original", "reason": "fits", "calls": 1, "error": "VisionError"}
+mca_event=vision_adapt | ts=1792410122 | event_name=vision_adapt | outcome=failed | level=WARN | component=vision.media | stage=original | chat_id=-1009 | error_json={"strategy": "original", "reason": "fits", "calls": 1, "error": "VisionError"}
+mca_event=vision_adapt | ts=1792410122 | event_name=vision_adapt | outcome=failed | level=WARN | component=vision.media | stage=original | chat_id=-1009 | error_json={"strategy": "original", "reason": "fits", "calls": 1, "error": "VisionError"}
+mca_event=vision_adapt | ts=1792410122 | event_name=vision_adapt | outcome=failed | level=WARN | component=vision.media | stage=original | chat_id=-1009 | error_json={"strategy": "original", "reason": "fits", "calls": 2, "error": "VisionError"}
+mca_event=vision_adapt | ts=1792410122 | event_name=vision_adapt | outcome=failed | level=WARN | component=vision.media | stage=original | chat_id=-1009 | error_json={"strategy": "original", "reason": "fits", "calls": 2, "error": "VisionError"}
+codec: ffmpeg
+NF1 optimize_to_fit(long_png): OK -> (642015, ('image/jpeg', 720, 2592))
+NF1 optimize_to_fit(transparent_png): OK -> None
+NF1 optimize_to_fit(animated_gif): OK -> None
+NF1 analyze_adaptive(long_png): OK ready calls 1
+NF2 bare-400: calls=1 VisionError(vision_failed)
+NF2 model_not_found: calls=1 VisionError(vision_failed)
+NF2 context: calls=1 VisionError(vision_failed)
+NF2 image_too_large: calls=2 VisionError(vision_failed)
+NF2 413: calls=2 VisionError(vision_failed)
+PROBE DONE

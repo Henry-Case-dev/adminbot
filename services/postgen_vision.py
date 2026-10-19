@@ -266,71 +266,18 @@ async def analyze_generated_image(data: bytes, *, chat_id: int,
     return outcome
 
 
-#: Классы провайдер-отказов, при которых имеет смысл ОДИН bounded retry с
-#: нормализованным (меньшим/совместимым) JPEG: image-class 4xx.
-_RETRY_STATUS_PREFIXES = ("http_400", "http_413", "http_415", "http_422")
-#: Минимальный остаток бюджета, при котором retry ещё осмыслен (секунды).
-_RETRY_MIN_SECONDS = 3.0
-
-
-def _remaining(deadline: float) -> float:
-    return deadline - time.monotonic()
-
-
-def _is_image_class_rejection(exc) -> bool:
-    """Image-class отказ провайдера (400/413/415/422 или явная семантика
-    «image rejected») — кандидат на retry нормализованным payload."""
-    detail = str(getattr(exc, "detail", "") or "")
-    if "/image_rejected" in detail:
-        return True
-    return any(detail.startswith(prefix) for prefix in _RETRY_STATUS_PREFIXES)
-
-
-async def _attempt(image, *, chat_id: int, transport, correlation_id,
-                   timeout: float):
-    """Один bounded вызов анализатора (общий бюджет контура)."""
-    from services import mca_vision
-    return await asyncio.wait_for(
-        mca_vision.analyze_image_bytes(
-            image, chat_id=int(chat_id), transport=transport,
-            correlation_id=correlation_id),
-        timeout=max(0.05, float(timeout)))
-
-
-async def _normalized_retry_image(exc, image, deadline: float):
-    """Image ФАКТИЧЕСКИ отправленного изображения, если retry осмыслен.
-
-    None — не image-class отказ / рубильник OFF / нет кодека / нормализация
-    не уменьшила payload / не хватает остатка бюджета. Retry НЕ маскирует
-    ошибку: финальный отказ по-прежнему несёт detail последней попытки."""
-    if not _is_image_class_rejection(exc):
-        return None
-    if _remaining(deadline) < _RETRY_MIN_SECONDS:
-        return None
-    from services import image_normalize, mca_vision
-    normalized = await image_normalize.normalize_jpeg_bytes_async(image.data)
-    if not normalized or len(normalized) >= len(image.data):
-        return None
-    try:
-        retry_image = mca_vision.validate_image_bytes(normalized)
-    except mca_vision.VisionError:
-        return None
-    logger.info("[vision] postgen retry with normalized payload | in=%d | "
-                "out=%d | detail=%s", len(image.data), len(normalized),
-                str(getattr(exc, "detail", "") or ""))
-    return retry_image
-
-
 async def _analyze_uncached(data: bytes, *, chat_id: int,
                             correlation_id: str | None,
                             transport=None) -> PostgenVisionOutcome:
     """Внутренний путь без дедуп-кеша: effective-гейт → адаптер входа →
-    ЕДИНЫЙ анализатор MCA-19. Все отказы → честные статусы с detail.
+    ЕДИНЫЙ адаптивный анализатор MCA-19. Все отказы → честные статусы.
 
-    POSTGEN-DIAG: (1) вход проходит `validate_or_normalize` (декод-фоллбэк
-    для форматов, которые сниффер не знает); (2) image-class отказ провайдера
-    (400/413/415/422) — РОВНО один retry с нормализованным меньшим JPEG в
-    остатке бюджета; (3) detail провайдера/исключения сохраняется."""
+    POSTGEN-DIAG: вход проходит `validate_or_normalize` (декод-фоллбэк для
+    форматов, которые сниффер не знает); detail провайдера сохраняется.
+    VISION-ADAPT (КОРР №2): подготовка (original → Этап A → Этап B, без
+    фрагментации) и bounded retry строго меньшей копией — внутри
+    `analyze_adaptive` (единый контур для всех Vision-вызовов:
+    входящие/постген); здесь — общий бюджет и статусы."""
     from services import mca_vision
     try:
         state = await mca_vision.resolve_effective_state(chat_id)
@@ -352,22 +299,12 @@ async def _analyze_uncached(data: bytes, *, chat_id: int,
             state = await mca_vision.resolve_effective_state(chat_id)
         if not state.effective_enabled:
             return _outcome_from_state(state)
-        deadline = time.monotonic() + analysis_budget_seconds()
         # Тот же валидатор/декод-фоллбэк, что у входящих активов MCA-19.
         image = await mca_vision.validate_or_normalize(data)
-        try:
-            analysis = await _attempt(
-                image, chat_id=chat_id, transport=transport,
-                correlation_id=correlation_id,
-                timeout=_remaining(deadline))
-        except mca_vision.VisionError as exc:
-            retry_image = await _normalized_retry_image(exc, image, deadline)
-            if retry_image is None:
-                raise
-            analysis = await _attempt(
-                retry_image, chat_id=chat_id, transport=transport,
-                correlation_id=correlation_id,
-                timeout=_remaining(deadline))
+        analysis = await mca_vision.analyze_adaptive(
+            image, chat_id=int(chat_id), transport=transport,
+            correlation_id=correlation_id,
+            budget_seconds=analysis_budget_seconds())
         return _outcome_from_analysis(analysis)
     except mca_vision.VisionError as exc:
         reason = str(getattr(exc, "reason", "") or "vision_failed")

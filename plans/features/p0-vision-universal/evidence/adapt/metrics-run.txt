@@ -1,0 +1,111 @@
+{
+ "pipeline": "original -> StageA(encode) -> StageB(resize) -> retry<=1",
+ "fragmentation_in_default_path": false,
+ "limits": {
+  "provider_sim_chars": 1000000,
+  "strict_provider_chars": 450000
+ },
+ "cases": 7,
+ "analysis_delivered_rate": 1.0,
+ "honesty_rate": 1.0,
+ "ocr_full_recovery": [
+  "long_screenshot",
+  "meme"
+ ],
+ "calls_total": 8,
+ "max_ms": 172,
+ "metrics": [
+  {
+   "case": "long_screenshot",
+   "status": "ready",
+   "error": "",
+   "calls": 1,
+   "ms": 110,
+   "sent_chars": [
+    876419
+   ],
+   "ocr_recovered": 1.0,
+   "honest": true,
+   "analysis_delivered": true
+  },
+  {
+   "case": "meme",
+   "status": "ready",
+   "error": "",
+   "calls": 1,
+   "ms": 0,
+   "sent_chars": [
+    42775
+   ],
+   "ocr_recovered": 1.0,
+   "honest": true,
+   "analysis_delivered": true
+  },
+  {
+   "case": "large_photo",
+   "status": "ready",
+   "error": "",
+   "calls": 1,
+   "ms": 171,
+   "sent_chars": [
+    612959
+   ],
+   "ocr_recovered": null,
+   "honest": true,
+   "analysis_delivered": true
+  },
+  {
+   "case": "large_photo_strict_provider",
+   "status": "ready",
+   "error": "",
+   "calls": 2,
+   "ms": 172,
+   "sent_chars": [
+    612959,
+    244755
+   ],
+   "ocr_recovered": null,
+   "honest": true,
+   "analysis_delivered": true
+  },
+  {
+   "case": "tiff_document",
+   "status": "ready",
+   "error": "",
+   "calls": 1,
+   "ms": 0,
+   "sent_chars": [
+    23663
+   ],
+   "ocr_recovered": null,
+   "honest": true,
+   "analysis_delivered": true
+  },
+  {
+   "case": "fillbyte_jpeg",
+   "status": "ready",
+   "error": "",
+   "calls": 1,
+   "ms": 0,
+   "sent_chars": [
+    867
+   ],
+   "ocr_recovered": null,
+   "honest": true,
+   "analysis_delivered": true
+  },
+  {
+   "case": "small_photo",
+   "status": "ready",
+   "error": "",
+   "calls": 1,
+   "ms": 0,
+   "sent_chars": [
+    390883
+   ],
+   "ocr_recovered": null,
+   "honest": true,
+   "analysis_delivered": true
+  }
+ ]
+}

@@ -1517,6 +1517,8 @@ async def analyze_image_bytes(image: DownloadedImage, *, chat_id: int,
         # по нему принимается решение о bounded retry (image-class отказ)
         # и виден настоящий класс в логах/событиях (прод-факт ACCEPTANCE-94:
         # в событии оставался только reason_code=vision_failed).
+        # VISION-ADAPT: + класс лимита (bytes/pixels/format/context) —
+        # провайдер-агностично, из семантики ответа.
         detail = f"http_{status}"
         text = _probe_error_text(body)
         if text:
@@ -1526,6 +1528,13 @@ async def analyze_image_bytes(image: DownloadedImage, *, chat_id: int,
                 detail += "/modality_refused"
             elif _looks_like_model_missing(text):
                 detail += "/model_missing"
+            try:
+                from services import image_normalize
+                rejection_class = image_normalize.classify_rejection(text)
+            except Exception:      # pragma: no cover - классификация не рвёт
+                rejection_class = ""
+            if rejection_class:
+                detail += f"/{rejection_class}"
         raise VisionError("vision_failed", detail)
     usage = (body or {}).get("usage") or {}
     try:
@@ -1544,6 +1553,222 @@ async def analyze_image_bytes(image: DownloadedImage, *, chat_id: int,
         message = choices[0].get("message") or {}
         content = str(message.get("content") or "")
     return parse_analysis_payload(content)
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# VISION-ADAPT (19.10.2026, КОРР №2): единый поэтапный Vision-анализ
+# ════════════════════════════════════════════════════════════════════════════
+#
+# Директива владельца (КОРР №2): никакой классификации контента/формы и
+# НИКАКОЙ обязательной фрагментации в обычном пути. Единый конвейер:
+#   original (влезает / лимит неизвестен → 0 перекодирований)
+#   → optimize (Этап A: вес без ресайза → Этап B: постепенный ресайз)
+#   → вызов существующего `analyze_image_bytes`
+#   → retry ≤1 только на подтверждённый size/format-отказ строго меньшей
+#     оптимизированной копией (401/403/429/сеть/прочие 400 — без повтора).
+# Утилиты фрагментации (`plan_segments`/`dedup_lines`/`segment_plan`/
+# `crop_to_jpeg`/`merge_segment_analyses`) сохранены как НЕ-дефолтные
+# инструменты и в этом пути не вызываются. Лимиты — провайдер-агностичные.
+
+#: Минимальный остаток бюджета для retry (секунды).
+_ADAPT_RETRY_MIN_SECONDS = 3.0
+#: Классы отказа провайдера, при которых retry осмыслен: 413/415/422 — по
+#: статусу; для 400 нужен ПОДТВЕРЖДЁННЫЙ класс проблемы изображения (NF-2).
+_ADAPT_RETRYABLE_STATUSES = ("http_413", "http_415", "http_422")
+_ADAPT_IMAGE_CLASS_TOKENS = ("/image_rejected", "/size", "/pixels", "/format")
+
+
+def _retryable_provider_rejection(exc) -> bool:
+    """Retry ≤1 — только подтверждённый size/format-класс отказа (NF-2):
+
+    * 413/415/422 — payload/media/entity-классы, повторяем по статусу;
+    * 400 — ТОЛЬКО при подтверждённом классе проблемы изображения
+      (`/image_rejected`, `/size`, `/pixels`, `/format` из `detail`);
+      произвольный 400 (bare/model_not_found/context/unknown parameter),
+      401/403/429/5xx/сеть — НЕ повторяем."""
+    detail = str(getattr(exc, "detail", "") or "")
+    if any(detail.startswith(p) for p in _ADAPT_RETRYABLE_STATUSES):
+        return True
+    if detail.startswith("http_400"):
+        return any(token in detail for token in _ADAPT_IMAGE_CLASS_TOKENS)
+    return False
+
+
+def merge_segment_analyses(analyses: list, *, expected: int,
+                           covered: int) -> VisionAnalysis:
+    """Merge фрагментных анализов без потери текста (VISION-ADAPT).
+
+    OCR-строки — через существующий `dedup_lines` (порядок сохраняется,
+    перекрытия не дублируются); описание — первое непустое; неопределённости
+    объединяются; незавершённое покрытие помечается честно (не «успех»)."""
+    lines_by_segment: list[list[str]] = []
+    for analysis in analyses:
+        lines_by_segment.append([
+            str(block.get("text") or "") for block in analysis.ocr_blocks
+            if isinstance(block, dict)])
+    merged_lines = dedup_lines(lines_by_segment)
+    blocks = [_untrusted_block(text) for text in merged_lines]
+    description = ""
+    for analysis in analyses:
+        if str(analysis.visual_description or "").strip():
+            description = str(analysis.visual_description)
+            break
+    uncertainty: list[str] = []
+    seen: set[str] = set()
+    for analysis in analyses:
+        for item in analysis.uncertainty or []:
+            key = str(item).strip().lower()
+            if key and key not in seen:
+                seen.add(key)
+                uncertainty.append(str(item))
+    if covered < expected:
+        uncertainty.append(
+            f"Фрагментация не завершена (обработано {covered} из {expected})")
+    if blocks or description:
+        status = "ready"
+    elif analyses:
+        status = "no_text"
+    else:
+        status = "failed"
+    return VisionAnalysis(status=status, ocr_blocks=blocks,
+                          visual_description=description,
+                          uncertainty=uncertainty,
+                          self_reported_confidence=None)
+
+
+async def _adaptive_call(image: DownloadedImage, *, chat_id: int, route,
+                         transport, correlation_id, pg_pool, timeout: float
+                         ) -> VisionAnalysis:
+    """Один bounded вызов анализатора в общем бюджете адаптивного контура."""
+    return await asyncio.wait_for(
+        analyze_image_bytes(image, chat_id=chat_id, route=route,
+                            transport=transport,
+                            correlation_id=correlation_id, pg_pool=pg_pool),
+        timeout=max(0.05, float(timeout)))
+
+
+async def _adaptive_retry(image: DownloadedImage, *, sent_bytes: int
+                          ) -> DownloadedImage | None:
+    """Строго ДРУГАЯ (меньшая) оптимизированная копия для одного retry.
+
+    None — рубильник OFF / нет кодека / копия не меньше отправленной
+    (идентичный повтор запрещён)."""
+    from services import image_normalize
+    if not image_normalize.normalize_enabled():
+        return None
+    dims = max(int(image.width or 0), int(image.height or 0))
+    targets: list[int] = []
+    if dims:
+        targets.append(max(256, int(dims * 0.7)))
+        targets.append(max(256, int(dims * 0.5)))
+    for target in targets:
+        copy = await image_normalize.normalize_jpeg_bytes_async(
+            image.data, max_dimension=target)
+        if copy and len(copy) < sent_bytes:
+            try:
+                return validate_image_bytes(copy)
+            except VisionError:
+                continue
+    return None
+
+
+async def analyze_adaptive(image: DownloadedImage, *, chat_id: int,
+                           route: VisionRoute | None = None, transport=None,
+                           correlation_id: str | None = None,
+                           pg_pool=None,
+                           budget_seconds: float | None = None
+                           ) -> VisionAnalysis:
+    """Адаптивный Vision-анализ: preprocessing по фактическому payload.
+
+    Возврат — `VisionAnalysis` (контракт `analyze_image_bytes` не меняется).
+    Киль-свитч `MCA_VISION_NORMALIZE_ENABLED` OFF → ровно один вызов с
+    оригиналом (паритет прежнего поведения)."""
+    from services import image_normalize
+    limits = image_normalize.vision_limits()
+    started = time.monotonic()
+    budget = float(budget_seconds or limits.adapt_budget_seconds)
+    deadline = started + budget
+
+    def _remaining() -> float:
+        return deadline - time.monotonic()
+
+    plan = image_normalize.plan_vision(
+        image.data, mime=image.mime, width=image.width, height=image.height,
+        limits=limits)
+    strategy = plan.strategy
+    calls = 0
+    try:
+        if strategy == "original":
+            candidate = image
+        else:
+            optimized = await image_normalize.optimize_to_fit_async(
+                image.data, limits=limits)
+            if optimized and len(optimized) < len(image.data):
+                try:
+                    candidate = validate_image_bytes(optimized)
+                except VisionError:
+                    candidate = image
+            else:
+                candidate = image
+        try:
+            calls += 1
+            analysis = await _adaptive_call(
+                candidate, chat_id=chat_id, route=route, transport=transport,
+                correlation_id=correlation_id, pg_pool=pg_pool,
+                timeout=_remaining())
+        except VisionError as exc:
+            if not _retryable_provider_rejection(exc) \
+                    or _remaining() < _ADAPT_RETRY_MIN_SECONDS:
+                raise
+            retry_image = await _adaptive_retry(candidate,
+                                                sent_bytes=len(candidate.data))
+            if retry_image is None:
+                raise
+            calls += 1
+            analysis = await _adaptive_call(
+                retry_image, chat_id=chat_id, route=route, transport=transport,
+                correlation_id=correlation_id, pg_pool=pg_pool,
+                timeout=_remaining())
+        _emit_adapt(plan=plan, calls=calls, merged=analysis, limits=limits,
+                    started=started, image=image, chat_id=chat_id,
+                    strategy=strategy)
+        return analysis
+    except asyncio.CancelledError:
+        raise
+    except Exception as exc:
+        _emit_adapt(plan=plan, calls=calls, merged=None, limits=limits,
+                    started=started, image=image, chat_id=chat_id,
+                    strategy=strategy, error_class=type(exc).__name__)
+        raise
+
+
+def _emit_adapt(*, plan, calls: int, merged, limits, started: float,
+                image: DownloadedImage, chat_id: int | None,
+                strategy: str = "", error_class: str = "") -> None:
+    """R17-safe наблюдаемость адаптивного контура (метрики: стратегия/шаги)."""
+    try:
+        strategy = strategy or plan.strategy
+        status = str(getattr(merged, "status", "") or
+                     ("failed" if error_class else ""))
+        logger.info(
+            "[vision] adapt | strategy=%s | reason=%s | calls=%d | "
+            "status=%s | bytes=%d | pixels=%d | ms=%d%s",
+            strategy, plan.reason, calls, status or "-",
+            len(image.data or b""), plan.pixels,
+            int((time.monotonic() - started) * 1000),
+            f" | error={error_class}" if error_class else "")
+        mca_events.emit_mca_event(
+            "vision_adapt",
+            outcome=("success" if status in ("ready", "no_text")
+                     else "failed"),
+            level="INFO" if status in ("ready", "no_text") else "WARN",
+            component="vision.media",
+            stage=strategy,
+            chat_id=chat_id,
+            error_json={"strategy": strategy, "reason": plan.reason,
+                        "calls": calls, "error": error_class})
+    except Exception:      # pragma: no cover - телеметрия не рвёт анализ
+        pass
 
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -2165,10 +2390,13 @@ async def process_asset_job(job: dict, *, db=None, bot=None,
         return
 
     # vision (единый вызов; usage пишет analyze_image_bytes сам).
+    # VISION-ADAPT (КОРР №2): адаптивный preprocessing — original или
+    # optimize (Этап A: вес без ресайза → Этап B: постепенный ресайз),
+    # без обязательной фрагментации; retry ≤1 только на size/format-класс.
     pipeline_stage_event("vision", "started", chat_id=chat_id,
                          operation_id=asset_id, model=route.model)
     try:
-        analysis = await analyze_image_bytes(
+        analysis = await analyze_adaptive(
             image, chat_id=chat_id, route=route, transport=transport,
             correlation_id=correlation_id)
     except VisionError as exc:

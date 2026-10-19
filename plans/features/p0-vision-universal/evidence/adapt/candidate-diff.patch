@@ -1,0 +1,1018 @@
+﻿diff --git a/config/settings.py b/config/settings.py
+index 34e3778e..d3d45dbd 100644
+--- a/config/settings.py
++++ b/config/settings.py
+@@ -1656,16 +1656,35 @@ class Settings:
+     MCA_VISION_TOOL_ENABLED: ClassVar[bool] = _env_bool(
+         "MCA_VISION_TOOL_ENABLED", True)
+     # POSTGEN-DIAG (19.10.2026): env-only ╤А╤Г╨▒╨╕╨╗╤М╨╜╨╕╨║ ╨╕ ╨┐╨╛╤В╨╛╨╗╨╛╨║ bounded
+-    # ╨┤╨╡╨║╨╛╨┤-╤Д╨╛╨╗╨╗╨▒╤Н╨║╨░/╨╜╨╛╤А╨╝╨░╨╗╨╕╨╖╨░╤Ж╨╕╨╕ ╨╕╨╖╨╛╨▒╤А╨░╨╢╨╡╨╜╨╕╤П (`services/image_normalize.py`):
+-    # ╤А╨╡╨░╨╗╤М╨╜╤Л╨╡ ╤Д╨╛╤А╨╝╨░╤В╤Л, ╨║╨╛╤В╨╛╤А╤Л╨╡ ╤Б╨╜╨╕╤Д╤Д╨╡╤А ╨╜╨╡ ╨╖╨╜╨░╨╡╤В (TIFF ╨╕ ╤В.╨┐.), ╨╕ ╤Б╨╗╨╕╤И╨║╨╛╨╝
+-    # ╨▒╨╛╨╗╤М╤И╨╛╨╣ payload ╨┐╨╛╤Б╤В-╨│╨╡╨╜╨╡╤А╨░╤Ж╨╕╨╕ ╨╜╨╛╤А╨╝╨░╨╗╨╕╨╖╤Г╤О╤В╤Б╤П ╨▓ bounded JPEG.
+-    #   OFF тЖТ ╨┐╤А╨╡╨╢╨╜╨╡╨╡ ╨┐╨╛╨▓╨╡╨┤╨╡╨╜╨╕╨╡ (╤Б╨╜╨╕╤Д╤Д╨╡╤А + ╤З╨╡╤Б╤В╨╜╤Л╨╣ ╨╛╤В╨║╨░╨╖; ╨▒╨╡╨╖ ╤Д╨╛╨╗╨╗╨▒╤Н╨║╨░
+-    #   ╨╕ ╨▒╨╡╨╖ retry ╨╜╨╛╤А╨╝╨░╨╗╨╕╨╖╨╛╨▓╨░╨╜╨╜╤Л╨╝ payload).
+-    #   MAX_DIMENSION тАФ ╨┐╨╛╤В╨╛╨╗╨╛╨║ ╨▒╨╛╨╗╤М╤И╨╡╨╣ ╤Б╤В╨╛╤А╨╛╨╜╤Л (╨░╨┐╤Б╨║╨╡╨╣╨╗╨░ ╨╜╨╡╤В).
++    # ╨┤╨╡╨║╨╛╨┤-╤Д╨╛╨╗╨╗╨▒╤Н╨║╨░/╨╜╨╛╤А╨╝╨░╨╗╨╕╨╖╨░╤Ж╨╕╨╕ ╨╕╨╖╨╛╨▒╤А╨░╨╢╨╡╨╜╨╕╤П (`services/image_normalize.py`).
++    #   OFF тЖТ ╨┐╤А╨╡╨╢╨╜╨╡╨╡ ╨┐╨╛╨▓╨╡╨┤╨╡╨╜╨╕╨╡ (╤Б╨╜╨╕╤Д╤Д╨╡╤А + ╤З╨╡╤Б╤В╨╜╤Л╨╣ ╨╛╤В╨║╨░╨╖; ╨▒╨╡╨╖ ╤Д╨╛╨╗╨╗╨▒╤Н╨║╨░).
++    #   MAX_DIMENSION тАФ ╨Э╨Х╨Ю╨С╨п╨Ч╨Р╨в╨Х╨Ы╨м╨Э╨л╨Щ ╨┐╨╛╤В╨╛╨╗╨╛╨║ ╨▒╨╛╨╗╤М╤И╨╡╨╣ ╤Б╤В╨╛╤А╨╛╨╜╤Л
++    #   ╨┐╨╛╨┤╨│╨╛╤В╨╛╨▓╨╗╨╡╨╜╨╜╨╛╨╣ ╨║╨╛╨┐╨╕╨╕; 0 = ╨▒╨╡╨╖ ╨┐╨╛╤В╨╛╨╗╨║╨░ (╨Ъ╨Ю╨а╨а тДЦ2: ╨▒╨╡╨╖ ╨╢╤С╤Б╤В╨║╨╛╨│╨╛ 1024).
+     MCA_VISION_NORMALIZE_ENABLED: ClassVar[bool] = _env_bool(
+         "MCA_VISION_NORMALIZE_ENABLED", True)
+-    MCA_VISION_NORMALIZE_MAX_DIMENSION: ClassVar[int] = _env_int_min(
+-        "MCA_VISION_NORMALIZE_MAX_DIMENSION", 1024, 64)
++    MCA_VISION_NORMALIZE_MAX_DIMENSION: ClassVar[int] = _env_int(
++        "MCA_VISION_NORMALIZE_MAX_DIMENSION", 0)
++    # тФАтФА VISION-ADAPT (19.10.2026, ╨Ъ╨Ю╨а╨а тДЦ2): ╨╡╨┤╨╕╨╜╤Л╨╣ ╨┐╨╛╤Н╤В╨░╨┐╨╜╤Л╨╣ preprocessing тФАтФА
++    # ╨а╨╡╤И╨╡╨╜╨╕╨╡ ╨╛╨▒ ╨╛╨┐╤В╨╕╨╝╨╕╨╖╨░╤Ж╨╕╨╕ тАФ ╨в╨Ю╨Ы╨м╨Ъ╨Ю ╨╛╤В MIME/╤А╨░╨╖╨╝╨╡╤А╨░/╨┐╨╕╨║╤Б╨╡╨╗╨╡╨╣/╤Д╨░╨║╤В╨╕╤З╨╡╤Б╨║╨╛╨│╨╛
++    # payload/╨╗╨╕╨╝╨╕╤В╨╛╨▓/╨╛╤В╨▓╨╡╤В╨░ API (╨╜╨╕╨║╨░╨║╨╛╨╣ ╨║╨╗╨░╤Б╤Б╨╕╤Д╨╕╨║╨░╤Ж╨╕╨╕ ╨║╨╛╨╜╤В╨╡╨╜╤В╨░ ╨╕ ╤Д╨╛╤А╨╝╤Л).
++    #   REQUEST_MAX_BYTES тАФ ╨▒╤О╨┤╨╢╨╡╤В ╨б╨л╨а╨л╨е ╨▒╨░╨╣╤В ╨╛╨┤╨╜╨╛╨│╨╛ ╨╖╨░╨┐╤А╨╛╤Б╨░ (base64 тЙИ ├Ч4/3);
++    #   0 = ╨╗╨╕╨╝╨╕╤В ╨Э╨Х╨Ш╨Ч╨Т╨Х╨б╨в╨Х╨Э тЖТ ╨╛╤В╨┐╤А╨░╨▓╨╗╤П╨╡╨╝ ╨╛╤А╨╕╨│╨╕╨╜╨░╨╗ ╨╕ ╨░╨┤╨░╨┐╤В╨╕╤А╤Г╨╡╨╝╤Б╤П ╨┐╨╛
++    #   ╤Д╨░╨║╤В╨╕╤З╨╡╤Б╨║╨╛╨╝╤Г ╨╛╤В╨▓╨╡╤В╤Г (retry тЙд1 ╤В╨╛╨╗╤М╨║╨╛ ╨╜╨░ ╨┐╨╛╨┤╤В╨▓╨╡╤А╨╢╨┤╤С╨╜╨╜╤Л╨╣ size/format);
++    #   PREP_MAX_PIXELS тАФ ╨╝╤П╨│╨║╨╕╨╣ ╨┐╨╛╤В╨╛╨╗╨╛╨║ ╨┐╨╕╨║╤Б╨╡╨╗╨╡╨╣ ╨┐╨╛╨┤╨│╨╛╤В╨╛╨▓╨╗╨╡╨╜╨╜╨╛╨╣ ╨║╨╛╨┐╨╕╨╕;
++    #   ADAPT_BUDGET_SECONDS тАФ ╨╛╨▒╤Й╨╕╨╣ bounded-╨▒╤О╨┤╨╢╨╡╤В ╨░╨┤╨░╨┐╤В╨╕╨▓╨╜╨╛╨│╨╛ ╨░╨╜╨░╨╗╨╕╨╖╨░.
++    # ╨д╤А╨░╨│╨╝╨╡╨╜╤В╨░╤Ж╨╕╤П (`segment_plan`/`plan_segments`/`merge_segment_analyses`/
++    # `dedup_lines`) тАФ ╨Э╨Х-╨┤╨╡╤Д╨╛╨╗╤В╨╜╤Л╨╡ ╤Г╤В╨╕╨╗╨╕╤В╤Л (╨▓ ╨╛╨▒╤Л╤З╨╜╨╛╨╝ ╨┐╤Г╤В╨╕ ╨╜╨╡ ╨▓╤Л╨╖╤Л╨▓╨░╤О╤В╤Б╤П);
++    # ╨╕╤Е ╨┐╨░╤А╨░╨╝╨╡╤В╤А╤Л: SEGMENT_MAX / SEGMENT_OVERLAP_RATIO.
++    MCA_VISION_REQUEST_MAX_BYTES: ClassVar[int] = _env_int(
++        "MCA_VISION_REQUEST_MAX_BYTES", 700_000)
++    MCA_VISION_PREP_MAX_PIXELS: ClassVar[int] = _env_int_min(
++        "MCA_VISION_PREP_MAX_PIXELS", 4_000_000, 65_536)
++    MCA_VISION_SEGMENT_MAX: ClassVar[int] = _env_int_min(
++        "MCA_VISION_SEGMENT_MAX", 8, 1)
++    MCA_VISION_SEGMENT_OVERLAP_RATIO: ClassVar[float] = _env_float_min(
++        "MCA_VISION_SEGMENT_OVERLAP_RATIO", 0.12, 0.10)
++    MCA_VISION_ADAPT_BUDGET_SECONDS: ClassVar[float] = _env_float_min(
++        "MCA_VISION_ADAPT_BUDGET_SECONDS", 90.0, 5.0)
+     # Env-only ╨░╨▓╨░╤А╨╕╨╣╨╜╤Л╨╡ ╨┐╨╛╤В╨╛╨╗╨║╨╕ (╨╜╨╡ ╨║╨░╤В╨░╨╗╨╛╨│; ADR D13): ╨║╨╗╨░╨╝╨┐╤П╤В ╨▓╨╗╨░╨┤╨╡╨╗╤М╤З╨╡╤Б╨║╨╕╨╡
+     # ╨╖╨╜╨░╤З╨╡╨╜╨╕╤П ╨║╨░╤В╨░╨╗╨╛╨│╨░ limits_vision (spec ┬з8.4). MAX_BYTES/MAX_PIXELS тАФ
+     # decompression-bomb protection (TH-4); DOWNLOAD_CONCURRENCY тАФ ╨╗╨╕╨╝╨╕╤В
+diff --git a/services/image_normalize.py b/services/image_normalize.py
+index 5d203156..696b4b91 100644
+--- a/services/image_normalize.py
++++ b/services/image_normalize.py
+@@ -32,6 +32,7 @@
+ from __future__ import annotations
+ 
+ import asyncio
++import dataclasses
+ import io
+ import logging
+ import os
+@@ -47,8 +48,6 @@ logger = logging.getLogger(__name__)
+ JPEG_QUALITY = 85
+ #: ╨С╤О╨┤╨╢╨╡╤В ffmpeg-╨┐╨╛╨┤╨┐╤А╨╛╤Ж╨╡╤Б╤Б╨░ (╤Б╨╡╨║╤Г╨╜╨┤╤Л): ╨┤╨╡╨║╨╛╨┤+╤А╨╡╤Б╨░╨╣╨╖ ╨╛╨┤╨╜╨╛╨│╨╛ ╨║╨░╨┤╤А╨░.
+ FFMPEG_TIMEOUT_SECONDS = 10.0
+-#: ╨Я╨╛╤В╨╛╨╗╨╛╨║ ╤Б╤В╨╛╤А╨╛╨╜╤Л ╨┐╨╛ ╤Г╨╝╨╛╨╗╤З╨░╨╜╨╕╤О (env-╤А╤Г╤З╨║╨░ `MCA_VISION_NORMALIZE_MAX_DIMENSION`).
+-DEFAULT_MAX_DIMENSION = 1024
+ 
+ _CODEC: str | None = None
+ 
+@@ -62,13 +61,14 @@ def normalize_enabled() -> bool:
+ 
+ 
+ def configured_max_dimension() -> int:
+-    """╨Я╨╛╤В╨╛╨╗╨╛╨║ ╨▒╨╛╨╗╤М╤И╨╡╨╣ ╤Б╤В╨╛╤А╨╛╨╜╤Л ╨╜╨╛╤А╨╝╨░╨╗╨╕╨╖╤Г╨╡╨╝╨╛╨│╨╛ JPEG (╨▒╨╡╨╖ ╨░╨┐╤Б╨║╨╡╨╣╨╗╨░)."""
++    """╨Э╨╡╨╛╨▒╤П╨╖╨░╤В╨╡╨╗╤М╨╜╤Л╨╣ ╨┐╨╛╤В╨╛╨╗╨╛╨║ ╨▒╨╛╨╗╤М╤И╨╡╨╣ ╤Б╤В╨╛╤А╨╛╨╜╤Л ╨┐╨╛╨┤╨│╨╛╤В╨╛╨▓╨╗╨╡╨╜╨╜╨╛╨╣ ╨║╨╛╨┐╨╕╨╕
++    (`MCA_VISION_NORMALIZE_MAX_DIMENSION`; 0 = ╨▒╨╡╨╖ ╨┐╨╛╤В╨╛╨╗╨║╨░ тАФ ╨Ъ╨Ю╨а╨а тДЦ2:
++    ╨╜╨╕╨║╨░╨║╨╛╨│╨╛ ╨╢╤С╤Б╤В╨║╨╛╨│╨╛ 1024)."""
+     try:
+-        value = int(getattr(settings, "MCA_VISION_NORMALIZE_MAX_DIMENSION",
+-                            DEFAULT_MAX_DIMENSION))
++        value = int(getattr(settings, "MCA_VISION_NORMALIZE_MAX_DIMENSION", 0))
+     except Exception:      # pragma: no cover
+-        value = DEFAULT_MAX_DIMENSION
+-    return max(64, value)
++        value = 0
++    return max(0, value)
+ 
+ 
+ def _pillow_available() -> bool:
+@@ -115,8 +115,8 @@ def _pixel_cap() -> int:
+         return 25_000_000
+ 
+ 
+-def _via_pillow(data: bytes, max_dim: int) -> bytes | None:
+-    from PIL import Image
++def _via_pillow(data: bytes, max_dim: int | None) -> bytes | None:
++    from PIL import Image, ImageOps
+     try:
+         Image.MAX_IMAGE_PIXELS = _pixel_cap()
+     except Exception:      # pragma: no cover - guard ╨╜╨╡ ╨║╤А╨╕╤В╨╕╤З╨╡╨╜ ╨┤╨╗╤П ╨▓╤Л╨╖╨╛╨▓╨░
+@@ -126,7 +126,10 @@ def _via_pillow(data: bytes, max_dim: int) -> bytes | None:
+         if width <= 0 or height <= 0 or width * height > _pixel_cap():
+             return None                       # ╤В╨╛╤В ╨╢╨╡ bomb-guard, ╤З╤В╨╛ ╨▓ MCA-19
+         im.load()
+-        if max(width, height) > max_dim:
++        # ╨Ю╤А╨╕╨╡╨╜╤В╨░╤Ж╨╕╤П EXIF: ╨┐╤А╨╕ ╨┐╨╡╤А╨╡╨║╨╛╨┤╨╕╤А╨╛╨▓╨░╨╜╨╕╨╕ ╨┐╤А╨╕╨╝╨╡╨╜╤П╨╡╨╝ ╨╡╤С (baked), ╨╕╨╜╨░╤З╨╡
++        # ╨┐╨╛╤Б╨╗╨╡ ╨┐╨╛╤В╨╡╤А╨╕ EXIF ╨║╨░╨┤╤А ╨▓╨╕╨╖╤Г╨░╨╗╤М╨╜╨╛ ╨┐╨╛╨▓╨╡╤А╨╜╤Г╨╗╤Б╤П ╨▒╤Л (╨Ъ╨Ю╨а╨а тДЦ2).
++        im = ImageOps.exif_transpose(im)
++        if max_dim and max(im.size) > max_dim:
+             im.thumbnail((max_dim, max_dim))
+         frame = im.convert("RGB") if im.mode not in ("RGB", "L") else im
+         buf = io.BytesIO()
+@@ -135,29 +138,32 @@ def _via_pillow(data: bytes, max_dim: int) -> bytes | None:
+     return out or None
+ 
+ 
+-def _via_ffmpeg(data: bytes, max_dim: int) -> bytes | None:
++def _via_ffmpeg(data: bytes, max_dim: int | None) -> bytes | None:
+     """ffmpeg-╨▒╤Н╨║╨╡╨╜╨┤ (╨┐╤А╨╛╨┤-╨▓╨╡╤А╨╛╤П╤В╨╜╤Л╨╣ ╨║╨╛╨┤╨╡╨║, ╨▓╨╕╨┤╨╡╨╛-╨║╨╛╨╜╤В╤Г╤А ╤Г╨╢╨╡ ╨╕╨╝ ╨┐╨╛╨╗╤М╨╖╤Г╨╡╤В╤Б╤П).
+ 
+     ╨Т╤Е╨╛╨┤ тАФ bounded ╨▓╤А╨╡╨╝╨╡╨╜╨╜╤Л╨╣ ╤Д╨░╨╣╨╗, ╨░ ╨╜╨╡ pipe: TIFF ╨╕ ╤А╤П╨┤ ╤Д╨╛╤А╨╝╨░╤В╨╛╨▓ ╤В╤А╨╡╨▒╤Г╤О╤В
+     seekable-╨╕╤Б╤В╨╛╤З╨╜╨╕╨║ ╨╕ ╨╕╨╖ pipe ╨╜╨╡ ╨┤╨╡╨║╨╛╨┤╨╕╤А╤Г╤О╤В╤Б╤П (╨┐╤А╨╛╨▓╨╡╤А╨╡╨╜╨╛ ╨╗╨╛╨║╨░╨╗╤М╨╜╨╛).
+-    ╨д╨░╨╣╨╗ ╤Г╨┤╨░╨╗╤П╨╡╤В╤Б╤П ╨▓ finally; ╤Б╨╛╨┤╨╡╤А╨╢╨╕╨╝╨╛╨╡ ╨╜╨╡ ╨╗╨╛╨│╨╕╤А╤Г╨╡╤В╤Б╤П (R17)."""
++    ╨д╨░╨╣╨╗ ╤Г╨┤╨░╨╗╤П╨╡╤В╤Б╤П ╨▓ finally; ╤Б╨╛╨┤╨╡╤А╨╢╨╕╨╝╨╛╨╡ ╨╜╨╡ ╨╗╨╛╨│╨╕╤А╤Г╨╡╤В╤Б╤П (R17).
++    ``max_dim=None`` тАФ ╨▒╨╡╨╖ ╤А╨╡╤Б╨░╨╣╨╖╨░ (╨┐╨╡╤А╨╡╨║╨╛╨┤╨╕╤А╨╛╨▓╨░╨╜╨╕╨╡ ╨▓ ╨╕╤Б╤Е╨╛╨┤╨╜╨╛╨╝ ╤А╨░╨╖╤А╨╡╤И╨╡╨╜╨╕╨╕)."""
+     exe = _ffmpeg_path()
+     if not exe:
+         return None
+-    # `min(...)` ╨╜╨╡ ╨░╨┐╤Б╨║╨╡╨╣╨╗╨╕╤В; decrease ╤Б╨╛╤Е╤А╨░╨╜╤П╨╡╤В ╨┐╤А╨╛╨┐╨╛╤А╤Ж╨╕╨╕; ╨┐╨╡╤А╨▓╤Л╨╣ ╨║╨░╨┤╤А.
+-    vf = (f"scale='min({max_dim},iw)':'min({max_dim},ih)':"
+-          "force_original_aspect_ratio=decrease")
++    cmd = [exe, "-hide_banner", "-loglevel", "error", "-nostdin"]
+     tmp_path = None
+     proc = None
+     try:
+         with tempfile.NamedTemporaryFile(delete=False) as fh:
+             fh.write(data)
+             tmp_path = fh.name
+-        proc = subprocess.run(
+-            [exe, "-hide_banner", "-loglevel", "error", "-nostdin",
+-             "-i", tmp_path, "-frames:v", "1", "-vf", vf,
+-             "-q:v", "4", "-f", "mjpeg", "pipe:1"],
+-            capture_output=True, timeout=FFMPEG_TIMEOUT_SECONDS)
++        cmd += ["-i", tmp_path, "-frames:v", "1"]
++        if max_dim:
++            # `min(...)` ╨╜╨╡ ╨░╨┐╤Б╨║╨╡╨╣╨╗╨╕╤В; decrease ╤Б╨╛╤Е╤А╨░╨╜╤П╨╡╤В ╨┐╤А╨╛╨┐╨╛╤А╤Ж╨╕╨╕.
++            cmd += ["-vf",
++                    (f"scale='min({max_dim},iw)':'min({max_dim},ih)':"
++                     "force_original_aspect_ratio=decrease")]
++        cmd += ["-q:v", "4", "-f", "mjpeg", "pipe:1"]
++        proc = subprocess.run(cmd, capture_output=True,
++                              timeout=FFMPEG_TIMEOUT_SECONDS)
+     except Exception:      # timeout/OSError тАФ ╤З╨╡╤Б╤В╨╜╤Л╨╣ fail-open
+         return None
+     finally:
+@@ -176,22 +182,22 @@ def _via_ffmpeg(data: bytes, max_dim: int) -> bytes | None:
+ 
+ def normalize_jpeg_bytes(data: bytes, *, max_dimension: int | None = None
+                          ) -> bytes | None:
+-    """bytes тЖТ bounded JPEG (╨╜╨╛╤А╨╝╨░╨╗╨╕╨╖╨░╤Ж╨╕╤П/╨┤╨╡╨║╨╛╨┤-╤Д╨╛╨╗╨╗╨▒╤Н╨║). ╨Э╨╕╨║╨╛╨│╨┤╨░ ╨╜╨╡ ╨▒╤А╨╛╤Б╨░╨╡╤В.
++    """bytes тЖТ JPEG (╨┤╨╡╨║╨╛╨┤-╤Д╨╛╨╗╨╗╨▒╤Н╨║/╤Б╨╛╨▓╨╝╨╡╤Б╤В╨╕╨╝╨░╤П ╨║╨╛╨┐╨╕╤П). ╨Э╨╕╨║╨╛╨│╨┤╨░ ╨╜╨╡ ╨▒╤А╨╛╤Б╨░╨╡╤В.
+ 
+-    None тАФ ╤А╤Г╨▒╨╕╨╗╤М╨╜╨╕╨║ OFF / ╨╜╨╡╤В ╨║╨╛╨┤╨╡╨║╨░ / ╨▓╤Е╨╛╨┤ ╨╜╨╡ ╨┤╨╡╨║╨╛╨┤╨╕╤А╤Г╨╡╤В╤Б╤П. ╨а╨╡╨╖╤Г╨╗╤М╤В╨░╤В ╨Э╨Х
+-    ╨┐╤А╨╛╨▓╨╡╤А╤П╨╡╤В╤Б╤П ╨╜╨░ ┬л╨╝╨╡╨╜╤М╤И╨╡ ╨╕╤Б╤Е╨╛╨┤╨╜╨╛╨│╨╛┬╗: ╤Н╤В╨╛ ╤А╨╡╤И╨░╨╡╤В ╨▓╤Л╨╖╤Л╨▓╨░╤О╤Й╨╕╨╣ (╤Д╨╛╨╗╨╗╨▒╤Н╨║ ╨▓╤Е╨╛╨┤╨░
+-    ╨▒╨╡╤А╤С╤В ╨╗╤О╨▒╨╛╨╣ JPEG, retry ╨┐╨╛╤Б╤В-╨│╨╡╨╜╨░ тАФ ╤В╨╛╨╗╤М╨║╨╛ ╤Б╤В╤А╨╛╨│╨╛ ╨╝╨╡╨╜╤М╤И╨╕╨╣ payload)."""
++    ``max_dimension=None`` тАФ ╨С╨Х╨Ч ╤А╨╡╤Б╨░╨╣╨╖╨░ (╨┐╨╡╤А╨╡╨║╨╛╨┤╨╕╤А╨╛╨▓╨░╨╜╨╕╨╡ ╨▓ ╨╕╤Б╤Е╨╛╨┤╨╜╨╛╨╝
++    ╤А╨░╨╖╤А╨╡╤И╨╡╨╜╨╕╨╕, ╨╛╤А╨╕╨╡╨╜╤В╨░╤Ж╨╕╤П EXIF ╨┐╤А╨╕╨╝╨╡╨╜╤П╨╡╤В╤Б╤П); ╨╕╨╜╨░╤З╨╡ тАФ ╨┐╤А╨╛╨┐╨╛╤А╤Ж╨╕╨╛╨╜╨░╨╗╤М╨╜╤Л╨╣
++    downscale ╨┤╨╛ ╨┐╨╛╤В╨╛╨╗╨║╨░ ╤Б╤В╨╛╤А╨╛╨╜╤Л. None тАФ ╤А╤Г╨▒╨╕╨╗╤М╨╜╨╕╨║ OFF / ╨╜╨╡╤В ╨║╨╛╨┤╨╡╨║╨░ / ╨▓╤Е╨╛╨┤ ╨╜╨╡
++    ╨┤╨╡╨║╨╛╨┤╨╕╤А╤Г╨╡╤В╤Б╤П. ╨Я╤А╨╛╨▓╨╡╤А╨║╨░ ┬л╨╝╨╡╨╜╤М╤И╨╡ ╨╕╤Б╤Е╨╛╨┤╨╜╨╛╨│╨╛┬╗ тАФ ╨╜╨░ ╨▓╤Л╨╖╤Л╨▓╨░╤О╤Й╨╡╨╝."""
+     if not data or not normalize_enabled():
+         return None
+     codec = codec_available()
+     if not codec:
+         return None
+-    limit = int(max_dimension or configured_max_dimension())
+     try:
+         if codec == "pillow":
+-            out = _via_pillow(data, limit)
++            out = _via_pillow(data, max_dimension)
+         else:
+-            out = _via_ffmpeg(data, limit)
++            out = _via_ffmpeg(data, max_dimension)
+     except Exception:
+         logger.debug("[vision] normalize failed | codec=%s | bytes=%d",
+                      codec, len(data), exc_info=True)
+@@ -209,3 +215,456 @@ async def normalize_jpeg_bytes_async(data: bytes, *,
+     """Async-╨╛╨▒╤С╤А╤В╨║╨░: ╨┤╨╡╨║╨╛╨┤/╤А╨╡╤Б╨░╨╣╨╖ ╨╜╨╡ ╨▒╨╗╨╛╨║╨╕╤А╤Г╨╡╤В event loop (thread)."""
+     return await asyncio.to_thread(normalize_jpeg_bytes, data,
+                                    max_dimension=max_dimension)
++
++
++# тХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХР
++# VISION-ADAPT (19.10.2026, ╨Ъ╨Ю╨а╨а тДЦ2): ╨╡╨┤╨╕╨╜╤Л╨╣ ╨┐╨╛╤Н╤В╨░╨┐╨╜╤Л╨╣ preprocessing
++# тХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХР
++#
++# ╨Ф╨╕╤А╨╡╨║╤В╨╕╨▓╨░ ╨▓╨╗╨░╨┤╨╡╨╗╤М╤Ж╨░ (╨Ъ╨Ю╨а╨а тДЦ2): ╤А╨╡╤И╨╡╨╜╨╕╨╡ ╨╛╨▒ ╨╛╨┐╤В╨╕╨╝╨╕╨╖╨░╤Ж╨╕╨╕ тАФ ╨в╨Ю╨Ы╨м╨Ъ╨Ю ╨╛╤В MIME/
++# ╤А╨░╨╖╨╝╨╡╤А╨░/╨┐╨╕╨║╤Б╨╡╨╗╨╡╨╣/╤Д╨░╨║╤В╨╕╤З╨╡╤Б╨║╨╛╨│╨╛ payload/╨╗╨╕╨╝╨╕╤В╨╛╨▓/╨╛╤В╨▓╨╡╤В╨░ API; ╨Э╨Ш╨Ъ╨Р╨Ъ╨Ю╨Щ
++# ╨║╨╗╨░╤Б╤Б╨╕╤Д╨╕╨║╨░╤Ж╨╕╨╕ ╨║╨╛╨╜╤В╨╡╨╜╤В╨░ ╨╕ ╤Д╨╛╤А╨╝╤Л (╤Д╨╛╤В╨╛/╨╝╨╡╨╝/╤Б╨║╤А╨╕╨╜╤И╨╛╤В тАФ ╨╜╨╡ ╤А╨░╨╖╨╗╨╕╤З╨░╤О╤В╤Б╤П), ╨╕
++# ╤Д╤А╨░╨│╨╝╨╡╨╜╤В╨░╤Ж╨╕╤П ╨Э╨Х ╤П╨▓╨╗╤П╨╡╤В╤Б╤П ╨╛╨▒╤П╨╖╨░╤В╨╡╨╗╤М╨╜╤Л╨╝ ╤Н╤В╨░╨┐╨╛╨╝ ╨╛╨▒╤Л╤З╨╜╨╛╨│╨╛ ╤А╨░╤Б╨┐╨╛╨╖╨╜╨░╨▓╨░╨╜╨╕╤П.
++#   1) original тАФ ╨▓╨╗╨╡╨╖╨░╨╡╤В (0 ╨┐╨╡╤А╨╡╨║╨╛╨┤╨╕╤А╨╛╨▓╨░╨╜╨╕╨╣) ╨Ш╨Ы╨Ш ╨╗╨╕╨╝╨╕╤В ╨╜╨╡╨╕╨╖╨▓╨╡╤Б╤В╨╡╨╜
++#      (╨┐╤А╨╛╨▒╤Г╨╡╨╝ ╨╛╤А╨╕╨│╨╕╨╜╨░╨╗ ╨╕ ╨░╨┤╨░╨┐╤В╨╕╤А╤Г╨╡╨╝╤Б╤П ╨┐╨╛ ╤Д╨░╨║╤В╨╕╤З╨╡╤Б╨║╨╛╨╝╤Г ╨╛╤В╨▓╨╡╤В╤Г);
++#   2) ╨н╤В╨░╨┐ A тАФ ╤Г╨╝╨╡╨╜╤М╤И╨╡╨╜╨╕╨╡ ╨▓╨╡╤Б╨░ ╨С╨Х╨Ч ╨╕╨╖╨╝╨╡╨╜╨╡╨╜╨╕╤П ╤А╨░╨╖╤А╨╡╤И╨╡╨╜╨╕╤П (╨║╨╛╨╜╤В╤А╨╛╨╗╨╕╤А╤Г╨╡╨╝╨╛╨╡
++#      ╨┐╨╡╤А╨╡╨║╨╛╨┤╨╕╤А╨╛╨▓╨░╨╜╨╕╨╡; ╨│╨░╤А╨┤╤Л: ╨╜╨╡╤В ╨▓╤Л╨╕╨│╤А╤Л╤И╨░ / ╨┐╤А╨╛╨╖╤А╨░╤З╨╜╨╛╤Б╤В╤М / ╨░╨╜╨╕╨╝╨░╤Ж╨╕╤П /
++#      ╨╛╤А╨╕╨╡╨╜╤В╨░╤Ж╨╕╤П EXIF);
++#   3) ╨н╤В╨░╨┐ B тАФ ╨┐╨╛╤Б╤В╨╡╨┐╨╡╨╜╨╜╤Л╨╣ ╤А╨╡╤Б╨░╨╣╨╖ ╤Б ╨┐╤А╨╛╨┐╨╛╤А╤Ж╨╕╤П╨╝╨╕, ╨╝╨░╨║╤Б╨╕╨╝╤Г╨╝ ╤А╨░╨╖╤А╨╡╤И╨╡╨╜╨╕╤П ╨▓
++#      ╤А╨░╨╝╨║╨░╤Е ╨╗╨╕╨╝╨╕╤В╨╛╨▓ (╨▒╨╡╨╖ ╨╢╤С╤Б╤В╨║╨╛╨│╨╛ 1024; bounded-╤И╨░╨│╨╕ ╨╛╤В ╤Д╨░╨║╤В╨╕╤З╨╡╤Б╨║╨╛╨│╨╛
++#      payload);
++#   4) retry тЙд1 тАФ ╤В╨╛╨╗╤М╨║╨╛ ╨┐╨╛╨┤╤В╨▓╨╡╤А╨╢╨┤╤С╨╜╨╜╤Л╨╣ size/format-╨╛╤В╨║╨░╨╖ (╨▓ mca_vision).
++# ╨г╤В╨╕╨╗╨╕╤В╤Л ╤Д╤А╨░╨│╨╝╨╡╨╜╤В╨░╤Ж╨╕╨╕ (`segment_plan`/`plan_segments`/`merge_segment_analyses`
++# /`dedup_lines`) ╤Б╨╛╤Е╤А╨░╨╜╨╡╨╜╤Л ╨║╨░╨║ ╨Э╨Х-╨┤╨╡╤Д╨╛╨╗╤В╨╜╤Л╨╡ ╨╕╨╜╤Б╤В╤А╤Г╨╝╨╡╨╜╤В╤Л.
++# ╨Ы╨╕╨╝╨╕╤В╤Л тАФ ╨┐╤А╨╛╨▓╨░╨╣╨┤╨╡╤А-╨░╨│╨╜╨╛╤Б╤В╨╕╤З╨╜╤Л╨╡ (settings/env), ╨▒╨╡╨╖ ╤Е╨░╤А╨┤╨║╨╛╨┤╨░ OpenRouter/Gemma.
++
++#: ╨Ь╨╕╨╜╨╕╨╝╨░╨╗╤М╨╜╨░╤П ╤Б╤В╨╛╤А╨╛╨╜╨░ ╨┐╨╛╤Б╤В╨╡╨┐╨╡╨╜╨╜╨╛╨│╨╛ ╤А╨╡╤Б╨░╨╣╨╖╨░ (╨╜╨╕╨╢╨╡ тАФ ╨╜╨╡ ╤Г╨╝╨╡╨╜╤М╤И╨░╨╡╨╝).
++MIN_DIMENSION = 256
++#: ╨Ъ╨╗╨░╤Б╤Б╤Л ╨╛╤В╨║╨░╨╖╨░ ╨┐╤А╨╛╨▓╨░╨╣╨┤╨╡╤А╨░ ╨┐╨╛ ╤В╨╡╨║╤Б╤В╤Г ╨╛╤В╨▓╨╡╤В╨░ (╨┐╤А╨╛╨▓╨░╨╣╨┤╨╡╤А-╨░╨│╨╜╨╛╤Б╤В╨╕╤З╨╜╨╛).
++_REJECTION_HINTS: tuple[tuple[str, tuple[str, ...]], ...] = (
++    ("size", ("payload too large", "request entity too large",
++              "request too large", "body too large", "content too large",
++              "request payload size", "413")),
++    ("context", ("context length", "context window", "maximum context",
++                 "max context", "context_length_exceeded",
++                 "too many tokens", "token limit", "tokens in the image")),
++    ("pixels", ("image too large", "image dimensions", "dimensions too large",
++                "resolution too large", "too many pixels", "max dimension",
++                "image is too large")),
++    ("format", ("unsupported image", "invalid image", "failed to decode",
++                "could not decode", "cannot decode", "unsupported media",
++                "unsupported format", "invalid_image", "malformed image",
++                "corrupt", "unsupported content type", "image format")),
++)
++
++
++@dataclasses.dataclass(frozen=True)
++class VisionLimits:
++    """╨Я╤А╨╛╨▓╨░╨╣╨┤╨╡╤А-╨░╨│╨╜╨╛╤Б╤В╨╕╤З╨╜╨░╤П ╨╝╨╛╨┤╨╡╨╗╤М ╨╗╨╕╨╝╨╕╤В╨╛╨▓ ╨╛╨┤╨╜╨╛╨│╨╛ Vision-╨╖╨░╨┐╤А╨╛╤Б╨░."""
++    request_max_bytes: int        # ╨▒╤О╨┤╨╢╨╡╤В ╨б╨л╨а╨л╨е ╨▒╨░╨╣╤В (base64 тЙИ ├Ч4/3); 0 = ╨╜╨╡╨╕╨╖╨▓╨╡╤Б╤В╨╡╨╜
++    prep_max_pixels: int          # ╨╝╤П╨│╨║╨╕╨╣ ╨┐╨╛╤В╨╛╨╗╨╛╨║ ╨┐╨╕╨║╤Б╨╡╨╗╨╡╨╣ ╨║╨╛╨┐╨╕╨╕
++    hard_max_pixels: int          # ╨╢╤С╤Б╤В╨║╨╕╨╣ bomb-guard (MCA-19)
++    segment_window: int           # ╨╛╨║╨╜╨╛ ╤Г╤В╨╕╨╗╨╕╤В╤Л ╤Д╤А╨░╨│╨╝╨╡╨╜╤В╨░╤Ж╨╕╨╕ (╨╜╨╡ ╨┤╨╡╤Д╨╛╨╗╤В)
++    segment_max: int              # ╨┐╨╛╤В╨╛╨╗╨╛╨║ ╤З╨╕╤Б╨╗╨░ ╤Д╤А╨░╨│╨╝╨╡╨╜╤В╨╛╨▓ (╤Г╤В╨╕╨╗╨╕╤В╨░)
++    overlap_ratio: float          # ╨┐╨╡╤А╨╡╨║╤А╤Л╤В╨╕╨╡ ╤Д╤А╨░╨│╨╝╨╡╨╜╤В╨╛╨▓ (╤Г╤В╨╕╨╗╨╕╤В╨░, тЙе0.10)
++    adapt_budget_seconds: float   # ╨╛╨▒╤Й╨╕╨╣ bounded-╨▒╤О╨┤╨╢╨╡╤В
++
++    @property
++    def budget_known(self) -> bool:
++        """False тАФ ╨╗╨╕╨╝╨╕╤В ╨▒╨░╨╣╤В╨╛╨▓ ╨╜╨╡╨╕╨╖╨▓╨╡╤Б╤В╨╡╨╜: ╨╛╤В╨┐╤А╨░╨▓╨╗╤П╨╡╨╝ ╨╛╤А╨╕╨│╨╕╨╜╨░╨╗ ╨╕
++        ╨░╨┤╨░╨┐╤В╨╕╤А╤Г╨╡╨╝╤Б╤П ╨┐╨╛ ╤Д╨░╨║╤В╨╕╤З╨╡╤Б╨║╨╛╨╝╤Г ╨╛╤В╨▓╨╡╤В╤Г (╨Ъ╨Ю╨а╨а тДЦ2, ╤И╨░╨│ 3)."""
++        return int(self.request_max_bytes or 0) > 0
++
++    @property
++    def request_max_chars(self) -> int:
++        """╨Ю╤Ж╨╡╨╜╨║╨░ ╨▒╤О╨┤╨╢╨╡╤В╨░ base64-payload (╨┐╤А╨╛╨▓╨░╨╣╨┤╨╡╤А ╨▓╨╕╨┤╨╕╤В ╨╕╨╝╨╡╨╜╨╜╨╛ ╨╡╨│╨╛)."""
++        return estimate_payload_chars(self.request_max_bytes)
++
++
++def estimate_payload_chars(data_len: int) -> int:
++    """base64-╨╛╤Ж╨╡╨╜╨║╨░ ╤Д╨░╨║╤В╨╕╤З╨╡╤Б╨║╨╛╨│╨╛ payload (├Ч4/3 + ╤Б╨╗╤Г╨╢╨╡╨▒╨╜╨░╤П ╨╛╨▒╨▓╤П╨╖╨║╨░)."""
++    return int(data_len) * 4 // 3 + 256
++
++
++def _setting(name: str, default):
++    try:
++        return getattr(settings, name, default)
++    except Exception:      # pragma: no cover
++        return default
++
++
++def vision_limits() -> VisionLimits:
++    """╨Ы╨╕╨╝╨╕╤В╤Л ╨╕╨╖ settings/env (╨┐╤А╨╛╨▓╨░╨╣╨┤╨╡╤А-╨░╨│╨╜╨╛╤Б╤В╨╕╤З╨╜╨╛, ╨║╨╛╨╜╤Д╨╕╨│╤Г╤А╨╕╤А╤Г╨╡╨╝╨╛)."""
++    return VisionLimits(
++        request_max_bytes=max(0, int(_setting(
++            "MCA_VISION_REQUEST_MAX_BYTES", 700_000))),
++        prep_max_pixels=int(_setting("MCA_VISION_PREP_MAX_PIXELS", 4_000_000)),
++        hard_max_pixels=_pixel_cap(),
++        segment_window=int(_setting("VISION_IMAGE_MAX_DIMENSION", 1600)),
++        segment_max=int(_setting("MCA_VISION_SEGMENT_MAX", 8)),
++        overlap_ratio=max(0.10, float(_setting(
++            "MCA_VISION_SEGMENT_OVERLAP_RATIO", 0.12))),
++        adapt_budget_seconds=float(_setting(
++            "MCA_VISION_ADAPT_BUDGET_SECONDS", 90.0)))
++
++
++def classify_rejection(text: str) -> str:
++    """╨Ъ╨╗╨░╤Б╤Б ╨╛╤В╨║╨░╨╖╨░ ╨┐╤А╨╛╨▓╨░╨╣╨┤╨╡╤А╨░ ╨╕╨╖ ╤В╨╡╨║╤Б╤В╨░ ╨╛╤В╨▓╨╡╤В╨░: ``size``/``context``/
++    ``pixels``/``format``/``""`` (╨╜╨╡╨╕╨╖╨▓╨╡╤Б╤В╨╜╨╛). ╨Я╤А╨╛╨▓╨░╨╣╨┤╨╡╤А-╨░╨│╨╜╨╛╤Б╤В╨╕╤З╨╜╨╛: ╤В╨╛╨╗╤М╨║╨╛
++    ╤Б╨╡╨╝╨░╨╜╤В╨╕╤З╨╡╤Б╨║╨╕╨╡ ╨┐╨╛╨┤╤Б╨║╨░╨╖╨║╨╕, ╨▒╨╡╨╖ ╨╕╨╝╤С╨╜ ╨┐╤А╨╛╨▓╨░╨╣╨┤╨╡╤А╨╛╨▓/╨╝╨╛╨┤╨╡╨╗╨╡╨╣."""
++    lowered = str(text or "").lower()
++    if not lowered:
++        return ""
++    for cls, hints in _REJECTION_HINTS:
++        if any(h in lowered for h in hints):
++            return cls
++    return ""
++
++
++@dataclasses.dataclass(frozen=True)
++class VisionPlan:
++    """╨а╨╡╤И╨╡╨╜╨╕╨╡ ╨╛ ╨┐╨╛╨┤╨│╨╛╤В╨╛╨▓╨║╨╡ ╨╕╨╖╨╛╨▒╤А╨░╨╢╨╡╨╜╨╕╤П ╨║ Vision-╨▓╤Л╨╖╨╛╨▓╤Г.
++
++    ╨б╤В╤А╨░╤В╨╡╨│╨╕╨╕ ╨в╨Ю╨Ы╨м╨Ъ╨Ю `original` (╨▓╨╗╨╡╨╖╨░╨╡╤В тЖТ 0 ╨┐╨╡╤А╨╡╨║╨╛╨┤╨╕╤А╨╛╨▓╨░╨╜╨╕╨╣) ╨╕ `optimize`
++    (╨н╤В╨░╨┐ A тЖТ ╨н╤В╨░╨┐ B). ╨а╨╡╤И╨╡╨╜╨╕╨╡ тАФ ╨╛╤В MIME/╤А╨░╨╖╨╝╨╡╤А╨░/╨┐╨╕╨║╤Б╨╡╨╗╨╡╨╣/payload/╨╗╨╕╨╝╨╕╤В╨╛╨▓;
++    ╤Д╨╛╤А╨╝╨░/╨║╨╛╨╜╤В╨╡╨╜╤В ╨╜╨╡ ╤Г╤З╨╕╤В╤Л╨▓╨░╤О╤В╤Б╤П (╨Ъ╨Ю╨а╨а тДЦ2). `segments` тАФ ╨╖╨░╤А╨╡╨╖╨╡╤А╨▓╨╕╤А╨╛╨▓╨░╨╜╨╛ ╨┐╨╛╨┤
++    ╨Э╨Х-╨┤╨╡╤Д╨╛╨╗╤В╨╜╤Л╨╡ ╤Г╤В╨╕╨╗╨╕╤В╤Л ╤Д╤А╨░╨│╨╝╨╡╨╜╤В╨░╤Ж╨╕╨╕, ╨┤╨╡╤Д╨╛╨╗╤В╨╜╤Л╨╣ ╨┐╤Г╤В╤М ╨╡╨│╨╛ ╨╜╨╡ ╨╖╨░╨┐╨╛╨╗╨╜╤П╨╡╤В."""
++    strategy: str                 # original | optimize
++    reason: str
++    segments: tuple = ()
++    payload_chars: int = 0
++    pixels: int = 0
++
++
++def segment_plan(width: int, height: int, *, limits: VisionLimits | None = None
++                 ) -> tuple:
++    """╨г╨в╨Ш╨Ы╨Ш╨в╨Р (╨╜╨╡ ╨┤╨╡╤Д╨╛╨╗╤В╨╜╤Л╨╣ ╨┐╤Г╤В╤М): ╤Д╤А╨░╨│╨╝╨╡╨╜╤В╨░╤Ж╨╕╤П ╨┤╨╗╨╕╨╜╨╜╨╛╨│╨╛ ╨╕╨╖╨╛╨▒╤А╨░╨╢╨╡╨╜╨╕╤П тАФ
++    ╤Б╤Г╤Й╨╡╤Б╤В╨▓╤Г╤О╤Й╨╕╨╣ `mca_vision.plan_segments` (╨▓╤Л╨╖╤Л╨▓╨░╨╡╤В╤Б╤П ╤П╨▓╨╜╨╛)."""
++    limits = limits or vision_limits()
++    from services import mca_vision
++    return tuple(mca_vision.plan_segments(
++        width, height, max_dimension=limits.segment_window,
++        overlap_ratio=limits.overlap_ratio,
++        max_segments=limits.segment_max))
++
++
++def plan_vision(data: bytes, *, mime: str = "", width: int = 0, height: int = 0,
++                limits: VisionLimits | None = None) -> VisionPlan:
++    """╨Т╤Л╨▒╨╛╤А ╤Б╤В╤А╨░╤В╨╡╨│╨╕╨╕ тАФ ╨в╨Ю╨Ы╨м╨Ъ╨Ю ╨╛╤В MIME/╤А╨░╨╖╨╝╨╡╤А╨╛╨▓/╤Д╨░╨║╤В╨╕╤З╨╡╤Б╨║╨╛╨│╨╛ payload/╨╗╨╕╨╝╨╕╤В╨╛╨▓.
++
++    original тАФ ╨▓╨╗╨╡╨╖╨░╨╡╤В (0 ╨┤╨╛╨┐. ╤И╨░╨│╨╛╨▓) ╨Ш╨Ы╨Ш ╨╗╨╕╨╝╨╕╤В ╨╜╨╡╨╕╨╖╨▓╨╡╤Б╤В╨╡╨╜ (╨┐╤А╨╛╨▒╤Г╨╡╨╝ ╨╛╤А╨╕╨│╨╕╨╜╨░╨╗,
++    ╨░╨┤╨░╨┐╤В╨╕╤А╤Г╨╡╨╝╤Б╤П ╨┐╨╛ ╤Д╨░╨║╤В╨╕╤З╨╡╤Б╨║╨╛╨╝╤Г ╨╛╤В╨▓╨╡╤В╤Г); optimize тАФ ╨╖╨░╨▓╨╡╨┤╨╛╨╝╨╛ ╨┐╤А╨╡╨▓╤Л╤И╨░╨╡╤В
++    (╨н╤В╨░╨┐ A: ╨▓╨╡╤Б ╨▒╨╡╨╖ ╤А╨╡╤Б╨░╨╣╨╖╨░ тЖТ ╨н╤В╨░╨┐ B: ╨┐╨╛╤Б╤В╨╡╨┐╨╡╨╜╨╜╤Л╨╣ ╤А╨╡╤Б╨░╨╣╨╖)."""
++    limits = limits or vision_limits()
++    payload_chars = estimate_payload_chars(len(data or b""))
++    pixels = max(0, int(width)) * max(0, int(height))
++    if not normalize_enabled():
++        return VisionPlan("original", reason="normalize_disabled",
++                          payload_chars=payload_chars, pixels=pixels)
++    if not limits.budget_known:
++        return VisionPlan("original", reason="budget_unknown",
++                          payload_chars=payload_chars, pixels=pixels)
++    fits_payload = payload_chars <= limits.request_max_chars
++    fits_pixels = pixels <= limits.prep_max_pixels
++    mime_ok = (not mime) or mime in SUPPORTED_PROVIDER_MIMES
++    if fits_payload and fits_pixels and mime_ok:
++        return VisionPlan("original", reason="fits", payload_chars=payload_chars,
++                          pixels=pixels)
++    reason = "payload_over" if not fits_payload else "pixels_over"
++    if not mime_ok:
++        reason = "format_conversion"
++    return VisionPlan("optimize", reason=reason, payload_chars=payload_chars,
++                      pixels=pixels)
++
++
++#: ╨д╨╛╤А╨╝╨░╤В╤Л, ╨║╨╛╤В╨╛╤А╤Л╨╡ ╨┐╤А╨╛╨▓╨░╨╣╨┤╨╡╤А ╨┐╨╛╨╗╤Г╤З╨░╨╡╤В ╨║╨░╨║ ╨╡╤Б╤В╤М (╨┐╤А╨╛╨▓╨░╨╣╨┤╨╡╤А-╨░╨│╨╜╨╛╤Б╤В╨╕╤З╨╜╤Л╨╣ ╨╜╨░╨▒╨╛╤А
++#: OpenAI-╤Б╨╛╨▓╨╝╨╡╤Б╤В╨╕╨╝╨╛╨│╨╛ image_url; ╨╛╤Б╤В╨░╨╗╤М╨╜╨╛╨╡ ╨║╨╛╨╜╨▓╨╡╤А╤В╨╕╤А╤Г╨╡╤В╤Б╤П ╨▓ JPEG).
++SUPPORTED_PROVIDER_MIMES = frozenset({"image/jpeg", "image/png", "image/gif",
++                                      "image/webp"})
++
++
++def _fits(data: bytes, *, limits: VisionLimits) -> bool:
++    return estimate_payload_chars(len(data)) <= limits.request_max_chars
++
++
++def _ceiling() -> int:
++    """╨Я╤Б╨╡╨▓╨┤╨╛╨╜╨╕╨╝ ╨╜╨╡╨╛╨▒╤П╨╖╨░╤В╨╡╨╗╤М╨╜╨╛╨│╨╛ ╨┐╨╛╤В╨╛╨╗╨║╨░ (0 = ╨▒╨╡╨╖ ╨┐╨╛╤В╨╛╨╗╨║╨░)."""
++    return configured_max_dimension()
++
++
++def _target_dimensions(width: int, height: int, *, scale: float,
++                       limits: VisionLimits) -> tuple[int, int]:
++    """╨Я╤А╨╛╨┐╨╛╤А╤Ж╨╕╨╛╨╜╨░╨╗╤М╨╜╤Л╨╡ ╤А╨░╨╖╨╝╨╡╤А╤Л ╤И╨░╨│╨░ (╨▒╨╡╨╖ ╨░╨┐╤Б╨║╨╡╨╣╨╗╨░, ╨╜╨╡ ╨╜╨╕╨╢╨╡ MIN_DIMENSION,
++    ╨▓ ╤А╨░╨╝╨║╨░╤Е prep-╨┐╨╕╨║╤Б╨╡╨╗╨╡╨╣ ╨╕ ╨╜╨╡╨╛╨▒╤П╨╖╨░╤В╨╡╨╗╤М╨╜╨╛╨│╨╛ ╨┐╨╛╤В╨╛╨╗╨║╨░)."""
++    floor_w = min(MIN_DIMENSION, width)
++    floor_h = min(MIN_DIMENSION, height)
++    w = max(floor_w, int(width * scale))
++    h = max(floor_h, int(height * scale))
++    if w * h > limits.prep_max_pixels:
++        shrink = (limits.prep_max_pixels / (w * h)) ** 0.5
++        w = max(floor_w, int(w * shrink))
++        h = max(floor_h, int(h * shrink))
++    ceiling = _ceiling()
++    if ceiling and max(w, h) > ceiling:
++        shrink = ceiling / max(w, h)
++        w = max(floor_w, int(w * shrink))
++        h = max(floor_h, int(h * shrink))
++    return w, h
++
++
++def _source_flags(data: bytes) -> tuple[bool, bool]:
++    """(╨┐╤А╨╛╨╖╤А╨░╤З╨╜╨╛╤Б╤В╤М, ╨░╨╜╨╕╨╝╨░╤Ж╨╕╤П) ╨╕╤Б╤В╨╛╤З╨╜╨╕╨║╨░. ╨в╨╛╨╗╤М╨║╨╛ Pillow-╨▒╤Н╨║╨╡╨╜╨┤ ╨╝╨╛╨╢╨╡╤В
++    ╨┐╤А╨╛╨▓╨╡╤А╨╕╤В╤М; ╨▒╨╡╨╖ ╨╜╨╡╨│╨╛ тАФ (False, False): ╨╛╤Б╤В╨░╨╗╤М╨╜╤Л╨╡ ╨│╨░╤А╨┤╤Л (PNG-╨░╨╗╤М╤Д╨░ ╨┐╨╛
++    IHDR, GIF/WebP ╨╜╨░ ffmpeg) ╤А╨╡╨░╨╗╨╕╨╖╨╛╨▓╨░╨╜╤Л ╨▒╨╡╨╖ ╨┤╨╡╨║╨╛╨┤╨╡╤А╨░ тАФ ╤Б╨╝. NF-1."""
++    if codec_available() != "pillow":
++        return False, False
++    try:
++        from PIL import Image
++        with Image.open(io.BytesIO(data)) as im:
++            if getattr(im, "n_frames", 1) > 1:
++                return False, True
++            if im.mode in ("RGBA", "LA"):
++                return True, False
++            if im.mode == "P" and "transparency" in im.info:
++                return True, False
++            return False, False
++    except Exception:
++        return False, False
++
++
++def _png_has_transparency(data: bytes) -> bool:
++    """PNG-╨░╨╗╤М╤Д╨░ ╨С╨Х╨Ч ╨┤╨╡╨║╨╛╨┤╨╡╤А╨░ (stdlib): color type 4/6 ╨▓ IHDR ╨╕╨╗╨╕ tRNS-╤З╨░╨╜╨║.
++
++    ╨Э╤Г╨╢╨╜╨░ ╨╜╨░ ffmpeg-╨▒╤Н╨║╨╡╨╜╨┤╨╡ (Pillow ╨╜╨╡╤В): ╨┐╤А╨╛╨╖╤А╨░╤З╨╜╤Л╨╣ PNG ╨╜╨╡╨╗╤М╨╖╤П ┬л╤Б╨┐╨╗╤О╤Й╨╕╨▓╨░╤В╤М┬╗
++    ╨▓ JPEG ╨▓╤Б╨╗╨╡╨┐╤Г╤О (NF-1)."""
++    if len(data) < 33 or data[:8] != b"\x89PNG\r\n\x1a\n" \
++            or data[12:16] != b"IHDR":
++        return False
++    color_type = data[25]
++    if color_type in (4, 6):
++        return True
++    if color_type != 3:
++        return False
++    offset = 8
++    size = len(data)
++    while offset + 8 <= size:                       # bounded-╤Б╨║╨░╨╜ ╤З╨░╨╜╨║╨╛╨▓
++        length = int.from_bytes(data[offset:offset + 4], "big")
++        chunk_type = data[offset + 4:offset + 8]
++        if chunk_type == b"tRNS":
++            return True
++        if chunk_type == b"IDAT" or length > size:
++            return False
++        offset += 12 + length
++    return False
++
++
++def _encode_png(data: bytes, max_dimension: int | None) -> bytes | None:
++    """PNG-╨║╨╛╨┐╨╕╤П (╨┐╤А╨╛╨╖╤А╨░╤З╨╜╨╛╤Б╤В╤М ╤Б╨╛╤Е╤А╨░╨╜╤П╨╡╤В╤Б╤П). Fail-open: ╨╜╨╡╤В Pillow/╨╛╤И╨╕╨▒╨║╨░ тЖТ
++    None (╨╜╨╕╨║╨╛╨│╨┤╨░ ╨╜╨╡ ╨▒╤А╨╛╤Б╨░╨╡╤В тАФ NF-1)."""
++    try:
++        from PIL import Image, ImageOps
++    except Exception:      # pragma: no cover - ╨┐╤А╨╛╨┤-╨▒╤Н╨║╨╡╨╜╨┤ ╨▒╨╡╨╖ Pillow
++        return None
++    try:
++        try:
++            Image.MAX_IMAGE_PIXELS = _pixel_cap()
++        except Exception:      # pragma: no cover
++            pass
++        with Image.open(io.BytesIO(data)) as im:
++            if im.size[0] * im.size[1] > _pixel_cap():
++                return None
++            im.load()
++            im = ImageOps.exif_transpose(im)
++            if max_dimension and max(im.size) > max_dimension:
++                im.thumbnail((max_dimension, max_dimension))
++            buf = io.BytesIO()
++            im.save(buf, "PNG", optimize=True)
++            return buf.getvalue() or None
++    except Exception:
++        logger.debug("[vision] png encode failed | bytes=%d", len(data),
++                     exc_info=True)
++        return None
++
++
++def optimize_to_fit(data: bytes, *, limits: VisionLimits | None = None
++                    ) -> bytes | None:
++    """╨Х╨┤╨╕╨╜╤Л╨╣ ╨┐╨╛╤Н╤В╨░╨┐╨╜╤Л╨╣ ╨╝╨╡╤Е╨░╨╜╨╕╨╖╨╝ (╨Ъ╨Ю╨а╨а тДЦ2): ╨н╤В╨░╨┐ A тЖТ ╨н╤В╨░╨┐ B.
++
++    ╨н╤В╨░╨┐ A тАФ ╤Г╨╝╨╡╨╜╤М╤И╨╡╨╜╨╕╨╡ ╨▓╨╡╤Б╨░ ╨С╨Х╨Ч ╨╕╨╖╨╝╨╡╨╜╨╡╨╜╨╕╤П ╤А╨░╨╖╤А╨╡╤И╨╡╨╜╨╕╤П (╨║╨╛╨╜╤В╤А╨╛╨╗╨╕╤А╤Г╨╡╨╝╨╛╨╡
++    ╨┐╨╡╤А╨╡╨║╨╛╨┤╨╕╤А╨╛╨▓╨░╨╜╨╕╨╡); ╨Э╨Х ╨┐╨╡╤А╨╡╨║╨╛╨┤╨╕╤А╤Г╨╡╨╝, ╨╡╤Б╨╗╨╕ ╨╜╨╡╤В ╨▓╤Л╨╕╨│╤А╤Л╤И╨░ ╨╕╨╗╨╕ ╤Н╤В╨╛ ╤Г╤Е╤Г╨┤╤И╨░╨╡╤В
++    ╤Б╨╛╨▓╨╝╨╡╤Б╤В╨╕╨╝╨╛╤Б╤В╤М (╨┐╤А╨╛╨╖╤А╨░╤З╨╜╨╛╤Б╤В╤М/╨░╨╜╨╕╨╝╨░╤Ж╨╕╤П/╨╛╤А╨╕╨╡╨╜╤В╨░╤Ж╨╕╤П). ╨н╤В╨░╨┐ B тАФ ╨┐╨╛╤Б╤В╨╡╨┐╨╡╨╜╨╜╤Л╨╣
++    ╤А╨╡╤Б╨░╨╣╨╖ ╤Б ╨┐╤А╨╛╨┐╨╛╤А╤Ж╨╕╤П╨╝╨╕ ╨╕ ╨╝╨░╨║╤Б╨╕╨╝╤Г╨╝╨╛╨╝ ╤А╨░╨╖╤А╨╡╤И╨╡╨╜╨╕╤П ╨▓ ╤А╨░╨╝╨║╨░╤Е ╨╗╨╕╨╝╨╕╤В╨╛╨▓ (╨▒╨╡╨╖
++    ╨╢╤С╤Б╤В╨║╨╛╨│╨╛ 1024, bounded-╤И╨░╨│╨╕ ╨╛╤В ╤Д╨░╨║╤В╨╕╤З╨╡╤Б╨║╨╛╨│╨╛ payload).
++
++    ╨Э╨╕╨║╨╛╨│╨┤╨░ ╨╜╨╡ ╨▒╤А╨╛╤Б╨░╨╡╤В; ╨╜╨╡ ╨░╨┐╤Б╨║╨╡╨╣╨╗╨╕╤В. ╨Ф╨╗╤П ╨╕╨╖╨▓╨╡╤Б╤В╨╜╤Л╤Е ╤Б╨╜╨╕╤Д╤Д╨╡╤А╤Г ╤Д╨╛╤А╨╝╨░╤В╨╛╨▓
++    ╨▓╨╛╨╖╨▓╤А╨░╤Й╨░╨╡╤В ╤В╨╛╨╗╤М╨║╨╛ ╨║╨╛╨┐╨╕╤О ╨Ь╨Х╨Э╨м╨и╨Х ╨╛╤А╨╕╨│╨╕╨╜╨░╨╗╨░ (╨╕╨╜╨░╤З╨╡ None); ╨╜╨░
++    ╨╜╨╡╨╕╨╖╨▓╨╡╤Б╤В╨╜╨╛╨╝/╤Н╨║╨╖╨╛╤В╨╕╤З╨╡╤Б╨║╨╛╨╝ ╤Д╨╛╤А╨╝╨░╤В╨╡ тАФ ╨┤╨╡╨║╨╛╨┤-╤Д╨╛╨╗╨╗╨▒╤Н╨║ ╨▒╨╡╨╖ ╨│╨░╤А╨░╨╜╤В╨╕╨╕ ┬л╨╝╨╡╨╜╤М╤И╨╡┬╗
++    (╤Н╤В╤Г ╨┐╤А╨╛╨▓╨╡╤А╨║╤Г ╨┤╨╡╨╗╨░╨╡╤В ╨▓╤Л╨╖╤Л╨▓╨░╤О╤Й╨╕╨╣ ╨║╨╛╨╜╤В╤Г╤А). NF-1: ╨▒╨╡╨╖ Pillow PNG-╨▓╨╡╤В╨║╨░ ╨╜╨╡
++    ╨╕╤Б╨┐╨╛╨╗╤М╨╖╤Г╨╡╤В╤Б╤П (opaque PNG тЖТ JPEG; ╨┐╤А╨╛╨╖╤А╨░╤З╨╜╤Л╨╣ PNG/GIF/WebP тАФ ╨┐╤А╨╛╨┐╤Г╤Б╨║)."""
++    if not data or not normalize_enabled():
++        return None
++    limits = limits or vision_limits()
++    if codec_available() == "":
++        return None
++    from services import mca_vision
++    sniffed = mca_vision.sniff_image(data)
++    if sniffed is None:
++        # ╨Э╨╡╨╕╨╖╨▓╨╡╤Б╤В╨╜╤Л╨╣/╤Н╨║╨╖╨╛╤В╨╕╤З╨╡╤Б╨║╨╕╨╣ ╤Д╨╛╤А╨╝╨░╤В: ╨┤╨╡╨║╨╛╨┤-╤Д╨╛╨╗╨╗╨▒╤Н╨║ (╨▒╨╡╨╖ ╤А╨╡╤Б╨░╨╣╨╖╨░) тАФ
++        # ╨┤╨░╨╗╤М╤И╨╡ ╤А╨░╨╖╨╝╨╡╤А ╤А╨╡╤И╨░╨╡╤В ╨▓╤Л╨╖╤Л╨▓╨░╤О╤Й╨╕╨╣ ╨║╨╛╨╜╤В╤Г╤А.
++        return normalize_jpeg_bytes(data)
++    mime, width, height = sniffed
++    if width <= 0 or height <= 0 or width * height > limits.hard_max_pixels:
++        return None
++    pillow = codec_available() == "pillow"
++    transparent, animated = _source_flags(data)
++    if animated:
++        return None                     # ╨░╨╜╨╕╨╝╨░╤Ж╨╕╤О ╨╜╨╡ ┬л╤Б╨┐╨╗╤О╤Й╨╕╨▓╨░╨╡╨╝┬╗ ╨▓ ╨║╨░╨┤╤А
++    if not pillow:
++        # ╨Я╤А╨╛╨┤-╨▒╤Н╨║╨╡╨╜╨┤ ╨▒╨╡╨╖ Pillow (NF-1): ╨░╨╜╨╕╨╝╨░╤Ж╨╕╤О/╨┐╤А╨╛╨╖╤А╨░╤З╨╜╨╛╤Б╤В╤М ╨╜╨╡ ╨┐╨╛╨┤╤В╨▓╨╡╤А╨┤╨╕╤В╤М
++        # ╨┤╨╡╨║╨╛╨┤╨╡╤А╨╛╨╝ тАФ ╨╜╨╡ ╨║╨╛╨┤╨╕╤А╤Г╨╡╨╝ ╨▓╤Б╨╗╨╡╨┐╤Г╤О ╨▓ JPEG.
++        if mime in ("image/gif", "image/webp"):
++            return None                 # ╨╝╨╛╨│╤Г╤В ╨▒╤Л╤В╤М ╨░╨╜╨╕╨╝╨╕╤А╨╛╨▓╨░╨╜╤Л
++        if mime == "image/png" and _png_has_transparency(data):
++            return None                 # ╨░╨╗╤М╤Д╤Г ╨▓ JPEG ╤Б╨╛╤Е╤А╨░╨╜╨╕╤В╤М ╨╜╨╡╨╗╤М╨╖╤П
++    prefer_png = pillow and transparent
++    if transparent and not pillow:
++        return None                     # (╤Б╤В╤А╨░╤Е╨╛╨▓╨║╨░; ╨▓╤Л╤И╨╡ ╤Г╨╢╨╡ ╨╛╤В╤Б╨╡╤З╨╡╨╜╨╛)
++
++    def _encode(data_: bytes, target: int | None) -> bytes | None:
++        if prefer_png:
++            return _encode_png(data_, target)
++        return normalize_jpeg_bytes(data_, max_dimension=target)
++
++    attempts = 0
++    max_attempts = 3
++    scale = 1.0
++    best: bytes | None = None
++    while attempts < max_attempts:
++        attempts += 1
++        if scale >= 1.0:
++            target = None                               # ╨н╤В╨░╨┐ A: ╨▒╨╡╨╖ ╤А╨╡╤Б╨░╨╣╨╖╨░
++        else:
++            w, h = _target_dimensions(width, height, scale=scale, limits=limits)
++            target = max(w, h)
++        copy = _encode(data, target)
++        if not copy:
++            break
++        if best is None or len(copy) < len(best):
++            best = copy
++        if _fits(copy, limits=limits):
++            logger.info("[vision] adapt | in=%d | out=%d | scale=%.2f | "
++                        "stage=%s", len(data), len(copy), scale,
++                        "A" if scale >= 1.0 else "B")
++            return copy if len(copy) < len(data) else None
++        ratio = (limits.request_max_chars
++                 / max(1, estimate_payload_chars(len(copy))))
++        if ratio >= 1.0:
++            break
++        next_scale = scale * max(0.35, min(0.9, ratio ** 0.5))
++        if next_scale >= scale * 0.95:
++            break
++        scale = next_scale
++    # ╨Э╨╡╤В ╨║╨╛╨┐╨╕╨╕ ╨Ь╨Х╨Э╨м╨и╨Х ╨╛╤А╨╕╨│╨╕╨╜╨░╨╗╨░ тЖТ ╨╜╨╡ ╨┐╨╡╤А╨╡╨║╨╛╨┤╨╕╤А╤Г╨╡╨╝ (╨│╨░╤А╨┤ ╨Ъ╨Ю╨а╨а тДЦ2).
++    if best is not None and len(best) < len(data):
++        return best
++    return None
++
++
++async def optimize_to_fit_async(data: bytes, *,
++                                limits: VisionLimits | None = None
++                                ) -> bytes | None:
++    """Async-╨╛╨▒╤С╤А╤В╨║╨░ (╨┤╨╡╨║╨╛╨┤/╤А╨╡╤Б╨░╨╣╨╖ ╨▓ ╨┐╨╛╤В╨╛╨║╨╡, event loop ╨╜╨╡ ╨▒╨╗╨╛╨║╨╕╤А╤Г╨╡╤В╤Б╤П)."""
++    return await asyncio.to_thread(optimize_to_fit, data, limits=limits)
++
++
++def crop_to_jpeg(data: bytes, box: dict, *, limits: VisionLimits | None = None
++                 ) -> bytes | None:
++    """╨д╤А╨░╨│╨╝╨╡╨╜╤В (crop) тЖТ JPEG ╨▓ ╨▒╤О╨┤╨╢╨╡╤В╨╡ (╨┤╨╗╤П OCR-╤Д╤А╨░╨│╨╝╨╡╨╜╤В╨░╤Ж╨╕╨╕). ╨Э╨╡ ╨▒╤А╨╛╤Б╨░╨╡╤В."""
++    if not data or not normalize_enabled():
++        return None
++    limits = limits or vision_limits()
++    codec = codec_available()
++    if not codec:
++        return None
++    x = int(box.get("x") or 0)
++    y = int(box.get("y") or 0)
++    w = int(box.get("w") or 0)
++    h = int(box.get("h") or 0)
++    if w <= 0 or h <= 0:
++        return None
++    try:
++        if codec == "pillow":
++            out = _crop_via_pillow(data, x, y, w, h)
++        else:
++            out = _crop_via_ffmpeg(data, x, y, w, h)
++    except Exception:
++        logger.debug("[vision] adapt crop failed | box=%s", box, exc_info=True)
++        return None
++    if not out:
++        return None
++    if not _fits(out, limits=limits):
++        # ╨д╤А╨░╨│╨╝╨╡╨╜╤В ╨▓╤Б╤С ╨╡╤Й╤С ╤В╤П╨╢╤С╨╗╤Л╨╣ тАФ ╨┐╤А╨╛╨│╤А╨╡╤Б╤Б╨╕╨▓╨╜╤Л╨╣ downscale ╤Д╤А╨░╨│╨╝╨╡╨╜╤В╨░.
++        smaller = optimize_to_fit(out, limits=limits)
++        if smaller:
++            out = smaller
++    return out
++
++
++async def crop_to_jpeg_async(data: bytes, box: dict, *,
++                             limits: VisionLimits | None = None) -> bytes | None:
++    return await asyncio.to_thread(crop_to_jpeg, data, box, limits=limits)
++
++
++def _crop_via_pillow(data: bytes, x: int, y: int, w: int, h: int
++                     ) -> bytes | None:
++    from PIL import Image
++    try:
++        Image.MAX_IMAGE_PIXELS = _pixel_cap()
++    except Exception:      # pragma: no cover
++        pass
++    with Image.open(io.BytesIO(data)) as im:
++        if im.size[0] * im.size[1] > _pixel_cap():
++            return None
++        box = (max(0, x), max(0, y), min(im.size[0], x + w),
++               min(im.size[1], y + h))
++        if box[2] <= box[0] or box[3] <= box[1]:
++            return None
++        frame = im.crop(box)
++        if frame.mode not in ("RGB", "L"):
++            frame = frame.convert("RGB")
++        buf = io.BytesIO()
++        frame.save(buf, "JPEG", quality=JPEG_QUALITY)
++        return buf.getvalue() or None
++
++
++def _crop_via_ffmpeg(data: bytes, x: int, y: int, w: int, h: int
++                     ) -> bytes | None:
++    exe = _ffmpeg_path()
++    if not exe:
++        return None
++    vf = (f"crop={w}:{h}:{max(0, x)}:{max(0, y)}")
++    tmp_path = None
++    proc = None
++    try:
++        with tempfile.NamedTemporaryFile(delete=False) as fh:
++            fh.write(data)
++            tmp_path = fh.name
++        proc = subprocess.run(
++            [exe, "-hide_banner", "-loglevel", "error", "-nostdin",
++             "-i", tmp_path, "-frames:v", "1", "-vf", vf,
++             "-q:v", "4", "-f", "mjpeg", "pipe:1"],
++            capture_output=True, timeout=FFMPEG_TIMEOUT_SECONDS)
++    except Exception:
++        return None
++    finally:
++        if tmp_path:
++            try:
++                os.unlink(tmp_path)
++            except OSError:      # pragma: no cover
++                pass
++    if proc is None or proc.returncode != 0:
++        return None
++    out = proc.stdout
++    if not out or not out.startswith(b"\xff\xd8"):
++        return None
++    return out
+diff --git a/services/mca_vision.py b/services/mca_vision.py
+index f01a1b1f..a5b23fc9 100644
+--- a/services/mca_vision.py
++++ b/services/mca_vision.py
+@@ -1517,6 +1517,8 @@ async def analyze_image_bytes(image: DownloadedImage, *, chat_id: int,
+         # ╨┐╨╛ ╨╜╨╡╨╝╤Г ╨┐╤А╨╕╨╜╨╕╨╝╨░╨╡╤В╤Б╤П ╤А╨╡╤И╨╡╨╜╨╕╨╡ ╨╛ bounded retry (image-class ╨╛╤В╨║╨░╨╖)
+         # ╨╕ ╨▓╨╕╨┤╨╡╨╜ ╨╜╨░╤Б╤В╨╛╤П╤Й╨╕╨╣ ╨║╨╗╨░╤Б╤Б ╨▓ ╨╗╨╛╨│╨░╤Е/╤Б╨╛╨▒╤Л╤В╨╕╤П╤Е (╨┐╤А╨╛╨┤-╤Д╨░╨║╤В ACCEPTANCE-94:
+         # ╨▓ ╤Б╨╛╨▒╤Л╤В╨╕╨╕ ╨╛╤Б╤В╨░╨▓╨░╨╗╤Б╤П ╤В╨╛╨╗╤М╨║╨╛ reason_code=vision_failed).
++        # VISION-ADAPT: + ╨║╨╗╨░╤Б╤Б ╨╗╨╕╨╝╨╕╤В╨░ (bytes/pixels/format/context) тАФ
++        # ╨┐╤А╨╛╨▓╨░╨╣╨┤╨╡╤А-╨░╨│╨╜╨╛╤Б╤В╨╕╤З╨╜╨╛, ╨╕╨╖ ╤Б╨╡╨╝╨░╨╜╤В╨╕╨║╨╕ ╨╛╤В╨▓╨╡╤В╨░.
+         detail = f"http_{status}"
+         text = _probe_error_text(body)
+         if text:
+@@ -1526,6 +1528,13 @@ async def analyze_image_bytes(image: DownloadedImage, *, chat_id: int,
+                 detail += "/modality_refused"
+             elif _looks_like_model_missing(text):
+                 detail += "/model_missing"
++            try:
++                from services import image_normalize
++                rejection_class = image_normalize.classify_rejection(text)
++            except Exception:      # pragma: no cover - ╨║╨╗╨░╤Б╤Б╨╕╤Д╨╕╨║╨░╤Ж╨╕╤П ╨╜╨╡ ╤А╨▓╤С╤В
++                rejection_class = ""
++            if rejection_class:
++                detail += f"/{rejection_class}"
+         raise VisionError("vision_failed", detail)
+     usage = (body or {}).get("usage") or {}
+     try:
+@@ -1546,6 +1555,222 @@ async def analyze_image_bytes(image: DownloadedImage, *, chat_id: int,
+     return parse_analysis_payload(content)
+ 
+ 
++# тХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХР
++# VISION-ADAPT (19.10.2026, ╨Ъ╨Ю╨а╨а тДЦ2): ╨╡╨┤╨╕╨╜╤Л╨╣ ╨┐╨╛╤Н╤В╨░╨┐╨╜╤Л╨╣ Vision-╨░╨╜╨░╨╗╨╕╨╖
++# тХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХР
++#
++# ╨Ф╨╕╤А╨╡╨║╤В╨╕╨▓╨░ ╨▓╨╗╨░╨┤╨╡╨╗╤М╤Ж╨░ (╨Ъ╨Ю╨а╨а тДЦ2): ╨╜╨╕╨║╨░╨║╨╛╨╣ ╨║╨╗╨░╤Б╤Б╨╕╤Д╨╕╨║╨░╤Ж╨╕╨╕ ╨║╨╛╨╜╤В╨╡╨╜╤В╨░/╤Д╨╛╤А╨╝╤Л ╨╕
++# ╨Э╨Ш╨Ъ╨Р╨Ъ╨Ю╨Щ ╨╛╨▒╤П╨╖╨░╤В╨╡╨╗╤М╨╜╨╛╨╣ ╤Д╤А╨░╨│╨╝╨╡╨╜╤В╨░╤Ж╨╕╨╕ ╨▓ ╨╛╨▒╤Л╤З╨╜╨╛╨╝ ╨┐╤Г╤В╨╕. ╨Х╨┤╨╕╨╜╤Л╨╣ ╨║╨╛╨╜╨▓╨╡╨╣╨╡╤А:
++#   original (╨▓╨╗╨╡╨╖╨░╨╡╤В / ╨╗╨╕╨╝╨╕╤В ╨╜╨╡╨╕╨╖╨▓╨╡╤Б╤В╨╡╨╜ тЖТ 0 ╨┐╨╡╤А╨╡╨║╨╛╨┤╨╕╤А╨╛╨▓╨░╨╜╨╕╨╣)
++#   тЖТ optimize (╨н╤В╨░╨┐ A: ╨▓╨╡╤Б ╨▒╨╡╨╖ ╤А╨╡╤Б╨░╨╣╨╖╨░ тЖТ ╨н╤В╨░╨┐ B: ╨┐╨╛╤Б╤В╨╡╨┐╨╡╨╜╨╜╤Л╨╣ ╤А╨╡╤Б╨░╨╣╨╖)
++#   тЖТ ╨▓╤Л╨╖╨╛╨▓ ╤Б╤Г╤Й╨╡╤Б╤В╨▓╤Г╤О╤Й╨╡╨│╨╛ `analyze_image_bytes`
++#   тЖТ retry тЙд1 ╤В╨╛╨╗╤М╨║╨╛ ╨╜╨░ ╨┐╨╛╨┤╤В╨▓╨╡╤А╨╢╨┤╤С╨╜╨╜╤Л╨╣ size/format-╨╛╤В╨║╨░╨╖ ╤Б╤В╤А╨╛╨│╨╛ ╨╝╨╡╨╜╤М╤И╨╡╨╣
++#     ╨╛╨┐╤В╨╕╨╝╨╕╨╖╨╕╤А╨╛╨▓╨░╨╜╨╜╨╛╨╣ ╨║╨╛╨┐╨╕╨╡╨╣ (401/403/429/╤Б╨╡╤В╤М/╨┐╤А╨╛╤З╨╕╨╡ 400 тАФ ╨▒╨╡╨╖ ╨┐╨╛╨▓╤В╨╛╤А╨░).
++# ╨г╤В╨╕╨╗╨╕╤В╤Л ╤Д╤А╨░╨│╨╝╨╡╨╜╤В╨░╤Ж╨╕╨╕ (`plan_segments`/`dedup_lines`/`segment_plan`/
++# `crop_to_jpeg`/`merge_segment_analyses`) ╤Б╨╛╤Е╤А╨░╨╜╨╡╨╜╤Л ╨║╨░╨║ ╨Э╨Х-╨┤╨╡╤Д╨╛╨╗╤В╨╜╤Л╨╡
++# ╨╕╨╜╤Б╤В╤А╤Г╨╝╨╡╨╜╤В╤Л ╨╕ ╨▓ ╤Н╤В╨╛╨╝ ╨┐╤Г╤В╨╕ ╨╜╨╡ ╨▓╤Л╨╖╤Л╨▓╨░╤О╤В╤Б╤П. ╨Ы╨╕╨╝╨╕╤В╤Л тАФ ╨┐╤А╨╛╨▓╨░╨╣╨┤╨╡╤А-╨░╨│╨╜╨╛╤Б╤В╨╕╤З╨╜╤Л╨╡.
++
++#: ╨Ь╨╕╨╜╨╕╨╝╨░╨╗╤М╨╜╤Л╨╣ ╨╛╤Б╤В╨░╤В╨╛╨║ ╨▒╤О╨┤╨╢╨╡╤В╨░ ╨┤╨╗╤П retry (╤Б╨╡╨║╤Г╨╜╨┤╤Л).
++_ADAPT_RETRY_MIN_SECONDS = 3.0
++#: ╨Ъ╨╗╨░╤Б╤Б╤Л ╨╛╤В╨║╨░╨╖╨░ ╨┐╤А╨╛╨▓╨░╨╣╨┤╨╡╤А╨░, ╨┐╤А╨╕ ╨║╨╛╤В╨╛╤А╤Л╤Е retry ╨╛╤Б╨╝╤Л╤Б╨╗╨╡╨╜: 413/415/422 тАФ ╨┐╨╛
++#: ╤Б╤В╨░╤В╤Г╤Б╤Г; ╨┤╨╗╤П 400 ╨╜╤Г╨╢╨╡╨╜ ╨Я╨Ю╨Ф╨в╨Т╨Х╨а╨Ц╨Ф╨Б╨Э╨Э╨л╨Щ ╨║╨╗╨░╤Б╤Б ╨┐╤А╨╛╨▒╨╗╨╡╨╝╤Л ╨╕╨╖╨╛╨▒╤А╨░╨╢╨╡╨╜╨╕╤П (NF-2).
++_ADAPT_RETRYABLE_STATUSES = ("http_413", "http_415", "http_422")
++_ADAPT_IMAGE_CLASS_TOKENS = ("/image_rejected", "/size", "/pixels", "/format")
++
++
++def _retryable_provider_rejection(exc) -> bool:
++    """Retry тЙд1 тАФ ╤В╨╛╨╗╤М╨║╨╛ ╨┐╨╛╨┤╤В╨▓╨╡╤А╨╢╨┤╤С╨╜╨╜╤Л╨╣ size/format-╨║╨╗╨░╤Б╤Б ╨╛╤В╨║╨░╨╖╨░ (NF-2):
++
++    * 413/415/422 тАФ payload/media/entity-╨║╨╗╨░╤Б╤Б╤Л, ╨┐╨╛╨▓╤В╨╛╤А╤П╨╡╨╝ ╨┐╨╛ ╤Б╤В╨░╤В╤Г╤Б╤Г;
++    * 400 тАФ ╨в╨Ю╨Ы╨м╨Ъ╨Ю ╨┐╤А╨╕ ╨┐╨╛╨┤╤В╨▓╨╡╤А╨╢╨┤╤С╨╜╨╜╨╛╨╝ ╨║╨╗╨░╤Б╤Б╨╡ ╨┐╤А╨╛╨▒╨╗╨╡╨╝╤Л ╨╕╨╖╨╛╨▒╤А╨░╨╢╨╡╨╜╨╕╤П
++      (`/image_rejected`, `/size`, `/pixels`, `/format` ╨╕╨╖ `detail`);
++      ╨┐╤А╨╛╨╕╨╖╨▓╨╛╨╗╤М╨╜╤Л╨╣ 400 (bare/model_not_found/context/unknown parameter),
++      401/403/429/5xx/╤Б╨╡╤В╤М тАФ ╨Э╨Х ╨┐╨╛╨▓╤В╨╛╤А╤П╨╡╨╝."""
++    detail = str(getattr(exc, "detail", "") or "")
++    if any(detail.startswith(p) for p in _ADAPT_RETRYABLE_STATUSES):
++        return True
++    if detail.startswith("http_400"):
++        return any(token in detail for token in _ADAPT_IMAGE_CLASS_TOKENS)
++    return False
++
++
++def merge_segment_analyses(analyses: list, *, expected: int,
++                           covered: int) -> VisionAnalysis:
++    """Merge ╤Д╤А╨░╨│╨╝╨╡╨╜╤В╨╜╤Л╤Е ╨░╨╜╨░╨╗╨╕╨╖╨╛╨▓ ╨▒╨╡╨╖ ╨┐╨╛╤В╨╡╤А╨╕ ╤В╨╡╨║╤Б╤В╨░ (VISION-ADAPT).
++
++    OCR-╤Б╤В╤А╨╛╨║╨╕ тАФ ╤З╨╡╤А╨╡╨╖ ╤Б╤Г╤Й╨╡╤Б╤В╨▓╤Г╤О╤Й╨╕╨╣ `dedup_lines` (╨┐╨╛╤А╤П╨┤╨╛╨║ ╤Б╨╛╤Е╤А╨░╨╜╤П╨╡╤В╤Б╤П,
++    ╨┐╨╡╤А╨╡╨║╤А╤Л╤В╨╕╤П ╨╜╨╡ ╨┤╤Г╨▒╨╗╨╕╤А╤Г╤О╤В╤Б╤П); ╨╛╨┐╨╕╤Б╨░╨╜╨╕╨╡ тАФ ╨┐╨╡╤А╨▓╨╛╨╡ ╨╜╨╡╨┐╤Г╤Б╤В╨╛╨╡; ╨╜╨╡╨╛╨┐╤А╨╡╨┤╨╡╨╗╤С╨╜╨╜╨╛╤Б╤В╨╕
++    ╨╛╨▒╤К╨╡╨┤╨╕╨╜╤П╤О╤В╤Б╤П; ╨╜╨╡╨╖╨░╨▓╨╡╤А╤И╤С╨╜╨╜╨╛╨╡ ╨┐╨╛╨║╤А╤Л╤В╨╕╨╡ ╨┐╨╛╨╝╨╡╤З╨░╨╡╤В╤Б╤П ╤З╨╡╤Б╤В╨╜╨╛ (╨╜╨╡ ┬л╤Г╤Б╨┐╨╡╤Е┬╗)."""
++    lines_by_segment: list[list[str]] = []
++    for analysis in analyses:
++        lines_by_segment.append([
++            str(block.get("text") or "") for block in analysis.ocr_blocks
++            if isinstance(block, dict)])
++    merged_lines = dedup_lines(lines_by_segment)
++    blocks = [_untrusted_block(text) for text in merged_lines]
++    description = ""
++    for analysis in analyses:
++        if str(analysis.visual_description or "").strip():
++            description = str(analysis.visual_description)
++            break
++    uncertainty: list[str] = []
++    seen: set[str] = set()
++    for analysis in analyses:
++        for item in analysis.uncertainty or []:
++            key = str(item).strip().lower()
++            if key and key not in seen:
++                seen.add(key)
++                uncertainty.append(str(item))
++    if covered < expected:
++        uncertainty.append(
++            f"╨д╤А╨░╨│╨╝╨╡╨╜╤В╨░╤Ж╨╕╤П ╨╜╨╡ ╨╖╨░╨▓╨╡╤А╤И╨╡╨╜╨░ (╨╛╨▒╤А╨░╨▒╨╛╤В╨░╨╜╨╛ {covered} ╨╕╨╖ {expected})")
++    if blocks or description:
++        status = "ready"
++    elif analyses:
++        status = "no_text"
++    else:
++        status = "failed"
++    return VisionAnalysis(status=status, ocr_blocks=blocks,
++                          visual_description=description,
++                          uncertainty=uncertainty,
++                          self_reported_confidence=None)
++
++
++async def _adaptive_call(image: DownloadedImage, *, chat_id: int, route,
++                         transport, correlation_id, pg_pool, timeout: float
++                         ) -> VisionAnalysis:
++    """╨Ю╨┤╨╕╨╜ bounded ╨▓╤Л╨╖╨╛╨▓ ╨░╨╜╨░╨╗╨╕╨╖╨░╤В╨╛╤А╨░ ╨▓ ╨╛╨▒╤Й╨╡╨╝ ╨▒╤О╨┤╨╢╨╡╤В╨╡ ╨░╨┤╨░╨┐╤В╨╕╨▓╨╜╨╛╨│╨╛ ╨║╨╛╨╜╤В╤Г╤А╨░."""
++    return await asyncio.wait_for(
++        analyze_image_bytes(image, chat_id=chat_id, route=route,
++                            transport=transport,
++                            correlation_id=correlation_id, pg_pool=pg_pool),
++        timeout=max(0.05, float(timeout)))
++
++
++async def _adaptive_retry(image: DownloadedImage, *, sent_bytes: int
++                          ) -> DownloadedImage | None:
++    """╨б╤В╤А╨╛╨│╨╛ ╨Ф╨а╨г╨У╨Р╨п (╨╝╨╡╨╜╤М╤И╨░╤П) ╨╛╨┐╤В╨╕╨╝╨╕╨╖╨╕╤А╨╛╨▓╨░╨╜╨╜╨░╤П ╨║╨╛╨┐╨╕╤П ╨┤╨╗╤П ╨╛╨┤╨╜╨╛╨│╨╛ retry.
++
++    None тАФ ╤А╤Г╨▒╨╕╨╗╤М╨╜╨╕╨║ OFF / ╨╜╨╡╤В ╨║╨╛╨┤╨╡╨║╨░ / ╨║╨╛╨┐╨╕╤П ╨╜╨╡ ╨╝╨╡╨╜╤М╤И╨╡ ╨╛╤В╨┐╤А╨░╨▓╨╗╨╡╨╜╨╜╨╛╨╣
++    (╨╕╨┤╨╡╨╜╤В╨╕╤З╨╜╤Л╨╣ ╨┐╨╛╨▓╤В╨╛╤А ╨╖╨░╨┐╤А╨╡╤Й╤С╨╜)."""
++    from services import image_normalize
++    if not image_normalize.normalize_enabled():
++        return None
++    dims = max(int(image.width or 0), int(image.height or 0))
++    targets: list[int] = []
++    if dims:
++        targets.append(max(256, int(dims * 0.7)))
++        targets.append(max(256, int(dims * 0.5)))
++    for target in targets:
++        copy = await image_normalize.normalize_jpeg_bytes_async(
++            image.data, max_dimension=target)
++        if copy and len(copy) < sent_bytes:
++            try:
++                return validate_image_bytes(copy)
++            except VisionError:
++                continue
++    return None
++
++
++async def analyze_adaptive(image: DownloadedImage, *, chat_id: int,
++                           route: VisionRoute | None = None, transport=None,
++                           correlation_id: str | None = None,
++                           pg_pool=None,
++                           budget_seconds: float | None = None
++                           ) -> VisionAnalysis:
++    """╨Р╨┤╨░╨┐╤В╨╕╨▓╨╜╤Л╨╣ Vision-╨░╨╜╨░╨╗╨╕╨╖: preprocessing ╨┐╨╛ ╤Д╨░╨║╤В╨╕╤З╨╡╤Б╨║╨╛╨╝╤Г payload.
++
++    ╨Т╨╛╨╖╨▓╤А╨░╤В тАФ `VisionAnalysis` (╨║╨╛╨╜╤В╤А╨░╨║╤В `analyze_image_bytes` ╨╜╨╡ ╨╝╨╡╨╜╤П╨╡╤В╤Б╤П).
++    ╨Ъ╨╕╨╗╤М-╤Б╨▓╨╕╤В╤З `MCA_VISION_NORMALIZE_ENABLED` OFF тЖТ ╤А╨╛╨▓╨╜╨╛ ╨╛╨┤╨╕╨╜ ╨▓╤Л╨╖╨╛╨▓ ╤Б
++    ╨╛╤А╨╕╨│╨╕╨╜╨░╨╗╨╛╨╝ (╨┐╨░╤А╨╕╤В╨╡╤В ╨┐╤А╨╡╨╢╨╜╨╡╨│╨╛ ╨┐╨╛╨▓╨╡╨┤╨╡╨╜╨╕╤П)."""
++    from services import image_normalize
++    limits = image_normalize.vision_limits()
++    started = time.monotonic()
++    budget = float(budget_seconds or limits.adapt_budget_seconds)
++    deadline = started + budget
++
++    def _remaining() -> float:
++        return deadline - time.monotonic()
++
++    plan = image_normalize.plan_vision(
++        image.data, mime=image.mime, width=image.width, height=image.height,
++        limits=limits)
++    strategy = plan.strategy
++    calls = 0
++    try:
++        if strategy == "original":
++            candidate = image
++        else:
++            optimized = await image_normalize.optimize_to_fit_async(
++                image.data, limits=limits)
++            if optimized and len(optimized) < len(image.data):
++                try:
++                    candidate = validate_image_bytes(optimized)
++                except VisionError:
++                    candidate = image
++            else:
++                candidate = image
++        try:
++            calls += 1
++            analysis = await _adaptive_call(
++                candidate, chat_id=chat_id, route=route, transport=transport,
++                correlation_id=correlation_id, pg_pool=pg_pool,
++                timeout=_remaining())
++        except VisionError as exc:
++            if not _retryable_provider_rejection(exc) \
++                    or _remaining() < _ADAPT_RETRY_MIN_SECONDS:
++                raise
++            retry_image = await _adaptive_retry(candidate,
++                                                sent_bytes=len(candidate.data))
++            if retry_image is None:
++                raise
++            calls += 1
++            analysis = await _adaptive_call(
++                retry_image, chat_id=chat_id, route=route, transport=transport,
++                correlation_id=correlation_id, pg_pool=pg_pool,
++                timeout=_remaining())
++        _emit_adapt(plan=plan, calls=calls, merged=analysis, limits=limits,
++                    started=started, image=image, chat_id=chat_id,
++                    strategy=strategy)
++        return analysis
++    except asyncio.CancelledError:
++        raise
++    except Exception as exc:
++        _emit_adapt(plan=plan, calls=calls, merged=None, limits=limits,
++                    started=started, image=image, chat_id=chat_id,
++                    strategy=strategy, error_class=type(exc).__name__)
++        raise
++
++
++def _emit_adapt(*, plan, calls: int, merged, limits, started: float,
++                image: DownloadedImage, chat_id: int | None,
++                strategy: str = "", error_class: str = "") -> None:
++    """R17-safe ╨╜╨░╨▒╨╗╤О╨┤╨░╨╡╨╝╨╛╤Б╤В╤М ╨░╨┤╨░╨┐╤В╨╕╨▓╨╜╨╛╨│╨╛ ╨║╨╛╨╜╤В╤Г╤А╨░ (╨╝╨╡╤В╤А╨╕╨║╨╕: ╤Б╤В╤А╨░╤В╨╡╨│╨╕╤П/╤И╨░╨│╨╕)."""
++    try:
++        strategy = strategy or plan.strategy
++        status = str(getattr(merged, "status", "") or
++                     ("failed" if error_class else ""))
++        logger.info(
++            "[vision] adapt | strategy=%s | reason=%s | calls=%d | "
++            "status=%s | bytes=%d | pixels=%d | ms=%d%s",
++            strategy, plan.reason, calls, status or "-",
++            len(image.data or b""), plan.pixels,
++            int((time.monotonic() - started) * 1000),
++            f" | error={error_class}" if error_class else "")
++        mca_events.emit_mca_event(
++            "vision_adapt",
++            outcome=("success" if status in ("ready", "no_text")
++                     else "failed"),
++            level="INFO" if status in ("ready", "no_text") else "WARN",
++            component="vision.media",
++            stage=strategy,
++            chat_id=chat_id,
++            error_json={"strategy": strategy, "reason": plan.reason,
++                        "calls": calls, "error": error_class})
++    except Exception:      # pragma: no cover - ╤В╨╡╨╗╨╡╨╝╨╡╤В╤А╨╕╤П ╨╜╨╡ ╤А╨▓╤С╤В ╨░╨╜╨░╨╗╨╕╨╖
++        pass
++
++
+ # тХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХР
+ # ╨Ф╨╗╨╕╨╜╨╜╤Л╨╡ ╤Б╨║╤А╨╕╨╜╤И╨╛╤В╤Л (D8/SC-R2d): bounded-╤Д╤А╨░╨│╨╝╨╡╨╜╤В╤Л ╤Б ╨┐╨╡╤А╨╡╨║╤А╤Л╤В╨╕╨╡╨╝ ╨╕ ╨┤╨╡╨┤╤Г╨┐╨╛╨╝
+ # тХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХРтХР
+@@ -2165,10 +2390,13 @@ async def process_asset_job(job: dict, *, db=None, bot=None,
+         return
+ 
+     # vision (╨╡╨┤╨╕╨╜╤Л╨╣ ╨▓╤Л╨╖╨╛╨▓; usage ╨┐╨╕╤И╨╡╤В analyze_image_bytes ╤Б╨░╨╝).
++    # VISION-ADAPT (╨Ъ╨Ю╨а╨а тДЦ2): ╨░╨┤╨░╨┐╤В╨╕╨▓╨╜╤Л╨╣ preprocessing тАФ original ╨╕╨╗╨╕
++    # optimize (╨н╤В╨░╨┐ A: ╨▓╨╡╤Б ╨▒╨╡╨╖ ╤А╨╡╤Б╨░╨╣╨╖╨░ тЖТ ╨н╤В╨░╨┐ B: ╨┐╨╛╤Б╤В╨╡╨┐╨╡╨╜╨╜╤Л╨╣ ╤А╨╡╤Б╨░╨╣╨╖),
++    # ╨▒╨╡╨╖ ╨╛╨▒╤П╨╖╨░╤В╨╡╨╗╤М╨╜╨╛╨╣ ╤Д╤А╨░╨│╨╝╨╡╨╜╤В╨░╤Ж╨╕╨╕; retry тЙд1 ╤В╨╛╨╗╤М╨║╨╛ ╨╜╨░ size/format-╨║╨╗╨░╤Б╤Б.
+     pipeline_stage_event("vision", "started", chat_id=chat_id,
+                          operation_id=asset_id, model=route.model)
+     try:
+-        analysis = await analyze_image_bytes(
++        analysis = await analyze_adaptive(
+             image, chat_id=chat_id, route=route, transport=transport,
+             correlation_id=correlation_id)
+     except VisionError as exc:
+diff --git a/services/postgen_vision.py b/services/postgen_vision.py
+index 15f569ff..f1735266 100644
+--- a/services/postgen_vision.py
++++ b/services/postgen_vision.py
+@@ -266,71 +266,18 @@ async def analyze_generated_image(data: bytes, *, chat_id: int,
+     return outcome
+ 
+ 
+-#: ╨Ъ╨╗╨░╤Б╤Б╤Л ╨┐╤А╨╛╨▓╨░╨╣╨┤╨╡╤А-╨╛╤В╨║╨░╨╖╨╛╨▓, ╨┐╤А╨╕ ╨║╨╛╤В╨╛╤А╤Л╤Е ╨╕╨╝╨╡╨╡╤В ╤Б╨╝╤Л╤Б╨╗ ╨Ю╨Ф╨Ш╨Э bounded retry ╤Б
+-#: ╨╜╨╛╤А╨╝╨░╨╗╨╕╨╖╨╛╨▓╨░╨╜╨╜╤Л╨╝ (╨╝╨╡╨╜╤М╤И╨╕╨╝/╤Б╨╛╨▓╨╝╨╡╤Б╤В╨╕╨╝╤Л╨╝) JPEG: image-class 4xx.
+-_RETRY_STATUS_PREFIXES = ("http_400", "http_413", "http_415", "http_422")
+-#: ╨Ь╨╕╨╜╨╕╨╝╨░╨╗╤М╨╜╤Л╨╣ ╨╛╤Б╤В╨░╤В╨╛╨║ ╨▒╤О╨┤╨╢╨╡╤В╨░, ╨┐╤А╨╕ ╨║╨╛╤В╨╛╤А╨╛╨╝ retry ╨╡╤Й╤С ╨╛╤Б╨╝╤Л╤Б╨╗╨╡╨╜ (╤Б╨╡╨║╤Г╨╜╨┤╤Л).
+-_RETRY_MIN_SECONDS = 3.0
+-
+-
+-def _remaining(deadline: float) -> float:
+-    return deadline - time.monotonic()
+-
+-
+-def _is_image_class_rejection(exc) -> bool:
+-    """Image-class ╨╛╤В╨║╨░╨╖ ╨┐╤А╨╛╨▓╨░╨╣╨┤╨╡╤А╨░ (400/413/415/422 ╨╕╨╗╨╕ ╤П╨▓╨╜╨░╤П ╤Б╨╡╨╝╨░╨╜╤В╨╕╨║╨░
+-    ┬лimage rejected┬╗) тАФ ╨║╨░╨╜╨┤╨╕╨┤╨░╤В ╨╜╨░ retry ╨╜╨╛╤А╨╝╨░╨╗╨╕╨╖╨╛╨▓╨░╨╜╨╜╤Л╨╝ payload."""
+-    detail = str(getattr(exc, "detail", "") or "")
+-    if "/image_rejected" in detail:
+-        return True
+-    return any(detail.startswith(prefix) for prefix in _RETRY_STATUS_PREFIXES)
+-
+-
+-async def _attempt(image, *, chat_id: int, transport, correlation_id,
+-                   timeout: float):
+-    """╨Ю╨┤╨╕╨╜ bounded ╨▓╤Л╨╖╨╛╨▓ ╨░╨╜╨░╨╗╨╕╨╖╨░╤В╨╛╤А╨░ (╨╛╨▒╤Й╨╕╨╣ ╨▒╤О╨┤╨╢╨╡╤В ╨║╨╛╨╜╤В╤Г╤А╨░)."""
+-    from services import mca_vision
+-    return await asyncio.wait_for(
+-        mca_vision.analyze_image_bytes(
+-            image, chat_id=int(chat_id), transport=transport,
+-            correlation_id=correlation_id),
+-        timeout=max(0.05, float(timeout)))
+-
+-
+-async def _normalized_retry_image(exc, image, deadline: float):
+-    """Image ╨д╨Р╨Ъ╨в╨Ш╨з╨Х╨б╨Ъ╨Ш ╨╛╤В╨┐╤А╨░╨▓╨╗╨╡╨╜╨╜╨╛╨│╨╛ ╨╕╨╖╨╛╨▒╤А╨░╨╢╨╡╨╜╨╕╤П, ╨╡╤Б╨╗╨╕ retry ╨╛╤Б╨╝╤Л╤Б╨╗╨╡╨╜.
+-
+-    None тАФ ╨╜╨╡ image-class ╨╛╤В╨║╨░╨╖ / ╤А╤Г╨▒╨╕╨╗╤М╨╜╨╕╨║ OFF / ╨╜╨╡╤В ╨║╨╛╨┤╨╡╨║╨░ / ╨╜╨╛╤А╨╝╨░╨╗╨╕╨╖╨░╤Ж╨╕╤П
+-    ╨╜╨╡ ╤Г╨╝╨╡╨╜╤М╤И╨╕╨╗╨░ payload / ╨╜╨╡ ╤Е╨▓╨░╤В╨░╨╡╤В ╨╛╤Б╤В╨░╤В╨║╨░ ╨▒╤О╨┤╨╢╨╡╤В╨░. Retry ╨Э╨Х ╨╝╨░╤Б╨║╨╕╤А╤Г╨╡╤В
+-    ╨╛╤И╨╕╨▒╨║╤Г: ╤Д╨╕╨╜╨░╨╗╤М╨╜╤Л╨╣ ╨╛╤В╨║╨░╨╖ ╨┐╨╛-╨┐╤А╨╡╨╢╨╜╨╡╨╝╤Г ╨╜╨╡╤Б╤С╤В detail ╨┐╨╛╤Б╨╗╨╡╨┤╨╜╨╡╨╣ ╨┐╨╛╨┐╤Л╤В╨║╨╕."""
+-    if not _is_image_class_rejection(exc):
+-        return None
+-    if _remaining(deadline) < _RETRY_MIN_SECONDS:
+-        return None
+-    from services import image_normalize, mca_vision
+-    normalized = await image_normalize.normalize_jpeg_bytes_async(image.data)
+-    if not normalized or len(normalized) >= len(image.data):
+-        return None
+-    try:
+-        retry_image = mca_vision.validate_image_bytes(normalized)
+-    except mca_vision.VisionError:
+-        return None
+-    logger.info("[vision] postgen retry with normalized payload | in=%d | "
+-                "out=%d | detail=%s", len(image.data), len(normalized),
+-                str(getattr(exc, "detail", "") or ""))
+-    return retry_image
+-
+-
+ async def _analyze_uncached(data: bytes, *, chat_id: int,
+                             correlation_id: str | None,
+                             transport=None) -> PostgenVisionOutcome:
+     """╨Т╨╜╤Г╤В╤А╨╡╨╜╨╜╨╕╨╣ ╨┐╤Г╤В╤М ╨▒╨╡╨╖ ╨┤╨╡╨┤╤Г╨┐-╨║╨╡╤И╨░: effective-╨│╨╡╨╣╤В тЖТ ╨░╨┤╨░╨┐╤В╨╡╤А ╨▓╤Е╨╛╨┤╨░ тЖТ
+-    ╨Х╨Ф╨Ш╨Э╨л╨Щ ╨░╨╜╨░╨╗╨╕╨╖╨░╤В╨╛╤А MCA-19. ╨Т╤Б╨╡ ╨╛╤В╨║╨░╨╖╤Л тЖТ ╤З╨╡╤Б╤В╨╜╤Л╨╡ ╤Б╤В╨░╤В╤Г╤Б╤Л ╤Б detail.
+-
+-    POSTGEN-DIAG: (1) ╨▓╤Е╨╛╨┤ ╨┐╤А╨╛╤Е╨╛╨┤╨╕╤В `validate_or_normalize` (╨┤╨╡╨║╨╛╨┤-╤Д╨╛╨╗╨╗╨▒╤Н╨║
+-    ╨┤╨╗╤П ╤Д╨╛╤А╨╝╨░╤В╨╛╨▓, ╨║╨╛╤В╨╛╤А╤Л╨╡ ╤Б╨╜╨╕╤Д╤Д╨╡╤А ╨╜╨╡ ╨╖╨╜╨░╨╡╤В); (2) image-class ╨╛╤В╨║╨░╨╖ ╨┐╤А╨╛╨▓╨░╨╣╨┤╨╡╤А╨░
+-    (400/413/415/422) тАФ ╨а╨Ю╨Т╨Э╨Ю ╨╛╨┤╨╕╨╜ retry ╤Б ╨╜╨╛╤А╨╝╨░╨╗╨╕╨╖╨╛╨▓╨░╨╜╨╜╤Л╨╝ ╨╝╨╡╨╜╤М╤И╨╕╨╝ JPEG ╨▓
+-    ╨╛╤Б╤В╨░╤В╨║╨╡ ╨▒╤О╨┤╨╢╨╡╤В╨░; (3) detail ╨┐╤А╨╛╨▓╨░╨╣╨┤╨╡╤А╨░/╨╕╤Б╨║╨╗╤О╤З╨╡╨╜╨╕╤П ╤Б╨╛╤Е╤А╨░╨╜╤П╨╡╤В╤Б╤П."""
++    ╨Х╨Ф╨Ш╨Э╨л╨Щ ╨░╨┤╨░╨┐╤В╨╕╨▓╨╜╤Л╨╣ ╨░╨╜╨░╨╗╨╕╨╖╨░╤В╨╛╤А MCA-19. ╨Т╤Б╨╡ ╨╛╤В╨║╨░╨╖╤Л тЖТ ╤З╨╡╤Б╤В╨╜╤Л╨╡ ╤Б╤В╨░╤В╤Г╤Б╤Л.
++
++    POSTGEN-DIAG: ╨▓╤Е╨╛╨┤ ╨┐╤А╨╛╤Е╨╛╨┤╨╕╤В `validate_or_normalize` (╨┤╨╡╨║╨╛╨┤-╤Д╨╛╨╗╨╗╨▒╤Н╨║ ╨┤╨╗╤П
++    ╤Д╨╛╤А╨╝╨░╤В╨╛╨▓, ╨║╨╛╤В╨╛╤А╤Л╨╡ ╤Б╨╜╨╕╤Д╤Д╨╡╤А ╨╜╨╡ ╨╖╨╜╨░╨╡╤В); detail ╨┐╤А╨╛╨▓╨░╨╣╨┤╨╡╤А╨░ ╤Б╨╛╤Е╤А╨░╨╜╤П╨╡╤В╤Б╤П.
++    VISION-ADAPT (╨Ъ╨Ю╨а╨а тДЦ2): ╨┐╨╛╨┤╨│╨╛╤В╨╛╨▓╨║╨░ (original тЖТ ╨н╤В╨░╨┐ A тЖТ ╨н╤В╨░╨┐ B, ╨▒╨╡╨╖
++    ╤Д╤А╨░╨│╨╝╨╡╨╜╤В╨░╤Ж╨╕╨╕) ╨╕ bounded retry ╤Б╤В╤А╨╛╨│╨╛ ╨╝╨╡╨╜╤М╤И╨╡╨╣ ╨║╨╛╨┐╨╕╨╡╨╣ тАФ ╨▓╨╜╤Г╤В╤А╨╕
++    `analyze_adaptive` (╨╡╨┤╨╕╨╜╤Л╨╣ ╨║╨╛╨╜╤В╤Г╤А ╨┤╨╗╤П ╨▓╤Б╨╡╤Е Vision-╨▓╤Л╨╖╨╛╨▓╨╛╨▓:
++    ╨▓╤Е╨╛╨┤╤П╤Й╨╕╨╡/╨┐╨╛╤Б╤В╨│╨╡╨╜); ╨╖╨┤╨╡╤Б╤М тАФ ╨╛╨▒╤Й╨╕╨╣ ╨▒╤О╨┤╨╢╨╡╤В ╨╕ ╤Б╤В╨░╤В╤Г╤Б╤Л."""
+     from services import mca_vision
+     try:
+         state = await mca_vision.resolve_effective_state(chat_id)
+@@ -352,22 +299,12 @@ async def _analyze_uncached(data: bytes, *, chat_id: int,
+             state = await mca_vision.resolve_effective_state(chat_id)
+         if not state.effective_enabled:
+             return _outcome_from_state(state)
+-        deadline = time.monotonic() + analysis_budget_seconds()
+         # ╨в╨╛╤В ╨╢╨╡ ╨▓╨░╨╗╨╕╨┤╨░╤В╨╛╤А/╨┤╨╡╨║╨╛╨┤-╤Д╨╛╨╗╨╗╨▒╤Н╨║, ╤З╤В╨╛ ╤Г ╨▓╤Е╨╛╨┤╤П╤Й╨╕╤Е ╨░╨║╤В╨╕╨▓╨╛╨▓ MCA-19.
+         image = await mca_vision.validate_or_normalize(data)
+-        try:
+-            analysis = await _attempt(
+-                image, chat_id=chat_id, transport=transport,
+-                correlation_id=correlation_id,
+-                timeout=_remaining(deadline))
+-        except mca_vision.VisionError as exc:
+-            retry_image = await _normalized_retry_image(exc, image, deadline)
+-            if retry_image is None:
+-                raise
+-            analysis = await _attempt(
+-                retry_image, chat_id=chat_id, transport=transport,
+-                correlation_id=correlation_id,
+-                timeout=_remaining(deadline))
++        analysis = await mca_vision.analyze_adaptive(
++            image, chat_id=int(chat_id), transport=transport,
++            correlation_id=correlation_id,
++            budget_seconds=analysis_budget_seconds())
+         return _outcome_from_analysis(analysis)
+     except mca_vision.VisionError as exc:
+         reason = str(getattr(exc, "reason", "") or "vision_failed")
