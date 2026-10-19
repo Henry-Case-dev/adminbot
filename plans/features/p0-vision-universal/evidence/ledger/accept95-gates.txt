@@ -1,0 +1,92 @@
+LEDGER-ACCEPT-95 — P0V + ADTR-POSTGEN gate logs (2.58.95)
+Generated: 2026-10-20 03:51 +12:00 (system local)
+Maps: plans/features/p0-vision-universal/requirements-map.json (candidate/deployed 113f3a629cab54f7fcc261349a7c9af3b90f56d7)
+      plans/features/add-tr/requirements-map.json (feature candidate 948c20041a9c23d620670a3a1a2a56800aff981b; acceptance evidence additionally bound to 113f3a629cab54f7fcc261349a7c9af3b90f56d7)
+Tool: C:/Users/main/.config/opencode/tools/requirements_gate.py
+
+## 1. P0V plan
+cmd: check --stage plan --repo . --map plans/features/p0-vision-universal/requirements-map.json
+rc=0
+stage=plan inventory=24 manual=13 scoped=0 errors=0
+
+## 2. P0V release (as requested; release checks ALL slices)
+cmd: check --stage release --candidate 113f3a629cab54f7fcc261349a7c9af3b90f56d7 --deployed-commit 113f3a629cab54f7fcc261349a7c9af3b90f56d7 --repo . --map plans/features/p0-vision-universal/requirements-map.json
+rc=1
+FAIL: P0V-ARCH-ENDPOINTS: no evidence bound to reviewed candidate
+FAIL: P0V-ARCH-ENDPOINTS: live requirement lacks evidence for stage release
+FAIL: P0V-ARCH-BASEURL: no evidence bound to reviewed candidate
+FAIL: P0V-ARCH-SWITCH: no evidence bound to reviewed candidate
+FAIL: P0V-ARCH-SWITCH: live requirement lacks evidence for stage release
+FAIL: P0V-ARCH-SPLIT: no evidence bound to reviewed candidate
+FAIL: P0V-ARCH-KEYS: no evidence bound to reviewed candidate
+FAIL: P0V-ARCH-ADAPTER: no evidence bound to reviewed candidate
+FAIL: P0V-ARCH-NOFAULT: no evidence bound to reviewed candidate
+FAIL: P0V-PROBE-IMG: no evidence bound to reviewed candidate
+FAIL: P0V-PROBE-SPLIT: no evidence bound to reviewed candidate
+FAIL: P0V-PROBE-CLASSIFY: no evidence bound to reviewed candidate
+FAIL: P0V-PROBE-400: no evidence bound to reviewed candidate
+FAIL: P0V-PROBE-CACHE: no evidence bound to reviewed candidate
+FAIL: P0V-PROBE-INVALID: no evidence bound to reviewed candidate
+FAIL: P0V-PROBE-SECRETS: no evidence bound to reviewed candidate
+FAIL: P0V-UI-REASONS: no evidence bound to reviewed candidate
+FAIL: P0V-UI-REASONS: live requirement lacks evidence for stage release
+FAIL: P0V-UI-NATIVE: no evidence bound to reviewed candidate
+FAIL: P0V-UI-OVERFLOW: no evidence bound to reviewed candidate
+FAIL: P0V-UI-OVERFLOW: live requirement lacks evidence for stage release
+FAIL: P0V-UI-DISPLAY: no evidence bound to reviewed candidate
+FAIL: P0V-UI-DISPLAY: live requirement lacks evidence for stage release
+FAIL: P0V-UI-SECRETS: no evidence bound to reviewed candidate
+FAIL: P0V-WF-QUEUE: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: P0V-SYMPTOMS: no evidence bound to reviewed candidate
+FAIL: P0V-SYMPTOMS: live requirement lacks evidence for stage release
+FAIL: P0V-UNIV-NOHARDCODE: no evidence bound to reviewed candidate
+FAIL: P0V-PROBE-REAL: no evidence bound to reviewed candidate
+FAIL: P0V-PIPE-FALLBACK: no evidence bound to reviewed candidate
+FAIL: P0V-PIPE-FALLBACK: live requirement lacks evidence for stage release
+FAIL: P0V-PIPE-WORKER: no evidence bound to reviewed candidate
+FAIL: P0V-PIPE-WORKER: live requirement lacks evidence for stage release
+FAIL: P0V-PIPE-CONTEXT: mandatory not ['VERIFIED'] (got READY_FOR_LIVE)
+FAIL: P0V-PIPE-BEYOND: no evidence bound to reviewed candidate
+FAIL: P0V-TEST-MATRIX: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: P0V-TEST-MOCKS: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: P0V-DOD: no evidence bound to reviewed candidate
+FAIL: P0V-DOD: live requirement lacks evidence for stage release
+FAIL: P0V-WF-STANDARD: mandatory not ['VERIFIED'] (got PENDING)
+stage=release inventory=24 manual=13 scoped=32 errors=40
+
+### Error accounting (computed from the map, same rules; gate prints first 50 only)
+- required rows: 32; VERIFIED 27; READY_FOR_LIVE 1; PENDING 4.
+- 5 status errors = 4 PENDING (P0V-WF-QUEUE, P0V-TEST-MATRIX, P0V-TEST-MOCKS, P0V-WF-STANDARD — workflow/test-matrix rows, not part of acceptance-95) + 1 READY_FOR_LIVE (P0V-PIPE-CONTEXT — intentional residual (b)/(c)).
+- 26 VERIFIED rows (ARCH/PROBE/UI/PIPE historical) have no evidence bound to 113f3a62; strict_evidence=false, so one error each.
+- 9 live-type errors among those unbound live-required rows.
+- 5 + 26 + 9 = 40 = gate errors.
+- P0V-PIPE-E2E now carries candidate-bound base-marker production evidence (healthz 2.58.95, NRestarts=0, SKIPS=0, user_version=36, mca errors 0); it passes binding/type checks.
+- P0V-PIPE-CONTEXT has candidate-bound production evidence (p3b/p4b) but intentionally stays READY_FOR_LIVE: postgen detail empty (deadline_exceeded), long PNG parse_error, no ready+GT. Release correctly rejects RFL.
+
+## 3. P0V-PIPE review (scoped diagnostic)
+cmd: check --stage review --slice P0V-PIPE --candidate 113f3a629cab54f7fcc261349a7c9af3b90f56d7 --repo . --map plans/features/p0-vision-universal/requirements-map.json
+rc=1
+FAIL: P0V-PIPE-FALLBACK: no evidence bound to reviewed candidate
+FAIL: P0V-PIPE-WORKER: no evidence bound to reviewed candidate
+FAIL: P0V-PIPE-BEYOND: no evidence bound to reviewed candidate
+stage=review inventory=24 manual=13 scoped=5 errors=3
+
+Accounting: 3 errors = historical P0V-PIPE-FALLBACK/WORKER/BEYOND VERIFIED rows without candidate-113f binding. P0V-PIPE-E2E passes; P0V-PIPE-CONTEXT RFL is allowed at review (postdeploy) and has bound evidence.
+
+## 4. ADTR-POSTGEN (cross-feature rows; live evidence in P0V acceptance tree)
+The ADTR-POSTGEN-* rows live only in plans/features/add-tr/requirements-map.json, not in cfg map.
+
+## 4a. plan
+cmd: check --stage plan --repo . --map plans/features/add-tr/requirements-map.json
+rc=0
+stage=plan inventory=32 manual=36 scoped=0 errors=0
+
+## 4b. review slice ADTR-POSTGEN (map candidate 948c20041a9c23d620670a3a1a2a56800aff981b)
+cmd: check --stage review --slice ADTR-POSTGEN --candidate 948c20041a9c23d620670a3a1a2a56800aff981b --repo . --map plans/features/add-tr/requirements-map.json
+rc=0
+stage=review inventory=32 manual=36 scoped=10 errors=0
+
+Result: ADTR-POSTGEN-PENDING is VERIFIED (live pending/deadline_exceeded, bounded, honest Writer, delivery not blocked). ON/OFF/DEDUP remain READY_FOR_LIVE (ON: ready not observed; OFF: generation with vision OFF not run; DEDUP: cache-hit replay not exercised). The new evidence does not replace the older candidate-948c test evidence; review passes on the original binding.
+
+## Verdict of the ledger run
+P0V map rc=1 at release is expected: it is a multi-slice map with historical rows not rebound to this acceptance candidate, four workflow/test-matrix PENDING rows, and one intentional live residual (P0V-PIPE-CONTEXT). The acceptance-confirmed result is P0V-PIPE-E2E base markers + the P0V-PIPE-CONTEXT evidence/all honest residuals, not a claim that the whole P0V map is release-green. ADTR-POSTGEN scoped review is green.

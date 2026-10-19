@@ -1,0 +1,317 @@
+{
+  "phase": "final95d",
+  "now_utc": "2026-10-19 14:31:47",
+  "residual_smart_messages": [],
+  "residual_bot_replies": [
+    {
+      "mid": 1166464
+    },
+    {
+      "mid": 1166471
+    },
+    {
+      "mid": 1166485
+    },
+    {
+      "mid": 1166487
+    },
+    {
+      "mid": 1166491
+    },
+    {
+      "mid": 1166499
+    },
+    {
+      "mid": 1166501
+    }
+  ],
+  "residual_bot_reply_parents": [
+    {
+      "mid": 1166464,
+      "parent": 1166463
+    },
+    {
+      "mid": 1166471,
+      "parent": 1166464
+    },
+    {
+      "mid": 1166485,
+      "parent": 1166483
+    },
+    {
+      "mid": 1166487,
+      "parent": 1166486
+    },
+    {
+      "mid": 1166491,
+      "parent": 1166487
+    },
+    {
+      "mid": 1166499,
+      "parent": 1166497
+    },
+    {
+      "mid": 1166501,
+      "parent": 1166500
+    }
+  ],
+  "cleanup_completion": {
+    "bot_replies": 7,
+    "bot_reply_parents": 7
+  },
+  "analyses_by_status": [
+    {
+      "status": "failed",
+      "n": 30
+    },
+    {
+      "status": "ready",
+      "n": 15
+    },
+    {
+      "status": "running",
+      "n": 1
+    }
+  ],
+  "analyses_running": [
+    {
+      "id": 8,
+      "asset_id": "a32e03310af2c39fcd6a44d57972ca26",
+      "status": "running",
+      "revision": 1,
+      "created_at": 1792401162,
+      "updated_at": 1792401162
+    }
+  ],
+  "jobs_recent": [
+    {
+      "job_id": "dec5708202814d2ba25a77da285e9c37",
+      "owner": "vision.media",
+      "kind": "vision.media",
+      "status": "completed",
+      "reason_code": null,
+      "attempt": 1,
+      "created_at": 1792420211,
+      "updated_at": 1792420223
+    },
+    {
+      "job_id": "c26cf547fbc547958a640fb41aee7f5c",
+      "owner": "vision.tool",
+      "kind": "vision.media",
+      "status": "completed",
+      "reason_code": null,
+      "attempt": 1,
+      "created_at": 1792419333,
+      "updated_at": 1792419355
+    },
+    {
+      "job_id": "acb433960ded4b56b32aae22dec2a782",
+      "owner": "vision.media",
+      "kind": "vision.media",
+      "status": "completed",
+      "reason_code": null,
+      "attempt": 1,
+      "created_at": 1792419220,
+      "updated_at": 1792419264
+    },
+    {
+      "job_id": "2198210b00ef429daed3f2a01dd1ac43",
+      "owner": "vision.tool",
+      "kind": "vision.media",
+      "status": "completed",
+      "reason_code": null,
+      "attempt": 1,
+      "created_at": 1792418532,
+      "updated_at": 1792418568
+    },
+    {
+      "job_id": "942d45cbc1444fd7bc49fcc0e42f0b97",
+      "owner": "vision.media",
+      "kind": "vision.media",
+      "status": "completed",
+      "reason_code": null,
+      "attempt": 1,
+      "created_at": 1792418202,
+      "updated_at": 1792418225
+    },
+    {
+      "job_id": "0ba3e599a2c445d7bd380793d6cb12df",
+      "owner": "vision.media",
+      "kind": "vision.media",
+      "status": "completed",
+      "reason_code": null,
+      "attempt": 1,
+      "created_at": 1792418090,
+      "updated_at": 1792418143
+    }
+  ],
+  "user_version": [
+    {
+      "user_version": 36
+    }
+  ],
+  "mca_events_recent": [
+    {
+      "ts": 1792420260,
+      "event_name": "ingestion_live",
+      "outcome": "success",
+      "level": "INFO",
+      "stage": null,
+      "reason_code": null
+    },
+    {
+      "ts": 1792420252,
+      "event_name": "WATCHDOG_SWEEP",
+      "outcome": "success",
+      "level": "INFO",
+      "stage": "sweep",
+      "reason_code": null
+    },
+    {
+      "ts": 1792420228,
+      "event_name": "ingestion_live",
+      "outcome": "success",
+      "level": "INFO",
+      "stage": null,
+      "reason_code": null
+    },
+    {
+      "ts": 1792420225,
+      "event_name": "ingestion_live",
+      "outcome": "success",
+      "level": "INFO",
+      "stage": null,
+      "reason_code": null
+    },
+    {
+      "ts": 1792420224,
+      "event_name": "ingestion_live",
+      "outcome": "success",
+      "level": "INFO",
+      "stage": null,
+      "reason_code": null
+    },
+    {
+      "ts": 1792420223,
+      "event_name": "vision_media",
+      "outcome": "success",
+      "level": "INFO",
+      "stage": "consumers",
+      "reason_code": null
+    },
+    {
+      "ts": 1792420223,
+      "event_name": "vision_media",
+      "outcome": "skipped",
+      "level": "INFO",
+      "stage": "reindex",
+      "reason_code": null
+    },
+    {
+      "ts": 1792420223,
+      "event_name": "vision_media",
+      "outcome": "success",
+      "level": "INFO",
+      "stage": "project",
+      "reason_code": null
+    },
+    {
+      "ts": 1792420223,
+      "event_name": "vision_media",
+      "outcome": "success",
+      "level": "INFO",
+      "stage": "store",
+      "reason_code": null
+    },
+    {
+      "ts": 1792420223,
+      "event_name": "vision_adapt",
+      "outcome": "success",
+      "level": "INFO",
+      "stage": "original",
+      "reason_code": null
+    },
+    {
+      "ts": 1792420220,
+      "event_name": "ingestion_live",
+      "outcome": "success",
+      "level": "INFO",
+      "stage": null,
+      "reason_code": null
+    },
+    {
+      "ts": 1792420216,
+      "event_name": "vision_media",
+      "outcome": "success",
+      "level": "INFO",
+      "stage": "validate",
+      "reason_code": null
+    }
+  ],
+  "mca_errors_since_wave": [
+    {
+      "n": 0
+    }
+  ],
+  "wave_window_unattributed": [
+    {
+      "mid": 1166465
+    },
+    {
+      "mid": 1166466
+    },
+    {
+      "mid": 1166470
+    },
+    {
+      "mid": 1166473
+    },
+    {
+      "mid": 1166474
+    },
+    {
+      "mid": 1166475
+    },
+    {
+      "mid": 1166476
+    },
+    {
+      "mid": 1166477
+    },
+    {
+      "mid": 1166478
+    },
+    {
+      "mid": 1166479
+    },
+    {
+      "mid": 1166480
+    },
+    {
+      "mid": 1166481
+    },
+    {
+      "mid": 1166484
+    },
+    {
+      "mid": 1166490
+    },
+    {
+      "mid": 1166493
+    },
+    {
+      "mid": 1166498
+    }
+  ],
+  "after_bot_replies": [
+    {
+      "n": 0
+    }
+  ],
+  "after_bot_reply_parents": [
+    {
+      "n": 0
+    }
+  ],
+  "ok": true
+}

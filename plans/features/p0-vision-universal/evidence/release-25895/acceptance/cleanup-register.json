@@ -1,0 +1,423 @@
+{
+ "generated_utc": "2026-10-19 14:19:07",
+ "chat_id": -1002661910336,
+ "method": "Telegram Bot API deleteMessage via the deployed bot (prod-faithful local session); single foreground run; safety gate vs real user messages; synthetic smart_messages/bot_replies rows of test mids removed",
+ "delete_mids": [
+  1166463,
+  1166464,
+  1166471,
+  1166482,
+  1166483,
+  1166485,
+  1166486,
+  1166487,
+  1166489,
+  1166491,
+  1166495,
+  1166496,
+  1166497,
+  1166499,
+  1166500,
+  1166501
+ ],
+ "deleted": [
+  {
+   "mid": 1166463,
+   "reply_to": null,
+   "status": "deleted"
+  },
+  {
+   "mid": 1166464,
+   "bot_reply_head": "Глаза мне отключили, так что картинку я не вижу. Скинь текстом или жди",
+   "reply_to": 1166463,
+   "status": "deleted"
+  },
+  {
+   "mid": 1166471,
+   "bot_reply_head": "Апельсин отправил, но квота на картинки кончилась - так что глазеть на",
+   "reply_to": 1166464,
+   "status": "deleted"
+  },
+  {
+   "mid": 1166482,
+   "reply_to": null,
+   "status": "deleted"
+  },
+  {
+   "mid": 1166483,
+   "reply_to": null,
+   "status": "deleted"
+  },
+  {
+   "mid": 1166485,
+   "bot_reply_head": "Картинку распознать не успели - таймаут вышел, так что там за файл, я ",
+   "reply_to": 1166483,
+   "status": "deleted"
+  },
+  {
+   "mid": 1166486,
+   "reply_to": null,
+   "status": "deleted"
+  },
+  {
+   "mid": 1166487,
+   "bot_reply_head": "Файл не открылся - ссылка битая, а распознавание не успело до дедлайна",
+   "reply_to": 1166486,
+   "status": "deleted"
+  },
+  {
+   "mid": 1166489,
+   "reply_to": null,
+   "status": "deleted"
+  },
+  {
+   "mid": 1166491,
+   "bot_reply_head": "Апельсин ушёл в чат, но квота на генерацию картинок на сегодня выжрана",
+   "reply_to": 1166487,
+   "status": "deleted"
+  },
+  {
+   "mid": 1166495,
+   "reply_to": null,
+   "status": "deleted"
+  },
+  {
+   "mid": 1166496,
+   "reply_to": null,
+   "status": "deleted"
+  },
+  {
+   "mid": 1166497,
+   "reply_to": null,
+   "status": "deleted"
+  },
+  {
+   "mid": 1166499,
+   "bot_reply_head": "Файл не скачался - ссылка битая, а распознавание не успело до дедлайна",
+   "reply_to": 1166497,
+   "status": "deleted"
+  },
+  {
+   "mid": 1166500,
+   "reply_to": null,
+   "status": "deleted"
+  },
+  {
+   "mid": 1166501,
+   "bot_reply_head": "Картинку не вытянул - ссылка битая, а распознавание ушло в таймаут и д",
+   "reply_to": 1166500,
+   "status": "deleted"
+  }
+ ],
+ "diagnostics_inventory": {
+  "smart_messages_window": [
+   {
+    "mid": 1166453,
+    "user_id": 263719784,
+    "author_name": "Глеб",
+    "media_type": "photo",
+    "reply_to_id": null,
+    "ts": 1792415474,
+    "head": null
+   },
+   {
+    "mid": 1166454,
+    "user_id": 263719784,
+    "author_name": "Глеб",
+    "media_type": "photo",
+    "reply_to_id": null,
+    "ts": 1792415474,
+    "head": null
+   },
+   {
+    "mid": 1166455,
+    "user_id": 263719784,
+    "author_name": "Глеб",
+    "media_type": "photo",
+    "reply_to_id": null,
+    "ts": 1792415474,
+    "head": null
+   },
+   {
+    "mid": 1166456,
+    "user_id": 263719784,
+    "author_name": "Глеб",
+    "media_type": "photo",
+    "reply_to_id": null,
+    "ts": 1792415474,
+    "head": null
+   },
+   {
+    "mid": 1166457,
+    "user_id": 972412990,
+    "author_name": "Леха Крейсер",
+    "media_type": "text",
+    "reply_to_id": 1166456,
+    "ts": 1792415566,
+    "head": "октябрь хороший"
+   },
+   {
+    "mid": 1166458,
+    "user_id": 972412990,
+    "author_name": "Леха Крейсер",
+    "media_type": "photo",
+    "reply_to_id": null,
+    "ts": 1792415580,
+    "head": null
+   },
+   {
+    "mid": 1166459,
+    "user_id": 1276415576,
+    "author_name": "Никита Философ",
+    "media_type": "text",
+    "reply_to_id": 1166452,
+    "ts": 1792416076,
+    "head": "давайте возьмём свои пакеты и отправимся в зимний лес"
+   },
+   {
+    "mid": 1166460,
+    "user_id": 529151103,
+    "author_name": "Толян",
+    "media_type": "text",
+    "reply_to_id": 1166394,
+    "ts": 1792416737,
+    "head": "У нас редко но из за того что расписание рейсов меняется это влияет и на екб"
+   },
+   {
+    "mid": 1166461,
+    "user_id": 146761791,
+    "author_name": "Инкуфен",
+    "media_type": "text",
+    "reply_to_id": 1165894,
+    "ts": 1792417462,
+    "head": "Вдовину явно надо на лечение"
+   },
+   {
+    "mid": 1166462,
+    "user_id": 5929079345,
+    "author_name": "Кировский",
+    "media_type": "text",
+    "reply_to_id": 1166461,
+    "ts": 1792417506,
+    "head": "Не думаю что он психологически вынесет"
+   },
+   {
+    "mid": 1166465,
+    "user_id": 1276415576,
+    "author_name": "Никита Философ",
+    "media_type": "photo",
+    "reply_to_id": null,
+    "ts": 1792417850,
+    "head": null
+   },
+   {
+    "mid": 1166466,
+    "user_id": 1276415576,
+    "author_name": "Никита Философ",
+    "media_type": "photo",
+    "reply_to_id": null,
+    "ts": 1792417850,
+    "head": "All a woman needs in life are cigarettes, a roof and a frilly dress, right?"
+   },
+   {
+    "mid": 1166470,
+    "user_id": 1313107079,
+    "author_name": "Вася",
+    "media_type": "text",
+    "reply_to_id": 1166468,
+    "ts": 1792418068,
+    "head": "че за ляха толстая в углу?"
+   },
+   {
+    "mid": 1166473,
+    "user_id": 134812796,
+    "author_name": "Ринтаро",
+    "media_type": "text",
+    "reply_to_id": 1166455,
+    "ts": 1792418130,
+    "head": "хочется чтобы лето уже наступило, а то бля уже серо и холодно"
+   },
+   {
+    "mid": 1166474,
+    "user_id": 263719784,
+    "author_name": "Глеб",
+    "media_type": "text",
+    "reply_to_id": 1166470,
+    "ts": 1792418172,
+    "head": "Тебя не смущает что он экран фоткает"
+   },
+   {
+    "mid": 1166475,
+    "user_id": 428646797,
+    "author_name": "Даша",
+    "media_type": "text",
+    "reply_to_id": 1166474,
+    "ts": 1792418196,
+    "head": "В смысле?"
+   },
+   {
+    "mid": 1166476,
+    "user_id": 304587459,
+    "author_name": "Nasvaiattack",
+    "media_type": "text",
+    "reply_to_id": null,
+    "ts": 1792418199,
+    "head": "Бяк"
+   },
+   {
+    "mid": 1166477,
+    "user_id": 1313107079,
+    "author_name": "Вася",
+    "media_type": "text",
+    "reply_to_id": 1166474,
+    "ts": 1792418199,
+    "head": "нет"
+   },
+   {
+    "mid": 1166478,
+    "user_id": 1276415576,
+    "author_name": "Никита Философ",
+    "media_type": "photo",
+    "reply_to_id": null,
+    "ts": 1792418202,
+    "head": null
+   },
+   {
+    "mid": 1166479,
+    "user_id": 263719784,
+    "author_name": "Глеб",
+    "media_type": "text",
+    "reply_to_id": 1166475,
+    "ts": 1792418304,
+    "head": "Ни одно фото жрачки не настоящее"
+   },
+   {
+    "mid": 1166480,
+    "user_id": 428646797,
+    "author_name": "Даша",
+    "media_type": "text",
+    "reply_to_id": null,
+    "ts": 1792418428,
+    "head": "Кек"
+   },
+   {
+    "mid": 1166481,
+    "user_id": 428646797,
+    "author_name": "Даша",
+    "media_type": "text",
+    "reply_to_id": null,
+    "ts": 1792418443,
+    "head": "😂"
+   },
+   {
+    "mid": 1166484,
+    "user_id": 146761791,
+    "author_name": "Инкуфен",
+    "media_type": "text",
+    "reply_to_id": 1166479,
+    "ts": 1792418577,
+    "head": "А что смущает при том что куча пиздабол?"
+   },
+   {
+    "mid": 1166490,
+    "user_id": 263719784,
+    "author_name": "Глеб",
+    "media_type": "text",
+    "reply_to_id": 1166488,
+    "ts": 1792418727,
+    "head": "Есть карта глубин твоего очка"
+   },
+   {
+    "mid": 1166493,
+    "user_id": 479167456,
+    "author_name": "Славик",
+    "media_type": "text",
+    "reply_to_id": 1166490,
+    "ts": 1792418748,
+    "head": "Ну ты и быдло"
+   },
+   {
+    "mid": 1166498,
+    "user_id": 42115912,
+    "author_name": "Макс",
+    "media_type": "text",
+    "reply_to_id": null,
+    "ts": 1792419346,
+    "head": "https://2ch.su/b/src/337529640/17924001525990784506.mp4"
+   }
+  ],
+  "bot_replies_window": [
+   {
+    "mid": 1166464,
+    "head": "Глаза мне отключили, так что картинку я не вижу. Скинь текстом или жди, пока зрение вернут",
+    "last_used_at": 1792417677.897747
+   },
+   {
+    "mid": 1166471,
+    "head": "Апельсин отправил, но квота на картинки кончилась - так что глазеть на него будешь сам, мн",
+    "last_used_at": 1792418090.8361666
+   },
+   {
+    "mid": 1166485,
+    "head": "Картинку распознать не успели - таймаут вышел, так что там за файл, я без понятия. Скинь е",
+    "last_used_at": 1792418582.3086429
+   },
+   {
+    "mid": 1166487,
+    "head": "Файл не открылся - ссылка битая, а распознавание не успело до дедлайна. Так что что там на",
+    "last_used_at": 1792418647.6703959
+   },
+   {
+    "mid": 1166491,
+    "head": "Апельсин ушёл в чат, но квота на генерацию картинок на сегодня выжрана досуха - так что см",
+    "last_used_at": 1792418745.1130764
+   },
+   {
+    "mid": 1166499,
+    "head": "Файл не скачался - ссылка битая, а распознавание не успело до дедлайна. Так что что там за",
+    "last_used_at": 1792419382.8027415
+   },
+   {
+    "mid": 1166501,
+    "head": "Картинку не вытянул - ссылка битая, а распознавание ушло в таймаут и до сих пор висит в оч",
+    "last_used_at": 1792419453.0971048
+   }
+  ]
+ },
+ "verification": {
+  "delete_attempts": 16,
+  "deleted_now": 16,
+  "already_deleted": 0,
+  "failed": [],
+  "residual_smart_rows_for_deleted": [],
+  "residual_bot_replies_for_deleted": [
+   {
+    "mid": 1166464
+   },
+   {
+    "mid": 1166471
+   },
+   {
+    "mid": 1166485
+   },
+   {
+    "mid": 1166487
+   },
+   {
+    "mid": 1166491
+   },
+   {
+    "mid": 1166499
+   },
+   {
+    "mid": 1166501
+   }
+  ],
+  "synthetic_rows_removed": [],
+  "bot_replies_removed": [],
+  "window": {
+   "lo": 1166453,
+   "hi": 1166511
+  }
+ }
+}

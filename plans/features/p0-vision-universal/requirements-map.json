@@ -2,8 +2,8 @@
   "schema": "openworkflow-coverage-v1",
   "source_path": "C:\\Code\\Python\\adminbot\\plans\\features\\p0-vision-universal\\source-p0-vision-2026-10-19.md",
   "source_sha256": "8a841f54200b479873f7c38d89c5462c2764953a51a930d9dba24505e2230c90",
-  "candidate_commit": "76b156e06c4e6132bc14f79e3571d52ebf71fbb6",
-  "deployed_commit": "",
+  "candidate_commit": "113f3a629cab54f7fcc261349a7c9af3b90f56d7",
+  "deployed_commit": "113f3a629cab54f7fcc261349a7c9af3b90f56d7",
   "strict_evidence": false,
   "slice_graph_path": "",
   "additional_requirements": [
@@ -158,6 +158,14 @@
           "artifact_path": "plans/features/p0-vision-universal/evidence/release-25894/acceptance/README.md",
           "artifact_sha256": "661e58edcfcb1a31f0d05050aa2e02f1ce282a13f2c3742115b683eedc961986",
           "type": "static"
+        },
+        {
+          "candidate_commit": "113f3a629cab54f7fcc261349a7c9af3b90f56d7",
+          "ref": "ACCEPTANCE-95 README «Базовые маркеры» + runs/accept95b-run.log",
+          "observation": "Базовые маркеры волны: healthz loopback+HTTPS=2.58.95, MainPID 3716545, NRestarts=0, SKIPS=0, 402=0; user_version=36; final95d: mca_errors_since_wave=0, ΔDDL=0.",
+          "artifact_path": "plans/features/p0-vision-universal/evidence/release-25895/acceptance/runs/accept95b-run.log",
+          "artifact_sha256": "4cbcf04a70e2006ca042a7b0dcc03d298d9094053d71543ae4bfc35aa9755d95",
+          "type": "production"
         }
       ],
       "note": "positive-recognition/postgen добивка — RE-ACCEPTANCE-92B (положительное распознавание не состоялось: download-stage blocker, не код 2.58.92). Корневая причина download-стадий (92C): прод-бот создан с local Bot API (`is_local=True`), aiogram читает файл с локальной ФС `/var/lib/telegram-bot-api/...` (FileNotFoundError — маунта нет) — все vision-джобы падают на download (64 skipped + 32 failed за 6.6 ч; `mca_media_analyses` пуст); провайдер nemotron отдельно отдаёт 502/429 (внешние окна; 05:51:12Z — WAITING_EXTERNAL). Это деплой-финдинг (инфра), не дефект кода; фикс VISION-DL-FIX идёт; положительное распознавание — после него. 94: маркер `[local-bot-api]`=1; `VISION_DL_STAGE=6` — все 6 строк stage=download с `reason=vision_unreadable` (валидация/декод реальных форматов; путь-класс FileNotFound с выката не наблюдается, кроме 1 джобы 08:22:03 сразу после рестарта) — декод/формат — в POSTGEN-DIAG.",
@@ -259,10 +267,26 @@
           "artifact_path": "plans/features/p0-vision-universal/evidence/fix-core/green-2026-10-19.txt",
           "artifact_sha256": "2d339c24c3bb4acbe68cd2f513e54788b05dcf10783f46313b1d3740090e7c41",
           "type": "test"
+        },
+        {
+          "candidate_commit": "113f3a629cab54f7fcc261349a7c9af3b90f56d7",
+          "ref": "ACCEPTANCE-95 §(c) + evidence/release-25895/acceptance/p3b-vision-adapt.json",
+          "observation": "Длинный PNG 1 337 017 B: normalize 1337017→801992 (A) →540078 (B, scale=0.90), adapt calls=1 ms=34088; analysis id=43 rev2 failed/parse_error, uncertainty «ответ модели не JSON», GT 0/8; честный терминальный отказ без ложного ready.",
+          "artifact_path": "plans/features/p0-vision-universal/evidence/release-25895/acceptance/p3b-vision-adapt.json",
+          "artifact_sha256": "14b246737db738e07427f26ffb36dc9b5d362d2f9427309dcc07314015348505",
+          "type": "production"
+        },
+        {
+          "candidate_commit": "113f3a629cab54f7fcc261349a7c9af3b90f56d7",
+          "ref": "ACCEPTANCE-95 §(b) + evidence/release-25895/acceptance/p4b-generation.json",
+          "observation": "gen1: 1 vision transport call на финальный bitmap; postgen status=pending reason=deadline_exceeded, detail=''; Writer-блок pending с запретом утверждать содержимое; доставка не блокирована.",
+          "artifact_path": "plans/features/p0-vision-universal/evidence/release-25895/acceptance/p4b-generation.json",
+          "artifact_sha256": "122cbc3cf8e7efcd4f46397f0b9b51af39b78d4fa0d0156bcaa19747d455618e",
+          "type": "production"
         }
       ],
-      "note": "positive-recognition/postgen добивка — RE-ACCEPTANCE-92B (положительное распознавание не состоялось: download-stage blocker, не код 2.58.92). Корневая причина download-стадий (92C): прод-бот создан с local Bot API (`is_local=True`), aiogram читает файл с локальной ФС `/var/lib/telegram-bot-api/...` (FileNotFoundError — маунта нет) — все vision-джобы падают на download (64 skipped + 32 failed за 6.6 ч; `mca_media_analyses` пуст); провайдер nemotron отдельно отдаёт 502/429 (внешние окна; 05:51:12Z — WAITING_EXTERNAL). Это деплой-финдинг (инфра), не дефект кода; фикс VISION-DL-FIX идёт; положительное распознавание — после него. 94 §1: входящий путь контекста доказан — анализ id=5 (ready) дошёл до ответа (mid 1166167, содержание совпадает с `visual_description`); postgen-by-bitmap: `vision_failed` (не 502/429) — диагностика POSTGEN-DIAG идёт.",
-      "live_note": "postdeploy (DevOps/Orchestrator), не owner-гейт: реальный analyze — изображение распознано и использовано в ответе/поведении (наблюдаемый результат)."
+      "note": "positive-recognition/postgen добивка — RE-ACCEPTANCE-92B (положительное распознавание не состоялось: download-stage blocker, не код 2.58.92). Корневая причина download-стадий (92C): прод-бот создан с local Bot API (`is_local=True`), aiogram читает файл с локальной ФС `/var/lib/telegram-bot-api/...` (FileNotFoundError — маунта нет) — все vision-джобы падают на download (64 skipped + 32 failed за 6.6 ч; `mca_media_analyses` пуст); провайдер nemotron отдельно отдаёт 502/429 (внешние окна; 05:51:12Z — WAITING_EXTERNAL). Это деплой-финдинг (инфра), не дефект кода; фикс VISION-DL-FIX идёт; положительное распознавание — после него. 94 §1: входящий путь контекста доказан — анализ id=5 (ready) дошёл до ответа (mid 1166167, содержание совпадает с `visual_description`); postgen-by-bitmap: `vision_failed` (не 502/429) — диагностика POSTGEN-DIAG идёт. ACCEPTANCE-95 (113f3a62): постген ON дал pending/deadline_exceeded с пустым detail (буквальный критерий [vision] postgen | … | detail=… non-empty не воспроизведён); adapt на длинных PNG — терминальный failed/parse_error (0 GT). Живой положительной половины (ready+GT) и буквального контекст-маркера нет; RFL сохранён, без маскировки.",
+      "live_note": "postdeploy (DevOps/Orchestrator), не owner-гейт: реальный analyze — изображение распознано и использовано в ответе/поведении (наблюдаемый результат). Остаток ACCEPTANCE-95: postgen detail пуст (timeout), длинные фикстуры — parse_error; критерий не закрыт."
     },
     {
       "source_id": "M-P0V-07",

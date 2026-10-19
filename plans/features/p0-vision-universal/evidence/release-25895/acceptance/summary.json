@@ -1,0 +1,80 @@
+{
+  "start_epoch": 1792417638,
+  "now_utc": "2026-10-19 13:54:51",
+  "phases": {
+    "p0": true,
+    "p1": true,
+    "p2": true,
+    "p3": false,
+    "fatal": null,
+    "final_restore": null
+  },
+  "tools_called": [
+    "recognize_image",
+    "recognize_image"
+  ],
+  "provider_calls": [
+    "post"
+  ],
+  "vision_transport_calls": [
+    {
+      "ts": 1792417680.3960433,
+      "data_url_chars": 4518,
+      "model": "nvidia/nemotron-3.5-super-vl:free"
+    },
+    {
+      "ts": 1792418058.6949542,
+      "data_url_chars": 148031,
+      "model": "nvidia/nemotron-3.5-super-vl:free"
+    }
+  ],
+  "postgen": [
+    {
+      "status": "pending",
+      "reason": "deadline_exceeded",
+      "detail": "",
+      "visible_reason": "",
+      "has_content": false,
+      "description_len": 0,
+      "description_head": "",
+      "ocr_blocks": 0,
+      "cache_hit": false,
+      "bytes_in": 1091119
+    }
+  ],
+  "sends": [
+    {
+      "kind": "document",
+      "chat_id": -1002661910336,
+      "message_id": 1166463,
+      "caption_head": "🧪 Приёмка 2.58.95 · фикстура vision-adapt (длинный PNG-скриншот, >700 КБ)"
+    },
+    {
+      "kind": "message",
+      "chat_id": -1002661910336,
+      "message_id": 1166464,
+      "text_head": "Глаза мне отключили, так что картинку я не вижу. Скинь текстом или жди, пока зрение вернут",
+      "text_full": "Глаза мне отключили, так что картинку я не вижу. Скинь текстом или жди, пока зрение вернут",
+      "text_len": 90,
+      "reply_to": 1166463
+    },
+    {
+      "kind": "photo",
+      "chat_id": -1002661910336,
+      "message_id": 1166469,
+      "bytes": 1091119,
+      "sha12": "984f3b5cf908",
+      "caption_head": "",
+      "reply_to": 1166464
+    },
+    {
+      "kind": "message",
+      "chat_id": -1002661910336,
+      "message_id": 1166471,
+      "text_head": "Апельсин отправил, но квота на картинки кончилась - так что глазеть на него будешь сам, мне сегодня даже зрение не выдали",
+      "text_full": "Апельсин отправил, но квота на картинки кончилась - так что глазеть на него будешь сам, мне сегодня даже зрение не выдали",
+      "text_len": 121,
+      "reply_to": 1166464
+    }
+  ]
+}

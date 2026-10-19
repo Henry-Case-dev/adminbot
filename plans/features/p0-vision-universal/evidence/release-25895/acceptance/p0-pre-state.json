@@ -1,0 +1,638 @@
+{
+  "phase": "P0-pre-state",
+  "now_utc": "2026-10-19 13:47:33",
+  "app_version": "?",
+  "axes": {
+    "DOWNLOAD_ENABLED": true,
+    "LOCAL_BOT_API_URL": "http://localhost:8081",
+    "TELEGRAM_LOCAL": "",
+    "DB_PATH": "local_database.db"
+  },
+  "vision_limits": {
+    "request_max_bytes": 700000,
+    "prep_max_pixels": 4000000,
+    "hard_max_pixels": 25000000,
+    "adapt_budget_seconds": 90.0,
+    "segment_window": 1600,
+    "normalize_enabled": true,
+    "codec": "ffmpeg",
+    "defaults_match": true
+  },
+  "gates": {
+    "vision_enabled": true,
+    "vision_tool_enabled": true,
+    "vision_max_bytes": 20971520,
+    "vision_max_pixels": 25000000
+  },
+  "vision_state_before": {
+    "requested": true,
+    "effective": false,
+    "capability": "pending",
+    "reason": "capability_check_pending",
+    "visible_reason": "Проверка подключения модели распознавания",
+    "model": "nvidia/nemotron-3.5-super-vl:free",
+    "source": "dedicated"
+  },
+  "reserve_mode_before": [
+    "legacy",
+    "budgets_off"
+  ],
+  "freq_config_before": {
+    "reason": "switch_off",
+    "enabled": false,
+    "mode": "per_user",
+    "burst": 3,
+    "cooldown": null
+  },
+  "config_before": {
+    "http": 200,
+    "items": [
+      {
+        "key": "flags.budgets_enabled",
+        "value": false,
+        "global_value": true,
+        "chat_source": "chat",
+        "per_chat": true,
+        "type": "bool",
+        "description": "Один рубильник на все бюджеты — глобально или для выбранного чата. При снятии лимиты не ограничивают и контекст не режется, но статистика расходов продолжает вестись. Дефолт — ВКЛ.",
+        "title": "Главный тумблер бюджетов",
+        "group": "flags_module_budgets"
+      },
+      {
+        "key": "flags.vision_enabled",
+        "value": true,
+        "global_value": false,
+        "chat_source": "chat",
+        "per_chat": true,
+        "type": "bool",
+        "description": "Бот разбирает присланные картинки: читает текст на изображении и кратко описывает увиденное — в контексте исходного сообщения, без отдельных постов. Выключено — новые разборы не запускаются, сохранённые читаются без нового запроса.",
+        "title": "Модуль распознавания изображений включён",
+        "group": "flags_module_vision"
+      },
+      {
+        "key": "limits.image_daily_limit",
+        "value": 5,
+        "global_value": 5,
+        "chat_source": "",
+        "per_chat": true,
+        "type": "int",
+        "description": "Сколько картинок в сутки может выдержать генерация для чата. 0 — генерация запрещена; −1 — безлимит. По умолчанию 60.",
+        "title": "Дневной лимит изображений",
+        "group": "limits_images"
+      }
+    ]
+  },
+  "budget_before": {
+    "http_ok": true,
+    "global_used": 20,
+    "global_limit": 200,
+    "global_cover_used": 2,
+    "chat_used": 15,
+    "chat_limit": 5,
+    "chat_day": "2026-10-19",
+    "chat_tz": "Asia/Yekaterinburg",
+    "chat_source": "global",
+    "reserve_path": "legacy",
+    "reserve_reason": "budgets_off",
+    "shared_used": 20,
+    "shared_limit": 200,
+    "requests": 4,
+    "success": 4,
+    "errors": 0,
+    "denied": 0,
+    "delivery_failed": 1,
+    "freq": {
+      "enabled": false,
+      "active": false,
+      "active_reason": "switch_off",
+      "mode": "per_user",
+      "burst": 3,
+      "cooldown_seconds": 300.0,
+      "source": "global",
+      "per_chat": {
+        "charges_left": 3,
+        "remaining_seconds": 0.0,
+        "next_available_at": null
+      },
+      "per_user": {
+        "charges_left": 3,
+        "remaining_seconds": 0.0,
+        "next_available_at": null,
+        "user_id": 5885953495
+      }
+    }
+  },
+  "analyses_counts_before": [
+    {
+      "status": "failed",
+      "n": 26
+    },
+    {
+      "status": "ready",
+      "n": 11
+    },
+    {
+      "status": "running",
+      "n": 1
+    }
+  ],
+  "analyses_running_before": [
+    {
+      "id": 8,
+      "asset_id": "a32e03310af2c39fcd6a44d57972ca26",
+      "status": "running",
+      "revision": 1,
+      "analyzer_model": "nvidia/nemotron-3.5-super-vl:free",
+      "analyzer_provider": "dedicated",
+      "created_at": 1792401162,
+      "updated_at": 1792401162,
+      "error_reason": null
+    }
+  ],
+  "jobs_recent_before": [
+    {
+      "job_id": "ca5669c64eae47609d1514d05743c717",
+      "owner": "vision.media",
+      "kind": "vision.media",
+      "status": "completed",
+      "reason_code": null,
+      "attempt": 1,
+      "created_at": 1792415580,
+      "updated_at": 1792415623,
+      "heartbeat_at": 1792415614,
+      "coalesce_key": "vision:asset:043c69288d37d5cfb5181937af53a8df"
+    },
+    {
+      "job_id": "df8da3784e69414fb9b81f00d910684d",
+      "owner": "vision.media",
+      "kind": "vision.media",
+      "status": "completed",
+      "reason_code": null,
+      "attempt": 1,
+      "created_at": 1792415474,
+      "updated_at": 1792415550,
+      "heartbeat_at": 1792415539,
+      "coalesce_key": "vision:asset:0effcd8429bfdbc4c1f0219df364d9ba"
+    },
+    {
+      "job_id": "cb51dae32ac541419b57f797ea0ddbcd",
+      "owner": "vision.media",
+      "kind": "vision.media",
+      "status": "completed",
+      "reason_code": null,
+      "attempt": 1,
+      "created_at": 1792415474,
+      "updated_at": 1792415532,
+      "heartbeat_at": 1792415509,
+      "coalesce_key": "vision:asset:f7cd349791b8b84ea462a7d503f78def"
+    },
+    {
+      "job_id": "7664502c201348fc92545e7f15f81cd7",
+      "owner": "vision.media",
+      "kind": "vision.media",
+      "status": "completed",
+      "reason_code": null,
+      "attempt": 1,
+      "created_at": 1792415474,
+      "updated_at": 1792415543,
+      "heartbeat_at": 1792415534,
+      "coalesce_key": "vision:asset:65f478d84684e8c22dfcbebf3eef25b5"
+    },
+    {
+      "job_id": "388eb73310614f39be76021762dac311",
+      "owner": "vision.media",
+      "kind": "vision.media",
+      "status": "completed",
+      "reason_code": null,
+      "attempt": 1,
+      "created_at": 1792415474,
+      "updated_at": 1792415558,
+      "heartbeat_at": 1792415544,
+      "coalesce_key": "vision:asset:90395e831d4c2c168297d609742b3f43"
+    },
+    {
+      "job_id": "f0236224942745909207a56f15c324dd",
+      "owner": "vision.media",
+      "kind": "vision.media",
+      "status": "completed",
+      "reason_code": null,
+      "attempt": 1,
+      "created_at": 1792415474,
+      "updated_at": 1792415623,
+      "heartbeat_at": 1792415614,
+      "coalesce_key": "vision:asset:cce5d64b9695a99bfbb3e4e91ab7f5a4"
+    },
+    {
+      "job_id": "c91be16ebb5748648f919414d75083e8",
+      "owner": "vision.media",
+      "kind": "vision.media",
+      "status": "completed",
+      "reason_code": null,
+      "attempt": 1,
+      "created_at": 1792414605,
+      "updated_at": 1792414728,
+      "heartbeat_at": 1792414726,
+      "coalesce_key": "vision:asset:76d1f5d9fb6ee61c329ea8c7408a0595"
+    },
+    {
+      "job_id": "551d46acbe8a4bf6a1f574952bae21c0",
+      "owner": "vision.media",
+      "kind": "vision.media",
+      "status": "completed",
+      "reason_code": null,
+      "attempt": 1,
+      "created_at": 1792414011,
+      "updated_at": 1792414027,
+      "heartbeat_at": 1792414011,
+      "coalesce_key": "vision:asset:17f91685eb018b73f860cea21efd0b02"
+    },
+    {
+      "job_id": "d68081169d104073824f236713333c0e",
+      "owner": "vision.media",
+      "kind": "vision.media",
+      "status": "completed",
+      "reason_code": null,
+      "attempt": 1,
+      "created_at": 1792413960,
+      "updated_at": 1792413988,
+      "heartbeat_at": 1792413961,
+      "coalesce_key": "vision:asset:877b196fdf7d9791caf5556eb3d1a156"
+    },
+    {
+      "job_id": "3311dfdbab224ec78a851824cf134313",
+      "owner": "vision.media",
+      "kind": "vision.media",
+      "status": "completed",
+      "reason_code": null,
+      "attempt": 1,
+      "created_at": 1792413960,
+      "updated_at": 1792414009,
+      "heartbeat_at": 1792413991,
+      "coalesce_key": "vision:asset:5d4533067cbc1e80400f7ae0687a46b7"
+    },
+    {
+      "job_id": "de7227d9d92540f680d54279807c354e",
+      "owner": "vision.media",
+      "kind": "vision.media",
+      "status": "completed",
+      "reason_code": null,
+      "attempt": 1,
+      "created_at": 1792413935,
+      "updated_at": 1792414019,
+      "heartbeat_at": 1792413996,
+      "coalesce_key": "vision:asset:cdb4707aaa93415d4fdf67f80f39bd5e"
+    },
+    {
+      "job_id": "af33f4ca38fc4278a7244e5fbff29b54",
+      "owner": "vision.media",
+      "kind": "vision.media",
+      "status": "completed",
+      "reason_code": null,
+      "attempt": 1,
+      "created_at": 1792413859,
+      "updated_at": 1792413932,
+      "heartbeat_at": 1792413906,
+      "coalesce_key": "vision:asset:09b98ac8498bf0cd6db9786236bc966c"
+    }
+  ],
+  "events_recent_before": [
+    {
+      "event_name": "vision_media",
+      "outcome": "skipped",
+      "level": "INFO",
+      "component": "vision.media",
+      "stage": "reindex",
+      "reason_code": null,
+      "chat_id": -1002661910336,
+      "n": 27,
+      "last_ts": 1792415623
+    },
+    {
+      "event_name": "vision_media",
+      "outcome": "success",
+      "level": "INFO",
+      "component": "vision.media",
+      "stage": "consumers",
+      "reason_code": null,
+      "chat_id": -1002661910336,
+      "n": 27,
+      "last_ts": 1792415623
+    },
+    {
+      "event_name": "vision_media",
+      "outcome": "success",
+      "level": "INFO",
+      "component": "vision.media",
+      "stage": "project",
+      "reason_code": null,
+      "chat_id": -1002661910336,
+      "n": 27,
+      "last_ts": 1792415623
+    },
+    {
+      "event_name": "vision_media",
+      "outcome": "success",
+      "level": "INFO",
+      "component": "vision.media",
+      "stage": "store",
+      "reason_code": null,
+      "chat_id": -1002661910336,
+      "n": 27,
+      "last_ts": 1792415623
+    },
+    {
+      "event_name": "vision_adapt",
+      "outcome": "failed",
+      "level": "WARN",
+      "component": "vision.media",
+      "stage": "original",
+      "reason_code": null,
+      "chat_id": -1002661910336,
+      "n": 1,
+      "last_ts": 1792415610
+    },
+    {
+      "event_name": "vision_adapt",
+      "outcome": "success",
+      "level": "INFO",
+      "component": "vision.media",
+      "stage": "optimize",
+      "reason_code": null,
+      "chat_id": -1002661910336,
+      "n": 1,
+      "last_ts": 1792415608
+    },
+    {
+      "event_name": "vision_media",
+      "outcome": "success",
+      "level": "INFO",
+      "component": "vision.media",
+      "stage": "validate",
+      "reason_code": null,
+      "chat_id": -1002661910336,
+      "n": 33,
+      "last_ts": 1792415584
+    },
+    {
+      "event_name": "vision_adapt",
+      "outcome": "success",
+      "level": "INFO",
+      "component": "vision.media",
+      "stage": "original",
+      "reason_code": null,
+      "chat_id": -1002661910336,
+      "n": 3,
+      "last_ts": 1792415558
+    },
+    {
+      "event_name": "vision_adapt",
+      "outcome": "failed",
+      "level": "WARN",
+      "component": "vision.media",
+      "stage": "optimize",
+      "reason_code": null,
+      "chat_id": -1002661910336,
+      "n": 1,
+      "last_ts": 1792415550
+    },
+    {
+      "event_name": "vision_media",
+      "outcome": "skipped",
+      "level": "INFO",
+      "component": "vision.media",
+      "stage": "reindex",
+      "reason_code": null,
+      "chat_id": -1004482340693,
+      "n": 5,
+      "last_ts": 1792414728
+    },
+    {
+      "event_name": "vision_media",
+      "outcome": "success",
+      "level": "INFO",
+      "component": "vision.media",
+      "stage": "consumers",
+      "reason_code": null,
+      "chat_id": -1004482340693,
+      "n": 5,
+      "last_ts": 1792414728
+    },
+    {
+      "event_name": "vision_media",
+      "outcome": "success",
+      "level": "INFO",
+      "component": "vision.media",
+      "stage": "project",
+      "reason_code": null,
+      "chat_id": -1004482340693,
+      "n": 5,
+      "last_ts": 1792414728
+    },
+    {
+      "event_name": "vision_media",
+      "outcome": "success",
+      "level": "INFO",
+      "component": "vision.media",
+      "stage": "store",
+      "reason_code": null,
+      "chat_id": -1004482340693,
+      "n": 5,
+      "last_ts": 1792414728
+    },
+    {
+      "event_name": "vision_media",
+      "outcome": "success",
+      "level": "INFO",
+      "component": "vision.media",
+      "stage": "validate",
+      "reason_code": null,
+      "chat_id": -1004482340693,
+      "n": 5,
+      "last_ts": 1792414607
+    },
+    {
+      "event_name": "vision_media",
+      "outcome": "failed",
+      "level": "WARN",
+      "component": "vision.media",
+      "stage": "vision",
+      "reason_code": "vision_failed",
+      "chat_id": -1002661910336,
+      "n": 5,
+      "last_ts": 1792411153
+    },
+    {
+      "event_name": "vision_media",
+      "outcome": "failed",
+      "level": "WARN",
+      "component": "vision.media",
+      "stage": "download",
+      "reason_code": "vision_unreadable",
+      "chat_id": -1002661910336,
+      "n": 12,
+      "last_ts": 1792410674
+    },
+    {
+      "event_name": "image_postgen_vision",
+      "outcome": "failed",
+      "level": "WARN",
+      "component": "image_generation",
+      "stage": null,
+      "reason_code": "vision_failed",
+      "chat_id": -1002661910336,
+      "n": 1,
+      "last_ts": 1792401074
+    },
+    {
+      "event_name": "vision_media",
+      "outcome": "success",
+      "level": "INFO",
+      "component": "vision.media",
+      "stage": "ingest",
+      "reason_code": null,
+      "chat_id": -1002661910336,
+      "n": 4,
+      "last_ts": 1792400987
+    },
+    {
+      "event_name": "image_postgen_vision",
+      "outcome": "skipped",
+      "level": "INFO",
+      "component": "image_generation",
+      "stage": null,
+      "reason_code": "vision_disabled",
+      "chat_id": 1313107079,
+      "n": 1,
+      "last_ts": 1792398533
+    },
+    {
+      "event_name": "vision_media",
+      "outcome": "skipped",
+      "level": "INFO",
+      "component": "vision.media",
+      "stage": "ingest",
+      "reason_code": "vision_unavailable",
+      "chat_id": -1002661910336,
+      "n": 57,
+      "last_ts": 1792398126
+    },
+    {
+      "event_name": "vision_media",
+      "outcome": "skipped",
+      "level": "INFO",
+      "component": "vision.media",
+      "stage": "download",
+      "reason_code": "vision_unavailable",
+      "chat_id": -1002661910336,
+      "n": 112,
+      "last_ts": 1792397817
+    },
+    {
+      "event_name": "vision_media",
+      "outcome": "failed",
+      "level": "WARN",
+      "component": "vision.media",
+      "stage": "download",
+      "reason_code": "vision_unavailable",
+      "chat_id": -1002661910336,
+      "n": 52,
+      "last_ts": 1792397798
+    },
+    {
+      "event_name": "vision_media",
+      "outcome": "failed",
+      "level": "WARN",
+      "component": "vision.media",
+      "stage": "download",
+      "reason_code": "vision_unavailable",
+      "chat_id": -1004482340693,
+      "n": 3,
+      "last_ts": 1792396948
+    },
+    {
+      "event_name": "vision_media",
+      "outcome": "skipped",
+      "level": "INFO",
+      "component": "vision.media",
+      "stage": "download",
+      "reason_code": "vision_unavailable",
+      "chat_id": -1004482340693,
+      "n": 6,
+      "last_ts": 1792396818
+    },
+    {
+      "event_name": "image_postgen_vision",
+      "outcome": "failed",
+      "level": "WARN",
+      "component": "image_generation",
+      "stage": null,
+      "reason_code": "parse_error",
+      "chat_id": -1002661910336,
+      "n": 4,
+      "last_ts": 1792386157
+    },
+    {
+      "event_name": "image_postgen_vision",
+      "outcome": "skipped",
+      "level": "INFO",
+      "component": "image_generation",
+      "stage": null,
+      "reason_code": "deadline_exceeded",
+      "chat_id": -1002661910336,
+      "n": 1,
+      "last_ts": 1792386126
+    },
+    {
+      "event_name": "image_postgen_vision",
+      "outcome": "success",
+      "level": "INFO",
+      "component": "image_generation",
+      "stage": null,
+      "reason_code": null,
+      "chat_id": -1002661910336,
+      "n": 1,
+      "last_ts": 1792385946
+    },
+    {
+      "event_name": "image_postgen_vision",
+      "outcome": "failed",
+      "level": "WARN",
+      "component": "image_generation",
+      "stage": null,
+      "reason_code": "vision_unavailable",
+      "chat_id": -1002661910336,
+      "n": 1,
+      "last_ts": 1792369214
+    },
+    {
+      "event_name": "vision_media",
+      "outcome": "skipped",
+      "level": "INFO",
+      "component": "vision.media",
+      "stage": "ingest",
+      "reason_code": "vision_rate_limited",
+      "chat_id": -1002661910336,
+      "n": 30,
+      "last_ts": 1792365358
+    },
+    {
+      "event_name": "image_postgen_vision",
+      "outcome": "failed",
+      "level": "WARN",
+      "component": "image_generation",
+      "stage": null,
+      "reason_code": "vision_rate_limited",
+      "chat_id": -1002661910336,
+      "n": 3,
+      "last_ts": 1792363579
+    }
+  ],
+  "user_version_before": [
+    {
+      "user_version": 36
+    }
+  ],
+  "debts_scan": [],
+  "pg_error": "InterfaceError",
+  "ok": true
+}

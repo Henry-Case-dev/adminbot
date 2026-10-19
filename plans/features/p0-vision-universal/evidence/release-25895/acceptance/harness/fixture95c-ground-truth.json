@@ -1,0 +1,23 @@
+{
+ "file": "fixture95c.png",
+ "width": 960,
+ "height": 2600,
+ "pixels": 2496000,
+ "bytes": 1115814,
+ "sha256": "5b47148f3aabb8f36007f616cddf3ea4891d198f97b07221948e19fe5517e89e",
+ "sha256_12": "5b47148f3aab",
+ "png_color_type": 2,
+ "png_has_trns": false,
+ "gt_tokens": [
+  "ZEBRA77",
+  "QUARTZ88",
+  "LOTUS99"
+ ],
+ "title": "ACCEPTANCE 2.58.95c VISION ADAPT",
+ "bottom_marker": "END-OF-SCREENSHOT-MARKER-GT-END-C",
+ "payload_chars_est": 1488008,
+ "over_request_max_bytes_700k": true,
+ "over_payload_chars_933589": true,
+ "under_prep_max_pixels_4m": true,
+ "seed": 195
+}

@@ -1,0 +1,50 @@
+ACC95 START_EPOCH | 1792417638
+ACC95 NOW_UTC | 2026-10-19 13:47:18
+ACC95 BOT INFO | session=local_bot_api (download_enabled=1)
+ACC95 BOOT | version=? vec=True bot=8802473181 pg=True
+ACC95 OVERRIDES | touched={"flags.budgets_enabled": false, "flags.vision_enabled": true} total_keys=25
+ACC95 SAVE INFO | p0-pre-state.json (17514 bytes)
+ACC95 P0 | done ok=True
+ACC95 SAVE INFO | p1-fixture-doc.json (1235 bytes)
+ACC95 P1 | done mid=1166463 asset=8243b03ad0f159dbd234129c36b67939 precheck_ok=True
+ACC95 CFG | vision-off http=200 body={"updated": ["flags.vision_enabled"], "chat_id": -1002661910336, "revalidated": false, "updated_at": "2026-10-19T13:47:37.895846+00:00"}
+ACC95 SAVE INFO | p2-vision-off.json (6947 bytes)
+ACC95 P2 | done ok=True reason=vision_disabled direct=disabled transport=0
+ACC95 RESTORE | vision-on changed={"flags.vision_enabled": true}
+ACC95 P3 | capability probe (bounded)
+ACC95 SAVE INFO | p3-vision-on-adapt.json (6697 bytes)
+ACC95 P3 | done status=None tool1=None desc_len=None adapt=False gt_found=0
+ACC95 CFG | gen-premise http=200 body={"updated": ["flags.budgets_enabled", "limits.image_daily_limit"], "chat_id": -1002661910336, "revalidated": false, "updated_at": "2026-10-19T13:53:04.332242+00:00"}
+ACC95 FATAL | InterfaceError: the server expects 2 arguments for this query, 1 was passed
+HINT:  Check the query against the passed list of arguments.
+Traceback (most recent call last):
+  File "/tmp/accept95_live.py", line 118, in main
+    results["p4"] = await phase4_generation(base)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/accept95_live.py", line 636, in phase4_generation
+    res["pg_reservations_after_gen1"] = await base.pg_fetch(
+                                        ^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/accept95_base.py", line 242, in pg_fetch
+    rows = await conn.fetch(sql, *args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/var/www/admin_bot/venv/lib/python3.12/site-packages/asyncpg/connection.py", line 694, in fetch
+    return await self._execute(
+           ^^^^^^^^^^^^^^^^^^^^
+  File "/var/www/admin_bot/venv/lib/python3.12/site-packages/asyncpg/connection.py", line 1873, in _execute
+    result, _ = await self.__execute(
+                ^^^^^^^^^^^^^^^^^^^^^
+  File "/var/www/admin_bot/venv/lib/python3.12/site-packages/asyncpg/connection.py", line 1970, in __execute
+    result, stmt = await self._do_execute(
+                   ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/var/www/admin_bot/venv/lib/python3.12/site-packages/asyncpg/connection.py", line 2036, in _do_execute
+    result = await executor(stmt, timeout)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "asyncpg/protocol/protocol.pyx", line 184, in bind_execute
+  File "asyncpg/protocol/prepared_stmt.pyx", line 149, in asyncpg.protocol.protocol.PreparedStatementState._encode_bind_msg
+asyncpg.exceptions._base.InterfaceError: the server expects 2 arguments for this query, 1 was passed
+HINT:  Check the query against the passed list of arguments.
+ACC95 RESTORE | final-safety changed={"flags.budgets_enabled": false, "limits.image_daily_limit": "<removed>"}
+ACC95 FLUSH | mca_events flushed=56
+ACC95 SAVE INFO | summary.json (2505 bytes)
+ACC95 DONE | evidence=/tmp/accept95/evidence
+ACC95 RC=0

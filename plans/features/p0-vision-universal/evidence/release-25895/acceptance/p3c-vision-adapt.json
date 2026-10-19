@@ -1,0 +1,462 @@
+{
+  "phase": "P3c-vision-adapt-lean",
+  "fixture": {
+    "bytes": 1115814,
+    "sha256": "5b47148f3aabb8f36007f616cddf3ea4891d198f97b07221948e19fe5517e89e",
+    "sha12": "5b47148f3aab",
+    "width": 960,
+    "height": 2600,
+    "payload_chars_est": 1488008,
+    "gt_tokens": [
+      "ZEBRA77",
+      "QUARTZ88",
+      "LOTUS99"
+    ]
+  },
+  "sent": {
+    "message_id": 1166496,
+    "file_id_present": true,
+    "file_size": 1115814,
+    "mime_type": "image/png",
+    "caption_head": "🧪 Приёмка 2.58.95c · фикстура vision-adapt (лёгкий текст, >700 КБ)"
+  },
+  "asset_id": "5c3d0bf8c7bd058dbb38c415db8822c0",
+  "download_precheck": {
+    "bytes": 1115814,
+    "mime": "image/png",
+    "width": 960,
+    "height": 2600,
+    "sha_equal_fixture": true
+  },
+  "anchor1_mid": 1166497,
+  "turn1": {
+    "label": "vision-onc-1",
+    "status": "ok",
+    "error": "",
+    "handled": true,
+    "correlation_id": "5a24a87fe6d7448bbe59302051dfdd7e",
+    "plan_meta": {
+      "tone": "neutral",
+      "action": "reply",
+      "bucket": "high",
+      "extent": "compact",
+      "source": "main",
+      "inherited": true,
+      "confidence": 0.9,
+      "latency_ms": 2812,
+      "input_chars": 1082,
+      "capabilities": "image_understanding,media_download",
+      "response_act": "answer",
+      "execution_mode": "simple_tools",
+      "credential_source": "global"
+    },
+    "usage": [
+      {
+        "correlation_id": "5a24a87fe6d7448bbe59302051dfdd7e",
+        "step": "l1_planner",
+        "tool_name": "",
+        "input_tokens": 1162,
+        "output_tokens": 114,
+        "cost_usd": "<Decimal>",
+        "price_known": false,
+        "plan_meta": {
+          "tone": "neutral",
+          "action": "reply",
+          "bucket": "high",
+          "extent": "compact",
+          "source": "main",
+          "inherited": true,
+          "confidence": 0.9,
+          "latency_ms": 2812,
+          "input_chars": 1082,
+          "capabilities": "image_understanding,media_download",
+          "response_act": "answer",
+          "execution_mode": "simple_tools",
+          "credential_source": "global"
+        },
+        "ts": "2026-10-19 14:15:33.018587+00:00"
+      },
+      {
+        "correlation_id": "5a24a87fe6d7448bbe59302051dfdd7e",
+        "step": "l2_writer",
+        "tool_name": "",
+        "input_tokens": 10852,
+        "output_tokens": 51,
+        "cost_usd": "<Decimal>",
+        "price_known": false,
+        "plan_meta": null,
+        "ts": "2026-10-19 14:16:22.457633+00:00"
+      }
+    ],
+    "logs": [
+      "[direct] triggered | chat=-1002661910336 user=Acceptance",
+      "event=AUTO_CONTEXT_BUDGET | slot=direct.primary | context_window=1000000 | mandatory_tokens=6633 | output_reserve=100000 | safety_reserve=116527 | effective_input_budget=776840 | policy_mode=unlimited | model=deepseek/deepseek-v4.1-flash | source=provider_catalog | ts=1792419330.153",
+      "event=AUTO_CONTEXT_BUDGET | slot=direct.fallback | context_window=131072 | mandatory_tokens=6633 | output_reserve=13107 | safety_reserve=14522 | effective_input_budget=96810 | policy_mode=unlimited | model=deepseek-flash | source=verified_registry | ts=1792419330.153",
+      "event=CONTEXT_CAPACITY | model=deepseek/deepseek-v4.1-flash | window=1000000 | window_source=provider_catalog | external_tokens=6633 | output_reserve=100000 | available_context=776840 | budget=776840 | policy_mode=unlimited | summary_revision=1788699601:500 | summary_watermark=1788699601 | summary_lag_messages=288 | summary_age=3719729 | estimation_method=tiktoken | ts=1792419330.167",
+      "event=DECISION_START | run_id=5a24a87fe6d7448bbe59302051dfdd7e | chat_id=-1002661910336 | message_id=1166497 | ts=1792419330.194",
+      "event=DIRECT_TRIGGER | chat_id=-1002661910336 | message_id=1166497 | trigger_type=force_keyword | force_reply_required=True | reply_to_bot=False | is_private=False | addressed=True | ts=1792419330.194",
+      "event=DECISION_COMPLETE | run_id=5a24a87fe6d7448bbe59302051dfdd7e | chat_id=-1002661910336 | message_id=1166497 | action=reply | reason=force_direct | trigger_type=force_keyword | force_reply_required=True | message_class=question | duration_ms=2 | ts=1792419330.197",
+      "event=L1_PLAN | run_id=5a24a87fe6d7448bbe59302051dfdd7e | chat_id=-1002661910336 | message_id=1166497 | action=reply | response_act=answer | extent=compact | tone=neutral | bucket=high | capabilities=image_understanding,media_download | inherited=True | fallback= | latency_ms=2812 | input_chars=1082 | confidence=0.9 | source=main | ts=1792419333.041",
+      "event=TOOL_CALL_START | run_id=5a24a87fe6d7448bbe59302051dfdd7e | chat_id=-1002661910336 | tool=recognize_image | round=1 | ts=1792419333.064",
+      "event=TOOL_CALL_START | run_id=5a24a87fe6d7448bbe59302051dfdd7e | chat_id=-1002661910336 | tool=download_media | round=1 | ts=1792419333.147",
+      "event=TOOL_CALL_FAILED | run_id=5a24a87fe6d7448bbe59302051dfdd7e | chat_id=-1002661910336 | tool=download_media | round=1 | status=error | error_code=tool_error | ts=1792419333.148",
+      "event=TOOL_CALL_COMPLETE | run_id=5a24a87fe6d7448bbe59302051dfdd7e | chat_id=-1002661910336 | tool=recognize_image | round=1 | status=ok | out_chars=161 | ts=1792419378.914",
+      "[direct-exec] simple chain done | chat=-1002661910336 | steps=2 | ok=1 | limitations=1 | metered=2"
+    ],
+    "tool_calls": [
+      {
+        "tool": "download_media",
+        "args": {},
+        "started": 1792419333.147111,
+        "ok": true,
+        "elapsed_ms": 0,
+        "result_head": "{\"status\": \"error\", \"message\": \"Некорректная ссылка\"}",
+        "result_len": 53,
+        "status": "error",
+        "reason": null,
+        "visible_reason": null,
+        "analysis_revision": null,
+        "cache_hit": null,
+        "job_linked": null,
+        "analysis_id": null,
+        "asset_id": null,
+        "message_key": null,
+        "visual_description": "",
+        "visual_description_len": 0,
+        "ocr_blocks": null,
+        "ocr_blocks_count": 0
+      },
+      {
+        "tool": "recognize_image",
+        "args": {
+          "target": {
+            "chat_id": -1002661910336,
+            "message_id": 1166496
+          }
+        },
+        "started": 1792419333.0644531,
+        "ok": true,
+        "elapsed_ms": 45848,
+        "result_head": "{\"status\": \"pending\", \"reason\": \"deadline_exceeded\", \"asset_id\": \"5c3d0bf8c7bd058dbb38c415db8822c0\", \"message_key\": \"-1002661910336:1166496\", \"job_linked\": true}",
+        "result_len": 161,
+        "status": "pending",
+        "reason": "deadline_exceeded",
+        "visible_reason": null,
+        "analysis_revision": null,
+        "cache_hit": null,
+        "job_linked": true,
+        "analysis_id": null,
+        "asset_id": "5c3d0bf8c7bd058dbb38c415db8822c0",
+        "message_key": "-1002661910336:1166496",
+        "visual_description": "",
+        "visual_description_len": 0,
+        "ocr_blocks": null,
+        "ocr_blocks_count": 0
+      }
+    ],
+    "image_blocks": [],
+    "postgen": [],
+    "vision_transport_calls": [
+      {
+        "ts": 1792419333.0858996,
+        "data_url_chars": 4518,
+        "model": "nvidia/nemotron-3.5-super-vl:free"
+      }
+    ],
+    "sends": [
+      {
+        "kind": "message",
+        "chat_id": -1002661910336,
+        "message_id": 1166499,
+        "text_head": "Файл не скачался - ссылка битая, а распознавание не успело до дедлайна. Так что что там за документ, я без понятия. Скинь ещё раз или опиши словами",
+        "text_full": "Файл не скачался - ссылка битая, а распознавание не успело до дедлайна. Так что что там за документ, я без понятия. Скинь ещё раз или опиши словами",
+        "text_len": 147,
+        "reply_to": 1166497
+      }
+    ],
+    "answer": "Файл не скачался - ссылка битая, а распознавание не успело до дедлайна. Так что что там за документ, я без понятия. Скинь ещё раз или опиши словами",
+    "elapsed_s": 65.39
+  },
+  "tool1": {
+    "tool": "recognize_image",
+    "args": {
+      "target": {
+        "chat_id": -1002661910336,
+        "message_id": 1166496
+      }
+    },
+    "started": 1792419333.0644531,
+    "ok": true,
+    "elapsed_ms": 45848,
+    "result_head": "{\"status\": \"pending\", \"reason\": \"deadline_exceeded\", \"asset_id\": \"5c3d0bf8c7bd058dbb38c415db8822c0\", \"message_key\": \"-1002661910336:1166496\", \"job_linked\": true}",
+    "result_len": 161,
+    "status": "pending",
+    "reason": "deadline_exceeded",
+    "visible_reason": null,
+    "analysis_revision": null,
+    "cache_hit": null,
+    "job_linked": true,
+    "analysis_id": null,
+    "asset_id": "5c3d0bf8c7bd058dbb38c415db8822c0",
+    "message_key": "-1002661910336:1166496",
+    "visual_description": "",
+    "visual_description_len": 0,
+    "ocr_blocks": null,
+    "ocr_blocks_count": 0
+  },
+  "analyses": [
+    {
+      "id": 45,
+      "status": "failed",
+      "revision": 2,
+      "analyzer_model": "nvidia/nemotron-3.5-super-vl:free",
+      "created_at": 1792419335,
+      "updated_at": 1792419355,
+      "error_reason": "parse_error"
+    }
+  ],
+  "analysis_final": {
+    "id": 45,
+    "status": "failed",
+    "revision": 2,
+    "analyzer_model": "nvidia/nemotron-3.5-super-vl:free",
+    "created_at": 1792419335,
+    "updated_at": 1792419355,
+    "error_reason": "parse_error"
+  },
+  "analysis_row": {
+    "id": 45,
+    "status": "failed",
+    "revision": 2,
+    "analyzer_model": "nvidia/nemotron-3.5-super-vl:free",
+    "created_at": 1792419335,
+    "updated_at": 1792419355,
+    "error_reason": "parse_error",
+    "description_len": 0,
+    "description": "",
+    "ocr_blocks_count": 0,
+    "ocr_text": "",
+    "uncertainty": "[\"ответ модели не JSON\"]"
+  },
+  "anchor2_mid": 1166500,
+  "turn2": {
+    "label": "vision-onc-2",
+    "status": "ok",
+    "error": "",
+    "handled": true,
+    "correlation_id": "943b10cc2db54788bb1e7dad39bb7163",
+    "plan_meta": null,
+    "usage": [
+      {
+        "correlation_id": "943b10cc2db54788bb1e7dad39bb7163",
+        "step": "single",
+        "tool_name": "",
+        "input_tokens": 152,
+        "output_tokens": 57,
+        "cost_usd": "<Decimal>",
+        "price_known": false,
+        "plan_meta": null,
+        "ts": "2026-10-19 14:16:26.965066+00:00"
+      }
+    ],
+    "logs": [
+      "[direct] triggered | chat=-1002661910336 user=Acceptance",
+      "event=AUTO_CONTEXT_BUDGET | slot=direct.primary | context_window=1000000 | mandatory_tokens=5645 | output_reserve=100000 | safety_reserve=116655 | effective_input_budget=777700 | policy_mode=unlimited | model=deepseek/deepseek-v4.1-flash | source=provider_catalog | ts=1792419401.746",
+      "event=AUTO_CONTEXT_BUDGET | slot=direct.fallback | context_window=131072 | mandatory_tokens=5645 | output_reserve=13107 | safety_reserve=14651 | effective_input_budget=97669 | policy_mode=unlimited | model=deepseek-flash | source=verified_registry | ts=1792419401.746",
+      "event=CONTEXT_CAPACITY | model=deepseek/deepseek-v4.1-flash | window=1000000 | window_source=provider_catalog | external_tokens=5645 | output_reserve=100000 | available_context=777700 | budget=777700 | policy_mode=unlimited | summary_revision=1788699601:500 | summary_watermark=1788699601 | summary_lag_messages=289 | summary_age=3719800 | estimation_method=tiktoken | ts=1792419401.768",
+      "event=DECISION_START | run_id=078e1164090147ad9d5d120113830dda | chat_id=-1002661910336 | message_id=1166500 | ts=1792419401.771",
+      "event=DIRECT_TRIGGER | chat_id=-1002661910336 | message_id=1166500 | trigger_type=force_keyword | force_reply_required=True | reply_to_bot=False | is_private=False | addressed=True | ts=1792419401.772",
+      "event=DECISION_COMPLETE | run_id=078e1164090147ad9d5d120113830dda | chat_id=-1002661910336 | message_id=1166500 | action=reply | reason=force_direct | trigger_type=force_keyword | force_reply_required=True | message_class=question | duration_ms=1 | ts=1792419401.773",
+      "event=L1_PLAN | run_id=078e1164090147ad9d5d120113830dda | chat_id=-1002661910336 | message_id=1166500 | action=reply | response_act=answer | extent=compact | tone=inherit | bucket=high | capabilities=image_understanding,media_download | inherited=True | fallback= | latency_ms=2438 | input_chars=1082 | confidence=0.9 | source=main | ts=1792419404.235",
+      "event=TOOL_CALL_START | run_id=078e1164090147ad9d5d120113830dda | chat_id=-1002661910336 | tool=recognize_image | round=1 | ts=1792419404.259",
+      "event=TOOL_CALL_START | run_id=078e1164090147ad9d5d120113830dda | chat_id=-1002661910336 | tool=download_media | round=1 | ts=1792419404.26",
+      "event=TOOL_CALL_FAILED | run_id=078e1164090147ad9d5d120113830dda | chat_id=-1002661910336 | tool=download_media | round=1 | status=error | error_code=tool_error | ts=1792419404.262",
+      "event=TOOL_CALL_COMPLETE | run_id=078e1164090147ad9d5d120113830dda | chat_id=-1002661910336 | tool=recognize_image | round=1 | status=ok | out_chars=161 | ts=1792419449.275",
+      "[direct-exec] simple chain done | chat=-1002661910336 | steps=2 | ok=1 | limitations=1 | metered=2"
+    ],
+    "tool_calls": [
+      {
+        "tool": "download_media",
+        "args": {},
+        "started": 1792419404.2604592,
+        "ok": true,
+        "elapsed_ms": 0,
+        "result_head": "{\"status\": \"error\", \"message\": \"Некорректная ссылка\"}",
+        "result_len": 53,
+        "status": "error",
+        "reason": null,
+        "visible_reason": null,
+        "analysis_revision": null,
+        "cache_hit": null,
+        "job_linked": null,
+        "analysis_id": null,
+        "asset_id": null,
+        "message_key": null,
+        "visual_description": "",
+        "visual_description_len": 0,
+        "ocr_blocks": null,
+        "ocr_blocks_count": 0
+      },
+      {
+        "tool": "recognize_image",
+        "args": {
+          "target": {
+            "chat_id": -1002661910336,
+            "message_id": 1166496
+          }
+        },
+        "started": 1792419404.2593787,
+        "ok": true,
+        "elapsed_ms": 45014,
+        "result_head": "{\"status\": \"pending\", \"reason\": \"deadline_exceeded\", \"asset_id\": \"5c3d0bf8c7bd058dbb38c415db8822c0\", \"message_key\": \"-1002661910336:1166496\", \"job_linked\": true}",
+        "result_len": 161,
+        "status": "pending",
+        "reason": "deadline_exceeded",
+        "visible_reason": null,
+        "analysis_revision": null,
+        "cache_hit": null,
+        "job_linked": true,
+        "analysis_id": null,
+        "asset_id": "5c3d0bf8c7bd058dbb38c415db8822c0",
+        "message_key": "-1002661910336:1166496",
+        "visual_description": "",
+        "visual_description_len": 0,
+        "ocr_blocks": null,
+        "ocr_blocks_count": 0
+      }
+    ],
+    "image_blocks": [],
+    "postgen": [],
+    "vision_transport_calls": [],
+    "sends": [
+      {
+        "kind": "message",
+        "chat_id": -1002661910336,
+        "message_id": 1166501,
+        "text_head": "Картинку не вытянул - ссылка битая, а распознавание ушло в таймаут и до сих пор висит в очереди. Так что что там за файл, понятия не имею",
+        "text_full": "Картинку не вытянул - ссылка битая, а распознавание ушло в таймаут и до сих пор висит в очереди. Так что что там за файл, понятия не имею",
+        "text_len": 137,
+        "reply_to": 1166500
+      }
+    ],
+    "answer": "Картинку не вытянул - ссылка битая, а распознавание ушло в таймаут и до сих пор висит в очереди. Так что что там за файл, понятия не имею",
+    "elapsed_s": 70.08
+  },
+  "tool2": {
+    "tool": "recognize_image",
+    "args": {
+      "target": {
+        "chat_id": -1002661910336,
+        "message_id": 1166496
+      }
+    },
+    "started": 1792419404.2593787,
+    "ok": true,
+    "elapsed_ms": 45014,
+    "result_head": "{\"status\": \"pending\", \"reason\": \"deadline_exceeded\", \"asset_id\": \"5c3d0bf8c7bd058dbb38c415db8822c0\", \"message_key\": \"-1002661910336:1166496\", \"job_linked\": true}",
+    "result_len": 161,
+    "status": "pending",
+    "reason": "deadline_exceeded",
+    "visible_reason": null,
+    "analysis_revision": null,
+    "cache_hit": null,
+    "job_linked": true,
+    "analysis_id": null,
+    "asset_id": "5c3d0bf8c7bd058dbb38c415db8822c0",
+    "message_key": "-1002661910336:1166496",
+    "visual_description": "",
+    "visual_description_len": 0,
+    "ocr_blocks": null,
+    "ocr_blocks_count": 0
+  },
+  "gt_check": {
+    "analysis_description": {
+      "tokens_found": [],
+      "found_n": 0
+    },
+    "analysis_ocr": {
+      "tokens_found": [],
+      "found_n": 0
+    },
+    "answer_turn1": {
+      "tokens_found": [],
+      "found_n": 0
+    },
+    "answer_turn2": {
+      "tokens_found": [],
+      "found_n": 0
+    }
+  },
+  "gt_tokens": [
+    "ZEBRA77",
+    "QUARTZ88",
+    "LOTUS99"
+  ],
+  "vision_adapt_events": [
+    {
+      "ts": 1792419355,
+      "event_name": "vision_adapt",
+      "outcome": "failed",
+      "level": "WARN",
+      "component": "vision.media",
+      "stage": "optimize",
+      "reason_code": null,
+      "chat_id": -1002661910336,
+      "error_json": "{\"strategy\": \"optimize\", \"reason\": \"payload_over\", \"calls\": 1, \"error\": \"\"}"
+    }
+  ],
+  "vision_media_events": [
+    {
+      "ts": 1792419335,
+      "event_name": "vision_media",
+      "outcome": "success",
+      "level": "INFO",
+      "stage": "validate",
+      "reason_code": null,
+      "operation_id": "5c3d0bf8c7bd058dbb38c415db8822c0",
+      "model": null
+    },
+    {
+      "ts": 1792419355,
+      "event_name": "vision_media",
+      "outcome": "success",
+      "level": "INFO",
+      "stage": "store",
+      "reason_code": null,
+      "operation_id": "5c3d0bf8c7bd058dbb38c415db8822c0",
+      "model": null
+    },
+    {
+      "ts": 1792419355,
+      "event_name": "vision_media",
+      "outcome": "success",
+      "level": "INFO",
+      "stage": "project",
+      "reason_code": null,
+      "operation_id": "5c3d0bf8c7bd058dbb38c415db8822c0",
+      "model": null
+    },
+    {
+      "ts": 1792419355,
+      "event_name": "vision_media",
+      "outcome": "skipped",
+      "level": "INFO",
+      "stage": "reindex",
+      "reason_code": null,
+      "operation_id": "5c3d0bf8c7bd058dbb38c415db8822c0",
+      "model": null
+    },
+    {
+      "ts": 1792419355,
+      "event_name": "vision_media",
+      "outcome": "success",
+      "level": "INFO",
+      "stage": "consumers",
+      "reason_code": null,
+      "operation_id": "5c3d0bf8c7bd058dbb38c415db8822c0",
+      "model": null
+    }
+  ],
+  "adapt_used": true,
+  "ok": false
+}

@@ -1322,7 +1322,7 @@
         }
       ],
       "live_note": "postdeploy (DevOps/Orchestrator), не owner-гейт: реальная генерация при Vision OFF — короткое подтверждение доставки без описания содержимого.",
-      "note": "Предв.: GAP — краткая реакция без деталей; прецедент честных текстов — SOUL-AMD.5.15 (VERIFIED)."
+      "note": "Предв.: GAP — краткая реакция без деталей; прецедент честных текстов — SOUL-AMD.5.15 (VERIFIED). ACCEPTANCE-95: генерация при Vision OFF в волне 95 не выполнялась; OFF-контур подтверждён unit/байт-паритетом (green.txt). RFL сохранён без подмены live-доказательством."
     },
     {
       "source_id": "L00058",
@@ -1345,10 +1345,18 @@
           "artifact_path": "plans/features/add-tr/evidence/postgen/probe-e2e.txt",
           "artifact_sha256": "adda6a73c1018fe37032ae84077ab063fc0358cfda60a3b0f153e94ee1943c88",
           "type": "test"
+        },
+        {
+          "candidate_commit": "113f3a629cab54f7fcc261349a7c9af3b90f56d7",
+          "ref": "ACCEPTANCE-95 §(b) + evidence/release-25895/acceptance/p4b-generation.json",
+          "observation": "ON: 1 vision transport call на фактический bitmap; postgen pending/deadline_exceeded, ready не получен; ложного описания содержимого нет.",
+          "artifact_path": "plans/features/p0-vision-universal/evidence/release-25895/acceptance/p4b-generation.json",
+          "artifact_sha256": "122cbc3cf8e7efcd4f46397f0b9b51af39b78d4fa0d0156bcaa19747d455618e",
+          "type": "production"
         }
       ],
       "live_note": "postdeploy (DevOps/Orchestrator), не owner-гейт: реальная генерация+отправка+анализ фактического bitmap у провайдера; наблюдаемость `image_postgen_vision` в mca_events.",
-      "note": "Предв.: GAP — анализа финального bitmap в пост-генерационном пути нет; см. ADTR-POSTGEN-REUSE (адаптер входа к тому же анализатору)."
+      "note": "Предв.: GAP — анализа финального bitmap в пост-генерационном пути нет; см. ADTR-POSTGEN-REUSE (адаптер входа к тому же анализатору). ACCEPTANCE-95 §(b): ON-проводка и вызов подтверждены live (1 vision transport call на финальный bitmap), но ready-исход не наблюдался — pending/deadline_exceeded (бесплатная модель >20 c на 1024×1024). RFL сохранён; остаток (b) — Finding 2 REV-ACCEPT-95."
     },
     {
       "source_id": "L00059",
@@ -1356,13 +1364,13 @@
       "source_text_sha256": "49eb8253dfc73735705d8b4eb761307cdb41adee3351644165d623ec4513766e",
       "source_excerpt": "- `Vision ON, но pending/rate_limited/unavailable/failed`: поведение как при отсутствии подтверждённого визуального результата — можно сказать, что изображение отправлено, но **нельзя уверенно рассказывать, что на нём получилось**. Не блоки",
       "disposition": "required",
-      "reason": "Код-половина: pending/rate_limited/unavailable/failed/timeout — честные статусы без описаний; bounded (проба ≤ `min(8 c, budget)`, анализ ≤20 c); доставка не блокируется. Живая — postdeploy. READY_FOR_LIVE.",
+      "reason": "ЗАКРЫТО live (ACCEPTANCE-95, 2.58.95 @ 113f3a62): gen1 — 1 provider call, фото mid 1166489 доставлено; postgen pending/deadline_exceeded (bounded 20 c), Writer-блок «содержимое не подтверждено» и честный ответ; доставка не блокирована. gen2 — 0 provider calls, 0 фото, 0 новых строк журнала.",
       "req_id": "ADTR-POSTGEN-PENDING",
       "slice": "ADTR-POSTGEN",
       "acceptance": "`Vision ON, но pending/rate_limited/unavailable/failed`: поведение как при отсутствии подтверждённого визуального результата — можно сказать, что изображение отправлено, но нельзя уверенно рассказывать, что на нём получилось; доставка изображения не блокируется бесконечным ожиданием Vision (bounded latency, отдельная идемпотентная проверка при необходимости).",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "948c20041a9c23d620670a3a1a2a56800aff981b",
@@ -1371,10 +1379,18 @@
           "artifact_path": "plans/features/add-tr/evidence/postgen/green.txt",
           "artifact_sha256": "08f5bff7cc9d1195bd5dad95fe01a3c56572468fc92065a64d82d67822da5ca6",
           "type": "test"
+        },
+        {
+          "candidate_commit": "113f3a629cab54f7fcc261349a7c9af3b90f56d7",
+          "ref": "ACCEPTANCE-95 §(b) + evidence/release-25895/acceptance/p4b-generation.json",
+          "observation": "gen1: provider_calls=1, фото mid 1166489; postgen=[{status: pending, reason: deadline_exceeded, has_content: false}]; ответ Writer'а честный. gen2: provider_calls=0, new_photo_sends=0.",
+          "artifact_path": "plans/features/p0-vision-universal/evidence/release-25895/acceptance/p4b-generation.json",
+          "artifact_sha256": "122cbc3cf8e7efcd4f46397f0b9b51af39b78d4fa0d0156bcaa19747d455618e",
+          "type": "production"
         }
       ],
       "live_note": "postdeploy (DevOps/Orchestrator), не owner-гейт: таймауты/лимиты на реальном провайдере — bounded и честные.",
-      "note": "Предв.: GAP — pending ≠ ready, bounded ожидание."
+      "note": "Исходная предпосылка: Предв.: GAP — pending ≠ ready, bounded ожидание. ACCEPTANCE-95 §(b)/§5: PENDING-путь подтверждён live; bounded latency и честный отказ без описания содержимого. PENDING ≠ ready (остаток (b) — ADTR-POSTGEN-ON/RFL). Исходная предпосылка закрыта live."
     },
     {
       "source_id": "L00060",
@@ -1421,10 +1437,18 @@
           "artifact_path": "plans/features/add-tr/evidence/postgen/probe-e2e.txt",
           "artifact_sha256": "adda6a73c1018fe37032ae84077ab063fc0358cfda60a3b0f153e94ee1943c88",
           "type": "test"
+        },
+        {
+          "candidate_commit": "113f3a629cab54f7fcc261349a7c9af3b90f56d7",
+          "ref": "ACCEPTANCE-95 §(b) + evidence/release-25895/acceptance/p4b-generation.json",
+          "observation": "gen1: 1 provider call, 1 фото mid 1166489, 1 пост-ответ, 1 vision transport call; повторного tool call/второй отправки нет. cache-hit replay не упражнялся.",
+          "artifact_path": "plans/features/p0-vision-universal/evidence/release-25895/acceptance/p4b-generation.json",
+          "artifact_sha256": "122cbc3cf8e7efcd4f46397f0b9b51af39b78d4fa0d0156bcaa19747d455618e",
+          "type": "production"
         }
       ],
       "live_note": "postdeploy (DevOps/Orchestrator), не owner-гейт: повтор тех же bytes в TTL → cache_hit без провайдер-вызова; второй пост-ответ не создаётся.",
-      "note": "Предв.: частично REUSE_VERIFIED — дедуп replay доказан для image-контура (SOUL-AMD.5.17, agent-checks-window2); дельта — пост-генерационные повторы/медиа-группы нового контура. Related-note (review §42): `cache_hit` не выводится в Writer-блок — описание остаётся валидным (тот же bitmap), «свежесть» анализа не заявляется; блокером не считается."
+      "note": "Предв.: частично REUSE_VERIFIED — дедуп replay доказан для image-контура (SOUL-AMD.5.17, agent-checks-window2); дельта — пост-генерационные повторы/медиа-группы нового контура. Related-note (review §42): `cache_hit` не выводится в Writer-блок — описание остаётся валидным (тот же bitmap), «свежесть» анализа не заявляется; блокером не считается. ACCEPTANCE-95 §(b): на gen1 дублей нет — 1 фото/1 пост-ответ/1 vision-вызов; cache-hit replay в волне не воспроизводился. RFL сохранён."
     },
     {
       "source_id": "L00065",

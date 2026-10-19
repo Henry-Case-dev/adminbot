@@ -1,0 +1,412 @@
+{
+  "phase": "P4b-generation-postgen-quota",
+  "budget_before": {
+    "http_ok": true,
+    "global_used": 21,
+    "global_limit": 200,
+    "global_cover_used": 2,
+    "chat_used": 16,
+    "chat_limit": 5,
+    "chat_day": "2026-10-19",
+    "chat_tz": "Asia/Yekaterinburg",
+    "chat_source": "global",
+    "reserve_path": "legacy",
+    "reserve_reason": "budgets_off",
+    "shared_used": 21,
+    "shared_limit": 200,
+    "requests": 5,
+    "success": 5,
+    "errors": 0,
+    "denied": 0,
+    "delivery_failed": 1,
+    "freq": {
+      "enabled": false,
+      "active": false,
+      "active_reason": "switch_off",
+      "mode": "per_user",
+      "burst": 3,
+      "cooldown_seconds": 300.0,
+      "source": "global",
+      "per_chat": {
+        "charges_left": 3,
+        "remaining_seconds": 0.0,
+        "next_available_at": null
+      },
+      "per_user": {
+        "charges_left": 3,
+        "remaining_seconds": 0.0,
+        "next_available_at": null,
+        "user_id": 5885953495
+      }
+    }
+  },
+  "config_before": {
+    "http": 200,
+    "items": [
+      {
+        "key": "flags.budgets_enabled",
+        "value": false,
+        "global_value": true,
+        "chat_source": "chat",
+        "per_chat": true,
+        "type": "bool",
+        "description": "Один рубильник на все бюджеты — глобально или для выбранного чата. При снятии лимиты не ограничивают и контекст не режется, но статистика расходов продолжает вестись. Дефолт — ВКЛ.",
+        "title": "Главный тумблер бюджетов",
+        "group": "flags_module_budgets"
+      },
+      {
+        "key": "limits.image_daily_limit",
+        "value": 5,
+        "global_value": 5,
+        "chat_source": "",
+        "per_chat": true,
+        "type": "int",
+        "description": "Сколько картинок в сутки может выдержать генерация для чата. 0 — генерация запрещена; −1 — безлимит. По умолчанию 60.",
+        "title": "Дневной лимит изображений",
+        "group": "limits_images"
+      }
+    ]
+  },
+  "premise": {
+    "chat_used_before": 16,
+    "chat_limit_set": 17,
+    "note": "03.4 «разрешена ровно одна генерация» реализовано chat-scope лимитом used+1=17 (глобальный слой не тронут)"
+  },
+  "cfg_write": {
+    "http": 200,
+    "body": {
+      "updated": [
+        "flags.budgets_enabled",
+        "limits.image_daily_limit"
+      ],
+      "chat_id": -1002661910336,
+      "revalidated": false,
+      "updated_at": "2026-10-19T14:04:09.140276+00:00"
+    }
+  },
+  "reserve_mode_premise": [
+    "reserve",
+    "ok"
+  ],
+  "gen1": {
+    "label": "genb-1",
+    "status": "ok",
+    "error": "",
+    "handled": true,
+    "correlation_id": "9fa7277d45554594b081481c8c611017",
+    "plan_meta": null,
+    "usage": [
+      {
+        "correlation_id": "9fa7277d45554594b081481c8c611017",
+        "step": "single",
+        "tool_name": "",
+        "input_tokens": 600,
+        "output_tokens": 11,
+        "cost_usd": "<Decimal>",
+        "price_known": false,
+        "plan_meta": null,
+        "ts": "2026-10-19 14:04:13.505386+00:00"
+      }
+    ],
+    "logs": [
+      "[direct] triggered | chat=-1002661910336 user=Acceptance",
+      "event=AUTO_CONTEXT_BUDGET | slot=direct.primary | context_window=1000000 | mandatory_tokens=5645 | output_reserve=100000 | safety_reserve=116655 | effective_input_budget=777700 | policy_mode=unlimited | model=deepseek/deepseek-v4.1-flash | source=provider_catalog | ts=1792418659.052",
+      "event=AUTO_CONTEXT_BUDGET | slot=direct.fallback | context_window=131072 | mandatory_tokens=5645 | output_reserve=13107 | safety_reserve=14651 | effective_input_budget=97669 | policy_mode=unlimited | model=deepseek-flash | source=verified_registry | ts=1792418659.052",
+      "event=CONTEXT_CAPACITY | model=deepseek/deepseek-v4.1-flash | window=1000000 | window_source=provider_catalog | external_tokens=5645 | output_reserve=100000 | available_context=777700 | budget=777700 | policy_mode=unlimited | summary_revision=1788699601:500 | summary_watermark=1788699601 | summary_lag_messages=295 | summary_age=3719058 | estimation_method=tiktoken | ts=1792418659.067",
+      "event=IMAGE_CONTEXT_RESOLVED | run_id=2ac60e575014492f99e3d71d0dfbc92a | chat_id=-1002661910336 | resolution=none | facts=0 | slice=0 | prompt_chars=32 | latency_ms=0 | ts=1792418659.097",
+      "event=IMAGE_GENERATION_START | run_id=2ac60e575014492f99e3d71d0dfbc92a | chat_id=-1002661910336 | source=direct | prompt_chars=32 | ts=1792418659.098",
+      "[image] generated | mode=post | model=qwen-image-3-pro | bytes=1037752 | latency_ms=58273",
+      "[image] sent | chat=-1002661910336 | bytes=1037752 | delivery_failed=False",
+      "event=IMAGE_GENERATION_COMPLETE | run_id=2ac60e575014492f99e3d71d0dfbc92a | chat_id=-1002661910336 | source=direct | duration_ms=59249 | ts=1792418718.347",
+      "[vision] normalize | codec=ffmpeg | in=1037752 | out=104689",
+      "[vision] adapt | in=1037752 | out=104689 | scale=1.00 | stage=A",
+      "[vision] adapt | strategy=optimize | reason=payload_over | calls=1 | status=failed | bytes=1037752 | pixels=1048576 | ms=20004 | error=TimeoutError",
+      "mca_event=image_postgen_vision | ts=1792418738 | event_name=image_postgen_vision | outcome=skipped | level=INFO | component=image_generation | reason_code=deadline_exceeded | chat_id=-1002661910336",
+      "[vision] postgen | chat=-1002661910336 | status=pending | reason=deadline_exceeded | detail=- | bytes=1037752 | ms=20007",
+      "event=DECISION_START | run_id=2ac60e575014492f99e3d71d0dfbc92a | chat_id=-1002661910336 | message_id=1166487 | ts=1792418738.36",
+      "event=DIRECT_TRIGGER | chat_id=-1002661910336 | message_id=1166487 | trigger_type=force_keyword | force_reply_required=True | reply_to_bot=True | is_private=False | addressed=True | ts=1792418738.36",
+      "event=DECISION_COMPLETE | run_id=2ac60e575014492f99e3d71d0dfbc92a | chat_id=-1002661910336 | message_id=1166487 | action=reply | reason=force_direct | trigger_type=force_keyword | force_reply_required=True | message_class=explicit_request | duration_ms=2 | ts=1792418738.362",
+      "event=L1_PLAN | run_id=2ac60e575014492f99e3d71d0dfbc92a | chat_id=-1002661910336 | message_id=1166487 | action=reply | response_act=answer | extent=compact | tone=neutral | bucket=high | inherited=True | fallback= | latency_ms=3212 | input_chars=1186 | confidence=0.8 | source=main | ts=1792418741.626"
+    ],
+    "tool_calls": [],
+    "image_blocks": [
+      {
+        "query": "бот, нарисуй оранжевый апельсин на белом фоне",
+        "block": "<image_result status=\"ok\" delivery=\"sent\">\nИзображение уже сгенерировано и отправлено в чат. Повторно инструмент generate_image не вызывай.\n\n<image_analysis status=\"pending\" reason=\"deadline_exceeded\"/>\nСодержимое этой картинки распознаванием не подтверждено: не утверждай, что получилось, достаточно короткого подтверждения отправки.\n</image_result>"
+      }
+    ],
+    "postgen": [
+      {
+        "status": "pending",
+        "reason": "deadline_exceeded",
+        "detail": "",
+        "visible_reason": "",
+        "has_content": false,
+        "description_len": 0,
+        "description_head": "",
+        "ocr_blocks": 0,
+        "cache_hit": false,
+        "bytes_in": 1037752
+      }
+    ],
+    "vision_transport_calls": [
+      {
+        "ts": 1792418718.9357839,
+        "data_url_chars": 139611,
+        "model": "nvidia/nemotron-3.5-super-vl:free"
+      }
+    ],
+    "sends": [
+      {
+        "kind": "photo",
+        "chat_id": -1002661910336,
+        "message_id": 1166489,
+        "bytes": 1037752,
+        "sha12": "0f7bc44fc2e0",
+        "caption_head": "",
+        "reply_to": 1166487
+      },
+      {
+        "kind": "message",
+        "chat_id": -1002661910336,
+        "message_id": 1166491,
+        "text_head": "Апельсин ушёл в чат, но квота на генерацию картинок на сегодня выжрана досуха - так что смотреть на него будешь ты, а я даже не в курсе, что там получилось",
+        "text_full": "Апельсин ушёл в чат, но квота на генерацию картинок на сегодня выжрана досуха - так что смотреть на него будешь ты, а я даже не в курсе, что там получилось",
+        "text_len": 155,
+        "reply_to": 1166487
+      }
+    ],
+    "answer": "Апельсин ушёл в чат, но квота на генерацию картинок на сегодня выжрана досуха - так что смотреть на него будешь ты, а я даже не в курсе, что там получилось",
+    "elapsed_s": 94.33,
+    "provider_calls": 1,
+    "image_logs": [
+      "[image] generated | mode=post | model=qwen-image-3-pro | bytes=1037752 | latency_ms=58273",
+      "[image] sent | chat=-1002661910336 | bytes=1037752 | delivery_failed=False",
+      "[vision] normalize | codec=ffmpeg | in=1037752 | out=104689",
+      "[vision] adapt | in=1037752 | out=104689 | scale=1.00 | stage=A",
+      "[vision] adapt | strategy=optimize | reason=payload_over | calls=1 | status=failed | bytes=1037752 | pixels=1048576 | ms=20004 | error=TimeoutError",
+      "[vision] postgen | chat=-1002661910336 | status=pending | reason=deadline_exceeded | detail=- | bytes=1037752 | ms=20007"
+    ]
+  },
+  "pg_reservations_after_gen1": [
+    {
+      "reservation_key": "-1002661910336:1166464:direct",
+      "chat_id": -1002661910336,
+      "source": "direct",
+      "status": "committed",
+      "error_code": "",
+      "delivery_failed": false,
+      "day": "<date>",
+      "created_at": "<datetime>",
+      "updated_at": "<datetime>"
+    },
+    {
+      "reservation_key": "-1002661910336:1166487:direct",
+      "chat_id": -1002661910336,
+      "source": "direct",
+      "status": "committed",
+      "error_code": "",
+      "delivery_failed": false,
+      "day": "<date>",
+      "created_at": "<datetime>",
+      "updated_at": "<datetime>"
+    }
+  ],
+  "budget_after_gen1": {
+    "http_ok": true,
+    "global_used": 22,
+    "global_limit": 200,
+    "global_cover_used": 2,
+    "chat_used": 17,
+    "chat_limit": 17,
+    "chat_day": "2026-10-19",
+    "chat_tz": "Asia/Yekaterinburg",
+    "chat_source": "chat",
+    "reserve_path": "reserve",
+    "reserve_reason": "ok",
+    "shared_used": 22,
+    "shared_limit": 200,
+    "requests": 6,
+    "success": 6,
+    "errors": 0,
+    "denied": 0,
+    "delivery_failed": 1,
+    "freq": {
+      "enabled": false,
+      "active": false,
+      "active_reason": "switch_off",
+      "mode": "per_user",
+      "burst": 3,
+      "cooldown_seconds": 300.0,
+      "source": "global",
+      "per_chat": {
+        "charges_left": 3,
+        "remaining_seconds": 0.0,
+        "next_available_at": null
+      },
+      "per_user": {
+        "charges_left": 3,
+        "remaining_seconds": 0.0,
+        "next_available_at": null,
+        "user_id": 5885953495
+      }
+    }
+  },
+  "gen2": {
+    "label": "genb-2-denied",
+    "status": "ok",
+    "error": "",
+    "handled": true,
+    "correlation_id": "012cbfeee95f4214b5de1b046c2b8e62",
+    "plan_meta": null,
+    "usage": [
+      {
+        "correlation_id": "012cbfeee95f4214b5de1b046c2b8e62",
+        "step": "single",
+        "tool_name": "",
+        "input_tokens": 154,
+        "output_tokens": 53,
+        "cost_usd": "<Decimal>",
+        "price_known": false,
+        "plan_meta": null,
+        "ts": "2026-10-19 14:05:51.714562+00:00"
+      }
+    ],
+    "logs": [
+      "[direct] triggered | chat=-1002661910336 user=Acceptance",
+      "event=AUTO_CONTEXT_BUDGET | slot=direct.primary | context_window=1000000 | mandatory_tokens=5645 | output_reserve=100000 | safety_reserve=116655 | effective_input_budget=777700 | policy_mode=unlimited | model=deepseek/deepseek-v4.1-flash | source=provider_catalog | ts=1792418759.345",
+      "event=AUTO_CONTEXT_BUDGET | slot=direct.fallback | context_window=131072 | mandatory_tokens=5645 | output_reserve=13107 | safety_reserve=14651 | effective_input_budget=97669 | policy_mode=unlimited | model=deepseek-flash | source=verified_registry | ts=1792418759.346",
+      "event=CONTEXT_CAPACITY | model=deepseek/deepseek-v4.1-flash | window=1000000 | window_source=provider_catalog | external_tokens=5645 | output_reserve=100000 | available_context=777700 | budget=777700 | policy_mode=unlimited | summary_revision=1788699601:500 | summary_watermark=1788699601 | summary_lag_messages=293 | summary_age=3719158 | estimation_method=tiktoken | ts=1792418759.378",
+      "[direct] capability not ready | chat=-1002661910336 | cap=image_generation | status=quota_exhausted | reason=financial_limit_reached | template=message.image_failure.quota_exhausted"
+    ],
+    "tool_calls": [],
+    "image_blocks": [],
+    "postgen": [],
+    "vision_transport_calls": [],
+    "sends": [
+      {
+        "kind": "message",
+        "chat_id": -1002661910336,
+        "message_id": 1166495,
+        "text_head": "На сегодня картинки закончились: суточный лимит выбран. Не жадность, а квота - обнулится с новым днём, тогда нарисуем.",
+        "text_full": "На сегодня картинки закончились: суточный лимит выбран. Не жадность, а квота - обнулится с новым днём, тогда нарисуем.",
+        "text_len": 118,
+        "reply_to": 1166491
+      }
+    ],
+    "answer": "На сегодня картинки закончились: суточный лимит выбран. Не жадность, а квота - обнулится с новым днём, тогда нарисуем.",
+    "elapsed_s": 14.34,
+    "provider_calls": 0,
+    "new_sends": 1,
+    "new_photo_sends": 0
+  },
+  "gen2_block": "",
+  "gen2_block_quota_exhausted": false,
+  "gen2_block_reset_note": false,
+  "pg_reservations_after_gen2": [
+    {
+      "reservation_key": "-1002661910336:1166464:direct",
+      "source": "direct",
+      "status": "committed",
+      "error_code": ""
+    },
+    {
+      "reservation_key": "-1002661910336:1166487:direct",
+      "source": "direct",
+      "status": "committed",
+      "error_code": ""
+    }
+  ],
+  "budget_after_gen2": {
+    "http_ok": true,
+    "global_used": 22,
+    "global_limit": 200,
+    "global_cover_used": 2,
+    "chat_used": 17,
+    "chat_limit": 17,
+    "chat_day": "2026-10-19",
+    "chat_tz": "Asia/Yekaterinburg",
+    "chat_source": "chat",
+    "reserve_path": "reserve",
+    "reserve_reason": "ok",
+    "shared_used": 22,
+    "shared_limit": 200,
+    "requests": 6,
+    "success": 6,
+    "errors": 0,
+    "denied": 0,
+    "delivery_failed": 1,
+    "freq": {
+      "enabled": false,
+      "active": false,
+      "active_reason": "switch_off",
+      "mode": "per_user",
+      "burst": 3,
+      "cooldown_seconds": 300.0,
+      "source": "global",
+      "per_chat": {
+        "charges_left": 3,
+        "remaining_seconds": 0.0,
+        "next_available_at": null
+      },
+      "per_user": {
+        "charges_left": 3,
+        "remaining_seconds": 0.0,
+        "next_available_at": null,
+        "user_id": 5885953495
+      }
+    }
+  },
+  "gen2_answer": "На сегодня картинки закончились: суточный лимит выбран. Не жадность, а квота - обнулится с новым днём, тогда нарисуем.",
+  "gen2_answer_mentions_quota": true,
+  "restore": {
+    "flags.budgets_enabled": false,
+    "limits.image_daily_limit": "<removed>"
+  },
+  "reserve_mode_after_restore": [
+    "legacy",
+    "budgets_off"
+  ],
+  "config_after": {
+    "http": 200,
+    "items": [
+      {
+        "key": "flags.budgets_enabled",
+        "value": false,
+        "global_value": true,
+        "chat_source": "chat",
+        "per_chat": true,
+        "type": "bool",
+        "description": "Один рубильник на все бюджеты — глобально или для выбранного чата. При снятии лимиты не ограничивают и контекст не режется, но статистика расходов продолжает вестись. Дефолт — ВКЛ.",
+        "title": "Главный тумблер бюджетов",
+        "group": "flags_module_budgets"
+      },
+      {
+        "key": "limits.image_daily_limit",
+        "value": 5,
+        "global_value": 5,
+        "chat_source": "",
+        "per_chat": true,
+        "type": "int",
+        "description": "Сколько картинок в сутки может выдержать генерация для чата. 0 — генерация запрещена; −1 — безлимит. По умолчанию 60.",
+        "title": "Дневной лимит изображений",
+        "group": "limits_images"
+      }
+    ]
+  },
+  "config_matches": true,
+  "checks": {
+    "gen1_provider_calls_1": true,
+    "gen1_photo_sent": true,
+    "gen1_chat_used_plus1": true,
+    "gen1_shared_plus1": true,
+    "gen2_zero_provider_calls": true,
+    "gen2_zero_photo_sends": true,
+    "gen2_block_quota_exhausted": false,
+    "gen2_block_reset_note": false,
+    "gen2_answer_mentions_quota": true,
+    "restore_mode": true,
+    "config_matches": true
+  },
+  "ok": false
+}

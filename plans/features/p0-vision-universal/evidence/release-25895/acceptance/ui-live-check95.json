@@ -1,0 +1,293 @@
+{
+ "console_errors": [],
+ "checks": {
+  "vm_present": true,
+  "served_version_in_html": true,
+  "memory_limits.dig_year_back_window_days": {
+   "group": true,
+   "card": true,
+   "text": " Источник: глобальная настройка dig_into_lore: окно «N лет назад», дней limits.dig_year_back_window_days Диапазон вокруг даты «N лет назад» в запросе без явного года (2 дня). Не влияет: значение сохраняется в конфиге, но рантайм его не читает."
+  },
+  "memory_limits.memory_backup_keep": {
+   "group": true,
+   "card": true,
+   "text": " Источник: глобальная настройка Ротация бэкапов (файлов) limits.memory_backup_keep НЕ действует: по политике владельца (UPD3 №5) хранится ровно 1 бэкап БД. Значение игнорируется (см. services/disk_retention.py)."
+  },
+  "open_direct": "opened",
+  "direct_limits.chat_lock_max_entries": {
+   "modal": true,
+   "card": true,
+   "text": "Потолок словаря замков Технический: сколько чатов держать в памяти замков. Обычно не трогать. Не влияет: значение сохраняется в конфиге, но рантайм его не читает."
+  },
+  "direct_limits.chat_budget_response_ratio": {
+   "modal": true,
+   "card": true,
+   "text": "Доля бюджета: Response Доля контекста на сам ответ. Больше — место под ответ. Не влияет: значение сохраняется в конфиге, но рантайм его не читает."
+  },
+  "open_video": "opened",
+  "video_limits.youtube_transcript_proxy_locations": {
+   "modal": true,
+   "card": true,
+   "text": "CSV-коды стран Webshare Коды стран для прокси (например, de,us) — трафик будет выходить оттуда. Пусто — без ограничений. Не влияет: значение сохраняется в конфиге, но рантайм его не читает (фильтр по странам не применяется)."
+  },
+  "video_limits.youtube_transcript_proxy_retries": {
+   "modal": true,
+   "card": true,
+   "text": "Повторы при блокировке (Webshare) Сколько раз повторять запрос субтитров, если прокси заблокировали (пусто — дефолт библиотеки). Не влияет: значение сохраняется в конфиге, но рантайм его не читает (ретраи каскада заданы кодом)."
+  },
+  "video_content_media": {
+   "modal": true,
+   "groups": [],
+   "share": false,
+   "public": false
+  },
+  "quota_load": {
+   "budget_present": true,
+   "chats_len": 3,
+   "entry_has_image_usage": true,
+   "entry_has_freq": true
+  },
+  "freq_ui_on": {
+   "facts_present": true,
+   "active_label": "Включено и действует",
+   "mode_label": "Для каждого пользователя",
+   "source_label": "Локальный (чат)",
+   "remaining": "2 из 2",
+   "next": "сейчас доступно",
+   "burst_input": true,
+   "cooldown_input": true,
+   "burst_value": "2",
+   "cooldown_value": "120",
+   "quota_facts_present": true,
+   "quota_scope_label": "Пользовательские изображения: настройка, расход и остаток ниже относятся только к картинкам, которые просят люди в общении. Обложки сводок здесь не учитываются — у них собственный отдельный учёт.",
+   "quota_used": "17",
+   "quota_remaining": "50 из 67",
+   "quota_mode_notice": "Резерв квоты активен: списание атомарное, повторная обработка того же запроса квоту не списывает.",
+   "freq_toggle_present": true,
+   "freq_toggle_checked": true,
+   "mode_select_present": true,
+   "mode_options": [
+    "per_user",
+    "per_chat"
+   ],
+   "mode_options_labels": [
+    "Для каждого пользователя",
+    "Общий на весь чат"
+   ],
+   "mode_checked_count": 0
+  },
+  "freq_ui_on_mobile": {
+   "facts_present": true,
+   "active_label": "Включено и действует",
+   "mode_label": "Для каждого пользователя",
+   "source_label": "Локальный (чат)",
+   "remaining": "2 из 2",
+   "next": "сейчас доступно",
+   "burst_input": true,
+   "cooldown_input": true,
+   "burst_value": "2",
+   "cooldown_value": "120",
+   "quota_facts_present": true,
+   "quota_scope_label": "Пользовательские изображения: настройка, расход и остаток ниже относятся только к картинкам, которые просят люди в общении. Обложки сводок здесь не учитываются — у них собственный отдельный учёт.",
+   "quota_used": "17",
+   "quota_remaining": "50 из 67",
+   "quota_mode_notice": "Резерв квоты активен: списание атомарное, повторная обработка того же запроса квоту не списывает.",
+   "freq_toggle_present": true,
+   "freq_toggle_checked": true,
+   "mode_select_present": true,
+   "mode_options": [
+    "per_user",
+    "per_chat"
+   ],
+   "mode_options_labels": [
+    "Для каждого пользователя",
+    "Общий на весь чат"
+   ],
+   "mode_checked_count": 0
+  },
+  "mobile_no_overflow": true,
+  "quota_load_after_restore": {
+   "budget_present": true,
+   "chats_len": 3,
+   "entry_has_image_usage": true,
+   "entry_has_freq": true
+  },
+  "freq_ui_after_restore": {
+   "facts_present": true,
+   "active_label": "Выключено (заводской режим)",
+   "mode_label": "Для каждого пользователя",
+   "source_label": "Глобальный (по умолчанию)",
+   "remaining": "3 из 3",
+   "next": "сейчас доступно",
+   "burst_input": false,
+   "cooldown_input": false,
+   "burst_value": null,
+   "cooldown_value": null,
+   "quota_facts_present": true,
+   "quota_scope_label": "Пользовательские изображения: настройка, расход и остаток ниже относятся только к картинкам, которые просят люди в общении. Обложки сводок здесь не учитываются — у них собственный отдельный учёт.",
+   "quota_used": "17",
+   "quota_remaining": "0 из 5",
+   "quota_mode_notice": "Мастер-рубильник бюджетов выключен в этой области: лимит НЕ ограничивает генерацию (расход учитывается).",
+   "freq_toggle_present": true,
+   "freq_toggle_checked": false,
+   "mode_select_present": false
+  }
+ },
+ "screenshots": [
+  "01-memory-honest-desc-live.png",
+  "02-module-direct-honest-desc-live.png",
+  "03-module-video-honest-desc-live.png",
+  "04-images-freq-on-facts-live.png",
+  "05-images-freq-on-mobile-live.png",
+  "06-images-freq-off-restored-live.png"
+ ],
+ "now_utc": "2026-10-19 14:29:07",
+ "premise_snapshot": {
+  "values": {
+   "flags.budgets_enabled": false,
+   "limits.image_daily_limit": 5,
+   "limits.image_freq_limit_enabled": false,
+   "limits.image_freq_limit_burst": 3,
+   "limits.image_freq_limit_cooldown_seconds": 300,
+   "limits.image_freq_limit_mode": "per_user"
+  },
+  "chat_source": {
+   "flags.budgets_enabled": "chat",
+   "limits.image_daily_limit": "",
+   "limits.image_freq_limit_enabled": "",
+   "limits.image_freq_limit_burst": "",
+   "limits.image_freq_limit_cooldown_seconds": "",
+   "limits.image_freq_limit_mode": ""
+  }
+ },
+ "premise_used_now": 17,
+ "premise_write": {
+  "status": 200,
+  "body": "{\"updated\": [\"flags.budgets_enabled\", \"limits.image_daily_limit\", \"limits.image_freq_limit_burst\", \"limits.image_freq_limit_cooldown_seconds\", \"limits.image_freq_limit_enabled\", \"limits.image_freq_limit_mode\"], \"chat_id\": -1002661910336, \"revalidated\": false, \"updated_at\": \"2026-10-19T14:29:47.99651"
+ },
+ "restore_write": {
+  "status": 200,
+  "body": "{\"updated\": [\"flags.budgets_enabled\"], \"chat_id\": -1002661910336, \"revalidated\": false, \"updated_at\": \"2026-10-19T14:29:57.190248+00:00\"}"
+ },
+ "restore_deletes": {
+  "limits.image_daily_limit": {
+   "status": 200,
+   "body": "{\"reset\": \"limits.image_daily_limit\", \"chat_id\": -1002661910336}"
+  },
+  "limits.image_freq_limit_enabled": {
+   "status": 200,
+   "body": "{\"reset\": \"limits.image_freq_limit_enabled\", \"chat_id\": -1002661910336}"
+  },
+  "limits.image_freq_limit_burst": {
+   "status": 200,
+   "body": "{\"reset\": \"limits.image_freq_limit_burst\", \"chat_id\": -1002661910336}"
+  },
+  "limits.image_freq_limit_cooldown_seconds": {
+   "status": 200,
+   "body": "{\"reset\": \"limits.image_freq_limit_cooldown_seconds\", \"chat_id\": -1002661910336}"
+  },
+  "limits.image_freq_limit_mode": {
+   "status": 200,
+   "body": "{\"reset\": \"limits.image_freq_limit_mode\", \"chat_id\": -1002661910336}"
+  }
+ },
+ "config_after_restore": {
+  "flags.budgets_enabled": {
+   "value": false,
+   "chat_source": "chat"
+  },
+  "limits.image_daily_limit": {
+   "value": 5,
+   "chat_source": ""
+  },
+  "limits.image_freq_limit_enabled": {
+   "value": false,
+   "chat_source": ""
+  },
+  "limits.image_freq_limit_burst": {
+   "value": 3,
+   "chat_source": ""
+  },
+  "limits.image_freq_limit_cooldown_seconds": {
+   "value": 300,
+   "chat_source": ""
+  },
+  "limits.image_freq_limit_mode": {
+   "value": "per_user",
+   "chat_source": ""
+  }
+ },
+ "restore_matches": true,
+ "api_log": [
+  {
+   "method": "GET",
+   "path": "/api/config",
+   "chat_id": -1002661910336,
+   "status": 200,
+   "body_head": "{\"items\": [{\"key\": \"character.core\", \"value\": {\"origin\": \"owner_edit\", \"revision\": 5, \"full_text\": \"Ты общаешься как живой участник неформального русскоязычного чата. Тебе свойственны остроумие, абсурдное мышление, язвительность и непристойный юмор. Но твоя главная особенность - не агрессия, а способность замечать нелепое в самых обычных вещах.\\n\\n**Как рождается юмор.** Когда разговор располагает"
+  },
+  {
+   "method": "GET",
+   "path": "/api/workers/budget",
+   "chat_id": -1002661910336,
+   "status": 200,
+   "body_head": "{\"day\": \"2026-10-19\", \"timezone\": \"Asia/Yekaterinburg\", \"global\": {\"calls\": {\"used\": 29, \"limit\": 200}, \"tokens\": {\"used\": 15289, \"limit\": 500000}, \"image_calls\": {\"used\": 22, \"limit\": 200, \"day\": \"2026-10-19\", \"timezone\": \"Asia/Yekaterinburg\", \"next_reset_at\": \"2026-10-20T00:00:00+05:00\", \"source\": \"env\", \"cover_used\": 2}}, \"chats\": [{\"scope\": \"chat:-1002661910336\", \"calls\": {\"used\": 27, \"limit\":"
+  },
+  {
+   "method": "POST",
+   "path": "/api/config",
+   "chat_id": -1002661910336,
+   "status": 200,
+   "body_head": "{\"updated\": [\"flags.budgets_enabled\", \"limits.image_daily_limit\", \"limits.image_freq_limit_burst\", \"limits.image_freq_limit_cooldown_seconds\", \"limits.image_freq_limit_enabled\", \"limits.image_freq_limit_mode\"], \"chat_id\": -1002661910336, \"revalidated\": false, \"updated_at\": \"2026-10-19T14:29:47.996515+00:00\"}"
+  },
+  {
+   "method": "POST",
+   "path": "/api/config",
+   "chat_id": -1002661910336,
+   "status": 200,
+   "body_head": "{\"updated\": [\"flags.budgets_enabled\"], \"chat_id\": -1002661910336, \"revalidated\": false, \"updated_at\": \"2026-10-19T14:29:57.190248+00:00\"}"
+  },
+  {
+   "method": "DELETE",
+   "path": "/api/config/chat/limits.image_daily_limit",
+   "chat_id": -1002661910336,
+   "status": 200,
+   "body_head": "{\"reset\": \"limits.image_daily_limit\", \"chat_id\": -1002661910336}"
+  },
+  {
+   "method": "DELETE",
+   "path": "/api/config/chat/limits.image_freq_limit_enabled",
+   "chat_id": -1002661910336,
+   "status": 200,
+   "body_head": "{\"reset\": \"limits.image_freq_limit_enabled\", \"chat_id\": -1002661910336}"
+  },
+  {
+   "method": "DELETE",
+   "path": "/api/config/chat/limits.image_freq_limit_burst",
+   "chat_id": -1002661910336,
+   "status": 200,
+   "body_head": "{\"reset\": \"limits.image_freq_limit_burst\", \"chat_id\": -1002661910336}"
+  },
+  {
+   "method": "DELETE",
+   "path": "/api/config/chat/limits.image_freq_limit_cooldown_seconds",
+   "chat_id": -1002661910336,
+   "status": 200,
+   "body_head": "{\"reset\": \"limits.image_freq_limit_cooldown_seconds\", \"chat_id\": -1002661910336}"
+  },
+  {
+   "method": "DELETE",
+   "path": "/api/config/chat/limits.image_freq_limit_mode",
+   "chat_id": -1002661910336,
+   "status": 200,
+   "body_head": "{\"reset\": \"limits.image_freq_limit_mode\", \"chat_id\": -1002661910336}"
+  },
+  {
+   "method": "GET",
+   "path": "/api/config",
+   "chat_id": -1002661910336,
+   "status": 200,
+   "body_head": "{\"items\": [{\"key\": \"character.core\", \"value\": {\"origin\": \"owner_edit\", \"revision\": 5, \"full_text\": \"Ты общаешься как живой участник неформального русскоязычного чата. Тебе свойственны остроумие, абсурдное мышление, язвительность и непристойный юмор. Но твоя главная особенность - не агрессия, а способность замечать нелепое в самых обычных вещах.\\n\\n**Как рождается юмор.** Когда разговор располагает"
+  }
+ ]
+}

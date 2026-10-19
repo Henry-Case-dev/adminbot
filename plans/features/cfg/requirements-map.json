@@ -2,8 +2,8 @@
   "schema": "openworkflow-coverage-v1",
   "source_path": "C:\\Code\\Python\\adminbot\\plans\\features\\cfg\\source-cfg-addendum.md",
   "source_sha256": "2ed43009e1533eca218be419409870ebbe85f82d85262ff2335dfa2ce36e6b10",
-  "candidate_commit": "1d9a71070f71f81324fdfdc85e7d70c4d4e2ebf9",
-  "deployed_commit": "d59fab944bcb3eb0f5d3fa69101d8488da1c155b",
+  "candidate_commit": "113f3a629cab54f7fcc261349a7c9af3b90f56d7",
+  "deployed_commit": "113f3a629cab54f7fcc261349a7c9af3b90f56d7",
   "strict_evidence": true,
   "slice_graph_path": "slice-graph.json",
   "additional_requirements": [
@@ -1739,7 +1739,8 @@
           "artifact_sha256": "660d6691a0a57411151b11d8911e055c8e6cfc1fc2257c55b2a71538125017ca"
         }
       ],
-      "live_note": "postdeploy-агентский остаток (не владельческий): живой per-chat override / сброс override / невалидный ввод на проде без рестарта — агентская live-проверка на released-байтах; строка остаётся READY_FOR_LIVE до этой записи. Прежняя preprod-проверка §5.1/5.2. Процесс CFG (ADD-0.1): owner/live-проверки очередь не блокируют."
+      "live_note": "postdeploy-агентский остаток (не владельческий): живой per-chat override / сброс override / невалидный ввод на проде без рестарта — агентская live-проверка на released-байтах; строка остаётся READY_FOR_LIVE до этой записи. Прежняя preprod-проверка §5.1/5.2. Процесс CFG (ADD-0.1): owner/live-проверки очередь не блокируют.",
+      "note": "ACCEPTANCE-95: N/A — строка вне волны 95; reuse CFG-02A, live-остаток не перепроверялся, статус READY_FOR_LIVE сохранён."
     },
     {
       "source_id": "L00074",
@@ -1786,7 +1787,8 @@
           "artifact_sha256": "7ed4b6afb742fa01b204c4a3106b8162b1e91edab25cb81a7c4d7d5795e70725"
         }
       ],
-      "live_note": "postdeploy-агентский остаток (не владельческий): реальное влияние правки квоты без рестарта на разрешение/отказ генерации на проде — агентская live-проверка; строка остаётся READY_FOR_LIVE до этой записи. Прежняя preprod-проверка §5.3. Процесс CFG (ADD-0.1): owner/live-проверки очередь не блокируют."
+      "live_note": "postdeploy-агентский остаток (не владельческий): реальное влияние правки квоты без рестарта на разрешение/отказ генерации на проде — агентская live-проверка; строка остаётся READY_FOR_LIVE до этой записи. Прежняя preprod-проверка §5.3. Процесс CFG (ADD-0.1): owner/live-проверки очередь не блокируют.",
+      "note": "ACCEPTANCE-95: N/A — строка вне волны 95; reuse CFG-02A, live-остаток не перепроверялся, статус READY_FOR_LIVE сохранён."
     },
     {
       "source_id": "L00075",
@@ -1831,7 +1833,8 @@
           "artifact_sha256": "c7fa17eedcfe470dc1dd8948a7a48aec2d6ebda0f8e73ad6d0f79306e3b1fb6f"
         }
       ],
-      "live_note": "postdeploy-агентский остаток (не владельческий): отказ при исчерпанной суточной квоте происходит до платного вызова на проде — агентская live-проверка; строка остаётся READY_FOR_LIVE до этой записи. Прежняя preprod-проверка §5.4. Процесс CFG (ADD-0.1): owner/live-проверки очередь не блокируют."
+      "live_note": "postdeploy-агентский остаток (не владельческий): отказ при исчерпанной суточной квоте происходит до платного вызова на проде — агентская live-проверка; строка остаётся READY_FOR_LIVE до этой записи. Прежняя preprod-проверка §5.4. Процесс CFG (ADD-0.1): owner/live-проверки очередь не блокируют.",
+      "note": "ACCEPTANCE-95: N/A — строка вне волны 95; reuse CFG-02A, live-остаток не перепроверялся, статус READY_FOR_LIVE сохранён."
     },
     {
       "source_id": "L00076",
@@ -1969,13 +1972,13 @@
       "source_text_sha256": "09d8f6d1e073fa753d08a49299009e5a5a43f627f597cd252c527973bcfd858d",
       "source_excerpt": "2. При включении показывать компактные настройки:",
       "disposition": "required",
-      "reason": "Код+UI: при включении показываются компактные настройки лимита частоты (количество подряд, время ожидания, режим счёта) — один select, 4 поля, «Включено и действует» (review §3, скриншоты). Живая часть — postdeploy. READY_FOR_LIVE.",
+      "reason": "ЗАКРЫТО live (ACCEPTANCE-95 UI, 2.58.95 @ 113f3a62): ON-предпосылка burst=2/cooldown=120/mode=per_user: компактные настройки видны, burst_value=2, cooldown_value=120, freq_toggle_checked=true; после restore — «Выключено (заводской режим)», зависимые поля скрыты, restore_matches=true.",
       "req_id": "CFG-02B.2",
       "slice": "CFG-02B",
       "acceptance": "При включении показываются компактные настройки лимита частоты (количество подряд, время ожидания, режим счёта).",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "7db919df79617c9ad05449dd44320a86f29f840a",
@@ -1984,9 +1987,25 @@
           "artifact_path": "plans/features/cfg/evidence/cfg-02b/ui/02-active-per-user.png",
           "artifact_sha256": "7f9573d2263b9f3c9e8c3ea7e2198add19487a0168480f69e8383f8444861b8c",
           "type": "ui"
+        },
+        {
+          "candidate_commit": "113f3a629cab54f7fcc261349a7c9af3b90f56d7",
+          "ref": "ACCEPTANCE-95 §1(a) CFG-02B.2 + cfg evidence/cfg-03/acceptance/ui-live-check95.json",
+          "observation": "ON-предпосылка burst=2/cooldown=120/mode=per_user: компактные настройки видны, burst_value=2, cooldown_value=120, freq_toggle_checked=true; после restore — «Выключено (заводской режим)», зависимые поля скрыты, restore_matches=true.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-03/acceptance/ui-live-check95.json",
+          "artifact_sha256": "59c4c7d9b0415939eccd4ad967e3c15def9b7e62612065570565f633b8c3f3a2",
+          "type": "production"
+        },
+        {
+          "candidate_commit": "113f3a629cab54f7fcc261349a7c9af3b90f56d7",
+          "ref": "ACCEPTANCE-95 §1(a) CFG-02B.2 + cfg evidence/cfg-03/acceptance/ui-live-check95.json (screenshot)",
+          "observation": "Скриншот живого UI волны 95.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-03/acceptance/ui/04-images-freq-on-facts-live.png",
+          "artifact_sha256": "807d7e64fcd2cb0f5b90356c10ea1ac50953dfa84192c6d36e0322b61bba71ce",
+          "type": "ui"
         }
       ],
-      "note": "Живая MiniApp-витрина — релизный лейн (Ф6); acceptance-91 покрыл enable/refusal через config API (не через UI). 94 §Ф6: freq ON жил в волне (burst 3→2→1, mode per_user, source chat — c2 `freq_state`), но компактные настройки UI не упражнялись; живая MiniApp-витрина остаётся релизным лейном.",
+      "note": "ACCEPTANCE-95: live UI-витрина подтверждена (ui-live-check95.json + скриншоты 04–06); это postdeploy-агентская проверка, не owner-гейт.",
       "live_note": "postdeploy (DevOps/Orchestrator), не owner-гейт: включение лимита в MiniApp — компактные настройки (подряд/ожидание/режим) видны и применяются."
     },
     {
@@ -2043,13 +2062,13 @@
       "source_text_sha256": "3a09405d511d17a552ece62e16df58c5d94d29007491023dcb96aa0c117d9922",
       "source_excerpt": "- **«Считать лимит»** — выбор одного из двух взаимоисключающих вариантов (рекомендуемый заводской выбор: «Для каждого пользователя», при выключенном лимитере он не действует): **«Для каждого пользователя»** / **«Общий на весь чат»**. Не дел",
       "disposition": "required",
-      "reason": "Код+UI: «Считать лимит» — один из двух взаимоисключающих вариантов (per_user заводской / общий на весь чат), без двух одновременно включаемых галочек; мусор → per_user (review §1). Живая часть — postdeploy. READY_FOR_LIVE.",
+      "reason": "ЗАКРЫТО live (ACCEPTANCE-95 UI, 2.58.95 @ 113f3a62): Select «Считать лимит»: mode_options=[per_user, per_chat] ровно 2, labels «Для каждого пользователя»/«Общий на весь чат», mode_checked_count=0 (взаимоисключающий, без чекбоксов).",
       "req_id": "CFG-02B.2.3",
       "slice": "CFG-02B",
       "acceptance": "Выбор «Считать лимит» — один из двух взаимоисключающих вариантов (per-user, рекомендуемый заводской / общий на весь чат), без двух одновременно включаемых галочек.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "7db919df79617c9ad05449dd44320a86f29f840a",
@@ -2058,9 +2077,17 @@
           "artifact_path": "plans/features/cfg/evidence/cfg-02b/ui/03-active-per-chat.png",
           "artifact_sha256": "01a7637a77a37d4dc4248446493b43cf6841ee0a4e924bcc44de2e6e44d646cc",
           "type": "ui"
+        },
+        {
+          "candidate_commit": "113f3a629cab54f7fcc261349a7c9af3b90f56d7",
+          "ref": "ACCEPTANCE-95 §1(a) CFG-02B.2.3 + cfg evidence/cfg-03/acceptance/ui-live-check95.json",
+          "observation": "Select «Считать лимит»: mode_options=[per_user, per_chat] ровно 2, labels «Для каждого пользователя»/«Общий на весь чат», mode_checked_count=0 (взаимоисключающий, без чекбоксов).",
+          "artifact_path": "plans/features/cfg/evidence/cfg-03/acceptance/ui-live-check95.json",
+          "artifact_sha256": "59c4c7d9b0415939eccd4ad967e3c15def9b7e62612065570565f633b8c3f3a2",
+          "type": "production"
         }
       ],
-      "note": "Живая MiniApp-витрина — релизный лейн (Ф6); acceptance-91 покрыл enable/refusal через config API (не через UI). 94 §Ф6: `limits.image_freq_limit_mode`=per_user в живом конфиге (c5), но UI-переключатель не упражнялся; остаётся релизному лейну.",
+      "note": "ACCEPTANCE-95: live UI-витрина подтверждена (ui-live-check95.json + скриншоты 04–06); это postdeploy-агентская проверка, не owner-гейт.",
       "live_note": "postdeploy (DevOps/Orchestrator), не owner-гейт: переключение per-user/общий-на-чат в живой витрине применяется без двух включённых галочек."
     },
     {
@@ -2199,13 +2226,13 @@
       "source_text_sha256": "dfaadd5a89cdf7cf72a25c4cd5e47f416e3c879853e90ace350ca07cf289c544",
       "source_excerpt": "8. В секции «Лимиты генерации» в MiniApp показывать *активно ли ограничение*, scope, остаток для выбранного пользователя (где это доступно) или всего чата, источник наследования и следующую доступность. UI должен быть компактным и одинаково",
       "disposition": "required",
-      "reason": "Код+UI: секция «Лимиты генерации» — активность/причина/режим/источник/остаток серии/следующая доступность (аддитивный блок `freq` в `/api/workers/budget`; тот же `throttle_state` scope `image_freq`); скриншоты мобильный/десктоп, фон/дизайн не изменены (review §1/§3). Живая часть — postdeploy. READY_FOR_LIVE.",
+      "reason": "ЗАКРЫТО live (ACCEPTANCE-95 UI, 2.58.95 @ 113f3a62): Живой UI: «Включено и действует», режим «Для каждого пользователя», источник «Локальный (чат)», остаток «2 из 2», «сейчас доступно»; mobile 390 — те же факты, mobile_no_overflow=true; OFF-restore «Выключено (заводской режим)», конфиг восстановлен.",
       "req_id": "CFG-02B.8",
       "slice": "CFG-02B",
       "acceptance": "Секция «Лимиты генерации» показывает активность лимита, scope, остаток пользователя/чата, источник наследования и следующую доступность; компактно и одинаково на мобильном и десктопе без изменения фона и дизайна.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "7db919df79617c9ad05449dd44320a86f29f840a",
@@ -2214,9 +2241,25 @@
           "artifact_path": "plans/features/cfg/evidence/cfg-02b/ui/browseruse-desktop-active.png",
           "artifact_sha256": "db98d5385259f546f9c17fb20a27835da2cb2ef88963b5547f74749fabf224d8",
           "type": "ui"
+        },
+        {
+          "candidate_commit": "113f3a629cab54f7fcc261349a7c9af3b90f56d7",
+          "ref": "ACCEPTANCE-95 §1(a) CFG-02B.8 + cfg evidence/cfg-03/acceptance/ui-live-check95.json",
+          "observation": "Живой UI: «Включено и действует», режим «Для каждого пользователя», источник «Локальный (чат)», остаток «2 из 2», «сейчас доступно»; mobile 390 — те же факты, mobile_no_overflow=true; OFF-restore «Выключено (заводской режим)», конфиг восстановлен.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-03/acceptance/ui-live-check95.json",
+          "artifact_sha256": "59c4c7d9b0415939eccd4ad967e3c15def9b7e62612065570565f633b8c3f3a2",
+          "type": "production"
+        },
+        {
+          "candidate_commit": "113f3a629cab54f7fcc261349a7c9af3b90f56d7",
+          "ref": "ACCEPTANCE-95 §1(a) CFG-02B.8 + cfg evidence/cfg-03/acceptance/ui-live-check95.json (screenshot)",
+          "observation": "Скриншот живого UI волны 95.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-03/acceptance/ui/06-images-freq-off-restored-live.png",
+          "artifact_sha256": "f1ed73df32cffb9517d12e2a6fac2fffdd692e07c589c7b1bb35e34478f1a1f7",
+          "type": "ui"
         }
       ],
-      "note": "Живая MiniApp-витрина — релизный лейн (Ф6); acceptance-91 покрыл enable/refusal через config API (не через UI). 94 §Ф6: витрина budget снята по cover-разбивке (c1); freq-блок секции «Лимиты генерации» в витринном ответе не снимался (freq_state — на уровне состояния, c2/c5); секция остаётся релизному лейну.",
+      "note": "ACCEPTANCE-95: live UI-витрина подтверждена (ui-live-check95.json + скриншоты 04–06); это postdeploy-агентская проверка, не owner-гейт.",
       "live_note": "postdeploy (DevOps/Orchestrator), не owner-гейт: секция «Лимиты генерации» на проде — активность/scope/остаток/наследование/следующая доступность; мобильный/десктоп."
     },
     {
@@ -2497,7 +2540,8 @@
           "artifact_sha256": "7ed4b6afb742fa01b204c4a3106b8162b1e91edab25cb81a7c4d7d5795e70725"
         }
       ],
-      "live_note": "postdeploy-агентский остаток (не владельческий): правка квоты на проде + переживание перезагрузки/рестарта и реальное влияние на разрешение/отказ — агентская live-проверка; строка остаётся READY_FOR_LIVE до этой записи. Прежняя preprod-проверка §5.1/5.5. Процесс CFG (ADD-0.1): owner/live-проверки очередь не блокируют."
+      "live_note": "postdeploy-агентский остаток (не владельческий): правка квоты на проде + переживание перезагрузки/рестарта и реальное влияние на разрешение/отказ — агентская live-проверка; строка остаётся READY_FOR_LIVE до этой записи. Прежняя preprod-проверка §5.1/5.5. Процесс CFG (ADD-0.1): owner/live-проверки очередь не блокируют.",
+      "note": "ACCEPTANCE-95: N/A — строка вне волны 95; reuse CFG-02A, live-остаток не перепроверялся, статус READY_FOR_LIVE сохранён."
     },
     {
       "source_id": "L00110",
@@ -2793,14 +2837,40 @@
       "source_text_sha256": "527340374295f4f53a495c6733e5b460cfdf4c35cbaef0a50c4b2416d096694a",
       "source_excerpt": "4. Для горячих параметров проверить изменение **реального поведения** без рестарта. Для тех, которым нужен рестарт или пересборка, честно показать это в UI, но проверить необходимость; нельзя выдавать фиктивный hot-reload.",
       "disposition": "required",
-      "reason": "",
+      "reason": "ЗАКРЫТО (live-половина, ACCEPTANCE-95, 2.58.95 @ 113f3a62): flags.vision_enabled — OFF даёт requested/effective=false, reason=vision_disabled, tool disabled, 0 анализов/джоб; ON — анализ запускается. limits.image_daily_limit — ровно 1 генерация, вторая попытка отклонена ДО платного вызова (0 provider calls/0 фото/0 новых строк), восстановление точное. Полная матрица hot/restart — build-evidence review-cfg-03 (f8bb638d) + evidence/cfg-03/**; live-половина не выдаётся за полный контур.",
       "req_id": "CFG-03.4",
       "slice": "CFG-03",
       "acceptance": "Горячие параметры реально меняют поведение без рестарта; рестарт-зависимые честно показаны в UI; фиктивного hot-reload нет.",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "113f3a629cab54f7fcc261349a7c9af3b90f56d7",
+          "ref": "ACCEPTANCE-95 §1(a) 03.4 + evidence/release-25895/acceptance/p2-vision-off.json",
+          "observation": "OFF: requested/effective=false, reason=vision_disabled; direct tool disabled; полный ход честный; analyses_after_off=[] и jobs_after_off=[]; ON восстановлен и анализ запускается (p3b).",
+          "artifact_path": "plans/features/p0-vision-universal/evidence/release-25895/acceptance/p2-vision-off.json",
+          "artifact_sha256": "bf66ee779bf85612cd20a660f22936115c12be1527808f8fe5efea42bfa22e88",
+          "type": "production"
+        },
+        {
+          "candidate_commit": "113f3a629cab54f7fcc261349a7c9af3b90f56d7",
+          "ref": "ACCEPTANCE-95 §1(a) 03.4 + evidence/release-25895/acceptance/p4b-generation.json",
+          "observation": "limits.image_daily_limit: gen1 — ровно 1 provider call, фото mid 1166489 доставлено; gen2 — 0 provider calls, 0 фото, 0 новых строк журнала, честный quota-ответ; restore config_matches=true. p4b ok=false из-за класса блокировки (image-capability-gate, не quota_exhausted) — раскрыто в REV-ACCEPT-95 §1(a).",
+          "artifact_path": "plans/features/p0-vision-universal/evidence/release-25895/acceptance/p4b-generation.json",
+          "artifact_sha256": "122cbc3cf8e7efcd4f46397f0b9b51af39b78d4fa0d0156bcaa19747d455618e",
+          "type": "production"
+        },
+        {
+          "candidate_commit": "113f3a629cab54f7fcc261349a7c9af3b90f56d7",
+          "ref": "ACCEPTANCE-95 README «Базовые маркеры» + runs/accept95b-run.log",
+          "observation": "Базовые маркеры волны: healthz loopback+HTTPS=2.58.95, MainPID 3716545, NRestarts=0, SKIPS=0, 402=0; user_version=36; final95d: mca_errors_since_wave=0, ΔDDL=0.",
+          "artifact_path": "plans/features/p0-vision-universal/evidence/release-25895/acceptance/runs/accept95b-run.log",
+          "artifact_sha256": "4cbcf04a70e2006ca042a7b0dcc03d298d9094053d71543ae4bfc35aa9755d95",
+          "type": "production"
+        }
+      ],
+      "note": "ACCEPTANCE-95: закрыта live-половина 03.4 (2 горячие ручки); полный охват hot/restart — матрица CFG-03 (build evidence), не повторный live-прогон."
     },
     {
       "source_id": "L00131",
@@ -2823,14 +2893,40 @@
       "source_text_sha256": "87904139aacb33bb6e9c508749674ffccb6f7257a9e25898fb26fa28da0a2e03",
       "source_excerpt": "6. Временно отключённые или неиспользуемые параметры должны отображаться честно (или выводиться из интерфейса после отдельного согласования), а не изображать действующие настройки.",
       "disposition": "required",
-      "reason": "",
+      "reason": "ЗАКРЫТО (ACCEPTANCE-95, 2.58.95 @ 113f3a62): live API — все 5 мёртвых ручек присутствуют с точным маркером «Не влияет: значение сохраняется в конфиге…» (exact=5), served app.js==disk (sha12 44642c5a2b3e), scope-метка в HTML; live UI — «Память», модалки «Ответы в чате»/«Выжимка видео», memory_backup_keep «НЕ действует», console errors 0, mobile 390 без overflow. Вывод из UI не требуется: решение владельца не блокирует (PET).",
       "req_id": "CFG-03.6",
       "slice": "CFG-03",
       "acceptance": "Временно отключённые/неиспользуемые параметры отображаются честно (или выведены после согласования), а не имитируют действующие настройки.",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "113f3a629cab54f7fcc261349a7c9af3b90f56d7",
+          "ref": "ACCEPTANCE-95 §1(a) 03.6 + evidence/release-25895/acceptance/p6b-showcase-api.json",
+          "observation": "GET /api/config (X-Chat-Id рабочего чата): 5 dead keys present, honest_exact_count=5, honest_any_count=6; served app.js sha12 44642c5a2b3e == disk, html_has_scope_label=true.",
+          "artifact_path": "plans/features/p0-vision-universal/evidence/release-25895/acceptance/p6b-showcase-api.json",
+          "artifact_sha256": "dc1def7604d9221683e5086facb8ff256c319d1baa37892b581f543a99292607",
+          "type": "production"
+        },
+        {
+          "candidate_commit": "113f3a629cab54f7fcc261349a7c9af3b90f56d7",
+          "ref": "ACCEPTANCE-95 §1(a) 03.6 UI + cfg evidence/cfg-03/acceptance/ui-live-check95.json",
+          "observation": "Живая TMA: dig_into_lore и memory_backup_keep честно помечены на вкладке «Память»; обе ручки в «Ответы в чате», обе youtube-ручки в «Выжимке видео»; console_errors=[], mobile 390 без overflow, restore_matches=true.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-03/acceptance/ui-live-check95.json",
+          "artifact_sha256": "59c4c7d9b0415939eccd4ad967e3c15def9b7e62612065570565f633b8c3f3a2",
+          "type": "production"
+        },
+        {
+          "candidate_commit": "113f3a629cab54f7fcc261349a7c9af3b90f56d7",
+          "ref": "ACCEPTANCE-95 §1(a) 03.6 UI screenshot",
+          "observation": "Скриншот вкладки «Память»: честные описания мёртвых ручек.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-03/acceptance/ui/01-memory-honest-desc-live.png",
+          "artifact_sha256": "91dde75e9e0aabd07dea0b1d00dc0edb98202a12020382e64f8566f7019b0164",
+          "type": "ui"
+        }
+      ],
+      "note": "ACCEPTANCE-95 §1(a): 03.6 закрыт live API+UI; 5 мёртвых ручек + memory_backup_keep честно помечены. Остаток content_media относится к 03.1 (static/e2e), не к 03.6."
     },
     {
       "source_id": "L00133",
@@ -2899,15 +2995,24 @@
       "source_text_sha256": "59ea77dc5ba50ee2a9b72d0dc8d399364b918f9a574b8fb3cca04c01b9a24997",
       "source_excerpt": "11. Для каждого редактируемого параметра выполнить отрицательный тест: установить значение, которое заведомо меняет результат (например лимит 1 вместо 10), наблюдать реальный эффект, затем вернуть исходную конфигурацию. Тест «прочитал в API",
       "disposition": "required",
-      "reason": "",
+      "reason": "ЗАКРЫТО (live-спот, ACCEPTANCE-95): 3 класса негативов без записи — неверный тип limits.image_daily_limit='abc' → 422; недопустимая опция select 'bogus' → 422; устаревший optimistic-токен → 409. Значения до==после, no_write=true в каждом. Полный per-параметр контур — build-evidence; приёмке не приписывается.",
       "req_id": "CFG-03.11",
       "slice": "CFG-03",
       "acceptance": "Для каждого редактируемого параметра отрицательный тест (значение, заведомо меняющее результат, затем возврат) с наблюдаемым реальным эффектом, а не только roundtrip API.",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
-      "note": "Алиас P0-стороны: P0A-ACCEPT-PERSIST-EDGE (`plans/features/p0-save-init-ux/requirements-map.json`) — VERIFIED (409 `document_invalid`/422/конфликт без потери текста; acceptance-edges-25890.json 3/3). Строка остаётся PENDING: отрицательный тест на каждый редактируемый параметр (классами + выбранные live), а не только речевые настройки; P0-эвиденс переиспользуется (prep-cfg-03 §2)."
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "113f3a629cab54f7fcc261349a7c9af3b90f56d7",
+          "ref": "ACCEPTANCE-95 §1(a) 03.11 + evidence/release-25895/acceptance/p5b-negatives.json",
+          "observation": "3 live-класса: wrong_type_int → 422, bad_select_option → 422, stale_updated_at → 409; pass/no_write=true, значения before==after; ok=true.",
+          "artifact_path": "plans/features/p0-vision-universal/evidence/release-25895/acceptance/p5b-negatives.json",
+          "artifact_sha256": "2fe534ffbefb555c92d2a46b14469d17b79ca56adf3f67b0f3f76fe9d2847088",
+          "type": "production"
+        }
+      ],
+      "note": "Алиас P0-стороны: P0A-ACCEPT-PERSIST-EDGE (`plans/features/p0-save-init-ux/requirements-map.json`) — VERIFIED (409 document_invalid/422/конфликт без потери текста; acceptance-edges-25890.json 3/3). ACCEPTANCE-95: live-спот 3 классов закрыт; полный per-параметр negative-контур остаётся build-evidence (test_cfg03_param_audit.py + prep-cfg-03 §2) и не заявлен VERIFIED этой волной."
     },
     {
       "source_id": "L00138",
@@ -2915,14 +3020,32 @@
       "source_text_sha256": "13d5cbe62122daea4628b7f10a8704485467ee1ced76bac6dff80d7c126cd3d7",
       "source_excerpt": "12. Для каждой настройки, способной запретить действие, убедиться, что её OFF/ON (либо 0/ненулевое значение) действительно отключает/включает поведение **по всем поддерживаемым маршрутам**, а UI показывает effective state. Отдельно искать п",
       "disposition": "required",
-      "reason": "",
+      "reason": "ЗАКРЫТО (live-половина, ACCEPTANCE-95): OFF — tool и полный ход честно не выполняются (0 vision-вызовов/анализов/джоб); ON — анализ запускается (адаптивный путь, 1 provider call; терминальный parse_error честный, без ложного ready). UI effective state в этой волне не перепроверялся — P0V-UI/e2e evidence.",
       "req_id": "CFG-03.12",
       "slice": "CFG-03",
       "acceptance": "OFF/ON (или 0/ненулевое) реально отключает/включает поведение по всем маршрутам, UI показывает effective state; параметры-сироты в каталоге выявлены.",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "113f3a629cab54f7fcc261349a7c9af3b90f56d7",
+          "ref": "ACCEPTANCE-95 §1(a) 03.12 + evidence/release-25895/acceptance/p2-vision-off.json",
+          "observation": "OFF: recognize_image tool → disabled/vision_disabled; полный ход честный; 0 анализов и 0 джоб.",
+          "artifact_path": "plans/features/p0-vision-universal/evidence/release-25895/acceptance/p2-vision-off.json",
+          "artifact_sha256": "bf66ee779bf85612cd20a660f22936115c12be1527808f8fe5efea42bfa22e88",
+          "type": "production"
+        },
+        {
+          "candidate_commit": "113f3a629cab54f7fcc261349a7c9af3b90f56d7",
+          "ref": "ACCEPTANCE-95 §1(a) 03.12 + evidence/release-25895/acceptance/p3b-vision-adapt.json",
+          "observation": "ON: анализ стартует, адаптивный путь (normalize/adapt calls=1, ms=34088), терминальный failed/parse_error с честной uncertainty; ложного ready нет.",
+          "artifact_path": "plans/features/p0-vision-universal/evidence/release-25895/acceptance/p3b-vision-adapt.json",
+          "artifact_sha256": "14b246737db738e07427f26ffb36dc9b5d362d2f9427309dcc07314015348505",
+          "type": "production"
+        }
+      ],
+      "note": "ACCEPTANCE-95: live-половина 03.12 (OFF/ON по маршрутам); UI-часть effective state — существующее P0V-UI/e2e evidence, в волне 95 не повторялась."
     },
     {
       "source_id": "L00140",
@@ -2991,14 +3114,23 @@
       "source_text_sha256": "c5c652e9d811ffe3b39c8316236c8ec62ce339006203423b5bc88d316e12cb71",
       "source_excerpt": "- Отдельный список параметров, действие которых нельзя безопасно проверить без владельческого действия/живого события, с точным сценарием ручной проверки.",
       "disposition": "required",
-      "reason": "",
+      "reason": "ЗАКРЫТО (ACCEPTANCE-95): manual-checks.md §1–3 — отдельный список живых/владельческих проверок с точными сценариями (hot-ручки, 2 неблокирующих owner-вопроса, статически непроверяемое); список использован в волне 95 (03.4/03.6).",
       "req_id": "CFG-03.R4",
       "slice": "CFG-03",
       "acceptance": "Отдельный список параметров, требующих владельческого/живого события, с точным сценарием ручной проверки.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "113f3a629cab54f7fcc261349a7c9af3b90f56d7",
+          "ref": "ACCEPTANCE-95 §1(a) R4 + cfg evidence/cfg-03/manual-checks.md",
+          "observation": "§1 живые hot-проверки (image_daily_limit, flags.vision_enabled, reuse P0/CFG-01/02B); §2 два неблокирующих owner-вопроса; §3 честно непроверяемое статически.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-03/manual-checks.md",
+          "artifact_sha256": "07a287b134beead75556f1995f03398a45c1cd05cda0b2be093e93cf144ab11e",
+          "type": "static"
+        }
+      ]
     },
     {
       "source_id": "L00147",

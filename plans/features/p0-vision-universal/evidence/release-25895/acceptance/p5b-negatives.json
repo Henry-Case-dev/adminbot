@@ -1,0 +1,73 @@
+{
+  "phase": "P5b-negatives-0311",
+  "before": {
+    "limits.image_daily_limit": 5,
+    "limits.image_freq_limit_burst": 3,
+    "limits.image_freq_limit_mode": "per_user"
+  },
+  "cases": [
+    {
+      "name": "wrong_type_int",
+      "http": 422,
+      "body": {
+        "detail": "limits.image_daily_limit: ожидается int, получено str"
+      },
+      "expect": [
+        422
+      ],
+      "pass": true,
+      "no_write": true,
+      "after": {
+        "limits.image_daily_limit": 5,
+        "limits.image_freq_limit_burst": 3,
+        "limits.image_freq_limit_mode": "per_user"
+      }
+    },
+    {
+      "name": "bad_select_option",
+      "http": 422,
+      "body": {
+        "detail": "limits.image_freq_limit_mode: недопустимая опция: 'bogus'"
+      },
+      "expect": [
+        422
+      ],
+      "pass": true,
+      "no_write": true,
+      "after": {
+        "limits.image_daily_limit": 5,
+        "limits.image_freq_limit_burst": 3,
+        "limits.image_freq_limit_mode": "per_user"
+      }
+    },
+    {
+      "name": "stale_updated_at",
+      "http": 409,
+      "body": {
+        "detail": {
+          "code": "conflict",
+          "current_updated_at": "2026-10-19T14:06:00.054762+00:00",
+          "conflicting": [
+            {
+              "key": "limits.image_freq_limit_burst",
+              "your_value": 7,
+              "server_value": null
+            }
+          ],
+          "applied": []
+        }
+      },
+      "expect": [
+        409
+      ],
+      "pass": true,
+      "no_write": true,
+      "after": {
+        "limits.image_daily_limit": 5,
+        "limits.image_freq_limit_burst": 3,
+        "limits.image_freq_limit_mode": "per_user"
+      }
+    }
+  ],
+  "ok": true
+}

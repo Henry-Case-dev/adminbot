@@ -1,0 +1,163 @@
+[runner] connected nik@198.46.175.136
+### RECON (rc=0)
+2026-10-19 14:14:23 UTC
+HEAD=113f3a629cab54f7fcc261349a7c9af3b90f56d7 TRACKED_MOD=0
+MainPID=3716545 NRestarts=0 ActiveState=active 
+{"status":"ok","version":"2.58.95"}
+{"status":"ok","version":"2.58.95"}
+-rw-rw-r-- 1 nik  nik  31035 Oct 19 14:01 /tmp/accept95_base.py
+-rw-rw-r-- 1 nik  nik   3179 Oct 19 14:01 /tmp/accept95b_journal.sh
+-rw-rw-r-- 1 nik  nik  40096 Oct 19 14:01 /tmp/accept95b_live.py
+-rw-rw-r-- 1 nik  nik  10040 Oct 19 13:47 /tmp/accept95_clean.py
+-rw-r--r-- 1 root root   180 Oct 19 14:06 /tmp/accept95_cleanup_mids.json
+-rw-rw-r-- 1 nik  nik   2147 Oct 19 14:01 /tmp/accept95_dbcheck.py
+-rw-rw-r-- 1 nik  nik   3609 Oct 19 13:47 /tmp/accept95_journal.sh
+-rw-rw-r-- 1 nik  nik  48717 Oct 19 13:47 /tmp/accept95_live.py
+
+/tmp/accept95:
+total 1348
+drwxrwxr-x  3 nik  nik     4096 Oct 19 14:01 .
+drwxrwxrwt 41 root root   20480 Oct 19 14:14 ..
+drwxr-xr-x  2 root root    4096 Oct 19 14:06 evidence
+-rw-rw-r--  1 nik  nik     1016 Oct 19 13:47 fixture-ground-truth.json
+-rw-rw-r--  1 nik  nik  1337017 Oct 19 13:47 fixture.png
+-rw-r--r--  1 root root    2040 Oct 19 14:06 live95b.out
+-rw-r--r--  1 root root    3229 Oct 19 13:54 live.out
+[runner] harness_sudo=True
+### ERRBLOCKS_95B (rc=0)
+37-Oct 19 14:04:37 racknerd-f4e3456 python[3716545]: 2026-10-19 14:04:37,285 - services.database - WARNING - database: lock exhausted | event=database_lock_exhausted | op=mca_events_flush | attempts=4 | chat_id=None | error=database is locked
+38-Oct 19 14:04:37 racknerd-f4e3456 python[3716545]: NoneType: None
+39-Oct 19 14:04:37 racknerd-f4e3456 python[3716545]: 2026-10-19 14:04:37,297 - services.mca_events - WARNING - [mca_events] flush failed — events -> bounded spool
+40:Oct 19 14:04:37 racknerd-f4e3456 python[3716545]: Traceback (most recent call last):
+41-Oct 19 14:04:37 racknerd-f4e3456 python[3716545]:   File "/var/www/admin_bot/services/mca_events.py", line 707, in flush_events
+42-Oct 19 14:04:37 racknerd-f4e3456 python[3716545]:     written = await db.write_transaction(_body, op_name="mca_events_flush")
+43-Oct 19 14:04:37 racknerd-f4e3456 python[3716545]:               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+44-Oct 19 14:04:37 racknerd-f4e3456 python[3716545]:   File "/var/www/admin_bot/services/database.py", line 2488, in write_transaction
+45-Oct 19 14:04:37 racknerd-f4e3456 python[3716545]:     return await self._write_transaction_owned(op, op_name,
+46-Oct 19 14:04:37 racknerd-f4e3456 python[3716545]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+47-Oct 19 14:04:37 racknerd-f4e3456 python[3716545]:   File "/var/www/admin_bot/services/database.py", line 2596, in _write_transaction_owned
+48-Oct 19 14:04:37 racknerd-f4e3456 python[3716545]:     raise last_exc
+49-Oct 19 14:04:37 racknerd-f4e3456 python[3716545]:   File "/var/www/admin_bot/services/database.py", line 2573, in _write_transaction_owned
+50-Oct 19 14:04:37 racknerd-f4e3456 python[3716545]:     result = await op(self.db)
+51-Oct 19 14:04:37 racknerd-f4e3456 python[3716545]:              ^^^^^^^^^^^^^^^^^
+52-Oct 19 14:04:37 racknerd-f4e3456 python[3716545]:   File "/var/www/admin_bot/services/mca_events.py", line 700, in _body
+53-Oct 19 14:04:37 racknerd-f4e3456 python[3716545]:     await _insert_event(conn, ev)
+54-Oct 19 14:04:37 racknerd-f4e3456 python[3716545]:   File "/var/www/admin_bot/services/mca_events.py", line 665, in _insert_event
+55-Oct 19 14:04:37 racknerd-f4e3456 python[3716545]:     await conn.execute(_MCA_EVENTS_INSERT_SQL,
+56-Oct 19 14:04:37 racknerd-f4e3456 python[3716545]:   File "/var/www/admin_bot/venv/lib/python3.12/site-packages/aiosqlite/core.py", line 223, in execute
+57-Oct 19 14:04:37 racknerd-f4e3456 python[3716545]:     cursor = await self._execute(self._conn.execute, sql, parameters)
+58-Oct 19 14:04:37 racknerd-f4e3456 python[3716545]:              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+59-Oct 19 14:04:37 racknerd-f4e3456 python[3716545]:   File "/var/www/admin_bot/venv/lib/python3.12/site-packages/aiosqlite/core.py", line 160, in _execute
+60-Oct 19 14:04:37 racknerd-f4e3456 python[3716545]:     return await future
+61-Oct 19 14:04:37 racknerd-f4e3456 python[3716545]:            ^^^^^^^^^^^^
+62-Oct 19 14:04:37 racknerd-f4e3456 python[3716545]:   File "/var/www/admin_bot/venv/lib/python3.12/site-packages/aiosqlite/core.py", line 63, in _connection_worker_thread
+--
+93-Oct 19 14:05:37 racknerd-f4e3456 python[3716545]: 2026-10-19 14:05:37,800 - services.database - WARNING - database: lock exhausted | event=database_lock_exhausted | op=save_smart_message_identity | attempts=4 | chat_id=None | error=database is locked
+94-Oct 19 14:05:37 racknerd-f4e3456 python[3716545]: NoneType: None
+95-Oct 19 14:05:37 racknerd-f4e3456 python[3716545]: 2026-10-19 14:05:37,804 - handlers.summary - WARNING - SmartModule observer: save failed | chat=-1002661910336 user=479167456
+96:Oct 19 14:05:37 racknerd-f4e3456 python[3716545]: Traceback (most recent call last):
+97-Oct 19 14:05:37 racknerd-f4e3456 python[3716545]:   File "/var/www/admin_bot/handlers/summary.py", line 421, in summary_observer
+98-Oct 19 14:05:37 racknerd-f4e3456 python[3716545]:     await message_identity.save_live_message(
+99-Oct 19 14:05:37 racknerd-f4e3456 python[3716545]:   File "/var/www/admin_bot/services/message_identity.py", line 254, in save_live_message
+100-Oct 19 14:05:37 racknerd-f4e3456 python[3716545]:     return await db.save_smart_message_identity(rec)
+101-Oct 19 14:05:37 racknerd-f4e3456 python[3716545]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+102-Oct 19 14:05:37 racknerd-f4e3456 python[3716545]:   File "/var/www/admin_bot/services/database.py", line 7673, in save_smart_message_identity
+103-Oct 19 14:05:37 racknerd-f4e3456 python[3716545]:     message_id = await self.write_transaction(
+104-Oct 19 14:05:37 racknerd-f4e3456 python[3716545]:                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+105-Oct 19 14:05:37 racknerd-f4e3456 python[3716545]:   File "/var/www/admin_bot/services/database.py", line 2488, in write_transaction
+106-Oct 19 14:05:37 racknerd-f4e3456 python[3716545]:     return await self._write_transaction_owned(op, op_name,
+107-Oct 19 14:05:37 racknerd-f4e3456 python[3716545]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+108-Oct 19 14:05:37 racknerd-f4e3456 python[3716545]:   File "/var/www/admin_bot/services/database.py", line 2596, in _write_transaction_owned
+109-Oct 19 14:05:37 racknerd-f4e3456 python[3716545]:     raise last_exc
+110-Oct 19 14:05:37 racknerd-f4e3456 python[3716545]:   File "/var/www/admin_bot/services/database.py", line 2573, in _write_transaction_owned
+111-Oct 19 14:05:37 racknerd-f4e3456 python[3716545]:     result = await op(self.db)
+112-Oct 19 14:05:37 racknerd-f4e3456 python[3716545]:              ^^^^^^^^^^^^^^^^^
+113-Oct 19 14:05:37 racknerd-f4e3456 python[3716545]:   File "/var/www/admin_bot/services/database.py", line 7628, in _body
+114-Oct 19 14:05:37 racknerd-f4e3456 python[3716545]:     cur = await conn.execute(
+115-Oct 19 14:05:37 racknerd-f4e3456 python[3716545]:           ^^^^^^^^^^^^^^^^^^^
+116-Oct 19 14:05:37 racknerd-f4e3456 python[3716545]:   File "/var/www/admin_bot/venv/lib/python3.12/site-packages/aiosqlite/core.py", line 223, in execute
+117-Oct 19 14:05:37 racknerd-f4e3456 python[3716545]:     cursor = await self._execute(self._conn.execute, sql, parameters)
+118-Oct 19 14:05:37 racknerd-f4e3456 python[3716545]:              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[stderr] [sudo] password for nik:
+[runner] uploaded accept95_base.py -> /tmp/accept95_base.py (31035 bytes)
+[runner] uploaded accept95_clean.py -> /tmp/accept95_clean.py (10040 bytes)
+[runner] uploaded accept95c_probe.py -> /tmp/accept95c_probe.py (4780 bytes)
+[runner] uploaded accept95c_live.py -> /tmp/accept95c_live.py (16133 bytes)
+[runner] uploaded fixture95c.png -> /tmp/accept95/fixture95c.png (1115814 bytes)
+[runner] uploaded fixture95c-ground-truth.json -> /tmp/accept95/fixture95c-ground-truth.json (591 bytes)
+### UPLOAD (ok)
+### PROBE (rc=0)
+ACC95 BOT INFO | session=local_bot_api (download_enabled=1)
+ACC95 BOOT | version=? vec=True bot=8802473181 pg=True
+ACC95 SAVE INFO | probe95c.json (8522 bytes)
+ACC95C PROBE | saved: bot_replies=5 parents=5 running=1
+ACC95C RC=0
+[stderr] [sudo] password for nik:
+[runner] downloaded probe: probe95c.json
+### START (rc=0)
+STARTED_PID=3731031
+[stderr] [sudo] password for nik:
+### VERIFY_START (rc=0)
+OUT_LINES=2
+PROC_RUNNING
+[stderr] [sudo] password for nik:
+[poll 1] WAIT
+[poll 7] WAIT
+[poll 13] WAIT
+[runner] finished=True
+### LIVE_TAIL (rc=0)
+12 /tmp/accept95/live95c.out
+ACC95C START_EPOCH | 1792419301
+ACC95C NOW_UTC | 2026-10-19 14:15:01
+ACC95 BOT INFO | session=local_bot_api (download_enabled=1)
+ACC95 BOOT | version=? vec=True bot=8802473181 pg=True
+ACC95 SAVE INFO | p3c-vision-adapt.json (19153 bytes)
+ACC95C P3c | done status=failed tool1=pending adapt=True desc_len=0 gt=0 ok=False
+ACC95C FLUSH | mca_events flushed=50
+ACC95 SAVE INFO | p8c-register.json (858 bytes)
+ACC95C P8c | done delete=16 excluded=0 recovered=[{"answer": 1166485, "anchor": 1166483}, {"answer": 1166487, "anchor": 1166486}, {"answer": 1166471, "anchor": 1166464, "wave": "95a-gen1"}]
+ACC95 SAVE INFO | summary95c.json (2447 bytes)
+ACC95C DONE | evidence=/tmp/accept95/evidence
+ACC95C RC=0
+[stderr] [sudo] password for nik:
+[runner] downloaded evidence: p2-vision-off.json, probe95c.json, summary95c.json, p1-fixture-doc.json, p3b-vision-adapt.json, p3-vision-on-adapt.json, p3c-vision-adapt.json, p0-pre-state.json, p6b-showcase-api.json, p4b-generation.json, p0b-pre-state.json, summary.json, p5b-negatives.json, p8c-register.json, p8b-cleanup-register.json, d-orphan-95b.json, summary95b.json, p7b-economics.json
+### CLEANUP_SPEC (rc=0) SPEC_OK
+### CLEANUP (rc=3)
+CLEAN95 NOW_UTC | 2026-10-19 14:19:04
+CLEAN95 SPEC | delete=16 smart_rows=0 window=1166453..1166511
+CLEAN95 INV | smart_messages=26 bot_replies=7 parents=7
+CLEAN95 BOT | id=8802473181 username=PERMsoc_bot
+CLEAN95 DEL | 1166463 deleted
+CLEAN95 DEL | 1166464 deleted
+CLEAN95 DEL | 1166471 deleted
+CLEAN95 DEL | 1166482 deleted
+CLEAN95 DEL | 1166483 deleted
+CLEAN95 DEL | 1166485 deleted
+CLEAN95 DEL | 1166486 deleted
+CLEAN95 DEL | 1166487 deleted
+CLEAN95 DEL | 1166489 deleted
+CLEAN95 DEL | 1166491 deleted
+CLEAN95 DEL | 1166495 deleted
+CLEAN95 DEL | 1166496 deleted
+CLEAN95 DEL | 1166497 deleted
+CLEAN95 DEL | 1166499 deleted
+CLEAN95 DEL | 1166500 deleted
+CLEAN95 DEL | 1166501 deleted
+CLEAN95 DBROWS | cleanup failed: OperationalError
+CLEAN95 DBROWS | smart_removed=0 bot_replies_removed=0
+CLEAN95 REGISTER_SIZE | 9403
+CLEAN95 VERIFY | {"delete_attempts": 16, "deleted_now": 16, "already_deleted": 0, "failed": [], "residual_smart_rows_for_deleted": [], "residual_bot_replies_for_deleted": [{"mid": 1166464}, {"mid": 1166471}, {"mid": 1166485}, {"mid": 1166487}, {"mid": 1166491}, {"mid": 1166499}, {"mid": 1166501}], "synthetic_rows_removed": [], "bot_replies_removed": [], "window": {"lo": 1166453, "hi": 1166511}}
+CLEAN95 DONE | deleted=16 residual_rows=0 residual_replies=7 failed=[]
+CLEAN95 RC=3
+[stderr] [sudo] password for nik:
+[runner] downloaded cleanup register: cleanup-register.json
+### FINAL (rc=0)
+MainPID=3716545
+NRestarts=0
+ExecMainStatus=0
+ActiveState=active
+SubState=running
+{"status":"ok","version":"2.58.95"}
+{"status":"ok","version":"2.58.95"}
+HEAD=113f3a629cab54f7fcc261349a7c9af3b90f56d7 TRACKED_MOD=0
+2026-10-19 14:19:13 UTC

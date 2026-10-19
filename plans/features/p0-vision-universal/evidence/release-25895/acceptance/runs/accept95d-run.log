@@ -1,0 +1,57 @@
+[runner] connected nik@198.46.175.136
+### RECON (rc=0)
+2026-10-19 14:31:23 UTC
+HEAD=113f3a629cab54f7fcc261349a7c9af3b90f56d7
+MainPID=3716545 NRestarts=0 ActiveState=active 
+{"status":"ok","version":"2.58.95"}
+[runner] harness_sudo=True
+[runner] uploaded accept95_base.py -> /tmp/accept95_base.py (31035 bytes)
+[runner] uploaded accept95d_final.py -> /tmp/accept95d_final.py (6883 bytes)
+### UPLOAD (ok)
+### FINAL95D (rc=0)
+ACC95 BOT INFO | session=local_bot_api (download_enabled=1)
+ACC95 BOOT | version=? vec=True bot=8802473181 pg=True
+ACC95 SAVE INFO | final95d.json (5874 bytes)
+ACC95D FINAL | residual_smart=0 residual_rep=7 removed={"bot_replies": 7, "bot_reply_parents": 7}
+ACC95D RC=0
+[stderr] [sudo] password for nik:
+### JOURNAL_95C (rc=0)
+Oct 19 14:15:36 racknerd-f4e3456 python[3716545]: 2026-10-19 14:15:36,138 - services.image_normalize - INFO - [vision] normalize | codec=ffmpeg | in=1115814 | out=642544
+Oct 19 14:15:36 racknerd-f4e3456 python[3716545]: 2026-10-19 14:15:36,139 - services.image_normalize - INFO - [vision] adapt | in=1115814 | out=642544 | scale=1.00 | stage=A
+Oct 19 14:15:55 racknerd-f4e3456 python[3716545]: 2026-10-19 14:15:55,763 - services.mca_vision - INFO - [vision] adapt | strategy=optimize | reason=payload_over | calls=1 | status=failed | bytes=1115814 | pixels=2496000 | ms=20653
+Oct 19 14:15:55 racknerd-f4e3456 python[3716545]: 2026-10-19 14:15:55,764 - services.mca_events - WARNING - mca_event=vision_adapt | ts=1792419355 | event_name=vision_adapt | outcome=failed | level=WARN | component=vision.media | stage=optimize | chat_id=-1002661910336 | error_json={"strategy": "optimize", "reason": "payload_over", "calls": 1, "error": ""}
+Oct 19 14:17:06 racknerd-f4e3456 python[3716545]: Traceback (most recent call last):
+Oct 19 14:18:25 racknerd-f4e3456 python[3716545]: 2026-10-19 14:18:25,922 - services.mca_vision - WARNING - [vision] claim sweep slow | dur=6.36s
+Oct 19 14:18:37 racknerd-f4e3456 python[3716545]: 2026-10-19 14:18:37,253 - services.mca_vision - WARNING - [vision] claim sweep slow | dur=7.68s
+Oct 19 14:20:35 racknerd-f4e3456 python[3716545]: 2026-10-19 14:20:35,675 - services.mca_vision - WARNING - [vision] claim sweep slow | dur=9.68s
+Oct 19 14:21:19 racknerd-f4e3456 python[3716545]: 2026-10-19 14:21:19,605 - services.mca_vision - WARNING - [vision] claim sweep timeout | 30.0s
+Oct 19 14:21:19 racknerd-f4e3456 python[3716545]: 2026-10-19 14:21:19,607 - services.mca_vision - WARNING - [vision] claim sweep slow | dur=30.00s
+Oct 19 14:21:44 racknerd-f4e3456 python[3716545]: 2026-10-19 14:21:44,239 - services.mca_vision - WARNING - [vision] claim sweep slow | dur=14.67s
+Oct 19 14:23:24 racknerd-f4e3456 python[3716545]: 2026-10-19 14:23:24,585 - services.mca_vision - WARNING - [vision] claim sweep timeout | 30.0s
+Oct 19 14:23:24 racknerd-f4e3456 python[3716545]: 2026-10-19 14:23:24,588 - services.mca_vision - WARNING - [vision] claim sweep slow | dur=30.00s
+Oct 19 14:23:44 racknerd-f4e3456 python[3716545]: 2026-10-19 14:23:44,672 - services.mca_vision - WARNING - [vision] claim sweep slow | dur=10.11s
+Oct 19 14:23:55 racknerd-f4e3456 python[3716545]: 2026-10-19 14:23:55,238 - services.mca_vision - WARNING - [vision] claim sweep slow | dur=5.67s
+Oct 19 14:24:07 racknerd-f4e3456 python[3716545]: 2026-10-19 14:24:07,606 - services.mca_vision - WARNING - [vision] claim sweep slow | dur=8.04s
+Oct 19 14:26:10 racknerd-f4e3456 python[3716545]: 2026-10-19 14:26:10,371 - services.mca_vision - WARNING - [vision] claim sweep slow | dur=20.81s
+Oct 19 14:26:24 racknerd-f4e3456 python[3716545]: 2026-10-19 14:26:24,782 - services.mca_vision - WARNING - [vision] claim sweep slow | dur=10.22s
+Oct 19 14:28:19 racknerd-f4e3456 python[3716545]: 2026-10-19 14:28:19,858 - services.mca_vision - WARNING - [vision] claim sweep slow | dur=25.29s
+Oct 19 14:28:38 racknerd-f4e3456 python[3716545]: 2026-10-19 14:28:38,051 - services.mca_vision - WARNING - [vision] claim sweep slow | dur=13.49s
+Oct 19 14:28:52 racknerd-f4e3456 python[3716545]: 2026-10-19 14:28:52,257 - services.mca_vision - WARNING - [vision] claim sweep slow | dur=12.68s
+Oct 19 14:29:08 racknerd-f4e3456 python[3716545]: 2026-10-19 14:29:08,892 - services.mca_vision - WARNING - [vision] claim sweep slow | dur=14.33s
+Oct 19 14:29:46 racknerd-f4e3456 python[3716545]: 2026-10-19 14:29:46,842 - services.mca_vision - WARNING - [vision] claim sweep slow | dur=27.27s
+Oct 19 14:30:16 racknerd-f4e3456 python[3716545]: 2026-10-19 14:30:16,032 - services.image_normalize - INFO - [vision] normalize | codec=ffmpeg | in=242886 | out=24021
+Oct 19 14:30:16 racknerd-f4e3456 python[3716545]: 2026-10-19 14:30:16,037 - services.mca_vision - INFO - [vision] unreadable rescued via normalization | in=242886 | out=24021 | detail=not a supported raster image
+Oct 19 14:30:23 racknerd-f4e3456 python[3716545]: 2026-10-19 14:30:23,539 - services.mca_vision - INFO - [vision] adapt | strategy=original | reason=fits | calls=1 | status=ready | bytes=24021 | pixels=262144 | ms=7482
+Oct 19 14:30:23 racknerd-f4e3456 python[3716545]: 2026-10-19 14:30:23,541 - services.mca_events - INFO - mca_event=vision_adapt | ts=1792420223 | event_name=vision_adapt | outcome=success | level=INFO | component=vision.media | stage=original | chat_id=-1002661910336 | error_json={"strategy": "original", "reason": "fits", "calls": 1, "error": ""}
+[stderr] [sudo] password for nik:
+[runner] downloaded: final95d.json
+### FINAL (rc=0)
+MainPID=3716545
+NRestarts=0
+ExecMainStatus=0
+ActiveState=active
+SubState=running
+{"status":"ok","version":"2.58.95"}
+{"status":"ok","version":"2.58.95"}
+HEAD=113f3a629cab54f7fcc261349a7c9af3b90f56d7 TRACKED_MOD=0
+2026-10-19 14:31:54 UTC

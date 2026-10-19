@@ -1,0 +1,371 @@
+{
+  "phase": "P0b-pre-state",
+  "now_utc": "2026-10-19 14:01:52",
+  "app_version": "?",
+  "postgen_budget": 20.0,
+  "vision_limits": {
+    "request_max_bytes": 700000,
+    "prep_max_pixels": 4000000,
+    "adapt_budget_seconds": 90.0,
+    "codec": "ffmpeg",
+    "normalize_enabled": true
+  },
+  "vision_state": {
+    "requested": true,
+    "effective": false,
+    "reason": "capability_check_pending",
+    "capability": "pending"
+  },
+  "reserve_mode": [
+    "legacy",
+    "budgets_off"
+  ],
+  "config": {
+    "http": 200,
+    "items": [
+      {
+        "key": "flags.budgets_enabled",
+        "value": false,
+        "global_value": true,
+        "chat_source": "chat",
+        "per_chat": true,
+        "type": "bool",
+        "description": "Один рубильник на все бюджеты — глобально или для выбранного чата. При снятии лимиты не ограничивают и контекст не режется, но статистика расходов продолжает вестись. Дефолт — ВКЛ.",
+        "title": "Главный тумблер бюджетов",
+        "group": "flags_module_budgets"
+      },
+      {
+        "key": "flags.vision_enabled",
+        "value": true,
+        "global_value": false,
+        "chat_source": "chat",
+        "per_chat": true,
+        "type": "bool",
+        "description": "Бот разбирает присланные картинки: читает текст на изображении и кратко описывает увиденное — в контексте исходного сообщения, без отдельных постов. Выключено — новые разборы не запускаются, сохранённые читаются без нового запроса.",
+        "title": "Модуль распознавания изображений включён",
+        "group": "flags_module_vision"
+      },
+      {
+        "key": "limits.image_daily_limit",
+        "value": 5,
+        "global_value": 5,
+        "chat_source": "",
+        "per_chat": true,
+        "type": "int",
+        "description": "Сколько картинок в сутки может выдержать генерация для чата. 0 — генерация запрещена; −1 — безлимит. По умолчанию 60.",
+        "title": "Дневной лимит изображений",
+        "group": "limits_images"
+      }
+    ]
+  },
+  "budget": {
+    "http_ok": true,
+    "global_used": 21,
+    "global_limit": 200,
+    "global_cover_used": 2,
+    "chat_used": 16,
+    "chat_limit": 5,
+    "chat_day": "2026-10-19",
+    "chat_tz": "Asia/Yekaterinburg",
+    "chat_source": "global",
+    "reserve_path": "legacy",
+    "reserve_reason": "budgets_off",
+    "shared_used": 21,
+    "shared_limit": 200,
+    "requests": 5,
+    "success": 5,
+    "errors": 0,
+    "denied": 0,
+    "delivery_failed": 1,
+    "freq": {
+      "enabled": false,
+      "active": false,
+      "active_reason": "switch_off",
+      "mode": "per_user",
+      "burst": 3,
+      "cooldown_seconds": 300.0,
+      "source": "global",
+      "per_chat": {
+        "charges_left": 3,
+        "remaining_seconds": 0.0,
+        "next_available_at": null
+      },
+      "per_user": {
+        "charges_left": 3,
+        "remaining_seconds": 0.0,
+        "next_available_at": null,
+        "user_id": 5885953495
+      }
+    }
+  },
+  "inventory_smart": [
+    {
+      "mid": 1166455,
+      "user_id": 263719784,
+      "author_name": "Глеб",
+      "media_type": "photo",
+      "reply_to_id": null,
+      "timestamp": 1792415474,
+      "head": null
+    },
+    {
+      "mid": 1166456,
+      "user_id": 263719784,
+      "author_name": "Глеб",
+      "media_type": "photo",
+      "reply_to_id": null,
+      "timestamp": 1792415474,
+      "head": null
+    },
+    {
+      "mid": 1166457,
+      "user_id": 972412990,
+      "author_name": "Леха Крейсер",
+      "media_type": "text",
+      "reply_to_id": 1166456,
+      "timestamp": 1792415566,
+      "head": "октябрь хороший"
+    },
+    {
+      "mid": 1166458,
+      "user_id": 972412990,
+      "author_name": "Леха Крейсер",
+      "media_type": "photo",
+      "reply_to_id": null,
+      "timestamp": 1792415580,
+      "head": null
+    },
+    {
+      "mid": 1166459,
+      "user_id": 1276415576,
+      "author_name": "Никита Философ",
+      "media_type": "text",
+      "reply_to_id": 1166452,
+      "timestamp": 1792416076,
+      "head": "давайте возьмём свои пакеты и отправимся в зимний лес"
+    },
+    {
+      "mid": 1166460,
+      "user_id": 529151103,
+      "author_name": "Толян",
+      "media_type": "text",
+      "reply_to_id": 1166394,
+      "timestamp": 1792416737,
+      "head": "У нас редко но из за того что расписание рейсов меняется это влияет и на екб"
+    },
+    {
+      "mid": 1166461,
+      "user_id": 146761791,
+      "author_name": "Инкуфен",
+      "media_type": "text",
+      "reply_to_id": 1165894,
+      "timestamp": 1792417462,
+      "head": "Вдовину явно надо на лечение"
+    },
+    {
+      "mid": 1166462,
+      "user_id": 5929079345,
+      "author_name": "Кировский",
+      "media_type": "text",
+      "reply_to_id": 1166461,
+      "timestamp": 1792417506,
+      "head": "Не думаю что он психологически вынесет"
+    },
+    {
+      "mid": 1166465,
+      "user_id": 1276415576,
+      "author_name": "Никита Философ",
+      "media_type": "photo",
+      "reply_to_id": null,
+      "timestamp": 1792417850,
+      "head": null
+    },
+    {
+      "mid": 1166466,
+      "user_id": 1276415576,
+      "author_name": "Никита Философ",
+      "media_type": "photo",
+      "reply_to_id": null,
+      "timestamp": 1792417850,
+      "head": "All a woman needs in life are cigarettes, a roof and a frilly dress, right?"
+    },
+    {
+      "mid": 1166470,
+      "user_id": 1313107079,
+      "author_name": "Вася",
+      "media_type": "text",
+      "reply_to_id": 1166468,
+      "timestamp": 1792418068,
+      "head": "че за ляха толстая в углу?"
+    },
+    {
+      "mid": 1166473,
+      "user_id": 134812796,
+      "author_name": "Ринтаро",
+      "media_type": "text",
+      "reply_to_id": 1166455,
+      "timestamp": 1792418130,
+      "head": "хочется чтобы лето уже наступило, а то бля уже серо и холодно"
+    },
+    {
+      "mid": 1166474,
+      "user_id": 263719784,
+      "author_name": "Глеб",
+      "media_type": "text",
+      "reply_to_id": 1166470,
+      "timestamp": 1792418172,
+      "head": "Тебя не смущает что он экран фоткает"
+    },
+    {
+      "mid": 1166475,
+      "user_id": 428646797,
+      "author_name": "Даша",
+      "media_type": "text",
+      "reply_to_id": 1166474,
+      "timestamp": 1792418196,
+      "head": "В смысле?"
+    },
+    {
+      "mid": 1166476,
+      "user_id": 304587459,
+      "author_name": "Nasvaiattack",
+      "media_type": "text",
+      "reply_to_id": null,
+      "timestamp": 1792418199,
+      "head": "Бяк"
+    },
+    {
+      "mid": 1166477,
+      "user_id": 1313107079,
+      "author_name": "Вася",
+      "media_type": "text",
+      "reply_to_id": 1166474,
+      "timestamp": 1792418199,
+      "head": "нет"
+    },
+    {
+      "mid": 1166478,
+      "user_id": 1276415576,
+      "author_name": "Никита Философ",
+      "media_type": "photo",
+      "reply_to_id": null,
+      "timestamp": 1792418202,
+      "head": null
+    },
+    {
+      "mid": 1166479,
+      "user_id": 263719784,
+      "author_name": "Глеб",
+      "media_type": "text",
+      "reply_to_id": 1166475,
+      "timestamp": 1792418304,
+      "head": "Ни одно фото жрачки не настоящее"
+    },
+    {
+      "mid": 1166480,
+      "user_id": 428646797,
+      "author_name": "Даша",
+      "media_type": "text",
+      "reply_to_id": null,
+      "timestamp": 1792418428,
+      "head": "Кек"
+    },
+    {
+      "mid": 1166481,
+      "user_id": 428646797,
+      "author_name": "Даша",
+      "media_type": "text",
+      "reply_to_id": null,
+      "timestamp": 1792418443,
+      "head": "😂"
+    }
+  ],
+  "sqlite_error": "OperationalError: no such column: parent_tg_message_id",
+  "reservations_since_95a": [
+    {
+      "reservation_key": "-1002661910336:1166464:direct",
+      "chat_id": -1002661910336,
+      "source": "direct",
+      "status": "committed",
+      "error_code": "",
+      "delivery_failed": false,
+      "day": "<date>",
+      "created_at": "<datetime>"
+    }
+  ],
+  "budget_rows": [
+    {
+      "day": "<date>",
+      "scope": "chat:-1002661910336",
+      "metric": "image_calls",
+      "used": 16
+    },
+    {
+      "day": "<date>",
+      "scope": "chat:1313107079",
+      "metric": "image_calls",
+      "used": 1
+    },
+    {
+      "day": "<date>",
+      "scope": "global",
+      "metric": "image_calls",
+      "used": 21
+    },
+    {
+      "day": "<date>",
+      "scope": "chat:-1002661910336",
+      "metric": "image_calls",
+      "used": 12
+    },
+    {
+      "day": "<date>",
+      "scope": "chat:-1009900000201",
+      "metric": "image_calls",
+      "used": 4
+    },
+    {
+      "day": "<date>",
+      "scope": "global",
+      "metric": "image_calls",
+      "used": 16
+    },
+    {
+      "day": "<date>",
+      "scope": "chat:-1002661910336",
+      "metric": "image_calls",
+      "used": 5
+    },
+    {
+      "day": "<date>",
+      "scope": "global",
+      "metric": "image_calls",
+      "used": 5
+    },
+    {
+      "day": "<date>",
+      "scope": "chat:-1002661910336",
+      "metric": "image_calls",
+      "used": 46
+    },
+    {
+      "day": "<date>",
+      "scope": "global",
+      "metric": "image_calls",
+      "used": 46
+    },
+    {
+      "day": "<date>",
+      "scope": "chat:-1002661910336",
+      "metric": "image_calls",
+      "used": 5
+    },
+    {
+      "day": "<date>",
+      "scope": "chat:-1004482340693",
+      "metric": "image_calls",
+      "used": 5
+    }
+  ],
+  "ok": true
+}

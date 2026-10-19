@@ -1,0 +1,232 @@
+{
+  "phase": "P8b-cleanup-register",
+  "extra_synth_rows": [],
+  "inventory_window": [
+    {
+      "mid": 1166455,
+      "user_id": 263719784,
+      "author_name": "Глеб",
+      "media_type": "photo",
+      "reply_to_id": null,
+      "timestamp": 1792415474,
+      "head": null
+    },
+    {
+      "mid": 1166456,
+      "user_id": 263719784,
+      "author_name": "Глеб",
+      "media_type": "photo",
+      "reply_to_id": null,
+      "timestamp": 1792415474,
+      "head": null
+    },
+    {
+      "mid": 1166457,
+      "user_id": 972412990,
+      "author_name": "Леха Крейсер",
+      "media_type": "text",
+      "reply_to_id": 1166456,
+      "timestamp": 1792415566,
+      "head": "октябрь хороший"
+    },
+    {
+      "mid": 1166458,
+      "user_id": 972412990,
+      "author_name": "Леха Крейсер",
+      "media_type": "photo",
+      "reply_to_id": null,
+      "timestamp": 1792415580,
+      "head": null
+    },
+    {
+      "mid": 1166459,
+      "user_id": 1276415576,
+      "author_name": "Никита Философ",
+      "media_type": "text",
+      "reply_to_id": 1166452,
+      "timestamp": 1792416076,
+      "head": "давайте возьмём свои пакеты и отправимся в зимний лес"
+    },
+    {
+      "mid": 1166460,
+      "user_id": 529151103,
+      "author_name": "Толян",
+      "media_type": "text",
+      "reply_to_id": 1166394,
+      "timestamp": 1792416737,
+      "head": "У нас редко но из за того что расписание рейсов меняется это влияет и на екб"
+    },
+    {
+      "mid": 1166461,
+      "user_id": 146761791,
+      "author_name": "Инкуфен",
+      "media_type": "text",
+      "reply_to_id": 1165894,
+      "timestamp": 1792417462,
+      "head": "Вдовину явно надо на лечение"
+    },
+    {
+      "mid": 1166462,
+      "user_id": 5929079345,
+      "author_name": "Кировский",
+      "media_type": "text",
+      "reply_to_id": 1166461,
+      "timestamp": 1792417506,
+      "head": "Не думаю что он психологически вынесет"
+    },
+    {
+      "mid": 1166465,
+      "user_id": 1276415576,
+      "author_name": "Никита Философ",
+      "media_type": "photo",
+      "reply_to_id": null,
+      "timestamp": 1792417850,
+      "head": null
+    },
+    {
+      "mid": 1166466,
+      "user_id": 1276415576,
+      "author_name": "Никита Философ",
+      "media_type": "photo",
+      "reply_to_id": null,
+      "timestamp": 1792417850,
+      "head": "All a woman needs in life are cigarettes, a roof and a frilly dress, right?"
+    },
+    {
+      "mid": 1166470,
+      "user_id": 1313107079,
+      "author_name": "Вася",
+      "media_type": "text",
+      "reply_to_id": 1166468,
+      "timestamp": 1792418068,
+      "head": "че за ляха толстая в углу?"
+    },
+    {
+      "mid": 1166473,
+      "user_id": 134812796,
+      "author_name": "Ринтаро",
+      "media_type": "text",
+      "reply_to_id": 1166455,
+      "timestamp": 1792418130,
+      "head": "хочется чтобы лето уже наступило, а то бля уже серо и холодно"
+    },
+    {
+      "mid": 1166474,
+      "user_id": 263719784,
+      "author_name": "Глеб",
+      "media_type": "text",
+      "reply_to_id": 1166470,
+      "timestamp": 1792418172,
+      "head": "Тебя не смущает что он экран фоткает"
+    },
+    {
+      "mid": 1166475,
+      "user_id": 428646797,
+      "author_name": "Даша",
+      "media_type": "text",
+      "reply_to_id": 1166474,
+      "timestamp": 1792418196,
+      "head": "В смысле?"
+    },
+    {
+      "mid": 1166476,
+      "user_id": 304587459,
+      "author_name": "Nasvaiattack",
+      "media_type": "text",
+      "reply_to_id": null,
+      "timestamp": 1792418199,
+      "head": "Бяк"
+    },
+    {
+      "mid": 1166477,
+      "user_id": 1313107079,
+      "author_name": "Вася",
+      "media_type": "text",
+      "reply_to_id": 1166474,
+      "timestamp": 1792418199,
+      "head": "нет"
+    },
+    {
+      "mid": 1166478,
+      "user_id": 1276415576,
+      "author_name": "Никита Философ",
+      "media_type": "photo",
+      "reply_to_id": null,
+      "timestamp": 1792418202,
+      "head": null
+    },
+    {
+      "mid": 1166479,
+      "user_id": 263719784,
+      "author_name": "Глеб",
+      "media_type": "text",
+      "reply_to_id": 1166475,
+      "timestamp": 1792418304,
+      "head": "Ни одно фото жрачки не настоящее"
+    },
+    {
+      "mid": 1166480,
+      "user_id": 428646797,
+      "author_name": "Даша",
+      "media_type": "text",
+      "reply_to_id": null,
+      "timestamp": 1792418428,
+      "head": "Кек"
+    },
+    {
+      "mid": 1166481,
+      "user_id": 428646797,
+      "author_name": "Даша",
+      "media_type": "text",
+      "reply_to_id": null,
+      "timestamp": 1792418443,
+      "head": "😂"
+    },
+    {
+      "mid": 1166484,
+      "user_id": 146761791,
+      "author_name": "Инкуфен",
+      "media_type": "text",
+      "reply_to_id": 1166479,
+      "timestamp": 1792418577,
+      "head": "А что смущает при том что куча пиздабол?"
+    },
+    {
+      "mid": 1166490,
+      "user_id": 263719784,
+      "author_name": "Глеб",
+      "media_type": "text",
+      "reply_to_id": 1166488,
+      "timestamp": 1792418727,
+      "head": "Есть карта глубин твоего очка"
+    },
+    {
+      "mid": 1166493,
+      "user_id": 479167456,
+      "author_name": "Славик",
+      "media_type": "text",
+      "reply_to_id": 1166490,
+      "timestamp": 1792418748,
+      "head": "Ну ты и быдло"
+    }
+  ],
+  "inventory_error": "OperationalError",
+  "cleanup_spec": {
+    "delete_mids": [
+      1166463,
+      1166464,
+      1166482,
+      1166485,
+      1166487,
+      1166489,
+      1166491,
+      1166495
+    ],
+    "smart_rows": [],
+    "window": {
+      "lo": 1166455,
+      "hi": 1166550
+    }
+  },
+  "ok": true
+}

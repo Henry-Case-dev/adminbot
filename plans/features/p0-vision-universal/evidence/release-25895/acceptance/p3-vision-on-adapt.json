@@ -1,0 +1,282 @@
+{
+  "phase": "P3-vision-on-adapt",
+  "asset_id": "8243b03ad0f159dbd234129c36b67939",
+  "doc_mid": 1166463,
+  "restore": {
+    "flags.vision_enabled": true
+  },
+  "vision_state_on": {
+    "requested": true,
+    "effective": false,
+    "reason": "capability_check_pending",
+    "capability": "pending"
+  },
+  "vision_state_on_after_probe": {
+    "requested": true,
+    "effective": true,
+    "reason": "",
+    "capability": "ok"
+  },
+  "turn1": {
+    "label": "vision-on-1",
+    "status": "ok",
+    "error": "",
+    "handled": true,
+    "correlation_id": "5206801bf648454497f1aef9dd5e6bc4",
+    "plan_meta": null,
+    "usage": [],
+    "logs": [
+      "[direct] triggered | chat=-1002661910336 user=Acceptance",
+      "mca_event=DIRECT_UPDATE_DEDUP_HIT | ts=1792417682 | event_name=DIRECT_UPDATE_DEDUP_HIT | outcome=skipped | level=INFO | component=response_freshness | reason_code=direct_update_dedup_hit | chat_id=-1002661910336 | message_id=1166463"
+    ],
+    "tool_calls": [],
+    "image_blocks": [],
+    "postgen": [],
+    "vision_transport_calls": [],
+    "sends": [],
+    "answer": "",
+    "elapsed_s": 0.43
+  },
+  "tool1": null,
+  "analysis_polls": [
+    {
+      "t": 1792417862,
+      "status": null,
+      "revision": null
+    },
+    {
+      "t": 1792417872,
+      "status": null,
+      "revision": null
+    },
+    {
+      "t": 1792417882,
+      "status": null,
+      "revision": null
+    },
+    {
+      "t": 1792417892,
+      "status": null,
+      "revision": null
+    },
+    {
+      "t": 1792417902,
+      "status": null,
+      "revision": null
+    },
+    {
+      "t": 1792417912,
+      "status": null,
+      "revision": null
+    },
+    {
+      "t": 1792417922,
+      "status": null,
+      "revision": null
+    },
+    {
+      "t": 1792417933,
+      "status": null,
+      "revision": null
+    },
+    {
+      "t": 1792417943,
+      "status": null,
+      "revision": null
+    },
+    {
+      "t": 1792417953,
+      "status": null,
+      "revision": null
+    },
+    {
+      "t": 1792417963,
+      "status": null,
+      "revision": null
+    },
+    {
+      "t": 1792417973,
+      "status": null,
+      "revision": null
+    }
+  ],
+  "analyses": [],
+  "analysis_final": {},
+  "turn2": {
+    "label": "vision-on-2",
+    "status": "ok",
+    "error": "",
+    "handled": true,
+    "correlation_id": "0a7b91dfb60f4e32ab4dc83bf37822c7",
+    "plan_meta": null,
+    "usage": [],
+    "logs": [
+      "[direct] triggered | chat=-1002661910336 user=Acceptance",
+      "mca_event=DIRECT_UPDATE_DEDUP_HIT | ts=1792417983 | event_name=DIRECT_UPDATE_DEDUP_HIT | outcome=skipped | level=INFO | component=response_freshness | reason_code=direct_update_dedup_hit | chat_id=-1002661910336 | message_id=1166463"
+    ],
+    "tool_calls": [],
+    "image_blocks": [],
+    "postgen": [],
+    "vision_transport_calls": [],
+    "sends": [],
+    "answer": "",
+    "elapsed_s": 0.48
+  },
+  "tool2": null,
+  "gt_check": {
+    "analysis_description": {
+      "tokens_found": [],
+      "found_n": 0
+    },
+    "analysis_ocr": {
+      "tokens_found": [],
+      "found_n": 0
+    },
+    "answer_turn1": {
+      "tokens_found": [],
+      "found_n": 0
+    },
+    "answer_turn2": {
+      "tokens_found": [],
+      "found_n": 0
+    }
+  },
+  "gt_tokens": [
+    "ZEBRA77",
+    "QUARTZ88",
+    "LOTUS99",
+    "FALCON42",
+    "ORBIT21",
+    "MAPLE13",
+    "RIVER64",
+    "COMET35"
+  ],
+  "vision_adapt_events": [
+    {
+      "ts": 1792417864,
+      "event_name": "vision_adapt",
+      "outcome": "success",
+      "level": "INFO",
+      "component": "vision.media",
+      "stage": "original",
+      "reason_code": null,
+      "chat_id": -1002661910336,
+      "error_json": "{\"strategy\": \"original\", \"reason\": \"fits\", \"calls\": 1, \"error\": \"\"}"
+    },
+    {
+      "ts": 1792417865,
+      "event_name": "vision_adapt",
+      "outcome": "success",
+      "level": "INFO",
+      "component": "vision.media",
+      "stage": "original",
+      "reason_code": null,
+      "chat_id": -1002661910336,
+      "error_json": "{\"strategy\": \"original\", \"reason\": \"fits\", \"calls\": 1, \"error\": \"\"}"
+    }
+  ],
+  "vision_media_events": [
+    {
+      "ts": 1792417855,
+      "event_name": "vision_media",
+      "outcome": "success",
+      "level": "INFO",
+      "stage": "validate",
+      "reason_code": null,
+      "operation_id": "8b3d4974eb4989a4464ee5f49bb7abb1",
+      "model": null
+    },
+    {
+      "ts": 1792417855,
+      "event_name": "vision_media",
+      "outcome": "success",
+      "level": "INFO",
+      "stage": "validate",
+      "reason_code": null,
+      "operation_id": "841c87b08c35884d04519dae3c336d11",
+      "model": null
+    },
+    {
+      "ts": 1792417864,
+      "event_name": "vision_media",
+      "outcome": "success",
+      "level": "INFO",
+      "stage": "store",
+      "reason_code": null,
+      "operation_id": "8b3d4974eb4989a4464ee5f49bb7abb1",
+      "model": null
+    },
+    {
+      "ts": 1792417864,
+      "event_name": "vision_media",
+      "outcome": "success",
+      "level": "INFO",
+      "stage": "project",
+      "reason_code": null,
+      "operation_id": "8b3d4974eb4989a4464ee5f49bb7abb1",
+      "model": null
+    },
+    {
+      "ts": 1792417864,
+      "event_name": "vision_media",
+      "outcome": "skipped",
+      "level": "INFO",
+      "stage": "reindex",
+      "reason_code": null,
+      "operation_id": "8b3d4974eb4989a4464ee5f49bb7abb1",
+      "model": null
+    },
+    {
+      "ts": 1792417864,
+      "event_name": "vision_media",
+      "outcome": "success",
+      "level": "INFO",
+      "stage": "consumers",
+      "reason_code": null,
+      "operation_id": "8b3d4974eb4989a4464ee5f49bb7abb1",
+      "model": null
+    },
+    {
+      "ts": 1792417865,
+      "event_name": "vision_media",
+      "outcome": "success",
+      "level": "INFO",
+      "stage": "store",
+      "reason_code": null,
+      "operation_id": "841c87b08c35884d04519dae3c336d11",
+      "model": null
+    },
+    {
+      "ts": 1792417865,
+      "event_name": "vision_media",
+      "outcome": "success",
+      "level": "INFO",
+      "stage": "project",
+      "reason_code": null,
+      "operation_id": "841c87b08c35884d04519dae3c336d11",
+      "model": null
+    },
+    {
+      "ts": 1792417865,
+      "event_name": "vision_media",
+      "outcome": "skipped",
+      "level": "INFO",
+      "stage": "reindex",
+      "reason_code": null,
+      "operation_id": "841c87b08c35884d04519dae3c336d11",
+      "model": null
+    },
+    {
+      "ts": 1792417865,
+      "event_name": "vision_media",
+      "outcome": "success",
+      "level": "INFO",
+      "stage": "consumers",
+      "reason_code": null,
+      "operation_id": "841c87b08c35884d04519dae3c336d11",
+      "model": null
+    }
+  ],
+  "adapt_used": false,
+  "ok": false
+}

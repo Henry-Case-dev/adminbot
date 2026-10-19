@@ -1,0 +1,455 @@
+{
+  "phase": "P3b-vision-adapt",
+  "fixture": {
+    "bytes": 1337017,
+    "sha256": "3be6d6d68c25ebbd28e70f5377d299fa4902262a0748eb5c355cb5943d32d4a4",
+    "sha12": "3be6d6d68c25",
+    "width": 960,
+    "height": 4000,
+    "payload_chars_est": 1782945,
+    "gt_tokens": [
+      "ZEBRA77",
+      "QUARTZ88",
+      "LOTUS99",
+      "FALCON42",
+      "ORBIT21",
+      "MAPLE13",
+      "RIVER64",
+      "COMET35"
+    ]
+  },
+  "sent": {
+    "message_id": 1166482,
+    "file_id_present": true,
+    "file_size": 1337017,
+    "mime_type": "image/png",
+    "caption_head": "🧪 Приёмка 2.58.95b · фикстура vision-adapt (длинный PNG-скриншот, >700 КБ)"
+  },
+  "asset_id": "da8fd691c856f1588e817234c861c701",
+  "download_precheck": {
+    "bytes": 1337017,
+    "mime": "image/png",
+    "width": 960,
+    "height": 4000,
+    "sha_equal_fixture": true
+  },
+  "turn1": {
+    "label": "vision-onb-1",
+    "status": "ok",
+    "error": "",
+    "handled": true,
+    "correlation_id": "87a3277406c14584a8ddd537f40da0bf",
+    "plan_meta": {
+      "tone": "inherit",
+      "action": "reply",
+      "bucket": "high",
+      "extent": "compact",
+      "source": "main",
+      "inherited": true,
+      "confidence": 0.9,
+      "latency_ms": 1973,
+      "input_chars": 1082,
+      "capabilities": "image_understanding",
+      "response_act": "answer",
+      "execution_mode": "simple_tools",
+      "credential_source": "global"
+    },
+    "usage": [
+      {
+        "correlation_id": "87a3277406c14584a8ddd537f40da0bf",
+        "step": "l1_planner",
+        "tool_name": "",
+        "input_tokens": 1167,
+        "output_tokens": 88,
+        "cost_usd": "<Decimal>",
+        "price_known": false,
+        "plan_meta": {
+          "tone": "inherit",
+          "action": "reply",
+          "bucket": "high",
+          "extent": "compact",
+          "source": "main",
+          "inherited": true,
+          "confidence": 0.9,
+          "latency_ms": 1973,
+          "input_chars": 1082,
+          "capabilities": "image_understanding",
+          "response_act": "answer",
+          "execution_mode": "simple_tools",
+          "credential_source": "global"
+        },
+        "ts": "2026-10-19 14:02:11.352693+00:00"
+      },
+      {
+        "correlation_id": "87a3277406c14584a8ddd537f40da0bf",
+        "step": "l2_writer",
+        "tool_name": "",
+        "input_tokens": 10752,
+        "output_tokens": 40,
+        "cost_usd": "<Decimal>",
+        "price_known": false,
+        "plan_meta": null,
+        "ts": "2026-10-19 14:03:01.860587+00:00"
+      }
+    ],
+    "logs": [
+      "[direct] triggered | chat=-1002661910336 user=Acceptance",
+      "event=AUTO_CONTEXT_BUDGET | slot=direct.primary | context_window=1000000 | mandatory_tokens=6633 | output_reserve=100000 | safety_reserve=116527 | effective_input_budget=776840 | policy_mode=unlimited | model=deepseek/deepseek-v4.1-flash | source=provider_catalog | ts=1792418529.334",
+      "event=AUTO_CONTEXT_BUDGET | slot=direct.fallback | context_window=131072 | mandatory_tokens=6633 | output_reserve=13107 | safety_reserve=14522 | effective_input_budget=96810 | policy_mode=unlimited | model=deepseek-flash | source=verified_registry | ts=1792418529.335",
+      "event=CONTEXT_CAPACITY | model=deepseek/deepseek-v4.1-flash | window=1000000 | window_source=provider_catalog | external_tokens=6633 | output_reserve=100000 | available_context=776840 | budget=776840 | policy_mode=unlimited | summary_revision=1788699601:500 | summary_watermark=1788699601 | summary_lag_messages=297 | summary_age=3718928 | estimation_method=tiktoken | ts=1792418529.349",
+      "event=DECISION_START | run_id=87a3277406c14584a8ddd537f40da0bf | chat_id=-1002661910336 | message_id=1166483 | ts=1792418529.372",
+      "event=DIRECT_TRIGGER | chat_id=-1002661910336 | message_id=1166483 | trigger_type=force_keyword | force_reply_required=True | reply_to_bot=False | is_private=False | addressed=True | ts=1792418529.373",
+      "event=DECISION_COMPLETE | run_id=87a3277406c14584a8ddd537f40da0bf | chat_id=-1002661910336 | message_id=1166483 | action=reply | reason=force_direct | trigger_type=force_keyword | force_reply_required=True | message_class=question | duration_ms=2 | ts=1792418529.375",
+      "event=L1_PLAN | run_id=87a3277406c14584a8ddd537f40da0bf | chat_id=-1002661910336 | message_id=1166483 | action=reply | response_act=answer | extent=compact | tone=inherit | bucket=high | capabilities=image_understanding | inherited=True | fallback= | latency_ms=1973 | input_chars=1082 | confidence=0.9 | source=main | ts=1792418531.377",
+      "event=TOOL_CALL_START | run_id=87a3277406c14584a8ddd537f40da0bf | chat_id=-1002661910336 | tool=recognize_image | round=1 | ts=1792418531.401",
+      "event=TOOL_CALL_COMPLETE | run_id=87a3277406c14584a8ddd537f40da0bf | chat_id=-1002661910336 | tool=recognize_image | round=1 | status=ok | out_chars=161 | ts=1792418577.31",
+      "[direct-exec] simple chain done | chat=-1002661910336 | steps=1 | ok=1 | limitations=0 | metered=1"
+    ],
+    "tool_calls": [
+      {
+        "tool": "recognize_image",
+        "args": {
+          "target": {
+            "chat_id": -1002661910336,
+            "message_id": 1166482
+          }
+        },
+        "started": 1792418531.401473,
+        "ok": true,
+        "elapsed_ms": 45907,
+        "result_head": "{\"status\": \"pending\", \"reason\": \"deadline_exceeded\", \"asset_id\": \"da8fd691c856f1588e817234c861c701\", \"message_key\": \"-1002661910336:1166482\", \"job_linked\": true}",
+        "result_len": 161,
+        "status": "pending",
+        "reason": "deadline_exceeded",
+        "visible_reason": null,
+        "analysis_revision": null,
+        "cache_hit": null,
+        "job_linked": true,
+        "analysis_id": null,
+        "asset_id": "da8fd691c856f1588e817234c861c701",
+        "message_key": "-1002661910336:1166482",
+        "visual_description": "",
+        "visual_description_len": 0,
+        "ocr_blocks": null,
+        "ocr_blocks_count": 0
+      }
+    ],
+    "image_blocks": [],
+    "postgen": [],
+    "vision_transport_calls": [
+      {
+        "ts": 1792418531.425882,
+        "data_url_chars": 4518,
+        "model": "nvidia/nemotron-3.5-super-vl:free"
+      }
+    ],
+    "sends": [
+      {
+        "kind": "message",
+        "chat_id": -1002661910336,
+        "message_id": 1166485,
+        "text_head": "Картинку распознать не успели - таймаут вышел, так что там за файл, я без понятия. Скинь ещё раз или опиши словами",
+        "text_full": "Картинку распознать не успели - таймаут вышел, так что там за файл, я без понятия. Скинь ещё раз или опиши словами",
+        "text_len": 114,
+        "reply_to": 1166483
+      }
+    ],
+    "answer": "Картинку распознать не успели - таймаут вышел, так что там за файл, я без понятия. Скинь ещё раз или опиши словами",
+    "elapsed_s": 67.31
+  },
+  "tool1": {
+    "tool": "recognize_image",
+    "args": {
+      "target": {
+        "chat_id": -1002661910336,
+        "message_id": 1166482
+      }
+    },
+    "started": 1792418531.401473,
+    "ok": true,
+    "elapsed_ms": 45907,
+    "result_head": "{\"status\": \"pending\", \"reason\": \"deadline_exceeded\", \"asset_id\": \"da8fd691c856f1588e817234c861c701\", \"message_key\": \"-1002661910336:1166482\", \"job_linked\": true}",
+    "result_len": 161,
+    "status": "pending",
+    "reason": "deadline_exceeded",
+    "visible_reason": null,
+    "analysis_revision": null,
+    "cache_hit": null,
+    "job_linked": true,
+    "analysis_id": null,
+    "asset_id": "da8fd691c856f1588e817234c861c701",
+    "message_key": "-1002661910336:1166482",
+    "visual_description": "",
+    "visual_description_len": 0,
+    "ocr_blocks": null,
+    "ocr_blocks_count": 0
+  },
+  "analysis_polls": [
+    {
+      "t": 1792418582,
+      "status": "failed",
+      "revision": 2
+    }
+  ],
+  "analyses": [
+    {
+      "id": 43,
+      "status": "failed",
+      "revision": 2,
+      "analyzer_model": "nvidia/nemotron-3.5-super-vl:free",
+      "created_at": 1792418534,
+      "updated_at": 1792418568,
+      "error_reason": "parse_error",
+      "desc_len": null
+    }
+  ],
+  "analysis_final": {
+    "id": 43,
+    "status": "failed",
+    "revision": 2,
+    "analyzer_model": "nvidia/nemotron-3.5-super-vl:free",
+    "created_at": 1792418534,
+    "updated_at": 1792418568,
+    "error_reason": "parse_error",
+    "desc_len": null
+  },
+  "analysis_row": {
+    "id": 43,
+    "status": "failed",
+    "revision": 2,
+    "analyzer_model": "nvidia/nemotron-3.5-super-vl:free",
+    "created_at": 1792418534,
+    "updated_at": 1792418568,
+    "error_reason": "parse_error",
+    "description_len": 0,
+    "description": "",
+    "ocr_blocks_count": 0,
+    "ocr_text": "",
+    "uncertainty": "[\"ответ модели не JSON\"]"
+  },
+  "turn2": {
+    "label": "vision-onb-2",
+    "status": "ok",
+    "error": "",
+    "handled": true,
+    "correlation_id": "5e1db73b3c764d1a8aa36c741488df66",
+    "plan_meta": null,
+    "usage": [
+      {
+        "correlation_id": "5e1db73b3c764d1a8aa36c741488df66",
+        "step": "single",
+        "tool_name": "",
+        "input_tokens": 141,
+        "output_tokens": 42,
+        "cost_usd": "<Decimal>",
+        "price_known": false,
+        "plan_meta": null,
+        "ts": "2026-10-19 14:03:06.433052+00:00"
+      }
+    ],
+    "logs": [
+      "[direct] triggered | chat=-1002661910336 user=Acceptance",
+      "event=AUTO_CONTEXT_BUDGET | slot=direct.primary | context_window=1000000 | mandatory_tokens=5645 | output_reserve=100000 | safety_reserve=116655 | effective_input_budget=777700 | policy_mode=unlimited | model=deepseek/deepseek-v4.1-flash | source=provider_catalog | ts=1792418595.048",
+      "event=AUTO_CONTEXT_BUDGET | slot=direct.fallback | context_window=131072 | mandatory_tokens=5645 | output_reserve=13107 | safety_reserve=14651 | effective_input_budget=97669 | policy_mode=unlimited | model=deepseek-flash | source=verified_registry | ts=1792418595.049",
+      "event=CONTEXT_CAPACITY | model=deepseek/deepseek-v4.1-flash | window=1000000 | window_source=provider_catalog | external_tokens=5645 | output_reserve=100000 | available_context=777700 | budget=777700 | policy_mode=unlimited | summary_revision=1788699601:500 | summary_watermark=1788699601 | summary_lag_messages=297 | summary_age=3718994 | estimation_method=tiktoken | ts=1792418595.072",
+      "event=DECISION_START | run_id=c5a830409b6a4defa4fbdd41cdace1e6 | chat_id=-1002661910336 | message_id=1166486 | ts=1792418595.075",
+      "event=DIRECT_TRIGGER | chat_id=-1002661910336 | message_id=1166486 | trigger_type=force_keyword | force_reply_required=True | reply_to_bot=False | is_private=False | addressed=True | ts=1792418595.076",
+      "event=DECISION_COMPLETE | run_id=c5a830409b6a4defa4fbdd41cdace1e6 | chat_id=-1002661910336 | message_id=1166486 | action=reply | reason=force_direct | trigger_type=force_keyword | force_reply_required=True | message_class=question | duration_ms=1 | ts=1792418595.077",
+      "event=L1_PLAN | run_id=c5a830409b6a4defa4fbdd41cdace1e6 | chat_id=-1002661910336 | message_id=1166486 | action=reply | response_act=answer | extent=compact | tone=neutral | bucket=high | capabilities=image_understanding,media_download | inherited=True | fallback= | latency_ms=3157 | input_chars=1082 | confidence=0.85 | source=main | ts=1792418598.262",
+      "event=TOOL_CALL_START | run_id=c5a830409b6a4defa4fbdd41cdace1e6 | chat_id=-1002661910336 | tool=recognize_image | round=1 | ts=1792418598.284",
+      "event=TOOL_CALL_START | run_id=c5a830409b6a4defa4fbdd41cdace1e6 | chat_id=-1002661910336 | tool=download_media | round=1 | ts=1792418598.285",
+      "event=TOOL_CALL_FAILED | run_id=c5a830409b6a4defa4fbdd41cdace1e6 | chat_id=-1002661910336 | tool=download_media | round=1 | status=error | error_code=tool_error | ts=1792418598.289",
+      "event=TOOL_CALL_COMPLETE | run_id=c5a830409b6a4defa4fbdd41cdace1e6 | chat_id=-1002661910336 | tool=recognize_image | round=1 | status=ok | out_chars=161 | ts=1792418643.299",
+      "[direct-exec] simple chain done | chat=-1002661910336 | steps=2 | ok=1 | limitations=1 | metered=2"
+    ],
+    "tool_calls": [
+      {
+        "tool": "download_media",
+        "args": {},
+        "started": 1792418598.2850738,
+        "ok": true,
+        "elapsed_ms": 2,
+        "result_head": "{\"status\": \"error\", \"message\": \"Некорректная ссылка\"}",
+        "result_len": 53,
+        "status": "error",
+        "reason": null,
+        "visible_reason": null,
+        "analysis_revision": null,
+        "cache_hit": null,
+        "job_linked": null,
+        "analysis_id": null,
+        "asset_id": null,
+        "message_key": null,
+        "visual_description": "",
+        "visual_description_len": 0,
+        "ocr_blocks": null,
+        "ocr_blocks_count": 0
+      },
+      {
+        "tool": "recognize_image",
+        "args": {
+          "target": {
+            "chat_id": -1002661910336,
+            "message_id": 1166482
+          }
+        },
+        "started": 1792418598.2844992,
+        "ok": true,
+        "elapsed_ms": 45013,
+        "result_head": "{\"status\": \"pending\", \"reason\": \"deadline_exceeded\", \"asset_id\": \"da8fd691c856f1588e817234c861c701\", \"message_key\": \"-1002661910336:1166482\", \"job_linked\": true}",
+        "result_len": 161,
+        "status": "pending",
+        "reason": "deadline_exceeded",
+        "visible_reason": null,
+        "analysis_revision": null,
+        "cache_hit": null,
+        "job_linked": true,
+        "analysis_id": null,
+        "asset_id": "da8fd691c856f1588e817234c861c701",
+        "message_key": "-1002661910336:1166482",
+        "visual_description": "",
+        "visual_description_len": 0,
+        "ocr_blocks": null,
+        "ocr_blocks_count": 0
+      }
+    ],
+    "image_blocks": [],
+    "postgen": [],
+    "vision_transport_calls": [],
+    "sends": [
+      {
+        "kind": "message",
+        "chat_id": -1002661910336,
+        "message_id": 1166487,
+        "text_head": "Файл не открылся - ссылка битая, а распознавание не успело до дедлайна. Так что что там на картинке, я без понятия",
+        "text_full": "Файл не открылся - ссылка битая, а распознавание не успело до дедлайна. Так что что там на картинке, я без понятия",
+        "text_len": 114,
+        "reply_to": 1166486
+      }
+    ],
+    "answer": "Файл не открылся - ссылка битая, а распознавание не успело до дедлайна. Так что что там на картинке, я без понятия",
+    "elapsed_s": 65.21
+  },
+  "tool2": {
+    "tool": "recognize_image",
+    "args": {
+      "target": {
+        "chat_id": -1002661910336,
+        "message_id": 1166482
+      }
+    },
+    "started": 1792418598.2844992,
+    "ok": true,
+    "elapsed_ms": 45013,
+    "result_head": "{\"status\": \"pending\", \"reason\": \"deadline_exceeded\", \"asset_id\": \"da8fd691c856f1588e817234c861c701\", \"message_key\": \"-1002661910336:1166482\", \"job_linked\": true}",
+    "result_len": 161,
+    "status": "pending",
+    "reason": "deadline_exceeded",
+    "visible_reason": null,
+    "analysis_revision": null,
+    "cache_hit": null,
+    "job_linked": true,
+    "analysis_id": null,
+    "asset_id": "da8fd691c856f1588e817234c861c701",
+    "message_key": "-1002661910336:1166482",
+    "visual_description": "",
+    "visual_description_len": 0,
+    "ocr_blocks": null,
+    "ocr_blocks_count": 0
+  },
+  "gt_check": {
+    "analysis_description": {
+      "tokens_found": [],
+      "found_n": 0
+    },
+    "analysis_ocr": {
+      "tokens_found": [],
+      "found_n": 0
+    },
+    "answer_turn1": {
+      "tokens_found": [],
+      "found_n": 0
+    },
+    "answer_turn2": {
+      "tokens_found": [],
+      "found_n": 0
+    }
+  },
+  "gt_tokens": [
+    "ZEBRA77",
+    "QUARTZ88",
+    "LOTUS99",
+    "FALCON42",
+    "ORBIT21",
+    "MAPLE13",
+    "RIVER64",
+    "COMET35"
+  ],
+  "vision_adapt_events": [
+    {
+      "ts": 1792418568,
+      "event_name": "vision_adapt",
+      "outcome": "failed",
+      "level": "WARN",
+      "component": "vision.media",
+      "stage": "optimize",
+      "reason_code": null,
+      "chat_id": -1002661910336,
+      "error_json": "{\"strategy\": \"optimize\", \"reason\": \"payload_over\", \"calls\": 1, \"error\": \"\"}"
+    }
+  ],
+  "vision_media_events": [
+    {
+      "ts": 1792418534,
+      "event_name": "vision_media",
+      "outcome": "success",
+      "level": "INFO",
+      "stage": "validate",
+      "reason_code": null,
+      "operation_id": "da8fd691c856f1588e817234c861c701",
+      "model": null
+    },
+    {
+      "ts": 1792418568,
+      "event_name": "vision_media",
+      "outcome": "success",
+      "level": "INFO",
+      "stage": "store",
+      "reason_code": null,
+      "operation_id": "da8fd691c856f1588e817234c861c701",
+      "model": null
+    },
+    {
+      "ts": 1792418568,
+      "event_name": "vision_media",
+      "outcome": "success",
+      "level": "INFO",
+      "stage": "project",
+      "reason_code": null,
+      "operation_id": "da8fd691c856f1588e817234c861c701",
+      "model": null
+    },
+    {
+      "ts": 1792418568,
+      "event_name": "vision_media",
+      "outcome": "skipped",
+      "level": "INFO",
+      "stage": "reindex",
+      "reason_code": null,
+      "operation_id": "da8fd691c856f1588e817234c861c701",
+      "model": null
+    },
+    {
+      "ts": 1792418568,
+      "event_name": "vision_media",
+      "outcome": "success",
+      "level": "INFO",
+      "stage": "consumers",
+      "reason_code": null,
+      "operation_id": "da8fd691c856f1588e817234c861c701",
+      "model": null
+    }
+  ],
+  "adapt_used": true,
+  "ok": false
+}

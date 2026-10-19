@@ -1,0 +1,42 @@
+{
+ "file": "fixture-95.png",
+ "width": 960,
+ "height": 4000,
+ "pixels": 3840000,
+ "bytes": 1337017,
+ "sha256": "3be6d6d68c25ebbd28e70f5377d299fa4902262a0748eb5c355cb5943d32d4a4",
+ "sha256_12": "3be6d6d68c25",
+ "png_color_type": 2,
+ "png_has_trns": false,
+ "gt_tokens": [
+  "ZEBRA77",
+  "QUARTZ88",
+  "LOTUS99",
+  "FALCON42",
+  "ORBIT21",
+  "MAPLE13",
+  "RIVER64",
+  "COMET35"
+ ],
+ "gt_lines": [
+  "GT-LINE-01: ZEBRA77",
+  "GT-LINE-02: QUARTZ88",
+  "GT-LINE-03: LOTUS99",
+  "GT-LINE-04: FALCON42",
+  "GT-LINE-05: ORBIT21",
+  "GT-LINE-06: MAPLE13",
+  "GT-LINE-07: RIVER64",
+  "GT-LINE-08: COMET35"
+ ],
+ "gt_cyr": [
+  "КОНТРОЛЬНАЯ-СТРОКА-А",
+  "КОНТРОЛЬНАЯ-СТРОКА-Б"
+ ],
+ "title": "ACCEPTANCE 2.58.95 - VISION ADAPT - LONG SCREENSHOT",
+ "bottom_marker": "END-OF-SCREENSHOT-MARKER-GT-END",
+ "payload_chars_est": 1782945,
+ "over_request_max_bytes_700k": true,
+ "over_payload_chars_933589": true,
+ "under_prep_max_pixels_4m": true,
+ "seed": 95
+}

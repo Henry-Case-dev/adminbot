@@ -1,0 +1,46 @@
+{
+  "phase": "P8c-cleanup-register-all-waves",
+  "recovered": [
+    {
+      "answer": 1166485,
+      "anchor": 1166483
+    },
+    {
+      "answer": 1166487,
+      "anchor": 1166486
+    },
+    {
+      "answer": 1166471,
+      "anchor": 1166464,
+      "wave": "95a-gen1"
+    }
+  ],
+  "excluded_real_users": [],
+  "cleanup_spec": {
+    "delete_mids": [
+      1166463,
+      1166464,
+      1166471,
+      1166482,
+      1166483,
+      1166485,
+      1166486,
+      1166487,
+      1166489,
+      1166491,
+      1166495,
+      1166496,
+      1166497,
+      1166499,
+      1166500,
+      1166501
+    ],
+    "smart_rows": [],
+    "window": {
+      "lo": 1166453,
+      "hi": 1166511
+    },
+    "notes": "95a gen1 PHOTO mid is not recoverable (harness crashed before saving P4); it stays as a disclosed residual (uncaptioned bot photo ~13:54:17Z)"
+  },
+  "ok": true
+}

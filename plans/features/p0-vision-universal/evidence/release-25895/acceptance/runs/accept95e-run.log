@@ -1,0 +1,66 @@
+[runner] connected
+=== 95C TRACEBACK CONTEXT (14:16:50-14:17:40Z) ===
+Oct 19 14:16:54 racknerd-f4e3456 python[3716545]: 2026-10-19 14:16:54,558 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-19 19:16:59 +05)" (scheduled at 2026-10-19 19:16:54.557220+05:00)
+Oct 19 14:16:54 racknerd-f4e3456 python[3716545]: 2026-10-19 14:16:54,560 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-19 19:16:59 +05)" executed successfully
+Oct 19 14:16:59 racknerd-f4e3456 python[3716545]: 2026-10-19 14:16:59,558 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-19 19:17:04 +05)" (scheduled at 2026-10-19 19:16:59.557220+05:00)
+Oct 19 14:16:59 racknerd-f4e3456 python[3716545]: 2026-10-19 14:16:59,559 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-19 19:17:04 +05)" executed successfully
+Oct 19 14:17:00 racknerd-f4e3456 python[3716545]: 2026-10-19 14:17:00,709 - services.mca_events - INFO - mca_event=WATCHDOG_SWEEP | ts=1792419420 | event_name=WATCHDOG_SWEEP | outcome=success | level=INFO | component=watchdog | stage=sweep
+Oct 19 14:17:04 racknerd-f4e3456 python[3716545]: 2026-10-19 14:17:04,558 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-19 19:17:09 +05)" (scheduled at 2026-10-19 19:17:04.557220+05:00)
+Oct 19 14:17:04 racknerd-f4e3456 python[3716545]: 2026-10-19 14:17:04,560 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-19 19:17:09 +05)" executed successfully
+Oct 19 14:17:06 racknerd-f4e3456 python[3716545]: 2026-10-19 14:17:06,129 - services.database - WARNING - database: lock exhausted | event=database_lock_exhausted | op=mca_events_flush | attempts=4 | chat_id=None | error=database is locked
+Oct 19 14:17:06 racknerd-f4e3456 python[3716545]: NoneType: None
+Oct 19 14:17:06 racknerd-f4e3456 python[3716545]: 2026-10-19 14:17:06,140 - services.mca_events - WARNING - [mca_events] flush failed — events -> bounded spool
+Oct 19 14:17:06 racknerd-f4e3456 python[3716545]: Traceback (most recent call last):
+Oct 19 14:17:06 racknerd-f4e3456 python[3716545]:   File "/var/www/admin_bot/services/mca_events.py", line 707, in flush_events
+Oct 19 14:17:06 racknerd-f4e3456 python[3716545]:     written = await db.write_transaction(_body, op_name="mca_events_flush")
+Oct 19 14:17:06 racknerd-f4e3456 python[3716545]:               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Oct 19 14:17:06 racknerd-f4e3456 python[3716545]:   File "/var/www/admin_bot/services/database.py", line 2488, in write_transaction
+Oct 19 14:17:06 racknerd-f4e3456 python[3716545]:     return await self._write_transaction_owned(op, op_name,
+Oct 19 14:17:06 racknerd-f4e3456 python[3716545]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Oct 19 14:17:06 racknerd-f4e3456 python[3716545]:   File "/var/www/admin_bot/services/database.py", line 2596, in _write_transaction_owned
+Oct 19 14:17:06 racknerd-f4e3456 python[3716545]:     raise last_exc
+Oct 19 14:17:06 racknerd-f4e3456 python[3716545]:   File "/var/www/admin_bot/services/database.py", line 2573, in _write_transaction_owned
+Oct 19 14:17:06 racknerd-f4e3456 python[3716545]:     result = await op(self.db)
+Oct 19 14:17:06 racknerd-f4e3456 python[3716545]:              ^^^^^^^^^^^^^^^^^
+Oct 19 14:17:06 racknerd-f4e3456 python[3716545]:   File "/var/www/admin_bot/services/mca_events.py", line 700, in _body
+Oct 19 14:17:06 racknerd-f4e3456 python[3716545]:     await _insert_event(conn, ev)
+Oct 19 14:17:06 racknerd-f4e3456 python[3716545]:   File "/var/www/admin_bot/services/mca_events.py", line 665, in _insert_event
+Oct 19 14:17:06 racknerd-f4e3456 python[3716545]:     await conn.execute(_MCA_EVENTS_INSERT_SQL,
+Oct 19 14:17:06 racknerd-f4e3456 python[3716545]:   File "/var/www/admin_bot/venv/lib/python3.12/site-packages/aiosqlite/core.py", line 223, in execute
+Oct 19 14:17:06 racknerd-f4e3456 python[3716545]:     cursor = await self._execute(self._conn.execute, sql, parameters)
+Oct 19 14:17:06 racknerd-f4e3456 python[3716545]:              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Oct 19 14:17:06 racknerd-f4e3456 python[3716545]:   File "/var/www/admin_bot/venv/lib/python3.12/site-packages/aiosqlite/core.py", line 160, in _execute
+Oct 19 14:17:06 racknerd-f4e3456 python[3716545]:     return await future
+Oct 19 14:17:06 racknerd-f4e3456 python[3716545]:            ^^^^^^^^^^^^
+Oct 19 14:17:06 racknerd-f4e3456 python[3716545]:   File "/var/www/admin_bot/venv/lib/python3.12/site-packages/aiosqlite/core.py", line 63, in _connection_worker_thread
+Oct 19 14:17:06 racknerd-f4e3456 python[3716545]:     result = function()
+Oct 19 14:17:06 racknerd-f4e3456 python[3716545]:              ^^^^^^^^^^
+Oct 19 14:17:06 racknerd-f4e3456 python[3716545]: sqlite3.OperationalError: database is locked
+Oct 19 14:17:09 racknerd-f4e3456 python[3716545]: 2026-10-19 14:17:09,558 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-19 19:17:14 +05)" (scheduled at 2026-10-19 19:17:09.557220+05:00)
+Oct 19 14:17:09 racknerd-f4e3456 python[3716545]: 2026-10-19 14:17:09,561 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-19 19:17:14 +05)" executed successfully
+Oct 19 14:17:14 racknerd-f4e3456 python[3716545]: 2026-10-19 14:17:14,559 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-19 19:17:19 +05)" (scheduled at 2026-10-19 19:17:14.557220+05:00)
+Oct 19 14:17:14 racknerd-f4e3456 python[3716545]: 2026-10-19 14:17:14,560 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-19 19:17:19 +05)" executed successfully
+Oct 19 14:17:19 racknerd-f4e3456 python[3716545]: 2026-10-19 14:17:19,558 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-19 19:17:24 +05)" (scheduled at 2026-10-19 19:17:19.557220+05:00)
+Oct 19 14:17:19 racknerd-f4e3456 python[3716545]: 2026-10-19 14:17:19,559 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-19 19:17:24 +05)" executed successfully
+Oct 19 14:17:19 racknerd-f4e3456 python[3716545]: 2026-10-19 14:17:19,758 - apscheduler.executors.default - INFO - Running job "UptimeHeartbeatService._heartbeat (trigger: interval[0:01:00], next run at: 2026-10-19 14:18:19 UTC)" (scheduled at 2026-10-19 14:17:19.756209+00:00)
+Oct 19 14:17:19 racknerd-f4e3456 python[3716545]: 2026-10-19 14:17:19,770 - apscheduler.executors.default - INFO - Job "UptimeHeartbeatService._heartbeat (trigger: interval[0:01:00], next run at: 2026-10-19 14:18:19 UTC)" executed successfully
+Oct 19 14:17:24 racknerd-f4e3456 python[3716545]: 2026-10-19 14:17:24,560 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-19 19:17:29 +05)" (scheduled at 2026-10-19 19:17:24.557220+05:00)
+Oct 19 14:17:24 racknerd-f4e3456 python[3716545]: 2026-10-19 14:17:24,563 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-19 19:17:29 +05)" executed successfully
+Oct 19 14:17:29 racknerd-f4e3456 python[3716545]: 2026-10-19 14:17:29,559 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-19 19:17:34 +05)" (scheduled at 2026-10-19 19:17:29.557220+05:00)
+Oct 19 14:17:29 racknerd-f4e3456 python[3716545]: 2026-10-19 14:17:29,561 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-19 19:17:34 +05)" executed successfully
+Oct 19 14:17:34 racknerd-f4e3456 python[3716545]: 2026-10-19 14:17:34,559 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-19 19:17:39 +05)" (scheduled at 2026-10-19 19:17:34.557220+05:00)
+Oct 19 14:17:34 racknerd-f4e3456 python[3716545]: 2026-10-19 14:17:34,563 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-19 19:17:39 +05)" executed successfully
+Oct 19 14:17:39 racknerd-f4e3456 python[3716545]: 2026-10-19 14:17:39,559 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-19 19:17:44 +05)" (scheduled at 2026-10-19 19:17:39.557220+05:00)
+Oct 19 14:17:39 racknerd-f4e3456 python[3716545]: 2026-10-19 14:17:39,562 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-19 19:17:44 +05)" executed successfully
+=== 95C FULL WINDOW ERR/CRIT (14:14:30-14:19:30Z) ===
+95C_ERR_COUNT=1
+Oct 19 14:17:06 racknerd-f4e3456 python[3716545]: Traceback (most recent call last):
+=== FINAL STATE ===
+MainPID=3716545
+NRestarts=0
+ExecMainStatus=0
+ActiveState=active
+SubState=running
+{"status":"ok","version":"2.58.95"}
+{"status":"ok","version":"2.58.95"}
+2026-10-19 14:34:09 UTC

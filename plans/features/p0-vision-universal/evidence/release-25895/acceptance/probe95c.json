@@ -1,0 +1,340 @@
+{
+  "phase": "probe95c",
+  "now_utc": "2026-10-19 14:14:55",
+  "bot_replies_window": [
+    {
+      "mid": 1166464,
+      "head": "Глаза мне отключили, так что картинку я не вижу. Скинь текстом или жди",
+      "last_used_at": 1792417677.897747
+    },
+    {
+      "mid": 1166471,
+      "head": "Апельсин отправил, но квота на картинки кончилась - так что глазеть на",
+      "last_used_at": 1792418090.8361666
+    },
+    {
+      "mid": 1166485,
+      "head": "Картинку распознать не успели - таймаут вышел, так что там за файл, я ",
+      "last_used_at": 1792418582.3086429
+    },
+    {
+      "mid": 1166487,
+      "head": "Файл не открылся - ссылка битая, а распознавание не успело до дедлайна",
+      "last_used_at": 1792418647.6703959
+    },
+    {
+      "mid": 1166491,
+      "head": "Апельсин ушёл в чат, но квота на генерацию картинок на сегодня выжрана",
+      "last_used_at": 1792418745.1130764
+    }
+  ],
+  "bot_reply_parents_window": [
+    {
+      "mid": 1166464,
+      "parent": 1166463,
+      "last_used_at": 1792417677.90039
+    },
+    {
+      "mid": 1166471,
+      "parent": 1166464,
+      "last_used_at": 1792418090.8416991
+    },
+    {
+      "mid": 1166485,
+      "parent": 1166483,
+      "last_used_at": 1792418582.3113194
+    },
+    {
+      "mid": 1166487,
+      "parent": 1166486,
+      "last_used_at": 1792418647.6728897
+    },
+    {
+      "mid": 1166491,
+      "parent": 1166487,
+      "last_used_at": 1792418745.1189337
+    }
+  ],
+  "smart_messages_window": [
+    {
+      "mid": 1166455,
+      "user_id": 263719784,
+      "media_type": "photo",
+      "head": null
+    },
+    {
+      "mid": 1166456,
+      "user_id": 263719784,
+      "media_type": "photo",
+      "head": null
+    },
+    {
+      "mid": 1166457,
+      "user_id": 972412990,
+      "media_type": "text",
+      "head": "октябрь хороший"
+    },
+    {
+      "mid": 1166458,
+      "user_id": 972412990,
+      "media_type": "photo",
+      "head": null
+    },
+    {
+      "mid": 1166459,
+      "user_id": 1276415576,
+      "media_type": "text",
+      "head": "давайте возьмём свои пакеты и отправимся"
+    },
+    {
+      "mid": 1166460,
+      "user_id": 529151103,
+      "media_type": "text",
+      "head": "У нас редко но из за того что расписание"
+    },
+    {
+      "mid": 1166461,
+      "user_id": 146761791,
+      "media_type": "text",
+      "head": "Вдовину явно надо на лечение"
+    },
+    {
+      "mid": 1166462,
+      "user_id": 5929079345,
+      "media_type": "text",
+      "head": "Не думаю что он психологически вынесет"
+    },
+    {
+      "mid": 1166465,
+      "user_id": 1276415576,
+      "media_type": "photo",
+      "head": null
+    },
+    {
+      "mid": 1166466,
+      "user_id": 1276415576,
+      "media_type": "photo",
+      "head": "All a woman needs in life are cigarettes"
+    },
+    {
+      "mid": 1166470,
+      "user_id": 1313107079,
+      "media_type": "text",
+      "head": "че за ляха толстая в углу?"
+    },
+    {
+      "mid": 1166473,
+      "user_id": 134812796,
+      "media_type": "text",
+      "head": "хочется чтобы лето уже наступило, а то б"
+    },
+    {
+      "mid": 1166474,
+      "user_id": 263719784,
+      "media_type": "text",
+      "head": "Тебя не смущает что он экран фоткает"
+    },
+    {
+      "mid": 1166475,
+      "user_id": 428646797,
+      "media_type": "text",
+      "head": "В смысле?"
+    },
+    {
+      "mid": 1166476,
+      "user_id": 304587459,
+      "media_type": "text",
+      "head": "Бяк"
+    },
+    {
+      "mid": 1166477,
+      "user_id": 1313107079,
+      "media_type": "text",
+      "head": "нет"
+    },
+    {
+      "mid": 1166478,
+      "user_id": 1276415576,
+      "media_type": "photo",
+      "head": null
+    },
+    {
+      "mid": 1166479,
+      "user_id": 263719784,
+      "media_type": "text",
+      "head": "Ни одно фото жрачки не настоящее"
+    },
+    {
+      "mid": 1166480,
+      "user_id": 428646797,
+      "media_type": "text",
+      "head": "Кек"
+    },
+    {
+      "mid": 1166481,
+      "user_id": 428646797,
+      "media_type": "text",
+      "head": "😂"
+    },
+    {
+      "mid": 1166484,
+      "user_id": 146761791,
+      "media_type": "text",
+      "head": "А что смущает при том что куча пиздабол?"
+    },
+    {
+      "mid": 1166490,
+      "user_id": 263719784,
+      "media_type": "text",
+      "head": "Есть карта глубин твоего очка"
+    },
+    {
+      "mid": 1166493,
+      "user_id": 479167456,
+      "media_type": "text",
+      "head": "Ну ты и быдло"
+    }
+  ],
+  "analyses_running": [
+    {
+      "id": 8,
+      "asset_id": "a32e03310af2c39fcd6a44d57972ca26",
+      "status": "running",
+      "revision": 1,
+      "created_at": 1792401162,
+      "updated_at": 1792401162
+    }
+  ],
+  "orphan_asset": [
+    {
+      "asset_id": "a32e03310af2c39fcd6a44d57972ca26",
+      "message_key": "-1002661910336:1166176",
+      "chat_id": -1002661910336,
+      "tg_message_id": 1166176,
+      "asset_kind": "photo",
+      "mime": "image/jpeg",
+      "byte_size": 250048,
+      "width": 966,
+      "height": 1280
+    }
+  ],
+  "orphan_analyses": [
+    {
+      "id": 8,
+      "status": "running",
+      "revision": 1,
+      "analyzer_model": "nvidia/nemotron-3.5-super-vl:free",
+      "created_at": 1792401162,
+      "updated_at": 1792401162,
+      "error_reason": null
+    }
+  ],
+  "orphan_jobs": [
+    {
+      "job_id": "e75c45b78eca47a4aa6d57e9f2aad0cb",
+      "status": "interrupted",
+      "reason_code": "worker_lost",
+      "attempt": 1,
+      "created_at": 1792401161,
+      "updated_at": 1792401284,
+      "heartbeat_at": 1792401161
+    }
+  ],
+  "orphan_events": [
+    {
+      "ts": 1792401162,
+      "event_name": "vision_media",
+      "outcome": "success",
+      "level": "INFO",
+      "stage": "validate",
+      "reason_code": null
+    }
+  ],
+  "user_version": [
+    {
+      "user_version": 36
+    }
+  ],
+  "jobs_recent": [
+    {
+      "job_id": "acb433960ded4b56b32aae22dec2a782",
+      "owner": "vision.media",
+      "kind": "vision.media",
+      "status": "completed",
+      "reason_code": null,
+      "attempt": 1,
+      "created_at": 1792419220,
+      "updated_at": 1792419264
+    },
+    {
+      "job_id": "2198210b00ef429daed3f2a01dd1ac43",
+      "owner": "vision.tool",
+      "kind": "vision.media",
+      "status": "completed",
+      "reason_code": null,
+      "attempt": 1,
+      "created_at": 1792418532,
+      "updated_at": 1792418568
+    },
+    {
+      "job_id": "942d45cbc1444fd7bc49fcc0e42f0b97",
+      "owner": "vision.media",
+      "kind": "vision.media",
+      "status": "completed",
+      "reason_code": null,
+      "attempt": 1,
+      "created_at": 1792418202,
+      "updated_at": 1792418225
+    },
+    {
+      "job_id": "0ba3e599a2c445d7bd380793d6cb12df",
+      "owner": "vision.media",
+      "kind": "vision.media",
+      "status": "completed",
+      "reason_code": null,
+      "attempt": 1,
+      "created_at": 1792418090,
+      "updated_at": 1792418143
+    },
+    {
+      "job_id": "38e594e6939444399369e700c960f32a",
+      "owner": "vision.media",
+      "kind": "vision.media",
+      "status": "completed",
+      "reason_code": null,
+      "attempt": 1,
+      "created_at": 1792417850,
+      "updated_at": 1792417864
+    },
+    {
+      "job_id": "541cf903d6af4128b79eec0e7659e0ff",
+      "owner": "vision.media",
+      "kind": "vision.media",
+      "status": "completed",
+      "reason_code": null,
+      "attempt": 1,
+      "created_at": 1792417850,
+      "updated_at": 1792417865
+    },
+    {
+      "job_id": "ca5669c64eae47609d1514d05743c717",
+      "owner": "vision.media",
+      "kind": "vision.media",
+      "status": "completed",
+      "reason_code": null,
+      "attempt": 1,
+      "created_at": 1792415580,
+      "updated_at": 1792415623
+    },
+    {
+      "job_id": "df8da3784e69414fb9b81f00d910684d",
+      "owner": "vision.media",
+      "kind": "vision.media",
+      "status": "completed",
+      "reason_code": null,
+      "attempt": 1,
+      "created_at": 1792415474,
+      "updated_at": 1792415550
+    }
+  ]
+}

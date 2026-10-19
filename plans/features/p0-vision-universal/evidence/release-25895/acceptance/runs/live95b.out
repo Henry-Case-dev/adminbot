@@ -1,0 +1,30 @@
+ACC95B START_EPOCH | 1792418496
+ACC95B NOW_UTC | 2026-10-19 14:01:36
+ACC95 BOT INFO | session=local_bot_api (download_enabled=1)
+ACC95 BOOT | version=? vec=True bot=8802473181 pg=True
+ACC95B OVERRIDES | touched={"flags.budgets_enabled": false, "flags.vision_enabled": true} total_keys=25
+ACC95 SAVE INFO | p0b-pre-state.json (10260 bytes)
+ACC95B P0b | done version=? reserve=['legacy', 'budgets_off'] used=16
+ACC95 SAVE INFO | p3b-vision-adapt.json (18067 bytes)
+ACC95B P3b | done status=failed tool1=pending adapt=True desc_len=0 gt=0
+ACC95 CFG | genb-premise http=200 body={"updated": ["flags.budgets_enabled", "limits.image_daily_limit"], "chat_id": -1002661910336, "revalidated": false, "updated_at": "2026-10-19T14:04:09.140276+00:00"}
+ACC95 RESTORE | genb-restore changed={"flags.budgets_enabled": false, "limits.image_daily_limit": "<removed>"}
+ACC95 SAVE INFO | p4b-generation.json (17894 bytes)
+ACC95B P4b | done ok=False checks={"gen1_provider_calls_1": true, "gen1_photo_sent": true, "gen1_chat_used_plus1": true, "gen1_shared_plus1": true, "gen2_zero_provider_calls": true, "gen2_zero_photo_sends": true, "gen2_block_quota_exhausted": false, "gen2_block_reset_note": false, "gen2_answer_mentions_quota": true, "restore_mode": true, "config_matches": true}
+ACC95B P5b | wrong_type_int http=422 no_write=True
+ACC95B P5b | bad_select_option http=422 no_write=True
+ACC95B P5b | stale_updated_at http=409 no_write=True
+ACC95 SAVE INFO | p5b-negatives.json (1731 bytes)
+ACC95B P5b | done ok=True
+ACC95 SAVE INFO | p6b-showcase-api.json (3101 bytes)
+ACC95B P6b | done ok=True honest=5 served_js_same=True
+ACC95 SAVE INFO | p7b-economics.json (7975 bytes)
+ACC95 SAVE INFO | d-orphan-95b.json (138 bytes)
+ACC95B P7b | done orphan=[{"verdict": "no_running_rows"}]
+ACC95 SAVE INFO | p8b-cleanup-register.json (6119 bytes)
+ACC95B P8b | done delete=8 smart=0
+ACC95 RESTORE | final-safety changed={}
+ACC95B FLUSH | mca_events flushed=71
+ACC95 SAVE INFO | summary95b.json (4671 bytes)
+ACC95B DONE | evidence=/tmp/accept95/evidence
+ACC95B RC=0

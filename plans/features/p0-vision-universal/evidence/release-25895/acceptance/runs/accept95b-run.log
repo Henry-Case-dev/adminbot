@@ -1,0 +1,879 @@
+[runner] connected nik@198.46.175.136
+### RECON (rc=0)
+2026-10-19 14:01:25 UTC
+HEAD=113f3a629cab54f7fcc261349a7c9af3b90f56d7 TRACKED_MOD=0
+MainPID=3716545 NRestarts=0 ActiveState=active 
+{"status":"ok","version":"2.58.95"}
+{"status":"ok","version":"2.58.95"}
+-rw-rw-r-- 1 nik nik 31035 Oct 19 13:47 /tmp/accept95_base.py
+-rw-rw-r-- 1 nik nik 10040 Oct 19 13:47 /tmp/accept95_clean.py
+-rw-rw-r-- 1 nik nik  2147 Oct 19 13:47 /tmp/accept95_dbcheck.py
+-rw-rw-r-- 1 nik nik  3609 Oct 19 13:47 /tmp/accept95_journal.sh
+-rw-rw-r-- 1 nik nik 48717 Oct 19 13:47 /tmp/accept95_live.py
+
+/tmp/accept95:
+total 1344
+drwxrwxr-x  3 nik  nik     4096 Oct 19 13:47 .
+drwxrwxrwt 41 root root   20480 Oct 19 14:01 ..
+drwxr-xr-x  2 root root    4096 Oct 19 13:54 evidence
+-rw-rw-r--  1 nik  nik     1016 Oct 19 13:47 fixture-ground-truth.json
+-rw-rw-r--  1 nik  nik  1337017 Oct 19 13:47 fixture.png
+-rw-r--r--  1 root root    3229 Oct 19 13:54 live.out
+### HARNESS_USER_CHECK (rc=0)
+PUSER=[root]
+[runner] harness_sudo=True
+[runner] uploaded accept95_base.py -> /tmp/accept95_base.py (31035 bytes)
+[runner] uploaded accept95b_live.py -> /tmp/accept95b_live.py (40096 bytes)
+[runner] uploaded accept95b_journal.sh -> /tmp/accept95b_journal.sh (3179 bytes)
+[runner] uploaded accept95_dbcheck.py -> /tmp/accept95_dbcheck.py (2147 bytes)
+### UPLOAD (ok)
+### KILL_STALE (rc=0)
+CLEAR
+[stderr] [sudo] password for nik:
+[runner] WAVE_SINCE=2026-10-19 14:01:35
+### START (rc=0)
+STARTED_PID=3728020
+[stderr] [sudo] password for nik:
+### VERIFY_START (rc=0)
+OUT_LINES=2
+PROC_RUNNING
+[stderr] [sudo] password for nik:
+[poll 1] WAIT
+[poll 7] WAIT
+[poll 13] WAIT
+[poll 19] WAIT
+[runner] finished=True
+### LIVE_TAIL (rc=0)
+30 /tmp/accept95/live95b.out
+ACC95B START_EPOCH | 1792418496
+ACC95B NOW_UTC | 2026-10-19 14:01:36
+ACC95 BOT INFO | session=local_bot_api (download_enabled=1)
+ACC95 BOOT | version=? vec=True bot=8802473181 pg=True
+ACC95B OVERRIDES | touched={"flags.budgets_enabled": false, "flags.vision_enabled": true} total_keys=25
+ACC95 SAVE INFO | p0b-pre-state.json (10260 bytes)
+ACC95B P0b | done version=? reserve=['legacy', 'budgets_off'] used=16
+ACC95 SAVE INFO | p3b-vision-adapt.json (18067 bytes)
+ACC95B P3b | done status=failed tool1=pending adapt=True desc_len=0 gt=0
+ACC95 CFG | genb-premise http=200 body={"updated": ["flags.budgets_enabled", "limits.image_daily_limit"], "chat_id": -1002661910336, "revalidated": false, "updated_at": "2026-10-19T14:04:09.140276+00:00"}
+ACC95 RESTORE | genb-restore changed={"flags.budgets_enabled": false, "limits.image_daily_limit": "<removed>"}
+ACC95 SAVE INFO | p4b-generation.json (17894 bytes)
+ACC95B P4b | done ok=False checks={"gen1_provider_calls_1": true, "gen1_photo_sent": true, "gen1_chat_used_plus1": true, "gen1_shared_plus1": true, "gen2_zero_provider_calls": true, "gen2_zero_photo_sends": true, "gen2_block_quota_exhausted": false, "gen2_block_reset_note": false, "gen2_answer_mentions_quota": true, "restore_mode": true, "config_matches": true}
+ACC95B P5b | wrong_type_int http=422 no_write=True
+ACC95B P5b | bad_select_option http=422 no_write=True
+ACC95B P5b | stale_updated_at http=409 no_write=True
+ACC95 SAVE INFO | p5b-negatives.json (1731 bytes)
+ACC95B P5b | done ok=True
+ACC95 SAVE INFO | p6b-showcase-api.json (3101 bytes)
+ACC95B P6b | done ok=True honest=5 served_js_same=True
+ACC95 SAVE INFO | p7b-economics.json (7975 bytes)
+ACC95 SAVE INFO | d-orphan-95b.json (138 bytes)
+ACC95B P7b | done orphan=[{"verdict": "no_running_rows"}]
+ACC95 SAVE INFO | p8b-cleanup-register.json (6119 bytes)
+ACC95B P8b | done delete=8 smart=0
+ACC95 RESTORE | final-safety changed={}
+ACC95B FLUSH | mca_events flushed=71
+ACC95 SAVE INFO | summary95b.json (4671 bytes)
+ACC95B DONE | evidence=/tmp/accept95/evidence
+ACC95B RC=0
+[stderr] [sudo] password for nik:
+[runner] downloaded evidence: p2-vision-off.json, p1-fixture-doc.json, p3b-vision-adapt.json, p3-vision-on-adapt.json, p0-pre-state.json, p6b-showcase-api.json, p4b-generation.json, p0b-pre-state.json, summary.json, p5b-negatives.json, p8b-cleanup-register.json, d-orphan-95b.json, summary95b.json, p7b-economics.json
+### JOURNAL (rc=0)
+=== NOW ===
+2026-10-19T14:06:38Z
+WAVE_SINCE=[2026-10-19 14:01:35]
+=== SERVICE ===
+MainPID=3716545 NRestarts=0 ExecMainStatus=0 ActiveState=active SubState=running 
+{"status":"ok","version":"2.58.95"}
+{"status":"ok","version":"2.58.95"}
+=== 95A WINDOW FULL ERROR BLOCKS (13:47-13:56Z) ===
+--- 'Cause exception while process update' with context ---
+231:Oct 19 13:53:44 racknerd-f4e3456 python[3716545]: 2026-10-19 13:53:44,688 - aiogram.event - ERROR - Cause exception while process update id=873215133 by bot id=8802473181
+232-Oct 19 13:53:44 racknerd-f4e3456 python[3716545]: OperationalError: database is locked
+233-Oct 19 13:53:44 racknerd-f4e3456 python[3716545]: Traceback (most recent call last):
+234-Oct 19 13:53:44 racknerd-f4e3456 python[3716545]:   File "/var/www/admin_bot/venv/lib/python3.12/site-packages/aiogram/dispatcher/dispatcher.py", line 321, in _process_update
+235-Oct 19 13:53:44 racknerd-f4e3456 python[3716545]:     response = await self.feed_update(bot, update, **kwargs)
+236-Oct 19 13:53:44 racknerd-f4e3456 python[3716545]:                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+237-Oct 19 13:53:44 racknerd-f4e3456 python[3716545]:   File "/var/www/admin_bot/venv/lib/python3.12/site-packages/aiogram/dispatcher/dispatcher.py", line 164, in feed_update
+238-Oct 19 13:53:44 racknerd-f4e3456 python[3716545]:     response = await self.update.wrap_outer_middleware(
+239-Oct 19 13:53:44 racknerd-f4e3456 python[3716545]:                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+240-Oct 19 13:53:44 racknerd-f4e3456 python[3716545]:   File "/var/www/admin_bot/venv/lib/python3.12/site-packages/aiogram/dispatcher/middlewares/error.py", line 27, in __call__
+241-Oct 19 13:53:44 racknerd-f4e3456 python[3716545]:     return await handler(event, data)
+242-Oct 19 13:53:44 racknerd-f4e3456 python[3716545]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^
+243-Oct 19 13:53:44 racknerd-f4e3456 python[3716545]:   File "/var/www/admin_bot/venv/lib/python3.12/site-packages/aiogram/dispatcher/middlewares/user_context.py", line 58, in __call__
+244-Oct 19 13:53:44 racknerd-f4e3456 python[3716545]:     return await handler(event, data)
+245-Oct 19 13:53:44 racknerd-f4e3456 python[3716545]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^
+246-Oct 19 13:53:44 racknerd-f4e3456 python[3716545]:   File "/var/www/admin_bot/venv/lib/python3.12/site-packages/aiogram/fsm/middleware.py", line 43, in __call__
+247-Oct 19 13:53:44 racknerd-f4e3456 python[3716545]:     return await handler(event, data)
+248-Oct 19 13:53:44 racknerd-f4e3456 python[3716545]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^
+249-Oct 19 13:53:44 racknerd-f4e3456 python[3716545]:   File "/var/www/admin_bot/handlers/chat_lifecycle.py", line 325, in __call__
+250-Oct 19 13:53:44 racknerd-f4e3456 python[3716545]:     return await handler(event, data)
+251-Oct 19 13:53:44 racknerd-f4e3456 python[3716545]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^
+252-Oct 19 13:53:44 racknerd-f4e3456 python[3716545]:   File "/var/www/admin_bot/venv/lib/python3.12/site-packages/aiogram/dispatcher/event/telegram.py", line 126, in trigger
+253-Oct 19 13:53:44 racknerd-f4e3456 python[3716545]:     return await wrapped_inner(event, kwargs)
+254-Oct 19 13:53:44 racknerd-f4e3456 python[3716545]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+255-Oct 19 13:53:44 racknerd-f4e3456 python[3716545]:   File "/var/www/admin_bot/venv/lib/python3.12/site-packages/aiogram/dispatcher/event/handler.py", line 71, in call
+256-Oct 19 13:53:44 racknerd-f4e3456 python[3716545]:     return await wrapped()
+257-Oct 19 13:53:44 racknerd-f4e3456 python[3716545]:            ^^^^^^^^^^^^^^^
+258-Oct 19 13:53:44 racknerd-f4e3456 python[3716545]:   File "/var/www/admin_bot/venv/lib/python3.12/site-packages/aiogram/dispatcher/dispatcher.py", line 284, in _listen_update
+259-Oct 19 13:53:44 racknerd-f4e3456 python[3716545]:     return await self.propagate_event(update_type=update_type, event=event, **kwargs)
+260-Oct 19 13:53:44 racknerd-f4e3456 python[3716545]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+261-Oct 19 13:53:44 racknerd-f4e3456 python[3716545]:   File "/var/www/admin_bot/venv/lib/python3.12/site-packages/aiogram/dispatcher/router.py", line 172, in propagate_event
+--
+302:Oct 19 13:53:45 racknerd-f4e3456 python[3716545]: 2026-10-19 13:53:45,030 - aiogram.event - ERROR - Cause exception while process update id=873215134 by bot id=8802473181
+303-Oct 19 13:53:45 racknerd-f4e3456 python[3716545]: OperationalError: database is locked
+304-Oct 19 13:53:45 racknerd-f4e3456 python[3716545]: Traceback (most recent call last):
+305-Oct 19 13:53:45 racknerd-f4e3456 python[3716545]:   File "/var/www/admin_bot/venv/lib/python3.12/site-packages/aiogram/dispatcher/dispatcher.py", line 321, in _process_update
+306-Oct 19 13:53:45 racknerd-f4e3456 python[3716545]:     response = await self.feed_update(bot, update, **kwargs)
+307-Oct 19 13:53:45 racknerd-f4e3456 python[3716545]:                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+308-Oct 19 13:53:45 racknerd-f4e3456 python[3716545]:   File "/var/www/admin_bot/venv/lib/python3.12/site-packages/aiogram/dispatcher/dispatcher.py", line 164, in feed_update
+309-Oct 19 13:53:45 racknerd-f4e3456 python[3716545]:     response = await self.update.wrap_outer_middleware(
+310-Oct 19 13:53:45 racknerd-f4e3456 python[3716545]:                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+311-Oct 19 13:53:45 racknerd-f4e3456 python[3716545]:   File "/var/www/admin_bot/venv/lib/python3.12/site-packages/aiogram/dispatcher/middlewares/error.py", line 27, in __call__
+312-Oct 19 13:53:45 racknerd-f4e3456 python[3716545]:     return await handler(event, data)
+313-Oct 19 13:53:45 racknerd-f4e3456 python[3716545]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^
+314-Oct 19 13:53:45 racknerd-f4e3456 python[3716545]:   File "/var/www/admin_bot/venv/lib/python3.12/site-packages/aiogram/dispatcher/middlewares/user_context.py", line 58, in __call__
+315-Oct 19 13:53:45 racknerd-f4e3456 python[3716545]:     return await handler(event, data)
+316-Oct 19 13:53:45 racknerd-f4e3456 python[3716545]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^
+317-Oct 19 13:53:45 racknerd-f4e3456 python[3716545]:   File "/var/www/admin_bot/venv/lib/python3.12/site-packages/aiogram/fsm/middleware.py", line 43, in __call__
+318-Oct 19 13:53:45 racknerd-f4e3456 python[3716545]:     return await handler(event, data)
+319-Oct 19 13:53:45 racknerd-f4e3456 python[3716545]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^
+320-Oct 19 13:53:45 racknerd-f4e3456 python[3716545]:   File "/var/www/admin_bot/handlers/chat_lifecycle.py", line 325, in __call__
+321-Oct 19 13:53:45 racknerd-f4e3456 python[3716545]:     return await handler(event, data)
+322-Oct 19 13:53:45 racknerd-f4e3456 python[3716545]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^
+323-Oct 19 13:53:45 racknerd-f4e3456 python[3716545]:   File "/var/www/admin_bot/venv/lib/python3.12/site-packages/aiogram/dispatcher/event/telegram.py", line 126, in trigger
+324-Oct 19 13:53:45 racknerd-f4e3456 python[3716545]:     return await wrapped_inner(event, kwargs)
+325-Oct 19 13:53:45 racknerd-f4e3456 python[3716545]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+326-Oct 19 13:53:45 racknerd-f4e3456 python[3716545]:   File "/var/www/admin_bot/venv/lib/python3.12/site-packages/aiogram/dispatcher/event/handler.py", line 71, in call
+327-Oct 19 13:53:45 racknerd-f4e3456 python[3716545]:     return await wrapped()
+328-Oct 19 13:53:45 racknerd-f4e3456 python[3716545]:            ^^^^^^^^^^^^^^^
+329-Oct 19 13:53:45 racknerd-f4e3456 python[3716545]:   File "/var/www/admin_bot/venv/lib/python3.12/site-packages/aiogram/dispatcher/dispatcher.py", line 284, in _listen_update
+330-Oct 19 13:53:45 racknerd-f4e3456 python[3716545]:     return await self.propagate_event(update_type=update_type, event=event, **kwargs)
+331-Oct 19 13:53:45 racknerd-f4e3456 python[3716545]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+332-Oct 19 13:53:45 racknerd-f4e3456 python[3716545]:   File "/var/www/admin_bot/venv/lib/python3.12/site-packages/aiogram/dispatcher/router.py", line 172, in propagate_event
+--- all Traceback headers with 3 lines before ---
+230-Oct 19 13:53:44 racknerd-f4e3456 python[3716545]: 2026-10-19 13:53:44,562 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-19 18:53:49 +05)" executed successfully
+231-Oct 19 13:53:44 racknerd-f4e3456 python[3716545]: 2026-10-19 13:53:44,688 - aiogram.event - ERROR - Cause exception while process update id=873215133 by bot id=8802473181
+232-Oct 19 13:53:44 racknerd-f4e3456 python[3716545]: OperationalError: database is locked
+233:Oct 19 13:53:44 racknerd-f4e3456 python[3716545]: Traceback (most recent call last):
+234-Oct 19 13:53:44 racknerd-f4e3456 python[3716545]:   File "/var/www/admin_bot/venv/lib/python3.12/site-packages/aiogram/dispatcher/dispatcher.py", line 321, in _process_update
+235-Oct 19 13:53:44 racknerd-f4e3456 python[3716545]:     response = await self.feed_update(bot, update, **kwargs)
+236-Oct 19 13:53:44 racknerd-f4e3456 python[3716545]:                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+237-Oct 19 13:53:44 racknerd-f4e3456 python[3716545]:   File "/var/www/admin_bot/venv/lib/python3.12/site-packages/aiogram/dispatcher/dispatcher.py", line 164, in feed_update
+238-Oct 19 13:53:44 racknerd-f4e3456 python[3716545]:     response = await self.update.wrap_outer_middleware(
+239-Oct 19 13:53:44 racknerd-f4e3456 python[3716545]:                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+240-Oct 19 13:53:44 racknerd-f4e3456 python[3716545]:   File "/var/www/admin_bot/venv/lib/python3.12/site-packages/aiogram/dispatcher/middlewares/error.py", line 27, in __call__
+241-Oct 19 13:53:44 racknerd-f4e3456 python[3716545]:     return await handler(event, data)
+242-Oct 19 13:53:44 racknerd-f4e3456 python[3716545]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^
+243-Oct 19 13:53:44 racknerd-f4e3456 python[3716545]:   File "/var/www/admin_bot/venv/lib/python3.12/site-packages/aiogram/dispatcher/middlewares/user_context.py", line 58, in __call__
+244-Oct 19 13:53:44 racknerd-f4e3456 python[3716545]:     return await handler(event, data)
+245-Oct 19 13:53:44 racknerd-f4e3456 python[3716545]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^
+246-Oct 19 13:53:44 racknerd-f4e3456 python[3716545]:   File "/var/www/admin_bot/venv/lib/python3.12/site-packages/aiogram/fsm/middleware.py", line 43, in __call__
+247-Oct 19 13:53:44 racknerd-f4e3456 python[3716545]:     return await handler(event, data)
+248-Oct 19 13:53:44 racknerd-f4e3456 python[3716545]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^
+249-Oct 19 13:53:44 racknerd-f4e3456 python[3716545]:   File "/var/www/admin_bot/handlers/chat_lifecycle.py", line 325, in __call__
+250-Oct 19 13:53:44 racknerd-f4e3456 python[3716545]:     return await handler(event, data)
+251-Oct 19 13:53:44 racknerd-f4e3456 python[3716545]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^
+252-Oct 19 13:53:44 racknerd-f4e3456 python[3716545]:   File "/var/www/admin_bot/venv/lib/python3.12/site-packages/aiogram/dispatcher/event/telegram.py", line 126, in trigger
+253-Oct 19 13:53:44 racknerd-f4e3456 python[3716545]:     return await wrapped_inner(event, kwargs)
+--
+301-Oct 19 13:53:44 racknerd-f4e3456 python[3716545]: sqlite3.OperationalError: database is locked
+302-Oct 19 13:53:45 racknerd-f4e3456 python[3716545]: 2026-10-19 13:53:45,030 - aiogram.event - ERROR - Cause exception while process update id=873215134 by bot id=8802473181
+303-Oct 19 13:53:45 racknerd-f4e3456 python[3716545]: OperationalError: database is locked
+304:Oct 19 13:53:45 racknerd-f4e3456 python[3716545]: Traceback (most recent call last):
+305-Oct 19 13:53:45 racknerd-f4e3456 python[3716545]:   File "/var/www/admin_bot/venv/lib/python3.12/site-packages/aiogram/dispatcher/dispatcher.py", line 321, in _process_update
+306-Oct 19 13:53:45 racknerd-f4e3456 python[3716545]:     response = await self.feed_update(bot, update, **kwargs)
+307-Oct 19 13:53:45 racknerd-f4e3456 python[3716545]:                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+308-Oct 19 13:53:45 racknerd-f4e3456 python[3716545]:   File "/var/www/admin_bot/venv/lib/python3.12/site-packages/aiogram/dispatcher/dispatcher.py", line 164, in feed_update
+309-Oct 19 13:53:45 racknerd-f4e3456 python[3716545]:     response = await self.update.wrap_outer_middleware(
+310-Oct 19 13:53:45 racknerd-f4e3456 python[3716545]:                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+311-Oct 19 13:53:45 racknerd-f4e3456 python[3716545]:   File "/var/www/admin_bot/venv/lib/python3.12/site-packages/aiogram/dispatcher/middlewares/error.py", line 27, in __call__
+312-Oct 19 13:53:45 racknerd-f4e3456 python[3716545]:     return await handler(event, data)
+313-Oct 19 13:53:45 racknerd-f4e3456 python[3716545]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^
+314-Oct 19 13:53:45 racknerd-f4e3456 python[3716545]:   File "/var/www/admin_bot/venv/lib/python3.12/site-packages/aiogram/dispatcher/middlewares/user_context.py", line 58, in __call__
+315-Oct 19 13:53:45 racknerd-f4e3456 python[3716545]:     return await handler(event, data)
+316-Oct 19 13:53:45 racknerd-f4e3456 python[3716545]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^
+317-Oct 19 13:53:45 racknerd-f4e3456 python[3716545]:   File "/var/www/admin_bot/venv/lib/python3.12/site-packages/aiogram/fsm/middleware.py", line 43, in __call__
+318-Oct 19 13:53:45 racknerd-f4e3456 python[3716545]:     return await handler(event, data)
+319-Oct 19 13:53:45 racknerd-f4e3456 python[3716545]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^
+320-Oct 19 13:53:45 racknerd-f4e3456 python[3716545]:   File "/var/www/admin_bot/handlers/chat_lifecycle.py", line 325, in __call__
+321-Oct 19 13:53:45 racknerd-f4e3456 python[3716545]:     return await handler(event, data)
+322-Oct 19 13:53:45 racknerd-f4e3456 python[3716545]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^
+323-Oct 19 13:53:45 racknerd-f4e3456 python[3716545]:   File "/var/www/admin_bot/venv/lib/python3.12/site-packages/aiogram/dispatcher/event/telegram.py", line 126, in trigger
+324-Oct 19 13:53:45 racknerd-f4e3456 python[3716545]:     return await wrapped_inner(event, kwargs)
+--
+373-Oct 19 13:53:45 racknerd-f4e3456 python[3716545]: 2026-10-19 13:53:45,160 - services.database - WARNING - database: lock exhausted | event=database_lock_exhausted | op=task_jobs_enqueue | attempts=4 | chat_id=None | error=database is locked
+374-Oct 19 13:53:45 racknerd-f4e3456 python[3716545]: NoneType: None
+375-Oct 19 13:53:45 racknerd-f4e3456 python[3716545]: 2026-10-19 13:53:45,162 - services.initiative_observer - WARNING - [b01] observe enqueue failed
+376:Oct 19 13:53:45 racknerd-f4e3456 python[3716545]: Traceback (most recent call last):
+377-Oct 19 13:53:45 racknerd-f4e3456 python[3716545]:   File "/var/www/admin_bot/services/initiative_observer.py", line 808, in observe_tick
+378-Oct 19 13:53:45 racknerd-f4e3456 python[3716545]:     job_id = await enqueue_observe(db) or ""
+379-Oct 19 13:53:45 racknerd-f4e3456 python[3716545]:              ^^^^^^^^^^^^^^^^^^^^^^^^^
+380-Oct 19 13:53:45 racknerd-f4e3456 python[3716545]:   File "/var/www/admin_bot/services/initiative_observer.py", line 774, in enqueue_observe
+381-Oct 19 13:53:45 racknerd-f4e3456 python[3716545]:     return await store.enqueue(
+382-Oct 19 13:53:45 racknerd-f4e3456 python[3716545]:            ^^^^^^^^^^^^^^^^^^^^
+383-Oct 19 13:53:45 racknerd-f4e3456 python[3716545]:   File "/var/www/admin_bot/services/task_supervisor.py", line 456, in enqueue
+384-Oct 19 13:53:45 racknerd-f4e3456 python[3716545]:     return await self._db.write_transaction(
+385-Oct 19 13:53:45 racknerd-f4e3456 python[3716545]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+386-Oct 19 13:53:45 racknerd-f4e3456 python[3716545]:   File "/var/www/admin_bot/services/database.py", line 2488, in write_transaction
+387-Oct 19 13:53:45 racknerd-f4e3456 python[3716545]:     return await self._write_transaction_owned(op, op_name,
+388-Oct 19 13:53:45 racknerd-f4e3456 python[3716545]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+389-Oct 19 13:53:45 racknerd-f4e3456 python[3716545]:   File "/var/www/admin_bot/services/database.py", line 2596, in _write_transaction_owned
+390-Oct 19 13:53:45 racknerd-f4e3456 python[3716545]:     raise last_exc
+391-Oct 19 13:53:45 racknerd-f4e3456 python[3716545]:   File "/var/www/admin_bot/services/database.py", line 2573, in _write_transaction_owned
+392-Oct 19 13:53:45 racknerd-f4e3456 python[3716545]:     result = await op(self.db)
+393-Oct 19 13:53:45 racknerd-f4e3456 python[3716545]:              ^^^^^^^^^^^^^^^^^
+394-Oct 19 13:53:45 racknerd-f4e3456 python[3716545]:   File "/var/www/admin_bot/services/task_supervisor.py", line 438, in _body
+395-Oct 19 13:53:45 racknerd-f4e3456 python[3716545]:     await conn.execute(
+396-Oct 19 13:53:45 racknerd-f4e3456 python[3716545]:   File "/var/www/admin_bot/venv/lib/python3.12/site-packages/aiosqlite/core.py", line 223, in execute
+--
+410-Oct 19 13:53:50 racknerd-f4e3456 python[3716545]: 2026-10-19 13:53:50,576 - services.database - WARNING - database: lock exhausted | event=database_lock_exhausted | op=intent_heartbeat_liveness | attempts=4 | chat_id=None | error=database is locked
+411-Oct 19 13:53:50 racknerd-f4e3456 python[3716545]: NoneType: None
+412-Oct 19 13:53:50 racknerd-f4e3456 python[3716545]: 2026-10-19 13:53:50,579 - services.memory_maintenance - WARNING - [c06a] heartbeat liveness persist failed
+413:Oct 19 13:53:50 racknerd-f4e3456 python[3716545]: Traceback (most recent call last):
+414-Oct 19 13:53:50 racknerd-f4e3456 python[3716545]:   File "/var/www/admin_bot/services/memory_maintenance.py", line 161, in _persist_heartbeat_tick
+415-Oct 19 13:53:50 racknerd-f4e3456 python[3716545]:     await db.write_transaction(_body,
+416-Oct 19 13:53:50 racknerd-f4e3456 python[3716545]:   File "/var/www/admin_bot/services/database.py", line 2488, in write_transaction
+417-Oct 19 13:53:50 racknerd-f4e3456 python[3716545]:     return await self._write_transaction_owned(op, op_name,
+418-Oct 19 13:53:50 racknerd-f4e3456 python[3716545]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+419-Oct 19 13:53:50 racknerd-f4e3456 python[3716545]:   File "/var/www/admin_bot/services/database.py", line 2596, in _write_transaction_owned
+420-Oct 19 13:53:50 racknerd-f4e3456 python[3716545]:     raise last_exc
+421-Oct 19 13:53:50 racknerd-f4e3456 python[3716545]:   File "/var/www/admin_bot/services/database.py", line 2573, in _write_transaction_owned
+422-Oct 19 13:53:50 racknerd-f4e3456 python[3716545]:     result = await op(self.db)
+423-Oct 19 13:53:50 racknerd-f4e3456 python[3716545]:              ^^^^^^^^^^^^^^^^^
+424-Oct 19 13:53:50 racknerd-f4e3456 python[3716545]:   File "/var/www/admin_bot/services/memory_maintenance.py", line 151, in _body
+425-Oct 19 13:53:50 racknerd-f4e3456 python[3716545]:     await conn.execute(
+426-Oct 19 13:53:50 racknerd-f4e3456 python[3716545]:   File "/var/www/admin_bot/venv/lib/python3.12/site-packages/aiosqlite/core.py", line 223, in execute
+427-Oct 19 13:53:50 racknerd-f4e3456 python[3716545]:     cursor = await self._execute(self._conn.execute, sql, parameters)
+428-Oct 19 13:53:50 racknerd-f4e3456 python[3716545]:              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+429-Oct 19 13:53:50 racknerd-f4e3456 python[3716545]:   File "/var/www/admin_bot/venv/lib/python3.12/site-packages/aiosqlite/core.py", line 160, in _execute
+430-Oct 19 13:53:50 racknerd-f4e3456 python[3716545]:     return await future
+431-Oct 19 13:53:50 racknerd-f4e3456 python[3716545]:            ^^^^^^^^^^^^
+432-Oct 19 13:53:50 racknerd-f4e3456 python[3716545]:   File "/var/www/admin_bot/venv/lib/python3.12/site-packages/aiosqlite/core.py", line 63, in _connection_worker_thread
+433-Oct 19 13:53:50 racknerd-f4e3456 python[3716545]:     result = function()
+--
+448-Oct 19 13:54:16 racknerd-f4e3456 python[3716545]: 2026-10-19 13:54:16,360 - services.database - WARNING - database: lock exhausted | event=database_lock_exhausted | op=mca_events_flush | attempts=4 | chat_id=None | error=database is locked
+449-Oct 19 13:54:16 racknerd-f4e3456 python[3716545]: NoneType: None
+450-Oct 19 13:54:16 racknerd-f4e3456 python[3716545]: 2026-10-19 13:54:16,364 - services.mca_events - WARNING - [mca_events] flush failed — events -> bounded spool
+451:Oct 19 13:54:16 racknerd-f4e3456 python[3716545]: Traceback (most recent call last):
+452-Oct 19 13:54:16 racknerd-f4e3456 python[3716545]:   File "/var/www/admin_bot/services/mca_events.py", line 707, in flush_events
+453-Oct 19 13:54:16 racknerd-f4e3456 python[3716545]:     written = await db.write_transaction(_body, op_name="mca_events_flush")
+454-Oct 19 13:54:16 racknerd-f4e3456 python[3716545]:               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+455-Oct 19 13:54:16 racknerd-f4e3456 python[3716545]:   File "/var/www/admin_bot/services/database.py", line 2488, in write_transaction
+456-Oct 19 13:54:16 racknerd-f4e3456 python[3716545]:     return await self._write_transaction_owned(op, op_name,
+457-Oct 19 13:54:16 racknerd-f4e3456 python[3716545]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+458-Oct 19 13:54:16 racknerd-f4e3456 python[3716545]:   File "/var/www/admin_bot/services/database.py", line 2596, in _write_transaction_owned
+459-Oct 19 13:54:16 racknerd-f4e3456 python[3716545]:     raise last_exc
+460-Oct 19 13:54:16 racknerd-f4e3456 python[3716545]:   File "/var/www/admin_bot/services/database.py", line 2573, in _write_transaction_owned
+461-Oct 19 13:54:16 racknerd-f4e3456 python[3716545]:     result = await op(self.db)
+462-Oct 19 13:54:16 racknerd-f4e3456 python[3716545]:              ^^^^^^^^^^^^^^^^^
+463-Oct 19 13:54:16 racknerd-f4e3456 python[3716545]:   File "/var/www/admin_bot/services/mca_events.py", line 700, in _body
+464-Oct 19 13:54:16 racknerd-f4e3456 python[3716545]:     await _insert_event(conn, ev)
+465-Oct 19 13:54:16 racknerd-f4e3456 python[3716545]:   File "/var/www/admin_bot/services/mca_events.py", line 665, in _insert_event
+466-Oct 19 13:54:16 racknerd-f4e3456 python[3716545]:     await conn.execute(_MCA_EVENTS_INSERT_SQL,
+467-Oct 19 13:54:16 racknerd-f4e3456 python[3716545]:   File "/var/www/admin_bot/venv/lib/python3.12/site-packages/aiosqlite/core.py", line 223, in execute
+468-Oct 19 13:54:16 racknerd-f4e3456 python[3716545]:     cursor = await self._execute(self._conn.execute, sql, parameters)
+469-Oct 19 13:54:16 racknerd-f4e3456 python[3716545]:              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+470-Oct 19 13:54:16 racknerd-f4e3456 python[3716545]:   File "/var/www/admin_bot/venv/lib/python3.12/site-packages/aiosqlite/core.py", line 160, in _execute
+471-Oct 19 13:54:16 racknerd-f4e3456 python[3716545]:     return await future
+--
+481-Oct 19 13:54:21 racknerd-f4e3456 python[3716545]: 2026-10-19 13:54:21,402 - services.database - WARNING - database: lock exhausted | event=database_lock_exhausted | op=save_smart_message_identity | attempts=4 | chat_id=None | error=database is locked
+482-Oct 19 13:54:21 racknerd-f4e3456 python[3716545]: NoneType: None
+483-Oct 19 13:54:21 racknerd-f4e3456 python[3716545]: 2026-10-19 13:54:21,407 - handlers.summary - WARNING - SmartModule observer: save failed | chat=-1002661910336 user=479167456
+484:Oct 19 13:54:21 racknerd-f4e3456 python[3716545]: Traceback (most recent call last):
+485-Oct 19 13:54:21 racknerd-f4e3456 python[3716545]:   File "/var/www/admin_bot/handlers/summary.py", line 421, in summary_observer
+486-Oct 19 13:54:21 racknerd-f4e3456 python[3716545]:     await message_identity.save_live_message(
+487-Oct 19 13:54:21 racknerd-f4e3456 python[3716545]:   File "/var/www/admin_bot/services/message_identity.py", line 254, in save_live_message
+488-Oct 19 13:54:21 racknerd-f4e3456 python[3716545]:     return await db.save_smart_message_identity(rec)
+489-Oct 19 13:54:21 racknerd-f4e3456 python[3716545]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+490-Oct 19 13:54:21 racknerd-f4e3456 python[3716545]:   File "/var/www/admin_bot/services/database.py", line 7673, in save_smart_message_identity
+491-Oct 19 13:54:21 racknerd-f4e3456 python[3716545]:     message_id = await self.write_transaction(
+492-Oct 19 13:54:21 racknerd-f4e3456 python[3716545]:                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+493-Oct 19 13:54:21 racknerd-f4e3456 python[3716545]:   File "/var/www/admin_bot/services/database.py", line 2488, in write_transaction
+494-Oct 19 13:54:21 racknerd-f4e3456 python[3716545]:     return await self._write_transaction_owned(op, op_name,
+495-Oct 19 13:54:21 racknerd-f4e3456 python[3716545]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+496-Oct 19 13:54:21 racknerd-f4e3456 python[3716545]:   File "/var/www/admin_bot/services/database.py", line 2596, in _write_transaction_owned
+497-Oct 19 13:54:21 racknerd-f4e3456 python[3716545]:     raise last_exc
+498-Oct 19 13:54:21 racknerd-f4e3456 python[3716545]:   File "/var/www/admin_bot/services/database.py", line 2573, in _write_transaction_owned
+499-Oct 19 13:54:21 racknerd-f4e3456 python[3716545]:     result = await op(self.db)
+500-Oct 19 13:54:21 racknerd-f4e3456 python[3716545]:              ^^^^^^^^^^^^^^^^^
+501-Oct 19 13:54:21 racknerd-f4e3456 python[3716545]:   File "/var/www/admin_bot/services/database.py", line 7628, in _body
+502-Oct 19 13:54:21 racknerd-f4e3456 python[3716545]:     cur = await conn.execute(
+503-Oct 19 13:54:21 racknerd-f4e3456 python[3716545]:           ^^^^^^^^^^^^^^^^^^^
+504-Oct 19 13:54:21 racknerd-f4e3456 python[3716545]:   File "/var/www/admin_bot/venv/lib/python3.12/site-packages/aiosqlite/core.py", line 223, in execute
+--- 95a window ERR/CRIT count ---
+W95A_ERR=8
+=== 95B WAVE: markers ===
+WAVE_ERR=2
+WAVE_E402=0
+WAVE_SKIPS=0
+WAVE_RUNTIMEWARN=0
+WAVE_DB_LOCKED=4
+--- 95b wave ERROR/CRITICAL/Traceback (first 20) ---
+Oct 19 14:04:37 racknerd-f4e3456 python[3716545]: Traceback (most recent call last):
+Oct 19 14:05:37 racknerd-f4e3456 python[3716545]: Traceback (most recent call last):
+VA_ADAPT_LOG=1
+VA_NORMALIZE_LOG=2
+VA_EVENTS=1
+PGD_POSTGEN_LOG=0
+PGD_EVENTS=0
+VISION_DL_STAGE=0
+VISION_READABLE_RESCUE=0
+--- [vision] adapt lines (full, 95b wave) ---
+Oct 19 14:02:16 racknerd-f4e3456 python[3716545]: 2026-10-19 14:02:16,729 - services.image_normalize - INFO - [vision] adapt | in=1337017 | out=540078 | scale=0.90 | stage=B
+Oct 19 14:02:48 racknerd-f4e3456 python[3716545]: 2026-10-19 14:02:48,817 - services.mca_vision - INFO - [vision] adapt | strategy=optimize | reason=payload_over | calls=1 | status=failed | bytes=1337017 | pixels=3840000 | ms=34088
+--- [vision] postgen lines (full, 95b wave) ---
+--- [vision] normalize lines (95b wave) ---
+Oct 19 14:02:16 racknerd-f4e3456 python[3716545]: 2026-10-19 14:02:16,179 - services.image_normalize - INFO - [vision] normalize | codec=ffmpeg | in=1337017 | out=801992
+Oct 19 14:02:16 racknerd-f4e3456 python[3716545]: 2026-10-19 14:02:16,728 - services.image_normalize - INFO - [vision] normalize | codec=ffmpeg | in=1337017 | out=540078
+--- vision_media events (95b wave, tail 25) ---
+Oct 19 14:02:14 racknerd-f4e3456 python[3716545]: 2026-10-19 14:02:14,702 - services.mca_events - INFO - mca_event=vision_media | ts=1792418534 | event_name=vision_media | outcome=success | level=INFO | component=vision.media | stage=validate | chat_id=-1002661910336 | operation_id=da8fd691c856f1588e817234c861c701
+Oct 19 14:02:48 racknerd-f4e3456 python[3716545]: 2026-10-19 14:02:48,827 - services.mca_events - INFO - mca_event=vision_media | ts=1792418568 | event_name=vision_media | outcome=success | level=INFO | component=vision.media | stage=store | chat_id=-1002661910336 | operation_id=da8fd691c856f1588e817234c861c701
+Oct 19 14:02:48 racknerd-f4e3456 python[3716545]: 2026-10-19 14:02:48,828 - services.mca_events - INFO - mca_event=vision_media | ts=1792418568 | event_name=vision_media | outcome=success | level=INFO | component=vision.media | stage=project | chat_id=-1002661910336 | operation_id=da8fd691c856f1588e817234c861c701
+Oct 19 14:02:48 racknerd-f4e3456 python[3716545]: 2026-10-19 14:02:48,829 - services.mca_events - INFO - mca_event=vision_media | ts=1792418568 | event_name=vision_media | outcome=skipped | level=INFO | component=vision.media | stage=reindex | chat_id=-1002661910336 | operation_id=da8fd691c856f1588e817234c861c701
+Oct 19 14:02:48 racknerd-f4e3456 python[3716545]: 2026-10-19 14:02:48,832 - services.mca_events - INFO - mca_event=vision_media | ts=1792418568 | event_name=vision_media | outcome=success | level=INFO | component=vision.media | stage=consumers | chat_id=-1002661910336 | operation_id=da8fd691c856f1588e817234c861c701
+--- vision_adapt events (95b wave, tail 10) ---
+Oct 19 14:02:48 racknerd-f4e3456 python[3716545]: 2026-10-19 14:02:48,820 - services.mca_events - WARNING - mca_event=vision_adapt | ts=1792418568 | event_name=vision_adapt | outcome=failed | level=WARN | component=vision.media | stage=optimize | chat_id=-1002661910336 | error_json={"strategy": "optimize", "reason": "payload_over", "calls": 1, "error": ""}
+--- image_postgen_vision events (95b wave, tail 10) ---
+--- [image] lines (95b wave, tail 20) ---
+--- config updated lines (95b wave, tail 10) ---
+Oct 19 14:04:09 racknerd-f4e3456 python[3716545]: 2026-10-19 14:04:09,196 - web.api.routes - INFO - [api] config chat updated | chat=-1002661910336 | keys=2 | by=5885953495 | revalidated=False
+=== MIGRATIONS (95b wave) ===
+=== SQLITE READ-ONLY PROBE ===
+{
+ "user_version": [
+  {
+   "user_version": 36
+  }
+ ],
+ "analyses_by_status": [
+  {
+   "status": "failed",
+   "n": 28
+  },
+  {
+   "status": "ready",
+   "n": 14
+  },
+  {
+   "status": "running",
+   "n": 1
+  }
+ ],
+ "analyses_running": [
+  {
+   "id": 8,
+   "asset_id": "a32e03310af2c39fcd6a44d57972ca26",
+   "status": "running",
+   "revision": 1,
+   "analyzer_model": "nvidia/nemotron-3.5-super-vl:free",
+   "created_at": 1792401162,
+   "updated_at": 1792401162
+  }
+ ],
+ "jobs_vision_recent": [
+  {
+   "job_id": "2198210b00ef429daed3f2a01dd1ac43",
+   "owner": "vision.tool",
+   "kind": "vision.media",
+   "status": "completed",
+   "reason_code": null,
+   "attempt": 1,
+   "created_at": 1792418532,
+   "updated_at": 1792418568
+  },
+  {
+   "job_id": "942d45cbc1444fd7bc49fcc0e42f0b97",
+   "owner": "vision.media",
+   "kind": "vision.media",
+   "status": "completed",
+   "reason_code": null,
+   "attempt": 1,
+   "created_at": 1792418202,
+   "updated_at": 1792418225
+  },
+  {
+   "job_id": "0ba3e599a2c445d7bd380793d6cb12df",
+   "owner": "vision.media",
+   "kind": "vision.media",
+   "status": "completed",
+   "reason_code": null,
+   "attempt": 1,
+   "created_at": 1792418090,
+   "updated_at": 1792418143
+  },
+  {
+   "job_id": "38e594e6939444399369e700c960f32a",
+   "owner": "vision.media",
+   "kind": "vision.media",
+   "status": "completed",
+   "reason_code": null,
+   "attempt": 1,
+   "created_at": 1792417850,
+   "updated_at": 1792417864
+  },
+  {
+   "job_id": "541cf903d6af4128b79eec0e7659e0ff",
+   "owner": "vision.media",
+   "kind": "vision.media",
+   "status": "completed",
+   "reason_code": null,
+   "attempt": 1,
+   "created_at": 1792417850,
+   "updated_at": 1792417865
+  },
+  {
+   "job_id": "ca5669c64eae47609d1514d05743c717",
+   "owner": "vision.media",
+   "kind": "vision.media",
+   "status": "completed",
+   "reason_code": null,
+   "attempt": 1,
+   "created_at": 1792415580,
+   "updated_at": 1792415623
+  },
+  {
+   "job_id": "df8da3784e69414fb9b81f00d910684d",
+   "owner": "vision.media",
+   "kind": "vision.media",
+   "status": "completed",
+   "reason_code": null,
+   "attempt": 1,
+   "created_at": 1792415474,
+   "updated_at": 1792415550
+  },
+  {
+   "job_id": "cb51dae32ac541419b57f797ea0ddbcd",
+   "owner": "vision.media",
+   "kind": "vision.media",
+   "status": "completed",
+   "reason_code": null,
+   "attempt": 1,
+   "created_at": 1792415474,
+   "updated_at": 1792415532
+  },
+  {
+   "job_id": "7664502c201348fc92545e7f15f81cd7",
+   "owner": "vision.media",
+   "kind": "vision.media",
+   "status": "completed",
+   "reason_code": null,
+   "attempt": 1,
+   "created_at": 1792415474,
+   "updated_at": 1792415543
+  },
+  {
+   "job_id": "388eb73310614f39be76021762dac311",
+   "owner": "vision.media",
+   "kind": "vision.media",
+   "status": "completed",
+   "reason_code": null,
+   "attempt": 1,
+   "created_at": 1792415474,
+   "updated_at": 1792415558
+  },
+  {
+   "job_id": "f0236224942745909207a56f15c324dd",
+   "owner": "vision.media",
+   "kind": "vision.media",
+   "status": "completed",
+   "reason_code": null,
+   "attempt": 1,
+   "created_at": 1792415474,
+   "updated_at": 1792415623
+  },
+  {
+   "job_id": "c91be16ebb5748648f919414d75083e8",
+   "owner": "vision.media",
+   "kind": "vision.media",
+   "status": "completed",
+   "reason_code": null,
+   "attempt": 1,
+   "created_at": 1792414605,
+   "updated_at": 1792414728
+  }
+ ],
+ "events_recent": [
+  {
+   "ts": 1792418738,
+   "event_name": "image_postgen_vision",
+   "outcome": "skipped",
+   "level": "INFO",
+   "stage": null,
+   "reason_code": "deadline_exceeded",
+   "chat_id": -1002661910336
+  },
+  {
+   "ts": 1792418738,
+   "event_name": "vision_adapt",
+   "outcome": "failed",
+   "level": "WARN",
+   "stage": "optimize",
+   "reason_code": null,
+   "chat_id": -1002661910336
+  },
+  {
+   "ts": 1792418568,
+   "event_name": "vision_media",
+   "outcome": "success",
+   "level": "INFO",
+   "stage": "consumers",
+   "reason_code": null,
+   "chat_id": -1002661910336
+  },
+  {
+   "ts": 1792418568,
+   "event_name": "vision_media",
+   "outcome": "skipped",
+   "level": "INFO",
+   "stage": "reindex",
+   "reason_code": null,
+   "chat_id": -1002661910336
+  },
+  {
+   "ts": 1792418568,
+   "event_name": "vision_media",
+   "outcome": "success",
+   "level": "INFO",
+   "stage": "project",
+   "reason_code": null,
+   "chat_id": -1002661910336
+  },
+  {
+   "ts": 1792418568,
+   "event_name": "vision_media",
+   "outcome": "success",
+   "level": "INFO",
+   "stage": "store",
+   "reason_code": null,
+   "chat_id": -1002661910336
+  },
+  {
+   "ts": 1792418568,
+   "event_name": "vision_adapt",
+   "outcome": "failed",
+   "level": "WARN",
+   "stage": "optimize",
+   "reason_code": null,
+   "chat_id": -1002661910336
+  },
+  {
+   "ts": 1792418534,
+   "event_name": "vision_media",
+   "outcome": "success",
+   "level": "INFO",
+   "stage": "validate",
+   "reason_code": null,
+   "chat_id": -1002661910336
+  },
+  {
+   "ts": 1792418532,
+   "event_name": "vision_media",
+   "outcome": "success",
+   "level": "INFO",
+   "stage": "ingest",
+   "reason_code": null,
+   "chat_id": -1002661910336
+  },
+  {
+   "ts": 1792418225,
+   "event_name": "vision_media",
+   "outcome": "success",
+   "level": "INFO",
+   "stage": "consumers",
+   "reason_code": null,
+   "chat_id": -1002661910336
+  },
+  {
+   "ts": 1792418225,
+   "event_name": "vision_media",
+   "outcome": "skipped",
+   "level": "INFO",
+   "stage": "reindex",
+   "reason_code": null,
+   "chat_id": -1002661910336
+  },
+  {
+   "ts": 1792418225,
+   "event_name": "vision_media",
+   "outcome": "success",
+   "level": "INFO",
+   "stage": "project",
+   "reason_code": null,
+   "chat_id": -1002661910336
+  },
+  {
+   "ts": 1792418225,
+   "event_name": "vision_media",
+   "outcome": "success",
+   "level": "INFO",
+   "stage": "store",
+   "reason_code": null,
+   "chat_id": -1002661910336
+  },
+  {
+   "ts": 1792418225,
+   "event_name": "vision_adapt",
+   "outcome": "failed",
+   "level": "WARN",
+   "stage": "original",
+   "reason_code": null,
+   "chat_id": -1002661910336
+  },
+  {
+   "ts": 1792418204,
+   "event_name": "vision_media",
+   "outcome": "success",
+   "level": "INFO",
+   "stage": "validate",
+   "reason_code": null,
+   "chat_id": -1002661910336
+  },
+  {
+   "ts": 1792418143,
+   "event_name": "vision_media",
+   "outcome": "success",
+   "level": "INFO",
+   "stage": "consumers",
+   "reason_code": null,
+   "chat_id": -1002661910336
+  },
+  {
+   "ts": 1792418143,
+   "event_name": "vision_media",
+   "outcome": "skipped",
+   "level": "INFO",
+   "stage": "reindex",
+   "reason_code": null,
+   "chat_id": -1002661910336
+  },
+  {
+   "ts": 1792418143,
+   "event_name": "vision_media",
+   "outcome": "success",
+   "level": "INFO",
+   "stage": "project",
+   "reason_code": null,
+   "chat_id": -1002661910336
+  },
+  {
+   "ts": 1792418143,
+   "event_name": "vision_media",
+   "outcome": "success",
+   "level": "INFO",
+   "stage": "store",
+   "reason_code": null,
+   "chat_id": -1002661910336
+  },
+  {
+   "ts": 1792418143,
+   "event_name": "vision_adapt",
+   "outcome": "success",
+   "level": "INFO",
+   "stage": "original",
+   "reason_code": null,
+   "chat_id": -1002661910336
+  },
+  {
+   "ts": 1792418094,
+   "event_name": "vision_media",
+   "outcome": "success",
+   "level": "INFO",
+   "stage": "validate",
+   "reason_code": null,
+   "chat_id": -1002661910336
+  },
+  {
+   "ts": 1792418077,
+   "event_name": "image_postgen_vision",
+   "outcome": "skipped",
+   "level": "INFO",
+   "stage": null,
+   "reason_code": "deadline_exceeded",
+   "chat_id": -1002661910336
+  },
+  {
+   "ts": 1792418077,
+   "event_name": "vision_adapt",
+   "outcome": "failed",
+   "level": "WARN",
+   "stage": "optimize",
+   "reason_code": null,
+   "chat_id": -1002661910336
+  },
+  {
+   "ts": 1792417865,
+   "event_name": "vision_media",
+   "outcome": "success",
+   "level": "INFO",
+   "stage": "consumers",
+   "reason_code": null,
+   "chat_id": -1002661910336
+  },
+  {
+   "ts": 1792417865,
+   "event_name": "vision_media",
+   "outcome": "skipped",
+   "level": "INFO",
+   "stage": "reindex",
+   "reason_code": null,
+   "chat_id": -1002661910336
+  },
+  {
+   "ts": 1792417865,
+   "event_name": "vision_media",
+   "outcome": "success",
+   "level": "INFO",
+   "stage": "project",
+   "reason_code": null,
+   "chat_id": -1002661910336
+  },
+  {
+   "ts": 1792417865,
+   "event_name": "vision_media",
+   "outcome": "success",
+   "level": "INFO",
+   "stage": "store",
+   "reason_code": null,
+   "chat_id": -1002661910336
+  },
+  {
+   "ts": 1792417865,
+   "event_name": "vision_adapt",
+   "outcome": "success",
+   "level": "INFO",
+   "stage": "original",
+   "reason_code": null,
+   "chat_id": -1002661910336
+  },
+  {
+   "ts": 1792417864,
+   "event_name": "vision_media",
+   "outcome": "success",
+   "level": "INFO",
+   "stage": "consumers",
+   "reason_code": null,
+   "chat_id": -1002661910336
+  },
+  {
+   "ts": 1792417864,
+   "event_name": "vision_media",
+   "outcome": "skipped",
+   "level": "INFO",
+   "stage": "reindex",
+   "reason_code": null,
+   "chat_id": -1002661910336
+  },
+  {
+   "ts": 1792417864,
+   "event_name": "vision_media",
+   "outcome": "success",
+   "level": "INFO",
+   "stage": "project",
+   "reason_code": null,
+   "chat_id": -1002661910336
+  },
+  {
+   "ts": 1792417864,
+   "event_name": "vision_media",
+   "outcome": "success",
+   "level": "INFO",
+   "stage": "store",
+   "reason_code": null,
+   "chat_id": -1002661910336
+  },
+  {
+   "ts": 1792417864,
+   "event_name": "vision_adapt",
+   "outcome": "success",
+   "level": "INFO",
+   "stage": "original",
+   "reason_code": null,
+   "chat_id": -1002661910336
+  },
+  {
+   "ts": 1792417855,
+   "event_name": "vision_media",
+   "outcome": "success",
+   "level": "INFO",
+   "stage": "validate",
+   "reason_code": null,
+   "chat_id": -1002661910336
+  },
+  {
+   "ts": 1792417855,
+   "event_name": "vision_media",
+   "outcome": "success",
+   "level": "INFO",
+   "stage": "validate",
+   "reason_code": null,
+   "chat_id": -1002661910336
+  },
+  {
+   "ts": 1792415623,
+   "event_name": "vision_media",
+   "outcome": "success",
+   "level": "INFO",
+   "stage": "consumers",
+   "reason_code": null,
+   "chat_id": -1002661910336
+  },
+  {
+   "ts": 1792415623,
+   "event_name": "vision_media",
+   "outcome": "skipped",
+   "level": "INFO",
+   "stage": "reindex",
+   "reason_code": null,
+   "chat_id": -1002661910336
+  },
+  {
+   "ts": 1792415623,
+   "event_name": "vision_media",
+   "outcome": "success",
+   "level": "INFO",
+   "stage": "project",
+   "reason_code": null,
+   "chat_id": -1002661910336
+  },
+  {
+   "ts": 1792415623,
+   "event_name": "vision_media",
+   "outcome": "success",
+   "level": "INFO",
+   "stage": "store",
+   "reason_code": null,
+   "chat_id": -1002661910336
+  },
+  {
+   "ts": 1792415623,
+   "event_name": "vision_media",
+   "outcome": "success",
+   "level": "INFO",
+   "stage": "consumers",
+   "reason_code": null,
+   "chat_id": -1002661910336
+  }
+ ],
+ "mca_errors_today": [
+  {
+   "n": 4
+  }
+ ],
+ "image_reservations_sqlite_free": [
+  {
+   "n": 3176
+  }
+ ]
+}
+=== DONE ===
+[stderr] [sudo] password for nik:
+### FINAL (rc=0)
+MainPID=3716545
+NRestarts=0
+ExecMainStatus=0
+ActiveState=active
+SubState=running
+{"status":"ok","version":"2.58.95"}
+{"status":"ok","version":"2.58.95"}
+HEAD=113f3a629cab54f7fcc261349a7c9af3b90f56d7 TRACKED_MOD=0
+2026-10-19 14:06:41 UTC

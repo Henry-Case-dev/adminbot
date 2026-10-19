@@ -1,0 +1,60 @@
+{
+  "phase": "P6b-showcase-036",
+  "dead_keys": {
+    "limits.chat_budget_response_ratio": {
+      "present": true,
+      "title": "Доля бюджета: Response",
+      "group": "limits_chat_budgets",
+      "type": "float",
+      "honest_exact": true,
+      "description": "Доля контекста на сам ответ. Больше — место под ответ. Не влияет: значение сохраняется в конфиге, но рантайм его не читает."
+    },
+    "limits.chat_lock_max_entries": {
+      "present": true,
+      "title": "Потолок словаря замков",
+      "group": "limits_chat",
+      "type": "int",
+      "honest_exact": true,
+      "description": "Технический: сколько чатов держать в памяти замков. Обычно не трогать. Не влияет: значение сохраняется в конфиге, но рантайм его не читает."
+    },
+    "limits.dig_year_back_window_days": {
+      "present": true,
+      "title": "dig_into_lore: окно «N лет назад», дней",
+      "group": "limits_memory",
+      "type": "int",
+      "honest_exact": true,
+      "description": "Диапазон вокруг даты «N лет назад» в запросе без явного года (2 дня). Не влияет: значение сохраняется в конфиге, но рантайм его не читает."
+    },
+    "limits.youtube_transcript_proxy_locations": {
+      "present": true,
+      "title": "CSV-коды стран Webshare",
+      "group": "limits_youtube_proxy",
+      "type": "str",
+      "honest_exact": true,
+      "description": "Коды стран для прокси (например, de,us) — трафик будет выходить оттуда. Пусто — без ограничений. Не влияет: значение сохраняется в конфиге, но рантайм его не читает (фильтр по странам не применяется)."
+    },
+    "limits.youtube_transcript_proxy_retries": {
+      "present": true,
+      "title": "Повторы при блокировке (Webshare)",
+      "group": "limits_youtube_proxy",
+      "type": "int",
+      "honest_exact": true,
+      "description": "Сколько раз повторять запрос субтитров, если прокси заблокировали (пусто — дефолт библиотеки). Не влияет: значение сохраняется в конфиге, но рантайм его не читает (ретраи каскада заданы кодом)."
+    }
+  },
+  "honest_exact_count": 5,
+  "honest_any_count": 6,
+  "served": {
+    "appjs_status": 200,
+    "appjs_served_sha12": "44642c5a2b3e",
+    "appjs_disk_sha12": "44642c5a2b3e",
+    "appjs_same": true,
+    "css_status": 200,
+    "css_same": false,
+    "html_status": 200,
+    "html_version_count": 464,
+    "html_has_scope_label": true,
+    "html_eq_disk_substituted": false
+  },
+  "ok": true
+}

@@ -1,0 +1,362 @@
+{
+  "phase": "P7b-economics",
+  "budget_after": {
+    "http_ok": true,
+    "global_used": 22,
+    "global_limit": 200,
+    "global_cover_used": 2,
+    "chat_used": 17,
+    "chat_limit": 5,
+    "chat_day": "2026-10-19",
+    "chat_tz": "Asia/Yekaterinburg",
+    "chat_source": "global",
+    "reserve_path": "legacy",
+    "reserve_reason": "budgets_off",
+    "shared_used": 22,
+    "shared_limit": 200,
+    "requests": 6,
+    "success": 6,
+    "errors": 0,
+    "denied": 0,
+    "delivery_failed": 1,
+    "freq": {
+      "enabled": false,
+      "active": false,
+      "active_reason": "switch_off",
+      "mode": "per_user",
+      "burst": 3,
+      "cooldown_seconds": 300.0,
+      "source": "global",
+      "per_chat": {
+        "charges_left": 3,
+        "remaining_seconds": 0.0,
+        "next_available_at": null
+      },
+      "per_user": {
+        "charges_left": 3,
+        "remaining_seconds": 0.0,
+        "next_available_at": null,
+        "user_id": 5885953495
+      }
+    }
+  },
+  "reservations_since_start": [
+    {
+      "reservation_key": "-1002661910336:1166464:direct",
+      "chat_id": -1002661910336,
+      "source": "direct",
+      "status": "committed",
+      "error_code": "",
+      "delivery_failed": false,
+      "day": "<date>",
+      "created_at": "<datetime>"
+    },
+    {
+      "reservation_key": "-1002661910336:1166487:direct",
+      "chat_id": -1002661910336,
+      "source": "direct",
+      "status": "committed",
+      "error_code": "",
+      "delivery_failed": false,
+      "day": "<date>",
+      "created_at": "<datetime>"
+    }
+  ],
+  "usage_since_start": [
+    {
+      "step": "single",
+      "n": 8,
+      "cost": "<Decimal>",
+      "tokens": "<Decimal>"
+    },
+    {
+      "step": "l1_planner",
+      "n": 3,
+      "cost": "<Decimal>",
+      "tokens": "<Decimal>"
+    },
+    {
+      "step": "l2_writer",
+      "n": 3,
+      "cost": "<Decimal>",
+      "tokens": "<Decimal>"
+    },
+    {
+      "step": "image",
+      "n": 1,
+      "cost": "<Decimal>",
+      "tokens": "<Decimal>"
+    }
+  ],
+  "budget_rows_after": [
+    {
+      "day": "<date>",
+      "scope": "chat:-1002661910336",
+      "metric": "image_calls",
+      "used": 17
+    },
+    {
+      "day": "<date>",
+      "scope": "chat:1313107079",
+      "metric": "image_calls",
+      "used": 1
+    },
+    {
+      "day": "<date>",
+      "scope": "global",
+      "metric": "image_calls",
+      "used": 22
+    },
+    {
+      "day": "<date>",
+      "scope": "chat:-1002661910336",
+      "metric": "image_calls",
+      "used": 12
+    },
+    {
+      "day": "<date>",
+      "scope": "chat:-1009900000201",
+      "metric": "image_calls",
+      "used": 4
+    },
+    {
+      "day": "<date>",
+      "scope": "global",
+      "metric": "image_calls",
+      "used": 16
+    },
+    {
+      "day": "<date>",
+      "scope": "chat:-1002661910336",
+      "metric": "image_calls",
+      "used": 5
+    },
+    {
+      "day": "<date>",
+      "scope": "global",
+      "metric": "image_calls",
+      "used": 5
+    },
+    {
+      "day": "<date>",
+      "scope": "chat:-1002661910336",
+      "metric": "image_calls",
+      "used": 46
+    },
+    {
+      "day": "<date>",
+      "scope": "global",
+      "metric": "image_calls",
+      "used": 46
+    },
+    {
+      "day": "<date>",
+      "scope": "chat:-1002661910336",
+      "metric": "image_calls",
+      "used": 5
+    },
+    {
+      "day": "<date>",
+      "scope": "chat:-1004482340693",
+      "metric": "image_calls",
+      "used": 5
+    }
+  ],
+  "analyses_counts_after": [
+    {
+      "status": "failed",
+      "n": 28
+    },
+    {
+      "status": "ready",
+      "n": 14
+    },
+    {
+      "status": "running",
+      "n": 1
+    }
+  ],
+  "analyses_running_after": [
+    {
+      "id": 8,
+      "asset_id": "a32e03310af2c39fcd6a44d57972ca26",
+      "status": "running",
+      "revision": 1,
+      "created_at": 1792401162,
+      "updated_at": 1792401162
+    }
+  ],
+  "jobs_since_start": [
+    {
+      "job_id": "2198210b00ef429daed3f2a01dd1ac43",
+      "owner": "vision.tool",
+      "kind": "vision.media",
+      "status": "completed",
+      "reason_code": null,
+      "attempt": 1,
+      "created_at": 1792418532,
+      "updated_at": 1792418568
+    },
+    {
+      "job_id": "3fcfe6bdfae7447790b1a3af9fa148cb",
+      "owner": "asap8b01",
+      "kind": "initiative.observe",
+      "status": "completed",
+      "reason_code": null,
+      "attempt": 1,
+      "created_at": 1792418599,
+      "updated_at": 1792418617
+    }
+  ],
+  "events_since_start": [
+    {
+      "ts": 1792418515,
+      "event_name": "WATCHDOG_SWEEP",
+      "outcome": "success",
+      "level": "INFO",
+      "component": "watchdog",
+      "stage": "sweep",
+      "reason_code": null,
+      "chat_id": null,
+      "error_json": null
+    },
+    {
+      "ts": 1792418534,
+      "event_name": "vision_media",
+      "outcome": "success",
+      "level": "INFO",
+      "component": "vision.media",
+      "stage": "validate",
+      "reason_code": null,
+      "chat_id": -1002661910336,
+      "error_json": null
+    },
+    {
+      "ts": 1792418568,
+      "event_name": "vision_adapt",
+      "outcome": "failed",
+      "level": "WARN",
+      "component": "vision.media",
+      "stage": "optimize",
+      "reason_code": null,
+      "chat_id": -1002661910336,
+      "error_json": "{\"strategy\": \"optimize\", \"reason\": \"payload_over\", \"calls\": 1, \"error\": \"\"}"
+    },
+    {
+      "ts": 1792418568,
+      "event_name": "vision_media",
+      "outcome": "success",
+      "level": "INFO",
+      "component": "vision.media",
+      "stage": "store",
+      "reason_code": null,
+      "chat_id": -1002661910336,
+      "error_json": null
+    },
+    {
+      "ts": 1792418568,
+      "event_name": "vision_media",
+      "outcome": "success",
+      "level": "INFO",
+      "component": "vision.media",
+      "stage": "project",
+      "reason_code": null,
+      "chat_id": -1002661910336,
+      "error_json": null
+    },
+    {
+      "ts": 1792418568,
+      "event_name": "vision_media",
+      "outcome": "skipped",
+      "level": "INFO",
+      "component": "vision.media",
+      "stage": "reindex",
+      "reason_code": null,
+      "chat_id": -1002661910336,
+      "error_json": null
+    },
+    {
+      "ts": 1792418568,
+      "event_name": "vision_media",
+      "outcome": "success",
+      "level": "INFO",
+      "component": "vision.media",
+      "stage": "consumers",
+      "reason_code": null,
+      "chat_id": -1002661910336,
+      "error_json": null
+    },
+    {
+      "ts": 1792418575,
+      "event_name": "WATCHDOG_SWEEP",
+      "outcome": "success",
+      "level": "INFO",
+      "component": "watchdog",
+      "stage": "sweep",
+      "reason_code": null,
+      "chat_id": null,
+      "error_json": null
+    },
+    {
+      "ts": 1792418577,
+      "event_name": "ingestion_live",
+      "outcome": "success",
+      "level": "INFO",
+      "component": "ingestion",
+      "stage": null,
+      "reason_code": null,
+      "chat_id": -1002661910336,
+      "error_json": null
+    },
+    {
+      "ts": 1792418607,
+      "event_name": "initiative_observer_scan",
+      "outcome": "success",
+      "level": "INFO",
+      "component": "initiative",
+      "stage": "observed",
+      "reason_code": null,
+      "chat_id": null,
+      "error_json": null
+    },
+    {
+      "ts": 1792418636,
+      "event_name": "WATCHDOG_SWEEP",
+      "outcome": "success",
+      "level": "INFO",
+      "component": "watchdog",
+      "stage": "sweep",
+      "reason_code": null,
+      "chat_id": null,
+      "error_json": null
+    },
+    {
+      "ts": 1792418696,
+      "event_name": "WATCHDOG_SWEEP",
+      "outcome": "success",
+      "level": "INFO",
+      "component": "watchdog",
+      "stage": "sweep",
+      "reason_code": null,
+      "chat_id": null,
+      "error_json": null
+    }
+  ],
+  "user_version_after": [
+    {
+      "user_version": 36
+    }
+  ],
+  "mca_errors_since_start": [
+    {
+      "n": 0
+    }
+  ],
+  "orphan_detail": [],
+  "orphan_classification": [
+    {
+      "verdict": "no_running_rows"
+    }
+  ],
+  "ok": true
+}

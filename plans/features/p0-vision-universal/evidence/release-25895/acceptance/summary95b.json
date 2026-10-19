@@ -1,0 +1,119 @@
+{
+  "start_epoch": 1792418496,
+  "now_utc": "2026-10-19 14:06:04",
+  "phases": {
+    "p0b": true,
+    "p3b": false,
+    "p4b": false,
+    "p5b": true,
+    "p6b": true,
+    "p7b": true,
+    "p8b": true,
+    "final_restore": null
+  },
+  "tools_called": [
+    "recognize_image",
+    "download_media",
+    "recognize_image"
+  ],
+  "provider_calls": [
+    "post"
+  ],
+  "vision_transport_calls": [
+    {
+      "ts": 1792418531.425882,
+      "data_url_chars": 4518,
+      "model": "nvidia/nemotron-3.5-super-vl:free"
+    },
+    {
+      "ts": 1792418718.9357839,
+      "data_url_chars": 139611,
+      "model": "nvidia/nemotron-3.5-super-vl:free"
+    }
+  ],
+  "postgen": [
+    {
+      "status": "pending",
+      "reason": "deadline_exceeded",
+      "detail": "",
+      "visible_reason": "",
+      "has_content": false,
+      "description_len": 0,
+      "description_head": "",
+      "ocr_blocks": 0,
+      "cache_hit": false,
+      "bytes_in": 1037752
+    }
+  ],
+  "sends": [
+    {
+      "kind": "document",
+      "chat_id": -1002661910336,
+      "message_id": 1166482,
+      "caption_head": "🧪 Приёмка 2.58.95b · фикстура vision-adapt (длинный PNG-скриншот, >700 КБ)"
+    },
+    {
+      "kind": "message",
+      "chat_id": -1002661910336,
+      "message_id": 1166483,
+      "text_head": "🧪 Приёмка 2.58.95b · вопрос по фикстуре (turn 1)",
+      "text_full": "🧪 Приёмка 2.58.95b · вопрос по фикстуре (turn 1)",
+      "text_len": 48,
+      "reply_to": null
+    },
+    {
+      "kind": "message",
+      "chat_id": -1002661910336,
+      "message_id": 1166485,
+      "text_head": "Картинку распознать не успели - таймаут вышел, так что там за файл, я без понятия. Скинь ещё раз или опиши словами",
+      "text_full": "Картинку распознать не успели - таймаут вышел, так что там за файл, я без понятия. Скинь ещё раз или опиши словами",
+      "text_len": 114,
+      "reply_to": 1166483
+    },
+    {
+      "kind": "message",
+      "chat_id": -1002661910336,
+      "message_id": 1166486,
+      "text_head": "🧪 Приёмка 2.58.95b · вопрос по фикстуре (turn 2)",
+      "text_full": "🧪 Приёмка 2.58.95b · вопрос по фикстуре (turn 2)",
+      "text_len": 48,
+      "reply_to": null
+    },
+    {
+      "kind": "message",
+      "chat_id": -1002661910336,
+      "message_id": 1166487,
+      "text_head": "Файл не открылся - ссылка битая, а распознавание не успело до дедлайна. Так что что там на картинке, я без понятия",
+      "text_full": "Файл не открылся - ссылка битая, а распознавание не успело до дедлайна. Так что что там на картинке, я без понятия",
+      "text_len": 114,
+      "reply_to": 1166486
+    },
+    {
+      "kind": "photo",
+      "chat_id": -1002661910336,
+      "message_id": 1166489,
+      "bytes": 1037752,
+      "sha12": "0f7bc44fc2e0",
+      "caption_head": "",
+      "reply_to": 1166487
+    },
+    {
+      "kind": "message",
+      "chat_id": -1002661910336,
+      "message_id": 1166491,
+      "text_head": "Апельсин ушёл в чат, но квота на генерацию картинок на сегодня выжрана досуха - так что смотреть на него будешь ты, а я даже не в курсе, что там получилось",
+      "text_full": "Апельсин ушёл в чат, но квота на генерацию картинок на сегодня выжрана досуха - так что смотреть на него будешь ты, а я даже не в курсе, что там получилось",
+      "text_len": 155,
+      "reply_to": 1166487
+    },
+    {
+      "kind": "message",
+      "chat_id": -1002661910336,
+      "message_id": 1166495,
+      "text_head": "На сегодня картинки закончились: суточный лимит выбран. Не жадность, а квота - обнулится с новым днём, тогда нарисуем.",
+      "text_full": "На сегодня картинки закончились: суточный лимит выбран. Не жадность, а квота - обнулится с новым днём, тогда нарисуем.",
+      "text_len": 118,
+      "reply_to": 1166491
+    }
+  ]
+}

@@ -1,0 +1,735 @@
+[runner] connected nik@198.46.175.136
+### RECON (rc=0)
+2026-10-19 13:46:55 UTC
+HEAD=113f3a629cab54f7fcc261349a7c9af3b90f56d7 BRANCH=master TRACKED_MOD=0
+MainPID=3716545
+NRestarts=0
+ActiveState=active
+SubState=running
+PROD_USER=root
+{"status":"ok","version":"2.58.95"}
+{"status":"ok","version":"2.58.95"}
+PIL=Traceback (most recent call last): Fil
+FFMPEG=/usr/bin/ffmpeg
+/dev/vda2        24G   16G  7.2G  68% /
+### HARNESS_USER_CHECK (rc=0)
+PUSER=[root]
+[runner] harness_sudo=True
+### NIK_READABLE (rc=0) NIK_READABLE=1
+[runner] uploaded accept95_base.py -> /tmp/accept95_base.py (31035 bytes)
+[runner] uploaded accept95_live.py -> /tmp/accept95_live.py (48717 bytes)
+[runner] uploaded accept95_clean.py -> /tmp/accept95_clean.py (10040 bytes)
+[runner] uploaded accept95_journal.sh -> /tmp/accept95_journal.sh (3609 bytes)
+[runner] uploaded accept95_dbcheck.py -> /tmp/accept95_dbcheck.py (2147 bytes)
+[runner] uploaded fixture-95.png -> /tmp/accept95/fixture.png (1337017 bytes)
+[runner] uploaded fixture-ground-truth.json -> /tmp/accept95/fixture-ground-truth.json (1016 bytes)
+### UPLOAD (ok)
+### VERIFY_UPLOAD (rc=0)
+3be6d6d68c25ebbd28e70f5377d299fa4902262a0748eb5c355cb5943d32d4a4 fixture.png
+1ba6f433750158a8b757ff9bbc1e46e1de034f90d3600157d2e9bb38e80dd614 fixture-ground-truth.json
+[stderr] sha256sum: accept95_base.py: No such file or directory
+sha256sum: accept95_live.py: No such file or directory
+sha256sum: accept95_clean.py: No such file or directory
+### CLEAN_EVID (rc=0)
+CLEANED=1
+[stderr] [sudo] password for nik:
+### KILL_STALE (rc=0)
+CLEAR
+[stderr] [sudo] password for nik:
+[runner] WAVE_SINCE=2026-10-19 13:47:17
+### START (rc=0)
+STARTED_PID=3724697
+[stderr] [sudo] password for nik:
+### VERIFY_START (rc=0)
+OUT_LINES=2
+PROC_RUNNING
+[stderr] [sudo] password for nik:
+[poll 1] WAIT
+[poll 7] WAIT
+[poll 13] WAIT
+[poll 19] WAIT
+[poll 25] WAIT
+[poll 31] WAIT
+[poll 37] WAIT
+[runner] finished=True
+### LIVE_TAIL (rc=0)
+50 /tmp/accept95/live.out
+ACC95 START_EPOCH | 1792417638
+ACC95 NOW_UTC | 2026-10-19 13:47:18
+ACC95 BOT INFO | session=local_bot_api (download_enabled=1)
+ACC95 BOOT | version=? vec=True bot=8802473181 pg=True
+ACC95 OVERRIDES | touched={"flags.budgets_enabled": false, "flags.vision_enabled": true} total_keys=25
+ACC95 SAVE INFO | p0-pre-state.json (17514 bytes)
+ACC95 P0 | done ok=True
+ACC95 SAVE INFO | p1-fixture-doc.json (1235 bytes)
+ACC95 P1 | done mid=1166463 asset=8243b03ad0f159dbd234129c36b67939 precheck_ok=True
+ACC95 CFG | vision-off http=200 body={"updated": ["flags.vision_enabled"], "chat_id": -1002661910336, "revalidated": false, "updated_at": "2026-10-19T13:47:37.895846+00:00"}
+ACC95 SAVE INFO | p2-vision-off.json (6947 bytes)
+ACC95 P2 | done ok=True reason=vision_disabled direct=disabled transport=0
+ACC95 RESTORE | vision-on changed={"flags.vision_enabled": true}
+ACC95 P3 | capability probe (bounded)
+ACC95 SAVE INFO | p3-vision-on-adapt.json (6697 bytes)
+ACC95 P3 | done status=None tool1=None desc_len=None adapt=False gt_found=0
+ACC95 CFG | gen-premise http=200 body={"updated": ["flags.budgets_enabled", "limits.image_daily_limit"], "chat_id": -1002661910336, "revalidated": false, "updated_at": "2026-10-19T13:53:04.332242+00:00"}
+ACC95 FATAL | InterfaceError: the server expects 2 arguments for this query, 1 was passed
+HINT:  Check the query against the passed list of arguments.
+Traceback (most recent call last):
+  File "/tmp/accept95_live.py", line 118, in main
+    results["p4"] = await phase4_generation(base)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/accept95_live.py", line 636, in phase4_generation
+    res["pg_reservations_after_gen1"] = await base.pg_fetch(
+                                        ^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/accept95_base.py", line 242, in pg_fetch
+    rows = await conn.fetch(sql, *args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/var/www/admin_bot/venv/lib/python3.12/site-packages/asyncpg/connection.py", line 694, in fetch
+    return await self._execute(
+           ^^^^^^^^^^^^^^^^^^^^
+  File "/var/www/admin_bot/venv/lib/python3.12/site-packages/asyncpg/connection.py", line 1873, in _execute
+    result, _ = await self.__execute(
+                ^^^^^^^^^^^^^^^^^^^^^
+  File "/var/www/admin_bot/venv/lib/python3.12/site-packages/asyncpg/connection.py", line 1970, in __execute
+    result, stmt = await self._do_execute(
+                   ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/var/www/admin_bot/venv/lib/python3.12/site-packages/asyncpg/connection.py", line 2036, in _do_execute
+    result = await executor(stmt, timeout)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "asyncpg/protocol/protocol.pyx", line 184, in bind_execute
+  File "asyncpg/protocol/prepared_stmt.pyx", line 149, in asyncpg.protocol.protocol.PreparedStatementState._encode_bind_msg
+asyncpg.exceptions._base.InterfaceError: the server expects 2 arguments for this query, 1 was passed
+HINT:  Check the query against the passed list of arguments.
+ACC95 RESTORE | final-safety changed={"flags.budgets_enabled": false, "limits.image_daily_limit": "<removed>"}
+ACC95 FLUSH | mca_events flushed=56
+ACC95 SAVE INFO | summary.json (2505 bytes)
+ACC95 DONE | evidence=/tmp/accept95/evidence
+ACC95 RC=0
+[stderr] [sudo] password for nik:
+[download] /tmp/accept95_cleanup_mids.json failed FileNotFoundError
+[runner] downloaded evidence (pass 1): p2-vision-off.json, p1-fixture-doc.json, p3-vision-on-adapt.json, p0-pre-state.json, summary.json
+### JOURNAL (rc=0)
+=== NOW ===
+2026-10-19T13:55:16Z
+WAVE_SINCE=[2026-10-19 13:47:17] DEPLOY_T0=[2026-10-19 13:07:43]
+=== SERVICE ===
+MainPID=3716545 NRestarts=0 ExecMainStartTimestamp=Mon 2026-10-19 13:07:57 UTC ExecMainStatus=0 ActiveState=active SubState=running 
+USER=root
+{"status":"ok","version":"2.58.95"}
+{"status":"ok","version":"2.58.95"}
+=== WAVE WINDOW: ERR/CRIT/TB/402/SKIPS ===
+WAVE_ERR=8
+WAVE_E402=0
+WAVE_SKIPS=0
+WAVE_RUNTIMEWARN=0
+WAVE_DB_LOCKED=12
+--- wave ERROR/CRITICAL/Traceback lines (first 20) ---
+Oct 19 13:53:44 racknerd-f4e3456 python[3716545]: 2026-10-19 13:53:44,688 - aiogram.event - ERROR - Cause exception while process update id=873215133 by bot id=8802473181
+Oct 19 13:53:44 racknerd-f4e3456 python[3716545]: Traceback (most recent call last):
+Oct 19 13:53:45 racknerd-f4e3456 python[3716545]: 2026-10-19 13:53:45,030 - aiogram.event - ERROR - Cause exception while process update id=873215134 by bot id=8802473181
+Oct 19 13:53:45 racknerd-f4e3456 python[3716545]: Traceback (most recent call last):
+Oct 19 13:53:45 racknerd-f4e3456 python[3716545]: Traceback (most recent call last):
+Oct 19 13:53:50 racknerd-f4e3456 python[3716545]: Traceback (most recent call last):
+Oct 19 13:54:16 racknerd-f4e3456 python[3716545]: Traceback (most recent call last):
+Oct 19 13:54:21 racknerd-f4e3456 python[3716545]: Traceback (most recent call last):
+=== WAVE: VISION-ADAPT / POSTGEN markers ===
+VA_ADAPT_LOG=2
+VA_NORMALIZE_LOG=0
+VA_PREP_LOG=0
+VA_EVENTS=2
+PGD_POSTGEN_LOG=0
+PGD_EVENTS=0
+IMG_GENERATED=0
+IMG_RESERVE_DENIED=0
+IMG_RESERVE_REPLAY=0
+VISION_DL_STAGE=0
+VISION_READABLE_RESCUE=0
+--- [vision] adapt lines (full, wave) ---
+Oct 19 13:51:04 racknerd-f4e3456 python[3716545]: 2026-10-19 13:51:04,015 - services.mca_vision - INFO - [vision] adapt | strategy=original | reason=fits | calls=1 | status=ready | bytes=180500 | pixels=2694240 | ms=8792
+Oct 19 13:51:05 racknerd-f4e3456 python[3716545]: 2026-10-19 13:51:05,471 - services.mca_vision - INFO - [vision] adapt | strategy=original | reason=fits | calls=1 | status=ready | bytes=185110 | pixels=2678994 | ms=9906
+--- [vision] postgen lines (full, wave) ---
+--- [vision] normalize lines (wave) ---
+--- vision_media events (wave, tail 20) ---
+Oct 19 13:50:55 racknerd-f4e3456 python[3716545]: 2026-10-19 13:50:55,197 - services.mca_events - INFO - mca_event=vision_media | ts=1792417855 | event_name=vision_media | outcome=success | level=INFO | component=vision.media | stage=validate | chat_id=-1002661910336 | operation_id=8b3d4974eb4989a4464ee5f49bb7abb1
+Oct 19 13:50:55 racknerd-f4e3456 python[3716545]: 2026-10-19 13:50:55,201 - services.mca_events - INFO - mca_event=vision_media | ts=1792417855 | event_name=vision_media | outcome=success | level=INFO | component=vision.media | stage=validate | chat_id=-1002661910336 | operation_id=841c87b08c35884d04519dae3c336d11
+Oct 19 13:51:04 racknerd-f4e3456 python[3716545]: 2026-10-19 13:51:04,044 - services.mca_events - INFO - mca_event=vision_media | ts=1792417864 | event_name=vision_media | outcome=success | level=INFO | component=vision.media | stage=store | chat_id=-1002661910336 | operation_id=8b3d4974eb4989a4464ee5f49bb7abb1
+Oct 19 13:51:04 racknerd-f4e3456 python[3716545]: 2026-10-19 13:51:04,046 - services.mca_events - INFO - mca_event=vision_media | ts=1792417864 | event_name=vision_media | outcome=success | level=INFO | component=vision.media | stage=project | chat_id=-1002661910336 | operation_id=8b3d4974eb4989a4464ee5f49bb7abb1
+Oct 19 13:51:04 racknerd-f4e3456 python[3716545]: 2026-10-19 13:51:04,048 - services.mca_events - INFO - mca_event=vision_media | ts=1792417864 | event_name=vision_media | outcome=skipped | level=INFO | component=vision.media | stage=reindex | chat_id=-1002661910336 | operation_id=8b3d4974eb4989a4464ee5f49bb7abb1
+Oct 19 13:51:04 racknerd-f4e3456 python[3716545]: 2026-10-19 13:51:04,050 - services.mca_events - INFO - mca_event=vision_media | ts=1792417864 | event_name=vision_media | outcome=success | level=INFO | component=vision.media | stage=consumers | chat_id=-1002661910336 | operation_id=8b3d4974eb4989a4464ee5f49bb7abb1
+Oct 19 13:51:05 racknerd-f4e3456 python[3716545]: 2026-10-19 13:51:05,476 - services.mca_events - INFO - mca_event=vision_media | ts=1792417865 | event_name=vision_media | outcome=success | level=INFO | component=vision.media | stage=store | chat_id=-1002661910336 | operation_id=841c87b08c35884d04519dae3c336d11
+Oct 19 13:51:05 racknerd-f4e3456 python[3716545]: 2026-10-19 13:51:05,477 - services.mca_events - INFO - mca_event=vision_media | ts=1792417865 | event_name=vision_media | outcome=success | level=INFO | component=vision.media | stage=project | chat_id=-1002661910336 | operation_id=841c87b08c35884d04519dae3c336d11
+Oct 19 13:51:05 racknerd-f4e3456 python[3716545]: 2026-10-19 13:51:05,477 - services.mca_events - INFO - mca_event=vision_media | ts=1792417865 | event_name=vision_media | outcome=skipped | level=INFO | component=vision.media | stage=reindex | chat_id=-1002661910336 | operation_id=841c87b08c35884d04519dae3c336d11
+Oct 19 13:51:05 racknerd-f4e3456 python[3716545]: 2026-10-19 13:51:05,478 - services.mca_events - INFO - mca_event=vision_media | ts=1792417865 | event_name=vision_media | outcome=success | level=INFO | component=vision.media | stage=consumers | chat_id=-1002661910336 | operation_id=841c87b08c35884d04519dae3c336d11
+Oct 19 13:54:54 racknerd-f4e3456 python[3716545]: 2026-10-19 13:54:54,728 - services.mca_events - INFO - mca_event=vision_media | ts=1792418094 | event_name=vision_media | outcome=success | level=INFO | component=vision.media | stage=validate | chat_id=-1002661910336 | operation_id=a88867d9ba305b7232359a08d6a536de
+--- vision_adapt events (wave, tail 10) ---
+Oct 19 13:51:04 racknerd-f4e3456 python[3716545]: 2026-10-19 13:51:04,021 - services.mca_events - INFO - mca_event=vision_adapt | ts=1792417864 | event_name=vision_adapt | outcome=success | level=INFO | component=vision.media | stage=original | chat_id=-1002661910336 | error_json={"strategy": "original", "reason": "fits", "calls": 1, "error": ""}
+Oct 19 13:51:05 racknerd-f4e3456 python[3716545]: 2026-10-19 13:51:05,472 - services.mca_events - INFO - mca_event=vision_adapt | ts=1792417865 | event_name=vision_adapt | outcome=success | level=INFO | component=vision.media | stage=original | chat_id=-1002661910336 | error_json={"strategy": "original", "reason": "fits", "calls": 1, "error": ""}
+--- image_postgen_vision events (wave, tail 10) ---
+--- [image] lines (wave, tail 20) ---
+=== DEPLOY T0 baseline (ERR/402/SKIPS since 2.58.95 T0) ===
+T0_ERR=11
+T0_E402=0
+T0_SKIPS=0
+T0_RUNTIMEWARN=0
+--- T0 ERR lines (first 12) ---
+Oct 19 13:07:43 racknerd-f4e3456 python[3657672]: 2026-10-19 13:07:43,987 - apscheduler.executors.default - ERROR - Job "SummarySchedulerService._tick (trigger: cron[hour='0,6,12,18', minute='0'], next run at: 2026-10-20 00:00:00 +05)" raised an exception
+Oct 19 13:07:43 racknerd-f4e3456 python[3657672]: Traceback (most recent call last):
+Oct 19 13:09:19 racknerd-f4e3456 python[3716545]: 2026-10-19 13:09:19,806 - services.mca_events - ERROR - mca_event=INCIDENT | ts=1792415359 | event_name=INCIDENT | outcome=success | level=ERROR | component=incidents | stage=takeover | reason_code=incident_opened | entity_ids=["inc_9b7b2d37fac24d45871f856708b1035a"] | pipeline_type=summary
+Oct 19 13:53:44 racknerd-f4e3456 python[3716545]: 2026-10-19 13:53:44,688 - aiogram.event - ERROR - Cause exception while process update id=873215133 by bot id=8802473181
+Oct 19 13:53:44 racknerd-f4e3456 python[3716545]: Traceback (most recent call last):
+Oct 19 13:53:45 racknerd-f4e3456 python[3716545]: 2026-10-19 13:53:45,030 - aiogram.event - ERROR - Cause exception while process update id=873215134 by bot id=8802473181
+Oct 19 13:53:45 racknerd-f4e3456 python[3716545]: Traceback (most recent call last):
+Oct 19 13:53:45 racknerd-f4e3456 python[3716545]: Traceback (most recent call last):
+Oct 19 13:53:50 racknerd-f4e3456 python[3716545]: Traceback (most recent call last):
+Oct 19 13:54:16 racknerd-f4e3456 python[3716545]: Traceback (most recent call last):
+Oct 19 13:54:21 racknerd-f4e3456 python[3716545]: Traceback (most recent call last):
+=== MIGRATIONS (wave) ===
+=== SQLITE READ-ONLY PROBE ===
+{
+ "user_version": [
+  {
+   "user_version": 36
+  }
+ ],
+ "analyses_by_status": [
+  {
+   "status": "failed",
+   "n": 26
+  },
+  {
+   "status": "ready",
+   "n": 13
+  },
+  {
+   "status": "running",
+   "n": 2
+  }
+ ],
+ "analyses_running": [
+  {
+   "id": 8,
+   "asset_id": "a32e03310af2c39fcd6a44d57972ca26",
+   "status": "running",
+   "revision": 1,
+   "analyzer_model": "nvidia/nemotron-3.5-super-vl:free",
+   "created_at": 1792401162,
+   "updated_at": 1792401162
+  },
+  {
+   "id": 41,
+   "asset_id": "a88867d9ba305b7232359a08d6a536de",
+   "status": "running",
+   "revision": 1,
+   "analyzer_model": "nvidia/nemotron-3.5-super-vl:free",
+   "created_at": 1792418094,
+   "updated_at": 1792418094
+  }
+ ],
+ "jobs_vision_recent": [
+  {
+   "job_id": "0ba3e599a2c445d7bd380793d6cb12df",
+   "owner": "vision.media",
+   "kind": "vision.media",
+   "status": "running",
+   "reason_code": null,
+   "attempt": 1,
+   "created_at": 1792418090,
+   "updated_at": 1792418094
+  },
+  {
+   "job_id": "38e594e6939444399369e700c960f32a",
+   "owner": "vision.media",
+   "kind": "vision.media",
+   "status": "completed",
+   "reason_code": null,
+   "attempt": 1,
+   "created_at": 1792417850,
+   "updated_at": 1792417864
+  },
+  {
+   "job_id": "541cf903d6af4128b79eec0e7659e0ff",
+   "owner": "vision.media",
+   "kind": "vision.media",
+   "status": "completed",
+   "reason_code": null,
+   "attempt": 1,
+   "created_at": 1792417850,
+   "updated_at": 1792417865
+  },
+  {
+   "job_id": "ca5669c64eae47609d1514d05743c717",
+   "owner": "vision.media",
+   "kind": "vision.media",
+   "status": "completed",
+   "reason_code": null,
+   "attempt": 1,
+   "created_at": 1792415580,
+   "updated_at": 1792415623
+  },
+  {
+   "job_id": "df8da3784e69414fb9b81f00d910684d",
+   "owner": "vision.media",
+   "kind": "vision.media",
+   "status": "completed",
+   "reason_code": null,
+   "attempt": 1,
+   "created_at": 1792415474,
+   "updated_at": 1792415550
+  },
+  {
+   "job_id": "cb51dae32ac541419b57f797ea0ddbcd",
+   "owner": "vision.media",
+   "kind": "vision.media",
+   "status": "completed",
+   "reason_code": null,
+   "attempt": 1,
+   "created_at": 1792415474,
+   "updated_at": 1792415532
+  },
+  {
+   "job_id": "7664502c201348fc92545e7f15f81cd7",
+   "owner": "vision.media",
+   "kind": "vision.media",
+   "status": "completed",
+   "reason_code": null,
+   "attempt": 1,
+   "created_at": 1792415474,
+   "updated_at": 1792415543
+  },
+  {
+   "job_id": "388eb73310614f39be76021762dac311",
+   "owner": "vision.media",
+   "kind": "vision.media",
+   "status": "completed",
+   "reason_code": null,
+   "attempt": 1,
+   "created_at": 1792415474,
+   "updated_at": 1792415558
+  },
+  {
+   "job_id": "f0236224942745909207a56f15c324dd",
+   "owner": "vision.media",
+   "kind": "vision.media",
+   "status": "completed",
+   "reason_code": null,
+   "attempt": 1,
+   "created_at": 1792415474,
+   "updated_at": 1792415623
+  },
+  {
+   "job_id": "c91be16ebb5748648f919414d75083e8",
+   "owner": "vision.media",
+   "kind": "vision.media",
+   "status": "completed",
+   "reason_code": null,
+   "attempt": 1,
+   "created_at": 1792414605,
+   "updated_at": 1792414728
+  },
+  {
+   "job_id": "551d46acbe8a4bf6a1f574952bae21c0",
+   "owner": "vision.media",
+   "kind": "vision.media",
+   "status": "completed",
+   "reason_code": null,
+   "attempt": 1,
+   "created_at": 1792414011,
+   "updated_at": 1792414027
+  },
+  {
+   "job_id": "d68081169d104073824f236713333c0e",
+   "owner": "vision.media",
+   "kind": "vision.media",
+   "status": "completed",
+   "reason_code": null,
+   "attempt": 1,
+   "created_at": 1792413960,
+   "updated_at": 1792413988
+  }
+ ],
+ "events_recent": [
+  {
+   "ts": 1792418094,
+   "event_name": "vision_media",
+   "outcome": "success",
+   "level": "INFO",
+   "stage": "validate",
+   "reason_code": null,
+   "chat_id": -1002661910336
+  },
+  {
+   "ts": 1792418077,
+   "event_name": "image_postgen_vision",
+   "outcome": "skipped",
+   "level": "INFO",
+   "stage": null,
+   "reason_code": "deadline_exceeded",
+   "chat_id": -1002661910336
+  },
+  {
+   "ts": 1792418077,
+   "event_name": "vision_adapt",
+   "outcome": "failed",
+   "level": "WARN",
+   "stage": "optimize",
+   "reason_code": null,
+   "chat_id": -1002661910336
+  },
+  {
+   "ts": 1792417865,
+   "event_name": "vision_media",
+   "outcome": "success",
+   "level": "INFO",
+   "stage": "consumers",
+   "reason_code": null,
+   "chat_id": -1002661910336
+  },
+  {
+   "ts": 1792417865,
+   "event_name": "vision_media",
+   "outcome": "skipped",
+   "level": "INFO",
+   "stage": "reindex",
+   "reason_code": null,
+   "chat_id": -1002661910336
+  },
+  {
+   "ts": 1792417865,
+   "event_name": "vision_media",
+   "outcome": "success",
+   "level": "INFO",
+   "stage": "project",
+   "reason_code": null,
+   "chat_id": -1002661910336
+  },
+  {
+   "ts": 1792417865,
+   "event_name": "vision_media",
+   "outcome": "success",
+   "level": "INFO",
+   "stage": "store",
+   "reason_code": null,
+   "chat_id": -1002661910336
+  },
+  {
+   "ts": 1792417865,
+   "event_name": "vision_adapt",
+   "outcome": "success",
+   "level": "INFO",
+   "stage": "original",
+   "reason_code": null,
+   "chat_id": -1002661910336
+  },
+  {
+   "ts": 1792417864,
+   "event_name": "vision_media",
+   "outcome": "success",
+   "level": "INFO",
+   "stage": "consumers",
+   "reason_code": null,
+   "chat_id": -1002661910336
+  },
+  {
+   "ts": 1792417864,
+   "event_name": "vision_media",
+   "outcome": "skipped",
+   "level": "INFO",
+   "stage": "reindex",
+   "reason_code": null,
+   "chat_id": -1002661910336
+  },
+  {
+   "ts": 1792417864,
+   "event_name": "vision_media",
+   "outcome": "success",
+   "level": "INFO",
+   "stage": "project",
+   "reason_code": null,
+   "chat_id": -1002661910336
+  },
+  {
+   "ts": 1792417864,
+   "event_name": "vision_media",
+   "outcome": "success",
+   "level": "INFO",
+   "stage": "store",
+   "reason_code": null,
+   "chat_id": -1002661910336
+  },
+  {
+   "ts": 1792417864,
+   "event_name": "vision_adapt",
+   "outcome": "success",
+   "level": "INFO",
+   "stage": "original",
+   "reason_code": null,
+   "chat_id": -1002661910336
+  },
+  {
+   "ts": 1792417855,
+   "event_name": "vision_media",
+   "outcome": "success",
+   "level": "INFO",
+   "stage": "validate",
+   "reason_code": null,
+   "chat_id": -1002661910336
+  },
+  {
+   "ts": 1792417855,
+   "event_name": "vision_media",
+   "outcome": "success",
+   "level": "INFO",
+   "stage": "validate",
+   "reason_code": null,
+   "chat_id": -1002661910336
+  },
+  {
+   "ts": 1792415623,
+   "event_name": "vision_media",
+   "outcome": "success",
+   "level": "INFO",
+   "stage": "consumers",
+   "reason_code": null,
+   "chat_id": -1002661910336
+  },
+  {
+   "ts": 1792415623,
+   "event_name": "vision_media",
+   "outcome": "skipped",
+   "level": "INFO",
+   "stage": "reindex",
+   "reason_code": null,
+   "chat_id": -1002661910336
+  },
+  {
+   "ts": 1792415623,
+   "event_name": "vision_media",
+   "outcome": "success",
+   "level": "INFO",
+   "stage": "project",
+   "reason_code": null,
+   "chat_id": -1002661910336
+  },
+  {
+   "ts": 1792415623,
+   "event_name": "vision_media",
+   "outcome": "success",
+   "level": "INFO",
+   "stage": "store",
+   "reason_code": null,
+   "chat_id": -1002661910336
+  },
+  {
+   "ts": 1792415623,
+   "event_name": "vision_media",
+   "outcome": "success",
+   "level": "INFO",
+   "stage": "consumers",
+   "reason_code": null,
+   "chat_id": -1002661910336
+  },
+  {
+   "ts": 1792415623,
+   "event_name": "vision_media",
+   "outcome": "skipped",
+   "level": "INFO",
+   "stage": "reindex",
+   "reason_code": null,
+   "chat_id": -1002661910336
+  },
+  {
+   "ts": 1792415623,
+   "event_name": "vision_media",
+   "outcome": "success",
+   "level": "INFO",
+   "stage": "project",
+   "reason_code": null,
+   "chat_id": -1002661910336
+  },
+  {
+   "ts": 1792415622,
+   "event_name": "vision_media",
+   "outcome": "success",
+   "level": "INFO",
+   "stage": "store",
+   "reason_code": null,
+   "chat_id": -1002661910336
+  },
+  {
+   "ts": 1792415610,
+   "event_name": "vision_adapt",
+   "outcome": "failed",
+   "level": "WARN",
+   "stage": "original",
+   "reason_code": null,
+   "chat_id": -1002661910336
+  },
+  {
+   "ts": 1792415608,
+   "event_name": "vision_adapt",
+   "outcome": "success",
+   "level": "INFO",
+   "stage": "optimize",
+   "reason_code": null,
+   "chat_id": -1002661910336
+  },
+  {
+   "ts": 1792415584,
+   "event_name": "vision_media",
+   "outcome": "success",
+   "level": "INFO",
+   "stage": "validate",
+   "reason_code": null,
+   "chat_id": -1002661910336
+  },
+  {
+   "ts": 1792415558,
+   "event_name": "vision_media",
+   "outcome": "success",
+   "level": "INFO",
+   "stage": "consumers",
+   "reason_code": null,
+   "chat_id": -1002661910336
+  },
+  {
+   "ts": 1792415558,
+   "event_name": "vision_media",
+   "outcome": "skipped",
+   "level": "INFO",
+   "stage": "reindex",
+   "reason_code": null,
+   "chat_id": -1002661910336
+  },
+  {
+   "ts": 1792415558,
+   "event_name": "vision_media",
+   "outcome": "success",
+   "level": "INFO",
+   "stage": "project",
+   "reason_code": null,
+   "chat_id": -1002661910336
+  },
+  {
+   "ts": 1792415558,
+   "event_name": "vision_media",
+   "outcome": "success",
+   "level": "INFO",
+   "stage": "store",
+   "reason_code": null,
+   "chat_id": -1002661910336
+  },
+  {
+   "ts": 1792415558,
+   "event_name": "vision_adapt",
+   "outcome": "success",
+   "level": "INFO",
+   "stage": "original",
+   "reason_code": null,
+   "chat_id": -1002661910336
+  },
+  {
+   "ts": 1792415554,
+   "event_name": "vision_media",
+   "outcome": "success",
+   "level": "INFO",
+   "stage": "validate",
+   "reason_code": null,
+   "chat_id": -1002661910336
+  },
+  {
+   "ts": 1792415550,
+   "event_name": "vision_media",
+   "outcome": "success",
+   "level": "INFO",
+   "stage": "consumers",
+   "reason_code": null,
+   "chat_id": -1002661910336
+  },
+  {
+   "ts": 1792415550,
+   "event_name": "vision_media",
+   "outcome": "skipped",
+   "level": "INFO",
+   "stage": "reindex",
+   "reason_code": null,
+   "chat_id": -1002661910336
+  },
+  {
+   "ts": 1792415550,
+   "event_name": "vision_media",
+   "outcome": "success",
+   "level": "INFO",
+   "stage": "project",
+   "reason_code": null,
+   "chat_id": -1002661910336
+  },
+  {
+   "ts": 1792415550,
+   "event_name": "vision_media",
+   "outcome": "success",
+   "level": "INFO",
+   "stage": "store",
+   "reason_code": null,
+   "chat_id": -1002661910336
+  },
+  {
+   "ts": 1792415550,
+   "event_name": "vision_adapt",
+   "outcome": "failed",
+   "level": "WARN",
+   "stage": "optimize",
+   "reason_code": null,
+   "chat_id": -1002661910336
+  },
+  {
+   "ts": 1792415544,
+   "event_name": "vision_media",
+   "outcome": "success",
+   "level": "INFO",
+   "stage": "validate",
+   "reason_code": null,
+   "chat_id": -1002661910336
+  },
+  {
+   "ts": 1792415543,
+   "event_name": "vision_media",
+   "outcome": "success",
+   "level": "INFO",
+   "stage": "consumers",
+   "reason_code": null,
+   "chat_id": -1002661910336
+  },
+  {
+   "ts": 1792415543,
+   "event_name": "vision_media",
+   "outcome": "skipped",
+   "level": "INFO",
+   "stage": "reindex",
+   "reason_code": null,
+   "chat_id": -1002661910336
+  }
+ ],
+ "mca_errors_today": [
+  {
+   "n": 4
+  }
+ ],
+ "image_reservations_sqlite_free": [
+  {
+   "n": 3174
+  }
+ ]
+}
+=== DONE ===
+[stderr] [sudo] password for nik:
+### CLEANUP_SPEC (rc=0) SPEC_MISSING
+[runner] cleanup skipped: no spec (harness may have failed before P8)
+### FINAL (rc=0)
+MainPID=3716545
+NRestarts=0
+ExecMainStatus=0
+ActiveState=active
+SubState=running
+{"status":"ok","version":"2.58.95"}
+{"status":"ok","version":"2.58.95"}
+HEAD=113f3a629cab54f7fcc261349a7c9af3b90f56d7 TRACKED_MOD=0
+2026-10-19 13:55:22 UTC

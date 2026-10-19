@@ -1,0 +1,12 @@
+ACC95C START_EPOCH | 1792419301
+ACC95C NOW_UTC | 2026-10-19 14:15:01
+ACC95 BOT INFO | session=local_bot_api (download_enabled=1)
+ACC95 BOOT | version=? vec=True bot=8802473181 pg=True
+ACC95 SAVE INFO | p3c-vision-adapt.json (19153 bytes)
+ACC95C P3c | done status=failed tool1=pending adapt=True desc_len=0 gt=0 ok=False
+ACC95C FLUSH | mca_events flushed=50
+ACC95 SAVE INFO | p8c-register.json (858 bytes)
+ACC95C P8c | done delete=16 excluded=0 recovered=[{"answer": 1166485, "anchor": 1166483}, {"answer": 1166487, "anchor": 1166486}, {"answer": 1166471, "anchor": 1166464, "wave": "95a-gen1"}]
+ACC95 SAVE INFO | summary95c.json (2447 bytes)
+ACC95C DONE | evidence=/tmp/accept95/evidence
+ACC95C RC=0

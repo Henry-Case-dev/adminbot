@@ -1,0 +1,48 @@
+{
+  "phase": "P1-fixture-doc",
+  "fixture": {
+    "bytes": 1337017,
+    "sha256": "3be6d6d68c25ebbd28e70f5377d299fa4902262a0748eb5c355cb5943d32d4a4",
+    "sha12": "3be6d6d68c25",
+    "width": 960,
+    "height": 4000,
+    "pixels": 3840000,
+    "payload_chars_est": 1782945,
+    "gt_tokens": [
+      "ZEBRA77",
+      "QUARTZ88",
+      "LOTUS99",
+      "FALCON42",
+      "ORBIT21",
+      "MAPLE13",
+      "RIVER64",
+      "COMET35"
+    ],
+    "over_700k": true
+  },
+  "sent": {
+    "message_id": 1166463,
+    "file_id_present": true,
+    "file_id_len": 80,
+    "file_unique_id": "AgADxqMAAnPYsUo",
+    "file_name": "fixture.png",
+    "file_size": 1337017,
+    "mime_type": "image/png",
+    "caption_head": "🧪 Приёмка 2.58.95 · фикстура vision-adapt (длинный PNG-скриншот, >700 КБ)"
+  },
+  "intake_asset_ids": [
+    "8243b03ad0f159dbd234129c36b67939"
+  ],
+  "asset_id": "8243b03ad0f159dbd234129c36b67939",
+  "download_precheck": {
+    "bytes": 1337017,
+    "mime": "image/png",
+    "width": 960,
+    "height": 4000,
+    "sha256": "3be6d6d68c25ebbd28e70f5377d299fa4902262a0748eb5c355cb5943d32d4a4",
+    "bytes_equal_fixture": true,
+    "sha_equal_fixture": true
+  },
+  "doc_mid": 1166463,
+  "ok": true
+}

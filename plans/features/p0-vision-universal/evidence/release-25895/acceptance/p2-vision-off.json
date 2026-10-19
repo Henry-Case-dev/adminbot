@@ -1,0 +1,151 @@
+{
+  "phase": "P2-vision-off",
+  "asset_id": "8243b03ad0f159dbd234129c36b67939",
+  "doc_mid": 1166463,
+  "cfg_write": {
+    "http": 200,
+    "body": {
+      "updated": [
+        "flags.vision_enabled"
+      ],
+      "chat_id": -1002661910336,
+      "revalidated": false,
+      "updated_at": "2026-10-19T13:47:37.895846+00:00"
+    }
+  },
+  "vision_state_off": {
+    "requested": false,
+    "effective": false,
+    "reason": "vision_disabled",
+    "visible_reason": "Распознавание изображений выключено владельцем",
+    "capability": "disabled"
+  },
+  "direct_tool_result": {
+    "status": "disabled",
+    "reason": "vision_disabled",
+    "visible_reason": "Распознавание изображений выключено владельцем"
+  },
+  "turn": {
+    "label": "vision-off-turn",
+    "status": "ok",
+    "error": "",
+    "handled": true,
+    "correlation_id": "4eb2b035e4104bcbb25dee43758f1a8c",
+    "plan_meta": {
+      "tone": "neutral",
+      "action": "reply",
+      "bucket": "high",
+      "extent": "compact",
+      "source": "main",
+      "inherited": true,
+      "confidence": 0.95,
+      "latency_ms": 2280,
+      "input_chars": 1037,
+      "capabilities": "image_understanding",
+      "response_act": "answer",
+      "execution_mode": "simple_tools",
+      "credential_source": "global"
+    },
+    "usage": [
+      {
+        "correlation_id": "4eb2b035e4104bcbb25dee43758f1a8c",
+        "step": "l1_planner",
+        "tool_name": "",
+        "input_tokens": 1150,
+        "output_tokens": 110,
+        "cost_usd": "<Decimal>",
+        "price_known": false,
+        "plan_meta": {
+          "tone": "neutral",
+          "action": "reply",
+          "bucket": "high",
+          "extent": "compact",
+          "source": "main",
+          "inherited": true,
+          "confidence": 0.95,
+          "latency_ms": 2280,
+          "input_chars": 1037,
+          "capabilities": "image_understanding",
+          "response_act": "answer",
+          "execution_mode": "simple_tools",
+          "credential_source": "global"
+        },
+        "ts": "2026-10-19 13:47:54.595020+00:00"
+      },
+      {
+        "correlation_id": "4eb2b035e4104bcbb25dee43758f1a8c",
+        "step": "l2_writer",
+        "tool_name": "",
+        "input_tokens": 10680,
+        "output_tokens": 34,
+        "cost_usd": "<Decimal>",
+        "price_known": false,
+        "plan_meta": null,
+        "ts": "2026-10-19 13:47:57.573326+00:00"
+      }
+    ],
+    "logs": [
+      "[direct] triggered | chat=-1002661910336 user=Acceptance",
+      "event=AUTO_CONTEXT_BUDGET | slot=direct.primary | context_window=1000000 | mandatory_tokens=6633 | output_reserve=100000 | safety_reserve=116527 | effective_input_budget=776840 | policy_mode=unlimited | model=deepseek/deepseek-v4.1-flash | source=provider_catalog | ts=1792417672.197",
+      "event=AUTO_CONTEXT_BUDGET | slot=direct.fallback | context_window=131072 | mandatory_tokens=6633 | output_reserve=13107 | safety_reserve=14522 | effective_input_budget=96810 | policy_mode=unlimited | model=deepseek-flash | source=verified_registry | ts=1792417672.198",
+      "event=CONTEXT_CAPACITY | model=deepseek/deepseek-v4.1-flash | window=1000000 | window_source=provider_catalog | external_tokens=6633 | output_reserve=100000 | available_context=776840 | budget=776840 | policy_mode=unlimited | summary_revision=1788699601:500 | summary_watermark=1788699601 | summary_lag_messages=359 | summary_age=3718071 | estimation_method=tiktoken | ts=1792417672.215",
+      "event=DECISION_START | run_id=4eb2b035e4104bcbb25dee43758f1a8c | chat_id=-1002661910336 | message_id=1166463 | ts=1792417672.245",
+      "event=DIRECT_TRIGGER | chat_id=-1002661910336 | message_id=1166463 | trigger_type=force_keyword | force_reply_required=True | reply_to_bot=False | is_private=False | addressed=True | ts=1792417672.245",
+      "event=DECISION_COMPLETE | run_id=4eb2b035e4104bcbb25dee43758f1a8c | chat_id=-1002661910336 | message_id=1166463 | action=reply | reason=force_direct | trigger_type=force_keyword | force_reply_required=True | message_class=question | duration_ms=12 | ts=1792417672.257",
+      "event=L1_PLAN | run_id=4eb2b035e4104bcbb25dee43758f1a8c | chat_id=-1002661910336 | message_id=1166463 | action=reply | response_act=answer | extent=compact | tone=neutral | bucket=high | capabilities=image_understanding | inherited=True | fallback= | latency_ms=2280 | input_chars=1037 | confidence=0.95 | source=main | ts=1792417674.625",
+      "event=TOOL_CALL_START | run_id=4eb2b035e4104bcbb25dee43758f1a8c | chat_id=-1002661910336 | tool=recognize_image | round=1 | ts=1792417674.653",
+      "event=TOOL_CALL_FAILED | run_id=4eb2b035e4104bcbb25dee43758f1a8c | chat_id=-1002661910336 | tool=recognize_image | round=1 | status=denied | error_code=vision_disabled | ts=1792417674.654",
+      "[direct-exec] simple chain done | chat=-1002661910336 | steps=1 | ok=0 | limitations=1 | metered=1"
+    ],
+    "tool_calls": [
+      {
+        "tool": "recognize_image",
+        "args": {
+          "target": {
+            "chat_id": -1002661910336,
+            "message_id": 1166463
+          }
+        },
+        "started": 1792417674.652819,
+        "ok": true,
+        "elapsed_ms": 0,
+        "result_head": "{\"status\": \"disabled\", \"reason\": \"vision_disabled\", \"visible_reason\": \"Распознавание изображений выключено владельцем\"}",
+        "result_len": 119,
+        "status": "disabled",
+        "reason": "vision_disabled",
+        "visible_reason": "Распознавание изображений выключено владельцем",
+        "analysis_revision": null,
+        "cache_hit": null,
+        "job_linked": null,
+        "analysis_id": null,
+        "asset_id": null,
+        "message_key": null,
+        "visual_description": "",
+        "visual_description_len": 0,
+        "ocr_blocks": null,
+        "ocr_blocks_count": 0
+      }
+    ],
+    "image_blocks": [],
+    "postgen": [],
+    "vision_transport_calls": [],
+    "sends": [
+      {
+        "kind": "message",
+        "chat_id": -1002661910336,
+        "message_id": 1166464,
+        "text_head": "Глаза мне отключили, так что картинку я не вижу. Скинь текстом или жди, пока зрение вернут",
+        "text_full": "Глаза мне отключили, так что картинку я не вижу. Скинь текстом или жди, пока зрение вернут",
+        "text_len": 90,
+        "reply_to": 1166463
+      }
+    ],
+    "answer": "Глаза мне отключили, так что картинку я не вижу. Скинь текстом или жди, пока зрение вернут",
+    "elapsed_s": 18.34
+  },
+  "transport_delta": 0,
+  "analyses_after_off": [],
+  "jobs_after_off": [],
+  "answer_gt_tokens_found": [],
+  "ok": true
+}
