@@ -1,0 +1,265 @@
+ACCEPTANCE-92C prod journal since T0 2026-10-18 23:25:48 UTC (epoch 1792365948)
+Wave C window: 2026-10-19 05:47:21 -> 06:0x UTC (retry attempt + diag/cleanup + final checks).
+
+=== C-run journal counts (05:48:05Z dump) ===
+=== JOURNAL (since T0, sudo, read-only) ===
+
+=== NOW ===
+
+2026-10-19T05:48:05Z
+
+=== WORKER TICK (FIX2: SKIPS must be 0) ===
+
+SKIPS=0
+
+CLAIM_SLOW=152
+
+CLAIM_TIMEOUT=2
+
+MAINT_TIMEOUT=2
+
+VISION_LINES=157
+
+=== CLAIM_SLOW samples (last 8) ===
+
+Oct 19 05:26:38 racknerd-f4e3456 python[3548159]: 2026-10-19 05:26:38,885 - services.mca_vision - WARNING - [vision] claim sweep slow | dur=8.33s
+
+Oct 19 05:31:28 racknerd-f4e3456 python[3548159]: 2026-10-19 05:31:28,148 - services.mca_vision - WARNING - [vision] claim sweep slow | dur=7.59s
+
+Oct 19 05:31:39 racknerd-f4e3456 python[3548159]: 2026-10-19 05:31:39,346 - services.mca_vision - WARNING - [vision] claim sweep slow | dur=8.76s
+
+Oct 19 05:36:28 racknerd-f4e3456 python[3548159]: 2026-10-19 05:36:28,953 - services.mca_vision - WARNING - [vision] claim sweep slow | dur=8.39s
+
+Oct 19 05:36:40 racknerd-f4e3456 python[3548159]: 2026-10-19 05:36:40,679 - services.mca_vision - WARNING - [vision] claim sweep slow | dur=10.09s
+
+Oct 19 05:41:29 racknerd-f4e3456 python[3548159]: 2026-10-19 05:41:29,967 - services.mca_vision - WARNING - [vision] claim sweep slow | dur=9.41s
+
+Oct 19 05:41:40 racknerd-f4e3456 python[3548159]: 2026-10-19 05:41:40,675 - services.mca_vision - WARNING - [vision] claim sweep slow | dur=10.11s
+
+Oct 19 05:46:39 racknerd-f4e3456 python[3548159]: 2026-10-19 05:46:39,140 - services.mca_vision - WARNING - [vision] claim sweep slow | dur=8.58s
+
+=== last [vision] lines ===
+
+Oct 19 05:16:29 racknerd-f4e3456 python[3548159]: 2026-10-19 05:16:29,752 - services.mca_vision - WARNING - [vision] claim sweep slow | dur=9.19s
+
+Oct 19 05:16:41 racknerd-f4e3456 python[3548159]: 2026-10-19 05:16:41,111 - services.mca_vision - WARNING - [vision] claim sweep slow | dur=10.55s
+
+Oct 19 05:21:28 racknerd-f4e3456 python[3548159]: 2026-10-19 05:21:28,212 - services.mca_vision - WARNING - [vision] claim sweep slow | dur=7.65s
+
+Oct 19 05:21:39 racknerd-f4e3456 python[3548159]: 2026-10-19 05:21:39,333 - services.mca_vision - WARNING - [vision] claim sweep slow | dur=8.77s
+
+Oct 19 05:26:38 racknerd-f4e3456 python[3548159]: 2026-10-19 05:26:38,885 - services.mca_vision - WARNING - [vision] claim sweep slow | dur=8.33s
+
+Oct 19 05:31:28 racknerd-f4e3456 python[3548159]: 2026-10-19 05:31:28,148 - services.mca_vision - WARNING - [vision] claim sweep slow | dur=7.59s
+
+Oct 19 05:31:39 racknerd-f4e3456 python[3548159]: 2026-10-19 05:31:39,346 - services.mca_vision - WARNING - [vision] claim sweep slow | dur=8.76s
+
+Oct 19 05:36:28 racknerd-f4e3456 python[3548159]: 2026-10-19 05:36:28,953 - services.mca_vision - WARNING - [vision] claim sweep slow | dur=8.39s
+
+Oct 19 05:36:40 racknerd-f4e3456 python[3548159]: 2026-10-19 05:36:40,679 - services.mca_vision - WARNING - [vision] claim sweep slow | dur=10.09s
+
+Oct 19 05:41:29 racknerd-f4e3456 python[3548159]: 2026-10-19 05:41:29,967 - services.mca_vision - WARNING - [vision] claim sweep slow | dur=9.41s
+
+Oct 19 05:41:40 racknerd-f4e3456 python[3548159]: 2026-10-19 05:41:40,675 - services.mca_vision - WARNING - [vision] claim sweep slow | dur=10.11s
+
+Oct 19 05:46:39 racknerd-f4e3456 python[3548159]: 2026-10-19 05:46:39,140 - services.mca_vision - WARNING - [vision] claim sweep slow | dur=8.58s
+
+=== last vision tick timestamp ===
+
+Oct 19 05:48:10 racknerd-f4e3456 python[3548159]: 2026-10-19 05:48:10,571 - apscheduler.executors.default - INFO - Job "
+
+=== ERR/CRIT/TB/402 since T0 ===
+
+ERR=1
+
+E402=1
+
+RUNTIMEWARN=0
+
+DB_LOCKED=0
+
+VISION_RL=1
+
+=== raw ERROR/CRITICAL/Traceback sample (first 10) ===
+
+Oct 19 01:05:35 racknerd-f4e3456 python[3548159]: 2026-10-19 01:05:35,803 - services.summary_generator - WARNING - L2_ERROR | run_id=9ded95d09b884cacaccd1294afd86af1 | chat_id=-1002661910336 | reason=l2_review_rejected | reason_group=ok | paragraph_index=- | chars=4170 | l2_calls=1 | correction_used=False | repair_actions=0 тАФ LEVEL-3 legacy fallback
+
+=== MIGRATIONS since T0 ===
+
+Oct 18 23:26:19 racknerd-f4e3456 python[3548159]: 2026-10-18 23:26:19,549 - services.config_migrations - INFO - CONFIG_MIGRATION_CUSTOM_PRESERVED | domain=context_migration | key=limits.chat_context_budget_tokens | action=preserved_owner_custom
+
+Oct 18 23:26:19 racknerd-f4e3456 python[3548159]: 2026-10-18 23:26:19,550 - services.config_migrations - INFO - [factcheck_context_migration] legacy == ╨┤╨╡╤Д╨╛╨╗╤В тАФ ╨╝╨╕╨│╤А╨╕╤А╨╛╨▓╨░╤В╤М ╨╜╨╡╤З╨╡╨│╨╛ | key=limits.factcheck_context_messages
+
+Oct 18 23:26:19 racknerd-f4e3456 python[3548159]: 2026-10-18 23:26:19,551 - services.config_migrations - INFO - CONFIG_MIGRATION_CUSTOM_PRESERVED | domain=image_migration | key=models.image_base_url | action=preserved_owner_custom
+
+Oct 18 23:26:19 racknerd-f4e3456 python[3548159]: 2026-10-18 23:26:19,552 - services.config_migrations - INFO - CONFIG_MIGRATION_CUSTOM_PRESERVED | domain=image_migration | key=models.image_model | action=preserved_owner_custom
+
+Oct 18 23:26:19 racknerd-f4e3456 python[3548159]: 2026-10-18 23:26:19,553 - services.config_migrations - INFO - [image_migration] ╤Г╨╢╨╡ ╨┤╨╡╤Д╨╛╨╗╤В | key=models.image_get_mode
+
+Oct 18 23:26:19 racknerd-f4e3456 python[3548159]: 2026-10-18 23:26:19,554 - services.config_migrations - INFO - [deep_sleep_migration] skip: ╨▓╤Л╨║╨╗╤О╤З╨╡╨╜╨╛ (╨▓╨╡╤В╨║╨░ A ╨░╤Г╨┤╨╕╤В╨░)
+
+Oct 18 23:26:19 racknerd-f4e3456 python[3548159]: 2026-10-18 23:26:19,606 - services.database - INFO - [database] migrations: start | current user_version=36 | pending=[]
+
+Oct 18 23:26:19 racknerd-f4e3456 python[3548159]: 2026-10-18 23:26:19,610 - services.database - INFO - [database] migrations: complete | user_version=36 | total 0.0s
+
+=== SERVICE ===
+
+MainPID=3548159
+
+NRestarts=0
+
+ExecMainStatus=0
+
+ActiveState=active
+
+SubState=running
+
+{"status":"ok","version":"2.58.92"}
+
+=== HTTPS ===
+
+{"status":"ok","version":"2.58.92"}
+
+=== ROUTES (https) ===
+
+ROUTE /healthz 200
+
+ROUTE /web/ 200
+
+ROUTE /static/app.css 200
+
+=== DIAG (05:51Z): probe/state/marker-cleanup + kernel OOM/mem/SKIPS ===
+DIAG92C NOW_UTC | 2026-10-19 05:51:12
+
+DIAG92C LIVE_OUT | "ACC92C NOW_UTC | 2026-10-19 05:47:23\nACCEPT91 BOOT | version=? vec=True bot=8802473181 pg=True\nACC92C START_EPOCH | 1792388859\n"
+
+DIAG92C PROBE_NOW | {"http": 200, "ok": false, "capability": "unavailable", "reason": "vision_unavailable", "detail": "http_502", "visible_reason": "Провайдер временно недоступен (ошибка сервера)", "model": "nvidia/nemotron-3.5-super-vl:free", "state_requested": true, "state_effective": false}
+
+DIAG92C STATE_NOW | {"http": 200, "requested": true, "effective": false, "reason": "vision_unavailable", "capability": "unavailable", "model": "nvidia/nemotron-3.5-super-vl:free", "queue": {"queued": 3, "running": 0}}
+
+DIAG92C MARKER_SCAN | found=0 mids=[]
+
+DIAG92C DEL | no wave-C messages found (harness died before sending)
+
+DIAG92C DONE | deleted=0 smart_rows=0
+
+DIAG92C RC=0
+
+[rc=0]
+
+
+=== KERNEL OOM + MEM + SKIPS (sudo, read-only) ===
+
+OOM_CHECK_DONE
+
+               total        used        free      shared  buff/cache   available
+
+Mem:             961         682         187           4         248         279
+
+Swap:           3071        1264        1807
+
+0
+
+[runner] downloaded diag-register.jso
+
+=== CHECK2: settings/hot + get_file(cloud vs local) + budget ===
+CHK92C SETTINGS | {"DOWNLOAD_ENABLED": true, "LOCAL_BOT_API_URL": "http://localhost:8081", "VISION_MODEL_env": ""}
+
+CHK92C HOT | {"flags.download_enabled": true, "models.vision_model": "nvidia/nemotron-3.5-super-vl:free", "models.llm_base_url": "https://nano-gpt.com"}
+
+CHK92C GET_FILE | {"cloud_get_file": {"ok": true, "file_path_head": "photos/file_1", "file_size": 54960}, "prod_session_get_file": {"ok": true, "session": "local", "file_path_head": "/var/lib/telegram-bot-api/<bot-id:masked>", "file_size": 54960}}
+
+CHK92C BUDGET | [{"day": "2026-10-19", "scope": "chat:-1002661910336", "metric": "image_calls", "used": "13"}, {"day": "2026-10-19", "scope": "global", "metric": "image_calls", "used": "13"}, {"day": "2026-10-18", "scope": "chat:-1002661910336", "metric": "image_calls", "used": "12"}, {"day": "2026-10-18", "scope": "chat:-1009900000201", "metric": "image_calls", "used": "4"}, {"day": "2026-10-18", "scope": "global", "metric": "image_calls", "used": "16"}, {"day": "2026-10-17", "scope": "chat:-1002661910336", "metric": "image_calls", "used": "5"}, {"day": "2026-10-17", "scope": "global", "metric": "image_calls", "used": "5"}, {"day": "2026-10-16", "scope": "chat:-1002661910336", "metric": "image_calls", "used": "46"}, {"day": "2026-10-16", "scope": "global", "metric": "image_calls", "used": "46"}, {"day": "2026-10-15", "scope": "chat:-1002661910336", "metric": "image_calls", "used": "5"}, {"day": "2026-1
+
+CHK92C RESERVATIONS | n=0
+
+CHK92C DONE | saved
+
+CHK92C RC=0
+
+[rc=0]
+
+=== JOURNAL DUMP (sudo) ===
+
+LINES=
+
+=== DL-TEST: definitive download-path result ===
+DLT92C RESULT | {"cloud": {"get_file": true, "download": true, "bytes": 54960}, "local": {"get_file": true, "file_path_masked": "/var/lib/telegram-bot-api/<bot-id:masked>/photos/file_1317.jpg", "to_local_masked": "/var/lib/telegram-bot-api/<bot-id:masked>/photos/file_1317.jpg", "host_exists": false, "download": false, "download_error": "FileNotFoundError: [Errno 2] No such file or directory: '/var/lib/telegram-bot-api/<bot-id:masked>/photos/file_1317.jpg'"}}
+
+DLT92C DONE | saved
+
+DLT92C RC=0
+
+[rc=0]
+
+=== FINAL (06:01Z): marker cleanup confirm + SCEN-B/nostalgia + econ + journal greps ===
+FIN92C NOW_UTC | 2026-10-19 06:01:18
+
+FIN92C MARKER_SCAN | found=0 mids=[]
+
+FIN92C DEL | no test messages found — residual=0 confirmed
+
+FIN92C SCEN_B | {"owner_since_t0": 1, "owner_since_0044": 1, "events_since_0044": 5, "any_chat_since_0044": [{"chat_id": -1004482340693, "ts": 1792389380, "kind": "none", "status": "skipped", "meta": "{\"reason\": \"no_candidates\"}"}, {"chat_id": -1004482340693, "ts": 1792385480, "kind": "none", "status": "skipped", "meta": "{\"reason\": \"no_candidates\"}"}, {"chat_id": -1004482340693, "ts": 1792381580, "kind": "none", "status": "skipped", "meta": "{\"reason\": \"no_candidates\"}"}, {"chat_id": -1002661910336, "ts": 1792381580, "kind": "year_back", "status": "sent", "meta": "{\"reason\": \"sent\", \"candidate\": \"year_back\", \"candidate_text\": \"[Корсар 2025-10-19]: Зашёл утренних мемов посмотреть а их нет\", \"path\": \"initiative\"}"}]}
+
+FIN92C ECON | {"user_version": {"user_version": 36}, "budget": [{"day": "2026-10-19", "scope": "chat:-1002661910336", "metric": "image_calls", "used": "13"}, {"day": "2026-10-19", "scope": "global", "metric": "image_calls", "used": "13"}, {"day": "2026-10-18", "scope": "chat:-1002661910336", "metric": "image_calls", "used": "12"}, {"day": "2026-10-18", "scope": "chat:-1009900000201", "metric": "image_calls", "used": "4"}, {"day": "2026-10-18", "scope": "global", "metric": "image_calls", "used": "16"}, {"day": "2026-10-17", "scope": "chat:-1002661910336", "metric": "image_calls", "used": "5"}], "reservations": 0}
+
+FIN92C DONE | deleted=0 residual_markers=0
+
+FIN92C RC=0
+
+[rc=0]
+
+=== NOSTALGIA 03:46:20-43Z block (scenario/funnel/sent) ===
+=== nostalgia lines 03:40-04:00 ===
+
+Oct 19 03:46:20 racknerd-f4e3456 python[3548159]: 2026-10-19 03:46:20,384 - apscheduler.executors.default - INFO - Running job "NostalgiaWorker._tick (trigger: interval[1:05:00], next run at: 2026-10-19 09:51:20 +05)" (scheduled at 2026-10-19 08:46:20.383363+05:00)
+
+Oct 19 03:46:20 racknerd-f4e3456 python[3548159]: 2026-10-19 03:46:20,387 - services.mca_events - INFO - mca_event=nostalgia_run | ts=1792381580 | event_name=nostalgia_run | outcome=start | level=INFO | component=nostalgia.run
+
+Oct 19 03:46:20 racknerd-f4e3456 python[3548159]: 2026-10-19 03:46:20,955 - services.nostalgia_worker - INFO - [nostalgia] skip | chat=-1004482340693 | reason=no_candidates
+
+Oct 19 03:46:20 racknerd-f4e3456 python[3548159]: 2026-10-19 03:46:20,957 - services.nostalgia_worker - INFO - [nostalgia] scenario=A (живая беседа) | chat=-1002661910336 | silence=2min → гейты тишины/quiet hours не применяются
+
+Oct 19 03:46:43 racknerd-f4e3456 python[3548159]: 2026-10-19 03:46:43,502 - services.mca_events - INFO - mca_event=random_uses | ts=1792381603 | event_name=random_uses | outcome=success | level=INFO | component=random | stage=conversation_variant | chat_id=-1002661910336 | pipeline_run_id=run_734dde77f41042fdbcb964d94243cf0c | entity_ids={"operation_id": "0685781989e34f0f", "purpose": "conversation_variant", "policy_version": "mca10b-v1", "primary": "trigger:nostalgia_due:034be2f3a13792e6", "eligible": ["form:observation", "form:question", "form:opinion", "form:joke", "form:silence"], "outcome": "primary", "selected": "trigger:nostalgia_due:034be2f3a13792e6", "actual_source": "quantum", "excluded": [["form:recall", "no_eligible_alternative"]]}
+
+Oct 19 03:46:43 racknerd-f4e3456 python[3548159]: 2026-10-19 03:46:43,731 - services.mca_events - INFO - mca_event=initiative_decided | ts=1792381603 | event_name=initiative_decided | outcome=success | level=INFO | component=intents | chat_id=-1002661910336 | reason_code=default | stage=nostalgia_due | status=reply
+
+Oct 19 03:46:43 racknerd-f4e3456 python[3548159]: 2026-10-19 03:46:43,733 - services.direct_chat_service - INFO - [mca09] initiative sent | chat=-1002661910336 | kind=initiative_reply | chunks=1 | trigger=nostalgia_due | generated=False
+
+Oct 19 03:46:43 racknerd-f4e3456 python[3548159]: 2026-10-19 03:46:43,736 - services.mca_events - INFO - mca_event=nostalgia_run | ts=1792381603 | event_name=nostalgia_run | outcome=success | level=INFO | component=nostalgia.run | duration_ms=23349
+
+Oct 19 03:46:43 racknerd-f4e3456 python[3548159]: 2026-10-19 03:46:43,736 - apscheduler.executors.default - INFO - Job "NostalgiaWorker._tick (trigger: interval[1:05:00], next run at: 2026-10-19 09:51:20 +05)" executed successfully
+
+=== all [nostalgia] since 03:00 ===
+
+Oct 19 03:46:20 racknerd-f4e3456 python[3548159]: 2026-10-19 03:46:20,955 - services.nostalgia_worker - INFO - [nostalgia] skip | chat=-1004482340693 | reason=no_candidates
+
+Oct 19 03:46:20 racknerd-f4e3456 python[3548159]: 2026-10-19 03:46:20,957 - services.nostalgia_worker - INFO - [nostalgia] scenario=A (живая беседа) | chat=-1002661910336 | silence=2min → гейты тишины/quiet hours не применяются
+
+Oct 19 04:51:20 racknerd-f4e3456 python[3548159]: 2026-10-19 04:51:20,433 - services.nostalgia_worker - INFO - [nostalgia] scenario=A (живая беседа) | chat=-1004482340693 | silence=40min → гейты тишины/quiet hours не применяются
+
+Oct 19 04:51:38 racknerd-f4e3456 python[3548159]: 2026-10-19 04:51:38,210 - services.nostalgia_worker - INFO - [nostalgia] skip | chat=-1004482340693 | reason=no_candidates
+
+Oct 19 04:51:38 racknerd-f4e3456 python[3548159]: 2026-10-19 04:51:38,226 - services.nostalgia_worker - INFO - [nostalgia] scenario=A (живая беседа) | chat=-1002661910336 | silence=0min → гейты тишины/quiet hours не применяются
+
+Oct 19 04:51:38 racknerd-f4e3456 python[3548159]: 2026-10-19 04:51:38,233 - services.nostalgia_worker - INFO - [nostalgia] skip | chat=-1002661910336 | reason=cooldown
+
+Oct 19 05:56:21 racknerd-f4e3456 python[3548159]: 2026-10-19 05:56:21,325 - services.nostalgia_worker - INFO - [nostalgia] skip | chat=-1004482340693 | reason=no_candidates
+
+Oct 19 05:56:31 racknerd-f4e3456 python[3548159]: 2026-10-19 05:56:31,604 - services.nostalgia_worker - INFO - [nostalgia] scenario=A (живая беседа) | chat=-1002661910336 | silence=0min → гейты тишины/quiet hours не применяются
+
+Oct 19 05:56:31 racknerd-f4e3456 python[3548159]: 2026-10-19 05:56:31,613 - services.nostalgia_worker - INFO - [nostalgia] skip | chat=-1002661910336 | reason=cooldown
+
+=== initiative/sent around 03:46 ===
+
+Oct 19 03:41:20 racknerd-f4e3456 python[3548159]: 2026-10-19 03:41:20,378 - apscheduler.executors.default - INFO - Running job "MemoryMaintenanceService._tick_initiative_observer (trigger: interval[0:05:00], next run at: 2026-10-19 08:46:20 +05)" (scheduled at 2026-10-19 08:41:20.371889+05:00)
+
+Oct 19 03:41:36 racknerd-f4e3456 python[3548159]: 2026-10-19 03:41:36,659 - services.memory_maintenance - INFO - [b01] initiative observer tick | status=completed observed=0 opportunities=0
+
+Oct 19 03:41:36 racknerd-f4e3456 python[3548159]: 2026-10-19 03:41:36,659 - apscheduler.executors.default - INFO - Job "MemoryMaintenanceService._tick_initiative_observer (trigger: interval[0:05:00], next run at: 2026-10-19 08:46:20 +05)" executed successfully
+
+Oct 19 03:46:20 racknerd-f4e3456 python[3548159]: 2026-10-19 03:46:20,379 - apscheduler.executors.default - INFO - Running job "MemoryMaintenanceService._tick_initiative_observer (trigger: interval[0:05:00], next run at: 2026-10-19 08:51:20 +05)" (scheduled at 2026-10-19 08:46:20.371889+05:00)
+
+Oct 19 03:46:20 racknerd-f4e3456 python[3548159]: 2026-10-19 03:46:20,387 - services.mca_events - INFO - mca_event=nostalgia_run | ts=1792381580 | event_name=nostalgia_run | outcome=start | level=INFO | component=nostalgia.run
+
+Oct 19 03:46:28 racknerd-f4e3456 python[3548159]: 2026-10-19 03:46:28,206 - services.mca_events - INFO - mca_event=initiative_observer_scan | ts=1792381588 | event_name=ini

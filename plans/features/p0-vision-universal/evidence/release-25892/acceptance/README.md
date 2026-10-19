@@ -102,3 +102,37 @@ failed` в 00:20:14). Через ~3 минуты провайдер восста
 `b2-postgen.json`, `b3-final.json`, `b-summary.json`, `b-live.out`, `journal-since-t0-b.txt`,
 `cleanup-register-b.json`, `harness/` (accept92b_live.py, accept92b_clean.py, accept92b_journal.sh,
 accept92b_dbcheck.py; база идентична accept92_base.py).
+
+## Волна C — bounded-ретрай положительного Vision (ACCEPTANCE-92C)
+
+Прод: **2.58.92 @ `1d367e4c`**; окно **2026-10-19 05:47:21 → 06:0x UTC** (ретрай-прогон, диагностика/уборка,
+финальные read-only проверки). Модель — `nvidia/nemotron-3.5-super-vl:free` (PET).
+
+| # | Сценарий | Факты | Статус |
+|---|---|---|---|
+| C1 | B1-retry | харнесс стартовал 05:47:23, умер без следа через ~16–35 c (`live.out`: 3 строки; ядро-OOM пусто; сервер 961 МБ RAM / swap 1.2 ГБ — вероятна принудительная остановка по памяти). **Ни одного сообщения в чат не ушло** (маркер-скан 0). Проба провайдера 05:51:12: **`http_502`** (`capability=unavailable`, «Провайдер временно недоступен (ошибка сервера)»), состояние `requested=true/effective=false`. По правилу лейна — СТОП | **WAITING_EXTERNAL (http_502, 05:51:12Z)** |
+| C2 | Postgen-positive | не запускался (C1 не положительный) — **бюджет генераций не потрачен** | N/A |
+| C3 | Уборка | маркер-скан по всему окну волн A/B/C (mid ≥1165600, «🧪 Приёмка»): **найдено 0** — остаток тестовых **0**, владельца не трогали (регистры A/B — 7/7 и 7/7 удалены ранее) | **VERIFIED (residual=0)** |
+| C4 | Журнал/экономика | SKIPS=**0 за все ~6.6 ч** (T0+); точные ERR/CRIT уровни = **0** (ранее «ERR=1» — WARNING-текст `L2_ERROR`; «402=1» — ложное срабатывание: `[Sleep] … Max importance: 402`); `user_version=36`; бюджет 2026-10-19 `image_calls` = 13/13 (Δ волны C = 0; +1 волны B входит); резерваций since T0 = 0 | **VERIFIED** |
+
+**Корневая причина download-стадий (найдена и подтверждена):** прод-бот создан с
+`AiohttpSession(api=TelegramAPIServer.from_base(LOCAL_BOT_API_URL=http://localhost:8081, is_local=True))`
+(`DOWNLOAD_ENABLED=true`). aiogram при `is_local=True` качает файл **не по HTTP, а читает его с локальной ФС**
+по пути, который вернул локальный Bot API. Тест (тот же ассет 1165720): cloud-сессия — download OK
+(54960 B); local-сессия — `get_file` OK, но `bot.download` → **FileNotFoundError:
+`/var/lib/telegram-bot-api/<masked>/photos/file_1317.jpg`** (на хосте для тест-процесса путь отсутствует).
+Отсюда **все** vision-джобы падают на стадии download (`vision_unavailable`) — за 6.6 ч: 64 skipped + 32
+failed (все `stage=download`), `mca_media_analyses` пуст; провайдер nemotron при этом отдельно отдаёт 502.
+Это деплой-финдинг (инфраструктура: локальный Bot API/маунт), не дефект кода 2.58.92 — в Builder/Reviewer
+для следующего окна.
+
+**SCEN-B/ностальгия (ночной дозор, soul-1):** затишья не было — все тики **scenario=A** (silence 0–2 мин;
+второй чат 40 мин → `no_candidates`). НО зафиксировано **первое фактическое срабатывание-доставка после T0**:
+**03:46:43 UTC** (08:46 +05), scenario=A, `year_back`, `path=initiative` (`[mca09] initiative sent |
+trigger=nostalgia_due`), текст «[Корсар 2025-10-19]: Зашёл утренних мемов посмотреть а их нет»,
+`nostalgia_log status=sent`, `nostalgia_run success` 23.3 c. Это закрывает критерий GOAL леджера soul-1
+(«доставленное воспоминание после T0»); SCEN-B (тихий сценарий) остаётся ненаблюдённым (не блокер).
+
+Файлы волны C: `diag-register-c.json`, `check2-register-c.json`, `dl-test-register-c.json`,
+`final-register-c.json`, `journal-since-t0-c.txt`, `harness/` (accept92c_live.py, accept92c_final.py,
+accept92c_dl_test.py).

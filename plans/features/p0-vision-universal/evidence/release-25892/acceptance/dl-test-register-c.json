@@ -1,0 +1,17 @@
+{
+ "now_utc": "2026-10-19 05:58:33",
+ "download_enabled": true,
+ "cloud": {
+  "get_file": true,
+  "download": true,
+  "bytes": 54960
+ },
+ "local": {
+  "get_file": true,
+  "file_path_masked": "/var/lib/telegram-bot-api/<bot-id:masked>/photos/file_1317.jpg",
+  "to_local_masked": "/var/lib/telegram-bot-api/<bot-id:masked>/photos/file_1317.jpg",
+  "host_exists": false,
+  "download": false,
+  "download_error": "FileNotFoundError: [Errno 2] No such file or directory: '/var/lib/telegram-bot-api/<bot-id:masked>/photos/file_1317.jpg'"
+ }
+}

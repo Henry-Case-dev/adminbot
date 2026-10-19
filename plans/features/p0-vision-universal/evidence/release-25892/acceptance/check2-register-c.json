@@ -1,0 +1,100 @@
+{
+ "now_utc": "2026-10-19 05:55:42",
+ "settings": {
+  "DOWNLOAD_ENABLED": true,
+  "LOCAL_BOT_API_URL": "http://localhost:8081",
+  "VISION_MODEL_env": ""
+ },
+ "hot": {
+  "flags.download_enabled": true,
+  "models.vision_model": "nvidia/nemotron-3.5-super-vl:free",
+  "models.llm_base_url": "https://nano-gpt.com"
+ },
+ "file_id_len": 92,
+ "cloud_get_file": {
+  "ok": true,
+  "file_path_head": "photos/file_1",
+  "file_size": 54960
+ },
+ "prod_session_get_file": {
+  "ok": true,
+  "session": "local",
+  "file_path_head": "/var/lib/telegram-bot-api/<bot-id:masked>",
+  "file_size": 54960
+ },
+ "budget": [
+  {
+   "day": "2026-10-19",
+   "scope": "chat:-1002661910336",
+   "metric": "image_calls",
+   "used": "13"
+  },
+  {
+   "day": "2026-10-19",
+   "scope": "global",
+   "metric": "image_calls",
+   "used": "13"
+  },
+  {
+   "day": "2026-10-18",
+   "scope": "chat:-1002661910336",
+   "metric": "image_calls",
+   "used": "12"
+  },
+  {
+   "day": "2026-10-18",
+   "scope": "chat:-1009900000201",
+   "metric": "image_calls",
+   "used": "4"
+  },
+  {
+   "day": "2026-10-18",
+   "scope": "global",
+   "metric": "image_calls",
+   "used": "16"
+  },
+  {
+   "day": "2026-10-17",
+   "scope": "chat:-1002661910336",
+   "metric": "image_calls",
+   "used": "5"
+  },
+  {
+   "day": "2026-10-17",
+   "scope": "global",
+   "metric": "image_calls",
+   "used": "5"
+  },
+  {
+   "day": "2026-10-16",
+   "scope": "chat:-1002661910336",
+   "metric": "image_calls",
+   "used": "46"
+  },
+  {
+   "day": "2026-10-16",
+   "scope": "global",
+   "metric": "image_calls",
+   "used": "46"
+  },
+  {
+   "day": "2026-10-15",
+   "scope": "chat:-1002661910336",
+   "metric": "image_calls",
+   "used": "5"
+  },
+  {
+   "day": "2026-10-15",
+   "scope": "chat:-1004482340693",
+   "metric": "image_calls",
+   "used": "5"
+  },
+  {
+   "day": "2026-10-15",
+   "scope": "global",
+   "metric": "image_calls",
+   "used": "10"
+  }
+ ],
+ "reservations_since_t0": []
+}
