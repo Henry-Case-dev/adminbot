@@ -1,0 +1,143 @@
+[runner] connected nik@198.46.175.136
+### RECON (rc=0)
+2026-10-19 15:52:34 UTC
+HEAD=95d11472b9e533b554554918e3efa6b42125260b BRANCH=master TRACKED_MOD=0
+MainPID=3739015
+NRestarts=0
+ActiveState=active
+SubState=running
+PROD_USER=root
+{"status":"ok","version":"2.58.96"}
+{"status":"ok","version":"2.58.96"}
+/dev/vda2        24G   16G  7.2G  68% /
+### HARNESS_USER_CHECK (rc=0)
+PUSER=[root]
+[runner] harness_sudo=True
+[runner] uploaded accept96_base.py -> /tmp/accept96_base.py (51755 bytes)
+[runner] uploaded accept96_live.py -> /tmp/accept96_live.py (60238 bytes)
+[runner] uploaded accept96b_live.py -> /tmp/accept96b_live.py (27426 bytes)
+[runner] uploaded accept96b_clean.py -> /tmp/accept96b_clean.py (11914 bytes)
+[runner] uploaded accept96b_journal.sh -> /tmp/accept96b_journal.sh (3175 bytes)
+### UPLOAD (ok)
+### VERIFY_UPLOAD (rc=0)
+7c8cf0949b91895344709cf8bd1da8c20204829675841d29142fa876b8471bf9 accept96_base.py
+3ac50f79c3afcdcba29b3314facbee2f242ed1103fe32ad12540e481c014e3d7 accept96_live.py
+624e15739c9221edbf828af3a0154002d4bf44e6e4e632e5cca7f076ba6426c8 accept96b_live.py
+248d7a4e5a901f3c25f6046cde6d519a6aa484a37516f932d6ee15be35d97479 accept96b_clean.py
+a983f7e94257187fe65d1fcdba51395399dfdf2693b4722a917fa84d0c10467b accept96b_journal.sh
+### CLEAN_EVID (rc=0)
+CLEANED=1
+[stderr] [sudo] password for nik:
+### KILL_STALE (rc=0)
+CLEAR
+[stderr] [sudo] password for nik:
+[runner] WAVE_SINCE=2026-10-19 15:52:48
+### START (rc=0)
+STARTED_PID=3751954
+[stderr] [sudo] password for nik:
+### VERIFY_START (rc=0)
+OUT_LINES=1
+PROC_RUNNING
+[stderr] [sudo] password for nik:
+[poll 1] WAIT
+[poll 7] WAIT
+[runner] finished=True
+### LIVE_TAIL (rc=0)
+31 /tmp/accept96b/live.out
+ACC96B NOW_UTC | 2026-10-19 15:52:49
+ACC94 BOT INFO | session=local_bot_api (download_enabled=1)
+ACC94 BOOT | version=? vec=True bot=8802473181 pg=True
+ACC94 SAVE INFO | p0b-state.json (37384 bytes)
+ACC96B P0b | A chat_present=False inheritance=global | B inheritance=global | override_keys=28
+ACC96B RESIDUAL | mid=1166467 owner=not_bot (TelegramBadRequest: Telegram server says - Bad Request: message can't be edited)
+ACC96B RESIDUAL | mid=1166469 owner=bot (ok)
+ACC94 SAVE INFO | residual-95a.json (372 bytes)
+ACC96B WAVE | A=frequent eff=frequent src=chat rev=6763c903ffc2
+ACC96B TURN | A banter status=ok own_mat=0 | Спасибо, я старался
+ACC96B ISO | B banter status=ok own_mat=0 | Вчера я вроде не докладывал, а под столом валялся после Лехиных расчётов по ддр3. Если это
+ACC96B ISO | B short status=ok own_mat=0 | В деле, но только если Леха к завтрашнему дню довычислит свои протеины
+ACC96B TURN | A short status=ok own_mat=0 | В каком деле-то?
+ACC94 SAVE INFO | isolation.json (149868 bytes)
+ACC96B ROUTE | authorial marker=True mode=frequent
+ACC96B ROUTE | initiative len=186 own_mat=0 l2=[{"has_marker": true, "mode_line": "frequent", "expected_text_present": true}]
+ACC96B LIVE_CHECK | http=200 mode=frequent diag= marker=True prof=0
+ACC96B DIAG_DIRECT | frequent own_mat=1 | Понедельник - это пиздец, а не день
+ACC94 SAVE INFO | routes.json (17661 bytes)
+ACC94 SAVE INFO | quote-off.json (47291 bytes)
+ACC96B QUOTE | status=ok preserved=True own_mat=1 | да пошёл он нахуй со своими правками, я устал
+ACC94 SAVE INFO | quote-off.json (48139 bytes)
+ACC96B DIAG_DIRECT | off own_mat=0 | Нет
+ACC96B DIAG | {"frequent": {"probes": 9, "probes_note": "7 main-wave conversational + 2 follow-up", "mat_roots": 0, "marker_present_l2": true, "class": "model_ignored_instruction"}, "emitted_event": true}
+ACC94 SAVE INFO | diag.json (220 bytes)
+ACC94 SAVE INFO | restore.json (70916 bytes)
+ACC96B RESTORE | A http=200 inher=global | B http=200 inher=global
+ACC94 SAVE INFO | summary.json (64217 bytes)
+ACC96B SPEC | A=6 B=3 residual_deleted=[1166469]
+ACC96B SUMMARY | {"turns_used": 7, "isolation": "PASS", "quote_preserved": true, "diag_class": "model_ignored_instruction"}
+ACC96B RC=0
+[stderr] [sudo] password for nik:
+[download] /tmp/accept96b/journal.txt failed FileNotFoundError
+[runner] downloaded evidence (pass 1): p0b-state.json, isolation.json, routes.json, diag.json, quote-off.json, summary.json, restore.json, residual-95a.json
+### JOURNAL (rc=127)
+=== NOW ===
+2026-10-19T15:55:23Z
+WAVE_SINCE=[2026-10-19 15:52:48]
+=== SERVICE ===
+MainPID=3739015
+NRestarts=0
+ExecMainStartTimestamp=Mon 2026-10-19 14:51:31 UTC
+ExecMainStatus=0
+ActiveState=active
+SubState=running
+{"status":"ok","version":"2.58.96"}
+{"status":"ok","version":"2.58.96"}
+=== COUNTS (wave) ===
+ERR=0
+E402=0
+SKIPS=0
+RUNTIMEWARN=0
+DBLOCKED=0
+EXPR_DIAG=0
+EXPR_RESOLVE_FAIL=0
+PROMPT_LAYERS=0
+DIRECT_REPLY_SENT=0
+L2WRITER=1
+LOCALBOTAPI=0
+=== expression-related lines (tail 25) ===
+=== ERR lines (first 30) ===
+=== sqlite read-only probe ===
+{"db_path": "/var/www/admin_bot/local_database.db", "user_version": [{"user_version": 36}], "analyses": [{"status": "failed", "n": 39}, {"status": "ready", "n": 21}, {"status": "running", "n": 1}], "expr_diag_recent": [{"ts": 1792425292, "event_name": "expression_diag", "outcome": "failed", "status": null, "reason_code": "source_missing", "chat_id": -1002661910336}], "expr_samples": [{"technique": "expression_register", "owner_approved": 0, "status": "active", "n": 12}], "prompt_layers_expr_recent": [{"ts": 1792425222, "status": "expression:profile:machine_stage", "reason_code": "disabled", "chat_id": -1004482340693}, {"ts": 1792425202, "status": "expression:profile:machine_stage", "reason_code": "disabled", "chat_id": -1002661910336}, {"ts": 1792424141, "status": "expression:profile:machine_stage", "reason_code": "disabled", "chat_id": -1004482340693}, {"ts": 1792424134, "status": "expression:profile:machine_stage", "reason_code": "disabled", "chat_id": -1002661910336}, {"ts": 1792423724, "status": "expression:profile:machine_stage", "reason_code": "disabled", "chat_id": -1002661910336}, {"ts": 1792422455, "status": "expression:profile:machine_stage", "reason_code": "disabled", "chat_id": -1004482340693}, {"ts": 1792420727, "status": "expression:expression_absent", "reason_code": "source_missing", "chat_id": -1002661910336}, {"ts": 1792420725, "status": "expression:profile:machine_stage", "reason_code": "disabled", "chat_id": -1002661910336}, {"ts": 1792419333, "status": "expression:expression_absent", "reason_code": "source_missing", "chat_id": -1002661910336}, {"ts": 1792419330, "status": "expression:profile:machine_stage", "reason_code": "disabled", "chat_id": -1002661910336}, {"ts": 1792418531, "status": "expression:expression_absent", "reason_code": "source_missing", "chat_id": -1002661910336}, {"ts": 1792418529, "status": "expression:profile:machine_stage", "reason_code": "disabled", "chat_id": -1002661910336}, {"ts": 1792417674, "status": "expression:expression_absent", "reason_code": "source_missing", "chat_id": -1002661910336}, {"ts": 1792417672, "status": "expression:profile:machine_stage", "reason_code": "disabled", "chat_id": -1002661910336}, {"ts": 1792405396, "status": "expression:expression_absent", "reason_code": "source_missing", "chat_id": -1002661910336}]}
+=== DONE ===
+[stderr] [sudo] password for nik: /tmp/accept96b_journal.sh: 1: ﻿#!/bin/bash: not found
+/tmp/accept96b_journal.sh: 69: : not found
+### CLEANUP_SPEC (rc=0) SPEC_OK
+### CLEANUP (rc=0)
+ACC96CLEAN NOW_UTC | 2026-10-19 15:55:36
+ACC96CLEAN SPEC | A=-1002661910336 B=-1004482340693 deleteA=6 deleteB=3 residual=[1166469]
+ACC96CLEAN RESIDUAL | к удалению 95a: [1166469] | [{'mid': 1166467, 'edit_caption': "TelegramBadRequest: Telegram server says - Bad Request: message can't be edited", 'owner': 'not_bot'}, {'mid': 1166469, 'edit_caption': 'ok', 'owner': 'bot', 'deleted': 'ok'}]
+ACC96CLEAN BOT | id=8802473181 username=PERMsoc_bot
+ACC96CLEAN DEL | chat=-1004482340693 2736 deleted
+ACC96CLEAN DEL | chat=-1004482340693 2737 deleted
+ACC96CLEAN DEL | chat=-1004482340693 2739 deleted
+ACC96CLEAN DEL | chat=-1002661910336 1166469 already_deleted
+ACC96CLEAN DEL | chat=-1002661910336 1166715 deleted
+ACC96CLEAN DEL | chat=-1002661910336 1166717 deleted
+ACC96CLEAN DEL | chat=-1002661910336 1166719 deleted
+ACC96CLEAN DEL | chat=-1002661910336 1166720 deleted
+ACC96CLEAN DEL | chat=-1002661910336 1166722 deleted
+ACC96CLEAN DEL | chat=-1002661910336 1166728 deleted
+ACC96CLEAN VERIFY | {"deleted": 9, "already": 1, "failed": [], "removed": {"smart": 0, "bot_replies": 6, "bot_reply_parents": 6, "throttle": 2}}
+ACC96CLEAN DONE | residual_rows=0 residual_replies=0 failed=0
+ACC96CLEAN RC=0
+[stderr] [sudo] password for nik:
+[runner] downloaded cleanup register: cleanup-register.json
+### FINAL (rc=0)
+MainPID=3739015
+NRestarts=0
+ExecMainStatus=0
+ActiveState=active
+SubState=running
+{"status":"ok","version":"2.58.96"}
+{"status":"ok","version":"2.58.96"}
+HEAD=95d11472b9e533b554554918e3efa6b42125260b TRACKED_MOD=0
+2026-10-19 15:55:43 UTC

@@ -1,0 +1,563 @@
+{
+  "wave_start_epoch": 1792423664,
+  "view_a": {
+    "http": 200,
+    "body": {
+      "doc_key": "character.expression",
+      "scope": "chat",
+      "chat_id": -1002661910336,
+      "document": {
+        "enabled": true,
+        "wit": "inherit",
+        "sharpness": "sharp",
+        "profanity": "occasional",
+        "verbosity": "inherit",
+        "note": ""
+      },
+      "present": true,
+      "global_present": true,
+      "chat_present": false,
+      "inheritance": "global",
+      "controls": [
+        {
+          "id": "wit",
+          "label": "Остроумие",
+          "question": "Насколько охотно искать шутку и неожиданное сравнение",
+          "options": [
+            {
+              "value": "inherit",
+              "label": "Как настроено (по умолчанию)"
+            },
+            {
+              "value": "low",
+              "label": "Реже обычного"
+            },
+            {
+              "value": "normal",
+              "label": "Обычно"
+            },
+            {
+              "value": "high",
+              "label": "Чаще искать повод"
+            }
+          ],
+          "instruction": {
+            "low": "Поводы для шутки почти не ищутся: по делу, без насилия над темой.",
+            "normal": "Обычная манера: шутка появляется, когда она уместна.",
+            "high": "Повод ищется охотнее (сравнение, абсурдная деталь), но уместность всё равно решает L1."
+          },
+          "effect": "",
+          "effective": "inherit",
+          "effective_source": "factory_default"
+        },
+        {
+          "id": "sharpness",
+          "label": "Резкость",
+          "question": "Насколько жёстко можно спорить и подкалывать",
+          "options": [
+            {
+              "value": "inherit",
+              "label": "Как настроено (по умолчанию)"
+            },
+            {
+              "value": "soft",
+              "label": "Мягче обычного"
+            },
+            {
+              "value": "normal",
+              "label": "Обычно"
+            },
+            {
+              "value": "sharp",
+              "label": "Жёстче обычного"
+            }
+          ],
+          "instruction": {
+            "soft": "Подколка остаётся, но мягче; спор — по существу.",
+            "normal": "Обычная язвительность ядра без перехода в травлю.",
+            "sharp": "Резче и прямее; оскорбления и травля не появляются — жёсткость формулировки, а не агрессия к человеку."
+          },
+          "effect": "Резче и прямее; оскорбления и травля не появляются — жёсткость формулировки, а не агрессия к человеку.",
+          "effective": "sharp",
+          "effective_source": "global"
+        },
+        {
+          "id": "profanity",
+          "label": "Мат",
+          "question": "Как часто мат звучит в собственных ответах бота",
+          "options": [
+            {
+              "value": "inherit",
+              "label": "Как в глобальных настройках (наследование)"
+            },
+            {
+              "value": "off",
+              "label": "Без мата"
+            },
+            {
+              "value": "occasional",
+              "label": "Эпизодически"
+            },
+            {
+              "value": "frequent",
+              "label": "Часто"
+            }
+          ],
+          "instruction": {
+            "off": "в собственных формулировках не используй обсценную лексику — это ограничение формы, а не характера: ирония, резкость и стёб остаются. Чужую речь, цитаты и источники передавай корректно и не искажай, даже если в них есть мат.",
+            "occasional": "обсценная разговорная лексика появляется в собственных живых репликах изредка, но реально — когда добавляет эмоцию, иронию, раздражение или характерную интонацию. Большинство обычных реплик обходится без неё; это не пассивное разрешение, а редкий выразительный приём.",
+            "frequent": "обсценная разговорная лексика — узнаваемая регулярная часть твоего повседневного голоса. Используй её регулярно при подходящей ситуации, в том числе в собственных живых ответах — коротких и развёрнутых: как междометие, связку, усиление эмоции, самоиронию или шутку. Не в каждом предложении и без повтора одних и тех же слов; не только при оскорблении и не только по прямой просьбе «матерись»."
+          },
+          "effect": "Мат изредка, но по-настоящему: эмоция, ирония, раздражение, характерная интонация. Большинство обычных реплик — без мата.",
+          "effective": "occasional",
+          "effective_source": "global"
+        },
+        {
+          "id": "verbosity",
+          "label": "Развёрнутость",
+          "question": "Обычная длина ответа, когда пользователь не задал формат",
+          "options": [
+            {
+              "value": "inherit",
+              "label": "Как настроено (по умолчанию)"
+            },
+            {
+              "value": "short",
+              "label": "Короче обычного"
+            },
+            {
+              "value": "normal",
+              "label": "Обычно"
+            },
+            {
+              "value": "long",
+              "label": "Подробнее обычного"
+            }
+          ],
+          "instruction": {
+            "short": "Короче по умолчанию; прямая просьба «подробнее» по-прежнему важнее.",
+            "normal": "Обычная длина (её всё равно выбирает L1 по задаче).",
+            "long": "Подробнее по умолчанию; «короче» пользователя важнее."
+          },
+          "effect": "",
+          "effective": "inherit",
+          "effective_source": "factory_default"
+        }
+      ],
+      "values": {
+        "wit": "inherit",
+        "sharpness": "sharp",
+        "profanity": "occasional",
+        "verbosity": "inherit"
+      },
+      "allows": {
+        "wit": [
+          "inherit",
+          "low",
+          "normal",
+          "high"
+        ],
+        "sharpness": [
+          "inherit",
+          "soft",
+          "normal",
+          "sharp"
+        ],
+        "profanity": [
+          "inherit",
+          "off",
+          "occasional",
+          "frequent"
+        ],
+        "verbosity": [
+          "inherit",
+          "short",
+          "normal",
+          "long"
+        ]
+      },
+      "effective": {
+        "wit": {
+          "value": "inherit",
+          "source": "factory_default",
+          "migrated": false
+        },
+        "sharpness": {
+          "value": "sharp",
+          "source": "global",
+          "migrated": false
+        },
+        "profanity": {
+          "value": "occasional",
+          "source": "global",
+          "migrated": true
+        },
+        "verbosity": {
+          "value": "inherit",
+          "source": "factory_default",
+          "migrated": false
+        }
+      },
+      "migration": {
+        "profanity": {
+          "from": "allowed",
+          "to": "occasional"
+        }
+      },
+      "note": "",
+      "notes": "Настройки задают интенсивность и форму собственной речи; уместность и жанр решают, где она проявляется. Просьба «без мата» уважается всегда. Реальную частоту можно проверить в «Проверить вживую».",
+      "rendered_text": "<Expression_Settings>\nНастройки выражения владельца: интенсивность и форма собственной речи; характер этим не меняется. Уместность выбирает L1; просьба «без мата» уважается всегда; дословные цитаты и структурированные сводки (фактчек, ошибки API, тех. отчёты) не переписываются, мат в них не форсируется:\n- Резкость: Резче и прямее; оскорбления и травля не появляются — жёсткость формулировки, а не агрессия к человеку.\n- Мат: обсценная разговорная лексика появляется в собственных живых репликах изредка, но реально — когда добавляет эмоцию, иронию, раздражение или характерную интонацию. Большинство обычных реплик обходится без неё; это не пассивное разрешение, а редкий выразительный приём.\n</Expression_Settings>",
+      "rendered_chars": 717,
+      "runtime_wired": true,
+      "runtime_note": "Слой «Выражение» подключён к боевым речевым путям (Direct/Initiative); значение действует со следующего ответа.",
+      "gates": {
+        "unified_composer_enabled": true,
+        "character_core_enabled": true,
+        "speech_style_policy_enabled": true,
+        "humor_library_enabled": true,
+        "humor_feedback_enabled": true,
+        "expression_examples_enabled": true,
+        "experience_lessons_enabled": true,
+        "smart_verbalizer_modes_enabled": true,
+        "response_plan_enabled": true,
+        "persona_enabled": true,
+        "character_layers_enabled": true
+      },
+      "can_edit": true
+    }
+  },
+  "view_global": {
+    "http": 200,
+    "body": {
+      "doc_key": "character.expression",
+      "scope": "global",
+      "chat_id": null,
+      "document": {
+        "enabled": true,
+        "wit": "inherit",
+        "sharpness": "sharp",
+        "profanity": "occasional",
+        "verbosity": "inherit",
+        "note": ""
+      },
+      "present": true,
+      "global_present": true,
+      "chat_present": false,
+      "inheritance": "global",
+      "controls": [
+        {
+          "id": "wit",
+          "label": "Остроумие",
+          "question": "Насколько охотно искать шутку и неожиданное сравнение",
+          "options": [
+            {
+              "value": "inherit",
+              "label": "Как настроено (по умолчанию)"
+            },
+            {
+              "value": "low",
+              "label": "Реже обычного"
+            },
+            {
+              "value": "normal",
+              "label": "Обычно"
+            },
+            {
+              "value": "high",
+              "label": "Чаще искать повод"
+            }
+          ],
+          "instruction": {
+            "low": "Поводы для шутки почти не ищутся: по делу, без насилия над темой.",
+            "normal": "Обычная манера: шутка появляется, когда она уместна.",
+            "high": "Повод ищется охотнее (сравнение, абсурдная деталь), но уместность всё равно решает L1."
+          },
+          "effect": "",
+          "effective": "inherit",
+          "effective_source": "factory_default"
+        },
+        {
+          "id": "sharpness",
+          "label": "Резкость",
+          "question": "Насколько жёстко можно спорить и подкалывать",
+          "options": [
+            {
+              "value": "soft",
+              "label": "Мягче обычного"
+            },
+            {
+              "value": "normal",
+              "label": "Обычно"
+            },
+            {
+              "value": "sharp",
+              "label": "Жёстче обычного"
+            }
+          ],
+          "instruction": {
+            "soft": "Подколка остаётся, но мягче; спор — по существу.",
+            "normal": "Обычная язвительность ядра без перехода в травлю.",
+            "sharp": "Резче и прямее; оскорбления и травля не появляются — жёсткость формулировки, а не агрессия к человеку."
+          },
+          "effect": "Резче и прямее; оскорбления и травля не появляются — жёсткость формулировки, а не агрессия к человеку.",
+          "effective": "sharp",
+          "effective_source": "global"
+        },
+        {
+          "id": "profanity",
+          "label": "Мат",
+          "question": "Как часто мат звучит в собственных ответах бота",
+          "options": [
+            {
+              "value": "off",
+              "label": "Без мата"
+            },
+            {
+              "value": "occasional",
+              "label": "Эпизодически"
+            },
+            {
+              "value": "frequent",
+              "label": "Часто"
+            }
+          ],
+          "instruction": {
+            "off": "в собственных формулировках не используй обсценную лексику — это ограничение формы, а не характера: ирония, резкость и стёб остаются. Чужую речь, цитаты и источники передавай корректно и не искажай, даже если в них есть мат.",
+            "occasional": "обсценная разговорная лексика появляется в собственных живых репликах изредка, но реально — когда добавляет эмоцию, иронию, раздражение или характерную интонацию. Большинство обычных реплик обходится без неё; это не пассивное разрешение, а редкий выразительный приём.",
+            "frequent": "обсценная разговорная лексика — узнаваемая регулярная часть твоего повседневного голоса. Используй её регулярно при подходящей ситуации, в том числе в собственных живых ответах — коротких и развёрнутых: как междометие, связку, усиление эмоции, самоиронию или шутку. Не в каждом предложении и без повтора одних и тех же слов; не только при оскорблении и не только по прямой просьбе «матерись»."
+          },
+          "effect": "Мат изредка, но по-настоящему: эмоция, ирония, раздражение, характерная интонация. Большинство обычных реплик — без мата.",
+          "effective": "occasional",
+          "effective_source": "global"
+        },
+        {
+          "id": "verbosity",
+          "label": "Развёрнутость",
+          "question": "Обычная длина ответа, когда пользователь не задал формат",
+          "options": [
+            {
+              "value": "inherit",
+              "label": "Как настроено (по умолчанию)"
+            },
+            {
+              "value": "short",
+              "label": "Короче обычного"
+            },
+            {
+              "value": "normal",
+              "label": "Обычно"
+            },
+            {
+              "value": "long",
+              "label": "Подробнее обычного"
+            }
+          ],
+          "instruction": {
+            "short": "Короче по умолчанию; прямая просьба «подробнее» по-прежнему важнее.",
+            "normal": "Обычная длина (её всё равно выбирает L1 по задаче).",
+            "long": "Подробнее по умолчанию; «короче» пользователя важнее."
+          },
+          "effect": "",
+          "effective": "inherit",
+          "effective_source": "factory_default"
+        }
+      ],
+      "values": {
+        "wit": "inherit",
+        "sharpness": "sharp",
+        "profanity": "occasional",
+        "verbosity": "inherit"
+      },
+      "allows": {
+        "wit": [
+          "inherit",
+          "low",
+          "normal",
+          "high"
+        ],
+        "sharpness": [
+          "inherit",
+          "soft",
+          "normal",
+          "sharp"
+        ],
+        "profanity": [
+          "inherit",
+          "off",
+          "occasional",
+          "frequent"
+        ],
+        "verbosity": [
+          "inherit",
+          "short",
+          "normal",
+          "long"
+        ]
+      },
+      "effective": {
+        "wit": {
+          "value": "inherit",
+          "source": "factory_default",
+          "migrated": false
+        },
+        "sharpness": {
+          "value": "sharp",
+          "source": "global",
+          "migrated": false
+        },
+        "profanity": {
+          "value": "occasional",
+          "source": "global",
+          "migrated": true
+        },
+        "verbosity": {
+          "value": "inherit",
+          "source": "factory_default",
+          "migrated": false
+        }
+      },
+      "migration": {
+        "profanity": {
+          "from": "allowed",
+          "to": "occasional"
+        }
+      },
+      "note": "",
+      "notes": "Настройки задают интенсивность и форму собственной речи; уместность и жанр решают, где она проявляется. Просьба «без мата» уважается всегда. Реальную частоту можно проверить в «Проверить вживую».",
+      "rendered_text": "<Expression_Settings>\nНастройки выражения владельца: интенсивность и форма собственной речи; характер этим не меняется. Уместность выбирает L1; просьба «без мата» уважается всегда; дословные цитаты и структурированные сводки (фактчек, ошибки API, тех. отчёты) не переписываются, мат в них не форсируется:\n- Резкость: Резче и прямее; оскорбления и травля не появляются — жёсткость формулировки, а не агрессия к человеку.\n- Мат: обсценная разговорная лексика появляется в собственных живых репликах изредка, но реально — когда добавляет эмоцию, иронию, раздражение или характерную интонацию. Большинство обычных реплик обходится без неё; это не пассивное разрешение, а редкий выразительный приём.\n</Expression_Settings>",
+      "rendered_chars": 717,
+      "runtime_wired": true,
+      "runtime_note": "Слой «Выражение» подключён к боевым речевым путям (Direct/Initiative); значение действует со следующего ответа.",
+      "gates": {
+        "unified_composer_enabled": true,
+        "character_core_enabled": true,
+        "speech_style_policy_enabled": true,
+        "humor_library_enabled": true,
+        "humor_feedback_enabled": true,
+        "expression_examples_enabled": true,
+        "experience_lessons_enabled": true,
+        "smart_verbalizer_modes_enabled": true,
+        "response_plan_enabled": true,
+        "persona_enabled": true,
+        "character_layers_enabled": true
+      },
+      "can_edit": true
+    }
+  },
+  "resolve_a": {
+    "mode": "occasional",
+    "source": "global",
+    "revision": "537816072dab",
+    "text_sha12": "537816072dab",
+    "text_chars": 717,
+    "skip_reason": "",
+    "enabled": true,
+    "text": "<Expression_Settings>\nНастройки выражения владельца: интенсивность и форма собственной речи; характер этим не меняется. Уместность выбирает L1; просьба «без мата» уважается всегда; дословные цитаты и структурированные сводки (фактчек, ошибки API, тех. отчёты) не переписываются, мат в них не форсируется:\n- Резкость: Резче и прямее; оскорбления и травля не появляются — жёсткость формулировки, а не агрессия к человеку.\n- Мат: обсценная разговорная лексика появляется в собственных живых репликах изредка, но реально — когда добавляет эмоцию, иронию, раздражение или характерную интонацию. Большинство обычных реплик обходится без неё; это не пассивное разрешение, а редкий выразительный приём.\n</Expression_Settings>"
+  },
+  "preview_eq_resolve": true,
+  "chats": [
+    {
+      "chat_id": -1004482340693,
+      "n": 2364,
+      "last_ts": 1792423242
+    },
+    {
+      "chat_id": -1002661910336,
+      "n": 2027995,
+      "last_ts": 1792422832
+    },
+    {
+      "chat_id": 1313107079,
+      "n": 8,
+      "last_ts": 1792398366
+    },
+    {
+      "chat_id": 5885953495,
+      "n": 191,
+      "last_ts": 1791301790
+    },
+    {
+      "chat_id": 134812796,
+      "n": 2,
+      "last_ts": 1790179579
+    },
+    {
+      "chat_id": 391148065,
+      "n": 2,
+      "last_ts": 1788772699
+    },
+    {
+      "chat_id": 42115912,
+      "n": 4,
+      "last_ts": 1788254828
+    },
+    {
+      "chat_id": 529151103,
+      "n": 1,
+      "last_ts": 1788246532
+    }
+  ],
+  "examples_view": {
+    "http": 200,
+    "starter": {
+      "version": "starter-1",
+      "expected": 18,
+      "seeded": 0,
+      "expression_version": "expr-starter-1",
+      "expression_expected": 12,
+      "expression_seeded": 0
+    },
+    "counts": 1
+  },
+  "residual_asset": [
+    {
+      "asset_id": "a88867d9ba305b7232359a08d6a536de",
+      "message_key": "-1002661910336:1166468",
+      "chat_id": -1002661910336,
+      "tg_message_id": 1166468,
+      "asset_kind": "photo",
+      "mime": "image/jpeg",
+      "byte_size": 202039,
+      "created_at": 1792418061
+    }
+  ],
+  "residual_assets_window": [
+    {
+      "asset_id": "8243b03ad0f159dbd234129c36b67939",
+      "tg_message_id": 1166463,
+      "asset_kind": "document",
+      "mime": "image/png",
+      "byte_size": 1337017,
+      "created_at": 1792417656
+    },
+    {
+      "asset_id": "8b3d4974eb4989a4464ee5f49bb7abb1",
+      "tg_message_id": 1166465,
+      "asset_kind": "photo",
+      "mime": "image/jpeg",
+      "byte_size": 180500,
+      "created_at": 1792417850
+    },
+    {
+      "asset_id": "841c87b08c35884d04519dae3c336d11",
+      "tg_message_id": 1166466,
+      "asset_kind": "photo",
+      "mime": "image/jpeg",
+      "byte_size": 185110,
+      "created_at": 1792417850
+    },
+    {
+      "asset_id": "a88867d9ba305b7232359a08d6a536de",
+      "tg_message_id": 1166468,
+      "asset_kind": "photo",
+      "mime": "image/jpeg",
+      "byte_size": 202039,
+      "created_at": 1792418061
+    }
+  ],
+  "residual_parents": [],
+  "residual_smart": [],
+  "residual_replies": [],
+  "chat_a_overrides": "failed:DataError",
+  "chat_b_overrides": "failed:DataError"
+}

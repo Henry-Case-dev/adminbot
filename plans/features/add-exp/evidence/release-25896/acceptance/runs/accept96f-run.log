@@ -1,0 +1,12 @@
+[f] connected
+[f] uploaded script
+ACC96F NOW_UTC | 2026-10-19 16:12:23
+ACC96F PROBE | owner=bot (ok)
+ACC96F DEL | deleted
+ACC96F DONE | {"mid": 1166670, "chat_id": -1002661910336, "edit_text": "ok", "owner": "bot", "delete": "deleted", "rows_removed": {"bot_replies": 0, "bot_reply_parents": 0}, "residual": {"smart": [], "replies": [], "parents": []}}
+ACC96F RC=0
+
+[stderr] [sudo] password for nik:
+[f] downloaded cleanup-hedge-anchor2.json
+{"status":"ok","version":"2.58.96"}
+HEAD=95d11472b9e533b554554918e3efa6b42125260b TRACKED_MOD=0

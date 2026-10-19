@@ -1,0 +1,26 @@
+[dl] connected
+2026-10-19 15:58:30 UTC
+-rw-r--r-- 1 root root 34253 Oct 19 15:55 /tmp/accept96b/journal.txt
+-rw-r--r-- 1 root root  2411 Oct 19 15:54 /tmp/accept96b/live.out
+-rw-r--r-- 1 root root 98315 Oct 19 15:36 /tmp/accept96/journal.txt
+-rw-r--r-- 1 root root  8239 Oct 19 15:36 /tmp/accept96/live.out
+
+/tmp/accept96/evidence:
+total 612
+drwxr-xr-x 2 root root   4096 Oct 19 15:37 .
+drwxrwxr-x 3 nik  nik    4096 Oct 19 15:36 ..
+-rw-r--r-- 1 root root   8784 Oct 19 15:37 cleanup-register.json
+-rw-r--r-- 1 root root  56756 Oct 19 15:36 isolation.json
+-rw-r--r-- 1 root root   1039 Oct 19 15:36 live-check.json
+-rw-r--r-- 1 root root  25668 Oct 19 15:28 p0-pre-state.json
+-rw-r--r-- 1 root root   1256 Oct 19 15:28 p1-seed.json
+-rw-r--r-- 1 root root  67861 Oct 19 15:36 restore.json
+-rw-r--r-- 1 root root   7839 Oct 19 15:36 routes.json
+-rw-r--r-- 1 root root  25401 Oct 19 15:36 summary.json
+-rw-r--r-- 1 root root 137311 Oct 19 15:35 wave-frequent.json
+-rw-r--r-- 1 root root 150337 Oct 19 15:35 wave-occasional.json
+-rw-r--r-- 1 root root 113849 Oct 19 15:30 wave-off.json
+
+[dl] downloaded: live-check.json, p1-seed.json, cleanup-register.json, isolation.json, p0-pre-state.json, routes.json, wave-frequent.json, summary.json, restore.json, wave-off.json, wave-occasional.json, live.out, journal.txt, followup-live.out, followup-journal.txt
+{"status":"ok","version":"2.58.96"}
+HEAD=95d11472b9e533b554554918e3efa6b42125260b TRACKED_MOD=0

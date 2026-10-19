@@ -1,0 +1,34 @@
+{
+  "seed_run1": {
+    "http": 200,
+    "body": {
+      "ok": true,
+      "seeded": 18,
+      "skipped": 0,
+      "reason": "",
+      "expression_seeded": 12,
+      "expression_skipped": 0,
+      "note": "Черновики заведены БЕЗ владельческого одобрения: эталонами их не считает ни runtime, ни статистика. Набор регистра речи (12 карточек) до утверждения не попадает в ответы — причина `not_owner_approved`."
+    }
+  },
+  "seed_run2": {
+    "http": 200,
+    "body": {
+      "ok": true,
+      "seeded": 0,
+      "skipped": 18,
+      "reason": "",
+      "expression_seeded": 0,
+      "expression_skipped": 12,
+      "note": "Черновики заведены БЕЗ владельческого одобрения: эталонами их не считает ни runtime, ни статистика. Набор регистра речи (12 карточек) до утверждения не попадает в ответы — причина `not_owner_approved`."
+    }
+  },
+  "rows": [
+    {
+      "technique": "expression_register",
+      "status": "active",
+      "owner_approved": 0,
+      "n": 12
+    }
+  ]
+}

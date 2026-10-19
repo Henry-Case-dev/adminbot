@@ -1,0 +1,15 @@
+{
+ "mid": 1166725,
+ "chat_id": -1002661910336,
+ "delete": "deleted",
+ "rows_removed": {
+  "bot_replies": 1,
+  "bot_reply_parents": 1,
+  "smart_messages": 0
+ },
+ "residual": {
+  "smart": [],
+  "replies": [],
+  "parents": []
+ }
+}

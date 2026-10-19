@@ -1,0 +1,18 @@
+{
+  "http": 200,
+  "body": {
+    "ok": true,
+    "mode": "occasional",
+    "reply": "Вчера я, кажется, защищал диссертацию, которую сам же и придумал минут за пять до этого. Если ты про доклад - там был момент, когда я объяснял график, которого не существует, и, по-моему, убедил даже себя\n\nА что конкретно зацепило?",
+    "reply_chars": 231,
+    "profanity_roots": 0,
+    "diag_class": "",
+    "expression_marker": true,
+    "response_mode": "serious",
+    "elapsed_ms": 8137,
+    "delivery": {
+      "telegram_send": false
+    },
+    "note": "Один реальный L2-вызов тем же боевым путём (writer=speech_ui_live_check), без доставки в Telegram. Одиночная проба не приговор: класс `model_ignored_instruction` подтверждается набором Ф6 (N≥5 подряд)."
+  }
+}

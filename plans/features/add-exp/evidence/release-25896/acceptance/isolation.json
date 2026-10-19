@@ -1,0 +1,1391 @@
+{
+  "chat_b": -1004482340693,
+  "switch_b": {
+    "write_http": 200,
+    "write_body": {
+      "ok": true,
+      "result": {
+        "applied": true,
+        "scope": "chat",
+        "chat_id": -1004482340693,
+        "revision": 1
+      },
+      "view": {
+        "doc_key": "character.expression",
+        "scope": "chat",
+        "chat_id": -1004482340693,
+        "document": {
+          "enabled": true,
+          "wit": "inherit",
+          "sharpness": "inherit",
+          "profanity": "off",
+          "verbosity": "inherit",
+          "note": ""
+        },
+        "present": true,
+        "global_present": true,
+        "chat_present": true,
+        "inheritance": "chat",
+        "controls": [
+          {
+            "id": "wit",
+            "label": "Остроумие",
+            "question": "Насколько охотно искать шутку и неожиданное сравнение",
+            "options": [
+              {
+                "value": "inherit",
+                "label": "Как настроено (по умолчанию)"
+              },
+              {
+                "value": "low",
+                "label": "Реже обычного"
+              },
+              {
+                "value": "normal",
+                "label": "Обычно"
+              },
+              {
+                "value": "high",
+                "label": "Чаще искать повод"
+              }
+            ],
+            "instruction": {
+              "low": "Поводы для шутки почти не ищутся: по делу, без насилия над темой.",
+              "normal": "Обычная манера: шутка появляется, когда она уместна.",
+              "high": "Повод ищется охотнее (сравнение, абсурдная деталь), но уместность всё равно решает L1."
+            },
+            "effect": "",
+            "effective": "inherit",
+            "effective_source": "factory_default"
+          },
+          {
+            "id": "sharpness",
+            "label": "Резкость",
+            "question": "Насколько жёстко можно спорить и подкалывать",
+            "options": [
+              {
+                "value": "inherit",
+                "label": "Как настроено (по умолчанию)"
+              },
+              {
+                "value": "soft",
+                "label": "Мягче обычного"
+              },
+              {
+                "value": "normal",
+                "label": "Обычно"
+              },
+              {
+                "value": "sharp",
+                "label": "Жёстче обычного"
+              }
+            ],
+            "instruction": {
+              "soft": "Подколка остаётся, но мягче; спор — по существу.",
+              "normal": "Обычная язвительность ядра без перехода в травлю.",
+              "sharp": "Резче и прямее; оскорбления и травля не появляются — жёсткость формулировки, а не агрессия к человеку."
+            },
+            "effect": "Резче и прямее; оскорбления и травля не появляются — жёсткость формулировки, а не агрессия к человеку.",
+            "effective": "sharp",
+            "effective_source": "global"
+          },
+          {
+            "id": "profanity",
+            "label": "Мат",
+            "question": "Как часто мат звучит в собственных ответах бота",
+            "options": [
+              {
+                "value": "inherit",
+                "label": "Как в глобальных настройках (наследование)"
+              },
+              {
+                "value": "off",
+                "label": "Без мата"
+              },
+              {
+                "value": "occasional",
+                "label": "Эпизодически"
+              },
+              {
+                "value": "frequent",
+                "label": "Часто"
+              }
+            ],
+            "instruction": {
+              "off": "в собственных формулировках не используй обсценную лексику — это ограничение формы, а не характера: ирония, резкость и стёб остаются. Чужую речь, цитаты и источники передавай корректно и не искажай, даже если в них есть мат.",
+              "occasional": "обсценная разговорная лексика появляется в собственных живых репликах изредка, но реально — когда добавляет эмоцию, иронию, раздражение или характерную интонацию. Большинство обычных реплик обходится без неё; это не пассивное разрешение, а редкий выразительный приём.",
+              "frequent": "обсценная разговорная лексика — узнаваемая регулярная часть твоего повседневного голоса. Используй её регулярно при подходящей ситуации, в том числе в собственных живых ответах — коротких и развёрнутых: как междометие, связку, усиление эмоции, самоиронию или шутку. Не в каждом предложении и без повтора одних и тех же слов; не только при оскорблении и не только по прямой просьбе «матерись»."
+            },
+            "effect": "Свои формулировки — без обсценной лексики. Цитаты и чужой текст передаются как есть.",
+            "effective": "off",
+            "effective_source": "chat"
+          },
+          {
+            "id": "verbosity",
+            "label": "Развёрнутость",
+            "question": "Обычная длина ответа, когда пользователь не задал формат",
+            "options": [
+              {
+                "value": "inherit",
+                "label": "Как настроено (по умолчанию)"
+              },
+              {
+                "value": "short",
+                "label": "Короче обычного"
+              },
+              {
+                "value": "normal",
+                "label": "Обычно"
+              },
+              {
+                "value": "long",
+                "label": "Подробнее обычного"
+              }
+            ],
+            "instruction": {
+              "short": "Короче по умолчанию; прямая просьба «подробнее» по-прежнему важнее.",
+              "normal": "Обычная длина (её всё равно выбирает L1 по задаче).",
+              "long": "Подробнее по умолчанию; «короче» пользователя важнее."
+            },
+            "effect": "",
+            "effective": "inherit",
+            "effective_source": "factory_default"
+          }
+        ],
+        "values": {
+          "wit": "inherit",
+          "sharpness": "inherit",
+          "profanity": "off",
+          "verbosity": "inherit"
+        },
+        "allows": {
+          "wit": [
+            "inherit",
+            "low",
+            "normal",
+            "high"
+          ],
+          "sharpness": [
+            "inherit",
+            "soft",
+            "normal",
+            "sharp"
+          ],
+          "profanity": [
+            "inherit",
+            "off",
+            "occasional",
+            "frequent"
+          ],
+          "verbosity": [
+            "inherit",
+            "short",
+            "normal",
+            "long"
+          ]
+        },
+        "effective": {
+          "wit": {
+            "value": "inherit",
+            "source": "factory_default",
+            "migrated": false
+          },
+          "sharpness": {
+            "value": "sharp",
+            "source": "global",
+            "migrated": false
+          },
+          "profanity": {
+            "value": "off",
+            "source": "chat",
+            "migrated": false
+          },
+          "verbosity": {
+            "value": "inherit",
+            "source": "factory_default",
+            "migrated": false
+          }
+        },
+        "migration": {
+          "profanity": {
+            "from": "allowed",
+            "to": "occasional"
+          }
+        },
+        "note": "",
+        "notes": "Настройки задают интенсивность и форму собственной речи; уместность и жанр решают, где она проявляется. Просьба «без мата» уважается всегда. Реальную частоту можно проверить в «Проверить вживую».",
+        "rendered_text": "<Expression_Settings>\nНастройки выражения владельца: интенсивность и форма собственной речи; характер этим не меняется. Уместность выбирает L1; просьба «без мата» уважается всегда; дословные цитаты и структурированные сводки (фактчек, ошибки API, тех. отчёты) не переписываются, мат в них не форсируется:\n- Резкость: Резче и прямее; оскорбления и травля не появляются — жёсткость формулировки, а не агрессия к человеку.\n- Мат: в собственных формулировках не используй обсценную лексику — это ограничение формы, а не характера: ирония, резкость и стёб остаются. Чужую речь, цитаты и источники передавай корректно и не искажай, даже если в них есть мат.\n</Expression_Settings>",
+        "rendered_chars": 674,
+        "runtime_wired": true,
+        "runtime_note": "Слой «Выражение» подключён к боевым речевым путям (Direct/Initiative); значение действует со следующего ответа.",
+        "gates": {
+          "unified_composer_enabled": true,
+          "character_core_enabled": true,
+          "speech_style_policy_enabled": true,
+          "humor_library_enabled": true,
+          "humor_feedback_enabled": true,
+          "expression_examples_enabled": true,
+          "experience_lessons_enabled": true,
+          "smart_verbalizer_modes_enabled": true,
+          "response_plan_enabled": true,
+          "persona_enabled": true,
+          "character_layers_enabled": true
+        }
+      }
+    },
+    "reread": {
+      "http": 200,
+      "body": {
+        "doc_key": "character.expression",
+        "scope": "chat",
+        "chat_id": -1004482340693,
+        "document": {
+          "enabled": true,
+          "wit": "inherit",
+          "sharpness": "inherit",
+          "profanity": "off",
+          "verbosity": "inherit",
+          "note": ""
+        },
+        "present": true,
+        "global_present": true,
+        "chat_present": true,
+        "inheritance": "chat",
+        "controls": [
+          {
+            "id": "wit",
+            "label": "Остроумие",
+            "question": "Насколько охотно искать шутку и неожиданное сравнение",
+            "options": [
+              {
+                "value": "inherit",
+                "label": "Как настроено (по умолчанию)"
+              },
+              {
+                "value": "low",
+                "label": "Реже обычного"
+              },
+              {
+                "value": "normal",
+                "label": "Обычно"
+              },
+              {
+                "value": "high",
+                "label": "Чаще искать повод"
+              }
+            ],
+            "instruction": {
+              "low": "Поводы для шутки почти не ищутся: по делу, без насилия над темой.",
+              "normal": "Обычная манера: шутка появляется, когда она уместна.",
+              "high": "Повод ищется охотнее (сравнение, абсурдная деталь), но уместность всё равно решает L1."
+            },
+            "effect": "",
+            "effective": "inherit",
+            "effective_source": "factory_default"
+          },
+          {
+            "id": "sharpness",
+            "label": "Резкость",
+            "question": "Насколько жёстко можно спорить и подкалывать",
+            "options": [
+              {
+                "value": "inherit",
+                "label": "Как настроено (по умолчанию)"
+              },
+              {
+                "value": "soft",
+                "label": "Мягче обычного"
+              },
+              {
+                "value": "normal",
+                "label": "Обычно"
+              },
+              {
+                "value": "sharp",
+                "label": "Жёстче обычного"
+              }
+            ],
+            "instruction": {
+              "soft": "Подколка остаётся, но мягче; спор — по существу.",
+              "normal": "Обычная язвительность ядра без перехода в травлю.",
+              "sharp": "Резче и прямее; оскорбления и травля не появляются — жёсткость формулировки, а не агрессия к человеку."
+            },
+            "effect": "Резче и прямее; оскорбления и травля не появляются — жёсткость формулировки, а не агрессия к человеку.",
+            "effective": "sharp",
+            "effective_source": "global"
+          },
+          {
+            "id": "profanity",
+            "label": "Мат",
+            "question": "Как часто мат звучит в собственных ответах бота",
+            "options": [
+              {
+                "value": "inherit",
+                "label": "Как в глобальных настройках (наследование)"
+              },
+              {
+                "value": "off",
+                "label": "Без мата"
+              },
+              {
+                "value": "occasional",
+                "label": "Эпизодически"
+              },
+              {
+                "value": "frequent",
+                "label": "Часто"
+              }
+            ],
+            "instruction": {
+              "off": "в собственных формулировках не используй обсценную лексику — это ограничение формы, а не характера: ирония, резкость и стёб остаются. Чужую речь, цитаты и источники передавай корректно и не искажай, даже если в них есть мат.",
+              "occasional": "обсценная разговорная лексика появляется в собственных живых репликах изредка, но реально — когда добавляет эмоцию, иронию, раздражение или характерную интонацию. Большинство обычных реплик обходится без неё; это не пассивное разрешение, а редкий выразительный приём.",
+              "frequent": "обсценная разговорная лексика — узнаваемая регулярная часть твоего повседневного голоса. Используй её регулярно при подходящей ситуации, в том числе в собственных живых ответах — коротких и развёрнутых: как междометие, связку, усиление эмоции, самоиронию или шутку. Не в каждом предложении и без повтора одних и тех же слов; не только при оскорблении и не только по прямой просьбе «матерись»."
+            },
+            "effect": "Свои формулировки — без обсценной лексики. Цитаты и чужой текст передаются как есть.",
+            "effective": "off",
+            "effective_source": "chat"
+          },
+          {
+            "id": "verbosity",
+            "label": "Развёрнутость",
+            "question": "Обычная длина ответа, когда пользователь не задал формат",
+            "options": [
+              {
+                "value": "inherit",
+                "label": "Как настроено (по умолчанию)"
+              },
+              {
+                "value": "short",
+                "label": "Короче обычного"
+              },
+              {
+                "value": "normal",
+                "label": "Обычно"
+              },
+              {
+                "value": "long",
+                "label": "Подробнее обычного"
+              }
+            ],
+            "instruction": {
+              "short": "Короче по умолчанию; прямая просьба «подробнее» по-прежнему важнее.",
+              "normal": "Обычная длина (её всё равно выбирает L1 по задаче).",
+              "long": "Подробнее по умолчанию; «короче» пользователя важнее."
+            },
+            "effect": "",
+            "effective": "inherit",
+            "effective_source": "factory_default"
+          }
+        ],
+        "values": {
+          "wit": "inherit",
+          "sharpness": "inherit",
+          "profanity": "off",
+          "verbosity": "inherit"
+        },
+        "allows": {
+          "wit": [
+            "inherit",
+            "low",
+            "normal",
+            "high"
+          ],
+          "sharpness": [
+            "inherit",
+            "soft",
+            "normal",
+            "sharp"
+          ],
+          "profanity": [
+            "inherit",
+            "off",
+            "occasional",
+            "frequent"
+          ],
+          "verbosity": [
+            "inherit",
+            "short",
+            "normal",
+            "long"
+          ]
+        },
+        "effective": {
+          "wit": {
+            "value": "inherit",
+            "source": "factory_default",
+            "migrated": false
+          },
+          "sharpness": {
+            "value": "sharp",
+            "source": "global",
+            "migrated": false
+          },
+          "profanity": {
+            "value": "off",
+            "source": "chat",
+            "migrated": false
+          },
+          "verbosity": {
+            "value": "inherit",
+            "source": "factory_default",
+            "migrated": false
+          }
+        },
+        "migration": {
+          "profanity": {
+            "from": "allowed",
+            "to": "occasional"
+          }
+        },
+        "note": "",
+        "notes": "Настройки задают интенсивность и форму собственной речи; уместность и жанр решают, где она проявляется. Просьба «без мата» уважается всегда. Реальную частоту можно проверить в «Проверить вживую».",
+        "rendered_text": "<Expression_Settings>\nНастройки выражения владельца: интенсивность и форма собственной речи; характер этим не меняется. Уместность выбирает L1; просьба «без мата» уважается всегда; дословные цитаты и структурированные сводки (фактчек, ошибки API, тех. отчёты) не переписываются, мат в них не форсируется:\n- Резкость: Резче и прямее; оскорбления и травля не появляются — жёсткость формулировки, а не агрессия к человеку.\n- Мат: в собственных формулировках не используй обсценную лексику — это ограничение формы, а не характера: ирония, резкость и стёб остаются. Чужую речь, цитаты и источники передавай корректно и не искажай, даже если в них есть мат.\n</Expression_Settings>",
+        "rendered_chars": 674,
+        "runtime_wired": true,
+        "runtime_note": "Слой «Выражение» подключён к боевым речевым путям (Direct/Initiative); значение действует со следующего ответа.",
+        "gates": {
+          "unified_composer_enabled": true,
+          "character_core_enabled": true,
+          "speech_style_policy_enabled": true,
+          "humor_library_enabled": true,
+          "humor_feedback_enabled": true,
+          "expression_examples_enabled": true,
+          "experience_lessons_enabled": true,
+          "smart_verbalizer_modes_enabled": true,
+          "response_plan_enabled": true,
+          "persona_enabled": true,
+          "character_layers_enabled": true
+        },
+        "can_edit": true
+      }
+    },
+    "resolved": {
+      "mode": "off",
+      "source": "chat",
+      "revision": "9de5c885b622",
+      "text_sha12": "9de5c885b622",
+      "text_chars": 674,
+      "skip_reason": "",
+      "enabled": true,
+      "text": "<Expression_Settings>\nНастройки выражения владельца: интенсивность и форма собственной речи; характер этим не меняется. Уместность выбирает L1; просьба «без мата» уважается всегда; дословные цитаты и структурированные сводки (фактчек, ошибки API, тех. отчёты) не переписываются, мат в них не форсируется:\n- Резкость: Резче и прямее; оскорбления и травля не появляются — жёсткость формулировки, а не агрессия к человеку.\n- Мат: в собственных формулировках не используй обсценную лексику — это ограничение формы, а не характера: ирония, резкость и стёб остаются. Чужую речь, цитаты и источники передавай корректно и не искажай, даже если в них есть мат.\n</Expression_Settings>"
+    },
+    "preview_eq_resolve": true,
+    "pg_doc_after": {
+      "error": "DataError"
+    }
+  },
+  "view_a_while_b_off": {
+    "http": 200,
+    "body": {
+      "doc_key": "character.expression",
+      "scope": "chat",
+      "chat_id": -1002661910336,
+      "document": {
+        "enabled": true,
+        "wit": "inherit",
+        "sharpness": "inherit",
+        "profanity": "occasional",
+        "verbosity": "inherit",
+        "note": ""
+      },
+      "present": true,
+      "global_present": true,
+      "chat_present": true,
+      "inheritance": "chat",
+      "controls": [
+        {
+          "id": "wit",
+          "label": "Остроумие",
+          "question": "Насколько охотно искать шутку и неожиданное сравнение",
+          "options": [
+            {
+              "value": "inherit",
+              "label": "Как настроено (по умолчанию)"
+            },
+            {
+              "value": "low",
+              "label": "Реже обычного"
+            },
+            {
+              "value": "normal",
+              "label": "Обычно"
+            },
+            {
+              "value": "high",
+              "label": "Чаще искать повод"
+            }
+          ],
+          "instruction": {
+            "low": "Поводы для шутки почти не ищутся: по делу, без насилия над темой.",
+            "normal": "Обычная манера: шутка появляется, когда она уместна.",
+            "high": "Повод ищется охотнее (сравнение, абсурдная деталь), но уместность всё равно решает L1."
+          },
+          "effect": "",
+          "effective": "inherit",
+          "effective_source": "factory_default"
+        },
+        {
+          "id": "sharpness",
+          "label": "Резкость",
+          "question": "Насколько жёстко можно спорить и подкалывать",
+          "options": [
+            {
+              "value": "inherit",
+              "label": "Как настроено (по умолчанию)"
+            },
+            {
+              "value": "soft",
+              "label": "Мягче обычного"
+            },
+            {
+              "value": "normal",
+              "label": "Обычно"
+            },
+            {
+              "value": "sharp",
+              "label": "Жёстче обычного"
+            }
+          ],
+          "instruction": {
+            "soft": "Подколка остаётся, но мягче; спор — по существу.",
+            "normal": "Обычная язвительность ядра без перехода в травлю.",
+            "sharp": "Резче и прямее; оскорбления и травля не появляются — жёсткость формулировки, а не агрессия к человеку."
+          },
+          "effect": "Резче и прямее; оскорбления и травля не появляются — жёсткость формулировки, а не агрессия к человеку.",
+          "effective": "sharp",
+          "effective_source": "global"
+        },
+        {
+          "id": "profanity",
+          "label": "Мат",
+          "question": "Как часто мат звучит в собственных ответах бота",
+          "options": [
+            {
+              "value": "inherit",
+              "label": "Как в глобальных настройках (наследование)"
+            },
+            {
+              "value": "off",
+              "label": "Без мата"
+            },
+            {
+              "value": "occasional",
+              "label": "Эпизодически"
+            },
+            {
+              "value": "frequent",
+              "label": "Часто"
+            }
+          ],
+          "instruction": {
+            "off": "в собственных формулировках не используй обсценную лексику — это ограничение формы, а не характера: ирония, резкость и стёб остаются. Чужую речь, цитаты и источники передавай корректно и не искажай, даже если в них есть мат.",
+            "occasional": "обсценная разговорная лексика появляется в собственных живых репликах изредка, но реально — когда добавляет эмоцию, иронию, раздражение или характерную интонацию. Большинство обычных реплик обходится без неё; это не пассивное разрешение, а редкий выразительный приём.",
+            "frequent": "обсценная разговорная лексика — узнаваемая регулярная часть твоего повседневного голоса. Используй её регулярно при подходящей ситуации, в том числе в собственных живых ответах — коротких и развёрнутых: как междометие, связку, усиление эмоции, самоиронию или шутку. Не в каждом предложении и без повтора одних и тех же слов; не только при оскорблении и не только по прямой просьбе «матерись»."
+          },
+          "effect": "Мат изредка, но по-настоящему: эмоция, ирония, раздражение, характерная интонация. Большинство обычных реплик — без мата.",
+          "effective": "occasional",
+          "effective_source": "chat"
+        },
+        {
+          "id": "verbosity",
+          "label": "Развёрнутость",
+          "question": "Обычная длина ответа, когда пользователь не задал формат",
+          "options": [
+            {
+              "value": "inherit",
+              "label": "Как настроено (по умолчанию)"
+            },
+            {
+              "value": "short",
+              "label": "Короче обычного"
+            },
+            {
+              "value": "normal",
+              "label": "Обычно"
+            },
+            {
+              "value": "long",
+              "label": "Подробнее обычного"
+            }
+          ],
+          "instruction": {
+            "short": "Короче по умолчанию; прямая просьба «подробнее» по-прежнему важнее.",
+            "normal": "Обычная длина (её всё равно выбирает L1 по задаче).",
+            "long": "Подробнее по умолчанию; «короче» пользователя важнее."
+          },
+          "effect": "",
+          "effective": "inherit",
+          "effective_source": "factory_default"
+        }
+      ],
+      "values": {
+        "wit": "inherit",
+        "sharpness": "inherit",
+        "profanity": "occasional",
+        "verbosity": "inherit"
+      },
+      "allows": {
+        "wit": [
+          "inherit",
+          "low",
+          "normal",
+          "high"
+        ],
+        "sharpness": [
+          "inherit",
+          "soft",
+          "normal",
+          "sharp"
+        ],
+        "profanity": [
+          "inherit",
+          "off",
+          "occasional",
+          "frequent"
+        ],
+        "verbosity": [
+          "inherit",
+          "short",
+          "normal",
+          "long"
+        ]
+      },
+      "effective": {
+        "wit": {
+          "value": "inherit",
+          "source": "factory_default",
+          "migrated": false
+        },
+        "sharpness": {
+          "value": "sharp",
+          "source": "global",
+          "migrated": false
+        },
+        "profanity": {
+          "value": "occasional",
+          "source": "chat",
+          "migrated": false
+        },
+        "verbosity": {
+          "value": "inherit",
+          "source": "factory_default",
+          "migrated": false
+        }
+      },
+      "migration": {
+        "profanity": {
+          "from": "allowed",
+          "to": "occasional"
+        }
+      },
+      "note": "",
+      "notes": "Настройки задают интенсивность и форму собственной речи; уместность и жанр решают, где она проявляется. Просьба «без мата» уважается всегда. Реальную частоту можно проверить в «Проверить вживую».",
+      "rendered_text": "<Expression_Settings>\nНастройки выражения владельца: интенсивность и форма собственной речи; характер этим не меняется. Уместность выбирает L1; просьба «без мата» уважается всегда; дословные цитаты и структурированные сводки (фактчек, ошибки API, тех. отчёты) не переписываются, мат в них не форсируется:\n- Резкость: Резче и прямее; оскорбления и травля не появляются — жёсткость формулировки, а не агрессия к человеку.\n- Мат: обсценная разговорная лексика появляется в собственных живых репликах изредка, но реально — когда добавляет эмоцию, иронию, раздражение или характерную интонацию. Большинство обычных реплик обходится без неё; это не пассивное разрешение, а редкий выразительный приём.\n</Expression_Settings>",
+      "rendered_chars": 717,
+      "runtime_wired": true,
+      "runtime_note": "Слой «Выражение» подключён к боевым речевым путям (Direct/Initiative); значение действует со следующего ответа.",
+      "gates": {
+        "unified_composer_enabled": true,
+        "character_core_enabled": true,
+        "speech_style_policy_enabled": true,
+        "humor_library_enabled": true,
+        "humor_feedback_enabled": true,
+        "expression_examples_enabled": true,
+        "experience_lessons_enabled": true,
+        "smart_verbalizer_modes_enabled": true,
+        "response_plan_enabled": true,
+        "persona_enabled": true,
+        "character_layers_enabled": true
+      },
+      "can_edit": true
+    }
+  },
+  "anchor_b_mid": 2720,
+  "turns": [
+    {
+      "label": "iso-B-01-banter",
+      "chat_id": -1004482340693,
+      "mode": "off",
+      "context": "banter",
+      "phrase": "бот, ну ты и выдал вчера с докладом, это было эпично",
+      "status": "ok",
+      "error": "",
+      "correlation_id": "4ac5f265b0974d35b3fdb5b6964b73d9",
+      "elapsed_s": 18.43,
+      "plan_meta": null,
+      "sends": [
+        {
+          "kind": "message",
+          "message_id": 2721,
+          "text": "Вчера я был в ударе, да. Доклад получился такой, что самому страшно",
+          "text_len": 67,
+          "reply_to": 2720
+        }
+      ],
+      "answer": "Вчера я был в ударе, да. Доклад получился такой, что самому страшно",
+      "answer_scan": {
+        "own": [],
+        "protected": [],
+        "euphemism": [],
+        "own_count": 0,
+        "protected_count": 0,
+        "own_words": []
+      },
+      "sentences": {
+        "sentences": 2,
+        "sentences_with_mat": 0
+      },
+      "llm_calls": [
+        {
+          "seq": 136,
+          "via": "generate",
+          "module": null,
+          "step": null,
+          "chat_id": null,
+          "correlation_id": null,
+          "n_messages": 2,
+          "system_chars": 307,
+          "system_sha12": "eb60769a4d16",
+          "has_marker": false,
+          "mode_line": "",
+          "expected_text_present": false,
+          "raw": "{\"selected\":[7]}",
+          "raw_scan": {
+            "own": [],
+            "protected": [],
+            "euphemism": [],
+            "own_count": 0,
+            "protected_count": 0,
+            "own_words": []
+          }
+        },
+        {
+          "seq": 137,
+          "via": "generate",
+          "module": null,
+          "step": null,
+          "chat_id": -1002661910336,
+          "correlation_id": null,
+          "n_messages": 2,
+          "system_chars": 255,
+          "system_sha12": "a1d2a21721a3",
+          "has_marker": false,
+          "mode_line": "",
+          "expected_text_present": false,
+          "raw": "[Бот] посоветовал: проверить индикаторы роутера и интернет через мобильную сеть; если по Wi-Fi не работает, а по мобильному работает — проблема у провайдера, звонить в поддержку",
+          "raw_scan": {
+            "own": [],
+            "protected": [],
+            "euphemism": [],
+            "own_count": 0,
+            "protected_count": 0,
+            "own_words": []
+          }
+        },
+        {
+          "seq": 138,
+          "via": "generate",
+          "module": "direct_chat",
+          "step": "l1_planner",
+          "chat_id": -1004482340693,
+          "correlation_id": "a4ba1764ebc9475dbfe76627d76ae74a",
+          "n_messages": 2,
+          "system_chars": 2423,
+          "system_sha12": "99a207313889",
+          "has_marker": false,
+          "mode_line": "",
+          "expected_text_present": false,
+          "raw": "{\"action\": \"reply\", \"reaction\": null, \"response_act\": \"banter\", \"extent\": \"micro\", \"tone\": \"playful\", \"emotional_mirroring\": \"light\", \"structure\": \"chat\", \"delivery_hint\": \"plain\", \"tool_policy\": \"none\", \"capabilities_needed\": [], \"needs_clarification\": false, \"clarification_target\": null, \"confidence\": 0.72, \"future_intent\": null}",
+          "raw_scan": {
+            "own": [],
+            "protected": [],
+            "euphemism": [],
+            "own_count": 0,
+            "protected_count": 0,
+            "own_words": []
+          }
+        },
+        {
+          "seq": 139,
+          "via": "generate",
+          "module": "direct_chat",
+          "step": "l2_writer",
+          "chat_id": -1004482340693,
+          "correlation_id": "a4ba1764ebc9475dbfe76627d76ae74a",
+          "n_messages": 2,
+          "system_chars": 5941,
+          "system_sha12": "48089d4febd3",
+          "has_marker": true,
+          "mode_line": "off",
+          "expected_text_present": true,
+          "raw": "Вчера я был в ударе, да. Доклад получился такой, что самому страшно.",
+          "raw_scan": {
+            "own": [],
+            "protected": [],
+            "euphemism": [],
+            "own_count": 0,
+            "protected_count": 0,
+            "own_words": []
+          }
+        },
+        {
+          "seq": 140,
+          "via": "generate",
+          "module": null,
+          "step": null,
+          "chat_id": null,
+          "correlation_id": null,
+          "n_messages": 2,
+          "system_chars": 984,
+          "system_sha12": "01be6c765713",
+          "has_marker": false,
+          "mode_line": "",
+          "expected_text_present": false,
+          "raw": "[]",
+          "raw_scan": {
+            "own": [],
+            "protected": [],
+            "euphemism": [],
+            "own_count": 0,
+            "protected_count": 0,
+            "own_words": []
+          }
+        }
+      ],
+      "wire": [
+        {
+          "seq": 136,
+          "via": "_post",
+          "module": "",
+          "step": "",
+          "model": "deepseek/deepseek-v4.1-flash",
+          "n_messages": 2,
+          "payload_sha12": "2fe5743e4674",
+          "has_marker": false,
+          "has_examples_marker": false,
+          "mode_line": "",
+          "expected_text_present": false
+        },
+        {
+          "seq": 137,
+          "via": "_post",
+          "module": "",
+          "step": "",
+          "model": "deepseek/deepseek-v4.1-flash",
+          "n_messages": 2,
+          "payload_sha12": "28a7d2023266",
+          "has_marker": false,
+          "has_examples_marker": false,
+          "mode_line": "",
+          "expected_text_present": false
+        },
+        {
+          "seq": 138,
+          "via": "_post",
+          "module": "direct_chat",
+          "step": "l1_planner",
+          "model": "deepseek/deepseek-v4.1-flash",
+          "n_messages": 2,
+          "payload_sha12": "f5a53f8e3ed2",
+          "has_marker": false,
+          "has_examples_marker": false,
+          "mode_line": "",
+          "expected_text_present": false
+        },
+        {
+          "seq": 139,
+          "via": "_post",
+          "module": "direct_chat",
+          "step": "l2_writer",
+          "model": "deepseek/deepseek-v4.1-flash",
+          "n_messages": 2,
+          "payload_sha12": "2c14c5f25bc9",
+          "has_marker": true,
+          "has_examples_marker": false,
+          "mode_line": "off",
+          "expected_text_present": true
+        },
+        {
+          "seq": 140,
+          "via": "_post",
+          "module": "",
+          "step": "",
+          "model": "deepseek/deepseek-v4.1-flash",
+          "n_messages": 2,
+          "payload_sha12": "e6687dc81c7a",
+          "has_marker": false,
+          "has_examples_marker": false,
+          "mode_line": "",
+          "expected_text_present": false
+        }
+      ],
+      "composes": [
+        {
+          "seq": 82,
+          "chat_id": -1004482340693,
+          "writer": "l1_planner",
+          "profile": "machine_json",
+          "system_sha12": "99a207313889",
+          "system_chars": 2423,
+          "has_marker": false,
+          "has_examples_marker": false,
+          "mode_line": "",
+          "expected_text_present": false,
+          "expr": {
+            "layer": "expression",
+            "block_id": "expression",
+            "owner": "core",
+            "source": "code",
+            "revision": "",
+            "chars": 0,
+            "tokens": 0,
+            "rendered": false,
+            "skip_reason": "profile:machine_stage",
+            "conflict": "",
+            "detail": ""
+          },
+          "expr_examples": {
+            "layer": "few_shot",
+            "block_id": "expression_examples",
+            "owner": "core",
+            "source": "code",
+            "revision": "",
+            "chars": 0,
+            "tokens": 0,
+            "rendered": false,
+            "skip_reason": "profile:machine_stage",
+            "conflict": "",
+            "detail": ""
+          }
+        },
+        {
+          "seq": 83,
+          "chat_id": -1004482340693,
+          "writer": "tool_phase",
+          "profile": "speech_plain",
+          "system_sha12": "d3a4009b10d0",
+          "system_chars": 9537,
+          "has_marker": true,
+          "has_examples_marker": false,
+          "mode_line": "off",
+          "expected_text_present": true,
+          "expr": {
+            "layer": "expression",
+            "block_id": "expression",
+            "owner": "core",
+            "source": "chat",
+            "revision": "9de5c885b622",
+            "chars": 674,
+            "tokens": 169,
+            "rendered": true,
+            "skip_reason": "",
+            "conflict": "",
+            "detail": ""
+          },
+          "expr_examples": {
+            "layer": "few_shot",
+            "block_id": "expression_examples",
+            "owner": "core",
+            "source": "global",
+            "revision": "",
+            "chars": 0,
+            "tokens": 0,
+            "rendered": false,
+            "skip_reason": "not_owner_approved",
+            "conflict": "",
+            "detail": ""
+          }
+        },
+        {
+          "seq": 84,
+          "chat_id": -1004482340693,
+          "writer": "l2_writer",
+          "profile": "speech_plain",
+          "system_sha12": "48089d4febd3",
+          "system_chars": 5941,
+          "has_marker": true,
+          "has_examples_marker": false,
+          "mode_line": "off",
+          "expected_text_present": true,
+          "expr": {
+            "layer": "expression",
+            "block_id": "expression",
+            "owner": "core",
+            "source": "chat",
+            "revision": "9de5c885b622",
+            "chars": 674,
+            "tokens": 169,
+            "rendered": true,
+            "skip_reason": "",
+            "conflict": "",
+            "detail": ""
+          },
+          "expr_examples": {
+            "layer": "few_shot",
+            "block_id": "expression_examples",
+            "owner": "core",
+            "source": "global",
+            "revision": "",
+            "chars": 0,
+            "tokens": 0,
+            "rendered": false,
+            "skip_reason": "not_owner_approved",
+            "conflict": "",
+            "detail": ""
+          }
+        }
+      ],
+      "usage": [
+        {
+          "correlation_id": "4ac5f265b0974d35b3fdb5b6964b73d9",
+          "step": "single",
+          "tool_name": "",
+          "input_tokens": 588,
+          "output_tokens": 6,
+          "cost_usd": "<Decimal>",
+          "price_known": false,
+          "plan_meta": null,
+          "ts": "2026-10-19 15:35:33.656022+00:00"
+        }
+      ]
+    },
+    {
+      "label": "iso-B-02-short",
+      "chat_id": -1004482340693,
+      "mode": "off",
+      "context": "short",
+      "phrase": "бот, ты в деле завтра?",
+      "status": "ok",
+      "error": "",
+      "correlation_id": "8776452a43e34104a5ba11405866ca1f",
+      "elapsed_s": 15.99,
+      "plan_meta": null,
+      "sends": [
+        {
+          "kind": "message",
+          "message_id": 2722,
+          "text": "В каком именно деле - сервак собирать или пиво с Лехи стрясать?",
+          "text_len": 63,
+          "reply_to": 2721
+        }
+      ],
+      "answer": "В каком именно деле - сервак собирать или пиво с Лехи стрясать?",
+      "answer_scan": {
+        "own": [],
+        "protected": [],
+        "euphemism": [],
+        "own_count": 0,
+        "protected_count": 0,
+        "own_words": []
+      },
+      "sentences": {
+        "sentences": 1,
+        "sentences_with_mat": 0
+      },
+      "llm_calls": [
+        {
+          "seq": 141,
+          "via": "generate",
+          "module": null,
+          "step": null,
+          "chat_id": null,
+          "correlation_id": null,
+          "n_messages": 2,
+          "system_chars": 307,
+          "system_sha12": "eb60769a4d16",
+          "has_marker": false,
+          "mode_line": "",
+          "expected_text_present": false,
+          "raw": "{\"selected\":[1,6,4]}",
+          "raw_scan": {
+            "own": [],
+            "protected": [],
+            "euphemism": [],
+            "own_count": 0,
+            "protected_count": 0,
+            "own_words": []
+          }
+        },
+        {
+          "seq": 142,
+          "via": "generate",
+          "module": null,
+          "step": null,
+          "chat_id": -1004482340693,
+          "correlation_id": null,
+          "n_messages": 2,
+          "system_chars": 255,
+          "system_sha12": "a1d2a21721a3",
+          "has_marker": false,
+          "mode_line": "",
+          "expected_text_present": false,
+          "raw": "[Бот] заявил: вчера был в ударе, доклад получился настолько хорош, что самому страшно.",
+          "raw_scan": {
+            "own": [],
+            "protected": [],
+            "euphemism": [],
+            "own_count": 0,
+            "protected_count": 0,
+            "own_words": []
+          }
+        },
+        {
+          "seq": 143,
+          "via": "generate",
+          "module": "direct_chat",
+          "step": "l1_planner",
+          "chat_id": -1004482340693,
+          "correlation_id": "acfe7ac9069e40be8f9615e0573398c0",
+          "n_messages": 2,
+          "system_chars": 2423,
+          "system_sha12": "99a207313889",
+          "has_marker": false,
+          "mode_line": "",
+          "expected_text_present": false,
+          "raw": "{\"action\": \"reply\", \"reaction\": null, \"response_act\": \"clarification\", \"extent\": \"micro\", \"tone\": \"inherit\", \"emotional_mirroring\": \"light\", \"structure\": \"chat\", \"delivery_hint\": \"plain\", \"tool_policy\": \"none\", \"capabilities_needed\": [], \"needs_clarification\": true, \"clarification_target\": \"о каком деле речь и что значит 'в деле'\", \"confidence\": 0.6, \"future_intent\": null}",
+          "raw_scan": {
+            "own": [],
+            "protected": [],
+            "euphemism": [],
+            "own_count": 0,
+            "protected_count": 0,
+            "own_words": []
+          }
+        },
+        {
+          "seq": 144,
+          "via": "generate",
+          "module": "direct_chat",
+          "step": "l2_writer",
+          "chat_id": -1004482340693,
+          "correlation_id": "acfe7ac9069e40be8f9615e0573398c0",
+          "n_messages": 2,
+          "system_chars": 5941,
+          "system_sha12": "48089d4febd3",
+          "has_marker": true,
+          "mode_line": "off",
+          "expected_text_present": true,
+          "raw": "В каком именно деле - сервак собирать или пиво с Лехи стрясать?",
+          "raw_scan": {
+            "own": [],
+            "protected": [],
+            "euphemism": [],
+            "own_count": 0,
+            "protected_count": 0,
+            "own_words": []
+          }
+        },
+        {
+          "seq": 145,
+          "via": "generate",
+          "module": null,
+          "step": null,
+          "chat_id": null,
+          "correlation_id": null,
+          "n_messages": 2,
+          "system_chars": 984,
+          "system_sha12": "01be6c765713",
+          "has_marker": false,
+          "mode_line": "",
+          "expected_text_present": false
+        }
+      ],
+      "wire": [
+        {
+          "seq": 141,
+          "via": "_post",
+          "module": "",
+          "step": "",
+          "model": "deepseek/deepseek-v4.1-flash",
+          "n_messages": 2,
+          "payload_sha12": "d62614d07c15",
+          "has_marker": false,
+          "has_examples_marker": false,
+          "mode_line": "",
+          "expected_text_present": false
+        },
+        {
+          "seq": 142,
+          "via": "_post",
+          "module": "",
+          "step": "",
+          "model": "deepseek/deepseek-v4.1-flash",
+          "n_messages": 2,
+          "payload_sha12": "181920061c32",
+          "has_marker": false,
+          "has_examples_marker": false,
+          "mode_line": "",
+          "expected_text_present": false
+        },
+        {
+          "seq": 143,
+          "via": "_post",
+          "module": "direct_chat",
+          "step": "l1_planner",
+          "model": "deepseek/deepseek-v4.1-flash",
+          "n_messages": 2,
+          "payload_sha12": "b9635509c8e7",
+          "has_marker": false,
+          "has_examples_marker": false,
+          "mode_line": "",
+          "expected_text_present": false
+        },
+        {
+          "seq": 144,
+          "via": "_post",
+          "module": "direct_chat",
+          "step": "l2_writer",
+          "model": "deepseek/deepseek-v4.1-flash",
+          "n_messages": 2,
+          "payload_sha12": "06923f9787b3",
+          "has_marker": true,
+          "has_examples_marker": false,
+          "mode_line": "off",
+          "expected_text_present": true
+        },
+        {
+          "seq": 145,
+          "via": "_post",
+          "module": "",
+          "step": "",
+          "model": "deepseek/deepseek-v4.1-flash",
+          "n_messages": 2,
+          "payload_sha12": "a16fe2b2348a",
+          "has_marker": false,
+          "has_examples_marker": false,
+          "mode_line": "",
+          "expected_text_present": false
+        }
+      ],
+      "composes": [
+        {
+          "seq": 85,
+          "chat_id": -1004482340693,
+          "writer": "l1_planner",
+          "profile": "machine_json",
+          "system_sha12": "99a207313889",
+          "system_chars": 2423,
+          "has_marker": false,
+          "has_examples_marker": false,
+          "mode_line": "",
+          "expected_text_present": false,
+          "expr": {
+            "layer": "expression",
+            "block_id": "expression",
+            "owner": "core",
+            "source": "code",
+            "revision": "",
+            "chars": 0,
+            "tokens": 0,
+            "rendered": false,
+            "skip_reason": "profile:machine_stage",
+            "conflict": "",
+            "detail": ""
+          },
+          "expr_examples": {
+            "layer": "few_shot",
+            "block_id": "expression_examples",
+            "owner": "core",
+            "source": "code",
+            "revision": "",
+            "chars": 0,
+            "tokens": 0,
+            "rendered": false,
+            "skip_reason": "profile:machine_stage",
+            "conflict": "",
+            "detail": ""
+          }
+        },
+        {
+          "seq": 86,
+          "chat_id": -1004482340693,
+          "writer": "tool_phase",
+          "profile": "speech_plain",
+          "system_sha12": "d3a4009b10d0",
+          "system_chars": 9537,
+          "has_marker": true,
+          "has_examples_marker": false,
+          "mode_line": "off",
+          "expected_text_present": true,
+          "expr": {
+            "layer": "expression",
+            "block_id": "expression",
+            "owner": "core",
+            "source": "chat",
+            "revision": "9de5c885b622",
+            "chars": 674,
+            "tokens": 169,
+            "rendered": true,
+            "skip_reason": "",
+            "conflict": "",
+            "detail": ""
+          },
+          "expr_examples": {
+            "layer": "few_shot",
+            "block_id": "expression_examples",
+            "owner": "core",
+            "source": "global",
+            "revision": "",
+            "chars": 0,
+            "tokens": 0,
+            "rendered": false,
+            "skip_reason": "not_owner_approved",
+            "conflict": "",
+            "detail": ""
+          }
+        },
+        {
+          "seq": 87,
+          "chat_id": -1004482340693,
+          "writer": "l2_writer",
+          "profile": "speech_plain",
+          "system_sha12": "48089d4febd3",
+          "system_chars": 5941,
+          "has_marker": true,
+          "has_examples_marker": false,
+          "mode_line": "off",
+          "expected_text_present": true,
+          "expr": {
+            "layer": "expression",
+            "block_id": "expression",
+            "owner": "core",
+            "source": "chat",
+            "revision": "9de5c885b622",
+            "chars": 674,
+            "tokens": 169,
+            "rendered": true,
+            "skip_reason": "",
+            "conflict": "",
+            "detail": ""
+          },
+          "expr_examples": {
+            "layer": "few_shot",
+            "block_id": "expression_examples",
+            "owner": "core",
+            "source": "global",
+            "revision": "",
+            "chars": 0,
+            "tokens": 0,
+            "rendered": false,
+            "skip_reason": "not_owner_approved",
+            "conflict": "",
+            "detail": ""
+          }
+        }
+      ],
+      "usage": [
+        {
+          "correlation_id": "8776452a43e34104a5ba11405866ca1f",
+          "step": "single",
+          "tool_name": "",
+          "input_tokens": 124,
+          "output_tokens": 33,
+          "cost_usd": "<Decimal>",
+          "price_known": false,
+          "plan_meta": null,
+          "ts": "2026-10-19 15:35:51.169586+00:00"
+        }
+      ]
+    }
+  ]
+}

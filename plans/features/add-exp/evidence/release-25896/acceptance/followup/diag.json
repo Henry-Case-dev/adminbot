@@ -1,0 +1,10 @@
+{
+  "frequent": {
+    "probes": 9,
+    "probes_note": "7 main-wave conversational + 2 follow-up",
+    "mat_roots": 0,
+    "marker_present_l2": true,
+    "class": "model_ignored_instruction"
+  },
+  "emitted_event": true
+}

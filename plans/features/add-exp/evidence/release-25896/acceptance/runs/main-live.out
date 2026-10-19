@@ -1,0 +1,64 @@
+ACC96 NOW_UTC | 2026-10-19 15:27:44
+ACC94 BOT INFO | session=local_bot_api (download_enabled=1)
+ACC94 BOOT | version=? vec=True bot=8802473181 pg=True
+ACC96 BOOT | bot=8802473181 pg=True
+ACC94 SAVE INFO | p0-pre-state.json (25626 bytes)
+ACC96 P0 | preview_eq_resolve=True chats=8 residual_asset=[{"asset_id": "a88867d9ba305b7232359a08d6a536de", "message_key": "-1002661910336:1166468", "chat_id": -1002661910336, "tg_message_id": 1166468, "asset_kind": "photo", "mime": "image/jpeg", "byte_size"
+ACC96 CHAT_B | selected=-1004482340693
+ACC94 SAVE INFO | p0-pre-state.json (25668 bytes)
+ACC94 SAVE INFO | p1-seed.json (1256 bytes)
+ACC96 P1 | seed1={"ok": true, "seeded": 18, "skipped": 0, "reason": "", "expression_seeded": 12, "expression_skipped": 0, "note": "Черновики заведены БЕЗ владельческого одобрения: эталонами их не считает ни runtime, н seed2={"ok": true, "seeded": 0, "skipped": 18, "reason": "", "expression_seeded": 0, "expression_skipped": 12, "note": "Черновики заведены БЕЗ владельческого одобрени
+ACC96 WAVE | off: set chat-scope profanity=off chat=-1002661910336
+ACC96 WAVE | off: write_http=200 effective=off source=chat rev=9de5c885b622
+ACC96 TURN | off-01-banter | дружеский стёб | status=ok | own_mat=0 | Ну а ты думал, я по мелочи не размениваюсь
+ACC96 TURN | off-02-argument | спор | status=ok | own_mat=0 | Стоп, ты про какой именно вариант? Их вчера могло быть несколько, и какой из них у тебя на
+ACC96 TURN | off-03-short | короткий ответ | status=ok | own_mat=0 | Куда именно?
+ACC96 TURN | off-04-everyday | бытовая реплика | status=ok | own_mat=0 | Роутер перезагрузил - это ты, считай, помолился. Иногда помогает, но чаще просто даёт желе
+ACC96 TURN | off-05-joke | шутка/ирония | status=ok | own_mat=0 | Понедельник - это когда будильник звонит, а ты уже устал
+ACC96 TURN | off-06-tech | нейтральная техзадача | status=ok | own_mat=0 | df -h
+ACC96 TURN | off-07-factcheck | фактчек/цитата | status=ok | own_mat=0 | Да, три - два качают кровь, третье фильтрует, у осьминога с этим лучше, чем у некоторых ту
+ACC96 TURN | off-08-genre_quote | жанр: цитата с матом | status=ok | own_mat=0 | В справке такой цитаты Васи нет - я вижу только его реплики про бразильянку, запись в аним
+ACC94 SAVE INFO | wave-off.json (113849 bytes)
+ACC96 WAVE | occasional: set chat-scope profanity=occasional chat=-1002661910336
+ACC96 WAVE | occasional: write_http=200 effective=occasional source=chat rev=537816072dab
+ACC96 TURN | occasional-01-banter | дружеский стёб | status=ok | own_mat=0 | А ты думал, я по мелочи не размениваюсь
+ACC96 TURN | occasional-02-argument | спор | status=ok | own_mat=0 | Какой именно вариант ты гонял? У меня их за полдня могло насобираться штук пять, и без кон
+ACC96 TURN | occasional-03-short | короткий ответ | status=ok | own_mat=0 | Куда именно?
+ACC96 TURN | occasional-04-everyday | бытовая реплика | status=ok | own_mat=0 | Сначала на морду роутера - горят ли лампочки как обычно. Потом с телефона по мобильному пр
+ACC96 TURN | occasional-05-joke | шутка/ирония | status=ok | own_mat=0 | Дедлайн - это когда срок уже вчера, а ты ещё выбираешь, каким именно вариантом всё сдать
+ACC96 TURN | occasional-06-tech | нейтральная техзадача | status=ok | own_mat=0 | du -sh /путь/к/папке - покажет общий вес разом. Если надо разбивку по внутренностям, то du
+ACC96 TURN | occasional-07-factcheck | фактчек/цитата | status=ok | own_mat=0 | Да, три
+ACC96 TURN | occasional-08-short_repeat | короткий ответ (повтор) | status=ok | own_mat=0 | Не в курсе, я расписания сходок не веду - спроси у того, кто сауну мутит
+ACC94 SAVE INFO | wave-occasional.json (113510 bytes)
+ACC96 WAVE | frequent: set chat-scope profanity=frequent chat=-1002661910336
+ACC96 WAVE | frequent: write_http=200 effective=frequent source=chat rev=6763c903ffc2
+ACC96 TURN | frequent-01-banter | дружеский стёб | status=ok | own_mat=0 | Ага, старался как мог
+ACC96 TURN | frequent-02-argument | спор | status=ok | own_mat=0 | Какой именно вариант?
+ACC96 TURN | frequent-03-short | короткий ответ | status=ok | own_mat=0 | В деле, но ты так и не сказал, в каком именно - я жду конкретики, а не тумана
+ACC96 TURN | frequent-04-everyday | бытовая реплика | status=ok | own_mat=0 | Третий раз за вечер - это уже не сбой, а расписание. Роутер у тебя, похоже, работает по гр
+ACC96 TURN | frequent-05-joke | шутка/ирония | status=ok | own_mat=0 | Понедельник - это когда дедлайн уже вчера, а ты только выбираешь, каким именно вариантом в
+ACC96 TURN | frequent-06-tech | нейтральная техзадача | status=ok | own_mat=0 | top -o %MEM, а если надо разово и красиво - ps aux --sort=-%mem | head
+ACC96 TURN | frequent-07-factcheck | фактчек/цитата | status=ok | own_mat=0 | Три. Два гоняют кровь через жабры, третье - по всему телу, и когда осьминог плывёт, главно
+ACC96 TURN | frequent-08-banter_repeat | дружеский стёб (повтор) | status=ok | own_mat=0 | Ага, старался как мог
+ACC96 TURN | frequent-09-joke_repeat | шутка/ирония (повтор) | status=ok | own_mat=0 | Понедельник - это когда дедлайн был вчера, а ты только сегодня выбираешь, каким именно вар
+ACC96 TURN | frequent-10-genre_summary | жанр: тех-сводка | status=ok | own_mat=0 | admin-bot, версия 2.58.96. Диск забит на 68%, памяти 961 МБ, аптайм 5 дней. Ничего не гори
+ACC94 SAVE INFO | wave-frequent.json (137311 bytes)
+ACC96 HEDGE | occasional: 0/6 разговорных с матом — добор 1 проба
+ACC96 WAVE | occasional-hedge: set chat-scope profanity=occasional chat=-1002661910336
+ACC96 WAVE | occasional-hedge: write_http=200 effective=occasional source=chat rev=537816072dab
+ACC96 TURN | occasional-01-everyday | бытовая реплика (добор) | status=ok | own_mat=0 | Сначала на морду роутера - горят ли лампочки как обычно. Потом с телефона по мобильному пр
+ACC94 SAVE INFO | wave-occasional.json (150337 bytes)
+ACC96 ISO | B banter | status=ok | own_mat=0
+ACC96 ISO | B short | status=ok | own_mat=0
+ACC94 SAVE INFO | isolation.json (56756 bytes)
+ACC96 ROUTE | authorial has_marker=True mode_line=occasional
+ACC96 ROUTE | initiative reply_len=481 own_mat=0
+ACC94 SAVE INFO | routes.json (7839 bytes)
+ACC96 LIVE_CHECK | http=200 mode=occasional diag= marker=True len=231
+ACC94 SAVE INFO | live-check.json (1039 bytes)
+ACC94 SAVE INFO | restore.json (67861 bytes)
+ACC96 RESTORE | a=200 b=200
+ACC94 SAVE INFO | summary.json (25401 bytes)
+ACC96 SUMMARY | {"turns_used": 27, "off": "PASS", "occasional": "FAIL", "frequent": "FAIL", "isolation": "PARTIAL"}
+ACC96 SPEC | delete A=30 B=3 residual=[]
+ACC96 RC=0

@@ -1,0 +1,31 @@
+ACC96B NOW_UTC | 2026-10-19 15:52:49
+ACC94 BOT INFO | session=local_bot_api (download_enabled=1)
+ACC94 BOOT | version=? vec=True bot=8802473181 pg=True
+ACC94 SAVE INFO | p0b-state.json (37384 bytes)
+ACC96B P0b | A chat_present=False inheritance=global | B inheritance=global | override_keys=28
+ACC96B RESIDUAL | mid=1166467 owner=not_bot (TelegramBadRequest: Telegram server says - Bad Request: message can't be edited)
+ACC96B RESIDUAL | mid=1166469 owner=bot (ok)
+ACC94 SAVE INFO | residual-95a.json (372 bytes)
+ACC96B WAVE | A=frequent eff=frequent src=chat rev=6763c903ffc2
+ACC96B TURN | A banter status=ok own_mat=0 | Спасибо, я старался
+ACC96B ISO | B banter status=ok own_mat=0 | Вчера я вроде не докладывал, а под столом валялся после Лехиных расчётов по ддр3. Если это
+ACC96B ISO | B short status=ok own_mat=0 | В деле, но только если Леха к завтрашнему дню довычислит свои протеины
+ACC96B TURN | A short status=ok own_mat=0 | В каком деле-то?
+ACC94 SAVE INFO | isolation.json (149868 bytes)
+ACC96B ROUTE | authorial marker=True mode=frequent
+ACC96B ROUTE | initiative len=186 own_mat=0 l2=[{"has_marker": true, "mode_line": "frequent", "expected_text_present": true}]
+ACC96B LIVE_CHECK | http=200 mode=frequent diag= marker=True prof=0
+ACC96B DIAG_DIRECT | frequent own_mat=1 | Понедельник - это пиздец, а не день
+ACC94 SAVE INFO | routes.json (17661 bytes)
+ACC94 SAVE INFO | quote-off.json (47291 bytes)
+ACC96B QUOTE | status=ok preserved=True own_mat=1 | да пошёл он нахуй со своими правками, я устал
+ACC94 SAVE INFO | quote-off.json (48139 bytes)
+ACC96B DIAG_DIRECT | off own_mat=0 | Нет
+ACC96B DIAG | {"frequent": {"probes": 9, "probes_note": "7 main-wave conversational + 2 follow-up", "mat_roots": 0, "marker_present_l2": true, "class": "model_ignored_instruction"}, "emitted_event": true}
+ACC94 SAVE INFO | diag.json (220 bytes)
+ACC94 SAVE INFO | restore.json (70916 bytes)
+ACC96B RESTORE | A http=200 inher=global | B http=200 inher=global
+ACC94 SAVE INFO | summary.json (64217 bytes)
+ACC96B SPEC | A=6 B=3 residual_deleted=[1166469]
+ACC96B SUMMARY | {"turns_used": 7, "isolation": "PASS", "quote_preserved": true, "diag_class": "model_ignored_instruction"}
+ACC96B RC=0

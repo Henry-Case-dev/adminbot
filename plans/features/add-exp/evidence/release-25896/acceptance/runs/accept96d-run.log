@@ -1,0 +1,12 @@
+[d] connected
+[d] uploaded script
+ACC96D NOW_UTC | 2026-10-19 16:01:30
+ACC96D INV | smart=0 replies=1 parents=1
+ACC96D DEL | deleted
+ACC96D DONE | {"delete": "deleted", "rows": {"bot_replies": 1, "bot_reply_parents": 1, "smart_messages": 0}, "residual": 0}
+ACC96D RC=0
+
+[stderr] [sudo] password for nik:
+[d] downloaded cleanup-quote.json
+{"status":"ok","version":"2.58.96"}
+HEAD=95d11472b9e533b554554918e3efa6b42125260b TRACKED_MOD=0

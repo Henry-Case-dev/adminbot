@@ -1,0 +1,34 @@
+{
+ "chat_id": -1002661910336,
+ "candidates": [
+  1166670,
+  1166671,
+  1166672
+ ],
+ "probes": [
+  {
+   "mid": 1166670,
+   "smart_user_ids": [],
+   "edit_caption": "TelegramBadRequest: Telegram server says - Bad Request: there is no caption in the message to edit",
+   "owner": "not_bot"
+  },
+  {
+   "mid": 1166671,
+   "smart_user_ids": [
+    263719784
+   ],
+   "edit_caption": "TelegramBadRequest: Telegram server says - Bad Request: message can't be edited",
+   "owner": "not_bot"
+  },
+  {
+   "mid": 1166672,
+   "smart_user_ids": [
+    134812796
+   ],
+   "edit_caption": "TelegramBadRequest: Telegram server says - Bad Request: message can't be edited",
+   "owner": "not_bot"
+  }
+ ],
+ "deleted": [],
+ "residual": []
+}

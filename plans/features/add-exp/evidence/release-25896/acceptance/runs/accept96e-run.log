@@ -1,0 +1,13 @@
+[e] connected
+[e] uploaded script
+ACC96E NOW_UTC | 2026-10-19 16:10:46
+ACC96E PROBE | mid=1166670 owner=not_bot (TelegramBadRequest: Telegram server says - Bad Request: there is no caption in the message to edit)
+ACC96E PROBE | mid=1166671 owner=not_bot (TelegramBadRequest: Telegram server says - Bad Request: message can't be edited)
+ACC96E PROBE | mid=1166672 owner=not_bot (TelegramBadRequest: Telegram server says - Bad Request: message can't be edited)
+ACC96E DONE | bot_owned=[] deleted=[]
+ACC96E RC=0
+
+[stderr] [sudo] password for nik:
+[e] downloaded cleanup-hedge-anchor.json
+{"status":"ok","version":"2.58.96"}
+HEAD=95d11472b9e533b554554918e3efa6b42125260b TRACKED_MOD=0

@@ -1,0 +1,22 @@
+{
+  "candidates": [
+    1166467,
+    1166469
+  ],
+  "probes": [
+    {
+      "mid": 1166467,
+      "edit_caption": "TelegramBadRequest: Telegram server says - Bad Request: message can't be edited",
+      "owner": "not_bot"
+    },
+    {
+      "mid": 1166469,
+      "edit_caption": "ok",
+      "owner": "bot",
+      "deleted": "ok"
+    }
+  ],
+  "deleted": [
+    1166469
+  ]
+}

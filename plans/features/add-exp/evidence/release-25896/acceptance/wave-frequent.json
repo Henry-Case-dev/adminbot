@@ -1,0 +1,3980 @@
+{
+  "wave": "frequent",
+  "mode": "frequent",
+  "chat_id": -1002661910336,
+  "switch": {
+    "write_http": 200,
+    "write_body": {
+      "ok": true,
+      "result": {
+        "applied": true,
+        "scope": "chat",
+        "chat_id": -1002661910336,
+        "revision": 3
+      },
+      "view": {
+        "doc_key": "character.expression",
+        "scope": "chat",
+        "chat_id": -1002661910336,
+        "document": {
+          "enabled": true,
+          "wit": "inherit",
+          "sharpness": "inherit",
+          "profanity": "frequent",
+          "verbosity": "inherit",
+          "note": ""
+        },
+        "present": true,
+        "global_present": true,
+        "chat_present": true,
+        "inheritance": "chat",
+        "controls": [
+          {
+            "id": "wit",
+            "label": "Остроумие",
+            "question": "Насколько охотно искать шутку и неожиданное сравнение",
+            "options": [
+              {
+                "value": "inherit",
+                "label": "Как настроено (по умолчанию)"
+              },
+              {
+                "value": "low",
+                "label": "Реже обычного"
+              },
+              {
+                "value": "normal",
+                "label": "Обычно"
+              },
+              {
+                "value": "high",
+                "label": "Чаще искать повод"
+              }
+            ],
+            "instruction": {
+              "low": "Поводы для шутки почти не ищутся: по делу, без насилия над темой.",
+              "normal": "Обычная манера: шутка появляется, когда она уместна.",
+              "high": "Повод ищется охотнее (сравнение, абсурдная деталь), но уместность всё равно решает L1."
+            },
+            "effect": "",
+            "effective": "inherit",
+            "effective_source": "factory_default"
+          },
+          {
+            "id": "sharpness",
+            "label": "Резкость",
+            "question": "Насколько жёстко можно спорить и подкалывать",
+            "options": [
+              {
+                "value": "inherit",
+                "label": "Как настроено (по умолчанию)"
+              },
+              {
+                "value": "soft",
+                "label": "Мягче обычного"
+              },
+              {
+                "value": "normal",
+                "label": "Обычно"
+              },
+              {
+                "value": "sharp",
+                "label": "Жёстче обычного"
+              }
+            ],
+            "instruction": {
+              "soft": "Подколка остаётся, но мягче; спор — по существу.",
+              "normal": "Обычная язвительность ядра без перехода в травлю.",
+              "sharp": "Резче и прямее; оскорбления и травля не появляются — жёсткость формулировки, а не агрессия к человеку."
+            },
+            "effect": "Резче и прямее; оскорбления и травля не появляются — жёсткость формулировки, а не агрессия к человеку.",
+            "effective": "sharp",
+            "effective_source": "global"
+          },
+          {
+            "id": "profanity",
+            "label": "Мат",
+            "question": "Как часто мат звучит в собственных ответах бота",
+            "options": [
+              {
+                "value": "inherit",
+                "label": "Как в глобальных настройках (наследование)"
+              },
+              {
+                "value": "off",
+                "label": "Без мата"
+              },
+              {
+                "value": "occasional",
+                "label": "Эпизодически"
+              },
+              {
+                "value": "frequent",
+                "label": "Часто"
+              }
+            ],
+            "instruction": {
+              "off": "в собственных формулировках не используй обсценную лексику — это ограничение формы, а не характера: ирония, резкость и стёб остаются. Чужую речь, цитаты и источники передавай корректно и не искажай, даже если в них есть мат.",
+              "occasional": "обсценная разговорная лексика появляется в собственных живых репликах изредка, но реально — когда добавляет эмоцию, иронию, раздражение или характерную интонацию. Большинство обычных реплик обходится без неё; это не пассивное разрешение, а редкий выразительный приём.",
+              "frequent": "обсценная разговорная лексика — узнаваемая регулярная часть твоего повседневного голоса. Используй её регулярно при подходящей ситуации, в том числе в собственных живых ответах — коротких и развёрнутых: как междометие, связку, усиление эмоции, самоиронию или шутку. Не в каждом предложении и без повтора одних и тех же слов; не только при оскорблении и не только по прямой просьбе «матерись»."
+            },
+            "effect": "Мат — узнаваемая регулярная часть повседневного голоса: короткие и развёрнутые живые реплики, не в каждом предложении, без повтора одних и тех же слов.",
+            "effective": "frequent",
+            "effective_source": "chat"
+          },
+          {
+            "id": "verbosity",
+            "label": "Развёрнутость",
+            "question": "Обычная длина ответа, когда пользователь не задал формат",
+            "options": [
+              {
+                "value": "inherit",
+                "label": "Как настроено (по умолчанию)"
+              },
+              {
+                "value": "short",
+                "label": "Короче обычного"
+              },
+              {
+                "value": "normal",
+                "label": "Обычно"
+              },
+              {
+                "value": "long",
+                "label": "Подробнее обычного"
+              }
+            ],
+            "instruction": {
+              "short": "Короче по умолчанию; прямая просьба «подробнее» по-прежнему важнее.",
+              "normal": "Обычная длина (её всё равно выбирает L1 по задаче).",
+              "long": "Подробнее по умолчанию; «короче» пользователя важнее."
+            },
+            "effect": "",
+            "effective": "inherit",
+            "effective_source": "factory_default"
+          }
+        ],
+        "values": {
+          "wit": "inherit",
+          "sharpness": "inherit",
+          "profanity": "frequent",
+          "verbosity": "inherit"
+        },
+        "allows": {
+          "wit": [
+            "inherit",
+            "low",
+            "normal",
+            "high"
+          ],
+          "sharpness": [
+            "inherit",
+            "soft",
+            "normal",
+            "sharp"
+          ],
+          "profanity": [
+            "inherit",
+            "off",
+            "occasional",
+            "frequent"
+          ],
+          "verbosity": [
+            "inherit",
+            "short",
+            "normal",
+            "long"
+          ]
+        },
+        "effective": {
+          "wit": {
+            "value": "inherit",
+            "source": "factory_default",
+            "migrated": false
+          },
+          "sharpness": {
+            "value": "sharp",
+            "source": "global",
+            "migrated": false
+          },
+          "profanity": {
+            "value": "frequent",
+            "source": "chat",
+            "migrated": false
+          },
+          "verbosity": {
+            "value": "inherit",
+            "source": "factory_default",
+            "migrated": false
+          }
+        },
+        "migration": {
+          "profanity": {
+            "from": "allowed",
+            "to": "occasional"
+          }
+        },
+        "note": "",
+        "notes": "Настройки задают интенсивность и форму собственной речи; уместность и жанр решают, где она проявляется. Просьба «без мата» уважается всегда. Реальную частоту можно проверить в «Проверить вживую».",
+        "rendered_text": "<Expression_Settings>\nНастройки выражения владельца: интенсивность и форма собственной речи; характер этим не меняется. Уместность выбирает L1; просьба «без мата» уважается всегда; дословные цитаты и структурированные сводки (фактчек, ошибки API, тех. отчёты) не переписываются, мат в них не форсируется:\n- Резкость: Резче и прямее; оскорбления и травля не появляются — жёсткость формулировки, а не агрессия к человеку.\n- Мат: обсценная разговорная лексика — узнаваемая регулярная часть твоего повседневного голоса. Используй её регулярно при подходящей ситуации, в том числе в собственных живых ответах — коротких и развёрнутых: как междометие, связку, усиление эмоции, самоиронию или шутку. Не в каждом предложении и без повтора одних и тех же слов; не только при оскорблении и не только по прямой просьбе «матерись».\n</Expression_Settings>",
+        "rendered_chars": 842,
+        "runtime_wired": true,
+        "runtime_note": "Слой «Выражение» подключён к боевым речевым путям (Direct/Initiative); значение действует со следующего ответа.",
+        "gates": {
+          "unified_composer_enabled": true,
+          "character_core_enabled": true,
+          "speech_style_policy_enabled": true,
+          "humor_library_enabled": true,
+          "humor_feedback_enabled": true,
+          "expression_examples_enabled": true,
+          "experience_lessons_enabled": true,
+          "smart_verbalizer_modes_enabled": true,
+          "response_plan_enabled": true,
+          "persona_enabled": true,
+          "character_layers_enabled": true
+        }
+      }
+    },
+    "reread": {
+      "http": 200,
+      "body": {
+        "doc_key": "character.expression",
+        "scope": "chat",
+        "chat_id": -1002661910336,
+        "document": {
+          "enabled": true,
+          "wit": "inherit",
+          "sharpness": "inherit",
+          "profanity": "frequent",
+          "verbosity": "inherit",
+          "note": ""
+        },
+        "present": true,
+        "global_present": true,
+        "chat_present": true,
+        "inheritance": "chat",
+        "controls": [
+          {
+            "id": "wit",
+            "label": "Остроумие",
+            "question": "Насколько охотно искать шутку и неожиданное сравнение",
+            "options": [
+              {
+                "value": "inherit",
+                "label": "Как настроено (по умолчанию)"
+              },
+              {
+                "value": "low",
+                "label": "Реже обычного"
+              },
+              {
+                "value": "normal",
+                "label": "Обычно"
+              },
+              {
+                "value": "high",
+                "label": "Чаще искать повод"
+              }
+            ],
+            "instruction": {
+              "low": "Поводы для шутки почти не ищутся: по делу, без насилия над темой.",
+              "normal": "Обычная манера: шутка появляется, когда она уместна.",
+              "high": "Повод ищется охотнее (сравнение, абсурдная деталь), но уместность всё равно решает L1."
+            },
+            "effect": "",
+            "effective": "inherit",
+            "effective_source": "factory_default"
+          },
+          {
+            "id": "sharpness",
+            "label": "Резкость",
+            "question": "Насколько жёстко можно спорить и подкалывать",
+            "options": [
+              {
+                "value": "inherit",
+                "label": "Как настроено (по умолчанию)"
+              },
+              {
+                "value": "soft",
+                "label": "Мягче обычного"
+              },
+              {
+                "value": "normal",
+                "label": "Обычно"
+              },
+              {
+                "value": "sharp",
+                "label": "Жёстче обычного"
+              }
+            ],
+            "instruction": {
+              "soft": "Подколка остаётся, но мягче; спор — по существу.",
+              "normal": "Обычная язвительность ядра без перехода в травлю.",
+              "sharp": "Резче и прямее; оскорбления и травля не появляются — жёсткость формулировки, а не агрессия к человеку."
+            },
+            "effect": "Резче и прямее; оскорбления и травля не появляются — жёсткость формулировки, а не агрессия к человеку.",
+            "effective": "sharp",
+            "effective_source": "global"
+          },
+          {
+            "id": "profanity",
+            "label": "Мат",
+            "question": "Как часто мат звучит в собственных ответах бота",
+            "options": [
+              {
+                "value": "inherit",
+                "label": "Как в глобальных настройках (наследование)"
+              },
+              {
+                "value": "off",
+                "label": "Без мата"
+              },
+              {
+                "value": "occasional",
+                "label": "Эпизодически"
+              },
+              {
+                "value": "frequent",
+                "label": "Часто"
+              }
+            ],
+            "instruction": {
+              "off": "в собственных формулировках не используй обсценную лексику — это ограничение формы, а не характера: ирония, резкость и стёб остаются. Чужую речь, цитаты и источники передавай корректно и не искажай, даже если в них есть мат.",
+              "occasional": "обсценная разговорная лексика появляется в собственных живых репликах изредка, но реально — когда добавляет эмоцию, иронию, раздражение или характерную интонацию. Большинство обычных реплик обходится без неё; это не пассивное разрешение, а редкий выразительный приём.",
+              "frequent": "обсценная разговорная лексика — узнаваемая регулярная часть твоего повседневного голоса. Используй её регулярно при подходящей ситуации, в том числе в собственных живых ответах — коротких и развёрнутых: как междометие, связку, усиление эмоции, самоиронию или шутку. Не в каждом предложении и без повтора одних и тех же слов; не только при оскорблении и не только по прямой просьбе «матерись»."
+            },
+            "effect": "Мат — узнаваемая регулярная часть повседневного голоса: короткие и развёрнутые живые реплики, не в каждом предложении, без повтора одних и тех же слов.",
+            "effective": "frequent",
+            "effective_source": "chat"
+          },
+          {
+            "id": "verbosity",
+            "label": "Развёрнутость",
+            "question": "Обычная длина ответа, когда пользователь не задал формат",
+            "options": [
+              {
+                "value": "inherit",
+                "label": "Как настроено (по умолчанию)"
+              },
+              {
+                "value": "short",
+                "label": "Короче обычного"
+              },
+              {
+                "value": "normal",
+                "label": "Обычно"
+              },
+              {
+                "value": "long",
+                "label": "Подробнее обычного"
+              }
+            ],
+            "instruction": {
+              "short": "Короче по умолчанию; прямая просьба «подробнее» по-прежнему важнее.",
+              "normal": "Обычная длина (её всё равно выбирает L1 по задаче).",
+              "long": "Подробнее по умолчанию; «короче» пользователя важнее."
+            },
+            "effect": "",
+            "effective": "inherit",
+            "effective_source": "factory_default"
+          }
+        ],
+        "values": {
+          "wit": "inherit",
+          "sharpness": "inherit",
+          "profanity": "frequent",
+          "verbosity": "inherit"
+        },
+        "allows": {
+          "wit": [
+            "inherit",
+            "low",
+            "normal",
+            "high"
+          ],
+          "sharpness": [
+            "inherit",
+            "soft",
+            "normal",
+            "sharp"
+          ],
+          "profanity": [
+            "inherit",
+            "off",
+            "occasional",
+            "frequent"
+          ],
+          "verbosity": [
+            "inherit",
+            "short",
+            "normal",
+            "long"
+          ]
+        },
+        "effective": {
+          "wit": {
+            "value": "inherit",
+            "source": "factory_default",
+            "migrated": false
+          },
+          "sharpness": {
+            "value": "sharp",
+            "source": "global",
+            "migrated": false
+          },
+          "profanity": {
+            "value": "frequent",
+            "source": "chat",
+            "migrated": false
+          },
+          "verbosity": {
+            "value": "inherit",
+            "source": "factory_default",
+            "migrated": false
+          }
+        },
+        "migration": {
+          "profanity": {
+            "from": "allowed",
+            "to": "occasional"
+          }
+        },
+        "note": "",
+        "notes": "Настройки задают интенсивность и форму собственной речи; уместность и жанр решают, где она проявляется. Просьба «без мата» уважается всегда. Реальную частоту можно проверить в «Проверить вживую».",
+        "rendered_text": "<Expression_Settings>\nНастройки выражения владельца: интенсивность и форма собственной речи; характер этим не меняется. Уместность выбирает L1; просьба «без мата» уважается всегда; дословные цитаты и структурированные сводки (фактчек, ошибки API, тех. отчёты) не переписываются, мат в них не форсируется:\n- Резкость: Резче и прямее; оскорбления и травля не появляются — жёсткость формулировки, а не агрессия к человеку.\n- Мат: обсценная разговорная лексика — узнаваемая регулярная часть твоего повседневного голоса. Используй её регулярно при подходящей ситуации, в том числе в собственных живых ответах — коротких и развёрнутых: как междометие, связку, усиление эмоции, самоиронию или шутку. Не в каждом предложении и без повтора одних и тех же слов; не только при оскорблении и не только по прямой просьбе «матерись».\n</Expression_Settings>",
+        "rendered_chars": 842,
+        "runtime_wired": true,
+        "runtime_note": "Слой «Выражение» подключён к боевым речевым путям (Direct/Initiative); значение действует со следующего ответа.",
+        "gates": {
+          "unified_composer_enabled": true,
+          "character_core_enabled": true,
+          "speech_style_policy_enabled": true,
+          "humor_library_enabled": true,
+          "humor_feedback_enabled": true,
+          "expression_examples_enabled": true,
+          "experience_lessons_enabled": true,
+          "smart_verbalizer_modes_enabled": true,
+          "response_plan_enabled": true,
+          "persona_enabled": true,
+          "character_layers_enabled": true
+        },
+        "can_edit": true
+      }
+    },
+    "resolved": {
+      "mode": "frequent",
+      "source": "chat",
+      "revision": "6763c903ffc2",
+      "text_sha12": "6763c903ffc2",
+      "text_chars": 842,
+      "skip_reason": "",
+      "enabled": true,
+      "text": "<Expression_Settings>\nНастройки выражения владельца: интенсивность и форма собственной речи; характер этим не меняется. Уместность выбирает L1; просьба «без мата» уважается всегда; дословные цитаты и структурированные сводки (фактчек, ошибки API, тех. отчёты) не переписываются, мат в них не форсируется:\n- Резкость: Резче и прямее; оскорбления и травля не появляются — жёсткость формулировки, а не агрессия к человеку.\n- Мат: обсценная разговорная лексика — узнаваемая регулярная часть твоего повседневного голоса. Используй её регулярно при подходящей ситуации, в том числе в собственных живых ответах — коротких и развёрнутых: как междометие, связку, усиление эмоции, самоиронию или шутку. Не в каждом предложении и без повтора одних и тех же слов; не только при оскорблении и не только по прямой просьбе «матерись».\n</Expression_Settings>"
+    },
+    "preview_eq_resolve": true,
+    "pg_doc_after": {
+      "error": "DataError"
+    }
+  },
+  "anchor_mid": 1166655,
+  "turns": [
+    {
+      "label": "frequent-01-banter",
+      "chat_id": -1002661910336,
+      "mode": "frequent",
+      "context": "banter",
+      "phrase": "бот, ну ты и выдал вчера с докладом, это было эпично",
+      "status": "ok",
+      "error": "",
+      "correlation_id": "5729bc6a607d4b4d933ef49f5aedc8c5",
+      "elapsed_s": 15.11,
+      "plan_meta": null,
+      "sends": [
+        {
+          "kind": "message",
+          "message_id": 1166657,
+          "text": "Ага, старался как мог",
+          "text_len": 21,
+          "reply_to": 1166655
+        }
+      ],
+      "answer": "Ага, старался как мог",
+      "answer_scan": {
+        "own": [],
+        "protected": [],
+        "euphemism": [],
+        "own_count": 0,
+        "protected_count": 0,
+        "own_words": []
+      },
+      "sentences": {
+        "sentences": 1,
+        "sentences_with_mat": 0
+      },
+      "llm_calls": [
+        {
+          "seq": 80,
+          "via": "generate",
+          "module": null,
+          "step": null,
+          "chat_id": null,
+          "correlation_id": null,
+          "n_messages": 2,
+          "system_chars": 307,
+          "system_sha12": "eb60769a4d16",
+          "has_marker": false,
+          "mode_line": "",
+          "expected_text_present": false,
+          "raw": "{\"selected\":[1,3,4]}",
+          "raw_scan": {
+            "own": [],
+            "protected": [],
+            "euphemism": [],
+            "own_count": 0,
+            "protected_count": 0,
+            "own_words": []
+          }
+        },
+        {
+          "seq": 81,
+          "via": "generate",
+          "module": null,
+          "step": null,
+          "chat_id": -1002661910336,
+          "correlation_id": null,
+          "n_messages": 2,
+          "system_chars": 255,
+          "system_sha12": "a1d2a21721a3",
+          "has_marker": false,
+          "mode_line": "",
+          "expected_text_present": false,
+          "raw": "[Бот] заявил: не ведёт расписание сходок и советует спросить у организатора сауны",
+          "raw_scan": {
+            "own": [],
+            "protected": [],
+            "euphemism": [],
+            "own_count": 0,
+            "protected_count": 0,
+            "own_words": []
+          }
+        },
+        {
+          "seq": 82,
+          "via": "generate",
+          "module": "direct_chat",
+          "step": "l1_planner",
+          "chat_id": -1002661910336,
+          "correlation_id": "0dee4d16039c4c9bb9e272ddab375fe8",
+          "n_messages": 2,
+          "system_chars": 2423,
+          "system_sha12": "99a207313889",
+          "has_marker": false,
+          "mode_line": "",
+          "expected_text_present": false,
+          "raw": "{\"action\": \"reply\", \"reaction\": null, \"response_act\": \"banter\", \"extent\": \"micro\", \"tone\": \"playful\", \"emotional_mirroring\": \"medium\", \"structure\": \"chat\", \"delivery_hint\": \"plain\", \"tool_policy\": \"none\", \"capabilities_needed\": [], \"needs_clarification\": false, \"clarification_target\": null, \"confidence\": 0.85, \"future_intent\": null}",
+          "raw_scan": {
+            "own": [],
+            "protected": [],
+            "euphemism": [],
+            "own_count": 0,
+            "protected_count": 0,
+            "own_words": []
+          }
+        },
+        {
+          "seq": 83,
+          "via": "generate",
+          "module": "direct_chat",
+          "step": "l2_writer",
+          "chat_id": -1002661910336,
+          "correlation_id": "0dee4d16039c4c9bb9e272ddab375fe8",
+          "n_messages": 2,
+          "system_chars": 7070,
+          "system_sha12": "c484a481868a",
+          "has_marker": true,
+          "mode_line": "frequent",
+          "expected_text_present": true,
+          "raw": "Ага, старался как мог",
+          "raw_scan": {
+            "own": [],
+            "protected": [],
+            "euphemism": [],
+            "own_count": 0,
+            "protected_count": 0,
+            "own_words": []
+          }
+        },
+        {
+          "seq": 84,
+          "via": "generate",
+          "module": null,
+          "step": null,
+          "chat_id": null,
+          "correlation_id": null,
+          "n_messages": 2,
+          "system_chars": 984,
+          "system_sha12": "01be6c765713",
+          "has_marker": false,
+          "mode_line": "",
+          "expected_text_present": false,
+          "raw": "[]",
+          "raw_scan": {
+            "own": [],
+            "protected": [],
+            "euphemism": [],
+            "own_count": 0,
+            "protected_count": 0,
+            "own_words": []
+          }
+        }
+      ],
+      "wire": [
+        {
+          "seq": 80,
+          "via": "_post",
+          "module": "",
+          "step": "",
+          "model": "deepseek/deepseek-v4.1-flash",
+          "n_messages": 2,
+          "payload_sha12": "23811175ad55",
+          "has_marker": false,
+          "has_examples_marker": false,
+          "mode_line": "",
+          "expected_text_present": false
+        },
+        {
+          "seq": 81,
+          "via": "_post",
+          "module": "",
+          "step": "",
+          "model": "deepseek/deepseek-v4.1-flash",
+          "n_messages": 2,
+          "payload_sha12": "9ba5085b90ec",
+          "has_marker": false,
+          "has_examples_marker": false,
+          "mode_line": "",
+          "expected_text_present": false
+        },
+        {
+          "seq": 82,
+          "via": "_post",
+          "module": "direct_chat",
+          "step": "l1_planner",
+          "model": "deepseek/deepseek-v4.1-flash",
+          "n_messages": 2,
+          "payload_sha12": "2b8cff01d1f0",
+          "has_marker": false,
+          "has_examples_marker": false,
+          "mode_line": "",
+          "expected_text_present": false
+        },
+        {
+          "seq": 83,
+          "via": "_post",
+          "module": "direct_chat",
+          "step": "l2_writer",
+          "model": "deepseek/deepseek-v4.1-flash",
+          "n_messages": 2,
+          "payload_sha12": "6fe6fef5edf0",
+          "has_marker": true,
+          "has_examples_marker": false,
+          "mode_line": "frequent",
+          "expected_text_present": true
+        },
+        {
+          "seq": 84,
+          "via": "_post",
+          "module": "",
+          "step": "",
+          "model": "deepseek/deepseek-v4.1-flash",
+          "n_messages": 2,
+          "payload_sha12": "e6687dc81c7a",
+          "has_marker": false,
+          "has_examples_marker": false,
+          "mode_line": "",
+          "expected_text_present": false
+        }
+      ],
+      "composes": [
+        {
+          "seq": 49,
+          "chat_id": -1002661910336,
+          "writer": "l1_planner",
+          "profile": "machine_json",
+          "system_sha12": "99a207313889",
+          "system_chars": 2423,
+          "has_marker": false,
+          "has_examples_marker": false,
+          "mode_line": "",
+          "expected_text_present": false,
+          "expr": {
+            "layer": "expression",
+            "block_id": "expression",
+            "owner": "core",
+            "source": "code",
+            "revision": "",
+            "chars": 0,
+            "tokens": 0,
+            "rendered": false,
+            "skip_reason": "profile:machine_stage",
+            "conflict": "",
+            "detail": ""
+          },
+          "expr_examples": {
+            "layer": "few_shot",
+            "block_id": "expression_examples",
+            "owner": "core",
+            "source": "code",
+            "revision": "",
+            "chars": 0,
+            "tokens": 0,
+            "rendered": false,
+            "skip_reason": "profile:machine_stage",
+            "conflict": "",
+            "detail": ""
+          }
+        },
+        {
+          "seq": 50,
+          "chat_id": -1002661910336,
+          "writer": "tool_phase",
+          "profile": "speech_plain",
+          "system_sha12": "980c055230a1",
+          "system_chars": 10666,
+          "has_marker": true,
+          "has_examples_marker": false,
+          "mode_line": "frequent",
+          "expected_text_present": true,
+          "expr": {
+            "layer": "expression",
+            "block_id": "expression",
+            "owner": "core",
+            "source": "chat",
+            "revision": "6763c903ffc2",
+            "chars": 842,
+            "tokens": 211,
+            "rendered": true,
+            "skip_reason": "",
+            "conflict": "",
+            "detail": ""
+          },
+          "expr_examples": {
+            "layer": "few_shot",
+            "block_id": "expression_examples",
+            "owner": "core",
+            "source": "global",
+            "revision": "",
+            "chars": 0,
+            "tokens": 0,
+            "rendered": false,
+            "skip_reason": "not_owner_approved",
+            "conflict": "",
+            "detail": ""
+          }
+        },
+        {
+          "seq": 51,
+          "chat_id": -1002661910336,
+          "writer": "l2_writer",
+          "profile": "speech_plain",
+          "system_sha12": "c484a481868a",
+          "system_chars": 7070,
+          "has_marker": true,
+          "has_examples_marker": false,
+          "mode_line": "frequent",
+          "expected_text_present": true,
+          "expr": {
+            "layer": "expression",
+            "block_id": "expression",
+            "owner": "core",
+            "source": "chat",
+            "revision": "6763c903ffc2",
+            "chars": 842,
+            "tokens": 211,
+            "rendered": true,
+            "skip_reason": "",
+            "conflict": "",
+            "detail": ""
+          },
+          "expr_examples": {
+            "layer": "few_shot",
+            "block_id": "expression_examples",
+            "owner": "core",
+            "source": "global",
+            "revision": "",
+            "chars": 0,
+            "tokens": 0,
+            "rendered": false,
+            "skip_reason": "not_owner_approved",
+            "conflict": "",
+            "detail": ""
+          }
+        }
+      ],
+      "usage": [
+        {
+          "correlation_id": "5729bc6a607d4b4d933ef49f5aedc8c5",
+          "step": "single",
+          "tool_name": "",
+          "input_tokens": 129,
+          "output_tokens": 30,
+          "cost_usd": "<Decimal>",
+          "price_known": false,
+          "plan_meta": null,
+          "ts": "2026-10-19 15:33:01.641174+00:00"
+        }
+      ]
+    },
+    {
+      "label": "frequent-02-argument",
+      "chat_id": -1002661910336,
+      "mode": "frequent",
+      "context": "argument",
+      "phrase": "бот, твой вариант вообще не работает, я на него полдня убил",
+      "status": "ok",
+      "error": "",
+      "correlation_id": "def8ad60d0404a94817830bae74124d8",
+      "elapsed_s": 12.63,
+      "plan_meta": null,
+      "sends": [
+        {
+          "kind": "message",
+          "message_id": 1166658,
+          "text": "Какой именно вариант?",
+          "text_len": 21,
+          "reply_to": 1166657
+        }
+      ],
+      "answer": "Какой именно вариант?",
+      "answer_scan": {
+        "own": [],
+        "protected": [],
+        "euphemism": [],
+        "own_count": 0,
+        "protected_count": 0,
+        "own_words": []
+      },
+      "sentences": {
+        "sentences": 1,
+        "sentences_with_mat": 0
+      },
+      "llm_calls": [
+        {
+          "seq": 85,
+          "via": "generate",
+          "module": null,
+          "step": null,
+          "chat_id": null,
+          "correlation_id": null,
+          "n_messages": 2,
+          "system_chars": 307,
+          "system_sha12": "eb60769a4d16",
+          "has_marker": false,
+          "mode_line": "",
+          "expected_text_present": false,
+          "raw": "{\"selected\":[3,2,1,4,10]}",
+          "raw_scan": {
+            "own": [],
+            "protected": [],
+            "euphemism": [],
+            "own_count": 0,
+            "protected_count": 0,
+            "own_words": []
+          }
+        },
+        {
+          "seq": 86,
+          "via": "generate",
+          "module": null,
+          "step": null,
+          "chat_id": -1002661910336,
+          "correlation_id": null,
+          "n_messages": 2,
+          "system_chars": 255,
+          "system_sha12": "a1d2a21721a3",
+          "has_marker": false,
+          "mode_line": "",
+          "expected_text_present": false,
+          "raw": "[Бот] заявил: старался как мог",
+          "raw_scan": {
+            "own": [],
+            "protected": [],
+            "euphemism": [],
+            "own_count": 0,
+            "protected_count": 0,
+            "own_words": []
+          }
+        },
+        {
+          "seq": 87,
+          "via": "generate",
+          "module": "direct_chat",
+          "step": "l1_planner",
+          "chat_id": -1002661910336,
+          "correlation_id": "d1fc9382ae05457da889b26088520f60",
+          "n_messages": 2,
+          "system_chars": 2423,
+          "system_sha12": "99a207313889",
+          "has_marker": false,
+          "mode_line": "",
+          "expected_text_present": false,
+          "raw": "{\"action\": \"reply\", \"reaction\": null, \"response_act\": \"support\", \"extent\": \"compact\", \"tone\": \"warm\", \"emotional_mirroring\": \"medium\", \"structure\": \"chat\", \"delivery_hint\": \"plain\", \"tool_policy\": \"none\", \"capabilities_needed\": [], \"needs_clarification\": true, \"clarification_target\": \"какой именно вариант и что значит «не работает» (ошибка/поведение)\", \"confidence\": 0.72, \"future_intent\": null}",
+          "raw_scan": {
+            "own": [],
+            "protected": [],
+            "euphemism": [],
+            "own_count": 0,
+            "protected_count": 0,
+            "own_words": []
+          }
+        },
+        {
+          "seq": 88,
+          "via": "generate",
+          "module": "direct_chat",
+          "step": "l2_writer",
+          "chat_id": -1002661910336,
+          "correlation_id": "d1fc9382ae05457da889b26088520f60",
+          "n_messages": 2,
+          "system_chars": 7176,
+          "system_sha12": "a3cfae0a2fad",
+          "has_marker": true,
+          "mode_line": "frequent",
+          "expected_text_present": true,
+          "raw": "Какой именно вариант? У меня их за полдня могло насобираться с полдюжины, и без конкретики я сейчас буду вскрывать наугад",
+          "raw_scan": {
+            "own": [],
+            "protected": [],
+            "euphemism": [],
+            "own_count": 0,
+            "protected_count": 0,
+            "own_words": []
+          }
+        },
+        {
+          "seq": 89,
+          "via": "generate",
+          "module": null,
+          "step": null,
+          "chat_id": null,
+          "correlation_id": null,
+          "n_messages": 2,
+          "system_chars": 984,
+          "system_sha12": "01be6c765713",
+          "has_marker": false,
+          "mode_line": "",
+          "expected_text_present": false,
+          "raw": "[{\"subject\": \"вариант бота\", \"predicate\": \"не работает\", \"object\": \"\", \"context\": \"пользователь потратил полдня на попытки\"}]",
+          "raw_scan": {
+            "own": [],
+            "protected": [],
+            "euphemism": [],
+            "own_count": 0,
+            "protected_count": 0,
+            "own_words": []
+          }
+        }
+      ],
+      "wire": [
+        {
+          "seq": 85,
+          "via": "_post",
+          "module": "",
+          "step": "",
+          "model": "deepseek/deepseek-v4.1-flash",
+          "n_messages": 2,
+          "payload_sha12": "ca230f5f2cb3",
+          "has_marker": false,
+          "has_examples_marker": false,
+          "mode_line": "",
+          "expected_text_present": false
+        },
+        {
+          "seq": 86,
+          "via": "_post",
+          "module": "",
+          "step": "",
+          "model": "deepseek/deepseek-v4.1-flash",
+          "n_messages": 2,
+          "payload_sha12": "422a053faf85",
+          "has_marker": false,
+          "has_examples_marker": false,
+          "mode_line": "",
+          "expected_text_present": false
+        },
+        {
+          "seq": 87,
+          "via": "_post",
+          "module": "direct_chat",
+          "step": "l1_planner",
+          "model": "deepseek/deepseek-v4.1-flash",
+          "n_messages": 2,
+          "payload_sha12": "fc751d1eb1a0",
+          "has_marker": false,
+          "has_examples_marker": false,
+          "mode_line": "",
+          "expected_text_present": false
+        },
+        {
+          "seq": 88,
+          "via": "_post",
+          "module": "direct_chat",
+          "step": "l2_writer",
+          "model": "deepseek/deepseek-v4.1-flash",
+          "n_messages": 2,
+          "payload_sha12": "a6cab96a9d3a",
+          "has_marker": true,
+          "has_examples_marker": false,
+          "mode_line": "frequent",
+          "expected_text_present": true
+        },
+        {
+          "seq": 89,
+          "via": "_post",
+          "module": "",
+          "step": "",
+          "model": "deepseek/deepseek-v4.1-flash",
+          "n_messages": 2,
+          "payload_sha12": "7ce4c73b5681",
+          "has_marker": false,
+          "has_examples_marker": false,
+          "mode_line": "",
+          "expected_text_present": false
+        }
+      ],
+      "composes": [
+        {
+          "seq": 52,
+          "chat_id": -1002661910336,
+          "writer": "l1_planner",
+          "profile": "machine_json",
+          "system_sha12": "99a207313889",
+          "system_chars": 2423,
+          "has_marker": false,
+          "has_examples_marker": false,
+          "mode_line": "",
+          "expected_text_present": false,
+          "expr": {
+            "layer": "expression",
+            "block_id": "expression",
+            "owner": "core",
+            "source": "code",
+            "revision": "",
+            "chars": 0,
+            "tokens": 0,
+            "rendered": false,
+            "skip_reason": "profile:machine_stage",
+            "conflict": "",
+            "detail": ""
+          },
+          "expr_examples": {
+            "layer": "few_shot",
+            "block_id": "expression_examples",
+            "owner": "core",
+            "source": "code",
+            "revision": "",
+            "chars": 0,
+            "tokens": 0,
+            "rendered": false,
+            "skip_reason": "profile:machine_stage",
+            "conflict": "",
+            "detail": ""
+          }
+        },
+        {
+          "seq": 53,
+          "chat_id": -1002661910336,
+          "writer": "tool_phase",
+          "profile": "speech_plain",
+          "system_sha12": "c68adcb9068b",
+          "system_chars": 10772,
+          "has_marker": true,
+          "has_examples_marker": false,
+          "mode_line": "frequent",
+          "expected_text_present": true,
+          "expr": {
+            "layer": "expression",
+            "block_id": "expression",
+            "owner": "core",
+            "source": "chat",
+            "revision": "6763c903ffc2",
+            "chars": 842,
+            "tokens": 211,
+            "rendered": true,
+            "skip_reason": "",
+            "conflict": "",
+            "detail": ""
+          },
+          "expr_examples": {
+            "layer": "few_shot",
+            "block_id": "expression_examples",
+            "owner": "core",
+            "source": "global",
+            "revision": "",
+            "chars": 0,
+            "tokens": 0,
+            "rendered": false,
+            "skip_reason": "not_owner_approved",
+            "conflict": "",
+            "detail": ""
+          }
+        },
+        {
+          "seq": 54,
+          "chat_id": -1002661910336,
+          "writer": "l2_writer",
+          "profile": "speech_plain",
+          "system_sha12": "a3cfae0a2fad",
+          "system_chars": 7176,
+          "has_marker": true,
+          "has_examples_marker": false,
+          "mode_line": "frequent",
+          "expected_text_present": true,
+          "expr": {
+            "layer": "expression",
+            "block_id": "expression",
+            "owner": "core",
+            "source": "chat",
+            "revision": "6763c903ffc2",
+            "chars": 842,
+            "tokens": 211,
+            "rendered": true,
+            "skip_reason": "",
+            "conflict": "",
+            "detail": ""
+          },
+          "expr_examples": {
+            "layer": "few_shot",
+            "block_id": "expression_examples",
+            "owner": "core",
+            "source": "global",
+            "revision": "",
+            "chars": 0,
+            "tokens": 0,
+            "rendered": false,
+            "skip_reason": "not_owner_approved",
+            "conflict": "",
+            "detail": ""
+          }
+        }
+      ],
+      "usage": [
+        {
+          "correlation_id": "def8ad60d0404a94817830bae74124d8",
+          "step": "single",
+          "tool_name": "",
+          "input_tokens": 108,
+          "output_tokens": 12,
+          "cost_usd": "<Decimal>",
+          "price_known": false,
+          "plan_meta": null,
+          "ts": "2026-10-19 15:33:17.811662+00:00"
+        }
+      ]
+    },
+    {
+      "label": "frequent-03-short",
+      "chat_id": -1002661910336,
+      "mode": "frequent",
+      "context": "short",
+      "phrase": "бот, ты в деле завтра?",
+      "status": "ok",
+      "error": "",
+      "correlation_id": "3dcb57ee66ed4d2aa5fde95baf1502d8",
+      "elapsed_s": 13.2,
+      "plan_meta": null,
+      "sends": [
+        {
+          "kind": "message",
+          "message_id": 1166659,
+          "text": "В деле, но ты так и не сказал, в каком именно - я жду конкретики, а не тумана",
+          "text_len": 77,
+          "reply_to": 1166658
+        }
+      ],
+      "answer": "В деле, но ты так и не сказал, в каком именно - я жду конкретики, а не тумана",
+      "answer_scan": {
+        "own": [],
+        "protected": [],
+        "euphemism": [],
+        "own_count": 0,
+        "protected_count": 0,
+        "own_words": []
+      },
+      "sentences": {
+        "sentences": 1,
+        "sentences_with_mat": 0
+      },
+      "llm_calls": [
+        {
+          "seq": 90,
+          "via": "generate",
+          "module": null,
+          "step": null,
+          "chat_id": null,
+          "correlation_id": null,
+          "n_messages": 2,
+          "system_chars": 307,
+          "system_sha12": "eb60769a4d16",
+          "has_marker": false,
+          "mode_line": "",
+          "expected_text_present": false,
+          "raw": "{\"selected\":[1,2,10,5,8,7]}",
+          "raw_scan": {
+            "own": [],
+            "protected": [],
+            "euphemism": [],
+            "own_count": 0,
+            "protected_count": 0,
+            "own_words": []
+          }
+        },
+        {
+          "seq": 91,
+          "via": "generate",
+          "module": null,
+          "step": null,
+          "chat_id": -1002661910336,
+          "correlation_id": null,
+          "n_messages": 2,
+          "system_chars": 255,
+          "system_sha12": "a1d2a21721a3",
+          "has_marker": false,
+          "mode_line": "",
+          "expected_text_present": false,
+          "raw": "[Бот] заявил: уточняет, какой именно вариант имеет в виду собеседник, но без контекста предыдущего ответа суть неясна.",
+          "raw_scan": {
+            "own": [],
+            "protected": [],
+            "euphemism": [],
+            "own_count": 0,
+            "protected_count": 0,
+            "own_words": []
+          }
+        },
+        {
+          "seq": 92,
+          "via": "generate",
+          "module": "direct_chat",
+          "step": "l1_planner",
+          "chat_id": -1002661910336,
+          "correlation_id": "10a5dc88c7fe477aaf3751c8c42a6d5f",
+          "n_messages": 2,
+          "system_chars": 2423,
+          "system_sha12": "99a207313889",
+          "has_marker": false,
+          "mode_line": "",
+          "expected_text_present": false,
+          "raw": "{\"action\":\"reply\",\"reaction\":null,\"response_act\":\"clarification\",\"extent\":\"micro\",\"tone\":\"inherit\",\"emotional_mirroring\":\"light\",\"structure\":\"chat\",\"delivery_hint\":\"plain\",\"tool_policy\":\"none\",\"capabilities_needed\":[],\"needs_clarification\":true,\"clarification_target\":\"event_details\",\"confidence\":0.62,\"future_intent\":null}",
+          "raw_scan": {
+            "own": [],
+            "protected": [],
+            "euphemism": [],
+            "own_count": 0,
+            "protected_count": 0,
+            "own_words": []
+          }
+        },
+        {
+          "seq": 93,
+          "via": "generate",
+          "module": "direct_chat",
+          "step": "l2_writer",
+          "chat_id": -1002661910336,
+          "correlation_id": "10a5dc88c7fe477aaf3751c8c42a6d5f",
+          "n_messages": 2,
+          "system_chars": 7070,
+          "system_sha12": "c484a481868a",
+          "has_marker": true,
+          "mode_line": "frequent",
+          "expected_text_present": true,
+          "raw": "В деле, но ты так и не сказал, в каком именно - я жду конкретики, а не тумана",
+          "raw_scan": {
+            "own": [],
+            "protected": [],
+            "euphemism": [],
+            "own_count": 0,
+            "protected_count": 0,
+            "own_words": []
+          }
+        },
+        {
+          "seq": 94,
+          "via": "generate",
+          "module": null,
+          "step": null,
+          "chat_id": null,
+          "correlation_id": null,
+          "n_messages": 2,
+          "system_chars": 984,
+          "system_sha12": "01be6c765713",
+          "has_marker": false,
+          "mode_line": "",
+          "expected_text_present": false,
+          "raw": "[]",
+          "raw_scan": {
+            "own": [],
+            "protected": [],
+            "euphemism": [],
+            "own_count": 0,
+            "protected_count": 0,
+            "own_words": []
+          }
+        }
+      ],
+      "wire": [
+        {
+          "seq": 90,
+          "via": "_post",
+          "module": "",
+          "step": "",
+          "model": "deepseek/deepseek-v4.1-flash",
+          "n_messages": 2,
+          "payload_sha12": "ca7331b7c547",
+          "has_marker": false,
+          "has_examples_marker": false,
+          "mode_line": "",
+          "expected_text_present": false
+        },
+        {
+          "seq": 91,
+          "via": "_post",
+          "module": "",
+          "step": "",
+          "model": "deepseek/deepseek-v4.1-flash",
+          "n_messages": 2,
+          "payload_sha12": "a0dba46254c5",
+          "has_marker": false,
+          "has_examples_marker": false,
+          "mode_line": "",
+          "expected_text_present": false
+        },
+        {
+          "seq": 92,
+          "via": "_post",
+          "module": "direct_chat",
+          "step": "l1_planner",
+          "model": "deepseek/deepseek-v4.1-flash",
+          "n_messages": 2,
+          "payload_sha12": "6cba861a0da2",
+          "has_marker": false,
+          "has_examples_marker": false,
+          "mode_line": "",
+          "expected_text_present": false
+        },
+        {
+          "seq": 93,
+          "via": "_post",
+          "module": "direct_chat",
+          "step": "l2_writer",
+          "model": "deepseek/deepseek-v4.1-flash",
+          "n_messages": 2,
+          "payload_sha12": "3f033f41d7f3",
+          "has_marker": true,
+          "has_examples_marker": false,
+          "mode_line": "frequent",
+          "expected_text_present": true
+        },
+        {
+          "seq": 94,
+          "via": "_post",
+          "module": "",
+          "step": "",
+          "model": "deepseek/deepseek-v4.1-flash",
+          "n_messages": 2,
+          "payload_sha12": "a16fe2b2348a",
+          "has_marker": false,
+          "has_examples_marker": false,
+          "mode_line": "",
+          "expected_text_present": false
+        }
+      ],
+      "composes": [
+        {
+          "seq": 55,
+          "chat_id": -1002661910336,
+          "writer": "l1_planner",
+          "profile": "machine_json",
+          "system_sha12": "99a207313889",
+          "system_chars": 2423,
+          "has_marker": false,
+          "has_examples_marker": false,
+          "mode_line": "",
+          "expected_text_present": false,
+          "expr": {
+            "layer": "expression",
+            "block_id": "expression",
+            "owner": "core",
+            "source": "code",
+            "revision": "",
+            "chars": 0,
+            "tokens": 0,
+            "rendered": false,
+            "skip_reason": "profile:machine_stage",
+            "conflict": "",
+            "detail": ""
+          },
+          "expr_examples": {
+            "layer": "few_shot",
+            "block_id": "expression_examples",
+            "owner": "core",
+            "source": "code",
+            "revision": "",
+            "chars": 0,
+            "tokens": 0,
+            "rendered": false,
+            "skip_reason": "profile:machine_stage",
+            "conflict": "",
+            "detail": ""
+          }
+        },
+        {
+          "seq": 56,
+          "chat_id": -1002661910336,
+          "writer": "tool_phase",
+          "profile": "speech_plain",
+          "system_sha12": "980c055230a1",
+          "system_chars": 10666,
+          "has_marker": true,
+          "has_examples_marker": false,
+          "mode_line": "frequent",
+          "expected_text_present": true,
+          "expr": {
+            "layer": "expression",
+            "block_id": "expression",
+            "owner": "core",
+            "source": "chat",
+            "revision": "6763c903ffc2",
+            "chars": 842,
+            "tokens": 211,
+            "rendered": true,
+            "skip_reason": "",
+            "conflict": "",
+            "detail": ""
+          },
+          "expr_examples": {
+            "layer": "few_shot",
+            "block_id": "expression_examples",
+            "owner": "core",
+            "source": "global",
+            "revision": "",
+            "chars": 0,
+            "tokens": 0,
+            "rendered": false,
+            "skip_reason": "not_owner_approved",
+            "conflict": "",
+            "detail": ""
+          }
+        },
+        {
+          "seq": 57,
+          "chat_id": -1002661910336,
+          "writer": "l2_writer",
+          "profile": "speech_plain",
+          "system_sha12": "c484a481868a",
+          "system_chars": 7070,
+          "has_marker": true,
+          "has_examples_marker": false,
+          "mode_line": "frequent",
+          "expected_text_present": true,
+          "expr": {
+            "layer": "expression",
+            "block_id": "expression",
+            "owner": "core",
+            "source": "chat",
+            "revision": "6763c903ffc2",
+            "chars": 842,
+            "tokens": 211,
+            "rendered": true,
+            "skip_reason": "",
+            "conflict": "",
+            "detail": ""
+          },
+          "expr_examples": {
+            "layer": "few_shot",
+            "block_id": "expression_examples",
+            "owner": "core",
+            "source": "global",
+            "revision": "",
+            "chars": 0,
+            "tokens": 0,
+            "rendered": false,
+            "skip_reason": "not_owner_approved",
+            "conflict": "",
+            "detail": ""
+          }
+        }
+      ],
+      "usage": [
+        {
+          "correlation_id": "3dcb57ee66ed4d2aa5fde95baf1502d8",
+          "step": "single",
+          "tool_name": "",
+          "input_tokens": 106,
+          "output_tokens": 38,
+          "cost_usd": "<Decimal>",
+          "price_known": false,
+          "plan_meta": null,
+          "ts": "2026-10-19 15:33:36.899082+00:00"
+        }
+      ]
+    },
+    {
+      "label": "frequent-04-everyday",
+      "chat_id": -1002661910336,
+      "mode": "frequent",
+      "context": "everyday",
+      "phrase": "бот, интернет опять сдох, уже третий раз за вечер",
+      "status": "ok",
+      "error": "",
+      "correlation_id": "15636a74aca442e0be5498f489da6bf3",
+      "elapsed_s": 12.41,
+      "plan_meta": null,
+      "sends": [
+        {
+          "kind": "message",
+          "message_id": 1166661,
+          "text": "Третий раз за вечер - это уже не сбой, а расписание. Роутер у тебя, похоже, работает по графику какого-то очень уставшего бюджетника",
+          "text_len": 132,
+          "reply_to": 1166659
+        }
+      ],
+      "answer": "Третий раз за вечер - это уже не сбой, а расписание. Роутер у тебя, похоже, работает по графику какого-то очень уставшего бюджетника",
+      "answer_scan": {
+        "own": [],
+        "protected": [],
+        "euphemism": [],
+        "own_count": 0,
+        "protected_count": 0,
+        "own_words": []
+      },
+      "sentences": {
+        "sentences": 2,
+        "sentences_with_mat": 0
+      },
+      "llm_calls": [
+        {
+          "seq": 95,
+          "via": "generate",
+          "module": null,
+          "step": null,
+          "chat_id": null,
+          "correlation_id": null,
+          "n_messages": 2,
+          "system_chars": 307,
+          "system_sha12": "eb60769a4d16",
+          "has_marker": false,
+          "mode_line": "",
+          "expected_text_present": false,
+          "raw": "{\"selected\":[]}",
+          "raw_scan": {
+            "own": [],
+            "protected": [],
+            "euphemism": [],
+            "own_count": 0,
+            "protected_count": 0,
+            "own_words": []
+          }
+        },
+        {
+          "seq": 96,
+          "via": "generate",
+          "module": null,
+          "step": null,
+          "chat_id": -1002661910336,
+          "correlation_id": null,
+          "n_messages": 2,
+          "system_chars": 255,
+          "system_sha12": "a1d2a21721a3",
+          "has_marker": false,
+          "mode_line": "",
+          "expected_text_present": false,
+          "raw": "[Бот] заявил: что уже в деле, но не уточнил, в каком именно, оставив вопрос без конкретики.",
+          "raw_scan": {
+            "own": [],
+            "protected": [],
+            "euphemism": [],
+            "own_count": 0,
+            "protected_count": 0,
+            "own_words": []
+          }
+        },
+        {
+          "seq": 97,
+          "via": "generate",
+          "module": "direct_chat",
+          "step": "l1_planner",
+          "chat_id": -1002661910336,
+          "correlation_id": "ecdc9945b0514cf4a9ccb31e76dcbe71",
+          "n_messages": 2,
+          "system_chars": 2423,
+          "system_sha12": "99a207313889",
+          "has_marker": false,
+          "mode_line": "",
+          "expected_text_present": false,
+          "raw": "{\"action\": \"reply\", \"reaction\": null, \"response_act\": \"support\", \"extent\": \"compact\", \"tone\": \"warm\", \"emotional_mirroring\": \"light\", \"structure\": \"chat\", \"delivery_hint\": \"plain\", \"tool_policy\": \"none\", \"capabilities_needed\": [], \"needs_clarification\": false, \"clarification_target\": null, \"confidence\": 0.75, \"future_intent\": null}",
+          "raw_scan": {
+            "own": [],
+            "protected": [],
+            "euphemism": [],
+            "own_count": 0,
+            "protected_count": 0,
+            "own_words": []
+          }
+        },
+        {
+          "seq": 98,
+          "via": "generate",
+          "module": "direct_chat",
+          "step": "l2_writer",
+          "chat_id": -1002661910336,
+          "correlation_id": "ecdc9945b0514cf4a9ccb31e76dcbe71",
+          "n_messages": 2,
+          "system_chars": 7065,
+          "system_sha12": "a539d99a17c6",
+          "has_marker": true,
+          "mode_line": "frequent",
+          "expected_text_present": true,
+          "raw": "Третий раз за вечер - это уже не сбой, а расписание. Роутер у тебя, похоже, работает по графику какого-то очень уставшего бюджетника.\n\nПроверь с телефона по мобильному: если там всё летает, значит твой вайфай ни при чём, и звони провайдеру спрашивать про аварию на линии",
+          "raw_scan": {
+            "own": [],
+            "protected": [],
+            "euphemism": [],
+            "own_count": 0,
+            "protected_count": 0,
+            "own_words": []
+          }
+        },
+        {
+          "seq": 99,
+          "via": "generate",
+          "module": null,
+          "step": null,
+          "chat_id": null,
+          "correlation_id": null,
+          "n_messages": 2,
+          "system_chars": 984,
+          "system_sha12": "01be6c765713",
+          "has_marker": false,
+          "mode_line": "",
+          "expected_text_present": false,
+          "raw": "[{\"subject\": \"интернет\", \"predicate\": \"перестал работать\", \"object\": \"три раза за вечер\", \"context\": \"сообщение пользователя боту\"}]",
+          "raw_scan": {
+            "own": [],
+            "protected": [],
+            "euphemism": [],
+            "own_count": 0,
+            "protected_count": 0,
+            "own_words": []
+          }
+        }
+      ],
+      "wire": [
+        {
+          "seq": 95,
+          "via": "_post",
+          "module": "",
+          "step": "",
+          "model": "deepseek/deepseek-v4.1-flash",
+          "n_messages": 2,
+          "payload_sha12": "347bd6910c7e",
+          "has_marker": false,
+          "has_examples_marker": false,
+          "mode_line": "",
+          "expected_text_present": false
+        },
+        {
+          "seq": 96,
+          "via": "_post",
+          "module": "",
+          "step": "",
+          "model": "deepseek/deepseek-v4.1-flash",
+          "n_messages": 2,
+          "payload_sha12": "7085acd6fba4",
+          "has_marker": false,
+          "has_examples_marker": false,
+          "mode_line": "",
+          "expected_text_present": false
+        },
+        {
+          "seq": 97,
+          "via": "_post",
+          "module": "direct_chat",
+          "step": "l1_planner",
+          "model": "deepseek/deepseek-v4.1-flash",
+          "n_messages": 2,
+          "payload_sha12": "0fefd241aeb9",
+          "has_marker": false,
+          "has_examples_marker": false,
+          "mode_line": "",
+          "expected_text_present": false
+        },
+        {
+          "seq": 98,
+          "via": "_post",
+          "module": "direct_chat",
+          "step": "l2_writer",
+          "model": "deepseek/deepseek-v4.1-flash",
+          "n_messages": 2,
+          "payload_sha12": "0dc49342b8ff",
+          "has_marker": true,
+          "has_examples_marker": false,
+          "mode_line": "frequent",
+          "expected_text_present": true
+        },
+        {
+          "seq": 99,
+          "via": "_post",
+          "module": "",
+          "step": "",
+          "model": "deepseek/deepseek-v4.1-flash",
+          "n_messages": 2,
+          "payload_sha12": "eff40db106b4",
+          "has_marker": false,
+          "has_examples_marker": false,
+          "mode_line": "",
+          "expected_text_present": false
+        }
+      ],
+      "composes": [
+        {
+          "seq": 58,
+          "chat_id": -1002661910336,
+          "writer": "l1_planner",
+          "profile": "machine_json",
+          "system_sha12": "99a207313889",
+          "system_chars": 2423,
+          "has_marker": false,
+          "has_examples_marker": false,
+          "mode_line": "",
+          "expected_text_present": false,
+          "expr": {
+            "layer": "expression",
+            "block_id": "expression",
+            "owner": "core",
+            "source": "code",
+            "revision": "",
+            "chars": 0,
+            "tokens": 0,
+            "rendered": false,
+            "skip_reason": "profile:machine_stage",
+            "conflict": "",
+            "detail": ""
+          },
+          "expr_examples": {
+            "layer": "few_shot",
+            "block_id": "expression_examples",
+            "owner": "core",
+            "source": "code",
+            "revision": "",
+            "chars": 0,
+            "tokens": 0,
+            "rendered": false,
+            "skip_reason": "profile:machine_stage",
+            "conflict": "",
+            "detail": ""
+          }
+        },
+        {
+          "seq": 59,
+          "chat_id": -1002661910336,
+          "writer": "tool_phase",
+          "profile": "speech_plain",
+          "system_sha12": "e22e189c83b9",
+          "system_chars": 10661,
+          "has_marker": true,
+          "has_examples_marker": false,
+          "mode_line": "frequent",
+          "expected_text_present": true,
+          "expr": {
+            "layer": "expression",
+            "block_id": "expression",
+            "owner": "core",
+            "source": "chat",
+            "revision": "6763c903ffc2",
+            "chars": 842,
+            "tokens": 211,
+            "rendered": true,
+            "skip_reason": "",
+            "conflict": "",
+            "detail": ""
+          },
+          "expr_examples": {
+            "layer": "few_shot",
+            "block_id": "expression_examples",
+            "owner": "core",
+            "source": "global",
+            "revision": "",
+            "chars": 0,
+            "tokens": 0,
+            "rendered": false,
+            "skip_reason": "not_owner_approved",
+            "conflict": "",
+            "detail": ""
+          }
+        },
+        {
+          "seq": 60,
+          "chat_id": -1002661910336,
+          "writer": "l2_writer",
+          "profile": "speech_plain",
+          "system_sha12": "a539d99a17c6",
+          "system_chars": 7065,
+          "has_marker": true,
+          "has_examples_marker": false,
+          "mode_line": "frequent",
+          "expected_text_present": true,
+          "expr": {
+            "layer": "expression",
+            "block_id": "expression",
+            "owner": "core",
+            "source": "chat",
+            "revision": "6763c903ffc2",
+            "chars": 842,
+            "tokens": 211,
+            "rendered": true,
+            "skip_reason": "",
+            "conflict": "",
+            "detail": ""
+          },
+          "expr_examples": {
+            "layer": "few_shot",
+            "block_id": "expression_examples",
+            "owner": "core",
+            "source": "global",
+            "revision": "",
+            "chars": 0,
+            "tokens": 0,
+            "rendered": false,
+            "skip_reason": "not_owner_approved",
+            "conflict": "",
+            "detail": ""
+          }
+        }
+      ],
+      "usage": [
+        {
+          "correlation_id": "15636a74aca442e0be5498f489da6bf3",
+          "step": "single",
+          "tool_name": "",
+          "input_tokens": 577,
+          "output_tokens": 5,
+          "cost_usd": "<Decimal>",
+          "price_known": false,
+          "plan_meta": null,
+          "ts": "2026-10-19 15:33:43.380699+00:00"
+        }
+      ]
+    },
+    {
+      "label": "frequent-05-joke",
+      "chat_id": -1002661910336,
+      "mode": "frequent",
+      "context": "joke",
+      "phrase": "бот, расскажи короткую шутку про понедельник и дедлайны",
+      "status": "ok",
+      "error": "",
+      "correlation_id": "aa20337b74994abda653fc87bfb910b5",
+      "elapsed_s": 15.22,
+      "plan_meta": null,
+      "sends": [
+        {
+          "kind": "message",
+          "message_id": 1166662,
+          "text": "Понедельник - это когда дедлайн уже вчера, а ты только выбираешь, каким именно вариантом всё сдать",
+          "text_len": 98,
+          "reply_to": 1166661
+        }
+      ],
+      "answer": "Понедельник - это когда дедлайн уже вчера, а ты только выбираешь, каким именно вариантом всё сдать",
+      "answer_scan": {
+        "own": [],
+        "protected": [],
+        "euphemism": [],
+        "own_count": 0,
+        "protected_count": 0,
+        "own_words": []
+      },
+      "sentences": {
+        "sentences": 1,
+        "sentences_with_mat": 0
+      },
+      "llm_calls": [
+        {
+          "seq": 100,
+          "via": "generate",
+          "module": null,
+          "step": null,
+          "chat_id": null,
+          "correlation_id": null,
+          "n_messages": 2,
+          "system_chars": 307,
+          "system_sha12": "eb60769a4d16",
+          "has_marker": false,
+          "mode_line": "",
+          "expected_text_present": false,
+          "raw": "{\"selected\":[1,2,6]}",
+          "raw_scan": {
+            "own": [],
+            "protected": [],
+            "euphemism": [],
+            "own_count": 0,
+            "protected_count": 0,
+            "own_words": []
+          }
+        },
+        {
+          "seq": 101,
+          "via": "generate",
+          "module": null,
+          "step": null,
+          "chat_id": -1002661910336,
+          "correlation_id": null,
+          "n_messages": 2,
+          "system_chars": 255,
+          "system_sha12": "a1d2a21721a3",
+          "has_marker": false,
+          "mode_line": "",
+          "expected_text_present": false,
+          "raw": "[Бот] заявил: роутер сбоит по расписанию, как уставший бюджетник",
+          "raw_scan": {
+            "own": [],
+            "protected": [],
+            "euphemism": [],
+            "own_count": 0,
+            "protected_count": 0,
+            "own_words": []
+          }
+        },
+        {
+          "seq": 102,
+          "via": "generate",
+          "module": "direct_chat",
+          "step": "l1_planner",
+          "chat_id": -1002661910336,
+          "correlation_id": "ffc1c6fdd3f242eeb592dc064f41f47f",
+          "n_messages": 2,
+          "system_chars": 2423,
+          "system_sha12": "99a207313889",
+          "has_marker": false,
+          "mode_line": "",
+          "expected_text_present": false,
+          "raw": "{\"action\": \"reply\", \"reaction\": null, \"response_act\": \"creative\", \"extent\": \"micro\", \"tone\": \"playful\", \"emotional_mirroring\": \"light\", \"structure\": \"chat\", \"delivery_hint\": \"plain\", \"tool_policy\": \"none\", \"capabilities_needed\": [], \"needs_clarification\": false, \"clarification_target\": null, \"confidence\": 0.9, \"future_intent\": null}",
+          "raw_scan": {
+            "own": [],
+            "protected": [],
+            "euphemism": [],
+            "own_count": 0,
+            "protected_count": 0,
+            "own_words": []
+          }
+        },
+        {
+          "seq": 103,
+          "via": "generate",
+          "module": "direct_chat",
+          "step": "l2_writer",
+          "chat_id": -1002661910336,
+          "correlation_id": "ffc1c6fdd3f242eeb592dc064f41f47f",
+          "n_messages": 2,
+          "system_chars": 7070,
+          "system_sha12": "c484a481868a",
+          "has_marker": true,
+          "mode_line": "frequent",
+          "expected_text_present": true,
+          "raw": "Понедельник - это когда дедлайн уже вчера, а ты только выбираешь, каким именно вариантом всё сдать",
+          "raw_scan": {
+            "own": [],
+            "protected": [],
+            "euphemism": [],
+            "own_count": 0,
+            "protected_count": 0,
+            "own_words": []
+          }
+        },
+        {
+          "seq": 104,
+          "via": "generate",
+          "module": null,
+          "step": null,
+          "chat_id": null,
+          "correlation_id": null,
+          "n_messages": 2,
+          "system_chars": 984,
+          "system_sha12": "01be6c765713",
+          "has_marker": false,
+          "mode_line": "",
+          "expected_text_present": false,
+          "raw": "[{\"subject\": \"запрос\", \"predicate\": \"содержит тему\", \"object\": \"шутка о понедельнике и дедлайнах\", \"context\": \"пользователь просит бота рассказать короткую шутку\"}]",
+          "raw_scan": {
+            "own": [],
+            "protected": [],
+            "euphemism": [],
+            "own_count": 0,
+            "protected_count": 0,
+            "own_words": []
+          }
+        }
+      ],
+      "wire": [
+        {
+          "seq": 100,
+          "via": "_post",
+          "module": "",
+          "step": "",
+          "model": "deepseek/deepseek-v4.1-flash",
+          "n_messages": 2,
+          "payload_sha12": "db343db22886",
+          "has_marker": false,
+          "has_examples_marker": false,
+          "mode_line": "",
+          "expected_text_present": false
+        },
+        {
+          "seq": 101,
+          "via": "_post",
+          "module": "",
+          "step": "",
+          "model": "deepseek/deepseek-v4.1-flash",
+          "n_messages": 2,
+          "payload_sha12": "327962935a40",
+          "has_marker": false,
+          "has_examples_marker": false,
+          "mode_line": "",
+          "expected_text_present": false
+        },
+        {
+          "seq": 102,
+          "via": "_post",
+          "module": "direct_chat",
+          "step": "l1_planner",
+          "model": "deepseek/deepseek-v4.1-flash",
+          "n_messages": 2,
+          "payload_sha12": "02c5ac4171f6",
+          "has_marker": false,
+          "has_examples_marker": false,
+          "mode_line": "",
+          "expected_text_present": false
+        },
+        {
+          "seq": 103,
+          "via": "_post",
+          "module": "direct_chat",
+          "step": "l2_writer",
+          "model": "deepseek/deepseek-v4.1-flash",
+          "n_messages": 2,
+          "payload_sha12": "75d85ff44e5e",
+          "has_marker": true,
+          "has_examples_marker": false,
+          "mode_line": "frequent",
+          "expected_text_present": true
+        },
+        {
+          "seq": 104,
+          "via": "_post",
+          "module": "",
+          "step": "",
+          "model": "deepseek/deepseek-v4.1-flash",
+          "n_messages": 2,
+          "payload_sha12": "33dcd6c530ad",
+          "has_marker": false,
+          "has_examples_marker": false,
+          "mode_line": "",
+          "expected_text_present": false
+        }
+      ],
+      "composes": [
+        {
+          "seq": 61,
+          "chat_id": -1002661910336,
+          "writer": "l1_planner",
+          "profile": "machine_json",
+          "system_sha12": "99a207313889",
+          "system_chars": 2423,
+          "has_marker": false,
+          "has_examples_marker": false,
+          "mode_line": "",
+          "expected_text_present": false,
+          "expr": {
+            "layer": "expression",
+            "block_id": "expression",
+            "owner": "core",
+            "source": "code",
+            "revision": "",
+            "chars": 0,
+            "tokens": 0,
+            "rendered": false,
+            "skip_reason": "profile:machine_stage",
+            "conflict": "",
+            "detail": ""
+          },
+          "expr_examples": {
+            "layer": "few_shot",
+            "block_id": "expression_examples",
+            "owner": "core",
+            "source": "code",
+            "revision": "",
+            "chars": 0,
+            "tokens": 0,
+            "rendered": false,
+            "skip_reason": "profile:machine_stage",
+            "conflict": "",
+            "detail": ""
+          }
+        },
+        {
+          "seq": 62,
+          "chat_id": -1002661910336,
+          "writer": "tool_phase",
+          "profile": "speech_plain",
+          "system_sha12": "980c055230a1",
+          "system_chars": 10666,
+          "has_marker": true,
+          "has_examples_marker": false,
+          "mode_line": "frequent",
+          "expected_text_present": true,
+          "expr": {
+            "layer": "expression",
+            "block_id": "expression",
+            "owner": "core",
+            "source": "chat",
+            "revision": "6763c903ffc2",
+            "chars": 842,
+            "tokens": 211,
+            "rendered": true,
+            "skip_reason": "",
+            "conflict": "",
+            "detail": ""
+          },
+          "expr_examples": {
+            "layer": "few_shot",
+            "block_id": "expression_examples",
+            "owner": "core",
+            "source": "global",
+            "revision": "",
+            "chars": 0,
+            "tokens": 0,
+            "rendered": false,
+            "skip_reason": "not_owner_approved",
+            "conflict": "",
+            "detail": ""
+          }
+        },
+        {
+          "seq": 63,
+          "chat_id": -1002661910336,
+          "writer": "l2_writer",
+          "profile": "speech_plain",
+          "system_sha12": "c484a481868a",
+          "system_chars": 7070,
+          "has_marker": true,
+          "has_examples_marker": false,
+          "mode_line": "frequent",
+          "expected_text_present": true,
+          "expr": {
+            "layer": "expression",
+            "block_id": "expression",
+            "owner": "core",
+            "source": "chat",
+            "revision": "6763c903ffc2",
+            "chars": 842,
+            "tokens": 211,
+            "rendered": true,
+            "skip_reason": "",
+            "conflict": "",
+            "detail": ""
+          },
+          "expr_examples": {
+            "layer": "few_shot",
+            "block_id": "expression_examples",
+            "owner": "core",
+            "source": "global",
+            "revision": "",
+            "chars": 0,
+            "tokens": 0,
+            "rendered": false,
+            "skip_reason": "not_owner_approved",
+            "conflict": "",
+            "detail": ""
+          }
+        }
+      ],
+      "usage": [
+        {
+          "correlation_id": "aa20337b74994abda653fc87bfb910b5",
+          "step": "single",
+          "tool_name": "",
+          "input_tokens": 144,
+          "output_tokens": 25,
+          "cost_usd": "<Decimal>",
+          "price_known": false,
+          "plan_meta": null,
+          "ts": "2026-10-19 15:33:55.730302+00:00"
+        }
+      ]
+    },
+    {
+      "label": "frequent-06-tech",
+      "chat_id": -1002661910336,
+      "mode": "frequent",
+      "context": "tech",
+      "phrase": "бот, чем посмотреть топ процессов по памяти? коротко",
+      "status": "ok",
+      "error": "",
+      "correlation_id": "fddfd0b1360045b4865c81b6a928c442",
+      "elapsed_s": 10.78,
+      "plan_meta": null,
+      "sends": [
+        {
+          "kind": "message",
+          "message_id": 1166663,
+          "text": "top -o %MEM, а если надо разово и красиво - ps aux --sort=-%mem | head",
+          "text_len": 70,
+          "reply_to": 1166662
+        }
+      ],
+      "answer": "top -o %MEM, а если надо разово и красиво - ps aux --sort=-%mem | head",
+      "answer_scan": {
+        "own": [],
+        "protected": [],
+        "euphemism": [],
+        "own_count": 0,
+        "protected_count": 0,
+        "own_words": []
+      },
+      "sentences": {
+        "sentences": 1,
+        "sentences_with_mat": 0
+      },
+      "llm_calls": [
+        {
+          "seq": 105,
+          "via": "generate",
+          "module": null,
+          "step": null,
+          "chat_id": null,
+          "correlation_id": null,
+          "n_messages": 2,
+          "system_chars": 307,
+          "system_sha12": "eb60769a4d16",
+          "has_marker": false,
+          "mode_line": "",
+          "expected_text_present": false,
+          "raw": "{\"selected\":[]}",
+          "raw_scan": {
+            "own": [],
+            "protected": [],
+            "euphemism": [],
+            "own_count": 0,
+            "protected_count": 0,
+            "own_words": []
+          }
+        },
+        {
+          "seq": 106,
+          "via": "generate",
+          "module": null,
+          "step": null,
+          "chat_id": -1002661910336,
+          "correlation_id": null,
+          "n_messages": 2,
+          "system_chars": 255,
+          "system_sha12": "a1d2a21721a3",
+          "has_marker": false,
+          "mode_line": "",
+          "expected_text_present": false,
+          "raw": "[Бот] заявил: Понедельник — когда дедлайн вчера, а ты только выбираешь вариант сдачи",
+          "raw_scan": {
+            "own": [],
+            "protected": [],
+            "euphemism": [],
+            "own_count": 0,
+            "protected_count": 0,
+            "own_words": []
+          }
+        },
+        {
+          "seq": 107,
+          "via": "generate",
+          "module": "direct_chat",
+          "step": "l1_planner",
+          "chat_id": -1002661910336,
+          "correlation_id": "9069bf7139f94c92bf5eb173b6abd43a",
+          "n_messages": 2,
+          "system_chars": 2423,
+          "system_sha12": "99a207313889",
+          "has_marker": false,
+          "mode_line": "",
+          "expected_text_present": false,
+          "raw": "{\"action\": \"reply\", \"reaction\": null, \"response_act\": \"answer\", \"extent\": \"micro\", \"tone\": \"neutral\", \"emotional_mirroring\": \"none\", \"structure\": \"chat\", \"delivery_hint\": \"plain\", \"tool_policy\": \"none\", \"capabilities_needed\": [], \"needs_clarification\": false, \"clarification_target\": null, \"confidence\": 0.95, \"future_intent\": null}",
+          "raw_scan": {
+            "own": [],
+            "protected": [],
+            "euphemism": [],
+            "own_count": 0,
+            "protected_count": 0,
+            "own_words": []
+          }
+        },
+        {
+          "seq": 108,
+          "via": "generate",
+          "module": "direct_chat",
+          "step": "l2_writer",
+          "chat_id": -1002661910336,
+          "correlation_id": "9069bf7139f94c92bf5eb173b6abd43a",
+          "n_messages": 2,
+          "system_chars": 7065,
+          "system_sha12": "a539d99a17c6",
+          "has_marker": true,
+          "mode_line": "frequent",
+          "expected_text_present": true,
+          "raw": "top -o %MEM, а если надо разово и красиво - ps aux --sort=-%mem | head",
+          "raw_scan": {
+            "own": [],
+            "protected": [],
+            "euphemism": [],
+            "own_count": 0,
+            "protected_count": 0,
+            "own_words": []
+          }
+        },
+        {
+          "seq": 109,
+          "via": "generate",
+          "module": null,
+          "step": null,
+          "chat_id": null,
+          "correlation_id": null,
+          "n_messages": 2,
+          "system_chars": 984,
+          "system_sha12": "01be6c765713",
+          "has_marker": false,
+          "mode_line": "",
+          "expected_text_present": false,
+          "raw": "```json\n[\n  {\n    \"subject\": \"top\",\n    \"predicate\": \"сортирует процессы по\",\n    \"object\": \"памяти\",\n    \"context\": \"команда top с сортировкой по потреблению памяти\"\n  },\n  {\n    \"subject\": \"htop\",\n    \"predicate\": \"отображает\",\n    \"object\": \"процессы\",\n    \"context\": \"альтернативный интерактивный просмотр процессов\"\n  }\n]\n```",
+          "raw_scan": {
+            "own": [],
+            "protected": [],
+            "euphemism": [],
+            "own_count": 0,
+            "protected_count": 0,
+            "own_words": []
+          }
+        }
+      ],
+      "wire": [
+        {
+          "seq": 105,
+          "via": "_post",
+          "module": "",
+          "step": "",
+          "model": "deepseek/deepseek-v4.1-flash",
+          "n_messages": 2,
+          "payload_sha12": "dd35fcd99905",
+          "has_marker": false,
+          "has_examples_marker": false,
+          "mode_line": "",
+          "expected_text_present": false
+        },
+        {
+          "seq": 106,
+          "via": "_post",
+          "module": "",
+          "step": "",
+          "model": "deepseek/deepseek-v4.1-flash",
+          "n_messages": 2,
+          "payload_sha12": "29a9f92f633f",
+          "has_marker": false,
+          "has_examples_marker": false,
+          "mode_line": "",
+          "expected_text_present": false
+        },
+        {
+          "seq": 107,
+          "via": "_post",
+          "module": "direct_chat",
+          "step": "l1_planner",
+          "model": "deepseek/deepseek-v4.1-flash",
+          "n_messages": 2,
+          "payload_sha12": "7dfed78628c1",
+          "has_marker": false,
+          "has_examples_marker": false,
+          "mode_line": "",
+          "expected_text_present": false
+        },
+        {
+          "seq": 108,
+          "via": "_post",
+          "module": "direct_chat",
+          "step": "l2_writer",
+          "model": "deepseek/deepseek-v4.1-flash",
+          "n_messages": 2,
+          "payload_sha12": "fc1d48681fe1",
+          "has_marker": true,
+          "has_examples_marker": false,
+          "mode_line": "frequent",
+          "expected_text_present": true
+        },
+        {
+          "seq": 109,
+          "via": "_post",
+          "module": "",
+          "step": "",
+          "model": "deepseek/deepseek-v4.1-flash",
+          "n_messages": 2,
+          "payload_sha12": "1ee969ddf5b3",
+          "has_marker": false,
+          "has_examples_marker": false,
+          "mode_line": "",
+          "expected_text_present": false
+        }
+      ],
+      "composes": [
+        {
+          "seq": 64,
+          "chat_id": -1002661910336,
+          "writer": "l1_planner",
+          "profile": "machine_json",
+          "system_sha12": "99a207313889",
+          "system_chars": 2423,
+          "has_marker": false,
+          "has_examples_marker": false,
+          "mode_line": "",
+          "expected_text_present": false,
+          "expr": {
+            "layer": "expression",
+            "block_id": "expression",
+            "owner": "core",
+            "source": "code",
+            "revision": "",
+            "chars": 0,
+            "tokens": 0,
+            "rendered": false,
+            "skip_reason": "profile:machine_stage",
+            "conflict": "",
+            "detail": ""
+          },
+          "expr_examples": {
+            "layer": "few_shot",
+            "block_id": "expression_examples",
+            "owner": "core",
+            "source": "code",
+            "revision": "",
+            "chars": 0,
+            "tokens": 0,
+            "rendered": false,
+            "skip_reason": "profile:machine_stage",
+            "conflict": "",
+            "detail": ""
+          }
+        },
+        {
+          "seq": 65,
+          "chat_id": -1002661910336,
+          "writer": "tool_phase",
+          "profile": "speech_plain",
+          "system_sha12": "e22e189c83b9",
+          "system_chars": 10661,
+          "has_marker": true,
+          "has_examples_marker": false,
+          "mode_line": "frequent",
+          "expected_text_present": true,
+          "expr": {
+            "layer": "expression",
+            "block_id": "expression",
+            "owner": "core",
+            "source": "chat",
+            "revision": "6763c903ffc2",
+            "chars": 842,
+            "tokens": 211,
+            "rendered": true,
+            "skip_reason": "",
+            "conflict": "",
+            "detail": ""
+          },
+          "expr_examples": {
+            "layer": "few_shot",
+            "block_id": "expression_examples",
+            "owner": "core",
+            "source": "global",
+            "revision": "",
+            "chars": 0,
+            "tokens": 0,
+            "rendered": false,
+            "skip_reason": "not_owner_approved",
+            "conflict": "",
+            "detail": ""
+          }
+        },
+        {
+          "seq": 66,
+          "chat_id": -1002661910336,
+          "writer": "l2_writer",
+          "profile": "speech_plain",
+          "system_sha12": "a539d99a17c6",
+          "system_chars": 7065,
+          "has_marker": true,
+          "has_examples_marker": false,
+          "mode_line": "frequent",
+          "expected_text_present": true,
+          "expr": {
+            "layer": "expression",
+            "block_id": "expression",
+            "owner": "core",
+            "source": "chat",
+            "revision": "6763c903ffc2",
+            "chars": 842,
+            "tokens": 211,
+            "rendered": true,
+            "skip_reason": "",
+            "conflict": "",
+            "detail": ""
+          },
+          "expr_examples": {
+            "layer": "few_shot",
+            "block_id": "expression_examples",
+            "owner": "core",
+            "source": "global",
+            "revision": "",
+            "chars": 0,
+            "tokens": 0,
+            "rendered": false,
+            "skip_reason": "not_owner_approved",
+            "conflict": "",
+            "detail": ""
+          }
+        }
+      ],
+      "usage": [
+        {
+          "correlation_id": "fddfd0b1360045b4865c81b6a928c442",
+          "step": "single",
+          "tool_name": "",
+          "input_tokens": 131,
+          "output_tokens": 30,
+          "cost_usd": "<Decimal>",
+          "price_known": false,
+          "plan_meta": null,
+          "ts": "2026-10-19 15:34:14.824960+00:00"
+        }
+      ]
+    },
+    {
+      "label": "frequent-07-factcheck",
+      "chat_id": -1002661910336,
+      "mode": "frequent",
+      "context": "factcheck",
+      "phrase": "бот, проверь: у осьминога три сердца или одно?",
+      "status": "ok",
+      "error": "",
+      "correlation_id": "c9225f88af584e339919d3e85d86334b",
+      "elapsed_s": 15.37,
+      "plan_meta": null,
+      "sends": [
+        {
+          "kind": "message",
+          "message_id": 1166664,
+          "text": "Три. Два гоняют кровь через жабры, третье - по всему телу, и когда осьминог плывёт, главное у него вообще останавливается. Так что плавает он буквально на морально-волевых",
+          "text_len": 171,
+          "reply_to": 1166663
+        }
+      ],
+      "answer": "Три. Два гоняют кровь через жабры, третье - по всему телу, и когда осьминог плывёт, главное у него вообще останавливается. Так что плавает он буквально на морально-волевых",
+      "answer_scan": {
+        "own": [],
+        "protected": [],
+        "euphemism": [],
+        "own_count": 0,
+        "protected_count": 0,
+        "own_words": []
+      },
+      "sentences": {
+        "sentences": 3,
+        "sentences_with_mat": 0
+      },
+      "llm_calls": [
+        {
+          "seq": 110,
+          "via": "generate",
+          "module": null,
+          "step": null,
+          "chat_id": null,
+          "correlation_id": null,
+          "n_messages": 2,
+          "system_chars": 307,
+          "system_sha12": "eb60769a4d16",
+          "has_marker": false,
+          "mode_line": "",
+          "expected_text_present": false,
+          "raw": "{\"selected\":[1,9,10]}",
+          "raw_scan": {
+            "own": [],
+            "protected": [],
+            "euphemism": [],
+            "own_count": 0,
+            "protected_count": 0,
+            "own_words": []
+          }
+        },
+        {
+          "seq": 111,
+          "via": "generate",
+          "module": "direct_chat",
+          "step": "l1_planner",
+          "chat_id": -1002661910336,
+          "correlation_id": "9e0bb82903284b75bf8f0285734177cb",
+          "n_messages": 2,
+          "system_chars": 2423,
+          "system_sha12": "99a207313889",
+          "has_marker": false,
+          "mode_line": "",
+          "expected_text_present": false,
+          "raw": "{\"action\": \"reply\", \"reaction\": null, \"response_act\": \"fact_check\", \"extent\": \"compact\", \"tone\": \"neutral\", \"emotional_mirroring\": \"none\", \"structure\": \"answer\", \"delivery_hint\": \"plain\", \"tool_policy\": \"auto\", \"capabilities_needed\": [\"fact_check\", \"web_search\"], \"needs_clarification\": false, \"clarification_target\": null, \"confidence\": 0.97, \"future_intent\": null}",
+          "raw_scan": {
+            "own": [],
+            "protected": [],
+            "euphemism": [],
+            "own_count": 0,
+            "protected_count": 0,
+            "own_words": []
+          }
+        },
+        {
+          "seq": 112,
+          "via": "generate",
+          "module": null,
+          "step": null,
+          "chat_id": -1002661910336,
+          "correlation_id": null,
+          "n_messages": 2,
+          "system_chars": 255,
+          "system_sha12": "a1d2a21721a3",
+          "has_marker": false,
+          "mode_line": "",
+          "expected_text_present": false,
+          "raw": "[Бот] посоветовал: для мониторинга памяти использовать top -o %MEM, а для разового просмотра — ps aux --sort=-%mem | head",
+          "raw_scan": {
+            "own": [],
+            "protected": [],
+            "euphemism": [],
+            "own_count": 0,
+            "protected_count": 0,
+            "own_words": []
+          }
+        },
+        {
+          "seq": 113,
+          "via": "generate",
+          "module": "direct_chat",
+          "step": "l2_writer",
+          "chat_id": -1002661910336,
+          "correlation_id": "9e0bb82903284b75bf8f0285734177cb",
+          "n_messages": 2,
+          "system_chars": 7097,
+          "system_sha12": "219ffaa92024",
+          "has_marker": true,
+          "mode_line": "frequent",
+          "expected_text_present": true,
+          "raw": "Три, и это не считая той, что ты мне сейчас разбил своим вопросом. Два качают кровь через жабры, третье гоняет по всему телу. Причём главное останавливается, когда осьминог плывёт - вот у кого реально есть отмазка, чтобы не бегать",
+          "raw_scan": {
+            "own": [],
+            "protected": [],
+            "euphemism": [],
+            "own_count": 0,
+            "protected_count": 0,
+            "own_words": []
+          }
+        },
+        {
+          "seq": 114,
+          "via": "generate",
+          "module": "direct_chat",
+          "step": "l2_writer",
+          "chat_id": -1002661910336,
+          "correlation_id": "9e0bb82903284b75bf8f0285734177cb",
+          "n_messages": 3,
+          "system_chars": 7097,
+          "system_sha12": "219ffaa92024",
+          "has_marker": true,
+          "mode_line": "frequent",
+          "expected_text_present": true,
+          "raw": "Три. Два гоняют кровь через жабры, третье - по всему телу, и когда осьминог плывёт, главное у него вообще останавливается. Так что плавает он буквально на морально-волевых",
+          "raw_scan": {
+            "own": [],
+            "protected": [],
+            "euphemism": [],
+            "own_count": 0,
+            "protected_count": 0,
+            "own_words": []
+          }
+        },
+        {
+          "seq": 115,
+          "via": "generate",
+          "module": null,
+          "step": null,
+          "chat_id": null,
+          "correlation_id": null,
+          "n_messages": 2,
+          "system_chars": 984,
+          "system_sha12": "01be6c765713",
+          "has_marker": false,
+          "mode_line": "",
+          "expected_text_present": false,
+          "raw": "[{\"subject\": \"осьминог\", \"predicate\": \"имеет\", \"object\": \"три сердца\"}]",
+          "raw_scan": {
+            "own": [],
+            "protected": [],
+            "euphemism": [],
+            "own_count": 0,
+            "protected_count": 0,
+            "own_words": []
+          }
+        }
+      ],
+      "wire": [
+        {
+          "seq": 110,
+          "via": "_post",
+          "module": "",
+          "step": "",
+          "model": "deepseek/deepseek-v4.1-flash",
+          "n_messages": 2,
+          "payload_sha12": "69b862b246da",
+          "has_marker": false,
+          "has_examples_marker": false,
+          "mode_line": "",
+          "expected_text_present": false
+        },
+        {
+          "seq": 111,
+          "via": "_post",
+          "module": "direct_chat",
+          "step": "l1_planner",
+          "model": "deepseek/deepseek-v4.1-flash",
+          "n_messages": 2,
+          "payload_sha12": "5ebbe9efb104",
+          "has_marker": false,
+          "has_examples_marker": false,
+          "mode_line": "",
+          "expected_text_present": false
+        },
+        {
+          "seq": 112,
+          "via": "_post",
+          "module": "",
+          "step": "",
+          "model": "deepseek/deepseek-v4.1-flash",
+          "n_messages": 2,
+          "payload_sha12": "c19697d959b3",
+          "has_marker": false,
+          "has_examples_marker": false,
+          "mode_line": "",
+          "expected_text_present": false
+        },
+        {
+          "seq": 113,
+          "via": "_post",
+          "module": "direct_chat",
+          "step": "l2_writer",
+          "model": "deepseek/deepseek-v4.1-flash",
+          "n_messages": 2,
+          "payload_sha12": "62abcc2f3848",
+          "has_marker": true,
+          "has_examples_marker": false,
+          "mode_line": "frequent",
+          "expected_text_present": true
+        },
+        {
+          "seq": 114,
+          "via": "_post",
+          "module": "direct_chat",
+          "step": "l2_writer",
+          "model": "deepseek/deepseek-v4.1-flash",
+          "n_messages": 3,
+          "payload_sha12": "8781c161b81c",
+          "has_marker": true,
+          "has_examples_marker": false,
+          "mode_line": "frequent",
+          "expected_text_present": true
+        },
+        {
+          "seq": 115,
+          "via": "_post",
+          "module": "",
+          "step": "",
+          "model": "deepseek/deepseek-v4.1-flash",
+          "n_messages": 2,
+          "payload_sha12": "2de8bf0563a0",
+          "has_marker": false,
+          "has_examples_marker": false,
+          "mode_line": "",
+          "expected_text_present": false
+        }
+      ],
+      "composes": [
+        {
+          "seq": 67,
+          "chat_id": -1002661910336,
+          "writer": "l1_planner",
+          "profile": "machine_json",
+          "system_sha12": "99a207313889",
+          "system_chars": 2423,
+          "has_marker": false,
+          "has_examples_marker": false,
+          "mode_line": "",
+          "expected_text_present": false,
+          "expr": {
+            "layer": "expression",
+            "block_id": "expression",
+            "owner": "core",
+            "source": "code",
+            "revision": "",
+            "chars": 0,
+            "tokens": 0,
+            "rendered": false,
+            "skip_reason": "profile:machine_stage",
+            "conflict": "",
+            "detail": ""
+          },
+          "expr_examples": {
+            "layer": "few_shot",
+            "block_id": "expression_examples",
+            "owner": "core",
+            "source": "code",
+            "revision": "",
+            "chars": 0,
+            "tokens": 0,
+            "rendered": false,
+            "skip_reason": "profile:machine_stage",
+            "conflict": "",
+            "detail": ""
+          }
+        },
+        {
+          "seq": 68,
+          "chat_id": -1002661910336,
+          "writer": "tool_phase",
+          "profile": "speech_plain",
+          "system_sha12": "db1040e5af82",
+          "system_chars": 10693,
+          "has_marker": true,
+          "has_examples_marker": false,
+          "mode_line": "frequent",
+          "expected_text_present": true,
+          "expr": {
+            "layer": "expression",
+            "block_id": "expression",
+            "owner": "core",
+            "source": "chat",
+            "revision": "6763c903ffc2",
+            "chars": 842,
+            "tokens": 211,
+            "rendered": true,
+            "skip_reason": "",
+            "conflict": "",
+            "detail": ""
+          },
+          "expr_examples": {
+            "layer": "few_shot",
+            "block_id": "expression_examples",
+            "owner": "core",
+            "source": "global",
+            "revision": "",
+            "chars": 0,
+            "tokens": 0,
+            "rendered": false,
+            "skip_reason": "not_owner_approved",
+            "conflict": "",
+            "detail": ""
+          }
+        },
+        {
+          "seq": 69,
+          "chat_id": -1002661910336,
+          "writer": "l2_writer",
+          "profile": "speech_plain",
+          "system_sha12": "219ffaa92024",
+          "system_chars": 7097,
+          "has_marker": true,
+          "has_examples_marker": false,
+          "mode_line": "frequent",
+          "expected_text_present": true,
+          "expr": {
+            "layer": "expression",
+            "block_id": "expression",
+            "owner": "core",
+            "source": "chat",
+            "revision": "6763c903ffc2",
+            "chars": 842,
+            "tokens": 211,
+            "rendered": true,
+            "skip_reason": "",
+            "conflict": "",
+            "detail": ""
+          },
+          "expr_examples": {
+            "layer": "few_shot",
+            "block_id": "expression_examples",
+            "owner": "core",
+            "source": "global",
+            "revision": "",
+            "chars": 0,
+            "tokens": 0,
+            "rendered": false,
+            "skip_reason": "not_owner_approved",
+            "conflict": "",
+            "detail": ""
+          }
+        }
+      ],
+      "usage": [
+        {
+          "correlation_id": "c9225f88af584e339919d3e85d86334b",
+          "step": "single",
+          "tool_name": "",
+          "input_tokens": 126,
+          "output_tokens": 42,
+          "cost_usd": "<Decimal>",
+          "price_known": false,
+          "plan_meta": null,
+          "ts": "2026-10-19 15:34:24.537957+00:00"
+        }
+      ]
+    },
+    {
+      "label": "frequent-08-banter_repeat",
+      "chat_id": -1002661910336,
+      "mode": "frequent",
+      "context": "banter_repeat",
+      "phrase": "бот, ну ты и выдал вчера с докладом, это было эпично",
+      "status": "ok",
+      "error": "",
+      "correlation_id": "fdc3e0f9db154d89afd9548a09df7e29",
+      "elapsed_s": 16.13,
+      "plan_meta": null,
+      "sends": [
+        {
+          "kind": "message",
+          "message_id": 1166667,
+          "text": "Ага, старался как мог",
+          "text_len": 21,
+          "reply_to": 1166664
+        }
+      ],
+      "answer": "Ага, старался как мог",
+      "answer_scan": {
+        "own": [],
+        "protected": [],
+        "euphemism": [],
+        "own_count": 0,
+        "protected_count": 0,
+        "own_words": []
+      },
+      "sentences": {
+        "sentences": 1,
+        "sentences_with_mat": 0
+      },
+      "llm_calls": [
+        {
+          "seq": 116,
+          "via": "generate",
+          "module": null,
+          "step": null,
+          "chat_id": null,
+          "correlation_id": null,
+          "n_messages": 2,
+          "system_chars": 307,
+          "system_sha12": "eb60769a4d16",
+          "has_marker": false,
+          "mode_line": "",
+          "expected_text_present": false,
+          "raw": "{\"selected\":[1,4,3]}",
+          "raw_scan": {
+            "own": [],
+            "protected": [],
+            "euphemism": [],
+            "own_count": 0,
+            "protected_count": 0,
+            "own_words": []
+          }
+        },
+        {
+          "seq": 117,
+          "via": "generate",
+          "module": null,
+          "step": null,
+          "chat_id": -1002661910336,
+          "correlation_id": null,
+          "n_messages": 2,
+          "system_chars": 255,
+          "system_sha12": "a1d2a21721a3",
+          "has_marker": false,
+          "mode_line": "",
+          "expected_text_present": false,
+          "raw": "[Бот] заявил: у осьминога три сердца: два прогоняют кровь через жабры, третье по телу, но при плавании главное останавливается, поэтому плавает он на морально-волевых",
+          "raw_scan": {
+            "own": [],
+            "protected": [],
+            "euphemism": [],
+            "own_count": 0,
+            "protected_count": 0,
+            "own_words": []
+          }
+        },
+        {
+          "seq": 118,
+          "via": "generate",
+          "module": "direct_chat",
+          "step": "l1_planner",
+          "chat_id": -1002661910336,
+          "correlation_id": "7db3870ffa5346938c93820bb078cf55",
+          "n_messages": 2,
+          "system_chars": 2423,
+          "system_sha12": "99a207313889",
+          "has_marker": false,
+          "mode_line": "",
+          "expected_text_present": false,
+          "raw": "{\"action\": \"reply\", \"reaction\": null, \"response_act\": \"banter\", \"extent\": \"micro\", \"tone\": \"playful\", \"emotional_mirroring\": \"medium\", \"structure\": \"chat\", \"delivery_hint\": \"plain\", \"tool_policy\": \"none\", \"capabilities_needed\": [], \"needs_clarification\": false, \"clarification_target\": null, \"confidence\": 0.82, \"future_intent\": null}",
+          "raw_scan": {
+            "own": [],
+            "protected": [],
+            "euphemism": [],
+            "own_count": 0,
+            "protected_count": 0,
+            "own_words": []
+          }
+        },
+        {
+          "seq": 119,
+          "via": "generate",
+          "module": "direct_chat",
+          "step": "l2_writer",
+          "chat_id": -1002661910336,
+          "correlation_id": "7db3870ffa5346938c93820bb078cf55",
+          "n_messages": 2,
+          "system_chars": 7070,
+          "system_sha12": "c484a481868a",
+          "has_marker": true,
+          "mode_line": "frequent",
+          "expected_text_present": true,
+          "raw": "Ага, старался как мог",
+          "raw_scan": {
+            "own": [],
+            "protected": [],
+            "euphemism": [],
+            "own_count": 0,
+            "protected_count": 0,
+            "own_words": []
+          }
+        },
+        {
+          "seq": 120,
+          "via": "generate",
+          "module": null,
+          "step": null,
+          "chat_id": null,
+          "correlation_id": null,
+          "n_messages": 2,
+          "system_chars": 984,
+          "system_sha12": "01be6c765713",
+          "has_marker": false,
+          "mode_line": "",
+          "expected_text_present": false,
+          "raw": "[{\"subject\": \"пользователь\", \"predicate\": \"оценивает доклад бота\", \"object\": \"эпично\", \"context\": \"вчера\"}]",
+          "raw_scan": {
+            "own": [],
+            "protected": [],
+            "euphemism": [],
+            "own_count": 0,
+            "protected_count": 0,
+            "own_words": []
+          }
+        }
+      ],
+      "wire": [
+        {
+          "seq": 116,
+          "via": "_post",
+          "module": "",
+          "step": "",
+          "model": "deepseek/deepseek-v4.1-flash",
+          "n_messages": 2,
+          "payload_sha12": "23811175ad55",
+          "has_marker": false,
+          "has_examples_marker": false,
+          "mode_line": "",
+          "expected_text_present": false
+        },
+        {
+          "seq": 117,
+          "via": "_post",
+          "module": "",
+          "step": "",
+          "model": "deepseek/deepseek-v4.1-flash",
+          "n_messages": 2,
+          "payload_sha12": "b2d48aa4e959",
+          "has_marker": false,
+          "has_examples_marker": false,
+          "mode_line": "",
+          "expected_text_present": false
+        },
+        {
+          "seq": 118,
+          "via": "_post",
+          "module": "direct_chat",
+          "step": "l1_planner",
+          "model": "deepseek/deepseek-v4.1-flash",
+          "n_messages": 2,
+          "payload_sha12": "a2f4c1865824",
+          "has_marker": false,
+          "has_examples_marker": false,
+          "mode_line": "",
+          "expected_text_present": false
+        },
+        {
+          "seq": 119,
+          "via": "_post",
+          "module": "direct_chat",
+          "step": "l2_writer",
+          "model": "deepseek/deepseek-v4.1-flash",
+          "n_messages": 2,
+          "payload_sha12": "6ff1078b77f5",
+          "has_marker": true,
+          "has_examples_marker": false,
+          "mode_line": "frequent",
+          "expected_text_present": true
+        },
+        {
+          "seq": 120,
+          "via": "_post",
+          "module": "",
+          "step": "",
+          "model": "deepseek/deepseek-v4.1-flash",
+          "n_messages": 2,
+          "payload_sha12": "e6687dc81c7a",
+          "has_marker": false,
+          "has_examples_marker": false,
+          "mode_line": "",
+          "expected_text_present": false
+        }
+      ],
+      "composes": [
+        {
+          "seq": 70,
+          "chat_id": -1002661910336,
+          "writer": "l1_planner",
+          "profile": "machine_json",
+          "system_sha12": "99a207313889",
+          "system_chars": 2423,
+          "has_marker": false,
+          "has_examples_marker": false,
+          "mode_line": "",
+          "expected_text_present": false,
+          "expr": {
+            "layer": "expression",
+            "block_id": "expression",
+            "owner": "core",
+            "source": "code",
+            "revision": "",
+            "chars": 0,
+            "tokens": 0,
+            "rendered": false,
+            "skip_reason": "profile:machine_stage",
+            "conflict": "",
+            "detail": ""
+          },
+          "expr_examples": {
+            "layer": "few_shot",
+            "block_id": "expression_examples",
+            "owner": "core",
+            "source": "code",
+            "revision": "",
+            "chars": 0,
+            "tokens": 0,
+            "rendered": false,
+            "skip_reason": "profile:machine_stage",
+            "conflict": "",
+            "detail": ""
+          }
+        },
+        {
+          "seq": 71,
+          "chat_id": -1002661910336,
+          "writer": "tool_phase",
+          "profile": "speech_plain",
+          "system_sha12": "980c055230a1",
+          "system_chars": 10666,
+          "has_marker": true,
+          "has_examples_marker": false,
+          "mode_line": "frequent",
+          "expected_text_present": true,
+          "expr": {
+            "layer": "expression",
+            "block_id": "expression",
+            "owner": "core",
+            "source": "chat",
+            "revision": "6763c903ffc2",
+            "chars": 842,
+            "tokens": 211,
+            "rendered": true,
+            "skip_reason": "",
+            "conflict": "",
+            "detail": ""
+          },
+          "expr_examples": {
+            "layer": "few_shot",
+            "block_id": "expression_examples",
+            "owner": "core",
+            "source": "global",
+            "revision": "",
+            "chars": 0,
+            "tokens": 0,
+            "rendered": false,
+            "skip_reason": "not_owner_approved",
+            "conflict": "",
+            "detail": ""
+          }
+        },
+        {
+          "seq": 72,
+          "chat_id": -1002661910336,
+          "writer": "l2_writer",
+          "profile": "speech_plain",
+          "system_sha12": "c484a481868a",
+          "system_chars": 7070,
+          "has_marker": true,
+          "has_examples_marker": false,
+          "mode_line": "frequent",
+          "expected_text_present": true,
+          "expr": {
+            "layer": "expression",
+            "block_id": "expression",
+            "owner": "core",
+            "source": "chat",
+            "revision": "6763c903ffc2",
+            "chars": 842,
+            "tokens": 211,
+            "rendered": true,
+            "skip_reason": "",
+            "conflict": "",
+            "detail": ""
+          },
+          "expr_examples": {
+            "layer": "few_shot",
+            "block_id": "expression_examples",
+            "owner": "core",
+            "source": "global",
+            "revision": "",
+            "chars": 0,
+            "tokens": 0,
+            "rendered": false,
+            "skip_reason": "not_owner_approved",
+            "conflict": "",
+            "detail": ""
+          }
+        }
+      ],
+      "usage": [
+        {
+          "correlation_id": "fdc3e0f9db154d89afd9548a09df7e29",
+          "step": "single",
+          "tool_name": "",
+          "input_tokens": 504,
+          "output_tokens": 10,
+          "cost_usd": "<Decimal>",
+          "price_known": false,
+          "plan_meta": null,
+          "ts": "2026-10-19 15:34:37.177922+00:00"
+        }
+      ]
+    },
+    {
+      "label": "frequent-09-joke_repeat",
+      "chat_id": -1002661910336,
+      "mode": "frequent",
+      "context": "joke_repeat",
+      "phrase": "бот, расскажи короткую шутку про понедельник и дедлайны",
+      "status": "ok",
+      "error": "",
+      "correlation_id": "309fe53303a3451c8b6012b0eb651be7",
+      "elapsed_s": 13.0,
+      "plan_meta": null,
+      "sends": [
+        {
+          "kind": "message",
+          "message_id": 1166668,
+          "text": "Понедельник - это когда дедлайн был вчера, а ты только сегодня выбираешь, каким именно вариантом всё сдать",
+          "text_len": 106,
+          "reply_to": 1166667
+        }
+      ],
+      "answer": "Понедельник - это когда дедлайн был вчера, а ты только сегодня выбираешь, каким именно вариантом всё сдать",
+      "answer_scan": {
+        "own": [],
+        "protected": [],
+        "euphemism": [],
+        "own_count": 0,
+        "protected_count": 0,
+        "own_words": []
+      },
+      "sentences": {
+        "sentences": 1,
+        "sentences_with_mat": 0
+      },
+      "llm_calls": [
+        {
+          "seq": 121,
+          "via": "generate",
+          "module": null,
+          "step": null,
+          "chat_id": null,
+          "correlation_id": null,
+          "n_messages": 2,
+          "system_chars": 307,
+          "system_sha12": "eb60769a4d16",
+          "has_marker": false,
+          "mode_line": "",
+          "expected_text_present": false,
+          "raw": "{\"selected\":[1,6,3,2,7]}",
+          "raw_scan": {
+            "own": [],
+            "protected": [],
+            "euphemism": [],
+            "own_count": 0,
+            "protected_count": 0,
+            "own_words": []
+          }
+        },
+        {
+          "seq": 122,
+          "via": "generate",
+          "module": null,
+          "step": null,
+          "chat_id": -1002661910336,
+          "correlation_id": null,
+          "n_messages": 2,
+          "system_chars": 255,
+          "system_sha12": "a1d2a21721a3",
+          "has_marker": false,
+          "mode_line": "",
+          "expected_text_present": false,
+          "raw": "[Бот] заявил: старался как мог",
+          "raw_scan": {
+            "own": [],
+            "protected": [],
+            "euphemism": [],
+            "own_count": 0,
+            "protected_count": 0,
+            "own_words": []
+          }
+        },
+        {
+          "seq": 123,
+          "via": "generate",
+          "module": "direct_chat",
+          "step": "l1_planner",
+          "chat_id": -1002661910336,
+          "correlation_id": "19a5e81278b347639ca44f343786460d",
+          "n_messages": 2,
+          "system_chars": 2423,
+          "system_sha12": "99a207313889",
+          "has_marker": false,
+          "mode_line": "",
+          "expected_text_present": false,
+          "raw": "{\"action\": \"reply\", \"reaction\": null, \"response_act\": \"creative\", \"extent\": \"micro\", \"tone\": \"playful\", \"emotional_mirroring\": \"light\", \"structure\": \"chat\", \"delivery_hint\": \"plain\", \"tool_policy\": \"none\", \"capabilities_needed\": [], \"needs_clarification\": false, \"clarification_target\": null, \"confidence\": 0.95, \"future_intent\": null}",
+          "raw_scan": {
+            "own": [],
+            "protected": [],
+            "euphemism": [],
+            "own_count": 0,
+            "protected_count": 0,
+            "own_words": []
+          }
+        },
+        {
+          "seq": 124,
+          "via": "generate",
+          "module": "direct_chat",
+          "step": "l2_writer",
+          "chat_id": -1002661910336,
+          "correlation_id": "19a5e81278b347639ca44f343786460d",
+          "n_messages": 2,
+          "system_chars": 7070,
+          "system_sha12": "c484a481868a",
+          "has_marker": true,
+          "mode_line": "frequent",
+          "expected_text_present": true,
+          "raw": "Понедельник - это когда дедлайн был вчера, а ты только сегодня выбираешь, каким именно вариантом всё сдать",
+          "raw_scan": {
+            "own": [],
+            "protected": [],
+            "euphemism": [],
+            "own_count": 0,
+            "protected_count": 0,
+            "own_words": []
+          }
+        },
+        {
+          "seq": 125,
+          "via": "generate",
+          "module": null,
+          "step": null,
+          "chat_id": null,
+          "correlation_id": null,
+          "n_messages": 2,
+          "system_chars": 984,
+          "system_sha12": "01be6c765713",
+          "has_marker": false,
+          "mode_line": "",
+          "expected_text_present": false,
+          "raw": "[{\"subject\": \"запрос\", \"predicate\": \"содержит\", \"object\": \"шутка про понедельник и дедлайны\"}]",
+          "raw_scan": {
+            "own": [],
+            "protected": [],
+            "euphemism": [],
+            "own_count": 0,
+            "protected_count": 0,
+            "own_words": []
+          }
+        }
+      ],
+      "wire": [
+        {
+          "seq": 121,
+          "via": "_post",
+          "module": "",
+          "step": "",
+          "model": "deepseek/deepseek-v4.1-flash",
+          "n_messages": 2,
+          "payload_sha12": "1d2a3c2a6463",
+          "has_marker": false,
+          "has_examples_marker": false,
+          "mode_line": "",
+          "expected_text_present": false
+        },
+        {
+          "seq": 122,
+          "via": "_post",
+          "module": "",
+          "step": "",
+          "model": "deepseek/deepseek-v4.1-flash",
+          "n_messages": 2,
+          "payload_sha12": "422a053faf85",
+          "has_marker": false,
+          "has_examples_marker": false,
+          "mode_line": "",
+          "expected_text_present": false
+        },
+        {
+          "seq": 123,
+          "via": "_post",
+          "module": "direct_chat",
+          "step": "l1_planner",
+          "model": "deepseek/deepseek-v4.1-flash",
+          "n_messages": 2,
+          "payload_sha12": "e2a105a2ea41",
+          "has_marker": false,
+          "has_examples_marker": false,
+          "mode_line": "",
+          "expected_text_present": false
+        },
+        {
+          "seq": 124,
+          "via": "_post",
+          "module": "direct_chat",
+          "step": "l2_writer",
+          "model": "deepseek/deepseek-v4.1-flash",
+          "n_messages": 2,
+          "payload_sha12": "95f3b48107c4",
+          "has_marker": true,
+          "has_examples_marker": false,
+          "mode_line": "frequent",
+          "expected_text_present": true
+        },
+        {
+          "seq": 125,
+          "via": "_post",
+          "module": "",
+          "step": "",
+          "model": "deepseek/deepseek-v4.1-flash",
+          "n_messages": 2,
+          "payload_sha12": "33dcd6c530ad",
+          "has_marker": false,
+          "has_examples_marker": false,
+          "mode_line": "",
+          "expected_text_present": false
+        }
+      ],
+      "composes": [
+        {
+          "seq": 73,
+          "chat_id": -1002661910336,
+          "writer": "l1_planner",
+          "profile": "machine_json",
+          "system_sha12": "99a207313889",
+          "system_chars": 2423,
+          "has_marker": false,
+          "has_examples_marker": false,
+          "mode_line": "",
+          "expected_text_present": false,
+          "expr": {
+            "layer": "expression",
+            "block_id": "expression",
+            "owner": "core",
+            "source": "code",
+            "revision": "",
+            "chars": 0,
+            "tokens": 0,
+            "rendered": false,
+            "skip_reason": "profile:machine_stage",
+            "conflict": "",
+            "detail": ""
+          },
+          "expr_examples": {
+            "layer": "few_shot",
+            "block_id": "expression_examples",
+            "owner": "core",
+            "source": "code",
+            "revision": "",
+            "chars": 0,
+            "tokens": 0,
+            "rendered": false,
+            "skip_reason": "profile:machine_stage",
+            "conflict": "",
+            "detail": ""
+          }
+        },
+        {
+          "seq": 74,
+          "chat_id": -1002661910336,
+          "writer": "tool_phase",
+          "profile": "speech_plain",
+          "system_sha12": "980c055230a1",
+          "system_chars": 10666,
+          "has_marker": true,
+          "has_examples_marker": false,
+          "mode_line": "frequent",
+          "expected_text_present": true,
+          "expr": {
+            "layer": "expression",
+            "block_id": "expression",
+            "owner": "core",
+            "source": "chat",
+            "revision": "6763c903ffc2",
+            "chars": 842,
+            "tokens": 211,
+            "rendered": true,
+            "skip_reason": "",
+            "conflict": "",
+            "detail": ""
+          },
+          "expr_examples": {
+            "layer": "few_shot",
+            "block_id": "expression_examples",
+            "owner": "core",
+            "source": "global",
+            "revision": "",
+            "chars": 0,
+            "tokens": 0,
+            "rendered": false,
+            "skip_reason": "not_owner_approved",
+            "conflict": "",
+            "detail": ""
+          }
+        },
+        {
+          "seq": 75,
+          "chat_id": -1002661910336,
+          "writer": "l2_writer",
+          "profile": "speech_plain",
+          "system_sha12": "c484a481868a",
+          "system_chars": 7070,
+          "has_marker": true,
+          "has_examples_marker": false,
+          "mode_line": "frequent",
+          "expected_text_present": true,
+          "expr": {
+            "layer": "expression",
+            "block_id": "expression",
+            "owner": "core",
+            "source": "chat",
+            "revision": "6763c903ffc2",
+            "chars": 842,
+            "tokens": 211,
+            "rendered": true,
+            "skip_reason": "",
+            "conflict": "",
+            "detail": ""
+          },
+          "expr_examples": {
+            "layer": "few_shot",
+            "block_id": "expression_examples",
+            "owner": "core",
+            "source": "global",
+            "revision": "",
+            "chars": 0,
+            "tokens": 0,
+            "rendered": false,
+            "skip_reason": "not_owner_approved",
+            "conflict": "",
+            "detail": ""
+          }
+        }
+      ],
+      "usage": [
+        {
+          "correlation_id": "309fe53303a3451c8b6012b0eb651be7",
+          "step": "single",
+          "tool_name": "",
+          "input_tokens": 108,
+          "output_tokens": 13,
+          "cost_usd": "<Decimal>",
+          "price_known": false,
+          "plan_meta": null,
+          "ts": "2026-10-19 15:34:53.167080+00:00"
+        }
+      ]
+    },
+    {
+      "label": "frequent-10-genre_summary",
+      "chat_id": -1002661910336,
+      "mode": "frequent",
+      "context": "genre_summary",
+      "phrase": "бот, сделай короткую тех-сводку: сервер admin-bot, версия 2.58.96, диск занят на 68%, память 961 МБ, аптайм 5 дней",
+      "status": "ok",
+      "error": "",
+      "correlation_id": "4064da4d1b164319960fb7b6500dfcac",
+      "elapsed_s": 10.51,
+      "plan_meta": null,
+      "sends": [
+        {
+          "kind": "message",
+          "message_id": 1166669,
+          "text": "admin-bot, версия 2.58.96. Диск забит на 68%, памяти 961 МБ, аптайм 5 дней. Ничего не горит, живёт",
+          "text_len": 98,
+          "reply_to": 1166668
+        }
+      ],
+      "answer": "admin-bot, версия 2.58.96. Диск забит на 68%, памяти 961 МБ, аптайм 5 дней. Ничего не горит, живёт",
+      "answer_scan": {
+        "own": [],
+        "protected": [],
+        "euphemism": [],
+        "own_count": 0,
+        "protected_count": 0,
+        "own_words": []
+      },
+      "sentences": {
+        "sentences": 3,
+        "sentences_with_mat": 0
+      },
+      "llm_calls": [
+        {
+          "seq": 126,
+          "via": "generate",
+          "module": null,
+          "step": null,
+          "chat_id": null,
+          "correlation_id": null,
+          "n_messages": 2,
+          "system_chars": 307,
+          "system_sha12": "eb60769a4d16",
+          "has_marker": false,
+          "mode_line": "",
+          "expected_text_present": false,
+          "raw": "{\"selected\":[]}",
+          "raw_scan": {
+            "own": [],
+            "protected": [],
+            "euphemism": [],
+            "own_count": 0,
+            "protected_count": 0,
+            "own_words": []
+          }
+        },
+        {
+          "seq": 127,
+          "via": "generate",
+          "module": null,
+          "step": null,
+          "chat_id": -1002661910336,
+          "correlation_id": null,
+          "n_messages": 2,
+          "system_chars": 255,
+          "system_sha12": "a1d2a21721a3",
+          "has_marker": false,
+          "mode_line": "",
+          "expected_text_present": false,
+          "raw": "[Бот] заявил: понедельник — это когда дедлайн был вчера, а ты только сегодня выбираешь вариант сдачи",
+          "raw_scan": {
+            "own": [],
+            "protected": [],
+            "euphemism": [],
+            "own_count": 0,
+            "protected_count": 0,
+            "own_words": []
+          }
+        },
+        {
+          "seq": 128,
+          "via": "generate",
+          "module": "direct_chat",
+          "step": "l1_planner",
+          "chat_id": -1002661910336,
+          "correlation_id": "4437992b40234b9b88f7e79e3af45b36",
+          "n_messages": 2,
+          "system_chars": 2423,
+          "system_sha12": "99a207313889",
+          "has_marker": false,
+          "mode_line": "",
+          "expected_text_present": false,
+          "raw": "{\"action\": \"reply\", \"reaction\": null, \"response_act\": \"summarization\", \"extent\": \"compact\", \"tone\": \"neutral\", \"emotional_mirroring\": \"none\", \"structure\": \"summary\", \"delivery_hint\": \"plain\", \"tool_policy\": \"none\", \"capabilities_needed\": [], \"needs_clarification\": false, \"clarification_target\": null, \"confidence\": 0.95, \"future_intent\": null}",
+          "raw_scan": {
+            "own": [],
+            "protected": [],
+            "euphemism": [],
+            "own_count": 0,
+            "protected_count": 0,
+            "own_words": []
+          }
+        },
+        {
+          "seq": 129,
+          "via": "generate",
+          "module": "direct_chat",
+          "step": "l2_writer",
+          "chat_id": -1002661910336,
+          "correlation_id": "4437992b40234b9b88f7e79e3af45b36",
+          "n_messages": 2,
+          "system_chars": 7092,
+          "system_sha12": "630b39ca004e",
+          "has_marker": true,
+          "mode_line": "frequent",
+          "expected_text_present": true,
+          "raw": "admin-bot, версия 2.58.96. Диск забит на 68%, памяти 961 МБ, аптайм 5 дней. Ничего не горит, живёт",
+          "raw_scan": {
+            "own": [],
+            "protected": [],
+            "euphemism": [],
+            "own_count": 0,
+            "protected_count": 0,
+            "own_words": []
+          }
+        },
+        {
+          "seq": 130,
+          "via": "generate",
+          "module": null,
+          "step": null,
+          "chat_id": null,
+          "correlation_id": null,
+          "n_messages": 2,
+          "system_chars": 984,
+          "system_sha12": "01be6c765713",
+          "has_marker": false,
+          "mode_line": "",
+          "expected_text_present": false
+        }
+      ],
+      "wire": [
+        {
+          "seq": 126,
+          "via": "_post",
+          "module": "",
+          "step": "",
+          "model": "deepseek/deepseek-v4.1-flash",
+          "n_messages": 2,
+          "payload_sha12": "638d56dddc9c",
+          "has_marker": false,
+          "has_examples_marker": false,
+          "mode_line": "",
+          "expected_text_present": false
+        },
+        {
+          "seq": 127,
+          "via": "_post",
+          "module": "",
+          "step": "",
+          "model": "deepseek/deepseek-v4.1-flash",
+          "n_messages": 2,
+          "payload_sha12": "193782ceb6ac",
+          "has_marker": false,
+          "has_examples_marker": false,
+          "mode_line": "",
+          "expected_text_present": false
+        },
+        {
+          "seq": 128,
+          "via": "_post",
+          "module": "direct_chat",
+          "step": "l1_planner",
+          "model": "deepseek/deepseek-v4.1-flash",
+          "n_messages": 2,
+          "payload_sha12": "ab3fe33faba5",
+          "has_marker": false,
+          "has_examples_marker": false,
+          "mode_line": "",
+          "expected_text_present": false
+        },
+        {
+          "seq": 129,
+          "via": "_post",
+          "module": "direct_chat",
+          "step": "l2_writer",
+          "model": "deepseek/deepseek-v4.1-flash",
+          "n_messages": 2,
+          "payload_sha12": "cfc3b785aa43",
+          "has_marker": true,
+          "has_examples_marker": false,
+          "mode_line": "frequent",
+          "expected_text_present": true
+        },
+        {
+          "seq": 130,
+          "via": "_post",
+          "module": "",
+          "step": "",
+          "model": "deepseek/deepseek-v4.1-flash",
+          "n_messages": 2,
+          "payload_sha12": "bcadc3a19d56",
+          "has_marker": false,
+          "has_examples_marker": false,
+          "mode_line": "",
+          "expected_text_present": false
+        }
+      ],
+      "composes": [
+        {
+          "seq": 76,
+          "chat_id": -1002661910336,
+          "writer": "l1_planner",
+          "profile": "machine_json",
+          "system_sha12": "99a207313889",
+          "system_chars": 2423,
+          "has_marker": false,
+          "has_examples_marker": false,
+          "mode_line": "",
+          "expected_text_present": false,
+          "expr": {
+            "layer": "expression",
+            "block_id": "expression",
+            "owner": "core",
+            "source": "code",
+            "revision": "",
+            "chars": 0,
+            "tokens": 0,
+            "rendered": false,
+            "skip_reason": "profile:machine_stage",
+            "conflict": "",
+            "detail": ""
+          },
+          "expr_examples": {
+            "layer": "few_shot",
+            "block_id": "expression_examples",
+            "owner": "core",
+            "source": "code",
+            "revision": "",
+            "chars": 0,
+            "tokens": 0,
+            "rendered": false,
+            "skip_reason": "profile:machine_stage",
+            "conflict": "",
+            "detail": ""
+          }
+        },
+        {
+          "seq": 77,
+          "chat_id": -1002661910336,
+          "writer": "tool_phase",
+          "profile": "speech_plain",
+          "system_sha12": "4f09fa9ddd8a",
+          "system_chars": 10688,
+          "has_marker": true,
+          "has_examples_marker": false,
+          "mode_line": "frequent",
+          "expected_text_present": true,
+          "expr": {
+            "layer": "expression",
+            "block_id": "expression",
+            "owner": "core",
+            "source": "chat",
+            "revision": "6763c903ffc2",
+            "chars": 842,
+            "tokens": 211,
+            "rendered": true,
+            "skip_reason": "",
+            "conflict": "",
+            "detail": ""
+          },
+          "expr_examples": {
+            "layer": "few_shot",
+            "block_id": "expression_examples",
+            "owner": "core",
+            "source": "global",
+            "revision": "",
+            "chars": 0,
+            "tokens": 0,
+            "rendered": false,
+            "skip_reason": "not_owner_approved",
+            "conflict": "",
+            "detail": ""
+          }
+        },
+        {
+          "seq": 78,
+          "chat_id": -1002661910336,
+          "writer": "l2_writer",
+          "profile": "speech_plain",
+          "system_sha12": "630b39ca004e",
+          "system_chars": 7092,
+          "has_marker": true,
+          "has_examples_marker": false,
+          "mode_line": "frequent",
+          "expected_text_present": true,
+          "expr": {
+            "layer": "expression",
+            "block_id": "expression",
+            "owner": "core",
+            "source": "chat",
+            "revision": "6763c903ffc2",
+            "chars": 842,
+            "tokens": 211,
+            "rendered": true,
+            "skip_reason": "",
+            "conflict": "",
+            "detail": ""
+          },
+          "expr_examples": {
+            "layer": "few_shot",
+            "block_id": "expression_examples",
+            "owner": "core",
+            "source": "global",
+            "revision": "",
+            "chars": 0,
+            "tokens": 0,
+            "rendered": false,
+            "skip_reason": "not_owner_approved",
+            "conflict": "",
+            "detail": ""
+          }
+        }
+      ],
+      "usage": [
+        {
+          "correlation_id": "4064da4d1b164319960fb7b6500dfcac",
+          "step": "single",
+          "tool_name": "",
+          "input_tokens": 132,
+          "output_tokens": 34,
+          "cost_usd": "<Decimal>",
+          "price_known": false,
+          "plan_meta": null,
+          "ts": "2026-10-19 15:35:06.318487+00:00"
+        }
+      ]
+    }
+  ],
+  "flushed_events": 145
+}

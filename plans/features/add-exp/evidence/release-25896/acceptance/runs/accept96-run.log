@@ -1,0 +1,224 @@
+[runner] connected nik@198.46.175.136
+### RECON (rc=0)
+2026-10-19 15:27:30 UTC
+HEAD=95d11472b9e533b554554918e3efa6b42125260b BRANCH=master TRACKED_MOD=0
+MainPID=3739015
+NRestarts=0
+ActiveState=active
+SubState=running
+PROD_USER=root
+{"status":"ok","version":"2.58.96"}
+{"status":"ok","version":"2.58.96"}
+/dev/vda2        24G   16G  7.2G  68% /
+### HARNESS_USER_CHECK (rc=0)
+PUSER=[root]
+[runner] harness_sudo=True
+[runner] uploaded accept96_base.py -> /tmp/accept96_base.py (51755 bytes)
+[runner] uploaded accept96_live.py -> /tmp/accept96_live.py (60027 bytes)
+[runner] uploaded accept96_clean.py -> /tmp/accept96_clean.py (11905 bytes)
+[runner] uploaded accept96_journal.sh -> /tmp/accept96_journal.sh (3169 bytes)
+### UPLOAD (ok)
+### VERIFY_UPLOAD (rc=0)
+7c8cf0949b91895344709cf8bd1da8c20204829675841d29142fa876b8471bf9 accept96_base.py
+20bea471468f7dc812d33a4abcc944fd99b3a2f7f30dfe6c4214b9092fb6a6d9 accept96_live.py
+3ee16114a233ca42e48592bc194c859846ebc3fb22f60347f25449dabb8f20b9 accept96_clean.py
+54dc69ed6f2ce02aeff637d7c454590e8fe884585c3c18e8d045765737a8ebab accept96_journal.sh
+### CLEAN_EVID (rc=0)
+CLEANED=1
+[stderr] [sudo] password for nik:
+### KILL_STALE (rc=0)
+CLEAR
+[stderr] [sudo] password for nik:
+[runner] WAVE_SINCE=2026-10-19 15:27:43
+### START (rc=0)
+STARTED_PID=3746508
+[stderr] [sudo] password for nik:
+### VERIFY_START (rc=0)
+OUT_LINES=1
+PROC_RUNNING
+[stderr] [sudo] password for nik:
+[poll 1] WAIT
+[poll 7] WAIT
+[poll 13] WAIT
+[poll 19] WAIT
+[poll 25] WAIT
+[poll 31] WAIT
+[poll 37] WAIT
+[poll 43] WAIT
+[runner] finished=True
+### LIVE_TAIL (rc=0)
+64 /tmp/accept96/live.out
+ACC96 P0 | preview_eq_resolve=True chats=8 residual_asset=[{"asset_id": "a88867d9ba305b7232359a08d6a536de", "message_key": "-1002661910336:1166468", "chat_id": -1002661910336, "tg_message_id": 1166468, "asset_kind": "photo", "mime": "image/jpeg", "byte_size"
+ACC96 CHAT_B | selected=-1004482340693
+ACC96 P1 | seed1={"ok": true, "seeded": 18, "skipped": 0, "reason": "", "expression_seeded": 12, "expression_skipped": 0, "note": "Черновики заведены БЕЗ владельческого одобрения: эталонами их не считает ни runtime, н seed2={"ok": true, "seeded": 0, "skipped": 18, "reason": "", "expression_seeded": 0, "expression_skipped": 12, "note": "Черновики заведены БЕЗ владельческого одобрени
+ACC96 WAVE | off: set chat-scope profanity=off chat=-1002661910336
+ACC96 WAVE | off: write_http=200 effective=off source=chat rev=9de5c885b622
+ACC96 TURN | off-01-banter | дружеский стёб | status=ok | own_mat=0 | Ну а ты думал, я по мелочи не размениваюсь
+ACC96 TURN | off-02-argument | спор | status=ok | own_mat=0 | Стоп, ты про какой именно вариант? Их вчера могло быть несколько, и какой из них у тебя на
+ACC96 TURN | off-03-short | короткий ответ | status=ok | own_mat=0 | Куда именно?
+ACC96 TURN | off-04-everyday | бытовая реплика | status=ok | own_mat=0 | Роутер перезагрузил - это ты, считай, помолился. Иногда помогает, но чаще просто даёт желе
+ACC96 TURN | off-05-joke | шутка/ирония | status=ok | own_mat=0 | Понедельник - это когда будильник звонит, а ты уже устал
+ACC96 TURN | off-06-tech | нейтральная техзадача | status=ok | own_mat=0 | df -h
+ACC96 TURN | off-07-factcheck | фактчек/цитата | status=ok | own_mat=0 | Да, три - два качают кровь, третье фильтрует, у осьминога с этим лучше, чем у некоторых ту
+ACC96 TURN | off-08-genre_quote | жанр: цитата с матом | status=ok | own_mat=0 | В справке такой цитаты Васи нет - я вижу только его реплики про бразильянку, запись в аним
+ACC96 WAVE | occasional: set chat-scope profanity=occasional chat=-1002661910336
+ACC96 WAVE | occasional: write_http=200 effective=occasional source=chat rev=537816072dab
+ACC96 TURN | occasional-01-banter | дружеский стёб | status=ok | own_mat=0 | А ты думал, я по мелочи не размениваюсь
+ACC96 TURN | occasional-02-argument | спор | status=ok | own_mat=0 | Какой именно вариант ты гонял? У меня их за полдня могло насобираться штук пять, и без кон
+ACC96 TURN | occasional-03-short | короткий ответ | status=ok | own_mat=0 | Куда именно?
+ACC96 TURN | occasional-04-everyday | бытовая реплика | status=ok | own_mat=0 | Сначала на морду роутера - горят ли лампочки как обычно. Потом с телефона по мобильному пр
+ACC96 TURN | occasional-05-joke | шутка/ирония | status=ok | own_mat=0 | Дедлайн - это когда срок уже вчера, а ты ещё выбираешь, каким именно вариантом всё сдать
+ACC96 TURN | occasional-06-tech | нейтральная техзадача | status=ok | own_mat=0 | du -sh /путь/к/папке - покажет общий вес разом. Если надо разбивку по внутренностям, то du
+ACC96 TURN | occasional-07-factcheck | фактчек/цитата | status=ok | own_mat=0 | Да, три
+ACC96 TURN | occasional-08-short_repeat | короткий ответ (повтор) | status=ok | own_mat=0 | Не в курсе, я расписания сходок не веду - спроси у того, кто сауну мутит
+ACC96 WAVE | frequent: set chat-scope profanity=frequent chat=-1002661910336
+ACC96 WAVE | frequent: write_http=200 effective=frequent source=chat rev=6763c903ffc2
+ACC96 TURN | frequent-01-banter | дружеский стёб | status=ok | own_mat=0 | Ага, старался как мог
+ACC96 TURN | frequent-02-argument | спор | status=ok | own_mat=0 | Какой именно вариант?
+ACC96 TURN | frequent-03-short | короткий ответ | status=ok | own_mat=0 | В деле, но ты так и не сказал, в каком именно - я жду конкретики, а не тумана
+ACC96 TURN | frequent-04-everyday | бытовая реплика | status=ok | own_mat=0 | Третий раз за вечер - это уже не сбой, а расписание. Роутер у тебя, похоже, работает по гр
+ACC96 TURN | frequent-05-joke | шутка/ирония | status=ok | own_mat=0 | Понедельник - это когда дедлайн уже вчера, а ты только выбираешь, каким именно вариантом в
+ACC96 TURN | frequent-06-tech | нейтральная техзадача | status=ok | own_mat=0 | top -o %MEM, а если надо разово и красиво - ps aux --sort=-%mem | head
+ACC96 TURN | frequent-07-factcheck | фактчек/цитата | status=ok | own_mat=0 | Три. Два гоняют кровь через жабры, третье - по всему телу, и когда осьминог плывёт, главно
+ACC96 TURN | frequent-08-banter_repeat | дружеский стёб (повтор) | status=ok | own_mat=0 | Ага, старался как мог
+ACC96 TURN | frequent-09-joke_repeat | шутка/ирония (повтор) | status=ok | own_mat=0 | Понедельник - это когда дедлайн был вчера, а ты только сегодня выбираешь, каким именно вар
+ACC96 TURN | frequent-10-genre_summary | жанр: тех-сводка | status=ok | own_mat=0 | admin-bot, версия 2.58.96. Диск забит на 68%, памяти 961 МБ, аптайм 5 дней. Ничего не гори
+ACC96 WAVE | occasional-hedge: set chat-scope profanity=occasional chat=-1002661910336
+ACC96 WAVE | occasional-hedge: write_http=200 effective=occasional source=chat rev=537816072dab
+ACC96 TURN | occasional-01-everyday | бытовая реплика (добор) | status=ok | own_mat=0 | Сначала на морду роутера - горят ли лампочки как обычно. Потом с телефона по мобильному пр
+ACC96 ISO | B banter | status=ok | own_mat=0
+ACC96 ISO | B short | status=ok | own_mat=0
+ACC96 ROUTE | authorial has_marker=True mode_line=occasional
+ACC96 ROUTE | initiative reply_len=481 own_mat=0
+ACC96 LIVE_CHECK | http=200 mode=occasional diag= marker=True len=231
+ACC96 RESTORE | a=200 b=200
+ACC96 SUMMARY | {"turns_used": 27, "off": "PASS", "occasional": "FAIL", "frequent": "FAIL", "isolation": "PARTIAL"}
+ACC96 SPEC | delete A=30 B=3 residual=[]
+ACC96 TURN | occasional-02-argument | спор | status=ok | own_mat=0 | Какой именно вариант ты гонял? У меня их за полдня могло насобираться штук пять, и без кон
+ACC96 TURN | occasional-03-short | короткий ответ | status=ok | own_mat=0 | Куда именно?
+ACC96 TURN | occasional-04-everyday | бытовая реплика | status=ok | own_mat=0 | Сначала на морду роутера - горят ли лампочки как обычно. Потом с телефона по мобильному пр
+ACC96 TURN | occasional-05-joke | шутка/ирония | status=ok | own_mat=0 | Дедлайн - это когда срок уже вчера, а ты ещё выбираешь, каким именно вариантом всё сдать
+ACC96 TURN | occasional-06-tech | нейтральная техзадача | status=ok | own_mat=0 | du -sh /путь/к/папке - покажет общий вес разом. Если надо разбивку по внутренностям, то du
+ACC96 TURN | occasional-07-factcheck | фактчек/цитата | status=ok | own_mat=0 | Да, три
+ACC96 TURN | occasional-08-short_repeat | короткий ответ (повтор) | status=ok | own_mat=0 | Не в курсе, я расписания сходок не веду - спроси у того, кто сауну мутит
+ACC94 SAVE INFO | wave-occasional.json (113510 bytes)
+ACC96 WAVE | frequent: set chat-scope profanity=frequent chat=-1002661910336
+ACC96 WAVE | frequent: write_http=200 effective=frequent source=chat rev=6763c903ffc2
+ACC96 TURN | frequent-01-banter | дружеский стёб | status=ok | own_mat=0 | Ага, старался как мог
+ACC96 TURN | frequent-02-argument | спор | status=ok | own_mat=0 | Какой именно вариант?
+ACC96 TURN | frequent-03-short | короткий ответ | status=ok | own_mat=0 | В деле, но ты так и не сказал, в каком именно - я жду конкретики, а не тумана
+ACC96 TURN | frequent-04-everyday | бытовая реплика | status=ok | own_mat=0 | Третий раз за вечер - это уже не сбой, а расписание. Роутер у тебя, похоже, работает по гр
+ACC96 TURN | frequent-05-joke | шутка/ирония | status=ok | own_mat=0 | Понедельник - это когда дедлайн уже вчера, а ты только выбираешь, каким именно вариантом в
+ACC96 TURN | frequent-06-tech | нейтральная техзадача | status=ok | own_mat=0 | top -o %MEM, а если надо разово и красиво - ps aux --sort=-%mem | head
+ACC96 TURN | frequent-07-factcheck | фактчек/цитата | status=ok | own_mat=0 | Три. Два гоняют кровь через жабры, третье - по всему телу, и когда осьминог плывёт, главно
+ACC96 TURN | frequent-08-banter_repeat | дружеский стёб (повтор) | status=ok | own_mat=0 | Ага, старался как мог
+ACC96 TURN | frequent-09-joke_repeat | шутка/ирония (повтор) | status=ok | own_mat=0 | Понедельник - это когда дедлайн был вчера, а ты только сегодня выбираешь, каким именно вар
+ACC96 TURN | frequent-10-genre_summary | жанр: тех-сводка | status=ok | own_mat=0 | admin-bot, версия 2.58.96. Диск забит на 68%, памяти 961 МБ, аптайм 5 дней. Ничего не гори
+ACC94 SAVE INFO | wave-frequent.json (137311 bytes)
+ACC96 HEDGE | occasional: 0/6 разговорных с матом — добор 1 проба
+ACC96 WAVE | occasional-hedge: set chat-scope profanity=occasional chat=-1002661910336
+ACC96 WAVE | occasional-hedge: write_http=200 effective=occasional source=chat rev=537816072dab
+ACC96 TURN | occasional-01-everyday | бытовая реплика (добор) | status=ok | own_mat=0 | Сначала на морду роутера - горят ли лампочки как обычно. Потом с телефона по мобильному пр
+ACC94 SAVE INFO | wave-occasional.json (150337 bytes)
+ACC96 ISO | B banter | status=ok | own_mat=0
+ACC96 ISO | B short | status=ok | own_mat=0
+ACC94 SAVE INFO | isolation.json (56756 bytes)
+ACC96 ROUTE | authorial has_marker=True mode_line=occasional
+ACC96 ROUTE | initiative reply_len=481 own_mat=0
+ACC94 SAVE INFO | routes.json (7839 bytes)
+ACC96 LIVE_CHECK | http=200 mode=occasional diag= marker=True len=231
+ACC94 SAVE INFO | live-check.json (1039 bytes)
+ACC94 SAVE INFO | restore.json (67861 bytes)
+ACC96 RESTORE | a=200 b=200
+ACC94 SAVE INFO | summary.json (25401 bytes)
+ACC96 SUMMARY | {"turns_used": 27, "off": "PASS", "occasional": "FAIL", "frequent": "FAIL", "isolation": "PARTIAL"}
+ACC96 SPEC | delete A=30 B=3 residual=[]
+ACC96 RC=0
+[stderr] [sudo] password for nik:
+[download] /tmp/accept96/journal.txt failed FileNotFoundError
+[runner] downloaded evidence (pass 1): live-check.json, p1-seed.json, isolation.json, p0-pre-state.json, routes.json, wave-frequent.json, summary.json, restore.json, wave-off.json, wave-occasional.json
+### JOURNAL (rc=0)
+=== NOW ===
+2026-10-19T15:36:51Z
+WAVE_SINCE=[2026-10-19 15:27:43]
+=== SERVICE ===
+MainPID=3739015
+NRestarts=0
+ExecMainStartTimestamp=Mon 2026-10-19 14:51:31 UTC
+ExecMainStatus=0
+ActiveState=active
+SubState=running
+{"status":"ok","version":"2.58.96"}
+{"status":"ok","version":"2.58.96"}
+=== COUNTS (wave) ===
+ERR=0
+E402=3
+SKIPS=0
+RUNTIMEWARN=0
+DBLOCKED=0
+EXPR_DIAG=0
+EXPR_RESOLVE_FAIL=0
+PROMPT_LAYERS=20
+DIRECT_REPLY_SENT=1
+L2WRITER=2
+LOCALBOTAPI=0
+=== expression-related lines (tail 25) ===
+Oct 19 15:35:34 racknerd-f4e3456 python[3739015]: 2026-10-19 15:35:34,075 - services.mca_events - INFO - mca_event=prompt_layers | ts=1792424134 | event_name=prompt_layers | outcome=silent | level=INFO | component=prompt_composer | stage=compose | status=expression:profile:machine_stage | chat_id=-1002661910336 | reason_code=disabled
+=== ERR lines (first 30) ===
+=== sqlite read-only probe ===
+{"db_path": "/var/www/admin_bot/local_database.db", "user_version": [{"user_version": 36}], "analyses": [{"status": "failed", "n": 34}, {"status": "ready", "n": 19}, {"status": "running", "n": 1}], "expr_diag_recent": [], "expr_samples": [{"technique": "expression_register", "owner_approved": 0, "status": "active", "n": 12}], "prompt_layers_expr_recent": [{"ts": 1792424141, "status": "expression:profile:machine_stage", "reason_code": "disabled", "chat_id": -1004482340693}, {"ts": 1792424134, "status": "expression:profile:machine_stage", "reason_code": "disabled", "chat_id": -1002661910336}, {"ts": 1792423724, "status": "expression:profile:machine_stage", "reason_code": "disabled", "chat_id": -1002661910336}, {"ts": 1792422455, "status": "expression:profile:machine_stage", "reason_code": "disabled", "chat_id": -1004482340693}, {"ts": 1792420727, "status": "expression:expression_absent", "reason_code": "source_missing", "chat_id": -1002661910336}, {"ts": 1792420725, "status": "expression:profile:machine_stage", "reason_code": "disabled", "chat_id": -1002661910336}, {"ts": 1792419333, "status": "expression:expression_absent", "reason_code": "source_missing", "chat_id": -1002661910336}, {"ts": 1792419330, "status": "expression:profile:machine_stage", "reason_code": "disabled", "chat_id": -1002661910336}, {"ts": 1792418531, "status": "expression:expression_absent", "reason_code": "source_missing", "chat_id": -1002661910336}, {"ts": 1792418529, "status": "expression:profile:machine_stage", "reason_code": "disabled", "chat_id": -1002661910336}, {"ts": 1792417674, "status": "expression:expression_absent", "reason_code": "source_missing", "chat_id": -1002661910336}, {"ts": 1792417672, "status": "expression:profile:machine_stage", "reason_code": "disabled", "chat_id": -1002661910336}, {"ts": 1792405396, "status": "expression:expression_absent", "reason_code": "source_missing", "chat_id": -1002661910336}, {"ts": 1792404584, "status": "expression:profile:machine_stage", "reason_code": "disabled", "chat_id": -1002661910336}, {"ts": 1792403999, "status": "expression:expression_absent", "reason_code": "source_missing", "chat_id": -1002661910336}]}
+=== DONE ===
+[stderr] [sudo] password for nik:
+### CLEANUP_SPEC (rc=0) SPEC_OK
+### CLEANUP (rc=0)
+ACC96CLEAN NOW_UTC | 2026-10-19 15:37:12
+ACC96CLEAN SPEC | A=-1002661910336 B=-1004482340693 deleteA=30 deleteB=3 residual=[]
+ACC96CLEAN BOT | id=8802473181 username=PERMsoc_bot
+ACC96CLEAN DEL | chat=-1004482340693 2720 deleted
+ACC96CLEAN DEL | chat=-1004482340693 2721 deleted
+ACC96CLEAN DEL | chat=-1004482340693 2722 deleted
+ACC96CLEAN DEL | chat=-1002661910336 1166634 deleted
+ACC96CLEAN DEL | chat=-1002661910336 1166635 deleted
+ACC96CLEAN DEL | chat=-1002661910336 1166636 deleted
+ACC96CLEAN DEL | chat=-1002661910336 1166637 deleted
+ACC96CLEAN DEL | chat=-1002661910336 1166639 deleted
+ACC96CLEAN DEL | chat=-1002661910336 1166640 deleted
+ACC96CLEAN DEL | chat=-1002661910336 1166641 deleted
+ACC96CLEAN DEL | chat=-1002661910336 1166642 deleted
+ACC96CLEAN DEL | chat=-1002661910336 1166645 deleted
+ACC96CLEAN DEL | chat=-1002661910336 1166646 deleted
+ACC96CLEAN DEL | chat=-1002661910336 1166647 deleted
+ACC96CLEAN DEL | chat=-1002661910336 1166648 deleted
+ACC96CLEAN DEL | chat=-1002661910336 1166649 deleted
+ACC96CLEAN DEL | chat=-1002661910336 1166650 deleted
+ACC96CLEAN DEL | chat=-1002661910336 1166651 deleted
+ACC96CLEAN DEL | chat=-1002661910336 1166652 deleted
+ACC96CLEAN DEL | chat=-1002661910336 1166653 deleted
+ACC96CLEAN DEL | chat=-1002661910336 1166654 deleted
+ACC96CLEAN DEL | chat=-1002661910336 1166655 deleted
+ACC96CLEAN DEL | chat=-1002661910336 1166657 deleted
+ACC96CLEAN DEL | chat=-1002661910336 1166658 deleted
+ACC96CLEAN DEL | chat=-1002661910336 1166659 deleted
+ACC96CLEAN DEL | chat=-1002661910336 1166661 deleted
+ACC96CLEAN DEL | chat=-1002661910336 1166662 deleted
+ACC96CLEAN DEL | chat=-1002661910336 1166663 deleted
+ACC96CLEAN DEL | chat=-1002661910336 1166664 deleted
+ACC96CLEAN DEL | chat=-1002661910336 1166667 deleted
+ACC96CLEAN DEL | chat=-1002661910336 1166668 deleted
+ACC96CLEAN DEL | chat=-1002661910336 1166669 deleted
+ACC96CLEAN DEL | chat=-1002661910336 1166673 deleted
+ACC96CLEAN VERIFY | {"deleted": 33, "already": 0, "failed": [], "removed": {"smart": 0, "bot_replies": 29, "bot_reply_parents": 29, "throttle": 2}}
+ACC96CLEAN DONE | residual_rows=0 residual_replies=0 failed=0
+ACC96CLEAN RC=0
+[stderr] [sudo] password for nik:
+[runner] downloaded cleanup register: cleanup-register.json
+### FINAL (rc=0)
+MainPID=3739015
+NRestarts=0
+ExecMainStatus=0
+ActiveState=active
+SubState=running
+{"status":"ok","version":"2.58.96"}
+{"status":"ok","version":"2.58.96"}
+HEAD=95d11472b9e533b554554918e3efa6b42125260b TRACKED_MOD=0
+2026-10-19 15:37:22 UTC

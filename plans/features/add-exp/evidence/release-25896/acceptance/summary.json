@@ -1,0 +1,970 @@
+{
+  "now_utc": "2026-10-19 15:36:14",
+  "wave_start_epoch": 1792423664,
+  "turns_used": 27,
+  "hedges": [
+    "occasional+1"
+  ],
+  "criteria": {
+    "off": {
+      "probes_total": 8,
+      "ok_turns": 8,
+      "conversational": 5,
+      "conversational_with_mat": 0,
+      "share": 0.0,
+      "contexts_with_mat": [],
+      "mat_words": [],
+      "repeated_across_replies": {},
+      "same_word_within_reply": [],
+      "dominant_word_all_replies": "",
+      "all_sentences_matted": [],
+      "per_context": {
+        "banter": {
+          "own_mat": 0,
+          "words": [],
+          "status": "ok"
+        },
+        "argument": {
+          "own_mat": 0,
+          "words": [],
+          "status": "ok"
+        },
+        "short": {
+          "own_mat": 0,
+          "words": [],
+          "status": "ok"
+        },
+        "everyday": {
+          "own_mat": 0,
+          "words": [],
+          "status": "ok"
+        },
+        "joke": {
+          "own_mat": 0,
+          "words": [],
+          "status": "ok"
+        },
+        "tech": {
+          "own_mat": 0,
+          "words": [],
+          "status": "ok"
+        },
+        "factcheck": {
+          "own_mat": 0,
+          "words": [],
+          "status": "ok"
+        },
+        "genre_quote": {
+          "own_mat": 0,
+          "words": [],
+          "status": "ok"
+        }
+      },
+      "quote_preserved": false,
+      "quote_own_mat": 0,
+      "verdict": "PASS"
+    },
+    "occasional": {
+      "probes_total": 9,
+      "ok_turns": 9,
+      "conversational": 7,
+      "conversational_with_mat": 0,
+      "share": 0.0,
+      "contexts_with_mat": [],
+      "mat_words": [],
+      "repeated_across_replies": {},
+      "same_word_within_reply": [],
+      "dominant_word_all_replies": "",
+      "all_sentences_matted": [],
+      "per_context": {
+        "banter": {
+          "own_mat": 0,
+          "words": [],
+          "status": "ok"
+        },
+        "argument": {
+          "own_mat": 0,
+          "words": [],
+          "status": "ok"
+        },
+        "short": {
+          "own_mat": 0,
+          "words": [],
+          "status": "ok"
+        },
+        "everyday": {
+          "own_mat": 0,
+          "words": [],
+          "status": "ok"
+        },
+        "joke": {
+          "own_mat": 0,
+          "words": [],
+          "status": "ok"
+        },
+        "tech": {
+          "own_mat": 0,
+          "words": [],
+          "status": "ok"
+        },
+        "factcheck": {
+          "own_mat": 0,
+          "words": [],
+          "status": "ok"
+        },
+        "short_repeat": {
+          "own_mat": 0,
+          "words": [],
+          "status": "ok"
+        }
+      },
+      "quote_preserved": null,
+      "verdict": "FAIL"
+    },
+    "frequent": {
+      "probes_total": 10,
+      "ok_turns": 10,
+      "conversational": 7,
+      "conversational_with_mat": 0,
+      "share": 0.0,
+      "contexts_with_mat": [],
+      "mat_words": [],
+      "repeated_across_replies": {},
+      "same_word_within_reply": [],
+      "dominant_word_all_replies": "",
+      "all_sentences_matted": [],
+      "per_context": {
+        "banter": {
+          "own_mat": 0,
+          "words": [],
+          "status": "ok"
+        },
+        "argument": {
+          "own_mat": 0,
+          "words": [],
+          "status": "ok"
+        },
+        "short": {
+          "own_mat": 0,
+          "words": [],
+          "status": "ok"
+        },
+        "everyday": {
+          "own_mat": 0,
+          "words": [],
+          "status": "ok"
+        },
+        "joke": {
+          "own_mat": 0,
+          "words": [],
+          "status": "ok"
+        },
+        "tech": {
+          "own_mat": 0,
+          "words": [],
+          "status": "ok"
+        },
+        "factcheck": {
+          "own_mat": 0,
+          "words": [],
+          "status": "ok"
+        },
+        "banter_repeat": {
+          "own_mat": 0,
+          "words": [],
+          "status": "ok"
+        },
+        "joke_repeat": {
+          "own_mat": 0,
+          "words": [],
+          "status": "ok"
+        },
+        "genre_summary": {
+          "own_mat": 0,
+          "words": [],
+          "status": "ok"
+        }
+      },
+      "quote_preserved": null,
+      "summary_facts": {
+        "68": true,
+        "961": true,
+        "2.58.96": true
+      },
+      "summary_own_mat": 0,
+      "verdict": "FAIL"
+    },
+    "isolation": {
+      "chat_b": -1004482340693,
+      "error": null,
+      "b_effective": {
+        "value": "off",
+        "source": "chat",
+        "migrated": false
+      },
+      "a_effective_while_b_off": {
+        "value": "occasional",
+        "source": "chat",
+        "migrated": false
+      },
+      "b_turns": 2,
+      "b_own_mat": 0,
+      "verdict": "PARTIAL"
+    }
+  },
+  "checks": {
+    "wire_calls_total": 135,
+    "wire_with_marker": 28,
+    "wire_with_mode_line": 28,
+    "wire_expected_text_present": 28,
+    "composes_total": 81,
+    "expression_layer_rendered": 54,
+    "expression_layer_skipped": [
+      {
+        "writer": "l1_planner",
+        "reason": "profile:machine_stage"
+      },
+      {
+        "writer": "l1_planner",
+        "reason": "profile:machine_stage"
+      },
+      {
+        "writer": "l1_planner",
+        "reason": "profile:machine_stage"
+      },
+      {
+        "writer": "l1_planner",
+        "reason": "profile:machine_stage"
+      },
+      {
+        "writer": "l1_planner",
+        "reason": "profile:machine_stage"
+      },
+      {
+        "writer": "l1_planner",
+        "reason": "profile:machine_stage"
+      },
+      {
+        "writer": "l1_planner",
+        "reason": "profile:machine_stage"
+      },
+      {
+        "writer": "l1_planner",
+        "reason": "profile:machine_stage"
+      },
+      {
+        "writer": "l1_planner",
+        "reason": "profile:machine_stage"
+      },
+      {
+        "writer": "l1_planner",
+        "reason": "profile:machine_stage"
+      },
+      {
+        "writer": "l1_planner",
+        "reason": "profile:machine_stage"
+      },
+      {
+        "writer": "l1_planner",
+        "reason": "profile:machine_stage"
+      },
+      {
+        "writer": "l1_planner",
+        "reason": "profile:machine_stage"
+      },
+      {
+        "writer": "l1_planner",
+        "reason": "profile:machine_stage"
+      },
+      {
+        "writer": "l1_planner",
+        "reason": "profile:machine_stage"
+      },
+      {
+        "writer": "l1_planner",
+        "reason": "profile:machine_stage"
+      },
+      {
+        "writer": "l1_planner",
+        "reason": "profile:machine_stage"
+      },
+      {
+        "writer": "l1_planner",
+        "reason": "profile:machine_stage"
+      },
+      {
+        "writer": "l1_planner",
+        "reason": "profile:machine_stage"
+      },
+      {
+        "writer": "l1_planner",
+        "reason": "profile:machine_stage"
+      },
+      {
+        "writer": "l1_planner",
+        "reason": "profile:machine_stage"
+      },
+      {
+        "writer": "l1_planner",
+        "reason": "profile:machine_stage"
+      },
+      {
+        "writer": "l1_planner",
+        "reason": "profile:machine_stage"
+      },
+      {
+        "writer": "l1_planner",
+        "reason": "profile:machine_stage"
+      },
+      {
+        "writer": "l1_planner",
+        "reason": "profile:machine_stage"
+      },
+      {
+        "writer": "l1_planner",
+        "reason": "profile:machine_stage"
+      },
+      {
+        "writer": "l1_planner",
+        "reason": "profile:machine_stage"
+      }
+    ],
+    "expression_examples_traces": [
+      {
+        "writer": "l1_planner",
+        "rendered": false,
+        "skip_reason": "profile:machine_stage"
+      },
+      {
+        "writer": "tool_phase",
+        "rendered": false,
+        "skip_reason": "not_owner_approved"
+      },
+      {
+        "writer": "l2_writer",
+        "rendered": false,
+        "skip_reason": "not_owner_approved"
+      },
+      {
+        "writer": "l1_planner",
+        "rendered": false,
+        "skip_reason": "profile:machine_stage"
+      },
+      {
+        "writer": "tool_phase",
+        "rendered": false,
+        "skip_reason": "not_owner_approved"
+      },
+      {
+        "writer": "l2_writer",
+        "rendered": false,
+        "skip_reason": "not_owner_approved"
+      },
+      {
+        "writer": "l1_planner",
+        "rendered": false,
+        "skip_reason": "profile:machine_stage"
+      },
+      {
+        "writer": "tool_phase",
+        "rendered": false,
+        "skip_reason": "not_owner_approved"
+      },
+      {
+        "writer": "l2_writer",
+        "rendered": false,
+        "skip_reason": "not_owner_approved"
+      },
+      {
+        "writer": "l1_planner",
+        "rendered": false,
+        "skip_reason": "profile:machine_stage"
+      },
+      {
+        "writer": "tool_phase",
+        "rendered": false,
+        "skip_reason": "not_owner_approved"
+      },
+      {
+        "writer": "l2_writer",
+        "rendered": false,
+        "skip_reason": "not_owner_approved"
+      },
+      {
+        "writer": "l1_planner",
+        "rendered": false,
+        "skip_reason": "profile:machine_stage"
+      },
+      {
+        "writer": "tool_phase",
+        "rendered": false,
+        "skip_reason": "not_owner_approved"
+      },
+      {
+        "writer": "l2_writer",
+        "rendered": false,
+        "skip_reason": "not_owner_approved"
+      },
+      {
+        "writer": "l1_planner",
+        "rendered": false,
+        "skip_reason": "profile:machine_stage"
+      },
+      {
+        "writer": "tool_phase",
+        "rendered": false,
+        "skip_reason": "not_owner_approved"
+      },
+      {
+        "writer": "l2_writer",
+        "rendered": false,
+        "skip_reason": "not_owner_approved"
+      },
+      {
+        "writer": "l1_planner",
+        "rendered": false,
+        "skip_reason": "profile:machine_stage"
+      },
+      {
+        "writer": "tool_phase",
+        "rendered": false,
+        "skip_reason": "not_owner_approved"
+      }
+    ],
+    "preview_eq_resolve": true,
+    "preview_eq_resolve_per_wave": {
+      "off": true,
+      "occasional": true,
+      "frequent": true
+    },
+    "runtime_wired": true,
+    "reread_after_write": {
+      "off": {
+        "write_http": 200,
+        "reread_value": "off",
+        "reread_source": "chat",
+        "revision": "9de5c885b622"
+      },
+      "occasional": {
+        "write_http": 200,
+        "reread_value": "occasional",
+        "reread_source": "chat",
+        "revision": "537816072dab"
+      },
+      "frequent": {
+        "write_http": 200,
+        "reread_value": "frequent",
+        "reread_source": "chat",
+        "revision": "6763c903ffc2"
+      }
+    },
+    "restore": {
+      "a_http": 200,
+      "a_inheritance": "global",
+      "b_http": 200,
+      "global_revision_after": null,
+      "a_overrides_before": "failed:DataError",
+      "a_overrides_after": null,
+      "b_overrides_before": "failed:DataError",
+      "b_overrides_after": null,
+      "global_doc_before": {
+        "enabled": true,
+        "wit": "inherit",
+        "sharpness": "sharp",
+        "profanity": "occasional",
+        "verbosity": "inherit",
+        "note": ""
+      },
+      "global_doc_after": {
+        "enabled": true,
+        "wit": "inherit",
+        "sharpness": "sharp",
+        "profanity": "occasional",
+        "verbosity": "inherit",
+        "note": ""
+      },
+      "a_inheritance_after": "global"
+    },
+    "not_owner_approved": {
+      "composes_with_not_owner_approved": 54,
+      "examples_marker_in_composed_systems": 0,
+      "examples_marker_in_wire": 0,
+      "seed_run1": {
+        "ok": true,
+        "seeded": 18,
+        "skipped": 0,
+        "reason": "",
+        "expression_seeded": 12,
+        "expression_skipped": 0,
+        "note": "Черновики заведены БЕЗ владельческого одобрения: эталонами их не считает ни runtime, ни статистика. Набор регистра речи (12 карточек) до утверждения не попадает в ответы — причина `not_owner_approved`."
+      },
+      "seed_run2": {
+        "ok": true,
+        "seeded": 0,
+        "skipped": 18,
+        "reason": "",
+        "expression_seeded": 0,
+        "expression_skipped": 12,
+        "note": "Черновики заведены БЕЗ владельческого одобрения: эталонами их не считает ни runtime, ни статистика. Набор регистра речи (12 карточек) до утверждения не попадает в ответы — причина `not_owner_approved`."
+      },
+      "rows": [
+        {
+          "technique": "expression_register",
+          "status": "active",
+          "owner_approved": 0,
+          "n": 12
+        }
+      ]
+    },
+    "llm_calls_total": 137,
+    "llm_steps": {
+      "None/None": 81,
+      "direct_chat/l1_planner": 27,
+      "direct_chat/l2_writer": 29
+    },
+    "raw_vs_delivered_profanity_removed": []
+  },
+  "diag_events": [
+    {
+      "ts": 1792423724,
+      "event_name": "prompt_layers",
+      "outcome": "silent",
+      "level": "INFO",
+      "stage": "compose",
+      "status": "core:profile:machine_stage",
+      "reason_code": "disabled",
+      "chat_id": -1002661910336
+    },
+    {
+      "ts": 1792423724,
+      "event_name": "prompt_layers",
+      "outcome": "silent",
+      "level": "INFO",
+      "stage": "compose",
+      "status": "identity:profile:machine_stage",
+      "reason_code": "disabled",
+      "chat_id": -1002661910336
+    },
+    {
+      "ts": 1792423724,
+      "event_name": "prompt_layers",
+      "outcome": "silent",
+      "level": "INFO",
+      "stage": "compose",
+      "status": "self_model_traits:profile:machine_stage",
+      "reason_code": "disabled",
+      "chat_id": -1002661910336
+    },
+    {
+      "ts": 1792423724,
+      "event_name": "prompt_layers",
+      "outcome": "silent",
+      "level": "INFO",
+      "stage": "compose",
+      "status": "context_lessons:profile:machine_stage",
+      "reason_code": "disabled",
+      "chat_id": -1002661910336
+    },
+    {
+      "ts": 1792423724,
+      "event_name": "prompt_layers",
+      "outcome": "silent",
+      "level": "INFO",
+      "stage": "compose",
+      "status": "response_plan:profile:machine_stage",
+      "reason_code": "disabled",
+      "chat_id": -1002661910336
+    },
+    {
+      "ts": 1792423724,
+      "event_name": "prompt_layers",
+      "outcome": "silent",
+      "level": "INFO",
+      "stage": "compose",
+      "status": "expression:profile:machine_stage",
+      "reason_code": "disabled",
+      "chat_id": -1002661910336
+    },
+    {
+      "ts": 1792423724,
+      "event_name": "prompt_layers",
+      "outcome": "silent",
+      "level": "INFO",
+      "stage": "compose",
+      "status": "humor_craft:profile:machine_stage",
+      "reason_code": "disabled",
+      "chat_id": -1002661910336
+    },
+    {
+      "ts": 1792423724,
+      "event_name": "prompt_layers",
+      "outcome": "silent",
+      "level": "INFO",
+      "stage": "compose",
+      "status": "few_shot:profile:machine_stage",
+      "reason_code": "disabled",
+      "chat_id": -1002661910336
+    },
+    {
+      "ts": 1792423724,
+      "event_name": "prompt_layers",
+      "outcome": "silent",
+      "level": "INFO",
+      "stage": "compose",
+      "status": "style_policy_hint:profile:machine_stage",
+      "reason_code": "disabled",
+      "chat_id": -1002661910336
+    },
+    {
+      "ts": 1792423724,
+      "event_name": "prompt_layers",
+      "outcome": "silent",
+      "level": "INFO",
+      "stage": "compose",
+      "status": "channel_output:profile:machine_stage",
+      "reason_code": "disabled",
+      "chat_id": -1002661910336
+    },
+    {
+      "ts": 1792423726,
+      "event_name": "prompt_layers",
+      "outcome": "silent",
+      "level": "INFO",
+      "stage": "compose",
+      "status": "self_model_traits:self_model_folded_into_identity",
+      "reason_code": "source_missing",
+      "chat_id": -1002661910336
+    },
+    {
+      "ts": 1792423726,
+      "event_name": "prompt_layers",
+      "outcome": "silent",
+      "level": "INFO",
+      "stage": "compose",
+      "status": "context_lessons:style_requests_absent",
+      "reason_code": "source_missing",
+      "chat_id": -1002661910336
+    },
+    {
+      "ts": 1792423726,
+      "event_name": "prompt_layers",
+      "outcome": "silent",
+      "level": "INFO",
+      "stage": "compose",
+      "status": "context_lessons:lessons_absent",
+      "reason_code": "source_missing",
+      "chat_id": -1002661910336
+    },
+    {
+      "ts": 1792423726,
+      "event_name": "prompt_layers",
+      "outcome": "silent",
+      "level": "INFO",
+      "stage": "compose",
+      "status": "context_lessons:speech_absent",
+      "reason_code": "source_missing",
+      "chat_id": -1002661910336
+    },
+    {
+      "ts": 1792423726,
+      "event_name": "prompt_layers",
+      "outcome": "silent",
+      "level": "INFO",
+      "stage": "compose",
+      "status": "humor_craft:humor_no_strategy",
+      "reason_code": "source_missing",
+      "chat_id": -1002661910336
+    },
+    {
+      "ts": 1792423726,
+      "event_name": "prompt_layers",
+      "outcome": "silent",
+      "level": "INFO",
+      "stage": "compose",
+      "status": "few_shot:not_owner_approved",
+      "reason_code": "source_missing",
+      "chat_id": -1002661910336
+    },
+    {
+      "ts": 1792423726,
+      "event_name": "prompt_layers",
+      "outcome": "silent",
+      "level": "INFO",
+      "stage": "compose",
+      "status": "few_shot:samples_absent",
+      "reason_code": "source_missing",
+      "chat_id": -1002661910336
+    },
+    {
+      "ts": 1792423726,
+      "event_name": "prompt_layers",
+      "outcome": "silent",
+      "level": "INFO",
+      "stage": "compose",
+      "status": "channel_output:channel_output_not_required",
+      "reason_code": "source_missing",
+      "chat_id": -1002661910336
+    },
+    {
+      "ts": 1792423771,
+      "event_name": "prompt_layers",
+      "outcome": "silent",
+      "level": "INFO",
+      "stage": "compose",
+      "status": "response_plan:response_plan_absent",
+      "reason_code": "source_missing",
+      "chat_id": -1002661910336
+    },
+    {
+      "ts": 1792424141,
+      "event_name": "prompt_layers",
+      "outcome": "silent",
+      "level": "INFO",
+      "stage": "compose",
+      "status": "core:profile:machine_stage",
+      "reason_code": "disabled",
+      "chat_id": -1004482340693
+    },
+    {
+      "ts": 1792424141,
+      "event_name": "prompt_layers",
+      "outcome": "silent",
+      "level": "INFO",
+      "stage": "compose",
+      "status": "identity:profile:machine_stage",
+      "reason_code": "disabled",
+      "chat_id": -1004482340693
+    },
+    {
+      "ts": 1792424141,
+      "event_name": "prompt_layers",
+      "outcome": "silent",
+      "level": "INFO",
+      "stage": "compose",
+      "status": "self_model_traits:profile:machine_stage",
+      "reason_code": "disabled",
+      "chat_id": -1004482340693
+    },
+    {
+      "ts": 1792424141,
+      "event_name": "prompt_layers",
+      "outcome": "silent",
+      "level": "INFO",
+      "stage": "compose",
+      "status": "context_lessons:profile:machine_stage",
+      "reason_code": "disabled",
+      "chat_id": -1004482340693
+    },
+    {
+      "ts": 1792424141,
+      "event_name": "prompt_layers",
+      "outcome": "silent",
+      "level": "INFO",
+      "stage": "compose",
+      "status": "response_plan:profile:machine_stage",
+      "reason_code": "disabled",
+      "chat_id": -1004482340693
+    },
+    {
+      "ts": 1792424141,
+      "event_name": "prompt_layers",
+      "outcome": "silent",
+      "level": "INFO",
+      "stage": "compose",
+      "status": "expression:profile:machine_stage",
+      "reason_code": "disabled",
+      "chat_id": -1004482340693
+    },
+    {
+      "ts": 1792424141,
+      "event_name": "prompt_layers",
+      "outcome": "silent",
+      "level": "INFO",
+      "stage": "compose",
+      "status": "humor_craft:profile:machine_stage",
+      "reason_code": "disabled",
+      "chat_id": -1004482340693
+    },
+    {
+      "ts": 1792424141,
+      "event_name": "prompt_layers",
+      "outcome": "silent",
+      "level": "INFO",
+      "stage": "compose",
+      "status": "few_shot:profile:machine_stage",
+      "reason_code": "disabled",
+      "chat_id": -1004482340693
+    },
+    {
+      "ts": 1792424141,
+      "event_name": "prompt_layers",
+      "outcome": "silent",
+      "level": "INFO",
+      "stage": "compose",
+      "status": "style_policy_hint:profile:machine_stage",
+      "reason_code": "disabled",
+      "chat_id": -1004482340693
+    },
+    {
+      "ts": 1792424141,
+      "event_name": "prompt_layers",
+      "outcome": "silent",
+      "level": "INFO",
+      "stage": "compose",
+      "status": "channel_output:profile:machine_stage",
+      "reason_code": "disabled",
+      "chat_id": -1004482340693
+    },
+    {
+      "ts": 1792424143,
+      "event_name": "prompt_layers",
+      "outcome": "silent",
+      "level": "INFO",
+      "stage": "compose",
+      "status": "self_model_traits:self_model_folded_into_identity",
+      "reason_code": "source_missing",
+      "chat_id": -1004482340693
+    },
+    {
+      "ts": 1792424143,
+      "event_name": "prompt_layers",
+      "outcome": "silent",
+      "level": "INFO",
+      "stage": "compose",
+      "status": "context_lessons:style_requests_absent",
+      "reason_code": "source_missing",
+      "chat_id": -1004482340693
+    },
+    {
+      "ts": 1792424143,
+      "event_name": "prompt_layers",
+      "outcome": "silent",
+      "level": "INFO",
+      "stage": "compose",
+      "status": "context_lessons:lessons_absent",
+      "reason_code": "source_missing",
+      "chat_id": -1004482340693
+    },
+    {
+      "ts": 1792424143,
+      "event_name": "prompt_layers",
+      "outcome": "silent",
+      "level": "INFO",
+      "stage": "compose",
+      "status": "context_lessons:speech_absent",
+      "reason_code": "source_missing",
+      "chat_id": -1004482340693
+    },
+    {
+      "ts": 1792424143,
+      "event_name": "prompt_layers",
+      "outcome": "silent",
+      "level": "INFO",
+      "stage": "compose",
+      "status": "humor_craft:humor_no_strategy",
+      "reason_code": "source_missing",
+      "chat_id": -1004482340693
+    },
+    {
+      "ts": 1792424143,
+      "event_name": "prompt_layers",
+      "outcome": "silent",
+      "level": "INFO",
+      "stage": "compose",
+      "status": "few_shot:not_owner_approved",
+      "reason_code": "source_missing",
+      "chat_id": -1004482340693
+    },
+    {
+      "ts": 1792424143,
+      "event_name": "prompt_layers",
+      "outcome": "silent",
+      "level": "INFO",
+      "stage": "compose",
+      "status": "few_shot:samples_absent",
+      "reason_code": "source_missing",
+      "chat_id": -1004482340693
+    },
+    {
+      "ts": 1792424143,
+      "event_name": "prompt_layers",
+      "outcome": "silent",
+      "level": "INFO",
+      "stage": "compose",
+      "status": "channel_output:channel_output_not_required",
+      "reason_code": "source_missing",
+      "chat_id": -1004482340693
+    }
+  ],
+  "live_check": {
+    "http": 200,
+    "body": {
+      "ok": true,
+      "mode": "occasional",
+      "reply": "Вчера я, кажется, защищал диссертацию, которую сам же и придумал минут за пять до этого. Если ты про доклад - там был момент, когда я объяснял график, которого не существует, и, по-моему, убедил даже себя\n\nА что конкретно зацепило?",
+      "reply_chars": 231,
+      "profanity_roots": 0,
+      "diag_class": "",
+      "expression_marker": true,
+      "response_mode": "serious",
+      "elapsed_ms": 8137,
+      "delivery": {
+        "telegram_send": false
+      },
+      "note": "Один реальный L2-вызов тем же боевым путём (writer=speech_ui_live_check), без доставки в Telegram. Одиночная проба не приговор: класс `model_ignored_instruction` подтверждается набором Ф6 (N≥5 подряд)."
+    }
+  },
+  "routes": {
+    "authorial": {
+      "writer": "nostalgia_writer",
+      "system_chars": 4213,
+      "has_marker": true,
+      "mode_line": "occasional",
+      "layers": [
+        {
+          "layer": "expression",
+          "block_id": "expression",
+          "owner": "core",
+          "source": "chat",
+          "revision": "537816072dab",
+          "chars": 717,
+          "tokens": 180,
+          "rendered": true,
+          "skip_reason": "",
+          "conflict": "",
+          "detail": ""
+        },
+        {
+          "layer": "few_shot",
+          "block_id": "expression_examples",
+          "owner": "core",
+          "source": "code",
+          "revision": "",
+          "chars": 0,
+          "tokens": 0,
+          "rendered": false,
+          "skip_reason": "expression_examples_absent",
+          "conflict": "",
+          "detail": ""
+        },
+        {
+          "layer": "few_shot",
+          "block_id": "few_shot",
+          "owner": "library",
+          "source": "code",
+          "revision": "",
+          "chars": 0,
+          "tokens": 0,
+          "rendered": false,
+          "skip_reason": "samples_absent",
+          "conflict": "",
+          "detail": ""
+        }
+      ]
+    },
+    "initiative": {
+      "correlation_id": "8dc4ec6d2d674fe9b8a8e143e5d29174"
+    }
+  },
+  "usage_totals": null
+}

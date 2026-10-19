@@ -1,0 +1,187 @@
+{
+  "resolved_a_before_routes": {
+    "mode": "occasional",
+    "source": "chat",
+    "revision": "537816072dab",
+    "text_sha12": "537816072dab",
+    "text_chars": 717,
+    "skip_reason": "",
+    "enabled": true,
+    "text": "<Expression_Settings>\nНастройки выражения владельца: интенсивность и форма собственной речи; характер этим не меняется. Уместность выбирает L1; просьба «без мата» уважается всегда; дословные цитаты и структурированные сводки (фактчек, ошибки API, тех. отчёты) не переписываются, мат в них не форсируется:\n- Резкость: Резче и прямее; оскорбления и травля не появляются — жёсткость формулировки, а не агрессия к человеку.\n- Мат: обсценная разговорная лексика появляется в собственных живых репликах изредка, но реально — когда добавляет эмоцию, иронию, раздражение или характерную интонацию. Большинство обычных реплик обходится без неё; это не пассивное разрешение, а редкий выразительный приём.\n</Expression_Settings>"
+  },
+  "authorial": {
+    "writer": "nostalgia_writer",
+    "system_chars": 4213,
+    "has_marker": true,
+    "mode_line": "occasional",
+    "layers": [
+      {
+        "layer": "expression",
+        "block_id": "expression",
+        "owner": "core",
+        "source": "chat",
+        "revision": "537816072dab",
+        "chars": 717,
+        "tokens": 180,
+        "rendered": true,
+        "skip_reason": "",
+        "conflict": "",
+        "detail": ""
+      },
+      {
+        "layer": "few_shot",
+        "block_id": "expression_examples",
+        "owner": "core",
+        "source": "code",
+        "revision": "",
+        "chars": 0,
+        "tokens": 0,
+        "rendered": false,
+        "skip_reason": "expression_examples_absent",
+        "conflict": "",
+        "detail": ""
+      },
+      {
+        "layer": "few_shot",
+        "block_id": "few_shot",
+        "owner": "library",
+        "source": "code",
+        "revision": "",
+        "chars": 0,
+        "tokens": 0,
+        "rendered": false,
+        "skip_reason": "samples_absent",
+        "conflict": "",
+        "detail": ""
+      }
+    ]
+  },
+  "initiative": {
+    "correlation_id": "8dc4ec6d2d674fe9b8a8e143e5d29174",
+    "reply": "Кто-то там про интернет и роутер спрашивал - если сеть отваливается или скорость просела, начни с простого: перезагрузи роутер по-честному, выдерни из розетки секунд на тридцать, а не кнопкой. Дальше глянь, не воткнуто ли что-то тяжёлое в канал, и проверь скорость на кабеле против вайфая - если по кабелю нормально, а по воздуху нет, значит роутер стоит в шкафу за бетонной стеной и обижен на тебя\n\nЕсли не помогло, скажи, что за провайдер и как именно тупит - тогда копнём глубже",
+    "reply_scan": {
+      "own": [],
+      "protected": [],
+      "euphemism": [],
+      "own_count": 0,
+      "protected_count": 0,
+      "own_words": []
+    },
+    "llm_calls": [
+      {
+        "seq": 146,
+        "via": "generate",
+        "module": "direct_chat",
+        "step": "l2_writer",
+        "chat_id": -1002661910336,
+        "correlation_id": "8dc4ec6d2d674fe9b8a8e143e5d29174",
+        "n_messages": 2,
+        "system_chars": 7014,
+        "system_sha12": "131a059d5f83",
+        "has_marker": true,
+        "mode_line": "occasional",
+        "expected_text_present": true,
+        "raw": "Кто-то там про интернет и роутер спрашивал - если сеть отваливается или скорость просела, начни с простого: перезагрузи роутер по-честному, выдерни из розетки секунд на тридцать, а не кнопкой. Дальше глянь, не воткнуто ли что-то тяжёлое в канал, и проверь скорость на кабеле против вайфая - если по кабелю нормально, а по воздуху нет, значит роутер стоит в шкафу за бетонной стеной и обижен на тебя\n\nЕсли не помогло, скажи, что за провайдер и как именно тупит - тогда копнём глубже",
+        "raw_scan": {
+          "own": [],
+          "protected": [],
+          "euphemism": [],
+          "own_count": 0,
+          "protected_count": 0,
+          "own_words": []
+        }
+      },
+      {
+        "seq": 147,
+        "via": "generate",
+        "module": null,
+        "step": null,
+        "chat_id": -1004482340693,
+        "correlation_id": null,
+        "n_messages": 2,
+        "system_chars": 255,
+        "system_sha12": "a1d2a21721a3",
+        "has_marker": false,
+        "mode_line": "",
+        "expected_text_present": false,
+        "raw": "[Бот] посоветовал: уточнить, о каком деле речь — сборке сервера или возврате долга с Лехи.",
+        "raw_scan": {
+          "own": [],
+          "protected": [],
+          "euphemism": [],
+          "own_count": 0,
+          "protected_count": 0,
+          "own_words": []
+        }
+      }
+    ],
+    "wire": [
+      {
+        "seq": 146,
+        "via": "_post",
+        "module": "direct_chat",
+        "step": "l2_writer",
+        "model": "deepseek/deepseek-v4.1-flash",
+        "n_messages": 2,
+        "payload_sha12": "9e855b9ecd73",
+        "has_marker": true,
+        "has_examples_marker": false,
+        "mode_line": "occasional",
+        "expected_text_present": true
+      },
+      {
+        "seq": 147,
+        "via": "_post",
+        "module": "",
+        "step": "",
+        "model": "deepseek/deepseek-v4.1-flash",
+        "n_messages": 2,
+        "payload_sha12": "8daa9d036a4d",
+        "has_marker": false,
+        "has_examples_marker": false,
+        "mode_line": "",
+        "expected_text_present": false
+      }
+    ],
+    "composes": [
+      {
+        "seq": 89,
+        "chat_id": -1002661910336,
+        "writer": "initiative_writer",
+        "profile": "speech_plain",
+        "system_sha12": "131a059d5f83",
+        "system_chars": 7014,
+        "has_marker": true,
+        "has_examples_marker": false,
+        "mode_line": "occasional",
+        "expected_text_present": true,
+        "expr": {
+          "layer": "expression",
+          "block_id": "expression",
+          "owner": "core",
+          "source": "chat",
+          "revision": "537816072dab",
+          "chars": 717,
+          "tokens": 180,
+          "rendered": true,
+          "skip_reason": "",
+          "conflict": "",
+          "detail": ""
+        },
+        "expr_examples": {
+          "layer": "few_shot",
+          "block_id": "expression_examples",
+          "owner": "core",
+          "source": "global",
+          "revision": "",
+          "chars": 0,
+          "tokens": 0,
+          "rendered": false,
+          "skip_reason": "not_owner_approved",
+          "conflict": "",
+          "detail": ""
+        }
+      }
+    ]
+  }
+}

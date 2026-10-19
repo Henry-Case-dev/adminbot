@@ -1,0 +1,155 @@
+{
+ "generated_utc": "2026-10-19 15:55:38",
+ "method": "Telegram Bot API deleteMessage через развёрнутого бота (локальная сессия); safety-gate против реальных пользователей; синтетические строки удалены",
+ "delete_map": {
+  "-1002661910336": [
+   1166715,
+   1166717,
+   1166719,
+   1166720,
+   1166722,
+   1166728,
+   1166469
+  ],
+  "-1004482340693": [
+   2736,
+   2737,
+   2739
+  ]
+ },
+ "deleted": [
+  {
+   "chat_id": -1004482340693,
+   "mid": 2736,
+   "status": "deleted"
+  },
+  {
+   "chat_id": -1004482340693,
+   "mid": 2737,
+   "status": "deleted"
+  },
+  {
+   "chat_id": -1004482340693,
+   "mid": 2739,
+   "status": "deleted"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166469,
+   "residual_95a": true,
+   "status": "already_deleted"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166715,
+   "status": "deleted"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166717,
+   "status": "deleted"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166719,
+   "status": "deleted"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166720,
+   "status": "deleted"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166722,
+   "status": "deleted"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166728,
+   "status": "deleted"
+  }
+ ],
+ "residual_95a": {
+  "candidates": [
+   1166467,
+   1166469
+  ],
+  "delete": [
+   1166469
+  ],
+  "identification": [
+   {
+    "mid": 1166467,
+    "edit_caption": "TelegramBadRequest: Telegram server says - Bad Request: message can't be edited",
+    "owner": "not_bot"
+   },
+   {
+    "mid": 1166469,
+    "edit_caption": "ok",
+    "owner": "bot",
+    "deleted": "ok"
+   }
+  ]
+ },
+ "residual_95a_deleted": [
+  1166469
+ ],
+ "inventory": {
+  "-1002661910336": {
+   "smart": [],
+   "replies": [
+    {
+     "mid": 1166717,
+     "head": "Спасибо, я старался"
+    },
+    {
+     "mid": 1166719,
+     "head": "В каком деле-то?"
+    },
+    {
+     "mid": 1166720,
+     "head": "Понедельник - это пиздец, а не день"
+    },
+    {
+     "mid": 1166728,
+     "head": "Нет"
+    }
+   ],
+   "blocked": []
+  },
+  "-1004482340693": {
+   "smart": [],
+   "replies": [
+    {
+     "mid": 2737,
+     "head": "Вчера я вроде не докладывал, а под столом валялся после Лехиных расчётов по ддр3. Если это"
+    },
+    {
+     "mid": 2739,
+     "head": "В деле, но только если Леха к завтрашнему дню довычислит свои протеины"
+    }
+   ],
+   "blocked": []
+  }
+ },
+ "synthetic_rows_removed": {
+  "smart": 0,
+  "bot_replies": 6,
+  "bot_reply_parents": 6,
+  "throttle": 2
+ },
+ "verification": {
+  "-1002661910336": {
+   "residual_smart": [],
+   "residual_replies": [],
+   "residual_parents": []
+  },
+  "-1004482340693": {
+   "residual_smart": [],
+   "residual_replies": [],
+   "residual_parents": []
+  }
+ },
+ "failed": []
+}
