@@ -156,8 +156,14 @@
         "web/index.html",
         "web/static/app.css",
         "tests/js/**",
+        "tests/test_cfg04_forms_contract.py",
+        "tests/test_webapp_ui_rework_round1020.py",
+        "tests/test_webapp_f9_round1025.py",
+        "tests/test_webapp_hotfix9_round1025.py",
+        "tools/ui_cfg04_*.py",
         "plans/features/cfg/evidence/cfg-04/**"
       ],
+      "notes": "Расширение write_scope 20.10.2026 по prep-cfg-04 §5 (PM-PREP-CFG-04, до Builder). Монополия CFG-04: web/app.js + web/index.html + web/static/app.css; CFG-07B и любые параллельные UI-писатели — строго после. Добавлены тесты-пины, которые меняют контракт: tests/test_webapp_ui_rework_round1020.py (`--sticky-save-h`=4.5rem, scroll-area без padding-bottom), tests/test_webapp_f9_round1025.py (safe-area один раз/keyboard), tests/test_webapp_hotfix9_round1025.py (modal-actions adjacency), tests/js/** (asap8_d1213_save_contract_test.js — чип-CTA D13; round1025_f9_savebar_visual_test.js; round1025_save_state_test.js), новый tests/test_cfg04_forms_contract.py и tools/ui_cfg04_*.py. Read-only reuse: tests/ui_p0a_ux_speech_compact_e2e.py, tests/test_soul1_w6_speech_ui.py (P0A-UX speech — не редактировать), services/param_catalog.py и web/api/* — без изменений, Δ каталога 0, DDL 0. CFG-04 закрывает 8 код-строк (B.4/B.5/C.3/D.2/D.3 + guard F/T4/C5), 8 preprod-live (B.1-B.3/C.1/C.2/C.4/C.5/A.1), 4 postdeploy (D.1/D.4/D.5/B). D.4: PET — live client не blocking gate; при недоступности честный PENDING_OWNER_E2E. Алиасы: D13 (ASAP8 v6) — поздний CFG-04 L157 меняет роль чипа, тест пере-пинится с обоснованием; P0A-PERSIST-TRUTH/B.4 reuse; ADD-EXP не пересекается; CFG-05.3/ADD-2.5 потребляют before/after glass. CFG-03 map-residue (14 PENDING) — bookkeeping debt, не код-блокер.",
       "acceptance": "Мобильные формы: один сценарий сохранения, dirty-state, клавиатура/safe-area/поворот без перекрытий и потерь ввода; фон и композиция сохранены."
     },
     {
