@@ -1,0 +1,24 @@
+REL-25896 runtime-РґРµР»СЊС‚Р° 113f3a62..f06f376f (pathspec config services web handlers bot.py)
+config/settings.py               |   2 +-
+ services/direct_chat_service.py  | 235 +++++++++++++++--
+ services/mca_authorial_speech.py |  26 ++
+ services/mca_expression.py       | 551 +++++++++++++++++++++++++++++++++++++++
+ services/mca_gates.py            |  12 +
+ services/mca_sample_library.py   | 212 ++++++++++++++-
+ services/prompt_composer.py      | 125 ++++++++-
+ web/api/speech.py                | 396 +++++++++++++++++++++-------
+ web/app.js                       | 139 +++++++++-
+ web/index.html                   |  61 ++++-
+ 10 files changed, 1637 insertions(+), 122 deletions(-)
+
+runtime-С„Р°Р№Р»С‹ (10):
+  config/settings.py
+  services/direct_chat_service.py
+  services/mca_authorial_speech.py
+  services/mca_expression.py
+  services/mca_gates.py
+  services/mca_sample_library.py
+  services/prompt_composer.py
+  web/api/speech.py
+  web/app.js
+  web/index.html

@@ -1,0 +1,30 @@
+﻿REL-25896 - focused/blast runs on candidate (worktree, detached @ f06f376f43da96958421e13d5e6b8dbfdc32b801)
+worktree: C:\Users\main\.config\opencode\OpenCodeScratch\adminbot-ccef72c25768\release-25896\wt
+interpreter: C:\Code\Python\adminbot\.venv\Scripts\python.exe ; pytest -q -p no:cacheprovider
+started: 2026-10-19T13:57:35Z
+
+s1-add-exp  ADD-EXP contract (expect 31 passed)
+      -> 31 passed, 1 warning in 3.90s (rc=0)
+
+s2-sec54  ADD-EXP sec 5.4 set (w6 + persistfix + flags-composition; review round1 = 49)
+      -> 49 passed, 1 warning in 4.36s (rc=0)
+
+s3-cluster  speech/composer/direct/authorial/sample-library clusters (16 files)
+      -> 492 passed, 1 warning in 24.04s (rc=0)
+
+s4-capability-registry  capability/registry sanity (ADD-1.E2)
+      -> 53 passed in 3.81s (rc=0)
+
+s5-f8-pins  F8 pins/meta after bump (expect 29 passed)
+      -> 29 passed in 5.06s (rc=0)
+
+S6  tools/gen_param_registry_round1025.py --check
+      -> CHECK OK: СЂРµРµСЃС‚СЂ 579 == REGISTRY, РєР°СЂС‚Р° РїРѕР»РЅР°, R17-С‡РёСЃС‚Рѕ, TSV/map РёРґРµРјРїРѕС‚РµРЅС‚РЅС‹. (rc=0)
+
+S9  JS-syntax sweep: node --check
+      -> files=105 bad=0
+
+S10  tests/ui_p0a_ux_speech_compact_e2e.py (UI e2e, Playwright)
+      -> == РРўРћР“: failures=0, POST=22 (rc=0)
+
+finished: 2026-10-19T13:59:33Z

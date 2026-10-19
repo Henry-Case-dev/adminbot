@@ -1,0 +1,49 @@
+REL-25896 pytest-attribution (кандидат f06f376f = bump 14535c59 + fix, изолированный worktree, чистый прогон #2)
+
+COMMAND: .venv\Scripts\python.exe -m pytest tests/ -q -p no:cacheprovider
+RESULT:  9 failed, 14552 passed, 39 skipped, 1 warning in 690.08s (0:11:30)
+TIME:    690.08s
+
+FAILED (9) — сравнение с прогоном кандидата 2.58.95
+(release-25895/pytest-full.txt: 9 failed, 14520 passed, 39 skipped, 1 warning in 737.70s (0:12:17)):
+  - tests/test_asap7_direct_settings.py::test_migration_v35_idempotent_twice   [same-as-2.58.95]
+  - tests/test_asap7_direct_settings.py::test_backup_guard_fires_before_pending_step   [same-as-2.58.95]
+  - tests/test_history_cli.py::TestCliFts::test_scope_is_required   [same-as-2.58.95]
+  - tests/test_mca01_tx_task_supervisor_round1027.py::test_write_points_go_through_single_writer   [same-as-2.58.95]
+  - tests/test_t5150_startup_migrations_round1046.py::test_a_ddl_window_survives_lock_longer_than_base_5s   [same-as-2.58.95]
+  - tests/test_t5150_startup_migrations_round1046.py::test_b_step_retry_recovers_after_locked   [same-as-2.58.95]
+  - tests/test_t5150_startup_migrations_round1046.py::test_d_migration_chain_full_log_trail   [same-as-2.58.95]
+  - tests/test_t5150_startup_migrations_round1046.py::test_e_v32_db_applies_v33_once_with_guard   [same-as-2.58.95]
+  - tests/test_t5150_startup_migrations_round1046.py::test_e2_v33_db_applies_v34_once_with_guard   [same-as-2.58.95]
+
+Прогон #1 (до fix f06f376f) дал 10 failed: дополнительно
+  - tests/test_status_section_ui_merge_round1019.py::TestStatusSectionMerge::test_mode_version_line_removed
+Это детерминированный дефект, внесённый дельтой ADD-EXP (4a09e29a): блок
+live-check экспрессии в web/index.html использует законную метку «Режим:», а
+легаси-гард round1019 проверял подстроку «Режим:» по ВСЕЙ странице. На базе
+113f3a62 файл зелёный (7 passed) — коллизия только от дельты.
+Минимальный фикс f06f376f: область проверки сужена до карточки «Статус»
+(контракт round1019 сохранён: в «Статусе» нет строки режима/версии; глобальные
+проверки statusData.bot.mode/version оставлены). RED->GREEN: 1f/6p -> 7p.
+Доказательства: pytest-run1-red.txt, focused-legacy-guard-fix.txt.
+
+Атрибуция (пре-сущ. классы, ни один не связан с дельтой ADD-EXP; дельта
+не трогает ни один из этих файлов — см. delta-non-plans.txt):
+  * tests/test_t5150_startup_migrations_round1046.py ×5 — устаревший ожидаемый
+    список миграций (воспроизводится на базе без фикса; файл дельтой не тронут);
+  * tests/test_asap7_direct_settings.py ×2 — миграции v35 (пре-сущ., тот же
+    список в прогоне 2.58.95/2.58.94);
+  * tests/test_mca01_tx_task_supervisor_round1027.py ×1 — пре-сущ. (тот же в 2.58.95);
+  * tests/test_history_cli.py::TestCliFts::test_scope_is_required ×1 —
+    environment-артефакт чистого worktree (тот же в 2.58.95);
+  * env-флейк random_source-класса — в этом прогоне не сработал
+    (ожидаемый класс: test_mca10a_random_source_block_*).
+
+
+ПРЯМОЕ доказательство пре-сущ. (база = прод 113f3a62, отдельный worktree
+release-25896\wt-base @ 113f3a62, тот же интерпретатор):
+  tests/test_asap7_direct_settings.py + tests/test_history_cli.py +
+  tests/test_mca01_tx_task_supervisor_round1027.py +
+  tests/test_t5150_startup_migrations_round1046.py
+  -> 9 failed, 63 passed in 25.66s — те же ID, что и на кандидате (см. focused-base-pre-existing.txt).
+  На кандидате дельтой эти файлы не тронуты (см. delta-non-plans.txt).

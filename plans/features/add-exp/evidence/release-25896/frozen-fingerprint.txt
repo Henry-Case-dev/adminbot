@@ -1,0 +1,28 @@
+REL-25896 frozen-fingerprint: кандидат bump-коммит 14535c59 (2.58.96);
+worktree: C:\Users\main\.config\opencode\OpenCodeScratch\adminbot-ccef72c25768\release-25896\wt (detached @ 14535c59); база: 113f3a62 (прод 2.58.95)
+
+EXPECT12 (deploy_25896.py) — sha256_12 + полный sha256:
+  config/settings.py                             1f39e0269056  1f39e02690564a5b2bb6194a44b00c532472427117d17debaef048c72964b24b  # bump 2.58.96
+  services/direct_chat_service.py                0faaa6034f71  0faaa6034f711a7b2ef72751ca59407645a931301c54443fd3398653469fc011  # ADD-EXP wiring (Direct L2/tool_phase)
+  services/mca_authorial_speech.py               55e8fd72ccff  55e8fd72ccff083b38a3b62d65c0352a0bf21e01efb41a2dc033a1a30e9ba363  # ADD-EXP wiring (authorial)
+  services/mca_expression.py                     2b0d09888243  2b0d09888243c9302f10771cb0c17c60d6f43a1158c0a436148d7b190cb2a1b9  # ADD-EXP (новый)
+  services/mca_gates.py                          1f6c28841d8a  1f6c28841d8acc6efaf957abe4db31db7773fb16e7c59876ba3be2c27a75c9f9  # ADD-EXP env kill-switch
+  services/mca_sample_library.py                 a7f81b4f62c0  a7f81b4f62c090c68cf4a5afb4df5e1fc0f8a687ed67d364aa07751de1bd7099  # ADD-EXP register-сиды/few-shot
+  services/prompt_composer.py                    721773eada65  721773eada6574a4581c731f642675e7cec4be8ac2c9e2b2e5fd72ee0482b693  # ADD-EXP ExpressionSettings
+  web/api/speech.py                              85741bcacdbf  85741bcacdbf25998c325810ea6f2e88e3378c2a4312a9a575dbc27b179fed8f  # ADD-EXP API/merge/live-check
+  web/app.js                                     1d68fede513e  1d68fede513ea2867cd49a0b49e7d05c7e4d1b33f9aa6da3492eacab62e2bf3a  # ADD-EXP UI
+  web/index.html                                 b80dad12a482  b80dad12a482349eabab20e7ef7176aeb60e30ab628f3f8121df36ab3a1e5fb3  # ADD-EXP UI
+  README.md                                      9af3db32f047  9af3db32f047a9b9579afeaa6e76ff77645883ea19ac68b22f791f593a6345bb  # bump
+  plans/docs/param-registry-round1025.meta.md    5e804bb16316  5e804bb163165c08e7ce1c0a54e65d20644c6a34c7ec2d630a9a7a43deae868e  # bump (HEAD=f1463f10)
+  web/static/fullscreen-policy.js                96db06425079  96db064250793f02356890adff33dda090ec637c4ae9f26b232f60bbce867ded  # sanity (байт-в-байт 2.58.95)
+  services/telegram_send.py                      e23bced2fdb8  e23bced2fdb84d6735c6b68e9ce7a2bd21d7bd1e43ad2d74946e649d851b896f  # sanity (байт-в-байт 2.58.95)
+
+deploy_25896.py    sha256_12 b8179a3cdb3f  sha256 b8179a3cdb3f85c05877a527a315c141a18ea4b59ef616774ff746972ea7bc52
+rel96_final.sh     sha256_12 26548559ad7b  sha256 26548559ad7b9860ef9826f44e079a6db01ab1a74e27e839891dd2673d81ede6
+check_deploy_25896.py sha256_12 69cf192c0a3a  sha256 69cf192c0a3a02a154b983d7c053541b2de94dc07490ad7db64ab796156fed2b
+
+bump-коммит: 14535c59b1303c1fe027bf5f81c83d1ecc042ef0
+fix-коммит (test-only): f06f376f43da96958421e13d5e6b8dbfdc32b801
+родитель bump (поезд): f1463f10cad38aff0340082b8f57a84cd7219aef
+прод-база: 113f3a629cab54f7fcc261349a7c9af3b90f56d7
+F8-meta HEAD-штамп: f1463f10 (последний коммит поезда до bump)

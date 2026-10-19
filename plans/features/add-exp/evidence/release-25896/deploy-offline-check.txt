@@ -1,0 +1,15 @@
+BUMP_COMMIT = 14535c59b1303c1fe027bf5f81c83d1ecc042ef0
+PROD_REF    = 113f3a629cab54f7fcc261349a7c9af3b90f56d7
+PROD_BRANCH = release/fix-2.58.95
+whitelist   = 10
+EXPECT12    = 14
+hash errors: none
+runtime delta (prod..BUMP) == whitelist: True
+runtime delta (prod..HEAD) == whitelist: True
+delta count: 10 | head: 10
+delta: ['config/settings.py', 'services/direct_chat_service.py', 'services/mca_authorial_speech.py', 'services/mca_expression.py', 'services/mca_gates.py', 'services/mca_sample_library.py', 'services/prompt_composer.py', 'web/api/speech.py', 'web/app.js', 'web/index.html']
+BUMP == HEAD: False (HEAD f06f376f43da)
+BUMP is ancestor of HEAD: True (╨║╨░╨╜╨┤╨╕╨┤╨░╤В = bump + fix + docs; B3-╨│╨╡╨╣╤В deploy ╨┐╤А╨╛╨▓╨╡╤А╤П╨╡╤В ancestor)
+upload rel96_final.sh exists: True
+PAGE_VER_EXPECT 15 SUBST_CSS 2 EXPECT_VER 2.58.96 ROLLBACK release/fix-2.58.94 2.58.94 PROD_BRANCH release/fix-2.58.95
+OFFLINE-CHECK: EXIT 0 (PASS)

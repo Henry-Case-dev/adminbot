@@ -1,0 +1,16 @@
+﻿CWD: C:\Users\main\.config\opencode\OpenCodeScratch\adminbot-ccef72c25768\release-25896\wt
+HEAD: f06f376f43da96958421e13d5e6b8dbfdc32b801
+COMMAND: "C:\Code\Python\adminbot\.venv\Scripts\python.exe" -m pytest tests/ -q -p no:cacheprovider
+NOTE: run #2 (РїРѕСЃР»Рµ fix-РєРѕРјРјРёС‚Р° f06f376f; run #1 = s8-*)
+START_UTC: 2026-10-19T13:44:09Z
+END_UTC: 2026-10-19T13:55:43Z
+EXIT: 1
+--- tail ---
+FAILED tests/test_history_cli.py::TestCliFts::test_scope_is_required - Assert...
+FAILED tests/test_mca01_tx_task_supervisor_round1027.py::test_write_points_go_through_single_writer
+FAILED tests/test_t5150_startup_migrations_round1046.py::test_a_ddl_window_survives_lock_longer_than_base_5s
+FAILED tests/test_t5150_startup_migrations_round1046.py::test_b_step_retry_recovers_after_locked
+FAILED tests/test_t5150_startup_migrations_round1046.py::test_d_migration_chain_full_log_trail
+FAILED tests/test_t5150_startup_migrations_round1046.py::test_e_v32_db_applies_v33_once_with_guard
+FAILED tests/test_t5150_startup_migrations_round1046.py::test_e2_v33_db_applies_v34_once_with_guard
+9 failed, 14552 passed, 39 skipped, 1 warning in 690.08s (0:11:30)

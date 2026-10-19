@@ -1,0 +1,23 @@
+.F.....                                                                  [100%]
+================================== FAILURES ===================================
+____________ TestStatusSectionMerge.test_mode_version_line_removed ____________
+
+self = <tests.test_status_section_ui_merge_round1019.TestStatusSectionMerge object at 0x000002459D066030>
+
+    def test_mode_version_line_removed(self):
+>       assert "Режим:" not in HTML
+E       assert 'Режим:' not in '<!DOCTYPE h...>\n</html>\n'
+E         
+E         'Режим:' is contained here:
+E         ?           ^^^
+E                <div>Режим: {{ speechLiveCheckResult.mode }}; корней мата: {{ speechLiveCheckResult.profanity_roots }}; маркер слоя в payload: {{ speechLiveCheckResult.expression_marker ? 'есть' : 'нет' }}; {{ speechLiveCheckResult.elapsed_ms }} мс</div>
+E         ?           ^^^^^^^^^
+E                                     <pre class="speech-pre" data-speech-live-reply>{{ speechLiveCheckResult.reply }}</pre>
+E                                     <div>{{ liveCheckDiagText() }}</div>...
+E         
+E         ...Full output truncated (3456 lines hidden), use '-vv' to show
+
+tests\test_status_section_ui_merge_round1019.py:30: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_status_section_ui_merge_round1019.py::TestStatusSectionMerge::test_mode_version_line_removed
+1 failed, 6 passed in 3.03s

@@ -1,0 +1,16 @@
+REL-25896: полный прогон #1 (кандидат 14535c59, ДО fix-коммита f06f376f) —
+RED-доказательство дефекта легаси-гарда round1019.
+
+RESULT: 10 failed, 14551 passed, 39 skipped, 1 warning in 735.35s (0:12:15)
+
+FAILED (10):
+  - tests/test_asap7_direct_settings.py::test_migration_v35_idempotent_twice
+  - tests/test_asap7_direct_settings.py::test_backup_guard_fires_before_pending_step
+  - tests/test_history_cli.py::TestCliFts::test_scope_is_required
+  - tests/test_mca01_tx_task_supervisor_round1027.py::test_write_points_go_through_single_writer
+  - tests/test_status_section_ui_merge_round1019.py::TestStatusSectionMerge::test_mode_version_line_removed
+  - tests/test_t5150_startup_migrations_round1046.py::test_a_ddl_window_survives_lock_longer_than_base_5s
+  - tests/test_t5150_startup_migrations_round1046.py::test_b_step_retry_recovers_after_locked
+  - tests/test_t5150_startup_migrations_round1046.py::test_d_migration_chain_full_log_trail
+  - tests/test_t5150_startup_migrations_round1046.py::test_e_v32_db_applies_v33_once_with_guard
+  - tests/test_t5150_startup_migrations_round1046.py::test_e2_v33_db_applies_v34_once_with_guard

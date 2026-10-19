@@ -1,0 +1,339 @@
+diff --git "a/C:\\Users\\main\\.config\\opencode\\OpenCodeScratch\\adminbot-ccef72c25768\\release-25895\\deploy_25895.py" "b/C:\\Users\\main\\.config\\opencode\\OpenCodeScratch\\adminbot-ccef72c25768\\release-25896\\deploy_25896.py"
+index 388ae77a..e7e98c9d 100644
+--- "a/C:\\Users\\main\\.config\\opencode\\OpenCodeScratch\\adminbot-ccef72c25768\\release-25895\\deploy_25895.py"
++++ "b/C:\\Users\\main\\.config\\opencode\\OpenCodeScratch\\adminbot-ccef72c25768\\release-25896\\deploy_25896.py"
+@@ -1,21 +1,21 @@
+ # -*- coding: utf-8 -*-
+-"""REL-25895 2.58.95 deploy: master -> prod (198.46.175.136). ╨Э╨Х ╨Ч╨Р╨Я╨г╨б╨Ъ╨Р╨в╨м ╨▒╨╡╨╖ ╤А╨╡╤И╨╡╨╜╨╕╤П ╨╛╤А╨║╨╡╤Б╤В╤А╨░╤В╨╛╤А╨░.
+-
+-╨Ъ╨░╨╜╨┤╨╕╨┤╨░╤В: master-╨╗╨╕╨╜╨╕╤П ╨┐╨╛╤Б╨╗╨╡ ╨┐╤А╨╛╨┤-2.58.94 (9072347b) тАФ ╤Б╨╛╤Б╤В╨░╨▓ ╨┐╨╛╨╡╨╖╨┤╨░:
+-CFG-03 (df078406: ╨┐╨╛╨╗╨╜╤Л╨╣ ╨░╤Г╨┤╨╕╤В 579 ╨┐╨░╤А╨░╨╝╨╡╤В╤А╨╛╨▓ ╨╝╨╕╨╜╨╕-╨░╨┐╨┐╨░, UI_missing=0,
+-╤З╨╡╤Б╤В╨╜╤Л╨╡ ╨╛╨┐╨╕╤Б╨░╨╜╨╕╤П 5 ┬л╨╝╤С╤А╤В╨▓╤Л╤Е┬╗ ╤А╤Г╤З╨╡╨║), POSTGEN-DIAG (61ecd034: bounded retry
+-╤В╤П╨╢╤С╨╗╨╛╨│╨╛ payload ╨┐╨╛╤Б╤В-╨│╨╡╨╜╨╡╤А╨░╤Ж╨╕╨╕, ╨╜╨╛╤А╨╝╨░╨╗╨╕╨╖╨░╤Ж╨╕╤П, sniff fill-╨▒╨░╨╣╤В╨╛╨▓, detail-
+-╨╜╨░╨▒╨╗╤О╨┤╨░╨╡╨╝╨╛╤Б╤В╤М) ╨╕ VISION-ADAPT (b20fe4f7: ╨░╨┤╨░╨┐╤В╨╕╨▓╨╜╤Л╨╣ ╤Г╨╜╨╕╨▓╨╡╤А╤Б╨░╨╗╤М╨╜╤Л╨╣
+-preprocessing тАФ staged weight->downscale, provider-agnostic ╨╗╨╕╨╝╨╕╤В╤Л, bounded
+-retry ╤В╨╛╨╗╤М╨║╨╛ image-class, ╨▒╨╡╨╖ ╨║╨╗╨░╤Б╤Б╨╕╤Д╨╕╨║╨░╤Ж╨╕╨╕ ╨║╨╛╨╜╤В╨╡╨╜╤В╨░) + bump 2.58.95
+-(35b8b455).
+-Delta ╨║╨░╨╜╨┤╨╕╨┤╨░╤В╨░ = ╨▒╨░╨╖╨╕╤Б 2.58.94 (9072347b) + 5 runtime-╤Д╨░╨╣╨╗╨╛╨▓
+-(services/image_normalize.py [╨╜╨╛╨▓╤Л╨╣], services/mca_vision.py,
+-services/postgen_vision.py, services/param_catalog.py, config/settings.py)
+-+ README/meta/TSV (╨╜╨╡ runtime) + ╤В╨╡╤Б╤В╤Л/╨╕╨╜╤Б╤В╤А╤Г╨╝╨╡╨╜╤В╤Л; ╨▓╤Б╤С </plans тАФ ╨╜╨╡ runtime.
+-T0-hardened clone of deploy_25894.py (sha256_12 4eb764c8ba0f) тАФ NF-╤Д╨╕╨║╤Б╤Л
+-╤Б╨╛╤Е╤А╨░╨╜╨╡╨╜╤Л: checked_out-╨│╨╡╨╣╤В ╨╕ tree-restore, set-equality whitelist,
+-tree-restore ╨╜╨░ ╨┐╤А╨╛╨┤-╨▓╨╡╤В╨║╤Г 2.58.94 (release/fix-2.58.94 / detach 9072347b),
++"""REL-25896 2.58.96 deploy: master -> prod (198.46.175.136). ╨Э╨Х ╨Ч╨Р╨Я╨г╨б╨Ъ╨Р╨в╨м ╨▒╨╡╨╖ ╤А╨╡╤И╨╡╨╜╨╕╤П ╨╛╤А╨║╨╡╤Б╤В╤А╨░╤В╨╛╤А╨░.
++
++╨Ъ╨░╨╜╨┤╨╕╨┤╨░╤В: master-╨╗╨╕╨╜╨╕╤П ╨┐╨╛╤Б╨╗╨╡ ╨┐╤А╨╛╨┤-2.58.95 (113f3a62) тАФ ╤Б╨╛╤Б╤В╨░╨▓ ╨┐╨╛╨╡╨╖╨┤╨░:
++ADD-EXP (4a09e29a: ╤А╨╡╨╢╨╕╨╝╤Л ╤Н╨║╤Б╨┐╤А╨╡╤Б╤Б╨╕╨╕ off/occasional/frequent, ╨▓╤А╨╡╨╖╨░╨╜╨╜╤Л╨╡ ╨▓
++╨╢╨╕╨▓╤Г╤О ╨│╨╡╨╜╨╡╤А╨░╤Ж╨╕╤О тАФ per-control effective, allowed->occasional, diag-╨║╨╗╨░╤Б╤Б╤Л,
++few-shot register-╤Б╨╕╨┤╤Л + approve, UI live-check; ╤А╨╡╨▓╤М╤О 981e9902 Needs Fixes ->
++RECHECK d0afd2cc Approved, BLOCK-1 ╨╖╨░╨║╤А╤Л╤В) + bump 2.58.96 (14535c59).
++Delta ╨║╨░╨╜╨┤╨╕╨┤╨░╤В╨░ = ╨▒╨░╨╖╨╕╤Б 2.58.95 (113f3a62) + 10 runtime-╤Д╨░╨╣╨╗╨╛╨▓
++(services/mca_expression.py [╨╜╨╛╨▓╤Л╨╣], services/mca_gates.py,
++services/prompt_composer.py, services/mca_sample_library.py,
++services/direct_chat_service.py, services/mca_authorial_speech.py,
++web/api/speech.py, web/app.js, web/index.html, config/settings.py [bump])
+++ README/meta (╨╜╨╡ runtime) + ╤В╨╡╤Б╤В╤Л/evidence; ╨▓╤Б╤С </plans тАФ ╨╜╨╡ runtime.
++T0-hardened clone of deploy_25895.py (╨Ш╨б╨Я╨а╨Р╨Т╨Ы╨Х╨Э╨Э╨л╨Щ, sha256_12 473686f333fb) тАФ
++NF-╤Д╨╕╨║╤Б╤Л ╤Б╨╛╤Е╤А╨░╨╜╨╡╨╜╤Л: checked_out-╨│╨╡╨╣╤В ╨╕ tree-restore, set-equality whitelist,
++tree-restore ╨╜╨░ ╨┐╤А╨╛╨┤-╨╗╨╕╨╜╨╕╤О 2.58.95 (release/fix-2.58.95 / detach 113f3a62),
+ WARNINGS-summary, SERVED_EQ-╨┐╤А╨╛╨▓╨╡╤А╨║╨░, ╨╛╨┤╨╕╨╜ SSH-╨║╨╛╨╜╨╜╨╡╨║╤В ╨╜╨░ main,
+-USER_VERSION ╨┤╨╛/╨┐╨╛╤Б╨╗╨╡ (╬ФDDL).
++USER_VERSION ╨┤╨╛/╨┐╨╛╤Б╨╗╨╡ (╬ФDDL), apre-╤Д╨╕╨║╤Б (A_pre_state ╨╜╨╡ ╨┐╨╡╤А╨╡╨╖╨░╨┐╨╕╤Б╤Л╨▓╨░╨╡╤В╤Б╤П),
++_rb detach-fallback.
+ 
+@@ -24,12 +24,12 @@ USER_VERSION ╨┤╨╛/╨┐╨╛╤Б╨╗╨╡ (╬ФDDL).
+ main = 1 ╨┐╨╛╨┤╨║╨╗╤О╤З╨╡╨╜╨╕╨╡: A pre-state -> B fetch -> C checkout+delta-whitelist
+--> D sha256_12 + ╨╝╨░╤А╨║╨╡╤А╤Л -> F restart + T0 + healthz 2.58.95 -> G served
+-bytes -> J rel95_final.sh (read-only).
++-> D sha256_12 + ╨╝╨░╤А╨║╨╡╤А╤Л -> F restart + T0 + healthz 2.58.96 -> G served
++bytes -> J rel96_final.sh (read-only).
+ 
+ ╨У╤А╨░╨╜╨╕╤Ж╤Л ╨╛╤В╨║╨░╤В╨░: abort ╨┤╨╛ ╤А╨╡╤Б╤В╨░╤А╤В╨░ -> _tree_restore: checkout ╨┐╤А╨╛╨┤-╨▓╨╡╤В╨║╨╕
+-release/fix-2.58.94 (fallback тАФ detach 9072347b); abort ╨┐╨╛╤Б╨╗╨╡ ╤А╨╡╤Б╤В╨░╤А╤В╨░
+-(healthz != 2.58.95 ╨╕╨╗╨╕ ╨┐╨╛╤Б╨╗╨╡ T0) -> _rb: ╨┐╤А╨╡╨┤╤Л╨┤╤Г╤Й╨╕╨╣ ╤А╨░╨▒╨╛╤З╨╕╨╣ ╤А╨╡╨╗╨╕╨╖
+-release/fix-2.58.93 (2.58.93) + graceful restart.
++release/fix-2.58.95 (fallback тАФ detach 113f3a62); abort ╨┐╨╛╤Б╨╗╨╡ ╤А╨╡╤Б╤В╨░╤А╤В╨░
++(healthz != 2.58.96 ╨╕╨╗╨╕ ╨┐╨╛╤Б╨╗╨╡ T0) -> _rb: ╨┐╤А╨╡╨┤╤Л╨┤╤Г╤Й╨╕╨╣ ╤А╨░╨▒╨╛╤З╨╕╨╣ ╤А╨╡╨╗╨╕╨╖
++release/fix-2.58.94 (2.58.94) + graceful restart.
+ 
+ ╨Я╤А╨╛╨▓╨╡╤А╨║╨░ ╤Б╨▓╨╡╨╢╨╡╤Б╤В╨╕ origin (╨┐╤Г╨╜╨║╤В B3): origin/master ╨╛╨▒╤П╨╖╨░╨╜ ╤Б╨╛╨┤╨╡╤А╨╢╨░╤В╤М
+-BUMP_COMMIT (bump-╨║╨╛╨╝╨╝╨╕╤В 2.58.95). ╨Э╨╡╤Б╨▓╨╡╨╢╨╕╨╣ origin/master тАФ aborted ╨┤╨╛ B3
++BUMP_COMMIT (bump-╨║╨╛╨╝╨╝╨╕╤В 2.58.96). ╨Э╨╡╤Б╨▓╨╡╨╢╨╕╨╣ origin/master тАФ aborted ╨┤╨╛ B3
+ (fail-fast), ╨╜╨╕╤З╨╡╨│╨╛ ╨╜╨╡ ╤В╤А╨╛╨│╨░╨╡╨╝.
+@@ -44,3 +44,3 @@ import paramiko
+ 
+-S = os.environ["OPENCODE_WORKFLOW_SCRATCH"] + r"\release-25895"
++S = os.environ["OPENCODE_WORKFLOW_SCRATCH"] + r"\release-25896"
+ EV = os.path.join(S, "logs")
+@@ -52,18 +52,19 @@ APP = "/var/www/admin_bot"
+ BRANCH = "master"
+-PROD_REF = "9072347b986b91f05d580a11c1aae6646b250e29"   # deployed 2.58.94
++PROD_REF = "113f3a629cab54f7fcc261349a7c9af3b90f56d7"   # deployed 2.58.95
+ # NF-1b (╤Б╨╛╤Е╤А╨░╨╜╨╡╨╜╨╛): ╤Ж╨╡╨╗╤М tree-restore (abort ╨┤╨╛ ╤А╨╡╤Б╤В╨░╤А╤В╨░) тАФ ╨┐╤А╨╛╨┤-╨╗╨╕╨╜╨╕╤П
+-# 2.58.94, ╨Э╨Х ╨╛╤В╨║╨░╤В╨╜╤Л╨╣ ╤А╤Г╨▒╨╡╨╢ 2.58.93. ╨Т╨╡╤В╨║╨░ release/fix-2.58.94 ╤Б╨╛╨╖╨┤╨░╤С╤В╤Б╤П ╨┐╤А╨╕
+-# ╨┐╤Г╤И╨╡ ╨╜╨░ 9072347b; fallback тАФ ╤В╨╛╤З╨╜╤Л╨╣ detach PROD_REF (╨╛╨▒╤К╨╡╨║╤В ╤Г╨╢╨╡ ╨╡╤Б╤В╤М ╨▓
++# 2.58.95, ╨Э╨Х ╨╛╤В╨║╨░╤В╨╜╤Л╨╣ ╤А╤Г╨▒╨╡╨╢ 2.58.94. ╨Т╨╡╤В╨║╨░ release/fix-2.58.95 ╤Б╨╛╨╖╨┤╨░╤С╤В╤Б╤П ╨┐╤А╨╕
++# ╨┐╤Г╤И╨╡ ╨╜╨░ 113f3a62; fallback тАФ ╤В╨╛╤З╨╜╤Л╨╣ detach PROD_REF (╨╛╨▒╤К╨╡╨║╤В ╤Г╨╢╨╡ ╨╡╤Б╤В╤М ╨▓
+ # ╨┐╤А╨╛╨┤-╤А╨╡╨┐╨╛ ╨║╨░╨║ HEAD).
+-PROD_BRANCH = "release/fix-2.58.94"
+-BUMP_COMMIT = "35b8b455d0dc2552f06de82ddd5a127fac0a5d9f"  # bump 2.58.95
+-ROLLBACK_BRANCH = "release/fix-2.58.93"   # ╤И╤В╨░╤В╨╜╤Л╨╣ ╤А╤Г╨▒╨╡╨╢ ╨╛╤В╨║╨░╤В╨░
+-ROLLBACK_VER = "2.58.93"
+-# DEVOPS-DEPLOY-95: ╨▓╨╡╤В╨║╨╕ release/fix-2.58.93 ╨▓ ╨┐╤А╨╛╨┤-╤А╨╡╨┐╨╛ ╨╜╨╡╤В (recon 19.10:
+-# LOCAL93=MISSING), ╨╜╨╛ ╨╛╨▒╤К╨╡╨║╤В tip-╨║╨╛╨╝╨╝╨╕╤В╨░ ╨┐╤А╨╕╤Б╤Г╤В╤Б╤В╨▓╤Г╨╡╤В (OBJ_RB93TIP=commit) тАФ
+-# fallback _rb ╨╜╨░ detach ╤Н╤В╨╛╨│╨╛ ╨║╨╛╨╝╨╝╨╕╤В╨░, ╨╕╨╜╨░╤З╨╡ ╨░╨▓╤В╨╛-╨╛╤В╨║╨░╤В ╨╜╨╡╨╕╤Б╨┐╨╛╨╗╨╜╨╕╨╝.
+-ROLLBACK_TIP = "b4d30cab364e920d453d2d6a2afe2f95e1c24834"
+-EXPECT_VER = "2.58.95"
++PROD_BRANCH = "release/fix-2.58.95"
++BUMP_COMMIT = "14535c59b1303c1fe027bf5f81c83d1ecc042ef0"  # bump 2.58.96
++ROLLBACK_BRANCH = "release/fix-2.58.94"   # ╤И╤В╨░╤В╨╜╤Л╨╣ ╤А╤Г╨▒╨╡╨╢ ╨╛╤В╨║╨░╤В╨░
++ROLLBACK_VER = "2.58.94"
++# DEVOPS-DEPLOY-96: ╨▓╨╡╤В╨║╨░ release/fix-2.58.94 ╨╡╤Б╤В╤М ╨╜╨░ origin (ls-remote
++# 19.10 13:00Z, = 9072347b), ╨╜╨╛ ╨▓ ╨┐╤А╨╛╨┤-╤А╨╡╨┐╨╛ ╨╗╨╛╨║╨░╨╗╤М╨╜╨╛╨╣ ╨▓╨╡╤В╨║╨╕ ╨╝╨╛╨╢╨╡╤В ╨╜╨╡ ╨▒╤Л╤В╤М тАФ
++# fallback _rb ╨╜╨░ detach tip-╨║╨╛╨╝╨╝╨╕╤В╨░ 9072347b (╨╛╨▒╤К╨╡╨║╤В ╨▓ ╨┐╤А╨╛╨┤-╤А╨╡╨┐╨╛ ╨╡╤Б╤В╤М:
++# ╤Н╤В╨╛ HEAD ╨┤╨╛ ╨▓╤Л╨║╨░╤В╨░ 2.58.95), ╨╕╨╜╨░╤З╨╡ ╨░╨▓╤В╨╛-╨╛╤В╨║╨░╤В ╨╜╨╡╨╕╤Б╨┐╨╛╨╗╨╜╨╕╨╝.
++ROLLBACK_TIP = "9072347b986b91f05d580a11c1aae6646b250e29"
++EXPECT_VER = "2.58.96"
+ # PAGE_VER  = ╤З╨╕╤Б╨╗╨╛ ╨б╨в╨а╨Ю╨Ъ ╨╛╤В╨┤╨░╨╜╨╜╨╛╨│╨╛ /web/ ╤Б ╨▓╨╡╤А╤Б╨╕╨╡╨╣ = 15 ╨┐╨╛╨┤╤Б╤В╨░╨╜╨╛╨▓╨╛╨║ `?v=`
+-#             (3 CSS-link + 12 script src) тАФ ╨╛╨╢╨╕╨┤╨░╨╜╨╕╨╡ 15, ╨╜╨╡ ┬л╨▓╨╡╤А╤Б╨╕╤П 2.58.95┬╗;
++#             (3 CSS-link + 12 script src) тАФ ╨╛╨╢╨╕╨┤╨░╨╜╨╕╨╡ 15, ╨╜╨╡ ┬л╨▓╨╡╤А╤Б╨╕╤П 2.58.96┬╗;
+ # SUBST_CSS = ╤З╨╕╤Б╨╗╨╛ ╨б╨в╨а╨Ю╨Ъ ╨╛╤В╨┤╨░╨╜╨╜╨╛╨│╨╛ /static/app.css ╤Б ╨▓╨╡╤А╤Б╨╕╨╡╨╣ = 2 (url()
+@@ -73,29 +74,38 @@ EXPECT_SUBST_CSS = 2
+ 
+-# runtime-╤Д╨░╨╣╨╗╤Л, ╨║╨╛╤В╨╛╤А╤Л╨╝ ╨а╨Р╨Ч╨а╨Х╨и╨Х╨Э╨Ю ╨╛╤В╨╗╨╕╤З╨░╤В╤М╤Б╤П ╨╛╤В ╨┐╤А╨╛╨┤╨░ (9072347b):
+-# CFG-03 (param_catalog) + POSTGEN-DIAG (image_normalize [╨╜╨╛╨▓╤Л╨╣] +
+-# mca_vision + postgen_vision) + VISION-ADAPT (mca_vision +
+-# image_normalize) + config/settings.py (bump-╨▓╨╡╤А╤Б╨╕╤П).
+-# ╨Ы╤О╨▒╨╛╨╣ ╨┤╤А╤Г╨│╨╛╨╣ runtime = abort.
++# runtime-╤Д╨░╨╣╨╗╤Л, ╨║╨╛╤В╨╛╤А╤Л╨╝ ╨а╨Р╨Ч╨а╨Х╨и╨Х╨Э╨Ю ╨╛╤В╨╗╨╕╤З╨░╤В╤М╤Б╤П ╨╛╤В ╨┐╤А╨╛╨┤╨░ (113f3a62):
++# ADD-EXP (mca_expression [╨╜╨╛╨▓╤Л╨╣] + mca_gates + prompt_composer +
++# mca_sample_library + direct_chat_service + mca_authorial_speech +
++# web/api/speech + web/app.js + web/index.html) + config/settings.py
++# (bump-╨▓╨╡╤А╤Б╨╕╤П). ╨Ы╤О╨▒╨╛╨╣ ╨┤╤А╤Г╨│╨╛╨╣ runtime = abort.
+ RUNTIME_WHITELIST = [
+     "config/settings.py",
+-    "services/image_normalize.py",
+-    "services/mca_vision.py",
+-    "services/param_catalog.py",
+-    "services/postgen_vision.py",
++    "services/direct_chat_service.py",
++    "services/mca_authorial_speech.py",
++    "services/mca_expression.py",
++    "services/mca_gates.py",
++    "services/mca_sample_library.py",
++    "services/prompt_composer.py",
++    "web/api/speech.py",
++    "web/app.js",
++    "web/index.html",
+ ]
+ 
+-# ╨Ш╨╝╤П EXPECT12 ╤Б╨╛╤Е╤А╨░╨╜╨╡╨╜╨╛ ╨╛╤В ╨┐╤А╨╛╤И╨╗╤Л╤Е ╤А╨╡╨╗╨╕╨╖╨╛╨▓ (╨╝╨╡╤Е╨░╨╜╨╕╨╖╨╝ ╤В╨╛╤В ╨╢╨╡); ╤Д╨░╨║╤В╨╕╤З╨╡╤Б╨║╨╕ 9
+-# ╨░╤А╤В╨╡╤Д╨░╨║╤В╨╛╨▓: 5 runtime (CFG-03/POSTGEN-DIAG/VISION-ADAPT + bump-settings)
+-# + README + meta + 2 sanity.
++# ╨Ш╨╝╤П EXPECT12 ╤Б╨╛╤Е╤А╨░╨╜╨╡╨╜╨╛ ╨╛╤В ╨┐╤А╨╛╤И╨╗╤Л╤Е ╤А╨╡╨╗╨╕╨╖╨╛╨▓ (╨╝╨╡╤Е╨░╨╜╨╕╨╖╨╝ ╤В╨╛╤В ╨╢╨╡); ╤Д╨░╨║╤В╨╕╤З╨╡╤Б╨║╨╕ 14
++# ╨░╤А╤В╨╡╤Д╨░╨║╤В╨╛╨▓: 10 runtime (ADD-EXP + bump-settings) + README + meta + 2 sanity.
+ EXPECT12 = {
+-    # runtime payload ╨┐╨╛╨╡╨╖╨┤╨░ (5) тАФ CFG-03 + POSTGEN-DIAG + VISION-ADAPT
+-    "services/image_normalize.py": "b4f9f7a95d6d",   # POSTGEN-DIAG (╨╜╨╛╨▓╤Л╨╣)
+-    "services/mca_vision.py": "a768eac7387b",
+-    "services/postgen_vision.py": "232e65a4af41",
+-    "services/param_catalog.py": "4886ff036b0e",     # CFG-03 (== f8 re-pin)
+-    "config/settings.py": "1e534c6c15c3",            # bump + VISION-ADAPT env
+-    # bump (2) тАФ README + F8-meta (HEAD=b20fe4f7)
+-    "README.md": "28cdd3dfbd8d",
+-    "plans/docs/param-registry-round1025.meta.md": "889a98e3c961",
+-    # sanity (2) тАФ ╨▒╨░╨╣╤В-╨▓-╨▒╨░╨╣╤В ╨╜╨╡╨╕╨╖╨╝╨╡╨╜╨╜╤Л╨╡ ╨░╤А╤В╨╡╤Д╨░╨║╤В╤Л 2.58.94
++    # runtime payload ╨┐╨╛╨╡╨╖╨┤╨░ (10) тАФ ADD-EXP + bump-settings
++    "config/settings.py": "1f39e0269056",            # bump 2.58.96
++    "services/direct_chat_service.py": "0faaa6034f71",
++    "services/mca_authorial_speech.py": "55e8fd72ccff",
++    "services/mca_expression.py": "2b0d09888243",    # ADD-EXP (╨╜╨╛╨▓╤Л╨╣)
++    "services/mca_gates.py": "1f6c28841d8a",
++    "services/mca_sample_library.py": "a7f81b4f62c0",
++    "services/prompt_composer.py": "721773eada65",
++    "web/api/speech.py": "85741bcacdbf",
++    "web/app.js": "1d68fede513e",
++    "web/index.html": "b80dad12a482",
++    # bump (2) тАФ README + F8-meta (HEAD=f1463f10)
++    "README.md": "9af3db32f047",
++    "plans/docs/param-registry-round1025.meta.md": "5e804bb16316",
++    # sanity (2) тАФ ╨▒╨░╨╣╤В-╨▓-╨▒╨░╨╣╤В ╨╜╨╡╨╕╨╖╨╝╨╡╨╜╨╜╤Л╨╡ ╨░╤А╤В╨╡╤Д╨░╨║╤В╤Л 2.58.95
+     "web/static/fullscreen-policy.js": "96db06425079",
+@@ -104,3 +114,3 @@ EXPECT12 = {
+ UPLOADS = {
+-    "/tmp/rel95_final.sh": "rel95_final.sh",
++    "/tmp/rel96_final.sh": "rel96_final.sh",
+ }
+@@ -182,5 +192,5 @@ def main():
+         log("[recon rc=%d, %.1fs]\n%s%s" % (rc, time.time() - t0, out, err))
+-        io.open(os.path.join(EV, "recon95.txt"), "w", encoding="utf-8",
++        io.open(os.path.join(EV, "recon96.txt"), "w", encoding="utf-8",
+                 newline="\n").write("\n".join(LOG) + "\n")
+-        print("saved -> logs/recon95.txt")
++        print("saved -> logs/recon96.txt")
+         return 0 if rc == 0 else 1
+@@ -195,5 +205,5 @@ def main():
+         step(cli, "R1_checkout",
+-             "cd %s && git checkout %s > /tmp/rel95_rb.log 2>&1 || "
+-             "git checkout --detach %s >> /tmp/rel95_rb.log 2>&1; "
+-             "echo RB_CO_RC=$?; tail -3 /tmp/rel95_rb.log; "
++             "cd %s && git checkout %s > /tmp/rel96_rb.log 2>&1 || "
++             "git checkout --detach %s >> /tmp/rel96_rb.log 2>&1; "
++             "echo RB_CO_RC=$?; tail -3 /tmp/rel96_rb.log; "
+              "echo RB_HEAD=$(git rev-parse --short HEAD)"
+@@ -201,5 +211,5 @@ def main():
+         step(cli, "R2_restart",
+-             "SUDO95='%s' sh -c 'printf \"%%s\\n\" \"$SUDO95\" | sudo -S "
+-             "systemctl restart admin_bot > /tmp/rel95_rb2.log 2>&1; "
+-             "echo RB_RESTART_RC=$?'; tail -2 /tmp/rel95_rb2.log" % pw,
++             "SUDO96='%s' sh -c 'printf \"%%s\\n\" \"$SUDO96\" | sudo -S "
++             "systemctl restart admin_bot > /tmp/rel96_rb2.log 2>&1; "
++             "echo RB_RESTART_RC=$?'; tail -2 /tmp/rel96_rb2.log" % pw,
+              timeout=300)
+@@ -214,5 +224,5 @@ def main():
+ 
+-        ╨ж╨╡╨╗╤М тАФ ╨░╨║╤В╤Г╨░╨╗╤М╨╜╤Л╨╣ ╨┐╤А╨╛╨┤ 2.58.94 (╨▓╨╡╤В╨║╨░ release/fix-2.58.94, fallback тАФ
+-        ╤В╨╛╤З╨╜╤Л╨╣ PROD_REF detach), ╨░ ╨Э╨Х ╨╛╤В╨║╨░╤В╨╜╤Л╨╣ ╤А╤Г╨▒╨╡╨╢ 2.58.93: ╨╕╨╜╨░╤З╨╡ ╤Б╨╗╨╡╨┤╤Г╤О╤Й╨╕╨╣
+-        ╤А╨╡╤Б╤В╨░╤А╤В ╨┐╨╛╨┤╨╜╤П╨╗ ╨▒╤Л 2.58.93 (╤В╨╕╤Е╨╕╨╣ downgrade). ╨б╨╡╤А╨▓╨╕╤Б ╨╜╨╡ ╤А╨╡╤Б╤В╨░╤А╤В╤Г╨╡╤В╤Б╤П.
++        ╨ж╨╡╨╗╤М тАФ ╨░╨║╤В╤Г╨░╨╗╤М╨╜╤Л╨╣ ╨┐╤А╨╛╨┤ 2.58.95 (╨▓╨╡╤В╨║╨░ release/fix-2.58.95, fallback тАФ
++        ╤В╨╛╤З╨╜╤Л╨╣ PROD_REF detach), ╨░ ╨Э╨Х ╨╛╤В╨║╨░╤В╨╜╤Л╨╣ ╤А╤Г╨▒╨╡╨╢ 2.58.94: ╨╕╨╜╨░╤З╨╡ ╤Б╨╗╨╡╨┤╤Г╤О╤Й╨╕╨╣
++        ╤А╨╡╤Б╤В╨░╤А╤В ╨┐╨╛╨┤╨╜╤П╨╗ ╨▒╤Л 2.58.94 (╤В╨╕╤Е╨╕╨╣ downgrade). ╨б╨╡╤А╨▓╨╕╤Б ╨╜╨╡ ╤А╨╡╤Б╤В╨░╤А╤В╤Г╨╡╤В╤Б╤П.
+         ╨Я╨╛╨┤╤В╨▓╨╡╤А╨╢╨┤╨╡╨╜╨╕╨╡: TR_RC=0 ╨Ш runtime-╨┤╨╕╤Д╤Д╤Л ╨┤╨╡╤А╨╡╨▓╨░ ╨┐╤А╨╛╤В╨╕╨▓ PROD_REF == 0 ╨Ш
+@@ -223,5 +233,5 @@ def main():
+             cli, "TR_checkout",
+-            "cd %s && git checkout %s > /tmp/rel95_tr.log 2>&1 || "
+-            "git checkout --detach %s >> /tmp/rel95_tr.log 2>&1; "
+-            "echo TR_RC=$?; tail -3 /tmp/rel95_tr.log; "
++            "cd %s && git checkout %s > /tmp/rel96_tr.log 2>&1 || "
++            "git checkout --detach %s >> /tmp/rel96_tr.log 2>&1; "
++            "echo TR_RC=$?; tail -3 /tmp/rel96_tr.log; "
+             "echo TR_HEAD=$(git rev-parse --short HEAD); "
+@@ -238,3 +248,3 @@ def main():
+                  "TR_TRACKED_MOD != 0 тАФ ╤Б╨╝. ╨▓╤Л╨▓╨╛╨┤ TR_checkout): ╨┤╨╡╤А╨╡╨▓╨╛ ╨┐╤А╨╛╨┤╨░ "
+-                 "╨Э╨Х ╨┐╤А╨╕╨▓╨╡╨┤╨╡╨╜╨╛ ╨║ 2.58.94 (%s, %s) тАФ ╨╜╤Г╨╢╨╡╨╜ ╨а╨г╨з╨Э╨Ю╨Щ ╤А╨░╨╖╨▒╨╛╤А ╨┤╨╛ "
++                 "╨Э╨Х ╨┐╤А╨╕╨▓╨╡╨┤╨╡╨╜╨╛ ╨║ 2.58.95 (%s, %s) тАФ ╨╜╤Г╨╢╨╡╨╜ ╨а╨г╨з╨Э╨Ю╨Щ ╤А╨░╨╖╨▒╨╛╤А ╨┤╨╛ "
+                  "╨╗╤О╨▒╨╛╨│╨╛ ╤А╨╡╤Б╤В╨░╤А╤В╨░, ╨╕╨╜╨░╤З╨╡ ╨┐╤А╨╛╨┤ ╨┐╨╛╨┤╨╜╨╕╨╝╨╡╤В╤Б╤П ╨╜╨░ ╨╜╨╡╨▓╨╡╤А╨╜╨╛╨╝ ╨║╨╛╨┤╨╡"
+@@ -244,3 +254,3 @@ def main():
+         else:
+-            log("TREE-RESTORE OK: ╨┤╨╡╤А╨╡╨▓╨╛ ╨┐╤А╨╛╨┤╨░ == 2.58.94 (runtime-╨┤╨╕╤Д╤Д╤Л ╨║ %s "
++            log("TREE-RESTORE OK: ╨┤╨╡╤А╨╡╨▓╨╛ ╨┐╤А╨╛╨┤╨░ == 2.58.95 (runtime-╨┤╨╕╤Д╤Д╤Л ╨║ %s "
+                 "= 0, tracked-mod = 0)" % PROD_REF[:12])
+@@ -277,4 +287,4 @@ def main():
+     if abort is None and "PROD_RUNTIME_DRIFT=0" not in apre:
+-        abort = ("╨┐╤А╨╛╨┤ runtime != ╨▒╨░╨╖╨╡ 2.58.94 (9072347b): drift-╤Д╨░╨╣╨╗╤Л ╨▓╤Л╤И╨╡ тАФ "
+-                 "╨┐╤А╨╛╨┤ ╨╕╨╖╨╝╨╡╨╜╨╕╨╗╤Б╤П ╨▓╨╜╨╡ 2.58.94-╨║╨╛╨╜╤В╤Г╤А╨░, ╨╜╤Г╨╢╨╡╨╜ ╤А╤Г╤З╨╜╨╛╨╣ ╤А╨░╨╖╨▒╨╛╤А")
++        abort = ("╨┐╤А╨╛╨┤ runtime != ╨▒╨░╨╖╨╡ 2.58.95 (113f3a62): drift-╤Д╨░╨╣╨╗╤Л ╨▓╤Л╤И╨╡ тАФ "
++                 "╨┐╤А╨╛╨┤ ╨╕╨╖╨╝╨╡╨╜╨╕╨╗╤Б╤П ╨▓╨╜╨╡ 2.58.95-╨║╨╛╨╜╤В╤Г╤А╨░, ╨╜╤Г╨╢╨╡╨╜ ╤А╤Г╤З╨╜╨╛╨╣ ╤А╨░╨╖╨▒╨╛╤А")
+     if abort is None and "INDEX_LOCK=absent" not in apre:
+@@ -286,4 +296,4 @@ def main():
+         "cd %s && export GIT_TERMINAL_PROMPT=0 && "
+-        "(git fetch origin %s > /tmp/rel95_fetch.log 2>&1; "
+-        "echo FETCH1_RC=$?); tail -2 /tmp/rel95_fetch.log" % (APP, BRANCH))
++        "(git fetch origin %s > /tmp/rel96_fetch.log 2>&1; "
++        "echo FETCH1_RC=$?); tail -2 /tmp/rel96_fetch.log" % (APP, BRANCH))
+     if "FETCH1_RC=0" not in out:
+@@ -292,8 +302,8 @@ def main():
+              "cd %s && printf '#!/bin/sh\\ncase \"$1\" in *sername*) echo %s;; "
+-             "*) echo \"$REL94_PULL\";; esac\\n' > /tmp/.rel95_ap.sh && "
+-             "chmod +x /tmp/.rel95_ap.sh && "
+-             "REL94_PULL='%s' GIT_ASKPASS=/tmp/.rel95_ap.sh "
++             "*) echo \"$REL94_PULL\";; esac\\n' > /tmp/.rel96_ap.sh && "
++             "chmod +x /tmp/.rel96_ap.sh && "
++             "REL94_PULL='%s' GIT_ASKPASS=/tmp/.rel96_ap.sh "
+              "GIT_TERMINAL_PROMPT=0 git fetch origin %s "
+-             "> /tmp/rel95_fetch.log 2>&1; echo FETCH2_RC=$?; "
+-             "tail -2 /tmp/rel95_fetch.log; rm -f /tmp/.rel95_ap.sh"
++             "> /tmp/rel96_fetch.log 2>&1; echo FETCH2_RC=$?; "
++             "tail -2 /tmp/rel96_fetch.log; rm -f /tmp/.rel96_ap.sh"
+              % (APP, USER, gp, BRANCH))
+@@ -313,4 +323,4 @@ def main():
+             cli, "C_checkout",
+-            "cd %s && git checkout -B %s origin/%s > /tmp/rel95_co.log 2>&1; "
+-            "echo CO_RC=$?; tail -3 /tmp/rel95_co.log; "
++            "cd %s && git checkout -B %s origin/%s > /tmp/rel96_co.log 2>&1; "
++            "echo CO_RC=$?; tail -3 /tmp/rel96_co.log; "
+             "echo NEW_HEAD=$(git rev-parse HEAD); "
+@@ -462,23 +472,24 @@ def main():
+              "| sed 's/^/META_VER /'" % APP)
+-        step(cli, "D3_markers_25895",
++        step(cli, "D3_markers_25896",
+              "cd %s && "
+-             "echo CFG03_HONEST_DESC=$(grep -c '╨Э╨╡ ╨▓╨╗╨╕╤П╨╡╤В: ╨╖╨╜╨░╤З╨╡╨╜╨╕╨╡ ╤Б╨╛╤Е╤А╨░╨╜╤П╨╡╤В╤Б╤П ╨▓ ╨║╨╛╨╜╤Д╨╕╨│╨╡' "
+-             "services/param_catalog.py) && "
+-             "echo CFG03_TSV_ROWS=$(wc -l < plans/docs/param-registry-round1025.tsv) && "
+-             "echo CFG03_INVENTORY_TOOL=$(test -f tools/cfg03_param_inventory.py && echo 1 || echo 0) && "
+-             "echo CFG03_AUDIT_TEST=$(test -f tests/test_cfg03_param_audit.py && echo 1 || echo 0) && "
++             "echo EXP_MODULE=$(test -f services/mca_expression.py && echo 1 || echo 0) && "
++             "echo EXP_RESOLVE_EFFECTIVE=$(grep -c 'def resolve_effective' services/mca_expression.py) && "
++             "echo EXP_EXAMPLES_REFS=$(grep -c 'build_expression_examples_refs' services/mca_expression.py) && "
++             "echo EXP_LAYER=$(grep -c 'LAYER_EXPRESSION = \"expression\"' services/prompt_composer.py) && "
++             "echo EXP_COMPOSER_SETTINGS=$(grep -c 'ExpressionSettings' services/prompt_composer.py) && "
++             "echo EXP_RESOLVE_SETTINGS=$(grep -c 'resolve_expression_settings' services/prompt_composer.py) && "
++             "echo EXP_GATE_FLAG=$(grep -c 'EXPRESSION_EXAMPLES_ENABLED' services/mca_gates.py) && "
++             "echo EXP_STARTERS=$(grep -c 'EXPRESSION_STARTER_SAMPLES' services/mca_sample_library.py) && "
++             "echo EXP_RESOLVE_EX=$(grep -c 'def resolve_expression_examples_ex' services/mca_sample_library.py) && "
++             "echo EXP_SEED_FN=$(grep -c 'def seed_expression_samples' services/mca_sample_library.py) && "
++             "echo EXP_AUTHORIAL_POLICY=$(grep -c 'policy_not_injected' services/mca_authorial_speech.py) && "
++             "echo EXP_SEED_API=$(grep -c 'expression_seeded' web/api/speech.py) && "
++             "echo EXP_LIVECHECK=$(grep -c 'live-check' web/api/speech.py) && "
++             "echo EXP_DCS_LINES=$(grep -c 'expression' services/direct_chat_service.py) && "
++             "echo EXP_UI_JS_LINES=$(grep -c 'expression' web/app.js) && "
++             "echo EXP_UI_HTML_LINES=$(grep -c 'expression' web/index.html) && "
++             # spot-╨╝╨░╤А╨║╨╡╤А╤Л ╨┐╨╛╨╡╨╖╨┤╨░ 2.58.95 (deployed bytes; ╨╜╨╡ ╨┤╨╛╨╗╨╢╨╜╤Л ╨╕╤Б╤З╨╡╨╖╨╜╤Г╤В╤М)
++             "echo CFG03_HONEST_DESC=$(grep -c '╨Э╨╡ ╨▓╨╗╨╕╤П╨╡╤В: ╨╖╨╜╨░╤З╨╡╨╜╨╕╨╡ ╤Б╨╛╤Е╤А╨░╨╜╤П╨╡╤В╤Б╤П ╨▓ ╨║╨╛╨╜╤Д╨╕╨│╨╡' services/param_catalog.py) && "
+              "echo PGD_NORMALIZE_MODULE=$(test -f services/image_normalize.py && echo 1 || echo 0) && "
+-             "echo PGD_VALIDATE_NORMALIZE=$(grep -c 'def validate_or_normalize' services/mca_vision.py) && "
+-             "echo PGD_SNIFF_TAG=$(grep -c 'POSTGEN-DIAG' services/mca_vision.py) && "
+-             "echo PGD_POSTGEN_TAG=$(grep -c 'POSTGEN-DIAG' services/postgen_vision.py) && "
+-             "echo PGD_TEST=$(test -f tests/test_postgen_diag.py && echo 1 || echo 0) && "
+-             "echo VA_PLAN=$(grep -c 'def plan_vision' services/image_normalize.py) && "
+-             "echo VA_OPTIMIZE=$(grep -c 'def optimize_to_fit' services/image_normalize.py) && "
+-             "echo VA_CODEC=$(grep -c 'def codec_available' services/image_normalize.py) && "
+-             "echo VA_ADAPT_EVENT=$(grep -c 'vision_adapt' services/mca_vision.py) && "
+-             "echo VA_ADAPT_LOG=$(grep -c '\\[vision\\] adapt' services/mca_vision.py) && "
+-             "echo VA_RETRY_STATUSES=$(grep -c '_ADAPT_RETRYABLE_STATUSES' services/mca_vision.py) && "
+-             "echo VA_ENV_BYTES=$(grep -c 'MCA_VISION_REQUEST_MAX_BYTES' config/settings.py) && "
+-             "echo VA_ENV_PIXELS=$(grep -c 'MCA_VISION_PREP_MAX_PIXELS' config/settings.py) && "
+-             "echo VA_TEST=$(test -f tests/test_vision_adapt.py && echo 1 || echo 0)" % APP)
++             "echo VA_ADAPT_EVENT=$(grep -c 'vision_adapt' services/mca_vision.py)" % APP)
+     if abort is not None and checked_out:
+@@ -497,8 +508,8 @@ def main():
+             + ("sudo -n systemctl restart admin_bot "
+-               "> /tmp/rel95_restart.log 2>&1; echo RESTART_RC=$?; "
+-               "tail -2 /tmp/rel95_restart.log" if sudo_ok else
+-               "SUDO95='%s' sh -c 'printf \"%%s\\n\" \"$SUDO95\" | "
++               "> /tmp/rel96_restart.log 2>&1; echo RESTART_RC=$?; "
++               "tail -2 /tmp/rel96_restart.log" if sudo_ok else
++               "SUDO96='%s' sh -c 'printf \"%%s\\n\" \"$SUDO96\" | "
+                "sudo -S systemctl restart admin_bot "
+-               "> /tmp/rel95_restart.log 2>&1; echo RESTART_RC=$?'; "
+-               "tail -2 /tmp/rel95_restart.log" % pw), timeout=300)
++               "> /tmp/rel96_restart.log 2>&1; echo RESTART_RC=$?'; "
++               "tail -2 /tmp/rel96_restart.log" % pw), timeout=300)
+         if "RESTART_RC=0" not in out:
+@@ -532,3 +543,3 @@ def main():
+                       if sudo_ok else
+-                      "SUDO95='%s' sh -c 'printf \"%%s\\n\" \"$SUDO95\" | "
++                      "SUDO96='%s' sh -c 'printf \"%%s\\n\" \"$SUDO96\" | "
+                       "sudo -S journalctl -u admin_bot --since \"%s\" --no-pager "
+@@ -541,3 +552,3 @@ def main():
+                       if sudo_ok else
+-                      "SUDO95='%s' sh -c 'printf \"%%s\\n\" \"$SUDO95\" | "
++                      "SUDO96='%s' sh -c 'printf \"%%s\\n\" \"$SUDO96\" | "
+                       "sudo -S journalctl -u admin_bot --since \"%s\" --no-pager "
+@@ -552,3 +563,3 @@ def main():
+               if sudo_ok else
+-              "SUDO95='%s' sh -c 'printf \"%%s\\n\" \"$SUDO95\" | "
++              "SUDO96='%s' sh -c 'printf \"%%s\\n\" \"$SUDO96\" | "
+               "sudo -S journalctl -u admin_bot --since \"%s\" --no-pager "
+@@ -585,6 +596,6 @@ def main():
+             cli, "J_final",
+-            ("sudo -n sh /tmp/rel95_final.sh \"%s\" %s" % (t0, EXPECT_VER)
++            ("sudo -n sh /tmp/rel96_final.sh \"%s\" %s" % (t0, EXPECT_VER)
+              if sudo_ok else
+-             "SUDO95='%s' sh -c 'printf \"%%s\\n\" \"$SUDO95\" | sudo -S sh "
+-             "/tmp/rel95_final.sh \"%s\" %s'" % (pw, t0, EXPECT_VER)),
++             "SUDO96='%s' sh -c 'printf \"%%s\\n\" \"$SUDO96\" | sudo -S sh "
++             "/tmp/rel96_final.sh \"%s\" %s'" % (pw, t0, EXPECT_VER)),
+             timeout=300)

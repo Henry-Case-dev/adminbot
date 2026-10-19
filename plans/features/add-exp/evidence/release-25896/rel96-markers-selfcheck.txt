@@ -1,0 +1,47 @@
+EXP_MODULE                         file-exists expect=1 got=1 OK
+PGD_NORMALIZE_MODULE               file-exists expect=1 got=1 OK
+EXP_RESOLVE_EFFECTIVE              grep-c expect=1 got=1 OK
+EXP_EXAMPLES_REFS                  grep-c expect=2 got=2 OK
+EXP_LAYER                          grep-c expect=1 got=1 OK
+EXP_COMPOSER_SETTINGS              grep-c expect=6 got=6 OK
+EXP_RESOLVE_SETTINGS               grep-c expect=1 got=1 OK
+EXP_GATE_FLAG                      grep-c expect=2 got=2 OK
+EXP_STARTERS                       grep-c expect=2 got=2 OK
+EXP_RESOLVE_EX                     grep-c expect=1 got=1 OK
+EXP_SEED_FN                        grep-c expect=1 got=1 OK
+EXP_AUTHORIAL_POLICY               grep-c expect=1 got=1 OK
+EXP_SEED_API                       grep-c expect=2 got=2 OK
+EXP_LIVECHECK                      grep-c expect=2 got=2 OK
+EXP_DCS_LINES                      grep-c expect=45 got=45 OK
+EXP_UI_JS_LINES                    grep-c expect=31 got=31 OK
+EXP_UI_HTML_LINES                  grep-c expect=23 got=23 OK
+CFG03_HONEST_DESC                  grep-c expect=5 got=5 OK
+VA_ADAPT_EVENT                     grep-c expect=1 got=1 OK
+DLFIX_WRAPPER                      grep-c expect=3 got=3 OK
+DLFIX_FACTORY                      grep-c expect=1 got=1 OK
+DLFIX_CONTAINER_ROOT               grep-c expect=3 got=3 OK
+DLFIX_HOST_ROOT                    grep-c expect=3 got=3 OK
+DLFIX_READABLE                     grep-c expect=2 got=2 OK
+DLFIX_BOT_FACTORY                  grep-c expect=2 got=2 OK
+DLFIX_BOT_RAW                      grep-c expect=0 got=0 OK
+DLFIX_MARKER_SRC                   grep-c expect=1 got=1 OK
+CFG02C_CONSUMPTION                 grep-c expect=3 got=3 OK
+CFG02C_COVER_CHARGE                grep-c expect=4 got=4 OK
+CFG02C_SHARED_REASON               grep-c expect=6 got=6 OK
+CFG02C_JOURNAL_TYPE                grep-c expect=3 got=3 OK
+CFG02C_COVER_USED                  grep-c expect=4 got=4 OK
+CFG02C_COVER_DAY_SQL               grep-c expect=3 got=3 OK
+CFG02C_QUOTA_CLASS                 grep-c expect=1 got=1 OK
+CFG02C_BASE_STAGE_SG               grep-c expect=2 got=2 OK
+CFG02C_BASE_STAGE_PREVIEW          grep-c expect=1 got=1 OK
+CFG02C_BASE_STAGE_TEST             grep-c expect=2 got=2 OK
+CFG02C_UI_SCOPE_LABEL              grep-c expect=1 got=1 OK
+CFG02C_UI_BREAKDOWN                grep-c expect=1 got=1 OK
+CFG02C_UI_COVER_TPL                grep-c expect=2 got=2 OK
+CFG03_TSV_ROWS                     wc-l expect=580 got=580 OK
+
+payload loop files: 12
+payload SHA12 vs EXPECT12 mismatches: none
+bash -n rc: 0 (clean)
+
+MARKER-SELFCHECK: checked=41 ok=41 bad=0 -> PASS

@@ -1,0 +1,7 @@
+REL-25896 О”DDL-check: РєР°РЅРґРёРґР°С‚ vs РїСЂРѕРґ 113f3a62
+DDL/schema-С„Р°Р№Р»С‹ РІ РґРµР»СЊС‚Рµ: plans/docs/param-registry-round1025.meta.md, tests/test_round1025_f8_registry.py
+
+services/database.py@f06f376f (user_version/SCHEMA_VERSION):
+f06f376f:services/database.py:138:_SCHEMA_VERSION = 1              # PRAGMA user_version; 0 = до Epic 46 (R46-8)
+
+Р’С‹РІРѕРґ: О”DDL = 0 (РЅРё database.py, РЅРё schema-СЂРµРµСЃС‚СЂ, РЅРё РјРёРіСЂР°С†РёРё РІ РґРµР»СЊС‚Сѓ РЅРµ РІС…РѕРґСЏС‚).

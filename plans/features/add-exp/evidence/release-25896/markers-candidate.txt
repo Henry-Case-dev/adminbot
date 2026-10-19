@@ -1,0 +1,23 @@
+REL-25896 markers-candidate: значения на кандидате 14535c59 (worktree).
+Формат: файл | маркер | ожидание | линия (grep -c, case-sensitive)
+
+services/mca_expression.py                 (файл существует)                                1 == 1   OK  # ADD-EXP модуль
+services/mca_expression.py                 def resolve_effective                            1 == 1   OK  # per-control effective merge
+services/mca_expression.py                 build_expression_examples_refs                   2 == 2   OK  # few-shot refs
+services/mca_gates.py                      EXPRESSION_EXAMPLES_ENABLED                      2 == 2   OK  # env kill-switch
+services/prompt_composer.py                LAYER_EXPRESSION = "expression"                  1 == 1   OK  # слой expression в манифесте
+services/prompt_composer.py                ExpressionSettings                               6 == 6   OK  # composer-настройки
+services/prompt_composer.py                resolve_expression_settings                      1 == 1   OK  # resolver
+services/mca_sample_library.py             EXPRESSION_STARTER_SAMPLES                       2 == 2   OK  # 12 register-сидов
+services/mca_sample_library.py             def resolve_expression_examples_ex               1 == 1   OK  # skip-reason модель
+services/mca_sample_library.py             def seed_expression_samples                      1 == 1   OK  # seed-функция (BLOCK-1)
+services/mca_authorial_speech.py           policy_not_injected                              1 == 1   OK  # diag авториала
+web/api/speech.py                          expression_seeded                                2 == 2   OK  # seed API (BLOCK-1)
+web/api/speech.py                          live-check                                       2 == 2   OK  # live-check endpoint
+services/direct_chat_service.py            expression                                      45 == 45  OK  # wiring-строки
+web/app.js                                 expression                                      31 == 31  OK  # UI-строки
+web/index.html                             expression                                      23 == 23  OK  # UI-строки
+plans/docs/param-registry-round1025.tsv    (строк, включая header)                        580 == 580 OK  # CFG-03 реестр 579
+services/param_catalog.py                  Не влияет: значение сохраняется в конфиге        5 == 5   OK  # 2.58.95 spot
+services/image_normalize.py                (файл существует)                                1 == 1   OK  # 2.58.95 spot (POSTGEN-DIAG)
+services/mca_vision.py                     vision_adapt                                     1 == 1   OK  # 2.58.95 spot (VISION-ADAPT)
