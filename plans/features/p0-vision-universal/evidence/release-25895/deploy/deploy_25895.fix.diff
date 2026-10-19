@@ -1,0 +1,50 @@
+diff --git a/deploy_25895.orig_03d52c843908.py b/deploy_25895.py
+index 4a8ad5c..388ae77 100644
+--- a/deploy_25895.orig_03d52c843908.py
++++ b/deploy_25895.py
+@@ -59,6 +59,10 @@ PROD_BRANCH = "release/fix-2.58.94"
+ BUMP_COMMIT = "35b8b455d0dc2552f06de82ddd5a127fac0a5d9f"  # bump 2.58.95
+ ROLLBACK_BRANCH = "release/fix-2.58.93"   # ╤И╤В╨░╤В╨╜╤Л╨╣ ╤А╤Г╨▒╨╡╨╢ ╨╛╤В╨║╨░╤В╨░
+ ROLLBACK_VER = "2.58.93"
++# DEVOPS-DEPLOY-95: ╨▓╨╡╤В╨║╨╕ release/fix-2.58.93 ╨▓ ╨┐╤А╨╛╨┤-╤А╨╡╨┐╨╛ ╨╜╨╡╤В (recon 19.10:
++# LOCAL93=MISSING), ╨╜╨╛ ╨╛╨▒╤К╨╡╨║╤В tip-╨║╨╛╨╝╨╝╨╕╤В╨░ ╨┐╤А╨╕╤Б╤Г╤В╤Б╤В╨▓╤Г╨╡╤В (OBJ_RB93TIP=commit) тАФ
++# fallback _rb ╨╜╨░ detach ╤Н╤В╨╛╨│╨╛ ╨║╨╛╨╝╨╝╨╕╤В╨░, ╨╕╨╜╨░╤З╨╡ ╨░╨▓╤В╨╛-╨╛╤В╨║╨░╤В ╨╜╨╡╨╕╤Б╨┐╨╛╨╗╨╜╨╕╨╝.
++ROLLBACK_TIP = "b4d30cab364e920d453d2d6a2afe2f95e1c24834"
+ EXPECT_VER = "2.58.95"
+ # PAGE_VER  = ╤З╨╕╤Б╨╗╨╛ ╨б╨в╨а╨Ю╨Ъ ╨╛╤В╨┤╨░╨╜╨╜╨╛╨│╨╛ /web/ ╤Б ╨▓╨╡╤А╤Б╨╕╨╡╨╣ = 15 ╨┐╨╛╨┤╤Б╤В╨░╨╜╨╛╨▓╨╛╨║ `?v=`
+ #             (3 CSS-link + 12 script src) тАФ ╨╛╨╢╨╕╨┤╨░╨╜╨╕╨╡ 15, ╨╜╨╡ ┬л╨▓╨╡╤А╤Б╨╕╤П 2.58.95┬╗;
+@@ -189,10 +193,11 @@ def main():
+         """Rollback: prod branch + graceful restart (axes untouched)."""
+         log("!! ROLLBACK: %s" % reason)
+         step(cli, "R1_checkout",
+-             "cd %s && git checkout %s > /tmp/rel95_rb.log 2>&1; "
++             "cd %s && git checkout %s > /tmp/rel95_rb.log 2>&1 || "
++             "git checkout --detach %s >> /tmp/rel95_rb.log 2>&1; "
+              "echo RB_CO_RC=$?; tail -3 /tmp/rel95_rb.log; "
+              "echo RB_HEAD=$(git rev-parse --short HEAD)"
+-             % (APP, ROLLBACK_BRANCH))
++             % (APP, ROLLBACK_BRANCH, ROLLBACK_TIP))
+         step(cli, "R2_restart",
+              "SUDO95='%s' sh -c 'printf \"%%s\\n\" \"$SUDO95\" | sudo -S "
+              "systemctl restart admin_bot > /tmp/rel95_rb2.log 2>&1; "
+@@ -261,15 +266,18 @@ def main():
+          "services web handlers bot.py | wc -l) && "
+          "echo INDEX_LOCK=$(test -e .git/index.lock && echo present || "
+          "echo absent)" % (APP, PROD_REF))
++    # DEVOPS-DEPLOY-95 fix: A-╨┐╤А╨╛╨▓╨╡╤А╨║╨╕ ╨╜╨╕╨╢╨╡ ╨╛╨▒╤П╨╖╨░╨╜╤Л ╤З╨╕╤В╨░╤В╤М ╨▓╤Л╨▓╨╛╨┤ A_pre_state;
++    # ╨┤╨╛ ╤Д╨╕╨║╤Б╨░ out ╨┐╨╡╤А╨╡╨╖╨░╨┐╨╕╤Б╤Л╨▓╨░╨╗╤Б╤П A2_user_version -> ╨╗╨╛╨╢╨╜╤Л╨╣ abort (run #1).
++    apre = out
+     rc, out, err = step(cli, "A2_user_version",
+          "cd %s && ./venv/bin/python -c \"import sqlite3;c=sqlite3.connect("
+          "'file:/var/www/admin_bot/local_database.db?mode=ro',uri=True);"
+          "print('USER_VERSION_BEFORE', c.execute('PRAGMA user_version')"
+          ".fetchone()[0])\" " % APP)
+-    if abort is None and "PROD_RUNTIME_DRIFT=0" not in out:
++    if abort is None and "PROD_RUNTIME_DRIFT=0" not in apre:
+         abort = ("╨┐╤А╨╛╨┤ runtime != ╨▒╨░╨╖╨╡ 2.58.94 (9072347b): drift-╤Д╨░╨╣╨╗╤Л ╨▓╤Л╤И╨╡ тАФ "
+                  "╨┐╤А╨╛╨┤ ╨╕╨╖╨╝╨╡╨╜╨╕╨╗╤Б╤П ╨▓╨╜╨╡ 2.58.94-╨║╨╛╨╜╤В╤Г╤А╨░, ╨╜╤Г╨╢╨╡╨╜ ╤А╤Г╤З╨╜╨╛╨╣ ╤А╨░╨╖╨▒╨╛╤А")
+-    if abort is None and "INDEX_LOCK=absent" not in out:
++    if abort is None and "INDEX_LOCK=absent" not in apre:
+         abort = "╨╜╨░ ╨┐╤А╨╛╨┤╨╡ .git/index.lock ╨┐╤А╨╕╤Б╤Г╤В╤Б╤В╨▓╤Г╨╡╤В"
+ 
+     # тФАтФА B. fetch тФАтФАтФАтФАтФАтФАтФАтФАтФАтФАтФАтФАтФАтФАтФАтФАтФАтФАтФАтФАтФАтФАтФАтФАтФАтФАтФАтФАтФАтФАтФАтФАтФАтФАтФАтФАтФАтФАтФАтФАтФАтФАтФАтФАтФАтФАтФАтФАтФАтФАтФАтФАтФАтФАтФАтФАтФАтФАтФА

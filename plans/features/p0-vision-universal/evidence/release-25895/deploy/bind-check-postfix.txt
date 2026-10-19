@@ -1,0 +1,22 @@
+candidate  = 113f3a629cab
+BUMP       = 35b8b455d0dc
+BUMP ancestor of candidate: True
+ART README.md                                            28cdd3dfbd8d OK 
+ART config/settings.py                                   1e534c6c15c3 OK 
+ART plans/docs/param-registry-round1025.meta.md          889a98e3c961 OK 
+ART services/image_normalize.py                          b4f9f7a95d6d OK 
+ART services/mca_vision.py                               a768eac7387b OK 
+ART services/param_catalog.py                            4886ff036b0e OK 
+ART services/postgen_vision.py                           232e65a4af41 OK 
+ART services/telegram_send.py                            e23bced2fdb8 OK 
+ART web/static/fullscreen-policy.js                      96db06425079 OK 
+runtime delta count: 5
+  DELTA config/settings.py
+  DELTA services/image_normalize.py
+  DELTA services/mca_vision.py
+  DELTA services/param_catalog.py
+  DELTA services/postgen_vision.py
+runtime delta == whitelist: True
+total delta files: 174 | non-runtime: 169
+non-runtime sample: ['README.md', 'plans/docs/param-registry-round1025.meta.md', 'plans/docs/param-registry-round1025.tsv', 'plans/features/add-exp/design-add-exp.md', 'plans/features/add-exp/evidence/f0/README.md', 'plans/features/add-exp/evidence/f0/checksums.txt', 'plans/features/add-exp/evidence/f0/cleanup-register.json', 'plans/features/add-exp/evidence/f0/cleanup-spec.json', 'plans/features/add-exp/evidence/f0/f0-live.json', 'plans/features/add-exp/evidence/f0/harness/f0_clean.py']
+BIND-CHECK: EXIT 0 (PASS)

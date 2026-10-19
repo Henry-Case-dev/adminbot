@@ -1,0 +1,13 @@
+BUMP_COMMIT = 35b8b455d0dc2552f06de82ddd5a127fac0a5d9f
+PROD_REF    = 9072347b986b91f05d580a11c1aae6646b250e29
+PROD_BRANCH = release/fix-2.58.94
+whitelist   = 5
+EXPECT12    = 9
+hash errors: none
+runtime delta == whitelist: True
+delta count: 5
+delta: ['config/settings.py', 'services/image_normalize.py', 'services/mca_vision.py', 'services/param_catalog.py', 'services/postgen_vision.py']
+BUMP == HEAD: True (HEAD 35b8b455d0dc)
+upload rel95_final.sh exists: True
+PAGE_VER_EXPECT 15 SUBST_CSS 2 EXPECT_VER 2.58.95 ROLLBACK release/fix-2.58.93 2.58.93 PROD_BRANCH release/fix-2.58.94
+OFFLINE-CHECK: EXIT 0 (PASS)

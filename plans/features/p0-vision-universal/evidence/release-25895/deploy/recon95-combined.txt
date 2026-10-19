@@ -1,0 +1,26 @@
+[recon-combined rc=0, 5.6s]
+RECON_OK
+racknerd-f4e3456
+2026-10-19T13:03:22Z
+HEAD=9072347b
+BRANCH=master
+HZ={"status":"ok","version":"2.58.94"}
+--- INFO: prod venv PIL ---
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+ModuleNotFoundError: No module named 'PIL'
+PIL_RC=1
+--- INFO: ffmpeg ---
+/usr/bin/ffmpeg
+ffmpeg version 6.1.1-3ubuntu5 Copyright (c) 2000-2023 the FFmpeg developers
+/usr/bin/ffprobe
+FFPROBE_PRESENT
+--- INFO: rollback branches in prod repo ---
+  release/fix-2.58.87
+  release/fix-2.58.89
+REMOTE_REFS=origin/release/fix-2.58.87 82e110d6 origin/release/fix-2.58.89 d59fab94
+LOCAL93=MISSING
+LOCAL94=MISSING
+OBJ_PRODREF=commit
+OBJ_RB93TIP=commit
+

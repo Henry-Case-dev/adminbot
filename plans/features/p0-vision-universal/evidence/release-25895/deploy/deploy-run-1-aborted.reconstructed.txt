@@ -1,0 +1,53 @@
+# deploy-run #1 (ABORTED, spurious) — reconstructed
+
+> Источник: консольный вывод DevOps-сессии (лейн DEVOPS-DEPLOY-95),
+> 2026-10-19T13:05:39Z–13:05:55Z UTC. Скрипт `deploy_25895.py` перезаписал
+> свой `logs/deploy-run.txt` при успешном прогоне #2, поэтому лог #1 сохранён
+> реконструкцией (текст 1:1 из вывода сессии). Аборт — ложный, из-за бага
+> `out`-shadowing в скрипте (см. `deploy_25895.fix.diff`); tree-restore
+> отработал штатно (detach `9072347b`), рестарта не было, прод не задет.
+
+### A_pre_state (rc=0, 3.0s)
+NOW_UTC=2026-10-19T13:05:39Z
+OLD_HEAD=9072347b986b91f05d580a11c1aae6646b250e29
+OLD_BRANCH=master
+HZ_BEFORE={"status":"ok","version":"2.58.94"}
+TRACKED_MOD=0
+UNTRACKED=13
+SERVICE=active
+MAINPID=3657672
+ENV_AXES=5
+PROD_RUNTIME_DRIFT=0
+INDEX_LOCK=absent
+### A2_user_version (rc=0, 1.0s)
+USER_VERSION_BEFORE 36
+### B1_fetch (rc=0, 2.4s)
+FETCH1_RC=0
+ * branch              master     -> FETCH_HEAD
+   9072347b..113f3a62  master     -> origin/master
+### B3_remote_ref (rc=0, 0.9s)
+113f3a629cab54f7fcc261349a7c9af3b90f56d7
+BUMP_IS_ANCESTOR=1
+### C_checkout (rc=0, 1.3s)
+CO_RC=0
+Reset branch 'master'
+branch 'master' set up to track 'origin/master'.
+Your branch is up to date with 'origin/master'.
+NEW_HEAD=113f3a629cab54f7fcc261349a7c9af3b90f56d7
+TRACKED_MOD_AFTER=0
+DELTA_TOTAL=174
+DELTA_RUNTIME:config/settings.py services/image_normalize.py services/mca_vision.py services/param_catalog.py services/postgen_vision.py
+DELTA_RUNTIME expected (5 whitelist-файлов): config/settings.py services/image_normalize.py services/mca_vision.py services/param_catalog.py services/postgen_vision.py
+!! TREE-RESTORE (no restart): прод runtime != базе 2.58.94 (9072347b): drift-файлы выше — прод изменился вне 2.58.94-контура, нужен ручной разбор
+### TR_checkout (rc=0, 1.3s)
+TR_RC=0
+error: pathspec 'release/fix-2.58.94' did not match any file(s) known to git
+HEAD is now at 9072347b docs(p0v): review-release-25894 - Approved (bump 70659be3 31 files version-only; delta b4d30cab..HEAD = 49 = 16 plans + 33 non-plans, runtime 3/3 == whitelist incl. bot.py filter (justified, residual root gap pre-existing); EXPECT12 8/8 verified from git object; contract on real aiogram 3.29.1 (wrap_local_file.to_local, real Bot.download test); my runs: dl 7, sweep 195, media 741, t5150 5f/2p pre-existing, F8 29, registry 579, JS 88/0; full 9f/14473p = 9 pre-existing, flake not fired; NF fixes + F5 marker + mca_media_analyses counters; offline EXIT 0; no deploy, no push)
+TR_HEAD=9072347b
+TR_BRANCH=detached
+TR_TRACKED_MOD=0
+TR_RUNTIME_DRIFT=0
+TREE-RESTORE OK: дерево прода == 2.58.94 (runtime-диффы к 9072347b986b = 0, tracked-mod = 0)
+ABORTED: прод runtime != базе 2.58.94 (9072347b): drift-файлы выше — прод изменился вне 2.58.94-контура, нужен ручной разбор
+saved -> logs/deploy-run.txt
+EXIT=2

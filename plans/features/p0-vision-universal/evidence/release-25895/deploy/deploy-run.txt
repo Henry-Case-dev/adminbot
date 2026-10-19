@@ -1,0 +1,300 @@
+### A_pre_state (rc=0, 2.5s)
+NOW_UTC=2026-10-19T13:07:33Z
+OLD_HEAD=9072347b986b91f05d580a11c1aae6646b250e29
+OLD_BRANCH=detached
+HZ_BEFORE={"status":"ok","version":"2.58.94"}
+TRACKED_MOD=0
+UNTRACKED=13
+SERVICE=active
+MAINPID=3657672
+ENV_AXES=5
+PROD_RUNTIME_DRIFT=0
+INDEX_LOCK=absent
+### A2_user_version (rc=0, 1.0s)
+USER_VERSION_BEFORE 36
+### B1_fetch (rc=0, 1.3s)
+FETCH1_RC=0
+From https://github.com/Henry-Case-dev/adminbot
+ * branch              master     -> FETCH_HEAD
+### B3_remote_ref (rc=0, 0.9s)
+113f3a629cab54f7fcc261349a7c9af3b90f56d7
+BUMP_IS_ANCESTOR=1
+### C_checkout (rc=0, 1.3s)
+CO_RC=0
+Switched to and reset branch 'master'
+branch 'master' set up to track 'origin/master'.
+Your branch is up to date with 'origin/master'.
+NEW_HEAD=113f3a629cab54f7fcc261349a7c9af3b90f56d7
+TRACKED_MOD_AFTER=0
+DELTA_TOTAL=174
+DELTA_RUNTIME:config/settings.py services/image_normalize.py services/mca_vision.py services/param_catalog.py services/postgen_vision.py
+DELTA_RUNTIME expected (5 whitelist-файлов): config/settings.py services/image_normalize.py services/mca_vision.py services/param_catalog.py services/postgen_vision.py
+### D1_hashes (rc=0, 0.9s)
+28cdd3dfbd8d README.md
+1e534c6c15c3 config/settings.py
+889a98e3c961 plans/docs/param-registry-round1025.meta.md
+b4f9f7a95d6d services/image_normalize.py
+a768eac7387b services/mca_vision.py
+4886ff036b0e services/param_catalog.py
+232e65a4af41 services/postgen_vision.py
+e23bced2fdb8 services/telegram_send.py
+96db06425079 web/static/fullscreen-policy.js
+HASH-CHECK: 9/9 artifacts == expected sha256_12
+### D2_markers (rc=0, 1.2s)
+APP_VER=APP_VERSION = "2.58.95"
+DLFIX_WRAPPER=3
+DLFIX_FACTORY=1
+DLFIX_CONTAINER_ROOT=3
+DLFIX_HOST_ROOT=3
+DLFIX_READABLE=2
+DLFIX_BOT_FACTORY=2
+DLFIX_BOT_RAW=0
+DLFIX_MARKER_SRC=1
+CFG02C_CONSUMPTION=3
+CFG02C_COVER_CHARGE=4
+CFG02C_SHARED_REASON=6
+CFG02C_JOURNAL_TYPE=3
+CFG02C_COVER_USED=4
+CFG02C_COVER_DAY_SQL=3
+CFG02C_QUOTA_CLASS=1
+CFG02C_BASE_STAGE_SG=2
+CFG02C_BASE_STAGE_PREVIEW=1
+CFG02C_BASE_STAGE_TEST=2
+CFG02C_UI_SCOPE_LABEL=1
+CFG02C_UI_BREAKDOWN=1
+CFG02C_UI_COVER_TPL=2
+CFG02C_UI_LABEL_JS=1
+CFG02C_UI_LABEL_HTML=1
+TRFIX_MEDIA_TARGET_ROUTER=4
+TRFIX_MEDIA_TARGET_EXEC=1
+TRFIX_MEDIA_TARGET_DCS=1
+TRFIX_REPLY_SRC_ROUTER=3
+TRFIX_REPLY_SRC_DCS=1
+TRFIX_REFCLAIM_TF=1
+TRFIX_REFCLAIM_ROUTER=1
+VFIX_SCOPE=3
+VFIX_CLAIM_ONCE=3
+VFIX_MAINT=3
+VFIX_429WINDOW=2
+VFIX_GRANULE=3
+VFIX_REARM=2
+VISION_URL=4
+VISION_CLAIM=7
+ENTRY_CAPTION=4
+TOOLS_HEALTH=6
+POSTGEN_MODULE=1
+CFG02B_FLAG=3
+CFG02A_RESERVE_MODE=4
+GRID_SPEECH=5
+UI_VISION_LINE=2
+UI_VISION_FACTS=2
+PINS_REISSUED=2
+META_HEAD_LINE - **HEAD (short):** `b20fe4f7`
+### D3_markers_25895 (rc=0, 1.2s)
+CFG03_HONEST_DESC=5
+CFG03_TSV_ROWS=580
+CFG03_INVENTORY_TOOL=1
+CFG03_AUDIT_TEST=1
+PGD_NORMALIZE_MODULE=1
+PGD_VALIDATE_NORMALIZE=1
+PGD_SNIFF_TAG=5
+PGD_POSTGEN_TAG=2
+PGD_TEST=1
+VA_PLAN=1
+VA_OPTIMIZE=2
+VA_CODEC=1
+VA_ADAPT_EVENT=1
+VA_ADAPT_LOG=1
+VA_RETRY_STATUSES=2
+VA_ENV_BYTES=2
+VA_ENV_PIXELS=2
+VA_TEST=1
+### F1_sudo_probe (rc=0, 1.0s)
+SUDO_NOPASS=0
+### F2_restart (rc=0, 14.7s)
+RESTART_T0=2026-10-19 13:07:43
+RESTART_RC=0
+(uploaded probes: /tmp/rel95_final.sh)
+### F3_health (rc=0, 24.1s)
+HEALTH={"status":"ok","version":"2.58.95"}
+HEALTH OK (2.58.95)
+### F4_journal (rc=0, 1.3s)
+2
+[stderr] [sudo] password for nik:
+### F5_local_bot_api_marker (rc=0, 1.2s)
+1
+[stderr] [sudo] password for nik:
+### F6_journal_402 (rc=0, 1.0s)
+1
+[stderr] [sudo] password for nik:
+### G_served (rc=0, 1.2s)
+SERVED_APP_JS=44642c5a2b3e
+DISK_APP_JS=44642c5a2b3e
+SERVED_EQ_APP_JS=SAME
+SERVED_APP_CSS=6d3ae1112d50
+DISK_APP_CSS=6d3ae1112d50
+SERVED_EQ_APP_CSS=SAME
+SERVED_INDEX_HTML=225762037a58
+SCOPE_LABEL_SERVED=1
+PAGE_VER=15
+SUBST_CSS=2
+PAGE_VER_EXPECT=15
+SUBST_CSS_EXPECT=2
+### J_final (rc=0, 3.7s)
+=== NOW ===
+2026-10-19T13:08:29Z
+=== NODE ===
+HEAD=113f3a629cab54f7fcc261349a7c9af3b90f56d7
+BRANCH=master
+TRACKED_MOD=0
+=== HEALTH ===
+{"status":"ok","version":"2.58.95"}
+MainPID=3716545 NRestarts=0 ExecMainStartTimestamp=Mon 2026-10-19 13:07:57 UTC ExecMainStatus=0 ActiveState=active SubState=running 
+=== ENV AXES (.env) ===
+DOWNLOAD_ENABLED=True
+LOCAL_BOT_API_URL=http://localhost:8081
+TELEGRAM_API_FILES_DIR=docker/telegram-bot-api
+TELEGRAM_LOCAL=1
+UNIFIED_COMPOSER_ENABLED=1
+HUMOR_CRAFT_ENABLED=1
+HUMOR_LIBRARY_ENABLED=1
+HUMOR_FEEDBACK_ENABLED=1
+INITIATIVE_DIAGNOSTICS_PUBLISH_ENABLED=1
+=== CFG-03 MARKERS (deployed bytes; ожидание в скобках) ===
+CFG03_HONEST_DESC=5
+CFG03_TSV_ROWS=580
+CFG03_INVENTORY_TOOL=1
+CFG03_AUDIT_TEST=1
+=== POSTGEN-DIAG MARKERS (deployed bytes) ===
+PGD_NORMALIZE_MODULE=1
+PGD_VALIDATE_NORMALIZE=1
+PGD_SNIFF_TAG=5
+PGD_POSTGEN_TAG=2
+PGD_TEST=1
+=== VISION-ADAPT MARKERS (deployed bytes) ===
+VA_PLAN=1
+VA_OPTIMIZE=2
+VA_CODEC=1
+VA_ADAPT_EVENT=1
+VA_ADAPT_LOG=1
+VA_RETRY_STATUSES=2
+VA_ENV_BYTES=2
+VA_ENV_PIXELS=2
+VA_TEST=1
+=== DL-FIX MARKERS (deployed bytes; регрессия 2.58.94) ===
+DLFIX_WRAPPER=3
+DLFIX_FACTORY=1
+DLFIX_CONTAINER_ROOT=3
+DLFIX_HOST_ROOT=3
+DLFIX_READABLE=2
+DLFIX_BOT_FACTORY=2
+DLFIX_BOT_RAW=0
+DLFIX_MARKER_SRC=1
+=== DL-FIX STARTUP MARKER (since T0; ожидание >=1) ===
+LOCAL_BOT_API_MARKER=1
+LOCAL_BOT_API_WARN=0
+=== CFG-02C MARKERS (deployed bytes; регрессия 2.58.93) ===
+CFG02C_CONSUMPTION=3
+CFG02C_COVER_CHARGE=4
+CFG02C_SHARED_REASON=6
+CFG02C_JOURNAL_TYPE=3
+CFG02C_COVER_USED=4
+CFG02C_COVER_DAY_SQL=3
+CFG02C_QUOTA_CLASS=1
+CFG02C_BASE_STAGE_SG=2
+CFG02C_BASE_STAGE_PREVIEW=1
+CFG02C_BASE_STAGE_TEST=2
+CFG02C_UI_SCOPE_LABEL=1
+CFG02C_UI_BREAKDOWN=1
+CFG02C_UI_COVER_TPL=2
+=== 2.58.92 REGRESSION MARKERS (регрессия; байты проверены) ===
+TRFIX_MEDIA_TARGET_ROUTER=4
+TRFIX_MEDIA_TARGET_EXEC=1
+TRFIX_MEDIA_TARGET_DCS=1
+TRFIX_REPLY_SRC_ROUTER=3
+TRFIX_REPLY_SRC_DCS=1
+TRFIX_REFCLAIM_TF=1
+TRFIX_REFCLAIM_ROUTER=1
+VFIX_SCOPE=3
+VFIX_CLAIM_ONCE=3
+VFIX_MAINT=3
+VFIX_429WINDOW=2
+VFIX_GRANULE=3
+VFIX_REARM=2
+=== REGRESSION MARKERS (волна 2.58.91 — байты проверены) ===
+VISION_URL=4
+VISION_VIS=2
+VISION_PROBE=5
+VISION_CLAIM=7
+ENTRY_CAPTION=4
+TOOLS_HEALTH=6
+POSTGEN_MODULE=1
+CFG02B_FLAG=3
+CFG02A_RESERVE_MODE=4
+GRID_SPEECH=5
+UI_VISION_LINE=2
+UI_VISION_FACTS=2
+PINS_REISSUED=2
+CFG_RESOLVER=2
+SP_HUB_ENTRY=1
+FULLSCREEN_POLICY=29
+=== PAYLOAD SHA12 (disk; ожидание == EXPECT12 кандидата) ===
+services/image_normalize.py b4f9f7a95d6d
+services/mca_vision.py a768eac7387b
+services/postgen_vision.py 232e65a4af41
+services/param_catalog.py 4886ff036b0e
+config/settings.py 1e534c6c15c3
+README.md 28cdd3dfbd8d
+plans/docs/param-registry-round1025.meta.md 889a98e3c961
+=== SERVED SHA12 (HTTP) vs DISK (SERVED_EQ_*=SAME/DIFF) ===
+SERVED_APP_JS=44642c5a2b3e
+SERVED_EQ_APP_JS=SAME
+SERVED_APP_CSS=6d3ae1112d50
+SERVED_EQ_APP_CSS=SAME
+SCOPE_LABEL_SERVED=1
+=== PAGE (expect PAGE_VER=15 / SUBST_CSS=2) ===
+PAGE_VER=15
+SUBST_CSS=2
+PAGE_VER_EXPECT=15
+SUBST_CSS_EXPECT=2
+=== VISION STATE API (read-only, no secrets) ===
+{"detail":"missing init data"}
+=== WORKERS BUDGET (read-only) ===
+{"detail":"missing init data"}
+=== WORKER TICK (since T0): SKIPS-окно ожидание 0 (регрессия 2.58.92) ===
+SKIPS=0
+CLAIM_SLOW=0
+MAINT_TIMEOUT=0
+VISION_TICK=1
+=== VISION-ADAPT LIVE WINDOW (since T0; ожидание: маркер при первом тяжёлом кадре) ===
+VISION_ADAPT_JOURNAL=0
+VISION_POSTGEN_JOURNAL=0
+=== JOURNAL EVIDENCE (since T0): download->decode->vision->store ===
+VISION_DL_STAGE=0
+VISION_EVENTS=0
+COVER_JOURNAL=0
+SHARED_BUDGET_DENY=0
+=== MIGRATION LINES (since T0) ===
+Oct 19 13:08:18 racknerd-f4e3456 python[3716545]: 2026-10-19 13:08:18,448 - services.database - INFO - [database] migrations: start | current user_version=36 | pending=[]
+Oct 19 13:08:18 racknerd-f4e3456 python[3716545]: 2026-10-19 13:08:18,452 - services.database - INFO - [database] migrations: complete | user_version=36 | total 0.0s
+=== SQLITE USER_VERSION (ΔDDL=0 ожидание) ===
+USER_VERSION (36,)
+=== JOURNAL COUNTS (since T0) ===
+ERR=2
+ERR_402=1
+RUNTIMEWARN=0
+GRACEFUL=2
+POLLER=1
+VISION_PROBE_FAIL=0
+=== MCA MEDIA ANALYSES (read-only; download->decode->vision->store) ===
+MCA_ANALYSES_TOTAL 32
+MCA_ANALYSES_BY_STATUS [('failed', 24), ('ready', 7), ('running', 1)]
+MCA_ASSETS_TOTAL 3375
+=== SMOKE ROUTES (HTTPS) ===
+ROUTE /healthz 200
+ROUTE /web/ 200
+ROUTE /static/app.css 200
+=== HTTPS ===
+HTTPS_HZ={"status":"ok","version":"2.58.95"}
+=== DONE ===
+[stderr] [sudo] password for nik:
