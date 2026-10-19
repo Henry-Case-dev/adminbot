@@ -1,0 +1,38 @@
+﻿DEPLOY-25896 evidence - requirements_gate.py check --stage release (read-only)
+candidate = deployed-commit = 95d11472b9e533b554554918e3efa6b42125260b
+map = plans/features/add-exp/requirements-map.json (candidate_commit=4a09e29a..., deployed_commit="")
+exit code = 1 (ожидаемо на этой стадии)
+Map was NOT edited by this lane; ре-биндинг карты (candidate/deployed := 95d11472) и закрытие 5 RFL - §4/родительская линия.
+==============================================================================
+FAIL: candidate mismatch; map candidate_commit must match --candidate
+FAIL: EXP-UI.OFF: no evidence bound to reviewed candidate
+FAIL: EXP-UI.OCC: no evidence bound to reviewed candidate
+FAIL: EXP-UI.FREQ: no evidence bound to reviewed candidate
+FAIL: EXP-RUNTIME.READSAVE: no evidence bound to reviewed candidate
+FAIL: EXP-RUNTIME.WIRING: mandatory not ['VERIFIED'] (got READY_FOR_LIVE)
+FAIL: EXP-RUNTIME.PRIORITY: no evidence bound to reviewed candidate
+FAIL: EXP-RUNTIME.PAYLOAD: mandatory not ['VERIFIED'] (got READY_FOR_LIVE)
+FAIL: EXP-RUNTIME.DIAG: no evidence bound to reviewed candidate
+FAIL: EXP-ACCEPT.LIVE-SET: mandatory not ['VERIFIED'] (got READY_FOR_LIVE)
+FAIL: EXP-ACCEPT.ROUTES: mandatory not ['VERIFIED'] (got READY_FOR_LIVE)
+FAIL: EXP-ACCEPT.PREVIEW: no evidence bound to reviewed candidate
+FAIL: EXP-ACCEPT.REVIEW: no evidence bound to reviewed candidate
+FAIL: EXP-DIAG-PROD: no evidence bound to reviewed candidate
+FAIL: EXP-DIAG-PAYLOAD: no evidence bound to reviewed candidate
+FAIL: ADD-1.E1: no evidence bound to reviewed candidate
+FAIL: ADD-1.E2: no evidence bound to reviewed candidate
+FAIL: ADD-1.E3: no evidence bound to reviewed candidate
+FAIL: ADD-1.E4: no evidence bound to reviewed candidate
+FAIL: ADD-1.E5: no evidence bound to reviewed candidate
+FAIL: ADD-1.E6: no evidence bound to reviewed candidate
+FAIL: ADD-1.E7: no evidence bound to reviewed candidate
+FAIL: EXP-UI.MODES: no evidence bound to reviewed candidate
+FAIL: EXP-UI.INHERIT: no evidence bound to reviewed candidate
+FAIL: EXP-UI.MIGRATION: no evidence bound to reviewed candidate
+FAIL: EXP-INSTR.POSITIVE: no evidence bound to reviewed candidate
+FAIL: EXP-INSTR.FEWSHOT: no evidence bound to reviewed candidate
+FAIL: EXP-INSTR.NOPOST: no evidence bound to reviewed candidate
+FAIL: EXP-REG.QUEUE: no evidence bound to reviewed candidate
+FAIL: EXP-ACCEPT.CRITERION: mandatory not ['VERIFIED'] (got READY_FOR_LIVE)
+FAIL: map deployed_commit does not match actual deployment
+stage=release inventory=20 manual=17 scoped=29 errors=31
