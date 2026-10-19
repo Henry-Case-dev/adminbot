@@ -1,0 +1,418 @@
+{
+ "generated_utc": "2026-10-19 00:04:51",
+ "chat_id": -1002661910336,
+ "method": "Telegram Bot API deleteMessage via the deployed bot; single SSH run; safety gate vs real user messages; synthetic smart_messages fidelity rows removed",
+ "deleted": [
+  {
+   "mid": 1165721,
+   "reply_to": null,
+   "status": "deleted"
+  },
+  {
+   "mid": 1165722,
+   "bot_reply_head": "Не могу разглядеть - картинка не обработалась, висит в очереди и резул",
+   "reply_to": 1165721,
+   "status": "deleted"
+  },
+  {
+   "mid": 1165723,
+   "reply_to": null,
+   "status": "deleted"
+  },
+  {
+   "mid": 1165724,
+   "bot_reply_head": "Картинка не обработалась - висит в очереди, результата нет. Скинь ещё ",
+   "reply_to": 1165723,
+   "status": "deleted"
+  },
+  {
+   "mid": 1165725,
+   "author": "Acceptance",
+   "head": "Вода закипает при 100 °C на уровне моря.",
+   "reply_to": 1165725,
+   "status": "deleted"
+  },
+  {
+   "mid": 1165726,
+   "reply_to": null,
+   "status": "deleted"
+  },
+  {
+   "mid": 1165727,
+   "bot_reply_head": "Правда, но с одной оговоркой - это работает только на уровне моря. Зат",
+   "reply_to": 1165726,
+   "status": "deleted"
+  }
+ ],
+ "diagnostics": {
+  "events": [
+   {
+    "id": 70476,
+    "ts": 1792367621,
+    "event_name": "vision_capability_probe",
+    "outcome": "failed",
+    "reason_code": "vision_rate_limited",
+    "stage": "dedicated",
+    "level": "WARN",
+    "model": "google/gemma-4-31b-it:free",
+    "chat_id": null,
+    "operation_id": null,
+    "ej": "{\"capability\": \"rate_limited\", \"detail\": \"http_429\"}"
+   },
+   {
+    "id": 70478,
+    "ts": 1792367634,
+    "event_name": "vision_capability_probe",
+    "outcome": "success",
+    "reason_code": null,
+    "stage": "dedicated",
+    "level": "INFO",
+    "model": "nvidia/nemotron-3.5-super-vl:free",
+    "chat_id": null,
+    "operation_id": null,
+    "ej": "{\"capability\": \"ok\", \"detail\": \"\"}"
+   },
+   {
+    "id": 70479,
+    "ts": 1792367661,
+    "event_name": "vision_media",
+    "outcome": "skipped",
+    "reason_code": "vision_unavailable",
+    "stage": "download",
+    "level": "INFO",
+    "model": null,
+    "chat_id": -1002661910336,
+    "operation_id": "98aca2c4458c3850a51f5b454687c354",
+    "ej": null
+   },
+   {
+    "id": 70481,
+    "ts": 1792367725,
+    "event_name": "vision_media",
+    "outcome": "skipped",
+    "reason_code": "vision_unavailable",
+    "stage": "download",
+    "level": "INFO",
+    "model": null,
+    "chat_id": -1002661910336,
+    "operation_id": "98aca2c4458c3850a51f5b454687c354",
+    "ej": null
+   },
+   {
+    "id": 70482,
+    "ts": 1792367725,
+    "event_name": "vision_media",
+    "outcome": "skipped",
+    "reason_code": "vision_unavailable",
+    "stage": "download",
+    "level": "INFO",
+    "model": null,
+    "chat_id": -1002661910336,
+    "operation_id": "657f79fad23e72f26d5de1d3fb19317e",
+    "ej": null
+   },
+   {
+    "id": 70515,
+    "ts": 1792367658,
+    "event_name": "vision_capability_probe",
+    "outcome": "success",
+    "reason_code": null,
+    "stage": "dedicated",
+    "level": "INFO",
+    "model": "nvidia/nemotron-3.5-super-vl:free",
+    "chat_id": null,
+    "operation_id": null,
+    "ej": "{\"capability\": \"ok\", \"detail\": \"\"}"
+   },
+   {
+    "id": 70516,
+    "ts": 1792367658,
+    "event_name": "vision_media",
+    "outcome": "success",
+    "reason_code": null,
+    "stage": "ingest",
+    "level": "INFO",
+    "model": null,
+    "chat_id": -1002661910336,
+    "operation_id": "98aca2c4458c3850a51f5b454687c354",
+    "ej": null
+   },
+   {
+    "id": 70534,
+    "ts": 1792367721,
+    "event_name": "vision_media",
+    "outcome": "success",
+    "reason_code": null,
+    "stage": "ingest",
+    "level": "INFO",
+    "model": null,
+    "chat_id": -1002661910336,
+    "operation_id": "657f79fad23e72f26d5de1d3fb19317e",
+    "ej": null
+   },
+   {
+    "id": 70566,
+    "ts": 1792367819,
+    "event_name": "vision_media",
+    "outcome": "skipped",
+    "reason_code": "vision_unavailable",
+    "stage": "download",
+    "level": "INFO",
+    "model": null,
+    "chat_id": -1002661910336,
+    "operation_id": "657f79fad23e72f26d5de1d3fb19317e",
+    "ej": null
+   },
+   {
+    "id": 70567,
+    "ts": 1792367855,
+    "event_name": "vision_media",
+    "outcome": "failed",
+    "reason_code": "vision_unavailable",
+    "stage": "download",
+    "level": "WARN",
+    "model": null,
+    "chat_id": -1002661910336,
+    "operation_id": "98aca2c4458c3850a51f5b454687c354",
+    "ej": null
+   },
+   {
+    "id": 70572,
+    "ts": 1792367970,
+    "event_name": "vision_media",
+    "outcome": "failed",
+    "reason_code": "vision_unavailable",
+    "stage": "download",
+    "level": "WARN",
+    "model": null,
+    "chat_id": -1002661910336,
+    "operation_id": "657f79fad23e72f26d5de1d3fb19317e",
+    "ej": null
+   }
+  ],
+  "jobs": [
+   {
+    "job_id": "9abe292cd4d144e6b87646bda07d9415",
+    "status": "failed",
+    "reason_code": "vision_unavailable",
+    "attempt": 3,
+    "max_attempts": 4,
+    "error_code": null,
+    "created_at": 1792367721,
+    "updated_at": 1792367970,
+    "next_retry_at": 1792367968,
+    "finished_at": 1792367970
+   },
+   {
+    "job_id": "7d86dff22629493b895022af429b7eab",
+    "status": "failed",
+    "reason_code": "vision_unavailable",
+    "attempt": 3,
+    "max_attempts": 4,
+    "error_code": null,
+    "created_at": 1792367658,
+    "updated_at": 1792367855,
+    "next_retry_at": 1792367852,
+    "finished_at": 1792367855
+   },
+   {
+    "job_id": "4394afbab5e94fe68ba5629eedf64717",
+    "status": "failed",
+    "reason_code": "vision_rate_limited",
+    "attempt": 1,
+    "max_attempts": 4,
+    "error_code": null,
+    "created_at": 1792365356,
+    "updated_at": 1792365358,
+    "next_retry_at": null,
+    "finished_at": 1792365358
+   },
+   {
+    "job_id": "068707d5ad164a45abfc1f2e8664862e",
+    "status": "failed",
+    "reason_code": "vision_rate_limited",
+    "attempt": 1,
+    "max_attempts": 4,
+    "error_code": null,
+    "created_at": 1792365336,
+    "updated_at": 1792365338,
+    "next_retry_at": null,
+    "finished_at": 1792365338
+   },
+   {
+    "job_id": "d51a9449ca14431fa965b74d137abb3a",
+    "status": "failed",
+    "reason_code": "vision_rate_limited",
+    "attempt": 1,
+    "max_attempts": 4,
+    "error_code": null,
+    "created_at": 1792365303,
+    "updated_at": 1792365304,
+    "next_retry_at": null,
+    "finished_at": 1792365304
+   },
+   {
+    "job_id": "3239d35df9ba44128fe8b893706e9b26",
+    "status": "failed",
+    "reason_code": "vision_rate_limited",
+    "attempt": 1,
+    "max_attempts": 4,
+    "error_code": null,
+    "created_at": 1792365247,
+    "updated_at": 1792365248,
+    "next_retry_at": null,
+    "finished_at": 1792365248
+   },
+   {
+    "job_id": "9e8ca808305b4dedbde601a9cbfb2539",
+    "status": "failed",
+    "reason_code": "vision_rate_limited",
+    "attempt": 1,
+    "max_attempts": 4,
+    "error_code": null,
+    "created_at": 1792365155,
+    "updated_at": 1792365159,
+    "next_retry_at": null,
+    "finished_at": 1792365159
+   },
+   {
+    "job_id": "aebb578e155d44e68e69a2d78186e488",
+    "status": "failed",
+    "reason_code": "vision_rate_limited",
+    "attempt": 1,
+    "max_attempts": 4,
+    "error_code": null,
+    "created_at": 1792364353,
+    "updated_at": 1792364354,
+    "next_retry_at": null,
+    "finished_at": 1792364354
+   },
+   {
+    "job_id": "f703c14b4d2446388df2fa2c1ef1dfe8",
+    "status": "failed",
+    "reason_code": "vision_rate_limited",
+    "attempt": 1,
+    "max_attempts": 4,
+    "error_code": null,
+    "created_at": 1792363975,
+    "updated_at": 1792363978,
+    "next_retry_at": null,
+    "finished_at": 1792363978
+   },
+   {
+    "job_id": "1593ead3b2984b469e5ee4ecfb34b072",
+    "status": "failed",
+    "reason_code": "vision_rate_limited",
+    "attempt": 1,
+    "max_attempts": 4,
+    "error_code": null,
+    "created_at": 1792363933,
+    "updated_at": 1792363934,
+    "next_retry_at": null,
+    "finished_at": 1792363934
+   }
+  ],
+  "analyses": [],
+  "state_before_wait": {
+   "owner": {
+    "http": 200,
+    "body": {
+     "requested": true,
+     "effective_enabled": true,
+     "reason": "",
+     "visible_reason": "Распознавание работает",
+     "source": "dedicated",
+     "model": "nvidia/nemotron-3.5-super-vl:free",
+     "base_url": "https://openrouter.ai/api/v1",
+     "api_type": "openai_compatible",
+     "provider": "openrouter.ai",
+     "capability": "ok",
+     "detail": "",
+     "config_revision": "a3ed06b38a021513",
+     "checked_at": 8932798.579569185,
+     "stages": [
+      "ingest",
+      "download",
+      "decode",
+      "vision",
+      "validate",
+      "store",
+      "project",
+      "reindex",
+      "consumers"
+     ],
+     "process": "vision.media",
+     "process_version": "1",
+     "queue": {
+      "queued": 0,
+      "running": 0
+     },
+     "last": null
+    }
+   },
+   "global": {
+    "http": 200,
+    "body": {
+     "requested": false,
+     "effective_enabled": false,
+     "reason": "vision_disabled",
+     "visible_reason": "Распознавание изображений выключено владельцем",
+     "source": "dedicated",
+     "model": "nvidia/nemotron-3.5-super-vl:free",
+     "base_url": "https://openrouter.ai/api/v1",
+     "api_type": "openai_compatible",
+     "provider": "openrouter.ai",
+     "capability": "disabled",
+     "detail": "",
+     "config_revision": "a3ed06b38a021513",
+     "checked_at": null,
+     "stages": [
+      "ingest",
+      "download",
+      "decode",
+      "vision",
+      "validate",
+      "store",
+      "project",
+      "reindex",
+      "consumers"
+     ],
+     "process": "vision.media",
+     "process_version": "1",
+     "queue": {
+      "queued": 0,
+      "running": 0
+     },
+     "last": null
+    }
+   }
+  },
+  "settle_wait": {
+   "next_retry_at": 0,
+   "now": 1792368290,
+   "waited_s": 0
+  }
+ },
+ "scen_b": {
+  "t0_epoch": 1792365948,
+  "nostalgia_since_t0": [],
+  "nostalgia_events_since_t0": []
+ },
+ "verification": {
+  "delete_attempts": 7,
+  "deleted_now": 7,
+  "already_deleted": 0,
+  "failed": [],
+  "residual_smart_rows_for_deleted": [],
+  "synthetic_rows_removed": [
+   {
+    "mid": 1165725,
+    "rowid": 2351893
+   }
+  ],
+  "window": {
+   "lo": 1165716,
+   "hi": 1165732
+  }
+ }
+}
