@@ -1984,7 +1984,7 @@
           "type": "ui"
         }
       ],
-      "note": "Живая MiniApp-витрина — релизный лейн (Ф6); acceptance-91 покрыл enable/refusal через config API (не через UI).",
+      "note": "Живая MiniApp-витрина — релизный лейн (Ф6); acceptance-91 покрыл enable/refusal через config API (не через UI). 94 §Ф6: freq ON жил в волне (burst 3→2→1, mode per_user, source chat — c2 `freq_state`), но компактные настройки UI не упражнялись; живая MiniApp-витрина остаётся релизным лейном.",
       "live_note": "postdeploy (DevOps/Orchestrator), не owner-гейт: включение лимита в MiniApp — компактные настройки (подряд/ожидание/режим) видны и применяются."
     },
     {
@@ -2058,7 +2058,7 @@
           "type": "ui"
         }
       ],
-      "note": "Живая MiniApp-витрина — релизный лейн (Ф6); acceptance-91 покрыл enable/refusal через config API (не через UI).",
+      "note": "Живая MiniApp-витрина — релизный лейн (Ф6); acceptance-91 покрыл enable/refusal через config API (не через UI). 94 §Ф6: `limits.image_freq_limit_mode`=per_user в живом конфиге (c5), но UI-переключатель не упражнялся; остаётся релизному лейну.",
       "live_note": "postdeploy (DevOps/Orchestrator), не owner-гейт: переключение per-user/общий-на-чат в живой витрине применяется без двух включённых галочек."
     },
     {
@@ -2214,7 +2214,7 @@
           "type": "ui"
         }
       ],
-      "note": "Живая MiniApp-витрина — релизный лейн (Ф6); acceptance-91 покрыл enable/refusal через config API (не через UI).",
+      "note": "Живая MiniApp-витрина — релизный лейн (Ф6); acceptance-91 покрыл enable/refusal через config API (не через UI). 94 §Ф6: витрина budget снята по cover-разбивке (c1); freq-блок секции «Лимиты генерации» в витринном ответе не снимался (freq_state — на уровне состояния, c2/c5); секция остаётся релизному лейну.",
       "live_note": "postdeploy (DevOps/Orchestrator), не owner-гейт: секция «Лимиты генерации» на проде — активность/scope/остаток/наследование/следующая доступность; мобильный/десктоп."
     },
     {
@@ -2335,13 +2335,13 @@
       "source_text_sha256": "690f33bcbded2943d2598cd75578b34fc2bb36e4fcc94d91f344128f0b2d5796",
       "source_excerpt": "5. **MiniApp:** секция «Лимиты генерации» должна ясно обозначать «Пользовательские изображения» и давать пояснение: «Обложки сводок здесь не учитываются». Настройки лимитов обложек (если существуют) размещать в Summary. На общей странице ра",
       "disposition": "required",
-      "reason": "Код-половина: MiniApp-секция ясно обозначает «Пользовательские изображения» с пояснением «Обложки сводок здесь не учитываются»; настройки лимитов обложек — в Summary; агрегаты расходов с разбивкой по источникам; e2e PASS (детерминизм), rendered-просмотр. Живая витрина — релизный лейн (Ф6). READY_FOR_LIVE (`1d9a7107`).",
+      "reason": "ЗАКРЫТО live (94 §Ф6, 2.58.94): served `app.js` содержит «Обложки сводок здесь не учитываются» (served==disk, `SERVED_EQ=SAME`); `/api/workers/budget` отдаёт `cover_used` + chat-разбивку `cover{requests,success,...}`; изоляция обложки: `summary_cover:base` committed, chat_used 15→15 (не вырос), shared +1, cover_used +1; мем: `direct` committed, cover-агрегат без изменений; restore точен (C4/C5). VERIFIED.",
       "req_id": "CFG-02C.5",
       "slice": "CFG-02C",
       "acceptance": "MiniApp-секция ясно обозначает «Пользовательские изображения» с пояснением «Обложки сводок здесь не учитываются»; настройки лимитов обложек — в Summary; агрегаты расходов — с разбивкой по источникам.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "1d9a71070f71f81324fdfdc85e7d70c4d4e2ebf9",
@@ -2350,9 +2350,42 @@
           "artifact_path": "plans/features/cfg/evidence/cfg-02c/ui/01-desktop-user-images-label.png",
           "artifact_sha256": "c3253ae1659a17f42ebf0d2d96b1d9de7f40da9c76448ef602ac926ac277eca2",
           "type": "ui"
+        },
+        {
+          "candidate_commit": "9072347b986b91f05d580a11c1aae6646b250e29",
+          "ref": "94 §Ф6 (b) витрина",
+          "observation": "served app.js содержит «Обложки сводок здесь не учитываются» (label=1; served==disk); `/api/workers/budget`: cover_used и chat-разбивка cover{requests,success,errors,denied,delivery_failed}.",
+          "artifact_path": "plans/features/cfg/evidence/release-25893/acceptance/c1-showcase.json",
+          "artifact_sha256": "5d70232eb5ba01b2fb9ddffe905506a8e80844694f2c2de3887be6e2454ed018",
+          "type": "production"
+        },
+        {
+          "candidate_commit": "9072347b986b91f05d580a11c1aae6646b250e29",
+          "ref": "94 §Ф6 (c) изоляция обложки + restore",
+          "observation": "summary_cover:base committed; chat_used 15→15; shared 18→19; cover_used 1→2; freq-заряды целы; restore точен (C4/C5).",
+          "artifact_path": "plans/features/cfg/evidence/release-25893/acceptance/c5-cover-fix.json",
+          "artifact_sha256": "d45f80e72658541ce473ec338f9eb2f6012004a2dbe895b8dd5d31793e510ddb",
+          "type": "production"
+        },
+        {
+          "candidate_commit": "9072347b986b91f05d580a11c1aae6646b250e29",
+          "ref": "94 §Ф6 (c) изоляция мема",
+          "observation": "При daily=0 — честный отказ (0 платных вызовов); при daily=20 — source='direct' committed, chat 14→15, cover-агрегат без изменений.",
+          "artifact_path": "plans/features/cfg/evidence/release-25893/acceptance/c3-meme-isolation.json",
+          "artifact_sha256": "97d47dedf4e7b7d6f6ada3ec5810ada1286914febbb68f76cbbee7b571a9e156",
+          "type": "production"
+        },
+        {
+          "candidate_commit": "9072347b986b91f05d580a11c1aae6646b250e29",
+          "ref": "94 §Ф6 README (сводка)",
+          "observation": "Все пункты §Ф6 (b–f + restore) — VERIFIED; факты волны 94.",
+          "artifact_path": "plans/features/cfg/evidence/release-25893/acceptance/README.md",
+          "artifact_sha256": "bc3c58412f51a59c91763bb034ec84dfb1a514cdceedb6a99544fc33d1e7d640",
+          "type": "static"
         }
       ],
-      "live_note": "preprod/postdeploy — витрина на живом; релизный лейн Ф6, не owner-гейт"
+      "note": "94: owner-нота — временные предпосылки волны (budgets ON + user daily=0/20 + freq ON) поднимались только на окно приёмки и восстановлены точно дважды (C4/C5): `budgets_enabled=false` (chat), daily=5 (global), freq=false; исходные overrides `{budgets_enabled:false}` возвращены (reserve `legacy/budgets_off`).",
+      "live_note": "закрыто live (94 §Ф6): витрина served + cover-разбивка; изоляция обложка/мем; restore точен."
     },
     {
       "source_id": "L00102",

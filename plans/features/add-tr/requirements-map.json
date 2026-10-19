@@ -272,13 +272,13 @@
       "source_text_sha256": "8cc391b64eaece6f3eaf701359ff6d518265b3f4e157be4d3d2c979e1f1857d3",
       "source_excerpt": "В опубликованном коде уже существуют `ToolRouter.dispatch` с `recognize_image`, `fact_check`, `generate_image`, `get_bot_health` и их tool s",
       "disposition": "required",
-      "reason": "Код-половина закрыта: свободный ген-вход (`detect_action_intent` actionable→существующий image workflow; `gen_calls==1`, `l1_planner==1`); живая часть — postdeploy. READY_FOR_LIVE (`21eb3d3e`). Live (91/92): три инструмента подтверждены живыми прогонами; vision — positive pending 92B.",
+      "reason": "ЗАКРЫТО live (91/92/94): четыре инструмента исполнялись в живом Telegram — checkup (91: get_bot_health ok, mid 1165629), factcheck (91: ready/supported, mid 1165658), gen (91: 2 успешные генерации + доставка, mids 1165620/1165622; 92), vision (94 §1: `recognize_image` → ready → содержательный ответ, mid 1166167); сквозной сценарий «фото→Direct→recognize→ответ» пройден (active_tools→intent/план→tool_call→статус/данные→Writer→отправка). VERIFIED.",
       "req_id": "M-ADTR-TOOLS-E2E",
       "slice": "ADTR-TOOLS",
       "acceptance": "Проверены эффективный список инструментов, доступность исполнителей и успешная сквозная работа в конкретном чате: active_tools → выбранный intent/план → фактический tool_call → обработчик → статус/данные → Writer → отправка; успех в моках, наличие инструмента в реестре и зелёные тесты не выдаются за работу в живом Telegram-чате.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "948c20041a9c23d620670a3a1a2a56800aff981b",
@@ -287,13 +287,21 @@
           "artifact_path": "plans/features/add-tr/evidence/tools-minifix/green-minifix.txt",
           "artifact_sha256": "89987bbfcd219e4cc189c970dd67bfdac58098de73ebb07a1f8341e8d65170d0",
           "type": "test"
+        },
+        {
+          "candidate_commit": "9072347b986b91f05d580a11c1aae6646b250e29",
+          "ref": "94 §1 (сквозной сценарий)",
+          "observation": "photo→Direct→recognize→содержательный ответ: tool target, джоба completed, анализ ready, доставка mid 1166167.",
+          "artifact_path": "plans/features/p0-vision-universal/evidence/release-25894/acceptance/b1-recognition.json",
+          "artifact_sha256": "2fe4c40e08c2f3673bef660b3a4878fe55092ade9c3de87acd8ef558b53276a9",
+          "type": "production"
         }
       ],
-      "live_note": "postdeploy (DevOps/Orchestrator), не owner-гейт: сквозной сценарий в реальном Telegram — tool calls в живом чате.",
+      "live_note": "закрыто live (94): vision-плечо положительное (mid 1166167); checkup/factcheck/gen — 91/92.",
       "alias_of": [
         "soul-1-amd:SOUL-AMD.5.16"
       ],
-      "note": "Предв. TR-RECON: GAP — сквозная доступность в реальном чате не доказана (см. ADTR-REG-MASTER, ADTR-TOOLS-FIVEFACTS). Live-статус (91/92): factcheck/checkup/genimg — live; vision positive — RE-ACCEPTANCE-92B (download-stage)."
+      "note": "Предв. TR-RECON: GAP — сквозная доступность в реальном чате не доказана (см. ADTR-REG-MASTER, ADTR-TOOLS-FIVEFACTS). Live-статус (91/92): factcheck/checkup/genimg — live; vision positive — RE-ACCEPTANCE-92B (download-stage). 94: vision положительный live (b1) — сквозная доступность в реальном чате доказана для всех четырёх инструментов."
     },
     {
       "source_id": "M-ADTR-TOOLS-FIVEFACTS",
@@ -301,7 +309,7 @@
       "source_text_sha256": "6519751ea4f5a884a6d74695a7dc8e40c3532f91b2d4a42f0782718e490f4899",
       "source_excerpt": "Важное различие: *tool зарегистрирован*, *tool показан LLM*, *модель вызвала tool*, *tool успешно вернул данные* и *пользователь получил кор",
       "disposition": "required",
-      "reason": "Закрыто (отчёт/диагностика): пять независимых фактов различаются — зарегистрирован/показан LLM/модель вызвала/вернул данные/корректный ответ пользователю; ни один отчёт не смешивает состояния. F1/F2/F4 подтверждены кодом/тестами; F3/F5 — живой остаток (live_note). VERIFIED. Live (91 §1): F3 (модель вызвала tool — `TOOL_CALL get_bot_health`) и F5 (пользователь получил корректный ответ — mid 1165629 с реальными данными) наблюдались в том же прогоне. VERIFIED полностью.",
+      "reason": "Закрыто (отчёт/диагностика): пять независимых фактов различаются — зарегистрирован/показан LLM/модель вызвала/вернул данные/корректный ответ пользователю; ни один отчёт не смешивает состояния. F1/F2/F4 подтверждены кодом/тестами; F3/F5 — живой остаток (live_note). VERIFIED. Live (91 §1): F3 (модель вызвала tool — `TOOL_CALL get_bot_health`) и F5 (пользователь получил корректный ответ — mid 1165629 с реальными данными) наблюдались в том же прогоне. VERIFIED полностью. 94 §1: полный набор пяти фактов на vision-положительном — target 1166163 / цепочка (джоба completed) / анализ id=5 ready / доставка mid 1166167 / счётчики `MCA_ANALYSES_TOTAL` 4→5.",
       "req_id": "M-ADTR-TOOLS-FIVEFACTS",
       "slice": "ADTR-TOOLS",
       "acceptance": "Пять независимых фактов различаются в отчёте и диагностике: tool зарегистрирован / tool показан LLM / модель вызвала tool / tool успешно вернул данные / пользователь получил корректный ответ; ни один отчёт не смешивает эти состояния («зарегистрирован» ≠ «исполняется», success в моке ≠ корректный ответ пользователю).",
@@ -324,9 +332,17 @@
           "artifact_path": "plans/features/p0-vision-universal/evidence/release-25891/acceptance/scenario-1-retry.json",
           "artifact_sha256": "36f34df17e94f3eac46cccfa6d4d4a802092289338485cb647bb3b7cbaa481de",
           "type": "production"
+        },
+        {
+          "candidate_commit": "9072347b986b91f05d580a11c1aae6646b250e29",
+          "ref": "94 §1 (five-facts)",
+          "observation": "F1 target 1166163; F2 джоба completed (download→store); F3 recognize_image вызван; F4 анализ ready (388 симв.); F5 доставка mid 1166167; счётчики 4→5.",
+          "artifact_path": "plans/features/p0-vision-universal/evidence/release-25894/acceptance/b1-recognition.json",
+          "artifact_sha256": "2fe4c40e08c2f3673bef660b3a4878fe55092ade9c3de87acd8ef558b53276a9",
+          "type": "production"
         }
       ],
-      "live_note": "закрыто live (91 §1): F3/F5 наблюдались (TOOL_CALL + корректный ответ mid 1165629)."
+      "live_note": "закрыто live (91 §1): F3/F5 наблюдались (TOOL_CALL + корректный ответ mid 1165629). 94: five-facts полностью на b1 (mids 1166163/1166167)."
     },
     {
       "source_id": "M-ADTR-POSTGEN-DEFECT",
@@ -406,7 +422,7 @@
       "live_when": "postdeploy",
       "status": "PENDING",
       "evidence": [],
-      "note": "ADTR-VERIFY исполняется в ACCEPTANCE-91 (реальные tool calls + Telegram), затем закрытие; 13 сценариев/протокол/эвиденс/native/report/DoD/RF здесь не закрываются. Закрыто в этом леджере: S1/S2/S11/S12 (live 91/92); остальные сценарии/EDGE/NATIVE/DoD — добивка RE-ACCEPTANCE-92B (positive recognition/postgen/устройство)."
+      "note": "ADTR-VERIFY исполняется в ACCEPTANCE-91 (реальные tool calls + Telegram), затем закрытие; 13 сценариев/протокол/эвиденс/native/report/DoD/RF здесь не закрываются. Закрыто в этом леджере: S1/S2/S11/S12 (live 91/92); остальные сценарии/EDGE/NATIVE/DoD — добивка RE-ACCEPTANCE-92B (positive recognition/postgen/устройство). 94: покрыт live сквозной сценарий «фото→Direct→recognize→содержательный ответ» (стадии: приём/маршрут/вызов/статус/данные/Writer/отправка; mids 1166163→1166167); остаются EDGE/NATIVE и часть сценариев (S3/S4/S7/S8/S9/S10/S13)."
     },
     {
       "source_id": "M-CTX-SCENARIO-TABLE",
@@ -454,7 +470,7 @@
       "source_text_sha256": "d9e422c4357ee2a2b1430c2a108f662ec555e1b68258954deaf7189e67a69336",
       "source_excerpt": "| Текстовый reply на фото «бот, прочитай надпись» | Верно разрешён target, используется OCR/vision; нет выдумок |",
       "disposition": "required",
-      "reason": "Закрыто live (2.58.92 §3): текстовый reply на фото → target верно разрешён (`message_id: 1165606` — фото из reply, не вопрос); честный терминал без выдумок; replay → 0 новых отправок. OCR/positive — 92B (download-blocker). VERIFIED.",
+      "reason": "Закрыто live (92 §3 + 94 §1): текстовый reply на фото → target верно разрешён (`message_id: 1165606` — фото из reply, не вопрос; 94: 1166163); OCR/vision-плечо положительное — анализ ready, содержательный ответ (mid 1166167); выдумок нет; честный терминал без ready (92); replay → 0 новых отправок. VERIFIED.",
       "req_id": "M-ADTR-VERIFY-S2",
       "slice": "ADTR-VERIFY",
       "acceptance": "Текстовый reply на фото «бот, прочитай надпись»: target верно разрешён, используется OCR/vision; выдумок нет.",
@@ -468,6 +484,14 @@
           "observation": "Reply-target=фото (живая поправка после 91); dedup replay.",
           "artifact_path": "plans/features/p0-vision-universal/evidence/release-25892/acceptance/s3-vision-reply.json",
           "artifact_sha256": "a02f2b3dcb549094ccbec68820eece54feae075e160759cebd801f8135786a16",
+          "type": "production"
+        },
+        {
+          "candidate_commit": "9072347b986b91f05d580a11c1aae6646b250e29",
+          "ref": "94 §1",
+          "observation": "reply-на-фото → recognize_image (target 1166163) → ready → содержательный ответ (mid 1166167); выдумок нет.",
+          "artifact_path": "plans/features/p0-vision-universal/evidence/release-25894/acceptance/b1-recognition.json",
+          "artifact_sha256": "2fe4c40e08c2f3673bef660b3a4878fe55092ade9c3de87acd8ef558b53276a9",
           "type": "production"
         }
       ],
@@ -583,7 +607,7 @@
       "live_when": "postdeploy",
       "status": "PENDING",
       "evidence": [],
-      "note": "Предв.: GAP — новый контур анализа финального изображения (ADTR-POSTGEN-ON)."
+      "note": "Предв.: GAP — новый контур анализа финального изображения (ADTR-POSTGEN-ON). 94 §2: генерация+доставка VERIFIED (qwen-image-3-pro, 939495 B, mid 1166169), но postgen-описание bitmap — `vision_failed` (честный блок mid 1166170, не 502/429) — позитив требует новой генерации (POSTGEN-DIAG)."
     },
     {
       "source_id": "M-ADTR-VERIFY-S10",
@@ -1073,13 +1097,13 @@
       "source_text_sha256": "0a92bf27b811dc22ec0a5de55df31b3de30123a472241a94af04a3e09c7a126c",
       "source_excerpt": "1. **Vision (`recognize_image`)**: по явной команде и свободной просьбе «что на картинке», «прочитай надпись», «что здесь смешного?» модель получает правильный разрешённый `MessageRef` и инструмент; распознавание идёт через действующий `MCA",
       "disposition": "required",
-      "reason": "Код-часть подтверждена (target/ref/replay — 92 §3); живой остаток: положительное распознавание не состоялось — блокер на стадии download (легаси-ассеты; `vision_media skipped stage=download` ×4 → честный терминал; анализов нет) — не код 2.58.92. READY_FOR_LIVE (добивка RE-ACCEPTANCE-92B, свежее фото).",
+      "reason": "ЗАКРЫТО live (94 §1): положительное распознавание состоялось — свободная просьба (reply «бот, что тут?») → правильный доверенный MessageRef ({chat,1166163}) → `recognize_image` → джоба completed → анализ id=5 ready (nemotron, 388 симв.) → описание доставлено (mid 1166167, совпадает по содержанию); pending за ready не выдавался; OFF/ошибка — честная реакция (91/92/94). VERIFIED.",
       "req_id": "ADTR-TOOLS-VISION",
       "slice": "ADTR-TOOLS",
       "acceptance": "Vision (recognize_image): по явной команде и свободной просьбе («что на картинке», «прочитай надпись», «что здесь смешного?») модель получает правильный разрешённый MessageRef и инструмент; распознавание — через действующий MCA-19; результат реально доступен отвечающему Writer; ссылки на текущую/ответную медиа-цель передаются доверенно (LLM не угадывает chat_id/message_id); недоверенные ссылки и секреты не уходят внешним провайдерам; pending не выдаётся за ready — ограниченное ожидание/отслеживаемое завершение с привязкой к исходному сообщению, без «увидел» до результата и без дублирующих поздних ответов; при OFF/ошибке — честная реакция без выдуманного содержимого.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "1d367e4c561b5d1bc224c4c5ee64261945ed83bd",
@@ -1088,9 +1112,17 @@
           "artifact_path": "plans/features/p0-vision-universal/evidence/release-25892/acceptance/s3-vision-reply.json",
           "artifact_sha256": "a02f2b3dcb549094ccbec68820eece54feae075e160759cebd801f8135786a16",
           "type": "production"
+        },
+        {
+          "candidate_commit": "9072347b986b91f05d580a11c1aae6646b250e29",
+          "ref": "94 §1 (five-facts)",
+          "observation": "target={chat,1166163} (reply-на-фото) → recognize_image → джоба completed → анализ id=5 ready (388 симв.) → описание доставлено (mid 1166167).",
+          "artifact_path": "plans/features/p0-vision-universal/evidence/release-25894/acceptance/b1-recognition.json",
+          "artifact_sha256": "2fe4c40e08c2f3673bef660b3a4878fe55092ade9c3de87acd8ef558b53276a9",
+          "type": "production"
         }
       ],
-      "live_note": "positive-recognition добивка RE-ACCEPTANCE-92B (download-stage blocker; target/replay доказаны live).",
+      "live_note": "закрыто live (94 §1): target верный; анализ ready; описание доставлено (mid 1166167).",
       "note": "Предв. TR-RECON: частично REUSE_VERIFIED (MCA-19-контур/очередь/проба существуют, recognize_image зарегистрирован в ToolRouter.dispatch), дельта GAP: свободные вызовы, доверенный MessageRef, доступность результата Writer'у в Direct, bounded ожидание pending."
     },
     {
@@ -1415,14 +1447,48 @@
       "source_text_sha256": "9d20cad9eea432dce9eb351b1fe042d0657342e883a1a8766a7247c1ea7e0af6",
       "source_excerpt": "1. Новые/старые способы обращения одинаково надёжны в своей смысловой категории; старые ключевики сохранены. Caption и reply target не теряются.",
       "disposition": "required",
-      "reason": "",
+      "reason": "ЗАКРЫТО live (91/92/94): старые ключевики сохранены — канон «чекап» (mid 1165612), «нарисуй» (2 успешные генерации, mids 1165620/1165622), factcheck-путь (mid 1165658); новые способы (свободные просьбы) — «бот, что тут?» (94: содержательный ответ mid 1166167), «бот, как состояние сервера?» (91: get_bot_health ok); caption не теряется (91 §3: caption → Direct + правильный MessageRef 1165607); reply target не теряется (92 §3: 1165606; 94 §1: 1166163). VERIFIED.",
       "req_id": "ADTR-VERIFY-DOD1",
       "slice": "ADTR-VERIFY",
       "acceptance": "DoD 1: новые и старые способы обращения одинаково надёжны в своей смысловой категории; старые ключевики сохранены; caption и reply target не теряются.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "9072347b986b91f05d580a11c1aae6646b250e29",
+          "ref": "94 §1 + 91/92",
+          "observation": "reply-на-фото: target 1166163 разрешён верно; положительное распознавание и содержательный ответ (mid 1166167).",
+          "artifact_path": "plans/features/p0-vision-universal/evidence/release-25894/acceptance/b1-recognition.json",
+          "artifact_sha256": "2fe4c40e08c2f3673bef660b3a4878fe55092ade9c3de87acd8ef558b53276a9",
+          "type": "production"
+        },
+        {
+          "candidate_commit": "f2a6248ae30d8e0b1878785bb6d1477f65e21c78",
+          "ref": "91 §3 (caption-путь)",
+          "observation": "Фото с caption → Direct активирован; правильный photo MessageRef (own 1165607, asset-resolver ok); recognize_image вызван; честный отказ без ready (mid 1165613).",
+          "artifact_path": "plans/features/p0-vision-universal/evidence/release-25891/acceptance/scenario-3-vision-freeform.json",
+          "artifact_sha256": "13d0feafab886e5c9cb3b0090f3d57b9f88c0f00ad3299f6eadfaad41037a57e",
+          "type": "production"
+        },
+        {
+          "candidate_commit": "1d367e4c561b5d1bc224c4c5ee64261945ed83bd",
+          "ref": "92 §3 (reply-target фикс)",
+          "observation": "Текстовый reply на фото: target верно разрешён (message_id 1165606 — фото из reply); честный терминал без выдумок.",
+          "artifact_path": "plans/features/p0-vision-universal/evidence/release-25892/acceptance/s3-vision-reply.json",
+          "artifact_sha256": "a02f2b3dcb549094ccbec68820eece54feae075e160759cebd801f8135786a16",
+          "type": "production"
+        },
+        {
+          "candidate_commit": "f2a6248ae30d8e0b1878785bb6d1477f65e21c78",
+          "ref": "91 README (канон/ключевики live)",
+          "observation": "Канон «чекап» (1165611/1165612), «нарисуй…» → 2 успешные генерации + доставка (1165620–1165623) — старые ключевики живы.",
+          "artifact_path": "plans/features/p0-vision-universal/evidence/release-25891/acceptance/README.md",
+          "artifact_sha256": "500f37c76a1e58b2cad4416269418663d1ac52407e43e18f27b7a2d8517f0a2d",
+          "type": "static"
+        }
+      ],
+      "live_note": "закрыто live (91/92/94): старые ключевики (чекап/нарисуй) + свободные просьбы + caption/reply target."
     },
     {
       "source_id": "L00092",
@@ -1430,14 +1496,48 @@
       "source_text_sha256": "9bf1138e07877fb64193fa1db141ef416cb877e0c5d02fe0ecd573601410ce95",
       "source_excerpt": "2. Vision, Factcheck, Image Generation и Checkup доступны как **фактически исполняемые** инструменты в допустимом runtime, а не только записаны в schema. Ни один инструмент не симулирует использование недоступных данных.",
       "disposition": "required",
-      "reason": "",
+      "reason": "ЗАКРЫТО live (91/94): четыре инструмента фактически исполнялись в живом runtime — checkup (get_bot_health ok, 2283 симв., mid 1165629), factcheck (ready/supported, mid 1165658), image generation (2 успешные генерации + доставка, mids 1165620/1165622), vision (94: recognize_image → ready → доставка, mid 1166167); ни один инструмент не симулировал недоступные данные (честные отказы вместо выдумок). VERIFIED.",
       "req_id": "ADTR-VERIFY-DOD2",
       "slice": "ADTR-VERIFY",
       "acceptance": "DoD 2: Vision, Factcheck, Image Generation и Checkup доступны как фактически исполняемые инструменты в допустимом runtime, а не только записаны в schema; ни один инструмент не симулирует использование недоступных данных.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "9072347b986b91f05d580a11c1aae6646b250e29",
+          "ref": "94 §1",
+          "observation": "vision: recognize_image → ready → содержательная доставка (mid 1166167) — инструмент реально исполнен.",
+          "artifact_path": "plans/features/p0-vision-universal/evidence/release-25894/acceptance/b1-recognition.json",
+          "artifact_sha256": "2fe4c40e08c2f3673bef660b3a4878fe55092ade9c3de87acd8ef558b53276a9",
+          "type": "production"
+        },
+        {
+          "candidate_commit": "f2a6248ae30d8e0b1878785bb6d1477f65e21c78",
+          "ref": "91 §1 (checkup)",
+          "observation": "get_bot_health: TOOL_CALL_COMPLETE ok, 2283 симв., доставка mid 1165629.",
+          "artifact_path": "plans/features/p0-vision-universal/evidence/release-25891/acceptance/scenario-1-retry.json",
+          "artifact_sha256": "36f34df17e94f3eac46cccfa6d4d4a802092289338485cb647bb3b7cbaa481de",
+          "type": "production"
+        },
+        {
+          "candidate_commit": "f2a6248ae30d8e0b1878785bb6d1477f65e21c78",
+          "ref": "91 §4 (factcheck)",
+          "observation": "fact_check + web_search: ready, factual_verdict=supported; доставка mid 1165658.",
+          "artifact_path": "plans/features/p0-vision-universal/evidence/release-25891/acceptance/scenario-4-registered.json",
+          "artifact_sha256": "1fe6f8974ec291d583d8c46d0f453ee5e169402bcbff3309ad88de41952c75df",
+          "type": "production"
+        },
+        {
+          "candidate_commit": "f2a6248ae30d8e0b1878785bb6d1477f65e21c78",
+          "ref": "91 §5 (генерация)",
+          "observation": "generate_image: 2 успешные генерации (699302/558659 B) + доставка (mids 1165620–1165623).",
+          "artifact_path": "plans/features/p0-vision-universal/evidence/release-25891/acceptance/scenario-5-generate.json",
+          "artifact_sha256": "16b582b96e3406791e84b456aadc156b2a79c3fe439b4e96973f511d6451a5e5",
+          "type": "production"
+        }
+      ],
+      "live_note": "закрыто live (91/94): четыре инструмента исполнялись в живом Telegram."
     },
     {
       "source_id": "L00093",

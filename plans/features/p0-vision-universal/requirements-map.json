@@ -127,13 +127,13 @@
       "source_text_sha256": "4ed22c298d96bba67fabf0184b35b41fed2c3eb275814ef2dc85bb7a61fd38bf",
       "source_excerpt": "Настройки → сохранение → разрешение маршрута → capability probe → постановка задания → VisionMediaWorker → запрос провайдеру → структурированный результат → сохранение → использование в контексте бота.",
       "disposition": "required",
-      "reason": "Код-половина закрыта: сквозная цепочка прослеживается (настройки→route→probe→job→worker→провайдер→результат→контекст), стадии наблюдаемы событиями/полями (review §6–§9). Живая половина — журнал/прогресс на проде. READY_FOR_LIVE.",
+      "reason": "ЗАКРЫТО live (94 §1, 2.58.94): сквозная цепочка пройдена на реальном фото — локальная сессия скачала файл (131641 B, 800×600) → reply → `recognize_image` target={chat,1166163} → ready (5.1 c) → джоба воркера `44455202…` vision.media completed (09:09:27→09:09:47, download→decode→vision→store) → `mca_media_analyses` id=5 ready (nemotron, 388 симв.) → доставка mid 1166167 (совпадает по содержанию). `MCA_ANALYSES_TOTAL` 4→5; класс FileNotFound/vision_unavailable отсутствует. VERIFIED.",
       "req_id": "P0V-PIPE-E2E",
       "slice": "P0V-PIPE",
       "acceptance": "Сквозная цепочка прослеживается end-to-end: настройки → сохранение → разрешение маршрута → capability probe → постановка задания → VisionMediaWorker → запрос провайдеру → структурированный результат → сохранение → использование в контексте бота; каждая стадия наблюдаема (события/артефакты), обрывов нет.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "76b156e06c4e6132bc14f79e3571d52ebf71fbb6",
@@ -142,10 +142,26 @@
           "artifact_path": "plans/features/p0-vision-universal/evidence/fix-core/full-sweep-2026-10-19.txt",
           "artifact_sha256": "07b5bc05f0cb6334610c28b1ac666255ce2d61e90c03f6748d19431724215910",
           "type": "test"
+        },
+        {
+          "candidate_commit": "9072347b986b91f05d580a11c1aae6646b250e29",
+          "ref": "94 §1 (five-facts) + plans/features/p0-vision-universal/evidence/release-25894/acceptance/b1-recognition.json",
+          "observation": "download→decode→vision→store; джоба vision.media completed (09:09:27→09:09:47); анализ id=5 ready (nemotron, 388 симв.); доставка mid 1166167; MCA_ANALYSES_TOTAL 4→5; первый успех 08:37:31Z.",
+          "artifact_path": "plans/features/p0-vision-universal/evidence/release-25894/acceptance/b1-recognition.json",
+          "artifact_sha256": "2fe4c40e08c2f3673bef660b3a4878fe55092ade9c3de87acd8ef558b53276a9",
+          "type": "production"
+        },
+        {
+          "candidate_commit": "9072347b986b91f05d580a11c1aae6646b250e29",
+          "ref": "94 README (сводка волны)",
+          "observation": "Волна 94: b1 five-facts; b2 postgen (честный блок); §Ф6 витрина/изоляция; экономика (SKIPS=0, 402=0); уборка 9/9.",
+          "artifact_path": "plans/features/p0-vision-universal/evidence/release-25894/acceptance/README.md",
+          "artifact_sha256": "661e58edcfcb1a31f0d05050aa2e02f1ce282a13f2c3742115b683eedc961986",
+          "type": "static"
         }
       ],
-      "note": "positive-recognition/postgen добивка — RE-ACCEPTANCE-92B (положительное распознавание не состоялось: download-stage blocker, не код 2.58.92). Корневая причина download-стадий (92C): прод-бот создан с local Bot API (`is_local=True`), aiogram читает файл с локальной ФС `/var/lib/telegram-bot-api/...` (FileNotFoundError — маунта нет) — все vision-джобы падают на download (64 skipped + 32 failed за 6.6 ч; `mca_media_analyses` пуст); провайдер nemotron отдельно отдаёт 502/429 (внешние окна; 05:51:12Z — WAITING_EXTERNAL). Это деплой-финдинг (инфра), не дефект кода; фикс VISION-DL-FIX идёт; положительное распознавание — после него.",
-      "live_note": "postdeploy (DevOps/Orchestrator), не owner-гейт: журнал без `skipped: maximum number of running instances`; прогресс очереди и реальный analyze видны на проде."
+      "note": "positive-recognition/postgen добивка — RE-ACCEPTANCE-92B (положительное распознавание не состоялось: download-stage blocker, не код 2.58.92). Корневая причина download-стадий (92C): прод-бот создан с local Bot API (`is_local=True`), aiogram читает файл с локальной ФС `/var/lib/telegram-bot-api/...` (FileNotFoundError — маунта нет) — все vision-джобы падают на download (64 skipped + 32 failed за 6.6 ч; `mca_media_analyses` пуст); провайдер nemotron отдельно отдаёт 502/429 (внешние окна; 05:51:12Z — WAITING_EXTERNAL). Это деплой-финдинг (инфра), не дефект кода; фикс VISION-DL-FIX идёт; положительное распознавание — после него. 94: маркер `[local-bot-api]`=1; `VISION_DL_STAGE=6` — все 6 строк stage=download с `reason=vision_unreadable` (валидация/декод реальных форматов; путь-класс FileNotFound с выката не наблюдается, кроме 1 джобы 08:22:03 сразу после рестарта) — декод/формат — в POSTGEN-DIAG.",
+      "live_note": "закрыто live (94 §1): download→decode→vision→store; джоба completed; анализ id=5 ready; доставка mid 1166167."
     },
     {
       "source_id": "M-P0V-06a",
@@ -219,7 +235,7 @@
           "type": "production"
         }
       ],
-      "note": "Ночное окно 92C: SKIPS=0 за все ~6.6 ч (T0+); CLAIM_SLOW=22, CLAIM_TIMEOUT=1/MAINT_TIMEOUT=1 (WARNING-наблюдаемость, пропусков тика нет).",
+      "note": "Ночное окно 92C: SKIPS=0 за все ~6.6 ч (T0+); CLAIM_SLOW=22, CLAIM_TIMEOUT=1/MAINT_TIMEOUT=1 (WARNING-наблюдаемость, пропусков тика нет). 94: SKIPS=0 за окно волны; SQLite-контеншн (4×`database is locked`, 1 Traceback OperationalError, 1 interrupted джоба → watchdog `takeover_recovered`, NRestarts=0) — урок harness/нагрузки, пропусков тика нет.",
       "live_note": "закрыто live (92 §1): SKIPS=0 за 39 мин (было 36); остаток-note: claim sweep slow=10 (WARNING, допустимо)."
     },
     {
@@ -245,7 +261,7 @@
           "type": "test"
         }
       ],
-      "note": "positive-recognition/postgen добивка — RE-ACCEPTANCE-92B (положительное распознавание не состоялось: download-stage blocker, не код 2.58.92). Корневая причина download-стадий (92C): прод-бот создан с local Bot API (`is_local=True`), aiogram читает файл с локальной ФС `/var/lib/telegram-bot-api/...` (FileNotFoundError — маунта нет) — все vision-джобы падают на download (64 skipped + 32 failed за 6.6 ч; `mca_media_analyses` пуст); провайдер nemotron отдельно отдаёт 502/429 (внешние окна; 05:51:12Z — WAITING_EXTERNAL). Это деплой-финдинг (инфра), не дефект кода; фикс VISION-DL-FIX идёт; положительное распознавание — после него.",
+      "note": "positive-recognition/postgen добивка — RE-ACCEPTANCE-92B (положительное распознавание не состоялось: download-stage blocker, не код 2.58.92). Корневая причина download-стадий (92C): прод-бот создан с local Bot API (`is_local=True`), aiogram читает файл с локальной ФС `/var/lib/telegram-bot-api/...` (FileNotFoundError — маунта нет) — все vision-джобы падают на download (64 skipped + 32 failed за 6.6 ч; `mca_media_analyses` пуст); провайдер nemotron отдельно отдаёт 502/429 (внешние окна; 05:51:12Z — WAITING_EXTERNAL). Это деплой-финдинг (инфра), не дефект кода; фикс VISION-DL-FIX идёт; положительное распознавание — после него. 94 §1: входящий путь контекста доказан — анализ id=5 (ready) дошёл до ответа (mid 1166167, содержание совпадает с `visual_description`); postgen-by-bitmap: `vision_failed` (не 502/429) — диагностика POSTGEN-DIAG идёт.",
       "live_note": "postdeploy (DevOps/Orchestrator), не owner-гейт: реальный analyze — изображение распознано и использовано в ответе/поведении (наблюдаемый результат)."
     },
     {
@@ -312,13 +328,13 @@
       "source_text_sha256": "0b33d4f61494a659024c4f9a5b1e68753a61188fbdcf491fd7a0cb1aabef9fe9",
       "source_excerpt": "**Критерий завершения:** Vision работает через универсальный механизм, не зависит от OpenRouter/Gemma, корректно определяет возможности, обрабатывает ошибки, восстанавливается после временных сбоев и реально распознаёт изображения.",
       "disposition": "required",
-      "reason": "Код-половина закрыта: универсальный механизм (без OpenRouter/Gemma-зависимости), корректное определение возможностей, обработка ошибок и восстановление — покрыты кодом/тестами (review, Approved; 47/129/53 + матрица). Живая половина — реальная проба. READY_FOR_LIVE.",
+      "reason": "ЗАКРЫТО live (94): критерий достигнут — универсальный механизм (nemotron через действующий контур, без OpenRouter/Gemma-зависимости), детекция возможностей, честные ошибки, восстановление (watchdog takeover после worker_lost, NRestarts=0) и реальное распознавание: анализ id=5 ready + содержательная доставка (mid 1166167). Postgen-по-bitmap — отдельный хвост POSTGEN-DIAG. VERIFIED.",
       "req_id": "P0V-DOD",
       "slice": "P0V-ACCEPT",
       "acceptance": "Критерий завершения выполнен: Vision работает через универсальный механизм, не зависит от OpenRouter/Gemma, корректно определяет возможности, обрабатывает ошибки, восстанавливается после временных сбоев и реально распознаёт изображения — подтверждено живой пробой.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "76b156e06c4e6132bc14f79e3571d52ebf71fbb6",
@@ -327,10 +343,26 @@
           "artifact_path": "plans/features/p0-vision-universal/evidence/fix-core/full-sweep-2026-10-19.txt",
           "artifact_sha256": "07b5bc05f0cb6334610c28b1ac666255ce2d61e90c03f6748d19431724215910",
           "type": "test"
+        },
+        {
+          "candidate_commit": "9072347b986b91f05d580a11c1aae6646b250e29",
+          "ref": "94 §1 (five-facts)",
+          "observation": "Реальное распознавание изображения (id=5 ready) и содержательная доставка (mid 1166167) — DoD-критерий «реально распознаёт» выполнен; восстановление после worker_lost (watchdog takeover, NRestarts=0).",
+          "artifact_path": "plans/features/p0-vision-universal/evidence/release-25894/acceptance/b1-recognition.json",
+          "artifact_sha256": "2fe4c40e08c2f3673bef660b3a4878fe55092ade9c3de87acd8ef558b53276a9",
+          "type": "production"
+        },
+        {
+          "candidate_commit": "9072347b986b91f05d580a11c1aae6646b250e29",
+          "ref": "94 README (сводка волны)",
+          "observation": "Волна 94: честные состояния (postgen-блок), экономика, стабильность; сервис NRestarts=0.",
+          "artifact_path": "plans/features/p0-vision-universal/evidence/release-25894/acceptance/README.md",
+          "artifact_sha256": "661e58edcfcb1a31f0d05050aa2e02f1ce282a13f2c3742115b683eedc961986",
+          "type": "static"
         }
       ],
-      "note": "positive-recognition/postgen добивка — RE-ACCEPTANCE-92B (положительное распознавание не состоялось: download-stage blocker, не код 2.58.92). Корневая причина download-стадий (92C): прод-бот создан с local Bot API (`is_local=True`), aiogram читает файл с локальной ФС `/var/lib/telegram-bot-api/...` (FileNotFoundError — маунта нет) — все vision-джобы падают на download (64 skipped + 32 failed за 6.6 ч; `mca_media_analyses` пуст); провайдер nemotron отдельно отдаёт 502/429 (внешние окна; 05:51:12Z — WAITING_EXTERNAL). Это деплой-финдинг (инфра), не дефект кода; фикс VISION-DL-FIX идёт; положительное распознавание — после него.",
-      "live_note": "postdeploy (DevOps/Orchestrator), не owner-гейт: живая проба — универсальный механизм на реальном провайдере + реальное распознавание изображений (тумблер/override; первая джоба сама пробует)."
+      "note": "positive-recognition/postgen добивка — RE-ACCEPTANCE-92B (положительное распознавание не состоялось: download-stage blocker, не код 2.58.92). Корневая причина download-стадий (92C): прод-бот создан с local Bot API (`is_local=True`), aiogram читает файл с локальной ФС `/var/lib/telegram-bot-api/...` (FileNotFoundError — маунта нет) — все vision-джобы падают на download (64 skipped + 32 failed за 6.6 ч; `mca_media_analyses` пуст); провайдер nemotron отдельно отдаёт 502/429 (внешние окна; 05:51:12Z — WAITING_EXTERNAL). Это деплой-финдинг (инфра), не дефект кода; фикс VISION-DL-FIX идёт; положительное распознавание — после него. 94: пост-генерация по bitmap — отдельный хвост POSTGEN-DIAG (`vision_failed`, не 502/429; честный блок mid 1166170); наблюдение: мем 1.58 МБ — `TelegramBadRequest` при sendPhoto через локальную сессию (`delivery_failed=true`, без повторного списания) — инфра/лимиты отправки.",
+      "live_note": "закрыто live (94): реальное распознавание + доставка; честные состояния сохранены; восстановление watchdog (NRestarts=0)."
     },
     {
       "source_id": "M-P0V-11",
