@@ -1,0 +1,41 @@
+{
+ "host": "racknerd-f4e3456\nnik\nLinux 6.8.0-134-generic",
+ "bot_service": "active\nUser=root\nWorkingDirectory=/var/www/admin_bot\nExecStart=/var/www/admin_bot/venv/bin/python /var/www/admin_bot/bot.py",
+ "docker_botapi": "adminbot-telegram-bot-api | aiogram/telegram-bot-api:latest | 127.0.0.1:8081->8081/tcp, 8082/tcp",
+ "docker_botapi_cmd": "/adminbot-telegram-bot-api cmd=[] mounts=/var/www/admin_bot/docker/telegram-bot-api=>/var/lib/telegram-bot-api",
+ "docker_botapi_env": "TELEGRAM_API_HASH=<masked>\nTELEGRAM_LOCAL=1\nTELEGRAM_API_ID=6\nTELEGRAM_WORK_DIR=/var/lib/telegram-bot-api\nTELEGRAM_TEMP_DIR=/tmp/telegram-bot-api",
+ "container_root_on_host": "ls: cannot access '/var/lib/telegram-bot-api': No such file or directory\nMISSING",
+ "host_bind_dir": "drwxrwsr-x 3 messagebus lxd 4096 Oct 19 06:16 /var/www/admin_bot/docker/telegram-bot-api",
+ "host_bind_entries": "count=3\n<token-dir:masked>\ntqueue.binlog\nwebhooks_db.binlog",
+ "photos_dir": "ls: cannot access '/var/www/admin_bot/docker/telegram-bot-api/*/photos': No such file or directory\nfiles=0",
+ "photos_tail": "",
+ "file_1317": "ls: cannot access '/var/www/admin_bot/docker/telegram-bot-api/*/photos/file_1317.jpg': No such file or directory",
+ "file_1317_owner": "stat: cannot statx '/var/www/admin_bot/docker/telegram-bot-api/*/photos/file_1317.jpg': No such file or directory",
+ "botapi_version": "Bot API 10.3",
+ "py": "PY=/var/www/admin_bot/venv/bin/python\naiogram=3.31.0",
+ "env": {
+  "LOCAL_BOT_API_URL": "http://localhost:8081",
+  "TELEGRAM_API_FILES_DIR": "docker/telegram-bot-api",
+  "DOWNLOAD_ENABLED": "True",
+  "TELEGRAM_LOCAL": "1",
+  "API_TOKEN": "present(len=46)"
+ },
+ "http": {
+  "getMe": [
+   200,
+   450
+  ],
+  "file_abs_container": [
+   404,
+   55
+  ],
+  "file_rel": [
+   404,
+   55
+  ],
+  "file_abs_host_equiv": [
+   404,
+   55
+  ]
+ }
+}

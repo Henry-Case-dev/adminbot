@@ -1,0 +1,21 @@
+============================= test session starts =============================
+platform win32 -- Python 3.12.0, pytest-9.1.1, pluggy-1.6.0 -- C:\Code\Python\adminbot\.venv\Scripts\python.exe
+cachedir: .pytest_cache
+rootdir: C:\Code\Python\adminbot
+configfile: pytest.ini
+plugins: anyio-4.14.2, asyncio-1.4.0, cov-7.1.0, timeout-2.4.0
+asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+timeout: 60.0s
+timeout method: thread
+timeout func_only: False
+collecting ... collected 7 items
+
+tests/test_vision_dl_fix.py::test_session_config_invariant_local_base_and_host_mapping PASSED [ 14%]
+tests/test_vision_dl_fix.py::test_wrapper_failsafe_for_unexpected_paths PASSED [ 28%]
+tests/test_vision_dl_fix.py::test_download_reads_host_path_not_container_path PASSED [ 42%]
+tests/test_vision_dl_fix.py::test_host_files_root_resolves_relative_to_app_dir PASSED [ 57%]
+tests/test_vision_dl_fix.py::test_files_dir_readable_probe PASSED        [ 71%]
+tests/test_vision_dl_fix.py::test_bot_py_uses_local_api_session_factory PASSED [ 85%]
+tests/test_vision_dl_fix.py::test_local_server_scenario_end_to_end PASSED [100%]
+
+============================== 7 passed in 3.88s ==============================

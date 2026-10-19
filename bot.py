@@ -99,8 +99,9 @@ from services.summary_scheduler import (
     summary_emergency_disabled,
 )
 # ── Epic 66 (D262): локальный Bot API для скачивания >50MB ──
-from aiogram.client.session.aiohttp import AiohttpSession
-from aiogram.client.telegram import TelegramAPIServer
+# VISION-DL-FIX: сессия собирается фабрикой `services.local_bot_api`
+# (локальная API-база + маппинг пути контейнера на host-каталог bind-mount),
+# поэтому прямые импорты AiohttpSession/TelegramAPIServer здесь не нужны.
 
 from handlers.info import info_router, setup_info
 from services.info_service import InfoService
@@ -235,11 +236,17 @@ else:
         "в панель")
 
 if hot.get("flags.download_enabled", settings.DOWNLOAD_ENABLED):
+    # VISION-DL-FIX (ACCEPTANCE-92C): локальный Bot API отдаёт в getFile
+    # АБСОЛЮТНЫЙ путь контейнера (`/var/lib/telegram-bot-api/<token>/…`), а
+    # aiogram при is_local=True читает этот путь с ФС ХОСТА → FileNotFoundError
+    # (все vision-джобы падали на stage=download). Сессия строится общей
+    # фабрикой: локальная API-база + маппинг пути контейнера на host-каталог
+    # bind-mount (`TELEGRAM_API_FILES_DIR`) — без облака и без HTTP-скачивания
+    # (HTTP-эндпоинт локального сервера в --local не обслуживается: 404).
+    from services.local_bot_api import build_local_api_session
     bot = Bot(
         token=settings.API_TOKEN,
-        session=AiohttpSession(
-            api=TelegramAPIServer.from_base(settings.LOCAL_BOT_API_URL, is_local=True),
-        ),
+        session=build_local_api_session(settings.LOCAL_BOT_API_URL),
     )
 else:
     bot = Bot(token=settings.API_TOKEN)

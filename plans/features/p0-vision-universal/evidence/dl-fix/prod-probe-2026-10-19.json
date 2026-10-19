@@ -1,0 +1,38 @@
+{
+ "now_utc": "2026-10-19 06:21:44",
+ "host_bind_listing": [
+  ".gitkeep",
+  "<token:masked>",
+  "tqueue.binlog",
+  "webhooks_db.binlog"
+ ],
+ "token_dir_listing": "ERR PermissionError",
+ "file_id_present": true,
+ "photos_on_host_before": "ERR PermissionError",
+ "A_current": {
+  "file_path_masked": "/var/lib/telegram-bot-api/<token:masked>/photos/file_1317.jpg",
+  "to_local_masked": "/var/lib/telegram-bot-api/<token:masked>/photos/file_1317.jpg",
+  "exists": false,
+  "download": false,
+  "error": "FileNotFoundError: [Errno 2] No such file or directory: '/var/lib/telegram-bot-api/<token:masked>/photos/file_1317.jpg'"
+ },
+ "photos_on_host_after": "ERR PermissionError",
+ "B_fix": {
+  "to_local_masked": "/var/www/admin_bot/docker/telegram-bot-api/<token:masked>/photos/file_1317.jpg",
+  "exists": false,
+  "last_error": "PermissionError: [Errno 13] Permission denied: '/var/www/admin_bot/docker/telegram-bot-api/<token:masked>",
+  "download": false
+ },
+ "C_cloud": {
+  "bytes": 54960
+ },
+ "verdict": {
+  "fix_matches_cloud": false,
+  "current_failed": true,
+  "bytes": {
+   "current": null,
+   "fix": null,
+   "cloud": 54960
+  }
+ }
+}

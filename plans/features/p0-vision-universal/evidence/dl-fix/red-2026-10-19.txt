@@ -1,0 +1,8 @@
+.....F.                                                                  [100%]
+================================== FAILURES ===================================
+E   AssertionError: bot.py: ╨╗╨╛╨║╨░╨╗╤М╨╜╨░╤П ╤Б╨╡╤Б╤Б╨╕╤П ╨┤╨╛╨╗╨╢╨╜╨░ ╤Б╨╛╨▒╨╕╤А╨░╤В╤М╤Б╤П ╤Д╨░╨▒╤А╨╕╨║╨╛╨╣
+    assert 'build_local_api_session' in "import asyncio\nimport contextlib\nimport logging\nimport os\nimport signal\nimport time\n\nimport sentry_sdk\nfrom a...gging.shutdown()\n        except Exception:\n            pass\n\n\nif __name__ == '__main__':\n    asyncio.run(main())"
+C:\Code\Python\adminbot\tests\test_vision_dl_fix.py:135: AssertionError: bot.py: ╨╗╨╛╨║╨░╨╗╤М╨╜╨░╤П ╤Б╨╡╤Б╤Б╨╕╤П ╨┤╨╛╨╗╨╢╨╜╨░ ╤Б╨╛╨▒╨╕╤А╨░╤В╤М╤Б╤П ╤Д╨░╨▒╤А╨╕╨║╨╛╨╣
+=========================== short test summary info ===========================
+FAILED tests/test_vision_dl_fix.py::test_bot_py_uses_local_api_session_factory
+1 failed, 6 passed in 3.90s
