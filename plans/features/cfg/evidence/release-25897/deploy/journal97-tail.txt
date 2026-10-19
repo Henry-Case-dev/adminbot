@@ -1,0 +1,145 @@
+rc=0
+Oct 19 19:13:31 racknerd-f4e3456 systemd[1]: Stopping admin_bot.service - Telegram Admin Bot...
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]: 2026-10-19 19:13:31,488 - web.app - INFO - [webapp] lifespan finished
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]: 2026-10-19 19:13:31,506 - apscheduler.scheduler - INFO - Scheduler has been shut down
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]: 2026-10-19 19:13:31,507 - services.summary_scheduler - INFO - [shutdown] summary: stopped accepting new work | phase=stopping (scheduler down, new runs refused)
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]: 2026-10-19 19:13:31,513 - services.summary_run_log - INFO - SUMMARY_COMPLETE | run_id=b61e74b53c034f7c83b8d4e891a399a3 | chat_id=-1002661910336 | mode=hybrid_l2 | status=ok | duration_ms=809525 | source_count=335 | threads=15 | paragraphs=10 | cover_status=- | code=- | fallback=none | coverage=0.0 | publication_status=- | health=ok | package_grade=semantic
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]: 2026-10-19 19:13:31,519 - services.mca_events - INFO - mca_event=SUMMARY_RUN_DONE | ts=1792437211 | event_name=SUMMARY_RUN_DONE | outcome=success | level=INFO | component=summary | stage=done | status=ok | chat_id=-1002661910336 | duration_ms=809530 | usage_json={"coverage": 0.0, "source_total": 335, "source_considered": 0, "fallback": "none", "package_grade": "semantic", "pipeline_health": "ok"} | pipeline_run_id=b61e74b53c034f7c83b8d4e891a399a3 | pipeline_type=summary
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]: 2026-10-19 19:13:31,530 - aiogram.dispatcher - INFO - Polling stopped for bot @PERMsoc_bot id=8802473181 - 'Базовичок'
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]: 2026-10-19 19:13:31,536 - aiogram.dispatcher - INFO - Polling stopped
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]: 2026-10-19 19:13:31,655 - apscheduler.executors.default - ERROR - Job "SummarySchedulerService._tick (trigger: cron[hour='0,6,12,18', minute='0'], next run at: 2026-10-20 06:00:00 +05)" raised an exception
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]: Traceback (most recent call last):
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]:   File "/var/www/admin_bot/venv/lib/python3.12/site-packages/apscheduler/executors/base.py", line 181, in run_coroutine_job
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]:     retval = await job.func(*job.args, **job.kwargs)
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]:              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]:   File "/var/www/admin_bot/services/summary_scheduler.py", line 204, in _tick
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]:     await self._generator.generate_and_send(chat_id)
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]:   File "/var/www/admin_bot/services/summary_generator.py", line 689, in generate_and_send
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]:     await self._run(chat_id, manual, focus, trigger_message_id,
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]:   File "/var/www/admin_bot/services/summary_generator.py", line 927, in _run
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]:     await self._run_hybrid_l2(
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]:   File "/var/www/admin_bot/services/summary_generator.py", line 2762, in _run_hybrid_l2
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]:     published = await self._deliver_l2_rich(
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]:                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]:   File "/var/www/admin_bot/services/summary_generator.py", line 3107, in _deliver_l2_rich
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]:     return await self._publish_rich_document(
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]:   File "/var/www/admin_bot/services/summary_generator.py", line 3128, in _publish_rich_document
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]:     published = await self._publish_rich_document_impl(
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]:                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]:   File "/var/www/admin_bot/services/summary_generator.py", line 3392, in _publish_rich_document_impl
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]:     tmp_path, img_reason = await generate_image_verbose(
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]:                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]:   File "/var/www/admin_bot/services/image_generation.py", line 1700, in generate_image_verbose
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]:     path, reason = await _generate_image_verbose_inner(
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]:                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]:   File "/var/www/admin_bot/services/image_generation.py", line 1770, in _generate_image_verbose_inner
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]:     result = await asyncio.wait_for(
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]:              ^^^^^^^^^^^^^^^^^^^^^^^
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]:   File "/usr/lib/python3.12/asyncio/tasks.py", line 520, in wait_for
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]:     return await fut
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]:            ^^^^^^^^^
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]:   File "/var/www/admin_bot/services/image_generation.py", line 1555, in generate
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]:     content = await _generate_post(base_url, model, prompt, key,
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]:               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]:   File "/var/www/admin_bot/services/image_generation.py", line 1225, in _generate_post
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]:     resp = await _request_with_retry("POST", url, json_body=body,
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]:   File "/var/www/admin_bot/services/image_generation.py", line 1085, in _request_with_retry
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]:     resp = await _http_request(method, url, json_body=json_body,
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]:   File "/var/www/admin_bot/services/image_generation.py", line 1043, in _http_request
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]:     return await client.request(method, url, json=json_body,
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]:   File "/var/www/admin_bot/venv/lib/python3.12/site-packages/httpx/_client.py", line 1540, in request
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]:     return await self.send(request, auth=auth, follow_redirects=follow_redirects)
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]:   File "/var/www/admin_bot/venv/lib/python3.12/site-packages/sentry_sdk/integrations/httpx.py", line 253, in send
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]:     rv = await real_send(self, request, **kwargs)
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]:          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]:   File "/var/www/admin_bot/venv/lib/python3.12/site-packages/httpx/_client.py", line 1629, in send
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]:     response = await self._send_handling_auth(
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]:                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]:   File "/var/www/admin_bot/venv/lib/python3.12/site-packages/httpx/_client.py", line 1657, in _send_handling_auth
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]:     response = await self._send_handling_redirects(
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]:                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]:   File "/var/www/admin_bot/venv/lib/python3.12/site-packages/httpx/_client.py", line 1694, in _send_handling_redirects
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]:     response = await self._send_single_request(request)
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]:                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]:   File "/var/www/admin_bot/venv/lib/python3.12/site-packages/httpx/_client.py", line 1730, in _send_single_request
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]:     response = await transport.handle_async_request(request)
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]:                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]:   File "/var/www/admin_bot/venv/lib/python3.12/site-packages/httpx/_transports/default.py", line 394, in handle_async_request
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]:     resp = await self._pool.handle_async_request(req)
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]:   File "/var/www/admin_bot/venv/lib/python3.12/site-packages/httpcore/_async/connection_pool.py", line 256, in handle_async_request
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]:     raise exc from None
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]:   File "/var/www/admin_bot/venv/lib/python3.12/site-packages/httpcore/_async/connection_pool.py", line 236, in handle_async_request
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]:     response = await connection.handle_async_request(
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]:                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]:   File "/var/www/admin_bot/venv/lib/python3.12/site-packages/httpcore/_async/connection.py", line 103, in handle_async_request
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]:     return await self._connection.handle_async_request(request)
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]:   File "/var/www/admin_bot/venv/lib/python3.12/site-packages/httpcore/_async/http11.py", line 136, in handle_async_request
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]:     raise exc
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]:   File "/var/www/admin_bot/venv/lib/python3.12/site-packages/httpcore/_async/http11.py", line 106, in handle_async_request
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]:     ) = await self._receive_response_headers(**kwargs)
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]:         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]:   File "/var/www/admin_bot/venv/lib/python3.12/site-packages/httpcore/_async/http11.py", line 177, in _receive_response_headers
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]:     event = await self._receive_event(timeout=timeout)
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]:             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]:   File "/var/www/admin_bot/venv/lib/python3.12/site-packages/httpcore/_async/http11.py", line 217, in _receive_event
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]:     data = await self._network_stream.read(
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]:   File "/var/www/admin_bot/venv/lib/python3.12/site-packages/httpcore/_backends/anyio.py", line 35, in read
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]:     return await self._stream.receive(max_bytes=max_bytes)
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]:   File "/var/www/admin_bot/venv/lib/python3.12/site-packages/anyio/streams/tls.py", line 254, in receive
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]:     data = await self._call_sslobject_method(self._ssl_object.read, max_bytes)
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]:   File "/var/www/admin_bot/venv/lib/python3.12/site-packages/anyio/streams/tls.py", line 194, in _call_sslobject_method
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]:     data = await self.transport_stream.receive()
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]:   File "/var/www/admin_bot/venv/lib/python3.12/site-packages/anyio/_backends/_asyncio.py", line 1337, in receive
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]:     await self._protocol.read_event.wait()
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]:   File "/usr/lib/python3.12/asyncio/locks.py", line 212, in wait
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]:     await fut
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]: asyncio.exceptions.CancelledError
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]: 2026-10-19 19:13:31,812 - __main__ - INFO - [shutdown] polling stop | graceful=True | elapsed_ms=303
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]: 2026-10-19 19:13:31,861 - __main__ - INFO - Bot shutting down...
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]: 2026-10-19 19:13:31,863 - services.summary_generator - INFO - SUMMARY_SHUTDOWN_DRAIN | phase=draining | in_flight=0 | cancelled=0 | timeout_s=20.0
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]: 2026-10-19 19:13:31,863 - services.summary_generator - INFO - SUMMARY_SHUTDOWN_DRAIN | phase=finalized | finalized=0 | left=0 | elapsed_ms=0
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]: 2026-10-19 19:13:31,864 - __main__ - INFO - [shutdown] summary drain done | in_flight=0 | cancelled=0 | finalized=0 | left=0 | elapsed_ms=0
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]: 2026-10-19 19:13:31,884 - apscheduler.scheduler - INFO - Scheduler has been shut down
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]: 2026-10-19 19:13:31,887 - services.nostalgia_worker - INFO - NostalgiaWorker stopped
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]: 2026-10-19 19:13:31,892 - services.anticliche_worker - INFO - AntiClicheWorker stopped
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]: 2026-10-19 19:13:31,895 - apscheduler.scheduler - INFO - Scheduler has been shut down
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]: 2026-10-19 19:13:31,897 - apscheduler.scheduler - INFO - Scheduler has been shut down
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]: 2026-10-19 19:13:31,899 - apscheduler.scheduler - INFO - Scheduler has been shut down
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]: 2026-10-19 19:13:31,900 - services.dream_worker - INFO - DreamWorker stopped
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]: 2026-10-19 19:13:31,903 - apscheduler.scheduler - INFO - Scheduler has been shut down
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]: 2026-10-19 19:13:31,905 - services.lore_worker - INFO - LoreWorker stopped
+Oct 19 19:13:32 racknerd-f4e3456 python[3739015]: 2026-10-19 19:13:32,001 - services.lore_notify - INFO - [lore_notify] stopped
+Oct 19 19:13:32 racknerd-f4e3456 python[3739015]: 2026-10-19 19:13:32,023 - services.chat_params_notify - INFO - [chat_params] notify stopped
+Oct 19 19:13:32 racknerd-f4e3456 python[3739015]: 2026-10-19 19:13:32,027 - services.uptime_heartbeat - INFO - [uptime] heartbeat stopped
+Oct 19 19:13:32 racknerd-f4e3456 python[3739015]: 2026-10-19 19:13:32,032 - apscheduler.scheduler - INFO - Scheduler has been shut down
+Oct 19 19:13:32 racknerd-f4e3456 python[3739015]: 2026-10-19 19:13:32,034 - apscheduler.scheduler - INFO - Scheduler has been shut down
+Oct 19 19:13:32 racknerd-f4e3456 python[3739015]: 2026-10-19 19:13:32,035 - services.goodmorning_scheduler - INFO - Goodmorning scheduler stopped
+Oct 19 19:13:32 racknerd-f4e3456 python[3739015]: 2026-10-19 19:13:32,036 - services.summary_scheduler - INFO - SmartModule scheduler stopped
+Oct 19 19:13:32 racknerd-f4e3456 python[3739015]: 2026-10-19 19:13:32,037 - apscheduler.scheduler - INFO - Scheduler has been shut down
+Oct 19 19:13:32 racknerd-f4e3456 python[3739015]: 2026-10-19 19:13:32,038 - services.memory_backup - INFO - MemoryBackup scheduler stopped
+Oct 19 19:13:32 racknerd-f4e3456 python[3739015]: 2026-10-19 19:13:32,042 - apscheduler.scheduler - INFO - Scheduler has been shut down
+Oct 19 19:13:32 racknerd-f4e3456 python[3739015]: 2026-10-19 19:13:32,044 - services.memory_maintenance - INFO - MemoryMaintenance stopped
+Oct 19 19:13:32 racknerd-f4e3456 python[3739015]: 2026-10-19 19:13:32,183 - __main__ - INFO - [shutdown] runtime sqlite closed
+Oct 19 19:13:32 racknerd-f4e3456 python[3739015]: 2026-10-19 19:13:32,203 - services.pg_db - INFO - [pg_db] pool closed
+Oct 19 19:13:35 racknerd-f4e3456 python[3739015]: 2026-10-19 19:13:35,083 - __main__ - INFO - [shutdown] bye | elapsed_ms=3580
+Oct 19 19:13:35 racknerd-f4e3456 python[3739015]: 2026-10-19 19:13:35,084 - __main__ - INFO - [betterstack] shutdown flush
+Oct 19 19:13:36 racknerd-f4e3456 python[3739015]: Бот запущен и слушает чат...
+Oct 19 19:13:36 racknerd-f4e3456 python[3739015]: Sentry is attempting to send 2 pending events
+Oct 19 19:13:36 racknerd-f4e3456 python[3739015]: Waiting up to 2 seconds
+Oct 19 19:13:36 racknerd-f4e3456 python[3739015]: Press Ctrl-C to quit
+Oct 19 19:13:43 racknerd-f4e3456 systemd[1]: admin_bot.service: Deactivated successfully.
+Oct 19 19:13:43 racknerd-f4e3456 systemd[1]: Stopped admin_bot.service - Telegram Admin Bot.
+Oct 19 19:13:43 racknerd-f4e3456 systemd[1]: admin_bot.service: Consumed 12min 25.325s CPU time, 484.1M memory peak, 355.9M memory swap peak.
+Oct 19 19:13:43 racknerd-f4e3456 systemd[1]: Started admin_bot.service - Telegram Admin Bot.
+

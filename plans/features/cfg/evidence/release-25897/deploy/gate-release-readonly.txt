@@ -1,0 +1,58 @@
+﻿DEPLOY-25897 evidence - requirements_gate.py check --stage release (read-only)
+candidate = deployed-commit = 99f5672c5e1d27e957100395a13178fef929b035
+map = plans/features/cfg/requirements-map.json (candidate_commit=113f3a62... stale; strict_evidence=true)
+exit code = 1 (ожидаемо на этой стадии: 187 PENDING непостроенных слайсов + 4 RFL + stale binding)
+Map was NOT edited by this lane; ре-биндинг карты и RFL - ledger/acceptance-линия.
+==============================================================================
+FAIL: candidate mismatch; map candidate_commit must match --candidate
+FAIL: ADD-0.1: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: ADD-0.2: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: ADD-0.3: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: ADD-0.4: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: ADD-0.5: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: ADD-0.6: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: ADD-1.C1: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: ADD-1.C2: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: ADD-1.C3: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: ADD-1.C4: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: ADD-1.C5: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: ADD-1.C6: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: ADD-1.C7: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: CFG-01.1: no evidence bound to reviewed candidate
+FAIL: CFG-01.1: no candidate-bound evidence points to an existing repo artifact
+FAIL: CFG-01.2: no evidence bound to reviewed candidate
+FAIL: CFG-01.2: no candidate-bound evidence points to an existing repo artifact
+FAIL: CFG-01.3: no evidence bound to reviewed candidate
+FAIL: CFG-01.3: no candidate-bound evidence points to an existing repo artifact
+FAIL: CFG-01.4: no evidence bound to reviewed candidate
+FAIL: CFG-01.4: no candidate-bound evidence points to an existing repo artifact
+FAIL: CFG-01.5: no evidence bound to reviewed candidate
+FAIL: CFG-01.5: no candidate-bound evidence points to an existing repo artifact
+FAIL: CFG-01.6: no evidence bound to reviewed candidate
+FAIL: CFG-01.6: no candidate-bound evidence points to an existing repo artifact
+FAIL: CFG-01.6: live requirement lacks evidence for stage release
+FAIL: CFG-01.7: no evidence bound to reviewed candidate
+FAIL: CFG-01.7: no candidate-bound evidence points to an existing repo artifact
+FAIL: CFG-01.AC1: no evidence bound to reviewed candidate
+FAIL: CFG-01.AC1: no candidate-bound evidence points to an existing repo artifact
+FAIL: CFG-01.AC1: live requirement lacks evidence for stage release
+FAIL: CFG-01.AC2: no evidence bound to reviewed candidate
+FAIL: CFG-01.AC2: no candidate-bound evidence points to an existing repo artifact
+FAIL: CFG-01.AC2: live requirement lacks evidence for stage release
+FAIL: CFG-01.AC3: no evidence bound to reviewed candidate
+FAIL: CFG-01.AC3: no candidate-bound evidence points to an existing repo artifact
+FAIL: CFG-01.AC4: no evidence bound to reviewed candidate
+FAIL: CFG-01.AC4: no candidate-bound evidence points to an existing repo artifact
+FAIL: CFG-01.AC4: live requirement lacks evidence for stage release
+FAIL: CFG-02A.1: no evidence bound to reviewed candidate
+FAIL: CFG-02A.1: no candidate-bound evidence points to an existing repo artifact
+FAIL: CFG-02A.1: live requirement lacks evidence for stage release
+FAIL: CFG-02A.2: no evidence bound to reviewed candidate
+FAIL: CFG-02A.2: no candidate-bound evidence points to an existing repo artifact
+FAIL: CFG-02A.2: live requirement lacks evidence for stage release
+FAIL: CFG-02A.3: mandatory not ['VERIFIED'] (got READY_FOR_LIVE)
+FAIL: CFG-02A.4: mandatory not ['VERIFIED'] (got READY_FOR_LIVE)
+FAIL: CFG-02A.5: mandatory not ['VERIFIED'] (got READY_FOR_LIVE)
+FAIL: CFG-02A.6: no evidence bound to reviewed candidate
+... and 267 more
+stage=release inventory=246 manual=41 scoped=244 errors=317

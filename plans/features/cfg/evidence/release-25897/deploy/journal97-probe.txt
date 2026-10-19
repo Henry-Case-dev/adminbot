@@ -1,0 +1,47 @@
+T0=2026-10-19 19:13:31  SINCE(T0-60s)=2026-10-19 19:12:31
+### SVC (rc=0)
+MainPID=3791730 NRestarts=0 ExecMainStartTimestamp=Mon 2026-10-19 19:13:43 UTC ActiveState=active SubState=running 
+{"status":"ok","version":"2.58.97"}
+### JOURNAL_FETCH (rc=0) lines=465
+[stderr] [sudo] password for nik:
+FIRST: Oct 19 19:12:32 racknerd-f4e3456 python[3739015]: 2026-10-19 19:12:32,676 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-1
+LAST : Oct 19 19:16:50 racknerd-f4e3456 python[3791730]: 2026-10-19 19:16:50,828 - services.mca_events - INFO - mca_event=vision_media | ts=1792437410 | event_name=vision_media | outcome=success | level=INFO
+### LIFECYCLE (5)
+Oct 19 19:13:31 racknerd-f4e3456 systemd[1]: Stopping admin_bot.service - Telegram Admin Bot...
+Oct 19 19:13:43 racknerd-f4e3456 systemd[1]: admin_bot.service: Deactivated successfully.
+Oct 19 19:13:43 racknerd-f4e3456 systemd[1]: Stopped admin_bot.service - Telegram Admin Bot.
+Oct 19 19:13:43 racknerd-f4e3456 systemd[1]: admin_bot.service: Consumed 12min 25.325s CPU time, 484.1M memory peak, 355.9M memory swap peak.
+Oct 19 19:13:43 racknerd-f4e3456 systemd[1]: Started admin_bot.service - Telegram Admin Bot.
+### PIDS pid 3791730: 259 lines, pid 3739015: 201 lines
+### MATCHES idx=[71, 72]
+   ---
+  57| Oct 19 19:13:17 racknerd-f4e3456 python[3739015]: 2026-10-19 19:13:17,678 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-20 00:13:22 +05)" (scheduled at 2026-10-20 00:13:17.675455
+  58| Oct 19 19:13:17 racknerd-f4e3456 python[3739015]: 2026-10-19 19:13:17,685 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-20 00:13:22 +05)" executed successfully
+  59| Oct 19 19:13:22 racknerd-f4e3456 python[3739015]: 2026-10-19 19:13:22,678 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-20 00:13:27 +05)" (scheduled at 2026-10-20 00:13:22.675455
+  60| Oct 19 19:13:22 racknerd-f4e3456 python[3739015]: 2026-10-19 19:13:22,685 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-20 00:13:27 +05)" executed successfully
+  61| Oct 19 19:13:27 racknerd-f4e3456 python[3739015]: 2026-10-19 19:13:27,677 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-20 00:13:32 +05)" (scheduled at 2026-10-20 00:13:27.675455
+  62| Oct 19 19:13:27 racknerd-f4e3456 python[3739015]: 2026-10-19 19:13:27,678 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-20 00:13:32 +05)" executed successfully
+  63| Oct 19 19:13:31 racknerd-f4e3456 systemd[1]: Stopping admin_bot.service - Telegram Admin Bot...
+  64| Oct 19 19:13:31 racknerd-f4e3456 python[3739015]: 2026-10-19 19:13:31,488 - web.app - INFO - [webapp] lifespan finished
+  65| Oct 19 19:13:31 racknerd-f4e3456 python[3739015]: 2026-10-19 19:13:31,506 - apscheduler.scheduler - INFO - Scheduler has been shut down
+  66| Oct 19 19:13:31 racknerd-f4e3456 python[3739015]: 2026-10-19 19:13:31,507 - services.summary_scheduler - INFO - [shutdown] summary: stopped accepting new work | phase=stopping (scheduler down, new runs refused)
+  67| Oct 19 19:13:31 racknerd-f4e3456 python[3739015]: 2026-10-19 19:13:31,513 - services.summary_run_log - INFO - SUMMARY_COMPLETE | run_id=b61e74b53c034f7c83b8d4e891a399a3 | chat_id=-1002661910336 | mode=hybrid_l2 | status=ok | duration_ms=809525 | source_count=3
+  68| Oct 19 19:13:31 racknerd-f4e3456 python[3739015]: 2026-10-19 19:13:31,519 - services.mca_events - INFO - mca_event=SUMMARY_RUN_DONE | ts=1792437211 | event_name=SUMMARY_RUN_DONE | outcome=success | level=INFO | component=summary | stage=done | status=ok | chat
+  69| Oct 19 19:13:31 racknerd-f4e3456 python[3739015]: 2026-10-19 19:13:31,530 - aiogram.dispatcher - INFO - Polling stopped for bot @PERMsoc_bot id=8802473181 - 'Базовичок'
+  70| Oct 19 19:13:31 racknerd-f4e3456 python[3739015]: 2026-10-19 19:13:31,536 - aiogram.dispatcher - INFO - Polling stopped
+  71| Oct 19 19:13:31 racknerd-f4e3456 python[3739015]: 2026-10-19 19:13:31,655 - apscheduler.executors.default - ERROR - Job "SummarySchedulerService._tick (trigger: cron[hour='0,6,12,18', minute='0'], next run at: 2026-10-20 06:00:00 +05)" raised an exception
+  72| Oct 19 19:13:31 racknerd-f4e3456 python[3739015]: Traceback (most recent call last):
+  73| Oct 19 19:13:31 racknerd-f4e3456 python[3739015]:   File "/var/www/admin_bot/venv/lib/python3.12/site-packages/apscheduler/executors/base.py", line 181, in run_coroutine_job
+  74| Oct 19 19:13:31 racknerd-f4e3456 python[3739015]:     retval = await job.func(*job.args, **job.kwargs)
+  75| Oct 19 19:13:31 racknerd-f4e3456 python[3739015]:              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  76| Oct 19 19:13:31 racknerd-f4e3456 python[3739015]:   File "/var/www/admin_bot/services/summary_scheduler.py", line 204, in _tick
+  77| Oct 19 19:13:31 racknerd-f4e3456 python[3739015]:     await self._generator.generate_and_send(chat_id)
+  78| Oct 19 19:13:31 racknerd-f4e3456 python[3739015]:   File "/var/www/admin_bot/services/summary_generator.py", line 689, in generate_and_send
+  79| Oct 19 19:13:31 racknerd-f4e3456 python[3739015]:     await self._run(chat_id, manual, focus, trigger_message_id,
+  80| Oct 19 19:13:31 racknerd-f4e3456 python[3739015]:   File "/var/www/admin_bot/services/summary_generator.py", line 927, in _run
+  81| Oct 19 19:13:31 racknerd-f4e3456 python[3739015]:     await self._run_hybrid_l2(
+  82| Oct 19 19:13:31 racknerd-f4e3456 python[3739015]:   File "/var/www/admin_bot/services/summary_generator.py", line 2762, in _run_hybrid_l2
+  83| Oct 19 19:13:31 racknerd-f4e3456 python[3739015]:     published = await self._deliver_l2_rich(
+  84| Oct 19 19:13:31 racknerd-f4e3456 python[3739015]:                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  85| Oct 19 19:13:31 racknerd-f4e3456 python[3739015]:   File "/var/www/admin_bot/services/summary_generator.py", line 3107, in _deliver_l2_rich
+  86| Oct 19 19:13:31 racknerd-f4e3456 python[3739015]:     return await self._publish_rich_document(
