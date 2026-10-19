@@ -172,9 +172,11 @@
         "CFG-04"
       ],
       "write_scope": [
-        "plans/features/cfg/evidence/cfg-05/**"
+        "plans/features/cfg/evidence/cfg-05/**",
+        "plans/features/cfg/prep-cfg-05.md"
       ],
-      "acceptance": "CFG-05 закрыт как REUSED_EXISTING/OWNER_VISUAL_CONFIRMED по deployed SHA, U08/SOUL-17 evidence и наблюдению владельца — без нового кода и деплоя."
+      "acceptance": "CFG-05 закрыт как REUSED_EXISTING/OWNER_VISUAL_CONFIRMED по deployed SHA релиза CFG-04, U08/SOUL-17 evidence и наблюдению владельца; стекло и полигональный фон не изменены после CFG-04; без нового кода и отдельного деплоя.",
+      "notes": "CFG-05 prep 20.10.2026 (PM-PREP-CFG-05, до verify-лейна). Слайс без писателя продуктового кода: ноль правок web/**, tests/**, services/** — только evidence. Основной scope — plans/features/cfg/evidence/cfg-05/** (deployed-sha.json, reuse-map.md, pins, ui/*.png, owner-observation.md, reviewer-summary.md, failures.md). Переиспользование: SOUL-17/TIERA-STRONG evidence (soul-1/evidence/glass-tiera/_strong_*), U08/W2-GLASS, WIN-GLASS review-wg.md; deployed-привязка — релиз CFG-04 (ожидается 2.58.97). Харнесс tests/ui_soul1_glass_tiera_e2e.py пишет в чужую evidence-зону soul-1/glass-tiera → запуск только в scratch-worktree с --prefix cfg05_ и копированием результатов в cfg-05/**. Тонкий инструмент tools/ui_cfg05_glass_evidence.py — только отдельным scope-амендментом. Регрессия glass/фона, найденная на CFG-04, возвращается в CFG-04 (не чинится в CFG-05)."
     },
     {
       "id": "CFG-06",

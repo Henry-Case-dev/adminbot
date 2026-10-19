@@ -144,7 +144,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "note": "CFG-05 prep 20.10.2026: dedup-guard. CFG-05 не создаёт второй реализации стекла: ноль правок web/** и glass-тестов; владельцы — SOUL-17 (TIERA-STRONG) и U08/WIN-GLASS; в evidence — ссылки на их артефакты и честные остатки (SOUL-17.4 READY_FOR_LIVE, residue U08-карты)."
     },
     {
       "source_id": "M00008",
@@ -482,7 +483,8 @@
       "live_required": true,
       "live_when": "postdeploy",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "note": "CFG-05 prep 20.10.2026: решение OBSERVED_FIXED/NO_NEW_IMPLEMENTATION — регистрация, не разработка. Однократная сверка deployed SHA + U08/SOUL-17 + наблюдения владельца; отдельного деплоя стекла нет; вход — релиз CFG-04 (2.58.97)."
     },
     {
       "source_id": "M00024",
@@ -497,7 +499,8 @@
       "live_required": true,
       "live_when": "postdeploy",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "note": "CFG-05 prep 20.10.2026: composite-критерий. Собирается из CFG-05.1 (deployed SHA + U08/SOUL-17 + наблюдение владельца) и CFG-05.3/ADD-1.C6 (неизменность glass и полигонального фона после CFG-04); по частичным зелёным не объявлять; новых обязательств по стеклу и блокировки очереди нет."
     },
     {
       "source_id": "M00025",
@@ -965,7 +968,8 @@
       "live_required": true,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "note": "CFG-05 prep 20.10.2026: verify-only. Полигональный фон — protected: web/static/polygon-background.js git blob c2ad97d446f5… идентичен на HEAD/95d11472/a5902b15/0ca661fe/95526863; геометрия/палитра/топология закреплены tests/test_webapp_round1026_polygon.py + tests/js/round1026_polygon_background_test.js. Закрытие — блоб-равенство на deployed-коммите релиза CFG-04 + зелёные пины; ноль правок фона."
     },
     {
       "source_id": "L00036",
@@ -3465,7 +3469,8 @@
       "live_required": true,
       "live_when": "postdeploy",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "note": "CFG-05 prep 20.10.2026: verify-only, без нового кода/деплоя. Вход: deployed commit релиза CFG-04 (ожидается 2.58.97) + SOUL-17/U08 evidence (soul-1/evidence/glass-tiera/_strong_*, review-tiera.md, review-tiera-strengthened.md, w2-reports/W2-GLASS.md, w2-evidence-glass/ui-acceptance.md) + WIN-GLASS review-wg.md (Approved; живой WebView PENDING_OWNER_E2E) + наблюдение владельца 18.10.2026 (source L183; скриншот в чате, в repo не хранится). Якоря: блок #lg-lens 6298 б sha256 5367ec4566fc9e80…, scale=32, идентичен на HEAD/a5902b15/95d11472/915aa3c7/0ca661fe. Итог: REUSED_EXISTING/OWNER_VISUAL_CONFIRMED со ссылкой на evidence, без отдельного деплоя."
     },
     {
       "source_id": "L00188",
@@ -3480,7 +3485,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "note": "CFG-05 prep 20.10.2026: негативное обязательство. Доказывается diff-guard: ноль правок web/**, tests/js/**, tests/glass-teststand/**, tests/ui_soul1_*; в evidence/cfg-05/reuse-map.md перечислены переиспользованные артефакты и явно указано, что новых рендеров, стенда, массовых A/B и tier-тестов не запускалось."
     },
     {
       "source_id": "L00189",
@@ -3495,7 +3501,8 @@
       "live_required": true,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "note": "CFG-05 prep 20.10.2026: protected + verify. Токены app.css L60–130 побайтово равны HEAD vs SOUL-кандидат; линза #lg-lens неизменна; легитимные дельты после SOUL — WG-носитель .lg-refract/data-refract-layer и поздний FS-HOTFIX (fullscreen без стеклянной подложки). Визуальная инварианта — из CFG-04 before/after фона/glass (prep-cfg-04 §5.1/R6); при их отсутствии — собственный замороженный прогон. Найденная регрессия возвращается в CFG-04, не чинится здесь."
     },
     {
       "source_id": "L00190",
@@ -3510,7 +3517,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "note": "CFG-05 prep 20.10.2026: процедурная строка. Правило: конкретная воспроизводимая регрессия → отдельная запись в evidence/cfg-05/failures.md (шаги/кадры/причина) + точечный фикс в существующей задаче-владельце (CFG-04/U08/SOUL-17/WG); гипотетический дефект не держит CFG-05 открытым и не задерживает очередь (source L190)."
     },
     {
       "source_id": "L00195",
