@@ -1,0 +1,51 @@
+REL-25894 - атрибуция полного pytest (кандидат 70659be3, изолированный
+worktree OPENCODE_WORKFLOW_SCRATCH\release-25894\wt; pytest -q -p no:cacheprovider)
+
+Прогон: 9 failed / 14473 passed (741.60s), чистый прогон без конкурентной
+нагрузки; raw: pytest-full.txt; команда: pytest-command.txt
+(START_UTC 2026-10-19T07:03:33Z).
+
+Баланс с базой 2.58.93 (74160a5d: 10 failed / 14465 passed, 713.93s):
+сейчас 9 failed / 14473 passed, т.е. +7 passed = ровно новые тесты DL-FIX
+(tests/test_vision_dl_fix.py, 7), и +1 passed / -1 failed = env-флейк
+random_source-класса в этом прогоне НЕ сработал (в базовом прогоне 2.58.93
+он давал 10-е падение). Новых падений от DL-FIX нет.
+
+9 падений - все пре-существующие (ровно набор релиза 2.58.93):
+  * tests/test_asap7_direct_settings.py x2 (test_migration_v35_idempotent_twice,
+    test_backup_guard_fires_before_pending_step) - ожидания цепочки миграций
+    отстали от схемы; файлы не в дельте; воспроизводились на чистом HEAD.
+  * tests/test_mca01_tx_task_supervisor_round1027.py::
+    test_write_points_go_through_single_writer - write-точки database.py 201 vs
+    allow-map 198; файлы не в дельте.
+  * tests/test_t5150_startup_migrations_round1046.py x5 (test_a_ddl_window /
+    test_b_step_retry / test_d_migration_chain / test_e_v32_v33 / test_e2_v33_v34)
+    - SQLite lock-тайминги; отдельный прогон S4 (focused-s4-t5150.txt):
+    5 failed / 2 passed; подтверждено на базе без фикса (review-dl-fix.md §3:
+    «5 failed и на патче, и на базе»).
+  * tests/test_history_cli.py::TestCliFts::test_scope_is_required -
+    environment-артефакт ЧИСТОГО worktree (нет untracked-каталога
+    migrate_history/); воспроизведён в 2.58.92/2.58.93 и на прод-базе;
+    в главном дереве зелёный.
+
+Доказательство независимости от дельты:
+  * git diff b4d30cab..70659be3 -- config services web handlers bot.py =
+    ТОЛЬКО bot.py, services/local_bot_api.py (новый), config/settings.py
+    (bump-версия); ни один файл падающих тестов дельтой не тронут
+    (tests/** - только 24 py-пина + 4 JS-пина версии + новый
+    tests/test_vision_dl_fix.py; проверено грепом дельты по именам падающих
+    файлов - 0 совпадений).
+  * services/mca_random_source.py, services/database.py,
+    services/nostalgia_worker.py, services/initiative_diagnostics.py,
+    services/initiative_observer.py - байт-в-байт как в проде 2.58.93
+    (не в дельте).
+
+Env-флейк random_source-класса (известный; в этом прогоне не сработал):
+механизм - `database is locked` -> `connection unrecoverable | op=random_state`
+-> `ValueError: no active connection` в services/mca_random_source.py
+(`reserve read failed` / `write_state failed`) -> random-source fallback ->
+ассерт «отправлено/attempted». В прогонах 2.58.93 падали РАЗНЫЕ тесты
+(test_nostalgia_worker::test_golden_candidate_sent; test_soul1_w5_initiative_
+vitality::test_check_dry_run_reaches_mock_send_without_publishing), оба
+зелёные в изоляции (26/18 passed) - см. evidence/release-25893/
+pytest-attribution.txt. В этом прогоне набор падений чистый: 9 пре-сущ.

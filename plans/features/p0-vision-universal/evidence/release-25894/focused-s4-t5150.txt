@@ -1,0 +1,202 @@
+FF.FFF.                                                                  [100%]
+================================== FAILURES ===================================
+_____________ test_a_ddl_window_survives_lock_longer_than_base_5s _____________
+
+tmp_path = WindowsPath('C:/Users/main/.config/opencode/OpenCodeScratch/adminbot-ccef72c25768/tmp/pytest-of-main/pytest-1854/test_a_ddl_window_survives_loc0')
+fast_guard = None
+
+    @pytest.mark.asyncio
+    async def test_a_ddl_window_survives_lock_longer_than_base_5s(
+            tmp_path, fast_guard):
+        """busy_timeout 30с: конкурент держит лок 6с (> старых 5с) — старт
+        не падает, вся pending-цепочка применяется (окно DDL поглощает ожидание
+        без retry). NOTE (P2-D v34): хвост цепочки …v33→v34. ASAP 7 (F2):
+        хвост расширен v35 (llm_usage_plan_meta_v35, SQLite no-op), итог
+        user_version = 35."""
+        path = tmp_path / "t5150_window.db"
+        _make_v32_db(path)
+        svc = DatabaseService(str(path))
+        await _open_prelude(svc)
+        try:
+            await _run_with_competitor(svc, hold=6.0)
+            cur = await svc.db.execute("PRAGMA user_version")
+>           assert (await cur.fetchone())[0] == 35
+E           assert 36 == 35
+
+tests\test_t5150_startup_migrations_round1046.py:155: AssertionError
+___________________ test_b_step_retry_recovers_after_locked ___________________
+
+tmp_path = WindowsPath('C:/Users/main/.config/opencode/OpenCodeScratch/adminbot-ccef72c25768/tmp/pytest-of-main/pytest-1854/test_b_step_retry_recovers_aft0')
+fast_guard = None
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000288B450DAC0>
+caplog = <_pytest.logging.LogCaptureFixture object at 0x00000288B60C7140>
+
+    @pytest.mark.asyncio
+    async def test_b_step_retry_recovers_after_locked(tmp_path, fast_guard,
+                                                      monkeypatch, caplog):
+        """bounded retry: короткое окно 0.8с + лок 2.2с → первый DDL падает
+        `database is locked`, шаг перезапускается (идемпотентен) и доходит.
+        NOTE (P2-D v34): цепочка …v33→v34. ASAP 7 (F2): хвост +v35, итог
+        user_version = 35."""
+        monkeypatch.setattr(dbmod, "_MIGRATION_BUSY_TIMEOUT_MS", 800)
+        monkeypatch.setattr(dbmod, "_MIGRATION_LOCK_RETRIES", 3)
+        monkeypatch.setattr(dbmod, "_MIGRATION_LOCK_BACKOFF_S", 0.05)
+        path = tmp_path / "t5150_retry.db"
+        _make_v32_db(path)
+        svc = DatabaseService(str(path))
+        await _open_prelude(svc)
+        try:
+            with caplog.at_level(logging.INFO, logger="services.database"):
+                await _run_with_competitor(svc, hold=2.2)
+            cur = await svc.db.execute("PRAGMA user_version")
+>           assert (await cur.fetchone())[0] == 35
+E           assert 36 == 35
+
+tests\test_t5150_startup_migrations_round1046.py:178: AssertionError
+------------------------------ Captured log call ------------------------------
+INFO     services.database:database.py:2860 [database] migrations: start | current user_version=32 | pending=[33, 34, 35, 36]
+INFO     services.database:database.py:2869 [database] migration backup-guard: start | target_version=32 (VACUUM INTO + read-back копии; на прод-объёме может занимать минуты)
+INFO     services.database:database.py:2873 [database] migration backup-guard: done in 0.0s
+WARNING  services.database:database.py:2913 [database] migration v33: retry 1/3 after `database is locked` | factcheck_temporal
+WARNING  services.database:database.py:2913 [database] migration v33: retry 2/3 after `database is locked` | factcheck_temporal
+INFO     services.database:database.py:3949 [database] migration v33: mca_factcheck_runs
+INFO     services.database:database.py:3949 [database] migration v33: mca_factcheck_evidence
+INFO     services.database:database.py:2934 [database] migration v33 applied in 2.3s | factcheck_temporal
+INFO     services.database:database.py:3983 [database] migration v34: +namespace
+INFO     services.database:database.py:3988 [database] migration v34: +config_revision
+INFO     services.database:database.py:2934 [database] migration v34 applied in 0.0s | embedding_generation_namespace_v34
+INFO     services.database:database.py:4035 [database] migration v35: llm_usage_events PG-only — SQLite no-op (DDL применяет PgDatabase.init)
+INFO     services.database:database.py:2934 [database] migration v35 applied in 0.0s | llm_usage_plan_meta_v35
+INFO     services.database:database.py:4059 [database] migration v36: humor_samples
+INFO     services.database:database.py:2934 [database] migration v36 applied in 0.0s | humor_samples_v36
+INFO     services.database:database.py:2946 [database] migrations: complete | user_version=36 | total 2.3s
+____________________ test_d_migration_chain_full_log_trail ____________________
+
+tmp_path = WindowsPath('C:/Users/main/.config/opencode/OpenCodeScratch/adminbot-ccef72c25768/tmp/pytest-of-main/pytest-1854/test_d_migration_chain_full_lo0')
+caplog = <_pytest.logging.LogCaptureFixture object at 0x00000288B453DBE0>
+
+    @pytest.mark.asyncio
+    async def test_d_migration_chain_full_log_trail(tmp_path, caplog):
+        """guard→DDL→book: каждая фаза оставляет INFO-точку ДО/ПОСЛЕ с
+        длительностью — замирание между фазами видно по стартовому логу."""
+        path = tmp_path / "t5150_trail.db"
+        _make_v32_db(path)
+        svc = DatabaseService(str(path))
+        with caplog.at_level(logging.INFO, logger="services.database"):
+            await svc.initialize()
+        try:
+            text = caplog.text
+            assert "migrations: start" in text
+            assert "current user_version=32" in text
+            # NOTE (P2-D v34): pending-цепочка расширена хвостом v34.
+            # ASAP 7 (F2): +v35 (llm_usage_plan_meta_v35).
+>           assert "pending=[33, 34, 35]" in text
+E           AssertionError: assert 'pending=[33, 34, 35]' in 'INFO     services.database:database.py:2860 [database] migrations: start | current user_version=32 | pending=[33, 34,...ples_v36\nINFO     services.database:database.py:2946 [database] migrations: complete | user_version=36 | total 0.0s\n'
+
+tests\test_t5150_startup_migrations_round1046.py:219: AssertionError
+------------------------------ Captured log call ------------------------------
+INFO     services.database:database.py:2860 [database] migrations: start | current user_version=32 | pending=[33, 34, 35, 36]
+INFO     services.database:database.py:2869 [database] migration backup-guard: start | target_version=32 (VACUUM INTO + read-back копии; на прод-объёме может занимать минуты)
+INFO     services.database:database.py:2873 [database] migration backup-guard: done in 0.0s
+INFO     services.database:database.py:3949 [database] migration v33: mca_factcheck_runs
+INFO     services.database:database.py:3949 [database] migration v33: mca_factcheck_evidence
+INFO     services.database:database.py:2934 [database] migration v33 applied in 0.0s | factcheck_temporal
+INFO     services.database:database.py:3983 [database] migration v34: +namespace
+INFO     services.database:database.py:3988 [database] migration v34: +config_revision
+INFO     services.database:database.py:2934 [database] migration v34 applied in 0.0s | embedding_generation_namespace_v34
+INFO     services.database:database.py:4035 [database] migration v35: llm_usage_events PG-only — SQLite no-op (DDL применяет PgDatabase.init)
+INFO     services.database:database.py:2934 [database] migration v35 applied in 0.0s | llm_usage_plan_meta_v35
+INFO     services.database:database.py:4059 [database] migration v36: humor_samples
+INFO     services.database:database.py:2934 [database] migration v36 applied in 0.0s | humor_samples_v36
+INFO     services.database:database.py:2946 [database] migrations: complete | user_version=36 | total 0.0s
+__________________ test_e_v32_db_applies_v33_once_with_guard __________________
+
+tmp_path = WindowsPath('C:/Users/main/.config/opencode/OpenCodeScratch/adminbot-ccef72c25768/tmp/pytest-of-main/pytest-1854/test_e_v32_db_applies_v33_once0')
+caplog = <_pytest.logging.LogCaptureFixture object at 0x00000288B6135730>
+
+    @pytest.mark.asyncio
+    async def test_e_v32_db_applies_v33_once_with_guard(tmp_path, caplog):
+        """Прод-сценарий retry: БД на v32 (книги нет) → guard + v33+v34+v35 одним
+        проходом; таблицы/индексы на месте; повторный initialize — no-op (ровно
+        одна строка v33/v34/v35 в книге, user_version не скачет).
+        NOTE (P2-D v34): ожидания хвоста обновлены на …v33→v34.
+        ASAP 7 (F2): хвост +v35 (llm_usage_plan_meta_v35, SQLite no-op)."""
+        path = tmp_path / "t5150_prodretry.db"
+        _make_v32_db(path)
+        svc = DatabaseService(str(path))
+        with caplog.at_level(logging.INFO, logger="services.database"):
+            await svc.initialize()
+        try:
+            cur = await svc.db.execute("PRAGMA user_version")
+>           assert (await cur.fetchone())[0] == 35
+E           assert 36 == 35
+
+tests\test_t5150_startup_migrations_round1046.py:246: AssertionError
+------------------------------ Captured log call ------------------------------
+INFO     services.database:database.py:2860 [database] migrations: start | current user_version=32 | pending=[33, 34, 35, 36]
+INFO     services.database:database.py:2869 [database] migration backup-guard: start | target_version=32 (VACUUM INTO + read-back копии; на прод-объёме может занимать минуты)
+INFO     services.database:database.py:2873 [database] migration backup-guard: done in 0.0s
+INFO     services.database:database.py:3949 [database] migration v33: mca_factcheck_runs
+INFO     services.database:database.py:3949 [database] migration v33: mca_factcheck_evidence
+INFO     services.database:database.py:2934 [database] migration v33 applied in 0.0s | factcheck_temporal
+INFO     services.database:database.py:3983 [database] migration v34: +namespace
+INFO     services.database:database.py:3988 [database] migration v34: +config_revision
+INFO     services.database:database.py:2934 [database] migration v34 applied in 0.0s | embedding_generation_namespace_v34
+INFO     services.database:database.py:4035 [database] migration v35: llm_usage_events PG-only — SQLite no-op (DDL применяет PgDatabase.init)
+INFO     services.database:database.py:2934 [database] migration v35 applied in 0.0s | llm_usage_plan_meta_v35
+INFO     services.database:database.py:4059 [database] migration v36: humor_samples
+INFO     services.database:database.py:2934 [database] migration v36 applied in 0.0s | humor_samples_v36
+INFO     services.database:database.py:2946 [database] migrations: complete | user_version=36 | total 0.0s
+_________________ test_e2_v33_db_applies_v34_once_with_guard __________________
+
+tmp_path = WindowsPath('C:/Users/main/.config/opencode/OpenCodeScratch/adminbot-ccef72c25768/tmp/pytest-of-main/pytest-1854/test_e2_v33_db_applies_v34_onc0')
+caplog = <_pytest.logging.LogCaptureFixture object at 0x00000288B6134680>
+
+    @pytest.mark.asyncio
+    async def test_e2_v33_db_applies_v34_once_with_guard(tmp_path, caplog):
+        """v33 → v34 (P2-D, ASAP 6 §8): guard + ровно один шаг v34;
+        до-v34 таблица поколений получает namespace ('default' у легаси-строк)
+        и config_revision; per-index ACTIVE-индекс заменён на NS-вариант;
+        повторный initialize — no-op. ASAP 7 (F2): из v33 применяется вся
+        pending-цепочка …→v35, итог user_version = 35 (шаг v34 при этом ровно
+        один, v35 — SQLite no-op)."""
+        path = tmp_path / "t5150_prodretry_v34.db"
+        await _make_v33_db(path)
+        # легаси-строка ДО v34: namespace ещё нет → после ALTER DEFAULT 'default'
+        conn = sqlite3.connect(str(path))
+        try:
+            conn.execute(
+                "INSERT INTO mca_embedding_index_generations (index_name, "
+                "generation, fingerprint, status, created_at) "
+                "VALUES ('smart_archive', 1, 'fp-legacy', 'active', 1)")
+            conn.commit()
+        finally:
+            conn.close()
+        svc = DatabaseService(str(path))
+        with caplog.at_level(logging.INFO, logger="services.database"):
+            await svc.initialize()
+        try:
+            cur = await svc.db.execute("PRAGMA user_version")
+>           assert (await cur.fetchone())[0] == 35
+E           assert 36 == 35
+
+tests\test_t5150_startup_migrations_round1046.py:335: AssertionError
+------------------------------ Captured log call ------------------------------
+INFO     services.database:database.py:2860 [database] migrations: start | current user_version=33 | pending=[34, 35, 36]
+INFO     services.database:database.py:2869 [database] migration backup-guard: start | target_version=33 (VACUUM INTO + read-back копии; на прод-объёме может занимать минуты)
+INFO     services.database:database.py:2873 [database] migration backup-guard: done in 0.0s
+INFO     services.database:database.py:3983 [database] migration v34: +namespace
+INFO     services.database:database.py:3988 [database] migration v34: +config_revision
+INFO     services.database:database.py:2934 [database] migration v34 applied in 0.0s | embedding_generation_namespace_v34
+INFO     services.database:database.py:4035 [database] migration v35: llm_usage_events PG-only — SQLite no-op (DDL применяет PgDatabase.init)
+INFO     services.database:database.py:2934 [database] migration v35 applied in 0.0s | llm_usage_plan_meta_v35
+INFO     services.database:database.py:4059 [database] migration v36: humor_samples
+INFO     services.database:database.py:2934 [database] migration v36 applied in 0.0s | humor_samples_v36
+INFO     services.database:database.py:2946 [database] migrations: complete | user_version=36 | total 0.0s
+=========================== short test summary info ===========================
+FAILED tests/test_t5150_startup_migrations_round1046.py::test_a_ddl_window_survives_lock_longer_than_base_5s
+FAILED tests/test_t5150_startup_migrations_round1046.py::test_b_step_retry_recovers_after_locked
+FAILED tests/test_t5150_startup_migrations_round1046.py::test_d_migration_chain_full_log_trail
+FAILED tests/test_t5150_startup_migrations_round1046.py::test_e_v32_db_applies_v33_once_with_guard
+FAILED tests/test_t5150_startup_migrations_round1046.py::test_e2_v33_db_applies_v34_once_with_guard
+5 failed, 2 passed in 14.17s

@@ -1,0 +1,38 @@
+REL-25894 bump verify: 70659be3^..70659be3
+files=31 changed-line-pairs=31
+VERSION-ONLY CHECK OK: every changed line differs only by 2.58.93->2.58.94 (or meta HEAD 1e363143->7c2998b1)
+
+70659be3 chore(release-25894): bump 2.58.93 -> 2.58.94 (settings + README + F8-meta HEAD=7c2998b1 + 24 py-pins + 4 JS-pins = 31 files)
+
+ README.md                                                  | 2 +-
+ config/settings.py                                         | 2 +-
+ plans/docs/param-registry-round1025.meta.md                | 4 ++--
+ tests/js/round1025_hotfix10_glass_geometry_bg_test.js      | 2 +-
+ tests/js/round1025_hotfix7_shell_glass_heartbeat_test.js   | 2 +-
+ tests/js/round1025_hotfix8_shell_aurora_test.js            | 2 +-
+ tests/js/round1025_hotfix9_shell_flex_glass_aurora_test.js | 2 +-
+ tests/test_decision_making_round1026.py                    | 2 +-
+ tests/test_image_context_memory_round1026.py               | 2 +-
+ tests/test_mca17c_invariants_round1047.py                  | 2 +-
+ tests/test_round1025_f8_registry.py                        | 2 +-
+ tests/test_scope_selector_round1025.py                     | 2 +-
+ tests/test_summary_deploy_round1026.py                     | 2 +-
+ tests/test_summary_fact_package.py                         | 2 +-
+ tests/test_summary_logging_runid.py                        | 2 +-
+ tests/test_summary_publish_integration_round1026.py        | 2 +-
+ tests/test_summary_test_run.py                             | 2 +-
+ tests/test_telegram_reactions_round1026.py                 | 2 +-
+ tests/test_tool_coordinator_round1026.py                   | 2 +-
+ tests/test_unified_image_request_round1026.py              | 2 +-
+ tests/test_webapp_design_tokens_round1025.py               | 2 +-
+ tests/test_webapp_f11_round1025.py                         | 2 +-
+ tests/test_webapp_f6_round1025.py                          | 2 +-
+ tests/test_webapp_f7_round1025.py                          | 2 +-
+ tests/test_webapp_f9_round1025.py                          | 2 +-
+ tests/test_webapp_hotfix10_round1025.py                    | 2 +-
+ tests/test_webapp_hotfix6_round1025.py                     | 2 +-
+ tests/test_webapp_hotfix7_round1025.py                     | 2 +-
+ tests/test_webapp_hotfix8_round1025.py                     | 2 +-
+ tests/test_webapp_hotfix9_round1025.py                     | 2 +-
+ tests/test_webapp_round1026_polygon.py                     | 4 ++--
+ 31 files changed, 33 insertions(+), 33 deletions(-)

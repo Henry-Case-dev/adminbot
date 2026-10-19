@@ -1,0 +1,27 @@
+﻿REL-25894 - focused/blast runs on candidate (worktree, detached @ 70659be39fca212a40bc2768a485b7bb742af396)
+worktree: C:\Users\main\.config\opencode\OpenCodeScratch\adminbot-ccef72c25768\release-25894\wt
+interpreter: C:\Code\Python\adminbot\.venv\Scripts\python.exe ; pytest -q -p no:cacheprovider
+started: 2026-10-19T07:01:44Z
+
+s1-vision-dl-fix  tests/test_vision_dl_fix.py (DL-FIX contract)
+      -> 7 passed in 5.00s (rc=0)
+
+s2-vision-core-195  vision core + mca19 A-G + rework + addtr_postgen (dl-fix sweep set, expect 195)
+      -> 195 passed, 1 warning in 22.06s (rc=0)
+
+s3-media-profile  media/download/voice/video/avatars profile (25 files; superset of REV-DL-FIX 556-class)
+      -> 741 passed, 1 warning in 27.93s (rc=0)
+
+s4-t5150  t5150 (expect pre-existing 5 failed)
+      -> 5 failed, 2 passed in 14.17s (rc=1)
+
+s5-f8  F8 pair (pins/meta after bump)
+      -> 29 passed in 3.69s (rc=0)
+
+S6  tools/gen_param_registry_round1025.py --check
+      -> CHECK OK: СЂРµРµСЃС‚СЂ 579 == REGISTRY, РєР°СЂС‚Р° РїРѕР»РЅР°, R17-С‡РёСЃС‚Рѕ, TSV/map РёРґРµРјРїРѕС‚РµРЅС‚РЅС‹. (rc=0)
+
+S7  JS-sweep: node tests/js/*_test.js
+      -> JS-SWEEP: files=88 failed=0
+
+finished: 2026-10-19T07:03:10Z

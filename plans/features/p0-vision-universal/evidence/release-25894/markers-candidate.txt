@@ -1,0 +1,9 @@
+bot.py                       build_local_api_session                            2
+bot.py                       AiohttpSession                                     1
+services/local_bot_api.py    HostFilesPathWrapper                               3
+services/local_bot_api.py    def build_local_api_session                        1
+services/local_bot_api.py    CONTAINER_API_FILES_ROOT                           3
+services/local_bot_api.py    host_files_root                                    3
+services/local_bot_api.py    local_files_dir_readable                           2
+services/local_bot_api.py    [local-bot-api] файлы:                             1
+services/local_bot_api.py    [local-bot-api] каталог файлов не читается         1

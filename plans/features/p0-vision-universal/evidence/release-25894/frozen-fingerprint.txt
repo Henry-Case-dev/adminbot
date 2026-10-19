@@ -1,0 +1,12 @@
+# REL-25894 frozen fingerprint - candidate 70659be3 (bump 2.58.94)
+# prod baseline: b4d30cab364e (2.58.93)
+# sha256_12 == deploy_25894.py::EXPECT12 (8 artifacts)
+
+bot.py                                         f9d8306e6034  (f9d8306e6034b1a3689f70087814c354dd36862ed7e9a21af851bb770cc04c94)
+services/local_bot_api.py                      a97e1d3eeab0  (a97e1d3eeab001e1ca4753a98517dd96e318e4f580a8aff367b98faf536dfde7)
+config/settings.py                             94b22606a68d  (94b22606a68d28c3f7f558a13521934fc33df34c3fc5d459e853b8cb3a71860b)
+README.md                                      f3acd3e0645b  (f3acd3e0645bdf1c78f3ac995dce6b112a60d46699c7e05329be632c95db2646)
+plans/docs/param-registry-round1025.meta.md    0f622688098f  (0f622688098fb888fad630b139adb664007839ef4018b80c1dcc203cf1e3c55b)
+services/telegram_send.py                      e23bced2fdb8  (e23bced2fdb84d6735c6b68e9ce7a2bd21d7bd1e43ad2d74946e649d851b896f)
+web/static/fullscreen-policy.js                96db06425079  (96db064250793f02356890adff33dda090ec637c4ae9f26b232f60bbce867ded)
+services/prompt_composer.py                    fd8a2a70d5d7  (fd8a2a70d5d7cd0b95698a0a930b2b0fe329deb2d9ce5bdeed93fb5777d30c3a)
