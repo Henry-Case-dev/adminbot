@@ -1,0 +1,242 @@
+{
+  "scenario": "B3-final",
+  "start_epoch": 1792368940,
+  "t0_epoch": 1792365948,
+  "head": "1d367e4c561b5d1bc224c4c5ee64261945ed83bd",
+  "tracked_mod": 0,
+  "vision_state": {
+    "http": 200,
+    "body": {
+      "requested": true,
+      "effective_enabled": true,
+      "reason": "",
+      "visible_reason": "Распознавание работает",
+      "source": "dedicated",
+      "model": "nvidia/nemotron-3.5-super-vl:free",
+      "base_url": "https://openrouter.ai/api/v1",
+      "api_type": "openai_compatible",
+      "provider": "openrouter.ai",
+      "capability": "ok",
+      "detail": "",
+      "config_revision": "a3ed06b38a021513",
+      "checked_at": 8932798.579569185,
+      "stages": [
+        "ingest",
+        "download",
+        "decode",
+        "vision",
+        "validate",
+        "store",
+        "project",
+        "reindex",
+        "consumers"
+      ],
+      "process": "vision.media",
+      "process_version": "1",
+      "queue": {
+        "queued": 0,
+        "running": 0
+      },
+      "last": null
+    }
+  },
+  "budget": [
+    {
+      "day": "<date>",
+      "scope": "chat:-1002661910336",
+      "metric": "image_calls",
+      "used": 6
+    },
+    {
+      "day": "<date>",
+      "scope": "global",
+      "metric": "image_calls",
+      "used": 6
+    },
+    {
+      "day": "<date>",
+      "scope": "chat:-1002661910336",
+      "metric": "image_calls",
+      "used": 12
+    },
+    {
+      "day": "<date>",
+      "scope": "chat:-1009900000201",
+      "metric": "image_calls",
+      "used": 4
+    },
+    {
+      "day": "<date>",
+      "scope": "global",
+      "metric": "image_calls",
+      "used": 16
+    },
+    {
+      "day": "<date>",
+      "scope": "chat:-1002661910336",
+      "metric": "image_calls",
+      "used": 5
+    },
+    {
+      "day": "<date>",
+      "scope": "global",
+      "metric": "image_calls",
+      "used": 5
+    },
+    {
+      "day": "<date>",
+      "scope": "chat:-1002661910336",
+      "metric": "image_calls",
+      "used": 46
+    },
+    {
+      "day": "<date>",
+      "scope": "global",
+      "metric": "image_calls",
+      "used": 46
+    },
+    {
+      "day": "<date>",
+      "scope": "chat:-1002661910336",
+      "metric": "image_calls",
+      "used": 5
+    },
+    {
+      "day": "<date>",
+      "scope": "chat:-1004482340693",
+      "metric": "image_calls",
+      "used": 5
+    },
+    {
+      "day": "<date>",
+      "scope": "global",
+      "metric": "image_calls",
+      "used": 10
+    },
+    {
+      "day": "<date>",
+      "scope": "chat:-1002661910336",
+      "metric": "image_calls",
+      "used": 5
+    },
+    {
+      "day": "<date>",
+      "scope": "chat:-1004482340693",
+      "metric": "image_calls",
+      "used": 5
+    },
+    {
+      "day": "<date>",
+      "scope": "global",
+      "metric": "image_calls",
+      "used": 10
+    },
+    {
+      "day": "<date>",
+      "scope": "chat:-1002661910336",
+      "metric": "image_calls",
+      "used": 4
+    }
+  ],
+  "reservations_since_start": [],
+  "usage_since_start": [
+    {
+      "step": "single",
+      "n": 7,
+      "tokens": "<Decimal>"
+    },
+    {
+      "step": "l1_planner",
+      "n": 3,
+      "tokens": "<Decimal>"
+    },
+    {
+      "step": "l2_writer",
+      "n": 3,
+      "tokens": "<Decimal>"
+    },
+    {
+      "step": "image",
+      "n": 1,
+      "tokens": "<Decimal>"
+    }
+  ],
+  "jobs_recent": [
+    {
+      "job_id": "9abe292cd4d144e6b87646bda07d9415",
+      "kind": "vision.media",
+      "status": "failed",
+      "reason_code": "vision_unavailable",
+      "attempt": 3,
+      "created_at": 1792367721,
+      "updated_at": 1792367970
+    },
+    {
+      "job_id": "7d86dff22629493b895022af429b7eab",
+      "kind": "vision.media",
+      "status": "failed",
+      "reason_code": "vision_unavailable",
+      "attempt": 3,
+      "created_at": 1792367658,
+      "updated_at": 1792367855
+    },
+    {
+      "job_id": "4394afbab5e94fe68ba5629eedf64717",
+      "kind": "vision.media",
+      "status": "failed",
+      "reason_code": "vision_rate_limited",
+      "attempt": 1,
+      "created_at": 1792365356,
+      "updated_at": 1792365358
+    },
+    {
+      "job_id": "068707d5ad164a45abfc1f2e8664862e",
+      "kind": "vision.media",
+      "status": "failed",
+      "reason_code": "vision_rate_limited",
+      "attempt": 1,
+      "created_at": 1792365336,
+      "updated_at": 1792365338
+    },
+    {
+      "job_id": "d51a9449ca14431fa965b74d137abb3a",
+      "kind": "vision.media",
+      "status": "failed",
+      "reason_code": "vision_rate_limited",
+      "attempt": 1,
+      "created_at": 1792365303,
+      "updated_at": 1792365304
+    },
+    {
+      "job_id": "3239d35df9ba44128fe8b893706e9b26",
+      "kind": "vision.media",
+      "status": "failed",
+      "reason_code": "vision_rate_limited",
+      "attempt": 1,
+      "created_at": 1792365247,
+      "updated_at": 1792365248
+    },
+    {
+      "job_id": "9e8ca808305b4dedbde601a9cbfb2539",
+      "kind": "vision.media",
+      "status": "failed",
+      "reason_code": "vision_rate_limited",
+      "attempt": 1,
+      "created_at": 1792365155,
+      "updated_at": 1792365159
+    },
+    {
+      "job_id": "aebb578e155d44e68e69a2d78186e488",
+      "kind": "vision.media",
+      "status": "failed",
+      "reason_code": "vision_rate_limited",
+      "attempt": 1,
+      "created_at": 1792364353,
+      "updated_at": 1792364354
+    }
+  ],
+  "analyses_recent": [],
+  "user_version": {
+    "user_version": 36
+  }
+}

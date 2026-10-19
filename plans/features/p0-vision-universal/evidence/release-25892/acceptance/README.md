@@ -73,3 +73,32 @@ read-only журнальная волна + уборка. Секретов в о
 - `harness/` — исходники контролируемых вызовов (accept92_live.py + base 2.58.91-bootstrap,
   accept92_clean2.py, accept92_journal.sh, accept92_dbcheck.py). SSH-раннеры (с креденшелами)
   не промотированы — прецедент ACCEPTANCE-91.
+
+## Волна B — добивка положительного Vision + пост-генерации (ACCEPTANCE-92B)
+
+Прод: **2.58.92 @ `1d367e4c`** (тот же T0 23:25:48 UTC); окно **2026-10-19 00:15:24 → 00:22:30 UTC**;
+модель прода — `nvidia/nemotron-3.5-super-vl:free` (PET); 2 SSH-сессии (прогон + уборка).
+
+| # | Сценарий | Факты | Статус |
+|---|---|---|---|
+| B1 | Положительное распознавание | свежий ассет **1165720** (54960 B, image/jpeg, 736×384): **реальная загрузка Telegram OK** (пре-чек до хода, 54960 B). announce mid **1165728**; turn-1 — планировщик не выбрал `image_understanding` (честный ответ, mid 1165729); turn-2 (announce mid 1165730): `capabilities=image_understanding` (conf 0.85, 2.3 c), `recognize_image` **target=1165720** ✓, но проба провайдера → **`disabled/vision_unavailable`** (`http_502`, «Провайдер временно недоступен (ошибка сервера)»), 456 мс; джоба не создавалась; честный ответ mid **1165731** | **BLOCKED_EXTERNAL (провайдер 502)**; путь/target — VERIFIED |
+| B2 | Пост-генерация (ON) | `postgen_enabled=true` (бюджет 20 c); пре-гейт «бот, нарисуй …лимон…» → **1 генерация** (`qwen-image-3-pro`, 612086 B, 41.5 c) → **фото mid 1165733** (sha12 `92e501705bec`) → `image_postgen_vision` → **failed/vision_unavailable** (тот же класс 502) → блок честно запретил утверждать содержимое; ответ mid **1165734** | **VERIFIED (генерация+доставка)**; postgen-описание — BLOCKED_EXTERNAL |
+| B3 | Журнал/экономика | SKIPS=**0** сохраняется (весь T0+окно, ~57 мин); CLAIM_SLOW=22; **CLAIM_TIMEOUT=1** (00:00:30, 30.0 c) и **MAINT_TIMEOUT=1** (00:00:55, recover_stale) — WARNING-наблюдаемость (пропусков тика нет); ERR/CRIT/Traceback=0, 402=0; `image_generate success n=1` (бюджет +1 генерация); `safe_fetch too_many_bytes`=2 (те же, окно A — повторов нет); `mca_media_analyses` — по-прежнему пусто | **VERIFIED (наблюдений)** |
+
+**Корневая причина обеих неудач волны B — внешняя и транзиентная:** проба `POST /api/vision/test`
+и пост-генерация получили **HTTP 502** от OpenRouter для `nvidia/nemotron-3.5-super-vl:free`
+(события `vision_capability_probe failed … detail=http_502` в 00:19:11 и `image_postgen_vision
+failed` в 00:20:14). Через ~3 минуты провайдер восстановился: в 00:22:27 проба **`ok`**
+(«Распознавание работает», `state.requested=true`) — зафиксировано в `cleanup-register-b.json`
+(`probe_now`). Код 2.58.92 отработал честно во всех точках (тул `disabled/vision_unavailable`,
+постген-блок «не утверждай, что получилось», доставка — с честной формулировкой).
+
+**Уборка волны B (правило владельца):** **7/7 удалено** (mid 1165728–1165734, включая фото
+генерации), остаток тестовых **0**; ассет владельца 1165720 не тронут. Регистр — `cleanup-register-b.json`.
+
+**Остаток/рецепт:** бюджет генераций волны израсходован (1/1) — позитивное postgen-описание требует
+новой генерации; повтор B1 возможен сразу (провайдер ok): тот же ассет 1165720, фраза «бот, что тут?»,
+ожидание `ready` (анализ в `mca_media_analyses` + ответ с описанием). Файлы волны: `b1-recognition.json`,
+`b2-postgen.json`, `b3-final.json`, `b-summary.json`, `b-live.out`, `journal-since-t0-b.txt`,
+`cleanup-register-b.json`, `harness/` (accept92b_live.py, accept92b_clean.py, accept92b_journal.sh,
+accept92b_dbcheck.py; база идентична accept92_base.py).

@@ -1,0 +1,111 @@
+{
+  "start_epoch": 1792368940,
+  "t0_epoch": 1792365948,
+  "now_utc": "2026-10-19 00:20:21",
+  "b1_positive": false,
+  "b1_status1": null,
+  "b1_status2": "disabled",
+  "b1_asset": {
+    "asset_id": "a2901d06b20d02ddae7d29d332e1de91",
+    "tg_message_id": 1165720,
+    "byte_size": 54960,
+    "mime": "image/jpeg"
+  },
+  "b2_ok": true,
+  "b2_postgen_ok": false,
+  "b2_provider_calls": 1,
+  "b2_photo_sends": [
+    {
+      "kind": "photo",
+      "chat_id": -1002661910336,
+      "message_id": 1165733,
+      "bytes": 612086,
+      "sha12": "92e501705bec",
+      "reply_to": 1165732
+    }
+  ],
+  "sends": [
+    {
+      "kind": "message",
+      "chat_id": -1002661910336,
+      "message_id": 1165728,
+      "text_head": "🧪 Приёмка 2.58.92B · распознавание свежего фото (контроль).",
+      "text_len": 59,
+      "reply_to": null
+    },
+    {
+      "kind": "message",
+      "chat_id": -1002661910336,
+      "message_id": 1165729,
+      "text_head": "Картинку не вижу - она не обработалась. Опиши словами, что там",
+      "text_len": 62,
+      "reply_to": 1165728
+    },
+    {
+      "kind": "message",
+      "chat_id": -1002661910336,
+      "message_id": 1165730,
+      "text_head": "🧪 Приёмка 2.58.92B · распознавание (повтор, кеш).",
+      "text_len": 49,
+      "reply_to": null
+    },
+    {
+      "kind": "message",
+      "chat_id": -1002661910336,
+      "message_id": 1165731,
+      "text_head": "Картинку не вижу - обработка отвалилась, провайдер лежит",
+      "text_len": 56,
+      "reply_to": 1165730
+    },
+    {
+      "kind": "message",
+      "chat_id": -1002661910336,
+      "message_id": 1165732,
+      "text_head": "🧪 Приёмка 2.58.92B · генерация + пост-генерация (контроль).",
+      "text_len": 59,
+      "reply_to": null
+    },
+    {
+      "kind": "photo",
+      "chat_id": -1002661910336,
+      "message_id": 1165733,
+      "bytes": 612086,
+      "sha12": "92e501705bec",
+      "reply_to": 1165732
+    },
+    {
+      "kind": "message",
+      "chat_id": -1002661910336,
+      "message_id": 1165734,
+      "text_head": "Лимон уже улетел в чат, жёлтый на белом, всё как заказывали  Правда, безобидность я гарантирую только до момента, пока кто-нибудь не начнёт вспоминать, что лимон - это про кислоту, а кислота - это уже почти химическая атака, и вот тут начин",
+      "text_len": 296,
+      "reply_to": 1165732
+    }
+  ],
+  "tool_calls": [
+    "recognize_image"
+  ],
+  "postgen": [
+    {
+      "status": "unavailable",
+      "reason": "vision_unavailable",
+      "visible_reason": "Провайдер временно недоступен (ошибка сервера)",
+      "has_content": false,
+      "description_len": 0,
+      "ocr_blocks": 0,
+      "cache_hit": false
+    }
+  ],
+  "postgen_heads": [
+    {
+      "status": "unavailable",
+      "reason": "vision_unavailable",
+      "visible_reason": "Провайдер временно недоступен (ошибка сервера)",
+      "has_content": false,
+      "cache_hit": false,
+      "desc_len": 0,
+      "desc_head": "",
+      "bytes": 612086
+    }
+  ]
+}

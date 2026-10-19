@@ -1,0 +1,13 @@
+ACC92B NOW_UTC | 2026-10-19 00:15:24
+ACCEPT91 BOOT | version=? vec=True bot=8802473181 pg=True
+ACC92B START_EPOCH | 1792368940
+ACCEPT91 SAVE INFO | b1-recognition.json (7021 bytes)
+ACC92B B1 | {"status1": null, "status2": "disabled", "positive_recognition": false}
+ACCEPT91 SAVE INFO | b2-postgen.json (7542 bytes)
+ACC92B B2 | {"provider_calls": 1, "photo_mids": [1165733], "postgen_ok": false}
+ACCEPT91 SAVE INFO | b3-final.json (5394 bytes)
+ACC92B B3 | done
+ACCEPT91 SAVE INFO | summary.json (3437 bytes)
+ACC92B FLUSH | mca_events flushed=63
+ACC92B DONE | evidence=/tmp/accept92b/evidence
+ACC92B RC=0
