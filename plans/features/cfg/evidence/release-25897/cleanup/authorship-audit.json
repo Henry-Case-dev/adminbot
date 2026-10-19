@@ -1,0 +1,2456 @@
+{
+ "audit": "DELETED-AUTHORSHIP-AUDIT",
+ "question": "Удаляли ли уборкой сообщения ПОЛЬЗОВАТЕЛЕЙ (а не бота)?",
+ "generated_utc": "2026-10-19 23:43:21Z",
+ "method": "read-only разбор всех локальных регистров/журналов/evidence уборки + кросс-проверка пересечений; SQL/SSH не использовались (см. limitations)",
+ "verdict": {
+  "user_messages_deleted": 0,
+  "user_messages_deleted_confidence": "высокая: полные delete-списки каждого прогона зафиксированы в его регистре; пересечение со всеми известными пользовательскими mid пусто; живые пробы 21:10Z/21:11Z/21:12Z/23:21Z показали пользовательские сообщения живыми",
+  "bot_messages_deleted_unique": 175,
+  "of_which_incident_organic_bot": 9,
+  "incident": "21:11Z stop-verify удалил 9 органических сообщений БОТА (7 ответов пользователю 1313107079 + 2 инициативных); пользовательские сообщения-родители (1166037/1166040/1166047/1166049/1166050/1166055/1166057) НЕ удалены и живы; владелец решил бот-сообщения не восстанавливать (restore_organic_97.py не применялся)",
+  "error_method_vs_users": "метод ошибки 21:11Z не может удалить пользовательское сообщение при соблюдении гейта: удаление выполнялось только после Telegram ownership-пробы (editMessageReplyMarkup), которая успешна только для сообщений самого бота; ошибка была в классификации «тест vs органика» среди bot-owned, а не в определении автора"
+ },
+ "totals": {
+  "runs_with_deletes": 17,
+  "runs_total_listed": 22,
+  "deleted_rows_recorded": 177,
+  "deleted_unique": 175,
+  "deleted_unique_chat_A": 161,
+  "deleted_unique_chat_B": 14,
+  "duplicate_records_explained": {
+   "(-1002661910336, 1165620)": [
+    "R1-acc91",
+    "R1a-acc91-img"
+   ],
+   "(-1002661910336, 1165622)": [
+    "R1-acc91",
+    "R1a-acc91-img"
+   ]
+  },
+  "user_mids_explicitly_inventoried_kept": 278
+ },
+ "cross_check": {
+  "deleted_intersect_user_known": [],
+  "result": "EMPTY"
+ },
+ "runs": [
+  {
+   "run": "R1-acc91",
+   "when_utc": "2026-10-18 21:25:30",
+   "register_repo": "acceptance/cleanup-register.json",
+   "deleted_total": 22,
+   "kept_user_inventory": 38,
+   "note": "окно 1165600–1165659: учтено 60/60 mid = 22 тест-бот + 38 входящих пользовательских (kept)"
+  },
+  {
+   "run": "R1a-acc91-img",
+   "when_utc": "2026-10-18 ~21:09Z (mtime)",
+   "register_repo": "acceptance/cleanup-deleted-images.json",
+   "deleted_total": 2,
+   "kept_user_inventory": 0,
+   "note": "2 тестовых фото генерации; в R1 регистре помечены already_deleted"
+  },
+  {
+   "run": "R2-acc92-A",
+   "when_utc": "2026-10-19 00:04:51",
+   "register_repo": "acceptance/cleanup-register.json",
+   "deleted_total": 7,
+   "kept_user_inventory": 0,
+   "note": "волна A (vision/factcheck): якоря-семена + ответы; README: «сообщения владельца не тронуты (safety-гейт: пересечений с реальными юзерами нет)»; ассет владельца 1165606/1165607 не в delete-списке"
+  },
+  {
+   "run": "R2b-acc92-B",
+   "when_utc": "2026-10-19 00:22:30",
+   "register_repo": "acceptance/cleanup-register-b.json",
+   "deleted_total": 7,
+   "kept_user_inventory": 0,
+   "note": "волна B; README: «ассет владельца 1165720 не тронут»"
+  },
+  {
+   "run": "R3-acc94",
+   "when_utc": "2026-10-19 09:16:31Z",
+   "register_repo": "acceptance/cleanup-register.json",
+   "deleted_total": 9,
+   "kept_user_inventory": 106,
+   "note": "f-cleanup-register содержит sends harness-а (mid=авторства бота); smart_rows_window — пользовательские сообщения окна, не удалялись"
+  },
+  {
+   "run": "R4-acc95",
+   "when_utc": "2026-10-19 14:19:07",
+   "register_repo": "acceptance/cleanup-register.json",
+   "deleted_total": 16,
+   "kept_user_inventory": 26,
+   "note": "p8c-register: excluded_real_users=[]; якорь->ответ пары восстановлены из регистров"
+  },
+  {
+   "run": "R5-acc96",
+   "when_utc": "2026-10-19 15:37:16",
+   "register_repo": "acceptance/cleanup-register.json",
+   "deleted_total": 33,
+   "kept_user_inventory": 0,
+   "note": "safety-gate против реальных пользователей; остатки 95a проверены отдельно"
+  },
+  {
+   "run": "R5b-acc96-followup",
+   "when_utc": "2026-10-19 15:55:38",
+   "register_repo": "followup/cleanup-register.json",
+   "deleted_total": 9,
+   "kept_user_inventory": 0,
+   "note": "residual_95a: 1166467 -> not_bot (НЕ удалён), 1166469 -> bot -> удалён: живой пример сработки гейта"
+  },
+  {
+   "run": "R5c-acc96-hedge",
+   "when_utc": "2026-10-19 ~16:05Z (mtime)",
+   "register_repo": "followup/cleanup-hedge-anchor.json",
+   "deleted_total": 0,
+   "kept_user_inventory": 2,
+   "note": "кандидаты-«якоря» 1166670/71/72: 1166671/1166672 (юзерские, 263719784/134812796) сохранены; 1166670 перепроверен edit_text -> bot -> удалён (см. R5de)"
+  },
+  {
+   "run": "R5de-acc96-quote+anchor2",
+   "when_utc": "2026-10-19 ~16:01–16:12Z (mtime)",
+   "register_repo": "followup/",
+   "deleted_total": 2,
+   "kept_user_inventory": 0,
+   "note": "точечные удаления 1166725 (quote-тест) и 1166670 (бот, доказано edit_text-пробой)"
+  },
+  {
+   "run": "R6-f0",
+   "when_utc": "2026-10-19 10:00:28",
+   "register_repo": "f0/cleanup-register.json",
+   "deleted_total": 1,
+   "kept_user_inventory": 5,
+   "note": "окно содержало 5 живых сообщений участников (Костя/Гоша/Никита, mid 1166223–1166227) — проинвентаризированы и НЕ удалялись"
+  },
+  {
+   "run": "R7-f4-prep",
+   "when_utc": "2026-10-19 20:13:03",
+   "register_repo": "f4/prep.json",
+   "deleted_total": 2,
+   "kept_user_inventory": 0,
+   "note": "подготовка чистой волны: остатки сдвоенного запуска (anchor_candidates/matched_by_prefix)"
+  },
+  {
+   "run": "R8-f4-sweep",
+   "when_utc": "2026-10-19 20:12:47",
+   "register_repo": "f4/sweep.json",
+   "deleted_total": 0,
+   "kept_user_inventory": 24,
+   "note": "пре-уборка: прервана из-за активности владельца в чате; только инвентаризация пользовательских сообщений окна"
+  },
+  {
+   "run": "R9-acc97-runner",
+   "when_utc": "2026-10-19 20:19:42",
+   "register_repo": "f4/cleanup-register.json",
+   "deleted_total": 23,
+   "kept_user_inventory": 0,
+   "note": "штатная уборка runner-а ACCEPTANCE-97: 23/23, residual 0"
+  },
+  {
+   "run": "R10-f4-final-clean",
+   "when_utc": "2026-10-19 20:23:51Z",
+   "register_repo": "f4/runs/final-clean.log",
+   "deleted_total": 15,
+   "kept_user_inventory": 0,
+   "note": "лог содержит построчный DEL каждого mid; RC=4 только на записи evidence-файла (PermissionError), удаления выполнены"
+  },
+  {
+   "run": "R11-f4-residual",
+   "when_utc": "2026-10-19 20:26:18Z",
+   "register_repo": "f4/runs/residual-clean.log",
+   "deleted_total": 5,
+   "kept_user_inventory": 4,
+   "note": "kept=[1166966, 1166975, 1166982, 1166988] — bot-ответы на реальные сообщения, оставлены"
+  },
+  {
+   "run": "R12-leftover-1166975",
+   "when_utc": "2026-10-19 20:34:26Z",
+   "register_repo": "cleanup-leftover.json",
+   "deleted_total": 1,
+   "kept_user_inventory": 0,
+   "note": "точное побайтовое совпадение с wave-occasional occasional-05; parent-запись отсутствовала; удалён с safety-check (rows: replies=1)"
+  },
+  {
+   "run": "R13-cleanup-all",
+   "when_utc": "2026-10-19 21:10:13",
+   "register_repo": "stop-cleanup/sibling-cleanup-register.json",
+   "deleted_total": 13,
+   "kept_user_inventory": 27,
+   "note": "кандидаты=221 (объединение всех регистров): owned=13 -> удалены; absent=181; not_owned=27 -> сохранены"
+  },
+  {
+   "run": "R14-stop-verify-INCIDENT",
+   "when_utc": "2026-10-19 21:11:48",
+   "register_repo": "stop-cleanup/stop-verify.json",
+   "deleted_total": 9,
+   "kept_user_inventory": 222,
+   "note": "ИНЦИДЕНТ: 9 органических сообщений БОТА (не пользователей) удалены ошибочно; 222 not_owned (пользовательские) сохранены; восстановление подготовлено, владелец решил НЕ восстанавливать",
+   "probe_states": {
+    "owned": 9,
+    "absent": 194,
+    "not_owned": 222,
+    "error": 0,
+    "retry": 0
+   },
+   "kept_not_owned_by_chat": {
+    "-1004482340693": 5,
+    "-1002661910336": 217
+   }
+  },
+  {
+   "run": "R15-verify-noop",
+   "when_utc": "2026-10-19 20:21:58",
+   "register_repo": "cleanup-register-verification.json",
+   "deleted_total": 0,
+   "kept_user_inventory": 0,
+   "note": "проверочная уборка: все 23 already_deleted (фактических удалений 0)"
+  },
+  {
+   "run": "R16-sweep-2112",
+   "when_utc": "2026-10-19 21:12:49Z",
+   "register_repo": "stop-cleanup/sibling-sweep.json",
+   "deleted_total": 0,
+   "kept_user_inventory": 157,
+   "note": "скан диапазонов A 1165600-1167070 / B 2715-2805: owned=21 (14 органика вне реестра + 7 сохранённая органика), absent=169, not_owned=157; удалений 0 (RC=3 = «есть живые bot-owned, сознательно не удаляем»)"
+  },
+  {
+   "run": "R17-closure-probe",
+   "when_utc": "2026-10-19 23:21:35Z (локально 20.10 11:21)",
+   "register_repo": "cleanup/closure-all-chats.json",
+   "deleted_total": 0,
+   "kept_user_inventory": 27,
+   "note": "финальная живая проба 221 реестровых mid: owned=0, absent=194, not_owned=27; удалений 0"
+  }
+ ],
+ "deleted_mids_table": [
+  {
+   "chat_id": -1004482340693,
+   "mid": 2720,
+   "run": "R5-acc96",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "классификация в самом регистре уборки (kind=seed/bot_reply/bot_photo/chain) + safety-gate на пересечение с реальными юзерами",
+   "kind": "anchor/answer цепочки F-матрицы",
+   "head": ""
+  },
+  {
+   "chat_id": -1004482340693,
+   "mid": 2721,
+   "run": "R5-acc96",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "классификация в самом регистре уборки (kind=seed/bot_reply/bot_photo/chain) + safety-gate на пересечение с реальными юзерами",
+   "kind": "anchor/answer цепочки F-матрицы",
+   "head": ""
+  },
+  {
+   "chat_id": -1004482340693,
+   "mid": 2722,
+   "run": "R5-acc96",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "классификация в самом регистре уборки (kind=seed/bot_reply/bot_photo/chain) + safety-gate на пересечение с реальными юзерами",
+   "kind": "anchor/answer цепочки F-матрицы",
+   "head": ""
+  },
+  {
+   "chat_id": -1004482340693,
+   "mid": 2736,
+   "run": "R5b-acc96-followup",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "классификация в самом регистре уборки (kind=seed/bot_reply/bot_photo/chain) + safety-gate на пересечение с реальными юзерами",
+   "kind": "followup-цепочки",
+   "head": ""
+  },
+  {
+   "chat_id": -1004482340693,
+   "mid": 2737,
+   "run": "R5b-acc96-followup",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "классификация в самом регистре уборки (kind=seed/bot_reply/bot_photo/chain) + safety-gate на пересечение с реальными юзерами",
+   "kind": "followup-цепочки",
+   "head": ""
+  },
+  {
+   "chat_id": -1004482340693,
+   "mid": 2739,
+   "run": "R5b-acc96-followup",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "классификация в самом регистре уборки (kind=seed/bot_reply/bot_photo/chain) + safety-gate на пересечение с реальными юзерами",
+   "kind": "followup-цепочки",
+   "head": ""
+  },
+  {
+   "chat_id": -1004482340693,
+   "mid": 2789,
+   "run": "R10-f4-final-clean",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "сообщение отправлено harness-ом приёмки через Bot API сессию бота (accept97_base.RecordingBot поверх build_local_api_session); регистр/логи прогона содержат его mid/текст",
+   "kind": "остатки дубля волны (4 B)",
+   "head": ""
+  },
+  {
+   "chat_id": -1004482340693,
+   "mid": 2791,
+   "run": "R10-f4-final-clean",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "сообщение отправлено harness-ом приёмки через Bot API сессию бота (accept97_base.RecordingBot поверх build_local_api_session); регистр/логи прогона содержат его mid/текст",
+   "kind": "остатки дубля волны (4 B)",
+   "head": ""
+  },
+  {
+   "chat_id": -1004482340693,
+   "mid": 2792,
+   "run": "R10-f4-final-clean",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "сообщение отправлено harness-ом приёмки через Bot API сессию бота (accept97_base.RecordingBot поверх build_local_api_session); регистр/логи прогона содержат его mid/текст",
+   "kind": "остатки дубля волны (4 B)",
+   "head": ""
+  },
+  {
+   "chat_id": -1004482340693,
+   "mid": 2794,
+   "run": "R10-f4-final-clean",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "сообщение отправлено harness-ом приёмки через Bot API сессию бота (accept97_base.RecordingBot поверх build_local_api_session); регистр/логи прогона содержат его mid/текст",
+   "kind": "остатки дубля волны (4 B)",
+   "head": ""
+  },
+  {
+   "chat_id": -1004482340693,
+   "mid": 2797,
+   "run": "R9-acc97-runner",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "сообщение отправлено harness-ом приёмки через Bot API сессию бота (accept97_base.RecordingBot поверх build_local_api_session); регистр/логи прогона содержат его mid/текст",
+   "kind": "ответы волн F4 (frequent/occasional/off)",
+   "head": ""
+  },
+  {
+   "chat_id": -1004482340693,
+   "mid": 2798,
+   "run": "R9-acc97-runner",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "сообщение отправлено harness-ом приёмки через Bot API сессию бота (accept97_base.RecordingBot поверх build_local_api_session); регистр/логи прогона содержат его mid/текст",
+   "kind": "ответы волн F4 (frequent/occasional/off)",
+   "head": ""
+  },
+  {
+   "chat_id": -1004482340693,
+   "mid": 2799,
+   "run": "R9-acc97-runner",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "сообщение отправлено harness-ом приёмки через Bot API сессию бота (accept97_base.RecordingBot поверх build_local_api_session); регистр/логи прогона содержат его mid/текст",
+   "kind": "ответы волн F4 (frequent/occasional/off)",
+   "head": ""
+  },
+  {
+   "chat_id": -1004482340693,
+   "mid": 2800,
+   "run": "R9-acc97-runner",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "сообщение отправлено harness-ом приёмки через Bot API сессию бота (accept97_base.RecordingBot поверх build_local_api_session); регистр/логи прогона содержат его mid/текст",
+   "kind": "ответы волн F4 (frequent/occasional/off)",
+   "head": ""
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1164703,
+   "run": "R14-stop-verify-INCIDENT",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "органическое сообщение БОТА, удалено ошибочно 21:11Z (инцидент); авторство бота доказано (ответ реальному пользователю/инициатива, тексты в mca_bot_outputs)",
+   "kind": "initiative_reply (инициативная)",
+   "head": "Волосатый как обезьяна - это чтоб по веткам прыгать удобнее было, да? Тестестеро"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1165152,
+   "run": "R14-stop-verify-INCIDENT",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "органическое сообщение БОТА, удалено ошибочно 21:11Z (инцидент); авторство бота доказано (ответ реальному пользователю/инициатива, тексты в mca_bot_outputs)",
+   "kind": "initiative_reply (инициативная)",
+   "head": "Костян, ты бы хоть раз что-то кроме школьниц протестировал."
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1165608,
+   "run": "R1-acc91",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "классификация в самом регистре уборки (kind=seed/bot_reply/bot_photo/chain) + safety-gate на пересечение с реальными юзерами",
+   "kind": "seed",
+   "head": "🧪 Приёмка 2.58.91 · проверка health"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1165609,
+   "run": "R1-acc91",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "классификация в самом регистре уборки (kind=seed/bot_reply/bot_photo/chain) + safety-gate на пересечение с реальными юзерами",
+   "kind": "bot_reply",
+   "head": "По справке ничего про состояние сервера нет"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1165610,
+   "run": "R1-acc91",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "классификация в самом регистре уборки (kind=seed/bot_reply/bot_photo/chain) + safety-gate на пересечение с реальными юзерами",
+   "kind": "bot_reply",
+   "head": "В справке ни строчки про ошибки"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1165611,
+   "run": "R1-acc91",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "классификация в самом регистре уборки (kind=seed/bot_reply/bot_photo/chain) + safety-gate на пересечение с реальными юзерами",
+   "kind": "bot_reply",
+   "head": "беттерстак обосрался, лезу ковырять локальные логи"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1165612,
+   "run": "R1-acc91",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "классификация в самом регистре уборки (kind=seed/bot_reply/bot_photo/chain) + safety-gate на пересечение с реальными юзерами",
+   "kind": "bot_reply",
+   "head": "блять, ну классика. betterstack лег"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1165613,
+   "run": "R1-acc91",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "классификация в самом регистре уборки (kind=seed/bot_reply/bot_photo/chain) + safety-gate на пересечение с реальными юзерами",
+   "kind": "bot_reply",
+   "head": "Картинку посмотреть не вышло"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1165614,
+   "run": "R1-acc91",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "классификация в самом регистре уборки (kind=seed/bot_reply/bot_photo/chain) + safety-gate на пересечение с реальными юзерами",
+   "kind": "bot_reply",
+   "head": "Не могу - распознавание картинок у провайдера отвалилось"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1165615,
+   "run": "R1-acc91",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "классификация в самом регистре уборки (kind=seed/bot_reply/bot_photo/chain) + safety-gate на пересечение с реальными юзерами",
+   "kind": "seed",
+   "head": "🧪 Приёмка 2.58.91 · утверждение для фактчека"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1165617,
+   "run": "R1-acc91",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "классификация в самом регистре уборки (kind=seed/bot_reply/bot_photo/chain) + safety-gate на пересечение с реальными юзерами",
+   "kind": "bot_reply",
+   "head": "Проверка не сработала - по времени не пролезло"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1165619,
+   "run": "R1-acc91",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "классификация в самом регистре уборки (kind=seed/bot_reply/bot_photo/chain) + safety-gate на пересечение с реальными юзерами",
+   "kind": "bot_reply",
+   "head": "Генератор картинок сдох по дороге к утёнку"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1165620,
+   "run": "R1-acc91",
+   "authorship": "bot",
+   "status": "already_deleted",
+   "basis": "классификация в самом регистре уборки (kind=seed/bot_reply/bot_photo/chain) + safety-gate на пересечение с реальными юзерами",
+   "kind": "bot_photo",
+   "head": "(photo, удалено 18.10 followup)"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1165620,
+   "run": "R1a-acc91-img",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "bot-фото генерации картинок приёмки (в R1-acc91 значатся kind=bot_photo, already_deleted)",
+   "kind": "bot_photo",
+   "head": "(photo, удалено 18.10 followup)"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1165621,
+   "run": "R1-acc91",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "классификация в самом регистре уборки (kind=seed/bot_reply/bot_photo/chain) + safety-gate на пересечение с реальными юзерами",
+   "kind": "bot_reply",
+   "head": "Генератор картинок уже отправил что-то в чат"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1165622,
+   "run": "R1-acc91",
+   "authorship": "bot",
+   "status": "already_deleted",
+   "basis": "классификация в самом регистре уборки (kind=seed/bot_reply/bot_photo/chain) + safety-gate на пересечение с реальными юзерами",
+   "kind": "bot_photo",
+   "head": "(photo, удалено 18.10 followup)"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1165622,
+   "run": "R1a-acc91-img",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "bot-фото генерации картинок приёмки (в R1-acc91 значатся kind=bot_photo, already_deleted)",
+   "kind": "bot_photo",
+   "head": "(photo, удалено 18.10 followup)"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1165623,
+   "run": "R1-acc91",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "классификация в самом регистре уборки (kind=seed/bot_reply/bot_photo/chain) + safety-gate на пересечение с реальными юзерами",
+   "kind": "bot_reply",
+   "head": "Картинка ушла в чат"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1165624,
+   "run": "R1-acc91",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "классификация в самом регистре уборки (kind=seed/bot_reply/bot_photo/chain) + safety-gate на пересечение с реальными юзерами",
+   "kind": "bot_reply",
+   "head": "Генератор прилёг передохнуть"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1165627,
+   "run": "R1-acc91",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "классификация в самом регистре уборки (kind=seed/bot_reply/bot_photo/chain) + safety-gate на пересечение с реальными юзерами",
+   "kind": "seed",
+   "head": "🧪 Приёмка 2.58.91 · health retry"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1165629,
+   "run": "R1-acc91",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "классификация в самом регистре уборки (kind=seed/bot_reply/bot_photo/chain) + safety-gate на пересечение с реальными юзерами",
+   "kind": "bot_reply",
+   "head": "По справке сервер живой, но с бодуна"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1165630,
+   "run": "R1-acc91",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "классификация в самом регистре уборки (kind=seed/bot_reply/bot_photo/chain) + safety-gate на пересечение с реальными юзерами",
+   "kind": "bot_reply",
+   "head": "Не подтвержу - проверка не пролезла по времени"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1165655,
+   "run": "R1-acc91",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "классификация в самом регистре уборки (kind=seed/bot_reply/bot_photo/chain) + safety-gate на пересечение с реальными юзерами",
+   "kind": "seed",
+   "head": "🧪 Приёмка 2.58.91 · factcheck clean claim"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1165656,
+   "run": "R1-acc91",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "классификация в самом регистре уборки (kind=seed/bot_reply/bot_photo/chain) + safety-gate на пересечение с реальными юзерами",
+   "kind": "bot_reply",
+   "head": "Ты это к чему - проверить меня хочешь"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1165657,
+   "run": "R1-acc91",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "классификация в самом регистре уборки (kind=seed/bot_reply/bot_photo/chain) + safety-gate на пересечение с реальными юзерами",
+   "kind": "seed",
+   "head": "🧪 Приёмка 2.58.91 · factcheck explicit+registered"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1165658,
+   "run": "R1-acc91",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "классификация в самом регистре уборки (kind=seed/bot_reply/bot_photo/chain) + safety-gate на пересечение с реальными юзерами",
+   "kind": "bot_reply",
+   "head": "Подтверждено. На уровне моря"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1165721,
+   "run": "R2-acc92-A",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "классификация в самом регистре уборки (kind=seed/bot_reply/bot_photo/chain) + safety-gate на пересечение с реальными юзерами",
+   "kind": "seed/bot_reply (якоря приёмки, answer-цепочки)",
+   "head": ""
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1165722,
+   "run": "R2-acc92-A",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "классификация в самом регистре уборки (kind=seed/bot_reply/bot_photo/chain) + safety-gate на пересечение с реальными юзерами",
+   "kind": "seed/bot_reply (якоря приёмки, answer-цепочки)",
+   "head": "Не могу разглядеть - картинка не обработалась, висит в очереди и резул"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1165723,
+   "run": "R2-acc92-A",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "классификация в самом регистре уборки (kind=seed/bot_reply/bot_photo/chain) + safety-gate на пересечение с реальными юзерами",
+   "kind": "seed/bot_reply (якоря приёмки, answer-цепочки)",
+   "head": ""
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1165724,
+   "run": "R2-acc92-A",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "классификация в самом регистре уборки (kind=seed/bot_reply/bot_photo/chain) + safety-gate на пересечение с реальными юзерами",
+   "kind": "seed/bot_reply (якоря приёмки, answer-цепочки)",
+   "head": "Картинка не обработалась - висит в очереди, результата нет. Скинь ещё "
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1165725,
+   "run": "R2-acc92-A",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "классификация в самом регистре уборки (kind=seed/bot_reply/bot_photo/chain) + safety-gate на пересечение с реальными юзерами",
+   "kind": "seed/bot_reply (якоря приёмки, answer-цепочки)",
+   "head": "Вода закипает при 100 °C на уровне моря."
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1165726,
+   "run": "R2-acc92-A",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "классификация в самом регистре уборки (kind=seed/bot_reply/bot_photo/chain) + safety-gate на пересечение с реальными юзерами",
+   "kind": "seed/bot_reply (якоря приёмки, answer-цепочки)",
+   "head": ""
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1165727,
+   "run": "R2-acc92-A",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "классификация в самом регистре уборки (kind=seed/bot_reply/bot_photo/chain) + safety-gate на пересечение с реальными юзерами",
+   "kind": "seed/bot_reply (якоря приёмки, answer-цепочки)",
+   "head": "Правда, но с одной оговоркой - это работает только на уровне моря. Зат"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1165728,
+   "run": "R2b-acc92-B",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "классификация в самом регистре уборки (kind=seed/bot_reply/bot_photo/chain) + safety-gate на пересечение с реальными юзерами",
+   "kind": "seed/bot_reply/bot_photo (волна B, фото генерации)",
+   "head": ""
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1165729,
+   "run": "R2b-acc92-B",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "классификация в самом регистре уборки (kind=seed/bot_reply/bot_photo/chain) + safety-gate на пересечение с реальными юзерами",
+   "kind": "seed/bot_reply/bot_photo (волна B, фото генерации)",
+   "head": "Картинку не вижу - она не обработалась. Опиши словами, что там"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1165730,
+   "run": "R2b-acc92-B",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "классификация в самом регистре уборки (kind=seed/bot_reply/bot_photo/chain) + safety-gate на пересечение с реальными юзерами",
+   "kind": "seed/bot_reply/bot_photo (волна B, фото генерации)",
+   "head": ""
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1165731,
+   "run": "R2b-acc92-B",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "классификация в самом регистре уборки (kind=seed/bot_reply/bot_photo/chain) + safety-gate на пересечение с реальными юзерами",
+   "kind": "seed/bot_reply/bot_photo (волна B, фото генерации)",
+   "head": "Картинку не вижу - обработка отвалилась, провайдер лежит"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1165732,
+   "run": "R2b-acc92-B",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "классификация в самом регистре уборки (kind=seed/bot_reply/bot_photo/chain) + safety-gate на пересечение с реальными юзерами",
+   "kind": "seed/bot_reply/bot_photo (волна B, фото генерации)",
+   "head": ""
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1165733,
+   "run": "R2b-acc92-B",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "классификация в самом регистре уборки (kind=seed/bot_reply/bot_photo/chain) + safety-gate на пересечение с реальными юзерами",
+   "kind": "seed/bot_reply/bot_photo (волна B, фото генерации)",
+   "head": ""
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1165734,
+   "run": "R2b-acc92-B",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "классификация в самом регистре уборки (kind=seed/bot_reply/bot_photo/chain) + safety-gate на пересечение с реальными юзерами",
+   "kind": "seed/bot_reply/bot_photo (волна B, фото генерации)",
+   "head": "Лимон уже улетел в чат, жёлтый на белом, всё как заказывали Правда, бе"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166038,
+   "run": "R14-stop-verify-INCIDENT",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "органическое сообщение БОТА, удалено ошибочно 21:11Z (инцидент); авторство бота доказано (ответ реальному пользователю/инициатива, тексты в mca_bot_outputs)",
+   "kind": "direct_reply -> parent_user 1313107079",
+   "head": "Сам иди, я тут при чем"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166041,
+   "run": "R14-stop-verify-INCIDENT",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "органическое сообщение БОТА, удалено ошибочно 21:11Z (инцидент); авторство бота доказано (ответ реальному пользователю/инициатива, тексты в mca_bot_outputs)",
+   "kind": "direct_reply -> parent_user 1313107079",
+   "head": "Рисовать не умею, да. Зато ты пришел с этим к тому, у кого вместо кисти справка "
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166048,
+   "run": "R14-stop-verify-INCIDENT",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "органическое сообщение БОТА, удалено ошибочно 21:11Z (инцидент); авторство бота доказано (ответ реальному пользователю/инициатива, тексты в mca_bot_outputs)",
+   "kind": "direct_reply -> parent_user 1313107079",
+   "head": "Ну вот и славно, воображение единственный безлимитный тариф в этой конфе. Мем уж"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166051,
+   "run": "R14-stop-verify-INCIDENT",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "органическое сообщение БОТА, удалено ошибочно 21:11Z (инцидент); авторство бота доказано (ответ реальному пользователю/инициатива, тексты в mca_bot_outputs)",
+   "kind": "direct_reply -> parent_user 1313107079",
+   "head": "Сцуко - это слово-инвалид, у него отвалилась первая буква и вместо неё вставили "
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166053,
+   "run": "R14-stop-verify-INCIDENT",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "органическое сообщение БОТА, удалено ошибочно 21:11Z (инцидент); авторство бота доказано (ответ реальному пользователю/инициатива, тексты в mca_bot_outputs)",
+   "kind": "direct_reply -> parent_user 1313107079",
+   "head": "Смешной и интересный, ага. Ты просто наконец нашёл того, кто отвечает быстрее, ч"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166056,
+   "run": "R14-stop-verify-INCIDENT",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "органическое сообщение БОТА, удалено ошибочно 21:11Z (инцидент); авторство бота доказано (ответ реальному пользователю/инициатива, тексты в mca_bot_outputs)",
+   "kind": "direct_reply -> parent_user 1313107079",
+   "head": "Сцуко принято, команда выполнена"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166058,
+   "run": "R14-stop-verify-INCIDENT",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "органическое сообщение БОТА, удалено ошибочно 21:11Z (инцидент); авторство бота доказано (ответ реальному пользователю/инициатива, тексты в mca_bot_outputs)",
+   "kind": "direct_reply -> parent_user 1313107079",
+   "head": "Сцуко так сцуко, Вася"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166064,
+   "run": "R3-acc94",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "классификация в самом регистре уборки (kind=seed/bot_reply/bot_photo/chain) + safety-gate на пересечение с реальными юзерами",
+   "kind": "test chain",
+   "head": ""
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166066,
+   "run": "R3-acc94",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "классификация в самом регистре уборки (kind=seed/bot_reply/bot_photo/chain) + safety-gate на пересечение с реальными юзерами",
+   "kind": "test chain",
+   "head": ""
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166165,
+   "run": "R3-acc94",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "сообщение отправлено harness-ом приёмки через Bot API сессию бота (accept97_base.RecordingBot поверх build_local_api_session); регистр/логи прогона содержат его mid/текст",
+   "kind": "harness send",
+   "head": "🧪 Приёмка 2.58.94 · распознавание фото (контроль)."
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166167,
+   "run": "R3-acc94",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "сообщение отправлено harness-ом приёмки через Bot API сессию бота (accept97_base.RecordingBot поверх build_local_api_session); регистр/логи прогона содержат его mid/текст",
+   "kind": "harness send",
+   "head": "На фото пёс сидит на земле у деревянной будки, а из тёмного лаза на тебя смотрит"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166168,
+   "run": "R3-acc94",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "сообщение отправлено harness-ом приёмки через Bot API сессию бота (accept97_base.RecordingBot поверх build_local_api_session); регистр/логи прогона содержат его mid/текст",
+   "kind": "harness send",
+   "head": "🧪 Приёмка 2.58.94 · генерация + пост-генерация (контроль)."
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166169,
+   "run": "R3-acc94",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "сообщение отправлено harness-ом приёмки через Bot API сессию бота (accept97_base.RecordingBot поверх build_local_api_session); регистр/логи прогона содержат его mid/текст",
+   "kind": "harness send",
+   "head": ""
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166170,
+   "run": "R3-acc94",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "сообщение отправлено harness-ом приёмки через Bot API сессию бота (accept97_base.RecordingBot поверх build_local_api_session); регистр/логи прогона содержат его mid/текст",
+   "kind": "harness send",
+   "head": "Картинка с жёлтым лимоном на белом фоне уже улетела в чат. Скромно, по-спартанск"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166177,
+   "run": "R3-acc94",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "сообщение отправлено harness-ом приёмки через Bot API сессию бота (accept97_base.RecordingBot поверх build_local_api_session); регистр/логи прогона содержат его mid/текст",
+   "kind": "harness send",
+   "head": "Рисовать я сейчас не могу: генерацию картинок в этом чате выключили. Так что мем"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166178,
+   "run": "R3-acc94",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "сообщение отправлено harness-ом приёмки через Bot API сессию бота (accept97_base.RecordingBot поверх build_local_api_session); регистр/логи прогона содержат его mid/текст",
+   "kind": "harness send",
+   "head": "Кот-астронавт на Луне - идея хорошая, только вот незадача: картинка сгенерилась,"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166228,
+   "run": "R6-f0",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "классификация в самом регистре уборки (kind=seed/bot_reply/bot_photo/chain) + safety-gate на пересечение с реальными юзерами",
+   "kind": "bot_reply",
+   "head": "Нормально, понедельник как понедельник - а у тебя?"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166463,
+   "run": "R4-acc95",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "классификация в самом регистре уборки (kind=seed/bot_reply/bot_photo/chain) + safety-gate на пересечение с реальными юзерами",
+   "kind": "test chain (95a/95b волны)",
+   "head": ""
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166464,
+   "run": "R4-acc95",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "классификация в самом регистре уборки (kind=seed/bot_reply/bot_photo/chain) + safety-gate на пересечение с реальными юзерами",
+   "kind": "test chain (95a/95b волны)",
+   "head": ""
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166469,
+   "run": "R5b-acc96-followup",
+   "authorship": "bot",
+   "status": "already_deleted",
+   "basis": "удалено только после Telegram ownership-пробы (editMessageReplyMarkup -> owned); пользовательские сообщения проба возвращает как not_owned",
+   "kind": "residual_95a",
+   "head": ""
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166471,
+   "run": "R4-acc95",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "классификация в самом регистре уборки (kind=seed/bot_reply/bot_photo/chain) + safety-gate на пересечение с реальными юзерами",
+   "kind": "test chain (95a/95b волны)",
+   "head": ""
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166482,
+   "run": "R4-acc95",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "классификация в самом регистре уборки (kind=seed/bot_reply/bot_photo/chain) + safety-gate на пересечение с реальными юзерами",
+   "kind": "test chain (95a/95b волны)",
+   "head": ""
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166483,
+   "run": "R4-acc95",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "классификация в самом регистре уборки (kind=seed/bot_reply/bot_photo/chain) + safety-gate на пересечение с реальными юзерами",
+   "kind": "test chain (95a/95b волны)",
+   "head": ""
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166485,
+   "run": "R4-acc95",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "классификация в самом регистре уборки (kind=seed/bot_reply/bot_photo/chain) + safety-gate на пересечение с реальными юзерами",
+   "kind": "test chain (95a/95b волны)",
+   "head": ""
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166486,
+   "run": "R4-acc95",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "классификация в самом регистре уборки (kind=seed/bot_reply/bot_photo/chain) + safety-gate на пересечение с реальными юзерами",
+   "kind": "test chain (95a/95b волны)",
+   "head": ""
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166487,
+   "run": "R4-acc95",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "классификация в самом регистре уборки (kind=seed/bot_reply/bot_photo/chain) + safety-gate на пересечение с реальными юзерами",
+   "kind": "test chain (95a/95b волны)",
+   "head": ""
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166489,
+   "run": "R4-acc95",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "классификация в самом регистре уборки (kind=seed/bot_reply/bot_photo/chain) + safety-gate на пересечение с реальными юзерами",
+   "kind": "test chain (95a/95b волны)",
+   "head": ""
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166491,
+   "run": "R4-acc95",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "классификация в самом регистре уборки (kind=seed/bot_reply/bot_photo/chain) + safety-gate на пересечение с реальными юзерами",
+   "kind": "test chain (95a/95b волны)",
+   "head": ""
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166495,
+   "run": "R4-acc95",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "классификация в самом регистре уборки (kind=seed/bot_reply/bot_photo/chain) + safety-gate на пересечение с реальными юзерами",
+   "kind": "test chain (95a/95b волны)",
+   "head": ""
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166496,
+   "run": "R4-acc95",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "классификация в самом регистре уборки (kind=seed/bot_reply/bot_photo/chain) + safety-gate на пересечение с реальными юзерами",
+   "kind": "test chain (95a/95b волны)",
+   "head": ""
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166497,
+   "run": "R4-acc95",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "классификация в самом регистре уборки (kind=seed/bot_reply/bot_photo/chain) + safety-gate на пересечение с реальными юзерами",
+   "kind": "test chain (95a/95b волны)",
+   "head": ""
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166499,
+   "run": "R4-acc95",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "классификация в самом регистре уборки (kind=seed/bot_reply/bot_photo/chain) + safety-gate на пересечение с реальными юзерами",
+   "kind": "test chain (95a/95b волны)",
+   "head": ""
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166500,
+   "run": "R4-acc95",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "классификация в самом регистре уборки (kind=seed/bot_reply/bot_photo/chain) + safety-gate на пересечение с реальными юзерами",
+   "kind": "test chain (95a/95b волны)",
+   "head": ""
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166501,
+   "run": "R4-acc95",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "классификация в самом регистре уборки (kind=seed/bot_reply/bot_photo/chain) + safety-gate на пересечение с реальными юзерами",
+   "kind": "test chain (95a/95b волны)",
+   "head": ""
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166634,
+   "run": "R5-acc96",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "классификация в самом регистре уборки (kind=seed/bot_reply/bot_photo/chain) + safety-gate на пересечение с реальными юзерами",
+   "kind": "anchor/answer цепочки F-матрицы",
+   "head": ""
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166635,
+   "run": "R5-acc96",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "классификация в самом регистре уборки (kind=seed/bot_reply/bot_photo/chain) + safety-gate на пересечение с реальными юзерами",
+   "kind": "anchor/answer цепочки F-матрицы",
+   "head": ""
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166636,
+   "run": "R5-acc96",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "классификация в самом регистре уборки (kind=seed/bot_reply/bot_photo/chain) + safety-gate на пересечение с реальными юзерами",
+   "kind": "anchor/answer цепочки F-матрицы",
+   "head": ""
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166637,
+   "run": "R5-acc96",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "классификация в самом регистре уборки (kind=seed/bot_reply/bot_photo/chain) + safety-gate на пересечение с реальными юзерами",
+   "kind": "anchor/answer цепочки F-матрицы",
+   "head": ""
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166639,
+   "run": "R5-acc96",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "классификация в самом регистре уборки (kind=seed/bot_reply/bot_photo/chain) + safety-gate на пересечение с реальными юзерами",
+   "kind": "anchor/answer цепочки F-матрицы",
+   "head": ""
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166640,
+   "run": "R5-acc96",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "классификация в самом регистре уборки (kind=seed/bot_reply/bot_photo/chain) + safety-gate на пересечение с реальными юзерами",
+   "kind": "anchor/answer цепочки F-матрицы",
+   "head": ""
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166641,
+   "run": "R5-acc96",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "классификация в самом регистре уборки (kind=seed/bot_reply/bot_photo/chain) + safety-gate на пересечение с реальными юзерами",
+   "kind": "anchor/answer цепочки F-матрицы",
+   "head": ""
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166642,
+   "run": "R5-acc96",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "классификация в самом регистре уборки (kind=seed/bot_reply/bot_photo/chain) + safety-gate на пересечение с реальными юзерами",
+   "kind": "anchor/answer цепочки F-матрицы",
+   "head": ""
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166645,
+   "run": "R5-acc96",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "классификация в самом регистре уборки (kind=seed/bot_reply/bot_photo/chain) + safety-gate на пересечение с реальными юзерами",
+   "kind": "anchor/answer цепочки F-матрицы",
+   "head": ""
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166646,
+   "run": "R5-acc96",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "классификация в самом регистре уборки (kind=seed/bot_reply/bot_photo/chain) + safety-gate на пересечение с реальными юзерами",
+   "kind": "anchor/answer цепочки F-матрицы",
+   "head": ""
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166647,
+   "run": "R5-acc96",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "классификация в самом регистре уборки (kind=seed/bot_reply/bot_photo/chain) + safety-gate на пересечение с реальными юзерами",
+   "kind": "anchor/answer цепочки F-матрицы",
+   "head": ""
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166648,
+   "run": "R5-acc96",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "классификация в самом регистре уборки (kind=seed/bot_reply/bot_photo/chain) + safety-gate на пересечение с реальными юзерами",
+   "kind": "anchor/answer цепочки F-матрицы",
+   "head": ""
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166649,
+   "run": "R5-acc96",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "классификация в самом регистре уборки (kind=seed/bot_reply/bot_photo/chain) + safety-gate на пересечение с реальными юзерами",
+   "kind": "anchor/answer цепочки F-матрицы",
+   "head": ""
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166650,
+   "run": "R5-acc96",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "классификация в самом регистре уборки (kind=seed/bot_reply/bot_photo/chain) + safety-gate на пересечение с реальными юзерами",
+   "kind": "anchor/answer цепочки F-матрицы",
+   "head": ""
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166651,
+   "run": "R5-acc96",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "классификация в самом регистре уборки (kind=seed/bot_reply/bot_photo/chain) + safety-gate на пересечение с реальными юзерами",
+   "kind": "anchor/answer цепочки F-матрицы",
+   "head": ""
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166652,
+   "run": "R5-acc96",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "классификация в самом регистре уборки (kind=seed/bot_reply/bot_photo/chain) + safety-gate на пересечение с реальными юзерами",
+   "kind": "anchor/answer цепочки F-матрицы",
+   "head": ""
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166653,
+   "run": "R5-acc96",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "классификация в самом регистре уборки (kind=seed/bot_reply/bot_photo/chain) + safety-gate на пересечение с реальными юзерами",
+   "kind": "anchor/answer цепочки F-матрицы",
+   "head": ""
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166654,
+   "run": "R5-acc96",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "классификация в самом регистре уборки (kind=seed/bot_reply/bot_photo/chain) + safety-gate на пересечение с реальными юзерами",
+   "kind": "anchor/answer цепочки F-матрицы",
+   "head": ""
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166655,
+   "run": "R5-acc96",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "классификация в самом регистре уборки (kind=seed/bot_reply/bot_photo/chain) + safety-gate на пересечение с реальными юзерами",
+   "kind": "anchor/answer цепочки F-матрицы",
+   "head": ""
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166657,
+   "run": "R5-acc96",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "классификация в самом регистре уборки (kind=seed/bot_reply/bot_photo/chain) + safety-gate на пересечение с реальными юзерами",
+   "kind": "anchor/answer цепочки F-матрицы",
+   "head": ""
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166658,
+   "run": "R5-acc96",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "классификация в самом регистре уборки (kind=seed/bot_reply/bot_photo/chain) + safety-gate на пересечение с реальными юзерами",
+   "kind": "anchor/answer цепочки F-матрицы",
+   "head": ""
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166659,
+   "run": "R5-acc96",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "классификация в самом регистре уборки (kind=seed/bot_reply/bot_photo/chain) + safety-gate на пересечение с реальными юзерами",
+   "kind": "anchor/answer цепочки F-матрицы",
+   "head": ""
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166661,
+   "run": "R5-acc96",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "классификация в самом регистре уборки (kind=seed/bot_reply/bot_photo/chain) + safety-gate на пересечение с реальными юзерами",
+   "kind": "anchor/answer цепочки F-матрицы",
+   "head": ""
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166662,
+   "run": "R5-acc96",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "классификация в самом регистре уборки (kind=seed/bot_reply/bot_photo/chain) + safety-gate на пересечение с реальными юзерами",
+   "kind": "anchor/answer цепочки F-матрицы",
+   "head": ""
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166663,
+   "run": "R5-acc96",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "классификация в самом регистре уборки (kind=seed/bot_reply/bot_photo/chain) + safety-gate на пересечение с реальными юзерами",
+   "kind": "anchor/answer цепочки F-матрицы",
+   "head": ""
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166664,
+   "run": "R5-acc96",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "классификация в самом регистре уборки (kind=seed/bot_reply/bot_photo/chain) + safety-gate на пересечение с реальными юзерами",
+   "kind": "anchor/answer цепочки F-матрицы",
+   "head": ""
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166667,
+   "run": "R5-acc96",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "классификация в самом регистре уборки (kind=seed/bot_reply/bot_photo/chain) + safety-gate на пересечение с реальными юзерами",
+   "kind": "anchor/answer цепочки F-матрицы",
+   "head": ""
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166668,
+   "run": "R5-acc96",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "классификация в самом регистре уборки (kind=seed/bot_reply/bot_photo/chain) + safety-gate на пересечение с реальными юзерами",
+   "kind": "anchor/answer цепочки F-матрицы",
+   "head": ""
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166669,
+   "run": "R5-acc96",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "классификация в самом регистре уборки (kind=seed/bot_reply/bot_photo/chain) + safety-gate на пересечение с реальными юзерами",
+   "kind": "anchor/answer цепочки F-матрицы",
+   "head": ""
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166670,
+   "run": "R5d-acc96-hedge2",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "удалено только после Telegram ownership-пробы (editMessageReplyMarkup -> owned); пользовательские сообщения проба возвращает как not_owned",
+   "kind": "hedge-anchor (бот)",
+   "head": ""
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166673,
+   "run": "R5-acc96",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "классификация в самом регистре уборки (kind=seed/bot_reply/bot_photo/chain) + safety-gate на пересечение с реальными юзерами",
+   "kind": "anchor/answer цепочки F-матрицы",
+   "head": ""
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166715,
+   "run": "R5b-acc96-followup",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "классификация в самом регистре уборки (kind=seed/bot_reply/bot_photo/chain) + safety-gate на пересечение с реальными юзерами",
+   "kind": "followup-цепочки",
+   "head": ""
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166717,
+   "run": "R5b-acc96-followup",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "классификация в самом регистре уборки (kind=seed/bot_reply/bot_photo/chain) + safety-gate на пересечение с реальными юзерами",
+   "kind": "followup-цепочки",
+   "head": ""
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166719,
+   "run": "R5b-acc96-followup",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "классификация в самом регистре уборки (kind=seed/bot_reply/bot_photo/chain) + safety-gate на пересечение с реальными юзерами",
+   "kind": "followup-цепочки",
+   "head": ""
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166720,
+   "run": "R5b-acc96-followup",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "классификация в самом регистре уборки (kind=seed/bot_reply/bot_photo/chain) + safety-gate на пересечение с реальными юзерами",
+   "kind": "followup-цепочки",
+   "head": ""
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166722,
+   "run": "R5b-acc96-followup",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "классификация в самом регистре уборки (kind=seed/bot_reply/bot_photo/chain) + safety-gate на пересечение с реальными юзерами",
+   "kind": "followup-цепочки",
+   "head": ""
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166725,
+   "run": "R5e-acc96-quote",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "классификация в самом регистре уборки (kind=seed/bot_reply/bot_photo/chain) + safety-gate на пересечение с реальными юзерами",
+   "kind": "quote-тест",
+   "head": ""
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166728,
+   "run": "R5b-acc96-followup",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "классификация в самом регистре уборки (kind=seed/bot_reply/bot_photo/chain) + safety-gate на пересечение с реальными юзерами",
+   "kind": "followup-цепочки",
+   "head": ""
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166946,
+   "run": "R13-cleanup-all",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "удалено только после Telegram ownership-пробы (editMessageReplyMarkup -> owned); пользовательские сообщения проба возвращает как not_owned",
+   "kind": "bot_bot_chain",
+   "head": ""
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166948,
+   "run": "R13-cleanup-all",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "удалено только после Telegram ownership-пробы (editMessageReplyMarkup -> owned); пользовательские сообщения проба возвращает как not_owned",
+   "kind": "bot_bot_chain",
+   "head": ""
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166949,
+   "run": "R13-cleanup-all",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "удалено только после Telegram ownership-пробы (editMessageReplyMarkup -> owned); пользовательские сообщения проба возвращает как not_owned",
+   "kind": "bot_bot_chain",
+   "head": ""
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166950,
+   "run": "R13-cleanup-all",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "удалено только после Telegram ownership-пробы (editMessageReplyMarkup -> owned); пользовательские сообщения проба возвращает как not_owned",
+   "kind": "bot_bot_chain",
+   "head": ""
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166952,
+   "run": "R13-cleanup-all",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "удалено только после Telegram ownership-пробы (editMessageReplyMarkup -> owned); пользовательские сообщения проба возвращает как not_owned",
+   "kind": "bot_bot_chain",
+   "head": ""
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166954,
+   "run": "R13-cleanup-all",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "удалено только после Telegram ownership-пробы (editMessageReplyMarkup -> owned); пользовательские сообщения проба возвращает как not_owned",
+   "kind": "bot_bot_chain",
+   "head": ""
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166955,
+   "run": "R13-cleanup-all",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "удалено только после Telegram ownership-пробы (editMessageReplyMarkup -> owned); пользовательские сообщения проба возвращает как not_owned",
+   "kind": "anchor_parent",
+   "head": ""
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166956,
+   "run": "R13-cleanup-all",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "удалено только после Telegram ownership-пробы (editMessageReplyMarkup -> owned); пользовательские сообщения проба возвращает как not_owned",
+   "kind": "bot_bot_chain,window_orphan_reply",
+   "head": ""
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166957,
+   "run": "R13-cleanup-all",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "удалено только после Telegram ownership-пробы (editMessageReplyMarkup -> owned); пользовательские сообщения проба возвращает как not_owned",
+   "kind": "bot_bot_chain",
+   "head": ""
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166958,
+   "run": "R13-cleanup-all",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "удалено только после Telegram ownership-пробы (editMessageReplyMarkup -> owned); пользовательские сообщения проба возвращает как not_owned",
+   "kind": "bot_bot_chain",
+   "head": ""
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166959,
+   "run": "R13-cleanup-all",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "удалено только после Telegram ownership-пробы (editMessageReplyMarkup -> owned); пользовательские сообщения проба возвращает как not_owned",
+   "kind": "bot_bot_chain",
+   "head": ""
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166960,
+   "run": "R13-cleanup-all",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "удалено только после Telegram ownership-пробы (editMessageReplyMarkup -> owned); пользовательские сообщения проба возвращает как not_owned",
+   "kind": "bot_bot_chain",
+   "head": ""
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166961,
+   "run": "R13-cleanup-all",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "удалено только после Telegram ownership-пробы (editMessageReplyMarkup -> owned); пользовательские сообщения проба возвращает как not_owned",
+   "kind": "bot_bot_chain",
+   "head": ""
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166964,
+   "run": "R10-f4-final-clean",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "сообщение отправлено harness-ом приёмки через Bot API сессию бота (accept97_base.RecordingBot поверх build_local_api_session); регистр/логи прогона содержат его mid/текст",
+   "kind": "остатки дубля волны (11 A)",
+   "head": ""
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166967,
+   "run": "R10-f4-final-clean",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "сообщение отправлено harness-ом приёмки через Bot API сессию бота (accept97_base.RecordingBot поверх build_local_api_session); регистр/логи прогона содержат его mid/текст",
+   "kind": "остатки дубля волны (11 A)",
+   "head": ""
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166970,
+   "run": "R10-f4-final-clean",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "сообщение отправлено harness-ом приёмки через Bot API сессию бота (accept97_base.RecordingBot поверх build_local_api_session); регистр/логи прогона содержат его mid/текст",
+   "kind": "остатки дубля волны (11 A)",
+   "head": ""
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166971,
+   "run": "R7-f4-prep",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "сообщение отправлено harness-ом приёмки через Bot API сессию бота (accept97_base.RecordingBot поверх build_local_api_session); регистр/логи прогона содержат его mid/текст",
+   "kind": "якоря первой (сдвоенной) попытки",
+   "head": ""
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166973,
+   "run": "R7-f4-prep",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "сообщение отправлено harness-ом приёмки через Bot API сессию бота (accept97_base.RecordingBot поверх build_local_api_session); регистр/логи прогона содержат его mid/текст",
+   "kind": "якоря первой (сдвоенной) попытки",
+   "head": ""
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166975,
+   "run": "R12-leftover-1166975",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "побайтовое совпадение текста с ответом волны harness-а (occasional-05-joke_short, wave-occasional.json) при отсутствии parent-записи",
+   "kind": "bot-ответ (дубль волны)",
+   "head": ""
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166979,
+   "run": "R11-f4-residual",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "сообщение отправлено harness-ом приёмки через Bot API сессию бота (accept97_base.RecordingBot поверх build_local_api_session); регистр/логи прогона содержат его mid/текст",
+   "kind": "хвост synthetic-turn цепочки",
+   "head": ""
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166983,
+   "run": "R11-f4-residual",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "сообщение отправлено harness-ом приёмки через Bot API сессию бота (accept97_base.RecordingBot поверх build_local_api_session); регистр/логи прогона содержат его mid/текст",
+   "kind": "хвост synthetic-turn цепочки",
+   "head": ""
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166986,
+   "run": "R11-f4-residual",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "сообщение отправлено harness-ом приёмки через Bot API сессию бота (accept97_base.RecordingBot поверх build_local_api_session); регистр/логи прогона содержат его mid/текст",
+   "kind": "хвост synthetic-turn цепочки",
+   "head": ""
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166989,
+   "run": "R11-f4-residual",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "сообщение отправлено harness-ом приёмки через Bot API сессию бота (accept97_base.RecordingBot поверх build_local_api_session); регистр/логи прогона содержат его mid/текст",
+   "kind": "хвост synthetic-turn цепочки",
+   "head": ""
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166992,
+   "run": "R11-f4-residual",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "сообщение отправлено harness-ом приёмки через Bot API сессию бота (accept97_base.RecordingBot поверх build_local_api_session); регистр/логи прогона содержат его mid/текст",
+   "kind": "хвост synthetic-turn цепочки",
+   "head": ""
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166993,
+   "run": "R10-f4-final-clean",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "сообщение отправлено harness-ом приёмки через Bot API сессию бота (accept97_base.RecordingBot поверх build_local_api_session); регистр/логи прогона содержат его mid/текст",
+   "kind": "остатки дубля волны (11 A)",
+   "head": ""
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166997,
+   "run": "R10-f4-final-clean",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "сообщение отправлено harness-ом приёмки через Bot API сессию бота (accept97_base.RecordingBot поверх build_local_api_session); регистр/логи прогона содержат его mid/текст",
+   "kind": "остатки дубля волны (11 A)",
+   "head": ""
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166999,
+   "run": "R10-f4-final-clean",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "сообщение отправлено harness-ом приёмки через Bot API сессию бота (accept97_base.RecordingBot поверх build_local_api_session); регистр/логи прогона содержат его mid/текст",
+   "kind": "остатки дубля волны (11 A)",
+   "head": ""
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1167003,
+   "run": "R10-f4-final-clean",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "сообщение отправлено harness-ом приёмки через Bot API сессию бота (accept97_base.RecordingBot поверх build_local_api_session); регистр/логи прогона содержат его mid/текст",
+   "kind": "остатки дубля волны (11 A)",
+   "head": ""
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1167005,
+   "run": "R10-f4-final-clean",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "сообщение отправлено harness-ом приёмки через Bot API сессию бота (accept97_base.RecordingBot поверх build_local_api_session); регистр/логи прогона содержат его mid/текст",
+   "kind": "остатки дубля волны (11 A)",
+   "head": ""
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1167007,
+   "run": "R10-f4-final-clean",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "сообщение отправлено harness-ом приёмки через Bot API сессию бота (accept97_base.RecordingBot поверх build_local_api_session); регистр/логи прогона содержат его mid/текст",
+   "kind": "остатки дубля волны (11 A)",
+   "head": ""
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1167010,
+   "run": "R10-f4-final-clean",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "сообщение отправлено harness-ом приёмки через Bot API сессию бота (accept97_base.RecordingBot поверх build_local_api_session); регистр/логи прогона содержат его mid/текст",
+   "kind": "остатки дубля волны (11 A)",
+   "head": ""
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1167014,
+   "run": "R10-f4-final-clean",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "сообщение отправлено harness-ом приёмки через Bot API сессию бота (accept97_base.RecordingBot поверх build_local_api_session); регистр/логи прогона содержат его mid/текст",
+   "kind": "остатки дубля волны (11 A)",
+   "head": ""
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1167034,
+   "run": "R9-acc97-runner",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "сообщение отправлено harness-ом приёмки через Bot API сессию бота (accept97_base.RecordingBot поверх build_local_api_session); регистр/логи прогона содержат его mid/текст",
+   "kind": "ответы волн F4 (frequent/occasional/off)",
+   "head": ""
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1167035,
+   "run": "R9-acc97-runner",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "сообщение отправлено harness-ом приёмки через Bot API сессию бота (accept97_base.RecordingBot поверх build_local_api_session); регистр/логи прогона содержат его mid/текст",
+   "kind": "ответы волн F4 (frequent/occasional/off)",
+   "head": ""
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1167036,
+   "run": "R9-acc97-runner",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "сообщение отправлено harness-ом приёмки через Bot API сессию бота (accept97_base.RecordingBot поверх build_local_api_session); регистр/логи прогона содержат его mid/текст",
+   "kind": "ответы волн F4 (frequent/occasional/off)",
+   "head": ""
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1167037,
+   "run": "R9-acc97-runner",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "сообщение отправлено harness-ом приёмки через Bot API сессию бота (accept97_base.RecordingBot поверх build_local_api_session); регистр/логи прогона содержат его mid/текст",
+   "kind": "ответы волн F4 (frequent/occasional/off)",
+   "head": ""
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1167038,
+   "run": "R9-acc97-runner",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "сообщение отправлено harness-ом приёмки через Bot API сессию бота (accept97_base.RecordingBot поверх build_local_api_session); регистр/логи прогона содержат его mid/текст",
+   "kind": "ответы волн F4 (frequent/occasional/off)",
+   "head": ""
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1167039,
+   "run": "R9-acc97-runner",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "сообщение отправлено harness-ом приёмки через Bot API сессию бота (accept97_base.RecordingBot поверх build_local_api_session); регистр/логи прогона содержат его mid/текст",
+   "kind": "ответы волн F4 (frequent/occasional/off)",
+   "head": ""
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1167040,
+   "run": "R9-acc97-runner",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "сообщение отправлено harness-ом приёмки через Bot API сессию бота (accept97_base.RecordingBot поверх build_local_api_session); регистр/логи прогона содержат его mid/текст",
+   "kind": "ответы волн F4 (frequent/occasional/off)",
+   "head": ""
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1167041,
+   "run": "R9-acc97-runner",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "сообщение отправлено harness-ом приёмки через Bot API сессию бота (accept97_base.RecordingBot поверх build_local_api_session); регистр/логи прогона содержат его mid/текст",
+   "kind": "ответы волн F4 (frequent/occasional/off)",
+   "head": ""
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1167042,
+   "run": "R9-acc97-runner",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "сообщение отправлено harness-ом приёмки через Bot API сессию бота (accept97_base.RecordingBot поверх build_local_api_session); регистр/логи прогона содержат его mid/текст",
+   "kind": "ответы волн F4 (frequent/occasional/off)",
+   "head": ""
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1167043,
+   "run": "R9-acc97-runner",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "сообщение отправлено harness-ом приёмки через Bot API сессию бота (accept97_base.RecordingBot поверх build_local_api_session); регистр/логи прогона содержат его mid/текст",
+   "kind": "ответы волн F4 (frequent/occasional/off)",
+   "head": ""
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1167044,
+   "run": "R9-acc97-runner",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "сообщение отправлено harness-ом приёмки через Bot API сессию бота (accept97_base.RecordingBot поверх build_local_api_session); регистр/логи прогона содержат его mid/текст",
+   "kind": "ответы волн F4 (frequent/occasional/off)",
+   "head": ""
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1167045,
+   "run": "R9-acc97-runner",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "сообщение отправлено harness-ом приёмки через Bot API сессию бота (accept97_base.RecordingBot поверх build_local_api_session); регистр/логи прогона содержат его mid/текст",
+   "kind": "ответы волн F4 (frequent/occasional/off)",
+   "head": ""
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1167046,
+   "run": "R9-acc97-runner",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "сообщение отправлено harness-ом приёмки через Bot API сессию бота (accept97_base.RecordingBot поверх build_local_api_session); регистр/логи прогона содержат его mid/текст",
+   "kind": "ответы волн F4 (frequent/occasional/off)",
+   "head": ""
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1167047,
+   "run": "R9-acc97-runner",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "сообщение отправлено harness-ом приёмки через Bot API сессию бота (accept97_base.RecordingBot поверх build_local_api_session); регистр/логи прогона содержат его mid/текст",
+   "kind": "ответы волн F4 (frequent/occasional/off)",
+   "head": ""
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1167049,
+   "run": "R9-acc97-runner",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "сообщение отправлено harness-ом приёмки через Bot API сессию бота (accept97_base.RecordingBot поверх build_local_api_session); регистр/логи прогона содержат его mid/текст",
+   "kind": "ответы волн F4 (frequent/occasional/off)",
+   "head": ""
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1167052,
+   "run": "R9-acc97-runner",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "сообщение отправлено harness-ом приёмки через Bot API сессию бота (accept97_base.RecordingBot поверх build_local_api_session); регистр/логи прогона содержат его mid/текст",
+   "kind": "ответы волн F4 (frequent/occasional/off)",
+   "head": ""
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1167054,
+   "run": "R9-acc97-runner",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "сообщение отправлено harness-ом приёмки через Bot API сессию бота (accept97_base.RecordingBot поверх build_local_api_session); регистр/логи прогона содержат его mid/текст",
+   "kind": "ответы волн F4 (frequent/occasional/off)",
+   "head": ""
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1167055,
+   "run": "R9-acc97-runner",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "сообщение отправлено harness-ом приёмки через Bot API сессию бота (accept97_base.RecordingBot поверх build_local_api_session); регистр/логи прогона содержат его mid/текст",
+   "kind": "ответы волн F4 (frequent/occasional/off)",
+   "head": ""
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1167056,
+   "run": "R9-acc97-runner",
+   "authorship": "bot",
+   "status": "deleted",
+   "basis": "сообщение отправлено harness-ом приёмки через Bot API сессию бота (accept97_base.RecordingBot поверх build_local_api_session); регистр/логи прогона содержат его mid/текст",
+   "kind": "ответы волн F4 (frequent/occasional/off)",
+   "head": ""
+  }
+ ],
+ "not_owned_27_explained": {
+  "what": "27 mid из объединённого реестра, которые при живой пробе 21:10Z и повторно 23:21Z ответили «message can't be edited» = НЕ сообщения бота",
+  "origin": "попали в кандидат-реестр как media_in_window — соседи тестовых окон из DB smart_messages (фото/анимации участников чата вокруг тест-сообщений), НЕ как тестовые сообщения",
+  "composition": "22 фото image/jpeg + 2 анимации image/webp + 3 mid, у которых регистр хранит только пометку evidence_mid/not_bot (1166467, 1166671, 1166672)",
+  "state": "живы, не удалялись ни одним прогоном (0 deletes в closure 23:21Z)",
+  "items": [
+   {
+    "chat_id": -1004482340693,
+    "mid": 2637,
+    "kinds": [
+     "media_in_window"
+    ],
+    "plan_text": "photo image/jpeg"
+   },
+   {
+    "chat_id": -1004482340693,
+    "mid": 2724,
+    "kinds": [
+     "media_in_window"
+    ],
+    "plan_text": "photo image/jpeg"
+   },
+   {
+    "chat_id": -1004482340693,
+    "mid": 2725,
+    "kinds": [
+     "media_in_window"
+    ],
+    "plan_text": "photo image/jpeg"
+   },
+   {
+    "chat_id": -1004482340693,
+    "mid": 2726,
+    "kinds": [
+     "media_in_window"
+    ],
+    "plan_text": "photo image/jpeg"
+   },
+   {
+    "chat_id": -1004482340693,
+    "mid": 2745,
+    "kinds": [
+     "media_in_window"
+    ],
+    "plan_text": "photo image/jpeg"
+   },
+   {
+    "chat_id": -1002661910336,
+    "mid": 1165606,
+    "kinds": [
+     "media_in_window"
+    ],
+    "plan_text": "photo image/jpeg"
+   },
+   {
+    "chat_id": -1002661910336,
+    "mid": 1165607,
+    "kinds": [
+     "anchor_parent",
+     "media_in_window"
+    ],
+    "plan_text": "photo image/jpeg"
+   },
+   {
+    "chat_id": -1002661910336,
+    "mid": 1165616,
+    "kinds": [
+     "media_in_window"
+    ],
+    "plan_text": "animation image/webp"
+   },
+   {
+    "chat_id": -1002661910336,
+    "mid": 1165625,
+    "kinds": [
+     "media_in_window"
+    ],
+    "plan_text": "photo image/jpeg"
+   },
+   {
+    "chat_id": -1002661910336,
+    "mid": 1165626,
+    "kinds": [
+     "media_in_window"
+    ],
+    "plan_text": "photo image/jpeg"
+   },
+   {
+    "chat_id": -1002661910336,
+    "mid": 1166465,
+    "kinds": [
+     "media_in_window"
+    ],
+    "plan_text": "photo image/jpeg"
+   },
+   {
+    "chat_id": -1002661910336,
+    "mid": 1166466,
+    "kinds": [
+     "media_in_window"
+    ],
+    "plan_text": "photo image/jpeg"
+   },
+   {
+    "chat_id": -1002661910336,
+    "mid": 1166467,
+    "kinds": [
+     "evidence_mid",
+     "evidence_mid_unassigned"
+    ],
+    "plan_text": "not_bot"
+   },
+   {
+    "chat_id": -1002661910336,
+    "mid": 1166468,
+    "kinds": [
+     "media_in_window"
+    ],
+    "plan_text": "photo image/jpeg"
+   },
+   {
+    "chat_id": -1002661910336,
+    "mid": 1166478,
+    "kinds": [
+     "media_in_window"
+    ],
+    "plan_text": "photo image/jpeg"
+   },
+   {
+    "chat_id": -1002661910336,
+    "mid": 1166643,
+    "kinds": [
+     "media_in_window"
+    ],
+    "plan_text": "photo image/jpeg"
+   },
+   {
+    "chat_id": -1002661910336,
+    "mid": 1166671,
+    "kinds": [
+     "evidence_mid"
+    ],
+    "plan_text": "not_bot"
+   },
+   {
+    "chat_id": -1002661910336,
+    "mid": 1166672,
+    "kinds": [
+     "evidence_mid"
+    ],
+    "plan_text": "not_bot"
+   },
+   {
+    "chat_id": -1002661910336,
+    "mid": 1166678,
+    "kinds": [
+     "media_in_window"
+    ],
+    "plan_text": "photo image/jpeg"
+   },
+   {
+    "chat_id": -1002661910336,
+    "mid": 1166681,
+    "kinds": [
+     "media_in_window"
+    ],
+    "plan_text": "photo image/jpeg"
+   },
+   {
+    "chat_id": -1002661910336,
+    "mid": 1166691,
+    "kinds": [
+     "media_in_window"
+    ],
+    "plan_text": "photo image/jpeg"
+   },
+   {
+    "chat_id": -1002661910336,
+    "mid": 1166696,
+    "kinds": [
+     "media_in_window"
+    ],
+    "plan_text": "photo image/jpeg"
+   },
+   {
+    "chat_id": -1002661910336,
+    "mid": 1166741,
+    "kinds": [
+     "media_in_window"
+    ],
+    "plan_text": "photo image/jpeg"
+   },
+   {
+    "chat_id": -1002661910336,
+    "mid": 1166937,
+    "kinds": [
+     "media_in_window"
+    ],
+    "plan_text": "photo image/jpeg"
+   },
+   {
+    "chat_id": -1002661910336,
+    "mid": 1166962,
+    "kinds": [
+     "media_in_window"
+    ],
+    "plan_text": "photo image/jpeg"
+   },
+   {
+    "chat_id": -1002661910336,
+    "mid": 1167012,
+    "kinds": [
+     "media_in_window"
+    ],
+    "plan_text": "photo image/jpeg"
+   },
+   {
+    "chat_id": -1002661910336,
+    "mid": 1167057,
+    "kinds": [
+     "media_in_window"
+    ],
+    "plan_text": "animation image/webp"
+   }
+  ]
+ },
+ "stop_verify_kept_not_owned": {
+  "-1004482340693": [
+   2637,
+   2724,
+   2725,
+   2726,
+   2745
+  ],
+  "-1002661910336": [
+   1165606,
+   1165607,
+   1165616,
+   1165625,
+   1165626,
+   1165990,
+   1165991,
+   1165992,
+   1165993,
+   1165994,
+   1165995,
+   1165996,
+   1165997,
+   1165998,
+   1165999,
+   1166000,
+   1166001,
+   1166002,
+   1166003,
+   1166004,
+   1166005,
+   1166006,
+   1166007,
+   1166008,
+   1166009,
+   1166010,
+   1166011,
+   1166012,
+   1166013,
+   1166014,
+   1166015,
+   1166016,
+   1166017,
+   1166018,
+   1166019,
+   1166020,
+   1166021,
+   1166022,
+   1166023,
+   1166024,
+   1166025,
+   1166026,
+   1166027,
+   1166028,
+   1166029,
+   1166030,
+   1166031,
+   1166032,
+   1166033,
+   1166035,
+   1166036,
+   1166037,
+   1166040,
+   1166042,
+   1166043,
+   1166044,
+   1166045,
+   1166046,
+   1166047,
+   1166049,
+   1166050,
+   1166052,
+   1166054,
+   1166055,
+   1166057,
+   1166059,
+   1166061,
+   1166062,
+   1166063,
+   1166065,
+   1166067,
+   1166068,
+   1166069,
+   1166070,
+   1166071,
+   1166072,
+   1166073,
+   1166074,
+   1166075,
+   1166076,
+   1166078,
+   1166079,
+   1166080,
+   1166081,
+   1166082,
+   1166083,
+   1166084,
+   1166085,
+   1166086,
+   1166087,
+   1166088,
+   1166089,
+   1166090,
+   1166091,
+   1166092,
+   1166093,
+   1166094,
+   1166095,
+   1166096,
+   1166097,
+   1166098,
+   1166099,
+   1166100,
+   1166101,
+   1166102,
+   1166103,
+   1166104,
+   1166105,
+   1166106,
+   1166107,
+   1166108,
+   1166109,
+   1166110,
+   1166111,
+   1166112,
+   1166113,
+   1166114,
+   1166115,
+   1166116,
+   1166117,
+   1166118,
+   1166119,
+   1166120,
+   1166121,
+   1166123,
+   1166124,
+   1166125,
+   1166126,
+   1166127,
+   1166128,
+   1166129,
+   1166130,
+   1166131,
+   1166132,
+   1166133,
+   1166134,
+   1166136,
+   1166137,
+   1166138,
+   1166139,
+   1166140,
+   1166141,
+   1166142,
+   1166143,
+   1166144,
+   1166145,
+   1166146,
+   1166147,
+   1166148,
+   1166149,
+   1166150,
+   1166151,
+   1166152,
+   1166153,
+   1166154,
+   1166155,
+   1166156,
+   1166157,
+   1166158,
+   1166159,
+   1166160,
+   1166161,
+   1166162,
+   1166163,
+   1166164,
+   1166166,
+   1166171,
+   1166172,
+   1166173,
+   1166174,
+   1166175,
+   1166176,
+   1166223,
+   1166224,
+   1166225,
+   1166226,
+   1166227,
+   1166453,
+   1166454,
+   1166455,
+   1166456,
+   1166457,
+   1166458,
+   1166459,
+   1166460,
+   1166461,
+   1166462,
+   1166465,
+   1166466,
+   1166467,
+   1166468,
+   1166470,
+   1166473,
+   1166474,
+   1166475,
+   1166476,
+   1166477,
+   1166478,
+   1166479,
+   1166480,
+   1166481,
+   1166484,
+   1166490,
+   1166493,
+   1166498,
+   1166643,
+   1166671,
+   1166672,
+   1166678,
+   1166681,
+   1166691,
+   1166696,
+   1166741,
+   1166937,
+   1166962,
+   1167012,
+   1167057
+  ]
+ },
+ "limitations": [
+  "SSH/SQL прода не использовались этой полосой (дисциплина fail2ban, ноль новых коннектов); значит не перепроверены сегодня напрямую: (a) отсутствие строк bot_replies/bot_reply_parents по удалённым mid в текущей БД — но каждый регистр содержит собственный residual-пробор на момент удаления (везде 0); (b) наличие текстов 9 инцидентных сообщений в mca_bot_outputs — зафиксировано стоп-полосой в incident-organic-deleted.json, не перепроверено",
+  "Bot API не позволяет читать историю чата: «не удалено ничего пользовательского вне реестров» доказано живыми пробами диапазонов (sweep 21:12Z: 347 mid в A/B диапазонах активности, not_owned=157 живы; closure 23:21Z по 221 реестровым), а не вычиткой чата"
+ ]
+}
