@@ -26,7 +26,7 @@
           "ref": "plans/features/p0-save-init-ux/source-p0-followup-2026-10-18.md §0 (п.1–3) + plans/current_task.md (P0 FOLLOW-UP, стр. ~1236) + plans/workflow_state.md (журнал лейнов)",
           "observation": "Дополнение встроено в конец очереди current_task; выполняемые задачи не прерваны/не отменены — фазовые лейны и леджеры завершались атомарно, P0 шёл поверх текущей работы.",
           "artifact_path": "plans/current_task.md",
-          "artifact_sha256": "3d238e1e6850c16ca33d770a162d16060692e0bf0752faef539a076d179ee803",
+          "artifact_sha256": "111c23532ccedb172a09a20c8d48d782f970dbd44aa10ab9b354f9e45654d76e",
           "type": "static"
         }
       ],
@@ -400,7 +400,7 @@
           "ref": "plans/workflow_state.md (независимая работа: CFG-02B/Vision идут) + plans/features/p0-vision-universal/requirements-map.json (Vision-линия активна)",
           "observation": "Техническая завершённость/ожидание живого наблюдения не фризит workflow: независимая работа (CFG-02B/Vision) продолжается, живые остатки зафиксированы явно.",
           "artifact_path": "plans/features/p0-vision-universal/requirements-map.json",
-          "artifact_sha256": "edf9f70d0863608137035f24fe5cc58861a0342f8da0da419fa30eaf0bc9e21f",
+          "artifact_sha256": "c691aabc7ebc5412e4a6f361ce28e2b3ccf473576708b74e28a89b5410d92166",
           "type": "static"
         }
       ],
@@ -589,7 +589,7 @@
           "ref": "plans/current_task.md (append в конец; сравнение — git-история) + plans/progress_scope.json (7/7)",
           "observation": "Прежние пункты current_task не правились/не удалялись: дополнение вставлено в конец; статусы сохранены; реестр прогресса подтверждает отсутствие потерянных задач (7/7).",
           "artifact_path": "plans/current_task.md",
-          "artifact_sha256": "3d238e1e6850c16ca33d770a162d16060692e0bf0752faef539a076d179ee803",
+          "artifact_sha256": "111c23532ccedb172a09a20c8d48d782f970dbd44aa10ab9b354f9e45654d76e",
           "type": "static"
         }
       ],
