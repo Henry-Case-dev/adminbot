@@ -27,8 +27,16 @@ class TestStatusSectionMerge:
             HTML.index("status-block__server")
 
     def test_mode_version_line_removed(self):
-        assert "Режим:" not in HTML
-        assert "· версия" not in HTML
+        # ADD-EXP (4a09e29a, 20.10.2026): в другом месте страницы (блок
+        # live-check экспрессии) появилась законная метка «Режим:» — проверка
+        # по всей странице стала ложной. Контракт round1019 относится к карточке
+        # «Статус»: сужаем область до неё, сила проверки сохраняется.
+        start = HTML.index('class="card p-4 status-block"')
+        end = HTML.index("</section>",
+                         HTML.index("status-block__server")) + len("</section>")
+        status_html = HTML[start:end]
+        assert "Режим:" not in status_html
+        assert "· версия" not in status_html
         assert "statusData.bot.mode" not in HTML
         assert "statusData.bot.version" not in HTML
 
