@@ -1,0 +1,24 @@
+REL-25897 markers-candidate: значения на кандидате 8b437c39 (worktree).
+Формат: файл | маркер | ожидание | линия (grep -c, case-sensitive)
+
+web/index.html                             sticky-save                                     12 == 12  OK  # CFG-04 sticky-панель
+web/index.html                             data-save-indicator                              1 == 1   OK  # CFG-04 честный dirty-индикатор
+web/index.html                             tech-key                                        21 == 21  OK  # CFG-04 раскрываемые tech-key
+web/app.js                                 _syncPanelHeight                                 4 == 4   OK  # CFG-04 фактическая высота панели
+web/app.js                                 _dirtyLeaveGuard                                 8 == 8   OK  # CFG-04 guard несохранённых
+web/app.js                                 _preserveOnViewportChange                        2 == 2   OK  # CFG-04 поворот/orientation
+web/static/app.css                         kb-offset                                       14 == 14  OK  # CFG-04 клавиатурный offset
+web/static/app.css                         safe-area-inset-bottom                          17 == 17  OK  # CFG-04 safe-area
+tests/test_cfg04_forms_contract.py         (файл существует)                                1 == 1   OK  # CFG-04 контракт (29)
+tests/js/cfg04_forms_contract_test.js      (файл существует)                                1 == 1   OK  # CFG-04 JS-контракт
+services/mca_expression.py                 уместно в большинстве                            1 == 1   OK  # F1 frequent-якорь
+services/mca_expression.py                 одной из 4–5 разговорных                         1 == 1   OK  # F1 occasional-якорь
+services/mca_expression.py                 частицы («бля», «хули»)                          1 == 1   OK  # F1 короткий ответ
+services/mca_expression.py                 Контекст определяет уместность и жанр            1 == 1   OK  # F1 честный header
+services/mca_expression.py                 Уместность выбирает L1                           0 == 0   OK  # F1: ложное делегирование L1 удалено
+services/prompt_composer.py                LAYER_EXPRESSION = "expression"                  1 == 1   OK  # слой expression в манифесте
+services/mca_gates.py                      EXPRESSION_EXAMPLES_ENABLED                      2 == 2   OK  # ADD-EXP env kill-switch
+services/param_catalog.py                  Не влияет: значение сохраняется в конфиге        5 == 5   OK  # 2.58.95 spot
+services/image_normalize.py                (файл существует)                                1 == 1   OK  # 2.58.95 spot (POSTGEN-DIAG)
+services/mca_vision.py                     vision_adapt                                     1 == 1   OK  # 2.58.95 spot (VISION-ADAPT)
+plans/docs/param-registry-round1025.tsv    (строк, включая header)                        580 == 580 OK  # реестр 579

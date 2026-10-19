@@ -1,0 +1,49 @@
+REL-25897 pytest-attribution (кандидат 8b437c39 = bump fcd73a38 + fix, изолированный worktree, чистый прогон #2)
+
+COMMAND: .venv\Scripts\python.exe -m pytest tests/ -q -p no:cacheprovider
+RESULT:  9 failed, 14583 passed, 39 skipped, 1 warning in 667.18s (0:11:07)
+TIME:    667.18s
+
+FAILED (9) — сравнение с прогоном кандидата 2.58.96
+(release-25896/pytest-full.txt: 9 failed, 14552 passed, 39 skipped, 1 warning in 690.08s (0:11:30)):
+  - tests/test_asap7_direct_settings.py::test_migration_v35_idempotent_twice   [same-as-2.58.96]
+  - tests/test_asap7_direct_settings.py::test_backup_guard_fires_before_pending_step   [same-as-2.58.96]
+  - tests/test_history_cli.py::TestCliFts::test_scope_is_required   [same-as-2.58.96]
+  - tests/test_mca01_tx_task_supervisor_round1027.py::test_write_points_go_through_single_writer   [same-as-2.58.96]
+  - tests/test_t5150_startup_migrations_round1046.py::test_a_ddl_window_survives_lock_longer_than_base_5s   [same-as-2.58.96]
+  - tests/test_t5150_startup_migrations_round1046.py::test_b_step_retry_recovers_after_locked   [same-as-2.58.96]
+  - tests/test_t5150_startup_migrations_round1046.py::test_d_migration_chain_full_log_trail   [same-as-2.58.96]
+  - tests/test_t5150_startup_migrations_round1046.py::test_e_v32_db_applies_v33_once_with_guard   [same-as-2.58.96]
+  - tests/test_t5150_startup_migrations_round1046.py::test_e2_v33_db_applies_v34_once_with_guard   [same-as-2.58.96]
+
+Прогон #1 (до fix 8b437c39) дал 11 failed: дополнительно
+  - tests/test_asap8_v6_d14_help_sync.py::TestHelpMatchesShippedRuntime::test_sticky_save_dirty_only_labels_exist   (детерминированный, дельта CFG-04)
+  - tests/test_mca09_intents_block_e_round1040.py::test_handle_initiative_sent_single_transport_chunks   (env-флейк)
+Help-sync: гард пинил старые подписи чипа (dirty 'Сохранить'), CFG-04 заменил
+их на честный индикатор (dirty 'не сохранено' / saving 'сохранение…', review
+e27216d3). База 95d11472 зелёная (24p) — коллизия только от дельты.
+Минимальный фикс 8b437c39 (test-only) приводит ожидания к отгруженному runtime.
+RED->GREEN: 1f/23p -> 24p (см. focused-help-sync-fix.txt).
+Flake mca09: в изоляции 15/15 passed и на кандидате, и на базе; дельта не
+трогает этот backend-путь (см. flake-mca09.txt); в run #2 не повторился.
+
+Атрибуция (пре-сущ. классы, ни один не связан с дельтой поезда; дельта
+не трогает ни один из этих файлов — см. delta-non-plans.txt):
+  * tests/test_t5150_startup_migrations_round1046.py ×5 — устаревший ожидаемый
+    список миграций (воспроизводится на базе без фикса; файл дельтой не тронут);
+  * tests/test_asap7_direct_settings.py ×2 — миграции v35 (пре-сущ., тот же
+    список в прогонах 2.58.94/95/96);
+  * tests/test_mca01_tx_task_supervisor_round1027.py ×1 — пре-сущ. (тот же в 2.58.95/96);
+  * tests/test_history_cli.py::TestCliFts::test_scope_is_required ×1 —
+    environment-артефакт чистого worktree (тот же в 2.58.95/96);
+  * env-флейк random_source-класса — в этом прогоне не сработал
+    (ожидаемый класс: test_mca10a_random_source_block_*).
+
+
+ПРЯМОЕ доказательство пре-сущ. (база = прод 95d11472, отдельный worktree
+release-25897\wt-base @ 95d11472, тот же интерпретатор):
+  tests/test_asap7_direct_settings.py + tests/test_history_cli.py +
+  tests/test_mca01_tx_task_supervisor_round1027.py +
+  tests/test_t5150_startup_migrations_round1046.py
+  -> 9 failed, 63 passed in 25.08s — те же ID, что и на кандидате (см. focused-base-pre-existing.txt).
+  На кандидате дельтой эти файлы не тронуты (см. delta-non-plans.txt).

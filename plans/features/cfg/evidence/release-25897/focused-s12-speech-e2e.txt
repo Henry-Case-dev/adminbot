@@ -1,0 +1,5 @@
+[matrix] config stub: items=577 groups=120
+[matrix] chat-вариант config: override items=116
+[p0a-ux-e2e] webroot = C:\Users\main\.config\opencode\OpenCodeScratch\adminbot-ccef72c25768\release-25897\wt\web
+
+== ИТОГ: failures=0, POST=22

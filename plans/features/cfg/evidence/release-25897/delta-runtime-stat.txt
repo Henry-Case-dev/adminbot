@@ -1,0 +1,14 @@
+REL-25897 runtime-дельта 95d11472..8b437c39 (pathspec config services web handlers bot.py)
+config/settings.py         |   2 +-
+ services/mca_expression.py |  33 +++---
+ web/app.js                 | 259 ++++++++++++++++++++++++++++++++++++++++++---
+ web/index.html             | 131 ++++++++++++-----------
+ web/static/app.css         | 118 +++++++++++++++++++--
+ 5 files changed, 443 insertions(+), 100 deletions(-)
+
+runtime-файлы (5):
+  config/settings.py
+  services/mca_expression.py
+  web/app.js
+  web/index.html
+  web/static/app.css

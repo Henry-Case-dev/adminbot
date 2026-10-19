@@ -1,0 +1,3 @@
+[matrix] config stub: items=577 groups=120
+[matrix] chat-вариант config: override items=116
+[cfg04] mode=after viewports=7 failures=0 shots=14 console_errors=0

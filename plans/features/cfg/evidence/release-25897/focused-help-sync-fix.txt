@@ -1,0 +1,17 @@
+REL-25897 help-sync fix evidence: tests/test_asap8_v6_d14_help_sync.py
+
+Дефект: детерминированная коллизия дельты CFG-04 (2428768) с гардом
+«help matches shipped runtime» — гард пинил старые подписи чипа сохранения
+(dirty 'Сохранить' / saving 'Сохранение…'), а CFG-04 осознанно заменил их на
+честный индикатор (dirty 'не сохранено' / saving 'сохранение…', review e27216d3).
+Обнаружено полным прогоном #1 релизного лейна (11 failed вместо 9 пре-сущ.).
+
+1) BASE 95d11472 (прод 2.58.96, wt-base): 24 passed in 3.01s   [гард зелёный до дельты]
+2) CANDIDATE fcd73a38 (RED, до фикса):    1 failed, 23 passed in 3.00s
+3) POST-FIX 8b437c39 (GREEN):             24 passed in 2.94s
+
+Фикс (минимальный, test-only; runtime-артефакты ревью не тронуты):
+  8b437c39 fix(tests): help-sync sticky-save labels follow CFG-04 chip
+  (dirty 'не сохранено'/saving 'сохранение…'; candidate RED 1f -> GREEN 24p)
+Цель теста сохранена: подписи в отгруженном runtime присутствуют и проверяются.
+

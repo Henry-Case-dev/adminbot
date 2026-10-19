@@ -1,0 +1,15 @@
+.........F..............                                                 [100%]
+================================== FAILURES ===================================
+___ TestHelpMatchesShippedRuntime.test_sticky_save_dirty_only_labels_exist ____
+
+self = <tests.test_asap8_v6_d14_help_sync.TestHelpMatchesShippedRuntime object at 0x000002441AA1A1E0>
+
+    def test_sticky_save_dirty_only_labels_exist(self):
+        # D13: чип сохранения со состояниями dirty/saving (clean — отсутствует).
+>       assert "dirty: 'Сохранить'" in APP_JS
+E       assert "dirty: 'Сохранить'" in "\ufeff/* Epic 85 (84.7, T-620/T-621/T-632/T-639/T-640/T-644) — фронтенд TMA-админки.\n * Vue 3 Options API (global bu...(status, message) {\n    this.status = status;\n    this.message = message;\n    this.name = 'ApiError';\n  }\n})();\n"
+
+tests\test_asap8_v6_d14_help_sync.py:167: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_asap8_v6_d14_help_sync.py::TestHelpMatchesShippedRuntime::test_sticky_save_dirty_only_labels_exist
+1 failed, 23 passed in 3.00s

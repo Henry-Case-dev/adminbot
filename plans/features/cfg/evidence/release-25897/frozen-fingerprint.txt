@@ -1,0 +1,23 @@
+REL-25897 frozen-fingerprint: кандидат bump-коммит fcd73a38 (2.58.97);
+worktree: C:\Users\main\.config\opencode\OpenCodeScratch\adminbot-ccef72c25768\release-25897\wt (detached @ 8b437c39); база: 95d11472 (прод 2.58.96)
+
+EXPECT12 (deploy_25897.py) — sha256_12 + полный sha256:
+  config/settings.py                             10b6c981b5fc  10b6c981b5fca0157ca53dbdd38967e6ceef7609d841be6f48c9967dc6b51080  # bump 2.58.97
+  services/mca_expression.py                     d23e00763b0d  d23e00763b0decb0180e58e23c0aa8d3f41f32178fc59a34a476bb9b141186aa  # ADD-EXP F1 (якори + честный header)
+  web/app.js                                     885094459700  8850944597009bef223b5c9369a493049a7cbc982931cc6955a7c9079fb7b8ad  # CFG-04
+  web/index.html                                 528f358a6589  528f358a6589ef5348ec29278dd0383b585a4a0f090abd4def14e67580edfd97  # CFG-04
+  web/static/app.css                             6b5ca0cc1d47  6b5ca0cc1d47dbe39200007d51c52cdc69703f45acec9e7407ac2b9a2b6c5a8a  # CFG-04
+  README.md                                      4b48dd825026  4b48dd8250266cdb2d2f1065d2a6367d9b727d1b4a053627dc2cde4bd627262a  # bump
+  plans/docs/param-registry-round1025.meta.md    bd31b8f5914e  bd31b8f5914eedbdefef0a82aa1edb0796701508b2c702616439997a87291ba8  # bump (HEAD=2428768)
+  web/static/fullscreen-policy.js                96db06425079  96db064250793f02356890adff33dda090ec637c4ae9f26b232f60bbce867ded  # sanity (байт-в-байт 2.58.96)
+  services/telegram_send.py                      e23bced2fdb8  e23bced2fdb84d6735c6b68e9ce7a2bd21d7bd1e43ad2d74946e649d851b896f  # sanity (байт-в-байт 2.58.96)
+
+deploy_25897.py    sha256_12 665f818a0764  sha256 665f818a0764254eca92dc6ad408b128077db50ef4531a2130b188e6d8569a2f
+rel97_final.sh     sha256_12 d7a755d7b3e6  sha256 d7a755d7b3e60295c21bd15112d531bc953f4cdfad29a5d26e7a984a700f5caa
+check_deploy_25897.py sha256_12 375b9a219344  sha256 375b9a2193447c4417b2d2b0ebaf0d6f6afa037bbd39cac6daf6eae0adc8f1fe
+
+bump-коммит: fcd73a3855ecd1472bbb577b3e3cab5c0aafb869
+fix-коммит (test-only): 8b437c39580b607a85d3f898178d0ba114c073d8
+родитель bump (поезд): 2428768818f5c92ae2b471f7c33e1a37eb8399cd (CFG-04)
+прод-база: 95d11472b9e533b554554918e3efa6b42125260b
+F8-meta HEAD-штамп: 2428768 (последний коммит поезда до bump)

@@ -1,0 +1,15 @@
+BUMP_COMMIT = fcd73a3855ecd1472bbb577b3e3cab5c0aafb869
+PROD_REF    = 95d11472b9e533b554554918e3efa6b42125260b
+PROD_BRANCH = release/fix-2.58.96
+whitelist   = 5
+EXPECT12    = 9
+hash errors: none
+runtime delta (prod..BUMP) == whitelist: True
+runtime delta (prod..HEAD) == whitelist: True
+delta count: 5 | head: 5
+delta: ['config/settings.py', 'services/mca_expression.py', 'web/app.js', 'web/index.html', 'web/static/app.css']
+BUMP == HEAD: False (HEAD 8b437c39580b)
+BUMP is ancestor of HEAD: True (╨║╨░╨╜╨┤╨╕╨┤╨░╤В = bump [+ fix] + docs; B3-╨│╨╡╨╣╤В deploy ╨┐╤А╨╛╨▓╨╡╤А╤П╨╡╤В ancestor)
+upload rel97_final.sh exists: True
+PAGE_VER_EXPECT 15 SUBST_CSS 2 EXPECT_VER 2.58.97 ROLLBACK release/fix-2.58.95 2.58.95 PROD_BRANCH release/fix-2.58.96
+OFFLINE-CHECK: EXIT 0 (PASS)

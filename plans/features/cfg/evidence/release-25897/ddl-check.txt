@@ -1,0 +1,11 @@
+REL-25897 ΔDDL-check: кандидат 8b437c39 vs прод-база 95d11472
+
+DDL/schema-периметр (strict): services/database.py, scripts/, services/chat_migration.py, services/config_migrations.py, services/prompt_migrations.py
+Изменения в периметре 95d11472..8b437c39: НЕТ (0 файлов)
+
+Всего файлов в дельте: 235 (plans 193 + non-plans 42); services/database.py, migrations-модули и scripts/ не входят.
+
+schema-версия (services/database.py@8b437c39):
+  8b437c39:services/database.py:138:_SCHEMA_VERSION = 1              # PRAGMA user_version; 0 = до Epic 46 (R46-8)
+
+Вывод: ΔDDL = 0 (кандидат не трогает DDL/миграции; user_version на проде остаётся 36).

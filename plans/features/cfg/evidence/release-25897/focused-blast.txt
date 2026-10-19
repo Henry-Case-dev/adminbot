@@ -1,0 +1,47 @@
+REL-25897 - focused/blast runs on candidate (worktree, detached @ 8b437c39)
+
+worktree: C:\Users\main\.config\opencode\OpenCodeScratch\adminbot-ccef72c25768\release-25897\wt
+
+interpreter: .venv\Scripts\python.exe ; pytest -q -p no:cacheprovider
+
+
+
+s1-cfg04  CFG-04 contract tests/test_cfg04_forms_contract.py (expect 29)
+      -> 29 passed in 2.95s
+
+s2-profile  CFG-04 profile 8 files (expect 202)
+      -> 202 passed, 1 warning in 7.15s
+
+s3-add-exp  ADD-EXP F1 tests/test_add_exp_expression.py (expect 33)
+      -> 33 passed, 1 warning in 3.71s
+
+s4-sec54  ADD-EXP sec 5.4 set (w6 + persistfix + flags-composition)
+      -> 49 passed, 1 warning in 4.15s
+
+s5-cluster  speech/composer/direct/authorial/sample-library clusters (16 files)
+      -> 492 passed, 1 warning in 21.33s
+
+s6-capability-registry  capability/registry sanity
+      -> 53 passed in 3.21s
+
+s7-f8-pins  F8 pins/meta after bump (expect 29)
+      -> 29 passed in 4.33s
+
+s8-js-unit  JS-unit sweep tests/test_webapp_js_unit.py (expect 38)
+      -> 38 passed in 5.78s
+
+S9  tools/gen_param_registry_round1025.py --check
+      -> CHECK OK: реестр 579 == REGISTRY, карта полна, R17-чисто, TSV/map идемпотентны.
+
+S10  JS-syntax sweep (node --check, web/**/*.js + tests/js/**/*.js)
+      -> files=106 bad=0
+
+S11  tools/ui_cfg04_forms_e2e.py (Playwright, 7 viewport, mode=after)
+      -> [matrix] chat-вариант config: override items=116 | [cfg04] mode=after viewports=7 failures=0 shots=14 console_errors=0
+
+S11b worktree restored: tracked-mod=0
+
+S12  tests/ui_p0a_ux_speech_compact_e2e.py (speech savebar e2e)
+      -> == ИТОГ: failures=0, POST=22
+
+finished: 2026-10-19T18:30:30Z

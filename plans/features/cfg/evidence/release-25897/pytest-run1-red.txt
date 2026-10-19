@@ -1,0 +1,17 @@
+REL-25897: полный прогон #1 (кандидат fcd73a38, ДО fix-коммита 8b437c39) —
+RED-доказательство дефекта help-sync-гарда + env-флейка mca09.
+
+RESULT: 11 failed, 14581 passed, 39 skipped, 1 warning in 718.93s (0:11:58)
+
+FAILED (11):
+  - tests/test_asap7_direct_settings.py::test_migration_v35_idempotent_twice
+  - tests/test_asap7_direct_settings.py::test_backup_guard_fires_before_pending_step
+  - tests/test_asap8_v6_d14_help_sync.py::TestHelpMatchesShippedRuntime::test_sticky_save_dirty_only_labels_exist
+  - tests/test_history_cli.py::TestCliFts::test_scope_is_required
+  - tests/test_mca01_tx_task_supervisor_round1027.py::test_write_points_go_through_single_writer
+  - tests/test_mca09_intents_block_e_round1040.py::test_handle_initiative_sent_single_transport_chunks
+  - tests/test_t5150_startup_migrations_round1046.py::test_a_ddl_window_survives_lock_longer_than_base_5s
+  - tests/test_t5150_startup_migrations_round1046.py::test_b_step_retry_recovers_after_locked
+  - tests/test_t5150_startup_migrations_round1046.py::test_d_migration_chain_full_log_trail
+  - tests/test_t5150_startup_migrations_round1046.py::test_e_v32_db_applies_v33_once_with_guard
+  - tests/test_t5150_startup_migrations_round1046.py::test_e2_v33_db_applies_v34_once_with_guard

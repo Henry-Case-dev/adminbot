@@ -1,0 +1,25 @@
+﻿REL-25897 env-flake evidence: tests/test_mca09_intents_block_e_round1040.py::
+test_handle_initiative_sent_single_transport_chunks
+
+Флейк зафиксирован в полном прогоне #1 (кандидат fcd73a38): одиночный фейл
+initiative-транспорта (backend, вне дельты поезда: дельта трогает только
+web/app.js + web/index.html + web/static/app.css + services/mca_expression.py
++ config/settings.py).
+
+Изоляция (cwd/HEAD зафиксированы в каждом файле):
+  КАНДИДАТ 8b437c39 (release-25897\wt):
+    файл целиком:   15 passed in 4.08s  (flake-cand-file.txt, CWD=...\wt, HEAD=8b437c39)
+    одиночный тест: 1 passed in 3.34s   (flake-cand-single.txt)
+  БАЗА 95d11472 (release-25897\wt-base, БЕЗ дельты):
+    файл целиком (прогон 1): 15 passed in 4.08s  (flake-base-file.txt, CWD=...\wt-base, HEAD=95d11472)
+    файл целиком (прогон 2): 15 passed in 4.07s  (flake-base-file2.txt)
+    серия ещё 8 прогонов подряд: 15 passed в каждом (4.08–4.11s), падений 0.
+
+Наблюдение в ходе разбора (артефакт не сохранялся): один дополнительный ручной
+прогон на БАЗЕ сразу после серии полных прогонов дал 1 failed / 14 passed с
+ДРУГИМ ID (test_nostalgia_delegate_initiative_sent), т.е. файл в этом окружении
+периодически нестабилен по таймингу, а не детерминированно сломан дельтой.
+
+Вывод: тайминг-флейк (async/attempts-гонка) класса env-флейков; дельта поезда
+не трогает этот backend-путь; в run #2 полного прогона не повторился (9 failed ==
+набор 2.58.96, help-sync зелёный). Не регрессия.
