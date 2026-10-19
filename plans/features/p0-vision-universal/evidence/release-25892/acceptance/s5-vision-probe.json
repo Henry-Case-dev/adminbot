@@ -1,0 +1,200 @@
+{
+  "scenario": "S5-vision-probe",
+  "orig_model": "google/gemma-4-31b-it:free",
+  "orig_route": {
+    "source": "dedicated",
+    "provider": "openrouter.ai",
+    "api_type": "openai_compatible"
+  },
+  "key_status_before": {
+    "http": 200,
+    "usage": 0.00108105,
+    "limit": 2,
+    "limit_remaining": 1.99891895,
+    "is_free_tier": false,
+    "rate_limit": {
+      "requests": -1,
+      "interval": "10s",
+      "note": "This field is deprecated and safe to ignore."
+    }
+  },
+  "probe_current": {
+    "http": 200,
+    "body": {
+      "ok": false,
+      "capability": "rate_limited",
+      "image_input": null,
+      "status_code": null,
+      "latency_ms": null,
+      "model": "google/gemma-4-31b-it:free",
+      "reason": "vision_rate_limited",
+      "detail": "http_429",
+      "visible_reason": "Превышен лимит запросов провайдера",
+      "provider": "openrouter.ai",
+      "api_type": "openai_compatible",
+      "source": "dedicated",
+      "state": {
+        "requested": true,
+        "effective_enabled": false,
+        "reason": "vision_rate_limited",
+        "visible_reason": "Превышен лимит запросов провайдера",
+        "source": "dedicated",
+        "model": "google/gemma-4-31b-it:free",
+        "base_url": "https://openrouter.ai/api/v1",
+        "api_type": "openai_compatible",
+        "provider": "openrouter.ai",
+        "capability": "rate_limited",
+        "detail": "http_429",
+        "config_revision": "e83b6eeec940007d",
+        "checked_at": 8932785.26582698,
+        "stages": [
+          "ingest",
+          "download",
+          "decode",
+          "vision",
+          "validate",
+          "store",
+          "project",
+          "reindex",
+          "consumers"
+        ],
+        "process": "vision.media",
+        "process_version": "1",
+        "queue": {
+          "queued": 0,
+          "running": 0
+        },
+        "last": null
+      }
+    }
+  },
+  "probe_current_ok": false,
+  "decision": "kept_alt_model",
+  "alt_check": {
+    "candidate": "nvidia/nemotron-3.5-super-vl:free",
+    "free_image_input_count": 11,
+    "candidate_in_list": true,
+    "in_free_image_list": true,
+    "free_image_sample": [
+      "nvidia/nemotron-3.5-super-vl:free",
+      "dots-studio/dots-3-note-preview:free",
+      "thinkingmachines/inkling-small:free",
+      "thinkingmachines/inkling:free",
+      "nvidia/nemotron-3.5-content-safety:free",
+      "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "google/gemma-4-26b-a4b-it:free",
+      "google/gemma-4-31b-it:free",
+      "google/lyria-3-pro-preview",
+      "google/lyria-3-clip-preview",
+      "openrouter/free"
+    ]
+  },
+  "switch_to_alt": {
+    "http": 200,
+    "body": {
+      "updated": [
+        "models.vision_model"
+      ]
+    },
+    "cache_reload": "ok"
+  },
+  "probe_alt": {
+    "http": 200,
+    "body": {
+      "ok": true,
+      "capability": "ok",
+      "image_input": true,
+      "status_code": null,
+      "latency_ms": null,
+      "model": "nvidia/nemotron-3.5-super-vl:free",
+      "reason": "",
+      "detail": "",
+      "visible_reason": "Распознавание работает",
+      "provider": "openrouter.ai",
+      "api_type": "openai_compatible",
+      "source": "dedicated",
+      "state": {
+        "requested": true,
+        "effective_enabled": true,
+        "reason": "",
+        "visible_reason": "Распознавание работает",
+        "source": "dedicated",
+        "model": "nvidia/nemotron-3.5-super-vl:free",
+        "base_url": "https://openrouter.ai/api/v1",
+        "api_type": "openai_compatible",
+        "provider": "openrouter.ai",
+        "capability": "ok",
+        "detail": "",
+        "config_revision": "a3ed06b38a021513",
+        "checked_at": 8932798.579569185,
+        "stages": [
+          "ingest",
+          "download",
+          "decode",
+          "vision",
+          "validate",
+          "store",
+          "project",
+          "reindex",
+          "consumers"
+        ],
+        "process": "vision.media",
+        "process_version": "1",
+        "queue": {
+          "queued": 0,
+          "running": 0
+        },
+        "last": null
+      }
+    }
+  },
+  "probe_alt_ok": true,
+  "key_status_after": {
+    "http": 200,
+    "usage": 0.00108105,
+    "limit": 2,
+    "limit_remaining": 1.99891895,
+    "is_free_tier": false,
+    "rate_limit": {
+      "requests": -1,
+      "interval": "10s",
+      "note": "This field is deprecated and safe to ignore."
+    }
+  },
+  "state_end": {
+    "http": 200,
+    "body": {
+      "requested": true,
+      "effective_enabled": true,
+      "reason": "",
+      "visible_reason": "Распознавание работает",
+      "source": "dedicated",
+      "model": "nvidia/nemotron-3.5-super-vl:free",
+      "base_url": "https://openrouter.ai/api/v1",
+      "api_type": "openai_compatible",
+      "provider": "openrouter.ai",
+      "capability": "ok",
+      "detail": "",
+      "config_revision": "a3ed06b38a021513",
+      "checked_at": 8932798.579569185,
+      "stages": [
+        "ingest",
+        "download",
+        "decode",
+        "vision",
+        "validate",
+        "store",
+        "project",
+        "reindex",
+        "consumers"
+      ],
+      "process": "vision.media",
+      "process_version": "1",
+      "queue": {
+        "queued": 0,
+        "running": 0
+      },
+      "last": null
+    }
+  }
+}

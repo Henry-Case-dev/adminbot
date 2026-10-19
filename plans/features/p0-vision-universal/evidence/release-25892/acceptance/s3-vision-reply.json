@@ -1,0 +1,252 @@
+{
+  "scenario": "S3-reply-to-photo",
+  "label": "vision-reply92",
+  "candidates": [
+    {
+      "asset_id": "a2901d06b20d02ddae7d29d332e1de91",
+      "tg_message_id": 1165720,
+      "byte_size": 54960,
+      "mime": "image/jpeg",
+      "bot_sent": false,
+      "last_analysis": null,
+      "file_id_len": 92
+    },
+    {
+      "asset_id": "253cec8c50d27c86998817e2b964e001",
+      "tg_message_id": 1165719,
+      "byte_size": 88509,
+      "mime": "image/jpeg",
+      "bot_sent": false,
+      "last_analysis": null,
+      "file_id_len": 92
+    },
+    {
+      "asset_id": "a9e138fedaa371958a142fb14eb25487",
+      "tg_message_id": 1165718,
+      "byte_size": 93957,
+      "mime": "image/jpeg",
+      "bot_sent": false,
+      "last_analysis": null,
+      "file_id_len": 92
+    },
+    {
+      "asset_id": "98f9f97d9813ff5ab79acac4ae4cfb54",
+      "tg_message_id": 1165717,
+      "byte_size": 82416,
+      "mime": "image/jpeg",
+      "bot_sent": false,
+      "last_analysis": null,
+      "file_id_len": 92
+    },
+    {
+      "asset_id": "9d11e02cd17bbff91586bf2eb091bd87",
+      "tg_message_id": 1165715,
+      "byte_size": 45693,
+      "mime": "image/jpeg",
+      "bot_sent": false,
+      "last_analysis": null,
+      "file_id_len": 92
+    },
+    {
+      "asset_id": "e69d178649ddc1a0f2e9f7a176cd6d8a",
+      "tg_message_id": 1165711,
+      "byte_size": 121141,
+      "mime": "image/jpeg",
+      "bot_sent": false,
+      "last_analysis": null,
+      "file_id_len": 92
+    },
+    {
+      "asset_id": "4ec63b391b9c370ecc7d30424caa5c7b",
+      "tg_message_id": 1165708,
+      "byte_size": 142459,
+      "mime": "image/jpeg",
+      "bot_sent": false,
+      "last_analysis": null,
+      "file_id_len": 92
+    },
+    {
+      "asset_id": "4562a72f4bdaa9124e928aa89743d545",
+      "tg_message_id": 1165707,
+      "byte_size": 161006,
+      "mime": "image/jpeg",
+      "bot_sent": false,
+      "last_analysis": null,
+      "file_id_len": 92
+    },
+    {
+      "asset_id": "9191ed7a0e9faee3c7921f6c1fc98ec6",
+      "tg_message_id": 1165701,
+      "byte_size": 74126,
+      "mime": "image/jpeg",
+      "bot_sent": false,
+      "last_analysis": null,
+      "file_id_len": 92
+    },
+    {
+      "asset_id": "d364ea2d215707f82e2ce8ab04ecee2f",
+      "tg_message_id": 1165692,
+      "byte_size": 91151,
+      "mime": "image/jpeg",
+      "bot_sent": false,
+      "last_analysis": null,
+      "file_id_len": 92
+    },
+    {
+      "asset_id": "0c572a58303927ddc01ba999c099f8ed",
+      "tg_message_id": 1165688,
+      "byte_size": 46133,
+      "mime": "image/jpeg",
+      "bot_sent": false,
+      "last_analysis": null,
+      "file_id_len": 92
+    },
+    {
+      "asset_id": "3bd09279309e8f34ebe5abb6c6bddf1a",
+      "tg_message_id": 1165687,
+      "byte_size": 117028,
+      "mime": "image/jpeg",
+      "bot_sent": false,
+      "last_analysis": null,
+      "file_id_len": 92
+    },
+    {
+      "asset_id": "98aca2c4458c3850a51f5b454687c354",
+      "tg_message_id": 1165606,
+      "byte_size": 81863,
+      "mime": "image/jpeg",
+      "bot_sent": false,
+      "last_analysis": null,
+      "file_id_len": 92
+    },
+    {
+      "asset_id": "657f79fad23e72f26d5de1d3fb19317e",
+      "tg_message_id": 1165607,
+      "byte_size": 105843,
+      "mime": "image/jpeg",
+      "bot_sent": false,
+      "last_analysis": null,
+      "file_id_len": 92
+    }
+  ],
+  "choice": "preferred_kept_user_photo",
+  "asset": {
+    "asset_id": "98aca2c4458c3850a51f5b454687c354",
+    "tg_message_id": 1165606,
+    "byte_size": 81863,
+    "mime": "image/jpeg",
+    "last_analysis": null
+  },
+  "anchor_mid": 1165721,
+  "turns": [
+    {
+      "phrase": "бот, что тут?",
+      "label": "vision-reply92",
+      "status": "ok",
+      "error": "",
+      "handled": true,
+      "correlation_id": "1a530c4bd2b64c738f8b37a3032f3a04",
+      "plan_meta": null,
+      "usage": [
+        {
+          "correlation_id": "1a530c4bd2b64c738f8b37a3032f3a04",
+          "step": "single",
+          "tool_name": "",
+          "input_tokens": 550,
+          "output_tokens": 12,
+          "cost_usd": "<Decimal>",
+          "price_known": false,
+          "plan_meta": null,
+          "ts": "2026-10-18 23:53:56.702200+00:00"
+        }
+      ],
+      "logs": [
+        "[direct] triggered | chat=-1002661910336 user=Acceptance",
+        "event=DECISION_START | run_id=b48401417e0a476a893a36c10461102f | chat_id=-1002661910336 | message_id=1165721 | ts=1792367645.829",
+        "event=DIRECT_TRIGGER | chat_id=-1002661910336 | message_id=1165721 | trigger_type=force_keyword | force_reply_required=True | reply_to_bot=False | is_private=False | addressed=True | ts=1792367645.829",
+        "event=DECISION_COMPLETE | run_id=b48401417e0a476a893a36c10461102f | chat_id=-1002661910336 | message_id=1165721 | action=reply | reason=force_direct | trigger_type=force_keyword | force_reply_required=True | message_class=question | duration_ms=1 | ts=1792367645.83",
+        "event=L1_PLAN | run_id=b48401417e0a476a893a36c10461102f | chat_id=-1002661910336 | message_id=1165721 | action=reply | response_act=clarification | extent=auto | tone=warm | bucket=medium | capabilities=image_understanding | inherited=True | fallback= | latency_ms=12100 | input_chars=1060 | confidence=0.6 | source=main | ts=1792367657.99",
+        "event=TOOL_CALL_START | run_id=b48401417e0a476a893a36c10461102f | chat_id=-1002661910336 | tool=recognize_image | round=1 | ts=1792367658.027",
+        "event=TOOL_CALL_COMPLETE | run_id=b48401417e0a476a893a36c10461102f | chat_id=-1002661910336 | tool=recognize_image | round=1 | status=ok | out_chars=161 | ts=1792367703.635",
+        "[direct-exec] simple chain done | chat=-1002661910336 | steps=1 | ok=1 | limitations=0 | metered=1"
+      ],
+      "tool_calls": [
+        {
+          "tool": "recognize_image",
+          "args": {
+            "target": {
+              "chat_id": -1002661910336,
+              "message_id": 1165606
+            }
+          },
+          "started": 1792367658.027131,
+          "ok": true,
+          "elapsed_ms": 45607,
+          "result_head": "{\"status\": \"pending\", \"reason\": \"deadline_exceeded\", \"asset_id\": \"98aca2c4458c3850a51f5b454687c354\", \"message_key\": \"-1002661910336:1165606\", \"job_linked\": true}",
+          "result_len": 161,
+          "status": "pending",
+          "reason": "deadline_exceeded",
+          "visible_reason": null,
+          "analysis_revision": null,
+          "cache_hit": null,
+          "visual_description_len": 0,
+          "ocr_blocks": 0
+        }
+      ],
+      "image_blocks": [],
+      "postgen": [],
+      "sends": [
+        {
+          "kind": "message",
+          "chat_id": -1002661910336,
+          "message_id": 1165722,
+          "text_head": "Не могу разглядеть - картинка не обработалась, висит в очереди и результата нет. Скинь ещё раз или опиши словами, что там",
+          "text_len": 121,
+          "reply_to": 1165721
+        }
+      ],
+      "answer_head": "Не могу разглядеть - картинка не обработалась, висит в очереди и результата нет. Скинь ещё раз или опиши словами, что там",
+      "bot_reply": [],
+      "elapsed_s": 73.02
+    }
+  ],
+  "tool_called": true,
+  "tool_target": {
+    "chat_id": -1002661910336,
+    "message_id": 1165606
+  },
+  "target_is_reply_photo": true,
+  "target_not_question": true,
+  "tool_result": {
+    "tool": "recognize_image",
+    "args": {
+      "target": {
+        "chat_id": -1002661910336,
+        "message_id": 1165606
+      }
+    },
+    "started": 1792367658.027131,
+    "ok": true,
+    "elapsed_ms": 45607,
+    "result_head": "{\"status\": \"pending\", \"reason\": \"deadline_exceeded\", \"asset_id\": \"98aca2c4458c3850a51f5b454687c354\", \"message_key\": \"-1002661910336:1165606\", \"job_linked\": true}",
+    "result_len": 161,
+    "status": "pending",
+    "reason": "deadline_exceeded",
+    "visible_reason": null,
+    "analysis_revision": null,
+    "cache_hit": null,
+    "visual_description_len": 0,
+    "ocr_blocks": 0
+  },
+  "plan_caps": [],
+  "status": "pending",
+  "positive_recognition": false,
+  "ok": true,
+  "analysis_row_after": null,
+  "replay": {
+    "new_sends": 0,
+    "tool_calls": [],
+    "handled": true,
+    "elapsed_s": 0.43
+  }
+}

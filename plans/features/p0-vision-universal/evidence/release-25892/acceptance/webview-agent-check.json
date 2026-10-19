@@ -1,0 +1,33 @@
+{
+ "healthz_status": 200,
+ "healthz": "{\"status\":\"ok\",\"version\":\"2.58.92\"}",
+ "web_status": 200,
+ "html_len": 869178,
+ "version_count_html": 15,
+ "mod_vision_count": 0,
+ "scripts": [
+  "/static/vendor/telegram-web-app.js",
+  "scopeTriggerAvatar",
+  "o.avatarUrl",
+  "meAvatarUrl",
+  "meAvatarUrl",
+  "coverPairAsset(s, 'before')",
+  "coverPairAsset(s, 'after')",
+  "coverStyles._assets[r.asset_id]",
+  "coverPairAsset(coverStyles.server, 'before')",
+  "coverPairAsset(coverStyles.server, 'after')"
+ ],
+ "appjs_status": 200,
+ "appjs_len": 1264746,
+ "served_sha12": "b14ef48ab16a",
+ "deployed_commit_sha12": "b14ef48ab16a",
+ "served_eq_deployed_commit": true,
+ "css_status": 200,
+ "css_version_subst": 2,
+ "appjs_markers": {
+  "visionStateLine": 2,
+  "mod_vision": 11,
+  "data-vision-facts": 2,
+  "fullscreen": 20
+ }
+}

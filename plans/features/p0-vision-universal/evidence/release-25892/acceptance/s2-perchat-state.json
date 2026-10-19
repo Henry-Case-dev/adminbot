@@ -1,0 +1,220 @@
+{
+  "scenario": "S2-perchat-state",
+  "owner_get_before": {
+    "http": 200,
+    "body": {
+      "requested": true,
+      "effective_enabled": false,
+      "reason": "capability_check_pending",
+      "visible_reason": "Проверка подключения модели распознавания",
+      "source": "dedicated",
+      "model": "google/gemma-4-31b-it:free",
+      "base_url": "https://openrouter.ai/api/v1",
+      "api_type": "openai_compatible",
+      "provider": "openrouter.ai",
+      "capability": "pending",
+      "detail": "",
+      "config_revision": "e83b6eeec940007d",
+      "checked_at": null,
+      "stages": [
+        "ingest",
+        "download",
+        "decode",
+        "vision",
+        "validate",
+        "store",
+        "project",
+        "reindex",
+        "consumers"
+      ],
+      "process": "vision.media",
+      "process_version": "1",
+      "queue": {
+        "queued": 0,
+        "running": 0
+      },
+      "last": null
+    }
+  },
+  "owner_probe": {
+    "http": 200,
+    "body": {
+      "ok": false,
+      "capability": "rate_limited",
+      "image_input": null,
+      "status_code": null,
+      "latency_ms": null,
+      "model": "google/gemma-4-31b-it:free",
+      "reason": "vision_rate_limited",
+      "detail": "http_429",
+      "visible_reason": "Превышен лимит запросов провайдера",
+      "provider": "openrouter.ai",
+      "api_type": "openai_compatible",
+      "source": "dedicated",
+      "state": {
+        "requested": true,
+        "effective_enabled": false,
+        "reason": "vision_rate_limited",
+        "visible_reason": "Превышен лимит запросов провайдера",
+        "source": "dedicated",
+        "model": "google/gemma-4-31b-it:free",
+        "base_url": "https://openrouter.ai/api/v1",
+        "api_type": "openai_compatible",
+        "provider": "openrouter.ai",
+        "capability": "rate_limited",
+        "detail": "http_429",
+        "config_revision": "e83b6eeec940007d",
+        "checked_at": 8932785.26582698,
+        "stages": [
+          "ingest",
+          "download",
+          "decode",
+          "vision",
+          "validate",
+          "store",
+          "project",
+          "reindex",
+          "consumers"
+        ],
+        "process": "vision.media",
+        "process_version": "1",
+        "queue": {
+          "queued": 0,
+          "running": 0
+        },
+        "last": null
+      }
+    }
+  },
+  "owner_get_after": {
+    "http": 200,
+    "body": {
+      "requested": true,
+      "effective_enabled": false,
+      "reason": "vision_rate_limited",
+      "visible_reason": "Превышен лимит запросов провайдера",
+      "source": "dedicated",
+      "model": "google/gemma-4-31b-it:free",
+      "base_url": "https://openrouter.ai/api/v1",
+      "api_type": "openai_compatible",
+      "provider": "openrouter.ai",
+      "capability": "rate_limited",
+      "detail": "http_429",
+      "config_revision": "e83b6eeec940007d",
+      "checked_at": 8932785.26582698,
+      "stages": [
+        "ingest",
+        "download",
+        "decode",
+        "vision",
+        "validate",
+        "store",
+        "project",
+        "reindex",
+        "consumers"
+      ],
+      "process": "vision.media",
+      "process_version": "1",
+      "queue": {
+        "queued": 0,
+        "running": 0
+      },
+      "last": null
+    }
+  },
+  "global_get": {
+    "http": 200,
+    "body": {
+      "requested": false,
+      "effective_enabled": false,
+      "reason": "vision_disabled",
+      "visible_reason": "Распознавание изображений выключено владельцем",
+      "source": "dedicated",
+      "model": "google/gemma-4-31b-it:free",
+      "base_url": "https://openrouter.ai/api/v1",
+      "api_type": "openai_compatible",
+      "provider": "openrouter.ai",
+      "capability": "disabled",
+      "detail": "",
+      "config_revision": "e83b6eeec940007d",
+      "checked_at": null,
+      "stages": [
+        "ingest",
+        "download",
+        "decode",
+        "vision",
+        "validate",
+        "store",
+        "project",
+        "reindex",
+        "consumers"
+      ],
+      "process": "vision.media",
+      "process_version": "1",
+      "queue": {
+        "queued": 0,
+        "running": 0
+      },
+      "last": null
+    }
+  },
+  "foreign_get": {
+    "http": 200,
+    "body": {
+      "requested": false,
+      "effective_enabled": false,
+      "reason": "vision_disabled",
+      "visible_reason": "Распознавание изображений выключено владельцем",
+      "source": "dedicated",
+      "model": "google/gemma-4-31b-it:free",
+      "base_url": "https://openrouter.ai/api/v1",
+      "api_type": "openai_compatible",
+      "provider": "openrouter.ai",
+      "capability": "disabled",
+      "detail": "",
+      "config_revision": "e83b6eeec940007d",
+      "checked_at": null,
+      "stages": [
+        "ingest",
+        "download",
+        "decode",
+        "vision",
+        "validate",
+        "store",
+        "project",
+        "reindex",
+        "consumers"
+      ],
+      "process": "vision.media",
+      "process_version": "1",
+      "queue": {
+        "queued": 0,
+        "running": 0
+      },
+      "last": null
+    }
+  },
+  "no_rights_user": {
+    "http": 403,
+    "body": {
+      "detail": "нет прав на управление ключом vision"
+    }
+  },
+  "secret_leak": false,
+  "checks": {
+    "owner_requested_true": true,
+    "owner_reason_not_disabled": true,
+    "owner_model": "google/gemma-4-31b-it:free",
+    "probe_http": 200,
+    "probe_state_requested_true": true,
+    "probe_state_reason_not_disabled": true,
+    "after_probe_requested_true": true,
+    "after_probe_reason_not_disabled": true,
+    "global_requested_false": true,
+    "global_reason_disabled": true,
+    "foreign_requested_false": true,
+    "foreign_reason_disabled": true,
+    "no_rights_http": 403,
+    "no_secret_leak": true
+  }
+}

@@ -1,0 +1,19 @@
+ACC92 NOW_UTC | 2026-10-18 23:53:22
+ACCEPT91 BOOT | version=? vec=True bot=8802473181 pg=True
+ACC92 START_EPOCH | 1792367620
+ACCEPT91 SAVE INFO | s2-perchat-state.json (5979 bytes)
+ACC92 S2 | {"owner_requested_true": true, "owner_reason_not_disabled": true, "owner_model": "google/gemma-4-31b-it:free", "probe_http": 200, "probe_state_requested_true": true, "probe_state_reason_not_disabled": true, "after_probe_requested_true": true, "after_probe_reason_not_disabled": true, "global_requested_false": true, "global_reason_disabled": true, "foreign_requested_false": true, "foreign_reason_disabled": true, "no_rights_http": 403, "no_secret_leak": true}
+ACCEPT91 SAVE INFO | s5-vision-probe.json (5389 bytes)
+ACC92 S5 | {"decision": "kept_alt_model", "probe_current_ok": false, "probe_alt_ok": true}
+ACCEPT91 SAVE INFO | s3-vision-reply.json (8357 bytes)
+ACC92 S3 | {"label": "vision-reply92", "tool_called": true, "target_is_reply_photo": true, "target_not_question": true, "status": "pending", "positive_recognition": false}
+ACCEPT91 SAVE INFO | s3b-vision-reply-repeat.json (8298 bytes)
+ACC92 S3 | {"label": "vision-reply92-repeat", "tool_called": true, "target_is_reply_photo": true, "target_not_question": true, "status": "pending", "positive_recognition": false}
+ACCEPT91 SAVE INFO | s4-factcheck-reply.json (6191 bytes)
+ACC92 S4 | {"tool_called": true, "claim_from_replied": true, "target_is_replied": true, "status_ready": true}
+ACCEPT91 SAVE INFO | s7-econ.json (11862 bytes)
+ACC92 S7 | done
+ACCEPT91 SAVE INFO | summary.json (4623 bytes)
+ACC92 FLUSH | mca_events flushed=78
+ACC92 DONE | evidence=/tmp/accept92/evidence
+ACC92 RC=0

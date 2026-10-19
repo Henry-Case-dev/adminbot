@@ -1,0 +1,512 @@
+ACCEPTANCE-92 prod journal since T0 2026-10-18 23:25:48 UTC (epoch 1792365948)
+Window: 2026-10-18 23:25:48 -> 2026-10-19 00:04:49 UTC (~39 min); dumps at 23:57:20Z and 00:04:49Z.
+
+=== JOURNAL (since T0, sudo, read-only) ===
+=== NOW ===
+2026-10-18T23:57:20Z
+=== WORKER TICK (FIX2: SKIPS must be 0) ===
+SKIPS=0
+CLAIM_SLOW=10
+CLAIM_TIMEOUT=0
+MAINT_TIMEOUT=0
+VISION_LINES=11
+=== CLAIM_SLOW samples (last 8) ===
+Oct 18 23:36:42 racknerd-f4e3456 python[3548159]: 2026-10-18 23:36:42,417 - services.mca_vision - WARNING - [vision] claim sweep slow | dur=11.85s
+Oct 18 23:41:29 racknerd-f4e3456 python[3548159]: 2026-10-18 23:41:29,819 - services.mca_vision - WARNING - [vision] claim sweep slow | dur=9.26s
+Oct 18 23:41:39 racknerd-f4e3456 python[3548159]: 2026-10-18 23:41:39,783 - services.mca_vision - WARNING - [vision] claim sweep slow | dur=9.22s
+Oct 18 23:46:29 racknerd-f4e3456 python[3548159]: 2026-10-18 23:46:29,025 - services.mca_vision - WARNING - [vision] claim sweep slow | dur=8.47s
+Oct 18 23:46:38 racknerd-f4e3456 python[3548159]: 2026-10-18 23:46:38,674 - services.mca_vision - WARNING - [vision] claim sweep slow | dur=8.11s
+Oct 18 23:51:31 racknerd-f4e3456 python[3548159]: 2026-10-18 23:51:31,230 - services.mca_vision - WARNING - [vision] claim sweep slow | dur=5.65s
+Oct 18 23:56:42 racknerd-f4e3456 python[3548159]: 2026-10-18 23:56:42,021 - services.mca_vision - WARNING - [vision] claim sweep slow | dur=6.46s
+Oct 18 23:56:59 racknerd-f4e3456 python[3548159]: 2026-10-18 23:56:59,797 - services.mca_vision - WARNING - [vision] claim sweep slow | dur=14.23s
+=== last [vision] lines ===
+Oct 18 23:26:20 racknerd-f4e3456 python[3548159]: 2026-10-18 23:26:20,558 - services.mca_vision - INFO - [vision] media worker started | tick=5s
+Oct 18 23:31:32 racknerd-f4e3456 python[3548159]: 2026-10-18 23:31:32,345 - services.mca_vision - WARNING - [vision] claim sweep slow | dur=11.79s
+Oct 18 23:31:43 racknerd-f4e3456 python[3548159]: 2026-10-18 23:31:43,918 - services.mca_vision - WARNING - [vision] claim sweep slow | dur=8.35s
+Oct 18 23:36:42 racknerd-f4e3456 python[3548159]: 2026-10-18 23:36:42,417 - services.mca_vision - WARNING - [vision] claim sweep slow | dur=11.85s
+Oct 18 23:41:29 racknerd-f4e3456 python[3548159]: 2026-10-18 23:41:29,819 - services.mca_vision - WARNING - [vision] claim sweep slow | dur=9.26s
+Oct 18 23:41:39 racknerd-f4e3456 python[3548159]: 2026-10-18 23:41:39,783 - services.mca_vision - WARNING - [vision] claim sweep slow | dur=9.22s
+Oct 18 23:46:29 racknerd-f4e3456 python[3548159]: 2026-10-18 23:46:29,025 - services.mca_vision - WARNING - [vision] claim sweep slow | dur=8.47s
+Oct 18 23:46:38 racknerd-f4e3456 python[3548159]: 2026-10-18 23:46:38,674 - services.mca_vision - WARNING - [vision] claim sweep slow | dur=8.11s
+Oct 18 23:51:31 racknerd-f4e3456 python[3548159]: 2026-10-18 23:51:31,230 - services.mca_vision - WARNING - [vision] claim sweep slow | dur=5.65s
+Oct 18 23:56:42 racknerd-f4e3456 python[3548159]: 2026-10-18 23:56:42,021 - services.mca_vision - WARNING - [vision] claim sweep slow | dur=6.46s
+Oct 18 23:56:59 racknerd-f4e3456 python[3548159]: 2026-10-18 23:56:59,797 - services.mca_vision - WARNING - [vision] claim sweep slow | dur=14.23s
+=== last vision tick timestamp ===
+Oct 18 23:57:20 racknerd-f4e3456 python[3548159]: 2026-10-18 23:57:20,557 - apscheduler.executors.default - INFO - Job "
+=== ERR/CRIT/TB/402 since T0 ===
+ERR=0
+E402=0
+RUNTIMEWARN=0
+DB_LOCKED=0
+VISION_RL=1
+=== raw ERROR/CRITICAL/Traceback sample (first 10) ===
+=== MIGRATIONS since T0 ===
+Oct 18 23:26:19 racknerd-f4e3456 python[3548159]: 2026-10-18 23:26:19,549 - services.config_migrations - INFO - CONFIG_MIGRATION_CUSTOM_PRESERVED | domain=context_migration | key=limits.chat_context_budget_tokens | action=preserved_owner_custom
+Oct 18 23:26:19 racknerd-f4e3456 python[3548159]: 2026-10-18 23:26:19,550 - services.config_migrations - INFO - [factcheck_context_migration] legacy == ╨┤╨╡╤Д╨╛╨╗╤В тАФ ╨╝╨╕╨│╤А╨╕╤А╨╛╨▓╨░╤В╤М ╨╜╨╡╤З╨╡╨│╨╛ | key=limits.factcheck_context_messages
+Oct 18 23:26:19 racknerd-f4e3456 python[3548159]: 2026-10-18 23:26:19,551 - services.config_migrations - INFO - CONFIG_MIGRATION_CUSTOM_PRESERVED | domain=image_migration | key=models.image_base_url | action=preserved_owner_custom
+Oct 18 23:26:19 racknerd-f4e3456 python[3548159]: 2026-10-18 23:26:19,552 - services.config_migrations - INFO - CONFIG_MIGRATION_CUSTOM_PRESERVED | domain=image_migration | key=models.image_model | action=preserved_owner_custom
+Oct 18 23:26:19 racknerd-f4e3456 python[3548159]: 2026-10-18 23:26:19,553 - services.config_migrations - INFO - [image_migration] ╤Г╨╢╨╡ ╨┤╨╡╤Д╨╛╨╗╤В | key=models.image_get_mode
+Oct 18 23:26:19 racknerd-f4e3456 python[3548159]: 2026-10-18 23:26:19,554 - services.config_migrations - INFO - [deep_sleep_migration] skip: ╨▓╤Л╨║╨╗╤О╤З╨╡╨╜╨╛ (╨▓╨╡╤В╨║╨░ A ╨░╤Г╨┤╨╕╤В╨░)
+Oct 18 23:26:19 racknerd-f4e3456 python[3548159]: 2026-10-18 23:26:19,606 - services.database - INFO - [database] migrations: start | current user_version=36 | pending=[]
+Oct 18 23:26:19 racknerd-f4e3456 python[3548159]: 2026-10-18 23:26:19,610 - services.database - INFO - [database] migrations: complete | user_version=36 | total 0.0s
+=== SERVICE ===
+MainPID=3548159
+NRestarts=0
+ExecMainStatus=0
+ActiveState=active
+SubState=running
+{"status":"ok","version":"2.58.92"}
+=== HTTPS ===
+{"status":"ok","version":"2.58.92"}
+=== ROUTES (https) ===
+ROUTE /healthz 200
+ROUTE /web/ 200
+ROUTE /static/app.css 200
+=== SQLITE READ-ONLY ===
+{
+ "user_version": 36,
+ "jobs_since_t0": [
+  {
+   "job_id": "7e1578afc84e455fa5128c5f17ffc697",
+   "kind": "initiative.observe",
+   "status": "completed",
+   "reason_code": null,
+   "attempt": 1,
+   "created_at": 1792366280,
+   "updated_at": 1792366303
+  },
+  {
+   "job_id": "ddc0d64964904f358f3658bc4019715b",
+   "kind": "initiative.observe",
+   "status": "completed",
+   "reason_code": null,
+   "attempt": 1,
+   "created_at": 1792366580,
+   "updated_at": 1792366602
+  },
+  {
+   "job_id": "5d06dc17141d47df90e89b5a6469a3ef",
+   "kind": "initiative.observe",
+   "status": "completed",
+   "reason_code": null,
+   "attempt": 1,
+   "created_at": 1792366880,
+   "updated_at": 1792366899
+  },
+  {
+   "job_id": "95e44f701c0d4311a85e51f65fbe0d7b",
+   "kind": "initiative.observe",
+   "status": "completed",
+   "reason_code": null,
+   "attempt": 1,
+   "created_at": 1792367180,
+   "updated_at": 1792367198
+  },
+  {
+   "job_id": "7230383c03c842638ea5500a348d4c3f",
+   "kind": "initiative.observe",
+   "status": "completed",
+   "reason_code": null,
+   "attempt": 1,
+   "created_at": 1792367480,
+   "updated_at": 1792367491
+  },
+  {
+   "job_id": "7d86dff22629493b895022af429b7eab",
+   "kind": "vision.media",
+   "status": "queued",
+   "reason_code": "vision_unavailable",
+   "attempt": 2,
+   "created_at": 1792367658,
+   "updated_at": 1792367725
+  },
+  {
+   "job_id": "9abe292cd4d144e6b87646bda07d9415",
+   "kind": "vision.media",
+   "status": "queued",
+   "reason_code": "vision_unavailable",
+   "attempt": 2,
+   "created_at": 1792367721,
+   "updated_at": 1792367819
+  },
+  {
+   "job_id": "fb28446c495f4bd5bb2d77b61c28e5d9",
+   "kind": "initiative.observe",
+   "status": "completed",
+   "reason_code": null,
+   "attempt": 1,
+   "created_at": 1792367780,
+   "updated_at": 1792367819
+  }
+ ],
+ "vision_jobs_recent": [
+  {
+   "job_id": "9abe292cd4d144e6b87646bda07d9415",
+   "kind": "vision.media",
+   "status": "queued",
+   "reason_code": "vision_unavailable",
+   "attempt": 2,
+   "created_at": 1792367721,
+   "updated_at": 1792367819
+  },
+  {
+   "job_id": "7d86dff22629493b895022af429b7eab",
+   "kind": "vision.media",
+   "status": "queued",
+   "reason_code": "vision_unavailable",
+   "attempt": 2,
+   "created_at": 1792367658,
+   "updated_at": 1792367725
+  },
+  {
+   "job_id": "4394afbab5e94fe68ba5629eedf64717",
+   "kind": "vision.media",
+   "status": "failed",
+   "reason_code": "vision_rate_limited",
+   "attempt": 1,
+   "created_at": 1792365356,
+   "updated_at": 1792365358
+  },
+  {
+   "job_id": "068707d5ad164a45abfc1f2e8664862e",
+   "kind": "vision.media",
+   "status": "failed",
+   "reason_code": "vision_rate_limited",
+   "attempt": 1,
+   "created_at": 1792365336,
+   "updated_at": 1792365338
+  },
+  {
+   "job_id": "d51a9449ca14431fa965b74d137abb3a",
+   "kind": "vision.media",
+   "status": "failed",
+   "reason_code": "vision_rate_limited",
+   "attempt": 1,
+   "created_at": 1792365303,
+   "updated_at": 1792365304
+  },
+  {
+   "job_id": "3239d35df9ba44128fe8b893706e9b26",
+   "kind": "vision.media",
+   "status": "failed",
+   "reason_code": "vision_rate_limited",
+   "attempt": 1,
+   "created_at": 1792365247,
+   "updated_at": 1792365248
+  },
+  {
+   "job_id": "9e8ca808305b4dedbde601a9cbfb2539",
+   "kind": "vision.media",
+   "status": "failed",
+   "reason_code": "vision_rate_limited",
+   "attempt": 1,
+   "created_at": 1792365155,
+   "updated_at": 1792365159
+  },
+  {
+   "job_id": "aebb578e155d44e68e69a2d78186e488",
+   "kind": "vision.media",
+   "status": "failed",
+   "reason_code": "vision_rate_limited",
+   "attempt": 1,
+   "created_at": 1792364353,
+   "updated_at": 1792364354
+  },
+  {
+   "job_id": "f703c14b4d2446388df2fa2c1ef1dfe8",
+   "kind": "vision.media",
+   "status": "failed",
+   "reason_code": "vision_rate_limited",
+   "attempt": 1,
+   "created_at": 1792363975,
+   "updated_at": 1792363978
+  },
+  {
+   "job_id": "1593ead3b2984b469e5ee4ecfb34b072",
+   "kind": "vision.media",
+   "status": "failed",
+   "reason_code": "vision_rate_limited",
+   "attempt": 1,
+   "created_at": 1792363933,
+   "updated_at": 1792363934
+  },
+  {
+   "job_id": "1bccc7d828e543d995b730d56c6370c2",
+   "kind": "vision.media",
+   "status": "failed",
+   "reason_code": "vision_rate_limited",
+   "attempt": 1,
+   "created_at": 1792363361,
+   "updated_at": 1792363364
+  },
+  {
+   "job_id": "921f977986434516ae1407054a32b5fb",
+   "kind": "vision.media",
+   "status": "failed",
+   "reason_code": "vision_rate_limited",
+   "attempt": 1,
+   "created_at": 1792361826,
+   "updated_at": 1792361829
+  },
+  {
+   "job_id": "24affd4437524756ba6db71578314267",
+   "kind": "vision.media",
+   "status": "failed",
+   "reason_code": "vision_rate_limited",
+   "attempt": 1,
+   "created_at": 1792361556,
+   "updated_at": 1792361559
+  },
+  {
+   "job_id": "83f0a4b954094b00b61976852ff77fb9",
+   "kind": "vision.media",
+   "status": "failed",
+   "reason_code": "vision_rate_limited",
+   "attempt": 1,
+   "created_at": 1792361360,
+   "updated_at": 1792361364
+  },
+  {
+   "job_id": "38f389036abc4c0fab643c11cfadac34",
+   "kind": "vision.media",
+   "status": "failed",
+   "reason_code": "vision_rate_limited",
+   "attempt": 1,
+   "created_at": 1792360958,
+   "updated_at": 1792360959
+  }
+ ],
+ "events_since_t0": [
+  {
+   "event_name": "WATCHDOG_SWEEP",
+   "outcome": "success",
+   "reason_code": null,
+   "n": 31,
+   "last": 1792367742
+  },
+  {
+   "event_name": "self_model",
+   "outcome": "success",
+   "reason_code": null,
+   "n": 11,
+   "last": 1792367775
+  },
+  {
+   "event_name": "prompt_layers",
+   "outcome": "silent",
+   "reason_code": "disabled",
+   "n": 10,
+   "last": 1792367645
+  },
+  {
+   "event_name": "prompt_layers",
+   "outcome": "silent",
+   "reason_code": "source_missing",
+   "n": 9,
+   "last": 1792367703
+  },
+  {
+   "event_name": "mca07_retrieval",
+   "outcome": "skipped",
+   "reason_code": "embedding_generation_changed",
+   "n": 8,
+   "last": 1792367780
+  },
+  {
+   "event_name": "factcheck_temporal",
+   "outcome": "success",
+   "reason_code": null,
+   "n": 5,
+   "last": 1792367792
+  },
+  {
+   "event_name": "DIRECT_FRESH_GENERATION",
+   "outcome": "success",
+   "reason_code": "direct_fresh_generation",
+   "n": 3,
+   "last": 1792367796
+  },
+  {
+   "event_name": "bot_output_recorded",
+   "outcome": "success",
+   "reason_code": "bot_output_recorded",
+   "n": 3,
+   "last": 1792367796
+  },
+  {
+   "event_name": "experience_recorded",
+   "outcome": "success",
+   "reason_code": "experience_recorded",
+   "n": 3,
+   "last": 1792367796
+  },
+  {
+   "event_name": "humor_send_captured",
+   "outcome": "success",
+   "reason_code": null,
+   "n": 3,
+   "last": 1792367796
+  },
+  {
+   "event_name": "mca07_bundle",
+   "outcome": "success",
+   "reason_code": null,
+   "n": 3,
+   "last": 1792367796
+  },
+  {
+   "event_name": "mca07_reranker",
+   "outcome": "success",
+   "reason_code": null,
+   "n": 3,
+   "last": 1792367771
+  },
+  {
+   "event_name": "mca07_retrieval",
+   "outcome": "success",
+   "reason_code": null,
+   "n": 3,
+   "last": 1792367772
+  },
+  {
+   "event_name": "quote_resolver_step",
+   "outcome": "success",
+   "reason_code": "quote_unresolved",
+   "n": 3,
+   "last": 1792367774
+  },
+  {
+   "event_name": "vision_media",
+   "outcome": "skipped",
+   "reason_code": "vision_unavailable",
+   "n": 3,
+   "last": 1792367725
+  },
+  {
+   "event_name": "DIRECT_UPDATE_DEDUP_HIT",
+   "outcome": "skipped",
+   "reason_code": "direct_update_dedup_hit",
+   "n": 2,
+   "last": 1792367769
+  },
+  {
+   "event_name": "FACTS_EXTRACT",
+   "outcome": "skipped",
+   "reason_code": "no_new_contribution",
+   "n": 2,
+   "last": 1792367803
+  },
+  {
+   "event_name": "safe_fetch",
+   "outcome": "failed",
+   "reason_code": "too_many_bytes",
+   "n": 2,
+   "last": 1792367781
+  },
+  {
+   "event_name": "vision_capability_probe",
+   "outcome": "success",
+   "reason_code": null,
+   "n": 2,
+   "last": 1792367658
+  },
+  {
+   "event_name": "vision_media",
+   "outcome": "success",
+   "reason_code": null,
+   "n": 2,
+   "last": 1792367721
+  },
+  {
+   "event_name": "EMBED_API_DEFERRED",
+   "outcome": "skipped",
+   "reason_code": "embed_deferred",
+   "n": 1,
+   "last": 1792367709
+  },
+  {
+   "event_name": "FACTS_EXTRACT",
+   "outcome": "success",
+   "reason_code": "embed_deferred",
+   "n": 1,
+   "last": 1792367709
+  },
+  {
+   "event_name": "anticliche_run",
+   "outcome": "skipped",
+   "reason_code": "cooldown",
+   "n": 1,
+   "last": 1792366280
+  },
+  {
+   "event_name": "factcheck_temporal",
+   "outcome": "success",
+   "reason_code": "temporal_date_unknown",
+   "n": 1,
+   "last": 1792367776
+  },
+  {
+   "event_name": "humor_samples_selected",
+   "outcome": "success",
+   "reason_code": null,
+   "n": 1,
+   "last": 1792367658
+  },
+  {
+   "event_name": "initiative_observer_scan",
+   "outcome": "success",
+   "reason_code": null,
+   "n": 1,
+   "last": 1792367802
+  },
+  {
+   "event_name": "intent_created",
+   "outcome": "success",
+   "reason_code": "intent_created",
+   "n": 1,
+   "last": 1792367707
+  },
+  {
+   "event_name": "intent_merged",
+   "outcome": "success",
+   "reason_code": "intent_merged",
+   "n": 1,
+   "last": 1792367769
+  },
+  {
+   "event_name": "mca07_answer_cache",
+   "outcome": "skipped",
+   "reason_code": "answer_cache_disabled",
+   "n": 1,
+   "last": 1792367634
+  },
+  {
+   "event_name": "style_policy",
+   "outcome": "success",
+   "reason_code": null,
+   "n": 1,
+   "last": 1792367768
+  }
+ ],
+ "mca_errors_since_t0": [
+  {
+   "n": 2
+  }
+ ],
+ "analyses_since_t0": [
+  {
+   "n": 0,
+   "ready": null
+  }
+ ]
+}
+=== DONE ===
+[stderr] [sudo] password for nik:
+
+=== JOURNAL IDENTITY + SCEN-B (since T0) ===
+Oct 18 23:26:19 racknerd-f4e3456 python[3548159]: 2026-10-18 23:26:19,370 - services.config_cache - INFO - [config_cache] initialized: settings=529 roles=4 admins=3
+Oct 18 23:26:20 racknerd-f4e3456 python[3548159]: 2026-10-18 23:26:20,558 - services.mca_vision - INFO - [vision] media worker started | tick=5s
+Oct 18 23:53:41 racknerd-f4e3456 python[3548159]: 2026-10-18 23:53:41,855 - services.config_cache - INFO - [config_cache] set_many | keys=1
+Oct 18 23:53:41 racknerd-f4e3456 python[3548159]: 2026-10-18 23:53:41,858 - web.api.routes - INFO - [api] config updated | key=models.vision_model | by=5885953495
+--- nostalgia ---
+NOST_LINES=0

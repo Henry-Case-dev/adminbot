@@ -1,0 +1,150 @@
+{
+  "final_state": {
+    "http": 200,
+    "body": {
+      "requested": true,
+      "effective_enabled": true,
+      "reason": "",
+      "visible_reason": "Распознавание работает",
+      "source": "dedicated",
+      "model": "nvidia/nemotron-3.5-super-vl:free",
+      "base_url": "https://openrouter.ai/api/v1",
+      "api_type": "openai_compatible",
+      "provider": "openrouter.ai",
+      "capability": "ok",
+      "detail": "",
+      "config_revision": "a3ed06b38a021513",
+      "checked_at": 8932798.579569185,
+      "stages": [
+        "ingest",
+        "download",
+        "decode",
+        "vision",
+        "validate",
+        "store",
+        "project",
+        "reindex",
+        "consumers"
+      ],
+      "process": "vision.media",
+      "process_version": "1",
+      "queue": {
+        "queued": 2,
+        "running": 0
+      },
+      "last": null
+    }
+  },
+  "start_epoch": 1792367620,
+  "t0_epoch": 1792365948,
+  "now_utc": "2026-10-18 23:56:59",
+  "s2_checks": {
+    "owner_requested_true": true,
+    "owner_reason_not_disabled": true,
+    "owner_model": "google/gemma-4-31b-it:free",
+    "probe_http": 200,
+    "probe_state_requested_true": true,
+    "probe_state_reason_not_disabled": true,
+    "after_probe_requested_true": true,
+    "after_probe_reason_not_disabled": true,
+    "global_requested_false": true,
+    "global_reason_disabled": true,
+    "foreign_requested_false": true,
+    "foreign_reason_disabled": true,
+    "no_rights_http": 403,
+    "no_secret_leak": true
+  },
+  "s5_decision": "kept_alt_model",
+  "s5_probe_current_ok": false,
+  "s5_probe_alt_ok": true,
+  "s5_key_status_before": {
+    "http": 200,
+    "usage": 0.00108105,
+    "limit": 2,
+    "limit_remaining": 1.99891895,
+    "is_free_tier": false,
+    "rate_limit": {
+      "requests": -1,
+      "interval": "10s",
+      "note": "This field is deprecated and safe to ignore."
+    }
+  },
+  "s3_target_ok": true,
+  "s3_status": "pending",
+  "s3_positive": false,
+  "s3_replay": {
+    "new_sends": 0,
+    "tool_calls": [],
+    "handled": true,
+    "elapsed_s": 0.43
+  },
+  "s3b_positive": false,
+  "s3b_target_ok": true,
+  "s4_ok": true,
+  "s4_status": "ready",
+  "sends": [
+    {
+      "kind": "message",
+      "chat_id": -1002661910336,
+      "message_id": 1165721,
+      "text_head": "🧪 Приёмка 2.58.92 · reply-на-фото (контроль).",
+      "text_len": 45,
+      "reply_to": null
+    },
+    {
+      "kind": "message",
+      "chat_id": -1002661910336,
+      "message_id": 1165722,
+      "text_head": "Не могу разглядеть - картинка не обработалась, висит в очереди и результата нет. Скинь ещё раз или опиши словами, что там",
+      "text_len": 121,
+      "reply_to": 1165721
+    },
+    {
+      "kind": "message",
+      "chat_id": -1002661910336,
+      "message_id": 1165723,
+      "text_head": "🧪 Приёмка 2.58.92 · reply-на-фото (контроль).",
+      "text_len": 45,
+      "reply_to": null
+    },
+    {
+      "kind": "message",
+      "chat_id": -1002661910336,
+      "message_id": 1165724,
+      "text_head": "Картинка не обработалась - висит в очереди, результата нет. Скинь ещё раз или опиши словами, что там",
+      "text_len": 100,
+      "reply_to": 1165723
+    },
+    {
+      "kind": "message",
+      "chat_id": -1002661910336,
+      "message_id": 1165725,
+      "text_head": "Вода закипает при 100 °C на уровне моря.",
+      "text_len": 40,
+      "reply_to": null
+    },
+    {
+      "kind": "message",
+      "chat_id": -1002661910336,
+      "message_id": 1165726,
+      "text_head": "🧪 Приёмка 2.58.92 · reply-фактчек (контроль).",
+      "text_len": 45,
+      "reply_to": null
+    },
+    {
+      "kind": "message",
+      "chat_id": -1002661910336,
+      "message_id": 1165727,
+      "text_head": "Правда, но с одной оговоркой - это работает только на уровне моря. Затащи чайник на Эльбрус, и вода закипит заметно холоднее сотни, так что альпинисты варят пельмени в кипятке, который нихрена не кипяток. А так да, при нормальном давлении с",
+      "text_len": 270,
+      "reply_to": 1165726
+    }
+  ],
+  "tool_calls": [
+    "recognize_image",
+    "recognize_image",
+    "fact_check"
+  ],
+  "vision_transport_calls": 1,
+  "postgen": []
+}
