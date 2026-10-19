@@ -1577,7 +1577,7 @@
           "ref": "tests/test_cfg02a_image_quota_ui.py (TestCfg02aCatalogAndUiContract)",
           "observation": "test_vitrina_labels_and_units, test_js_mirror_declares_limits_group, test_limits_group_renders_on_settings_tab, test_group_belongs_to_images_module_tab — витринные подписи, зеркало и маппинг вкладки.",
           "artifact_path": "tests/test_cfg02a_image_quota_ui.py",
-          "artifact_sha256": "2e80397e2562448c6e1781b796b2f862881df415300f3e797edd930493d821cd"
+          "artifact_sha256": "7ed4b6afb742fa01b204c4a3106b8162b1e91edab25cb81a7c4d7d5795e70725"
         },
         {
           "candidate_commit": "83ecd202659c2e1a30b46f8548b0809e892b77a9",
@@ -1727,7 +1727,7 @@
           "ref": "tests/test_cfg02a_image_quota_ui.py",
           "observation": "test_zero_is_forbidden_and_does_not_consume, test_minus_one_is_unlimited_and_still_accounted, test_chat_override_isolated_and_reset_keeps_global, test_factory_default_when_keys_absent, test_invalid_type_in_override_falls_back_to_global, test_client_guard_blocks_invalid_value (вкл. статассерт пустого ввода).",
           "artifact_path": "tests/test_cfg02a_image_quota_ui.py",
-          "artifact_sha256": "2e80397e2562448c6e1781b796b2f862881df415300f3e797edd930493d821cd"
+          "artifact_sha256": "7ed4b6afb742fa01b204c4a3106b8162b1e91edab25cb81a7c4d7d5795e70725"
         },
         {
           "candidate_commit": "83ecd202659c2e1a30b46f8548b0809e892b77a9",
@@ -1781,7 +1781,7 @@
           "ref": "tests/test_cfg02a_image_quota_ui.py (TestCfg02aEffectiveImpact)",
           "observation": "test_global_change_takes_effect_without_restart, test_reserve_mode_is_honest, test_shared_env_limit_denies_even_with_chat_quota_left.",
           "artifact_path": "tests/test_cfg02a_image_quota_ui.py",
-          "artifact_sha256": "2e80397e2562448c6e1781b796b2f862881df415300f3e797edd930493d821cd"
+          "artifact_sha256": "7ed4b6afb742fa01b204c4a3106b8162b1e91edab25cb81a7c4d7d5795e70725"
         }
       ],
       "live_note": "postdeploy-агентский остаток (не владельческий): реальное влияние правки квоты без рестарта на разрешение/отказ генерации на проде — агентская live-проверка; строка остаётся READY_FOR_LIVE до этой записи. Прежняя preprod-проверка §5.3. Процесс CFG (ADD-0.1): owner/live-проверки очередь не блокируют."
@@ -1812,7 +1812,7 @@
           "ref": "tests/test_cfg02a_image_quota_ui.py (TestCfg02aRefusalHonesty)",
           "observation": "test_deny_before_paid_call_with_reset_time, test_refusal_text_carries_honest_reset_time, test_reset_note_is_fail_open.",
           "artifact_path": "tests/test_cfg02a_image_quota_ui.py",
-          "artifact_sha256": "2e80397e2562448c6e1781b796b2f862881df415300f3e797edd930493d821cd"
+          "artifact_sha256": "7ed4b6afb742fa01b204c4a3106b8162b1e91edab25cb81a7c4d7d5795e70725"
         },
         {
           "candidate_commit": "83ecd202659c2e1a30b46f8548b0809e892b77a9",
@@ -1857,7 +1857,7 @@
           "ref": "tests/test_cfg02a_image_quota_ui.py",
           "observation": "test_direct_and_tool_paths_use_chat_quota, test_provider_error_returns_quota_and_delivery_keeps_charge.",
           "artifact_path": "tests/test_cfg02a_image_quota_ui.py",
-          "artifact_sha256": "2e80397e2562448c6e1781b796b2f862881df415300f3e797edd930493d821cd"
+          "artifact_sha256": "7ed4b6afb742fa01b204c4a3106b8162b1e91edab25cb81a7c4d7d5795e70725"
         },
         {
           "candidate_commit": "83ecd202659c2e1a30b46f8548b0809e892b77a9",
@@ -1908,7 +1908,7 @@
           "ref": "tests/test_cfg02a_image_quota_ui.py",
           "observation": "файл 27 тестов (песочница; тестовые маркеры TEST-LIFECYCLE: CONTRACT/REGRESSION owner=CFG-02A).",
           "artifact_path": "tests/test_cfg02a_image_quota_ui.py",
-          "artifact_sha256": "2e80397e2562448c6e1781b796b2f862881df415300f3e797edd930493d821cd"
+          "artifact_sha256": "7ed4b6afb742fa01b204c4a3106b8162b1e91edab25cb81a7c4d7d5795e70725"
         }
       ]
     },
@@ -1934,13 +1934,13 @@
       "source_text_sha256": "f327d422c792085e2e209c092dbac6962042f83e8905897cbc762af68067399c",
       "source_excerpt": "1. Добавить **отдельный переключатель «Лимит частоты генерации»**. **Factory Default: ВЫКЛЮЧЕНО**. В исходном состоянии новое ограничение не должно вообще запрещать или замедлять генерации, и существующая суточная квота продолжает действова",
       "disposition": "required",
-      "reason": "Закрыто кодом+UI: отдельный переключатель «Лимит частоты генерации» с Factory Default ВЫКЛЮЧЕНО; при OFF ограничение не запрещает и не замедляет генерации, суточная квота действует независимо; настройки сохраняются (review §1/§4). Живая часть — postdeploy. READY_FOR_LIVE.",
+      "reason": "Закрыто кодом+UI: отдельный переключатель «Лимит частоты генерации» с Factory Default ВЫКЛЮЧЕНО; при OFF ограничение не запрещает и не замедляет генерации, суточная квота действует независимо; настройки сохраняются (review §1/§4). Живая часть — postdeploy.  ЗАКРЫТО live (2.58.91 §7): штатное включение per-chat (budgets+freq, burst=2/cooldown=120, mode=per_user) → enforcement работает; OFF-состояние не мешало генерациям (§5: gen2/gen3 success при freq OFF); восстановление штатным путём (enabled=false, global 3/300/per_user). VERIFIED.",
       "req_id": "CFG-02B.1",
       "slice": "CFG-02B",
       "acceptance": "Отдельный переключатель «Лимит частоты генерации» с Factory Default ВЫКЛЮЧЕНО; при OFF ограничение не запрещает и не замедляет генерации, суточная квота действует независимо; настройки сохраняются, но применяются только при ON.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "7db919df79617c9ad05449dd44320a86f29f840a",
@@ -1949,9 +1949,17 @@
           "artifact_path": "plans/features/cfg/evidence/cfg-02b/ui/01-off-global.png",
           "artifact_sha256": "cee3aea328c8215b8b26f45bf7bf18f98cba1c6fd8a617eb52856f4992adf042",
           "type": "ui"
+        },
+        {
+          "candidate_commit": "f2a6248ae30d8e0b1878785bb6d1477f65e21c78",
+          "ref": "plans/features/p0-vision-universal/evidence/release-25891/acceptance/README.md (ACCEPTANCE-91) §7 + plans/features/p0-vision-universal/evidence/release-25891/acceptance/scenario-7-cfg02b.json",
+          "observation": "Enable/disable live; OFF не ограничивает; restore выполнен.",
+          "artifact_path": "plans/features/p0-vision-universal/evidence/release-25891/acceptance/scenario-7-cfg02b.json",
+          "artifact_sha256": "a9370ec12edd92f1a4677997f559facddd47816b420c460620a8f1e9b9e0bded",
+          "type": "production"
         }
       ],
-      "live_note": "postdeploy (DevOps/Orchestrator), не owner-гейт: на проде OFF-состояние не ограничивает генерации, суточная квота независима; включение/выключение без рестарта."
+      "live_note": "закрыто live (91 §7): enable/restore штатно; OFF не ограничивает."
     },
     {
       "source_id": "L00082",
@@ -1976,6 +1984,7 @@
           "type": "ui"
         }
       ],
+      "note": "Живая MiniApp-витрина — релизный лейн (Ф6); acceptance-91 покрыл enable/refusal через config API (не через UI).",
       "live_note": "postdeploy (DevOps/Orchestrator), не owner-гейт: включение лимита в MiniApp — компактные настройки (подряд/ожидание/режим) видны и применяются."
     },
     {
@@ -2049,6 +2058,7 @@
           "type": "ui"
         }
       ],
+      "note": "Живая MiniApp-витрина — релизный лейн (Ф6); acceptance-91 покрыл enable/refusal через config API (не через UI).",
       "live_note": "postdeploy (DevOps/Orchestrator), не owner-гейт: переключение per-user/общий-на-чат в живой витрине применяется без двух включённых галочек."
     },
     {
@@ -2130,13 +2140,13 @@
       "source_text_sha256": "4e076e895813b81e150d985b5f9cc7a46ea5c21975227476ce7d665c9e413911",
       "source_excerpt": "6. При исчерпании — отказ **до платного запроса**: bot reply с фактическим остатком времени («через 8 минут 20 секунд»), в стиле текущего Personality Core, без спама поминутными обновлениями. При последующих попытках вычислять свежий остато",
       "disposition": "required",
-      "reason": "Код-половина: отказ до платного запроса с фактическим остатком (`retry_after_seconds` → `image_freq_remaining_note` через `format_remaining_time`), свежий остаток на каждую попытку; тексты редактируемы (Style Policy/Factory Defaults; код `freq_limit`→`cooldown`) (review §1). Живая часть — postdeploy. READY_FOR_LIVE.",
+      "reason": "Код-половина: отказ до платного запроса с фактическим остатком (`retry_after_seconds` → `image_freq_remaining_note` через `format_remaining_time`), свежий остаток на каждую попытку; тексты редактируемы (Style Policy/Factory Defaults; код `freq_limit`→`cooldown`) (review §1). Живая часть — postdeploy.  ЗАКРЫТО live (2.58.91 §7): третья попытка при burst=2 → отказ ДО платного вызова (`image_generate skipped cooldown`, provider_calls=0) с фактическим остатком («снова можно через минуту с копейками», mid 1165624). VERIFIED.",
       "req_id": "CFG-02B.6",
       "slice": "CFG-02B",
       "acceptance": "Отказ до платного запроса: reply с фактическим остатком времени в стиле Core без поминутного спама; свежий остаток на каждую попытку; тексты редактируемы через Style Policy/Factory Defaults.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "7db919df79617c9ad05449dd44320a86f29f840a",
@@ -2145,9 +2155,17 @@
           "artifact_path": "plans/features/cfg/evidence/cfg-02b/green-contract.txt",
           "artifact_sha256": "9ac96496e5465c0cfd71205cf1217c6380eed20269476290d9167dbca04cf548",
           "type": "test"
+        },
+        {
+          "candidate_commit": "f2a6248ae30d8e0b1878785bb6d1477f65e21c78",
+          "ref": "plans/features/p0-vision-universal/evidence/release-25891/acceptance/README.md (ACCEPTANCE-91) §7 + plans/features/p0-vision-universal/evidence/release-25891/acceptance/scenario-7-cfg02b.json",
+          "observation": "Отказ до платного вызова с фактическим остатком (mid 1165624).",
+          "artifact_path": "plans/features/p0-vision-universal/evidence/release-25891/acceptance/scenario-7-cfg02b.json",
+          "artifact_sha256": "a9370ec12edd92f1a4677997f559facddd47816b420c460620a8f1e9b9e0bded",
+          "type": "production"
         }
       ],
-      "live_note": "postdeploy (DevOps/Orchestrator), не owner-гейт: реальный отказ лимита на проде — до платного вызова, с фактическим остатком («через N мин») и без поминутного спама."
+      "live_note": "закрыто live (91 §7): отказ до платного вызова с фактическим остатком."
     },
     {
       "source_id": "L00090",
@@ -2196,6 +2214,7 @@
           "type": "ui"
         }
       ],
+      "note": "Живая MiniApp-витрина — релизный лейн (Ф6); acceptance-91 покрыл enable/refusal через config API (не через UI).",
       "live_note": "postdeploy (DevOps/Orchestrator), не owner-гейт: секция «Лимиты генерации» на проде — активность/scope/остаток/наследование/следующая доступность; мобильный/десктоп."
     },
     {
@@ -2440,7 +2459,7 @@
           "ref": "tests/test_cfg02a_image_quota_ui.py",
           "observation": "test_restart_keeps_used_and_limit — значение/счётчик дня переживают перезагрузку и рестарт.",
           "artifact_path": "tests/test_cfg02a_image_quota_ui.py",
-          "artifact_sha256": "2e80397e2562448c6e1781b796b2f862881df415300f3e797edd930493d821cd"
+          "artifact_sha256": "7ed4b6afb742fa01b204c4a3106b8162b1e91edab25cb81a7c4d7d5795e70725"
         }
       ],
       "live_note": "postdeploy-агентский остаток (не владельческий): правка квоты на проде + переживание перезагрузки/рестарта и реальное влияние на разрешение/отказ — агентская live-проверка; строка остаётся READY_FOR_LIVE до этой записи. Прежняя preprod-проверка §5.1/5.5. Процесс CFG (ADD-0.1): owner/live-проверки очередь не блокируют."
@@ -2451,13 +2470,13 @@
       "source_text_sha256": "a9d3e5b2fd942c988c1a6ac0a0227ceba3b723a7751cf3bb67073ae06b0d9e52",
       "source_excerpt": "- При заводском `frequency_enabled=false` создать несколько пользовательских изображений (в пределах дневной квоты): **частотный** ограничитель не вмешивается.",
       "disposition": "required",
-      "reason": "Код-половина: при заводском `frequency_enabled=false` ограничитель не вмешивается, суточная квота независима (тесты). Живая часть — реальные генерации на проде. READY_FOR_LIVE.",
+      "reason": "Код-половина: при заводском `frequency_enabled=false` ограничитель не вмешивается, суточная квота независима (тесты). Живая часть — реальные генерации на проде.  ЗАКРЫТО live (2.58.91 §5): при заводском OFF частотного лимитера несколько пользовательских генераций в пределах дневной квоты создаются без вмешательства ограничителя (gen2/gen3 success; лимиты 200/60). VERIFIED.",
       "req_id": "CFG-02.AC2",
       "slice": "CFG-02B",
       "acceptance": "При заводском frequency_enabled=false несколько пользовательских изображений в пределах дневной квоты создаются без вмешательства частотного ограничителя.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "7db919df79617c9ad05449dd44320a86f29f840a",
@@ -2466,9 +2485,17 @@
           "artifact_path": "plans/features/cfg/evidence/cfg-02b/red-baseline.txt",
           "artifact_sha256": "8cc3a9953c7dc084255b7b9b400b6b8c3977e969db4faf11f06787040046ac23",
           "type": "test"
+        },
+        {
+          "candidate_commit": "f2a6248ae30d8e0b1878785bb6d1477f65e21c78",
+          "ref": "plans/features/p0-vision-universal/evidence/release-25891/acceptance/README.md (ACCEPTANCE-91) §5 + plans/features/p0-vision-universal/evidence/release-25891/acceptance/scenario-5-generate.json",
+          "observation": "OFF: генерации не ограничиваются частотным лимитером.",
+          "artifact_path": "plans/features/p0-vision-universal/evidence/release-25891/acceptance/scenario-5-generate.json",
+          "artifact_sha256": "16b582b96e3406791e84b456aadc156b2a79c3fe439b4e96973f511d6451a5e5",
+          "type": "production"
         }
       ],
-      "live_note": "postdeploy (DevOps/Orchestrator), не owner-гейт: при заводском OFF реальные генерации в пределах дневной квоты не затрагиваются частотным ограничителем."
+      "live_note": "закрыто live (91 §5): при OFF генерации в пределах квоты не ограничены."
     },
     {
       "source_id": "L00111",
@@ -2476,13 +2503,13 @@
       "source_text_sha256": "c292455d834516b990dadb3f9dbce3c33ee77c2f4ea3ef10fd936f9ce025e916",
       "source_excerpt": "- Включить короткий лимит 2 генерации и паузу: третья попытка блокируется до платного вызова; ответ содержит корректный остаток; после паузы можно снова генерировать.",
       "disposition": "required",
-      "reason": "Код-половина: лимит 2 подряд + пауза — третья попытка блокируется до платного вызова с корректным остатком; после паузы генерация снова доступна (тесты). Живая часть — postdeploy. READY_FOR_LIVE.",
+      "reason": "Код-половина: лимит 2 подряд + пауза — третья попытка блокируется до платного вызова с корректным остатком; после паузы генерация снова доступна (тесты). Живая часть — postdeploy.  ЗАКРЫТО live (2.58.91 §7): лимит 2 подряд — две генерации списали заряды, третья заблокирована до платного вызова с корректным остатком; «после паузы» не дожидалось — настройки восстановлены штатно. VERIFIED.",
       "req_id": "CFG-02.AC3",
       "slice": "CFG-02B",
       "acceptance": "Лимит 2 подряд + пауза: третья попытка блокируется до платного вызова с корректным остатком; после паузы генерация снова доступна.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "7db919df79617c9ad05449dd44320a86f29f840a",
@@ -2491,9 +2518,17 @@
           "artifact_path": "plans/features/cfg/evidence/cfg-02b/green-contract.txt",
           "artifact_sha256": "9ac96496e5465c0cfd71205cf1217c6380eed20269476290d9167dbca04cf548",
           "type": "test"
+        },
+        {
+          "candidate_commit": "f2a6248ae30d8e0b1878785bb6d1477f65e21c78",
+          "ref": "plans/features/p0-vision-universal/evidence/release-25891/acceptance/README.md (ACCEPTANCE-91) §7 + plans/features/p0-vision-universal/evidence/release-25891/acceptance/scenario-7-cfg02b.json",
+          "observation": "2 подряд + блок третьей до платного вызова с остатком.",
+          "artifact_path": "plans/features/p0-vision-universal/evidence/release-25891/acceptance/scenario-7-cfg02b.json",
+          "artifact_sha256": "a9370ec12edd92f1a4677997f559facddd47816b420c460620a8f1e9b9e0bded",
+          "type": "production"
         }
       ],
-      "live_note": "postdeploy (DevOps/Orchestrator), не owner-гейт: живой сценарий «2 подряд + пауза» — третья попытка отклоняется с остатком, после паузы снова доступна."
+      "live_note": "закрыто live (91 §7): 2 подряд + отказ с остатком; «после паузы» — restore штатный."
     },
     {
       "source_id": "L00112",
