@@ -617,10 +617,14 @@ class TestWebSearchPrompt:
                 FACTCHECK_ANALYST_SYSTEM_PROMPT) in pm.PROMPT_MIGRATIONS[key]
         assert (PREV_FACTCHECK_ANALYST_R1023_F2,
                 FACTCHECK_ANALYST_SYSTEM_PROMPT) in pm.PROMPT_MIGRATIONS[key]
-        # 10.23 (F3, ADR-1023-3): ступень response_mode стала последней —
-        # откат снимает только её (F3-слепок сохраняет правило веб-поиска).
+        # UNIFIED-CORE (C13, 20.10.2026): откат снимает ступень C13 (мёртвый
+        # tone_hint) — на непосредственный прежний прод-канон (правило
+        # веб-поиска в нём СОХРАНЕНО; стек ступеней цел).
         assert pm.ROLLBACK_MIGRATIONS[key] == (
-            FACTCHECK_ANALYST_SYSTEM_PROMPT, PREV_FACTCHECK_ANALYST_R1023_F3)
+            FACTCHECK_ANALYST_SYSTEM_PROMPT,
+            pm.PREV_FACTCHECK_ANALYST_UNIFIED_CORE_SYSTEM_PROMPT)
+        assert WEB_SEARCH_INSTRUCTION_BLOCK in \
+            pm.PREV_FACTCHECK_ANALYST_UNIFIED_CORE_SYSTEM_PROMPT
         assert WEB_SEARCH_INSTRUCTION_BLOCK in PREV_FACTCHECK_ANALYST_R1023_F3
 
 

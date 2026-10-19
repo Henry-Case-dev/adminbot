@@ -18,6 +18,7 @@ from services import hot_config as hot
 from services.llm_client import LLMBadResponseError, LLMClient
 from services.search_aggregator import SearchAggregator
 from services.search_prompts import SEARCH_SYSTEM_PROMPT
+from services.prompt_composer import speech_owner_block
 from services.prompt_style_blocks import resolve_prompt
 from services import mca_retrieval_context as _mca_rc
 from services.summary_cleanup import cleanup_llm_text
@@ -85,6 +86,11 @@ class SearchService:
         else:
             rag = ""
         system = system_prompt.replace("{max_symbols}", str(max_symbols))
+        # UNIFIED-CORE (P0, 20.10.2026): выжимка поиска — пользовательская
+        # речь → Core + Expression владельца (без конфиг-слоя — байт-паритет).
+        owner_block = await speech_owner_block(chat_id)
+        if owner_block:
+            system = f"{system}\n\n{owner_block}"
         ctx_block = f"{chat_context}\n\n" if chat_context else ""
         user = (f"{rag}\n\n" if rag else "") + ctx_block + (
             f"<query>{escape_xml_text(query)}</query>\n\n"

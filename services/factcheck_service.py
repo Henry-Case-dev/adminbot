@@ -39,6 +39,7 @@ from services.llm_client import LLMBadResponseError, LLMClient, LLMError
 from services import anticliche_cache
 from services import mca_gates
 from services import usage_events
+from services.prompt_composer import speech_owner_block
 from services.negative_constraints import (
     NumericContract,
     channel_enabled_rules,
@@ -205,7 +206,14 @@ class FactCheckService:
                 "factcheck system2: fallback на одиночный путь 10.21 | chat=%s",
                 chat_id)
         # ── Одиночный путь 10.21 (kill-switch / fallback) ──
+        # UNIFIED-CORE (P0, 20.10.2026): одиночный путь — тоже пользовательская
+        # вербализация: после жанрового канона идут ТЕ ЖЕ Core + Expression
+        # (GLOBAL/per-chat, hot-apply); конфиг-слой недоступен → блок пуст
+        # (байт-паритет прежней сборки).
         system = system_prompt.replace("{max_symbols}", str(max_symbols))
+        owner_block = await speech_owner_block(chat_id)
+        if owner_block:
+            system = f"{system}\n\n{owner_block}"
         messages = [
             {"role": "system", "content": system},
             {"role": "user", "content": user},
@@ -255,11 +263,20 @@ class FactCheckService:
             if modes_on else PREV_FACTCHECK_VERBALIZER_R1023)
         verbalizer_base = verbalizer_template.replace(
             "{max_symbols}", str(max_symbols))
+        # UNIFIED-CORE (P0, 20.10.2026): Вербализатор — пользовательская
+        # вербализация фактчека → Core + Expression владельца (критерии §5:
+        # один Core везде; жанровые исключения сняты; объективность, ссылки
+        # и структура жанра остаются в каноне). Блок идёт ПОСЛЕ режимного/
+        # канального (character_block — последний part; MCA-08 шов).
+        owner_block = await speech_owner_block(chat_id)
         # Review iter1 (H2): у фактчека нет safe-HTML-доставки → text-only
         # plain-блок (без требования `<b>`, без HTML-тегов вовсе).
         verbalizer_system = (compose_verbalizer_system(
-            verbalizer_base, response_mode, "plain")
-            if modes_on else verbalizer_base)
+            verbalizer_base, response_mode, "plain",
+            character_block=owner_block)
+            if modes_on else
+            (f"{verbalizer_base}\n\n{owner_block}" if owner_block
+             else verbalizer_base))
         base_messages = [
             {"role": "system", "content": verbalizer_system},
             {"role": "user",

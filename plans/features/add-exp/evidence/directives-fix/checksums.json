@@ -1,0 +1,43 @@
+{
+ "head": "90cfc471b7f1",
+ "files": {
+  "plans/features/add-exp/evidence/directives-fix/README.md": "8935e7e813eb",
+  "plans/features/add-exp/evidence/directives-fix/attempt1-budget-full.txt": "04d435a74204",
+  "plans/features/add-exp/evidence/directives-fix/attempt1-budget.json": "fd81e5cd79c5",
+  "plans/features/add-exp/evidence/directives-fix/attempt1-green-directives.txt": "9aa578677608",
+  "plans/features/add-exp/evidence/directives-fix/attempt1-probe-replies.txt": "0c2a6648514e",
+  "plans/features/add-exp/evidence/directives-fix/attempt1-probe.json": "cc123696dddd",
+  "plans/features/add-exp/evidence/directives-fix/attempt1-red-directives.txt": "c206b4978116",
+  "plans/features/add-exp/evidence/directives-fix/budget-full.txt": "5ce5463bc84d",
+  "plans/features/add-exp/evidence/directives-fix/budget.json": "58bd2a4f4ab6",
+  "plans/features/add-exp/evidence/directives-fix/canon-new.txt": "55ddcb3ad681",
+  "plans/features/add-exp/evidence/directives-fix/canon.diff": "e242b6ac62d4",
+  "plans/features/add-exp/evidence/directives-fix/context-probe.json": "de3b1c41c60d",
+  "plans/features/add-exp/evidence/directives-fix/disjoint-check.json": "f430af529e62",
+  "plans/features/add-exp/evidence/directives-fix/eval-replies.txt": "b0c3126386d0",
+  "plans/features/add-exp/evidence/directives-fix/eval.json": "ad4ea17de53e",
+  "plans/features/add-exp/evidence/directives-fix/green-exact.txt": "586377a7e1f0",
+  "plans/features/add-exp/evidence/directives-fix/green-focused.txt": "dad2c04afe96",
+  "plans/features/add-exp/evidence/directives-fix/harness/attempt1_probe_directives.py": "abbac71d0c70",
+  "plans/features/add-exp/evidence/directives-fix/harness/context_probe.py": "77ed1e5623d1",
+  "plans/features/add-exp/evidence/directives-fix/harness/disjoint_check.py": "186f8c6e7604",
+  "plans/features/add-exp/evidence/directives-fix/harness/eval_directives.py": "f9d336aae6ae",
+  "plans/features/add-exp/evidence/directives-fix/red-exact.txt": "7afad94c2faf",
+  "services/mca_expression.py": "ea37c515f0cf",
+  "tests/test_add_exp_expression.py": "92a96064d324",
+  "tests/test_soul1_w6_speech_ui.py": "8bfb5f55e925",
+  "web/api/speech.py": "231f172bc915",
+  "plans/features/add-exp/design-add-exp.md": "3f074f5440bf"
+ },
+ "expression_text_sha12": {
+  "off": "9cc511a9acd6",
+  "occasional": "c43f80fdde78",
+  "frequent": "4355b27ca4a0"
+ },
+ "mode_line_sha12": {
+  "off": "8c6d14e47337",
+  "occasional": "9679ff112526",
+  "frequent": "4b23569fac65"
+ },
+ "header_sha12": "42ea30691fef"
+}

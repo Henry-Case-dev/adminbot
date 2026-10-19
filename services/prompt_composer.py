@@ -737,6 +737,51 @@ async def resolve_expression_settings(chat_id: int) -> ExpressionSettings:
                                   skip_reason="expression_absent")
 
 
+async def speech_owner_block(chat_id: int | None) -> str:
+    """Слои «Personality Core + Expression» для речевых маршрутов ВНЕ композера.
+
+    UNIFIED-CORE (P0, владелец 20.10.2026): любой пользовательский текст бота —
+    фактчек-вербализатор, Рассказчик саммари, search/checkup/youtube/web и
+    fallback-пути — получает ТЕ ЖЕ слои личности и выражения, что и Direct
+    (критерии спеки §5: один Core во всех маршрутах; нет исключений по имени
+    модуля). Логическая схема «данные → жанровый контракт → Core + Expression
+    → ответ»: блок дописывается ПОСЛЕ жанрового канона, 0 LLM-вызовов, второго
+    Core/постпроцессора нет.
+
+    Резолв — те же ``resolve_core_ref``/``resolve_expression_settings``
+    (GLOBAL/per-chat + hot-apply), что у боевой сборки Direct. Порядок частей:
+    Core, затем ``<Expression_Settings>`` (как в композере). Конфиг-слой
+    недоступен или оба слоя пусты → ``""``: прежняя сборка остаётся байт-в-байт
+    (OFF-паритет шва 2 — отсутствие инъекции не подменяет канон). Внутренние
+    процессы (Stage-1 JSON, реранкер, tool-loop) блок НЕ получают — его
+    передаёт только пользовательский маршрут. Никогда не бросает.
+    """
+    if not chat_id:
+        return ""
+    try:
+        cid = int(chat_id)
+    except (TypeError, ValueError):
+        return ""
+    parts: list[str] = []
+    try:
+        core = await resolve_core_ref(cid)
+        if core is not None and core.enabled \
+                and str(core.text or "").strip():
+            parts.append(str(core.text))
+    except Exception:          # pragma: no cover — resolve уже fail-open
+        logger.warning("[composer] speech_owner_block core failed",
+                       exc_info=True)
+    try:
+        expr = await resolve_expression_settings(cid)
+        if expr is not None and expr.enabled \
+                and str(expr.text or "").strip():
+            parts.append(str(expr.text))
+    except Exception:          # pragma: no cover — resolve уже fail-open
+        logger.warning("[composer] speech_owner_block expression failed",
+                       exc_info=True)
+    return "\n\n".join(parts)
+
+
 def core_detail_label(core_ref: CoreRef | None) -> str:
     """Короткая метка выбора Core для трассы/Inspector (без текста промпта)."""
     if core_ref is None:

@@ -517,11 +517,31 @@ def strip_cap_phrases(text: str) -> tuple[str, int]:
     return cleaned, removed
 
 
+#: C5 (20.10.2026): для структурированных планов (шаги/сравнение/сводка/
+#: пояснение/отчёт) снимаем запрет перечней из ANTI_BOT п.4 — план требует
+#: структуру, а общий канон её запрещал (взаимоисключающие инструкции).
+_C5_LIST_BAN = "4. Списки с буллитами и нумерованные перечни в самом ответе."
+_C5_LIST_ALLOWED = ('4. Перечисления оформляй простыми буллитами "- ": в '
+                    "этом ответе они разрешены.")
+_C5_STRUCTURES: tuple[str, ...] = ("report", "explanation", "comparison",
+                                   "summary", "steps")
+
+
 def scrub_for_plan(text: str, plan: ResponsePlan | None) -> tuple[str, int]:
-    """Scrub только для longform-семейства; иначе текст без изменений."""
-    if plan is None or not plan.is_longform():
-        return str(text or ""), 0
-    return strip_cap_phrases(text)
+    """Scrub longform-cap (MCA-23) + снятие запрета перечней для
+    структурированных планов (C5); иначе текст без изменений."""
+    text = str(text or "")
+    if plan is None:
+        return text, 0
+    changed = 0
+    if plan.is_longform():
+        text, n = strip_cap_phrases(text)
+        changed += n
+    if normalize_structure(getattr(plan, "structure", "")) in _C5_STRUCTURES \
+            and _C5_LIST_BAN in text:
+        text = text.replace(_C5_LIST_BAN, _C5_LIST_ALLOWED)
+        changed += 1
+    return text, changed
 
 
 def plan_snapshot(plan: ResponsePlan | None) -> dict:

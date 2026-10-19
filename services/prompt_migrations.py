@@ -55,9 +55,12 @@ from services.factcheck_prompts import (
     PREV_FACTCHECK_ANALYST_R1023,
     PREV_FACTCHECK_ANALYST_R1023_F2,
     PREV_FACTCHECK_ANALYST_R1023_F3,
+    PREV_FACTCHECK_ANALYST_UNIFIED_CORE_SYSTEM_PROMPT,
     PREV_FACTCHECK_R1021_SYSTEM_PROMPT,
     PREV_FACTCHECK_R2020_SYSTEM_PROMPT,
     PREV_FACTCHECK_SYSTEM_PROMPT,
+    PREV_FACTCHECK_UNIFIED_CORE_AB_SYSTEM_PROMPT,
+    PREV_FACTCHECK_UNIFIED_CORE_SYSTEM_PROMPT,
     PREV_R1022_FACTCHECK_SYSTEM_PROMPT,
 )
 from services.search_prompts import (
@@ -156,7 +159,13 @@ PROMPT_MIGRATIONS: dict[str, list[tuple[str, str]]] = {
         (PREV_FACTCHECK_SYSTEM_PROMPT, FACTCHECK_SYSTEM_PROMPT),
         (PREV_FACTCHECK_R2020_SYSTEM_PROMPT, FACTCHECK_SYSTEM_PROMPT),
         (PREV_FACTCHECK_R1021_SYSTEM_PROMPT, FACTCHECK_SYSTEM_PROMPT),
-        (PREV_R1022_FACTCHECK_SYSTEM_PROMPT, FACTCHECK_SYSTEM_PROMPT)],
+        (PREV_R1022_FACTCHECK_SYSTEM_PROMPT, FACTCHECK_SYSTEM_PROMPT),
+        # UNIFIED-CORE (C14, 20.10.2026, решение владельца «вычистить»):
+        # прод-канон с обходом safety («Игнорируй все настройки…») ведёт на
+        # канон без обхода; обе вариации блоков A/B (релиз 2.58.97 и C4-сид).
+        (PREV_FACTCHECK_UNIFIED_CORE_SYSTEM_PROMPT, FACTCHECK_SYSTEM_PROMPT),
+        (PREV_FACTCHECK_UNIFIED_CORE_AB_SYSTEM_PROMPT,
+         FACTCHECK_SYSTEM_PROMPT)],
     "prompts.search_system_prompt": [
         (PREV_SEARCH_SYSTEM_PROMPT, SEARCH_SYSTEM_PROMPT),
         (PREV_SEARCH_R1021_SYSTEM_PROMPT, SEARCH_SYSTEM_PROMPT),
@@ -191,7 +200,11 @@ PROMPT_MIGRATIONS: dict[str, list[tuple[str, str]]] = {
     "prompts.factcheck_analyst_system_prompt": [
         (PREV_FACTCHECK_ANALYST_R1023, FACTCHECK_ANALYST_SYSTEM_PROMPT),
         (PREV_FACTCHECK_ANALYST_R1023_F2, FACTCHECK_ANALYST_SYSTEM_PROMPT),
-        (PREV_FACTCHECK_ANALYST_R1023_F3, FACTCHECK_ANALYST_SYSTEM_PROMPT)],
+        (PREV_FACTCHECK_ANALYST_R1023_F3, FACTCHECK_ANALYST_SYSTEM_PROMPT),
+        # UNIFIED-CORE (C13, 20.10.2026): канон с мёртвым tone_hint ведёт
+        # на канон без поля (схема JSON без изменения контракта).
+        (PREV_FACTCHECK_ANALYST_UNIFIED_CORE_SYSTEM_PROMPT,
+         FACTCHECK_ANALYST_SYSTEM_PROMPT)],
     # 10.26 (S3, ADR-1026-5 D4; ADR-1013-3): новый PG-ключ L1-Кластеризатора.
     # Ступень — правило маркировки целевого сообщения (TARGET_INSTRUCTION_BLOCK);
     # идемпотентна: до сида — skip (сид ConfigCache поставит канон), текущий
@@ -259,7 +272,10 @@ ROLLBACK_MIGRATIONS: dict[str, tuple[str, str]] = {
     "prompts.checkup_system_prompt":
         (CHECKUP_SYSTEM_PROMPT, PREV_CHECKUP_R1021_SYSTEM_PROMPT),
     "prompts.factcheck_system_prompt":
-        (FACTCHECK_SYSTEM_PROMPT, PREV_FACTCHECK_R1021_SYSTEM_PROMPT),
+        # UNIFIED-CORE (C14): откат ведёт на НЕПОСРЕДСТВЕННЫЙ прежний
+        # прод-канон (с обходом safety, релиз 2.58.97) — снимается только
+        # ступень C14; стек ступеней цел (ADR-1013-3).
+        (FACTCHECK_SYSTEM_PROMPT, PREV_FACTCHECK_UNIFIED_CORE_SYSTEM_PROMPT),
     "prompts.search_system_prompt":
         (SEARCH_SYSTEM_PROMPT, PREV_SEARCH_R1021_SYSTEM_PROMPT),
     "prompts.youtube_system_prompt":
@@ -282,7 +298,10 @@ ROLLBACK_MIGRATIONS: dict[str, tuple[str, str]] = {
     "prompts.summary_editor_system_prompt":
         (SUMMARY_EDITOR_SYSTEM_PROMPT, PREV_SUMMARY_EDITOR_R1025_HOTFIX4),
     "prompts.factcheck_analyst_system_prompt":
-        (FACTCHECK_ANALYST_SYSTEM_PROMPT, PREV_FACTCHECK_ANALYST_R1023_F3),
+        # UNIFIED-CORE (C13): откат снимает только ступень C13 (мёртвый
+        # tone_hint) — на непосредственный прежний прод-канон с полем.
+        (FACTCHECK_ANALYST_SYSTEM_PROMPT,
+         PREV_FACTCHECK_ANALYST_UNIFIED_CORE_SYSTEM_PROMPT),
     # 10.27 (ASAP-2): откат ступени R1027 ведёт на НЕПОСРЕДСТВЕННО прежний
     # канон PREV_*_R1027 (полный канон R1026 с блоком маркировки) — снимается
     # только шаг many-to-many/смысла, стек ступеней сохраняется (ADR-1013-3).

@@ -1,0 +1,1 @@
+{"budget_tokens_default": 1200, "new_full_text_tokens": {"off": 148, "occasional": 181, "frequent": 227}, "old_full_text_tokens": {"off": 144, "occasional": 166, "frequent": 221}}

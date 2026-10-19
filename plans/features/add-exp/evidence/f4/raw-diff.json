@@ -1,0 +1,45 @@
+{
+ "turns": [
+  {
+   "label": "occasional-02-everyday",
+   "mode": "occasional",
+   "raw_len": 692,
+   "answer_len": 690,
+   "diff_ops": [
+    [
+     "replace",
+     "\"поделиться\"",
+     "поделиться"
+    ]
+   ],
+   "token_equal": true,
+   "only_quote_chars": true
+  },
+  {
+   "label": "occasional-08-argument",
+   "mode": "occasional",
+   "raw_len": 637,
+   "answer_len": 635,
+   "diff_ops": [
+    [
+     "delete",
+     "\"",
+     ""
+    ],
+    [
+     "delete",
+     "\"",
+     ""
+    ]
+   ],
+   "token_equal": true,
+   "only_quote_chars": true
+  }
+ ],
+ "verdict": {
+  "turns": 2,
+  "all_token_equal": true,
+  "all_quote_only": true,
+  "interpretation": "raw == delivered по словам; отправляющий слой снимает кавычки-обозначения UI/цитат. Это форматирование, не postprocess_changed: мат не добавляется и не удаляется."
+ }
+}

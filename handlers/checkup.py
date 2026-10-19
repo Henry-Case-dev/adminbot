@@ -138,8 +138,11 @@ async def checkup_handler(message: types.Message, bot: Bot = None) -> None:
     try:
         # Epic 60 (65.7, T-475): «печатает…» вокруг _service.checkup (65.7).
         async with typing_active(bot, message.chat.id):
-            report = await _service.checkup(logs, used_fallback)
-            await send_chunked_reply(bot, message.chat.id, report, message.message_id)
+            # UNIFIED-CORE (P0, 20.10.2026): chat_id → Core + Expression
+            # владельца в канон чек-апа (пользовательский речевой маршрут).
+            report = await _service.checkup(logs, used_fallback,
+                                            chat_id=message.chat.id)
+        await send_chunked_reply(bot, message.chat.id, report, message.message_id)
         logger.info("[checkup] report sent | chat=%s", message.chat.id)
     except LLMBadResponseError as exc:
         # Epic 60 (65.1, T-469): пустой ответ модели → молчание + 🗿 (НЕ R13).

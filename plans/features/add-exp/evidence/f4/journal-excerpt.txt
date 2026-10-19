@@ -1,0 +1,74 @@
+=== ACCEPTANCE-97 journal excerpt (journalctl -u admin_bot --since deploy T0 2026-10-19 19:13:31Z) ===
+plugin lines are ordered; only ERR/Traceback(context), expression/prompt_layers and sqlite-lock lines are kept ===
+
+...
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]: 2026-10-19 19:13:31,655 - apscheduler.executors.default - ERROR - Job "SummarySchedulerService._tick (trigger: cron[hour='0,6,12,18', minute='0'], next run at: 2026-10-20 06:00:00 +05)" raised an exception
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]: Traceback (most recent call last):
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]:   File "/var/www/admin_bot/venv/lib/python3.12/site-packages/apscheduler/executors/base.py", line 181, in run_coroutine_job
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]:     retval = await job.func(*job.args, **job.kwargs)
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]:              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]:   File "/var/www/admin_bot/services/summary_scheduler.py", line 204, in _tick
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]:     await self._generator.generate_and_send(chat_id)
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]:   File "/var/www/admin_bot/services/summary_generator.py", line 689, in generate_and_send
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]:     await self._run(chat_id, manual, focus, trigger_message_id,
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]:   File "/var/www/admin_bot/services/summary_generator.py", line 927, in _run
+...
+Oct 19 19:14:00 racknerd-f4e3456 python[3791730]: 2026-10-19 19:14:00,847 - services.summary_memory - INFO - embed cache | hits=1 misses=0
+...
+Oct 19 19:14:01 racknerd-f4e3456 python[3791730]: 2026-10-19 19:14:01,265 - services.summary_memory - INFO - embed cache | hits=3 misses=0
+...
+Oct 19 19:55:42 racknerd-f4e3456 python[3791730]: 2026-10-19 19:55:42,351 - services.mca_events - INFO - mca_event=prompt_layers | ts=1792439742 | event_name=prompt_layers | outcome=silent | level=INFO | component=prompt_composer | stage=compose | status=core:profile:machine_stage | chat_id=-1002661910336 | reason_code=disabled
+Oct 19 19:55:42 racknerd-f4e3456 python[3791730]: 2026-10-19 19:55:42,351 - services.mca_events - INFO - mca_event=prompt_layers | ts=1792439742 | event_name=prompt_layers | outcome=silent | level=INFO | component=prompt_composer | stage=compose | status=identity:profile:machine_stage | chat_id=-1002661910336 | reason_code=disabled
+Oct 19 19:55:42 racknerd-f4e3456 python[3791730]: 2026-10-19 19:55:42,352 - services.mca_events - INFO - mca_event=prompt_layers | ts=1792439742 | event_name=prompt_layers | outcome=silent | level=INFO | component=prompt_composer | stage=compose | status=self_model_traits:profile:machine_stage | chat_id=-1002661910336 | reason_code=disabled
+Oct 19 19:55:42 racknerd-f4e3456 python[3791730]: 2026-10-19 19:55:42,353 - services.mca_events - INFO - mca_event=prompt_layers | ts=1792439742 | event_name=prompt_layers | outcome=silent | level=INFO | component=prompt_composer | stage=compose | status=context_lessons:profile:machine_stage | chat_id=-1002661910336 | reason_code=disabled
+Oct 19 19:55:42 racknerd-f4e3456 python[3791730]: 2026-10-19 19:55:42,354 - services.mca_events - INFO - mca_event=prompt_layers | ts=1792439742 | event_name=prompt_layers | outcome=silent | level=INFO | component=prompt_composer | stage=compose | status=response_plan:profile:machine_stage | chat_id=-1002661910336 | reason_code=disabled
+Oct 19 19:55:42 racknerd-f4e3456 python[3791730]: 2026-10-19 19:55:42,355 - services.mca_events - INFO - mca_event=prompt_layers | ts=1792439742 | event_name=prompt_layers | outcome=silent | level=INFO | component=prompt_composer | stage=compose | status=expression:profile:machine_stage | chat_id=-1002661910336 | reason_code=disabled
+Oct 19 19:55:42 racknerd-f4e3456 python[3791730]: 2026-10-19 19:55:42,356 - services.mca_events - INFO - mca_event=prompt_layers | ts=1792439742 | event_name=prompt_layers | outcome=silent | level=INFO | component=prompt_composer | stage=compose | status=humor_craft:profile:machine_stage | chat_id=-1002661910336 | reason_code=disabled
+Oct 19 19:55:42 racknerd-f4e3456 python[3791730]: 2026-10-19 19:55:42,357 - services.mca_events - INFO - mca_event=prompt_layers | ts=1792439742 | event_name=prompt_layers | outcome=silent | level=INFO | component=prompt_composer | stage=compose | status=few_shot:profile:machine_stage | chat_id=-1002661910336 | reason_code=disabled
+Oct 19 19:55:42 racknerd-f4e3456 python[3791730]: 2026-10-19 19:55:42,358 - services.mca_events - INFO - mca_event=prompt_layers | ts=1792439742 | event_name=prompt_layers | outcome=silent | level=INFO | component=prompt_composer | stage=compose | status=style_policy_hint:profile:machine_stage | chat_id=-1002661910336 | reason_code=disabled
+Oct 19 19:55:42 racknerd-f4e3456 python[3791730]: 2026-10-19 19:55:42,358 - services.mca_events - INFO - mca_event=prompt_layers | ts=1792439742 | event_name=prompt_layers | outcome=silent | level=INFO | component=prompt_composer | stage=compose | status=channel_output:profile:machine_stage | chat_id=-1002661910336 | reason_code=disabled
+...
+Oct 19 19:55:44 racknerd-f4e3456 python[3791730]: 2026-10-19 19:55:44,505 - services.mca_events - INFO - mca_event=prompt_layers | ts=1792439744 | event_name=prompt_layers | outcome=silent | level=INFO | component=prompt_composer | stage=compose | status=self_model_traits:self_model_folded_into_identity | chat_id=-1002661910336 | reason_code=source_missing
+Oct 19 19:55:44 racknerd-f4e3456 python[3791730]: 2026-10-19 19:55:44,509 - services.mca_events - INFO - mca_event=prompt_layers | ts=1792439744 | event_name=prompt_layers | outcome=silent | level=INFO | component=prompt_composer | stage=compose | status=context_lessons:style_requests_absent | chat_id=-1002661910336 | reason_code=source_missing
+Oct 19 19:55:44 racknerd-f4e3456 python[3791730]: 2026-10-19 19:55:44,509 - services.mca_events - INFO - mca_event=prompt_layers | ts=1792439744 | event_name=prompt_layers | outcome=silent | level=INFO | component=prompt_composer | stage=compose | status=context_lessons:lessons_absent | chat_id=-1002661910336 | reason_code=source_missing
+Oct 19 19:55:44 racknerd-f4e3456 python[3791730]: 2026-10-19 19:55:44,510 - services.mca_events - INFO - mca_event=prompt_layers | ts=1792439744 | event_name=prompt_layers | outcome=silent | level=INFO | component=prompt_composer | stage=compose | status=context_lessons:speech_absent | chat_id=-1002661910336 | reason_code=source_missing
+Oct 19 19:55:44 racknerd-f4e3456 python[3791730]: 2026-10-19 19:55:44,510 - services.mca_events - INFO - mca_event=prompt_layers | ts=1792439744 | event_name=prompt_layers | outcome=silent | level=INFO | component=prompt_composer | stage=compose | status=humor_craft:humor_no_strategy | chat_id=-1002661910336 | reason_code=source_missing
+Oct 19 19:55:44 racknerd-f4e3456 python[3791730]: 2026-10-19 19:55:44,513 - services.mca_events - INFO - mca_event=prompt_layers | ts=1792439744 | event_name=prompt_layers | outcome=silent | level=INFO | component=prompt_composer | stage=compose | status=few_shot:not_owner_approved | chat_id=-1002661910336 | reason_code=source_missing
+Oct 19 19:55:44 racknerd-f4e3456 python[3791730]: 2026-10-19 19:55:44,515 - services.mca_events - INFO - mca_event=prompt_layers | ts=1792439744 | event_name=prompt_layers | outcome=silent | level=INFO | component=prompt_composer | stage=compose | status=few_shot:samples_absent | chat_id=-1002661910336 | reason_code=source_missing
+Oct 19 19:55:44 racknerd-f4e3456 python[3791730]: 2026-10-19 19:55:44,516 - services.mca_events - INFO - mca_event=prompt_layers | ts=1792439744 | event_name=prompt_layers | outcome=silent | level=INFO | component=prompt_composer | stage=compose | status=channel_output:channel_output_not_required | chat_id=-1002661910336 | reason_code=source_missing
+...
+Oct 19 19:55:52 racknerd-f4e3456 python[3791730]: 2026-10-19 19:55:52,104 - services.summary_memory - INFO - embed cache | hits=0 misses=1
+...
+Oct 19 20:01:12 racknerd-f4e3456 python[3791730]: 2026-10-19 20:01:12,013 - services.summary_memory - WARNING - SmartModule: embedding cache lookup failed — API path
+Oct 19 20:01:12 racknerd-f4e3456 python[3791730]: Traceback (most recent call last):
+Oct 19 20:01:12 racknerd-f4e3456 python[3791730]:   File "/var/www/admin_bot/services/summary_memory.py", line 2092, in _embed_cache_lookup
+Oct 19 20:01:12 racknerd-f4e3456 python[3791730]:     await self.db.db.execute(
+Oct 19 20:01:12 racknerd-f4e3456 python[3791730]:   File "/var/www/admin_bot/venv/lib/python3.12/site-packages/aiosqlite/core.py", line 223, in execute
+Oct 19 20:01:12 racknerd-f4e3456 python[3791730]:     cursor = await self._execute(self._conn.execute, sql, parameters)
+Oct 19 20:01:12 racknerd-f4e3456 python[3791730]:              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Oct 19 20:01:12 racknerd-f4e3456 python[3791730]:   File "/var/www/admin_bot/venv/lib/python3.12/site-packages/aiosqlite/core.py", line 160, in _execute
+Oct 19 20:01:12 racknerd-f4e3456 python[3791730]:     return await future
+Oct 19 20:01:12 racknerd-f4e3456 python[3791730]:            ^^^^^^^^^^^^
+...
+Oct 19 20:01:12 racknerd-f4e3456 python[3791730]: sqlite3.OperationalError: database is locked
+Oct 19 20:01:12 racknerd-f4e3456 python[3791730]: 2026-10-19 20:01:12,089 - services.summary_memory - INFO - embed cache | hits=0 misses=1
+...
+Oct 19 20:01:27 racknerd-f4e3456 python[3791730]: 2026-10-19 20:01:27,932 - services.database - WARNING - database: lock exhausted | event=database_lock_exhausted | op=upsert_node | attempts=4 | chat_id=None | error=database is locked
+...
+Oct 19 20:01:27 racknerd-f4e3456 python[3791730]: 2026-10-19 20:01:27,937 - services.summary_memory - WARNING - graphrag memorize: fact #1 save skipped | error=database is locked
+...
+Oct 19 20:03:41 racknerd-f4e3456 python[3791730]: 2026-10-19 20:03:41,730 - services.summary_memory - INFO - embed cache | hits=0 misses=1
+...
+Oct 19 20:08:15 racknerd-f4e3456 python[3791730]: 2026-10-19 20:08:15,151 - services.database - WARNING - database: lock exhausted | event=database_lock_exhausted | op=apply_message_revision | attempts=4 | chat_id=None | error=database is locked
+...
+Oct 19 20:08:15 racknerd-f4e3456 python[3791730]: Traceback (most recent call last):
+Oct 19 20:08:15 racknerd-f4e3456 python[3791730]:   File "/var/www/admin_bot/handlers/summary.py", line 508, in summary_observer_edited
+Oct 19 20:08:15 racknerd-f4e3456 python[3791730]:     await message_identity.record_edit(
+Oct 19 20:08:15 racknerd-f4e3456 python[3791730]:   File "/var/www/admin_bot/services/message_identity.py", line 280, in record_edit
+Oct 19 20:08:15 racknerd-f4e3456 python[3791730]:     await db.apply_message_revision(
+Oct 19 20:08:15 racknerd-f4e3456 python[3791730]:   File "/var/www/admin_bot/services/database.py", line 7728, in apply_message_revision
+Oct 19 20:08:15 racknerd-f4e3456 python[3791730]:     return int(await self.write_transaction(
+Oct 19 20:08:15 racknerd-f4e3456 python[3791730]:                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Oct 19 20:08:15 racknerd-f4e3456 python[3791730]:   File "/var/www/admin_bot/services/database.py", line 2488, in write_transaction
+...
+Oct 19 20:08:15 racknerd-f4e3456 python[3791730]: sqlite3.OperationalError: database is locked

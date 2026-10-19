@@ -1,0 +1,26 @@
+{
+ "budget_tokens_default": 1200,
+ "header": {
+  "chars": 216,
+  "tokens": 54
+ },
+ "mode_lines": {
+  "off": {
+   "chars": 36,
+   "tokens": 9
+  },
+  "occasional": {
+   "chars": 99,
+   "tokens": 25
+  },
+  "frequent": {
+   "chars": 175,
+   "tokens": 44
+  }
+ },
+ "full_layer_tokens": {
+  "off": 71,
+  "occasional": 87,
+  "frequent": 106
+ }
+}

@@ -41,6 +41,7 @@ from services.negative_constraints import (
     channel_enabled_rules,
     verbalize_validated,
 )
+from services.prompt_composer import speech_owner_block
 from services.prompt_style_blocks import (
     compose_verbalizer_system,
     resolve_prompt,
@@ -1843,6 +1844,12 @@ class SummaryGenerator:
         summary_prompt = resolve_prompt("prompts.summary_system_prompt",
                                         SYSTEM_PROMPT)
         system = summary_prompt.replace("{max_symbols}", str(max_symbols))
+        # UNIFIED-CORE (P0, 20.10.2026): одиночный/иерархический legacy-путь —
+        # тоже пользовательская речь → Core + Expression после жанрового
+        # канона (пустой конфиг-слой → байт-паритет прежней сборки).
+        owner_block = await speech_owner_block(chat_id)
+        if owner_block:
+            system = f"{system}\n\n{owner_block}"
         payload = [
             {"role": "system", "content": system},
             {"role": "user", "content": user_content},
@@ -4057,6 +4064,10 @@ class SummaryGenerator:
             if modes_on else PREV_SUMMARY_NARRATOR_R1023)
         narrator_base = narrator_template.replace(
             "{max_symbols}", str(max_symbols))
+        # UNIFIED-CORE (P0, 20.10.2026): Рассказчик — пользовательская речь
+        # → ТЕ ЖЕ Core + Expression (GLOBAL/per-chat, hot-apply); жанровые
+        # исключения сняты, достоверность/структура выжимки остаются в каноне.
+        owner_block = await speech_owner_block(chat_id)
         # F6: канал Stage-2 = rich, только если Article реально возможен
         # (обложка будет запрошена). Иначе — прежний plain-канал.
         rich_eligible = bool(
@@ -4065,9 +4076,13 @@ class SummaryGenerator:
             and _rich_media_supported())
         channel = "rich" if rich_eligible else "plain"
         # F3 (ADR-1023-3): режимный блок по response_mode + канальный блок.
-        # OFF kill-switch → прежний Рассказчик.
+        # OFF kill-switch → прежний Рассказчик + владелец речи (P0).
         narrator_system = (compose_verbalizer_system(
-            narrator_base, response_mode, channel) if modes_on else narrator_base)
+            narrator_base, response_mode, channel,
+            character_block=owner_block)
+            if modes_on else
+            (f"{narrator_base}\n\n{owner_block}" if owner_block
+             else narrator_base))
         base_messages = [
             {"role": "system", "content": narrator_system},
             {"role": "user", "content": "ВЫЖИМКА (Markdown):\n" + digest},

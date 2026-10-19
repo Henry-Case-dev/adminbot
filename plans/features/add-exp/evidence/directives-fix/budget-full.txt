@@ -1,0 +1,20 @@
+{
+ "old_full_text_tokens": {
+  "off": 148,
+  "occasional": 181,
+  "frequent": 227
+ },
+ "new_full_text_tokens": {
+  "off": 71,
+  "occasional": 87,
+  "frequent": 106
+ },
+ "delta": {
+  "off": -77,
+  "occasional": -94,
+  "frequent": -121
+ },
+ "worst_case_sum": 897,
+ "budget": 1200,
+ "note": "Core~710 и style~81 — прежние измеренные значения instr-fix; арифметика, не боевой Core"
+}

@@ -17,6 +17,7 @@ import time
 from config.settings import settings
 from services import hot_config as hot
 from services.llm_client import LLMBadResponseError, LLMClient
+from services.prompt_composer import speech_owner_block
 from services.prompt_style_blocks import resolve_prompt
 from services.summary_cleanup import cleanup_llm_text
 from services.summary_memory import MemoryManager, fire_and_forget
@@ -65,6 +66,11 @@ class WebSummarizerService:
             chat_id, rag_query, sort_by_timestamp=True) if (
             self.memory and chat_id is not None and rag_query) else ""
         system = system_prompt.replace("{max_symbols}", str(max_symbols))
+        # UNIFIED-CORE (P0, 20.10.2026): выжимка страницы — пользовательская
+        # речь → Core + Expression владельца (без конфиг-слоя — байт-паритет).
+        owner_block = await speech_owner_block(chat_id)
+        if owner_block:
+            system = f"{system}\n\n{owner_block}"
         user = (f"{rag}\n\n" if rag else "") + (
             f'<webpage url="{escape_xml_text(url, quote=True)}">\n'
             f"{escape_xml_text(markdown)}\n</webpage>"

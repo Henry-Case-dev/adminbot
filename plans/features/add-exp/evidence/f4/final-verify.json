@@ -1,0 +1,299 @@
+{
+ "now_utc": "2026-10-19 20:25:01",
+ "window_start": 1792440030,
+ "-1002661910336": {
+  "replies_in_window": [
+   {
+    "mid": 1166966,
+    "last_used_at": 1792440064.5908628
+   },
+   {
+    "mid": 1166975,
+    "last_used_at": 1792440171.5866406
+   },
+   {
+    "mid": 1166979,
+    "last_used_at": 1792440202.6563032
+   },
+   {
+    "mid": 1166982,
+    "last_used_at": 1792440219.9821792
+   },
+   {
+    "mid": 1166983,
+    "last_used_at": 1792440220.3012373
+   },
+   {
+    "mid": 1166986,
+    "last_used_at": 1792440236.5734885
+   },
+   {
+    "mid": 1166988,
+    "last_used_at": 1792440262.7415626
+   },
+   {
+    "mid": 1166989,
+    "last_used_at": 1792440264.8121746
+   },
+   {
+    "mid": 1166992,
+    "last_used_at": 1792440289.2743938
+   }
+  ],
+  "parents_in_window": [
+   {
+    "mid": 1166966,
+    "parent": 1166963
+   },
+   {
+    "mid": 1166979,
+    "parent": 1166975
+   },
+   {
+    "mid": 1166982,
+    "parent": 1166968
+   },
+   {
+    "mid": 1166983,
+    "parent": 1166979
+   },
+   {
+    "mid": 1166986,
+    "parent": 1166983
+   },
+   {
+    "mid": 1166988,
+    "parent": 1166985
+   },
+   {
+    "mid": 1166989,
+    "parent": 1166986
+   },
+   {
+    "mid": 1166992,
+    "parent": 1166989
+   }
+  ],
+  "user_messages_in_window": [
+   {
+    "mid": 1166968,
+    "user_id": 155169707,
+    "head": "Бот нарисуй хуяру"
+   },
+   {
+    "mid": 1166977,
+    "user_id": 8636935052,
+    "head": "Не знаю, но я с этого такой угар ловлю"
+   },
+   {
+    "mid": 1166985,
+    "user_id": 134812796,
+    "head": "Бот удали все свои сообщения и сделай сэппуку"
+   },
+   {
+    "mid": 1166990,
+    "user_id": 155169707,
+    "head": "Никита что то нажал и нейроеблана сломал?"
+   },
+   {
+    "mid": 1166995,
+    "user_id": 134812796,
+    "head": "@Swagger069"
+   },
+   {
+    "mid": 1167000,
+    "user_id": 155169707,
+    "head": "Но выглядит будто он ебнулся"
+   },
+   {
+    "mid": 1167001,
+    "user_id": 134812796,
+    "head": "Да"
+   },
+   {
+    "mid": 1167004,
+    "user_id": 155169707,
+    "head": "Я хочу картинку смешную запостить но что бы ее увидели а не "
+   },
+   {
+    "mid": 1167008,
+    "user_id": 5885953495,
+    "head": "сообщения удалятся скоро"
+   },
+   {
+    "mid": 1167011,
+    "user_id": 8636935052,
+    "head": "Это рофл над хлебным бунтом в Петрограде в 17м"
+   },
+   {
+    "mid": 1167012,
+    "user_id": 155169707,
+    "head": null
+   },
+   {
+    "mid": 1167013,
+    "user_id": 134812796,
+    "head": "Нет варика чтоб он в какуюто отдельную конфу для логирования"
+   },
+   {
+    "mid": 1167017,
+    "user_id": 350803143,
+    "head": "асу"
+   },
+   {
+    "mid": 1167020,
+    "user_id": 5885953495,
+    "head": "нейронку надо на живом чате обкатывать с историей"
+   },
+   {
+    "mid": 1167021,
+    "user_id": 134812796,
+    "head": "Пон"
+   },
+   {
+    "mid": 1167022,
+    "user_id": 134812796,
+    "head": "Бляяяя"
+   },
+   {
+    "mid": 1167023,
+    "user_id": 134812796,
+    "head": "Кому-то интересен"
+   },
+   {
+    "mid": 1167024,
+    "user_id": 134812796,
+    "head": "Лог всего чата иметь"
+   },
+   {
+    "mid": 1167025,
+    "user_id": 134812796,
+    "head": "Типа если даже перекат будет"
+   },
+   {
+    "mid": 1167026,
+    "user_id": 134812796,
+    "head": "?"
+   },
+   {
+    "mid": 1167027,
+    "user_id": 5885953495,
+    "head": "не помешает"
+   },
+   {
+    "mid": 1167028,
+    "user_id": 134812796,
+    "head": "Можно просто бота как будто сделать чтобы он все сообщения в"
+   },
+   {
+    "mid": 1167029,
+    "user_id": 5885953495,
+    "head": "а зачем если можно в бд сохранять в каком угодно виде"
+   },
+   {
+    "mid": 1167030,
+    "user_id": 1276415576,
+    "head": "а мож не стоит логи никуда заливать"
+   },
+   {
+    "mid": 1167031,
+    "user_id": 134812796,
+    "head": "Легче для чтения и поиска"
+   },
+   {
+    "mid": 1167032,
+    "user_id": 134812796,
+    "head": "Человеком"
+   },
+   {
+    "mid": 1167033,
+    "user_id": 134812796,
+    "head": "И товарищем майором"
+   },
+   {
+    "mid": 1167048,
+    "user_id": 5885953495,
+    "head": "а мозить ни стоить"
+   },
+   {
+    "mid": 1167050,
+    "user_id": 5885953495,
+    "head": "затряслись блять"
+   },
+   {
+    "mid": 1167051,
+    "user_id": 5885953495,
+    "head": "ща удалю"
+   },
+   {
+    "mid": 1167053,
+    "user_id": 5885953495,
+    "head": "не описяйтесь только"
+   },
+   {
+    "mid": 1167057,
+    "user_id": 350803143,
+    "head": null
+   }
+  ],
+  "throttle_rows": []
+ },
+ "-1004482340693": {
+  "replies_in_window": [],
+  "parents_in_window": [],
+  "user_messages_in_window": [],
+  "throttle_rows": []
+ },
+ "expression_diag_recent": [
+  {
+   "ts": 1792441450,
+   "outcome": "failed",
+   "level": "WARN",
+   "status": "expression_diag:model_ignored_instruction:accept97:f4_matrix_n5",
+   "reason_code": "source_missing",
+   "chat_id": -1002661910336,
+   "usage_json": "{\"class\": \"model_ignored_instruction\", \"mode\": \"frequent\", \"detail\": \"f4_matrix_n5\"}"
+  },
+  {
+   "ts": 1792425292,
+   "outcome": "failed",
+   "level": "WARN",
+   "status": null,
+   "reason_code": "source_missing",
+   "chat_id": -1002661910336,
+   "usage_json": "{\"class\": \"model_ignored_instruction\", \"mode\": \"frequent\", \"detail\": \"frequent_no_mat_n9\"}"
+  }
+ ],
+ "mca_events_errors_since_wave": [
+  {
+   "n": 0
+  }
+ ],
+ "views": {
+  "a": {
+   "http": 200,
+   "profanity": {
+    "value": "occasional",
+    "source": "global",
+    "migrated": true
+   },
+   "chat_present": false,
+   "inheritance": "global"
+  },
+  "b": {
+   "http": 200,
+   "profanity": {
+    "value": "occasional",
+    "source": "global",
+    "migrated": true
+   },
+   "chat_present": false,
+   "inheritance": "global"
+  }
+ },
+ "healthz": {
+  "http": 200,
+  "body": "{\"status\":\"ok\",\"version\":\"2.58.97\"}"
+ },
+ "ok": false
+}

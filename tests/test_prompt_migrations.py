@@ -46,8 +46,10 @@ from services.factcheck_prompts import (
     PREV_FACTCHECK_ANALYST_R1023,
     PREV_FACTCHECK_ANALYST_R1023_F2,
     PREV_FACTCHECK_ANALYST_R1023_F3,
+    PREV_FACTCHECK_ANALYST_UNIFIED_CORE_SYSTEM_PROMPT,
     PREV_FACTCHECK_R1021_SYSTEM_PROMPT,
     PREV_FACTCHECK_SYSTEM_PROMPT,
+    PREV_FACTCHECK_UNIFIED_CORE_SYSTEM_PROMPT,
 )
 from services.prompt_migrations import (
     PROMPT_MIGRATIONS,
@@ -233,9 +235,14 @@ _ROLLBACK_TARGET_BY_KEY: dict[str, str] = {
     # hotfix4 (10.25, T-2511): откат снимает ТОЛЬКО ступень HOTFIX4 (разрешение
     # короткого заголовка) → слепок канона F6 (жёсткий запрет надписей).
     "prompts.summary_editor_system_prompt": PREV_SUMMARY_EDITOR_R1025_HOTFIX4,
-    # F2 (10.23): откат Аналитика снимал только правило веб-поиска; F3 (10.23)
-    # снимает ступень response_mode → непосредственный прежний канон F2.
-    "prompts.factcheck_analyst_system_prompt": PREV_FACTCHECK_ANALYST_R1023_F3,
+    # UNIFIED-CORE (C14, 20.10.2026): откат фактчека — НЕПОСРЕДСТВЕННО прежний
+    # прод-канон (с обходом safety, релиз 2.58.97); стек ступеней цел.
+    "prompts.factcheck_system_prompt":
+        PREV_FACTCHECK_UNIFIED_CORE_SYSTEM_PROMPT,
+    # UNIFIED-CORE (C13): откат Аналитика снимает только ступень C13 (мёртвый
+    # tone_hint) → непосредственный прежний прод-канон с полем.
+    "prompts.factcheck_analyst_system_prompt":
+        PREV_FACTCHECK_ANALYST_UNIFIED_CORE_SYSTEM_PROMPT,
     # S3 (10.26): откат L1 снимает ступень маркировки → слепок базы канона S3.
     # ASAP-2 (round1027, контракт l): откат снимает ступень R1027 →
     # непосредственный прежний канон R1026 (PREV_*_R1027 = база+блок).
@@ -519,9 +526,11 @@ class TestRound1023Migration:
         # обратная ступень снимает ровно одну предыдущую.
         assert ROLLBACK_MIGRATIONS["prompts.summary_editor_system_prompt"] == \
             (SUMMARY_EDITOR_SYSTEM_PROMPT, PREV_SUMMARY_EDITOR_R1025_HOTFIX4)
-        # F3 (10.23): откат Аналитика снимает поле response_mode.
+        # UNIFIED-CORE (C13, 20.10.2026): откат Аналитика снимает ступень C13
+        # (мёртвый tone_hint) — на непосредственный прежний прод-канон.
         assert ROLLBACK_MIGRATIONS["prompts.factcheck_analyst_system_prompt"] == \
-            (FACTCHECK_ANALYST_SYSTEM_PROMPT, PREV_FACTCHECK_ANALYST_R1023_F3)
+            (FACTCHECK_ANALYST_SYSTEM_PROMPT,
+             PREV_FACTCHECK_ANALYST_UNIFIED_CORE_SYSTEM_PROMPT)
 
     def test_rollback_chat_targets_pre_mca23(self):
         """MCA-23 (Wave 3): откат чата — на НЕПОСРЕДСТВЕННО прежний канон

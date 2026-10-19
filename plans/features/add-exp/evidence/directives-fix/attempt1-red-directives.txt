@@ -1,0 +1,173 @@
+...F.FFF..F.......FF.............                                        [100%]
+================================== FAILURES ===================================
+_______________ test_instruction_texts_byte_exact_and_distinct ________________
+
+    def test_instruction_texts_byte_exact_and_distinct():
+        lines = {"off": OFF_LINE, "occasional": OCC_LINE, "frequent": FREQ_LINE}
+        texts = {}
+        for mode, line in lines.items():
+            text = ex.render_expression_text(
+                ex.resolve_effective({"profanity": mode}, None))
+            texts[mode] = text
+>           assert text.startswith(HEADER + "\n"), mode
+E           AssertionError: off
+E           assert False
+E            +  where False = <built-in method startswith of str object at 0x00000280B9BEFDA0>(('<Expression_Settings>\nНастройки выражения владельца: интенсивность и форма собственной речи; характер этим не меняет...вные цитаты и структурированные сводки (фактчек, ошибки API, тех. отчёты) не переписываются, мат в них не форсируется:' + '\n'))
+E            +    where <built-in method startswith of str object at 0x00000280B9BEFDA0> = '<Expression_Settings>\nНастройки выражения владельца: интенсивность и форма собственной речи; характер этим не меняет...тся. Чужую речь, цитаты и источники передавай дословно и не искажай, даже если в них есть мат.\n</Expression_Settings>'.startswith
+
+tests\test_add_exp_expression.py:199: AssertionError
+_________________ test_design_canonical_strings_match_module __________________
+
+    def test_design_canonical_strings_match_module():
+        """Канон дизайна §2.1/§2.2 и модуль — ОДИН текст (анти-дрейф F1)."""
+        design = (ROOT / "plans" / "features" / "add-exp" /
+                  "design-add-exp.md").read_text(encoding="utf-8")
+        assert HEADER.splitlines()[-1] in design, "header §2.1 рассинхронизирован"
+        for mode in ("off", "occasional", "frequent"):
+            line = "- Мат: " + ex.PROFANITY_INSTRUCTIONS[mode]
+>           assert line in design, mode + ": строка §2.2 рассинхронизирована"
+E           AssertionError: off: строка §2.2 рассинхронизирована
+E           assert '- Мат: не используй обсценную лексику в собственных формулировках — это ограничение формы, а не характера: ирония, резкость и стёб остаются. Чужую речь, цитаты и источники передавай дословно и не искажай, даже если в них есть мат.' in '# ADD-EXP — Ф1 дизайн: реальная управляемость мата (off / occasional / frequent)\n\n- **Lane:** ADD-EXP-DESIGN (read-... обязательных согласований нет (PET_PROJECT standing rule; Human Gate preflight — новых `USER_DECISION` не найдено).\n'
+
+tests\test_add_exp_expression.py:257: AssertionError
+___________ test_direct_l2_wiring_expression_present_with_revision ____________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000280BCF63680>
+
+    @pytest.mark.asyncio
+    async def test_direct_l2_wiring_expression_present_with_revision(monkeypatch):
+        from services import hot_config as hot
+        from services import chat_params
+        from services.direct_chat_service import DirectChatService
+        monkeypatch.setenv("UNIFIED_COMPOSER_ENABLED", "1")
+        hot.set_config_cache(_FakeHot({
+            "flags.unified_composer_enabled": True,
+            ex.EXPRESSION_DOC_KEY: {"profanity": "frequent", "revision": 3}}))
+        chat_params.set_chat_params_cache(None)
+        try:
+            system, manifest = await DirectChatService._compose_speech_system(
+                None, chat_id=777, writer="l2_writer", run_id="run-add-exp",
+                base_prompt="КАНАЛ: факты.", base_key="prompts.x",
+                base_default="КАНАЛ: факты.", base_source="default",
+                gates=pc.GateState(unified_composer_enabled=True))
+        finally:
+            hot.set_config_cache(None)
+        trace = [t for t in manifest.layers if t.layer == "expression"][0]
+        assert trace.rendered is True and trace.skip_reason == ""
+        assert trace.revision and manifest.versions["expression"] == trace.revision
+>       assert HEADER in system and FREQ_LINE in system
+E       AssertionError: assert ('<Expression_Settings>\nНастройки выражения владельца: интенсивность и форма собственной речи; характер этим не меняет...вные цитаты и структурированные сводки (фактчек, ошибки API, тех. отчёты) не переписываются, мат в них не форсируется:' in 'КАНАЛ: факты.\n\nРЕЖИМ CASUAL - ТОРОПЛИВОЕ ПИСЬМО:\nИмитируй торопливое письмо: короткие рубленые фразы, иногда начин.... Структурированные сводки, фактчек и дословные цитаты не форсируй; просьба «без мата» важнее.\n</Expression_Settings>')
+
+tests\test_add_exp_expression.py:283: AssertionError
+_________________ test_authorial_system_gets_expression_layer _________________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000280BCF61C40>
+
+    @pytest.mark.asyncio
+    async def test_authorial_system_gets_expression_layer(monkeypatch):
+        from services import hot_config as hot
+        from services import chat_params
+        from services import mca_authorial_speech as authorial
+        monkeypatch.setenv("UNIFIED_COMPOSER_ENABLED", "1")
+        hot.set_config_cache(_FakeHot({
+            "flags.unified_composer_enabled": True,
+            ex.EXPRESSION_DOC_KEY: {"profanity": "occasional"}}))
+        chat_params.set_chat_params_cache(None)
+        try:
+            system, manifest = await authorial.authorial_system(
+                chat_id=777, writer="nostalgia_writer", genre="nostalgia",
+                legacy_canon="КАНОН_ЖАНРА")
+        finally:
+            hot.set_config_cache(None)
+        assert manifest is not None
+>       assert HEADER in system and OCC_LINE in system
+E       AssertionError: assert ('<Expression_Settings>\nНастройки выражения владельца: интенсивность и форма собственной речи; характер этим не меняет...вные цитаты и структурированные сводки (фактчек, ошибки API, тех. отчёты) не переписываются, мат в них не форсируется:' in '<Genre_Nostalgia>\nВоспоминание звучит твоим живым голосом, а не архивной справкой: по-свойски, с иронией и местным с.... Структурированные сводки, фактчек и дословные цитаты не форсируй; просьба «без мата» важнее.\n</Expression_Settings>')
+
+tests\test_add_exp_expression.py:305: AssertionError
+_____________ test_core_and_canon_byte_parity_with_expression_off _____________
+
+    def test_core_and_canon_byte_parity_with_expression_off():
+        core_text = ("Мат и грубость. Мат - естественная часть речи, разговорная "
+                     "норма. Используй его свободно, если он делает фразу "
+                     "выразительнее.")
+        canon = "Разрешен мат и сленг."
+        manifest = pc.compose_prompt(_expression_plan(
+            base_prompt=canon,
+            core=pc.CoreRef(text=core_text, revision="r5"),
+            expression=pc.ExpressionSettings(
+                text=ex.render_expression_text(
+                    ex.resolve_effective({"profanity": "off"}, None)),
+                revision="e1", mode="off")))
+        # P5: Core/канон байт-в-байт (Expression не переписывает личность)
+        assert canon in manifest.system
+        assert core_text in manifest.system
+        # P4: строка off присутствует и говорит про ограничение формы
+>       assert OFF_LINE in manifest.system
+E       AssertionError: assert '- Мат: в собственных формулировках не используй обсценную лексику — это ограничение формы, а не характера: ирония, резкость и стёб остаются. Чужую речь, цитаты и источники передавай корректно и не искажай, даже если в них есть мат.' in 'Разрешен мат и сленг.\n\nРЕЖИМ CASUAL - ТОРОПЛИВОЕ ПИСЬМО:\nИмитируй торопливое письмо: короткие рубленые фразы, иног...тся. Чужую речь, цитаты и источники передавай дословно и не искажай, даже если в них есть мат.\n</Expression_Settings>'
+E        +  where 'Разрешен мат и сленг.\n\nРЕЖИМ CASUAL - ТОРОПЛИВОЕ ПИСЬМО:\nИмитируй торопливое письмо: короткие рубленые фразы, иног...тся. Чужую речь, цитаты и источники передавай дословно и не искажай, даже если в них есть мат.\n</Expression_Settings>' = PromptManifest(system='Разрешен мат и сленг.\n\nРЕЖИМ CASUAL - ТОРОПЛИВОЕ ПИСЬМО:\nИмитируй торопливое письмо: коротки...manifest_id='02d19a3c3902b972', profile='speech_plain', writer='l2_writer', chat_id=777, run_id=None, tokens_total=244).system
+
+tests\test_add_exp_expression.py:348: AssertionError
+____________ test_global_payload_explicit_effective_and_no_inherit ____________
+
+api_env = namespace(cache=<test_soul1_w6_speech_ui._Cache object at 0x00000280BC255130>, chat=<sqlite3.Connection object at 0x00...80BC267010>, user=namespace(id=4242), ctx=namespace(is_global_admin=True, effective_permissions=None), chat_id=-100500)
+
+    def test_global_payload_explicit_effective_and_no_inherit(api_env):
+        env = api_env
+        view = _run(S.get_expression(None, env.user, None))
+        assert view["runtime_wired"] is True and view["runtime_note"]
+        assert view["effective"]["profanity"] == {
+            "value": "occasional", "source": "factory_default", "migrated": False}
+        prof = next(c for c in view["controls"] if c["id"] == "profanity")
+        assert prof["question"] == "Как часто мат звучит в собственных ответах бота"
+        assert [o["label"] for o in prof["options"]] == [
+            "Без мата", "Эпизодически", "Часто"]
+        assert all(o["value"] != "inherit" for o in prof["options"]), \
+            "в глобальном scope наследование не предлагается"
+        # у контролов без явного/заводского значения «как настроено» остаётся
+        # честным описанием текущего состояния (не выдуманное значение)
+        wit = next(c for c in view["controls"] if c["id"] == "wit")
+        assert [o["value"] for o in wit["options"]] == [
+            "inherit", "low", "normal", "high"]
+        assert prof["instruction"] == ex.PROFANITY_INSTRUCTIONS
+        assert prof["effective"] == "occasional"
+        assert prof["effective_source"] == "factory_default"
+        # форма получает явное эффективное значение (не «как в характере»)
+        assert view["values"]["profanity"] == "occasional"
+        assert view["migration"] == {}
+>       assert view["rendered_text"].startswith(HEADER)
+E       AssertionError: assert False
+E        +  where False = <built-in method startswith of str object at 0x00000280B8010C30>('<Expression_Settings>\nНастройки выражения владельца: интенсивность и форма собственной речи; характер этим не меняет...вные цитаты и структурированные сводки (фактчек, ошибки API, тех. отчёты) не переписываются, мат в них не форсируется:')
+E        +    where <built-in method startswith of str object at 0x00000280B8010C30> = '<Expression_Settings>\nНастройки выражения владельца: интенсивность и форма собственной речи; характер этим не меняет.... Структурированные сводки, фактчек и дословные цитаты не форсируй; просьба «без мата» важнее.\n</Expression_Settings>'.startswith
+
+tests\test_add_exp_expression.py:569: AssertionError
+______________ test_chat_scope_inherit_label_isolation_and_reset ______________
+
+api_env = namespace(cache=<test_soul1_w6_speech_ui._Cache object at 0x00000280BC2559D0>, chat=<sqlite3.Connection object at 0x00...80BC2672E0>, user=namespace(id=4242), ctx=namespace(is_global_admin=True, effective_permissions=None), chat_id=-100500)
+
+    def test_chat_scope_inherit_label_isolation_and_reset(api_env):
+        env = api_env
+        _run(S.post_expression(None, env.user, S.ExpressionWrite(
+            values={"profanity": "frequent"}, scope="chat"), str(env.chat_id)))
+        view_a = _run(S.get_expression(None, env.user, str(env.chat_id)))
+        assert view_a["inheritance"] == "chat"
+        assert view_a["values"]["profanity"] == "frequent"
+        assert view_a["effective"]["profanity"]["source"] == "chat"
+>       assert FREQ_LINE in view_a["rendered_text"]
+E       AssertionError: assert '- Мат: обсценная разговорная лексика — узнаваемая регулярная часть твоего повседневного голоса. В разговорной реплике...дом предложении и без повтора одних и тех же слов; не только при оскорблении и не только по прямой просьбе «матерись».' in '<Expression_Settings>\nНастройки выражения владельца: интенсивность и форма собственной речи; характер этим не меняет.... Структурированные сводки, фактчек и дословные цитаты не форсируй; просьба «без мата» важнее.\n</Expression_Settings>'
+
+tests\test_add_exp_expression.py:583: AssertionError
+============================== warnings summary ===============================
+.venv\Lib\site-packages\fastapi\testclient.py:1
+  C:\Code\Python\adminbot\.venv\Lib\site-packages\fastapi\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_add_exp_expression.py::test_instruction_texts_byte_exact_and_distinct
+FAILED tests/test_add_exp_expression.py::test_design_canonical_strings_match_module
+FAILED tests/test_add_exp_expression.py::test_direct_l2_wiring_expression_present_with_revision
+FAILED tests/test_add_exp_expression.py::test_authorial_system_gets_expression_layer
+FAILED tests/test_add_exp_expression.py::test_core_and_canon_byte_parity_with_expression_off
+FAILED tests/test_add_exp_expression.py::test_global_payload_explicit_effective_and_no_inherit
+FAILED tests/test_add_exp_expression.py::test_chat_scope_inherit_label_isolation_and_reset
+7 failed, 26 passed, 1 warning in 5.24s

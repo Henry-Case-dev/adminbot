@@ -1,28 +1,28 @@
 {
   "schema": "openworkflow-progress-scope-v1",
-  "updated": "2026-10-18T20:33:00+12:00",
+  "updated": "2026-10-20T01:20:00+12:00",
   "tasks": [
     {
       "id": "soul-1",
       "status": "BUILDING",
       "source_path": "plans/current_task.md",
-      "source_sha256": "23D640B7B4EC361BDD5362A092B8CB263FF049DD2CA84767174FC5FFBC74F1EF",
+      "source_sha256": "111C23532CCEDB172A09A20C8D48D782F970DBD44AA10AB9B354F9E45654D76E",
       "maps": ["plans/features/soul-1/requirements-map.json", "plans/features/soul-1/requirements-map-amendment.json"],
       "coverage_complete": true,
-      "source_note": "current_task.md: блок SOUL-1 + уточнение релиза 18.10 (снапшот plans/features/soul-1/source-release-correction-2026-10-18.md); ре-анкор точечных строк до release-гейта"
+      "source_note": "current_task.md: блок SOUL-1 + уточнение релиза 18.10 (снапшот plans/features/soul-1/source-release-correction-2026-10-18.md); ре-анкор точечных строк до release-гейта; хэш обновлён 19.10 (хвосты ADD-TR→`add-tr-2026-10-19`, ADD-EXP→`add-exp-2026-10-19`)"
     },
     {
       "id": "asap8-v6.3",
       "status": "BUILDING",
       "source_path": "plans/current_task.md",
-      "source_sha256": "23D640B7B4EC361BDD5362A092B8CB263FF049DD2CA84767174FC5FFBC74F1EF",
+      "source_sha256": "111C23532CCEDB172A09A20C8D48D782F970DBD44AA10AB9B354F9E45654D76E",
       "maps": ["plans/features/asap8-v6-3-live-correction/requirements-map.json"],
       "coverage_complete": true,
-      "source_note": "current_task.md: v6.3 live-correction + инцидент Summary + FULLSCREEN HOTFIX/FOLLOW-UP (FE-FULLSCREEN: задеплоено 2.58.84; 8 строк owner-live)"
+      "source_note": "current_task.md: v6.3 live-correction + инцидент Summary + FULLSCREEN HOTFIX/FOLLOW-UP (FE-FULLSCREEN: задеплоено 2.58.84; 8 строк owner-live); хэш обновлён 19.10 (хвосты ADD-TR→`add-tr-2026-10-19`, ADD-EXP→`add-exp-2026-10-19`)"
     },
     {
       "id": "cfg-01-07",
-      "status": "PENDING",
+      "status": "BUILDING",
       "source_path": "plans/features/cfg/source-cfg-addendum.md",
       "source_sha256": "2ED43009E1533ECA218BE419409870EBBE85F82D85262FF2335DFA2CE36E6B10",
       "maps": ["plans/features/cfg/requirements-map.json"],
@@ -40,21 +40,48 @@
     },
     {
       "id": "p0-save-init-ux",
-      "status": "BUILDING",
+      "status": "VERIFIED",
       "source_path": "plans/features/p0-save-init-ux/source-p0-hotfix-2026-10-18.md",
       "source_sha256": "76BD681EA1F78FC0DE888B37928FF2CFBA8E3CE026BDFAF980FEB1001AC58825",
       "maps": ["plans/features/p0-save-init-ux/requirements-map.json"],
       "coverage_complete": true,
-      "source_note": "чат-директива 18.10 (P0 HOTFIX-3); карта A: 29 required + 6 context (PM-P0-MAPS `2c916f35`; plan errors=0); слайсы P0A-INIT/PERSIST/UX/ACCEPT"
+      "source_note": "ЗАКРЫТО 19.10: карта A **29/29 обязательных VERIFIED**; release-гейт `29/0` EXIT 0 (`fac69543`); отчёт `final-report-25890.md`@`c8b97c1a` доставлен; прод **2.58.90**"
     },
     {
       "id": "p0-followup-nostalgia",
-      "status": "BUILDING",
+      "status": "WAITING_EXTERNAL",
       "source_path": "plans/features/p0-save-init-ux/source-p0-followup-2026-10-18.md",
       "source_sha256": "1E00B4AFADB0D2861A8FB72B8439E921D540D0225A6C6EA2DF1B292A8B8628D4",
       "maps": ["plans/features/p0-save-init-ux/requirements-map-followup.json"],
       "coverage_complete": true,
-      "source_note": "чат-директива 18.10 (P0 FOLLOW-UP); карта B: 35 required + 6 context (PM-P0-MAPS `2c916f35`; plan errors=0); слайсы P0B-INIT-ARCH/NOST/ACCEPT"
+      "source_note": "чат-директива 18.10 (P0 FOLLOW-UP); карта B: 35 required + 6 context (PM-P0-MAPS `2c916f35`; plan errors=0); SCEN-A/LIVE-FUNNEL закрыты live; SCEN-B ждёт естественного затишья (WAITING_EXTERNAL); closure-bookkeeping строки — LEDGER-P0B-CLOSE идёт"
+    },
+    {
+      "id": "p0-vision-universal",
+      "status": "READY_FOR_LIVE",
+      "source_path": "plans/features/p0-vision-universal/source-p0-vision-2026-10-19.md",
+      "source_sha256": "8A841F54200B479873F7C38D89C5462C2764953A51A930D9DBA24505E2230C90",
+      "maps": ["plans/features/p0-vision-universal/requirements-map.json"],
+      "coverage_complete": true,
+      "source_note": "чат-директива 19.10 (P0 VISION): универсальная совместимость Vision с любыми провайдерами; карта 32 required + 5 context (PM-VISION-MAP `67e68313`; plan errors=0); слайсы P0V-ARCH/PROBE/PIPE/UI/ACCEPT; 11 live postdeploy"
+    },
+    {
+      "id": "add-tr-2026-10-19",
+      "status": "BUILDING",
+      "source_path": "plans/current_task.md",
+      "source_sha256": "111C23532CCEDB172A09A20C8D48D782F970DBD44AA10AB9B354F9E45654D76E",
+      "maps": ["plans/features/add-tr/requirements-map.json"],
+      "coverage_complete": true,
+      "source_note": "current_task.md хвост (ADD-TR.0–ADD-TR.5, 19.10): сквозная проверка Tool Routing/Vision/Factcheck/GenImage/Checkup + Android-регрессия «Речи»; карта 58 required + 10 context (PM-TR-MAP `0ef8201b`; гейт 32/36/0); хэш обновлён 19.10 (хвост ADD-EXP → `add-exp-2026-10-19`); TR-RECON DONE"
+    },
+    {
+      "id": "add-exp-2026-10-19",
+      "status": "READY_FOR_LIVE",
+      "source_path": "plans/current_task.md",
+      "source_sha256": "111C23532CCEDB172A09A20C8D48D782F970DBD44AA10AB9B354F9E45654D76E",
+      "maps": ["plans/features/add-exp/requirements-map.json"],
+      "coverage_complete": true,
+      "source_note": "current_task.md хвост (ADD-EXP, 19.10): реальная управляемость мата — off/occasional/frequent, runtime-подключение Expression (Direct/Initiative), диагностика классов, payload-доказательство; карта 29 required + 8 context (PM-PREP-ADD-EXP `46566294`; гейт 20/17/0; слайсы EXP-UI/INSTR/RUNTIME/ACCEPT); **§3.2 BROKEN: Expression никогда не подключён в живые сборки (preview-only) — отсюда «мата нет»**; очередь: Ф0 после ACCEPTANCE-94, исполнение в слоте CFG-07B"
     }
   ]
 }

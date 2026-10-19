@@ -38,6 +38,7 @@ from test_p0_persistfix_speech_chat_scope import (  # noqa: E402
 )
 
 from services import chat_params  # noqa: E402
+from services import mca_expression as expression  # noqa: E402
 from services import prompt_factory as pf  # noqa: E402
 from services import prompt_registry as pr  # noqa: E402
 from web.api import speech as S  # noqa: E402
@@ -538,8 +539,8 @@ def test_expression_values_render_layer_text_and_reset(api_env, monkeypatch):
     view = _run(S.get_expression(None, env.user, None))
     assert "Остроумие" in view["rendered_text"]
     assert view["rendered_text"].startswith("<Expression_Settings>")
-    assert "- Мат: в собственных формулировках не используй обсценную " \
-           "лексику" in view["rendered_text"]
+    assert "- Мат: " + expression.PROFANITY_INSTRUCTIONS["off"] \
+        in view["rendered_text"]
     assert "мат разрешён" not in view["rendered_text"].lower()
     assert "мат допустим" not in view["rendered_text"].lower()
     # ADD-EXP (wiring-слайс): слой подключён к боевым речевым путям

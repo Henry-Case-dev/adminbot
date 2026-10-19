@@ -33,6 +33,7 @@ from typing import Awaitable, Callable
 from config.settings import settings
 from services import hot_config as hot
 from services.llm_client import LLMBadResponseError, LLMClient
+from services.prompt_composer import speech_owner_block
 from services.prompt_style_blocks import resolve_prompt
 from services.summary_cleanup import cleanup_llm_text
 from services.summary_memory import MemoryManager, _memorize_youtube, fire_and_forget
@@ -103,6 +104,11 @@ class YoutubeSummarizerService:
             chat_id, rag_query, sort_by_timestamp=True) if (
             self.memory and chat_id is not None and rag_query) else ""
         system = system_prompt.replace("{max_symbols}", str(max_symbols))
+        # UNIFIED-CORE (P0, 20.10.2026): выжимка видео — пользовательская
+        # речь → Core + Expression владельца (без конфиг-слоя — байт-паритет).
+        owner_block = await speech_owner_block(chat_id)
+        if owner_block:
+            system = f"{system}\n\n{owner_block}"
         user = (f"{rag}\n\n" if rag else "") + (
             f"<video_id>{video_id}</video_id>\n\n"
             f"<transcript>{escape_xml_text(transcript)}</transcript>"
@@ -141,6 +147,11 @@ class YoutubeSummarizerService:
                                        YOUTUBE_SYSTEM_PROMPT)
         capped = str(transcript or "")[:max_symbols]   # прецедент: движок режет
         system = system_prompt.replace("{max_symbols}", str(max_symbols))
+        # UNIFIED-CORE (P0, 20.10.2026): выжимка локального видео —
+        # пользовательская речь → Core + Expression владельца.
+        owner_block = await speech_owner_block(chat_id)
+        if owner_block:
+            system = f"{system}\n\n{owner_block}"
         user = ("<video_id>tg-file</video_id>\n\n"
                 f"<transcript>{escape_xml_text(capped)}</transcript>")
         started = time.monotonic()
@@ -177,6 +188,12 @@ class YoutubeSummarizerService:
         video_system = resolve_prompt("prompts.youtube_video_system_prompt",
                                       YOUTUBE_VIDEO_SYSTEM_PROMPT)
         system = video_system.replace("{max_symbols}", str(max_symbols))
+        # UNIFIED-CORE (P0, 20.10.2026): текст мультимодальной выжимки уходит
+        # пользователю напрямую (отдельной вербализации нет) → Core +
+        # Expression владельца идут в system этого вызова.
+        owner_block = await speech_owner_block(chat_id)
+        if owner_block:
+            system = f"{system}\n\n{owner_block}"
         user = (f"<video_id>{label}</video_id>\n\n"
                 "посмотри ролик по ссылке и перескажи, что в нём происходит.")
         last_reason = "file cascade empty"

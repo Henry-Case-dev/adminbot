@@ -1,0 +1,172 @@
+{
+ "lane": "CLEANUP-ALL-CHATS",
+ "pass": "closure (владелец 20.10: «видимо чисто» — довести остаток по регистрам и зафиксировать результат)",
+ "generated_local": "2026-10-20 11:21:35",
+ "generated_utc": "2026-10-19 23:21:35",
+ "bot": {
+  "id": 8802473181,
+  "username": "PERMsoc_bot"
+ },
+ "chats": {
+  "A": -1002661910336,
+  "B": -1004482340693,
+  "note": "других чатов ни в одном регистре нет; Bot API истории не имеет — вселенная кандидатов = объединение регистров"
+ },
+ "verdict": {
+  "register_residual": 0,
+  "deleted_this_pass": 0,
+  "reason_no_deletes": "live ownership probe: owned=0 — удалять нечего; владелец подтверждён прав"
+ },
+ "register_union_probe": {
+  "candidates": 221,
+  "probe_summary": {
+   "not_owned": 27,
+   "absent": 194
+  },
+  "interpretation": {
+   "absent": "уже удалены прошлыми прогонами CLEANUP-97-NOW / cleanup-all 21:10Z / stop-verify (13+9+23 mids)",
+   "not_owned": "сообщения не бота (фото/контент участников) — не подлежат уборке ботом",
+   "owned": "живых тест-сообщений бота не найдено"
+  }
+ },
+ "out_of_register_bot_owned": {
+  "source": "sibling-sweep 2026-10-19 21:12Z (14 mids, 'bot-owned, not in registry')",
+  "live_state": "все 14 живы (editMessageReplyMarkup -> 'message is not modified' = существует и бот-owned)",
+  "classification": "ОРГАНИКА бота, не тест-артефакты",
+  "evidence": {
+   "inspect14": "zwsp_button-маркер + живой трёп («пошёл нахуй», «Папа Костя…»); reply_to=None; 12/14 сняты, 2 (1166732, 1166978) floodwait, но живы по probe",
+   "logprobe": "0 вхождений harness-подписей (Приёмка/волна/controls/SEND/send_message/content_text/rich_message)",
+   "midlookup": "13/14 не имеют строк в DB (2802 — только mca_events)"
+  },
+  "mids": [
+   {
+    "chat_id": -1002661910336,
+    "mid": 1166472,
+    "probe": "owned_alive_not_modified"
+   },
+   {
+    "chat_id": -1002661910336,
+    "mid": 1166492,
+    "probe": "owned_alive_not_modified"
+   },
+   {
+    "chat_id": -1002661910336,
+    "mid": 1166494,
+    "probe": "owned_alive_not_modified"
+   },
+   {
+    "chat_id": -1002661910336,
+    "mid": 1166631,
+    "probe": "owned_alive_not_modified"
+   },
+   {
+    "chat_id": -1002661910336,
+    "mid": 1166644,
+    "probe": "owned_alive_not_modified"
+   },
+   {
+    "chat_id": -1002661910336,
+    "mid": 1166666,
+    "probe": "owned_alive_not_modified"
+   },
+   {
+    "chat_id": -1002661910336,
+    "mid": 1166710,
+    "probe": "owned_alive_not_modified"
+   },
+   {
+    "chat_id": -1002661910336,
+    "mid": 1166712,
+    "probe": "owned_alive_not_modified"
+   },
+   {
+    "chat_id": -1002661910336,
+    "mid": 1166723,
+    "probe": "owned_alive_not_modified"
+   },
+   {
+    "chat_id": -1002661910336,
+    "mid": 1166727,
+    "probe": "owned_alive_not_modified"
+   },
+   {
+    "chat_id": -1002661910336,
+    "mid": 1166732,
+    "probe": "owned_alive_not_modified"
+   },
+   {
+    "chat_id": -1002661910336,
+    "mid": 1166978,
+    "probe": "owned_alive_not_modified"
+   },
+   {
+    "chat_id": -1002661910336,
+    "mid": 1167018,
+    "probe": "owned_alive_not_modified"
+   },
+   {
+    "chat_id": -1004482340693,
+    "mid": 2802,
+    "probe": "owned_alive_not_modified"
+   }
+  ],
+  "decision": "НЕ удалять (правило полосы: удалять только из тест-регистров; урок инцидента 21:11Z: ownership доказывает авторство, но не тестовость)"
+ },
+ "organic_kept": [
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166674,
+   "why": "reply to real user 134812796"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166730,
+   "why": "initiative"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166947,
+   "why": "reply to real user 134812796"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166966,
+   "why": "reply to real user 155169707"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166982,
+   "why": "reply to real user 155169707"
+  },
+  {
+   "chat_id": -1002661910336,
+   "mid": 1166988,
+   "why": "reply to real user 134812796"
+  },
+  {
+   "chat_id": -1004482340693,
+   "mid": 2715,
+   "why": "initiative"
+  }
+ ],
+ "incident_open_item": {
+  "what": "9 органических сообщений удалены ошибочно 2026-10-19 21:11Z (stop97_verify); 7 ответов реальному пользователю 1313107079 + 2 инициативных",
+  "recovery": "restore_organic_97.py подготовлен (dry by default), НЕ применён: /tmp/cleanup_all/restore-organic.json не существует",
+  "owner": "stop-cleanup lane / владелец (восстановление = отправка сообщений в чат — вне полосы уборки)"
+ },
+ "sql_check_limitation": "прямая SQL-проверка проду недоступна этой полосе (SSH запрещён брифом, fail2ban); последние SQL-пробы 21:17-21:20Z 19.10 UTC: smart_synth=0, throttle_synth=0, bot_replies_synth A=4(органика)/B=0; после них новых сообщений никто не отправлял (harness none, новых регистров с mids нет)",
+ "sources": [
+  "OPENCODE_WORKFLOW_SCRATCH/cleanup-all/closure-register.json",
+  "OPENCODE_WORKFLOW_SCRATCH/cleanup-all/sweep-residual-errors.json",
+  "OPENCODE_WORKFLOW_SCRATCH/cleanup-all/inspect14.json",
+  "OPENCODE_WORKFLOW_SCRATCH/cleanup-all/run-logprobe.out",
+  "OPENCODE_WORKFLOW_SCRATCH/cleanup-all/run-midlookup.out",
+  "plans/features/cfg/evidence/release-25897/stop-cleanup/sibling-sweep.json",
+  "plans/features/cfg/evidence/release-25897/cleanup/residual-final.json"
+ ],
+ "artifacts_sha256": {
+  "closure-register.json": "389662169301a566467307aed44e7f3a01a4fbdd94aa0480acea17a981a7d647",
+  "sweep-residual-errors.json": "f948d50b8bdf2b9d75355773fe34a9eec2bac6e3c61eea27aaf0c9aaee813905",
+  "closure_verify.py": "035f5e0d2295ee0e4397df4a62272b773225fd13316f8be813280f6a3d89c3bb"
+ }
+}

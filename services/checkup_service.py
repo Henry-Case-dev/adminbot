@@ -12,6 +12,7 @@ from services import hot_config as hot
 from services.checkup_prompts import CHECKUP_FALLBACK_NOTICE, CHECKUP_SYSTEM_PROMPT
 from services.llm_client import LLMBadResponseError, LLMClient
 from services.memory_health import collect_metrics
+from services.prompt_composer import speech_owner_block
 from services.prompt_style_blocks import resolve_prompt
 from services.summary_cleanup import cleanup_llm_text
 from services.summary_xml import escape_xml_text
@@ -41,9 +42,15 @@ class CheckupService:
         self.memory = memory
         self.metrics_enabled = metrics_enabled
 
-    async def checkup(self, logs_text: str, used_fallback: bool) -> str:
+    async def checkup(self, logs_text: str, used_fallback: bool,
+                      chat_id: int | None = None) -> str:
         """logs_text = результат fetcher.fetch(); used_fallback → скрытая
-        приписка CHECKUP_FALLBACK_NOTICE в КОНЕЦ system-сообщения (51.4)."""
+        приписка CHECKUP_FALLBACK_NOTICE в КОНЕЦ system-сообщения (51.4).
+
+        UNIFIED-CORE (P0, 20.10.2026): ``chat_id`` (пользовательская команда
+        в чате) → после канона идут Core + Expression владельца; без ``chat_id``
+        (внутренний tool-loop ``get_bot_health`` — отчёт вербализует Direct
+        Writer) блок не передаётся: внутренние данные остаются нейтральными."""
         # T-619: промпт/лимиты/флаг метрик — горячие точки (фолбек settings)
         # SOUL-1 (W1 fix-pass, BLOCKER-2): промпт — через единый резолвер реестра.
         system_prompt = resolve_prompt("prompts.checkup_system_prompt",
@@ -55,6 +62,11 @@ class CheckupService:
         metrics_enabled = hot.get("flags.checkup_memory_metrics_enabled",
                                   self.metrics_enabled)
         system = system_prompt.replace("{max_symbols}", str(max_symbols))
+        # UNIFIED-CORE: слои владельца речи — ДО служебной приписки
+        # (CHECKUP_FALLBACK_NOTICE остаётся последним абзацем system).
+        owner_block = await speech_owner_block(chat_id)
+        if owner_block:
+            system = f"{system}\n\n{owner_block}"
         if used_fallback:
             system += "\n\n" + CHECKUP_FALLBACK_NOTICE     # R42-2: ровно 1 раз
         # Epic 49 (57.5, D196): scrub C0 (гипотеза (б) — невалидные управляющие

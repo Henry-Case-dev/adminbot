@@ -1,0 +1,38 @@
+{
+ "new": {
+  "header": {
+   "chars": 338,
+   "tokens": 85
+  },
+  "off": {
+   "chars": 223,
+   "tokens": 56
+  },
+  "occasional": {
+   "chars": 355,
+   "tokens": 89
+  },
+  "frequent": {
+   "chars": 538,
+   "tokens": 135
+  }
+ },
+ "old": {
+  "header": {
+   "chars": 319,
+   "tokens": 80
+  },
+  "off": {
+   "chars": 224,
+   "tokens": 56
+  },
+  "occasional": {
+   "chars": 311,
+   "tokens": 78
+  },
+  "frequent": {
+   "chars": 533,
+   "tokens": 134
+  }
+ }
+}
