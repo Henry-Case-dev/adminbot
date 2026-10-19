@@ -163,9 +163,10 @@ class TestHelpMatchesShippedRuntime:
         assert "покрыто сообщений: " in APP_JS
 
     def test_sticky_save_dirty_only_labels_exist(self):
-        # D13: чип сохранения со состояниями dirty/saving (clean — отсутствует).
-        assert "dirty: 'Сохранить'" in APP_JS
-        assert "saving: 'Сохранение…'" in APP_JS
+        # D13 / CFG-04 (2428768): чип сохранения — честный индикатор (не кнопка),
+        # подписи dirty/saving как в отгруженном runtime (review e27216d3).
+        assert "dirty: 'не сохранено'" in APP_JS
+        assert "saving: 'сохранение…'" in APP_JS
 
     def test_bottom_nav_removed(self):
         # D13: мобильная нижняя навигация удалена (верхняя вместо неё).
