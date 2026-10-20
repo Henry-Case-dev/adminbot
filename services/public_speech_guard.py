@@ -25,7 +25,11 @@ outbound (07C.1–.6, CFG-07CG-TAIL: детерминированный `guard_p
 * каноны фактчека/промптов не трогаются (W3-фриз CFG-06); модуль —
   детерминированные предикаты + детерминированный sanitize (0 LLM-
   вызовов, 0 сетевых обращений);
-* машинные артефакты корпуса (FA-*) — территория 07D.5-guard'а;
+* машинные артефакты корпуса (FA-06/07/08 остатки, JSON-эхо FA-01/02,
+  метка SF-16, MB-10/11/12) — детерминированные детекторы/срез этого
+  модуля с id-кодами корпуса (волна 07D.5); смысловая метаречь без
+  дословной формулы (инверсии overclaim) — триггер bounded retry
+  (metatext_retry_reason), не тихий срез;
 * предикаты применяются к ОТВЕТАМ модели (реплики, fallback-фразы),
   НЕ к байтам канонов: каноны легитимно содержат запреты-примеры
   (блок ANTI_BOT перечисляет запрещённые самоописания дословно).
@@ -249,6 +253,219 @@ def claims_total_verification(text) -> bool:
     return any(r.search(body) for r in _TOTAL_RE)
 
 
+# ── 07D.5: машинные артефакты корпуса (FA-06/07/08 остатки, JSON-эхо
+#    FA-01/02, метка SF-16) и MB-10/11/12 ──────────────────────────────────────
+# Источник — записи 07a1-corpus.json (source of record); каждая семья несёт
+# id корпуса для telemetry (R17: коды, не приватные тексты). Это НЕ растущий
+# black-list (07A.7): расширение = осознанная правка с записью корпуса.
+# Детерминированный ремонт — срез формулы (факты/числа/ссылки не меняются);
+# retry на машинные артефакты НЕ тратится (ремонт существует).
+
+#: Границы машинного токена: латиница/кириллица/цифры/подчёркивание —
+#: ``tool_not_active`` внутри ``host_not_actively`` не срабатывает.
+_TOK = "0-9A-Za-zА-Яа-яёЁ_"
+
+
+def _token_re(token: str) -> re.Pattern:
+    return re.compile(rf"(?<![{_TOK}]){re.escape(token)}(?![{_TOK}])",
+                      re.IGNORECASE)
+
+
+def _token_cut_re(token: str) -> re.Pattern:
+    """Срез-версия токена: окружающие пробелы и одна висячая запятая/
+    двоеточие за формулой убираются (без огрызков)."""
+    return re.compile(rf"\s*(?<![{_TOK}]){re.escape(token)}(?![{_TOK}])"
+                      rf"(?:\s*[,:])?", re.IGNORECASE)
+
+
+@dataclasses.dataclass(frozen=True)
+class MachineArtifact:
+    """Семья машинных артефактов корпуса 07A-1 (07D.5).
+
+    ``detect`` — детектор попадия; ``strip`` — детерминированный срез
+    (применяется только к найденному — содержательные слова целы)."""
+
+    corpus_id: str
+    kind: str
+    detect: tuple[re.Pattern, ...]
+    strip: tuple[re.Pattern, ...]
+
+
+def _bracket_block_re(head: str) -> re.Pattern:
+    r"""Срез bracket-вставки целиком: «[ГОЛОВКА …]» до закрывающей скобки
+    или конца строки (незакрытая — срезается по голове). ``head``
+    передаётся с ведущей '[' — экранируется ТЕЛО без неё (иначе '\['
+    превращается в открывающий char-class и режет чужие скобки)."""
+    return re.compile(
+        rf"\s*\[{re.escape(head[1:])}"
+        rf"[^\]\n]*\]?", re.IGNORECASE)
+
+
+_MACHINE_FAMILIES: tuple[MachineArtifact, ...] = (
+    # FA-06: сервисный refusal-токен воркера (nostalgia), kind=word_ci.
+    MachineArtifact(
+        corpus_id="FA-06", kind="service_echo",
+        detect=(_token_re("UNCHANGED"),),
+        strip=(_token_cut_re("UNCHANGED"),)),
+    # FA-07: layer-A маркер nostalgia в Direct-контексте.
+    MachineArtifact(
+        corpus_id="FA-07", kind="service_echo",
+        detect=(_token_re("nostalgia_hint"),),
+        strip=(re.compile(rf"\s*(?<![{_TOK}])nostalgia_hint\s*:"
+                          rf"(?![{_TOK}])", re.IGNORECASE),)),
+    # FA-08: bracket-вставка checkup-fallback (SYSTEM-only формат).
+    MachineArtifact(
+        corpus_id="FA-08", kind="bracket",
+        detect=(re.compile(re.escape("[системное уведомление"),
+                           re.IGNORECASE),),
+        strip=(_bracket_block_re("[системное уведомление"),)),
+    # FA-01/FA-02: сырой JSON-фрагмент (ключ Stage-1/handoff в тексте).
+    MachineArtifact(
+        corpus_id="FA-01", kind="json_echo",
+        detect=(re.compile(r'"\s*reason\s*"\s*:', re.IGNORECASE),
+                re.compile(r'\{\s*"reason"', re.IGNORECASE)),
+        strip=(re.compile(r'\s*\{[^{}\n]*"\s*reason\s*"\s*:[^{}\n]*\}',
+                          re.IGNORECASE),
+               re.compile(r'\s*"\s*reason\s*"\s*:[^,\n]*(?:,)?',
+                          re.IGNORECASE),
+               re.compile(r'\s*\{\s*"reason"[^{}\n]*\}?', re.IGNORECASE))),
+    MachineArtifact(
+        corpus_id="FA-02", kind="json_echo",
+        detect=(re.compile(r'"\s*response_mode\s*"', re.IGNORECASE),),
+        strip=(re.compile(r'\s*\{[^{}\n]*"\s*response_mode\s*"[^{}\n]*\}',
+                          re.IGNORECASE),
+               re.compile(r'\s*"\s*response_mode\s*"\s*:[^,\n]*(?:,)?',
+                          re.IGNORECASE),
+               re.compile(r'\s*"\s*response_mode\s*"', re.IGNORECASE))),
+    # SF-16: метка архивных блоков как самостоятельный артефакт в речи
+    # (E3-эхо MB-02; запрет в digest уже живёт в system2_handoff).
+    MachineArtifact(
+        corpus_id="SF-16", kind="label",
+        detect=(re.compile(r"архивная справка", re.IGNORECASE),),
+        strip=(re.compile(r"\s*\[Архивная справка[^\]\n]*\]?",
+                          re.IGNORECASE),
+               re.compile(r'\s*[«"][^»"]*Архивная справка[^»"]*[»"]'
+                          r"(?:\s*:)?", re.IGNORECASE),
+               re.compile(r"\s*Архивная справка\s*:", re.IGNORECASE))),
+    # MB-10: техполя фактчек-семьи в речи (период проверки/(unknown)/…).
+    MachineArtifact(
+        corpus_id="MB-10", kind="tech_field",
+        detect=(_token_re("период проверки"), _token_re("(unknown)"),
+                _token_re("precision"), _token_re("as_of"),
+                _token_re("uncertainty")),
+        strip=(_token_cut_re("период проверки"), _token_cut_re("(unknown)"),
+               _token_cut_re("precision"), _token_cut_re("as_of"),
+               _token_cut_re("uncertainty"))),
+    # MB-11: англ. reason-коды Writer-заметки как видимый текст.
+    MachineArtifact(
+        corpus_id="MB-11", kind="reason_code",
+        detect=(_token_re("tool_not_active"), _token_re("capability_not_ready"),
+                _token_re("no_tool"), _token_re("low_confidence")),
+        strip=(_token_cut_re("tool_not_active"),
+               _token_cut_re("capability_not_ready"),
+               _token_cut_re("no_tool"), _token_cut_re("low_confidence"))),
+    # MB-12: имена tool-ов Writer-payload в содержательных репликах.
+    MachineArtifact(
+        corpus_id="MB-12", kind="tool_name",
+        detect=(_token_re("execute_web_search"), _token_re("query_chat_memory"),
+                _token_re("dig_into_lore"), _token_re("compile_lore_story"),
+                _token_re("get_bot_health"), _token_re("fetch_article")),
+        strip=(_token_cut_re("execute_web_search"),
+               _token_cut_re("query_chat_memory"),
+               _token_cut_re("dig_into_lore"),
+               _token_cut_re("compile_lore_story"),
+               _token_cut_re("get_bot_health"),
+               _token_cut_re("fetch_article"))),
+)
+
+
+def find_machine_artifacts(text) -> tuple[str, ...]:
+    """id-коды корпу�а машинных артефактов, найденные в тексте (07D.5)."""
+    body = str(text or "")
+    return tuple(f.corpus_id for f in _MACHINE_FAMILIES
+                 if any(r.search(body) for r in f.detect))
+
+
+# ── 07D.5: смысловой слой — инверсные/вариативные формулировки ───────────────
+# Закрытые сеты (07D.2) ловят дословный прямой порядок. Инверсия («весь
+# интернет я проверил») — НЕ дословная формула: её нельзя срезать без риска
+# огрызка, поэтому она триггерит ОДИН bounded retry с причиной (пере-
+# использование retry-бюджета Вербализатора), а не тихий срез и не новый
+# black-list (07A.7). Источник — та же семья тотальной проверки
+# (аддендум L343) + зафиксированный остаток 07cg-tail §2.2.
+
+#: Объект тотального охвата (формы из закрытого сета 07D.2); lookahead
+#: отсекает «весь интернет-магазин» («интернет-магазин» — другой объект);
+#: грамматика закрытая, источник один (07A.7 — не авто-рост).
+_SEM_TOTAL_OBJ_BODY = (
+    r"(?:весь\s+интернет|вся\s+сеть|всю\s+сеть|всей\s+сетью"
+    r"|вся\s+паутина|всю\s+паутину|всей\s+паутиной"
+    r"|вс[её]\s+в\s+интернет[еа])")
+_SEM_TOTAL_OBJ_RE = re.compile(
+    rf"{_SEM_TOTAL_OBJ_BODY}(?![{_TOK}\-])", re.IGNORECASE)
+
+#: Конечные формы глагола проверки (причастия «проверенный/ных» и
+#: «проверилась» границами отсечены). Негативный lookbehind «не» перед
+#: глаголом: честное ограничение («весь интернет я не проверил») — класс
+#: PC-01/честных пулов, а НЕ инверсия overclaim (review-07d5 F3); «не»,
+#: слитое с другим словом («в паутине»), границей \b отсечено — глагол
+#: ловится.
+_SEM_VERIFY_VERB_BODY = (
+    r"(?:проверил[аи]?|перерыл[аи]?|обрыл[аи]?"
+    r"|перелопатил[аи]?|обшарил[аи]?|прогуглил[аи]?|изучил[аи]?"
+    r"|проверен[аоы]?|перерыт[аоы]?|обрыт[аоы]?|изучен[аоы]?)")
+_SEM_VERIFY_VERB_RE = re.compile(
+    rf"(?<![{_TOK}])(?<!\bне\s)(?<!\bне\s\s)"
+    rf"{_SEM_VERIFY_VERB_BODY}(?![{_TOK}])", re.IGNORECASE)
+
+#: Срез-грамматика инверсии: «объект + (местоимение/наречие)* + глагол»
+#: (прямой порядок уже срезается закрытым сетом _TOTAL_RE). Используется
+#: на деградационном пути после неудачного retry и на delivery-шве.
+_INVERSE_STRIP_RE = re.compile(
+    rf"\s*(?<![{_TOK}]){_SEM_TOTAL_OBJ_BODY}"
+    rf"(?:\s+(?:я|мы|ты|вы|он|она|они|оно|уже|давно|сам|сама|сами|тут"
+    rf"|ведь|честно))*\s+{_SEM_VERIFY_VERB_BODY}"
+    rf"(?![{_TOK}])(?:\s*[,:])?", re.IGNORECASE)
+
+
+def _closed_total_hits(sentence: str) -> bool:
+    """Предложение уже покрыто закрытым сетом 07D.2 (детерминированный
+    ремонт существует — смысловой слой его не задваивает)."""
+    return any(r.search(sentence) for r in _TOTAL_RE)
+
+
+def find_semantic_metatext(text) -> tuple[str, ...]:
+    """07D.5: инверсные/вариативные формулировки тотальной проверки —
+    объект охвата + глагол проверки в одном предложении в ЛЮБОМ порядке,
+    НЕ пойманные закрытыми сетами. 0 LLM; код находки — не приватный текст."""
+    body = str(text or "")
+    hits: list[str] = []
+    for sentence in re.split(r"[.!?…\n]+", body):
+        if (_SEM_TOTAL_OBJ_RE.search(sentence)
+                and _SEM_VERIFY_VERB_RE.search(sentence)
+                and not _closed_total_hits(sentence)):
+            hits.append("semantic:total_verification_variant")
+    return tuple(hits)
+
+
+def metatext_retry_reason(text) -> str | None:
+    """Причина bounded-retry (CFG-07D.5): смысловая метаречь, НЕ пойманная
+    закрытыми сетами. Дословные формулы и машинные артефакты → None:
+    для них существует детерминированный ремонт, бюджет retry не тратится.
+    Никогда не бросает."""
+    try:
+        body = str(text or "")
+        if (contains_backstage_metatext(body)
+                or claims_total_verification(body)
+                or find_machine_artifacts(body)):
+            return None
+        if find_semantic_metatext(body):
+            return "metatext_semantic:total_verification_variant"
+        return None
+    except Exception:      # fail-soft: детектор не роняет валидацию
+        return None
+
+
 # ── Предикаты принадлежности honesty-классам ────────────────────────────────
 
 def _has_phrase(text: str, klass: HonestyClass) -> bool:
@@ -350,17 +567,30 @@ def _wrap_strip_re(r: re.Pattern) -> re.Pattern:
 _STRIP_RES: tuple[re.Pattern, ...] = tuple(
     _wrap_strip_re(r) for r in _ALL_MARKER_RES + _TOTAL_RE)
 
+#: Срез машинных артефактов (07D.5) — точечные формулы семей корпуса.
+_MACHINE_STRIP_RES: tuple[re.Pattern, ...] = tuple(
+    r for fam in _MACHINE_FAMILIES for r in fam.strip)
+
 
 def _strip_matches(text: str) -> str:
-    """Срез FORBIDDEN-формул/overclaim + уборка следов вырезания (пустые
-    скобки, двойные пробелы, висячая пунктуация в начале). Меняет ТОЛЬКО
-    найденные формулы — содержательные слова/числа остаются."""
+    """Срез FORBIDDEN-формул/overclaim/машинных артефактов/инверсных
+    overclaim-формул + уборка следов вырезания (пустые скобки, двойные
+    пробелы, висячая пунктуация в начале). Меняет ТОЛЬКО найденные
+    формулы — содержательные слова/числа остаются."""
     out = text
-    for r in _STRIP_RES:
+    for r in _STRIP_RES + _MACHINE_STRIP_RES + (_INVERSE_STRIP_RE,):
         out = r.sub(" ", out)
     out = re.sub(r"\(\s*\)", " ", out)
     out = re.sub(r"\s{2,}", " ", out).strip()
     return re.sub(r"^[\s,;:\-–—]+", "", out)
+
+
+def strip_guard_findings(text) -> str:
+    """Детерминированный срез ВСЕХ распознанных формул (закрытые семьи,
+    overclaim, машинные артефакты, инверсные overclaim-формулы) —
+    деградационный путь bounded retry (07D.5) и повторное применение
+    швами; guard идемпотентен."""
+    return _strip_matches(str(text or ""))
 
 
 def guard_public_text(text, *, admin_context: bool = False) -> GuardResult:
@@ -386,6 +616,14 @@ def guard_public_text(text, *, admin_context: bool = False) -> GuardResult:
         overclaim = claims_total_verification(src)
         if overclaim:
             findings.append("overclaim:total_verification")
+        # 07D.5: машинные артефакты корпуса (ремонт — срез ниже) и
+        # смысловой слой (инверсии overclaim). Retry с причиной живёт
+        # в Вербализаторе; здесь находка честно телеметрируется, а срез
+        # ниже (_INVERSE_STRIP_RE в _strip_matches) — defense-in-depth:
+        # шов без retry-бюджета не доставляет известную инверсную
+        # формулу (review-07d5 F4).
+        findings.extend(find_machine_artifacts(src))
+        findings.extend(find_semantic_metatext(src))
         if not findings:
             return GuardResult(text=src)
         cleaned = _strip_matches(src)

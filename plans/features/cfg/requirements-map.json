@@ -7843,7 +7843,15 @@
       "live_required": true,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "candidate_commit": "ce77b2c4 (base HEAD; кандидат = uncommitted worktree волны 07D.5, биндинг за оркестратором)",
+          "ref": "plans/features/cfg/evidence/cfg-07a/07d5-summary.md §2/§4",
+          "observation": "Волна 07D.5: FA-06/07/08 + FA-01/02 + SF-16 + MB-10/11/12-детекторы в public_speech_guard (id корпуса, границы токенов, детерминированный срез без изменения фактов); bounded retry смысловой метаречи (инверсии overclaim) через verbalize_validated(metatext_reason) — <=1 повтор в существующем бюджете, METATEXT_RETRY_SYSTEM_PROMPT с кодом причины, honest fallback (metatext_fallback + strip_guard_findings); wiring строго в контуре FACTCHECK_PIPELINE_V2_ENABLED (OFF -> контракт None, байт-паритет). POSITIVE: 202 пула + каноны + PC-* корпуса — 0 ложных. Фокус: новый 39 + словарь 67 + хвост 29 + route-coverage 18 + фактчек-семья = 232 passed EXIT 0 (07d5-tests.txt); валидаторная семья 331, потребители verbalize 83.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-07a/07d5-summary.md",
+          "artifact_sha256": "f8c7baa010f1982e9605adadf63267dd2d6eef7698bb288690b1fcb054fcb98c"
+        }
+      ]
     },
     {
       "source_id": "L00381",
