@@ -1,0 +1,7 @@
+REL-25899 frozen fingerprint (post-bump working tree; bump not committed)
+
+pre-bump HEAD: 8f220b60d72ea5cfeb77515881a7042c20cbc5b7 (candidate CFG-06 v4 8f220b60, Approved RECHECK-R2; bump-only delta on top)
+
+config/settings.py  sha256_12 5694b0e46d81  sha256 5694b0e46d811b57cbf3040c3786d26d112b90ca24c9865918aba9e1c61e3d31
+README.md  sha256_12 2929c37a0390  sha256 2929c37a0390d441aa906faa7c9ae0a566d2244a048fa13582dc6229628d2a38
+plans/docs/param-registry-round1025.meta.md  sha256_12 d7c6e574a775  sha256 d7c6e574a775701e682fadd075121eb795625ddf99fbe032fd756a11af1988ac

@@ -570,8 +570,8 @@ class TestCatalog:
     def test_counts(self):
         import dataclasses
         from config.settings import Settings
-        assert len(pc.REGISTRY) == 579
+        assert len(pc.REGISTRY) == 582
         assert len(pc.GROUPS) == 120
         assert len(pc._TAB_BY_GROUP) == 118
         assert len(pc.TAB_RULES) == 23
-        assert len({f.name for f in dataclasses.fields(Settings)}) == 458
+        assert len({f.name for f in dataclasses.fields(Settings)}) == 461  # CFG-06 v2 (5af56d8b): +3 поля фактчек-конвейера, пересанкционировано 20.10

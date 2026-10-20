@@ -4103,10 +4103,10 @@
       "req_id": "CFG-04D.4",
       "slice": "CFG-04",
       "acceptance": "Живые приёмки в Telegram Android portrait+landscape с переключением ориентации при несохранённых изменениях и проверка Telegram Desktop; при недоступности живого клиента — честный PENDING_OWNER_E2E вместо фиктивного PASS.",
-      "live_required": true,
+      "live_required": false,
       "live_when": "postdeploy",
       "status": "READY_FOR_LIVE",
-      "note": "CFG-04 F0 — postdeploy live Telegram Android portrait+landscape + Desktop. PET (AGENTS.md, 18.10): обязательные device-чек-листы владельца отменены; live client — agent best effort/optional owner feedback, не blocking gate. Если реального клиента нет — честный PENDING_OWNER_E2E, не фиктивный PASS. Остальные строки не блокировать. PM-леджер 20.10.2026: PENDING_OWNER_E2E (owner-optional, PET) — статус карты READY_FOR_LIVE отражает только live-ожидание; автоматические проверки выполнены, реального Telegram-клиента в лейне нет.",
+      "note": "CFG-04 F0 — postdeploy live Telegram Android portrait+landscape + Desktop. PET (AGENTS.md, 18.10): обязательные device-чек-листы владельца отменены; live client — agent best effort/optional owner feedback, не blocking gate. Если реального клиента нет — честный PENDING_OWNER_E2E, не фиктивный PASS. Остальные строки не блокировать. PM-леджер 20.10.2026: PENDING_OWNER_E2E (owner-optional, PET) — статус карты READY_FOR_LIVE отражает только live-ожидание; автоматические проверки выполнены, реального Telegram-клиента в лейне нет. | owner-optional (20.10 правило): добровольное наблюдение владельца; инженерная половина VERIFIED в связанных строках.",
       "evidence": [
         {
           "candidate_commit": "2428768818f5c92ae2b471f7c33e1a37eb8399cd",
@@ -4126,6 +4126,19 @@
           "artifact_path": "plans/features/cfg/evidence/release-25897/acceptance/README.md",
           "artifact_sha256": "395d1c31a2d662802b8e0c571bb69dfe7b83fe2a732b17848325ec225d2733b3"
         }
+      ],
+      "verification_tier": "owner_optional",
+      "owner_policy_ref": "plans/owner_live_checks.md",
+      "owner_optional_reason": "Живая приёмка ориентации/сохранения в Telegram Android и Desktop на устройстве владельца; инженерные layout/safe-area/сохранение доказаны офлайн-тестами CFG-04B/C/D.",
+      "engineering_req_ids": [
+        "CFG-04D.1",
+        "CFG-04D.5",
+        "CFG-04B.1",
+        "CFG-04B.2",
+        "CFG-04B.3",
+        "CFG-04C.1",
+        "CFG-04C.2",
+        "CFG-04C.4"
       ]
     },
     {
@@ -6288,7 +6301,7 @@
       "req_id": "CFG-06G.8",
       "slice": "CFG-06",
       "acceptance": "Реально отправленные Telegram-сообщения содержат работающий жирный текст, списки и кликабельные встроенные ссылки без сырых HTML/JSON и потери читабельности на мобильном/десктопе.",
-      "live_required": true,
+      "live_required": false,
       "live_when": "postdeploy",
       "status": "READY_FOR_LIVE",
       "evidence": [
@@ -6309,7 +6322,18 @@
           "artifact_sha256": "9a91b54c900ba351d8ff08a2e836d8bf9602e5e46cbda30a0a43f1ce8e27995a"
         }
       ],
-      "note": "Реально отправленные сообщения и читабельность на мобильном/десктопе — постдеплой-канарейка; осмотр на устройствах — владельцу опционально (правило 20.10). Живая часть — канарейка после включения flags.factcheck_pipeline_v2 при релизе (правило 20.10, PET; без отдельных согласований)."
+      "note": "Реально отправленные сообщения и читабельность на мобильном/десктопе — постдеплой-канарейка; осмотр на устройствах — владельцу опционально (правило 20.10). Живая часть — канарейка после включения flags.factcheck_pipeline_v2 при релизе (правило 20.10, PET; без отдельных согласований). | owner-optional (20.10 правило): добровольное наблюдение владельца; инженерная половина VERIFIED в связанных строках.",
+      "verification_tier": "owner_optional",
+      "owner_policy_ref": "plans/owner_live_checks.md",
+      "owner_optional_reason": "Визуальная проверка жирного текста/ссылок/списков на реальных клиентах владельца; инженерная целостность рендера, escape и чанков доказана офлайн-тестами CFG-06E.",
+      "engineering_req_ids": [
+        "CFG-06E.1",
+        "CFG-06E.2",
+        "CFG-06E.3",
+        "CFG-06E.5",
+        "CFG-06E.6",
+        "CFG-06E.7"
+      ]
     },
     {
       "source_id": "L00292",

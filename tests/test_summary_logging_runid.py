@@ -934,16 +934,16 @@ class TestInvariants:
         # ASAP-2.1 (ADR-1028-1 D1, контракт (i)): санкционированная
         # ОТРИЦАТЕЛЬНАЯ Δ каталога — -8 ключей summary_filter_*, -2 группы,
         # -8 env-констант Settings (S1-слой удалён).
-        assert len(pc.REGISTRY) == 579
-        assert len({f.name for f in dataclasses.fields(Settings)}) == 458
+        assert len(pc.REGISTRY) == 582
+        assert len({f.name for f in dataclasses.fields(Settings)}) == 461  # CFG-06 v2 (5af56d8b): +3 поля фактчек-конвейера, пересанкционировано 20.10
         assert len([s for s in pc.REGISTRY.values()
-                    if s.category is not None]) == 554
+                    if s.category is not None]) == 557
         assert len(pc.GROUPS) == 120
         assert len(pc._TAB_BY_GROUP) == 118
         assert len(pc.TAB_RULES) == 23
 
     def test_app_version_bumped(self):
-        assert APP_VERSION == "2.58.98"
+        assert APP_VERSION == "2.58.99"
 
     def test_publish_events_only_on_real_publication(self):
         """S6 (D6): PUBLISH_* реализованы в живом публикационном контуре; S9

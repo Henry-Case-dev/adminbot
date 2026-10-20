@@ -138,16 +138,16 @@ class TestFlagsAndInvariants:
     def test_catalog_invariants(self):
         from services import param_catalog as pc
         # Базовые числа round1026: 467/426/442/100/98/21 — эпик их не меняет.
-        assert len(pc.REGISTRY) == 579
+        assert len(pc.REGISTRY) == 582
         assert len(pc.GROUPS) == 120
         assert len(pc._TAB_BY_GROUP) == 118
         assert len(pc.TAB_RULES) == 23
-        assert len({f.name for f in dataclasses.fields(Settings)}) == 458
+        assert len({f.name for f in dataclasses.fields(Settings)}) == 461  # CFG-06 v2 (5af56d8b): +3 поля фактчек-конвейера, пересанкционировано 20.10
 
     def test_app_version_bumped(self):
-        assert APP_VERSION == "2.58.98", APP_VERSION
+        assert APP_VERSION == "2.58.99", APP_VERSION
         assert "v2.58.34" in README, "README не синхронизирован"
-        assert 'APP_VERSION = "2.58.98"' in SETTINGS
+        assert 'APP_VERSION = "2.58.99"' in SETTINGS
 
     def test_zero_ddl(self):
         # Δ DDL = 0: никаких новых таблиц/миграций эпиком не добавляется.

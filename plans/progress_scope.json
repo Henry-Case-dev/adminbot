@@ -1,31 +1,38 @@
 {
   "schema": "openworkflow-progress-scope-v1",
-  "updated": "2026-10-20T01:20:00+12:00",
+  "updated": "2026-10-20T19:55:00+12:00",
   "tasks": [
     {
       "id": "soul-1",
       "status": "BUILDING",
       "source_path": "plans/current_task.md",
-      "source_sha256": "111C23532CCEDB172A09A20C8D48D782F970DBD44AA10AB9B354F9E45654D76E",
-      "maps": ["plans/features/soul-1/requirements-map.json", "plans/features/soul-1/requirements-map-amendment.json"],
+      "source_sha256": "A680645299CFD8AC636E9F682DC88555E272C77D0811AF8002D6ED8B31673EB7",
+      "maps": [
+        "plans/features/soul-1/requirements-map.json",
+        "plans/features/soul-1/requirements-map-amendment.json"
+      ],
       "coverage_complete": true,
-      "source_note": "current_task.md: блок SOUL-1 + уточнение релиза 18.10 (снапшот plans/features/soul-1/source-release-correction-2026-10-18.md); ре-анкор точечных строк до release-гейта; хэш обновлён 19.10 (хвосты ADD-TR→`add-tr-2026-10-19`, ADD-EXP→`add-exp-2026-10-19`)"
+      "source_note": "current_task.md: блок SOUL-1 + уточнение релиза 18.10 (снапшот plans/features/soul-1/source-release-correction-2026-10-18.md); ре-анкор точечных строк до release-гейта; хэш обновлён 20.10 вечер (хвост ADD-SAMPLES-UX добавлен владельцем — собственные строки SOUL-1 не менялись; дельта зарегистрирована отдельной задачей samples-ux)"
     },
     {
       "id": "asap8-v6.3",
       "status": "BUILDING",
       "source_path": "plans/current_task.md",
-      "source_sha256": "111C23532CCEDB172A09A20C8D48D782F970DBD44AA10AB9B354F9E45654D76E",
-      "maps": ["plans/features/asap8-v6-3-live-correction/requirements-map.json"],
+      "source_sha256": "A680645299CFD8AC636E9F682DC88555E272C77D0811AF8002D6ED8B31673EB7",
+      "maps": [
+        "plans/features/asap8-v6-3-live-correction/requirements-map.json"
+      ],
       "coverage_complete": true,
-      "source_note": "current_task.md: v6.3 live-correction + инцидент Summary + FULLSCREEN HOTFIX/FOLLOW-UP (FE-FULLSCREEN: задеплоено 2.58.84; 8 строк owner-live); хэш обновлён 19.10 (хвосты ADD-TR→`add-tr-2026-10-19`, ADD-EXP→`add-exp-2026-10-19`)"
+      "source_note": "current_task.md: v6.3 live-correction + инцидент Summary + FULLSCREEN HOTFIX/FOLLOW-UP (FE-FULLSCREEN: задеплоено 2.58.84; 8 строк owner-live); хэш обновлён 19.10 (хвосты ADD-TR→`add-tr-2026-10-19`, ADD-EXP→`add-exp-2026-10-19`) | хэш обновлён 20.10 вечер: в хвост current_task добавлен блок ADD-SAMPLES-UX (собственные строки задачи не менялись; дельта зарегистрирована отдельной задачей samples-ux)"
     },
     {
       "id": "cfg-01-07",
       "status": "BUILDING",
       "source_path": "plans/features/cfg/source-cfg-addendum.md",
       "source_sha256": "2ED43009E1533ECA218BE419409870EBBE85F82D85262FF2335DFA2CE36E6B10",
-      "maps": ["plans/features/cfg/requirements-map.json"],
+      "maps": [
+        "plans/features/cfg/requirements-map.json"
+      ],
       "coverage_complete": true,
       "source_note": "current_task.md L1232–1629 (снапшот addendum); 12 строго последовательных слайсов; старт после текущей очереди"
     },
@@ -34,7 +41,9 @@
       "status": "BUILDING",
       "source_path": "plans/features/win-glass-hotfix/source-hotfix-2026-10-18.md",
       "source_sha256": "69B16CE8FC0287D1FF6BD83B0C23CD035207F167B8CC6969AC8EA42DB7843593",
-      "maps": ["plans/features/win-glass-hotfix/requirements-map.json"],
+      "maps": [
+        "plans/features/win-glass-hotfix/requirements-map.json"
+      ],
       "coverage_complete": true,
       "source_note": "чат-директива 18.10 (P0); карта 24 обязательных (WG-WIN 5, WG-ANDROID 6, WG-VERIFY 13), plan-гейт errors=0; live-строки 6 → owner-E2E"
     },
@@ -43,7 +52,9 @@
       "status": "VERIFIED",
       "source_path": "plans/features/p0-save-init-ux/source-p0-hotfix-2026-10-18.md",
       "source_sha256": "76BD681EA1F78FC0DE888B37928FF2CFBA8E3CE026BDFAF980FEB1001AC58825",
-      "maps": ["plans/features/p0-save-init-ux/requirements-map.json"],
+      "maps": [
+        "plans/features/p0-save-init-ux/requirements-map.json"
+      ],
       "coverage_complete": true,
       "source_note": "ЗАКРЫТО 19.10: карта A **29/29 обязательных VERIFIED**; release-гейт `29/0` EXIT 0 (`fac69543`); отчёт `final-report-25890.md`@`c8b97c1a` доставлен; прод **2.58.90**"
     },
@@ -52,7 +63,9 @@
       "status": "WAITING_EXTERNAL",
       "source_path": "plans/features/p0-save-init-ux/source-p0-followup-2026-10-18.md",
       "source_sha256": "1E00B4AFADB0D2861A8FB72B8439E921D540D0225A6C6EA2DF1B292A8B8628D4",
-      "maps": ["plans/features/p0-save-init-ux/requirements-map-followup.json"],
+      "maps": [
+        "plans/features/p0-save-init-ux/requirements-map-followup.json"
+      ],
       "coverage_complete": true,
       "source_note": "чат-директива 18.10 (P0 FOLLOW-UP); карта B: 35 required + 6 context (PM-P0-MAPS `2c916f35`; plan errors=0); SCEN-A/LIVE-FUNNEL закрыты live; SCEN-B ждёт естественного затишья (WAITING_EXTERNAL); closure-bookkeeping строки — LEDGER-P0B-CLOSE идёт"
     },
@@ -61,7 +74,9 @@
       "status": "READY_FOR_LIVE",
       "source_path": "plans/features/p0-vision-universal/source-p0-vision-2026-10-19.md",
       "source_sha256": "8A841F54200B479873F7C38D89C5462C2764953A51A930D9DBA24505E2230C90",
-      "maps": ["plans/features/p0-vision-universal/requirements-map.json"],
+      "maps": [
+        "plans/features/p0-vision-universal/requirements-map.json"
+      ],
       "coverage_complete": true,
       "source_note": "чат-директива 19.10 (P0 VISION): универсальная совместимость Vision с любыми провайдерами; карта 32 required + 5 context (PM-VISION-MAP `67e68313`; plan errors=0); слайсы P0V-ARCH/PROBE/PIPE/UI/ACCEPT; 11 live postdeploy"
     },
@@ -69,19 +84,34 @@
       "id": "add-tr-2026-10-19",
       "status": "BUILDING",
       "source_path": "plans/current_task.md",
-      "source_sha256": "111C23532CCEDB172A09A20C8D48D782F970DBD44AA10AB9B354F9E45654D76E",
-      "maps": ["plans/features/add-tr/requirements-map.json"],
+      "source_sha256": "A680645299CFD8AC636E9F682DC88555E272C77D0811AF8002D6ED8B31673EB7",
+      "maps": [
+        "plans/features/add-tr/requirements-map.json"
+      ],
       "coverage_complete": true,
-      "source_note": "current_task.md хвост (ADD-TR.0–ADD-TR.5, 19.10): сквозная проверка Tool Routing/Vision/Factcheck/GenImage/Checkup + Android-регрессия «Речи»; карта 58 required + 10 context (PM-TR-MAP `0ef8201b`; гейт 32/36/0); хэш обновлён 19.10 (хвост ADD-EXP → `add-exp-2026-10-19`); TR-RECON DONE"
+      "source_note": "current_task.md хвост (ADD-TR.0–ADD-TR.5, 19.10): сквозная проверка Tool Routing/Vision/Factcheck/GenImage/Checkup + Android-регрессия «Речи»; карта 58 required + 10 context (PM-TR-MAP `0ef8201b`; гейт 32/36/0); хэш обновлён 19.10 (хвост ADD-EXP → `add-exp-2026-10-19`); TR-RECON DONE | хэш обновлён 20.10 вечер: в хвост current_task добавлен блок ADD-SAMPLES-UX (собственные строки задачи не менялись; дельта зарегистрирована отдельной задачей samples-ux)"
     },
     {
       "id": "add-exp-2026-10-19",
       "status": "READY_FOR_LIVE",
       "source_path": "plans/current_task.md",
-      "source_sha256": "111C23532CCEDB172A09A20C8D48D782F970DBD44AA10AB9B354F9E45654D76E",
-      "maps": ["plans/features/add-exp/requirements-map.json"],
+      "source_sha256": "A680645299CFD8AC636E9F682DC88555E272C77D0811AF8002D6ED8B31673EB7",
+      "maps": [
+        "plans/features/add-exp/requirements-map.json"
+      ],
       "coverage_complete": true,
-      "source_note": "current_task.md хвост (ADD-EXP, 19.10): реальная управляемость мата — off/occasional/frequent, runtime-подключение Expression (Direct/Initiative), диагностика классов, payload-доказательство; карта 29 required + 8 context (PM-PREP-ADD-EXP `46566294`; гейт 20/17/0; слайсы EXP-UI/INSTR/RUNTIME/ACCEPT); **§3.2 BROKEN: Expression никогда не подключён в живые сборки (preview-only) — отсюда «мата нет»**; очередь: Ф0 после ACCEPTANCE-94, исполнение в слоте CFG-07B"
+      "source_note": "current_task.md хвост (ADD-EXP, 19.10): реальная управляемость мата — off/occasional/frequent, runtime-подключение Expression (Direct/Initiative), диагностика классов, payload-доказательство; карта 29 required + 8 context (PM-PREP-ADD-EXP `46566294`; гейт 20/17/0; слайсы EXP-UI/INSTR/RUNTIME/ACCEPT); **§3.2 BROKEN: Expression никогда не подключён в живые сборки (preview-only) — отсюда «мата нет»**; очередь: Ф0 после ACCEPTANCE-94, исполнение в слоте CFG-07B | хэш обновлён 20.10 вечер: в хвост current_task добавлен блок ADD-SAMPLES-UX (собственные строки задачи не менялись; дельта зарегистрирована отдельной задачей samples-ux)"
+    },
+    {
+      "id": "samples-ux",
+      "status": "BUILDING",
+      "source_path": "plans/features/samples-ux/source-add-samples-ux-2026-10-20.md",
+      "source_sha256": "E6153CF15854FA47C2FC0BA99A296F4A0BB37F435A7A5706809AD2CA6CA8AD69",
+      "maps": [
+        "plans/features/samples-ux/requirements-map.json"
+      ],
+      "coverage_complete": true,
+      "source_note": "current_task.md L1794-1914 (verbatim-снапшот): библиотека примеров — 3 категории (Общие/Юмор/Мат с явным expression_mode), редактируемые заводские наборы (persist override/tombstone против seed/деплоя), строгий UI-контракт MiniApp, few-shot семантика по категориям; дельта к SOUL-07/SOUL-10/ADD-EXP/CFG; живые тесты в чаты ЗАПРЕЩЕНЫ (offline/моки/браузер), недоступное — в owner_live_checks; инвентаризация PM DONE 20.10: 76 строк (64 required), plan-гейт EXIT 0, strict_evidence=true, slice-graph; REUSED большой (CRUD/seed-ручной/отбор 0-LLM/API why), NEW: категории+явный режим, tombstone против re-seed, редактор по §4.2, «Почему не используется?»"
     }
   ]
 }

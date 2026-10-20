@@ -458,9 +458,13 @@
       "req_id": "EXP-ACCEPT.CRITERION",
       "slice": "EXP-ACCEPT",
       "acceptance": "«Часто» действительно меняет типичные ответы бота, «эпизодически» даёт редкий, но наблюдаемый мат, «без мата» запрещает мат в собственных высказываниях; все режимы реально доходят до production LLM, а не только существуют в форме и предпросмотре.",
-      "live_required": true,
+      "live_required": false,
       "live_when": "postdeploy",
       "status": "READY_FOR_LIVE",
+      "verification_tier": "owner_optional",
+      "owner_policy_ref": "plans/owner_live_checks.md",
+      "owner_optional_reason": "Живую поведенческую проверку режимов мата в реальных чатах по правилу 20.10.2026 выполняет только владелец (owner_live_checks.md §2: поговорить в разных контекстах); агенты в реальные чаты не пишут, техполовина доставки VERIFIED в инженерных строках.",
+      "engineering_req_ids": ["EXP-RUNTIME.PAYLOAD", "EXP-RUNTIME.WIRING", "EXP-ACCEPT.LIVE-SET"],
       "evidence": [
         {
           "candidate_commit": "4a09e29a62488b204acea7f821b81fa31dd91e0e",
@@ -519,8 +523,8 @@
           "artifact_sha256": "562d645b04ccf97dd577eb0c2e4490f3c51d8816b0f9ea78aae7d31cf3f831b2"
         }
       ],
-      "live_note": "READY_FOR_LIVE (v2 `1b23d4c9`): predeploy-половина закрыта — F3-тексты байт-точны, payload-трассы 16 маршрутов подтверждают доставку Expression до LLM; живое поведение — обязательная F4-матрица на выкаченном 2.58.98 (off/occasional/frequent, те же пороги §4); прежний FAILED acceptance-96 сохранён в истории честно.",
-      "note": "behavioral criterion FAILED at acceptance-96 (преждние тексты); F3+UNIFIED-CORE переписали слой инструкций; §4 проверяется только живой F4-матрицей postdeploy; не закрывать по факту доставки слоя. F2 (few-shot owner approval) — опциональный вход, не Human Gate."
+      "live_note": "READY_FOR_LIVE (v2 `1b23d4c9`): predeploy-половина закрыта — F3-тексты байт-точны, payload-трассы 16 маршрутов подтверждают доставку Expression до LLM; живое поведение — обязательная F4-матрица на выкаченном 2.58.98 (off/occasional/frequent, те же пороги §4); прежний FAILED acceptance-96 сохранён в истории честно. Сверка 20.10.2026 (OWNER-OBS-RECON): живую F4-матрицу выполняет владелец (§2, добровольно) — строка owner_optional; инженерная доставка VERIFIED в связанных строках.",
+      "note": "behavioral criterion FAILED at acceptance-96 (преждние тексты); F3+UNIFIED-CORE переписали слой инструкций; §4 проверяется только живой F4-матрицей postdeploy; не закрывать по факту доставки слоя. F2 (few-shot owner approval) — опциональный вход, не Human Gate. Сверка 20.10: строка owner_optional (наблюдатель живой части — только владелец, §2); FAILED-история и пороги §4 сохранены."
     }
   ],
   "items": [

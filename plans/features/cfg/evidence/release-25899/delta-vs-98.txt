@@ -1,0 +1,7 @@
+REL-25899 delta vs procedure-98 (ref98-files = ref97-files.txt from pkg98 scratch):
+ref files 31 == bump files 31, SET EQUAL: True
+ONLY IN 98: none
+ONLY IN 99: none
+
+total working-tree delta files: 56 (bump 31 + foreign 25)
+foreign contains samples-ux/factcheck files (NOT in package): ['plans/archive/mca-17c-analytics-matrix-round1047/evidence.md', 'plans/features/add-exp/design-add-exp.md', 'plans/features/add-exp/requirements-map.json', 'plans/features/add-tr/requirements-map.json', 'plans/features/asap8-v6-3-live-correction/map-reconciliation-2026-10-16.md', 'plans/features/asap8-v6-3-live-correction/requirements-map.json', 'plans/features/cfg/evidence/cfg-06/w7-dispute-metrics.json', 'plans/features/cfg/requirements-map.json', 'plans/features/p0-save-init-ux/requirements-map-followup.json', 'plans/features/p0-vision-universal/requirements-map.json', 'plans/features/soul-1/requirements-map-amendment.json', 'plans/features/win-glass-hotfix/requirements-map.json', 'plans/owner_live_checks.md', 'plans/progress_scope.json', 'plans/workflow_state.md', 'services/database.py', 'services/mca_expression.py', 'services/mca_sample_library.py', 'tests/test_add_exp_expression.py', 'tests/test_unified_core_route_coverage.py', 'tests/ui_p0a_ux_speech_compact_e2e.py', 'web/api/speech.py', 'web/app.js', 'web/index.html', 'web/static/app.css']

@@ -6,6 +6,25 @@
   "deployed_commit": "eafbe2e7b792c74eeb91735e183b767c6b85d73c",
   "additional_requirements": [
     {
+      "source_id": "M-L134-OWNEROBS",
+      "source_line": 134,
+      "source_text_sha256": "bc5d46cad7234e84d17e2ba9fabc0e9e70213fe9bf9b535b70cd7a15ea931865",
+      "source_excerpt": "- Проверить те же принципы как минимум для поиска/фактчека/видео по одному реальному сценарию, а не только для",
+      "disposition": "required",
+      "reason": "Сверка 20.10.2026 (OWNER-OBS-RECON): субъективная оценка «единый характер» (голос тот же персонаж, не «нейтральный робот») при фактчеке/сводках — добровольное личное наблюдение владельца (owner_live_checks.md §6); инженерные проверки сценариев остаются обязательными в SOUL-AMD.8.11/SOUL-AMD.8.3.",
+      "req_id": "SOUL-AMD.8.11.OWNEROBS",
+      "slice": "W10",
+      "acceptance": "Добровольное наблюдение владельца: попросить фактчек и сводку/статью — голос тот же персонаж (не «нейтральный робот»), при этом факты, ссылки, структура и цитаты без искажений; мат по выбранной интенсивности, без вставок внутрь цитат.",
+      "live_required": false,
+      "live_when": "postdeploy",
+      "status": "PENDING",
+      "verification_tier": "owner_optional",
+      "owner_policy_ref": "plans/owner_live_checks.md",
+      "owner_optional_reason": "Субъективная оценка единства характера в живых ответах владельческих чатов доступна только владельцу; наблюдение добровольное и не блокирует инженерную приёмку.",
+      "engineering_req_ids": ["SOUL-AMD.8.11", "SOUL-AMD.8.3"],
+      "evidence": []
+    },
+    {
       "source_id": "M00003",
       "source_line": 3,
       "source_text_sha256": "47f8205d2fa3a305ecc984802bf4fd77fbe5f5ee08b82dda754cbfbfd8154bde",

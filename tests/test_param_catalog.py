@@ -165,7 +165,7 @@ class TestCompleteness:
         #   MCA-20 (ADR-1028-20 D13, round 10.44): +4 instance-поля
         #   TEMPORAL_* (группа temporal_factcheck) → 439→454 (ClassVar-KS
         #   не в счёте).
-        assert len(fields) == 458
+        assert len(fields) == 461  # CFG-06 v2 (5af56d8b): +3 поля фактчек-конвейера, пересанкционировано 20.10
         covered = {s.settings_field for s in REGISTRY.values() if s.settings_field}
         assert covered - TestCompleteness._CLASSVAR_CATALOGUED == fields
 
@@ -560,8 +560,11 @@ class TestGroups8424:
         # CFG-02B (19.10.2026, §02B.1/§02B.2, ADR-1031-1): +4 limits
         # (limits_images: тумблер частоты + серия + пауза + режим счёта),
         # GROUPS/TAB-маппинги in-place → limits 226, итого 579.
+        # CFG-06 v2 (5af56d8b, 20.10): +3 флага фактчек-конвейера v2
+        # (flags_module_factcheck in-place, pg_id-ренейм) → flags 102,
+        # итого 582.
         assert counts == {"prompts": 25, "models": 74, "keys": 35,
-                          "limits": 226, "flags": 99, "reactions": 39,
+                          "limits": 226, "flags": 102, "reactions": 39,
                           "content": 5, "memory": 47, "temporal": 4}
         assert {g.category for g in GROUPS} >= set(CATEGORIES)
 

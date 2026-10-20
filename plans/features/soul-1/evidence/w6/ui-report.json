@@ -33,7 +33,10 @@
    "height": 375
   }
  },
- "failures": [],
+ "failures": [
+  "390: предпросмотр выражения не обновился",
+  "1440: предпросмотр выражения не обновился"
+ ],
  "post_calls": [
   "POST block/core.personality",
   "POST block/core.personality/reset",
@@ -56,22 +59,22 @@
   {
    "label": "390/factory_plan",
    "toasts": [
-    "Заводской вариант: было 2882 → станет 2835 зн. (строк −2 / +0). Повторный клик — подтверждениеСохранено: характер (полная редакция)",
+    "Заводской вариант: было 2882 → станет 2835 зн. (строк −2 / +0). Повторный клик — подтверждениеСохранено для всех чатов: характер (полная редакция)",
     "Заводской вариант: было 2882 → станет 2835 зн. (строк −2 / +0). Повторный клик — подтверждение",
     "Заводской вариант: было 2882 → станет 2835 зн. (строк −2 / +0). Повторный клик — подтверждение",
-    "Сохранено: характер (полная редакция)",
-    "Сохранено: характер (полная редакция)"
+    "Сохранено для всех чатов: характер (полная редакция)",
+    "Сохранено для всех чатов: характер (полная редакция)"
    ],
    "expected": "было 2882 → станет 2835 зн."
   },
   {
    "label": "390/factory_apply",
    "toasts": [
-    "Заводской вариант: было 2882 → станет 2835 зн. (строк −2 / +0). Повторный клик — подтверждениеСохранено: характер (полная редакция)Заводской вариант возвращён (новая ревизия, предыдущая — в истории)",
+    "Заводской вариант: было 2882 → станет 2835 зн. (строк −2 / +0). Повторный клик — подтверждениеСохранено для всех чатов: характер (полная редакция)Заводской вариант возвращён (новая ревизия, предыдущая — в истории)",
     "Заводской вариант: было 2882 → станет 2835 зн. (строк −2 / +0). Повторный клик — подтверждение",
     "Заводской вариант: было 2882 → станет 2835 зн. (строк −2 / +0). Повторный клик — подтверждение",
-    "Сохранено: характер (полная редакция)",
-    "Сохранено: характер (полная редакция)",
+    "Сохранено для всех чатов: характер (полная редакция)",
+    "Сохранено для всех чатов: характер (полная редакция)",
     "Заводской вариант возвращён (новая ревизия, предыдущая — в истории)",
     "Заводской вариант возвращён (новая ревизия, предыдущая — в истории)"
    ]
@@ -103,27 +106,25 @@
   {
    "label": "390/inspector",
    "sent_branch": true,
-   "head": "← Назад\nРечь и характер\nЧАТ\nзадано глобально\nAudit Chat\nОбновить данные"
+   "head": "← Назад\n\nРечь и характер\nЧАТ\n"
   },
   {
    "label": "1440/factory_plan",
    "toasts": [
-    "Заводской вариант: было 2882 → станет 2835 зн. (строк −2 / +0). Повторный клик — подтверждениеСохранено: характер (полная редакция)",
+    "Заводской вариант: было 2882 → станет 2835 зн. (строк −2 / +0). Повторный клик — подтверждениеСохранено для всех чатов: характер (полная редакция)",
     "Заводской вариант: было 2882 → станет 2835 зн. (строк −2 / +0). Повторный клик — подтверждение",
     "Заводской вариант: было 2882 → станет 2835 зн. (строк −2 / +0). Повторный клик — подтверждение",
-    "Сохранено: характер (полная редакция)",
-    "Сохранено: характер (полная редакция)"
+    "Сохранено для всех чатов: характер (полная редакция)",
+    "Сохранено для всех чатов: характер (полная редакция)"
    ],
    "expected": "было 2882 → станет 2835 зн."
   },
   {
    "label": "1440/factory_apply",
    "toasts": [
-    "Заводской вариант: было 2882 → станет 2835 зн. (строк −2 / +0). Повторный клик — подтверждениеСохранено: характер (полная редакция)Заводской вариант возвращён (новая ревизия, предыдущая — в истории)",
+    "Заводской вариант: было 2882 → станет 2835 зн. (строк −2 / +0). Повторный клик — подтверждениеЗаводской вариант возвращён (новая ревизия, предыдущая — в истории)",
     "Заводской вариант: было 2882 → станет 2835 зн. (строк −2 / +0). Повторный клик — подтверждение",
     "Заводской вариант: было 2882 → станет 2835 зн. (строк −2 / +0). Повторный клик — подтверждение",
-    "Сохранено: характер (полная редакция)",
-    "Сохранено: характер (полная редакция)",
     "Заводской вариант возвращён (новая ревизия, предыдущая — в истории)",
     "Заводской вариант возвращён (новая ревизия, предыдущая — в истории)"
    ]
@@ -155,7 +156,7 @@
   {
    "label": "1440/inspector",
    "sent_branch": true,
-   "head": "← Назад\nРечь и характер\nЧАТ\nзадано глобально\nAudit Chat\nОбновить данные"
+   "head": "← Назад\n\nРечь и характер\nЧАТ\nAudit Chat\n\nОбновить данные"
   }
  ],
  "dialogs": [
@@ -182,7 +183,7 @@
     "splitCols": 0,
     "preCount": 0,
     "preOverflow": 0,
-    "headH": 130,
+    "headH": 70,
     "paddingLeft": "12px"
    }
   },
@@ -194,12 +195,12 @@
     "scrollWidth": 320,
     "pageOverflow": 0,
     "minTap": 44,
-    "tapCount": 13,
+    "tapCount": 12,
     "gridCols": 0,
     "splitCols": 1,
     "preCount": 0,
     "preOverflow": 0,
-    "headH": 152,
+    "headH": 122,
     "paddingLeft": "12px"
    }
   },
@@ -216,7 +217,7 @@
     "splitCols": 0,
     "preCount": 1,
     "preOverflow": 0,
-    "headH": 152,
+    "headH": 122,
     "paddingLeft": "12px"
    }
   },
@@ -228,12 +229,12 @@
     "scrollWidth": 320,
     "pageOverflow": 0,
     "minTap": 44,
-    "tapCount": 11,
+    "tapCount": 12,
     "gridCols": 0,
     "splitCols": 1,
     "preCount": 1,
-    "preOverflow": 0,
-    "headH": 152,
+    "preOverflow": 1,
+    "headH": 122,
     "paddingLeft": "12px"
    }
   },
@@ -245,12 +246,12 @@
     "scrollWidth": 320,
     "pageOverflow": 0,
     "minTap": 44,
-    "tapCount": 3,
-    "gridCols": 1,
+    "tapCount": 16,
+    "gridCols": 0,
     "splitCols": 0,
     "preCount": 0,
     "preOverflow": 0,
-    "headH": 152,
+    "headH": 122,
     "paddingLeft": "12px"
    }
   },
@@ -262,12 +263,12 @@
     "scrollWidth": 320,
     "pageOverflow": 0,
     "minTap": 44,
-    "tapCount": 5,
+    "tapCount": 12,
     "gridCols": 0,
     "splitCols": 0,
     "preCount": 0,
     "preOverflow": 0,
-    "headH": 152,
+    "headH": 122,
     "paddingLeft": "12px"
    }
   },
@@ -284,7 +285,7 @@
     "splitCols": 1,
     "preCount": 0,
     "preOverflow": 0,
-    "headH": 152,
+    "headH": 122,
     "paddingLeft": "12px"
    }
   },
@@ -296,12 +297,12 @@
     "scrollWidth": 320,
     "pageOverflow": 0,
     "minTap": 44,
-    "tapCount": 2,
+    "tapCount": 3,
     "gridCols": 0,
     "splitCols": 0,
     "preCount": 0,
     "preOverflow": 0,
-    "headH": 152,
+    "headH": 122,
     "paddingLeft": "12px"
    }
   },
@@ -318,7 +319,7 @@
     "splitCols": 0,
     "preCount": 0,
     "preOverflow": 0,
-    "headH": 152,
+    "headH": 122,
     "paddingLeft": "12px"
    }
   },
@@ -335,7 +336,7 @@
     "splitCols": 0,
     "preCount": 1,
     "preOverflow": 1,
-    "headH": 152,
+    "headH": 122,
     "paddingLeft": "12px"
    }
   },
@@ -352,7 +353,7 @@
     "splitCols": 0,
     "preCount": 0,
     "preOverflow": 0,
-    "headH": 152,
+    "headH": 122,
     "paddingLeft": "12px"
    }
   },
@@ -369,7 +370,7 @@
     "splitCols": 0,
     "preCount": 0,
     "preOverflow": 0,
-    "headH": 100,
+    "headH": 70,
     "paddingLeft": "12px"
    }
   },
@@ -381,12 +382,12 @@
     "scrollWidth": 360,
     "pageOverflow": 0,
     "minTap": 44,
-    "tapCount": 13,
+    "tapCount": 12,
     "gridCols": 0,
     "splitCols": 1,
     "preCount": 0,
     "preOverflow": 0,
-    "headH": 152,
+    "headH": 122,
     "paddingLeft": "12px"
    }
   },
@@ -403,7 +404,7 @@
     "splitCols": 0,
     "preCount": 1,
     "preOverflow": 0,
-    "headH": 152,
+    "headH": 122,
     "paddingLeft": "12px"
    }
   },
@@ -415,12 +416,12 @@
     "scrollWidth": 360,
     "pageOverflow": 0,
     "minTap": 44,
-    "tapCount": 11,
+    "tapCount": 12,
     "gridCols": 0,
     "splitCols": 1,
     "preCount": 1,
-    "preOverflow": 0,
-    "headH": 152,
+    "preOverflow": 1,
+    "headH": 122,
     "paddingLeft": "12px"
    }
   },
@@ -432,12 +433,12 @@
     "scrollWidth": 360,
     "pageOverflow": 0,
     "minTap": 44,
-    "tapCount": 3,
-    "gridCols": 1,
+    "tapCount": 16,
+    "gridCols": 0,
     "splitCols": 0,
     "preCount": 0,
     "preOverflow": 0,
-    "headH": 152,
+    "headH": 122,
     "paddingLeft": "12px"
    }
   },
@@ -449,12 +450,12 @@
     "scrollWidth": 360,
     "pageOverflow": 0,
     "minTap": 44,
-    "tapCount": 5,
+    "tapCount": 12,
     "gridCols": 0,
     "splitCols": 0,
     "preCount": 0,
     "preOverflow": 0,
-    "headH": 152,
+    "headH": 122,
     "paddingLeft": "12px"
    }
   },
@@ -471,7 +472,7 @@
     "splitCols": 1,
     "preCount": 0,
     "preOverflow": 0,
-    "headH": 152,
+    "headH": 122,
     "paddingLeft": "12px"
    }
   },
@@ -483,12 +484,12 @@
     "scrollWidth": 360,
     "pageOverflow": 0,
     "minTap": 44,
-    "tapCount": 2,
+    "tapCount": 3,
     "gridCols": 0,
     "splitCols": 0,
     "preCount": 0,
     "preOverflow": 0,
-    "headH": 152,
+    "headH": 122,
     "paddingLeft": "12px"
    }
   },
@@ -505,7 +506,7 @@
     "splitCols": 0,
     "preCount": 0,
     "preOverflow": 0,
-    "headH": 152,
+    "headH": 122,
     "paddingLeft": "12px"
    }
   },
@@ -522,7 +523,7 @@
     "splitCols": 0,
     "preCount": 2,
     "preOverflow": 2,
-    "headH": 152,
+    "headH": 122,
     "paddingLeft": "12px"
    }
   },
@@ -539,7 +540,7 @@
     "splitCols": 0,
     "preCount": 0,
     "preOverflow": 0,
-    "headH": 152,
+    "headH": 122,
     "paddingLeft": "12px"
    }
   },
@@ -556,7 +557,7 @@
     "splitCols": 0,
     "preCount": 0,
     "preOverflow": 0,
-    "headH": 100,
+    "headH": 70,
     "paddingLeft": "12px"
    }
   },
@@ -568,12 +569,12 @@
     "scrollWidth": 390,
     "pageOverflow": 0,
     "minTap": 44,
-    "tapCount": 13,
+    "tapCount": 12,
     "gridCols": 0,
     "splitCols": 1,
     "preCount": 0,
     "preOverflow": 0,
-    "headH": 152,
+    "headH": 122,
     "paddingLeft": "12px"
    }
   },
@@ -590,7 +591,7 @@
     "splitCols": 0,
     "preCount": 1,
     "preOverflow": 0,
-    "headH": 152,
+    "headH": 122,
     "paddingLeft": "12px"
    }
   },
@@ -602,12 +603,12 @@
     "scrollWidth": 390,
     "pageOverflow": 0,
     "minTap": 44,
-    "tapCount": 11,
+    "tapCount": 12,
     "gridCols": 0,
     "splitCols": 1,
     "preCount": 1,
-    "preOverflow": 0,
-    "headH": 152,
+    "preOverflow": 1,
+    "headH": 122,
     "paddingLeft": "12px"
    }
   },
@@ -619,12 +620,12 @@
     "scrollWidth": 390,
     "pageOverflow": 0,
     "minTap": 44,
-    "tapCount": 3,
-    "gridCols": 1,
+    "tapCount": 16,
+    "gridCols": 0,
     "splitCols": 0,
     "preCount": 0,
     "preOverflow": 0,
-    "headH": 152,
+    "headH": 122,
     "paddingLeft": "12px"
    }
   },
@@ -636,12 +637,12 @@
     "scrollWidth": 390,
     "pageOverflow": 0,
     "minTap": 44,
-    "tapCount": 5,
+    "tapCount": 12,
     "gridCols": 0,
     "splitCols": 0,
     "preCount": 0,
     "preOverflow": 0,
-    "headH": 152,
+    "headH": 122,
     "paddingLeft": "12px"
    }
   },
@@ -658,7 +659,7 @@
     "splitCols": 1,
     "preCount": 0,
     "preOverflow": 0,
-    "headH": 152,
+    "headH": 122,
     "paddingLeft": "12px"
    }
   },
@@ -670,12 +671,12 @@
     "scrollWidth": 390,
     "pageOverflow": 0,
     "minTap": 44,
-    "tapCount": 2,
+    "tapCount": 3,
     "gridCols": 0,
     "splitCols": 0,
     "preCount": 0,
     "preOverflow": 0,
-    "headH": 152,
+    "headH": 122,
     "paddingLeft": "12px"
    }
   },
@@ -692,7 +693,7 @@
     "splitCols": 0,
     "preCount": 0,
     "preOverflow": 0,
-    "headH": 152,
+    "headH": 122,
     "paddingLeft": "12px"
    }
   },
@@ -709,7 +710,7 @@
     "splitCols": 0,
     "preCount": 1,
     "preOverflow": 1,
-    "headH": 152,
+    "headH": 122,
     "paddingLeft": "12px"
    }
   },
@@ -726,7 +727,7 @@
     "splitCols": 0,
     "preCount": 0,
     "preOverflow": 0,
-    "headH": 152,
+    "headH": 122,
     "paddingLeft": "12px"
    }
   },
@@ -743,7 +744,7 @@
     "splitCols": 0,
     "preCount": 0,
     "preOverflow": 0,
-    "headH": 100,
+    "headH": 70,
     "paddingLeft": "12px"
    }
   },
@@ -755,12 +756,12 @@
     "scrollWidth": 430,
     "pageOverflow": 0,
     "minTap": 44,
-    "tapCount": 13,
+    "tapCount": 12,
     "gridCols": 0,
     "splitCols": 1,
     "preCount": 0,
     "preOverflow": 0,
-    "headH": 122,
+    "headH": 70,
     "paddingLeft": "12px"
    }
   },
@@ -777,7 +778,7 @@
     "splitCols": 0,
     "preCount": 1,
     "preOverflow": 0,
-    "headH": 122,
+    "headH": 70,
     "paddingLeft": "12px"
    }
   },
@@ -789,12 +790,12 @@
     "scrollWidth": 430,
     "pageOverflow": 0,
     "minTap": 44,
-    "tapCount": 11,
+    "tapCount": 12,
     "gridCols": 0,
     "splitCols": 1,
     "preCount": 1,
     "preOverflow": 0,
-    "headH": 122,
+    "headH": 70,
     "paddingLeft": "12px"
    }
   },
@@ -806,12 +807,12 @@
     "scrollWidth": 430,
     "pageOverflow": 0,
     "minTap": 44,
-    "tapCount": 3,
-    "gridCols": 1,
+    "tapCount": 16,
+    "gridCols": 0,
     "splitCols": 0,
     "preCount": 0,
     "preOverflow": 0,
-    "headH": 122,
+    "headH": 70,
     "paddingLeft": "12px"
    }
   },
@@ -823,12 +824,12 @@
     "scrollWidth": 430,
     "pageOverflow": 0,
     "minTap": 44,
-    "tapCount": 5,
+    "tapCount": 12,
     "gridCols": 0,
     "splitCols": 0,
     "preCount": 0,
     "preOverflow": 0,
-    "headH": 122,
+    "headH": 70,
     "paddingLeft": "12px"
    }
   },
@@ -845,7 +846,7 @@
     "splitCols": 1,
     "preCount": 0,
     "preOverflow": 0,
-    "headH": 122,
+    "headH": 70,
     "paddingLeft": "12px"
    }
   },
@@ -857,12 +858,12 @@
     "scrollWidth": 430,
     "pageOverflow": 0,
     "minTap": 44,
-    "tapCount": 2,
+    "tapCount": 3,
     "gridCols": 0,
     "splitCols": 0,
     "preCount": 0,
     "preOverflow": 0,
-    "headH": 122,
+    "headH": 70,
     "paddingLeft": "12px"
    }
   },
@@ -879,7 +880,7 @@
     "splitCols": 0,
     "preCount": 0,
     "preOverflow": 0,
-    "headH": 122,
+    "headH": 70,
     "paddingLeft": "12px"
    }
   },
@@ -896,7 +897,7 @@
     "splitCols": 0,
     "preCount": 2,
     "preOverflow": 2,
-    "headH": 122,
+    "headH": 70,
     "paddingLeft": "12px"
    }
   },
@@ -913,7 +914,7 @@
     "splitCols": 0,
     "preCount": 0,
     "preOverflow": 0,
-    "headH": 122,
+    "headH": 70,
     "paddingLeft": "12px"
    }
   },
@@ -926,7 +927,7 @@
     "pageOverflow": 0,
     "minTap": 44,
     "tapCount": 11,
-    "gridCols": 2,
+    "gridCols": 3,
     "splitCols": 0,
     "preCount": 0,
     "preOverflow": 0,
@@ -942,7 +943,7 @@
     "scrollWidth": 768,
     "pageOverflow": 0,
     "minTap": 44,
-    "tapCount": 13,
+    "tapCount": 11,
     "gridCols": 0,
     "splitCols": 1,
     "preCount": 0,
@@ -976,7 +977,7 @@
     "scrollWidth": 768,
     "pageOverflow": 0,
     "minTap": 44,
-    "tapCount": 11,
+    "tapCount": 12,
     "gridCols": 0,
     "splitCols": 1,
     "preCount": 1,
@@ -993,8 +994,8 @@
     "scrollWidth": 768,
     "pageOverflow": 0,
     "minTap": 44,
-    "tapCount": 3,
-    "gridCols": 3,
+    "tapCount": 16,
+    "gridCols": 0,
     "splitCols": 0,
     "preCount": 0,
     "preOverflow": 0,
@@ -1010,7 +1011,7 @@
     "scrollWidth": 768,
     "pageOverflow": 0,
     "minTap": 44,
-    "tapCount": 5,
+    "tapCount": 12,
     "gridCols": 0,
     "splitCols": 0,
     "preCount": 0,
@@ -1044,7 +1045,7 @@
     "scrollWidth": 768,
     "pageOverflow": 0,
     "minTap": 44,
-    "tapCount": 2,
+    "tapCount": 3,
     "gridCols": 0,
     "splitCols": 0,
     "preCount": 0,
@@ -1113,7 +1114,7 @@
     "pageOverflow": 0,
     "minTap": 44,
     "tapCount": 11,
-    "gridCols": 3,
+    "gridCols": 4,
     "splitCols": 0,
     "preCount": 0,
     "preOverflow": 0,
@@ -1129,7 +1130,7 @@
     "scrollWidth": 1024,
     "pageOverflow": 0,
     "minTap": 44,
-    "tapCount": 13,
+    "tapCount": 11,
     "gridCols": 0,
     "splitCols": 2,
     "preCount": 0,
@@ -1163,7 +1164,7 @@
     "scrollWidth": 1024,
     "pageOverflow": 0,
     "minTap": 44,
-    "tapCount": 11,
+    "tapCount": 12,
     "gridCols": 0,
     "splitCols": 2,
     "preCount": 1,
@@ -1180,8 +1181,8 @@
     "scrollWidth": 1024,
     "pageOverflow": 0,
     "minTap": 44,
-    "tapCount": 3,
-    "gridCols": 4,
+    "tapCount": 16,
+    "gridCols": 0,
     "splitCols": 0,
     "preCount": 0,
     "preOverflow": 0,
@@ -1197,7 +1198,7 @@
     "scrollWidth": 1024,
     "pageOverflow": 0,
     "minTap": 44,
-    "tapCount": 5,
+    "tapCount": 12,
     "gridCols": 0,
     "splitCols": 0,
     "preCount": 0,
@@ -1231,7 +1232,7 @@
     "scrollWidth": 1024,
     "pageOverflow": 0,
     "minTap": 44,
-    "tapCount": 2,
+    "tapCount": 3,
     "gridCols": 0,
     "splitCols": 0,
     "preCount": 0,
@@ -1300,7 +1301,7 @@
     "pageOverflow": 0,
     "minTap": 44,
     "tapCount": 11,
-    "gridCols": 4,
+    "gridCols": 5,
     "splitCols": 0,
     "preCount": 0,
     "preOverflow": 0,
@@ -1316,7 +1317,7 @@
     "scrollWidth": 1440,
     "pageOverflow": 0,
     "minTap": 44,
-    "tapCount": 13,
+    "tapCount": 11,
     "gridCols": 0,
     "splitCols": 2,
     "preCount": 0,
@@ -1350,7 +1351,7 @@
     "scrollWidth": 1440,
     "pageOverflow": 0,
     "minTap": 44,
-    "tapCount": 11,
+    "tapCount": 12,
     "gridCols": 0,
     "splitCols": 2,
     "preCount": 1,
@@ -1367,8 +1368,8 @@
     "scrollWidth": 1440,
     "pageOverflow": 0,
     "minTap": 44,
-    "tapCount": 3,
-    "gridCols": 5,
+    "tapCount": 16,
+    "gridCols": 0,
     "splitCols": 0,
     "preCount": 0,
     "preOverflow": 0,
@@ -1384,7 +1385,7 @@
     "scrollWidth": 1440,
     "pageOverflow": 0,
     "minTap": 44,
-    "tapCount": 5,
+    "tapCount": 12,
     "gridCols": 0,
     "splitCols": 0,
     "preCount": 0,
@@ -1418,7 +1419,7 @@
     "scrollWidth": 1440,
     "pageOverflow": 0,
     "minTap": 44,
-    "tapCount": 2,
+    "tapCount": 3,
     "gridCols": 0,
     "splitCols": 0,
     "preCount": 0,
@@ -1503,12 +1504,12 @@
     "scrollWidth": 667,
     "pageOverflow": 0,
     "minTap": 44,
-    "tapCount": 13,
+    "tapCount": 12,
     "gridCols": 0,
     "splitCols": 1,
     "preCount": 0,
     "preOverflow": 0,
-    "headH": 122,
+    "headH": 70,
     "paddingLeft": "12px"
    }
   },
@@ -1525,7 +1526,7 @@
     "splitCols": 0,
     "preCount": 1,
     "preOverflow": 0,
-    "headH": 122,
+    "headH": 70,
     "paddingLeft": "12px"
    }
   },
@@ -1537,12 +1538,12 @@
     "scrollWidth": 667,
     "pageOverflow": 0,
     "minTap": 44,
-    "tapCount": 11,
+    "tapCount": 12,
     "gridCols": 0,
     "splitCols": 1,
     "preCount": 1,
     "preOverflow": 0,
-    "headH": 122,
+    "headH": 70,
     "paddingLeft": "12px"
    }
   },
@@ -1554,12 +1555,12 @@
     "scrollWidth": 667,
     "pageOverflow": 0,
     "minTap": 44,
-    "tapCount": 3,
-    "gridCols": 2,
+    "tapCount": 16,
+    "gridCols": 0,
     "splitCols": 0,
     "preCount": 0,
     "preOverflow": 0,
-    "headH": 122,
+    "headH": 70,
     "paddingLeft": "12px"
    }
   },
@@ -1571,12 +1572,12 @@
     "scrollWidth": 667,
     "pageOverflow": 0,
     "minTap": 44,
-    "tapCount": 5,
+    "tapCount": 12,
     "gridCols": 0,
     "splitCols": 0,
     "preCount": 0,
     "preOverflow": 0,
-    "headH": 122,
+    "headH": 70,
     "paddingLeft": "12px"
    }
   },
@@ -1593,7 +1594,7 @@
     "splitCols": 1,
     "preCount": 0,
     "preOverflow": 0,
-    "headH": 122,
+    "headH": 70,
     "paddingLeft": "12px"
    }
   },
@@ -1605,12 +1606,12 @@
     "scrollWidth": 667,
     "pageOverflow": 0,
     "minTap": 44,
-    "tapCount": 2,
+    "tapCount": 3,
     "gridCols": 0,
     "splitCols": 0,
     "preCount": 0,
     "preOverflow": 0,
-    "headH": 122,
+    "headH": 70,
     "paddingLeft": "12px"
    }
   },
@@ -1627,7 +1628,7 @@
     "splitCols": 0,
     "preCount": 0,
     "preOverflow": 0,
-    "headH": 122,
+    "headH": 70,
     "paddingLeft": "12px"
    }
   },
@@ -1644,7 +1645,7 @@
     "splitCols": 0,
     "preCount": 2,
     "preOverflow": 2,
-    "headH": 122,
+    "headH": 70,
     "paddingLeft": "12px"
    }
   },
@@ -1661,105 +1662,10 @@
     "splitCols": 0,
     "preCount": 0,
     "preOverflow": 0,
-    "headH": 122,
+    "headH": 70,
     "paddingLeft": "12px"
    }
   }
  ],
- "shots": [
-  "all_block_1440.png",
-  "all_block_390.png",
-  "capabilities_1440.png",
-  "capabilities_390.png",
-  "core_saved_1440.png",
-  "core_saved_390.png",
-  "entry_1024.png",
-  "entry_1440.png",
-  "entry_320.png",
-  "entry_360.png",
-  "entry_390.png",
-  "entry_430.png",
-  "entry_768.png",
-  "entry_landscape.png",
-  "expression_1440.png",
-  "expression_390.png",
-  "factory_plan_1440.png",
-  "factory_plan_390.png",
-  "inspector_1440.png",
-  "inspector_390.png",
-  "inspector_sent_1440.png",
-  "inspector_sent_390.png",
-  "persona_entry_1024.png",
-  "persona_entry_1440.png",
-  "persona_entry_320.png",
-  "persona_entry_360.png",
-  "persona_entry_390.png",
-  "persona_entry_430.png",
-  "persona_entry_768.png",
-  "persona_entry_landscape.png",
-  "section_all_1024.png",
-  "section_all_1440.png",
-  "section_all_320.png",
-  "section_all_360.png",
-  "section_all_390.png",
-  "section_all_430.png",
-  "section_all_768.png",
-  "section_all_landscape.png",
-  "section_capabilities_1024.png",
-  "section_capabilities_1440.png",
-  "section_capabilities_320.png",
-  "section_capabilities_360.png",
-  "section_capabilities_390.png",
-  "section_capabilities_430.png",
-  "section_capabilities_768.png",
-  "section_capabilities_landscape.png",
-  "section_core_1024.png",
-  "section_core_1440.png",
-  "section_core_320.png",
-  "section_core_360.png",
-  "section_core_390.png",
-  "section_core_430.png",
-  "section_core_768.png",
-  "section_core_landscape.png",
-  "section_inspector_1024.png",
-  "section_inspector_1440.png",
-  "section_inspector_320.png",
-  "section_inspector_360.png",
-  "section_inspector_390.png",
-  "section_inspector_430.png",
-  "section_inspector_768.png",
-  "section_inspector_landscape.png",
-  "section_learning_1024.png",
-  "section_learning_1440.png",
-  "section_learning_320.png",
-  "section_learning_360.png",
-  "section_learning_390.png",
-  "section_learning_430.png",
-  "section_learning_768.png",
-  "section_learning_landscape.png",
-  "section_style_1024.png",
-  "section_style_1440.png",
-  "section_style_320.png",
-  "section_style_360.png",
-  "section_style_390.png",
-  "section_style_430.png",
-  "section_style_768.png",
-  "section_style_landscape.png",
-  "section_try_1024.png",
-  "section_try_1440.png",
-  "section_try_320.png",
-  "section_try_360.png",
-  "section_try_390.png",
-  "section_try_430.png",
-  "section_try_768.png",
-  "section_try_landscape.png",
-  "style_added_1440.png",
-  "style_added_390.png",
-  "style_draft_1440.png",
-  "style_draft_390.png",
-  "style_preview_1440.png",
-  "style_preview_390.png",
-  "try_1440.png",
-  "try_390.png"
- ]
+ "shots": []
 }

@@ -167,7 +167,7 @@ class TestCfg02aCatalogAndUiContract:
 
     def test_catalog_artifacts_untouched(self):
         """Замороженные срезы каталога не сдвинуты этим слайсом."""
-        assert len(pc.REGISTRY) == 579
+        assert len(pc.REGISTRY) == 582
         assert len(pc.GROUPS) == 120
 
     def test_vitrina_labels_and_units(self):

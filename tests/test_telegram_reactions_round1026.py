@@ -507,17 +507,17 @@ class TestBoundaries:
 
     def test_counts_unchanged(self):
         # ASAP-3 (ADR-1028-2 D12, санкция spec §6): Δ +2 каталога-ключа → 483/423/458 (см. примечание в test_round1025_f8_registry).
-        assert len(pc.REGISTRY) == 579
-        assert len({f.name for f in dataclasses.fields(Settings)}) == 458
+        assert len(pc.REGISTRY) == 582
+        assert len({f.name for f in dataclasses.fields(Settings)}) == 461  # CFG-06 v2 (5af56d8b): +3 поля фактчек-конвейера, пересанкционировано 20.10
         assert len([s for s in pc.REGISTRY.values()
-                    if s.category is not None]) == 554
+                    if s.category is not None]) == 557
         assert len(pc.GROUPS) == 120
         assert len(pc._TAB_BY_GROUP) == 118
         assert len(pc.TAB_RULES) == 23
 
     def test_canon_twelve_and_version(self):
         assert len(TOOL_CALLING_TOOLS) == 14
-        assert APP_VERSION == "2.58.98"
+        assert APP_VERSION == "2.58.99"
 
     def test_kill_switch_env_only_not_catalog(self):
         assert "REACTION_MECHANICS_ENABLED" not in pc.REGISTRY

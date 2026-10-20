@@ -264,6 +264,25 @@
       ]
     },
     {
+      "source_id": "M-B-35-OWNEROBS",
+      "source_line": 35,
+      "source_text_sha256": "0a786946e241e702a8286b81c3c2ff22020505f46dbc171ec3354ccf0b0b242a",
+      "source_excerpt": "**Сценарий B — автономное воспоминание после затишья** (паузы/защита от навязчивости — здесь уместны).",
+      "disposition": "required",
+      "reason": "Сверка 20.10.2026 (OWNER-OBS-RECON): личное наблюдение владельца «пришло ли ностальгическое сообщение само после затишья» — добровольное (owner_live_checks.md §5); инженерная половина (механизм, тики, паузы/анти-спам) остаётся обязательной в P0B-NOST-SCEN-B (READY_FOR_LIVE — ждёт естественного затишья, WAITING_EXTERNAL, проверяемо агентами по логам).",
+      "req_id": "P0B-NOST-SCEN-B.OWNEROBS",
+      "slice": "P0B-NOST",
+      "acceptance": "Добровольное наблюдение владельца: когда в чате долго тихо — ностальгическое сообщение приходит само (инициатива), без навязчивости; ничего делать не нужно, только наблюдение.",
+      "live_required": false,
+      "live_when": "postdeploy",
+      "status": "PENDING",
+      "verification_tier": "owner_optional",
+      "owner_policy_ref": "plans/owner_live_checks.md",
+      "owner_optional_reason": "Триггер — естественное затишье в реальных чатах владельца, а субъективное восприятие инициативы доступно только ему; наблюдение добровольное и не блокирует приёмку.",
+      "engineering_req_ids": ["P0B-NOST-SCEN-B"],
+      "evidence": []
+    },
+    {
       "source_id": "M-B-35",
       "source_line": 35,
       "source_text_sha256": "0a786946e241e702a8286b81c3c2ff22020505f46dbc171ec3354ccf0b0b242a",

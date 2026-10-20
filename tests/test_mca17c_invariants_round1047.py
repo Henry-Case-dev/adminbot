@@ -76,7 +76,7 @@ def test_no_ddl_catalog_ks_tools_delta():
     # Параллельный лейн F4 (§3.2, in-flight на момент снимка): +13
     # (stories/character §3.2) → 560; финальное значение фиксирует лейн,
     # приземляющийся последним (ребейзер — один sed).
-    assert len(pc.REGISTRY) == 579
+    assert len(pc.REGISTRY) == 582
 
 
 def test_registry_47_no_new_widgets():
@@ -138,7 +138,7 @@ def test_coverage_matrix_sync():
 
 def test_app_version_not_bumped():
     # bump 2.58.65→2.58.66 — домен @DevOps (T-5198), Builder не делает.
-    assert APP_VERSION == "2.58.98"
+    assert APP_VERSION == "2.58.99"
 
 
 def test_routes_plus3_and_registration():

@@ -1,0 +1,7 @@
+REL-25899 bump verify: working tree vs HEAD 8f220b60d72e (bump not committed; commit forbidden by brief)
+fix lane FIX-PKG99-PINS: py-pin invariants 458->461 re-sanctioned (CFG-06 v2 5af56d8b, +3 factcheck fields)
+foreign uncommitted (parallel lanes, NOT in package): 65 files (full list in final-diff-names.txt)
+bump delta files=31 expected=31
+files=31 changed-line-pairs=84 (expected 84 = 33 version + 15 re-sanction 458->461 + 36 catalog 579->582; counted re-sanction: 15, catalog: 36; catalog insertions: 10/10)
+
+CHECK OK: version lines differ only by 2.58.98->2.58.99 (or meta HEAD 1b23d4c->8f220b60); re-sanction lines 458->461 all carry CFG-06 v2 (5af56d8b) provenance; catalog-fix lines (579->582/168->171, +3 bullets, NOTE) only in the two sanctioned files (FIX-PKG99-CATALOG)

@@ -101,6 +101,25 @@
       ]
     },
     {
+      "source_id": "M-ADTR-GRID-CHECKS-OWNEROBS",
+      "source_line": 24,
+      "source_text_sha256": "3b2ada6cd3ee567d6ba69fdff3058fccbc1f1c2637c5c7f82b1d763d471afff2",
+      "source_excerpt": "Проверки: Android Telegram Portrait и Landscape (если реальный клиент недоступен — `PENDING_OWNER_E2E`), brows",
+      "disposition": "required",
+      "reason": "Сверка 20.10.2026 (OWNER-OBS-RECON): остаток «Android Telegram Portrait/Landscape на реальном клиенте» — device-наблюдение владельца (device-чек-листы отменены 18.10, PET_PROJECT §5; browser-половина сетки выполнена и VERIFIED в M-ADTR-GRID-CHECKS с честным PENDING_OWNER_E2E).",
+      "req_id": "M-ADTR-GRID-DEVICE-OBS",
+      "slice": "ADTR-GRID",
+      "acceptance": "Добровольное наблюдение владельца на его Android: сетка «Речь и характер» в Telegram Portrait/Landscape читабельна, badge/заголовки не пересекаются, существующие переходы и тексты доступны (совпадает с DoD 4).",
+      "live_required": false,
+      "live_when": "postdeploy",
+      "status": "PENDING",
+      "verification_tier": "owner_optional",
+      "owner_policy_ref": "plans/owner_live_checks.md",
+      "owner_optional_reason": "Нативный Telegram-клиент Android доступен только на устройстве владельца; браузерная матрица агентами уже покрыта, device-наблюдение добровольное.",
+      "engineering_req_ids": ["M-ADTR-GRID-CHECKS", "M-ADTR-VERIFY-NATIVE", "ADTR-VERIFY-DOD4"],
+      "evidence": []
+    },
+    {
       "source_id": "M-ADTR-GRID-CHECKS",
       "source_line": 24,
       "source_text_sha256": "3b2ada6cd3ee567d6ba69fdff3058fccbc1f1c2637c5c7f82b1d763d471afff2",

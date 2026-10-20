@@ -1,0 +1,20 @@
+REL-25899 bump offline check (procedure of check_deploy_25897-style offline gate; bump-scope)
+  [PASS] settings APP_VERSION == 2.58.99
+  [PASS] settings no stale 2.58.98 pin
+  [PASS] README has v2.58.99
+  [PASS] README no stale v2.58.98
+  [PASS] F8-meta APP_VERSION 2.58.99
+  [PASS] F8-meta HEAD 8f220b60
+  [PASS] F8-meta no stale 2.58.98/1b23d4c
+  [PASS] delta set == 31 expected
+  [PASS] bump set disjoint from samples-ux/factcheck
+  [PASS] changed-line-pairs == 84 (33 version + 15 re-sanction + 36 catalog)
+  [PASS] re-sanction pairs == 15 with provenance
+  [PASS] catalog pairs == 36 (579->582 / 554->557 / 168->171 / hash re-pin)
+  [PASS] catalog insertions == 10 (meta bullets + CFG-06 NOTE)
+  [PASS] F8-meta catalog counters 582/171
+  [PASS] delta DDL == 0
+  [PASS] import config.settings -> 2.58.99
+candidate HEAD (pre-bump): 8f220b60d72ea5cfeb77515881a7042c20cbc5b7
+bump files: 31; line pairs: 84; foreign uncommitted: 65
+OFFLINE CHECK: EXIT 0

@@ -2443,6 +2443,49 @@ _TEMPORAL: list[ParamSpec] = [
 ]
 
 
+# ── CFG-06 v2 (кандидат 5af56d8b, каталогизация 20.10.2026): 3 тумблера
+# фактчек-конвейера v2 (вкладка mod_factcheck, группа flags_module_factcheck
+# in-place). Рантайм читает hot-ключи БЕЗ суффикса _enabled
+# (services/factcheck_context.py / factcheck_suitability.py /
+# factcheck_orchestrator.py / factcheck_planner.py) → pg_id-ренейм,
+# прецедент product-осей §3.3 (flags.initiative_enabled…).
+# Все default False — v2-конвейер за миграционным рубильником (выкат OFF,
+# hot-включение владельцем после смоука; REGISTRY 579→582).
+_FACTCHECK_V2: list[ParamSpec] = [
+    ParamSpec("FACTCHECK_WIDE_CONTEXT_ENABLED", "FACTCHECK_WIDE_CONTEXT_ENABLED",
+              CATEGORY_FLAGS, "Фактчек: широкий контекст", "bool",
+              pg_id="flags.factcheck_wide_context",
+              group="flags_module_factcheck",
+              description="Расширенное адаптивное окно контекста фактчека "
+                          "(200–500 сообщений с якорями тейков). Гейт "
+                          "отката: выключено — работает прежнее окно; "
+                          "переключение без рестарта."),
+    ParamSpec("FACTCHECK_SUITABILITY_GATE_ENABLED",
+              "FACTCHECK_SUITABILITY_GATE_ENABLED",
+              CATEGORY_FLAGS, "Фактчек: гейт осмысленности", "bool",
+              pg_id="flags.factcheck_suitability_gate",
+              group="flags_module_factcheck",
+              description="Проверка осмысленности запроса до платного "
+                          "поиска: бессмысленные тейки отклоняются без "
+                          "расходов. Гейт отката; активен только вместе с "
+                          "широким контекстом."),
+    ParamSpec("FACTCHECK_PIPELINE_V2_ENABLED", "FACTCHECK_PIPELINE_V2_ENABLED",
+              CATEGORY_FLAGS, "Фактчек: конвейер v2", "bool",
+              pg_id="flags.factcheck_pipeline_v2",
+              group="flags_module_factcheck",
+              description="Единый конвейер проверки фактов: оценка "
+                          "осмысленности запроса, разбор упоминаний, план, "
+                          "поиск источников, вердикт и оформление — одним "
+                          "оркестратором вместо прежнего маршрута. "
+                          "Миграционный рубильник отката: пока он опущен, "
+                          "работает прежний порядок проверки; при новом "
+                          "конвейере широкое окно контекста и гейт "
+                          "осмысленности подразумеваются. По умолчанию "
+                          "опущен; владелец поднимает его после "
+                          "проверочного выката."),
+]
+
+
 # ── ASAP 7 (F3, §3.2): модуль «Инициатива» — ровно 9 ParamSpec на вкладке
 # mod_initiative (группы flags_intent ×4 + limits_intent ×5). Product-оси
 # §3.3: ключ каталога (default из СУЩЕСТВУЮЩЕГО settings-атрибута, новые
@@ -2897,6 +2940,10 @@ def _build_registry() -> dict[str, ParamSpec]:
     # temporal (группа temporal_factcheck, вкладка mod_factcheck; per-chat
     # НЕ разрешён — глобальные настройки владельца).
     for spec in _TEMPORAL:
+        add(spec)
+    # CFG-06 v2 (5af56d8b, 20.10.2026): +3 тумблера фактчек-конвейера v2
+    # (pg_id-ренейм hot-ключей flags.factcheck_*; REGISTRY 579→582).
+    for spec in _FACTCHECK_V2:
         add(spec)
     return registry
 
