@@ -68,6 +68,25 @@ from services.tool_schemas import factcheck_tools
 logger = logging.getLogger(__name__)
 
 
+def _metatext_retry_reason():
+    """CFG-07D.5: callable причины смысловой метаречи для bounded retry
+    Вербализатора — ТОЛЬКО в контуре pipeline v2 (тот же рубильник, что
+    диспетчеризует handler/оркестратор: hot ``flags.factcheck_pipeline_v2``
+    → env). OFF (default) → ``None``: контракт не активен, поведение
+    байт-в-байт прежнее (OFF-паритет). Никогда не бросает."""
+    try:
+        from services.factcheck_orchestrator import pipeline_v2_enabled
+        if not pipeline_v2_enabled():
+            return None
+    except Exception:      # pragma: no cover — fail-soft OFF
+        return None
+    try:
+        from services.public_speech_guard import metatext_retry_reason
+        return metatext_retry_reason
+    except Exception:      # pragma: no cover — guard не роняет Writer
+        return None
+
+
 def _emit_factcheck(outcome: str, *, level: str = "INFO", **fields):
     """MCA-17 (`factcheck.run`): fail-open эмиссия (REUSE mca-13).
 
@@ -373,7 +392,8 @@ class FactCheckService:
             _generate, base_messages, max_retries=2,
             enabled_rules=enabled_rules,
             dynamic_rules=anticliche_cache.get_rules() or None,
-            numeric_contract=numeric_contract)
+            numeric_contract=numeric_contract,
+            metatext_reason=_metatext_retry_reason())
         logger.info(
             "factcheck system2 verbalizer | chat=%s | mode=%s | attempts=%d "
             "| retries=%d | hits=%d | fallback=%s", chat_id, response_mode,
@@ -856,7 +876,8 @@ class FactCheckService:
         try:
             text, _stats = await verbalize_validated(
                 _generate, messages, max_retries=1,
-                dynamic_rules=anticliche_cache.get_rules() or None)
+                dynamic_rules=anticliche_cache.get_rules() or None,
+                metatext_reason=_metatext_retry_reason())
         except Exception:
             return ""
         try:

@@ -26,6 +26,7 @@ from services.outgoing_guard import sanitize_outgoing
 from services.prompt_style_blocks import (
     CLICHE_RETRY_SYSTEM_PROMPT,
     FORM_GUARD_RETRY_SYSTEM_PROMPT,
+    METATEXT_RETRY_SYSTEM_PROMPT,
     NUMERIC_CLAIM_RETRY_SYSTEM_PROMPT,
 )
 
@@ -658,6 +659,7 @@ async def verbalize_validated(
     form_contract: FormContract | None = None,
     fallback_text: str | None = None,
     numeric_contract: NumericContract | None = None,
+    metatext_reason: Callable[[str], str | None] | None = None,
 ) -> tuple[str, dict]:
     """Вызвать Вербализатор с браковкой ответа по запрещённым клише.
 
@@ -688,6 +690,19 @@ async def verbalize_validated(
     LLM-судьи/paraphrase-модуля нет. ``None``/K2 OFF → байт-паритет, stats
     без новых ключей.
 
+    CFG-07D.5: при переданном ``metatext_reason`` (callable текст → код
+    причины | None; смысловая метаречь, НЕ пойманная закрытыми сетами —
+    инверсные/вариативные overclaim-формулировки) кандидат проходит
+    metatext-гард. Нарушение → **≤1** повтор с
+    ``METATEXT_RETRY_SYSTEM_PROMPT`` (код причины) в ТОМ ЖЕ bounded-
+    бюджете; не исправлено/ошибка ретрая → ``metatext_fallback=True`` и
+    детерминированная зачистка распознанных формул
+    (``public_speech_guard.strip_guard_findings``). Дословные формулы и
+    машинные артефакты детектор НЕ возвращает (для них существует срез —
+    бюджет retry не тратится). ``None`` → байт-паритет, stats без новых
+    ключей. Приоритет повтора (несколько причин у одного кандидата):
+    metatext → form → numeric → cliché.
+
     Ретраи строго bounded (≤2 → ≤3 вызова Stage-2). Ошибка generate на
     ретрае → вернуть последний успешный текст (``retry_error=True``).
     Kill-switch ``SYSTEM2_VALIDATOR_LOOP_ENABLED=false`` → один прямой вызов.
@@ -702,6 +717,14 @@ async def verbalize_validated(
         "retry_error": False,
         "enabled": True,
     }
+    metatext_active = metatext_reason is not None
+    if metatext_active:
+        stats.update({
+            "metatext_rejects": 0,
+            "metatext_reason_code": None,
+            "metatext_retry": False,
+            "metatext_fallback": False,
+        })
     form_active = bool(form_contract is not None
                        and mca_gates.postprocess_form_guard_enabled())
     if form_active:
@@ -745,6 +768,22 @@ async def verbalize_validated(
             return NUMERIC_CLAIM_CAVEAT
         return corrected
 
+    def _metatext_code(candidate: str) -> str | None:
+        if not metatext_active:
+            return None
+        return metatext_reason(candidate)
+
+    def _metatext_strip(value: str) -> str:
+        """CFG-07D.5: деградация — детерминированная зачистка всех
+        распознанных формул (guard идемпотентен); резидуальная смысловая
+        метаречь без дословной формулы честно помечается
+        ``metatext_fallback``, не «чинится» выдумкой."""
+        try:
+            from services.public_speech_guard import strip_guard_findings
+            return strip_guard_findings(value)
+        except Exception:  # pragma: no cover - деградация без падения
+            return value
+
     def _fallback_result(text_value: str):
         """Финальный возврат при исчерпании: проверенный черновик, иначе best."""
         chosen = text_value
@@ -756,6 +795,10 @@ async def verbalize_validated(
             stats["numeric_claim_fallback"] = True
             stats["numeric_claim_reason"] = NUMERIC_CLAIM_FALLBACK
             chosen = _numeric_fallback(chosen)
+        if (metatext_active
+                and int(stats.get("metatext_rejects") or 0) > 0):
+            stats["metatext_fallback"] = True
+            chosen = _metatext_strip(chosen)
         return scrubber(chosen), stats
 
     if not getattr(settings, "SYSTEM2_VALIDATOR_LOOP_ENABLED", True):
@@ -778,18 +821,35 @@ async def verbalize_validated(
     if numeric_reason is not None:
         stats["numeric_claim_mismatch"] += 1
         stats["numeric_claim_reason"] = numeric_reason
-    if not codes and form_reason is None and numeric_reason is None:
+    metatext_code = _metatext_code(text)
+    if metatext_code is not None:
+        stats["metatext_rejects"] += 1
+        stats["metatext_reason_code"] = metatext_code
+    if (not codes and form_reason is None and numeric_reason is None
+            and metatext_code is None):
         stats["attempts"] = attempts
         return scrubber(text), stats
 
     best_text, best_codes = text, codes
     best_form_ok = form_reason is None
     best_numeric_ok = numeric_reason is None
+    best_metatext_ok = metatext_code is None
     form_retry_used = False
     numeric_retry_used = False
+    metatext_retry_used = False
     cap = max(0, min(int(max_retries), _MAX_RETRIES_HARD_CAP))
     for index in range(1, cap + 1):
-        if form_reason is not None:
+        if metatext_code is not None:
+            # CFG-07D.5: ровно ≤1 metatext-повтор с кодом причины в том же
+            # bounded-бюджете (грубейшее нарушение — метаречь; приоритет
+            # повтора выше form/numeric/cliché).
+            if metatext_retry_used:
+                break
+            metatext_retry_used = True
+            stats["metatext_retry"] = True
+            retry_system = METATEXT_RETRY_SYSTEM_PROMPT.replace(
+                "{reason}", str(metatext_code))
+        elif form_reason is not None:
             # «Только форма»: ровно ≤1 повтор с каноном формы (T-4908);
             # повтор тратится из ТОГО ЖЕ bounded-бюджета (бюджет не растёт).
             if form_retry_used:
@@ -835,18 +895,26 @@ async def verbalize_validated(
         if numeric_reason is not None:
             stats["numeric_claim_mismatch"] += 1
             stats["numeric_claim_reason"] = numeric_reason
-        if not codes and form_reason is None and numeric_reason is None:
+        metatext_code = _metatext_code(text)
+        if metatext_code is not None:
+            stats["metatext_rejects"] += 1
+            stats["metatext_reason_code"] = metatext_code
+        if (not codes and form_reason is None and numeric_reason is None
+                and metatext_code is None):
             stats.update({"attempts": attempts, "retries": retries})
             if int(stats.get("numeric_claim_mismatch") or 0) > 0:
                 stats["numeric_claim_reason"] = NUMERIC_CLAIM_CORRECTED
             return scrubber(text), stats
         form_ok = form_reason is None
         numeric_ok = numeric_reason is None
-        better = (form_ok, numeric_ok, -len(codes)) > (
-            best_form_ok, best_numeric_ok, -len(best_codes))
+        metatext_ok = metatext_code is None
+        better = (metatext_ok, form_ok, numeric_ok, -len(codes)) > (
+            best_metatext_ok, best_form_ok, best_numeric_ok,
+            -len(best_codes))
         if better:
             best_text, best_codes = text, codes
             best_form_ok, best_numeric_ok = form_ok, numeric_ok
+            best_metatext_ok = metatext_ok
 
     stats.update({
         "attempts": attempts,
@@ -856,7 +924,9 @@ async def verbalize_validated(
     })
     logger.info(
         "[validator] cliche loop exhausted | attempts=%d | retries=%d | "
-        "codes=%d | form_rejects=%d | numeric_rejects=%d", attempts, retries,
-        len(best_codes), int(stats.get("form_guard_rejects") or 0),
-        int(stats.get("numeric_claim_mismatch") or 0))
+        "codes=%d | form_rejects=%d | numeric_rejects=%d | "
+        "metatext_rejects=%d", attempts, retries, len(best_codes),
+        int(stats.get("form_guard_rejects") or 0),
+        int(stats.get("numeric_claim_mismatch") or 0),
+        int(stats.get("metatext_rejects") or 0))
     return _fallback_result(best_text)
