@@ -1,0 +1,106 @@
+{
+  "lane": "DEVOPS-DEPLOY-98",
+  "release": "2.58.98",
+  "date_utc": "2026-10-20",
+  "candidate": {
+    "review": "REV-REL-25898",
+    "verdict": "Approved",
+    "review_artifact": "plans/features/cfg/evidence/release-25898/review-rel.md",
+    "code_candidate": "1b23d4c9beb1544169f51781c2c8a45e8797f719",
+    "release_commit": "f9e7dd6798858fed483a0366343ce581f41caf8d",
+    "deployed_commit": "29cc49baa4c4a2e25ac5907470dbc18f62ed69bc",
+    "deployed_commit_note": "origin/master; docs-only above release commit; CAND_TO_OM_NONPLANS=0 (runtime bytes == f9e7dd67)",
+    "deploy_source": "origin/master",
+    "mutable_worktree_required": false,
+    "write_scope": ["prod repo /var/www/admin_bot (checkout -B master)", "prod /tmp", "DevOps scratch OPENCODE_WORKFLOW_SCRATCH/deploy98", "this evidence dir"]
+  },
+  "pre_state": {
+    "version": "2.58.97",
+    "head": "99f5672c5e1d27e957100395a13178fef929b035",
+    "main_pid": 3791730,
+    "healthz": {"status": "ok", "version": "2.58.97"},
+    "tracked_mod": 0,
+    "untracked": 13
+  },
+  "post_state": {
+    "version": "2.58.98",
+    "head": "29cc49baa4c4a2e25ac5907470dbc18f62ed69bc",
+    "branch": "master",
+    "main_pid": 3883387,
+    "nrestarts": 0,
+    "exec_main_start_utc": "2026-10-20T02:39:10Z",
+    "exec_main_status": 0,
+    "t0_utc": "2026-10-20T02:38:53Z",
+    "t0_epoch": 1792463933,
+    "tracked_mod": 0,
+    "healthz": {"status": "ok", "version": "2.58.98"}
+  },
+  "delta": {
+    "total_files": 250,
+    "runtime_files": 19,
+    "runtime_set_eq": true,
+    "runtime_whitelist": [
+      "config/settings.py", "handlers/checkup.py",
+      "services/checkup_service.py", "services/direct_chat_service.py",
+      "services/factcheck_prompts.py", "services/factcheck_service.py",
+      "services/mca_expression.py", "services/mca_humor_craft.py",
+      "services/nostalgia_prompts.py", "services/prompt_composer.py",
+      "services/prompt_migrations.py", "services/prompt_registry.py",
+      "services/prompt_style_blocks.py", "services/response_extent.py",
+      "services/search_service.py", "services/summary_generator.py",
+      "services/web_summarizer_service.py", "services/youtube_summarizer_service.py",
+      "web/api/speech.py"
+    ],
+    "other_nonstd": 0,
+    "hashes_verified": "24/24 sha256_12 == candidate bytes (settings d8f56d928859 == PKG frozen-fingerprint)",
+    "note": "handoff said 'versions/pins/ledger-docs only'; actual runtime delta = UNIFIED-CORE + R1 + bump, as review-rel.md §4 states"
+  },
+  "markers": {
+    "APP_VERSION_25898": 1,
+    "F8META_HEAD_1b23d4c": 1,
+    "UC_SPEECH_CORE": 26,
+    "UC_REGISTRY_CORE": 25,
+    "UC_MCA_OCC": 15,
+    "UC_PC_OCC": 1,
+    "KILLSWITCH_MCA_GATES": 2
+  },
+  "journal_since_t0": {
+    "lines": 212,
+    "err": 0, "err_402": 0, "skips": 0, "runtimewarn": 0,
+    "local_bot_api_marker": 1,
+    "cancelled_shutdown": 0,
+    "graceful_drain_lines": 2,
+    "sqlite_user_version": "36 -> 36 (ddl_delta=0, pending=[])",
+    "prompt_migrations": "canon updated: 1 (factcheck_analyst_system_prompt); owner-custom preserved: 13; others already canonical"
+  },
+  "served": {
+    "app_js": {"url": "/web/app.js", "sha12": "885094459700", "eq_disk": "SAME", "bytes": 1283831},
+    "app_css": {"url": "/static/app.css", "sha12_served": "db73d73a80bc", "bytes": 234959,
+                "proof": "exactly reproduced from reviewed disk bytes + unchanged serving code (_render_app_css: universal newlines 6xCRLF->LF + __APP_VERSION__->2.58.98); scratch _css_subst_check3.py"},
+    "index": {"sha12_served": "bb9099d77e17", "v_stamps": "v=2.58.98", "unsubstituted_tokens": 0},
+    "routes_https": {"/healthz": 200, "/web/": 200, "/static/app.css": 200}
+  },
+  "rollback": {
+    "ref": "release/fix-2.58.97 = 99f5672c5e1d27e957100395a13178fef929b035 (pushed; present on prod)",
+    "used": false,
+    "abort_mechanism": "exercised during first attempt (checker bugs); tree restored, service untouched",
+    "soft": "ADR-1013-3 PREV ladder + EXPRESSION_EXAMPLES_ENABLED env kill-switch (default ON)"
+  },
+  "ssh_budget": {
+    "connects": 4,
+    "single_login": "nik",
+    "fail2ban_incidents": 0,
+    "notes": "recon 02:27:27Z; main-abort 02:37:15Z; main-ok 02:38:48Z (~1min pause); read-only probe 02:43:48Z; health also via HTTPS 443 (unrestricted)"
+  },
+  "incidents": [
+    {"sev": "process", "desc": "first main attempt aborted pre-restart by gate: two checker bugs in lane script (inverted hash dict; NONSTD filter). Auto-restore OK, zero prod impact."},
+    {"sev": "Low", "pre_existing": true, "desc": "HEAD /static/app.css content-length (234981, raw file) != GET body (234959, post-substitution); route web/app.py unchanged in this train"},
+    {"sev": "info", "desc": "served index differs from 97 (bb9099d77e17 vs 1dda147e41d6) - expected: version stamps 2.58.97 -> 2.58.98"}
+  ],
+  "remaining_postdeploy": "EXP-ACCEPT F4-matrix on live 2.58.98 (off/occasional/frequent) -> VERIFIED/FAILED -> requirements_gate check --stage release --candidate f9e7dd67 --deployed-commit 29cc49ba...",
+  "result": "VERIFIED_DEPLOY (deploy lane); parent not DONE until F4-matrix + --stage release",
+  "artifacts": {
+    "evidence_dir": "plans/features/cfg/evidence/release-25898/",
+    "scratch": "OPENCODE_WORKFLOW_SCRATCH/deploy98/ (recon98.txt, deploy98-run.txt, journal98-since-T0.raw, probe98-served.txt, https-before.txt, https-after.txt, expected-hashes-29cc49ba.txt, scripts)"
+  }
+}

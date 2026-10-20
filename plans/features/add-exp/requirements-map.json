@@ -3,7 +3,7 @@
   "source_path": "C:\\Code\\Python\\adminbot\\plans\\features\\add-exp\\source-add-exp-2026-10-19.md",
   "source_sha256": "2a7d0c0297dc56591396372d86c4176d3b64924e2e75194e45fd33c2052f7d9f",
   "candidate_commit": "1b23d4c9beb1544169f51781c2c8a45e8797f719",
-  "deployed_commit": "95d11472b9e533b554554918e3efa6b42125260b",
+  "deployed_commit": "29cc49baa4c4a2e25ac5907470dbc18f62ed69bc",
   "strict_evidence": false,
   "slice_graph_path": "",
   "additional_requirements": [

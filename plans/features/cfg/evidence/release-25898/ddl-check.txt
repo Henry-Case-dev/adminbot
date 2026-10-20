@@ -1,0 +1,6 @@
+REL-25898 delta-DDL-check: working-tree bump delta (31 files) vs HEAD
+
+DDL/schema-perimeter (strict): services/database.py, scripts/, services/chat_migration.py, services/config_migrations.py, services/prompt_migrations.py
+Bump files in perimeter: NONE (0 files)
+
+Verdict: delta DDL = 0 (bump touches only version pins/README/F8-meta; user_version unchanged).

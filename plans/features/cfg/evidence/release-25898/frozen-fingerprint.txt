@@ -1,0 +1,7 @@
+﻿REL-25898 frozen fingerprint (post-bump working tree; runtime bytes unchanged except settings APP_VERSION)
+
+pre-bump HEAD: d82ddc8cdddeaf94a24de978d0fe7a2ea319458d (docs-only; runtime code line = candidate v2 1b23d4c9beb1544169f51781c2c8a45e8797f719, RECHECK-25898-R1 Approved)
+
+config/settings.py  sha256_12 d8f56d928859  sha256 d8f56d9288592c43d40efb6a7e9084dbbb7b7b7f638311bf71a98d12b6f99d23
+README.md  sha256_12 bb3de3547148  sha256 bb3de3547148de20d4a053daa7b0d827a6b9fbcb32a9c0e2c50cd563dbf72def
+plans/docs/param-registry-round1025.meta.md  sha256_12 69c5248d05a5  sha256 69c5248d05a58eb415abd601f19554fceb611b70a4fcec4179ab28fb19433f95

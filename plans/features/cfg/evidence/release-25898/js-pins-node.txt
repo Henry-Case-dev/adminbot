@@ -1,0 +1,4 @@
+round1025_hotfix10_glass_geometry_bg_test.js -> HOTFIX10-GLASS-GEOMETRY-BG-OK (EXIT=0)
+round1025_hotfix7_shell_glass_heartbeat_test.js -> HOTFIX7-SHELL-GLASS-HEARTBEAT-OK (EXIT=0)
+round1025_hotfix8_shell_aurora_test.js -> HOTFIX8-SHELL-AURORA-OK (EXIT=0)
+round1025_hotfix9_shell_flex_glass_aurora_test.js -> HOTFIX9-SHELL-FLEX-GLASS-AURORA-OK (EXIT=0)

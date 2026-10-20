@@ -1,0 +1,18 @@
+﻿REL-25898 delta-check vs procedure 97 (bump fcd73a38, 31 files)
+
+ref files: 31 (fcd73a38); bump files: 31 (working tree vs d82ddc8c, foreign plans excluded)
+SET EQUAL: True -- ONLY IN 97: none; ONLY IN 98: none
+
+Line profile identical to 97: README.md 1, config/settings.py 1, F8-meta 2 (APP_VERSION + HEAD short),
+24 py pins x1 (test_webapp_round1026_polygon.py x2), 4 js pins x1 => 31 files, +33/-33.
+
+Not bumped on purpose (same policy as 97; mentions of 2.58.97 are historical):
+  services/factcheck_prompts.py:203            # canon of release 2.58.97 (comment, not a pin)
+  services/prompt_migrations.py:165,276        # release 2.58.97 (comments, not pins)
+  tests/test_prompt_migrations.py:239          # release 2.58.97 (comment, not a pin)
+  plans/**                                     # evidence/history docs
+
+Version-agnostic APP_VERSION consumers (dynamic import/cache-bust, no hardcode; all green):
+  tests/test_aliases_render_round1022.py, tests/test_hotfix_round1025_cachebust.py,
+  tests/test_mca16_experience_block_e_round1039.py, tests/test_smoke_round1016_miniapp_selfhost.py,
+  tests/js/round1026_polygon_background_test.js

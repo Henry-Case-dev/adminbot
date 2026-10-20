@@ -1,0 +1,15 @@
+REL-25898 bump offline check (procedure of check_deploy_25897-style offline gate; bump-scope)
+  [PASS] settings APP_VERSION == 2.58.98
+  [PASS] settings no stale 2.58.97 pin
+  [PASS] README has v2.58.98
+  [PASS] README no stale v2.58.97
+  [PASS] F8-meta APP_VERSION 2.58.98
+  [PASS] F8-meta HEAD 1b23d4c
+  [PASS] F8-meta no stale 2.58.97/2428768
+  [PASS] delta set == 31 expected
+  [PASS] changed-line-pairs == 33
+  [PASS] delta DDL == 0
+  [PASS] import config.settings -> 2.58.98
+candidate HEAD (pre-bump): d82ddc8cdddeaf94a24de978d0fe7a2ea319458d
+bump files: 31; line pairs: 33; foreign excluded: 2
+OFFLINE CHECK: EXIT 0

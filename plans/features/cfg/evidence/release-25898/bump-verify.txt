@@ -1,0 +1,6 @@
+REL-25898 bump verify: working tree vs HEAD d82ddc8cddde (bump not committed; orchestrator commits --only)
+foreign pre-existing (other lanes, excluded): 2 ['plans/archive/mca-17c-analytics-matrix-round1047/evidence.md', 'plans/features/asap8-v6-3-live-correction/map-reconciliation-2026-10-16.md']
+bump delta files=31 expected=31
+files=31 changed-line-pairs=33 (expected 33)
+
+VERSION-ONLY CHECK OK: every changed line differs only by 2.58.97->2.58.98 (or meta HEAD 2428768->1b23d4c)
