@@ -110,14 +110,24 @@ class TestOneEnvelopeThroughBranches:
         assert run.verdict.factual_verdict == "supported"
         assert run.verdict.temporal_status == "old_but_valid"
         assert run.verdict.assessment_mode == "contextual"
-        # вербализатор получил период/статус вердикта (даты не стираются)
+        # вербализатор получил период/статус вердикта (даты не стираются).
+        # CFG-06 W5 (06A.5): сырые temporal_status/evaluated_period больше
+        # не идут в payload (утечка «период проверки (unknown)») — вербализатор
+        # получает человекочитаемый дайджест; суть MCA-20 сохранена: свежесть
+        # И период С ДАТАМИ доходят до LLM дословно (рендер-контракт payload —
+        # test_factcheck_renderer_cfg06.py, temporal_status там запрещён).
         verbalizer_msgs = [m for m, _ in llm.calls
                            if "ВЕРДИКТ (JSON)" in m[1]["content"]]
         assert verbalizer_msgs, "verbalize-стадия должна получить payload"
         payload = json.loads(verbalizer_msgs[0][1]["content"]
                              .split("ВЕРДИКТ (JSON):\n", 1)[1])
-        assert payload["temporal_status"] == "old_but_valid"
-        assert payload["evaluated_period"]["precision"] == "day"
+        assert payload["verdict"] == \
+            "утверждение подтверждается доступными данными"
+        assert payload["freshness"] == \
+            "данные старые, но к утверждению остаются применимы"
+        # период envelope (1665277000–1665363400, day) не стёрт — даты в payload
+        assert "09.10.2022" in payload["period"]
+        assert "10.10.2022" in payload["period"]
 
     @pytest.mark.asyncio
     async def test_fallback_keeps_mode_and_dates(self):

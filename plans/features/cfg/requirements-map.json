@@ -4818,6 +4818,14 @@
           "observation": "18 CONTRACT gate/CR; OFF-паритет (test_gate_off_byte_parity).",
           "artifact_path": "tests/test_factcheck_gate_cfg06.py",
           "artifact_sha256": "12850dce33e2ae06906c82994e9f88ca3a0f1791fe68aa45bc1cf02b0caa9906"
+        },
+        {
+          "candidate_commit": "83c7abaef88ff4f5ed0cd408d74637a66d5323cf",
+          "type": "test",
+          "ref": "tests/test_factcheck_tool_route_cfg06.py",
+          "observation": "Direct/tool-вход (v2 ON): тот же claim-suitability gate evaluate_with_expansion ДО платного поиска; no_claim/ambiguous → skipped-JSON без платного поиска; сбой гейта → fail-closed. 7/7.",
+          "artifact_path": "tests/test_factcheck_tool_route_cfg06.py",
+          "artifact_sha256": "7eeef0358d74205df61e8e0a34328832ffc99ec04b727a414a4f2ece8aca53f5"
         }
       ]
     },
@@ -6372,6 +6380,14 @@
           "observation": "Все 8 сценариев идут через единый run_factcheck.",
           "artifact_path": "tests/test_factcheck_w7_acceptance_cfg06.py",
           "artifact_sha256": "3f8661a164af2f953cb98cff3f8d93b7d6e703ce564fabb6d34c4b88a7743f3b"
+        },
+        {
+          "candidate_commit": "83c7abaef88ff4f5ed0cd408d74637a66d5323cf",
+          "type": "test",
+          "ref": "tests/test_factcheck_tool_route_cfg06.py",
+          "observation": "Direct/tool-вход через единый контур: check_claim_envelope c chat_context=feed; OFF — прежний вызов (envelope,) без kwargs, gate не запускается; набор ключей ready-payload не менялся (test_off_and_v2_ready_payload_keys_identical). 7/7.",
+          "artifact_path": "tests/test_factcheck_tool_route_cfg06.py",
+          "artifact_sha256": "7eeef0358d74205df61e8e0a34328832ffc99ec04b727a414a4f2ece8aca53f5"
         }
       ]
     },
