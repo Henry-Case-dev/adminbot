@@ -31,6 +31,7 @@ from services.chat_prompts import (
     DIRECT_L1_PLANNER_SYSTEM_PROMPT,
     DIRECT_VERBALIZER_SYSTEM_PROMPT,
     LEGACY_CHAT_SYSTEM_PROMPT,
+    PREV_CHAT_CFG07A_SYSTEM_PROMPT,
     PREV_CHAT_MCA23_SYSTEM_PROMPT,
     PREV_CHAT_R2020_SYSTEM_PROMPT,
     PREV_CHAT_R1021_SYSTEM_PROMPT,
@@ -45,6 +46,7 @@ from services.chat_prompts import (
 )
 from services.checkup_prompts import (
     CHECKUP_SYSTEM_PROMPT,
+    PREV_CHECKUP_CFG07A_SYSTEM_PROMPT,
     PREV_CHECKUP_R1021_SYSTEM_PROMPT,
     PREV_CHECKUP_SYSTEM_PROMPT,
     PREV_R1022_CHECKUP_SYSTEM_PROMPT,
@@ -65,6 +67,7 @@ from services.factcheck_prompts import (
 )
 from services.search_prompts import (
     PREV_R1022_SEARCH_SYSTEM_PROMPT,
+    PREV_SEARCH_CFG07A_SYSTEM_PROMPT,
     PREV_SEARCH_R1021_SYSTEM_PROMPT,
     PREV_SEARCH_SYSTEM_PROMPT,
     SEARCH_SYSTEM_PROMPT,
@@ -89,6 +92,7 @@ from services.summary_prompts import (
     PREV_SUMMARY_L2_WRITER_R1029_ASAP41,
     PREV_SUMMARY_NARRATOR_R1023,
     PREV_SUMMARY_NARRATOR_R1028,
+    PREV_SUMMARY_CFG07A_SYSTEM_PROMPT,
     PREV_SUMMARY_SYSTEM_PROMPT,
     PREV_SUMMARY_SYSTEM_R1028,
     SUMMARY_EDITOR_SYSTEM_PROMPT,
@@ -99,6 +103,7 @@ from services.summary_prompts import (
 )
 from services.web_prompts import (
     PREV_R1022_WEBPAGE_SYSTEM_PROMPT,
+    PREV_WEBPAGE_CFG07A_SYSTEM_PROMPT,
     PREV_WEBPAGE_R1021_SYSTEM_PROMPT,
     PREV_WEBPAGE_SYSTEM_PROMPT,
     WEBPAGE_SYSTEM_PROMPT,
@@ -106,8 +111,10 @@ from services.web_prompts import (
 from services.youtube_prompts import (
     PREV_R1022_YOUTUBE_SYSTEM_PROMPT,
     PREV_R1022_YOUTUBE_VIDEO_SYSTEM_PROMPT,
+    PREV_YOUTUBE_CFG07A_SYSTEM_PROMPT,
     PREV_YOUTUBE_R1021_SYSTEM_PROMPT,
     PREV_YOUTUBE_SYSTEM_PROMPT,
+    PREV_YOUTUBE_VIDEO_CFG07A_SYSTEM_PROMPT,
     PREV_YOUTUBE_VIDEO_R1021_SYSTEM_PROMPT,
     PREV_YOUTUBE_VIDEO_SYSTEM_PROMPT,
     YOUTUBE_SYSTEM_PROMPT,
@@ -129,7 +136,11 @@ PROMPT_MIGRATIONS: dict[str, list[tuple[str, str]]] = {
         (PREV_CHAT_R1021_SYSTEM_PROMPT, CHAT_SYSTEM_PROMPT),
         (PREV_R1022_CHAT_SYSTEM_PROMPT, CHAT_SYSTEM_PROMPT),
         (PREV_CHAT_R1023_SYSTEM_PROMPT, CHAT_SYSTEM_PROMPT),
-        (PREV_CHAT_MCA23_SYSTEM_PROMPT, CHAT_SYSTEM_PROMPT)],
+        (PREV_CHAT_MCA23_SYSTEM_PROMPT, CHAT_SYSTEM_PROMPT),
+        # CFG-07A-2 (SF-09/13, 20.10.2026, ADR-1013-3): прод-канон 2.58.100
+        # (MCA-23-композиция с выдуманной тех-причиной слива) ведёт на
+        # чистый канон (честный слив + контракт служебных пометок).
+        (PREV_CHAT_CFG07A_SYSTEM_PROMPT, CHAT_SYSTEM_PROMPT)],
     # MCA-23 (Wave 3, §11): первые ступени ключа Вербализатора direct —
     # прод-значения 10.23 (база без типографики и полный канон) ведут на
     # новый канон без unconditional cap-правила.
@@ -149,12 +160,18 @@ PROMPT_MIGRATIONS: dict[str, list[tuple[str, str]]] = {
         (PREV_R1021_SUMMARY_SYSTEM_PROMPT, SYSTEM_PROMPT),
         (PREV_R1022_SUMMARY_SYSTEM_PROMPT, SYSTEM_PROMPT),
         # ASAP-2.1 (контракт (g)/§25): строка шиза — выбор модели, опциональна.
-        (PREV_SUMMARY_SYSTEM_R1028, SYSTEM_PROMPT)],
+        (PREV_SUMMARY_SYSTEM_R1028, SYSTEM_PROMPT),
+        # CFG-07A-2 (SF-06, 20.10.2026, ADR-1013-3): прод-канон 2.58.100
+        # (safety-bypass + identity legacy-личности) ведёт на чистый канон.
+        (PREV_SUMMARY_CFG07A_SYSTEM_PROMPT, SYSTEM_PROMPT)],
     "prompts.compress_system_prompt": [(PREV_COMPRESS_PROMPT, COMPRESS_PROMPT)],
     "prompts.checkup_system_prompt": [
         (PREV_CHECKUP_SYSTEM_PROMPT, CHECKUP_SYSTEM_PROMPT),
         (PREV_CHECKUP_R1021_SYSTEM_PROMPT, CHECKUP_SYSTEM_PROMPT),
-        (PREV_R1022_CHECKUP_SYSTEM_PROMPT, CHECKUP_SYSTEM_PROMPT)],
+        (PREV_R1022_CHECKUP_SYSTEM_PROMPT, CHECKUP_SYSTEM_PROMPT),
+        # CFG-07A-2 (SF-05/07/08/12): прод-канон 2.58.100 ведёт на чистый
+        # канон (жанр админ-контекста сохранён).
+        (PREV_CHECKUP_CFG07A_SYSTEM_PROMPT, CHECKUP_SYSTEM_PROMPT)],
     "prompts.factcheck_system_prompt": [
         (PREV_FACTCHECK_SYSTEM_PROMPT, FACTCHECK_SYSTEM_PROMPT),
         (PREV_FACTCHECK_R2020_SYSTEM_PROMPT, FACTCHECK_SYSTEM_PROMPT),
@@ -169,19 +186,28 @@ PROMPT_MIGRATIONS: dict[str, list[tuple[str, str]]] = {
     "prompts.search_system_prompt": [
         (PREV_SEARCH_SYSTEM_PROMPT, SEARCH_SYSTEM_PROMPT),
         (PREV_SEARCH_R1021_SYSTEM_PROMPT, SEARCH_SYSTEM_PROMPT),
-        (PREV_R1022_SEARCH_SYSTEM_PROMPT, SEARCH_SYSTEM_PROMPT)],
+        (PREV_R1022_SEARCH_SYSTEM_PROMPT, SEARCH_SYSTEM_PROMPT),
+        # CFG-07A-2 (SF-01/07/08/10/11): прод-канон 2.58.100 (safety-bypass +
+        # identity + sneer + hostility) ведёт на чистый канон.
+        (PREV_SEARCH_CFG07A_SYSTEM_PROMPT, SEARCH_SYSTEM_PROMPT)],
     "prompts.youtube_system_prompt": [
         (PREV_YOUTUBE_SYSTEM_PROMPT, YOUTUBE_SYSTEM_PROMPT),
         (PREV_YOUTUBE_R1021_SYSTEM_PROMPT, YOUTUBE_SYSTEM_PROMPT),
-        (PREV_R1022_YOUTUBE_SYSTEM_PROMPT, YOUTUBE_SYSTEM_PROMPT)],
+        (PREV_R1022_YOUTUBE_SYSTEM_PROMPT, YOUTUBE_SYSTEM_PROMPT),
+        # CFG-07A-2 (SF-02/07/08/11): как search.
+        (PREV_YOUTUBE_CFG07A_SYSTEM_PROMPT, YOUTUBE_SYSTEM_PROMPT)],
     "prompts.youtube_video_system_prompt": [
         (PREV_YOUTUBE_VIDEO_SYSTEM_PROMPT, YOUTUBE_VIDEO_SYSTEM_PROMPT),
         (PREV_YOUTUBE_VIDEO_R1021_SYSTEM_PROMPT, YOUTUBE_VIDEO_SYSTEM_PROMPT),
-        (PREV_R1022_YOUTUBE_VIDEO_SYSTEM_PROMPT, YOUTUBE_VIDEO_SYSTEM_PROMPT)],
+        (PREV_R1022_YOUTUBE_VIDEO_SYSTEM_PROMPT, YOUTUBE_VIDEO_SYSTEM_PROMPT),
+        # CFG-07A-2 (SF-03/07/08/11): как search (мультимодальный канон).
+        (PREV_YOUTUBE_VIDEO_CFG07A_SYSTEM_PROMPT, YOUTUBE_VIDEO_SYSTEM_PROMPT)],
     "prompts.webpage_system_prompt": [
         (PREV_WEBPAGE_SYSTEM_PROMPT, WEBPAGE_SYSTEM_PROMPT),
         (PREV_WEBPAGE_R1021_SYSTEM_PROMPT, WEBPAGE_SYSTEM_PROMPT),
-        (PREV_R1022_WEBPAGE_SYSTEM_PROMPT, WEBPAGE_SYSTEM_PROMPT)],
+        (PREV_R1022_WEBPAGE_SYSTEM_PROMPT, WEBPAGE_SYSTEM_PROMPT),
+        # CFG-07A-2 (SF-04/07/08/11): как search.
+        (PREV_WEBPAGE_CFG07A_SYSTEM_PROMPT, WEBPAGE_SYSTEM_PROMPT)],
     # 10.23 (F1, ADR-1023-1): Stage-1 промпты (Редактор саммари/Аналитик
     # фактчека) получают правило маркировки; PG-ключи добавляет F8 — до сида
     # migrate/skip (отсутствующий ключ → INFO, сид поставит канон).
@@ -257,33 +283,40 @@ PROMPT_MIGRATIONS: dict[str, list[tuple[str, str]]] = {
 # и `extract` не входят — в 10.21 не менялись.
 ROLLBACK_MIGRATIONS: dict[str, tuple[str, str]] = {
     # F1 (10.23, R1023F1-07): откат чата ведёт на непосредственный прежний
-    # канон PREV_CHAT_R1023 (снимает только F1, сохраняя блоки A/B 10.21/10.22).
-    # MCA-23 (Wave 3): откат снимает ТОЛЬКО ступень MCA-23 — на
-    # НЕПОСРЕДСТВЕННО прежний прод-канон PREV_CHAT_MCA23 (блоки A/B и
-    # правило маркировки сохранены; стек ступеней цел, ADR-1013-3).
+    # канон (снимает только последнюю ступень, сохраняя блоки A/B и правило
+    # маркировки; стек ступеней цел, ADR-1013-3).
+    # MCA-23 (Wave 3): откат снимал ступень MCA-23 (на PREV_CHAT_MCA23).
+    # CFG-07A-2 (20.10.2026): откат ведёт на НЕПОСРЕДСТВЕННЫЙ прежний
+    # прод-канон 2.58.100 (MCA-23-композиция; снимается только ступень
+    # CFG-07A, стек ступеней цел — ADR-1013-3).
     "prompts.direct_chat_system_prompt":
-        (CHAT_SYSTEM_PROMPT, PREV_CHAT_MCA23_SYSTEM_PROMPT),
+        (CHAT_SYSTEM_PROMPT, PREV_CHAT_CFG07A_SYSTEM_PROMPT),
     # MCA-23 (Wave 3, §11): откат Вербализатора direct — на прод-канон
     # 10.23 (с cap-правилом); ключ в PG не удаляется.
     "prompts.direct_chat_verbalizer_system_prompt":
         (DIRECT_VERBALIZER_SYSTEM_PROMPT, PREV_CHAT_VERBALIZER_MCA23),
     "prompts.summary_system_prompt":
-        (SYSTEM_PROMPT, PREV_SUMMARY_SYSTEM_R1028),
+        # CFG-07A-2: откат ведёт на НЕПОСРЕДСТВЕННЫЙ прежний прод-канон
+        # 2.58.100 (снимается только ступень CFG-07A; стек ступеней цел).
+        (SYSTEM_PROMPT, PREV_SUMMARY_CFG07A_SYSTEM_PROMPT),
     "prompts.checkup_system_prompt":
-        (CHECKUP_SYSTEM_PROMPT, PREV_CHECKUP_R1021_SYSTEM_PROMPT),
+        # CFG-07A-2: откат на непосредственный прежний прод-канон 2.58.100.
+        (CHECKUP_SYSTEM_PROMPT, PREV_CHECKUP_CFG07A_SYSTEM_PROMPT),
     "prompts.factcheck_system_prompt":
         # UNIFIED-CORE (C14): откат ведёт на НЕПОСРЕДСТВЕННЫЙ прежний
         # прод-канон (с обходом safety, релиз 2.58.97) — снимается только
         # ступень C14; стек ступеней цел (ADR-1013-3).
         (FACTCHECK_SYSTEM_PROMPT, PREV_FACTCHECK_UNIFIED_CORE_SYSTEM_PROMPT),
     "prompts.search_system_prompt":
-        (SEARCH_SYSTEM_PROMPT, PREV_SEARCH_R1021_SYSTEM_PROMPT),
+        # CFG-07A-2: откат на непосредственный прежний прод-канон 2.58.100
+        # (снимается только ступень CFG-07A; ADR-1013-3).
+        (SEARCH_SYSTEM_PROMPT, PREV_SEARCH_CFG07A_SYSTEM_PROMPT),
     "prompts.youtube_system_prompt":
-        (YOUTUBE_SYSTEM_PROMPT, PREV_YOUTUBE_R1021_SYSTEM_PROMPT),
+        (YOUTUBE_SYSTEM_PROMPT, PREV_YOUTUBE_CFG07A_SYSTEM_PROMPT),
     "prompts.youtube_video_system_prompt":
-        (YOUTUBE_VIDEO_SYSTEM_PROMPT, PREV_YOUTUBE_VIDEO_R1021_SYSTEM_PROMPT),
+        (YOUTUBE_VIDEO_SYSTEM_PROMPT, PREV_YOUTUBE_VIDEO_CFG07A_SYSTEM_PROMPT),
     "prompts.webpage_system_prompt":
-        (WEBPAGE_SYSTEM_PROMPT, PREV_WEBPAGE_R1021_SYSTEM_PROMPT),
+        (WEBPAGE_SYSTEM_PROMPT, PREV_WEBPAGE_CFG07A_SYSTEM_PROMPT),
     # 10.23 (F1, ADR-1023-1): обратный шаг для новых PG-ключей F8.
     # 10.23 (F2, ADR-1023-2): правило веб-поиска. После вливания F3 (ступень
     # F2→F3) откат Аналитика ведёт на непосредственный прежний канон —

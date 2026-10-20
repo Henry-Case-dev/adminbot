@@ -25,6 +25,7 @@ from services.prompt_style_blocks import (
     ANTI_BOT_BLOCK,
     ASYMMETRY_BLOCK,
     BOT_KNOWLEDGE_INSTRUCTION,
+    BOT_KNOWLEDGE_INSTRUCTION_NEUTRAL,
     LEGACY_BOT_KNOWLEDGE_INSTRUCTION,
     STYLE_BLOCKS_SUFFIX,
 )
@@ -76,6 +77,12 @@ _TROPE_MARKERS = (
 )
 
 
+# CFG-07A-2 (SF-11): активные каноны НЕ-фактчек маршрутов — нейтральная
+# редакция <bot_knowledge>; фактчек (фриз CFG-06 W3) — прежняя редакция.
+_NEUTRAL_TAIL_CANONS = {"search", "summary", "webpage", "youtube",
+                        "youtube_video"}
+
+
 class TestStyleBlocksPresent:
     @pytest.mark.parametrize("name", list(ACTUALS))
     def test_antibot_and_asymmetry_in_every_actual(self, name):
@@ -83,7 +90,10 @@ class TestStyleBlocksPresent:
         assert ANTI_BOT_BLOCK in prompt, name
         assert ASYMMETRY_BLOCK in prompt, name
         if "<bot_knowledge>" in prompt:
-            assert prompt.rstrip().endswith(BOT_KNOWLEDGE_INSTRUCTION), name
+            expected_tail = (BOT_KNOWLEDGE_INSTRUCTION_NEUTRAL
+                             if name in _NEUTRAL_TAIL_CANONS
+                             else BOT_KNOWLEDGE_INSTRUCTION)
+            assert prompt.rstrip().endswith(expected_tail), name
         else:
             assert prompt.rstrip().endswith("нравоучением."), name
 
@@ -108,10 +118,15 @@ class TestNoForbiddenInstructions:
 
     @pytest.mark.parametrize("name", list(ACTUALS))
     def test_new_bot_knowledge_instruction_kept(self, name):
+        """CFG-07A-2: польза <bot_knowledge> в активных канонах сохранена
+        (нейтральная редакция); в фактчеке — прежняя редакция."""
         prompt, _prev = ACTUALS[name]
         if "<bot_knowledge>" in prompt:
-            assert BOT_KNOWLEDGE_INSTRUCTION in prompt
-            assert prompt.rstrip().endswith(BOT_KNOWLEDGE_INSTRUCTION)
+            expected_tail = (BOT_KNOWLEDGE_INSTRUCTION_NEUTRAL
+                             if name in _NEUTRAL_TAIL_CANONS
+                             else BOT_KNOWLEDGE_INSTRUCTION)
+            assert expected_tail in prompt
+            assert prompt.rstrip().endswith(expected_tail)
 
 
 class TestPrevSnapshotsPreserveHistory:

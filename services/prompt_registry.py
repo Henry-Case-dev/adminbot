@@ -114,7 +114,7 @@ ACTIVE_PREFIX = "act:"
 #: канона). Шаг JB-3/W2-factory обязан бампать метку при правке текста.
 FACTORY_REVISION_LABELS: dict[str, str] = {
     # Direct / System2
-    "direct.base.tool_phase": "chat-canon-mca23",
+    "direct.base.tool_phase": "chat-canon-cfg07a",
     "direct.base.l2_writer": "verbalizer-canon-mca23",
     "direct.base.synthesizer": "synthesizer-r1023",
     "direct.base.l1_planner": "l1-planner-r1028",
@@ -127,18 +127,20 @@ FACTORY_REVISION_LABELS: dict[str, str] = {
     "factcheck.base.single": "factcheck-r1022",
     "factcheck.base.analyst": "factcheck-analyst-r1023-f3",
     "factcheck.base.verbalizer": "factcheck-verbalizer",
-    "summary.base.single": "summary-r1028",
+    # CFG-07A-2 (20.10.2026): каноны НЕ-фактчек маршрутов вычищены
+    # (safety-bypass/identity/hostility; ADR-1013-3) — метки бампнуты.
+    "summary.base.single": "summary-cfg07a",
     "summary.base.editor": "summary-editor-r1025-hotfix4",
     "summary.base.narrator": "summary-narrator-r1028",
     "summary.base.l1_clusterizer": "summary-l1-clusterizer-asap41",
     "summary.base.l2_writer": "summary-l2-writer-asap41",
     "summary.cover.style": "cover-style-default",
     "summary.cover.style_id": "cover-style-id-default",
-    "search.base.system": "search-r1022",
-    "checkup.base.system": "checkup-r1022",
-    "youtube.base.system": "youtube-r1022",
-    "youtube.base.video": "youtube-video-r1022",
-    "web.base.system": "web-r1022",
+    "search.base.system": "search-cfg07a",
+    "checkup.base.system": "checkup-cfg07a",
+    "youtube.base.system": "youtube-cfg07a",
+    "youtube.base.video": "youtube-video-cfg07a",
+    "web.base.system": "web-cfg07a",
     "memory.extract": "extract-etl",
     "memory.compress": "compress-canon",
     # Внутренние стадии с собственными версиями канона
@@ -1466,7 +1468,18 @@ def factory_set_fingerprint() -> str:
 #: факты/числа/ссылки/суть просьбы неприкосновенны; «не частота метафор или
 #: оскорблений») — было ``5bca81487001``, стало ``64ec1c60e278``.
 #: Переутверждено осознанно (SOUL-AMD.3.2).
-FACTORY_SET_SHA256_12 = "64ec1c60e278"
+#: Бамп CFG-07A-2 (20.10.2026, ADR-1013-3, C14-прецедент): вычищены каноны
+#: НЕ-фактчек маршрутов — search/youtube(×2)/web/checkup/summary-legacy
+#: (safety-bypass, identity legacy-личности, sneer/hostility, метка данных
+#: «"Архивная справка"») и Direct (честный слив без выдуманных тех-причин +
+#: контракт служебных пометок Writer'а); нейтральная редакция
+#: ``BOT_KNOWLEDGE_INSTRUCTION_NEUTRAL``; ``CHECKUP_FALLBACK_NOTICE`` без
+#: bracket-маркера. Слепки прежних прод-байтов 2.58.100 — ступени
+#: ``PREV_*_CFG07A`` + ROLLBACK (байт-сверка с продом в
+#: tests/test_cfg07_backstage_contract.py). Метки ревизий 7 блоков бампнуты
+#: (``*-cfg07a``). Было ``64ec1c60e278``, стало ``037080375ac8``.
+#: Переутверждено осознанно (SOUL-AMD.3.2).
+FACTORY_SET_SHA256_12 = "037080375ac8"
 
 
 # ═══════════════════════════════════════════════════════════════════════════

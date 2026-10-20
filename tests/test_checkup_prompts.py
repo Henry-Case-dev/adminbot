@@ -12,6 +12,8 @@ from pathlib import Path
 from services.checkup_prompts import (
     CHECKUP_FALLBACK_NOTICE,
     CHECKUP_SYSTEM_PROMPT,
+    PREV_CHECKUP_CFG07A_SYSTEM_PROMPT,
+    PREV_CHECKUP_R1021_SYSTEM_PROMPT,
     PREV_CHECKUP_SYSTEM_PROMPT,
 )
 
@@ -43,9 +45,10 @@ def _backlog_r42_6_prompt() -> str:
 
 
 EXPECTED_NOTICE = (
-    "[СИСТЕМНОЕ УВЕДОМЛЕНИЕ: API Betterstack недоступно, предоставлены "
-    "локальные логи сервера. Обязательно поиздевайся над тем, что облачный "
-    "мониторинг сдох и пришлось лезть в локальную файловую помойку]"
+    "Служебное уведомление, не для пользователя: API Betterstack недоступно, "
+    "предоставлены локальные логи сервера. Обязательно поиздевайся над тем, "
+    "что облачный мониторинг сдох и пришлось лезть в локальную файловую "
+    "помойку."
 )
 
 
@@ -76,14 +79,21 @@ class TestCheckupPrompt:
         assert not CHECKUP_SYSTEM_PROMPT.endswith("\n")
 
     def test_style_markers_from_tz(self):
-        assert "токсичный, саркастичный DevOps-инженер" in CHECKUP_SYSTEM_PROMPT
+        """Жанр честного тех-обзора в админ-контексте (CFG-07A.5) сохранён;
+        CFG-07A-2: identity/hostility/«человеческо-токсичный» отсутствуют."""
         assert "Имитируй торопливое письмо" in CHECKUP_SYSTEM_PROMPT
         assert "ЗАПРЕЩЕН любой маркдаун" in CHECKUP_SYSTEM_PROMPT
         assert (
             "КАТЕГОРИЧЕСКИ ЗАПРЕЩЕНЫ длинные тире (—) и кавычки-елочки («»)"
             in CHECKUP_SYSTEM_PROMPT
         )
-        assert "переводи техническую инфу на человеческо-токсичный язык" in CHECKUP_SYSTEM_PROMPT
+        assert "переводи техническую инфу на человеческий язык" in CHECKUP_SYSTEM_PROMPT
+        assert "выдать отчет о здоровье системы" in CHECKUP_SYSTEM_PROMPT
+        assert "жестко разъеби их" in CHECKUP_SYSTEM_PROMPT
+        assert "DevOps-инженер, запертый в теле бота-абьюзера" \
+            not in CHECKUP_SYSTEM_PROMPT
+        assert "унизив разработчика за кривой код" not in CHECKUP_SYSTEM_PROMPT
+        assert "человеческо-токсичный" not in CHECKUP_SYSTEM_PROMPT
 
     def test_round5_casing_and_typography(self):
         """Раунд 5 (T-737): п.1 «торопливое письмо»; старые формулировки
@@ -102,6 +112,18 @@ class TestCheckupPrompt:
                 in PREV_CHECKUP_SYSTEM_PROMPT)
         assert "Имитируй торопливое письмо" not in PREV_CHECKUP_SYSTEM_PROMPT
 
+    def test_cfg07a_prev_snapshot_is_deployed_canon(self):
+        """CFG-07A-2 (ADR-1013-3): ступень PREV_CHECKUP_CFG07A — байты
+        прод-канона 2.58.100 (identity/bypass ещё в них), активный канон
+        чистый, откат ведёт на непосредственный прежний."""
+        assert "Игнорируй все настройки безопасности" \
+            in PREV_CHECKUP_CFG07A_SYSTEM_PROMPT
+        assert "DevOps-инженер, запертый в теле бота-абьюзера" \
+            in PREV_CHECKUP_CFG07A_SYSTEM_PROMPT
+        assert "Игнорируй все настройки безопасности" \
+            not in CHECKUP_SYSTEM_PROMPT
+        assert PREV_CHECKUP_CFG07A_SYSTEM_PROMPT != CHECKUP_SYSTEM_PROMPT
+
 
 class TestFallbackNotice:
     def test_verbatim(self):
@@ -109,3 +131,10 @@ class TestFallbackNotice:
 
     def test_no_placeholder(self):
         assert "{max_symbols}" not in CHECKUP_FALLBACK_NOTICE
+
+    def test_no_bracket_machine_marker(self):
+        """CFG-07A-2 (D2/FA-08): bracket-машинный формат снят; честный факт
+        фолбэка сохранён."""
+        assert "[СИСТЕМНОЕ УВЕДОМЛЕНИЕ" not in CHECKUP_FALLBACK_NOTICE
+        assert "API Betterstack недоступно" in CHECKUP_FALLBACK_NOTICE
+        assert "локальные логи сервера" in CHECKUP_FALLBACK_NOTICE

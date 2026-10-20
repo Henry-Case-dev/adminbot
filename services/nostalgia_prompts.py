@@ -66,6 +66,21 @@ def is_unchanged_response(text: str | None) -> bool:
     return bool(text and str(text).strip().upper() == _UNCHANGED)
 
 
+# CFG-07A-2 (FA-06/G1, 20.10.2026): не-точное эхо служебного токена отказа
+# («UNCHANGED, но ...») не ловится точным детектором и раньше ушло бы в чат
+# как контент. Публичный текст не должен содержать токен ни в каком
+# обрамлении — вызывающие проверяют contains_unchanged_token ДО отправки
+# (брак, а не публикация). is_unchanged_response не менялся: контракт
+# «ровно UNCHANGED = отказ» цел (spec §3.5.4).
+_UNCHANGED_TOKEN_RE = re.compile(r"\bUNCHANGED\b", re.IGNORECASE | re.UNICODE)
+
+
+def contains_unchanged_token(text: str | None) -> bool:
+    """В тексте есть служебный токен UNCHANGED в любом обрамлении
+    (регистронезависимо, по границам слова). Никогда не бросает."""
+    return bool(_UNCHANGED_TOKEN_RE.search(str(text or "")))
+
+
 def format_nostalgia_hint(fact_text: str, ts, cap_chars: int) -> str:
     """Маркер слоя A (spec §3.5.1/E1): одна строка
     `nostalgia_hint: вспомни и вплети, если уместно: [ГГГГ-ММ-ДД] текст`.

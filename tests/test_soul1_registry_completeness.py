@@ -102,7 +102,16 @@ def test_all_blocks_have_factory_text_or_explicit_empty():
 
 
 def test_legacy_persona_canons_are_registered_with_revision_labels():
+    """Флаг legacy_persona = контракт подавления ПЕРСИСТЕНТНОГО слоя.
+    CFG-07A-2 (20.10.2026, ADR-1013-3): фабрики 6 канонов НЕ-фактчек
+    маршрутов вычищены (маркеров нет, подавление на них no-op) — прежние
+    байты живут в ступенях PREV_*_CFG07A; фактчек (фриз W3), Direct
+    (identity вне скоупа), Рассказчик и deep_research маркеры сохраняют."""
     legacy = {b.block_id: b for b in pr.legacy_persona_blocks()}
+    cleaned_factories = {
+        "summary.base.single", "search.base.system", "checkup.base.system",
+        "youtube.base.system", "youtube.base.video", "web.base.system",
+    }
     for block_id in (
             "direct.base.tool_phase", "direct.base.l2_writer",
             "factcheck.base.single", "factcheck.base.verbalizer",
@@ -111,7 +120,13 @@ def test_legacy_persona_canons_are_registered_with_revision_labels():
             "youtube.base.system", "youtube.base.video", "web.base.system",
             "verbilizer.mode.deep_research"):
         assert block_id in legacy, f"{block_id} не помечен legacy_persona"
-        assert pr.legacy_persona_present(pr.factory_text(block_id)), block_id
+        if block_id in cleaned_factories:
+            assert not pr.legacy_persona_present(
+                pr.factory_text(block_id)), (
+                f"{block_id}: фабрика вычищена, маркер не ожидается")
+        else:
+            assert pr.legacy_persona_present(pr.factory_text(block_id)), \
+                block_id
     for block_id in legacy:
         assert block_id in pr.FACTORY_REVISION_LABELS, (
             f"{block_id}: фабричная редакция без версии-метки")

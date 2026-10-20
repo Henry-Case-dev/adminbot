@@ -56,6 +56,35 @@ REASON_LOW_CONFIDENCE = "low_confidence"
 #: реальному состоянию (модуль/ключ/квота) — наблюдаемый блокер, не тишина.
 REASON_NOT_READY = "capability_not_ready"
 
+# CFG-07A-2 (SF-15): человеческие формулировки reason-кодов для пометки
+# Writer'а (коды в речь не идут — ни в этой пометке, ни по контракту канона).
+REASON_LABELS: dict[str, str] = {
+    REASON_UNKNOWN: "такой возможности нет",
+    REASON_NO_TOOL: "инструмента для этого нет",
+    REASON_NOT_ACTIVE: "инструмент сейчас не работает",
+    REASON_LOW_CONFIDENCE: "уверенности мало, надёжнее без этого",
+    REASON_NOT_READY: "сейчас недоступно (модуль, ключ или квота)",
+}
+
+#: CFG-07A-2 (SF-15): человеческие имена capability для пометки Writer'а
+#: (те же смыслы, что в §5.1-каталоге, без англ. идентификаторов).
+CAPABILITY_LABELS: dict[str, str] = {
+    "web_search": "поиск в интернете",
+    "fetch_url": "чтение страницы по ссылке",
+    "chat_history": "свежая история чата",
+    "chat_memory": "память чата",
+    "user_memory": "данные о собеседнике",
+    "historical_search": "старая переписка и лор",
+    "fact_check": "проверка факта",
+    "image_understanding": "разбор картинки",
+    "media_download": "скачивание медиа",
+    "transcription": "расшифровка видео",
+    "video_summary": "пересказ видео",
+    "image_generation": "генерация картинок",
+    "health": "здоровье сервера",
+    "statistics": "статистика чата",
+}
+
 
 def resolve_capabilities(requested, active_tool_names,
                          *, skip_capabilities=()) -> tuple[list[str],
@@ -127,12 +156,20 @@ def schemas_for_names(names, schemas) -> list[dict]:
 
 def rejected_note(rejected) -> str:
     """Честная пометка L2 «недоступно» (§1.4/D15): одна строка-список;
-    пусто → "". Никогда не бросает."""
+    пусто → "". Никогда не бросает.
+
+    CFG-07A-2 (SF-15/MB-11/MB-12): capability-имена и reason-коды уходят в
+    Writer только в ЧЕЛОВЕЧЕСКОЙ формулировке (пометка — данные для модели,
+    а не словарь для пересказа; контракт «не упоминай служебные пометки» —
+    в каноне Direct). Неизвестный код/имя деградирует в нейтральное
+    «сейчас недоступно» без англ. кода.
+    """
     items = []
     for cap, reason in (rejected or ()):
-        name = str(cap or "").strip()
-        if name:
-            items.append(f"{name} ({str(reason or 'unknown')})")
+        name = CAPABILITY_LABELS.get(str(cap or "").strip(),
+                                     "эта возможность")
+        why = REASON_LABELS.get(str(reason or "").strip(), "сейчас недоступно")
+        items.append(f"{name} - {why}")
     if not items:
         return ""
     return ("Недоступные возможности (инструмента нет — не выдумывай "

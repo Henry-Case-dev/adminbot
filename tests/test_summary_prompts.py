@@ -9,10 +9,12 @@ from pathlib import Path
 
 import pytest
 
+from services.prompt_style_blocks import BOT_KNOWLEDGE_INSTRUCTION_NEUTRAL
 from services.summary_prompts import (
     COMPRESS_PROMPT,
     EXTRACT_PROMPT,
     PREV_COMPRESS_PROMPT,
+    PREV_R1021_SUMMARY_SYSTEM_PROMPT,
     PREV_SUMMARY_SYSTEM_PROMPT,
     SYSTEM_PROMPT,
 )
@@ -62,22 +64,29 @@ EXPECTED_EXTRACT_PROMPT = _arch_extract_prompt()
 
 class TestSystemPrompt:
     def test_system_prompt_byte_for_byte(self):
-        """R11: the constant must match the backlog text EXACTLY."""
-        assert SYSTEM_PROMPT == EXPECTED_SYSTEM_PROMPT
+        """R11: the constant must match the backlog text EXACTLY.
+        CFG-07A-2 (SF-11): хвост <bot_knowledge> — нейтральная редакция
+        (исторический R46-4 остаётся в слепке PREV_R1021)."""
+        assert SYSTEM_PROMPT == _backlog_system_prompt() + "\n\n" \
+            + BOT_KNOWLEDGE_INSTRUCTION_NEUTRAL
 
     def test_system_prompt_ends_with_rag_instruction(self):
-        """55.7.1: канон-инструкция R46-4 — последний абзац промпта (через \n\n)."""
-        assert SYSTEM_PROMPT.endswith(RAG_INSTRUCTION)
+        """55.7.1: канон-инструкция <bot_knowledge> — последний абзац
+        промпта (через \\n\\n). CFG-07A-2: hostility-редакция снята."""
+        assert SYSTEM_PROMPT.endswith(BOT_KNOWLEDGE_INSTRUCTION_NEUTRAL)
         assert SYSTEM_PROMPT.endswith(
-            "\n\n" + RAG_INSTRUCTION
+            "\n\n" + BOT_KNOWLEDGE_INSTRUCTION_NEUTRAL
         )
 
     def test_rag_instruction_canon_verbatim(self):
-        """Канон R46-4 — инструкция ДОСЛОВНО из backlog (якорь «> «Если в блоке»)."""
+        """Канон R46-4 (исторический, backlog) — ДОСЛОВНО; в активном каноне
+        hostility-редакция снята, слепок PREV_R1021 её сохраняет."""
         assert RAG_INSTRUCTION == (
             "Если в блоке <bot_knowledge> есть информация по текущей теме, "
             "используй её, чтобы унизить оппонента своими знаниями."
         )
+        assert RAG_INSTRUCTION not in SYSTEM_PROMPT
+        assert RAG_INSTRUCTION in PREV_R1021_SUMMARY_SYSTEM_PROMPT
         assert "<bot_knowledge>" in SYSTEM_PROMPT
 
     def test_max_symbols_is_the_only_placeholder(self):
@@ -190,6 +199,8 @@ class TestExtractPrompt:
         assert "user или topic" in EXTRACT_PROMPT
 
     def test_system_and_compress_prompts_untouched(self):
-        """Epic 26 не трогает SYSTEM_PROMPT/COMPRESS_PROMPT (R11)."""
-        assert SYSTEM_PROMPT == EXPECTED_SYSTEM_PROMPT
+        """Epic 26 не трогает SYSTEM_PROMPT/COMPRESS_PROMPT (R11).
+        CFG-07A-2: SYSTEM_PROMPT — очищенный R11 + нейтральный хвост."""
+        assert SYSTEM_PROMPT == _backlog_system_prompt() + "\n\n" \
+            + BOT_KNOWLEDGE_INSTRUCTION_NEUTRAL
         assert "не больше 10" in COMPRESS_PROMPT

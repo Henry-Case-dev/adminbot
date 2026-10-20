@@ -577,7 +577,11 @@ class TestGoldenFailureLadder:
             ["execute_web_search"]
         l2_text = "".join(str(m.get("content"))
                           for m in llm.last_messages("l2_writer"))
-        assert "quantum_telepathy" in l2_text      # честная пометка L2
+        # CFG-07A-2 (SF-15): пометка L2 честная, но в ЧЕЛОВЕЧЕСКОЙ
+        # формулировке (сырое имя/код — только в agentic-event, R17).
+        assert "Недоступные возможности" in l2_text
+        assert "такой возможности нет" in l2_text
+        assert "unknown_capability" not in l2_text
         svc._send_direct_answer.assert_awaited_once()
 
     @pytest.mark.asyncio

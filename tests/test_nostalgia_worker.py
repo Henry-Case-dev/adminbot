@@ -368,6 +368,32 @@ class TestCandidatesAndThreshold:
         assert await _sent_count(db) == 1
 
     @pytest.mark.asyncio
+    async def test_unchanged_echo_braked_not_sent(self, db, monkeypatch):
+        """CFG-07A-2 (FA-06/G1): не-точное эхо служебного токена UNCHANGED
+        («UNCHANGED, но ...») — брак, а не контент: в чат не уходит,
+        в логе честный reason=unchanged_echo. Точный UNCHANGED по-прежнему
+        отказ (reason=unchanged), spec §3.5.4."""
+        _patch_time(monkeypatch)
+        await _add_user_msg(db, "опять василий переезд обсуждают",
+                            ts=NOW - 5 * 3600)
+        await _add_user_msg(db, "переезд в москву долгий был",
+                            ts=NOW - 4 * 3600)
+        await _add_fact(db, "василий переезд в москву занял месяц",
+                        days_ago=400, importance=6)
+        memory = MemoryManager(db, MagicMock())
+        llm = _FakeLLM("UNCHANGED, но вообще помню переезд")
+        bot = _FakeBot()
+        w = _worker(db, llm, monkeypatch=monkeypatch, bot=bot,
+                    memory=memory)
+        out = await w._process_chat(CHAT_ID, NOW, manual=True)
+        assert out["sent"] == 0
+        rows = [r for r in await _log_rows(db) if r["kind"] == "golden"]
+        assert rows and rows[0]["status"] == "skipped"
+        meta = json.loads(rows[0]["meta"])
+        assert meta["reason"] == "unchanged_echo"
+        assert bot.calls == []          # в чат не ушло ничего
+
+    @pytest.mark.asyncio
     async def test_golden_candidate_sent(self, db, monkeypatch):
         _patch_time(monkeypatch)
         # тишина: последние юзерские сообщения — по теме («золотой»-поиск)

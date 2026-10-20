@@ -8,7 +8,12 @@
 import re
 from pathlib import Path
 
-from services.web_prompts import PREV_WEBPAGE_SYSTEM_PROMPT, WEBPAGE_SYSTEM_PROMPT
+from services.prompt_style_blocks import BOT_KNOWLEDGE_INSTRUCTION_NEUTRAL
+from services.web_prompts import (
+    PREV_WEBPAGE_R1021_SYSTEM_PROMPT,
+    PREV_WEBPAGE_SYSTEM_PROMPT,
+    WEBPAGE_SYSTEM_PROMPT,
+)
 
 
 def _arch_web_prompt() -> str:
@@ -58,15 +63,15 @@ class TestWebpagePrompt:
         assert "длина ответа строго до 4000 символов" in formatted
 
     def test_style_markers_from_tz(self):
-        """R37-6: токсичный ироничный участник чата, ленивая печать,
-        запреты маркдауна/тире/ёлочек."""
-        assert "токсичный, ироничный участник чата" in WEBPAGE_SYSTEM_PROMPT
+        """R37-6: жанр выжимки статьи, торопливое письмо, запреты.
+        CFG-07A-2: identity в активном каноне отсутствует."""
         assert "Имитируй торопливое письмо" in WEBPAGE_SYSTEM_PROMPT
         assert "ЗАПРЕЩЕН любой маркдаун" in WEBPAGE_SYSTEM_PROMPT
         assert "КАТЕГОРИЧЕСКИ ЗАПРЕЩЕНЫ длинные тире (—) и кавычки-елочки («»)" in WEBPAGE_SYSTEM_PROMPT
         assert "сплошной текст с разделением на абзацы" in WEBPAGE_SYSTEM_PROMPT
         assert "выжимку содержимого веб-страницы" in WEBPAGE_SYSTEM_PROMPT
         assert "Саркастично оцени полезность материала" in WEBPAGE_SYSTEM_PROMPT
+        assert "токсичный, ироничный участник чата" not in WEBPAGE_SYSTEM_PROMPT
 
     def test_round5_casing_and_typography(self):
         """Раунд 5 (T-738): п.1 «торопливое письмо»; старые формулировки
@@ -85,13 +90,17 @@ class TestWebpagePrompt:
         assert "Имитируй торопливое письмо" not in PREV_WEBPAGE_SYSTEM_PROMPT
 
     def test_ends_with_rag_instruction(self):
-        """55.7.5: канон-инструкция R46-4 — последний абзац промпта."""
-        assert WEBPAGE_SYSTEM_PROMPT.endswith(RAG_INSTRUCTION)
+        """55.7.5: канон-инструкция <bot_knowledge> — последний абзац промпта.
+        CFG-07A-2 (SF-11): активный канон — нейтральная редакция R1021."""
+        assert WEBPAGE_SYSTEM_PROMPT.endswith(BOT_KNOWLEDGE_INSTRUCTION_NEUTRAL)
 
     def test_rag_instruction_canon_verbatim(self):
-        """Канон R46-4 — инструкция ДОСЛОВНО из backlog."""
+        """Канон R46-4 (исторический, backlog) — ДОСЛОВНО; в активном каноне
+        hostility-редакция снята, слепок PREV её сохраняет."""
         assert RAG_INSTRUCTION == (
             "Если в блоке <bot_knowledge> есть информация по текущей теме, "
             "используй её, чтобы унизить оппонента своими знаниями."
         )
+        assert RAG_INSTRUCTION not in WEBPAGE_SYSTEM_PROMPT
+        assert RAG_INSTRUCTION in PREV_WEBPAGE_R1021_SYSTEM_PROMPT
         assert "<bot_knowledge>" in WEBPAGE_SYSTEM_PROMPT

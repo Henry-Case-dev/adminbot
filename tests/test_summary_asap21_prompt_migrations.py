@@ -60,7 +60,9 @@ _ROLLBACK_CASES = [
     (_NARR, "narr", lambda: sp.SUMMARY_NARRATOR_SYSTEM_PROMPT,
      lambda: sp.PREV_SUMMARY_NARRATOR_R1028),
     (_SYS, "sys", lambda: sp.SYSTEM_PROMPT,
-     lambda: sp.PREV_SUMMARY_SYSTEM_R1028),
+     # CFG-07A-2 (ADR-1013-3): откат — на НЕПОСРЕДСТВЕННО прежний
+     # прод-канон 2.58.100 (снимается только ступень CFG-07A).
+     lambda: sp.PREV_SUMMARY_CFG07A_SYSTEM_PROMPT),
 ]
 
 # id-шники короткие: тексты промптов в test-id НЕ попадают

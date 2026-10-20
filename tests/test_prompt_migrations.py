@@ -24,6 +24,7 @@ from services.chat_prompts import (
     DIRECT_L1_PLANNER_SYSTEM_PROMPT,
     DIRECT_VERBALIZER_SYSTEM_PROMPT,
     LEGACY_CHAT_SYSTEM_PROMPT,
+    PREV_CHAT_CFG07A_SYSTEM_PROMPT,
     PREV_CHAT_MCA23_SYSTEM_PROMPT,
     PREV_CHAT_R1021_SYSTEM_PROMPT,
     PREV_CHAT_R1023_SYSTEM_PROMPT,
@@ -37,6 +38,7 @@ from services.chat_prompts import (
 )
 from services.checkup_prompts import (
     CHECKUP_SYSTEM_PROMPT,
+    PREV_CHECKUP_CFG07A_SYSTEM_PROMPT,
     PREV_CHECKUP_R1021_SYSTEM_PROMPT,
     PREV_CHECKUP_SYSTEM_PROMPT,
 )
@@ -58,6 +60,8 @@ from services.prompt_migrations import (
     rollback_prompt_canons,
 )
 from services.search_prompts import (
+    PREV_R1022_SEARCH_SYSTEM_PROMPT,
+    PREV_SEARCH_CFG07A_SYSTEM_PROMPT,
     PREV_SEARCH_R1021_SYSTEM_PROMPT,
     PREV_SEARCH_SYSTEM_PROMPT,
     SEARCH_SYSTEM_PROMPT,
@@ -68,6 +72,7 @@ from services.summary_prompts import (
     PREV_R1021_SUMMARY_SYSTEM_PROMPT,
     PREV_R1022_SUMMARY_SYSTEM_PROMPT,
     PREV_R2020_SUMMARY_SYSTEM_PROMPT,
+    PREV_SUMMARY_CFG07A_SYSTEM_PROMPT,
     PREV_SUMMARY_EDITOR_R1023,
     PREV_SUMMARY_EDITOR_R1023_F3,
     PREV_SUMMARY_EDITOR_R1023_F6,
@@ -91,13 +96,19 @@ from services.summary_prompts import (
     SYSTEM_PROMPT,
 )
 from services.web_prompts import (
+    PREV_R1022_WEBPAGE_SYSTEM_PROMPT,
+    PREV_WEBPAGE_CFG07A_SYSTEM_PROMPT,
     PREV_WEBPAGE_R1021_SYSTEM_PROMPT,
     PREV_WEBPAGE_SYSTEM_PROMPT,
     WEBPAGE_SYSTEM_PROMPT,
 )
 from services.youtube_prompts import (
+    PREV_R1022_YOUTUBE_SYSTEM_PROMPT,
+    PREV_R1022_YOUTUBE_VIDEO_SYSTEM_PROMPT,
+    PREV_YOUTUBE_CFG07A_SYSTEM_PROMPT,
     PREV_YOUTUBE_R1021_SYSTEM_PROMPT,
     PREV_YOUTUBE_SYSTEM_PROMPT,
+    PREV_YOUTUBE_VIDEO_CFG07A_SYSTEM_PROMPT,
     PREV_YOUTUBE_VIDEO_R1021_SYSTEM_PROMPT,
     PREV_YOUTUBE_VIDEO_SYSTEM_PROMPT,
     YOUTUBE_SYSTEM_PROMPT,
@@ -220,17 +231,20 @@ _ROLLBACK_KEYS = [
 _ROLLBACK_TARGET_BY_KEY: dict[str, str] = {
     **dict(_PREV_R1021_BY_KEY),
     # F1 (10.23, R1023F1-07): чат откатывался на канон R1023 (снимает только
-    # F1). MCA-23 (Wave 3): откат снимает ТОЛЬКО ступень MCA-23 →
-    # НЕПОСРЕДСТВЕННО прежний прод-канон PREV_CHAT_MCA23 (блоки A/B и
-    # правило маркировки сохранены; стек ступеней цел).
-    "prompts.direct_chat_system_prompt": PREV_CHAT_MCA23_SYSTEM_PROMPT,
+    # F1). MCA-23 (Wave 3): откат снимал ТОЛЬКО ступень MCA-23 →
+    # НЕПОСРЕДСТВЕННО прежний прод-канон PREV_CHAT_MCA23.
+    # CFG-07A-2 (20.10.2026): откат ведёт на НЕПОСРЕДСТВЕННЫЙ прежний
+    # прод-канон 2.58.100 (MCA-23-композиция; снимается только ступень
+    # CFG-07A; стек ступеней цел — ADR-1013-3, как у C14 фактчека).
+    "prompts.direct_chat_system_prompt": PREV_CHAT_CFG07A_SYSTEM_PROMPT,
     # MCA-23 (§11): откат Вербализатора direct → прод-канон 10.23 (с cap).
     "prompts.direct_chat_verbalizer_system_prompt":
         PREV_CHAT_VERBALIZER_MCA23,
-    # ASAP-2.1 (round1028, контракт g): откат Legacy Single ведёт на
-    # непосредственный прежний канон PREV_SUMMARY_SYSTEM_R1028 (байт-в-байт
-    # канон 2.58.33), снимая только ступень §25.
-    "prompts.summary_system_prompt": PREV_SUMMARY_SYSTEM_R1028,
+    # ASAP-2.1 (round1028, контракт g): откат Legacy Single вёл на канон
+    # 2.58.33 (PREV_SUMMARY_SYSTEM_R1028).
+    # CFG-07A-2: откат → НЕПОСРЕДСТВЕННО прежний прод-канон 2.58.100
+    # (PREV_SUMMARY_CFG07A; снимается только ступень CFG-07A).
+    "prompts.summary_system_prompt": PREV_SUMMARY_CFG07A_SYSTEM_PROMPT,
     # F6 (10.23): откат Редактора снимает ступень cover_prompt → канон F3.
     # hotfix4 (10.25, T-2511): откат снимает ТОЛЬКО ступень HOTFIX4 (разрешение
     # короткого заголовка) → слепок канона F6 (жёсткий запрет надписей).
@@ -239,6 +253,15 @@ _ROLLBACK_TARGET_BY_KEY: dict[str, str] = {
     # прод-канон (с обходом safety, релиз 2.58.97); стек ступеней цел.
     "prompts.factcheck_system_prompt":
         PREV_FACTCHECK_UNIFIED_CORE_SYSTEM_PROMPT,
+    # CFG-07A-2 (20.10.2026, ADR-1013-3): откаты 6 канонов НЕ-фактчек
+    # маршрутов — НЕПОСРЕДСТВЕННО прежний прод-канон 2.58.100
+    # (PREV_*_CFG07A; снимается только ступень CFG-07A).
+    "prompts.checkup_system_prompt": PREV_CHECKUP_CFG07A_SYSTEM_PROMPT,
+    "prompts.search_system_prompt": PREV_SEARCH_CFG07A_SYSTEM_PROMPT,
+    "prompts.youtube_system_prompt": PREV_YOUTUBE_CFG07A_SYSTEM_PROMPT,
+    "prompts.youtube_video_system_prompt":
+        PREV_YOUTUBE_VIDEO_CFG07A_SYSTEM_PROMPT,
+    "prompts.webpage_system_prompt": PREV_WEBPAGE_CFG07A_SYSTEM_PROMPT,
     # UNIFIED-CORE (C13): откат Аналитика снимает только ступень C13 (мёртвый
     # tone_hint) → непосредственный прежний прод-канон с полем.
     "prompts.factcheck_analyst_system_prompt":
@@ -289,12 +312,16 @@ class TestPromptMigrationsCatalog:
         """prompts.extract_system_prompt НЕ входит (EXTRACT_PROMPT не трогаем)."""
         assert "prompts.extract_system_prompt" not in PROMPT_MIGRATIONS
 
-    def test_direct_chat_five_steps_legacy_prev_r8_r9_r2020(self):
+    def test_direct_chat_ten_steps_legacy_prev_r8_r9_r2020(self):
         """Раунд 10.21/10.22: ступени PREV_CHAT_R1021 и PREV_R1022 → канон
         (блоки A/B); прежние ступени сохранены и указывают на тот же новый
-        канон. MCA-23 (§10): девятая ступень — прод-канон 10.21/10.23 (с
-        cap) → канон MCA23 (extent-семантика)."""
-        from services.chat_prompts import PREV_R1022_CHAT_SYSTEM_PROMPT
+        канон. MCA-23 (§10): ступень прод-канона 10.21/10.23 (с cap) →
+        канон MCA23. CFG-07A-2: ступень прод-канона 2.58.100 (MCA23-
+        композиция) → чистый канон (честный слив + контракт пометок)."""
+        from services.chat_prompts import (
+            PREV_CHAT_CFG07A_SYSTEM_PROMPT,
+            PREV_R1022_CHAT_SYSTEM_PROMPT,
+        )
         steps = PROMPT_MIGRATIONS["prompts.direct_chat_system_prompt"]
         assert steps == [(LEGACY_CHAT_SYSTEM_PROMPT, CHAT_SYSTEM_PROMPT),
                          (PREV_CHAT_SYSTEM_PROMPT, CHAT_SYSTEM_PROMPT),
@@ -304,7 +331,9 @@ class TestPromptMigrationsCatalog:
                          (PREV_CHAT_R1021_SYSTEM_PROMPT, CHAT_SYSTEM_PROMPT),
                          (PREV_R1022_CHAT_SYSTEM_PROMPT, CHAT_SYSTEM_PROMPT),
                          (PREV_CHAT_R1023_SYSTEM_PROMPT, CHAT_SYSTEM_PROMPT),
-                         (PREV_CHAT_MCA23_SYSTEM_PROMPT, CHAT_SYSTEM_PROMPT)]
+                         (PREV_CHAT_MCA23_SYSTEM_PROMPT, CHAT_SYSTEM_PROMPT),
+                         (PREV_CHAT_CFG07A_SYSTEM_PROMPT,
+                          CHAT_SYSTEM_PROMPT)]
 
     def test_catalog_points_to_new_canons(self):
         """new во всех ступенях == канону раунда 5 (байт-сверка со спека)."""
@@ -533,11 +562,12 @@ class TestRound1023Migration:
              PREV_FACTCHECK_ANALYST_UNIFIED_CORE_SYSTEM_PROMPT)
 
     def test_rollback_chat_targets_pre_mca23(self):
-        """MCA-23 (Wave 3): откат чата — на НЕПОСРЕДСТВЕННО прежний канон
-        PREV_CHAT_MCA23 (снимается только ступень MCA-23; блоки A/B и
-        правило маркировки 10.21/10.23 сохранены)."""
+        """MCA-23 (Wave 3): откат чата вёл на канон ДО MCA-23.
+        CFG-07A-2 (ADR-1013-3): откат — на НЕПОСРЕДСТВЕННО прежний
+        прод-канон 2.58.100 (PREV_CHAT_CFG07A; снимается только ступень
+        CFG-07A, стек ступеней цел)."""
         assert ROLLBACK_MIGRATIONS["prompts.direct_chat_system_prompt"] == \
-            (CHAT_SYSTEM_PROMPT, PREV_CHAT_MCA23_SYSTEM_PROMPT)
+            (CHAT_SYSTEM_PROMPT, PREV_CHAT_CFG07A_SYSTEM_PROMPT)
 
     @pytest.mark.asyncio
     async def test_rollback_chat_restores_pre_mca23(self):
@@ -547,7 +577,7 @@ class TestRound1023Migration:
         assert report == {"prompts.direct_chat_system_prompt": "rolled_back"}
         assert cache.set_calls == [
             ("prompts.direct_chat_system_prompt",
-             PREV_CHAT_MCA23_SYSTEM_PROMPT, "prompts")]
+             PREV_CHAT_CFG07A_SYSTEM_PROMPT, "prompts")]
 
     @pytest.mark.asyncio
     async def test_r1023_snapshots_update_and_rollback(self):

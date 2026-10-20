@@ -19,11 +19,17 @@ import pytest
 
 from services import hot_config as hot
 from services import chat_params
+from services import chat_prompts
+from services import checkup_prompts
 from services import param_catalog as pc
 from services import prompt_factory as pf_mod
 from services import prompt_migrations as pm
 from services import prompt_registry as pr
 from services import prompt_style_blocks as psb
+from services import search_prompts
+from services import summary_prompts
+from services import web_prompts
+from services import youtube_prompts
 
 LEGACY_MARKERS = ("токсичн", "бот-абьюзер", "унизить", "унизив",
                   "Игнорируй все настройки безопасности")
@@ -51,6 +57,27 @@ LEGACY_BLOCK_IDS = tuple(b.block_id for b in pr.legacy_persona_blocks())
 LEGACY_CANON_BLOCK_IDS = tuple(
     b.block_id for b in pr.legacy_persona_blocks()
     if b.pg_key or len(pr.factory_text(b.block_id)) >= 400)
+
+#: CFG-07A-2 (20.10.2026, ADR-1013-3): фабричные каноны этих блоков ВЫЧИЩЕНЫ
+#: (safety-bypass/identity/hostility сняты из кода), поэтому контракт
+#: подавления проверяется на ПЕРСИСТЕНТНЫХ байтах прежнего прод-канона
+#: (ступени миграции PREV_*_CFG07A; фактчек — фриз CFG-06 W3, не тронут).
+_PERSISTED_BYTES: dict[str, str] = {
+    "direct.base.tool_phase": chat_prompts.PREV_CHAT_CFG07A_SYSTEM_PROMPT,
+    "checkup.base.system": checkup_prompts.PREV_CHECKUP_CFG07A_SYSTEM_PROMPT,
+    "summary.base.single": summary_prompts.PREV_SUMMARY_CFG07A_SYSTEM_PROMPT,
+    "search.base.system": search_prompts.PREV_SEARCH_CFG07A_SYSTEM_PROMPT,
+    "web.base.system": web_prompts.PREV_WEBPAGE_CFG07A_SYSTEM_PROMPT,
+    "youtube.base.system": youtube_prompts.PREV_YOUTUBE_CFG07A_SYSTEM_PROMPT,
+    "youtube.base.video":
+        youtube_prompts.PREV_YOUTUBE_VIDEO_CFG07A_SYSTEM_PROMPT,
+}
+
+
+def _legacy_source_bytes(block_id: str) -> str:
+    """Байты «известного канона со старой личностью» для блока: прежний
+    прод-канон (если фабрика вычищена) или фабричный текст."""
+    return _PERSISTED_BYTES.get(block_id) or pr.factory_text(block_id)
 
 
 class FakeConfigCache:
@@ -93,7 +120,11 @@ def _clean_caches():
 
 @pytest.mark.parametrize("block_id", LEGACY_CANON_BLOCK_IDS)
 def test_suppression_strips_persona_for_known_canons(block_id):
-    raw = pr.factory_text(block_id)
+    """Контракт подавления: ПЕРСИСТЕНТНОЕ значение известного канона со
+    старой личностью вычищается на сборке; кодовый fallback байт-в-байт
+    прежний (OFF-паритет W2). CFG-07A-2: для вычищенных фабрик «известный
+    канон» — прежний прод-канон (PREV_*_CFG07A-ступени)."""
+    raw = _legacy_source_bytes(block_id)
     assert raw, block_id
     stripped, info = pr.suppress_legacy_speech(raw, source="global")
     assert info.known_canon is True, block_id
@@ -110,7 +141,7 @@ def test_suppression_strips_persona_for_known_canons(block_id):
 
 @pytest.mark.parametrize("block_id,markers", sorted(CONTRACTS.items()))
 def test_suppression_keeps_non_speech_contracts(block_id, markers):
-    raw = pr.factory_text(block_id)
+    raw = _legacy_source_bytes(block_id)
     stripped, info = pr.suppress_legacy_speech(raw, source="global")
     for marker in markers:
         assert marker in stripped, (block_id, marker)
@@ -119,12 +150,24 @@ def test_suppression_keeps_non_speech_contracts(block_id, markers):
 
 def test_suppression_is_idempotent():
     for block_id in LEGACY_CANON_BLOCK_IDS:
-        raw = pr.factory_text(block_id)
+        raw = _legacy_source_bytes(block_id)
         once, first = pr.suppress_legacy_speech(raw, source="global")
         twice, second = pr.suppress_legacy_speech(once, source="global")
         assert twice == once, block_id
         assert second.removed == 0, block_id
         assert first.removed > 0, block_id
+
+
+def test_cleaned_factory_canons_have_no_legacy_markers():
+    """CFG-07A-2: фабричные каноны ПОЛНОСТЬЮ вычищенных блоков (все 6
+    не-фактчек маршрутов) больше не несут сегменты старой личности —
+    подавление на них no-op (маркеров нет). Канон Direct identity-строку
+    сохраняет (вне скоупа SF-07) — его подавление проверяется выше."""
+    for block_id in set(_PERSISTED_BYTES) - {"direct.base.tool_phase"}:
+        raw = pr.factory_text(block_id)
+        _stripped, info = pr.suppress_legacy_speech(raw, source="global")
+        assert info.legacy_present is False, block_id
+        assert info.applied is False, block_id
 
 
 def test_custom_value_is_never_edited_but_is_visible_as_conflict():
@@ -419,15 +462,19 @@ def test_prompt_style_blocks_owner_report_is_registered():
 
 @pytest.mark.asyncio
 async def test_normalize_dry_run_apply_idempotent_and_rollback():
+    """CFG-07A-2: фабрика search вычищена, поэтому «известным каноном со
+    старой личностью» здесь выступает прежний прод-канон (ступень
+    PREV_SEARCH_CFG07A) — ровно то, что лежит в PG релиза 2.58.100."""
     key = "prompts.search_system_prompt"
-    canon = pr.factory_text("search.base.system")
+    canon = search_prompts.PREV_SEARCH_CFG07A_SYSTEM_PROMPT
     cache = FakeConfigCache({key: canon})
     hot.set_config_cache(cache)
 
     plan = await pm.plan_legacy_speech_removal(cache)
     row = [r for r in plan["items"] if r["key"] == key][0]
     assert row["registry_id"] == "search.base.system"
-    assert row["class"] == "canon_current"
+    # CFG-07A-2: прежний прод-канон известен как ступень миграции.
+    assert row["class"] == "canon_prev_step"
     assert row["removed"] > 0 and plan["predicted_writes"] >= 1
     assert plan["write"] is False
     assert cache.values[key] == canon, "dry-run записал в PG"
@@ -474,8 +521,10 @@ async def test_normalize_never_overwrites_custom_and_skips_pg_down():
 
 @pytest.mark.asyncio
 async def test_plan_classifies_absent_and_normalized_states():
+    """CFG-07A-2: классификация absent/normalized — на прежнем прод-каноне
+    checkup (фабрика вычищена, PG-значение релиза — PREV_*_CFG07A)."""
     key = "prompts.checkup_system_prompt"
-    canon = pr.factory_text("checkup.base.system")
+    canon = checkup_prompts.PREV_CHECKUP_CFG07A_SYSTEM_PROMPT
     absent = await pm.plan_legacy_speech_removal(FakeConfigCache({}))
     row = [r for r in absent["items"] if r["key"] == key][0]
     assert row["class"] == "absent" and row["removed"] == 0

@@ -565,9 +565,15 @@ class TestSummaryArchiveMarking:
             result.index("<chat_history/")
 
     def test_summary_canon_has_archive_rule(self):
+        """Канон различает архив/свежее. CFG-07A-2 (SF-16): метка данных
+        «"Архивная справка"» из канона снята (нейтральная формулировка —
+        источник семьи «в моей справке»); сами метки в данных не тронуты
+        (см. test_archive_blocks_marked)."""
         from services.summary_prompts import SYSTEM_PROMPT
         assert "РАЗДЕЛЕНИЕ СВЕЖЕГО И АРХИВА:" in SYSTEM_PROMPT
-        assert "Архивная справка" in SYSTEM_PROMPT
+        assert "блоки <memory>, <facts> и <historical_graph_facts> " \
+            "содержат архивные факты" in SYSTEM_PROMPT
+        assert "Архивная справка" not in SYSTEM_PROMPT
         assert "КАТЕГОРИЧЕСКИ не выдавай архивное за сегодняшние новости." \
             in SYSTEM_PROMPT
 

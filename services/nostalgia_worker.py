@@ -69,6 +69,7 @@ from services.nostalgia_prompts import (
     _MEMES_LIMIT,
     build_nostalgia_user,
     clean_llm_text,
+    contains_unchanged_token,
     format_golden_line,
     format_year_back_line,
     is_unchanged_response,
@@ -573,6 +574,18 @@ class NostalgiaWorker:
             out["skipped"] += 1
             logger.info("[nostalgia] empty LLM text — skip | chat=%s",
                         chat_id)
+            return
+        # CFG-07A-2 (FA-06/G1): не-точное эхо служебного токена UNCHANGED
+        # («UNCHANGED, но ...») — брак, а не контент: в чат токен не идёт.
+        if contains_unchanged_token(text):
+            await self._log(chat_id, now, candidate["kind"],
+                            candidate.get("fact_id"), _STATUS_SKIPPED,
+                            {"reason": "unchanged_echo", "llm_skipped": True,
+                             "candidate_text": candidate["text"]})
+            out["skipped"] += 1
+            logger.info(
+                "[nostalgia] UNCHANGED echo — skip | chat=%s | kind=%s",
+                chat_id, candidate["kind"])
             return
         meta = {"reason": "sent", "candidate": candidate["kind"],
                 "candidate_text": candidate["text"]}
