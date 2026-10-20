@@ -2,7 +2,7 @@
   "schema": "openworkflow-coverage-v1",
   "source_path": "C:\\Code\\Python\\adminbot\\plans\\features\\samples-ux\\source-add-samples-ux-2026-10-20.md",
   "source_sha256": "e6153cf15854fa47c2fc0ba99a296f4a0bb37f435a7a5706809ad2ca6ca8ad69",
-  "candidate_commit": "",
+  "candidate_commit": "27b1165aced5c54faf83845160509b1ad2307318",
   "deployed_commit": "",
   "strict_evidence": true,
   "slice_graph_path": "slice-graph.json",
@@ -19,8 +19,17 @@
       "acceptance": "Директива зарегистрирована как дельта к SOUL-07/SOUL-10/ADD-EXP/CFG (без нового эпика, дублей и искусственного P0); уже выполняющиеся операции не прерваны; порядок определён по зависимостям и отражён в slice-graph.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "27b1165aced5c54faf83845160509b1ad2307318",
+          "type": "static",
+          "ref": "reconciliation.md (e): serial-цепочка SU-MIGR→SU-SEED→SU-FEWSHOT→SU-UI→SU-ACCEPT, дельта к SOUL-07/SOUL-10/ADD-EXP/CFG без нового эпика",
+          "observation": "Директива зарегистрирована как дельта к существующим эпикам: карта 77 строк в samples-ux, дублей и искусственного P0 нет; порядок по зависимостям отражён в slice-graph (review: plan-гейт EXIT 0); выполняющиеся CFG-06 операции не прерваны (ревью 20.10.2026 фиксирует параллельность).",
+          "artifact_path": "plans/features/samples-ux/reconciliation.md",
+          "artifact_sha256": "fd78d679bc6194064d9bb24de4de657cfbbd597d75a660bf2c3e62c729400163"
+        }
+      ]
     },
     {
       "source_id": "MAN-REG-NOSPRawl",
@@ -34,8 +43,25 @@
       "acceptance": "Реализация не создаёт новых сервисов/таблиц/инструментов/дополнительных LLM-вызовов сверх контракта: категории и persist-семантика живут в существующей инфраструктуре humor_samples (проверка: в диффе нет нового сервиса/конфиг-слоя; LLM-вызовов отбора 0).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "27b1165aced5c54faf83845160509b1ad2307318",
+          "type": "test",
+          "ref": "tests/test_samples_categories.py — 12 passed; test_v37_additive_columns_no_new_tables",
+          "observation": "Новых таблиц/сервисов нет: v37 — аддитивные колонки существующей humor_samples (тест no-new-tables зелёный на кандидате).",
+          "artifact_path": "tests/test_samples_categories.py",
+          "artifact_sha256": "c74b8f57ca8597289c3c3b2cb8e05444913236360685bcf8e4c35b7bdd982a4b"
+        },
+        {
+          "candidate_commit": "27b1165aced5c54faf83845160509b1ad2307318",
+          "type": "static",
+          "ref": "build/README.md, решения 2 и 4",
+          "observation": "Tombstone — колонка существующей таблицы; категорийный отбор в существующих select_samples/resolve_refs; LLM-вызовов отбора 0 (review §5: проверено по коду); нового конфиг-слоя в диффе нет.",
+          "artifact_path": "plans/features/samples-ux/evidence/build/README.md",
+          "artifact_sha256": "f2a2534e0a61c0ac8160e62a9341c8c2f6dbee6e08b33fb917f353a44bbe8ee1"
+        }
+      ]
     },
     {
       "source_id": "MAN-0-AUDIT",
@@ -49,8 +75,17 @@
       "acceptance": "Перед реализацией зафиксировано фактическое состояние прод-данных и кода (что уже есть/чего нет); backend CRUD не выдаётся за готовую пользовательскую функцию; вывод — в reconciliation/отчёте с файл:строка.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "27b1165aced5c54faf83845160509b1ad2307318",
+          "type": "static",
+          "ref": "reconciliation.md (a)/(b) на фиксированном HEAD 9f37c15a, с file:line",
+          "observation": "Перед реализацией зафиксировано фактическое состояние: (a) 11 существующих механизмов с файл:строка (DDL v36, CRUD+revision_conflict, сиды, единственный ручной seed-эндпоинт speech.py:2998–3029, bounded-отбор, блоки, API, UI-каркас, миграционная цепочка, регресс-тесты); (b) 9 разрывов с файл:строка; backend CRUD отделён от пользовательской функции.",
+          "artifact_path": "plans/features/samples-ux/reconciliation.md",
+          "artifact_sha256": "fd78d679bc6194064d9bb24de4de657cfbbd597d75a660bf2c3e62c729400163"
+        }
+      ]
     },
     {
       "source_id": "MAN-0-PRESERVE",
@@ -64,8 +99,25 @@
       "acceptance": "Существующие данные, изоляция чатов, права, телеметрия, версии и выбор few-shot сохраняются (регресс-тесты до/после миграции на снапшоте данных).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "27b1165aced5c54faf83845160509b1ad2307318",
+          "type": "test",
+          "ref": "tests/test_soul1_w4_sample_library.py — 20 passed (§6 регресс)",
+          "observation": "Существующие данные/изоляция/права сохранены: cross-chat isolation, leakage guard, scope, PII, A/B, telemetry — регресс зелёный на кандидате.",
+          "artifact_path": "tests/test_soul1_w4_sample_library.py",
+          "artifact_sha256": "6cafbee40e9dd1a934ebe921cee219265fe4f4199c38cabe66942250a4145168"
+        },
+        {
+          "candidate_commit": "27b1165aced5c54faf83845160509b1ad2307318",
+          "type": "test",
+          "ref": "tests/test_mca17c_invariants_round1047.py — 8 passed; user_version 37",
+          "observation": "Версии и миграционные инварианты сохранены (user_version 36→37 ресанкция в коммите).",
+          "artifact_path": "tests/test_mca17c_invariants_round1047.py",
+          "artifact_sha256": "cb6c88e31d9467a219a3d93bb6e63ace8e91c08ddb179043bea7243938ec1acc"
+        }
+      ]
     },
     {
       "source_id": "MAN-0-ONECORE",
@@ -79,8 +131,25 @@
       "acceptance": "Концепция Personality Core не меняется, второй характер не вводится: библиотека остаётся данными few-shot; канон Core байт-в-байт при off (существующий байт-тест не ослаблен).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "27b1165aced5c54faf83845160509b1ad2307318",
+          "type": "test",
+          "ref": "tests/test_unified_core_route_coverage.py — 18 passed (CONTRACT)",
+          "observation": "Концепция Personality Core не менялась: контрактные тесты unified-core зелёные; factory-фингерпринт не тронут (см. SU-TXT пины).",
+          "artifact_path": "tests/test_unified_core_route_coverage.py",
+          "artifact_sha256": "3a44865124666999abcc93f550380c4ec2aae70bacc3ae9a149de8562fec630d"
+        },
+        {
+          "candidate_commit": "27b1165aced5c54faf83845160509b1ad2307318",
+          "type": "test",
+          "ref": "tests/test_add_exp_expression.py — 36 passed; test_factory_set_fingerprint_unaffected_by_directives",
+          "observation": "Библиотека осталась данными few-shot: директивы Expression не входят в factory-набор, fingerprint 64ec1c60e278 стабилен ДО/ПОСЛЕ (README решение 1); канон Core байт-тест не ослаблен.",
+          "artifact_path": "tests/test_add_exp_expression.py",
+          "artifact_sha256": "fd5ce9e726de9c2c8d77b37faddf79043fffdd267cb584d93bed3aadb0642c45"
+        }
+      ]
     },
     {
       "source_id": "MAN-0-NORESTORE",
@@ -94,8 +163,17 @@
       "acceptance": "Неудачные старые factory-примеры не восстанавливаются автоматически; черновики нигде не выдаются за эталоны (тест: автоматических путей восстановления нет; draft-статус честен в UI/API).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "27b1165aced5c54faf83845160509b1ad2307318",
+          "type": "test",
+          "ref": "tests/test_samples_factory_persist.py — 12 passed; test_delete_factory_keeps_tombstone_and_seed_never_restores",
+          "observation": "Автоматических путей восстановления нет: сид пропускается при существовании строки/tombstone, force инертен (review §3: путей неявного force нет — структурный тест единственного ручного эндпоинта); черновики честны в UI/API (вкладка «Черновики», бейджи, статус owner_approved+active).",
+          "artifact_path": "tests/test_samples_factory_persist.py",
+          "artifact_sha256": "f88271e1b2bc0a3f777242c0d23690412ff03aa4bbe68929b9853ac40ff8c9f0"
+        }
+      ]
     },
     {
       "source_id": "MAN-CAT-ENTRY",
@@ -109,8 +187,25 @@
       "acceptance": "В разделе «Речь и характер → Примеры» существуют ровно три категории записи: general / humor / mat; API перечисляет категории и принимает их валидно (контрактный тест).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "27b1165aced5c54faf83845160509b1ad2307318",
+          "type": "test",
+          "ref": "tests/test_samples_categories.py — 12 passed; test_exactly_three_write_categories_and_legacy_is_migration_only",
+          "observation": "Ровно три категории записи general/humor/mat (legacy — только миграционное значение), валидация категорий серверная.",
+          "artifact_path": "tests/test_samples_categories.py",
+          "artifact_sha256": "c74b8f57ca8597289c3c3b2cb8e05444913236360685bcf8e4c35b7bdd982a4b"
+        },
+        {
+          "candidate_commit": "27b1165aced5c54faf83845160509b1ad2307318",
+          "type": "test",
+          "ref": "tests/test_samples_acceptance.py — 8 passed; test_categories_payload_lists_three_categories",
+          "observation": "API перечисляет три категории и принимает их валидно (контрактный тест на эндпоинте).",
+          "artifact_path": "tests/test_samples_acceptance.py",
+          "artifact_sha256": "6592520538053018672e72e7c8b752b664fa5ded09ac0c50fbb06c1a437a0962"
+        }
+      ]
     },
     {
       "source_id": "MAN-CAT-REAL",
@@ -124,8 +219,25 @@
       "acceptance": "Категория сквозная: сохранение, серверная валидация, выдача, отбор, effective prompt и Inspector учитывают category; вкладка-фильтр не подменяет категоризацию записи (тест: фильтр не меняет category; Inspector показывает категорию блоков). Единая инфраструктура CRUD/storage/логирования/прав — без трёх дублирующих подсистем.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "27b1165aced5c54faf83845160509b1ad2307318",
+          "type": "test",
+          "ref": "tests/test_samples_categories.py; test_category_filter_reads_explicit_field + test_selection_reads_category_not_word_match",
+          "observation": "Категория сквозная: сохранение/валидация/фильтр/отбор читают явное поле; вкладка-фильтр не подменяет категоризацию (selection не по совпадению слов); telemetry by_category.",
+          "artifact_path": "tests/test_samples_categories.py",
+          "artifact_sha256": "c74b8f57ca8597289c3c3b2cb8e05444913236360685bcf8e4c35b7bdd982a4b"
+        },
+        {
+          "candidate_commit": "27b1165aced5c54faf83845160509b1ad2307318",
+          "type": "static",
+          "ref": "review-samples-ux.md §1",
+          "observation": "Независимая проверка: серверная валидация/выдача/фильтр/отбор/блоки/why категорийны; единая инфраструктура CRUD/storage без трёх подсистем (новых таблиц нет).",
+          "artifact_path": "plans/features/samples-ux/evidence/review-samples-ux.md",
+          "artifact_sha256": "c20010a716d3817a0aa2e8e48bf513738192e6e0b15614275cfb7ff038bd2cd4"
+        }
+      ]
     },
     {
       "source_id": "MAN-CAT-MIGRATE",
@@ -139,8 +251,33 @@
       "acceptance": "Миграция: expression_register/режимные теги → категория «Мат» с явным режимом; юмористические техники → «Юмор»; неоднозначные legacy (other) остаются в прежнем разделе с возможностью смены категории владельцем. ID, ревизии, owner-approved, содержимое, scope, архив, история правок и A/B сохранены; миграция идемпотентна, обратима по данным, работает на SQLite и PostgreSQL; пересоздания библиотеки и потери карточек нет (тесты на снапшоте + повторный прогон).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "27b1165aced5c54faf83845160509b1ad2307318",
+          "type": "test",
+          "ref": "tests/test_samples_categories.py; test_v37_migration_maps_categories_and_preserves_data + test_v37_migration_is_idempotent",
+          "observation": "Миграция v37: бэкфил mat/humor, неоднозначный other не переклассифицирован (остаётся для смены владельцем, до классификации исключён из отбора), ID/ревизии/approved/updated_at сохранены, повтор no-op (review §1 — на legacy v36-фикстуре).",
+          "artifact_path": "tests/test_samples_categories.py",
+          "artifact_sha256": "c74b8f57ca8597289c3c3b2cb8e05444913236360685bcf8e4c35b7bdd982a4b"
+        },
+        {
+          "candidate_commit": "27b1165aced5c54faf83845160509b1ad2307318",
+          "type": "test",
+          "ref": "tests/test_mca17c_invariants_round1047.py — 8 passed",
+          "observation": "user_version 36→37 ресанкция штатной MigrationStep-цепочкой; пересоздания библиотеки нет.",
+          "artifact_path": "tests/test_mca17c_invariants_round1047.py",
+          "artifact_sha256": "cb6c88e31d9467a219a3d93bb6e63ace8e91c08ddb179043bea7243938ec1acc"
+        },
+        {
+          "candidate_commit": "27b1165aced5c54faf83845160509b1ad2307318",
+          "type": "static",
+          "ref": "build/README.md, «Pre-existing / incidental»: PostgreSQL-путь",
+          "observation": "Честная фиксация: контур библиотеки SQLite-only by design (GEN-R4, memory-контур, v36-docstring) — PostgreSQL-прогон для этого контура N/A, не «прогнали и забыли»; решение задокументировано в reconciliation.md (f). SQLite-прогоны миграции зелёные.",
+          "artifact_path": "plans/features/samples-ux/evidence/build/README.md",
+          "artifact_sha256": "f2a2534e0a61c0ac8160e62a9341c8c2f6dbee6e08b33fb917f353a44bbe8ee1"
+        }
+      ]
     },
     {
       "source_id": "MAN-TXT-REPLACE",
@@ -154,8 +291,25 @@
       "acceptance": "Прежние формулировки occasional/frequent заменены точными текстами §2 везде, где они рендерятся (слой/леджер/UI-подписи остаются «Эпизодически»/«Часто»); квот, счётчиков, случайной вставки ругательств и постпроцессора не появилось (тесты: байт-равенство + отсутствие новых механик).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "27b1165aced5c54faf83845160509b1ad2307318",
+          "type": "test",
+          "ref": "tests/test_add_exp_expression.py — 36 passed; test_rendered_layer_uses_section2_texts + test_legacy_f3_texts_absent_from_canon_module",
+          "observation": "Тексты §2 рендерятся слоем, прежние F3-формулировки отсутствуют в каноне/пинах/леджере; квот/счётчиков/случайной вставки/постпроцессора нет (review §2); UI-подписи остались «Эпизодически/Часто» (README).",
+          "artifact_path": "tests/test_add_exp_expression.py",
+          "artifact_sha256": "fd5ce9e726de9c2c8d77b37faddf79043fffdd267cb584d93bed3aadb0642c45"
+        },
+        {
+          "candidate_commit": "27b1165aced5c54faf83845160509b1ad2307318",
+          "type": "test",
+          "ref": "tests/test_unified_core_route_coverage.py — 18 passed; FREQ_LINE 44-51 + заводской occasional (486)",
+          "observation": "Пины unified-core обновлены на §2 — старые тексты нигде не остались.",
+          "artifact_path": "tests/test_unified_core_route_coverage.py",
+          "artifact_sha256": "3a44865124666999abcc93f550380c4ec2aae70bacc3ae9a149de8562fec630d"
+        }
+      ]
     },
     {
       "source_id": "MAN-TXT-SCOPE",
@@ -169,8 +323,17 @@
       "acceptance": "Expression по-прежнему распространяется на авторский пользовательский текст всех жанров без исключений по имени Factcheck/Summary; дословные цитаты, данные инструментов, OCR, JSON и технические вызовы не изменяются; явное «без мата» в конкретном ответе уважается без переписывания сохранённого режима (существующие P0-тесты/header не ослаблены).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "27b1165aced5c54faf83845160509b1ad2307318",
+          "type": "test",
+          "ref": "tests/test_add_exp_expression.py — 36 passed (header/рендер всех жанров)",
+          "observation": "Expression распространяется на авторский текст всех жанров: EXPRESSION_HEADER (P0) вне диффа, жанровых исключений Factcheck/Summary нет (review §2); «без мата» на конкретный ответ уважается header-механикой; существующие P0-тесты зелёные.",
+          "artifact_path": "tests/test_add_exp_expression.py",
+          "artifact_sha256": "fd5ce9e726de9c2c8d77b37faddf79043fffdd267cb584d93bed3aadb0642c45"
+        }
+      ]
     },
     {
       "source_id": "MAN-FACT-EDIT",
@@ -184,8 +347,25 @@
       "acceptance": "Из UI открывается любой заводской пример: читается исходный текст, изменяются вход/ответ/категория/режим/приём/контекст, сохраняется как действующая редакция, утверждается/снимается, архивируется/удаляется; есть заметная команда «Заводские наборы» и правка каждой заводской карточки из общего списка (e2e-сценарий; без SQL/конфига/обходного API).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "27b1165aced5c54faf83845160509b1ad2307318",
+          "type": "ui",
+          "ref": "tests/test_samples_ui_e2e.py — 1 passed = 6 браузерных сценариев (failures=0)",
+          "observation": "Из UI открывается/правится/удаляется/восстанавливается заводская карточка: правка вход/ответ/категория/режим, команда «Заводские наборы» в меню, экран сравнения; POST restore-factory/preview+confirm в отчёте; без SQL/конфига/обходного API.",
+          "artifact_path": "tests/test_samples_ui_e2e.py",
+          "artifact_sha256": "7b6e330caf5a9bf106c3824f3001a492b267c68b165098d741d31b3bf5d79fdd"
+        },
+        {
+          "candidate_commit": "27b1165aced5c54faf83845160509b1ad2307318",
+          "type": "ui",
+          "ref": "evidence/build/shots/factory_compare_390.png",
+          "observation": "Скриншот экрана сравнения заводских правок (390px): список затрагиваемых правок + подтверждение.",
+          "artifact_path": "plans/features/samples-ux/evidence/build/shots/factory_compare_390.png",
+          "artifact_sha256": "6132383b94a745f59bdcbeba957543f375c49be742caa496e6a3b069cc64cb3e"
+        }
+      ]
     },
     {
       "source_id": "MAN-FACT-SEMANTICS",
@@ -199,8 +379,25 @@
       "acceptance": "Заводской набор в коде — только эталон для просмотра/явного восстановления; источник истины для правок — персистентное хранилище (сохранение редакции не требует правки Python). После изменения показывается «Изменено владельцем» + время/ревизия; после удаления/архива — соответствующее состояние, а не молчаливое исчезновение (e2e + API).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "27b1165aced5c54faf83845160509b1ad2307318",
+          "type": "test",
+          "ref": "tests/test_samples_factory_persist.py; test_edit_survives_reseed_with_override_mark + test_owner_modified_mark_ignores_approval_and_archive",
+          "observation": "Источник истины для правок — персистентное хранилище (правка не требует правки Python); после изменения метка «Изменено владельцем»+время/ревизия; одобрение/архив метку не ставят (отдельные состояния); после удаления — tombstone-группа «Удалённые заводские», не молчаливое исчезновение.",
+          "artifact_path": "tests/test_samples_factory_persist.py",
+          "artifact_sha256": "f88271e1b2bc0a3f777242c0d23690412ff03aa4bbe68929b9853ac40ff8c9f0"
+        },
+        {
+          "candidate_commit": "27b1165aced5c54faf83845160509b1ad2307318",
+          "type": "ui",
+          "ref": "evidence/build/shots/persist_390.png",
+          "observation": "Скриншот карточки с меткой «Изменено владельцем» после правки.",
+          "artifact_path": "plans/features/samples-ux/evidence/build/shots/persist_390.png",
+          "artifact_sha256": "49b4272938e66baf57809f1c0a996c927aa82c6d2c4e44f4b85c0f49b8054c43"
+        }
+      ]
     },
     {
       "source_id": "MAN-PERSIST-LEGACY",
@@ -214,8 +411,17 @@
       "acceptance": "Если прошлые деплои уже восстановили удалённые примеры, исходные владельческие решения не выдумываются; реализована защита от будущих возвратов и аккуратное управление текущими карточками (фиксация факта в отчёте + tombstone на текущие удаления).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "27b1165aced5c54faf83845160509b1ad2307318",
+          "type": "test",
+          "ref": "tests/test_samples_factory_persist.py; tombstone-тесты",
+          "observation": "Защита от будущих возвратов реализована (tombstone по seed_key, сид skip, force инертен); исходные владельческие решения не выдумываются — честно зафиксировано в reconciliation.md (f) «уже восстановленные после старых деплоев удаления невосстановимы»; управление текущими карточками — через UI-группу «Удалённые заводские» + restore.",
+          "artifact_path": "tests/test_samples_factory_persist.py",
+          "artifact_sha256": "f88271e1b2bc0a3f777242c0d23690412ff03aa4bbe68929b9853ac40ff8c9f0"
+        }
+      ]
     },
     {
       "source_id": "MAN-UI-ENTRY",
@@ -229,8 +435,17 @@
       "acceptance": "Точка входа — существующая «Речь и характер → Примеры»; новый пункт в верхнюю навигацию MiniApp не добавлен; шапка/фон/графика иных разделов не перестроены; полигональный фон и текущая тема/liquid glass сохранены (визуальный sweep).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "27b1165aced5c54faf83845160509b1ad2307318",
+          "type": "ui",
+          "ref": "tests/test_samples_ui_e2e.py — 6 сценариев; точка входа «Речь и характер → Примеры»",
+          "observation": "Точка входа существующая; новый пункт верхней навигации MiniApp не добавлен; шапка/фон/графика не перестроены (review §4: дифф index.html ограничен секцией «Примеры», app.js:2868 — только state-поля раздела); полигональный фон/liquid glass сохранены.",
+          "artifact_path": "tests/test_samples_ui_e2e.py",
+          "artifact_sha256": "7b6e330caf5a9bf106c3824f3001a492b267c68b165098d741d31b3bf5d79fdd"
+        }
+      ]
     },
     {
       "source_id": "MAN-UI-ORDER",
@@ -244,8 +459,17 @@
       "acceptance": "Порядок блоков экрана списка строго по §4.1 (нав/пояснение → вкладки → счётчики → поиск/фильтр → карточки → действия); перестановка блоков или скрытые элементы отсутствуют (DOM-порядок в e2e).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "27b1165aced5c54faf83845160509b1ad2307318",
+          "type": "ui",
+          "ref": "tests/test_samples_ui_e2e.py; DOM-порядок §4.1",
+          "observation": "Порядок блоков строго по §4.1: нав/пояснение → 3 вкладки одной строкой → покатегорийные счётчики → поиск/фильтр/«Добавить» → карточки → действия; скрытых элементов и перестановок нет (независимо подтверждено review §4).",
+          "artifact_path": "tests/test_samples_ui_e2e.py",
+          "artifact_sha256": "7b6e330caf5a9bf106c3824f3001a492b267c68b165098d741d31b3bf5d79fdd"
+        }
+      ]
     },
     {
       "source_id": "MAN-ED-SCREEN",
@@ -259,8 +483,25 @@
       "acceptance": "Редактор открывается отдельным экраном/панелью внутри существующего MiniApp, а не большой формой под списком (DOM: форма не находится в потоке списка; список не раздувается).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "27b1165aced5c54faf83845160509b1ad2307318",
+          "type": "ui",
+          "ref": "evidence/build/shots/editor_390.png",
+          "observation": "Скриншот отдельного экрана редактора (390px): не форма под списком.",
+          "artifact_path": "plans/features/samples-ux/evidence/build/shots/editor_390.png",
+          "artifact_sha256": "e2fc2773beb835fbef1d0ffcac6f6d6aba6d420ba50ffab3d18162c15d1c9e60"
+        },
+        {
+          "candidate_commit": "27b1165aced5c54faf83845160509b1ad2307318",
+          "type": "ui",
+          "ref": "tests/test_samples_ui_e2e.py; DOM-структура",
+          "observation": "Редактор — отдельный экран/панель внутри MiniApp; форма не находится в потоке списка (DOM), список не раздувается.",
+          "artifact_path": "tests/test_samples_ui_e2e.py",
+          "artifact_sha256": "7b6e330caf5a9bf106c3824f3001a492b267c68b165098d741d31b3bf5d79fdd"
+        }
+      ]
     },
     {
       "source_id": "MAN-ED-FACTORY",
@@ -274,8 +515,25 @@
       "acceptance": "Правка заводской карточки — тот же экран с плашкой «Заводской пример · ваши правки сохранятся после обновления», ссылками «Посмотреть исходный» и «Восстановить исходный» (только после явного подтверждения); восстановление одного примера не сбрасывает остальные и не перезагружает приложение (e2e).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "27b1165aced5c54faf83845160509b1ad2307318",
+          "type": "ui",
+          "ref": "evidence/build/shots/factory_single_restore_390.png",
+          "observation": "Скриншот правки заводской карточки: плашка «Заводской пример · ваши правки сохранятся после обновления», «Посмотреть исходный», «Восстановить исходный».",
+          "artifact_path": "plans/features/samples-ux/evidence/build/shots/factory_single_restore_390.png",
+          "artifact_sha256": "b5925a90709918528e2728046b7b51f3abb19376ff6039da160aa9374536b73a"
+        },
+        {
+          "candidate_commit": "27b1165aced5c54faf83845160509b1ad2307318",
+          "type": "ui",
+          "ref": "evidence/build/ui-e2e-report.json; POST examples/7/restore-factory (после preview)",
+          "observation": "Восстановление одного примера по явному подтверждению; остальные карточки не сбрасываются и приложение не перезагружается (браузерный сценарий).",
+          "artifact_path": "plans/features/samples-ux/evidence/build/ui-e2e-report.json",
+          "artifact_sha256": "07086194a4f3406b1bbfea3e77a6385bc5676e0e8b2688dd5833e95864948444"
+        }
+      ]
     },
     {
       "source_id": "MAN-FS-BLOCKS",
@@ -289,8 +547,17 @@
       "acceptance": "Few-shot собирается в различимые маркированные блоки по категории назначения (General_Examples / Humor_Examples / Expression_Examples mode=… или эквивалентные существующие блоки) без смешивания без метки; mat-пример не попадает в юмор-блок по совпадению слов, humor-пример не становится регистром из-за обсценного слова; в MAT отбираются только утверждённые примеры effective-режима; inherit разрешается GLOBAL/CHAT до отбора (тесты отбора + payload).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "27b1165aced5c54faf83845160509b1ad2307318",
+          "type": "test",
+          "ref": "tests/test_samples_fewshot.py — 16 passed; test_blocks_are_separately_labeled_by_category + test_resolve_refs_emits_both_labeled_blocks",
+          "observation": "Few-shot собирается в маркированные блоки <General_Examples>/<Examples>/<Expression_Examples mode=…> без смешивания; mat-пример не попадает в юмор-блок по совпадению слов (test_mat_example_never_enters_humor_block_by_word_match), humor-пример не становится регистром (test_humor_example_with_obscene_word_stays_humor); MAT — только утверждённые effective-режима (test_mat_only_approved_examples_of_effective_mode); inherit разрешается до отбора (test_expression_selection_reads_field_not_tags).",
+          "artifact_path": "tests/test_samples_fewshot.py",
+          "artifact_sha256": "b9c77ac027e6ca766887256f3438eb536a0ba56d2ae9e6320a2d35bbf21c0091"
+        }
+      ]
     },
     {
       "source_id": "MAN-FS-BOUNDED",
@@ -304,8 +571,17 @@
       "acceptance": "Отбор ограничен (обычно 1–3, ноль допустим) с отдельными причинами выбора/пропуска; PII/cross-chat защита и недословность сохранены; общий prompt budget соблюдается; вся библиотека никуда не отправляется; дополнительных LLM-вызовов на выбор/классификацию — 0; заводские черновики не подмешиваются (существующие + новые тесты).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "27b1165aced5c54faf83845160509b1ad2307318",
+          "type": "test",
+          "ref": "tests/test_samples_fewshot.py; test_bounded_selection_one_to_three_or_zero_with_reasons + test_general_selection_bounded_and_separate_from_humor",
+          "observation": "Отбор ограничен (обычно 1–3, ноль допустим) с отдельными причинами выбора/пропуска; PII/cross-chat защита и недословность — регресс w4 (20 passed); общий бюджет соблюдён; 0 дополнительных LLM-вызовов (review §5 — по коду select_samples/resolve_refs/why); заводские черновики не подмешиваются.",
+          "artifact_path": "tests/test_samples_fewshot.py",
+          "artifact_sha256": "b9c77ac027e6ca766887256f3438eb536a0ba56d2ae9e6320a2d35bbf21c0091"
+        }
+      ]
     },
     {
       "source_id": "MAN-FS-WHY",
@@ -319,8 +595,25 @@
       "acceptance": "В UI есть кнопка «Почему не используется?»/«Почему выбран?» с human-readable причиной из существующих traces (черновик/режим/не подошёл/бюджет); при отсутствии данных показывается честное «Нет данных о последнем выборе» и ссылка на админ-диагностику; причины не симулируются (e2e + API).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "27b1165aced5c54faf83845160509b1ad2307318",
+          "type": "test",
+          "ref": "tests/test_samples_fewshot.py; test_why_for_draft_and_selected_cards + test_why_mode_mismatch_is_human_readable + test_why_honest_no_data",
+          "observation": "Причины из существующих traces: черновик/режим/не подошёл/бюджет — human-readable; при отсутствии данных честное «Нет данных о последнем выборе» (WHY_NO_DATA), причины не симулируются.",
+          "artifact_path": "tests/test_samples_fewshot.py",
+          "artifact_sha256": "b9c77ac027e6ca766887256f3438eb536a0ba56d2ae9e6320a2d35bbf21c0091"
+        },
+        {
+          "candidate_commit": "27b1165aced5c54faf83845160509b1ad2307318",
+          "type": "ui",
+          "ref": "evidence/build/ui-e2e-report.json; POST examples/2/why",
+          "observation": "Кнопка «Почему не используется?» на карточке работает в браузерном сценарии (покарточный why-эндпоинт).",
+          "artifact_path": "plans/features/samples-ux/evidence/build/ui-e2e-report.json",
+          "artifact_sha256": "07086194a4f3406b1bbfea3e77a6385bc5676e0e8b2688dd5833e95864948444"
+        }
+      ]
     },
     {
       "source_id": "MAN-6-REGRESS",
@@ -334,8 +627,33 @@
       "acceptance": "Не сломаны: CRUD, owner-approved, archived, global/chat, права редактирования, техники Humor, A/B (технический A/B убран в «Дополнительно»), частота Expression, source_kind, revision-conflict, версии, Inspector, предпросмотр и публичные API-контракты; старым клиентам обеспечена совместимая выдача или явная миграция без ручного переписывания карточек (контрактные тесты API + регресс).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "27b1165aced5c54faf83845160509b1ad2307318",
+          "type": "test",
+          "ref": "tests/test_soul1_w4_sample_library.py — 20 passed",
+          "observation": "Не сломаны: CRUD/revision guard, owner-approved, archived, global/chat изоляция, права, PII, техники Humor, A/B-ось, частота/бюджет, telemetry.",
+          "artifact_path": "tests/test_soul1_w4_sample_library.py",
+          "artifact_sha256": "6cafbee40e9dd1a934ebe921cee219265fe4f4199c38cabe66942250a4145168"
+        },
+        {
+          "candidate_commit": "27b1165aced5c54faf83845160509b1ad2307318",
+          "type": "test",
+          "ref": "tests/test_samples_acceptance.py — 8 passed",
+          "observation": "API-контракты: валидация, 409 revision_conflict, категории payload, why-эндпоинт, изоляция чатов.",
+          "artifact_path": "tests/test_samples_acceptance.py",
+          "artifact_sha256": "6592520538053018672e72e7c8b752b664fa5ded09ac0c50fbb06c1a437a0962"
+        },
+        {
+          "candidate_commit": "27b1165aced5c54faf83845160509b1ad2307318",
+          "type": "ui",
+          "ref": "tests/ui_p0a_ux_speech_compact_e2e.py — failures=0",
+          "observation": "Совместимость старых клиентов: переработанный examples-сценарий компактного UI зелёный; технический A/B убран в «Дополнительно» (SU-ED.6).",
+          "artifact_path": "tests/ui_p0a_ux_speech_compact_e2e.py",
+          "artifact_sha256": "aa7d798224448f4c0d59c4942511c1c7ff2092778ce6f2e8edb5ff73f5034894"
+        }
+      ]
     },
     {
       "source_id": "MAN-6-WISHES",
@@ -349,8 +667,17 @@
       "acceptance": "«Пожелания своими словами» остаются внутри Expression: не карточка библиотеки, не четвёртая категория, не смешиваются с few-shot; GLOBAL/CHAT и приоритет явно выбранного режима над общими пожеланиями сохранены (существующие тесты резолва не ослаблены).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "27b1165aced5c54faf83845160509b1ad2307318",
+          "type": "test",
+          "ref": "tests/test_add_exp_expression.py — 36 passed (слой Expression)",
+          "observation": "«Пожелания своими словами» остались внутри Expression: четвёртой категории/карточки нет, с few-shot не смешиваются; GLOBAL/CHAT и приоритет явно выбранного режима над пожеланиями сохранены (тесты резолва не ослаблены; review §6).",
+          "artifact_path": "tests/test_add_exp_expression.py",
+          "artifact_sha256": "fd5ce9e726de9c2c8d77b37faddf79043fffdd267cb584d93bed3aadb0642c45"
+        }
+      ]
     },
     {
       "source_id": "MAN-7-NOLIVE",
@@ -364,8 +691,25 @@
       "acceptance": "Запрет live-спама соблюдён: ни одной отправки/удаления пробных сообщений/картинок/фактчеков/саммари в реальные Telegram-чаты; разрешение владельца на отправку не запрашивается; в прогонах только моки/локальная БД/браузер (проверка артефактов).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "27b1165aced5c54faf83845160509b1ad2307318",
+          "type": "test",
+          "ref": "tests/test_samples_acceptance.py; test_no_live_send_helpers_in_this_module_source",
+          "observation": "Структурный zero-live тест: в модуле нет хелперов отправки в Telegram; review §7 — grep диффа по send-паттернам без совпадений (кроме списка запрещённых токенов в самом тесте); разрешение владельца не запрашивалось.",
+          "artifact_path": "tests/test_samples_acceptance.py",
+          "artifact_sha256": "6592520538053018672e72e7c8b752b664fa5ded09ac0c50fbb06c1a437a0962"
+        },
+        {
+          "candidate_commit": "27b1165aced5c54faf83845160509b1ad2307318",
+          "type": "static",
+          "ref": "build/README.md, раздел «SU-7.NOLIVE»",
+          "observation": "Все прогоны offline: локальная БД, stateful /api-стабы, браузерные e2e; ноль live-отправок.",
+          "artifact_path": "plans/features/samples-ux/evidence/build/README.md",
+          "artifact_sha256": "f2a2534e0a61c0ac8160e62a9341c8c2f6dbee6e08b33fb917f353a44bbe8ee1"
+        }
+      ]
     },
     {
       "source_id": "MAN-7-OFFLINE",
@@ -379,8 +723,25 @@
       "acceptance": "Offline-проверки выполнены: миграция трёх категорий, изоляция global/chat, схема реального отбора, режимная изоляция MAT, owner-approved, no-leakage, owner edits/tombstones при повторных seed/деплое, reset по подтверждению, API error/409, UI portrait/landscape/desktop, отсутствие горизонтального overflow, сохранение после reload, точные причины неприменения; доступны прогоны SQLite и PostgreSQL.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "27b1165aced5c54faf83845160509b1ad2307318",
+          "type": "test",
+          "ref": "tests/test_samples_acceptance.py + test_samples_* — 130 passed на кандидате",
+          "observation": "Offline-матрица выполнена: миграция/категории (12), persist/tombstone/restore (12), few-shot/блоки/why (16), сквозная приёмка (8), UI e2e 6 сценариев (360/390/667×375/1280, overflow=0, reload/persist), API error/409, изоляция global/chat, no-leakage (w4 20 passed); совместный регресс 136 passed (README).",
+          "artifact_path": "tests/test_samples_acceptance.py",
+          "artifact_sha256": "6592520538053018672e72e7c8b752b664fa5ded09ac0c50fbb06c1a437a0962"
+        },
+        {
+          "candidate_commit": "27b1165aced5c54faf83845160509b1ad2307318",
+          "type": "static",
+          "ref": "build/README.md, «Pre-existing / incidental»: PostgreSQL-путь",
+          "observation": "Честно: прогоны SQLite; PostgreSQL-контур библиотеки N/A by design (SQLite-only memory-контур, GEN-R4) — зафиксировано, не заявлено как выполненное; см. reconciliation.md (f).",
+          "artifact_path": "plans/features/samples-ux/evidence/build/README.md",
+          "artifact_sha256": "f2a2534e0a61c0ac8160e62a9341c8c2f6dbee6e08b33fb917f353a44bbe8ee1"
+        }
+      ]
     },
     {
       "source_id": "MAN-7-OWNERLIVE-OBS",
@@ -398,7 +759,12 @@
       "verification_tier": "owner_optional",
       "owner_policy_ref": "plans/owner_live_checks.md",
       "owner_optional_reason": "Реальный клиент Telegram MiniApp на телефоне и живой цикл правка→деплой доступны только владельцу; наблюдение добровольное, офлайн-инженерные проверки выполняются агентами.",
-      "engineering_req_ids": ["SU-7.OFFLINE", "SU-6.REGRESS", "SU-ACC.NOLIVE", "SU-7.OWNERLIVE"],
+      "engineering_req_ids": [
+        "SU-7.OFFLINE",
+        "SU-6.REGRESS",
+        "SU-ACC.NOLIVE",
+        "SU-7.OWNERLIVE"
+      ],
       "evidence": []
     },
     {
@@ -413,8 +779,17 @@
       "acceptance": "Проверки, невозможные без владельца/реального клиента, внесены короткими пунктами в существующий plans/owner_live_checks.md (сценарий + ожидаемый результат); новый epic/task/acceptance gate не создан; ответа владельца не ждём; оставшиеся пункты честно помечены PENDING_OWNER_E2E.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "27b1165aced5c54faf83845160509b1ad2307318",
+          "type": "static",
+          "ref": "plans/owner_live_checks.md, раздел «7. SAMPLES-UX» (2 пункта)",
+          "observation": "Проверки, невозможные без владельца/реального клиента, внесены короткими пунктами (сценарий+ожидаемый результат): MiniApp на телефоне и живой цикл правка→деплой; помечены необязательными, не гейты; новый эпик/gate не создан, ответа не ждём; инженерные половины покрыты (интеграционные edit→seed/delete→seed + browser e2e).",
+          "artifact_path": "plans/owner_live_checks.md",
+          "artifact_sha256": "7500a35a5db36c54a049c46c0a2bd0f877aaa81f32bfece39994902f9870f4ae"
+        }
+      ]
     },
     {
       "source_id": "MAN-7-REPORT",
@@ -428,8 +803,17 @@
       "acceptance": "Reviewer проверил не только зелёные тесты, но и сохранность владельческих заводских редакций и соответствие UI-контракту; отчёт содержит: что существовало / исправлено / проверено offline / что в owner_live_checks / ссылку на commit; после деплоя очередь продолжена автоматически.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "27b1165aced5c54faf83845160509b1ad2307318",
+          "type": "static",
+          "ref": "review-samples-ux.md (вердикт Approved)",
+          "observation": "Reviewer проверил независимо не только зелёные тесты, но и сохранность владельческих редакций (tombstone/override/restore) и соответствие UI-контракту §4; отчёт содержит: что существовало (reconciliation (a)), что исправлено, что проверено offline, что в owner_live_checks, ссылку на кандидата; после деплоя очередь продолжается штатно (PET_PROJECT).",
+          "artifact_path": "plans/features/samples-ux/evidence/review-samples-ux.md",
+          "artifact_sha256": "c20010a716d3817a0aa2e8e48bf513738192e6e0b15614275cfb7ff038bd2cd4"
+        }
+      ]
     },
     {
       "source_id": "MAN-8-PLAN",
@@ -443,8 +827,17 @@
       "acceptance": "В очередь взята только дельта без дублей, искусственного P0 и бессрочного backlog; порядок по зависимостям (slice-graph); после Reviewer — штатный деплой и продолжение current_task без нового Human Gate (реального выбора владельца нет).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "27b1165aced5c54faf83845160509b1ad2307318",
+          "type": "static",
+          "ref": "reconciliation.md (e)/(f)",
+          "observation": "Взята только дельта (77-строчная карта samples-ux) без дублей, искусственного P0 и бессрочного backlog; порядок по зависимостям slice-graph; реальных Human Gate нет — после ревью штатный деплой и продолжение current_task (PET_PROJECT standing rule).",
+          "artifact_path": "plans/features/samples-ux/reconciliation.md",
+          "artifact_sha256": "fd78d679bc6194064d9bb24de4de657cfbbd597d75a660bf2c3e62c729400163"
+        }
+      ]
     }
   ],
   "items": [
@@ -490,8 +883,17 @@
       "acceptance": "Запись категории «Общие» создаётся, валидируется, выдаётся и отбирается как general без обязательной шутки и без обязательной обсценной лексики; приём и режим мата для неё не требуются (тест CRUD/выдача/отбор).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "27b1165aced5c54faf83845160509b1ad2307318",
+          "type": "test",
+          "ref": "tests/test_samples_categories.py; test_general_category_record_crud_without_technique_or_mode",
+          "observation": "Запись «Общие» создаётся/валидируется/выдаётся/отбирается как general без обязательной шутки и без обсценной лексики; приём и режим мата не требуются (CRUD-тест).",
+          "artifact_path": "tests/test_samples_categories.py",
+          "artifact_sha256": "c74b8f57ca8597289c3c3b2cb8e05444913236360685bcf8e4c35b7bdd982a4b"
+        }
+      ]
     },
     {
       "source_id": "L00020",
@@ -505,8 +907,17 @@
       "acceptance": "Запись категории «Юмор» несёт метаданные приёма Humor Craft и попадает только в юмор-отбор; общим примерам метаданные приёма не требуются и не навязываются.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "27b1165aced5c54faf83845160509b1ad2307318",
+          "type": "test",
+          "ref": "tests/test_samples_categories.py; test_humor_category_carries_technique_metadata",
+          "observation": "Запись «Юмор» несёт метаданные приёма Humor Craft и попадает только в юмор-отбор (selection изолирован по категории); общим примерам метаданные приёма не навязываются.",
+          "artifact_path": "tests/test_samples_categories.py",
+          "artifact_sha256": "c74b8f57ca8597289c3c3b2cb8e05444913236360685bcf8e4c35b7bdd982a4b"
+        }
+      ]
     },
     {
       "source_id": "L00021",
@@ -520,8 +931,17 @@
       "acceptance": "Запись категории «Мат» имеет явное серверное поле режима off/occasional/frequent; серверная валидация/выдача/отбор читают поле, а не произвольные теги (тест: mat-карточка без тега режима сохраняет режим; тег не создаёт режим).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "27b1165aced5c54faf83845160509b1ad2307318",
+          "type": "test",
+          "ref": "tests/test_samples_categories.py; test_mat_mode_is_explicit_field_not_tags",
+          "observation": "«Мат» имеет явное серверное поле expression_mode off/occasional/frequent; валидация/выдача/отбор читают поле, не теги (mat-карточка без тега сохраняет режим, тег режим не создаёт; см. также test_expression_selection_reads_field_not_tags в fewshot).",
+          "artifact_path": "tests/test_samples_categories.py",
+          "artifact_sha256": "c74b8f57ca8597289c3c3b2cb8e05444913236360685bcf8e4c35b7bdd982a4b"
+        }
+      ]
     },
     {
       "source_id": "L00027",
@@ -550,8 +970,17 @@
       "acceptance": "Канонический текст режима occasional байт-в-байт равен формулировке EPISODIC из §2 («Пиши разговорным языком с примесью мата. … Мат не должен доминировать в речи.»); байт-пин-тест обновлён; прежний F3-текст отсутствует в коде/тестах/леджере.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "27b1165aced5c54faf83845160509b1ad2307318",
+          "type": "test",
+          "ref": "tests/test_add_exp_expression.py; test_section2_texts_are_byte_exact (OCC_LINE 63-71, канон-словарь 216-228)",
+          "observation": "Текст occasional байт-в-байт равен EPISODIC из §2; байт-пин обновлён; старый F3-текст отсутствует (test_legacy_f3_texts_absent).",
+          "artifact_path": "tests/test_add_exp_expression.py",
+          "artifact_sha256": "fd5ce9e726de9c2c8d77b37faddf79043fffdd267cb584d93bed3aadb0642c45"
+        }
+      ]
     },
     {
       "source_id": "L00032",
@@ -565,8 +994,17 @@
       "acceptance": "Канонический текст режима frequent байт-в-байт равен формулировке FREQUENT из §2 («Пиши на живом разговорном языке… Не заменяй её цензурными эвфемизмами.»); байт-пин-тест обновлён; прежний F3-текст отсутствует.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "27b1165aced5c54faf83845160509b1ad2307318",
+          "type": "test",
+          "ref": "tests/test_add_exp_expression.py; test_section2_texts_are_byte_exact (FREQ_LINE, канон-словарь)",
+          "observation": "Текст frequent байт-в-байт равен FREQUENT из §2; пин обновлён; F3-текст отсутствует; независимая байт-сверка спек==runtime==пины в review §2.",
+          "artifact_path": "tests/test_add_exp_expression.py",
+          "artifact_sha256": "fd5ce9e726de9c2c8d77b37faddf79043fffdd267cb584d93bed3aadb0642c45"
+        }
+      ]
     },
     {
       "source_id": "L00033",
@@ -580,8 +1018,17 @@
       "acceptance": "Текст off остаётся «Не используй мат в собственной речи.»; inherit резолвится только как наследование GLOBAL→CHAT и нигде не предлагается как четвёртая интенсивность (тест резолва + UI-опции).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "27b1165aced5c54faf83845160509b1ad2307318",
+          "type": "test",
+          "ref": "tests/test_add_exp_expression.py; test_off_and_inherit_unchanged",
+          "observation": "OFF-текст «Не используй мат в собственной речи.» не менялся; inherit резолвится только как наследование GLOBAL→CHAT, четвёртой интенсивности нет (review §2: inherit не тронут; UI-опции — «Без мата/Эпизодически/Часто»).",
+          "artifact_path": "tests/test_add_exp_expression.py",
+          "artifact_sha256": "fd5ce9e726de9c2c8d77b37faddf79043fffdd267cb584d93bed3aadb0642c45"
+        }
+      ]
     },
     {
       "source_id": "L00037",
@@ -610,8 +1057,17 @@
       "acceptance": "Удаление владельцем заводской строки оставляет постоянный tombstone по seed_key; повторный seed/инициализация не пересоздаёт строку (тест delete→seed→remains deleted); владельческая правка несёт метку override (тест edit→seed→persists + метка).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "27b1165aced5c54faf83845160509b1ad2307318",
+          "type": "test",
+          "ref": "tests/test_samples_factory_persist.py; test_delete_factory_keeps_tombstone_and_seed_never_restores + test_edit_survives_reseed_with_override_mark",
+          "observation": "Удаление заводской строки оставляет tombstone по seed_key; повторный seed не пересоздаёт; владельческая правка несёт метку owner_modified и переживает seed.",
+          "artifact_path": "tests/test_samples_factory_persist.py",
+          "artifact_sha256": "f88271e1b2bc0a3f777242c0d23690412ff03aa4bbe68929b9853ac40ff8c9f0"
+        }
+      ]
     },
     {
       "source_id": "L00045",
@@ -625,8 +1081,17 @@
       "acceptance": "Повторные seed/deploy/migration/restart не перезаписывают, не реактивируют, не переутверждают и не пересоздают изменённые/удалённые владельцем примеры (идемпотентность подтверждена тестами на изменённой, архивной и удалённой карточке).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "27b1165aced5c54faf83845160509b1ad2307318",
+          "type": "test",
+          "ref": "tests/test_samples_factory_persist.py; test_reseed_does_not_reactivate_or_reapprove + test_parallel_edit_gets_revision_conflict_no_data_loss",
+          "observation": "Повторный seed/deploy/seed-эндпоинт не перезаписывает, не реактивирует, не переутверждает изменённые/архивные/удалённые карточки (тесты на изменённой и удалённой карточке; revision_conflict 409 без потери).",
+          "artifact_path": "tests/test_samples_factory_persist.py",
+          "artifact_sha256": "f88271e1b2bc0a3f777242c0d23690412ff03aa4bbe68929b9853ac40ff8c9f0"
+        }
+      ]
     },
     {
       "source_id": "L00046",
@@ -640,8 +1105,25 @@
       "acceptance": "force/factory-restore срабатывает только как явно подтверждённое действие администратора; перед массовым восстановлением показывается экран сравнения со списком затрагиваемых правок; «Сбросить всё» не является действием по умолчанию; неявных вызовов force на старте/деплое нет.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "27b1165aced5c54faf83845160509b1ad2307318",
+          "type": "test",
+          "ref": "tests/test_samples_factory_persist.py; test_restore_requires_confirmation_and_restores_single + test_restore_preview_lists_only_affected_and_all_needs_confirm + test_seed_call_sites_are_fixed_and_explicit",
+          "observation": "Restore только при явном confirm (без подтверждения — 428); восстановление одного не трогает остальные; перед массовым восстановлением экран сравнения со списком затрагиваемых правок, «Отмена» по умолчанию; неявных вызовов force на старте/деплое нет (структурный тест единственного ручного seed-эндпоинта).",
+          "artifact_path": "tests/test_samples_factory_persist.py",
+          "artifact_sha256": "f88271e1b2bc0a3f777242c0d23690412ff03aa4bbe68929b9853ac40ff8c9f0"
+        },
+        {
+          "candidate_commit": "27b1165aced5c54faf83845160509b1ad2307318",
+          "type": "ui",
+          "ref": "evidence/build/ui-e2e-report.json; POST examples/restore-factory/preview + POST examples/7/restore-factory",
+          "observation": "Браузерный сценарий: предварительный просмотр сравнения и подтверждение перед восстановлением.",
+          "artifact_path": "plans/features/samples-ux/evidence/build/ui-e2e-report.json",
+          "artifact_sha256": "07086194a4f3406b1bbfea3e77a6385bc5676e0e8b2688dd5833e95864948444"
+        }
+      ]
     },
     {
       "source_id": "L00047",
@@ -655,8 +1137,17 @@
       "acceptance": "Override/tombstone хранятся в существующей БД через текущие механизмы миграций/прав (отдельного конфиг-сервиса нет); владельческие данные читаются даже при отсутствии актуального factory-набора в коде.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "27b1165aced5c54faf83845160509b1ad2307318",
+          "type": "test",
+          "ref": "tests/test_samples_factory_persist.py; test_restore_when_factory_set_absent_keeps_owner_data + test_delete_owner_row_is_hard_delete",
+          "observation": "Override/tombstone хранятся в существующей БД (колонки v37 существующей таблицы,MigrationStep — README решение 2); владельческие данные читаются даже при отсутствии factory-набора в коде (тест factory_seed_absent); отдельного конфиг-сервиса нет.",
+          "artifact_path": "tests/test_samples_factory_persist.py",
+          "artifact_sha256": "f88271e1b2bc0a3f777242c0d23690412ff03aa4bbe68929b9853ac40ff8c9f0"
+        }
+      ]
     },
     {
       "source_id": "L00048",
@@ -670,8 +1161,25 @@
       "acceptance": "В отчёте перечислены реальные места вызова seed_starter_samples/seed_expression_samples/удаления/восстановления; тесты демонстрируют edit→seed→persists, delete→seed→remains deleted, explicit restore→restored, параллельная правка→revision_conflict без потери данных.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "27b1165aced5c54faf83845160509b1ad2307318",
+          "type": "static",
+          "ref": "reconciliation.md (a), строка «Место вызова сидов»",
+          "observation": "Реальные места вызова зафиксированы: ровно один ручной админ-эндпоинт (web/api/speech.py:2998–3029), автосида на старте/деплое/миграциях нет.",
+          "artifact_path": "plans/features/samples-ux/reconciliation.md",
+          "artifact_sha256": "fd78d679bc6194064d9bb24de4de657cfbbd597d75a660bf2c3e62c729400163"
+        },
+        {
+          "candidate_commit": "27b1165aced5c54faf83845160509b1ad2307318",
+          "type": "test",
+          "ref": "tests/test_samples_factory_persist.py — 12 passed",
+          "observation": "Тесты демонстрируют: edit→seed→persists (+метка), delete→seed→remains deleted, explicit restore→restored, параллельная правка→revision_conflict без потери.",
+          "artifact_path": "tests/test_samples_factory_persist.py",
+          "artifact_sha256": "f88271e1b2bc0a3f777242c0d23690412ff03aa4bbe68929b9853ac40ff8c9f0"
+        }
+      ]
     },
     {
       "source_id": "L00052",
@@ -715,8 +1223,17 @@
       "acceptance": "Верх списка: компактная навигация «Назад» + заголовок «Примеры» + однострочное пояснение «Показывайте боту, как отвечать. В генерацию попадают только утверждённые примеры» (проверка DOM).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "27b1165aced5c54faf83845160509b1ad2307318",
+          "type": "ui",
+          "ref": "tests/test_samples_ui_e2e.py; сценарий списка",
+          "observation": "Навигация «Назад» + заголовок «Примеры» + однострочное пояснение «Показывайте боту, как отвечать. В генерацию попадают только утверждённые примеры» (DOM).",
+          "artifact_path": "tests/test_samples_ui_e2e.py",
+          "artifact_sha256": "7b6e330caf5a9bf106c3824f3001a492b267c68b165098d741d31b3bf5d79fdd"
+        }
+      ]
     },
     {
       "source_id": "L00061",
@@ -730,8 +1247,25 @@
       "acceptance": "Одна строка из трёх взаимно исключающих вкладок «Общие | Юмор | Мат»; на узком экране цели нажатия и названия читаемы; вкладки не переносятся в отдельные вертикальные ряды (browser e2e 375px).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "27b1165aced5c54faf83845160509b1ad2307318",
+          "type": "ui",
+          "ref": "tools/ui_samples_ux_e2e.py — 375px narrow-проверка, failures=0",
+          "observation": "Три взаимно исключающие вкладки «Общие | Юмор | Мат» одной строкой; на 360/375px цели нажатия читаемы, вертикального переноса вкладок нет.",
+          "artifact_path": "tests/test_samples_ui_e2e.py",
+          "artifact_sha256": "7b6e330caf5a9bf106c3824f3001a492b267c68b165098d741d31b3bf5d79fdd"
+        },
+        {
+          "candidate_commit": "27b1165aced5c54faf83845160509b1ad2307318",
+          "type": "ui",
+          "ref": "evidence/build/shots/list_360.png",
+          "observation": "Скриншот списка 360px: вкладки одной строкой, читаемы.",
+          "artifact_path": "plans/features/samples-ux/evidence/build/shots/list_360.png",
+          "artifact_sha256": "cf2a43f292c9a76b5a5d121a79bf13e884d17c21023e839dbae26e39f5a8fa3d"
+        }
+      ]
     },
     {
       "source_id": "L00062",
@@ -745,8 +1279,17 @@
       "acceptance": "Счётчики «Используются: N / Черновики: N / Архив: N» показывают только текущую категорию; суммарные и покатегорийные цифры не смешиваются (тест на данных двух категорий).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "27b1165aced5c54faf83845160509b1ad2307318",
+          "type": "ui",
+          "ref": "tests/test_samples_ui_e2e.py; счётчики по вкладкам",
+          "observation": "Счётчики «Используются/Черновики/Архив» считаются только по активной категории; на данных двух категорий цифры не смешиваются (переключение вкладок в e2e меняет счётчики).",
+          "artifact_path": "tests/test_samples_ui_e2e.py",
+          "artifact_sha256": "7b6e330caf5a9bf106c3824f3001a492b267c68b165098d741d31b3bf5d79fdd"
+        }
+      ]
     },
     {
       "source_id": "L00063",
@@ -760,8 +1303,17 @@
       "acceptance": "Одна строка: поиск по тексту + фильтр «Все / Используются / Черновики / Архив»; расширенные фильтры появляются только по запросу (DOM).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "27b1165aced5c54faf83845160509b1ad2307318",
+          "type": "ui",
+          "ref": "tests/test_samples_ui_e2e.py; поиск+фильтр",
+          "observation": "Одна строка: поиск по тексту + фильтр «Все / Используются / Черновики / Архив»; расширенные фильтры только по запросу (DOM).",
+          "artifact_path": "tests/test_samples_ui_e2e.py",
+          "artifact_sha256": "7b6e330caf5a9bf106c3824f3001a492b267c68b165098d741d31b3bf5d79fdd"
+        }
+      ]
     },
     {
       "source_id": "L00064",
@@ -775,8 +1327,17 @@
       "acceptance": "На мобильном одна вертикальная колонка карточек; на широком — аккуратная сетка без узких колонок; порядок «сначала используемые, затем черновики» стабилен и не меняется скрыто при редактировании (e2e portrait/desktop).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "27b1165aced5c54faf83845160509b1ad2307318",
+          "type": "ui",
+          "ref": "tools/ui_samples_ux_e2e.py — portrait 360/390 + desktop 1280, overflow=0",
+          "observation": "На мобильном одна вертикальная колонка карточек; на desktop аккуратная сетка без узких колонок; порядок «используемые → черновики» стабилен, скрытой перестановки при редактировании нет.",
+          "artifact_path": "tests/test_samples_ui_e2e.py",
+          "artifact_sha256": "7b6e330caf5a9bf106c3824f3001a492b267c68b165098d741d31b3bf5d79fdd"
+        }
+      ]
     },
     {
       "source_id": "L00065",
@@ -790,8 +1351,17 @@
       "acceptance": "«Добавить пример» — единственное заметное действие, доступное без прокрутки к концу списка и не перекрывающее контент/safe area; «Заводские наборы» — второстепенное текстовое действие в меню списка (DOM).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "27b1165aced5c54faf83845160509b1ad2307318",
+          "type": "ui",
+          "ref": "tests/test_samples_ui_e2e.py; действия",
+          "observation": "«Добавить пример» — единственное заметное действие, доступно без прокрутки и не перекрывает контент/safe area (overflow=0 в отчёте); «Заводские наборы» — второстепенное текстовое действие в меню списка.",
+          "artifact_path": "tests/test_samples_ui_e2e.py",
+          "artifact_sha256": "7b6e330caf5a9bf106c3824f3001a492b267c68b165098d741d31b3bf5d79fdd"
+        }
+      ]
     },
     {
       "source_id": "L00069",
@@ -820,8 +1390,17 @@
       "acceptance": "Экран редактирования открывается с заголовком «Новый пример»/«Редактировать пример»; «Назад» при несохранённых изменениях предупреждает (e2e).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "27b1165aced5c54faf83845160509b1ad2307318",
+          "type": "ui",
+          "ref": "tests/test_samples_ui_e2e.py; заголовки/навигация редактора",
+          "observation": "Заголовок «Новый пример»/«Редактировать пример»; «Назад» при несохранённых изменениях предупреждает (диалоги в ui-e2e-report.json).",
+          "artifact_path": "tests/test_samples_ui_e2e.py",
+          "artifact_sha256": "7b6e330caf5a9bf106c3824f3001a492b267c68b165098d741d31b3bf5d79fdd"
+        }
+      ]
     },
     {
       "source_id": "L00074",
@@ -835,8 +1414,25 @@
       "acceptance": "Категория предзаполнена из активной вкладки и переключаема; в «Мат» виден выбор «Без мата / Эпизодически / Часто», в «Юмор» — выбор приёма с человеческими названиями, в «Общие» neither техника ни режим не показываются (DOM-проверка трёх вариантов).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "27b1165aced5c54faf83845160509b1ad2307318",
+          "type": "ui",
+          "ref": "tools/ui_samples_ux_e2e.py — editor-сценарий (Мат→режим, Юмор→приём, Общие→без)",
+          "observation": "Категория предзаполнена из вкладки и переключаема; в «Мат» видимый выбор «Без мата / Эпизодически / Часто»; в «Юмор» — приём с человеческими названиями; в «Общие» ни техника ни режим не показываются (DOM, 3 варианта проверены).",
+          "artifact_path": "tests/test_samples_ui_e2e.py",
+          "artifact_sha256": "7b6e330caf5a9bf106c3824f3001a492b267c68b165098d741d31b3bf5d79fdd"
+        },
+        {
+          "candidate_commit": "27b1165aced5c54faf83845160509b1ad2307318",
+          "type": "ui",
+          "ref": "evidence/build/shots/editor_390.png",
+          "observation": "Скриншот редактора с выбором режима/приёма.",
+          "artifact_path": "plans/features/samples-ux/evidence/build/shots/editor_390.png",
+          "artifact_sha256": "e2fc2773beb835fbef1d0ffcac6f6d6aba6d420ba50ffab3d18162c15d1c9e60"
+        }
+      ]
     },
     {
       "source_id": "L00075",
@@ -850,8 +1446,17 @@
       "acceptance": "Поля «Что написал человек» и «Как должен ответить бот» — многострочные, на всю ширину контейнера; «Когда этот пример уместен?» скрыто и раскрывается по запросу (DOM).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "27b1165aced5c54faf83845160509b1ad2307318",
+          "type": "ui",
+          "ref": "tests/test_samples_ui_e2e.py; поля ввода",
+          "observation": "«Что написал человек» и «Как должен ответить бот» — многострочные на всю ширину контейнера; «Когда этот пример уместен?» скрыто и раскрывается по запросу (DOM).",
+          "artifact_path": "tests/test_samples_ui_e2e.py",
+          "artifact_sha256": "7b6e330caf5a9bf106c3824f3001a492b267c68b165098d741d31b3bf5d79fdd"
+        }
+      ]
     },
     {
       "source_id": "L00076",
@@ -865,8 +1470,25 @@
       "acceptance": "Выбор «Для всех чатов / Только текущий чат» с явным указанием наследования; правка чужого scope запрещена (UI + серверный guard 403).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "27b1165aced5c54faf83845160509b1ad2307318",
+          "type": "ui",
+          "ref": "tests/test_samples_ui_e2e.py; scope-контрол",
+          "observation": "Выбор «Для всех чатов / Только текущий чат» с явным указанием наследования; правка чужого scope запрещена (UI guard + серверная изоляция).",
+          "artifact_path": "tests/test_samples_ui_e2e.py",
+          "artifact_sha256": "7b6e330caf5a9bf106c3824f3001a492b267c68b165098d741d31b3bf5d79fdd"
+        },
+        {
+          "candidate_commit": "27b1165aced5c54faf83845160509b1ad2307318",
+          "type": "test",
+          "ref": "tests/test_samples_acceptance.py; test_chat_scoped_example_isolated_between_chats + test_global_example_visible_from_every_chat",
+          "observation": "Серверная семантика global/chat подтверждена: chat-пример изолирован между чатами, global виден всем.",
+          "artifact_path": "tests/test_samples_acceptance.py",
+          "artifact_sha256": "6592520538053018672e72e7c8b752b664fa5ded09ac0c50fbb06c1a437a0962"
+        }
+      ]
     },
     {
       "source_id": "L00077",
@@ -880,8 +1502,25 @@
       "acceptance": "Статус «Черновик / Используется» где «Используется» = owner-approved + active (не гарантия применения в каждом ответе); доступны «Сохранить» и «Сохранить и использовать» (DOM + API-семантика).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "27b1165aced5c54faf83845160509b1ad2307318",
+          "type": "ui",
+          "ref": "tests/test_samples_ui_e2e.py; статусы/кнопки сохранения",
+          "observation": "Статус «Черновик / Используется», где «Используется» = owner_approved + active (не гарантия применения); доступны «Сохранить» и «Сохранить и использовать» (DOM + API-семантика approve).",
+          "artifact_path": "tests/test_samples_ui_e2e.py",
+          "artifact_sha256": "7b6e330caf5a9bf106c3824f3001a492b267c68b165098d741d31b3bf5d79fdd"
+        },
+        {
+          "candidate_commit": "27b1165aced5c54faf83845160509b1ad2307318",
+          "type": "test",
+          "ref": "tests/test_samples_factory_persist.py; test_reseed_does_not_reactivate_or_reapprove",
+          "observation": "Семантика утверждённого статуса защищена: повторный seed не переутверждает и не реактивирует.",
+          "artifact_path": "tests/test_samples_factory_persist.py",
+          "artifact_sha256": "f88271e1b2bc0a3f777242c0d23690412ff03aa4bbe68929b9853ac40ff8c9f0"
+        }
+      ]
     },
     {
       "source_id": "L00078",
@@ -895,8 +1534,17 @@
       "acceptance": "Технические поля (теги, источник, архив, версии, A/B, история, техническая причина неиспользования) убраны в аккордеон «Дополнительно» и автозаполняются; в базовом сценарии нет обязательных ручных library_version/source_kind/revision/машинных ID (DOM).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "27b1165aced5c54faf83845160509b1ad2307318",
+          "type": "ui",
+          "ref": "tests/test_samples_ui_e2e.py; аккордеон",
+          "observation": "Теги/источник/архив/версии/A-B/история/техническая причина неиспользования — в аккордеоне «Дополнительно», автозаполняются; в базовом сценарии нет обязательных ручных library_version/source_kind/revision/машинных ID (DOM).",
+          "artifact_path": "tests/test_samples_ui_e2e.py",
+          "artifact_sha256": "7b6e330caf5a9bf106c3824f3001a492b267c68b165098d741d31b3bf5d79fdd"
+        }
+      ]
     },
     {
       "source_id": "L00082",
@@ -925,8 +1573,17 @@
       "acceptance": "Вёрстка использует существующие дизайн-токены; Grid/Flex с min-width:0 и переносом текста; в коде экрана нет фиксированных координат/высоты карточки/DPI/разрешения телефона (static-проверка + e2e).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "27b1165aced5c54faf83845160509b1ad2307318",
+          "type": "static",
+          "ref": "review-samples-ux.md §4 (CSS-обзор)",
+          "observation": "Вёрстка на существующих токенах: только новые классы .speech-examples-*/.speech-sample-*, flex/min-width:0/перенос текста; фиксированных координат/высоты карточки/DPI/разрешения нет (в R1 дополнительно probe 360/320px); static+e2e.",
+          "artifact_path": "plans/features/samples-ux/evidence/review-samples-ux.md",
+          "artifact_sha256": "c20010a716d3817a0aa2e8e48bf513738192e6e0b15614275cfb7ff038bd2cd4"
+        }
+      ]
     },
     {
       "source_id": "L00085",
@@ -940,8 +1597,25 @@
       "acceptance": "На мобильном: одна колонка, поля 100% ширины, нет горизонтального скролла/обрезанных кнопок, тосты и save-панель не накладываются на форму (browser e2e portrait, отчёт по overflow).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "27b1165aced5c54faf83845160509b1ad2307318",
+          "type": "ui",
+          "ref": "evidence/build/shots/list_360.png",
+          "observation": "Скриншот 360px: одна колонка, поля 100% ширины, кнопки не обрезаны.",
+          "artifact_path": "plans/features/samples-ux/evidence/build/shots/list_360.png",
+          "artifact_sha256": "cf2a43f292c9a76b5a5d121a79bf13e884d17c21023e839dbae26e39f5a8fa3d"
+        },
+        {
+          "candidate_commit": "27b1165aced5c54faf83845160509b1ad2307318",
+          "type": "ui",
+          "ref": "tools/ui_samples_ux_e2e.py — portrait 360/390, overflow=0, console errors=0",
+          "observation": "Нет горизонтального скролла/обрезанных кнопок; тосты и save-панель не накладываются на формы (замер overflow в отчёте).",
+          "artifact_path": "tests/test_samples_ui_e2e.py",
+          "artifact_sha256": "7b6e330caf5a9bf106c3824f3001a492b267c68b165098d741d31b3bf5d79fdd"
+        }
+      ]
     },
     {
       "source_id": "L00086",
@@ -955,8 +1629,17 @@
       "acceptance": "Выпадающие списки читаемы по-человечески (нативные или аккуратные кастомные); монструозные кастомные селекты не добавлены (DOM-обзор контролов экрана).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "27b1165aced5c54faf83845160509b1ad2307318",
+          "type": "ui",
+          "ref": "tests/test_samples_ui_e2e.py; DOM-обзор контролов",
+          "observation": "Выпадающие списки с читаемыми человеческими подписями («Без мата/Эпизодически/Часто», приёмы Humor); монструозных кастомных селектов нет.",
+          "artifact_path": "tests/test_samples_ui_e2e.py",
+          "artifact_sha256": "7b6e330caf5a9bf106c3824f3001a492b267c68b165098d741d31b3bf5d79fdd"
+        }
+      ]
     },
     {
       "source_id": "L00087",
@@ -970,8 +1653,25 @@
       "acceptance": "Нет вложенных независимых вертикальных скроллов; safe area и клавиатура учитываются; в landscape отступы сокращаются без двухстрочной шапки (e2e landscape).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "27b1165aced5c54faf83845160509b1ad2307318",
+          "type": "ui",
+          "ref": "evidence/build/shots/landscape_667.png (667×375)",
+          "observation": "Скриншот landscape: отступы сокращены, шапка однострочная.",
+          "artifact_path": "plans/features/samples-ux/evidence/build/shots/landscape_667.png",
+          "artifact_sha256": "9aaa7afe4acad37fd69b26d0f45864190fab43a666ceff5977037e4b0faf24de"
+        },
+        {
+          "candidate_commit": "27b1165aced5c54faf83845160509b1ad2307318",
+          "type": "ui",
+          "ref": "tools/ui_samples_ux_e2e.py — landscape-сценарий, overflow=0",
+          "observation": "Вложенных независимых вертикальных скроллов нет; safe area/клавиатура учтены; в landscape двухстрочной шапки нет.",
+          "artifact_path": "tests/test_samples_ui_e2e.py",
+          "artifact_sha256": "7b6e330caf5a9bf106c3824f3001a492b267c68b165098d741d31b3bf5d79fdd"
+        }
+      ]
     },
     {
       "source_id": "L00088",
@@ -985,8 +1685,25 @@
       "acceptance": "Подтверждение сохранения показывается один раз рядом с действием; после успешного API данные перечитываются с сервера; «Сохранено» не показывается до ответа API (e2e с мок-задержкой/ошибкой).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "27b1165aced5c54faf83845160509b1ad2307318",
+          "type": "ui",
+          "ref": "evidence/build/ui-e2e-report.json; dialogs + persist-сценарий",
+          "observation": "Подтверждение сохранения показывается один раз рядом с действием (диалоги в отчёте); persist-сценарий перечитывает данные с сервера после POST; «Сохранено» не показывается до ответа API (стаб с задержкой/ошибкой).",
+          "artifact_path": "plans/features/samples-ux/evidence/build/ui-e2e-report.json",
+          "artifact_sha256": "07086194a4f3406b1bbfea3e77a6385bc5676e0e8b2688dd5833e95864948444"
+        },
+        {
+          "candidate_commit": "27b1165aced5c54faf83845160509b1ad2307318",
+          "type": "ui",
+          "ref": "tests/test_samples_ui_e2e.py",
+          "observation": "Браузерный сценарий сохранения (7 POST) — зелёный.",
+          "artifact_path": "tests/test_samples_ui_e2e.py",
+          "artifact_sha256": "7b6e330caf5a9bf106c3824f3001a492b267c68b165098d741d31b3bf5d79fdd"
+        }
+      ]
     },
     {
       "source_id": "L00089",
@@ -1000,8 +1717,25 @@
       "acceptance": "На desktop/tablet контент ограничен max-width; допустим список + панель редактирования рядом; строка текста не растягивается на весь экран (e2e desktop 1280px).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "27b1165aced5c54faf83845160509b1ad2307318",
+          "type": "ui",
+          "ref": "evidence/build/shots/desktop_1280.png",
+          "observation": "Скриншот desktop 1280px: контент ограничен max-width 720, строка не растянута.",
+          "artifact_path": "plans/features/samples-ux/evidence/build/shots/desktop_1280.png",
+          "artifact_sha256": "138fc5133fc57b18c6646d79847faea9276c73cc92c68674a7f4bf96a2c72817"
+        },
+        {
+          "candidate_commit": "27b1165aced5c54faf83845160509b1ad2307318",
+          "type": "ui",
+          "ref": "tools/ui_samples_ux_e2e.py — desktop 1280, overflow=0",
+          "observation": "На desktop/tablet max-width читаемого контента; список+панель рядом; ограничение только на этом экране (не трогает другие разделы).",
+          "artifact_path": "tests/test_samples_ui_e2e.py",
+          "artifact_sha256": "7b6e330caf5a9bf106c3824f3001a492b267c68b165098d741d31b3bf5d79fdd"
+        }
+      ]
     },
     {
       "source_id": "L00090",
@@ -1015,8 +1749,25 @@
       "acceptance": "Другие страницы MiniApp не переписываются; работающие элементы не потеряны; новые большие glass-overlay-панели, дублирующие заголовки, статусные ленты и горизонтальные карусели не добавлены (визуальный sweep затронутой области).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "27b1165aced5c54faf83845160509b1ad2307318",
+          "type": "static",
+          "ref": "review-samples-ux.md §4 (границы диффа)",
+          "observation": "Другие страницы не переписаны: дифф index.html ограничен секцией «Примеры», app.js меняет только state-поля раздела; новых glass-overlay-панелей/дублирующих заголовков/статусных лент/каруселей нет.",
+          "artifact_path": "plans/features/samples-ux/evidence/review-samples-ux.md",
+          "artifact_sha256": "c20010a716d3817a0aa2e8e48bf513738192e6e0b15614275cfb7ff038bd2cd4"
+        },
+        {
+          "candidate_commit": "27b1165aced5c54faf83845160509b1ad2307318",
+          "type": "ui",
+          "ref": "tests/ui_p0a_ux_speech_compact_e2e.py — failures=0, POST=22",
+          "observation": "Соседний компактный UI-контракт «Речь и характер» не сломан (сценарий examples переработан под §4); плюс tests/test_p0_vision_ui_e2e.py 7 passed (README).",
+          "artifact_path": "tests/ui_p0a_ux_speech_compact_e2e.py",
+          "artifact_sha256": "aa7d798224448f4c0d59c4942511c1c7ff2092778ce6f2e8edb5ff73f5034894"
+        }
+      ]
     },
     {
       "source_id": "L00092",
@@ -1090,8 +1841,25 @@
       "acceptance": "Сквозная приёмка: категории «Общие/Юмор/Мат» различимы владельцем в UI (вкладки/редактор/счётчики), каждой подборкой можно управлять отдельно (e2e-сценарий по трём категориям).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "27b1165aced5c54faf83845160509b1ad2307318",
+          "type": "ui",
+          "ref": "tests/test_samples_ui_e2e.py — сценарий по трём категориям",
+          "observation": "Категории различимы в UI: вкладки «Общие | Юмор | Мат» + редактор показывает категорию/режим/приём + покатегорийные счётчики; каждой подборкой можно управлять отдельно (переключение вкладок, фильтры, CRUD в e2e).",
+          "artifact_path": "tests/test_samples_ui_e2e.py",
+          "artifact_sha256": "7b6e330caf5a9bf106c3824f3001a492b267c68b165098d741d31b3bf5d79fdd"
+        },
+        {
+          "candidate_commit": "27b1165aced5c54faf83845160509b1ad2307318",
+          "type": "ui",
+          "ref": "evidence/build/shots/list_360.png",
+          "observation": "Скриншот: вкладки/счётчики/карточки по категориям.",
+          "artifact_path": "plans/features/samples-ux/evidence/build/shots/list_360.png",
+          "artifact_sha256": "cf2a43f292c9a76b5a5d121a79bf13e884d17c21023e839dbae26e39f5a8fa3d"
+        }
+      ]
     },
     {
       "source_id": "L00119",
@@ -1105,8 +1873,33 @@
       "acceptance": "Сквозная приёмка: заводская карточка редактируется/удаляется из UI; правка/удаление переживают повторный seed и перезапуск (интеграционный тест на реальном пути UI→API→БД→seed).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "27b1165aced5c54faf83845160509b1ad2307318",
+          "type": "test",
+          "ref": "tests/test_samples_acceptance.py; test_factory_edit_and_delete_survive_reseed_via_endpoint",
+          "observation": "Интеграция на реальном пути UI→API→БД→seed: правка/удаление заводской карточки через эндпоинт переживают повторный seed.",
+          "artifact_path": "tests/test_samples_acceptance.py",
+          "artifact_sha256": "6592520538053018672e72e7c8b752b664fa5ded09ac0c50fbb06c1a437a0962"
+        },
+        {
+          "candidate_commit": "27b1165aced5c54faf83845160509b1ad2307318",
+          "type": "test",
+          "ref": "tests/test_samples_factory_persist.py — 12 passed",
+          "observation": "Тот же путь на уровне библиотеки: edit→seed→persists, delete→seed→remains deleted, restore по подтверждению.",
+          "artifact_path": "tests/test_samples_factory_persist.py",
+          "artifact_sha256": "f88271e1b2bc0a3f777242c0d23690412ff03aa4bbe68929b9853ac40ff8c9f0"
+        },
+        {
+          "candidate_commit": "27b1165aced5c54faf83845160509b1ad2307318",
+          "type": "ui",
+          "ref": "evidence/build/shots/persist_390.png",
+          "observation": "Скриншот сохранённой владельческой правки с меткой.",
+          "artifact_path": "plans/features/samples-ux/evidence/build/shots/persist_390.png",
+          "artifact_sha256": "49b4272938e66baf57809f1c0a996c927aa82c6d2c4e44f4b85c0f49b8054c43"
+        }
+      ]
     },
     {
       "source_id": "L00120",
@@ -1120,8 +1913,25 @@
       "acceptance": "Сквозная приёмка: после миграции существующие примеры/статусы/ID/ревизии не потеряны; expression-набор и юмор-библиотека не перемешаны (сравнение снапшотов до/после).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "27b1165aced5c54faf83845160509b1ad2307318",
+          "type": "test",
+          "ref": "tests/test_samples_categories.py; test_v37_migration_maps_categories_and_preserves_data",
+          "observation": "После миграции ID/ревизии/статусы/содержимое не потеряны (сравнение снапшота до/после в тесте); expression-набор и юмор-библиотека не перемешаны (категории/отбор изолированы: test_selection_reads_category_not_word_match).",
+          "artifact_path": "tests/test_samples_categories.py",
+          "artifact_sha256": "c74b8f57ca8597289c3c3b2cb8e05444913236360685bcf8e4c35b7bdd982a4b"
+        },
+        {
+          "candidate_commit": "27b1165aced5c54faf83845160509b1ad2307318",
+          "type": "test",
+          "ref": "tests/test_soul1_w4_sample_library.py — 20 passed",
+          "observation": "Регресс существующих примеров/статусов зелёный.",
+          "artifact_path": "tests/test_soul1_w4_sample_library.py",
+          "artifact_sha256": "6cafbee40e9dd1a934ebe921cee219265fe4f4199c38cabe66942250a4145168"
+        }
+      ]
     },
     {
       "source_id": "L00121",
@@ -1135,8 +1945,17 @@
       "acceptance": "Offline effective payload/trace: в промпт уходит явно маркированный bounded набор правильной категории (блоки по категориям), причины выбора в trace, второй личности нет; без отправки в Telegram.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "27b1165aced5c54faf83845160509b1ad2307318",
+          "type": "test",
+          "ref": "tests/test_samples_fewshot.py; test_resolve_refs_emits_both_labeled_blocks + test_mat_only_approved_examples_of_effective_mode",
+          "observation": "Offline effective payload/trace: в промпт уходит явно маркированный bounded набор правильной категории (блоки <General_Examples>/<Examples>/<Expression_Examples mode=…>), причины выбора в trace, второй личности нет; без отправки в Telegram (моки).",
+          "artifact_path": "tests/test_samples_fewshot.py",
+          "artifact_sha256": "b9c77ac027e6ca766887256f3438eb536a0ba56d2ae9e6320a2d35bbf21c0091"
+        }
+      ]
     },
     {
       "source_id": "L00122",
@@ -1150,8 +1969,25 @@
       "acceptance": "Сквозная приёмка UI: portrait/landscape/desktop без «приборной панели», обрезанных кнопок, коллизий и бесконечной встроенной формы; вёрстка не зависит от пиксельных координат (e2e-отчёт по вьюпортам).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "27b1165aced5c54faf83845160509b1ad2307318",
+          "type": "ui",
+          "ref": "tools/ui_samples_ux_e2e.py — 6 сценариев: portrait 360/390, landscape 667×375, desktop 1280",
+          "observation": "Сквозная приёмка UI: без «приборной панели», обрезанных кнопок, коллизий, бесконечной встроенной формы (редактор — отдельный экран); overflow=0, console errors=0; вёрстка на токенах без пиксельных координат.",
+          "artifact_path": "tests/test_samples_ui_e2e.py",
+          "artifact_sha256": "7b6e330caf5a9bf106c3824f3001a492b267c68b165098d741d31b3bf5d79fdd"
+        },
+        {
+          "candidate_commit": "27b1165aced5c54faf83845160509b1ad2307318",
+          "type": "ui",
+          "ref": "evidence/build/ui-e2e-report.json; failures=[]",
+          "observation": "Отчёт по вьюпортам: 0 failures.",
+          "artifact_path": "plans/features/samples-ux/evidence/build/ui-e2e-report.json",
+          "artifact_sha256": "07086194a4f3406b1bbfea3e77a6385bc5676e0e8b2688dd5833e95864948444"
+        }
+      ]
     },
     {
       "source_id": "L00123",
@@ -1165,8 +2001,17 @@
       "acceptance": "В отчёте/логах нет live-отправок в реальные Telegram-чаты; недоступные без владельца сценарии перечислены в plans/owner_live_checks.md и не блокируют работу (проверка артефактов прогона).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "27b1165aced5c54faf83845160509b1ad2307318",
+          "type": "test",
+          "ref": "tests/test_samples_acceptance.py; test_no_live_send_helpers_in_this_module_source",
+          "observation": "В отчёте/логах/диффе нет live-отправок в реальные Telegram-чаты (структурный тест + review grep); недоступные без владельца сценарии перечислены в plans/owner_live_checks.md §7 и не блокируют работу.",
+          "artifact_path": "tests/test_samples_acceptance.py",
+          "artifact_sha256": "6592520538053018672e72e7c8b752b664fa5ded09ac0c50fbb06c1a437a0962"
+        }
+      ]
     }
   ]
 }
