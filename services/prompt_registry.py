@@ -191,7 +191,7 @@ FACTORY_REVISION_LABELS: dict[str, str] = {
     "core.personality": "soul02-author-full-v1",
     "core.personality.compact": "soul02-compact-v1",
     # SOUL-1 (W4): приёмы Humor Craft, рамка few-shot и классификатор окна
-    "humor.craft.common": "humor-craft-guard-w4",
+    "humor.craft.common": "humor-craft-guard-h11",
     "humor.technique.absurd_escalation": "humor-technique-w4",
     "humor.technique.literalism": "humor-technique-w4",
     "humor.technique.deadpan": "humor-technique-w4",
@@ -634,7 +634,7 @@ _CODE_BLOCKS: tuple[PromptBlockSpec, ...] = (
        "мониторинга недоступно (пользователь слышит её в отчёте; несёт "
        "оценочную инструкцию в техническом обработчике).",
        "message", "code", "services.checkup_prompts.CHECKUP_FALLBACK_NOTICE",
-       ("checkup_service.py:59", "tests/test_checkup_service.py:55"),
+       ("checkup_service.py:71", "tests/test_checkup_service.py:55"),
        "managed_message/checkup_fallback", owner_lane="W3", speech=True,
        migration="managed_message", ui="catalog_pending",
        note="SOUL-AMD.3.4: шаблонная фраза, которую слышит пользователь, "
@@ -1460,7 +1460,13 @@ def factory_set_fingerprint() -> str:
 #: OBSERVER_EVAL_SYSTEM_PROMPT``; сверка карт фабричных текстов до/после:
 #: added/removed = 0, changed = 1) — было ``5a3d211b36be``,
 #: стало ``5bca81487001``. Переутверждено осознанно (SOUL-AMD.3.2).
-FACTORY_SET_SHA256_12 = "5bca81487001"
+#: Бамп FIX-25898-R1 (20.10.2026, ревью 25898 Блокер 1): переутверждение
+#: после владельческой перестройки ``humor.craft.common`` (H11: критерий —
+#: причинная связность/уместность, юмор не растягивается на каждый ответ,
+#: факты/числа/ссылки/суть просьбы неприкосновенны; «не частота метафор или
+#: оскорблений») — было ``5bca81487001``, стало ``64ec1c60e278``.
+#: Переутверждено осознанно (SOUL-AMD.3.2).
+FACTORY_SET_SHA256_12 = "64ec1c60e278"
 
 
 # ═══════════════════════════════════════════════════════════════════════════

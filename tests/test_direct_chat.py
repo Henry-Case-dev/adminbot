@@ -1298,10 +1298,12 @@ class TestStyleAnchorsAndMood:
             fake_time["now"] += 1.0
         blocks = await service._build_user_content(CHAT_ID, _message(), "вася")
         anchors = next(b for b in blocks if b.startswith("<style_anchors>"))
-        # Раунд 3 (3.7/C1): новый текст инструкции (эталон байт-в-байт)
+        # Раунд 3 (3.7/C1) + UNIFIED-CORE: новый текст инструкции
+        # (эталон байт-в-байт; приоритет настроек владельца над образцом)
         assert ("подражай общей интонации этих ответов, но НЕ копируй "
                 "дословно и не начинай каждый ответ с одного и того же "
-                "слова:" in anchors)
+                "слова; настройки выражения владельца важнее образца:"
+                in anchors)
         assert "1. сцуко, ну держи" in anchors and "3. короче, работает" in anchors
         assert "норм отвечаю" not in anchors      # последние 3 (default count)
         await d.close()

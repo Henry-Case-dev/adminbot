@@ -84,7 +84,8 @@ class TestCheckupTriggers:
         result = await checkup_mod.checkup_handler(msg, bot=bot)
         assert result is None
         fetcher.fetch.assert_awaited_once()
-        service.checkup.assert_awaited_once_with("логи", False)
+        service.checkup.assert_awaited_once_with("логи", False,
+                                                 chat_id=CHAT_ID)
         assert bot.send_message.await_args.kwargs["reply_to_message_id"] == 11
 
     @pytest.mark.asyncio
@@ -189,7 +190,8 @@ class TestCheckupHandler:
         bot = AsyncMock()
         msg = _make_msg(text="чекап", message_id=11)
         await checkup_mod.checkup_handler(msg, bot=bot)
-        service.checkup.assert_awaited_once_with("логи", False)
+        service.checkup.assert_awaited_once_with("логи", False,
+                                                 chat_id=CHAT_ID)
         assert bot.send_message.await_args.args[1] == "отчёт о здоровье"
         assert bot.send_message.await_args.kwargs["reply_to_message_id"] == 11
 
@@ -204,7 +206,8 @@ class TestCheckupHandler:
         bot = AsyncMock()
         msg = _make_msg(text="чекап", message_id=11)
         await checkup_mod.checkup_handler(msg, bot=bot)
-        service.checkup.assert_awaited_once_with("локальные логи", True)
+        service.checkup.assert_awaited_once_with("локальные логи", True,
+                                                 chat_id=CHAT_ID)
         calls = bot.send_message.await_args_list
         assert calls[0].args[1] in CHECKUP_FALLBACK_PHRASES
         assert calls[0].kwargs["reply_to_message_id"] == 11
