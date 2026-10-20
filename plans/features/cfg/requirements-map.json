@@ -2,7 +2,7 @@
   "schema": "openworkflow-coverage-v1",
   "source_path": "C:\\Code\\Python\\adminbot\\plans\\features\\cfg\\source-cfg-addendum.md",
   "source_sha256": "2ed43009e1533eca218be419409870ebbe85f82d85262ff2335dfa2ce36e6b10",
-  "candidate_commit": "8cd2ca14664a00dc709689edc0b614d2e65d8c3f",
+  "candidate_commit": "d860a529593079f20fd26fb830536b77c8ba1630",
   "deployed_commit": "7142ffcf47ce4667cf22113c56881d3f1abb29a2",
   "strict_evidence": true,
   "slice_graph_path": "slice-graph.json",
@@ -975,6 +975,14 @@
           "type": "static",
           "ref": "Кандидат v4 (B1): строка закрыта волной/деплоем, артефакт действует на HEAD",
           "observation": "Reuse-аудит контейнера выполнен волной CFG-07CG (07cg-reuse-audit.md) и подтверждён ревью REV-CFG07CG: матрица не строится второй раз, закрыта дельта CFG-07A; хвост 07C.1–.6 выполняется волной CFG-07CG-TAIL (guard на delivery-швах).",
+          "artifact_path": "plans/features/cfg/evidence/cfg-07a/07cg-reuse-audit.md",
+          "artifact_sha256": "b2f8f0ae4d3ed7d7087f58418be25aac584f397c873445f212a07ff0628ce1ff"
+        },
+        {
+          "candidate_commit": "d860a529593079f20fd26fb830536b77c8ba1630",
+          "type": "static",
+          "ref": "07cg-reuse-audit.md + review-07cg",
+          "observation": "Кандидат v6 (07D.5/07CG-TAIL, `d860a529`): строка закрыта волной CFG-07A/07CG; фактчек-runtime/артефакты строки байт-идентичны предыдущей привязке (после — только телеметрия B1 и леджер); независимые ревью review-07cg/review-07cg-tail/review-07d5-r2 Approved. Reuse-аудит контейнера: матрица не строится второй раз; закрыта дельта CFG-07A (корпус, лестницы ×7, Writer-контракт, словарь); хвост 07C.1–.6 выполнен волной CFG-07CG-TAIL.",
           "artifact_path": "plans/features/cfg/evidence/cfg-07a/07cg-reuse-audit.md",
           "artifact_sha256": "b2f8f0ae4d3ed7d7087f58418be25aac584f397c873445f212a07ff0628ce1ff"
         }
@@ -7232,6 +7240,14 @@
           "observation": "Постдеплой 2.58.103: PG-байты владельца 7/7 UNCHANGED (== база 2.58.102); effective payload = новые чистые каноны 07A-2, маркеры корпуса 0/7 (вкл. bracket-FA-08 и UNCHANGED-эхо); лестницы распознают прод-байты 7/7 (suppress applied, ожидаемые labels). Кастомы удержаны провенанс-гейтом (withheld, состояние с 2.58.102 — не регрессия поезда); активация кастомов — добровольное решение владельца (owner_live_checks §8 / OQ-15, не блокер).",
           "artifact_path": "plans/features/cfg/evidence/cfg-07a/release/release-103/deploy.md",
           "artifact_sha256": "0df06c4f4bb388610146d38bb2babc35f8e48c84339e1e9e28e049594d87e8ac"
+        },
+        {
+          "candidate_commit": "d860a529593079f20fd26fb830536b77c8ba1630",
+          "type": "production",
+          "ref": "release-102/deploy.md §постдеплой 07A-1 + release-103/deploy.md (2.58.103)",
+          "observation": "Кандидат v6 (07D.5/07CG-TAIL, `d860a529`): строка закрыта волной CFG-07A/07CG; фактчек-runtime/артефакты строки байт-идентичны предыдущей привязке (после — только телеметрия B1 и леджер); независимые ревью review-07cg/review-07cg-tail/review-07d5-r2 Approved. Постдеплой 2.58.103: PG-байты владельца 7/7 UNCHANGED; effective = чистые каноны 07A-2, маркеры 0/7; лестницы 7/7; кастомы withheld провенанс-гейтом — OQ-15 добровольно.",
+          "artifact_path": "plans/features/samples-ux/evidence/release/deploy.md",
+          "artifact_sha256": "1c12cad7327da1c3be3c42d85bb02d973db412ef0c2ea6481c10b20d30381159"
         }
       ],
       "note": " | VERIFIED @ deployed 2a3e4fc9 (2.58.103), 21.10."
@@ -7263,6 +7279,14 @@
           "type": "static",
           "ref": "Кандидат v4 (B1): строка закрыта волной/деплоем, артефакт действует на HEAD",
           "observation": "Кандидат v4 `8cd2ca14` (B1-телеметрия поверх 211a8c1b): фактчек-runtime байты атрибуции/канонов идентичны для этой строки; evidence действителен — привязка к фактическому reviewed-кандидату по требованию гейта.",
+          "artifact_path": "tests/test_cfg07_backstage_contract.py",
+          "artifact_sha256": "2522246eda6c3afef5fb86b7fb5ac2588716fd20e196b9b115ad8589be70c5b6"
+        },
+        {
+          "candidate_commit": "d860a529593079f20fd26fb830536b77c8ba1630",
+          "type": "test",
+          "ref": "test_cfg07_backstage_contract (59p) + bytecheck",
+          "observation": "Кандидат v6 (07D.5/07CG-TAIL, `d860a529`): строка закрыта волной CFG-07A/07CG; фактчек-runtime/артефакты строки байт-идентичны предыдущей привязке (после — только телеметрия B1 и леджер); независимые ревью review-07cg/review-07cg-tail/review-07d5-r2 Approved. В публичный ответ не попадают комментарии о процессе генерации и служебные пометки; контракт-тест Writer + байт-скан 7 канонов 0 хитов.",
           "artifact_path": "tests/test_cfg07_backstage_contract.py",
           "artifact_sha256": "2522246eda6c3afef5fb86b7fb5ac2588716fd20e196b9b115ad8589be70c5b6"
         }
@@ -7311,6 +7335,14 @@
           "observation": "Privacy/поиск-ассерт связан с реальным агрегатором (инжект в retrieval-шов), гарантия 06G.3 усилена.",
           "artifact_path": "plans/features/cfg/evidence/cfg-07a/07cg-tail.md",
           "artifact_sha256": "7381424b7c8601c67388719f641b7ae32a4bf9b69c69653b788d0c859978e4a4"
+        },
+        {
+          "candidate_commit": "d860a529593079f20fd26fb830536b77c8ba1630",
+          "type": "test",
+          "ref": "test_cfg07_egress_dictionary (honest miss / no overclaim)",
+          "observation": "Кандидат v6 (07D.5/07CG-TAIL, `d860a529`): строка закрыта волной CFG-07A/07CG; фактчек-runtime/артефакты строки байт-идентичны предыдущей привязке (после — только телеметрия B1 и леджер); независимые ревью review-07cg/review-07cg-tail/review-07d5-r2 Approved. Честный отказ после реального просмотра контекста без платного поиска (attribution miss структурно до поиска); падение поиска/LLM → честная недоступность без вердикта; «Подтверждается» только из реального CheckedVerdict+EvidenceMap.",
+          "artifact_path": "tests/test_cfg07_egress_dictionary.py",
+          "artifact_sha256": "e6729f0e7b28c258b0a309a8c768ca303f40ba8b6139e74e3eb08e004d91e13b"
         }
       ]
     },
@@ -7341,6 +7373,14 @@
           "type": "static",
           "ref": "Кандидат v4 (B1): строка закрыта волной/деплоем, артефакт действует на HEAD",
           "observation": "Кандидат v4 `8cd2ca14` (B1-телеметрия поверх 211a8c1b): фактчек-runtime байты атрибуции/канонов идентичны для этой строки; evidence действителен — привязка к фактическому reviewed-кандидату по требованию гейта.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-07a/07a2-summary.md",
+          "artifact_sha256": "34b3725ed2a9c06d90c815272e906fb889b9c6ac96e91ce47d9271690be7b5fa"
+        },
+        {
+          "candidate_commit": "d860a529593079f20fd26fb830536b77c8ba1630",
+          "type": "static",
+          "ref": "07a2-summary SF-09/SF-13",
+          "observation": "Кандидат v6 (07D.5/07CG-TAIL, `d860a529`): строка закрыта волной CFG-07A/07CG; фактчек-runtime/артефакты строки байт-идентичны предыдущей привязке (после — только телеметрия B1 и леджер); независимые ревью review-07cg/review-07cg-tail/review-07d5-r2 Approved. Честный слив без выдуманной механики; роль/характер устойчивы; «такого сообщения не нашлось» вместо «в логах нет».",
           "artifact_path": "plans/features/cfg/evidence/cfg-07a/07a2-summary.md",
           "artifact_sha256": "34b3725ed2a9c06d90c815272e906fb889b9c6ac96e91ce47d9271690be7b5fa"
         }
@@ -7374,6 +7414,14 @@
           "observation": "Прямой вопрос о внутреннем устройстве в явном техническом/административном контексте → честное объяснение доступных возможностей (capability human-names проходит словарь); backstage-объяснение флагается, правда не режется; админ-жанр checkup и честный факт фолбэка целы.",
           "artifact_path": "services/public_speech_guard.py",
           "artifact_sha256": "f46533c6f1007fc25356bbf0c1a3a1e941ce9aaea449297add84c82d86173ddb"
+        },
+        {
+          "candidate_commit": "d860a529593079f20fd26fb830536b77c8ba1630",
+          "type": "test",
+          "ref": "test_cfg07_egress_dictionary (admin-context 15 маркеров)",
+          "observation": "Кандидат v6 (07D.5/07CG-TAIL, `d860a529`): строка закрыта волной CFG-07A/07CG; фактчек-runtime/артефакты строки байт-идентичны предыдущей привязке (после — только телеметрия B1 и леджер); независимые ревью review-07cg/review-07cg-tail/review-07d5-r2 Approved. Прямой админ-вопрос → честное объяснение возможностей; backstage-объяснение флагается, правда не режется; checkup-жанр цел.",
+          "artifact_path": "tests/test_cfg07_egress_dictionary.py",
+          "artifact_sha256": "e6729f0e7b28c258b0a309a8c768ca303f40ba8b6139e74e3eb08e004d91e13b"
         }
       ]
     },
@@ -7406,6 +7454,14 @@
           "observation": "Кандидат v4 `8cd2ca14` (B1-телеметрия поверх 211a8c1b): фактчек-runtime байты атрибуции/канонов идентичны для этой строки; evidence действителен — привязка к фактическому reviewed-кандидату по требованию гейта.",
           "artifact_path": "tests/test_cfg07_backstage_contract.py",
           "artifact_sha256": "2522246eda6c3afef5fb86b7fb5ac2588716fd20e196b9b115ad8589be70c5b6"
+        },
+        {
+          "candidate_commit": "d860a529593079f20fd26fb830536b77c8ba1630",
+          "type": "test",
+          "ref": "test_cfg07_egress_dictionary (юмор-метаречь ON/OFF)",
+          "observation": "Кандидат v6 (07D.5/07CG-TAIL, `d860a529`): строка закрыта волной CFG-07A/07CG; фактчек-runtime/артефакты строки байт-идентичны предыдущей привязке (после — только телеметрия B1 и леджер); независимые ревью review-07cg/review-07cg-tail/review-07d5-r2 Approved. Закулисная режиссура юмора не слышна; OFF → слой не рендерится с честным skip_reason; сарказм не удалён.",
+          "artifact_path": "tests/test_cfg07_egress_dictionary.py",
+          "artifact_sha256": "e6729f0e7b28c258b0a309a8c768ca303f40ba8b6139e74e3eb08e004d91e13b"
         }
       ]
     },
@@ -7438,6 +7494,14 @@
           "observation": "Кандидат v4 `8cd2ca14` (B1-телеметрия поверх 211a8c1b): фактчек-runtime байты атрибуции/канонов идентичны для этой строки; evidence действителен — привязка к фактическому reviewed-кандидату по требованию гейта.",
           "artifact_path": "plans/features/cfg/evidence/cfg-07a/07a2-summary.md",
           "artifact_sha256": "34b3725ed2a9c06d90c815272e906fb889b9c6ac96e91ce47d9271690be7b5fa"
+        },
+        {
+          "candidate_commit": "d860a529593079f20fd26fb830536b77c8ba1630",
+          "type": "test",
+          "ref": "test_cfg07_egress_dictionary (overclaim closed-set) + 07a2 ladder 7/7",
+          "observation": "Кандидат v6 (07D.5/07CG-TAIL, `d860a529`): строка закрыта волной CFG-07A/07CG; фактчек-runtime/артефакты строки байт-идентичны предыдущей привязке (после — только телеметрия B1 и леджер); независимые ревью review-07cg/review-07cg-tail/review-07d5-r2 Approved. Применено ко всем LLM-путям и fallback без растущего black-list; закрытый сет ловит overclaim-семью, честные формулировки не режутся; инверсный overclaim — осознанный остаток с записью источника.",
+          "artifact_path": "tests/test_cfg07_egress_dictionary.py",
+          "artifact_sha256": "e6729f0e7b28c258b0a309a8c768ca303f40ba8b6139e74e3eb08e004d91e13b"
         }
       ]
     },
@@ -7468,6 +7532,14 @@
           "type": "static",
           "ref": "Кандидат v4 (B1): строка закрыта волной/деплоем, артефакт действует на HEAD",
           "observation": "Кандидат v4 `8cd2ca14` (B1-телеметрия поверх 211a8c1b): фактчек-runtime байты атрибуции/канонов идентичны для этой строки; evidence действителен — привязка к фактическому reviewed-кандидату по требованию гейта.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-07a/07a2-bytecheck.txt",
+          "artifact_sha256": "873d5ed8da5eabdec8c6c138eade50f7f85c10c156a0ac9edc2dedad3ca73b8b"
+        },
+        {
+          "candidate_commit": "d860a529593079f20fd26fb830536b77c8ba1630",
+          "type": "static",
+          "ref": "07a2-bytecheck + W3 freeze check",
+          "observation": "Кандидат v6 (07D.5/07CG-TAIL, `d860a529`): строка закрыта волной CFG-07A/07CG; фактчек-runtime/артефакты строки байт-идентичны предыдущей привязке (после — только телеметрия B1 и леджер); независимые ревью review-07cg/review-07cg-tail/review-07d5-r2 Approved. Машинный JSON строго внутренний; hostile BOT_KNOWLEDGE байт-стабилен (фриз W3 цел); до Writer — только пользовательски значимые поля.",
           "artifact_path": "plans/features/cfg/evidence/cfg-07a/07a2-bytecheck.txt",
           "artifact_sha256": "873d5ed8da5eabdec8c6c138eade50f7f85c10c156a0ac9edc2dedad3ca73b8b"
         }
@@ -7764,6 +7836,14 @@
           "observation": "Кандидат v4 `8cd2ca14` (B1-телеметрия поверх 211a8c1b): фактчек-runtime байты атрибуции/канонов идентичны для этой строки; evidence действителен — привязка к фактическому reviewed-кандидату по требованию гейта.",
           "artifact_path": "tests/test_cfg07_egress_dictionary.py",
           "artifact_sha256": "e6729f0e7b28c258b0a309a8c768ca303f40ba8b6139e74e3eb08e004d91e13b"
+        },
+        {
+          "candidate_commit": "d860a529593079f20fd26fb830536b77c8ba1630",
+          "type": "test",
+          "ref": "test_cfg07_egress_dictionary (humor metatalk ON/OFF)",
+          "observation": "Кандидат v6 (07D.5/07CG-TAIL, `d860a529`): строка закрыта волной CFG-07A/07CG; фактчек-runtime/артефакты строки байт-идентичны предыдущей привязке (после — только телеметрия B1 и леджер); независимые ревью review-07cg/review-07cg-tail/review-07d5-r2 Approved. Юмор ON/OFF без метаречи-семьи; OFF → честный skip_reason; сарказм не удалён; live-наблюдение владельца — CFG-07D.1.OBS (owner_optional).",
+          "artifact_path": "tests/test_cfg07_egress_dictionary.py",
+          "artifact_sha256": "e6729f0e7b28c258b0a309a8c768ca303f40ba8b6139e74e3eb08e004d91e13b"
         }
       ],
       "verification_tier": "engineering",
@@ -7795,6 +7875,14 @@
           "type": "test",
           "ref": "CFG-07CG overclaim closed-set + review-07cg",
           "observation": "Closed-set паттернов ловит «проверил всё в интернете»-семью, НЕ ловит «проверил — не нашёл подтверждений»/«нашёл подтверждение в двух источниках»; все честные пулы без overclaim; честная техсправка админу не блокируется. Инверсный overclaim — осознанный остаток с записью источника (корпус не содержит).",
+          "artifact_path": "tests/test_cfg07_egress_dictionary.py",
+          "artifact_sha256": "e6729f0e7b28c258b0a309a8c768ca303f40ba8b6139e74e3eb08e004d91e13b"
+        },
+        {
+          "candidate_commit": "d860a529593079f20fd26fb830536b77c8ba1630",
+          "type": "test",
+          "ref": "test_cfg07_egress_dictionary (overclaim closed-set)",
+          "observation": "Кандидат v6 (07D.5/07CG-TAIL, `d860a529`): строка закрыта волной CFG-07A/07CG; фактчек-runtime/артефакты строки байт-идентичны предыдущей привязке (после — только телеметрия B1 и леджер); независимые ревью review-07cg/review-07cg-tail/review-07d5-r2 Approved. Closed-set ловит «проверил всё в интернете»-семью, не ловит честные формулировки; техсправка админу не блокируется.",
           "artifact_path": "tests/test_cfg07_egress_dictionary.py",
           "artifact_sha256": "e6729f0e7b28c258b0a309a8c768ca303f40ba8b6139e74e3eb08e004d91e13b"
         }
@@ -7842,12 +7930,28 @@
       "acceptance": "Mock-Writer с reason temporal_date_unknown, fact:123, «по моим логам», «анализатор считает», сырым <b>-тегом и некорректной ссылкой: на стороне Telegram — ни одного машинного артефакта, теги отрендерены/безопасно деградировали, факты не изменены.",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "ce77b2c4 (base HEAD; кандидат = uncommitted worktree волны 07D.5, биндинг за оркестратором)",
           "ref": "plans/features/cfg/evidence/cfg-07a/07d5-summary.md §2/§4",
           "observation": "Волна 07D.5: FA-06/07/08 + FA-01/02 + SF-16 + MB-10/11/12-детекторы в public_speech_guard (id корпуса, границы токенов, детерминированный срез без изменения фактов); bounded retry смысловой метаречи (инверсии overclaim) через verbalize_validated(metatext_reason) — <=1 повтор в существующем бюджете, METATEXT_RETRY_SYSTEM_PROMPT с кодом причины, honest fallback (metatext_fallback + strip_guard_findings); wiring строго в контуре FACTCHECK_PIPELINE_V2_ENABLED (OFF -> контракт None, байт-паритет). POSITIVE: 202 пула + каноны + PC-* корпуса — 0 ложных. Фокус: новый 39 + словарь 67 + хвост 29 + route-coverage 18 + фактчек-семья = 232 passed EXIT 0 (07d5-tests.txt); валидаторная семья 331, потребители verbalize 83.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-07a/07d5-summary.md",
+          "artifact_sha256": "f8c7baa010f1982e9605adadf63267dd2d6eef7698bb288690b1fcb054fcb98c"
+        },
+        {
+          "candidate_commit": "d860a529593079f20fd26fb830536b77c8ba1630",
+          "type": "test",
+          "ref": "review-07d5-r2 Approved (F1-F4 repair cycle verified) + tests/test_cfg07_guard_07d5.py 41 CONTRACT",
+          "observation": "Bounded retry смысловой метаречи (verbalize_validated reuse, <=2 бюджет/<=1 metatext, честная деградация metatext_fallback); FA-06/07/08 + FA-01/02 + SF-16 и MB-10/11/12 детекторы по записям корпуса; 0 ложных на 202 POSITIVE; W3-фриз цел; OFF-паритет обоих швов.",
+          "artifact_path": "tests/test_cfg07_guard_07d5.py",
+          "artifact_sha256": "913c3c9380f6b9b335693ce81b4301eef15b08b726051ba53961ca4e8dd82a5f"
+        },
+        {
+          "candidate_commit": "d860a529593079f20fd26fb830536b77c8ba1630",
+          "type": "static",
+          "ref": "07d5-summary.md (механизм + корпус-маппинг, sha f8c7baa0 post-R1F4)",
+          "observation": "Механика/маппинг корпуса/остатки задокументированы; независимое ревью review-07d5-r2 подтвердило F1-F4 закрытыми.",
           "artifact_path": "plans/features/cfg/evidence/cfg-07a/07d5-summary.md",
           "artifact_sha256": "f8c7baa010f1982e9605adadf63267dd2d6eef7698bb288690b1fcb054fcb98c"
         }
