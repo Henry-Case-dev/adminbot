@@ -218,6 +218,52 @@ class TestPlanBuilding:
         assert fsp.build_retrieval_plan(None) is None
 
 
+# ── 06G.1: биологический спор + латиница-сущность (гап W7 закрыт) ────────────
+
+class TestSaccharomycesBiologicalCase:
+    """06G.1/06C.3: в биологическом споре «дрожжи — грибы, а не бактерии»
+    атомарный тезис выделяется гейтом (не отклоняется как бессмыслица,
+    06B.4), а точное научное название Saccharomyces boulardii сохраняется
+    в осмысленных веб-запросах и в структурном evidence.
+
+    TEST-LIFECYCLE: REGRESSION owner=CFG-06 (W7-гап: Saccharomyces-кейс
+    был покрыт только архитектурно, отдельного кейса не было)."""
+
+    CLAIM = ("дрожжи — это грибы, а не бактерии, поэтому пробиотики с "
+             "Saccharomyces boulardii восстанавливают микрофлору после "
+             "антибиотиков")
+
+    def test_binomial_preserved_and_claim_checkable(self, planner_on):
+        old_gate = getattr(settings, "FACTCHECK_SUITABILITY_GATE_ENABLED",
+                           False)
+        object.__setattr__(settings, "FACTCHECK_SUITABILITY_GATE_ENABLED",
+                           True)
+        try:
+            gate = fsg.evaluate_suitability(self.CLAIM, None, None)
+        finally:
+            object.__setattr__(settings, "FACTCHECK_SUITABILITY_GATE_ENABLED",
+                               old_gate)
+        assert gate.decision == fsg.DECISION_CHECKABLE
+        assert gate.claim_items                      # атомарный тезис выделен
+        plan = fsp.build_retrieval_plan(_decision(self.CLAIM),
+                                        claim_text=self.CLAIM)
+        assert plan is not None and plan.queries
+        joined = " ".join(q.text.lower() for q in plan.queries)
+        assert "saccharomyces" in joined and "boulardii" in joined
+        for q in plan.queries:                       # 06A.4: не сырой слайс
+            assert q.text.lower() != self.CLAIM.lower()[:200]
+
+    def test_saccharomyces_evidence_structured(self):
+        refs = fsp.evidence_refs_from_search(
+            "Saccharomyces boulardii — пробиотический дрожжевой грибок\n"
+            "Относится к грибам, а не к бактериям; применяется после "
+            "антибиотиков\nhttps://example.org/saccharomyces-boulardii")
+        assert refs
+        assert refs[0].url == "https://example.org/saccharomyces-boulardii"
+        assert "saccharomyces" in refs[0].support.lower()
+        assert "https://" not in refs[0].support     # URL отдельно от текста
+
+
 # ── Структурный evidence ──────────────────────────────────────────────────────
 
 class TestStructuredEvidence:

@@ -1,0 +1,12 @@
+# CFG-07A-1 evidence — SHA256 (алгоритм: sha256, файлы в этом каталоге)
+
+- Deployed SHA байтов аудита: 29cc49ba (2.58.98, deploy VERIFIED 20.10.2026)
+- Дата: 2026-10-20
+- Лейн: CFG-07A-1 (read-only по коду; запись только plans/features/cfg/evidence/cfg-07a/**)
+
+19fcbb0ea61c725d0999c36794b79de439f2ab5546dd9441154b5dc4e461a34b  07a1-audit.md
+01c40d6c6ff5fda155ccfcfb0ae6984d91994787073b233ceebb3c6ed30a4ab8  07a1-corpus.md
+48ba52ba5a6cb7a7ef9a7b4d9d485f70b88ad43279b104043babc6cb275c3a10  07a1-corpus.json
+
+# Сам файл в список не входит. Проверка (PowerShell, из корня репо):
+# Get-FileHash plans/features/cfg/evidence/cfg-07a/07a1-audit.md,plans/features/cfg/evidence/cfg-07a/07a1-corpus.md,plans/features/cfg/evidence/cfg-07a/07a1-corpus.json -Algorithm SHA256

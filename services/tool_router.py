@@ -2353,7 +2353,13 @@ class ToolRouter:
         (service.tool_router в адаптере не передаётся), belt-and-suspenders
         depth-guard в tool loop (CA-20-12). ToolResult-контракт D4:
         status ∈ {ready, disabled, unavailable, insufficient_evidence,
-        failed} + payload."""
+        failed} + payload. CFG-06 (REV-CFG-06 F1, 06B.1/06H.2): при v2 ON
+        (pipeline_v2_enabled) tool-интент идёт через ЕДИННЫЙ контур
+        оркестратора, как handler-маршрут: suitability-gate + широкий
+        контекст ДО платного поиска; no_claim/ambiguous → структурный
+        JSON агенту БЕЗ платного поиска (status="skipped"); иначе тот же
+        check_claim_envelope с chat_context=feed. OFF → прежний вызов
+        байт-в-байт (2.58.98)."""
         import json as _json
         from services import mca_gates, temporal_factcheck as tf
         if not (mca_gates.temporal_factcheck_enabled()
@@ -2432,8 +2438,49 @@ class ToolRouter:
             return _json.dumps({"status": "failed",
                                 "reason": "provider_unavailable"},
                                ensure_ascii=False)
+        # CFG-06 (REV-CFG-06 F1): v2-контур оркестратора на tool-маршруте.
+        # Gate ДО платного поиска; сбой гейта → честный failed БЕЗ вызова
+        # check_claim_envelope (не обходим gate платным поиском).
+        v2 = False
         try:
-            run = await service.check_claim_envelope(envelope)
+            from services.factcheck_orchestrator import pipeline_v2_enabled
+            v2 = bool(pipeline_v2_enabled())
+        except Exception:
+            v2 = False
+        feed = None
+        if v2:
+            skip_reason = None
+            try:
+                from services import factcheck_suitability as fsg
+                from services.smart_cache import get_smart_cache
+                decision, fctx = await fsg.evaluate_with_expansion(
+                    db, int(ctx.chat_id) if ctx.chat_id else 0,
+                    claim_text=claim, user_hint=None,
+                    target_tg_message_id=target_msg,
+                    trigger_tg_message_id=ctx.reply_to_message_id,
+                    cache=get_smart_cache())
+                feed = fctx.render_feed() if fctx is not None else ""
+                if decision is not None and decision.decision in (
+                        fsg.DECISION_NO_CLAIM, fsg.DECISION_AMBIGUOUS):
+                    skip_reason = decision.decision
+            except Exception:
+                logger.warning("[tools] fact_check v2 gate failed",
+                               exc_info=True)
+                return _json.dumps({"status": "failed",
+                                    "reason": "temporal_insufficient_evidence"},
+                                   ensure_ascii=False)
+            if skip_reason is not None:
+                tf.stage_event("deliver", "skipped",
+                               reason_code=skip_reason, chat_id=ctx.chat_id)
+                return _json.dumps({"status": "skipped",
+                                    "reason": skip_reason},
+                                   ensure_ascii=False)
+        try:
+            if v2:
+                run = await service.check_claim_envelope(
+                    envelope, chat_context=feed or None)
+            else:
+                run = await service.check_claim_envelope(envelope)
         except Exception as exc:
             logger.warning("[tools] fact_check failed | error=%s",
                            type(exc).__name__)

@@ -2,7 +2,7 @@
   "schema": "openworkflow-coverage-v1",
   "source_path": "C:\\Code\\Python\\adminbot\\plans\\features\\cfg\\source-cfg-addendum.md",
   "source_sha256": "2ed43009e1533eca218be419409870ebbe85f82d85262ff2335dfa2ce36e6b10",
-  "candidate_commit": "90cfc471b7f1917360915aee3157ef12f9879dcd",
+  "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
   "deployed_commit": "99f5672c5e1d27e957100395a13178fef929b035",
   "strict_evidence": true,
   "slice_graph_path": "slice-graph.json",
@@ -197,8 +197,18 @@
       "acceptance": "CFG-06 — новая функциональная реконструкция одного runtime pipeline (не только карточка): широкий чат-контекст, смысловые запросы, evidence, корректные источники и renderer; UI B07 не исполняется дважды.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "static",
+          "ref": "W7 review-package + acceptance (composite 8/8) + w0-audit",
+          "observation": "Функциональная реконструкция собрана и доказана: единый pipeline (S1–S8), широкий контекст (W1), смысловые запросы (W4), структурный evidence и renderer (W4/W5); UI B07 не исполняется дважды (web/ вне диффа).",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w7-acceptance.md",
+          "artifact_sha256": "9a91b54c900ba351d8ff08a2e836d8bf9602e5e46cbda30a0a43f1ce8e27995a"
+        }
+      ],
+      "note": "Ledger cut 5af56d8b (20.10, lane LEDGER-CFG-06): агрегат подтверждён по строчным фактам W0–W7; build-only (live_required=false)."
     },
     {
       "source_id": "M00009",
@@ -698,8 +708,26 @@
       "acceptance": "Целевой сквозной контракт реализован как единая цепочка Telegram target+trigger+timeline→TargetResolver→Time/Provenance→ContextBuilder→ContextualClaimResolver→SuitabilityGate→FactcheckPlan→Web/Chat Tool Execution→EvidenceMap→GroundedVerdict/Temporal Verification→Evidence Validator→Personality Writer→FactcheckPresentation→Telegram-safe Renderer→Delivery.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "test",
+          "ref": "w3-schemas.md §1 (стадии пайплайна)",
+          "observation": "Единая цепочка стадий зафиксирована фризом W3: FactcheckRequest→ResolveTimeAndProvenance→Context+Suitability→Plan→ветка→CheckedVerdict→Presentation→Delivery.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w3-schemas.md",
+          "artifact_sha256": "69c9405d7a4363e98bb1d07f7ea897bd7337a6115322c4b9a559cfc27105b0fe"
+        },
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "test",
+          "ref": "w7-acceptance.md §1",
+          "observation": "Сквозной контракт доказан композитом S1–S8 через единый run_factcheck; live_required=false — живая канарейка при включении флага не входит в acceptance строки.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w7-acceptance.md",
+          "artifact_sha256": "9a91b54c900ba351d8ff08a2e836d8bf9602e5e46cbda30a0a43f1ce8e27995a"
+        }
+      ],
+      "note": "Ledger cut 5af56d8b (20.10, lane LEDGER-CFG-06): статус VERIFIED (live_required=false); живая канарейка — при включении флага, вне обязательств строки."
     },
     {
       "source_id": "M00027",
@@ -728,8 +756,18 @@
       "acceptance": "Общий anti-Markdown/anti-list не запрещает структуру фактчека: для Factcheck — отдельный разрешённый Telegram-safe формат через trusted renderer; другие каналы ради этого не переписываются.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "test",
+          "ref": "w5-renderer.md §1/§2 + §6.3",
+          "observation": "Общий anti-Markdown/anti-list не тронут и структуру фактчека не блокирует: фактчек получает отдельный Telegram-safe формат через детерминированный trusted renderer; другие каналы не переписаны (36 renderer-тестов).",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w5-renderer.md",
+          "artifact_sha256": "740971e46571e49ecd31fe51c33b1242c84e2b32a04b96d966eff554fc088b76"
+        }
+      ],
+      "note": "Ledger cut 5af56d8b (20.10, lane LEDGER-CFG-06): агрегат подтверждён; живых хвостов нет."
     },
     {
       "source_id": "M00029",
@@ -758,8 +796,18 @@
       "acceptance": "Блокирующий критерий CFG-06: сначала решается осмысленность проверки, затем утверждения подтверждаются реальными доступными источниками (или честно сообщается ограничение); служебные данные не выпускаются; публикуется краткий читаемый Telegram-вердикт с проверяемыми ссылками; единый контракт на всех маршрутах и fallback.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "test",
+          "ref": "W7 composite 8/8 (S1–S8) + сквозной egress-тест W6 §1.6",
+          "observation": "Композит: сначала осмысленность (gate после контекста), затем реальные источники или честное ограничение (S1/S2/S3); служебные данные не выпускаются (egress-инвариант всех сценариев); краткий Telegram-вердикт с проверяемыми ссылками; единый контракт на маршрутах и fallback (S7).",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w7-acceptance.md",
+          "artifact_sha256": "9a91b54c900ba351d8ff08a2e836d8bf9602e5e46cbda30a0a43f1ce8e27995a"
+        }
+      ],
+      "note": "Ledger cut 5af56d8b (20.10, lane LEDGER-CFG-06): build-эвиденс привязан; живая канарейка — постдеплой при включении флага (postdeploy разрешает READY_FOR_LIVE на review)."
     },
     {
       "source_id": "M00031",
@@ -773,8 +821,18 @@
       "acceptance": "B07 убирает отдельную карточку Temporal (повтор UI не нужен); здесь НОВАЯ работа — объединение backend/runtime пути двух маршрутов, а не третий фактчек.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "static",
+          "ref": "w3-schemas.md §4 + w0-audit.md §1",
+          "observation": "Объединение backend/runtime пути двух маршрутов в один run_factcheck (развилка — внутренняя ветка); B07-UI не переигрывался (web/ вне диффа волн); третьего фактчека нет.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w3-schemas.md",
+          "artifact_sha256": "69c9405d7a4363e98bb1d07f7ea897bd7337a6115322c4b9a559cfc27105b0fe"
+        }
+      ],
+      "note": "Ledger cut 5af56d8b (20.10, lane LEDGER-CFG-06): агрегат подтверждён; живых хвостов нет."
     },
     {
       "source_id": "M00032",
@@ -788,8 +846,18 @@
       "acceptance": "Целевая архитектура: один сервис и один сквозной контракт независимо от типа цели, даты, способа запуска и наличия временного спора; два текущих маршрута — допустимая историческая, но не целевая реализация.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "test",
+          "ref": "w3-schemas.md §1/§3 + фриз-тесты TestSchemaFreeze",
+          "observation": "Целевая архитектура реализована: один сервис/один сквозной контракт для всех входов; два прежних маршрута — внутренние ветки (envelope_temporal/legacy_single); флаги — kill-switch'и перехода.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w3-schemas.md",
+          "artifact_sha256": "69c9405d7a4363e98bb1d07f7ea897bd7337a6115322c4b9a559cfc27105b0fe"
+        }
+      ],
+      "note": "Ledger cut 5af56d8b (20.10, lane LEDGER-CFG-06): агрегат подтверждён; живых хвостов нет."
     },
     {
       "source_id": "M00033",
@@ -803,8 +871,18 @@
       "acceptance": "Ключевое требование CFG-06I: короткая/ироничная/«бессмысленная» цель оценивается после восстановления контекста спора; бот проверяет конкретную претензию, а не произвольную тему чата.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "static",
+          "ref": "w2-corpus.md (метрики + кейсы) + w7-acceptance.md §1 (S5/S6)",
+          "observation": "Короткая/ироничная/референциальная цель оценивается после CR: routing 1.0, false_refusal 0.0; S6 — «правда?» в споре 260 → тезис найден (topic), автор сохранён; проверяется конкретная претензия, не произвольная тема.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w2-corpus.md",
+          "artifact_sha256": "8c98461fd3bd14d6835e7e438f77b66f97aa06f9934ba07fbefc0fcdeacb69e6"
+        }
+      ],
+      "note": "Ledger cut 5af56d8b (20.10, lane LEDGER-CFG-06): агрегат подтверждён; живых хвостов нет."
     },
     {
       "source_id": "M00034",
@@ -818,8 +896,18 @@
       "acceptance": "CFG-06H–J уточняют CFG-06B/C/D/G: время/происхождение встроено в одну цепочку; финальный отказ только после контекстной реконструкции; примеры коротких фраз не разрешают отказ без просмотра обсуждения; при расхождении применяется это уточнение.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "static",
+          "ref": "w7-acceptance.md §1 (S4–S8) + w2-corpus.md",
+          "observation": "Приоритет H–J подтверждён: финальный suitability-отказ только после контекстной реконструкции (S4/S5); время/происхождение — через общую схему evidence/вердикта (H.3/H.4); короткие фразы не разрешают отказ без просмотра обсуждения (S6).",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w7-acceptance.md",
+          "artifact_sha256": "9a91b54c900ba351d8ff08a2e836d8bf9602e5e46cbda30a0a43f1ce8e27995a"
+        }
+      ],
+      "note": "Ledger cut 5af56d8b (20.10, lane LEDGER-CFG-06): агрегат подтверждён; живых хвостов нет."
     },
     {
       "source_id": "M00035",
@@ -833,8 +921,18 @@
       "acceptance": "Блокирующие критерии CFG-06H–J: нет двух самостоятельных пользовательских фактчеков; нет автоматического отказа на короткую цель при релевантном длинном споре; контекст восстанавливается вне reply-chain; чужие утверждения не приписываются; время оригинала/репоста — через общую схему evidence и вердикта.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "static",
+          "ref": "w7-acceptance.md §1/§2 + w3-schemas.md §4",
+          "observation": "Блокирующие критерии: один пользовательский фактчек (S1–S8 через единый run_factcheck); нет автѕотказа на короткую цель при длинном споре (S6); контекст вне reply-chain (W1/W2); чужие тезисы не приписываются (corpus в/г, ambiguous); время оригинала/репоста — общая схема evidence/вердикта (H.3/H.4).",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w7-acceptance.md",
+          "artifact_sha256": "9a91b54c900ba351d8ff08a2e836d8bf9602e5e46cbda30a0a43f1ce8e27995a"
+        }
+      ],
+      "note": "Ledger cut 5af56d8b (20.10, lane LEDGER-CFG-06): агрегат подтверждён; живых хвостов нет."
     },
     {
       "source_id": "M00036",
@@ -1060,8 +1158,25 @@
       "acceptance": "B07-UI не переигрывается: один фактический пользовательский оркестратор CFG-06; temporal metadata/provenance собираются всегда, дорогая temporal-оценка — по релевантности; отдельной пользовательской temporal pipeline нет.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "test",
+          "ref": "w3-schemas.md §1/§4",
+          "observation": "Один фактический пользовательский оркестратор run_factcheck; temporal metadata/provenance — всегда (build_envelope), дорогая temporal-оценка — по релевантности (датный клейм → temporal_hint, K1); отдельной пользовательской temporal pipeline нет (внутренняя ветка, не продукт).",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w3-schemas.md",
+          "artifact_sha256": "69c9405d7a4363e98bb1d07f7ea897bd7337a6115322c4b9a559cfc27105b0fe"
+        },
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "static",
+          "ref": "w7-review-package.md §2",
+          "observation": "Архитектура v2: B07-UI не переигрывается (web/ вне диффа).",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w7-review-package.md",
+          "artifact_sha256": "5bb4a8b43409a09726b0fc4cd5b211c5a6b1836f1dcaab57a498feaa70e00bf1"
+        }
+      ]
     },
     {
       "source_id": "L00031",
@@ -1075,8 +1190,25 @@
       "acceptance": "Отказ по одной бессмысленной реплике не окончателен: сначала доступный контекст длинного спора (CFG-06I/J), затем suitability и аргументированный выбор checkable/clarify/no_claim.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "test",
+          "ref": "w2-notes.md «Live-протокол» + Stage 3",
+          "observation": "Отказ по одной бессмысленной реплике не окончателен: needs_context → ограниченное расширение → повторное решение; затем suitability с аргументированным выбором checkable/clarify (ambiguous_needs_clarification)/no_claim.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w2-notes.md",
+          "artifact_sha256": "a725449ca92d9c0184361a29ae543c57be830e16d48b7e7990b2e92e23c786e8"
+        },
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "test",
+          "ref": "w7-acceptance.md §1 (S4/S5/S8)",
+          "observation": "S5: расширение прежде отказа; S8: два спора → уточнение; S4: no_claim только после изученного контекста.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w7-acceptance.md",
+          "artifact_sha256": "9a91b54c900ba351d8ff08a2e836d8bf9602e5e46cbda30a0a43f1ce8e27995a"
+        }
+      ]
     },
     {
       "source_id": "L00032",
@@ -1090,8 +1222,25 @@
       "acceptance": "Для фактчека действует отдельный разрешённый Telegram-safe формат через trusted renderer; общий anti-Markdown casual не запрещает структуру фактчека; другие каналы не переписываются.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "test",
+          "ref": "w5-renderer.md §1/§2 + §6.3",
+          "observation": "Фактчек — отдельный Telegram-safe формат через trusted renderer (детерминированный HTML); общий anti-Markdown casual не тронут и структуру фактчека не блокирует; другие каналы не переписаны (renderer только внутри v2).",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w5-renderer.md",
+          "artifact_sha256": "740971e46571e49ecd31fe51c33b1242c84e2b32a04b96d966eff554fc088b76"
+        },
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "static",
+          "ref": "w7-review-package.md §3.2",
+          "observation": "Каноны casual не тронуты; LLM не генерирует HTML.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w7-review-package.md",
+          "artifact_sha256": "5bb4a8b43409a09726b0fc4cd5b211c5a6b1836f1dcaab57a498feaa70e00bf1"
+        }
+      ]
     },
     {
       "source_id": "L00033",
@@ -4214,8 +4363,25 @@
       "acceptance": "До EvidenceMap нет утвердительного фактологического вердикта; до реального Tool Execution нет утверждений о внешней проверке.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "test",
+          "ref": "w6-integration.md §1.2",
+          "observation": "Единый retrieval-контур: план выполняется ДО вердикта; исчерпание/ошибки — честная деградация, а не утверждающий вердикт без данных.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w6-integration.md",
+          "artifact_sha256": "14a8035636469395ed53327e3be1be39be4e3aa9596c4ca60e4fe8e6cb047d17"
+        },
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "test",
+          "ref": "w7-acceptance.md §1 (S2/S3/S4)",
+          "observation": "S2: источников без URL — честное ограничение без заявки о внешней проверке; S3: движки недоступны — отказ; S4: бессмысленное — поиск не запускался (order=[]).",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w7-acceptance.md",
+          "artifact_sha256": "9a91b54c900ba351d8ff08a2e836d8bf9602e5e46cbda30a0a43f1ce8e27995a"
+        }
+      ]
     },
     {
       "source_id": "L00204",
@@ -4229,8 +4395,25 @@
       "acceptance": "После GroundedVerdict Writer/Renderer не меняют факты, даты, числа, источники и адресатов; технические JSON-поля не попадают в публичный текст.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "test",
+          "ref": "w5-renderer.md §2.1/§3",
+          "observation": "Renderer детерминирован: enum вердикта → человеческая фраза, состав текста 1:1; style_note/precision/as_of мимо payload (было/стало байтами);_unknown enum → заголовок не выдумывается.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w5-renderer.md",
+          "artifact_sha256": "740971e46571e49ecd31fe51c33b1242c84e2b32a04b96d966eff554fc088b76"
+        },
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "test",
+          "ref": "tests/test_factcheck_renderer_cfg06.py",
+          "observation": "36 CONTRACT: снапшоты раскладки, egress-негативы служебных полей, инъекции; Renderer меняет только разметку, не факты.",
+          "artifact_path": "tests/test_factcheck_renderer_cfg06.py",
+          "artifact_sha256": "010a5db803f0635340a7f28b0de862a97321021267103db397db06d4708952d4"
+        }
+      ]
     },
     {
       "source_id": "L00205",
@@ -4244,8 +4427,25 @@
       "acceptance": "Ветки bypass/retry/cache/fallback подчиняются тому же контракту — «второго пути без правил» нет.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "test",
+          "ref": "w3-schemas.md §4",
+          "observation": "Fallback legacy-ветка — ТОТ ЖЕ вызов service.check_claim с аргументами прод-пути (тест); ошибки — те же семантики фраз 🗿/5.4b/5.5.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w3-schemas.md",
+          "artifact_sha256": "69c9405d7a4363e98bb1d07f7ea897bd7337a6115322c4b9a559cfc27105b0fe"
+        },
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "test",
+          "ref": "w7-acceptance.md §1 (S7)",
+          "observation": "S7: fallback legacy + LLM-ошибка → фраза 5.5 из пула, тот же gate/egress; кеш-хит доставляется тем же renderer (W6).",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w7-acceptance.md",
+          "artifact_sha256": "9a91b54c900ba351d8ff08a2e836d8bf9602e5e46cbda30a0a43f1ce8e27995a"
+        }
+      ]
     },
     {
       "source_id": "L00207",
@@ -4274,8 +4474,25 @@
       "acceptance": "Гипотеза 06A.1 проверена на deployed-коде: гейт/legacy-ветка и быстрый cache-hit/cooldown обработчика фактчека подтверждены или опровергнуты; отсутствие семантического фильтра учтено в едином pipeline.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "static",
+          "ref": "w0-audit.md §2 (06A.1)",
+          "observation": "ПОДТВЕРЖДЕНО на deployed-байтах 29cc49ba: развилка _temporal_on() → envelope/legacy; быстрый cache-hit у обоих; кулдаун per (chat,user); семантического suitability-гейта НЕТ. Учтено: W2 gate до поиска, W3 единый вход.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w0-audit.md",
+          "artifact_sha256": "a480dcec14367195686e4208c4ce59682751daa1e35b6e711310e3568193b3f9"
+        },
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "static",
+          "ref": "w0-trace.json (пробы 1, 3, 4)",
+          "observation": "Оффлайн-трасса: запрос = сырой клейм/слайс, кулдаун и кеш наблюдаются.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w0-trace.json",
+          "artifact_sha256": "875144f534df65ed41d6be590e9b04b7c6503618bf8ad6b5578c04942f8e1e20"
+        }
+      ]
     },
     {
       "source_id": "L00212",
@@ -4289,8 +4506,25 @@
       "acceptance": "Гипотеза 06A.2: старый канон «разбирать любые субъективные высказывания» и существующий analyst prompt аудированы; вывод учтён без клонирования стадии.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "static",
+          "ref": "w0-audit.md §2 (06A.2)",
+          "observation": "ПОДТВЕРЖДЕНО: канон «разбирать любые субъективные» ×4 копий промптов; analyst-промпт существует. Учтено без клонирования: W2 typed gate поверх канона (checkable/needs_context до поиска).",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w0-audit.md",
+          "artifact_sha256": "a480dcec14367195686e4208c4ce59682751daa1e35b6e711310e3568193b3f9"
+        },
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "static",
+          "ref": "w2-notes.md «Как работает gate»",
+          "observation": "Гейт детерминированный, промпт-каноны не клонированы и не тронуты (W3 §5).",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w2-notes.md",
+          "artifact_sha256": "a725449ca92d9c0184361a29ae543c57be830e16d48b7e7990b2e92e23c786e8"
+        }
+      ]
     },
     {
       "source_id": "L00213",
@@ -4304,8 +4538,25 @@
       "acceptance": "Гипотеза 06A.3: _check_claim_pipeline (веб-агрегатор без переформулирования, System2-аналитик, tool-loop, fallback) аудирован и доработан, а не клонирован новой системой.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "static",
+          "ref": "w0-audit.md §2 (06A.3)",
+          "observation": "ПОДТВЕРЖДЕНО: агрегатору уходит целый target_text без переформулирования; System2 аналитик→вербализатор, tool-loop и fallback существуют. Доработка — в той же живой цепочке (W4/W6), не клон.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w0-audit.md",
+          "artifact_sha256": "a480dcec14367195686e4208c4ce59682751daa1e35b6e711310e3568193b3f9"
+        },
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "static",
+          "ref": "w0-trace.json (проба 3)",
+          "observation": "Трасса: query = «Дрожжи это грибы…» дословно, max_symbols=8000.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w0-trace.json",
+          "artifact_sha256": "875144f534df65ed41d6be590e9b04b7c6503618bf8ad6b5578c04942f8e1e20"
+        }
+      ]
     },
     {
       "source_id": "L00214",
@@ -4319,8 +4570,25 @@
       "acceptance": "Гипотеза 06A.4: search_queries_for/decompose_claim как источник нерелевантных запросов подтверждены или опровергнуты трассой и учтены в CFG-06C.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "static",
+          "ref": "w0-audit.md §2 (06A.4)",
+          "observation": "ПОДТВЕРЖДЕНО: запрос = normalize_text(claim)[:200] + годы; decompose_claim — регэксп-сплит. Фикс в CFG-06C: planner-запросы от claim_items.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w0-audit.md",
+          "artifact_sha256": "a480dcec14367195686e4208c4ce59682751daa1e35b6e711310e3568193b3f9"
+        },
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "test",
+          "ref": "tests/test_factcheck_planner_cfg06.py :: test_semantic_queries_not_raw_slice",
+          "observation": "GREEN-инвариант: запрос ≠ дословный слайс клейма; интенты entity/numeric/temporal/origin.",
+          "artifact_path": "tests/test_factcheck_planner_cfg06.py",
+          "artifact_sha256": "478c8935951f56cc8c289389dba88c7284d7ee16b615f054f6ee85d33b3e429a"
+        }
+      ]
     },
     {
       "source_id": "L00215",
@@ -4334,8 +4602,25 @@
       "acceptance": "Гипотеза 06A.5: утечка технического style_note/периода подтверждена или опровергнута трассой реального ответа и учтена в CFG-06D/E.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "static",
+          "ref": "w0-audit.md §2 (06A.5) + §3.1",
+          "observation": "ПОДТВЕРЖДЕНО (первопричина утечки): style_note требует «период проверки (unknown)» даже при unknown (байты L753–758); трасса: текст с «период проверки unknown» ушёл в Telegram.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w0-audit.md",
+          "artifact_sha256": "a480dcec14367195686e4208c4ce59682751daa1e35b6e711310e3568193b3f9"
+        },
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "test",
+          "ref": "w5-renderer.md §3",
+          "observation": "Закрыто в CFG-06D: было/стало байтами — style_note/precision/as_of мимо payload, unknown → человеческие слова; старые байты отсутствуют в исходнике (тест).",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w5-renderer.md",
+          "artifact_sha256": "740971e46571e49ecd31fe51c33b1242c84e2b32a04b96d966eff554fc088b76"
+        }
+      ]
     },
     {
       "source_id": "L00216",
@@ -4349,8 +4634,25 @@
       "acceptance": "Гипотеза 06A.6: каскад Tavily→Exa→DuckDuckGo и качество/релевантность источников проверены; неполнота одного удачного вызова агрегатора учтена.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "static",
+          "ref": "w0-audit.md §2 (06A.6)",
+          "observation": "ПОДТВЕРЖДЕНО: каскад Tavily→Exa→DDG существует; результат — текст с URL, извлекаемым регэкспом; одного вызова недостаточно для доказательства качества. Учтено: W4 структурный возврат + SafeFetcher первоисточников.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w0-audit.md",
+          "artifact_sha256": "a480dcec14367195686e4208c4ce59682751daa1e35b6e711310e3568193b3f9"
+        },
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "test",
+          "ref": "w4-notes.md «План-механика» п.5",
+          "observation": "Блоки title/snippet/url парсятся в EvidenceRef (URL отдельно), до 2 первоисточников.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w4-notes.md",
+          "artifact_sha256": "6312a08c28d765fee10280e0f60f92b11291c647b35397d7bfe353e376de0dc0"
+        }
+      ]
     },
     {
       "source_id": "L00217",
@@ -4364,8 +4666,25 @@
       "acceptance": "Гипотеза 06A.7: source map для доказуемых inline-ссылок в финальном вербализаторе проверен и обеспечен через evidence map.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "static",
+          "ref": "w0-audit.md §2 (06A.7)",
+          "observation": "ПОДТВЕРЖДЕНО: финальный вербализатор получал payload БЕЗ evidence/URL — source map отсутствовал. Обеспечено: renderer берёт ссылки только из EvidenceMap текущего прогона.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w0-audit.md",
+          "artifact_sha256": "a480dcec14367195686e4208c4ce59682751daa1e35b6e711310e3568193b3f9"
+        },
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "test",
+          "ref": "w5-renderer.md §2.3 + §6.1",
+          "observation": "Ссылки только presentation.links (EvidenceMap прогона); URL не гуляет по тексту (обновлённый тест W3 §5).",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w5-renderer.md",
+          "artifact_sha256": "740971e46571e49ecd31fe51c33b1242c84e2b32a04b96d966eff554fc088b76"
+        }
+      ]
     },
     {
       "source_id": "L00218",
@@ -4379,8 +4698,25 @@
       "acceptance": "Гипотеза 06A.8: для жирного, списков и inline-ссылок предусмотрен реальный renderer+transport, а не только правка формулировки LLM-промпта.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "static",
+          "ref": "w0-audit.md §2 (06A.8)",
+          "observation": "ПОДТВЕРЖДЕНО: доставка без parse_mode, канон text-only; parse_mode kwarg уже есть. Сделан реальный renderer+transport, а не правка промпта.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w0-audit.md",
+          "artifact_sha256": "a480dcec14367195686e4208c4ce59682751daa1e35b6e711310e3568193b3f9"
+        },
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "test",
+          "ref": "w5-renderer.md §1/§2.6",
+          "observation": "factcheck_renderer.py: FactcheckPresentation → Telegram-HTML, send_chunked_reply(parse_mode=\"HTML\"), entity-safe чанки, plain-деградация.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w5-renderer.md",
+          "artifact_sha256": "740971e46571e49ecd31fe51c33b1242c84e2b32a04b96d966eff554fc088b76"
+        }
+      ]
     },
     {
       "source_id": "L00219",
@@ -4394,8 +4730,25 @@
       "acceptance": "Гипотеза 06A.9: валидация system2_handoff проверена на семантические утечки служебных полей и пересказ инструментов.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "static",
+          "ref": "w0-audit.md §2 (06A.9)",
+          "observation": "ПОДТВЕРЖДЕНО: schema-валидация не ловит семантические утечки (temporal-вербализатор получал техJSON легитимно по схеме). Закрыто: W3 egress-whitelist по построению + W5 presentation-слой.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w0-audit.md",
+          "artifact_sha256": "a480dcec14367195686e4208c4ce59682751daa1e35b6e711310e3568193b3f9"
+        },
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "test",
+          "ref": "w3-schemas.md §2",
+          "observation": "Негатив-тесты: служебные поля отсутствуют в asdict Presentation; латиница-маркеры срезаются из текста.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w3-schemas.md",
+          "artifact_sha256": "69c9405d7a4363e98bb1d07f7ea897bd7337a6115322c4b9a559cfc27105b0fe"
+        }
+      ]
     },
     {
       "source_id": "L00220",
@@ -4409,8 +4762,17 @@
       "acceptance": "Гипотеза 06A.10: сверка с ADR-1022-3 и mca-20 выполнена; исправления точечные в единой живой цепочке, без третьего независимого фактчека.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "static",
+          "ref": "w0-audit.md §2 (06A.10)",
+          "observation": "Сверка выполнена: ADR-1022-3 и mca-20 существуют, аналитик/верификация/временная оценка/fallback уже в живой цепочке; третий независимый фактчек не создавался (дифф-скоуп W0–W7).",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w0-audit.md",
+          "artifact_sha256": "a480dcec14367195686e4208c4ce59682751daa1e35b6e711310e3568193b3f9"
+        }
+      ]
     },
     {
       "source_id": "L00222",
@@ -4439,8 +4801,25 @@
       "acceptance": "Все входы фактчека (reply, репост, команда, Direct/tool, цепочка ответа, OCR/транскрипция) проходят один claim-suitability gate после определения цели и реконструкции контекста, но до платного поиска; reply_to_message не теряется.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "test",
+          "ref": "w2-notes.md «Маршрутизация в handler»",
+          "observation": "_fetch_context_with_gate — один гейт для ОБЕИХ развилок (06B.1), после сборки контекста и до платного поиска; reply-цель не теряется (Target+ConversationContext на входе).",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w2-notes.md",
+          "artifact_sha256": "a725449ca92d9c0184361a29ae543c57be830e16d48b7e7990b2e92e23c786e8"
+        },
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "test",
+          "ref": "tests/test_factcheck_gate_cfg06.py",
+          "observation": "18 CONTRACT gate/CR; OFF-паритет (test_gate_off_byte_parity).",
+          "artifact_path": "tests/test_factcheck_gate_cfg06.py",
+          "artifact_sha256": "12850dce33e2ae06906c82994e9f88ca3a0f1791fe68aa45bc1cf02b0caa9906"
+        }
+      ]
     },
     {
       "source_id": "L00225",
@@ -4454,8 +4833,25 @@
       "acceptance": "Типы разделяются (checkable_factual_claim/mixed_claim/subjective_opinion/personal_prediction/question_without_assertion/joke-irony/nonsense/insufficient_context/quote_without_claim/unsafe_or_unavailable_target); согласованное «проверь, что X» обрабатывает проверяемое X.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "test",
+          "ref": "w2-notes.md Stage 3",
+          "observation": "Типизированный SuitabilityDecision: decision + claim_type (10 типов 06B.2) + claim_items с provenance + scope/reason_code/confidence/target_ref.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w2-notes.md",
+          "artifact_sha256": "a725449ca92d9c0184361a29ae543c57be830e16d48b7e7990b2e92e23c786e8"
+        },
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "static",
+          "ref": "w2-corpus.md «Заметные маршруты»",
+          "observation": "Кейсы а–з: checkable_factual_claim/question_without_assertion/nonsense/unsafe_or_unavailable_target и др.; согласованное «проверь, что X» → checkable (кейс а).",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w2-corpus.md",
+          "artifact_sha256": "8c98461fd3bd14d6835e7e438f77b66f97aa06f9934ba07fbefc0fcdeacb69e6"
+        }
+      ]
     },
     {
       "source_id": "L00226",
@@ -4469,8 +4865,25 @@
       "acceptance": "Для действительно непроверяемого после контекстной реконструкции — без дорогой псевдопроверки и фиктивного «опровергнуто»: короткая реплика персонажа; при включённом мате допустима грубая ирония; оскорбления ради галочки не требуются.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "test",
+          "ref": "w2-notes.md «Маршрутизация в handler»",
+          "observation": "no_claim_after_context → короткая реплика из пула БЕЗ поиска/LLM/кеш-записи (идемпотентность сохранена); фиктивного «опровергнуто» нет.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w2-notes.md",
+          "artifact_sha256": "a725449ca92d9c0184361a29ae543c57be830e16d48b7e7990b2e92e23c786e8"
+        },
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "test",
+          "ref": "w7-acceptance.md §1 (S4)",
+          "observation": "S4: бессмысленное → короткая реплика, поиск не запускался.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w7-acceptance.md",
+          "artifact_sha256": "9a91b54c900ba351d8ff08a2e836d8bf9602e5e46cbda30a0a43f1ce8e27995a"
+        }
+      ]
     },
     {
       "source_id": "L00227",
@@ -4484,8 +4897,25 @@
       "acceptance": "Метафоры, сленг и шутки не отклоняются автоматически: конкретное проверяемое утверждение выделяется; неоднозначности проверяются по разумной интерпретации, а не по буквальной бессмыслице.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "test",
+          "ref": "w2-notes.md Stage 1",
+          "observation": "Мат/ирония НЕ влияют на предикат (не regex-блокиратор); субъективные края уходят в checkable-фолбэк (приоритет 06J.2).",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w2-notes.md",
+          "artifact_sha256": "a725449ca92d9c0184361a29ae543c57be830e16d48b7e7990b2e92e23c786e8"
+        },
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "static",
+          "ref": "w2-corpus.md (е2, е3)",
+          "observation": "Негативы «мат+тезис» и «сарказм» → checkable_in_context: проверяемая часть выделена, буквального отказа нет.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w2-corpus.md",
+          "artifact_sha256": "8c98461fd3bd14d6835e7e438f77b66f97aa06f9934ba07fbefc0fcdeacb69e6"
+        }
+      ]
     },
     {
       "source_id": "L00228",
@@ -4499,8 +4929,25 @@
       "acceptance": "Для mixed_claim строится строгое множество атомарных тезисов (автор, что сказано, где/когда/к кому, нужен ли внешний источник или чатовая история); искусственные тезисы из ругани/сарказма не создаются.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "test",
+          "ref": "w2-notes.md Stage 2/3",
+          "observation": "claim_items — атомарные тезисы с provenance (автор + tg-якорь); кандидаты-тезисы фильтруются (предикат или ≥6 токенов; реакции «это бред» тезисами не становятся).",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w2-notes.md",
+          "artifact_sha256": "a725449ca92d9c0184361a29ae543c57be830e16d48b7e7990b2e92e23c786e8"
+        },
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "static",
+          "ref": "w2-corpus.json",
+          "observation": "items по кейсам (items=1 с source=literal/topic); искусственных тезисов из ругани/сарказма нет (е2/е3 items=1 от фактической части).",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w2-corpus.json",
+          "artifact_sha256": "1e8135819b380b98eecab48a4e0226507f470276f9e85b1da7a2524dd69bf888"
+        }
+      ]
     },
     {
       "source_id": "L00229",
@@ -4514,8 +4961,25 @@
       "acceptance": "Gate выдаёт типизированный результат (decision/claim_items/scope/reason_code/confidence/target_ref) с версионированием и измеримой точностью, без хрупкого regex по словам; неуверенная классификация — ограниченный fallback.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "test",
+          "ref": "w2-notes.md Stage 3",
+          "observation": "Типизированный результат с версионированием: decision/claim_items/scope/reason_code/confidence/target_ref/gate_version=fsg1; детерминированный, не regex по словам.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w2-notes.md",
+          "artifact_sha256": "a725449ca92d9c0184361a29ae543c57be830e16d48b7e7990b2e92e23c786e8"
+        },
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "static",
+          "ref": "w2-corpus.md «Метрики»",
+          "observation": "Измеримая точность: routing_accuracy 1.0 на 40 пробах (протокол двух проходов).",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w2-corpus.md",
+          "artifact_sha256": "8c98461fd3bd14d6835e7e438f77b66f97aa06f9934ba07fbefc0fcdeacb69e6"
+        }
+      ]
     },
     {
       "source_id": "L00230",
@@ -4529,8 +4993,25 @@
       "acceptance": "Точечная настройка gate — только при эксплуатационной необходимости, без десятков неиспользуемых полей; при выводе в MiniApp поведение без рестарта проверено.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "test",
+          "ref": "w3-schemas.md §3",
+          "observation": "Точечная настройка = 3 hot-флага (env+hot, без рестарта); в каталог MiniApp НЕ выводятся (Δ каталога 0) — условие «при выводе в MiniApp без рестарта» не активируется, десятков полей не заведено.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w3-schemas.md",
+          "artifact_sha256": "69c9405d7a4363e98bb1d07f7ea897bd7337a6115322c4b9a559cfc27105b0fe"
+        },
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "static",
+          "ref": "w7-review-package.md §5",
+          "observation": "OFF-паритет: все рубильники default OFF.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w7-review-package.md",
+          "artifact_sha256": "5bb4a8b43409a09726b0fc4cd5b211c5a6b1836f1dcaab57a498feaa70e00bf1"
+        }
+      ]
     },
     {
       "source_id": "L00232",
@@ -4559,8 +5040,25 @@
       "acceptance": "После suitability gate FactcheckPlan выбирает инструменты по типу утверждения (web/chat_history/memory-RAG/both/no_evidence_needed), сохраняя tool-router и временной фактчек как возможности единого сервиса.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "test",
+          "ref": "w4-notes.md «План-механика»",
+          "observation": "FactcheckPlan после gate-маршрутов: RetrievalPlan/SearchQuery по типу утверждения (интенты entity/numeric/temporal/origin); route — внутренняя ветка, tool-router сохранён.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w4-notes.md",
+          "artifact_sha256": "6312a08c28d765fee10280e0f60f92b11291c647b35397d7bfe353e376de0dc0"
+        },
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "test",
+          "ref": "tests/test_factcheck_planner_cfg06.py",
+          "observation": "15 CONTRACT: OFF→None, интенты, ≤3 запросов.",
+          "artifact_path": "tests/test_factcheck_planner_cfg06.py",
+          "artifact_sha256": "478c8935951f56cc8c289389dba88c7284d7ee16b615f054f6ee85d33b3e429a"
+        }
+      ]
     },
     {
       "source_id": "L00235",
@@ -4574,8 +5072,25 @@
       "acceptance": "Внешние факты требуют реального веб-поиска; чатовая история — реального обращения к сообщениям/FTS/RAG/GraphRAG с проверяемыми ссылками; смешанные тезисы — оба источника; «инструменты вызваны» не равно «доказательства получены».",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "test",
+          "ref": "w4-notes.md п.2/5",
+          "observation": "scope web/web_and_chat/chat_history; внешние факты — реальный поиск агрегатора; chat-история — ConversationContext с якорями сообщений (не «инструменты вызваны», а evidence).",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w4-notes.md",
+          "artifact_sha256": "6312a08c28d765fee10280e0f60f92b11291c647b35397d7bfe353e376de0dc0"
+        },
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "test",
+          "ref": "w7-acceptance.md §1 (S6)",
+          "observation": "S6: chat-тезис решён из локального контекста (анцедент tg=8000, автор) — без веба; смешанные — scope=web_and_chat (кейсы б/д).",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w7-acceptance.md",
+          "artifact_sha256": "9a91b54c900ba351d8ff08a2e836d8bf9602e5e46cbda30a0a43f1ce8e27995a"
+        }
+      ]
     },
     {
       "source_id": "L00236",
@@ -4589,8 +5104,25 @@
       "acceptance": "Веб-запросы не копируют произвольный кусок сообщения: извлекаются объект, термин, смысл, дата, синонимы; междометия, ругань, случайные имена, кавычки и служебные метки убираются; точные научные названия (Saccharomyces boulardii) сохраняются.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "test",
+          "ref": "tests/test_factcheck_planner_cfg06.py :: TestSaccharomycesBiologicalCase + :: test_semantic_queries_not_raw_slice",
+          "observation": "Запросы из сущностей/терминов, не сырой слайс; точное научное название Saccharomyces boulardii сохранено в entity_check-запросе (микро-тест 06G.1); междометия/ругань отсечены терма-фильтром.",
+          "artifact_path": "tests/test_factcheck_planner_cfg06.py",
+          "artifact_sha256": "478c8935951f56cc8c289389dba88c7284d7ee16b615f054f6ee85d33b3e429a"
+        },
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "test",
+          "ref": "w4-notes.md п.3",
+          "observation": "Интенты: entity_check (сущности+термины) → numeric → temporal → origin; ≤200 симв.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w4-notes.md",
+          "artifact_sha256": "6312a08c28d765fee10280e0f60f92b11291c647b35397d7bfe353e376de0dc0"
+        }
+      ]
     },
     {
       "source_id": "L00237",
@@ -4604,8 +5136,25 @@
       "acceptance": "Небольшое число запросов с различающей целью (тезис, независимое подтверждение, опровержение/контекст); повтор поиска только при нехватке evidence; неоднозначности проверяются с пометкой, а не подаются как истина.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "test",
+          "ref": "w4-notes.md п.3",
+          "observation": "≤3 запроса с различающимися интентами; повтор/расширение — только при needs_context (одно ограниченное расширение).",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w4-notes.md",
+          "artifact_sha256": "6312a08c28d765fee10280e0f60f92b11291c647b35397d7bfe353e376de0dc0"
+        },
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "test",
+          "ref": "w7-acceptance.md §1 (S5)",
+          "observation": "S5: мало контекста → needs_context → 2 выборки окна (дозапрос), затем честное продолжение; неоднозначности не подаются как истина.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w7-acceptance.md",
+          "artifact_sha256": "9a91b54c900ba351d8ff08a2e836d8bf9602e5e46cbda30a0a43f1ce8e27995a"
+        }
+      ]
     },
     {
       "source_id": "L00238",
@@ -4619,8 +5168,25 @@
       "acceptance": "Evidence-объекты структурированы (evidence_id/claim_id/source_type/title/url_or_message_ref/source_domain/published_at/retrieved_at/snippet/support_relation/tool_run_id); URL/ID хранятся отдельно от текста; первоисточники, дубликаты и даты проверяемы.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "test",
+          "ref": "w4-notes.md п.5/6 + w3-schemas.md §1 (EvidenceRef)",
+          "observation": "Структурные EvidenceRef: evidence_id/url/support/source_kind/published_at (замороженная схема W3); URL отдельно от support; primary через SafeFetcher; дедуп по URL; даты публикации парсятся.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w4-notes.md",
+          "artifact_sha256": "6312a08c28d765fee10280e0f60f92b11291c647b35397d7bfe353e376de0dc0"
+        },
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "test",
+          "ref": "tests/test_factcheck_planner_cfg06.py :: TestStructuredEvidence",
+          "observation": "URL вне support, стабильные ev-N, allowlist = ID прогона.",
+          "artifact_path": "tests/test_factcheck_planner_cfg06.py",
+          "artifact_sha256": "478c8935951f56cc8c289389dba88c7284d7ee16b615f054f6ee85d33b3e429a"
+        }
+      ]
     },
     {
       "source_id": "L00239",
@@ -4634,8 +5200,25 @@
       "acceptance": "Содержание закрытого чата не уходит во внешний поиск целиком: для запроса извлекаются общепубличные сущности, приватные данные и идентификаторы исключаются.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "test",
+          "ref": "w4-notes.md п.4",
+          "observation": "Privacy (06G.3): имена участников чата удаляются из запросов, dropped_privacy в плане/логе; во внешний поиск уходит только общепубличная лексика тезиса.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w4-notes.md",
+          "artifact_sha256": "6312a08c28d765fee10280e0f60f92b11291c647b35397d7bfe353e376de0dc0"
+        },
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "test",
+          "ref": "tests/test_factcheck_planner_cfg06.py :: test_privacy_authors_not_leaked",
+          "observation": "«Вася» в dropped_privacy, в запросах отсутствует.",
+          "artifact_path": "tests/test_factcheck_planner_cfg06.py",
+          "artifact_sha256": "478c8935951f56cc8c289389dba88c7284d7ee16b615f054f6ee85d33b3e429a"
+        }
+      ]
     },
     {
       "source_id": "L00240",
@@ -4649,8 +5232,25 @@
       "acceptance": "Сниппет не принимается за готовое доказательство: для спорных тезисов первоисточник открывается (fetch_article/safe-fetch); недоступность явно понижает уверенность.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "test",
+          "ref": "w4-notes.md п.5",
+          "observation": "Сниппет не готовое доказательство: до 2 первоисточников через существующий SafeFetcher.fetch_text (REUSE); выдержка первого абзаца + дата публикации; недоступность → fail-open и честная деградация.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w4-notes.md",
+          "artifact_sha256": "6312a08c28d765fee10280e0f60f92b11291c647b35397d7bfe353e376de0dc0"
+        },
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "test",
+          "ref": "tests/test_factcheck_planner_cfg06.py :: test_primary_fetch_via_injection",
+          "observation": "primary-_ref с published_at из страницы; инъекция fetch_text (сеть off).",
+          "artifact_path": "tests/test_factcheck_planner_cfg06.py",
+          "artifact_sha256": "478c8935951f56cc8c289389dba88c7284d7ee16b615f054f6ee85d33b3e429a"
+        }
+      ]
     },
     {
       "source_id": "L00241",
@@ -4664,8 +5264,25 @@
       "acceptance": "Счётчики показывают фактическое число поисков, обращений к памяти/истории, найденных и использованных источников; утверждающий вердикт не проходит из-за непустого текста поиска.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "test",
+          "ref": "w6-integration.md §1.2/§1.3",
+          "observation": "Бюджеты 06C.8: ≤3 запроса, общий дедлайн контура (10 с), потолок evidence 12; один поиск на прогон; RetrievalOutcome: attempted/used/refs/fetch_errors/budget_exhausted — счётчики фактические.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w6-integration.md",
+          "artifact_sha256": "14a8035636469395ed53327e3be1be39be4e3aa9596c4ca60e4fe8e6cb047d17"
+        },
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "test",
+          "ref": "tests/test_factcheck_w6_cfg06.py",
+          "observation": "6 CONTRACT: единый контур, метрики, бюджеты.",
+          "artifact_path": "tests/test_factcheck_w6_cfg06.py",
+          "artifact_sha256": "cc5f99edf6fd196b43e45c2c04ac249edf8ee9e6d44c5cf8990da381a41554c9"
+        }
+      ]
     },
     {
       "source_id": "L00242",
@@ -4679,8 +5296,25 @@
       "acceptance": "Для локальной истории фиксируются авторство, чат, оригинальное сообщение/время, пересылки/цитаты, удалённый/отредактированный контент; deep links только корректно формируемые и разрешённые.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "static",
+          "ref": "w1-notes.md",
+          "observation": "Стабильные опоры локальной истории: message_id/author/timestamp/reply_to/forward в ConversationContext; дословные сегменты с якорями; ничего не сочиняется.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w1-notes.md",
+          "artifact_sha256": "9da592df5365f2fa08c71b3ac44e308857e8c1ea2fe7c517b0a78f7d786783b6"
+        },
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "test",
+          "ref": "w3-schemas.md §2.3",
+          "observation": "Публичные ссылки — только URL из EvidenceMap текущего прогона; deep links не выдумываются (ссылки только http(s)-whitelist).",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w3-schemas.md",
+          "artifact_sha256": "69c9405d7a4363e98bb1d07f7ea897bd7337a6115322c4b9a559cfc27105b0fe"
+        }
+      ]
     },
     {
       "source_id": "L00244",
@@ -4709,8 +5343,25 @@
       "acceptance": "Аналитик выдаёт по каждому claim_id один из supported/refuted/misleading-mixed/insufficient_evidence/not_checkable со списком обоснований и evidence_id именно этого утверждения; отсутствие доказательств не выдаётся за опровержение.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "test",
+          "ref": "w3-schemas.md §1 (CheckedVerdict)",
+          "observation": "Вердикт enum + evidence-refs прогона: factual_verdict supported/refuted/mixed/insufficient_evidence; отсутствие enum → заголовок не выдумывается; недостаток данных — не «опровержение».",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w3-schemas.md",
+          "artifact_sha256": "69c9405d7a4363e98bb1d07f7ea897bd7337a6115322c4b9a559cfc27105b0fe"
+        },
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "test",
+          "ref": "w5-renderer.md §2.1",
+          "observation": "Enum → человеческие фразы; unsupported enum — заголовка нет (renderer не выдумывает вердикт).",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w5-renderer.md",
+          "artifact_sha256": "740971e46571e49ecd31fe51c33b1242c84e2b32a04b96d966eff554fc088b76"
+        }
+      ]
     },
     {
       "source_id": "L00247",
@@ -4724,8 +5375,25 @@
       "acceptance": "Temporal-оценка — функция единого фактчека, а не отдельная сущность: период сообщается только когда меняет смысл; unknown/null/reason_code/assessment_mode/evidence_id/имя аналитика/внутренние даты не попадают в пользовательский текст.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "test",
+          "ref": "w5-renderer.md §3",
+          "observation": "Temporal — функция единого фактчека: style_note-блок удалён (байты было/стало); unknown → «свежесть данных определить не удалось»; техполя мимо payload.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w5-renderer.md",
+          "artifact_sha256": "740971e46571e49ecd31fe51c33b1242c84e2b32a04b96d966eff554fc088b76"
+        },
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "test",
+          "ref": "tests/test_factcheck_renderer_cfg06.py",
+          "observation": "Утечка style_note байт-защищена (test_old_bytes_absent_from_source и др.); техмаркеры отсутствуют в разметке.",
+          "artifact_path": "tests/test_factcheck_renderer_cfg06.py",
+          "artifact_sha256": "010a5db803f0635340a7f28b0de862a97321021267103db397db06d4708952d4"
+        }
+      ]
     },
     {
       "source_id": "L00248",
@@ -4739,8 +5407,17 @@
       "acceptance": "Даты оригинала, репоста, публикации и получения выдачи различимы; unknown не заменяется текущей датой; незнание выражается человеческими словами без «период проверки unknown».",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "test",
+          "ref": "w5-renderer.md §3",
+          "observation": "Даты периода — по-человечески («с 15.06.2025 по 16.06.2025»); дат нет → ключа нет; unknown не заполняется текущей датой; as_of unix мимо payload.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w5-renderer.md",
+          "artifact_sha256": "740971e46571e49ecd31fe51c33b1242c84e2b32a04b96d966eff554fc088b76"
+        }
+      ]
     },
     {
       "source_id": "L00249",
@@ -4754,8 +5431,25 @@
       "acceptance": "Для локального спора слова рядом не выдаются за утверждение участника: доказательства привязаны к автору, цитате и контексту; прямой текст приоритетнее графовой интерпретации.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "test",
+          "ref": "w2-notes.md Stage 2",
+          "observation": "Доказательства привязаны к автору и tg-якорю анцедента; кандидаты-тезисы с фильтром (реакции не становятся тезисами); прямой текст приоритетнее интерпретации (topic по стеммам — только при пустом зонде).",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w2-notes.md",
+          "artifact_sha256": "a725449ca92d9c0184361a29ae543c57be830e16d48b7e7990b2e92e23c786e8"
+        },
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "static",
+          "ref": "w2-corpus.md (case в)",
+          "observation": "Автор анцедента Петя сохранён (target_attribution_errors=0) — соседство не превратилось в приписывание Васе.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w2-corpus.md",
+          "artifact_sha256": "8c98461fd3bd14d6835e7e438f77b66f97aa06f9934ba07fbefc0fcdeacb69e6"
+        }
+      ]
     },
     {
       "source_id": "L00250",
@@ -4769,8 +5463,25 @@
       "acceptance": "Каждая публичная ссылка разрешается на реально полученный в текущей проверке релевантный источник; вымышленные ссылки и привязка тезиса к главной странице сайта запрещены.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "test",
+          "ref": "w5-renderer.md §2.3/§2.4",
+          "observation": "Каждая ссылка — URL реально полученного источника текущего прогона (EvidenceMap.allowlist); вымышленных нет; refs есть, URL нет → честное ограничение, а не ссылка «для галочки».",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w5-renderer.md",
+          "artifact_sha256": "740971e46571e49ecd31fe51c33b1242c84e2b32a04b96d966eff554fc088b76"
+        },
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "test",
+          "ref": "w7-acceptance.md §1 (S1/S2)",
+          "observation": "S1: href×1 только из EvidenceMap; S2: без URL — «первоисточники… не удалось», href=0.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w7-acceptance.md",
+          "artifact_sha256": "9a91b54c900ba351d8ff08a2e836d8bf9602e5e46cbda30a0a43f1ce8e27995a"
+        }
+      ]
     },
     {
       "source_id": "L00251",
@@ -4784,8 +5495,25 @@
       "acceptance": "Верификация сверяет каждый итоговый факт с evidence map, даты/числа отдельно, включая конфликтующие источники; при слабых данных — insufficient_evidence; три перепечатки одного материала не считаются тремя подтверждениями.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "static",
+          "ref": "w0-audit.md §1 (Верификация источников)",
+          "observation": "CoVe-validator (серверный guard) + evidence ev-N с allowlist; конфликт/слабые данные → insufficient_evidence («Недостаточно данных…»), а не самоуверенное разоблачение.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w0-audit.md",
+          "artifact_sha256": "a480dcec14367195686e4208c4ce59682751daa1e35b6e711310e3568193b3f9"
+        },
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "test",
+          "ref": "w5-renderer.md §2.1",
+          "observation": "insufficient_evidence → «Недостаточно данных для проверки»; дубликаты не считаются тремя подтверждениями (дедуп URL в evidence-сборке).",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w5-renderer.md",
+          "artifact_sha256": "740971e46571e49ecd31fe51c33b1242c84e2b32a04b96d966eff554fc088b76"
+        }
+      ]
     },
     {
       "source_id": "L00252",
@@ -4799,8 +5527,25 @@
       "acceptance": "При отказе веб-поиска/БД нет молчаливого перехода на память модели под видом проверки: честный частичный вывод с указанием ограничения обычными словами; причина остаётся в диагностике.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "test",
+          "ref": "w7-acceptance.md §1 (S3)",
+          "observation": "S3: движки недоступны (план И внутренний поиск) → фраза 5.4b без самоуверенного подтверждения; причина — в трассе/диагностике, не в пользовательском тексте.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w7-acceptance.md",
+          "artifact_sha256": "9a91b54c900ba351d8ff08a2e836d8bf9602e5e46cbda30a0a43f1ce8e27995a"
+        },
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "static",
+          "ref": "w0-audit.md §1 (Ошибка поиска)",
+          "observation": "База: AllSearchEnginesFailed → 5.4b; серверный insufficient_evidence (TH-5) — молчаливого перехода на память модели нет.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w0-audit.md",
+          "artifact_sha256": "a480dcec14367195686e4208c4ce59682751daa1e35b6e711310e3568193b3f9"
+        }
+      ]
     },
     {
       "source_id": "L00253",
@@ -4814,8 +5559,25 @@
       "acceptance": "Legacy/single-call fallback, если остаётся, проходит тот же suitability gate, требования evidence и форматно-стилевые guards; старый способ с произвольной строкой, утечкой JSON и выдуманными источниками не возвращается.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "test",
+          "ref": "w3-schemas.md §4 (legacy_single)",
+          "observation": "Fallback — ТОТ ЖЕ вызов check_claim с теми же аргументами, что прод-путь (тест); тот же gate до него (единый run_factcheck), те же guards/egress; старого «произвольная строка без правил» нет.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w3-schemas.md",
+          "artifact_sha256": "69c9405d7a4363e98bb1d07f7ea897bd7337a6115322c4b9a559cfc27105b0fe"
+        },
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "test",
+          "ref": "w7-acceptance.md §1 (S7)",
+          "observation": "S7: fallback сценарий — фраза из пула, без выдуманных источников.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w7-acceptance.md",
+          "artifact_sha256": "9a91b54c900ba351d8ff08a2e836d8bf9602e5e46cbda30a0a43f1ce8e27995a"
+        }
+      ]
     },
     {
       "source_id": "L00254",
@@ -4829,8 +5591,25 @@
       "acceptance": "Контракт FactcheckPlan→EvidenceMap→CheckedVerdict версионирован и валидируется схемой до вербализации; регенерация текста не меняет факты/числа/ссылки; при нарушении — ограниченный repair и честная деградация без бесконечных LLM-циклов.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "test",
+          "ref": "w3-schemas.md §1 (правила фриза)",
+          "observation": "Контракт Plan→EvidenceMap→CheckedVerdict заморожен тестами (TestSchemaFreeze), версионирование fcv2/fp1/tf1; валидация до вербализации.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w3-schemas.md",
+          "artifact_sha256": "69c9405d7a4363e98bb1d07f7ea897bd7337a6115322c4b9a559cfc27105b0fe"
+        },
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "test",
+          "ref": "w6-integration.md §1.4",
+          "observation": "Регенерация/кеш-хит не меняют текст: доставка через тот же renderer (детерминированное преобразование кешированного текста).",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w6-integration.md",
+          "artifact_sha256": "14a8035636469395ed53327e3be1be39be4e3aa9596c4ca60e4fe8e6cb047d17"
+        }
+      ]
     },
     {
       "source_id": "L00256",
@@ -4859,8 +5638,25 @@
       "acceptance": "Фактчек — особый формат: краткий тезис/вердикт, 1–3 аргумента, при необходимости компактный список, выборочный жирный, короткие абзацы; простой факт — 2–4 предложения, длинный разбор только для сложной проверки.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "test",
+          "ref": "w5-renderer.md §2.1/§2.2",
+          "observation": "Особый формат: bold-заголовок вердикта, ≤4 пунктов сути подряд идущих групп (состав 1:1), 1 предложение → один абзац без списка; длинный разбор — только из фактического текста.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w5-renderer.md",
+          "artifact_sha256": "740971e46571e49ecd31fe51c33b1242c84e2b32a04b96d966eff554fc088b76"
+        },
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "test",
+          "ref": "tests/test_factcheck_renderer_cfg06.py",
+          "observation": "Снапшоты структуры (36 CONTRACT).",
+          "artifact_path": "tests/test_factcheck_renderer_cfg06.py",
+          "artifact_sha256": "010a5db803f0635340a7f28b0de862a97321021267103db397db06d4708952d4"
+        }
+      ]
     },
     {
       "source_id": "L00261",
@@ -4874,8 +5670,17 @@
       "acceptance": "Ссылки интегрированы по смыслу (кликабельное слово/название источника), а не россыпь URL; для сложного разбора возможна секция «Источники»; текст не загромождён source_id и провайдерами.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "test",
+          "ref": "w5-renderer.md §2.3",
+          "observation": "Ссылки по смыслу: label = домен без www, href экранирован; в видимом тексте полного URL нет; source_id/провайдеры не загромождают текст.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w5-renderer.md",
+          "artifact_sha256": "740971e46571e49ecd31fe51c33b1242c84e2b32a04b96d966eff554fc088b76"
+        }
+      ]
     },
     {
       "source_id": "L00262",
@@ -4889,8 +5694,25 @@
       "acceptance": "Факты и источники формирует серверный evidence map; Writer выбирает проверенные ID; детерминированный Telegram Renderer преобразует FactcheckPresentation в безопасные HTML/entities с экранированием и проверкой URL; LLM не придумывает HTML.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "test",
+          "ref": "w5-renderer.md §1/§2",
+          "observation": "Детерминированный renderer без LLM: FactcheckPresentation → безопасный HTML; LLM не генерирует разметку (канон text-only не тронут — W3 §5).",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w5-renderer.md",
+          "artifact_sha256": "740971e46571e49ecd31fe51c33b1242c84e2b32a04b96d966eff554fc088b76"
+        },
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "test",
+          "ref": "w3-schemas.md §2",
+          "observation": "Факты/источники — серверный EvidenceMap; Writer выбирает только проверенные ID; URL не попадает в plain-текст до renderer (тест).",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w3-schemas.md",
+          "artifact_sha256": "69c9405d7a4363e98bb1d07f7ea897bd7337a6115322c4b9a559cfc27105b0fe"
+        }
+      ]
     },
     {
       "source_id": "L00263",
@@ -4904,8 +5726,26 @@
       "acceptance": "send_chunked_reply реально передаёт parse_mode=HTML или валидные MessageEntity; chunks не рвут сущности, Unicode, ссылки и теги, не дублируют библиографию; на непредусмотренном клиенте — безопасная текстовая деградация; reply-to не ломается.",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "test",
+          "ref": "w5-renderer.md §2.6",
+          "observation": "send_chunked_reply(parse_mode=\"HTML\") (общая функция не менялась); pre-split split_entity_safe: теги не пересекают части, каждая ≤4096, reply у первой; TelegramBadRequest → plain-деградация сломанного чанка.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w5-renderer.md",
+          "artifact_sha256": "740971e46571e49ecd31fe51c33b1242c84e2b32a04b96d966eff554fc088b76"
+        },
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "test",
+          "ref": "tests/test_factcheck_renderer_cfg06.py",
+          "observation": "36 CONTRACT: entity-safe чанки, доставка, OFF-паритет (handler renderer не импортирует).",
+          "artifact_path": "tests/test_factcheck_renderer_cfg06.py",
+          "artifact_sha256": "010a5db803f0635340a7f28b0de862a97321021267103db397db06d4708952d4"
+        }
+      ],
+      "note": "Живая проверка рендера в реальном Telegram (мобильный/десктоп, кликабельные ссылки) — канарейка при включении флага (20.10); осмотр на устройствах — владельцу опционально. Живая часть — канарейка после включения flags.factcheck_pipeline_v2 при релизе (правило 20.10, PET; без отдельных согласований)."
     },
     {
       "source_id": "L00264",
@@ -4919,8 +5759,25 @@
       "acceptance": "Список оформляется как список только когда помогает; формат Summary-статей и шаблонных отчётов не копируется; в фактчеке нет backstage-фраз «вот что я разобрал»; обычный разговор сохраняет casual-стиль.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "test",
+          "ref": "w5-renderer.md §2.2/§6.3",
+          "observation": "Список только когда предложений несколько; 1 предложение → абзац; формат Summary/отчётов не копируется; backstage-фраз нет (egress-негативы); casual-каналы не тронуты (renderer только в v2 фактчека).",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w5-renderer.md",
+          "artifact_sha256": "740971e46571e49ecd31fe51c33b1242c84e2b32a04b96d966eff554fc088b76"
+        },
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "static",
+          "ref": "w7-review-package.md §3.2",
+          "observation": "Жанровый контракт канона не переписывался — другие каналы не затронуты.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w7-review-package.md",
+          "artifact_sha256": "5bb4a8b43409a09726b0fc4cd5b211c5a6b1836f1dcaab57a498feaa70e00bf1"
+        }
+      ]
     },
     {
       "source_id": "L00265",
@@ -4934,8 +5791,25 @@
       "acceptance": "Встроенные ссылки только на проверенные http(s)/валидные Telegram message links; защита от HTML-инъекций, MarkdownV2-эскейпинга, подмены URL и инъекций из внешних текстов.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "test",
+          "ref": "w5-renderer.md §2.3/§2.5",
+          "observation": "Scheme-whitelist http/https; javascript:/ftp отброшены; весь текст html.escape; сырой тег/URL в разметку не попадает (тест-инъекция); ссылки только из проверенного EvidenceMap прогона.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w5-renderer.md",
+          "artifact_sha256": "740971e46571e49ecd31fe51c33b1242c84e2b32a04b96d966eff554fc088b76"
+        },
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "test",
+          "ref": "tests/test_factcheck_renderer_cfg06.py",
+          "observation": "HTML-инъекция не проходит; служебные поля в разметке отсутствуют.",
+          "artifact_path": "tests/test_factcheck_renderer_cfg06.py",
+          "artifact_sha256": "010a5db803f0635340a7f28b0de862a97321021267103db397db06d4708952d4"
+        }
+      ]
     },
     {
       "source_id": "L00266",
@@ -4949,8 +5823,25 @@
       "acceptance": "Без подходящей ссылки ссылка убирается, вердикт честно ограничивается; «проверено в интернете» без успешной инструментальной трассы не заявляется.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "test",
+          "ref": "w5-renderer.md §2.4",
+          "observation": "Без подходящей ссылки ссылка не ставится: refs есть, URL нет → строка «Первоисточники в этот раз открыть не удалось…»; refs нет → ограничение не заявляется; «проверено в интернете» без трассы не пишется (S2/S3).",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w5-renderer.md",
+          "artifact_sha256": "740971e46571e49ecd31fe51c33b1242c84e2b32a04b96d966eff554fc088b76"
+        },
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "test",
+          "ref": "w7-acceptance.md §1 (S2)",
+          "observation": "S2: честное ограничение, href=0.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w7-acceptance.md",
+          "artifact_sha256": "9a91b54c900ba351d8ff08a2e836d8bf9602e5e46cbda30a0a43f1ce8e27995a"
+        }
+      ]
     },
     {
       "source_id": "L00270",
@@ -4979,8 +5870,26 @@
       "acceptance": "На каждый run хранится stage trace (target_resolve→…→Telegram delivery), фактические tool calls, статусы, стоимость и причины деградации; пользователю — результат, администратору в админке — проверяемые причины и структура без секретов и приватных текстов.",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "test",
+          "ref": "w6-integration.md §1.3",
+          "observation": "Stage trace/метрики на прогон: logger-дайджест (attempted/used/refs/fetch_errors/budget_exhausted/fp1) + mca-событие factcheck_run/factcheck.retrieval (fail-open); gate-решения логируются на маршрутах; без контента и секретов.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w6-integration.md",
+          "artifact_sha256": "14a8035636469395ed53327e3be1be39be4e3aa9596c4ca60e4fe8e6cb047d17"
+        },
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "test",
+          "ref": "tests/test_factcheck_w6_cfg06.py",
+          "observation": "6 CONTRACT: контур/метрики/бюджеты.",
+          "artifact_path": "tests/test_factcheck_w6_cfg06.py",
+          "artifact_sha256": "cc5f99edf6fd196b43e45c2c04ac249edf8ee9e6d44c5cf8990da381a41554c9"
+        }
+      ],
+      "note": "Живое наблюдение трассы в админке/логах на реальном прогоне — канарейка при включении флага (20.10). Живая часть — канарейка после включения flags.factcheck_pipeline_v2 при релизе (правило 20.10, PET; без отдельных согласований)."
     },
     {
       "source_id": "L00273",
@@ -4994,8 +5903,17 @@
       "acceptance": "Метрики разведены: search attempted / succeeded / sources relevant / evidence used / verified supported; наличие API/инструмента не считается доказательством работы; prefetch и Tool Router-вызовы фиксируются.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "test",
+          "ref": "w6-integration.md §1.3",
+          "observation": "Метрики разведены: queries_attempted/queries_used/refs_collected/fetch_errors/budget_exhausted; наличие агрегатора не считается работой — used только при непустой выдаче; prefetch-действия в fetch_errors/refs.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w6-integration.md",
+          "artifact_sha256": "14a8035636469395ed53327e3be1be39be4e3aa9596c4ca60e4fe8e6cb047d17"
+        }
+      ]
     },
     {
       "source_id": "L00274",
@@ -5009,8 +5927,25 @@
       "acceptance": "Кеш по chat/scope, claim, message_id/редакции, источникам, версиям схемы и prompt, as_of и свежести; невалидные/старые результаты не переживают смену pipeline; cache-hit не подменяет фактчек другого чата/даты/цели.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "test",
+          "ref": "w6-integration.md §1.3",
+          "observation": "Кеш-версии: legacy-ветка v2 = fcv2␀PIPELINE_VERSION␀fp1␀claim (записи прод-пути и v2 не пересекаются в обе стороны); envelope — tf1-составной ключ (scope+claim+target+origin+mode+period+tz+freshness); смена pipeline инвалидирует старые записи.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w6-integration.md",
+          "artifact_sha256": "14a8035636469395ed53327e3be1be39be4e3aa9596c4ca60e4fe8e6cb047d17"
+        },
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "static",
+          "ref": "w0-audit.md §1 (Быстрый кеш)",
+          "observation": "База: составные ключи, unknown origin → авто-bypass.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w0-audit.md",
+          "artifact_sha256": "a480dcec14367195686e4208c4ce59682751daa1e35b6e711310e3568193b3f9"
+        }
+      ]
     },
     {
       "source_id": "L00275",
@@ -5024,8 +5959,25 @@
       "acceptance": "Bounded retry и бюджеты по времени/инструментам; подтверждение не зависит от случайного успешного JSON; legacy-fallback не расходится по безопасности, доказательствам и egress-ограничениям.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "test",
+          "ref": "w6-integration.md §1.2",
+          "observation": "Bounded: ≤3 запроса, дедлайн 10 с, потолок evidence 12; исчерпание/ошибки → partial/None; None → fallback на внутренний поиск ветки (никогда пустой verdict без данных); fallback — тот же контракт (S7).",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w6-integration.md",
+          "artifact_sha256": "14a8035636469395ed53327e3be1be39be4e3aa9596c4ca60e4fe8e6cb047d17"
+        },
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "test",
+          "ref": "w7-acceptance.md §1 (S7)",
+          "observation": "S7: fallback без расхождения по безопасности/egress.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w7-acceptance.md",
+          "artifact_sha256": "9a91b54c900ba351d8ff08a2e836d8bf9602e5e46cbda30a0a43f1ce8e27995a"
+        }
+      ]
     },
     {
       "source_id": "L00276",
@@ -5039,8 +5991,25 @@
       "acceptance": "Влияние SOUL-1/Character Core/W3/W6 перепроверено: машинные стадии не получают речевые политики, user-facing Writer применяет итоговый стиль; несогласованности исправляются единым composer/renderer без размножения промптов.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "test",
+          "ref": "w5-renderer.md §1 (factcheck_service) + §3",
+          "observation": "Машинные стадии без речевых политик; speech_owner_block добавлен единому Writer (временному вербализатору и Stage-2 — штатный шов, не дубликат); пустой блок → байт-паритет.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w5-renderer.md",
+          "artifact_sha256": "740971e46571e49ecd31fe51c33b1242c84e2b32a04b96d966eff554fc088b76"
+        },
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "static",
+          "ref": "w3-schemas.md §5",
+          "observation": "Промпт-каноны не тронуты — размножения промптов нет; правки через единый composer/renderer.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w3-schemas.md",
+          "artifact_sha256": "69c9405d7a4363e98bb1d07f7ea897bd7337a6115322c4b9a559cfc27105b0fe"
+        }
+      ]
     },
     {
       "source_id": "L00277",
@@ -5054,8 +6023,18 @@
       "acceptance": "Живая проверка в целевом deployed-контуре после впереди стоящих задач; в отчёте разделены CODE_VERIFIED/TEST_VERIFIED/LIVE_VERIFIED/OWNER_E2E_PENDING; отсутствие production-доступа не превращается в PASS.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "static",
+          "ref": "w7-acceptance.md §3/§4",
+          "observation": "Отчёт с честным разделением: PROVEN/PARTIAL/PROVEN_ON_MOCKS+LIVE_PENDING/AGENT_PROVEN+LIVE_OWNER; смоук прода (healthz 200, 2.58.98) без чатов; прод = 29cc49ba без v2 — база отката.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w7-acceptance.md",
+          "artifact_sha256": "9a91b54c900ba351d8ff08a2e836d8bf9602e5e46cbda30a0a43f1ce8e27995a"
+        }
+      ],
+      "note": "Живая проверка в deployed-контуре — после релиза при включении флага (canary 20.10); CODE/TEST-часть доказана (фокусированный прогон 333 passed, w6 §4). Живая часть — канарейка после включения flags.factcheck_pipeline_v2 при релизе (правило 20.10, PET; без отдельных согласований)."
     },
     {
       "source_id": "L00279",
@@ -5084,8 +6063,26 @@
       "acceptance": "Биологический спор: атомарные тезисы выделены, запросы осмысленны (включая Saccharomyces boulardii), реальные источники проверены; корректная часть отличается от ошибочной; короткий аргументированный ответ со ссылками без насмешки по инерции.",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "test",
+          "ref": "tests/test_factcheck_planner_cfg06.py :: TestSaccharomycesBiologicalCase",
+          "observation": "Гап W7 закрыт микро-тестом: биологический спор «дрожжи — грибы, а не бактерии» → тезис checkable (не отклонён), Saccharomyces boulardii сохранён в запросах, структурный evidence с URL отдельно от текста.",
+          "artifact_path": "tests/test_factcheck_planner_cfg06.py",
+          "artifact_sha256": "478c8935951f56cc8c289389dba88c7284d7ee16b615f054f6ee85d33b3e429a"
+        },
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "static",
+          "ref": "w7-acceptance.md §4 (06G.1)",
+          "observation": "Атомизация/запросы/источники доказаны волнами (корпус W2 + planner W4); отдельного Saccharomyces-кейса не было — добавлен (REGRESSION, офлайн).",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w7-acceptance.md",
+          "artifact_sha256": "9a91b54c900ba351d8ff08a2e836d8bf9602e5e46cbda30a0a43f1ce8e27995a"
+        }
+      ],
+      "note": "Агентская часть полная (вкл. Saccharomyces). Живой биологический спор в реальном чате с реальным вебом — канарейка при включении флага (20.10). Живая часть — канарейка после включения flags.factcheck_pipeline_v2 при релизе (правило 20.10, PET; без отдельных согласований)."
     },
     {
       "source_id": "L00282",
@@ -5099,8 +6096,25 @@
       "acceptance": "Вызов на бессмысленных фразах: контекст изучен, бессмысленный веб-поиск не запускается при непроверяемой постановке; ответ краткий и в образе без фальшивой доказательной базы; полезное медицинское утверждение в контексте честно выделяется.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "test",
+          "ref": "w7-acceptance.md §1 (S4)",
+          "observation": "Вызов на бессмысленной фразе: контекст изучен → no_claim_after_context, поиск НЕ запускался (order=[]), короткая реплика без фальшивой доказательной базы.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w7-acceptance.md",
+          "artifact_sha256": "9a91b54c900ba351d8ff08a2e836d8bf9602e5e46cbda30a0a43f1ce8e27995a"
+        },
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "static",
+          "ref": "w2-corpus.md (е) + «Метрики»",
+          "observation": "Корпус: nonsense → no_claim/scope=none; false_refusal 0.0 — полезный медицинский тезис в контексте выделяется (е2).",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w2-corpus.md",
+          "artifact_sha256": "8c98461fd3bd14d6835e7e438f77b66f97aa06f9934ba07fbefc0fcdeacb69e6"
+        }
+      ]
     },
     {
       "source_id": "L00283",
@@ -5115,7 +6129,17 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "static",
+          "ref": "w7-acceptance.md §4 (06G.3) + w7-review-package.md §3.3",
+          "observation": "PARTIAL честно: атрибуция/цитата/privacy доказаны (corpus в: автор Петя, dropped_privacy, анцедент tg-якорь), но выделенный локальный tool «кто это сказал» с обязательной цитатой/датой/автором НЕ реализован (атрибуция решается резолюцией контекста).",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w7-acceptance.md",
+          "artifact_sha256": "9a91b54c900ba351d8ff08a2e836d8bf9602e5e46cbda30a0a43f1ce8e27995a"
+        }
+      ],
+      "note": "Честный гап (не закрывается тестом): нужен локальный chat-history tool «кто сказал» с цитатой/датой/автором и отказом от домыслов; участник не утекает во внешний поиск (privacy уже доказан). Строка в списке гапов для оркестратора."
     },
     {
       "source_id": "L00284",
@@ -5129,8 +6153,26 @@
       "acceptance": "Новость/дата/статистика: реальный веб-вызов с осмысленным запросом, релевантная выдача, проверка публикации, inline-ссылки на фактически использованные источники; при недоступности веба — без самоуверенного подтверждения.",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "test",
+          "ref": "w7-acceptance.md §1 (S1)",
+          "observation": "S1: осмысленный запрос из плана → выдача → SafeFetcher (1, дедуп) → inline href из EvidenceMap; дата публикации — published_at (planner).",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w7-acceptance.md",
+          "artifact_sha256": "9a91b54c900ba351d8ff08a2e836d8bf9602e5e46cbda30a0a43f1ce8e27995a"
+        },
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "test",
+          "ref": "w4-notes.md п.5",
+          "observation": "Механика на моках: parse title/snippet/url + primary fetch + parse_publication_date.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w4-notes.md",
+          "artifact_sha256": "6312a08c28d765fee10280e0f60f92b11291c647b35397d7bfe353e376de0dc0"
+        }
+      ],
+      "note": "Реальный веб-вызов (платный canary с реальными движками) — при включении флага (20.10); недоступность веба → S3 (без самоуверенного подтверждения). Живая часть — канарейка после включения flags.factcheck_pipeline_v2 при релизе (правило 20.10, PET; без отдельных согласований)."
     },
     {
       "source_id": "L00285",
@@ -5144,8 +6186,25 @@
       "acceptance": "Принудительный temporal JSON (unknown/null/reason_code/analysis_as_of/evidence_id/style_note): в пользовательском тексте нет сырой метаинформации; время упоминается только при необходимости.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "test",
+          "ref": "w5-renderer.md §3",
+          "observation": "Принудительный temporal JSON (unknown/null/reason_code/as_of/style_note): было/стало байтами — сырая метаинформация мимо payload; время только человеческими словами при необходимости.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w5-renderer.md",
+          "artifact_sha256": "740971e46571e49ecd31fe51c33b1242c84e2b32a04b96d966eff554fc088b76"
+        },
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "test",
+          "ref": "tests/test_factcheck_w7_acceptance_cfg06.py",
+          "observation": "Композит-инвариант: as_of/temporal_status/evaluated_period и др. токены отсутствуют в visible во всех 8 сценариях.",
+          "artifact_path": "tests/test_factcheck_w7_acceptance_cfg06.py",
+          "artifact_sha256": "3f8661a164af2f953cb98cff3f8d93b7d6e703ce564fabb6d34c4b88a7743f3b"
+        }
+      ]
     },
     {
       "source_id": "L00286",
@@ -5159,8 +6218,25 @@
       "acceptance": "Невалидный JSON, несуществующий evidence_id, сломанный URL, HTML-инъекция, конфликт источников, пустой поиск, отключённый инструмент, таймаут, кеш-хит, редактирование сообщения и chunks — корректный проверяемый результат без артефактов.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "static",
+          "ref": "w7-acceptance.md §1/§4 (06G.6)",
+          "observation": "Негативы агрегированы по волнам: кеш-хит через renderer (W6), revision/инвалидация версий (W6 §1.3), инъекция/чанки (W5), битый primary-fetch fail-open/пустой поиск/таймаут (W4/W6 дедлайн), allowlist отсекает чужие evidence_id.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w7-acceptance.md",
+          "artifact_sha256": "9a91b54c900ba351d8ff08a2e836d8bf9602e5e46cbda30a0a43f1ce8e27995a"
+        },
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "test",
+          "ref": "w5-renderer.md §4",
+          "observation": "Ключевые негативы renderer: инъекция, служебные поля, чанки ≤4096 с целыми <b>-парами.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w5-renderer.md",
+          "artifact_sha256": "740971e46571e49ecd31fe51c33b1242c84e2b32a04b96d966eff554fc088b76"
+        }
+      ]
     },
     {
       "source_id": "L00287",
@@ -5174,8 +6250,25 @@
       "acceptance": "Трасса каждого контрольного случая показывает корректный маршрут (skip_search/web_used/chat_used/both_used) с реальным эффектом; «вызвал инструмент, но использовал выдумку» — FAIL.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "test",
+          "ref": "w6-integration.md §1.3",
+          "observation": "Трассы/метрики маршрутов: retrieval digest + gate-решения в логах; «вызвал инструмент, но использовал выдумку» отсечено allowlist EvidenceMap (ссылки только из прогона).",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w6-integration.md",
+          "artifact_sha256": "14a8035636469395ed53327e3be1be39be4e3aa9596c4ca60e4fe8e6cb047d17"
+        },
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "test",
+          "ref": "w7-acceptance.md §1 (S1–S8)",
+          "observation": "Корректные маршруты по сценариям: S4/S8 — поиск не запускался; S1 — web_used; S6 — skip_search (контекст достаточен); метрики спора — w7-dispute-metrics.json.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w7-acceptance.md",
+          "artifact_sha256": "9a91b54c900ba351d8ff08a2e836d8bf9602e5e46cbda30a0a43f1ce8e27995a"
+        }
+      ]
     },
     {
       "source_id": "L00288",
@@ -5189,8 +6282,26 @@
       "acceptance": "Реально отправленные Telegram-сообщения содержат работающий жирный текст, списки и кликабельные встроенные ссылки без сырых HTML/JSON и потери читабельности на мобильном/десктопе.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "test",
+          "ref": "tests/test_factcheck_renderer_cfg06.py",
+          "observation": "Разметка доказана: bold-заголовок, списки, кликабельные href из EvidenceMap, чанки ≤4096, без сырых HTML/JSON в visible.",
+          "artifact_path": "tests/test_factcheck_renderer_cfg06.py",
+          "artifact_sha256": "010a5db803f0635340a7f28b0de862a97321021267103db397db06d4708952d4"
+        },
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "static",
+          "ref": "w7-acceptance.md §4 (06G.8)",
+          "observation": "AGENT_PROVEN: HTML/bold/href/чанки; реальная отправка в Telegram — постдеплой.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w7-acceptance.md",
+          "artifact_sha256": "9a91b54c900ba351d8ff08a2e836d8bf9602e5e46cbda30a0a43f1ce8e27995a"
+        }
+      ],
+      "note": "Реально отправленные сообщения и читабельность на мобильном/десктопе — постдеплой-канарейка; осмотр на устройствах — владельцу опционально (правило 20.10). Живая часть — канарейка после включения flags.factcheck_pipeline_v2 при релизе (правило 20.10, PET; без отдельных согласований)."
     },
     {
       "source_id": "L00292",
@@ -5219,8 +6330,18 @@
       "acceptance": "Аудит двух маршрутов (check_claim/System2 и check_claim_envelope/Temporal) с таблицей различий (контекст/поиск/инструменты/источники/генерация/кеш/доставка), фактическим deployed SHA и effective flags; третий независимый фактчек не реализован.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "static",
+          "ref": "w0-audit.md §1",
+          "observation": "Аудит двух маршрутов выполнен на deployed-байтах 29cc49ba (дифф пуст → байт-идентичность): таблица различий по 13 измерениям + effective flags (K1/K2/K3/System2/FACTCHECK_ENABLED); третий независимый фактчек не реализован (дифф-скоуп волн).",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w0-audit.md",
+          "artifact_sha256": "a480dcec14367195686e4208c4ce59682751daa1e35b6e711310e3568193b3f9"
+        }
+      ],
+      "note": "Постдеплой-повтор сверки — в чек-листе релиза; W7-смоук зафиксировал прод-состояние (29cc49ba, v2 не включён — база отката)."
     },
     {
       "source_id": "L00299",
@@ -5234,8 +6355,25 @@
       "acceptance": "Единый вход FactcheckRequest/ClaimEnvelope (chat_id/message_id/trigger/автор/reply-forward-quote/текст-медиа/даты/запрос) и один оркестратор ResolveTarget→…→Delivery для всех входов.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "test",
+          "ref": "w3-schemas.md §1",
+          "observation": "Единый вход FactcheckRequest (chat_id/message_id/trigger/текст/forward/kind) и один оркестратор run_factcheck для всех входов; пайплайн зафиксирован.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w3-schemas.md",
+          "artifact_sha256": "69c9405d7a4363e98bb1d07f7ea897bd7337a6115322c4b9a559cfc27105b0fe"
+        },
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "test",
+          "ref": "tests/test_factcheck_w7_acceptance_cfg06.py",
+          "observation": "Все 8 сценариев идут через единый run_factcheck.",
+          "artifact_path": "tests/test_factcheck_w7_acceptance_cfg06.py",
+          "artifact_sha256": "3f8661a164af2f953cb98cff3f8d93b7d6e703ce564fabb6d34c4b88a7743f3b"
+        }
+      ]
     },
     {
       "source_id": "L00300",
@@ -5249,8 +6387,25 @@
       "acceptance": "ResolveTimeAndProvenance выполняется всегда как недорогая стадия метаданных (даты цели/оригинала/репоста/пересылки/редактирования, таймзона); недоступная дата остаётся unknown без now() и выдуманного авторства; временное суждение — по необходимости.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "static",
+          "ref": "w3-schemas.md §1 (ResolveTimeAndProvenance)",
+          "observation": "build_envelope выполняется ВСЕГДА как недорогая стадия метаданных (origin-блок, каскад дат D5, режимы D7 — W0 §1 «Целепостановка»).",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w3-schemas.md",
+          "artifact_sha256": "69c9405d7a4363e98bb1d07f7ea897bd7337a6115322c4b9a559cfc27105b0fe"
+        },
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "test",
+          "ref": "w5-renderer.md §3",
+          "observation": "Недоступная дата остаётся unknown → человеческие слова («свежесть данных определить не удалось»), без now() и выдуманного авторства.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w5-renderer.md",
+          "artifact_sha256": "740971e46571e49ecd31fe51c33b1242c84e2b32a04b96d966eff554fc088b76"
+        }
+      ]
     },
     {
       "source_id": "L00301",
@@ -5264,8 +6419,25 @@
       "acceptance": "Старые репосты и конфликт «оригинал давно vs это происходит сейчас» входят в обычную Evidence/Temporal Verification: старая публикация не равна лжи, отсутствие даты не равно опровержению; актуальность и истинность — различимые оценки одного вердикта.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "test",
+          "ref": "w5-renderer.md §3",
+          "observation": "Актуальность и истинность — различимые оценки одного вердикта: человекочитаемые ключи verdict и freshness раздельные; unknown не подменяется и не трактуется как опровержение.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w5-renderer.md",
+          "artifact_sha256": "740971e46571e49ecd31fe51c33b1242c84e2b32a04b96d966eff554fc088b76"
+        },
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "static",
+          "ref": "w0-audit.md §2 (06A.10)",
+          "observation": "Temporal-оценка/верификация — в единой цепочке (mca-20/ADR-1022-3 база), не отдельная сущность.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w0-audit.md",
+          "artifact_sha256": "a480dcec14367195686e4208c4ce59682751daa1e35b6e711310e3568193b3f9"
+        }
+      ]
     },
     {
       "source_id": "L00302",
@@ -5279,8 +6451,17 @@
       "acceptance": "Продуктовая развилка «временной или обычный фактчек» убрана: разные запросы не получают разные правила инструментов/доказательств/style/egress/кеша; внутренние временные библиотеки допустимы, но не два автономных пользовательских pipeline; флаги — для перехода/отката.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "test",
+          "ref": "w3-schemas.md §3/§4",
+          "observation": "Развилка «временной/обычный» убрана из продукта: маршрут — внутренняя ветка run_factcheck; одинаковые правила evidence/egress/кеша у веток; флаги — kill-switch'и перехода/отката (hot, Δ каталога 0).",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w3-schemas.md",
+          "artifact_sha256": "69c9405d7a4363e98bb1d07f7ea897bd7337a6115322c4b9a559cfc27105b0fe"
+        }
+      ]
     },
     {
       "source_id": "L00303",
@@ -5294,8 +6475,25 @@
       "acceptance": "Схема evidence, статусы, инструментальные трассы, ошибки, источники, cache key и версионирование консолидированы; legacy/temporal-кеш инвалидируется при смене контекста/состояния репоста.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "test",
+          "ref": "w6-integration.md §1.3",
+          "observation": "Консолидация: версии кешей fcv2+fp1 (legacy v2) и tf1 (envelope) — записи прод/v2 не пересекаются в обе стороны; трассы/метрики единые; инвалидация при смене pipeline-версии.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w6-integration.md",
+          "artifact_sha256": "14a8035636469395ed53327e3be1be39be4e3aa9596c4ca60e4fe8e6cb047d17"
+        },
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "test",
+          "ref": "w3-schemas.md §1",
+          "observation": "Схемы/статусы/трассы/ошибки/источники консолидированы фризом W3.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w3-schemas.md",
+          "artifact_sha256": "69c9405d7a4363e98bb1d07f7ea897bd7337a6115322c4b9a559cfc27105b0fe"
+        }
+      ]
     },
     {
       "source_id": "L00304",
@@ -5309,8 +6507,25 @@
       "acceptance": "CoVe/System2, grounding, SourceRef, temporal-датировка, fallback, Tool Router, лимиты и идемпотентность сохранены; объединение не выкидывает работающие проверки и не добавляет лишних LLM-вызовов для простых случаев.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "test",
+          "ref": "w6-integration.md §4",
+          "observation": "Финальный прогон 333 passed: two_call (CoVe/System2), grounding×2, tools, B07-защита, settings/smart_cache — работающий функционал сохранён; простые случаи без лишних LLM-вызовов (план ≤3 запросов, no_claim/ambiguous — ноль).",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w6-integration.md",
+          "artifact_sha256": "14a8035636469395ed53327e3be1be39be4e3aa9596c4ca60e4fe8e6cb047d17"
+        },
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "test",
+          "ref": "w3-schemas.md §4 (legacy_single)",
+          "observation": "Аргументы legacy-вызова байт-паритетны прод-пути (тест); fallback/Tool Router/лимиты/idempotency сохранены.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w3-schemas.md",
+          "artifact_sha256": "69c9405d7a4363e98bb1d07f7ea897bd7337a6115322c4b9a559cfc27105b0fe"
+        }
+      ]
     },
     {
       "source_id": "L00306",
@@ -5339,8 +6554,25 @@
       "acceptance": "Контекст собирается до окончательного not_checkable/отказа: gate получает Target+ConversationContext и может вернуть needs_context, но не уверенный отказ; приоритет над быстрой отказной веткой 06B.3 и примером 06G.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "test",
+          "ref": "w2-notes.md «Live-протокол»",
+          "observation": "Контекст до отказа: gate получает Target+ConversationContext; needs_context → одно ограниченное расширение → повторное решение; второй needs_context → context_unavailable (продолжение, не отказ); приоритет над быстрой отказной веткой.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w2-notes.md",
+          "artifact_sha256": "a725449ca92d9c0184361a29ae543c57be830e16d48b7e7990b2e92e23c786e8"
+        },
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "test",
+          "ref": "w7-acceptance.md §1 (S5)",
+          "observation": "S5: расширение окна (2 выборки) прежде чем честное продолжение.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w7-acceptance.md",
+          "artifact_sha256": "9a91b54c900ba351d8ff08a2e836d8bf9602e5e46cbda30a0a43f1ce8e27995a"
+        }
+      ]
     },
     {
       "source_id": "L00311",
@@ -5354,8 +6586,25 @@
       "acceptance": "Начальная выборка — широкое окно последних сообщений (кандидаты 200–500 при соответствующих настройках), покрывающее период до цели и развитие спора между целью и вызовом фактчека; окно адаптивное, не только 10–20 реплик/reply-chain/один автор.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "static",
+          "ref": "w1-notes.md",
+          "observation": "Широкое адаптивное окно 200–500 сообщений (за флагом, внутри v2 всегда); не только 10–20 реплик/reply-chain/один автор; жёсткий кап-40 остался только legacy-пути.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w1-notes.md",
+          "artifact_sha256": "9da592df5365f2fa08c71b3ac44e308857e8c1ea2fe7c517b0a78f7d786783b6"
+        },
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "static",
+          "ref": "w7-dispute-metrics.json",
+          "observation": "Спор 260 сообщений: wide_context срез 260 (cap40 превышен), тезис найден.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w7-dispute-metrics.json",
+          "artifact_sha256": "cf14b0b816502e49c9557be928a4231455454fb3cbf6aaf31d7ab27407e56747"
+        }
+      ]
     },
     {
       "source_id": "L00312",
@@ -5369,8 +6618,17 @@
       "acceptance": "Широкий сбор/индексация отделены от детальной подачи LLM: сначала хронология/метаданные из локальной БД, затем тематические сегменты; существенные отрезки дословно, второстепенные — сжато с ID/датами; необработанные тысячи сообщений и summary вместо оригиналов исключены.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "static",
+          "ref": "w1-notes.md",
+          "observation": "Двухуровневая подача: компакт-хронология + дословные сегменты существенного (с ID/датами), дедуп; необработанные тысячи сообщений в LLM не уходят.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w1-notes.md",
+          "artifact_sha256": "9da592df5365f2fa08c71b3ac44e308857e8c1ea2fe7c517b0a78f7d786783b6"
+        }
+      ]
     },
     {
       "source_id": "L00313",
@@ -5384,8 +6642,25 @@
       "acceptance": "Реконструкция объединяет временную, тематическую близость и явные связи (reply_to/quotes/mentions/авторы/повторы); соседство сообщений и семантическая близость по отдельности не доказывают одну дискуссию; параллельные споры разделяются.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "test",
+          "ref": "w2-notes.md Stage 2",
+          "observation": "Реконструкция: reply-анцедент + тема по стеммам + дискуссионные маркеры (временная/тематическая близость и явные связи); два сопоставимых кандидата → ambiguous_needs_clarification (чужой тезис не приписывается, параллельные споры разделяются).",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w2-notes.md",
+          "artifact_sha256": "a725449ca92d9c0184361a29ae543c57be830e16d48b7e7990b2e92e23c786e8"
+        },
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "static",
+          "ref": "w2-corpus.md (case г)",
+          "observation": "Двусмысленная цель → ambiguous_needs_clarification/question_without_assertion.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w2-corpus.md",
+          "artifact_sha256": "8c98461fd3bd14d6835e7e438f77b66f97aa06f9934ba07fbefc0fcdeacb69e6"
+        }
+      ]
     },
     {
       "source_id": "L00314",
@@ -5399,8 +6674,25 @@
       "acceptance": "Стабильные опоры message_id/chat_id/author/timestamp/reply_to/forward-quote/edit-version сохраняются с привязкой каждого тезиса к фрагменту; для «кто что сказал» возврат к исходным сообщениям обязателен, summary/профиль — не доказательство.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "static",
+          "ref": "w1-notes.md",
+          "observation": "Стабильные опоры: message_id/chat_id/author/timestamp/reply_to/forward/edit в ContextMessage; тезисы с provenance-якорями; summary/профиль не подменяет исходные сообщения.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w1-notes.md",
+          "artifact_sha256": "9da592df5365f2fa08c71b3ac44e308857e8c1ea2fe7c517b0a78f7d786783b6"
+        },
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "static",
+          "ref": "w7-dispute-metrics.json",
+          "observation": "«Кто сказал»: анцедент tg=8000, author=Вася == expected, attribution_ok=true; recall=1.0.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w7-dispute-metrics.json",
+          "artifact_sha256": "cf14b0b816502e49c9557be928a4231455454fb3cbf6aaf31d7ab27407e56747"
+        }
+      ]
     },
     {
       "source_id": "L00315",
@@ -5414,8 +6706,25 @@
       "acceptance": "ContextualClaimResolution различает буквальный текст, подразумеваемый тезис, реплику, на которую отвечает цель, и то, что попросил проверить пользователь; target_claim и contextual_claims хранятся отдельно с provenance-якорями; чужой тезис не приписывается, объект не подменяется спором.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "test",
+          "ref": "w2-notes.md Stage 2/3",
+          "observation": "ContextualClaimResolution различает буквальный текст (source=literal), контекстный тезис (reply/topic) и запрос пользователя; target_claim и contextual_claims раздельно (claim_items с source/provenance); чужой тезис не приписывается (ambiguous вместо приписывания).",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w2-notes.md",
+          "artifact_sha256": "a725449ca92d9c0184361a29ae543c57be830e16d48b7e7990b2e92e23c786e8"
+        },
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "static",
+          "ref": "w2-corpus.json",
+          "observation": "items с source=literal/topic и author-атрибуцией по кейсам.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w2-corpus.json",
+          "artifact_sha256": "1e8135819b380b98eecab48a4e0226507f470276f9e85b1da7a2524dd69bf888"
+        }
+      ]
     },
     {
       "source_id": "L00316",
@@ -5429,8 +6738,25 @@
       "acceptance": "При большой дискуссии двухуровневый вывод: центральное утверждение цели проверяется, существенные контраргументы кратко отмечаются; пересказ всех 200 сообщений не делается; без контекста вердикт запрещён.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "static",
+          "ref": "w1-notes.md",
+          "observation": "Двухуровневый вывод: компакт-хронология + дословные существенные сегменты; пересказ всех 200+ сообщений не делается.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w1-notes.md",
+          "artifact_sha256": "9da592df5365f2fa08c71b3ac44e308857e8c1ea2fe7c517b0a78f7d786783b6"
+        },
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "test",
+          "ref": "w7-acceptance.md §1 (S6)",
+          "observation": "S6: спор 260 — компактный читаемый вердикт по центральному тезису, latency 4 мс на моках.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w7-acceptance.md",
+          "artifact_sha256": "9a91b54c900ba351d8ff08a2e836d8bf9602e5e46cbda30a0a43f1ce8e27995a"
+        }
+      ]
     },
     {
       "source_id": "L00317",
@@ -5444,8 +6770,25 @@
       "acceptance": "При недостаточном окне/истории context_unavailable отличается от no_checkable_claim: сначала ограниченное расширение поиска, затем честная неопределённость или краткое уточнение; закрытый чат во внешний поиск не уходит, чужие чаты не берутся.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "test",
+          "ref": "w2-notes.md «Live-протокол» + Stage 3",
+          "observation": "context_unavailable — отдельное решение (не no_checkable): после ограничения расширения честное продолжение pipeline; закрытый чат во внешний поиск не уходит (privacy-фильтр), чужие чаты не берутся (единый chat_id).",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w2-notes.md",
+          "artifact_sha256": "a725449ca92d9c0184361a29ae543c57be830e16d48b7e7990b2e92e23c786e8"
+        },
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "static",
+          "ref": "w2-corpus.md (case з)",
+          "observation": "unsafe_or_unavailable_target → context_unavailable/scope=none.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w2-corpus.md",
+          "artifact_sha256": "8c98461fd3bd14d6835e7e438f77b66f97aa06f9934ba07fbefc0fcdeacb69e6"
+        }
+      ]
     },
     {
       "source_id": "L00318",
@@ -5459,8 +6802,25 @@
       "acceptance": "Оптимизация: адаптивное расширение, бюджеты/дедлайны, reuse окна/FTS/базы, кеш контекстного среза с версией/диапазоном/ID; cache-hit не повторяет устаревшую трактовку; постоянного сканирования всей истории нет.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "static",
+          "ref": "w1-notes.md",
+          "observation": "Адаптивное окно (window_override), reuse FTS/базы, кеш среза fcx1 с версией/диапазоном/ID сообщений (slug factcheck_wide_context); постоянного сканирования всей истории нет.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w1-notes.md",
+          "artifact_sha256": "9da592df5365f2fa08c71b3ac44e308857e8c1ea2fe7c517b0a78f7d786783b6"
+        },
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "test",
+          "ref": "w2-notes.md",
+          "observation": "skip_cache_read для дозапроса needs_context — cache-hit не повторяет устаревшую трактовку.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w2-notes.md",
+          "artifact_sha256": "a725449ca92d9c0184361a29ae543c57be830e16d48b7e7990b2e92e23c786e8"
+        }
+      ]
     },
     {
       "source_id": "L00320",
@@ -5489,8 +6849,25 @@
       "acceptance": "not_checkable — вывод после исследования контекста, а не классификация строки: многоступенчатый gate obvious_checkable→contextual_resolution/expand→contextual_checkable/genuinely_uncheckable/insufficient_context.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "test",
+          "ref": "w2-notes.md «Как работает gate»",
+          "observation": "Многоступенчатый gate: Stage 1 никогда не отказывает (профилирование) → Stage 2 CR/расширение → Stage 3 решение; no_claim только после изучения контекста.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w2-notes.md",
+          "artifact_sha256": "a725449ca92d9c0184361a29ae543c57be830e16d48b7e7990b2e92e23c786e8"
+        },
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "static",
+          "ref": "w2-corpus.md",
+          "observation": "40/40 маршрутов соответствуют многоступенчатой семантике (routing 1.0).",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w2-corpus.md",
+          "artifact_sha256": "8c98461fd3bd14d6835e7e438f77b66f97aa06f9934ba07fbefc0fcdeacb69e6"
+        }
+      ]
     },
     {
       "source_id": "L00323",
@@ -5504,8 +6881,25 @@
       "acceptance": "Приоритет ошибки: ложный отказ при существующем контекстном тезисе — серьёзный дефект; экономия веб-запросов не достигается отказами от неудобных реплик; insufficient_evidence и not_checkable не смешиваются.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "test",
+          "ref": "w2-notes.md Stage 3",
+          "observation": "Асимметрия 06J.2 в коде: no_claim ТОЛЬКО после изучения контекста; неуверенность → checkable-фолбэк; insufficient_evidence и not_checkable — разные решения.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w2-notes.md",
+          "artifact_sha256": "a725449ca92d9c0184361a29ae543c57be830e16d48b7e7990b2e92e23c786e8"
+        },
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "static",
+          "ref": "w2-corpus.md «Метрики»",
+          "observation": "false_refusal_rate = 0.0 на 40 пробах.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w2-corpus.md",
+          "artifact_sha256": "8c98461fd3bd14d6835e7e438f77b66f97aa06f9934ba07fbefc0fcdeacb69e6"
+        }
+      ]
     },
     {
       "source_id": "L00324",
@@ -5519,8 +6913,25 @@
       "acceptance": "Нет ответа «нечего проверять» при ясно обсуждавшемся утверждении в предыдущих 100–200 сообщениях; при подтверждённом отсутствии тезиса ответ короткий/разговорный (при активной политике — грубый) без фиктивного анализа и притянутых источников.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "static",
+          "ref": "w2-corpus.md (а/б/в vs е)",
+          "observation": "Тезис из предыдущих сообщений находится (recall 1.0) — «нечего проверять» не выдаётся; при подтверждённом отсутствии тезиса (е) — короткая реплика из пула без фиктивного анализа.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w2-corpus.md",
+          "artifact_sha256": "8c98461fd3bd14d6835e7e438f77b66f97aa06f9934ba07fbefc0fcdeacb69e6"
+        },
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "test",
+          "ref": "w7-acceptance.md §1 (S4/S6)",
+          "observation": "S6: тезис спора найден в 260 сообщениях; S4: короткая реплика при реальном отсутствии.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w7-acceptance.md",
+          "artifact_sha256": "9a91b54c900ba351d8ff08a2e836d8bf9602e5e46cbda30a0a43f1ce8e27995a"
+        }
+      ]
     },
     {
       "source_id": "L00325",
@@ -5534,8 +6945,25 @@
       "acceptance": "«Бессмыслица» и мат не используются как regex-блокиратор; проверка контекстная на наборе кейсов (сарказм, неполные фразы, мемы, пересказ чужих слов, цитата без reply, смена автора, правка, длинные споры); на выходе различимы no_claim_after_context/context_unavailable/checkable_in_context/ambiguous_needs_clarification.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "test",
+          "ref": "w2-notes.md Stage 1",
+          "observation": "«Бессмыслица»/мат не regex-блокиратор: предикат не зависит от лексики; проверка контекстная на наборе кейсов (сарказм/мат+тезис/референциальность).",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w2-notes.md",
+          "artifact_sha256": "a725449ca92d9c0184361a29ae543c57be830e16d48b7e7990b2e92e23c786e8"
+        },
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "static",
+          "ref": "w2-corpus.md (е2/е3)",
+          "observation": "мат+тезис и сарказм → checkable_in_context; на выходе различимы no_claim_after_context/context_unavailable/checkable_in_context/ambiguous_needs_clarification.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w2-corpus.md",
+          "artifact_sha256": "8c98461fd3bd14d6835e7e438f77b66f97aa06f9934ba07fbefc0fcdeacb69e6"
+        }
+      ]
     },
     {
       "source_id": "L00326",
@@ -5549,8 +6977,26 @@
       "acceptance": "Регрессионный корпус 20/100/200/500+ сообщений по кейсам (а)–(з) с метриками false_refusal_rate/false_contextual_claim_rate/target_attribution_errors/relevant_context_recall/unnecessary_search_rate/стоимость/задержка; высокий recall не оправдывает приписывание чужого тезиса.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "static",
+          "ref": "w2-corpus.md",
+          "observation": "Корпус 40 проб: кейсы а–з × фикстуры 20/100/200/500 сообщений; метрики routing 1.0 / false_refusal 0.0 / false_contextual_claim 0.0 / unnecessary_search 0.0 / attribution 0 / recall 1.0.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w2-corpus.md",
+          "artifact_sha256": "8c98461fd3bd14d6835e7e438f77b66f97aa06f9934ba07fbefc0fcdeacb69e6"
+        },
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "static",
+          "ref": "w2-corpus.json",
+          "observation": "Машиночитаемые прогоны двухпроходного протокола.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w2-corpus.json",
+          "artifact_sha256": "1e8135819b380b98eecab48a4e0226507f470276f9e85b1da7a2524dd69bf888"
+        }
+      ],
+      "note": "Корпус синтетический (аналоги кейсов а–з); реальные размеченные цепочки из БД не использовались из-за приватности — граница честно зафиксирована (w7-acceptance §6.1)."
     },
     {
       "source_id": "L00327",
@@ -5564,8 +7010,26 @@
       "acceptance": "E2E приёмка: спор 200+ сообщений без reply-chain и «фактчек» на короткую реплику — предмет установлен из хронологии, тезис проверен, автор сохранён; для цели без связи с соседним спором чужой тезис не натягивается; старый репост оценивается единым pipeline по дате оригинала.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "static",
+          "ref": "w7-dispute-metrics.json",
+          "observation": "E2E на моках: спор 260 без reply-chain, «правда?» → предмет из хронологии (topic), тезис проверен, автор сохранён (attribution_ok), searches_before_verdict=1, доставка 1.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w7-dispute-metrics.json",
+          "artifact_sha256": "cf14b0b816502e49c9557be928a4231455454fb3cbf6aaf31d7ab27407e56747"
+        },
+        {
+          "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
+          "type": "test",
+          "ref": "w7-acceptance.md §2",
+          "observation": "Спор 200+ агентская часть: срез 260, recall 1.0; needs_context-лестница — S5.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/w7-acceptance.md",
+          "artifact_sha256": "9a91b54c900ba351d8ff08a2e836d8bf9602e5e46cbda30a0a43f1ce8e27995a"
+        }
+      ],
+      "note": "Живой E2E (реальный чат 200+, короткий фактчек) — постдеплой-канарейка при включении флага (20.10); живой осмотр — владельцу опционально. Живая часть — канарейка после включения flags.factcheck_pipeline_v2 при релизе (правило 20.10, PET; без отдельных согласований)."
     },
     {
       "source_id": "L00333",
