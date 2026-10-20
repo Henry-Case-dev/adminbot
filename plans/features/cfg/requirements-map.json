@@ -962,7 +962,15 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "type": "static",
+          "ref": "07cg reuse-аудит контейнера CFG-07A (M00037/L339)",
+          "observation": "Матрица Writers/Composer из SOUL-01/04/02/16 НЕ строилась второй раз: route-coverage 18 CONTRACT (шов speech_owner_block), Core байт-цел, каноны вычищены suppress-семантикой без второго слоя, L1/SOUL-06 юмор переиспользован, W3/W5 фактчека — потребитель. Закрыто самим CFG-07A — только дельта: корпус 07A-1, лестница ADR-1013-3 ×7 канонов, Writer-контракт Direct, rejected_note, nostalgia-гард, словарь честности 07CG. В 07C-G-хвост прописаны: egress-guard на outbound (07C.1-.6), FA-*/MB-10/11/12 детекторы, bounded retry, fail-soft, 07D.5-.7, 07A.1 live-хвост за release-слотом.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-07a/07cg-reuse-audit.md",
+          "artifact_sha256": "b2f8f0ae4d3ed7d7087f58418be25aac584f397c873445f212a07ff0628ce1ff"
+        }
+      ]
     },
     {
       "source_id": "M00038",
@@ -7210,7 +7218,22 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "type": "test",
+          "ref": "07cg: test_attribution_miss_after_real_check_is_honest_refusal; test_no_claim_route_is_honest_refusal; test_search_failure_is_honest_unavailability_not_verdict; test_llm_failure_is_honest_unavailability; test_confirmed_verdict_only_from_real_check",
+          "observation": "Тест-гвард на v2-контуре фактчека (моки, без сети/LLM): при реально состоявшейся проверке честный отказ «не нашёл» проходит (атрибуционный промах ПОСЛЕ реального просмотра контекста 06G.3; no_claim после изучения контекста); при недоступности источников (AllSearchEnginesFailedException/LLMError) — честная недоступность из пулов 5.4b/5.5 БЕЗ вывода о подтверждении/опровержении (honest_failure_is_allowed = честный класс AND not overclaim AND not метаречь AND not вердикт-заявления). Positive: «Подтверждается» рендерится только из реального CheckedVerdict+EvidenceMap; без вердикта/unknown-enum заголовок не выдумывается; insufficient_evidence — честное ограничение. Каноны фактчека не тронуты (W3-фриз цел).",
+          "artifact_path": "tests/test_cfg07_egress_dictionary.py",
+          "artifact_sha256": "686f6ca74311e1f57c205f7b603b7937f8a316a513fd73ef30690e6bfebba23d"
+        },
+        {
+          "type": "test",
+          "ref": "07cg dictionary: honesty-классы + непересечение с FORBIDDEN (единый источник services/public_speech_guard.py)",
+          "observation": "Словарь honesty-классов собран из живых пулов фактчека/samples/checkup (107 фраз, identity-тест): test_unavailable_source_never_becomes_total_check — все зарегистрированные честные фразы без overclaim и backstage-формул; test_owner_canon_pools_never_flagged — 70+ владельческих канонов NEVER flag; точечные правки фраз-пулов не потребовались.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-07a/07cg-dictionary.md",
+          "artifact_sha256": "bab89d8a6cb75010b4bdc457eab9376d73b9b99cc2adf17cd19457af200b83a4"
+        }
+      ]
     },
     {
       "source_id": "L00344",
@@ -7249,7 +7272,15 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "type": "test",
+          "ref": "07cg: test_admin_question_allows_honest_capability_answer; test_metatext_blocking_does_not_replace_truth; test_checkup_admin_genre_intact; test_checkup_fallback_notice_is_honest_unavailability; test_honest_admin_tech_reference_not_blocked",
+          "observation": "Тест-гвард: прямой вопрос об устройстве (закрытый набор маркеров is_explicit_admin_context) — честное объяснение доступных возможностей из человеческих имён capability (direct_capabilities.CAPABILITY_LABELS) проходит словарь целиком; backstage-объяснение («согласно внутреннему промпту, аналитик подтянул, по инструкции») флагается, честное — нет: блокировка метаречи не подменяет правду. Админ-жанр checkup («логи/сервер» в содержательном контексте) и честный факт фолбэка (CHECKUP_FALLBACK_NOTICE без bracket-машинного синтаксиса) целы и не флагаются.",
+          "artifact_path": "tests/test_cfg07_egress_dictionary.py",
+          "artifact_sha256": "686f6ca74311e1f57c205f7b603b7937f8a316a513fd73ef30690e6bfebba23d"
+        }
+      ]
     },
     {
       "source_id": "L00346",
@@ -7591,7 +7622,15 @@
       "live_required": true,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "type": "test",
+          "ref": "07cg: test_humor_pools_have_no_backstage_direction; test_humor_on_renders_clean_layer; test_humor_gate_off_renders_nothing; test_humor_owner_toggle_off_disables_layer; test_allowed_sarcasm_not_removed",
+          "observation": "Тест-гвард humor-пулов: при юморе ON слой приёма рендерится и чист от «сейчас сделаю смешно/разбор подъехал/как вы просили/аналитик подтянул/в моей справке» (0 LLM); при OFF (ось gates и toggle владельца humor.craft.enabled=false) слой не рендерится с честным skip_reason; 5 техник + рамка («Не объясняй шутку и не называй приём») + Personality Core без backstage-режиссуры; допустимый сарказм не удалён (Core «язвительность/непристойный юмор», deadpan, честный слив Direct, жанр checkup). Инженерная часть; live-глазами владельца — опционально по plans/owner_live_checks.md (standing rule, не блокер).",
+          "artifact_path": "tests/test_cfg07_egress_dictionary.py",
+          "artifact_sha256": "686f6ca74311e1f57c205f7b603b7937f8a316a513fd73ef30690e6bfebba23d"
+        }
+      ]
     },
     {
       "source_id": "L00377",
@@ -7606,7 +7645,15 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "type": "test",
+          "ref": "07cg: test_total_verification_claim_detected (×4); test_bounded_check_phrases_not_overclaim (×5); test_unavailable_source_never_becomes_total_check; test_honest_admin_tech_reference_not_blocked; test_checkup_fallback_notice_is_honest_unavailability",
+          "observation": "Тест-гвард: closed-set паттернов claims_total_verification ловит «я проверил всё в интернете/весь интернет/перерыл всю паутину», НЕ ловит «проверил — не нашёл подтверждений», «нашёл подтверждение в двух источниках», «проверил по трём ссылкам»; все 107 фраз honesty-классов без overclaim и backstage-формул (structural disjoint); метаречь-гард не блокирует честную техническую справку администратору (честный факт фолбэка Betterstack/локальные логи — чист).",
+          "artifact_path": "tests/test_cfg07_egress_dictionary.py",
+          "artifact_sha256": "686f6ca74311e1f57c205f7b603b7937f8a316a513fd73ef30690e6bfebba23d"
+        }
+      ]
     },
     {
       "source_id": "L00378",
