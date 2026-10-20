@@ -2,7 +2,7 @@
   "schema": "openworkflow-coverage-v1",
   "source_path": "C:\\Code\\Python\\adminbot\\plans\\features\\add-exp\\source-add-exp-2026-10-19.md",
   "source_sha256": "2a7d0c0297dc56591396372d86c4176d3b64924e2e75194e45fd33c2052f7d9f",
-  "candidate_commit": "95d11472b9e533b554554918e3efa6b42125260b",
+  "candidate_commit": "1b23d4c9beb1544169f51781c2c8a45e8797f719",
   "deployed_commit": "95d11472b9e533b554554918e3efa6b42125260b",
   "strict_evidence": false,
   "slice_graph_path": "",
@@ -437,6 +437,14 @@
           "observation": "ADD-EXP выполнен в очереди SOUL-1/CFG-07/Speech UX без прерывания выполняемых лейнов; requirements-map не обнулялся (29 required + 8 context сохранены); после ревью — штатный деплой-слот Ф6.",
           "artifact_path": "plans/features/add-exp/prep-add-exp.md",
           "artifact_sha256": "62e3a018faf70774709c35472a9530740382e61e2286be6f12127f033aafd37f"
+        },
+        {
+          "candidate_commit": "1b23d4c9beb1544169f51781c2c8a45e8797f719",
+          "type": "static",
+          "ref": "REVIEW-25898 + fix-r1.md + cfg-06-build-plan.md",
+          "observation": "Очередь продолжается автоматически: релиз-цепочка 2.58.98 (R1-фикс `1b23d4c9` → перерезка леджера → recheck → bump → deploy); CFG-06 бриф готов (plan-гейт EXIT 0, inventory 246), план CFG-07A/B/C готовится; ни одна операция не прерывалась.",
+          "artifact_path": "plans/features/cfg/cfg-06-build-plan.md",
+          "artifact_sha256": "a57e488d1bd1da23d038da7b36c48acad534ca74cfeb213e87b3a8743cc7c7eb"
         }
       ]
     },
@@ -446,13 +454,13 @@
       "source_text_sha256": "1322f90e55401bf1c463635580cf05b445420ec77392f3c467a790ee8bce50d9",
       "source_excerpt": "**Критерий завершения:** «Мат: часто» действительно меняет типичные ответы бота, «эпизодически» даёт редкий, но наблюдаемый мат, «без мата» запрещает его в собственных высказываниях; все режимы реальн",
       "disposition": "required",
-      "reason": "FAILED at acceptance-96: источник §4 требует реального изменения речи. Live: off 0/5 — PASS; occasional 0/7 (с добором 0/7) при требовании >0 — FAIL; frequent 0/7 (0/9 с follow-up) при требовании ≥50%, ≥2× occasional, ≥3 контекста — FAIL; model_ignored_instruction N=9. Wire-слой доставлен, но поведенческий критерий не достигнут. Follow-up F1 (операционный триггер/текст) и F4 (disjoint-пробы + полная матрица) запланированы; parent не DONE.",
+      "reason": "FAILED at acceptance-96 (2.58.96): off 0/5 PASS; occasional 0/7, frequent 0/7 — модель игнорировала прежние инструкции (model_ignored_instruction N=9). Владелец 20.10 заменил тексты директив (F3: точные формулировки, без счётчиков/обязательных вставок) и отменил жанровые исключения (P0 UNIFIED-CORE): Expression подключён во все пользовательские маршруты (кандидат v2 `1b23d4c9`). Поведенческий критерий §4 вживую НЕ заявляется: off-prod eval на deepseek-v4-flash честно false (frequent_majority=false, occasional_lt_frequent=false). Postdeploy-чек: повтор F4-матрицы (evidence/f4/harness) на выкаченном 2.58.98; DevOps ставит VERIFIED/FAILED честно; откат — PREV-лестница ADR-1013-3.",
       "req_id": "EXP-ACCEPT.CRITERION",
       "slice": "EXP-ACCEPT",
       "acceptance": "«Часто» действительно меняет типичные ответы бота, «эпизодически» даёт редкий, но наблюдаемый мат, «без мата» запрещает мат в собственных высказываниях; все режимы реально доходят до production LLM, а не только существуют в форме и предпросмотре.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "FAILED",
+      "status": "READY_FOR_LIVE",
       "evidence": [
         {
           "candidate_commit": "4a09e29a62488b204acea7f821b81fa31dd91e0e",
@@ -485,10 +493,34 @@
           "artifact_path": "plans/features/add-exp/evidence/release-25896/acceptance/runs/verify.out",
           "artifact_sha256": "1428948b13df00be506f2257eaa8398789112a2283b51b171a145a687cb0075e",
           "type": "production"
+        },
+        {
+          "candidate_commit": "1b23d4c9beb1544169f51781c2c8a45e8797f719",
+          "type": "static",
+          "ref": "directives-fix/eval.json + green-exact.txt (F3, владелец 20.10)",
+          "observation": "F3-тексты директив байт-в-байт = формулировки владельца (green-exact сверка); off-prod eval 10×3 на deepseek-v4-flash ПОСЛЕ новых текстов: acceptance=false ЧЕСТНО (frequent_majority=false, occasional_lt_frequent=false) — поведенческий критерий §4 на predeploy не заявляется, остаётся postdeploy-проверкой.",
+          "artifact_path": "plans/features/add-exp/evidence/directives-fix/eval.json",
+          "artifact_sha256": "ad4ea17de53e41fe8bb62545da585230fae6dced5f86f8c0f56f5ab013064344"
+        },
+        {
+          "candidate_commit": "1b23d4c9beb1544169f51781c2c8a45e8797f719",
+          "type": "static",
+          "ref": "evidence/unified-core/README.md §критерии 1–7 + 16 traces",
+          "observation": "Payload-доказательство доставки: все 8 пользовательских маршрутов (Direct/Initiative/Nostalgia/Factcheck×2/Summary×2/Checkup/Search/YouTube/Web) несут Core+<Expression_Settings> с байт-точными режимами; 4 внутренних процесса чисты; механика доставки до production LLM подтверждена трассами, живое поведение — за F4-матрицей на выкаченном 2.58.98.",
+          "artifact_path": "plans/features/add-exp/evidence/unified-core/README.md",
+          "artifact_sha256": "7b5837fafae275235bada373fb743abfd147fdbc0100fd688c00aad671597477"
+        },
+        {
+          "candidate_commit": "1b23d4c9beb1544169f51781c2c8a45e8797f719",
+          "type": "static",
+          "ref": "fix-r1.md (R1-цикл ревью REVIEW-25898)",
+          "observation": "Кандидат v2 `1b23d4c9`: R1 закрыл 18 новых failures (ассерты под сознательные владельческие изменения + FACTORY_SET_SHA256_12 5bca81487001→64ec1c60e278 по контракту factory_set_fingerprint); полный pytest 12f/14632p/7err = паритет базы, 0 новых failures.",
+          "artifact_path": "plans/features/add-exp/evidence/unified-core/fix-r1.md",
+          "artifact_sha256": "562d645b04ccf97dd577eb0c2e4490f3c51d8816b0f9ea78aae7d31cf3f831b2"
         }
       ],
-      "live_note": "FAILED at acceptance-96 (2.58.96): off PASS, occasional/frequent 0 мата; F1/F4 recheck обязателен, после него эвиденс приёмки недействителен и матрицу нужно прогнать заново.",
-      "note": "behavioral criterion FAILED at acceptance-96; source §4 not met. Follow-up F1/F4 planned; не закрывать по факту доставки слоя. F2 (few-shot owner approval) — опциональный вход, не Human Gate."
+      "live_note": "READY_FOR_LIVE (v2 `1b23d4c9`): predeploy-половина закрыта — F3-тексты байт-точны, payload-трассы 16 маршрутов подтверждают доставку Expression до LLM; живое поведение — обязательная F4-матрица на выкаченном 2.58.98 (off/occasional/frequent, те же пороги §4); прежний FAILED acceptance-96 сохранён в истории честно.",
+      "note": "behavioral criterion FAILED at acceptance-96 (преждние тексты); F3+UNIFIED-CORE переписали слой инструкций; §4 проверяется только живой F4-матрицей postdeploy; не закрывать по факту доставки слоя. F2 (few-shot owner approval) — опциональный вход, не Human Gate."
     }
   ],
   "items": [
@@ -840,9 +872,17 @@
           "artifact_path": "plans/features/add-exp/evidence/release-25896/acceptance/checksums.json",
           "artifact_sha256": "d361a2bf5ab5e2b23598e1a7c56f0ec356494db31a147cc507d8bbf133ae9711",
           "type": "static"
+        },
+        {
+          "candidate_commit": "1b23d4c9beb1544169f51781c2c8a45e8797f719",
+          "type": "static",
+          "ref": "fix-r1.md + evidence/unified-core/README.md (v2)",
+          "observation": "Кандидат v2 (UNIFIED-CORE+F3): тексты инструкций заменены на точные владельческие — набор 27+7 acceptance-96 выполнен на ПРЕЖНИХ текстах и для новых не показатель; обязательный postdeploy — повтор F4-матрицы на выкаченном 2.58.98 (7 контекстов, 20–30 проб); predeploy: 16 payload-трасс подтверждают доставку трёх режимов во все маршруты; поведенческое различие predeploy НЕ заявляется.",
+          "artifact_path": "plans/features/add-exp/evidence/unified-core/fix-r1.md",
+          "artifact_sha256": "562d645b04ccf97dd577eb0c2e4490f3c51d8816b0f9ea78aae7d31cf3f831b2"
         }
       ],
-      "live_note": "Закрыто ACCEPTANCE-96 как факт выполнения набора 27+7; поведенческое различие режимов не заявлено — EXP-ACCEPT.CRITERION FAILED.",
+      "live_note": "Закрыто ACCEPTANCE-96 как факт выполнения набора 27+7 (прежние тексты); поведенческое различие режимов не заявлено — EXP-ACCEPT.CRITERION (теперь READY_FOR_LIVE). v2: набор будет повторён F4-матрицей на 2.58.98, т.к. тексты директив изменены владельцем.",
       "note": "ACCEPTANCE-96: набор 27+7 выполнен; 7-я occasional-проба — дубль `occasional-04-everyday`; строка закрывает факт выполнения набора, не поведенческий критерий (CRITERION FAILED)."
     },
     {
@@ -882,6 +922,14 @@
           "artifact_path": "plans/features/add-exp/evidence/release-25896/acceptance/routes.json",
           "artifact_sha256": "4647674798de8779b8adbca1710f5e2eddf231370cd08c4dbb22d29315a99303",
           "type": "production"
+        },
+        {
+          "candidate_commit": "1b23d4c9beb1544169f51781c2c8a45e8797f719",
+          "type": "test",
+          "ref": "tests/test_unified_core_route_coverage.py (18 CONTRACT, v2)",
+          "observation": "v2: payload-матрица 8 пользовательских + 4 внутренних маршрутов; off/per-chat override/hot-apply; изоляция per-chat=off в трассах (trace-per-chat-off); GLOBAL-резолв и hot-apply покрыты; A/B-изоляция wire-механики (acceptance-96 follow-up) не менялась и остаётся в силе.",
+          "artifact_path": "tests/test_unified_core_route_coverage.py",
+          "artifact_sha256": "e4f85188c3c6f78aae7b6725ab20e18857688598b90784a8c0f81bbfee2c5534"
         }
       ],
       "live_note": "Закрыто live ACCEPTANCE-96 (2.58.96, follow-up): A=frequent/B=off одновременно; wire-строки 2/2 у каждого, B 0/2 мата; preview==resolve; reread; без рестарта. Main isolation=PARTIAL раскрыт.",
@@ -924,6 +972,14 @@
           "artifact_path": "plans/features/add-exp/evidence/release-25896/acceptance/routes.json",
           "artifact_sha256": "4647674798de8779b8adbca1710f5e2eddf231370cd08c4dbb22d29315a99303",
           "type": "production"
+        },
+        {
+          "candidate_commit": "1b23d4c9beb1544169f51781c2c8a45e8797f719",
+          "type": "ui",
+          "ref": "web/api/speech.py EXPRESSION_CONTROLS/EXPRESSION_NOTES (v2, F3)",
+          "observation": "v2: человекочитаемые описания режимов = точные тексты владельца (F3), жанровая оговорка «сводки не переписываются» убрана из UI-прозы (P0: исключения отменены); API сверяется с константой автотестом (test_add_exp_expression.py:615); механика preview==resolve и runtime_wired не менялась (acceptance-96 в силе).",
+          "artifact_path": "web/api/speech.py",
+          "artifact_sha256": "265b3adce1a35063ae1cc1687c68743c97495a8aeb85d70e7577f0de3b905f99"
         }
       ],
       "note": "ACCEPTANCE-96: preview собран тем же путём/моделью, не симуляция; effective state и человекочитаемые описания подтверждены."
@@ -957,6 +1013,14 @@
           "artifact_path": "plans/features/add-exp/review-accept-96.md",
           "artifact_sha256": "64d8e995f876cb69d38abce0bb2a5b3f037f4b29777d4986afa8a00a15f749fe",
           "type": "static"
+        },
+        {
+          "candidate_commit": "1b23d4c9beb1544169f51781c2c8a45e8797f719",
+          "type": "static",
+          "ref": "evidence/unified-core/review-25898.md (REVIEW-25898) + fix-r1.md",
+          "observation": "v2-цикл: независимое ревью REVIEW-25898 вердило NEEDS FIXES (2 блокера: 18 новых failures тестов + неперерезанный леджер); блокер 1 закрыт R1 (`1b23d4c9`: полный pytest 12f/14632p/7err = паритет базы, 0 новых); блокер 2 закрыт этой перерезкой карты; recheck по дельте R1+ledger запланирован перед релизом.",
+          "artifact_path": "plans/features/add-exp/evidence/unified-core/review-25898.md",
+          "artifact_sha256": "949bdf3555a58e352e8a927cb98f8867d08efe041a3604c16772459bdf80f5a4"
         }
       ],
       "note": "ACCEPTANCE-96: независимое ревью проведено (`review-accept-96.md`, Needs Fixes по критерию §4); REVIEW-строка закрывает факт ревью, не отменяет FAILED критерия."
