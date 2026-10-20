@@ -1,0 +1,9 @@
+REL-258102 frozen fingerprint
+pre-bump HEAD (git): 6388899de5d9fa0033e1a9d8acbbca83ed504b49 (candidate commit itself; no docs-ledger on top this time)
+candidate code line (brief): 6388899de5d9fa0033e1a9d8acbbca83ed504b49 (CFG-07A F1 payload-level custom_clean scope, 7 non-factcheck canon keys; review Approved REV-CFG07A-F1)
+factory fingerprint: 037080375ac8 unchanged (brief acceptance)
+post-bump sha256_12:
+  config/settings.py: 9f92ac34a0f1
+  README.md: 18b711d98af5
+  plans/docs/param-registry-round1025.meta.md: 61e1b40693ee
+Final candidate fingerprint is fixed by the orchestrator bump commit (--only 31 files).

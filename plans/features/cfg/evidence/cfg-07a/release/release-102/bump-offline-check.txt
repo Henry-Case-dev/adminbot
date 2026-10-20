@@ -1,0 +1,22 @@
+REL-258102 bump offline check (procedure of pkg-101; bump-scope)
+  [PASS] settings APP_VERSION == 2.58.102
+  [PASS] settings no stale 2.58.101 pin
+  [PASS] README has v2.58.102
+  [PASS] README no stale v2.58.101
+  [PASS] F8-meta APP_VERSION 2.58.102
+  [PASS] F8-meta HEAD 6388899d
+  [PASS] F8-meta no stale 2.58.101/211a8c1b
+  [PASS] F8-meta catalog counters unchanged 582/171 (REGISTRY untouched by CFG-07A F1 bump)
+  [PASS] delta set == 31 expected
+  [PASS] bump set == procedure-101 set
+  [PASS] bump set disjoint from factcheck/06G.3/foreign guard
+  [PASS] changed-line-pairs == 33 (version+HEAD only, no resanctions/catalog deltas)
+  [PASS] delta DDL of bump set == 0
+  [PASS] release-to-release DDL == 0 (schema stays v37)
+  [PASS] factory fingerprint 037080375ac8 unchanged (runtime == constant)
+  [PASS] import config.settings -> 2.58.102
+candidate HEAD (pre-bump; candidate is HEAD itself): 6388899de5d9fa0033e1a9d8acbbca83ed504b49
+candidate code line: 6388899de5d9fa0033e1a9d8acbbca83ed504b49
+factory fingerprint: 037080375ac8 (probe rc=0, live='037080375ac8 037080375ac8', registry file in delta: False)
+bump files: 31; line pairs: 33; foreign uncommitted: 6
+OFFLINE CHECK: EXIT 0

@@ -7153,7 +7153,7 @@
       "acceptance": "Фактический effective payload прослежен (Character/Personality Core→style policy→юмор/мат→каналы→вербализатор→validator→postprocess→Telegram); env-флаги и релизы SOUL-1 на проде и код до/после юмора проверены; «Core уже включён» не утверждается без подтверждения.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "211a8c1bdb992b30f90046b8bc1146a564f0b5dd",
@@ -7162,6 +7162,14 @@
           "observation": "Постдеплой-проверка 07A-1.final: эффективная трасса payload на deployed 2.58.101 после выката (технически невозможна до деплоя); откат — PREV-лестница без git; наблюдение метатекста в живых ответах — владельцу опционально (owner_live_checks 2/7, не блокер).",
           "artifact_path": "plans/features/cfg/evidence/cfg-07a/07a2-summary.md",
           "artifact_sha256": "34b3725ed2a9c06d90c815272e906fb889b9c6ac96e91ce47d9271690be7b5fa"
+        },
+        {
+          "candidate_commit": "a3535b68a3220f5a239ed7df3eb1a24f1e1d0873",
+          "type": "production",
+          "ref": "deploy-258102 (release-102/deploy.md + deploy.json) read-only PG probe + resolve_speech_value shim",
+          "observation": "Постдеплой 2.58.102: PG-байты 7 кастомов 7/7 UNCHANGED (== пре-деплой снимку 2.58.101); effective payload 7/7 — чистый заводской канон БЕЗ маркеров SF-семейства; материальный факт: кастомы удержаны провенанс-гейтом SOUL-AMD (withheld=True, provenance_missing) — правки владельца НЕ в effective (состояние не изменилось с 2.58.101, не дефект F1); F1-ветка suppress(custom_clean) на реальных байтах applied 7/7 с ожидаемыми labels — гарантия attested-пути работает. Активация кастомов — добровольное решение владельца (OQ-15, не блокер).",
+          "artifact_path": "plans/features/samples-ux/evidence/release/deploy.md",
+          "artifact_sha256": "1c12cad7327da1c3be3c42d85bb02d973db412ef0c2ea6481c10b20d30381159"
         }
       ]
     },
