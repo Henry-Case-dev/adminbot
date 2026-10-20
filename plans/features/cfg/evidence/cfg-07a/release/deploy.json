@@ -1,0 +1,106 @@
+{
+  "schema": "deploy-evidence-v1",
+  "lane": "DEVOPS-DEPLOY-258101",
+  "version": "2.58.101",
+  "feature": "CFG-07A-2 anti-backstage canons (7 non-factcheck) + release bump",
+  "deploy_source": "origin/master",
+  "immutable_commit_deploy": true,
+  "mutable_worktree_required": false,
+  "review": {
+    "doc": "plans/features/cfg/evidence/cfg-07a/release/review-rel.md",
+    "verdict": "Approved",
+    "code_candidate_commit": "211a8c1bdb992b30f90046b8bc1146a564f0b5dd",
+    "train_bump_commit": "3b83da92486a3149d1094f6e48ce2ef93abdd9e2",
+    "head_docs_commit": "e3c61445deabd4cdd4366bc205712f9325c88ac3"
+  },
+  "deployed_commit": "e3c61445deabd4cdd4366bc205712f9325c88ac3",
+  "rollback_boundary_ref": "origin/release/fix-2.58.100",
+  "rollback_boundary_commit": "acc285d77d03c7adbf5527dc7f0fa9e9904fed8e",
+  "t0_epoch": 1792509676,
+  "t0_utc": "2026-10-20T15:21:16Z",
+  "restart_rc": 0,
+  "service": {
+    "main_pid": 4033927,
+    "nrestarts": 0,
+    "active_state": "active",
+    "sub_state": "running",
+    "exec_main_start_utc": "2026-10-20T15:21:38Z",
+    "exec_main_status": 0
+  },
+  "healthz": {
+    "loopback": "200 {\"status\":\"ok\",\"version\":\"2.58.101\"}",
+    "external_https": "200 {\"status\":\"ok\",\"version\":\"2.58.101\"}",
+    "web_route": 200,
+    "served_app_js_sha256_12": "db8457cafa9b"
+  },
+  "delta": {
+    "base_commit": "acc285d77d03c7adbf5527dc7f0fa9e9904fed8e",
+    "total_files": 82,
+    "runtime_files": 13,
+    "ddl_files": 0,
+    "ddl_note": "user_version=37 remains; [database] migrations pending=[] complete 0.0s",
+    "other_nonstd": 0,
+    "disk_hashes_match_candidate": "16/16 (13 runtime + README + database.py + web/app.js)"
+  },
+  "prompt_canons_07a2": {
+    "ladder_markers_in_prompt_migrations": 21,
+    "factory_set_sha256_12": "037080375ac8",
+    "rollback_fn_present": true,
+    "rollback_applied": false,
+    "migration_journal_errors": 0,
+    "keys_updated": 0,
+    "keys_custom_preserved": 7,
+    "keys_already_new": 0,
+    "effective_payload_trace": {
+      "method": "read-only venv asyncpg SELECT bot_settings + difflib vs deployed PREV_*_CFG07A",
+      "result": "7/7 keys are a single systematic owner-custom edit of a shared phrase block (len=PREV-35); none equal new canon or PREV; ladder intentionally does not touch owner custom",
+      "pg_sha256_12": {
+        "prompts.direct_chat_system_prompt": "cf404931f84c",
+        "prompts.summary_system_prompt": "d697b0745b29",
+        "prompts.checkup_system_prompt": "1e8a3c69cf7b",
+        "prompts.search_system_prompt": "ba43fb679db6",
+        "prompts.youtube_system_prompt": "e0a1ffaf18a1",
+        "prompts.youtube_video_system_prompt": "c8bba06ec6a8",
+        "prompts.webpage_system_prompt": "7801085b6ef5"
+      }
+    },
+    "cfg_07a_1_status": "NOT_VERIFIED_BY_DEPLOY_EVIDENCE: effective payloads unchanged (owner-custom protected); final verdict belongs to Reviewer/Orchestrator"
+  },
+  "err_since_t0": 0,
+  "runtime_warnings_since_t0": 0,
+  "release_gate": {
+    "map": "plans/features/cfg/requirements-map.json",
+    "stage": "release",
+    "inventory": 246,
+    "runs": [
+      {"candidate": "e3c61445…", "deployed": "e3c61445…", "exit": 1, "errors": 453, "note": "candidate mismatch: map bound to 211a8c1b + open waves/legacy bindings"},
+      {"candidate": "211a8c1b…", "deployed": "e3c61445…", "exit": 1, "errors": 443, "note": "whole-CFG open-feature map (ADD-0.x PENDING, 07C-G open-plan, legacy candidate bindings)"}
+    ],
+    "classification": "structurally red open-feature map, precedent deploy-258100; train does not claim feature DONE; release verdict = Orchestrator/Reviewer per review-rel §3 + this trace"
+  },
+  "telegram_messages_sent": 0,
+  "deploy_mechanics_fixes": [
+    "chown nik:developers for 22 root-owned plans/ artifacts (blocked checkout; service runs as root, docs ownership irrelevant to behavior)",
+    "removed 18 untracked collision files (07A-2 evidence previously hand-placed, now tracked; sha256 logged in main101-run.txt pre-removal)",
+    "rin-owned plans/ dir (2775 group-writable) left untouched"
+  ],
+  "rollback_commands_no_secrets": [
+    "git -C /var/www/admin_bot checkout -f acc285d77d03c7adbf5527dc7f0fa9e9904fed8e",
+    "sudo systemctl restart admin_bot",
+    "curl -s https://admin-bot.duckdns.org/healthz  # expect 2.58.100"
+  ],
+  "rollback_state": "ready, not applied; DDL/data unchanged so cold rollback is lossless; repeat deploy idempotent",
+  "ssh": {
+    "login_user": "nik",
+    "connects_total": 8,
+    "min_pause_sec": 70,
+    "fail2ban_incidents": 0
+  },
+  "scratch": "OPENCODE_WORKFLOW_SCRATCH/deploy-258101/",
+  "evidence_files": [
+    "plans/features/cfg/evidence/cfg-07a/release/deploy.md",
+    "plans/features/cfg/evidence/cfg-07a/release/deploy.json"
+  ],
+  "deployed_at_utc": "2026-10-20T15:21:16Z",
+  "verified_at_utc": "2026-10-20T15:31:38Z"
+}
