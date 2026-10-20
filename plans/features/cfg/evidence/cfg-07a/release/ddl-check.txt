@@ -1,0 +1,13 @@
+REL-258101 delta-DDL-check (brief PKG-101: delta DDL = 0; canon edits without DDL)
+
+A) Bump-set DDL perimeter (strict: services/database.py, scripts/,
+   services/chat_migration.py, services/config_migrations.py, services/prompt_migrations.py):
+   Bump files in perimeter: NONE (0 files)
+   Verdict A: delta DDL of the bump package = 0 (expected 0; != 0 => STOP per brief).
+
+B) Release-to-release DDL (2.58.100 -> 2.58.101) - expected NONE:
+   CFG-07A-2 is prompt-canon work (FROZEN bytes + PREV_*_CFG07A ladder);
+   SQLite schema stays at v37 already deployed with 2.58.100 (samples-ux).
+   [ PASS ] schema constant still 37 (_SCHEMA_VERSION_HUMOR_SAMPLES = 37)
+   [ PASS ] services/database.py NOT in working-tree delta
+   => no DevOps migration notice required for this release.

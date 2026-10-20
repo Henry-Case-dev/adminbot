@@ -7153,8 +7153,17 @@
       "acceptance": "Фактический effective payload прослежен (Character/Personality Core→style policy→юмор/мат→каналы→вербализатор→validator→postprocess→Telegram); env-флаги и релизы SOUL-1 на проде и код до/после юмора проверены; «Core уже включён» не утверждается без подтверждения.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "211a8c1bdb992b30f90046b8bc1146a564f0b5dd",
+          "type": "plan",
+          "ref": "plans/features/cfg/evidence/cfg-07a/07a2-summary.md (раздел 2, строка 07A-1.final)",
+          "observation": "Постдеплой-проверка 07A-1.final: эффективная трасса payload на deployed 2.58.101 после выката (технически невозможна до деплоя); откат — PREV-лестница без git; наблюдение метатекста в живых ответах — владельцу опционально (owner_live_checks 2/7, не блокер).",
+          "artifact_path": "plans/features/cfg/evidence/cfg-07a/07a2-summary.md",
+          "artifact_sha256": "34b3725ed2a9c06d90c815272e906fb889b9c6ac96e91ce47d9271690be7b5fa"
+        }
+      ]
     },
     {
       "source_id": "L00342",

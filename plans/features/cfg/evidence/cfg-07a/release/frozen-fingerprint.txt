@@ -1,0 +1,8 @@
+REL-258101 frozen fingerprint
+pre-bump HEAD (git): 3be137ab7b24f06e229a28cd5db552f3a17d1938
+candidate code line (brief): 211a8c1bdb992b30f90046b8bc1146a564f0b5dd (CFG-07A-2 anti-backstage contract, 7 non-factcheck canons; review Approved REV-CFG07A2; ledger 3be137ab)
+post-bump sha256_12:
+  config/settings.py: a8039862a0b5
+  README.md: 80461d794865
+  plans/docs/param-registry-round1025.meta.md: e02ff49ce77f
+Final candidate fingerprint is fixed by the orchestrator bump commit (--only 31 files).
