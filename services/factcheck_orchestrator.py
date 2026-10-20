@@ -132,7 +132,10 @@ class CheckedVerdict:
     gate_version: str | None = None      # служебное: НЕ идёт в Presentation
     fallback_used: bool = False
     cache_hit: bool = False
-    already_delivered: bool = False      # cache-hit ветка ответила сама
+    already_delivered: bool = False      # предохранитель двойной доставки:
+                                         # True → шов ниже пропускает рендер/
+                                         # доставку (кеш-хит идёт общим
+                                         # потоком — однократно)
 
 
 @dataclasses.dataclass(frozen=True)
@@ -261,7 +264,7 @@ def _guard_outbound(text: str, *, where: str,
                    res.repaired, chat_id)
     try:
         from services import temporal_factcheck as tf
-        tf.stage_event("egress_guard", "flagged",
+        tf.stage_event("egress_guard", "failed",
                        reason_code=",".join(res.findings)[:120],
                        chat_id=chat_id)
     except Exception:      # события не рвут доставку
@@ -526,7 +529,8 @@ async def _run_inner(req: FactcheckRequest, *, service, db, bot, cache) -> None:
     # (bold-вердикт по enum CheckedVerdict, структура, ссылки ТОЛЬКО из
     # EvidenceMap текущего прогона); entity-safe доставка через
     # СУЩЕСТВУЮЩИЙ send_chunked_reply(parse_mode=...), plain-деградация.
-    # Cache-hit ветка уже ответила сама — renderer не нужен.
+    # already_delivered — предохранитель двойной доставки; кеш-хит
+    # доставляется через ОБЩИЙ поток (renderer+delivery) однократно (W6).
     if not verdict.already_delivered:
         from services.factcheck_renderer import (
             deliver_factcheck,

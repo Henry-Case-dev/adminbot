@@ -2362,7 +2362,7 @@ class ToolRouter:
                        "repaired=%s", ",".join(g.findings), g.repaired)
         try:
             from services import temporal_factcheck as tf
-            tf.stage_event("egress_guard", "flagged",
+            tf.stage_event("egress_guard", "failed",
                            reason_code=",".join(g.findings)[:120])
         except Exception:      # события не рвут tool-ответ
             pass

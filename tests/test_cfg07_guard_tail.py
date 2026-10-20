@@ -570,3 +570,74 @@ class TestOffParity:
         assert pipeline_v2_enabled() is False
         import handlers.factcheck as hfc
         assert hfc._pipeline_v2_enabled() is False
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# 6. Телеметрия guard-флага: stage_event с валидным outcome
+#    (B1 review-07cg-tail: "flagged" ∉ ALL_OUTCOMES → build_event → None —
+#    событие egress_guard молча терялось; теперь outcome="failed",
+#    level=WARN → терминальное событие попадает в durable-буфер)
+# ════════════════════════════════════════════════════════════════════════════
+
+class TestGuardTelemetry:
+    def test_outbound_flag_emits_valid_outcome_event(self, monkeypatch):
+        """B1: срабатывание guard'а на outbound-шве → эмиттер получает
+        egress_guard-событие с валидным outcome, build_event не None."""
+        from services import mca_events
+        seen: list = []
+
+        def spy(event_name, *, outcome, **fields):
+            seen.append((event_name, outcome, fields))
+            built = mca_events.build_event(event_name, outcome=outcome,
+                                           **fields)
+            assert built is not None, f"event dropped: outcome={outcome!r}"
+            return built
+
+        monkeypatch.setattr(mca_events, "emit_mca_event", spy)
+        guarded = _guard_outbound(DIRTY_VERDICT, where="unit", chat_id=1)
+        assert guarded != DIRTY_VERDICT            # guard-флаг сработал
+        assert len(seen) == 1
+        event_name, outcome, fields = seen[0]
+        assert event_name == "factcheck_temporal"
+        assert outcome == "failed"
+        assert outcome in mca_events.ALL_OUTCOMES  # валидный outcome
+        assert fields.get("stage") == "egress_guard"
+        assert fields.get("level") == "WARN"       # WARN+terminal → durable
+
+    @pytest.mark.asyncio
+    async def test_tool_flag_emits_valid_outcome_event(self, monkeypatch,
+                                                       tool_db, v2_on):
+        """Та же телеметрическая нога на tool-шве: egress_guard-событие
+        доходит до эмиттера с валидным outcome (не теряется в build_event)."""
+        from services import mca_events
+        seen: list = []
+
+        def spy(event_name, *, outcome, **fields):
+            seen.append((event_name, outcome, fields))
+            return mca_events.build_event(event_name, outcome=outcome,
+                                          **fields)
+
+        monkeypatch.setattr(mca_events, "emit_mca_event", spy)
+        _patch_tool_gate(monkeypatch)
+        _FakeToolService.verdict_text = DIRTY_TOOL_VERDICT
+        payload = await _dispatch_tool(tool_db)
+        assert payload["status"] == "ready"        # guard: ремонт, не срыв
+        guard_events = [e for e in seen
+                        if e[2].get("stage") == "egress_guard"]
+        assert len(guard_events) == 1
+        event_name, outcome, _fields = guard_events[0]
+        assert event_name == "factcheck_temporal"
+        assert outcome == "failed"
+        assert outcome in mca_events.ALL_OUTCOMES
+
+    def test_build_event_failed_outcome_not_none(self):
+        """Рантайм-проба словаря контракта: outcome="failed" валиден →
+        build_event возвращает событие (базовая причина бага B1)."""
+        from services import mca_events
+        event = mca_events.build_event(
+            "factcheck_temporal", outcome="failed", level="WARN",
+            component="factcheck.temporal", stage="egress_guard",
+            reason_code="provider_unavailable")
+        assert event is not None
+        assert event["outcome"] == "failed"
+        assert event["stage"] == "egress_guard"
