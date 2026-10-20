@@ -1,0 +1,160 @@
+{
+  "lane": "CFG-07B-V",
+  "mode": "read-only validation of REUSED base, evidence-only write",
+  "candidate": {
+    "sha": "1b23d4c9beb1544169f51781c2c8a45e8797f719",
+    "label": "v2 = UNIFIED-CORE 37097f7c + R1-fix (REL-25898)",
+    "worktree_code_equals_candidate": true,
+    "worktree_note": "HEAD == 1b23d4c9; modified files in tree are plans/docs only (mca-17c evidence, add-exp requirements-map, asap8 reconciliation, workflow_state) — code identical to candidate"
+  },
+  "focused_run": {
+    "command": "py -3 -m pytest tests/test_unified_core_route_coverage.py tests/test_add_exp_expression.py -q",
+    "result": "54 passed, 3 warnings, 0 failed (3.93s)",
+    "collect": {"test_unified_core_route_coverage.py": 18, "test_add_exp_expression.py": 36},
+    "key_subset": {
+      "filter": "factory_defaults or byte_parity_with_expression_off or owner_exact_texts or migration_read_alias or route or off_mode or hot_apply or diag_classes or no_profanity_postprocessor",
+      "result": "23 passed, 31 deselected, 0 failed"
+    },
+    "fix_r1_crossref": "fix-r1.md: same focused set 328 passed; full pytest 12f/14632p/1s/7err = base parity (all failures pre-existing/env, attributed)"
+  },
+  "counts": {"REUSED": 9, "REUSED_OFFLINE_LIVE_OWNER": 1, "PARTIAL": 1, "OPEN": 0, "total_rows": 11},
+  "rows": [
+    {
+      "row": "CFG-07B.1",
+      "source_req": "source-cfg-addendum.md L354 п.1 (переключатель «Использовать мат», factory ON, GLOBAL/CHAT override, видимый источник, сброс наследования)",
+      "map_item": "L00354",
+      "reused_evidence": {
+        "file": "web/api/speech.py",
+        "anchor": "EXPRESSION_CONTROLS L84–158: control profanity L120–140, режимы inherit/off/occasional/frequent, effect-тексты F3; factory ON = occasional: services/mca_expression.py:49–51 EXPRESSION_FACTORY_DEFAULTS; runtime_wired: True speech.py:877",
+        "test": "test_factory_defaults_inject_core_and_occasional (route-coverage:478), test_global_payload_explicit_effective_and_no_inherit (add-exp:589), test_chat_scope_inherit_label_isolation_and_reset (add-exp:618)",
+        "verdict": "REUSED"
+      },
+      "note": "Размещение: фактический путь «Речь и характер» → раздел «Выражение» (speech.py:1817), не «Стиль письма». Оговорка плана §6.1 подтверждена и закрыта позднейшим решением владельца (F3-тексты 20.10, UI доставлен, live-чеклист owner_live_checks.md §2)."
+    },
+    {
+      "row": "CFG-07B.2",
+      "source_req": "L355 п.2 (отдельное эффективное правило profanity_use/аналогичный тип, без несогласованных MAT_ENABLED/SWEAR_ENABLED, одно согласованное изменение registry/schema/UI/persistence/migrations/Inspector/runtime)",
+      "map_item": "L00355",
+      "reused_evidence": {
+        "file": "services/mca_expression.py",
+        "anchor": "EXPRESSION_ALIASES {\"allowed\": \"occasional\"} :36; normalize_mode read-alias :184–188; expression_migration :250–256, потребитель web/api/speech.py:818; проекция ON/OFF задокументирована plans/features/add-exp/design-add-exp.md:59 (ADD-1.E1: второй storage/рендер запрещены); git grep MAT_ENABLED|SWEAR_ENABLED @1b23d4c9 = 0 совпадений",
+        "test": "test_migration_read_alias_keeps_data_and_never_frequent (add-exp:163), test_modes_are_closed_set_and_allowed_is_read_alias (add-exp:113), test_allowed_alias_write_is_canonical_and_keeps_history (add-exp:645)",
+        "verdict": "REUSED"
+      }
+    },
+    {
+      "row": "CFG-07B.3",
+      "source_req": "L356 п.3 (ON = недвусмысленное требование естественного мата; OFF = без нового мата в авторских фразах, цитаты/URL/машинные данные дословно)",
+      "map_item": "L00356",
+      "reused_evidence": {
+        "file": "services/mca_expression.py",
+        "anchor": "PROFANITY_INSTRUCTIONS :72–83 — тексты владельца F3 байт-в-байт (off «Не используй мат в собственной речи.», occasional «Иногда используй мат…», frequent «Матерись свободно и регулярно…»); EXPRESSION_HEADER :112–122 — «дословные цитаты и чужой текст передаются как есть»",
+        "test": "test_owner_exact_texts_are_canon (add-exp:215), test_instruction_texts_byte_exact_and_distinct (add-exp:186), test_core_and_canon_byte_parity_with_expression_off (add-exp:375)",
+        "verdict": "REUSED"
+      }
+    },
+    {
+      "row": "CFG-07B.4",
+      "source_req": "L357 п.4 (интенсивность без оверинженеринга; уровень только при необходимости; без матерного слова в каждой фразе и искусственных вставок)",
+      "map_item": "L00357",
+      "reused_evidence": {
+        "file": "services/mca_expression.py",
+        "anchor": "закрытый сет режимов EXPRESSION_MODES/EXPRESSION_CONTROL_VALUES + normalize_mode :184–188 (уровень «умеренно/жёстко» не введён); комментарий F3 :66–70 — счётчики реплик, обязательные вставки, рандом и постпроцессор отсутствуют (EXP-INSTR.NOPOST)",
+        "test": "test_no_mechanical_counters_or_forced_inserts (add-exp:239), test_no_profanity_postprocessor_exists (add-exp:774), test_modes_are_closed_set_and_allowed_is_read_alias (add-exp:113)",
+        "verdict": "REUSED"
+      }
+    },
+    {
+      "row": "CFG-07B.5",
+      "source_req": "L358 п.5 (приоритеты: смысл/факты/цитаты/формат/безопасность выше стиля; машинные промпты/JSON/поисковые запросы/цитаты/ссылки — правило не действует; Direct/Factcheck/Initiative — действует)",
+      "map_item": "L00358",
+      "reused_evidence": {
+        "file": "services/mca_expression.py",
+        "anchor": "EXPRESSION_HEADER :112–122 — единое правило P0 на всю пользовательскую речь (включая фактчек, сводки, подписи, служебные ответы) + строки приоритета; машинные стадии нейтральны",
+        "test": "test_header_unified_rule_p0 (add-exp:252), test_factcheck_machine_plan_has_no_expression_and_no_examples (add-exp:395), test_machine_writers_keep_profile_reason_not_expression_defect (add-exp:353), test_checkup_tool_loop_without_chat_id_stays_neutral (route-coverage:324), test_style_policy_neither_removes_nor_inserts_profanity (add-exp:413)",
+        "verdict": "REUSED"
+      }
+    },
+    {
+      "row": "CFG-07B.6",
+      "source_req": "L359 п.6 (global ON + chat OFF точечный; сброс override → наследование; без рестарта; отражение в effective payload; работает с новой речью, включая fallback)",
+      "map_item": "L00359",
+      "reused_evidence": {
+        "file": "services/mca_expression.py",
+        "anchor": "resolve_effective chat→global→factory :213–247 (source в каждом контроле); hot-apply через те же resolve-пути, что и Direct (speech_owner_block docstring prompt_composer.py:740–752); effective payload — 16 трасс plans/features/add-exp/evidence/unified-core/trace-*.txt",
+        "test": "test_effective_per_control_merge_chat_global_factory (add-exp:133), test_hot_apply_changes_payload_without_restart (route-coverage:452), route-coverage 18 CONTRACT (fallback/checkup/search/youtube/web получают блок)",
+        "verdict": "REUSED"
+      }
+    },
+    {
+      "row": "CFG-07B.7",
+      "source_req": "L360 п.7 (честная hard/soft семантика: ON = сильная генеративная инструкция + измерение/bounded retry «если это оправдано», НЕ постпроцессор; OFF = контролируемое отсутствие + проверка цитат)",
+      "map_item": "L00360",
+      "reused_evidence": {
+        "file": "services/mca_expression.py",
+        "anchor": "frequent-директива :78–82 (сильная генеративная инструкция); постпроцессорной вставки нет (тесты); счётчики отменены владельцем 20.10 — не возвращать; harness eval: plans/features/add-exp/evidence/directives-fix/harness/eval_directives.py + eval.json",
+        "test": "test_no_mechanical_counters_or_forced_inserts (add-exp:239), test_no_profanity_postprocessor_exists (add-exp:774), test_classify_expression_response_is_honest_about_single_probe (add-exp:508)",
+        "verdict": "REUSED + AGENT_CHECK (измерение)"
+      },
+      "note": "Остаток AGENT_CHECK, не гейт: решение о bounded retry — только при систематической стерильности по офлайн-eval. Observation: eval.json записан на базе 19a235ea (F3-fix); тексты PROFANITY_INSTRUCTIONS байт-совпадают с v2 (сверено с README directives-fix), EXPRESSION_HEADER с тех пор эволюционировал (C1/C8/C16 UNIFIED-CORE) и закреплён байт-тестами."
+    },
+    {
+      "row": "CFG-07B.8",
+      "source_req": "L361 п.8 (Inspector: какое правило реально подмешано, applied/exempted/failed; в журнал без приватных текстов; понятные тексты UI)",
+      "map_item": "L00361",
+      "reused_evidence": {
+        "file": "services/mca_expression.py",
+        "anchor": "EXPRESSION_DIAG_CLASSES :144–147 — closed set из 6 классов; emit_expression_diag :449; _DIAG_EVENT_SHAPE :152–159 (только коды/числа, R17 dedup, без приватных текстов); Inspector: per-control effective+source в payload speech.py:818, live-check эндпоинт, UI без сырых кодов",
+        "test": "test_diag_classes_closed_set_and_r17_dedup (add-exp:432), test_composer_excluded_diag_fires_for_expression_skip (add-exp:463), test_fallback_adapter_marker_loss_reports_policy_not_injected (add-exp:488), test_live_check_endpoint_honest_paths (add-exp:673), test_live_check_class_reports_missing_marker (add-exp:726), test_ui_renders_payload_not_raw_codes (add-exp:756), test_ui_shows_expression_register_label_not_raw_code (add-exp:1048)",
+        "verdict": "REUSED"
+      }
+    },
+    {
+      "row": "ADD-1.C4",
+      "source_req": "L00033 (ADD-1.C4: SOUL-1 сохраняет заданную манеру, factory ON, OFF не портит цитаты)",
+      "map_item": "L00033",
+      "reused_evidence": {
+        "file": "services/mca_expression.py",
+        "anchor": "покрыт 07B.1 (factory ON = occasional, :49–51) + 07B.3 (frequent-директива сохраняет манеру, :78–82) + OFF-цитаты",
+        "test": "test_factory_defaults_inject_core_and_occasional (route-coverage:478), test_owner_exact_texts_are_canon (add-exp:215), test_core_and_canon_byte_parity_with_expression_off (add-exp:375)",
+        "verdict": "REUSED"
+      }
+    },
+    {
+      "row": "CFG-07D.3",
+      "source_req": "L378 (acceptance: ON-регистр в перепалках / OFF-чистота / per-chat override, наследование, hot-reload, fallback — независимо)",
+      "map_item": "L00378",
+      "reused_evidence": {
+        "file": "plans/features/add-exp/evidence/directives-fix/",
+        "anchor": "офлайн: eval.json, red-exact.txt, green-exact.txt, disjoint-check.json, budget.json, harness/eval_directives.py (все присутствуют в кандидате); изоляция/наследование/hot-reload/fallback — тесты 07B.6; live-набор — plans/owner_live_checks.md §2 (подтверждён в кандидате)",
+        "test": "test_effective_per_control_merge_chat_global_factory, test_hot_apply_changes_payload_without_restart, test_chat_scope_inherit_label_isolation_and_reset + route-coverage fallback",
+        "verdict": "REUSED_OFFLINE (live → владельцу, не блокер)"
+      }
+    },
+    {
+      "row": "CFG-07D.4",
+      "source_req": "L379 (защищённые цитаты с матом, URL, код, JSON, научные термины, финансовые/числовые значения, HTML: стилизация не портит, мат не внедряется в машинные стадии)",
+      "map_item": "L00379",
+      "reused_evidence": {
+        "file": "tests/test_add_exp_expression.py",
+        "anchor": "test_style_policy_neither_removes_nor_inserts_profanity :413–427 (стилизация сохраняет счёт мата 2==2, _delivered_payload не режет, RULE_KINDS без profanity); byte-parity OFF :375; tool-loop neutral (route-coverage:324); машинный план фактчека без expression :395; style-examples quotes_verbatim/trailing_protected speech.py:183–189",
+        "test": "перечислено в anchor; консолидированного спан-прогона URL/код/JSON/научные термины/числа/HTML нет (grep @1b23d4c9 — единого теста не существует)",
+        "verdict": "PARTIAL"
+      },
+      "note": "Остаток честно перечислен и естественно закрывается acceptance 07C-G egress-guard («факты/ссылки/имена/цитаты/числа не меняет», 07D.5) — новый тест в 07B-V не заводился (скоуп лейна — evidence-only, код/тесты не менять)."
+    }
+  ],
+  "observations": [
+    "Число тестов: план и бриф называют «30 тестов test_add_exp_expression.py», фактически collected 36 (32 функции, часть параметризована) — расхождение вверх, покрытие больше заявленного.",
+    "plans/features/add-exp/evidence/directives-fix/README.md содержит исторический (pre-UNIFIED-CORE, база 19a235ea) текст EXPRESSION_HEADER — это зафиксированное evidence F3-фикса, а не дрейф кода; текущий канон закреплён test_owner_exact_texts_are_canon и test_design_canonical_strings_match_module.",
+    "Registry-указатель из fix-r1 (checkup_service.py:59→71) относится к CHECKUP_FALLBACK_NOTICE; якорь speech_owner_block checkup_service.py:67 подтверждён независимо и не двигался.",
+    "UI-ярлык в owner_live_checks.md §2 («Речь» → «Как выражаться») и фактический заголовок раздела «Выражение» (speech.py:1817) внутри экрана «Речь и характер» — одна и та же доставленная точка управления; противоречия семантике нет.",
+    "Полный pytest fix-r1 (12f/14632p/7err) — parity с базой 99f5672c; фокусированный прогон этого лейна (54 passed) согласуется."
+  ],
+  "remains": {
+    "07A-2": "стык P0-заголовка Expression и жанровых исключений фактчека (план §6.7, тест в 07A-2); словарь метатекста/fail-soft",
+    "07C-G": "консолидированная защита спанов URL/код/JSON/термины/числа/HTML на точке outbound (остаток 07D.4) + весь egress-guard 07C.1–.6/07D.5–.7",
+    "owner_live": "07D.3 live-набор (owner_live_checks.md §2) — опционально, не блокер",
+    "agent_check": "07B.7 измерение: bounded retry только при систематической стерильности по офлайн-eval; механические счётчики отменены владельцем"
+  }
+}
