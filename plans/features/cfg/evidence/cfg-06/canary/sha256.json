@@ -1,0 +1,17 @@
+{
+ "generated": "2026-10-20",
+ "deployed_sha": "7142ffcf",
+ "code_note": "прогоны на локальном дереве 29b91004 = 7142ffcf + samples-ux; фактчек-файлы байт-равны 7142ffcf (git diff --stat 7142ffcf HEAD по 8 фактчек-файлам пуст)",
+ "flag": "FACTCHECK_PIPELINE_V2_ENABLED=true (env тест-контура)",
+ "paid_runs": 2,
+ "llm_calls_total": 5,
+ "search_calls_total": 4,
+ "artifacts": {
+  "run-g1.json": "43f627cf7b77226777365bd92b326f2741d26e1aa38c683d4d6cb7b892726b52",
+  "run-g4.json": "5a341963cff922c7faf3d1722aa813a29ce60469feb7f2d218b15f3ae88ec332",
+  "run-e4.json": "3198186bffe11ee619d9055249b54944c7f8a646981b22385c0f4d61fd008a84",
+  "preflight.json": "16e602c6449f3f4212b225648720b0168a993f1a252e6c5234212902c7cad042",
+  "trace-g1.md": "89001da6d47c452191441438297ce1daa545ef16eb4a6c689715aa6cb0ca6546",
+  "trace-g4.md": "f126c00f76ab22ce8fed40044361ed13a60eacf27c34af0a15f3399c28d85f3b"
+ }
+}

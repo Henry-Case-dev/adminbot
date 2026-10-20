@@ -3,7 +3,7 @@
   "source_path": "C:\\Code\\Python\\adminbot\\plans\\features\\cfg\\source-cfg-addendum.md",
   "source_sha256": "2ed43009e1533eca218be419409870ebbe85f82d85262ff2335dfa2ce36e6b10",
   "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
-  "deployed_commit": "99f5672c5e1d27e957100395a13178fef929b035",
+  "deployed_commit": "7142ffcf47ce4667cf22113c56881d3f1abb29a2",
   "strict_evidence": true,
   "slice_graph_path": "slice-graph.json",
   "additional_requirements": [
@@ -5745,9 +5745,9 @@
       "req_id": "CFG-06E.4",
       "slice": "CFG-06",
       "acceptance": "send_chunked_reply реально передаёт parse_mode=HTML или валидные MessageEntity; chunks не рвут сущности, Unicode, ссылки и теги, не дублируют библиографию; на непредусмотренном клиенте — безопасная текстовая деградация; reply-to не ломается.",
-      "live_required": true,
+      "live_required": false,
       "live_when": "preprod",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
@@ -5764,9 +5764,17 @@
           "observation": "36 CONTRACT: entity-safe чанки, доставка, OFF-паритет (handler renderer не импортирует).",
           "artifact_path": "tests/test_factcheck_renderer_cfg06.py",
           "artifact_sha256": "010a5db803f0635340a7f28b0de862a97321021267103db397db06d4708952d4"
+        },
+        {
+          "candidate_commit": "7142ffcf47ce4667cf22113c56881d3f1abb29a2",
+          "type": "production",
+          "ref": "canary/README.md §06E.4 + run-e4.json (мок Telegram, тест-контур)",
+          "observation": "send_chunked_reply HTML: 4 варианта — длинный 6358 симв → 2 чанка ≤4096 с целыми тегами, Unicode/combining сохранены, ссылка ровно 1 раз (& экранирован), библиография не дублируется, reply только у первой; пустой evidence → честное ограничение; перегруженный HTML → всё экранировано, javascript:-href нет; TelegramBadRequest → только сломанный чанк в plain.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/canary/README.md",
+          "artifact_sha256": "065630656560c485a5290580b5e07c1b6b1ec0448d41762484aba176595eb2b5"
         }
       ],
-      "note": "Живая проверка рендера в реальном Telegram (мобильный/десктоп, кликабельные ссылки) — канарейка при включении флага (20.10); осмотр на устройствах — владельцу опционально. Живая часть — канарейка после включения flags.factcheck_pipeline_v2 при релизе (правило 20.10, PET; без отдельных согласований)."
+      "note": "Живая проверка рендера в реальном Telegram (мобильный/десктоп, кликабельные ссылки) — канарейка при включении флага (20.10); осмотр на устройствах — владельцу опционально. Живая часть — канарейка после включения flags.factcheck_pipeline_v2 при релизе (правило 20.10, PET; без отдельных согласований). | Канарейка 20.10 на deployed 2.58.99 @ 7142ffcf (флаг ON): PASS → VERIFIED."
     },
     {
       "source_id": "L00264",
@@ -5889,9 +5897,9 @@
       "req_id": "CFG-06F.1",
       "slice": "CFG-06",
       "acceptance": "На каждый run хранится stage trace (target_resolve→…→Telegram delivery), фактические tool calls, статусы, стоимость и причины деградации; пользователю — результат, администратору в админке — проверяемые причины и структура без секретов и приватных текстов.",
-      "live_required": true,
+      "live_required": false,
       "live_when": "preprod",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
@@ -5908,9 +5916,17 @@
           "observation": "6 CONTRACT: контур/метрики/бюджеты.",
           "artifact_path": "tests/test_factcheck_w6_cfg06.py",
           "artifact_sha256": "cc5f99edf6fd196b43e45c2c04ac249edf8ee9e6d44c5cf8990da381a41554c9"
+        },
+        {
+          "candidate_commit": "7142ffcf47ce4667cf22113c56881d3f1abb29a2",
+          "type": "production",
+          "ref": "canary/trace-g1.md + trace-g4.md + mca-события",
+          "observation": "Stage trace полная на обоих прогонах: target_resolve→suitability→plan→retrieval→evidence_validate→analyst/verdict→presentation→render→delivery; фактические tool calls с латентностями, статусы, стоимость, причины деградаций (2×too_many_bytes, bounded retry attempts=2); mca-события factcheck_run/safe_fetch + logger-дайджест; user-payload чист (no_service_markers/no_admin_tokens=True).",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/canary/README.md",
+          "artifact_sha256": "065630656560c485a5290580b5e07c1b6b1ec0448d41762484aba176595eb2b5"
         }
       ],
-      "note": "Живое наблюдение трассы в админке/логах на реальном прогоне — канарейка при включении флага (20.10). Живая часть — канарейка после включения flags.factcheck_pipeline_v2 при релизе (правило 20.10, PET; без отдельных согласований)."
+      "note": "Живое наблюдение трассы в админке/логах на реальном прогоне — канарейка при включении флага (20.10). Живая часть — канарейка после включения flags.factcheck_pipeline_v2 при релизе (правило 20.10, PET; без отдельных согласований). | Канарейка 20.10 на deployed 2.58.99 @ 7142ffcf (флаг ON): PASS → VERIFIED."
     },
     {
       "source_id": "L00273",
@@ -6082,9 +6098,9 @@
       "req_id": "CFG-06G.1",
       "slice": "CFG-06",
       "acceptance": "Биологический спор: атомарные тезисы выделены, запросы осмысленны (включая Saccharomyces boulardii), реальные источники проверены; корректная часть отличается от ошибочной; короткий аргументированный ответ со ссылками без насмешки по инерции.",
-      "live_required": true,
+      "live_required": false,
       "live_when": "preprod",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
@@ -6101,9 +6117,17 @@
           "observation": "Атомизация/запросы/источники доказаны волнами (корпус W2 + planner W4); отдельного Saccharomyces-кейса не было — добавлен (REGRESSION, офлайн).",
           "artifact_path": "plans/features/cfg/evidence/cfg-06/w7-acceptance.md",
           "artifact_sha256": "9a91b54c900ba351d8ff08a2e836d8bf9602e5e46cbda30a0a43f1ce8e27995a"
+        },
+        {
+          "candidate_commit": "7142ffcf47ce4667cf22113c56881d3f1abb29a2",
+          "type": "production",
+          "ref": "canary/README.md §06G.1 + run-g1.json + trace-g1.md",
+          "observation": "Saccharomyces boulardii на deployed v2 (флаг ON): атомарный тезис; запрос entity_check с сохранённым биноменом (не дословный слайс); реальный Tavily ok 3.9с, EvidenceMap 4 refs с URL; вердикт отделил корректное (дрожжи=грибы, эффект работает) от ошибочного (ложная причинность «поэтому» — выделена); payload HTML 2135 симв, 2 href из EvidenceMap, служебных полей нет.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/canary/README.md",
+          "artifact_sha256": "065630656560c485a5290580b5e07c1b6b1ec0448d41762484aba176595eb2b5"
         }
       ],
-      "note": "Агентская часть полная (вкл. Saccharomyces). Живой биологический спор в реальном чате с реальным вебом — канарейка при включении флага (20.10). Живая часть — канарейка после включения flags.factcheck_pipeline_v2 при релизе (правило 20.10, PET; без отдельных согласований)."
+      "note": "Агентская часть полная (вкл. Saccharomyces). Живой биологический спор в реальном чате с реальным вебом — канарейка при включении флага (20.10). Живая часть — канарейка после включения flags.factcheck_pipeline_v2 при релизе (правило 20.10, PET; без отдельных согласований). | Канарейка 20.10 на deployed 2.58.99 @ 7142ffcf (флаг ON): PASS → VERIFIED."
     },
     {
       "source_id": "L00282",
@@ -6172,9 +6196,9 @@
       "req_id": "CFG-06G.4",
       "slice": "CFG-06",
       "acceptance": "Новость/дата/статистика: реальный веб-вызов с осмысленным запросом, релевантная выдача, проверка публикации, inline-ссылки на фактически использованные источники; при недоступности веба — без самоуверенного подтверждения.",
-      "live_required": true,
+      "live_required": false,
       "live_when": "preprod",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
@@ -6191,9 +6215,17 @@
           "observation": "Механика на моках: parse title/snippet/url + primary fetch + parse_publication_date.",
           "artifact_path": "plans/features/cfg/evidence/cfg-06/w4-notes.md",
           "artifact_sha256": "6312a08c28d765fee10280e0f60f92b11291c647b35397d7bfe353e376de0dc0"
+        },
+        {
+          "candidate_commit": "7142ffcf47ce4667cf22113c56881d3f1abb29a2",
+          "type": "production",
+          "ref": "canary/README.md §06G.4 + run-g4.json + trace-g4.md",
+          "observation": "Новость/дата/статистика (население 8 млрд 15.11.2022): 3 реальных поиска Tavily с 3 разными интентами (entity/numeric/temporal); релевантная выдача (Wikipedia/ООН); 2 primary-fetch ok, parse_publication_date честно не нашёл дату → published_at=None (дат не выдумано); 2 inline-href из EvidenceMap; честная оговорка про прогнозную веху ООН.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-06/canary/README.md",
+          "artifact_sha256": "065630656560c485a5290580b5e07c1b6b1ec0448d41762484aba176595eb2b5"
         }
       ],
-      "note": "Реальный веб-вызов (платный canary с реальными движками) — при включении флага (20.10); недоступность веба → S3 (без самоуверенного подтверждения). Живая часть — канарейка после включения flags.factcheck_pipeline_v2 при релизе (правило 20.10, PET; без отдельных согласований)."
+      "note": "Реальный веб-вызов (платный canary с реальными движками) — при включении флага (20.10); недоступность веба → S3 (без самоуверенного подтверждения). Живая часть — канарейка после включения flags.factcheck_pipeline_v2 при релизе (правило 20.10, PET; без отдельных согласований). | Канарейка 20.10 на deployed 2.58.99 @ 7142ffcf (флаг ON): PASS → VERIFIED."
     },
     {
       "source_id": "L00285",

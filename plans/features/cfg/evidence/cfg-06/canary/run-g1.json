@@ -1,0 +1,212 @@
+{
+ "claim": "дрожжи — это грибы, а не бактерии, поэтому пробиотики с Saccharomyces boulardii восстанавливают микрофлору после антибиотиков",
+ "wall_seconds": 35.19,
+ "orchestrator_error": null,
+ "sent": [
+  {
+   "chat_id": -100999000701,
+   "text": "• Так, разбираем этот кухонный микро-спор. Первое: дрожжи - грибы. Не бактерии, не \"какая-то плесень\", не что-то среднее. Saccharomyces boulardii - именно дрожжи, и в источниках это сказано прямым текстом, без вилок и оговорок. Тут спорить не о чем, тут можно только молча кивнуть и пойти дальше. Один ноль в пользу автора тезиса.\n• Второе: S. boulardii как пробиотик действительно помогает кишечнику вернуться в более-менее рабочее состояние, сдерживает рост патогенов, применяется при нарушениях микробиоценоза на фоне антибиотикотерапии, есть данные и по диарее, и по восстановлению после неё. Тоже верно. Два ноль. А теперь момент, ради которого всё это и затевалось. Автор тезиса склеил два верных факта союзом \"поэтому\" - и вот здесь конструкция начинает скрипеть.\n• Принадлежность к дрожжам объясняет, чем S. boulardii отличается от бактериальных пробиотиков, и не более того. Из одного того факта, что перед нами гриб, а не бактерия, никак не следует, что он лечит дисбактериоз. Таксономия - это паспорт, а не трудовая книжка: в графе \"вид\" может стоять что угодно, но работать за тебя оно не пойдёт. Эффект подтверждается пробиотическими свойствами конкретного штамма и клиническими данными, а не родословной. Итоговая картина такая: фактическая база под тезисом нормальная, оба ключевых утверждения держатся, а вот причинно-следственная связка \"гриб, а не бактерия, поэтому восстанавливает микрофлору\" - это уже упрощение, местами даже бодрое натягивание совы на глобус.\n• Правильная формулировка звучит скучнее и честнее: S. boulardii - дрожжевой пробиотик, и его польза для микрофлоры, в том числе после антибиотиков, подтверждается клиническими данными. Без \"поэтому\" между таксономией и терапевтическим эффектом. Так что вердикт - в основном верно, с одной оговоркой про логику. Сорок на восемьдесят в пользу автора, но с жёлтой карточкой за причинность.\n\nИсточники:\n1. <a href=\"https://www.eurolek.com.ua/ru/blog/chto-takoe-saharomiczety-bulardi-saccharomyces-boulardii\">eurolek.com.ua</a>\n2. <a href=\"https://farmplus.com.ua/ru/miscze-saccharomyces-boulardii-sered-suchasnyh-probiotychnyh-produktiv\">farmplus.com.ua</a>",
+   "reply_to_message_id": 7000,
+   "parse_mode": "HTML"
+  }
+ ],
+ "chunk_lens": [
+  2135
+ ],
+ "aggregator_calls": [
+  {
+   "query": "дрожжи грибы бактерии поэтому пробиотики saccharomyces boulardii восстанавливают",
+   "max_symbols": 2500,
+   "ok": true,
+   "latency_s": 3.91,
+   "result_chars": 2500,
+   "urls": [
+    "https://www.eurolek.com.ua/ru/blog/chto-takoe-saharomiczety-bulardi-saccharomyces-boulardii",
+    "https://farmplus.com.ua/ru/miscze-saccharomyces-boulardii-sered-suchasnyh-probiotychnyh-produktiv"
+   ]
+  }
+ ],
+ "llm_calls": [
+  {
+   "module": "factcheck",
+   "step": "stage1",
+   "model": "deepseek-v4-flash",
+   "in_chars": 4706,
+   "in_messages": 2,
+   "ok": true,
+   "latency_s": 11.0,
+   "out_chars": 1739
+  },
+  {
+   "module": "factcheck",
+   "step": "stage2",
+   "model": "deepseek-v4-flash",
+   "in_chars": 3688,
+   "in_messages": 2,
+   "ok": true,
+   "latency_s": 6.31,
+   "out_chars": 1524
+  },
+  {
+   "module": "factcheck",
+   "step": "stage2",
+   "model": "deepseek-v4-flash",
+   "in_chars": 3803,
+   "in_messages": 3,
+   "ok": true,
+   "latency_s": 8.89,
+   "out_chars": 1865
+  }
+ ],
+ "primary_fetches": [
+  {
+   "url": "https://www.eurolek.com.ua/ru/blog/chto-takoe-saharomiczety-bulardi-saccharomyces-boulardii",
+   "ok": false,
+   "source_kind": null,
+   "published_at": null,
+   "excerpt_chars": 0
+  },
+  {
+   "url": "https://farmplus.com.ua/ru/miscze-saccharomyces-boulardii-sered-suchasnyh-probiotychnyh-produktiv",
+   "ok": false,
+   "source_kind": null,
+   "published_at": null,
+   "excerpt_chars": 0
+  }
+ ],
+ "retrieval_outcomes": [
+  {
+   "queries_attempted": 1,
+   "queries_used": 1,
+   "refs_collected": 4,
+   "fetch_errors": 2,
+   "budget_exhausted": false,
+   "planner_version": "fp1",
+   "search_text_chars": 2500,
+   "evidence_map": {
+    "allowlist": [
+     "ev-1",
+     "ev-2",
+     "ev-3",
+     "ev-4"
+    ],
+    "refs": [
+     {
+      "evidence_id": "ev-1",
+      "url": null,
+      "support": "Что такое Сахаромицеты буларди (Saccharomyces boulardii)?. Сахаромицеты буларди – одни из немногих пробиотиков, выживающих при высоких температурах. То есть их не так легко «вывести из строя». Они не просто борются с вредными бактериями, но и производят вещества, которые помогают клеткам кишечника восстанавливаться быстрее. Эти дрожжи иногда называют «экстренной пищеварительной помощью» — их эффек",
+      "source_kind": "secondary",
+      "published_at": null
+     },
+     {
+      "evidence_id": "ev-2",
+      "url": null,
+      "support": "### Как они работают?",
+      "source_kind": "secondary",
+      "published_at": null
+     },
+     {
+      "evidence_id": "ev-3",
+      "url": "https://www.eurolek.com.ua/ru/blog/chto-takoe-saharomiczety-bulardi-saccharomyces-boulardii",
+      "support": "Сахаромицеты буларди можно назвать маленькими уборщиками и охранниками. Они нейтрализуют токсины, выделяющие вредные бактерии, создают среду, неблагоприятную для патогенов, и одновременно помогают пол",
+      "source_kind": "secondary",
+      "published_at": null
+     },
+     {
+      "evidence_id": "ev-4",
+      "url": "https://farmplus.com.ua/ru/miscze-saccharomyces-boulardii-sered-suchasnyh-probiotychnyh-produktiv",
+      "support": "Saccharomyces boulardii среди современных пробиотиков. Saccharomyces boulardii отличается тем, что является дрожжами, а не бактерией: Регулирование микробного баланса, не подавляя собственные",
+      "source_kind": "secondary",
+      "published_at": null
+     }
+    ]
+   }
+  }
+ ],
+ "boot": {
+  "pipeline_v2_enabled": true,
+  "planner_enabled": true,
+  "flag_hot": null,
+  "env_flag": "true",
+  "event_contract_enabled": true,
+  "temporal_gate": true,
+  "llm_model": "deepseek-v4-flash",
+  "llm_base_url_set": true,
+  "tavily_set": true,
+  "exa_set": true
+ },
+ "offline_snapshot": {
+  "decision": {
+   "decision": "checkable_in_context",
+   "claim_type": "checkable_factual_claim",
+   "claim_items": [
+    {
+     "text": "дрожжи — это грибы, а не бактерии, поэтому пробиотики с Saccharomyces boulardii восстанавливают микрофлору после антибиотиков",
+     "verifiable": true,
+     "source": "literal"
+    }
+   ],
+   "scope": "web",
+   "reason_code": "obvious_checkable_predicate",
+   "confidence": 0.8,
+   "temporal_hint": false
+  },
+  "plan": {
+   "queries": [
+    {
+     "text": "дрожжи грибы бактерии поэтому пробиотики saccharomyces boulardii восстанавливают",
+     "intent": "entity_check",
+     "max_symbols": 2500
+    }
+   ],
+   "needs_web": true,
+   "needs_primary_fetch": true,
+   "dropped_privacy": []
+  }
+ },
+ "logs": [
+  "INFO services.factcheck_orchestrator: [factcheck_v2] retrieval plan | chat=-100999000701 | queries=1 | intents=entity_check | privacy_dropped=0",
+  "INFO services.search_aggregator: SearchAggregator: level ok | provider=tavily | latency_ms=3906 | chars=3187",
+  "INFO services.mca_events: mca_event=safe_fetch | ts=1792490783 | event_name=safe_fetch | outcome=start | level=INFO | component=safe_fetch | entity_id=www.eurolek.com.ua",
+  "ERROR services.mca_events: mca_event=safe_fetch | ts=1792490786 | event_name=safe_fetch | outcome=failed | level=ERROR | component=safe_fetch | duration_ms=3188 | stage=stream | reason_code=too_many_bytes | error_json={\"type\": \"SafeFetchError\", \"code\": \"too_many_bytes\", \"stage\": \"stream\", \"retryable\": false}",
+  "INFO services.factcheck_planner: [factcheck_planner] primary fetch failed | url=https://www.eurolek.com.ua/ru/blog/chto-takoe-saharomiczety-bulardi-saccharomyces-boulardii",
+  "INFO services.mca_events: mca_event=safe_fetch | ts=1792490786 | event_name=safe_fetch | outcome=start | level=INFO | component=safe_fetch | entity_id=farmplus.com.ua",
+  "ERROR services.mca_events: mca_event=safe_fetch | ts=1792490788 | event_name=safe_fetch | outcome=failed | level=ERROR | component=safe_fetch | duration_ms=1858 | stage=stream | reason_code=too_many_bytes | error_json={\"type\": \"SafeFetchError\", \"code\": \"too_many_bytes\", \"stage\": \"stream\", \"retryable\": false}",
+  "INFO services.factcheck_planner: [factcheck_planner] primary fetch failed | url=https://farmplus.com.ua/ru/miscze-saccharomyces-boulardii-sered-suchasnyh-probiotychnyh-produktiv",
+  "INFO services.factcheck_orchestrator: [factcheck_v2] retrieval | chat=-100999000701 | attempted=1 | used=1 | refs=4 | fetch_errors=2 | budget_exhausted=False | version=fp1",
+  "INFO services.mca_events: mca_event=factcheck_run | ts=1792490788 | event_name=factcheck_run | outcome=success | level=INFO | component=factcheck.retrieval",
+  "INFO services.llm_client: LLM request OK | url=https://apinet.cloud/v1/chat/completions | status=200 | latency_ms=10859 | in=4876 chars | out=9173 chars",
+  "INFO services.llm_client: LLM usage in=1505 out=1526",
+  "INFO services.llm_client: LLM generate OK | model=deepseek-v4-flash | out_chars=1739",
+  "INFO services.factcheck_service: factcheck LLM OK | out_chars=1739 | latency_ms=11000",
+  "INFO services.llm_client: LLM request OK | url=https://apinet.cloud/v1/chat/completions | status=200 | latency_ms=6312 | in=3834 chars | out=3959 chars",
+  "INFO services.llm_client: LLM usage in=1266 out=617",
+  "INFO services.llm_client: LLM generate OK | model=deepseek-v4-flash | out_chars=1524",
+  "INFO services.llm_client: LLM request OK | url=https://apinet.cloud/v1/chat/completions | status=200 | latency_ms=8891 | in=3984 chars | out=5388 chars",
+  "INFO services.llm_client: LLM usage in=1294 out=893",
+  "INFO services.llm_client: LLM generate OK | model=deepseek-v4-flash | out_chars=1865",
+  "INFO services.factcheck_service: factcheck system2 verbalizer | chat=-100999000701 | mode=serious | attempts=2 | retries=1 | hits=0 | fallback=False",
+  "INFO services.mca_events: mca_event=factcheck_run | ts=1792490814 | event_name=factcheck_run | outcome=success | level=INFO | component=factcheck | chat_id=-100999000701 | duration_ms=26218",
+  "INFO services.factcheck_orchestrator: [factcheck_v2] evidence map | chat=-100999000701 | refs=4 | links=2"
+ ],
+ "checks": {
+  "payload_nonempty": true,
+  "chunks_le_4096": true,
+  "parse_mode_html": true,
+  "reply_first_only": true,
+  "payload_has_links": true,
+  "hrefs_from_evidencemap_only": true,
+  "no_service_markers": true,
+  "no_admin_tokens": true,
+  "not_literal_claim_echo": true,
+  "queries_not_literal_slice": true,
+  "binomen_in_queries": true,
+  "real_search_calls": 1,
+  "evidencemap_has_real_url": true,
+  "atomic_theses_extracted": true
+ },
+ "payload_hrefs": [
+  "https://www.eurolek.com.ua/ru/blog/chto-takoe-saharomiczety-bulardi-saccharomyces-boulardii",
+  "https://farmplus.com.ua/ru/miscze-saccharomyces-boulardii-sered-suchasnyh-probiotychnyh-produktiv"
+ ]
+}

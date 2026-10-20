@@ -1,0 +1,296 @@
+{
+ "claim": "Население Земли превысило 8 миллиардов человек 15 ноября 2022 года",
+ "wall_seconds": 24.69,
+ "orchestrator_error": null,
+ "sent": [
+  {
+   "chat_id": -100999000701,
+   "text": "• Тезис верный, и это тот редкий случай, когда интернет-спор можно закрывать сразу, не дожидаясь третьего раунда. 15 ноября 2022 года - да, тот самый \"День восьми миллиардов\", о котором трубили ООН и UNFPA, и с которого отсчитывают свои обзоры все, кому не лень, включая материалы 2023-2025 годов, где население уже спокойно пляшет от 8,07 млрд. Если цифра через год-два после \"знаменательной даты\" уже выше восьми, значит рубеж таки пройден, а не привиделся.\n• Но вот в чём соль, и именно здесь любители поумничать обычно садятся в лужу. Восемь миллиардов 15 ноября 2022 года - это не результат переписи, где каждого пересчитали по головам и поставили галочку. Это прогнозная дата, рассчитанная по оценкам организации и поданная как знаковая веха.\n• То есть ООН сказала \"примерно тут, ребята, мы перевалим за восемь\", и мир послушно запомнил красивую дату. Никто не обходил планеты с блокнотиком.\n• Так что тезис подтверждается, но с оговоркой, которую стоит держать в голове: веха реальная, а вот точность до дня - условная, из разряда \"мы посчитали и решили, что символично будет так\". Спорщикам, которые трясут этой датой как абсолютной истиной, стоит напомнить про её происхождение, а тем, кто на этом основании пытается объявить её фикцией, - что рубеж в восемь миллиардов всё равно взят, и обратно уже не отмотать.\n\nИсточники:\n1. <a href=\"https://ru.wikipedia.org/wiki/%D0%9D%D0%B0%D1%81%D0%B5%D0%BB%D0%B5%D0%BD%D0%B8%D0%B5_%D0%97%D0%B5%D0%BC%D0%BB%D0%B8\">ru.wikipedia.org</a>\n2. <a href=\"https://www.tadviser.ru/index.php/%D0%A1%D1%82%D0\">tadviser.ru</a>",
+   "reply_to_message_id": 7000,
+   "parse_mode": "HTML"
+  }
+ ],
+ "chunk_lens": [
+  1562
+ ],
+ "aggregator_calls": [
+  {
+   "query": "население земли превысило миллиардов человек ноября 2022 года",
+   "max_symbols": 2500,
+   "ok": true,
+   "latency_s": 2.64,
+   "result_chars": 2500,
+   "urls": [
+    "https://ru.wikipedia.org/wiki/%D0%9D%D0%B0%D1%81%D0%B5%D0%BB%D0%B5%D0%BD%D0%B8%D0%B5_%D0%97%D0%B5%D0%BC%D0%BB%D0%B8",
+    "https://www.tadviser.ru/index.php/%D0%A1%D1%82%D0"
+   ]
+  },
+  {
+   "query": "население земли превысило миллиардов человек ноября 2022 года 8 м 15 2022 г",
+   "max_symbols": 2500,
+   "ok": true,
+   "latency_s": 1.58,
+   "result_chars": 2500,
+   "urls": [
+    "https://www.stena.ee/blog/etoj-osenyu-naselenie-zemli-prevysit-8-milliardov-chelovek-kogda-i-pochemu-mir-nachal-rasti",
+    "https://kyrgyzstan."
+   ]
+  },
+  {
+   "query": "население земли превысило миллиардов человек ноября 2022 года 2022",
+   "max_symbols": 2500,
+   "ok": true,
+   "latency_s": 1.55,
+   "result_chars": 2500,
+   "urls": [
+    "https://theworldonly.org/rost-naseleniya-zemli-6-milliardov-za-poslednie-200-let",
+    "https://ru.wikipedia.org/wiki/%D0%9D%D0%B0%D1%81%D0%B5%D0%BB%D0%B5%D0%BD%D0%B8%D0%B5_%D0%97%D0%B5%D0%BC%D0%BB%D0%B"
+   ]
+  }
+ ],
+ "llm_calls": [
+  {
+   "module": "factcheck",
+   "step": "stage1",
+   "model": "deepseek-v4-flash",
+   "in_chars": 9651,
+   "in_messages": 2,
+   "ok": true,
+   "latency_s": 9.27,
+   "out_chars": 1767
+  },
+  {
+   "module": "factcheck",
+   "step": "stage2",
+   "model": "deepseek-v4-flash",
+   "in_chars": 3068,
+   "in_messages": 2,
+   "ok": true,
+   "latency_s": 7.2,
+   "out_chars": 1315
+  }
+ ],
+ "primary_fetches": [
+  {
+   "url": "https://ru.wikipedia.org/wiki/%D0%9D%D0%B0%D1%81%D0%B5%D0%BB%D0%B5%D0%BD%D0%B8%D0%B5_%D0%97%D0%B5%D0%BC%D0%BB%D0%B8",
+   "ok": true,
+   "source_kind": "primary",
+   "published_at": null,
+   "excerpt_chars": 141
+  },
+  {
+   "url": "https://www.tadviser.ru/index.php/%D0%A1%D1%82%D0",
+   "ok": true,
+   "source_kind": "primary",
+   "published_at": null,
+   "excerpt_chars": 600
+  }
+ ],
+ "retrieval_outcomes": [
+  {
+   "queries_attempted": 3,
+   "queries_used": 3,
+   "refs_collected": 12,
+   "fetch_errors": 0,
+   "budget_exhausted": false,
+   "planner_version": "fp1",
+   "search_text_chars": 7504,
+   "evidence_map": {
+    "allowlist": [
+     "ev-1",
+     "ev-2",
+     "ev-3",
+     "ev-4",
+     "ev-5",
+     "ev-6",
+     "ev-7",
+     "ev-8",
+     "ev-9",
+     "ev-10",
+     "ev-11",
+     "ev-12"
+    ],
+    "refs": [
+     {
+      "evidence_id": "ev-1",
+      "url": "https://ru.wikipedia.org/wiki/%D0%9D%D0%B0%D1%81%D0%B5%D0%BB%D0%B5%D0%BD%D0%B8%D0%B5_%D0%97%D0%B5%D0%BC%D0%BB%D0%B8",
+      "support": "Население Земли — Википедия. 34. ↑ Население Земли превысило 8 миллиардов человек  (рус.). Коммерсантъ (15 ноября 2022). Дата обращения: 15 ноября 2022. Архивировано 15 ноября 2022 года. 35. ↑ Сколько людей жило на Земле за всю историю . Новые Известия. Дата обращения: 22 января 2016. Архивировано из оригинала 28 января 2016 года. 36. 1 2 United Nations Maintenance Page/EXCEL_FILES/1_General/WPP20",
+      "source_kind": "secondary",
+      "published_at": null
+     },
+     {
+      "evidence_id": "ev-2",
+      "url": null,
+      "support": "Население Земли. Как отмечает ООН, численность населения мира достигла 8 млрд человек в середине ноября 2022 года по сравнению с 2,5 млрд в 1950-м, прибавив 1 млрд человек с 2010 года и 2 млрд с 1998-го. Ожидается, что к 2050 году показатель достигнет 9,7 млрд, а к 2060-му — 10 млрд человек",
+      "source_kind": "secondary",
+      "published_at": null
+     },
+     {
+      "evidence_id": "ev-3",
+      "url": "https://www.tadviser.ru/index.php/%D0%A1%D1%82%D0",
+      "support": "Как развивается российский рынок систем мониторинга и управления ИТ-инфраструктурой. Обзор TAdviser 64.9 т [...] | + Численность населения   - 2025: Население Земли за год выросло на 0,85% до 8,23 млр",
+      "source_kind": "secondary",
+      "published_at": null
+     },
+     {
+      "evidence_id": "ev-4",
+      "url": null,
+      "support": "Этой осенью население Земли превысит 8 миллиардов человек! Когда и почему мир начал расти. | STENA.ee. ## Сейчас на сайте",
+      "source_kind": "secondary",
+      "published_at": null
+     },
+     {
+      "evidence_id": "ev-5",
+      "url": null,
+      "support": "На данный момент сайт просматривают 109 читателей",
+      "source_kind": "secondary",
+      "published_at": null
+     },
+     {
+      "evidence_id": "ev-6",
+      "url": null,
+      "support": "Главная » Блоги » Olleg's блог",
+      "source_kind": "secondary",
+      "published_at": null
+     },
+     {
+      "evidence_id": "ev-7",
+      "url": null,
+      "support": "# Этой осенью население Земли превысит 8 миллиардов человек! Когда и почему мир начал расти",
+      "source_kind": "secondary",
+      "published_at": null
+     },
+     {
+      "evidence_id": "ev-8",
+      "url": null,
+      "support": "Рост населения Земли: 6 миллиардов за последние 200 лет. 15 ноября 2022 года численность населения Земли достигла 8 млрд человек, об этом сообщил сайт ООН",
+      "source_kind": "secondary",
+      "published_at": null
+     },
+     {
+      "evidence_id": "ev-9",
+      "url": null,
+      "support": "Когда и почему мир начал расти читайте материал TheWorldOnly",
+      "source_kind": "secondary",
+      "published_at": null
+     },
+     {
+      "evidence_id": "ev-10",
+      "url": null,
+      "support": "### Похожее",
+      "source_kind": "secondary",
+      "published_at": null
+     },
+     {
+      "evidence_id": "ev-11",
+      "url": null,
+      "support": "In :  Мир в цифрах, Человечество",
+      "source_kind": "secondary",
+      "published_at": null
+     },
+     {
+      "evidence_id": "ev-12",
+      "url": "https://ru.wikipedia.org/wiki/%D0%9D%D0%B0%D1%81%D0%B5%D0%BB%D0%B5%D0%BD%D0%B8%D0%B5_%D0%97%D0%B5%D0%BC%D0%BB%D0%B8",
+      "support": "Please respect our robot policy https://w.wiki/4wJS when crawling us. Contact bot-traffic@wikimedia.org if you need higher volumes. (30224bb)",
+      "source_kind": "primary",
+      "published_at": null
+     }
+    ]
+   }
+  }
+ ],
+ "boot": {
+  "pipeline_v2_enabled": true,
+  "planner_enabled": true,
+  "flag_hot": null,
+  "env_flag": "true",
+  "event_contract_enabled": true,
+  "temporal_gate": true,
+  "llm_model": "deepseek-v4-flash",
+  "llm_base_url_set": true,
+  "tavily_set": true,
+  "exa_set": true
+ },
+ "offline_snapshot": {
+  "decision": {
+   "decision": "checkable_in_context",
+   "claim_type": "checkable_factual_claim",
+   "claim_items": [
+    {
+     "text": "Население Земли превысило 8 миллиардов человек 15 ноября 2022 года",
+     "verifiable": true,
+     "source": "literal"
+    }
+   ],
+   "scope": "web",
+   "reason_code": "obvious_checkable_predicate",
+   "confidence": 0.8,
+   "temporal_hint": true
+  },
+  "plan": {
+   "queries": [
+    {
+     "text": "население земли превысило миллиардов человек ноября 2022 года",
+     "intent": "entity_check",
+     "max_symbols": 2500
+    },
+    {
+     "text": "население земли превысило миллиардов человек ноября 2022 года 8 м 15 2022 г",
+     "intent": "numeric_verification",
+     "max_symbols": 2500
+    },
+    {
+     "text": "население земли превысило миллиардов человек ноября 2022 года 2022",
+     "intent": "temporal_context",
+     "max_symbols": 2500
+    }
+   ],
+   "needs_web": true,
+   "needs_primary_fetch": true,
+   "dropped_privacy": []
+  }
+ },
+ "logs": [
+  "INFO services.factcheck_orchestrator: [factcheck_v2] retrieval plan | chat=-100999000701 | queries=3 | intents=entity_check,numeric_verification,temporal_context | privacy_dropped=0",
+  "INFO services.search_aggregator: SearchAggregator: level ok | provider=tavily | latency_ms=2641 | chars=4726",
+  "INFO services.search_aggregator: SearchAggregator: level ok | provider=tavily | latency_ms=1578 | chars=7555",
+  "INFO services.search_aggregator: SearchAggregator: level ok | provider=tavily | latency_ms=1547 | chars=5318",
+  "INFO services.mca_events: mca_event=safe_fetch | ts=1792490872 | event_name=safe_fetch | outcome=start | level=INFO | component=safe_fetch | entity_id=ru.wikipedia.org",
+  "INFO services.mca_events: mca_event=safe_fetch | ts=1792490873 | event_name=safe_fetch | outcome=success | level=INFO | component=safe_fetch | duration_ms=1061",
+  "INFO services.mca_events: mca_event=safe_fetch | ts=1792490873 | event_name=safe_fetch | outcome=start | level=INFO | component=safe_fetch | entity_id=www.tadviser.ru",
+  "INFO services.mca_events: mca_event=safe_fetch | ts=1792490874 | event_name=safe_fetch | outcome=success | level=INFO | component=safe_fetch | duration_ms=1360",
+  "INFO services.factcheck_orchestrator: [factcheck_v2] retrieval | chat=-100999000701 | attempted=3 | used=3 | refs=12 | fetch_errors=0 | budget_exhausted=False | version=fp1",
+  "INFO services.mca_events: mca_event=factcheck_run | ts=1792490874 | event_name=factcheck_run | outcome=success | level=INFO | component=factcheck.retrieval",
+  "INFO services.llm_client: LLM request OK | url=https://apinet.cloud/v1/chat/completions | status=200 | latency_ms=9141 | in=9920 chars | out=4922 chars",
+  "INFO services.llm_client: LLM usage in=3244 out=869",
+  "INFO services.llm_client: LLM generate OK | model=deepseek-v4-flash | out_chars=1767",
+  "INFO services.factcheck_service: factcheck LLM OK | out_chars=1767 | latency_ms=9266",
+  "INFO services.llm_client: LLM request OK | url=https://apinet.cloud/v1/chat/completions | status=200 | latency_ms=7187 | in=3214 chars | out=3383 chars",
+  "INFO services.llm_client: LLM usage in=1115 out=512",
+  "INFO services.llm_client: LLM generate OK | model=deepseek-v4-flash | out_chars=1315",
+  "INFO services.factcheck_service: factcheck system2 verbalizer | chat=-100999000701 | mode=serious | attempts=1 | retries=0 | hits=0 | fallback=False",
+  "INFO services.mca_events: mca_event=factcheck_run | ts=1792490891 | event_name=factcheck_run | outcome=success | level=INFO | component=factcheck | chat_id=-100999000701 | duration_ms=16500",
+  "INFO services.factcheck_orchestrator: [factcheck_v2] evidence map | chat=-100999000701 | refs=12 | links=2"
+ ],
+ "checks": {
+  "payload_nonempty": true,
+  "chunks_le_4096": true,
+  "parse_mode_html": true,
+  "reply_first_only": true,
+  "payload_has_links": true,
+  "hrefs_from_evidencemap_only": true,
+  "no_service_markers": true,
+  "no_admin_tokens": true,
+  "not_literal_claim_echo": true,
+  "queries_not_literal_slice": true,
+  "distinct_intents": true,
+  "temporal_intent_present": true,
+  "real_search_calls": 3,
+  "publication_check_attempted": true,
+  "publication_date_extracted": false
+ },
+ "payload_hrefs": [
+  "https://ru.wikipedia.org/wiki/%D0%9D%D0%B0%D1%81%D0%B5%D0%BB%D0%B5%D0%BD%D0%B8%D0%B5_%D0%97%D0%B5%D0%BC%D0%BB%D0%B8",
+  "https://www.tadviser.ru/index.php/%D0%A1%D1%82%D0"
+ ]
+}
