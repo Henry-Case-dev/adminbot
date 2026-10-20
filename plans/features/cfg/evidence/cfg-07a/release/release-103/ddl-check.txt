@@ -1,0 +1,14 @@
+REL-258103 delta-DDL-check (brief PKG-103: delta DDL = 0; bump-only package)
+
+A) Bump-set DDL perimeter (strict: services/database.py, scripts/,
+   services/chat_migration.py, services/config_migrations.py, services/prompt_migrations.py):
+   Bump files in perimeter: NONE (0 files)
+   Verdict A: delta DDL of the bump package = 0 (expected 0; != 0 => STOP per brief).
+
+B) Release-to-release DDL (2.58.102 -> 2.58.103) - expected NONE:
+   PKG-103 is a version-bump package over the CFG-07CG-TAIL train (egress guard
+   f1e31d27 + B1 telemetry 8cd2ca14, both prompt/routing-level, already committed;
+   docs-ledger 79df9f5d); SQLite schema stays at v37 already deployed with 2.58.100.
+   [ PASS ] schema constant still 37 (_SCHEMA_VERSION_HUMOR_SAMPLES = 37)
+   [ PASS ] services/database.py NOT in working-tree delta
+   => no DevOps migration notice required for this release.

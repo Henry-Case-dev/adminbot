@@ -1,0 +1,9 @@
+REL-258103 frozen fingerprint
+pre-bump HEAD (git): 79df9f5dd4ddcb963ad48ef64bbcf74e584dfcb0 (docs-ledger 79df9f5d on top of B1 8cd2ca14 on top of guard f1e31d27)
+release train (brief PKG-103): 07CG-TAIL guard f1e31d27 + B1 telemetry 8cd2ca14 + docs-ledger 79df9f5d (HEAD; F8-meta HEAD stamp 79df9f5d per brief PKG-103)
+factory fingerprint: 037080375ac8 unchanged (brief acceptance)
+post-bump sha256_12:
+  config/settings.py: 61df15f9c5f4
+  README.md: c5b31ae8dd0e
+  plans/docs/param-registry-round1025.meta.md: 280e777be27b
+Final candidate fingerprint is fixed by the orchestrator bump commit (--only 31 files).

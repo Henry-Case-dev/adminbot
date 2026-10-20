@@ -1,0 +1,146 @@
+{
+  "schema": "deploy-evidence-v1",
+  "lane": "DEVOPS-DEPLOY-258103",
+  "version": "2.58.103",
+  "feature": "CFG-07C-G egress speech-guard dictionary on outbound seams (factcheck_v2 + tool_router) + CFG-07CG-TAIL/B1 guard telemetry + release bump; live recheck of CFG-07A-2 canons/ladders (07A.1 postdeploy) and 07C.6 guard telemetry",
+  "deploy_source": "origin/master",
+  "immutable_commit_deploy": true,
+  "mutable_worktree_required": false,
+  "review": {
+    "doc": "plans/features/cfg/evidence/cfg-07a/release/release-103/review-rel.md",
+    "verdict": "Approved",
+    "candidate_commit": "2a3e4fc94705cf5741a6755e6098bb9e52f3c096",
+    "train_commits": ["4d79182a", "7c3a1350", "f1e31d27", "8cd2ca14", "79df9f5d", "2a3e4fc9"],
+    "review_gate": "check --stage review --slice CFG-07A --candidate 8cd2ca14 EXIT 0 (inventory=246, scoped=12, errors=0)"
+  },
+  "deployed_commit": "2a3e4fc94705cf5741a6755e6098bb9e52f3c096",
+  "rollback_boundary_ref": "origin/release/fix-2.58.102",
+  "rollback_boundary_commit": "a3535b68a3220f5a239ed7df3eb1a24f1e1d0873",
+  "t0_epoch": 1792523372,
+  "t0_utc": "2026-10-20T19:09:32Z",
+  "restart_rc": 0,
+  "service": {
+    "main_pid": 7265,
+    "nrestarts": 0,
+    "active_state": "active",
+    "sub_state": "running",
+    "exec_main_start_utc": "2026-10-20T19:09:40Z",
+    "exec_main_status": 0
+  },
+  "healthz": {
+    "loopback": "{\"status\":\"ok\",\"version\":\"2.58.103\"} (POLL7, ~28s after T0)",
+    "external_https": "200 {\"status\":\"ok\",\"version\":\"2.58.103\"}",
+    "web_route": 200,
+    "served_app_js_sha256_12": "db8457cafa9b (unchanged control)"
+  },
+  "delta": {
+    "base_commit": "a3535b68a3220f5a239ed7df3eb1a24f1e1d0873",
+    "total_files": 65,
+    "runtime_files": [
+      "config/settings.py",
+      "services/factcheck_orchestrator.py",
+      "services/public_speech_guard.py",
+      "services/tool_router.py"
+    ],
+    "ddl_files": 0,
+    "ddl_note": "user_version=37 remains; [database] migrations pending=[] complete 0.0s on prod journal",
+    "other_nonstd": 0,
+    "disk_hashes_match_candidate": "7/7 (4 runtime + README + database.py + web/app.js controls); raw-byte sha256_12 from git cat-file blob at 2a3e4fc9"
+  },
+  "markers": {
+    "app_version_258103": 1,
+    "guard_public_text_def": 1,
+    "egress_guard_wiring": 2,
+    "guard_standalone_flagged_outcome": 0,
+    "factory_set_sha256_12": "037080375ac8",
+    "f8meta_head_79df9f5d": 1,
+    "ladders_cfg07a": 21,
+    "rollback_fn_present": true,
+    "rollback_applied": false
+  },
+  "prompt_migrations_startup": {
+    "journal_lines": 16,
+    "errors": 0,
+    "keys_updated": 0,
+    "keys_custom_preserved": 11,
+    "cfg07a_custom_chars": {
+      "prompts.direct_chat_system_prompt": 5294,
+      "prompts.summary_system_prompt": 3558,
+      "prompts.checkup_system_prompt": 2312,
+      "prompts.search_system_prompt": 2622,
+      "prompts.youtube_system_prompt": 2252,
+      "prompts.youtube_video_system_prompt": 2248,
+      "prompts.webpage_system_prompt": 2071
+    },
+    "other_customs": ["direct_chat_verbalizer 1690", "factcheck 4666", "summary_editor 2023", "summary_narrator 1850"],
+    "keys_already_new": 5
+  },
+  "payload_recheck_cfg07a_1": {
+    "method": "read-only asyncpg SELECT (7 keys + character.prompt_history) + deployed resolve_speech_value(source=global, cache=RO-shim with real provenance doc, cache.set raises)",
+    "a_stored_bytes_unchanged": "7/7 (sha256_12+len == pre-deploy recon snapshot == deploy-258102 evidence)",
+    "pg_sha256_12": {
+      "prompts.direct_chat_system_prompt": "cf404931f84c",
+      "prompts.summary_system_prompt": "d697b0745b29",
+      "prompts.checkup_system_prompt": "1e8a3c69cf7b",
+      "prompts.search_system_prompt": "ba43fb679db6",
+      "prompts.youtube_system_prompt": "e0a1ffaf18a1",
+      "prompts.youtube_video_system_prompt": "c8bba06ec6a8",
+      "prompts.webpage_system_prompt": "7801085b6ef5"
+    },
+    "set_calls": 0,
+    "b_effective": "7/7 withheld=True reason=provenance_missing -> effective = new clean factory canon (source=default); corpus markers on effective: 0/7 (sf_hits=0 incl safety-bypass/bot-abuser/peregrelis/sneer, legacy_re=0, corpus_re=0, bracket-FA-08 absent, UNCHANGED echo absent)",
+    "ladder_recognition": "suppress_legacy_speech(custom_clean=True) applied=True 7/7 (LADDER_SUPPRESS_APPLIED=7/7): deployed ladder/suppress machinery recognizes prod bytes and applies expected labels per key",
+    "c_owner_edits": "intact byte-exact in STORAGE; NOT in effective (custom withheld by pre-existing SOUL-AMD provenance gate; state identical to 2.58.101/102, code of withholding outside this train's diff, not a regression)",
+    "cfg_07a_1_status": "postdeploy recheck DONE on deployed 2a3e4fc9; effective = new clean canons, PG owner bytes untouched; map row NOT modified by DevOps; final verdict = Reviewer/Orchestrator (precedent deploy-258102)"
+  },
+  "postdeploy_07c_6_telemetry": {
+    "window": "T0 19:09:32Z .. 19:14:04Z (~4.5 min, journal 440 lines)",
+    "speech_guard_warnings": 0,
+    "egress_guard_stage_events": 0,
+    "interpretation": "guard warns/stage_events fire only on flags/incidents; zero on clean speech is the expected clean state; no factcheck traffic with flags observed in window",
+    "honest_status": "OBSERVATION CONTINUES - runtime warn-path under real flagged traffic not yet observed on prod; wiring confirmed on deployed bytes (guard_public_text def=1, egress_guard x2 seams, standalone flagged outcome=0) + review CONTRACT tests (96p incl 29 tail/telemetry)"
+  },
+  "err_since_t0": {
+    "error_level_lines": 2,
+    "detail": "19:09:33 OLD process PID 666: apscheduler SummarySchedulerService._tick CancelledError+Traceback during restart SIGTERM (one shutdown transient, two log lines)",
+    "new_process_errors": 0,
+    "classification": "restart transient of the previous process; unrelated to the delta; no rollback needed",
+    "traceback_lines": 1,
+    "prompt_mig_err": 0,
+    "runtime_warnings": 0
+  },
+  "sqlite_check": "one-shot pragma probe ImportError DB_PATH (same as deploy-258102); user_version=37 confirmed via service journal migrations start/complete",
+  "release_gate": {
+    "map": "plans/features/cfg/requirements-map.json",
+    "stage": "release",
+    "inventory": 246,
+    "runs": [
+      {"candidate": "2a3e4fc9…", "deployed": "2a3e4fc9…", "exit": 1, "errors": 460, "note": "candidate mismatch: map bound to 211a8c1b + open waves/ADD-0.x PENDING/legacy bindings; structurally red open-feature map"}
+    ],
+    "classification": "precedent deploy-258100/258101/258102; train does not claim feature DONE; release verdict = Orchestrator/Reviewer per review-rel + this trace"
+  },
+  "telegram_messages_sent": 0,
+  "rollback_commands_no_secrets": [
+    "# каноны: rollback_prompt_canons / PREV_*_CFG07A лестницы (без git, без рестарта)",
+    "git -C /var/www/admin_bot checkout -f a3535b68a3220f5a239ed7df3eb1a24f1e1d0873  # == origin/release/fix-2.58.102",
+    "sudo systemctl restart admin_bot",
+    "curl -s https://admin-bot.duckdns.org/healthz  # expect 2.58.102"
+  ],
+  "rollback_state": "ready, not applied; DDL/data unchanged (0 canon updates, 0 set-calls), cold rollback lossless; repeat deploy idempotent",
+  "ssh": {
+    "login_user": "nik",
+    "connects_total": 4,
+    "min_pause_sec": 75,
+    "fail2ban_incidents": 0,
+    "aborted_attempts": 1,
+    "abort_note": "main run #1 aborted pre-restart on defective DevOps gate GUARD_FLAGGED=3: pattern 'flagged' caught pre-existing lore_stats_recheck_flagged identifier in tool_router.py (unrelated subsystem, untouched by train); corrected to standalone '\"flagged\"' == review B1 semantics (0 on candidate, verified locally before rerun); tree auto-restored to a3535b68, service untouched, restart not performed"
+  },
+  "pre_deploy_observation": "service had been restarted at 18:42:30Z (PID 666, NRestarts=0) before this lane started; HEAD was still a3535b68 (2.58.102), tree clean - no impact, noted only",
+  "scratch": "OPENCODE_WORKFLOW_SCRATCH/deploy-258103/",
+  "evidence_files": [
+    "plans/features/cfg/evidence/cfg-07a/release/release-103/deploy.md",
+    "plans/features/cfg/evidence/cfg-07a/release/release-103/deploy.json"
+  ],
+  "deployed_at_utc": "2026-10-20T19:09:32Z",
+  "verified_at_utc": "2026-10-20T19:14:04Z"
+}

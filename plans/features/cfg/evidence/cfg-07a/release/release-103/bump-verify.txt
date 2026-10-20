@@ -1,0 +1,5 @@
+REL-258103 bump verify: every changed line differs only by version/HEAD tokens
+HEAD (pre-bump): 79df9f5dd4ddcb963ad48ef64bbcf74e584dfcb0
+release train: 07CG-TAIL guard f1e31d27 + B1 telemetry 8cd2ca14 + docs-ledger 79df9f5d (HEAD; F8-meta HEAD stamp 79df9f5d per brief PKG-103)
+files=31 changed-line-pairs=33 (expected 33)
+CHECK OK

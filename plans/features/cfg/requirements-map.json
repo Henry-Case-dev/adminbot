@@ -7224,8 +7224,17 @@
           "observation": "Кандидат v4 `8cd2ca14` (B1-телеметрия поверх 211a8c1b): фактчек-runtime байты атрибуции/канонов идентичны для этой строки; evidence действителен — привязка к фактическому reviewed-кандидату по требованию гейта.",
           "artifact_path": "plans/features/samples-ux/evidence/release/deploy.md",
           "artifact_sha256": "1c12cad7327da1c3be3c42d85bb02d973db412ef0c2ea6481c10b20d30381159"
+        },
+        {
+          "candidate_commit": "2a3e4fc94705cf5741a6755e6098bb9e52f3c096",
+          "type": "production",
+          "ref": "release-103/deploy.md §постдеплой 07A-1 (PG read-only + resolve shim)",
+          "observation": "Постдеплой 2.58.103: PG-байты владельца 7/7 UNCHANGED (== база 2.58.102); effective payload = новые чистые каноны 07A-2, маркеры корпуса 0/7 (вкл. bracket-FA-08 и UNCHANGED-эхо); лестницы распознают прод-байты 7/7 (suppress applied, ожидаемые labels). Кастомы удержаны провенанс-гейтом (withheld, состояние с 2.58.102 — не регрессия поезда); активация кастомов — добровольное решение владельца (owner_live_checks §8 / OQ-15, не блокер).",
+          "artifact_path": "plans/features/cfg/evidence/cfg-07a/release/release-103/deploy.md",
+          "artifact_sha256": "0df06c4f4bb388610146d38bb2babc35f8e48c84339e1e9e28e049594d87e8ac"
         }
-      ]
+      ],
+      "note": " | VERIFIED @ deployed 2a3e4fc9 (2.58.103), 21.10."
     },
     {
       "source_id": "L00342",

@@ -1,0 +1,5 @@
+PKG-103 bump set vs procedure-102 (pkg-102/bump_258102.py) set
+ref(102) files=31; bump(103) files=31
+ONLY IN 102: none
+ONLY IN 103: none
+SET EQUAL: YES
