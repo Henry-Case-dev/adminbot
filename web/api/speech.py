@@ -2753,8 +2753,14 @@ async def get_examples(
     x_chat_id: Annotated[str | None, Header()] = None,
     technique: Annotated[str | None, Query(max_length=64)] = None,
     status: Annotated[str | None, Query(max_length=16)] = None,
+    category: Annotated[str | None, Query(max_length=16)] = None,
 ):
-    """Раздел «Примеры»: реальная библиотека (карточки по схеме сущности W4)."""
+    """Раздел «Примеры»: реальная библиотека (карточки по схеме сущности W4).
+
+    ADD-SAMPLES-UX §1: три реальные категории (general/humor/mat; legacy —
+    только миграция, владелец переклассифицирует) читаются из ЯВНОГО поля
+    записи; §3 — tombstone-группа удалённых заводских отдаётся отдельно.
+    """
     cache, chat_id, ctx = await _access(request, user, x_chat_id)
     if not _can_view(ctx, chat_id):
         raise HTTPException(status_code=403, detail="нет доступа к речи")
@@ -2762,14 +2768,19 @@ async def get_examples(
     db = samples_lib.get_db()
     db_ok = await samples_lib.table_ready(db)
     items: list[dict] = []
+    deleted: list[dict] = []
     reason = "" if db_ok else ("db_unavailable" if db is None
                                else "schema_absent")
     if db_ok:
         try:
+            category_filter = category if category in \
+                samples_lib.SAMPLE_CATEGORY_STORAGE else None
             rows = await samples_lib.list_samples(
                 db, chat_id=chat_id, technique=technique, status=status,
-                limit=200)
+                category=category_filter, limit=200)
             items = [dict(row) for row in rows]
+            deleted = await samples_lib.list_tombstoned(db, chat_id=chat_id)
+            deleted = [dict(row) for row in deleted][:50]
         except Exception:
             logger.warning("[speech] samples list failed", exc_info=True)
             reason = "read_error"
@@ -2793,8 +2804,17 @@ async def get_examples(
                  "эталоны. В runtime уходят только утверждённые."),
         "entity_fields": [dict(f) for f in SAMPLE_ENTITY_FIELDS],
         "techniques": [dict(t) for t in SAMPLE_TECHNIQUES_UI],
-        "filters": {"technique": technique, "status": status},
+        # ADD-SAMPLES-UX §1: категории записи (ровно три для записи;
+        # legacy — служебный раздел миграции, показывается для переклассификации).
+        "categories": [
+            {"id": cat, "title": samples_lib.SAMPLE_CATEGORY_LABELS[cat]}
+            for cat in samples_lib.SAMPLE_CATEGORIES
+        ] + [{"id": "legacy",
+              "title": samples_lib.SAMPLE_CATEGORY_LABELS["legacy"]}],
+        "filters": {"technique": technique, "status": status,
+                    "category": category},
         "items": items,
+        "deleted": deleted,
         "count": len(items),
         "starter": {
             "version": samples_lib.STARTER_LIBRARY_VERSION,
@@ -2835,6 +2855,9 @@ class SampleWrite(BaseModel):
     owner_approved: bool | None = None
     status: str = Field(default="active", max_length=12)
     expected_revision: int | None = None
+    # ADD-SAMPLES-UX §1: явная категория записи и режим мата для «Мат».
+    category: str = Field(default="", max_length=16)
+    expression_mode: str = Field(default="", max_length=16)
 
 
 class SamplePolicyWrite(BaseModel):
@@ -3027,6 +3050,157 @@ async def post_examples_seed(
                      "эталонами их не считает ни runtime, ни статистика. "
                      "Набор регистра речи (12 карточек) до утверждения не "
                      "попадает в ответы — причина `not_owner_approved`.")}
+
+
+@speech_router.post("/speech/examples/restore-factory/preview")
+async def post_restore_factory_preview(
+    request: Request,
+    user: Annotated[WebAppUser, Depends(get_tma_user)],
+    x_chat_id: Annotated[str | None, Header()] = None,
+):
+    """Экран сравнения ПЕРЕД восстановлением заводских карточек (§3).
+
+    Показывает ровно те заводские карточки, чьи владельческие правки/удаления
+    будут затронуты; «Сбросить всё» никогда не является действием по
+    умолчанию — применение отдельным подтверждённым вызовом.
+    """
+    cache, chat_id, ctx = await _access(request, user, x_chat_id)
+    if not _library_can_edit(cache, user, ctx, chat_id=chat_id):
+        raise HTTPException(status_code=403,
+                            detail="нет права на правку примеров")
+    preview = await samples_lib.restore_factory_preview(
+        samples_lib.get_db(), chat_id=chat_id)
+    return {"ok": bool(preview.get("available")), **preview}
+
+
+class RestoreFactoryRequest(BaseModel):
+    """Явное подтверждение восстановления заводских редакций (§3)."""
+
+    confirm: bool = False
+
+
+@speech_router.post("/speech/examples/restore-factory")
+async def post_restore_factory_all(
+    request: Request,
+    user: Annotated[WebAppUser, Depends(get_tma_user)],
+    body: RestoreFactoryRequest,
+    x_chat_id: Annotated[str | None, Header()] = None,
+):
+    """Массовое восстановление заводских карточек (только явный confirm).
+
+    Неявных путей нет: без ``confirm=true`` — честный отказ без изменений;
+    silent-force на старте/деплое/миграциях отсутствует by design.
+    """
+    cache, chat_id, ctx = await _access(request, user, x_chat_id)
+    if not _library_can_edit(cache, user, ctx, chat_id=chat_id):
+        raise HTTPException(status_code=403,
+                            detail="нет права на правку примеров")
+    result = await samples_lib.restore_factory_all(
+        samples_lib.get_db(), chat_id=chat_id, confirm=bool(body.confirm))
+    if not body.confirm:
+        return {"ok": False, "reason": "needs_confirmation",
+                "note": "без явного подтверждения ничего не изменено",
+                **{k: v for k, v in result.items() if k != "reason"}}
+    if result.get("reason") == "db_unavailable":
+        raise HTTPException(status_code=503, detail="база недоступна")
+    return {"ok": True, **result,
+            "note": ("Восстановлены только заводские карточки из экрана "
+                     "сравнения; владельческие (не заводские) примеры не "
+                     "тронуты.")}
+
+
+@speech_router.post("/speech/examples/{sample_id}/restore-factory/preview")
+async def post_restore_factory_preview_one(
+    request: Request,
+    user: Annotated[WebAppUser, Depends(get_tma_user)],
+    sample_id: int,
+    x_chat_id: Annotated[str | None, Header()] = None,
+):
+    """Сравнение одной заводской карточки с эталоном (до восстановления)."""
+    cache, chat_id, ctx = await _access(request, user, x_chat_id)
+    if not _library_can_edit(cache, user, ctx, chat_id=chat_id):
+        raise HTTPException(status_code=403,
+                            detail="нет права на правку примеров")
+    current = await _guard_sample_chat_scope(sample_id, chat_id)
+    if not str(current.get("seed_key") or ""):
+        raise HTTPException(status_code=422, detail="пример не заводской")
+    item = samples_lib.restore_factory_preview_item(current)
+    item["factory"] = (samples_lib._factory_fields(
+        samples_lib.factory_seed_for(str(current.get("seed_key") or "")))
+        if current.get("factory_in_code") else None)
+    if not current.get("factory_in_code"):
+        item["note"] = ("исходник этой карточки отсутствует в текущей версии "
+                        "заводского набора; ваши данные сохранены")
+    return {"ok": True, "item": item}
+
+
+@speech_router.post("/speech/examples/{sample_id}/restore-factory")
+async def post_restore_factory_one(
+    request: Request,
+    user: Annotated[WebAppUser, Depends(get_tma_user)],
+    sample_id: int,
+    body: RestoreFactoryRequest,
+    x_chat_id: Annotated[str | None, Header()] = None,
+):
+    """Явно восстановить ОДИН заводской пример (подтверждение обязательно)."""
+    cache, chat_id, ctx = await _access(request, user, x_chat_id)
+    if not _library_can_edit(cache, user, ctx, chat_id=chat_id):
+        raise HTTPException(status_code=403,
+                            detail="нет права на правку примеров")
+    await _guard_sample_chat_scope(sample_id, chat_id)
+    view, reason = await samples_lib.restore_factory_sample(
+        samples_lib.get_db(), sample_id, confirm=bool(body.confirm))
+    if view is None:
+        if reason == "needs_confirmation":
+            raise HTTPException(status_code=428,
+                                detail="нужно явное подтверждение")
+        if reason == "not_found":
+            raise HTTPException(status_code=404, detail="пример не найден")
+        if reason == "not_factory":
+            raise HTTPException(status_code=422, detail="пример не заводской")
+        if reason == "factory_seed_absent":
+            raise HTTPException(
+                status_code=409,
+                detail=("исходник отсутствует в текущей заводской версии; "
+                        "ваши данные сохранены"))
+        raise HTTPException(status_code=503, detail=reason or "не сохранено")
+    return {"ok": True, "item": view,
+            "note": ("Восстановлен только этот пример; остальные карточки "
+                     "и приложение не затронуты.")}
+
+
+@speech_router.post("/speech/examples/{sample_id}/why")
+async def post_example_why(
+    request: Request,
+    user: Annotated[WebAppUser, Depends(get_tma_user)],
+    sample_id: int,
+    x_chat_id: Annotated[str | None, Header()] = None,
+):
+    """«Почему не используется? / Почему выбран?» — по конкретной карточке.
+
+    Human-readable причина из существующего детерминированного отбора и
+    effective-режима Expression; нет данных — честное «Нет данных о последнем
+    выборе» (причины не симулируются; 0 LLM-вызовов).
+    """
+    cache, chat_id, ctx = await _access(request, user, x_chat_id)
+    if not _can_view(ctx, chat_id):
+        raise HTTPException(status_code=403, detail="нет доступа к речи")
+    db = samples_lib.get_db()
+    if not await samples_lib.table_ready(db):
+        return {"ok": False, "reason": "db_unavailable",
+                "why": samples_lib.WHY_NO_DATA, "selected": False}
+    effective_mode = ""
+    try:
+        from services.prompt_composer import resolve_expression_settings
+        ref = await resolve_expression_settings(chat_id)
+        effective_mode = str(getattr(ref, "mode", "") or "")
+    except Exception:
+        logger.warning("[speech] why: effective mode resolve failed",
+                       exc_info=True)
+        effective_mode = ""
+    result = await samples_lib.why_for_sample(
+        db, chat_id=chat_id, sample_id=sample_id, effective_mode=effective_mode)
+    return {"ok": True, **result}
 
 
 @speech_router.post("/speech/examples/policy")

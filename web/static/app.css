@@ -4764,6 +4764,62 @@ html.cover-editor-open { overflow: hidden; }
 /* ═══ /SOUL-1 W6 ═══ */
 
 /* ═══════════════════════════════════════════════════════════════════════════
+   ADD-SAMPLES-UX §4 (20.10.2026): экран «Примеры» — вкладки категорий одной
+   строкой, одна колонка карточек, отдельный экран редактора. Только токены
+   и flex/grid с min-width:0; никаких фиксированных координат/высот/DPI.
+   ═══════════════════════════════════════════════════════════════════════════ */
+.speech-examples-tabs {
+  display: flex;
+  flex-wrap: nowrap;            /* §4.1.2: три вкладки одной строкой */
+  gap: 6px;
+  min-width: 0;
+}
+.speech-examples-tabs .speech-tab {
+  flex: 1 1 0;
+  min-width: 0;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.speech-examples-counters { display: flex; gap: 12px; flex-wrap: wrap; min-width: 0; }
+.speech-examples-toolbar { flex-wrap: nowrap; min-width: 0; }
+.speech-examples-toolbar .speech-examples-search { flex: 1 1 auto; min-width: 0; }
+.speech-examples-adv { min-width: 0; }
+.speech-sample-card { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.speech-sample-title {
+  display: flex; align-items: center; gap: 8px; min-width: 0;
+  cursor: pointer;
+}
+.speech-sample-title .text-sm { min-width: 0; overflow-wrap: anywhere; }
+.speech-sample-lines { cursor: pointer; min-width: 0; }
+.speech-sample-lines > div {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+.speech-sample-lines .speech-sample-input { -webkit-line-clamp: 2; color: inherit; }
+.speech-sample-lines .speech-sample-reply { -webkit-line-clamp: 3; }
+.speech-sample-caption { overflow-wrap: anywhere; min-width: 0; }
+.speech-why-btn { min-height: 36px; }
+.speech-field-full { display: block; min-width: 0; }
+.speech-field-full .speech-select,
+.speech-field-full .speech-editor { width: 100%; max-width: 100%; }
+@media (max-width: 599px) {
+  /* §4.3: на мобильном поля 100% ширины; тач-цели через .speech-screen */
+  .speech-examples-adv .speech-select { width: 100%; }
+}
+@media (min-width: 1024px) {
+  /* §4.3: desktop — ограниченный max-width читаемого контента
+     (только экран «Примеры»; другие разделы не затронуты). */
+  .speech-examples-screen { max-width: 720px; }
+}
+/* ═══ /ADD-SAMPLES-UX §4 ═══ */
+
+/* ═══════════════════════════════════════════════════════════════════════════
    FIX-SPEECH-MOBILE (18.10, директива владельца §6.3) — явная строка-вход
    «Речь и характер» на хабе «ИИ» (мобильный путь «Ещё» → «ИИ»).
    Это НЕ карточка хаба: состав 5 страниц «ИИ» и навигация не меняются;

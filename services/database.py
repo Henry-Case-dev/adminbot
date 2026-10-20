@@ -1693,7 +1693,11 @@ _SCHEMA_VERSION_LLM_USAGE_PLAN_META = 35
 # no-op; backfill не требуется (пустая таблица = честный «библиотеки нет»);
 # PG — no-op (GEN-R4, memory-контур SQLite-only, как v28/v30). Откат: cold
 # git revert (пустая таблица инертна; старый код её не читает).
-_SCHEMA_VERSION_HUMOR_SAMPLES = 36
+# v37 (ADD-SAMPLES-UX §1/§3): аддитивные колонки категории/режима/tombstone/
+# owner-правки + бэкфил категорий по правилу миграции (данные не теряются).
+# Версия v36 сохранена отдельной константой (один MigrationStep на версию).
+_SCHEMA_VERSION_HUMOR_SAMPLES = 37
+_SCHEMA_VERSION_HUMOR_SAMPLES_V36 = 36
 
 _MCA_FACTCHECK_RUNS_DDL = (
     "CREATE TABLE IF NOT EXISTS mca_factcheck_runs ("
@@ -2822,9 +2826,15 @@ class DatabaseService:
             # повтор — no-op.
             # SOUL-1 / W4 (SOUL-07): v36 — таблица `humor_samples`
             # (Few-Shot библиотека слайса W4; DDL — в модуле-владельце).
-            MigrationStep(_SCHEMA_VERSION_HUMOR_SAMPLES,
+            MigrationStep(_SCHEMA_VERSION_HUMOR_SAMPLES_V36,
                           "humor_samples_v36",
                           lambda svc: svc._migrate_humor_samples_v36()),
+            # ADD-SAMPLES-UX (§1/§3): v37 — категории + явный режим мата +
+            # tombstone/owner-метки (аддитивные колонки + бэкфил категорий;
+            # идемпотентно, обратимо по данным, строки не теряются).
+            MigrationStep(_SCHEMA_VERSION_HUMOR_SAMPLES,
+                          "humor_samples_v37",
+                          lambda svc: svc._migrate_humor_samples_v37()),
         ]
 
     @staticmethod
@@ -4060,6 +4070,47 @@ class DatabaseService:
         for ddl in _samples.SAMPLES_INDEX_DDL:
             await self.db.execute(ddl)
         await self.db.commit()
+        await self.db.execute(
+            f"PRAGMA user_version = {_SCHEMA_VERSION_HUMOR_SAMPLES_V36}")
+        await self.db.commit()
+
+    async def _migrate_humor_samples_v37(self) -> None:
+        """v37 (ADD-SAMPLES-UX §1/§3): категории + явный режим мата +
+        tombstone/owner-метки в `humor_samples`.
+
+        Аддитивно и обратимо по данным: шесть колонок через `ALTER TABLE ADD
+        COLUMN` под guard `PRAGMA table_info` (повтор — no-op), затем бэкфил
+        категорий по правилу миграции (`backfill_categories_v37`:
+        expression_register/режимные теги → «Мат» с явным режимом, приёмы
+        Humor Craft → «Юмор», неоднозначное `other` остаётся `legacy` —
+        владелец переклассифицирует сам). ID/ревизии/approved/содержимое/
+        scope/архив/история/A-B не изменяются; удаляемых строк нет.
+        Свежая БД получает полный DDL (v37-форма) — бэкфил no-op.
+        PG — no-op (GEN-R4: memory-контур SQLite-only)."""
+        from services import mca_sample_library as _samples
+        if not await self._table_exists("humor_samples"):
+            await self.db.execute(_samples.SAMPLES_DDL)
+            await self.db.commit()
+            logger.info("[database] migration v37: humor_samples (fresh)")
+        else:
+            cursor = await self.db.execute("PRAGMA table_info(humor_samples)")
+            existing = {row[1] for row in await cursor.fetchall()}
+            added: list[str] = []
+            for name, ddl in _samples.SAMPLES_V37_ADD_COLUMNS:
+                if name in existing:
+                    continue
+                await self.db.execute(ddl)
+                added.append(name)
+            if added:
+                await self.db.commit()
+                logger.info("[database] migration v37: humor_samples "
+                            "+columns %s", added)
+        for ddl in _samples.SAMPLES_INDEX_DDL:
+            await self.db.execute(ddl)
+        await self.db.commit()
+        backfill = await _samples.backfill_categories_v37(self)
+        await self.db.commit()
+        logger.info("[database] migration v37: category backfill %s", backfill)
         await self.db.execute(
             f"PRAGMA user_version = {_SCHEMA_VERSION_HUMOR_SAMPLES}")
         await self.db.commit()

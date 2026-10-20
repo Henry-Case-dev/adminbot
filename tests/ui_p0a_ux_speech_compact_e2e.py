@@ -40,6 +40,7 @@ badge перекрывал заголовок на 21px) — закрепляе�
 import argparse
 import json
 import os
+import re
 import sys
 import threading
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
@@ -129,10 +130,15 @@ EXAMPLE_ROW = {
     "status": "active", "source_kind": "owner_manual", "scope": "global",
     "rudeness_level": 1, "library_version": "A", "uses_count": 2,
     "tags": ["тест"], "revision": 1, "context_note": "",
+    # ADD-SAMPLES-UX §1/§4: реальный контракт API — категория/режим/происхождение.
+    "category": "humor", "category_label": "Юмор", "expression_mode": None,
+    "origin": "owner", "origin_label": "Мой", "owner_modified": False,
+    "owner_modified_at": None, "tombstone": False, "tombstone_at": None,
+    "seed_key": None, "factory_in_code": False,
 }
 
-#: ADD-EXP (BLOCK-1): карточка набора регистра речи — владелец видит
-#: человеческую метку техники (сырой код `expression_register` не показываем).
+#: ADD-SAMPLES-UX §1: карточка категории «Мат» с ЯВНЫМ полем режима
+#: (человеческая метка техники не нужна — вкладка и подпись категории).
 EXPRESSION_EXAMPLE_ROW = {
     "id": 12, "technique": "expression_register",
     "input_text": "Ну ты и выдал", "reply_text": "Выдал, признаю.",
@@ -141,6 +147,11 @@ EXPRESSION_EXAMPLE_ROW = {
     "rudeness_level": 0, "library_version": "expr-starter-1",
     "uses_count": 0, "tags": ["mode:off", "expression"], "revision": 1,
     "context_note": "дружеский стёб",
+    "category": "mat", "category_label": "Мат", "expression_mode": "off",
+    "origin": "factory", "origin_label": "Заводской",
+    "owner_modified": False, "owner_modified_at": None,
+    "tombstone": False, "tombstone_at": None,
+    "seed_key": "expr-off-banter", "factory_in_code": True,
 }
 
 LESSON_ROW = {
@@ -337,6 +348,12 @@ def _examples(chat_key):
                         "title": "Регистр речи (мат: без / эпизодически / часто)"},
                        {"id": "other", "title": "прочие"}],
         "items": items,
+        # ADD-SAMPLES-UX §1/§3: категории и tombstone-группа (реальный контракт).
+        "categories": [{"id": "general", "title": "Общие"},
+                       {"id": "humor", "title": "Юмор"},
+                       {"id": "mat", "title": "Мат"},
+                       {"id": "legacy", "title": "Legacy"}],
+        "deleted": [],
         "telemetry": {"approved": 0, "proposed": len(items),
                       "by_version": {"A": len(items)}},
         "starter": {"expected": 18, "seeded": 3,
@@ -510,6 +527,29 @@ def make_api_handler():
                             "ok": True, "selected": [], "excluded": [],
                             "tokens_estimate": 0, "library_version": "A",
                             "policy_source": "owner"}))
+                    return
+                if re.fullmatch(r"examples/\d+/why", name):
+                    # ADD-SAMPLES-UX §5: «Почему не используется?» по карточке —
+                    # честная human-readable причина из отбора.
+                    route.fulfill(
+                        status=200, content_type="application/json",
+                        body=json.dumps({
+                            "ok": True, "selected": False,
+                            "why": "Черновик — ещё не утверждён",
+                            "reason_code": "not_owner_approved"}))
+                    return
+                if name.endswith("restore-factory/preview"):
+                    route.fulfill(
+                        status=200, content_type="application/json",
+                        body=json.dumps({
+                            "ok": True, "available": True, "items": [],
+                            "note": "сравнение"}))
+                    return
+                if name.endswith("restore-factory"):
+                    route.fulfill(
+                        status=200, content_type="application/json",
+                        body=json.dumps({"ok": True, "restored": 0,
+                                         "failed": []}))
                     return
                 if name.startswith("examples"):
                     route.fulfill(status=200, content_type="application/json",
@@ -1303,77 +1343,131 @@ def run_humor_and_learning(browser, shots):
 
 
 def run_examples_crud(browser, shots):
-    """§9.1 п.12: примеры — добавить/эталон/архив/удалить, подборка, отбор,
-    политика (полный CRUD сохранён при переносе в «Дополнительно»)."""
+    """ADD-SAMPLES-UX §4 (заменяет сценарий W4/P0A): вкладки категорий одной
+    строкой, покатегорийные счётчики, отдельный экран редактора, ⋯-меню
+    карточки (утвердить/архив/удалить), «Почему не используется?», политика.
+    Полный CRUD сохранён; сохранение уходит в API, «Сохранено» — после ответа."""
     label = "examples"
     STATE["examples_available"] = True
     ctx, page = new_page(browser, 390, 844, shots, chat=CHAT_A)
     try:
         open_speech(page)
         page.click("[data-speech-card='examples']")
+        page.wait_for_selector("[data-speech-examples-list]", state="visible")
         page.wait_for_selector("[data-speech-samples]", state="visible")
         page.wait_for_timeout(400)
-        # ADD-EXP (BLOCK-1): владелец видит набор регистра речи человеческой
-        # меткой (сырой код техники в карточке не показывается), счётчики
-        # подборок не склеены.
-        expr_header = page.evaluate(
+        # §4.1.2: три взаимно исключающие вкладки ОДНОЙ строкой.
+        tabs = page.locator("[data-speech-examples-tabs] .speech-tab")
+        if tabs.count() != 3:
+            fail(label, "вкладок категорий не три: %s" % tabs.count())
+        tabs_row = page.evaluate(
+            "(() => { const r = document.querySelector("
+            "'[data-speech-examples-tabs]').getBoundingClientRect();"
+            " const tops = Array.from(document.querySelectorAll("
+            "'[data-speech-examples-tabs] .speech-tab'))"
+            ".map((t) => t.getBoundingClientRect().top);"
+            " return { w: Math.round(r.width), rows: new Set("
+            "tops.map((t) => Math.round(t))).size }; })()")
+        if tabs_row["rows"] != 1:
+            fail(label, "вкладки не одной строкой: %s" % tabs_row)
+        # §4.1.3: счётчики только текущей категории (humor: 1 черновик).
+        counters = " ".join(page.inner_text(
+            "[data-speech-examples-counters]").split())
+        if "Черновики: 1" not in counters or "Используются: 0" not in counters:
+            fail(label, "счётчики категории humor неверны: %s" % counters)
+        # Категория «Мат»: карточка регистра речи — подпись с категорией/origin,
+        # сырой код техники не показывается (BLOCK-1).
+        page.locator("[data-speech-examples-tabs] .speech-tab",
+                     has_text="Мат").first.click()
+        page.wait_for_timeout(250)
+        mat_card = page.evaluate(
             "(() => { const rows = Array.from(document.querySelectorAll"
             "('[data-speech-samples] .speech-rule'));"
             " const row = rows.find((r) => (r.textContent || '')"
             ".indexOf('Выдал, признаю') >= 0);"
             " if (!row) return null;"
-            " const h = row.querySelector('.speech-rule-head .text-sm.font-semibold');"
-            " return h ? h.textContent.replace(/\\s+/g, ' ').trim() : null; })()")
-        if not expr_header or "Регистр речи" not in expr_header:
-            fail(label, "карточка регистра речи без человеческой метки: %s"
-                 % expr_header)
-        elif "expression_register" in expr_header:
-            fail(label, "в карточке показан сырой код техники: %s"
-                 % expr_header)
-        section_text = " ".join(page.inner_text(".speech-section").split())
-        if "регистр речи: 0 из 12" not in section_text:
-            fail(label, "счётчик набора регистра речи не показан: %s"
-                 % section_text[-160:])
+            " return { text: (row.textContent || '').replace(/\\s+/g, ' ') }; })()")
+        if not mat_card:
+            fail(label, "карточка «Мат» не найдена на вкладке Мат")
+        elif "expression_register" in mat_card["text"]:
+            fail(label, "в карточке показан сырой код техники")
+        elif "Мат · GLOBAL · Заводской" not in mat_card["text"]:
+            fail(label, "подпись карточки без категории/происхождения: %s"
+                 % mat_card["text"][:200])
+        mat_counters = " ".join(page.inner_text(
+            "[data-speech-examples-counters]").split())
+        if "Черновики: 1" not in mat_counters or "Используются: 0" not in mat_counters:
+            fail(label, "счётчики категории mat не покатегорийные: %s"
+                 % mat_counters)
+        # §4.1.6: «Заводские наборы» — второстепенное действие в меню.
         page.click("[data-speech-menu='examples']")
         page.wait_for_selector(".speech-menu-panel", state="visible")
         menu_text = " ".join(page.inner_text(".speech-menu-panel").split())
-        if "12 регистра речи" not in menu_text:
-            fail(label, "меню подборки без счётчика регистра речи: %s"
-                 % menu_text)
+        if "Заводские наборы" not in menu_text:
+            fail(label, "в меню нет «Заводские наборы»: %s" % menu_text)
         page.click(".speech-menu-backdrop", position={"x": 5, "y": 5})
         page.wait_for_timeout(200)
-        page.click("[data-speech-menu='sample-11']")
+        # §4.1 карточное меню: действия по контракту.
+        page.click("[data-speech-menu='sample-12']")
         page.wait_for_selector(".speech-menu-panel", state="visible")
         items = page.evaluate(
             "(() => Array.from(document.querySelectorAll"
             "('.speech-menu-panel .more-menu-item'))"
             ".map((x) => x.textContent.replace(/\\s+/g, ' ').trim()))()")
-        for want in ("Сделать эталоном", "Изменить", "В архив", "Удалить"):
+        for want in ("Утвердить", "Изменить", "Архивировать", "Удалить",
+                     "Восстановить исходный"):
             if not any(want in it for it in items):
                 fail(label, "в меню примера нет «%s»: %s" % (want, items))
         snap(page, shots, "examples_menu_390")
         page.click(".speech-menu-backdrop", position={"x": 5, "y": 5})
         page.wait_for_timeout(200)
-        page.locator(".speech-section button", has_text="Добавить пример").first.click()
-        page.wait_for_selector("[data-speech-sample-editor]", state="visible")
-        page.fill("textarea[aria-label='Вход примера']", "вход из e2e")
-        page.fill("textarea[aria-label='Ответ примера']", "ответ из e2e")
+        # §4.2: «Добавить пример» открывает ОТДЕЛЬНЫЙ экран редактора
+        # (форма не в потоке списка), категория предзаполнена из вкладки.
+        page.locator(".speech-section button",
+                     has_text="Добавить пример").first.click()
+        page.wait_for_selector("[data-speech-sample-editor-screen]",
+                               state="visible")
+        if page.locator("[data-speech-examples-list]").count():
+            fail(label, "список остался в DOM вместе с экраном редактора")
+        pre_cat = page.locator("[data-speech-editor-category]").input_value()
+        if pre_cat != "mat":
+            fail(label, "категория не предзаполнена из вкладки: %s" % pre_cat)
+        if not page.locator("[data-speech-editor-mode]").count():
+            fail(label, "в «Мат» нет видимого выбора режима мата")
+        page.fill("textarea[aria-label='Что написал человек']", "вход из e2e")
+        page.fill("textarea[aria-label='Как должен ответить бот']", "ответ из e2e")
         before = len(POSTS)
-        page.locator("[data-speech-sample-editor] .btn-accent").first.click()
+        page.click("[data-speech-editor-save]")
         page.wait_for_timeout(800)
         if len(POSTS) != before + 1 or POSTS[-1]["path"] != "examples":
             fail(label, "добавление примера не ушло в API: %s" % (POSTS[before:]))
+        if page.locator("[data-speech-sample-editor-screen]").count():
+            fail(label, "редактор не закрылся после сохранения")
+        # §5: «Почему не используется?» — человеческая причина, не код.
+        page.locator("[data-speech-examples-tabs] .speech-tab",
+                     has_text="Юмор").first.click()
+        page.wait_for_timeout(250)
+        page.click("[data-speech-why='11']")
+        page.wait_for_timeout(600)
+        why_text = page.evaluate(
+            "(() => { const el = document.querySelector("
+            "'[data-speech-why-text=\\'11\\']');"
+            " return el ? el.textContent.replace(/\\s+/g, ' ').trim() : ''; })()")
+        if "Черновик — ещё не утверждён" not in why_text \
+                or "not_owner_approved" in why_text:
+            fail(label, "«Почему не используется?» не человеческое: %r" % why_text)
+        # Утвердить / архив / удалить — через ⋯-меню карточки (CRUD сохранён).
         page.click("[data-speech-menu='sample-11']")
         page.wait_for_selector(".speech-menu-panel", state="visible")
         before = len(POSTS)
-        click_menu_item(page, "Сделать эталоном")
+        click_menu_item(page, "Утвердить")
         page.wait_for_timeout(700)
         if len(POSTS) != before + 1 or "approve" not in POSTS[-1]["path"]:
             fail(label, "эталон не ушёл в API: %s" % (POSTS[before:]))
         page.click("[data-speech-menu='sample-11']")
         page.wait_for_selector(".speech-menu-panel", state="visible")
         before = len(POSTS)
-        click_menu_item(page, "В архив")
+        click_menu_item(page, "Архивировать")
         page.wait_for_timeout(700)
         if len(POSTS) != before + 1 or "archive" not in POSTS[-1]["path"]:
             fail(label, "архив не ушёл в API: %s" % (POSTS[before:]))
@@ -1391,24 +1485,10 @@ def run_examples_crud(browser, shots):
         page.click("[data-speech-menu='examples']")
         page.wait_for_selector(".speech-menu-panel", state="visible")
         before = len(POSTS)
-        click_menu_item(page, "Заводская подборка")
+        click_menu_item(page, "Завести заводскую")
         page.wait_for_timeout(700)
         if len(POSTS) != before + 1 or POSTS[-1]["path"] != "examples/seed":
             fail(label, "заводская подборка не ушла в API: %s" % (POSTS[before:]))
-        # BLOCK-1: тост честно называет обе подборки (регистр речи — отдельно).
-        toasts = page.evaluate(
-            "(() => Array.from(document.querySelectorAll('.toast, [class*=toast]'))"
-            ".map((t) => t.textContent.replace(/\\s+/g,' ').trim()))()")
-        if not any("регистр речи: добавлено 0, уже было 12" in t
-                   for t in toasts):
-            fail(label, "тост сида не называет набор регистра речи: %s"
-                 % toasts)
-        page.fill("input[aria-label='Сообщение для отбора']", "привет")
-        before = len(POSTS)
-        page.locator(".speech-section button", has_text="Показать отбор").first.click()
-        page.wait_for_timeout(700)
-        if len(POSTS) != before + 1 or POSTS[-1]["path"] != "examples/why":
-            fail(label, "«Почему выбраны» не ушло в API: %s" % (POSTS[before:]))
         page.locator("details summary",
                      has_text="Дополнительно: отбор и A/B").first.click()
         page.wait_for_timeout(200)

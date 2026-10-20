@@ -1,0 +1,76 @@
+{
+  "schema": "openworkflow-slices-v1",
+  "feature": "samples-ux",
+  "source_map": "requirements-map.json",
+  "slices": [
+    {
+      "id": "SU-MIGR",
+      "depends_on": [],
+      "write_scope": [
+        "services/mca_sample_library.py",
+        "services/database.py",
+        "web/api/speech.py",
+        "tests/test_samples_categories.py"
+      ],
+      "acceptance": "Три категории (general/humor/mat) с явным полем expression_mode: DDL-миграция v37+ по существующему MigrationStep-механизму, идемпотентная и обратимая по данным на SQLite/PostgreSQL; легаси-маппинг expression_register/тегов → Мат, техник → Юмор, неоднозначные other → прежний раздел; ID/ревизии/owner-approved/scope/архив/история/A/B сохранены; серверные валидация/выдача/отбор/Inspector понимают category; повторный прогон — no-op; снапшот до/после без потерь."
+    },
+    {
+      "id": "SU-SEED",
+      "depends_on": [
+        "SU-MIGR"
+      ],
+      "write_scope": [
+        "services/mca_sample_library.py",
+        "services/database.py",
+        "web/api/speech.py",
+        "tests/test_samples_factory_persist.py"
+      ],
+      "acceptance": "Persist-семантика заводских наборов: tombstone по seed_key при владельческом удалении; повторные seed/migration/restart не перезаписывают/не реактивируют/не переутверждают/не пересоздают (тесты edit→seed→persists, delete→seed→remains deleted, explicit restore→restored, revision conflict без потери); force/factory-restore только явным подтверждённым действием с экраном сравнения для массового восстановления; override-метка «Изменено владельцем» + время/ревизия; хранение в существующей БД, отдельного конфиг-сервиса нет."
+    },
+    {
+      "id": "SU-FEWSHOT",
+      "depends_on": [
+        "SU-SEED"
+      ],
+      "write_scope": [
+        "services/mca_expression.py",
+        "services/mca_sample_library.py",
+        "services/prompt_registry.py",
+        "tests/test_add_exp_expression.py",
+        "tests/test_samples_fewshot.py",
+        "web/api/speech.py"
+      ],
+      "acceptance": "Дословные тексты §2: occasional/frequent байт-в-байт равны EPISODIC/FREQUENT (байт-пин-тест обновлён, ledger green-exact перегенерирован, FACTORY_SET_SHA256_12 переутверждён по процедуре); off/inherit без изменений; категорийный отбор: маркированные блоки General/Humor/Expression, MAT только по effective-режиму утверждённые, inherit резолвится до отбора, 0 дополнительных LLM-вызовов, причины выбора/пропуска в traces; кнопка «Почему не используется?» с честными причинами и «Нет данных о последнем выборе»."
+    },
+    {
+      "id": "SU-UI",
+      "depends_on": [
+        "SU-FEWSHOT"
+      ],
+      "write_scope": [
+        "web/app.js",
+        "web/index.html",
+        "web/static/app.css",
+        "tests/test_samples_ui_e2e.py"
+      ],
+      "acceptance": "Экран «Примеры» по контракту §4: иерархия списка L1–L6 (нав/пояснение, три вкладки Общие|Юмор|Мат, счётчики категории, поиск+фильтр, колонка карточек, «Добавить пример» + «Заводские наборы» в меню), карточка без SQL/JSON/тегов/ревизий; отдельный экран редактора по §4.2 (категория/режим/приём по типу, scope, статус-семантика, аккордеон «Дополнительно», заводская плашка+исходник+restore); адаптивность §4.3 на токенах без фикс-координат; e2e portrait/landscape/desktop без overflow и коллизий; верхняя навигация/фон/тема других разделов не тронуты."
+    },
+    {
+      "id": "SU-ACCEPT",
+      "depends_on": [
+        "SU-UI"
+      ],
+      "write_scope": [
+        "tests/test_samples_acceptance.py",
+        "plans/features/samples-ux/reconciliation.md",
+        "plans/owner_live_checks.md"
+      ],
+      "acceptance": "Сквозные offline-приёмки §7/§8: миграция/изоляция/отбор/режимная изоляция MAT/owner-approved/no-leakage/tombstone/reset по подтверждению/API error/409/UI-вьюпорты/reload/точные причины; SQLite+PostgreSQL прогоны; ноль live-отправок; недоступные без владельца пункты внесены в plans/owner_live_checks.md (не гейты); отчёт: что было/добавлено/проверено offline/осталось владельцу + commit."
+    }
+  ],
+  "notes": [
+    "Серийная цепочка — сознательный выбор: SU-MIGR/SU-SEED/SU-FEWSHOT совместно пишут services/mca_sample_library.py и web/api/speech.py; пересекающиеся write_scope закрыты dependency-рёбрами.",
+    "С setTexts-частью SU-FEWSHOT (байт-замена в mca_expression.py) технически не зависит от SU-MIGR/SU-SEED, но разделение slice создало бы два писателя в mca_sample_library.py; сохранено в одном слайсе.",
+    "CFG-06 релизная цепочка (tests/test_factcheck_*, plans/features/cfg, релизные файлы) не пересекается по write_scope ни с одним слайсом — может идти параллельно; финальную сверку делает Orchestrator."
+  ]
+}

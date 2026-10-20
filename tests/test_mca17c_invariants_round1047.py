@@ -65,7 +65,9 @@ def test_no_ddl_catalog_ks_tools_delta():
         loop.run_until_complete(d.initialize())
         cur = loop.run_until_complete(d.db.execute("PRAGMA user_version"))
         row = loop.run_until_complete(cur.fetchone())
-        assert int(row[0]) == 36
+        # ADD-SAMPLES-UX (samples-ux, 20.10): v37 — категории примеров +
+        # expression_mode + tombstone seed_key; пересанкционировано 20.10
+        assert int(row[0]) == 37
     finally:
         loop.run_until_complete(d.close())
         loop.close()

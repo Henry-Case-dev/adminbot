@@ -2868,6 +2868,15 @@
         speechHumorCraftBusy: false,
         speechTechniqueFilter: '',
         speechSampleFilters: { technique: '', status: '', query: '' },
+        // ADD-SAMPLES-UX §4: экраны раздела «Примеры» (список/редактор/сравнение),
+        // активная вкладка категории, метка несохранённых правок.
+        speechExamplesView: 'list',
+        speechSampleTab: 'humor',
+        speechSampleDirty: false,
+        speechSampleFactory: false,       // правится заводская карточка
+        speechSampleFactoryOriginal: null,
+        speechRestorePreview: null,
+        speechCardWhy: {},                // id → { why, selected }
         speechSampleDraft: null,      // форма добавления/правки карточки
         speechSampleEditing: null,    // id правимого примера (или null)
         speechSampleWhyDraft: { message: '', technique: '', extent: '' },
@@ -20551,19 +20560,97 @@
           this.speechHumorCraftBusy = false;
         }
       },
-      // ── Примеры: библиотека (SOUL-07) ───────────────────────────────────
-      filteredSamples: function () {
+      // ── Примеры: библиотека (SOUL-07 + ADD-SAMPLES-UX §4) ────────────────
+      samplesForTab: function () {
+        // §4.1.5: одна колонка карточек; порядок — используемые, затем
+        // черновики, затем архив (стабильно по id, без скрытых перестановок).
         var data = this.speechExamples || {};
         var items = data.items || [];
+        var tab = this.speechSampleTab || 'humor';
         var f = this.speechSampleFilters || {};
         var q = String(f.query || '').trim().toLowerCase();
-        return items.filter(function (row) {
+        var rows = items.filter(function (row) {
+          if (String(row.category || 'legacy') !== tab) return false;
+          var used = !!row.owner_approved && row.status === 'active';
+          var draft = !row.owner_approved && row.status === 'active';
+          if (f.status === 'used' && !used) return false;
+          if (f.status === 'draft' && !draft) return false;
+          if (f.status === 'archived' && row.status !== 'archived') return false;
           if (f.technique && row.technique !== f.technique) return false;
-          if (f.status && row.status !== f.status) return false;
           if (!q) return true;
           return (String(row.input_text) + ' ' + String(row.reply_text) + ' '
             + String((row.tags || []).join(' '))).toLowerCase().indexOf(q) >= 0;
         });
+        var rank = function (row) {
+          if (row.status === 'archived') return 2;
+          return row.owner_approved ? 0 : 1;
+        };
+        return rows.slice().sort(function (a, b) {
+          var d = rank(a) - rank(b);
+          return d !== 0 ? d : (a.id - b.id);
+        });
+      },
+      legacySamples: function () {
+        var data = this.speechExamples || {};
+        var q = String((this.speechSampleFilters || {}).query || '')
+          .trim().toLowerCase();
+        return (data.items || []).filter(function (row) {
+          if (String(row.category || 'legacy') !== 'legacy') return false;
+          if (!q) return true;
+          return (String(row.input_text) + ' ' + String(row.reply_text))
+            .toLowerCase().indexOf(q) >= 0;
+        });
+      },
+      tombstonedSamples: function () {
+        return (this.speechExamples && this.speechExamples.deleted) || [];
+      },
+      categoryCounts: function () {
+        // §4.1.3: счётчики ТОЛЬКО текущей категории (не смешивать).
+        var tab = this.speechSampleTab || 'humor';
+        var items = (this.speechExamples && this.speechExamples.items) || [];
+        var out = { used: 0, drafts: 0, archived: 0 };
+        for (var i = 0; i < items.length; i++) {
+          var row = items[i];
+          if (String(row.category || 'legacy') !== tab) continue;
+          if (row.status === 'archived') { out.archived++; continue; }
+          if (row.owner_approved) out.used++; else out.drafts++;
+        }
+        return out;
+      },
+      // ADD-SAMPLES-UX §4.2: приёмы юмора для редактора — без регистра речи
+      // (категория «Мат» выбирается отдельной вкладкой, не приёмом).
+      humorTechniqueOptions: function () {
+        var list = (this.speechExamples && this.speechExamples.techniques)
+          || [];
+        return list.filter(function (t) {
+          return t && t.id !== 'expression_register';
+        });
+      },
+      sampleTitle: function (row) {
+        if (!row) return '';
+        var text = String(row.input_text || '').replace(/\s+/g, ' ').trim();
+        return text.length > 64 ? text.slice(0, 61) + '…' : text;
+      },
+      sampleBadge: function (row) {
+        if (!row) return '';
+        if (row.status === 'archived') return 'Архив';
+        return row.owner_approved ? 'Используется' : 'Черновик';
+      },
+      sampleBadgeClass: function (row) {
+        if (!row) return 'badge-muted';
+        if (row.status === 'archived') return 'badge-muted';
+        return row.owner_approved ? 'badge-info' : 'badge-warn';
+      },
+      sampleCaption: function (row) {
+        // §4.1 карточка: «Категория · GLOBAL/CHAT · Заводской/Мой/Изменено владельцем»
+        var parts = [];
+        var cat = String(row.category || 'legacy');
+        parts.push((row.category_label)
+          || ({ general: 'Общие', humor: 'Юмор', mat: 'Мат', legacy: 'Не классифицировано' }[cat] || cat));
+        parts.push(row.scope === 'chat' ? 'CHAT' : 'GLOBAL');
+        parts.push(String(row.origin_label
+          || ({ factory: 'Заводской', owner: 'Мой', modified: 'Изменено владельцем' }[String(row.origin || 'owner')] || '')));
+        return parts.filter(function (p) { return !!p; }).join(' · ');
       },
       sampleSourceLabel: function (kind) {
         return {
@@ -20587,16 +20674,28 @@
       },
       startSpeechSampleNew: function () {
         this.speechSampleEditing = null;
+        this.speechSampleFactory = false;
+        this.speechSampleFactoryOriginal = null;
+        this.speechSampleDirty = false;
+        // §4.2.2: категория предзаполнена из активной вкладки.
         this.speechSampleDraft = {
           input_text: '', reply_text: '', technique: 'other', context_note: '',
           tags: '', rudeness_level: 0, source_kind: 'owner_manual',
           scope: 'global', library_version: '', status: 'active',
           expected_revision: null,
+          category: this.speechSampleTab || 'humor',
+          expression_mode: this.speechSampleTab === 'mat' ? 'occasional' : '',
+          approval_state: 'draft', record_status: 'active',
         };
+        this.speechExamplesView = 'editor';
       },
       editSpeechSample: function (row) {
         if (!row) return;
         this.speechSampleEditing = row.id;
+        this.speechSampleFactory = !!row.seed_key;
+        this.speechSampleFactoryOriginal = null;
+        this.speechSampleDirty = false;
+        var category = String(row.category || 'legacy');
         this.speechSampleDraft = {
           input_text: row.input_text || '', reply_text: row.reply_text || '',
           technique: row.technique || 'other',
@@ -20608,13 +20707,151 @@
           library_version: row.library_version || '',
           status: row.status || 'active',
           expected_revision: row.revision || 1,
+          category: category === 'legacy' ? 'general' : category,
+          expression_mode: row.expression_mode
+            || (category === 'mat' ? 'occasional' : ''),
+          approval_state: row.owner_approved ? 'used' : 'draft',
+          record_status: row.status || 'active',
         };
+        this.speechExamplesView = 'editor';
+      },
+      backFromSampleEditor: function () {
+        // §4.2.1: «Назад» предупреждает при несохранённых изменениях.
+        if (this.speechSampleDirty && typeof window !== 'undefined'
+            && window.confirm
+            && !window.confirm('Есть несохранённые изменения. Уйти без сохранения?')) {
+          return;
+        }
+        this.cancelSpeechSample();
       },
       cancelSpeechSample: function () {
         this.speechSampleEditing = null;
         this.speechSampleDraft = null;
+        this.speechSampleFactory = false;
+        this.speechSampleFactoryOriginal = null;
+        this.speechSampleDirty = false;
+        this.speechExamplesView = 'list';
       },
-      saveSpeechSample: async function () {
+      toggleFactoryOriginal: async function () {
+        if (this.speechSampleFactoryOriginal) {
+          this.speechSampleFactoryOriginal = null;
+          return;
+        }
+        if (!this.speechSampleEditing) return;
+        var self = this;
+        this.speechBusy = true;
+        try {
+          var res = await this.api('/api/speech/examples/'
+            + this.speechSampleEditing + '/restore-factory/preview',
+            { method: 'POST', body: '{}' });
+          var item = (res && res.item) || {};
+          var f = item.factory || {};
+          this.speechSampleFactoryOriginal = {
+            input_text: String(f.input_text || ''),
+            reply_text: String(f.reply_text || ''),
+            in_code: !!item.factory_in_code,
+          };
+        } catch (e) {
+          this.toast('Исходник недоступен: '
+            + ((e && e.message) || 'сервер не ответил'), 'warn');
+        } finally {
+          this.speechBusy = false;
+        }
+      },
+      restoreFactoryFromEditor: async function () {
+        if (!this.speechSampleEditing) return;
+        if (typeof window !== 'undefined' && window.confirm
+            && !window.confirm('Восстановить заводской текст? Ваша редакция этого примера будет заменена.')) return;
+        var self = this;
+        this.speechBusy = true;
+        try {
+          await this.api('/api/speech/examples/' + this.speechSampleEditing
+            + '/restore-factory',
+            { method: 'POST', body: JSON.stringify({ confirm: true }) });
+          this.toast('Заводской текст восстановлен (один пример, остальные не тронуты)', 'ok');
+          this.cancelSpeechSample();
+          await this.loadSpeechSection('examples', true);
+        } catch (e) {
+          this.speechSaveFail(e, 'examples', function () {
+            self.restoreFactoryFromEditor();
+          });
+        } finally {
+          this.speechBusy = false;
+        }
+      },
+      restoreFactorySample: async function (row) {
+        if (!row) return;
+        if (typeof window !== 'undefined' && window.confirm
+            && !window.confirm('Восстановить заводской текст примера? Ваша правка/удаление будут отменены.')) return;
+        var self = this;
+        this.speechBusy = true;
+        try {
+          await this.api('/api/speech/examples/' + row.id + '/restore-factory',
+            { method: 'POST', body: JSON.stringify({ confirm: true }) });
+          this.toast('Заводской текст восстановлен', 'ok');
+          await this.loadSpeechSection('examples', true);
+        } catch (e) {
+          this.speechSaveFail(e, 'examples', function () {
+            self.restoreFactorySample(row);
+          });
+        } finally {
+          this.speechBusy = false;
+        }
+      },
+      openFactoryCompare: async function () {
+        this.speechExamplesView = 'factory';
+        this.speechRestorePreview = null;
+        var self = this;
+        this.speechBusy = true;
+        try {
+          this.speechRestorePreview = await this.api(
+            '/api/speech/examples/restore-factory/preview',
+            { method: 'POST', body: '{}' });
+        } catch (e) {
+          this.speechExamplesView = 'list';
+          this.speechSaveFail(e, 'examples', function () {
+            self.openFactoryCompare();
+          });
+        } finally {
+          this.speechBusy = false;
+        }
+      },
+      restoreFactoryAll: async function () {
+        if (this.speechBusy) return;
+        var self = this;
+        this.speechBusy = true;
+        try {
+          var res = await this.api('/api/speech/examples/restore-factory',
+            { method: 'POST', body: JSON.stringify({ confirm: true }) });
+          this.toast('Восстановлено заводских: ' + ((res && res.restored) || 0), 'ok');
+          this.speechExamplesView = 'list';
+          await this.loadSpeechSection('examples', true);
+        } catch (e) {
+          this.speechSaveFail(e, 'examples', function () {
+            self.restoreFactoryAll();
+          });
+        } finally {
+          this.speechBusy = false;
+        }
+      },
+      askCardWhy: async function (row) {
+        if (this.speechBusy || !row) return;
+        var self = this;
+        this.speechBusy = true;
+        try {
+          var res = await this.api('/api/speech/examples/' + row.id + '/why',
+            { method: 'POST', body: '{}' });
+          this.speechCardWhy = Object.assign({}, this.speechCardWhy,
+            (res && res.ok) ? { [String(row.id)]: { why: res.why || 'Нет данных о последнем выборе', selected: !!res.selected } }
+              : { [String(row.id)]: { why: 'Нет данных о последнем выборе', selected: false } });
+        } catch (e) {
+          this.speechCardWhy = Object.assign({}, this.speechCardWhy,
+            { [String(row.id)]: { why: 'Нет данных о последнем выборе', selected: false } });
+        } finally {
+          this.speechBusy = false;
+        }
+      },
+      saveSpeechSample: async function (andUse) {
         var draft = this.speechSampleDraft;
         if (this.speechBusy || !draft) return;
         if (!String(draft.input_text || '').trim() || !String(draft.reply_text || '').trim()) {
@@ -20629,15 +20866,26 @@
             return t.trim();
           }).filter(function (t) { return !!t; });
           body.rudeness_level = parseInt(body.rudeness_level, 10) || 0;
+          // §4.2.5: «Используется» = owner-approved + active.
+          body.owner_approved = andUse
+            ? true : (draft.approval_state === 'used');
+          body.status = draft.record_status === 'archived'
+            ? 'archived' : 'active';
+          if (body.category !== 'mat') body.expression_mode = '';
+          delete body.approval_state;
+          delete body.record_status;
           var url = this.speechSampleEditing
             ? '/api/speech/examples/' + this.speechSampleEditing
             : '/api/speech/examples';
+          // «Сохранено» — только после подтверждения API (§4.3).
           await this.api(url, { method: 'POST', body: JSON.stringify(body) });
-          this.toast(this.speechSampleEditing ? 'Пример сохранён' : 'Пример добавлен', 'ok');
+          this.toast(andUse ? 'Сохранено и используется' :
+            (this.speechSampleEditing ? 'Сохранено' : 'Пример добавлен'), 'ok');
           this.cancelSpeechSample();
+          // §4.3: сохранённые данные перечитываем с сервера.
           await this.loadSpeechSection('examples', true);
         } catch (e) {
-          this.speechSaveFail(e, 'examples', function () { self.saveSpeechSample(); });
+          this.speechSaveFail(e, 'examples', function () { self.saveSpeechSample(andUse); });
         } finally {
           this.speechBusy = false;
         }
